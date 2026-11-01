@@ -946,8 +946,8 @@ class SendMessageTests(_Harness):
             self.assertFalse(list((writing_dir(proj) / '创意对话').glob('提交_*.md')),
                              '发送创意不能先创建提交文件')
             self.assertEqual(d.draft_text().strip(), '', '发出去之后下面那段草稿就空了')
-            self.assertIn(('left', self.complete_draft()), self.bubbles(d),
-                          '用户气泡贴右侧，但正文从气泡左边开始')
+            self.assertIn(('right', self.complete_draft()), self.bubbles(d),
+                          '用户气泡贴右侧，正文右对齐（同 Claude Code 桌面版）')
             self.assertEqual([row['role'] for row in idea_chat.load(proj)], ['user'])
             self.assertEqual(len(idea_chat.load(proj)[0]['skill_injection']['loaded']), 1)
             self.assertIn('本次已加载 1 项', self.log_text(d))
@@ -1749,7 +1749,7 @@ class SendMessageTests(_Harness):
             idea_chat.append(proj, 'assistant', '先前的纲要')
             d, win = self.desktop(proj)
             d.show(0); self.settle_script_page(win)
-            self.assertIn(('left', '先前的创意'), self.bubbles(d))
+            self.assertIn(('right', '先前的创意'), self.bubbles(d))
             self.assertIn(('left', '先前的纲要'), self.bubbles(d))
 
 

@@ -84,7 +84,15 @@ MANAGER_FORM_LABELS = ('调用方式', 'Provider', '模型 ID', '显示名', 'AP
 # 密钥框只给占位宽度，真正可输入区由输入列伸缩；不把整把密钥回显到界面。
 SECRET_FIELD_WIDTH = 30
 # 表单里的下拉框与输入框只给够用的宽度；成对的两项并在一行（左对左、右对右）。
-FORM_COMBO_WIDTH, FORM_ID_WIDTH, FORM_SHORT_WIDTH = 14, 28, 12
+FORM_COMBO_WIDTH = 14
+# 新建默认「自定义」；「OpenAI 兼容接口」不再进下拉（旧记录仍按原名显示），下拉按首字母排序。
+FORM_DEFAULT_PROVIDER = model_pool.PROVIDER_LABELS['custom']
+FORM_RIGHT_LABEL_PAD = (SPACING['lg'], SPACING['xs'])
+
+
+def provider_choices():
+    return sorted((label for value, label in model_pool.PROVIDERS if value != model_pool.DEFAULT_PROVIDER),
+                  key=str.casefold)
 
 
 def parent_of(pet):
@@ -504,7 +512,7 @@ class _ModelManager:
         self.entries = {}
         self.labels = {}
         self.caps = {}
-        self.provider = tk.StringVar(value=model_pool.PROVIDER_LABELS[model_pool.DEFAULT_PROVIDER])
+        self.provider = tk.StringVar(value=FORM_DEFAULT_PROVIDER)
         self.wire = tk.StringVar(value=model_pool.WIRE_LABELS[model_pool.DEFAULT_WIRE])
         self.mode = tk.StringVar(value='API')
 
@@ -518,22 +526,21 @@ class _ModelManager:
                              style=COMPACT_COMBOBOX_STYLE)
         mode_box.configure(width=FORM_COMBO_WIDTH)
         mode_box.grid(row=0, column=1, sticky='ew')
-        ttk.Label(self.form, text='Provider').grid(row=0, column=2, sticky='w')
+        ttk.Label(self.form, text='Provider').grid(row=0, column=2, sticky='e', padx=FORM_RIGHT_LABEL_PAD)
         # 第 65 期任务 5：用户报「provider → 自定义不可用」。原来这一格是只读下拉，只能挑三档固定
         # 名字，选了「自定义」既不能写自己的服务商名、也没有自定义路径的入口。现在改成可编辑：
         # 挑现成的，或者直接敲一个名字；存的就是填进去的那个名字。
         self.provider_box = SelectBox(self.form, textvariable=self.provider, state='normal',
-                                    values=[label for _value, label in model_pool.PROVIDERS],
-                                    style=COMPACT_COMBOBOX_STYLE, width=FORM_COMBO_WIDTH)
+                                    values=provider_choices(), style=COMPACT_COMBOBOX_STYLE, width=FORM_COMBO_WIDTH)
         self.provider_box.grid(row=0, column=3, sticky='ew')
         self.provider_box.bind('<<ComboboxSelected>>', self.match_wire)
         self.provider_box.bind('<<ComboboxSelected>>', lambda event: self.detect_program(), add='+')
 
-        self.text_row(1, 'model', '模型 ID', width=FORM_ID_WIDTH)
-        self.text_row(1, 'label', '显示名', column=2, width=FORM_ID_WIDTH)
+        self.text_row(1, 'model', '模型 ID')
+        self.text_row(1, 'label', '显示名', column=2)
         index = self.text_row(2, 'base_url', 'API 根地址', span=3)
         self.text_row(index, 'key_env', '密钥名（.env 里的变量名）')
-        ttk.Label(self.form, text='协议').grid(row=index, column=2, sticky='w')
+        ttk.Label(self.form, text='协议').grid(row=index, column=2, sticky='e', padx=FORM_RIGHT_LABEL_PAD)
         SelectBox(self.form, textvariable=self.wire, style=COMPACT_COMBOBOX_STYLE,
                      values=[label for _value, label in model_pool.WIRE_APIS]).grid(
             row=index, column=3, sticky='ew')
@@ -558,8 +565,8 @@ class _ModelManager:
             self.caps[tag] = var
             ttk.Checkbutton(cap_row, text=model_pool.CAPABILITY_LABELS[tag],
                             variable=var).pack(side='left', padx=(SPACING['none'], SPACING['sm']))
-        self.text_row(index + 1, 'context_length', '上下文长度（可选）', width=FORM_SHORT_WIDTH)
-        self.text_row(index + 1, 'note', '备注（可选）', column=2, width=FORM_ID_WIDTH)
+        self.text_row(index + 1, 'context_length', '上下文长度（可选）')
+        self.text_row(index + 1, 'note', '备注（可选）', column=2)
         self.hint = tk.StringVar(value='选一条改，或者「新建一条」；「保存这条」立刻写进模型池。')
         self.api_rows = {2, 3, 4}
         self.api_controls = [widget for widget in self.form.winfo_children()
@@ -643,7 +650,8 @@ class _ModelManager:
     def text_row(self, index, key, label, *, column=0, width=None, span=1):
         """一格「标签 ＋ 输入框」（column 0 左半边、2 右半边），返回下一行号；span 横跨右边，width 按字符数定宽。"""
         self.labels[key] = ttk.Label(self.form, text=label)
-        self.labels[key].grid(row=index, column=column, sticky='w')
+        self.labels[key].grid(row=index, column=column, sticky='w' if column == 0 else 'e',
+                              **({} if column == 0 else {'padx': FORM_RIGHT_LABEL_PAD}))
         entry = CompactLineInput(self.form, **({} if width is None else {'width': width}))
         entry.grid(row=index, column=column + 1, columnspan=span, sticky='ew' if width is None else 'w')
         self.entries[key] = entry
@@ -772,7 +780,7 @@ class _ModelManager:
     def load_rows(self):
         # 自定义 Provider 已随模型记录写入模型池；每次刷新列表时从同一份记录回填，
         # 新建下一条模型即可直接从下拉选择，无需再维护第二份厂商配置。
-        builtins = [label for _value, label in model_pool.PROVIDERS]
+        builtins = provider_choices()
         saved = {model_pool.provider_name(model_id, item)
                  for model_id, item in self.pet.agent_model_records().items()}
         # 本机程序记录写的厂商名（Anthropic）与内建项（anthropic）只差大小写，按 casefold 去重，保留内建项。
@@ -782,7 +790,7 @@ class _ModelManager:
             if item.casefold() not in seen:
                 seen.add(item.casefold())
                 extra.append(item)
-        self.provider_box.configure(values=[*builtins, *extra])
+        self.provider_box.configure(values=sorted([*builtins, *extra], key=str.casefold))
         self.tree.delete(*self.tree.get_children())
         records = self.pet.agent_model_records()
         rows = sorted(((model_pool.provider_name(model_id, item), model_id, item)
@@ -880,7 +888,7 @@ class _ModelManager:
             self.provider.set(model_pool.PROVIDER_LABELS.get(vendor.casefold(), vendor))
         else:
             self.provider.set(model_pool.PROVIDER_LABELS.get(
-                saved_provider, saved_provider or model_pool.PROVIDER_LABELS[model_pool.DEFAULT_PROVIDER]))
+                saved_provider, saved_provider or FORM_DEFAULT_PROVIDER))
         self.wire.set(model_pool.WIRE_LABELS.get(item.get('wire_api'), model_pool.WIRE_LABELS[model_pool.DEFAULT_WIRE]))
         self.program_entry.delete(0, 'end')
         self.program_entry.insert(0, item.get('program') or '')
@@ -922,7 +930,7 @@ class _ModelManager:
             var.set(False)
         self.key_entry.delete(0, 'end')
         self.show_key_state()
-        self.provider.set(model_pool.PROVIDER_LABELS[model_pool.DEFAULT_PROVIDER])
+        self.provider.set(FORM_DEFAULT_PROVIDER)
         self.wire.set(model_pool.WIRE_LABELS[model_pool.DEFAULT_WIRE])
         self.pending['loading'] = False
         self.auto_label['text'] = ''

@@ -31,6 +31,31 @@ class ProviderChoicesTests(Batch7Case):
         self.assertNotIn('Anthropic', values)
         self.assertEqual(sum(item == 'moonshot' for item in folded), 1, values)
 
+    def test_provider_dropdown_drops_openai_compatible_defaults_to_custom_and_is_sorted(self):
+        win = self._show(pet_models_ui.open_manager(self.pet))
+        values = [str(item) for item in win._pet_provider_box.cget('values')]
+        self.assertNotIn('OpenAI 兼容接口', values)
+        self.assertEqual(values, sorted(values, key=str.casefold))
+        self.assertEqual(win._pet_provider.get(), '自定义')
+
+    def test_paired_boxes_share_one_width_and_right_labels_hug_their_box(self):
+        win = self._show(pet_models_ui.open_manager(self.pet))
+        win.update_idletasks()
+        form = win._pet_provider_box.master
+        pairs = [(win._pet_mode_box, win._pet_provider_box)]
+        for slave in form.grid_slaves():
+            info = slave.grid_info()
+            if int(info['column']) == 1 and int(info['columnspan']) == 1 and slave.winfo_class() != 'Frame':
+                other = form.grid_slaves(row=info['row'], column=3)
+                if other:
+                    pairs.append((slave, other[0]))
+        self.assertGreaterEqual(len(pairs), 3)
+        for left, right in pairs:
+            self.assertAlmostEqual(left.winfo_width(), right.winfo_width(), delta=1)
+            self.assertGreater(right.winfo_rootx() - left.winfo_rootx() - left.winfo_width(), 0)
+        label = form.grid_slaves(row=0, column=2)[0]
+        self.assertEqual(str(label.grid_info()['sticky']), 'e')
+
 
 class ManagerActionTests(Batch7Case):
     def _manager(self):

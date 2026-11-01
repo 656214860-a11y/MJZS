@@ -230,8 +230,8 @@ class IdeaBubblesMixin:
         name='bubble_'+str(index)
         # 页面刚建好时框子还没量过宽度，这一条要留着，等真实宽度下来再摆一次（见 refit_bubbles）。
         getattr(self,'_bubble_rows',[]).append((name,text,mine))
-        # 用户气泡仍贴右侧；正文一律由气泡左边开始，长句更容易读。
-        align='left'
+        # 与 Claude Code 桌面版一致：用户气泡贴右侧，名字、正文、引用行和底行都右对齐；模型回复左对齐。
+        align='right' if mine else 'left'
         example=index == 'example'
         _model_back, model_meta = self.model_chat_colors(row.get('model'))
         # REQ-S01-65：与 Claude Code 桌面版一致，用户和模型的消息都不铺底色，靠左右位置区分。
