@@ -17,7 +17,7 @@ INVALID_TYPE_HEADING = re.compile(r'结构治理执行(?:轮)?|修复/结构治�
 
 
 def _latest_result_number() -> int:
-    numbers = [int(match.group(1)) for path in (ROOT / 'tasks_round').glob('tasks_round_*_result.md')
+    numbers = [int(match.group(1)) for path in (ROOT / 'tasks_round').rglob('tasks_round_*_result.md')
                if (match := RESULT_PATTERN.search(path.name))]
     if not numbers:
         raise AssertionError('tasks_round 中没有结果报告')
@@ -44,7 +44,7 @@ class RoundBaselineTests(unittest.TestCase):
         """AGENTS 3.3：执行仅可作为结构治理轮的子场景。"""
         headings = [
             f'{path}: {path.read_text(encoding="utf-8").splitlines()[0]}'
-            for path in (ROOT / 'tasks_round').glob('tasks_round_*_result.md')
+            for path in (ROOT / 'tasks_round').rglob('tasks_round_*_result.md')
         ]
         for line in STATUS.read_text(encoding='utf-8').splitlines():
             matched = re.match(r'- R\d+ ([^：]+)：', line)
