@@ -44,3 +44,17 @@ def probe_endpoint(base_url, timeout=8):
     """无害的连通性探测：只访问根地址，不发送密钥，不提交任务。"""
     from platform_tools import probe_http_endpoint
     return probe_http_endpoint(base_url, timeout=timeout)
+
+
+def no_redirect():
+    """不跟随重定向的处理器实例（唯一实现，R2178 J13）：密钥与请求体不会被带到别处。
+
+    第 34 期第 9 条：惰性建类——只有真要发 HTTP 时才 import urllib.request。
+    """
+    from urllib.request import HTTPRedirectHandler
+
+    class NoRedirect(HTTPRedirectHandler):
+        def redirect_request(self, *args, **kwargs):
+            return None
+    return NoRedirect()
+

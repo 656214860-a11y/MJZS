@@ -3,7 +3,7 @@ import hashlib,json,os,subprocess,time,uuid,re,threading
 from pathlib import Path
 from file_cache import remove_temporary_file
 from agent.core import read,save,save_text,temporary_path,replace
-from platform_tools import communicate_or_kill, duration_text, hidden_console_flags, launch_windows_app, terminate_process_tree
+from platform_tools import launch_windows_app
 from workflow_context_budget import ensure_request_context
 
 # 比 --max-wall-time 2h 多留 10 分钟：CLI 自己的时限先生效，它卡死时由这里兜底。
@@ -132,21 +132,11 @@ def run_background(config,project,output,report,logfile,prompt):
     # 用户点了停止还在制作（报的就是这条链路）。改成 Popen ＋ 登记，与其它引擎同一套。
     # 适配器只能依赖无业务规则的进程注册表，不能反向导入工作流引擎；
     # 引擎的停止控制也使用同一注册表，因此任务生命周期仍可被统一观察。
-    from workflow_process_registry import register_process, forget_process
+    from workflow_process_registry import run_registered
     try:
         with Path(logfile).open('w',encoding='utf-8') as log,response_temp.open('w',encoding='utf-8') as out:
-            process=subprocess.Popen(args,cwd=project,env=env,stdin=subprocess.PIPE,text=True,encoding='utf-8',errors='replace',stdout=out,stderr=log,creationflags=hidden_console_flags())
-            register_process(project,process)
-            timeout=config.get('timeout_seconds') or TIMEOUT_SECONDS
-            try:communicate_or_kill(process,prompt,timeout)
-            except subprocess.TimeoutExpired:
-                raise ValueError('Qwen 运行超时（%s 仍未结束），已强制结束；请查看运行日志后重试' % duration_text(timeout)) from None
-            except BaseException:
-                # 异常打断时先结束进程树再注销，否则它脱离登记表后「强制停止」找不到。
-                terminate_process_tree(process)
-                raise
-            finally:forget_process(project,process)
-            returncode=process.returncode
+            returncode=run_registered(args,project,prompt,(out,log),config.get('timeout_seconds') or TIMEOUT_SECONDS,
+                                      timeout_label='Qwen 运行超时',env=env)
         if returncode:raise ValueError('Qwen 执行失败，请查看运行日志并检查 API、模型权限及额度')
         data=json.loads(response_temp.read_text(encoding='utf-8-sig'))
         replace(response_temp,response)

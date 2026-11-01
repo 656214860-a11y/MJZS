@@ -10,11 +10,11 @@ from datetime import datetime
 from agent.core import save,save_text,read,temporary_path,replace
 import edit_habits
 from workflow_settings import find_program,gui_claude_program,GUI_CLAUDE_CLI_HINT,ENGINES,skill_prompt,stage_output_contract,writer_style_prompt,master_gate
-from workflow_process_registry import (register_process, forget_process, processes,
+from workflow_process_registry import (register_process, forget_process, processes, run_registered,
                                        reserve_process_slot, release_process_slot,
                                        request_process_slot, claim_process_slot,
                                        cancel_project_slot_requests, cancel_slot_request)
-from platform_tools import communicate_or_kill, duration_text, hidden_console_flags, launch_windows_app, terminate_process_tree
+from platform_tools import launch_windows_app, terminate_process_tree
 from workflow_context_budget import ensure_request_context
 import client_profiles
 
@@ -155,19 +155,7 @@ def engine_timeout(config):
 
 def _run(args,project,prompt,stdout,stderr,timeout=ENGINE_TIMEOUT_SECONDS):
     """启动引擎进程并登记：只有登记过的进程才会被「强制停止制作」结束。"""
-    key=str(project)
-    process=subprocess.Popen(args,stdin=subprocess.PIPE,text=True,encoding='utf-8',errors='replace',
-                             stdout=stdout,stderr=stderr,cwd=project,creationflags=hidden_console_flags())
-    register_process(key,process)
-    try:communicate_or_kill(process,prompt,timeout)
-    except subprocess.TimeoutExpired:
-        raise ValueError('引擎运行超时（%s 仍未结束），已强制结束；请查看运行日志后重试' % duration_text(timeout)) from None
-    except BaseException:
-        # 异常打断（含 Ctrl+C）时进程可能还在跑；先结束再注销，否则它脱离登记表后「强制停止」找不到。
-        terminate_process_tree(process)
-        raise
-    finally:forget_process(key,process)
-    return process.returncode
+    return run_registered(args,project,prompt,(stdout,stderr),timeout,timeout_label='引擎运行超时')
 
 
 def _opencode_prompt_file(report):

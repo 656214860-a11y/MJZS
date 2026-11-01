@@ -21,7 +21,7 @@ import model_secrets
 import token_saver
 import client_profiles
 from agent.core import save, replace, temporary_path
-from api_endpoints import configured_key, normalize_url
+from api_endpoints import configured_key, no_redirect, normalize_url
 from pet_bus import read_json
 
 PROGRAM = Path(__file__).resolve().parent
@@ -960,12 +960,7 @@ def elapsed_ms(started):
 def _http_opener():
     """Never forward model credentials or request bodies through redirects."""
     import urllib.request
-
-    class NoRedirect(urllib.request.HTTPRedirectHandler):
-        def redirect_request(self, req, fp, code, msg, headers, newurl):
-            return None
-
-    return urllib.request.build_opener(NoRedirect())
+    return urllib.request.build_opener(no_redirect())
 
 
 # ── DeepSeek Search／Fetch 工具接口 ───────────────────────────────────────────

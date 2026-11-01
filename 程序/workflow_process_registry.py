@@ -138,3 +138,25 @@ def forget_process(project, process):
 def processes(project):
     with _lock:
         return list(_running.get(_key(project), []))
+
+
+def run_registered(args, project, prompt, streams, timeout, *, timeout_label, env=None):
+    """启动子进程并登记（唯一实现，R2178 J14）：只有登记过的进程才会被「强制停止制作」结束。
+
+    超时或被异常（含 Ctrl+C）打断时先结束进程树再注销，否则它脱离登记表后「强制停止」找不到。
+    """
+    import subprocess
+    from platform_tools import communicate_or_kill, duration_text, launch_text_process, terminate_process_tree
+    stdout, stderr = streams
+    process = launch_text_process(args, cwd=project, stdin=subprocess.PIPE, stdout=stdout, stderr=stderr, env=env)
+    register_process(project, process)
+    try:
+        communicate_or_kill(process, prompt, timeout)
+    except subprocess.TimeoutExpired:
+        raise ValueError('%s（%s 仍未结束），已强制结束；请查看运行日志后重试' % (timeout_label, duration_text(timeout))) from None
+    except BaseException:
+        terminate_process_tree(process)
+        raise
+    finally:
+        forget_process(project, process)
+    return process.returncode
