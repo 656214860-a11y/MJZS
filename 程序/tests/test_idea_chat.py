@@ -2407,6 +2407,59 @@ class ComposerLayoutTests(_Harness):
                 self.assertIn('另一模型', d.idea_session_tip.text)
 
 
+class ModelBarUITests(_Harness):
+    """REQ-S01-77：聊天气泡框左上角的模型目录条。"""
+
+    def _bar_children(self, d):
+        inner = getattr(d, 'idea_model_bar_inner', None)
+        if inner is None or not inner.winfo_exists():
+            return []
+        return list(inner.winfo_children())
+
+    def _bar_labels(self, d):
+        return [str(widget.cget('text')) for widget in self._bar_children(d)]
+
+    def test_bar_lists_models_filters_and_highlights(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            idea_chat.append(proj, 'user', '甲的第一条', model='模型甲')
+            idea_chat.append(proj, 'assistant', '乙的第一条', model='模型乙')
+            idea_chat.append(proj, 'assistant', '甲的第二条', model='模型甲')
+            d, win = self.desktop(proj)
+            d.show(0)
+            self.settle_script_page(win)
+            self.assertEqual(self._bar_labels(d), ['全部', '模型甲', '模型乙'])
+            self.assertIn('甲的第一条', self.log_text(d))
+            self.assertIn('乙的第一条', self.log_text(d))
+            # 点「模型甲」：只显示甲，标签高亮
+            self._bar_children(d)[1].event_generate('<Button-1>')
+            self.settle_script_page(win)
+            self.assertIn('甲的第一条', self.log_text(d))
+            self.assertNotIn('乙的第一条', self.log_text(d))
+            self.assertEqual(self._bar_children(d)[1].cget('bg'), COLORS['primary_subtle'])
+            # 点「全部」：恢复完整视图
+            self._bar_children(d)[0].event_generate('<Button-1>')
+            self.settle_script_page(win)
+            self.assertIn('甲的第一条', self.log_text(d))
+            self.assertIn('乙的第一条', self.log_text(d))
+            self.assertEqual(self._bar_children(d)[0].cget('bg'), COLORS['primary_subtle'])
+
+    def test_bar_hidden_for_single_model_and_empty_project(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            idea_chat.append(proj, 'user', '唯一模型的消息', model='模型甲')
+            d, win = self.desktop(proj)
+            d.show(0)
+            self.settle_script_page(win)
+            self.assertFalse(d.idea_model_bar.winfo_manager(), '只有 1 个模型时不显示目录条')
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            d, win = self.desktop(proj)
+            d.show(0)
+            self.settle_script_page(win)
+            self.assertFalse(d.idea_model_bar.winfo_manager(), '无聊天记录（示例气泡）时不显示目录条')
+
+
 class SessionOverviewTests(unittest.TestCase):
     """O14：只读说明把会话、请求身份、上下文与项目共享成果分开。"""
 

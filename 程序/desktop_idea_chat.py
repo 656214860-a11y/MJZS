@@ -317,9 +317,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
             # 可见内容。键回来后 resume 按现有页面代次完整重绘真实历史。
             resolving_model=True
         model=cached[1] if root and isinstance(cached,tuple) else ''
-        from stage_execution_service import project_context
-        rows=idea_chat.load(project_context(root),model=model,gateway=self.idea_chat_gateway()) if root and not resolving_model else []
-        if root and not resolving_model:self.__dict__.setdefault('_idea_history_known',{})[root]=bool(rows)
+        rows=self.idea_view_rows(root,model,resolving_model)
         hidden=getattr(self,'_idea_hidden_messages',{}).get(self.bubble_view_key(model))
         remaining=hidden.copy() if hidden is not None else {}
         visible=[]
@@ -619,6 +617,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
         # 本次发送已确定模型，废弃旧的异步解析并用同一分区显示刚保存的消息。
         self._idea_view_model_request=getattr(self,'_idea_view_model_request',0)+1
         self._idea_view_model_cache=(self.root,model)
+        self.set_idea_model_filter(model)
         box.delete('1.0','end')
         self.discard_idea_draft()
         self.idea_attachment_paths=()

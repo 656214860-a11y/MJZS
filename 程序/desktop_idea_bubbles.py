@@ -3,10 +3,11 @@
 方法体未改、self 语义不变，IdeaChatMixin 通过继承 IdeaBubblesMixin 获得；仍与 Tk 控件紧耦合，故与 desktop_idea_chat 同属 L4。"""
 import json
 import tkinter as tk
+from tkinter import ttk
 from ui_motion import Spinner
-from ui_tokens import COLORS, ICON_COPY, ICON_DELETE, ICON_FONT, ICON_REWIND, SPACING
+from ui_tokens import COLORS, FONTS, ICON_COPY, ICON_DELETE, ICON_FONT, ICON_REWIND, SPACING
 from pathlib import Path
-from idea_chat_controller import bubble_timestamp, collapse_preview
+from idea_chat_controller import ALL_MODELS, bubble_timestamp, collapse_preview, model_bar_items, model_bar_selection
 
 
 BUBBLE_BACK=COLORS['background_card']  # 内容框的底色：气泡两边的留白用它刷，色块才贴着字
@@ -19,6 +20,9 @@ BUBBLE_LINE=13         # 量不出字宽时的兜底：一个字大约这么宽
 BUBBLE_MAX_RATIO=0.84  # 字再多，色块也不铺满整行；比例取自用户认可的长消息气泡（占记录区约 84%）
 BUBBLE_SLACK=26        # 量字宽只是估算（字号、全角半角都有出入），留一截余地，
                        # 免得一句话末了一个字被挤到下一行
+# 模型目录条：一行紧凑标签，底色与聊天气泡框一致；高度按内容自适应，首建时给个占位值。
+MODEL_BAR_FONT=FONTS['hint']
+MODEL_BAR_HEIGHT=SPACING['xl']+SPACING['xs']
 
 
 class IdeaBubblesMixin:
@@ -140,6 +144,12 @@ class IdeaBubblesMixin:
                str(tag).split('_')[1].isdigit() for tag in tags):
             self.status.set('已选中气泡正文，按 Ctrl+C 复制。')
         return None
+    def _idea_display_rows(self):
+        """当前气泡框显示的行（按显示顺序）；尚未渲染时回退到当前模型的历史。"""
+        rows=getattr(self,'_idea_view_rows',None)
+        if rows is not None:return rows
+        import idea_chat
+        return idea_chat.load(self.idea_chat_context(),model=self.displayed_chat_model(),gateway=self.idea_chat_gateway())
     def copy_bubble_message(self,index):
         """消息左下角「复制」图标：只取持久化的正文，不把界面元信息混进去。"""
         if index == 'example':
@@ -150,8 +160,7 @@ class IdeaBubblesMixin:
             self.status.set('复制失败：'+reason if reason else '已复制软件示例')
             if reason:return None
             return text
-        import idea_chat
-        rows=idea_chat.load(self.idea_chat_context(),model=self.displayed_chat_model(),gateway=self.idea_chat_gateway())
+        rows=self._idea_display_rows()
         if not 0<=index<len(rows):return None
         text=str(rows[index].get('text') or '')
         if not text:return None
@@ -162,8 +171,7 @@ class IdeaBubblesMixin:
         return text
     def rewind_bubble_message(self,index):
         """消息下方「回退」图标：把这条用户消息放回输入框，可改后重新发送；聊天记录不动。"""
-        import idea_chat
-        rows=idea_chat.load(self.idea_chat_context(),model=self.displayed_chat_model(),gateway=self.idea_chat_gateway())
+        rows=self._idea_display_rows()
         if not 0<=index<len(rows):return None
         text=str(rows[index].get('text') or '')
         box=getattr(self,'idea_input',None)
@@ -174,10 +182,17 @@ class IdeaBubblesMixin:
     def delete_bubble_message(self,index):
         """消息左下角「删除」图标：移出当前对话，并保留最近删除恢复记录。"""
         import idea_chat
-        model=self.displayed_chat_model()
-        rows=idea_chat.load(self.idea_chat_context(),model=model,gateway=self.idea_chat_gateway())
+        rows=self._idea_display_rows()
         if not 0<=index<len(rows):return None
-        idea_chat.remove(self.idea_chat_context(),index,model=model,gateway=self.idea_chat_gateway())
+        row=rows[index]
+        model=str(row.get('model') or '').strip() if isinstance(row,dict) else ''
+        if model:
+            # 目录条视图会把多个模型的记录合并显示，按该模型在此行之前的条数定位它在自身会话里的下标。
+            relative=sum(1 for prior in rows[:index]
+                         if isinstance(prior,dict) and str(prior.get('model') or '').strip()==model)
+            idea_chat.remove(self.idea_chat_context(),relative,model=model,gateway=self.idea_chat_gateway())
+        else:
+            idea_chat.remove(self.idea_chat_context(),index,model=self.displayed_chat_model(),gateway=self.idea_chat_gateway())
         self.show_conversation();self.status.set('已删除整条信息；可在右键菜单恢复最近删除')
         return index
     def restore_latest_bubble_message(self):
@@ -370,3 +385,83 @@ class IdeaBubblesMixin:
         if spinner is not None:
             try:spinner.destroy()
             except tk.TclError:pass
+    def build_idea_model_bar(self, parent):
+        """在聊天气泡框上方建一条可横向滚动的模型目录条；先隐藏，≥2 个模型才显示。"""
+        bar=tk.Frame(parent,bg=COLORS['background_card'])
+        canvas=tk.Canvas(bar,height=MODEL_BAR_HEIGHT,highlightthickness=0,bg=COLORS['background_card'])
+        scroll=ttk.Scrollbar(bar,orient='horizontal',command=canvas.xview)
+        canvas.configure(xscrollcommand=scroll.set)
+        inner=tk.Frame(canvas,bg=COLORS['background_card'])
+        canvas.create_window((0,0),window=inner,anchor='nw')
+        inner.bind('<Configure>',lambda event:self._fit_idea_model_bar(canvas,inner,scroll))
+        canvas.bind('<Configure>',lambda event:self._fit_idea_model_bar(canvas,inner,scroll))
+        canvas.grid(row=0,column=0,sticky='ew')
+        bar.columnconfigure(0,weight=1)
+        self.idea_model_bar=bar
+        self.idea_model_bar_canvas=canvas
+        self.idea_model_bar_inner=inner
+        self.idea_model_bar_scroll=scroll
+        bar.pack(side='top',fill='x')
+        bar.pack_forget()
+        return bar
+    def _fit_idea_model_bar(self, canvas, inner, scroll):
+        """目录条内容变化后更新滚动区域；内容溢出才露出横向滚动条。"""
+        canvas.configure(scrollregion=canvas.bbox('all'))
+        height=inner.winfo_reqheight()
+        if height>1:canvas.configure(height=height)
+        if inner.winfo_reqwidth()>canvas.winfo_width():
+            if not scroll.winfo_manager():scroll.grid(row=1,column=0,sticky='ew')
+        elif scroll.winfo_manager():scroll.grid_remove()
+    def render_idea_model_bar(self, items, selected):
+        """重建模型目录条：全部标签＋每个已调用模型；选中高亮；≤1 个模型时隐藏。"""
+        bar=getattr(self,'idea_model_bar',None)
+        if bar is None or not bar.winfo_exists():return
+        inner=self.idea_model_bar_inner
+        for child in inner.winfo_children():child.destroy()
+        if len(items)<2:
+            if bar.winfo_manager():bar.pack_forget()
+            return
+        scroll=getattr(self,'idea_scroll',None)
+        if not bar.winfo_manager():
+            bar.pack(side='top',fill='x',before=scroll) if scroll is not None else bar.pack(side='top',fill='x')
+        for key,label in [(ALL_MODELS,'全部')]+[(name,name) for name in items]:
+            active=key==selected
+            tag=tk.Label(inner,text=label,font=MODEL_BAR_FONT,cursor='hand2',
+                         bg=COLORS['primary_subtle'] if active else COLORS['background_card'],
+                         fg=COLORS['primary'] if active else COLORS['text_secondary'],
+                         padx=SPACING['sm'],pady=SPACING['xs'])
+            tag.pack(side='left',padx=(SPACING['none'],SPACING['xs']))
+            tag.bind('<Button-1>',lambda event,key=key:(self.safe(lambda:self.select_idea_model(key)),'break')[1])
+        self._fit_idea_model_bar(self.idea_model_bar_canvas,inner,self.idea_model_bar_scroll)
+    def set_idea_model_filter(self, model, root=None):
+        """目录条选中态的唯一写入口：点击、发送与配置确认都走它，避免多个 Mixin 写同一 self 属性。"""
+        self._idea_model_filter=model
+        self._idea_model_filter_root=self.root if root is None else root
+    def select_idea_model(self, model):
+        """点击目录条标签：把气泡框切到该模型（或「全部」）的对话视图。"""
+        if not self.root:return
+        self.set_idea_model_filter(model)
+        self.show_conversation()
+    def idea_view_rows(self, root, model, resolving_model):
+        """按当前选中键解析要显示的行，并同步目录条；返回显示行列表。
+
+        项目切换时回落到默认选中（当前模型），选中模型无记录回落「全部」；具体模型走
+        L2 按模型读取（保留旧版迁移与重复消息语义），「全部」直接展示合并行。
+        """
+        if root!=getattr(self,'_idea_model_filter_root',None):
+            self.set_idea_model_filter(None,root)
+        from stage_execution_service import project_context
+        import idea_chat
+        all_rows=idea_chat.load(project_context(root),model='',gateway=self.idea_chat_gateway()) if root and not resolving_model else []
+        items=model_bar_items(all_rows)
+        if not resolving_model:
+            selected=model_bar_selection(self._idea_model_filter,items,model)
+            self.set_idea_model_filter(selected,root)
+            rows=all_rows if selected==ALL_MODELS else idea_chat.load(project_context(root),model=selected,gateway=self.idea_chat_gateway())
+        else:
+            selected=''
+            rows=[]
+        self.render_idea_model_bar(items,selected)
+        self._idea_view_rows=list(rows)
+        if root and not resolving_model:self.__dict__.setdefault('_idea_history_known',{})[root]=bool(all_rows)
+        return rows
