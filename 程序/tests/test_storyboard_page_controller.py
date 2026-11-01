@@ -47,3 +47,25 @@ class StoryboardPageControllerTests(unittest.TestCase):
                 self.assertEqual(controller.recycle('storyboard', [board]), project / '回收站')
                 self.assertEqual(plan.call_count, 2)
                 recycle.assert_called_once_with(project, 'storyboard', [board])
+
+    def test_refresh_after_selected_board_is_deleted_drops_it_instead_of_failing(self):
+        """删除已勾选的分镜后刷新：不因读已删文件时间报 WinError 2，表格与勾选都不再保留它。"""
+        with tempfile.TemporaryDirectory() as folder:
+            project = Path(folder).resolve()
+            kept = project / 'EP002.json'
+            gone = project / 'EP001.json'
+            kept.write_text('{}', encoding='utf-8')
+            gone.write_text('{}', encoding='utf-8')
+            with patch('storyboard_page_controller.selected_many', return_value=[]), \
+                 patch('storyboard_page_controller.remember_many'), \
+                 patch('storyboard_page_controller.produced_scripts', return_value=set()), \
+                 patch('storyboard_page_controller.adopted', return_value=set()):
+                controller = StoryboardPageController(project)
+                controller.choose('storyboard', [gone, kept])
+                gone.unlink()
+                catalogs = controller.apply_catalogs({
+                    'script': [],
+                    'storyboard': [{'path': kept, 'title': 'EP002', 'created': 1, 'done': False}],
+                })
+                self.assertEqual([entry['path'] for entry in catalogs['storyboard']], [kept])
+                self.assertEqual(controller.selection('storyboard'), [kept])

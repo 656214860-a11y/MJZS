@@ -199,12 +199,12 @@ class ActionAreaTests(Batch7Case):
         self.assertEqual(str(save.cget('style')), 'Tokens.Primary.TButton')
         self.assertEqual(str(close.cget('style')), 'Tokens.Secondary.TButton')
 
-    def test_model_manager_save_and_close_is_rightmost_primary(self):
-        # 契约有意变更：「关闭」改为「保存并关闭」作主操作贴最右，「保存这条」移到左侧条目操作。
+    def test_model_manager_close_is_rightmost_primary(self):
+        # 契约有意变更：「保存并关闭」改回「关闭」（不保存），仍作主操作贴最右；保存只走左侧「保存这条」。
         win = self._manager_window()
-        save, close = _button(win, '保存这条'), _button(win, '保存并关闭')
+        save, close = _button(win, '保存这条'), _button(win, '关闭')
         self.assertGreater(close.winfo_rootx(), save.winfo_rootx(),
-                           '保存并关闭必须在保存这条右边')
+                           '关闭必须在保存这条右边')
         self.assertEqual(str(close.cget('style')), 'Tokens.Primary.TButton')
 
     def test_settings_hub_action_bar_stays_visible_at_minimum_size(self):
@@ -226,7 +226,7 @@ class ActionAreaTests(Batch7Case):
         win = self._manager_window()
         win.geometry('%dx%d' % pet_models_ui.MANAGER_MIN)
         win.update()
-        save, close = _button(win, '保存这条'), _button(win, '保存并关闭')
+        save, close = _button(win, '保存这条'), _button(win, '关闭')
         bottom = win.winfo_rooty() + win.winfo_height()
         for button in (save, close):
             self.assertTrue(button.winfo_ismapped(), button.cget('text'))

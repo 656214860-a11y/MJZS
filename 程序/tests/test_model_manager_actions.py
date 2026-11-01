@@ -1,4 +1,4 @@
-"""模型管理窗：Provider 下拉按大小写去重；「保存这条」在左侧，「保存并关闭」先存后关。"""
+"""模型管理窗：Provider 下拉按大小写去重；「保存这条」在左侧，「关闭」只关窗不保存。"""
 import unittest
 from unittest import mock
 
@@ -39,33 +39,25 @@ class ManagerActionTests(Batch7Case):
     def test_save_one_sits_after_delete_on_the_left(self):
         win = self._manager()
         delete, save = _button(win, '删除这条'), _button(win, '保存这条')
-        close = _button(win, '保存并关闭')
+        close = _button(win, '关闭')
         self.assertGreater(save.winfo_rootx(), delete.winfo_rootx())
         self.assertGreater(close.winfo_rootx(), save.winfo_rootx())
-        self.assertFalse([b for b in _buttons(win) if str(b.cget('text')) == '关闭' and b.winfo_ismapped()])
+        self.assertFalse([b for b in _buttons(win) if str(b.cget('text')) == '保存并关闭'])
 
     def test_blank_form_closes_without_saving(self):
         win = self._manager()
         with mock.patch.object(self.pet, 'save_pool') as save_pool:
-            _button(win, '保存并关闭').invoke()
+            _button(win, '关闭').invoke()
             save_pool.assert_not_called()
         self.assertFalse(win.winfo_exists())
 
-    def test_failed_save_keeps_window_open(self):
+    def test_close_with_filled_form_does_not_save(self):
+        # 契约有意变更：「保存并关闭」改为「关闭」，去掉保存；表单填了也只关窗。
         win = self._manager()
         win._pet_entries['model'].insert(0, 'kimi-k2')
-        with mock.patch.object(self.pet, 'save_pool', side_effect=ValueError('密钥名不对')):
-            _button(win, '保存并关闭').invoke()
-        self.assertTrue(win.winfo_exists())
-        self.assertIn('密钥名不对', win._pet_hint.get())
-
-    def test_successful_save_then_closes(self):
-        win = self._manager()
-        win._pet_entries['model'].insert(0, 'kimi-k2')
-        with mock.patch.object(self.pet, 'save_pool', return_value=True) as save_pool:
-            _button(win, '保存并关闭').invoke()
-        save_pool.assert_called_once()
-        self.assertEqual(save_pool.call_args.args[0]['model'], 'kimi-k2')
+        with mock.patch.object(self.pet, 'save_pool') as save_pool:
+            _button(win, '关闭').invoke()
+            save_pool.assert_not_called()
         self.assertFalse(win.winfo_exists())
 
 
