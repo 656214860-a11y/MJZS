@@ -611,12 +611,13 @@ class _ModelManager:
         self.refresh_connection_fields()
         SecondaryButton(bar, text='删除这条', command=self.delete_one).pack(
             side='left', padx=(BUTTON_GAP, SPACING['none']))
-        # 「保存这条」并入左侧条目操作；主操作「保存并关闭」贴最右。
+        # 「保存这条」并入左侧条目操作；「关闭」只关窗、不保存，贴最右。
         SecondaryButton(bar, text='保存这条', command=self.save_one).pack(
             side='left', padx=(BUTTON_GAP, SPACING['none']))
         SecondaryButton(bar, text='语音识别…', command=lambda: open_speech_settings(self.pet, self.win)).pack(
             side='left', padx=(BUTTON_GAP, SPACING['none']))
-        PrimaryButton(bar, text='保存并关闭', command=self.save_and_close).pack(side='right')
+        PrimaryButton(bar, text='关闭', command=self.win.destroy).pack(
+            side='right', padx=(BUTTON_GAP, SPACING['none']))
         self.win._pet_api_controls = self.api_controls
         self.win._pet_program_row = self.program_row
         self.win._pet_reload = self.load_rows
@@ -939,16 +940,6 @@ class _ModelManager:
         self.load_rows()
         self.hint.set('已保存「%s」；「切换模型」里立刻点得到。' % (self.read_form().get('label') or ''))
         return self.read_form()
-
-    def save_and_close(self):
-        """没在改任何一条时直接关；否则先保存，保存失败留在窗口里看提示。"""
-        if not self.state['id'] and not self.entries['model'].get().strip():
-            self.win.destroy()
-            return None
-        saved = self.save_one()
-        if saved is not None:
-            self.win.destroy()
-        return saved
 
     def delete_one(self):
         # 不能依赖上一次 <<TreeviewSelect>> 留下的缓存：刷新列表／点过「新建一条」后，
