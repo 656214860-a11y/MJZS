@@ -15,6 +15,7 @@ from pathlib import Path
 from tests.architecture._scan import ROOT, parse, production_runtime_files
 
 DIR_NAME = '工作流任务'
+AUTHORITY = 'stage_layout.py'      # 路径权威自己产出该目录名（R2260 J22），不计入棘轮
 REGISTERED = {
     'agent_dispatch.py': 1,
     'codex_tasks.py': 1,
@@ -58,7 +59,7 @@ class WorkflowDirRatchetTests(unittest.TestCase):
         counts = {}
         for path in production_runtime_files():
             found = _count(path)
-            if found:
+            if found and path.name != AUTHORITY:
                 counts[path.relative_to(ROOT).as_posix()] = found
         bad = ['%s: %d 处 > 登记 %d 处' % (name, actual, REGISTERED.get(name, 0))
                for name, actual in sorted(counts.items()) if actual > REGISTERED.get(name, 0)]

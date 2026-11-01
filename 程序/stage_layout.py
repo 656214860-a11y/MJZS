@@ -184,6 +184,15 @@ def skill_rows():
     return SKILL_DEDUPE
 
 
+# 项目内的运行记录目录（交互任务、回收站、宠物账本、SKILL 预算…）：名字与拼法只在这里产出。
+WORKFLOW_DIR = '工作流任务'
+
+
+def workflow_dir(project, *parts):
+    """``<项目>/工作流任务/<parts…>``；各模块不再手拼这个目录名。"""
+    return Path(project, WORKFLOW_DIR, *parts)
+
+
 def stage_dir(name):
     """阶段目录名 → 那一行（认不出来返回 None）。"""
     text = str(name or '').strip().rstrip('/\\')
