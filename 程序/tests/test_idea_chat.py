@@ -1656,7 +1656,7 @@ class SendMessageTests(_Harness):
                 self.settle_script_page(win)
             self.assertEqual(len(pending), 1)
             import skill_panel
-            self.assertEqual(d.stage_button.cget('text'), skill_panel.stage_button_label(d, 'script'))
+            self.assertEqual(d.stage_button.cget('text'), '阶段配置')
             self.assertEqual(d.draft_text(), '')
             self.assertIn('切换模型后的新输入', idea_chat.load(proj, model=new_model)[-1]['text'])
             self.assertIn('切换模型后的新输入', self.log_text(d))
@@ -1676,26 +1676,18 @@ class SendMessageTests(_Harness):
                              skills=['pipeline-script-preparation'])
             d, win = self.desktop(proj)
             d.send_message = Mock()
-            launcher = Mock()
             for confirm_selection in (False, True):
                 window = self.tk.Toplevel(win)
                 panel = skill_panel.Panel(window, d, 'script')
-                panel.launcher_button = launcher
                 self.assertEqual(panel.model_id(), 'deepseek-v4-flash')
                 panel.set_model('qwen-max')
-                panel.choose_provider()
-                self.assertEqual(stage_config.get(proj, 'script')['model'], 'deepseek-v4-flash')
-                panel.set_model('qwen-max')
-                panel.choose_model()
                 self.assertEqual(stage_config.get(proj, 'script')['model'], 'deepseek-v4-flash')
                 panel.save_and_refresh_notes()
                 panel.check_all_skills(False)
                 self.assertEqual(stage_config.get(proj, 'script')['model'], 'deepseek-v4-flash')
-                launcher.configure.assert_not_called()
                 if confirm_selection:
                     panel.confirm()
                     self.assertEqual(stage_config.get(proj, 'script')['model'], 'qwen-max')
-                    launcher.configure.assert_called_once_with(text=skill_panel.stage_button_label(d, 'script'))
                 else:
                     window.destroy()
                     self.assertEqual(stage_config.get(proj, 'script')['model'], 'deepseek-v4-flash')

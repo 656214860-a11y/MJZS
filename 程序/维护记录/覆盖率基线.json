@@ -224,7 +224,7 @@
   {
    "module": "asset_skill_batch.py",
    "covered": 0,
-   "total": 95,
+   "total": 97,
    "percent": 0.0
   },
   {
@@ -410,13 +410,13 @@
   {
    "module": "desktop_idea_bubbles.py",
    "covered": 0,
-   "total": 392,
+   "total": 322,
    "percent": 0.0
   },
   {
    "module": "desktop_idea_chat.py",
    "covered": 0,
-   "total": 978,
+   "total": 983,
    "percent": 0.0
   },
   {
@@ -428,7 +428,7 @@
   {
    "module": "desktop_idea_menus.py",
    "covered": 0,
-   "total": 75,
+   "total": 71,
    "percent": 0.0
   },
   {
@@ -512,7 +512,7 @@
   {
    "module": "desktop_script_pages.py",
    "covered": 0,
-   "total": 672,
+   "total": 671,
    "percent": 0.0
   },
   {
@@ -524,7 +524,7 @@
   {
    "module": "desktop_send_ledger.py",
    "covered": 0,
-   "total": 132,
+   "total": 134,
    "percent": 0.0
   },
   {
@@ -572,7 +572,7 @@
   {
    "module": "desktop_writing_page.py",
    "covered": 0,
-   "total": 674,
+   "total": 667,
    "percent": 0.0
   },
   {
@@ -728,7 +728,7 @@
   {
    "module": "image_agent_runner.py",
    "covered": 0,
-   "total": 105,
+   "total": 106,
    "percent": 0.0
   },
   {
@@ -758,7 +758,7 @@
   {
    "module": "keyframe_import.py",
    "covered": 0,
-   "total": 184,
+   "total": 185,
    "percent": 0.0
   },
   {
@@ -1022,7 +1022,7 @@
   {
    "module": "previs_automation.py",
    "covered": 0,
-   "total": 155,
+   "total": 160,
    "percent": 0.0
   },
   {
@@ -1244,7 +1244,7 @@
   {
    "module": "skill_panel.py",
    "covered": 0,
-   "total": 850,
+   "total": 794,
    "percent": 0.0
   },
   {
@@ -1256,7 +1256,7 @@
   {
    "module": "skill_panel_support.py",
    "covered": 0,
-   "total": 480,
+   "total": 439,
    "percent": 0.0
   },
   {
@@ -1311,6 +1311,12 @@
    "module": "stage_handler_registry.py",
    "covered": 0,
    "total": 101,
+   "percent": 0.0
+  },
+  {
+   "module": "stage_model_picker.py",
+   "covered": 0,
+   "total": 149,
    "percent": 0.0
   },
   {
@@ -1562,7 +1568,7 @@
   {
    "module": "ui_tokens.py",
    "covered": 0,
-   "total": 157,
+   "total": 158,
    "percent": 0.0
   },
   {
@@ -1718,7 +1724,7 @@
   {
    "module": "writing_api.py",
    "covered": 0,
-   "total": 1004,
+   "total": 1005,
    "percent": 0.0
   },
   {
@@ -1736,7 +1742,7 @@
   {
    "module": "writing_stream.py",
    "covered": 0,
-   "total": 19,
+   "total": 23,
    "percent": 0.0
   },
   {
@@ -1760,8 +1766,8 @@
   {
    "module": "stage_config.py",
    "covered": 61,
-   "total": 462,
-   "percent": 13.2
+   "total": 464,
+   "percent": 13.1
   },
   {
    "module": "stage_download_inbox_service.py",
@@ -2059,5 +2065,5 @@
   }
  ],
  "modules_covered": 52,
- "modules_total": 341
+ "modules_total": 342
 }

@@ -319,11 +319,11 @@ class DropdownLayoutTests(unittest.TestCase):
 
 
     def test_first_column_dropdowns_align_and_hug_short_labels(self):
-        """R1982：第一列（预设／总控／厂商／SKILL）下拉框左缘对齐，标签区不按「视频模型版本」留宽。"""
+        """R1982：第一列（预设／总控／SKILL）下拉框左缘对齐，标签区不按「视频模型版本」留宽。"""
         for name, width, height in SIZES:
             with self.subTest(size=name):
                 panel = self._build(width, height)
-                boxes = [panel.presets, panel.workflow_box, panel.providers, panel.skill_action_box]
+                boxes = [panel.presets, panel.workflow_box, panel.skill_action_box]
                 xs = {box.winfo_rootx() for box in boxes}
                 self.assertLessEqual(max(xs) - min(xs), 1, '第一列下拉框没有左缘对齐：%s' % sorted(xs))
                 from production_lock_fields import label_pixel_width

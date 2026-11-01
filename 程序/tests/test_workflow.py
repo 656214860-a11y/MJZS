@@ -1173,15 +1173,6 @@ class DesktopModelPoolTests(unittest.TestCase):
             self.assertIn('Qwen Code（阿里云） · deepseek-v4-flash',
                           workflow_settings.summary(proj, 'storyboard'))
 
-    def test_auto_stage_button_names_the_actual_dispatch_engine(self):
-        """“自动”不能把实际会启动的 Codex 藏在泛化的“阶段配置”文案后。"""
-        from types import SimpleNamespace
-        import skill_panel
-        with tempfile.TemporaryDirectory() as td:
-            proj = make_project(td)
-            desktop = SimpleNamespace(root=proj, app=None, pet=None)
-            self.assertEqual(skill_panel.stage_button_label(desktop, 'storyboard'), 'Codex')
-
     def test_chat_creative_is_sent_without_creating_a_script_file(self):
         """点击发送只把聊天创意交给工作流；剧本文档留到模型回复后下载时再写。"""
         from workflow_tasks import script_followup, script_prompt

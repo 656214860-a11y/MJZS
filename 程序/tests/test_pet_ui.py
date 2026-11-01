@@ -3737,6 +3737,7 @@ class ModelPoolTests(PetTestCase):
     def test_saving_claude_code_refreshes_the_open_stage_vendor_dropdown(self):
         from unittest.mock import patch
         import skill_panel
+        import stage_config
         import workflow_settings
         workflow_settings.clear_desktop_installation_cache()
         self.addCleanup(workflow_settings.clear_desktop_installation_cache)
@@ -3745,12 +3746,13 @@ class ModelPoolTests(PetTestCase):
         self.addCleanup(finder.stop)
         panel = skill_panel.Panel(self.win, self.fake, 'script')
         self.addCleanup(panel.destroy)
-        panel.set_model('claude-desktop')
+        stage_config.put(self.fake.root, 'script', model='claude-desktop')
+        panel.refresh_models()
         self.pet.save_pool({'label': 'Claude Code Cli', 'model': 'claude code',
                             'provider': 'desktop'})
         self.assertEqual(panel.provider.get(), 'Anthropic')
         self.assertEqual(panel.model_id(), 'claude-desktop')
-        self.assertIn('Claude Code Cli', list(panel.models.cget('values')))
+        self.assertIn('Claude Code Cli', [label for options in panel.groups.values() for _id, label in options])
         panel.set_model('claude code')
         self.assertEqual(panel.provider.get(), 'Anthropic')
         self.assertEqual(panel.model_id(), 'claude code')
