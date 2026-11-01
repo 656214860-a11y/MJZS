@@ -163,6 +163,8 @@ def heading(body, title, note, columns=3):
 # 模型管理表单用紧凑输入框：纵向内边距归零，行高约为常规输入框一半，空出高度给模型列表。
 COMPACT_PREFIX = 'Compact.'
 COMPACT_COMBOBOX_STYLE = COMPACT_PREFIX + 'Tokens.Combobox.TCombobox'
+# 下拉框纵向内边距：零内边距时框高约 19px，上下各 3px 后约 25px，高出三分之一。
+COMPACT_COMBOBOX_PAD_Y = SPACING['xs'] - SPACING['xs'] // 4
 
 
 class CompactLineInput(LineInput):
@@ -176,7 +178,7 @@ def install_compact_form_styles(widget):
     style = ttk.Style(widget)
     for name in (CompactLineInput.NORMAL_STYLE, CompactLineInput.PLACEHOLDER_STYLE, CompactLineInput.ERROR_STYLE):
         style.configure(name, padding=(INPUT_PADDING_X, SPACING['none']))
-    style.configure(COMPACT_COMBOBOX_STYLE, padding=(COMBOBOX_PADDING[0], SPACING['none']))
+    style.configure(COMPACT_COMBOBOX_STYLE, padding=(COMBOBOX_PADDING[0], COMPACT_COMBOBOX_PAD_Y))
 
 
 def status_text(record, program):
@@ -496,9 +498,9 @@ class _ModelManager:
         self.form = ttk.Frame(body, padding=(SPACING['none'], SPACING['xs']))
         self.form.grid(row=3, column=0, columnspan=2, sticky='ew')
         self.form.columnconfigure(0, minsize=form_column_width(MANAGER_FORM_LABELS))
-        self.form.columnconfigure(1, weight=1)
+        self.form.columnconfigure(1, weight=1, uniform='fields')
         self.form.columnconfigure(2, minsize=form_column_width(('Provider', '显示名', '备注（可选）')))
-        self.form.columnconfigure(3, weight=1)
+        self.form.columnconfigure(3, weight=1, uniform='fields')
         self.entries = {}
         self.labels = {}
         self.caps = {}
@@ -515,7 +517,7 @@ class _ModelManager:
         mode_box = SelectBox(self.form, textvariable=self.mode, values=('Desktop', 'API', 'CLI'),
                              style=COMPACT_COMBOBOX_STYLE)
         mode_box.configure(width=FORM_COMBO_WIDTH)
-        mode_box.grid(row=0, column=1, sticky='w')
+        mode_box.grid(row=0, column=1, sticky='ew')
         ttk.Label(self.form, text='Provider').grid(row=0, column=2, sticky='w')
         # 第 65 期任务 5：用户报「provider → 自定义不可用」。原来这一格是只读下拉，只能挑三档固定
         # 名字，选了「自定义」既不能写自己的服务商名、也没有自定义路径的入口。现在改成可编辑：
@@ -523,14 +525,19 @@ class _ModelManager:
         self.provider_box = SelectBox(self.form, textvariable=self.provider, state='normal',
                                     values=[label for _value, label in model_pool.PROVIDERS],
                                     style=COMPACT_COMBOBOX_STYLE, width=FORM_COMBO_WIDTH)
-        self.provider_box.grid(row=0, column=3, sticky='w')
+        self.provider_box.grid(row=0, column=3, sticky='ew')
         self.provider_box.bind('<<ComboboxSelected>>', self.match_wire)
         self.provider_box.bind('<<ComboboxSelected>>', lambda event: self.detect_program(), add='+')
 
         self.text_row(1, 'model', '模型 ID', width=FORM_ID_WIDTH)
         self.text_row(1, 'label', '显示名', column=2, width=FORM_ID_WIDTH)
         index = self.text_row(2, 'base_url', 'API 根地址', span=3)
-        index = self.text_row(index, 'key_env', '密钥名（.env 里的变量名）', span=3)
+        self.text_row(index, 'key_env', '密钥名（.env 里的变量名）')
+        ttk.Label(self.form, text='协议').grid(row=index, column=2, sticky='w')
+        SelectBox(self.form, textvariable=self.wire, style=COMPACT_COMBOBOX_STYLE,
+                     values=[label for _value, label in model_pool.WIRE_APIS]).grid(
+            row=index, column=3, sticky='ew')
+        index += 1
         # 规格里的第二种放法：密钥直接输进来，用系统加密存本机（明文不落盘、配置 JSON 里不写）。
         ttk.Label(self.form, text='直接输入密钥').grid(row=index, column=0, sticky='w')
         key_row = ttk.Frame(self.form)
@@ -543,11 +550,6 @@ class _ModelManager:
         self.key_state = tk.StringVar(value='')
         ttk.Label(key_row, textvariable=self.key_state, style='Muted.TLabel').pack(side='left', padx=(SPACING['sm'], SPACING['none']))
         index += 1
-        ttk.Label(self.form, text='协议').grid(row=index, column=0, sticky='w')
-        SelectBox(self.form, textvariable=self.wire, style=COMPACT_COMBOBOX_STYLE,
-                     values=[label for _value, label in model_pool.WIRE_APIS]).grid(
-            row=index, column=1, columnspan=3, sticky='ew')
-        index += 1
         ttk.Label(self.form, text='能力标签').grid(row=index, column=0, sticky='w')
         cap_row = ttk.Frame(self.form)
         cap_row.grid(row=index, column=1, columnspan=3, sticky='w')
@@ -559,7 +561,7 @@ class _ModelManager:
         self.text_row(index + 1, 'context_length', '上下文长度（可选）', width=FORM_SHORT_WIDTH)
         self.text_row(index + 1, 'note', '备注（可选）', column=2, width=FORM_ID_WIDTH)
         self.hint = tk.StringVar(value='选一条改，或者「新建一条」；「保存这条」立刻写进模型池。')
-        self.api_rows = {2, 3, 4, 5}
+        self.api_rows = {2, 3, 4}
         self.api_controls = [widget for widget in self.form.winfo_children()
                         if int(widget.grid_info().get('row', -1)) in self.api_rows]
         self.program_label = ttk.Label(self.form, text='应用安装路径')
