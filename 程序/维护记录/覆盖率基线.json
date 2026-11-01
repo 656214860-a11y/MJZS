@@ -2004,6 +2004,12 @@
    "percent": 0.0
   },
   {
+   "module": "stage_asset_gateways.py",
+   "covered": 0,
+   "total": 70,
+   "percent": 0.0
+  },
+  {
    "module": "stage_path_service.py",
    "covered": 20,
    "total": 55,
@@ -2125,5 +2131,5 @@
   }
  ],
  "modules_covered": 53,
- "modules_total": 352
+ "modules_total": 353
 }
