@@ -243,7 +243,7 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
         chrome = self.bottom_bar.winfo_reqheight() if getattr(self, 'bottom_bar', None) else 0
         room = max(1, self.winfo_height() - chrome - notes_min)
         height = min(content, room)
-        if int(self.form_canvas.cget('height')) != height:
+        if self.form_canvas.winfo_pixels(self.form_canvas.cget('height')) != height:  # Tk 9 的 cget 可能回 '7c' 这类带单位的值
             self.form_canvas.configure(height=height)
         self.form_canvas.configure(scrollregion=(0, 0, width, max(content, height)))
         need_scroll = content > height + 1
