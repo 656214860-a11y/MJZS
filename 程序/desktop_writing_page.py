@@ -824,9 +824,9 @@ class _WritingPage:
         if not self.page.writing_page_services.confirm(self.page.win,'移入回收站',prompt,dangerous=True):return
         from storage_maintenance import recycle_paths
         recycled=recycle_paths(self.page.root,paths,'删除项目剧本' if one else '批量删除项目剧本')
+        self.fill_script_list()                  # 部分成功时已进回收站的那些也要从列表消失：先刷新再报错
         if len(recycled)!=len(paths):
             raise OSError('文件未能移入回收站，请刷新后重试' if one else '部分文件未能移入回收站，请刷新后重试')
-        self.fill_script_list()
         self.page.status.set('已移入回收站：'+paths[0].name if one else '已移入回收站 '+str(len(paths))+' 份剧本文件')
 
     def adopt_script(self):

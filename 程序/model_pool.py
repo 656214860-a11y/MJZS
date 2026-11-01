@@ -836,7 +836,7 @@ def _http_error_kind(status):
 
 @app_logging.timed('model.http', 30000)
 def http_transport(url, payload, headers, timeout):
-    """模型供应商通用 HTTP 传输；按结果种类计数（成功／network／bug／HTTP 状态），不改变返回。"""
+    """模型供应商通用 HTTP 传输（payload 为 None 时发只读 GET）；按结果种类计数（成功／network／bug／HTTP 状态），不改变返回。"""
     result = _http_transport(url, payload, headers, timeout)
     app_logging.count('model.http.' + ('ok' if result.get('ok') else str(result.get('kind') or result.get('status'))))
     return result
@@ -873,12 +873,13 @@ def _scrub_error_detail(detail, headers):
 
 def _http_transport(url, payload, headers, timeout):
     """模型供应商通用 HTTP 传输；仅在实际请求时加载网络栈。"""
+    import http.client
     import ssl
     import urllib.error
     import urllib.request
 
-    body = json.dumps(payload, ensure_ascii=False).encode('utf-8')
-    request = urllib.request.Request(url, data=body, headers=_request_headers(headers), method='POST')
+    body = None if payload is None else json.dumps(payload, ensure_ascii=False).encode('utf-8')
+    request = urllib.request.Request(url, data=body, headers=_request_headers(headers), method='GET' if body is None else 'POST')
     from platform_tools import current_execution
     control = current_execution()
     for attempt in range(3):
@@ -893,12 +894,11 @@ def _http_transport(url, payload, headers, timeout):
             detail = _scrub_error_detail(exc.read()[:400].decode('utf-8', 'replace'), headers)
             return {'ok': False, 'status': exc.code, 'kind': _http_error_kind(exc.code),
                     'error': 'HTTP ' + str(exc.code) + '：' + detail}
-        except urllib.error.URLError as exc:
+        except (OSError, http.client.HTTPException) as exc:   # 含 URLError；读响应时的超时／断线不经它包装，同属网络问题
             if attempt < 2 and isinstance(getattr(exc, 'reason', None), ssl.SSLEOFError):
                 time.sleep(0.25 * (attempt + 1))
                 continue
-            return {'ok': False, 'status': 0, 'kind': 'network',
-                    'error': type(exc).__name__ + '：' + str(exc)}
+            return {'ok': False, 'status': 0, 'kind': 'network', 'error': type(exc).__name__ + '：' + str(exc)}
         except Exception as exc:
             return {'ok': False, 'status': 0, 'kind': 'bug',
                     'error': type(exc).__name__ + '：' + str(exc)}

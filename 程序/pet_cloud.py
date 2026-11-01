@@ -48,6 +48,7 @@ from tkinter import ttk
 from ui_widgets import BaseDialog, LineInput
 
 from pet_bus import ErrorLog
+from pet_ui_support import accepts_keyword
 from pet_agent import PET_NAME as SPEAKER     # 猫咪的名字（三虎）：云朵里每句话都挂在它名下
 from pet_cloud_text import reply_lines as _reply_lines, tight
 from pet_cloud_geometry import inflate, inside_parts as _inside_parts, rounded_parts, shape_root as _shape_root, shift_part, square_parts as _square_parts
@@ -1217,12 +1218,10 @@ class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin, CloudMoveGuardMix
 
     def dispatch(self, text):
         """把这句话交给编排器：认得出 confirmed 参数就带上，认不出的实现（老接口、假宠物）
-        照旧只吃一句话——按一下「确认」不该因为签名不同而炸掉。"""
+        照旧只吃一句话——按一下「确认」不该因为签名不同而炸掉。先认签名再只调一次：
+        实现内部抛的 TypeError 不能被当成签名不符，让同一句话再派发一遍。"""
         send = self.pet.agent.dispatch
-        try:
-            return send(text, confirmed=True)
-        except TypeError:
-            return send(text)
+        return send(text, confirmed=True) if accepts_keyword(send, 'confirmed') else send(text)
 
     def ask(self, text):
         """后台问一句：dispatch 只读状态机与台账、不碰 Tk；出错也要给一句话。

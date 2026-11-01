@@ -608,7 +608,7 @@ class AgentCoreTests(unittest.TestCase):
         from agent.core import request
         from unittest.mock import patch
         import urllib.error
-        with patch("urllib.request.urlopen", side_effect=TimeoutError("timed out")):
+        with patch("urllib.request.OpenerDirector.open", side_effect=TimeoutError("timed out")):
             with self.assertRaises(RuntimeError) as ctx:
                 request("https://example.com/api")
             self.assertIn("超时", str(ctx.exception))
@@ -627,7 +627,7 @@ class AgentCoreTests(unittest.TestCase):
                     return self
                 def __exit__(self, *a):
                     return False
-            with patch("urllib.request.urlopen", return_value=FakeResp()):
+            with patch("urllib.request.OpenerDirector.open", return_value=FakeResp()):
                 with self.assertRaises(ValueError):
                     download("https://example.com/v.mp4", dest)
             self.assertFalse(dest.with_suffix(".download").exists())
@@ -645,7 +645,7 @@ class AgentCoreTests(unittest.TestCase):
                     self.done = True; return b"complete-video"
                 def __enter__(self): return self
                 def __exit__(self, *a): return False
-            with patch("urllib.request.urlopen", return_value=FakeResp()), patch("agent.core.replace", wraps=__import__("agent.core", fromlist=["replace"]).replace) as publish:
+            with patch("urllib.request.OpenerDirector.open", return_value=FakeResp()), patch("agent.core.replace", wraps=__import__("agent.core", fromlist=["replace"]).replace) as publish:
                 download("https://example.com/v.mp4", dest)
             self.assertEqual(dest.read_bytes(), b"complete-video")
             self.assertEqual(publish.call_count, 1)

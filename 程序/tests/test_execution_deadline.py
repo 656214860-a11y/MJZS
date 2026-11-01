@@ -132,7 +132,7 @@ class ExecutionDeadlineTests(unittest.TestCase):
     def test_cancelled_context_rejects_network_and_process_before_launch(self):
         control = platform_tools.ExecutionControl()
         control.cancel()
-        with platform_tools.execution_scope(control), mock.patch('urllib.request.urlopen') as send:
+        with platform_tools.execution_scope(control), mock.patch('urllib.request.OpenerDirector.open') as send:
             with self.assertRaises(platform_tools.ExecutionStopped):
                 platform_tools.open_https('https://example.invalid', data=b'{}')
             send.assert_not_called()
