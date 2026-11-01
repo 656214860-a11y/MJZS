@@ -39,7 +39,7 @@ def _run_script_structure(desktop, project, names, trigger):
         if action == 'read_script_raw':
             source = script_contract.resolve_script_source(project)
             if source is None:
-                raise ValueError('未找到可读取的剧本原稿，请先在“剧本准备”生成或下载剧本。')
+                raise ValueError('未找到可读取的剧本原稿，请先在“剧本准备”生成或添加剧本。')
             state['raw'] = source.read_text(encoding='utf-8-sig')
             state['source'] = source
             state['source_name'] = script_contract._source_label(project, source)

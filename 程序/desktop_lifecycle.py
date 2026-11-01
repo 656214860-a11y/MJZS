@@ -125,7 +125,7 @@ class LifecycleMixin:
         """第 65 期任务 9：翻页只丢引用，不再自动另存——对话结束前一个字都不落盘。
 
         原来翻页会把创意栏里改过的字偷偷存成一份 创意_ 文件；现在这一页是跟模型对话，
-        落盘只有一条路：模型给出剧本、用户点了「是」，见 confirm_script。
+        落盘只有一条路：模型回复设定／大纲／角色卡／剧本时自动存档，见 auto_save_script_reply。
         """
         self.preserve_idea_draft()
         self.brief_editor=None

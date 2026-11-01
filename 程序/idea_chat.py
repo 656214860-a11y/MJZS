@@ -7,11 +7,12 @@
 落地口径（三件事各自只有一个归属）：
 - 整段对话按轮次记在 writing/创意对话/对话.json（界面重建后照样看得见，翻页不丢）；
 - **只有模型的输出**落成下游读的那个创意文件：writing/<Provider>/<模型名>/创意_<日期>/<项目>_<集数>_<日期>.md
-  （用户确认下载后才写入；每个 Provider 和模型各自保留目录）。
+  （模型回复设定／大纲／角色卡／剧本时自动存档，手改过的不覆盖；每个 Provider 和模型各自保留目录）。
 
 这一份只做文件与人话：不碰 Tk、不发网络。问模型那一趟由界面注入（自检传假函数），离线可跑。
 """
 import re
+from collections import namedtuple
 from pathlib import Path
 from idea_script_heuristic import looks_like_script
 from project_context import ProjectContext
@@ -23,7 +24,7 @@ from idea_brief_form import (
 from idea_document_paths import (
     PROJECT_DOCUMENT_DIRS, ChatModel, brief_complete_path, brief_raw_path, legacy_brief_raw_path,
     project_document_directory, project_script_filename, reply_document_path, reply_path_parts,
-    storage_identity, _file_day, _project_file_type, _storage_name)
+    storage_identity, _file_day, _file_part, _project_file_type, _storage_name)
 from idea_transcript import (
     CHAT_NAME, FOLDER, _HISTORY_CACHE_LIMIT, _all_rows, _history_cache, _read_rows, _row_indexes,
     _stamp, _visible_claude_text, append, chat_model, compact_context, deleted_history_path,
@@ -99,7 +100,7 @@ def usage_compact(rows):
 
 
 def save_reply(root, text, at=None, provider='', model='', *, publish=None, reuse_latest=True):
-    """组织确认下载的模型创意；发布由调用方注入的 L3 完成。"""
+    """组织要存档的模型创意（自动存档走这里）；发布由调用方注入的 L3 完成。"""
     context = _context(root)
     value = str(text or '').replace('\r\n', '\n').strip()
     if not value:
@@ -327,14 +328,14 @@ def save_manual_creative(root, text, at=None, *, publish=None):
                                                 for directory in PROJECT_DOCUMENT_DIRS.values())},))[name]
 
 
-# 下载按钮上的短名：保存类型 → 按钮文字。
+# 自动存档的类型短名：保存类型 → 状态栏里的叫法。
 DOWNLOAD_LABELS = {'项目设定': '设定', '项目大纲': '大纲', '角色卡': '角色卡', '自然剧本': '剧本'}
 
 
 def download_kind(text):
-    """当前模型输出能下载成哪一类文件（设定／大纲／角色卡／剧本）；不能下载返回空串。
+    """当前模型输出能存成哪一类文件（设定／大纲／角色卡／剧本）；不能存返回空串。
 
-    剧本仍要求完整剧本结构；设定、大纲、角色卡按标题归类即可下载审阅。
+    剧本仍要求完整剧本结构；设定、大纲、角色卡按标题归类即可存档审阅。
     """
     value = str(text or '').strip()
     if not is_project_document_text(value):
@@ -349,6 +350,84 @@ def is_project_document_text(text):
     """仅让可归入项目设定、大纲、角色卡或剧本的模型正文进入项目文件。"""
     value = str(text or '').strip()
     return bool(value and any(mark in value for mark in PROJECT_CONTENT_MARKS))
+
+
+# 自动存档结果：kept 是正文与本对话任一回复都对不上（多半手改过）而没被覆盖的旧文件；
+# new_script 表示这是本模型对话里第一份剧本，三虎只在这时问要不要进分镜。
+AutoSaved = namedtuple('AutoSaved', 'kind path kept new_script')
+
+
+def _script_reply(text):
+    """会存成项目剧本的模型回复：剧本结构完整，且过得了自然剧本闸门。"""
+    from script_contract import is_natural_script
+    return download_kind(text) == '剧本' and is_natural_script(text)
+
+
+def auto_save_reply(root, model='', *, publish=None, gateway=None, at=None):
+    """把本模型最新一条回复存成设定／大纲／角色卡／剧本；不是这四类返回 None。
+
+    设定／大纲／角色卡照旧覆盖本模型最新一份；那份正文与本对话任一回复都对不上时视为
+    手改过，不覆盖，按 ``at`` 的日期另存一份。剧本一向另存新版本，同稿复用原文件。
+    """
+    context = _context(root)
+    replies = [str(row.get('text') or '').replace('\r\n', '\n').strip()
+               for row in load(context, model=model, gateway=gateway) if str(row.get('role')) != 'user']
+    reply = replies[-1] if replies else ''
+    kind = download_kind(reply)
+    if not kind:
+        return None
+    provider, name = storage_identity(model)
+    file_type = _project_file_type(reply)
+    value = reply
+    if file_type == '自然剧本':
+        from script_contract import require_natural_script
+        value = require_natural_script(reply)
+    current = reply_document_path(context, value, at=at, provider=provider, model=name, file_type=file_type)
+    existing = (current.read_text(encoding='utf-8', errors='ignore').replace('\r\n', '\n').strip()
+                if current.is_file() else '')
+    kept = current if existing and existing != value and existing not in replies else None
+    path = save_reply(context, reply, at, provider, name, publish=publish, reuse_latest=kept is None)
+    new_script = kind == '剧本' and not existing and not any(_script_reply(text) for text in replies[:-1])
+    return AutoSaved(kind, path, kept, new_script)
+
+
+def import_local_document(root, text, filename, at=None, *, publish=None):
+    """「添加剧本」：本地文件按正文归入设定／大纲／角色卡／剧本，认不出的归剧本。
+
+    返回 ``(保存类型, 路径)``。同目录已有同样正文时复用那份；同名不覆盖，文件内容段递增 (N)。
+    """
+    context = _context(root)
+    value = str(text or '').replace('\r\n', '\n').strip()
+    if not value:
+        raise ValueError('文件里没有文字')
+    if not callable(publish):
+        raise TypeError('添加的剧本文件需要由 L3 注入发布器。')
+    from script_contract import project_name, require_natural_script, stage_file_info
+    from stage_path_service import write_dir
+    file_type = _project_file_type(value)
+    if file_type == '自然剧本':
+        value = require_natural_script(value)
+    stem = Path(filename).stem
+    label = (stage_file_info(stem + '.md') or {}).get('content') or stem
+    title = project_name(context.root)
+    if label.startswith(title) and label[len(title):].startswith((' ', '-', '_')):
+        label = label[len(title):].lstrip(' -_') or label
+    label = _file_part(label, '添加文件')
+    batch, directory = '创意_' + _file_day(at), project_document_directory(file_type)
+    folder = write_dir(context.root, 'script') / batch / directory
+    if folder.is_dir():
+        for existing in sorted(folder.glob('*.md')):
+            if existing.is_file() and existing.read_text(encoding='utf-8', errors='ignore').strip() == value:
+                return file_type, existing
+    content, number = label, 0
+    while (folder / project_script_filename(context, at=at, file_type=file_type, content=content)).exists():
+        number += 1
+        suffix = '(' + str(number) + ')'
+        content = label[:80 - len(suffix)] + suffix
+    name = '/'.join((batch, directory, project_script_filename(context, at=at, file_type=file_type, content=content)))
+    return file_type, publish(context.root, ({'name': name, 'data': value.encode('utf-8'),
+                                              'directories': tuple(batch + '/' + folder_name for folder_name
+                                                                   in PROJECT_DOCUMENT_DIRS.values())},))[name]
 
 
 def _brief_value(text, labels):

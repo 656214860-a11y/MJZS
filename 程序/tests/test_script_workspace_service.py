@@ -272,7 +272,7 @@ class ScriptWorkspaceServiceTests(unittest.TestCase):
                              batch_selected_script_paths(temp, [one, two], {str(two)}, [one]))
             self.assertEqual((one.resolve(),),
                              batch_selected_script_paths(temp, [one, two], set(), [one]))
-            with self.assertRaisesRegex(ValueError, '请先勾选'):
+            with self.assertRaisesRegex(ValueError, '请先选择'):
                 batch_selected_script_paths(temp, [one, two], set())
 
     def test_rename_path_validates_source_name_and_existing_destination(self):

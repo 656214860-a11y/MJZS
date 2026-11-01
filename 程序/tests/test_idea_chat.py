@@ -41,13 +41,14 @@ class _InjectedIdeaChat:
     _gateway_operations = frozenset({
         'append', 'load', 'remove', 'repair_internal_replies', 'replace',
         'restore_latest_removed', 'receive_brief', 'save_brief_creation', 'save_rows',
-        'latest_text', 'compact_context', 'remove_all',
+        'latest_text', 'compact_context', 'remove_all', 'auto_save_reply',
     })
     _operations = frozenset({
         'model_history_path', 'history_path', 'deleted_history_path',
         'brief_raw_path', 'legacy_brief_raw_path', 'brief_complete_path',
         'brief_creation_values', 'initial_brief_document', 'default_brief_document',
         'creative_documents', 'latest_reply', 'save_reply', 'save_manual_creative',
+        'import_local_document',
     }) | _gateway_operations
 
     def __getattr__(self, name):
@@ -145,16 +146,13 @@ class SavingTests(unittest.TestCase):
                     idea_chat.load(td, model='first')
             self.assertEqual(old.read_text(encoding='utf-8'), content)
 
-    def download_page(self, root, model):
-        page = SimpleNamespace(
+    def autosave_page(self, root):
+        return SimpleNamespace(
             idea_chat_context=lambda: project_context(root),
-            idea_chat_gateway=idea_chat_gateway, idea_chat_model=lambda: model,
-            idea_download=Mock(), close_dialog=Mock(), status=Mock(), pet=Mock())
-        page.update_script_download_button = lambda: Desktop.update_script_download_button(page)
-        page.displayed_chat_model = lambda: Desktop.displayed_chat_model(page)
-        return page
+            idea_chat_gateway=idea_chat_gateway, refresh_script_list=Mock(), pet=Mock())
 
-    def test_download_uses_current_model_latest_reply_and_identity(self):
+    def test_auto_save_uses_current_model_latest_reply_and_identity(self):
+        """REQ-S01-76：自动存档只取当前模型最新一条回复，文件名带当前模型身份；同稿再存复用原文件。"""
         with tempfile.TemporaryDirectory() as td, patch(
                 'idea_chat.storage_identity', side_effect=lambda label: (label.lower(), label)) as identity:
             first = '# 自然剧本\n场景 1：雨夜\n台词：旧稿。\n' + '旧稿' * 200
@@ -163,22 +161,147 @@ class SavingTests(unittest.TestCase):
             idea_chat.append(td, 'assistant', first, model='DeepSeek')
             idea_chat.append(td, 'assistant', other, model='GPT')
             idea_chat.append(td, 'assistant', latest, model='DeepSeek')
-            page = self.download_page(td, 'DeepSeek')
-            self.assertTrue(page.update_script_download_button())
-            saved = Desktop.download_script(page)
-            self.assertEqual(saved.read_text(encoding='utf-8').strip(), latest)
-            self.assertIn('deepseek', saved.name.lower())
-            self.assertEqual(Desktop.download_script(page), saved)
+            saved = idea_chat.auto_save_reply(td, 'DeepSeek', publish=publish_idea_creative)
+            self.assertEqual((saved.kind, saved.kept), ('剧本', None))
+            self.assertEqual(saved.path.read_text(encoding='utf-8').strip(), latest)
+            self.assertIn('deepseek', saved.path.name.lower())
+            self.assertEqual(idea_chat.auto_save_reply(td, 'DeepSeek', publish=publish_idea_creative).path, saved.path)
             self.assertEqual(identity.call_args.args, ('DeepSeek',))
 
-    def test_download_cannot_borrow_another_model_reply(self):
+    def test_auto_save_cannot_borrow_another_model_reply(self):
+        """REQ-S01-76：当前模型没有可存档的回复时不借别的模型的剧本，不刷新文件表、不惊动三虎。"""
         with tempfile.TemporaryDirectory() as td:
             idea_chat.append(td, 'assistant', '# 自然剧本\n场景 1\n台词：你好\n' + '正文' * 200,
                              model='GPT')
-            page = self.download_page(td, 'DeepSeek')
-            self.assertFalse(page.update_script_download_button())
-            with self.assertRaisesRegex(ValueError, '请先让模型生成完整剧本'):
-                Desktop.download_script(page)
+            self.assertIsNone(idea_chat.auto_save_reply(td, 'DeepSeek', publish=publish_idea_creative))
+            page = self.autosave_page(td)
+            self.assertEqual(Desktop.auto_save_script_reply(page, 'DeepSeek', {'ok': True}), '')
+            page.refresh_script_list.assert_not_called()
+            page.pet.script_downloaded.assert_not_called()
+            self.assertEqual(list(writing_dir(td).rglob('*.md')), [])
+
+    def test_auto_save_keeps_hand_edited_setting_and_saves_new_version(self):
+        """REQ-S01-76：设定照旧覆盖本模型最新一份；那份手改过（与任一回复都对不上）就不覆盖，新回复另存并点名。"""
+        with tempfile.TemporaryDirectory() as td:
+            page = self.autosave_page(td)
+            def reply(text):
+                idea_chat.append(td, 'assistant', text, model='DeepSeek')
+                return idea_chat.auto_save_reply(td, 'DeepSeek', publish=publish_idea_creative)
+            first = reply('# 项目设定\n世界观：雨城，第一稿。')
+            self.assertEqual((first.kind, first.kept, first.new_script), ('设定', None, False))
+            second = reply('# 项目设定\n世界观：雨城，第二稿。')
+            self.assertEqual((second.path, second.kept), (first.path, None))
+            self.assertIn('第二稿', first.path.read_text(encoding='utf-8'))
+            hand = '# 项目设定\n世界观：雨城，用户手改。'
+            first.path.write_text(hand, encoding='utf-8')
+            earlier = time.time() - 60
+            os.utime(first.path, (earlier, earlier))
+            idea_chat.append(td, 'assistant', '# 项目设定\n世界观：雨城，第三稿。', model='DeepSeek')
+            status = Desktop.auto_save_script_reply(page, 'DeepSeek', {'ok': True})
+            self.assertIn('「' + first.path.name + '」与模型回复不一致（可能手改过），未覆盖', status)
+            third = first.path.with_name(status.split('另存为「', 1)[1].rstrip('」'))
+            self.assertNotEqual(third, first.path)
+            self.assertIn('第三稿', third.read_text(encoding='utf-8'))
+            self.assertEqual(first.path.read_text(encoding='utf-8'), hand)
+            page.refresh_script_list.assert_called_once()
+            page.pet.script_downloaded.assert_not_called()
+            fourth = reply('# 项目设定\n世界观：雨城，第四稿。')
+            self.assertEqual((fourth.path, fourth.kept), (third, None))
+            self.assertIn('第四稿', third.read_text(encoding='utf-8'))
+            self.assertEqual(first.path.read_text(encoding='utf-8'), hand)
+
+    def test_pet_asks_about_storyboard_once_per_new_script(self):
+        """REQ-S01-76：模型对话里第一份剧本才通知三虎问要不要进分镜；改稿另存新版本不再问，清空对话后的新剧本再问。"""
+        with tempfile.TemporaryDirectory() as td:
+            page = self.autosave_page(td)
+            def reply(text):
+                idea_chat.append(td, 'assistant', text, model='DeepSeek')
+                return Desktop.auto_save_script_reply(page, 'DeepSeek', {'ok': True})
+            first = '# 自然剧本\n场景 1：雨夜\n台词：第一稿。\n' + '一稿' * 200
+            status = reply(first)
+            page.pet.script_downloaded.assert_called_once()
+            saved = page.pet.script_downloaded.call_args.args[0]
+            self.assertEqual(status, '剧本已自动存档：' + saved.name)
+            self.assertEqual(saved.read_text(encoding='utf-8').strip(), first)
+            page.refresh_script_list.assert_called_once()
+            revision = '# 自然剧本\n场景 1：雨夜\n台词：改稿。\n' + '改稿' * 200
+            status = reply(revision)
+            page.pet.script_downloaded.assert_called_once()
+            revised = saved.with_name(status.split('已自动存档：', 1)[1])
+            self.assertNotEqual(revised, saved)
+            self.assertEqual(revised.read_text(encoding='utf-8').strip(), revision)
+            self.assertEqual(saved.read_text(encoding='utf-8').strip(), first)
+            self.assertEqual(reply(revision), status)
+            page.pet.script_downloaded.assert_called_once()
+            idea_chat.remove_all(td, model='DeepSeek')
+            fresh = '# 自然剧本\n场景 1：晴天\n台词：新故事。\n' + '新篇' * 200
+            reply(fresh)
+            self.assertEqual(page.pet.script_downloaded.call_count, 2)
+            self.assertEqual(page.pet.script_downloaded.call_args.args[0].read_text(encoding='utf-8').strip(), fresh)
+
+    def test_add_script_files_sorts_local_files_into_four_columns(self):
+        """REQ-S01-76：「添加剧本」按正文把 txt／md 归入设定／大纲／角色卡／剧本，认不出的归剧本；同稿复用，同名异稿另存。"""
+        import script_workspace_service
+        with tempfile.TemporaryDirectory() as td, tempfile.TemporaryDirectory() as picked:
+            source = Path(picked)
+            texts = {
+                '世界观.md': '# 项目设定\n世界观：雨城常年下雨。',
+                '大纲.txt': '# 分集大纲\n第一集：照相馆接到旧底片。',
+                '人物.md': '# 角色卡\n林夜：夜班摄影师。',
+                '第一集.txt': '# 自然剧本\n场景 1：雨夜\n台词：谁在敲门？\n' + '正文' * 200,
+                '随笔.md': '想到一个点子：底片里的人会动。',
+                '分镜.json': '{"shots": []}',
+            }
+            for name, text in texts.items():
+                (source / name).write_text(text, encoding='utf-8')
+            status = []
+            page = SimpleNamespace(
+                root=Path(td), win=None, idea_chat_context=lambda: project_context(td),
+                refresh_script_list=Mock(), status=SimpleNamespace(set=status.append),
+                file_dialog=SimpleNamespace(open_files=Mock(return_value=[str(source / name) for name in texts])))
+            added = Desktop.add_script_files(page)
+            self.assertEqual([(file_type, path.parent.name) for file_type, path in added], [
+                ('项目设定', '项目设定'), ('项目大纲', '项目大纲'), ('角色卡', '角色卡'),
+                ('自然剧本', '项目剧本'), ('自然剧本', '项目剧本')])
+            for (_file_type, path), text in zip(added, texts.values()):
+                self.assertEqual(path.read_text(encoding='utf-8'), text.strip())
+                self.assertTrue(path.parent.parent.name.startswith('创意_'))
+            self.assertEqual(status[-1], '已添加 设定 1 份、大纲 1 份、角色卡 1 份、剧本 2 份；'
+                                         '未添加 分镜.json：只支持 txt、md、docx')
+            page.refresh_script_list.assert_called_once()
+            found = {row.path: row.category for row in script_workspace_service.discover_script_documents(Path(td))}
+            self.assertEqual([found.get(path) for _file_type, path in added],
+                             ['setting', 'outline', 'character', 'script', 'script'])
+            page.file_dialog.open_files.return_value = [str(source / '世界观.md')]
+            self.assertEqual(Desktop.add_script_files(page), [added[0]])
+            (source / '世界观.md').write_text('# 项目设定\n世界观：雨城改成雪城。', encoding='utf-8')
+            [(_file_type, changed)] = Desktop.add_script_files(page)
+            self.assertEqual(changed.parent, added[0][1].parent)
+            self.assertNotEqual(changed, added[0][1])
+            self.assertIn('(1)', changed.name)
+            self.assertIn('雪城', changed.read_text(encoding='utf-8'))
+            self.assertIn('雨城常年下雨', added[0][1].read_text(encoding='utf-8'))
+
+    def test_add_script_files_reads_docx_text(self):
+        """REQ-S01-76：「添加剧本」也收 Word（docx），按段落取正文后同样按内容归列。"""
+        import zipfile
+        body = ('<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="http://schemas.openxmlformats.org/'
+                'wordprocessingml/2006/main"><w:body>{}</w:body></w:document>')
+        paragraphs = ['# 角色卡', '林夜：夜班摄影师。']
+        with tempfile.TemporaryDirectory() as td, tempfile.TemporaryDirectory() as picked:
+            docx = Path(picked) / '人物.docx'
+            with zipfile.ZipFile(docx, 'w') as archive:
+                archive.writestr('word/document.xml', body.format(
+                    ''.join('<w:p><w:r><w:t>%s</w:t></w:r></w:p>' % text for text in paragraphs)))
+            status = []
+            page = SimpleNamespace(
+                root=Path(td), win=None, idea_chat_context=lambda: project_context(td),
+                refresh_script_list=Mock(), status=SimpleNamespace(set=status.append),
+                file_dialog=SimpleNamespace(open_files=Mock(return_value=[str(docx)])))
+            [(file_type, path)] = Desktop.add_script_files(page)
+            self.assertEqual((file_type, path.parent.name), ('角色卡', '角色卡'))
+            self.assertEqual(path.read_text(encoding='utf-8'), '\n'.join(paragraphs))
+            self.assertEqual(status[-1], '已添加 角色卡 1 份')
 
     def test_compact_context_keeps_original_and_new_messages_across_reload(self):
         with tempfile.TemporaryDirectory() as td:
@@ -1079,37 +1202,44 @@ class SendMessageTests(_Harness):
             self.assertTrue(d.refresh_script_workspace())
             self.assertEqual(idea_chat.latest_text(proj), '第一集正文')
 
-    def test_download_is_immediately_left_of_open_script_folder(self):
+    def test_action_bar_buttons_follow_creation_order_without_overlap(self):
+        """REQ-S01-76：「添加剧本」「剧本目录」「质检报告」依次跟在「刷新」后面，换行时也互不遮挡。"""
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)
             d.show(0); win.update()
-            self.assertEqual(d.idea_download.winfo_manager(), 'place')
-            self.assertEqual(d.idea_open_folder.winfo_manager(), 'place')
-            download = (d.idea_download.winfo_x(), d.idea_download.winfo_y(),
-                        d.idea_download.winfo_width(), d.idea_download.winfo_height())
-            folder = (d.idea_open_folder.winfo_x(), d.idea_open_folder.winfo_y(),
-                      d.idea_open_folder.winfo_width(), d.idea_open_folder.winfo_height())
-            overlap = (download[0] < folder[0] + folder[2] and folder[0] < download[0] + download[2]
-                       and download[1] < folder[1] + folder[3] and folder[1] < download[1] + download[3])
-            self.assertFalse(overlap, '下载剧本与剧本目录在窄窗口换行时也不能互相遮挡')
-            self.assertEqual(d.idea_open_folder.cget('text'), '剧本目录')
+            self.assertFalse(hasattr(d, 'idea_download'))
+            by_text = {str(c.cget('text')): c for c in d.idea_row.winfo_children() if isinstance(c, ttk.Button)}
+            chain = [by_text['刷新'], d.idea_add_script, d.idea_open_folder, by_text['质检报告']]
+            self.assertEqual([button.cget('text') for button in chain], ['刷新', '添加剧本', '剧本目录', '质检报告'])
+            self.assertTrue(all(button.winfo_manager() == 'place' for button in chain))
+            boxes = [(b.winfo_x(), b.winfo_y(), b.winfo_width(), b.winfo_height()) for b in chain]
+            for index, (left, top, width, height) in enumerate(boxes):
+                for other_left, other_top, other_width, other_height in boxes[index + 1:]:
+                    overlap = (left < other_left + other_width and other_left < left + width
+                               and top < other_top + other_height and other_top < top + height)
+                    self.assertFalse(overlap, '动作栏在窄窗口换行时按钮也不能互相遮挡')
+            for (left, top, width, _height), (next_left, next_top, _w, _h) in zip(boxes, boxes[1:]):
+                self.assertTrue(next_top > top or (next_top == top and next_left >= left + width),
+                                '按创建顺序排列：同一行在右侧，或换到下一行')
 
-    def test_delete_button_sits_right_of_refresh(self):
+    def test_script_action_bar_has_no_download_delete_or_split_quality_buttons(self):
+        """REQ-S01-76：模型回复自动存档，底栏不再有「下载文件」；删除只走表格右键；两颗质检按钮合成「质检报告」。"""
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)
             d.show(0); win.update()
             buttons = [c for c in d.idea_row.winfo_children() if isinstance(c, ttk.Button)]
-            by_text = {str(c.cget('text')): c for c in buttons}
-            self.assertNotIn('删除剧本', by_text)
-            refresh, delete = by_text['刷新'], by_text['删除']
-            self.assertLessEqual(abs(refresh.winfo_rooty() - delete.winfo_rooty()), 2, '同一行')
-            self.assertGreaterEqual(delete.winfo_rootx(), refresh.winfo_rootx() + refresh.winfo_width() - 2)
-            between = [c for c in buttons if c not in (refresh, delete)
+            labels = {str(c.cget('text')) for c in buttons}
+            for removed in ('删除', '删除剧本', '下载文件', '下载剧本', '查看质检报告', '质检目录'):
+                self.assertNotIn(removed, labels)
+            refresh, add = d.idea_refresh, d.idea_add_script
+            self.assertLessEqual(abs(refresh.winfo_rooty() - add.winfo_rooty()), 2, '同一行')
+            self.assertGreaterEqual(add.winfo_rootx(), refresh.winfo_rootx() + refresh.winfo_width() - 2)
+            between = [c for c in buttons if c not in (refresh, add) and c.winfo_manager() == 'place'
                        and abs(c.winfo_rooty() - refresh.winfo_rooty()) <= 2
-                       and refresh.winfo_rootx() < c.winfo_rootx() < delete.winfo_rootx()]
-            self.assertEqual(between, [], '删除紧跟在刷新右侧，中间没有别的按钮')
+                       and refresh.winfo_rootx() < c.winfo_rootx() < add.winfo_rootx()]
+            self.assertEqual(between, [], '添加剧本紧跟在刷新右侧，中间没有别的按钮')
 
     def test_script_action_bar_uses_compact_renamed_buttons(self):
         import desktop
@@ -1119,16 +1249,18 @@ class SendMessageTests(_Harness):
             d.show(0); win.update()
             buttons = [child for child in d.idea_row.winfo_children()
                        if isinstance(child, ttk.Button)]
-            action_labels = {'发送', '刷新', '下载文件', '下载设定', '下载大纲', '下载角色卡', '下载剧本', '剧本目录', '删除', '添加剧本'}
+            action_labels = {'发送', '刷新', '剧本目录', '添加剧本', '质检报告', '采风'}
             labels = {button.cget('text') for button in buttons}
-            self.assertTrue({'发送', '剧本目录', '删除', '添加剧本'} <= labels)
+            self.assertTrue(action_labels <= labels)
             self.assertNotIn('中断', labels)
+            self.assertNotIn('下载文件', labels)
+            self.assertNotIn('删除', labels)
             for button in buttons:
                 if button.cget('text') in action_labels:
                     self.assertEqual(button.cget('width'), desktop.SCRIPT_ACTION_WIDTH)
 
     def test_script_action_bar_wraps_instead_of_clipping_buttons_when_narrow(self):
-        """剧本页缩窄时操作栏分行，不能把“删除”挤成半个字。"""
+        """剧本页缩窄时操作栏分行，不能把按钮挤成半个字；不适用的采风隐藏且不占位（REQ-S01-46）。"""
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)
@@ -1137,10 +1269,15 @@ class SendMessageTests(_Harness):
             buttons = [child for child in d.idea_row.winfo_children()
                        if isinstance(child, ttk.Button)]
             self.assertEqual(d.idea_row.winfo_class(), 'TFrame')
-            self.assertTrue(all(button.winfo_manager() == 'place' for button in buttons))
+            self.assertEqual(d.idea_row.hidden_children, {d.recon_button})
+            self.assertEqual(d.recon_button.cget('text'), '采风')
+            self.assertEqual(d.recon_button.winfo_manager(), '')
+            shown = [button for button in buttons if button is not d.recon_button]
+            self.assertTrue(shown)
+            self.assertTrue(all(button.winfo_manager() == 'place' for button in shown))
             self.assertTrue(all(button.winfo_width() >= min(button.winfo_reqwidth(),
                                                              d.idea_row.winfo_width())
-                                for button in buttons))
+                                for button in shown))
 
     def test_the_composer_remains_visible_after_script_confirmation(self):
         with tempfile.TemporaryDirectory() as td:

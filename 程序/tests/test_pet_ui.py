@@ -7071,11 +7071,11 @@ class AutoStartTests(PetTestCase):
         self.assertFalse(self.pet.auto.armed, '只提醒档不再替用户开阶段')
 
     def test_script_download_is_the_only_storyboard_prompt_time(self):
-        """模型回话不弹完成框；用户下载剧本后才问要不要制作分镜。"""
+        """REQ-S01-76：模型回话不弹完成框；剧本自动存档（每份新剧本一次）后才问要不要制作分镜。"""
         prompts = []
         self.pet.confirm = lambda text, **kwargs: prompts.append(text) or text
         self.pet.script_downloaded('剧本.md')
-        self.assertEqual(prompts, ['【下一阶段】剧本已下载。现在制作分镜吗？'])
+        self.assertEqual(prompts, ['【下一阶段】剧本已保存。现在制作分镜吗？'])
 
     def test_downloading_a_real_script_completes_the_automatic_script_stage(self):
         saved = self.fake.root / 'writing' / '创意_20260926' / '项目_EP001_20260926.md'

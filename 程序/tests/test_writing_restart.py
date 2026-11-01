@@ -191,6 +191,8 @@ class WritingRestartTests(unittest.TestCase):
         node = next(item for item in ast.walk(tree) if isinstance(item, ast.FunctionDef)
                     and item.name == 'script_menu')
         tree = Mock()  # 阶段动作按所点行的类别决定（R1862 复原四张表后仍按行类别）
+        # 表格支持多选后菜单先看选区：这里每次右键的行就是唯一选中行（单选菜单）。
+        tree.selection.side_effect = lambda: (tree.identify_row.return_value,)
         rows = {'row-' + name: name for name in ('setting', 'outline', 'character', 'script')}
         restart = Mock()
         menu = Mock()

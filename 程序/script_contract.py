@@ -863,7 +863,7 @@ def write_structured_script(project, content=None, source=None, publisher=None,
     writing = write_dir(root, 'script').resolve()
     source = resolve_script_source(root) if source is None else Path(source)
     if source is None or not source.is_file():
-        raise ValueError('未找到可读取的剧本原稿，请先在“剧本准备”生成或下载剧本。')
+        raise ValueError('未找到可读取的剧本原稿，请先在“剧本准备”生成或添加剧本。')
     source = source.resolve()
     readable = (writing, *[path.resolve() for path in legacy_read_dirs(root, 'script')])
     if not any(source.is_relative_to(folder) for folder in readable):

@@ -170,8 +170,10 @@ class CompactDesktopGeometryTests(unittest.TestCase):
     def test_actions_hint_and_full_file_details(self):
         self.resize(800, 600)
         d = self.desktop
+        # 素材来源不适用时采风隐藏不占位（REQ-S01-46），只有它可以不量宽度。
+        self.assertTrue(all(button.cget('text') == '采风' for button in d.idea_row.hidden_children))
         for button in d.idea_row.winfo_children():
-            if 'text' not in button.keys():continue
+            if 'text' not in button.keys() or button in d.idea_row.hidden_children:continue
             style = ttk.Style(button)
             font_spec = style.lookup(button.cget('style') or 'TButton', 'font')
             self.assertGreaterEqual(button.winfo_width(), font.Font(root=button, font=font_spec).measure(button.cget('text')))

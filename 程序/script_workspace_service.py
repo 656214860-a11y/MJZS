@@ -318,13 +318,13 @@ def selected_script_paths(project, paths, require_files=False):
 
 
 def batch_selected_script_paths(project, item_paths, checked_paths, active_paths=()):
-    """返回批量删除目标：优先勾选项，未勾选时回退到当前高亮项。"""
+    """返回删除目标：表格里选中的各行；没有时回退到当前高亮项。"""
     checked = {str(path) for path in checked_paths}
     selected = [path for path in item_paths if str(path) in checked]
     if not selected:
         selected = list(active_paths)[:1]
     if not selected:
-        raise ValueError('请先勾选要删除的剧本文件')
+        raise ValueError('请先选择要删除的剧本文件')
     return selected_script_paths(project, selected, require_files=True)
 
 
