@@ -890,6 +890,10 @@ class _FlowAgentLaunch:
         if self.stage=='assets' and self.direct and not self.intake_only and self.config['engine']=='qwen':
             # 唯一分流点（REQ-S05-50／REQ-S08-52）：引擎为 qwen 的资产／首帧出图由程序直接执行 image_agent_runner，不再经 Qwen Code。
             _run_image_direct(self.host,self.direct);return
+        if self.stage=='previs':
+            # REQ-S09-50：白模预演只走本地 Agent；API 模型（engine=qwen）不再悄悄起 Qwen Code，直接提示。
+            from previs_automation import require_local_agent
+            require_local_agent(self.config)
         if self.stage == 'writing' and not self.intake_only:
             from workflow_settings import freeze_skills
             self.config = freeze_skills(self.config)

@@ -119,7 +119,7 @@ class DirectApiTests(unittest.TestCase):
             chat._FlowAgentLaunch(host, request).build()
         direct.assert_called_once()
         qwen.assert_not_called()
-        request = chat._FlowAgentRequest('previs', '预演', '任务', None, None, self.config, False, False, False)
+        request = chat._FlowAgentRequest('video_prompt', '视频提示词', '任务', None, None, self.config, False, False, False)
         with patch('workflow_settings.current', return_value=self.config), \
                 patch('storyboard_direct_api.direct_model', return_value=('m', {})) as model, \
                 patch('desktop_idea_chat._run_storyboard_direct') as direct, \
