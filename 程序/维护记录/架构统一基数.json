@@ -1164,6 +1164,12 @@
                 "point": "_read_json:json.loads:ba5f15a4e6a1061d:1",
                 "disposition": "exempt",
                 "reason": "R1895\uff1a\u89e3\u6790\u8d26\u53f7\u670d\u52a1 HTTP \u54cd\u5e94\u4f53\uff0c\u4e0d\u8bfb\u53d6\u6587\u4ef6\u3002"
+            },
+            {
+                "file": "storyboard_direct_api.py",
+                "point": "_extract_json:json.loads:da95b1449dbe88d3:1",
+                "disposition": "exempt",
+                "reason": "\u76f4\u8fde\u5206\u955c\uff08REQ-S03-53\uff09\uff1a\u89e3\u6790\u6a21\u578b\u56de\u590d\u7684\u5185\u5b58\u6587\u672c\uff0c\u4e0d\u8bfb\u53d6\u6b63\u5f0f\u6587\u4ef6\uff1b\u6587\u4ef6\u8bfb\u53d6\u6cbf\u7528core.read\u3002"
             }
         ]
     },

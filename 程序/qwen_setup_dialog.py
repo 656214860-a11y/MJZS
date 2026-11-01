@@ -2,13 +2,12 @@
 
 只负责 Tk 控件与事件；连接设置的读取、校验与密钥读写都经 ``qwen_setup``。
 """
-import json,threading
 # 第 34 期第 9 条：`urllib.request` 连 ssl 一起加载（约 4.4 MB 常驻），验证连接时才 import。
 import tkinter as tk
 from tkinter import ttk
 from api_models import records,remember,remove,label,identity
 from agent.core import save
-from qwen_setup import load,save_key,settings_path,unified_key,validate
+from qwen_setup import load,probe,save_key,settings_path,unified_key,validate
 import tk_timers
 from ui_tokens import WRAPLENGTH, SPACING
 from ui_widgets import (SelectBox, Card, DescriptionBlock, FormDialog, LineInput, PrimaryButton,
@@ -65,23 +64,7 @@ def show(parent,on_saved=None):
         try:cfg=values()
         except ValueError as exc:status.set(str(exc));return
         status.set('正在验证连接…')
-        result=[]
-        def run():
-            from urllib.request import Request,urlopen           # 第 34 期第 9 条：HTTP 栈按需加载
-            try:
-                request=Request(cfg['base_url']+'/models',headers={'Authorization':'Bearer '+cfg['api_key']})
-                with urlopen(request,timeout=15) as response:data=json.load(response)
-                models=[str(m.get('id')) for m in data.get('data',[])]
-                result.append('API 已连接；模型在返回列表中。' if cfg['model'] in models else 'API 已连接；请确认填写的模型已开通权限。')
-            except Exception as exc:
-                code=getattr(exc,'code',None)
-                result.append('连接失败'+('（HTTP '+str(code)+'）' if code else '')+'，请检查网络、根地址和 API Key。')
-        def poll():
-            if not win.winfo_exists():return
-            if not result:return
-            status.set(result[0]);stop()
-        threading.Thread(target=run,daemon=True).start()
-        stop=tk_timers.repeat(win,250,poll);poll()
+        tk_timers.run_in_background(win,lambda:probe(cfg),status.set,lambda exc:status.set('连接失败，请检查网络、根地址和 API Key。'))
     row=ttk.Frame(body);row.grid(row=7,column=0,columnspan=2,sticky='w',pady=SPACING['sm'])
     PrimaryButton(row,text='保存设置',command=commit).pack(side='left')
     SecondaryButton(row,text='删除模型',command=delete_model).pack(side='left',padx=SPACING['sm'])

@@ -11,7 +11,7 @@ import stage_handler_registry
 import stage_parallel
 from tkinter import TclError
 from ui_widgets import ask_confirmation, ask_string
-from pet_ui_support import ADVANCE_SECONDS, AUTO_STAGE_VARIABLES, AUTO_VARIABLE_NAMES, CONFIRM_NEED, CONFIRM_TITLE, FALLBACK_ASK, LEVEL_SWITCH_NOTES, ONE_CLICK_ASK, ONE_CLICK_TITLE, PAGE_ASKS, PAW_LEVELS, SANHU_MODES, STAGE_ASK_SECONDS, _BooleanFlag
+from pet_ui_support import ADVANCE_SECONDS, AUTO_STAGE_VARIABLES, AUTO_VARIABLE_NAMES, CONFIRM_NEED, CONFIRM_TITLE, FALLBACK_ASK, LEVEL_SWITCH_NOTES, ONE_CLICK_ASK, ONE_CLICK_TITLE, PAGE_ASKS, PAW_LEVELS, SANHU_MODES, STAGE_ASK_SECONDS, _BooleanFlag, accepts_keyword
 
 
 class PetStagesMixin:
@@ -919,9 +919,8 @@ class PetStagesMixin:
         try:
             # 宿主需要知道这是自动链的派发：没有输入、或所有输入均已采用时，
             # 它才能给 active 的 storyboard 一个确定的终态事件。保留无参数
-            # 接缝兼容，避免旧版宿主／自检替身被这次参数扩展打断。
-            try:return str(dispatch(trigger='auto') or '')
-            except TypeError:return str(dispatch() or '')
+            # 接缝兼容，避免旧版宿主／自检替身被这次参数扩展打断；先认签名，只派发一次。
+            return str((dispatch(trigger='auto') if accepts_keyword(dispatch, 'trigger') else dispatch()) or '')
         except Exception as exc:
             self.errors.append(('storyboard', str(exc)))
             return '分镜批次未派发：' + str(exc)
@@ -948,8 +947,8 @@ class PetStagesMixin:
         try:
             # 自动链已经先把 keyframe 标成 active。将触发来源传给宿主，才能把
             # 「无分镜／没有缺口／暂时无法派发」收成明确阶段事件；无参数接缝仍兼容。
-            try:return str(dispatch(trigger=trigger) or '')
-            except TypeError:return str(dispatch() or '')
+            # 先认签名、只派发一次：宿主内部抛的 TypeError 不能当成签名不符，再无参派发一遍。
+            return str((dispatch(trigger=trigger) if accepts_keyword(dispatch, 'trigger') else dispatch()) or '')
         except Exception as exc:
             self.errors.append(('firstframe', str(exc)))
             return '首帧批次未派发：' + str(exc)
@@ -1116,7 +1115,7 @@ class PetStagesMixin:
             self.confirm('确认剧本信息后，可继续制作分镜。')
         return result or status
     def script_downloaded(self, path=None, at=None):
-        """已下载的真实剧本可完成阶段；模型首次回复仍不触发弹窗。"""
+        """已保存的真实剧本可完成阶段；同一份剧本改稿不重复询问（由剧本页判断）。"""
         try:
             from pathlib import Path
             saved = Path(path) if path else None
@@ -1129,12 +1128,12 @@ class PetStagesMixin:
             verified, detail = self._completion_evidence('script')
             if verified:
                 self._emit('script.completed', stage='script', source=str(source))
-                self._complete_if_verified('script', '剧本文档已下载')
+                self._complete_if_verified('script', '剧本文档已保存')
             else:
                 self._emit('stage.paused', stage='script',
-                           text='剧本文档已下载（待校验：%s）' % detail)
-        self.broadcast('【完成】剧本文档已下载', at=at)
-        return self.confirm('【下一阶段】剧本已下载。现在制作分镜吗？')
+                           text='剧本文档已保存（待校验：%s）' % detail)
+        self.broadcast('【完成】剧本文档已保存', at=at)
+        return self.confirm('【下一阶段】剧本已保存。现在制作分镜吗？')
     def note_stage(self, page=None, at=None, force_prompt=False, intro=''):
         """第 36 期第 6 条：用户换到别的阶段，三虎看一眼「这一步要不要我自动做」。
 

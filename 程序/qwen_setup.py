@@ -89,3 +89,19 @@ def environment(model='',api=None):
     cfg=validate(cfg);env=child_environment()
     env.update(OPENAI_API_KEY=cfg['api_key'],OPENAI_BASE_URL=cfg['base_url'],OPENAI_MODEL=model or cfg['model'])
     return env
+
+def probe(cfg):
+    """「测试连接」：带密钥查 ``/models``，返回给用户看的一句话（在后台线程里调用）。
+
+    走 model_pool 的统一传输：不跟随重定向（密钥不会被转给跳转目标），并补默认 User-Agent。"""
+    import model_pool                                    # 第 34 期第 9 条：HTTP 栈按需加载
+    try:
+        result=model_pool.http_transport(cfg['base_url']+'/models',None,{'Authorization':'Bearer '+cfg['api_key']},15)
+        if result.get('ok'):
+            models=[str(m.get('id')) for m in result['data'].get('data',[])]
+            return 'API 已连接；模型在返回列表中。' if cfg['model'] in models else 'API 已连接；请确认填写的模型已开通权限。'
+        code=result.get('status')
+    except Exception:                    # 返回体形状不对、地址拼不成请求：只报连接失败，后台线程不能死在半路
+        code=0
+    return '连接失败'+('（HTTP '+str(code)+'）' if code else '')+'，请检查网络、根地址和 API Key。'
+

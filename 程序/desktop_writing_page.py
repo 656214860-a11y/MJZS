@@ -15,7 +15,7 @@ import os
 import tkinter as tk
 import ui_plugin_registry
 from pathlib import Path
-from responsive_ui import CheckboxColumn, FlowBar, bind_row_toggle, configure_check_column, fit_row_height, row_toggle_target
+from responsive_ui import FlowBar, fit_row_height, row_toggle_target
 from tkinter import ttk
 from ui_tokens import BUTTON_GAP_TIGHT, CHAR_WIDTH, COLORS, FONTS, ICON_ADD, ICON_MICROPHONE, ICON_SEND, SCRIPT_ACTION_WIDTH, VOICE_POLL_MS, SCRIPT_FILE_FONT, SCRIPT_FILE_MAX_ROWS, SPACING
 from desktop_file_card import TreeRowCard, script_row_card
@@ -118,11 +118,23 @@ class WritingPageMixin:
         return _WritingPage(self).build()
 
     def build_script_quality_buttons(self, foot):
-        """页脚右侧那组「质检／采风」。创建顺序就是动作栏顺序，调用位置不能挪到「下载文件」之后。"""
-        SecondaryButton(foot,text='查看质检报告',command=lambda:self.safe(self.open_script_quality)).pack(side='right')
-        SecondaryButton(foot,text='质检目录',command=lambda:self.safe(lambda:self.open_script_quality(folder=True))).pack(side='right')
+        """动作栏末尾的「质检报告／采风」。动作栏按创建顺序排列，这两颗要最后创建。
+
+        采风只对「对标爆款」「热点速成」有用：建页时先隐藏，由 ``update_recon_button`` 按素材来源补上。
+        """
+        SecondaryButton(foot,text='质检报告',command=lambda:self.safe(self.open_script_quality)).pack(side='right')
         self.recon_button=SecondaryButton(foot,text='采风',command=lambda:self.safe(self.collect_recon))
-        self.recon_button.pack(side='right',padx=(SPACING['none'],SPACING['xs']))
+        foot.set_visible(self.recon_button,False)
+
+    def update_recon_button(self):
+        """素材来源是「对标爆款」「热点速成」时显示采风，其余来源隐藏（REQ-S01-46）。"""
+        import recon_service, stage_config
+        button=getattr(self,'recon_button',None)
+        try:
+            if button is None or not button.winfo_exists():return
+            source=str(stage_config.workflow_lock(self.root).get('material_source') or '') if self.root else ''
+            button.master.set_visible(button,source in recon_service.MATERIAL_SOURCES)
+        except tk.TclError:return
 
     def collect_recon(self):
         """采集对标情报：素材来源为③④时把公开情报抓回项目，落《对标情报卡》。
@@ -327,17 +339,17 @@ class _WritingPage:
         # 首绘只放示例气泡；真实历史与附件回填等布局稳定后再补，避免拖住 page.paint。
         self.page.show_example_bubble()
         self.page.defer_idea_page_updates()
-        # 下载按钮初始即为禁用；判断历史回复是否可下载会递归扫描旧项目的
-        # Markdown，不能占用“打开项目”的首帧。页面仍在当前代次时再补状态。
+        # 采风按钮初始隐藏；按素材来源补显隐要读阶段配置，不占用“打开项目”的首帧。
+        # 页面仍在当前代次时再补状态。
         self.page_generation=getattr(self.page,'_script_page_generation',0)+1
         self.page._script_page_generation=self.page_generation
         self.script_box=ttk.Frame(self.page.content,padding=(SPACING['xs'],SPACING['xs']));self.script_box.pack(fill='x',expand=False,pady=SPACING['none'])
         self.page.script_box=self.script_box
-        try:self.download_state_job=self.page.win.after(250,self.refresh_download_state)
-        except tk.TclError:self.download_state_job=None
-        self.script_box.bind('<Destroy>',self.cancel_download_state,add='+')
+        try:self.recon_state_job=self.page.win.after(250,self.refresh_recon_state)
+        except tk.TclError:self.recon_state_job=None
+        self.script_box.bind('<Destroy>',self.cancel_recon_state,add='+')
         # 四类文件并排成四列小表（用户 R1862 要求复原）：合成一张整宽表时只有一列文件名，
-        # 横向大片留白、纵向却越排越高。每列表头即分类名，各自一个勾选列，组内按修改时间。
+        # 横向大片留白、纵向却越排越高。每列表头即分类名，组内按修改时间；Ctrl／Shift 可多选。
         categories=(('setting','项目设定'),('outline','项目大纲'),('character','角色卡'),('script','项目剧本'))
         self.script_box.columnconfigure(0,weight=1);self.script_box.rowconfigure(0,weight=1)
         lists=ttk.Frame(self.script_box);lists.grid(row=0,column=0,sticky='nsew')
@@ -348,12 +360,10 @@ class _WritingPage:
         self.page.script_file_tips={}
         for column,(category,title) in enumerate(categories):
             lists.columnconfigure(column,weight=1,uniform='script-files')
-            table=DataTable(lists,columns=[('name',title,180)],show='tree headings',height=1,
-                            selectmode='browse',style='Script.Treeview',auto_hide_scrollbars=True,
+            table=DataTable(lists,columns=[('name',title,180)],show='headings',height=1,
+                            selectmode='extended',style='Script.Treeview',auto_hide_scrollbars=True,
                             empty_text='',horizontal=False)
             tree=table.tree
-            configure_check_column(tree)
-            tree.heading('#0',anchor='center')
             tree.heading('name',text=title,anchor='center')
             tree.column('name',width=SPACING['sm'] * 23,minwidth=100,stretch=True)
             self.page.script_file_tips[category]=TreeRowCard(tree,tips)
@@ -385,29 +395,18 @@ class _WritingPage:
         self.schedule_layout, cancel_layout_job = _build_layout_scheduler(self.page.win)
         self.page.win.bind('<Destroy>', cancel_layout_job, add='+')
         self.schedule_layout(self.fit_composer, self.measure_page_fixed, self.fit_talk)
-        self.checked_scripts=set()
         from writing_page_controller import ScriptListLoadController
         self.script_loader=ScriptListLoadController(category for category,_title in categories)
         self.script_load_job=None
         self.script_box.bind('<Destroy>',self.cancel_script_load,add='+')
         self.page.refresh_script_list=self.fill_script_list
         self.page.open_script_file=self.open_script_file
-        self.script_checks={}
         for tree in self.script_trees.values():
             tree.bind('<Double-1>',self.open_script_file)
             tree.bind('<Return>',self.open_script_file)
             tree.bind('<<TreeviewSelect>>',lambda event,tree=tree:self.keep_one_selection(tree),add='+')
-        for category,tree in self.script_trees.items():
-            check=CheckboxColumn(tree,self.page.win._tick_images,
-                                 lambda item:item in self.checked_scripts,
-                                 lambda item,value:self.checked_scripts.add(item) if value else self.checked_scripts.discard(item),
-                                 self.selection_changed)
-            tree.heading('#0',command=check.toggle_all)
-            self.script_checks[category]=check
-        self.fill_script_list()
-        for category,tree in self.script_trees.items():
-            bind_row_toggle(tree,self.script_checks[category].toggle)
             tree.bind('<Button-3>',lambda event,tree=tree:self.script_menu(tree,event))
+        self.fill_script_list()
 
     def _build_composer(self):
         """上半区：阶段标题、文件表、想法输入框与附件区。"""
@@ -423,7 +422,7 @@ class _WritingPage:
         # 第 71 期任务 5：这一行先摆下来（pack 先给谁算尺寸，谁就不会被挤掉）——窗口缩小时
         # 收的是上面的创意框，那颗「发送」永远留在看得见的地方。
         # 动作栏与其余制作阶段共用可换行布局。普通 pack 的左右两组按钮会在窗口
-        # 变窄时互相挤压，最后把“删除剧本”裁成一个字；FlowBar 会按可用宽度分行，
+        # 变窄时互相挤压，最后把按钮文字裁成一个字；FlowBar 会按可用宽度分行，
         # 每颗按钮始终保留自己的完整文字宽度。
         # 用量与会话说明合成页面最底部的单行状态栏：不换行、放不下就截断，悬停看全文，
         # 不再夹在提示与输入框之间把聊天区往上挤。
@@ -520,24 +519,19 @@ class _WritingPage:
         # 中断”原有相邻顺序，也不再把 stage_config.synchronize 塞进建页回调。
         self.panel=ui_plugin_registry.module('skill_panel')
         self.holder={}
-        self.page.stage_button=self.panel.stage_button_for(
-            foot,lambda:self.panel.open_for_page(self.page,PAGE['script'],self.holder['button']))
+        self.page.stage_button=self.panel.stage_button_for(foot,self.open_stage_panel)
         self.holder['button']=self.page.stage_button
         self.page.stage_button.pack(side='left',padx=(BUTTON_GAP_TIGHT,SPACING['none']),pady=SPACING['none'])
         refresh_button=SecondaryButton(foot,text='刷新',width=script_action_width,command=lambda:self.page.safe(self.page.refresh_script_workspace))
         refresh_button.pack(side='left',padx=(BUTTON_GAP_TIGHT,SPACING['none']));self.page.idea_refresh=refresh_button
-        # 「删除」紧跟「刷新」：动作栏按子控件创建顺序排列，所以必须在这里创建，不能放到右侧那组。
-        delete_button=SecondaryButton(foot,text='删除',width=script_action_width,command=lambda:self.page.safe(self.delete_selected_scripts))
-        delete_button.pack(side='left',padx=(BUTTON_GAP_TIGHT,SPACING['none']))
-        download_button=SecondaryButton(foot,text='下载文件',width=script_action_width,command=lambda:self.page.safe(self.page.download_script))
-        download_button.state(['disabled']);self.page.idea_download=download_button
-        SecondaryButton(foot,text='添加剧本',width=script_action_width,
-                   command=lambda:self.page.safe(self.page.import_json)).pack(side='right')
+        # 动作栏按子控件创建顺序排列：添加剧本、剧本目录、质检报告、采风依次跟在「刷新」后面。
+        add_button=SecondaryButton(foot,text='添加剧本',width=script_action_width,
+                                   command=lambda:self.page.safe(self.page.add_script_files))
+        add_button.pack(side='right');self.page.idea_add_script=add_button
         open_folder_button=SecondaryButton(foot,text='剧本目录',width=script_action_width,
                                       command=lambda:self.page.safe(lambda:self.page.open_folder(project_stages.writing(self.page.root))))
         open_folder_button.pack(side='right',padx=(SPACING['none'],SPACING['sm']));self.page.idea_open_folder=open_folder_button
         self.page.build_script_quality_buttons(foot)
-        download_button.pack(side='right',padx=(SPACING['none'],BUTTON_GAP_TIGHT))
         for action_button in foot.winfo_children():
             # 不再单独压内边距：样式层的按下态内边距会覆盖控件级 padding，按下时按钮高度会回弹。
             action_button.configure(width=script_action_width)
@@ -615,19 +609,26 @@ class _WritingPage:
         self.page.safe(self.page.send_message)
         return 'break'
 
-    def refresh_download_state(self):
+    def refresh_recon_state(self):
         if (self.page_generation==getattr(self.page,'_script_page_generation',0)
                 and self.page.page_index==PAGE['script'] and self.page.root):
-            self.page.update_script_download_button()
+            self.page.update_recon_button()
 
-    def cancel_download_state(self, event=None):
-        """页面已销毁时不再执行下载状态的后台刷新。"""
+    def cancel_recon_state(self, event=None):
+        """页面已销毁时不再执行采风显隐的延后刷新。"""
         if event is not None and getattr(event,'widget',None) is not self.script_box:
             return None
-        if self.download_state_job is not None:
-            try:self.page.win.after_cancel(self.download_state_job)
+        if self.recon_state_job is not None:
+            try:self.page.win.after_cancel(self.recon_state_job)
             except tk.TclError:pass
         return None
+
+    def open_stage_panel(self):
+        """阶段配置弹窗关掉后，按新的素材来源刷新采风显隐。"""
+        panel=self.panel.open_for_page(self.page,PAGE['script'],self.holder['button'])
+        if panel is not None:
+            panel.bind('<Destroy>',lambda event:self.refresh_recon_state() if event.widget is panel else None,add='+')
+        return panel
 
     def measure_page_fixed(self):
         def packed_height(widget):
@@ -722,11 +723,8 @@ class _WritingPage:
                 if order:
                     self.script_load_job=self.page.win.after_idle(place)
                     return
-                live=self.script_loader.item_ids()
-                self.checked_scripts.intersection_update(live)
-                for category,tree in self.script_trees.items():
+                for tree in self.script_trees.values():
                     tree.configure(height=max(1,min(SCRIPT_FILE_MAX_ROWS,len(tree.get_children()))))
-                    self.script_checks[category].refresh_header()
                 self.keep_script_headers_visible();self.script_load_job=None
             place()
         def load_batch():
@@ -738,7 +736,6 @@ class _WritingPage:
                 self.script_row_details[row.item_id]=script_row_card(row,label,modified,self.page.root)
                 self.script_row_category[row.item_id]=row.category
                 self.script_trees[row.category].insert('', 'end', iid=row.item_id, text='',
-                    image=self.page.win._tick_images[int(row.item_id in self.checked_scripts)],
                     values=(('['+label+'] ' if label else '')+row.name,))
             if finished:
                 finish();return
@@ -761,8 +758,8 @@ class _WritingPage:
             if other is not tree:other.selection_remove(other.selection())
 
     def open_script_file(self, event=None):
-        # 表头（分类名/全选）与列宽分隔线也在 Treeview 的 <Double-1> 范围内；
-        # 此时 selection() 仍保留着上次勾选/高亮的行，不能直接拿它打开文件。
+        # 表头（分类名）与列宽分隔线也在 Treeview 的 <Double-1> 范围内；
+        # 此时 selection() 仍保留着上次高亮的行，不能直接拿它打开文件。
         # 鼠标双击只认落点所在的行；键盘 Enter 仍打开当前高亮行。
         event_type=getattr(getattr(event,'type',None),'name',getattr(event,'type',None))
         if event_type=='ButtonPress':
@@ -785,16 +782,10 @@ class _WritingPage:
         return selected_script_paths(self.page.root,[selected[0]])[0]
 
     def selected_scripts(self):
-        """批量删除只认勾选项；未勾选时将当前高亮行视作单项操作。"""
-        all_items=self.all_script_items()
+        """当前表里选中的各行（Ctrl／Shift 多选），并标出是否选中了列表里的全部文件。"""
         tree=self.current_script_tree()
-        active=tree.selection() if tree else ()
         from script_workspace_service import script_deletion_selection
-        return script_deletion_selection(self.page.root,all_items,self.checked_scripts,active)
-
-    def selection_changed(self):
-        count=len(self.checked_scripts)
-        self.page.status.set('已勾选 '+str(count)+' 份剧本文件' if count else '已取消剧本文件勾选')
+        return script_deletion_selection(self.page.root,self.all_script_items(),tree.selection() if tree else ())
 
     def rename_script(self):
         path=self.selected_script()
@@ -816,43 +807,27 @@ class _WritingPage:
         return '\n\n注意：以下是剧本准备已确认的阶段文件，删除后该阶段确认失效，需要恢复或重新确认才能继续：\n'+'\n'.join(hits)
 
     def delete_script(self):
-        path=self.selected_script()
-        all_files=self.all_script_items()
-        if len(all_files)==1:
-            if not self.page.writing_page_services.confirm_project_removal(self.page.win,[path.name]):return
-        else:
-            prompt=f'确定将 {path.name} 移入项目回收站吗？\n\n可在对应页面恢复最近删除。'+self.confirmed_note([path])
-            title='移入回收站'
-            if not self.page.writing_page_services.confirm(self.page.win,title,prompt,dangerous=True):return
-        if len(all_files)==1:
-            item=next((dict(p) for p in self.page.projects.info['projects'] if p['path']==str(self.page.root)),None)
-            if item is None:raise ValueError('当前项目未登记，无法安全删除')
-            self.page.delete_project(item,confirmed=True);return
-        from storage_maintenance import recycle_paths
-        if not recycle_paths(self.page.root,[path],'删除项目剧本'):
-            raise OSError('文件未能移入回收站，请刷新后重试')
-        self.fill_script_list();self.page.status.set('已移入回收站：'+path.name)
-
-    def delete_selected_scripts(self):
+        """右键「删除」：把选中的各行移入项目回收站；选中的是列表里全部文件时按删项目确认。"""
         selection=self.selected_scripts()
         paths=list(selection.paths)
-        names='\n'.join(path.name for path in paths)
         if selection.deletes_all:
             if not self.page.writing_page_services.confirm_project_removal(self.page.win,[path.name for path in paths]):return
-        else:
-            title='移入回收站'
-            prompt='确定将选中的 '+str(len(paths))+' 份剧本文件移入项目回收站吗？\n\n'+names+'\n\n可在对应页面恢复最近删除。'+self.confirmed_note(paths)
-            if not self.page.writing_page_services.confirm(self.page.win,title,prompt,dangerous=True):return
-        if selection.deletes_all:
             item=next((dict(p) for p in self.page.projects.info['projects'] if p['path']==str(self.page.root)),None)
             if item is None:raise ValueError('当前项目未登记，无法安全删除')
             self.page.delete_project(item,confirmed=True);return
+        one=len(paths)==1
+        if one:
+            prompt=f'确定将 {paths[0].name} 移入项目回收站吗？\n\n可在对应页面恢复最近删除。'+self.confirmed_note(paths)
+        else:
+            names='\n'.join(path.name for path in paths)
+            prompt='确定将选中的 '+str(len(paths))+' 份剧本文件移入项目回收站吗？\n\n'+names+'\n\n可在对应页面恢复最近删除。'+self.confirmed_note(paths)
+        if not self.page.writing_page_services.confirm(self.page.win,'移入回收站',prompt,dangerous=True):return
         from storage_maintenance import recycle_paths
-        recycled=recycle_paths(self.page.root,paths,'批量删除项目剧本')
+        recycled=recycle_paths(self.page.root,paths,'删除项目剧本' if one else '批量删除项目剧本')
+        self.fill_script_list()                  # 部分成功时已进回收站的那些也要从列表消失：先刷新再报错
         if len(recycled)!=len(paths):
-            raise OSError('部分文件未能移入回收站，请刷新后重试')
-        self.fill_script_list()
-        self.page.status.set('已移入回收站 '+str(len(paths))+' 份剧本文件')
+            raise OSError('文件未能移入回收站，请刷新后重试' if one else '部分文件未能移入回收站，请刷新后重试')
+        self.page.status.set('已移入回收站：'+paths[0].name if one else '已移入回收站 '+str(len(paths))+' 份剧本文件')
 
     def adopt_script(self):
         from stage_execution_service import adopt_natural_script
@@ -879,8 +854,14 @@ class _WritingPage:
     def script_menu(self, tree,event):
         row=tree.identify_row(event.y)
         if not row:return
-        tree.selection_set(row);self.keep_one_selection(tree)
+        # 右键落在已选中的行上时保留 Ctrl／Shift 多选；落在别的行上改选这一行。
+        if row not in tree.selection():tree.selection_set(row)
+        self.keep_one_selection(tree)
         menu=self.page.writing_page_services.context_menu(self.page.win)
+        if len(tree.selection())>1:
+            # 多选时只给「删除」：查看、改名、定稿都只针对一份文件。
+            menu.command('删除',lambda:self.page.safe(self.delete_script))
+            return menu.popup(event)
         # 第 46 期第 1 条：内容框的右键一律是「查看／…／删除」这一套，剧本表原来只有改名与删除。
         menu.command('查看',lambda:self.page.safe(self.open_script_file))
         menu.command('重命名',lambda:self.page.safe(self.rename_script))

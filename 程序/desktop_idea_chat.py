@@ -20,6 +20,7 @@ from tkinter import ttk
 import pet_state
 import ui_plugin_registry
 from desktop_idea_deferred import IdeaDeferredMixin
+from desktop_storyboard_direct import run_storyboard_direct as _run_storyboard_direct
 from idea_chat_controller import bubble_timestamp, collapse_preview
 from platform_tools import open_target
 from ui_tokens import CHAR_WIDTH, TEXT_ROWS, COLORS, FONTS, SPACING
@@ -644,8 +645,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
         else:
             self._script_agent_launching=True
             self.update_script_interrupt_button()
-            self.status.set(prefix+'已提交创意并启动剧本 Agent；模型回复完整剧本后可下载保存。')
-        self.update_script_download_button()
+            self.status.set(prefix+'已提交创意并启动剧本 Agent。')
     def _idea_api_received(self, token, model, request_model, result):
         """直连 API 模型的回复落地：聊天记录、状态栏、失败提示与三虎终态。"""
         import idea_chat
@@ -692,7 +692,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
         if not reply:
             self.notifier.error(idea_chat.why_empty(result), title='模型调用失败')
             self.status.set(idea_chat.why_empty(result));return
-        self.show_conversation();self.update_script_download_button()
+        self.show_conversation()
         if result.get('preparation_path'):
             refresh=getattr(self,'refresh_script_list',None)
             if callable(refresh):refresh()
@@ -709,7 +709,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
         if result.get('natural_script_path'):
             self.status.set(preparation_reply_message(result) or ('自然剧本已自动保存：'+result['natural_script_path']))
         else:
-            self.status.set('已收到 '+model+' 的回复；完整剧本可下载保存。')
+            self.status.set(self.auto_save_script_reply(model,result) or '已收到 '+model+' 的回复。')
     def submit_idea_api_request(self, project, token, cancelled, ask, received, label, async_ticket=None):
         """发送与恢复共用票据生命周期；项目切换和取消均撤销本次排队。"""
         from workflow_engines import (request_stage_process_slot, claim_stage_process_slot,
@@ -865,6 +865,11 @@ class _FlowAgentLaunch:
         # 读取阶段配置，恰逢面板刷新／配置回退就可能把 Claude 的续发错误地交给 Codex。
         from workflow_settings import resolve_for_send
         self.config=resolve_for_send(self.host.root,self.stage,config=self._config,intake_only=self.intake_only);self.followup=self.followup if self.followup is not None else self.prompt
+        if self.stage=='storyboard' and not self.intake_only:
+            # 唯一分流点（REQ-S03-53）：选了模型池里的 API 模型就由程序直连，不再经 Qwen Code。
+            from storyboard_direct_api import direct_model
+            if direct_model(self.config):
+                _run_storyboard_direct(self.host,self.config);return
         self.native_claude = self.config['engine'] in ('claude-desktop-app', 'desktop-app')
         self.bounded_writing = self.stage == 'writing' and self.config['engine'] == 'claude'
         if self.stage == 'writing' and self.config['engine'] == 'claude' and not self.intake_only and not self.new_session:

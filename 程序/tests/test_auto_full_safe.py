@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
-"""后台自动全量：钩子里起的子进程不得继承 git 导出的 GIT_* 变量，未到触发点或已有任务时不起进程。"""
+"""后台自动全量：钩子里的欠账判断和起的子进程都不受 git 导出的 GIT_* 变量影响，未到触发点或已有任务时不起进程。"""
 import importlib.util
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -26,6 +27,28 @@ class AutoFullSafeTests(unittest.TestCase):
         env = popen.call_args.kwargs['env']
         self.assertFalse([key for key in env if key.startswith('GIT_')])
         self.assertEqual(env.get('KEEP_ME'), '1')
+
+    def test_hook_environment_does_not_shrink_the_repository_to_the_program_folder(self):
+        # .git 是 gitfile 时，git 给钩子导出绝对 GIT_DIR 而不带 GIT_WORK_TREE；欠账若在这个环境里于「程序」
+        # 目录调 git，仓库顶层会被当成「程序」本身：前缀算空、源码轮次算 0，提交后永远不派生后台全量。
+        with tempfile.TemporaryDirectory() as folder:
+            top, meta = Path(folder) / 'top', Path(folder) / 'meta.git'
+            clean = {key: value for key, value in os.environ.items() if not key.startswith('GIT_')}
+            subprocess.run(['git', 'init', '-q', '--separate-git-dir', str(meta), str(top)],
+                           check=True, env=clean, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            (top / '程序').mkdir()
+            seen = []
+            with mock.patch.dict(os.environ, {'GIT_DIR': str(meta), 'GIT_INDEX_FILE': str(meta / 'index')}), \
+                 mock.patch.object(auto, 'status', side_effect=lambda: seen.append(dict(os.environ)) or {'auto_due': True}), \
+                 mock.patch.object(auto, '_already_running', return_value=False), \
+                 mock.patch.object(auto, '_waiter_running', return_value=False), \
+                 mock.patch.object(auto.subprocess, 'Popen') as popen:
+                self.assertEqual(auto.main(['--spawn']), 0)
+                self.assertEqual(os.environ.get('GIT_DIR'), str(meta), '进程内调用返回后环境原样还原')
+            popen.assert_called_once()
+            toplevel = subprocess.check_output(['git', 'rev-parse', '--show-toplevel'], cwd=top / '程序',
+                                               env=seen[0], text=True).strip()
+            self.assertTrue(os.path.samefile(toplevel, top), '欠账判断看到的仓库顶层是 %s' % toplevel)
 
     def test_spawn_does_nothing_when_not_due_or_already_running(self):
         for due, running in ((False, False), (True, True)):

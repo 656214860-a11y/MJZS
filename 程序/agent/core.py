@@ -62,8 +62,8 @@ def _replace_locked(source, target):
             time.sleep(0.05)
 
 
-def save(path, obj):
-    save_text(path, json.dumps(obj, ensure_ascii=False, indent=2))
+def save(path, obj, *, durable=True):
+    save_text(path, json.dumps(obj, ensure_ascii=False, indent=2), durable=durable)
 
 
 def temporary_path(path, suffix='.tmp'):
@@ -76,11 +76,15 @@ def temporary_path(path, suffix='.tmp'):
     return path.with_name(path.name + '.' + uuid.uuid4().hex + suffix)
 
 
-def save_text(path, text, encoding="utf-8"):
+def save_text(path, text, encoding="utf-8", *, durable=True):
     """原子保存用户可见文本，避免崩溃或并发读取留下半份创作文件。
 
     JSON 和 Markdown 都应走同一个替换入口；否则 Windows 上界面正在读取文件时，
     只有部分产物会重试，用户就会看到“保存成功”但磁盘上的剧本不完整。
+
+    ``durable=False`` 只给本机可重建的运行记录（后台排队、执行记录）用：照样先写临时文件
+    再原子替换，进程崩溃后读到的仍是完整的旧版或新版；但不等落盘，断电后可能读出全零或
+    半份，读的一方必须能把坏文件当空记录重建。用户成果一律用默认值。
     """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -89,7 +93,8 @@ def save_text(path, text, encoding="utf-8"):
         with temp.open('w', encoding=encoding) as stream:
             stream.write(str(text))
             stream.flush()
-            os.fsync(stream.fileno())
+            if durable:
+                os.fsync(stream.fileno())
         replace(temp, path)
     finally:
         # replace 成功后临时文件已不存在；失败时清理本轮残留，旧正式文件不受影响。

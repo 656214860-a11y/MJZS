@@ -70,11 +70,10 @@ NOTE_ABOUT = '三虎用于决策、对话、路由；子模块执行模型在阶
 # 「模型 ID」一栏在本地调用（Desktop／CLI）时填的是程序名，API 时才是接口模型名。
 MODEL_FIELD_LOCAL, MODEL_FIELD_API = '程序名', '模型 ID'
 NOTE_MANAGER = '先选择调用方式：Desktop 配置桌面应用，API 配置接口与密钥，CLI 配置命令行程序。'
-# 列表那一行照规格那张表：显示名／Provider／模型 ID／能力标签／状态，另加两个用得上又不好猜的
-# （API 根地址、密钥名）。协议在下面表单里选，列表不再占一格。
-COLUMNS = (('provider', 'Provider', 100), ('model', '模型 ID', 140), ('label', '显示名', 120),
-           ('capabilities', '能力标签', 170), ('base_url', 'API 根地址', 190),
-           ('wire_api', '协议', 80), ('key_env', '密钥名', 130), ('state', '状态', 120))
+# 列表照规格那张表：显示名／Provider／模型 ID／能力标签／状态，再加一列「调用方式」（Desktop／API／CLI），紧跟 Provider；只有 Provider 列头可点（翻转分组顺序）。
+# API 根地址、协议、密钥名只对 API 那几行有意义，选中后在下面表单里看，列表不再各占一格。
+COLUMNS = (('provider', 'Provider', 90), ('call_mode', '调用方式', 70), ('model', '模型 ID', 150),
+           ('label', '显示名', 160), ('capabilities', '能力标签', 270), ('state', '状态', 220))
 FORM_FIELDS = (('label', '显示名'), ('model', '模型 ID'), ('base_url', 'API 根地址'),
                ('key_env', '密钥名（.env 里的变量名）'))
 TASK_FIELD_LABELS = tuple(label for _key, label, _note in model_pool.TASK_FIELDS)
@@ -84,6 +83,8 @@ MANAGER_FORM_LABELS = ('调用方式', 'Provider', '模型 ID', '显示名', 'AP
                        '上下文长度（可选）', '备注（可选）', '应用安装路径', '命令行程序路径')
 # 密钥框只给占位宽度，真正可输入区由输入列伸缩；不把整把密钥回显到界面。
 SECRET_FIELD_WIDTH = 30
+# 表单里的下拉框与输入框只给够用的宽度；成对的两项并在一行（左对左、右对右）。
+FORM_COMBO_WIDTH, FORM_ID_WIDTH, FORM_SHORT_WIDTH = 14, 28, 12
 
 
 def parent_of(pet):
@@ -184,6 +185,12 @@ def status_text(record, program):
     if not ok:
         return why
     return '可用 · %s' % record['model']
+
+
+def list_status(record, program):
+    """模型列表「状态」那一格：用得了只写「可用」（模型 ID 已有自己一列），用不了写缺什么。"""
+    ok, why = model_pool.status(record, program)
+    return '可用' if ok else why
 
 
 def probe_breakdown(result, record, program=None):
@@ -474,14 +481,15 @@ class _ModelManager:
         body.columnconfigure(0, weight=1)
         body.rowconfigure(2, weight=1)
         heading(body, MANAGER_TITLE, NOTE_MANAGER, columns=1)
-        self.keys = [key for key, _title, _width in COLUMNS]
         # 表单行不叠加纵向外边距；控件保留自身内边距，窗口剩余高度全部交给模型列表。
-        # 列宽随窗口伸展，长名称与地址可以通过滚动条查看。
+        # 列宽随窗口伸展，长名称与缺项说明可以通过滚动条查看。
         self.table_shell = DataTable(body, columns=COLUMNS, show='headings', height=TEXT_ROWS['4xl'],
                                 empty_text='暂无模型配置')
         self.tree = self.table_shell.tree
+        self.provider_descending = False
         for key, title, width in COLUMNS:
-            self.tree.heading(key, text=title)
+            # DataTable 默认给每个列头挂按显示文本排序；这里只留 Provider 一列可点，其余清掉。
+            self.tree.heading(key, text=title, command=self.flip_provider_order if key == 'provider' else '')
             self.tree.column(key, width=width, anchor='w', stretch=True)
         self.table_shell.grid(row=2, column=0, sticky='nsew')
         install_compact_form_styles(body)
@@ -489,6 +497,8 @@ class _ModelManager:
         self.form.grid(row=3, column=0, columnspan=2, sticky='ew')
         self.form.columnconfigure(0, minsize=form_column_width(MANAGER_FORM_LABELS))
         self.form.columnconfigure(1, weight=1)
+        self.form.columnconfigure(2, minsize=form_column_width(('Provider', '显示名', '备注（可选）')))
+        self.form.columnconfigure(3, weight=1)
         self.entries = {}
         self.labels = {}
         self.caps = {}
@@ -496,7 +506,7 @@ class _ModelManager:
         self.wire = tk.StringVar(value=model_pool.WIRE_LABELS[model_pool.DEFAULT_WIRE])
         self.mode = tk.StringVar(value='API')
 
-        # 表单次序：Provider、模型 ID、显示名（按 ID 自动推断）、根地址、密钥、协议、能力标签、上下文、备注。
+        # 表单次序：调用方式｜Provider 一行，模型 ID｜显示名（按 ID 自动推断）一行，再是根地址、密钥、协议、能力标签，上下文长度｜备注一行。
         ttk.Label(self.form, text='调用方式').grid(row=0, column=0, sticky='w')
         return footer, body
 
@@ -504,27 +514,27 @@ class _ModelManager:
         """表单：调用方式、Provider、模型 ID／显示名／地址／密钥、协议、能力标签（从 build 原样切出，R1812）。"""
         mode_box = SelectBox(self.form, textvariable=self.mode, values=('Desktop', 'API', 'CLI'),
                              style=COMPACT_COMBOBOX_STYLE)
-        mode_box.grid(row=0, column=1, sticky='ew')
-        index = 1
-        ttk.Label(self.form, text='Provider').grid(row=index, column=0, sticky='w')
+        mode_box.configure(width=FORM_COMBO_WIDTH)
+        mode_box.grid(row=0, column=1, sticky='w')
+        ttk.Label(self.form, text='Provider').grid(row=0, column=2, sticky='w')
         # 第 65 期任务 5：用户报「provider → 自定义不可用」。原来这一格是只读下拉，只能挑三档固定
         # 名字，选了「自定义」既不能写自己的服务商名、也没有自定义路径的入口。现在改成可编辑：
         # 挑现成的，或者直接敲一个名字；存的就是填进去的那个名字。
         self.provider_box = SelectBox(self.form, textvariable=self.provider, state='normal',
                                     values=[label for _value, label in model_pool.PROVIDERS],
-                                    style=COMPACT_COMBOBOX_STYLE)
-        self.provider_box.grid(row=index, column=1, sticky='ew')
+                                    style=COMPACT_COMBOBOX_STYLE, width=FORM_COMBO_WIDTH)
+        self.provider_box.grid(row=0, column=3, sticky='w')
         self.provider_box.bind('<<ComboboxSelected>>', self.match_wire)
         self.provider_box.bind('<<ComboboxSelected>>', lambda event: self.detect_program(), add='+')
 
-        index = self.text_row(index + 1, 'model', '模型 ID')
-        index = self.text_row(index, 'label', '显示名')
-        index = self.text_row(index, 'base_url', 'API 根地址')
-        index = self.text_row(index, 'key_env', '密钥名（.env 里的变量名）')
+        self.text_row(1, 'model', '模型 ID', width=FORM_ID_WIDTH)
+        self.text_row(1, 'label', '显示名', column=2, width=FORM_ID_WIDTH)
+        index = self.text_row(2, 'base_url', 'API 根地址', span=3)
+        index = self.text_row(index, 'key_env', '密钥名（.env 里的变量名）', span=3)
         # 规格里的第二种放法：密钥直接输进来，用系统加密存本机（明文不落盘、配置 JSON 里不写）。
         ttk.Label(self.form, text='直接输入密钥').grid(row=index, column=0, sticky='w')
         key_row = ttk.Frame(self.form)
-        key_row.grid(row=index, column=1, sticky='w')
+        key_row.grid(row=index, column=1, columnspan=3, sticky='w')
         self.key_entry = PasswordInput(key_row, width=SECRET_FIELD_WIDTH, mask='*')
         self.key_entry.pack(side='left')
         SecondaryButton(key_row, text='保存到本机', command=lambda: self.local_save()).pack(side='left', padx=(BUTTON_GAP, SPACING['none']))
@@ -536,26 +546,26 @@ class _ModelManager:
         ttk.Label(self.form, text='协议').grid(row=index, column=0, sticky='w')
         SelectBox(self.form, textvariable=self.wire, style=COMPACT_COMBOBOX_STYLE,
                      values=[label for _value, label in model_pool.WIRE_APIS]).grid(
-            row=index, column=1, sticky='ew')
+            row=index, column=1, columnspan=3, sticky='ew')
         index += 1
         ttk.Label(self.form, text='能力标签').grid(row=index, column=0, sticky='w')
         cap_row = ttk.Frame(self.form)
-        cap_row.grid(row=index, column=1, sticky='w')
+        cap_row.grid(row=index, column=1, columnspan=3, sticky='w')
         for tag in model_pool.CAPABILITY_TAGS:
             var = tk.BooleanVar(value=False)
             self.caps[tag] = var
             ttk.Checkbutton(cap_row, text=model_pool.CAPABILITY_LABELS[tag],
                             variable=var).pack(side='left', padx=(SPACING['none'], SPACING['sm']))
-        index = self.text_row(index + 1, 'context_length', '上下文长度（可选）')
-        self.text_row(index, 'note', '备注（可选）')
+        self.text_row(index + 1, 'context_length', '上下文长度（可选）', width=FORM_SHORT_WIDTH)
+        self.text_row(index + 1, 'note', '备注（可选）', column=2, width=FORM_ID_WIDTH)
         self.hint = tk.StringVar(value='选一条改，或者「新建一条」；「保存这条」立刻写进模型池。')
-        self.api_rows = {4, 5, 6, 7}
+        self.api_rows = {2, 3, 4, 5}
         self.api_controls = [widget for widget in self.form.winfo_children()
                         if int(widget.grid_info().get('row', -1)) in self.api_rows]
         self.program_label = ttk.Label(self.form, text='应用安装路径')
-        self.program_label.grid(row=4, column=0, sticky='w')
+        self.program_label.grid(row=2, column=0, sticky='w')
         self.program_row = ttk.Frame(self.form)
-        self.program_row.grid(row=4, column=1, sticky='ew')
+        self.program_row.grid(row=2, column=1, columnspan=3, sticky='ew')
         self.program_row.columnconfigure(0, weight=1)
         self.program_entry = CompactLineInput(self.program_row)
         self.program_entry.grid(row=0, column=0, sticky='ew')
@@ -628,12 +638,12 @@ class _ModelManager:
         self.win._pet_mode = self.mode
         self.win._pet_mode_box = mode_box
 
-    def text_row(self, index, key, label):
-        """一行「标签 ＋ 输入框」；行号往下走，表单中间插下拉框／多选都不会错位。"""
+    def text_row(self, index, key, label, *, column=0, width=None, span=1):
+        """一格「标签 ＋ 输入框」（column 0 左半边、2 右半边），返回下一行号；span 横跨右边，width 按字符数定宽。"""
         self.labels[key] = ttk.Label(self.form, text=label)
-        self.labels[key].grid(row=index, column=0, sticky='w')
-        entry = CompactLineInput(self.form)
-        entry.grid(row=index, column=1, sticky='ew')
+        self.labels[key].grid(row=index, column=column, sticky='w')
+        entry = CompactLineInput(self.form, **({} if width is None else {'width': width}))
+        entry.grid(row=index, column=column + 1, columnspan=span, sticky='ew' if width is None else 'w')
         self.entries[key] = entry
         return index + 1
 
@@ -717,8 +727,6 @@ class _ModelManager:
             widget.grid() if local else widget.grid_remove()
         self.program_label.configure(text='命令行程序路径' if self.mode.get() == 'CLI' else '应用安装路径')
         self.labels['model'].configure(text=MODEL_FIELD_LOCAL if local else MODEL_FIELD_API)
-        self.tree.configure(displaycolumns=(('provider', 'model', 'label', 'capabilities', 'state')
-                                       if local else self.keys))
         self.probe_button.configure(text='检查程序' if local else '测试连接')
 
     def changed_identity(self, *_args):
@@ -777,19 +785,23 @@ class _ModelManager:
         records = self.pet.agent_model_records()
         rows = sorted(((model_pool.provider_name(model_id, item), model_id, item)
                        for model_id, item in records.items()),
-                      key=lambda row: (row[0].casefold(), str(row[2].get('label') or '').casefold(), row[1]))
+                      key=lambda row: (row[0].casefold(), str(row[2].get('label') or '').casefold(), row[1]),
+                      reverse=self.provider_descending)
         last = None
         for name, model_id, item in rows:
             # 同一 Provider 只在分组第一行写名字，后面留空，读起来像合并单元格。
             shown, last = ('' if name == last else name), name
             self.tree.insert('', 'end', iid=model_id,
-                        values=(shown, item['model'], item['label'],
+                        values=(shown, model_pool.call_mode(item, model_id), item['model'], item['label'],
                                 model_pool.capability_text(item['capabilities']),
-                                item['base_url'],
-                                model_pool.WIRE_LABELS.get(item['wire_api'], item['wire_api']),
-                                item['key_env'], status_text(item, self.program)))
+                                list_status(item, self.program)))
         self.table_shell.refresh_empty_state()
         return self.tree
+
+    def flip_provider_order(self):
+        """点 Provider 列头：分组顺序正反翻转（同组内仍按显示名、模型 ID 排）。"""
+        self.provider_descending = not self.provider_descending
+        self.load_rows()
 
     def show_key_state(self, value=None):
         """本机加密那份现在什么情况：只报前 4 位 ＋ ****，别把整把钥匙摆到界面上。"""
@@ -953,6 +965,8 @@ class _ModelManager:
         name = item.get('label') or model_id
         presets = '、'.join('%s「%s」' % pair for pair in self.pet.pool_model_presets(model_id))
         notice = '\n\n这些 SKILL 预设用的是它，删除后模型改为「自动」：' + presets if presets else ''
+        stages = '、'.join(self.pet.pool_model_stages(model_id))
+        notice += ('\n\n当前项目这些阶段选的是它，删除后改为「自动」：' + stages) if stages else ''
         if not self.pet.confirm_start('删除模型', '把「%s」从模型池里删掉？（.env 里的密钥不动）' % name + notice):
             return None
         self.pet.delete_pool_model(model_id)
@@ -962,6 +976,8 @@ class _ModelManager:
             return None
         self.state['id'] = ''
         self.load_rows()
+        # 表单清成「新建」：还停在被删那条的话，紧接着点「保存这条」会把它原样存回去。
+        self.new_one()
         self.hint.set('已删除「%s」。' % name)
         return model_id
 

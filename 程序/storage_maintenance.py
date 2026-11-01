@@ -1,6 +1,6 @@
 """Conservative project cleanup; run only after the UI has closed."""
 import math, os, shutil, subprocess, sys, time, uuid
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from agent.core import save
 from file_cache import recycled, read_json
 from platform_tools import launch_background
@@ -188,6 +188,18 @@ def _undo_moves(records, root):
     return restored
 
 
+def _distinct_outermost(records):
+    """同批去重：同一路径只留第一次；祖先目录已在批内的子项不再单列（随目录一起搬）。
+
+    否则「先文件后目录」会把目录套进自己的回收位置（a → a/a），「先目录后文件」第二项找不到源而整批撤回。"""
+    parts=[PurePosixPath(str(record['source'])).parts for record in records]
+    every=set(parts); seen=set(); kept=[]
+    for record,mine in zip(records,parts):
+        if mine in seen or any(mine[:size] in every for size in range(1,len(mine))):continue
+        seen.add(mine); kept.append(record)
+    return kept
+
+
 def recycle_paths(root, paths, reason, now=None):
     """供用户可见的删除入口复用的受控回收接口。
 
@@ -195,12 +207,12 @@ def recycle_paths(root, paths, reason, now=None):
     清单，全部搬完才写 state=committed。任一项移动失败就撤回本批已移动项、写明失败原因后
     再抛出原异常；进程中断时清单已带逐项状态（恢复按文件是否真的在回收站里判断），可经
     restore_recycle_batch 恢复已搬走的项，或经 rollback_recycle_batch 撤回整批。
-    始终只移动、不永久删除。
+    同批重复路径只算一次，目录已在批内时不再单列其中的文件。始终只移动、不永久删除。
     """
     root=Path(root).resolve(); now=now or time.time()
     batch=_recycle_base(root)/batch_name(now)
     created_at=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(now))
-    records=[record for record in (plan_recycle(path,root,batch) for path in paths) if record is not None]
+    records=_distinct_outermost([record for record in (plan_recycle(path,root,batch) for path in paths) if record is not None])
     if not records:return []
     batch.mkdir(parents=True,exist_ok=True)
     _write_batch_manifest(batch,BATCH_PLANNED,records,reason,created_at)     # 写前计划先落盘

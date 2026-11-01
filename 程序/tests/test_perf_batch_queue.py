@@ -73,7 +73,7 @@ class BatchPlanCostTests(unittest.TestCase):
 
 
 class DurableQueueCostTests(unittest.TestCase):
-    """每项成本里约 100 ms 是 publication.transaction 的目录扫描（见 performance_contract 注释）。"""
+    """持久队列入队与领取的本地成本（历次实测与耗时构成见 performance_contract 注释）。"""
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

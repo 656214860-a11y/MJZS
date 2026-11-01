@@ -158,7 +158,8 @@ def _install_script_edit_controls(page, controls, box):
             restore_button.state(['!disabled'])
             save_button.state(['!disabled'] if controller.dirty else ['disabled'])
         else:
-            edit_button.state(['!disabled'])
+            # 框里没有文档就没有可编辑的对象：「编辑」直接禁用，不再点了才报错（R2168）。
+            edit_button.state(['!disabled'] if active['path'] is not None else ['disabled'])
             back_button.state(['disabled'])
             restore_button.state(['disabled'])
             save_button.state(['disabled'])
@@ -263,7 +264,7 @@ def _install_script_edit_controls(page, controls, box):
         delete_button = SecondaryButton(controls, width=SCRIPT_EDIT_BUTTON_WIDTH, text='删除', command=lambda: page.safe(delete_document))
         delete_button.pack(side='left', padx=(SPACING["sm"], SPACING["none"]))
         setattr(page, attribute + '_delete_button', delete_button)
-        sync_buttons()
+    sync_buttons()
     setattr(page, attribute + '_edit_button', edit_button)
     setattr(page, attribute + '_back_button', back_button)
     setattr(page, attribute + '_restore_button', restore_button)
@@ -289,7 +290,7 @@ class ScriptPagesMixin:
         self._idea_view_model_request=getattr(self,'_idea_view_model_request',0)+1
         self._idea_view_model_cache=(self.root,self.idea_chat_model())
         self.show_conversation()
-        self.update_script_download_button()
+        self.update_recon_button()
         return True
     def start_script_workflow(self, creative, *, config=None):
         """启动唯一的剧本 Agent 工作流，模型回复前不生成剧本文档。
@@ -328,12 +329,14 @@ class ScriptPagesMixin:
             return
         self._script_quality_report = (str(self.root), result.get('quality_report_path', ''))
         self.status.set(result['quality_summary'])
-    def open_script_quality(self, folder=False):
+    def open_script_quality(self):
+        """「质检报告」：本项目有报告就打开报告，没有就打开质检目录，目录也没有时说明。"""
         project, path = getattr(self, '_script_quality_report', ('', ''))
+        folder = project_stages.writing(self.root) / 'quality' if self.root else None
         if project == str(self.root) and path and Path(path).is_file():
-            self.script_page_services.open_path(Path(path).parent if folder else path)
-        elif folder and (project_stages.writing(self.root) / 'quality').is_dir():
-            self.script_page_services.open_path(project_stages.writing(self.root) / 'quality')
+            self.script_page_services.open_path(path)
+        elif folder is not None and folder.is_dir():
+            self.script_page_services.open_path(folder)
         else:
             self.notifier.info('本次尚无质检报告。生成自然剧本后会显示四项结果。')
     def watch_script_quality(self, target):
@@ -454,8 +457,9 @@ class ScriptPagesMixin:
             if not reply:
                 self.notifier.error(idea_chat.why_empty(result), title='模型调用失败', modal=False)
                 self.status.set(idea_chat.why_empty(result));return
-            self.show_conversation();self.update_script_download_button()
-            self.status.set(result.get('quality_summary') or ('已恢复并刷新 ' + model + ' 的正文；完整剧本可下载保存。'))
+            self.show_conversation()
+            saved = self.auto_save_script_reply(model, result)
+            self.status.set(result.get('quality_summary') or saved or ('已恢复并刷新 ' + model + ' 的正文。'))
         from stage_execution_service import reply_to_writing
         self.submit_idea_api_request(
             project, token, cancelled,
@@ -479,39 +483,60 @@ class ScriptPagesMixin:
         except (OSError, ValueError) as exc:
             LOGGER.warning('收回下载文件失败：%s', exc)
             return []
-    def update_script_download_button(self):
-        """按当前模型输出的类型启用下载（设定／大纲／角色卡／剧本），按钮文字随之变化；首次回复绝不弹完成框。"""
+    def auto_save_script_reply(self, model, result):
+        """API 回复是设定／大纲／角色卡／剧本时自动存进文件表，返回状态栏说明；无需存档时返回空串。
+
+        剧本工作流已自己落盘的（阶段稿、自然剧本原稿）不再重复存。手改过的文件不覆盖，
+        另存新版本并在说明里点名。本对话第一份剧本才通知三虎问要不要进分镜，改稿不再问。
+        """
+        if any(result.get(key) for key in ('preparation_path', 'script_raw_path', 'natural_script_path')):
+            return ''
         import idea_chat
-        button=getattr(self,'idea_download',None)
-        if button is None or not button.winfo_exists():return False
-        kind='' if getattr(self,'_idea_requesting',False) else idea_chat.download_kind(
-            idea_chat.latest_text(self.idea_chat_context(),model=self.displayed_chat_model(),gateway=self.idea_chat_gateway()))
-        button.configure(text='下载'+(kind or '文件'))
-        button.state(['!disabled'] if kind else ['disabled'])
-        return bool(kind)
-    def download_script(self):
-        """下载当前模型输出（设定／大纲／角色卡／剧本）；只有剧本下载后才通知三虎询问是否进入分镜。"""
-        import idea_chat
-        selected_model = self.displayed_chat_model()
-        reply=idea_chat.latest_text(self.idea_chat_context(),model=selected_model,gateway=self.idea_chat_gateway())
-        kind=idea_chat.download_kind(reply)
-        if not kind:raise ValueError('请先让模型生成完整剧本（或设定、大纲、角色卡），再下载。')
-        provider, model = idea_chat.storage_identity(selected_model)
         from stage_execution_service import publish_idea_creative
-        saved=idea_chat.save_reply(self.idea_chat_context(),reply,provider=provider,model=model,
-                                   publish=publish_idea_creative)
-        self.brief_editor=(saved,getattr(self,'idea_log',None))
-        self.close_dialog()
-        refresh=getattr(self,'refresh_script_list',None)
+        try:
+            saved = idea_chat.auto_save_reply(self.idea_chat_context(), model, publish=publish_idea_creative,
+                                              gateway=self.idea_chat_gateway())
+        except (OSError, ValueError) as exc:
+            return '未自动存档：' + str(exc)
+        if saved is None:
+            return ''
+        refresh = getattr(self, 'refresh_script_list', None)
         if callable(refresh):refresh()
-        self.status.set(kind+'已下载：'+saved.name)
-        listener=getattr(self.pet,'script_downloaded',None)
-        if kind=='剧本' and callable(listener):listener(saved)
-        self.update_script_download_button()
-        return saved
-    def confirm_script(self):
-        """兼容旧入口：保存动作改为用户显式下载。"""
-        return self.download_script()
+        listener = getattr(self.pet, 'script_downloaded', None)
+        if saved.new_script and callable(listener):listener(saved.path)
+        if saved.kept is not None:
+            return '「' + saved.kept.name + '」与模型回复不一致（可能手改过），未覆盖；新回复另存为「' + saved.path.name + '」'
+        return saved.kind + '已自动存档：' + saved.path.name
+    def add_script_files(self):
+        """「添加剧本」：选本地 txt／md／docx，按正文归入设定／大纲／角色卡／剧本四列，认不出的归剧本。"""
+        if self.root is None:
+            raise ValueError('请先打开项目，再添加剧本文件。')
+        paths = self.file_dialog.open_files(title='选择要添加的剧本文件', parent=self.win,
+                                            filetypes=[('文本与 Word', '*.txt *.md *.markdown *.docx')])
+        if not paths:
+            return []
+        import idea_attachments
+        import idea_chat
+        from stage_execution_service import publish_idea_creative
+        added, failed = [], []
+        for value in paths:
+            path = Path(value)
+            try:
+                if path.suffix.lower() not in ('.txt', '.md', '.markdown', '.docx'):
+                    raise ValueError('只支持 txt、md、docx')
+                added.append(idea_chat.import_local_document(self.idea_chat_context(), idea_attachments.read_source(path),
+                                                             path.name, publish=publish_idea_creative))
+            except (OSError, ValueError) as exc:
+                failed.append(path.name + '：' + str(exc))
+        refresh = getattr(self, 'refresh_script_list', None)
+        if added and callable(refresh):refresh()
+        counts = {}
+        for file_type, _saved in added:
+            label = idea_chat.DOWNLOAD_LABELS.get(file_type, file_type)
+            counts[label] = counts.get(label, 0) + 1
+        notice = ('已添加 ' + '、'.join(label + ' ' + str(count) + ' 份' for label, count in counts.items())) if added else '没有添加文件'
+        self.status.set(notice + ('；未添加 ' + '；'.join(failed) if failed else ''))
+        return added
     def pet_script_structure_batch(self, trigger='auto', refresh_page=False):
         """三虎整理剧本：手动与自动入口复用同一条 Writer/Editor + SKILL 异步链。"""
         pet=getattr(self,'pet',None)
@@ -621,7 +646,7 @@ class _ScriptStructurePage:
             split_area,
             '自然剧本（采用：'+self.source.name+'）' if self.source else '自然剧本（待选择采用版本）',
             '自然剧本', structure.source_documents, self.source,
-            '尚未找到剧本准备阶段的剧本。请先生成、下载或导入剧本。',
+            '尚未找到剧本准备阶段的剧本。请先生成或添加剧本。',
             # 编辑与“采用”无关：采用记录带内容哈希，改过一次就失效，若按采用状态锁编辑，
             # 保存一次后再也点不开（R1958）。下拉框里选中的任一份都可编辑。
             'script_structure_source_preview', editable=True, kind='natural')

@@ -1,8 +1,10 @@
 """Recoverable publication transactions, serialized across this installation's processes.
 
-The journal is private runtime data, never a project artifact. Backups and the
-journal are flushed before each target replacement. A committed marker selects
-the new version; otherwise readers recover the old version before opening files.
+The journal is private runtime data, never a project artifact. It is first written
+when the first target enrolls; before each replacement the old version is kept (a
+hard link for a plain file on the same volume, otherwise a flushed copy) and the
+journal listing that target is flushed. Deleting the journal commits; a journal left
+behind makes readers recover the old version before opening files.
 """
 from contextlib import contextmanager
 import json
@@ -34,6 +36,28 @@ def _write(folder, record):
     os.replace(temp, folder / 'journal.json')
 
 
+# 云盘占位、HSM 脱机文件的内容可能不在本机，链过去的备份未必读得回旧版，这类照旧复制。
+_NOT_LOCAL = 0x400 | 0x1000 | 0x40000 | 0x400000  # REPARSE_POINT、OFFLINE、RECALL_ON_OPEN、RECALL_ON_DATA_ACCESS
+
+
+def _backup(source, target):
+    """留住旧版本：同卷本机普通文件建硬链接（替换只改目录项，旧内容留在链接上），否则复制并落盘。"""
+    # 登记失败可能留下同名链接，必须先删掉名字；否则回退复制时会顺着链接截断原成果。
+    target.unlink(missing_ok=True)
+    if not os.stat(source).st_file_attributes & _NOT_LOCAL:
+        try:
+            os.link(source, target)
+            return
+        except OSError:  # 跨卷、FAT、链接数已满
+            pass
+    _copy(source, target)
+
+
+def _commit(folder):
+    # 删掉待回滚日志即提交：没有日志的事务目录恢复时按已提交丢弃。
+    (folder / 'journal.json').unlink(missing_ok=True)
+
+
 def _discard(folder):
     folder = folder.resolve()
     if folder.parent != ROOT.resolve() or len(folder.name) != 32:
@@ -48,7 +72,7 @@ def _discard(folder):
 def _recover(folder):
     journal = folder / 'journal.json'
     if not journal.exists():
-        # No target may be changed before the first journal is durable.
+        # 还没登记（日志落盘前不替换任何目标），或已提交（日志已删）：都没有旧版要恢复。
         _discard(folder)
         return
     try:
@@ -139,7 +163,7 @@ def before_replace(target):
     if target.exists() and not existed:
         raise ValueError('成果目标不是普通文件')
     if existed:
-        _copy(target, folder / index)
+        _backup(target, folder / index)
     record['entries'].append({'target': str(target), 'backup': index, 'existed': existed})
     _write(folder, record)
 
@@ -158,22 +182,20 @@ def transaction():
         folder = ROOT / uuid.uuid4().hex
         folder.mkdir()
         record = {'version': 1, 'state': 'pending', 'entries': []}
-        _write(folder, record)
         _LOCAL.active = (folder, record)
         try:
             yield
             if record.get('rollback_only'):
                 raise RuntimeError('嵌套发布失败，整包成果已回滚')
-            record['state'] = 'committed'
-            _write(folder, record)
+            _commit(folder)
         except BaseException:
             _LOCAL.active = None
             _recover(folder)
             raise
         finally:
             _LOCAL.active = None
-        # 成果已提交落盘：清理事务目录失败不能让调用方误判为发布失败。
-        # 残留的 committed 目录会在下一次 access() 里按已提交状态再清一遍。
+        # 成果已提交：清理事务目录失败不能让调用方误判为发布失败。
+        # 残留目录已没有日志，下一次 access() 里会按已提交再清一遍。
         try:
             _discard(folder)
         except OSError:

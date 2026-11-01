@@ -47,17 +47,58 @@ class WritingPageServicesTests(unittest.TestCase):
         page.keep_one_selection = Mock()
         tree = Mock()
         tree.identify_row.return_value = 'r'
+        tree.selection.return_value = ('r',)
         page.script_menu(tree, SimpleNamespace(y=0))
         services.context_menu.assert_called_once_with(page.page.win)
 
     def test_last_script_removal_asks_injected_gate(self):
+        from script_workspace_service import ScriptDeletionSelection
         services = self.services()
         services.confirm_project_removal.return_value = False
         page = _page(services, root=Path('p'))
-        page.selected_script = Mock(return_value=Path('only.md'))
-        page.all_script_items = Mock(return_value=['only.md'])
+        page.selected_scripts = Mock(return_value=ScriptDeletionSelection(paths=(Path('only.md'),), deletes_all=True))
         page.delete_script()
         services.confirm_project_removal.assert_called_once_with(page.page.win, ['only.md'])
+
+    def test_multi_selected_rows_offer_only_delete_and_recycle_together(self):
+        """REQ-S01-76：Ctrl／Shift 多选后右键只给「删除」，确认一次把选中的几份一起移入回收站；右键别的行改选那一行。"""
+        import tempfile
+        import project_stages
+        services = self.services()
+        with tempfile.TemporaryDirectory() as td:
+            folder = project_stages.writing(Path(td)) / '创意_20261101' / '项目剧本'
+            folder.mkdir(parents=True)
+            files = [folder / name for name in ('一.md', '二.md', '三.md')]
+            for path in files:
+                path.write_text('正文', encoding='utf-8')
+            page = _page(services, root=Path(td), safe=lambda call: call(), status=Mock())
+            page.script_row_category = {}
+            page.fill_script_list = Mock()
+            tree = Mock()
+            tree.get_children.return_value = tuple(str(path) for path in files)
+            tree.selection.return_value = (str(files[0]), str(files[2]))
+            tree.identify_row.return_value = str(files[0])
+            page.script_trees = {'script': tree}
+            page.script_menu(tree, SimpleNamespace(y=0))
+            tree.selection_set.assert_not_called()
+            menu = services.context_menu.return_value
+            self.assertEqual([call.args[0] for call in menu.command.call_args_list], ['删除'])
+            with patch('storage_maintenance.recycle_paths', side_effect=lambda root, items, reason: list(items)) as recycle:
+                menu.command.call_args.args[1]()
+            services.confirm.assert_called_once()
+            self.assertIn('确定将选中的 2 份剧本文件移入项目回收站吗？', services.confirm.call_args.args[2])
+            services.confirm_project_removal.assert_not_called()
+            self.assertEqual(recycle.call_args.args,
+                             (Path(td), [files[0].resolve(), files[2].resolve()], '批量删除项目剧本'))
+            page.fill_script_list.assert_called_once()
+            page.page.status.set.assert_called_once_with('已移入回收站 2 份剧本文件')
+            menu.command.reset_mock()
+            tree.identify_row.return_value = str(files[1])
+            tree.selection_set.side_effect = lambda row: setattr(tree.selection, 'return_value', (row,))
+            page.script_menu(tree, SimpleNamespace(y=0))
+            tree.selection_set.assert_called_once_with(str(files[1]))
+            self.assertEqual([call.args[0] for call in menu.command.call_args_list],
+                             ['查看', '重命名', '采用此剧本', '删除'])
 
 
 if __name__ == '__main__':

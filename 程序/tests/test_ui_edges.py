@@ -1187,17 +1187,22 @@ class UiEdgeTests(unittest.TestCase):
             self.assertEqual(str(box.master.master), str(talk), "聊天内容框摆在对话区容器内")
             self.assertEqual(str(d.idea_input.master.master.master), str(talk), "发送框固定在同一对话区底部")
             # 剧本页与其他阶段共用 FlowBar：窄窗口时允许分行，不能再以左右 pack
-            # 互相挤压到裁掉按钮文字。
+            # 互相挤压到裁掉按钮文字。素材来源不适用时只有采风隐藏不占位（REQ-S01-46）。
+            hidden = d.idea_row.hidden_children
+            self.assertTrue(all(str(child.cget("text")) == "采风" for child in hidden))
             self.assertTrue(all(child.winfo_manager() == 'place'
-                                for child in d.idea_row.winfo_children()))
+                                for child in d.idea_row.winfo_children() if child not in hidden))
             actions = [str(child.cget("text")) for child in d.idea_row.winfo_children()
                        if hasattr(child, "cget") and str(child.winfo_class()).endswith("Button")]
             self.assertIn("添加剧本", actions)
-            self.assertIn("删除", actions)
+            self.assertIn("质检报告", actions)
+            # REQ-S01-76：删除改由表格多选后右键，底栏不再有「删除」「下载文件」。
+            self.assertNotIn("删除", actions)
+            self.assertNotIn("下载文件", actions)
             self.assertEqual(str(d.script_box.winfo_class()), "TFrame")
             self.assertTrue(d.script_box.winfo_ismapped(),
                             "发现已有剧本文件时，三列表容器与列头必须保持可见")
-            # R1862：四类文件复原为四张并排表，每张表头即分类名，各自一个勾选列。
+            # R1862：四类文件复原为四张并排表，每张表头即分类名；REQ-S01-76 去掉勾选列，改为 Ctrl／Shift 多选。
             titles = {"setting": "项目设定", "outline": "项目大纲", "character": "角色卡", "script": "项目剧本"}
             self.assertEqual(tuple(d.script_trees), tuple(titles))
             names = {}
@@ -1207,8 +1212,9 @@ class UiEdgeTests(unittest.TestCase):
                 self.assertNotIn("time", tuple(tree["columns"]), "剧本准备文件表不显示修改日期列")
                 self.assertEqual(int(tree.cget("height")), len(tree.get_children()),
                                  "表高按行数收紧")
-                self.assertEqual(int(tree.column("#0")["width"]), 28,
-                                 "剧本文件表首列应复用分镜页的勾选列宽度")
+                self.assertEqual(tuple(map(str, win.tk.splitlist(tree.cget("show")))), ("headings",),
+                                 "剧本文件表不再显示勾选列，只有文件名一列")
+                self.assertEqual(str(tree.cget("selectmode")), "extended", "剧本文件表支持 Ctrl／Shift 多选")
                 names[category] = [tree.item(item, "values")[0] for item in tree.get_children()]
                 for item in tree.get_children():
                     self.assertEqual(d.script_row_category[item], category)

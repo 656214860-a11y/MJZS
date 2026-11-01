@@ -26,9 +26,10 @@ def protect_readonly_combobox(win):
         if not win.tk.eval('info commands ::ttk::combobox::Scroll'):return
         # 改名必须留在同一命名空间：原过程内部调用 SelectEntry 等非限定名命令。
         win.tk.eval('rename ::ttk::combobox::Scroll ::ttk::combobox::ScrollOriginal')
-        win.tk.eval('proc ::ttk::combobox::Scroll {cb dir} {'
+        # Tk 8.6 调 Scroll cb dir，Tk 9 调 Scroll cb dir factor；用可变参数原样转发，两个版本都认。
+        win.tk.eval('proc ::ttk::combobox::Scroll {cb args} {'
                     ' if {[$cb instate readonly] || [$cb instate disabled]} { return };'
-                    ' ::ttk::combobox::ScrollOriginal $cb $dir }')
+                    ' ::ttk::combobox::ScrollOriginal $cb {*}$args }')
         win.tk.eval('set ::dramaComboWheelGuard 1')
     except Exception:app_logging.swallowed()
 

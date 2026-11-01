@@ -21,9 +21,15 @@ class ManualCreativePublicationBoundaryTests(unittest.TestCase):
                        and isinstance(node.func, ast.Attribute)
                        and isinstance(node.func.value, ast.Name)
                        and node.func.value.id == 'idea_chat'
-                       and node.func.attr == 'save_reply']
+                       and node.func.attr == 'auto_save_reply']  # R2196 契约有意变更：模型回复自动存档，原 save_reply
         self.assertEqual(len(reply_calls), 1, '桌面层不得绕过模型创意的统一发布入口')
-        for call in calls + reply_calls:
+        import_calls = [node for node in ast.walk(desktop) if isinstance(node, ast.Call)
+                        and isinstance(node.func, ast.Attribute)
+                        and isinstance(node.func.value, ast.Name)
+                        and node.func.value.id == 'idea_chat'
+                        and node.func.attr == 'import_local_document']
+        self.assertEqual(len(import_calls), 1, '本地剧本导入必须经创意服务的统一入口')
+        for call in calls + reply_calls + import_calls:
             self.assertTrue(any(item.arg == 'publish' for item in call.keywords),
                             '桌面必须向创意服务注入 L3 发布器')
 

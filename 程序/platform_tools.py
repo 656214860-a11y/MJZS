@@ -337,21 +337,64 @@ def probe_http_endpoint(base_url, *, timeout=8):
         return {'reachable': False, 'code': None, 'error': f'{hint}（{detail[:160]}）'}
 
 
+_CREDENTIAL_HEADERS = frozenset({'authorization', 'proxy-authorization', 'cookie'})
+_HTTP_CACHE = {}
+
+
+def _origin(url):
+    parts = urlparse(url)
+    scheme = parts.scheme.lower()
+    return scheme, (parts.hostname or '').lower(), parts.port or {'http': 80, 'https': 443}.get(scheme)
+
+
+def _same_origin(first, second):
+    """协议、主机、端口都相同才算同一来源；端口写坏的地址按不同来源处理。"""
+    try:
+        return _origin(first) == _origin(second)
+    except ValueError:
+        return False
+
+
+def _redirect_handler():
+    """open_https 的重定向处理器：照常跟随，跳到另一来源时去掉凭据头（urllib 按需加载，类只建一次）。"""
+    handler = _HTTP_CACHE.get('redirect')
+    if handler is None:
+        import urllib.request
+
+        class CredentialSafeRedirect(urllib.request.HTTPRedirectHandler):
+            def redirect_request(self, req, fp, code, msg, headers, newurl):
+                forwarded = super().redirect_request(req, fp, code, msg, headers, newurl)
+                if forwarded is not None and not _same_origin(req.full_url, forwarded.full_url):
+                    for name in [key for key in forwarded.headers if key.lower() in _CREDENTIAL_HEADERS]:
+                        forwarded.remove_header(name)
+                return forwarded
+
+        handler = _HTTP_CACHE['redirect'] = CredentialSafeRedirect
+    return handler
+
+
 def open_https(url, *, timeout=60, data=None, headers=None, method=None, context=None):
     """唯一出站 HTTP(S) 入口：返回已打开的响应，读取与错误分类留给调用方。
 
     与 ``run_process`` 同属宿主适配层——出站网络调用集中在此，便于统一超时、代理
     与后续访问闸门策略；``data`` 为 None 时是 GET，否则按请求体发送。``method``
     显式指定动词（如 DELETE）；``context`` 是调用方的 ``ssl.SSLContext``（如钉证书）。
+    重定向照常跟随，但跳到另一来源（协议、主机、端口任一不同，含 https→http）时不再带
+    Authorization／Proxy-Authorization／Cookie，令牌不会被转给跳转目标。
     """
     import urllib.request
     control = current_execution()
     if control is not None:
         timeout = control.remaining(timeout)
     request = urllib.request.Request(str(url), data=data, headers=dict(headers or {}), method=method)
-    if context is None:
-        return urllib.request.urlopen(request, timeout=timeout)
-    return urllib.request.urlopen(request, timeout=timeout, context=context)
+    if context is not None:
+        opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=context), _redirect_handler())
+    else:
+        # 同 urlopen 的全局 opener 一样复用：每建一个都要重新装一遍系统根证书（本机实测约 20 ms）。
+        opener = _HTTP_CACHE.get('opener')
+        if opener is None:
+            opener = _HTTP_CACHE['opener'] = urllib.request.build_opener(_redirect_handler())
+    return opener.open(request, timeout=timeout)
 
 
 class WebSocketRefused(OSError):

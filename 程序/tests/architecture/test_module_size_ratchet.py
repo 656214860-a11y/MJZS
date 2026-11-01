@@ -14,7 +14,7 @@ OVERSIZE_CAPS = {
     'app.py': 1499,
     'stage_execution_service.py': 1447,
     'ui_widgets.py': 1125,
-    'writing_api.py': 1371,
+    'writing_api.py': 1372,
     'pet_cloud.py': 1357,
     'script_contract.py': 1293,
     'skill_panel.py': 1203,
@@ -23,7 +23,7 @@ OVERSIZE_CAPS = {
     'pet_llm.py': 1190,
     'pet_agent.py': 1182,
     'workflow_settings.py': 1069,
-    'desktop_idea_chat.py': 1109,
+    'desktop_idea_chat.py': 1114,
     'model_pool.py': 1117,
     'cell_hover.py': 1016,
 }

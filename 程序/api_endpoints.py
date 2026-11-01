@@ -58,3 +58,12 @@ def no_redirect():
             return None
     return NoRedirect()
 
+
+def probe_message(base_url):
+    """测试连接按钮的状态栏文案：401／403／404 说明接口在、只是要密钥；探测本身抛异常交给调用方。"""
+    result = probe_endpoint(base_url)
+    if result.get('reachable') and result.get('code') in (401, 403, 404):
+        return '接口可达（HTTP %s，需密钥）' % result['code']
+    if result.get('reachable'):
+        return '接口可达（HTTP %s）' % result['code']
+    return '连接失败：' + str(result.get('error', '未知错误'))

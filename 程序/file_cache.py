@@ -11,7 +11,8 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
-from agent.core import read  # 兼容仍由外部替换的历史测试钩子。
+import time
+from agent.core import read, save_file  # read：兼容仍由外部替换的历史测试钩子。
 from agent.publication import access
 
 
@@ -212,6 +213,17 @@ def remove_temporary_file(path):
         return True
     except OSError:
         return False
+
+
+def snapshot_file(source, folder, prefix, keep):
+    """覆盖前把 ``source`` 原子复制到 ``folder``（毫秒级时间戳命名），只留最近 ``keep`` 份；可再生，旧份走临时清理。"""
+    if not Path(source).is_file():
+        return
+    folder = Path(folder)
+    stamp = '%s_%03d' % (time.strftime('%Y%m%d_%H%M%S'), int(time.time() * 1000) % 1000)
+    save_file(folder / ('%s_%s.json' % (prefix, stamp)), source)
+    for old in sorted(folder.glob(prefix + '_*.json'))[:-keep]:
+        remove_temporary_file(old)
 
 
 def probe_writable(path, *, create=True):

@@ -16,8 +16,9 @@ MEMORY_DELTA_MB = 30.0
 
 # R1633（阶段4 T6）本地批量／队列口径：只量我们自己代码的成本，供应商延迟与弱网是外因，不入门槛。
 # 实测（2026-10-17，本机，见 tasks_round_1633_result.md）：批量首帧规划 0.47 ms／镜（200 镜约 93 ms）；
-# 持久后台队列每项约 130 ms，其中约 100 ms 是 agent.publication.transaction 的目录扫描，
-# read／save 只有 1–5 ms。这两条只作退化报警，不是性能承诺。
+# 持久后台队列当时每项约 130 ms，几乎全是每次入队／领取外包的 agent.publication.transaction
+# 要等的 4–5 次 fsync，不是目录扫描。R2192 起队列只加锁、原子替换、不等落盘：同机同一时段实测
+# 入队、领取、收尾由各约 120 ms 降到约 6 ms。这两条只作退化报警，不是性能承诺。
 BATCH_PLAN_PER_SHOT_MS = 5.0
 QUEUE_ITEM_MS = 400.0
 

@@ -34,6 +34,25 @@ def repeat(widget,interval,callback):
     state['id']=widget.after(interval,tick)
     return stop
 
+def run_in_background(widget,work,on_done,on_error,interval=150):
+    """后台线程跑 work()，结果回到 Tk 线程各调用一次：成功 on_done(值)，抛异常 on_error(异常)。
+
+    工作线程只写普通列表：跨线程设置 Tk 变量会抛 RuntimeError，状态栏会一直停在「正在检测」。
+    on_error 必须给，免得 work 抛异常后界面没有任何结果；窗口销毁时轮询随之下线，不再回调。
+    """
+    outcome=[]
+    def run():
+        try:outcome.append((True,work()))
+        except Exception as exc:outcome.append((False,exc))
+    def poll():
+        if not outcome:return
+        stop()
+        ok,value=outcome[0]
+        (on_done if ok else on_error)(value)
+    threading.Thread(target=run,daemon=True,name='background-work').start()
+    stop=repeat(widget,interval,poll)
+    return stop
+
 def watch_changes(widget,snapshot,refresh,interval=1500,errors=(OSError,ValueError,KeyError)):
     """观察快照变化：同一快照连续出现两次、且与上次已应用的不同，才调用一次 refresh()。
 

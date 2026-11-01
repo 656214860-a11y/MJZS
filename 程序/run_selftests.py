@@ -46,6 +46,8 @@ os.environ.setdefault("DRAMA_SUPPRESS_MODAL", "1")
 os.environ.setdefault("DRAMA_SUPPRESS_TRAY", "1")
 # 同理：首帧自动检查总控包更新不真联网，也不会因“有新版本”弹确认窗卡住（见 master_skill_update.SUPPRESS_NETWORK_ENV）。
 os.environ.setdefault("DRAMA_SUPPRESS_NETWORK", "1")
+# 同理：测试里故意触发的报错不写进程序自己的诊断记录（见 diagnostic_capture.SUPPRESS_DIAGNOSTICS_ENV）。
+os.environ.setdefault("DRAMA_SUPPRESS_DIAGNOSTICS", "1")
 os.environ.setdefault("DRAMA_REDUCE_MOTION", "0")  # 自检固定保留动效，不随本机系统设置漂移
 import tempfile
 import time

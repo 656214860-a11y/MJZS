@@ -207,8 +207,9 @@ def _context_budget_error(chosen, system, messages):
 
 class WritingRequestAdapter(ModelAdapter):
     """按本次冻结配置检查每次请求，并累计本次调用的已报告用量。"""
-    def __init__(self, adapter, record, chosen, project=None):
+    def __init__(self, adapter, record, chosen, project=None, stage='script'):
         self.adapter, self.record, self.chosen = adapter, record, chosen
+        self.stage = stage
         self.project = project
         self.wire_api = adapter.wire_api
         self.context_budget = {}
@@ -270,7 +271,7 @@ class WritingRequestAdapter(ModelAdapter):
             estimate = len(json.dumps({'system': system, 'messages': messages, 'options': options},
                                       ensure_ascii=False).encode('utf-8')) + 256
             result, _usage, refused = metered(
-                RequestLedger(self.project), (uuid4().hex, model or self.chosen, 'script', estimate, reserved),
+                RequestLedger(self.project), (uuid4().hex, model or self.chosen, self.stage, estimate, reserved),
                 send, usage_of)
             if refused is not None:
                 return {'ok': False, 'status': 0, 'model': model or self.chosen, 'text': '', 'usage': {},

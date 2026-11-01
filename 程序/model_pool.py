@@ -11,6 +11,7 @@
 存储沿用宠物那份全局配置（配置/宠物/配置.json）——pet_llm 认的就是它，多存两把键互不打扰。
 """
 import app_logging
+import file_cache
 import json
 import os
 import re
@@ -37,6 +38,7 @@ DEFAULT_WIRE = 'chat'
 # 第 65 期任务 8：「测试连接」发的是最小一次请求，原来是 1 个 token，有些服务商拒收
 # 这么小的值（回了 400 就说这条模型不可用）。统一改成 16。
 PROBE_TOKENS = 16
+SNAPSHOT_KEEP = 20                               # 覆盖前快照只留最近这么多份
 # O29：探测会真的发一次最小请求，用量不读回来——标清楚可能产生用量，别让人以为免费。
 PROBE_USAGE_NOTE = '测试连接会真实发一次最小请求，可能产生用量'
 # O37：「连接成功」不等于「完整工作流可用」。最小请求只证明地址、鉴权与协议握手；
@@ -512,19 +514,19 @@ def upsert(data, value, model_id=""):
     items[key] = updated
     result = dict(data)
     result['models'] = items
-    if key in DESKTOP_ENGINES and 'deleted_desktop_models' in result:
+    if 'deleted_desktop_models' in result:
         result['deleted_desktop_models'] = [item for item in result['deleted_desktop_models'] if item != key]
     return result
 
 
 def remove(data, model_id):
-    """从配置里删掉一条；返回新的配置对象。"""
+    """从配置里删掉一条，ID 记进删除记录（键名沿用只记桌面入口时的 deleted_desktop_models）；返回新的配置对象。"""
     items = pool(data)
     key = str(model_id or '').strip()
     items.pop(key, None)
     result = dict(data)
     result['models'] = items
-    if key in DESKTOP_ENGINES:
+    if key:
         result['deleted_desktop_models'] = sorted(set(data.get('deleted_desktop_models') or []) | {key})
     return result
 
@@ -541,8 +543,11 @@ def with_tasks(data, tasks):
 
 
 def store(data, program=None):
-    """落盘到 配置/宠物/配置.json（原子替换）；返回写到的路径。"""
+    """落盘到 配置/宠物/配置.json（原子替换）；返回写到的路径。覆盖前留快照（只留最近 SNAPSHOT_KEEP 份），失败不拦保存。"""
     path = config_file(program)
+    try:
+        file_cache.snapshot_file(path, Path(program or PROGRAM) / 'data' / 'config_snapshots', 'pool', SNAPSHOT_KEEP)
+    except OSError:app_logging.swallowed()
     save(path, data)
     return path
 
@@ -836,7 +841,7 @@ def _http_error_kind(status):
 
 @app_logging.timed('model.http', 30000)
 def http_transport(url, payload, headers, timeout):
-    """模型供应商通用 HTTP 传输；按结果种类计数（成功／network／bug／HTTP 状态），不改变返回。"""
+    """模型供应商通用 HTTP 传输（payload 为 None 时发只读 GET）；按结果种类计数（成功／network／bug／HTTP 状态），不改变返回。"""
     result = _http_transport(url, payload, headers, timeout)
     app_logging.count('model.http.' + ('ok' if result.get('ok') else str(result.get('kind') or result.get('status'))))
     return result
@@ -873,12 +878,13 @@ def _scrub_error_detail(detail, headers):
 
 def _http_transport(url, payload, headers, timeout):
     """模型供应商通用 HTTP 传输；仅在实际请求时加载网络栈。"""
+    import http.client
     import ssl
     import urllib.error
     import urllib.request
 
-    body = json.dumps(payload, ensure_ascii=False).encode('utf-8')
-    request = urllib.request.Request(url, data=body, headers=_request_headers(headers), method='POST')
+    body = None if payload is None else json.dumps(payload, ensure_ascii=False).encode('utf-8')
+    request = urllib.request.Request(url, data=body, headers=_request_headers(headers), method='GET' if body is None else 'POST')
     from platform_tools import current_execution
     control = current_execution()
     for attempt in range(3):
@@ -893,12 +899,11 @@ def _http_transport(url, payload, headers, timeout):
             detail = _scrub_error_detail(exc.read()[:400].decode('utf-8', 'replace'), headers)
             return {'ok': False, 'status': exc.code, 'kind': _http_error_kind(exc.code),
                     'error': 'HTTP ' + str(exc.code) + '：' + detail}
-        except urllib.error.URLError as exc:
+        except (OSError, http.client.HTTPException) as exc:   # 含 URLError；读响应时的超时／断线不经它包装，同属网络问题
             if attempt < 2 and isinstance(getattr(exc, 'reason', None), ssl.SSLEOFError):
                 time.sleep(0.25 * (attempt + 1))
                 continue
-            return {'ok': False, 'status': 0, 'kind': 'network',
-                    'error': type(exc).__name__ + '：' + str(exc)}
+            return {'ok': False, 'status': 0, 'kind': 'network', 'error': type(exc).__name__ + '：' + str(exc)}
         except Exception as exc:
             return {'ok': False, 'status': 0, 'kind': 'bug',
                     'error': type(exc).__name__ + '：' + str(exc)}

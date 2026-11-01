@@ -17,6 +17,7 @@ import app_logging
 from pathlib import Path
 
 import stage_parallel
+import tk_timers
 from pet_bus import STAGES, STAGE_NAMES
 
 # 「自动」那一档在模型池里的 id（挑不出来时弹窗就写「自动」）。
@@ -158,39 +159,11 @@ def apply_text(widget, stage):
 def follow(widget, stage, interval=400):
     """按钮建好之后挂上：按当前状态刷字与置灰，按钮拆了就自己停。
 
-    换页会把整页控件连这颗按钮一起销毁，而 widget.after 是挂在解释器上的——不显式
-    after_cancel 的话，那一拍回来时命令已经没了，Tcl 会刷一串「invalid command name
-    ...tick」。所以这里把拍子记下来，按钮一拆就取消。
+    换页会把整页控件连这颗按钮一起销毁；定时与拆除时取消都交给 tk_timers.repeat，
+    不再手写一套 after／after_cancel。返回 stop()，可提前结束。
     """
-    handle = {'id': None}
-
-    def tick():
-        handle['id'] = None
-        try:
-            if not widget.winfo_exists():
-                return
-        except Exception:
-            return
-        apply_text(widget, stage)
-        try:
-            handle['id'] = widget.after(interval, tick)
-        except Exception:
-            app_logging.swallowed()
-
-    def stop(event=None):
-        if handle['id'] is not None:
-            try:
-                widget.after_cancel(handle['id'])
-            except Exception:
-                app_logging.swallowed()
-            handle['id'] = None
-
-    try:
-        widget.bind('<Destroy>', stop, add='+')
-    except Exception:
-        app_logging.swallowed()
-    tick()
-    return tick
+    apply_text(widget, stage)
+    return tk_timers.repeat(widget, interval, lambda: apply_text(widget, stage))
 
 
 def listen(bus):
@@ -274,7 +247,12 @@ def blockers(project, stage):
     第 63 期任务 3.2 又加了一条同样的口径：上游**真的做了却没做全**（资产没锁完、台账没
     生成、批次没划完……）时也挡住，并说清缺什么、去哪儿补；旧门禁上游没开始时照旧放行。
     新增 SG-A / SG-B 为强制门禁：缺初稿不能预演，缺预演确认不能投入资产。
+
+    没打开项目时没有状态可看，门禁也无从查起（各门禁检查要读项目文件，传 None 会抛
+    TypeError），按「读不出来就当空」处理，与 state_of／selected_skills 同一口径。
     """
+    if project is None:
+        return []
     states = state_of(project)
     out = []
     for dep in DEPENDS.get(stage, ()):
@@ -286,22 +264,30 @@ def blockers(project, stage):
     return out
 
 
-def step_summary(desktop, stage, project=None):
-    """手动制作弹窗那几行：模型／SKILL 数量／预计＋付费／依赖警告。纯读，不碰界面。"""
-    project = project if project is not None else project_of(desktop)
+def _summary_data(desktop, stage, project):
+    """弹窗摘要要的那几个数，只算一遍：blockers 每调一次就要按门禁读一遍资产索引、台账与批次。"""
     names = selected_skills(project, stage)
     paid = paid_count(stage, names)
     seconds = max(SECONDS_PER_SKILL, SECONDS_PER_SKILL * max(1, len(names))) if names else 0
     blocked = blockers(project, stage)
+    return {'model': model_label(desktop, project, stage), 'skills': len(names),
+            'skillNames': names, 'paid': paid, 'seconds': seconds, 'blocked': blocked,
+            'blocked_text': ('依赖：' + '、'.join(stage_name(dep) for dep in blocked) + '未完成')
+                            if blocked else ''}
+
+
+def step_summary(desktop, stage, project=None):
+    """手动制作弹窗那几行：模型／SKILL 数量／预计＋付费／依赖警告。纯读，不碰界面。"""
+    project = project if project is not None else project_of(desktop)
+    data = _summary_data(desktop, stage, project)
     return {'stage': stage, 'title': '手动制作：' + stage_name(stage),
-            'model': model_label(desktop, project, stage), 'skills': len(names),
-            'skillNames': names, 'paid': paid, 'seconds': seconds,
-            'blocked': blocked,
+            'model': data['model'], 'skills': data['skills'],
+            'skillNames': data['skillNames'], 'paid': data['paid'], 'seconds': data['seconds'],
+            'blocked': data['blocked'],
             'parallel': parallel_text(stage),
             'gate': stage_parallel.gate_text(project, stage),
-            'blocked_text': ('依赖：' + '、'.join(stage_name(dep) for dep in blocked) + '未完成')
-                            if blocked else '',
-            'lines': summary_lines(desktop, stage, project)}
+            'blocked_text': data['blocked_text'],
+            'lines': _lines(stage, data)}
 
 
 def parallel_text(stage):
@@ -310,19 +296,15 @@ def parallel_text(stage):
 
 
 def summary_lines(desktop, stage, project=None):
-    """弹窗默认那三行（最多四行）：模型／SKILL／预计；有依赖问题再补一行警告。"""
-    data = None
-    if project is None:
-        data = step_summary(desktop, stage, project_of(desktop))
-    else:
-        names = selected_skills(project, stage)
-        paid = paid_count(stage, names)
-        blocked = blockers(project, stage)
-        data = {'model': model_label(desktop, project, stage), 'skills': len(names),
-                'paid': paid, 'seconds': max(SECONDS_PER_SKILL, SECONDS_PER_SKILL * max(1, len(names)))
-                           if names else 0,
-                'blocked_text': ('依赖：' + '、'.join(stage_name(dep) for dep in blocked) + '未完成')
-                                if blocked else ''}
+    """弹窗默认那三行（最多四行）：模型／SKILL／预计；有依赖问题再补一行警告。
+
+    没打开项目时也按空项目出这几行：从前这里转去 step_summary、step_summary 又以同一个
+    None 转回来，两边互相调用直到 RecursionError。"""
+    project = project if project is not None else project_of(desktop)
+    return _lines(stage, _summary_data(desktop, stage, project))
+
+
+def _lines(stage, data):
     money = ('付费：约 %d 次调用' % data['paid']) if data['paid'] else '费用未估算，以实际模型调用为准'
     # 第 63 期任务 3.1：并行怎么起并进 SKILL 那一行——弹窗还是最多四行，不另起一行挤掉警告。
     lines = ['模型：' + str(data['model']),
