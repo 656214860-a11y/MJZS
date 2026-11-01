@@ -6,7 +6,7 @@
   - `run_selftests.py -k workflow idea cancellation script desktop_send`：630 条全过（110.6 秒）。
   - 默认冒烟：通过 8 项，失败 0 项。
   - `--architecture`：411 项中两项在写状态页前失败：`test_round_number_continuous`（2153 != 2166，状态页尚未登记 R2165 与本轮），`test_full_safe_all_is_required_after_eight_source_rounds`（R2165 欠一次完整安全全量）。其余全过。
-  - 全量 `--all --safe` 本轮未手动运行：按门禁提示，由本轮提交后的 post-commit 钩子在后台自动补跑，进度见 `logs/auto_full_safe.log`。
+  - 全量 `--all --safe`：本轮提交后 post-commit 钩子没有启动后台全量（没有锁，日志未更新）。12:03 在主检出手动执行 `scripts/auto_full_safe.py --spawn` 补跑：HEAD 919c88ee，退出码 1，用时 594 秒，2 个文件有红。`test_soak_light` 最慢一轮 10.549 秒，超过 10 秒上限，定向复跑通过，判断为机器负载；`test_desktop_compact_layout` 是 R2131 漏改的测试期望值，由 R2181 修复。全量未通过，没有写入凭据（R2181 更正）。
   - 真机未手动核对。
 - `project_status.md` 欠账：没有减少，也没有新增；本轮把当前轮次更新为 2170。
 

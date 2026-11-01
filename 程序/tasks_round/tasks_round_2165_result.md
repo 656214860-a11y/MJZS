@@ -9,7 +9,7 @@
   - `smoke_test.py --affected desktop_idea_chat`：通过 9 项，失败 0 项。
   - 默认冒烟：通过 8 项，失败 0 项。
   - `--architecture`：411 项，只有轮次基线 `test_round_number_continuous` 失败：状态页「当前轮次」仍是 2153，不等于最新结果报告号＋1。原因是分支不写状态页，由合并轮登记。worktree 缺被忽略的 `维护记录/基准历史.json`，运行前从主检出临时拷入，跑完已删除。
-  - 全量 `--all --safe` 本轮未运行。提交后钩子按 `<worktree 根>/运行环境/Python/python.exe` 找解释器，worktree 里没有这个目录，钩子直接跳过，没有触发后台全量。后台全量改由合并轮 R2169 在主检出的提交触发。
+  - 全量 `--all --safe` 本轮未运行。提交后钩子按 `<worktree 根>/运行环境/Python/python.exe` 找解释器，worktree 里没有这个目录，钩子直接跳过，没有触发后台全量。合并轮 R2169 在主检出提交后，钩子同样没有启动后台全量，12:03 手动执行 `scripts/auto_full_safe.py --spawn` 补跑，结果见 `tasks_round/tasks_round_2169_result.md`（R2181 更正）。
   - 真机未手动核对。
 - 轮次号：开工时领的是 R2158。提交时中央台账已被其他会话推进（重领前已到 R2164），提交钩子要求提交号等于最新已领号，于是用 `round_claim.py next` 重领为 R2165。改动随之转到分支 `codex/wip-R2165`，结果文件改名，正文其余内容不变。
 - `project_status.md` 欠账：没有减少，也没有新增（本分支不写状态页，合并轮登记）。
