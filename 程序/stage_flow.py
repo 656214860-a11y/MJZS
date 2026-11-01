@@ -17,6 +17,7 @@ import app_logging
 from pathlib import Path
 
 import stage_parallel
+import tk_timers
 from pet_bus import STAGES, STAGE_NAMES
 
 # 「自动」那一档在模型池里的 id（挑不出来时弹窗就写「自动」）。
@@ -158,39 +159,11 @@ def apply_text(widget, stage):
 def follow(widget, stage, interval=400):
     """按钮建好之后挂上：按当前状态刷字与置灰，按钮拆了就自己停。
 
-    换页会把整页控件连这颗按钮一起销毁，而 widget.after 是挂在解释器上的——不显式
-    after_cancel 的话，那一拍回来时命令已经没了，Tcl 会刷一串「invalid command name
-    ...tick」。所以这里把拍子记下来，按钮一拆就取消。
+    换页会把整页控件连这颗按钮一起销毁；定时与拆除时取消都交给 tk_timers.repeat，
+    不再手写一套 after／after_cancel。返回 stop()，可提前结束。
     """
-    handle = {'id': None}
-
-    def tick():
-        handle['id'] = None
-        try:
-            if not widget.winfo_exists():
-                return
-        except Exception:
-            return
-        apply_text(widget, stage)
-        try:
-            handle['id'] = widget.after(interval, tick)
-        except Exception:
-            app_logging.swallowed()
-
-    def stop(event=None):
-        if handle['id'] is not None:
-            try:
-                widget.after_cancel(handle['id'])
-            except Exception:
-                app_logging.swallowed()
-            handle['id'] = None
-
-    try:
-        widget.bind('<Destroy>', stop, add='+')
-    except Exception:
-        app_logging.swallowed()
-    tick()
-    return tick
+    apply_text(widget, stage)
+    return tk_timers.repeat(widget, interval, lambda: apply_text(widget, stage))
 
 
 def listen(bus):

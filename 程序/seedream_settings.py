@@ -79,26 +79,11 @@ def show(parent,on_saved=None):
             status.set('填写格式正确；实际模型权限和余额将在正式制图时验证。')
         except ValueError as exc:status.set(str(exc))
     def probe():
-        from api_endpoints import normalize_url, probe_endpoint
+        from api_endpoints import normalize_url, probe_message
         try:url=normalize_url(values['base_url'].get())
         except ValueError as exc:status.set(str(exc));return
         status.set('正在测试连接…')
-        import threading
-        outcome=[]
-        def run():
-            # 工作线程只写普通列表：跨线程设置 Tk 变量会抛 RuntimeError，状态栏会一直停在「正在检测」。
-            try:outcome.append(probe_endpoint(url))
-            except Exception as exc:outcome.append({'reachable':False,'error':type(exc).__name__})
-        def poll():
-            if not win.winfo_exists():return
-            if not outcome:return
-            result=outcome[0]
-            if result.get('reachable') and result.get('code') in (401,403,404):text='接口可达（HTTP %s，需密钥）'%result['code']
-            elif result.get('reachable'):text='接口可达（HTTP %s）'%result['code']
-            else:text='连接失败：'+str(result.get('error','未知错误'))
-            status.set(text);stop()
-        threading.Thread(target=run,daemon=True).start()
-        stop=tk_timers.repeat(win,150,poll);poll()
+        tk_timers.run_in_background(win,lambda:probe_message(url),status.set,lambda exc:status.set('连接失败：'+type(exc).__name__))
     SecondaryButton(row,text='检查配置',command=check).pack(side='left')
     SecondaryButton(row,text='测试连接',command=probe).pack(side='left',padx=(BUTTON_GAP,SPACING['none']))
     SecondaryButton(row,text='打开火山控制台',command=lambda:webbrowser.open('https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey')).pack(side='left',padx=(BUTTON_GAP,SPACING['none']))

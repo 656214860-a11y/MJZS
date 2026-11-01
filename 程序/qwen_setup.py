@@ -1,5 +1,5 @@
 """Local Alibaba connection settings, kept out of project task files and logs."""
-import json,os,re,threading
+import json,os,re
 from pathlib import Path
 from urllib.parse import urlparse
 # 第 34 期第 9 条：`urllib.request` 连 ssl 一起加载（约 4.4 MB 常驻），验证连接时才 import。
@@ -164,14 +164,7 @@ def show(parent,on_saved=None):
         try:cfg=values()
         except ValueError as exc:status.set(str(exc));return
         status.set('正在验证连接…')
-        result=[]
-        def run():result.append(probe(cfg))
-        def poll():
-            if not win.winfo_exists():return
-            if not result:return
-            status.set(result[0]);stop()
-        threading.Thread(target=run,daemon=True).start()
-        stop=tk_timers.repeat(win,250,poll);poll()
+        tk_timers.run_in_background(win,lambda:probe(cfg),status.set,lambda exc:status.set('连接失败，请检查网络、根地址和 API Key。'))
     row=ttk.Frame(body);row.grid(row=7,column=0,columnspan=2,sticky='w',pady=SPACING['sm'])
     PrimaryButton(row,text='保存设置',command=commit).pack(side='left')
     SecondaryButton(row,text='删除模型',command=delete_model).pack(side='left',padx=SPACING['sm'])
