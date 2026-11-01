@@ -12,7 +12,7 @@ LIMIT = 1000
 SLACK = 100
 OVERSIZE_CAPS = {
     'app.py': 1499,
-    'stage_execution_service.py': 1447,
+    'stage_execution_service.py': 1442,
     'ui_widgets.py': 1125,
     'writing_api.py': 1372,
     'pet_cloud.py': 1357,

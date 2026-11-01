@@ -150,6 +150,12 @@ def import_delivery_master(project, source, *, settings_snapshot=None, cache=Non
         publish=media_import_publisher(project, 'video'))
 
 
+def _json_gateway(**extra):
+    """各 ``*_gateway()`` 的共同底座：唯一的 JSON 原子发布器；个别网关只补自己多出的能力。"""
+    from agent.core import save
+    return {'publish_json': save, **extra}
+
+
 def local_video_settings_gateway():
     """L3 为本地视频设置服务注入唯一的发布与回滚能力。"""
     import shutil
@@ -169,8 +175,7 @@ def publish_local_video_settings(project, current_config, options):
 
 def pet_performance_gateway():
     """L3 为宠物优化账本装配唯一的 JSON 发布器。"""
-    from agent.core import save
-    return {'publish_json': save}
+    return _json_gateway()
 
 
 def start_pet_performance_check(program, project, kind='startup'):
@@ -189,8 +194,7 @@ def poll_pet_performance_check(session, at=None):
 
 def pet_test_gateway():
     """L3 为宠物增量自检账本装配唯一的 JSON 发布器。"""
-    from agent.core import save
-    return {'publish_json': save}
+    return _json_gateway()
 
 
 def start_pet_test_check(program, text=''):
@@ -347,8 +351,7 @@ def collect_writing_quality(project, script_path):
 
 def desktop_settings_gateway():
     """L3 为桌面级偏好设置注入唯一 JSON 发布器。"""
-    from agent.core import save
-    return {'publish_json': save}
+    return _json_gateway()
 
 
 def publish_desktop_preferences(settings_path, current, updates):
@@ -360,9 +363,7 @@ def publish_desktop_preferences(settings_path, current, updates):
 
 def legacy_adoption_gateway():
     """L3 为旧目录归位记录装配目录与 JSON 发布能力。"""
-    from agent.core import save
-    return {'publish_json': save,
-            'make_dir': lambda folder: Path(folder).mkdir(parents=True, exist_ok=True)}
+    return _json_gateway(make_dir=lambda folder: Path(folder).mkdir(parents=True, exist_ok=True))
 
 
 def record_stage_legacy_adoption(project, linked_paths, now=None):
@@ -565,8 +566,7 @@ def release_uncertain_asset_batch(project, ids):
 
 def asset_batch_settings_gateway():
     """L3 为资产批量设置服务注入唯一的项目设置发布器。"""
-    from agent.core import save
-    return {'publish_json': save}
+    return _json_gateway()
 
 
 def save_asset_batch_settings(project, options, categories=None, restored_model_id=None):
@@ -687,8 +687,7 @@ def run_tts_lines(lines, folder, generate=None, report=None, stop=None, episode=
 
 def cloud_video_gateway():
     """L3 为云视频配置服务装配唯一的正式 JSON 发布器。"""
-    from agent.core import save
-    return {'publish_json': save}
+    return _json_gateway()
 
 
 def cloud_video_session_folder(project, kind, base, model, source):
@@ -732,14 +731,12 @@ def publish_cloud_video_studio_config(config_path, config):
 
 def video_lifecycle_gateway():
     """L3 向视频生命周期服务注入唯一 JSON 发布器。"""
-    from agent.core import save
-    return {'publish_json': save}
+    return _json_gateway()
 
 
 def confirm_gates_gateway():
     """L3 为确认门禁注入唯一的正式 JSON 发布器。"""
-    from agent.core import save
-    return {'publish_json': save}
+    return _json_gateway()
 
 
 def record_stage_confirmation(project, key, choice='', by='human', state='applied', digest=''):
@@ -795,8 +792,7 @@ def run_stage_confirmation_gate(project, gate_id, *, shots=None, assets=None, le
 
 def previs_routing_gateway():
     """L3 为白模分流策略注入唯一的正式 JSON 发布器。"""
-    from agent.core import save
-    return {'publish_json': save}
+    return _json_gateway()
 
 
 def save_stage_previs_override(project, source, shot_id, value):
@@ -914,8 +910,7 @@ def install_stage_previs_progress(path, shot_id):
 
 def storyboard_edit_gateway():
     """L3 为定稿分镜编辑服务注入唯一的 JSON 发布器。"""
-    from agent.core import save
-    return {'publish_json': save}
+    return _json_gateway()
 
 
 def save_edited_stage_storyboard(path, data):
