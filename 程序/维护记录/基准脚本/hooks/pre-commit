@@ -2,11 +2,15 @@
 # 由 install_git_hooks.py 安装到 Git common-dir/hooks/pre-commit。
 # CODEX_STAGE_ALLOWLIST 使用分号分隔 repo 相对路径；只对非默认安全文档路径必填。
 common=$(git rev-parse --git-common-dir) || exit 1
-if [ -e "$common/full-safe-selftest.lock" ]; then
-  echo "拒绝提交：全量安全验收锁存在。等待验收结束；异常退出的锁须确认持有人已退出后回收。" >&2
-  exit 1
-fi
 branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)
+# 验收锁只拦 master/main 与游离 HEAD；工作分支随手提交不等锁（全量验收在合入 master 前跑）。
+case "$branch" in
+  ""|master|main)
+    if [ -e "$common/full-safe-selftest.lock" ]; then
+      echo "拒绝提交：全量安全验收锁存在。等待验收结束；异常退出的锁须确认持有人已退出后回收。" >&2
+      exit 1
+    fi ;;
+esac
 allowed=";${CODEX_STAGE_ALLOWLIST:-};"
 staged=$(mktemp "${TMPDIR:-/tmp}/codex-staged.XXXXXX") || exit 1
 trap 'rm -f "$staged"' EXIT HUP INT TERM

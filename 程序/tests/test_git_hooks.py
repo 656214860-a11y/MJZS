@@ -35,6 +35,25 @@ class GitHookTests(unittest.TestCase):
             lock.unlink()
             self.assertEqual(self.run_hook(HOOKS / 'pre-commit', cwd=root).returncode, 0)
 
+    def test_precommit_lock_does_not_block_work_branches(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            subprocess.run(["git", "init", "--quiet"], cwd=root, check=True)
+            subprocess.run(["git", "checkout", "-q", "-b", "claude/work"], cwd=root, check=True)
+            (root / '.git' / 'full-safe-selftest.lock').write_text('{"pid": 123}', encoding='utf-8')
+            self.assertEqual(self.run_hook(HOOKS / 'pre-commit', cwd=root).returncode, 0)
+
+    def test_wip_commit_message_only_on_work_branches(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            subprocess.run(["git", "init", "--quiet"], cwd=root, check=True)
+            message = root / "message"
+            message.write_text("WIP: half done\n", encoding="utf-8")
+            subprocess.run(["git", "checkout", "-q", "-b", "master"], cwd=root, check=True)
+            self.assertNotEqual(self.run_hook(HOOKS / "commit-msg", str(message), cwd=root).returncode, 0)
+            subprocess.run(["git", "checkout", "-q", "-b", "claude/work"], cwd=root, check=True)
+            self.assertEqual(self.run_hook(HOOKS / "commit-msg", str(message), cwd=root).returncode, 0)
+
     def run_hook(self, hook: Path, *args: str, cwd: Path | None = None, env: dict | None = None):
         return subprocess.run([str(SH), str(hook), *args], cwd=cwd, text=True,
                               capture_output=True, env=env, check=False)
