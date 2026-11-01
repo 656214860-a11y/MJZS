@@ -17,9 +17,6 @@ from tests.architecture._scan import ROOT, parse, production_runtime_files
 DIR_NAME = '工作流任务'
 AUTHORITY = 'stage_layout.py'      # 路径权威自己产出该目录名（R2260 J22），不计入棘轮
 REGISTERED = {
-    'download_inbox.py': 1,
-    'projects.py': 4,
-    'shot_numbering.py': 3,
     'storyboard_recycle_service.py': 2,
     'workflow_engines.py': 4,
 }
