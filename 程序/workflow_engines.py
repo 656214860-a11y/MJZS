@@ -8,7 +8,7 @@ from pathlib import Path
 from file_cache import remove_temporary_file
 from datetime import datetime
 from agent.core import save,save_text,read,temporary_path,replace
-import edit_habits
+import edit_habits, stage_layout
 from workflow_settings import find_program,gui_claude_program,GUI_CLAUDE_CLI_HINT,ENGINES,skill_prompt,stage_output_contract,writer_style_prompt,master_gate
 from workflow_process_registry import (register_process, forget_process, processes, run_registered,
                                        reserve_process_slot, release_process_slot,
@@ -266,7 +266,7 @@ CLAUDE_SESSION_STALE_SECONDS = 12 * 3600
 
 def claude_session_stale(project, stage, now=None):
     """绑定的 Claude 会话记录最后写入超过阈值即视为过期；无绑定或无记录不算过期。"""
-    bindings = Path(project) / '工作流任务' / 'Claude对话.json'
+    bindings = stage_layout.workflow_dir(project, 'Claude对话.json')
     try:
         data = read(bindings) if bindings.is_file() else {}
         session = str(uuid.UUID(str(data.get(stage)))) if isinstance(data, dict) and data.get(stage) else None
@@ -290,7 +290,7 @@ def launch_interactive(project,stage,title,prompt,config,followup=None,slot=None
         raise ValueError('Desktop 模型请通过桌面发送入口打开，不支持命令行参数')
     if config['engine'] == 'client-cli':
         item=_client_profile(config);project=Path(project)
-        folder=project/'工作流任务'/'交互任务'/stage/datetime.now().strftime('%Y%m%d_%H%M%S_%f')
+        folder=stage_layout.workflow_dir(project,'交互任务')/stage/datetime.now().strftime('%Y%m%d_%H%M%S_%f')
         folder.mkdir(parents=True)
         task=folder/'任务.md';save_text(task,prompt);save(folder/'调用配置.json',config)
         exe=find_program(config)
@@ -327,7 +327,7 @@ def launch_interactive(project,stage,title,prompt,config,followup=None,slot=None
         raise ValueError('Claude Desktop 请通过桌面发送入口打开，不支持 Claude Code 命令行参数')
     exe=find_program(config);project=Path(project)
     if config['engine']=='claude' and gui_claude_program(exe):raise ValueError(GUI_CLAUDE_CLI_HINT)
-    folder=project/'工作流任务'/'交互任务'/stage/datetime.now().strftime('%Y%m%d_%H%M%S_%f')
+    folder=stage_layout.workflow_dir(project,'交互任务')/stage/datetime.now().strftime('%Y%m%d_%H%M%S_%f')
     folder.mkdir(parents=True)
     task=folder/'任务.md';save_text(task,prompt);save(folder/'调用配置.json',config)
     initial=f'请将任务命名为“{title}”，完整读取并执行任务文件：{task}。需要讨论时在本对话继续。'
@@ -340,7 +340,7 @@ def launch_interactive(project,stage,title,prompt,config,followup=None,slot=None
         initial=prepared['prompt']
         args+=['--cd',str(project),'--sandbox','workspace-write']
     else:
-        bindings=project/'工作流任务'/'Claude对话.json'
+        bindings=stage_layout.workflow_dir(project,'Claude对话.json')
         data=read(bindings) if bindings.is_file() else {}
         if not isinstance(data,dict):data={}
         session=data.get(stage)
