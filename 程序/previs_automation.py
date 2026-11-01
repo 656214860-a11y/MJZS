@@ -56,6 +56,14 @@ def announce(state,ok,text,ticket=None):
     return text
 
 
+LOCAL_AGENT_REQUIRED='白模预演需要本地 Agent（Claude 或 Codex 桌面通道），请在该阶段设置里切换引擎'
+
+
+def require_local_agent(config):
+    """REQ-S09-50：白模预演不走 API 直连；选了模型池 API 模型（engine=qwen）时拒绝，不启动 Qwen Code。"""
+    if (config or {}).get('engine')=='qwen':raise ValueError(LOCAL_AGENT_REQUIRED)
+
+
 def force_stop(project,state):
     """强制停止白模制作：先结束本项目正在跑的引擎进程（连同子进程），再让工作线程停掉后续镜头。
 
@@ -77,14 +85,15 @@ def force_stop(project,state):
 
 def start(project,source,ids,state,monitor=False,ticket=None,is_current=None,execute=None):
     if state.get('busy'):raise ValueError('已有白模任务进行中')
+    from workflow_settings import current,find_program,ENGINES
+    call_config=current(project,'previs')
+    require_local_agent(call_config)
     from previs_routing import ready
     from stage_execution_service import project_context
     context=project_context(project)
     ids=[sid for sid in select_agent_shots(project,source,ids,state) if not ready(context,sid,source)]
     if not ids:
         state['summary']='没有需要 Agent 制作的镜头：简单镜头无需白模、中等镜头走线上入口，或所选镜头已就绪';return
-    from workflow_settings import current,find_program,ENGINES
-    call_config=current(project,'previs')
     if call_config['engine']=='claude-desktop-app':
         # 白模是逐镜无人值守后台制作；Claude Desktop 只能由用户在窗口里手动发送，
         # 不先拦下会在建好批次、打开监视页后才逐镜失败。

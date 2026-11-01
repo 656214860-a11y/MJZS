@@ -886,6 +886,10 @@ class _FlowAgentLaunch:
             from video_prompt_direct_api import direct_model
             if direct_model(self.config):
                 _run_video_prompt_direct(self.host,self.config,self.direct);return
+        if self.stage=='previs':
+            # REQ-S09-50：白模预演只走本地 Agent；API 模型（engine=qwen）不再悄悄起 Qwen Code，直接提示。
+            from previs_automation import require_local_agent
+            require_local_agent(self.config)
         if self.stage == 'writing' and not self.intake_only:
             from workflow_settings import freeze_skills
             self.config = freeze_skills(self.config)
