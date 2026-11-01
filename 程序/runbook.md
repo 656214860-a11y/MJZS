@@ -54,7 +54,7 @@
 
 ## 5. 升级、备份与回滚
 
-- 升级前用 `reorganize_install.py` 对照 `安装信息.json` 与 `distribution_manifest.md` 核对落位。
+- 发布流程以 `说明/发布检查单.md` 为准；安装后对照 `安装信息.json` 与 `distribution_manifest.md` 核对落位（旧文档里的 `reorganize_install.py`／`install_release.py` 仓库里已不存在）。
 - 回滚靠 Git：`升级备份/` 与 `.bak_*` 是历史证据、今后不再新增（AGENTS §2.6）。回滚后跑 §3 第一档自检。
 - `程序\outputs\`、`程序\logs\`、私有配置不进发布包。
 
