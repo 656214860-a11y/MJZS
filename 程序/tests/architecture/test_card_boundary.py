@@ -40,7 +40,7 @@ class CardBoundaryTests(unittest.TestCase):
         self._assert_settings_card("reference_wall.py", "_ReferenceWall")  # R1828 show 改写成类
 
     def test_qwen_settings_uses_card_for_its_configuration_group(self):
-        self._assert_settings_card("qwen_setup.py")
+        self._assert_settings_card("qwen_setup_dialog.py")
 
     def test_tts_settings_uses_card_for_its_configuration_group(self):
         self._assert_settings_card("tts_settings.py")

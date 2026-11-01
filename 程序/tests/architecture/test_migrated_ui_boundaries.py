@@ -16,7 +16,7 @@ SERVICES = frozenset({
     'asset_batch_controller', 'asset_page_controller', 'editing_page_controller', 'media_page_controller', 'page_navigation_controller',
 })
 # R2178 J1 起：窗口已拆到 *_dialog 的解析模块，连同传递依赖都不得在导入时带进 tkinter。
-TK_FREE_ON_IMPORT = ('workflow_settings',)
+TK_FREE_ON_IMPORT = ('workflow_settings', 'qwen_setup')
 VIEWS = frozenset({'desktop', 'storyboard_files', 'asset_batch'})
 FORBIDDEN_VIEW_MODULES = frozenset({'socket', 'webbrowser', 'requests', 'urllib', 'http'})
 FORBIDDEN_CALLS_BY_MODULE = {

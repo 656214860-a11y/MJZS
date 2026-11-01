@@ -101,7 +101,7 @@ def show_settings(desktop,project,on_saved=None,stage='previs',function=None):
         draft['profiles']['qwen']['model']=model
         if active[0]=='qwen':values['model'].set(model)
         feedback.set('API 设置已保存，Qwen 模型已同步。')
-    api_button=SecondaryButton(custom,text='自定义 API（Qwen）',command=lambda:__import__('qwen_setup').show(win,on_saved=api_saved))
+    api_button=SecondaryButton(custom,text='自定义 API（Qwen）',command=lambda:__import__('qwen_setup_dialog').show(win,on_saved=api_saved))
     api_button.grid(row=0,column=2,padx=(SPACING['sm'],SPACING['none']))
     row=ttk.Frame(footer);row.pack(side='right')
     SecondaryButton(row,text='检查配置',command=check).pack(side='left',padx=SPACING['xs'])

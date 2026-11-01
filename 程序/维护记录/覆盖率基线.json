@@ -1058,7 +1058,13 @@
   {
    "module": "qwen_setup.py",
    "covered": 0,
-   "total": 141,
+   "total": 62,
+   "percent": 0.0
+  },
+  {
+   "module": "qwen_setup_dialog.py",
+   "covered": 0,
+   "total": 82,
    "percent": 0.0
   },
   {
@@ -2005,5 +2011,5 @@
   }
  ],
  "modules_covered": 50,
- "modules_total": 332
+ "modules_total": 333
 }

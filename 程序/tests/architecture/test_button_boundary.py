@@ -75,7 +75,7 @@ class ButtonBoundaryTests(unittest.TestCase):
         self._assert_semantic_buttons('cloud_assets.py')
 
     def test_qwen_settings_use_semantic_buttons(self):
-        self._assert_semantic_buttons('qwen_setup.py')
+        self._assert_semantic_buttons('qwen_setup_dialog.py')
 
     def test_prompt_optimizer_settings_use_semantic_buttons(self):
         self._assert_semantic_buttons('agent/prompt_optimizer.py')

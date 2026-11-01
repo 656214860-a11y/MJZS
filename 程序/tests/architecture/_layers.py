@@ -65,6 +65,8 @@ _register(3, "edit_habits")
 _register(4, "edit_habits_dialog")
 # R2184：工作流调用设置窗口从 workflow_settings 拆出（R2178 J1），workflow_settings 自身不再导入 Tk。
 _register(4, "workflow_settings_dialog")
+# R2189：Qwen「API 设置」窗口从 qwen_setup 拆出（R2178 J2），qwen_setup 自身不再导入 Tk。
+_register(4, "qwen_setup_dialog")
 _register(3, "desktop_send_ledger")
 _register(4, "desktop_send_choice")
 
