@@ -176,7 +176,8 @@ class CompactDesktopGeometryTests(unittest.TestCase):
             font_spec = style.lookup(button.cget('style') or 'TButton', 'font')
             self.assertGreaterEqual(button.winfo_width(), font.Font(root=button, font=font_spec).measure(button.cget('text')))
             self.assertLessEqual(button.winfo_rootx()+button.winfo_width(), d.idea_row.winfo_rootx()+d.idea_row.winfo_width())
-        self.assertEqual(d.idea_input_hint.place_info()['anchor'], 'w')
+        # R2131：空输入框改为两行，提示由垂直居中改为对齐首行（契约有意变更：原 'w'）。
+        self.assertEqual(d.idea_input_hint.place_info()['anchor'], 'nw')
         self.assertAlmostEqual(d.idea_input_hint.winfo_rootx(),
                                d.idea_input.winfo_rootx() + d.idea_input.bbox('1.0')[0],
                                delta=2)
