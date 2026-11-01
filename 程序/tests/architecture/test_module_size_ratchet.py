@@ -22,7 +22,7 @@ OVERSIZE_CAPS = {
     'pet_ui_voice.py': 1201,
     'pet_llm.py': 1197,
     'pet_agent.py': 1182,
-    'workflow_settings.py': 1176,
+    'workflow_settings.py': 1056,
     'desktop_idea_chat.py': 1148,
     'model_pool.py': 1117,
     'cell_hover.py': 1016,

@@ -84,7 +84,7 @@ class ButtonBoundaryTests(unittest.TestCase):
         self._assert_semantic_buttons('seedream_settings.py')
 
     def test_workflow_settings_use_semantic_buttons(self):
-        self._assert_semantic_buttons('workflow_settings.py')
+        self._assert_semantic_buttons('workflow_settings_dialog.py')
 
     def test_shared_video_controls_use_semantic_buttons(self):
         self._assert_semantic_buttons('shared_video_controls.py', required=('SecondaryButton',))

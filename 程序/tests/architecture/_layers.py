@@ -63,6 +63,8 @@ _register(3, "account_controller")
 _register(4, "account_inputs", "desktop_account_page", "desktop_login_gate", "desktop_master_update", "desktop_page_nav", "desktop_lifecycle", "master_skill_update")
 _register(3, "edit_habits")
 _register(4, "edit_habits_dialog")
+# R2184：工作流调用设置窗口从 workflow_settings 拆出（R2178 J1），workflow_settings 自身不再导入 Tk。
+_register(4, "workflow_settings_dialog")
 _register(3, "desktop_send_ledger")
 _register(4, "desktop_send_choice")
 

@@ -52,7 +52,7 @@ class CardBoundaryTests(unittest.TestCase):
         self._assert_settings_card("agent/prompt_optimizer.py", "settings")
 
     def test_workflow_settings_uses_card_for_its_configuration_group(self):
-        self._assert_settings_card("workflow_settings.py", "show_settings")
+        self._assert_settings_card("workflow_settings_dialog.py", "show_settings")
 
     def test_pet_settings_hub_uses_card_for_its_configuration_group(self):
         self._assert_settings_card("pet_settings_ui.py", "open_hub")

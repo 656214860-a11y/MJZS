@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import ast
+import subprocess
+import sys
 import unittest
 from pathlib import Path
 
@@ -13,6 +15,8 @@ SERVICES = frozenset({
     'storyboard_final_controller', 'storyboard_page_controller', 'keyframe_page_controller',
     'asset_batch_controller', 'asset_page_controller', 'editing_page_controller', 'media_page_controller', 'page_navigation_controller',
 })
+# R2178 J1 起：窗口已拆到 *_dialog 的解析模块，连同传递依赖都不得在导入时带进 tkinter。
+TK_FREE_ON_IMPORT = ('workflow_settings',)
 VIEWS = frozenset({'desktop', 'storyboard_files', 'asset_batch'})
 FORBIDDEN_VIEW_MODULES = frozenset({'socket', 'webbrowser', 'requests', 'urllib', 'http'})
 FORBIDDEN_CALLS_BY_MODULE = {
@@ -51,6 +55,16 @@ class MigratedServiceBoundaryTests(unittest.TestCase):
                 if package == 'tkinter':
                     violations.append(f'{module}.py:{line}')
         self.assertEqual(violations, [], '无 Tk 服务不得导入 tkinter：' + ', '.join(violations))
+
+    def test_split_settings_modules_load_without_tk(self):
+        for module in TK_FREE_ON_IMPORT:
+            with self.subTest(module=module):
+                done = subprocess.run(
+                    [sys.executable, '-B', '-c', f"import sys, {module}; print('tkinter' in sys.modules)"],
+                    cwd=ROOT, capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=180)
+                self.assertEqual(done.returncode, 0, '子进程失败：' + (done.stderr or '')[-800:])
+                self.assertEqual(done.stdout.strip().splitlines()[-1], 'False',
+                                 f'{module} 导入后不得加载 tkinter（Tk 只留在对应 *_dialog 模块）')
 
 
 class MigratedViewBoundaryTests(unittest.TestCase):
