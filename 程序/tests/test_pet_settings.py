@@ -439,16 +439,16 @@ class ManagerProviderTests(SettingsCase):
         self.addCleanup(win.destroy)
         tree = win._pet_tree
         rows = [tree.item(row, 'values') for row in tree.get_children()]
-        # 列顺序：Provider／模型 ID／显示名；同一 Provider 只在分组首行写名字。
+        # 列顺序：Provider／调用方式／模型 ID／显示名；同一 Provider 只在分组首行写名字。
         providers, last = {}, ''
         for row in rows:
             last = str(row[0]) or last
-            providers[str(row[2])] = last
+            providers[str(row[3])] = last
         heads = [str(row[0]) for row in rows if str(row[0])]
         self.assertEqual(heads, sorted(set(heads), key=str.casefold), '每个 Provider 只出现一次且按名排序')
         self.assertEqual(providers['ChatGPT Desktop · Codex'], 'GPT')
         self.assertEqual(providers['GPT-4o'], 'GPT')
-        gpt = [str(row[2]) for row in rows if providers[str(row[2])] == 'GPT']
+        gpt = [str(row[3]) for row in rows if providers[str(row[3])] == 'GPT']
         self.assertEqual(gpt, sorted(gpt, key=str.casefold))
         self.assertEqual(str(win._pet_manager_hint_label.cget('style')), 'PaleGreenHint.TLabel')
 
@@ -458,17 +458,55 @@ class ManagerProviderTests(SettingsCase):
         self.addCleanup(win.destroy)
         tree = win._pet_tree
         self.assertEqual([str(tree.heading(key, 'text')) for key in tree['columns']],
-                         ['Provider', '模型 ID', '显示名', '调用方式', '能力标签', '状态'])
-        rows = {str(values[2]): [str(value) for value in values]
+                         ['Provider', '调用方式', '模型 ID', '显示名', '能力标签', '状态'])
+        rows = {str(values[3]): [str(value) for value in values]
                 for values in (tree.item(row, 'values') for row in tree.get_children())}
-        self.assertEqual(rows['ChatGPT Desktop · Codex'][3], 'Desktop')
-        self.assertEqual(rows['Claude Code'][3], 'CLI')
-        self.assertEqual(rows['GPT-4o'][3], 'API')
+        self.assertEqual(rows['ChatGPT Desktop · Codex'][1], 'Desktop')
+        self.assertEqual(rows['Claude Code'][1], 'CLI')
+        self.assertEqual(rows['GPT-4o'][1], 'API')
         self.assertEqual(rows['ChatGPT Desktop · Codex'][5], '可用', '模型 ID 已有自己一列，状态不再带上')
         # 表单切到 Desktop 时列表不跟着藏列：每行的调用方式已经说明哪些信息适用。
         win._pet_mode.set('Desktop')
         shown = tuple(str(key) for key in tree['displaycolumns'])
         self.assertIn(shown, (('#all',), tuple(str(key) for key in tree['columns'])))
+
+    def test_only_the_provider_heading_sorts_and_it_flips_the_group_order(self):
+        """列头只有 Provider 可点：其余列头没有排序命令；点 Provider 翻转分组顺序，再点翻回。"""
+        win = self.pet.open_model_manager()
+        self.addCleanup(win.destroy)
+        tree = win._pet_tree
+        for key in tree['columns']:
+            command = str(tree.heading(key, 'command'))
+            self.assertEqual(bool(command), key == 'provider', key)
+
+        def heads():
+            return [str(tree.item(row, 'values')[0]) for row in tree.get_children()
+                    if str(tree.item(row, 'values')[0])]
+        before = heads()
+        tree.tk.call(tree.heading('provider', 'command'))
+        self.assertEqual(heads(), sorted(set(before), key=str.casefold, reverse=True))
+        tree.tk.call(tree.heading('provider', 'command'))
+        self.assertEqual(heads(), before)
+
+    def test_the_form_pairs_fields_on_one_row_with_short_boxes(self):
+        """表单：调用方式｜Provider、模型 ID｜显示名、上下文长度｜备注各占一行，下拉框与输入框定宽不拉长。"""
+        win = self.pet.open_model_manager()
+        self.addCleanup(win.destroy)
+        win.update_idletasks()
+        form = win._pet_provider_box.master
+        entries, labels = win._pet_entries, win._pet_labels
+
+        def row_of(widget):
+            return int(widget.grid_info()['row'])
+        self.assertEqual(row_of(win._pet_provider_box), 0)
+        self.assertEqual(row_of(entries['model']), row_of(entries['label']))
+        self.assertEqual(row_of(entries['context_length']), row_of(entries['note']))
+        self.assertLess(row_of(win._pet_provider_box), row_of(entries['model']))
+        self.assertLess(row_of(entries['model']), row_of(entries['base_url']))
+        self.assertEqual(row_of(labels['context_length']), row_of(entries['context_length']))
+        for widget in (win._pet_provider_box, entries['model'], entries['label'],
+                       entries['context_length'], entries['note']):
+            self.assertLess(widget.winfo_reqwidth(), form.winfo_reqwidth() // 2, widget)
 
 
 class CodexDesktopEntryTests(SettingsCase):
