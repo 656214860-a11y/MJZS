@@ -58,11 +58,10 @@ def main(argv=None) -> int:
     parser.add_argument('--baseline', type=float, default=None)
     parser.add_argument('--history', default=str(HISTORY))
     args = parser.parse_args(argv)
-    try:
-        data = json.loads(Path(args.history).read_text(encoding='utf-8'))
-        rows = data.get('tasks', []) if isinstance(data, dict) else []
-    except (OSError, ValueError):
-        rows = []
+    sys.path.insert(0, str(PROGRAM))
+    from agent.core import read_json
+    data = read_json(args.history, default={})
+    rows = data.get('tasks', []) if isinstance(data, dict) else []
     report = assess(rows, since=args.since, baseline=args.baseline)
     print(json.dumps(report, ensure_ascii=False, indent=2))
     return 1 if report['rollback'] else 0

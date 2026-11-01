@@ -14,7 +14,7 @@ _register(0, "pet_bus", "script_contract", "script_manifest_contract", "script_m
           "prompt_templates", "shot_batches", "production_model_contract", "app_metadata")
 # R1647：stage_model_value 只依赖 file_cache／pet_bus（无 Tk、无编排状态），按实际依赖登记为 L1，
 # 纠正原先按名字后缀落在 L3 的旧账；L2 领域服务不该为读一个阶段模型名反向依赖编排层。
-_register(1, "client_profiles", "model_pool", "model_secrets", "pet_llm", "file_cache", "hash_backend",
+_register(1, "client_profiles", "model_pool", "model_secrets", "config_snapshot", "pet_llm", "file_cache", "hash_backend",
           "storage_maintenance", "log_maintenance", "workspace_maintenance", "diagnostic_capture", "app_logging", "line_endings", "app_icon", "workflow_process_registry", "script_text_reader", "stage_model_value", "native_asset_codec", "comfy_runtime", "ui_tokens", "continuity_ledger")
 _register(2, "task_center_service", "keyframe_evidence", "animatic_service", "writing_files", "writing_workflow", "idea_chat", "idea_brief_form", "idea_attachments", "idea_script_heuristic", "idea_document_paths", "idea_transcript", "download_inbox",
           "storyboard_lifecycle", "storyboard_catalog_service",
