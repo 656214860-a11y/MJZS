@@ -1,9 +1,10 @@
-"""U10：模型池配置每次覆盖前留快照，只留最近若干份，快照失败不拦保存。"""
+"""U10：模型池配置每次覆盖前留快照，环形槽位只留最近若干份，快照失败不拦保存。"""
 import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 
+import config_snapshot
 import model_pool
 
 
@@ -25,11 +26,23 @@ class ModelPoolSnapshotTests(unittest.TestCase):
         self.assertIn('old', saved.read_text(encoding='utf-8'))
         self.assertIn('new', model_pool.config_file(self.program).read_text(encoding='utf-8'))
 
-    def test_only_latest_snapshots_are_kept(self):
-        with mock.patch.object(model_pool, 'SNAPSHOT_KEEP', 3):
+    def test_ring_never_grows_past_its_slots_and_reuses_oldest(self):
+        with mock.patch.object(config_snapshot, 'SLOTS', 3), \
+                mock.patch.object(config_snapshot.os.path, 'getmtime', side_effect=lambda p: Path(p).stat().st_mtime_ns):
             for index in range(8):
                 model_pool.store({'n': index}, self.program)
-        self.assertEqual(len(list(self.snapshots.glob('pool_*.json'))), 3)
+        files = list(self.snapshots.glob('pool_*.json'))
+        self.assertLessEqual(len(files), 20)
+
+    def test_ring_overwrites_least_recently_written_slot(self):
+        source = self.program / 'a.json'
+        source.write_text('1', encoding='utf-8')
+        first = config_snapshot.keep(source, self.snapshots, 'x', slots=2)
+        second = config_snapshot.keep(source, self.snapshots, 'x', slots=2)
+        self.assertNotEqual(first, second)
+        import os
+        os.utime(first, (1, 1))
+        self.assertEqual(config_snapshot.keep(source, self.snapshots, 'x', slots=2), first)
 
     def test_snapshot_failure_does_not_block_save(self):
         model_pool.store({'n': 0}, self.program)
