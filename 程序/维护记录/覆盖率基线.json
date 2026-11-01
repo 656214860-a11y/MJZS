@@ -1742,7 +1742,7 @@
   {
    "module": "workflow_settings.py",
    "covered": 0,
-   "total": 799,
+   "total": 741,
    "percent": 0.0
   },
   {
@@ -1998,6 +1998,12 @@
    "percent": 34.9
   },
   {
+   "module": "store_program_locator.py",
+   "covered": 0,
+   "total": 63,
+   "percent": 0.0
+  },
+  {
    "module": "stage_path_service.py",
    "covered": 20,
    "total": 55,
@@ -2119,5 +2125,5 @@
   }
  ],
  "modules_covered": 53,
- "modules_total": 351
+ "modules_total": 352
 }
