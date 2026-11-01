@@ -7,7 +7,7 @@ from tkinter import ttk
 from ui_motion import Spinner
 from ui_tokens import COLORS, FONTS, ICON_COPY, ICON_DELETE, ICON_FONT, ICON_REWIND, SPACING
 from pathlib import Path
-from idea_chat_controller import ALL_MODELS, bubble_timestamp, collapse_preview, model_bar_items, model_bar_selection
+from idea_chat_controller import ALL_MODELS, bubble_timestamp, collapse_preview, locate_row, model_bar_items, model_bar_selection
 
 
 BUBBLE_BACK=COLORS['background_card']  # 内容框的底色：气泡两边的留白用它刷，色块才贴着字
@@ -186,13 +186,13 @@ class IdeaBubblesMixin:
         if not 0<=index<len(rows):return None
         row=rows[index]
         model=str(row.get('model') or '').strip() if isinstance(row,dict) else ''
-        if model:
-            # 目录条视图会把多个模型的记录合并显示，按该模型在此行之前的条数定位它在自身会话里的下标。
-            relative=sum(1 for prior in rows[:index]
-                         if isinstance(prior,dict) and str(prior.get('model') or '').strip()==model)
-            idea_chat.remove(self.idea_chat_context(),relative,model=model,gateway=self.idea_chat_gateway())
-        else:
-            idea_chat.remove(self.idea_chat_context(),index,model=self.displayed_chat_model(),gateway=self.idea_chat_gateway())
+        model=model or self.displayed_chat_model()
+        context=self.idea_chat_context();gateway=self.idea_chat_gateway()
+        position=locate_row(rows,index,idea_chat.load(context,model=model,gateway=gateway))
+        if position is None:
+            self.show_conversation();self.status.set('这条消息已不存在，已刷新')
+            return None
+        idea_chat.remove(context,position,model=model,gateway=gateway)
         self.show_conversation();self.status.set('已删除整条信息；可在右键菜单恢复最近删除')
         return index
     def restore_latest_bubble_message(self):
