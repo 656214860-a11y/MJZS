@@ -413,7 +413,17 @@ def _run_locked() -> int:
 
 
 def main(argv=None) -> int:
-    args = list(sys.argv[1:] if argv is None else argv)
+    # .git 是 gitfile 时，git 给钩子导出绝对 GIT_DIR 而不带 GIT_WORK_TREE；在程序目录里调 git 会把程序目录
+    # 当成仓库顶层：前缀算空、源码轮次算 0，--spawn 永远判成「没到」而静默退出。本脚本只看自己所在的检出，
+    # 入口先摘掉继承来的 GIT_*，返回时原样还原，进程内调用方不受影响。
+    inherited = {key: os.environ.pop(key) for key in [key for key in os.environ if key.startswith("GIT_")]}
+    try:
+        return _dispatch(list(sys.argv[1:] if argv is None else argv))
+    finally:
+        os.environ.update(inherited)
+
+
+def _dispatch(args: list) -> int:
     if "--wait-run" in args:
         return wait_run()
     if "--run" in args:
