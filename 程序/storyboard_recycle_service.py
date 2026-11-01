@@ -1,7 +1,10 @@
 """Headless planning, recycle, and restore operations for storyboard files."""
-from datetime import datetime
 from pathlib import Path
-import uuid
+
+import stage_layout
+from storage_maintenance import recycle_paths
+
+RECYCLE_REASON = '分镜页删除'    # 写进批次清单，「恢复最近删除」据此认出本页自己的批次
 
 
 def recycle_plan(project, kind, path):
@@ -85,26 +88,10 @@ def recycle_files(project, kind, paths):
     targets = list(dict.fromkeys(
         item for source in sources for item in recycle_plan(project, kind, source)))
     selections = {group: selected_many(project, group) for group in ('script', 'storyboard')}
-    folder = project / '工作流任务' / '回收站' / (
-        datetime.now().strftime('%Y%m%d_%H%M%S_%f') + '_' + uuid.uuid4().hex[:6])
-    moves = [(item, folder / item.relative_to(project)) for item in targets]
-    if any(not dest.resolve().is_relative_to(project) or dest.exists() for _, dest in moves):
+    moved = recycle_paths(project, targets, RECYCLE_REASON)
+    if not moved:
         raise ValueError('回收路径无效')
-    save(folder / '恢复位置.json', {'files': [
-        {'original': source.relative_to(project).as_posix(),
-         'recycled': dest.relative_to(project).as_posix()}
-        for source, dest in moves]})
-    moved = []
-    try:
-        for source, dest in moves:
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            source.rename(dest)
-            moved.append((source, dest))
-    except OSError:
-        for source, dest in reversed(moved):
-            source.parent.mkdir(parents=True, exist_ok=True)
-            dest.rename(source)
-        raise
+    folder = project.joinpath(*Path(moved[0]['recycle_path']).parts[:3])
     for group, chosen in selections.items():
         remember_many(project, group, [path for path in chosen if path not in targets])
     prefs_file = project / 'ui_settings.json'
@@ -128,7 +115,7 @@ def latest_recycle_batch(project):
     """Return the newest manually-created storyboard recycle batch, if any."""
     from agent.core import read
     project = Path(project).resolve()
-    base = project / '工作流任务' / '回收站'
+    base = stage_layout.workflow_dir(project, '回收站')
     if not base.is_dir():
         return None
     for folder in sorted((path for path in base.iterdir() if path.is_dir()),
@@ -137,7 +124,13 @@ def latest_recycle_batch(project):
             data = read(folder / '恢复位置.json')
         except (OSError, ValueError):
             continue
-        if isinstance(data, dict) and isinstance(data.get('files'), list):
+        if not isinstance(data, dict):
+            continue
+        if data.get('reason') == RECYCLE_REASON and isinstance(data.get('items'), list):
+            names = [str(row.get('source') or '') for row in data['items'] if isinstance(row, dict)]
+            if any(names):
+                return folder, [name for name in names if name]
+        if isinstance(data.get('files'), list):      # 早期批次（R2276 之前）清单格式
             return folder, [str(row.get('original') or '') for row in data['files']
                             if isinstance(row, dict) and row.get('original')]
     return None
