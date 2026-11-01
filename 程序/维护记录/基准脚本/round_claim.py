@@ -232,6 +232,20 @@ def require_clean_checkout(root: Path = ROOT) -> None:
                            "脏文件：%s" % ", ".join(dirty))
 
 
+def require_master_not_dirty(root: Path = ROOT) -> None:
+    """master/main 上有未提交改动时拒绝领号：领号会自动切走分支，主目录就会离开 master。"""
+    head = subprocess.run(["git", "-C", str(root), "symbolic-ref", "--quiet", "--short", "HEAD"],
+                          capture_output=True, text=True)
+    if head.stdout.strip() not in ("master", "main"):
+        return
+    status = subprocess.run(["git", "-C", str(root), "status", "--porcelain"], capture_output=True, text=True)
+    dirty = [line for line in status.stdout.splitlines() if line.strip()]
+    if dirty:
+        raise RuntimeError("拒绝领取轮次：%s 分支上有未提交改动，领号会把它切走。"
+                           "主目录须留在 master；请在工作树（git worktree）里改动并领号。"
+                           "脏文件：%s" % (head.stdout.strip(), ", ".join(dirty)))
+
+
 def park_dirty_checkout(number: int, root: Path = ROOT) -> str | None:
     """脏树领号：领到号后立刻 ``git switch -c codex/wip-R<号>``，改动随切换原样带走。
 
@@ -377,6 +391,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             # 主树脚本从其他工作树调用时，也必须检查实际 cwd 所在树。
             require_branch(Path.cwd())
+            require_master_not_dirty(Path.cwd())
         except (RuntimeError, subprocess.CalledProcessError) as error:
             print(str(error), file=sys.stderr)
             return 2
