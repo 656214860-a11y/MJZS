@@ -54,16 +54,18 @@ def capture_request_model(project):
 def capture_request(project):
     """发送边界：模型、调用方式、技能内容只解析一次。"""
     import workflow_settings
-    workflow_settings.validate_selected_skills(project, 'writing')
     request = capture_request_model(project)
     cli = model_pool.desktop_engine(request['id']) == 'claude'
-    settings = workflow_settings.current(project, 'writing', direct_api=bool(request['id']) and not cli,
-                                         model_snapshot=(request['id'], request['record']) if request['id'] else None)
-    if request['id'] and not cli:
-        settings['model'] = request['id']
-        settings['engine'] = 'qwen'
-    settings['invocation_mode'] = 'api' if request['id'] and not cli else settings['engine']
-    request['settings'] = workflow_settings.freeze_skills(settings)
+
+    def adjust(settings):
+        if request['id'] and not cli:
+            settings['model'] = request['id']
+            settings['engine'] = 'qwen'
+        settings['invocation_mode'] = 'api' if request['id'] and not cli else settings['engine']
+
+    request['settings'] = workflow_settings.resolve_for_send(
+        project, 'writing', direct_api=bool(request['id']) and not cli,
+        model_snapshot=(request['id'], request['record']) if request['id'] else None, adjust=adjust)
     return request
 
 
@@ -1213,9 +1215,8 @@ def reply(project, creative, cancelled=None, *, publish=None, archive=None, user
     settings = request_model.get('settings')
     if settings is None:
         # 兼容旧调用方仅传模型身份；新发送入口始终传完整快照。
-        workflow_settings.validate_selected_skills(root, 'writing')
-        settings = workflow_settings.freeze_skills(workflow_settings.current(
-            root, 'writing', direct_api=True, model_snapshot=(chosen, record)))
+        settings = workflow_settings.resolve_for_send(
+            root, 'writing', direct_api=True, model_snapshot=(chosen, record))
     brief = _complete_brief(root)
     if brief is not None:
         preparation, confirmed = _preparation_step(

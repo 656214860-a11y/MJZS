@@ -982,6 +982,19 @@ def freeze_skills(config):
     return frozen
 
 
+def resolve_for_send(project, stage, *, config=None, intake_only=False, direct_api=False,
+                     model_snapshot=None, adjust=None):
+    """发送边界唯一入口：校验 → 取当前设置 → adjust 改写 → 冻结 SKILL；config 给定则沿用。"""
+    freezing = stage == 'writing' and not intake_only
+    if config is None:
+        if freezing:
+            validate_selected_skills(project, stage)
+        config = current(project, stage, direct_api=direct_api, model_snapshot=model_snapshot)
+        if adjust is not None:
+            adjust(config)
+    return freeze_skills(config) if freezing else config
+
+
 def _lock_fallback(key, value):
     """下拉以外的手填值若契约登记了兜底说明，附在该制作锁行尾。"""
     for item in PRODUCTION_LOCK_DEFINITIONS:

@@ -852,7 +852,7 @@ class _FlowAgentLaunch:
             setattr(self, name, getattr(request, name))
 
     def build(self):
-        from workflow_settings import current,writer_style_summary
+        from workflow_settings import writer_style_summary
         self.writer_style_summary = writer_style_summary
         from workflow_engines import prompt_with_settings,launch_interactive
         self.prompt_with_settings = prompt_with_settings; self.launch_interactive = launch_interactive
@@ -863,13 +863,8 @@ class _FlowAgentLaunch:
             raise ValueError('剧本模型请求正在排队，请等待或先点击中断；未重复发送。')
         # 「发送待核实」的安全重试必须沿用第一次已经解析的引擎。原来递归重进时会重新
         # 读取阶段配置，恰逢面板刷新／配置回退就可能把 Claude 的续发错误地交给 Codex。
-        if self.stage == 'writing' and not self.intake_only and self._config is None:
-            from workflow_settings import validate_selected_skills
-            validate_selected_skills(self.host.root, self.stage)
-        self.config=self._config if self._config is not None else current(self.host.root,self.stage);self.followup=self.followup if self.followup is not None else self.prompt
-        if self.stage == 'writing' and not self.intake_only:
-            from workflow_settings import freeze_skills
-            self.config = freeze_skills(self.config)
+        from workflow_settings import resolve_for_send
+        self.config=resolve_for_send(self.host.root,self.stage,config=self._config,intake_only=self.intake_only);self.followup=self.followup if self.followup is not None else self.prompt
         self.native_claude = self.config['engine'] in ('claude-desktop-app', 'desktop-app')
         self.bounded_writing = self.stage == 'writing' and self.config['engine'] == 'claude'
         if self.stage == 'writing' and self.config['engine'] == 'claude' and not self.intake_only and not self.new_session:
