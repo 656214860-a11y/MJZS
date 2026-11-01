@@ -62,7 +62,35 @@
       "Read(//d/漫剧制作助手/程序/**)",
       "Bash(grep -rln -i \"client_too_old\" --include=*.py .)",
       "Bash(cat 安装信息.json)",
-      "Bash(cd \"D:/漫剧制作助手\" && du -sh . 2>/dev/null | tail -1; du -sh --max-depth=1 . 2>/dev/null | sort -rh | head -14; echo ---; du -sh --max-depth=1 程序 2>/dev/null | sort -rh | head -14; echo ---; du -sh --max-depth=1 运行环境 2>/dev/null | sort -rh | head -6)"
+      "Bash(cd \"D:/漫剧制作助手\" && du -sh . 2>/dev/null | tail -1; du -sh --max-depth=1 . 2>/dev/null | sort -rh | head -14; echo ---; du -sh --max-depth=1 程序 2>/dev/null | sort -rh | head -14; echo ---; du -sh --max-depth=1 运行环境 2>/dev/null | sort -rh | head -6)",
+      "Bash(grep -n \"def \\\\|save_session\\\\|clear_session\\\\|refresh_token\" account_controller.py)",
+      "Bash(grep -n \"不受影响\\\\|FREE_STAGES\\\\|free_stage\\\\|def \\\\|LOGIN_GATE\" entitlement_service.py)",
+      "Bash(sed -n 1,80p desktop_login_gate.py)",
+      "Bash(sed -n 20,60p entitlement_service.py)",
+      "Bash(sed -n 100,130p entitlement_service.py)",
+      "Bash(grep -rln \"stage_block_message\\\\|is_paid_stage\" --include=*.py .)",
+      "Bash(grep -n \"stage_block_message\\\\|is_paid_stage\\\\|def stage_gate\\\\|def enforce\\\\|enforce\" account_controller.py)",
+      "Bash(ls -la private/账户/)",
+      "Bash(../运行环境/Python/python.exe -I -c ' *)",
+      "Bash(ls -lt logs)",
+      "Bash(../运行环境/Python/python.exe -B -c ' *)",
+      "Bash(grep -n \"登录\\\\|account\\\\|session\" logs/app.log)",
+      "Bash(sed -n 95,125p desktop_account_page.py)",
+      "Bash(sed -n 40,70p stage_handler_registry.py)",
+      "Bash(grep -rn \"check_stage_access\\\\|_stage_allowed\\\\|stage_access\" --include=*.py .)",
+      "Bash(ls desktop_page_nav*)",
+      "Bash(grep -n \"def \" desktop_page_nav*.py)",
+      "Bash(sed -n 40,140p desktop_page_nav.py)",
+      "Bash(grep -n \"PAGES\\\\b\\\\|PAGES =\" desktop*.py stage_layout.py)",
+      "Bash(powershell -NoProfile -Command \"Get-CimInstance Win32_Process -Filter \\\\\"Name like 'python%'\\\\\" | Select-Object ProcessId,CreationDate,CommandLine | Format-List\")",
+      "Bash(sed -n 285,330p pet_llm.py)",
+      "Bash(sed -n 435,455p pet_llm.py)",
+      "Bash(sed -n 280,320p token_saver.py)",
+      "Bash(sed -n 265,285p writing_api.py)",
+      "Bash(sed -n 1090,1115p writing_api.py)",
+      "Bash(sed -n 1236,1270p writing_api.py)",
+      "Bash(grep -n 'def http_stream' -A30 model_pool.py)"
     ]
-  }
+  },
+  "promptCacheTtl": "1h"
 }
