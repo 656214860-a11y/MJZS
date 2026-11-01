@@ -543,8 +543,26 @@ def with_tasks(data, tasks):
 def store(data, program=None):
     """落盘到 配置/宠物/配置.json（原子替换）；返回写到的路径。"""
     path = config_file(program)
+    _snapshot_before_store(path, program)
     save(path, data)
     return path
+
+
+SNAPSHOT_KEEP = 20
+
+
+def _snapshot_before_store(path, program=None):
+    """U10：覆盖前把现有模型池配置复制到 data/config_snapshots（只留最近 SNAPSHOT_KEEP 份）；失败只记日志，不拦保存。"""
+    try:
+        if not path.is_file():
+            return
+        folder = Path(program or PROGRAM) / 'data' / 'config_snapshots'
+        folder.mkdir(parents=True, exist_ok=True)
+        target = folder / ('pool_%s_%03d.json' % (time.strftime('%Y%m%d_%H%M%S'), int(time.time() * 1000) % 1000))
+        target.write_bytes(path.read_bytes())
+        for old in sorted(folder.glob('pool_*.json'))[:-SNAPSHOT_KEEP]:
+            old.unlink()
+    except OSError:app_logging.swallowed()
 
 
 def patch_for(model_id, records=None, config=None, program=None):
