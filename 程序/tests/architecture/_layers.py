@@ -67,6 +67,8 @@ _register(4, "edit_habits_dialog")
 _register(4, "workflow_settings_dialog")
 # R2311（J 路线 #20）：缩略图缓存要 tk.PhotoImage，调用方全是 L4，改登记 L4；「选择分镜」下拉框从 storyboard_selection 拆出。
 _register(4, "asset_thumbs", "storyboard_source_selector")
+# R2313：商店包与 Claude Desktop 图形程序定位自 workflow_settings 拆出，只依赖注册表适配与标准库。
+_register(1, "store_program_locator")
 # R2189：Qwen「API 设置」窗口从 qwen_setup 拆出（R2178 J2），qwen_setup 自身不再导入 Tk。
 _register(4, "qwen_setup_dialog")
 
