@@ -478,6 +478,7 @@ class _WritingPage:
     def _build_dialog(self, brief, foot):
         """对话区：聊天记录框及其快捷键与右键菜单。"""
         self.dialog=ttk.Frame(self.talk);self.dialog.pack(side='top',fill='both',expand=True,pady=SPACING['none'])
+        self.page.build_idea_model_bar(self.dialog)  # 聊天气泡框左上角的模型目录条（先隐藏）
         dialog_scroll=ttk.Scrollbar(self.dialog,orient='vertical')
         dialog_scroll.pack(side='right',fill='y')
         self.box=TextArea(self.dialog,bg=COLORS['background_card'],fg=COLORS['text_primary'],insertbackground=COLORS['primary'],

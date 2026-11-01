@@ -288,6 +288,7 @@ class ScriptPagesMixin:
             return False
         self._idea_view_model_request=getattr(self,'_idea_view_model_request',0)+1
         self._idea_view_model_cache=(self.root,self.idea_chat_model())
+        self.set_idea_model_filter(self.idea_chat_model())
         self.show_conversation()
         self.update_recon_button()
         return True

@@ -61,6 +61,49 @@ def speaker_name(row, *, you='您', prefix='对话AI · ', fallback='AI 助手')
     return prefix + str(row.get('model') or fallback).strip()
 
 
+# 模型目录条里「全部」标签对应的过滤键（空串＝不按模型过滤，显示所有模型的记录）。
+ALL_MODELS = ''
+
+
+def model_bar_items(rows):
+    """按首次出现顺序返回聊天记录里调用过的模型显示名（去重、去空）。
+
+    首次出现以每条记录的时间戳 ``at``（``%Y%m%d_%H%M%S_%f`` 字符串可直接按字典序比较）
+    为准；没有时间戳的旧记录排在有时间戳的之后、按原顺序。
+    """
+    first = {}
+    for row in rows or ():
+        if not isinstance(row, dict):
+            continue
+        name = str(row.get('model') or '').strip()
+        if not name:
+            continue
+        at = str(row.get('at') or '')
+        if name not in first or (at and at < first[name]):
+            first[name] = at
+    def key(name):
+        at = first[name]
+        return (0, at) if at else (1, '')
+    return sorted(first, key=key)
+
+
+def model_bar_selection(selected, items, current):
+    """目录条当前生效的选中项（返回值同时也是过滤键）。
+
+    - ``selected`` 为 None：尚未选择，默认当前模型；当前模型无记录则回落「全部」。
+    - ``selected`` 为 ``ALL_MODELS``：保持「全部」。
+    - ``selected`` 为某模型但已无记录：回落「全部」。
+    """
+    items = list(items or ())
+    if selected is None:
+        current = str(current or '').strip()
+        return current if current in items else ALL_MODELS
+    if selected == ALL_MODELS:
+        return ALL_MODELS
+    selected = str(selected or '').strip()
+    return selected if selected in items else ALL_MODELS
+
+
 def slot_decision(claimed):
     """进程槽位回执 → 下一步：('run', 槽位) 开工；('wait', 位次) 继续排队；('refuse', 原因) 放弃。"""
     state = claimed.get('state')

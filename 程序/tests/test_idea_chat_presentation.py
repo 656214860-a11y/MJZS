@@ -45,6 +45,43 @@ class SpeakerNameTests(unittest.TestCase):
         self.assertEqual(icc.speaker_name({'role': 'assistant'}), '对话AI · AI 助手')
 
 
+class ModelBarTests(unittest.TestCase):
+    """REQ-S01-77：模型目录条的纯去重／排序／选中回落逻辑。"""
+
+    def test_items_dedup_and_order_by_first_appearance(self):
+        rows = [
+            {'role': 'assistant', 'model': '乙', 'at': '20260102_000000_000000'},
+            {'role': 'user', 'model': '甲', 'at': '20260101_000000_000000'},
+            {'role': 'assistant', 'model': '乙', 'at': '20260103_000000_000000'},
+            {'role': 'assistant', 'model': '  '},
+            {'role': 'assistant'},
+            {'role': 'user', 'model': '甲', 'at': '20260104_000000_000000'},
+            'not-a-row',
+        ]
+        self.assertEqual(icc.model_bar_items(rows), ['甲', '乙'])
+        self.assertEqual(icc.model_bar_items([]), [])
+        self.assertEqual(icc.model_bar_items(None), [])
+
+    def test_items_without_at_go_after_timestamped(self):
+        rows = [
+            {'role': 'user', 'model': '无时间'},
+            {'role': 'user', 'model': '有时间', 'at': '20260101_000000_000000'},
+        ]
+        self.assertEqual(icc.model_bar_items(rows), ['有时间', '无时间'])
+
+    def test_selection_defaults_to_current_model_then_falls_back_to_all(self):
+        items = ['甲', '乙']
+        self.assertEqual(icc.model_bar_selection(None, items, '乙'), '乙')
+        self.assertEqual(icc.model_bar_selection(None, items, '丙'), icc.ALL_MODELS)
+        self.assertEqual(icc.model_bar_selection(None, [], '甲'), icc.ALL_MODELS)
+
+    def test_selection_keeps_explicit_all_and_drops_missing_model(self):
+        items = ['甲', '乙']
+        self.assertEqual(icc.model_bar_selection(icc.ALL_MODELS, items, '甲'), icc.ALL_MODELS)
+        self.assertEqual(icc.model_bar_selection('乙', items, '甲'), '乙')
+        self.assertEqual(icc.model_bar_selection('丙', items, '甲'), icc.ALL_MODELS)
+
+
 class DesktopDelegationTests(unittest.TestCase):
     """L4 只保留入口：搬到 L0/L3 的实现换了，口径也不能变（无 self 的裸入口可直呼）。"""
 
