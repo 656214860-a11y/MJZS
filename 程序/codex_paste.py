@@ -27,6 +27,7 @@ def _run(payload):
     try:
         # Full episode prompts routinely exceed Windows' command-line limit.
         # Only filenames go in argv; immutable UTF-8 data stays out of shell code.
+        payload['trace_file']=str(Path(__file__).with_name('private')/'桌面粘贴'/'已粘贴任务.txt')
         with tempfile.TemporaryDirectory(prefix='drama_codex_send_') as folder:
             source=Path(folder)/'input.json'
             save_text(source, json.dumps(payload, ensure_ascii=False))
