@@ -28,6 +28,7 @@ from typing import Callable
 from desktop_page_support import ASSET_ROW_LABEL, STAGE_ACTION_WIDTH, _prefs
 
 PAGE = pet_state.PAGE_OF
+VIDEO_PROMPT_FLOW = 'video_prompt'  # workflow_settings.FLOWS 里的键；原写 'final' 会抛“未知的工作流入口”
 
 
 @dataclass(frozen=True)
@@ -622,7 +623,7 @@ class MediaPagesMixin:
         from shared_video_controls import build
         build(self,heading,is_cloud)
         def prepare_video_prompt(sid):
-            from agent.shot_assets import prompt_task
+            from agent.shot_assets import prompt_direct,prompt_task
             final_source=self.current_frame_json()
             final_episode=read(final_source)
             final_shot=next((s for s in final_episode.get('shots',[]) if s.get('id')==sid),None)
@@ -631,7 +632,7 @@ class MediaPagesMixin:
             draft=self.video.prompt.get('1.0','end').strip()
             if draft:
                 prompt+='\n当前编辑框中的提示词（作为待修订素材，结合以上镜头和资产检查）：\n'+json.dumps(draft,ensure_ascii=False)
-            self.open_flow_agent('final','提示词渲染阶段',prompt)
+            self.open_direct_flow_agent(VIDEO_PROMPT_FLOW,'提示词渲染阶段',prompt,prompt_direct(final_source,final_shot,self.video.studio.cfg,self.video.studio.episode_path,draft))
         source=self.current_frame_json()
         session_key=(str(video_root.resolve()),str(source.resolve()))
         cached=self.video_sessions.get(session_key)

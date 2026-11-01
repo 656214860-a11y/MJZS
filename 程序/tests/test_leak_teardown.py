@@ -164,6 +164,10 @@ class PageSwitchGrowthTests(_TkCase):
         table = []
         for index in range(rounds):
             started = time.monotonic()
+            # 开机招呼是一次性的定时云朵，到点后才建对话框；不收回就会在慢机器上落进第 2／3 轮，被当成页面泄漏。
+            pet = getattr(desktop, 'pet', None)
+            if pet is not None:
+                pet.cancel_greet()
             for page in range(len(desktop_page_registry.PAGES)):
                 desktop.go_page(page)
                 self.win.update()

@@ -158,7 +158,8 @@ def launch(app,source,shot_id=None,shot_ids=None):
         if not cfg.get('api_settings_saved'):cfg['url']=app.settings.get('comfy_url',cfg['url'])
         payload=read(manifest);payload['comfy_config']=cfg;save(manifest,payload)
         task+='\n'+task_instruction(project,manifest)
-    app.open_flow_agent('assets','资产管理',task)
+    if current(app.root,'assets')['engine']=='qwen':app.open_direct_flow_agent('assets','资产管理',task,{'image':manifest})   # REQ-S08-52
+    else:app.open_flow_agent('assets','资产管理',task)
     watch(app,manifest)
     return True
 
