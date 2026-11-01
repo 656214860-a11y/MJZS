@@ -22,6 +22,24 @@ class CodexManualPasteTests(unittest.TestCase):
         self.assertTrue(result['ok'])
         self.assertFalse(result['send_dispatched'])
 
+    def test_payload_carries_trace_file_for_replaceable_own_draft(self):
+        seen = {}
+        def run(args, **kwargs):
+            seen.update(json.loads(Path(args[-1]).read_text(encoding='utf-8')))
+            return SimpleNamespace(stdout='{"ok":true,"send_dispatched":false}', stderr='', returncode=0)
+        with patch.object(codex_paste.subprocess, 'run', side_effect=run):
+            codex_paste.paste_existing('任务', '短指令', program='C:/Apps/Claude.exe')
+        self.assertEqual(Path(seen['trace_file']).parent.name, '桌面粘贴')
+        self.assertEqual(Path(seen['trace_file']).parent.parent.name, 'private')
+
+    def test_own_unsent_paste_is_replaced_before_attachment_but_user_draft_is_kept(self):
+        source = Path(codex_paste.__file__).with_suffix('.ps1').read_text(encoding='utf-8-sig')
+        self.assertIn('Save-PastedKey $traceFile (Get-TextKey $prompt)', source)
+        self.assertIn('$ownDraft=$true', source)
+        self.assertIn('Finish $false $draft', source)  # 非本助手粘贴的草稿仍不覆盖
+        # 清旧任务必须在贴附件之前，否则全选会把刚贴上的附件一并替换
+        self.assertLess(source.index("SendWait('{DELETE}')"), source.index('SetFileDropList'))
+
     def test_claude_timeout_identifies_the_correct_app(self):
         with patch.object(codex_paste.subprocess, 'run', side_effect=codex_paste.subprocess.TimeoutExpired('powershell', 55)):
             result = codex_paste.paste_existing('title', 'path', program='C:/Apps/Claude.exe')

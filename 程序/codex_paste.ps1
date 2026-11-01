@@ -25,6 +25,23 @@ function Finish($ok,$reason){
  @{ok=$ok;reason=$reason;send_dispatched=$false}|ConvertTo-Json -Compress
  exit
 }
+function Get-TextKey($text){
+ $flat=([string]$text) -replace '\s+',''
+ $sha=[Security.Cryptography.SHA256]::Create()
+ return ([BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($flat)))) -replace '-',''
+}
+function Read-PastedKeys($file){
+ if(!$file -or !(Test-Path -LiteralPath $file)){return @()}
+ return @(Get-Content -LiteralPath $file -Encoding UTF8 -ErrorAction SilentlyContinue|Where-Object {$_})
+}
+function Save-PastedKey($file,$key){
+ if(!$file){return}
+ try{
+  $keys=@(Read-PastedKeys $file)+$key|Select-Object -Last 20
+  [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($file))
+  [IO.File]::WriteAllLines($file,[string[]]$keys,[Text.UTF8Encoding]::new($false))
+ }catch{}
+}
 function Test-CodexProcess($process){
  if(!$process){return $false}
  $path=[string]$process.Path
@@ -61,6 +78,8 @@ if($SelfTestTarget){
 $payload=[IO.File]::ReadAllText($PayloadFile,[Text.Encoding]::UTF8)|ConvertFrom-Json
 $prompt=[string]$payload.prompt
 $claudeProgram=[string]$payload.program
+$traceFile=if($payload.trace_file){[string]$payload.trace_file}else{''}
+$ownDraft=$false
 $attachment=if($payload.attachment){[string]$payload.attachment}else{''}
 $appName=if($payload.app_name){[string]$payload.app_name}elseif($claudeProgram){'Claude Desktop'}else{'GPT 桌面'}
 if($null -ne $payload.deadline){$DeadlineSeconds=[Math]::Min(120,[Math]::Max(1,[int]$payload.deadline))}
@@ -97,8 +116,13 @@ try{
      $same=if($appName -eq 'Claude Desktop'){'Claude Desktop 输入框已有本次任务路径，请手动发送。'}else{"$appName 输入框已有本次任务内容，请手动发送。"}
      Finish $true $same
     }
-    $draft=if($appName -eq 'Claude Desktop'){'Claude Desktop 输入框已有草稿，未覆盖；任务路径已复制，请自行粘贴并手动发送。'}else{"$appName 输入框已有草稿，未覆盖；任务已复制到剪贴板，请自行粘贴并手动发送。"}
-    Finish $false $draft
+    # 上一次由本助手粘进去、用户没发送的任务（续用上次对话时最常见）不算用户草稿，允许替换；
+    # 用户手写或改过的内容仍然不覆盖。
+    if(@(Read-PastedKeys $traceFile) -contains (Get-TextKey $content)){$ownDraft=$true}
+    else{
+     $draft=if($appName -eq 'Claude Desktop'){'Claude Desktop 输入框已有草稿，未覆盖；任务路径已复制，请自行粘贴并手动发送。'}else{"$appName 输入框已有草稿，未覆盖；任务已复制到剪贴板，请自行粘贴并手动发送。"}
+     Finish $false $draft
+    }
    }
   }
   [void][PasteWindow]::ShowWindowAsync($handle,9)
@@ -106,6 +130,12 @@ try{
   $edit.SetFocus()
   Start-Sleep -Milliseconds 200
   if([PasteWindow]::GetForegroundWindow() -ne $handle -or !$edit.Current.HasKeyboardFocus){continue}
+  if($ownDraft){
+   # 先清掉上次遗留的旧任务，再贴附件，避免全选把刚贴上的附件一起替换掉。
+   [System.Windows.Forms.SendKeys]::SendWait('^a')
+   [System.Windows.Forms.SendKeys]::SendWait('{DELETE}')
+   Start-Sleep -Milliseconds 200
+  }
   if($attachment){
    # 长任务（REQ-S01-70）：先以文件形式粘贴任务文件作附件，等上传后再粘贴短指令。
    $files=New-Object System.Collections.Specialized.StringCollection
@@ -117,6 +147,7 @@ try{
   [System.Windows.Forms.Clipboard]::SetText($prompt)
   if(!$claudeProgram){[System.Windows.Forms.SendKeys]::SendWait('^a')}
   [System.Windows.Forms.SendKeys]::SendWait('^v')
+  Save-PastedKey $traceFile (Get-TextKey $prompt)
   if($attachment){Finish $true "已把任务文件作为附件、短指令粘贴到 $appName；请确认附件已出现再手动发送，没有出现就把 $attachment 拖进对话框。"}
   Finish $true "已粘贴到 $appName，请检查内容并手动点击发送。"
  }
