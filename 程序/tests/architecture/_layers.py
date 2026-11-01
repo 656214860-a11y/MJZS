@@ -37,7 +37,7 @@ _register(5, "app_shortcut")
 # R741：顶层运行期模块必须逐一入表。层级按实际静态依赖和职责判断，不能以名称后缀代替。
 _register(0, "artifact_schema", "api_models", "frame_checks", "model_protocol", "pet_settings_contract",
           "prop_assets", "shot_selection", "storyboard_contract", "workflow_context_budget")
-_register(1, "api_endpoints", "asset_thumbs", "broadcaster", "clipboard_lock",
+_register(1, "api_endpoints", "broadcaster", "clipboard_lock",
           "comfy_service", "engine_probe", "h3_reference_adapter", "model_diagnostics", "model_router",
           "native_apps", "seedream_api", "token_saver", "tk_timers")
 _register(2, "asset_batch_settings_service", "asset_plan", "asset_resume", "audio_import_service", "edit_export", "usage_overview",
@@ -65,6 +65,8 @@ _register(3, "edit_habits")
 _register(4, "edit_habits_dialog")
 # R2184：工作流调用设置窗口从 workflow_settings 拆出（R2178 J1），workflow_settings 自身不再导入 Tk。
 _register(4, "workflow_settings_dialog")
+# R2311（J 路线 #20）：缩略图缓存要 tk.PhotoImage，调用方全是 L4，改登记 L4；「选择分镜」下拉框从 storyboard_selection 拆出。
+_register(4, "asset_thumbs", "storyboard_source_selector")
 # R2189：Qwen「API 设置」窗口从 qwen_setup 拆出（R2178 J2），qwen_setup 自身不再导入 Tk。
 _register(4, "qwen_setup_dialog")
 
