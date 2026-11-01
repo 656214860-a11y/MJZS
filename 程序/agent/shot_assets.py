@@ -122,14 +122,26 @@ def prepare(source,shot,cfg,white=None):
     if len(result['video_prompt'])>5000:raise ValueError('含资产映射的提示词过长，请精简')
     return result
 
-def prompt_task(source,shot,cfg,output_source=None):
-    import json
+def prompt_context(source,shot,cfg,output_source=None):
+    """单镜头提示词渲染的输入上下文与结果文件路径（Agent 任务书与直连执行器共用）。"""
     from .core import fingerprint
     source=Path(source).resolve()
     refs=assets(source,shot)
     output=media_root(output_source or source)/'video_prompts'/(shot['id']+'.json')
-    from prop_assets import normalize_shot,RULES
+    from prop_assets import normalize_shot
     context={'shot_id':shot['id'],'episode_id':read(source).get('episode_id',''),'shot':normalize_shot(shot,asset_rows(source)),'assets':refs,'model':cfg['model'],'source_signature':fingerprint(shot)}
+    return context,output
+
+def prompt_direct(source,shot,cfg,output_source=None,draft=''):
+    """直连执行器的载荷：镜头上下文、结果文件路径与编辑框草稿。"""
+    context,output=prompt_context(source,shot,cfg,output_source)
+    return {'context':context,'output':output,'draft':draft}
+
+def prompt_task(source,shot,cfg,output_source=None):
+    import json
+    source=Path(source).resolve()
+    context,output=prompt_context(source,shot,cfg,output_source)
+    from prop_assets import RULES
     return (f'为当前镜头整理图生视频提示词，输入分镜：{source}。只整理文本，不调用视频API。\n'
         '沿用初步分镜的剧本、动作边界、空间连续性与声音设计。读取下面每张实际资产图片，'
         '提示词中的角色、场景和需要参考图的关键道具写对应CHAR/LOC/PROP编号，不能重新分配编号；普通道具按名称和描述写入画面。'

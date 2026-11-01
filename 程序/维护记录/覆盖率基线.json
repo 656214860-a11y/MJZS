@@ -50,7 +50,7 @@
   {
    "module": "agent/shot_assets.py",
    "covered": 0,
-   "total": 115,
+   "total": 125,
    "percent": 0.0
   },
   {
@@ -416,7 +416,7 @@
   {
    "module": "desktop_idea_chat.py",
    "covered": 0,
-   "total": 970,
+   "total": 978,
    "percent": 0.0
   },
   {
@@ -470,7 +470,7 @@
   {
    "module": "desktop_media_pages.py",
    "covered": 0,
-   "total": 768,
+   "total": 769,
    "percent": 0.0
   },
   {
@@ -555,6 +555,12 @@
    "module": "desktop_tray.py",
    "covered": 0,
    "total": 324,
+   "percent": 0.0
+  },
+  {
+   "module": "desktop_video_prompt_direct.py",
+   "covered": 0,
+   "total": 31,
    "percent": 0.0
   },
   {
@@ -920,7 +926,7 @@
   {
    "module": "pet_models_ui.py",
    "covered": 0,
-   "total": 752,
+   "total": 753,
    "percent": 0.0
   },
   {
@@ -1584,6 +1590,12 @@
    "percent": 0.0
   },
   {
+   "module": "video_prompt_direct_api.py",
+   "covered": 0,
+   "total": 77,
+   "percent": 0.0
+  },
+  {
    "module": "video_prompt_publication.py",
    "covered": 0,
    "total": 75,
@@ -2029,5 +2041,5 @@
   }
  ],
  "modules_covered": 52,
- "modules_total": 336
+ "modules_total": 338
 }
