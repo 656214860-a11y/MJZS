@@ -91,6 +91,5 @@
       "Bash(sed -n 1236,1270p writing_api.py)",
       "Bash(grep -n 'def http_stream' -A30 model_pool.py)"
     ]
-  },
-  "promptCacheTtl": "1h"
+  }
 }

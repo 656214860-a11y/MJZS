@@ -5,6 +5,7 @@ from tests.architecture._scan import desktop_text  # R1505：Desktop 方法分�
 import ast
 import os
 import unittest
+from tests.architecture._scan import stage_execution_source
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -48,7 +49,7 @@ class EditPublicationBoundaryTests(unittest.TestCase):
                         if isinstance(node, ast.FunctionDef) and node.name == 'save_editing_checklist')
         self.assertIn('publish', _calls(function))
         self.assertNotIn('save_text', _calls(function))
-        with open(os.path.join(ROOT, 'stage_execution_service.py'), encoding='utf-8') as handle:
+        with io.StringIO(stage_execution_source()) as handle:
             source = handle.read()
         self.assertIn('def save_stage_editing_checklist(', source)
         self.assertIn('allow_empty=True', source)
@@ -66,7 +67,7 @@ class EditPublicationBoundaryTests(unittest.TestCase):
                         if isinstance(node, ast.FunctionDef) and node.name == 'save_automatic_assemble_marker')
         self.assertIn('publish', _calls(function))
         self.assertNotIn('save', _calls(function))
-        with open(os.path.join(ROOT, 'stage_execution_service.py'), encoding='utf-8') as handle:
+        with io.StringIO(stage_execution_source()) as handle:
             source = handle.read()
         self.assertIn("write_dir(Path(project), 'edit')", source)
         self.assertIn('publish_stage_text(', source)

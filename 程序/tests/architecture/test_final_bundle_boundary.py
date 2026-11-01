@@ -5,6 +5,7 @@ import ast
 import unittest
 
 from tests.architecture._scan import ROOT, parse
+from tests.architecture._scan import stage_execution_source
 
 
 class FinalBundleBoundaryTests(unittest.TestCase):
@@ -26,7 +27,7 @@ class FinalBundleBoundaryTests(unittest.TestCase):
             for alias in node.names
         }
         self.assertNotIn('publish_final_bundle', imported)
-        stage = parse(ROOT / 'stage_execution_service.py')
+        stage = ast.parse(stage_execution_source())
         self.assertTrue(any(isinstance(node, ast.FunctionDef)
                             and node.name == 'publish_final_storyboard_bundle'
                             for node in ast.walk(stage)))

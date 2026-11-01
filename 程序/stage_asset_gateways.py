@@ -135,3 +135,9 @@ def unwrap_service_result(result):
     if not result.ok:
         raise ValueError(result.reason)
     return result.data
+
+
+def _json_gateway(**extra):
+    """各 ``*_gateway()`` 的共同底座：唯一的 JSON 原子发布器；个别网关只补自己多出的能力。"""
+    from agent.core import save
+    return {'publish_json': save, **extra}

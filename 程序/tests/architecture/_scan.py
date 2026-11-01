@@ -107,3 +107,13 @@ def imports_of(path: Path) -> frozenset[str]:
 def imports_with_dynamic_of(path: Path) -> frozenset[str]:
     """静态导入加常量字符串动态导入；环依赖门禁用，分层门禁仍只看静态口径。"""
     return frozenset(name for _, name in (*import_rows(path), *dynamic_import_rows(path)))
+
+
+# stage_execution_service 拆分后，门面与各拆出模块合起来才是原来的「阶段执行编排」。
+STAGE_EXECUTION_MODULES = ("stage_execution_service", "stage_asset_gateways", "stage_animatic_gateways",
+                           "stage_previs_gateways", "stage_gate_gateways", "stage_handoff_gateways")
+
+
+def stage_execution_source() -> str:
+    """门面与拆出模块的源码拼接；源码文本与 AST 类门禁按它读，不因函数搬家而漏检。"""
+    return "\n\n".join((ROOT / (name + ".py")).read_text(encoding="utf-8") for name in STAGE_EXECUTION_MODULES)

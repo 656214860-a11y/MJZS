@@ -3,6 +3,7 @@
 import ast
 import os
 import unittest
+from tests.architecture._scan import stage_execution_source
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -27,7 +28,7 @@ class TtsPublicationBoundaryTests(unittest.TestCase):
     def test_l2_has_no_direct_core_publisher_and_l3_owns_gateway(self):
         source = open(os.path.join(ROOT, 'tts_api.py'), encoding='utf-8').read()
         self.assertNotIn('from agent.core import read_json, save', source)
-        service = open(os.path.join(ROOT, 'stage_execution_service.py'), encoding='utf-8').read()
+        service = stage_execution_source()
         self.assertIn('def tts_gateway()', service)
 
     def test_full_track_publication_and_desktop_delegation_share_tts_service(self):

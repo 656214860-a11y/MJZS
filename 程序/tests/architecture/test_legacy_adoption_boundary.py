@@ -4,6 +4,7 @@ import ast
 import unittest
 
 from tests.architecture._scan import ROOT
+from tests.architecture._scan import stage_execution_source
 
 
 class LegacyAdoptionBoundaryTests(unittest.TestCase):
@@ -19,7 +20,7 @@ class LegacyAdoptionBoundaryTests(unittest.TestCase):
                   and isinstance(node.func, ast.Attribute) and node.func.attr in {'mkdir', 'save'}]
         self.assertEqual([], direct, '旧目录归位日志不得由桌面页直接发布: ' + str(direct))
         service = (ROOT / 'legacy_adoption_service.py').read_text(encoding='utf-8')
-        stage = (ROOT / 'stage_execution_service.py').read_text(encoding='utf-8')
+        stage = stage_execution_source()
         self.assertNotIn('from agent.core import save', service)
         self.assertIn('def legacy_adoption_gateway()', stage)
         self.assertIn('def record_stage_legacy_adoption(', stage)

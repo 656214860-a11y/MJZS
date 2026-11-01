@@ -3,6 +3,7 @@ import ast
 import os
 import unittest
 from pathlib import Path
+from tests.architecture._scan import stage_execution_source
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -12,7 +13,7 @@ class CloudVideoSettingsBoundaryTests(unittest.TestCase):
         source = Path(ROOT, 'cloud_video_service.py').read_text(encoding='utf-8')
         self.assertIn('def _require_gateway(gateway)', source)
         self.assertNotIn('from agent.core import read, save', source)
-        service = Path(ROOT, 'stage_execution_service.py').read_text(encoding='utf-8')
+        service = stage_execution_source()
         self.assertIn('def cloud_video_gateway()', service)
 
     def test_settings_publication_delegates_to_service(self):

@@ -22,8 +22,9 @@ _REPLACE_REGISTERED = {
     "log_maintenance.py": 2,
     "skill_import_service.py": 2,
     "skill_registry.py": 1,
-    "stage_execution_service.py": 2,
+    "stage_execution_service.py": 1,
     "stage_asset_gateways.py": 1,
+    "stage_handoff_gateways.py": 1,
     "stage_write_preparation_service.py": 3,
     "white_model_service.py": 2,
 }

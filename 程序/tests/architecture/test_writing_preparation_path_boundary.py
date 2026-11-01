@@ -2,6 +2,7 @@
 import ast
 from pathlib import Path
 import unittest
+from tests.architecture._scan import stage_execution_source
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -15,5 +16,5 @@ class WritingPreparationPathBoundaryTests(unittest.TestCase):
         names = {node.id for node in ast.walk(prepare) if isinstance(node, ast.Name)}
         self.assertIn('publish', names)
         self.assertNotIn('script_stage', names)
-        service = (ROOT / 'stage_execution_service.py').read_text(encoding='utf-8')
+        service = stage_execution_source()
         self.assertIn("script_dir = write_dir(root, 'script')", service)
