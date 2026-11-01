@@ -1116,7 +1116,7 @@ class PetStagesMixin:
             self.confirm('确认剧本信息后，可继续制作分镜。')
         return result or status
     def script_downloaded(self, path=None, at=None):
-        """已下载的真实剧本可完成阶段；模型首次回复仍不触发弹窗。"""
+        """已保存的真实剧本可完成阶段；同一份剧本改稿不重复询问（由剧本页判断）。"""
         try:
             from pathlib import Path
             saved = Path(path) if path else None
@@ -1129,12 +1129,12 @@ class PetStagesMixin:
             verified, detail = self._completion_evidence('script')
             if verified:
                 self._emit('script.completed', stage='script', source=str(source))
-                self._complete_if_verified('script', '剧本文档已下载')
+                self._complete_if_verified('script', '剧本文档已保存')
             else:
                 self._emit('stage.paused', stage='script',
-                           text='剧本文档已下载（待校验：%s）' % detail)
-        self.broadcast('【完成】剧本文档已下载', at=at)
-        return self.confirm('【下一阶段】剧本已下载。现在制作分镜吗？')
+                           text='剧本文档已保存（待校验：%s）' % detail)
+        self.broadcast('【完成】剧本文档已保存', at=at)
+        return self.confirm('【下一阶段】剧本已保存。现在制作分镜吗？')
     def note_stage(self, page=None, at=None, force_prompt=False, intro=''):
         """第 36 期第 6 条：用户换到别的阶段，三虎看一眼「这一步要不要我自动做」。
 

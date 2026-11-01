@@ -507,11 +507,12 @@ class FlowBar(ttk.Frame):
     页面上的按钮可继续用 ``pack`` 声明顺序；本类会在布局时统一转换为 ``place``。
     因此按钮宽度始终至少是其文字所需的请求宽度（单个按钮比栏宽时才收至栏宽），
     窗口缩小只会增加行数，不会发生左右两组控件互相覆盖或标签被截断。
+    ``set_visible`` 隐藏的子控件不占位，重新显示时回到原来的创建顺序位置。
     """
     def __init__(self,parent,**kwargs):
         super().__init__(parent,**kwargs)
         self.pack_propagate(False);self.configure(height=SPACING['sm'] * 5)
-        self.pending=None
+        self.pending=None;self.hidden_children=set()
         self.bind('<Configure>',self.schedule)
         self.pending=self.after_idle(self.layout)
         self.bind('<Destroy>',self.disposed,add='+')
@@ -520,6 +521,10 @@ class FlowBar(ttk.Frame):
             self.after_cancel(self.pending);self.pending=None
     def schedule(self,event=None):
         if self.pending is None:self.pending=self.after_idle(self.layout)
+    def set_visible(self,child,visible):
+        if visible:self.hidden_children.discard(child)
+        else:self.hidden_children.add(child)
+        self.schedule()
     def layout(self):
         self.pending=None
         if not self.winfo_exists():return
@@ -534,6 +539,8 @@ class FlowBar(ttk.Frame):
         available=max(1,available);x=0;y=0;rowheight=0
         for child in self.winfo_children():
             if child.winfo_manager()=='pack':child.pack_forget()
+            if child in self.hidden_children:
+                child.place_forget();continue
             if isinstance(child,ttk.Label):child.configure(wraplength=max(80,available-8))
             width=min(available,child.winfo_reqwidth());height=child.winfo_reqheight()
             if x and x+width>available:y+=rowheight+4;x=0;rowheight=0
