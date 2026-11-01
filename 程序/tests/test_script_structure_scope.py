@@ -83,6 +83,18 @@ class StructureManifestTests(unittest.TestCase):
         self.assertEqual(script_contract.structure_manifest_problems(self.root, path), [])
         self.assertTrue(skill_orchestrator.verified_stage_output(self.root, 'script_structure'))
 
+    def test_completion_service_and_orchestrator_share_one_script_structure_criterion(self):
+        """R2178 J16：两处判据一致——结构剧本在、manifest 缺失时都不算完成；补齐后都算。"""
+        import stage_completion_service
+        path = self.structured_file()
+        self.assertTrue(script_contract.is_structured_script(path))
+        done, reason = stage_completion_service.completion_evidence(self.root, 'script_structure')
+        self.assertFalse(done, '缺 manifest 时完成服务不应放行')
+        self.assertFalse(skill_orchestrator.verified_stage_output(self.root, 'script_structure'))
+        script_contract.write_structure_manifests(self.root, STRUCTURED)
+        self.assertTrue(stage_completion_service.completion_evidence(self.root, 'script_structure')[0])
+        self.assertTrue(skill_orchestrator.verified_stage_output(self.root, 'script_structure'))
+
     def test_req_s02_23_stale_or_broken_manifest_blocks_verification(self):
         path = self.structured_file()
         folder = script_contract.write_structure_manifests(self.root, STRUCTURED)

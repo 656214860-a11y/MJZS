@@ -55,16 +55,13 @@ def verified_stage_output(project, stage):
     root = Path(project or '')
     if not root.is_dir():
         return False
+    if stage not in ('script', 'script_structure'):
+        return False
     try:
-        if stage == 'script':
-            return script_contract.resolve_script_source(root) is not None
-        if stage == 'script_structure':
-            output = script_contract.structured_script_path(root)
-            return (script_contract.is_structured_script(output)
-                    and not script_contract.structure_manifest_problems(root, output))
+        import stage_completion_service  # 判据只在完成服务一处（R2178 J16）
+        return bool(stage_completion_service.completion_evidence(root, stage)[0])
     except (OSError, TypeError, ValueError):
         return False
-    return False
 
 
 def project_status_path(project=None):
