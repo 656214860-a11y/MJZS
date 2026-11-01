@@ -60,7 +60,7 @@ class FileDialogBoundaryTests(unittest.TestCase):
 LEGACY_FILE_DIALOG_MAX = {
     'app.py': 2, 'asset_detail.py': 2, 'asset_reference_import.py': 1,
     'desktop.py': 7, 'reference_wall.py': 2, 'storyboard_files.py': 1,
-    'white_model.py': 1, 'workflow_settings.py': 1,
+    'white_model.py': 1, 'workflow_settings_dialog.py': 1,
 }
 
 def _direct_file_dialog_calls(tree):

@@ -12,11 +12,12 @@ import threading
 from contextlib import contextmanager
 from pathlib import Path
 
+import stage_layout
 from agent.core import save
 from pet_bus import read_json
 
 PROGRAM = Path(__file__).resolve().parent
-BUDGET_PATH = ('工作流任务', 'SKILL', '预算.json')
+BUDGET_PATH = (stage_layout.WORKFLOW_DIR, 'SKILL', '预算.json')
 # 第 44 期：「设置 → 预算」里改的就是三虎那本配额账（配置/宠物/配置.json 的 budget_limits），
 # 这里不再另立一份存额度的文件——一份设置、两处（三虎账本与 SKILL 编排）都照它算。
 PET_CONFIG = ('配置', '宠物', '配置.json')

@@ -10,10 +10,11 @@ import tempfile
 import time
 from pathlib import Path
 
+import stage_layout
 from agent.core import read_json
 from project_context import ProjectContext
 
-LEDGER_PATH = ('工作流任务', '宠物', '优化.json')
+LEDGER_PATH = (stage_layout.WORKFLOW_DIR, '宠物', '优化.json')
 SLOWDOWN_THRESHOLD = 1.4
 KEEP = 30
 BASELINE_NAME = '基准结果_启动与页面_start.json'
@@ -85,7 +86,7 @@ def _start_check(program, project, script_name, baseline_name, arguments=(), exe
     program, project = Path(program), Path(project)
     script = program / '维护记录' / '基准脚本' / script_name
     baseline = script.parent / baseline_name
-    current = project / '工作流任务' / '宠物' / '性能' / baseline_name
+    current = stage_layout.workflow_dir(project, '宠物', '性能', baseline_name)
     if not script.is_file() or not baseline.is_file():
         raise RuntimeError('缺少启动基准脚本或维护基线')
     current.parent.mkdir(parents=True, exist_ok=True)

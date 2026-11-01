@@ -829,7 +829,7 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
     # （见 skill_panel.stage_button），模型／SKILL／接口／说明都在面板里。
     # flow_settings 留着：首帧页的「Skill 调用设置」在模型接口窗口里还要用它（第 26 期那处）。
     def flow_settings(self,stage,function=None):
-        from workflow_settings import show_settings
+        from workflow_settings_dialog import show_settings
         if self.root is None:raise ValueError('请先选择项目')
         from workflow_agents import refresh
         show_settings(self,self.root,stage=stage,on_saved=lambda:refresh(self),function=function)

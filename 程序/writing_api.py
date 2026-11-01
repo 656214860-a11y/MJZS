@@ -54,16 +54,18 @@ def capture_request_model(project):
 def capture_request(project):
     """发送边界：模型、调用方式、技能内容只解析一次。"""
     import workflow_settings
-    workflow_settings.validate_selected_skills(project, 'writing')
     request = capture_request_model(project)
     cli = model_pool.desktop_engine(request['id']) == 'claude'
-    settings = workflow_settings.current(project, 'writing', direct_api=bool(request['id']) and not cli,
-                                         model_snapshot=(request['id'], request['record']) if request['id'] else None)
-    if request['id'] and not cli:
-        settings['model'] = request['id']
-        settings['engine'] = 'qwen'
-    settings['invocation_mode'] = 'api' if request['id'] and not cli else settings['engine']
-    request['settings'] = workflow_settings.freeze_skills(settings)
+
+    def adjust(settings):
+        if request['id'] and not cli:
+            settings['model'] = request['id']
+            settings['engine'] = 'qwen'
+        settings['invocation_mode'] = 'api' if request['id'] and not cli else settings['engine']
+
+    request['settings'] = workflow_settings.resolve_for_send(
+        project, 'writing', direct_api=bool(request['id']) and not cli,
+        model_snapshot=(request['id'], request['record']) if request['id'] else None, adjust=adjust)
     return request
 
 
@@ -250,33 +252,33 @@ class WritingRequestAdapter(ModelAdapter):
                                   '请压缩历史或缩短输入。' + budget_advice(report))}
         if rejected:
             return dict(rejected, context_budget=dict(self.context_budget), request_usage=dict(self.request_usage))
-        ledger = None
+        keys = ('prompt_tokens', 'completion_tokens', 'cached_tokens')
+        captured = {}
+
+        def usage_of(result):
+            data = result.get('data')
+            raw = data.get('usage') if isinstance(data, dict) else None
+            # 口径与 token_saver.reported_usage 一致：嵌套命中、Claude 总输入都算；没报的格子保持缺省。
+            captured['reported'] = token_saver.reported_usage(raw if isinstance(raw, dict) else {})
+            return {key: captured['reported'][key] for key in keys if key in captured['reported']}
+
+        def send():
+            return getattr(self.adapter, method)(messages, options=options, model=model, system=system, **kwargs)
         if self.project is not None:
+            from model_metering import metered
             from pet_llm import RequestLedger
             from uuid import uuid4
-            ledger = RequestLedger(self.project)
-            request_id = uuid4().hex
             estimate = len(json.dumps({'system': system, 'messages': messages, 'options': options},
                                       ensure_ascii=False).encode('utf-8')) + 256
-            try:
-                ledger.authorize_model(request_id, model or self.chosen, self.stage, estimate, reserved)
-            except (ValueError, OSError) as error:
+            result, _usage, refused = metered(
+                RequestLedger(self.project), (uuid4().hex, model or self.chosen, self.stage, estimate, reserved),
+                send, usage_of)
+            if refused is not None:
                 return {'ok': False, 'status': 0, 'model': model or self.chosen, 'text': '', 'usage': {},
-                        'reason': 'money_budget_exceeded', 'error': str(error)}
-        try:
-            result = getattr(self.adapter, method)(messages, options=options, model=model, system=system, **kwargs)
-        except Exception:
-            if ledger:
-                ledger.settle_model(request_id, {})
-            raise
-        data = result.get('data')
-        raw = data.get('usage') if isinstance(data, dict) else None
-        raw = raw if isinstance(raw, dict) else {}
-        # 口径与 token_saver.reported_usage 一致：嵌套命中、Claude 总输入都算；没报的格子保持缺省。
-        reported = token_saver.reported_usage(raw)
-        keys = ('prompt_tokens', 'completion_tokens', 'cached_tokens')
-        if ledger:
-            ledger.settle_model(request_id, {key: reported[key] for key in keys if key in reported})
+                        'reason': 'money_budget_exceeded', 'error': str(refused)}
+        else:
+            result = send(); usage_of(result)
+        reported = captured['reported']
         self.request_usage['calls'] += 1
         for key in keys:
             value = reported.get(key)
@@ -1214,9 +1216,8 @@ def reply(project, creative, cancelled=None, *, publish=None, archive=None, user
     settings = request_model.get('settings')
     if settings is None:
         # 兼容旧调用方仅传模型身份；新发送入口始终传完整快照。
-        workflow_settings.validate_selected_skills(root, 'writing')
-        settings = workflow_settings.freeze_skills(workflow_settings.current(
-            root, 'writing', direct_api=True, model_snapshot=(chosen, record)))
+        settings = workflow_settings.resolve_for_send(
+            root, 'writing', direct_api=True, model_snapshot=(chosen, record))
     brief = _complete_brief(root)
     if brief is not None:
         preparation, confirmed = _preparation_step(

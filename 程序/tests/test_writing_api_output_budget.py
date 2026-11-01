@@ -26,7 +26,11 @@ class WritingOutputBudgetTests(unittest.TestCase):
     def test_transport_crash_releases_money_reservation_and_reraises(self):
         raw = Mock()
         raw.chat.side_effect = RuntimeError('断线')
-        ledger = Mock()
+        with tempfile.TemporaryDirectory() as td:
+            # J10：计量序列在真实 RequestLedger.metered 里，只把授权／结算两端换成 Mock。
+            from pet_llm import RequestLedger
+            ledger = RequestLedger(td)
+            ledger.authorize_model, ledger.settle_model = Mock(), Mock()
         with tempfile.TemporaryDirectory() as td, patch('pet_llm.RequestLedger', return_value=ledger):
             adapter = writing_api.WritingRequestAdapter(raw, {}, 'm', project=td)
             with self.assertRaises(RuntimeError):

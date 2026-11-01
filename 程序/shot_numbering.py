@@ -15,13 +15,14 @@ from file_cache import read_json
 import os
 import re
 import shutil
+import stage_layout
 from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
 from agent.core import save_bytes
 
 ID_PATTERN = re.compile(r'SH\d{3,}')
-SKIP_PARTS = (('工作流任务', '回收站'), ('工作流任务', '升级备份'))
+SKIP_PARTS = ((stage_layout.WORKFLOW_DIR, '回收站'), (stage_layout.WORKFLOW_DIR, '升级备份'))
 TEXT_SUFFIXES = frozenset({'.json', '.jsonl', '.txt', '.md', '.py', '.srt', '.csv',
                            '.log', '.yaml', '.yml', '.ini', '.cfg', '.xml', '.html'})
 SIZE_LIMIT = 8 * 1024 * 1024
@@ -153,7 +154,7 @@ def collect(project, mapping):
 
 
 def _backup(project, paths, stamp):
-    root = project / '工作流任务' / '升级备份' / (stamp + '_镜头编号重排')
+    root = stage_layout.workflow_dir(project, '升级备份') / (stamp + '_镜头编号重排')
     for path in paths:
         for file in ([path] if path.is_file() else sorted(path.rglob('*'))):
             if not file.is_file():

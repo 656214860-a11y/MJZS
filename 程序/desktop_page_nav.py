@@ -128,17 +128,26 @@ class PageNavMixin:
     def show(self,index,video_mode=None):
         scroll_offset, page_cache = self._show_reset_page(index, video_mode)
         locks = getattr(self, 'page_lock_reasons', None)
-        reason = locks().get(index) if callable(locks) and index != PAGE_ACCOUNT else ''
-        if reason:
-            self.locked_page(reason)       # 未登录或授权失效：免费阶段与会员页之外整页换成锁定说明
+        def adopted_storyboards():
+            from storyboard_selection import prefs
+            return prefs(self.root).get('adopted_storyboards')
+        plan=page_nav.decide(index,PAGE,{
+            'lock_reason':(locks().get(index) if callable(locks) and index != PAGE_ACCOUNT else ''),
+            'has_root':self.root is not None,'video_mode':getattr(self,'video_mode',None),
+            'adopted':adopted_storyboards,'asset_detail':getattr(self,'asset_detail_id',None),
+            'asset_roster':getattr(self,'asset_roster',False),
+            'loading_project':getattr(self.win,'_desktop_loading_project',False)},
+            free_pages=(PAGE_SITES,PAGE_ACCOUNT),cached_pages=CACHED_PAGES)
+        if plan.route=='locked':
+            self.locked_page(plan.reason)       # 未登录或授权失效：免费阶段与会员页之外整页换成锁定说明
             self.fit_content()
             return
-        if index in (PAGE_SITES,PAGE_ACCOUNT):
+        if plan.route=='free':
             (self.reference_sites if index==PAGE_SITES else self.account_page)()    # 两页都与项目无关：没打开项目也能进
             # 与普通制作页一样会在这里新增内容；不能提前返回而把 Canvas window 留在 1px 高度。
             self.fit_content()
             return
-        if self.root is None:
+        if plan.route=='home':
             self.title.configure(text='我的项目');self.status.set('选择项目开始创作');self.project_home()
             # 首屏此前在这里提前返回，项目树虽已创建却没有重新量画布；窗口刚映射时
             # content window 常仍是 1px 高，于是用户只看到白屏和底部状态栏。
@@ -146,23 +155,19 @@ class PageNavMixin:
             return
         # 第 26 期第 3 条：07 步还没选生成方式时不需要分镜——「选择分镜」下拉框与那道
         # 「先采用分镜」的闸门都留到选定方式之后，选定方式那一页本来也不挑镜头。
-        choosing_video=page_nav.choosing_video(index,PAGE,getattr(self,'video_mode',None))
-        def adopted_storyboards():
-            from storyboard_selection import prefs
-            return prefs(self.root).get('adopted_storyboards')
-        if page_nav.needs_adopted_storyboard(index,PAGE,choosing_video,adopted_storyboards):
+        if plan.route=='blocked':
             message='请先在'+pet_bus.stage_step('storyboard')+'采用一份或多份分镜 JSON。'
             # 不能只写到底部状态栏：视频工作台被阻止时，用户的视线仍在当前内容区。
             ttk.Label(self.content,text=message,style='Muted.TLabel').pack(anchor='w',padx=SPACING['lg'],pady=SPACING['lg'])
             self.note(message)
             self.fit_content()
             return
-        if page_nav.needs_source_selector(index,PAGE,choosing_video,bool(getattr(self,'asset_detail_id',None) or getattr(self,'asset_roster',False))):
+        if plan.selector:
             from storyboard_selection import source_selector
             source_selector(self,index,select_box=SelectBox)
         # 08／09 步直接读工作集：切换分镜或自动采用后必须先让工作集跟上，否则会按旧分镜拼接和交付。
-        if index in (PAGE['edit'],PAGE['delivery']):self.align_studio()
-        if index==PAGE['script'] and getattr(self.win,'_desktop_loading_project',False):
+        if plan.align:self.align_studio()
+        if plan.route=='startup_shell':
             # 自动续开原先在一个 Tk 回调中拆掉“我的项目”再同步建完整剧本页，
             # Windows 因而一直只能显示旧页。先摆出当前阶段的轻量壳，等一个
             # 确定的绘制时隙后才创建聊天、文件表和它们的绑定。
@@ -191,17 +196,17 @@ class PageNavMixin:
             # 仍会把完整建页压回同一帧。40ms 给出一次实际消息循环机会。
             self._startup_script_build_job=self.win.after(40,build_startup_script_page)
             return
-        if index==PAGE['assets'] and getattr(self,'asset_roster',False):
+        if plan.route=='roster':
             # 第 71 期任务 2：侧栏「资产清单」那一格摆的是清单页（每个角色的正典板与状态变体）。
             from asset_detail import show_roster
             show_roster(self)
-        elif index==PAGE['assets'] and getattr(self,'asset_detail_id',None):
+        elif plan.route=='detail':
             # 第 64 期任务 13：资产详情页是资产管理页的子路由（附件 v3.0 任务 2.1／2.3）。
             from asset_detail import show as asset_detail_page
             asset_detail_page(self,self.asset_detail_id)
         else:
             builder=[self.writing,self.script_structure,self.storyboard_creation,self.animatic_page,self.asset_page,self.continuity_page,self.final_storyboard,self.storyboard,self.previs,self.videos,self.audio,self.editing,self.delivery][index]
-            if index in CACHED_PAGES:self._show_cached_page(index,builder,page_cache)
+            if plan.cached:self._show_cached_page(index,builder,page_cache)
             else:builder()
         # 页面树可能很大；强制 Tk 立刻完成两次尺寸计算会阻塞点击与绘制，启动时尤其容易
         # 被 Windows 判为无响应。交给已有的合并空闲布局：同一轮连续换页只做最后一次，

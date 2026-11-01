@@ -8,8 +8,8 @@ from tests.architecture._scan import production_files, parse
 
 
 _BACKGROUND_BOUNDARIES = frozenset({
-    'asset_thumbs', 'codex_tasks', 'qwen_adapter', 'storage_maintenance',
-    'workflow_engines', 'log_maintenance',
+    'asset_thumbs', 'codex_tasks', 'storage_maintenance',
+    'log_maintenance',
 })
 
 

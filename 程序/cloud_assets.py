@@ -4,7 +4,6 @@ import re
 from pathlib import Path
 from seedream_api import protect
 import production_model_contract
-from ui_tokens import CHAR_WIDTH, WRAPLENGTH, SPACING
 
 KEY_LABEL = '本机 Comfy API Key'                      # 只用于出错提示；DPAPI 实现在 seedream_api.protect
 KEY_ENV = 'COMFY_API_KEY'                             # 第 65 期任务 1：统一那份 .env 里的变量名
@@ -19,21 +18,24 @@ def _secret_file():
 
 
 def _unified_key():
-    """统一那份 .env（程序目录/private/.env）里的密钥；没有就是空串（第 65 期任务 1）。"""
+    """经 model_pool 的唯一取钥链（本机 DPAPI → .env → 环境变量）取密钥；没有就是空串。"""
     try:
         import model_pool
-        return model_pool.named_key(KEY_ENV)
+        return model_pool.named_key(KEY_ENV)   # 即 credential(KEY_ENV)：本机 DPAPI → .env → 环境变量
     except Exception:
         return ''
 
 
 def get_key():
-    """密钥的次序：同名环境变量 → 统一那份 .env → 老安装留在本机加密那份（只读兼容）。"""
-    if os.environ.get(KEY_ENV, '').strip():
-        return os.environ[KEY_ENV].strip()
+    """密钥的次序：model_pool.credential 那条链 → 同名环境变量（兜底）→ 老安装本机加密那份（只读兼容）。
+
+    R2178 J8：旧环境变量不再盖过用户刚保存的密钥。
+    """
     unified = _unified_key()
     if unified:
         return unified
+    if os.environ.get(KEY_ENV, '').strip():
+        return os.environ[KEY_ENV].strip()
     file = _secret_file()
     return protect(file.read_bytes(), decrypt=True, label=KEY_LABEL).decode('utf-8') if file.is_file() else ''
 
@@ -97,36 +99,3 @@ def redact(value):
     if len(text) <= 4:
         return '****' if text else ''
     return text[:4] + '****'
-
-
-def settings(parent):
-    import tkinter as tk
-    import webbrowser
-    from tkinter import ttk
-    from account_inputs import PasswordInput
-    from ui_widgets import (Card, DescriptionBlock, FormDialog, PrimaryButton,
-                            ProgressLabel, SecondaryButton, notify)
-    win = FormDialog(parent, '云图片模型 · Comfy 账户', modal=False, chrome=False)
-    win.withdraw();win.transient(parent)
-    body = Card(win, padding=16);body.pack(fill='both', expand=True)
-    DescriptionBlock(body, text='Seedream 5.0 Pro / Nano Banana Pro / GPT Image 2', wraplength=WRAPLENGTH['md']).pack(anchor='w')
-    DescriptionBlock(body, text='使用 ComfyUI 账户余额；本地 FLUX 无需此密钥。', wraplength=WRAPLENGTH['md']).pack(anchor='w', pady=SPACING['xs'])
-    DescriptionBlock(body,text='1. 打开 Comfy 账户并登录或注册。\n2. 在 API Keys 页面创建密钥，复制到下方并保存。\n3. 确认账户有可用余额，再返回手动制作资产。',wraplength=WRAPLENGTH['md']).pack(anchor='w',pady=SPACING['xs'])
-    ttk.Label(body, text='Comfy API Key（统一保存到 程序目录/private/.env，不写入工作流）').pack(anchor='w')
-    saved = get_key()
-    token = tk.StringVar(value=saved)
-    PasswordInput(body, textvariable=token, width=CHAR_WIDTH['field_md']).pack(fill='x', pady=SPACING['xs'])
-    status = tk.StringVar(value='已保存密钥（%s）' % redact(saved) if saved
-                           else '尚未配置，暂不能从助手批量调用云模型')
-    ProgressLabel(body, textvariable=status, wraplength=WRAPLENGTH['md']).pack(anchor='w')
-    row = ttk.Frame(body);row.pack(fill='x', pady=(SPACING['md'], SPACING['none']))
-    def save():
-        try:save_key(token.get());win.destroy()
-        except Exception as exc:notify(win, str(exc), level='error', title='保存失败', status=status)
-    PrimaryButton(row, text='保存', command=save).pack(side='left')
-    SecondaryButton(row, text='打开 Comfy 账户', command=lambda:webbrowser.open('https://platform.comfy.org/')).pack(side='left', padx=SPACING['xs'])
-    SecondaryButton(row, text='获取 API Key', command=lambda:webbrowser.open('https://platform.comfy.org/profile/api-keys')).pack(side='left', padx=SPACING['xs'])
-    win.update_idletasks()
-    x = max(0, parent.winfo_rootx() + (parent.winfo_width()-win.winfo_reqwidth())//2)
-    y = max(0, parent.winfo_rooty() + (parent.winfo_height()-win.winfo_reqheight())//2)
-    win.geometry(f'+{x}+{y}');win.deiconify()

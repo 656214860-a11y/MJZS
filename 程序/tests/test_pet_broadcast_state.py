@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import unittest
 
-from pet_broadcast_state import PetBroadcastAliasesMixin, PetBroadcastState
+from pet_broadcast_state import PetBroadcastAliasesMixin, PetBroadcastState, PetOfferState
 
 
 class StateTests(unittest.TestCase):
@@ -66,6 +66,25 @@ class AliasTests(unittest.TestCase):
                 getattr(Holder(), name)
         with self.assertRaises(AttributeError):
             Holder().nothing
+
+    def test_offer_state_defaults_match_the_old_attributes(self):
+        offer = PetOfferState()
+        self.assertEqual((offer.at, offer.sig, offer.open, offer.backoff, offer.declined),
+                         (None, (), False, 1, None))
+
+    def test_offer_state_is_created_on_demand_for_bare_pets(self):
+        class Holder(PetBroadcastAliasesMixin):
+            pass
+        holder = Holder()
+        holder.offer.open = True
+        self.assertTrue(holder.offer.open)
+        self.assertIs(holder.offer, holder.offer)
+
+    def test_cloud_hint_state_defaults_match_the_old_attributes(self):
+        import pet_cloud_hint
+        state = pet_cloud_hint.CloudHintState()
+        self.assertEqual((state.job, state.on, state.x, state.user_focus),
+                         (None, False, pet_cloud_hint.HINT_X, False))
 
 
 if __name__ == '__main__':

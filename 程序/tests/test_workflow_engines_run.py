@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest import mock
 
 import workflow_engines
+import workflow_process_registry
 
 
 class _Process:
@@ -25,9 +26,9 @@ class _Process:
 class RunCleanupTests(unittest.TestCase):
     def _run(self, process):
         with mock.patch.object(workflow_engines.subprocess, 'Popen', return_value=process), \
-             mock.patch.object(workflow_engines, 'register_process') as register, \
-             mock.patch.object(workflow_engines, 'forget_process') as forget, \
-             mock.patch.object(workflow_engines, 'terminate_process_tree') as terminate:
+             mock.patch.object(workflow_process_registry, 'register_process') as register, \
+             mock.patch.object(workflow_process_registry, 'forget_process') as forget, \
+             mock.patch('platform_tools.terminate_process_tree') as terminate:
             try:
                 code = workflow_engines._run(['x'], 'proj', 'prompt', None, None)
             except RuntimeError:

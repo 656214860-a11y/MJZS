@@ -144,6 +144,13 @@ def launch_background(command, *, cwd=None, stdin=None, stdout=None, stderr=None
                   stdin=stdin, stdout=stdout, stderr=stderr, env=env)
 
 
+def launch_text_process(command, *, cwd=None, stdin=None, stdout=None, stderr=None, env=None):
+    """Start a background process whose stdin/stdout use UTF-8 text mode (registered workflow engines)."""
+    import functools
+    return launch_background(command, cwd=cwd, stdin=stdin, stdout=stdout, stderr=stderr, env=env,
+                             popen=functools.partial(subprocess.Popen, text=True, encoding='utf-8', errors='replace'))
+
+
 def run_process(command, *, run=None, **kwargs):
     """Run a local host command with the shared hidden-console policy."""
     control = current_execution()

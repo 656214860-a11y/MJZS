@@ -1,6 +1,7 @@
 """Conservative project cleanup; run only after the UI has closed."""
 import math, os, shutil, subprocess, sys, time, uuid
 from pathlib import Path, PurePosixPath
+import stage_layout
 from agent.core import save
 from file_cache import recycled, read_json
 from platform_tools import launch_background
@@ -58,7 +59,7 @@ def _within(child,parent):
 
 def _recycle_base(root):
     """自动维护的唯一回收站；从不扫描或再次清理其中的历史成果。"""
-    return Path(root) / '工作流任务' / '回收站'
+    return stage_layout.workflow_dir(root, '回收站')
 
 
 def recycle_base(root):

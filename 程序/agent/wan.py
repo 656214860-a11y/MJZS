@@ -3,10 +3,11 @@ import base64
 import json
 import re
 import urllib.parse
+from .video import VideoAdapter
 from .volcengine import ArkRejected
 # 第 34 期第 9 条：urllib.request／urllib.error 连 ssl 一起加载，改到 call() 里按需 import。
 
-class WanAdapter:
+class WanAdapter(VideoAdapter):
     def __init__(self, cfg):
         self.cfg = cfg
         from api_endpoints import normalize_url
@@ -32,7 +33,7 @@ class WanAdapter:
 
     def call(self, task_id=None, payload=None):
         import urllib.request, urllib.error          # 第 34 期第 9 条：HTTP 栈按需加载
-        from .volcengine import no_redirect
+        from api_endpoints import no_redirect
         from api_endpoints import configured_key
         from platform_tools import current_execution
         control = current_execution()

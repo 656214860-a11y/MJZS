@@ -11,7 +11,7 @@ TEXT_PAGE_COMPONENTS = {
     "skill_panel.py": ("HintLabel", "DescriptionBlock", "ProgressLabel"),
     "agent/prompt_optimizer.py": ("DescriptionBlock",),
     "seedream_settings.py": ("DescriptionBlock", "ProgressLabel"),
-    "qwen_setup.py": ("DescriptionBlock", "ProgressLabel"),
+    "qwen_setup_dialog.py": ("DescriptionBlock", "ProgressLabel"),
     "tts_settings.py": ("DescriptionBlock", "ProgressLabel"),
     "asset_batch.py": ("DescriptionBlock", "ProgressLabel"),
     "keyframe_comfy.py": ("DescriptionBlock", "ProgressLabel"),

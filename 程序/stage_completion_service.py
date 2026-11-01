@@ -608,6 +608,10 @@ def completion_evidence(root, stage, video_ready=None):
             source = (script_contract.resolve_script_source(root) if stage == 'script'
                       else script_contract.structured_script_path(root))
             ok = (source is not None) if stage == 'script' else script_contract.is_structured_script(source)
+            if ok and stage == 'script_structure':
+                problems = script_contract.structure_manifest_problems(root, source)  # R2178 J16：与编排器同一判据
+                if problems:
+                    return False, '剧本结构清单未通过核验：' + problems[0]
             return ok, '没有找到可读取的%s成果' % pet_bus.STAGE_NAMES.get(stage, stage)
         if stage == 'animatic':
             from animatic_service import evidence

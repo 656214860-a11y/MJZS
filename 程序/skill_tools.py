@@ -15,6 +15,7 @@ import json
 from pathlib import Path
 
 import line_endings
+import stage_layout
 from agent.core import read
 from pet_bus import STAGES, STAGE_NAMES, stage_label
 
@@ -412,7 +413,7 @@ def _delivery_manifest(context):
     """交付清单：把这一轮各步的结果写成 manifest.json，路径与文件名都在里面。"""
     ctx = context or {}
     project = project_of(ctx)
-    target = Path(ctx.get('manifest') or (project / '工作流任务' / 'SKILL' / '交付清单.json'))
+    target = Path(ctx.get('manifest') or (stage_layout.workflow_dir(project, 'SKILL', '交付清单.json')))
     files = []
     for item in ctx.get('files') or ():
         path = Path(str(item))

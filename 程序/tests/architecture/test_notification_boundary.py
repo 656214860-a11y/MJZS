@@ -63,10 +63,10 @@ LEGACY_MESSAGEBOX_MAX = {
     'asset_reference_import.py': 0, 'background_characters.py': 0,
     'cloud_assets.py': 0, 'cloud_video.py': 0, 'desktop.py': 0,
     'desktop_launcher.py': 0, 'keyframe_comfy.py': 0, 'local_previs.py': 0,
-    'native_assets.py': 0, 'prompt_window.py': 0, 'qwen_setup.py': 0,
+    'native_assets.py': 0, 'prompt_window.py': 0, 'qwen_setup_dialog.py': 0,
     'reference_wall.py': 0, 'seedream_settings.py': 0, 'skill_panel.py': 0,
     'storyboard_files.py': 0, 'tts_settings.py': 0, 'white_model.py': 0,
-    'workflow_settings.py': 0, 'agent/prompt_optimizer.py': 0,
+    'workflow_settings_dialog.py': 0, 'agent/prompt_optimizer.py': 0,
 }
 
 def _display_messageboxes(tree):

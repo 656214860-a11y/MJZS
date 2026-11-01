@@ -15,6 +15,7 @@ from pathlib import Path
 import model_pool
 import pet_llm
 import token_saver
+from model_metering import submission_retryable
 from api_endpoints import configured_key, normalize_url
 
 PROGRAM = Path(__file__).resolve().parent
@@ -131,7 +132,7 @@ def failure_policy(result):
             else 'unsupported_request' if status in (400, 404, 422)
             else 'server_error' if isinstance(status, int) and status >= 500
             else 'cancelled' if result.get('error_class') == 'cancelled' else 'receipt_unknown')
-    retryable = acceptance == 'not_accepted' and code in ('rate_limit', 'server_error')
+    retryable = submission_retryable(acceptance, code)
     return {'reason_code': code, 'acceptance': acceptance,
             'retryable': retryable, 'provider_task_id': remote}
 
