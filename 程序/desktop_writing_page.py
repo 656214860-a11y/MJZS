@@ -815,7 +815,7 @@ class _WritingPage:
         index = PREPARATION_STAGES.index(stage)
         downstream = tuple(s for s in confirmed if PREPARATION_STAGES.index(s) > index)
         prompt = ('确定取消「' + stage + '」的确认吗？\n\n'
-                  '取消后剧本准备流程回到「' + stage + '」，你需要重新确认该阶段。')
+                  '取消后剧本准备流程回到「' + stage + '」，您需要重新确认该阶段。')
         if downstream:
             prompt += '\n\n已确认的「' + '」「'.join(downstream) + '」会一并取消。'
         prompt += '\n\n不会删除或覆盖任何文件，原稿保留。'
