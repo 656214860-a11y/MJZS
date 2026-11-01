@@ -134,9 +134,11 @@ class ScriptComposerTests(unittest.TestCase):
             self.assertEqual(str(box.tag_cget('bubble_0', 'background')), '')
             hidden = box.cget('bg')
             self.assertEqual(box.tag_cget('bubble_0_copy', 'foreground'), hidden)
-            # 图标行紧跟正文、与正文同一左边距，即正文左下角。
+            # 图标行与正文同一左边距，即正文左下角；R2283 起中间隔着一行页脚（时间／SKILL 注入），
+            # 所以是正文接页脚、页脚接图标行，图标行仍在这条消息的最下面。
             self.assertEqual(box.tag_cget('bubble_0_actions', 'lmargin1'), box.tag_cget('bubble_0', 'lmargin1'))
-            self.assertEqual(box.index(box.tag_ranges('bubble_0')[-1]), box.index(box.tag_ranges('bubble_0_actions')[0]))
+            self.assertEqual(box.index(box.tag_ranges('bubble_0')[-1]), box.index(box.tag_ranges('bubble_0_time')[0]))
+            self.assertEqual(box.index(box.tag_ranges('bubble_0_time')[-1]), box.index(box.tag_ranges('bubble_0_actions')[0]))
             d.show_bubble_actions(box, 'bubble_0', True)
             self.assertEqual(box.tag_cget('bubble_0_copy', 'foreground'), COLORS['text_muted'])
             self.assertEqual(box.tag_cget('bubble_0_delete', 'foreground'), COLORS['text_muted'])

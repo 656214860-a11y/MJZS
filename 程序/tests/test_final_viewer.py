@@ -298,11 +298,18 @@ class ButtonRowTests(FinalViewerCase):
         self.assertNotIn("打开选中 JSON", [str(b.cget("text")) for b in self.row_buttons()],
                          "第 68 期任务 6：这颗按钮删掉（要看 JSON 就点这一行）")
 
+    def text_of(self, widget):
+        """这一行里还有没有「text」选项的控件（R2278 的两级模型选择器），读不到文字就当空串。"""
+        try:
+            return str(widget.cget("text"))
+        except self.tk.TclError:
+            return ""
+
     def test_the_manual_button_is_the_highlighted_entry(self):
         manual = self.button("手动同步资产")
         self.assertEqual(str(manual.cget("style")), "Tokens.Primary.TButton",
                          "主动作要使用设计系统的高亮按钮")
-        self.assertIn("刷新列表", [str(b.cget("text")) for b in manual.master.winfo_children()],
+        self.assertIn("刷新列表", [self.text_of(b) for b in manual.master.winfo_children()],
                       "「刷新列表」还留在这一行")
 
     def test_the_stage_config_sits_to_the_right_of_the_manual_button(self):
@@ -316,7 +323,7 @@ class ButtonRowTests(FinalViewerCase):
         # 排在「刷新列表」前面。
         def slot(label):
             for index, child in enumerate(order):
-                if hasattr(child, "cget") and str(child.cget("text")) == label:
+                if self.text_of(child) == label:
                     return index
             self.fail("这一行里没有「%s」" % label)
         self.assertLess(slot("手动同步资产"), slot("阶段配置"))
@@ -325,7 +332,7 @@ class ButtonRowTests(FinalViewerCase):
 
     def test_refresh_sits_left_of_the_storyboard_folder(self):
         order = self.button("手动同步资产").master.winfo_children()
-        labels = [str(child.cget("text")) for child in order if hasattr(child, "cget")]
+        labels = [self.text_of(child) for child in order]
         self.assertLess(labels.index("刷新列表"), labels.index("分镜目录"),
                         "「刷新列表」挪到「分镜目录」左边")
 
