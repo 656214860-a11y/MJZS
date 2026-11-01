@@ -20,6 +20,7 @@ from tkinter import ttk
 import pet_state
 import ui_plugin_registry
 from desktop_idea_deferred import IdeaDeferredMixin
+from desktop_audio_direct import run_audio_direct as _run_audio_direct
 from desktop_storyboard_direct import run_storyboard_direct as _run_storyboard_direct
 from idea_chat_controller import bubble_timestamp, collapse_preview
 from platform_tools import open_target
@@ -872,6 +873,11 @@ class _FlowAgentLaunch:
             from storyboard_direct_api import direct_model
             if direct_model(self.config):
                 _run_storyboard_direct(self.host,self.config);return
+        if self.stage=='audio' and not self.intake_only:
+            # 唯一分流点（REQ-S11-50）：选了模型池里的 API 模型就由程序直连生成音频脚本，不再经 Qwen Code。
+            from audio_direct_api import direct_model
+            if direct_model(self.config) and hasattr(self.host,'current_frame_json'):
+                _run_audio_direct(self.host,self.config);return
         if self.stage == 'writing' and not self.intake_only:
             from workflow_settings import freeze_skills
             self.config = freeze_skills(self.config)

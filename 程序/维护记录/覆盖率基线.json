@@ -234,6 +234,12 @@
    "percent": 0.0
   },
   {
+   "module": "audio_direct_api.py",
+   "covered": 0,
+   "total": 157,
+   "percent": 0.0
+  },
+  {
    "module": "audio_import_service.py",
    "covered": 0,
    "total": 64,
@@ -372,6 +378,12 @@
    "percent": 0.0
   },
   {
+   "module": "desktop_audio_direct.py",
+   "covered": 0,
+   "total": 34,
+   "percent": 0.0
+  },
+  {
    "module": "desktop_auto_flows.py",
    "covered": 0,
    "total": 537,
@@ -404,7 +416,7 @@
   {
    "module": "desktop_idea_chat.py",
    "covered": 0,
-   "total": 965,
+   "total": 970,
    "percent": 0.0
   },
   {
@@ -1328,7 +1340,7 @@
   {
    "module": "storyboard_direct_api.py",
    "covered": 0,
-   "total": 225,
+   "total": 230,
    "percent": 0.0
   },
   {
@@ -2017,5 +2029,5 @@
   }
  ],
  "modules_covered": 52,
- "modules_total": 334
+ "modules_total": 336
 }
