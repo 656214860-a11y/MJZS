@@ -7,6 +7,28 @@ from pathlib import Path
 
 BUBBLE_COLLAPSE_CHARS = 360
 BUBBLE_COLLAPSE_LINES = 8
+# 首绘后回填：``fit_pending`` 连续这么多拍为假才算布局稳定；最长等这么多秒，超时直接回填。
+IDEA_UPDATE_STABLE_TICKS = 3
+IDEA_UPDATE_TIMEOUT_SECONDS = 2.0
+
+
+class DeferredFill:
+    """首绘后「布局稳定」判定：每拍问一次 ``ready``，Tk 只管用 ``after`` 排下一拍。
+
+    时钟注入，测试不必真等；一个实例对应一次页面进入。
+    """
+
+    def __init__(self, clock=time.monotonic, *, ticks=IDEA_UPDATE_STABLE_TICKS,
+                 timeout=IDEA_UPDATE_TIMEOUT_SECONDS):
+        self._clock = clock
+        self._ticks = ticks
+        self._deadline = clock() + timeout
+        self._stable = 0
+
+    def ready(self, fit_pending):
+        """本拍之后是否该回填：连续稳定够拍数，或已超时。"""
+        self._stable = 0 if fit_pending else self._stable + 1
+        return self._stable >= self._ticks or self._clock() >= self._deadline
 
 
 def bubble_timestamp(at):
