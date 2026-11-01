@@ -9,6 +9,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 from agent.core import read, read_json, save
 import model_pool
+from api_endpoints import no_redirect
 # 第 34 期第 9 条：`urllib.request`／`urllib.error` 连 ssl 一起加载（约 4.4 MB 常驻），
 # 本模块只在真要请求生图接口时用得到——都改成函数内 import。
 
@@ -114,14 +115,6 @@ def save_profile(base_url,model,key,profile_id=None):
 
 class Rejected(ValueError):pass
 class Uncertain(RuntimeError):pass
-
-
-def no_redirect():
-    """第 34 期第 9 条：惰性建类——只有真要发 HTTP 时才 import urllib.request；照旧返回实例。"""
-    from urllib.request import HTTPRedirectHandler
-    class NoRedirect(HTTPRedirectHandler):
-        def redirect_request(self,*args,**kwargs):return None
-    return NoRedirect()
 
 
 def request_image(profile,payload):

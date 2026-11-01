@@ -54,3 +54,17 @@ class RecyclePlanTests(unittest.TestCase):
             file_path.write_text("正文", encoding="utf-8")
             with self.assertRaises(ValueError):
                 recycle_plan(proj, "badkind", file_path)
+
+    def test_recycle_goes_through_shared_recycler_and_restores(self):
+        from storyboard_recycle_service import latest_recycle_batch, restore_latest_recycled_files
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_project(td)
+            source = proj / "writing" / "第1集_剧本.md"
+            source.write_text("正文", encoding="utf-8")
+            batch = recycle_files(proj, "script", [source])
+            self.assertEqual(batch.parent.name, "回收站")
+            folder, names = latest_recycle_batch(proj)
+            self.assertEqual(folder.resolve(), batch.resolve())
+            self.assertEqual(names, ["writing/第1集_剧本.md"])
+            restore_latest_recycled_files(proj)
+            self.assertEqual(source.read_text(encoding="utf-8"), "正文")

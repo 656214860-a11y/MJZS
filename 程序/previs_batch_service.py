@@ -2,6 +2,7 @@
 from datetime import datetime
 from pathlib import Path
 
+import stage_layout
 import stage_parallel
 import white_model_service
 from file_cache import read_json
@@ -16,7 +17,7 @@ def prepare_batch(project, source, ids, call_config=None):
     shots = [shot for shot in episode.get('shots', []) if shot.get('id') in ids]
     if not shots or {shot['id'] for shot in shots} != set(ids):
         raise ValueError('镜头清单发生变化，请重新进入白模页面')
-    folder = project / '工作流任务' / '白模批量任务' / datetime.now().strftime('%Y%m%d_%H%M%S_%f')
+    folder = stage_layout.workflow_dir(project, '白模批量任务') / datetime.now().strftime('%Y%m%d_%H%M%S_%f')
     folder.mkdir(parents=True, exist_ok=True)
     manifest = folder / '勾选镜头.json'
     from agent.shot_assets import assets

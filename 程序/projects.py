@@ -5,7 +5,7 @@ from datetime import datetime
 from pathlib import Path
 from storyboard_paths import media_root
 from episode_contract import validate_episode, relative
-import project_stages
+import project_stages, stage_layout
 from storage_maintenance import remove_project_link_node
 from file_cache import file_digest, read_json as cached_read_json
 from service_contract import SystemError, success
@@ -55,7 +55,7 @@ def _discover_candidates(base):
     base=Path(base); candidates=[]
     for p in base.iterdir():
         # ``工作流任务`` 是项目库内回收站；历史回收站绝不回流到下一轮扫描。
-        if not p.is_dir() or p.name=='工作流任务' or '工作流任务' in p.parts:continue
+        if not p.is_dir() or p.name==stage_layout.WORKFLOW_DIR or stage_layout.WORKFLOW_DIR in p.parts:continue
         cfg=p/'config.json'
         if not cfg.is_file() and not any((p/name).is_dir() for name in project_stages.STAGES.values()):continue
         try:data=cached_read_json(cfg) if cfg.is_file() else {}
@@ -281,7 +281,7 @@ class Projects:
     def register_discovered_project(self,path):
         """将扫描到但不属于失效登记的一级目录作为新项目登记。"""
         candidate=Path(path)
-        if candidate.parent.resolve()!=self.base.resolve() or candidate.name=='工作流任务':
+        if candidate.parent.resolve()!=self.base.resolve() or candidate.name==stage_layout.WORKFLOW_DIR:
             raise ValueError('只能登记项目库一级的非回收站目录')
         result=reconcile_missing(self.info,self.base)
         if str(candidate) not in result['candidates']:
@@ -418,7 +418,7 @@ class Projects:
         for value in paths:
             path = Path(value)
             if (path.is_symlink() or path.is_junction() or not path.is_dir()
-                    or path.resolve().parent != base or path.name == '工作流任务'):
+                    or path.resolve().parent != base or path.name == stage_layout.WORKFLOW_DIR):
                 raise ValueError('只能重新登记恢复的项目库一级独立目录')
             path = path.resolve()
             if str(path) in known:

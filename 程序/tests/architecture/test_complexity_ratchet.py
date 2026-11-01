@@ -69,7 +69,7 @@ PARAM_CAPS = {
     ('workflow_tasks.py', 'script_prompt'): 8,
 }
 CLASS_CAPS = {
-    ('pet_cloud.py', 'Cloud'): 1111,
+    ('pet_cloud.py', 'Cloud'): 1108,
     ('desktop_idea_chat.py', 'IdeaChatMixin'): 770,
     ('app.py', 'App'): 1388,
     ('desktop.py', 'Desktop'): 836,

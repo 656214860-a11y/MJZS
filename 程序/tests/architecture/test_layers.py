@@ -30,9 +30,7 @@ def _upward_pairs() -> set[tuple[str, str, str]]:
 KNOWN_DYNAMIC_UPWARD = frozenset({
     ("engine.py", "engine", "white_model"),
     ("keyframe_batch.py", "keyframe_batch", "stage_parallel"),
-    ("keyframe_model_service.py", "keyframe_model_service", "workflow_settings"),
     ("script_contract.py", "script_contract", "script_skill_report"),
-    ("stage_models.py", "stage_models", "workflow_settings"),
 })
 
 

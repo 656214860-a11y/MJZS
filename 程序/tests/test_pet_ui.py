@@ -968,7 +968,7 @@ class OneClickOfferTests(PetTestCase):
         self.gaps = ['3 份分镜 JSON 还没采用']
         self.assertEqual(self.offer(), '', '开机第一拍只对表，不许冒东西')
         self.assertFalse(self.pet.cloud_visible())
-        self.assertEqual(self.pet._offer_sig, ('3 份分镜 JSON 还没采用',), '指纹先记下来')
+        self.assertEqual(self.pet.offer.sig, ('3 份分镜 JSON 还没采用',), '指纹先记下来')
         self.now += pet_ui.OFFER_REPEAT + 1
         self.assertTrue(self.offer(), '同一批缺口闷久了也要提一次')
 
@@ -996,7 +996,7 @@ class OneClickOfferTests(PetTestCase):
         self.arm()
         self.assertIn('回「好」', self.pet.cloud().transcript(), '要写清楚怎么答')
         self.assertIn('先不用', self.pet.cloud().transcript())
-        self.assertTrue(self.pet._offer_open, '问题挂着，用户才好回话')
+        self.assertTrue(self.pet.offer.open, '问题挂着，用户才好回话')
 
     def test_pending_failures_count_as_a_reason_to_ask(self):
         self.offer()                                     # 先对表（这会儿还没有失败项）
@@ -1011,7 +1011,7 @@ class OneClickOfferTests(PetTestCase):
         self.assertTrue(result['decision']['run'])
         self.assertEqual(result['plan']['intent'], 'oneclick')
         self.assertTrue(result['plan']['params']['confirmed'], '气泡里点过头就不再弹第二次确认窗')
-        self.assertFalse(self.pet._offer_open, '答过就不再挂着')
+        self.assertFalse(self.pet.offer.open, '答过就不再挂着')
         self.pet.run_plan(result)
         self.assertEqual(self.asked, [], '已经答过「好」，不许再弹一个确认窗')
         self.assertIn('日报', self.pet.notice)
@@ -1028,7 +1028,7 @@ class OneClickOfferTests(PetTestCase):
     def test_an_unrelated_sentence_falls_through_to_the_rules(self):
         self.arm()
         self.assertIsNone(self.pet.answer_offer('帮我把首帧生成一下'), '没认出来就交给规则表')
-        self.assertTrue(self.pet._offer_open, '这句话不算回答，问题还挂着')
+        self.assertTrue(self.pet.offer.open, '这句话不算回答，问题还挂着')
 
     def test_a_stray_yes_is_not_an_answer_when_nothing_was_asked(self):
         self.assertIsNone(self.pet.answer_offer('好'), '没问过的时候，「好」不能当成开工')
@@ -6548,7 +6548,7 @@ class CloudFitTests(PetTestCase):
         cloud.pin()                       # 点一下云：转成对话形态
         cloud._render()
         self.assertTrue(str(cloud.hint.cget('text')).strip(), '回复框露出来就滚起来')
-        self.assertEqual(cloud._hint_x, pet_cloud.HINT_X, '还是从最左侧起步')
+        self.assertEqual(cloud.hint_state.x, pet_cloud.HINT_X, '还是从最左侧起步')
         cloud._hint_stop()
 
     def test_the_rolling_line_gives_way_to_what_the_user_types(self):

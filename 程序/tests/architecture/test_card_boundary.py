@@ -31,7 +31,7 @@ class CardBoundaryTests(unittest.TestCase):
         self._assert_settings_card("asset_reference_import.py", "show")
 
     def test_cloud_asset_settings_uses_card_for_its_configuration_group(self):
-        self._assert_settings_card("cloud_assets.py", "settings")
+        self._assert_settings_card("cloud_assets_dialog.py", "settings")
 
     def test_background_character_dialog_uses_card_for_its_content(self):
         self._assert_settings_card("background_characters.py", "show")
@@ -40,7 +40,7 @@ class CardBoundaryTests(unittest.TestCase):
         self._assert_settings_card("reference_wall.py", "_ReferenceWall")  # R1828 show 改写成类
 
     def test_qwen_settings_uses_card_for_its_configuration_group(self):
-        self._assert_settings_card("qwen_setup.py")
+        self._assert_settings_card("qwen_setup_dialog.py")
 
     def test_tts_settings_uses_card_for_its_configuration_group(self):
         self._assert_settings_card("tts_settings.py")
@@ -52,7 +52,7 @@ class CardBoundaryTests(unittest.TestCase):
         self._assert_settings_card("agent/prompt_optimizer.py", "settings")
 
     def test_workflow_settings_uses_card_for_its_configuration_group(self):
-        self._assert_settings_card("workflow_settings.py", "show_settings")
+        self._assert_settings_card("workflow_settings_dialog.py", "show_settings")
 
     def test_pet_settings_hub_uses_card_for_its_configuration_group(self):
         self._assert_settings_card("pet_settings_ui.py", "open_hub")

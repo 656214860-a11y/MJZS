@@ -12,11 +12,12 @@ import tempfile
 import time
 from pathlib import Path
 
+import stage_layout
 from agent.core import read_json
 from platform_tools import launch_background, run_process
 from project_context import ProjectContext
 
-LEDGER_PATH = ('工作流任务', '宠物', '测试.json')
+LEDGER_PATH = (stage_layout.WORKFLOW_DIR, '宠物', '测试.json')
 KEEP = 30
 MAX_REPEATS = 20
 

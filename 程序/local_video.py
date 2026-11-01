@@ -1,6 +1,7 @@
 """Persistent ComfyUI video jobs, local loopback only; no cloud key or quota."""
 import copy,json,time,uuid,math
 from pathlib import Path
+from api_endpoints import no_redirect
 from file_cache import remove_temporary_file
 # 第 34 期第 9 条：`urllib.request`／`urllib.error` 连 ssl 一起加载（约 4.4 MB 常驻），
 # 本模块只在真要发本机 HTTP 时用得到——都改成函数内 import。
@@ -18,20 +19,13 @@ def model_name(cfg=None):
     workflow=str((cfg or {}).get('local_video',{}).get('workflow','')).strip()
     return Path(workflow).stem if workflow else 'MiniMax H3'
 
-def _no_redirect():
-    """第 34 期第 9 条：惰性建类——只有真要建 opener 时才 import urllib.request。"""
-    from urllib.request import HTTPRedirectHandler
-    class NoRedirect(HTTPRedirectHandler):
-        def redirect_request(self,*args,**kwargs):return None
-    return NoRedirect
-
 class LocalAPI:
     def __init__(self,url):
         from urllib.request import build_opener,ProxyHandler   # 第 34 期第 9 条：HTTP 栈按需加载
         self.url=url.rstrip('/');p=urlparse(self.url)
         if p.scheme!='http' or p.hostname not in ('127.0.0.1','localhost','::1') or p.username or p.password or p.path or p.query:
             raise ValueError('本地视频只接受本机HTTP地址，例如 http://127.0.0.1:8189')
-        self.opener=build_opener(ProxyHandler({}),_no_redirect())
+        self.opener=build_opener(ProxyHandler({}),no_redirect())
     def call(self,path,payload=None,body=None,content_type=None):
         from urllib.request import Request                     # 第 34 期第 9 条：HTTP 栈按需加载
         from platform_tools import current_execution

@@ -3,21 +3,17 @@
 示例气泡必须随页面立刻可见；聊天历史与附件回填会改变几何，要等画布布局
 稳定后再做。这些方法与 ``IdeaChatMixin`` 共用 ``self`` 状态，同属 L4。
 """
-import time
 import tkinter as tk
 
 import app_logging
 import pet_state
+from idea_chat_controller import DeferredFill, IDEA_UPDATE_STABLE_TICKS, IDEA_UPDATE_TIMEOUT_SECONDS  # noqa: F401（常量供测试沿用旧导入路径）
 from ui_tokens import COLORS, FONTS
 
 PAGE = pet_state.PAGE_OF
 
 # 首绘后等待布局收敛的轮询间隔（毫秒）。
 IDEA_UPDATE_POLL_MS = 16
-# 连续稳定拍数：``_fit_pending`` 连续这么多拍为假才回填。
-IDEA_UPDATE_STABLE_TICKS = 3
-# 最长等待秒数；超时后不再等布局，直接回填。
-IDEA_UPDATE_TIMEOUT_SECONDS = 2.0
 # 有聊天记录时首绘的读取提示（R1949）；标签不以 bubble_example 命名，复制／编辑都不把它当示例。
 IDEA_HISTORY_LOADING_TEXT = '正在读取聊天记录…'
 IDEA_HISTORY_LOADING_TAG = 'bubble_loading'
@@ -75,14 +71,13 @@ class IdeaDeferredMixin:
             try:self.win.after_cancel(job)
             except tk.TclError:pass
         self._idea_page_update_job=None
-        deadline=time.monotonic()+IDEA_UPDATE_TIMEOUT_SECONDS
-        def check(stable=0):
+        fill=DeferredFill()
+        def check():
             self._idea_page_update_job=None
             if getattr(self,'shutting_down',False) or self.page_index!=PAGE['script']:
                 return
-            stable=0 if getattr(self,'_fit_pending',False) else stable+1
-            if stable<IDEA_UPDATE_STABLE_TICKS and time.monotonic()<deadline:
-                try:self._idea_page_update_job=self.win.after(IDEA_UPDATE_POLL_MS,lambda:check(stable))
+            if not fill.ready(getattr(self,'_fit_pending',False)):
+                try:self._idea_page_update_job=self.win.after(IDEA_UPDATE_POLL_MS,check)
                 except tk.TclError:self._idea_page_update_job=None
                 return
             self.update_idea_attachment_status()

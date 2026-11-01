@@ -7,6 +7,28 @@ from pathlib import Path
 
 BUBBLE_COLLAPSE_CHARS = 360
 BUBBLE_COLLAPSE_LINES = 8
+# 首绘后回填：``fit_pending`` 连续这么多拍为假才算布局稳定；最长等这么多秒，超时直接回填。
+IDEA_UPDATE_STABLE_TICKS = 3
+IDEA_UPDATE_TIMEOUT_SECONDS = 2.0
+
+
+class DeferredFill:
+    """首绘后「布局稳定」判定：每拍问一次 ``ready``，Tk 只管用 ``after`` 排下一拍。
+
+    时钟注入，测试不必真等；一个实例对应一次页面进入。
+    """
+
+    def __init__(self, clock=time.monotonic, *, ticks=IDEA_UPDATE_STABLE_TICKS,
+                 timeout=IDEA_UPDATE_TIMEOUT_SECONDS):
+        self._clock = clock
+        self._ticks = ticks
+        self._deadline = clock() + timeout
+        self._stable = 0
+
+    def ready(self, fit_pending):
+        """本拍之后是否该回填：连续稳定够拍数，或已超时。"""
+        self._stable = 0 if fit_pending else self._stable + 1
+        return self._stable >= self._ticks or self._clock() >= self._deadline
 
 
 def bubble_timestamp(at):
@@ -37,6 +59,34 @@ def speaker_name(row, *, you='您', prefix='对话AI · ', fallback='AI 助手')
     if str(row.get('role')) == 'user':
         return you
     return prefix + str(row.get('model') or fallback).strip()
+
+
+def slot_decision(claimed):
+    """进程槽位回执 → 下一步：('run', 槽位) 开工；('wait', 位次) 继续排队；('refuse', 原因) 放弃。"""
+    state = claimed.get('state')
+    if state == 'granted':
+        return 'run', claimed['slot']
+    if state == 'queued':
+        return 'wait', claimed['position']
+    return 'refuse', claimed.get('reason', '模型请求已取消')
+
+
+def queue_notice(position):
+    return '模型请求排队中（第%d位），界面保持响应。' % position
+
+
+def has_interruptible(api_active, processes, launching, queued):
+    """剧本 API 请求、已启动进程、启动中、排队中任一存在，才有东西可中断。"""
+    return bool(api_active or processes or launching or queued)
+
+
+def interrupt_notice(stopped, api_active, cancellation_text=''):
+    """中断完成后的状态栏文字；``stopped`` 是已结束的进程号。"""
+    detail = ('，已结束进程 ' + ', '.join(stopped)) if stopped else ''
+    notice = (' ' + cancellation_text) if cancellation_text else ''
+    preserved = '已返回正文会归档到 responses/ 供核对；' if api_active else ''
+    return ('已中断剧本 Agent 调用' + detail + '；' + preserved
+            + '本机不再把这次回复写入界面或正式采用，可修改创意后重新发送。' + notice)
 
 
 class IdeaChatController:
@@ -106,6 +156,10 @@ class IdeaChatController:
 
     def request_is_current(self, token):
         return self.requesting and token is self._active_token
+
+    def accepts(self, token, cancelled, current_root, project):
+        """这次请求的结果还算数吗：仍是当前请求、未取消、仍在发起它的项目里。"""
+        return self.request_is_current(token) and not cancelled.is_set() and current_root == project
 
     def set_request_cleanup(self, token, cleanup):
         if not self.request_is_current(token):

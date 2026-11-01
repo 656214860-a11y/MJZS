@@ -58,16 +58,3 @@ def issues(aid,asset):
     if not prompt or prompt in ('待补充','待确认','待生成','待确认外观要求','待补充名称和外观要求','TODO'):problems.append('缺少完整生图提示词')
     if not isinstance(asset.get('negative_prompt',''),str):problems.append('负向提示词必须为文字')
     return problems
-
-
-def check(app):
-    from ui_widgets import notify
-    scope=app.asset_scope();label={'all':'全部资产','adopted':'已采用分镜','current':'当前分镜'}[scope]
-    rows=app.asset_requirements()
-    missing=[aid+' '+str(asset.get('name',''))+'：'+'、'.join(errors)
-             for aid,asset in rows.items() if (errors:=issues(aid,asset))]
-    if missing:
-        notify(app.win, '\n'.join(missing)+'\n\n固定角色请在第1步补齐；场景、道具、临时角色请在第2步补齐。',
-               level='warning', title='资产提示词待补齐', status=app.status)
-    else:notify(app.win, f'{label}的 {len(rows)} 项资产编号、名称和提示词已齐备，可以批量生成。',
-                title='资产提示词检查', status=app.status)
