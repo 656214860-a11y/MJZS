@@ -327,13 +327,15 @@ def get(project, stage, registry=None):
     entry = (data or {}).get(stage) if isinstance(data, dict) else None
     if not isinstance(entry, dict):
         result = default_entry(stage, reg)
-        _GET_CACHE.setdefault(key, {})[stage] = copy.deepcopy(result)
+        if key is not None:
+            _GET_CACHE.setdefault(key, {})[stage] = copy.deepcopy(result)
         return result
     result = {'model': clean_model(entry.get('model')),
               'skills': clean_skills(entry.get('skills'), stage, reg)}
     if stage in WRITER_STYLE_STAGES:
         result.update(_writer_style_fields(entry))
-    _GET_CACHE.setdefault(key, {})[stage] = copy.deepcopy(result)
+    if key is not None:
+        _GET_CACHE.setdefault(key, {})[stage] = copy.deepcopy(result)
     return result
 
 
