@@ -84,18 +84,34 @@ class PetSettingsMixin:
         self.speak()
         return key
     def delete_pool_model(self, model_id):
-        """模型管理里删一条：顺手把四个维度里指向它的那一项退回默认、SKILL 预设里指向它的模型改回「自动」，不留死引用。"""
+        """模型管理里删一条：顺手把四个维度里指向它的那一项退回默认、SKILL 预设与当前项目各阶段里指向它的模型改回「自动」，不留死引用。"""
         import stage_config
         names, keep = self._pool_model_names(model_id)
         data = self._prune_tasks(model_pool.remove(model_pool.raw(self.program), model_id))
         self._agent_file = model_pool.store(data, self.program)
         released = stage_config.release_preset_model(names, keep, self.program)
+        try:
+            stages = stage_config.release_project_model(self._current_project(), names, keep)
+        except OSError:
+            stages = []          # 项目目录写不进去不拦删除：池里已经删掉了
         self.apply_agent_models()
         self._refresh_model_choices()
         self.notice = '已从模型池里删掉「%s」' % str(model_id) + (
-            '，%d 个预设的模型已改为「自动」' % len(released) if released else '')
+            '，%d 个预设的模型已改为「自动」' % len(released) if released else '') + (
+            '，当前项目 %d 个阶段的模型已改为「自动」' % len(stages) if stages else '')
         self.speak()
         return model_id
+    def _current_project(self):
+        """桌面当前打开的项目目录；没开项目（或宠物脱离桌面单独跑）时为 None。"""
+        from pathlib import Path
+        root = getattr(getattr(self, 'desktop', None), 'root', None)
+        return Path(root) if root else None
+    def pool_model_stages(self, model_id):
+        """删除前给确认框用：当前项目里会改成「自动」的阶段名。"""
+        import stage_config
+        from pet_bus import STAGE_NAMES
+        found = stage_config.project_model_references(self._current_project(), *self._pool_model_names(model_id))
+        return [STAGE_NAMES.get(stage, stage) for stage in found]
     def _pool_model_names(self, model_id):
         """被删那条的 ID／显示名／模型名，以及池里其余各条的这三项（预设可能按任一种写）。"""
         records = model_pool.pool(program=self.program)

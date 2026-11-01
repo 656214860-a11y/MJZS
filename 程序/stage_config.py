@@ -562,6 +562,23 @@ def release_preset_model(names, keep=(), program=None):
     return found
 
 
+def project_model_references(project, names, keep=(), registry=None):
+    """本项目里模型指向 ``names``、又不指向 ``keep`` 的阶段（比对规则同预设）；没开项目时为空。"""
+    gone = _model_names(names) - _model_names(keep)
+    if not project or not gone:
+        return []
+    return [stage for stage in STAGES
+            if str(get(project, stage, registry).get('model') or '').strip().casefold() in gone]
+
+
+def release_project_model(project, names, keep=(), registry=None):
+    """模型从模型池删掉后，把本项目里指向它的阶段模型改回「自动」；SKILL 勾选保留。返回改动的阶段。"""
+    found = project_model_references(project, names, keep, registry)
+    for stage in found:
+        put(project, stage, model=model_router.AUTO, registry=registry)
+    return found
+
+
 def apply_preset(project, stage, name, program=None, registry=None, known_workflows=None):
     """把预设套到某个阶段上：模型（含厂商）、SKILL、风格与总控一起写进去。
 

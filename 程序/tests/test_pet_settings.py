@@ -452,6 +452,24 @@ class ManagerProviderTests(SettingsCase):
         self.assertEqual(gpt, sorted(gpt, key=str.casefold))
         self.assertEqual(str(win._pet_manager_hint_label.cget('style')), 'PaleGreenHint.TLabel')
 
+    def test_the_list_shows_the_call_mode_and_leaves_api_details_to_the_form(self):
+        """R2174：列表加一列「调用方式」；根地址／协议／密钥名只在下面表单里看，状态不再重复模型 ID。"""
+        win = self.pet.open_model_manager()
+        self.addCleanup(win.destroy)
+        tree = win._pet_tree
+        self.assertEqual([str(tree.heading(key, 'text')) for key in tree['columns']],
+                         ['Provider', '模型 ID', '显示名', '调用方式', '能力标签', '状态'])
+        rows = {str(values[2]): [str(value) for value in values]
+                for values in (tree.item(row, 'values') for row in tree.get_children())}
+        self.assertEqual(rows['ChatGPT Desktop · Codex'][3], 'Desktop')
+        self.assertEqual(rows['Claude Code'][3], 'CLI')
+        self.assertEqual(rows['GPT-4o'][3], 'API')
+        self.assertEqual(rows['ChatGPT Desktop · Codex'][5], '可用', '模型 ID 已有自己一列，状态不再带上')
+        # 表单切到 Desktop 时列表不跟着藏列：每行的调用方式已经说明哪些信息适用。
+        win._pet_mode.set('Desktop')
+        shown = tuple(str(key) for key in tree['displaycolumns'])
+        self.assertIn(shown, (('#all',), tuple(str(key) for key in tree['columns'])))
+
 
 class CodexDesktopEntryTests(SettingsCase):
     """桌面模型是模型池的选项，不在 API 统一配置额外放启动按钮。"""

@@ -70,11 +70,10 @@ NOTE_ABOUT = '三虎用于决策、对话、路由；子模块执行模型在阶
 # 「模型 ID」一栏在本地调用（Desktop／CLI）时填的是程序名，API 时才是接口模型名。
 MODEL_FIELD_LOCAL, MODEL_FIELD_API = '程序名', '模型 ID'
 NOTE_MANAGER = '先选择调用方式：Desktop 配置桌面应用，API 配置接口与密钥，CLI 配置命令行程序。'
-# 列表那一行照规格那张表：显示名／Provider／模型 ID／能力标签／状态，另加两个用得上又不好猜的
-# （API 根地址、密钥名）。协议在下面表单里选，列表不再占一格。
-COLUMNS = (('provider', 'Provider', 100), ('model', '模型 ID', 140), ('label', '显示名', 120),
-           ('capabilities', '能力标签', 170), ('base_url', 'API 根地址', 190),
-           ('wire_api', '协议', 80), ('key_env', '密钥名', 130), ('state', '状态', 120))
+# 列表照规格那张表：显示名／Provider／模型 ID／能力标签／状态，再加一列「调用方式」（Desktop／API／CLI）。
+# API 根地址、协议、密钥名只对 API 那几行有意义，选中后在下面表单里看，列表不再各占一格。
+COLUMNS = (('provider', 'Provider', 90), ('model', '模型 ID', 150), ('label', '显示名', 160),
+           ('call_mode', '调用方式', 70), ('capabilities', '能力标签', 270), ('state', '状态', 220))
 FORM_FIELDS = (('label', '显示名'), ('model', '模型 ID'), ('base_url', 'API 根地址'),
                ('key_env', '密钥名（.env 里的变量名）'))
 TASK_FIELD_LABELS = tuple(label for _key, label, _note in model_pool.TASK_FIELDS)
@@ -184,6 +183,12 @@ def status_text(record, program):
     if not ok:
         return why
     return '可用 · %s' % record['model']
+
+
+def list_status(record, program):
+    """模型列表「状态」那一格：用得了只写「可用」（模型 ID 已有自己一列），用不了写缺什么。"""
+    ok, why = model_pool.status(record, program)
+    return '可用' if ok else why
 
 
 def probe_breakdown(result, record, program=None):
@@ -474,9 +479,8 @@ class _ModelManager:
         body.columnconfigure(0, weight=1)
         body.rowconfigure(2, weight=1)
         heading(body, MANAGER_TITLE, NOTE_MANAGER, columns=1)
-        self.keys = [key for key, _title, _width in COLUMNS]
         # 表单行不叠加纵向外边距；控件保留自身内边距，窗口剩余高度全部交给模型列表。
-        # 列宽随窗口伸展，长名称与地址可以通过滚动条查看。
+        # 列宽随窗口伸展，长名称与缺项说明可以通过滚动条查看。
         self.table_shell = DataTable(body, columns=COLUMNS, show='headings', height=TEXT_ROWS['4xl'],
                                 empty_text='暂无模型配置')
         self.tree = self.table_shell.tree
@@ -717,8 +721,6 @@ class _ModelManager:
             widget.grid() if local else widget.grid_remove()
         self.program_label.configure(text='命令行程序路径' if self.mode.get() == 'CLI' else '应用安装路径')
         self.labels['model'].configure(text=MODEL_FIELD_LOCAL if local else MODEL_FIELD_API)
-        self.tree.configure(displaycolumns=(('provider', 'model', 'label', 'capabilities', 'state')
-                                       if local else self.keys))
         self.probe_button.configure(text='检查程序' if local else '测试连接')
 
     def changed_identity(self, *_args):
@@ -783,11 +785,9 @@ class _ModelManager:
             # 同一 Provider 只在分组第一行写名字，后面留空，读起来像合并单元格。
             shown, last = ('' if name == last else name), name
             self.tree.insert('', 'end', iid=model_id,
-                        values=(shown, item['model'], item['label'],
+                        values=(shown, item['model'], item['label'], model_pool.call_mode(item, model_id),
                                 model_pool.capability_text(item['capabilities']),
-                                item['base_url'],
-                                model_pool.WIRE_LABELS.get(item['wire_api'], item['wire_api']),
-                                item['key_env'], status_text(item, self.program)))
+                                list_status(item, self.program)))
         self.table_shell.refresh_empty_state()
         return self.tree
 
@@ -953,6 +953,8 @@ class _ModelManager:
         name = item.get('label') or model_id
         presets = '、'.join('%s「%s」' % pair for pair in self.pet.pool_model_presets(model_id))
         notice = '\n\n这些 SKILL 预设用的是它，删除后模型改为「自动」：' + presets if presets else ''
+        stages = '、'.join(self.pet.pool_model_stages(model_id))
+        notice += ('\n\n当前项目这些阶段选的是它，删除后改为「自动」：' + stages) if stages else ''
         if not self.pet.confirm_start('删除模型', '把「%s」从模型池里删掉？（.env 里的密钥不动）' % name + notice):
             return None
         self.pet.delete_pool_model(model_id)
@@ -962,6 +964,8 @@ class _ModelManager:
             return None
         self.state['id'] = ''
         self.load_rows()
+        # 表单清成「新建」：还停在被删那条的话，紧接着点「保存这条」会把它原样存回去。
+        self.new_one()
         self.hint.set('已删除「%s」。' % name)
         return model_id
 

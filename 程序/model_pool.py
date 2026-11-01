@@ -512,19 +512,19 @@ def upsert(data, value, model_id=""):
     items[key] = updated
     result = dict(data)
     result['models'] = items
-    if key in DESKTOP_ENGINES and 'deleted_desktop_models' in result:
+    if 'deleted_desktop_models' in result:
         result['deleted_desktop_models'] = [item for item in result['deleted_desktop_models'] if item != key]
     return result
 
 
 def remove(data, model_id):
-    """从配置里删掉一条；返回新的配置对象。"""
+    """从配置里删掉一条，ID 记进删除记录（键名沿用只记桌面入口时的 deleted_desktop_models）；返回新的配置对象。"""
     items = pool(data)
     key = str(model_id or '').strip()
     items.pop(key, None)
     result = dict(data)
     result['models'] = items
-    if key in DESKTOP_ENGINES:
+    if key:
         result['deleted_desktop_models'] = sorted(set(data.get('deleted_desktop_models') or []) | {key})
     return result
 
