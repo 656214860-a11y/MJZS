@@ -11,7 +11,7 @@
 - 结构治理轮拆分的两类静默风险（R1624 实测各踩一次）：①方法或常量被迁走后调用点仍引用旧名字 → `NameError`（`pet_cloud_timing` 的 `SHAPE_ROUND`，由 `tests/test_static_names.py` 抓到）；②`patch.object(旧模块, 名字)` 在名字转出后失效、用例静默失真（`test_skill_notes` 的 `markdown_document`）。拆分轮必须跑一次「未定义名扫描＋补丁点审计」，不能只看被迁新模块自身的用例。
 - `test_desktop_startup_perf` 的「首日选择框 1 秒内可见」在并发负载下会抖：d8d0fc5 的全量里红、单跑 14/14 绿。全量收尾阶段不要再并发跑自检，否则可能污染凭据。
 - `本地CI.cmd exit`／`local_ci.py exit` 只到「默认冒烟＋静态门禁＋架构门禁」，**不等于全量绿**；全量仍需 `run_selftests.py --all --safe` 的凭据。
-- 随附解释器是 3.15.0a2（alpha），标准库按设计裁掉 58 个模块（`tests/test_stdlib_closure.py` 的 `PRUNED`）：缺 `trace`／`symtable`／`sqlite3` 等属正常。迁稳定版时必须重新决定裁剪清单，不能沿用（R1626 §9）。
+- 随附解释器是 3.15.0 稳定版（2026-11-02 起；原 a2 备份在 运行环境Python_alpha_a2_backup），标准库按设计裁掉 58 个模块（`tests/test_stdlib_closure.py` 的 `PRUNED`）：缺 `trace`／`symtable`／`sqlite3` 等属正常。迁稳定版时必须重新决定裁剪清单，不能沿用（R1626 §9）。
 - R1676 已按用户授权提交 `程序/配置/SKILL/预设.json` 与 `.claude/settings.local.json`；后者是本机绝对路径配置，换机后需复核。`.claude/scheduled_tasks.lock` 仍按仓库 `.git/info/exclude` 的 claude-code-runtime 规则不跟踪（运行期 PID／会话锁）。
 
 - 安全全量欠账：上次真实绿仍是 R1624（旧内容树）；截至 R1678 已累计 13 个源码轮次（门禁线 8）。后台已触发，但 `.wt/ci` 工作树当前不存在，上次运行在 `.wt/ci/程序/run_selftests.py` 缺失时以 `BrokenProcessPool` 退出（78 秒，非断言失败）；同段日志还有 `test_idea_inline_brief` 16 条中 9 条失败。后台补跑完成前不得声称当前树全量通过。

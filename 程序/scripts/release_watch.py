@@ -1,8 +1,8 @@
 r"""发布后观察的指标聚合与告警（U12）。只读 ``outputs/desktop-task-history.json``，不写任何文件。
 
 口径取自发布检查单 §3：观察期 ``WINDOW_HOURS`` 小时，样本不足 ``MIN_SAMPLES`` 次不判回滚，
-连续失败 ``STREAK`` 次提前告警。失败占比阈值用户尚未裁定：给了 ``--baseline``（上一版同口径失败占比）
-就按「超过基线一倍」判，没给只报占比、不下回滚结论。
+连续失败 ``STREAK`` 次提前告警。失败占比超过 ``FAILURE_SHARE_LIMIT``（用户 2026-11-02 裁定 20%）即建议回滚；
+另给 ``--baseline``（上一版同口径失败占比）时，超过基线一倍同样建议回滚。只报告与退出码，不自动回滚。
 
 用法::
 
@@ -22,6 +22,7 @@ HISTORY = PROGRAM / 'outputs' / 'desktop-task-history.json'
 WINDOW_HOURS = 24
 MIN_SAMPLES = 5
 STREAK = 3
+FAILURE_SHARE_LIMIT = 0.20
 FINISHED = ('succeeded', 'failed')
 
 
@@ -43,8 +44,12 @@ def assess(rows, now=None, since=None, baseline=None) -> dict:
     if tail >= STREAK:
         alerts.append('最近连续失败 %d 次' % tail)
     enough = len(done) >= MIN_SAMPLES
-    rollback = bool(enough and baseline is not None and share > baseline * 2)
-    if rollback:
+    over_limit = bool(enough and share > FAILURE_SHARE_LIMIT)
+    over_baseline = bool(enough and baseline is not None and share > baseline * 2)
+    rollback = over_limit or over_baseline
+    if over_limit:
+        alerts.append('失败占比 %.0f%% 超过上限 %.0f%%' % (share * 100, FAILURE_SHARE_LIMIT * 100))
+    if over_baseline:
         alerts.append('失败占比 %.0f%% 超过基线 %.0f%% 的一倍' % (share * 100, baseline * 100))
     if not enough:
         alerts.append('样本 %d 次，不足 %d 次，暂不判回滚' % (len(done), MIN_SAMPLES))
