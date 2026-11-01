@@ -492,21 +492,12 @@ class _WritingPage:
         self.page.queue_initial_brief_document(self.input_box,brief)
         # 先让 Text 用当前布局命中鼠标位置，再在空闲时重算高度；同步重排会让选区偏到上一行。
         self.box.bind('<Button-1>',lambda event:self.box.after_idle(self.refit_talk),add='+')
-        # 常态下可长按拖选并 Ctrl+C；单击进入编辑后，写入边界只限这条气泡的正文。
+        # 聊天记录只读：可长按拖选并 Ctrl+C，不能编辑。
         self.page.shortcuts.bind(self.box, ('<Control-c>', '<Control-C>'), self.page.copy_selected_bubble_text,
                             scope='剧本准备·聊天记录', name='复制选中气泡文本')
         self.box.bind('<Button-3>',self.page.open_bubble_menu,add='+')
-        self.box.bind('<ButtonPress-1>',self.page.guard_bubble_edit_pointer,add='+')
-        self.box.bind('<B1-Motion>',self.page.guard_bubble_edit_pointer,add='+')
-        self.box.bind('<B1-Motion>',self.page.track_bubble_click,add='+')
-        self.box.bind('<ButtonRelease-1>',self.page.finish_bubble_click,add='+')
-        self.box.bind('<KeyPress>',self.page.guard_bubble_edit_key,add='+')
-        self.box.bind('<<Paste>>',self.page.guard_bubble_edit_key,add='+')
-        self.box.bind('<FocusOut>',lambda event:self.page.finish_bubble_edit(),add='+')
-        self.page.shortcuts.bind(self.box, ('<Control-Return>',), lambda event:self.page.finish_bubble_edit(),
-                            scope='剧本准备·聊天记录', name='保存气泡编辑')
-        self.page.shortcuts.bind(self.box, ('<Escape>',), lambda event:self.page.finish_bubble_edit(commit=False),
-                            scope='剧本准备·聊天记录', name='取消气泡编辑')
+        self.box.bind('<KeyPress>',self.page.guard_bubble_key,add='+')
+        self.box.bind('<<Paste>>',self.page.guard_bubble_key,add='+')
         self.page.idea_row=foot
         # 输入框下方的动作统一为紧凑尺寸，避免长旧文案把聊天区挤窄。
         script_action_width=SCRIPT_ACTION_WIDTH

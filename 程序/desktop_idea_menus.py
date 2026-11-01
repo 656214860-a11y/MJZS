@@ -18,7 +18,6 @@ class IdeaMenusMixin:
         model=self.displayed_chat_model()
         if not self.project_page_services.confirm(self.win,'删除全部信息',
                        '删除当前显示的 '+model+' 的全部历史对话？\n聊天记录将移入回收站，已保存的剧本和附件保留。',dangerous=True):return
-        if getattr(self,'_bubble_edit',None):self.finish_bubble_edit(commit=False)
         import idea_chat
         count=idea_chat.remove_all(self.idea_chat_context(),model=model,gateway=self.idea_chat_gateway())
         getattr(self,'_idea_hidden_messages',{}).pop(self.bubble_view_key(model),None)
@@ -27,9 +26,6 @@ class IdeaMenusMixin:
         return count
     def open_bubble_menu(self,event):
         """消息右键菜单；点击标题、正文或展开控件都能定位同一条消息。"""
-        if getattr(self,'_bubble_edit',None):
-            self.finish_bubble_edit()
-            return 'break'
         target=self.bubble_target_at(event.widget,event)
         menu=self.project_page_services.context_menu(event.widget)
         if target is not None:

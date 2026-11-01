@@ -1710,6 +1710,12 @@
    "percent": 0.0
   },
   {
+   "module": "writing_stream.py",
+   "covered": 0,
+   "total": 19,
+   "percent": 0.0
+  },
+  {
    "module": "writing_tools.py",
    "covered": 0,
    "total": 71,
@@ -2029,5 +2035,5 @@
   }
  ],
  "modules_covered": 52,
- "modules_total": 336
+ "modules_total": 337
 }

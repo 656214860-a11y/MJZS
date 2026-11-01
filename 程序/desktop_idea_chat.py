@@ -376,7 +376,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
             if hidden is None:self.show_example_bubble(loading=resolving_model and self.idea_history_expected())  # R1949：没读到≠没有，有记录就留读取提示等 resume
             finish()
         # 保持 normal 才能让 Tk 的原生鼠标拖选建立 ``sel`` 标签；只读由
-        # guard_bubble_edit_key 控制，避免 disabled 状态吞掉拖选事件。
+        # guard_bubble_key 控制，避免 disabled 状态吞掉拖选事件。
         box.configure(state='normal')
     def _idea_semantic_key(self, value):
         return (str(self.root), value, tuple(self.idea_attachment_paths))
@@ -636,11 +636,14 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
             self.update_script_interrupt_button()
             self.show_thinking(model)
             received=lambda result:self._idea_api_received(token,model,request_model,result)
+            self.begin_stream()
             def ask():
+                import writing_stream
                 from stage_execution_service import reply_to_writing
-                return reply_to_writing(
-                    project, submission, user_message=value, request_model=request_model,
-                    cancelled=cancelled.is_set)
+                with writing_stream.stream_to(self.push_stream):
+                    return reply_to_writing(
+                        project, submission, user_message=value, request_model=request_model,
+                        cancelled=cancelled.is_set)
             self.submit_idea_api_request(project, token, cancelled, ask, received,
                                          model+' 模型正在思考…', async_ticket)
         else:
