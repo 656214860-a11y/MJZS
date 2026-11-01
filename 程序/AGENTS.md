@@ -52,6 +52,7 @@
 | 动态导入   | `ui_plugin_registry.module()`                                                                      |
 | 阶段路径   | `stage_path_service.write_dir()` / `read_dirs()`                                                   |
 | 阶段完成核验 | `stage_completion_service`                                                                         |
+| 剧本准备顺序确认 | `stage_completion_service.preparation_progress()`（只读判据：设定→大纲→角色卡逐阶段判定，三虎监控与 `stage_completion_service` 完成核验共用，不另立第二入口） |
 | 回收服务   | `storage_maintenance.recycle_paths()`                                                              |
 | UI 组件与弹窗 | `ui_widgets`（组件与全局 Style）／`ui_tokens`（视觉 token）／`ui_shortcuts`（快捷键登记）          |
 | L2 写服务结果 | 复用 `service_contract` 四字段结果，不创造第三种返回形状；每轮最多迁 3 个 service。细则与待迁范围见 `architecture.md` §“权威源补充条款”。 |

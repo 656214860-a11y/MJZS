@@ -589,6 +589,62 @@ def media_completion_evidence(root, stage):
     return True, ''
 
 
+def preparation_progress(project):
+    """只读：按「项目设定 → 剧本大纲 → 角色卡」顺序判定剧本准备阶段的推进状态。
+
+    这是三虎监控与阶段完成核验共用的唯一判据（不另立第二入口）。进入四阶段确认流程
+    （存在已确认简报）后，前三阶段任一「文件缺失」或「尚未确认」即卡在该阶段，不允许
+    推进到自然剧本，也不允许把剧本阶段播报为已完成；无已确认简报时走普通对话路径，
+    前三阶段不设卡（阶段成果只核验自然剧本），保持既有行为。
+
+    返回 dict：
+      blocked —— 卡住的阶段名，空串表示前三阶段齐全且都已确认（或不适用）；
+      missing —— 卡住是否因为文件缺失（False 表示文件在但尚未确认）；
+      confirmed —— 从「项目设定」起连续已确认的阶段数（0~3）；
+      stages —— 各阶段现状 (阶段名, 文件在否, 已确认否)，只到卡住那一步为止。
+    """
+    from file_cache import read_json
+    from stage_path_service import write_dir
+    from writing_api import PREPARATION_STAGES
+    folder = write_dir(project, 'script').resolve()
+    brief = folder / 'brief_complete.json'
+    if not brief.is_file() and not (Path(project) / 'writing' / 'brief_complete.json').is_file():
+        return {'blocked': '', 'missing': False, 'confirmed': len(PREPARATION_STAGES), 'stages': ()}
+    target = folder / 'preparation_state.json'
+    try:
+        state = read_json(target) if target.is_file() else None
+    except (OSError, ValueError):
+        state = None
+    working = state.get('revision', state) if isinstance(state, dict) else None
+    documents = working.get('documents') if isinstance(working, dict) else None
+    documents = documents if isinstance(documents, list) else []
+    stages = []
+    blocked = ''
+    missing = False
+    confirmed = 0
+    for index, stage in enumerate(PREPARATION_STAGES):
+        document = documents[index] if index < len(documents) else None
+        stage_ok = isinstance(document, dict) and document.get('stage') == stage
+        present = False
+        if stage_ok and isinstance(document.get('path'), str) and document['path']:
+            try:
+                resolved = (folder / document['path']).resolve()
+                present = resolved.is_relative_to(folder) and resolved.is_file()
+            except (OSError, ValueError):
+                present = False
+        if not stage_ok or not present:
+            stages.append((stage, present, False))
+            blocked, missing = stage, True
+            break
+        if document.get('confirmed') is not True:
+            stages.append((stage, True, False))
+            blocked, missing = stage, False
+            break
+        stages.append((stage, True, True))
+        confirmed += 1
+    return {'blocked': blocked, 'missing': missing, 'confirmed': confirmed, 'stages': tuple(stages)}
+
+
 def completion_evidence(root, stage, video_ready=None):
     """返回阶段是否已有可复核成果及未通过原因。"""
     try:
@@ -605,6 +661,12 @@ def completion_evidence(root, stage, video_ready=None):
             return media_completion_evidence(root, stage)
         if stage in ('script', 'script_structure'):
             import script_contract
+            if stage == 'script':
+                progress = preparation_progress(root)
+                if progress['blocked']:
+                    reason = '文件缺失' if progress['missing'] else '尚未确认'
+                    return False, ('剧本准备卡在「%s」：%s；请补齐并确认后再继续'
+                                   % (progress['blocked'], reason))
             source = (script_contract.resolve_script_source(root) if stage == 'script'
                       else script_contract.structured_script_path(root))
             ok = (source is not None) if stage == 'script' else script_contract.is_structured_script(source)
