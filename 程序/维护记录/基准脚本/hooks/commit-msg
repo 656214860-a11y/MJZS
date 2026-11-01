@@ -2,6 +2,15 @@
 # 由 install_git_hooks.py 安装到 Git common-dir/hooks/commit-msg。
 message_file="$1"
 first_line=$(sed -n '1p' "$message_file")
+if printf '%s\n' "$first_line" | grep -Eq '^WIP: .+'; then
+  # WIP 提交只允许在工作分支，不领轮次号；合入 master 前须整理成 R<轮次>: 提交。
+  case "$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)" in
+    ""|master|main)
+      echo "拒绝提交：master 上不允许 WIP 提交，请使用 R<轮次>: 说明。" >&2
+      exit 1 ;;
+  esac
+  exit 0
+fi
 if ! printf '%s\n' "$first_line" | grep -Eq '^R[0-9]+(-FAIL)?: .+'; then
   echo "拒绝提交：首行必须为 R<轮次>: 说明 或 R<轮次>-FAIL: 说明。" >&2
   exit 1

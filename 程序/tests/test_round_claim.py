@@ -168,6 +168,18 @@ class SharedWorktreeQueueTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.strip(), b"1")
 
+    def test_dirty_next_cli_refuses_on_master_without_allocating(self):
+        script = self.repo / "程序/维护记录/基准脚本/round_claim.py"
+        branch = self.git("-C", str(self.repo), "branch", "--show-current").strip().decode()
+        self.git("-C", str(self.repo), "branch", "-m", "master") if branch != "master" else None
+        (self.repo / "draft.txt").write_text("unfinished", encoding="utf-8")
+        result = subprocess.run([sys.executable, str(script), "next"], cwd=script.parent,
+                                capture_output=True, timeout=20)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("master".encode(), result.stderr)
+        self.assertFalse((self.common / round_claim.COUNTER_NAME).exists())
+        self.assertEqual(self.git("-C", str(self.repo), "branch", "--show-current").strip(), b"master")
+
     def test_dirty_next_cli_claims_then_parks_changes_on_wip_branch(self):
         # 契约有意变更：脏树不再拒绝领号，而是领号后把改动原样带到 codex/wip-R<号>。
         tree = self.trees[0]

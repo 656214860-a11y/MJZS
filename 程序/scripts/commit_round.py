@@ -1,7 +1,8 @@
 """一条命令完成「暂存 → 白名单 → 等全量验收锁 → 提交」。
 
-pre-commit 钩子在 ``full-safe-selftest.lock`` 存在时直接拒绝提交，后台全量一跑十几分钟；
-以前靠会话里 ``sleep 20`` 循环重试（最长 40 分钟）。本脚本把等待放进进程内：
+pre-commit 钩子仅在 master/main/游离 HEAD 上、``full-safe-selftest.lock`` 存在时拒绝提交（工作分支不受锁限制，
+直接提交，WIP 提交首行用 ``WIP: 说明``、免领轮次号，合入 master 前须整理成 R<轮次>）。后台全量一跑十几分钟；
+以前靠会话里 ``sleep 20`` 循环重试（最长 40 分钟）。本脚本在 master 上把等待放进进程内：
 锁持有进程已死则回收，仍存活则静默轮询，直到释放或超时。钩子规则不变，不绕过。
 
 用法（程序目录下）::
@@ -82,8 +83,11 @@ def main(argv=None) -> int:
     env = dict(os.environ, CODEX_STAGE_ALLOWLIST=";".join(staged))
     common = common_dir()
     deadline = time.monotonic() + args.wait_minutes * 60
+    # 钩子只在 master/main/游离 HEAD 上拦验收锁；工作分支直接提交，不等锁。
+    branch = _git("symbolic-ref", "--quiet", "--short", "HEAD").stdout.strip()
+    lock_applies = branch in ("", "master", "main")
     while True:
-        if not wait_for_lock(common, max(0.0, deadline - time.monotonic())):
+        if lock_applies and not wait_for_lock(common, max(0.0, deadline - time.monotonic())):
             print("等待全量验收锁超过 %.0f 分钟，未提交；暂存区保留。" % args.wait_minutes, file=sys.stderr)
             return 3
         done = subprocess.run(["git", "commit", "-q", "-m", args.message], cwd=PROGRAM, env=env,
