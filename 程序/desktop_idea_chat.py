@@ -949,6 +949,7 @@ class _FlowAgentLaunch:
                 self.host.status.set('上次 Agent 发送未确认且窗口已关闭，正在自动重新启动…')
                 self.host.open_flow_agent(self.stage,self.label,self.prompt,self.followup,self.on_receipt,_config=self.config,intake_only=self.intake_only,new_session=self.new_session)
                 return
+            self.settle_launch()
             if not live:
                 self.finish(receipt,'failed','上次 Agent 窗口已关闭，请重新点击启动')
                 self.host.notifier.info('上次 Agent 窗口未在运行，任务状态已重置；请再次点击“手动制作分镜”。', title='请重新点击', modal=True);return
@@ -956,8 +957,16 @@ class _FlowAgentLaunch:
             self.host.status.set('相同任务'+state+'，已复用记录，本次不重复发送。请在对应 Agent 窗口继续。');return
         if self.use_cli:
             self.launch_cli(result);return
+        self.settle_launch()
         try:self.done(result)
         except Exception as exc:self.finish(receipt,'failed',str(exc));raise
+
+    def settle_launch(self):
+        """剧本任务已交给桌面程序或已有会话：本机不再处于启动中，按钮改由进程与请求状态决定。"""
+        if self.stage!='writing':return
+        self.host._script_agent_launching=False
+        refresh=getattr(self.host,'update_script_interrupt_button',None)
+        if callable(refresh):refresh()
 
     def launch_cli(self, result):
         receipt=result['receipt'];full=result['prompt'];continuation=result['followup']
@@ -984,7 +993,7 @@ class _FlowAgentLaunch:
                 except Exception as exc:
                     self.finish(receipt,'uncertain',str(exc));raise
             def submitted(value):
-                self.outcome(receipt,value);self.host.status.set(value['reason'])
+                self.outcome(receipt,value);self.settle_launch();self.host.status.set(value['reason'])
                 if not value['ok']:self.host.notifier.info(value['reason'], title='请检查 Agent 输入框', modal=True)
             self.host.async_(submit,submitted);return
         def launched(result):
