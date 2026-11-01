@@ -17,7 +17,7 @@ import stage_config
 import token_saver
 from file_cache import read_json
 from model_router import ModelAdapter, PoolAdapter
-import edit_habits, writing_tools
+import edit_habits, workflow_context, writing_tools
 from writing_quality import enabled as quality_enabled
 from writing_stream import chat_streaming
 from workflow_context_budget import (REQUEST_CONTEXT_MAX_CHARS, budget_advice, budget_sections,
@@ -1028,7 +1028,7 @@ def _preparation_task(request, user_message, state, documents, texts, index):
         task += '当前阶段尚无待确认文件，本轮必须先输出“' + stage + '”。\n'
     task += ('前三阶段每次只输出一份完整 Markdown，一级标题分别为“# 项目设定”、“# 剧本大纲”、'
              '“# 人物设定（角色卡）”，末尾“待确认”。若决定进入自然剧本，且当前角色卡已获用户同意，'
-             '只返回 {"next_stage":"自然剧本"}，由程序启动既有剧本生成流程，不在本轮重复撰写自然剧本。\n')
+             '只返回 {"next_stage":"自然剧本"}，由程序启动既有剧本生成流程，不在本轮重复撰写自然剧本。\n' + workflow_context.preparation_source_priority(documents, creative))
     for position, text in enumerate(texts):
         current = pending and position == index
         task += '\n' + ('当前待修改草稿：' if current else '已确认前置文件：')
