@@ -67,6 +67,21 @@ class MigratedServiceBoundaryTests(unittest.TestCase):
                                  f'{module} 导入后不得加载 tkinter（Tk 只留在对应 *_dialog 模块）')
 
 
+class LowerLayersNeverImportTkTests(unittest.TestCase):
+    def test_layers_below_ui_have_no_tkinter_import_anywhere(self):
+        """R2311（J 路线收尾 #20）：L0–L3 连函数内的懒导入也不许出现 tkinter，窗口与控件只在 L4。"""
+        from tests.architecture._layers import LAYERS
+        violations = []
+        for module, layer in sorted(LAYERS.items()):
+            path = ROOT / (module + '.py')
+            if layer >= 4 or not path.is_file():
+                continue
+            for line, package, _name in _imports(parse(path)):
+                if package == 'tkinter':
+                    violations.append(f'{module}(L{layer}).py:{line}')
+        self.assertEqual(violations, [], 'L0–L3 不得导入 tkinter：' + ', '.join(violations))
+
+
 class MigratedViewBoundaryTests(unittest.TestCase):
     def test_views_do_not_directly_call_process_or_network_apis(self):
         violations = []

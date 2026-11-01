@@ -1460,7 +1460,13 @@
   {
    "module": "storyboard_selection.py",
    "covered": 0,
-   "total": 394,
+   "total": 337,
+   "percent": 0.0
+  },
+  {
+   "module": "storyboard_source_selector.py",
+   "covered": 0,
+   "total": 61,
    "percent": 0.0
   },
   {
@@ -2113,5 +2119,5 @@
   }
  ],
  "modules_covered": 53,
- "modules_total": 350
+ "modules_total": 351
 }
