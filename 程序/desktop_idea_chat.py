@@ -21,7 +21,8 @@ import pet_state
 import ui_plugin_registry
 from desktop_idea_deferred import IdeaDeferredMixin
 from desktop_storyboard_direct import run_storyboard_direct as _run_storyboard_direct
-from idea_chat_controller import bubble_timestamp, collapse_preview
+from idea_chat_controller import (bubble_timestamp, collapse_preview, has_interruptible, interrupt_notice,
+                                  queue_notice, slot_decision)
 from platform_tools import open_target
 from ui_tokens import CHAR_WIDTH, TEXT_ROWS, COLORS, FONTS, SPACING
 from ui_widgets import FormDialog, TextArea
@@ -725,7 +726,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
                 except tk.TclError:pass
         controller.set_request_cleanup(token, cleanup)
         def current():
-            return controller.request_is_current(token) and not cancelled.is_set() and self.root == project
+            return controller.accepts(token, cancelled, self.root, project)
         def receive(result):
             if current():received(result)
         def dispatch(slot):
@@ -753,19 +754,17 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
                 cleanup()
                 if controller.request_is_current(token):controller.cancel_request()
                 return
-            claimed = claim_stage_process_slot(request['ticket'])
-            if claimed['state'] == 'granted':
-                dispatch(claimed['slot'])
-            elif claimed['state'] == 'queued':
-                self.status.set('模型请求排队中（第%d位），界面保持响应。' % claimed['position'])
+            act(slot_decision(claim_stage_process_slot(request['ticket'])))
+        def act(decision):
+            action, value = decision
+            if action == 'run':
+                dispatch(value)
+            elif action == 'wait':
+                self.status.set(queue_notice(value))
                 pending['timer'] = self.win.after(200, poll_slot)
             else:
-                receive({'ok': False, 'error': claimed.get('reason', '模型请求已取消')})
-        if request['state'] == 'granted':
-            dispatch(request['slot'])
-        else:
-            self.status.set('模型请求排队中（第%d位），界面保持响应。' % request['position'])
-            pending['timer'] = self.win.after(200, poll_slot)
+                receive({'ok': False, 'error': value})
+        act(('run', request['slot']) if request['state'] == 'granted' else ('wait', request['position']))
     def script_agent_processes(self):
         """返回当前剧本阶段由本窗口启动、仍在运行的 Agent 进程。"""
         sessions=getattr(self,'flow_processes',{})
@@ -786,7 +785,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
         processes=self.script_agent_processes()
         launching=getattr(self,'_script_agent_launching',False)
         queued = bool(getattr(self,'_script_agent_queue',None))
-        if not api_active and not processes and not launching and not queued:
+        if not has_interruptible(api_active,processes,launching,queued):
             self.status.set('当前没有可中断的剧本 Agent 调用。')
             return False
         if queued:self.cancel_script_agent_queue()
@@ -808,8 +807,8 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
             sessions.pop(key,None)
         self.flow_processes=sessions
         self.update_script_interrupt_button()
-        detail=('，已结束进程 '+', '.join(stopped)) if stopped else ''
-        info=self.background_tasks.cancellation_status() if api_active else None;notice=(' '+info['text']) if info is not None else '';preserved='已返回正文会归档到 responses/ 供核对；' if api_active else '';self.status.set('已中断剧本 Agent 调用'+detail+'；'+preserved+'本机不再把这次回复写入界面或正式采用，可修改创意后重新发送。'+notice)
+        info=self.background_tasks.cancellation_status() if api_active else None
+        self.status.set(interrupt_notice(stopped,api_active,info['text'] if info is not None else ''))
         return True
     def idea_example(self):
         """创意栏里那份预置示例（第 37 期第 2 条）：随程序打包，不改动就绝不进项目文件。

@@ -23,7 +23,7 @@ OVERSIZE_CAPS = {
     'pet_llm.py': 1190,
     'pet_agent.py': 1182,
     'workflow_settings.py': 1069,
-    'desktop_idea_chat.py': 1114,
+    'desktop_idea_chat.py': 1113,
     'model_pool.py': 1117,
     'cell_hover.py': 1016,
 }
