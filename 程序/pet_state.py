@@ -7,13 +7,14 @@
 """
 import time
 from pathlib import Path
+import stage_layout
 from agent.core import save
 from pet_bus import STAGES, STAGE_NAMES, STAGE_EVENTS, read_json
 
 PENDING, RUNNING, SUCCESS, FAILED, RETRYING, SKIPPED = ('pending', 'running', 'success', 'failed', 'retrying', 'skipped')
 SETTLED = (SUCCESS, SKIPPED)
 PAGE_OF = {stage: index for index, stage in enumerate(STAGES)}
-STATE_PATH = ('工作流任务', '宠物', '阶段状态.json')
+STATE_PATH = (stage_layout.WORKFLOW_DIR, '宠物', '阶段状态.json')
 
 
 def state_path(project):

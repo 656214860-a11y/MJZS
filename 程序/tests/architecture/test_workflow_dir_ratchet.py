@@ -18,9 +18,6 @@ DIR_NAME = '工作流任务'
 AUTHORITY = 'stage_layout.py'      # 路径权威自己产出该目录名（R2260 J22），不计入棘轮
 REGISTERED = {
     'download_inbox.py': 1,
-    'pet_report.py': 1,
-    'pet_state.py': 1,
-    'pet_test_service.py': 1,
     'previs_automation.py': 1,
     'previs_batch_service.py': 1,
     'previs_routing.py': 2,
