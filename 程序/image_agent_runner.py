@@ -40,7 +40,7 @@ def publish(image,target):
     temp=target.with_suffix('.pending.png');shutil.copyfile(image,temp);temp.replace(target)
 
 
-def execute(project,manifest):
+def execute(project,manifest,stop=None):
     import msvcrt
     project=Path(project).resolve();manifest=contained(project,manifest)
     workflows=project/'workflows'
@@ -52,16 +52,17 @@ def execute(project,manifest):
         except OSError:raise ValueError('已有图片 Agent 批次运行，请等待完成后继续') from None
         try:
             save(manifest.parent/'执行状态.json',{'state':'running','message':'已执行生图命令，正在连接 ComfyUI','updated':time.time()})
-            _execute(project,manifest)
+            _execute(project,manifest,stop)
             save(manifest.parent/'执行状态.json',{'state':'complete','message':'生成完成，等待助手自动导入','updated':time.time()})
         except Exception as exc:
+            if stop is not None and stop.is_set():exc=ValueError('已强制停止制作，未出图的项可重新提交')
             save(manifest.parent/'执行状态.json',{'state':'failed','message':str(exc),'updated':time.time()})
             raise
         finally:lock.seek(0);msvcrt.locking(lock.fileno(),msvcrt.LK_UNLCK,1)
 
 
-def _execute(project,manifest):
-    data=read(manifest);stop=threading.Event()
+def _execute(project,manifest,stop=None):
+    data=read(manifest);stop=stop if stop is not None else threading.Event()
     if 'assets' in data:
         from asset_batch_execution import run_batch
         base=contained(project,data['base'])

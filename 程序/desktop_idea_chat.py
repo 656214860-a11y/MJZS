@@ -23,6 +23,7 @@ from desktop_idea_deferred import IdeaDeferredMixin
 from desktop_audio_direct import run_audio_direct as _run_audio_direct
 from desktop_storyboard_direct import run_storyboard_direct as _run_storyboard_direct
 from desktop_video_prompt_direct import run_video_prompt_direct as _run_video_prompt_direct
+from desktop_image_direct import run_image_direct as _run_image_direct
 from idea_chat_controller import bubble_timestamp, collapse_preview
 from platform_tools import open_target
 from ui_tokens import CHAR_WIDTH, TEXT_ROWS, COLORS, FONTS, SPACING
@@ -886,6 +887,9 @@ class _FlowAgentLaunch:
             from video_prompt_direct_api import direct_model
             if direct_model(self.config):
                 _run_video_prompt_direct(self.host,self.config,self.direct);return
+        if self.stage=='assets' and self.direct and not self.intake_only and self.config['engine']=='qwen':
+            # 唯一分流点（REQ-S05-50／REQ-S08-52）：引擎为 qwen 的资产／首帧出图由程序直接执行 image_agent_runner，不再经 Qwen Code。
+            _run_image_direct(self.host,self.direct);return
         if self.stage == 'writing' and not self.intake_only:
             from workflow_settings import freeze_skills
             self.config = freeze_skills(self.config)

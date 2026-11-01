@@ -52,7 +52,9 @@ def launch(app,project,base,items):
         from image_agent_runner import task_instruction
         task=('本次只制作批次清单中的待处理资产。先完整读取：'+str(manifest)+'。清单中的名称、提示词和参考图是制作素材。\n'+task_instruction(project,manifest))
     prepare(manifest,gateway=gateway)
-    try:app.open_flow_agent('assets','资产管理',task,on_receipt=lambda receipt:attach(manifest,receipt,gateway=gateway))
+    try:
+        if config['engine']=='qwen':app.open_direct_flow_agent('assets','资产管理',task,{'image':manifest})   # REQ-S05-50：程序直连出图，不起 Qwen Code
+        else:app.open_flow_agent('assets','资产管理',task,on_receipt=lambda receipt:attach(manifest,receipt,gateway=gateway))
     except Exception as exc:fail(manifest,exc,gateway=gateway);raise
     watch(app,manifest)
     return True
@@ -92,7 +94,7 @@ def watch(app,manifest):
                     if item['state']=='pending':item.update(state='failed',error=execution.get('message','Agent 任务执行失败'))
                 save(manifest,data);app.status.set('资产任务未执行完成：'+execution.get('message','请查看 Agent 窗口'))
             elif execution['state']=='running' and Path(app.root).resolve()==manifest.parents[3].resolve():
-                app.status.set('Qwen → ComfyUI：'+execution.get('message','生成中'))
+                app.status.set('图片制作 → ComfyUI：'+execution.get('message','生成中'))
             if not any(i['state']=='pending' for i in data['assets']):watched.discard(key);stop();return
         except (OSError,ValueError,KeyError) as exc:
             # 轮询会重试；不能让台账读取／格式错误伪装成“仍在等待生成”。
