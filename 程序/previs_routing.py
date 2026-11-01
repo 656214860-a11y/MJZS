@@ -2,6 +2,7 @@
 import json,re
 from datetime import datetime
 from pathlib import Path
+import stage_layout
 from agent.core import read
 from project_context import ProjectContext
 
@@ -175,7 +176,7 @@ def dispatch(context,source,ids,state,monitor=False,start_complex=None,*,publish
     groups,decisions=partition(context,source,ids)
     completed=[sid for sid in ids if ready(context,sid,source)]
     for level in groups:groups[level]=[sid for sid in groups[level] if sid not in completed]
-    folder=root/'工作流任务/白模分流记录'/datetime.now().strftime('%Y%m%d_%H%M%S_%f')
+    folder=stage_layout.workflow_dir(root,'白模分流记录')/datetime.now().strftime('%Y%m%d_%H%M%S_%f')
     publish(folder/'分流结果.json',{'source':str(source),'groups':groups,'ready_skipped':completed,'decisions':{sid:decisions[sid] for sid in ids}})
     state['routing_log_dir']=str(folder)
     for level in ('simple','medium'):
@@ -202,7 +203,7 @@ def records_directory(context,state):
     for key in ('log_dir','routing_log_dir'):
         value=state.get(key)
         if value and Path(value).is_dir() and Path(value).resolve().is_relative_to(root.resolve()):candidates.append(Path(value))
-    root=root/'工作流任务'
+    root=stage_layout.workflow_dir(root)
     for name in ('白模自动制作','白模批量任务','白模分流记录'):
         if (root/name).is_dir():candidates.extend(p for p in (root/name).iterdir() if p.is_dir())
     if candidates:return max(candidates,key=lambda p:p.stat().st_mtime_ns)
