@@ -255,7 +255,7 @@ class RecycleBatchTests(unittest.TestCase):
                                   confirmed_note=lambda paths: '',
                                   fill_script_list=lambda: events.append('refresh'))
         with self.assertRaises(OSError):
-            desktop_writing_page._WritingPage.delete_selected_scripts(writing)
+            desktop_writing_page._WritingPage.delete_script(writing)
         self.assertFalse((folder / 'x.txt').exists(), '还在的那份已进回收站')
         self.assertEqual(events, ['refresh'], '报错前先刷新列表，别再列着已进回收站的文件')
 
