@@ -1,6 +1,7 @@
 """Qwen Code adapter: official CLI, explicit session IDs and JSONL input."""
 import hashlib,json,os,subprocess,time,uuid,re,threading
 from pathlib import Path
+import stage_layout
 from file_cache import remove_temporary_file
 from agent.core import read,save,save_text,temporary_path,replace
 from platform_tools import launch_windows_app
@@ -81,7 +82,7 @@ def launch_interactive(project,stage,title,prompt,config,followup=None):
     env=environment(config.get('model',''),config.get('api'));project=Path(project)
     title=' '.join(re.sub(r'[\x00-\x1f\x7f-\x9f]',' ',str(title)).split())[:80]
     env['CLI_TITLE']=title
-    bindings=project/'工作流任务/Qwen对话.json';info=read(bindings) if bindings.is_file() else {}
+    bindings=stage_layout.workflow_dir(project,'Qwen对话.json');info=read(bindings) if bindings.is_file() else {}
     if not isinstance(info,dict):info={}
     entry=info.get(stage,{})
     session=None
@@ -91,7 +92,7 @@ def launch_interactive(project,stage,title,prompt,config,followup=None):
     except (KeyError,ValueError,OSError):pass
     key=setup_key(config)
     if session and entry.get('setup_key')==key and followup is not None:prompt=followup
-    folder=project/'工作流任务/交互任务'/stage/('Qwen_'+uuid.uuid4().hex[:12]);folder.mkdir(parents=True)
+    folder=stage_layout.workflow_dir(project,'交互任务')/stage/('Qwen_'+uuid.uuid4().hex[:12]);folder.mkdir(parents=True)
     task=folder/'任务.md';save_text(task,prompt)
     incoming=folder/'输入.jsonl';incoming.touch();events=folder/'事件.jsonl'
     args=command(config)+['--auth-type','openai','--model',config.get('model') or env['OPENAI_MODEL'],'--approval-mode','auto',

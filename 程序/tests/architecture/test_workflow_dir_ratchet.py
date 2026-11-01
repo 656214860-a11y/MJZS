@@ -19,10 +19,7 @@ AUTHORITY = 'stage_layout.py'      # 路径权威自己产出该目录名（R226
 REGISTERED = {
     'download_inbox.py': 1,
     'projects.py': 4,
-    'qwen_adapter.py': 2,
     'shot_numbering.py': 3,
-    'skill_budget.py': 1,
-    'skill_tools.py': 1,
     'stage_download_inbox_service.py': 1,
     'storage_maintenance.py': 1,
     'storyboard_recycle_service.py': 2,
