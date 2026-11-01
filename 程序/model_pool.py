@@ -981,7 +981,7 @@ TOOLS_COUNT_RANGE = (1, 50)      # 文档：count 1～50，默认 10
 TOOLS_URL_LIMIT = 8192
 TOOLS_TIMEOUT = 20
 # 文档的错误分工：408／429／5xx 等一等再试；402 先充值；其余 4xx 不改请求就别重试。
-# 0 是本地网络异常，和 408 一样按可重试处理（与 pet_llm.RETRYABLE_STATUS 同口径）。
+# 0 是本地网络异常，和 408 一样按可重试处理（与 model_metering.REPLAYABLE_RETRY_STATUS 同口径）。
 TOOLS_RETRY_STATUS = (0, 408, 425, 429, 500, 502, 503, 504)
 TOOLS_BALANCE_STATUS = 402
 TOOLS_RATE_STATUS = 429

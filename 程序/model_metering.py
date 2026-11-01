@@ -1,4 +1,4 @@
-"""模型调用计量的唯一序列：授权 → 发送 → 结算（R2178 J10）。
+"""模型调用计量的唯一序列：授权 → 发送 → 结算（R2178 J10）；重试口径也在这里显式命名（J12）。
 
 ``pet_llm`` 与 ``writing_api`` 原先各抄一份「估算 → authorize_model → 发送 → settle_model」，
 现在都走这里；两处各自的诊断目录与 reason 文案不在此处，仍由调用方决定。
@@ -56,3 +56,18 @@ def chat_metered(adapter, ledger, stage, messages, options, model, system):
     if refused is not None:
         raise ValueError(str(refused))
     return result
+
+
+# ── 重试口径：两种请求性质，两种口径，各自显式命名（R2178 J12，不单方裁决）──────────────
+# 对话可重放：同一段对话再发一次不会多收费或多做事，所以 5xx／429／超时／本地网络异常都可以重发。
+REPLAYABLE_RETRY_STATUS = (0, 408, 409, 425, 429, 500, 502, 503, 504)
+
+
+def replayable_retry(status):
+    """对话（pet_llm 的降级／兜底重发）用：HTTP 状态是否值得原样再发一次。"""
+    return status in REPLAYABLE_RETRY_STATUS
+
+
+def submission_retryable(acceptance, reason_code):
+    """媒体／任务提交用（model_router.failure_policy）：HTTP 5xx 可能已受理并计费，只有确认「未受理」的限流与服务端错误才重发。"""
+    return acceptance == 'not_accepted' and reason_code in ('rate_limit', 'server_error')

@@ -103,7 +103,7 @@ R1647：把两条「只比事实」的越层依赖从台账豁免降为不再存
 
 R2202（R2178 J5–J7）：`project_settings`、`cloud_assets`、`asset_prompt_rules`、`asset_reference_prompts` 的 Tk 弹窗各拆进 L4 对话模块（`project_settings_dialog`、`cloud_assets_dialog`、`asset_prompt_check_dialog`、`asset_reference_prompts_dialog`），原模块只剩数据与规则：前三者→L1，`asset_reference_prompts`（懒加载 L2 的 `storyboard_catalog_service`）→L2 并记入 `scope_audit_pending`。`层级` 台账 21→8，清 13 项。
 
-R2216（R2178 J10）：新增 L1 模块 `model_metering`，把「授权 → 发送 → 结算」计量序列收成一个入口 `metered(ledger, request, send, usage_of, on_result)`；`pet_llm._attempt` 与 `writing_api.WritingRequestAdapter._call` 原先各抄一份，现都委托它（等价委托，行为不变）。两处各自的诊断目录（`pet_llm` 写 `<项目>/model_diagnostics`，`writing_api` 写 `<项目>/logs/model_diagnostics`）与 reason 文案保留差异，统一会搬数据位置，另行裁决。
+R2216（R2178 J10）：新增 L1 模块 `model_metering`，把「授权 → 发送 → 结算」计量序列收成一个入口 `metered(ledger, request, send, usage_of, on_result)`；`pet_llm._attempt` 与 `writing_api.WritingRequestAdapter._call` 原先各抄一份，现都委托它（等价委托，行为不变）。两处各自的诊断目录（`pet_llm` 写 `<项目>/model_diagnostics`，`writing_api` 写 `<项目>/logs/model_diagnostics`）与 reason 文案保留差异，统一会搬数据位置，另行裁决。R2223（J11–J12）起该模块还收口直连文本模型的计量（`chat_metered`）与两种重试口径：`replayable_retry`（对话可重放）、`submission_retryable`（提交可能已受理）。
 
 R2191（R2178 J3）：按真实静态依赖重登记 8 个模块，只改登记与台账、不改生产代码——`artifact_lineage`→L0（无依赖，被 L0 `script_contract` 引用）；`pet_state`、`ui_plugin_registry`、`integrations`、`qwen_setup`→L1（只依赖 L0／L1）；`qwen_adapter`（引擎适配器，与 `workflow_engines` 同层）→L3；`workflow_settings`、`legacy_compat`→L3（依赖 L3 的 `stage_config`／`stage_models`／`skill_registry`／`edit_habits`）。`层级` 条目 **35→21**、`baseline_exempt` 同步下调，`KNOWN_DYNAMIC_UPWARD` 5→3；剩余 21 条是真实的反向依赖，留给后续专项。
 

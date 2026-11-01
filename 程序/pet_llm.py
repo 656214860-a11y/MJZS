@@ -21,7 +21,7 @@ from contextlib import contextmanager
 from pathlib import Path
 import model_pool
 import token_saver
-from model_metering import metered
+from model_metering import REPLAYABLE_RETRY_STATUS, metered, replayable_retry
 from app_metadata import APP_NAME
 from agent.core import save
 from pet_bus import read_json
@@ -58,7 +58,7 @@ MAX_OUTPUT_CEILING = 2048
 REQUEST_CONTEXT_MAX_CHARS = 16000
 REQUEST_DIRECTIVE_MAX_CHARS = 16000
 RETRY_DELAYS = (30, 60, 120)
-RETRYABLE_STATUS = (0, 408, 409, 425, 429, 500, 502, 503, 504)
+RETRYABLE_STATUS = REPLAYABLE_RETRY_STATUS  # 对话可重放口径；提交口径见 model_metering.submission_retryable
 
 # 固定前缀：改动它等于让所有历史缓存失效，所以只放长期稳定的内容。
 # 第 15 期把人设写进这里（名字＝pet_agent.PET_NAME，改一处要改两处，自检有用例盯着）：
@@ -288,8 +288,7 @@ def http_transport(url, payload, headers, timeout):
     return model_pool.http_transport(url, payload, headers, timeout)
 
 
-def is_retryable(status):
-    return status in RETRYABLE_STATUS
+is_retryable = replayable_retry
 
 
 # 用量口径的唯一实现在 token_saver；这里保留名字给台账与旧调用方。
