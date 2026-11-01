@@ -205,8 +205,9 @@ def _context_budget_error(chosen, system, messages):
 
 class WritingRequestAdapter(ModelAdapter):
     """按本次冻结配置检查每次请求，并累计本次调用的已报告用量。"""
-    def __init__(self, adapter, record, chosen, project=None):
+    def __init__(self, adapter, record, chosen, project=None, stage='script'):
         self.adapter, self.record, self.chosen = adapter, record, chosen
+        self.stage = stage
         self.project = project
         self.wire_api = adapter.wire_api
         self.context_budget = {}
@@ -258,7 +259,7 @@ class WritingRequestAdapter(ModelAdapter):
             estimate = len(json.dumps({'system': system, 'messages': messages, 'options': options},
                                       ensure_ascii=False).encode('utf-8')) + 256
             try:
-                ledger.authorize_model(request_id, model or self.chosen, 'script', estimate, reserved)
+                ledger.authorize_model(request_id, model or self.chosen, self.stage, estimate, reserved)
             except (ValueError, OSError) as error:
                 return {'ok': False, 'status': 0, 'model': model or self.chosen, 'text': '', 'usage': {},
                         'reason': 'money_budget_exceeded', 'error': str(error)}

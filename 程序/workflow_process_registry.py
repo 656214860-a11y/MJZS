@@ -110,6 +110,36 @@ def cancel_project_slot_requests(project):
         return before - len(_queued)
 
 
+_requests = {}
+
+
+def register_request(project, handle):
+    """登记项目里一个可取消的直连 API 请求（handle.cancel() 中断它）；同一项目只许一个。"""
+    key = _key(project)
+    with _lock:
+        if key in _requests:
+            return False
+        _requests[key] = handle
+        return True
+
+
+def forget_request(project, handle):
+    key = _key(project)
+    with _lock:
+        if _requests.get(key) is handle:
+            del _requests[key]
+
+
+def cancel_project_requests(project):
+    """停止项目时中断其直连 API 请求；返回被中断的个数。"""
+    with _lock:
+        handle = _requests.get(_key(project))
+    if handle is None:
+        return 0
+    handle.cancel()
+    return 1
+
+
 def release_process_slot(token):
     """释放已预留的槽位；重复释放安全，便于异常与停止路径共用。"""
     if token is None:
