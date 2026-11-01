@@ -639,7 +639,7 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
     def _referenced_skills(self, items):
         """只读检查当前项目配置是否仍引用将删除的注册 id。"""
         project = self.project()
-        config = Path(project) / 'skill_config.json' if project else None
+        config = stage_config.path(project) if project else None
         data = read_json(config) if config and config.is_file() else {}
         wanted = {item.name for item in items}
         return sorted(name for name in wanted if name in str(data))

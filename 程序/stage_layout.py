@@ -188,6 +188,14 @@ def skill_rows():
 WORKFLOW_DIR = '工作流任务'
 
 
+SKILL_CONFIG_NAME = 'skill_config.json'    # 项目的阶段配置文件名（模型、SKILL、写手风格）
+
+
+def skill_config_path(project):
+    """``<项目>/skill_config.json``；读写阶段配置的模块都经这里取路径。"""
+    return Path(project, SKILL_CONFIG_NAME)
+
+
 def workflow_dir(project, *parts):
     """``<项目>/工作流任务/<parts…>``；各模块不再手拼这个目录名。"""
     return Path(project, WORKFLOW_DIR, *parts)

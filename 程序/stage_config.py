@@ -17,10 +17,11 @@ from agent.core import save
 from pet_bus import STAGES, STAGE_NAMES, read_json
 
 import model_router
+import stage_layout
 import skill_registry
 
 PROGRAM = Path(__file__).resolve().parent
-CONFIG_NAME = 'skill_config.json'
+CONFIG_NAME = stage_layout.SKILL_CONFIG_NAME
 PRESET_PATH = ('配置', 'SKILL', '预设.json')
 # 只有剧本阶段会读取「编剧风格」。它保存在项目配置，不改程序内置 SKILL，
 # 确保一个项目的创作风格不会意外影响其他项目。
@@ -57,7 +58,7 @@ def _invalidate_cache(project):
 
 
 def path(project):
-    return Path(project) / CONFIG_NAME
+    return stage_layout.skill_config_path(project)
 
 
 def preset_path(program=None):
