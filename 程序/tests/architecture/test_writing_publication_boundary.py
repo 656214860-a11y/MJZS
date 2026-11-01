@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from tests.architecture._scan import desktop_text
+from tests.architecture._scan import stage_execution_source
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -24,7 +25,7 @@ class WritingPublicationBoundaryTests(unittest.TestCase):
                 self.assertNotIn('save_text', names)
 
     def test_desktop_uses_l3_writing_entrypoint(self):
-        stage_source = (ROOT / 'stage_execution_service.py').read_text(encoding='utf-8')
+        stage_source = stage_execution_source()
         desktop_source = desktop_text()
         self.assertIn('return reply(project, creative, cancelled=cancelled,', stage_source)
         self.assertIn('publish=publish_stage_text)', stage_source)
@@ -36,7 +37,7 @@ class WritingPublicationBoundaryTests(unittest.TestCase):
         names = {child.id for child in ast.walk(prepare) if isinstance(child, ast.Name)}
         self.assertIn('publish', names)
         self.assertFalse({'save', 'save_text', 'save_bytes', 'copyfile'} & names)
-        stage_source = (ROOT / 'stage_execution_service.py').read_text(encoding='utf-8')
+        stage_source = stage_execution_source()
         app_source = (ROOT / 'app.py').read_text(encoding='utf-8')
         self.assertIn('def publish_writing_preparation(', stage_source)
         self.assertIn('publish_stage_bundle(payload', stage_source)
@@ -47,7 +48,7 @@ class WritingPublicationBoundaryTests(unittest.TestCase):
         context = (ROOT / 'workflow_context.py').read_text(encoding='utf-8')
         writing = (ROOT / 'writing.py').read_text(encoding='utf-8')
         controller = (ROOT / 'workflow_context_controller.py').read_text(encoding='utf-8')
-        stage = (ROOT / 'stage_execution_service.py').read_text(encoding='utf-8')
+        stage = stage_execution_source()
         app = (ROOT / 'app.py').read_text(encoding='utf-8')
         from tests.architecture._scan import desktop_text
         desktop = desktop_text()  # R1490：Desktop 方法分布在 desktop.py 与迁出的 Mixin 模块

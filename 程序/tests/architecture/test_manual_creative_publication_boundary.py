@@ -6,6 +6,7 @@ import ast
 import unittest
 
 from tests.architecture._scan import ROOT, parse
+from tests.architecture._scan import stage_execution_source
 
 
 class ManualCreativePublicationBoundaryTests(unittest.TestCase):
@@ -40,6 +41,6 @@ class ManualCreativePublicationBoundaryTests(unittest.TestCase):
         self.assertIn('publish', names, 'L2 必须接收 L3 发布器')
         self.assertFalse({'save_text', 'save', 'mkdir'} & names,
                          'L2 不得直接创建目录或发布手动创意')
-        execution = parse(ROOT / 'stage_execution_service.py')
+        execution = ast.parse(stage_execution_source())
         self.assertTrue(any(isinstance(node, ast.FunctionDef) and node.name == 'publish_idea_creative'
                             for node in execution.body), 'L3 必须承接创意成果发布')

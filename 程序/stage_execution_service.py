@@ -12,6 +12,7 @@ import stage_models
 from project_context_factory import project_context
 from stage_path_service import write_dir
 from stage_asset_gateways import (  # noqa: F401  re-export
+    _json_gateway,
     asset_batch_gateway,
     asset_plan_gateway,
     sync_asset_plan,
@@ -29,125 +30,85 @@ from stage_asset_gateways import (  # noqa: F401  re-export
     pending_generated_assets,
     import_pending_generated_assets,
     unwrap_service_result)
+from stage_animatic_gateways import (  # noqa: F401  re-export
+    animatic_preview_spec,
+    animatic_reference_paths,
+    animatic_video,
+    confirm_animatic,
+    generate_animatic_reference,
+    import_animatic_audio,
+    import_animatic_references,
+    publish_animatic_bundle,
+    run_animatic)
+from stage_previs_gateways import (  # noqa: F401  re-export
+    dispatch_stage_previs,
+    install_stage_previs_progress,
+    previs_automatic_candidates,
+    previs_automatic_engine,
+    previs_entries,
+    previs_progress_gateway,
+    previs_ready,
+    previs_records_directory,
+    previs_routing_gateway,
+    publish_stage_previs_progress,
+    save_stage_previs_override,
+    storyboard_board_source_script,
+    storyboard_catalog,
+    storyboard_catalog_snapshot,
+    storyboard_default_source,
+    storyboard_document_dir,
+    storyboard_file_snapshot,
+    storyboard_produced_episodes,
+    storyboard_produced_scripts,
+    storyboard_resolve_source,
+    storyboard_working_dir)
+from stage_gate_gateways import (  # noqa: F401  re-export
+    cloud_video_gateway,
+    cloud_video_saved_provider_key,
+    cloud_video_session_folder,
+    media_import_publisher,
+    publish_cloud_video_session_config,
+    publish_cloud_video_studio_config,
+    publish_cloud_video_workspace_preference,
+    publish_tts_full_track,
+    refresh_audio_manifests,
+    reusable_tts_full_track,
+    run_tts_lines,
+    save_tts_key,
+    tts_gateway,
+    video_lifecycle_gateway)
+from stage_handoff_gateways import (  # noqa: F401  re-export
+    asset_impact,
+    continuity_issue_report,
+    decide_continuity_issue,
+    import_downloaded_creatives,
+    mark_stage_video_deleted,
+    publish_handoff_bundle,
+    publish_idea_creative,
+    publish_response_archive,
+    publish_writing_preparation,
+    save_automatic_assemble_marker,
+    save_automatic_handoff_marker,
+    save_stage_editing_checklist,
+    save_stage_video_options,
+    save_stage_white_model_upload,
+    storyboard_adoption_impact,
+    sync_continuity_issues,
+    verify_handoff_bundle)
 
 
-def publish_animatic_bundle(project, artifacts, *, validate, update_index=None):
-    """整包校验、原子发布、索引更新；失败时恢复成果及同包索引。"""
-    from animatic_service import MANIFEST
-    root = Path(project).resolve()
-    folder = write_dir(root, 'animatic').resolve()
-    if not folder.is_relative_to(root) or MANIFEST not in artifacts:
-        raise ValueError('Animatic 发布路径或清单无效')
-    payload = {}
-    for name, raw in artifacts.items():
-        if name == 'animatic_index.json':
-            raise ValueError('Animatic 索引只允许由发布器生成')
-        target = (folder / name).resolve()
-        if not target.is_relative_to(folder) or target == folder:
-            raise ValueError('Animatic 成果路径越界')
-        payload[target] = bytes(raw)
-    payload[folder / 'animatic_index.json'] = json.dumps(
-        {'manifest': MANIFEST, 'files': sorted(artifacts)}, ensure_ascii=False).encode('utf-8')
-    publish_stage_bundle(payload, validate, update_index or (lambda: [file_cache.published(p) for p in payload]))
-    return folder / MANIFEST
 
 
-def import_animatic_references(project, sources):
-    from stage_path_service import shared_reference_dir
-    from animatic_service import digest
-    folder = shared_reference_dir(project).resolve()
-    if not folder.is_relative_to(Path(project).resolve()):
-        raise ValueError('共享参考图路径越界')
-    artifacts = {}
-    for source in sources:
-        path = Path(source)
-        if path.suffix.lower() not in ('.png', '.jpg', '.jpeg', '.webp') or not 0 < path.stat().st_size <= 20 * 1024 * 1024:
-            raise ValueError('请选择不超过 20 MB 的 PNG、JPEG 或 WebP 参考图')
-        raw = path.read_bytes()
-        artifacts[folder / (digest(raw) + path.suffix.lower())] = raw
-    publish_stage_bundle(artifacts, lambda items: all(raw for _, raw in items),
-                         lambda: [file_cache.published(p) for p in artifacts])
-    return tuple(artifacts)
 
 
-def run_animatic(project, source, references, audio=None, settings=None):
-    import tempfile
-    from agent.core import save_bytes
-    import stage_parallel
-    from animatic_service import build_bundle, validate_bundle
-    from platform_tools import tool_path
-    settings = dict(settings or {})
-    settings['retry_attempts'] = stage_parallel.retry_attempts('animatic')
-    config = file_cache.read_json(Path(project) / 'config.json') if (Path(project) / 'config.json').is_file() else {}
-    for tool in ('ffmpeg', 'ffprobe'):
-        settings[tool] = settings.get(tool) or config.get(tool) or tool_path(tool)
-        if not settings[tool]:
-            raise ValueError('请在运行环境配置 ' + tool)
-    gate = stage_parallel.evaluate(project, 'animatic')
-    if gate and not gate['ok']:
-        raise ValueError(stage_parallel.blocked_text(gate))
-    from storyboard_selection import adopted
-    if Path(source).resolve() not in {Path(path).resolve() for path in adopted(project)}:
-        raise ValueError('请选择已采用的本项目分镜初稿')
-    from comfy_runtime import wait_comfy
-    wait_comfy(settings.get('url', 'http://127.0.0.1:8188'), timeout=settings.get('readiness_timeout', 45))
-    work_root = write_dir(project, 'animatic') / '.work'
-    work_root.mkdir(parents=True, exist_ok=True)
-    workspace = Path(tempfile.mkdtemp(prefix='run-', dir=work_root))
-
-    def batches(groups, worker):
-        results = stage_parallel.parallel_map('animatic', groups, worker)
-        for _group, _result, error in results:
-            if error:
-                raise error
-        return [result for _group, result, _error in results]
-
-    def publish(artifacts):
-        # Media has been probed and decoded in the temporary workspace.
-        if not validate_bundle(artifacts):
-            raise ValueError('Animatic 清单与媒体不一致，本次不发布')
-        return publish_animatic_bundle(project, artifacts, validate=lambda items: all(raw for _, raw in items))
-
-    return build_bundle(project_context(project), source, references, audio, settings,
-                        publish=publish, write_temporary=save_bytes, run_batches=batches, workspace=workspace,
-                        spec=animatic_preview_spec(project))
 
 
-def confirm_animatic(project, *, rhythm, duration, dialogue_sync):
-    from copy import deepcopy
-    from animatic_service import MANIFEST, evidence
-    if not all(value is True for value in (rhythm, duration, dialogue_sync)):
-        raise ValueError('节奏、时长与对白同步必须全部确认')
-    ok, reason = evidence(project, require_confirmation=False)
-    if not ok:
-        raise ValueError(reason)
-    path = write_dir(project, 'animatic') / MANIFEST
-    data = deepcopy(file_cache.read_json(path))
-    data['confirmed'] = dict(rhythm=True, duration=True, dialogue_sync=True)
-    publish_stage_text(path, json.dumps(data, ensure_ascii=False, indent=2),
-                       lambda text: bool(json.loads(text)['shots']), file_cache.published)
-    return path
 
 
-def animatic_reference_paths(project):
-    from stage_path_service import shared_reference_read_dirs
-    return tuple(dict.fromkeys(path for folder in shared_reference_read_dirs(project) if folder.is_dir()
-                               for path in sorted(folder.rglob('*'))
-                               if path.is_file() and path.suffix.lower() in ('.png', '.jpg', '.jpeg', '.webp')))
 
 
-def import_animatic_audio(project, source):
-    from audio_import_service import import_audio
-    return import_audio(project, source, publish=media_import_publisher(project, 'audio'), stage='animatic')
 
 
-def animatic_video(project):
-    from animatic_service import MANIFEST, evidence
-    ok, reason = evidence(project, require_confirmation=False)
-    if not ok:
-        raise ValueError(reason)
-    folder = write_dir(project, 'animatic')
-    return folder / file_cache.read_json(folder / MANIFEST)['video']
 
 
 def program_of(desktop):
@@ -168,10 +129,6 @@ def import_delivery_master(project, source, *, settings_snapshot=None, cache=Non
         publish=media_import_publisher(project, 'video'))
 
 
-def _json_gateway(**extra):
-    """各 ``*_gateway()`` 的共同底座：唯一的 JSON 原子发布器；个别网关只补自己多出的能力。"""
-    from agent.core import save
-    return {'publish_json': save, **extra}
 
 
 def local_video_settings_gateway():
@@ -242,31 +199,8 @@ def _import_audio_file(project, source):
     return import_audio(project, source, publish=media_import_publisher(project, 'audio'))
 
 
-def refresh_audio_manifests(project):
-    """配音字幕成果变化后重写 voice／subtitles／audio_manifest；清单写入失败只记警告，不回滚已发布成果。"""
-    import logging
-    from agent.core import save
-    from audio_import_service import audio_manifests
-    try:
-        folder = write_dir(project, 'audio') / 'output'
-        for name, payload in audio_manifests(project).items():
-            save(folder / name, payload)
-    except OSError:
-        logging.getLogger(__name__).warning('配音字幕清单写入失败', exc_info=True)
 
 
-def media_import_publisher(project, kind):
-    from stage_completion_service import publish_imported_media
-    from agent.core import read
-    from agent.media import validate_import
-    from platform_tools import tool_path
-    def publish(target, source):
-        config_path = Path(project) / 'config.json'
-        config = dict(read(config_path)) if config_path.is_file() else {}
-        for name in ('ffmpeg', 'ffprobe'):
-            config[name] = config.get(name) or tool_path(name)
-        return publish_imported_media(target, source, lambda temporary: validate_import(temporary, config, kind), kind)
-    return publish
 
 
 def export_stage_srt(project, episode):
@@ -522,28 +456,12 @@ def remove_asset_batch_model(project, url, model, model_id):
                         publish=asset_batch_settings_gateway()['publish_json'])
 
 
-def tts_gateway():
-    """L3 为 TTS 服务装配唯一的正式发布器；L2 不可自行写设置或阶段成果。"""
-    from agent.core import save, save_bytes
-    return {'publish_json': save, 'publish_bytes': save_bytes}
 
 
-def save_tts_key(base_url, model, voice, key, voices=None, speeds=None):
-    from tts_api import save_key
-    return save_key(base_url, model, voice, key, voices, speeds, gateway=tts_gateway())
 
 
-def publish_tts_full_track(project, signature, raw):
-    from tts_api import publish_full_track
-    result = publish_full_track(project_context(project), signature, raw, gateway=tts_gateway())
-    refresh_audio_manifests(project)
-    return result
 
 
-def reusable_tts_full_track(project, signature):
-    """L3 为整段配音复用检查注入项目上下文。"""
-    from tts_api import reusable_full_track
-    return reusable_full_track(project_context(project), signature)
 
 
 def storyboard_working_source(project, source):
@@ -577,61 +495,20 @@ def migrate_white_model_directories(project):
     return migrate_legacy_directories(project_context(project), publish=save)
 
 
-def run_tts_lines(lines, folder, generate=None, report=None, stop=None, episode=None, project=None):
-    from tts_api import run_lines
-    result = run_lines(lines, folder, generate, report, stop, gateway=tts_gateway(), episode=episode, project=project)
-    if project:
-        refresh_audio_manifests(project)
-    return result
 
 
-def cloud_video_gateway():
-    """L3 为云视频配置服务装配唯一的正式 JSON 发布器。"""
-    return _json_gateway()
 
 
-def cloud_video_session_folder(project, kind, base, model, source):
-    """L3 统一注入项目上下文并创建/复用云视频会话目录。"""
-    from cloud_video_service import session_folder
-    result = session_folder(project_context(project), kind, base, model, source)
-    if not result.ok:
-        raise ValueError(result.reason)
-    return result.data
 
 
-def cloud_video_saved_provider_key(project, kind, providers, remembered=None, base_url=None, module_file=None):
-    """L3 统一注入项目上下文，供 L4 查询旧会话兼容凭据。"""
-    from cloud_video_service import saved_provider_key
-    return saved_provider_key(project_context(project), kind, providers, remembered, base_url, module_file)
 
 
-def publish_cloud_video_session_config(config_path, config, prefs_path, prefs):
-    from cloud_video_service import publish_session_config
-    result = publish_session_config(config_path, config, prefs_path, prefs, gateway=cloud_video_gateway())
-    if not result.ok:
-        raise ValueError(result.reason)
-    return result.data
 
 
-def publish_cloud_video_workspace_preference(prefs_path, prefs):
-    from cloud_video_service import publish_workspace_preference
-    result = publish_workspace_preference(prefs_path, prefs, gateway=cloud_video_gateway())
-    if not result.ok:
-        raise ValueError(result.reason)
-    return result.data
 
 
-def publish_cloud_video_studio_config(config_path, config):
-    from cloud_video_service import publish_studio_config
-    result = publish_studio_config(config_path, config, gateway=cloud_video_gateway())
-    if not result.ok:
-        raise ValueError(result.reason)
-    return result.data
 
 
-def video_lifecycle_gateway():
-    """L3 向视频生命周期服务注入唯一 JSON 发布器。"""
-    return _json_gateway()
 
 
 def confirm_gates_gateway():
@@ -690,34 +567,14 @@ def run_stage_confirmation_gate(project, gate_id, *, shots=None, assets=None, le
                context=project_context(project))
 
 
-def previs_routing_gateway():
-    """L3 为白模分流策略注入唯一的正式 JSON 发布器。"""
-    return _json_gateway()
 
 
-def save_stage_previs_override(project, source, shot_id, value):
-    """保存白模复杂度人工覆写；L4 只委托 L3。"""
-    from previs_routing import set_override
-    return set_override(project_context(project), source, shot_id, value,
-                        publish=previs_routing_gateway()['publish_json'])
 
 
-def dispatch_stage_previs(project, source, shot_ids, state, monitor=False, start_complex=None):
-    """发布白模分流记录；执行器仍由调用方注入，路由落盘只经 L3。"""
-    from previs_routing import dispatch
-    return dispatch(project_context(project), source, shot_ids, state, monitor=monitor,
-                    start_complex=start_complex,
-                    publish=previs_routing_gateway()['publish_json'])
 
 
-def previs_entries(project, source):
-    from previs_routing import entries
-    return entries(project_context(project), source)
 
 
-def previs_ready(project, shot_id, source=None):
-    from previs_routing import ready
-    return ready(project_context(project), shot_id, source)
 
 
 def record_previs_evidence(project, sid, source, media=None):
@@ -728,84 +585,34 @@ def record_previs_evidence(project, sid, source, media=None):
     return _with_previs_copy(record_evidence(root, sid, source, publish=save, media=media), project, sid, source)
 
 
-def previs_records_directory(project, state):
-    from previs_routing import records_directory
-    return records_directory(project_context(project), state)
 
 
-def previs_automatic_candidates(project, source, shots, wait_for_frames=False, pending_frame_ids=None):
-    from previs_routing import automatic_candidates
-    return automatic_candidates(project_context(project), source, shots, wait_for_frames, pending_frame_ids)
 
 
-def previs_automatic_engine(project, read_settings, engines):
-    from previs_routing import automatic_engine
-    return automatic_engine(project_context(project), read_settings, engines)
 
 
-def storyboard_catalog(project, kind, ignored=None):
-    from storyboard_catalog_service import catalog
-    return catalog(project_context(project), kind) if ignored is None else catalog(project_context(project), kind, ignored)
 
 
-def storyboard_produced_scripts(project, entries=None):
-    from storyboard_catalog_service import produced_scripts
-    return produced_scripts(project_context(project), entries)
 
 
-def storyboard_produced_episodes(project, entries=None):
-    from storyboard_catalog_service import produced_episodes
-    return produced_episodes(project_context(project), entries)
 
 
-def storyboard_default_source(project):
-    from storyboard_catalog_service import default_source
-    return default_source(project_context(project))
 
 
-def storyboard_resolve_source(project, path):
-    from storyboard_catalog_service import resolve_source
-    return resolve_source(project_context(project), path)
 
 
-def storyboard_board_source_script(project, board):
-    from storyboard_catalog_service import board_source_script
-    return board_source_script(project_context(project), board)
 
 
-def storyboard_working_dir(project):
-    from storyboard_catalog_service import working_dir
-    return working_dir(project_context(project))
 
 
-def storyboard_document_dir(project):
-    from storyboard_catalog_service import document_dir
-    return document_dir(project_context(project))
 
 
-def storyboard_file_snapshot(project, ignored=None):
-    from storyboard_catalog_service import file_snapshot
-    return file_snapshot(project_context(project)) if ignored is None else file_snapshot(project_context(project), ignored)
 
 
-def previs_progress_gateway():
-    """L3 为 Blender 白模进度注入唯一的原子文本发布器。"""
-    from agent.core import save_text
-    return {'publish_text': save_text}
 
 
-def publish_stage_previs_progress(path, shot_id, stage, completed=None, total=None):
-    """发布单镜头白模进度；宿主兼容门面只委托此 L3 入口。"""
-    from previs_progress_service import publish
-    return publish(path, shot_id, stage, completed, total,
-                   publish_text=previs_progress_gateway()['publish_text'])
 
 
-def install_stage_previs_progress(path, shot_id):
-    """为 Blender 安装进度回调，并向 L2 注入正式发布器。"""
-    from previs_progress_service import install_blender_progress
-    return install_blender_progress(path, shot_id,
-                                    publish_text=previs_progress_gateway()['publish_text'])
 
 
 def storyboard_edit_gateway():
@@ -841,134 +648,18 @@ def normalize_storyboard_for_desktop(desktop):
     return unwrap_service_result(normalize_for_desktop(desktop, gateway=storyboard_gateway()))
 
 
-def mark_stage_video_deleted(source, sid, versions):
-    from video_lifecycle_service import mark_video_deleted
-    result = mark_video_deleted(prepare_legacy_stage_path(source), sid, versions, gateway=video_lifecycle_gateway())
-    if not result.ok:
-        raise ValueError(result.reason)
-    return result.data
 
 
-def save_stage_video_options(source, sid, selected, generate_audio, is_local):
-    from video_lifecycle_service import save_video_options
-    result = save_video_options(prepare_legacy_stage_path(source), sid, selected, generate_audio, is_local,
-                              gateway=video_lifecycle_gateway())
-    if not result.ok:
-        raise ValueError(result.reason)
-    return result.data
 
 
-def save_stage_white_model_upload(source, sid, enabled):
-    from video_lifecycle_service import save_white_model_upload
-    result = save_white_model_upload(prepare_legacy_stage_path(source), sid, enabled, gateway=video_lifecycle_gateway())
-    if not result.ok:
-        raise ValueError(result.reason)
-    return result.data
 
 
-def save_stage_editing_checklist(project, text):
-    """剪辑清单保存编排：保留用户清空清单的既有语义。"""
-    from edit_service import save_editing_checklist
-
-    def publish_checklist(target, value):
-        return publish_stage_text(
-            target, value, lambda _value: True, lambda _target: None, allow_empty=True)
-
-    result = save_editing_checklist(project, text, publish=publish_checklist,
-                                    context=project_context(project))
-    if not result.ok:
-        raise ValueError(result.reason)
-    return result.data
 
 
-def publish_handoff_bundle(project, name, artifacts, *, auto=False, summary=None):
-    """交接包发布编排：L3 负责目录切换、字节发布、可校验清单登记与旧自动包回收。"""
-    root = Path(project).resolve()
-    edit_dir = write_dir(root, 'edit')
-    final = edit_dir / str(name)
-    if final.parent != edit_dir:
-        raise ValueError('交接包目标越界。')
-    if auto and final.exists() and not (final / '交接包标记.json').is_file():
-        raise ValueError('已有同名目录且不是自动生成的交接包，请先改名或移走：' + str(final))
-    staging = edit_dir / '自动交接包.生成中'
-    output = staging if auto else final
-    if auto and staging.exists():
-        from storage_maintenance import recycle_paths
-        recycle_paths(root, [staging], '清理未完成自动交接包')
-    payload = {}
-    for item in artifacts:
-        filename = str(item['name'])
-        target = output / filename
-        if target.parent != output:
-            raise ValueError('交接包文件名越界。')
-        data = item.get('data')
-        if data is None:
-            data = Path(item['source']).read_bytes()
-        payload[target] = bytes(data)
-    from handoff_service import BUNDLE_MANIFEST_NAME, build_bundle_manifest
-    manifest = build_bundle_manifest(summary, [{'name': Path(target).name, 'data': data}
-                                               for target, data in payload.items()])
-    payload[output / BUNDLE_MANIFEST_NAME] = json.dumps(manifest, ensure_ascii=False, indent=2).encode('utf-8')
-    publish_stage_bundle(payload, lambda _items: True, lambda: None)
-    if auto:
-        if final.exists():
-            from storage_maintenance import recycle_paths
-            if not recycle_paths(root, [final], '更新自动交接包'):
-                raise ValueError('旧自动交接包未能移入回收站，已保留原包')
-        staging.replace(final)
-    return final
 
 
-def publish_writing_preparation(project, name, artifacts):
-    """剧本准备工作区发布编排：L3 定位阶段目录并原子发布完整成果包。"""
-    root = Path(project).resolve()
-    script_dir = write_dir(root, 'script')
-    output = script_dir / str(name)
-    if output.parent != script_dir:
-        raise ValueError('剧本准备工作区目标越界。')
-    payload = {}
-    for item in artifacts:
-        target = output / str(item['name'])
-        if not target.is_relative_to(output):
-            raise ValueError('剧本准备工作区文件名越界。')
-        data = item.get('data')
-        if data is None:
-            data = Path(item['source']).read_bytes()
-        payload[target] = bytes(data)
-    publish_stage_bundle(payload, lambda _items: True, lambda: None)
-    return output
 
 
-def publish_idea_creative(project, artifacts):
-    """创意文件发布编排：L3 定位剧本阶段并原子发布分类成果。"""
-    root = Path(project).resolve()
-    script_dir = write_dir(root, 'script')
-    payload = {}
-    published = {}
-    directories = set()
-    for item in artifacts:
-        name = str(item['name']).replace('\\', '/')
-        target = script_dir.joinpath(*name.split('/'))
-        try:
-            target.resolve().relative_to(script_dir.resolve())
-        except (OSError, ValueError) as exc:
-            raise ValueError('创意文件目标越界。') from exc
-        data = item.get('data')
-        if data is None:
-            data = Path(item['source']).read_bytes()
-        payload[target] = bytes(data)
-        published[name] = target
-        for directory in item.get('directories', ()):
-            folder = script_dir.joinpath(*str(directory).replace('\\', '/').split('/'))
-            try:
-                folder.resolve().relative_to(script_dir.resolve())
-            except (OSError, ValueError) as exc:
-                raise ValueError('创意分类目录越界。') from exc
-            directories.add(folder)
-    publish_stage_bundle(payload, lambda _items: True, lambda: None)
-    for folder in directories:
-        folder.mkdir(parents=True, exist_ok=True)
-    return published
 
 
 def publish_keyframe_episode(target, episode):
@@ -998,36 +689,8 @@ def replace_stage_keyframe(base, source, episode, shot, data):
         publish_episode=publish_keyframe_episode)
 
 
-def save_automatic_assemble_marker(project, digest, master, completed_at):
-    """自动粗剪完成标记：L3 定位阶段目录并注入原子发布器。"""
-    from edit_service import AUTOMATIC_ASSEMBLE_MARKER_NAME, save_automatic_assemble_marker as save_marker
-    target = write_dir(Path(project), 'edit') / AUTOMATIC_ASSEMBLE_MARKER_NAME
-
-    def publish_marker(path, payload):
-        return publish_stage_text(
-            path, json.dumps(payload, ensure_ascii=False, sort_keys=True),
-            lambda text: isinstance(json.loads(text), dict), lambda _target: None)
-
-    result = save_marker(target, digest, master, completed_at, publish=publish_marker)
-    if not result.ok:
-        raise ValueError(result.reason)
-    return result.data
 
 
-def save_automatic_handoff_marker(project, digest, folder, shot_count):
-    """自动交接完成标记：L3 定位阶段目录并注入原子发布器。"""
-    from handoff_service import AUTOMATIC_HANDOFF_MARKER_NAME, save_automatic_handoff_marker as save_marker
-    target = write_dir(Path(project), 'edit') / AUTOMATIC_HANDOFF_MARKER_NAME
-
-    def publish_marker(path, payload):
-        return publish_stage_text(
-            path, json.dumps(payload, ensure_ascii=False, sort_keys=True),
-            lambda text: isinstance(json.loads(text), dict), lambda _target: None)
-
-    result = save_marker(target, digest, folder, shot_count, publish=publish_marker)
-    if not result.ok:
-        raise ValueError(result.reason)
-    return result.data
 
 
 def publish_stage_handoff_bundle(project, shots, rows, subtitle=None, auto=False):
@@ -1041,29 +704,6 @@ def publish_stage_handoff_bundle(project, shots, rows, subtitle=None, auto=False
     return result.data
 
 
-def verify_handoff_bundle(folder):
-    """离线校验一个已解包的交接包：读清单、按清单核对每个文件，只读不改。"""
-    from handoff_service import BUNDLE_MANIFEST_NAME, verify_manifest
-    folder = Path(folder).resolve()
-    manifest_path = folder / BUNDLE_MANIFEST_NAME
-    if not manifest_path.is_file():
-        return {'ok': False, 'problems': ['缺少交接包清单，无法离线校验：' + BUNDLE_MANIFEST_NAME],
-                'missing': [], 'count': 0, 'label': ''}
-    try:
-        manifest = file_cache.read_json(manifest_path)
-    except (OSError, ValueError):
-        manifest = None
-    if manifest is None:
-        return {'ok': False, 'problems': ['交接包清单读不出来或格式坏了'], 'missing': [], 'count': 0, 'label': ''}
-
-    def probe(name):
-        path = (folder / str(name)).resolve()
-        if not path.is_relative_to(folder):
-            raise OSError('交接包条目越界：' + str(name))
-        if not path.is_file():
-            raise OSError('交接包文件缺失：' + str(name))
-        return path.stat().st_size, file_cache.file_digest(path)
-    return verify_manifest(manifest, probe)
 
 
 def _model_ids(desktop, stage):
@@ -1141,18 +781,6 @@ def require_formal_asset_generation(project, *, online_model):
         raise ValueError('正式资产请选择线上 API 模型；本地草图请在分镜预演阶段生成')
 
 
-def generate_animatic_reference(project, prompt, model, settings=None):
-    """本地草图准备与发布，复用 ComfyUI，不进入正式资产登记。"""
-    import tempfile
-    from animatic_service import prepare_reference
-    from comfy_runtime import wait_comfy
-    settings = dict(settings or {})
-    wait_comfy(settings.get('url', 'http://127.0.0.1:8188'), timeout=settings.get('readiness_timeout', 45))
-    work_root = write_dir(project, 'animatic') / '.work'
-    work_root.mkdir(parents=True, exist_ok=True)
-    workspace = Path(tempfile.mkdtemp(prefix='reference-', dir=work_root))
-    return prepare_reference(workspace, prompt, model, settings,
-                             publish=lambda paths: import_animatic_references(project, paths))
 
 
 from stage_write_preparation_service import (
@@ -1232,74 +860,20 @@ def sync_writing_attachment_locks(project, *, reference=None):
         save_writing_production_locks(project, values, attachment_signature=signature)
 
 
-def storyboard_adoption_impact(project, paths):
-    """L3 注入项目上下文：候选分镜相对已采用分镜的只读影响预览。"""
-    from storyboard_catalog_service import adoption_impact
-    return adoption_impact(project_context(project), paths)
 
 
-def asset_impact(project, aid, *, episode_dir=''):
-    """L3 门面：资产变更影响视图（只读）。"""
-    from asset_plan import asset_impact as _impact
-    return _impact(project, aid, episode_dir=episode_dir)
 
 
-def continuity_issue_report(project, ledger=None):
-    """L3 门面：连贯性问题闭环视图（只读，不落盘）。"""
-    from continuity_ledger import issues, merge_issues, read_issues
-    from continuity_ledger import read as read_ledger
-    data = ledger if isinstance(ledger, dict) and ledger else read_ledger(project)
-    _register, rows = merge_issues(read_issues(project), issues(data))
-    return rows
 
 
-def sync_continuity_issues(project, ledger=None):
-    """L3 门面：算一遍问题并落盘 03_continuity/output/continuity_issues.json。"""
-    from agent.core import save
-    from continuity_ledger import read as read_ledger
-    from continuity_ledger import sync_issues
-    data = ledger if isinstance(ledger, dict) and ledger else read_ledger(project)
-    return sync_issues(project, data, publish=save)
 
 
-def decide_continuity_issue(project, issue_id, decision, reason='', by='人工'):
-    """L3 门面：记一条问题的处理决定（忽略必须写理由）。"""
-    from agent.core import save
-    from continuity_ledger import decide_issue
-    return decide_issue(project, issue_id, decision, reason, by=by, publish=save)
 
 
-def animatic_preview_spec(project):
-    """预演低清规格：画幅跟项目制作锁，分辨率与帧率保持低配；与正式交付规格同源。"""
-    import stage_config
-    from script_contract import preview_spec
-    return preview_spec(stage_config.workflow_lock(Path(project)))
 
 
-def publish_response_archive(project, text):
-    """把模型已返回的可见正文归档到 01剧本准备/responses/，返回归档路径。
-
-    只归档，不登记为阶段成果，也不改变采用状态；取消、迟到返回或格式不合格的
-    正文同样留副本，供用户对照「原始响应已保存」。空正文不建文件。
-    """
-    from datetime import datetime
-    from uuid import uuid4
-    from stage_path_service import write_dir
-    value = str(text or '').replace('\r\n', '\n')
-    if not value.strip():
-        return ''
-    target = write_dir(project, 'script') / 'responses' / (
-        datetime.now().strftime('%Y%m%d_%H%M%S_%f') + '_' + uuid4().hex + '.txt')
-    publish_stage_text(target, value, lambda published: published == value, lambda _target: None)
-    return str(target)
 
 
-def import_downloaded_creatives(context, provider='', model='', backups=None):
-    """L3 编排：从本机「下载」文件夹收回桌面 Agent 窗口给出的同项目创作文件并发布。"""
-    from idea_chat import import_downloaded_documents
-    from platform_tools import downloads_directory
-    return import_downloaded_documents(context, downloads_directory(), provider=provider, model=model,
-                                       publish=publish_idea_creative, backups=backups)
 
 
 from stage_download_inbox_service import (
@@ -1310,10 +884,6 @@ from stage_download_inbox_service import (
 
 
 
-def storyboard_catalog_snapshot(project, ignored=None):
-    from storyboard_catalog_service import catalog_snapshot
-    context = project_context(project)
-    return catalog_snapshot(context) if ignored is None else catalog_snapshot(context, ignored)
 
 
 def sync_previs_copy(project, sid, source):

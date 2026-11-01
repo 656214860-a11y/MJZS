@@ -3,6 +3,7 @@ import ast
 import os
 import unittest
 from pathlib import Path
+from tests.architecture._scan import stage_execution_source
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -19,7 +20,7 @@ class DesktopSettingsBoundaryTests(unittest.TestCase):
         self.assertNotIn('publish_desktop_settings(', text)
         self.assertNotIn('save(self.settings_file', text)
         service = Path(ROOT, 'desktop_settings_service.py').read_text(encoding='utf-8')
-        stage = Path(ROOT, 'stage_execution_service.py').read_text(encoding='utf-8')
+        stage = stage_execution_source()
         self.assertNotIn('from agent.core import save', service)
         self.assertIn('def desktop_settings_gateway()', stage)
         self.assertIn('def publish_desktop_preferences(', stage)

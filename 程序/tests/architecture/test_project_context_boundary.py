@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 from tests.architecture._layers import LAYERS
+from tests.architecture._scan import stage_execution_source
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -88,7 +89,7 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         constructors = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
                         and getattr(node.func, 'id', '') == 'ProjectContext']
         self.assertEqual(constructors, [])
-        orchestrator = Path(ROOT, 'stage_execution_service.py').read_text(encoding='utf-8')
+        orchestrator = stage_execution_source()
         self.assertIn('def run_stage_confirmation_gate(', orchestrator)
         self.assertIn('context=project_context(project)', orchestrator)
 
@@ -99,7 +100,7 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         constructors = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
                         and getattr(node.func, 'id', '') == 'ProjectContext']
         self.assertEqual(constructors, [])
-        orchestrator = Path(ROOT, 'stage_execution_service.py').read_text(encoding='utf-8')
+        orchestrator = stage_execution_source()
         self.assertIn('save_local_video_settings(project_context(project)', orchestrator)
 
     def test_idea_attachments_consume_context_and_l3_injects_it(self):
@@ -110,7 +111,7 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         constructors = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
                         and getattr(node.func, 'id', '') == 'ProjectContext']
         self.assertEqual(constructors, [])
-        orchestrator = Path(ROOT, 'stage_execution_service.py').read_text(encoding='utf-8')
+        orchestrator = stage_execution_source()
         self.assertIn('store(project_context(project)', orchestrator)
         self.assertIn('def stage_idea_attachment_reference(', orchestrator)
 
@@ -119,7 +120,7 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         self.assertIn('ProjectContext', source)
         self.assertIn('context.root.joinpath', source)
         self.assertNotIn('ProjectContext(', source)
-        orchestrator = Path(ROOT, 'stage_execution_service.py').read_text(encoding='utf-8')
+        orchestrator = stage_execution_source()
         self.assertIn("poll_startup_check(session, project_context(session['project'])", orchestrator)
 
     def test_pet_test_consumes_context_and_l3_injects_it(self):
@@ -127,7 +128,7 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         self.assertIn('ProjectContext', source)
         self.assertIn('context.root.joinpath', source)
         self.assertNotIn('ProjectContext(', source)
-        orchestrator = Path(ROOT, 'stage_execution_service.py').read_text(encoding='utf-8')
+        orchestrator = stage_execution_source()
         self.assertIn('poll_incremental(session, project_context(project)', orchestrator)
 
     def test_cloud_video_consumes_context_and_l3_injects_it(self):
@@ -135,7 +136,7 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         self.assertIn('ProjectContext', source)
         self.assertIn("context.root/'cloud_video'", source)
         self.assertNotIn('ProjectContext(', source)
-        orchestrator = Path(ROOT, 'stage_execution_service.py').read_text(encoding='utf-8')
+        orchestrator = stage_execution_source()
         self.assertIn('session_folder(project_context(project)', orchestrator)
         self.assertIn('saved_provider_key(project_context(project)', orchestrator)
 
@@ -155,7 +156,7 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         self.assertIn('ProjectContext', source)
         self.assertIn('isinstance(context, ProjectContext)', source)
         self.assertNotIn('ProjectContext(', source)
-        orchestrator = Path(ROOT, 'stage_execution_service.py').read_text(encoding='utf-8')
+        orchestrator = stage_execution_source()
         self.assertIn('def keyframe_image_prompt(', orchestrator)
         self.assertIn('image_prompt(source, project_context(project)', orchestrator)
 
@@ -165,7 +166,7 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         self.assertIn('def _context(value)', source)
         self.assertIn('isinstance(value, ProjectContext)', source)
         self.assertNotIn('ProjectContext(', source)
-        orchestrator = Path(ROOT, 'stage_execution_service.py').read_text(encoding='utf-8')
+        orchestrator = stage_execution_source()
         self.assertIn('set_override(project_context(project)', orchestrator)
         self.assertIn('dispatch(project_context(project)', orchestrator)
         self.assertIn('def previs_entries(', orchestrator)
@@ -176,7 +177,7 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         self.assertIn('def _context(value)', source)
         self.assertIn('isinstance(value, ProjectContext)', source)
         self.assertNotIn('ProjectContext(', source)
-        orchestrator = Path(ROOT, 'stage_execution_service.py').read_text(encoding='utf-8')
+        orchestrator = stage_execution_source()
         self.assertIn('def storyboard_catalog(', orchestrator)
         self.assertIn('catalog(project_context(project)', orchestrator)
 
@@ -186,7 +187,7 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         self.assertIn('def _context(value)', source)
         self.assertIn('audio(_context(context).root)', source)
         self.assertNotIn('ProjectContext(', source)
-        orchestrator = Path(ROOT, 'stage_execution_service.py').read_text(encoding='utf-8')
+        orchestrator = stage_execution_source()
         self.assertIn('def reusable_tts_full_track(', orchestrator)
         self.assertIn('publish_full_track(project_context(project)', orchestrator)
         self.assertIn('reusable_full_track(project_context(project)', orchestrator)
@@ -197,7 +198,7 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         self.assertIn('def _context(value)', source)
         self.assertIn('_context(context).root', source)
         self.assertNotIn('ProjectContext(', source)
-        orchestrator = Path(ROOT, 'stage_execution_service.py').read_text(encoding='utf-8')
+        orchestrator = stage_execution_source()
         self.assertIn('def storyboard_working_source(', orchestrator)
         self.assertIn('def retire_storyboard(', orchestrator)
         self.assertIn('def refresh_storyboard_studios(', orchestrator)
@@ -208,7 +209,7 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         self.assertIn('def _context(value)', source)
         self.assertIn('_context(context).root', source)
         self.assertNotIn('ProjectContext(', source)
-        orchestrator = Path(ROOT, 'stage_execution_service.py').read_text(encoding='utf-8')
+        orchestrator = stage_execution_source()
         self.assertIn('def white_model_shot_directory(', orchestrator)
         self.assertIn('shot_directory(project_context(project)', orchestrator)
 

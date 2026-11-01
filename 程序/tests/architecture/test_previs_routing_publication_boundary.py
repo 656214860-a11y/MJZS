@@ -2,6 +2,7 @@
 import ast
 from pathlib import Path
 import unittest
+from tests.architecture._scan import stage_execution_source
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -23,7 +24,7 @@ class PrevisRoutingPublicationBoundaryTests(unittest.TestCase):
         self.assertIn('from stage_execution_service import dispatch_stage_previs', page)
         self.assertNotIn('previs_routing.set_override(', page)
         self.assertNotIn('previs_routing.dispatch(', page)
-        service = (ROOT / 'stage_execution_service.py').read_text(encoding='utf-8')
+        service = stage_execution_source()
         self.assertIn('def save_stage_previs_override(', service)
         self.assertIn('def dispatch_stage_previs(', service)
 

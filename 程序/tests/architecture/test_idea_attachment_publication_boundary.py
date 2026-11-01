@@ -3,6 +3,8 @@
 import ast
 import os
 import unittest
+import io
+from tests.architecture._scan import stage_execution_source
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -20,7 +22,7 @@ class IdeaAttachmentPublicationBoundaryTests(unittest.TestCase):
         self.assertNotIn('save_text', calls)
 
     def test_l3_injects_stage_text_publisher_and_controller_uses_l3(self):
-        with open(os.path.join(ROOT, 'stage_execution_service.py'), encoding='utf-8') as handle:
+        with io.StringIO(stage_execution_source()) as handle:
             source = handle.read()
         self.assertIn('def archive_idea_attachments(', source)
         self.assertIn('def stage_idea_attachment_reference(', source)

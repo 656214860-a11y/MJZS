@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 from tests.architecture._layers import LAYERS
+from tests.architecture._scan import stage_execution_source
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -23,7 +24,7 @@ class JsonIoBoundaryTests(unittest.TestCase):
         self.assertNotIn('path.read_text(', source)
         self.assertNotIn('json.dump(', source)
 
-        stage = (ROOT / 'stage_execution_service.py').read_text(encoding='utf-8')
+        stage = stage_execution_source()
         facade = (ROOT / 'previs_progress.py').read_text(encoding='utf-8')
         self.assertIn('def previs_progress_gateway()', stage)
         self.assertIn('def publish_stage_previs_progress(', stage)

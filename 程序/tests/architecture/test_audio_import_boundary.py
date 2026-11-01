@@ -4,6 +4,7 @@ import ast
 import unittest
 
 from tests.architecture._scan import ROOT
+from tests.architecture._scan import stage_execution_source
 
 
 class AudioImportBoundaryTests(unittest.TestCase):
@@ -14,7 +15,7 @@ class AudioImportBoundaryTests(unittest.TestCase):
         delegated = [node for node in ast.walk(method) if isinstance(node, ast.Call)
                      and isinstance(node.func, ast.Name) and node.func.id == 'import_stage_audio']
         self.assertEqual(len(delegated), 1)
-        orchestration = (ROOT / 'stage_execution_service.py').read_text(encoding='utf-8')
+        orchestration = stage_execution_source()
         self.assertIn("return import_audio(project, source, publish=media_import_publisher(project, 'audio'))", orchestration,
                       '生产音频导入必须由 L3 注入统一媒体校验及流式发布器')
         self.assertIn('return publish_imported_media(target, source, lambda temporary: validate_import(temporary, config, kind), kind)', orchestration)

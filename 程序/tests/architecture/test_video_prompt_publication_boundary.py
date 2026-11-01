@@ -2,6 +2,7 @@
 import ast
 import os
 import unittest
+from tests.architecture._scan import stage_execution_source
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -46,7 +47,7 @@ class VideoPromptPublicationBoundaryTests(unittest.TestCase):
 
     def test_l2_requires_l3_publishers_for_legacy_and_import_paths(self):
         source = open(os.path.join(ROOT, 'video_prompt_publication.py'), encoding='utf-8').read()
-        stage = open(os.path.join(ROOT, 'stage_execution_service.py'), encoding='utf-8').read()
+        stage = stage_execution_source()
         self.assertIn('def _publish_legacy_bundle(artifacts, *, publish_bundle=None)', source)
         self.assertIn('def _import_gateway(gateway)', source)
         self.assertNotIn('save_bytes(', source)

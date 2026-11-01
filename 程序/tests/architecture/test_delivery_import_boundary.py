@@ -1,6 +1,7 @@
 import ast
 import os
 import unittest
+from tests.architecture._scan import stage_execution_source
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -12,7 +13,7 @@ class DeliveryImportBoundaryTests(unittest.TestCase):
         method = next(node for node in cls.body if isinstance(node, ast.FunctionDef) and node.name == 'final_import')
         calls = [node for node in ast.walk(method) if isinstance(node, ast.Call) and getattr(node.func, 'id', '') == 'import_delivery_master']
         self.assertEqual(len(calls), 1)
-        service = open(os.path.join(ROOT, 'stage_execution_service.py'), encoding='utf-8').read()
+        service = stage_execution_source()
         self.assertIn("publish=media_import_publisher(project, 'video')", service,
                       '生产交付导入必须由 L3 注入统一媒体校验及流式发布器')
         self.assertIn('return publish_imported_media(target, source, lambda temporary: validate_import(temporary, config, kind), kind)', service)

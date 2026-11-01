@@ -3,6 +3,8 @@
 import ast
 import os
 import unittest
+import io
+from tests.architecture._scan import stage_execution_source
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -35,7 +37,7 @@ class HandoffPublicationBoundaryTests(unittest.TestCase):
             text = handle.read()
         source = ast.get_source_segment(text, _method(ast.parse(text), 'MediaPagesMixin', 'handoff'))
         self.assertIn('publish_stage_handoff_bundle(', source)
-        with open(os.path.join(ROOT, 'stage_execution_service.py'), encoding='utf-8') as handle:
+        with io.StringIO(stage_execution_source()) as handle:
             service = handle.read()
         self.assertIn('def publish_stage_handoff_bundle(', service)
         self.assertIn('publish=publish_handoff_bundle', service)
@@ -55,7 +57,7 @@ class HandoffPublicationBoundaryTests(unittest.TestCase):
         calls = {getattr(node.func, 'id', '') for node in ast.walk(marker) if isinstance(node, ast.Call)}
         self.assertIn('publish', calls)
         self.assertNotIn('save', calls)
-        with open(os.path.join(ROOT, 'stage_execution_service.py'), encoding='utf-8') as handle:
+        with io.StringIO(stage_execution_source()) as handle:
             source = handle.read()
         self.assertIn("write_dir(Path(project), 'edit')", source)
         self.assertIn('publish_stage_text(', source)

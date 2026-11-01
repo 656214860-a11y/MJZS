@@ -3,6 +3,7 @@ import ast
 import os
 import unittest
 from pathlib import Path
+from tests.architecture._scan import stage_execution_source
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -29,7 +30,7 @@ class ConfirmGatesJsonBoundaryTests(unittest.TestCase):
                        for name in ('desktop.py', 'desktop_automation_tick.py'))
         self.assertIn('from stage_execution_service import record_stage_confirmation', l4)
         self.assertNotIn('from confirm_gates import record', l4)
-        service = (Path(ROOT) / 'stage_execution_service.py').read_text(encoding='utf-8')
+        service = stage_execution_source()
         self.assertIn('def record_stage_confirmation(', service)
         self.assertIn("publish=confirm_gates_gateway()['publish_json']", service)
 
