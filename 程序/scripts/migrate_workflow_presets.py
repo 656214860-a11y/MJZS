@@ -113,6 +113,19 @@ def markdown_report(rows):
     return '\n'.join(lines) + '\n'
 
 
+def snapshot(project, program, stamp=None):
+    """U10：回写前把项目 skill_config.json 原样复制到 data/config_snapshots，返回快照路径（无原文件返回 None）。"""
+    source = Path(project) / stage_config.CONFIG_NAME
+    if not source.is_file():
+        return None
+    stamp = stamp or __import__('time').strftime('%Y%m%d_%H%M%S')
+    folder = Path(program) / 'data' / 'config_snapshots'
+    folder.mkdir(parents=True, exist_ok=True)
+    target = folder / ('%s_%s_%s' % (Path(project).name, stamp, stage_config.CONFIG_NAME))
+    __import__('shutil').copy2(source, target)
+    return target
+
+
 def apply(project):
     name, hits, _total = candidate(project)
     if not name or not hits:
@@ -147,6 +160,10 @@ def main(argv=None):
         return 0
     print(json.dumps({'mode': 'apply', 'projects': rows}, ensure_ascii=False, indent=2))
     if args.apply:
+        for row in rows:
+            saved = snapshot(row['project'], program)
+            if saved:
+                print('snapshot=%s' % saved)
         changed = sum(1 for row in rows if apply(Path(row['project'])))
         print('changed=%d' % changed)
     return 0

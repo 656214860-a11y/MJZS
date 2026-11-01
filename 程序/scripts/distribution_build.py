@@ -17,6 +17,7 @@ import hashlib
 import json
 import re
 import shutil
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -155,6 +156,19 @@ def _version() -> str:
         return ''
 
 
+def _git_binding(base) -> dict:
+    """U3：分发清单绑定的提交哈希与轮次（取自 HEAD 提交标题 R<N>:）；读不到就留空，不阻断构建。"""
+    def git(*args):
+        try:
+            done = subprocess.run(['git', *args], cwd=base, capture_output=True, text=True,
+                                  encoding='utf-8', errors='replace', timeout=20)
+            return done.stdout.strip() if done.returncode == 0 else ''
+        except (OSError, subprocess.SubprocessError):
+            return ''
+    match = re.match(r'R([0-9]+)[:：]', git('log', '-1', '--format=%s'))
+    return {'commit': git('rev-parse', 'HEAD'), 'round': int(match.group(1)) if match else None}
+
+
 def build(destination, root=ROOT, manifest=None, allow_undecided=False) -> dict:
     """把清单内的文件复制到全新输出目录，并写版本与逐文件摘要；源目录一个字节都不改。"""
     manifest = manifest or parse_manifest()
@@ -182,7 +196,7 @@ def build(destination, root=ROOT, manifest=None, allow_undecided=False) -> dict:
         shutil.copy2(source, target)
         entries.append({'path': relative, 'bytes': source.stat().st_size,
                         'sha256': _sha256(source)})
-    report = {'version': _version(),
+    report = {'version': _version(), **_git_binding(base),
               'generated_at': datetime.now().isoformat(timespec='seconds'),
               'root': str(base), 'files': len(entries),
               'bytes': sum(item['bytes'] for item in entries),
