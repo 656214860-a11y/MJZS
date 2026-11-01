@@ -962,6 +962,8 @@ class _ModelManager:
         name = item.get('label') or model_id
         presets = '、'.join('%s「%s」' % pair for pair in self.pet.pool_model_presets(model_id))
         notice = '\n\n这些 SKILL 预设用的是它，删除后模型改为「自动」：' + presets if presets else ''
+        stages = '、'.join(self.pet.pool_model_stages(model_id))
+        notice += ('\n\n当前项目这些阶段选的是它，删除后改为「自动」：' + stages) if stages else ''
         if not self.pet.confirm_start('删除模型', '把「%s」从模型池里删掉？（.env 里的密钥不动）' % name + notice):
             return None
         self.pet.delete_pool_model(model_id)
@@ -971,6 +973,8 @@ class _ModelManager:
             return None
         self.state['id'] = ''
         self.load_rows()
+        # 表单清成「新建」：还停在被删那条的话，紧接着点「保存并关闭」会把它原样存回去。
+        self.new_one()
         self.hint.set('已删除「%s」。' % name)
         return model_id
 

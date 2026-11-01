@@ -664,10 +664,12 @@ def sync_models(project, program=None):
         return []
     try:
         records = model_pool.pool(program=program)
-        missing = [value for value in wanted if value not in records]
+        data = model_pool.raw(program=program)
+        # 用户在模型管理里删掉的不补：否则阶段里还选着它，一开项目就复活成一条缺根地址的 API 记录。
+        deleted = model_pool.deleted_ids(data)
+        missing = [value for value in wanted if value not in records and value not in deleted]
         if not missing:
             return []
-        data = model_pool.raw(program=program)
         for value in missing:
             data = model_pool.upsert(data, {'label': value, 'model': value})
         model_pool.store(data, program)

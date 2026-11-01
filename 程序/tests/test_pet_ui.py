@@ -3789,6 +3789,30 @@ class ModelPoolTests(PetTestCase):
         win._pet_reload()
         self.assertNotIn('claude-desktop-app', win._pet_tree.get_children())
 
+    def test_save_and_close_right_after_delete_does_not_save_it_back(self):
+        """R2166：删完表单还停在那一条，紧接着点「保存并关闭」会把它按表单内容存回模型池。"""
+        win = self.pet.open_model_manager()
+        self.addCleanup(lambda: win.winfo_exists() and win.destroy())
+        self.pet.asker = lambda _title, _text: True
+        self.pet.save_pool({'label': '删后关窗', 'model': 'delete-then-close',
+                            'base_url': 'http://127.0.0.1:8000/v1', 'key_env': '', 'wire_api': 'chat'})
+        win._pet_reload()
+        win._pet_tree.selection_set('delete-then-close')
+        win._pet_tree.event_generate('<<TreeviewSelect>>')
+        self.assertEqual(win._pet_entries['model'].get(), 'delete-then-close')
+        self.assertEqual(win._pet_delete_one(), 'delete-then-close')
+        self.assertEqual(win._pet_entries['model'].get(), '', '删掉之后表单不能还停在那一条')
+
+        def walk(widget):
+            for child in widget.winfo_children():
+                yield child
+                yield from walk(child)
+        close = [child for child in walk(win)
+                 if child.winfo_class() == 'TButton' and str(child.cget('text')) == '保存并关闭']
+        close[0].invoke()
+        self.assertFalse(win.winfo_exists())
+        self.assertNotIn('delete-then-close', model_pool.pool(program=self.pet.program))
+
     def test_the_manager_refills_a_custom_provider_name(self):
         """自定义厂商保存后重新选中，输入框必须仍显示用户填写的名字。"""
         win = self.pet.open_model_manager()

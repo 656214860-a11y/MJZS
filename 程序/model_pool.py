@@ -287,7 +287,7 @@ def pool(config=None, program=None):
         if item['model']:
             out[str(model_id)] = item
     # 旧配置补齐桌面入口，但尊重用户在模型管理中明确删除的记录。
-    deleted = data.get('deleted_desktop_models') or []
+    deleted = deleted_ids(data)
     for model_id, value in BUILTIN:
         if model_id in DESKTOP_ENGINES and model_id not in out and model_id not in deleted:
             out[model_id] = record(value, model_id)
@@ -512,9 +512,17 @@ def upsert(data, value, model_id=""):
     items[key] = updated
     result = dict(data)
     result['models'] = items
-    if key in DESKTOP_ENGINES and 'deleted_desktop_models' in result:
+    if 'deleted_desktop_models' in result:
         result['deleted_desktop_models'] = [item for item in result['deleted_desktop_models'] if item != key]
     return result
+
+
+def deleted_ids(data):
+    """用户在模型管理里明确删掉的模型 ID：出厂桌面入口不再补齐，阶段配置同步也不再补回。
+
+    键名沿用只记桌面入口时的 ``deleted_desktop_models``，旧配置不用迁移；重新保存同一 ID 即解除。
+    """
+    return set((data or {}).get('deleted_desktop_models') or [])
 
 
 def remove(data, model_id):
@@ -524,8 +532,8 @@ def remove(data, model_id):
     items.pop(key, None)
     result = dict(data)
     result['models'] = items
-    if key in DESKTOP_ENGINES:
-        result['deleted_desktop_models'] = sorted(set(data.get('deleted_desktop_models') or []) | {key})
+    if key:
+        result['deleted_desktop_models'] = sorted(deleted_ids(data) | {key})
     return result
 
 
