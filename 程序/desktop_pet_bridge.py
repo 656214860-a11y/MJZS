@@ -1,27 +1,16 @@
 """三虎桥接（从 desktop.Desktop 原样迁出，SPLITD 结构治理轮）。
 
 方法体未改、self 语义不变；Desktop 通过继承 PetBridgeMixin 获得。PET_STAGE_POLL 与
-UNATTENDED_SWITCH 是仅被本组方法使用的模块级对照表，随迁并在 desktop.py 按原名转发，
+UNATTENDED_SWITCH 的唯一定义在 desktop_auto_state（R2230 J15），desktop.py 仍按原名转发，
 保持 ``from desktop import PET_STAGE_POLL`` 等既有入口不变。
 """
 import time
 
 from desktop_auto_flows import UNATTENDED_BACKOFF_FLOOR
-from desktop_auto_state import flow_get, flow_set
+from desktop_auto_state import PET_STAGE_POLL, UNATTENDED_SWITCH, flow_get, flow_set
 from desktop_page_registry import PAGES
 from storyboard_paths import media_root
 import stage_handler_registry
-
-# 宠物「自动推进」用的对照表（第 23 期）：制作阶段 → 那一步的无人值守轮询名。
-# 只登记真的带无人值守轮询的阶段；剧本与配音没有轮询，不在表里（宠物问到时老实说没有）。
-PET_STAGE_POLL={'storyboard':'auto_adopt','assets':'auto_asset','final':'auto_final','keyframe':'auto_keyframe',
-                'previs':'auto_previs','video':'auto_video','edit':'auto_edit','delivery':'auto_handoff'}
-# 第 67 期任务 5：无人值守轮询名 → 打开它的那一把开关（project_settings 里的 set_auto_*）。
-# 用户切到自动档之后，三虎要「自动开始每个阶段的任务」：先把这一步的开关替他打开，再起跑。
-UNATTENDED_SWITCH={'auto_adopt':'set_auto_adopt','auto_asset':'set_auto_asset','auto_final':'set_auto_final',
-                   'auto_keyframe':'set_auto_keyframe','auto_previs':'set_auto_previs','auto_video':'set_auto_video',
-                   'auto_edit':'set_auto_edit','auto_handoff':'set_auto_handoff'}
-
 
 class PetBridgeMixin:
     def pet_show_text(self,title,text,receipt=''):
