@@ -13,7 +13,7 @@ from workflow_settings import find_program,gui_claude_program,GUI_CLAUDE_CLI_HIN
 from workflow_process_registry import (register_process, forget_process, processes,
                                        reserve_process_slot, release_process_slot,
                                        request_process_slot, claim_process_slot,
-                                       cancel_project_slot_requests, cancel_slot_request)
+                                       cancel_project_slot_requests, cancel_project_requests, cancel_slot_request)
 from platform_tools import communicate_or_kill, duration_text, hidden_console_flags, launch_windows_app, terminate_process_tree
 from workflow_context_budget import ensure_request_context
 import client_profiles
@@ -130,6 +130,7 @@ def terminate(project):
     返回被结束的进程号列表，空列表代表当前没有可结束的制作进程。
     """
     cancel_project_slot_requests(project)
+    cancel_project_requests(project)
     killed=[]
     for process in running(project):
         terminate_process_tree(process)

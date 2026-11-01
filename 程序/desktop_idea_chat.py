@@ -20,6 +20,7 @@ from tkinter import ttk
 import pet_state
 import ui_plugin_registry
 from desktop_idea_deferred import IdeaDeferredMixin
+from desktop_storyboard_direct import run_storyboard_direct as _run_storyboard_direct
 from idea_chat_controller import bubble_timestamp, collapse_preview
 from platform_tools import open_target
 from ui_tokens import CHAR_WIDTH, TEXT_ROWS, COLORS, FONTS, SPACING
@@ -866,6 +867,11 @@ class _FlowAgentLaunch:
             from workflow_settings import validate_selected_skills
             validate_selected_skills(self.host.root, self.stage)
         self.config=self._config if self._config is not None else current(self.host.root,self.stage);self.followup=self.followup if self.followup is not None else self.prompt
+        if self.stage=='storyboard' and not self.intake_only:
+            # 唯一分流点（REQ-S03-53）：选了模型池里的 API 模型就由程序直连，不再经 Qwen Code。
+            from storyboard_direct_api import direct_model
+            if direct_model(self.config):
+                _run_storyboard_direct(self.host,self.config);return
         if self.stage == 'writing' and not self.intake_only:
             from workflow_settings import freeze_skills
             self.config = freeze_skills(self.config)
