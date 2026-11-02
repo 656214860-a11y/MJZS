@@ -385,7 +385,42 @@ def remove(root, index, model=None, *, gateway=None):
     records.append({'row': removed, 'index': original_index,
                     'model': str(model or '').strip(), 'model_id': chat_model(model).model_id, 'deleted_at': _stamp()})
     gateway['publish_json'](trash, {'version': 1, 'messages': records[-100:]})
-    return save_rows(root, rows, model=model, gateway=gateway)
+    saved = save_rows(root, rows, model=model, gateway=gateway)
+    _purge_copies(root, removed, keep=model_history_path(root, model), gateway=gateway)
+    return saved
+
+
+def _same_message(left, right):
+    """同一条消息的不同副本：忽略落盘时补写的 ``model_id``。"""
+    return ({k: v for k, v in left.items() if k != 'model_id'}
+            == {k: v for k, v in right.items() if k != 'model_id'})
+
+
+def _purge_copies(root, removed, *, keep, gateway):
+    """旧版目录改名／迁移会让同一条消息在项目里留下多份副本；
+    「全部」视图把它们合并显示，只删一份会让这条消息从别的副本里重新冒出来。
+    这里把除已处理文件外的其余聊天文件里相同的整条消息一并移除。"""
+    from project_stages import writing
+    base = writing(_context(root).root)
+    paths = [history_path(root)]
+    if base.is_dir():
+        paths.extend(base.glob('*/*/' + FOLDER + '/' + CHAT_NAME))
+    for path in dict.fromkeys(Path(item) for item in paths):
+        if path == Path(keep) or not path.is_file():
+            continue
+        try:
+            data = gateway['read_json'](path)
+        except (OSError, ValueError):
+            continue
+        rows = data.get('messages') if isinstance(data, dict) else data
+        if not isinstance(rows, list):
+            continue
+        left = [row for row in rows if not (isinstance(row, dict) and _same_message(row, removed))]
+        if len(left) == len(rows):
+            continue
+        payload = dict(data, messages=left) if isinstance(data, dict) else {'version': 1, 'messages': left}
+        gateway['publish_json'](path, payload)
+        _history_cache.pop(path, None)
 
 
 def remove_all(root, model, *, gateway=None):

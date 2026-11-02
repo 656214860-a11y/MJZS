@@ -2048,6 +2048,29 @@ class BubbleLayoutTests(_Harness):
                 self.assertIn('清屏压缩', labels)
             self.assertFalse(hasattr(d, 'delete_all_bubble_messages'))
 
+    def test_delete_in_all_view_removes_duplicate_copies_from_legacy_folders(self):
+        """旧版目录残留同一条消息的多份副本时，「全部」视图删除后不得从别的副本里重新冒出来。"""
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            d, win = self.desktop(proj)
+            row = {'role': 'user', 'text': '重复副本消息', 'model': '模型甲', 'at': '20261009_042000_000001'}
+            idea_chat.save_rows(proj, [row], model='模型甲')
+            idea_chat.save_rows(proj, [dict(row)])
+            stray = idea_chat.model_history_path(proj, '模型甲').parent.parent.parent.parent / '旧目录' / '模型甲' / idea_chat.FOLDER
+            stray.mkdir(parents=True)
+            (stray / idea_chat.CHAT_NAME).write_text(json.dumps({'messages': [dict(row, model_id='x')]}), encoding='utf-8')
+            idea_chat.append(proj, 'user', '保留的其他消息', model='模型乙')
+            d.show(0)
+            self.settle_script_page(win)
+            d.select_idea_model('')
+            self.settle_script_page(win)
+            index = next(i for i, r in enumerate(d._idea_display_rows()) if r.get('text') == '重复副本消息')
+            self.assertEqual(d.delete_bubble_message(index), index)
+            _idea_chat._history_cache.clear()
+            texts = [r.get('text') for r in idea_chat.load(proj, model='')]
+            self.assertNotIn('重复副本消息', texts)
+            self.assertIn('保留的其他消息', texts)
+
     def test_delete_message_targets_selected_model_tab_not_configured_model(self):
         """目录条选中 A 模型时，删除只动 A 的记录；目录条随记录清空去掉该模型标签。"""
         with tempfile.TemporaryDirectory() as td:
