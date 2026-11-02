@@ -28,7 +28,7 @@ from idea_document_paths import (
 from idea_transcript import (
     CHAT_NAME, FOLDER, _HISTORY_CACHE_LIMIT, _all_rows, _history_cache, _read_rows, _row_indexes,
     _stamp, _visible_claude_text, append, chat_model, compact_context, deleted_history_path,
-    history_path, load, model_history_path, remove, remove_all, repair_internal_replies, replace,
+    history_path, load, model_history_path, remove, remove_all, remove_message, repair_internal_replies, replace,
     restore_latest_removed, save_rows)
 
 RAW_SCRIPT_NAME = 'script_raw.md'

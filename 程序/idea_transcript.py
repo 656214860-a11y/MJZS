@@ -390,6 +390,57 @@ def remove(root, index, model=None, *, gateway=None):
     return saved
 
 
+def _chat_files(root):
+    """项目里所有聊天记录文件：旧版统一文件＋各 Provider／模型目录（含旧版改名残留）。"""
+    from project_stages import writing
+    base = writing(_context(root).root)
+    paths = [history_path(root)]
+    if base.is_dir():
+        paths.extend(base.glob('*/*/' + FOLDER + '/' + CHAT_NAME))
+    return [path for path in dict.fromkeys(Path(item) for item in paths) if path.is_file()]
+
+
+def remove_message(root, row, *, gateway=None):
+    """按整条内容删除一条消息：项目内所有聊天文件里的相同副本一并移除，并记入该模型的最近删除。
+
+    气泡框「全部」与按模型视图都按合并后的记录显示，消息可能落在旧版目录里；按单个
+    模型文件的下标删除会删不到或只删掉其中一份。返回移除的副本数，没有找到时报错。
+    """
+    gateway = _require_gateway(gateway)
+    if not isinstance(row, dict):
+        raise ValueError('这条对话已不存在，请刷新后重试')
+    removed = 0
+    for path in _chat_files(root):
+        try:
+            data = gateway['read_json'](path)
+        except (OSError, ValueError):
+            continue
+        rows = data.get('messages') if isinstance(data, dict) else data
+        if not isinstance(rows, list):
+            continue
+        left = [item for item in rows if not (isinstance(item, dict) and _same_message(item, row))]
+        if len(left) == len(rows):
+            continue
+        removed += len(rows) - len(left)
+        payload = dict(data, messages=left) if isinstance(data, dict) else {'version': 1, 'messages': left}
+        gateway['publish_json'](path, payload)
+        _history_cache.pop(path, None)
+    if not removed:
+        raise ValueError('这条对话已不存在，请刷新后重试')
+    model = str(row.get('model') or '').strip()
+    trash = deleted_history_path(root, model=model or None)
+    try:
+        history = gateway['read_json'](trash) if trash.is_file() else {}
+    except (OSError, ValueError):
+        history = {}
+    records = history.get('messages') if isinstance(history, dict) else []
+    records = records if isinstance(records, list) else []
+    records.append({'row': dict(row), 'index': 0, 'model': model,
+                    'model_id': chat_model(model).model_id if model else '', 'deleted_at': _stamp()})
+    gateway['publish_json'](trash, {'version': 1, 'messages': records[-100:]})
+    return removed
+
+
 def _same_message(left, right):
     """同一条消息的不同副本：忽略落盘时补写的 ``model_id``。"""
     return ({k: v for k, v in left.items() if k != 'model_id'}
