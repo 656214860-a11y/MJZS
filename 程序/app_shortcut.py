@@ -56,7 +56,30 @@ def powershell():
     return None
 
 
-def script(link, target, arguments, workdir, icon, description=''):
+# 给 .lnk 写 System.AppUserModel.ID，与窗口里 app_icon.set_app_id 设的一致：
+# 任务栏才认得运行窗口就是这份快捷方式，固定后沿用它的图标与启动方式（不再变成 Python 图标）。
+APP_ID_CODE = '''Add-Type -TypeDefinition @'
+using System; using System.Runtime.InteropServices;
+[ComImport, Guid("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+public interface IPropStore { int GetCount(out uint c); int GetAt(uint i, out PropKey k);
+ int GetValue(ref PropKey k, out PropVar v); int SetValue(ref PropKey k, ref PropVar v); int Commit(); }
+[StructLayout(LayoutKind.Sequential, Pack = 4)] public struct PropKey { public Guid fmtid; public uint pid; }
+[StructLayout(LayoutKind.Explicit)] public struct PropVar { [FieldOffset(0)] public ushort vt; [FieldOffset(8)] public IntPtr p; }
+public static class LinkAppId {
+ [DllImport("shell32.dll", CharSet = CharSet.Unicode, PreserveSig = false)]
+ static extern void SHGetPropertyStoreFromParsingName(string path, IntPtr bc, int flags, ref Guid riid,
+  [MarshalAs(UnmanagedType.Interface)] out IPropStore store);
+ public static void Set(string path, string id) {
+  Guid iid = new Guid("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99"); IPropStore store;
+  SHGetPropertyStoreFromParsingName(path, IntPtr.Zero, 2, ref iid, out store);
+  PropKey key = new PropKey(); key.fmtid = new Guid("9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3"); key.pid = 5;
+  PropVar value = new PropVar(); value.vt = 31; value.p = Marshal.StringToCoTaskMemUni(id);
+  try { Marshal.ThrowExceptionForHR(store.SetValue(ref key, ref value)); Marshal.ThrowExceptionForHR(store.Commit()); }
+  finally { Marshal.FreeCoTaskMem(value.p); Marshal.ReleaseComObject(store); } } }
+'@'''
+
+
+def script(link, target, arguments, workdir, icon, description='', app_id=app_icon.APP_ID):
     """生成那段建快捷方式的 PowerShell 脚本（纯 ASCII）。"""
     return '\n'.join([
         "$ErrorActionPreference = 'Stop'",
@@ -68,6 +91,8 @@ def script(link, target, arguments, workdir, icon, description=''):
         '$lnk.IconLocation = %s' % ps_text(icon),
         '$lnk.Description = %s' % ps_text(description or NAME),
         '$lnk.Save()',
+        APP_ID_CODE,
+        '[LinkAppId]::Set(%s, %s)' % (ps_text(link), ps_text(app_id)),
         ''])
 
 
@@ -225,19 +250,18 @@ def refresh_shell():
     return moved
 
 
-def ensure(program=None, name=NAME, desktop=None):
-    """建好桌面与程序目录两份快捷方式；返回建出来的路径表（建不出来的那份跳过）。"""
+def ensure(program=None, name=NAME, folder=None):
+    """只在根目录建一份快捷方式（用户固定到任务栏的唯一来源）；返回建出来的路径表。"""
     program = Path(program or PROGRAM)
     if not (root_dir(program) / ICON_NAME).is_file():
         install_icon(program, force=False)      # 设计图丢了就用算出来的那张补上
     exe, arguments, workdir = runner(program)
     icon = str(shell_icon(icon_file(program)))
     made = []
-    for folder in (Path(desktop) if desktop is not None else desktop_dir(), program):
-        link = make_shortcut(folder / (name + '.lnk'), str(exe), arguments, str(workdir), icon,
-                       description=f'{APP_NAME} · 三虎陪着您做漫剧')
-        if link is not None:
-            made.append(link)
+    link = make_shortcut(Path(folder or root_dir(program)) / (name + '.lnk'), str(exe), arguments,
+                         str(workdir), icon, description=f'{APP_NAME} · 三虎陪着您做漫剧')
+    if link is not None:
+        made.append(link)
     return made
 
 
