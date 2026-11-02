@@ -460,10 +460,12 @@ class IdeaBubblesMixin:
         from stage_execution_service import project_context
         import idea_chat
         own=idea_chat.load(project_context(root),model=selected,gateway=self.idea_chat_gateway())
-        def plain(row):
-            return json.dumps({k:v for k,v in row.items() if k!='model_id'},sort_keys=True,ensure_ascii=False,default=str)
-        seen={plain(row) for row in own}
-        extra=[row for row in all_rows if str(row.get('model') or '').strip()==selected and plain(row) not in seen]
+        def labelled(rows):
+            return [row for row in rows if isinstance(row,dict) and str(row.get('model') or '').strip()==selected]
+        candidates=labelled(all_rows)
+        # 合并记录已去重：署名为它的条数不多于会话里的，就没有残留可补（最常见的情况，免得逐条比对）。
+        if len(candidates)<=len(labelled(own)):return own
+        extra=[row for row in candidates if not any(idea_chat.same_message(row,mine) for mine in own)]
         if not extra:return own
         return sorted(own+extra,key=lambda row:str(row.get('at') or ''))
     def idea_view_rows(self, root, model, resolving_model):
