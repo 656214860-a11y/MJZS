@@ -2025,69 +2025,52 @@ class BubbleLayoutTests(_Harness):
             self.assertEqual(d.delete_bubble_message(0), 0)
             self.assertEqual(idea_chat.load(proj), [])
 
-    def test_delete_all_menu_order_and_persistent_history_removal(self):
+    def test_bubble_menu_has_no_delete_all_entry(self):
+        """删除全部信息功能已取消：气泡右键菜单不再提供，单条删除与恢复照常。"""
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)
             model = d.idea_chat_model()
             idea_chat.append(proj, 'user', '要删除的隐藏历史', model=model)
             idea_chat.append(proj, 'assistant', '要删除的回复', model=model)
-            idea_chat.append(proj, 'user', '其他模型保留', model='另一模型')
-            idea_chat.remove(proj, 1, model=model)
             d.show(0)
             self.settle_script_page(win)
             event = SimpleNamespace(widget=d.idea_log, x=8, y=8)
-            with patch.object(d, 'bubble_target_at', return_value=(0, 'bubble_0')), \
-                 patch('desktop.ContextMenu.popup', return_value='break'):
-                d.open_bubble_menu(event)
-            labels = [d._bubble_menu.entrycget(i, 'label')
-                      for i in range(d._bubble_menu.index('end') + 1)
-                      if d._bubble_menu.type(i) != 'separator']
-            self.assertNotIn('复制整条信息', labels)  # REQ-S01-66 改为消息左下角图标
-            self.assertNotIn('删除整条信息', labels)
-            self.assertEqual(labels[0], '删除全部信息')
-            with patch('desktop.confirm', return_value=False):
-                self.assertIsNone(d.delete_all_bubble_messages())
-            self.assertEqual(len(idea_chat.load(proj, model=model)), 1)
-            d.clear_bubble_view()
-            with patch('desktop.confirm', return_value=True):
-                self.assertEqual(d.delete_all_bubble_messages(), 1)
-            d.refresh_script_workspace()
-            self.settle_script_page(win)
-            self.assertNotIn('要删除的隐藏历史', self.log_text(d))
-            _idea_chat._history_cache.clear()
-            self.assertEqual(idea_chat.load(proj, model=model), [])
-            self.assertEqual(idea_chat.load(proj, model='另一模型')[0]['text'], '其他模型保留')
-            with self.assertRaisesRegex(ValueError, '没有可恢复'):
-                idea_chat.restore_latest_removed(proj, model=model)
-            self.assertTrue(list(Path(proj).rglob('恢复位置.json')))
-            d._idea_requesting = True
-            with patch('desktop.confirm') as confirmation:
-                with self.assertRaisesRegex(ValueError, '模型正在回复'):
-                    d.delete_all_bubble_messages()
-                confirmation.assert_not_called()
-            d._idea_requesting = False
+            for target in ((0, 'bubble_0'), None):
+                with patch.object(d, 'bubble_target_at', return_value=target),                      patch('desktop.ContextMenu.popup', return_value='break'):
+                    d.open_bubble_menu(event)
+                labels = [d._bubble_menu.entrycget(i, 'label')
+                          for i in range(d._bubble_menu.index('end') + 1)
+                          if d._bubble_menu.type(i) != 'separator']
+                self.assertNotIn('删除全部信息', labels)
+                self.assertNotIn('复制整条信息', labels)  # REQ-S01-66 改为消息左下角图标
+                self.assertNotIn('删除整条信息', labels)
+                self.assertIn('清屏压缩', labels)
+            self.assertFalse(hasattr(d, 'delete_all_bubble_messages'))
 
-    def test_delete_all_targets_displayed_history_when_configuration_changed(self):
+    def test_delete_message_targets_selected_model_tab_not_configured_model(self):
+        """目录条选中 A 模型时，删除只动 A 的记录；目录条随记录清空去掉该模型标签。"""
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)
-            displayed = d.idea_chat_model()
-            idea_chat.append(proj, 'assistant', '当前气泡中的历史', model=displayed)
-            idea_chat.append(proj, 'user', '其他模型的历史', model='另一模型')
+            configured = d.idea_chat_model()
+            idea_chat.append(proj, 'user', '当前配置模型的话', model=configured)
+            idea_chat.append(proj, 'assistant', '另一模型的回复', model='另一模型')
             d.show(0)
             self.settle_script_page(win)
-            self.assertIn('当前气泡中的历史', self.log_text(d))
-            with patch.object(d, 'idea_chat_model', return_value='另一模型'), \
-                 patch('desktop.confirm', return_value=True):
-                self.assertEqual(d.delete_all_bubble_messages(), 1)
-                self.settle_script_page(win)
-                self.assertNotIn('当前气泡中的历史', self.log_text(d))
-                d.show_conversation()
-                self.settle_script_page(win)
-                self.assertNotIn('当前气泡中的历史', self.log_text(d))
-            self.assertEqual(idea_chat.load(proj, model=displayed), [])
-            self.assertEqual(idea_chat.load(proj, model='另一模型')[0]['text'], '其他模型的历史')
+            d.select_idea_model('另一模型')
+            self.settle_script_page(win)
+            self.assertEqual(d.displayed_chat_model(), '另一模型')
+            labels = [c.cget('text') for c in d.idea_model_bar_inner.winfo_children()]
+            self.assertIn('另一模型', labels)
+            self.assertEqual(d.delete_bubble_message(0), 0)
+            _idea_chat._history_cache.clear()
+            self.assertEqual(idea_chat.load(proj, model='另一模型'), [])
+            self.assertEqual(idea_chat.load(proj, model=configured)[0]['text'], '当前配置模型的话')
+            self.settle_script_page(win)
+            self.assertNotEqual(d.displayed_chat_model(), '另一模型')
+            labels = [c.cget('text') for c in d.idea_model_bar_inner.winfo_children()]
+            self.assertNotIn('另一模型', labels)
 
     def test_message_actions_target_displayed_model_after_configuration_changed(self):
         with tempfile.TemporaryDirectory() as td:

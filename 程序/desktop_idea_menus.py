@@ -9,21 +9,6 @@ import tkinter as tk
 
 class IdeaMenusMixin:
     """Desktop 的创意对话菜单方法集（见模块说明）。"""
-    def delete_all_bubble_messages(self):
-        """删除当前显示模型的完整会话，含清屏隐藏的历史。"""
-        if (getattr(self,'_idea_requesting',False) or getattr(self,'_script_agent_launching',False)
-                or self.script_agent_processes()):
-            raise ValueError('模型正在回复，请先中断或等待完成，再删除全部信息。')
-        if not self.root:return
-        model=self.displayed_chat_model()
-        if not self.project_page_services.confirm(self.win,'删除全部信息',
-                       '删除当前显示的 '+model+' 的全部历史对话？\n聊天记录将移入回收站，已保存的剧本和附件保留。',dangerous=True):return
-        import idea_chat
-        count=idea_chat.remove_all(self.idea_chat_context(),model=model,gateway=self.idea_chat_gateway())
-        getattr(self,'_idea_hidden_messages',{}).pop(self.bubble_view_key(model),None)
-        self.show_conversation()
-        self.status.set('已删除当前模型全部历史对话；记录已移入回收站')
-        return count
     def open_bubble_menu(self,event):
         """消息右键菜单；点击标题、正文或展开控件都能定位同一条消息。"""
         target=self.bubble_target_at(event.widget,event)
@@ -33,11 +18,8 @@ class IdeaMenusMixin:
             if index == 'example':
                 menu.command('复制软件示例',lambda:self.copy_bubble_message('example'))
             else:
-                menu.command('删除全部信息',lambda:self.safe(self.delete_all_bubble_messages))
                 menu.command('恢复最近删除的信息',self.restore_latest_bubble_message)
             menu.separator()
-        if target is None or target[0]=='example':
-            menu.command('删除全部信息',lambda:self.safe(self.delete_all_bubble_messages))
         menu.command('清屏压缩',self.clear_bubble_view)
         self._bubble_menu=menu
         return menu.popup(event)

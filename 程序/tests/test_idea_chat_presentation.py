@@ -112,3 +112,17 @@ class DesktopDelegationTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class LocateRowTests(unittest.TestCase):
+    def test_locate_row_matches_by_content_and_occurrence(self):
+        """删除单条消息按内容与同内容出现次序定位到该模型会话下标，不依赖模型名计数。"""
+        from idea_chat_controller import locate_row
+        a = {'role': 'user', 'text': '甲', 'model': 'M1'}
+        b = {'role': 'user', 'text': '乙', 'model': 'M2'}
+        view = [b, a, a]
+        own = [a, a]
+        self.assertEqual(locate_row(view, 1, own), 0)
+        self.assertEqual(locate_row(view, 2, own), 1)
+        self.assertIsNone(locate_row(view, 0, own))
+        self.assertIsNone(locate_row(view, 9, own))

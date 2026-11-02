@@ -428,6 +428,9 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         return speaker_name(row)
     def displayed_chat_model(self):
         """所有气泡操作绑定已显示会话，不随未刷新的配置漂移。"""
+        selected=str(getattr(self,'_idea_model_filter',None) or '').strip()
+        if selected and getattr(self,'_idea_model_filter_root',None)==self.root:
+            return selected
         cached=getattr(self,'_idea_view_model_cache',None)
         return (cached[1] if isinstance(cached,tuple) and cached[0]==self.root and cached[1]
                 else self.idea_chat_model())
