@@ -499,7 +499,30 @@ def remove_all(root, model, *, gateway=None):
         finally:
             if selected and remaining and not legacy_path.exists():
                 save_rows(root, remaining, gateway=gateway)
-    return len(rows)
+    return len(rows) + _strip_model_rows(root, model, gateway=gateway)
+
+
+def _strip_model_rows(root, model, *, gateway):
+    """旧版目录改名残留里署名为该模型的记录也属于它的标签视图；一并移除，
+    否则清空后标签仍在、记录从残留文件里重新显示。返回移除条数。"""
+    label = str(model or '').strip()
+    removed = 0
+    for path in _chat_files(root):
+        try:
+            data = gateway['read_json'](path)
+        except (OSError, ValueError):
+            continue
+        rows = data.get('messages') if isinstance(data, dict) else data
+        if not isinstance(rows, list):
+            continue
+        left = [row for row in rows if not (isinstance(row, dict) and str(row.get('model') or '').strip() == label)]
+        if len(left) == len(rows):
+            continue
+        removed += len(rows) - len(left)
+        payload = dict(data, messages=left) if isinstance(data, dict) else {'version': 1, 'messages': left}
+        gateway['publish_json'](path, payload)
+        _history_cache.pop(path, None)
+    return removed
 
 
 def restore_latest_removed(root, model=None, *, gateway=None):

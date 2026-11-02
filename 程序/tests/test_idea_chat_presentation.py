@@ -69,17 +69,15 @@ class ModelBarTests(unittest.TestCase):
         ]
         self.assertEqual(icc.model_bar_items(rows), ['有时间', '无时间'])
 
-    def test_selection_defaults_to_current_model_then_falls_back_to_all(self):
+    def test_selection_without_all_tab_falls_back_to_current_then_first(self):
+        """R2350 取消「全部」标签：选中项总是有记录的模型，清空后回落当前模型或第一个标签。"""
         items = ['甲', '乙']
         self.assertEqual(icc.model_bar_selection(None, items, '乙'), '乙')
-        self.assertEqual(icc.model_bar_selection(None, items, '丙'), icc.ALL_MODELS)
+        self.assertEqual(icc.model_bar_selection(None, items, '丙'), '甲')
         self.assertEqual(icc.model_bar_selection(None, [], '甲'), icc.ALL_MODELS)
-
-    def test_selection_keeps_explicit_all_and_drops_missing_model(self):
-        items = ['甲', '乙']
-        self.assertEqual(icc.model_bar_selection(icc.ALL_MODELS, items, '甲'), icc.ALL_MODELS)
+        self.assertEqual(icc.model_bar_selection(icc.ALL_MODELS, items, '乙'), '乙')
         self.assertEqual(icc.model_bar_selection('乙', items, '甲'), '乙')
-        self.assertEqual(icc.model_bar_selection('丙', items, '甲'), icc.ALL_MODELS)
+        self.assertEqual(icc.model_bar_selection('丙', items, '甲'), '甲')
 
 
 class DesktopDelegationTests(unittest.TestCase):

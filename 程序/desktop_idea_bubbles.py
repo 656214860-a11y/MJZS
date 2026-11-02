@@ -184,16 +184,23 @@ class IdeaBubblesMixin:
         import idea_chat
         rows=self._idea_display_rows()
         if not 0<=index<len(rows):return None
-        try:idea_chat.remove_message(self.idea_chat_context(),rows[index],gateway=self.idea_chat_gateway())
+        row=rows[index]
+        try:idea_chat.remove_message(self.idea_chat_context(),row,gateway=self.idea_chat_gateway())
         except ValueError:
             self.show_conversation();self.status.set('这条消息已不存在，已刷新')
             return None
+        # 删掉某模型最后一条后它的标签会消失、视图换到别的模型；恢复仍应找回这条所属的模型。
+        self._idea_last_deleted=(self.root,str(row.get('model') or '').strip() if isinstance(row,dict) else '')
         self.show_conversation();self.status.set('已删除整条信息；可在右键菜单恢复最近删除')
         return index
     def restore_latest_bubble_message(self):
         """恢复当前模型聊天页最近删除的一条完整消息。"""
         import idea_chat
-        row=idea_chat.restore_latest_removed(self.idea_chat_context(),model=self.displayed_chat_model(),gateway=self.idea_chat_gateway())
+        last=getattr(self,'_idea_last_deleted',None)
+        model=last[1] if isinstance(last,tuple) and last[0]==self.root and last[1] else self.displayed_chat_model()
+        row=idea_chat.restore_latest_removed(self.idea_chat_context(),model=model,gateway=self.idea_chat_gateway())
+        self._idea_last_deleted=None
+        if model:self.set_idea_model_filter(model)
         self.show_conversation();self.status.set('已恢复最近删除的整条信息')
         return row
     def clear_bubble_view(self):
@@ -408,25 +415,33 @@ class IdeaBubblesMixin:
             if not scroll.winfo_manager():scroll.grid(row=1,column=0,sticky='ew')
         elif scroll.winfo_manager():scroll.grid_remove()
     def render_idea_model_bar(self, items, selected):
-        """重建模型目录条：全部标签＋每个已调用模型；选中高亮；≤1 个模型时隐藏。"""
+        """重建模型目录条：每个已调用模型一个标签（右上角 × 关闭＝清空该模型历史）；选中高亮；无记录时隐藏。"""
         bar=getattr(self,'idea_model_bar',None)
         if bar is None or not bar.winfo_exists():return
         inner=self.idea_model_bar_inner
         for child in inner.winfo_children():child.destroy()
-        if len(items)<2:
+        if not items:
             if bar.winfo_manager():bar.pack_forget()
             return
         scroll=getattr(self,'idea_scroll',None)
         if not bar.winfo_manager():
             bar.pack(side='top',fill='x',before=scroll) if scroll is not None else bar.pack(side='top',fill='x')
-        for key,label in [(ALL_MODELS,'全部')]+[(name,name) for name in items]:
-            active=key==selected
-            tag=tk.Label(inner,text=label,font=MODEL_BAR_FONT,cursor='hand2',
-                         bg=COLORS['primary_subtle'] if active else COLORS['background_card'],
+        for name in items:
+            active=name==selected
+            bg=COLORS['primary_subtle'] if active else COLORS['background_card']
+            tab=tk.Frame(inner,bg=bg,cursor='hand2')
+            tab.pack(side='left',padx=(SPACING['none'],SPACING['xs']))
+            tag=tk.Label(tab,text=name,font=MODEL_BAR_FONT,bg=bg,cursor='hand2',
                          fg=COLORS['primary'] if active else COLORS['text_secondary'],
                          padx=SPACING['sm'],pady=SPACING['xs'])
-            tag.pack(side='left',padx=(SPACING['none'],SPACING['xs']))
-            tag.bind('<Button-1>',lambda event,key=key:(self.safe(lambda:self.select_idea_model(key)),'break')[1])
+            tag.pack(side='left')
+            # 右上角关闭：确认后清空该模型全部历史，标签随记录消失。
+            close=tk.Label(tab,text='×',font=MODEL_BAR_FONT,bg=bg,fg=COLORS['text_secondary'],cursor='hand2')
+            close.pack(side='left',anchor='n',padx=(SPACING['none'],SPACING['xs']))
+            tab.model_tag,tab.close_tag=tag,close
+            for widget in (tab,tag):
+                widget.bind('<Button-1>',lambda event,key=name:(self.safe(lambda:self.select_idea_model(key)),'break')[1])
+            close.bind('<Button-1>',lambda event,key=name:(self.safe(lambda:self.delete_all_bubble_messages(key)),'break')[1])
         self._fit_idea_model_bar(self.idea_model_bar_canvas,inner,self.idea_model_bar_scroll)
     def set_idea_model_filter(self, model, root=None):
         """目录条选中态的唯一写入口：点击、发送与配置确认都走它，避免多个 Mixin 写同一 self 属性。"""
