@@ -30,6 +30,9 @@ ICON_NAME = '漫剧制作助手.ico'              # 程序根目录里那张设�
 # （漫剧制作助手_图标_<8位哈希>.ico），快捷方式指向带指纹的那一份：路径变了，缓存一定失效。
 ICON_TAG = '_图标_'
 LAUNCHER = '启动漫剧制作助手.pyw'            # 程序根目录里那个双击入口
+# 图标路径含中文时，资源管理器读不出快捷方式里的 IconLocation，画成空白文件图标（R2339 实测）；
+# 所以快捷方式改指向复制到纯英文目录里的那一份。
+ICON_HOME = Path(os.environ.get('LOCALAPPDATA') or os.path.expanduser('~')) / 'MangaAssistant'
 
 
 def ps_text(value):
@@ -137,6 +140,24 @@ def icon_file(program=None):
     return app_icon.icon_path()
 
 
+def shell_icon(icon, home=None):
+    """快捷方式实际引用的图标：路径全是 ASCII 就原样用，否则复制到 ICON_HOME 下同名英文文件。
+
+    文件名带内容指纹，换图后路径跟着变，图标缓存一定失效；复制失败就退回原路径，绝不抛。
+    """
+    icon = Path(icon)
+    if str(icon).isascii():
+        return icon
+    try:
+        data = icon.read_bytes()
+        target = Path(home or ICON_HOME) / ('app_%s.ico' % icon_digest(data))
+        if not (target.is_file() and target.read_bytes() == data):
+            save_bytes(target, data)
+        return target
+    except Exception:
+        return icon
+
+
 def runner(program=None):
     """(解释器, 参数, 工作目录)：自带解释器的 pythonw ＋ 根目录的双击入口。"""
     root = root_dir(program)
@@ -223,7 +244,7 @@ def ensure(program=None, name=NAME, desktop=None):
     if not (root_dir(program) / ICON_NAME).is_file():
         install_icon(program, force=False)      # 设计图丢了就用算出来的那张补上
     exe, arguments, workdir = runner(program)
-    icon = str(icon_file(program))
+    icon = str(shell_icon(icon_file(program)))
     made = []
     for folder in (Path(desktop) if desktop is not None else desktop_dir(), program):
         link = make_shortcut(folder / (name + '.lnk'), str(exe), arguments, str(workdir), icon,

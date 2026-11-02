@@ -240,6 +240,10 @@ class EnsureTests(unittest.TestCase):
         self.program.mkdir(parents=True)
         (self.root / app_shortcut.LAUNCHER).write_text('x', encoding='utf-8')
         self.desktop = self.base / '桌面'
+        self.icon_home = self.base / 'icons'
+        patcher = mock.patch.object(app_shortcut, 'ICON_HOME', self.icon_home)
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def writer(self, seen):
         def fake(link, target, arguments='', workdir=None, icon=None, description=''):
@@ -266,7 +270,27 @@ class EnsureTests(unittest.TestCase):
         with mock.patch.object(app_shortcut, 'make_shortcut', side_effect=self.writer(seen)):
             app_shortcut.ensure(program=self.program, desktop=self.desktop)
         self.assertEqual({row[0].name for row in seen}, {app_shortcut.NAME + '.lnk'})
-        self.assertEqual({row[4] for row in seen}, {str(icon)})
+        # 中文路径的图标资源管理器画不出来：快捷方式指向复制到英文目录、内容相同的那一份
+        [used] = {row[4] for row in seen}
+        self.assertEqual(Path(used).parent, self.icon_home)
+        self.assertEqual(Path(used).read_bytes(), b'ico')
+
+    def test_an_ascii_icon_path_is_used_as_is(self):
+        icon = Path('C:/plain/app.ico')
+        self.assertEqual(app_shortcut.shell_icon(icon, self.icon_home), icon)
+
+    def test_a_non_ascii_icon_is_copied_with_a_content_tag(self):
+        icon = self.root / app_shortcut.ICON_NAME
+        icon.write_bytes(b'first')
+        first = app_shortcut.shell_icon(icon, self.icon_home)
+        icon.write_bytes(b'second')
+        second = app_shortcut.shell_icon(icon, self.icon_home)
+        self.assertNotEqual(first, second, '换了图就换文件名，绕开图标缓存')
+        self.assertEqual(second.read_bytes(), b'second')
+
+    def test_an_unreadable_icon_falls_back_to_the_original_path(self):
+        missing = self.root / '不存在.ico'
+        self.assertEqual(app_shortcut.shell_icon(missing, self.icon_home), missing)
 
     def test_a_folder_that_cannot_be_written_is_skipped(self):
         def fake(link, target, arguments='', workdir=None, icon=None, description=''):
