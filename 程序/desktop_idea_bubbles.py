@@ -7,7 +7,7 @@ from tkinter import ttk
 from ui_motion import Spinner
 from ui_tokens import COLORS, FONTS, ICON_COPY, ICON_DELETE, ICON_FONT, ICON_REWIND, SPACING
 from pathlib import Path
-from idea_chat_controller import ALL_MODELS, bubble_timestamp, collapse_preview, locate_row, model_bar_items, model_bar_selection
+from idea_chat_controller import ALL_MODELS, bubble_timestamp, collapse_preview, model_bar_items, model_bar_selection
 
 
 BUBBLE_BACK=COLORS['background_card']  # 内容框的底色：气泡两边的留白用它刷，色块才贴着字
@@ -184,15 +184,10 @@ class IdeaBubblesMixin:
         import idea_chat
         rows=self._idea_display_rows()
         if not 0<=index<len(rows):return None
-        row=rows[index]
-        model=str(row.get('model') or '').strip() if isinstance(row,dict) else ''
-        model=model or self.displayed_chat_model()
-        context=self.idea_chat_context();gateway=self.idea_chat_gateway()
-        position=locate_row(rows,index,idea_chat.load(context,model=model,gateway=gateway))
-        if position is None:
+        try:idea_chat.remove_message(self.idea_chat_context(),rows[index],gateway=self.idea_chat_gateway())
+        except ValueError:
             self.show_conversation();self.status.set('这条消息已不存在，已刷新')
             return None
-        idea_chat.remove(context,position,model=model,gateway=gateway)
         self.show_conversation();self.status.set('已删除整条信息；可在右键菜单恢复最近删除')
         return index
     def restore_latest_bubble_message(self):
@@ -442,6 +437,20 @@ class IdeaBubblesMixin:
         if not self.root:return
         self.set_idea_model_filter(model)
         self.show_conversation()
+    def _model_tab_rows(self, root, selected, all_rows):
+        """某模型标签下显示的行：本模型会话＋旧版目录里署名为它、会话里没有的记录。
+
+        目录条标签取自合并后的全部记录；只读本模型文件会出现“有标签、点开却没记录”。
+        """
+        from stage_execution_service import project_context
+        import idea_chat
+        own=idea_chat.load(project_context(root),model=selected,gateway=self.idea_chat_gateway())
+        def plain(row):
+            return json.dumps({k:v for k,v in row.items() if k!='model_id'},sort_keys=True,ensure_ascii=False,default=str)
+        seen={plain(row) for row in own}
+        extra=[row for row in all_rows if str(row.get('model') or '').strip()==selected and plain(row) not in seen]
+        if not extra:return own
+        return sorted(own+extra,key=lambda row:str(row.get('at') or ''))
     def idea_view_rows(self, root, model, resolving_model):
         """按当前选中键解析要显示的行，并同步目录条；返回显示行列表。
 
@@ -457,7 +466,7 @@ class IdeaBubblesMixin:
         if not resolving_model:
             selected=model_bar_selection(self._idea_model_filter,items,model)
             self.set_idea_model_filter(selected,root)
-            rows=all_rows if selected==ALL_MODELS else idea_chat.load(project_context(root),model=selected,gateway=self.idea_chat_gateway())
+            rows=all_rows if selected==ALL_MODELS else self._model_tab_rows(root,selected,all_rows)
         else:
             selected=''
             rows=[]
