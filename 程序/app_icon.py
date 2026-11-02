@@ -13,6 +13,8 @@
 - 第 26 期第 9 条：装完还要刷新 Windows 的图标缓存（见 app_shortcut.refresh_shell），
   不然资源管理器拿旧缓存画桌面，看着就像「导入失败」。
 - 用处：主窗口标题栏／任务栏图标（apply）、桌面快捷方式的图标（ensure 出来的 .ico 文件）。
+- 用户要求（2026-11-02）：assets/app_icon.ico 与根目录 漫剧制作助手.ico 换成三虎头像
+  sanhu_chibi_avatar.png 缩成的多尺寸 ICO（成品入库）；--force 会改回算出来的简笔图，别随手跑。
 运行：python app_icon.py --force 会把 ico 与一张 png 预览重写进程序目录下的 assets。
 """
 import app_logging

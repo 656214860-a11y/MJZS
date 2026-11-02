@@ -266,7 +266,7 @@ def ensure(program=None, name=NAME, folder=None):
 
 
 def main():
-    icon = install_icon()                       # 先把（重画过的）图标放到根目录
+    icon = install_icon(force=False)            # 图标已是三虎头像生成的成品，不再用算出来的那张覆盖
     if icon is not None:
         print('图标：%s' % icon)
     made = ensure()
