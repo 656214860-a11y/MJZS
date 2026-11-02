@@ -2025,28 +2025,49 @@ class BubbleLayoutTests(_Harness):
             self.assertEqual(d.delete_bubble_message(0), 0)
             self.assertEqual(idea_chat.load(proj), [])
 
-    def test_bubble_menu_has_no_delete_all_entry(self):
-        """删除全部信息功能已取消：气泡右键菜单不再提供，单条删除与恢复照常。"""
+    def test_delete_all_only_on_model_tab_and_clears_legacy_copies(self):
+        """右键「删除全部信息」清空目录条选中模型的全部历史（含旧版目录残留），标签随之消失，其他模型保留。"""
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)
-            model = d.idea_chat_model()
-            idea_chat.append(proj, 'user', '要删除的隐藏历史', model=model)
-            idea_chat.append(proj, 'assistant', '要删除的回复', model=model)
+            configured = d.idea_chat_model()
+            idea_chat.append(proj, 'user', '配置模型的话', model=configured)
+            idea_chat.append(proj, 'user', '甲的新记录', model='模型甲')
+            stray = idea_chat.model_history_path(proj, '模型甲').parent.parent.parent.parent / '旧目录' / '模型甲' / idea_chat.FOLDER
+            stray.mkdir(parents=True)
+            (stray / idea_chat.CHAT_NAME).write_text(json.dumps({'messages': [
+                {'role': 'assistant', 'text': '甲的旧残留', 'model': '模型甲', 'at': '20261001_000000_000001'}]}), encoding='utf-8')
             d.show(0)
             self.settle_script_page(win)
             event = SimpleNamespace(widget=d.idea_log, x=8, y=8)
-            for target in ((0, 'bubble_0'), None):
-                with patch.object(d, 'bubble_target_at', return_value=target),                      patch('desktop.ContextMenu.popup', return_value='break'):
+            def labels():
+                with patch.object(d, 'bubble_target_at', return_value=(0, 'bubble_0')),                      patch('desktop.ContextMenu.popup', return_value='break'):
                     d.open_bubble_menu(event)
-                labels = [d._bubble_menu.entrycget(i, 'label')
-                          for i in range(d._bubble_menu.index('end') + 1)
-                          if d._bubble_menu.type(i) != 'separator']
-                self.assertNotIn('删除全部信息', labels)
-                self.assertNotIn('复制整条信息', labels)  # REQ-S01-66 改为消息左下角图标
-                self.assertNotIn('删除整条信息', labels)
-                self.assertIn('清屏压缩', labels)
-            self.assertFalse(hasattr(d, 'delete_all_bubble_messages'))
+                return [d._bubble_menu.entrycget(i, 'label') for i in range(d._bubble_menu.index('end') + 1)
+                        if d._bubble_menu.type(i) != 'separator']
+            d.select_idea_model('模型甲')
+            self.settle_script_page(win)
+            self.assertIn('删除全部信息', labels())
+            with patch('desktop.confirm', return_value=False):
+                self.assertIsNone(d.delete_all_bubble_messages())
+            with patch('desktop.confirm', return_value=True) as asked:
+                self.assertEqual(d.delete_all_bubble_messages(), 2)
+                self.assertIn('模型甲', asked.call_args.args[2])
+            self.settle_script_page(win)
+            _idea_chat._history_cache.clear()
+            texts = [r.get('text') for r in idea_chat.load(proj, model='')]
+            self.assertNotIn('甲的新记录', texts)
+            self.assertNotIn('甲的旧残留', texts)
+            self.assertIn('配置模型的话', texts)
+            bar = [c.model_tag.cget('text') for c in d.idea_model_bar_inner.winfo_children() if hasattr(c, 'model_tag')]
+            self.assertNotIn('模型甲', bar)
+            d._idea_requesting = True
+            d.select_idea_model(configured)
+            with patch('desktop.confirm') as confirmation:
+                with self.assertRaisesRegex(ValueError, '模型正在回复'):
+                    d.delete_all_bubble_messages()
+                confirmation.assert_not_called()
+            d._idea_requesting = False
 
     def test_delete_in_all_view_removes_duplicate_copies_from_legacy_folders(self):
         """旧版目录残留同一条消息的多份副本时，「全部」视图删除后不得从别的副本里重新冒出来。"""
@@ -2088,7 +2109,7 @@ class BubbleLayoutTests(_Harness):
             self.assertIn('旧目录里的记录', self.log_text(d))
             self.assertEqual(d.delete_bubble_message(0), 0)
             self.settle_script_page(win)
-            labels = [c.cget('text') for c in d.idea_model_bar_inner.winfo_children()]
+            labels = [c.model_tag.cget('text') for c in d.idea_model_bar_inner.winfo_children() if hasattr(c, 'model_tag')]
             self.assertNotIn('旧模型', labels)
             _idea_chat._history_cache.clear()
             self.assertEqual([r['text'] for r in idea_chat.load(proj, model='')], ['其他模型'])
@@ -2106,7 +2127,7 @@ class BubbleLayoutTests(_Harness):
             d.select_idea_model('另一模型')
             self.settle_script_page(win)
             self.assertEqual(d.displayed_chat_model(), '另一模型')
-            labels = [c.cget('text') for c in d.idea_model_bar_inner.winfo_children()]
+            labels = [c.model_tag.cget('text') for c in d.idea_model_bar_inner.winfo_children() if hasattr(c, 'model_tag')]
             self.assertIn('另一模型', labels)
             self.assertEqual(d.delete_bubble_message(0), 0)
             _idea_chat._history_cache.clear()
@@ -2114,7 +2135,7 @@ class BubbleLayoutTests(_Harness):
             self.assertEqual(idea_chat.load(proj, model=configured)[0]['text'], '当前配置模型的话')
             self.settle_script_page(win)
             self.assertNotEqual(d.displayed_chat_model(), '另一模型')
-            labels = [c.cget('text') for c in d.idea_model_bar_inner.winfo_children()]
+            labels = [c.model_tag.cget('text') for c in d.idea_model_bar_inner.winfo_children() if hasattr(c, 'model_tag')]
             self.assertNotIn('另一模型', labels)
 
     def test_message_actions_target_displayed_model_after_configuration_changed(self):
@@ -2445,7 +2466,7 @@ class ModelBarUITests(_Harness):
         return list(inner.winfo_children())
 
     def _bar_labels(self, d):
-        return [str(widget.cget('text')) for widget in self._bar_children(d)]
+        return [str(widget.model_tag.cget('text')) for widget in self._bar_children(d)]
 
     def test_bar_lists_models_filters_and_highlights(self):
         with tempfile.TemporaryDirectory() as td:
@@ -2456,30 +2477,34 @@ class ModelBarUITests(_Harness):
             d, win = self.desktop(proj)
             d.show(0)
             self.settle_script_page(win)
-            self.assertEqual(self._bar_labels(d), ['全部', '模型甲', '模型乙'])
-            self.assertIn('甲的第一条', self.log_text(d))
+            self.assertEqual(self._bar_labels(d), ['模型甲', '模型乙'])  # R2350 无「全部」标签
+            # 点「模型乙」：只显示乙，标签高亮
+            self._bar_children(d)[1].model_tag.event_generate('<Button-1>')
+            self.settle_script_page(win)
             self.assertIn('乙的第一条', self.log_text(d))
-            # 点「模型甲」：只显示甲，标签高亮
-            self._bar_children(d)[1].event_generate('<Button-1>')
+            self.assertNotIn('甲的第一条', self.log_text(d))
+            self.assertEqual(self._bar_children(d)[1].cget('bg'), COLORS['primary_subtle'])
+            # 点「模型甲」：切回甲
+            self._bar_children(d)[0].model_tag.event_generate('<Button-1>')
             self.settle_script_page(win)
             self.assertIn('甲的第一条', self.log_text(d))
             self.assertNotIn('乙的第一条', self.log_text(d))
-            self.assertEqual(self._bar_children(d)[1].cget('bg'), COLORS['primary_subtle'])
-            # 点「全部」：恢复完整视图
-            self._bar_children(d)[0].event_generate('<Button-1>')
+            # 甲标签右上角 ×：确认后清空甲的全部历史，标签消失，乙保留
+            with patch('desktop.confirm', return_value=True):
+                self._bar_children(d)[0].close_tag.event_generate('<Button-1>')
             self.settle_script_page(win)
-            self.assertIn('甲的第一条', self.log_text(d))
+            self.assertEqual(self._bar_labels(d), ['模型乙'])
             self.assertIn('乙的第一条', self.log_text(d))
-            self.assertEqual(self._bar_children(d)[0].cget('bg'), COLORS['primary_subtle'])
 
-    def test_bar_hidden_for_single_model_and_empty_project(self):
+    def test_bar_shown_for_single_model_hidden_for_empty_project(self):
+        """R2350：只有 1 个模型也显示标签（便于 × 关闭）；无聊天记录时不显示。"""
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             idea_chat.append(proj, 'user', '唯一模型的消息', model='模型甲')
             d, win = self.desktop(proj)
             d.show(0)
             self.settle_script_page(win)
-            self.assertFalse(d.idea_model_bar.winfo_manager(), '只有 1 个模型时不显示目录条')
+            self.assertTrue(d.idea_model_bar.winfo_manager(), '只有 1 个模型时也显示目录条')
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)

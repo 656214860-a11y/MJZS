@@ -90,18 +90,19 @@ def model_bar_items(rows):
 def model_bar_selection(selected, items, current):
     """目录条当前生效的选中项（返回值同时也是过滤键）。
 
-    - ``selected`` 为 None：尚未选择，默认当前模型；当前模型无记录则回落「全部」。
-    - ``selected`` 为 ``ALL_MODELS``：保持「全部」。
-    - ``selected`` 为某模型但已无记录：回落「全部」。
+    目录条没有「全部」标签（R2350）：选中项总是某个有记录的模型。
+    - 已选模型仍有记录：保持；
+    - 未选、选空或已选模型记录清空：回落当前模型，当前模型无记录则取第一个标签；
+    - 没有任何标签：返回 ``ALL_MODELS``（显示无署名的旧版记录或示例）。
     """
     items = list(items or ())
-    if selected is None:
-        current = str(current or '').strip()
-        return current if current in items else ALL_MODELS
-    if selected == ALL_MODELS:
-        return ALL_MODELS
     selected = str(selected or '').strip()
-    return selected if selected in items else ALL_MODELS
+    if selected in items:
+        return selected
+    current = str(current or '').strip()
+    if current in items:
+        return current
+    return items[0] if items else ALL_MODELS
 
 
 def slot_decision(claimed):
