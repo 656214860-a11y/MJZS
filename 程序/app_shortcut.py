@@ -32,7 +32,7 @@ ICON_TAG = '_图标_'
 LAUNCHER = '启动漫剧制作助手.pyw'            # 程序根目录里那个双击入口
 # 图标路径含中文时，资源管理器读不出快捷方式里的 IconLocation，画成空白文件图标（R2339 实测）；
 # 所以快捷方式改指向复制到纯英文目录里的那一份。
-ICON_HOME = Path(os.environ.get('LOCALAPPDATA') or os.path.expanduser('~')) / 'MangaAssistant'
+ICON_HOME = app_icon.ICON_HOME             # 与窗口图标共用同一个英文目录（测试可替换）
 
 
 def ps_text(value):

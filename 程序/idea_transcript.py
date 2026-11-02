@@ -386,7 +386,9 @@ def remove(root, index, model=None, *, gateway=None):
                     'model': str(model or '').strip(), 'model_id': chat_model(model).model_id, 'deleted_at': _stamp()})
     gateway['publish_json'](trash, {'version': 1, 'messages': records[-100:]})
     saved = save_rows(root, rows, model=model, gateway=gateway)
-    _purge_copies(root, removed, keep=model_history_path(root, model), gateway=gateway)
+    # 旧版目录改名／迁移会留下同一条消息的其余副本；不一并移除，「全部」视图里它会重新冒出来。
+    _drop_rows(root, lambda item: _same_message(item, removed), gateway=gateway,
+               skip=(model_history_path(root, model),))
     return saved
 
 
@@ -409,25 +411,17 @@ def remove_message(root, row, *, gateway=None):
     gateway = _require_gateway(gateway)
     if not isinstance(row, dict):
         raise ValueError('这条对话已不存在，请刷新后重试')
-    removed = 0
-    for path in _chat_files(root):
-        try:
-            data = gateway['read_json'](path)
-        except (OSError, ValueError):
-            continue
-        rows = data.get('messages') if isinstance(data, dict) else data
-        if not isinstance(rows, list):
-            continue
-        left = [item for item in rows if not (isinstance(item, dict) and _same_message(item, row))]
-        if len(left) == len(rows):
-            continue
-        removed += len(rows) - len(left)
-        payload = dict(data, messages=left) if isinstance(data, dict) else {'version': 1, 'messages': left}
-        gateway['publish_json'](path, payload)
-        _history_cache.pop(path, None)
+    model = str(row.get('model') or '').strip()
+    own = model_history_path(root, model) if model else None
+    # 恢复时插回原处：先在该模型会话里找这条的下标，找不到（只在旧版残留里）按时间排位。
+    current = _all_rows(root, model=model or None, gateway=gateway)
+    index = next((i for i, item in enumerate(current) if isinstance(item, dict) and _same_message(item, row)),
+                 sum(1 for item in current if isinstance(item, dict)
+                     and str(item.get('at') or '') <= str(row.get('at') or '')))
+    removed = _drop_rows(root, lambda item: _same_message(item, row), gateway=gateway,
+                         backup=gateway.get('recycle_paths'), unbacked=(own,) if own else ())
     if not removed:
         raise ValueError('这条对话已不存在，请刷新后重试')
-    model = str(row.get('model') or '').strip()
     trash = deleted_history_path(root, model=model or None)
     try:
         history = gateway['read_json'](trash) if trash.is_file() else {}
@@ -435,7 +429,7 @@ def remove_message(root, row, *, gateway=None):
         history = {}
     records = history.get('messages') if isinstance(history, dict) else []
     records = records if isinstance(records, list) else []
-    records.append({'row': dict(row), 'index': 0, 'model': model,
+    records.append({'row': dict(row), 'index': index, 'model': model,
                     'model_id': chat_model(model).model_id if model else '', 'deleted_at': _stamp()})
     gateway['publish_json'](trash, {'version': 1, 'messages': records[-100:]})
     return removed
@@ -447,17 +441,23 @@ def _same_message(left, right):
             == {k: v for k, v in right.items() if k != 'model_id'})
 
 
-def _purge_copies(root, removed, *, keep, gateway):
-    """旧版目录改名／迁移会让同一条消息在项目里留下多份副本；
-    「全部」视图把它们合并显示，只删一份会让这条消息从别的副本里重新冒出来。
-    这里把除已处理文件外的其余聊天文件里相同的整条消息一并移除。"""
-    from project_stages import writing
-    base = writing(_context(root).root)
-    paths = [history_path(root)]
-    if base.is_dir():
-        paths.extend(base.glob('*/*/' + FOLDER + '/' + CHAT_NAME))
-    for path in dict.fromkeys(Path(item) for item in paths):
-        if path == Path(keep) or not path.is_file():
+def same_message(left, right):
+    """界面层按模型标签合并显示时用的同一判据（见 ``_same_message``）。"""
+    return isinstance(left, dict) and isinstance(right, dict) and _same_message(left, right)
+
+
+def _drop_rows(root, matches, *, gateway, skip=(), backup=None, unbacked=()):
+    """从项目所有聊天文件里移除 ``matches`` 命中的整条记录，返回移除条数。
+
+    给了 ``backup``（回收入口）时分两步：先把要改写的原文件各备份一份并一次移入回收站，
+    全部成功后才改写；任何一份没进回收站就报错且一个文件都不改，不留半删状态。
+    ``unbacked`` 里的文件（该模型自己的会话，删除记录已在最近删除里）不做备份。
+    """
+    skip = {Path(path) for path in skip}
+    unbacked = {Path(path) for path in unbacked}
+    plans = []
+    for path in _chat_files(root):
+        if path in skip:
             continue
         try:
             data = gateway['read_json'](path)
@@ -466,12 +466,27 @@ def _purge_copies(root, removed, *, keep, gateway):
         rows = data.get('messages') if isinstance(data, dict) else data
         if not isinstance(rows, list):
             continue
-        left = [row for row in rows if not (isinstance(row, dict) and _same_message(row, removed))]
-        if len(left) == len(rows):
-            continue
+        left = [item for item in rows if not (isinstance(item, dict) and matches(item))]
+        if len(left) != len(rows):
+            plans.append((path, data, rows, left))
+    if callable(backup):
+        copies = []
+        for path, data, _rows, _left in plans:
+            if path not in unbacked:
+                copy = path.with_name(path.stem + '.删除前备份' + path.suffix)
+                gateway['publish_json'](copy, data)
+                copies.append(copy)
+        if copies:
+            backup(_context(root).root, copies, '删除聊天信息')
+            if any(copy.exists() for copy in copies):
+                raise OSError('聊天记录备份未能移入回收站，请重试')
+    removed = 0
+    for path, data, rows, left in plans:
+        removed += len(rows) - len(left)
         payload = dict(data, messages=left) if isinstance(data, dict) else {'version': 1, 'messages': left}
         gateway['publish_json'](path, payload)
         _history_cache.pop(path, None)
+    return removed
 
 
 def remove_all(root, model, *, gateway=None):
@@ -484,6 +499,11 @@ def remove_all(root, model, *, gateway=None):
         raise TypeError('删除全部信息需要 L3 注入回收入口')
     rows = load(root, model=model, gateway=gateway)
     legacy_path = history_path(root)
+    # 先清旧版改名残留里署名为该模型的记录（不然清空后标签仍在、记录从残留里重新显示）：
+    # 备份全部进回收站才改写，失败就整体中止，本模型文件此时还没动。
+    label = str(model).strip()
+    stripped = _drop_rows(root, lambda item: str(item.get('model') or '').strip() == label, gateway=gateway,
+                          skip=(model_history_path(root, model),), backup=recycle)
     legacy = _read_rows(legacy_path, gateway)
     selected = set(_row_indexes(legacy, model))
     remaining = [row for index, row in enumerate(legacy) if index not in selected]
@@ -499,36 +519,7 @@ def remove_all(root, model, *, gateway=None):
         finally:
             if selected and remaining and not legacy_path.exists():
                 save_rows(root, remaining, gateway=gateway)
-    return len(rows) + _strip_model_rows(root, model, gateway=gateway, recycle=recycle)
-
-
-def _strip_model_rows(root, model, *, gateway, recycle):
-    """旧版目录改名残留里署名为该模型的记录也属于它的标签视图；一并移除，
-    否则清空后标签仍在、记录从残留文件里重新显示。改写前先把原文件做一份备份移入回收站，
-    不会让记录无处可找。返回移除条数。"""
-    label = str(model or '').strip()
-    removed = 0
-    for path in _chat_files(root):
-        try:
-            data = gateway['read_json'](path)
-        except (OSError, ValueError):
-            continue
-        rows = data.get('messages') if isinstance(data, dict) else data
-        if not isinstance(rows, list):
-            continue
-        left = [row for row in rows if not (isinstance(row, dict) and str(row.get('model') or '').strip() == label)]
-        if len(left) == len(rows):
-            continue
-        backup = path.with_name(path.stem + '.清空前备份' + path.suffix)
-        gateway['publish_json'](backup, data)
-        recycle(_context(root).root, [backup], '删除全部聊天信息')
-        if backup.exists():
-            raise OSError('旧版聊天记录备份未能移入回收站，请重试')
-        removed += len(rows) - len(left)
-        payload = dict(data, messages=left) if isinstance(data, dict) else {'version': 1, 'messages': left}
-        gateway['publish_json'](path, payload)
-        _history_cache.pop(path, None)
-    return removed
+    return len(rows) + stripped
 
 
 def restore_latest_removed(root, model=None, *, gateway=None):

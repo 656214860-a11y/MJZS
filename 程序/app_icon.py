@@ -329,18 +329,31 @@ def ascii_icon(icon, home=None):
         return icon
 
 
+_APP_ID_SET = []
+
+
 def set_app_id(app_id=APP_ID):
-    """让任务栏把本程序当独立应用（用本窗口图标），而不是归到 pythonw.exe 名下。"""
+    """让任务栏把本程序当独立应用（用本窗口图标），而不是归到 pythonw.exe 名下。
+
+    须在第一个窗口创建前调用才生效（启动器里就是这么做的）；同一进程只设一次。"""
+    if app_id in _APP_ID_SET:
+        return True
     try:
         import ctypes
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(app_id)
+        _APP_ID_SET.append(app_id)
         return True
     except Exception:
         return False
 
 
 def apply(window, path=None):
-    """把图标挂到窗口上（Windows 的 .ico 走 iconbitmap）；拿不到能力就返回 None。"""
+    """把图标挂到窗口上（Windows 的 .ico 走 iconbitmap）；拿不到能力就返回 None。
+
+    同一扇窗挂过就直接返回（启动器与 desktop 都会调用），不重复读文件、算哈希。"""
+    done = getattr(window, '_app_icon_applied', None)
+    if path is None and done is not None:
+        return done
     target = ensure() if path is None else Path(path)
     if target is None or not Path(target).is_file():
         return None
@@ -353,9 +366,13 @@ def apply(window, path=None):
     try:
         # default= 不会挂到已建好的这扇窗上（实测 WM_GETICON 为空，标题栏仍是 Python 图标），必须再设一次。
         window.iconbitmap(str(target))
-        return target
     except Exception:
         return None
+    try:
+        window._app_icon_applied = target
+    except Exception:
+        app_logging.swallowed()
+    return target
 
 
 def write_preview(path=None, size=(256, 256)):
