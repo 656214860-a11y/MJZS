@@ -64,12 +64,13 @@ def speaker_name(row, *, you='您', prefix='对话AI · ', fallback='AI 助手')
 def locate_row(view_rows, index, model_rows):
     """气泡框第 ``index`` 行在某个模型自己会话里的下标；找不到返回 None。
 
-    按整条记录内容比对：该行之前出现过几条内容完全相同的记录，就取会话里第几条同样的，
+    按整条记录内容比对（忽略落盘补写的 ``model_id``）：该行之前出现过几条内容完全相同的记录，就取会话里第几条同样的，
     不依赖模型名计数（合并视图、旧版改名后的记录名称不一致时计数会错位）。
     """
     import json
     def key(row):
-        return json.dumps(row, ensure_ascii=False, sort_keys=True, default=str)
+        plain = {k: v for k, v in row.items() if k != 'model_id'} if isinstance(row, dict) else row
+        return json.dumps(plain, ensure_ascii=False, sort_keys=True, default=str)
     if not 0 <= index < len(view_rows or ()):
         return None
     target = key(view_rows[index])
