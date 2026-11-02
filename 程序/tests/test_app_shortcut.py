@@ -239,7 +239,6 @@ class EnsureTests(unittest.TestCase):
         self.program = self.root / '程序'
         self.program.mkdir(parents=True)
         (self.root / app_shortcut.LAUNCHER).write_text('x', encoding='utf-8')
-        self.desktop = self.base / '桌面'
         self.icon_home = self.base / 'icons'
         patcher = mock.patch.object(app_shortcut, 'ICON_HOME', self.icon_home)
         patcher.start()
@@ -253,12 +252,12 @@ class EnsureTests(unittest.TestCase):
             return Path(link)
         return fake
 
-    def test_both_folders_get_a_shortcut_with_the_same_arguments(self):
+    def test_only_the_root_folder_gets_a_shortcut(self):
         seen = []
         with mock.patch.object(app_shortcut, 'make_shortcut', side_effect=self.writer(seen)):
-            made = app_shortcut.ensure(program=self.program, desktop=self.desktop)
-        self.assertEqual([path.parent for path in made], [self.desktop, self.program])
-        self.assertEqual(len(seen), 2)
+            made = app_shortcut.ensure(program=self.program)
+        self.assertEqual([path.parent for path in made], [self.root])
+        self.assertEqual(len(seen), 1)
         self.assertEqual({row[2] for row in seen},
                          {'-I "%s"' % (self.root / app_shortcut.LAUNCHER)})
         self.assertEqual({row[3] for row in seen}, {str(self.root)})
@@ -268,12 +267,18 @@ class EnsureTests(unittest.TestCase):
         icon.write_bytes(b'ico')
         seen = []
         with mock.patch.object(app_shortcut, 'make_shortcut', side_effect=self.writer(seen)):
-            app_shortcut.ensure(program=self.program, desktop=self.desktop)
+            app_shortcut.ensure(program=self.program)
         self.assertEqual({row[0].name for row in seen}, {app_shortcut.NAME + '.lnk'})
         # 中文路径的图标资源管理器画不出来：快捷方式指向复制到英文目录、内容相同的那一份
         [used] = {row[4] for row in seen}
         self.assertEqual(Path(used).parent, self.icon_home)
         self.assertEqual(Path(used).read_bytes(), b'ico')
+
+    def test_the_script_stamps_the_window_app_id_on_the_link(self):
+        body = app_shortcut.script('C:/x.lnk', 'D:/p.exe', '', 'D:/r', 'D:/i.ico')
+        self.assertIn('[LinkAppId]::Set(', body)
+        self.assertIn(app_shortcut.ps_text(app_icon.APP_ID), body)
+        self.assertTrue(body.isascii())
 
     def test_an_ascii_icon_path_is_used_as_is(self):
         icon = Path('C:/plain/app.ico')
@@ -292,16 +297,10 @@ class EnsureTests(unittest.TestCase):
         missing = self.root / '不存在.ico'
         self.assertEqual(app_shortcut.shell_icon(missing, self.icon_home), missing)
 
-    def test_a_folder_that_cannot_be_written_is_skipped(self):
-        def fake(link, target, arguments='', workdir=None, icon=None, description=''):
-            if Path(link).parent == self.desktop:
-                return None
-            Path(link).write_bytes(b'lnk')
-            return Path(link)
-
-        with mock.patch.object(app_shortcut, 'make_shortcut', side_effect=fake):
-            made = app_shortcut.ensure(program=self.program, desktop=self.desktop)
-        self.assertEqual(made, [self.program / (app_shortcut.NAME + '.lnk')])
+    def test_a_folder_that_cannot_be_written_yields_nothing(self):
+        with mock.patch.object(app_shortcut, 'make_shortcut', return_value=None):
+            made = app_shortcut.ensure(program=self.program)
+        self.assertEqual(made, [])
 
     def test_main_says_why_when_nothing_could_be_built(self):
         with mock.patch.object(app_shortcut, 'ensure', return_value=[]):
@@ -321,7 +320,7 @@ class EnsureTests(unittest.TestCase):
         self.assertFalse((self.root / app_shortcut.ICON_NAME).is_file())
         with mock.patch.object(app_shortcut, 'install_icon', return_value=self.root / app_shortcut.ICON_NAME) as heal:
             with mock.patch.object(app_shortcut, 'make_shortcut', side_effect=self.writer([])):
-                app_shortcut.ensure(program=self.program, desktop=self.desktop)
+                app_shortcut.ensure(program=self.program)
         self.assertTrue(heal.called, '缺了就补一张')
 
     def test_an_existing_design_icon_is_left_alone(self):
@@ -329,7 +328,7 @@ class EnsureTests(unittest.TestCase):
         icon.write_bytes(b'ico')
         with mock.patch.object(app_shortcut, 'install_icon') as heal:
             with mock.patch.object(app_shortcut, 'make_shortcut', side_effect=self.writer([])):
-                app_shortcut.ensure(program=self.program, desktop=self.desktop)
+                app_shortcut.ensure(program=self.program)
         self.assertFalse(heal.called, '有一张就不动它（用户自己换过的图别给人盖掉）')
 
 
