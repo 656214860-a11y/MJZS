@@ -347,11 +347,11 @@ def apply(window, path=None):
     target = ascii_icon(target)
     set_app_id()
     try:
-        window.iconbitmap(default=str(target))     # 这扇窗 ＋ 以后新建的子窗口都用它
-        return target
+        window.iconbitmap(default=str(target))     # 以后新建的子窗口都用它
     except Exception:
         app_logging.swallowed()
     try:
+        # default= 不会挂到已建好的这扇窗上（实测 WM_GETICON 为空，标题栏仍是 Python 图标），必须再设一次。
         window.iconbitmap(str(target))
         return target
     except Exception:
