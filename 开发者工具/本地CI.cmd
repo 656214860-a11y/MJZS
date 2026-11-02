@@ -1,16 +1,18 @@
 @echo off
 rem Local CI launcher (R1428, roadmap G). ASCII only: no chcp, so Tcl/Tk keeps the system code page.
-rem Unattended variant: never pauses. Usage: double-click, or "local_ci quick" for smoke + gate only. Add "nopause" for unattended runs.
+rem Usage: double-click, or "local_ci quick" for smoke + gate only. Add "nopause" for unattended runs.
+rem        "local_ci exit" = static gates + architecture gates + default smoke: the machine-decidable CI exit (non-zero fails).
 setlocal
 set "PY="
 set "PROG="
-for /d %%D in ("%~dp0*") do (
+for /d %%D in ("%~dp0..\*") do (
   if exist "%%D\Python\python.exe" set "PY=%%D\Python\python.exe"
   if exist "%%D\smoke_test.py" set "PROG=%%D"
 )
 if not defined PY (echo [CI] bundled python not found & exit /b 2)
 if not defined PROG (echo [CI] program folder not found & exit /b 2)
 set "DRAMA_SUPPRESS_MODAL=1"
-"%PY%" -B "%PROG%\scripts\local_ci.py" targets
+"%PY%" -B "%PROG%\scripts\local_ci.py" %1
 set "RC=%ERRORLEVEL%"
+if /i not "%~2"=="nopause" if /i not "%~1"=="nopause" pause
 exit /b %RC%

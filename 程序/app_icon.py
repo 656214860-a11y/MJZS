@@ -16,6 +16,8 @@
 运行：python app_icon.py --force 会把 ico 与一张 png 预览重写进程序目录下的 assets。
 """
 import app_logging
+import hashlib
+import os
 import math
 import struct
 import zlib
@@ -306,11 +308,42 @@ def ensure(path=None, sizes=SIZES, force=False):
     return target
 
 
+APP_ID = 'MangaAssistant.Desktop'
+ICON_HOME = Path(os.environ.get('LOCALAPPDATA') or os.path.expanduser('~')) / 'MangaAssistant'
+
+
+def ascii_icon(icon, home=None):
+    """中文路径的 .ico 在 Windows 任务栏、快捷方式上会显示成空白：复制一份到英文路径再用。"""
+    icon = Path(icon)
+    if str(icon).isascii():
+        return icon
+    try:
+        data = icon.read_bytes()
+        target = Path(home or ICON_HOME) / ('app_%s.ico' % hashlib.sha256(data).hexdigest()[:8])
+        if not (target.is_file() and target.read_bytes() == data):
+            save_bytes(target, data)
+        return target
+    except Exception:
+        return icon
+
+
+def set_app_id(app_id=APP_ID):
+    """让任务栏把本程序当独立应用（用本窗口图标），而不是归到 pythonw.exe 名下。"""
+    try:
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(app_id)
+        return True
+    except Exception:
+        return False
+
+
 def apply(window, path=None):
     """把图标挂到窗口上（Windows 的 .ico 走 iconbitmap）；拿不到能力就返回 None。"""
     target = ensure() if path is None else Path(path)
     if target is None or not Path(target).is_file():
         return None
+    target = ascii_icon(target)
+    set_app_id()
     try:
         window.iconbitmap(default=str(target))     # 这扇窗 ＋ 以后新建的子窗口都用它
         return target

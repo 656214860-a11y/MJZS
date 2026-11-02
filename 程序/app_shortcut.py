@@ -141,21 +141,8 @@ def icon_file(program=None):
 
 
 def shell_icon(icon, home=None):
-    """快捷方式实际引用的图标：路径全是 ASCII 就原样用，否则复制到 ICON_HOME 下同名英文文件。
-
-    文件名带内容指纹，换图后路径跟着变，图标缓存一定失效；复制失败就退回原路径，绝不抛。
-    """
-    icon = Path(icon)
-    if str(icon).isascii():
-        return icon
-    try:
-        data = icon.read_bytes()
-        target = Path(home or ICON_HOME) / ('app_%s.ico' % icon_digest(data))
-        if not (target.is_file() and target.read_bytes() == data):
-            save_bytes(target, data)
-        return target
-    except Exception:
-        return icon
+    """快捷方式实际引用的图标：同 app_icon.ascii_icon，目录取本模块 ICON_HOME（测试可替换）。"""
+    return app_icon.ascii_icon(icon, home or ICON_HOME)
 
 
 def runner(program=None):

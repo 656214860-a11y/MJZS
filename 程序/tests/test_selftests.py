@@ -337,13 +337,13 @@ class IncrementalTests(unittest.TestCase):
     def test_risk_changes_start_a_background_run_but_the_gate_has_a_grace_period(self):
         prefix = '程序/'
         grace = run_selftests.FULL_SAFE_RISK_GRACE
-        risk = (200, ['启动助手.cmd'])
+        risk = (200, ['开发者工具/启动助手.cmd'])
         later = [(200 + i, ['程序/desktop.py']) for i in range(1, grace + 1)]
         # 风险刚改：不满足宽限，门禁不红；后台自动补跑仍立即触发。
         self.assertFalse(run_selftests.risk_overdue([risk], 199, 200, prefix))
         self.assertFalse(run_selftests.risk_overdue([risk] + later[:grace - 1], 199, 200 + grace - 1, prefix))
         # 连续几轮都改风险路径：以最早一次为准，合并成一次全量。
-        self.assertFalse(run_selftests.risk_overdue([risk, (201, ['启动助手.cmd']), (202, ['启动助手.cmd'])], 199, 202, prefix))
+        self.assertFalse(run_selftests.risk_overdue([risk, (201, ['开发者工具/启动助手.cmd']), (202, ['开发者工具/启动助手.cmd'])], 199, 202, prefix))
         # 宽限用完仍无凭据：报红；文档/测试轮不推进宽限。
         self.assertTrue(run_selftests.risk_overdue([risk] + later, 199, 200 + grace, prefix))
         self.assertFalse(run_selftests.risk_overdue([risk, (201, ['程序/tests/t.py']), (202, ['程序/project_status.md'])] , 199, 202, prefix))
@@ -369,12 +369,12 @@ class IncrementalTests(unittest.TestCase):
 
     def test_risk_paths_owe_a_full_run_immediately(self):
         prefix = '程序/'
-        for path in ('启动助手.cmd', '启动漫剧制作助手.pyw', '程序/storage_maintenance.py',
+        for path in ('开发者工具/启动助手.cmd', '启动漫剧制作助手.pyw', '程序/storage_maintenance.py',
                      '程序/tests/architecture/_layers.py'):
             with self.subTest(path=path):
                 self.assertTrue(run_selftests.has_risk_change([(105, [path])], 100, 105, prefix))
         self.assertFalse(run_selftests.has_risk_change([(105, ['程序/desktop.py'])], 100, 105, prefix))
-        self.assertFalse(run_selftests.has_risk_change([(99, ['启动助手.cmd'])], 100, 105, prefix))
+        self.assertFalse(run_selftests.has_risk_change([(99, ['开发者工具/启动助手.cmd'])], 100, 105, prefix))
         self.assertTrue(run_selftests.full_safe_required(101, 100, True, source_rounds=1, risk=True))
         self.assertFalse(run_selftests.full_safe_required(101, 100, False, source_rounds=1, risk=True))
         with mock.patch.object(run_selftests, 'source_rounds_since', return_value=0),              mock.patch.object(run_selftests, 'risk_changed_since', return_value=True):
