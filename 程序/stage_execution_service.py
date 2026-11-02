@@ -261,10 +261,14 @@ def confirm_writing_preparation(project, stage, path):
     """显式把当前文件登记为该阶段确认输出的编排入口，复用统一阶段发布器。"""
     from writing_api import confirm_preparation_document
     return confirm_preparation_document(project, stage, path, publish=publish_stage_text)
+
+
 def unconfirm_writing_preparation(project, stage):
     """显式取消该阶段确认并把准备流程回退到该阶段的编排入口，复用统一阶段发布器。"""
     from writing_unconfirm import unconfirm_preparation_document
     return unconfirm_preparation_document(project, stage, publish=publish_stage_text)
+
+
 def reply_to_writing(project, creative, cancelled=None, *, user_message=None, request_model=None):
     """剧本模型调用编排：为所有可见剧本成果注入统一发布器。"""
     from writing_api import reply
