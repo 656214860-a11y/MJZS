@@ -10,7 +10,7 @@
 
 | 路径/模式 | 原因 |
 | --- | --- |
-| `启动漫剧制作助手.pyw`、`启动助手.cmd` | 正式启动入口。 |
+| `启动漫剧制作助手.pyw`、`开发者工具/启动助手.cmd` | 正式启动入口。 |
 | `运行环境/Python/` | 随应用交付的解释器与依赖。 |
 | `程序/app.py`、`程序/desktop.py` 及其生产 Python 模块 | 主界面与业务实现。 |
 | `程序/assets/`、`程序/skills/`、`程序/workflows/`、`程序/data/` | 内置资源、SKILL、流程和内置数据。 |
@@ -37,11 +37,11 @@
 | `程序/private/**` | 本机私有数据 | 不得随分发副本携带私有配置或密钥副本。 |
 | `程序/data/skills/**` | 用户导入的 SKILL | R2073：用户层 SKILL 与导入台账，由目标机器生成；升级只保留不覆盖。 |
 | `.agent-handoff/**`（含 AGENT_HANDOFF／AGENT_SESSION_PROMPTS／GLOSSARY）、`.claude/**`、`.codex/**`、`outputs/**`（本机 Agent 草稿目录，已被 .git/info/exclude 忽略） | 代理/开发产物 | 不是运行时内容，不进正式副本。 |
-| `.wt/**`、`.gitattributes`、`.gitignore`、`.claudeignore`、`AGENTS.md`、`CLAUDE.md`、`BLOCKED_ISSUES.md`、`reorganize_install.py`、`handoff-full-safe.md` | 开发/代理资料 | 不是运行时内容。 |
+| `.wt/**`、`.gitattributes`、`.gitignore`、`.claudeignore`、`AGENTS.md`、`CLAUDE.md`、`开发者工具/BLOCKED_ISSUES.md`、`reorganize_install.py`、`开发者工具/handoff-full-safe.md` | 开发/代理资料 | 不是运行时内容。 |
 | `程序/.*.err`、`程序/.*.out`、`程序/.*.log`、`维护记录/**` | 自检与维护产物 | 可再生成的诊断输出。 |
 | `程序/outputs/**`、`程序/工作流任务/**`、`程序/episode/**`、`程序/tasks/**`、`程序/_supervisor/**` | 本地运行产物 | 可再生产物，不随分发副本携带。 |
 | `升级备份/**` | 本机维护产物 | 不属于正式运行所需内容。 |
-| `本地CI.cmd`、`ci_clean.cmd`、`ci_targets.cmd`、`ci_unattended.cmd`、`启动助手_测试模式.cmd`、`程序/_diag_window_probe.ps1` | 开发工具 | 本地 CI、测试模式与窗口诊断，仅供开发。 |
+| `开发者工具/本地CI.cmd`、`开发者工具/ci_clean.cmd`、`开发者工具/ci_targets.cmd`、`开发者工具/ci_unattended.cmd`、`开发者工具/启动助手_测试模式.cmd`、`程序/_diag_window_probe.ps1` | 开发工具 | 本地 CI、测试模式与窗口诊断，仅供开发。 |
 | `程序/AGENTS.md`、`程序/PROJECT_MAP.md`、`程序/architecture.md`、`程序/design_tokens.md`、`程序/ui_components.md`、`程序/docs/README.md`、`程序/docs/stages/**`、`程序/docs/review/**`、`程序/data_model.md`、`程序/task_states.md`、`程序/project_status.md`、`程序/distribution_manifest.md`、`程序/crud_audit_20260926.md`、`程序/HANDOFF_*.md` | 开发文档 | 代理协议、架构、设计与状态记录，不是用户资料。 |
 | `安装信息.json`、`程序/config.json`、`程序/desktop_settings.json`、`程序/projects.json`、`程序/task-execution.log`、`程序/漫剧制作助手.lnk` | 本机状态 | 安装记录、用户配置、项目索引与本机快捷方式，由目标机器生成；升级也只保留不覆盖。 |
 | `程序/h3_launcher.pyw` | 个人开发工具 | 写死本机 ComfyUI 路径的临时启动器，不随分发。 |

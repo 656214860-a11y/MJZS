@@ -3,8 +3,8 @@ rem Full safe selftest on a clean detached worktree (.wt\ci) of HEAD, using the 
 setlocal
 set "PY="
 set "PROG="
-for /d %%D in ("%~dp0*") do if exist "%%D\Python\python.exe" set "PY=%%D\Python\python.exe"
-for /d %%D in ("%~dp0.wt\ci\*") do if exist "%%D\smoke_test.py" set "PROG=%%D"
+for /d %%D in ("%~dp0..\*") do if exist "%%D\Python\python.exe" set "PY=%%D\Python\python.exe"
+for /d %%D in ("%~dp0..\.wt\ci\*") do if exist "%%D\smoke_test.py" set "PROG=%%D"
 if not defined PY exit /b 2
 if not defined PROG exit /b 2
 set "DRAMA_SUPPRESS_MODAL=1"

@@ -69,7 +69,7 @@ class DistributionBuildTests(unittest.TestCase):
     def test_parse_manifest_reads_both_tables_of_the_real_document(self):
         parsed = subject.parse_manifest()
         self.assertIn('启动漫剧制作助手.pyw', parsed['keep'])
-        self.assertIn('启动助手.cmd', parsed['keep'])
+        self.assertIn('开发者工具/启动助手.cmd', parsed['keep'])
         self.assertIn('程序/tests/**', parsed['exclude'])
         self.assertIn('程序/private/**', parsed['exclude'])
         self.assertNotIn('路径/模式', parsed['keep'])

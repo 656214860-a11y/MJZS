@@ -272,7 +272,7 @@ class WindowTests(unittest.TestCase):
             self.skipTest(PLATFORM_TKINTER)
         win.withdraw()
         try:
-            self.assertEqual(app_icon.apply(win), app_icon.icon_path())
+            self.assertEqual(app_icon.apply(win), app_icon.ascii_icon(app_icon.icon_path()))
         finally:
             win.destroy()
 

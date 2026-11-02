@@ -23,7 +23,7 @@ PowerShell，先切到程序目录。测试只按 AGENTS.md §5 选本轮需要�
 
 ```powershell
 Set-Location -LiteralPath 'D:\漫剧制作助手\程序'
-& '..\运行环境\Python\pythonw.exe' -I '..\启动漫剧制作助手.pyw'   # 启动（无控制台）；也可双击根目录 启动助手.cmd
+& '..\运行环境\Python\pythonw.exe' -I '..\启动漫剧制作助手.pyw'   # 启动（无控制台）；也可双击根目录快捷方式「漫剧助手」；备用脚本在 开发者工具\
 & '..\运行环境\Python\python.exe' -B scripts\dev.py                  # 开发者统一入口：列出全部子命令
 & '..\运行环境\Python\python.exe' -B smoke_test.py                   # 默认冒烟
 & '..\运行环境\Python\python.exe' -B run_selftests.py -k pet keyframe  # 按测试文件名关键词筛选
