@@ -35,8 +35,14 @@ try:
     program=root/'程序'
     sys.path.insert(0,str(program))
     os.chdir(program)
+    # 任务栏身份必须在第一个窗口创建前设好：窗口建出来后再设无效，会一直归在 pythonw.exe 名下，
+    # 固定到任务栏后就变成 Python 图标（与快捷方式上写的同一个 ID 才对得上）。
+    import app_icon
+    app_icon.set_app_id()
     import tkinter as tk
     window=tk.Tk();window.attributes('-alpha',0)
+    # 启动画面出现时任务栏按钮就已在了：图标要在它之前挂上（default= 让之后的子窗口也沿用）。
+    app_icon.apply(window)
     app_logging.install(window)
     # 主窗口在加载完成前一直透明（ui_theme 摆位置时也不显形），由启动画面整块盖住。
     window._drama_hold_alpha=True

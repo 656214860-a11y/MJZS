@@ -392,7 +392,10 @@ def _run_locked() -> int:
         log.write("[自动全量] 开始 %s HEAD=%s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), head[:10]))
         log.flush()
         started = time.perf_counter()
-        cmd = [sys.executable, "-B", "run_selftests.py", "--all", "--safe"]
+        # 本进程是 DETACHED 起的、没有控制台；子进程 python.exe 会自己新开一个可见控制台窗口，
+        # 任务栏上多出一个 Python 图标（看着像助手图标变了）。
+        quiet = {"creationflags": 0x08000000} if os.name == "nt" else {}   # CREATE_NO_WINDOW
+        cmd =[sys.executable, "-B", "run_selftests.py", "--all", "--safe"]
         hidden = PROGRAM.parent / "工作流任务" / "gui_hidden.py"
         if hidden.is_file():
             # 全量会建大量 Tk 窗口；放进隐藏桌面跑，不弹到用户屏幕上抢焦点。
@@ -400,11 +403,11 @@ def _run_locked() -> int:
             log.write("[自动全量] 在隐藏桌面运行\n")
             log.flush()
             result = subprocess.run([sys.executable, "-B", str(hidden), str(run_log), str(program), "--", *cmd],
-                                    env=env, stdout=log, stderr=subprocess.STDOUT, check=False)
+                                    env=env, stdout=log, stderr=subprocess.STDOUT, check=False, **quiet)
             if run_log.is_file():
                 log.write(run_log.read_text(encoding="utf-8", errors="replace"))
         else:
-            result = subprocess.run(cmd, cwd=program, env=env, stdout=log, stderr=subprocess.STDOUT, check=False)
+            result = subprocess.run(cmd, cwd=program, env=env, stdout=log, stderr=subprocess.STDOUT, check=False, **quiet)
         elapsed = time.perf_counter() - started
         log.write("\n[自动全量] 退出码 %d，用时 %.0f 秒（0＝绿且凭据已写入）\n"
                   % (result.returncode, elapsed))
