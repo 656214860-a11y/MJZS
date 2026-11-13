@@ -15,6 +15,12 @@ class DownloadKindTests(unittest.TestCase):
         self.assertEqual(idea_chat.download_kind('好的，我们先聊聊你的想法。'), '')
         self.assertEqual(idea_chat.download_kind(''), '')
 
+    def test_control_prompt_mentioning_type_is_not_a_document(self):
+        # REQ-S01-76：回退确认提示等控制消息只是顺带提到「角色卡」等字样，不是文档，不应归档成角色卡。
+        notice = ('回退到「项目设定」重新创作，会使已确认的「项目设定」「剧本大纲」「角色卡」失效，需要重新确认。\n'
+                  '回复“确认”即从该阶段重写；回复其他内容则保持现状。')
+        self.assertEqual(idea_chat.download_kind(notice), '')
+
 
 if __name__ == '__main__':
     unittest.main()

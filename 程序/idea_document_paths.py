@@ -160,22 +160,20 @@ def delivery_document_path(context, file_type, at=None, provider='', model=''):
 
 
 def _project_file_type(text):
-    """按正文归类保存类型；未明确归类的模型正文仍按自然剧本保存。"""
+    """按正文归类保存类型；未明确归类的模型正文仍按自然剧本保存。
+
+    只认标题行（行首即类型标签，可带 ``#`` 等标记），不把正文里顺带提到
+    「角色卡」「项目设定」等字样的普通回复（如回退确认提示）误判成文档。
+    """
     value = str(text or '')
-    title = value.strip().split('\n', 1)[0].lstrip('# ').strip()
+    headings = [line.lstrip('# \t').strip() for line in value.split('\n') if line.strip()]
     for file_type, titles in (
             ('角色卡', ('人物设定', '角色卡')),
             ('项目设定', ('项目设定', '世界观', '需求梳理')),
             ('项目大纲', ('项目大纲', '剧本大纲', '故事大纲', '分集大纲', '纲要')),
             ('自然剧本', ('自然剧本', '项目剧本'))):
-        if any(title.startswith(heading) for heading in titles):
+        if any(heading.startswith(title) for heading in headings for title in titles):
             return file_type
-    if any(mark in value for mark in ('项目大纲', '故事大纲', '分集大纲', '纲要')):
-        return '项目大纲'
-    if any(mark in value for mark in ('人物设定', '角色卡')):
-        return '角色卡'
-    if any(mark in value for mark in ('项目设定', '世界观', '需求梳理')):
-        return '项目设定'
     return '自然剧本'
 
 
