@@ -33,11 +33,7 @@ class IdeaDeferredMixin:
         box=getattr(self,'idea_log',None)
         if box is None or not box.winfo_exists():return
         if loading is None:loading=self.idea_history_expected()
-        box.configure(state='normal')
-        self._bubble_rows=[];self._bubble_full={};self._bubble_width=int(box.winfo_width() or 0)
-        for name in [one for one in box.tag_names() if one.startswith('bubble_')]:
-            box.tag_delete(name)
-        box.delete('1.0','end')
+        self._clear_bubble_view(box)
         if loading:
             left,right=self.bubble_margins(box,IDEA_HISTORY_LOADING_TEXT,False)
             box.tag_configure(IDEA_HISTORY_LOADING_TAG,justify='left',foreground=COLORS['text_secondary'],

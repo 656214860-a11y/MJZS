@@ -14,6 +14,7 @@ from tkinter import font as tkfont
 from tkinter import ttk
 
 import model_pool
+from pet_models_tabs import MODES, ModelManagerModeTabsMixin
 from ui_tokens import (BUTTON_GAP, COMBOBOX_PADDING, TEXT_ROWS, FONTS, FORM_LABEL_WIDTH, INPUT_PADDING_X,
                        SPACING, TEXT_DESC, TEXT_HINT)
 from ui_dialogs import FileDialog
@@ -28,8 +29,6 @@ MANAGER_BUTTON = 'API 统一配置'          # 第 46 期第 6 条：原「打�
 # 格式不一致；现在与同排的分页按钮／「关闭」一样用 Compact.TButton，名字也补上那个半角空格。
 MANAGER_TITLE = '模型管理'
 SETTINGS_GEOMETRY = '700x430'
-# 左上角页签的调用方式顺序；与 ttk.Notebook 的 tabs() 索引一一对应。
-MODES = ('API', 'Desktop', 'CLI')
 # 这两扇窗都是内容型表单，不允许被系统压成 1×1 后只剩一条边；最小值只保动作区与首行可见。
 SETTINGS_MIN = (620, 430)
 
@@ -72,7 +71,7 @@ NOTE_ABOUT = '三虎用于决策、对话、路由；子模块执行模型在阶
 # 「模型 ID」一栏在本地调用（Desktop／CLI）时填的是程序名，API 时才是接口模型名。
 MODEL_FIELD_LOCAL, MODEL_FIELD_API = '程序名', '模型 ID'
 NOTE_MANAGER = '点左上角页签选择调用方式：Desktop 配置桌面应用，API 配置接口与密钥，CLI 配置命令行程序。'
-# 列表按「功能（文本/图片/语音/视频）→ Provider」两级分组；只有 Provider 列头可点（翻转分组顺序）。
+# 列表按「功能 → Provider」两级分组；只有 Provider 列头可点（翻转分组顺序）。
 COLUMNS = (('modality', '功能', 60), ('provider', 'Provider', 90), ('call_mode', '调用方式', 70),
            ('model', '模型 ID', 150), ('label', '显示名', 160), ('capabilities', '能力标签', 270),
            ('state', '状态', 200))
@@ -195,12 +194,6 @@ def status_text(record, program):
     if not ok:
         return why
     return '可用 · %s' % record['model']
-
-
-def list_status(record, program):
-    """模型列表「状态」那一格：用得了只写「可用」（模型 ID 已有自己一列），用不了写缺什么。"""
-    ok, why = model_pool.status(record, program)
-    return '可用' if ok else why
 
 
 def probe_breakdown(result, record, program=None):
@@ -455,7 +448,7 @@ def open_manager(pet):
     return _ModelManager(pet).build()
 
 
-class _ModelManager:
+class _ModelManager(ModelManagerModeTabsMixin):
     """模型管理窗口（从 open_manager 的闭包原样改写成类，R1812）：共享的局部变量成了实例属性，嵌套函数成了方法。"""
     def __init__(self, pet):
         self.pet = pet
@@ -649,11 +642,6 @@ class _ModelManager:
         self.win._pet_modality_box = self.modality_box
         self.mode_tabs.bind('<<NotebookTabChanged>>', self._on_tab_changed)
 
-    def _on_tab_changed(self, _event=None):
-        current = self.mode_tabs.tab('current', 'text')
-        if current != self.mode.get():
-            self.mode.set(current)
-
     def text_row(self, index, key, label, *, column=0, width=None, span=1):
         """一格「标签 ＋ 输入框」（column 0 左半边、2 右半边），返回下一行号；span 横跨右边，width 按字符数定宽。"""
         self.labels[key] = ttk.Label(self.form, text=label)
@@ -745,17 +733,6 @@ class _ModelManager:
         self.labels['model'].configure(text=MODEL_FIELD_LOCAL if local else MODEL_FIELD_API)
         self.probe_button.configure(text='检查程序' if local else '测试连接')
 
-    def _on_mode_change(self, *_args):
-        """调用方式变了：同步页签 + 按新调用方式重刷列表。值没变不刷。"""
-        current = self.mode.get()
-        if current == self._last_mode:
-            return
-        self._last_mode = current
-        if current in MODES:
-            self.mode_tabs.select(self.mode_tabs.tabs()[MODES.index(current)])
-        if not self.pending['loading']:   # fill 回填期间只同步页签，不重建列表
-            self.load_rows()
-
     def changed_identity(self, *_args):
         if self.pending['loading']:
             return
@@ -807,24 +784,7 @@ class _ModelManager:
                 seen.add(item.casefold())
                 extra.append(item)
         self.provider_box.configure(values=sorted([*builtins, *extra], key=str.casefold))
-        self.tree.delete(*self.tree.get_children())
-        current = self.mode.get()
-        # 只显示当前调用方式的模型，按「功能 → Provider」分组排序。
-        rows = sorted(((model_pool.MODALITY_LABELS.get(item.get('modality'), '文本'),
-                        model_pool.provider_name(model_id, item), model_id, item)
-                       for model_id, item in records.items()
-                       if model_pool.call_mode(item, model_id) == current),
-                      key=lambda r: (r[0], r[1].casefold(), str(r[3].get('label') or '').casefold(), r[2]),
-                      reverse=self.provider_descending)
-        last = None
-        for modality, name, model_id, item in rows:
-            # 同一功能内同一 Provider 只在分组第一行写名字，后面留空，读起来像合并单元格。
-            shown, last = ('' if (modality, name) == last else name), (modality, name)
-            self.tree.insert('', 'end', iid=model_id,
-                        values=(modality, shown, model_pool.call_mode(item, model_id), item['model'], item['label'],
-                                model_pool.capability_text(item['capabilities']),
-                                list_status(item, self.program)))
-        self.table_shell.refresh_empty_state()
+        self._render_mode_rows(records)
         return self.tree
 
     def flip_provider_order(self):

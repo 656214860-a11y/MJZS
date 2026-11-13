@@ -73,7 +73,7 @@ CLASS_CAPS = {
     ('desktop_idea_chat.py', 'IdeaChatMixin'): 770,
     ('app.py', 'App'): 1388,
     ('desktop.py', 'Desktop'): 836,
-    ('skill_panel.py', 'Panel'): 925,
+    ('skill_panel.py', 'Panel'): 923,
     ('pet_ui_stages.py', 'PetStagesMixin'): 1186,
     ('pet_ui_voice.py', 'PetVoiceMixin'): 1119,
     ('desktop_media_pages.py', 'MediaPagesMixin'): 890,

@@ -631,8 +631,8 @@ def program_of(desktop):
 
     desktop.app 就是程序目录（真机上就是 漫剧制作助手\程序）；拿不到时退回
     stage_config 自己那个默认根，自检里因此可以喂一个临时目录进来。"""
-    app = getattr(desktop, 'app', None)
-    return app if app else None
+    from stage_execution_service import program_of as _program_of
+    return _program_of(desktop)
 
 
 def stage_context(desktop, stage, function=None, extra=None):

@@ -305,7 +305,6 @@ class _WritingPage:
         self.input_box.bind('<Button-3>',self.page.open_idea_paste_menu,add='+')
         self.input_box.bind('<Button-1>',self.expand_composer_for_click,add='+')
         self.input_box.bind('<FocusIn>',self.update_input_hint,add='+')
-        self.input_box.bind('<FocusOut>',self.restore_composer_after_blur,add='+')
         self.input_box.bind('<FocusOut>',self.update_input_hint,add='+')
         self.input_box.bind('<KeyRelease>',self.page.show_idea_reference_menu,add='+')
         self.input_box.bind('<Return>',self.send_on_enter,add='+')
@@ -551,10 +550,6 @@ class _WritingPage:
     def expand_composer_for_click(self, event=None):
         """空框点击只取得编辑焦点；高度只由真实输入内容决定。"""
         self.input_box.focus_set()
-
-    def restore_composer_after_blur(self, event=None):
-        # 不按焦点收缩：用户输入多行后切换控件，内容高度仍应保持可读。
-        return None
 
     def focus_composer_from_hint(self, event=None):
         """提示层覆盖输入框时，也必须把点击交还给真正的编辑器。
