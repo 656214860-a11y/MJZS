@@ -80,13 +80,13 @@
   {
    "module": "app_icon.py",
    "covered": 0,
-   "total": 246,
+   "total": 280,
    "percent": 0.0
   },
   {
    "module": "app_shortcut.py",
    "covered": 0,
-   "total": 166,
+   "total": 170,
    "percent": 0.0
   },
   {
@@ -110,7 +110,7 @@
   {
    "module": "asset_batch.py",
    "covered": 0,
-   "total": 305,
+   "total": 304,
    "percent": 0.0
   },
   {
@@ -320,7 +320,7 @@
   {
    "module": "codex_paste.py",
    "covered": 0,
-   "total": 32,
+   "total": 33,
    "percent": 0.0
   },
   {
@@ -374,13 +374,13 @@
   {
    "module": "desktop.py",
    "covered": 0,
-   "total": 741,
+   "total": 744,
    "percent": 0.0
   },
   {
    "module": "desktop_account_page.py",
    "covered": 0,
-   "total": 594,
+   "total": 556,
    "percent": 0.0
   },
   {
@@ -434,25 +434,25 @@
   {
    "module": "desktop_idea_bubbles.py",
    "covered": 0,
-   "total": 322,
+   "total": 446,
    "percent": 0.0
   },
   {
    "module": "desktop_idea_chat.py",
    "covered": 0,
-   "total": 958,
+   "total": 952,
    "percent": 0.0
   },
   {
    "module": "desktop_idea_deferred.py",
    "covered": 0,
-   "total": 60,
+   "total": 56,
    "percent": 0.0
   },
   {
    "module": "desktop_idea_menus.py",
    "covered": 0,
-   "total": 71,
+   "total": 76,
    "percent": 0.0
   },
   {
@@ -536,7 +536,7 @@
   {
    "module": "desktop_script_pages.py",
    "covered": 0,
-   "total": 671,
+   "total": 672,
    "percent": 0.0
   },
   {
@@ -596,7 +596,7 @@
   {
    "module": "desktop_writing_page.py",
    "covered": 0,
-   "total": 667,
+   "total": 665,
    "percent": 0.0
   },
   {
@@ -722,7 +722,7 @@
   {
    "module": "idea_chat_controller.py",
    "covered": 0,
-   "total": 202,
+   "total": 229,
    "percent": 0.0
   },
   {
@@ -746,7 +746,7 @@
   {
    "module": "idea_transcript.py",
    "covered": 0,
-   "total": 349,
+   "total": 423,
    "percent": 0.0
   },
   {
@@ -960,9 +960,15 @@
    "percent": 0.0
   },
   {
+   "module": "pet_models_tabs.py",
+   "covered": 0,
+   "total": 34,
+   "percent": 0.0
+  },
+  {
    "module": "pet_models_ui.py",
    "covered": 0,
-   "total": 753,
+   "total": 757,
    "percent": 0.0
   },
   {
@@ -1280,7 +1286,7 @@
   {
    "module": "skill_panel.py",
    "covered": 0,
-   "total": 794,
+   "total": 792,
    "percent": 0.0
   },
   {
@@ -1328,7 +1334,7 @@
   {
    "module": "stage_completion_service.py",
    "covered": 0,
-   "total": 580,
+   "total": 625,
    "percent": 0.0
   },
   {
@@ -1352,7 +1358,7 @@
   {
    "module": "stage_model_picker.py",
    "covered": 0,
-   "total": 149,
+   "total": 156,
    "percent": 0.0
   },
   {
@@ -1365,6 +1371,12 @@
    "module": "stage_workspace_service.py",
    "covered": 0,
    "total": 26,
+   "percent": 0.0
+  },
+  {
+   "module": "store_program_locator.py",
+   "covered": 0,
+   "total": 63,
    "percent": 0.0
   },
   {
@@ -1712,7 +1724,7 @@
   {
    "module": "workflow_context.py",
    "covered": 0,
-   "total": 149,
+   "total": 185,
    "percent": 0.0
   },
   {
@@ -1754,7 +1766,7 @@
   {
    "module": "workflow_tasks.py",
    "covered": 0,
-   "total": 211,
+   "total": 213,
    "percent": 0.0
   },
   {
@@ -1772,7 +1784,7 @@
   {
    "module": "writing_api.py",
    "covered": 0,
-   "total": 1000,
+   "total": 1007,
    "percent": 0.0
   },
   {
@@ -1797,6 +1809,12 @@
    "module": "writing_tools.py",
    "covered": 0,
    "total": 71,
+   "percent": 0.0
+  },
+  {
+   "module": "writing_unconfirm.py",
+   "covered": 0,
+   "total": 42,
    "percent": 0.0
   },
   {
@@ -1854,6 +1872,12 @@
    "percent": 15.4
   },
   {
+   "module": "stage_animatic_gateways.py",
+   "covered": 19,
+   "total": 120,
+   "percent": 15.8
+  },
+  {
    "module": "agent/volcengine.py",
    "covered": 13,
    "total": 72,
@@ -1870,12 +1894,6 @@
    "covered": 16,
    "total": 84,
    "percent": 19.0
-  },
-  {
-   "module": "stage_execution_service.py",
-   "covered": 195,
-   "total": 998,
-   "percent": 19.5
   },
   {
    "module": "agent/wan.py",
@@ -1896,22 +1914,34 @@
    "percent": 20.0
   },
   {
+   "module": "model_secrets.py",
+   "covered": 40,
+   "total": 196,
+   "percent": 20.4
+  },
+  {
    "module": "stage_write_preparation_service.py",
    "covered": 19,
    "total": 92,
    "percent": 20.7
   },
   {
+   "module": "stage_handoff_gateways.py",
+   "covered": 42,
+   "total": 201,
+   "percent": 20.9
+  },
+  {
+   "module": "stage_execution_service.py",
+   "covered": 101,
+   "total": 472,
+   "percent": 21.4
+  },
+  {
    "module": "model_router.py",
    "covered": 110,
    "total": 504,
    "percent": 21.8
-  },
-  {
-   "module": "model_secrets.py",
-   "covered": 34,
-   "total": 151,
-   "percent": 22.5
   },
   {
    "module": "skill_budget.py",
@@ -1926,10 +1956,10 @@
    "percent": 23.8
   },
   {
-   "module": "api_endpoints.py",
-   "covered": 13,
-   "total": 53,
-   "percent": 24.5
+   "module": "stage_gate_gateways.py",
+   "covered": 20,
+   "total": 84,
+   "percent": 23.8
   },
   {
    "module": "pet_bus.py",
@@ -1942,6 +1972,12 @@
    "covered": 59,
    "total": 237,
    "percent": 24.9
+  },
+  {
+   "module": "api_endpoints.py",
+   "covered": 13,
+   "total": 51,
+   "percent": 25.5
   },
   {
    "module": "storyboard_paths.py",
@@ -1980,10 +2016,22 @@
    "percent": 30.2
   },
   {
+   "module": "stage_asset_gateways.py",
+   "covered": 28,
+   "total": 91,
+   "percent": 30.8
+  },
+  {
    "module": "model_pool.py",
-   "covered": 236,
-   "total": 751,
-   "percent": 31.4
+   "covered": 240,
+   "total": 755,
+   "percent": 31.8
+  },
+  {
+   "module": "stage_previs_gateways.py",
+   "covered": 24,
+   "total": 72,
+   "percent": 33.3
   },
   {
    "module": "agent/core.py",
@@ -1996,48 +2044,6 @@
    "covered": 229,
    "total": 656,
    "percent": 34.9
-  },
-  {
-   "module": "store_program_locator.py",
-   "covered": 0,
-   "total": 63,
-   "percent": 0.0
-  },
-  {
-   "module": "stage_asset_gateways.py",
-   "covered": 0,
-   "total": 70,
-   "percent": 0.0
-  },
-  {
-   "module": "writing_unconfirm.py",
-   "covered": 0,
-   "total": 30,
-   "percent": 0.0
-  },
-  {
-   "module": "stage_handoff_gateways.py",
-   "covered": 0,
-   "total": 60,
-   "percent": 0.0
-  },
-  {
-   "module": "stage_gate_gateways.py",
-   "covered": 0,
-   "total": 60,
-   "percent": 0.0
-  },
-  {
-   "module": "stage_previs_gateways.py",
-   "covered": 0,
-   "total": 60,
-   "percent": 0.0
-  },
-  {
-   "module": "stage_animatic_gateways.py",
-   "covered": 0,
-   "total": 60,
-   "percent": 0.0
   },
   {
    "module": "stage_path_service.py",
@@ -2137,9 +2143,9 @@
   },
   {
    "module": "agent/publication.py",
-   "covered": 143,
+   "covered": 145,
    "total": 159,
-   "percent": 89.9
+   "percent": 91.2
   },
   {
    "module": "video_lifecycle_service.py",
@@ -2160,6 +2166,6 @@
    "percent": 100.0
   }
  ],
- "modules_covered": 53,
- "modules_total": 358
+ "modules_covered": 58,
+ "modules_total": 359
 }

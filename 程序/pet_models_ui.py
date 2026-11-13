@@ -16,7 +16,7 @@ from tkinter import ttk
 import model_pool
 from pet_models_tabs import MODES, ModelManagerModeTabsMixin
 from ui_tokens import (BUTTON_GAP, COMBOBOX_PADDING, TEXT_ROWS, FONTS, FORM_LABEL_WIDTH, INPUT_PADDING_X,
-                       SPACING, TEXT_DESC, TEXT_HINT)
+                       SPACING, TEXT_DESC, TEXT_HINT, OVERLAY_RATIO)
 from ui_dialogs import FileDialog
 from account_inputs import PasswordInput
 from ui_widgets import (BusyState, NotificationDispatcher, SelectBox, BaseDialog, Card, DataTable,
@@ -65,7 +65,8 @@ MANAGER_GEOMETRY = '1180x860'
 # 比例算（再小也留下限，九行表单要塞得下），并摆回主界面正中。
 # 第 65 期任务 5：用户要「模型池内容框优先显示全部内容」——比例 80% → 90%、上限长高 80px，
 # 多出来的高度全归上面那张模型池。
-MANAGER_RATIO = 0.9
+# R2401 方案 B：比例统一到 ui_tokens.OVERLAY_RATIO（92% 覆盖主界面），内容兜底与绝对上限
+# 都先被主界面尺寸封顶，杜绝「弹窗比主界面还大」的超界突兀。
 MANAGER_MIN = (820, 620)
 NOTE_ABOUT = '三虎用于决策、对话、路由；子模块执行模型在阶段配置里选。'
 # 「模型 ID」一栏在本地调用（Desktop／CLI）时填的是程序名，API 时才是接口模型名。
@@ -112,13 +113,16 @@ def main_box(parent):
         return None
 
 
-def fit_to_main(win, parent, geometry, ratio=MANAGER_RATIO):
-    """把这扇窗摆成「比主界面小一圈、落在主界面正中」（第 52 期第 1 条）。
+def fit_to_main(win, parent, geometry, ratio=OVERLAY_RATIO):
+    """把这扇窗摆成「主界面的固定比例、落在主界面正中、永不超出主界面」。
 
-    主界面量不出来就退回给的那个尺寸（自检里就是这样）。
+    - 目标尺寸＝主界面 × ratio（默认 92% 覆盖）；
+    - 内容兜底 MANAGER_MIN 与绝对上限（geometry 写死尺寸）都先被主界面尺寸封顶，
+      因此主界面任意缩放下弹窗都不会比它大，也不因下限死守而「突然放大超界」。
+    - 主界面量不出来就退回给的那个尺寸（自检里就是这样）。
     """
     try:
-        width, height = (int(value) for value in str(geometry).split('x'))
+        cap_width, cap_height = (int(value) for value in str(geometry).split('x'))
     except (TypeError, ValueError):
         return geometry
     box = main_box(parent)
@@ -126,8 +130,11 @@ def fit_to_main(win, parent, geometry, ratio=MANAGER_RATIO):
         win.geometry(geometry)
         return geometry
     left, top, parent_width, parent_height = box
-    width = min(width, max(MANAGER_MIN[0], int(parent_width * ratio)))
-    height = min(height, max(MANAGER_MIN[1], int(parent_height * ratio)))
+    # 兜底值先被主界面封顶，再与 92% 覆盖取大；上限是主界面与写死尺寸的较小者。
+    width = min(parent_width, cap_width,
+                max(int(parent_width * ratio), min(MANAGER_MIN[0], parent_width)))
+    height = min(parent_height, cap_height,
+                 max(int(parent_height * ratio), min(MANAGER_MIN[1], parent_height)))
     x = max(0, left + (parent_width - width) // 2)
     y = max(0, top + (parent_height - height) // 2)
     win.geometry('%dx%d+%d+%d' % (width, height, x, y))

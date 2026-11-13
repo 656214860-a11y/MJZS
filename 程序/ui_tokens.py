@@ -275,6 +275,9 @@ STAGE_PANEL_LAYOUT = {
     # 「下拉框 → 下一个标签」之间的间距，比标签与自己下拉框的 field_gap 大，一眼分得出归属。
     'item_gap': SPACING['md'],
 }
+# 弹窗覆盖主界面的统一比例（方案 B）：弹窗初始尺寸＝主界面 × 该比例，居中覆盖，
+# 永不超出主界面；内容兜底与绝对上限各自在弹窗模块里封顶，避免超大屏过度放大。
+OVERLAY_RATIO = 0.92
 # 剧本准备文件列表：比正文小一档，一屏多放几个文件名，9 号雅黑仍清晰。
 SCRIPT_FILE_FONT = ("Microsoft YaHei UI", 9)
 SCRIPT_FILE_MAX_ROWS = 6  # 每类文件表最多同时露出的行数，再多靠滚动条

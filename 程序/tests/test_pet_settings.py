@@ -183,7 +183,8 @@ class ManagerGeometryTests(unittest.TestCase):
     """第 52 期第 1 条：模型管理窗比主界面小一圈、落在主界面正中。
 
     第 65 期任务 5：用户要「模型池内容框优先显示全部内容」，比例 80% → 90%、
-    上限长高到 1180x860，下面的数字跟着改。
+    上限长高到 1180x860，下面的数字跟着改。R2401 方案 B：比例统一为
+    ui_tokens.OVERLAY_RATIO（92% 覆盖），下限先被主界面封顶，弹窗永不超界。
     """
 
     class Parent(object):
@@ -218,16 +219,16 @@ class ManagerGeometryTests(unittest.TestCase):
 
     def test_the_window_is_a_ring_smaller_than_the_main_one_and_centred(self):
         said = self.fit(self.Parent(1200, 700))
-        self.assertEqual(said, '1080x630+160+85', '主界面的 90%，并落在正中')
-        self.assertLess(1080, 1200); self.assertLess(630, 700)
+        self.assertEqual(said, '1104x644+148+78', '主界面的 92%，并落在正中')
+        self.assertLess(1104, 1200); self.assertLess(644, 700)
 
     def test_a_big_main_window_only_caps_the_fixed_size(self):
         self.assertEqual(self.fit(self.Parent(1600, 1000, left=0, top=0)), '1180x860+210+70',
                          '写死的尺寸仍是上限，别算得更大')
 
     def test_a_main_window_that_is_too_small_keeps_the_floor(self):
-        self.assertEqual(self.fit(self.Parent(940, 640)), '846x620+147+60',
-                         '再小也留个下限，九行表单要塞得下')
+        self.assertEqual(self.fit(self.Parent(940, 640)), '864x620+138+60',
+                         '下限先被主界面封顶，弹窗永不超界')
 
     def test_a_main_window_that_cannot_be_measured_falls_back(self):
         self.assertEqual(self.fit(self.Parent(1, 1)), pet_models_ui.MANAGER_GEOMETRY)
@@ -439,16 +440,16 @@ class ManagerProviderTests(SettingsCase):
         self.addCleanup(win.destroy)
         tree = win._pet_tree
         rows = [tree.item(row, 'values') for row in tree.get_children()]
-        # 列顺序：Provider／调用方式／模型 ID／显示名；同一 Provider 只在分组首行写名字。
+        # 列顺序：功能／Provider／调用方式／模型 ID／显示名…；同一 Provider 只在分组首行写名字。
         providers, last = {}, ''
         for row in rows:
-            last = str(row[0]) or last
-            providers[str(row[3])] = last
-        heads = [str(row[0]) for row in rows if str(row[0])]
+            last = str(row[1]) or last
+            providers[str(row[4])] = last
+        heads = [str(row[1]) for row in rows if str(row[1])]
         self.assertEqual(heads, sorted(set(heads), key=str.casefold), '每个 Provider 只出现一次且按名排序')
         self.assertEqual(providers['ChatGPT Desktop · Codex'], 'GPT')
         self.assertEqual(providers['GPT-4o'], 'GPT')
-        gpt = [str(row[3]) for row in rows if providers[str(row[3])] == 'GPT']
+        gpt = [str(row[4]) for row in rows if providers[str(row[4])] == 'GPT']
         self.assertEqual(gpt, sorted(gpt, key=str.casefold))
         self.assertEqual(str(win._pet_manager_hint_label.cget('style')), 'PaleGreenHint.TLabel')
 
@@ -458,13 +459,13 @@ class ManagerProviderTests(SettingsCase):
         self.addCleanup(win.destroy)
         tree = win._pet_tree
         self.assertEqual([str(tree.heading(key, 'text')) for key in tree['columns']],
-                         ['Provider', '调用方式', '模型 ID', '显示名', '能力标签', '状态'])
-        rows = {str(values[3]): [str(value) for value in values]
+                         ['功能', 'Provider', '调用方式', '模型 ID', '显示名', '能力标签', '状态'])
+        rows = {str(values[4]): [str(value) for value in values]
                 for values in (tree.item(row, 'values') for row in tree.get_children())}
-        self.assertEqual(rows['ChatGPT Desktop · Codex'][1], 'Desktop')
-        self.assertEqual(rows['Claude Code'][1], 'CLI')
-        self.assertEqual(rows['GPT-4o'][1], 'API')
-        self.assertEqual(rows['ChatGPT Desktop · Codex'][5], '可用', '模型 ID 已有自己一列，状态不再带上')
+        self.assertEqual(rows['ChatGPT Desktop · Codex'][2], 'Desktop')
+        self.assertEqual(rows['Claude Code'][2], 'CLI')
+        self.assertEqual(rows['GPT-4o'][2], 'API')
+        self.assertEqual(rows['ChatGPT Desktop · Codex'][6], '可用', '模型 ID 已有自己一列，状态不再带上')
         # 表单切到 Desktop 时列表不跟着藏列：每行的调用方式已经说明哪些信息适用。
         win._pet_mode.set('Desktop')
         shown = tuple(str(key) for key in tree['displaycolumns'])
@@ -480,8 +481,8 @@ class ManagerProviderTests(SettingsCase):
             self.assertEqual(bool(command), key == 'provider', key)
 
         def heads():
-            return [str(tree.item(row, 'values')[0]) for row in tree.get_children()
-                    if str(tree.item(row, 'values')[0])]
+            return [str(tree.item(row, 'values')[1]) for row in tree.get_children()
+                    if str(tree.item(row, 'values')[1])]
         before = heads()
         tree.tk.call(tree.heading('provider', 'command'))
         self.assertEqual(heads(), sorted(set(before), key=str.casefold, reverse=True))
