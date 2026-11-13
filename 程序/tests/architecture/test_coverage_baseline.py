@@ -33,7 +33,7 @@ BASELINE = ROOT / "维护记录" / "覆盖率基线.json"
 TOOL = ROOT / "scripts" / "coverage_report.py"
 # 核心路径下限：按 R1616 实测值约七成向下取整，只挡"刷新基线时的塌陷"，不是质量目标。
 CORE_FLOORS = {
-    "pet_llm.py": 50.0,  # 计费：RequestLedger 记账与金额不变量
+    "request_ledger.py": 50.0,  # 计费：RequestLedger 记账与金额不变量（自 pet_llm 拆出）
     "usage_overview.py": 18.0,  # 计费：用量与成本汇总
     "keyframe_lifecycle_service.py": 65.0,  # 状态机：首帧生命周期
     "video_lifecycle_service.py": 75.0,  # 状态机：视频生命周期

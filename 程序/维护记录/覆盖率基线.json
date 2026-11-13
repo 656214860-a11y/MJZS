@@ -452,7 +452,7 @@
   {
    "module": "desktop_idea_menus.py",
    "covered": 0,
-   "total": 76,
+   "total": 82,
    "percent": 0.0
   },
   {
@@ -470,7 +470,7 @@
   {
    "module": "desktop_layout.py",
    "covered": 0,
-   "total": 376,
+   "total": 380,
    "percent": 0.0
   },
   {
@@ -500,7 +500,7 @@
   {
    "module": "desktop_media_pages.py",
    "covered": 0,
-   "total": 769,
+   "total": 771,
    "percent": 0.0
   },
   {
@@ -890,7 +890,7 @@
   {
    "module": "pet_agent.py",
    "covered": 0,
-   "total": 762,
+   "total": 763,
    "percent": 0.0
   },
   {
@@ -1974,6 +1974,12 @@
    "percent": 24.6
   },
   {
+   "module": "pet_llm.py",
+   "covered": 80,
+   "total": 323,
+   "percent": 24.8
+  },
+  {
    "module": "usage_overview.py",
    "covered": 59,
    "total": 237,
@@ -2106,12 +2112,6 @@
    "percent": 60.7
   },
   {
-   "module": "pet_llm.py",
-   "covered": 582,
-   "total": 885,
-   "percent": 65.8
-  },
-  {
    "module": "project_context_factory.py",
    "covered": 6,
    "total": 9,
@@ -2148,10 +2148,16 @@
    "percent": 85.7
   },
   {
+   "module": "request_ledger.py",
+   "covered": 511,
+   "total": 571,
+   "percent": 89.5
+  },
+  {
    "module": "agent/publication.py",
-   "covered": 145,
+   "covered": 143,
    "total": 159,
-   "percent": 91.2
+   "percent": 89.9
   },
   {
    "module": "video_lifecycle_service.py",
@@ -2172,6 +2178,6 @@
    "percent": 100.0
   }
  ],
- "modules_covered": 58,
- "modules_total": 360
+ "modules_covered": 59,
+ "modules_total": 361
 }
