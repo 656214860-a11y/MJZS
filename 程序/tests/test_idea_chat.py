@@ -1934,13 +1934,14 @@ class BubbleLayoutTests(_Harness):
             self.assertGreater(mine_left, left, '用户消息贴在右侧')
             self.assertLess(left + right, mine_left + mine_right, '模型消息贴左铺开，比用户消息更宽（REQ-S01-65）')
 
-    def test_user_bubble_uses_a_readable_light_green_surface(self):
+    def test_user_bubble_uses_a_readable_light_surface(self):
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             idea_chat.append(proj, 'user', '这条由用户发送')
             d, win = self.desktop(proj)
             d.show(0); self.settle_script_page(win)
-            self.assertEqual(str(d.idea_log.tag_cget('bubble_0', 'background')), '')  # REQ-S01-65 不铺底色
+            # 参考 DeepSeek 对话：正文加浅灰外框，background 是框底色而非透明。
+            self.assertEqual(str(d.idea_log.tag_cget('bubble_0', 'background')), COLORS['surface_hover'])
             self.assertEqual(d.idea_log.tag_cget('bubble_0', 'foreground'), COLORS['text_primary'])
 
     def test_model_chat_color_is_stable_and_distinguishes_common_models(self):

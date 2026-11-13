@@ -12,6 +12,11 @@ from pet_ui_support import Autostart, GearButton, PROGRAM, autostart_command
 from ui_tokens import SPACING
 
 
+# 开机自启开／关的提示只留一份（set_autostart 与 toggle_autostart 共用）。
+AUTOSTART_NOTICE = ('开机自启已开启：下次登录会自动启动助手',
+                    '开机自启已关闭（或本机不支持）')
+
+
 class PetSettingsMixin:
     """Pet 的设置方法集（见模块说明）。"""
     def switch_model(self):
@@ -277,8 +282,7 @@ class PetSettingsMixin:
         except Exception as exc:
             self.errors.append(('autostart', str(exc)))
             state = False
-        self.notice = ('开机自启已开启：下次登录会自动启动助手' if state
-                       else '开机自启已关闭（或本机不支持）')
+        self.notice = AUTOSTART_NOTICE[0] if state else AUTOSTART_NOTICE[1]
         return state
     def budget_limits(self):
         """五类配额现在的样子（进度面板与「设置 → 预算」读的是同一本账）。"""
@@ -363,8 +367,7 @@ class PetSettingsMixin:
         except Exception as exc:
             self.errors.append(('autostart', str(exc)))
             state = False
-        self.notice = ('开机自启已开启：下次登录会自动启动助手' if state
-                       else '开机自启已关闭（或本机不支持）')
+        self.notice = AUTOSTART_NOTICE[0] if state else AUTOSTART_NOTICE[1]
         self.refresh_menu_labels()
         return state
     def autostart_default(self):

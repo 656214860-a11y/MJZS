@@ -128,15 +128,15 @@ class IdeaBubbleAnchorTests(_Harness):
         # 文字完整：预览即全文（desktop_idea_chat.py:633-635）。
         self.assertEqual(str(box.get(*spans['bubble_0'])).strip(), self.USER)
         self.assertEqual(str(box.get(*spans['bubble_1'])).strip(), self.MODEL)
-        # 契约（REQ-S01-65）：用户与模型消息都不铺底色，靠左右位置区分：用户靠右、模型靠左。
-        self.assertEqual(str(box.tag_cget('bubble_0', 'background')), '')
-        self.assertEqual(str(box.tag_cget('bubble_1', 'background')), '')
+        # 契约（参考 DeepSeek 对话）：正文加浅灰外框（淡底），用户靠右、模型靠左分列仍保留。
+        self.assertEqual(str(box.tag_cget('bubble_0', 'background')), desktop_idea_chat.BUBBLE_FILL)
+        self.assertEqual(str(box.tag_cget('bubble_1', 'background')), desktop_idea_chat.BUBBLE_FILL)
         self.assertGreater(int(box.tag_cget('bubble_0', 'lmargin1')), int(box.tag_cget('bubble_1', 'lmargin1')),
                            '用户消息必须比模型消息更靠右')
-        # 契约：用户贴右（左边距更大），模型贴左（正好一个 BUBBLE_GAP）（desktop_idea_chat.py:212-215）。
+        # 契约：用户贴右（左边距更大），模型贴左（一个 BUBBLE_GAP 再加正文外框的 BUBBLE_PAD 内边距）。
         user_left = int(float(box.tag_cget('bubble_0', 'lmargin1')))
         model_left = int(float(box.tag_cget('bubble_1', 'lmargin1')))
-        self.assertEqual(model_left, desktop_idea_chat.BUBBLE_GAP)
+        self.assertEqual(model_left, desktop_idea_chat.BUBBLE_GAP + desktop_idea_chat.BUBBLE_PAD)
         self.assertGreater(user_left, model_left, '用户气泡贴在右侧')
         # 真几何：气泡正文宽度＝对话区实际宽度 − 左右边距，不超过对话区宽度且非空。
         width = int(box.winfo_width())

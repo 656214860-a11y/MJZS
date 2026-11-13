@@ -25,7 +25,7 @@ from idea_chat_controller import (bubble_timestamp, collapse_preview, has_interr
 from platform_tools import open_target
 from ui_tokens import CHAR_WIDTH, TEXT_ROWS, COLORS, FONTS, SPACING
 from ui_widgets import FormDialog, TextArea
-from desktop_idea_bubbles import (BUBBLE_BACK, BUBBLE_FLOOR, BUBBLE_FONT, BUBBLE_GAP, BUBBLE_LINE, BUBBLE_MAX_RATIO,
+from desktop_idea_bubbles import (BUBBLE_BACK, BUBBLE_FILL, BUBBLE_FLOOR, BUBBLE_FONT, BUBBLE_GAP, BUBBLE_LINE, BUBBLE_MAX_RATIO,
                                   BUBBLE_PAD, BUBBLE_SLACK, IdeaBubblesMixin)
 
 ROOT = Path(__file__).resolve().parent
@@ -63,6 +63,8 @@ IDEA_FIELDS=('故事集数','单集时间','故事画风','故事主体','故事
 # 最下面留一段给您写字，DRAFT_MARK 就是「从这儿往下才是您写的」那条线。
 DRAFT_MARK='draft'
 DRAFT_HINT='─'*18+' 写您的想法，按「发送」 '
+# 模型排队中的状态提示只留一份（轮询分支与已领槽分支共用）。
+QUEUEING_STATUS_TEXT = '模型请求排队中（第%d位），尚未启动 CLI；可点击中断，最多等待 120 秒。'
 
 
 class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
@@ -1026,7 +1028,7 @@ class _FlowAgentLaunch:
             self.host._script_agent_queue = pending
             self.host._script_agent_launching = True
             self.host.update_script_interrupt_button()
-        self.host.status.set('模型请求排队中（第%d位），尚未启动 CLI；可点击中断，最多等待 120 秒。' % request['position'])
+        self.host.status.set(QUEUEING_STATUS_TEXT % request['position'])
         def poll_slot():
             pending['timer'] = None
             if pending['cancelled']:return
@@ -1041,7 +1043,7 @@ class _FlowAgentLaunch:
                 return
             claimed=claim_stage_process_slot(request['ticket'])
             if claimed['state']=='queued':
-                self.host.status.set('模型请求排队中（第%d位），尚未启动 CLI；可点击中断，最多等待 120 秒。' % claimed['position'])
+                self.host.status.set(QUEUEING_STATUS_TEXT % claimed['position'])
                 pending['timer'] = self.host.win.after(200,poll_slot);return
             cleanup()
             if claimed['state']=='granted':
