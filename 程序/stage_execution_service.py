@@ -277,7 +277,7 @@ def restart_writing_preparation(project, stage):
     return restart_preparation(project, stage, publish=publish_stage_text)
 def confirm_writing_preparation(project, stage, path):
     """显式把当前文件登记为该阶段确认输出的编排入口，复用统一阶段发布器。"""
-    from writing_api import confirm_preparation_document
+    from writing_unconfirm import confirm_preparation_document
     return confirm_preparation_document(project, stage, path, publish=publish_stage_text)
 
 

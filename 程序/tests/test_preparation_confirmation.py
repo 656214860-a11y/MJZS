@@ -8,7 +8,8 @@ import project_stages
 import script_contract
 import stage_config
 import writing_api
-from stage_execution_service import publish_stage_text
+import writing_unconfirm
+from stage_execution_service import publish_stage_text, restart_writing_preparation
 from test_writing_api import make_project
 
 
@@ -54,7 +55,7 @@ class ConfirmPreparationDocumentTests(unittest.TestCase):
             writing_api._preparation_state(self.project, self.brief)
         path, _ = confirmed(self.project, '项目设定', '项目设定/改过的设定.md',
                             '# 项目设定\n雨夜照相馆，少年握紧相机。\n')
-        self.assertEqual(writing_api.confirm_preparation_document(
+        self.assertEqual(writing_unconfirm.confirm_preparation_document(
             self.project, '项目设定', path, publish=publish_stage_text), ())
         _, state, texts = writing_api._preparation_state(self.project, self.brief)
         self.assertEqual(texts, ['# 项目设定\n雨夜照相馆，少年握紧相机。\n'])
@@ -68,7 +69,7 @@ class ConfirmPreparationDocumentTests(unittest.TestCase):
         _, outline = confirmed(self.project, '剧本大纲', '剧本大纲/大纲.md', '# 剧本大纲\n三幕\n')
         self.write_state([setting, outline])
         path, _ = confirmed(self.project, '项目设定', '项目设定/再审.md', '# 项目设定\n新设定\n')
-        invalidated = writing_api.confirm_preparation_document(
+        invalidated = writing_unconfirm.confirm_preparation_document(
             self.project, '项目设定', path, publish=publish_stage_text)
         self.assertEqual(invalidated, ('剧本大纲',))
         _, after, texts = writing_api._preparation_state(self.project, self.brief)
@@ -85,8 +86,32 @@ class ConfirmPreparationDocumentTests(unittest.TestCase):
         self.write_state([setting])
         path, _ = confirmed(self.project, '角色卡', '角色卡/角色卡.md', '# 角色卡\n少年\n')
         with self.assertRaisesRegex(ValueError, '请先确认所选阶段之前的文件'):
-            writing_api.confirm_preparation_document(
+            writing_unconfirm.confirm_preparation_document(
                 self.project, '角色卡', path, publish=publish_stage_text)
+
+    def test_confirm_character_card_falls_back_to_adopted_when_revision_incomplete(self):
+        """重写草稿未推进到角色卡时，设为角色卡定稿应回到采用版本，而非误报前置未确认。
+
+        采用版本三阶段已确认，仅重写草稿（revision）只保留了较短前缀（如重写大纲时
+        只留设定）。此时把角色卡设为定稿，前置（设定、大纲）在采用版本里都已确认，
+        不应再报「请先确认所选阶段之前的文件」。
+        """
+        _, setting = confirmed(self.project, '项目设定', '项目设定/设定.md', '# 项目设定\n旧设定\n')
+        _, outline = confirmed(self.project, '剧本大纲', '剧本大纲/大纲.md', '# 剧本大纲\n三幕\n')
+        _, card = confirmed(self.project, '角色卡', '角色卡/卡.md', '# 角色卡\n少年\n')
+        self.write_state([setting, outline, card])
+        # 重写大纲，产生 revision（其 documents 只保留设定，长度 1 < 角色卡 index=2）。
+        restart_writing_preparation(self.project, '剧本大纲')
+        path, _ = confirmed(self.project, '角色卡', '角色卡/新卡.md', '# 角色卡\n新少年\n')
+        invalidated = writing_unconfirm.confirm_preparation_document(
+            self.project, '角色卡', path, publish=publish_stage_text)
+        self.assertEqual(invalidated, ())
+        # 回退到采用版本：revision 被清除，顶层 documents 保留设定、大纲并更新角色卡。
+        state = writing_api.read_json(preparation_folder(self.project) / 'preparation_state.json')
+        self.assertNotIn('revision', state)
+        self.assertEqual([d['stage'] for d in state['documents']],
+                         ['项目设定', '剧本大纲', '角色卡'])
+        self.assertTrue(state['documents'][2]['confirmed'])
 
     def test_confirm_rejects_file_outside_preparation_folder(self):
         """只能登记剧本准备目录内的文件，避免把外部文件当成本阶段成果。"""
@@ -94,7 +119,7 @@ class ConfirmPreparationDocumentTests(unittest.TestCase):
         outside = preparation_folder(self.project).parent / '项目设定_外部.md'
         outside.write_text('# 项目设定\n外部\n', encoding='utf-8')
         with self.assertRaisesRegex(ValueError, '确认文件必须位于当前剧本准备目录内'):
-            writing_api.confirm_preparation_document(
+            writing_unconfirm.confirm_preparation_document(
                 self.project, '项目设定', outside, publish=publish_stage_text)
 
     def test_confirm_rejects_empty_file(self):
@@ -102,7 +127,7 @@ class ConfirmPreparationDocumentTests(unittest.TestCase):
         self.write_state([])
         path, _ = confirmed(self.project, '项目设定', '项目设定/空.md', '   \n')
         with self.assertRaisesRegex(ValueError, '文件内容为空'):
-            writing_api.confirm_preparation_document(
+            writing_unconfirm.confirm_preparation_document(
                 self.project, '项目设定', path, publish=publish_stage_text)
 
 

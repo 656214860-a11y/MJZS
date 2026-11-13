@@ -665,51 +665,6 @@ def _confirmed_prefix(documents, index):
     return prefix
 
 
-def confirm_preparation_document(project, stage, path, *, publish):
-    """把磁盘上的当前文件登记为该阶段的确认输出；只重算正文指纹，不改文件本体。"""
-    if not callable(publish):
-        raise TypeError('剧本准备阶段需要 L3 注入发布器')
-    brief = _complete_brief(project)
-    if brief is None:
-        raise ValueError('请先完成项目创作信息')
-    if stage not in PREPARATION_STAGES:
-        raise ValueError('请选择项目设定、剧本大纲或角色卡')
-    from stage_path_service import write_dir
-    folder = write_dir(project, 'script').resolve()
-    target = folder / 'preparation_state.json'
-    chosen = Path(path).resolve()
-    if not chosen.is_file():
-        raise ValueError('请选择一份已保存的阶段文件')
-    if not chosen.is_relative_to(folder):
-        raise ValueError('确认文件必须位于当前剧本准备目录内')
-    text = chosen.read_text(encoding='utf-8')
-    if not text.strip():
-        raise ValueError('文件内容为空，不能作为确认输出')
-    fingerprint = hashlib.sha256(json.dumps(brief['brief'], ensure_ascii=False,
-                                            sort_keys=True).encode('utf-8')).hexdigest()
-    state = read_json(target)
-    if not isinstance(state, dict) or _preparation_brief_hash(state) != fingerprint:
-        state = {'version': 1, 'brief_hash': fingerprint, 'documents': []}
-    index = PREPARATION_STAGES.index(stage)
-    try:
-        documents = _working_documents(state)
-    except (KeyError, TypeError):
-        raise ValueError('剧本准备重写记录无效')
-    if not isinstance(documents, list):
-        raise ValueError('剧本准备阶段记录无效，不能确认输出')
-    prefix = _confirmed_prefix(documents, index)
-    if prefix is None:
-        raise ValueError('请先确认所选阶段之前的文件')
-    invalidated = tuple(PREPARATION_STAGES[position]
-                        for position, doc in enumerate(documents[index + 1:], start=index + 1)
-                        if isinstance(doc, dict) and doc.get('confirmed') is True)
-    document = {'stage': stage, 'path': chosen.relative_to(folder).as_posix(),
-                'sha256': hashlib.sha256(text.encode('utf-8')).hexdigest(), 'confirmed': True}
-    state.get('revision', state)['documents'] = prefix + [document]
-    _save_preparation_state(target, state, publish)
-    return invalidated
-
-
 
 
 def preparation_file_labels(project):

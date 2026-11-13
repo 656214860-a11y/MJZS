@@ -11,6 +11,7 @@ import model_pool
 import project_stages
 import stage_config
 import writing_api
+import writing_unconfirm
 from agent.core import save
 from stage_execution_service import publish_stage_text, restart_writing_preparation
 from test_workflow import make_project
@@ -198,7 +199,7 @@ class WritingEditedRestartTests(unittest.TestCase):
         self.edit_sources(changed_brief=True)
         restart_writing_preparation(self.project, '剧本大纲')
         result, _ = self.generate(1)
-        writing_api.confirm_preparation_document(
+        writing_unconfirm.confirm_preparation_document(
             self.project, '剧本大纲', result['preparation_path'], publish=publish_stage_text)
         self.assert_adopted_unchanged()
         state = self.state()
