@@ -183,8 +183,9 @@ class ManagerGeometryTests(unittest.TestCase):
     """第 52 期第 1 条：模型管理窗比主界面小一圈、落在主界面正中。
 
     第 65 期任务 5：用户要「模型池内容框优先显示全部内容」，比例 80% → 90%、
-    上限长高到 1180x860，下面的数字跟着改。R2401 方案 B：比例统一为
-    ui_tokens.OVERLAY_RATIO（92% 覆盖），下限先被主界面封顶，弹窗永不超界。
+    上限长高到 1180x860，下面的数字跟着改。R2405 方案 B：比例统一为
+    ui_tokens.OVERLAY_RATIO（78% 覆盖），去掉绝对上限（cap=None，超大屏也严格
+    78%），下限先被主界面封顶，弹窗永不超界；设置页与模型管理同比例、一样大。
     """
 
     class Parent(object):
@@ -219,15 +220,15 @@ class ManagerGeometryTests(unittest.TestCase):
 
     def test_the_window_is_a_ring_smaller_than_the_main_one_and_centred(self):
         said = self.fit(self.Parent(1200, 700))
-        self.assertEqual(said, '1104x644+148+78', '主界面的 92%，并落在正中')
-        self.assertLess(1104, 1200); self.assertLess(644, 700)
+        self.assertEqual(said, '936x620+232+90', '主界面的 78%，并落在正中（高被兜底保住）')
+        self.assertLess(936, 1200); self.assertLess(620, 700)
 
-    def test_a_big_main_window_only_caps_the_fixed_size(self):
-        self.assertEqual(self.fit(self.Parent(1600, 1000, left=0, top=0)), '1180x860+210+70',
-                         '写死的尺寸仍是上限，别算得更大')
+    def test_a_big_main_window_stays_a_fixed_ratio_not_an_absolute_cap(self):
+        self.assertEqual(self.fit(self.Parent(1600, 1000, left=0, top=0)), '1248x780+176+110',
+                         '去掉绝对上限后，超大屏仍严格 78%，不再被 1180 封顶')
 
     def test_a_main_window_that_is_too_small_keeps_the_floor(self):
-        self.assertEqual(self.fit(self.Parent(940, 640)), '864x620+138+60',
+        self.assertEqual(self.fit(self.Parent(940, 640)), '820x620+160+60',
                          '下限先被主界面封顶，弹窗永不超界')
 
     def test_a_main_window_that_cannot_be_measured_falls_back(self):

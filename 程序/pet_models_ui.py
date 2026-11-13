@@ -113,16 +113,16 @@ def main_box(parent):
         return None
 
 
-def fit_to_main(win, parent, geometry, ratio=OVERLAY_RATIO):
+def fit_to_main(win, parent, geometry, ratio=OVERLAY_RATIO, floor=MANAGER_MIN, cap=None):
     """把这扇窗摆成「主界面的固定比例、落在主界面正中、永不超出主界面」。
 
-    - 目标尺寸＝主界面 × ratio（默认 92% 覆盖）；
-    - 内容兜底 MANAGER_MIN 与绝对上限（geometry 写死尺寸）都先被主界面尺寸封顶，
-      因此主界面任意缩放下弹窗都不会比它大，也不因下限死守而「突然放大超界」。
+    - 目标尺寸＝主界面 × ratio（默认 OVERLAY_RATIO）；
+    - 内容兜底 floor 先被主界面尺寸封顶；cap 是可选绝对上限（None＝只封顶到主界面，
+      不另设绝对上限，弹窗在超大屏上也严格＝主界面 × ratio）；
     - 主界面量不出来就退回给的那个尺寸（自检里就是这样）。
     """
     try:
-        cap_width, cap_height = (int(value) for value in str(geometry).split('x'))
+        back_w, back_h = (int(value) for value in str(geometry).split('x'))
     except (TypeError, ValueError):
         return geometry
     box = main_box(parent)
@@ -130,11 +130,11 @@ def fit_to_main(win, parent, geometry, ratio=OVERLAY_RATIO):
         win.geometry(geometry)
         return geometry
     left, top, parent_width, parent_height = box
-    # 兜底值先被主界面封顶，再与 92% 覆盖取大；上限是主界面与写死尺寸的较小者。
-    width = min(parent_width, cap_width,
-                max(int(parent_width * ratio), min(MANAGER_MIN[0], parent_width)))
-    height = min(parent_height, cap_height,
-                 max(int(parent_height * ratio), min(MANAGER_MIN[1], parent_height)))
+    cap_width = parent_width if cap is None else min(parent_width, cap[0])
+    cap_height = parent_height if cap is None else min(parent_height, cap[1])
+    # 兜底值先被主界面封顶，再与覆盖比例取大；上限是主界面与（可选）写死尺寸的较小者。
+    width = min(cap_width, max(int(parent_width * ratio), min(floor[0], parent_width)))
+    height = min(cap_height, max(int(parent_height * ratio), min(floor[1], parent_height)))
     x = max(0, left + (parent_width - width) // 2)
     y = max(0, top + (parent_height - height) // 2)
     win.geometry('%dx%d+%d+%d' % (width, height, x, y))

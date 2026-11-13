@@ -115,6 +115,9 @@ def open_hub(pet, tab=None):
     win = BaseDialog(parent, '', modal=False, chrome=False)
     win.title(HUB_TITLE)
     win.geometry(HUB_GEOMETRY)
+    # R2405：设置页与模型管理弹窗统一按主界面 OVERLAY_RATIO 覆盖、居中、永不超界；
+    # 兜底用设置窗自己的 HUB_MIN（比模型管理的 MANAGER_MIN 小一档，内容可读性仍保住）。
+    pet_models_ui.fit_to_main(win, parent, HUB_GEOMETRY, floor=HUB_MIN)
     win.minsize(*HUB_MIN)
     win.transient(parent or None)
     win.bind('<Escape>', lambda event: win.destroy())
