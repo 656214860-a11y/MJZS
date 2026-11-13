@@ -26,6 +26,16 @@ MODEL_BAR_HEIGHT=SPACING['xl']+SPACING['xs']
 
 
 class IdeaBubblesMixin:
+    def _clear_bubble_view(self, box, reset_width=True):
+        """清空气泡框的行台账、气泡标签与文本；重绘前调用。清屏压缩沿用当前宽度，故不重置。"""
+        self._bubble_rows=[]
+        self._bubble_full={}
+        if reset_width:
+            self._bubble_width=int(box.winfo_width() or 0)
+        box.configure(state='normal')
+        for name in [one for one in box.tag_names() if one.startswith('bubble_')]:
+            box.tag_delete(name)
+        box.delete('1.0','end')
     def refit_bubbles(self,event=None):
         """第 69 期任务 1：窗口一改宽窄就重算气泡的左右边距——只动边距，
         上面的字和您正在写的那段一个字节都不碰。"""
@@ -109,6 +119,12 @@ class IdeaBubblesMixin:
         except tk.TclError:
             pass
         return 'break'
+    def _bubble_tag_index(self, tag):
+        """气泡标签「bubble_<n>」里的序号；不是这种标签返回 None。"""
+        parts=str(tag).split('_')
+        if len(parts)>=2 and parts[0]=='bubble' and parts[1].isdigit():
+            return int(parts[1])
+        return None
     def bubble_target_at(self,box,event):
         """鼠标位置对应的真实消息；元信息和“展开全文”也归回它所属的气泡。"""
         try:tags=box.tag_names(box.index('@%d,%d'%(event.x,event.y)))
@@ -116,9 +132,9 @@ class IdeaBubblesMixin:
         for tag in tags:
             if str(tag)=='bubble_example':
                 return 'example','bubble_example'
-            parts=str(tag).split('_')
-            if len(parts)>=2 and parts[0]=='bubble' and parts[1].isdigit():
-                return int(parts[1]),'bubble_'+parts[1]
+            index=self._bubble_tag_index(tag)
+            if index is not None:
+                return index,'bubble_'+str(index)
         return None
     def copy_selected_bubble_text(self,event=None):
         """保留原生拖选体验；Ctrl+C 只复制用户实际选中的文字。"""
@@ -140,8 +156,7 @@ class IdeaBubblesMixin:
             selected=box.tag_ranges('sel')
             tags=box.tag_names(selected[0]) if len(selected)>=2 else ()
         except tk.TclError:return None
-        if any(str(tag).startswith('bubble_') and str(tag).split('_')[1:2] and
-               str(tag).split('_')[1].isdigit() for tag in tags):
+        if any(self._bubble_tag_index(tag) is not None for tag in tags):
             self.status.set('已选中气泡正文，按 Ctrl+C 复制。')
         return None
     def _idea_display_rows(self):
@@ -218,11 +233,7 @@ class IdeaBubblesMixin:
             try:box.after_cancel(job)
             except tk.TclError:pass
         self._idea_view_after_jobs=[]
-        self._bubble_rows=[];self._bubble_full={}
-        box.configure(state='normal')
-        box.delete('1.0','end')
-        for name in [one for one in box.tag_names() if one.startswith('bubble_')]:
-            box.tag_delete(name)
+        self._clear_bubble_view(box, reset_width=False)
         self.status.set('已清屏并压缩历史上下文（本地摘录）；完整聊天已保留，点击“刷新”可重新显示。')
     def bubble_view_key(self,model):
         """清屏范围按项目和模型隔离，只在本次应用会话内保存。"""

@@ -109,8 +109,6 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
         return project_context(self.root)
     def idea_draft_range(self):
         """固定在聊天区底部的发送框；聊天记录不混入待发送文字。"""
-        box=getattr(self,'idea_input',None)
-        if box is None or not box.winfo_exists():return '1.0','end-1c'
         return '1.0','end-1c'
     def preserve_idea_draft(self):
         """翻页重建前把尚未发送的创意留在本次运行内，不写入项目文件。"""
@@ -322,16 +320,14 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
         remaining=hidden.copy() if hidden is not None else {}
         visible=[]
         for index,row in enumerate(rows):
-            signature=json.dumps({k:v for k,v in row.items() if k!='context_compacted'},sort_keys=True,ensure_ascii=False)
-            if remaining.get(signature,0):
-                remaining[signature]-=1
-            else:
-                visible.append((index,row))
-        box.configure(state='normal')
-        self._bubble_rows=[];self._bubble_full={};self._bubble_width=int(box.winfo_width() or 0)
-        for name in [one for one in box.tag_names() if one.startswith('bubble_')]:
-            box.tag_delete(name)
-        box.delete('1.0','end')
+            # 无隐藏消息时（最常见）不再逐条构造签名，避免整段历史反复 JSON 序列化。
+            if remaining:
+                signature=json.dumps({k:v for k,v in row.items() if k!='context_compacted'},sort_keys=True,ensure_ascii=False)
+                if remaining.get(signature,0):
+                    remaining[signature]-=1
+                    continue
+            visible.append((index,row))
+        self._clear_bubble_view(box)
         def finish():
             if not alive():return
             usage_label = getattr(self, 'idea_usage_label', None)
@@ -662,13 +658,14 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
             error=str(result.get('error') or '未收到模型回复')
             kind=('budget' if result.get('reason') == 'context_budget_exceeded'
                   else str(result.get('kind') or ''))
-            if kind in ('network', 'server'):
-                message='模型暂时无法响应，请稍后重试'
-            elif kind in ('auth', 'budget', 'client', ''):
+            # kind → 文案的唯一出处是 model_error_display；这里只补两条本地差异：
+            # 客户端／空 kind 加「模型调用未完成：」前缀，其余（网络／服务端／内部）沿用统一文案。
+            if kind in ('auth', 'budget', 'client', ''):
                 message='模型调用未完成：'+error
+                log_only=False
             else:
-                message='系统内部错误，已记录日志'
-            if kind not in ('auth', 'budget', 'client', ''):
+                message, log_only=model_error_display(result)
+            if log_only:
                 LOGGER.warning('模型调用失败（kind=%s）：%s', kind or 'missing', error)
             self.status.set(preparation_reply_message(result) or message)
             if result.get('reason') == 'context_budget_exceeded' or '上下文超过' in error or '超过模型上下文' in error:

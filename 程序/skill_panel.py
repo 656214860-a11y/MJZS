@@ -185,7 +185,6 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
         self.preset_action = tk.StringVar(value='选择操作')
         # 下拉的选项＝模型管理里那几条（第 43 期：不写死，池子加一条这里就多一项）。
         self.choices = model_choices(self.desktop, self.stage)
-        self.labels = [label for _model_id, label in self.choices]
         self.groups = grouped_model_choices(self.desktop, self.stage)
         self.provider = tk.StringVar(value=next(iter(self.groups), '自动选择'))
         # 第 36 期第 1／4 条：这一阶段对应的编排流程（没有就是 None）——流程 SKILL 与手动配置都要它。
@@ -892,7 +891,6 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
         except Exception:
             current = self.model_id()
         self.choices = model_choices(self.desktop, self.stage)
-        self.labels = [label for _model_id, label in self.choices]
         self.groups = grouped_model_choices(self.desktop, self.stage)
         kept = [model_id for model_id, _label in self.choices if model_id == current]
         self.set_model(kept[0] if kept else model_router.AUTO)
