@@ -50,9 +50,9 @@ class IdeaBubblesMixin:
             left,right=self.bubble_margins(box,text,mine)
             pad=BUBBLE_PAD if framed else 0
             for tag in (name,name+'_time',name+'_meta',name+'_toggle',name+'_thinking',name+'_actions'):
-                # 框内行（正文与页脚）带内边距，框外行（模型名／图标）贴着框的左边沿。
-                l=left+pad if tag in (name,name+'_time') else left
-                r=right+pad if tag in (name,name+'_time') else right
+                # 正文 tag 带内边距，页脚／模型名／图标行贴着框的左边沿，不加内边距。
+                l=left+pad if tag==name else left
+                r=right+pad if tag==name else right
                 try:box.tag_configure(tag,lmargin1=l,lmargin2=l,rmargin=r)
                 except tk.TclError:pass
     def bubble_font(self):
@@ -303,16 +303,13 @@ class IdeaBubblesMixin:
             box.tag_bind(toggle,'<Enter>',lambda event,b=box:b.configure(cursor='hand2'))
             box.tag_bind(toggle,'<Leave>',lambda event,b=box:b.configure(cursor='xterm'))
         # SKILL 注入与时间合成一行，放在这条消息的最下面（复制／删除图标之上）。
-        # 参考 DeepSeek 对话：这一行也在灰色底框内部，与正文同一缩进、同一底色；
-        # 不用 wrap='none'——超宽会被内容框直接裁掉（显示不完全），改回 word 换行保证整句可见。
+        # 用户要求：页脚留在底框外面——贴着框的左边沿、不铺底色、整句左对齐不换行截断。
         import idea_chat
         footer='  '.join(part for part in (idea_chat.skill_injection_summary(row),self.bubble_time(row.get('at'))) if part)
         if footer:
             box.tag_configure(name+'_time',justify='left',foreground=COLORS['text_muted'],
-                              background=fill,
-                              lmargin1=body_left,lmargin2=body_left,rmargin=body_right,
-                              lmargincolor=margin_back,rmargincolor=margin_back,
-                              spacing1=0,spacing3=1,font=BUBBLE_TIME_FONT,wrap='word')
+                              lmargin1=left,lmargin2=left,rmargin=right,spacing1=0,spacing3=1,
+                              font=BUBBLE_TIME_FONT,wrap='none')
             box.insert('end',footer+'\n',name+'_time')
         if isinstance(index,int):
             self.add_bubble_actions(box,name,index,left,right,rewindable=mine)

@@ -35,7 +35,15 @@ class IdeaMenusMixin:
         target=self.bubble_target_at(event.widget,event)
         menu=self.project_page_services.context_menu(event.widget)
         if target is not None:
-            index,_name=target
+            index,name=target
+            record=getattr(self,'_bubble_full',{}).get(name)
+            # 悬停在某条气泡上时才给展开/收起项：按当前状态摆菜单文字，动作与左下角「展开全文」一致。
+            if record is not None and index != 'example':
+                if record.get('expanded'):
+                    menu.command('收起全文',lambda:self.toggle_bubble(event.widget,name))
+                else:
+                    menu.command('展开全文',lambda:self.toggle_bubble(event.widget,name))
+                menu.separator()
             if index == 'example':
                 menu.command('复制软件示例',lambda:self.copy_bubble_message('example'))
             else:

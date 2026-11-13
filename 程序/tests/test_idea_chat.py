@@ -1991,12 +1991,12 @@ class BubbleLayoutTests(_Harness):
             footer = box.tag_ranges('bubble_0_time')
             self.assertTrue(footer, '时间在正文下面的页脚行')
             self.assertTrue(box.compare(footer[0], '>=', body[1]), '页脚在正文之后')
-            # 页脚在灰色底框内部：与正文同缩进、同淡底，不因 wrap 截断（word 换行）。
-            self.assertEqual(box.tag_cget('bubble_0_time', 'lmargin1'), box.tag_cget('bubble_0', 'lmargin1'),
-                             '页脚与正文同缩进，都在框内')
-            self.assertEqual(box.tag_cget('bubble_0_time', 'background'), COLORS['surface_hover'],
-                             '页脚也铺淡底，属于同一底框')
-            self.assertEqual(box.tag_cget('bubble_0_time', 'wrap'), 'word', '页脚超宽换行，不被裁掉')
+            # 页脚在底框外面：贴着框的左边沿（无内边距）、不铺底色、整句不换行（wrap=none）。
+            self.assertEqual(box.tag_cget('bubble_0_time', 'lmargin1'),
+                             int(float(box.tag_cget('bubble_0', 'lmargin1'))) - 10,
+                             '页脚贴框左边沿，比正文少一个内边距（BUBBLE_PAD）')
+            self.assertEqual(box.tag_cget('bubble_0_time', 'background'), '', '页脚不铺底色，留在框外')
+            self.assertEqual(box.tag_cget('bubble_0_time', 'wrap'), 'none', '页脚整句不换行')
             self.assertEqual(d.rewind_bubble_message(0), '第一条创意正文')
             self.assertEqual(d.idea_input.get('1.0', 'end').strip(), '第一条创意正文')
             self.assertEqual(len(idea_chat.load(proj)), 1, '回退只回填输入框，不改聊天记录')
@@ -2353,6 +2353,29 @@ class BubbleLayoutTests(_Harness):
             self.assertEqual(d.idea_scroll.winfo_manager(), 'pack')
             self.assertTrue(d.idea_log.cget('yscrollcommand'), '对话内容框应连接右侧滚动条')
 
+    def test_idea_log_wheel_scrolls_multiple_lines_per_tick(self):
+        """聊天框滚轮加速：一格滚 IDEA_LOG_WHEEL_LINES 行，而不是默认 1 行。"""
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            d, win = self.desktop(proj)
+            idea_chat.append(proj, 'assistant', '一条消息', model=d.idea_chat_model())
+            d.show(0); self.settle_script_page(win)
+            box = d.idea_log
+            import desktop_layout
+            event = SimpleNamespace(widget=box, delta=120)
+            seen = []
+            # 模拟「中间位置、可向下滚」：yview 返回非顶非底，scroll_page 的 Text 分支就会放大步长。
+            box.yview = lambda: (0.1, 0.9)
+            original = box.yview_scroll
+            box.yview_scroll = lambda n, what='units': seen.append((n, what))
+            try:
+                d.scroll_page(event)
+            finally:
+                box.yview_scroll = original
+            self.assertTrue(seen, '聊天框滚轮应触发一次滚动')
+            self.assertEqual(seen[0], (-desktop_layout.IDEA_LOG_WHEEL_LINES, 'units'),
+                             '聊天框一格滚 %d 行' % desktop_layout.IDEA_LOG_WHEEL_LINES)
+
     def test_long_message_is_collapsed_and_can_expand(self):
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
@@ -2365,6 +2388,34 @@ class BubbleLayoutTests(_Harness):
             d.toggle_bubble(d.idea_log, 'bubble_0'); win.update()
             self.assertIn('收起', self.log_text(d))
             self.assertIn('长内容' * 250, self.log_text(d))
+
+    def test_right_click_offers_expand_or_collapse_on_the_hovered_bubble(self):
+        """右键悬停在某条折叠气泡上时菜单给出「展开全文」；展开后再右键则给「收起全文」。"""
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            d, win = self.desktop(proj)
+            idea_chat.append(proj, 'assistant', '长内容' * 250, model=d.idea_chat_model())
+            d.show(0); self.settle_script_page(win)
+            event = SimpleNamespace(widget=d.idea_log, x=8, y=8)
+
+            def labels():
+                with patch('desktop.ContextMenu.popup', return_value='break'):
+                    d.open_bubble_menu(event)
+                return [d._bubble_menu.entrycget(i, 'label') for i in range(d._bubble_menu.index('end') + 1)
+                        if d._bubble_menu.type(i) != 'separator']
+
+            # 折叠态：悬停在 bubble_0 上，菜单给「展开全文」。
+            with patch.object(d, 'bubble_target_at', return_value=(0, 'bubble_0')):
+                self.assertIn('展开全文', labels())
+            # 展开后：同一位置菜单改为「收起全文」。
+            d.toggle_bubble(d.idea_log, 'bubble_0'); win.update()
+            with patch.object(d, 'bubble_target_at', return_value=(0, 'bubble_0')):
+                self.assertIn('收起全文', labels())
+                self.assertNotIn('展开全文', labels())
+            # 空白处（无气泡）不出现展开/收起项。
+            with patch.object(d, 'bubble_target_at', return_value=None):
+                self.assertNotIn('展开全文', labels())
+                self.assertNotIn('收起全文', labels())
 
     def test_thinking_notice_is_transient_and_names_the_model(self):
         with tempfile.TemporaryDirectory() as td:
