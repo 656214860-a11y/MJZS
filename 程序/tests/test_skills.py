@@ -2041,7 +2041,7 @@ class PanelTests(unittest.TestCase):
         self.assertEqual(len([w for w in walk(other.winfo_toplevel())
                                if isinstance(w, skill_panel.Panel)]), 1, '一次只开一块面板')
 
-    def test_stage_config_window_is_smaller_than_its_main_window(self):
+    def test_stage_config_window_covers_its_main_window(self):
         self.win.deiconify()
         self.win.geometry('1200x800+0+0')
         self.win.update_idletasks()
@@ -2049,8 +2049,9 @@ class PanelTests(unittest.TestCase):
         window = panel.winfo_toplevel()
         self.addCleanup(window.destroy)
         window.update_idletasks()
-        self.assertLess(window.winfo_width(), self.win.winfo_width())
-        self.assertLess(window.winfo_height(), self.win.winfo_height())
+        self.assertEqual(window.winfo_width(), self.win.winfo_width(),
+                         'R2411：阶段配置弹窗尺寸＝主界面（覆盖，像切换页面）')
+        self.assertEqual(window.winfo_height(), self.win.winfo_height())
         self.assertTrue(all(window.resizable()))
         window.geometry('1250x850')
         window.update_idletasks()

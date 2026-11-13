@@ -644,19 +644,19 @@ def stage_context(desktop, stage, function=None, extra=None):
 
 
 def panel_window_size(parent):
-    """返回阶段配置窗口的初始尺寸与上限：主界面 × 92% 覆盖，居中，永不超主界面。
+    """返回阶段配置窗口的初始尺寸与上限：主界面 × OVERLAY_RATIO（默认 1.0＝等大），居中，永不超主界面。
 
-    内容兜底取 STAGE_PANEL_LAYOUT 的最小尺寸、绝对上限 880×720，两者都先被主界面
-    尺寸封顶，避免「主窗口缩小弹窗骤缩到最小」或「弹窗比主界面大」的突兀。
+    内容兜底取 STAGE_PANEL_LAYOUT 的最小尺寸，先被主界面封顶，避免「主窗口缩小
+    弹窗骤缩到最小」或「弹窗比主界面大」的突兀。R2411 去掉 880×720 绝对上限，让
+    阶段配置弹窗尺寸＝主界面（视觉上像切换页面）。
     """
     parent.update_idletasks()
     available_width = max(1, parent.winfo_width())
     available_height = max(1, parent.winfo_height())
-    cap_width, cap_height = 880, 720
     floor_width = STAGE_PANEL_LAYOUT['min_width']
     floor_height = STAGE_PANEL_LAYOUT['min_height']
-    width = min(available_width, cap_width,
+    width = min(available_width,
                 max(int(available_width * OVERLAY_RATIO), min(floor_width, available_width)))
-    height = min(available_height, cap_height,
+    height = min(available_height,
                  max(int(available_height * OVERLAY_RATIO), min(floor_height, available_height)))
     return width, height, available_width, available_height
