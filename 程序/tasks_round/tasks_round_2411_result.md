@@ -45,4 +45,4 @@ worktree 由 `git worktree add` 从干净 master 检出，缺失两类 gitignore
 
 ## 提交
 
-（收尾时补记 commit hash 与提交结果）
+已提交：commit `5e74aa64`（分支 `codex/wip-R2411`），含 `desktop_project_pages.py`、`pet_models_ui.py`、`version_picker.py`、`tests/test_ui_batch7_settings_models.py` 与本结果文件。
