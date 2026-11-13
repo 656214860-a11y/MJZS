@@ -95,6 +95,24 @@ from stage_handoff_gateways import (  # noqa: F401  re-export
     storyboard_adoption_impact,
     sync_continuity_issues,
     verify_handoff_bundle)
+from stage_publication import (
+    project_registry_gateway,
+    publish_stage_bundle,
+    publish_stage_bytes,
+    publish_stage_text,
+    recover_stage_publications)
+from stage_write_preparation_service import (
+    _STAGE_COPY_LOCK,
+    _copy_stage_for_write,
+    prepare_asset_write,
+    prepare_legacy_asset_base,
+    prepare_legacy_stage_path,
+    prepare_stage_write)
+from stage_download_inbox_service import (
+    DOWNLOAD_INBOX_LEDGER,
+    _download_inbox_path,
+    collect_download_inbox,
+    register_download_inbox)
 
 
 
@@ -743,15 +761,6 @@ def stage_context(desktop, stage, function=None, extra=None):
     return context
 
 
-from stage_publication import (
-          project_registry_gateway,
-          publish_stage_bundle,
-          publish_stage_bytes,
-          publish_stage_text,
-          recover_stage_publications)
-
-
-
 def import_writing_project(root, json_file):
     """L3 编排剧本 JSON 导入与其校验报告发布。"""
     from writing import import_project
@@ -783,18 +792,6 @@ def require_formal_asset_generation(project, *, online_model):
         raise ValueError(stage_parallel.blocked_text(gate))
     if not online_model:
         raise ValueError('正式资产请选择线上 API 模型；本地草图请在分镜预演阶段生成')
-
-
-
-
-from stage_write_preparation_service import (
-          _STAGE_COPY_LOCK,
-          _copy_stage_for_write,
-          prepare_asset_write,
-          prepare_legacy_asset_base,
-          prepare_legacy_stage_path,
-          prepare_stage_write)
-
 
 
 def save_writing_production_locks(project, values, *, attachment_signature=None):
@@ -875,16 +872,6 @@ def sync_writing_attachment_locks(project, *, reference=None):
 
 
 
-
-
-
-
-
-from stage_download_inbox_service import (
-          DOWNLOAD_INBOX_LEDGER,
-          _download_inbox_path,
-          collect_download_inbox,
-          register_download_inbox)
 
 
 
