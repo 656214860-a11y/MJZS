@@ -14,6 +14,8 @@ import app_logging
 # 绑定到同一 ticket。状态只记录已落地的事实，待迁移项不得借清单宣称已收口。
 HISTORY_LIMIT = 20
 QUEUE_LIMIT = 10
+# 排队满的错误提示只留一份（enqueue 带计数变体、两个落盘入口共用无计数版）。
+QUEUE_FULL_TEXT = '排队任务已满，请等当前任务结束'
 
 
 BACKGROUND_TASK_MIGRATION = (
@@ -202,7 +204,7 @@ class PersistentBackgroundTaskQueue(BackgroundTaskQueue):
             if self._expire(data):
                 self._save(data)
             if len(self._items) + sum(row['state'] == 'queued' for row in data['tasks']) >= self._limit:
-                raise ValueError('排队任务已满，请等当前任务结束')
+                raise ValueError(QUEUE_FULL_TEXT)
             super().enqueue(fn, done, label, show_progress, retryable)
             self._items[-1].update(priority=priority, created=self.clock())
             return len(self.labels())
@@ -226,7 +228,7 @@ class PersistentBackgroundTaskQueue(BackgroundTaskQueue):
             data = self._load()
             self._expire(data)
             if len(self._items) + sum(item['state'] == 'queued' for item in data['tasks']) >= self._limit:
-                raise ValueError('排队任务已满，请等当前任务结束')
+                raise ValueError(QUEUE_FULL_TEXT)
             data['tasks'].append(row)
             self._save(data)
         return row['id']

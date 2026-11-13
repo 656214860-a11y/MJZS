@@ -326,8 +326,9 @@ class SettingsWindowTests(SettingsCase):
     def test_the_model_page_keeps_its_buttons(self):
         win = self.hub('model')
         texts = [str(button.cget('text')) for button in self.walk(win, self.ttk.Button)]
-        # 第 46 期第 6 条：「打开模型管理」改名「API统一配置」并挪到抬头行右侧。
-        for label in ('测试连接', 'API 统一配置', '保存', '重置'):
+        # 第 46 期第 6 条：「打开模型管理」改名「API统一配置」并挪到抬头行右侧；
+        # 用户要求这颗键再改名为「模型配置」（pet_models_ui.MANAGER_BUTTON）。
+        for label in ('测试连接', '模型配置', '保存', '重置'):
             self.assertIn(label, texts)
         self.assertNotIn('打开模型管理', texts)
 

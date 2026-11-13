@@ -25,7 +25,7 @@ from ui_widgets import (BusyState, NotificationDispatcher, SelectBox, BaseDialog
 
 TITLE = '三虎 · 设置'
 SETTINGS_TITLE = '三虎模型配置'          # 第 46 期第 6 条：这一页与它的独立窗口都叫这个名字
-MANAGER_BUTTON = 'API 统一配置'          # 第 46 期第 6 条：原「打开模型管理」，挪到抬头行右侧
+MANAGER_BUTTON = '模型配置'              # 用户要求：原「API 统一配置」改名为「模型配置」，仍打开模型管理
 # 第 51 期第 1 条：这颗键原来用 Highlight（琥珀底、10pt 粗体、大内边距），摆在一排 Compact 按钮里
 # 格式不一致；现在与同排的分页按钮／「关闭」一样用 Compact.TButton，名字也补上那个半角空格。
 MANAGER_TITLE = '模型管理'

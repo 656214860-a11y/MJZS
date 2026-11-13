@@ -43,6 +43,7 @@ EXPORT_NAME = '漫剧助手账号数据_%Y%m%d.json'
 LOGIN_VIEWS = {'pw': '邮箱密码登录（新账号免费试用 3 天，每个账号最多绑定 3 台电脑）', 'reg': '注册新账号（邮箱验证码＋密码）',
                'code': '邮箱验证码登录', 'reset': '找回密码（用邮箱验证码设置新密码）'}
 CODE_SENT_TEXT = '验证码已发送，请查收邮件（10 分钟内有效）；几分钟没收到请看垃圾邮件箱，或稍后重发'
+AGE_CONFIRM_TEXT = '已满 18 周岁并同意协议'
 
 
 def plan_text(payload):
@@ -569,7 +570,7 @@ class AccountPageMixin:
         reg_password = PasswordInput(views['reg'],placeholder='设置密码（8–64 位，含字母和数字）');reg_password.pack(fill='x',pady=SPACING['xs'])
         reg_again = PasswordInput(views['reg'],placeholder='再次输入密码');reg_again.pack(fill='x',pady=SPACING['xs'])
         reg_adult = tk.BooleanVar(master=form,value=False)
-        ttk.Checkbutton(views['reg'],text='已满 18 周岁并同意协议',variable=reg_adult).pack(anchor='w',pady=SPACING['xs'])
+        ttk.Checkbutton(views['reg'],text=AGE_CONFIRM_TEXT,variable=reg_adult).pack(anchor='w',pady=SPACING['xs'])
         def register():
             value = checked_email()
             if not value or not required(reg_code,'请填写验证码') or not checked_password(reg_password,reg_again):return
@@ -617,7 +618,7 @@ def _login_code_view(account, kit):
     """验证码登录视图（没设过密码的旧账号也能进；邮箱未注册时服务端顺带建号），返回 (验证码框, 登录, 发码, 撤销注销)。"""
     code = LineInput(kit.view,placeholder='6 位验证码');code.pack(fill='x',pady=SPACING['xs'])
     adult = tk.BooleanVar(master=kit.form,value=False)
-    ttk.Checkbutton(kit.view,text='已满 18 周岁并同意协议',variable=adult).pack(anchor='w',pady=SPACING['xs'])
+    ttk.Checkbutton(kit.view,text=AGE_CONFIRM_TEXT,variable=adult).pack(anchor='w',pady=SPACING['xs'])
     ttk.Label(kit.view,text='邮箱未注册时会顺带建号，须勾选：确认已年满 18 周岁，并同意用户协议与隐私政策。',
               style='Muted.TLabel',wraplength=kit.wrap,justify='left').pack(anchor='w')
     actions = kit.row('code')

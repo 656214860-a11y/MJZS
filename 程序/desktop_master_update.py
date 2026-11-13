@@ -8,6 +8,9 @@
 import master_skill_update
 from ui_widgets import NoticeDialog, ask_confirmation
 
+# 总控包更新弹窗标题只留一份（自动检查摘要窗与手动确认窗共用）。
+UPDATE_TITLE = '总控包有更新'
+
 
 class MasterUpdateMixin:
     def start_master_update_check(self, manual=False):
@@ -42,10 +45,10 @@ class MasterUpdateMixin:
         if not result.get('can_apply'):
             self.status.set('总控包有新版本，但当前环境需手动更新。')
             if manual:
-                NoticeDialog(self.win, '总控包有更新', text)  # 多行摘要：状态栏通知会把换行压平，读不了
+                NoticeDialog(self.win, UPDATE_TITLE, text)  # 多行摘要：状态栏通知会把换行压平，读不了
             return
         self.status.set('总控包有新版本，等待确认更新。')
-        if not ask_confirmation(self.win, '总控包有更新', text + '\n\n是否现在下载并更新？更新前的旧版本会进回收站。'):
+        if not ask_confirmation(self.win, UPDATE_TITLE, text + '\n\n是否现在下载并更新？更新前的旧版本会进回收站。'):
             self.status.set('已暂不更新总控包；下次启动会再次提示。')
             return
         project = getattr(self, 'root', None)

@@ -15,6 +15,7 @@ from unittest.mock import patch
 from skip_reasons import PLATFORM_TKINTER
 from ui_tokens import COLORS
 from test_idea_chat import idea_chat, make_minimal_project
+import desktop_idea_chat
 
 try:
     import tkinter as tk
@@ -131,12 +132,14 @@ class ScriptComposerTests(unittest.TestCase):
             d, win = self.desktop(proj)
             box = d.idea_log
             self.wait_for_tag(win, box, 'bubble_0_copy')
-            self.assertEqual(str(box.tag_cget('bubble_0', 'background')), '')
+            # 参考 DeepSeek 对话：正文加浅灰外框，background 是框底色而非透明。
+            self.assertEqual(str(box.tag_cget('bubble_0', 'background')), COLORS['surface_hover'])
             hidden = box.cget('bg')
             self.assertEqual(box.tag_cget('bubble_0_copy', 'foreground'), hidden)
-            # 图标行与正文同一左边距，即正文左下角；R2283 起中间隔着一行页脚（时间／SKILL 注入），
-            # 所以是正文接页脚、页脚接图标行，图标行仍在这条消息的最下面。
-            self.assertEqual(box.tag_cget('bubble_0_actions', 'lmargin1'), box.tag_cget('bubble_0', 'lmargin1'))
+            # 图标行与正文同属一条消息：正文外框的左边沿（left）与图标行左边距一致；
+            # 正文文字在框内再缩进一个 BUBBLE_PAD，所以正文 tag 的 lmargin1 比图标行大一个内边距。
+            self.assertEqual(int(float(box.tag_cget('bubble_0', 'lmargin1'))),
+                             int(float(box.tag_cget('bubble_0_actions', 'lmargin1'))) + desktop_idea_chat.BUBBLE_PAD)
             self.assertEqual(box.index(box.tag_ranges('bubble_0')[-1]), box.index(box.tag_ranges('bubble_0_time')[0]))
             self.assertEqual(box.index(box.tag_ranges('bubble_0_time')[-1]), box.index(box.tag_ranges('bubble_0_actions')[0]))
             d.show_bubble_actions(box, 'bubble_0', True)

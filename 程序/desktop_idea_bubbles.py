@@ -11,6 +11,7 @@ from idea_chat_controller import ALL_MODELS, bubble_timestamp, collapse_preview,
 
 
 BUBBLE_BACK=COLORS['background_card']  # 内容框的底色：气泡两边的留白用它刷，色块才贴着字
+BUBBLE_FILL=COLORS['surface_hover']    # 气泡正文外框内的浅灰底（参考 DeepSeek 对话：正文框一圈淡底）
 BUBBLE_FONT=('Microsoft YaHei UI',10)
 BUBBLE_TIME_FONT=('Microsoft YaHei UI',9)
 BUBBLE_PAD=10          # 气泡里文字与色块边缘的距离
@@ -45,10 +46,14 @@ class IdeaBubblesMixin:
         width=int(box.winfo_width() or 0)
         if width<=1 or width==getattr(self,'_bubble_width',None):return
         self._bubble_width=width
-        for name,text,mine in getattr(self,'_bubble_rows',[]):
+        for name,text,mine,framed in getattr(self,'_bubble_rows',[]):
             left,right=self.bubble_margins(box,text,mine)
+            pad=BUBBLE_PAD if framed else 0
             for tag in (name,name+'_time',name+'_meta',name+'_toggle',name+'_thinking',name+'_actions'):
-                try:box.tag_configure(tag,lmargin1=left,lmargin2=left,rmargin=right)
+                # 正文 tag 带外框内边距，其余行（模型名／页脚／图标）贴着框的左边沿，不加内边距。
+                l=left+pad if tag==name else left
+                r=right+pad if tag==name else right
+                try:box.tag_configure(tag,lmargin1=l,lmargin2=l,rmargin=r)
                 except tk.TclError:pass
     def bubble_font(self):
         """量字宽用的字体；量不出来给 None（退回「一个字 BUBBLE_LINE 像素」的估算）。"""
@@ -256,22 +261,26 @@ class IdeaBubblesMixin:
         mine=str(row.get('role'))=='user'
         left,right=self.bubble_margins(box,text,mine)
         name='bubble_'+str(index)
+        example=index == 'example'
         # 页面刚建好时框子还没量过宽度，这一条要留着，等真实宽度下来再摆一次（见 refit_bubbles）。
-        getattr(self,'_bubble_rows',[]).append((name,text,mine))
+        getattr(self,'_bubble_rows',[]).append((name,text,mine,not example))
         # 与 Claude Code 桌面版一致：用户气泡贴右侧，名字、正文、引用行和底行都右对齐；模型回复左对齐。
         align='right' if mine else 'left'
-        example=index == 'example'
         _model_back, model_meta = self.model_chat_colors(row.get('model'))
-        # REQ-S01-65：与 Claude Code 桌面版一致，用户和模型的消息都不铺底色，靠左右位置区分。
-        look=dict(justify=align,background='',
+        # 参考 DeepSeek 对话：正文加一圈浅灰外框（1px 描边 + 淡底 + 左右内边距），文字仍按
+        # 用户靠右、模型靠左分列（REQ-S01-65 的左右位置区分保留）。软件示例是只读参考，不铺框。
+        pad=BUBBLE_PAD if not example else 0
+        body_left=left+pad
+        body_right=right+pad
+        fill='' if example else BUBBLE_FILL
+        look=dict(justify=align,background=fill,
                   foreground=COLORS['text_secondary'] if example else COLORS['text_primary'],
-                  lmargin1=left,lmargin2=left,rmargin=right,
+                  lmargin1=body_left,lmargin2=body_left,rmargin=body_right,
                   spacing1=2,spacing2=1,spacing3=4,font=BUBBLE_FONT,wrap='word')
-        # Tk 默认连边距一起刷成气泡色，那样每条都是满屏一条；把两边留白按框底的白走，
+        # Tk 默认连边距一起刷成气泡色，那样每条都是满屏一条；把外框内的留白按框底色走，
         # 色块才贴着字（-lmargincolor／-rmargincolor，Tk 8.6 起）。
-        bubble_padding=0 if example else BUBBLE_PAD
-        margin_back=box.cget('bg') if example else BUBBLE_BACK
-        try:box.tag_configure(name,borderwidth=bubble_padding,relief='flat',
+        margin_back=box.cget('bg') if example else BUBBLE_FILL
+        try:box.tag_configure(name,borderwidth=0 if example else 1,relief='flat' if example else 'solid',
                               lmargincolor=margin_back,rmargincolor=margin_back,**look)
         except tk.TclError:box.tag_configure(name,**look)
         box.tag_configure(name+'_meta',justify=align,foreground=COLORS['text_muted'] if example else (model_meta if not mine else COLORS['text_secondary']),
@@ -294,11 +303,13 @@ class IdeaBubblesMixin:
             box.tag_bind(toggle,'<Enter>',lambda event,b=box:b.configure(cursor='hand2'))
             box.tag_bind(toggle,'<Leave>',lambda event,b=box:b.configure(cursor='xterm'))
         # SKILL 注入与时间合成一行，放在这条消息的最下面（复制／删除图标之上）。
+        # 参考 DeepSeek 对话：这一行整句左对齐、不换行，一句完整的话尽量排在同一行。
         import idea_chat
         footer='  '.join(part for part in (idea_chat.skill_injection_summary(row),self.bubble_time(row.get('at'))) if part)
         if footer:
-            box.tag_configure(name+'_time',justify=align,foreground=COLORS['text_muted'],
-                              lmargin1=left,lmargin2=left,rmargin=right,spacing1=0,spacing3=1,font=BUBBLE_TIME_FONT)
+            box.tag_configure(name+'_time',justify='left',foreground=COLORS['text_muted'],
+                              lmargin1=left,lmargin2=left,rmargin=right,spacing1=0,spacing3=1,
+                              font=BUBBLE_TIME_FONT,wrap='none')
             box.insert('end',footer+'\n',name+'_time')
         if isinstance(index,int):
             self.add_bubble_actions(box,name,index,left,right,rewindable=mine)
@@ -340,7 +351,7 @@ class IdeaBubblesMixin:
         """在对话末尾画「<模型> 模型正在思考…」，行首内嵌转圈（仿 Claude Code 桌面版）。"""
         name='bubble_thinking'
         left,right=self.bubble_margins(box,thinking,False)
-        self._bubble_rows.append((name,thinking,False))
+        self._bubble_rows.append((name,thinking,False,False))
         box.tag_configure(name+'_thinking',justify='left',foreground=COLORS['text_secondary'],
                           lmargin1=left,lmargin2=left,rmargin=right,spacing1=2,spacing3=3,
                           font=BUBBLE_TIME_FONT)
