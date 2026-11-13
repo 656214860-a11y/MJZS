@@ -22,15 +22,13 @@ from asset_batch_service import (
 from asset_auto_batch_service import auto_batch as _auto_batch
 from asset_batch_state_service import ledger_path, uncertain_assets, prune_raw_outputs, ready_asset_ids
 from asset_batch_selection_service import all_selected, scope_label, set_selection, toggle_excluded
-from stage_execution_service import remove_asset_batch_model as remove_model, save_asset_batch_settings as save_settings
+from asset_batch_controller import AssetBatchController, WORKFLOW_MODEL
 
 
 def release_uncertain(project, ids):
     """兼容旧入口；L4 只经 L3 放开已核实的未知提交记录。"""
     from stage_execution_service import release_uncertain_asset_batch
     return release_uncertain_asset_batch(project, ids)
-from asset_batch_controller import AssetBatchController, WORKFLOW_MODEL
-
 
 
 def _launch_skill_batch(app, project, base, items):
