@@ -90,6 +90,25 @@ class AppMetadataTests(unittest.TestCase):
             self.assertEqual(tts_api.settings_path(), expected / 'tts_settings.json')
             self.assertEqual(white_model_service.user_data_dir(), expected)
 
+    def test_user_guide_stage_table_matches_stage_authority(self):
+        """使用说明的阶段表必须与 pet_bus／stage_layout 的权威阶段一致，防止文档落后于阶段数。"""
+        import pet_bus
+        import stage_layout
+
+        text = (ROOT / '使用说明.md').read_text(encoding='utf-8')
+        rows = []
+        for line in text.splitlines():
+            if not line.startswith('|'):
+                continue
+            cells = [cell.strip() for cell in line.strip().strip('|').split('|')]
+            if len(cells) != 3 or not cells[0].isdigit():
+                continue
+            rows.append((cells[1], cells[2].strip('`').rstrip('/')))
+        expected = [(name, folder) for folder, _stage, name, *_rest in stage_layout.STAGES]
+        self.assertEqual(expected, rows)
+        self.assertIn('%d 个制作阶段' % len(pet_bus.STAGES), text)
+        self.assertIn('“%d 参考网站”' % (len(pet_bus.STAGES) + 1), text)
+
     def test_current_document_titles_use_the_visible_name(self):
         for path in (PROGRAM / 'tasks_round' / '归档' / '2026-11_历史文档' / 'agent-handoff' / 'GLOSSARY.md',
                      ROOT / '使用说明.md', ROOT / '使用说明.txt',
