@@ -1327,6 +1327,31 @@ class PanelTests(unittest.TestCase):
         self.assertEqual(opened, [pet], '模型池只有模型管理这一扇门')
         self.assertEqual(picker.model_id(), 'qwen-max')
 
+    def test_set_model_label_syncs_provider_and_model_by_display_name(self):
+        """REQ-S01-80：目录条点某模型，按显示名把两级下拉切到同一模型，返回 model id；找不到或空值不改动。"""
+        import stage_model_picker
+        model_pool.upsert(model_pool.raw(self.desktop.app),
+                          {'label': 'Qwen-Max', 'model': 'qwen-max',
+                           'provider': '阿里云', 'key_env': 'X'})
+        skill_panel.refresh_all()
+        picker = stage_model_picker.StageModelPicker(self.win, self.desktop, 'keyframe')
+        self.addCleanup(picker.destroy)
+        # 命中：显示名一致 → 供应商/模型两格同步，返回 model id
+        self.assertEqual(picker.set_model_label('Qwen-Max'), 'qwen-max')
+        self.assertEqual(picker.model_id(), 'qwen-max')
+        # 供应商也落到该模型所在分组
+        self.assertIn(picker.provider.get(), picker.groups)
+        self.assertIn('Qwen-Max', [label for _id, label in picker.groups[picker.provider.get()]])
+        # 找不到的显示名：返回 None，当前选择不动
+        before_provider = picker.provider.get()
+        before_model = picker.model.get()
+        self.assertIsNone(picker.set_model_label('不存在的模型名'))
+        self.assertEqual(picker.provider.get(), before_provider)
+        self.assertEqual(picker.model.get(), before_model)
+        # 空值/空白：返回 None，不动
+        self.assertIsNone(picker.set_model_label(''))
+        self.assertIsNone(picker.set_model_label('   '))
+
     def test_confirming_script_model_saves_and_refreshes_history_without_sending(self):
         window = tk.Toplevel(self.win)
         self.desktop.refresh_script_chat_for_selected_model = mock.Mock()

@@ -181,3 +181,22 @@ class WritingRestartTests(unittest.TestCase):
         old_path = self.target.parent / self.original['documents'][1]['path']
         self.assertEqual(labels[str(old_path.resolve())], '已确认')
         self.assertEqual(labels[str(Path(result['preparation_path']).resolve())], '重写待确认')
+
+    def test_labels_keep_confirmed_revision_documents(self):
+        """revision 里已确认的文档也要标「已确认」，不能因为走重写分支就从标签里消失。"""
+        state = json.loads(self.target.read_text(encoding='utf-8'))
+        confirmed_only = dict(self.original['documents'][1],
+                              confirmed=True, path='剧本大纲/重写定稿.md')
+        pending = dict(self.original['documents'][2],
+                       confirmed=False, path='人物设定（角色卡）/待确认.md')
+        state['revision'] = {'documents': [confirmed_only, pending]}
+        save(self.target, state)
+        confirmed_file = self.target.parent / confirmed_only['path']
+        pending_file = self.target.parent / pending['path']
+        confirmed_file.parent.mkdir(parents=True, exist_ok=True)
+        pending_file.parent.mkdir(parents=True, exist_ok=True)
+        confirmed_file.write_text('# 剧本大纲\n重写定稿。\n', encoding='utf-8')
+        pending_file.write_text('# 人物设定（角色卡）\n草稿\n', encoding='utf-8')
+        labels = writing_api.preparation_file_labels(self.project)
+        self.assertEqual(labels[str(confirmed_file.resolve())], '已确认')
+        self.assertEqual(labels[str(pending_file.resolve())], '重写待确认')

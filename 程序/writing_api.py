@@ -724,8 +724,8 @@ def preparation_file_labels(project):
         labels[str((folder / document['path']).resolve())] = (
             '已确认' if document.get('confirmed') is True else '待确认')
     for document in state.get('revision', {}).get('documents', []):
-        if document.get('confirmed') is not True:
-            labels[str((folder / document['path']).resolve())] = '重写待确认'
+        labels[str((folder / document['path']).resolve())] = (
+            '已确认' if document.get('confirmed') is True else '重写待确认')
     selection = natural_script_selection_path(project)
     adopted = read_json(selection) if selection.is_file() else {}
     if adopted.get('reason') and not adopted.get('path'):

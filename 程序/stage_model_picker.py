@@ -29,9 +29,9 @@ class StageModelPicker(ttk.Frame):
         self.provider = tk.StringVar(value=AUTO_PROVIDER)
         self.model = tk.StringVar(value='')
         self._picked = ''
-        self.providers = SelectBox(self, textvariable=self.provider, width=CHAR_WIDTH['xl'], values=())
+        self.providers = SelectBox(self, textvariable=self.provider, width=CHAR_WIDTH['md'], values=())
         self.providers.pack(side='left')
-        self.models = SelectBox(self, textvariable=self.model, width=CHAR_WIDTH['3xl'],
+        self.models = SelectBox(self, textvariable=self.model, width=CHAR_WIDTH['lg'],
                                 accent_values=(ADD_MODEL_LABEL,), values=())
         self.models.pack(side='left', padx=(SPACING['xs'], SPACING['none']))
         self.providers.bind('<<ComboboxSelected>>', lambda event: self.choose_provider())
@@ -88,6 +88,18 @@ class StageModelPicker(ttk.Frame):
         options = self.groups.get(provider, [])
         self._show(provider, options, options[0][1] if options else '')
         return model_router.AUTO
+
+    def set_model_label(self, label):
+        """按显示名同步两级下拉（点击模型目录条时用）；找不到匹配就不改动当前选择。"""
+        wanted = str(label or '').strip()
+        if not wanted:
+            return None
+        for provider, options in self.groups.items():
+            for model_id, item_label in options:
+                if item_label == wanted:
+                    self._show(provider, options, item_label)
+                    return model_id
+        return None
 
     def _show(self, provider, options, label):
         self.provider.set(provider)
