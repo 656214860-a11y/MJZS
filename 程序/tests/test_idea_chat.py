@@ -2512,6 +2512,23 @@ class ModelBarUITests(_Harness):
             self.settle_script_page(win)
             self.assertFalse(d.idea_model_bar.winfo_manager(), '无聊天记录（示例气泡）时不显示目录条')
 
+    def test_select_idea_model_syncs_stage_model_picker(self):
+        """REQ-S01-80：点目录条模型标签后，把该模型显示名传给阶段配置的 picker；无 picker 时安全跳过。"""
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            idea_chat.append(proj, 'user', '甲', model='模型甲')
+            d, win = self.desktop(proj)
+            d.show(0)
+            self.settle_script_page(win)
+            picker = Mock()
+            picker.set_model_label = Mock()
+            d.stage_button = Mock(picker=picker)
+            d.select_idea_model('模型甲')
+            picker.set_model_label.assert_called_once_with('模型甲')
+            # 无 stage_button 时不抛错、不调用
+            d.stage_button = None
+            d.select_idea_model('全部')
+
 
 class SessionOverviewTests(unittest.TestCase):
     """O14：只读说明把会话、请求身份、上下文与项目共享成果分开。"""
