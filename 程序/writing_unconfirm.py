@@ -65,7 +65,12 @@ def confirm_preparation_document(project, stage, path, *, publish):
         if brief_changed:
             raise ValueError('创作简报已变化，之前的阶段确认已失效；请先重新设为「项目设定」定稿，'
                              '再依次确认「剧本大纲」「角色卡」')
-        raise ValueError('请先确认所选阶段之前的文件')
+        missing = [PREPARATION_STAGES[position] for position in range(index)
+                   if position >= len(documents)
+                   or not (isinstance(documents[position], dict)
+                           and documents[position].get('confirmed') is True)]
+        raise ValueError('「' + stage + '」之前还有阶段未确认（' + '、'.join(missing)
+                         + '）；请先依次把这些阶段设为定稿，再设「' + stage + '」')
     invalidated = tuple(PREPARATION_STAGES[position]
                         for position, doc in enumerate(documents[index + 1:], start=index + 1)
                         if isinstance(doc, dict) and doc.get('confirmed') is True)

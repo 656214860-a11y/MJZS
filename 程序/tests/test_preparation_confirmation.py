@@ -77,7 +77,7 @@ class ConfirmPreparationDocumentTests(unittest.TestCase):
         self.assertEqual(texts, ['# 项目设定\n新设定\n'])
 
     def test_confirm_refuses_when_previous_stage_unconfirmed(self):
-        """不能跳过前置阶段：上一阶段未确认时拒绝登记。
+        """不能跳过前置阶段：上一阶段未确认时拒绝登记，并说明缺哪些前置。
 
         REQ-S01-11：前一步未确认，不进入下一步。
         """
@@ -85,7 +85,7 @@ class ConfirmPreparationDocumentTests(unittest.TestCase):
         setting['confirmed'] = False
         self.write_state([setting])
         path, _ = confirmed(self.project, '角色卡', '角色卡/角色卡.md', '# 角色卡\n少年\n')
-        with self.assertRaisesRegex(ValueError, '请先确认所选阶段之前的文件'):
+        with self.assertRaisesRegex(ValueError, '之前还有阶段未确认'):
             writing_unconfirm.confirm_preparation_document(
                 self.project, '角色卡', path, publish=publish_stage_text)
 

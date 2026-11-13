@@ -889,7 +889,8 @@ def _preparation_state(project, brief, *, restart_stage=None):
         if not path.is_relative_to(folder.resolve()) or document['stage'] != PREPARATION_STAGES[index]:
             raise ValueError('剧本准备阶段文件记录无效')
         if index < len(documents) - 1 and document.get('confirmed') is not True:
-            raise ValueError('前置阶段尚未确认，不能跳阶段')
+            raise ValueError('「' + document['stage'] + '」尚未确认，不能跳到后续阶段；请先确认「'
+                             + document['stage'] + '」')
         text = path.read_text(encoding='utf-8') if path.is_file() else ''
         if not path.exists():
             # 旧版自动保存与下载名称不同；仅重定位同目录、同正文的副本。
