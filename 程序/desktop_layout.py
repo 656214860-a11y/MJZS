@@ -19,6 +19,9 @@ from ui_rounded import set_button_padding
 
 LOGGER=logging.getLogger(__name__)
 
+# 聊天记录框（idea_log）滚轮加速：一条消息通常跨多行，滚一格只走 1 行太慢，按行数放大步长。
+IDEA_LOG_WHEEL_LINES = 5
+
 
 class LayoutMixin:
     def _join_resize(self,apply,event=None):
@@ -368,7 +371,12 @@ class LayoutMixin:
             if isinstance(widget,(tk.Text,tk.Listbox,ttk.Treeview)):
                 top,bottom=widget.yview()
                 if (steps<0 and top>0.000001) or (steps>0 and bottom<0.999999):
-                    widget.yview_scroll(steps,'units');self.clear_hover(widget);return 'break'
+                    # 聊天记录框滚轮加速：气泡消息跨多行，一格 1 行太慢，按 IDEA_LOG_WHEEL_LINES 放大。
+                    if widget is getattr(self,'idea_log',None):
+                        widget.yview_scroll(steps*IDEA_LOG_WHEEL_LINES,'units')
+                    else:
+                        widget.yview_scroll(steps,'units')
+                    self.clear_hover(widget);return 'break'
             widget=getattr(widget,'master',self.win)
             if widget is None:break
         eased_scroll(self.canvas,steps)
