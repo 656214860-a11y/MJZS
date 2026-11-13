@@ -1263,13 +1263,10 @@ class PanelTests(unittest.TestCase):
                                   'capabilities': ['vision']})
         model_pool.store(data, self.desktop.app)
         skill_panel.refresh_all()
-        self.assertIn('GPT', list(previs.providers.cget('values')),
-                      '保存后应立刻刷新已打开面板的供应商目录')
-        previs.provider.set('GPT')
-        previs.choose_provider()
-        self.assertIn('GPT-6', list(previs.models.cget('values')),
-                      '保存后应立刻刷新已打开的阶段配置')
-        previs.model.set('GPT-6')
+        displays = list(previs.models.cget('values'))
+        self.assertIn('GPT · GPT-6', displays,
+                      '保存后应立刻刷新已打开面板的供应商·模型目录')
+        previs.model.set('GPT · GPT-6')
         previs.choose_model()
         self.assertEqual(stage_config.get(self.desktop.root, 'previs')['model'], 'gpt-6',
                          '选好立即写进项目配置')
@@ -1297,15 +1294,16 @@ class PanelTests(unittest.TestCase):
             panel.destroy()
 
     def test_stage_button_text_is_fixed_and_picker_follows_it(self):
-        """按钮名固定为「阶段配置」，当前模型改由按钮右侧的两级选择器显示。"""
+        """按钮名固定为「阶段配置」，当前模型改由按钮右侧的模型选择器显示。"""
         stage_config.put(self.desktop.root, 'script', model='deepseek-v4-flash')
         button = skill_panel.stage_button(self.win, self.desktop, 0)
         self.addCleanup(button.destroy)
         button.pack(side='left')
         self.assertEqual(button.cget('text'), '阶段配置')
         self.assertIsNotNone(button.picker)
-        self.assertEqual(button.picker.provider.get(), 'DeepSeek')
         self.assertEqual(button.picker.model_id(), 'deepseek-v4-flash')
+        self.assertIn('DeepSeek', button.picker.model.get(),
+                      '合并下拉的当前项应带供应商前缀')
 
     def test_picker_add_model_entry_opens_the_manager_and_reverts(self):
         """挑了「+ 添加模型…」：开模型管理，当前那一格退回刚才选的。"""
