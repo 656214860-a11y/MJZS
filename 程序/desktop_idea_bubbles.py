@@ -50,9 +50,9 @@ class IdeaBubblesMixin:
             left,right=self.bubble_margins(box,text,mine)
             pad=BUBBLE_PAD if framed else 0
             for tag in (name,name+'_time',name+'_meta',name+'_toggle',name+'_thinking',name+'_actions'):
-                # 正文 tag 带外框内边距，其余行（模型名／页脚／图标）贴着框的左边沿，不加内边距。
-                l=left+pad if tag==name else left
-                r=right+pad if tag==name else right
+                # 框内行（正文与页脚）带内边距，框外行（模型名／图标）贴着框的左边沿。
+                l=left+pad if tag in (name,name+'_time') else left
+                r=right+pad if tag in (name,name+'_time') else right
                 try:box.tag_configure(tag,lmargin1=l,lmargin2=l,rmargin=r)
                 except tk.TclError:pass
     def bubble_font(self):
@@ -267,7 +267,7 @@ class IdeaBubblesMixin:
         # 与 Claude Code 桌面版一致：用户气泡贴右侧，名字、正文、引用行和底行都右对齐；模型回复左对齐。
         align='right' if mine else 'left'
         _model_back, model_meta = self.model_chat_colors(row.get('model'))
-        # 参考 DeepSeek 对话：正文加一圈浅灰外框（1px 描边 + 淡底 + 左右内边距），文字仍按
+        # 参考 DeepSeek 对话：正文铺一圈浅灰底框（淡底＋左右内边距，不画描边线），文字仍按
         # 用户靠右、模型靠左分列（REQ-S01-65 的左右位置区分保留）。软件示例是只读参考，不铺框。
         pad=BUBBLE_PAD if not example else 0
         body_left=left+pad
@@ -277,11 +277,11 @@ class IdeaBubblesMixin:
                   foreground=COLORS['text_secondary'] if example else COLORS['text_primary'],
                   lmargin1=body_left,lmargin2=body_left,rmargin=body_right,
                   spacing1=2,spacing2=1,spacing3=4,font=BUBBLE_FONT,wrap='word')
-        # Tk 默认连边距一起刷成气泡色，那样每条都是满屏一条；把外框内的留白按框底色走，
-        # 色块才贴着字（-lmargincolor／-rmargincolor，Tk 8.6 起）。
-        margin_back=box.cget('bg') if example else BUBBLE_FILL
-        try:box.tag_configure(name,borderwidth=0 if example else 1,relief='flat' if example else 'solid',
-                              lmargincolor=margin_back,rmargincolor=margin_back,**look)
+        # 框外的留白保持内容框底色（lmargincolor/rmargincolor），灰色只铺正文那一段——
+        # 色块才贴着字、按字宽收窄；若把留白也刷成灰色，用户气泡左侧大半屏都会变成灰条。
+        # 不设 relief：Text 的描边按每个显示行各画一圈，多行正文会出现横线，用户明确不要。
+        margin_back=box.cget('bg') if example else BUBBLE_BACK
+        try:box.tag_configure(name,lmargincolor=margin_back,rmargincolor=margin_back,**look)
         except tk.TclError:box.tag_configure(name,**look)
         box.tag_configure(name+'_meta',justify=align,foreground=COLORS['text_muted'] if example else (model_meta if not mine else COLORS['text_secondary']),
                           lmargin1=left,lmargin2=left,rmargin=right,spacing1=4,spacing3=1,
@@ -303,16 +303,23 @@ class IdeaBubblesMixin:
             box.tag_bind(toggle,'<Enter>',lambda event,b=box:b.configure(cursor='hand2'))
             box.tag_bind(toggle,'<Leave>',lambda event,b=box:b.configure(cursor='xterm'))
         # SKILL 注入与时间合成一行，放在这条消息的最下面（复制／删除图标之上）。
-        # 参考 DeepSeek 对话：这一行整句左对齐、不换行，一句完整的话尽量排在同一行。
+        # 参考 DeepSeek 对话：这一行也在灰色底框内部，与正文同一缩进、同一底色；
+        # 不用 wrap='none'——超宽会被内容框直接裁掉（显示不完全），改回 word 换行保证整句可见。
         import idea_chat
         footer='  '.join(part for part in (idea_chat.skill_injection_summary(row),self.bubble_time(row.get('at'))) if part)
         if footer:
             box.tag_configure(name+'_time',justify='left',foreground=COLORS['text_muted'],
-                              lmargin1=left,lmargin2=left,rmargin=right,spacing1=0,spacing3=1,
-                              font=BUBBLE_TIME_FONT,wrap='none')
+                              background=fill,
+                              lmargin1=body_left,lmargin2=body_left,rmargin=body_right,
+                              lmargincolor=margin_back,rmargincolor=margin_back,
+                              spacing1=0,spacing3=1,font=BUBBLE_TIME_FONT,wrap='word')
             box.insert('end',footer+'\n',name+'_time')
         if isinstance(index,int):
             self.add_bubble_actions(box,name,index,left,right,rewindable=mine)
+        # 新建的气泡 tag（含淡底）默认优先级高于 sel，会把选中高亮压下去；每插一条就把 sel 提回最高，
+        # 保证「选了哪段」始终可见、光标/选区不闪跳。
+        try:box.tag_raise('sel')
+        except tk.TclError:pass
     def add_bubble_actions(self,box,name,index,left,right,rewindable=False):
         """REQ-S01-66：正文左下角的复制／删除／回退图标；平时与框底同色占位，悬停这条消息才显出来。"""
         actions=name+'_actions'

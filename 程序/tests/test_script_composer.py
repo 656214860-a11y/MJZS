@@ -132,11 +132,11 @@ class ScriptComposerTests(unittest.TestCase):
             d, win = self.desktop(proj)
             box = d.idea_log
             self.wait_for_tag(win, box, 'bubble_0_copy')
-            # 参考 DeepSeek 对话：正文加浅灰外框，background 是框底色而非透明。
+            # 参考 DeepSeek 对话：正文铺浅灰底框，background 是框底色而非透明。
             self.assertEqual(str(box.tag_cget('bubble_0', 'background')), COLORS['surface_hover'])
             hidden = box.cget('bg')
             self.assertEqual(box.tag_cget('bubble_0_copy', 'foreground'), hidden)
-            # 图标行与正文同属一条消息：正文外框的左边沿（left）与图标行左边距一致；
+            # 图标行与正文同属一条消息：底框的左边沿（left）与图标行左边距一致；
             # 正文文字在框内再缩进一个 BUBBLE_PAD，所以正文 tag 的 lmargin1 比图标行大一个内边距。
             self.assertEqual(int(float(box.tag_cget('bubble_0', 'lmargin1'))),
                              int(float(box.tag_cget('bubble_0_actions', 'lmargin1'))) + desktop_idea_chat.BUBBLE_PAD)
