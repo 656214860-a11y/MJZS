@@ -38,7 +38,9 @@ def confirm_preparation_document(project, stage, path, *, publish):
     fingerprint = hashlib.sha256(json.dumps(brief['brief'], ensure_ascii=False,
                                             sort_keys=True).encode('utf-8')).hexdigest()
     state = read_json(target)
-    if not isinstance(state, dict) or _preparation_brief_hash(state) != fingerprint:
+    brief_changed = isinstance(state, dict) and _preparation_brief_hash(state) != fingerprint
+    if not isinstance(state, dict) or brief_changed:
+        # 简报变化让旧确认记录整体失效，需按序重确认；保留重置以允许从「项目设定」重新开始。
         state = {'version': 1, 'brief_hash': fingerprint, 'documents': []}
     index = PREPARATION_STAGES.index(stage)
     try:
@@ -60,6 +62,9 @@ def confirm_preparation_document(project, stage, path, *, publish):
                 state.pop('revision', None)
                 state.pop('pending_restart', None)
     if prefix is None:
+        if brief_changed:
+            raise ValueError('创作简报已变化，之前的阶段确认已失效；请先重新设为「项目设定」定稿，'
+                             '再依次确认「剧本大纲」「角色卡」')
         raise ValueError('请先确认所选阶段之前的文件')
     invalidated = tuple(PREPARATION_STAGES[position]
                         for position, doc in enumerate(documents[index + 1:], start=index + 1)

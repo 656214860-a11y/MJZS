@@ -130,6 +130,38 @@ class ConfirmPreparationDocumentTests(unittest.TestCase):
             writing_unconfirm.confirm_preparation_document(
                 self.project, '项目设定', path, publish=publish_stage_text)
 
+    def test_confirm_reports_brief_change_when_previous_confirmed(self):
+        """简报变化后设为角色卡定稿，应明确指出是简报变化、需按序重确认，而非笼统「请先确认前置」。
+
+        用户此前已确认设定、大纲，但之后改了创作简报（brief_complete.json），旧确认记录
+        因 brief 指纹变化整体失效。此时设为角色卡定稿不应再报误导性的
+        「请先确认所选阶段之前的文件」，而要说明是简报变化、需重新按序确认。
+        """
+        _, setting = confirmed(self.project, '项目设定', '项目设定/设定.md', '# 项目设定\n旧设定\n')
+        _, outline = confirmed(self.project, '剧本大纲', '剧本大纲/大纲.md', '# 剧本大纲\n三幕\n')
+        self.write_state([setting, outline])
+        # 改简报，brief 指纹变化
+        save(preparation_folder(self.project) / 'brief_complete.json', script_contract.brief_document({
+            'story_summary': '港口追查失踪的姐姐。', 'main_characters': '少年和老板',
+            'genre': '奇幻', 'length': '单集 60 秒'}))
+        path, _ = confirmed(self.project, '角色卡', '角色卡/新卡.md', '# 角色卡\n新少年\n')
+        with self.assertRaisesRegex(ValueError, '创作简报已变化'):
+            writing_unconfirm.confirm_preparation_document(
+                self.project, '角色卡', path, publish=publish_stage_text)
+
+    def test_confirm_setting_allowed_after_brief_change(self):
+        """简报变化后仍可从「项目设定」重新开始设为定稿（前置为空）。"""
+        _, setting = confirmed(self.project, '项目设定', '项目设定/设定.md', '# 项目设定\n旧设定\n')
+        _, outline = confirmed(self.project, '剧本大纲', '剧本大纲/大纲.md', '# 剧本大纲\n三幕\n')
+        self.write_state([setting, outline])
+        save(preparation_folder(self.project) / 'brief_complete.json', script_contract.brief_document({
+            'story_summary': '港口追查失踪的姐姐。', 'main_characters': '少年和老板',
+            'genre': '奇幻', 'length': '单集 60 秒'}))
+        path, _ = confirmed(self.project, '项目设定', '项目设定/新设定.md', '# 项目设定\n新设定\n')
+        invalidated = writing_unconfirm.confirm_preparation_document(
+            self.project, '项目设定', path, publish=publish_stage_text)
+        self.assertEqual(invalidated, ())
+
 
 class ConfirmedPreparationFilesTests(unittest.TestCase):
     """删除前提示所需的只读查询：采用版本与重写草稿里已确认的文件都要列出。"""
