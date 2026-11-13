@@ -57,7 +57,7 @@ PARAM_CAPS = {
     ('model_router.py', '__init__'): 8,
     ('native_assets.py', 'run'): 8,
     ('pet_chat_coordinator.py', '__init__'): 8,
-    ('pet_llm.py', 'settle'): 8,
+    ('request_ledger.py', 'settle'): 8,
     ('previs_automation.py', 'start'): 8,
     ('recon_service.py', '_fetch_all'): 8,
     ('recon_service.py', '_search_all'): 8,
@@ -80,7 +80,7 @@ CLASS_CAPS = {
     ('pet_ui_view.py', 'PetViewMixin'): 774,
     ('engine.py', 'Studio'): 735,
     ('skill_orchestrator.py', 'Orchestrator'): 719,
-    ('pet_llm.py', 'RequestLedger'): 639,
+    ('request_ledger.py', 'RequestLedger'): 639,
     ('desktop_auto_flows.py', 'AutoFlowsMixin'): 638,
 }
 
