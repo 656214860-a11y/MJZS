@@ -339,9 +339,9 @@ def install_window_placement(root):
 
         if parent:
 
-            x=parent.winfo_rootx()+(parent.winfo_width()-width)//2
+            x=parent.winfo_x()+(parent.winfo_width()-width)//2
 
-            y=parent.winfo_rooty()+(parent.winfo_height()-height)//2
+            y=parent.winfo_y()+(parent.winfo_height()-height)//2
 
             if window.overrideredirect():window.transient(parent)
 
