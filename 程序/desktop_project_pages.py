@@ -13,7 +13,7 @@ from datetime import date
 from pathlib import Path
 from projects import needs_cleanup_after_open_error
 from tkinter import ttk
-from responsive_ui import FlowBar
+from responsive_ui import FlowBar, auto_height
 from ui_motion import EmptyState, bind_row_hover
 from ui_tokens import TEXT_ROWS, COLORS, FONTS, SPACING, TEXT_DESC, DESKTOP_LAYOUT
 from desktop_page_registry import ACCOUNT_TITLE, PAGE_ACCOUNT
@@ -456,6 +456,8 @@ class ProjectPagesMixin:
         item_tree=item_table.tree
         item_tree.heading('#0',text='原位置');item_tree.column('#0',width=SPACING['sm'] * 53)
         item_table.pack(fill='both',expand=True)
+        # 批次条目可多可少：随窗口缩放、随条目数收缩，不留空白（第 R2411 期）。
+        fit_items = auto_height(item_tree, item_table)
         def selected_batch():
             selected=batch_tree.selection()
             return batches[int(selected[0])] if selected else None
@@ -465,6 +467,7 @@ class ProjectPagesMixin:
             if record:
                 for item in record['items']:
                     item_tree.insert('', 'end', values=(item['recycle_path'],), text=item['source'])
+            fit_items()
         def refresh():
             nonlocal batches
             batches=controller.list_batches()

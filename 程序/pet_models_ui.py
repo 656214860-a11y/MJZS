@@ -15,6 +15,7 @@ from tkinter import ttk
 
 import model_pool
 from pet_models_tabs import MODES, ModelManagerModeTabsMixin
+from responsive_ui import auto_height
 from ui_tokens import (BUTTON_GAP, COMBOBOX_PADDING, TEXT_ROWS, FONTS, FORM_LABEL_WIDTH, INPUT_PADDING_X,
                        SPACING, TEXT_DESC, TEXT_HINT, OVERLAY_RATIO)
 from ui_dialogs import FileDialog
@@ -506,6 +507,7 @@ class _ModelManager(ModelManagerModeTabsMixin):
         for mode in MODES:
             self.mode_tabs.add(ttk.Frame(self.mode_tabs, padding=(SPACING['none'], SPACING['xs'])), text=mode)
         self.table_shell.grid(row=2, column=0, sticky='nsew')
+        self._fit_model_list = auto_height(self.tree, self.table_shell)
         install_compact_form_styles(body)
         self.form = ttk.Frame(body, padding=(SPACING['none'], SPACING['xs']))
         self.form.grid(row=3, column=0, columnspan=2, sticky='ew')
@@ -792,6 +794,7 @@ class _ModelManager(ModelManagerModeTabsMixin):
                 extra.append(item)
         self.provider_box.configure(values=sorted([*builtins, *extra], key=str.casefold))
         self._render_mode_rows(records)
+        self._fit_model_list()
         return self.tree
 
     def flip_provider_order(self):
