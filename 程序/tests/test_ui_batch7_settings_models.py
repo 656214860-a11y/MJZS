@@ -390,6 +390,44 @@ class HubDefaultTabTests(Batch7Case):
                          '显式传 model 时不应再摆着基础功能页')
 
 
+class ModelListAutoHeightTests(Batch7Case):
+    """模型列表自适应高度：少几条就少几行，不再在列表下方留大片空白。"""
+
+    def _records(self, count):
+        return {('model-%d' % i): model_pool.record(
+            {'call_mode': 'API', 'model': 'model-%d' % i, 'label': '模型 %d' % i,
+             'capabilities': ['text'], 'modality': 'text'}, 'model-%d' % i)
+            for i in range(count)}
+
+    def _reload(self, win, count):
+        records = self._records(count)
+        with mock.patch.object(self.pet, 'agent_model_records', return_value=records):
+            win._pet_reload()
+        win.update_idletasks()
+        win.update()
+        return win._pet_tree
+
+    def test_model_list_shrinks_to_actual_row_count(self):
+        """加载 3 条模型后，列表高度收缩到 3 行，而非停留在初始高度留下空白。"""
+        win = self._manager_window()
+        win.update()
+        initial = int(win._pet_tree.cget('height'))
+        self.assertGreater(initial, 3, '初始高度应大于 3 行（否则无从验证收缩）')
+        tree = self._reload(win, 3)
+        self.assertEqual(int(tree.cget('height')), 3,
+                         '3 条模型应显示 3 行，下方不留空白')
+
+    def test_model_list_grows_with_more_rows_but_not_beyond_content(self):
+        """行数多时随窗口高度伸展，但绝不超过实际条目数（无空行）。"""
+        win = self._manager_window()
+        win.update()
+        tree = self._reload(win, 5)
+        self.assertLessEqual(int(tree.cget('height')), 5,
+                             '高度不得超过实际条目数，避免底部空行')
+        self.assertGreaterEqual(int(tree.cget('height')), 2,
+                                '至少保留 2 行可见')
+
+
 if __name__ == '__main__':
     unittest.main()
 

@@ -5,6 +5,7 @@
 """
 import tkinter as tk
 
+from responsive_ui import auto_height
 from ui_tokens import CHAR_WIDTH, TEXT_ROWS, SPACING
 from ui_widgets import BaseDialog, DataTable, PrimaryButton, ProgressLabel, SecondaryButton, SelectBox
 
@@ -24,6 +25,8 @@ def open_picker(app):
                             height=TEXT_ROWS['lg'], empty_text='本镜没有版本')
     table_shell.pack(fill='both', expand=True, pady=(SPACING['sm'], SPACING['none']))
     table = table_shell.tree
+    # 版本数可多可少：随窗口缩放、随条目数收缩，不留空白（第 R2411 期）。
+    fit_list = auto_height(table, table_shell)
     ProgressLabel(win.content, textvariable=status).pack(anchor='w', pady=(SPACING['sm'], SPACING['none']))
 
     def refresh(event=None):
@@ -33,6 +36,7 @@ def open_picker(app):
             qc = {True: '通过', False: '未通过'}.get(row['qc_pass'], '未检查')
             table.insert('', 'end', iid=str(row['version']),
                          values=('v%s' % row['version'], row['state'], qc, row['review'], use))
+        fit_list()
 
     def selected():
         chosen = table.selection()
