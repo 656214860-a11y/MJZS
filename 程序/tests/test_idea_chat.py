@@ -1986,10 +1986,17 @@ class BubbleLayoutTests(_Harness):
             idea_chat.append(proj, 'user', '第一条创意正文')
             d, win = self.desktop(proj)
             d.show(0); self.settle_script_page(win)
-            body = d.idea_log.tag_ranges('bubble_0')
-            footer = d.idea_log.tag_ranges('bubble_0_time')
+            box = d.idea_log
+            body = box.tag_ranges('bubble_0')
+            footer = box.tag_ranges('bubble_0_time')
             self.assertTrue(footer, '时间在正文下面的页脚行')
-            self.assertTrue(d.idea_log.compare(footer[0], '>=', body[1]), '页脚在正文之后')
+            self.assertTrue(box.compare(footer[0], '>=', body[1]), '页脚在正文之后')
+            # 页脚在灰色底框内部：与正文同缩进、同淡底，不因 wrap 截断（word 换行）。
+            self.assertEqual(box.tag_cget('bubble_0_time', 'lmargin1'), box.tag_cget('bubble_0', 'lmargin1'),
+                             '页脚与正文同缩进，都在框内')
+            self.assertEqual(box.tag_cget('bubble_0_time', 'background'), COLORS['surface_hover'],
+                             '页脚也铺淡底，属于同一底框')
+            self.assertEqual(box.tag_cget('bubble_0_time', 'wrap'), 'word', '页脚超宽换行，不被裁掉')
             self.assertEqual(d.rewind_bubble_message(0), '第一条创意正文')
             self.assertEqual(d.idea_input.get('1.0', 'end').strip(), '第一条创意正文')
             self.assertEqual(len(idea_chat.load(proj)), 1, '回退只回填输入框，不改聊天记录')

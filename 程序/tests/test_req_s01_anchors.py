@@ -128,9 +128,11 @@ class IdeaBubbleAnchorTests(_Harness):
         # 文字完整：预览即全文（desktop_idea_chat.py:633-635）。
         self.assertEqual(str(box.get(*spans['bubble_0'])).strip(), self.USER)
         self.assertEqual(str(box.get(*spans['bubble_1'])).strip(), self.MODEL)
-        # 契约（参考 DeepSeek 对话）：正文加浅灰外框（淡底），用户靠右、模型靠左分列仍保留。
+        # 契约（参考 DeepSeek 对话）：正文铺浅灰底框，用户靠右、模型靠左分列仍保留；不画描边线。
         self.assertEqual(str(box.tag_cget('bubble_0', 'background')), desktop_idea_chat.BUBBLE_FILL)
         self.assertEqual(str(box.tag_cget('bubble_1', 'background')), desktop_idea_chat.BUBBLE_FILL)
+        self.assertIn(str(box.tag_cget('bubble_0', 'relief')), ('', 'flat'),
+                      '正文只铺淡底，不设 relief 描边（多行会出横线）')
         self.assertGreater(int(box.tag_cget('bubble_0', 'lmargin1')), int(box.tag_cget('bubble_1', 'lmargin1')),
                            '用户消息必须比模型消息更靠右')
         # 契约：用户贴右（左边距更大），模型贴左（一个 BUBBLE_GAP 再加正文外框的 BUBBLE_PAD 内边距）。
@@ -153,6 +155,13 @@ class IdeaBubbleAnchorTests(_Harness):
         self.assertIsNotNone(user_x, '用户气泡应落在可视区内')
         self.assertIsNotNone(model_x, '模型气泡应落在可视区内')
         self.assertGreater(user_x, model_x, '用户气泡排在模型气泡右侧')
+        # 选区优先级：淡底气泡 tag 不得盖住 sel——重绘后 sel 必须仍在气泡 tag 之上。
+        # Tk 的 tag_names() 越靠后优先级越高；tag_raise('sel') 后 sel 应在列表末尾（最高）。
+        names = box.tag_names()
+        sel_at = names.index('sel') if 'sel' in names else -1
+        bubble_at = next((i for i, n in enumerate(names) if n == 'bubble_1'), -1)
+        self.assertGreaterEqual(sel_at, 0, 'sel 是内置 tag，必然存在')
+        self.assertGreater(sel_at, bubble_at, 'sel 优先级须高于气泡淡底 tag，选区高亮不被底色盖住')
 
     def test_req_s01_01_idea_messages_render_as_bubbles_and_survive_restart(self):
         """REQ-S01-01：创意对话按气泡渲染；销毁界面、用同一目录重建后仍按原顺序出现。"""
