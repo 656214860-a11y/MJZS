@@ -27,7 +27,11 @@ PROGRAM = Path(__file__).resolve().parent
 CONFIG_PATH = ('配置', '宠物', '配置.json')
 AUTO = 'auto'                                    # 「自动」是特殊值，由 model_router 解析
 AUTO_LABEL = '自动'
-FIELDS = ('label', 'model', 'base_url', 'path', 'wire_api', 'key_env', 'provider', 'note', 'program', 'call_mode', 'provider_label')
+FIELDS = ('label', 'model', 'base_url', 'path', 'wire_api', 'key_env', 'provider', 'note', 'program', 'call_mode', 'provider_label', 'modality')
+# 模型功能（模态）：列表按此分组。文本是三虎决策模型池主体；图片/语音/视频模型当前在各自窗口配置，分类先建好暂空。
+MODALITIES = (('text', '文本'), ('image', '图片'), ('audio', '语音'), ('video', '视频'))
+MODALITY_LABELS = dict(MODALITIES)
+DEFAULT_MODALITY = 'text'
 WIRE_APIS = (('chat', 'chat/completions（OpenAI 兼容）'), ('responses', 'responses 新协议'),
              ('messages', 'messages（Anthropic 原生）'))
 WIRE_LABELS = dict(WIRE_APIS)
@@ -237,6 +241,7 @@ def record(value, model_id=''):
     item['provider'] = item['provider'] or DEFAULT_PROVIDER
     item['capabilities'] = capabilities_of(source.get('capabilities'))
     item['context_length'] = context_length_of(source.get('context_length'))
+    item['modality'] = item['modality'] if item['modality'] in MODALITY_LABELS else DEFAULT_MODALITY
     if isinstance(source.get('history_locations'), list):
         item['history_locations'] = [dict(label=str(entry['label']), provider=str(entry['provider']))
                                      for entry in source['history_locations'] if isinstance(entry, dict)

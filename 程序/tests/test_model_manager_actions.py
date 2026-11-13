@@ -42,7 +42,9 @@ class ProviderChoicesTests(Batch7Case):
         win = self._show(pet_models_ui.open_manager(self.pet))
         win.update_idletasks()
         form = win._pet_provider_box.master
-        pairs = [(win._pet_mode_box, win._pet_provider_box)]
+        # 调用方式已移到左上角页签，不再是表单下拉；成对字段（Provider｜功能、模型 ID｜显示名、
+        # 密钥名｜协议）仍是 col1/col3 两列等宽、右标签靠右。
+        pairs = []
         for slave in form.grid_slaves():
             info = slave.grid_info()
             if int(info['column']) == 1 and int(info['columnspan']) == 1 and slave.winfo_class() != 'Frame':
