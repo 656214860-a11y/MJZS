@@ -28,6 +28,8 @@ MANAGER_BUTTON = 'API 统一配置'          # 第 46 期第 6 条：原「打�
 # 格式不一致；现在与同排的分页按钮／「关闭」一样用 Compact.TButton，名字也补上那个半角空格。
 MANAGER_TITLE = '模型管理'
 SETTINGS_GEOMETRY = '700x430'
+# 左上角页签的调用方式顺序；与 ttk.Notebook 的 tabs() 索引一一对应。
+MODES = ('API', 'Desktop', 'CLI')
 # 这两扇窗都是内容型表单，不允许被系统压成 1×1 后只剩一条边；最小值只保动作区与首行可见。
 SETTINGS_MIN = (620, 430)
 
@@ -69,16 +71,16 @@ MANAGER_MIN = (820, 620)
 NOTE_ABOUT = '三虎用于决策、对话、路由；子模块执行模型在阶段配置里选。'
 # 「模型 ID」一栏在本地调用（Desktop／CLI）时填的是程序名，API 时才是接口模型名。
 MODEL_FIELD_LOCAL, MODEL_FIELD_API = '程序名', '模型 ID'
-NOTE_MANAGER = '先选择调用方式：Desktop 配置桌面应用，API 配置接口与密钥，CLI 配置命令行程序。'
-# 列表照规格那张表：显示名／Provider／模型 ID／能力标签／状态，再加一列「调用方式」（Desktop／API／CLI），紧跟 Provider；只有 Provider 列头可点（翻转分组顺序）。
-# API 根地址、协议、密钥名只对 API 那几行有意义，选中后在下面表单里看，列表不再各占一格。
-COLUMNS = (('provider', 'Provider', 90), ('call_mode', '调用方式', 70), ('model', '模型 ID', 150),
-           ('label', '显示名', 160), ('capabilities', '能力标签', 270), ('state', '状态', 220))
+NOTE_MANAGER = '点左上角页签选择调用方式：Desktop 配置桌面应用，API 配置接口与密钥，CLI 配置命令行程序。'
+# 列表按「功能（文本/图片/语音/视频）→ Provider」两级分组；只有 Provider 列头可点（翻转分组顺序）。
+COLUMNS = (('modality', '功能', 60), ('provider', 'Provider', 90), ('call_mode', '调用方式', 70),
+           ('model', '模型 ID', 150), ('label', '显示名', 160), ('capabilities', '能力标签', 270),
+           ('state', '状态', 200))
 FORM_FIELDS = (('label', '显示名'), ('model', '模型 ID'), ('base_url', 'API 根地址'),
                ('key_env', '密钥名（.env 里的变量名）'))
 TASK_FIELD_LABELS = tuple(label for _key, label, _note in model_pool.TASK_FIELDS)
 # 模型管理表单的全部标签；列宽按最宽的一条量，避免中文标签被定宽裁掉。
-MANAGER_FORM_LABELS = ('调用方式', 'Provider', '模型 ID', '显示名', 'API 根地址',
+MANAGER_FORM_LABELS = ('Provider', '模型 ID', '显示名', '功能', 'API 根地址',
                        '密钥名（.env 里的变量名）', '直接输入密钥', '协议', '能力标签',
                        '上下文长度（可选）', '备注（可选）', '应用安装路径', '命令行程序路径')
 # 密钥框只给占位宽度，真正可输入区由输入列伸缩；不把整把密钥回显到界面。
@@ -460,8 +462,8 @@ class _ModelManager:
 
     def build(self):
         footer, body = self._build_window_and_table()
-        mode_box = self._build_form_fields()
-        self._build_program_row(body, footer, mode_box)
+        self._build_form_fields()
+        self._build_program_row(body, footer)
         self.win._pet_detect_program = self.detect_program
         self.win._pet_read_form = self.read_form
         self.win._pet_provider_box = self.provider_box
@@ -499,13 +501,17 @@ class _ModelManager:
             # DataTable 默认给每个列头挂按显示文本排序；这里只留 Provider 一列可点，其余清掉。
             self.tree.heading(key, text=title, command=self.flip_provider_order if key == 'provider' else '')
             self.tree.column(key, width=width, anchor='w', stretch=True)
+        self.mode_tabs = ttk.Notebook(body)
+        self.mode_tabs.grid(row=1, column=0, columnspan=2, sticky='w')
+        for mode in MODES:
+            self.mode_tabs.add(ttk.Frame(self.mode_tabs, padding=(SPACING['none'], SPACING['xs'])), text=mode)
         self.table_shell.grid(row=2, column=0, sticky='nsew')
         install_compact_form_styles(body)
         self.form = ttk.Frame(body, padding=(SPACING['none'], SPACING['xs']))
         self.form.grid(row=3, column=0, columnspan=2, sticky='ew')
         self.form.columnconfigure(0, minsize=form_column_width(MANAGER_FORM_LABELS))
         self.form.columnconfigure(1, weight=1, uniform='fields')
-        self.form.columnconfigure(2, minsize=form_column_width(('Provider', '显示名', '备注（可选）')))
+        self.form.columnconfigure(2, minsize=form_column_width(('功能', '显示名', '备注（可选）')))
         self.form.columnconfigure(3, weight=1, uniform='fields')
         self.entries = {}
         self.labels = {}
@@ -514,24 +520,23 @@ class _ModelManager:
         self.wire = tk.StringVar(value=model_pool.WIRE_LABELS[model_pool.DEFAULT_WIRE])
         self.mode = tk.StringVar(value='API')
 
-        # 表单次序：调用方式｜Provider 一行，模型 ID｜显示名（按 ID 自动推断）一行，再是根地址、密钥、协议、能力标签，上下文长度｜备注一行。
-        ttk.Label(self.form, text='调用方式').grid(row=0, column=0, sticky='w')
+        # 表单次序：Provider｜功能、模型 ID｜显示名、根地址、密钥、协议、能力标签、上下文｜备注。
         return footer, body
 
     def _build_form_fields(self):
-        """表单：调用方式、Provider、模型 ID／显示名／地址／密钥、协议、能力标签（从 build 原样切出，R1812）。"""
-        mode_box = SelectBox(self.form, textvariable=self.mode, values=('Desktop', 'API', 'CLI'),
-                             style=COMPACT_COMBOBOX_STYLE)
-        mode_box.configure(width=FORM_COMBO_WIDTH)
-        mode_box.grid(row=0, column=1, sticky='ew')
-        ttk.Label(self.form, text='Provider').grid(row=0, column=2, sticky='e', padx=FORM_RIGHT_LABEL_PAD)
+        """表单：Provider、功能、模型 ID／显示名／地址／密钥、协议、能力标签（调用方式由左上角页签决定）。"""
+        ttk.Label(self.form, text='Provider').grid(row=0, column=0, sticky='w')
         # 第 65 期任务 5：可编辑下拉——挑现成的，或直接敲一个服务商名；存的就是填进去的那个名字。
         self.provider_box = SelectBox(self.form, textvariable=self.provider, state='normal',
                                     values=provider_choices(), style=COMPACT_COMBOBOX_STYLE, width=FORM_COMBO_WIDTH)
-        self.provider_box.grid(row=0, column=3, sticky='ew')
+        self.provider_box.grid(row=0, column=1, sticky='ew')
         self.provider_box.bind('<<ComboboxSelected>>', self.match_wire)
         self.provider_box.bind('<<ComboboxSelected>>', lambda event: self.detect_program(), add='+')
-
+        ttk.Label(self.form, text='功能').grid(row=0, column=2, sticky='e', padx=FORM_RIGHT_LABEL_PAD)
+        self.modality = tk.StringVar(value=model_pool.MODALITY_LABELS[model_pool.DEFAULT_MODALITY])
+        self.modality_box = SelectBox(self.form, textvariable=self.modality, style=COMPACT_COMBOBOX_STYLE,
+                                      values=[label for _value, label in model_pool.MODALITIES])
+        self.modality_box.grid(row=0, column=3, sticky='ew')
         self.text_row(1, 'model', '模型 ID')
         self.text_row(1, 'label', '显示名', column=2)
         index = self.text_row(2, 'base_url', 'API 根地址', span=3)
@@ -573,9 +578,8 @@ class _ModelManager:
         self.program_row.columnconfigure(0, weight=1)
         self.program_entry = CompactLineInput(self.program_row)
         self.program_entry.grid(row=0, column=0, sticky='ew')
-        return mode_box
 
-    def _build_program_row(self, body, footer, mode_box):
+    def _build_program_row(self, body, footer):
         """应用安装路径行、自动搜寻与浏览按钮、连接字段显隐、身份变化监听（从 build 原样切出，R1812）。"""
         self.entries['program'] = self.program_entry
         from desktop_automation_service import BackgroundTaskLifecycle
@@ -622,6 +626,8 @@ class _ModelManager:
         self.provider.trace_add('write', self.refresh_connection_fields)
         self.mode.trace_add('write', self.changed_identity)
         self.model_text.trace_add('write', self.changed_identity)
+        self._last_mode = self.mode.get()
+        self.mode.trace_add('write', self._on_mode_change)
         self.refresh_connection_fields()
         SecondaryButton(bar, text='删除这条', command=self.delete_one).pack(
             side='left', padx=(BUTTON_GAP, SPACING['none']))
@@ -640,7 +646,13 @@ class _ModelManager:
         self.win._pet_entries = self.entries
         self.win._pet_provider = self.provider
         self.win._pet_mode = self.mode
-        self.win._pet_mode_box = mode_box
+        self.win._pet_modality_box = self.modality_box
+        self.mode_tabs.bind('<<NotebookTabChanged>>', self._on_tab_changed)
+
+    def _on_tab_changed(self, _event=None):
+        current = self.mode_tabs.tab('current', 'text')
+        if current != self.mode.get():
+            self.mode.set(current)
 
     def text_row(self, index, key, label, *, column=0, width=None, span=1):
         """一格「标签 ＋ 输入框」（column 0 左半边、2 右半边），返回下一行号；span 横跨右边，width 按字符数定宽。"""
@@ -733,6 +745,17 @@ class _ModelManager:
         self.labels['model'].configure(text=MODEL_FIELD_LOCAL if local else MODEL_FIELD_API)
         self.probe_button.configure(text='检查程序' if local else '测试连接')
 
+    def _on_mode_change(self, *_args):
+        """调用方式变了：同步页签 + 按新调用方式重刷列表。值没变不刷。"""
+        current = self.mode.get()
+        if current == self._last_mode:
+            return
+        self._last_mode = current
+        if current in MODES:
+            self.mode_tabs.select(self.mode_tabs.tabs()[MODES.index(current)])
+        if not self.pending['loading']:   # fill 回填期间只同步页签，不重建列表
+            self.load_rows()
+
     def changed_identity(self, *_args):
         if self.pending['loading']:
             return
@@ -785,16 +808,20 @@ class _ModelManager:
                 extra.append(item)
         self.provider_box.configure(values=sorted([*builtins, *extra], key=str.casefold))
         self.tree.delete(*self.tree.get_children())
-        rows = sorted(((model_pool.provider_name(model_id, item), model_id, item)
-                       for model_id, item in records.items()),
-                      key=lambda row: (row[0].casefold(), str(row[2].get('label') or '').casefold(), row[1]),
+        current = self.mode.get()
+        # 只显示当前调用方式的模型，按「功能 → Provider」分组排序。
+        rows = sorted(((model_pool.MODALITY_LABELS.get(item.get('modality'), '文本'),
+                        model_pool.provider_name(model_id, item), model_id, item)
+                       for model_id, item in records.items()
+                       if model_pool.call_mode(item, model_id) == current),
+                      key=lambda r: (r[0], r[1].casefold(), str(r[3].get('label') or '').casefold(), r[2]),
                       reverse=self.provider_descending)
         last = None
-        for name, model_id, item in rows:
-            # 同一 Provider 只在分组第一行写名字，后面留空，读起来像合并单元格。
-            shown, last = ('' if name == last else name), name
+        for modality, name, model_id, item in rows:
+            # 同一功能内同一 Provider 只在分组第一行写名字，后面留空，读起来像合并单元格。
+            shown, last = ('' if (modality, name) == last else name), (modality, name)
             self.tree.insert('', 'end', iid=model_id,
-                        values=(shown, model_pool.call_mode(item, model_id), item['model'], item['label'],
+                        values=(modality, shown, model_pool.call_mode(item, model_id), item['model'], item['label'],
                                 model_pool.capability_text(item['capabilities']),
                                 list_status(item, self.program)))
         self.table_shell.refresh_empty_state()
@@ -882,6 +909,7 @@ class _ModelManager:
             self.provider.set(model_pool.PROVIDER_LABELS.get(
                 saved_provider, saved_provider or FORM_DEFAULT_PROVIDER))
         self.wire.set(model_pool.WIRE_LABELS.get(item.get('wire_api'), model_pool.WIRE_LABELS[model_pool.DEFAULT_WIRE]))
+        self.modality.set(model_pool.MODALITY_LABELS.get(item.get('modality'), model_pool.MODALITY_LABELS[model_pool.DEFAULT_MODALITY]))
         self.program_entry.delete(0, 'end')
         self.program_entry.insert(0, item.get('program') or '')
         self.pending['loading'] = False
@@ -900,6 +928,7 @@ class _ModelManager:
         value['context_length'] = self.entries['context_length'].get().strip()
         value['note'] = self.entries['note'].get().strip()
         value['program'] = self.program_entry.get().strip()
+        value['modality'] = model_pool.id_of_label(self.modality.get(), model_pool.MODALITIES)
         return value
 
     def on_select(self, event=None):
@@ -924,6 +953,7 @@ class _ModelManager:
         self.show_key_state()
         self.provider.set(FORM_DEFAULT_PROVIDER)
         self.wire.set(model_pool.WIRE_LABELS[model_pool.DEFAULT_WIRE])
+        self.modality.set(model_pool.MODALITY_LABELS[model_pool.DEFAULT_MODALITY])
         self.pending['loading'] = False
         self.auto_label['text'] = ''
         self.changed_identity()

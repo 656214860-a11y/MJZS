@@ -195,23 +195,6 @@ class AccountPageTests(unittest.TestCase):
         self.assertIn('当前状态：授权有效',_texts(d.content))
         self.assertIn('还可解绑 1 次',d.account_devices_message.cget('text'))
 
-    def test_providers_card_lists_without_key(self):
-        d=self.desktop
-        item={'id':'p','name':'线路A','base_url':'https://a.example/v1','models':'gpt-x','invite_url':'https://a.example/?aff=1','note':''}
-        client=_Client(providers=success({'enabled':True,'providers':[item]}))
-        self.signed_in(client)
-        self.assertTrue(any('第三方服务' in t for t in _texts(d.content)))
-        d.account_providers_button.invoke();self.pump()
-        texts=_texts(d.account_providers_rows)
-        self.assertTrue(any('https://a.example/v1' in t for t in texts))
-        self.assertIn('注册／邀请链接',[_safe_text(w) for w in _walk(d.account_providers_rows)])
-
-    def test_providers_card_empty_when_switched_off(self):
-        d=self.desktop
-        self.signed_in(_Client(providers=success({'enabled':False,'providers':[]})))
-        d.account_providers_button.invoke();self.pump()
-        self.assertEqual(d.account_providers_message.cget('text'),'当前没有推荐线路')
-
     def test_unbind_current_device_signs_out(self):
         d=self.desktop
         client=_Client(devices=success({'devices':[{'id':'d1','name':'本机','current':True}],'max':3,'unbind_left':1}),

@@ -3462,6 +3462,8 @@ class ModelPoolTests(PetTestCase):
         from unittest.mock import patch
         win = self.pet.open_model_manager()
         self.addCleanup(win.destroy)
+        # 页签化后列表按调用方式过滤：先切到 Desktop 页签，claude-desktop-app 才在列表里。
+        win._pet_mode.set('Desktop')
         win._pet_tree.selection_set('claude-desktop-app')
         win._pet_tree.event_generate('<<TreeviewSelect>>')
         win.update()
@@ -3514,6 +3516,8 @@ class ModelPoolTests(PetTestCase):
         win = self.pet.open_model_manager()
         self.addCleanup(win.destroy)
         tree = win._pet_tree
+        # 页签化后列表按调用方式过滤：先切 Desktop 页签才能选到 claude-desktop-app。
+        win._pet_mode.set('Desktop')
         tree.selection_set('claude-desktop-app')
         tree.event_generate('<<TreeviewSelect>>')
         win.update()
@@ -3530,6 +3534,7 @@ class ModelPoolTests(PetTestCase):
         buttons['保存这条'].invoke()
         self.assertEqual(model_pool.pool(program=self.pet.program)['claude-desktop-app']['program'], str(executable))
         self.assertEqual(model_pool.pool(program=self.pet.program)['claude-desktop-app']['call_mode'], 'Desktop')
+        win._pet_mode.set('API')
         tree.selection_set('gpt-4o')
         tree.event_generate('<<TreeviewSelect>>')
         win.update()
@@ -3559,6 +3564,8 @@ class ModelPoolTests(PetTestCase):
         win = self.pet.open_model_manager()
         self.addCleanup(win.destroy)
         tree = win._pet_tree
+        # 页签化后列表按调用方式过滤：先切 Desktop 页签才能选到 claude-desktop-app。
+        win._pet_mode.set('Desktop')
         tree.selection_set('claude-desktop-app')
         tree.event_generate('<<TreeviewSelect>>')
         win.update()
@@ -3784,6 +3791,8 @@ class ModelPoolTests(PetTestCase):
         win = self.pet.open_model_manager()
         self.addCleanup(win.destroy)
         self.pet.asker = lambda _title, _text: True
+        # 页签化后列表按调用方式过滤：先切 Desktop 页签才能选到 claude-desktop-app。
+        win._pet_mode.set('Desktop')
         win._pet_tree.selection_set('claude-desktop-app')
         self.assertEqual(win._pet_delete_one(), 'claude-desktop-app')
         self.assertNotIn('claude-desktop-app', self.pet.agent_model_records())

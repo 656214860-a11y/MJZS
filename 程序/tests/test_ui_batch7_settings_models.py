@@ -298,25 +298,26 @@ class FormAlignmentTests(Batch7Case):
     def test_manager_inputs_share_one_left_edge(self):
         win = self._manager_window()
         entries = win._pet_entries
-        # 调用方式｜Provider、模型 ID｜显示名各并一行后，左半边的输入列同一竖线，右半边另有一条。
+        # 调用方式已移到左上角页签；Provider｜功能、模型 ID｜显示名各并一行后，
+        # 左半边输入列（Provider、模型 ID、根地址、密钥名）同一竖线，右半边（功能、显示名）另有一条。
         edges = {entries[key].winfo_rootx() for key in ('model', 'base_url', 'key_env')}
-        edges.add(win._pet_mode_box.winfo_rootx())
-        self.assertEqual(len(edges), 1, '模型管理输入列必须落在同一竖线：%r' % edges)
-        right = {entries['label'].winfo_rootx(), win._pet_provider_box.winfo_rootx()}
-        self.assertEqual(len(right), 1, '右半边的 Provider、显示名必须落在同一竖线：%r' % right)
+        edges.add(win._pet_provider_box.winfo_rootx())
+        self.assertEqual(len(edges), 1, '模型管理左输入列必须落在同一竖线：%r' % edges)
+        right = {entries['label'].winfo_rootx(), win._pet_modality_box.winfo_rootx()}
+        self.assertEqual(len(right), 1, '右半边的功能、显示名必须落在同一竖线：%r' % right)
 
     def test_manager_pairs_selects_on_equal_widths_and_taller_boxes(self):
         win = self._manager_window()
         win.update()
         entries = win._pet_entries
         # 两列等分剩余宽度，总宽为奇数像素时差 1px，属 Tk 整数取整，不可见。
-        self.assertLessEqual(abs(win._pet_mode_box.winfo_width() - win._pet_provider_box.winfo_width()), 1,
-                             '调用方式与 Provider 两个下拉框等宽')
+        self.assertLessEqual(abs(win._pet_provider_box.winfo_width() - win._pet_modality_box.winfo_width()), 1,
+                             'Provider 与功能两个下拉框等宽')
         wire = next(child for child in win._pet_provider_box.master.winfo_children()
                     if child.winfo_class() == 'TCombobox'
                     and int(child.grid_info().get('row', -1)) == int(entries['key_env'].grid_info()['row']))
-        self.assertEqual(wire.winfo_rootx(), win._pet_provider_box.winfo_rootx(), '协议与右半边同一竖线')
-        self.assertLessEqual(abs(wire.winfo_width() - win._pet_mode_box.winfo_width()), 1, '密钥名与协议并列且等宽')
+        self.assertEqual(wire.winfo_rootx(), win._pet_modality_box.winfo_rootx(), '协议与右半边同一竖线')
+        self.assertLessEqual(abs(wire.winfo_width() - win._pet_provider_box.winfo_width()), 1, '密钥名与协议并列且等宽')
         style = ttk.Style(win)
         style.configure('Flat.Tokens.Combobox.TCombobox', padding=(0, 0))
         flat = ttk.Combobox(wire.master, style='Flat.Tokens.Combobox.TCombobox', width=14)
