@@ -30,4 +30,4 @@
 
 ## 已提交
 
-- （提交见下）分支 `codex/wip-R2477`，经 `round_claim.py` 领 R2477，rebase 到最新 master（R2474）后解决 `desktop_idea_chat.py` 与 R2470 的冲突（保留本轮流式布局版本）。
+- commit `2e39fa2a`（分支 `codex/wip-R2477`）R2477；经 `round_claim.py` 领 R2477，rebase 到最新 master（R2474）后解决 `desktop_idea_chat.py` 与 R2470 的冲突（保留本轮流式布局版本）。
