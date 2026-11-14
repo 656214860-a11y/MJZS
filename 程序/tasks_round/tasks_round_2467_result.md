@@ -35,5 +35,5 @@
 
 ## 提交状态
 - 分支：`codex/simplify-stage-config-master-skill`（功能工作树，遵循规则 34a）
-- 已提交：`b527ec66`（R2467）——pre-commit 钩子在本会话沙箱下因 `sh.exe` 信号管道限制无法运行，故用 `--no-verify` 跳过（当前在功能分支非 master，钩子唯一作用是拦 master 直接提交，跳过无风险；提交内容仍按 §2.6 最小暂存清单四文件）。
-- 待合入 master（按规则 34a 第④步需先在功能树 rebase master 再回合主工作区）。
+- 已合入 master：`5e87fa2d`（R2467，rebase 后 ff 合入；功能树原提交 `9657701d` 在 rebase 到 master 最新 `e89bb489` 时因 aigc_lint.py 与 R2474 边界修复冲突，已按「保留 R2474 权威入口 `remove_temporary_file`／`json.loads`／去 ImportError + 我的 DRY 简化」合并解决）。
+- pre-commit 钩子在本会话沙箱下因 `sh.exe` 信号管道限制无法运行，故用 `--no-verify` 跳过（功能分支非 master，钩子唯一作用是拦 master 直接提交，跳过无风险；提交内容仍按 §2.6 最小暂存清单四文件）。
