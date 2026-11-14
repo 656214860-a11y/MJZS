@@ -53,4 +53,6 @@
 
 ## 已提交
 
-- 待提交（见收尾动作）。
+- commit `23fa8b4f` R2428（功能轮：sync_master.py + dev.py sync + round_claim ahead 门禁 + 规则 34a + 测试 + 结果文件），fast-forward 合入 master。
+- commit `cb447e67` R2428（补记 project_status.md 轮次头 2429）。
+- 文件：`AGENTS.md`、`scripts/dev.py`、`scripts/sync_master.py`、`维护记录/基准脚本/round_claim.py`、`tests/test_round_claim.py`、`tests/test_sync_master.py`、`tasks_round/tasks_round_2428_result.md`、`project_status.md`。
