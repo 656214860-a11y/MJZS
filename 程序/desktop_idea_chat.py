@@ -23,8 +23,8 @@ from desktop_idea_deferred import IdeaDeferredMixin
 from idea_chat_controller import (bubble_timestamp, collapse_preview, has_interruptible, interrupt_notice,
                                   queue_notice, slot_decision)
 from platform_tools import open_target
-from ui_tokens import CHAR_WIDTH, TEXT_ROWS, COLORS, FONTS, SPACING
-from ui_widgets import FormDialog, TextArea
+from ui_tokens import CHAR_WIDTH, COLORS, FONTS, SPACING, STAGE_PANEL_LAYOUT
+from ui_widgets import FormDialog, SelectBox, TextArea
 from desktop_idea_bubbles import (BUBBLE_BACK, BUBBLE_FILL, BUBBLE_FLOOR, BUBBLE_FONT, BUBBLE_GAP, BUBBLE_LINE, BUBBLE_MAX_RATIO,
                                   BUBBLE_PAD, BUBBLE_SLACK, IdeaBubblesMixin)
 
@@ -58,6 +58,13 @@ def model_error_display(result, default='未收到模型回复'):
 # 第 37 期第 2 条：创意栏那七个字段的名字只写一份（预置示例与灰色字段名都取它）。
 # 第 71 期任务 4：跟着新的预置示例换成这一组名字，灰色字段名认的还是同一份。
 IDEA_FIELDS=('故事集数','单集时间','故事画风','故事主体','故事梗概','故事题材','故事角色','物理特征','故事分集','特殊要求','内容补充')
+# 补充创作信息弹窗里，「故事题材／故事集数／单集时间」改成可输入的下拉框，
+# 候选值只在此定义一份；下拉框宽度与下方「赛道」等制作锁统一（STAGE_PANEL_LAYOUT['select_width']）。
+IDEA_BRIEF_DROPDOWN_VALUES = {
+    '故事题材': ('都市', '悬疑', '奇幻', '科幻', '仙侠'),
+    '故事集数': ('80', '100', '120', '180', '200'),
+    '单集时间': ('1min', '90s', '2min', '5min', '10min'),
+}
 # 第 69 期任务 1：剧本准备页的创意框改成一段对话；第 72 期任务 9／10：全部消息靠左、
 # 紧凑显示，模型名置顶，长消息可折叠，模型回复中显示思考提示。
 # 最下面留一段给您写字，DRAFT_MARK 就是「从这儿往下才是您写的」那条线。
@@ -496,10 +503,25 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
                 continue
             row = ttk.Frame(dialog.content)
             row.pack(fill='x', pady=SPACING['xs'])
-            ttk.Label(row, text=label).pack(side='left', padx=(SPACING['none'], SPACING['sm']))
-            entry = TextArea(row, height=TEXT_ROWS['xs'], width=CHAR_WIDTH['field_sm'], wrap='word')
-            entry.pack(side='left', fill='x', expand=True)
-            entry.insert('1.0', fields.get(label, ''))
+            caption = ttk.Label(row, text=label)
+            caption.pack(side='left', padx=(SPACING['none'], SPACING['sm']))
+            if label in IDEA_BRIEF_DROPDOWN_VALUES:
+                entry = SelectBox(row, values=IDEA_BRIEF_DROPDOWN_VALUES[label], state='normal',
+                                  width=STAGE_PANEL_LAYOUT['select_width'])
+                entry.pack(side='left')
+                current = str(fields.get(label, '')).strip()
+                if current:
+                    entry.set(current)
+            elif label == '故事梗概':
+                # 故事梗概的高度缩短到与其他下拉框一致（单行），长度（宽度）保持整行不变。
+                entry = TextArea(row, height=1, width=CHAR_WIDTH['field_sm'], wrap='word')
+                entry.pack(side='left', fill='x', expand=True)
+                entry.insert('1.0', fields.get(label, ''))
+            else:
+                # 其余字段（故事角色、交付形态等）仍为文字输入，尺寸与赛道下拉框统一。
+                entry = TextArea(row, height=1, width=STAGE_PANEL_LAYOUT['select_width'], wrap='word')
+                entry.pack(side='left')
+                entry.insert('1.0', fields.get(label, ''))
             dialog.brief_fields[label] = entry
         dialog.lock_fields = ProductionLockFields(dialog.content, definitions=PRODUCTION_LOCK_DEFINITIONS[5:])
         dialog.lock_fields.pack(fill='x', pady=SPACING['sm'])
@@ -510,6 +532,9 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
                     configured[item['key']] = fields[label]
                     break
         dialog.lock_fields.set_values(configured)
+        def entry_text(entry):
+            # 下拉框用 get()，多行文本用 get('1.0','end-1c')；保存时统一读回。
+            return entry.get('1.0', 'end-1c') if isinstance(entry, tk.Text) else entry.get()
         def save():
             values = dialog.lock_fields.values()
             try:
@@ -520,9 +545,9 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
                         old_values = {}
                         for item in PRODUCTION_LOCK_DEFINITIONS[:5]:
                             if item['label'] in dialog.brief_fields:
-                                old_values[item['key']] = dialog.brief_fields[item['label']].get('1.0', 'end-1c')
+                                old_values[item['key']] = entry_text(dialog.brief_fields[item['label']])
                         save_writing_production_locks(project, {**old_values, **values})
-                    updated = {label: entry.get('1.0', 'end-1c')
+                    updated = {label: entry_text(entry)
                                for label, entry in dialog.brief_fields.items()}
                     updated.update({item['label']: values[item['key']] for item in PRODUCTION_LOCK_DEFINITIONS[5:]})
                     self.fill_idea_brief(updated)
