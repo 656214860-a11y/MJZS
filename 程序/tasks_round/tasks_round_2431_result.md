@@ -44,7 +44,15 @@
 1. DSH 沙箱对 `python.exe` 子进程的临时文件写（`$TEMP\dsh-OYrQD9`）做拒绝，`tests.test_skill_tools` 等既有用 `TemporaryDirectory` 的测试在沙箱内 error；覆盖率基线刷新已按用户授权提权（danger-full-access）完成。
 2. 工作树子模块 `AIGC创作全流程` 未初始化（父仓库 `.gitmodules` 缺失，gitlink 内容不 checkout），`test_aigc_lint` 里 4 条「挂载路径」用例按 `REQUIRES_BUNDLED_SKILL` 诚实跳过；挂载路径的真实执行已通过「临时指到主检出子模块」的探针实测验证。
 
+## 合入 master 时的既有回归（如实记录，非本分支引入）
+
+合入前 rebase 到最新 master（`ae022295` R2456）后，`tests.architecture.test_no_circular_import` 出现 **2 红**，均为 **master 的 R2450（其他车道）引入的环依赖**：`qwen_adapter → stage_models → workflow_settings`（`workflow_settings.effective_model` 函数内 `import stage_models`，`stage_models` 顶层 `from stage_flow import manual_label`，`qwen_adapter` 顶层 `from workflow_settings import skill_roots_for_config`）。
+
+- 本分支两个提交（`54459042`、`256c8959`）**未触碰** `qwen_adapter.py`/`stage_models.py`/`workflow_settings.py`，本分支代码无环、测试全绿。
+- 该环依赖是 R2450 车道的回归，属结构治理轮范畴，超出 R2431 范围；按用户裁定「先合入干净改动、环依赖登记欠账」，**不擅自修复**，留待 R2450 车道另立结构治理轮收口。
+
 ## 已提交
 
-- commit（待填）：`R2431: 总控包 scripts 机检桥 aigc_lint 接入 skill_tools`
-- 文件：`aigc_lint.py`（新）、`skill_tools.py`、`tests/architecture/_layers.py`、`tests/test_aigc_lint.py`（新）、`维护记录/覆盖率基线.json`、`runbook.md`、`tasks_round/tasks_round_2431_result.md`。
+- commit `9b6750cb`（rebase 后 `54459042`）：`R2431: 总控包 scripts 机检桥 aigc_lint 接入 skill_tools`
+- commit `a621f1e2`（rebase 后 `256c8959`）：`WIP: 补总控包机检桥接入边界的结论文档（R2431 收尾）`
+- 文件：`aigc_lint.py`（新）、`skill_tools.py`、`tests/architecture/_layers.py`、`tests/test_aigc_lint.py`（新）、`维护记录/覆盖率基线.json`、`runbook.md`、`说明/总控包脚本机检桥接入边界.md`（新）、`tasks_round/tasks_round_2431_result.md`。
