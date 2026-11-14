@@ -438,15 +438,21 @@
    "percent": 0.0
   },
   {
+   "module": "desktop_idea_attachments.py",
+   "covered": 0,
+   "total": 106,
+   "percent": 0.0
+  },
+  {
    "module": "desktop_idea_bubbles.py",
    "covered": 0,
-   "total": 455,
+   "total": 458,
    "percent": 0.0
   },
   {
    "module": "desktop_idea_chat.py",
    "covered": 0,
-   "total": 967,
+   "total": 876,
    "percent": 0.0
   },
   {
@@ -542,7 +548,7 @@
   {
    "module": "desktop_script_pages.py",
    "covered": 0,
-   "total": 672,
+   "total": 678,
    "percent": 0.0
   },
   {
@@ -980,7 +986,7 @@
   {
    "module": "pet_models_ui.py",
    "covered": 0,
-   "total": 775,
+   "total": 780,
    "percent": 0.0
   },
   {
@@ -1064,7 +1070,7 @@
   {
    "module": "previs_automation.py",
    "covered": 0,
-   "total": 161,
+   "total": 167,
    "percent": 0.0
   },
   {
@@ -1076,7 +1082,7 @@
   {
    "module": "previs_monitor.py",
    "covered": 0,
-   "total": 113,
+   "total": 116,
    "percent": 0.0
   },
   {
@@ -1100,7 +1106,7 @@
   {
    "module": "production_lock_fields.py",
    "covered": 0,
-   "total": 343,
+   "total": 347,
    "percent": 0.0
   },
   {
@@ -1340,7 +1346,7 @@
   {
    "module": "skill_tools.py",
    "covered": 0,
-   "total": 483,
+   "total": 482,
    "percent": 0.0
   },
   {
@@ -1436,7 +1442,7 @@
   {
    "module": "storyboard_direct_api.py",
    "covered": 0,
-   "total": 269,
+   "total": 276,
    "percent": 0.0
   },
   {
@@ -1766,13 +1772,13 @@
   {
    "module": "workflow_engines.py",
    "covered": 0,
-   "total": 326,
+   "total": 416,
    "percent": 0.0
   },
   {
    "module": "workflow_process_registry.py",
    "covered": 0,
-   "total": 146,
+   "total": 161,
    "percent": 0.0
   },
   {
@@ -1820,7 +1826,7 @@
   {
    "module": "writing_quality.py",
    "covered": 0,
-   "total": 89,
+   "total": 114,
    "percent": 0.0
   },
   {
@@ -1914,6 +1920,12 @@
    "percent": 18.1
   },
   {
+   "module": "platform_tools.py",
+   "covered": 98,
+   "total": 535,
+   "percent": 18.3
+  },
+  {
    "module": "legacy_compat.py",
    "covered": 9,
    "total": 48,
@@ -1938,12 +1950,6 @@
    "percent": 19.7
   },
   {
-   "module": "platform_tools.py",
-   "covered": 97,
-   "total": 485,
-   "percent": 20.0
-  },
-  {
    "module": "model_secrets.py",
    "covered": 40,
    "total": 196,
@@ -1963,8 +1969,8 @@
   },
   {
    "module": "model_router.py",
-   "covered": 121,
-   "total": 566,
+   "covered": 133,
+   "total": 622,
    "percent": 21.4
   },
   {
@@ -2054,8 +2060,8 @@
   {
    "module": "model_pool.py",
    "covered": 240,
-   "total": 725,
-   "percent": 33.1
+   "total": 728,
+   "percent": 33.0
   },
   {
    "module": "stage_previs_gateways.py",
@@ -2173,9 +2179,9 @@
   },
   {
    "module": "agent/publication.py",
-   "covered": 141,
+   "covered": 143,
    "total": 159,
-   "percent": 88.7
+   "percent": 89.9
   },
   {
    "module": "video_lifecycle_service.py",

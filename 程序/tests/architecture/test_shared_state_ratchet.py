@@ -20,6 +20,7 @@ SHARED_STATE_CAPS = {
     'Pet': 54,    # R2281 J-Pet：_offer_* 五件收进 Pet.offer（PetOfferState）-5
     'Cloud': 11,    # J-Cloud：_hint_* 四件收进 Cloud.hint_state（CloudHintState）-4
     'Panel': 5,
+    'IdeaChatMixin': 2,  # R2505：加第三个 Mixin 基类（IdeaAttachmentsMixin）后按实测登记；只许下降
 }
 MIXIN_BASE_THRESHOLD = 3
 
