@@ -28,9 +28,16 @@ claude 后台调用（`run_background` 的 `-p --output-format json` 路径）�
 
 claude 后台调用从"claude 自生成 session id"改为"程序主动指定 `--session-id <uuid>`"，与 `launch_interactive` 的 claude 分支一致；`SESSION_SWITCHES` 已含 `--session-id`，`engine_probe` 契约未破。同步更新 `test_cli_streaming.py` 断言（未弱化，反而更精确地区分 resume 与新建两种路径）。
 
-## 未实证 / 待确认
+## 真机实证（2026-11-15 补记）
 
-- **claude 真机端到端**：`--session-id <uuid>` + 持久化 + `--resume <uuid>` 续跑基于 `launch_interactive` 既有成熟机制对齐，未真机跑一次完整失败重试闭环（本机 claude 2.1.309 已装但未消耗额度实证）。codex 侧 R2491 已真跑实证 `--json` 输出结构。
+claude 侧此前标注的「未实证」已补齐，真机跑通 `--session-id` → `--resume` 闭环（claude 2.1.309，经 `cc switch` 路由到 DeepSeek 代理 `ANTHROPIC_BASE_URL=http://127.0.0.1:15721`、`ANTHROPIC_AUTH_TOKEN=PROXY_MANAGED`）：
+
+| 步骤 | 命令要点 | 实测结果 |
+| --- | --- | --- |
+| 新会话 | `claude -p --output-format json --permission-mode auto --session-id <uuid> "记住数字 42"` | exit 0，响应 `session_id` 回显与传入一致 |
+| 续跑 | `claude -p --output-format json --permission-mode auto --resume <uuid> "刚才的数字？"` | exit 0，`"result":"42"`，`cache_read_input_tokens:22912`（命中缓存续上下文，非重发 23k token） |
+
+结论：`workflow_engines.py::background_command` 的 claude 分支参数形态（新跑 `--session-id <uuid>` + 持久化、重试 `--resume <id>`）与真机二进制行为一致，续跑会话成立。此前首轮真机调用曾返回 `Not logged in`，经确认系代理握手未就绪的一次性瞬态，随后调用即正常并消耗真实额度。
 
 ## 验证命令
 
