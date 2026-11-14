@@ -56,7 +56,8 @@ def parse(path: Path) -> ast.Module:
 
 # R1480／R1490：Desktop 的方法分散在 desktop.py 与两个原样迁出的 Mixin 模块里；检查 Desktop 源码
 # 行为（调用、方法体）的门禁用下面两个入口，别再直接读 desktop.py，否则迁出的方法会"消失"。
-DESKTOP_PARTS = ("desktop.py", "desktop_auto_flows.py", "desktop_idea_chat.py", "desktop_idea_bubbles.py", "desktop_writing_page.py",
+DESKTOP_PARTS = ("desktop.py", "desktop_auto_flows.py", "desktop_idea_chat.py", "desktop_idea_bubbles.py",
+                 "desktop_idea_attachments.py", "desktop_writing_page.py",
                  "desktop_storyboard_page.py",
                  "desktop_idea_menus.py", "desktop_asset_pages.py", "desktop_script_pages.py", "desktop_media_pages.py", "desktop_project_pages.py",
                  "desktop_layout.py", "desktop_pet_bridge.py", "desktop_async_tasks.py", "desktop_page_nav.py", "desktop_lifecycle.py")
