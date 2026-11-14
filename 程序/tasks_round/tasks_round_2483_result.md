@@ -44,4 +44,5 @@ python -B smoke_test.py --architecture           # 架构门禁（4 项历史欠
 ## 提交
 
 - 提交信息：`R2483: CLI 引擎后台调用流式日志与 --resume 续跑参数`
+- 提交 hash：`30764963`
 - 分支：`codex/wip-R2483`
