@@ -136,7 +136,7 @@ def run_background(config,project,output,report,logfile,prompt):
     try:
         with Path(logfile).open('w',encoding='utf-8') as log,response_temp.open('w',encoding='utf-8') as out:
             returncode=run_registered(args,project,prompt,(out,log),config.get('timeout_seconds') or TIMEOUT_SECONDS,
-                                      timeout_label='Qwen 运行超时',env=env)
+                                      timeout_label='Qwen 运行超时',options={'env': env})
         if returncode:raise ValueError('Qwen 执行失败，请查看运行日志并检查 API、模型权限及额度')
         data=json.loads(response_temp.read_text(encoding='utf-8-sig'))
         replace(response_temp,response)

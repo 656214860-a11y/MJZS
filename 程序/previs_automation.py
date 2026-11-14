@@ -161,7 +161,14 @@ def start(project,source,ids,state,monitor=False,ticket=None,is_current=None,exe
                     from stage_execution_service import white_model_shot_directory
                     output=white_model_shot_directory(project,sid,source=source);output.mkdir(parents=True,exist_ok=True)
                     from workflow_engines import run_background
-                    run_background(call_config,project,output,batch/(sid+'_制作报告.txt'),batch/(sid+'_运行日志.txt'),prompt)
+                    # 引擎实时输出尾随最后 N 行写进 state，监视页边跑边显示；不落额外文件。
+                    ENGINE_LOG_TAIL = 200
+                    def engine_output(line, stream):
+                        tail = state.setdefault('engine_log', [])
+                        tail.append('%s%s' % (('' if stream == 'stdout' else '[err] '), line.rstrip('\n')))
+                        if len(tail) > ENGINE_LOG_TAIL:
+                            del tail[:-ENGINE_LOG_TAIL]
+                    run_background(call_config,project,output,batch/(sid+'_制作报告.txt'),batch/(sid+'_运行日志.txt'),prompt,on_output=engine_output)
                     execution_checkpoint()
                     state['progress'][key]='validating';state['status'][key]='校验视频中'
                     if not verify(project,sid,shot.get('duration',5),source=source):raise ValueError('输出未通过校验，请查看制作报告')
