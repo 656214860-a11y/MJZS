@@ -50,9 +50,15 @@ class IdeaBubblesMixin:
             left,right=self.bubble_margins(box,text,mine)
             pad=BUBBLE_PAD if framed else 0
             for tag in (name,name+'_time',name+'_meta',name+'_toggle',name+'_thinking',name+'_actions'):
-                # 正文 tag 带内边距，页脚／模型名／图标行贴着框的左边沿，不加内边距。
-                l=left+pad if tag==name else left
-                r=right+pad if tag==name else right
+                if tag==name:
+                    # 正文 tag 带内边距，色块贴着字、跟着气泡左右分列。
+                    l,r=left+pad,right+pad
+                elif tag==name+'_time':
+                    # 页脚整句要看得全：钉在对话区左右边沿，不跟用户气泡右移（见 add_bubble）。
+                    l=r=BUBBLE_GAP
+                else:
+                    # 模型名／图标／展开等框外行贴着这条气泡的左边沿，不加内边距。
+                    l,r=left,right
                 try:box.tag_configure(tag,lmargin1=l,lmargin2=l,rmargin=r)
                 except tk.TclError:pass
     def bubble_font(self):
@@ -76,7 +82,8 @@ class IdeaBubblesMixin:
         span=max(BUBBLE_FLOOR,width-2*BUBBLE_GAP)
         span=min(span,max(BUBBLE_FLOOR,int(width*BUBBLE_MAX_RATIO)))
         body=max(BUBBLE_FLOOR,min(span,self.text_width(text)+BUBBLE_PAD*2+BUBBLE_SLACK))
-        # Claude Code 桌面版式（REQ-S01-65）：用户在右、按字宽收紧；模型在左、按可用宽度铺开。
+        # 左右分列（REQ-S01-65）：用户在右、按字宽收紧；模型在左、按可用宽度铺开。
+        # 分列只由这里的边距决定，正文的 justify 一律左对齐（见 add_bubble）。
         if mine:
             return max(0,width-BUBBLE_GAP-body),BUBBLE_GAP
         return BUBBLE_GAP,BUBBLE_GAP
@@ -264,11 +271,11 @@ class IdeaBubblesMixin:
         example=index == 'example'
         # 页面刚建好时框子还没量过宽度，这一条要留着，等真实宽度下来再摆一次（见 refit_bubbles）。
         getattr(self,'_bubble_rows',[]).append((name,text,mine,not example))
-        # 与 Claude Code 桌面版一致：用户气泡贴右侧，名字、正文、引用行和底行都右对齐；模型回复左对齐。
-        align='right' if mine else 'left'
+        # 左右分列只由边距决定（用户贴右、模型贴左）；正文与署名一律左对齐，符合阅读习惯。
+        align='left'
         _model_back, model_meta = self.model_chat_colors(row.get('model'))
-        # 参考 DeepSeek 对话：正文铺一圈浅灰底框（淡底＋左右内边距，不画描边线），文字仍按
-        # 用户靠右、模型靠左分列（REQ-S01-65 的左右位置区分保留）。软件示例是只读参考，不铺框。
+        # 参考 DeepSeek 对话：正文铺一圈浅灰底框（淡底＋左右内边距，不画描边线），分列仍按
+        # 用户靠右、模型靠左（REQ-S01-65 的左右位置区分保留），文字一律左对齐。软件示例是只读参考，不铺框。
         pad=BUBBLE_PAD if not example else 0
         body_left=left+pad
         body_right=right+pad
@@ -303,13 +310,14 @@ class IdeaBubblesMixin:
             box.tag_bind(toggle,'<Enter>',lambda event,b=box:b.configure(cursor='hand2'))
             box.tag_bind(toggle,'<Leave>',lambda event,b=box:b.configure(cursor='xterm'))
         # SKILL 注入与时间合成一行，放在这条消息的最下面（复制／删除图标之上）。
-        # 用户要求：页脚留在底框外面——贴着框的左边沿、不铺底色、整句左对齐不换行截断。
+        # 页脚留在底框外面，但必须整句可见：贴对话区左边沿、整段按词换行——
+        # 若跟着用户气泡右移，右侧只剩一个气泡的宽度，再加 wrap='none' 就会被内容框裁掉。
         import idea_chat
         footer='  '.join(part for part in (idea_chat.skill_injection_summary(row),self.bubble_time(row.get('at'))) if part)
         if footer:
             box.tag_configure(name+'_time',justify='left',foreground=COLORS['text_muted'],
-                              lmargin1=left,lmargin2=left,rmargin=right,spacing1=0,spacing3=1,
-                              font=BUBBLE_TIME_FONT,wrap='none')
+                              lmargin1=BUBBLE_GAP,lmargin2=BUBBLE_GAP,rmargin=BUBBLE_GAP,
+                              spacing1=0,spacing3=1,font=BUBBLE_TIME_FONT,wrap='word')
             box.insert('end',footer+'\n',name+'_time')
         if isinstance(index,int):
             self.add_bubble_actions(box,name,index,left,right,rewindable=mine)
