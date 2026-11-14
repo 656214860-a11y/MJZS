@@ -123,8 +123,19 @@ class BackgroundCommandResumeTests(unittest.TestCase):
              mock.patch('workflow_settings.skill_roots_for_config', return_value=[]):
             args = workflow_engines.background_command(
                 {'engine': 'codex', 'resume_session': 'thread-9'}, 'proj', 'out', 'report.md')
-        self.assertIn('--resume', args)
+        # codex 的续跑是 exec 的子命令：exec resume <session_id>，不是 --resume flag。
+        self.assertIn('resume', args)
         self.assertIn('thread-9', args)
+        self.assertEqual(args[1:3], ['exec', 'resume'])
+
+    def test_codex_without_session_has_no_resume_subcommand(self):
+        import workflow_engines
+
+        with mock.patch.object(workflow_engines, 'find_program', return_value='codex.exe'), \
+             mock.patch('workflow_settings.skill_roots_for_config', return_value=[]):
+            args = workflow_engines.background_command(
+                {'engine': 'codex'}, 'proj', 'out', 'report.md')
+        self.assertNotIn('resume', args)
 
 
 class EndToEndWiringTests(unittest.TestCase):
@@ -160,6 +171,62 @@ class EndToEndWiringTests(unittest.TestCase):
 
         html_out = render({'busy': False}, 'proj')
         self.assertNotIn('<pre class="engine-log">', html_out)
+
+
+class CodexSessionPersistenceTests(unittest.TestCase):
+    """R2491：codex 后台调用跑完后持久化 session id，重试时 resume 续跑。"""
+
+    def test_extract_codex_thread_id_from_thread_started(self):
+        import workflow_engines
+
+        line = '{"type":"thread.started","thread_id":"01a1dab9-a479-7362-9f7f-58b83a4282e6"}'
+        self.assertEqual(workflow_engines.extract_codex_thread_id(line),
+                         '01a1dab9-a479-7362-9f7f-58b83a4282e6')
+
+    def test_extract_codex_thread_id_ignores_other_events(self):
+        import workflow_engines
+
+        self.assertIsNone(workflow_engines.extract_codex_thread_id('{"type":"turn.started"}'))
+        self.assertIsNone(workflow_engines.extract_codex_thread_id('不是 JSON'))
+        self.assertIsNone(workflow_engines.extract_codex_thread_id(''))
+
+    def test_extract_codex_message_text_from_agent_message(self):
+        import workflow_engines
+
+        line = '{"type":"item.completed","item":{"id":"item_4","type":"agent_message","text":"ok"}}'
+        self.assertEqual(workflow_engines.extract_codex_message_text(line), 'ok')
+
+    def test_extract_codex_message_text_ignores_non_message_events(self):
+        import workflow_engines
+
+        self.assertIsNone(workflow_engines.extract_codex_message_text('{"type":"thread.started","thread_id":"x"}'))
+        self.assertIsNone(workflow_engines.extract_codex_message_text('{"type":"turn.completed","usage":{}}'))
+        self.assertIsNone(workflow_engines.extract_codex_message_text('{"type":"item.completed","item":{"type":"error","message":"x"}}'))
+
+    def test_codex_background_command_adds_json_flag(self):
+        import workflow_engines
+
+        with mock.patch.object(workflow_engines, 'find_program', return_value='codex.exe'), \
+             mock.patch('workflow_settings.skill_roots_for_config', return_value=[]):
+            args = workflow_engines.background_command(
+                {'engine': 'codex'}, 'proj', 'out', 'report.md')
+        self.assertIn('--json', args)
+
+    def test_save_and_load_background_session_roundtrip(self):
+        import workflow_engines
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as td:
+            project = Path(td)
+            workflow_engines.save_background_session(project, 'previs', 'codex', 'uuid-123')
+            self.assertEqual(workflow_engines.load_background_session(project, 'previs', 'codex'), 'uuid-123')
+            # 不同 engine 互不覆盖。
+            workflow_engines.save_background_session(project, 'previs', 'claude', 'uuid-456')
+            self.assertEqual(workflow_engines.load_background_session(project, 'previs', 'codex'), 'uuid-123')
+            self.assertEqual(workflow_engines.load_background_session(project, 'previs', 'claude'), 'uuid-456')
+            # 未记录时返回 None。
+            self.assertIsNone(workflow_engines.load_background_session(project, 'previs', 'qwen'))
 
 
 if __name__ == '__main__':

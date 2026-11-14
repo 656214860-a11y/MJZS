@@ -107,19 +107,23 @@ def background_command(config,project,output,report,prompt_file=None,*,prompt=''
         args+=['--file',str(Path(prompt_file)),'执行附件中的制作任务']
         return args
     if config['engine']=='codex':
-        args=[exe,'exec','--skip-git-repo-check','--sandbox','workspace-write','--cd',str(project),'--add-dir',str(output),'--color','never','-o',str(report)]
+        resume = config.get('resume_session')
+        if resume:
+            # codex 的续跑是 exec 的子命令：codex exec resume <session_id> <prompt>（prompt 用 - 走 stdin）。
+            args=[exe,'exec','resume',str(resume),'--skip-git-repo-check','--sandbox','workspace-write','--cd',str(project),'--add-dir',str(output),'--color','never','--json','-o',str(report)]
+        else:
+            args=[exe,'exec','--skip-git-repo-check','--sandbox','workspace-write','--cd',str(project),'--add-dir',str(output),'--color','never','--json','-o',str(report)]
     else:
         args=[exe,'-p','--output-format','json','--permission-mode','auto','--add-dir',str(output)]
+        # claude 的续跑是 -p 的 flag：claude -p --resume <session_id>。
+        resume = config.get('resume_session')
+        if resume:
+            args += ['--resume', str(resume)]
     # 勾选的 SKILL 目录一并授权给 CLI 模型，让模型能读全文、看图、跑脚本（等效 desktop 原生）。
     from workflow_settings import skill_roots_for_config
     for directory in skill_roots_for_config(config):
         args += ['--add-dir', str(directory)]
     if config.get('model'):args+=['--model',config['model']]
-    # 续跑：复用同一任务/阶段的既有会话，失败重试或跨轮次续上下文不再从头开始。
-    # claude 的 session id 来自 Claude对话.json；codex 的 thread id 来自 codex_tasks 持久化。
-    resume = config.get('resume_session')
-    if resume:
-        args += ['--resume', str(resume)]
     if config['engine']=='codex':args+=['-']
     return args
 
@@ -246,7 +250,12 @@ def run_background(config,project,output,report,logfile,prompt,on_output=None):
     调用方应按 ``stream`` 过滤。透传给 ``_run``／``_run_claude_json``。
     """
     prompt=ensure_request_context(prompt, config.get('stage', '当前阶段'))
-    slot=reserve_stage_process_slot(project, config.get('stage', '当前阶段'))
+    stage = config.get('stage', '当前阶段')
+    # 失败重试续跑：调用方没显式给 resume_session 时，回读上次后台会话绑定。
+    if config.get('engine') in ('codex', 'claude') and not config.get('resume_session'):
+        config = dict(config)
+        config['resume_session'] = load_background_session(project, stage, config['engine'])
+    slot=reserve_stage_process_slot(project, stage)
     try:
         if config['engine']=='client-cli':
             prompt_file=Path(report).with_suffix('.client-prompt.md')
@@ -277,12 +286,109 @@ def run_background(config,project,output,report,logfile,prompt,on_output=None):
         args=background_command(config,project,output,report)
         with Path(logfile).open('w',encoding='utf-8') as log:
             if config['engine']=='codex':
-                returncode=_run(args,project,prompt,log,log,engine_timeout(config),on_output=on_output)
+                # 边流式显示边从 --json 输出解析 thread_id（thread.started 事件），跑完后持久化供 resume。
+                # stdout 是 JSONL：只把 agent_message 正文交给 on_output，机器事件（thread/turn/usage）滤掉，
+                # 这样监视页看到的是人读回复，而不是 JSON 行。
+                captured = {'thread_id': None}
+                def codex_output(line, stream):
+                    if stream == 'stdout':
+                        tid = extract_codex_thread_id(line)
+                        if tid:
+                            captured['thread_id'] = tid
+                        if on_output is not None:
+                            message = extract_codex_message_text(line)
+                            if message:
+                                on_output(message + '\n', 'stdout')
+                        return
+                    if on_output is not None:
+                        on_output(line, stream)
+                returncode=_run(args,project,prompt,log,log,engine_timeout(config),on_output=codex_output)
+                if returncode == 0 and captured['thread_id']:
+                    save_background_session(project, stage, 'codex', captured['thread_id'])
             else:
                 returncode=_run_claude_json(args,project,prompt,log,report,engine_timeout(config),on_output=on_output)
         if returncode:raise ValueError(ENGINES[config['engine']]+' 执行失败，请查看运行日志（安装版本、登录、额度或权限）')
     finally:
         release_process_slot(slot)
+
+
+def extract_codex_thread_id(line):
+    """从 codex exec --json 的一行 JSONL 里取出 thread_id（thread.started 事件），否则 None。
+
+    实证（codex v0.169.0）：``{"type":"thread.started","thread_id":"<uuid>"}``，thread_id 即
+    session id，供 ``codex exec resume <id>`` 续跑。
+    """
+    text = str(line or '').strip()
+    if not text:
+        return None
+    try:
+        event = json.loads(text)
+    except ValueError:
+        return None
+    if not isinstance(event, dict) or event.get('type') != 'thread.started':
+        return None
+    thread_id = event.get('thread_id')
+    return str(thread_id) if thread_id else None
+
+
+def extract_codex_message_text(line):
+    """从 codex exec --json 的一行 JSONL 里取出 agent 回复正文，否则 None。
+
+    实证：``{"type":"item.completed","item":{"type":"agent_message","text":"..."}}``；
+    非 agent_message 事件（thread.started／turn.*／usage 等）返回 None，便于流式显示只留正文。
+    """
+    text = str(line or '').strip()
+    if not text:
+        return None
+    try:
+        event = json.loads(text)
+    except ValueError:
+        return None
+    if not isinstance(event, dict) or event.get('type') != 'item.completed':
+        return None
+    item = event.get('item')
+    if not isinstance(item, dict) or item.get('type') != 'agent_message':
+        return None
+    body = item.get('text')
+    return str(body) if body else None
+
+
+def _background_session_path(project):
+    """后台引擎会话绑定文件：``<项目>/工作流任务/后台引擎会话.json``（按 engine + stage 存 session id）。"""
+    return stage_layout.workflow_dir(project, '后台引擎会话.json')
+
+
+def save_background_session(project, stage, engine, session_id):
+    """记录后台引擎某阶段跑完后的 session id，供失败重试 resume；不同 engine 互不覆盖。"""
+    path = _background_session_path(project)
+    data = read(path) if path.is_file() else {}
+    if not isinstance(data, dict):
+        data = {}
+    entry = data.get(stage)
+    if not isinstance(entry, dict):
+        entry = {}
+    entry[engine] = session_id
+    data[stage] = entry
+    save(path, data)
+
+
+def load_background_session(project, stage, engine):
+    """读取后台引擎某阶段上次的 session id；无记录返回 None。"""
+    path = _background_session_path(project)
+    if not path.is_file():
+        return None
+    try:
+        data = read(path)
+    except (OSError, ValueError, TypeError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    entry = data.get(stage)
+    if not isinstance(entry, dict):
+        return None
+    value = entry.get(engine)
+    return str(value) if value else None
+
 
 # 隔夜续接的旧 Claude 会话会把已删除的旧稿带回上下文；超过该时长不再续接，改开新会话。
 CLAUDE_SESSION_STALE_SECONDS = 12 * 3600

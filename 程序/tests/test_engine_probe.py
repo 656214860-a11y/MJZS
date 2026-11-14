@@ -204,7 +204,7 @@ class VerdictTests(unittest.TestCase):
 
     CODEX_HELP = ('Usage: codex exec [OPTIONS] [PROMPT]\n  --skip-git-repo-check\n'
                   '  -s, --sandbox <SANDBOX_MODE>\n  -C, --cd <DIR>\n  --add-dir <DIR>\n'
-                  '  --color <COLOR>\n  -o, --output-last-message <FILE>\n')
+                  '  --color <COLOR>\n  -o, --output-last-message <FILE>\n  --json\n')
 
     def test_codex_is_judged_by_the_report_it_writes(self):
         """真机实测：codex 的标准输出是过程日志、答案在 -o 那份报告里，不能按 JSON 判。"""
