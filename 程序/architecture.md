@@ -1,4 +1,6 @@
-# AI 漫剧助手：架构清单
+﻿# AI 漫剧助手：架构清单
+
+R2443：P0-2 收口 `writing_api` 的低层反向依赖（不改分层登记、不新增模块、不用白名单压过测试）。① `writing_api` 读阶段模型的 3 处（`selected_model()` 与 `_versioned_publisher()` 的生成期模型变更核对）从 L3 `stage_config.get(project,'script')['model']` 改为 L1 `stage_model_value.value(project,'script')`——该 L1 协议早在 R1647 已为「L2 领域服务不该为读一个阶段模型名反向依赖编排层」建立，`asset_batch_service`／`keyframe_model_service` 同口径复用；`stage_config.get` 把空值归一为 `'auto'` 而 `stage_model_value` 返回原始空串，两处调用点的 `not chosen or chosen==model_pool.AUTO` 守卫对两者等价，生成期变更核对因同一函数自比而不受归一化差异影响。② 回退口令 `writing_restart_requested`（纯文本正则，不读阶段配置、不碰编排）下沉到 L2 `idea_script_heuristic`，`workflow_tasks.writing_restart_requested` 改为按原名转发，`writing_api.preparation_restart_intent` 改从 L2 导入；API 与桌面 Agent 两条发送路径的口令口径保持不变，既有 `workflow_tasks.writing_restart_requested` 调用与测试锚点不变。
 
 R1592：模型池 `call_mode=Desktop`（兼容旧 `provider=desktop`）的自定义模型由 `workflow_settings.current` 解析为 `desktop-app`，沿用所选程序路径及阶段技能；`writing_api` 不将其识别为直连 API。`desktop_idea_chat` 生成任务、复制正文并打开对应应用，回执为 `prepared`，提示用户粘贴并发送；不套用 Codex/Claude 的自动粘贴或 CLI 参数。后台及 CLI 入口明确拒绝此模式。
 
@@ -497,5 +499,6 @@ R1995 / J2（media 页，收尾）：来源 R1983 J2。Desktop 向 MediaPagesMix
   行覆盖度量为定向测量：工具 `scripts/coverage_report.py`（`sys.settrace`，零第三方依赖），基线 `维护记录/覆盖率基线.json`；只记基线＋核心路径下限，不重跑测量，口径与诚实边界见 `tasks_round/tasks_round_1616_result.md`。
   密钥静态审计仅覆盖有限函数内传播，支持范围与漏检／误报边界见 `tasks_round/tasks_round_1054_result.md` D–F，不将零命中解释为全路径安全。
 - JSON／服务／统筹补充：`test_confirm_gates_json_boundary.py`、`test_context_menu_boundary.py`、`test_data_table_boundary.py`、`test_dialog_boundary.py`、`test_button_boundary.py`、`test_file_dialog_boundary.py`、`test_simpledialog_boundary.py`、`test_idea_attachment_publication_boundary.py`、`test_input_boundary.py`、`test_json_io_boundary.py`、`test_keyframe_batch_json_boundary.py`、`test_local_previs_json_boundary.py`、`test_notification_boundary.py`、`test_previs_automation_json_boundary.py`、`test_previs_batch_json_boundary.py`、`test_previs_monitor_json_boundary.py`、`test_project_context_boundary.py`、`test_service_return_contract.py`、`test_shortcut_registry_boundary.py`、`test_skill_orchestrator_json_boundary.py`、`test_stage_display_boundary.py`、`test_subtitle_export_publication_boundary.py`、`test_text_component_boundary.py`、`test_tooltip_boundary.py`、`test_ui_icons_boundary.py`、`test_scrollbar_theme_boundary.py`、`test_token_boundary.py`、`test_copy_entry_boundary.py`、`test_unification_ratchet.py`、`test_video_navigation_json_boundary.py`、`test_white_model_json_boundary.py`、`test_white_model_service_json_boundary.py`、`test_workflow_settings_json_boundary.py`、`test_writing_api_json_boundary.py`、`test_writing_publication_boundary.py`。
+- 剧本 API 低层反向依赖（R2443）：`test_writing_api_stage_config_boundary.py`（读阶段模型走 L1 `stage_model_value`、回退口令走 L2 `idea_script_heuristic`，不得反向依赖 L3 `stage_config`／`workflow_tasks`）。
 
 新增或删除架构测试时，必须在同一轮更新以上清单、架构基线和结果报告；不得只更新测试而遗漏本入口说明。
