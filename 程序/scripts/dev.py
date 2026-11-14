@@ -13,6 +13,7 @@ r"""开发者统一入口：一个命令名对应一个既有实现，不另写�
     python.exe -B scripts\dev.py logs       # 日志维护（--dry-run 可预览）
     python.exe -B scripts\dev.py shots      # 界面截图基线比对（手动；--update 重拍基线）
     python.exe -B scripts\dev.py claim      # 领取下一个轮次号
+    python.exe -B scripts\dev.py sync       # 主工作区同步（fetch + ff-only，只拉不推）
     python.exe -B scripts\dev.py archive   # 旧结果文件按月归档（默认预览，--apply 执行）
     python.exe -B scripts\dev.py merge     # 合并轮一条命令（master 检出，参数：分支 -s 说明）
 子命令后面的参数原样传给底层脚本。
@@ -35,6 +36,7 @@ COMMANDS = {
     'logs': (['scripts/maintain_logs.py'], '日志维护'),
     'shots': (['scripts/ui_snapshot.py', '--check'], '界面截图基线比对（--update 重拍；手动工具）'),
     'claim': (['维护记录/基准脚本/round_claim.py', 'next'], '领取下一个轮次号'),
+    'sync': (['scripts/sync_master.py'], '主工作区同步：fetch 远端 + 仅 fast-forward（只拉不推）'),
     'merge': (['scripts/merge_round.py'], '合并轮一条命令：合入分支+领号+状态页抬头+结果文件+提交（在 master 检出运行）'),
     'archive': (['scripts/archive_results.py'], '旧轮次结果文件按月归档（默认预览，--apply 执行）'),
     'commit': (['scripts/commit_round.py'], '暂存+白名单+等验收锁+提交（-m "R<N>: 说明" [文件...]）'),

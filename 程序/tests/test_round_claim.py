@@ -193,6 +193,34 @@ class SharedWorktreeQueueTests(unittest.TestCase):
         self.assertEqual(self.git("-C", str(tree), "branch", "--show-current").strip(), b"codex/wip-R1")
         self.assertEqual((tree / "draft.txt").read_text(encoding="utf-8"), "unfinished")
 
+    def test_ahead_over_limit_refuses_next_without_allocating(self):
+        tree = self.trees[0]
+        script = tree / "程序/维护记录/基准脚本/round_claim.py"
+        self.git("-C", str(tree), "switch", "-c", "codex/far-ahead")
+        for index in range(11):
+            (tree / ("commit-%d.txt" % index)).write_text(str(index), encoding="utf-8")
+            self.git("-C", str(tree), "add", ".")
+            self.git("-C", str(tree), "-c", "user.name=Queue Test", "-c",
+                     "user.email=queue@example.invalid", "commit", "-m", "far %d" % index)
+        result = subprocess.run([sys.executable, str(script), "next"], cwd=script.parent,
+                                capture_output=True, timeout=30)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("领先 master".encode(), result.stderr)
+        self.assertFalse((self.common / round_claim.COUNTER_NAME).exists())
+
+    def test_ahead_within_limit_allows_next(self):
+        tree = self.trees[0]
+        script = tree / "程序/维护记录/基准脚本/round_claim.py"
+        self.git("-C", str(tree), "switch", "-c", "codex/near-ahead")
+        (tree / "one.txt").write_text("1", encoding="utf-8")
+        self.git("-C", str(tree), "add", ".")
+        self.git("-C", str(tree), "-c", "user.name=Queue Test", "-c",
+                 "user.email=queue@example.invalid", "commit", "-m", "near 1")
+        result = subprocess.run([sys.executable, str(script), "next"], cwd=script.parent,
+                                capture_output=True, timeout=30)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), b"1")
+
     def test_two_worktrees_cannot_claim_same_id_and_export_is_identical(self):
         self.snapshot(self.trees[0], [{"id": "T1", "status": "pending"}])
         queue = self.common / round_claim.QUEUE_NAME

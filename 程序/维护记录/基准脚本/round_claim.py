@@ -264,6 +264,33 @@ def park_dirty_checkout(number: int, root: Path = ROOT) -> str | None:
     return branch
 
 
+def require_worktree_fresh(root: Path = ROOT, limit: int = 10) -> None:
+    """分支相对 master 领先超过 limit 个提交时拒绝领号（AGENTS.md 规则 27 并行硬规则）。
+
+    领先过深的 WIP 必须先 rebase 或回合主干再领号，避免并行车道长期分叉；
+    master/main 自身不触发（其 ahead 表示未推送，属 push 门禁管辖，非本门禁）。"""
+    branch = subprocess.run(["git", "-C", str(root), "symbolic-ref", "--quiet", "--short", "HEAD"],
+                            capture_output=True, text=True)
+    branch = branch.stdout.strip()
+    if not branch or branch in ("master", "main"):
+        return
+    main_branch = "master"
+    for candidate in ("master", "main"):
+        verify = subprocess.run(["git", "-C", str(root), "rev-parse", "--verify", "--quiet",
+                                 candidate], capture_output=True, text=True)
+        if verify.returncode == 0:
+            main_branch = candidate
+            break
+    result = subprocess.run(["git", "-C", str(root), "rev-list", "--count",
+                             "%s..%s" % (main_branch, branch)], capture_output=True, text=True)
+    if result.returncode:
+        return  # 无法计算 ahead（主干缺失等）时放行，由 require_branch 兜底
+    ahead = int(result.stdout.strip() or 0)
+    if ahead > limit:
+        raise RuntimeError("拒绝领取轮次：分支 %s 领先 %s %d 个提交（>%d）。"
+                           "先 rebase 到最新主干或回合，再领取轮次。" % (branch, main_branch, ahead, limit))
+
+
 def _read_queue(queue_path: Path) -> dict:
     payload = json.loads(queue_path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
@@ -392,6 +419,7 @@ def main(argv: list[str] | None = None) -> int:
             # 主树脚本从其他工作树调用时，也必须检查实际 cwd 所在树。
             require_branch(Path.cwd())
             require_master_not_dirty(Path.cwd())
+            require_worktree_fresh(Path.cwd())
         except (RuntimeError, subprocess.CalledProcessError) as error:
             print(str(error), file=sys.stderr)
             return 2
