@@ -13,7 +13,6 @@ import client_profiles, edit_habits, stage_layout
 from script_contract import PRODUCTION_LOCK_DEFINITIONS, STAGE_LOCK_REQUIREMENTS, lock_stage
 from workflow_context_budget import REQUEST_CONTEXT_MAX_CHARS
 from store_program_locator import current_store_program, store_package_program, gui_claude_program, GUI_CLAUDE_CLI_HINT
-
 ENGINES={'codex':'ChatGPT / Codex','qwen':'Qwen Code（阿里云）','claude':'Claude Code','claude-desktop-app':'Claude Desktop','desktop-app':'自定义桌面应用','client-cli':'自定义命令行客户端','opencode':'opencode CLI（自动放行权限）'}
 FLOWS={'writing':'剧本创作','storyboard':'初步分镜','assets':'资产图片制作','frames':'批量首帧','previs':'白模预演','video_prompt':'视频提示词','audio':'配音与字幕'}
 DEFAULT_SKILLS={'writing':'coconah-ai-short-drama-agent-skill','storyboard':'short-drama-storyboard','assets':'.system/imagegen','frames':'.system/imagegen','previs':'create-blender-story-video','video_prompt':'short-drama-storyboard','audio':''}
@@ -38,8 +37,6 @@ FLOW_SKILLS={
 }
 STAGE_CONFIG_STAGES={'writing':'script','storyboard':'storyboard','assets':'assets','frames':'keyframe',
                      'previs':'previs','video_prompt':'video','audio':'audio'}
-# 总控预设是受控登记，不从外部包 frontmatter 推导执行字段。R1433 起唯一来源是
-# skills/00全流程SKILL/总控.json（MASTER_MANIFEST）；下面这份只作清单缺失／损坏时的出厂兜底。
 BUILTIN_WORKFLOW_PRESETS={'AIGC全流程': {
     'package': 'skills/00全流程SKILL/AIGC创作全流程/short-drama-director/SKILL.md',
     'stage_skills': {'script':['pipeline-script-preparation'], 'script_structure':['pipeline-script-structure'],
@@ -50,12 +47,9 @@ BUILTIN_WORKFLOW_PRESETS={'AIGC全流程': {
     'locks': list(PRODUCTION_LOCK_DEFINITIONS),
 }}
 MASTER_MANIFEST=Path(__file__).resolve().parent/'skills'/'00全流程SKILL'/'总控.json'
-# 兼容既有调用方与测试的 patch.dict：对象身份不变，只在清单文件变化时原地刷新。
 WORKFLOW_PRESETS={}
 MASTER_MANIFEST_PROBLEMS=[]
 _MASTER_MANIFEST_STAMP={'value': object()}
-
-
 def _manifest_presets(data):
     """把总控清单转成预设表；锁键换成契约定义，未知键与非法项记为问题而不是静默丢弃。"""
     problems=[]
@@ -79,8 +73,6 @@ def _manifest_presets(data):
                                         for stage,items in stages.items()},
                         'locks':[definitions[key] for key in keys if key in definitions]}
     return out,problems
-
-
 def refresh_workflow_presets(force=False):
     """按总控清单刷新 WORKFLOW_PRESETS；文件没变就什么都不做。返回当前预设表。"""
     try:
@@ -104,13 +96,8 @@ def refresh_workflow_presets(force=False):
     WORKFLOW_PRESETS.clear();WORKFLOW_PRESETS.update(presets)
     MASTER_MANIFEST_PROBLEMS[:]=problems
     return WORKFLOW_PRESETS
-
-
 refresh_workflow_presets(force=True)
 _DESKTOP_INSTALLATION_CACHE={}
-
-# 预设 SKILL 可以覆盖创作风格，不能跨越当前工作阶段。该契约在运行时总是附在
-# SKILL 之后，因而比通用工作流里的“可做分镜／资产”等能力说明优先。
 _STAGE_OUTPUT_CONTRACTS={
     'writing': ('\n\n【剧本准备阶段输出契约（最高优先级）】\n'
                 '先问清楚，再创作：用户未提供故事大体环境和小说/漫剧类型时，必须先问，不能直接写。'
@@ -129,27 +116,16 @@ _STAGE_OUTPUT_CONTRACTS={
                    '本阶段只以已确认的结构剧本为来源制作分镜初稿：围绕核心人物的目标、动作与情绪变化切镜头；每镜明确镜头三元组“核心人物／主体—可见动作—景别机位与运镜”，并按动作闭合点拆分镜头。\n'
                    '不得重新整理角色、场景、道具档案或重写结构剧本。输出的分镜初稿记录来源剧本、人物／场景／道具编号、镜头编号、时长、动作起止、对白和连续性约束；批次划分与最终锁定属于第 07 阶段“分镜定稿”，本阶段不做。'),
 }
-
-
 def stage_output_contract(stage):
     """返回不可被通用 SKILL 越过的当前阶段交付边界。"""
     return _STAGE_OUTPUT_CONTRACTS.get(str(stage or ''), '')
-
 SKILL_ALIASES={'coconah-ai-short-drama-agent-skill':'screenplay','.system/imagegen':'imagegen'}
 BUNDLED_SKILLS=Path(__file__).resolve().parent/'skills'
-
-
 def _bundled_skill(folder):
     return BUNDLED_SKILLS/SKILL_ALIASES.get(folder,folder)/'SKILL.md'
-
-
 def preset_skill(folder):
     return _bundled_skill(folder)
-
-
 _PRESET_PATHS={}
-
-
 def _preset_paths():
     """预解析程序内置预设 SKILL.md，供路径反查复用。"""
     cached=_PRESET_PATHS.get('bundled')
@@ -157,23 +133,18 @@ def _preset_paths():
         cached=[(folder,_bundled_skill(folder).resolve()) for _,folder in SKILL_PRESETS]
         _PRESET_PATHS.clear();_PRESET_PATHS['bundled']=cached
     return cached
-
-
 def preset_folder(skill):
     if not skill:return None
     path=Path(skill).resolve()
     for folder,bundled in _preset_paths():
         if path==bundled:return folder
     return None
-
 def preset_label(skill):
     if not skill:return '不使用 Skill'
     known=preset_folder(skill)
     for label,folder in SKILL_PRESETS:
         if folder==known:return label
     return '自定义 Skill'
-
-
 def agent_label(profile, stage, engine, function=None):
     """Stable display label shared by the settings dialog and Agent selector."""
     model=profile.get('model','').strip() or ENGINES[engine]
@@ -184,8 +155,6 @@ def agent_label(profile, stage, engine, function=None):
         if name not in names:names.append(name)
     skill='、'.join(names) or '内置要求'
     return '.'.join((model,function or FLOWS[stage],skill.replace(' ','')))
-
-
 def skills_of(profile):
     """这一档勾了哪几份 SKILL（第 59 期第 5 条：一处可以勾不止一份）。
 
@@ -201,8 +170,6 @@ def skills_of(profile):
         return out
     single=str(profile.get('skill') or '').strip()
     return [single] if single else []
-
-
 def set_skills(profile,paths):
     """把勾选写回这一档：`skills` 是完整清单，`skill` 跟着记第一份（老读者照旧看得出主 SKILL）。"""
     kept=[]
@@ -212,8 +179,6 @@ def set_skills(profile,paths):
     profile['skills']=kept
     profile['skill']=kept[0] if kept else ''
     return kept
-
-
 def skill_roots_for_config(config):
     """勾选 SKILL 的目录白名单（供 CLI 引擎 `--add-dir`／`--include-directories`）。
 
@@ -238,8 +203,6 @@ def skill_roots_for_config(config):
                 seen.add(identity)
                 dirs.append(root)
     return dirs
-
-
 def skills_for_stage(profile,stage,name='codex'):
     """这一档存下来的 SKILL 归一到「这一步能用的那几份」（第 59 期第 5 条）。
 
@@ -257,11 +220,8 @@ def skills_for_stage(profile,stage,name='codex'):
             continue
         if item not in picked:picked.append(item)
     return picked
-
 def settings_path(project):
     return stage_layout.workflow_dir(project,'工作流调用设置.json')
-
-
 def shared_qwen_model(data):
     if 'qwen' in data.get('shared_models',{}):return data['shared_models']['qwen']
     flows=data.get('flows',{})
@@ -270,8 +230,6 @@ def shared_qwen_model(data):
         if candidate:return candidate
     from qwen_setup import load as qwen_api
     return qwen_api().get('model','')
-
-
 def sync_qwen_model(project,model):
     model=str(model).strip()
     if model and not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._:/-]{0,159}',model):
@@ -287,7 +245,6 @@ def sync_qwen_model(project,model):
     for stage in data.get('flows',{}).values():
         if 'qwen' in stage.get('profiles',{}):stage['profiles']['qwen']['model']=model
     save(target,data)
-
 def defaults(stage='previs'):
     if stage not in FLOWS:raise ValueError('未知的工作流入口')
     skill_file=preset_skill(DEFAULT_SKILLS[stage])
@@ -295,7 +252,6 @@ def defaults(stage='previs'):
     return {'engine':'codex','profiles':{name:{'program':'','model':'','skill':skill,
                                                'skills':[skill] if skill else [],
                                                'instructions':''} for name in ENGINES}}
-
 def load(project,stage='previs'):
     result=defaults(stage);path=settings_path(project)
     if path.is_file():
@@ -313,14 +269,11 @@ def load(project,stage='previs'):
             stored=result['profiles'][name]
             for key in ('program','model','instructions'):
                 if key in profile:stored[key]=str(profile[key])
-            # 第 59 期第 5 条：勾选是一张清单；这一档根本没存过 SKILL 就留着 defaults 那一份，
-            # 存过就按存的来（空表＝这一流程不挂 SKILL）。
             if isinstance(profile.get('skills'),(list,tuple)) or 'skill' in profile:
                 set_skills(stored,skills_for_stage(profile,stage,name))
     else:data={}
     result['profiles']['qwen']['model']=shared_qwen_model(data)
     return result
-
 def validate_profile(profile):
     result={k:str(profile.get(k,'')).strip() for k in ('program','model','skill','instructions')}
     if result['program']:
@@ -330,7 +283,6 @@ def validate_profile(profile):
         result['program']=str(path.resolve())
     if result['model'] and not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._:/-]{0,159}',result['model']):
         raise ValueError('模型 ID 格式不正确；留空可使用引擎默认模型')
-    # 第 59 期第 5 条：一处可以勾几份 SKILL，逐份按同一把尺子验。
     paths=[]
     for value in skills_of(profile):
         path=Path(value).expanduser()
@@ -340,7 +292,6 @@ def validate_profile(profile):
         if resolved not in paths:paths.append(resolved)
     set_skills(result,paths)
     return result
-
 def validate_stage_profile(profile,stage):
     result=validate_profile(profile)
     for item in skills_of(result):
@@ -348,7 +299,6 @@ def validate_stage_profile(profile,stage):
         if known and known not in FLOW_SKILLS[stage]:
             raise ValueError('所选常用 Skill 不适用于“'+FLOWS[stage]+'”，请选择本流程的 Skill 或自定义文件')
     return result
-
 def save_flow(project,stage,draft,engine):
     """调用设置窗口「保存」：校验所选引擎这一档 → 写回本流程 → Qwen 再同步共享模型。
 
@@ -360,7 +310,6 @@ def save_flow(project,stage,draft,engine):
     all_settings=read_json(path) if path.is_file() else {}
     all_settings.setdefault('flows',{})[stage]=draft;save(path,all_settings)
     if engine=='qwen':sync_qwen_model(project,draft['profiles']['qwen']['model'])
-
 def stage_model(project,stage):
     """阶段配置 → 模型：这一步的 Agent 实际要用哪个大模型（第 62 期任务 3）。
 
@@ -388,9 +337,6 @@ def stage_model(project,stage):
         return '',''
     if not chosen or chosen==model_pool.AUTO or model_pool.desktop_engine(chosen):
         return '',''
-    # 生产模型（本地 ComfyUI／Seedream 这类）与「别的阶段的生产模型」都不是发给文本模型的 id：
-    # 首帧那一格的下拉框里还并着几个 Agent 引擎的显示名，同样跳过。
-    # 判据按「带项目的那一份 choices」算——不带项目时首帧只列得出两条静态的。
     try:
         choices=stage_models.production_choices(stage,project)
     except Exception:
@@ -410,16 +356,12 @@ def stage_model(project,stage):
     api={'base_url':item['base_url'],'path':item['path'],'wire_api':item['wire_api'],
          'key_env':item['key_env']}
     return str(item['model'] or chosen),api
-
-
 def effective_model(project,stage='previs'):
     """这一步真正会发出去的模型名（第 62 期任务 3）：阶段配置挑了就用它，否则按引擎那一栏。
 
     界面文案（比如分镜页那个「自动采用新文件（当前使用的模型）」）与自检都读这一处，
     不另算一遍——显示的和真发出去的必须是同一个名字。
     """
-    # 不能只读保存的默认引擎：阶段配置可能把默认 Codex 改成了模型池 API，
-    # `current()` 才是三虎实际会启动的那一条路由。
     cfg=current(project,stage);engine=cfg['engine']
     if engine == 'desktop-app':
         return cfg['display_model']
@@ -435,8 +377,6 @@ def effective_model(project,stage='previs'):
     if model:
         return model
     return str(cfg.get('model') or '').strip() or ENGINES[engine]
-
-
 def _local_engine_for_selected_model(value, selected, item, stage):
     """已选 OpenAI/Anthropic 模型有本机 Agent 时，优先回到对应本机客户端。"""
     import model_pool
@@ -451,8 +391,6 @@ def _local_engine_for_selected_model(value, selected, item, stage):
         return engine, find_program({'engine': engine, 'program': profile['program']})
     except (KeyError, ValueError):
         return '', ''
-
-
 def desktop_route_notice(project, stage, selected, item=None):
     """用户刚选模型时按需说明是否会优先交给可用本机程序；只读且不写盘。"""
     import model_pool
@@ -473,8 +411,6 @@ def desktop_route_notice(project, stage, selected, item=None):
         return ''
     name = '本机 GPT 程序' if engine == 'codex' else '本机 Claude 程序'
     return '已检测到%s：运行时会优先由本机程序执行；若启动失败，将回落到所选 API。' % name
-
-
 def current(project,stage='previs', *, direct_api=False, model_snapshot=None):
     value=load(project,stage);engine=value['engine']
     selected='';item={};local_program=''
@@ -499,9 +435,6 @@ def current(project,stage='previs', *, direct_api=False, model_snapshot=None):
         if local_engine:
             engine = local_engine
         elif item:
-            # 模型池中的任意 API 模型都必须交给兼容调用器。此前仅 GPT／Anthropic
-            # 会走这里，选 DeepSeek V4 Flash 时便错误沿用默认 Codex，导致三虎
-            # 自动打开的是 Codex 而阶段按钮却显示 DeepSeek。
             engine = 'qwen'
     if direct_api:
         engine = 'qwen'
@@ -532,19 +465,15 @@ def current(project,stage='previs', *, direct_api=False, model_snapshot=None):
         else:
             profile['program'] = item['program']
     if local_program:
-        # 本机 Codex/Claude 的可选模型集合由客户端登录态决定，不能把 API 模型 id 当 CLI 参数塞入。
         profile['program']=local_program
         profile['model']=''
         selected_model, selected_api = stage_model(project,stage)
         if selected_api:
-            # 仅本机程序无法启动时交给启动器兜底；不把任务内容在后台悄悄重发。
             profile['api_fallback']={'model':selected_model,'api':selected_api,
                                      'profile':validate_stage_profile(value['profiles']['qwen'],stage)}
-    # 阶段配置里挑了 API 模型就以它为准；qwen 是兼容 API 调用器，见 stage_model。
     model,api=(selected, {}) if direct_api else (stage_model(project,stage) if engine=='qwen' else ('',''))
     if model:profile['model']=model
     if api:profile['api']=api
-    # 统筹投影不改变旧引擎档；仅在生成提示词时作为受控前缀读取。
     workflow = stage_config.current_workflow(project)
     locks = stage_config.workflow_lock(project)
     profile['project_created_at'] = stage_config.project_created_at(project)
@@ -555,7 +484,6 @@ def current(project,stage='previs', *, direct_api=False, model_snapshot=None):
     name = str(workflow.get('name') or '').strip()
     preset = refresh_workflow_presets().get(name, {})
     if preset:
-        # 总控门禁（master_skill.gate）凭这个名字判断项目是否处于总控模式。
         profile['workflow_name'] = name
         profile['workflow_skill_prompt'] = '按当前阶段需要，只读取总控 SKILL 中与本阶段交付相关的章节，不全文加载总控 SKILL 及无关 reference：' + str(preset['package'])
     try:
@@ -569,16 +497,12 @@ def current(project,stage='previs', *, direct_api=False, model_snapshot=None):
     display_model = (model_pool.label_of(selected, {selected: item}) if explicit_engine
                      else str(profile.get('model') or '').strip() or ENGINES[engine])
     return {'engine':engine, 'stage':stage, 'display_model':display_model, **profile}
-
-
 def writer_style_summary(config, stage=None):
     """任务书可见摘要：只说明是否带了项目级编剧风格，不暴露风格正文。"""
     stage = stage if stage is not None else config.get('stage')
     if stage != 'writing' or not str(config.get('writer_style') or '').strip():
         return ''
     return '编剧风格：已启用本项目编剧风格（编剧角色创作并审核五阶门控）'
-
-
 def writer_style_prompt(config, stage=None):
     """项目级编剧风格；首次与续发同源，只在剧本准备阶段注入，空风格不占请求。"""
     stage = stage if stage is not None else config.get('stage')
@@ -587,8 +511,6 @@ def writer_style_prompt(config, stage=None):
         return ''
     return ('本项目编剧风格（编剧角色创作与审核五阶门控时优先遵守，不改变阶段交付物与单集时长）：' + chr(10)
             + style + chr(10))
-
-
 def find_model_program(model, mode):
     """模型管理按当前名称和调用方式查询安装位置，不执行候选程序。"""
     import re
@@ -665,8 +587,6 @@ def find_model_program(model, mode):
             if path:
                 return path
     raise ValueError('未找到“%s”的 Desktop 安装程序；请确认已安装对应桌面应用，或点“浏览…”指定 .exe' % model)
-
-
 def find_program(config):
     if config['program']:return current_store_program(config['program'])
     engine = config['engine']
@@ -698,13 +618,12 @@ def find_program(config):
                                  key=lambda path: path.stat().st_mtime, reverse=True))
         for candidate in candidates:
             if candidate.is_file():return str(candidate)
-        # 商店版（MSIX）装在 WindowsApps，目录名带版本号，只能经注册表包清单定位。
         store = store_package_program('Claude', Path('app')/'Claude.exe')
         if store:return store
         raise ValueError('未找到 Claude Desktop，请在模型管理选择其 .exe')
     if config['engine']=='qwen':
-        from qwen_adapter import command
-        return command(config)[0]
+        from client_profiles import qwen_command
+        return qwen_command(config)[0]
     if config['engine']=='opencode':
         found=shutil.which('opencode-cli.exe')
         if found:return found
@@ -721,7 +640,6 @@ def find_program(config):
     else:
         native=Path.home()/'.local/bin/claude.exe'
         if native.is_file():return str(native)
-        # npm 的 PATH 入口是脚本；直接定位包内原生程序，不解释或执行包装脚本。
         shim=shutil.which('claude.cmd')
         prefixes=[Path(shim).parent] if shim else []
         appdata=os.environ.get('APPDATA')
@@ -730,13 +648,9 @@ def find_program(config):
             native=prefix/'node_modules/@anthropic-ai/claude-code/bin/claude.exe'
             if native.is_file():return str(native)
     raise ValueError('未找到 '+ENGINES[engine]+' 命令行程序，请安装并登录后在“调用设置”选择其 .exe')
-
-
 def clear_desktop_installation_cache():
     """仅供本进程展示层刷新状态；不持久化探测结果。"""
     _DESKTOP_INSTALLATION_CACHE.clear()
-
-
 def desktop_model_label(model_id, label):
     """桌面模型的展示标注：复用 find_program，失败和异常一律按未安装显示。"""
     import model_pool
@@ -750,7 +664,6 @@ def desktop_model_label(model_id, label):
         except Exception:_DESKTOP_INSTALLATION_CACHE[engine]=False
         else:_DESKTOP_INSTALLATION_CACHE[engine]=True
     return str(label or '')+('（未安装）' if not _DESKTOP_INSTALLATION_CACHE[engine] else '')
-
 def validate_selected_skills(project, stage):
     """在解析前检查保留的选择，禁止把失效选择静默变成未勾选。"""
     import stage_config
@@ -767,16 +680,9 @@ def validate_selected_skills(project, stage):
     for name in entry.get('skills') or ():
         if registry.getById(name) is None:
             raise ValueError(f'已勾选的 SKILL 未加载：{name}；已阻止发送，请重新确认阶段配置。')
-
-
-# 内联为代码块的文本型脚本扩展名；其余非 Markdown 引用视为二进制资源，只登记不内联。
 _TEXT_SCRIPT_SUFFIXES = ('.py', '.sh', '.ps1', '.bat', '.cmd', '.json', '.yaml', '.yml', '.toml', '.ini', '.cfg')
-
-
 def _is_text_script(suffix):
     return suffix.lower() in _TEXT_SCRIPT_SUFFIXES
-
-
 def _skill_blocks(path, *, strict, locks=None, depth=0):
     """走一遍技能正文与它的引用；返回 (正文, 元数据, 分块, 引用闭包)。
 
@@ -796,7 +702,6 @@ def _skill_blocks(path, *, strict, locks=None, depth=0):
     meta, content = skill_registry.parse(text, source=str(path))
     if strict and not content.strip():
         raise ValueError(f'已勾选的 SKILL 内容为空，已阻止发送：{path}')
-    # 输出剥离 frontmatter，只发正文；引用提取仍用含 frontmatter 的 text（frontmatter 内一般无链接）。
     blocks = [(path, f'<!-- 来源: {path} -->\n{content}')]
     closure, seen, sections = [], {path}, set()
     roots = skill_registry.skill_roots()
@@ -817,7 +722,6 @@ def _skill_blocks(path, *, strict, locks=None, depth=0):
             closure.append(_reference_row(entry, reference, 'outside'))
             raise ValueError(f'SKILL 引用超出允许目录，已阻止发送：{reference}')
         if not markdown and not text_script:
-            # 二进制资源：API 模型看不了，只登记并附本地路径提示。
             closure.append(_reference_row(entry, reference, 'resource'))
             if depth == -1:
                 blocks.append((reference, f'\n\n<!-- 本请求不发送该资源，本地路径：{reference} -->'))
@@ -838,7 +742,6 @@ def _skill_blocks(path, *, strict, locks=None, depth=0):
             closure.append(_reference_row(entry, reference, 'missing'))
             raise ValueError(f'SKILL 引用缺失，已阻止发送：{reference}（{exc}）') from exc
         if text_script:
-            # 脚本按代码块内联，不再递归其内部引用。
             seen.add(reference)
             blocks.append((reference, f'\n\n## 脚本: {reference.name}\n```{reference.suffix.lstrip(".")}\n{body}\n```'))
             closure.append(_reference_row(entry, reference, 'inlined'))
@@ -851,7 +754,7 @@ def _skill_blocks(path, *, strict, locks=None, depth=0):
             if depth != 0:
                 seen.add(reference)
                 closure.extend(_nested_references(reference, part, seen, roots))
-                closure.extend(_recurse_references(reference, part, strict, locks, depth, blocks, seen, sections))
+                closure.extend(_recurse_references(reference, part, (strict, locks, depth, blocks, seen, sections)))
             else:
                 closure.extend(_nested_references(reference, part, seen | {reference}, roots))
             continue
@@ -859,18 +762,17 @@ def _skill_blocks(path, *, strict, locks=None, depth=0):
         blocks.append((reference, f'\n\n## 引用: {reference.name}\n{body}'))
         closure.append(_reference_row(entry, reference, 'inlined'))
         if depth != 0:
-            closure.extend(_recurse_references(reference, body, strict, locks, depth, blocks, seen, sections))
+            closure.extend(_recurse_references(reference, body, (strict, locks, depth, blocks, seen, sections)))
         else:
             closure.extend(_nested_references(reference, body, seen, roots))
     return text, meta, blocks, closure
-
-
-def _recurse_references(reference, body, strict, locks, depth, blocks, seen, sections):
+def _recurse_references(reference, body, context):
     """展开一个已内联引用文件里再出现的链接（递归一层），返回 closure 行。
 
     ``seen`` 跨层去重（回环记 cycle 由调用方 _nested_references 或本函数处理）；
     这里只负责把下一层引用真正内联进 ``blocks``。depth 递减直到 0 停止递归。
     """
+    strict, locks, depth, blocks, seen, sections = context
     next_depth = depth - 1 if depth > 0 else depth
     roots = skill_registry.skill_roots()
     out = []
@@ -919,16 +821,14 @@ def _recurse_references(reference, body, strict, locks, depth, blocks, seen, sec
             blocks.append((target, f'\n\n## 引用: {target.name}#{fragment}（节选）\n{part}'))
             out.append(_reference_row(entry, target, 'section', 2))
             if next_depth != 0:
-                out.extend(_recurse_references(target, part, strict, locks, next_depth, blocks, seen, sections))
+                out.extend(_recurse_references(target, part, (strict, locks, next_depth, blocks, seen, sections)))
             continue
         seen.add(target)
         blocks.append((target, f'\n\n## 引用: {target.name}\n{nested_body}'))
         out.append(_reference_row(entry, target, 'inlined', 2))
         if next_depth != 0:
-            out.extend(_recurse_references(target, nested_body, strict, locks, next_depth, blocks, seen, sections))
+            out.extend(_recurse_references(target, nested_body, (strict, locks, next_depth, blocks, seen, sections)))
     return out
-
-
 def master_gate(config, stage=None, check_references=True):
     """总控门禁（见 master_skill 模块说明）：返回阻断原因，空串＝放行；手动与自动路径共用。"""
     name = str(config.get('workflow_name') or '').strip()
@@ -941,7 +841,6 @@ def master_gate(config, stage=None, check_references=True):
     if stage == 'script':
         required_keys = tuple(key for key in required_keys if key != 'delivery_format')
     if required_keys:
-        # 剧本准备的制作锁由简报采集门禁负责，不能挡住收集制作锁的那段对话。
         preset = WORKFLOW_PRESETS.get(name, {})
         declared = {item['key']: item.get('label') or item['key'] for item in preset.get('locks') or ()}
         locks = config.get('workflow_lock') or {}
@@ -964,8 +863,6 @@ def master_gate(config, stage=None, check_references=True):
     if not reasons:
         return ''
     return '总控门禁已阻断：' + '；'.join(reasons)
-
-
 def _inline_skill_report(path, *, cap=REQUEST_CONTEXT_MAX_CHARS, strict=False, locks=None, depth=0):
     """内联技能正文，并给出「实际加载了什么」的引用闭包，供请求快照留凭据。"""
     from html import escape
@@ -977,13 +874,9 @@ def _inline_skill_report(path, *, cap=REQUEST_CONTEXT_MAX_CHARS, strict=False, l
         raise ValueError(f'SKILL「{name}」内容 {len(complete):,} 字符，超过上限 {cap:,} 字符，'
                          f'已阻止发送：{Path(path).resolve()}；请减少所选技能或缩短内容。')
     return complete, closure
-
-
 def _inline_skill(path, *, cap=REQUEST_CONTEXT_MAX_CHARS, strict=False, locks=None, depth=0):
     """API 发送快照：技能及目录边界内的引用；``depth=-1`` 递归加载引用。"""
     return _inline_skill_report(path, cap=cap, strict=strict, locks=locks, depth=depth)[0]
-
-
 def freeze_skills(config):
     """冻结发送内容；桌面与 API、四角色复用同一份正文，不在工作线程重读。"""
     from copy import deepcopy
@@ -992,7 +885,6 @@ def freeze_skills(config):
     frozen = deepcopy(config)
     if 'frozen_skill_prompt' in frozen:
         return frozen
-    # 引用由下方逐项冻结严格核验；这里只补总控的制作锁门禁，手动与自动同样阻断。
     blocked = master_gate(frozen, check_references=False)
     if blocked:
         raise ValueError(blocked)
@@ -1011,7 +903,6 @@ def freeze_skills(config):
         bodies.append(body)
         loaded.append({'path': str(path), 'name': unescape(body.split('"', 2)[1]),
                        'chars': len(body), 'sha256': hashlib.sha256(body.encode('utf-8')).hexdigest()})
-        # 引用闭包按技能归属，随请求一起冻结，历史记录可核对「实际加载了什么」。
         references.extend(dict(row, skill=str(path)) for row in closure)
     header_config = dict(frozen, skills=[], skill='', stage_skills=[])
     frozen['frozen_skill_prompt'] = skill_prompt(header_config, inline=True) + ''.join(bodies)
@@ -1026,8 +917,6 @@ def freeze_skills(config):
                                 'selected': selected, 'loaded': loaded,
                                 'references': references}
     return frozen
-
-
 def resolve_for_send(project, stage, *, config=None, intake_only=False, direct_api=False,
                      model_snapshot=None, adjust=None):
     """发送边界唯一入口：校验 → 取当前设置 → adjust 改写 → 冻结 SKILL；config 给定则沿用。"""
@@ -1039,8 +928,6 @@ def resolve_for_send(project, stage, *, config=None, intake_only=False, direct_a
         if adjust is not None:
             adjust(config)
     return freeze_skills(config) if freezing else config
-
-
 def _lock_fallback(key, value):
     """下拉以外的手填值若契约登记了兜底说明，附在该制作锁行尾。"""
     for item in PRODUCTION_LOCK_DEFINITIONS:
@@ -1049,8 +936,6 @@ def _lock_fallback(key, value):
             if str(value).replace(' ', '').casefold() not in known:
                 return '（' + item['fallback'] + '）'
     return ''
-
-
 def skill_prompt(config, stage=None, inline=False):
     """桌面使用路径引用；直连 API 按需内联技能及直接引用的发送快照。"""
     if 'frozen_skill_prompt' in config:
@@ -1080,16 +965,12 @@ def skill_prompt(config, stage=None, inline=False):
         seen.add(identity)
         prompts.append(_one_skill_prompt(config, item, inline=inline))
     return header + coordinator + ''.join(prompts)
-
-
 def _one_skill_prompt(config,skill,inline=False):
     if not skill:return ''
     if inline:
-        # 递归完整内联只用于剧本准备页（writing）；其它直连阶段维持历史单层内联，避免顺带改变行为。
         depth = -1 if config.get('stage') == 'writing' else 0
         return _inline_skill(skill, locks=config.get('workflow_lock') or {}, depth=depth)
     path=Path(skill)
-    # Both engines read the same skill and its relative support files.
     adapter=''
     if preset_folder(skill) in ('cinematic-director','video-storyboard-gen'):
         adapter=('\n本次只执行后文指定的分镜／提示词任务，按需读取 Skill 的相关参考资料。'
@@ -1102,7 +983,6 @@ def _one_skill_prompt(config,skill,inline=False):
     match=re.search(r'^name:\s*[\"\']?([A-Za-z0-9_-]+)',text,re.M)
     name=match.group(1) if match else re.sub(r'[^A-Za-z0-9_-]','_',path.parent.name)
     return f'请使用 [${name}]({path.as_posix()})。'+adapter
-
 def model_name(project,stage='previs'):
     """当前流程实际使用的模型名：填了模型 ID 用 ID，留空用引擎显示名。
 
@@ -1110,7 +990,6 @@ def model_name(project,stage='previs'):
     真发出去的那个名字，不能还念引擎的默认值。
     """
     return effective_model(project,stage)
-
 def summary(project,stage='previs'):
     """Describe the same engine/model route that the dispatcher will execute."""
     cfg=current(project,stage);profile=cfg

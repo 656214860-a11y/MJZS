@@ -86,6 +86,9 @@ CHAT_HISTORY_CHAR_LIMIT = 12000
 DIRECT_REQUEST_CONTEXT_MAX_CHARS = REQUEST_CONTEXT_MAX_CHARS
 # 防止普通短对话通过通用 API 回复时覆盖已有完整剧本原稿。
 SCRIPT_RAW_AUTO_SAVE_MIN_CHARS = 800
+# 与模型上下文 token 上限分开的第二道闸：防止 JSON 请求体本身超过网关的 413 字节上限。
+# 300,000 中文字符约 0.9MB，仍远低于这个值；真超了属于异常附档或错误拼装，必须就地拦截。
+DIRECT_REQUEST_MAX_BODY_BYTES = 8 * 1024 * 1024
 EMPTY_RESPONSE_LOG = Path(__file__).resolve().parent / 'logs' / 'claude_empty_response.log'
 
 
@@ -222,6 +225,10 @@ class WritingRequestAdapter(ModelAdapter):
     def _call(self, method, messages, options=None, model='', system='', **kwargs):
         import model_pool
         options = options or {}
+        rpm = int((self.record or {}).get('rpm') or 0)
+        if rpm > 0:
+            from platform_tools import current_execution
+            model_pool.wait_for_rpm((self.record or {}).get('base_url'), rpm, current_execution())
         limit = model_pool.context_length_of(self.record.get('context_length')) or None
         reserved = max(0, int(options.get('max_tokens') or 0))
         sections = budget_sections(
@@ -263,14 +270,22 @@ class WritingRequestAdapter(ModelAdapter):
             captured['reported'] = token_saver.reported_usage(raw if isinstance(raw, dict) else {})
             return {key: captured['reported'][key] for key in keys if key in captured['reported']}
 
+        body_bytes = len(json.dumps({'system': system, 'messages': messages, 'options': options},
+                                    ensure_ascii=False).encode('utf-8')) + 256
+        if body_bytes > DIRECT_REQUEST_MAX_BODY_BYTES:
+            return {'ok': False, 'status': 0, 'model': model or self.chosen, 'text': '', 'usage': {},
+                    'reason': 'request_body_exceeded',
+                    'error': ('本次请求体约 %d 字节，超过 %d 字节上限；请缩短附档、历史或规则后重试。'
+                              % (body_bytes, DIRECT_REQUEST_MAX_BODY_BYTES)),
+                    'context_budget': dict(self.context_budget), 'request_usage': dict(self.request_usage)}
+
         def send():
             return getattr(self.adapter, method)(messages, options=options, model=model, system=system, **kwargs)
         if self.project is not None:
             from model_metering import metered
             from pet_llm import RequestLedger
             from uuid import uuid4
-            estimate = len(json.dumps({'system': system, 'messages': messages, 'options': options},
-                                      ensure_ascii=False).encode('utf-8')) + 256
+            estimate = body_bytes
             result, _usage, refused = metered(
                 RequestLedger(self.project), (uuid4().hex, model or self.chosen, self.stage, estimate, reserved),
                 send, usage_of)

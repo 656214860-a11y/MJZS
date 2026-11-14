@@ -81,15 +81,18 @@ def run_batch(project, config, skill_text, *, direct, report=None, **services):
         if batch.cancelled():
             raise _base._Stopped()
         prior = None
-        for attempt in (1, 2):
+        for attempt in range(1, _base.MAX_FORMAT_RETRIES + 1):
             reply = _base._ask(batch, _messages(context, draft, prior))
             try:
                 text = validate_reply(reply, context)
                 break
             except ValueError as error:
-                if attempt == 2:
+                if attempt == _base.MAX_FORMAT_RETRIES:
                     raise ValueError('两次回复都没有通过校验：' + str(error).replace('\n', '；'))
                 prior = (reply, str(error))
+                if batch.cancelled():
+                    raise _base._Stopped()
+                time.sleep(_base.FORMAT_RETRY_BASE_SECONDS * (2 ** (attempt - 1)))
         path = _publish(batch, context, text, output)
         report('%s 视频提示词已生成，等待导入保存。' % context['shot_id'])
         return {'ok': True, 'paths': [str(path)], 'error': '', 'stopped': False}

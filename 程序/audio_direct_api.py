@@ -158,15 +158,18 @@ def _episode(batch, source):
     if not entries:
         raise ValueError('这份分镜没有对白，无需生成配音脚本与字幕')
     prior = None
-    for attempt in (1, 2):
+    for attempt in range(1, _base.MAX_FORMAT_RETRIES + 1):
         reply = _base._ask(batch, _messages(episode, entries, prior))
         try:
             script, srt = validate_reply(reply, episode)
             break
         except ValueError as error:
-            if attempt == 2:
+            if attempt == _base.MAX_FORMAT_RETRIES:
                 raise ValueError('两次回复都没有通过校验：' + str(error).replace('\n', '；'))
             prior = (reply, str(error))
+            if batch.cancelled():
+                raise _base._Stopped()
+            time.sleep(_base.FORMAT_RETRY_BASE_SECONDS * (2 ** (attempt - 1)))
     target, srt_path = _publish(batch, episode, script, srt)
     try:
         from stage_execution_service import refresh_audio_manifests

@@ -14,20 +14,27 @@ import app_logging
 import json
 import os
 import re
+import threading
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 import config_snapshot, model_secrets, token_saver
 import client_profiles
+from model_metering import REPLAYABLE_RETRY_STATUS
 from agent.core import save, replace, temporary_path
-from api_endpoints import configured_key, no_redirect, normalize_url
+from api_endpoints import (configured_key, no_redirect, normalize_url,
+    _http_error_kind, _request_headers, _scrub_error_detail, _retry_after_seconds,
+    _retry_delay, _wait_before_retry, _decode_response_body, _content_length_exceeded,
+    _limited_read, _wait_for_rate_limit, set_host_rate_limit, wait_for_rpm,
+    elapsed_ms, _RateBucket, _http_opener, HTTP_USER_AGENT)
 from pet_bus import read_json
 
 PROGRAM = Path(__file__).resolve().parent
 CONFIG_PATH = ('配置', '宠物', '配置.json')
 AUTO = 'auto'                                    # 「自动」是特殊值，由 model_router 解析
 AUTO_LABEL = '自动'
-FIELDS = ('label', 'model', 'base_url', 'path', 'wire_api', 'key_env', 'provider', 'note', 'program', 'call_mode', 'provider_label', 'modality')
+FIELDS = ('label', 'model', 'base_url', 'path', 'wire_api', 'key_env', 'provider', 'note', 'program', 'call_mode', 'provider_label', 'modality', 'rpm', 'group', 'weight')
 # 模型功能（模态）：列表按此分组。文本是三虎决策模型池主体；图片/语音/视频模型当前在各自窗口配置，分类先建好暂空。
 MODALITIES = (('text', '文本'), ('image', '图片'), ('audio', '语音'), ('video', '视频'))
 MODALITY_LABELS = dict(MODALITIES)
@@ -320,6 +327,24 @@ def agent_models(config=None, program=None):
             if value:
                 out[key] = value
     return out
+
+
+def group_candidates(group, current_model, records=None, program=None):
+    """同一模型组内按当前模型优先返回候选 id；无组或组为空就只返回当前模型。"""
+    group = str(group or '').strip()
+    current = str(current_model or '').strip()
+    if not group:
+        return [current] if current else []
+    table = records if isinstance(records, dict) else pool(program=program)
+    members = [model_id for model_id, item in table.items()
+               if str(item.get('group') or '').strip() == group]
+    def rank(model_id):
+        try:
+            weight = int(table[model_id].get('weight') or 1)
+        except (TypeError, ValueError):
+            weight = 1
+        return (-weight, model_id != current, model_id)
+    return sorted(members, key=rank)
 
 
 def label_of(model, records=None, config=None, program=None, labeler=None):
@@ -737,12 +762,53 @@ def record_health(value, outcome, program=None):
              'content_length': int(source.get('content_length') or 0),
              'finish_reason': str(source.get('finish_reason') or ''),
              'error': str(source.get('error') or '')}
+    checks = source.get('checks')
+    if isinstance(checks, list):
+        entry['checks'] = [dict(check) for check in checks if isinstance(check, dict)]
     data = raw(program)
     table = health(program=program)
     table[model_id] = entry
     data[HEALTH_KEY] = table
     store(data, program)
     return entry
+
+
+def health_is_blocked(value, program=None):
+    """最近一次完整任务失败且配置版本一致时，阻止路由继续把这条模型当可用候选。"""
+    item = record(value)
+    entry = health_of(value, program=program)
+    if not entry:
+        return False
+    if entry.get('ok') is True:
+        return False
+    if entry.get('config_version') and entry.get('config_version') != config_version(item):
+        return False
+    return True
+
+
+def require_certified(program=None):
+    """无人值守前是否强制五合一认证；默认关闭，模型配置页可改。"""
+    data = raw(program)
+    settings = data.get('model_settings') if isinstance(data, dict) else {}
+    return bool((settings or {}).get('require_certified'))
+
+
+def set_require_certified(value, program=None):
+    data = raw(program)
+    settings = data.get('model_settings') if isinstance(data, dict) else None
+    if not isinstance(settings, dict):
+        settings = {}
+    settings['require_certified'] = bool(value)
+    data['model_settings'] = settings
+    store(data, program)
+    return settings
+
+
+def certify(value, transport=None, program=None, timeout=15, prompt=None):
+    """五合一认证：连接、协议、模型标识、能力声明、完整任务；成功才记绿灯。"""
+    outcome = verify_sample(value, transport=transport, program=program, timeout=timeout, prompt=prompt)
+    record_health(value, outcome, program=program)
+    return outcome
 
 
 def probe(value, transport=None, program=None, timeout=8, ledger=None):
@@ -826,146 +892,47 @@ def verify_sample(value, transport=None, program=None, timeout=15, prompt=None, 
     return outcome
 
 
-def _http_error_kind(status):
-    """HTTP 状态码归成受控错误类别：鉴权／服务端／请求本身，供界面按类给提示。"""
-    try:
-        code = int(status)
-    except (TypeError, ValueError):
-        return 'client'
-    if code in (401, 403):
-        return 'auth'
-    if code >= 500:
-        return 'server'
-    return 'client'
+def model_admission_error(item, *, require_context_length=False, require_certified=False, stage=''):
+    """发送前模型准入：空地址／空模型 ID／未知协议仍拒绝；需要上下文预算时拒绝未填窗口；
+    require_certified 为真时要求最近一次五合一认证是绿灯。"""
+    item = dict(item or {})
+    if not str(item.get('model') or '').strip():
+        return '模型记录缺少模型 ID，无法发送'
+    if not str(item.get('base_url') or '').strip():
+        return '模型记录缺少 API 根地址，无法发送'
+    wire = item.get('wire_api') or DEFAULT_WIRE
+    if wire not in dict(WIRE_APIS):
+        return '模型协议不受支持：%s' % wire
+    if require_context_length:
+        limit = context_length_of(item.get('context_length'))
+        if not limit:
+            return ('%s的模型记录没有填写上下文窗口（context_length），不能投入无人值守或长文本任务；'
+                    '请先在模型管理补全该字段。' % (str(item.get('label') or item.get('model') or '这条模型')))
+    if require_certified:
+        entry = health_of(item)
+        if not entry or entry.get('ok') is not True or entry.get('config_version') != config_version(item):
+            return ('%s还没有通过五合一认证，不能投入无人值守；请先在模型管理做小样本验证。'
+                    % (str(item.get('label') or item.get('model') or '这条模型')))
+    return ''
 
 
 @app_logging.timed('model.http', 30000)
 def http_transport(url, payload, headers, timeout):
-    """模型供应商通用 HTTP 传输（payload 为 None 时发只读 GET）；按结果种类计数（成功／network／bug／HTTP 状态），不改变返回。"""
+    """兼容入口：保留 model_pool 的补丁点，实际传输在 api_endpoints。"""
     result = _http_transport(url, payload, headers, timeout)
     app_logging.count('model.http.' + ('ok' if result.get('ok') else str(result.get('kind') or result.get('status'))))
     return result
 
 
-HTTP_USER_AGENT = 'ManjuAssistant/1.0'
-
-
-def _request_headers(headers):
-    """补默认 User-Agent；Cloudflare 等网关会以 error 1010 拒绝 urllib 默认签名。"""
-    merged = dict(headers or {})
-    if not any(str(name).lower() == 'user-agent' for name in merged):
-        merged['User-Agent'] = HTTP_USER_AGENT
-    return merged
-
-
-_SECRET_HEADER_HINTS = ('auth', 'key', 'token', 'secret')
-
-
-def _scrub_error_detail(detail, headers):
-    """错误体进 UI／任务 JSON 之前去掉凭据：先按请求头里的真实值替换，再过通用脱敏正则。
-
-    网关可能原样回显请求头；正则只认 ``key=``／``Bearer`` 等写法，裸 ``sk-…`` 命中不了。"""
-    for name, value in (headers or {}).items():
-        if not any(hint in str(name).lower() for hint in _SECRET_HEADER_HINTS):
-            continue
-        token = str(value).strip()
-        if token.lower().startswith('bearer '):
-            token = token[7:].strip()
-        if len(token) >= 6:
-            detail = detail.replace(token, '[已脱敏]')
-    return app_logging.redact(detail)
-
-
 def _http_transport(url, payload, headers, timeout):
-    """模型供应商通用 HTTP 传输；仅在实际请求时加载网络栈。"""
-    import http.client
-    import ssl
-    import urllib.error
-    import urllib.request
-
-    body = None if payload is None else json.dumps(payload, ensure_ascii=False).encode('utf-8')
-    request = urllib.request.Request(url, data=body, headers=_request_headers(headers), method='GET' if body is None else 'POST')
-    from platform_tools import current_execution
-    control = current_execution()
-    for attempt in range(3):
-        if control is not None:
-            timeout = control.remaining(timeout)
-        try:
-            with _http_opener().open(request, timeout=timeout) as response:
-                raw = response.read()
-                return {'ok': True, 'status': getattr(response, 'status', 200),
-                        'data': json.loads(raw or b'{}')}
-        except urllib.error.HTTPError as exc:
-            detail = _scrub_error_detail(exc.read()[:400].decode('utf-8', 'replace'), headers)
-            return {'ok': False, 'status': exc.code, 'kind': _http_error_kind(exc.code),
-                    'error': 'HTTP ' + str(exc.code) + '：' + detail}
-        except (OSError, http.client.HTTPException) as exc:   # 含 URLError；读响应时的超时／断线不经它包装，同属网络问题
-            if attempt < 2 and isinstance(getattr(exc, 'reason', None), ssl.SSLEOFError):
-                time.sleep(0.25 * (attempt + 1))
-                continue
-            return {'ok': False, 'status': 0, 'kind': 'network', 'error': type(exc).__name__ + '：' + str(exc)}
-        except Exception as exc:
-            return {'ok': False, 'status': 0, 'kind': 'bug',
-                    'error': type(exc).__name__ + '：' + str(exc)}
+    import api_endpoints as endpoints
+    return endpoints._http_transport(url, payload, headers, timeout, opener=_http_opener)
 
 
 def http_stream(url, payload, headers, timeout, on_chunk, cancelled=None):
-    """OpenAI 兼容 SSE 流（include_usage 的用量在最后一个空 choices 分片）；异常由调用方回退普通请求。"""
-    import urllib.error
-    import urllib.request
-    from platform_tools import current_execution
-    control = current_execution()
-    if control is not None:
-        timeout = control.remaining(timeout)
-    if cancelled and cancelled():
-        return {'ok': False, 'status': 0, 'error': '请求已取消'}
-    body = dict(payload or {})
-    body['stream'], body['stream_options'] = True, {'include_usage': True}
-    request = urllib.request.Request(url, data=json.dumps(body, ensure_ascii=False).encode('utf-8'),
-                                     headers=_request_headers(headers), method='POST')
-    parts, finish_reason, usage = [], '', None
-    try:
-        with _http_opener().open(request, timeout=timeout) as response:
-            for raw in response:
-                if control is not None:
-                    control.checkpoint()
-                if cancelled and cancelled():
-                    return {'ok': False, 'status': 0, 'error': '请求已取消'}
-                line = raw.decode('utf-8', 'replace').strip()
-                if not line.startswith('data:'):
-                    continue
-                data = line[5:].strip()
-                if data == '[DONE]':
-                    break
-                try:
-                    item = json.loads(data)
-                    usage = item['usage'] if isinstance(item.get('usage'), dict) else usage
-                    choice = item.get('choices', [{}])[0]
-                    finish_reason = choice.get('finish_reason') or finish_reason
-                    delta = choice.get('delta', {}).get('content') or ''
-                except (ValueError, IndexError, AttributeError):
-                    continue
-                if delta:
-                    parts.append(str(delta)); on_chunk(str(delta))
-            data = {'choices': [{'finish_reason': finish_reason, 'message': {'content': ''.join(parts)}}]}
-            if usage is not None: data['usage'] = usage
-            return {'ok': True, 'status': getattr(response, 'status', 200), 'data': data}
-    except (urllib.error.URLError, OSError, ValueError) as exc:
-        return {'ok': False, 'status': 0, 'error': type(exc).__name__ + '：' + str(exc)}
-
-
-def elapsed_ms(started):
-    """这一趟花了多少毫秒（四舍五入到整数；clock 读不出来就当 0，别让报数把测试连接带崩）。"""
-    try:
-        return int(round((time.time() - float(started)) * 1000))
-    except (TypeError, ValueError):
-        return 0
-
-
-def _http_opener():
-    """Never forward model credentials or request bodies through redirects."""
-    import urllib.request
-    return urllib.request.build_opener(no_redirect())
+    import api_endpoints as endpoints
+    return endpoints.http_stream(url, payload, headers, timeout, on_chunk,
+                                 cancelled=cancelled, opener=_http_opener)
 
 
 # ── DeepSeek Search／Fetch 工具接口 ───────────────────────────────────────────

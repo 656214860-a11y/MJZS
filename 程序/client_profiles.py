@@ -55,6 +55,22 @@ def _strings(value):
     return out
 
 
+def qwen_command(config):
+    """Resolve the installed Qwen Code command without importing workflow modules."""
+    root = Path(os.environ.get('LOCALAPPDATA', str(Path.home()))) / 'qwen-code/qwen-code'
+    node = root / 'node/node.exe'
+    entry = root / 'lib/cli-entry.js'
+    configured = (config or {}).get('program')
+    if configured and Path(configured).resolve() not in (node.resolve(), (root / 'bin/qwen.cmd').resolve()):
+        return [configured]
+    if node.is_file() and entry.is_file():
+        return [str(node), str(entry)]
+    found = shutil.which('qwen.exe')
+    if found:
+        return [found]
+    raise ValueError('未找到 Qwen Code，请安装后在调用设置中选择程序')
+
+
 def _store_packages(value):
     out = []
     if not isinstance(value, list):

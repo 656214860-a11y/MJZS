@@ -62,7 +62,7 @@
   {
    "module": "aigc_lint.py",
    "covered": 0,
-   "total": 123,
+   "total": 118,
    "percent": 0.0
   },
   {
@@ -254,7 +254,7 @@
   {
    "module": "audio_direct_api.py",
    "covered": 0,
-   "total": 157,
+   "total": 160,
    "percent": 0.0
   },
   {
@@ -446,7 +446,7 @@
   {
    "module": "desktop_idea_chat.py",
    "covered": 0,
-   "total": 953,
+   "total": 967,
    "percent": 0.0
   },
   {
@@ -740,7 +740,7 @@
   {
    "module": "idea_script_heuristic.py",
    "covered": 0,
-   "total": 9,
+   "total": 15,
    "percent": 0.0
   },
   {
@@ -848,7 +848,7 @@
   {
    "module": "master_import_service.py",
    "covered": 0,
-   "total": 125,
+   "total": 126,
    "percent": 0.0
   },
   {
@@ -980,7 +980,7 @@
   {
    "module": "pet_models_ui.py",
    "covered": 0,
-   "total": 761,
+   "total": 775,
    "percent": 0.0
   },
   {
@@ -1136,7 +1136,7 @@
   {
    "module": "qwen_adapter.py",
    "covered": 0,
-   "total": 114,
+   "total": 113,
    "percent": 0.0
   },
   {
@@ -1322,7 +1322,7 @@
   {
    "module": "skill_panel_workflow.py",
    "covered": 0,
-   "total": 257,
+   "total": 304,
    "percent": 0.0
   },
   {
@@ -1430,7 +1430,7 @@
   {
    "module": "storyboard_direct_api.py",
    "covered": 0,
-   "total": 230,
+   "total": 269,
    "percent": 0.0
   },
   {
@@ -1682,7 +1682,7 @@
   {
    "module": "video_prompt_direct_api.py",
    "covered": 0,
-   "total": 77,
+   "total": 80,
    "percent": 0.0
   },
   {
@@ -1760,7 +1760,7 @@
   {
    "module": "workflow_engines.py",
    "covered": 0,
-   "total": 323,
+   "total": 326,
    "percent": 0.0
   },
   {
@@ -1772,7 +1772,7 @@
   {
    "module": "workflow_settings.py",
    "covered": 0,
-   "total": 741,
+   "total": 836,
    "percent": 0.0
   },
   {
@@ -1784,7 +1784,7 @@
   {
    "module": "workflow_tasks.py",
    "covered": 0,
-   "total": 213,
+   "total": 212,
    "percent": 0.0
   },
   {
@@ -1802,7 +1802,7 @@
   {
    "module": "writing_api.py",
    "covered": 0,
-   "total": 961,
+   "total": 969,
    "percent": 0.0
   },
   {
@@ -1848,21 +1848,27 @@
    "percent": 11.5
   },
   {
-   "module": "stage_config.py",
-   "covered": 62,
-   "total": 465,
-   "percent": 13.3
-  },
-  {
    "module": "model_metering.py",
    "covered": 6,
-   "total": 42,
-   "percent": 14.3
+   "total": 49,
+   "percent": 12.2
+  },
+  {
+   "module": "stage_config.py",
+   "covered": 63,
+   "total": 469,
+   "percent": 13.4
   },
   {
    "module": "client_profiles.py",
-   "covered": 54,
-   "total": 365,
+   "covered": 55,
+   "total": 379,
+   "percent": 14.5
+  },
+  {
+   "module": "api_endpoints.py",
+   "covered": 51,
+   "total": 344,
    "percent": 14.8
   },
   {
@@ -1950,16 +1956,16 @@
    "percent": 20.9
   },
   {
+   "module": "model_router.py",
+   "covered": 121,
+   "total": 566,
+   "percent": 21.4
+  },
+  {
    "module": "stage_execution_service.py",
    "covered": 101,
    "total": 472,
    "percent": 21.4
-  },
-  {
-   "module": "model_router.py",
-   "covered": 110,
-   "total": 504,
-   "percent": 21.8
   },
   {
    "module": "skill_budget.py",
@@ -1996,12 +2002,6 @@
    "covered": 59,
    "total": 237,
    "percent": 24.9
-  },
-  {
-   "module": "api_endpoints.py",
-   "covered": 13,
-   "total": 51,
-   "percent": 25.5
   },
   {
    "module": "storyboard_paths.py",
@@ -2048,8 +2048,8 @@
   {
    "module": "model_pool.py",
    "covered": 240,
-   "total": 755,
-   "percent": 31.8
+   "total": 725,
+   "percent": 33.1
   },
   {
    "module": "stage_previs_gateways.py",
@@ -2161,15 +2161,15 @@
   },
   {
    "module": "request_ledger.py",
-   "covered": 511,
-   "total": 571,
-   "percent": 89.5
+   "covered": 512,
+   "total": 582,
+   "percent": 88.0
   },
   {
    "module": "agent/publication.py",
-   "covered": 143,
+   "covered": 141,
    "total": 159,
-   "percent": 89.9
+   "percent": 88.7
   },
   {
    "module": "video_lifecycle_service.py",
@@ -2191,5 +2191,5 @@
   }
  ],
  "modules_covered": 59,
- "modules_total": 362
+ "modules_total": 363
 }

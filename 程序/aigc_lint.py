@@ -24,11 +24,13 @@
 from __future__ import annotations
 
 import importlib.util
-import json
 import subprocess
 import sys
 import tempfile
+from json import loads
 from pathlib import Path
+
+from file_cache import remove_temporary_file
 
 # 相对「程序」根目录的总控包路径；子模块未初始化时这些文件不存在，桥返回友好错误。
 _PACKAGE = Path(__file__).resolve().parent / 'skills' / '00全流程SKILL' / 'AIGC创作全流程'
@@ -96,11 +98,11 @@ def _parse_json(stdout):
     if not stdout:
         return None
     try:
-        return json.loads(stdout)
+        return loads(stdout)
     except (ValueError, TypeError):
         # validate_prompt --json 输出带缩进多行，仍是一个合法 JSON 对象；兜底取首行起始到结尾。
         try:
-            return json.loads(stdout.strip().split('\n', 1)[-1] if stdout.strip().startswith('{') else stdout)
+            return loads(stdout.strip().split('\n', 1)[-1] if stdout.strip().startswith('{') else stdout)
         except (ValueError, TypeError):
             return None
 
@@ -122,10 +124,7 @@ def validate_prompt(feed_text, *, model=None, track=None, aspect=None):
     except (subprocess.SubprocessError, OSError) as exc:
         return {'ok': False, 'exit': None, 'error': '机检脚本运行失败：%s' % exc}
     finally:
-        try:
-            path.unlink()
-        except OSError:
-            pass
+        remove_temporary_file(path)
     data = _parse_json(stdout) or {}
     return {'ok': code == 0, 'exit': code,
             'issues': data.get('issues') or [], 'warnings': data.get('warnings') or [],
@@ -152,10 +151,7 @@ def gate_check(feed_text, *, model=None, assets=None, mode='auto'):
     except (subprocess.SubprocessError, OSError) as exc:
         return {'ok': False, 'exit': None, 'error': '闸门脚本运行失败：%s' % exc}
     finally:
-        try:
-            path.unlink()
-        except OSError:
-            pass
+        remove_temporary_file(path)
     # gate_check 无 --json，退出码即结论；stdout 里含 FAIL/WARN 明细，保留尾部供人读。
     return {'ok': code == 0, 'exit': code,
             'summary': (stdout or '').strip()[-2000:],
@@ -176,10 +172,7 @@ def audit_contract(markdown_text, *, mode='auto', director=None):
     except (subprocess.SubprocessError, OSError) as exc:
         return {'ok': False, 'exit': None, 'error': '契约核销脚本运行失败：%s' % exc}
     finally:
-        try:
-            path.unlink()
-        except OSError:
-            pass
+        remove_temporary_file(path)
     return {'ok': code == 0, 'exit': code,
             'summary': (stdout or '').strip()[-2000:],
             'stderr': stderr.strip()[:2000] if stderr else ''}
@@ -201,7 +194,7 @@ def style_ladder(text, top=4):
     try:
         module = _load_module(_LADDER)
         return {'ok': True, 'text': module.recommend(text, top=top)}
-    except (ImportError, OSError, ValueError, TypeError, AttributeError) as exc:
+    except (OSError, ValueError, TypeError, AttributeError) as exc:
         return {'ok': False, 'error': '画风锁引擎加载失败：%s' % exc}
 
 
@@ -216,5 +209,5 @@ def style_recommend(text):
         return {'ok': True, 'combat': combat, 'why': why, 'vfx_high': vfx_high,
                 'pool': [list(item) for item in pool], 'excluded': [list(item) for item in excluded],
                 'route_key': route_key}
-    except (ImportError, OSError, ValueError, TypeError, AttributeError) as exc:
+    except (OSError, ValueError, TypeError, AttributeError) as exc:
         return {'ok': False, 'error': '画风锁推荐引擎加载失败：%s' % exc}

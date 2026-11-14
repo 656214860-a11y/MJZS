@@ -16,7 +16,7 @@ from tests.architecture._scan import parse, production_runtime_files
 ROOT=Path(__file__).resolve().parents[2]
 CANARY=Path(__file__).with_name('_canary')
 # 21 白名单：明确的平台适配器／外部工具；其余 OS 进程调用须报告。
-P21={'platform_tools','native_apps','app_shortcut','codex_paste','codex_tasks','console_submit','engine_probe','previs_automation','qwen_adapter','workflow_engines'}
+P21={'platform_tools','native_apps','app_shortcut','codex_paste','codex_tasks','console_submit','engine_probe','previs_automation','qwen_adapter','workflow_engines','aigc_lint'}
 # 26 白名单：唯一模型池、路由与供应商适配器。
 # 23 白名单：阶段完成核验的唯一权威；其余完成事件必须与同函数内的核验证据同现。
 P23={'stage_completion_service','pet_bus'}

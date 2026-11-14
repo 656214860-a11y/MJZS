@@ -678,6 +678,27 @@ class RequestLedger:
             return dict(entry)
 
 
+def record_request_attempt(ledger, request_id, *, status=None, error_class='', retry_after=None,
+                           wire_api='', retry_count=0):
+    """追加一次传输/协议尝试元数据，供故障分桶与重试审计；不改金额或状态。"""
+    entry = ledger._find(request_id)
+    if entry is None:
+        return None
+    attempts = entry.setdefault('attempts', [])
+    if not isinstance(attempts, list):
+        attempts = []
+        entry['attempts'] = attempts
+    attempts.append({
+        'at': ledger._stamp(None),
+        'status': status,
+        'error_class': str(error_class or ''),
+        'retry_after': retry_after,
+        'wire_api': str(wire_api or ''),
+        'retry_count': int(retry_count or 0),
+    })
+    return entry
+
+
 def record_request(project, request_id, kind, amount, *, note='', mode='reported'):
     """把一笔已完成的付费请求写进项目请求台账；同一 request_id＋kind 只算一笔，重复调用只覆盖。
 
