@@ -30,4 +30,8 @@
 
 ## 已提交
 
-- commit `2e39fa2a`（分支 `codex/wip-R2477`）R2477；经 `round_claim.py` 领 R2477，rebase 到最新 master（R2474）后解决 `desktop_idea_chat.py` 与 R2470 的冲突（保留本轮流式布局版本）。
+- 功能提交 commit `3a53a8c7`（分支 `codex/wip-R2477`，rebase 后）+ 补记 hash `c7afb0ad`；经 `round_claim.py` 领 R2477，rebase 到最新 master 后解决 `desktop_idea_chat.py` 与 R2470 的冲突（保留本轮流式布局版本）。
+- 合入 master：`git merge --ff-only codex/wip-R2477`（981c46d0..c7afb0ad，fast-forward），再补记 `project_status.md` 轮次头（commit `1850b1b5`）。
+- 合并共享状态文件验证（规则 41）：
+  - `git diff 981c46d0..HEAD -- 程序/project_status.md | grep '^-' | grep -v '^---' | grep -v '当前轮次：'` → **空**（无删除行）。
+  - `git show HEAD:程序/project_status.md | grep -oE '^R[0-9]+' | sort -u` → 轮次号并集完整（R504…R1846 等历史编号均保留，未整块覆盖）。
