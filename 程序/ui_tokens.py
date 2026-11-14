@@ -270,6 +270,12 @@ STAGE_PANEL_LAYOUT = {
     'label_width': 10,
     # 阶段配置页所有下拉框的统一宽度（字符）；选项更长时靠弹出列表自适应展示全名。
     'select_width': 8,
+    # 与下拉框同宽的单行文本输入字符数：tk.Text 的 width 语义与 ttk.Combobox 不同，
+    # 7 字符 ≈ 下拉框 8 字符的像素宽（Text 的内边距 INPUT_PADDING_X 更宽），保证两者视觉同宽。
+    'text_width': 7,
+    # 与下拉框同高的文本输入垂直内边距：tk.Text 的 highlightthickness（上下各 1px）使
+    # height=1 时比下拉框高 2px，这里比 INPUT_PADDING_Y 少 1px 抵消，保证行高一致。
+    'text_pady': SPACING['sm'] - 1,
     # 标签文字统一左对齐，左侧缩进这么多像素（含在标签请求宽度内）。
     'label_indent': SPACING['xs'],
     # 「下拉框 → 下一个标签」之间的间距，比标签与自己下拉框的 field_gap 大，一眼分得出归属。

@@ -4,7 +4,8 @@ from tkinter import font as tkfont
 from tkinter import ttk
 
 from script_contract import PRODUCTION_LOCK_DEFINITIONS, production_lock_active
-from ui_tokens import SPACING, COLORS, STAGE_PANEL_LAYOUT
+from ui_tokens import SPACING, STAGE_PANEL_LAYOUT
+from ui_tooltip import Tooltip
 from ui_widgets import SelectBox
 
 
@@ -280,6 +281,7 @@ class ProductionLockFields(FlowFields):
         self.definitions = tuple(definitions)
         self.on_change = on_change
         self.inputs, self.hints, self.fields = {}, {}, {}
+        self.tooltips = {}          # key → Tooltip；提示改悬停浮层，不再占一行黄色文字
         self.leading_inputs = {}
         self.enabled = True
         self.context_values = {}
@@ -326,13 +328,10 @@ class ProductionLockFields(FlowFields):
         entry = SelectBox(field, values=item.get('options') or (), state='normal',
                           width=STAGE_PANEL_LAYOUT['select_width'])
         entry.grid(row=0, column=1, sticky='w', padx=(STAGE_PANEL_LAYOUT['field_gap'], SPACING['none']))
-        # 提示放在下拉框正下方：不再撑宽本字段，各字段宽度保持一致。
-        hint = ttk.Label(field, foreground=COLORS['warning_text'])
-        hint.grid(row=1, column=1, sticky='w', padx=(STAGE_PANEL_LAYOUT['field_gap'], SPACING['none']))
-        hint.grid_remove()
-        hint.configure(wraplength=entry.winfo_reqwidth(), justify='left')  # 不得撑宽本字段
-        self.inputs[key], self.hints[key] = entry, hint
-        self.fields[key] = {'frame': field, 'label': label, 'entry': entry, 'hint': hint}
+        # 说明与「必填」提示不再占一行黄色文字，改挂悬停卡片（Tooltip），各字段行高一致。
+        self.inputs[key] = entry
+        self.hints[key] = Tooltip(entry, '')
+        self.fields[key] = {'frame': field, 'label': label, 'entry': entry, 'hint': self.hints[key]}
         self.add(field, key=key)
         for event in ('<Return>', '<KeyRelease>', '<FocusOut>', '<<ComboboxSelected>>'):
             entry.bind(event, self.changed)
@@ -390,24 +389,29 @@ class ProductionLockFields(FlowFields):
             entry.insert(0, str(values.get(item['key'], item.get('default', '')) or ''))
         self.refresh_states()
 
+    def _depends_resolvable(self, item, values):
+        """依赖字段是否在当前视图/取值里可判定；缺了依赖字段（如补充创作信息弹窗不含
+        视频模型版本）时不因 depends_on 而禁用，放行让用户直接选（依赖约束仍由 SKILL 层兜底）。"""
+        return all(key in self.inputs or key in values for key in item.get('depends_on', {}))
+
     def refresh_states(self):
         values = {**self.context_values, **self.values()}
         for item in self.definitions:
             key = item['key']
-            active = production_lock_active(item, values)
+            resolvable = self._depends_resolvable(item, values)
+            active = production_lock_active(item, values) if resolvable else True
             self.inputs[key].configure(state='normal' if self.enabled and active else 'disabled')
             required_missing = bool(item.get('required_from') and not values[key])
-            # 「必选」不再占一行：标签标成警示色即可，省下一行高度。
-            self.fields[key]['label'].configure(
-                foreground=COLORS['warning_text'] if required_missing else '')
+            # 标签不再因「必填缺失」染警示色（与 brief 字段统一黑字），必填与说明并入悬停卡片。
+            self.fields[key]['label'].configure(foreground='')
             hint = ('仅 Seedance 2.5' if key == 'reference_mode' and not active else
                     '多段任务用' if key == 'splice_mode' else
                     '预设，≤4 张，逗号分隔' if key == 'style_directors' else '')
-            self.hints[key].configure(text=hint)
-            if hint:
-                self.hints[key].grid()
-            else:
-                self.hints[key].grid_remove()
+            if required_missing and not hint:
+                hint = '必填'
+            elif required_missing and hint:
+                hint = hint + ' · 必填'
+            self.hints[key].text = hint
         for entry in self.inputs.values():
             entry.refit()
         self.schedule()

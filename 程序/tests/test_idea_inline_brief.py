@@ -8,7 +8,6 @@ from unittest.mock import Mock, patch
 import idea_chat
 import script_contract
 import workflow_settings
-import desktop_idea_chat
 from tests.test_idea_chat import _Harness, idea_chat as injected_chat
 from tests.test_ui_edges import make_minimal_project
 
@@ -250,11 +249,13 @@ class InlineBriefDesktopTests(_Harness):
                 dialog = d._idea_missing_dialog
                 self.assertEqual(set(dialog.brief_fields), set(VALUES) - {'故事梗概', '故事画幅', '视频模型'})
                 for label, entry in dialog.brief_fields.items():
-                    # 下拉框（SelectBox）与单行文字输入（TextArea）的读写接口不同。
-                    if label in desktop_idea_chat.IDEA_BRIEF_DROPDOWN_VALUES:
-                        entry.set(VALUES[label])
-                    else:
+                    # 下拉框（SelectBox）与文字输入（TextArea）的读写接口不同；R2480 交付形态改下拉框，
+                    # 故用控件类型而非字段名判断（与保存辅助 entry_text 一致）。
+                    import tkinter as _tk
+                    if isinstance(entry, _tk.Text):
                         entry.delete('1.0', 'end'); entry.insert('1.0', VALUES[label])
+                    else:
+                        entry.set(VALUES[label])
                 next(button for button in dialog.actions.winfo_children() if button.cget('text') == '保存').invoke()
                 launch.assert_not_called()
                 self.assertIn('故事梗概：手填梗概', d.draft_text())

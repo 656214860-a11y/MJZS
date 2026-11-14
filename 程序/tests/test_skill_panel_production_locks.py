@@ -20,10 +20,9 @@ class ProductionLockViewTests(unittest.TestCase):
         self.win.update()
         self.assertEqual(len(view.inputs), 11)
         self.assertEqual(view.inputs['track'].get(), '')
-        # 契约变更：必选缺失不再占一行文字提示，改为标签警示色（不占高度）。
-        from ui_tokens import COLORS
-        self.assertEqual(str(view.fields['track']['label'].cget('foreground')), COLORS['warning_text'])
-        self.assertEqual(view.hints['track'].cget('text'), '')
+        # 契约变更：必填缺失不再占一行文字提示、也不再染标签警示色，改为悬停卡片「必填」（R2480）。
+        self.assertEqual(str(view.fields['track']['label'].cget('foreground')), '')
+        self.assertEqual(view.hints['track'].text, '必填')
         self.assertTrue(view.inputs['reference_mode'].instate(['disabled']))
         view.set_values({'video_model_version': 'Seedance 2.5'})
         self.win.update()
@@ -35,7 +34,7 @@ class ProductionLockViewTests(unittest.TestCase):
             self.assertLessEqual(child.winfo_x() + child.winfo_width(), view.winfo_width())
         view.set_values({'video_model_version': 'Seedance 2.0'})
         self.assertTrue(view.inputs['reference_mode'].instate(['disabled']))
-        self.assertEqual(view.hints['reference_mode'].cget('text'), '仅 Seedance 2.5')
+        self.assertEqual(view.hints['reference_mode'].text, '仅 Seedance 2.5')
 
 
 class WorkflowLockEnablementTests(unittest.TestCase):

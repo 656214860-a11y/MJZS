@@ -485,14 +485,18 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
             else:
                 brief_specs.append(label)
         def brief_field_factory(label):
-            # 下拉框字段可输入可点选；其余字段（故事角色、交付形态等）仍为文字输入，
-            # 尺寸与赛道下拉框统一。
-            if label in IDEA_BRIEF_DROPDOWN_VALUES:
-                return lambda field: SelectBox(field, values=IDEA_BRIEF_DROPDOWN_VALUES[label],
-                                               state='normal',
+            # 下拉框字段（题材/集数/时间，以及交付形态等有 options 的锁）可输入可点选；
+            # 其余纯文本字段（故事角色）仍为文字输入，宽度与下拉框统一（text_width 对齐 select_width 像素宽）。
+            lock_options = next((item['options'] for item in PRODUCTION_LOCK_DEFINITIONS
+                                 if label in (item['label'], *item.get('aliases', ()), item['key']) and item.get('options')),
+                                None)
+            if label in IDEA_BRIEF_DROPDOWN_VALUES or lock_options:
+                values = IDEA_BRIEF_DROPDOWN_VALUES.get(label) or tuple(lock_options)
+                return lambda field: SelectBox(field, values=values, state='normal',
                                                width=STAGE_PANEL_LAYOUT['select_width'])
             return lambda field: TextArea(field, height=1,
-                                          width=STAGE_PANEL_LAYOUT['select_width'], wrap='word')
+                                          width=STAGE_PANEL_LAYOUT['text_width'],
+                                          pady=STAGE_PANEL_LAYOUT['text_pady'], wrap='word')
         dialog.lock_fields = ProductionLockFields(
             dialog.content, definitions=PRODUCTION_LOCK_DEFINITIONS[5:],
             leading=tuple({'key': label, 'label': label, 'factory': brief_field_factory(label)}
