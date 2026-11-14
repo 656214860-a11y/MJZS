@@ -1,6 +1,5 @@
 """Content requirements independent of the selected engine or skill."""
 from pathlib import Path
-import re
 import stage_parallel
 from integrations import script_text
 from asset_prompt_rules import rules as asset_rules
@@ -38,9 +37,12 @@ def _agent_delivery_contract(project, at=None):
 
 
 def writing_restart_requested(text):
-    """Explicit leading user command only; attachments cannot request a session reset."""
-    first = str(text or '').strip().split('\n', 1)[0].strip().rstrip('。！!')
-    return bool(re.fullmatch(r'(?:请)?重新(?:创作|生成|输出)(?:\s*(?:项目设定|剧本大纲|项目大纲|大纲|角色卡|自然剧本|剧本))?', first))
+    """Explicit leading user command only; attachments cannot request a session reset.
+
+    判定规则沉淀在 L2 ``idea_script_heuristic``，供 API 与桌面 Agent 共用同一口径；
+    这里按原名转发，保持既有 ``workflow_tasks.writing_restart_requested`` 调用与测试锚点。"""
+    from idea_script_heuristic import writing_restart_requested as _restart_requested
+    return _restart_requested(text)
 
 
 _AGENT_READING_SCOPE = (

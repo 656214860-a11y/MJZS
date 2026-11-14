@@ -13,7 +13,7 @@ from datetime import datetime
 from uuid import uuid4
 
 import model_pool
-import stage_config
+import stage_model_value
 import token_saver
 from file_cache import read_json
 from model_router import ModelAdapter, PoolAdapter
@@ -27,7 +27,7 @@ from workflow_context_budget import (REQUEST_CONTEXT_MAX_CHARS, budget_advice, b
 def selected_model(project):
     """返回受控对话模型；本机桌面程序（Claude／Codex）不属于直接 API 对话。"""
     root = Path(project)
-    chosen = str(stage_config.get(root, 'script').get('model') or '').strip()
+    chosen = str(stage_model_value.value(root, 'script') or '').strip()
     records = model_pool.pool(program=Path(__file__).resolve().parent)
     record = records.get(chosen)
     engine = model_pool.desktop_engine(chosen)
@@ -584,14 +584,17 @@ def preparation_restart_intent(text):
     口径与 Agent 路径的 ``workflow_tasks.writing_restart_requested`` 一致：只看用户原话
     的开头短语，附件或正文里的字样不算；并在其“重新创作X”短语之外，
     补充“回到X阶段／X要重写／X推翻重来”一类回退说法，两条路径对回退意图
-    的判断保持一致。未点名阶段时无法定位回退目标，返回 None 交回原有流程。"""
+    的判断保持一致。未点名阶段时无法定位回退目标，返回 None 交回原有流程。
+
+    回退口令判定复用 L2 ``idea_script_heuristic.writing_restart_requested``，
+    避免低层反向依赖编排层的任务文案规则。"""
     first = str(text or '').strip().split('\n', 1)[0].strip().rstrip('。！!？?')
     if not first:
         return None
     stage = _preparation_stage_alias(first)
     if stage is None:
         return None
-    from workflow_tasks import writing_restart_requested
+    from idea_script_heuristic import writing_restart_requested
     if writing_restart_requested(first) or re.fullmatch(
             r'(?:请)?重写\s*(?:' + _PREPARATION_STAGE_ALT + r')', first):
         return stage
@@ -1240,9 +1243,9 @@ def _versioned_publisher(project, publish):
     def digest(path):
         return hashlib.sha256(path.read_bytes()).digest() if path.is_file() else None
     versions = {path: digest(path) for path in paths}
-    model = stage_config.get(project, 'script').get('model')
+    model = stage_model_value.value(project, 'script')
     def verify(exclude=None):
-        if model != stage_config.get(project, 'script').get('model') or any(
+        if model != stage_model_value.value(project, 'script') or any(
                 digest(source) != expected for source, expected in versions.items() if source != exclude):
             raise ValueError('生成期间模型或阶段文件已变化，本次结果未采用；请按当前版本重新发送')
     def guarded(path, text, validate, update_index, *args, **kwargs):
