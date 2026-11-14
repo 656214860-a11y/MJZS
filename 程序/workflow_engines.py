@@ -115,6 +115,11 @@ def background_command(config,project,output,report,prompt_file=None,*,prompt=''
     for directory in skill_roots_for_config(config):
         args += ['--add-dir', str(directory)]
     if config.get('model'):args+=['--model',config['model']]
+    # 续跑：复用同一任务/阶段的既有会话，失败重试或跨轮次续上下文不再从头开始。
+    # claude 的 session id 来自 Claude对话.json；codex 的 thread id 来自 codex_tasks 持久化。
+    resume = config.get('resume_session')
+    if resume:
+        args += ['--resume', str(resume)]
     if config['engine']=='codex':args+=['-']
     return args
 
@@ -158,9 +163,13 @@ def engine_timeout(config):
     return config.get('timeout_seconds') or ENGINE_TIMEOUT_SECONDS
 
 
-def _run(args,project,prompt,stdout,stderr,timeout=ENGINE_TIMEOUT_SECONDS):
-    """启动引擎进程并登记：只有登记过的进程才会被「强制停止制作」结束。"""
-    return run_registered(args,project,prompt,(stdout,stderr),timeout,timeout_label='引擎运行超时')
+def _run(args,project,prompt,stdout,stderr,timeout=ENGINE_TIMEOUT_SECONDS,on_output=None):
+    """启动引擎进程并登记：只有登记过的进程才会被「强制停止制作」结束。
+
+    ``on_output`` 可选：逐行流式回调（边跑边把 stdout/stderr 交给调用方），见
+    ``run_registered``；同时仍会把读到的行写回 ``stdout`` 文件对象（若有）。
+    """
+    return run_registered(args,project,prompt,(stdout,stderr),timeout,timeout_label='引擎运行超时',on_output=on_output)
 
 
 def _opencode_prompt_file(report):

@@ -183,10 +183,57 @@ def terminate_process_tree(process, *, timeout=3):
     return result.returncode == 0
 
 
-def communicate_or_kill(process, data, timeout):
-    """喂完输入并等进程退出；超过 timeout 秒就结束整棵进程树，再抛 TimeoutExpired。"""
+def communicate_or_kill(process, data, timeout, on_output=None):
+    """喂完输入并等进程退出；超过 timeout 秒就结束整棵进程树，再抛 TimeoutExpired。
+
+    ``on_output`` 可选：提供时，要求 ``process.stdout``／``process.stderr`` 是 PIPE，
+    逐行读取并把每一行（含行尾换行符）回调给调用方，让日志边跑边可见；回调抛异常
+    只吞掉并继续，不打断引擎运行。未提供时行为与原先一致（``communicate`` 原路径）。
+    """
+    if on_output is None:
+        try:
+            return process.communicate(data, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            terminate_process_tree(process)
+            try:
+                process.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=3)
+            raise
+    return _stream_communicate_or_kill(process, data, timeout, on_output)
+
+
+def _stream_communicate_or_kill(process, data, timeout, on_output):
+    """逐行读 PIPE 输出并回调；读不到行或超时都按超时处理，结束进程树。
+
+    回调在独立线程里执行：``on_output`` 抛异常只终止该读线程，不影响主流程与引擎运行；
+    调用方如需吞掉回调异常并留痕，应在传入的 ``on_output`` 里自行处理（L1 层用
+    ``app_logging.swallowed()``）。
+    """
+    import threading
+
+    def pump(stream):
+        try:
+            for line in stream or ():
+                on_output(line)
+        except Exception:
+            # 读流被打断（进程退出、PIPE 关闭）属预期；回调异常由调用方 wrapper 处理。
+            return
+
+    out_thread = threading.Thread(target=pump, args=(process.stdout,), daemon=True)
+    err_thread = threading.Thread(target=pump, args=(process.stderr,), daemon=True)
+    out_thread.start()
+    err_thread.start()
     try:
-        return process.communicate(data, timeout=timeout)
+        process.stdin.write(data or '')
+        process.stdin.flush()
+        process.stdin.close()
+    except (OSError, ValueError, AttributeError):
+        # stdin 不是 PIPE（如某些调用方用文件对象）时，无法喂输入，忽略。
+        pass
+    try:
+        process.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
         terminate_process_tree(process)
         try:
@@ -195,6 +242,36 @@ def communicate_or_kill(process, data, timeout):
             process.kill()
             process.wait(timeout=3)
         raise
+    finally:
+        out_thread.join(timeout=3)
+        err_thread.join(timeout=3)
+    return process.returncode
+
+    out_thread = threading.Thread(target=pump, args=(process.stdout,), daemon=True)
+    err_thread = threading.Thread(target=pump, args=(process.stderr,), daemon=True)
+    out_thread.start()
+    err_thread.start()
+    try:
+        process.stdin.write(data or '')
+        process.stdin.flush()
+        process.stdin.close()
+    except (OSError, ValueError, AttributeError):
+        # stdin 不是 PIPE（如某些调用方用文件对象）时，无法喂输入，忽略。
+        pass
+    try:
+        process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        terminate_process_tree(process)
+        try:
+            process.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=3)
+        raise
+    finally:
+        out_thread.join(timeout=3)
+        err_thread.join(timeout=3)
+    return process.returncode
 
 
 def duration_text(seconds):
