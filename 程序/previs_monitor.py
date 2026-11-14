@@ -71,6 +71,9 @@ def render(state, project, title=TITLE):
              'table{border-collapse:collapse;margin-top:12px;min-width:660px}'
              'th,td{border:1px solid #d6dde6;padding:6px 10px;font-size:13px;text-align:left}'
              'th{background:#f2f5f9}td.on{color:#1a7f37}td.bad{color:#b3261e}'
+             'pre.engine-log{background:#0f172a;color:#cbd5e1;padding:10px 12px;'
+             'font-family:Consolas,"Courier New",monospace;font-size:12px;'
+             'white-space:pre-wrap;word-break:break-all;max-height:320px;overflow:auto;margin-top:16px}'
              'footer{margin-top:16px;color:#718196;font-size:12px}</style></head><body>',
              '<h1>%s</h1>' % html.escape(str(title)),
              '<p>%s</p>' % html.escape(NOTE % REFRESH_SECONDS)]
@@ -89,6 +92,9 @@ def render(state, project, title=TITLE):
             parts.append('<tr><td>%s</td><td%s>%s</td><td>%s</td></tr>' % (
                 html.escape(sid), style, html.escape(status), html.escape(progress or '—')))
         parts.append('</table>')
+    engine_log = state.get('engine_log')
+    if engine_log:
+        parts.append('<pre class="engine-log">%s</pre>' % html.escape('\n'.join(str(x) for x in engine_log[-200:])))
     parts.append('<footer>%s</footer>' % html.escape('刷新于 ' + time.strftime('%Y-%m-%d %H:%M:%S')))
     parts.append('</body></html>')
     return '\n'.join(parts)

@@ -166,10 +166,11 @@ def engine_timeout(config):
 def _run(args,project,prompt,stdout,stderr,timeout=ENGINE_TIMEOUT_SECONDS,on_output=None):
     """启动引擎进程并登记：只有登记过的进程才会被「强制停止制作」结束。
 
-    ``on_output`` 可选：逐行流式回调（边跑边把 stdout/stderr 交给调用方），见
-    ``run_registered``；同时仍会把读到的行写回 ``stdout`` 文件对象（若有）。
+    ``on_output`` 可选：逐行流式回调 ``on_output(line, stream)``（stream 为 'stdout'/'stderr'），
+    见 ``run_registered``；同时仍会把读到的行写回 ``stdout``/``stderr`` 文件对象（若有）。
     """
-    return run_registered(args,project,prompt,(stdout,stderr),timeout,timeout_label='引擎运行超时',on_output=on_output)
+    return run_registered(args,project,prompt,(stdout,stderr),timeout,timeout_label='引擎运行超时',
+                          options={'on_output': on_output})
 
 
 def _opencode_prompt_file(report):
@@ -214,13 +215,17 @@ def _run_opencode(config,project,output,report,logfile,prompt):
         if response_temp.exists():remove_temporary_file(response_temp)
 
 
-def _run_claude_json(args,project,prompt,log,report,timeout=ENGINE_TIMEOUT_SECONDS):
-    """Claude 以 JSON 输出运行：响应落临时文件，成功后转正并写制作报告。"""
+def _run_claude_json(args,project,prompt,log,report,timeout=ENGINE_TIMEOUT_SECONDS,on_output=None):
+    """Claude 以 JSON 输出运行：响应落临时文件，成功后转正并写制作报告。
+
+    ``on_output`` 可选：透传给 ``_run``；注意 Claude 的 stdout 是 JSON 响应、stderr 才是
+    运行日志，调用方应按 ``stream`` 过滤，只把 stderr 当实时日志显示。
+    """
     response=Path(report).with_suffix('.response.json')
     response_temp=temporary_path(response)
     try:
         with response_temp.open('w',encoding='utf-8') as out:
-            returncode=_run(args,project,prompt,out,log,timeout)
+            returncode=_run(args,project,prompt,out,log,timeout,on_output=on_output)
         if returncode==0:
             result=json.loads(response_temp.read_text(encoding='utf-8-sig'))
             replace(response_temp,response)
@@ -234,7 +239,12 @@ def _run_claude_json(args,project,prompt,log,report,timeout=ENGINE_TIMEOUT_SECON
         if response_temp.exists():remove_temporary_file(response_temp)
     return returncode
 
-def run_background(config,project,output,report,logfile,prompt):
+def run_background(config,project,output,report,logfile,prompt,on_output=None):
+    """后台无人值守跑 CLI 引擎；``on_output`` 可选，逐行流式回调 ``on_output(line, stream)``。
+
+    codex 的 stdout/stderr 都是运行日志；claude 的 stdout 是 JSON 响应、stderr 是运行日志，
+    调用方应按 ``stream`` 过滤。透传给 ``_run``／``_run_claude_json``。
+    """
     prompt=ensure_request_context(prompt, config.get('stage', '当前阶段'))
     slot=reserve_stage_process_slot(project, config.get('stage', '当前阶段'))
     try:
@@ -267,9 +277,9 @@ def run_background(config,project,output,report,logfile,prompt):
         args=background_command(config,project,output,report)
         with Path(logfile).open('w',encoding='utf-8') as log:
             if config['engine']=='codex':
-                returncode=_run(args,project,prompt,log,log,engine_timeout(config))
+                returncode=_run(args,project,prompt,log,log,engine_timeout(config),on_output=on_output)
             else:
-                returncode=_run_claude_json(args,project,prompt,log,report,engine_timeout(config))
+                returncode=_run_claude_json(args,project,prompt,log,report,engine_timeout(config),on_output=on_output)
         if returncode:raise ValueError(ENGINES[config['engine']]+' 执行失败，请查看运行日志（安装版本、登录、额度或权限）')
     finally:
         release_process_slot(slot)

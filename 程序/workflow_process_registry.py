@@ -170,17 +170,20 @@ def processes(project):
         return list(_running.get(_key(project), []))
 
 
-def run_registered(args, project, prompt, streams, timeout, *, timeout_label, env=None, on_output=None):
+def run_registered(args, project, prompt, streams, timeout, *, timeout_label, options=None):
     """启动子进程并登记（唯一实现，R2178 J14）：只有登记过的进程才会被「强制停止制作」结束。
 
     超时或被异常（含 Ctrl+C）打断时先结束进程树再注销，否则它脱离登记表后「强制停止」找不到。
 
-    ``on_output`` 可选：提供时把 stdout/stderr 改为 PIPE 逐行读取，每行既写回 ``streams``
-    里传入的文件对象（若为文件对象），又回调 ``on_output(line)``，让日志边跑边可见。
-    未提供时行为与原先一致（stdout/stderr 直接指向调用方给的对象）。
+    ``options`` 可选字典，收拢可选关键字：``env``（子进程环境）与 ``on_output``（流式回调
+    ``on_output(line, stream)``，提供时把 stdout/stderr 改为 PIPE 逐行读取，每行既写回
+    ``streams`` 里对应的文件对象，又回调出去）。未提供时行为与原先一致。
     """
     import subprocess
     from platform_tools import communicate_or_kill, duration_text, launch_text_process, terminate_process_tree
+    options = options or {}
+    env = options.get('env')
+    on_output = options.get('on_output')
     stdout, stderr = streams
     pipe_out = subprocess.PIPE if on_output is not None else stdout
     pipe_err = subprocess.PIPE if on_output is not None else stderr
@@ -190,15 +193,16 @@ def run_registered(args, project, prompt, streams, timeout, *, timeout_label, en
         if on_output is None:
             communicate_or_kill(process, prompt, timeout)
         else:
-            def forward(line):
-                # stdout/stderr 都走 PIPE，逐行写回调用方给的日志文件对象（若有），再交回调。
-                if hasattr(stdout, 'write'):
+            def forward(line, stream):
+                # 逐行写回调用方给的对应文件对象（若有），再交回调；stream 区分 stdout/stderr。
+                target = stdout if stream == 'stdout' else stderr
+                if hasattr(target, 'write'):
                     try:
-                        stdout.write(line)
-                        stdout.flush()
+                        target.write(line)
+                        target.flush()
                     except (OSError, ValueError):
                         pass
-                on_output(line)
+                on_output(line, stream)
             communicate_or_kill(process, prompt, timeout, on_output=forward)
     except subprocess.TimeoutExpired:
         raise ValueError('%s（%s 仍未结束），已强制结束；请查看运行日志后重试' % (timeout_label, duration_text(timeout))) from None

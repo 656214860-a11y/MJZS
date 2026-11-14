@@ -66,16 +66,16 @@ class CommunicateStreamTests(unittest.TestCase):
         process = _StreamProcess(out_lines=['第一行\n', '第二行\n'], err_lines=['警告行\n'])
         seen = []
         with mock.patch('platform_tools.terminate_process_tree'):
-            code = communicate_or_kill(process, '提示词', 60, on_output=seen.append)
+            code = communicate_or_kill(process, '提示词', 60, on_output=lambda line, stream: seen.append((stream, line)))
         self.assertEqual(code, 0)
-        self.assertEqual(seen, ['第一行\n', '第二行\n', '警告行\n'])
+        self.assertEqual(sorted(seen), sorted([('stdout', '第一行\n'), ('stdout', '第二行\n'), ('stderr', '警告行\n')]))
 
     def test_on_output_callback_error_does_not_break_run(self):
         from platform_tools import communicate_or_kill
 
         process = _StreamProcess(out_lines=['a\n', 'b\n'])
 
-        def exploding(line):
+        def exploding(line, stream):
             raise RuntimeError('回调自己挂了')
 
         with mock.patch('platform_tools.terminate_process_tree'):
@@ -125,6 +125,41 @@ class BackgroundCommandResumeTests(unittest.TestCase):
                 {'engine': 'codex', 'resume_session': 'thread-9'}, 'proj', 'out', 'report.md')
         self.assertIn('--resume', args)
         self.assertIn('thread-9', args)
+
+
+class EndToEndWiringTests(unittest.TestCase):
+    """R2485 端到端接入：run_background 透传 on_output，监视页显示 engine_log。"""
+
+    def test_run_background_forwards_on_output_to_codex(self):
+        import workflow_engines
+
+        seen = []
+        with mock.patch.object(workflow_engines, 'ensure_request_context', lambda p, s: p), \
+             mock.patch.object(workflow_engines, 'reserve_stage_process_slot', return_value='slot'), \
+             mock.patch.object(workflow_engines, 'release_process_slot') as release, \
+             mock.patch.object(workflow_engines, 'background_command', return_value=['cmd']), \
+             mock.patch.object(workflow_engines, '_run', return_value=0) as fake_run:
+            workflow_engines.run_background(
+                {'engine': 'codex', 'stage': '剧本'}, 'proj', 'out', 'report.md', 'log.txt', '任务',
+                on_output=lambda line, stream: seen.append((stream, line)))
+        release.assert_called_once_with('slot')
+        # on_output 透传给 _run 的第六个位置参数（timeout 之后的 on_output）。
+        self.assertIsNotNone(fake_run.call_args.kwargs.get('on_output'))
+
+    def test_previs_monitor_renders_engine_log(self):
+        from previs_monitor import render
+
+        state = {'engine_log': ['stdout 第一行', '[err] 警告行'], 'busy': True, 'summary': '制作中'}
+        html_out = render(state, 'proj')
+        self.assertIn('<pre class="engine-log">', html_out)
+        self.assertIn('stdout 第一行', html_out)
+        self.assertIn('[err] 警告行', html_out)
+
+    def test_previs_monitor_without_log_omits_block(self):
+        from previs_monitor import render
+
+        html_out = render({'busy': False}, 'proj')
+        self.assertNotIn('<pre class="engine-log">', html_out)
 
 
 if __name__ == '__main__':

@@ -58,7 +58,7 @@ class BackgroundRunTests(unittest.TestCase):
         root = Path(temp.name)
         report, logfile = root / '报告.md', root / 'run.log'
 
-        def fake_run(args, project, prompt, stdout, stderr, timeout):
+        def fake_run(args, project, prompt, stdout, stderr, timeout, on_output=None):
             self.assertEqual((['cmd'], 'proj', '任务', 42), (args, project, prompt, timeout))
             stdout.write(output)
             return returncode
