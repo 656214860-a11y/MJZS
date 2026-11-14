@@ -42,4 +42,5 @@ python -B smoke_test.py                          # 默认冒烟 8/8
 ## 提交
 
 - 提交信息：`R2488: CLI 后台调用流式日志端到端接入白模监视页`
+- 提交 hash：`0e67666d`
 - 分支：`codex/wip-R2488`
