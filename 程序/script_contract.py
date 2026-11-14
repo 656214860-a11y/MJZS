@@ -40,6 +40,7 @@ from datetime import datetime
 from pathlib import Path
 from script_manifest_contract import (HEADER, KIND_OF_MANIFEST, KINDS, MANIFEST_OF_KIND,
                                       MANIFESTS, STAGE_OUTPUTS, STRUCTURE_MANIFESTS)
+from script_natural_gate import has_foreign_field_table
 
 # ── 五类产出（任务 5）─────────────────────────────────────────────────────────
 
@@ -67,7 +68,6 @@ _NATURAL_SCRIPT_FORBIDDEN = (
     ('视频提示词', '视频提示词'), ('```json', 'JSON 代码块'), ('"source_script"', '分镜 JSON'),
 )
 
-
 def natural_script_violations(text):
     """返回剧本准备阶段不允许落盘的结构化产物特征。"""
     value = str(text or '').strip()
@@ -80,7 +80,7 @@ def natural_script_violations(text):
     for needle, label in _NATURAL_SCRIPT_FORBIDDEN:
         if needle.casefold() in folded and label not in violations:
             violations.append(label)
-    if re.search(r'(?m)^\s*\|.+\|\s*$', value):
+    if has_foreign_field_table(value):
         violations.append('字段表格')
     return tuple(violations)
 
