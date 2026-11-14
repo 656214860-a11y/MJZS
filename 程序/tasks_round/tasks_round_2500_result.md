@@ -42,4 +42,5 @@ python -B smoke_test.py                          # 默认冒烟 8/8
 ## 提交
 
 - 提交信息：`R2500: claude 后台调用 session 持久化对齐 codex + 架构欠账收口`
+- 提交 hash：`d5a70220`
 - 分支：`codex/wip-R2500`
