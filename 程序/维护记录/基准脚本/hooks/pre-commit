@@ -16,6 +16,27 @@ staged=$(mktemp "${TMPDIR:-/tmp}/codex-staged.XXXXXX") || exit 1
 trap 'rm -f "$staged"' EXIT HUP INT TERM
 git -c core.quotepath=false diff --cached --name-only > "$staged"
 
+# 规则 34a：功能源码只经工作树分支合入 master，禁止在 master 上直接提交（合并提交除外）。
+# 判定依据：HEAD 在 master/main 且本次不是合并（无 MERGE_HEAD）时，任何非默认安全文档的
+# 程序/ 文件都视为「主工作区直接开发」，予以拒绝。合并提交（git merge/回合）会设置 MERGE_HEAD，
+# 不受此限制；文档轮与结果补记只提交下面白名单里的文件，也不受此限制。
+case "$branch" in
+  ""|master|main)
+    if [ ! -f "$(git rev-parse --git-dir)/MERGE_HEAD" ]; then
+      while IFS= read -r path; do
+        case "$path" in
+          程序/tasks_round/tasks_round_*_result.md|程序/project_status.md|程序/维护记录/任务队列.json) continue ;;
+          程序/*)
+            echo "拒绝提交：规则 34a——主工作区只做同步/合并/提交，禁止在 master 上直接开发功能源码。" >&2
+            echo "请改为在功能工作树（git worktree add -b codex/<任务>）中开发，再回合 master；" >&2
+            echo "文档轮/结果补记只可提交 tasks_round/project_status.md/任务队列.json。" >&2
+            echo "违规文件：$path" >&2
+            exit 1 ;;
+        esac
+      done < "$staged"
+    fi ;;
+esac
+
 while IFS= read -r path; do
   case "$path" in
     程序/*) ;;

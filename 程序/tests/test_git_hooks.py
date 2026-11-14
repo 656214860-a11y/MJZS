@@ -140,6 +140,8 @@ class GitHookTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             subprocess.run(["git", "init", "--quiet"], cwd=root, check=True)
+            # 规则 34a 会拦 master 上直接提交功能源码；本用例在工作分支上验证 allowlist 机制本身。
+            subprocess.run(["git", "checkout", "-q", "-b", "topic"], cwd=root, check=True)
             path = root / "程序" / "module.py"
             path.parent.mkdir()
             path.write_text("x = 1\n", encoding="utf-8")
@@ -159,6 +161,48 @@ class GitHookTests(unittest.TestCase):
             path.write_text("status\n", encoding="utf-8")
             subprocess.run(["git", "add", "程序/project_status.md"], cwd=root, check=True)
             self.assertNotEqual(self.run_hook(HOOKS / "pre-commit", cwd=root).returncode, 0)
+
+    def test_precommit_blocks_functional_code_on_master(self):
+        """规则 34a：master 上非合并提交功能源码应被拒绝。"""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            subprocess.run(["git", "init", "--quiet"], cwd=root, check=True)
+            subprocess.run(["git", "checkout", "-q", "-b", "master"], cwd=root, check=True)
+            path = root / "程序" / "module.py"
+            path.parent.mkdir()
+            path.write_text("x = 1\n", encoding="utf-8")
+            subprocess.run(["git", "add", "程序/module.py"], cwd=root, check=True)
+            environment = os.environ | {"CODEX_STAGE_ALLOWLIST": "程序/module.py"}
+            rejected = self.run_hook(HOOKS / "pre-commit", cwd=root, env=environment)
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn("34a", rejected.stderr)
+
+    def test_precommit_allows_functional_code_via_merge_on_master(self):
+        """合并提交（MERGE_HEAD 存在）不受规则 34a 限制。"""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            subprocess.run(["git", "init", "--quiet"], cwd=root, check=True)
+            subprocess.run(["git", "checkout", "-q", "-b", "master"], cwd=root, check=True)
+            path = root / "程序" / "module.py"
+            path.parent.mkdir()
+            path.write_text("x = 1\n", encoding="utf-8")
+            subprocess.run(["git", "add", "程序/module.py"], cwd=root, check=True)
+            # 模拟合并提交：写入 MERGE_HEAD 使 pre-commit 判定为合并。
+            (root / ".git" / "MERGE_HEAD").write_text("deadbeef\n", encoding="utf-8")
+            environment = os.environ | {"CODEX_STAGE_ALLOWLIST": "程序/module.py"}
+            self.assertEqual(self.run_hook(HOOKS / "pre-commit", cwd=root, env=environment).returncode, 0)
+
+    def test_precommit_allows_doc_only_on_master(self):
+        """master 上只提交默认安全文档（tasks_round 结果）不受规则 34a 限制。"""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            subprocess.run(["git", "init", "--quiet"], cwd=root, check=True)
+            subprocess.run(["git", "checkout", "-q", "-b", "master"], cwd=root, check=True)
+            path = root / "程序" / "tasks_round" / "tasks_round_1_result.md"
+            path.parent.mkdir(parents=True)
+            path.write_text("result\n", encoding="utf-8")
+            subprocess.run(["git", "add", "程序/tasks_round/tasks_round_1_result.md"], cwd=root, check=True)
+            self.assertEqual(self.run_hook(HOOKS / "pre-commit", cwd=root).returncode, 0)
 
 
 if __name__ == "__main__":
