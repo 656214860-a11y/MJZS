@@ -512,6 +512,17 @@ def _locks(context):
     return locks
 
 
+def _raise_if_unmounted(result, fallback):
+    """机检桥「未挂载」错误（ok=False 且无 exit）转 ToolError；否则原样返回。
+
+    ``exit is None`` 是桥层的挂载哨兵：脚本没跑起来（桥返回友好 error），与脚本真的跑了
+    但判 FAIL（exit=1）区分开——后者要正常返回结构化结果，不能当错误抛掉。
+    """
+    if not result.get('ok') and result.get('exit') is None:
+        raise ToolError(result.get('error') or fallback)
+    return result
+
+
 def _feed_validate(context):
     """投喂稿机检：C1~C30 / H1~H12。输入 model/track/aspect 取项目锁，缺省按国内剧 2.5。"""
     from aigc_lint import validate_prompt
@@ -521,9 +532,7 @@ def _feed_validate(context):
                              model=locks.get('video_model_version'),
                              track=locks.get('track'),
                              aspect=locks.get('aspect_ratio'))
-    if not result.get('ok') and result.get('exit') is None:
-        raise ToolError(result.get('error') or '投喂稿机检脚本未挂载')
-    return result
+    return _raise_if_unmounted(result, '投喂稿机检脚本未挂载')
 
 
 def _feed_gate_check(context):
@@ -533,9 +542,7 @@ def _feed_gate_check(context):
     locks = _locks(ctx)
     result = gate_check(_feed_text(ctx), model=locks.get('video_model_version'),
                         assets=ctx.get('assets'), mode=ctx.get('mode') or 'auto')
-    if not result.get('ok') and result.get('exit') is None:
-        raise ToolError(result.get('error') or '闸门脚本未挂载')
-    return result
+    return _raise_if_unmounted(result, '闸门脚本未挂载')
 
 
 def _feed_audit_contract(context):
@@ -544,9 +551,7 @@ def _feed_audit_contract(context):
     ctx = context or {}
     result = audit_contract(_feed_text(ctx), mode=ctx.get('mode') or 'auto',
                             director=ctx.get('director'))
-    if not result.get('ok') and result.get('exit') is None:
-        raise ToolError(result.get('error') or '契约核销脚本未挂载')
-    return result
+    return _raise_if_unmounted(result, '契约核销脚本未挂载')
 
 
 def _style_lock_recommend(context):

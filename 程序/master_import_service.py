@@ -44,7 +44,7 @@ def _preset_rows(manifest):
     """把清单里的 presets 规整成 {名称: {package, stage_skills, locks}}，返回 (行表, 问题)。"""
     problems = []
     data = manifest if isinstance(manifest, dict) else {}
-    rows = data.get('presets') if isinstance(data, dict) else None
+    rows = data.get('presets')
     if not isinstance(rows, dict) or not rows:
         raise ImportBlocked('总控包清单缺少 presets')
     out = {}

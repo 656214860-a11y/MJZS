@@ -27,6 +27,7 @@ import importlib.util
 import subprocess
 import sys
 import tempfile
+from contextlib import contextmanager
 from json import loads
 from pathlib import Path
 
@@ -53,6 +54,9 @@ _TRACK_ALIASES = {
     '国内剧': '1', '海外剧': '2', '解说叙事类': '3', '解说': '3', '其他': '4',
     '1': '1', '2': '2', '3': '3', '4': '4',
 }
+
+# 总控包 scripts 未挂载（子模块未初始化）时的统一友好错误文案。
+_SCRIPTS_MISSING = 'SKILL scripts 未挂载（子模块未初始化）'
 
 
 def _scripts_root():
@@ -93,6 +97,16 @@ def _write_temp(text):
     return Path(handle.name)
 
 
+@contextmanager
+def _feed_path(text):
+    """临时投喂稿 md：``with`` 块内可用，退出即删（删除失败忽略）。"""
+    path = _write_temp(text)
+    try:
+        yield path
+    finally:
+        remove_temporary_file(path)
+
+
 def _parse_json(stdout):
     """脚本 ``--json`` 输出为单行/多行 JSON，稳健解析；解析不出返回 None。"""
     if not stdout:
@@ -112,19 +126,16 @@ def validate_prompt(feed_text, *, model=None, track=None, aspect=None):
 
     ``model``/``track`` 传项目锁原始值即可（本函数做别名映射）；``aspect`` 是画幅锁。
     """
-    root = _scripts_root()
-    if root is None:
-        return {'ok': False, 'exit': None, 'error': 'SKILL scripts 未挂载（子模块未初始化）'}
+    if _scripts_root() is None:
+        return {'ok': False, 'exit': None, 'error': _SCRIPTS_MISSING}
     argv = ['--model', _model_arg(model), '--track', _track_arg(track), '--json']
     if aspect and str(aspect).strip():
         argv += ['--aspect', str(aspect).strip()]
-    path = _write_temp(feed_text)
-    try:
-        code, stdout, stderr = _run_script(_VALIDATE, [str(path), *argv])
-    except (subprocess.SubprocessError, OSError) as exc:
-        return {'ok': False, 'exit': None, 'error': '机检脚本运行失败：%s' % exc}
-    finally:
-        remove_temporary_file(path)
+    with _feed_path(feed_text) as path:
+        try:
+            code, stdout, stderr = _run_script(_VALIDATE, [str(path), *argv])
+        except (subprocess.SubprocessError, OSError) as exc:
+            return {'ok': False, 'exit': None, 'error': '机检脚本运行失败：%s' % exc}
     data = _parse_json(stdout) or {}
     return {'ok': code == 0, 'exit': code,
             'issues': data.get('issues') or [], 'warnings': data.get('warnings') or [],
@@ -137,21 +148,18 @@ def validate_prompt(feed_text, *, model=None, track=None, aspect=None):
 
 def gate_check(feed_text, *, model=None, assets=None, mode='auto'):
     """投喂层六道闸门 + 素材形态一致性。返回结构化 dict，不抛。"""
-    root = _scripts_root()
-    if root is None:
-        return {'ok': False, 'exit': None, 'error': 'SKILL scripts 未挂载（子模块未初始化）'}
+    if _scripts_root() is None:
+        return {'ok': False, 'exit': None, 'error': _SCRIPTS_MISSING}
     argv = ['--model', _model_arg(model)]
     if assets is not None:
         argv += ['--assets', str(int(assets))]
     if mode and str(mode).strip():
         argv += ['--mode', str(mode).strip()]
-    path = _write_temp(feed_text)
-    try:
-        code, stdout, stderr = _run_script(_GATE, [str(path), *argv])
-    except (subprocess.SubprocessError, OSError) as exc:
-        return {'ok': False, 'exit': None, 'error': '闸门脚本运行失败：%s' % exc}
-    finally:
-        remove_temporary_file(path)
+    with _feed_path(feed_text) as path:
+        try:
+            code, stdout, stderr = _run_script(_GATE, [str(path), *argv])
+        except (subprocess.SubprocessError, OSError) as exc:
+            return {'ok': False, 'exit': None, 'error': '闸门脚本运行失败：%s' % exc}
     # gate_check 无 --json，退出码即结论；stdout 里含 FAIL/WARN 明细，保留尾部供人读。
     return {'ok': code == 0, 'exit': code,
             'summary': (stdout or '').strip()[-2000:],
@@ -160,19 +168,16 @@ def gate_check(feed_text, *, model=None, assets=None, mode='auto'):
 
 def audit_contract(markdown_text, *, mode='auto', director=None):
     """全流程交付契约与权威源核销。返回结构化 dict，不抛。"""
-    root = _scripts_root()
-    if root is None:
-        return {'ok': False, 'exit': None, 'error': 'SKILL scripts 未挂载（子模块未初始化）'}
+    if _scripts_root() is None:
+        return {'ok': False, 'exit': None, 'error': _SCRIPTS_MISSING}
     argv = ['--mode', str(mode or 'auto')]
     if director and str(director).strip():
         argv += ['--director', str(director).strip()]
-    path = _write_temp(markdown_text)
-    try:
-        code, stdout, stderr = _run_script(_AUDIT, [str(path), *argv])
-    except (subprocess.SubprocessError, OSError) as exc:
-        return {'ok': False, 'exit': None, 'error': '契约核销脚本运行失败：%s' % exc}
-    finally:
-        remove_temporary_file(path)
+    with _feed_path(markdown_text) as path:
+        try:
+            code, stdout, stderr = _run_script(_AUDIT, [str(path), *argv])
+        except (subprocess.SubprocessError, OSError) as exc:
+            return {'ok': False, 'exit': None, 'error': '契约核销脚本运行失败：%s' % exc}
     return {'ok': code == 0, 'exit': code,
             'summary': (stdout or '').strip()[-2000:],
             'stderr': stderr.strip()[:2000] if stderr else ''}
@@ -188,9 +193,8 @@ def _load_module(script):
 
 def style_ladder(text, top=4):
     """画风锁递进引擎（style-lock-ladder.recommend）→ 文本阶梯。返回 dict，不抛。"""
-    root = _scripts_root()
-    if root is None:
-        return {'ok': False, 'error': 'SKILL scripts 未挂载（子模块未初始化）'}
+    if _scripts_root() is None:
+        return {'ok': False, 'error': _SCRIPTS_MISSING}
     try:
         module = _load_module(_LADDER)
         return {'ok': True, 'text': module.recommend(text, top=top)}
@@ -200,9 +204,8 @@ def style_ladder(text, top=4):
 
 def style_recommend(text):
     """画风锁推荐引擎（style-lock-recommend.recommend）→ 结构化候选池。返回 dict，不抛。"""
-    root = _scripts_root()
-    if root is None:
-        return {'ok': False, 'error': 'SKILL scripts 未挂载（子模块未初始化）'}
+    if _scripts_root() is None:
+        return {'ok': False, 'error': _SCRIPTS_MISSING}
     try:
         module = _load_module(_RECOMMEND)
         combat, why, vfx_high, pool, excluded, route_key = module.recommend(text)
