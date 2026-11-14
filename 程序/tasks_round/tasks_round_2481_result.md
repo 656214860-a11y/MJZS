@@ -64,4 +64,5 @@
 
 - 提交信息：`R2481: 自然剧本质检附块剥离 + 质检报告定位`
 - 分支：`codex/wip-R2481`
-- commit hash：`2598dcb5`
+- 功能提交：`67efb6ee`（rebase 到最新 master 后），补记 hash：`24dda97f`
+- 合入 master：`git merge --ff-only codex/wip-R2481`（`19517723..24dda97f`，Fast-forward，无冲突）；断言未动；定向全绿、默认冒烟 8/8；未跑全量。
