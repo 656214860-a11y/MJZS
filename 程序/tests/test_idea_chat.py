@@ -27,6 +27,7 @@ os.chdir(HERE)
 
 import idea_chat as _idea_chat
 import script_contract
+import desktop_idea_chat
 from ui_tokens import ICON_ADD
 from stage_execution_service import idea_chat_gateway, publish_idea_creative, project_context
 from desktop import Desktop, PAGE
@@ -946,8 +947,8 @@ class SendMessageTests(_Harness):
             self.assertFalse(list((writing_dir(proj) / '创意对话').glob('提交_*.md')),
                              '发送创意不能先创建提交文件')
             self.assertEqual(d.draft_text().strip(), '', '发出去之后下面那段草稿就空了')
-            self.assertIn(('right', self.complete_draft()), self.bubbles(d),
-                          '用户气泡贴右侧，正文右对齐（同 Claude Code 桌面版）')
+            self.assertIn(('left', self.complete_draft()), self.bubbles(d),
+                          '用户气泡仍贴右侧（靠边距分列），但正文左对齐，符合阅读习惯')
             self.assertEqual([row['role'] for row in idea_chat.load(proj)], ['user'])
             self.assertEqual(len(idea_chat.load(proj)[0]['skill_injection']['loaded']), 1)
             self.assertIn('本次已加载 1 项', self.log_text(d))
@@ -1749,7 +1750,7 @@ class SendMessageTests(_Harness):
             idea_chat.append(proj, 'assistant', '先前的纲要')
             d, win = self.desktop(proj)
             d.show(0); self.settle_script_page(win)
-            self.assertIn(('right', '先前的创意'), self.bubbles(d))
+            self.assertIn(('left', '先前的创意'), self.bubbles(d))
             self.assertIn(('left', '先前的纲要'), self.bubbles(d))
 
 
@@ -1991,15 +1992,52 @@ class BubbleLayoutTests(_Harness):
             footer = box.tag_ranges('bubble_0_time')
             self.assertTrue(footer, '时间在正文下面的页脚行')
             self.assertTrue(box.compare(footer[0], '>=', body[1]), '页脚在正文之后')
-            # 页脚在底框外面：贴着框的左边沿（无内边距）、不铺底色、整句不换行（wrap=none）。
-            self.assertEqual(box.tag_cget('bubble_0_time', 'lmargin1'),
-                             int(float(box.tag_cget('bubble_0', 'lmargin1'))) - 10,
-                             '页脚贴框左边沿，比正文少一个内边距（BUBBLE_PAD）')
+            # 页脚在底框外面：贴对话区左边沿（不跟用户气泡右移）、不铺底色、整句按词换行不被裁。
+            self.assertEqual(int(float(box.tag_cget('bubble_0_time', 'lmargin1'))),
+                             desktop_idea_chat.BUBBLE_GAP,
+                             '页脚贴对话区左边沿，不随用户气泡右移')
+            self.assertEqual(int(float(box.tag_cget('bubble_0_time', 'lmargin2'))),
+                             desktop_idea_chat.BUBBLE_GAP,
+                             '页脚续行同样回到对话区左边沿')
             self.assertEqual(box.tag_cget('bubble_0_time', 'background'), '', '页脚不铺底色，留在框外')
-            self.assertEqual(box.tag_cget('bubble_0_time', 'wrap'), 'none', '页脚整句不换行')
+            self.assertEqual(box.tag_cget('bubble_0_time', 'wrap'), 'word', '页脚按词换行，不裁切')
             self.assertEqual(d.rewind_bubble_message(0), '第一条创意正文')
             self.assertEqual(d.idea_input.get('1.0', 'end').strip(), '第一条创意正文')
             self.assertEqual(len(idea_chat.load(proj)), 1, '回退只回填输入框，不改聊天记录')
+
+    def test_long_skill_footer_is_fully_visible_and_user_bubble_text_is_left_aligned(self):
+        """REQ-S01-65：长 SKILL 页脚整句可见（不被裁切），用户气泡正文与署名左对齐。"""
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            # 3 项 SKILL ＋时间，页脚宽度远超用户气泡右侧的可用空间（约 200px）。
+            manifest = {'engine': 'qwen', 'model': 'sample', 'selected': ['/skill-a', '/skill-b', '/skill-c'],
+                        'loaded': [{'name': name, 'path': '/skill', 'sha256': 'abc', 'chars': 10}
+                                   for name in ('写作规则', '分镜拆解', '剪辑节奏')]}
+            idea_chat.append(proj, 'user', '想法：夜班照相馆', skill_injection=manifest)
+            # 两条都不带模型名：目录条隐藏，视图显示全部行，bubble_0／bubble_1 就是这一来一回。
+            idea_chat.append(proj, 'assistant', '收到，先记进第一集。')
+            d, win = self.desktop(proj)
+            d.show(0); self.settle_script_page(win)
+            win.deiconify(); win.update()
+            d.refit_bubbles(); win.update()
+            box = d.idea_log
+            self.assertGreater(box.winfo_width(), 1, '对话区应有真实宽度')
+            # ① 页脚整句可见：逐字符都有 bbox，说明没有被内容框裁掉（wrap=none 时会有一大片 None）。
+            footer = box.tag_ranges('bubble_0_time')
+            self.assertTrue(footer, '用户气泡下面应有 SKILL／时间页脚行')
+            shown = str(box.get(*footer)).strip()
+            self.assertIn('本次已加载 3 项', shown, '页脚应显示加载了多少项 SKILL')
+            start = str(footer[0])
+            clipped = [char for offset, char in enumerate(shown)
+                       if box.bbox('%s+%dc' % (start, offset)) is None]
+            self.assertEqual(clipped, [], '页脚不得被裁切：被裁掉的字符 %r' % ''.join(clipped)[:40])
+            # ② 用户气泡仍贴右（靠边距分列），但正文与署名一律左对齐，符合阅读习惯。
+            self.assertEqual(box.tag_cget('bubble_0', 'justify'), 'left', '用户气泡正文左对齐')
+            self.assertEqual(box.tag_cget('bubble_0_meta', 'justify'), 'left', '用户气泡署名跟着左对齐')
+            self.assertEqual(box.tag_cget('bubble_1', 'justify'), 'left', '模型气泡正文左对齐')
+            self.assertGreater(int(float(box.tag_cget('bubble_0', 'lmargin1'))),
+                               int(float(box.tag_cget('bubble_1', 'lmargin1'))),
+                               '用户气泡仍排在模型气泡右侧（分列未破）')
 
     def test_streamed_text_appears_under_the_thinking_line_and_vanishes_when_cleared(self):
         with tempfile.TemporaryDirectory() as td:

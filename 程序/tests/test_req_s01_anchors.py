@@ -155,6 +155,10 @@ class IdeaBubbleAnchorTests(_Harness):
         self.assertIsNotNone(user_x, '用户气泡应落在可视区内')
         self.assertIsNotNone(model_x, '模型气泡应落在可视区内')
         self.assertGreater(user_x, model_x, '用户气泡排在模型气泡右侧')
+        # 契约（REQ-S01-65）：左右分列只由边距决定，正文与署名一律左对齐，符合阅读习惯。
+        for name in ('bubble_0', 'bubble_1'):
+            self.assertEqual(str(box.tag_cget(name, 'justify')), 'left', name + ' 的正文左对齐')
+        self.assertEqual(str(box.tag_cget('bubble_0_meta', 'justify')), 'left', '用户气泡署名左对齐')
         # 选区优先级：淡底气泡 tag 不得盖住 sel——重绘后 sel 必须仍在气泡 tag 之上。
         # Tk 的 tag_names() 越靠后优先级越高；tag_raise('sel') 后 sel 应在列表末尾（最高）。
         names = box.tag_names()
