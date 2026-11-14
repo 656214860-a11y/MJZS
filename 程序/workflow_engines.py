@@ -110,6 +110,10 @@ def background_command(config,project,output,report,prompt_file=None,*,prompt=''
         args=[exe,'exec','--skip-git-repo-check','--sandbox','workspace-write','--cd',str(project),'--add-dir',str(output),'--color','never','-o',str(report)]
     else:
         args=[exe,'-p','--output-format','json','--permission-mode','auto','--add-dir',str(output)]
+    # 勾选的 SKILL 目录一并授权给 CLI 模型，让模型能读全文、看图、跑脚本（等效 desktop 原生）。
+    from workflow_settings import skill_roots_for_config
+    for directory in skill_roots_for_config(config):
+        args += ['--add-dir', str(directory)]
     if config.get('model'):args+=['--model',config['model']]
     if config['engine']=='codex':args+=['-']
     return args

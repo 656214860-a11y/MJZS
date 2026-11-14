@@ -97,7 +97,9 @@ def launch_interactive(project,stage,title,prompt,config,followup=None):
     incoming=folder/'输入.jsonl';incoming.touch();events=folder/'事件.jsonl'
     args=command(config)+['--auth-type','openai','--model',config.get('model') or env['OPENAI_MODEL'],'--approval-mode','auto',
         '--input-file',str(incoming),'--json-file',str(events),'--chat-recording']
-    if config.get('skill'):args+=['--include-directories',str(Path(config['skill']).parent)]
+    from workflow_settings import skill_roots_for_config
+    for directory in skill_roots_for_config(config):
+        args+=['--include-directories',str(directory)]
     if session:args+=['--resume',session]
     else:session=str(uuid.uuid4());args+=['--session-id',session]
     args+=['--prompt-interactive',f'本次流程：{title}。完整读取并执行任务文件：{task}。后续任务在当前对话继续。']
@@ -126,7 +128,9 @@ def run_background(config,project,output,report,logfile,prompt):
     args=command(config)+['--auth-type','openai','--model',config.get('model') or env['OPENAI_MODEL'],
         '--prompt','执行标准输入中的制作任务。','--output-format','json','--approval-mode','auto',
         '--include-directories',str(output),'--max-session-turns','120','--max-wall-time','2h']
-    if config.get('skill'):args+=['--include-directories',str(Path(config['skill']).parent)]
+    from workflow_settings import skill_roots_for_config
+    for directory in skill_roots_for_config(config):
+        args+=['--include-directories',str(directory)]
     response=Path(report).with_suffix('.response.json')
     response_temp=temporary_path(response)
     # 第 47 期第 6 条：这一趟原来走 subprocess.run，不进引擎台账，于是「强制停止制作」找不到它，
