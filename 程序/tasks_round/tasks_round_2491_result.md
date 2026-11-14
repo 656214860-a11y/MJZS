@@ -50,4 +50,5 @@ python -B smoke_test.py                          # 默认冒烟 8/8
 ## 提交
 
 - 提交信息：`R2491: codex 后台调用 session 持久化与 exec resume 续跑`
+- 提交 hash：`84848625`
 - 分支：`codex/wip-R2491`
