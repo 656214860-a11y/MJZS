@@ -14,10 +14,7 @@ from __future__ import annotations
 
 import os
 import sys
-import tempfile
 import unittest
-from pathlib import Path
-from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROGRAM = os.path.dirname(HERE)

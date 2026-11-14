@@ -851,20 +851,11 @@ class _ModelManager(ModelManagerModeTabsMixin):
         for key, _label in FORM_FIELDS:
             self.entries[key].delete(0, 'end')
             self.entries[key].insert(0, str(item.get(key) or ''))
-        self.entries['context_length'].delete(0, 'end')
-        if item.get('context_length'):
-            self.entries['context_length'].insert(0, str(item['context_length']))
-        self.entries['rpm'].delete(0, 'end')
-        if item.get('rpm'):
-            self.entries['rpm'].insert(0, str(item['rpm']))
-        self.entries['group'].delete(0, 'end')
-        if item.get('group'):
-            self.entries['group'].insert(0, str(item['group']))
-        self.entries['weight'].delete(0, 'end')
-        if item.get('weight'):
-            self.entries['weight'].insert(0, str(item['weight']))
-        self.entries['note'].delete(0, 'end')
-        self.entries['note'].insert(0, str(item.get('note') or ''))
+        # 可选字段统一「先清空、有值才回填」；note 原本无值时也写空串，等价于保持清空。
+        for key in ('context_length', 'rpm', 'group', 'weight', 'note'):
+            self.entries[key].delete(0, 'end')
+            if item.get(key):
+                self.entries[key].insert(0, str(item[key]))
         for tag, var in self.caps.items():
             var.set(tag in (item.get('capabilities') or []))
         saved_provider = str(item.get('provider') or '').strip()
