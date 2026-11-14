@@ -465,30 +465,38 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
         lock_labels = {label for item in PRODUCTION_LOCK_DEFINITIONS[5:]
                        for label in (item['label'], *item.get('aliases', ()), item['key'])}
         dialog.brief_fields = {}
+        # 故事梗概整行铺满；其余缺项字段并入下方制作锁同一套流式布局（FlowFields），
+        # 按可用宽度换行、与制作锁同列对齐，右侧不再留大片空白（R2477）。
+        brief_specs = []
         for label in missing:
             if label in lock_labels:
                 continue
-            row = ttk.Frame(dialog.content)
-            row.pack(fill='x', pady=SPACING['xs'])
-            caption = ttk.Label(row, text=label)
-            caption.pack(side='left', padx=(SPACING['none'], SPACING['sm']))
-            if label in IDEA_BRIEF_DROPDOWN_VALUES:
-                entry = SelectBox(row, values=IDEA_BRIEF_DROPDOWN_VALUES[label], state='normal',
-                                  width=STAGE_PANEL_LAYOUT['select_width'])
-                entry.pack(side='left')
-                current = str(fields.get(label, '')).strip()
-                if current:
-                    entry.set(current)
-            elif label == '故事梗概':
+            if label == '故事梗概':
+                row = ttk.Frame(dialog.content)
+                row.pack(fill='x', pady=SPACING['xs'])
+                caption = ttk.Label(row, text=label,
+                                    padding=(STAGE_PANEL_LAYOUT['label_indent'], 0, 0, 0))
+                caption.pack(side='left', padx=(SPACING['none'], SPACING['sm']))
+                # 故事梗概的高度缩短到与其他下拉框一致（单行），长度（宽度）保持整行不变。
                 entry = TextArea(row, height=1, width=CHAR_WIDTH['field_sm'], wrap='word')
                 entry.pack(side='left', fill='x', expand=True)
                 entry.insert('1.0', fields.get(label, ''))
+                dialog.brief_fields[label] = entry
             else:
-                entry = TextArea(row, height=1, width=STAGE_PANEL_LAYOUT['select_width'], wrap='word')
-                entry.pack(side='left')
-                entry.insert('1.0', fields.get(label, ''))
-            dialog.brief_fields[label] = entry
-        dialog.lock_fields = ProductionLockFields(dialog.content, definitions=PRODUCTION_LOCK_DEFINITIONS[5:])
+                brief_specs.append(label)
+        def brief_field_factory(label):
+            # 下拉框字段可输入可点选；其余字段（故事角色、交付形态等）仍为文字输入，
+            # 尺寸与赛道下拉框统一。
+            if label in IDEA_BRIEF_DROPDOWN_VALUES:
+                return lambda field: SelectBox(field, values=IDEA_BRIEF_DROPDOWN_VALUES[label],
+                                               state='normal',
+                                               width=STAGE_PANEL_LAYOUT['select_width'])
+            return lambda field: TextArea(field, height=1,
+                                          width=STAGE_PANEL_LAYOUT['select_width'], wrap='word')
+        dialog.lock_fields = ProductionLockFields(
+            dialog.content, definitions=PRODUCTION_LOCK_DEFINITIONS[5:],
+            leading=tuple({'key': label, 'label': label, 'factory': brief_field_factory(label)}
+                          for label in brief_specs))
         dialog.lock_fields.pack(fill='x', pady=SPACING['sm'])
         configured = stage_config.workflow_lock(project)
         for item in PRODUCTION_LOCK_DEFINITIONS:
@@ -497,6 +505,15 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
                     configured[item['key']] = fields[label]
                     break
         dialog.lock_fields.set_values(configured)
+        for label in brief_specs:
+            entry = dialog.lock_fields.leading_inputs[label]
+            dialog.brief_fields[label] = entry
+            if isinstance(entry, tk.Text):
+                entry.insert('1.0', fields.get(label, ''))
+            else:
+                current = str(fields.get(label, '')).strip()
+                if current:
+                    entry.set(current)
         def entry_text(entry):
             return entry.get('1.0', 'end-1c') if isinstance(entry, tk.Text) else entry.get()
         def save():
