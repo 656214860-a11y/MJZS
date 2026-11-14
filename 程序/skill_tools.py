@@ -487,6 +487,94 @@ def _export(context):
             'note': '转码在「' + stage_label('edit') + '」页面上按对应平台的导出按钮执行（Studio.export_platform）'}
 
 
+# ── 总控包 scripts 机检桥（aigc_lint）────────────────────────────────────────
+# 这些工具把「靠模型自觉」的提示词/闸门/契约机检变成确定性脚本断言；输入取自项目锁
+# 或上下文里的投喂稿正文，返回 dict，子模块未挂载时带友好 error，不裸抛。
+def _feed_text(context):
+    """投喂稿正文：优先上下文里的 ``feed`` 明文；没有则从 ``feed_file`` 读。"""
+    ctx = context or {}
+    text = ctx.get('feed') or ctx.get('feed_text')
+    if isinstance(text, str) and text.strip():
+        return text
+    path = ctx.get('feed_file')
+    if path and Path(path).is_file():
+        return Path(path).read_text(encoding='utf-8-sig')
+    raise ToolNeedsInput('这一步需要投喂稿正文（feed）或投喂稿文件（feed_file）')
+
+
+def _locks(context):
+    """项目锁：上下文里的 workflow_lock dict，或散落在 context 顶层的同名字段。"""
+    ctx = context or {}
+    locks = ctx.get('workflow_lock') if isinstance(ctx.get('workflow_lock'), dict) else {}
+    for key in ('video_model_version', 'track', 'aspect_ratio'):
+        if key not in locks and ctx.get(key):
+            locks[key] = ctx.get(key)
+    return locks
+
+
+def _feed_validate(context):
+    """投喂稿机检：C1~C30 / H1~H12。输入 model/track/aspect 取项目锁，缺省按国内剧 2.5。"""
+    from aigc_lint import validate_prompt
+    ctx = context or {}
+    locks = _locks(ctx)
+    result = validate_prompt(_feed_text(ctx),
+                             model=locks.get('video_model_version'),
+                             track=locks.get('track'),
+                             aspect=locks.get('aspect_ratio'))
+    if not result.get('ok') and result.get('exit') is None:
+        raise ToolError(result.get('error') or '投喂稿机检脚本未挂载')
+    return result
+
+
+def _feed_gate_check(context):
+    """投喂层六道闸门 + 素材形态一致性。"""
+    from aigc_lint import gate_check
+    ctx = context or {}
+    locks = _locks(ctx)
+    result = gate_check(_feed_text(ctx), model=locks.get('video_model_version'),
+                        assets=ctx.get('assets'), mode=ctx.get('mode') or 'auto')
+    if not result.get('ok') and result.get('exit') is None:
+        raise ToolError(result.get('error') or '闸门脚本未挂载')
+    return result
+
+
+def _feed_audit_contract(context):
+    """全流程交付契约核销（P0~P5 硬产出 + 权威源模板）。"""
+    from aigc_lint import audit_contract
+    ctx = context or {}
+    result = audit_contract(_feed_text(ctx), mode=ctx.get('mode') or 'auto',
+                            director=ctx.get('director'))
+    if not result.get('ok') and result.get('exit') is None:
+        raise ToolError(result.get('error') or '契约核销脚本未挂载')
+    return result
+
+
+def _style_lock_recommend(context):
+    """画风锁推荐：题材 → 候选池（含打斗/特效承载排除）。"""
+    from aigc_lint import style_recommend
+    ctx = context or {}
+    genre = ctx.get('genre') or ctx.get('subject') or ctx.get('text') or ''
+    if not str(genre).strip():
+        raise ToolNeedsInput('这一步需要题材/需求文本（genre）以推荐画风')
+    result = style_recommend(str(genre))
+    if not result.get('ok'):
+        raise ToolError(result.get('error') or '画风锁推荐引擎未挂载')
+    return result
+
+
+def _style_lock_ladder(context):
+    """画风锁递进阶梯：影像基底 → 技法家族 → 导演卡 → 可选质感。"""
+    from aigc_lint import style_ladder
+    ctx = context or {}
+    genre = ctx.get('genre') or ctx.get('subject') or ctx.get('text') or ''
+    if not str(genre).strip():
+        raise ToolNeedsInput('这一步需要题材/需求文本（genre）以出画风阶梯')
+    result = style_ladder(str(genre), top=ctx.get('top') or 4)
+    if not result.get('ok'):
+        raise ToolError(result.get('error') or '画风锁引擎未挂载')
+    return result
+
+
 READY = {
     'script_contract.structure_script': (_structure_script, 'script_contract.structure_script：解析已确认原稿'),
     'script_contract.review_structured_script': (_review_structured_script,
@@ -520,6 +608,11 @@ READY = {
     'edit.exportYouTube': (_export, 'platform_spec：YouTube 3840×2160 / 45M'),
     'edit.exportCustom': (_export, 'platform_spec：自定义参数'),
     'recon.card': (_recon_card, 'recon_service：③④ 采风，检索公开情报并落《对标情报卡》'),
+    'feed.validate': (_feed_validate, 'aigc_lint.validate_prompt：投喂稿 C1~C30 / H1~H12 机检'),
+    'feed.gateCheck': (_feed_gate_check, 'aigc_lint.gate_check：投喂层六道闸门 + 素材形态一致性'),
+    'feed.auditContract': (_feed_audit_contract, 'aigc_lint.audit_contract：全流程交付契约核销'),
+    'style.lockRecommend': (_style_lock_recommend, 'aigc_lint.style_recommend：画风锁候选池'),
+    'style.lockLadder': (_style_lock_ladder, 'aigc_lint.style_ladder：画风锁递进阶梯'),
 }
 
 # 只能在页面上按的那几步：页序号按 STAGES 的顺序（与左侧导航一一对应）。

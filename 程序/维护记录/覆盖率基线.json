@@ -60,6 +60,12 @@
    "percent": 0.0
   },
   {
+   "module": "aigc_lint.py",
+   "covered": 0,
+   "total": 123,
+   "percent": 0.0
+  },
+  {
    "module": "animatic_service.py",
    "covered": 0,
    "total": 171,
@@ -500,7 +506,7 @@
   {
    "module": "desktop_media_pages.py",
    "covered": 0,
-   "total": 771,
+   "total": 769,
    "percent": 0.0
   },
   {
@@ -728,7 +734,7 @@
   {
    "module": "idea_document_paths.py",
    "covered": 0,
-   "total": 131,
+   "total": 127,
    "percent": 0.0
   },
   {
@@ -896,7 +902,7 @@
   {
    "module": "pet_agent.py",
    "covered": 0,
-   "total": 763,
+   "total": 762,
    "percent": 0.0
   },
   {
@@ -1328,7 +1334,7 @@
   {
    "module": "skill_tools.py",
    "covered": 0,
-   "total": 417,
+   "total": 483,
    "percent": 0.0
   },
   {
