@@ -106,15 +106,34 @@ class BackgroundCommandResumeTests(unittest.TestCase):
         self.assertIn('--resume', args)
         self.assertIn('abc-123', args)
 
-    def test_claude_without_session_has_no_resume(self):
+    def test_claude_without_session_gets_session_id_and_no_resume(self):
+        import uuid
         import workflow_engines
 
+        config = {'engine': 'claude'}
         with mock.patch.object(workflow_engines, 'find_program', return_value='claude.exe'), \
              mock.patch.object(workflow_engines, 'gui_claude_program', return_value=False), \
              mock.patch('workflow_settings.skill_roots_for_config', return_value=[]):
-            args = workflow_engines.background_command(
-                {'engine': 'claude'}, 'proj', 'out', 'report.md')
+            args = workflow_engines.background_command(config, 'proj', 'out', 'report.md')
+        # 后台调用主动指定 --session-id（uuid），跑完后持久化供失败重试用 --resume 续上下文。
         self.assertNotIn('--resume', args)
+        self.assertIn('--session-id', args)
+        session_id = args[args.index('--session-id') + 1]
+        self.assertEqual(str(uuid.UUID(session_id)), session_id)
+        # uuid 回写 config，供 run_background 持久化到后台引擎会话.json。
+        self.assertEqual(config['session_id'], session_id)
+
+    def test_claude_with_resume_uses_resume_not_session_id(self):
+        import workflow_engines
+
+        config = {'engine': 'claude', 'resume_session': 'abc-123'}
+        with mock.patch.object(workflow_engines, 'find_program', return_value='claude.exe'), \
+             mock.patch.object(workflow_engines, 'gui_claude_program', return_value=False), \
+             mock.patch('workflow_settings.skill_roots_for_config', return_value=[]):
+            args = workflow_engines.background_command(config, 'proj', 'out', 'report.md')
+        self.assertIn('--resume', args)
+        self.assertNotIn('--session-id', args)
+        self.assertNotIn('session_id', config)
 
     def test_codex_background_command_appends_resume_thread(self):
         import workflow_engines
