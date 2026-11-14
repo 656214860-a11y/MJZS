@@ -2,6 +2,7 @@
 import hashlib,json,os,subprocess,time,uuid,re,threading
 from pathlib import Path
 import stage_layout
+import client_profiles
 from file_cache import remove_temporary_file
 from agent.core import read,save,save_text,temporary_path,replace
 from platform_tools import launch_windows_app
@@ -13,13 +14,7 @@ TIMEOUT_SECONDS = 2 * 3600 + 600
 def install_root():return Path(os.environ.get('LOCALAPPDATA',str(Path.home())))/'qwen-code/qwen-code'
 
 def command(config):
-    root=install_root();node=root/'node/node.exe';entry=root/'lib/cli-entry.js'
-    if config.get('program') and Path(config['program']).resolve() not in (node.resolve(),(root/'bin/qwen.cmd').resolve()):return [config['program']]
-    if node.is_file() and entry.is_file():return [str(node),str(entry)]
-    import shutil
-    found=shutil.which('qwen.exe')
-    if found:return [found]
-    raise ValueError('未找到 Qwen Code，请安装后在调用设置中选择程序')
+    return client_profiles.qwen_command(config)
 
 def setup_key(config):return hashlib.sha256(json.dumps(config,sort_keys=True).encode()).hexdigest()
 

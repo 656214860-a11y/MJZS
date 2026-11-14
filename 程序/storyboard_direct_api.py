@@ -15,6 +15,8 @@ MAX_TOKENS = 32768
 REQUEST_TIMEOUT = 600
 HISTORY_KEEP = 2
 STAGE_LABEL = '初步分镜'
+MAX_FORMAT_RETRIES = 2
+FORMAT_RETRY_BASE_SECONDS = 0.25
 
 
 def direct_model(config):
@@ -106,6 +108,7 @@ class _Stopped(Exception):
 def _ask(batch, messages):
     """发一次请求；返回回复文本。取消、失败、被截断都抛出带原因的异常。"""
     import model_pool
+    from model_router import failure_policy, record_circuit_failure, record_circuit_success
     from workflow_context_budget import ensure_request_context
     ensure_request_context(batch.system + '\n'.join(str(m['content']) for m in messages), STAGE_LABEL,
                            context_limit=model_pool.context_length_of((batch.record or {}).get('context_length')) or None,
@@ -114,9 +117,42 @@ def _ask(batch, messages):
         raise _Stopped()
     result = batch.adapter.stream(messages, options={'max_tokens': MAX_TOKENS}, model=batch.chosen, system=batch.system,
                             on_chunk=lambda _chunk: None, cancelled=batch.cancelled)
+    if result.get('ok'):
+        record_circuit_success(batch.chosen)
+    elif failure_policy(result).get('retryable'):
+        record_circuit_failure(batch.chosen)
     if batch.cancelled() or result.get('error_class') == 'cancelled':
         raise _Stopped()
     if not result.get('ok'):
+        policy = failure_policy(result)
+        if policy.get('retryable'):
+            from model_metering import chat_metered
+            from model_pool import PoolAdapter
+            from pet_llm import RequestLedger
+            records = model_pool.pool(program=Path(__file__).resolve().parent)
+            for candidate in batch.group_candidates:
+                if candidate == batch.chosen:
+                    continue
+                if batch.cancelled():
+                    raise _Stopped()
+                record = records.get(candidate)
+                if not record:
+                    continue
+                fallback_adapter = PoolAdapter(record, candidate, program=Path(__file__).resolve().parent,
+                                               timeout=REQUEST_TIMEOUT)
+                fallback = chat_metered(
+                    fallback_adapter, RequestLedger(batch.project), batch.stage, messages,
+                    {'max_tokens': MAX_TOKENS}, candidate, batch.system)
+                if batch.cancelled():
+                    raise _Stopped()
+                if fallback.get('ok'):
+                    record_circuit_success(candidate)
+                    finish = str((fallback.get('response_meta') or {}).get('finish_reason') or '')
+                    if finish in model_pool.TASK_TRUNCATED:
+                        raise ValueError('模型回复被截断（超过输出上限），没有写入任何文件')
+                    return str(fallback.get('text') or '')
+                if failure_policy(fallback).get('retryable'):
+                    record_circuit_failure(candidate)
         raise ValueError('模型请求失败：' + str(result.get('error') or '未知原因'))
     if str((result.get('response_meta') or {}).get('finish_reason') or '') in model_pool.TASK_TRUNCATED:
         raise ValueError('模型回复被截断（超过输出上限），没有写入任何文件')
@@ -158,15 +194,18 @@ def _episode(batch, script, existing_board):
     hint = Path(existing_board) if existing_board else working_dir(context) / ('EP%03d_分镜.json' % number)
     text = script_text(script)
     prior, data = None, None
-    for attempt in (1, 2):
+    for attempt in range(1, MAX_FORMAT_RETRIES + 1):
         reply = _ask(batch, _messages(text, number, start, old, prior))
         try:
             data = _validated(reply, project, number, start, hint, script)
             break
         except ValueError as error:
-            if attempt == 2:
+            if attempt == MAX_FORMAT_RETRIES:
                 raise ValueError('两次回复都没有通过校验：' + str(error))
             prior = (reply, str(error))
+            if batch.cancelled():
+                raise _Stopped()
+            time.sleep(FORMAT_RETRY_BASE_SECONDS * (2 ** (attempt - 1)))
     target = Path(existing_board) if existing_board else working_dir(context) / canonical_name(data)
     if not existing_board and target.exists():
         raise ValueError('同名分镜已存在，不覆盖：' + target.name)
@@ -198,17 +237,30 @@ class _Batch:
         stage, rules = profile or ('storyboard', storyboard_direct_rules())
         self.project = Path(project).resolve()
         self.chosen = str((config or {}).get('model') or '')
+        self.stage = stage
         self.record = record
         self.cancelled = cancelled or (lambda: False)
         self.system = str(skill_text or '') + '\n\n' + rules
         if adapter is None:
+            import model_pool
             from model_pool import PoolAdapter
+            from model_pool import model_admission_error, health_is_blocked
             from writing_api import WritingRequestAdapter
             self.record = record or direct_model(config)[1]
+            problem = model_admission_error(
+                self.record, require_context_length=True,
+                require_certified=model_pool.require_certified(program=Path(__file__).resolve().parent), stage=stage)
+            if problem:
+                raise ValueError(problem)
+            if health_is_blocked(self.record, program=Path(__file__).resolve().parent):
+                raise ValueError('该模型最近一次完整任务未通过，已暂停无人值守直连；请先重新做小样本验证。')
             adapter = WritingRequestAdapter(PoolAdapter(self.record, self.chosen, program=Path(__file__).resolve().parent,
                                                         timeout=REQUEST_TIMEOUT), self.record, self.chosen,
                                             project=self.project, stage=stage)
         self.adapter = adapter
+        import model_pool
+        self.group_candidates = model_pool.group_candidates(
+            (self.record or {}).get('group'), self.chosen, program=Path(__file__).resolve().parent)
 
 
 def _jobs(batch, scripts, existing):

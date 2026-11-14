@@ -10,6 +10,8 @@ select() 的顺序就是规格里写的那四步：用户偏好 → preferredMod
 按 capabilities 匹配 → skill.fallbackModels[0] 或 deepseek-v4-flash。
 """
 import os
+import threading
+import time
 from pathlib import Path
 
 import model_pool
@@ -28,6 +30,56 @@ CHOICE_IDS = tuple(choice[0] for choice in CHOICES)
 LABEL_OF = dict(CHOICES)
 DEFAULT_MODEL = 'deepseek-v4-flash'
 AUTO = 'auto'
+CIRCUIT_FAILURE_THRESHOLD = 3
+CIRCUIT_COOLDOWN_SECONDS = 60.0
+_CIRCUIT_LOCK = threading.Lock()
+_CIRCUITS = {}
+
+
+class _Circuit:
+    def __init__(self):
+        self.failures = 0
+        self.opened_at = 0.0
+
+
+def circuit_state(model_id):
+    """返回模型熔断状态：closed／open／half_open。"""
+    key = str(model_id or '').strip()
+    with _CIRCUIT_LOCK:
+        circuit = _CIRCUITS.get(key)
+        if circuit is None or not circuit.opened_at:
+            return {'state': 'closed', 'failures': circuit.failures if circuit else 0, 'opened_at': 0.0}
+        elapsed = time.time() - circuit.opened_at
+        return {'state': 'half_open' if elapsed >= CIRCUIT_COOLDOWN_SECONDS else 'open',
+                'failures': circuit.failures, 'opened_at': circuit.opened_at}
+
+
+def circuit_allows(model_id):
+    return circuit_state(model_id)['state'] != 'open'
+
+
+def record_circuit_failure(model_id):
+    key = str(model_id or '').strip()
+    if not key:
+        return circuit_state(key)
+    with _CIRCUIT_LOCK:
+        circuit = _CIRCUITS.setdefault(key, _Circuit())
+        circuit.failures += 1
+        if circuit.failures >= CIRCUIT_FAILURE_THRESHOLD:
+            circuit.opened_at = time.time()
+        return {'state': 'open' if circuit.opened_at else 'closed',
+                'failures': circuit.failures, 'opened_at': circuit.opened_at}
+
+
+def record_circuit_success(model_id):
+    key = str(model_id or '').strip()
+    if not key:
+        return circuit_state(key)
+    with _CIRCUIT_LOCK:
+        circuit = _CIRCUITS.setdefault(key, _Circuit())
+        circuit.failures = 0
+        circuit.opened_at = 0.0
+        return {'state': 'closed', 'failures': 0, 'opened_at': 0.0}
 
 
 def _responses_output_text(outputs):
@@ -99,6 +151,26 @@ def _parse_response(wire_api, data, target):
         text = _WIRE_PARSERS.get(wire_api, _parse_completions)(data, meta)
     meta['content_length'] = len(text)
     return text, meta
+
+
+_REQUIRED_RESPONSE_FIELDS = {
+    'chat': ('choices',),
+    'responses': ('output',),
+    'messages': ('content',),
+}
+
+
+def response_envelope_error(wire_api, data):
+    """把 API 响应视为不可信输入：成功但缺少协议必备字段时判定为伪兼容/坏回执。"""
+    if not isinstance(data, dict):
+        return '响应不是 JSON 对象'
+    if wire_api == 'chat' and not isinstance(data.get('choices'), list):
+        return '响应缺少 choices 字段'
+    if wire_api == 'responses' and not isinstance(data.get('output'), list):
+        return '响应缺少 output 字段'
+    if wire_api == 'messages' and not isinstance(data.get('content'), list):
+        return '响应缺少 content 字段'
+    return ''
 
 
 def error_class(error):
@@ -272,6 +344,14 @@ class ModelAdapter:
         # 各协议共用一套口径：Claude 的总输入含缓存读写，缓存写入数随结果保留。
         usage = pet_llm.usage_of(result)
         text, response_meta = _parse_response(self.wire_api, data, target)
+        envelope_error = (response_envelope_error(self.wire_api, data)
+                          if result.get('ok') and self.wire_api == 'chat' else '')
+        if envelope_error:
+            return {'ok': False, 'status': result.get('status'), 'error': envelope_error,
+                    'kind': result.get('kind') or 'protocol', 'model': target, 'text': '',
+                    'usage': usage, 'data': data, 'error_class': 'protocol', 'accepted': result.get('accepted'),
+                    'provider_task_id': result.get('provider_task_id') or result.get('task_id'),
+                    'response_meta': response_meta}
         return {'ok': bool(result.get('ok')), 'status': result.get('status'), 'error': result.get('error'),
                 'kind': result.get('kind') or '', 'model': target, 'text': text, 'usage': usage, 'data': data,
                 'error_class': '' if result.get('ok') else error_class(result.get('error')),
@@ -455,6 +535,9 @@ class ModelRouter:
         # 显式给了适配器（用例、别的子系统）就以它为准：这时不去翻盘上的模型池，免得自检跟着
         # 真安装目录里的配置红绿。
         self.explicit = adapters is not None
+        if self.explicit:
+            with _CIRCUIT_LOCK:
+                _CIRCUITS.clear()
         self.records = records if isinstance(records, dict) else None
         built = adapters if adapters is not None else self.default_adapters()
         self.adapters = list(built)
@@ -497,13 +580,19 @@ class ModelRouter:
 
     def usable(self, model):
         adapter = self.adapter_for(model)
-        return adapter if adapter is not None and adapter.available() else None
+        if adapter is None or not adapter.available():
+            return None
+        if not circuit_allows(model):
+            return None
+        if model_pool.health_is_blocked(model, program=self.program):
+            return None
+        return adapter
 
     def available_models(self):
         """现在真能用的模型（密钥配好了的），按成本从低到高。"""
         out = []
         for model, adapter in self.models_now().items():
-            if adapter.available():
+            if adapter.available() and not model_pool.health_is_blocked(model, program=self.program):
                 out.append((model, adapter.provider, adapter.cost(model)))
         return sorted(out, key=lambda item: (item[2], item[0]))
 
@@ -603,14 +692,88 @@ class ModelRouter:
             attempts.append({'model': model, 'status': result.get('status'), **policy})
             result = dict(result, attempts=list(attempts), failure=policy)
             if result.get('ok'):
+                record_circuit_success(model)
                 if self.ledger is not None:
                     tier = 'flash' if 'flash' in model else 'pro'
                     self.ledger.record(model, result.get('usage') or {}, tier=tier,
                                        at=self.clock() if callable(self.clock) else None)
                 return result
+            if result.get('status') in (0, 408, 425, 429, 500, 502, 503, 504):
+                record_circuit_failure(model)
             if not policy['retryable']:
                 return result
         return result
+
+
+class ModelGateway:
+    """LiteLLM Router 的零依赖等价：按候选模型组做健康/预算/重试与跨模型降级。"""
+
+    def __init__(self, program=None, transport=None, config=None, budget=None, ledger=None, records=None):
+        self.router = ModelRouter(program=program, transport=transport, config=config,
+                                  budget=budget, ledger=ledger, records=records)
+        self.default_models = []
+
+    @classmethod
+    def for_group(cls, group, current_model, *, records=None, program=None, transport=None,
+                  budget=None, ledger=None):
+        """按模型记录里的 group 字段生成候选组网关；当前模型优先。"""
+        models = model_pool.group_candidates(group, current_model, records=records, program=program)
+        gateway = cls(program=program, transport=transport, config=None, budget=budget,
+                      ledger=ledger, records=records or model_pool.pool(None, program))
+        gateway.default_models = models
+        return gateway
+
+    def _candidates(self, models):
+        models = models if models is not None else self.default_models
+        return list(dict.fromkeys(str(model) for model in (models or ()) if str(model)))
+
+    def chat(self, models, messages, options=None, system=''):
+        results = []
+        for model in self._candidates(models):
+            adapter = self.router.usable(model)
+            if adapter is None:
+                results.append({'model': model, 'ok': False, 'error': '模型不可用或未通过健康准入'})
+                continue
+            result = adapter.chat(messages, options=options, model=model, system=system)
+            policy = failure_policy(result)
+            results.append({'model': model, 'ok': bool(result.get('ok')),
+                            'status': result.get('status'), **policy})
+            result = dict(result, attempts=results)
+            if result.get('ok'):
+                record_circuit_success(model)
+            elif result.get('status') in (0, 408, 425, 429, 500, 502, 503, 504):
+                record_circuit_failure(model)
+            if result.get('ok') or not policy['retryable']:
+                return result
+        if results:
+            return {'ok': False, 'status': 0, 'error': '候选模型组全部失败或不可用',
+                    'model': '', 'text': '', 'usage': pet_llm.usage_of(None),
+                    'attempts': results, 'failure': failure_policy({})}
+        return {'ok': False, 'status': 0, 'error': '没有给出候选模型', 'model': '', 'text': '',
+                'usage': pet_llm.usage_of(None), 'failure': failure_policy({})}
+
+    def stream(self, models, messages, options=None, system='', on_chunk=None, cancelled=None):
+        for model in self._candidates(models):
+            adapter = self.router.usable(model)
+            if adapter is None:
+                continue
+            result = adapter.stream(messages, options=options, model=model, system=system,
+                                    on_chunk=on_chunk, cancelled=cancelled)
+            if result.get('ok'):
+                record_circuit_success(model)
+            elif result.get('status') in (0, 408, 425, 429, 500, 502, 503, 504):
+                record_circuit_failure(model)
+            if result.get('ok') or not failure_policy(result)['retryable']:
+                return result
+        return {'ok': False, 'status': 0, 'error': '候选模型组全部失败或不可用',
+                'model': '', 'text': '', 'usage': pet_llm.usage_of(None),
+                'failure': failure_policy({})}
+
+    def chat_group(self, messages, options=None, system=''):
+        return self.chat(None, messages, options=options, system=system)
+
+    def stream_group(self, messages, options=None, system='', on_chunk=None, cancelled=None):
+        return self.stream(None, messages, options=options, system=system, on_chunk=on_chunk, cancelled=cancelled)
 
 
 

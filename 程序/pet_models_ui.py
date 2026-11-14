@@ -1,18 +1,7 @@
 # -*- coding: utf-8 -*-
-"""三虎设置 → 模型… 与 模型管理…：两扇窗都只是层皮（第 43 期）。
-
-规格（用户附件《三虎模型设置》）：
-- 三虎设置 → 模型：四个任务维度各一个下拉框，底部 测试连接／打开模型管理／保存／重置；
-- 模型管理：模型池＋API 配置的唯一入口——加一条、改一条、删一条、测一条连接都在这里；
-- 两处的选项都从模型池长出来，不硬编码；改完即时生效（写盘 ＋ 叠进正在用的那份客户端）。
-
-读写在 model_pool、路由在 model_router、生效由 pet.apply_agent_models() 负责；这一层只管画。
-窗口照 skill_panel 那套来：Toplevel ＋ transient ＋ Escape 关闭，关掉不留尾巴。
-"""
 import tkinter as tk
 from tkinter import font as tkfont
 from tkinter import ttk
-
 import model_pool
 from pet_models_tabs import MODES, ModelManagerModeTabsMixin
 from responsive_ui import auto_height
@@ -22,18 +11,12 @@ from ui_dialogs import FileDialog
 from account_inputs import PasswordInput
 from ui_widgets import (BusyState, NotificationDispatcher, SelectBox, BaseDialog, Card, DataTable,
                         LineInput, PrimaryButton, SecondaryButton)
-
 TITLE = '三虎 · 设置'
 SETTINGS_TITLE = '三虎模型配置'          # 第 46 期第 6 条：这一页与它的独立窗口都叫这个名字
 MANAGER_BUTTON = '模型配置'              # 用户要求：原「API 统一配置」改名为「模型配置」，仍打开模型管理
-# 第 51 期第 1 条：这颗键原来用 Highlight（琥珀底、10pt 粗体、大内边距），摆在一排 Compact 按钮里
-# 格式不一致；现在与同排的分页按钮／「关闭」一样用 Compact.TButton，名字也补上那个半角空格。
 MANAGER_TITLE = '模型管理'
 SETTINGS_GEOMETRY = '700x430'
-# 这两扇窗都是内容型表单，不允许被系统压成 1×1 后只剩一条边；最小值只保动作区与首行可见。
 SETTINGS_MIN = (620, 430)
-
-
 def form_column_width(labels):
     """表单标签列宽：令牌字符宽给下限，再按实际标签量出像素，避免中文标签被裁。
 
@@ -62,12 +45,6 @@ def model_options(records, with_auto=True):
                               labeler=workflow_settings.desktop_model_label)
 # 第 51 期第 2 条：窗口长高 90px，多出来的高度全归上面的模型池（下面那张表单同时收紧，见 open_manager）。
 MANAGER_GEOMETRY = '1180x860'
-# 第 52 期第 1 条：这扇窗原来是个写死的尺寸，在 1366x768 这类屏上比主界面还高。现在按主界面的
-# 比例算（再小也留下限，九行表单要塞得下），并摆回主界面正中。
-# 第 65 期任务 5：用户要「模型池内容框优先显示全部内容」——比例 80% → 90%、上限长高 80px，
-# 多出来的高度全归上面那张模型池。
-# R2401 方案 B：比例统一到 ui_tokens.OVERLAY_RATIO（92% 覆盖主界面），内容兜底与绝对上限
-# 都先被主界面尺寸封顶，杜绝「弹窗比主界面还大」的超界突兀。
 MANAGER_MIN = (820, 620)
 NOTE_ABOUT = '三虎用于决策、对话、路由；子模块执行模型在阶段配置里选。'
 # 「模型 ID」一栏在本地调用（Desktop／CLI）时填的是程序名，API 时才是接口模型名。
@@ -83,7 +60,8 @@ TASK_FIELD_LABELS = tuple(label for _key, label, _note in model_pool.TASK_FIELDS
 # 模型管理表单的全部标签；列宽按最宽的一条量，避免中文标签被定宽裁掉。
 MANAGER_FORM_LABELS = ('Provider', '模型 ID', '显示名', '功能', 'API 根地址',
                        '密钥名（.env 里的变量名）', '直接输入密钥', '协议', '能力标签',
-                       '上下文长度（可选）', '备注（可选）', '应用安装路径', '命令行程序路径')
+                       '上下文长度（可选）', '每分钟请求上限（可选）', '模型组（可选）',
+                       '权重（可选）', '备注（可选）', '应用安装路径', '命令行程序路径')
 # 密钥框只给占位宽度，真正可输入区由输入列伸缩；不把整把密钥回显到界面。
 SECRET_FIELD_WIDTH = 30
 # 表单里的下拉框与输入框只给够用的宽度；成对的两项并在一行（左对左、右对右）。
@@ -293,6 +271,7 @@ def settings_page(parent, pet, close=None, with_manager=True, label_width=None, 
     picked = {}
     states = {}
     hint = tk.StringVar(value='改完点「保存」立刻生效，不用重启。')
+    cert_var = tk.BooleanVar(value=model_pool.require_certified(program))
     for key, label, note in model_pool.TASK_FIELDS:
         pairs = choices['default'] if key == 'default' else choices['plain']
         values = [text for _model_id, text in pairs]
@@ -309,6 +288,10 @@ def settings_page(parent, pet, close=None, with_manager=True, label_width=None, 
         row += 1
         ttk.Label(body, text=note, style='Muted.TLabel').grid(row=row, column=1, columnspan=2, sticky='w')
         row += 1
+    ttk.Checkbutton(body, text='无人值守前要求五合一认证（连接/协议/模型/能力/完整任务）',
+                    variable=cert_var).grid(row=row, column=1, columnspan=2, sticky='w',
+                                            pady=(SPACING['xs'], SPACING['none']))
+    row += 1
 
     def model_of(key):
         pairs = choices['default'] if key == 'default' else choices['plain']
@@ -360,6 +343,7 @@ def settings_page(parent, pet, close=None, with_manager=True, label_width=None, 
         chosen = {key: model_of(key) for key, _label, _note in model_pool.TASK_FIELDS}
         try:
             pet.save_agent_models(chosen)
+            model_pool.set_require_certified(cert_var.get(), program)
         except (ValueError, OSError) as exc:
             report_error(hint, exc)
             return None
@@ -370,6 +354,7 @@ def settings_page(parent, pet, close=None, with_manager=True, label_width=None, 
 
     def reset():
         now = pet.agent_model_tasks()
+        cert_var.set(model_pool.require_certified(program))
         for key, _label, _note in model_pool.TASK_FIELDS:
             picked[key].set(model_pool.label_of(now.get(key) or model_pool.TASKS_DEFAULT[key], records))
         refresh()
@@ -569,8 +554,11 @@ class _ModelManager(ModelManagerModeTabsMixin):
                             variable=var).pack(side='left', padx=(SPACING['none'], SPACING['sm']))
         self.text_row(index + 1, 'context_length', '上下文长度（可选）')
         self.text_row(index + 1, 'note', '备注（可选）', column=2)
+        self.text_row(index + 2, 'rpm', '每分钟请求上限（可选）')
+        self.text_row(index + 2, 'group', '模型组（可选）', column=2)
+        self.text_row(index + 3, 'weight', '权重（可选）')
         self.hint = tk.StringVar(value='选一条改，或者「新建一条」；「保存这条」立刻写进模型池。')
-        self.api_rows = {2, 3, 4}
+        self.api_rows = {2, 3, 4, index + 2, index + 3}
         self.api_controls = [widget for widget in self.form.winfo_children()
                         if int(widget.grid_info().get('row', -1)) in self.api_rows]
         self.program_label = ttk.Label(self.form, text='应用安装路径')
@@ -866,6 +854,15 @@ class _ModelManager(ModelManagerModeTabsMixin):
         self.entries['context_length'].delete(0, 'end')
         if item.get('context_length'):
             self.entries['context_length'].insert(0, str(item['context_length']))
+        self.entries['rpm'].delete(0, 'end')
+        if item.get('rpm'):
+            self.entries['rpm'].insert(0, str(item['rpm']))
+        self.entries['group'].delete(0, 'end')
+        if item.get('group'):
+            self.entries['group'].insert(0, str(item['group']))
+        self.entries['weight'].delete(0, 'end')
+        if item.get('weight'):
+            self.entries['weight'].insert(0, str(item['weight']))
         self.entries['note'].delete(0, 'end')
         self.entries['note'].insert(0, str(item.get('note') or ''))
         for tag, var in self.caps.items():
@@ -896,6 +893,9 @@ class _ModelManager(ModelManagerModeTabsMixin):
         value['wire_api'] = model_pool.id_of_label(self.wire.get(), model_pool.WIRE_APIS)
         value['capabilities'] = [tag for tag, var in self.caps.items() if var.get()]
         value['context_length'] = self.entries['context_length'].get().strip()
+        value['rpm'] = self.entries['rpm'].get().strip()
+        value['group'] = self.entries['group'].get().strip()
+        value['weight'] = self.entries['weight'].get().strip()
         value['note'] = self.entries['note'].get().strip()
         value['program'] = self.program_entry.get().strip()
         value['modality'] = model_pool.id_of_label(self.modality.get(), model_pool.MODALITIES)
@@ -915,7 +915,7 @@ class _ModelManager(ModelManagerModeTabsMixin):
         self.state['id'] = ''
         for key, _label in FORM_FIELDS:
             self.entries[key].delete(0, 'end')
-        for key in ('context_length', 'note', 'program'):
+        for key in ('context_length', 'rpm', 'group', 'weight', 'note', 'program'):
             self.entries[key].delete(0, 'end')
         for var in self.caps.values():
             var.set(False)

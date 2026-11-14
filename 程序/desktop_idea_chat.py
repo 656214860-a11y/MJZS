@@ -16,7 +16,6 @@ import time
 import tkinter as tk
 from pathlib import Path
 from tkinter import ttk
-
 import pet_state
 import ui_plugin_registry
 from desktop_idea_deferred import IdeaDeferredMixin
@@ -27,17 +26,13 @@ from ui_tokens import CHAR_WIDTH, COLORS, FONTS, SPACING, STAGE_PANEL_LAYOUT
 from ui_widgets import FormDialog, SelectBox, TextArea
 from desktop_idea_bubbles import (BUBBLE_BACK, BUBBLE_FILL, BUBBLE_FLOOR, BUBBLE_FONT, BUBBLE_GAP, BUBBLE_LINE, BUBBLE_MAX_RATIO,
                                   BUBBLE_PAD, BUBBLE_SLACK, IdeaBubblesMixin)
-
 ROOT = Path(__file__).resolve().parent
 LOGGER = logging.getLogger(__name__)
 PAGE = pet_state.PAGE_OF
-
 def script_raw_saved_notice(formal_path=''):
     """剧本原稿发布后的三虎提示。"""
     name = Path(formal_path).name if formal_path else 'script_raw.md'
     return '剧本已自动保存：' + name
-
-
 def model_error_display(result, default='未收到模型回复'):
     """按 kind 把模型调用失败翻成用户可见文案：返回 (文案, 是否只写日志不进弹窗)。
 
@@ -53,30 +48,17 @@ def model_error_display(result, default='未收到模型回复'):
     if kind in ('network', 'server'):
         return '模型暂时无法响应，请稍后重试', True
     return '系统内部错误，已记录日志', True
-
-
-# 第 37 期第 2 条：创意栏那七个字段的名字只写一份（预置示例与灰色字段名都取它）。
-# 第 71 期任务 4：跟着新的预置示例换成这一组名字，灰色字段名认的还是同一份。
 IDEA_FIELDS=('故事集数','单集时间','故事画风','故事主体','故事梗概','故事题材','故事角色','物理特征','故事分集','特殊要求','内容补充')
-# 补充创作信息弹窗里，「故事题材／故事集数／单集时间」改成可输入的下拉框，
-# 候选值只在此定义一份；下拉框宽度与下方「赛道」等制作锁统一（STAGE_PANEL_LAYOUT['select_width']）。
 IDEA_BRIEF_DROPDOWN_VALUES = {
     '故事题材': ('都市', '悬疑', '奇幻', '科幻', '仙侠'),
     '故事集数': ('80', '100', '120', '180', '200'),
     '单集时间': ('1min', '90s', '2min', '5min', '10min'),
 }
-# 第 69 期任务 1：剧本准备页的创意框改成一段对话；第 72 期任务 9／10：全部消息靠左、
-# 紧凑显示，模型名置顶，长消息可折叠，模型回复中显示思考提示。
-# 最下面留一段给您写字，DRAFT_MARK 就是「从这儿往下才是您写的」那条线。
 DRAFT_MARK='draft'
 DRAFT_HINT='─'*18+' 写您的想法，按「发送」 '
-# 模型排队中的状态提示只留一份（轮询分支与已领槽分支共用）。
 QUEUEING_STATUS_TEXT = '模型请求排队中（第%d位），尚未启动 CLI；可点击中断，最多等待 120 秒。'
-
-
 class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
     """Desktop 的创意对话与 Agent 派发方法集（见模块说明）。"""
-    # 这些兼容属性保留既有桌面控件与测试的访问方式；状态归属在无 Tk 控制器。
     @property
     def _idea_requesting(self):
         controller = getattr(self, 'idea_chat_controller', None)
@@ -161,7 +143,6 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
                 except (OSError, ValueError):continue
                 note(Path(value).name,key,'%d 字' % count)
         self._idea_attachment_tips=tips
-        # 明细不再单独占一行：本轮引用改由附件卡片主色边框表示，字数放在卡片悬停提示里。
         if label is not None:label.set(('已引用：'+'、'.join(details)) if details else '')
         self.refresh_uploaded_idea_attachments()
     def refresh_uploaded_idea_attachments(self):
@@ -172,7 +153,6 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
         from idea_attachments import archive_pair, display_name
         from ui_tokens import ICON_CLOSE, ICON_DOCUMENT
         from ui_widgets import Tooltip
-        # 原件创建时间代表入库顺序，不让转换稿后续编辑改变显示顺序。
         def upload_order(path):
             original,_converted=archive_pair(path)
             archived=original if original.is_file() else path
@@ -183,15 +163,12 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
         paths=sorted(stage_idea_attachment_paths(self.root),key=upload_order)
         referenced={key(path) for path in getattr(self,'idea_attachment_paths',())}
         known={key(path) for path in paths}
-        # 引用了但不在上传库里的文件也要有一张卡片，避免本轮附件在界面上“消失”。
         paths+=[Path(path) for path in getattr(self,'idea_attachment_paths',()) if key(path) not in known]
         for child in panel.winfo_children():child.destroy()
         tips=getattr(self,'_idea_attachment_tips',{})
         for path in paths:
             name=display_name(path)
             selected=key(path) in referenced
-            # 内边距必须给控件本身：ttk.Frame 摆子控件不看样式里的 padding，写在样式上时文件名与图标
-            # 贴着外沿，白底把圆角边框盖断（选中时主色框尤其明显）。
             chip=ttk.Frame(panel,style='Tokens.Chip.Selected.TFrame' if selected else 'Tokens.Chip.TFrame',
                            padding=(SPACING['sm'],SPACING['xs']))
             icon=ttk.Label(chip,text=ICON_DOCUMENT,style='Composer.Chip.Icon.TLabel')
@@ -199,9 +176,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
             limit=CHAR_WIDTH['3xl']
             title=ttk.Label(chip,text=name if len(name)<=limit else name[:limit-1]+'…',style='Composer.TLabel')
             close=ttk.Label(chip,text=ICON_CLOSE,style='Composer.Chip.Close.TLabel',cursor='hand2')
-            # 右侧按 × 的实际宽度留位：× 用 place 贴在右上角，不参与卡片的请求宽度，否则会压住文件名末尾。
             title.pack(side='left',padx=(SPACING['xs'],close.winfo_reqwidth()+SPACING['xs']))
-            # place 从内边距里侧量起：抵掉卡片内边距，× 仍贴卡片外沿右上角。
             close.place(relx=1.0,x=SPACING['sm'],y=-SPACING['xs'],anchor='ne')
             chip.attachment_path,chip.close_button=path,close
             tip=name+('（%s）' % tips[name] if name in tips else '')
@@ -320,8 +295,6 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
                     self.show_conversation()
             threading.Thread(target=resolve_model,daemon=True).start()
             later(50,resume)
-            # 模型键只用于读取真实历史；软件示例和空会话壳不依赖它，先交还
-            # 可见内容。键回来后 resume 按现有页面代次完整重绘真实历史。
             resolving_model=True
         model=cached[1] if root and isinstance(cached,tuple) else ''
         rows=self.idea_view_rows(root,model,resolving_model)
@@ -329,7 +302,6 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
         remaining=hidden.copy() if hidden is not None else {}
         visible=[]
         for index,row in enumerate(rows):
-            # 无隐藏消息时（最常见）不再逐条构造签名，避免整段历史反复 JSON 序列化。
             if remaining:
                 signature=json.dumps({k:v for k,v in row.items() if k!='context_compacted'},sort_keys=True,ensure_ascii=False)
                 if remaining.get(signature,0):
@@ -358,7 +330,6 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
             if rows:
                 try:box.see('end')
                 except tk.TclError:pass
-            # 一次空闲合并量测；逐条 add_bubble 不再触发布局往返。
             idle(lambda: alive() and self._fit_content_now())
         if visible:
             cursor=[0]
@@ -369,16 +340,12 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
                     index,row=visible[cursor[0]]
                     self.add_bubble(box,row,index);cursor[0]+=1
                 if cursor[0]<len(visible):
-                    # 递归 after_idle 会被一次 update() 连续清空；真实项目的
-                    # 历史消息因此仍会堵住首帧。短时延让输入区先处理事件。
                     later(12,append_batch)
                 else:finish()
             idle(append_batch)
         else:
             if hidden is None:self.show_example_bubble(loading=resolving_model and self.idea_history_expected())  # R1949：没读到≠没有，有记录就留读取提示等 resume
             finish()
-        # 保持 normal 才能让 Tk 的原生鼠标拖选建立 ``sel`` 标签；只读由
-        # guard_bubble_key 控制，避免 disabled 状态吞掉拖选事件。
         box.configure(state='normal')
     def _idea_semantic_key(self, value):
         return (str(self.root), value, tuple(self.idea_attachment_paths))
@@ -513,12 +480,10 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
                 if current:
                     entry.set(current)
             elif label == '故事梗概':
-                # 故事梗概的高度缩短到与其他下拉框一致（单行），长度（宽度）保持整行不变。
                 entry = TextArea(row, height=1, width=CHAR_WIDTH['field_sm'], wrap='word')
                 entry.pack(side='left', fill='x', expand=True)
                 entry.insert('1.0', fields.get(label, ''))
             else:
-                # 其余字段（故事角色、交付形态等）仍为文字输入，尺寸与赛道下拉框统一。
                 entry = TextArea(row, height=1, width=STAGE_PANEL_LAYOUT['select_width'], wrap='word')
                 entry.pack(side='left')
                 entry.insert('1.0', fields.get(label, ''))
@@ -533,7 +498,6 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
                     break
         dialog.lock_fields.set_values(configured)
         def entry_text(entry):
-            # 下拉框用 get()，多行文本用 get('1.0','end-1c')；保存时统一读回。
             return entry.get('1.0', 'end-1c') if isinstance(entry, tk.Text) else entry.get()
         def save():
             values = dialog.lock_fields.values()
@@ -582,7 +546,6 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
             from stage_execution_service import stage_idea_brief_defaults
             reference = prepared['attachments']
             attachment_fields.update(stage_idea_brief_defaults(self.root, reference=reference)['values'])
-            # 普通字段沿用 L2 别名；锁标签只来自统筹定义，不再维护第二张映射表。
             lock_labels = tuple(label for item in lock_definitions
                                 for label in (item['label'], *item.get('aliases', ())))
             lock_fields = {}
@@ -609,7 +572,6 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
         visible_value=prepared['visible_value']
         if direct_model and self.idea_chat_controller.requesting:
             raise ValueError('模型正在回复，请不要重复发送。')
-        # UI 故事字段与阶段锁门禁通过后仍核验底层四项契约；缺项只提示，不启动模型。
         brief = {'missing': ()} if continuing else idea_chat.receive_brief(self.idea_chat_context(), submission, workflow=workflow_config,
                                         lock_definitions=lock_definitions, gateway=self.idea_chat_gateway(),
                                         attachment_reference=prepared['attachments'], inline_text=value, stage='script',
@@ -628,7 +590,6 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
             model, cleared = request_model['settings']['display_model'], False
         self.idea_chat_controller.mark_sent()
         if not direct_model:
-            # 启动失败不能吞掉用户刚输入的内容；成功启动后才落聊天记录并清空编辑框。
             try:model, cleared = self.start_script_workflow(submission, config=request_model['settings'])
             except Exception:
                 self.idea_chat_controller.rollback_sent()
@@ -637,7 +598,6 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
             idea_chat.save_brief_creation(self.idea_chat_context(), value, gateway=self.idea_chat_gateway())
         idea_chat.append(self.idea_chat_context(),'user',visible_value,model=model,gateway=self.idea_chat_gateway(),
                          skill_injection=request_model['settings']['skill_injection'])
-        # 本次发送已确定模型，废弃旧的异步解析并用同一分区显示刚保存的消息。
         self._idea_view_model_request=getattr(self,'_idea_view_model_request',0)+1
         self._idea_view_model_cache=(self.root,model)
         self.set_idea_model_filter(model)
@@ -685,8 +645,6 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
             error=str(result.get('error') or '未收到模型回复')
             kind=('budget' if result.get('reason') == 'context_budget_exceeded'
                   else str(result.get('kind') or ''))
-            # kind → 文案的唯一出处是 model_error_display；这里只补两条本地差异：
-            # 客户端／空 kind 加「模型调用未完成：」前缀，其余（网络／服务端／内部）沿用统一文案。
             if kind in ('auth', 'budget', 'client', ''):
                 message='模型调用未完成：'+error
                 log_only=False
@@ -699,14 +657,8 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
                 self.notifier.error(message, title='请求校验未通过')
             else:
                 self.notifier.error(message, title='模型调用失败')
-            # 直接 API 模型与桌面 Agent 共用“剧本准备”这个自动阶段。
-            # 失败若只写状态栏，三虎会一直把 script 视为 active；仅当
-            # 自动链确实正在等待 script 时，才把可恢复的调用失败交给它。
             auto=getattr(getattr(self,'pet',None),'auto',None)
             if getattr(auto,'active',None)=='script':
-                # 直连 API 的失败已经是终态；再让通用 Agent 重试只会留下
-                # 一个没有新请求的 retrying 状态。因此直接发出终态失败，
-                # 明确停在可由用户重试的剧本阶段。
                 self.pet._emit('stage.failed',stage='script',error=message)
             return
         reply=str(result.get('text') or '').strip()
@@ -853,25 +805,19 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
         return _FlowAgentLaunch(self, _FlowAgentRequest(stage, label, prompt, followup, on_receipt, _config, intake_only, new_session, desktop_paste)).build()
     def open_direct_flow_agent(self, stage, label, prompt, direct):  # 带直连载荷：API 模型程序直连，否则同 open_flow_agent
         return _FlowAgentLaunch(self, _FlowAgentRequest(stage, label, prompt, None, None, None, False, False, False, direct)).build()
-
-
 class _FlowAgentRequest:
     """open_flow_agent 的参数对象（收拢 _FlowAgentLaunch 的入参）。"""
     __slots__ = ('stage', 'label', 'prompt', 'followup', 'on_receipt', '_config', 'intake_only', 'new_session', 'desktop_paste', 'direct')
-
     def __init__(self, *values):
         self.direct = None
         for name, value in zip(self.__slots__, values):
             setattr(self, name, value)
-
-
 class _FlowAgentLaunch:
     """一次 Agent 任务的打开流程：准备任务与上下文、去重派发，按引擎走 CLI（含排队取槽）、Claude Desktop 或 GPT 桌面粘贴。"""
     def __init__(self, host, request):
         self.host = host
         for name in _FlowAgentRequest.__slots__:
             setattr(self, name, getattr(request, name))
-
     def build(self):
         from workflow_settings import writer_style_summary
         self.writer_style_summary = writer_style_summary
@@ -882,8 +828,6 @@ class _FlowAgentLaunch:
         if self.host.worker:raise ValueError('正在打开或发送 Agent 任务，请稍候；未重复发送。')
         if self.stage == 'writing' and getattr(self.host, '_script_agent_queue', None):
             raise ValueError('剧本模型请求正在排队，请等待或先点击中断；未重复发送。')
-        # 「发送待核实」的安全重试必须沿用第一次已经解析的引擎。原来递归重进时会重新
-        # 读取阶段配置，恰逢面板刷新／配置回退就可能把 Claude 的续发错误地交给 Codex。
         from workflow_settings import resolve_for_send
         self.config=resolve_for_send(self.host.root,self.stage,config=self._config,intake_only=self.intake_only);self.followup=self.followup if self.followup is not None else self.prompt
         from desktop_direct_dispatch import dispatch
@@ -895,7 +839,6 @@ class _FlowAgentLaunch:
             self.new_session = claude_session_stale(self.host.root, self.stage)
         self.new_session = bool(self.new_session and self.stage == 'writing' and self.config['engine'] == 'claude' and not self.intake_only)
         self.use_cli = not self.native_claude and (self.config['engine']!='codex' or self.config['program'] or self.config['model'])
-        # CLI 继续复用同一进程；提取结束后不能占住唯一槽位又排队启动剧本进程。
         self.setup_key=hashlib.sha256((json.dumps(self.config,sort_keys=True)+('brief-intake' if self.intake_only and not self.use_cli else '')).encode()).hexdigest()
         from codex_tasks import prepare_task
         self.prepare_task = prepare_task
@@ -906,7 +849,6 @@ class _FlowAgentLaunch:
             from qwen_adapter import window_title
             self.title=window_title(name,self.stage,getattr(self.host,'page_index',None))
         self.host.async_(self.prepare,self.dispatch)
-
     def prepare(self):
         from workflow_context import continuation_instruction,snapshot
         from stage_execution_service import project_context
@@ -928,7 +870,6 @@ class _FlowAgentLaunch:
                 from native_apps import open_blender
                 open_blender()
             if self.intake_only:
-                # 提取阶段不得附加“直接生成剧本”的 SKILL/阶段交付指令。
                 full,budget=prepare_request_context(self.prompt,self.stage,'brief_intake',report=True)
                 continuation,continuation_budget=prepare_request_context(self.followup,self.stage,'brief_intake',report=True)
             elif self.bounded_writing:
@@ -955,7 +896,6 @@ class _FlowAgentLaunch:
             result['receipt']=receipt;result['context_budget']={
                 'initial':budget,'continuation':continuation_budget};return result
         except Exception as exc:self.finish(receipt,'failed',str(exc));raise
-
     def dispatch(self, result):
         receipt=result['receipt']
         if receipt['duplicate']:
@@ -978,14 +918,12 @@ class _FlowAgentLaunch:
         self.settle_launch()
         try:self.done(result)
         except Exception as exc:self.finish(receipt,'failed',str(exc));raise
-
     def settle_launch(self):
         """剧本任务已交给桌面程序或已有会话：本机不再处于启动中，按钮改由进程与请求状态决定。"""
         if self.stage!='writing':return
         self.host._script_agent_launching=False
         refresh=getattr(self.host,'update_script_interrupt_button',None)
         if callable(refresh):refresh()
-
     def launch_cli(self, result):
         receipt=result['receipt'];full=result['prompt'];continuation=result['followup']
         sessions=getattr(self.host,'flow_processes',{});key=(str(self.project),self.stage,self.config['engine'],self.setup_key)
@@ -1080,7 +1018,6 @@ class _FlowAgentLaunch:
             self.finish(receipt,'failed',claimed['reason'])
             self.host.status.set(claimed['reason'])
         pending['timer'] = self.host.win.after(200,poll_slot)
-
     def done(self, result):
         if result.get('send_plan'):from desktop_send_choice import choose;return choose(self, result, self.done)
         receipt=result['receipt']
@@ -1111,8 +1048,6 @@ class _FlowAgentLaunch:
                 self.host.status.set(value['reason'])
                 level=getattr(self.host,'gate_level',None)
                 if value['ok'] and callable(level) and level()=='auto':
-                    # 全自动不拦截 Claude Desktop：它只能由用户点发送，这里明确提示，
-                    # 避免自动链看似停住却没有说明；状态栏原文也会转给三虎。
                     message=('三虎全自动：'+self.label+' 的任务已粘贴到 Claude Desktop，'
                                  '请切到 Claude Desktop 手动点击发送；完成后产物会自动收回。')
                     self.host.status.set(message)
