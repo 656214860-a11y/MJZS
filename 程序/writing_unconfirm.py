@@ -63,8 +63,8 @@ def confirm_preparation_document(project, stage, path, *, publish):
                 state.pop('pending_restart', None)
     if prefix is None:
         if brief_changed:
-            raise ValueError('创作简报已变化，之前的阶段确认已失效；请先重新设为「项目设定」定稿，'
-                             '再依次确认「剧本大纲」「角色卡」')
+            raise ValueError('创作简报已变化，前置确认已失效；请先重设为「项目设定」定稿，'
+                             '再确认「剧本大纲」「角色卡」')
         missing = [PREPARATION_STAGES[position] for position in range(index)
                    if position >= len(documents)
                    or not (isinstance(documents[position], dict)

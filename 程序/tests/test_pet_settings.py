@@ -441,16 +441,28 @@ class ManagerProviderTests(SettingsCase):
         win = self.pet.open_model_manager()
         self.addCleanup(win.destroy)
         tree = win._pet_tree
-        rows = [tree.item(row, 'values') for row in tree.get_children()]
-        # 列顺序：功能／Provider／调用方式／模型 ID／显示名…；同一 Provider 只在分组首行写名字。
-        providers, last = {}, ''
-        for row in rows:
-            last = str(row[1]) or last
-            providers[str(row[4])] = last
-        heads = [str(row[1]) for row in rows if str(row[1])]
+
+        def group_rows():
+            rows = [tree.item(row, 'values') for row in tree.get_children()]
+            # 列顺序：功能／Provider／调用方式／模型 ID／显示名…；同一 Provider 只在分组首行写名字。
+            providers, last = {}, ''
+            for row in rows:
+                last = str(row[1]) or last
+                providers[str(row[4])] = last
+            heads = [str(row[1]) for row in rows if str(row[1])]
+            return rows, providers, heads
+
+        # 页签化（R2398）后列表只显示当前调用方式；GPT 厂商的条目分散在 API／Desktop 两页签，
+        # 分别验证：同一 Provider 首行写名＋按名排序、GPT 条目按显示名归组排序。
+        rows, providers, heads = group_rows()
+        self.assertEqual(heads, sorted(set(heads), key=str.casefold), '每个 Provider 只出现一次且按名排序')
+        self.assertEqual(providers['GPT-4o'], 'GPT')
+        gpt = [str(row[4]) for row in rows if providers[str(row[4])] == 'GPT']
+        self.assertEqual(gpt, sorted(gpt, key=str.casefold))
+        win._pet_mode.set('Desktop')
+        rows, providers, heads = group_rows()
         self.assertEqual(heads, sorted(set(heads), key=str.casefold), '每个 Provider 只出现一次且按名排序')
         self.assertEqual(providers['ChatGPT Desktop · Codex'], 'GPT')
-        self.assertEqual(providers['GPT-4o'], 'GPT')
         gpt = [str(row[4]) for row in rows if providers[str(row[4])] == 'GPT']
         self.assertEqual(gpt, sorted(gpt, key=str.casefold))
         self.assertEqual(str(win._pet_manager_hint_label.cget('style')), 'PaleGreenHint.TLabel')
@@ -462,12 +474,17 @@ class ManagerProviderTests(SettingsCase):
         tree = win._pet_tree
         self.assertEqual([str(tree.heading(key, 'text')) for key in tree['columns']],
                          ['功能', 'Provider', '调用方式', '模型 ID', '显示名', '能力标签', '状态'])
-        rows = {str(values[4]): [str(value) for value in values]
-                for values in (tree.item(row, 'values') for row in tree.get_children())}
+        # 页签化（R2398）后列表只显示当前调用方式，分别切页签验证各类调用方式与状态。
+        def by_label():
+            return {str(values[4]): [str(value) for value in values]
+                    for values in (tree.item(row, 'values') for row in tree.get_children())}
+        self.assertEqual(by_label()['GPT-4o'][2], 'API')
+        win._pet_mode.set('Desktop')
+        rows = by_label()
         self.assertEqual(rows['ChatGPT Desktop · Codex'][2], 'Desktop')
-        self.assertEqual(rows['Claude Code'][2], 'CLI')
-        self.assertEqual(rows['GPT-4o'][2], 'API')
         self.assertEqual(rows['ChatGPT Desktop · Codex'][6], '可用', '模型 ID 已有自己一列，状态不再带上')
+        win._pet_mode.set('CLI')
+        self.assertEqual(by_label()['Claude Code'][2], 'CLI')
         # 表单切到 Desktop 时列表不跟着藏列：每行的调用方式已经说明哪些信息适用。
         win._pet_mode.set('Desktop')
         shown = tuple(str(key) for key in tree['displaycolumns'])

@@ -609,15 +609,13 @@ class MediaPagesMixin:
         prefs=read(prefs_path) if prefs_path.is_file() else {}
         video_root=media_logic.resolve_video_root(self.root,mode,prefs)
         is_cloud=video_root!=self.root
-        def configure_video_api():
-            self.button(self.content,'配置线上视频 API',lambda:ui_plugin_registry.module('cloud_video').settings_window(self))
         if is_cloud and read(video_root/'config.json').get('cloud_provider')=='openai':
             header_note('原视频服务商已移除，请重新选择服务商。历史文件仍保存在项目目录。')
-            configure_video_api()
+            self.button(self.content,'配置线上视频 API',lambda:ui_plugin_registry.module('cloud_video').settings_window(self))
             return
         if mode=='cloud' and not is_cloud:
             header_note('首次使用线上生成，请先配置服务商、模型和API Key。保存后在此页面显示镜头工作台。')
-            configure_video_api()
+            self.button(self.content,'配置线上视频 API',lambda:ui_plugin_registry.module('cloud_video').settings_window(self))
             return
         if is_cloud:
             video_root=ui_plugin_registry.module('cloud_video').align_source(self,video_root)

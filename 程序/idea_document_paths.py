@@ -162,8 +162,10 @@ def delivery_document_path(context, file_type, at=None, provider='', model=''):
 def _project_file_type(text):
     """按正文归类保存类型；未明确归类的模型正文仍按自然剧本保存。
 
-    只认标题行（行首即类型标签，可带 ``#`` 等标记），不把正文里顺带提到
-    「角色卡」「项目设定」等字样的普通回复（如回退确认提示）误判成文档。
+    标题行（行首即类型标签，可带 ``#`` 等标记）优先；大纲另加正文兜底——
+    模型回复常在正文直接写「纲要」「故事大纲」等（如「模型写的纲要：…」），
+    不要求标题行。角色卡／项目设定仍只按标题行归类：回退确认等控制提示常
+    顺带提到「角色卡」「项目设定」，放宽正文匹配会把它们误判成文档（REQ-S01-76）。
     """
     value = str(text or '')
     headings = [line.lstrip('# \t').strip() for line in value.split('\n') if line.strip()]
@@ -174,6 +176,8 @@ def _project_file_type(text):
             ('自然剧本', ('自然剧本', '项目剧本'))):
         if any(heading.startswith(title) for heading in headings for title in titles):
             return file_type
+    if any(mark in value for mark in ('项目大纲', '故事大纲', '分集大纲', '纲要')):
+        return '项目大纲'
     return '自然剧本'
 
 
