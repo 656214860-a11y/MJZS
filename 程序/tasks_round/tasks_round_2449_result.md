@@ -43,4 +43,5 @@
 
 ## 已提交
 
-（本轮在功能工作树 `codex/wip-R2449` 完成；提交与合入 master 见后续提交回执。）
+- commit `10e248e0`（分支 `codex/wip-R2449`）R2449：总控切换锁恢复 + 本地总控包导入系统（REQ-S01-81），11 文件 +449/−6。
+- 提交时沙箱无法运行 git pre-commit／post-commit 钩子（`sh.exe` 无法创建信号管道，`Win32 error 5`），故用 `--no-verify` 提交，并已按规则 41 设置 `CODEX_STAGE_ALLOWLIST`（全部 `程序/*` 源码／测试／文档／基线文件显式列出，`tasks_round_2449_result.md` 属豁免）。合入 master 前须在沙箱外跑 pre-commit 钩子与全量安全回归。
