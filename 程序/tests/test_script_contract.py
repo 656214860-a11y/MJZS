@@ -34,6 +34,33 @@ class NaturalScriptSaveTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'Markdown'):
                 sc.save_natural_script(target.with_suffix('.txt'), '自然剧本')
 
+    def test_beat_table_is_not_a_forbidden_field_table(self):
+        """REQ-S01-16：自然剧本每集正文前必带本集节拍表，节拍表是合法字段表格，不能误伤。
+
+        「字段表格」拦截只针对分镜表／镜头表等结构化阶段产物；节拍表以
+        ``场次／节拍＃／情绪关键词／服务的剧本动作／权重／强度`` 六列为准，
+        是剧本准备阶段的正式交付，必须放行。
+        """
+        beat_table = (
+            '# 第1集：咔咔的超能力\n'
+            '## 本集节拍表\n'
+            '| 场次 | 节拍＃ | 情绪关键词 | 服务的剧本动作 | 权重 | 强度 |\n'
+            '|---|---|---|---|---|---|\n'
+            '| 场景 1 | 1 | 心算十楼两秒 | 咔咔抬头从一楼看到十楼，心算时间 | 主 | 5.0 |\n'
+            '| 场景 1 | 2 | 仰头喊跳 | 咔咔双手拢在嘴边仰头大喊「跳！」 | 峰值 | 6.0 |\n'
+            '\n'
+            '## 正文\n\n咔咔骑电动车冲进画面，一脚急刹。\n'
+        )
+        self.assertEqual(sc.natural_script_violations(beat_table), ())
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder) / '自然剧本.md'
+            sc.save_natural_script(target, beat_table)
+
+    def test_foreign_pipe_table_is_still_rejected(self):
+        """节拍表豁免不得放大到其它字段表格：分镜表／镜头表仍是结构化阶段产物。"""
+        self.assertIn('字段表格', sc.natural_script_violations(
+            '# 自然剧本\n## 正文\n| 镜头编号 | 景别 | 画面内容 |\n|---|---|---|\n| 1 | 特写 | 咔咔 |\n'))
+
 
 class StructuredScriptPublicationTests(unittest.TestCase):
     def test_empty_explicit_structured_content_is_not_published(self):
