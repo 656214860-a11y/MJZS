@@ -40,6 +40,7 @@ from datetime import datetime
 from pathlib import Path
 from script_manifest_contract import (HEADER, KIND_OF_MANIFEST, KINDS, MANIFEST_OF_KIND,
                                       MANIFESTS, STAGE_OUTPUTS, STRUCTURE_MANIFESTS)
+from script_natural_gate import has_foreign_field_table
 
 # ── 五类产出（任务 5）─────────────────────────────────────────────────────────
 
@@ -67,36 +68,6 @@ _NATURAL_SCRIPT_FORBIDDEN = (
     ('视频提示词', '视频提示词'), ('```json', 'JSON 代码块'), ('"source_script"', '分镜 JSON'),
 )
 
-# REQ-S01-16 规定的「本集节拍表」是剧本准备阶段的正式交付，其表头固定为
-# 场次／节拍＃／情绪关键词／服务的剧本动作／权重／强度六列。它虽也是字段表格，
-# 但不能被「字段表格」拦截误伤；这里只按表头识别，别把分镜表／镜头表放行。
-_BEAT_TABLE_HEADER = re.compile(
-    r'^\s*\|?\s*场次\s*\|[^|]*节拍[^|]*\|[^|]*情绪关键词[^|]*\|'
-    r'[^|]*服务的剧本动作[^|]*\|[^|]*权重[^|]*\|[^|]*强度\s*\|?\s*$')
-
-
-def _has_foreign_field_table(value):
-    """是否存在「本集节拍表」以外的字段表格。
-
-    节拍表整块（表头＋分隔行＋数据行，直到空行或非 ``|`` 起始行）豁免；
-    其余任何 ``| … |`` 表格行仍算结构化阶段产物。
-    """
-    lines = value.splitlines()
-    i = 0
-    n = len(lines)
-    while i < n:
-        line = lines[i]
-        if _BEAT_TABLE_HEADER.match(line):
-            i += 1
-            while i < n and re.match(r'^\s*\|', lines[i]):
-                i += 1
-            continue
-        if re.match(r'^\s*\|.+\|\s*$', line):
-            return True
-        i += 1
-    return False
-
-
 def natural_script_violations(text):
     """返回剧本准备阶段不允许落盘的结构化产物特征。"""
     value = str(text or '').strip()
@@ -109,7 +80,7 @@ def natural_script_violations(text):
     for needle, label in _NATURAL_SCRIPT_FORBIDDEN:
         if needle.casefold() in folded and label not in violations:
             violations.append(label)
-    if _has_foreign_field_table(value):
+    if has_foreign_field_table(value):
         violations.append('字段表格')
     return tuple(violations)
 
