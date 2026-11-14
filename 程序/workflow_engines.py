@@ -1,4 +1,5 @@
 """Engine adapters; isolated per-run options, no shell command interpolation."""
+import functools
 import json
 import subprocess
 import threading
@@ -119,6 +120,12 @@ def background_command(config,project,output,report,prompt_file=None,*,prompt=''
         resume = config.get('resume_session')
         if resume:
             args += ['--resume', str(resume)]
+        else:
+            # 后台调用主动指定 session id（--session-id），跑完持久化，失败重试用 --resume 续上下文；
+            # 与 launch_interactive 的 claude 分支同一机制。uuid 回写 config['session_id'] 供 run_background 持久化。
+            session_id = config.get('session_id') or str(uuid.uuid4())
+            args += ['--session-id', session_id]
+            config['session_id'] = session_id
     # 勾选的 SKILL 目录一并授权给 CLI 模型，让模型能读全文、看图、跑脚本（等效 desktop 原生）。
     from workflow_settings import skill_roots_for_config
     for directory in skill_roots_for_config(config):
@@ -290,26 +297,36 @@ def run_background(config,project,output,report,logfile,prompt,on_output=None):
                 # stdout 是 JSONL：只把 agent_message 正文交给 on_output，机器事件（thread/turn/usage）滤掉，
                 # 这样监视页看到的是人读回复，而不是 JSON 行。
                 captured = {'thread_id': None}
-                def codex_output(line, stream):
-                    if stream == 'stdout':
-                        tid = extract_codex_thread_id(line)
-                        if tid:
-                            captured['thread_id'] = tid
-                        if on_output is not None:
-                            message = extract_codex_message_text(line)
-                            if message:
-                                on_output(message + '\n', 'stdout')
-                        return
-                    if on_output is not None:
-                        on_output(line, stream)
-                returncode=_run(args,project,prompt,log,log,engine_timeout(config),on_output=codex_output)
+                returncode = _run(args, project, prompt, log, log, engine_timeout(config),
+                                  on_output=functools.partial(_codex_stream_output, captured, on_output))
                 if returncode == 0 and captured['thread_id']:
                     save_background_session(project, stage, 'codex', captured['thread_id'])
             else:
                 returncode=_run_claude_json(args,project,prompt,log,report,engine_timeout(config),on_output=on_output)
+                if returncode == 0 and config.get('session_id'):
+                    save_background_session(project, stage, 'claude', config['session_id'])
         if returncode:raise ValueError(ENGINES[config['engine']]+' 执行失败，请查看运行日志（安装版本、登录、额度或权限）')
     finally:
         release_process_slot(slot)
+
+
+def _codex_stream_output(captured, on_output, line, stream):
+    """codex --json 输出逐行回调：stdout 提取 thread_id + 人读正文，stderr 原样透传。
+
+    从 ``run_background`` 提为模块级函数，压平 ``run_background`` 的嵌套深度（闭包会抬高复杂度棘轮计数）。
+    ``captured`` 是可变字典，回调期间把 thread.started 事件的 thread_id 写进去供跑完后持久化。
+    """
+    if stream == 'stdout':
+        tid = extract_codex_thread_id(line)
+        if tid:
+            captured['thread_id'] = tid
+        if on_output is not None:
+            message = extract_codex_message_text(line)
+            if message:
+                on_output(message + '\n', 'stdout')
+        return
+    if on_output is not None:
+        on_output(line, stream)
 
 
 def extract_codex_thread_id(line):

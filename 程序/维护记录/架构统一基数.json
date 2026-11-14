@@ -873,16 +873,16 @@
                 "reason": "R790\uff1a\u6062\u590d\u8bb0\u5f55\u8bfb\u53d6\u6539\u7531 L3 idea_chat_gateway \u6ce8\u5165 file_cache\u3002"
             },
             {
-                "file": "model_pool.py",
+                "file": "api_endpoints.py",
                 "point": "_http_transport:json.loads:0084ee081b23442e:1",
                 "disposition": "exempt",
-                "reason": "R828\uff1aHTTP \u54cd\u5e94\u4f53 JSON \u89e3\u6790\uff0c\u4e0d\u662f\u6587\u4ef6\u8bfb\u53d6\uff1b\u6a21\u578b\u8def\u7531\u7f51\u7edc\u51fa\u53e3\u7684\u54cd\u5e94\u89e3\u7801\u3002\uff08R1706 \u884c\u53f7\u5e73\u79fb 863\u2192873\uff0c\u5ba2\u6237\u7aef\u6863\u6848\u8def\u7531\u63d2\u5728\u5176\u524d\uff09"
+                "reason": "R828\uff1aHTTP \u54cd\u5e94\u4f53 JSON \u89e3\u6790\uff0c\u4e0d\u662f\u6587\u4ef6\u8bfb\u53d6\uff1b\u6a21\u578b\u8def\u7531\u7f51\u7edc\u51fa\u53e3\u7684\u54cd\u5e94\u89e3\u7801\u3002\uff08R1706 \u884c\u53f7\u5e73\u79fb 863\u2192873\uff0c\u5ba2\u6237\u7aef\u6863\u6848\u8def\u7531\u63d2\u5728\u5176\u524d\uff09\uff08R2470 \u4ee3\u7801\u8fc1\u79fb model_pool\u2192api_endpoints\uff09"
             },
             {
-                "file": "model_pool.py",
+                "file": "api_endpoints.py",
                 "point": "http_stream:json.loads:b3b008eb30efa635:1",
                 "disposition": "exempt",
-                "reason": "R828\uff1aSSE data \u4e8b\u4ef6 JSON \u89e3\u6790\uff0c\u4e0d\u662f\u6587\u4ef6\u8bfb\u53d6\uff1b\u6a21\u578b\u6d41\u5f0f\u54cd\u5e94\u7684\u4e8b\u4ef6\u89e3\u7801\u3002\uff08R1706 \u884c\u53f7\u5e73\u79fb 909\u2192919\uff0c\u5ba2\u6237\u7aef\u6863\u6848\u8def\u7531\u63d2\u5728\u5176\u524d\uff09"
+                "reason": "R828\uff1aSSE data \u4e8b\u4ef6 JSON \u89e3\u6790\uff0c\u4e0d\u662f\u6587\u4ef6\u8bfb\u53d6\uff1b\u6a21\u578b\u6d41\u5f0f\u54cd\u5e94\u7684\u4e8b\u4ef6\u89e3\u7801\u3002\uff08R1706 \u884c\u53f7\u5e73\u79fb 909\u2192919\uff0c\u5ba2\u6237\u7aef\u6863\u6848\u8def\u7531\u63d2\u5728\u5176\u524d\uff09\uff08R2470 \u4ee3\u7801\u8fc1\u79fb model_pool\u2192api_endpoints\uff09"
             },
             {
                 "file": "pet_agent.py",
@@ -1171,6 +1171,18 @@
                 "point": "_extract_json:json.loads:da95b1449dbe88d3:1",
                 "disposition": "exempt",
                 "reason": "\u76f4\u8fde\u5206\u955c\uff08REQ-S03-53\uff09\uff1a\u89e3\u6790\u6a21\u578b\u56de\u590d\u7684\u5185\u5b58\u6587\u672c\uff0c\u4e0d\u8bfb\u53d6\u6b63\u5f0f\u6587\u4ef6\uff1b\u6587\u4ef6\u8bfb\u53d6\u6cbf\u7528core.read\u3002"
+            },
+            {
+                "file": "workflow_engines.py",
+                "point": "extract_codex_thread_id:json.loads:e447f3b9a080d917:1",
+                "disposition": "exempt",
+                "reason": "R2491\uff1a\u89e3\u6790 codex exec --json \u7684 thread.started \u4e8b\u4ef6\u884c\u53d6 thread_id\uff08\u8fdb\u7a0b stdout \u5185\u5b58\u6587\u672c\uff0c\u4e0d\u8bfb\u6587\u4ef6\uff09\u3002"
+            },
+            {
+                "file": "workflow_engines.py",
+                "point": "extract_codex_message_text:json.loads:e447f3b9a080d917:1",
+                "disposition": "exempt",
+                "reason": "R2491\uff1a\u89e3\u6790 codex exec --json \u7684 agent_message \u4e8b\u4ef6\u884c\u53d6\u6b63\u6587\uff08\u8fdb\u7a0b stdout \u5185\u5b58\u6587\u672c\uff0c\u4e0d\u8bfb\u6587\u4ef6\uff09\u3002"
             }
         ]
     },
