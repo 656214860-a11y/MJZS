@@ -312,13 +312,15 @@ def collect_writing_quality(project, script_path):
         raise ValueError('质检仅回收当前剧本准备目录内的文件')
     before = target.stat()
     response = target.read_text(encoding='utf-8')
-    body, _, error = split_response(response)
+    body, _, _ = split_response(response)
     body = require_natural_script(body)
     result = publish_reports(response, target, folder / 'quality', publish=publish_stage_text).data
     after = target.stat()
     if (before.st_mtime_ns, before.st_size) != (after.st_mtime_ns, after.st_size):
         raise ValueError('回收期间正文变化，请等待本轮写入完成')
-    if not error and response.strip() != body.strip():
+    # 只要正文被剥离出附块（无论附块是否闭合、是否损坏），都写回干净正文，
+    # 避免半截 <script_quality> JSON 残留在自然剧本文件末尾。
+    if response.strip() != body.strip():
         publish_stage_text(target, body.strip() + '\n', lambda value: bool(require_natural_script(value)), lambda _target: None)
     return dict(result, text=body, natural_script_path=str(target))
 

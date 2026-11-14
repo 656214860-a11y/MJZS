@@ -330,12 +330,19 @@ class ScriptPagesMixin:
         self._script_quality_report = (str(self.root), result.get('quality_report_path', ''))
         self.status.set(result['quality_summary'])
     def open_script_quality(self):
-        """「质检报告」：本项目有报告就打开报告，没有就打开质检目录，目录也没有时说明。"""
+        """「质检报告」：优先打开本次内存记录的报告，其次按当前剧本定位历史报告，最后退回质检目录。"""
         project, path = getattr(self, '_script_quality_report', ('', ''))
         folder = project_stages.writing(self.root) / 'quality' if self.root else None
         if project == str(self.root) and path and Path(path).is_file():
             self.script_page_services.open_path(path)
-        elif folder is not None and folder.is_dir():
+            return
+        # 内存无记录（如重启后）时，扫描质检目录，把 hash 目录映射回具体剧本，打开最新的报告。
+        if folder is not None and folder.is_dir():
+            from writing_quality import list_reports
+            rows = list_reports(folder)
+            if rows and Path(rows[0]['report_path']).is_file():
+                self.script_page_services.open_path(rows[0]['report_path'])
+                return
             self.script_page_services.open_path(folder)
         else:
             self.notifier.info('本次尚无质检报告。生成自然剧本后会显示四项结果。')

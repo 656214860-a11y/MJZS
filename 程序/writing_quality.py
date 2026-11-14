@@ -50,12 +50,25 @@ def _object(pairs):
     return result
 
 
+def strip_envelope(text):
+    """去掉正文末尾的质检附块，返回干净正文；附块未闭合或损坏也照常剥离。
+
+    只认最后一次出现的 ``<script_quality>`` 作为附块起点，之前的内容一律视为正文，
+    因此即使附块被截断、缺少 ``</script_quality>``，正文也能干净地保留下来。
+    """
+    raw = str(text or '')
+    if OPEN not in raw:
+        return raw.strip()
+    return raw.rsplit(OPEN, 1)[0].strip()
+
+
 def split_response(response):
     """Keep prose even when the trailing auxiliary envelope is malformed."""
     raw = str(response or '')
     if OPEN not in raw:
         return raw.strip(), {}, ''
-    body, auxiliary = raw.rsplit(OPEN, 1)
+    body = strip_envelope(raw)
+    auxiliary = raw.rsplit(OPEN, 1)[1]
     try:
         if not auxiliary.rstrip().endswith(CLOSE):
             raise ValueError('质检附块未完整结束')
@@ -63,9 +76,9 @@ def split_response(response):
                              parse_constant=lambda value: (_ for _ in ()).throw(ValueError(value)))
         if not isinstance(payload, dict):
             raise ValueError('质检附块必须是 JSON 对象')
-        return body.strip(), payload, ''
+        return body, payload, ''
     except (ValueError, TypeError) as exc:
-        return body.strip(), {}, str(exc)
+        return body, {}, str(exc)
 
 
 def _number(value):
@@ -132,8 +145,37 @@ def publish_reports(response, script_path, quality_root, *, publish):
               'missing': '缺失', 'incomplete': '待人工复核'}
     summary = '四项质检：' + '；'.join(REPORTS[key][0] + '：' + labels[state] for key, state in statuses.items())
     report_path = folder / '质检报告.md'
-    publish_text(report_path, '# 自然剧本辅助质检\n\n' + summary + '\n\n正文 SHA256：' + digest
+    publish_text(report_path, '# 自然剧本辅助质检\n\n' + summary + '\n\n来源剧本：' + source
+         + '\n\n正文 SHA256：' + digest
          + '\n\n' + '\n'.join('- [' + label + '](' + key + '.json)' for key, (label, _) in REPORTS.items())
          + '\n\n[模型原始返回](model_response.txt)\n\n报告仅供审阅，未完成项不会触发自动重写。辅助报告不进入02。\n')
     return success(dict(quality_summary=summary, quality_passed=all(state == 'pass' for state in statuses.values()),
                         quality_report_path=str(report_path), quality_statuses=statuses))
+
+
+def list_reports(quality_root):
+    """列出质检目录下全部报告，按修改时间倒序，供「质检报告」按钮快速定位。
+
+    每份报告目录里的 ``screenplay_gates.json`` 都记录了 ``script_path``（源剧本绝对路径），
+    据此把哈希目录映射回具体剧本，避免用户面对一串无意义的 hash 子目录。返回
+    ``[{'report_path', 'script_path', 'updated_at'}, ...]``；目录不存在或条目损坏时跳过。
+    """
+    root = Path(quality_root)
+    if not root.is_dir():
+        return []
+    rows = []
+    for report_md in sorted(root.glob('*/*/质检报告.md')):
+        try:
+            report_dir = report_md.parent
+            gate = report_dir / 'screenplay_gates.json'
+            script_path = ''
+            if gate.is_file():
+                with gate.open('r', encoding='utf-8') as stream:
+                    script_path = str(json.load(stream).get('script_path') or '')
+            rows.append({'report_path': str(report_md),
+                         'script_path': script_path,
+                         'updated_at': report_md.stat().st_mtime})
+        except (OSError, ValueError):
+            continue
+    rows.sort(key=lambda row: row['updated_at'], reverse=True)
+    return rows

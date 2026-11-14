@@ -54,6 +54,41 @@ class QualityTests(unittest.TestCase):
                 self.assertFalse(result['quality_passed'])
                 self.assertEqual(len(result['quality_statuses']), 4)
 
+    def test_strip_envelope_removes_residual_envelope_in_all_shapes(self):
+        body = '剧本正文'
+        cases = {
+            'no_envelope': body,
+            'closed_envelope': body + quality.OPEN + '{"x":1}' + quality.CLOSE,
+            'unclosed_envelope': body + quality.OPEN + '{"x":1',
+            'truncated_json': body + quality.OPEN + '{',
+        }
+        for label, text in cases.items():
+            with self.subTest(label=label):
+                self.assertEqual(quality.strip_envelope(text), body)
+        # 只有最后一次 <script_quality> 才是附块起点，之前的同名字样属正文。
+        self.assertEqual(quality.strip_envelope('正文提及<script_quality>的字样' + quality.OPEN + '{"x":1}'),
+                         '正文提及<script_quality>的字样')
+
+    def test_list_reports_maps_hash_folders_back_to_scripts(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            first = quality.publish_reports(envelope('第一稿。主角：你先走吧。'), root/'第一稿.md', root/'quality', publish=publisher).data
+            second = quality.publish_reports(envelope('第二稿。主角：你先走吧。'), root/'第二稿.md', root/'quality', publish=publisher).data
+            rows = quality.list_reports(root/'quality')
+            self.assertEqual(len(rows), 2)
+            # 第二稿后写，按 mtime 倒序排在最前。
+            self.assertEqual(rows[0]['report_path'], second['quality_report_path'])
+            paths = {Path(row['script_path']).name for row in rows}
+            self.assertEqual(paths, {'第一稿.md', '第二稿.md'})
+            # 报告 md 顶部带「来源剧本」行，供人工识别。
+            report_text = Path(second['quality_report_path']).read_text(encoding='utf-8')
+            self.assertIn('来源剧本：', report_text)
+
+    def test_list_reports_empty_or_missing_dir(self):
+        with tempfile.TemporaryDirectory() as td:
+            self.assertEqual(quality.list_reports(Path(td)/'none'), [])
+            self.assertEqual(quality.list_reports(Path(td)), [])
+
     def test_invalid_evidence_duplicate_id_peak_and_speed_are_not_passed(self):
         body, reports, _ = quality.split_response(envelope())
         reports['screenplay_gates']['items'][0]['evidence'] = '旧稿才有'
@@ -176,7 +211,7 @@ class QualityTests(unittest.TestCase):
                 self.assertIn('四项缺失', append.call_args.args[2])
                 app.show_script_quality.assert_called_once_with(result)
 
-    def test_incomplete_desktop_envelope_notifies_without_overwriting_source(self):
+    def test_incomplete_desktop_envelope_notifies_and_strips_residual_json(self):
         from desktop import Desktop
         from types import SimpleNamespace
         from stage_execution_service import collect_writing_quality
@@ -190,7 +225,8 @@ class QualityTests(unittest.TestCase):
                                   idea_chat_context=Mock(), idea_chat_gateway=Mock(), show_conversation=Mock())
             with patch('desktop.time.monotonic', return_value=0):
                 Desktop.watch_script_quality(app, target)
-            response = '# 自然剧本\n场景：雨夜照相馆\n' + ('主角推开门，说：“你先走吧”。\n' * 80) + quality.OPEN + '{'
+            body = '# 自然剧本\n场景：雨夜照相馆\n' + ('主角推开门，说：“你先走吧”。\n' * 80)
+            response = body + quality.OPEN + '{'
             target.write_text(response, encoding='utf-8')
             poll = app.win.after.call_args.args[1]
             with patch('desktop.time.monotonic', return_value=1):poll()
@@ -202,7 +238,9 @@ class QualityTests(unittest.TestCase):
                 poll()
                 append.assert_called_once()
                 self.assertIn('格式或证据错误', append.call_args.args[2])
-            self.assertEqual(target.read_text(encoding='utf-8'), response)
+            # 附块未闭合时，正文仍被剥离残留附块写回，文件末尾不再残留 <script_quality>。
+            self.assertEqual(target.read_text(encoding='utf-8').strip(), body.strip())
+            self.assertNotIn(quality.OPEN, target.read_text(encoding='utf-8'))
             self.assertFalse(app._script_quality_result['quality_passed'])
 
     def test_desktop_concurrent_write_is_never_marked_collected(self):

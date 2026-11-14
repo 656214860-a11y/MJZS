@@ -47,3 +47,22 @@ class ScriptPageServicesTests(unittest.TestCase):
             page.open_script_quality()
             self.assertEqual(opened, [])
             page.notifier.info.assert_called_once()
+
+    def test_fallback_opens_latest_report_matching_current_project(self):
+        """REQ-S01-76：内存无记录（重启后）时，按剧本路径从质检目录定位历史报告，而非只开 hash 目录。"""
+        import writing_quality
+        from test_writing_quality import publisher, envelope
+        import project_stages
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            quality = project_stages.writing(root) / 'quality'
+            script = project_stages.writing(root) / '自然剧本.md'
+            result = writing_quality.publish_reports(
+                envelope('主角：你先走吧。'), script, quality, publish=publisher).data
+            opened = []
+            page = self.page(root, opened)
+            # 无内存记录，模拟重启后点击「质检报告」。
+            page._script_quality_report = ('', '')
+            page.open_script_quality()
+            self.assertEqual(opened, [result['quality_report_path']])
+            page.notifier.info.assert_not_called()
