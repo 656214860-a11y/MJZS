@@ -150,3 +150,45 @@ class WorkflowLockEnablementTests(unittest.TestCase):
         panel.save_workflow_locks()
         self.assertEqual(stage_config.workflow_lock(self.desktop.root).get('aspect_ratio'),
                          '9:16')
+
+    def test_reapply_master_after_no_master_restores_locks(self):
+        """REQ-S01-81 「不使用总控」再切回同一总控，制作锁从历史投影恢复，不丢失。"""
+        import skill_panel
+        import stage_config
+
+        def descendants(widget):
+            return [child for item in widget.winfo_children()
+                    for child in [item] + descendants(item)]
+
+        panel = self._panel()
+        # 先让项目带上 AIGC全流程 及已填的制作锁，模拟此前已套用并填过锁。
+        stage_config.put_workflow(self.desktop.root, {
+            'name': 'AIGC全流程', 'skill_ref': 'x/SKILL.md',
+            'lock': {'AIGC全流程': {'aspect_ratio': '9:16', 'track': '短剧'}}})
+        panel.refresh_workflow()
+        # 切到「不使用总控」：锁挪进 workflow_lock_history。
+        panel.workflow_choice.set(skill_panel.NO_MASTER)
+        panel.choose_workflow()
+        self.assertFalse(stage_config.current_workflow(self.desktop.root))
+        self.assertEqual(stage_config.workflow_lock_history(self.desktop.root)
+                         .get('AIGC全流程', {}).get('aspect_ratio'), '9:16')
+        # 再切回 AIGC全流程 并确认套用：锁应被恢复。
+        panel.workflow_choice.set('AIGC全流程')
+        self.win.deiconify()
+        self.win.update()
+        from unittest import mock
+        import tkinter as tk
+        with mock.patch.object(tk.Misc, 'winfo_screenheight', return_value=800), \
+             mock.patch.object(tk.Misc, 'winfo_screenwidth', return_value=1280):
+            panel.choose_workflow()
+            self.win.update()
+            dialogs = [widget for widget in self.win.winfo_children()
+                       if widget.winfo_class() == 'Toplevel']
+            confirm = next(widget for dialog in dialogs
+                           for widget in descendants(dialog)
+                           if widget.winfo_class() in ('TButton', 'Button')
+                           and widget.cget('text') == '确认套用')
+            confirm.invoke()
+            self.win.update()
+        self.assertEqual(stage_config.workflow_lock(self.desktop.root).get('aspect_ratio'), '9:16')
+        self.assertEqual(stage_config.workflow_lock(self.desktop.root).get('track'), '短剧')

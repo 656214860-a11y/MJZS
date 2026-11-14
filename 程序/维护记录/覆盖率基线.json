@@ -840,6 +840,12 @@
    "percent": 0.0
   },
   {
+   "module": "master_import_service.py",
+   "covered": 0,
+   "total": 125,
+   "percent": 0.0
+  },
+  {
    "module": "master_skill.py",
    "covered": 0,
    "total": 138,
@@ -2179,5 +2185,5 @@
   }
  ],
  "modules_covered": 59,
- "modules_total": 361
+ "modules_total": 362
 }

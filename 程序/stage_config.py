@@ -257,6 +257,12 @@ def clear_workflow(project):
     return path(project)
 
 
+def workflow_lock_history(project):
+    """退出统筹时保留的锁投影：``{总控名: {键: 值}}``；切回同一总控可据此恢复。"""
+    history = _workflow_data(project).get('workflow_lock_history')
+    return dict(history) if isinstance(history, dict) else {}
+
+
 def workflow_differences(project, preset):
     """统筹建议与当前勾选的差异；只读，供 UI 对照确认。"""
     suggestions = (preset or {}).get('stage_skills') or {}

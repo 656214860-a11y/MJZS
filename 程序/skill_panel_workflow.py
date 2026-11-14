@@ -306,8 +306,13 @@ class PanelWorkflowMixin:
                             variable=value).grid(row=row, column=len(cells), sticky='nw', pady=SPACING['xs'])
         def apply_selected():
             workflow = dict(old)
+            locks = dict(old.get('lock') or {})
+            # 「不使用总控」把锁挪进了 workflow_lock_history；切回同一总控时恢复，别让制作锁丢失。
+            restored = stage_config.workflow_lock_history(self.project()).get(choice)
+            if isinstance(restored, dict) and not locks.get(choice):
+                locks[choice] = dict(restored)
             workflow.update({'name': choice, 'skill_ref': preset['package'],
-                             'lock': dict(old.get('lock') or {})})
+                             'lock': locks})
             # 逐项“套用”是用户显式决定；调用既有阶段保存入口，不碰未选项。
             for stage, value in choices.items():
                 if value.get() and rows[stage]['current'] != rows[stage]['suggested']:
@@ -361,10 +366,67 @@ class PanelWorkflowMixin:
                 check(manual=True)
             return
         if choice == '浏览本地…':
-            # 没有确认就没有写入；下拉框立即回到已保存的总控。
+            # 没有确认就没有写入；下拉框立即回到已保存的总控，再打开本地总控包导入。
             self.refresh_workflow()
-            self.state.configure(text='总控只认 skills/00全流程SKILL/总控.json 里登记的预设；要加新的总控请编辑该清单。'); return
+            self.browse_local_master(); return
         preset = workflow_settings.WORKFLOW_PRESETS.get(choice)
         if not preset: return
         previous = str(stage_config.current_workflow(self.project()).get('name') or '')
         self.workflow_apply_dialog(choice, preset, switching=bool(previous and previous != choice))
+
+    def browse_local_master(self):
+        """「浏览本地…」：选一个自包含总控包清单（总控.json），预览后导入并刷新下拉框。"""
+        import master_import_service
+        from skill_panel_support import program_of
+        source = FileDialog(self.winfo_toplevel()).open_file(
+            title='导入本地总控包', filetypes=[('总控包清单', '总控.json'), ('全部文件', '*.*')])
+        if not source:
+            return
+        try:
+            plan = master_import_service.plan_import(
+                source, program_of(self.desktop), self.registry)
+        except master_import_service.ImportBlocked as exc:
+            notify(self.winfo_toplevel(), '导入总控包失败：' + str(exc), title='导入本地总控',
+                   status=getattr(self.desktop, 'status', None), modal=False)
+            return
+        if not plan['rows']:
+            notify(self.winfo_toplevel(), '这份清单里没有可导入的总控。', title='导入本地总控',
+                   status=getattr(self.desktop, 'status', None), modal=False)
+            return
+        self.master_import_dialog(plan)
+
+    def master_import_dialog(self, plan):
+        """可视化预览：列明每套总控的名称、主控包路径、各阶段 SKILL 与制作锁，确认后导入。"""
+        import master_import_service
+        from skill_panel_support import program_of
+        names = {}
+        def shown(skills):
+            labels = []
+            for sid in skills:
+                if sid not in names:
+                    item = self.registry.getById(sid) if getattr(self, 'registry', None) else None
+                    names[sid] = registered_skill_checkbox_label(item) if item else sid
+                labels.append(names[sid])
+            return '、'.join(labels) or '（无）'
+
+        lines = ['即将导入 %d 套总控：\n' % len(plan['rows'])]
+        for name, row in plan['rows'].items():
+            stage_lines = '\n'.join('· %s：%s' % (STAGE_NAMES.get(stage, stage), shown(items))
+                                    for stage, items in sorted(row['stage_skills'].items()))
+            locks = '、'.join(row['locks']) or '（无）'
+            lines.append('「%s」\n主控包：%s\n各阶段 SKILL：\n%s\n制作锁：%s\n'
+                         % (name, row['package'].name, stage_lines, locks))
+        if plan['problems']:
+            lines.append('注意：\n' + '\n'.join('· ' + p for p in plan['problems']))
+        if not ask_confirmation(self.winfo_toplevel(), '导入本地总控', '\n'.join(lines),
+                                dangerous=bool(plan['problems'])):
+            return
+        try:
+            result = master_import_service.perform_import(plan, program_of(self.desktop))
+        except (master_import_service.ImportBlocked, OSError, ValueError) as exc:
+            notify(self.winfo_toplevel(), '导入总控包失败：' + str(exc), title='导入本地总控',
+                   status=getattr(self.desktop, 'status', None), modal=False)
+            return
+        self.refresh_workflow()
+        self.state.configure(text='已导入总控：' + '、'.join(result['names'])
+                             + '；可在总控下拉框里选择套用。')
