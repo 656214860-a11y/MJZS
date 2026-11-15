@@ -88,7 +88,7 @@
 | Qwen Code | 可选 | 安装记录在 `安装信息.json`（`qwen` 字段） | 对应适配不可用 | `安装信息.json`、`qwen_adapter` |
 | 模型密钥（网络服务） | 按需 | 本机加密存储（`.env` 与 `private/.env` 的密钥第一次读取时一次性迁入，文件不删、之后不再读）→ 环境变量；**不落库** | 对应模型不可用，报「密钥无效或没配」 | `pet_llm.credential`、`README.md` 密钥表 |
 
-**最低版本（建议值）**：`environment_check.MIN_VERSIONS`——FFmpeg／FFprobe ≥ 4.4、Blender ≥ 3.6。只在用户点「环境自检」时启动程序读版本（`run_checks(probe=...)`，默认不探测），低于最低版本只给「提示」、不拦截，版本认不出（如 git 构建）原样保留状态。
+**最低版本（建议值）**：`environment_check.MIN_VERSIONS`——FFmpeg／FFprobe ≥ 4.4、Blender ≥ 3.6。只在用户点「环境自检」时启动程序读版本（`run_checks_with_versions()`；`run_checks()` 本身不启动程序），低于最低版本只给「提示」、不拦截，版本认不出（如 git 构建）原样保留状态。
 
 密钥名（`README.md` 密钥表）：`DEEPSEEK_API_KEY`、`OPENAI_API_KEY`、`DASHSCOPE_API_KEY`（也认 `QWEN_API_KEY`）、
 `COMFY_API_KEY`（Comfy 云）、`TTS_API_KEY`（配音）。

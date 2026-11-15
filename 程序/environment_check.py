@@ -174,7 +174,7 @@ def check_model_keys(models, program=None, key_of=model_pool.key_of):
 
 def run_checks(program=None, *, config=None, settings=None, models=None, which=shutil.which,
                find_blender=white_model_service.find_blender, find_program=workflow_settings.find_program,
-               key_of=model_pool.key_of, profiles=None, find_profile=_find_profile, probe=None):
+               key_of=model_pool.key_of, profiles=None, find_profile=_find_profile):
     root = Path(program or PROGRAM)
     config = config if config is not None else _json(root / 'config.json')
     settings = settings if settings is not None else _json(root / 'desktop_settings.json')
@@ -187,7 +187,12 @@ def run_checks(program=None, *, config=None, settings=None, models=None, which=s
     rows.extend(check_client_profiles(profiles, find_profile) if profiles is not None
                 else check_desktop_programs(find_program))
     rows.append(check_model_keys(models, root, key_of))
-    return apply_versions(rows, probe) if probe else rows
+    return rows
+
+
+def run_checks_with_versions(program=None, *, probe=probe_version, **kwargs):
+    """``run_checks`` 再给 FFmpeg／FFprobe／Blender 补版本；会启动这些程序，只在用户点「环境自检」时用。"""
+    return apply_versions(run_checks(program, **kwargs), probe)
 
 
 def summary(rows):
@@ -196,7 +201,7 @@ def summary(rows):
 
 
 def report_text(rows=None):
-    data = rows if rows is not None else run_checks(probe=probe_version)
+    data = rows if rows is not None else run_checks_with_versions()
     lines = [summary(data), '']
     for item in data:
         lines.append('[%s] %s：%s' % (STATUS_TEXT[item['status']], item['label'], item['detail']))

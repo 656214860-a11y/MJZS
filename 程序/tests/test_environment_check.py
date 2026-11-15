@@ -112,7 +112,7 @@ class EnvironmentCheckTests(unittest.TestCase):
                           find_blender=lambda: None)
             with mock.patch.object(env.comfy_runtime, 'executable', return_value=None):
                 plain = env.run_checks(Path(folder), **kwargs)
-                probed = env.run_checks(Path(folder), probe=lambda key, path: calls.append(key) or (6, 0), **kwargs)
+                probed = env.run_checks_with_versions(Path(folder), probe=lambda key, path: calls.append(key) or (6, 0), **kwargs)
         self.assertNotIn('版本', plain[0]['detail'])
         self.assertIn('版本 6.0', probed[0]['detail'])
         self.assertEqual(calls, ['ffmpeg', 'ffprobe'])
