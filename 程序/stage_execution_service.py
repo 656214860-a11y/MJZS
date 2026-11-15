@@ -287,6 +287,12 @@ def unconfirm_writing_preparation(project, stage):
     return unconfirm_preparation_document(project, stage, publish=publish_stage_text)
 
 
+def apply_partial_adoption(project, stage, path, keep):
+    """按段落采用编排入口：截写所选段落并登记标记，复用统一阶段发布器。"""
+    from writing_unconfirm import apply_partial_adoption as apply_adoption
+    return apply_adoption(project, stage, path, keep, publish=publish_stage_text)
+
+
 def reply_to_writing(project, creative, cancelled=None, *, user_message=None, request_model=None):
     """剧本模型调用编排：为所有可见剧本成果注入统一发布器。"""
     from writing_api import reply

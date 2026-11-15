@@ -914,6 +914,57 @@ class _WritingPage:
         area.configure(state='disabled')
         viewer.add_action('关闭', viewer.close)
 
+    def show_partial_adoption(self, stage):
+        """REQ-S01-88：按段落采用——勾选保留的段落，截写文件并登记标记。"""
+        try:
+            path = self.selected_script()
+        except ValueError as error:
+            self.page.status.set(str(error))
+            return
+        from writing_unconfirm import adoption_sections
+        try:
+            sections = adoption_sections(path.read_text(encoding='utf-8'))
+        except OSError:
+            sections = []
+        if len(sections) < 2:
+            self.page.status.set('稿件不足两段，无需按段落采用')
+            return
+        dialog = BaseDialog(self.page.win, '按段落采用 · 「' + stage + '」', geometry='560x420')
+        bar = ttk.Scrollbar(dialog.content, orient='vertical')
+        canvas = tk.Canvas(dialog.content, yscrollcommand=bar.set,
+                           bg=COLORS['background_card'], highlightthickness=0)
+        bar.configure(command=canvas.yview)
+        inner = ttk.Frame(canvas)
+        inner_id = canvas.create_window((0, 0), window=inner, anchor='nw')
+        inner.bind('<Configure>', lambda _e: canvas.configure(scrollregion=canvas.bbox('all')))
+        canvas.bind('<Configure>', lambda e: canvas.itemconfigure(inner_id, width=e.width))
+        canvas.pack(side='left', fill='both', expand=True)
+        bar.pack(side='right', fill='y')
+        checks = []
+        for section in sections:
+            var = tk.IntVar(value=1)
+            ttk.Checkbutton(inner, variable=var,
+                            text=section['title'][:60]).pack(anchor='w', padx=SPACING, pady=2)
+            checks.append(var)
+
+        def apply():
+            keep = tuple(index for index, var in enumerate(checks) if var.get())
+            if not keep:
+                self.page.status.set('请至少勾选一段')
+                return
+            from stage_execution_service import apply_partial_adoption
+            try:
+                apply_partial_adoption(self.page.root, stage, path, keep)
+            except ValueError as error:
+                self.page.status.set(str(error))
+                return
+            dialog.close()
+            self.fill_script_list()
+            self.page.status.set('已按所选段落截写「' + stage + '」，请审阅后设为定稿')
+
+        dialog.add_action('取消', dialog.close)
+        dialog.add_action('采用所选', apply, primary=True)
+
     def script_menu(self, tree,event):
         row=tree.identify_row(event.y)
         if not row:return
@@ -938,6 +989,7 @@ class _WritingPage:
             if stage in preparation_confirmed_stages(self.page.root):
                 menu.command('取消已确认',lambda:self.page.safe(lambda:self.unconfirm_preparation(stage)))
             menu.command('设为'+stage+'定稿',lambda:self.page.safe(lambda:self.confirm_document(stage)))
+            menu.command('按段落采用…',lambda:self.page.safe(lambda:self.show_partial_adoption(stage)))
             menu.command('历史快照／对比',lambda:self.page.safe(lambda:self.show_preparation_snapshots(stage)))
         menu.command('删除',lambda:self.page.safe(self.delete_script))
         return menu.popup(event)
