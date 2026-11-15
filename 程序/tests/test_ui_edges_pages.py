@@ -691,12 +691,13 @@ class UiEdgePagesTests(UiEdgeCase):
             self.assertEqual(d.script_structure_output_preview.yview()[0], output_position,
                              "上下剧本框应可独立滚动")
             d.script_structure_source_preview_edit_button.invoke(); win.update()
+            session = d.script_structure_source_preview_edit_session
             d.script_structure_source_preview.insert("end", "\n新增修订。")
             original = d.script_structure_source_preview.get("1.0", "1.4")
             d.script_structure_source_preview.delete("1.0", "1.4")
-            d.script_structure_source_preview_restore_button.invoke(); win.update()
+            session.undo_step(); win.update()
             self.assertEqual(d.script_structure_source_preview.get("1.0", "1.4"), original)
-            d.script_structure_source_preview_controller.save_now(); win.update()
+            session.save_now(); win.update()
             self.assertIn("新增修订。", (writing / "script_raw.md").read_text(encoding="utf-8"))
 
     def test_frame_checks_follow_the_frame_state(self):

@@ -69,7 +69,7 @@ class NaturalScriptEditTests(unittest.TestCase):
             self._assert_editable(win, desktop, errors)
             desktop.script_structure_source_preview.insert("end", "\n阿远：再见。")
             win.update()
-            desktop.script_structure_source_preview_save_button.invoke()
+            desktop.script_structure_source_preview_edit_session.save_now()
             win.update()
             self.assertEqual(errors, [])
             self.assertIn("再见", (writing / "剧本_甲.md").read_text(encoding="utf-8"))

@@ -66,10 +66,10 @@ class ScriptStructureExpandEditTests(unittest.TestCase):
             self._assert_expanded(source, output)
             self.assertGreater(source.winfo_height(), int(before * 1.5),
                                '自然剧本框编辑时应拿到结构剧本框的高度')
-            # 保存不退出编辑（R1864 契约），框保持扩展；「退出」才复原。
+            # 自动保存／立即保存都不退出编辑（R2724 契约），框保持扩展；「退出」才复原。
             desktop.script_structure_source_preview.insert('end', '\n阿远：再见。')
             win.update()
-            desktop.script_structure_source_preview_save_button.invoke()
+            desktop.script_structure_source_preview_edit_session.save_now()
             win.update()
             self.assertEqual(int(source.grid_info().get('rowspan')), 2, '保存后仍在编辑态，保持扩展')
             desktop.script_structure_source_preview_edit_button.invoke()

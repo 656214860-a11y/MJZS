@@ -1,0 +1,15 @@
+{
+  "round": 2724,
+  "commit_base": "2ded4464",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k script_structure script_autosave script_context_menu script_undo_shortcuts ui_edges_pages usage_indicator_ui usage_snapshot",
+    "exit": 0,
+    "passed": 135,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T18:38:36"
+}

@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-"""REQ-S02-35：剧本结构页「编辑／后退／恢复／保存」按钮与无 Tk 编辑控制器。
+"""REQ-S02-35：剧本结构页「编辑／退出」按钮与无 Tk 编辑控制器（R2724 反转 R1862 手动保存）。
 
-控制器（无 Tk）：内容快照撤销栈 + 手动保存（R1862 取消自动保存）。真 Tk（withdraw 根窗口）：
-按钮文本与顺序、编辑与后退都不落盘、点「保存」才落盘、无可后退时禁用。
-R1864：编辑态下「编辑」变为「退出」，未改动可直接退出；结构剧本框「保存」右侧有「删除」。
+控制器（无 Tk）：初始原文＋落盘基线＋变化判定。真 Tk（withdraw 根窗口）：可见按钮只剩
+「编辑」（结构框另有「删除」），编辑中「编辑」变「退出」；退出先落盘再退出、不再询问
+「放弃修改」；撤销／复原／保存收进右键菜单（见 test_script_context_menu）。
 """
 import tempfile
 import types
@@ -14,6 +14,7 @@ from unittest import mock
 from tkinter import ttk
 
 from script_structure_edit_controller import ScriptStructureEditController
+from ui_widgets import ContextMenu
 
 
 class _FakeStatus:
@@ -25,59 +26,54 @@ class _FakePage:
     def __init__(self, confirm=None):
         self.status = _FakeStatus()
         self.win = None
-        self.script_page_services = types.SimpleNamespace(confirm=confirm)
+        self.confirm = confirm or mock.Mock(return_value=True)
+        created = []
+
+        def context_menu(owner):
+            menu = ContextMenu(owner)
+            menu.menu.tk_popup = lambda *a, **k: None  # 只不真弹，避免阻塞
+            created.append(menu)
+            return menu
+        self.menus = created
+        self.script_page_services = types.SimpleNamespace(
+            confirm=self.confirm, context_menu=context_menu)
 
     def safe(self, fn):
         return fn()
 
 
 class ControllerTests(unittest.TestCase):
-    def test_record_edit_pushes_prior_state_and_undo_walks_back(self):
-        """REQ-S02-35：两次编辑后后退一次回到第一次编辑，再退回到原始并禁用；全程不落盘。"""
+    def test_save_writes_changed_text_and_updates_baseline(self):
+        """REQ-S02-35：save 落盘并更新基线；dirty 按文本与基线比较。"""
         saved = []
         controller = ScriptStructureEditController(save=saved.append)
         controller.begin_edit('原始')
-        controller.record_edit('第一次编辑')
-        controller.record_edit('第二次编辑')
-        self.assertEqual(saved, [], 'R1862：取消自动保存，编辑不落盘')
-        self.assertTrue(controller.can_undo)
-        self.assertEqual(controller.undo(), '第一次编辑')
-        self.assertEqual(controller.undo(), '原始')
-        self.assertFalse(controller.can_undo)
-        self.assertEqual(saved, [], '后退也不落盘')
-        with self.assertRaises(ValueError):
-            controller.undo()
+        self.assertEqual(controller.initial, '原始')
+        self.assertEqual(controller.saved, '原始')
+        self.assertFalse(controller.dirty('原始'))
+        self.assertTrue(controller.dirty('改动'))
+        self.assertTrue(controller.save('改动'))
+        self.assertEqual(saved, ['改动'])
+        self.assertFalse(controller.dirty('改动'))
+        self.assertTrue(controller.save('再改'))
+        self.assertEqual(saved, ['改动', '再改'])
 
-    def test_unchanged_edit_does_not_push_or_mark_dirty(self):
+    def test_unchanged_save_does_not_write(self):
+        """REQ-S02-35：与上次落盘相同的内容不写盘，返回 False。"""
         saved = []
         controller = ScriptStructureEditController(save=saved.append)
         controller.begin_edit('原文')
-        self.assertFalse(controller.record_edit('原文'))
-        self.assertFalse(controller.can_undo)
-        self.assertFalse(controller.dirty)
+        self.assertFalse(controller.save('原文'))
         self.assertEqual(saved, [])
-
-    def test_save_now_writes_current_and_clears_dirty(self):
-        saved = []
-        controller = ScriptStructureEditController(save=saved.append)
-        controller.begin_edit('初始')
-        controller.record_edit('改动')
-        self.assertTrue(controller.dirty)
-        controller.save_now()
-        self.assertEqual(saved, ['改动'])
-        self.assertFalse(controller.dirty)
-        controller.undo()
-        self.assertTrue(controller.dirty, '后退到与已保存内容不同的版本，应提示未保存')
 
     def test_save_before_edit_is_rejected(self):
         controller = ScriptStructureEditController(save=lambda text: None)
         with self.assertRaises(ValueError):
-            controller.save_now()
+            controller.save('内容')
 
 
 class ScriptStructureEditButtonTests(unittest.TestCase):
     def _setup(self, kind='natural', confirm_answer=True, editable=True):
-        self.confirm = mock.Mock(return_value=confirm_answer)
         win = tk.Tk()
         win.withdraw()
         self.addCleanup(lambda: win.winfo_exists() and win.destroy())
@@ -91,9 +87,13 @@ class ScriptStructureEditButtonTests(unittest.TestCase):
         target.write_text('原始内容', encoding='utf-8')
         active = {'path': str(target)}
         loaded = {'raw': '原始内容'}
-        page = _FakePage(self.confirm)
+        # 与真实 set_preview 一致：预览先展示已读原文并处于只读态。
+        preview.insert('1.0', loaded['raw'])
+        preview.edit_reset()
+        preview.configure(state='disabled')
+        page = _FakePage(mock.Mock(return_value=confirm_answer))
         page.win = win
-        from desktop_script_pages import _install_script_edit_controls, _reset_preview_text
+        from desktop_script_edit_session import _install_script_edit_controls, _reset_preview_text
         # 合并 R1842／重构批次：入参收进内容框对象（参数个数门禁），各值不变。
         box = types.SimpleNamespace(preview=preview, loaded=loaded, active=active, kind=kind,
                                     title='自然剧本', editable=editable, attribute='box',
@@ -109,87 +109,53 @@ class ScriptStructureEditButtonTests(unittest.TestCase):
         box.delete_document = mock.Mock()
         self.box = box
         _install_script_edit_controls(page, controls, box)
+        win.update()  # 先让控件完成首次布局，合成事件才稳定投递
         return win, preview, page, target
 
-    def test_buttons_are_edit_back_restore_save(self):
-        """REQ-S02-35／R1862：按钮依次为「编辑」「后退」「恢复」「保存」，保存在恢复右侧。"""
+    def test_visible_buttons_are_only_edit_and_structured_delete(self):
+        """REQ-S02-35／R2724：可见按钮只剩「编辑」（结构框另有「删除」），撤销类按钮已移除。"""
         win, preview, page, target = self._setup()
-        buttons = [page.box_edit_button, page.box_back_button, page.box_restore_button, page.box_save_button]
-        self.assertEqual([b.cget('text') for b in buttons], ['编辑', '后退', '恢复', '保存'])
-        self.assertEqual(list(buttons[0].master.pack_slaves()), buttons)
-        self.assertTrue(page.box_save_button.instate(['disabled']), '未编辑时保存禁用')
+        self.assertEqual(page.box_edit_button.cget('text'), '编辑')
+        self.assertEqual(list(page.box_edit_button.master.pack_slaves()),
+                         [page.box_edit_button])
+        for removed in ('box_back_button', 'box_restore_button', 'box_save_button'):
+            self.assertFalse(hasattr(page, removed), removed + ' 应已从页面属性移除')
+        win, preview, page, target = self._setup(kind='structured')
+        self.assertEqual([b.cget('text') for b in
+                          (page.box_edit_button, page.box_delete_button)], ['编辑', '删除'])
+        self.assertEqual(list(page.box_edit_button.master.pack_slaves()),
+                         [page.box_edit_button, page.box_delete_button])
 
-    def test_edit_saves_only_on_save_and_back_walks_to_original(self):
-        """REQ-S02-35／R1862：编辑不自动落盘；点保存才落盘；后退逐级回到原始，后退禁用。"""
+    def test_exit_flushes_pending_save_without_confirm(self):
+        """R2724：退出编辑先把未落盘内容写回再退出，全程不再询问「放弃修改」。"""
         win, preview, page, target = self._setup()
         page.box_edit_button.invoke()
         win.update()
-        self.assertEqual(str(preview.cget('state')), 'normal')
+        preview.insert('end', '改动')
+        win.update()
+        page.box_edit_button.invoke()   # 立即退出，不等 600ms 防抖
+        win.update()
+        self.assertEqual(target.read_text(encoding='utf-8'), '原始内容改动\n')
+        self.assertEqual(str(preview.cget('state')), 'disabled')
+        self.assertEqual(page.box_edit_button.cget('text'), '编辑')
+        page.confirm.assert_not_called()
 
-        preview.insert('end', '第一次')
-        win.update()
-        self.assertEqual(target.read_text(encoding='utf-8').strip(), '原始内容', '编辑后不得自动保存')
-        self.assertFalse(page.box_save_button.instate(['disabled']), '有改动时保存可点')
-        page.box_save_button.invoke()
-        win.update()
-        self.assertEqual(target.read_text(encoding='utf-8').strip(), '原始内容第一次')
-        self.assertTrue(page.box_save_button.instate(['disabled']), '保存后无改动，保存禁用')
-
-        preview.insert('end', '第二次')
-        win.update()
-        page.box_back_button.invoke()
-        win.update()
-        self.assertEqual(preview.get('1.0', 'end-1c').strip(), '原始内容第一次')
-        self.assertEqual(target.read_text(encoding='utf-8').strip(), '原始内容第一次', '后退不落盘')
-
-        page.box_back_button.invoke()
-        win.update()
-        self.assertEqual(preview.get('1.0', 'end-1c').strip(), '原始内容')
-        self.assertTrue(page.box_back_button.instate(['disabled']), '无可后退时后退按钮应禁用')
-        page.box_save_button.invoke()
-        win.update()
-        self.assertEqual(target.read_text(encoding='utf-8').strip(), '原始内容')
-
-    def test_exit_without_changes_leaves_edit_mode(self):
-        """R1864：点编辑后不改动，「编辑」变成可点的「退出」，点了直接回到只读，不询问、不落盘。"""
+    def test_exit_without_changes_keeps_source_bytes(self):
+        """R2724：进入编辑后未改动就退出，不写盘、不询问。"""
         win, preview, page, target = self._setup()
+        before = target.read_bytes()
         page.box_edit_button.invoke()
         win.update()
         self.assertEqual(page.box_edit_button.cget('text'), '退出')
-        self.assertFalse(page.box_edit_button.instate(['disabled']), '编辑态下必须能退出')
         page.box_edit_button.invoke()
         win.update()
-        self.confirm.assert_not_called()
+        self.assertEqual(target.read_bytes(), before)
         self.assertEqual(str(preview.cget('state')), 'disabled')
-        self.assertEqual(page.box_edit_button.cget('text'), '编辑')
-        self.assertTrue(page.box_restore_button.instate(['disabled']))
-        self.assertTrue(page.box_save_button.instate(['disabled']))
-        self.assertEqual(target.read_text(encoding='utf-8'), '原始内容')
+        page.confirm.assert_not_called()
 
-    def test_exit_with_unsaved_changes_asks_and_discards(self):
-        """R1864：有未保存改动时退出先确认；取消则留在编辑，确定则放弃改动并恢复原文。"""
-        win, preview, page, target = self._setup(confirm_answer=False)
-        page.box_edit_button.invoke()
-        preview.insert('end', '改动')
-        win.update()
-        page.box_edit_button.invoke()
-        win.update()
-        self.assertEqual(self.confirm.call_count, 1)
-        self.assertEqual(str(preview.cget('state')), 'normal', '取消时留在编辑态')
-        self.confirm.return_value = True
-        page.box_edit_button.invoke()
-        win.update()
-        self.assertEqual(str(preview.cget('state')), 'disabled')
-        self.assertEqual(preview.get('1.0', 'end-1c').strip(), '原始内容', '放弃改动后显示原文')
-        self.assertEqual(target.read_text(encoding='utf-8'), '原始内容', '退出不落盘')
-
-    def test_structured_box_has_delete_right_of_save(self):
-        """R1864：只有结构剧本框有「删除」，紧挨「保存」右侧；编辑中禁用；确认后才删。"""
+    def test_editing_state_disables_structured_delete(self):
+        """R1864／R2724：结构剧本框「删除」只在非编辑态可用；确认后才删。"""
         win, preview, page, target = self._setup(kind='structured', confirm_answer=False)
-        buttons = [page.box_edit_button, page.box_back_button, page.box_restore_button,
-                   page.box_save_button, page.box_delete_button]
-        self.assertEqual([b.cget('text') for b in buttons], ['编辑', '后退', '恢复', '保存', '删除'])
-        self.assertEqual(list(buttons[0].master.pack_slaves()), buttons)
         self.assertFalse(page.box_delete_button.instate(['disabled']))
         page.box_edit_button.invoke()
         win.update()
@@ -197,9 +163,9 @@ class ScriptStructureEditButtonTests(unittest.TestCase):
         page.box_edit_button.invoke()
         win.update()
         page.box_delete_button.invoke()
-        self.assertEqual(self.confirm.call_args.kwargs.get('dangerous'), True)
+        self.assertEqual(page.confirm.call_args.kwargs.get('dangerous'), True)
         self.box.delete_document.assert_not_called()
-        self.confirm.return_value = True
+        page.confirm.return_value = True
         page.box_delete_button.invoke()
         self.box.delete_document.assert_called_once_with()
 
@@ -207,8 +173,8 @@ class ScriptStructureEditButtonTests(unittest.TestCase):
         win, preview, page, target = self._setup()
         self.assertFalse(hasattr(page, 'box_delete_button'))
 
-    def test_readonly_box_refuses_edit_and_empty_restore_reports(self):
-        """只读文档点「编辑」报错；编辑态没有删除可恢复时「恢复」报错，而非抛 TclError。"""
+    def test_readonly_box_refuses_edit(self):
+        """只读文档点「编辑」报错，不进入编辑态。"""
         win, preview, page, target = self._setup(editable=False)
         errors = []
 
@@ -220,11 +186,7 @@ class ScriptStructureEditButtonTests(unittest.TestCase):
         page.safe = safe
         page.box_edit_button.invoke()
         self.assertEqual(errors, ['当前没有可修改的剧本文档。'])
-        win2, preview2, page2, target2 = self._setup()
-        page2.safe = safe
-        page2.box_edit_button.invoke()
-        page2.box_restore_button.invoke()
-        self.assertEqual(errors[-1], '没有可恢复的删除内容。')
+        self.assertEqual(str(preview.cget('state')), 'disabled')
 
 
 if __name__ == '__main__':
