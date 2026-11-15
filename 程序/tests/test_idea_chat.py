@@ -32,7 +32,7 @@ from ui_tokens import ICON_ADD
 from stage_execution_service import idea_chat_gateway, publish_idea_creative, project_context
 from desktop import Desktop, PAGE
 from project_stages import writing as writing_dir
-from tests.test_ui_edges import make_minimal_project
+from tests.ui_edges_support import make_minimal_project
 
 
 from ui_tokens import COLORS

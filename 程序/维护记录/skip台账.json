@@ -983,8 +983,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_all_pages_build_without_storyboard",
+      "file": "tests/test_ui_edges_pages.py",
+      "test": "UiEdgePagesTests.test_all_pages_build_without_storyboard",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -992,8 +992,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_editing_actions_disabled_without_downloads",
+      "file": "tests/test_ui_edges_pages.py",
+      "test": "UiEdgePagesTests.test_editing_actions_disabled_without_downloads",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1001,8 +1001,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_all_pages_build_with_storyboard",
+      "file": "tests/test_ui_edges_pages.py",
+      "test": "UiEdgePagesTests.test_all_pages_build_with_storyboard",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1010,8 +1010,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_all_pages_build_with_populated_project",
+      "file": "tests/test_ui_edges_pages.py",
+      "test": "UiEdgePagesTests.test_all_pages_build_with_populated_project",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1019,8 +1019,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_audio_actions_disabled_without_dialogue",
+      "file": "tests/test_ui_edges_pages.py",
+      "test": "UiEdgePagesTests.test_audio_actions_disabled_without_dialogue",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1028,8 +1028,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_final_storyboard_split_viewer",
+      "file": "tests/test_ui_edges_pages.py",
+      "test": "UiEdgePagesTests.test_final_storyboard_split_viewer",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1037,8 +1037,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_script_box_above_storyboard_json_box",
+      "file": "tests/test_ui_edges_pages.py",
+      "test": "UiEdgePagesTests.test_script_box_above_storyboard_json_box",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1046,8 +1046,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_step2_rows_hug_their_content_boxes",
+      "file": "tests/test_ui_edges_pages.py",
+      "test": "UiEdgePagesTests.test_step2_rows_hug_their_content_boxes",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1055,8 +1055,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_previs_actions_follow_the_default_selection",
+      "file": "tests/test_ui_edges_controls.py",
+      "test": "UiEdgeControlsTests.test_previs_actions_follow_the_default_selection",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1064,8 +1064,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_file_table_click_rules",
+      "file": "tests/test_ui_edges_controls.py",
+      "test": "UiEdgeControlsTests.test_file_table_click_rules",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1073,8 +1073,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_launch_comfy_does_not_block_on_a_starting_service",
+      "file": "tests/test_ui_edges_controls.py",
+      "test": "UiEdgeControlsTests.test_launch_comfy_does_not_block_on_a_starting_service",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1082,8 +1082,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_launch_comfy_is_silent_in_the_production_chain",
+      "file": "tests/test_ui_edges_controls.py",
+      "test": "UiEdgeControlsTests.test_launch_comfy_is_silent_in_the_production_chain",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1091,8 +1091,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_frame_page_batch_row_moved_below_table",
+      "file": "tests/test_ui_edges_tables.py",
+      "test": "UiEdgeTablesTests.test_frame_page_batch_row_moved_below_table",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1100,8 +1100,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_page_level_model_and_skill_entries_are_gone",
+      "file": "tests/test_ui_edges_pages.py",
+      "test": "UiEdgePagesTests.test_page_level_model_and_skill_entries_are_gone",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1109,8 +1109,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_unattended_switch_is_not_rendered_by_the_page",
+      "file": "tests/test_ui_edges_autopilot.py",
+      "test": "UiEdgeAutoTests.test_unattended_switch_is_not_rendered_by_the_page",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1118,8 +1118,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_writing_page_first_line_and_removed_labels",
+      "file": "tests/test_ui_edges_pages.py",
+      "test": "UiEdgePagesTests.test_writing_page_first_line_and_removed_labels",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1127,8 +1127,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_the_brief_example_never_lands_in_the_project",
+      "file": "tests/test_ui_edges_pages.py",
+      "test": "UiEdgePagesTests.test_the_brief_example_never_lands_in_the_project",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1136,8 +1136,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_the_writing_page_gives_the_brief_more_room",
+      "file": "tests/test_ui_edges_pages.py",
+      "test": "UiEdgePagesTests.test_the_writing_page_gives_the_brief_more_room",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1145,8 +1145,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_the_writing_page_wraps_the_box_with_buttons",
+      "file": "tests/test_ui_edges_pages.py",
+      "test": "UiEdgePagesTests.test_the_writing_page_wraps_the_box_with_buttons",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1154,8 +1154,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_script_structure_page_shows_source_and_output_in_separate_boxes",
+      "file": "tests/test_ui_edges_pages.py",
+      "test": "UiEdgePagesTests.test_script_structure_page_shows_source_and_output_in_separate_boxes",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1163,8 +1163,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_frame_checks_follow_the_frame_state",
+      "file": "tests/test_ui_edges_pages.py",
+      "test": "UiEdgePagesTests.test_frame_checks_follow_the_frame_state",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1172,8 +1172,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_final_page_nav_rows_and_headers",
+      "file": "tests/test_ui_edges_pages.py",
+      "test": "UiEdgePagesTests.test_final_page_nav_rows_and_headers",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1181,8 +1181,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_final_page_nav_rows_and_headers",
+      "file": "tests/test_ui_edges_pages.py",
+      "test": "UiEdgePagesTests.test_final_page_nav_rows_and_headers",
       "ordinal": 2,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1190,8 +1190,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_final_page_marks_the_synced_final",
+      "file": "tests/test_ui_edges_pages.py",
+      "test": "UiEdgePagesTests.test_final_page_marks_the_synced_final",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1199,8 +1199,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_storyboard_switch_never_inflates_the_footer_row",
+      "file": "tests/test_ui_edges_pages.py",
+      "test": "UiEdgePagesTests.test_storyboard_switch_never_inflates_the_footer_row",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1208,8 +1208,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_source_selector_wheel_does_not_switch_episode",
+      "file": "tests/test_ui_edges_controls.py",
+      "test": "UiEdgeControlsTests.test_source_selector_wheel_does_not_switch_episode",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1217,8 +1217,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_source_selector_display_snaps_back_when_switch_is_blocked",
+      "file": "tests/test_ui_edges_controls.py",
+      "test": "UiEdgeControlsTests.test_source_selector_display_snaps_back_when_switch_is_blocked",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1226,8 +1226,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_frame_prompt_window_copies_and_closes",
+      "file": "tests/test_ui_edges_controls.py",
+      "test": "UiEdgeControlsTests.test_frame_prompt_window_copies_and_closes",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1235,8 +1235,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_frame_prompt_window_disables_copy_when_empty",
+      "file": "tests/test_ui_edges_controls.py",
+      "test": "UiEdgeControlsTests.test_frame_prompt_window_disables_copy_when_empty",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1244,8 +1244,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_asset_prompt_window_copies_and_closes",
+      "file": "tests/test_ui_edges_controls.py",
+      "test": "UiEdgeControlsTests.test_asset_prompt_window_copies_and_closes",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1253,8 +1253,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_the_asset_table_shows_thumbnails_only_in_the_import_column",
+      "file": "tests/test_ui_edges_tables.py",
+      "test": "UiEdgeTablesTests.test_the_asset_table_shows_thumbnails_only_in_the_import_column",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1262,8 +1262,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_the_video_table_highlights_the_asset_and_frame_columns",
+      "file": "tests/test_ui_edges_tables.py",
+      "test": "UiEdgeTablesTests.test_the_video_table_highlights_the_asset_and_frame_columns",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1271,8 +1271,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_the_video_table_shows_the_first_frame_thumbnail",
+      "file": "tests/test_ui_edges_tables.py",
+      "test": "UiEdgeTablesTests.test_the_video_table_shows_the_first_frame_thumbnail",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1280,8 +1280,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_the_previs_table_highlights_every_cell",
+      "file": "tests/test_ui_edges_tables.py",
+      "test": "UiEdgeTablesTests.test_the_previs_table_highlights_every_cell",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1289,8 +1289,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_the_frame_table_shows_thumbnails_in_the_file_column",
+      "file": "tests/test_ui_edges_tables.py",
+      "test": "UiEdgeTablesTests.test_the_frame_table_shows_thumbnails_in_the_file_column",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1298,8 +1298,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_the_final_table_columns_follow_the_window",
+      "file": "tests/test_ui_edges_tables.py",
+      "test": "UiEdgeTablesTests.test_the_final_table_columns_follow_the_window",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1307,8 +1307,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_readonly_combobox_ignores_mouse_wheel",
+      "file": "tests/test_ui_edges_controls.py",
+      "test": "UiEdgeControlsTests.test_readonly_combobox_ignores_mouse_wheel",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1316,8 +1316,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_open_combobox_wheel_scrolls_list_without_rebuild",
+      "file": "tests/test_ui_edges_controls.py",
+      "test": "UiEdgeControlsTests.test_open_combobox_wheel_scrolls_list_without_rebuild",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1325,8 +1325,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_source_selector_skips_rebuild_for_same_choice",
+      "file": "tests/test_ui_edges_controls.py",
+      "test": "UiEdgeControlsTests.test_source_selector_skips_rebuild_for_same_choice",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1334,8 +1334,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_sanhu_auto_mode_persists_and_polls_auto_adopt",
+      "file": "tests/test_ui_edges_autopilot.py",
+      "test": "UiEdgeAutoTests.test_sanhu_auto_mode_persists_and_polls_auto_adopt",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1343,8 +1343,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_startup_reconciliation_pulls_the_working_episode_back",
+      "file": "tests/test_ui_edges_autopilot.py",
+      "test": "UiEdgeAutoTests.test_startup_reconciliation_pulls_the_working_episode_back",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1352,8 +1352,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_sanhu_auto_mode_assembles_once_per_approval",
+      "file": "tests/test_ui_edges_autopilot.py",
+      "test": "UiEdgeAutoTests.test_sanhu_auto_mode_assembles_once_per_approval",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1361,8 +1361,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_sanhu_auto_mode_persists_and_polls_handoff",
+      "file": "tests/test_ui_edges_autopilot.py",
+      "test": "UiEdgeAutoTests.test_sanhu_auto_mode_persists_and_polls_handoff",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1370,8 +1370,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_renumber_shots_button_fixes_script_order",
+      "file": "tests/test_ui_edges_controls.py",
+      "test": "UiEdgeControlsTests.test_renumber_shots_button_fixes_script_order",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1379,8 +1379,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_page_build_failure_reports_instead_of_blank_page",
+      "file": "tests/test_ui_edges_pages.py",
+      "test": "UiEdgePagesTests.test_page_build_failure_reports_instead_of_blank_page",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1388,8 +1388,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_handoff_prefers_approved_take",
+      "file": "tests/test_ui_edges_autopilot.py",
+      "test": "UiEdgeAutoTests.test_handoff_prefers_approved_take",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1397,8 +1397,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_readiness_check_is_shared_between_auto_edit_and_handoff",
+      "file": "tests/test_ui_edges_autopilot.py",
+      "test": "UiEdgeAutoTests.test_readiness_check_is_shared_between_auto_edit_and_handoff",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1406,8 +1406,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_auto_keyframe_sanhu_mode_persists_and_polls",
+      "file": "tests/test_ui_edges_autopilot.py",
+      "test": "UiEdgeAutoTests.test_auto_keyframe_sanhu_mode_persists_and_polls",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1415,8 +1415,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_auto_previs_sanhu_mode_dispatches_complex_once",
+      "file": "tests/test_ui_edges_autopilot.py",
+      "test": "UiEdgeAutoTests.test_auto_previs_sanhu_mode_dispatches_complex_once",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1424,8 +1424,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_auto_previs_waits_for_first_frame_stage",
+      "file": "tests/test_ui_edges_autopilot.py",
+      "test": "UiEdgeAutoTests.test_auto_previs_waits_for_first_frame_stage",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1433,8 +1433,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_final_storyboard_hint_points_to_step07",
+      "file": "tests/test_ui_edges_pages.py",
+      "test": "UiEdgePagesTests.test_final_storyboard_hint_points_to_step07",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1442,8 +1442,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_auto_asset_sanhu_mode_persists_and_polls",
+      "file": "tests/test_ui_edges_autopilot.py",
+      "test": "UiEdgeAutoTests.test_auto_asset_sanhu_mode_persists_and_polls",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1451,8 +1451,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_unattended_asset_batch_retries_when_nothing_landed",
+      "file": "tests/test_ui_edges_autopilot.py",
+      "test": "UiEdgeAutoTests.test_unattended_asset_batch_retries_when_nothing_landed",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1460,8 +1460,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_pet_storyboard_batch_dispatches_the_selected_scripts",
+      "file": "tests/test_ui_edges_controls.py",
+      "test": "UiEdgeControlsTests.test_pet_storyboard_batch_dispatches_the_selected_scripts",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1469,8 +1469,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_studio_follows_selected_storyboard",
+      "file": "tests/test_ui_edges_controls.py",
+      "test": "UiEdgeControlsTests.test_studio_follows_selected_storyboard",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1478,8 +1478,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_auto_video_sanhu_mode_persists_and_polls",
+      "file": "tests/test_ui_edges_autopilot.py",
+      "test": "UiEdgeAutoTests.test_auto_video_sanhu_mode_persists_and_polls",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1487,8 +1487,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_per_line_tts_asks_before_paying",
+      "file": "tests/test_ui_edges_autopilot.py",
+      "test": "UiEdgeAutoTests.test_per_line_tts_asks_before_paying",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1496,8 +1496,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_whole_script_tts_reuses_unchanged_audio",
+      "file": "tests/test_ui_edges_autopilot.py",
+      "test": "UiEdgeAutoTests.test_whole_script_tts_reuses_unchanged_audio",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1505,8 +1505,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_auto_final_switch_generates_final_and_retires_working_json",
+      "file": "tests/test_ui_edges_autopilot.py",
+      "test": "UiEdgeAutoTests.test_auto_final_switch_generates_final_and_retires_working_json",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1514,8 +1514,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_final_page_offers_visible_retry_for_unsynced_storyboard",
+      "file": "tests/test_ui_edges_autopilot.py",
+      "test": "UiEdgeAutoTests.test_final_page_offers_visible_retry_for_unsynced_storyboard",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1523,8 +1523,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_asset_resume_ledger_carries_the_backoff_across_restart",
+      "file": "tests/test_ui_edges_autopilot.py",
+      "test": "UiEdgeAutoTests.test_asset_resume_ledger_carries_the_backoff_across_restart",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1532,8 +1532,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_unattended_chain_runs_asset_final_keyframe_in_order",
+      "file": "tests/test_ui_edges_autopilot.py",
+      "test": "UiEdgeAutoTests.test_unattended_chain_runs_asset_final_keyframe_in_order",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1541,8 +1541,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_downstream_keyframe_never_runs_ahead_of_a_ready_final_step",
+      "file": "tests/test_ui_edges_autopilot.py",
+      "test": "UiEdgeAutoTests.test_downstream_keyframe_never_runs_ahead_of_a_ready_final_step",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1550,8 +1550,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_unattended_chain_runs_video_edit_handoff_in_order",
+      "file": "tests/test_ui_edges_autopilot.py",
+      "test": "UiEdgeAutoTests.test_unattended_chain_runs_video_edit_handoff_in_order",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1559,8 +1559,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_unattended_polls_yield_while_finalizing",
+      "file": "tests/test_ui_edges_autopilot.py",
+      "test": "UiEdgeAutoTests.test_unattended_polls_yield_while_finalizing",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1568,8 +1568,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_unattended_pipeline_runs_end_to_end_without_clicks",
+      "file": "tests/test_ui_edges_autopilot.py",
+      "test": "UiEdgeAutoTests.test_unattended_pipeline_runs_end_to_end_without_clicks",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1577,8 +1577,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_chain_kick_skips_steps_in_failure_backoff",
+      "file": "tests/test_ui_edges_autopilot.py",
+      "test": "UiEdgeAutoTests.test_chain_kick_skips_steps_in_failure_backoff",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1586,8 +1586,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_auto_final_waits_for_running_keyframe_batch",
+      "file": "tests/test_ui_edges_autopilot.py",
+      "test": "UiEdgeAutoTests.test_auto_final_waits_for_running_keyframe_batch",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1595,8 +1595,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_table_hover_clears_when_wheel_scrolls",
+      "file": "tests/test_ui_edges_tables.py",
+      "test": "UiEdgeTablesTests.test_table_hover_clears_when_wheel_scrolls",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1604,8 +1604,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_same_page_rebuild_keeps_scroll_offset",
+      "file": "tests/test_ui_edges_tables.py",
+      "test": "UiEdgeTablesTests.test_same_page_rebuild_keeps_scroll_offset",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1613,8 +1613,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_restored_main_window_recomputes_page_scroll_before_wheel",
+      "file": "tests/test_ui_edges_tables.py",
+      "test": "UiEdgeTablesTests.test_restored_main_window_recomputes_page_scroll_before_wheel",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1622,7 +1622,7 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
+      "file": "tests/test_ui_edges_tables.py",
       "test": "RowHeightTests.test_the_height_reads_the_widget_font",
       "ordinal": 1,
       "kind": "平台限制",
@@ -1631,7 +1631,7 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
+      "file": "tests/test_ui_edges_tables.py",
       "test": "RowHeightTests.test_fit_row_height_sets_the_style",
       "ordinal": 1,
       "kind": "平台限制",
@@ -1640,7 +1640,7 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
+      "file": "tests/test_ui_edges_autopilot.py",
       "test": "BatchContinuationTests.test_storyboard_agent_continues_past_made_scripts",
       "ordinal": 1,
       "kind": "平台限制",
@@ -1649,7 +1649,7 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
+      "file": "tests/test_ui_edges_autopilot.py",
       "test": "BatchContinuationTests.test_asset_batch_asks_before_remaking_finished_assets",
       "ordinal": 1,
       "kind": "平台限制",
@@ -1658,7 +1658,7 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
+      "file": "tests/test_ui_edges_autopilot.py",
       "test": "BatchContinuationTests.test_asset_batch_remakes_the_ones_the_user_confirmed",
       "ordinal": 1,
       "kind": "平台限制",
@@ -1667,7 +1667,7 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
+      "file": "tests/test_ui_edges_autopilot.py",
       "test": "BatchContinuationTests.test_asset_batch_still_starts_for_the_unfinished_ones",
       "ordinal": 1,
       "kind": "平台限制",
@@ -1676,7 +1676,7 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
+      "file": "tests/test_ui_edges_autopilot.py",
       "test": "BatchContinuationTests.test_the_manual_asset_button_is_grey_when_everything_is_made",
       "ordinal": 1,
       "kind": "平台限制",
@@ -1685,7 +1685,7 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
+      "file": "tests/test_ui_edges_autopilot.py",
       "test": "BatchContinuationTests.test_adopt_skips_adopted_without_confirm",
       "ordinal": 1,
       "kind": "平台限制",
@@ -1694,7 +1694,7 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
+      "file": "tests/test_ui_edges_autopilot.py",
       "test": "WorkerThreadSafetyTests.test_seedream_probe_reports_reachable",
       "ordinal": 1,
       "kind": "平台限制",
@@ -1703,7 +1703,7 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
+      "file": "tests/test_ui_edges_autopilot.py",
       "test": "WorkerThreadSafetyTests.test_tts_probe_reports_connection_failure",
       "ordinal": 1,
       "kind": "平台限制",
@@ -1712,7 +1712,7 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
+      "file": "tests/test_ui_edges_pages.py",
       "test": "StageConfigEntryTests.test_every_page_opens_its_own_panel",
       "ordinal": 1,
       "kind": "平台限制",
@@ -1721,7 +1721,7 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
+      "file": "tests/test_ui_edges_pages.py",
       "test": "BriefTintTests.build",
       "ordinal": 1,
       "kind": "平台限制",
@@ -1730,7 +1730,7 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
+      "file": "tests/test_ui_edges_pages.py",
       "test": "ContentBoxFitTests.build",
       "ordinal": 1,
       "kind": "平台限制",
@@ -1739,7 +1739,7 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
+      "file": "tests/test_ui_edges_pages.py",
       "test": "TalkBoxFitTests.build",
       "ordinal": 1,
       "kind": "平台限制",
@@ -1748,7 +1748,7 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
+      "file": "tests/test_ui_edges_tables.py",
       "test": "StoryboardRowLayoutTests.test_the_action_row_stays_inside_the_visible_canvas",
       "ordinal": 1,
       "kind": "平台限制",
@@ -1757,7 +1757,7 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
+      "file": "tests/test_ui_edges_pages.py",
       "test": "PageHintTests.test_notes_are_green_and_same_page_duplicates_are_reused",
       "ordinal": 1,
       "kind": "平台限制",
@@ -1766,7 +1766,7 @@
       "reference": ""
     },
     {
-      "file": "tests/test_ui_edges.py",
+      "file": "tests/test_ui_edges_pages.py",
       "test": "PageHintTests.test_asset_sync_failure_stays_silent_outside_assets",
       "ordinal": 1,
       "kind": "平台限制",

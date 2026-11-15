@@ -113,7 +113,7 @@ def rss_mb():
 
 def big_project(td, count):
     """count 项「已导入」资产的资产页项目（每项一张真的 96×96 PNG）。"""
-    from tests.test_ui_edges import keep_storyboard_fresh, make_adopted_project
+    from tests.ui_edges_support import keep_storyboard_fresh, make_adopted_project
     proj = make_adopted_project(td)
     base = proj / 'episode'
     per = max(1, count // 3)

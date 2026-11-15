@@ -33,7 +33,7 @@ class AssetBatchWindowTests(unittest.TestCase):
     def setUp(self):
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
-        import test_ui_edges
+        import ui_edges_support
         from desktop import Desktop
         from local_video import open_studio
         td = Path(tempfile.mkdtemp())
@@ -44,7 +44,7 @@ class AssetBatchWindowTests(unittest.TestCase):
         (td / 'app').mkdir()
         self.desktop = Desktop(self.win, root=td / 'app')
         self.desktop.startup_controller.cancel()
-        self.desktop.root = test_ui_edges.make_populated_project(td)
+        self.desktop.root = ui_edges_support.make_populated_project(td)
         self.desktop.studio = open_studio(self.desktop.root)
         self.desktop.cancel_timers()
         self.addCleanup(self.desktop.cancel_timers)

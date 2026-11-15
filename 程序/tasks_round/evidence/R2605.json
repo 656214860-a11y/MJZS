@@ -1,0 +1,15 @@
+{
+  "round": 2605,
+  "commit_base": "4ee740d0",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k ui_edges selftests skip_hygiene static_hygiene agents_md idea_inline_brief",
+    "exit": 0,
+    "passed": 227,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T14:10:12"
+}

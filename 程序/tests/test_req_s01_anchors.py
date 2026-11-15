@@ -29,7 +29,7 @@ import workflow_settings
 from agent.core import save
 from stage_path_service import write_dir
 from tests.test_idea_chat import _Harness, idea_chat
-from tests.test_ui_edges import make_minimal_project
+from tests.ui_edges_support import make_minimal_project
 
 RAW = (
     '第 1 集\n'

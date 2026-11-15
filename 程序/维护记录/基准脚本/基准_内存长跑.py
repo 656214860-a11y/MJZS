@@ -96,7 +96,7 @@ def count_widgets(widget):
 
 def big_project(td, count):
     """有数据、且资产页真有很多行的项目：11 页都走「有内容」那条路。"""
-    import test_ui_edges as T
+    import ui_edges_support as T
     proj = T.make_populated_project(str(td))
     base = proj / 'episode'
     episode_file = base / 'episode.json'

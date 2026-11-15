@@ -92,7 +92,7 @@ assert len(tk._drama_wanted_topmost) == 0
         self.assertEqual(run_selftests.safe_gui_jobs(1), 1)
 
     def test_startup_timing_is_exclusive_without_dropping_split_units(self):
-        units = [('ui', 'test_ui_edges', None),
+        units = [('ui', 'test_ui_edges_autopilot', None),
                  ('startup#1', 'test_desktop_startup_perf', ['first_paint']),
                  ('service', 'test_stage_parallel', None),
                  ('baseline', 'test_perf_baseline', None),
@@ -111,7 +111,7 @@ assert len(tk._drama_wanted_topmost) == 0
             self.assertEqual(run_selftests.split_safe_units(units), ([units[0]], [units[1]]))
 
     def test_long_gui_units_start_first_without_dropping_or_reordering_each_group(self):
-        units = [('short1', 'test_window', None), ('long1', 'test_ui_edges', None),
+        units = [('short1', 'test_window', None), ('long1', 'test_ui_edges_autopilot', None),
                  ('short2', 'test_window', None), ('long2', 'test_pet_ui', None)]
         expected = [units[1], units[3], units[0], units[2]]
         self.assertEqual(run_selftests.prioritize_gui_units(units), expected)
@@ -152,13 +152,13 @@ assert len(tk._drama_wanted_topmost) == 0
         self.assertEqual([sum(len(methods) for _name, methods in chunk) for chunk in chunks], [8, 8, 1])
 
     def test_gui_short_and_e2e_layers_are_disjoint(self):
-        names = ['test_service', 'test_window', 'test_ui_edges', 'test_pet_ui']
+        names = ['test_service', 'test_window', 'test_ui_edges_autopilot', 'test_pet_ui']
         with mock.patch.object(run_selftests, 'gui_test_module',
                                side_effect=lambda name: name != 'test_service'):
             short = run_selftests.modules_for_layer(names, 'gui-short')
             e2e = run_selftests.modules_for_layer(names, 'gui-e2e')
             self.assertEqual(short, ['test_window'])
-            self.assertEqual(e2e, ['test_ui_edges', 'test_pet_ui'])
+            self.assertEqual(e2e, ['test_ui_edges_autopilot', 'test_pet_ui'])
             self.assertEqual(set(short) & set(e2e), set())
 
 

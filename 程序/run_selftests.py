@@ -3,7 +3,7 @@
 
 第 25 期：整跑改成**按工作单元并行**（本机 24 核，实测 204 秒 → 87 秒）。
 大文件（用例多的那两个）会按 TestCase 类再切成几路——原来一个文件只能占一个进程，
-test_pet_ui／test_ui_edges 各自七八十秒，整跑就被它们俩顶住了。
+test_pet_ui／test_ui_edges_* 各自几十秒，整跑就被它们顶住了。
 剩下的长尾是 Tk 界面那几条：每例都要建一整套 11 页的界面，单例 3～6 秒，切得再细也下不去；
 并行度也是实测出来的——16 路时 GUI 互相争用，单例成本翻三倍，整跑反而 114 秒，所以默认封顶 8 路。
   python run_selftests.py                  # 并行整跑（默认，取 min(8, 核数) 个进程，约 85 秒）
@@ -106,7 +106,8 @@ DATA_GLOBS = ('skills/*.skill.md', 'skills/*/*.md', 'skills/*/*/*.md')
 TEST_LAYERS = ('architecture', 'service', 'gui', 'gui-short', 'gui-e2e')
 # 这两组会连续创建完整桌面、启动后台助手，必须与短生命周期 Tk 用例隔离。
 # 名称是测试模块的稳定契约，新增端到端模块时必须显式登记，不能靠耗时猜测。
-GUI_E2E_MODULES = frozenset({'test_ui_edges', 'test_pet_ui'})
+GUI_E2E_MODULES = frozenset({'test_pet_ui', 'test_ui_edges_autopilot', 'test_ui_edges_pages',
+                             'test_ui_edges_tables', 'test_ui_edges_controls'})
 # 名称未采用 test_perf 前缀，但包含真实墙钟性能断言，也必须独占测量。
 PERFORMANCE_MODULES = frozenset({'test_desktop_startup_perf'})
 

@@ -23,7 +23,7 @@ class PageCacheTests(unittest.TestCase):
             cls.tk = None
 
     def open_desktop(self, td):
-        import test_ui_edges
+        import ui_edges_support
         from desktop import Desktop
         from local_video import open_studio
         win = self.tk.Tk(); win.withdraw()
@@ -33,7 +33,7 @@ class PageCacheTests(unittest.TestCase):
         self.addCleanup(d.cancel_timers)
         # 缓存测试自行装入项目，不运行首帧后的新建／今日项目选择流程。
         d.startup_controller.cancel()
-        d.root = test_ui_edges.make_populated_project(td)
+        d.root = ui_edges_support.make_populated_project(td)
         d.studio = open_studio(d.root)
         return win, d
 
@@ -71,12 +71,12 @@ class PageCacheTests(unittest.TestCase):
     def test_project_change_drops_cache(self):
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
-        import test_ui_edges
+        import ui_edges_support
         with tempfile.TemporaryDirectory() as td, tempfile.TemporaryDirectory() as other:
             win, d = self.open_desktop(td)
             d.go_page(PAGE['storyboard']); win.update_idletasks(); d.go_page(PAGE['assets']); win.update_idletasks()
             first = self.holder(d)
-            d.root = test_ui_edges.make_populated_project(other)
+            d.root = ui_edges_support.make_populated_project(other)
             d.go_page(PAGE['storyboard']); win.update_idletasks()
             self.assertFalse(first.winfo_exists())
             self.assertEqual(d._page_cache[PAGE['storyboard']]['root'], d.root)

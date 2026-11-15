@@ -47,7 +47,7 @@ def make_project(td, scope=None):
         settings["asset_scope"] = scope
     (proj / "ui_settings.json").write_text(json.dumps(settings, ensure_ascii=False), encoding="utf-8")
     # 这两份 JSON 的 mtime 顶到将来一点：storyboard_storage.normalize 只整理 3 秒以上的旧文件，
-    # 别在用例中途把文件名换掉（同 test_ui_edges.adopt_storyboard_fixture 的理由）。
+    # 别在用例中途把文件名换掉（同 ui_edges_support.adopt_storyboard_fixture 的理由）。
     stamp = time.time() + 900
     for path in folder.glob("*.json"):
         os.utime(path, (stamp, stamp))
@@ -121,7 +121,7 @@ class FrameSourceTests(unittest.TestCase):
 
     def test_each_row_reads_its_own_storyboard_directory(self):
         """第二份分镜的首帧在它自己的根目录下：那一行要认出「已导入」，别一份也不认。"""
-        from tests.test_ui_edges import real_png
+        from tests.ui_edges_support import real_png
         self.open_page()
         folder = self.proj / "storyboard" / "frames"
         folder.mkdir(parents=True, exist_ok=True)

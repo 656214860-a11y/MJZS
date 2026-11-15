@@ -17,7 +17,7 @@ from agent.core import save
 from project_stages import writing as writing_dir
 from script_contract import natural_script_selection_path
 from tests.test_idea_chat import _Harness
-from tests.test_ui_edges import make_minimal_project
+from tests.ui_edges_support import make_minimal_project
 
 
 class SessionSummaryTests(unittest.TestCase):

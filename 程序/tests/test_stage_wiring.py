@@ -25,7 +25,7 @@ sys.path.insert(1, HERE)
 os.chdir(PROGRAM)
 
 import stage_layout
-from test_ui_edges import adopt_storyboard_fixture, make_minimal_project
+from ui_edges_support import adopt_storyboard_fixture, make_minimal_project
 
 
 class _Harness(unittest.TestCase):
