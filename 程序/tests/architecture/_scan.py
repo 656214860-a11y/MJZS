@@ -5,7 +5,9 @@ from pathlib import Path
 from typing import Iterator
 
 ROOT = Path(__file__).resolve().parents[2]
-_EXCLUDED_STEMS = frozenset({"smoke_test", "run_selftests", "selftest_sandbox"})
+_EXCLUDED_STEMS = frozenset({"smoke_test", "run_selftests", "selftest_sandbox",
+                           "selftest_env", "selftest_discovery", "selftest_receipts",
+                           "selftest_scheduling", "selftest_reporting"})
 
 # 递归生产模块口径（R922／R1381 起确立）：覆盖 batch_frames_tool／agent／scripts 等子目录；
 # 测试、轮次记录、维护记录与字节码缓存不参与生产门禁。

@@ -12,6 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import run_selftests
+import selftest_env
 
 
 class IncrementalDoesNotMissDependencies(unittest.TestCase):
@@ -22,10 +23,10 @@ class IncrementalDoesNotMissDependencies(unittest.TestCase):
         (self.root / 'agent').mkdir()
         (self.root / 'tests').mkdir()
         (self.root / 'agent' / '__init__.py').write_text('', encoding='utf-8')
-        saved = run_selftests.HERE, run_selftests.TESTS_DIR
+        saved = selftest_env.HERE, selftest_env.TESTS_DIR
         self.addCleanup(lambda: setattr(run_selftests, 'HERE', saved[0]) or setattr(run_selftests, 'TESTS_DIR', saved[1]))
-        run_selftests.HERE = str(self.root)
-        run_selftests.TESTS_DIR = str(self.root / 'tests')
+        selftest_env.HERE = str(self.root)
+        selftest_env.TESTS_DIR = str(self.root / 'tests')
         run_selftests.imports_of.cache_clear()
         self.addCleanup(run_selftests.imports_of.cache_clear)
 

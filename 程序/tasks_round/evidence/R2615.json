@@ -1,0 +1,15 @@
+{
+  "round": 2615,
+  "commit_base": "ddda856c",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k selftests gui_token pid_reuse commit_round source_text coverage layers ratchet recycle remove_authority atomic_write subprocess deletion_gateway import_error static",
+    "exit": 0,
+    "passed": 210,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T14:45:31"
+}

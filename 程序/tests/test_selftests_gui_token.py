@@ -12,6 +12,42 @@ from pathlib import Path
 from unittest import mock
 
 import run_selftests as runner
+import selftest_discovery
+import selftest_env
+import selftest_receipts
+import selftest_scheduling
+
+_FACADE_OWNERS = {
+    'test_modules': selftest_discovery, 'modules_for_layer': selftest_discovery,
+    'gui_test_module': selftest_discovery, 'units': selftest_discovery,
+    'import_all': selftest_discovery, 'split_safe_units': selftest_discovery,
+    'split_performance_units': selftest_discovery,
+    'load_cache': selftest_receipts, 'save_cache': selftest_receipts,
+    'incremental': selftest_receipts, 'content_tree': selftest_receipts,
+    'load_layer_document': selftest_receipts, 'save_full_safe_verification': selftest_receipts,
+    'save_layer_baseline': selftest_receipts, 'verified_tree_record': selftest_receipts,
+    'invalidate_verified_tree': selftest_receipts, 'measurement_unchanged': selftest_receipts,
+    'receipt_checkout_allowed': selftest_receipts, 'full_safe_preflight': selftest_receipts,
+    'latest_completed_round': selftest_receipts, 'record_elapsed': selftest_receipts,
+    'auto_full_running': selftest_receipts, 'is_master_checkout': selftest_receipts,
+    'run_units': selftest_scheduling, 'run_serial': selftest_scheduling,
+    'run_safe_serial': selftest_scheduling, 'acquire_gui_lock': selftest_scheduling,
+    'release_gui_lock': selftest_scheduling, 'protect_tk': selftest_scheduling,
+    'acquire_full_safe_lock': selftest_scheduling, 'release_full_safe_lock': selftest_scheduling,
+    'prioritize_gui_units': selftest_scheduling,
+    '_git_text': selftest_env, 'git_common_dir': selftest_env,
+}
+
+
+def _patch(stack, name, **kwargs):
+    """同一 mock 同时盖住 re-export 面与定义模块：main 的裸名调用与模块内部调用都命中。"""
+    target = mock.MagicMock(**kwargs)
+    stack.enter_context(mock.patch.object(runner, name, new=target))
+    owner = _FACADE_OWNERS.get(name)
+    if owner is not None:
+        stack.enter_context(mock.patch.object(owner, name, new=target))
+    return target
+
 
 
 class GuiTokenTests(unittest.TestCase):
@@ -28,10 +64,10 @@ class GuiTokenTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as common:
             path = Path(common) / runner.GUI_LOCK_NAME
             path.write_text(json.dumps({'pid': 123456}), encoding='utf-8')
-            with mock.patch.object(runner, '_pid_is_alive', return_value=True):
+            with mock.patch.object(selftest_env, '_pid_is_alive', return_value=True):
                 with self.assertRaisesRegex(RuntimeError, 'PID 123456'):
                     runner.acquire_pid_lock(runner.GUI_LOCK_NAME, common)
-            with mock.patch.object(runner, '_pid_is_alive', return_value=False):
+            with mock.patch.object(selftest_env, '_pid_is_alive', return_value=False):
                 token = runner.acquire_gui_lock(common, wait=0)
             self.assertEqual(runner.lock_holder(token)['pid'], os.getpid())
             self.assertEqual(runner.acquire_gui_lock(common, wait=0), token)
@@ -78,7 +114,7 @@ r.release_gui_lock(p)
 
     def test_wait_succeeds_when_holder_exits(self):
         with tempfile.TemporaryDirectory() as common:
-            with mock.patch.object(runner, 'acquire_pid_lock',
+            with mock.patch.object(selftest_scheduling, 'acquire_pid_lock',
                                    side_effect=[RuntimeError('PID 7'), 'token']) as acquire:
                 self.assertEqual(runner.acquire_gui_lock(common, wait=1), 'token')
                 self.assertEqual(acquire.call_count, 2)
@@ -87,7 +123,7 @@ r.release_gui_lock(p)
     def test_wait_succeeds_with_forward_slash_common_dir(self):
         # git rev-parse 给的是 D:/… 正斜杠；mkstemp 返回规范化路径，两者不一致时队首永远认不出自己（R1861）。
         with tempfile.TemporaryDirectory() as common:
-            with mock.patch.object(runner, 'acquire_pid_lock',
+            with mock.patch.object(selftest_scheduling, 'acquire_pid_lock',
                                    side_effect=[RuntimeError('PID 7'), 'token']) as acquire:
                 self.assertEqual(runner.acquire_gui_lock(common.replace('\\', '/'), wait=1), 'token')
                 self.assertEqual(acquire.call_count, 2)
@@ -105,7 +141,7 @@ r.release_gui_lock(p)
                     'run_units': [], 'run_serial': [], 'content_tree': '', 'load_layer_document': {},
                     'save_cache': None, 'save_full_safe_verification': None,
                 }
-                mocks = {name: stack.enter_context(mock.patch.object(runner, name, return_value=value))
+                mocks = {name: _patch(stack, name, return_value=value)
                          for name, value in patches.items()}
                 output = stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
                 self.assertEqual(runner.main(args + ['--gui-wait', '0']), 2)
@@ -127,8 +163,8 @@ r.release_gui_lock(p)
                 'save_cache': '', 'save_full_safe_verification': None,
             }
             for name, value in patches.items():
-                stack.enter_context(mock.patch.object(runner, name, return_value=value))
-            stack.enter_context(mock.patch.object(runner, 'gui_test_module',
+                _patch(stack, name, return_value=value)
+            stack.enter_context(mock.patch.object(selftest_discovery, 'gui_test_module',
                                                   side_effect=lambda name: name == 'test_gui'))
             acquire = stack.enter_context(mock.patch.object(runner, 'acquire_gui_lock'))
             release = stack.enter_context(mock.patch.object(runner, 'release_gui_lock'))
@@ -162,10 +198,10 @@ r.release_gui_lock(p)
                 'run_serial': [], 'content_tree': '', 'load_layer_document': {},
                 'save_cache': '', 'save_full_safe_verification': None,
             }
-            stack.enter_context(mock.patch.object(runner, 'gui_test_module',
+            stack.enter_context(mock.patch.object(selftest_discovery, 'gui_test_module',
                                                   side_effect=lambda name: name == 'test_gui'))
             for name, value in patches.items():
-                stack.enter_context(mock.patch.object(runner, name, return_value=value))
+                _patch(stack, name, return_value=value)
             stack.enter_context(mock.patch.object(runner, 'run_units', side_effect=run_units))
             stack.enter_context(mock.patch.object(runner, 'acquire_gui_lock', side_effect=acquire))
             stack.enter_context(mock.patch.object(runner, 'release_gui_lock', side_effect=release))
@@ -195,8 +231,8 @@ r.release_gui_lock(p)
                 'save_cache': '', 'save_full_safe_verification': None,
             }
             for name, value in patches.items():
-                stack.enter_context(mock.patch.object(runner, name, return_value=value))
-            stack.enter_context(mock.patch.object(runner, 'gui_test_module',
+                _patch(stack, name, return_value=value)
+            stack.enter_context(mock.patch.object(selftest_discovery, 'gui_test_module',
                                                   side_effect=lambda name: name == 'test_gui'))
             par = stack.enter_context(mock.patch.object(runner, 'run_units'))
             stack.enter_context(mock.patch.object(runner, 'run_serial', side_effect=serial))
@@ -238,9 +274,9 @@ r.release_gui_lock(p)
                 'save_cache': '', 'save_full_safe_verification': None,
             }
             for name, value in patches.items():
-                stack.enter_context(mock.patch.object(runner, name, return_value=value))
+                _patch(stack, name, return_value=value)
             stack.enter_context(mock.patch.object(
-                runner, 'gui_test_module',
+                selftest_discovery, 'gui_test_module',
                 side_effect=lambda name: name in ('test_gui', 'test_desktop_startup_perf')))
             stack.enter_context(mock.patch.object(runner, 'run_units', side_effect=run_units))
             stack.enter_context(mock.patch.object(runner, 'run_serial', side_effect=run_serial))
@@ -263,8 +299,8 @@ r.release_gui_lock(p)
             path.write_text(json.dumps({'pid': 123456, 'started_at': time.time() - 45}),
                             encoding='utf-8')
             output = io.StringIO()
-            with mock.patch.object(runner, 'GUI_WAIT_NOTICE_SECONDS', 0.05), \
-                 mock.patch.object(runner, '_pid_is_alive', return_value=True), \
+            with mock.patch.object(selftest_env, 'GUI_WAIT_NOTICE_SECONDS', 0.05), \
+                 mock.patch.object(selftest_env, '_pid_is_alive', return_value=True), \
                  contextlib.redirect_stdout(output):
                 self.assertIsNone(runner.acquire_gui_lock(common, wait=0.2))
             text = output.getvalue()
@@ -352,7 +388,7 @@ r.release_gui_lock(p)
             def runTest(self):
                 self.fail('real failure')
         output = io.StringIO()
-        with mock.patch.object(runner, 'other_gui_holder', return_value=987):
+        with mock.patch.object(selftest_scheduling, 'other_gui_holder', return_value=987):
             result = unittest.TextTestRunner(stream=output, resultclass=runner.ConcurrencyResult).run(Failing())
         self.assertEqual(len(result.failures), 1)
         self.assertIn('[SUSPECT_CONCURRENCY]', output.getvalue())
@@ -360,13 +396,13 @@ r.release_gui_lock(p)
 
     def test_full_lock_then_gui_and_both_release_on_exception(self):
         with tempfile.TemporaryDirectory() as common, contextlib.ExitStack() as stack:
-            stack.enter_context(mock.patch.object(runner, 'git_common_dir', return_value=common))
+            stack.enter_context(mock.patch.object(selftest_env, 'git_common_dir', return_value=common))
             for name, value in {'test_modules': ['test_demo'], 'gui_test_module': True,
                                 'load_layer_document': {}, 'content_tree': 'tree',
                                 'full_safe_preflight': (True, 'tree'), 'protect_tk': None,
                                 'import_all': [],
                                 '_git_text': 'head', 'latest_completed_round': 965}.items():
-                stack.enter_context(mock.patch.object(runner, name, return_value=value))
+                _patch(stack, name, return_value=value)
             def check_order(todo, jobs):
                 self.assertTrue((Path(common) / runner.FULL_SAFE_LOCK_NAME).exists())
                 self.assertTrue((Path(common) / runner.GUI_LOCK_NAME).exists())

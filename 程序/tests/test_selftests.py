@@ -12,6 +12,11 @@ from datetime import datetime
 from unittest import mock
 
 import run_selftests
+import selftest_env
+import selftest_discovery
+import selftest_receipts
+import selftest_reporting
+import selftest_scheduling
 import smoke_test
 
 
@@ -40,7 +45,7 @@ gc.collect()
 assert reference() is None, 'topmost tracking retains a finished window'
 assert len(tk._drama_wanted_topmost) == 0
 '''
-        result = subprocess.run([sys.executable, '-c', script], cwd=run_selftests.HERE,
+        result = subprocess.run([sys.executable, '-c', script], cwd=selftest_env.HERE,
                                 capture_output=True, text=True, timeout=15)
         self.assertEqual(result.returncode, 0, result.stderr[-1500:])
 
@@ -52,8 +57,8 @@ assert len(tk._drama_wanted_topmost) == 0
         pool.submit.return_value = pending
         pool._processes = {1: process}
         with mock.patch('concurrent.futures.ProcessPoolExecutor', return_value=pool), \
-             mock.patch.object(run_selftests, 'HEARTBEAT_SECONDS', 0), \
-             mock.patch.object(run_selftests, 'SAFE_UNIT_TIMEOUT', 0):
+             mock.patch.object(selftest_env, 'HEARTBEAT_SECONDS', 0), \
+             mock.patch.object(selftest_env, 'SAFE_UNIT_TIMEOUT', 0):
             result = run_selftests.run_units([('stalled', 'test_demo', None)])
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0][3], ['stalled'])
@@ -73,7 +78,7 @@ assert len(tk._drama_wanted_topmost) == 0
         payload = ('回退单元', 'test_demo', None)
         expected = ('回退单元', 'test_demo', 1, [], '', 0.0, '')
         with mock.patch('multiprocessing.Process') as process, \
-             mock.patch.object(run_selftests, '_run_unit', return_value=expected) as run:
+             mock.patch.object(selftest_scheduling, '_run_unit', return_value=expected) as run:
             process.return_value.start.side_effect = PermissionError(5, '拒绝访问')
             self.assertEqual(run_selftests.run_serial([payload]), [expected])
         run.assert_called_once_with(payload)
@@ -81,7 +86,7 @@ assert len(tk._drama_wanted_topmost) == 0
     def test_safe_serial_runner_never_spawns_an_isolation_process(self):
         payload = ('安全单元', 'test_demo', None)
         expected = ('安全单元', 'test_demo', 1, [], '', 0.0, '')
-        with mock.patch.object(run_selftests, '_run_unit', return_value=expected) as run, \
+        with mock.patch.object(selftest_scheduling, '_run_unit', return_value=expected) as run, \
              mock.patch('multiprocessing.Process') as process:
             self.assertEqual(run_selftests.run_safe_serial([payload]), [expected])
         run.assert_called_once_with(payload)
@@ -107,7 +112,7 @@ assert len(tk._drama_wanted_topmost) == 0
 
     def test_safe_split_identifies_tk_units(self):
         units = [('service', 'test_service', None), ('window', 'test_window', None)]
-        with mock.patch.object(run_selftests, 'gui_test_module', side_effect=lambda name: name == 'test_window'):
+        with mock.patch.object(selftest_discovery, 'gui_test_module', side_effect=lambda name: name == 'test_window'):
             self.assertEqual(run_selftests.split_safe_units(units), ([units[0]], [units[1]]))
 
     def test_long_gui_units_start_first_without_dropping_or_reordering_each_group(self):
@@ -153,7 +158,7 @@ assert len(tk._drama_wanted_topmost) == 0
 
     def test_gui_short_and_e2e_layers_are_disjoint(self):
         names = ['test_service', 'test_window', 'test_ui_edges_autopilot', 'test_pet_ui']
-        with mock.patch.object(run_selftests, 'gui_test_module',
+        with mock.patch.object(selftest_discovery, 'gui_test_module',
                                side_effect=lambda name: name != 'test_service'):
             short = run_selftests.modules_for_layer(names, 'gui-short')
             e2e = run_selftests.modules_for_layer(names, 'gui-e2e')
@@ -179,7 +184,7 @@ class WorkerCleanupTests(unittest.TestCase):
         self.assertGreater(len(app_logging._recent_swallowed), before)
 
     def test_unit_cleans_worker_after_import_failure(self):
-        with mock.patch.object(run_selftests, 'cleanup_unit_helpers') as cleanup:
+        with mock.patch.object(selftest_scheduling, 'cleanup_unit_helpers') as cleanup:
             with mock.patch.object(run_selftests.importlib, 'import_module',
                                    side_effect=RuntimeError('simulated import failure')):
                 result = run_selftests._run_unit(('模拟单元', 'missing_module', None))
@@ -191,8 +196,8 @@ class IncrementalTests(unittest.TestCase):
     def test_only_current_full_run_can_defer_receipt_check(self):
         import json
         with tempfile.TemporaryDirectory() as folder, \
-             mock.patch.object(run_selftests, 'git_common_dir', return_value=folder), \
-             mock.patch.object(run_selftests, '_pid_is_alive', return_value=True):
+             mock.patch.object(selftest_env, 'git_common_dir', return_value=folder), \
+             mock.patch.object(selftest_env, '_pid_is_alive', return_value=True):
             path = os.path.join(folder, run_selftests.FULL_SAFE_LOCK_NAME)
             self.assertFalse(run_selftests.participating_full_safe_run(946))
             for pid, round_number, expected in (
@@ -201,35 +206,35 @@ class IncrementalTests(unittest.TestCase):
                 with open(path, 'w', encoding='utf-8') as handle:
                     json.dump({'pid': pid, 'round': round_number}, handle)
                 self.assertEqual(run_selftests.participating_full_safe_run(946), expected)
-            with mock.patch.object(run_selftests, '_pid_is_alive', return_value=False):
+            with mock.patch.object(selftest_env, '_pid_is_alive', return_value=False):
                 self.assertFalse(run_selftests.participating_full_safe_run(945))
 
     def test_new_test_is_scheduled(self):
         with tempfile.TemporaryDirectory() as folder:
-            old_here, old_cache = run_selftests.HERE, run_selftests.CACHE_NAME
+            old_here, old_cache = selftest_env.HERE, selftest_env.CACHE_NAME
             try:
-                run_selftests.HERE = folder
-                run_selftests.CACHE_NAME = os.path.join('维护记录', '自检增量.json')
+                selftest_env.HERE = folder
+                selftest_env.CACHE_NAME = os.path.join('维护记录', '自检增量.json')
                 with open(os.path.join(folder, 'test_demo.py'), 'w', encoding='utf-8') as handle:
                     handle.write('import unittest\n')
                 todo, skipped, _state = run_selftests.incremental(['test_demo'], {})
                 self.assertEqual(todo, ['test_demo'])
                 self.assertEqual(skipped, [])
             finally:
-                run_selftests.HERE, run_selftests.CACHE_NAME = old_here, old_cache
+                selftest_env.HERE, selftest_env.CACHE_NAME = old_here, old_cache
 
     def test_cache_path_uses_common_git_dir_and_falls_back_locally(self):
         with tempfile.TemporaryDirectory() as folder:
-            with mock.patch.object(run_selftests, 'git_common_dir', return_value=folder):
+            with mock.patch.object(selftest_env, 'git_common_dir', return_value=folder):
                 self.assertEqual(run_selftests.cache_path(),
                                  os.path.join(folder, 'selftest-incremental.json'))
-        with mock.patch.object(run_selftests, 'git_common_dir', return_value=''):
-            self.assertEqual(os.path.relpath(run_selftests.cache_path(), run_selftests.HERE),
+        with mock.patch.object(selftest_env, 'git_common_dir', return_value=''):
+            self.assertEqual(os.path.relpath(run_selftests.cache_path(), selftest_env.HERE),
                              os.path.join('维护记录', '自检增量.json'))
 
     def test_cache_write_replaces_file_atomically(self):
         with tempfile.TemporaryDirectory() as folder:
-            with mock.patch.object(run_selftests, 'git_common_dir', return_value=folder):
+            with mock.patch.object(selftest_env, 'git_common_dir', return_value=folder):
                 self.assertTrue(run_selftests.save_cache({'tests': {'test_demo': {}}}))
                 self.assertEqual(run_selftests.load_cache()['tests'], {'test_demo': {}})
 
@@ -243,15 +248,15 @@ class IncrementalTests(unittest.TestCase):
     def test_dirty_checkout_cannot_identify_as_verified_head(self):
         def git_response(*args):
             if args[:2] == ('rev-parse', '--show-toplevel'):
-                return run_selftests.HERE
+                return selftest_env.HERE
             if args[0] == 'status':
                 return ' M desktop.py'
             return 'head-tree'
-        with mock.patch.object(run_selftests, '_git_text', side_effect=git_response):
+        with mock.patch.object(selftest_env, '_git_text', side_effect=git_response):
             self.assertEqual(run_selftests.content_tree(), '')
 
     def test_full_safe_preflight_refuses_dirty_tree_with_file_location(self):
-        with mock.patch.object(run_selftests, 'checkout_dirty_entries',
+        with mock.patch.object(selftest_receipts, 'checkout_dirty_entries',
                                return_value=('D:/repo', [' M desktop.py', '?? scratch.txt'])):
             with mock.patch('sys.stdout', new_callable=io.StringIO) as output:
                 self.assertEqual(run_selftests.full_safe_preflight(), (False, ''))
@@ -261,7 +266,7 @@ class IncrementalTests(unittest.TestCase):
         self.assertIn('D:/repo: ?? scratch.txt', text)
 
     def test_full_safe_preflight_allows_diagnostic_without_a_tree(self):
-        with mock.patch.object(run_selftests, 'checkout_dirty_entries',
+        with mock.patch.object(selftest_receipts, 'checkout_dirty_entries',
                                return_value=('D:/repo', [' M desktop.py'])):
             with mock.patch('sys.stdout', new_callable=io.StringIO) as output:
                 self.assertEqual(run_selftests.full_safe_preflight(True), (True, ''))
@@ -273,9 +278,9 @@ class IncrementalTests(unittest.TestCase):
 
     def test_success_receipt_does_not_rewrite_tracked_baseline(self):
         with tempfile.TemporaryDirectory() as folder, \
-             mock.patch.object(run_selftests, 'git_common_dir', return_value=folder), \
-             mock.patch.object(run_selftests, 'content_tree', return_value='tree'), \
-             mock.patch.object(run_selftests, 'layer_baseline_path', return_value=os.path.join(folder, 'tracked.json')):
+             mock.patch.object(selftest_env, 'git_common_dir', return_value=folder), \
+             mock.patch.object(selftest_receipts, 'content_tree', return_value='tree'), \
+             mock.patch.object(selftest_receipts, 'layer_baseline_path', return_value=os.path.join(folder, 'tracked.json')):
             saved = run_selftests.save_full_safe_verification('tree', 962, 400)
             self.assertEqual(saved, os.path.join(folder, 'full-safe-receipts.json'))
             self.assertFalse(os.path.exists(os.path.join(folder, 'tracked.json')))
@@ -287,27 +292,27 @@ class IncrementalTests(unittest.TestCase):
             with io.open(tracked, 'w', encoding='utf-8') as handle:
                 json.dump({'last_full_safe_all_round': 868,
                            'full_safe_verified_trees': [{'tree': 'stale', 'round': 868}]}, handle)
-            with mock.patch.object(run_selftests, 'git_common_dir', return_value=folder), \
-                 mock.patch.object(run_selftests, 'layer_baseline_path', return_value=tracked):
+            with mock.patch.object(selftest_env, 'git_common_dir', return_value=folder), \
+                 mock.patch.object(selftest_receipts, 'layer_baseline_path', return_value=tracked):
                 document = run_selftests.load_layer_document()
         self.assertEqual(document['last_full_safe_all_round'], 0)
         self.assertEqual(document['full_safe_verified_trees'], [])
 
     def test_content_tree_checks_repository_root(self):
-        with mock.patch.object(run_selftests, '_git_text', return_value=' M CLAUDE.md') as git:
+        with mock.patch.object(selftest_env, '_git_text', return_value=' M CLAUDE.md') as git:
             self.assertEqual(run_selftests.content_tree(), '')
             self.assertIn(':/', git.call_args.args)
 
     def test_measurement_rejects_head_change_even_with_same_content(self):
-        with mock.patch.object(run_selftests, 'content_tree', return_value='tree'), \
-             mock.patch.object(run_selftests, '_git_text', return_value='new-head'):
+        with mock.patch.object(selftest_receipts, 'content_tree', return_value='tree'), \
+             mock.patch.object(selftest_env, '_git_text', return_value='new-head'):
             self.assertFalse(run_selftests.measurement_unchanged('old-head', 'tree'))
 
     def test_changed_tree_during_run_cannot_publish_receipt(self):
         for current in ('', 'different-tree'):
             with self.subTest(current=current), \
-                 mock.patch.object(run_selftests, 'content_tree', return_value=current), \
-                 mock.patch.object(run_selftests, 'load_layer_document') as load:
+                 mock.patch.object(selftest_receipts, 'content_tree', return_value=current), \
+                 mock.patch.object(selftest_receipts, 'load_layer_document') as load:
                 self.assertEqual(run_selftests.save_full_safe_verification('start-tree', 949, 400), '')
                 load.assert_not_called()
 
@@ -334,7 +339,7 @@ class IncrementalTests(unittest.TestCase):
         self.assertTrue(run_selftests.full_safe_required(120, 100, True, source_rounds=run_selftests.FULL_SAFE_ROUND_INTERVAL))
 
     def test_detached_auto_checkout_may_certify_only_its_own_head(self):
-        with mock.patch.object(run_selftests, 'is_master_checkout', return_value=False),              mock.patch.object(run_selftests, '_git_text', return_value='abc'):
+        with mock.patch.object(selftest_receipts, 'is_master_checkout', return_value=False),              mock.patch.object(selftest_env, '_git_text', return_value='abc'):
             with mock.patch.dict(os.environ, {'AUTO_FULL_SAFE_HEAD': 'abc'}):
                 self.assertTrue(run_selftests.receipt_checkout_allowed())
             with mock.patch.dict(os.environ, {'AUTO_FULL_SAFE_HEAD': 'other'}):
@@ -358,13 +363,13 @@ class IncrementalTests(unittest.TestCase):
         self.assertFalse(run_selftests.risk_overdue([risk, (201, ['程序/tests/t.py']), (202, ['程序/project_status.md'])] , 199, 202, prefix))
         # 已有凭据（last_full 之后）就不再算。
         self.assertFalse(run_selftests.risk_overdue([risk] + later, 200 + grace, 200 + grace, prefix))
-        with mock.patch.object(run_selftests, 'source_rounds_since', return_value=0),              mock.patch.object(run_selftests, 'risk_changed_since', return_value=True):
+        with mock.patch.object(selftest_receipts, 'source_rounds_since', return_value=0),              mock.patch.object(selftest_receipts, 'risk_changed_since', return_value=True):
             self.assertTrue(run_selftests.full_safe_auto_due(201, 200, True))
 
     def test_manual_full_run_is_refused_while_the_background_run_is_active(self):
         with tempfile.TemporaryDirectory() as folder:
             lock = os.path.join(folder, run_selftests.AUTO_FULL_LOCK_NAME)
-            with mock.patch.object(run_selftests, 'git_common_dir', return_value=folder):
+            with mock.patch.object(selftest_env, 'git_common_dir', return_value=folder):
                 self.assertFalse(run_selftests.auto_full_running())
                 with open(lock, 'w', encoding='utf-8') as handle:
                     handle.write(str(os.getpid()))
@@ -386,16 +391,16 @@ class IncrementalTests(unittest.TestCase):
         self.assertFalse(run_selftests.has_risk_change([(99, ['开发者工具/启动助手.cmd'])], 100, 105, prefix))
         self.assertTrue(run_selftests.full_safe_required(101, 100, True, source_rounds=1, risk=True))
         self.assertFalse(run_selftests.full_safe_required(101, 100, False, source_rounds=1, risk=True))
-        with mock.patch.object(run_selftests, 'source_rounds_since', return_value=0),              mock.patch.object(run_selftests, 'risk_changed_since', return_value=True):
+        with mock.patch.object(selftest_receipts, 'source_rounds_since', return_value=0),              mock.patch.object(selftest_receipts, 'risk_changed_since', return_value=True):
             self.assertTrue(run_selftests.full_safe_auto_due(101, 100, True))
 
     def test_auto_full_safe_triggers_before_the_gate(self):
         lead = run_selftests.FULL_SAFE_AUTO_LEAD
         due = run_selftests.FULL_SAFE_ROUND_INTERVAL - lead
         for count, expected in ((due - 1, False), (due, True)):
-            with self.subTest(count=count),                  mock.patch.object(run_selftests, 'source_rounds_since', return_value=count):
+            with self.subTest(count=count),                  mock.patch.object(selftest_receipts, 'source_rounds_since', return_value=count):
                 self.assertEqual(run_selftests.full_safe_auto_due(900, 880, True), expected)
-        with mock.patch.object(run_selftests, 'source_rounds_since', return_value=99):
+        with mock.patch.object(selftest_receipts, 'source_rounds_since', return_value=99):
             self.assertFalse(run_selftests.full_safe_auto_due(900, 880, False))
 
     def test_full_safe_lock_rejects_active_holder_and_releases(self):
@@ -426,13 +431,13 @@ class IncrementalTests(unittest.TestCase):
                          os.path.join(nested, 'test_demo.py')):
                 with open(path, 'w', encoding='utf-8') as handle:
                     handle.write('import unittest\n')
-            old_here, old_tests = run_selftests.HERE, run_selftests.TESTS_DIR
+            old_here, old_tests = selftest_env.HERE, selftest_env.TESTS_DIR
             try:
-                run_selftests.HERE, run_selftests.TESTS_DIR = folder, nested
+                selftest_env.HERE, selftest_env.TESTS_DIR = folder, nested
                 self.assertEqual(run_selftests.test_modules(), ['test_demo'])
                 self.assertEqual(run_selftests.test_path('test_demo'), os.path.join(nested, 'test_demo.py'))
             finally:
-                run_selftests.HERE, run_selftests.TESTS_DIR = old_here, old_tests
+                selftest_env.HERE, selftest_env.TESTS_DIR = old_here, old_tests
 
 
 class SmokePolicyTests(unittest.TestCase):
@@ -453,6 +458,53 @@ class SmokePolicyTests(unittest.TestCase):
         self.assertEqual(smoke_test.gate_args(True, affected=('idea_chat',)),
                          ['--all', '--serial'])
 
+
+
+
+class SelftestModuleSplitTests(unittest.TestCase):
+    """run_selftests 拆分后的归属与兼容面：实现住在域模块，薄壳只做 re-export 与 main。"""
+
+    DOMAINS = {
+        selftest_env: ('git_common_dir', '_git_text', 'lock_holder', '_pid_is_alive',
+                       'TESTS_DIR', 'FULL_SAFE_LOCK_NAME', 'GUI_E2E_MODULES'),
+        selftest_discovery: ('test_modules', 'imports_of', 'dependency_closure',
+                             'modules_for_layer', 'units', 'gui_test_module'),
+        selftest_receipts: ('load_cache', 'save_cache', 'incremental', 'content_tree',
+                            'load_layer_document', 'full_safe_required',
+                            'save_full_safe_verification'),
+        selftest_scheduling: ('acquire_gui_lock', 'release_gui_lock', 'run_units',
+                              'run_serial', 'run_safe_serial', 'protect_tk',
+                              'ConcurrencyResult'),
+        selftest_reporting: ('slowest_units', 'skip_summary', 'print_unit_result'),
+    }
+
+    def test_each_name_lives_in_its_domain_module(self):
+        for module, names in self.DOMAINS.items():
+            for name in names:
+                with self.subTest(module=module.__name__, name=name):
+                    self.assertTrue(hasattr(module, name), '%s 缺 %s' % (module.__name__, name))
+                    self.assertIs(getattr(run_selftests, name), getattr(module, name))
+
+    def test_no_domain_module_imports_a_downstream_module(self):
+        """依赖只允许 env <- discovery <- {receipts, scheduling<-reporting}，不许成环。"""
+        import ast
+        edges = {'selftest_env': set(), 'selftest_discovery': {'selftest_env'},
+                 'selftest_receipts': {'selftest_env', 'selftest_discovery'},
+                 'selftest_reporting': {'selftest_env'},
+                 'selftest_scheduling': {'selftest_env', 'selftest_discovery',
+                                         'selftest_reporting'}}
+        for name, allowed in edges.items():
+            with io.open('%s.py' % name, encoding='utf-8') as handle:
+                tree = ast.parse(handle.read())
+            imported = {n.names[0].name for n in ast.walk(tree)
+                        if isinstance(n, ast.Import) and n.names[0].name.startswith('selftest_')}
+            self.assertEqual(imported, allowed, name)
+
+    def test_main_still_calls_through_the_runner_facade(self):
+        import inspect
+        source = inspect.getsource(run_selftests.main)
+        self.assertIn('skip_summary(got)', source)
+        self.assertIn("arg == '--incremental'", source)
 
 if __name__ == '__main__':
     unittest.main()
