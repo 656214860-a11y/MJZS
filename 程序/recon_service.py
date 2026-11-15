@@ -15,6 +15,8 @@ import hashlib
 import json
 import re
 import time
+from collections.abc import Callable
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import artifact_schema
@@ -57,6 +59,25 @@ PUBLISHER_ALIASES = {
 ENCYCLOPEDIA_HOSTS = ('baike.baidu.com', 'baike.sogou.com', 'wikipedia.org', 'baike.com')
 INFERENCE_WORDS = ('可能', '大概', '预计', '应该是', '推测', '估计')
 SCHEME = re.compile(r'^https?://([^/?#]+)', re.IGNORECASE)
+
+
+@dataclass(frozen=True)
+class ReconPorts:
+    """一次采风的可替换端口：发送器、重试暂停、时钟与实际落盘器。
+
+    默认值由本模块装配（检索／抓取经 L1 `model_pool`，落盘经 `agent.core`）；
+    自检可整体换成替身，不必把十几个注入项逐项展开成函数参数。
+    """
+    sender: Callable[..., dict] | None = None
+    pause: Callable[[float], None] | None = None
+    limits: dict | None = None
+    clock: Callable[[], float] = time.time
+    official_hosts: tuple = ()
+    transport: object | None = None
+    headers: dict | None = None
+    program: str | None = None
+    save: Callable[..., object] | None = None
+    save_text: Callable[..., object] | None = None
 
 
 # ── 位置与读写 ─────────────────────────────────────────────────────────────
@@ -398,13 +419,23 @@ def _merge_sources(sources):
     return [best[url] for url in order]
 
 
-def _search_all(queries, budget, limits, notes, sender, pause, clock, started):
+def _resolve_ports(ports):
+    """补齐默认发送器与暂停函数；显式传入的端口原样保留。"""
+    ports = ports or ReconPorts()
+    return replace(
+        ports,
+        sender=ports.sender or make_sender(transport=ports.transport,
+                                           headers=ports.headers, program=ports.program),
+        pause=ports.pause or time.sleep)
+
+
+def _search_all(queries, budget, limits, notes, ports, started):
     sources = []
     for query in queries:
-        if budget['search_used'] >= limits['search'] or clock() - started >= limits['seconds']:
+        if budget['search_used'] >= limits['search'] or ports.clock() - started >= limits['seconds']:
             notes.append('预算用完，还有没查到的：%s' % query)
             break
-        result = _attempt(lambda: sender('search', query, limits['count']), pause)
+        result = _attempt(lambda: ports.sender('search', query, limits['count']), ports.pause)
         budget['search_used'] += 1
         if not result.get('ok'):
             notes.append('检索失败（%s）：%s ｜ %s' % (result.get('kind'), query, result.get('error')))
@@ -423,7 +454,7 @@ def _search_all(queries, budget, limits, notes, sender, pause, clock, started):
     return sources
 
 
-def _fetch_all(sources, budget, limits, notes, sender, pause, clock, started):
+def _fetch_all(sources, budget, limits, notes, ports, started):
     """按排序分优先把正文抓回来：抓到正文的来源才可能升到 T1。"""
     ordered = sorted(sources, key=_rerank_of, reverse=True)
     seen = set()
@@ -431,11 +462,11 @@ def _fetch_all(sources, budget, limits, notes, sender, pause, clock, started):
         url = str(source.get('url') or '')
         if not url or url in seen:
             continue
-        if budget['fetch_used'] >= limits['fetch'] or clock() - started >= limits['seconds']:
+        if budget['fetch_used'] >= limits['fetch'] or ports.clock() - started >= limits['seconds']:
             notes.append('抓取预算用完，仍只有摘要：%s' % url)
             break
         seen.add(url)
-        result = _attempt(lambda: sender('fetch', url), pause)
+        result = _attempt(lambda: ports.sender('fetch', url), ports.pause)
         budget['fetch_used'] += 1
         if not result.get('ok'):
             notes.append('抓不动（%s，可能需登录或 JS 渲染）：%s' % (result.get('kind'), url))
@@ -453,24 +484,25 @@ def _fetch_all(sources, budget, limits, notes, sender, pause, clock, started):
     return sources
 
 
-def collect(target, material_source, sender=None, pause=None, limits=None,
-            clock=time.time, official_hosts=(), transport=None, headers=None, program=None):
-    """跑一次采风：检索 → 抓正文 → 出卡。返回卡片 dict（不落盘）。"""
-    limits = dict(LIMITS, **(limits or {}))
-    pause = pause or time.sleep
-    sender = sender or make_sender(transport=transport, headers=headers, program=program)
-    started = clock()
+def collect(target, material_source, *, ports=None):
+    """跑一次采风：检索 → 抓正文 → 出卡。返回卡片 dict（不落盘）。
+
+    `ports` 收拢发送器、暂停、时钟、预算与落盘器等注入项，见 `ReconPorts`。
+    """
+    ports = _resolve_ports(ports)
+    limits = dict(LIMITS, **(ports.limits or {}))
+    started = ports.clock()
     budget = {'search_used': 0, 'search_billed': 0, 'fetch_used': 0, 'fetch_billed': 0,
               'seconds': 0, 'search_limit': limits['search'], 'fetch_limit': limits['fetch']}
     notes = []
     queries = plan_queries(target, material_source)
     sources = _merge_sources(
-        _search_all(queries, budget, limits, notes, sender, pause, clock, started))
-    sources = _fetch_all(sources, budget, limits, notes, sender, pause, clock, started)
-    budget['seconds'] = round(clock() - started, 3)
+        _search_all(queries, budget, limits, notes, ports, started))
+    sources = _fetch_all(sources, budget, limits, notes, ports, started)
+    budget['seconds'] = round(ports.clock() - started, 3)
     tiered = []
     for source in sources:
-        source['tier'] = tier_of(source, official_hosts)
+        source['tier'] = tier_of(source, ports.official_hosts)
         tiered.append(source)
     return {
         'kind': KIND,
@@ -489,18 +521,15 @@ def collect(target, material_source, sender=None, pause=None, limits=None,
     }
 
 
-def run(project, target, material_source, sender=None, pause=None, limits=None,
-        clock=time.time, official_hosts=(), transport=None, headers=None, program=None,
-        save=None, save_text=None):
+def run(project, target, material_source, *, ports=None):
     """采风并落盘：卡片 JSON ＋ 人读 MD。
 
     返回 `ServiceResult`，成功数据保留原字段
     `{card, doc, problems, sources, queries, not_found, budget}`；落盘失败原样透传。
     """
-    card = collect(target, material_source, sender=sender, pause=pause, limits=limits,
-                   clock=clock, official_hosts=official_hosts, transport=transport,
-                   headers=headers, program=program)
-    saved = save_card(project, card, save=save, save_text=save_text)
+    ports = ports or ReconPorts()
+    card = collect(target, material_source, ports=ports)
+    saved = save_card(project, card, save=ports.save, save_text=ports.save_text)
     if not saved.ok:
         return saved
     data = saved.data or {}

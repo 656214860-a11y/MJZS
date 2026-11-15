@@ -74,8 +74,9 @@ def content_sender(results=None, pages=None):
 
 def collect(results=None, **options):
     return recon.collect({'name': '某剧', 'question': '怎么成的'}, '对标爆款',
-                         sender=options.pop('sender', None) or sender(results=results),
-                         pause=options.pop('pause', lambda _s: None), **options)
+                         ports=recon.ReconPorts(
+                             sender=options.pop('sender', None) or sender(results=results),
+                             pause=options.pop('pause', lambda _s: None), **options))
 
 
 class QueryTests(unittest.TestCase):
@@ -209,8 +210,8 @@ class PublisherDedupTests(unittest.TestCase):
 
     def collect_with_pages(self, rows, pages):
         return recon.collect({'name': '某剧'}, '对标爆款',
-                             sender=content_sender(rows, pages),
-                             pause=lambda _s: None)
+                             ports=recon.ReconPorts(sender=content_sender(rows, pages),
+                                                    pause=lambda _s: None))
 
     def test_req_s01_48_same_xinhua_article_across_domains_counts_once(self):
         first = 'http://xinhuanet.com.cn/ent/20260309/e5d0a170/'
@@ -270,8 +271,9 @@ class EncyclopediaTierTests(unittest.TestCase):
     def test_req_s01_49_encyclopedia_still_counts_as_one_independent_source(self):
         url = 'https://baike.baidu.com/item/x'
         card = recon.collect({'name': '某剧'}, '对标爆款',
-                             sender=content_sender([row(url, title='百科词条')], {url: '百科正文'}),
-                             pause=lambda _s: None)
+                             ports=recon.ReconPorts(
+                                 sender=content_sender([row(url, title='百科词条')], {url: '百科正文'}),
+                                 pause=lambda _s: None))
         self.assertEqual(len(card['sources']), 1)
         self.assertEqual(card['independent_domains'], 1)
         self.assertEqual(card['sources'][0]['tier'], 'T2')
@@ -313,14 +315,16 @@ class BudgetTests(unittest.TestCase):
                 return {'ok': True, 'status': 200, 'data': {}, 'results': [row('https://a.com/x')]}
             return {'ok': True, 'status': 200, 'data': {'content': '正文'}, 'content': '正文'}
 
-        card = recon.collect({'name': '某剧'}, '对标爆款', sender=send, pause=pauses.append)
+        card = recon.collect({'name': '某剧'}, '对标爆款',
+                             ports=recon.ReconPorts(sender=send, pause=pauses.append))
         self.assertEqual(len(pauses), 2)
         self.assertEqual(len(card['sources']), 1)
 
     def test_balance_stops_the_whole_recon_without_retrying(self):
         pauses = []
         send = sender(search_status=402)
-        card = recon.collect({'name': '某剧'}, '对标爆款', sender=send, pause=pauses.append)
+        card = recon.collect({'name': '某剧'}, '对标爆款',
+                             ports=recon.ReconPorts(sender=send, pause=pauses.append))
         self.assertEqual(pauses, [])
         self.assertEqual(card['sources'], [])
         self.assertEqual(len(send.calls), 1)
@@ -328,13 +332,15 @@ class BudgetTests(unittest.TestCase):
 
     def test_auth_stops_the_whole_recon(self):
         send = sender(search_status=401)
-        card = recon.collect({'name': '某剧'}, '对标爆款', sender=send, pause=lambda _s: None)
+        card = recon.collect({'name': '某剧'}, '对标爆款',
+                             ports=recon.ReconPorts(sender=send, pause=lambda _s: None))
         self.assertEqual(len(send.calls), 1)
         self.assertTrue(any('auth' in note for note in card['not_found']))
 
     def test_unfetchable_page_keeps_the_summary_and_says_so(self):
         send = sender(results=[row('https://a.com/x')], fetch_status=404)
-        card = recon.collect({'name': '某剧'}, '对标爆款', sender=send, pause=lambda _s: None)
+        card = recon.collect({'name': '某剧'}, '对标爆款',
+                             ports=recon.ReconPorts(sender=send, pause=lambda _s: None))
         self.assertEqual(card['sources'][0]['evidence'], 'summary')
         self.assertTrue(any('抓不动' in note for note in card['not_found']))
 
@@ -379,8 +385,9 @@ class SavingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             result = recon.run(root, {'name': '某剧'}, '对标爆款',
-                               sender=sender(results=[row('https://a.com/x')]),
-                               pause=lambda _s: None)
+                               ports=recon.ReconPorts(
+                                   sender=sender(results=[row('https://a.com/x')]),
+                                   pause=lambda _s: None))
             self.assertTrue(result.ok, getattr(result, 'reason', ''))
             self.assertEqual(Path(result.data['card']).name, recon.CARD_NAME)
             self.assertEqual(result.data['sources'], 1)
