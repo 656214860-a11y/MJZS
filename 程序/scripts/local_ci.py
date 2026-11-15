@@ -98,12 +98,12 @@ def main(argv=None) -> int:
             log.write("[CI] 失败\n")
             return 1
         log.write("[CI] 通过\n")
-    # T8.3：基准趋势只告警不阻断——放在主步骤之后，输出进终端与日志。
-    trend = subprocess.run([sys.executable, "-B", "scripts/benchmark_trend.py"], cwd=PROGRAM,
-                           capture_output=True, text=True, check=False)
-    for line in (trend.stdout or "").splitlines():
-        print(line, flush=True)
-        log.write("%s\n" % line)
+        # T8.3：基准趋势只告警不阻断——在主步骤之后、with 块内写日志。
+        trend = subprocess.run([sys.executable, "-B", "scripts/benchmark_trend.py"], cwd=PROGRAM,
+                               capture_output=True, text=True, check=False)
+        for line in (trend.stdout or "").splitlines():
+            print(line, flush=True)
+            log.write("%s\n" % line)
     print("[CI] 通过，日志 %s" % LOG, flush=True)
     return 0
 
