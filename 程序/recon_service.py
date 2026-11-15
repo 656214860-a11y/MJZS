@@ -15,7 +15,7 @@ import hashlib
 import json
 import re
 import time
-from collections.abc import Callable
+from collections import abc
 from dataclasses import dataclass, replace
 from pathlib import Path
 
@@ -68,16 +68,16 @@ class ReconPorts:
     默认值由本模块装配（检索／抓取经 L1 `model_pool`，落盘经 `agent.core`）；
     自检可整体换成替身，不必把十几个注入项逐项展开成函数参数。
     """
-    sender: Callable[..., dict] | None = None
-    pause: Callable[[float], None] | None = None
+    sender: abc.Callable[..., dict] | None = None
+    pause: abc.Callable[[float], None] | None = None
     limits: dict | None = None
-    clock: Callable[[], float] = time.time
+    clock: abc.Callable[[], float] = time.time
     official_hosts: tuple = ()
     transport: object | None = None
     headers: dict | None = None
     program: str | None = None
-    save: Callable[..., object] | None = None
-    save_text: Callable[..., object] | None = None
+    save: abc.Callable[..., object] | None = None
+    save_text: abc.Callable[..., object] | None = None
 
 
 # ── 位置与读写 ─────────────────────────────────────────────────────────────
