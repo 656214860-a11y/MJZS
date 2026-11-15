@@ -47,7 +47,7 @@ def configured_key(config):
 
 def probe_endpoint(base_url, timeout=8):
     """无害的连通性探测：只访问根地址，不发送密钥，不提交任务。"""
-    from platform_tools import probe_http_endpoint
+    from contract.platform_tools import probe_http_endpoint
     return probe_http_endpoint(base_url, timeout=timeout)
 
 
@@ -315,7 +315,7 @@ def _http_transport(url, payload, headers, timeout, opener=None):
 
     body = None if payload is None else json.dumps(payload, ensure_ascii=False).encode('utf-8')
     request = urllib.request.Request(url, data=body, headers=_request_headers(headers), method='GET' if body is None else 'POST')
-    from platform_tools import current_execution
+    from contract.platform_tools import current_execution
     control = current_execution()
     error_detail_cache = {}
     retry_count = 0
@@ -402,7 +402,7 @@ def http_stream(url, payload, headers, timeout, on_chunk, cancelled=None, opener
     """OpenAI 兼容 SSE 流（include_usage 的用量在最后一个空 choices 分片）；异常由调用方回退普通请求。"""
     import urllib.error
     import urllib.request
-    from platform_tools import current_execution
+    from contract.platform_tools import current_execution
     control = current_execution()
     if control is not None:
         timeout = control.remaining(timeout)

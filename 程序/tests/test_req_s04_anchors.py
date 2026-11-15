@@ -70,12 +70,12 @@ class ReqS04AnchorTests(unittest.TestCase):
             reference.write_bytes(b'reference')
             audio = root / 'temporary.wav'
             audio.write_bytes(b'audio')
-            with patch('platform_tools.tool_path', return_value=''):
+            with patch('contract.platform_tools.tool_path', return_value=''):
                 with self.assertRaisesRegex(ValueError, 'ffmpeg'):
                     run_animatic(root, source, [reference], audio, {})
             self.assertFalse((write_dir(root, 'animatic') / MANIFEST).exists())
             ready = Mock(side_effect=RuntimeError('comfy not ready'))
-            with patch('platform_tools.tool_path', return_value='stub'), \
+            with patch('contract.platform_tools.tool_path', return_value='stub'), \
                     patch('stage_parallel.evaluate', return_value={'ok': True}), \
                     patch('storyboard_selection.adopted', return_value=(str(source),)), \
                     patch('comfy_runtime.wait_comfy', ready):

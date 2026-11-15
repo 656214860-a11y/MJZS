@@ -1,6 +1,6 @@
 """Nonblocking desktop integration; no API call on opening settings."""
 import json,subprocess,threading,queue,re
-import platform_tools
+import contract.platform_tools as platform_tools
 from pathlib import Path
 from contract.storyboard_paths import media_root
 from urllib.parse import urlparse

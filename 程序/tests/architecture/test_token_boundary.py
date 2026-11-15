@@ -13,7 +13,7 @@ import ast
 import re
 import unittest
 
-from tests.architecture._scan import ROOT, parse
+from tests.architecture._scan import ROOT, parse, registry_key
 
 
 # 与 test_dialog_boundary / test_button_boundary 一致：测试、轮次记录与维护记录不参与生产门禁。
@@ -53,7 +53,7 @@ def _production_files():
             continue
         if path.name in AUTHORITY_FILES:
             continue
-        yield path, relative.as_posix()
+        yield path, registry_key(path)
 
 
 def hex_color_count(tree):

@@ -22,7 +22,7 @@ from desktop_idea_attachments import IdeaAttachmentsMixin
 from desktop_idea_deferred import IdeaDeferredMixin
 from idea_chat_controller import (bubble_timestamp, collapse_preview, has_interruptible, interrupt_notice,
                                   queue_notice, slot_decision)
-from platform_tools import open_target
+from contract.platform_tools import open_target
 from ui_tokens import CHAR_WIDTH, COLORS, FONTS, SPACING, STAGE_PANEL_LAYOUT
 from ui_widgets import FormDialog, SelectBox, TextArea
 from desktop_idea_bubbles import (BUBBLE_BACK, BUBBLE_FILL, BUBBLE_FLOOR, BUBBLE_FONT, BUBBLE_GAP, BUBBLE_LINE, BUBBLE_MAX_RATIO,
@@ -700,7 +700,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin):
         sessions=getattr(self,'flow_processes',{})
         for key,process in processes:
             try:
-                from platform_tools import terminate_process_tree
+                from contract.platform_tools import terminate_process_tree
                 if terminate_process_tree(process):
                     stopped.append(str(process.pid))
                 forget_process(self.root,process)
@@ -961,7 +961,7 @@ class _FlowAgentLaunch:
         copy_text(self.host.win,clipboard_text)
         if self.native_claude:
             from workflow_settings import find_program
-            from platform_tools import launch_windows_app
+            from contract.platform_tools import launch_windows_app
             program = find_program(self.config)
             if self.config['engine'] == 'desktop-app':
                 app = self.config.get('display_model') or '桌面模型'
@@ -985,7 +985,7 @@ class _FlowAgentLaunch:
             self.host.async_(lambda:paste_existing(self.title,clipboard_text,program=program,deadline_seconds=45),claude_pasted)
             return
         if self.config.get('desktop_program'):
-            from platform_tools import launch_windows_app
+            from contract.platform_tools import launch_windows_app
             launch_windows_app(self.config['desktop_program'], 'Codex 桌面')
         open_target(result['url'])
         from codex_paste import paste_existing

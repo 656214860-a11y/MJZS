@@ -8,24 +8,36 @@ import ast
 import unittest
 from pathlib import Path
 
+from tests.architecture._scan import PACKAGE_NAMES
+
 PROGRAM = Path(__file__).resolve().parents[2]
 # R2600（T5 核销）：run_selftests、smoke_test、scripts/auto_full_safe 已改经
 # app_logging.swallowed() 留痕；扫描面同步扩到 scripts/。剩余登记位：
 # app_logging 自身（日志基建不能递归记日志）与 agent/volcengine（agent 子包
 # 不引 app_logging，且错误路径随后仍 raise）。
 # platform_tools（R2669）：底层平台适配引 app_logging 构成越层（test_layers 实证），
-# 流式回调失败按注释语义降噪豁免一处。
+# 流式回调失败按注释语义降噪豁免一处。T10 包化后实体在 contract/ 下。
 ALLOWED = {
     'app_logging.py': 10,
     'agent/volcengine.py': 1,
-    'platform_tools.py': 1,
+    'contract/platform_tools.py': 1,
 }
+
+
+def _scanned_files():
+    files = list(PROGRAM.glob('*.py'))
+    files += list((PROGRAM / 'agent').rglob('*.py'))
+    files += list((PROGRAM / 'scripts').glob('*.py'))
+    for package in PACKAGE_NAMES:
+        directory = PROGRAM / package
+        if directory.is_dir():
+            files += list(directory.rglob('*.py'))
+    return files
 
 
 def silent_exception_sites():
     found = {}
-    for path in (list(PROGRAM.glob('*.py')) + list((PROGRAM / 'agent').rglob('*.py'))
-                 + list((PROGRAM / 'scripts').glob('*.py'))):
+    for path in _scanned_files():
         tree = ast.parse(path.read_text(encoding='utf-8', errors='replace'))
         rows = [n.lineno for n in ast.walk(tree)
                 if isinstance(n, ast.ExceptHandler) and n.type is not None
@@ -52,7 +64,7 @@ class SilentExceptionRatchet(unittest.TestCase):
 
     def test_no_bare_except_anywhere(self):
         bare = {}
-        for path in list(PROGRAM.glob('*.py')) + list((PROGRAM / 'agent').rglob('*.py')):
+        for path in _scanned_files():
             tree = ast.parse(path.read_text(encoding='utf-8', errors='replace'))
             rows = [n.lineno for n in ast.walk(tree) if isinstance(n, ast.ExceptHandler) and n.type is None]
             if rows:

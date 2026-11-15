@@ -15,7 +15,7 @@ ALLOWED = frozenset({
     'api_endpoints.py',
     'batch_frames_tool/batch_frames.py',
     'local_video.py',
-    'platform_tools.py',
+    'contract/platform_tools.py',
     'seedream_api.py',
     'tts_api.py',
 })

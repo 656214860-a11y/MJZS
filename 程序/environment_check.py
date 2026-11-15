@@ -15,7 +15,7 @@ import comfy_runtime
 import client_profiles
 import file_cache
 import model_pool
-import platform_tools
+import contract.platform_tools as platform_tools
 import white_model_service
 import workflow_settings
 

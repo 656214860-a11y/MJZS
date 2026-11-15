@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-import platform_tools
+import contract.platform_tools as platform_tools
 
 
 class OpenPathTests(unittest.TestCase):
@@ -38,7 +38,7 @@ class OpenPathTests(unittest.TestCase):
         class Process:
             pid = 456
         with patch.object(platform_tools.os, 'name', 'nt'), \
-             patch('platform_tools.subprocess.run') as run:
+             patch('contract.platform_tools.subprocess.run') as run:
             run.return_value.returncode = 0
             self.assertTrue(platform_tools.terminate_process_tree(Process()))
         run.assert_called_once()
@@ -62,12 +62,12 @@ class OpenPathTests(unittest.TestCase):
     def test_missing_non_windows_launcher_has_actionable_error(self):
         with tempfile.TemporaryDirectory() as td:
             with patch.object(platform_tools.os, 'startfile', create=False, new=None), \
-                 patch('platform_tools.shutil.which', return_value=None):
+                 patch('contract.platform_tools.shutil.which', return_value=None):
                 with self.assertRaisesRegex(ValueError, '默认打开器'):
                     platform_tools.open_path(td)
 
     def test_http_target_uses_browser_but_other_schemes_are_rejected(self):
-        with patch('platform_tools.webbrowser.open', return_value=True) as browser:
+        with patch('contract.platform_tools.webbrowser.open', return_value=True) as browser:
             self.assertEqual(platform_tools.open_target('https://example.test/task'), 'https://example.test/task')
         browser.assert_called_once_with('https://example.test/task')
         with self.assertRaisesRegex(ValueError, 'HTTP'):
@@ -78,7 +78,7 @@ class OpenPathTests(unittest.TestCase):
                        'codex://new?path=D%3A%2Fproject&prompt=hello%20world'):
             with self.subTest(target=target), \
                  patch.object(os, 'startfile', create=True) as startfile, \
-                 patch('platform_tools.webbrowser.open') as browser:
+                 patch('contract.platform_tools.webbrowser.open') as browser:
                 self.assertEqual(platform_tools.open_target(target), target)
                 startfile.assert_called_once_with(target)
                 browser.assert_not_called()
@@ -105,7 +105,7 @@ class OpenPathTests(unittest.TestCase):
 
     def test_windows_drive_path_is_not_mistaken_for_url_scheme(self):
         with tempfile.TemporaryDirectory() as td:
-            with patch('platform_tools.open_path', return_value='opened') as open_path:
+            with patch('contract.platform_tools.open_path', return_value='opened') as open_path:
                 self.assertEqual(platform_tools.open_target(td), 'opened')
             open_path.assert_called_once_with(td)
 
@@ -130,7 +130,7 @@ class OpenPathTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, '仅支持 Windows'):
                     platform_tools.launch_windows_app(executable, '剪映专业版')
             with patch.object(platform_tools.os, 'name', 'nt'), \
-                 patch('platform_tools.subprocess.Popen') as launch:
+                 patch('contract.platform_tools.subprocess.Popen') as launch:
                 process = platform_tools.launch_windows_app(executable, '剪映专业版')
             self.assertIs(process, launch.return_value)
             launch.assert_called_once_with([str(executable)], cwd=str(executable.parent), env=None,
@@ -139,7 +139,7 @@ class OpenPathTests(unittest.TestCase):
     def test_open_directory_creates_then_delegates_to_open_path(self):
         with tempfile.TemporaryDirectory() as td:
             target = Path(td) / 'stage'
-            with patch('platform_tools.open_path', return_value='opened') as open_path:
+            with patch('contract.platform_tools.open_path', return_value='opened') as open_path:
                 self.assertEqual(platform_tools.open_directory(target), 'opened')
             self.assertTrue(target.is_dir())
             open_path.assert_called_once_with(target)

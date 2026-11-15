@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-import platform_tools
+import contract.platform_tools as platform_tools
 import speech_api
 from agent.core import save
 

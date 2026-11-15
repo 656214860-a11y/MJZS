@@ -25,7 +25,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-import platform_tools
+import contract.platform_tools as platform_tools
 import previs_automation
 import previs_batch_service
 import previs_monitor
@@ -37,7 +37,7 @@ import white_model_service as wm
 import workflow_engines
 import workflow_settings
 from agent.core import save
-from platform_tools import ExecutionStopped
+from contract.platform_tools import ExecutionStopped
 from project_context import ProjectContext
 
 

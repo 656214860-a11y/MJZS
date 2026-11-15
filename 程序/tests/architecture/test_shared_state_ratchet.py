@@ -13,7 +13,7 @@ import ast
 import unittest
 from collections import defaultdict
 
-from tests.architecture._scan import parse, production_files
+from tests.architecture._scan import parse, module_scan_files
 
 SHARED_STATE_CAPS = {
     'Desktop': 45,  # R2029：方法拆到 PageNavMixin/LifecycleMixin 后跨类写入计数被动 +7；R2032：gate_due／gate_error 迁入 AutoState 后 -1；气泡框台账写入收进 _clear_bubble_view 单一入口 -3
@@ -27,7 +27,7 @@ MIXIN_BASE_THRESHOLD = 3
 
 def _classes():
     found = defaultdict(list)
-    for path in production_files():
+    for path in module_scan_files():
         for node in parse(path).body:
             if isinstance(node, ast.ClassDef):
                 found[node.name].append((path.name, node))

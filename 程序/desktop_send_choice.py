@@ -35,7 +35,7 @@ def attachment_payload(engine, task_file, text):
 def attachment_hint(attachment):
     """附件模式下手动操作的补充说明；同时打开任务文件所在文件夹供拖拽上传（REQ-S01-70）。"""
     if not attachment:return ''
-    from platform_tools import open_path
+    from contract.platform_tools import open_path
     try:open_path(Path(attachment).parent)
     except OSError:pass
     return '剪贴板里是短指令；请先把任务文件 '+str(attachment)+' 作为附件上传（已打开所在文件夹，可直接拖进对话框），再粘贴短指令。'
@@ -44,7 +44,7 @@ def attachment_hint(attachment):
 def deliver_desktop_app(host, finish, receipt, task_file, title, clipboard_text,
                         program, app, delivery='paste', attachment=''):
     """启动 Desktop 程序；发送入口启用时尝试粘贴，失败如实回落为手动粘贴。"""
-    from platform_tools import launch_windows_app
+    from contract.platform_tools import launch_windows_app
     app = str(app or '桌面模型')
     if not program:
         message = '已复制到剪贴板；未找到 '+app+' 的程序路径，请在模型管理指定 .exe 后手动粘贴并发送。'+attachment_hint(attachment)

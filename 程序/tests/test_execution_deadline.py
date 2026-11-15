@@ -6,7 +6,7 @@ import tempfile
 from pathlib import Path
 from unittest import mock
 
-import platform_tools
+import contract.platform_tools as platform_tools
 import stage_parallel
 
 

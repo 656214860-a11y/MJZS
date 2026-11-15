@@ -84,6 +84,15 @@ def module_scan_files() -> tuple[Path, ...]:
             + package_entity_files())
 
 
+def registry_key(path: Path) -> str:
+    """棘轮登记键：T10 包实体归一为 ``<模块名>.py``（与搬家前顶层路径一致），
+    其余文件保持相对 ``程序/`` 的 posix 路径（如 ``agent/core.py``）。"""
+    parts = path.relative_to(ROOT).parts
+    if len(parts) > 1 and parts[0] in PACKAGE_NAMES:
+        return parts[-1]
+    return "/".join(parts)
+
+
 def _package_target(dotted: str) -> str:
     """``contract.x`` 归一化为扁平登记名 ``x``；非 T10 包名取首段（同 import_rows）。"""
     parts = dotted.split(".")

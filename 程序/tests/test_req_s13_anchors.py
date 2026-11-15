@@ -105,7 +105,7 @@ class DeliveryRequirementAnchorTests(unittest.TestCase):
         """REQ-S13-03：缺 FFprobe（config.json 与随附工具都没有）直接报错，不退化按扩展名放行。"""
         save(self.root / 'config.json', {})
         path = self.artifact()
-        with patch('platform_tools.tool_path', return_value=None):
+        with patch('contract.platform_tools.tool_path', return_value=None):
             with self.assertRaisesRegex(ValueError, 'FFprobe'):
                 stage_completion_service.prepare_media_completion(self.root, 'delivery', [path])
         self.assertFalse(stage_completion_service.completion_evidence(self.root, 'delivery')[0])

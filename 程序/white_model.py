@@ -2,7 +2,7 @@
 import tkinter as tk
 import webbrowser
 from tkinter import messagebox, ttk
-from platform_tools import open_path
+from contract.platform_tools import open_path
 from file_cache import read_json
 from contract.storyboard_paths import project_root
 import white_model_service as _service

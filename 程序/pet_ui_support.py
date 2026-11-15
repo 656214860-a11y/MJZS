@@ -581,7 +581,7 @@ def autostart_command(program=PROGRAM):
     return '"%s" "%s"' % (exe, launcher)
 def startup_api():
     """注册表入口：非 Windows 或没有 winreg 时返回 None，整套开机自启降级为「不可用」。"""
-    from platform_tools import windows_registry
+    from contract.platform_tools import windows_registry
     return windows_registry()
 _UNSET = object()          # 「没传」与「明确传 None（本机没有 winreg）」必须分开
 class Autostart:

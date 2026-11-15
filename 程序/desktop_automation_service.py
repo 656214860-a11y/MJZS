@@ -412,7 +412,7 @@ class BackgroundTaskLifecycle:
 
     def run(self, ticket, fn):
         import threading
-        from platform_tools import execution_scope, ExecutionStopped
+        from contract.platform_tools import execution_scope, ExecutionStopped
         control = self.execution_control(ticket)
         finished, lock = threading.Event(), threading.Lock()
         result, stopped = [], [False]
@@ -461,7 +461,7 @@ class BackgroundTaskLifecycle:
         """登记当前代次；有成本或远端任务同时记下可查询编号，供取消时说明。"""
         from pathlib import Path
         self.cancel()
-        from platform_tools import ExecutionControl
+        from contract.platform_tools import ExecutionControl
         self._controls[ticket] = ExecutionControl(timeout, observer=lambda facts: self._persist(ticket, **facts))
         for old in list(self._controls)[:-LATE_RESULT_LIMIT]:
             del self._controls[old]
@@ -486,7 +486,7 @@ class BackgroundTaskLifecycle:
             # 迟到的结果既不进界面，也不被静默丢弃：留一条可查询的隔离登记。
             self._record_late(ticket, succeeded)
             return False
-        from platform_tools import ExecutionStopped
+        from contract.platform_tools import ExecutionStopped
         try:
             self.execution_control(ticket).checkpoint()
         except ExecutionStopped as exc:

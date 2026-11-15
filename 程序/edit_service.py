@@ -67,7 +67,7 @@ def assemble_image_timeline(images, durations, audio, destination, *, ffmpeg, ff
     """仅在调用方暂存区合成图片时间线；不登记正式视频或绕过 L3 发布器。"""
     import json
     import math
-    from platform_tools import run_process
+    from contract.platform_tools import run_process
     execute = run or run_process
     if not images or len(images) != len(durations):
         raise ValueError('预演镜头与时长数量不一致')

@@ -14,7 +14,7 @@ from pathlib import Path
 
 import contract.stage_layout as stage_layout
 from agent.core import read_json
-from platform_tools import launch_background, run_process
+from contract.platform_tools import launch_background, run_process
 from contract.project_context import ProjectContext
 
 LEDGER_PATH = (stage_layout.WORKFLOW_DIR, '宠物', '测试.json')

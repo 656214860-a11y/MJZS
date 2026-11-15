@@ -197,7 +197,7 @@ class VoiceInput:
     def toggle(self):
         if self.closing:return self.page.status.set('正在写完最后一句，请稍候…')
         if self.listening:return self.close()
-        import platform_tools
+        import contract.platform_tools as platform_tools
         import speech_api
         self.settings = speech_api.read_settings()
         reason = speech_api.missing_reason(self.settings)

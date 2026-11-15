@@ -16,7 +16,7 @@ from ui_widgets import BusyState
 
 class VideoRevisionTests(unittest.TestCase):
     def test_submission_persists_execution_identity_in_both_backends(self):
-        from platform_tools import ExecutionControl, execution_scope
+        from contract.platform_tools import ExecutionControl, execution_scope
         for cls in (Studio, LocalStudio):
             with self.subTest(backend=cls.__name__):
                 studio = self.studio(cls, [])

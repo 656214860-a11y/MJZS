@@ -4,7 +4,7 @@ from pathlib import Path, PurePosixPath
 import contract.stage_layout as stage_layout
 from agent.core import save
 from file_cache import recycled, read_json
-from platform_tools import launch_background
+from contract.platform_tools import launch_background
 
 PROGRAM=Path(__file__).resolve().parent
 def downloads_root():

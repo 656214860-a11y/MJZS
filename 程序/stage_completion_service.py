@@ -90,7 +90,7 @@ def prepare_media_completion(root, stage, paths, *, scope=None):
     """后台技术校验并冻结待审核清单；不因导入或探测成功自动完成。"""
     from agent.core import file_hash, read
     from agent.media import probe
-    from platform_tools import tool_path
+    from contract.platform_tools import tool_path
     root = Path(root).resolve()
     current = media_scope(root)
     if scope is not None and scope != current:

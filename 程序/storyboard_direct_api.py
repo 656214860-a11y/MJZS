@@ -314,7 +314,7 @@ class Job(threading.Thread):
 
     def __init__(self, project, config, skill_text, **kwargs):
         super().__init__(daemon=True, name=self.thread_name)
-        from platform_tools import ExecutionControl
+        from contract.platform_tools import ExecutionControl
         self.project, self.config, self.skill_text, self.kwargs = Path(project).resolve(), config, skill_text, kwargs
         self.control = ExecutionControl(timeout=6 * 3600)
         self.results = []
@@ -328,7 +328,7 @@ class Job(threading.Thread):
         return run_batch(self.project, self.config, self.skill_text, **services, **self.kwargs)
 
     def run(self):
-        from platform_tools import execution_scope
+        from contract.platform_tools import execution_scope
         from workflow_process_registry import forget_request
         try:
             with execution_scope(self.control):

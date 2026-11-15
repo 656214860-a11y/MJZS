@@ -16,7 +16,7 @@ import media_page_controller as media_logic
 import video_progress
 from local_video import skip_summary
 from pathlib import Path
-from platform_tools import launch_windows_app, open_target, tcp_listener
+from contract.platform_tools import launch_windows_app, open_target, tcp_listener
 from project_naming import dated_path
 from responsive_ui import FlowBar, MIN_COL, auto_columns, fit_row_height, refresh_request_width, remember_columns
 from contract.storyboard_paths import media_root

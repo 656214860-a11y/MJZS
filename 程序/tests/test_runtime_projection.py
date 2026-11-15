@@ -19,7 +19,7 @@ class RuntimeProjectionTests(unittest.TestCase):
             self.assertEqual(row['run_id'], life.execution_control(1).run_id)
 
     def test_execution_identity_is_shared_only_within_one_execution(self):
-        import platform_tools
+        import contract.platform_tools as platform_tools
         control = platform_tools.ExecutionControl()
         with platform_tools.execution_scope(control):
             first = platform_tools.execution_metadata('video', 'S1', attempt='request-1')

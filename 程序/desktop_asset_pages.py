@@ -15,7 +15,7 @@ import ui_plugin_registry
 from agent.core import read
 from desktop_auto_flows import ASSET_RETRY_LIMIT
 from pathlib import Path
-from platform_tools import open_target
+from contract.platform_tools import open_target
 from responsive_ui import CheckboxColumn, FlowBar, MIN_COL, auto_columns, bind_row_toggle, bind_space_toggle, bind_show_all, configure_check_column, fit_row_height, refresh_check_heading, refresh_request_width, remember_columns
 from tkinter import ttk
 from ui_tokens import TEXT_ROWS, COLORS, SPACING, TABLE_HEADER_FONT, TABLE_ROW_FONT, TEXT_HINT

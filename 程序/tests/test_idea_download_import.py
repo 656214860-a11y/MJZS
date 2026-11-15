@@ -17,7 +17,7 @@ sys.path.insert(0, HERE)
 os.chdir(HERE)
 
 import idea_chat
-import platform_tools
+import contract.platform_tools as platform_tools
 from project_context_factory import project_context
 from stage_execution_service import publish_idea_creative
 

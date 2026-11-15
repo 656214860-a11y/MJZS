@@ -1207,6 +1207,12 @@
    "percent": 0.0
   },
   {
+   "module": "platform_tools.py",
+   "covered": 0,
+   "total": 2,
+   "percent": 0.0
+  },
+  {
    "module": "previs_automation.py",
    "covered": 0,
    "total": 167,
@@ -2125,7 +2131,7 @@
    "percent": 19.0
   },
   {
-   "module": "platform_tools.py",
+   "module": "contract/platform_tools.py",
    "covered": 98,
    "total": 517,
    "percent": 19.0
@@ -2426,5 +2432,5 @@
   }
  ],
  "modules_covered": 64,
- "modules_total": 402
+ "modules_total": 403
 }

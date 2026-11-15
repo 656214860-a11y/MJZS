@@ -34,7 +34,7 @@ from storyboard_recycle_service import (
     recycle_files as _recycle_files, latest_recycle_batch as _latest_recycle_batch,
     restore_latest_recycled_files as _restore_latest_recycled_files,
 )
-from platform_tools import open_path
+from contract.platform_tools import open_path
 import tk_timers
 from file_cache import read_json, read_text
 import project_settings

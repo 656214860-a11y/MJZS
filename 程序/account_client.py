@@ -14,7 +14,7 @@ import re
 import ssl
 import urllib.error
 
-import platform_tools
+import contract.platform_tools as platform_tools
 from contract.app_metadata import VERSION
 from contract.service_contract import SystemError, UserError, success
 

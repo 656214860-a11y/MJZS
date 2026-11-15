@@ -28,7 +28,7 @@ class RunCleanupTests(unittest.TestCase):
         with mock.patch.object(workflow_engines.subprocess, 'Popen', return_value=process), \
              mock.patch.object(workflow_process_registry, 'register_process') as register, \
              mock.patch.object(workflow_process_registry, 'forget_process') as forget, \
-             mock.patch('platform_tools.terminate_process_tree') as terminate:
+             mock.patch('contract.platform_tools.terminate_process_tree') as terminate:
             try:
                 code = workflow_engines._run(['x'], 'proj', 'prompt', None, None)
             except RuntimeError:

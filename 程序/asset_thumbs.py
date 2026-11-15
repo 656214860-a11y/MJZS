@@ -40,7 +40,7 @@ import struct
 import subprocess
 import sys
 import time
-from platform_tools import launch_background
+from contract.platform_tools import launch_background
 import tkinter as tk
 from pathlib import Path
 from file_cache import read_json, remove_temporary_file

@@ -9,7 +9,7 @@ from previs_batch_service import prepare_batch
 import previs_routing
 from stage_execution_service import previs_entries, previs_ready, previs_records_directory, white_model_shot_directory, record_previs_evidence
 import ui_plugin_registry
-from platform_tools import open_path
+from contract.platform_tools import open_path
 from responsive_ui import (FlowBar, auto_height, auto_columns, configure_check_column, CheckboxColumn,
                            work_rows, work_hint, view_row)
 from ui_tokens import CHAR_WIDTH, TEXT_ROWS, WRAPLENGTH, COLORS, SPACING

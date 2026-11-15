@@ -8,7 +8,7 @@ from importlib import import_module
 from agent.core import read,save,save_text
 from contract.pet_bus import read_json
 from pet_llm import config_path
-from platform_tools import terminate_process_tree
+from contract.platform_tools import terminate_process_tree
 from contract.workflow_context_budget import ensure_request_context
 
 class RPC:

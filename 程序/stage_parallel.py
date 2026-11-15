@@ -378,7 +378,7 @@ def parallel_map(stage, items, worker, governor=None, at=None, wait=WAIT_SECONDS
     submissions/process launches. Running results remain unknown, never retryable
     merely because the caller stopped waiting. Python threads are not killed.
     """
-    import platform_tools
+    import contract.platform_tools as platform_tools
     control = control or platform_tools.current_execution() or platform_tools.ExecutionControl(timeout)
     governor = shared() if governor is None else governor
     values = list(items)

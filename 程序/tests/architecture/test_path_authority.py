@@ -1,7 +1,7 @@
 from __future__ import annotations
 import ast
 import unittest
-from tests.architecture._scan import module_name, parse, production_files
+from tests.architecture._scan import module_name, parse, module_scan_files
 
 # This guard owns *workflow-stage directory* layout.  Generic data filenames
 # are intentionally excluded: ``assets.json`` and ``config.json`` are domain
@@ -35,7 +35,7 @@ def _is_path_literal(node: ast.Constant, parents: dict[ast.AST, ast.AST]) -> boo
 class PathAuthorityTests(unittest.TestCase):
     def test_path_rules_are_owned_by_authority_modules(self) -> None:
         violations: list[str] = []
-        for path in production_files():
+        for path in module_scan_files():
             if module_name(path) in _WHITELIST:
                 continue
             tree = parse(path)

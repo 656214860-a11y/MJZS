@@ -57,7 +57,7 @@ def run_animatic(project, source, references, audio=None, settings=None):
     from agent.core import save_bytes
     import stage_parallel
     from animatic_service import build_bundle, validate_bundle
-    from platform_tools import tool_path
+    from contract.platform_tools import tool_path
     settings = dict(settings or {})
     settings['retry_attempts'] = stage_parallel.retry_attempts('animatic')
     config = file_cache.read_json(Path(project) / 'config.json') if (Path(project) / 'config.json').is_file() else {}

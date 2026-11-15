@@ -22,7 +22,7 @@ from video_progress import snapshot as shared_video_snapshot,display as progress
 import project_settings
 import asset_thumbs
 import ui_plugin_registry
-from platform_tools import open_path
+from contract.platform_tools import open_path
 from ui_tokens import CHAR_WIDTH, TEXT_ROWS, WRAPLENGTH, COLORS, FONTS, SPACING
 from ui_widgets import (SelectBox, BaseDialog, Card, BusyState, ContextMenu, DataTable, LineInput, NotificationDispatcher,
                         ask_confirmation, ask_string,

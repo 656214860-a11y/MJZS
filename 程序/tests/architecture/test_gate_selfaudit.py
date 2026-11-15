@@ -24,7 +24,7 @@ def _write(folder: Path, name: str, source: str) -> Path:
 class PathAuthoritySelfAuditTests(unittest.TestCase):
     def run_gate(self, path):
         case = test_path_authority.PathAuthorityTests('test_path_rules_are_owned_by_authority_modules')
-        with mock.patch.object(test_path_authority, 'production_files', return_value=(path,)):
+        with mock.patch.object(test_path_authority, 'module_scan_files', return_value=(path,)):
             case.test_path_rules_are_owned_by_authority_modules()
 
     def test_bad_sample_fails_and_good_samples_pass(self):

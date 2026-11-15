@@ -5,7 +5,7 @@ import json
 import os
 import time
 from pathlib import Path
-from platform_tools import open_path
+from contract.platform_tools import open_path
 
 
 def executable(settings):

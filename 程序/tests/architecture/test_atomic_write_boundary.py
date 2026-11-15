@@ -4,7 +4,8 @@ from __future__ import annotations
 import ast
 import unittest
 
-from tests.architecture._scan import ROOT, module_name, parse, production_files, production_runtime_files
+from tests.architecture._scan import (ROOT, module_name, module_scan_files, parse,
+                                      production_runtime_files, registry_key)
 
 
 _DIRECT_WRITE_METHODS = frozenset({"write_text", "write_bytes"})
@@ -47,7 +48,7 @@ def _replace_counts() -> dict:
         found = sum(1 for node in ast.walk(parse(path))
                     if isinstance(node, ast.Call) and _is_direct_replace(node))
         if found:
-            counts[path.relative_to(ROOT).as_posix()] = found
+            counts[registry_key(path)] = found
     return counts
 
 
@@ -74,7 +75,7 @@ def _write_lines(path):
 class AtomicWriteBoundaryTests(unittest.TestCase):
     def test_direct_production_writes_are_limited_to_registered_boundaries(self):
         offenders = []
-        for path in production_files():
+        for path in module_scan_files():
             name = module_name(path)
             lines = _write_lines(path)
             if lines and name not in _ATOMIC_BOUNDARIES | _TEMPORARY_BOUNDARIES:
@@ -104,7 +105,7 @@ class AtomicWriteBoundaryTests(unittest.TestCase):
             self.assertEqual(sum(_is_direct_replace(node) for node in calls), 2)
 
     def test_registered_atomic_boundaries_prove_temporary_then_replace(self):
-        for path in production_files():
+        for path in module_scan_files():
             name = module_name(path)
             if name not in _ATOMIC_BOUNDARIES:
                 continue
@@ -115,7 +116,7 @@ class AtomicWriteBoundaryTests(unittest.TestCase):
 
     def test_background_adapters_validate_report_body_before_publication(self):
         for name in ('qwen_adapter', 'workflow_engines'):
-            path = next(path for path in production_files() if module_name(path) == name)
+            path = next(path for path in module_scan_files() if module_name(path) == name)
             source = path.read_text(encoding='utf-8')
             with self.subTest(module=name):
                 self.assertIn('未返回制作报告正文', source)
@@ -123,7 +124,7 @@ class AtomicWriteBoundaryTests(unittest.TestCase):
                                 source.index('save_text(Path(report)'))
 
     def test_shortcut_script_is_temporary_and_is_reclaimed(self):
-        path = next(path for path in production_files() if module_name(path) == 'app_shortcut')
+        path = next(path for path in module_scan_files() if module_name(path) == 'app_shortcut')
         source = path.read_text(encoding='utf-8')
         self.assertIn('tempfile.mkstemp(', source)
         self.assertIn('remove_temporary_file(script_path)', source)

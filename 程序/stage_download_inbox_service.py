@@ -82,11 +82,11 @@ def collect_download_inbox(project, now=None, downloads=None, backups=None):
         return []
     pending = current.get('pending', []) if isinstance(current, dict) else []
     if downloads is None:
-        from platform_tools import downloads_directory
+        from contract.platform_tools import downloads_directory
         downloads = downloads_directory()
     done, finished = [], []
     from agent.publication import transaction
-    from platform_tools import execution_checkpoint
+    from contract.platform_tools import execution_checkpoint
     from storage_maintenance import backup_before_overwrite
     # 下载件日期比登记目标新时写到新日期路径；登记表按原目标销账，对上同一份下载的旧登记一并销账。
     for source, target, registered in match_registered(downloads, pending, now):

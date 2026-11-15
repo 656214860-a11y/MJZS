@@ -10,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 
 from file_cache import probe_writable, read_json, remove_temporary_file
-from platform_tools import run_process
+from contract.platform_tools import run_process
 from project_naming import dated_path
 import contract.stage_layout as stage_layout
 from contract.project_context import ProjectContext

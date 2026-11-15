@@ -552,7 +552,7 @@ def find_model_program(model, mode):
     if not re.fullmatch(r'[a-z0-9][a-z0-9.-]*', app):
         raise ValueError('未找到对应桌面应用，请填写应用名或手动浏览安装路径')
     executable = app + '.exe'
-    from platform_tools import windows_registry
+    from contract.platform_tools import windows_registry
     registry = windows_registry()
     if registry is not None:
         for hive in (registry.HKEY_CURRENT_USER, registry.HKEY_LOCAL_MACHINE):

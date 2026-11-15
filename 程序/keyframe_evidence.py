@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 import threading
 
-from platform_tools import run_process, tool_path
+from contract.platform_tools import run_process, tool_path
 
 
 _DECODED = OrderedDict()

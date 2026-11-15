@@ -25,7 +25,7 @@ def media_import_publisher(project, kind):
     from stage_completion_service import publish_imported_media
     from agent.core import read
     from agent.media import validate_import
-    from platform_tools import tool_path
+    from contract.platform_tools import tool_path
     def publish(target, source):
         config_path = Path(project) / 'config.json'
         config = dict(read(config_path)) if config_path.is_file() else {}

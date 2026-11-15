@@ -9,7 +9,7 @@ from stage_execution_service import remove_asset_batch_model as remove_model, sa
 import tk_timers
 import ui_plugin_registry
 from responsive_ui import FlowBar, scroll_form
-from platform_tools import open_target
+from contract.platform_tools import open_target
 from ui_tokens import TEXT_ROWS, WRAPLENGTH, COLORS, SPACING
 from ui_dialogs import FileDialog
 from ui_widgets import SelectBox, BaseDialog, Card, DataTable, DescriptionBlock, LineInput, PrimaryButton, ProgressLabel, SecondaryButton, ask_confirmation
@@ -397,5 +397,5 @@ class _AssetBatchWindow:
         self.app.async_(lambda:run_batch(self.project,self.base,items,options,self.events,self.stop),done)
 
     def records(self):
-        from platform_tools import open_path
+        from contract.platform_tools import open_path
         folder=self.project/'workflows';folder.mkdir(exist_ok=True);open_path(folder)

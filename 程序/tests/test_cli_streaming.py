@@ -61,33 +61,33 @@ class _StreamProcess:
 
 class CommunicateStreamTests(unittest.TestCase):
     def test_on_output_receives_each_stdout_and_stderr_line(self):
-        from platform_tools import communicate_or_kill
+        from contract.platform_tools import communicate_or_kill
 
         process = _StreamProcess(out_lines=['第一行\n', '第二行\n'], err_lines=['警告行\n'])
         seen = []
-        with mock.patch('platform_tools.terminate_process_tree'):
+        with mock.patch('contract.platform_tools.terminate_process_tree'):
             code = communicate_or_kill(process, '提示词', 60, on_output=lambda line, stream: seen.append((stream, line)))
         self.assertEqual(code, 0)
         self.assertEqual(sorted(seen), sorted([('stdout', '第一行\n'), ('stdout', '第二行\n'), ('stderr', '警告行\n')]))
 
     def test_on_output_callback_error_does_not_break_run(self):
-        from platform_tools import communicate_or_kill
+        from contract.platform_tools import communicate_or_kill
 
         process = _StreamProcess(out_lines=['a\n', 'b\n'])
 
         def exploding(line, stream):
             raise RuntimeError('回调自己挂了')
 
-        with mock.patch('platform_tools.terminate_process_tree'):
+        with mock.patch('contract.platform_tools.terminate_process_tree'):
             code = communicate_or_kill(process, '提示词', 60, on_output=exploding)
         self.assertEqual(code, 0)
 
     def test_without_on_output_behaviour_is_unchanged(self):
         # 未提供回调时，仍走 process.communicate 的原路径（向后兼容，文件对象直写不受影响）。
-        from platform_tools import communicate_or_kill
+        from contract.platform_tools import communicate_or_kill
 
         process = _StreamProcess(out_lines=['x\n'])
-        with mock.patch('platform_tools.terminate_process_tree'):
+        with mock.patch('contract.platform_tools.terminate_process_tree'):
             communicate_or_kill(process, '提示词', 60)
         # 原路径把 stdin 喂给 process.communicate，且不逐行回调（没有 on_output 就不会碰 stdout 迭代）。
         self.assertEqual(len(process._communicated), 1)

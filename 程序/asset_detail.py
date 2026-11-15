@@ -24,7 +24,7 @@ from tkinter import messagebox, ttk
 
 import asset_thumbs
 from agent.core import read
-from platform_tools import open_path
+from contract.platform_tools import open_path
 from responsive_ui import FlowBar
 from ui_dialogs import FileDialog
 from ui_widgets import BaseDialog, Card, DescriptionBlock, HintLabel, PrimaryButton, SecondaryButton, TextArea, ask_confirmation, ask_string, notify

@@ -226,7 +226,7 @@ def file_hash(path):
 
 
 def command(args, cwd=None):
-    import platform_tools       # 第 34 期第 9 条：按需加载，保持启动路径轻量
+    import contract.platform_tools as platform_tools       # 第 34 期第 9 条：按需加载，保持启动路径轻量
     try:
         r = platform_tools.run_process([str(x) for x in args], capture_output=True, text=True,
                                        encoding="utf-8", errors="replace", cwd=cwd)
@@ -238,7 +238,7 @@ def command(args, cwd=None):
 
 
 def request(url, payload=None, headers=None, raw=False):
-    import platform_tools, urllib.error    # 第 34 期第 9 条：HTTP 栈按需加载
+    import contract.platform_tools as platform_tools, urllib.error    # 第 34 期第 9 条：HTTP 栈按需加载
     data = None if payload is None else json.dumps(payload).encode()
     h = dict(headers or {})
     if data is not None:
@@ -256,7 +256,7 @@ def request(url, payload=None, headers=None, raw=False):
 
 
 def download(url, dest):
-    import platform_tools                       # 第 34 期第 9 条：HTTP 栈按需加载
+    import contract.platform_tools as platform_tools                       # 第 34 期第 9 条：HTTP 栈按需加载
     if not url.startswith("https://"):
         raise ValueError("云视频下载链接必须使用 HTTPS")
     dest = Path(dest)

@@ -7,12 +7,12 @@ from types import FunctionType
 import unittest
 
 import legacy_compat
-from tests.architecture._scan import module_name, parse, production_files
+from tests.architecture._scan import module_name, parse, module_scan_files
 
 
 def _production_callers():
     callers = {}
-    for path in production_files():
+    for path in module_scan_files():
         tree = parse(path)
         aliases = set()
         for node in ast.walk(tree):

@@ -1,4 +1,4 @@
-"""platform_tools.open_https 照常跟随重定向，但跳到另一来源时不把凭据头转给跳转目标。
+"""contract.platform_tools.open_https 照常跟随重定向，但跳到另一来源时不把凭据头转给跳转目标。
 
 只替换贴着网络的 http_open／https_open，跳转走 urllib 真实的那套机制（同
 test_model_pool_redirects），每一跳实际发出的请求都记下来对照。
@@ -11,7 +11,7 @@ from unittest.mock import patch
 import urllib.request
 import urllib.response
 
-import platform_tools
+import contract.platform_tools as platform_tools
 
 START = 'https://account.invalid/v1/me'
 CREDENTIALS = {'Authorization': 'Bearer SYNTHETIC', 'Cookie': 'session=SYNTHETIC',

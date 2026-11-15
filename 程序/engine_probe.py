@@ -122,7 +122,7 @@ def switches(argv):
 def run(argv, stdin='', timeout=180, cwd=None):
     """真跑一次（不弹控制台窗）。返回 (退出码, 标准输出, 标准错误)。"""
     import subprocess
-    from platform_tools import hidden_console_flags
+    from contract.platform_tools import hidden_console_flags
     done = subprocess.run(argv, input=stdin, capture_output=True, text=True, encoding='utf-8',
                           errors='replace', timeout=timeout, cwd=cwd, creationflags=hidden_console_flags())
     return done.returncode, done.stdout or '', done.stderr or ''

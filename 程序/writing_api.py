@@ -233,7 +233,7 @@ class WritingRequestAdapter(ModelAdapter):
             options.setdefault(key, value)
         rpm = int((self.record or {}).get('rpm') or 0)
         if rpm > 0:
-            from platform_tools import current_execution
+            from contract.platform_tools import current_execution
             model_pool.wait_for_rpm((self.record or {}).get('base_url'), rpm, current_execution())
         limit = model_pool.context_length_of(self.record.get('context_length')) or None
         reserved = max(0, int(options.get('max_tokens') or 0))

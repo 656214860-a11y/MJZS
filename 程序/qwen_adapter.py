@@ -5,7 +5,7 @@ import contract.stage_layout as stage_layout
 import client_profiles
 from file_cache import remove_temporary_file
 from agent.core import read,save,save_text,temporary_path,replace
-from platform_tools import launch_windows_app
+from contract.platform_tools import launch_windows_app
 from contract.workflow_context_budget import ensure_request_context
 
 # 比 --max-wall-time 2h 多留 10 分钟：CLI 自己的时限先生效，它卡死时由这里兜底。

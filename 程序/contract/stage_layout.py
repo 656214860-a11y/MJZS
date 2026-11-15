@@ -469,4 +469,4 @@ def adopt_legacy(project, dry=False):
 def ready(project):
     """整棵阶段树都齐了吗（ensure 的幂等判据）。"""
     return not ensure(project, dry=True)
-from platform_tools import run_process
+from contract.platform_tools import run_process

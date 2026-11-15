@@ -14,7 +14,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import file_cache
-import platform_tools
+import contract.platform_tools as platform_tools
 
 PROGRAM = Path(__file__).resolve().parent
 USER_FILE = PROGRAM / 'data' / '语音识别.json'
