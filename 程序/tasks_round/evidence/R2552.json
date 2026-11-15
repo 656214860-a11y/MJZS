@@ -1,0 +1,15 @@
+{
+  "round": 2552,
+  "commit_base": "256a06b5",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_workflow test_writing_api test_writing_cancellation test_writing_restart test_writing_restart_intent test_writing_edited_restart test_writing_response_preservation test_cancellation_status test_copy_rules test_previs test_latent_defects_r2175 test_distribution_selfcheck",
+    "exit": 0,
+    "passed": 427,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T11:06:10"
+}

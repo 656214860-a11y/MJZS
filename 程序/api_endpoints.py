@@ -257,6 +257,17 @@ def _content_length_exceeded(headers, limit):
     return length > int(limit)
 
 
+def _declared_content_length(headers):
+    """服务端声明的 Content-Length；无头或不是数字时返回 None（如分块编码）。"""
+    get = getattr(headers, 'get', None) if headers else None
+    if not callable(get):
+        return None
+    try:
+        return int(get('Content-Length') or get('content-length') or 0)
+    except (TypeError, ValueError):
+        return None
+
+
 def _limited_read(response, limit):
     """读取响应体，最多 limit 字节；超限立即报错而不是继续读。"""
     raw = response.read(int(limit) + 1)
@@ -325,6 +336,17 @@ def _http_transport(url, payload, headers, timeout, opener=None):
                     return {'ok': False, 'status': status, 'kind': 'client',
                             'error': '响应体超过 %d 字节上限，已拒绝读取' % RESPONSE_BODY_MAX_BYTES,
                             'retry_count': retry_count, 'retry_after': retry_after, 'error_class': 'protocol'}
+                declared = _declared_content_length(response.headers)
+                if declared is not None and len(raw) < declared:
+                    if attempt < MAX_REPLAY_ATTEMPTS:   # 声明长度没读满＝连接中途断开，按网络故障重放
+                        retry_count += 1
+                        _wait_before_retry(attempt, None, control)
+                        continue
+                    return {'ok': False, 'status': 0, 'kind': 'network',
+                            'error': 'IncompleteRead：响应体只收到 %d 字节（声明 %d 字节），连接提前断开'
+                                     % (len(raw), declared),
+                            'retry_count': retry_count, 'retry_after': retry_after,
+                            'error_class': 'network'}
                 try:
                     raw = _decode_response_body(raw, response.headers, RESPONSE_BODY_MAX_BYTES)
                 except ValueError as exc:
