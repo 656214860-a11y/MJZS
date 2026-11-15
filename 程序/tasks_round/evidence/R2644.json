@@ -1,0 +1,15 @@
+{
+  "round": 2644,
+  "commit_base": "f4e7e7f3",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k selftest_incremental",
+    "exit": 0,
+    "passed": 5,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T16:20:57"
+}
