@@ -1,0 +1,15 @@
+{
+  "round": 2655,
+  "commit_base": "d098f24e",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k line_endings account_offline",
+    "exit": 0,
+    "passed": 20,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T16:39:00"
+}

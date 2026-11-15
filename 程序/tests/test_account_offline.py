@@ -44,7 +44,7 @@ class SuppressedNetworkTests(unittest.TestCase):
             self.addCleanup(patch.stop)
 
     def test_selftest_runner_sets_the_switch(self):
-        source = (ROOT / 'run_selftests.py').read_text(encoding='utf-8')
+        source = (ROOT / 'selftest_env.py').read_text(encoding='utf-8')
         self.assertIn('os.environ.setdefault("%s", "1")' % account_client.SUPPRESS_NETWORK_ENV, source)
 
     def test_default_endpoints_return_network_without_calling_opener(self):
