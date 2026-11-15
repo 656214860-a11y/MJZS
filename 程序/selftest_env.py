@@ -4,15 +4,20 @@
 路径与抑制环境变量必须最先生效：任何 selftest_* 子模块被导入时都先经这里把
 程序根与 tests/ 挂进 sys.path，并给子进程关掉模态框/托盘/联网/诊断写入。"""
 
+import gc
 import hashlib
 import io
 import json
 import os
 import re
+import shutil
+import stat
 import subprocess
 import sys
+import tempfile
 import time
 from datetime import timedelta
+from pathlib import Path
 
 # 自检子进程继承：通知分发器不弹系统模态框，避免无人值守时卡住（见 ui_widgets.SUPPRESS_MODAL_ENV）。
 os.environ.setdefault("DRAMA_SUPPRESS_MODAL", "1")
@@ -250,3 +255,117 @@ def lock_holder(path):
         return value if isinstance(value, dict) else {}
     except (OSError, ValueError):
         return {}
+
+
+# ── 自检临时目录沙盒 ────────────────────────────────────────────────
+# 用例大量用 tempfile.mkdtemp()/TemporaryDirectory()；Windows 上文件句柄晚一步释放就删不掉，
+# 每跑一次全量在 %TEMP% 留一批空 tmp 目录（实测上万个，拖慢资源管理器与临时目录扫描）。
+# 这里给每次自检一个带前缀的本轮根：子进程把 tempfile 落点指过去，父进程跑完整根删掉；
+# 删不掉的留到下一轮按超期回收。只认本模块前缀，其它程序的临时目录一律不碰。
+
+TEST_TEMP_PREFIX = 'drama-test-'
+TEST_TEMP_ENV = 'DRAMA_TEST_TEMP'
+TEST_TEMP_STALE_SECONDS = 24 * 60 * 60
+TEST_TEMP_RETRIES = 6
+TEST_TEMP_RETRY_PAUSE = 0.25
+
+
+def _force_remove(function, target, _error):
+    """rmtree 兜底：Windows 的只读属性会让删除失败，去掉只读位再试一次。"""
+    try:
+        os.chmod(target, stat.S_IWRITE)
+    except OSError:
+        pass
+    function(target)
+
+
+def _tree_bytes(folder):
+    total = 0
+    for current, _dirs, files in os.walk(folder):
+        for name in files:
+            try:
+                total += os.path.getsize(os.path.join(current, name))
+            except OSError:
+                continue
+    return total
+
+
+def sweep_stale_temp(base=None, *, max_age=TEST_TEMP_STALE_SECONDS, now=None):
+    """回收 base 下「本模块前缀 + 超期」的临时根，返回 {base, removed, failed, bytes}。"""
+    root = Path(base) if base is not None else Path(tempfile.gettempdir())
+    moment = time.time() if now is None else now
+    report = {'base': str(root), 'removed': 0, 'failed': 0, 'bytes': 0}
+    try:
+        entries = sorted(root.iterdir())
+    except OSError:
+        return report
+    for entry in entries:
+        if not entry.name.startswith(TEST_TEMP_PREFIX):
+            continue
+        try:
+            if entry.is_symlink() or entry.is_junction() or not entry.is_dir():
+                continue
+            age = moment - entry.stat().st_mtime
+        except OSError:
+            continue
+        if age < max_age:
+            continue
+        size = _tree_bytes(entry)
+        try:
+            shutil.rmtree(entry, onexc=_force_remove)
+        except OSError:
+            report['failed'] += 1
+            continue
+        report['removed'] += 1
+        report['bytes'] += size
+    return report
+
+
+def install_temp_sandbox(root=None):
+    """子进程用：把本进程 tempfile 落点指到本轮根；没有根就什么都不做并返回 None。"""
+    target = root if root is not None else os.environ.get(TEST_TEMP_ENV)
+    if not target:
+        return None
+    path = Path(str(target))
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return None
+    tempfile.tempdir = str(path)
+    return path
+
+
+def begin_temp_run(base=None, *, now=None):
+    """自检开跑前调用：先回收超期残留，再建本轮根并把路径交给子进程。"""
+    root = Path(base) if base is not None else Path(tempfile.gettempdir())
+    try:
+        root.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        pass
+    swept = sweep_stale_temp(root, now=now)
+    folder = Path(tempfile.mkdtemp(prefix=TEST_TEMP_PREFIX, dir=str(root)))
+    os.environ[TEST_TEMP_ENV] = str(folder)
+    tempfile.tempdir = str(folder)
+    return {'root': folder, 'swept': swept}
+
+
+def finish_temp_run(folder=None, *, retries=TEST_TEMP_RETRIES):
+    """删本轮根；句柄可能晚一步释放，重试几次，仍不行就留给下一轮按超期回收。"""
+    target = folder if folder is not None else os.environ.get(TEST_TEMP_ENV)
+    if not target:
+        return True
+    path = Path(str(target))
+    if os.environ.get(TEST_TEMP_ENV) == str(path):
+        os.environ.pop(TEST_TEMP_ENV, None)
+    if tempfile.tempdir == str(path):
+        tempfile.tempdir = None
+    for attempt in range(max(1, int(retries))):
+        try:
+            shutil.rmtree(path, onexc=_force_remove)
+            return True
+        except FileNotFoundError:
+            return True
+        except OSError:
+            gc.collect()
+            time.sleep(TEST_TEMP_RETRY_PAUSE * (attempt + 1))
+    return not path.exists()

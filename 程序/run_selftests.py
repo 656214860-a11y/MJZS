@@ -276,7 +276,13 @@ def main(argv=None):
             print('验收起点：HEAD=%s，工作树干净' % start_head)
     if not serial and not jobs:
         jobs = max(2, min(JOBS_CAP, (os.cpu_count() or 4)))
+    temp_run = None
     try:
+        temp_run = env.begin_temp_run()
+        swept = temp_run['swept']
+        if swept['removed'] or swept['failed']:
+            print('自检临时目录：回收超期残留 %d 个（%.1f MB），失败 %d 个' %
+                  (swept['removed'], swept['bytes'] / 1048576.0, swept['failed']))
         protect_tk()
         fails = import_all()
         if fails:
@@ -407,6 +413,8 @@ def main(argv=None):
         print("\nALL TESTS PASSED")
         return 0
     finally:
+        if temp_run is not None and not env.finish_temp_run(temp_run['root']):
+            print('警告：本轮自检临时目录未能删净，留给下一轮按超期回收：%s' % temp_run['root'])
         if gui_lock:
             atexit.unregister(release_gui_lock)
             release_gui_lock(gui_lock)

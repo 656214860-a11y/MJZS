@@ -1,0 +1,15 @@
+{
+  "round": 2864,
+  "commit_base": "a7ecd950",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k selftest temp_sandbox stdlib_closure static_names source_text_contracts",
+    "exit": 0,
+    "passed": 111,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T21:28:22"
+}
