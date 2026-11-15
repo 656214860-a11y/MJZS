@@ -1,0 +1,15 @@
+{
+  "round": 2925,
+  "commit_base": "1286bc3a",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k copy_rules project_page_services window_resize_coalescing",
+    "exit": 0,
+    "passed": 26,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T07:48:17"
+}
