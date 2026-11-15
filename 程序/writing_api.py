@@ -889,7 +889,11 @@ def _preparation_state(project, brief, *, restart_stage=None):
         elif sources is working and previous_revision.get('source_path'):
             state['revision']['source_path'] = previous_revision['source_path']
     elif _preparation_brief_hash(state) != fingerprint:
-        return target, {'version': 1, 'brief_hash': fingerprint, 'documents': []}, []
+        # 简报变化重置确认台账；确认快照历史保留（REQ-S01-87）。
+        fresh = {'version': 1, 'brief_hash': fingerprint, 'documents': []}
+        if state.get('snapshots'):
+            fresh['snapshots'] = state['snapshots']
+        return target, fresh, []
     revision = state.get('revision')
     if revision is not None and (not isinstance(revision, dict) or 'documents' not in revision):
         raise ValueError('剧本准备重写记录无效')
