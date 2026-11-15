@@ -1,0 +1,3 @@
+图片提示词｜{anchor}；场景：{scene}；构图：{composition}｜锚点（逐字复用）＋场景＋构图
+视频提示词｜动作：{action}；运镜：{camera}；物理交互：{physics}｜只写动作、运镜、物理交互
+参考图职责声明｜{label}只负责{responsibility}，不继承其中的{exclude}｜每张参考图一句「只负责什么、不继承什么」
