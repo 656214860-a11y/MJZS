@@ -215,9 +215,8 @@ def _stream_communicate_or_kill(process, data, timeout, on_output):
                 try:
                     on_output(line, name)
                 except Exception:
-                    # 回调抛异常留痕并继续，不让一次失败截断整路输出与回写日志。
-                    import app_logging
-                    app_logging.swallowed("流式输出回调失败")
+                    # 回调抛异常只吞掉并继续，不让一次失败截断整路输出与回写日志。
+                    pass
         except Exception:
             # 读流被打断（进程退出、PIPE 关闭）属预期。
             return
