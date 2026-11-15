@@ -1,0 +1,15 @@
+# gitleaks 配置（开发期/CI 用，不进分发副本）。默认规则全开，以下只做本仓误报收窄。
+[extend]
+useDefault = true
+
+[allowlist]
+description = "本仓测试夹具与文档中的示例密钥形态"
+paths = [
+  '''tests/''',
+  '''维护记录/''',
+  '''tasks_round/''',
+  '''docs/''',
+]
+regexes = [
+  '''(?i)(example|sample|fake|dummy|test|placeholder|your[_-]?(api|key|token|secret))''',
+]

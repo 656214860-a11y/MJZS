@@ -2484,6 +2484,15 @@
       "reason_constant": "PLATFORM_DIRECTORY_LINK",
       "reason": "当前环境不支持目录链接；支持目录链接时应恢复执行",
       "reference": ""
+    },
+    {
+      "file": "tests/test_skill_import_validation.py",
+      "test": "SkillImportBoundsTests.test_package_with_symlink_is_blocked",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_SYMLINK",
+      "reason": "当前环境不支持创建符号链接；支持符号链接时应恢复执行",
+      "reference": ""
     }
   ]
 }

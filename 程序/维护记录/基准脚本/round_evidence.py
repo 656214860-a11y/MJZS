@@ -25,6 +25,9 @@ SECRET_PATTERNS = (
     ('private-key', re.compile(r'-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----')),
     ('openai-style-key', re.compile(r'\bsk-[A-Za-z0-9_-]{20,}')),
     ('aws-access-key', re.compile(r'\bAKIA[0-9A-Z]{16}\b')),
+    ('github-token', re.compile(r'\b(?:ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{22,}|gho_[A-Za-z0-9]{36}|ghu_[A-Za-z0-9]{36}|ghs_[A-Za-z0-9]{36}|ghr_[A-Za-z0-9]{36})\b')),
+    ('slack-token', re.compile(r'\bxox[baprs]-[A-Za-z0-9-]{10,}\b')),
+    ('google-api-key', re.compile(r'\bAIza[0-9A-Za-z_-]{35}\b')),
     ('assigned-secret', re.compile(r'(?i)\b(?:api[_-]?key|secret|token|password)\b\s*[:=]\s*[\'"][A-Za-z0-9_\-/+=]{24,}[\'"]')),
 )
 EVIDENCE_REQUIRED_FROM = 2527

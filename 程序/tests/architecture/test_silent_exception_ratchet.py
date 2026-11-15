@@ -44,6 +44,15 @@ class SilentExceptionRatchet(unittest.TestCase):
         stale = [n for n, cap in ALLOWED.items() if len(found.get(n, ())) < cap]
         self.assertEqual(stale, [], '登记数量高于实际，请同步下调')
 
+    def test_no_bare_except_anywhere(self):
+        bare = {}
+        for path in list(PROGRAM.glob('*.py')) + list((PROGRAM / 'agent').rglob('*.py')):
+            tree = ast.parse(path.read_text(encoding='utf-8', errors='replace'))
+            rows = [n.lineno for n in ast.walk(tree) if isinstance(n, ast.ExceptHandler) and n.type is None]
+            if rows:
+                bare[path.relative_to(PROGRAM).as_posix()] = rows
+        self.assertEqual(bare, {}, '禁止裸 except:（会吞掉 KeyboardInterrupt／SystemExit），至少写 except Exception')
+
     def test_swallowed_helper_is_used_widely(self):
         hits = sum(p.read_text(encoding='utf-8', errors='replace').count('app_logging.swallowed()')
                    for p in PROGRAM.glob('*.py'))

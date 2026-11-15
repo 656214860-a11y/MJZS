@@ -12,6 +12,7 @@ r"""开发者统一入口：一个命令名对应一个既有实现，不另写�
     python.exe -B scripts\dev.py health     # 仓库健康检查
     python.exe -B scripts\dev.py logs       # 日志维护（--dry-run 可预览）
     python.exe -B scripts\dev.py shots      # 界面截图基线比对（手动；--update 重拍基线）
+    python.exe -B scripts\dev.py lint      # 开发期静态分析（ruff + mypy，系统 Python；不进分发副本）
     python.exe -B scripts\dev.py claim      # 领取下一个轮次号
     python.exe -B scripts\dev.py sync       # 主工作区同步（fetch + ff-only，只拉不推）
     python.exe -B scripts\dev.py archive   # 旧结果文件按月归档（默认预览，--apply 执行）
@@ -35,6 +36,7 @@ COMMANDS = {
     'health': (['scripts/repo_health.py'], '仓库健康检查'),
     'logs': (['scripts/maintain_logs.py'], '日志维护'),
     'shots': (['scripts/ui_snapshot.py', '--check'], '界面截图基线比对（--update 重拍；手动工具）'),
+    'lint': (['scripts/dev_lint.py'], '开发期静态分析（ruff + 契约层 mypy）'),
     'claim': (['维护记录/基准脚本/round_claim.py', 'next'], '领取下一个轮次号'),
     'sync': (['scripts/sync_master.py'], '主工作区同步：fetch 远端 + 仅 fast-forward（只拉不推）'),
     'merge': (['scripts/merge_round.py'], '合并轮一条命令：合入分支+领号+状态页抬头+结果文件+提交（在 master 检出运行）'),
