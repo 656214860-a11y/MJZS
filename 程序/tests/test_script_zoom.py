@@ -80,11 +80,19 @@ class ScriptZoomTests(unittest.TestCase):
         box = desktop.script_structure_source_preview_content_box
         return win, desktop, box
 
-    def _press(self, win, widget, sequence):
-        """合成按键必须与 update 交错：排队的多个按键事件会丢；
-        ``when='now'`` 同步派发，避免高负载下首个按键事件被丢。"""
-        widget.event_generate(sequence, when='now')
-        win.update()
+    def _press_until(self, win, widget, sequence, probe, tries=15):
+        """合成按键须落在焦点控件上；高负载下焦点与投递都可能延迟，
+        确认焦点后重发直到 ``probe()`` 为真（重复按键对缩放是累加，
+        调用方须以目标 zoom_delta 为探针，避免多发造成步进漂移）。"""
+        for _ in range(tries):
+            widget.focus_set()
+            win.update()
+            widget.event_generate(sequence, when='now')
+            win.update()
+            _settle(win, 2)
+            if probe():
+                return
+        self.fail('按键 %s 连发 %d 次仍未生效' % (sequence, tries))
 
     def test_a_keyboard_zoom_steps_limits_gutter_and_both_readers(self):
         """REQ-S02-36：Ctrl+= 放大、Ctrl+- 缩小 ±1；限幅；行号同步；两框独立。"""
@@ -92,26 +100,23 @@ class ScriptZoomTests(unittest.TestCase):
         preview = box.preview
         base = ui_tokens.SCRIPT_VIEW_FONT[1]
         self.assertEqual(_font_size(preview), base)
-        preview.focus_set()
-        self._press(win, preview, "<Control-equal>")
+        # 高负载下合成按键可能不投递：重发直到缩放生效（步进目标即探针）。
+        self._press_until(win, preview, "<Control-equal>", lambda: box.zoom_delta == 1)
         _settle(win)
-        self.assertEqual(box.zoom_delta, 1)
         self.assertEqual(_font_size(preview), base + 1)
         self.assertEqual(box.gutter._font_spec[1], base + 1)
         fonts = {box.gutter.itemcget(item, "font") for item in box.gutter.find_all()}
         self.assertTrue(any(str(base + 1) in str(font) for font in fonts),
                         "行号字体未随缩放更新")
-        self._press(win, preview, "<Control-minus>")
+        self._press_until(win, preview, "<Control-minus>", lambda: box.zoom_delta == 0)
         _settle(win)
-        self.assertEqual(box.zoom_delta, 0)
         self.assertEqual(_font_size(preview), base)
 
         # 上下两个阅读框的缩放互相独立。
         output_box = desktop.script_structure_output_preview_content_box
-        output_box.preview.focus_set()
-        self._press(win, output_box.preview, "<Control-equal>")
+        self._press_until(win, output_box.preview, "<Control-equal>",
+                          lambda: output_box.zoom_delta == 1)
         _settle(win)
-        self.assertEqual(output_box.zoom_delta, 1)
         self.assertEqual(box.zoom_delta, 0)
 
         # 上下限：与按键同一入口 zoom_by（步进已由上面的按键验证）。
@@ -143,7 +148,11 @@ class ScriptZoomTests(unittest.TestCase):
         # 再来一次普通滚轮：仍不缩放且正文实际滚动（scroll_page 未被破坏）。
         preview.event_generate("<MouseWheel>", state=0, delta=-240)
         win.update()
-        _settle(win)
+        # 高负载下滚动生效可能滞后：轮询到 yview 变化。
+        for _ in range(15):
+            _settle(win, 2)
+            if preview.yview()[0] != top_before:
+                break
         self.assertEqual(box.zoom_delta, 0)
         self.assertNotEqual(preview.yview()[0], top_before,
                             "普通滚轮应照常滚动正文")

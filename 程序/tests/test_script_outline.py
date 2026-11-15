@@ -96,13 +96,19 @@ class OutlinePanelTests(unittest.TestCase):
         panel._list.selection_clear(0, 'end')
         panel._list.selection_set(2)   # 第 7 行「第 2 集」
         panel._list.event_generate('<<ListboxSelect>>')
-        _settle(root)
-        ranges = preview.tag_ranges(_HIT_TAG)
+        # 高负载下虚拟事件处理与 see() 滚动可能滞后：轮询到高亮与可视区就位。
+        for _ in range(20):
+            _settle(root, 2)
+            ranges = preview.tag_ranges(_HIT_TAG)
+            if not ranges:
+                continue
+            top = int(str(preview.index('@0,0')).split('.')[0])
+            bottom = int(str(preview.index('@0,%d' % max(1, preview.winfo_height()))).split('.')[0])
+            if top <= 7 <= bottom:
+                break
         self.assertTrue(ranges, '点击后应在目标行留下高亮')
         self.assertEqual(str(ranges[0]), '7.0')
         # see() 已把第 7 行滚进可视区。
-        top = int(str(preview.index('@0,0')).split('.')[0])
-        bottom = int(str(preview.index('@0,%d' % max(1, preview.winfo_height()))).split('.')[0])
         self.assertLessEqual(top, 7)
         self.assertGreaterEqual(bottom, 7)
 

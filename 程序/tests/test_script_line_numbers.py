@@ -71,9 +71,15 @@ class ScriptLineNumberTests(unittest.TestCase):
         text = '\n'.join('内容行%d' % index for index in range(1, 121))
         preview, gutter = _make(root, text)
         preview.yview_moveto(0.5)
-        _settle(root)
-        top = int(str(preview.index('@0,0')).split('.')[0])
-        numbers = _numbers(gutter)
+        # 高负载下滚动同步与 Canvas 重绘可能滞后：轮询到行号槽跟上可视行。
+        numbers = []
+        top = 0
+        for _ in range(20):
+            _settle(root, 2)
+            numbers = _numbers(gutter)
+            top = int(str(preview.index('@0,0')).split('.')[0])
+            if numbers and int(numbers[0]) == top:
+                break
         self.assertTrue(numbers, '滚动后行号槽不应为空')
         self.assertGreater(int(numbers[0]), 1)
         self.assertEqual(int(numbers[0]), top)

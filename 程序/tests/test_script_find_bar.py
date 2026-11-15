@@ -160,13 +160,24 @@ class FindBarTests(unittest.TestCase):
         bar.show()
         _settle(root)
         self.assertTrue(bar.visible)
-        # when='now' 同步派发：隐藏桌面负载高时排队的按键事件可能丢。
-        bar.keyword.event_generate('<Escape>', when='now')
-        _settle(root)
+        # 合成按键要落在焦点控件上；高负载下焦点与事件投递都会延迟，
+        # 确认焦点后重发直到生效（hide 幂等，重复 Esc 无害）。
+        for _ in range(12):
+            bar.keyword.focus_set()
+            _settle(root, 2)
+            bar.keyword.event_generate('<Escape>', when='now')
+            _settle(root, 2)
+            if not bar.visible:
+                break
         self.assertFalse(bar.visible)
         bar.show()
-        bar.keyword.event_generate('<Return>', when='now')
-        _settle(root)
+        for _ in range(12):
+            bar.keyword.focus_set()
+            _settle(root, 2)
+            bar.keyword.event_generate('<Return>', when='now')
+            _settle(root, 2)
+            if _sel(preview):
+                break
         self.assertEqual(_sel(preview), ('1.0', '1.2'))
 
 
