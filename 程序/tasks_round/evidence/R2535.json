@@ -1,0 +1,15 @@
+{
+  "round": 2535,
+  "commit_base": "256a06b5",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k script_structure expand_edit desktop_script_pages.py tests/test_script_structure_edit.py tests/test_script_structure_expand_edit.py tasks_round/tasks_round_2535_result.md",
+    "exit": 0,
+    "passed": 60,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T10:08:07"
+}

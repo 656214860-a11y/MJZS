@@ -224,7 +224,9 @@ class WritingRequestAdapter(ModelAdapter):
 
     def _call(self, method, messages, options=None, model='', system='', **kwargs):
         import model_pool
-        options = options or {}
+        options = dict(options or {})
+        for key, value in stage_model_value.reasoning_options(self.project, self.stage).items():
+            options.setdefault(key, value)
         rpm = int((self.record or {}).get('rpm') or 0)
         if rpm > 0:
             from platform_tools import current_execution

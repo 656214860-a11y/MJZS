@@ -335,7 +335,18 @@ def _http_transport(url, payload, headers, timeout, opener=None):
                     retry_after = _retry_after_seconds(response.headers)
                     _wait_before_retry(attempt, retry_after, control)
                     continue
-                return {'ok': True, 'status': status, 'data': json.loads(raw or b'{}'),
+                try:
+                    data = json.loads(raw or b'{}')
+                except ValueError as exc:
+                    # 截断响应体：连接中途断开只读到半截 JSON，与断线同属传输失败，可重试。
+                    if attempt < MAX_REPLAY_ATTEMPTS:
+                        retry_count += 1
+                        _wait_before_retry(attempt, None, control)
+                        continue
+                    return {'ok': False, 'status': 0, 'kind': 'network',
+                            'error': type(exc).__name__ + '：' + str(exc),
+                            'retry_count': retry_count, 'retry_after': retry_after, 'error_class': 'network'}
+                return {'ok': True, 'status': status, 'data': data,
                         'retry_count': retry_count, 'retry_after': retry_after, 'error_class': ''}
         except urllib.error.HTTPError as exc:
             detail = error_detail_cache.get(id(exc))

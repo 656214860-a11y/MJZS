@@ -288,9 +288,12 @@ def settings_page(parent, pet, close=None, with_manager=True, label_width=None, 
         row += 1
         ttk.Label(body, text=note, style='Muted.TLabel').grid(row=row, column=1, columnspan=2, sticky='w')
         row += 1
-    ttk.Checkbutton(body, text='无人值守前要求五合一认证（连接/协议/模型/能力/完整任务）',
+    ttk.Checkbutton(body, text='无人值守前要求五合一认证',
                     variable=cert_var).grid(row=row, column=1, columnspan=2, sticky='w',
                                             pady=(SPACING['xs'], SPACING['none']))
+    row += 1
+    ttk.Label(body, text='五项：连接/协议/模型/能力/完整任务', style='Muted.TLabel').grid(
+        row=row, column=1, columnspan=2, sticky='w')
     row += 1
 
     def model_of(key):

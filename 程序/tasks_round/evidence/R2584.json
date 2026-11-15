@@ -1,0 +1,15 @@
+{
+  "round": 2584,
+  "commit_base": "030c05be",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k stage_reasoning test_skills test_context_menu_boundary",
+    "exit": 0,
+    "passed": 174,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T12:31:31"
+}

@@ -1,0 +1,15 @@
+{
+  "round": 2582,
+  "commit_base": "19706158",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k stage_reasoning test_skip_hygiene",
+    "exit": 0,
+    "passed": 21,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T12:26:54"
+}

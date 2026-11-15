@@ -1263,10 +1263,14 @@ class PanelTests(unittest.TestCase):
                                   'capabilities': ['vision']})
         model_pool.store(data, self.desktop.app)
         skill_panel.refresh_all()
-        displays = list(previs.models.cget('values'))
-        self.assertIn('GPT · GPT-6', displays,
-                      '保存后应立刻刷新已打开面板的供应商·模型目录')
-        previs.model.set('GPT · GPT-6')
+        displays = previs.labels()
+        self.assertIn('GPT-6', displays,
+                      '保存后应立刻刷新已打开选择器的模型目录（仅模型名，不带供应商前缀）')
+        for provider, options in previs.groups.items():
+            for _model_id, label in options:
+                self.assertNotIn('%s · %s' % (provider, label), displays,
+                                 'REQ-S01-82：选择器项只显示模型名称')
+        previs.model.set('GPT-6')
         previs.choose_model()
         self.assertEqual(stage_config.get(self.desktop.root, 'previs')['model'], 'gpt-6',
                          '选好立即写进项目配置')
@@ -1302,8 +1306,9 @@ class PanelTests(unittest.TestCase):
         self.assertEqual(button.cget('text'), '阶段配置')
         self.assertIsNotNone(button.picker)
         self.assertEqual(button.picker.model_id(), 'deepseek-v4-flash')
-        self.assertIn('DeepSeek', button.picker.model.get(),
-                      '合并下拉的当前项应带供应商前缀')
+        self.assertIn('DeepSeek', button.picker.model.get())
+        self.assertNotIn(' · ', button.picker.model.get(),
+                         'REQ-S01-82：选择器当前项只显示模型名称，不带供应商前缀')
 
     def test_picker_add_model_entry_opens_the_manager_and_reverts(self):
         """挑了「+ 添加模型…」：开模型管理，当前那一格退回刚才选的。"""
@@ -1316,7 +1321,9 @@ class PanelTests(unittest.TestCase):
         self.addCleanup(setattr, pet_models_ui, 'open_manager', real)
         picker = stage_model_picker.StageModelPicker(self.win, self.desktop, 'keyframe')
         self.addCleanup(picker.destroy)
-        self.assertEqual(list(picker.models.cget('values'))[-1], stage_model_picker.ADD_MODEL_LABEL)
+        picker._fill_menu()
+        last = picker._menu.index('end')
+        self.assertEqual(picker._menu.entrycget(last, 'label'), stage_model_picker.ADD_MODEL_LABEL)
         picker.set_model('qwen-max')
         picker.choose_model()
         self.assertEqual(stage_config.get(self.desktop.root, 'keyframe')['model'], 'qwen-max')
@@ -1334,12 +1341,11 @@ class PanelTests(unittest.TestCase):
         skill_panel.refresh_all()
         picker = stage_model_picker.StageModelPicker(self.win, self.desktop, 'keyframe')
         self.addCleanup(picker.destroy)
-        # 命中：显示名一致 → 单级下拉切到「供应商 · 模型」文案，返回 model id
+        # 命中：显示名一致 → 选择器切到该模型名（仅名称，不带供应商前缀），返回 model id
         self.assertEqual(picker.set_model_label('Qwen-Max'), 'qwen-max')
         self.assertEqual(picker.model_id(), 'qwen-max')
-        # 单级下拉当前项带供应商前缀，并以该显示名结尾（内置 qwen-max 归到 Qwen 分组）
-        self.assertTrue(picker.model.get().endswith(' · Qwen-Max'),
-                        '合并下拉当前项应带「供应商 · 模型」前缀：%r' % picker.model.get())
+        self.assertEqual(picker.model.get(), 'Qwen-Max',
+                         'REQ-S01-82：选择器当前项只显示模型名称')
         self.assertIn('qwen-max', picker._by_display.values())
         # 找不到的显示名：返回 None，当前选择不动
         before_model = picker.model.get()

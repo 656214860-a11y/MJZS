@@ -2484,6 +2484,24 @@
       "reason_constant": "PLATFORM_DIRECTORY_LINK",
       "reason": "当前环境不支持目录链接；支持目录链接时应恢复执行",
       "reference": ""
+    },
+    {
+      "file": "tests/test_stage_reasoning.py",
+      "test": "ReasoningPickerTests.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_stage_reasoning.py",
+      "test": "ReasoningPickerTests.setUp",
+      "ordinal": 2,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TK_DISPLAY",
+      "reason": "当前环境没有可用 Tk display；可创建窗口时应恢复执行",
+      "reference": ""
     }
   ]
 }
