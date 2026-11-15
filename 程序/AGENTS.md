@@ -94,7 +94,7 @@
 提交与领号由当前执行 agent 执行；复核全绿后提交，一批一轮，只暂存本批文件，提交信息带轮次号（`R745: 说明`；失败检查点 `R745-FAIL:`），涉及需求的带 `REQ-`／`DES-` 编号。
 
 - 提交前查 `git status` 与暂存清单；命中凭据形态或受忽略运行路径即拒绝提交，并在结果文件记录。私有数据、日志、用户项目内容保持在暂存区之外。
-- 提交用 `scripts\dev.py commit -m "R<N>: 说明" [文件...]`，自动暂存并生成白名单；非默认文档的 `程序/` 文件须设置 `CODEX_STAGE_ALLOWLIST`。
+- 提交用 `scripts\dev.py commit -m "R<N>: 说明" [--tests 模块...] [文件...]`，自动暂存、生成白名单与证据文件 `tasks_round/evidence/R<N>.json`（改了 `.py` 须带 `--tests`）；非默认文档的 `程序/` 文件须设置 `CODEX_STAGE_ALLOWLIST`。
 - 只在用户明确要求时 `git push`；回滚优先 `git revert`。
 - 结果文件记录是否已提交及 commit hash；仅 master 可提交 `project_status.md`。hooks、合并核对命令等见 `runbook.md` §13。
 

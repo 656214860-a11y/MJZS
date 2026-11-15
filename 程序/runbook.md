@@ -182,6 +182,8 @@ AGENTS 只保留触发条件；本节是细则全文。开工领号、建工作�
 - `git diff <合并前master>..HEAD -- 程序/project_status.md | grep '^-' | grep -v '^---' | grep -v '当前轮次：'`（表头「当前轮次」行每轮都会改，故排除）
 - `git show HEAD:程序/project_status.md | grep -oE '^R[0-9]+' | sort -u`
 
+**轮次证据与合入门禁（R2527 起）**：`dev.py commit` 对 R2527 及以后的提交生成 `tasks_round/evidence/R<N>.json`（`维护记录/基准脚本/round_evidence.py`）：凭据扫描由脚本对已暂存的新增行执行，只记「文件:行:规则名」；定向测试由 `--tests <模块关键词>` 触发 `run_selftests.py -k`。改了 `程序/` 下 `.py` 而没带 `--tests`、凭据命中或测试有红，一律拒绝提交；纯文档提交记为 `docs-only`，合并提交记为 `merge-ci-exit`。`round_gate.py` 读这份证据，不再匹配结果文件里的文字，阈值取自 `维护记录/测试分层基线.json` 的 `architecture_gate_files_min`／`skill_registry_count`／`smoke_checks_expected`（只增不减）。`dev.py merge` 在提交合并前跑 `local_ci.py exit`，非 0 则中止并还原，没有跳过开关。pre-commit 在暂存了 `程序/*.py` 时先跑 `tests.test_static_names` 与 `tests.architecture.test_static_hygiene`（约 6 秒），红则拒绝提交。
+
 ## 14. 文档先行：需求 → 设计 → 实现（自 AGENTS §2.7 迁入）
 
 适用范围：`docs/stages/` 下已建需求与设计的阶段（01–13 已全部建立）。

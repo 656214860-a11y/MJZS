@@ -7,7 +7,8 @@
 
     python -B scripts/dev.py merge codex/wip-R2300 -s "R2300（说明）合入 master，无冲突"
 
-不跑测试、不推送；合并后的后台全量验收仍按 AGENTS.md 核对。
+合并提交前跑 ``local_ci.py exit``（静态门禁→架构门禁→默认冒烟），非 0 则中止并还原，无跳过开关；不推送；
+合并后的后台全量验收仍按 AGENTS.md 核对。
 """
 from __future__ import annotations
 
@@ -53,6 +54,16 @@ def _git(*args: str) -> subprocess.CompletedProcess:
     return commit_round._git(*args)
 
 
+def run_exit_ci() -> int:
+    """合入前的出口档（静态门禁→架构门禁→默认冒烟）；非 0 即不许合并，且没有跳过开关。"""
+    return subprocess.call([sys.executable, "-B", str(PROGRAM / "scripts" / "local_ci.py"), "exit"], cwd=str(PROGRAM))
+
+
+def abort_merge(result: Path) -> None:
+    _git("merge", "--abort")
+    result.unlink(missing_ok=True)
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("branch", help="要合入 master 的分支")
@@ -80,6 +91,12 @@ def main(argv=None) -> int:
                       encoding="utf-8", newline="")
     result = PROGRAM / "tasks_round" / ("tasks_round_%d_result.md" % number)
     result.write_text(result_text(number, args.branch, args.summary), encoding="utf-8", newline="\n")
+    code = run_exit_ci()
+    if code:
+        abort_merge(result)
+        print("出口档 CI 未通过（退出码 %d），已中止合并并还原；轮次号 R%d 已被占用，下次领号会跳过。" % (code, number),
+              file=sys.stderr)
+        return code
     return commit_round.main(["-m", "R%d: 合入 %s 到 master（合并轮）：%s\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
                               % (number, args.branch, args.summary),
                               "project_status.md", str(result.relative_to(PROGRAM))])

@@ -6,6 +6,7 @@
   "unit_count": 105,
   "updated_at": "2026-10-12T08:08:40"
  },
+ "architecture_gate_files_min": 123,
  "full_safe_verified_trees": [
   {
    "at": "2026-10-08T01:01:14",
@@ -217,5 +218,7 @@
   "test_count": 1483,
   "unit_count": 241,
   "updated_at": "2026-09-28T16:26:54"
- }
+ },
+ "skill_registry_count": 73,
+ "smoke_checks_expected": 8
 }

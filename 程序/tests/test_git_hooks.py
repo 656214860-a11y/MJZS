@@ -54,6 +54,44 @@ class GitHookTests(unittest.TestCase):
             subprocess.run(["git", "checkout", "-q", "-b", "claude/work"], cwd=root, check=True)
             self.assertEqual(self.run_hook(HOOKS / "commit-msg", str(message), cwd=root).returncode, 0)
 
+    def _static_gate_repo(self, root: Path, *, broken: bool):
+        subprocess.run(["git", "init", "--quiet"], cwd=root, check=True)
+        subprocess.run(["git", "checkout", "-q", "-b", "codex/work"], cwd=root, check=True)
+        gate = "import unittest\n\n\nclass T(unittest.TestCase):\n    def test_names(self):\n        self.assertTrue(%s)\n" % (
+            "False" if broken else "True")
+        (root / "程序" / "tests" / "architecture").mkdir(parents=True)
+        (root / "程序" / "tests" / "test_static_names.py").write_text(gate, encoding="utf-8")
+        (root / "程序" / "tests" / "architecture" / "test_static_hygiene.py").write_text(
+            gate.replace("False", "True"), encoding="utf-8")
+        (root / "程序" / "a.py").write_text("x = 1\n", encoding="utf-8")
+        subprocess.run(["git", "add", "程序/a.py"], cwd=root, check=True)
+        return dict(os.environ, CODEX_STAGE_ALLOWLIST="程序/a.py",
+                    PATH=str(Path(sys.executable).parent) + os.pathsep + os.environ.get("PATH", ""))
+
+    def test_precommit_rejects_python_changes_when_static_gate_is_red(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            env = self._static_gate_repo(root, broken=True)
+            done = self.run_hook(HOOKS / "pre-commit", cwd=root, env=env)
+            self.assertNotEqual(done.returncode, 0)
+            self.assertIn("静态门禁未通过", done.stderr)
+
+    def test_precommit_accepts_python_changes_when_static_gate_is_green(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            env = self._static_gate_repo(root, broken=False)
+            self.assertEqual(self.run_hook(HOOKS / "pre-commit", cwd=root, env=env).returncode, 0)
+
+    def test_precommit_skips_static_gate_for_document_only_commits(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            env = self._static_gate_repo(root, broken=True)
+            subprocess.run(["git", "reset", "-q"], cwd=root, check=True)
+            (root / "程序" / "note.md").write_text("文档\n", encoding="utf-8")
+            subprocess.run(["git", "add", "程序/note.md"], cwd=root, check=True)
+            env["CODEX_STAGE_ALLOWLIST"] = "程序/note.md"
+            self.assertEqual(self.run_hook(HOOKS / "pre-commit", cwd=root, env=env).returncode, 0)
+
     def run_hook(self, hook: Path, *args: str, cwd: Path | None = None, env: dict | None = None):
         return subprocess.run([str(SH), str(hook), *args], cwd=cwd, text=True,
                               capture_output=True, env=env, check=False)
