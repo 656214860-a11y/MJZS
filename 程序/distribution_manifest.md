@@ -36,7 +36,7 @@
 | `程序/logs/**`、`启动错误.log`、`程序/.*.out`、`程序/log.txt` | 历史运行日志与自检输出 | 正式副本不携带既有日志；运行期仍按现有行为创建日志。 |
 | `程序/private/**` | 本机私有数据 | 不得随分发副本携带私有配置或密钥副本。 |
 | `程序/data/skills/**` | 用户导入的 SKILL | R2073：用户层 SKILL 与导入台账，由目标机器生成；升级只保留不覆盖。 |
-| `.agent-handoff/**`（含 AGENT_HANDOFF／AGENT_SESSION_PROMPTS／GLOSSARY）、`.claude/**`、`.codex/**`、`.agents/**`、`.tools/**`、`outputs/**`（本机 Agent 草稿目录与第三方下载工具，已被 .git/info/exclude 忽略） | 代理/开发产物 | 不是运行时内容，不进正式副本。 |
+| `.claude/**`、`.codex/**`、`.agents/**`、`.tools/**`、`outputs/**`（本机 Agent 草稿目录与第三方下载工具，已被 .git/info/exclude 忽略） | 代理/开发产物 | 不是运行时内容，不进正式副本。 |
 | `.wt/**`、`.gitattributes`、`.gitignore`、`.claudeignore`、`AGENTS.md`、`CLAUDE.md`、`开发者工具/BLOCKED_ISSUES.md`、`reorganize_install.py`、`开发者工具/handoff-full-safe.md` | 开发/代理资料 | 不是运行时内容。 |
 | `程序/.*.err`、`程序/.*.out`、`程序/.*.log`、`维护记录/**` | 自检与维护产物 | 可再生成的诊断输出。 |
 | `程序/outputs/**`、`程序/工作流任务/**`、`工作流任务/**`、`程序/episode/**`、`程序/tasks/**`、`程序/_supervisor/**` | 本地运行产物 | 可再生产物与根目录开发任务现场，不随分发副本携带。 |
@@ -45,7 +45,7 @@
 | `漫剧制作助手_图标_*.ico`、`漫剧助手.lnk` | 本机产物 | 除 `漫剧制作助手_图标_629c80fc.ico`（已列保留）外的本地图标副本与快捷方式，由目标机器生成。 |
 | `升级备份/**` | 本机维护产物 | 不属于正式运行所需内容。 |
 | `开发者工具/本地CI.cmd`、`开发者工具/ci_clean.cmd`、`开发者工具/ci_targets.cmd`、`开发者工具/ci_unattended.cmd`、`开发者工具/启动助手_测试模式.cmd`、`程序/_diag_window_probe.ps1` | 开发工具 | 本地 CI、测试模式与窗口诊断，仅供开发。 |
-| `程序/AGENTS.md`、`程序/PROJECT_MAP.md`、`程序/architecture.md`、`程序/design_tokens.md`、`程序/ui_components.md`、`程序/docs/README.md`、`程序/docs/stages/**`、`程序/docs/review/**`、`程序/data_model.md`、`程序/task_states.md`、`程序/project_status.md`、`程序/distribution_manifest.md`、`程序/crud_audit_20260926.md`、`程序/HANDOFF_20261022_1830.md`、`程序/文档导航.md` | 开发文档 | 代理协议、架构、设计与状态记录，不是用户资料。 |
+| `程序/AGENTS.md`、`程序/PROJECT_MAP.md`、`程序/architecture.md`、`程序/design_tokens.md`、`程序/ui_components.md`、`程序/docs/README.md`、`程序/docs/stages/**`、`程序/docs/review/**`、`程序/data_model.md`、`程序/task_states.md`、`程序/project_status.md`、`程序/distribution_manifest.md`、`程序/文档导航.md` | 开发文档 | 代理协议、架构、设计与状态记录，不是用户资料。 |
 | `安装信息.json`、`程序/config.json`、`程序/desktop_settings.json`、`程序/projects.json`、`程序/task-execution.log`、`程序/漫剧制作助手.lnk` | 本机状态 | 安装记录、用户配置、项目索引与本机快捷方式，由目标机器生成；升级也只保留不覆盖。 |
 | `程序/h3_launcher.pyw` | 个人开发工具 | 写死本机 ComfyUI 路径的临时启动器，不随分发。 |
 | `程序/reference/**` | 参考资料 | 外部参考仓库快照，非运行时内容。 |
