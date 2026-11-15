@@ -337,11 +337,12 @@ def main(argv=None):
             try:
                 if gui:
                     if safe:
-                        got += run_units(prioritize_gui_units(gui), gui_jobs)
+                        got += run_units(prioritize_gui_units(gui), gui_jobs,
+                                         fresh_children=True)
                     elif serial:
                         got += run_serial(gui)
                     else:
-                        got += run_units(gui, jobs)
+                        got += run_units(gui, jobs, fresh_children=True)
                 if perf_gui:
                     got += run_safe_serial(perf_gui) if safe else run_serial(perf_gui)
             finally:

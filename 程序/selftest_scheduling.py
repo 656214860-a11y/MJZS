@@ -412,11 +412,19 @@ def cleanup_unit_helpers():
         app_logging.swallowed('清理缩略图工作单元')  # 清理失败不能覆盖原测试的报错
 
 
-def run_units(todo, jobs=8):
-    """并行跑（Windows 上 spawn：每个子进程自己建 Tk，互不打扰）。"""
+def run_units(todo, jobs=8, fresh_children=False):
+    """并行跑（Windows 上 spawn：每个子进程自己建 Tk，互不打扰）。
+
+    ``fresh_children`` 让每个工作单元拿到全新子进程（``max_tasks_per_child=1``）：
+    隐藏桌面里同一进程的第二个及以后 ``tk.Tk()`` 无法合成按键事件
+    （``event_generate('<Control-…>')`` 不投递，见 tests/test_script_zoom.py 卷首），
+    复用 worker 会让排在后面的按键用例必然拿不到焦点投递，故 GUI 单元必须逐单元隔离。
+    """
     import concurrent.futures as futures
     out = []
-    pool = futures.ProcessPoolExecutor(max_workers=max(1, jobs))
+    pool = futures.ProcessPoolExecutor(
+        max_workers=max(1, jobs),
+        max_tasks_per_child=1 if fresh_children else None)
     timed_out = False
     try:
         pending = {pool.submit(_worker, payload): payload for payload in todo}

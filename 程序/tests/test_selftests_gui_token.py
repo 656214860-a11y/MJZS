@@ -177,9 +177,11 @@ r.release_gui_lock(p)
 
     def test_non_gui_units_finish_before_token_and_release_follows_gui(self):
         events = []
+        fresh_flags = []
 
-        def run_units(todo, jobs):
+        def run_units(todo, jobs, **kwargs):
             events.append(('run', tuple(unit[1] for unit in todo)))
+            fresh_flags.append(kwargs.get('fresh_children'))
             return [(unit[0], unit[1], 1, [], '', 0.1, '', []) for unit in todo]
 
         def acquire(wait=None):
@@ -212,6 +214,8 @@ r.release_gui_lock(p)
         self.assertLess(events.index(('run', ('test_plain',))), events.index('acquire'))
         self.assertLess(events.index('acquire'), events.index(('run', ('test_gui',))))
         self.assertLess(events.index(('run', ('test_gui',))), events.index('release'))
+        # GUI 单元必须逐单元新进程：隐藏桌面里同进程第二个起 tk.Tk() 不投递合成按键。
+        self.assertEqual(fresh_flags, [None, True])
 
     def test_serial_mode_keeps_both_pools_on_the_serial_runner(self):
         calls = []
@@ -244,7 +248,7 @@ r.release_gui_lock(p)
     def test_gui_performance_unit_stays_under_token_before_the_rest(self):
         events = []
 
-        def run_units(todo, jobs):
+        def run_units(todo, jobs, **kwargs):
             events.append(('units', tuple(unit[1] for unit in todo)))
             return [(unit[0], unit[1], 1, [], '', 0.1, '', []) for unit in todo]
 
@@ -403,7 +407,7 @@ r.release_gui_lock(p)
                                 'import_all': [],
                                 '_git_text': 'head', 'latest_completed_round': 965}.items():
                 _patch(stack, name, return_value=value)
-            def check_order(todo, jobs):
+            def check_order(todo, jobs, **kwargs):
                 self.assertTrue((Path(common) / runner.FULL_SAFE_LOCK_NAME).exists())
                 self.assertTrue((Path(common) / runner.GUI_LOCK_NAME).exists())
                 raise RuntimeError('after both locks')
