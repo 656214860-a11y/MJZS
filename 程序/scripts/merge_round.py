@@ -54,6 +54,28 @@ def _git(*args: str) -> subprocess.CompletedProcess:
     return commit_round._git(*args)
 
 
+def merge_in_progress(cwd: Path = PROGRAM) -> bool:
+    """MERGE_HEAD 存在＝有合并进行中，可能是其他会话的合并轮；此时绝不能 merge --abort。"""
+    return commit_round._git("rev-parse", "-q", "--verify", "MERGE_HEAD", cwd=cwd).returncode == 0
+
+
+def merge_head_is(branch: str, cwd: Path = PROGRAM) -> bool:
+    """MERGE_HEAD 记录的被合入提交是否就是本次分支头；不等说明现场属于别人的合并。"""
+    head = commit_round._git("rev-parse", "-q", "--verify", "MERGE_HEAD", cwd=cwd)
+    want = commit_round._git("rev-parse", "-q", "--verify", branch, cwd=cwd)
+    return (head.returncode == 0 and want.returncode == 0
+            and head.stdout.strip() == want.stdout.strip())
+
+
+def cleanup_failed_merge(branch: str, cwd: Path = PROGRAM) -> str:
+    """合并失败后的现场处理：只有 MERGE_HEAD 确实是本分支的合并才 abort；
+    否则是别的会话的合并现场，原样保留。返回 "conflict" 或 "foreign"。"""
+    if merge_in_progress(cwd) and merge_head_is(branch, cwd):
+        commit_round._git("merge", "--abort", cwd=cwd)
+        return "conflict"
+    return "foreign"
+
+
 def run_exit_ci() -> int:
     """合入前的出口档（静态门禁→架构门禁→默认冒烟）；非 0 即不许合并，且没有跳过开关。"""
     return subprocess.call([sys.executable, "-B", str(PROGRAM / "scripts" / "local_ci.py"), "exit"], cwd=str(PROGRAM))
@@ -73,6 +95,10 @@ def main(argv=None) -> int:
     if _git("symbolic-ref", "--short", "HEAD").stdout.strip() != "master":
         print("必须在 master 检出里运行。", file=sys.stderr)
         return 2
+    if merge_in_progress():
+        print("已有未完成的合并（MERGE_HEAD 存在），可能是其他会话的合并轮；"
+              "待其提交或中止后再运行本命令。", file=sys.stderr)
+        return 2
     if foreign_changes(_git("status", "--porcelain", "--untracked-files=no").stdout):
         print("master 检出有未提交改动或他人暂存，先处理再合并。", file=sys.stderr)
         return 2
@@ -82,8 +108,12 @@ def main(argv=None) -> int:
         return 3
     merged = _git("merge", "--no-commit", "--no-ff", args.branch)
     if merged.returncode:
-        _git("merge", "--abort")
-        print("合并有冲突，已中止并还原，未领号：\n" + (merged.stdout + merged.stderr).strip(), file=sys.stderr)
+        detail = (merged.stdout + merged.stderr).strip()
+        if cleanup_failed_merge(args.branch) == "conflict":
+            print("合并有冲突，已中止并还原，未领号：\n" + detail, file=sys.stderr)
+        else:
+            print("合并未能开始，或现场属于其他会话的合并（MERGE_HEAD 不匹配），未领号、未动现场：\n" + detail,
+                  file=sys.stderr)
         return 1
     number = round_claim.claim_next(common_dir=commit_round.common_dir(),
                                     tasks_round=PROGRAM / "tasks_round", root=round_claim.ROOT)
