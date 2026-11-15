@@ -66,7 +66,7 @@ PARAM_CAPS = {
 }
 CLASS_CAPS = {
     ('pet_cloud.py', 'Cloud'): 1108,
-    ('desktop_idea_chat.py', 'IdeaChatMixin'): 665,  # R2505：附件聚簇迁到 desktop_idea_attachments.IdeaAttachmentsMixin 后 769→665
+    ('desktop_idea_chat.py', 'IdeaChatMixin'): 650,  # R2505：附件聚簇迁到 desktop_idea_attachments.IdeaAttachmentsMixin 后 769→665；R2519 收口实测 635，登记 650
     ('app.py', 'App'): 1388,
     ('desktop.py', 'Desktop'): 836,
     ('skill_panel.py', 'Panel'): 923,
