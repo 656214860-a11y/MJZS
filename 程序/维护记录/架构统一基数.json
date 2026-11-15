@@ -1,1505 +1,1506 @@
 {
- "第一项": {
-  "status": "active",
-  "decided_at": "2026-10-04",
-  "adopters": [
-   "animatic_service",
-   "asset_batch_settings_service",
-   "asset_plan",
-   "asset_detail_service",
-   "storyboard_storage",
-   "asset_resume",
-   "audio_import_service",
-   "cloud_video_service",
-   "delivery_import_service",
-   "desktop_settings_service",
-   "edit_service",
-   "handoff_service",
-   "idea_attachments",
-   "keyframe_lifecycle_service",
-   "legacy_adoption_service",
-   "projects",
-   "recon_service",
-   "recycle_recovery_service",
-   "script_workspace_service",
-   "stage_workspace_service",
-   "storyboard_edit_service",
-   "subtitle_export_service",
-   "video_lifecycle_service",
-   "video_prompt_publication",
-   "workflow_context",
-   "writing",
-   "writing_tools",
-   "writing_quality",
-   "account_client"
-  ],
-  "scope_audit_pending": [
-   "script_structure_edit_controller",
-   "asset_reference_prompts",
-   "writing_stream"
-  ],
-  "historical_name_audit_pending": [],
-  "historical_name_audited": [
-   "asset_gating",
-   "keyframe",
-   "keyframe_api",
-   "previs",
-   "writing_files",
-   "writing_workflow"
-  ],
-  "readonly_scope_audit": {
-   "video_source_evidence": "R1559：submitted_sources 只解析已脱敏请求与来源路径，生成摘要记录，不发送请求或写入项目文件。",
-   "project_naming": "R981：dated_path 仅查询路径占用并生成候选，不创建文件或目录。",
-   "script_preview_service": "R981：仅 stat、经 file_cache 读取预览和分块；缓存为读取实现，不发布项目数据。",
-   "storyboard_rows_service": "R992：只读取已校验分镜并生成稳定行标识；不发布、不修改项目数据。",
-   "video_task_state": "R1578：仅读取视频任务状态并生成锁定、等待及显式提交阻断原因；submission_block_reason 与 provider_failure_reason 仅判断传入版本，后者返回供应商终态恢复说明，不启动、取消、重提或写入任务。",
-   "storyboard_adoption_contract": "R981：只读设置、解析已有别名并校验采用路径；采用状态写入由独立服务承担。"
+  "第一项": {
+    "status": "active",
+    "decided_at": "2026-10-04",
+    "adopters": [
+      "animatic_service",
+      "asset_batch_settings_service",
+      "asset_plan",
+      "asset_detail_service",
+      "storyboard_storage",
+      "asset_resume",
+      "audio_import_service",
+      "cloud_video_service",
+      "delivery_import_service",
+      "desktop_settings_service",
+      "edit_service",
+      "handoff_service",
+      "idea_attachments",
+      "keyframe_lifecycle_service",
+      "legacy_adoption_service",
+      "projects",
+      "recon_service",
+      "recycle_recovery_service",
+      "script_workspace_service",
+      "stage_workspace_service",
+      "storyboard_edit_service",
+      "subtitle_export_service",
+      "video_lifecycle_service",
+      "video_prompt_publication",
+      "workflow_context",
+      "writing",
+      "writing_tools",
+      "writing_quality",
+      "account_client"
+    ],
+    "scope_audit_pending": [
+      "script_structure_edit_controller",
+      "asset_reference_prompts",
+      "writing_stream"
+    ],
+    "historical_name_audit_pending": [],
+    "historical_name_audited": [
+      "asset_gating",
+      "keyframe",
+      "keyframe_api",
+      "previs",
+      "writing_files",
+      "writing_workflow"
+    ],
+    "readonly_scope_audit": {
+      "video_source_evidence": "R1559：submitted_sources 只解析已脱敏请求与来源路径，生成摘要记录，不发送请求或写入项目文件。",
+      "project_naming": "R981：dated_path 仅查询路径占用并生成候选，不创建文件或目录。",
+      "script_preview_service": "R981：仅 stat、经 file_cache 读取预览和分块；缓存为读取实现，不发布项目数据。",
+      "storyboard_rows_service": "R992：只读取已校验分镜并生成稳定行标识；不发布、不修改项目数据。",
+      "video_task_state": "R1578：仅读取视频任务状态并生成锁定、等待及显式提交阻断原因；submission_block_reason 与 provider_failure_reason 仅判断传入版本，后者返回供应商终态恢复说明，不启动、取消、重提或写入任务。",
+      "storyboard_adoption_contract": "R981：只读设置、解析已有别名并校验采用路径；采用状态写入由独立服务承担。"
+    },
+    "exempt_count": 46,
+    "exempt_items": [
+      "asset_batch_lifecycle",
+      "asset_batch_selection_service",
+      "asset_batch_service",
+      "asset_batch_state_service",
+      "asset_context",
+      "asset_gating",
+      "asset_generated_import_service",
+      "confirm_gates",
+      "download_inbox",
+      "edit_export",
+      "entitlement_service",
+      "final_service",
+      "idea_brief_form",
+      "idea_chat",
+      "idea_document_paths",
+      "idea_script_heuristic",
+      "idea_transcript",
+      "keyframe",
+      "keyframe_api",
+      "keyframe_batch",
+      "keyframe_evidence",
+      "local_video_settings_service",
+      "pet_performance_service",
+      "pet_test_service",
+      "previs",
+      "previs_progress_service",
+      "previs_routing",
+      "project_naming",
+      "script_preview_service",
+      "skill_command",
+      "speech_api",
+      "storyboard_adoption_contract",
+      "storyboard_adoption_service",
+      "storyboard_catalog_service",
+      "storyboard_lifecycle",
+      "storyboard_rows_service",
+      "storyboard_source_service",
+      "subtitle_timing",
+      "task_center_service",
+      "tts_api",
+      "usage_overview",
+      "video_source_evidence",
+      "video_task_state",
+      "white_model_service",
+      "writing_files",
+      "writing_workflow"
+    ]
   },
-  "exempt_count": 45,
-  "exempt_items": [
-   "video_source_evidence",
-   "usage_overview",
-   "edit_export",
-   "asset_batch_lifecycle",
-   "asset_batch_selection_service",
-   "asset_batch_service",
-   "asset_batch_state_service",
-   "asset_context",
-   "asset_gating",
-   "asset_generated_import_service",
-   "confirm_gates",
-   "final_service",
-   "idea_chat",
-   "idea_brief_form",
-   "idea_document_paths",
-   "idea_script_heuristic",
-   "idea_transcript",
-   "keyframe",
-   "keyframe_api",
-   "keyframe_batch",
-   "keyframe_evidence",
-   "local_video_settings_service",
-   "pet_performance_service",
-   "pet_test_service",
-   "previs",
-   "previs_progress_service",
-   "previs_routing",
-   "project_naming",
-   "script_preview_service",
-   "storyboard_adoption_contract",
-   "storyboard_adoption_service",
-   "storyboard_catalog_service",
-   "storyboard_lifecycle",
-   "storyboard_rows_service",
-   "storyboard_source_service",
-   "subtitle_timing",
-   "tts_api",
-   "speech_api",
-   "video_task_state",
-   "white_model_service",
-   "writing_files",
-   "writing_workflow",
-   "download_inbox",
-   "task_center_service",
-   "entitlement_service"
-  ]
- },
- "第二项": {
-  "status": "active",
-  "decided_at": "2026-10-04",
-  "adopters": [
-   "asset_batch_lifecycle",
-   "asset_batch_service",
-   "asset_batch_state_service",
-   "asset_context",
-   "asset_detail_service",
-   "asset_generated_import_service",
-   "cloud_video_service",
-   "confirm_gates",
-   "delivery_import_service",
-   "edit_service",
-   "handoff_service",
-   "idea_chat",
-   "idea_attachments",
-   "keyframe_batch",
-   "local_video_settings_service",
-   "pet_performance_service",
-   "pet_test_service",
-   "previs_routing",
-   "tts_api",
-   "storyboard_lifecycle",
-   "white_model_service",
-   "storyboard_catalog_service"
-  ],
-  "exempt_count": 8,
-  "exempt_items": [
-   "asset_batch_selection_service",
-   "final_service",
-   "keyframe_lifecycle_service",
-   "previs_progress_service",
-   "storyboard_edit_service",
-   "storyboard_adoption_service",
-   "storyboard_source_service",
-   "subtitle_timing"
-  ],
-  "exempt_reasons": {
-   "asset_batch_selection_service": "R999：仅对调用方已加载的行进行选择、过滤与标签计算，不接收项目路径、设置或持久化能力。",
-   "final_service": "R998：仅根据调用方提供的签名和忙碌状态返回派发决定，不读取项目路径、设置或持久化能力。",
-   "keyframe_lifecycle_service": "R1004：仅操作调用方指定分镜源的媒体目录及其 frames 子目录；正式发布器由 L3 注入，不接收项目根、阶段解析器或项目设置。",
-   "previs_progress_service": "R1006：仅将调用方提供的任务状态、进度文件路径和项目标识拼成界面状态；不解析项目根、阶段路径或项目设置，正式发布器由 L3 注入。",
-   "storyboard_edit_service": "R1003：仅对调用方指定的 JSON 目标执行 L3 注入发布，不接收项目根、阶段解析器或项目设置。",
-   "storyboard_adoption_service": "R999：仅根据调用方提供的状态返回自动采用轮询决定，不接收项目路径、设置或持久化能力。",
-   "storyboard_source_service": "R1003：仅排序和读取调用方已选分镜源路径，不接收项目根、阶段解析器或项目设置。",
-   "subtitle_timing": "R999：仅把调用方提供的剧集数据换算为时间轴/SRT 行，不接收项目路径、设置或持久化能力。"
+  "第二项": {
+    "status": "active",
+    "decided_at": "2026-10-04",
+    "adopters": [
+      "asset_batch_lifecycle",
+      "asset_batch_service",
+      "asset_batch_state_service",
+      "asset_context",
+      "asset_detail_service",
+      "asset_generated_import_service",
+      "cloud_video_service",
+      "confirm_gates",
+      "delivery_import_service",
+      "edit_service",
+      "handoff_service",
+      "idea_chat",
+      "idea_attachments",
+      "keyframe_batch",
+      "local_video_settings_service",
+      "pet_performance_service",
+      "pet_test_service",
+      "previs_routing",
+      "tts_api",
+      "storyboard_lifecycle",
+      "white_model_service",
+      "storyboard_catalog_service"
+    ],
+    "exempt_count": 8,
+    "exempt_items": [
+      "asset_batch_selection_service",
+      "final_service",
+      "keyframe_lifecycle_service",
+      "previs_progress_service",
+      "storyboard_edit_service",
+      "storyboard_adoption_service",
+      "storyboard_source_service",
+      "subtitle_timing"
+    ],
+    "exempt_reasons": {
+      "asset_batch_selection_service": "R999：仅对调用方已加载的行进行选择、过滤与标签计算，不接收项目路径、设置或持久化能力。",
+      "final_service": "R998：仅根据调用方提供的签名和忙碌状态返回派发决定，不读取项目路径、设置或持久化能力。",
+      "keyframe_lifecycle_service": "R1004：仅操作调用方指定分镜源的媒体目录及其 frames 子目录；正式发布器由 L3 注入，不接收项目根、阶段解析器或项目设置。",
+      "previs_progress_service": "R1006：仅将调用方提供的任务状态、进度文件路径和项目标识拼成界面状态；不解析项目根、阶段路径或项目设置，正式发布器由 L3 注入。",
+      "storyboard_edit_service": "R1003：仅对调用方指定的 JSON 目标执行 L3 注入发布，不接收项目根、阶段解析器或项目设置。",
+      "storyboard_adoption_service": "R999：仅根据调用方提供的状态返回自动采用轮询决定，不接收项目路径、设置或持久化能力。",
+      "storyboard_source_service": "R1003：仅排序和读取调用方已选分镜源路径，不接收项目根、阶段解析器或项目设置。",
+      "subtitle_timing": "R999：仅把调用方提供的剧集数据换算为时间轴/SRT 行，不接收项目路径、设置或持久化能力。"
+    },
+    "historical_name_audit_pending": [],
+    "historical_name_audited": [
+      "asset_gating",
+      "keyframe",
+      "keyframe_api",
+      "previs",
+      "writing_files",
+      "writing_workflow"
+    ],
+    "pending": []
   },
-  "historical_name_audit_pending": [],
-  "historical_name_audited": [
-   "asset_gating",
-   "keyframe",
-   "keyframe_api",
-   "previs",
-   "writing_files",
-   "writing_workflow"
-  ],
-  "pending": []
- },
- "historical_name_audit": {
-  "round": 1028,
-  "classification": "unmaterialized_registry_names",
-  "evidence": "七个名称均在初始提交 c00a5f8 的分层登记中存在，但初始树、当前树及 git log --all 的同名模块路径均无文件记录。以下仅登记现行职责入口，不断言历史重命名或迁移完成；不改变采用方、豁免数及层级登记。",
-  "entrypoints": {
-   "asset_gating": {
-    "asset_batch_selection_service": [
-     "selectable_rows",
-     "initial_excluded"
-    ],
-    "asset_batch": [
-     "show"
+  "historical_name_audit": {
+    "round": 1028,
+    "classification": "unmaterialized_registry_names",
+    "evidence": "七个名称均在初始提交 c00a5f8 的分层登记中存在，但初始树、当前树及 git log --all 的同名模块路径均无文件记录。以下仅登记现行职责入口，不断言历史重命名或迁移完成；不改变采用方、豁免数及层级登记。",
+    "entrypoints": {
+      "asset_gating": {
+        "asset_batch_selection_service": [
+          "selectable_rows",
+          "initial_excluded"
+        ],
+        "asset_batch": [
+          "show"
+        ]
+      },
+      "keyframe": {
+        "keyframe_import": [
+          "register",
+          "launch"
+        ],
+        "keyframe_batch": [
+          "image_prompt"
+        ]
+      },
+      "keyframe_api": {
+        "keyframe_model_service": [
+          "production_choices",
+          "current_model"
+        ]
+      },
+      "previs": {
+        "previs_routing": [
+          "classify",
+          "dispatch"
+        ],
+        "white_model_service": [
+          "import_previs_media",
+          "save_previs_notes"
+        ]
+      },
+      "writing_files": {
+        "writing_tools": [
+          "list_files",
+          "read_file",
+          "write_file"
+        ],
+        "script_workspace_service": [
+          "iter_script_documents",
+          "rename_script_document"
+        ]
+      },
+      "writing_workflow": {
+        "writing_api": [
+          "reply"
+        ],
+        "writing": [
+          "prepare",
+          "import_project"
+        ]
+      }
+    }
+  },
+  "第三项": {
+    "count": 0,
+    "baseline_pending": 66,
+    "items": [
+      {
+        "file": "asset_batch_lifecycle.py",
+        "point": "attach",
+        "disposition": "migrated",
+        "reason": "R791：批次派发状态发布改由 L3 asset_batch_gateway 注入。"
+      },
+      {
+        "file": "asset_batch_lifecycle.py",
+        "point": "fail",
+        "disposition": "migrated",
+        "reason": "R791：批次失败状态发布改由 L3 asset_batch_gateway 注入。"
+      },
+      {
+        "file": "asset_batch_lifecycle.py",
+        "point": "prepare",
+        "disposition": "migrated",
+        "reason": "R791：批次准备状态发布改由 L3 asset_batch_gateway 注入。"
+      },
+      {
+        "file": "asset_batch_lifecycle.py",
+        "point": "reconcile",
+        "disposition": "migrated",
+        "reason": "R791：批次清单读取与修正发布改由 L3 asset_batch_gateway 注入。"
+      },
+      {
+        "file": "asset_batch_service.py",
+        "point": "import_asset_image",
+        "disposition": "migrated",
+        "reason": "R791：导入图片与登记表发布改由 L3 asset_batch_gateway 注入。"
+      },
+      {
+        "file": "asset_batch_service.py",
+        "point": "register_image",
+        "disposition": "migrated",
+        "reason": "R791：生成图片与资产索引发布改由 L3 asset_batch_gateway 注入。"
+      },
+      {
+        "file": "asset_batch_service.py",
+        "point": "remove_asset_image",
+        "disposition": "migrated",
+        "reason": "R791：删除后资产索引发布改由 L3 asset_batch_gateway 注入。"
+      },
+      {
+        "file": "asset_batch_service.py",
+        "point": "rename_asset",
+        "disposition": "migrated",
+        "reason": "R791：资产名称双表事务发布改由 L3 asset_batch_gateway 注入。"
+      },
+      {
+        "file": "asset_batch_service.py",
+        "point": "restore_asset_image",
+        "disposition": "migrated",
+        "reason": "R791：恢复后资产索引发布改由 L3 asset_batch_gateway 注入。"
+      },
+      {
+        "file": "asset_batch_state_service.py",
+        "point": "save_ledger",
+        "disposition": "migrated",
+        "reason": "R799：资产批次台账正式 JSON 发布改由 L3 asset_batch_gateway 注入。"
+      },
+      {
+        "file": "asset_detail_service.py",
+        "point": "_publish",
+        "disposition": "migrated",
+        "reason": "R800：资产详情绑定的回滚字节发布改由 L3 asset_detail_gateway 注入。"
+      },
+      {
+        "file": "asset_generated_import_service.py",
+        "point": "import_pending_generated",
+        "disposition": "migrated",
+        "reason": "R801：自动导入临时 PNG 发布改由 L3 asset_batch_gateway 注入。"
+      },
+      {
+        "file": "cloud_video_service.py",
+        "point": "publish_session_config",
+        "disposition": "migrated",
+        "reason": "R792：会话配置双写改由 L3 cloud_video_gateway 注入。"
+      },
+      {
+        "file": "cloud_video_service.py",
+        "point": "publish_studio_config",
+        "disposition": "migrated",
+        "reason": "R792：工作室配置发布改由 L3 cloud_video_gateway 注入。"
+      },
+      {
+        "file": "cloud_video_service.py",
+        "point": "publish_workspace_preference",
+        "disposition": "migrated",
+        "reason": "R792：工作区偏好发布改由 L3 cloud_video_gateway 注入。"
+      },
+      {
+        "file": "confirm_gates.py",
+        "point": "forget",
+        "disposition": "migrated",
+        "reason": "R794：撤销确认账本改由 L3 confirm_gates_gateway 注入正式发布器。"
+      },
+      {
+        "file": "confirm_gates.py",
+        "point": "record",
+        "disposition": "migrated",
+        "reason": "R794：记录确认账本改由 L3 confirm_gates_gateway 注入正式发布器。"
+      },
+      {
+        "file": "delivery_import_service.py",
+        "point": "import_final_master",
+        "disposition": "migrated",
+        "reason": "R802：最终成片发布改由 L3 import_delivery_master 注入。"
+      },
+      {
+        "file": "idea_chat.py",
+        "point": "_append_raw_brief",
+        "disposition": "migrated",
+        "reason": "R790：简报文本发布改由 L3 idea_chat_gateway 注入。"
+      },
+      {
+        "file": "idea_chat.py",
+        "point": "receive_brief",
+        "disposition": "migrated",
+        "reason": "R790：简报 JSON／文本发布改由 L3 idea_chat_gateway 注入。"
+      },
+      {
+        "file": "idea_transcript.py",
+        "point": "remove",
+        "disposition": "migrated",
+        "reason": "R790：回收记录发布改由 L3 idea_chat_gateway 注入。"
+      },
+      {
+        "file": "idea_transcript.py",
+        "point": "restore_latest_removed",
+        "disposition": "migrated",
+        "reason": "R790：恢复记录发布改由 L3 idea_chat_gateway 注入。"
+      },
+      {
+        "file": "idea_chat.py",
+        "point": "save_brief_creation",
+        "disposition": "migrated",
+        "reason": "R790：表单简报发布改由 L3 idea_chat_gateway 注入。"
+      },
+      {
+        "file": "idea_transcript.py",
+        "point": "save_rows",
+        "disposition": "migrated",
+        "reason": "R790：对话 JSON 发布改由 L3 idea_chat_gateway 注入。"
+      },
+      {
+        "file": "local_video_settings_service.py",
+        "point": "save_local_video_settings",
+        "disposition": "migrated",
+        "reason": "R803：本地视频工作流与设置发布改由 L3 publish_local_video_settings 注入。"
+      },
+      {
+        "file": "pet_performance_service.py",
+        "point": "record",
+        "disposition": "migrated",
+        "reason": "R805：宠物优化账本发布改由 L3 pet_performance_gateway 注入。"
+      },
+      {
+        "file": "pet_test_service.py",
+        "point": "record",
+        "disposition": "migrated",
+        "reason": "R806：宠物测试账本发布改由 L3 pet_test_gateway 注入。"
+      },
+      {
+        "file": "previs_progress_service.py",
+        "point": "publish",
+        "disposition": "migrated",
+        "reason": "R807：白模预演进度发布改由 L3 previs_progress_gateway 注入。"
+      },
+      {
+        "file": "previs_routing.py",
+        "point": "dispatch",
+        "disposition": "migrated",
+        "reason": "R794：白模分流记录改由 L3 previs_routing_gateway 注入正式发布器。"
+      },
+      {
+        "file": "previs_routing.py",
+        "point": "set_override",
+        "disposition": "migrated",
+        "reason": "R794：复杂度覆写改由 L3 previs_routing_gateway 注入正式发布器。"
+      },
+      {
+        "file": "storyboard_edit_service.py",
+        "point": "save_edited_json",
+        "disposition": "migrated",
+        "reason": "R808：定稿分镜编辑发布改由 L3 storyboard_edit_gateway 注入。"
+      },
+      {
+        "file": "storyboard_lifecycle.py",
+        "point": "retire",
+        "disposition": "migrated",
+        "reason": "R809：定稿退役别名发布改由 L3 storyboard_lifecycle_gateway 注入。"
+      },
+      {
+        "file": "tts_api.py",
+        "point": "_save",
+        "disposition": "migrated",
+        "reason": "R792：逐句清单发布改由 L3 tts_gateway 注入。"
+      },
+      {
+        "file": "tts_api.py",
+        "point": "publish_full_track",
+        "disposition": "migrated",
+        "reason": "R792：整段音频与标记发布改由 L3 tts_gateway 注入。"
+      },
+      {
+        "file": "tts_api.py",
+        "point": "publish_line",
+        "disposition": "migrated",
+        "reason": "R792：单句音频与时间轴发布改由 L3 tts_gateway 注入。"
+      },
+      {
+        "file": "tts_api.py",
+        "point": "write_settings",
+        "disposition": "migrated",
+        "reason": "R792：本机 TTS 设置发布改由 L3 tts_gateway 注入。"
+      },
+      {
+        "file": "white_model_service.py",
+        "point": "write_record",
+        "disposition": "migrated",
+        "reason": "R812：白模预演记录发布改由 L3 white_model_gateway 注入。"
+      },
+      {
+        "file": "asset_batch_settings_service.py",
+        "point": "remove_model",
+        "disposition": "migrated",
+        "reason": "R812：资产批量设置模型删除发布改由 L3 asset_batch_settings_gateway 注入。"
+      },
+      {
+        "file": "asset_batch_settings_service.py",
+        "point": "save_settings",
+        "disposition": "migrated",
+        "reason": "R812：资产批量设置保存发布改由 L3 asset_batch_settings_gateway 注入。"
+      },
+      {
+        "file": "asset_plan.py",
+        "point": "publish_plan_bundle",
+        "disposition": "migrated",
+        "reason": "R821：资产计划四文件事务的 JSON、文本、字节回滚与临时文件移除均由 L3 asset_plan_gateway 注入。"
+      },
+      {
+        "file": "asset_plan.py",
+        "point": "update_planned",
+        "disposition": "migrated",
+        "reason": "R821：资产字段唯一落盘入口改为接收 L3 asset_plan_gateway 注入的正式 JSON 发布器。"
+      },
+      {
+        "file": "asset_resume.py",
+        "point": "note_round",
+        "disposition": "migrated",
+        "reason": "R821：跨重启资产续跑台账改为接收 L3 asset_plan_gateway 注入的正式 JSON 发布器。"
+      },
+      {
+        "file": "desktop_settings_service.py",
+        "point": "publish_desktop_settings",
+        "disposition": "migrated",
+        "reason": "R822：桌面级偏好设置改由 L3 desktop_settings_gateway 注入正式 JSON 发布器。"
+      },
+      {
+        "file": "legacy_adoption_service.py",
+        "point": "record_legacy_adoption",
+        "disposition": "migrated",
+        "reason": "R822：旧目录归位日志的目录创建与 JSON 发布改由 L3 legacy_adoption_gateway 注入。"
+      },
+      {
+        "file": "projects.py",
+        "point": "_write_transaction",
+        "disposition": "migrated",
+        "reason": "R771：事务发布与回滚改由 L3 project_registry_gateway 注入。"
+      },
+      {
+        "file": "projects.py",
+        "point": "activate",
+        "disposition": "migrated",
+        "reason": "R771：项目登记发布改由 L3 project_registry_gateway 注入。"
+      },
+      {
+        "file": "projects.py",
+        "point": "clear_missing_registration",
+        "disposition": "migrated",
+        "reason": "R771：项目登记发布改由 L3 project_registry_gateway 注入。"
+      },
+      {
+        "file": "projects.py",
+        "point": "create",
+        "disposition": "migrated",
+        "reason": "R771：项目配置、索引与媒体复制改由 L3 project_registry_gateway 注入。"
+      },
+      {
+        "file": "projects.py",
+        "point": "delete",
+        "disposition": "migrated",
+        "reason": "R771：项目登记发布改由 L3 project_registry_gateway 注入。"
+      },
+      {
+        "file": "projects.py",
+        "point": "migrate",
+        "disposition": "migrated",
+        "reason": "R771：迁移读取、发布与复制改由 L3 project_registry_gateway 注入。"
+      },
+      {
+        "file": "projects.py",
+        "point": "organize",
+        "disposition": "migrated",
+        "reason": "R771：资产读取、发布与复制改由 L3 project_registry_gateway 注入。"
+      },
+      {
+        "file": "projects.py",
+        "point": "register_discovered_project",
+        "disposition": "migrated",
+        "reason": "R771：项目登记发布改由 L3 project_registry_gateway 注入。"
+      },
+      {
+        "file": "projects.py",
+        "point": "set_status",
+        "disposition": "migrated",
+        "reason": "R771：项目登记发布改由 L3 project_registry_gateway 注入。"
+      },
+      {
+        "file": "projects.py",
+        "point": "unlink_registered_project",
+        "disposition": "migrated",
+        "reason": "R771：项目登记发布改由 L3 project_registry_gateway 注入。"
+      },
+      {
+        "file": "storyboard_storage.py",
+        "point": "_references",
+        "disposition": "migrated",
+        "reason": "R793：分镜引用清单发布改由 L3 storyboard_gateway 注入。"
+      },
+      {
+        "file": "storyboard_storage.py",
+        "point": "normalize",
+        "disposition": "migrated",
+        "reason": "R793：分镜整理的发布、回收与缓存失效改由 L3 storyboard_gateway 注入。"
+      },
+      {
+        "file": "storyboard_storage.py",
+        "point": "publish_final_bundle",
+        "disposition": "migrated",
+        "reason": "R793：定稿分镜资产与清单发布改由 L3 storyboard_gateway 注入。"
+      },
+      {
+        "file": "subtitle_export_service.py",
+        "point": "publish_srt_text",
+        "disposition": "migrated",
+        "reason": "R823：SKILL 字幕文本发布改为必须接收 L3 subtitle_export_controller 注入的行尾校验发布器。"
+      },
+      {
+        "file": "video_lifecycle_service.py",
+        "point": "mark_video_deleted",
+        "disposition": "migrated",
+        "reason": "R793：视频删除索引发布改由 L3 video_lifecycle_gateway 注入。"
+      },
+      {
+        "file": "video_lifecycle_service.py",
+        "point": "save_video_options",
+        "disposition": "migrated",
+        "reason": "R793：视频选项发布改由 L3 video_lifecycle_gateway 注入。"
+      },
+      {
+        "file": "video_lifecycle_service.py",
+        "point": "save_white_model_upload",
+        "disposition": "migrated",
+        "reason": "R793：白模上传记录发布改由 L3 video_lifecycle_gateway 注入。"
+      },
+      {
+        "file": "video_prompt_publication.py",
+        "point": "_publish_legacy_bundle",
+        "disposition": "migrated",
+        "reason": "R823：视频提示词草稿与可见成果事务发布改为必须接收 L3 video_prompt_gateway 注入的发布器。"
+      },
+      {
+        "file": "video_prompt_publication.py",
+        "point": "stage_import",
+        "disposition": "migrated",
+        "reason": "R823：视频提示词导入的读取、发布、回滚与目录清理由 L3 video_prompt_gateway 注入。"
+      },
+      {
+        "file": "workflow_context.py",
+        "point": "instruction",
+        "disposition": "migrated",
+        "reason": "R824：项目接续索引正式 JSON 发布改由 L3 workflow_context_controller 注入。"
+      },
+      {
+        "file": "writing.py",
+        "point": "import_project",
+        "disposition": "migrated",
+        "reason": "R824：剧本 JSON 导入校验报告改由 L3 import_writing_project 注入发布器。"
+      }
     ]
-   },
-   "keyframe": {
-    "keyframe_import": [
-     "register",
-     "launch"
-    ],
-    "keyframe_batch": [
-     "image_prompt"
+  },
+  "层级": {
+    "count": 8,
+    "baseline_exempt": 8,
+    "items": [
+      {
+        "file": "asset_batch_execution.py",
+        "importer": "asset_batch_execution",
+        "imported": "asset_reference_images",
+        "disposition": "exempt",
+        "reason": "既存越层，待专项收口"
+      },
+      {
+        "file": "asset_batch_service.py",
+        "importer": "asset_batch_service",
+        "imported": "asset_reference_images",
+        "disposition": "exempt",
+        "reason": "既存越层，待专项收口"
+      },
+      {
+        "file": "confirm_gates.py",
+        "importer": "confirm_gates",
+        "imported": "legacy_compat",
+        "disposition": "exempt",
+        "reason": "既存越层，待专项收口"
+      },
+      {
+        "file": "engine_probe.py",
+        "importer": "engine_probe",
+        "imported": "workflow_engines",
+        "disposition": "exempt",
+        "reason": "既存越层，待专项收口"
+      },
+      {
+        "file": "idea_document_paths.py",
+        "importer": "idea_document_paths",
+        "imported": "legacy_compat",
+        "disposition": "exempt",
+        "reason": "既存越层，待专项收口"
+      },
+      {
+        "file": "idea_chat.py",
+        "importer": "idea_chat",
+        "imported": "pet_agent",
+        "disposition": "exempt",
+        "reason": "既存越层，待专项收口"
+      },
+      {
+        "file": "native_apps.py",
+        "importer": "native_apps",
+        "imported": "white_model",
+        "disposition": "exempt",
+        "reason": "既存越层，待专项收口"
+      },
+      {
+        "file": "skill_orchestrator.py",
+        "importer": "skill_orchestrator",
+        "imported": "skill_tools",
+        "disposition": "exempt",
+        "reason": "既存越层，待专项收口"
+      }
     ]
-   },
-   "keyframe_api": {
-    "keyframe_model_service": [
-     "production_choices",
-     "current_model"
+  },
+  "第四项": {
+    "count": 0,
+    "baseline_pending": 35,
+    "items": [
+      {
+        "file": "desktop_automation_service.py",
+        "point": "PersistentBackgroundTaskQueue.enqueue_descriptor:json.loads:47a6f8acff753622:1",
+        "disposition": "exempt",
+        "reason": "R1600：内存任务参数JSON序列化复制校验，不读取正式文件；文件读取沿用core.read。"
+      },
+      {
+        "file": "agent/publication.py",
+        "point": "_recover:json.loads:5cb700bdeee2cc61:1",
+        "disposition": "exempt",
+        "reason": "R1599：底层写前日志恢复需直接读取事务日志，不能调用会重新进入恢复的core/read或缓存。"
+      },
+      {
+        "file": "writing_quality.py",
+        "point": "split_response:json.loads:d6f7ef1d1bfdb126:1",
+        "disposition": "exempt",
+        "reason": "R1302：解析模型返回的内存质检 JSON；拒绝重复键与非有限数，不读取配置文件，不能改用文件缓存。"
+      },
+      {
+        "file": "script_workspace_service.py",
+        "point": "adopt_natural_script:json.loads:e447f3b9a080d917:1",
+        "disposition": "exempt",
+        "reason": "R1247：采用记录发布前校验内存 JSON 文本，不读取文件。"
+      },
+      {
+        "file": "agent/core.py",
+        "point": "read:json.loads:147aa04421ff03cc:1",
+        "disposition": "exempt",
+        "reason": "写入权威自身"
+      },
+      {
+        "file": "agent/core.py",
+        "point": "request:json.loads:92653333211a5c9b:1",
+        "disposition": "exempt",
+        "reason": "写入权威自身"
+      },
+      {
+        "file": "agent/media.py",
+        "point": "probe:json.loads:eb2638fa946cdd2e:1",
+        "disposition": "exempt",
+        "reason": "外部进程／网络响应解析，非文件读"
+      },
+      {
+        "file": "agent/prompt_optimizer.py",
+        "point": "start.work:json.loads:dc8382fdc56d856c:1",
+        "disposition": "exempt",
+        "reason": "外部进程／网络响应解析，非文件读"
+      },
+      {
+        "file": "asset_reference_search.py",
+        "point": "retired:f4de13da9237cb69",
+        "disposition": "migrated",
+        "reason": "R825：候选清单的正式 JSON 读取收口至 file_cache.read_json。"
+      },
+      {
+        "file": "asset_reference_search.py",
+        "point": "retired:8358efe207f309d8",
+        "disposition": "migrated",
+        "reason": "R825：JSONL 兼容输入改复用 file_cache.read_text，再按行解析。"
+      },
+      {
+        "file": "asset_thumbs.py",
+        "point": "retired:a2899e46ec61d541",
+        "disposition": "migrated",
+        "reason": "R825：缩略图后台任务描述 JSON 读取收口至 file_cache.read_json。"
+      },
+      {
+        "file": "batch_frames_tool/batch_frames.py",
+        "point": "read:json.loads:0e45f0b2be5f0aa5:1",
+        "disposition": "exempt",
+        "reason": "独立批帧工具的本地配置读写，非运行期 L2"
+      },
+      {
+        "file": "batch_frames_tool/batch_frames.py",
+        "point": "Client.request:json.loads:92653333211a5c9b:1",
+        "disposition": "exempt",
+        "reason": "独立批帧工具的本地配置读写，非运行期 L2"
+      },
+      {
+        "file": "blender_previs_template.py",
+        "point": "<module>:json.loads:8cf026a46d6ce331:1",
+        "disposition": "exempt",
+        "reason": "Blender 模板生成脚本，非运行期 L2"
+      },
+      {
+        "file": "codex_paste.py",
+        "point": "_run:json.loads:f6ad03d8d214f995:1",
+        "disposition": "exempt",
+        "reason": "外部进程／网络响应解析，非文件读"
+      },
+      {
+        "file": "codex_tasks.py",
+        "point": "RPC.__enter__.pump:json.loads:e0385179e22b5760:1",
+        "disposition": "exempt",
+        "reason": "外部进程／网络响应解析，非文件读"
+      },
+      {
+        "file": "comfy_runtime.py",
+        "point": "open_comfy:json.loads:22adc767539a2f8a:1",
+        "disposition": "exempt",
+        "reason": "外部进程／网络响应解析，非文件读"
+      },
+      {
+        "file": "comfy_service.py",
+        "point": "validate_safetensors:json.loads:1fd9fbd8107f3504:1",
+        "disposition": "exempt",
+        "reason": "外部进程／网络响应解析，非文件读"
+      },
+      {
+        "file": "comfy_service.py",
+        "point": "Comfy.request:json.loads:5b6b10da4146427f:1",
+        "disposition": "exempt",
+        "reason": "外部进程／网络响应解析，非文件读"
+      },
+      {
+        "file": "console_submit.py",
+        "point": "send:json.loads:f6ad03d8d214f995:1",
+        "disposition": "exempt",
+        "reason": "网络响应解析"
+      },
+      {
+        "file": "console_submit.py",
+        "point": "<module>:json.loads:40f93432badbdc24:1",
+        "disposition": "exempt",
+        "reason": "网络响应解析"
+      },
+      {
+        "file": "continuity_ledger.py",
+        "point": "retired:57949ef69504298e",
+        "disposition": "migrated",
+        "reason": "R826：发布后复核的 JSON 往返复制改用标准深拷贝。"
+      },
+      {
+        "file": "continuity_ledger.py",
+        "point": "retired:15beceb9c5117f36",
+        "disposition": "migrated",
+        "reason": "R826：连贯性台账读取收口至 file_cache.read_json。"
+      },
+      {
+        "file": "engine_probe.py",
+        "point": "one_shot:json.loads:92653333211a5c9b:1",
+        "disposition": "exempt",
+        "reason": "R827：外部 CLI 标准输出 JSON 解析，非文件读取。"
+      },
+      {
+        "file": "engine_probe.py",
+        "point": "retired:ad4b229077ed86b2",
+        "disposition": "migrated",
+        "reason": "R827：引擎真机验证台账读取收口至 file_cache.read_json。"
+      },
+      {
+        "file": "file_cache.py",
+        "point": "read_stable_json_snapshot:json.loads:7fedb55b216dfc4e:1",
+        "disposition": "exempt",
+        "reason": "R831：缓存权威集中执行带前后签名校验的稳定工作 JSON 快照读取。"
+      },
+      {
+        "file": "idea_transcript.py",
+        "point": "_read_rows",
+        "disposition": "migrated",
+        "reason": "R790：聊天 JSON 读取改由 L3 idea_chat_gateway 注入 file_cache。"
+      },
+      {
+        "file": "idea_transcript.py",
+        "point": "remove",
+        "disposition": "migrated",
+        "reason": "R790：删除记录读取改由 L3 idea_chat_gateway 注入 file_cache。"
+      },
+      {
+        "file": "idea_transcript.py",
+        "point": "restore_latest_removed",
+        "disposition": "migrated",
+        "reason": "R790：恢复记录读取改由 L3 idea_chat_gateway 注入 file_cache。"
+      },
+      {
+        "file": "api_endpoints.py",
+        "point": "_http_transport:json.loads:0084ee081b23442e:1",
+        "disposition": "exempt",
+        "reason": "R828：HTTP 响应体 JSON 解析，不是文件读取；模型路由网络出口的响应解码。（R1706 行号平移 863→873，客户端档案路由插在其前）（R2470 代码迁移 model_pool→api_endpoints）"
+      },
+      {
+        "file": "api_endpoints.py",
+        "point": "http_stream:json.loads:b3b008eb30efa635:1",
+        "disposition": "exempt",
+        "reason": "R828：SSE data 事件 JSON 解析，不是文件读取；模型流式响应的事件解码。（R1706 行号平移 909→919，客户端档案路由插在其前）（R2470 代码迁移 model_pool→api_endpoints）"
+      },
+      {
+        "file": "pet_agent.py",
+        "point": "parse_intent:json.loads:e796cc667c4bb3ab:1",
+        "disposition": "exempt",
+        "reason": "网络响应解析"
+      },
+      {
+        "file": "previs_automation.py",
+        "point": "verify:json.loads:61e9d77f3efbd50b:1",
+        "disposition": "exempt",
+        "reason": "网络响应解析"
+      },
+      {
+        "file": "qwen_adapter.py",
+        "point": "run_background:json.loads:6118d7cb6e968167:1",
+        "disposition": "exempt",
+        "reason": "外部进程／网络响应解析"
+      },
+      {
+        "file": "qwen_setup.py",
+        "point": "load:json.loads:ac18a8a332712bed:1",
+        "disposition": "exempt",
+        "reason": "本机 Qwen API 设置（LOCALAPPDATA/漫剧制作助手/qwen-api.json），坏文件按默认值处理，非项目正式 JSON；R1854 随 R1853 改 utf-8-sig 更新锚点"
+      },
+      {
+        "file": "script_contract.py",
+        "point": "retired:dc9677656999b4ad",
+        "disposition": "exempt",
+        "reason": "R830：L0 契约为保持单向层级，经 agent.core.read 统一读取；不直接解析 JSON 或依赖 L1 file_cache。"
+      },
+      {
+        "file": "seedream_api.py",
+        "point": "request_image:json.loads:b09d5b6e43efd9c0:1",
+        "disposition": "exempt",
+        "reason": "外部进程／网络响应解析，非文件读"
+      },
+      {
+        "file": "seedream_api.py",
+        "point": "request_image:json.loads:a142745c58a77a7c:1",
+        "disposition": "exempt",
+        "reason": "外部进程／网络响应解析，非文件读"
+      },
+      {
+        "file": "shot_numbering.py",
+        "point": "retired:b793d2a8a6c11e66",
+        "disposition": "migrated",
+        "reason": "R830：镜头编号重排的正式分镜 JSON 读取改由 file_cache.read_json。"
+      },
+      {
+        "file": "speech_api.py",
+        "point": "RealtimeSession._handle:json.loads:66e0763f09fb6123:1",
+        "disposition": "exempt",
+        "reason": "实时语音识别 WebSocket 服务端事件的 JSON 解析，非文件读"
+      },
+      {
+        "file": "smoke_test.py",
+        "point": "check_json_field:json.loads:a428a6961304f795:1",
+        "disposition": "exempt",
+        "reason": "测试基建"
+      },
+      {
+        "file": "stage_execution_service.py",
+        "point": "publish_keyframe_episode:json.loads:48da4dd596fff0b4:1",
+        "disposition": "exempt",
+        "reason": "R830：原子发布前对内存 JSON 文本的校验，不读取文件。"
+      },
+      {
+        "file": "stage_animatic_gateways.py",
+        "point": "confirm_animatic:json.loads:e447f3b9a080d917:1",
+        "disposition": "exempt",
+        "reason": "R1124：发布器对内存确认文本的 JSON 校验，不读取文件。"
+      },
+      {
+        "file": "animatic_service.py",
+        "point": "validate_bundle:json.loads:77391186c5df0f0d:1",
+        "disposition": "exempt",
+        "reason": "R1124：解析待发布包内的清单字节协议，不读取文件。"
+      },
+      {
+        "file": "edit_service.py",
+        "point": "assemble_image_timeline:json.loads:d6b836044cd065ca:1",
+        "disposition": "exempt",
+        "reason": "R1124：解析 ffprobe 子进程标准输出协议，不读取 JSON 文件。"
+      },
+      {
+        "file": "stage_handoff_gateways.py",
+        "point": "save_automatic_assemble_marker.publish_marker:json.loads:e447f3b9a080d917:1",
+        "disposition": "exempt",
+        "reason": "R830：原子发布前对内存标记文本的校验，不读取文件。"
+      },
+      {
+        "file": "stage_handoff_gateways.py",
+        "point": "save_automatic_handoff_marker.publish_marker:json.loads:e447f3b9a080d917:1",
+        "disposition": "exempt",
+        "reason": "R830：原子发布前对内存标记文本的校验，不读取文件。"
+      },
+      {
+        "file": "writing_api.py",
+        "point": "extract_idea_brief:json.loads:e447f3b9a080d917:1",
+        "disposition": "exempt",
+        "reason": "R1335 合入：阶段④分集增量接入使该 json.loads 行号由 512 平移至 548，HOLLMWOOD 框架移除后再平移至 468（R1442 又上移）；仍是简报语义提取的模型响应内存 JSON 解码，非文件读取；结果文件仍走 file_cache.read_json。"
+      },
+      {
+        "file": "stage_parallel.py",
+        "point": "log_read:json.loads:e0385179e22b5760:1",
+        "disposition": "exempt",
+        "reason": "R830：经 file_cache.read_text 读取后的 JSONL 单行日志解码，不是正式 JSON 文件读取。（R1383：文件顶部加 import pet_bus 使该行由 454 平移至 455，语义不变。）"
+      },
+      {
+        "file": "storage_maintenance.py",
+        "point": "retired:1411d7921928a01a",
+        "disposition": "exempt",
+        "reason": "删除／回收权威自身的配置读写，转 file_cache 会自引用"
+      },
+      {
+        "file": "storage_maintenance.py",
+        "point": "retired:ac69f13e7491df22",
+        "disposition": "exempt",
+        "reason": "删除／回收权威自身的回收清单读写，转 file_cache 会自引用"
+      },
+      {
+        "file": "storage_maintenance.py",
+        "point": "retired:f256ea4086bbbb9d",
+        "disposition": "exempt",
+        "reason": "删除／回收权威自身的恢复清单读写，转 file_cache 会自引用"
+      },
+      {
+        "file": "storage_maintenance.py",
+        "point": "retired:d236e79c03597727",
+        "disposition": "exempt",
+        "reason": "删除／回收权威自身的恢复清单读写，转 file_cache 会自引用"
+      },
+      {
+        "file": "storage_maintenance.py",
+        "point": "retired:3bc0019e0883f338",
+        "disposition": "exempt",
+        "reason": "删除／回收权威自身的恢复清单读写，转 file_cache 会自引用"
+      },
+      {
+        "file": "storage_maintenance.py",
+        "point": "retired:6e4da209cf6ff636",
+        "disposition": "exempt",
+        "reason": "删除／回收权威自身的状态清单读写，转 file_cache 会自引用"
+      },
+      {
+        "file": "storyboard_final_controller.py",
+        "point": "FinalStoryboardController.save_edited:json.loads:e447f3b9a080d917:1",
+        "disposition": "exempt",
+        "reason": "R830：编辑器输入框内存文本的 JSON 解析，不读取文件。"
+      },
+      {
+        "file": "storyboard_final.py",
+        "point": "finalize.validate_episode_text:json.loads:48da4dd596fff0b4:1",
+        "disposition": "exempt",
+        "reason": "R830：发布前内存 JSON 文本校验，不读取文件。"
+      },
+      {
+        "file": "storyboard_storage.py",
+        "point": "retired:1c9ce7e181a7d29c",
+        "disposition": "migrated",
+        "reason": "R831：并发稳定快照读取收口至 file_cache.read_stable_json_snapshot。"
+      },
+      {
+        "file": "video_prompt_results.py",
+        "point": "parse_result:json.loads:a142745c58a77a7c:1",
+        "disposition": "exempt",
+        "reason": "R829：外部 Agent 结果文本的 JSON 解析，不是正式项目文件读取。"
+      },
+      {
+        "file": "video_prompt_results.py",
+        "point": "parse_result:json.loads:924fad0814c25a41:1",
+        "disposition": "exempt",
+        "reason": "R829：格式修复分支对外部 Agent 结果片段的 JSON 解析，不是正式项目文件读取。"
+      },
+      {
+        "file": "video_prompt_results.py",
+        "point": "parse_result:json.loads:ad3dc98d9e794255:1",
+        "disposition": "exempt",
+        "reason": "R829：格式修复后的提示词字面量 JSON 解码，不是文件读取。"
+      },
+      {
+        "file": "workflow_engines.py",
+        "point": "_opencode_report_text:json.loads:e0385179e22b5760:1",
+        "disposition": "exempt",
+        "reason": "网络响应解析（R1706 行号平移 143→167：OpenCode 事件流逐行 JSON 解码，不是文件读取）"
+      },
+      {
+        "file": "workflow_engines.py",
+        "point": "_run_claude_json:json.loads:6118d7cb6e968167:1",
+        "disposition": "exempt",
+        "reason": "R1691 登记：读取 OpenCode CLI 自己写出的 .response.json 临时响应文件，外部进程产物不是正式项目数据，不走 file_cache。（R1706 行号平移 196→241）"
+      },
+      {
+        "file": "skills/09白模预演SKILL/create-blender-story-video/assets/render-monitor-dashboard/server.py",
+        "point": "read_json:json.loads:d8914783a47c6a77:1",
+        "disposition": "exempt",
+        "reason": "SKILL 自带脚本"
+      },
+      {
+        "file": "skills/09白模预演SKILL/create-blender-story-video/assets/render-monitor-dashboard/server.py",
+        "point": "Monitor._probe_media:json.loads:d3ab9c6132702340:1",
+        "disposition": "exempt",
+        "reason": "SKILL 自带脚本"
+      },
+      {
+        "file": "skills/imagegen/scripts/image_gen.py",
+        "point": "_read_jobs_jsonl:json.loads:e0385179e22b5760:1",
+        "disposition": "exempt",
+        "reason": "SKILL 自带脚本"
+      },
+      {
+        "file": "skills/short-drama-storyboard/scripts/storyboard_check.py",
+        "point": "_load_json:json.loads:d8914783a47c6a77:1",
+        "disposition": "exempt",
+        "reason": "SKILL 自带脚本"
+      },
+      {
+        "file": "skills/short-drama-storyboard/scripts/storyboard_check.py",
+        "point": "_load_jsonl:json.loads:e0385179e22b5760:1",
+        "disposition": "exempt",
+        "reason": "SKILL 自带脚本"
+      },
+      {
+        "file": "skills/video-storyboard-gen/scripts/validate_repo.py",
+        "point": "validate_repository:json.loads:d8914783a47c6a77:1",
+        "disposition": "exempt",
+        "reason": "SKILL 自带脚本"
+      },
+      {
+        "file": "skills/video-storyboard-gen/scripts/validate_repo.py",
+        "point": "validate_repository:json.loads:0582556804ad8235:1",
+        "disposition": "exempt",
+        "reason": "SKILL 自带脚本"
+      },
+      {
+        "file": "skills/video-storyboard-gen/scripts/validate_repo.py",
+        "point": "validate_repository:json.loads:79ac35a543a43435:1",
+        "disposition": "exempt",
+        "reason": "SKILL 自带脚本"
+      },
+      {
+        "file": "skills/video-storyboard-gen/scripts/validate_repo.py",
+        "point": "validate_repository:json.loads:05f7a192412f0dc6:1",
+        "disposition": "exempt",
+        "reason": "SKILL 自带脚本"
+      },
+      {
+        "file": "skill_notes.py",
+        "point": "_api_translator.translate:json.loads:bda0f3d830f7ed12:1",
+        "disposition": "exempt",
+        "reason": "R1125：解析模型返回的译文 JSON 字符串数组，不是文件读取；说明缓存与词表仍复用 file_cache.read_json。"
+      },
+      {
+        "file": "edit_habits.py",
+        "point": "parse_rules:json.loads:e796cc667c4bb3ab:1",
+        "disposition": "exempt",
+        "reason": "R2074：解析模型返回的修改习惯 JSON 数组，不是文件读取；记录与规则文件仍经 file_cache.read_json。"
+      },
+      {
+        "file": "lease_verifier.py",
+        "point": "verify:json.loads:001fd68b45942bb5:1",
+        "disposition": "exempt",
+        "reason": "R1895：解析已验签租约的内存 payload 字节，不读取文件。"
+      },
+      {
+        "file": "account_client.py",
+        "point": "_read_json:json.loads:ba5f15a4e6a1061d:1",
+        "disposition": "exempt",
+        "reason": "R1895：解析账号服务 HTTP 响应体，不读取文件。"
+      },
+      {
+        "file": "storyboard_direct_api.py",
+        "point": "_extract_json:json.loads:da95b1449dbe88d3:1",
+        "disposition": "exempt",
+        "reason": "直连分镜（REQ-S03-53）：解析模型回复的内存文本，不读取正式文件；文件读取沿用core.read。"
+      },
+      {
+        "file": "workflow_engines.py",
+        "point": "extract_codex_thread_id:json.loads:e447f3b9a080d917:1",
+        "disposition": "exempt",
+        "reason": "R2491：解析 codex exec --json 的 thread.started 事件行取 thread_id（进程 stdout 内存文本，不读文件）。"
+      },
+      {
+        "file": "workflow_engines.py",
+        "point": "extract_codex_message_text:json.loads:e447f3b9a080d917:1",
+        "disposition": "exempt",
+        "reason": "R2491：解析 codex exec --json 的 agent_message 事件行取正文（进程 stdout 内存文本，不读文件）。"
+      },
+      {
+        "file": "scripts/tools_lock.py",
+        "point": "main:json.loads:746e1517d527c929:1",
+        "disposition": "exempt",
+        "reason": "R2572/R2587 合并：tools_lock 是开发期锁定清单工具，main 直接读 lock 文件属脚本内直读豁免，与同类 scripts/* 登记一致"
+      }
     ]
-   },
-   "previs": {
-    "previs_routing": [
-     "classify",
-     "dispatch"
-    ],
-    "white_model_service": [
-     "import_previs_media",
-     "save_previs_notes"
+  },
+  "覆盖率审计21": {
+    "disposition": "frozen",
+    "reason": "R1648：R837／R1394 已把进程调用收口到 platform_tools.run_process，冻结谓词真候选 0。",
+    "count": 0,
+    "baseline_pending": 6,
+    "items": [
+      {
+        "file": "agent/core.py",
+        "point": "retired:d28879ac0b05de8e",
+        "disposition": "migrated",
+        "reason": "R1394：command() 已收口到 platform_tools.run_process（惰性 import，保持启动路径轻量），不再直接 subprocess.run。"
+      },
+      {
+        "file": "agent/prompt_optimizer.py",
+        "point": "retired:11c9203579238864",
+        "disposition": "migrated",
+        "reason": "R1394：MCP 桥子进程已收口到 platform_tools.run_process（模块级 import），TimeoutExpired／SubprocessError 异常类型不变。"
+      },
+      {
+        "file": "api_endpoints.py",
+        "point": "retired:92fa5842b1871567",
+        "disposition": "exempt",
+        "reason": "R797: network call is owned only by audit 26; it is not a process-adapter pending item."
+      },
+      {
+        "file": "asset_thumbs.py",
+        "point": "retired:599c4eca5f3cc4da",
+        "disposition": "migrated",
+        "reason": "R834：缩略图 worker 保留凭据隔离与可替换启动钩子，经 platform_tools.launch_background 启动。"
+      },
+      {
+        "file": "log_maintenance.py",
+        "point": "retired:872113ffbae5c4f9",
+        "disposition": "migrated",
+        "reason": "R833：程序日志清理后台进程改经 platform_tools.launch_background。"
+      },
+      {
+        "file": "model_pool.py",
+        "point": "retired:0b470daedacbfbfb",
+        "disposition": "exempt",
+        "reason": "R797: model_pool is the approved model-routing authority (audit 26 whitelist), not a process-adapter pending item."
+      },
+      {
+        "file": "model_pool.py",
+        "point": "retired:5dcb85888c69e53c",
+        "disposition": "exempt",
+        "reason": "R797: model_pool is the approved model-routing authority (audit 26 whitelist), not a process-adapter pending item."
+      },
+      {
+        "file": "native_asset_codec.py",
+        "point": "retired:d414680eeed7b73b",
+        "disposition": "migrated",
+        "reason": "R835：ffmpeg PNG 转码经 platform_tools.run_process 执行，保留超时、输入输出和失败语义。"
+      },
+      {
+        "file": "pet_test_service.py",
+        "point": "retired:6e43648af8876906",
+        "disposition": "migrated",
+        "reason": "R836：宠物增量自检后台进程经 platform_tools.launch_background 启动，保留输出流与可替换启动钩子。"
+      },
+      {
+        "file": "stage_layout.py",
+        "point": "retired:8573bca1d39448a5",
+        "disposition": "migrated",
+        "reason": "R837：阶段目录 junction 回退经 platform_tools.run_process 执行，保留静默与返回码判定。"
+      },
+      {
+        "file": "storage_maintenance.py",
+        "point": "retired:c85e3f6d34e353a5",
+        "disposition": "migrated",
+        "reason": "R833：程序自有回收清理后台进程改经 platform_tools.launch_background。"
+      }
     ]
-   },
-   "writing_files": {
-    "writing_tools": [
-     "list_files",
-     "read_file",
-     "write_file"
-    ],
-    "script_workspace_service": [
-     "iter_script_documents",
-     "rename_script_document"
+  },
+  "覆盖率审计24": {
+    "count": 0,
+    "baseline_pending": 0,
+    "items": [
+      {
+        "file": "asset_auto_batch_service.py",
+        "point": "retired:921439d91f484516",
+        "disposition": "exempt",
+        "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
+      },
+      {
+        "file": "asset_skill_batch.py",
+        "point": "retired:3bc160322184154a",
+        "disposition": "exempt",
+        "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
+      },
+      {
+        "file": "codex_tasks.py",
+        "point": "retired:47013059eb060ad8",
+        "disposition": "exempt",
+        "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
+      },
+      {
+        "file": "engine.py",
+        "point": "retired:02d8afd619511196",
+        "disposition": "exempt",
+        "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
+      },
+      {
+        "file": "keyframe_batch.py",
+        "point": "retired:a983e65897e14177",
+        "disposition": "exempt",
+        "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
+      },
+      {
+        "file": "keyframe_comfy.py",
+        "point": "retired:88ed5a0d35287e98",
+        "disposition": "exempt",
+        "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
+      },
+      {
+        "file": "keyframe_comfy.py",
+        "point": "retired:ab10bf5185d45ced",
+        "disposition": "exempt",
+        "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
+      },
+      {
+        "file": "keyframe_comfy.py",
+        "point": "retired:854b75835df451f0",
+        "disposition": "exempt",
+        "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
+      },
+      {
+        "file": "keyframe_comfy.py",
+        "point": "retired:1953792f381c1138",
+        "disposition": "exempt",
+        "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
+      },
+      {
+        "file": "keyframe_comfy.py",
+        "point": "retired:bbb6aad0e9605d72",
+        "disposition": "exempt",
+        "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
+      },
+      {
+        "file": "keyframe_comfy.py",
+        "point": "retired:84e8b8e3ce9c2d7a",
+        "disposition": "exempt",
+        "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
+      },
+      {
+        "file": "keyframe_comfy.py",
+        "point": "retired:0d2df0a71e3dda58",
+        "disposition": "exempt",
+        "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
+      },
+      {
+        "file": "keyframe_comfy.py",
+        "point": "retired:62ada0d58eafd743",
+        "disposition": "exempt",
+        "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
+      },
+      {
+        "file": "keyframe_comfy.py",
+        "point": "retired:dabfa67f9bd25fd1",
+        "disposition": "exempt",
+        "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
+      },
+      {
+        "file": "keyframe_comfy.py",
+        "point": "retired:28891ad2536cf7fd",
+        "disposition": "exempt",
+        "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
+      },
+      {
+        "file": "keyframe_model_service.py",
+        "point": "retired:1896fd1dd7cf50a2",
+        "disposition": "exempt",
+        "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
+      },
+      {
+        "file": "local_video.py",
+        "point": "retired:85dc6f3e72405c88",
+        "disposition": "exempt",
+        "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
+      },
+      {
+        "file": "qwen_setup.py",
+        "point": "retired:6472f9577f53829c",
+        "disposition": "exempt",
+        "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
+      },
+      {
+        "file": "script_contract.py",
+        "point": "retired:d3f9281675f773ac",
+        "disposition": "exempt",
+        "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
+      },
+      {
+        "file": "script_contract.py",
+        "point": "retired:1551004ec3bc905b",
+        "disposition": "exempt",
+        "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
+      },
+      {
+        "file": "script_contract.py",
+        "point": "retired:162584c923132860",
+        "disposition": "exempt",
+        "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
+      },
+      {
+        "file": "stage_models.py",
+        "point": "retired:42b7b83cd253b027",
+        "disposition": "exempt",
+        "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
+      },
+      {
+        "file": "storyboard_adoption_contract.py",
+        "point": "retired:8056d42c445c8bda",
+        "disposition": "exempt",
+        "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
+      },
+      {
+        "file": "white_model.py",
+        "point": "retired:12bee8e67bcdcb97",
+        "disposition": "exempt",
+        "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
+      },
+      {
+        "file": "white_model.py",
+        "point": "retired:aa3d60100e867cba",
+        "disposition": "exempt",
+        "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
+      },
+      {
+        "file": "workflow_settings.py",
+        "point": "retired:7f84512e4ce1c8d8",
+        "disposition": "exempt",
+        "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
+      },
+      {
+        "file": "workflow_settings.py",
+        "point": "retired:001c955f580aed9a",
+        "disposition": "exempt",
+        "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
+      }
     ]
-   },
-   "writing_workflow": {
-    "writing_api": [
-     "reply"
-    ],
-    "writing": [
-     "prepare",
-     "import_project"
+  },
+  "覆盖率审计20": {
+    "disposition": "frozen",
+    "reason": "R1648：R840 逐条裁定后冻结谓词真候选 0（L3 工作流／配置替换与回滚均已注入 file_cache.published）。",
+    "count": 0,
+    "baseline_pending": 4,
+    "items": [
+      {
+        "file": "asset_detail_service.py",
+        "point": "retired:ccc2ee9fba3bb4e3",
+        "disposition": "exempt",
+        "reason": "R840：正典板图片由 asset_thumbs 管理，不是 file_cache 的正式读取路径。"
+      },
+      {
+        "file": "local_video_settings_service.py",
+        "point": "save_local_video_settings",
+        "disposition": "migrated",
+        "reason": "R840：工作流替换、配置发布及其回滚均由 L3 注入 file_cache.published。"
+      },
+      {
+        "file": "log_maintenance.py",
+        "point": "retired:a612dabb8b44c3d7",
+        "disposition": "exempt",
+        "reason": "R840：程序自有日志轮转不在 file_cache 的正式项目读取范围。"
+      },
+      {
+        "file": "log_maintenance.py",
+        "point": "retired:1b893b76950d594f",
+        "disposition": "exempt",
+        "reason": "R840：程序自有日志轮转不在 file_cache 的正式项目读取范围。"
+      }
     ]
-   }
+  },
+  "覆盖率审计25": {
+    "count": 0,
+    "baseline_pending": 0,
+    "items": []
+  },
+  "覆盖率审计27": {
+    "count": 0,
+    "baseline_pending": 0,
+    "items": []
+  },
+  "覆盖率审计26": {
+    "count": 0,
+    "baseline_pending": 2,
+    "items": [
+      {
+        "file": "agent/core.py",
+        "point": "retired:a44426e0bd9c4c4d",
+        "disposition": "migrated",
+        "reason": "R1395：request() 出站调用收口至 platform_tools.open_https（唯一出站 HTTP 入口）；错误分类与密钥脱敏不变。"
+      },
+      {
+        "file": "agent/core.py",
+        "point": "retired:8b4d99f852447bae",
+        "disposition": "migrated",
+        "reason": "R1395：download() 出站调用收口至 platform_tools.open_https；HTTPS 强制、重定向校验、1GB 上限与原子发布不变。"
+      },
+      {
+        "file": "api_endpoints.py",
+        "point": "retired:e83dcf351b1ff228",
+        "disposition": "migrated",
+        "reason": "R832：无凭据 HTTP 根地址探测收口至 platform_tools.probe_http_endpoint。"
+      }
+    ]
+  },
+  "第五项": {
+    "count": 0,
+    "baseline_pending": 0,
+    "items": []
+  },
+  "覆盖率审计19": {
+    "count": 0,
+    "baseline_pending": 0,
+    "disposition": "merged",
+    "reason": "R1648：第 19 项不另建扫描器，归并第 3 项扫描器目标集合；棘轮断言 L2 的 config.json 写入点必须是第 3 项已登记项的子集。",
+    "items": []
+  },
+  "覆盖率审计22": {
+    "count": 0,
+    "baseline_pending": 0,
+    "disposition": "reused",
+    "reason": "R1648：删除面复用既有删除门禁（storage_maintenance.recycle_paths() 与 tests/architecture/test_remove_authority.py），冻结谓词真候选 0，与第 4 项同源。",
+    "items": []
+  },
+  "覆盖率审计23": {
+    "count": 0,
+    "baseline_pending": 0,
+    "disposition": "frozen",
+    "reason": "R1648：冻结窄谓词＝发出 stage.completed／script.completed 且同一函数内没有核验证据（emit_verified_completion／_completion_evidence／verified_stage_output），权威白名单 stage_completion_service／pet_bus；真候选 0，金丝雀仍覆盖未核验宣布完成。",
+    "items": []
   }
- },
- "第三项": {
-  "count": 0,
-  "baseline_pending": 66,
-  "items": [
-   {
-    "file": "asset_batch_lifecycle.py",
-    "point": "attach",
-    "disposition": "migrated",
-    "reason": "R791：批次派发状态发布改由 L3 asset_batch_gateway 注入。"
-   },
-   {
-    "file": "asset_batch_lifecycle.py",
-    "point": "fail",
-    "disposition": "migrated",
-    "reason": "R791：批次失败状态发布改由 L3 asset_batch_gateway 注入。"
-   },
-   {
-    "file": "asset_batch_lifecycle.py",
-    "point": "prepare",
-    "disposition": "migrated",
-    "reason": "R791：批次准备状态发布改由 L3 asset_batch_gateway 注入。"
-   },
-   {
-    "file": "asset_batch_lifecycle.py",
-    "point": "reconcile",
-    "disposition": "migrated",
-    "reason": "R791：批次清单读取与修正发布改由 L3 asset_batch_gateway 注入。"
-   },
-   {
-    "file": "asset_batch_service.py",
-    "point": "import_asset_image",
-    "disposition": "migrated",
-    "reason": "R791：导入图片与登记表发布改由 L3 asset_batch_gateway 注入。"
-   },
-   {
-    "file": "asset_batch_service.py",
-    "point": "register_image",
-    "disposition": "migrated",
-    "reason": "R791：生成图片与资产索引发布改由 L3 asset_batch_gateway 注入。"
-   },
-   {
-    "file": "asset_batch_service.py",
-    "point": "remove_asset_image",
-    "disposition": "migrated",
-    "reason": "R791：删除后资产索引发布改由 L3 asset_batch_gateway 注入。"
-   },
-   {
-    "file": "asset_batch_service.py",
-    "point": "rename_asset",
-    "disposition": "migrated",
-    "reason": "R791：资产名称双表事务发布改由 L3 asset_batch_gateway 注入。"
-   },
-   {
-    "file": "asset_batch_service.py",
-    "point": "restore_asset_image",
-    "disposition": "migrated",
-    "reason": "R791：恢复后资产索引发布改由 L3 asset_batch_gateway 注入。"
-   },
-   {
-    "file": "asset_batch_state_service.py",
-    "point": "save_ledger",
-    "disposition": "migrated",
-    "reason": "R799：资产批次台账正式 JSON 发布改由 L3 asset_batch_gateway 注入。"
-   },
-   {
-    "file": "asset_detail_service.py",
-    "point": "_publish",
-    "disposition": "migrated",
-    "reason": "R800：资产详情绑定的回滚字节发布改由 L3 asset_detail_gateway 注入。"
-   },
-   {
-    "file": "asset_generated_import_service.py",
-    "point": "import_pending_generated",
-    "disposition": "migrated",
-    "reason": "R801：自动导入临时 PNG 发布改由 L3 asset_batch_gateway 注入。"
-   },
-   {
-    "file": "cloud_video_service.py",
-    "point": "publish_session_config",
-    "disposition": "migrated",
-    "reason": "R792：会话配置双写改由 L3 cloud_video_gateway 注入。"
-   },
-   {
-    "file": "cloud_video_service.py",
-    "point": "publish_studio_config",
-    "disposition": "migrated",
-    "reason": "R792：工作室配置发布改由 L3 cloud_video_gateway 注入。"
-   },
-   {
-    "file": "cloud_video_service.py",
-    "point": "publish_workspace_preference",
-    "disposition": "migrated",
-    "reason": "R792：工作区偏好发布改由 L3 cloud_video_gateway 注入。"
-   },
-   {
-    "file": "confirm_gates.py",
-    "point": "forget",
-    "disposition": "migrated",
-    "reason": "R794：撤销确认账本改由 L3 confirm_gates_gateway 注入正式发布器。"
-   },
-   {
-    "file": "confirm_gates.py",
-    "point": "record",
-    "disposition": "migrated",
-    "reason": "R794：记录确认账本改由 L3 confirm_gates_gateway 注入正式发布器。"
-   },
-   {
-    "file": "delivery_import_service.py",
-    "point": "import_final_master",
-    "disposition": "migrated",
-    "reason": "R802：最终成片发布改由 L3 import_delivery_master 注入。"
-   },
-   {
-    "file": "idea_chat.py",
-    "point": "_append_raw_brief",
-    "disposition": "migrated",
-    "reason": "R790：简报文本发布改由 L3 idea_chat_gateway 注入。"
-   },
-   {
-    "file": "idea_chat.py",
-    "point": "receive_brief",
-    "disposition": "migrated",
-    "reason": "R790：简报 JSON／文本发布改由 L3 idea_chat_gateway 注入。"
-   },
-   {
-    "file": "idea_transcript.py",
-    "point": "remove",
-    "disposition": "migrated",
-    "reason": "R790：回收记录发布改由 L3 idea_chat_gateway 注入。"
-   },
-   {
-    "file": "idea_transcript.py",
-    "point": "restore_latest_removed",
-    "disposition": "migrated",
-    "reason": "R790：恢复记录发布改由 L3 idea_chat_gateway 注入。"
-   },
-   {
-    "file": "idea_chat.py",
-    "point": "save_brief_creation",
-    "disposition": "migrated",
-    "reason": "R790：表单简报发布改由 L3 idea_chat_gateway 注入。"
-   },
-   {
-    "file": "idea_transcript.py",
-    "point": "save_rows",
-    "disposition": "migrated",
-    "reason": "R790：对话 JSON 发布改由 L3 idea_chat_gateway 注入。"
-   },
-   {
-    "file": "local_video_settings_service.py",
-    "point": "save_local_video_settings",
-    "disposition": "migrated",
-    "reason": "R803：本地视频工作流与设置发布改由 L3 publish_local_video_settings 注入。"
-   },
-   {
-    "file": "pet_performance_service.py",
-    "point": "record",
-    "disposition": "migrated",
-    "reason": "R805：宠物优化账本发布改由 L3 pet_performance_gateway 注入。"
-   },
-   {
-    "file": "pet_test_service.py",
-    "point": "record",
-    "disposition": "migrated",
-    "reason": "R806：宠物测试账本发布改由 L3 pet_test_gateway 注入。"
-   },
-   {
-    "file": "previs_progress_service.py",
-    "point": "publish",
-    "disposition": "migrated",
-    "reason": "R807：白模预演进度发布改由 L3 previs_progress_gateway 注入。"
-   },
-   {
-    "file": "previs_routing.py",
-    "point": "dispatch",
-    "disposition": "migrated",
-    "reason": "R794：白模分流记录改由 L3 previs_routing_gateway 注入正式发布器。"
-   },
-   {
-    "file": "previs_routing.py",
-    "point": "set_override",
-    "disposition": "migrated",
-    "reason": "R794：复杂度覆写改由 L3 previs_routing_gateway 注入正式发布器。"
-   },
-   {
-    "file": "storyboard_edit_service.py",
-    "point": "save_edited_json",
-    "disposition": "migrated",
-    "reason": "R808：定稿分镜编辑发布改由 L3 storyboard_edit_gateway 注入。"
-   },
-   {
-    "file": "storyboard_lifecycle.py",
-    "point": "retire",
-    "disposition": "migrated",
-    "reason": "R809：定稿退役别名发布改由 L3 storyboard_lifecycle_gateway 注入。"
-   },
-   {
-    "file": "tts_api.py",
-    "point": "_save",
-    "disposition": "migrated",
-    "reason": "R792：逐句清单发布改由 L3 tts_gateway 注入。"
-   },
-   {
-    "file": "tts_api.py",
-    "point": "publish_full_track",
-    "disposition": "migrated",
-    "reason": "R792：整段音频与标记发布改由 L3 tts_gateway 注入。"
-   },
-   {
-    "file": "tts_api.py",
-    "point": "publish_line",
-    "disposition": "migrated",
-    "reason": "R792：单句音频与时间轴发布改由 L3 tts_gateway 注入。"
-   },
-   {
-    "file": "tts_api.py",
-    "point": "write_settings",
-    "disposition": "migrated",
-    "reason": "R792：本机 TTS 设置发布改由 L3 tts_gateway 注入。"
-   },
-   {
-    "file": "white_model_service.py",
-    "point": "write_record",
-    "disposition": "migrated",
-    "reason": "R812：白模预演记录发布改由 L3 white_model_gateway 注入。"
-   },
-   {
-    "file": "asset_batch_settings_service.py",
-    "point": "remove_model",
-    "disposition": "migrated",
-    "reason": "R812：资产批量设置模型删除发布改由 L3 asset_batch_settings_gateway 注入。"
-   },
-   {
-    "file": "asset_batch_settings_service.py",
-    "point": "save_settings",
-    "disposition": "migrated",
-    "reason": "R812：资产批量设置保存发布改由 L3 asset_batch_settings_gateway 注入。"
-   },
-   {
-    "file": "asset_plan.py",
-    "point": "publish_plan_bundle",
-    "disposition": "migrated",
-    "reason": "R821：资产计划四文件事务的 JSON、文本、字节回滚与临时文件移除均由 L3 asset_plan_gateway 注入。"
-   },
-   {
-    "file": "asset_plan.py",
-    "point": "update_planned",
-    "disposition": "migrated",
-    "reason": "R821：资产字段唯一落盘入口改为接收 L3 asset_plan_gateway 注入的正式 JSON 发布器。"
-   },
-   {
-    "file": "asset_resume.py",
-    "point": "note_round",
-    "disposition": "migrated",
-    "reason": "R821：跨重启资产续跑台账改为接收 L3 asset_plan_gateway 注入的正式 JSON 发布器。"
-   },
-   {
-    "file": "desktop_settings_service.py",
-    "point": "publish_desktop_settings",
-    "disposition": "migrated",
-    "reason": "R822：桌面级偏好设置改由 L3 desktop_settings_gateway 注入正式 JSON 发布器。"
-   },
-   {
-    "file": "legacy_adoption_service.py",
-    "point": "record_legacy_adoption",
-    "disposition": "migrated",
-    "reason": "R822：旧目录归位日志的目录创建与 JSON 发布改由 L3 legacy_adoption_gateway 注入。"
-   },
-   {
-    "file": "projects.py",
-    "point": "_write_transaction",
-    "disposition": "migrated",
-    "reason": "R771：事务发布与回滚改由 L3 project_registry_gateway 注入。"
-   },
-   {
-    "file": "projects.py",
-    "point": "activate",
-    "disposition": "migrated",
-    "reason": "R771：项目登记发布改由 L3 project_registry_gateway 注入。"
-   },
-   {
-    "file": "projects.py",
-    "point": "clear_missing_registration",
-    "disposition": "migrated",
-    "reason": "R771：项目登记发布改由 L3 project_registry_gateway 注入。"
-   },
-   {
-    "file": "projects.py",
-    "point": "create",
-    "disposition": "migrated",
-    "reason": "R771：项目配置、索引与媒体复制改由 L3 project_registry_gateway 注入。"
-   },
-   {
-    "file": "projects.py",
-    "point": "delete",
-    "disposition": "migrated",
-    "reason": "R771：项目登记发布改由 L3 project_registry_gateway 注入。"
-   },
-   {
-    "file": "projects.py",
-    "point": "migrate",
-    "disposition": "migrated",
-    "reason": "R771：迁移读取、发布与复制改由 L3 project_registry_gateway 注入。"
-   },
-   {
-    "file": "projects.py",
-    "point": "organize",
-    "disposition": "migrated",
-    "reason": "R771：资产读取、发布与复制改由 L3 project_registry_gateway 注入。"
-   },
-   {
-    "file": "projects.py",
-    "point": "register_discovered_project",
-    "disposition": "migrated",
-    "reason": "R771：项目登记发布改由 L3 project_registry_gateway 注入。"
-   },
-   {
-    "file": "projects.py",
-    "point": "set_status",
-    "disposition": "migrated",
-    "reason": "R771：项目登记发布改由 L3 project_registry_gateway 注入。"
-   },
-   {
-    "file": "projects.py",
-    "point": "unlink_registered_project",
-    "disposition": "migrated",
-    "reason": "R771：项目登记发布改由 L3 project_registry_gateway 注入。"
-   },
-   {
-    "file": "storyboard_storage.py",
-    "point": "_references",
-    "disposition": "migrated",
-    "reason": "R793：分镜引用清单发布改由 L3 storyboard_gateway 注入。"
-   },
-   {
-    "file": "storyboard_storage.py",
-    "point": "normalize",
-    "disposition": "migrated",
-    "reason": "R793：分镜整理的发布、回收与缓存失效改由 L3 storyboard_gateway 注入。"
-   },
-   {
-    "file": "storyboard_storage.py",
-    "point": "publish_final_bundle",
-    "disposition": "migrated",
-    "reason": "R793：定稿分镜资产与清单发布改由 L3 storyboard_gateway 注入。"
-   },
-   {
-    "file": "subtitle_export_service.py",
-    "point": "publish_srt_text",
-    "disposition": "migrated",
-    "reason": "R823：SKILL 字幕文本发布改为必须接收 L3 subtitle_export_controller 注入的行尾校验发布器。"
-   },
-   {
-    "file": "video_lifecycle_service.py",
-    "point": "mark_video_deleted",
-    "disposition": "migrated",
-    "reason": "R793：视频删除索引发布改由 L3 video_lifecycle_gateway 注入。"
-   },
-   {
-    "file": "video_lifecycle_service.py",
-    "point": "save_video_options",
-    "disposition": "migrated",
-    "reason": "R793：视频选项发布改由 L3 video_lifecycle_gateway 注入。"
-   },
-   {
-    "file": "video_lifecycle_service.py",
-    "point": "save_white_model_upload",
-    "disposition": "migrated",
-    "reason": "R793：白模上传记录发布改由 L3 video_lifecycle_gateway 注入。"
-   },
-   {
-    "file": "video_prompt_publication.py",
-    "point": "_publish_legacy_bundle",
-    "disposition": "migrated",
-    "reason": "R823：视频提示词草稿与可见成果事务发布改为必须接收 L3 video_prompt_gateway 注入的发布器。"
-   },
-   {
-    "file": "video_prompt_publication.py",
-    "point": "stage_import",
-    "disposition": "migrated",
-    "reason": "R823：视频提示词导入的读取、发布、回滚与目录清理由 L3 video_prompt_gateway 注入。"
-   },
-   {
-    "file": "workflow_context.py",
-    "point": "instruction",
-    "disposition": "migrated",
-    "reason": "R824：项目接续索引正式 JSON 发布改由 L3 workflow_context_controller 注入。"
-   },
-   {
-    "file": "writing.py",
-    "point": "import_project",
-    "disposition": "migrated",
-    "reason": "R824：剧本 JSON 导入校验报告改由 L3 import_writing_project 注入发布器。"
-   }
-  ]
- },
- "层级": {
-  "count": 8,
-  "baseline_exempt": 8,
-  "items": [
-   {
-    "file": "asset_batch_execution.py",
-    "importer": "asset_batch_execution",
-    "imported": "asset_reference_images",
-    "disposition": "exempt",
-    "reason": "既存越层，待专项收口"
-   },
-   {
-    "file": "asset_batch_service.py",
-    "importer": "asset_batch_service",
-    "imported": "asset_reference_images",
-    "disposition": "exempt",
-    "reason": "既存越层，待专项收口"
-   },
-   {
-    "file": "confirm_gates.py",
-    "importer": "confirm_gates",
-    "imported": "legacy_compat",
-    "disposition": "exempt",
-    "reason": "既存越层，待专项收口"
-   },
-   {
-    "file": "engine_probe.py",
-    "importer": "engine_probe",
-    "imported": "workflow_engines",
-    "disposition": "exempt",
-    "reason": "既存越层，待专项收口"
-   },
-   {
-    "file": "idea_document_paths.py",
-    "importer": "idea_document_paths",
-    "imported": "legacy_compat",
-    "disposition": "exempt",
-    "reason": "既存越层，待专项收口"
-   },
-   {
-    "file": "idea_chat.py",
-    "importer": "idea_chat",
-    "imported": "pet_agent",
-    "disposition": "exempt",
-    "reason": "既存越层，待专项收口"
-   },
-   {
-    "file": "native_apps.py",
-    "importer": "native_apps",
-    "imported": "white_model",
-    "disposition": "exempt",
-    "reason": "既存越层，待专项收口"
-   },
-   {
-    "file": "skill_orchestrator.py",
-    "importer": "skill_orchestrator",
-    "imported": "skill_tools",
-    "disposition": "exempt",
-    "reason": "既存越层，待专项收口"
-   }
-  ]
- },
- "第四项": {
-  "count": 0,
-  "baseline_pending": 35,
-  "items": [
-   {
-    "file": "desktop_automation_service.py",
-    "point": "PersistentBackgroundTaskQueue.enqueue_descriptor:json.loads:47a6f8acff753622:1",
-    "disposition": "exempt",
-    "reason": "R1600：内存任务参数JSON序列化复制校验，不读取正式文件；文件读取沿用core.read。"
-   },
-   {
-    "file": "agent/publication.py",
-    "point": "_recover:json.loads:5cb700bdeee2cc61:1",
-    "disposition": "exempt",
-    "reason": "R1599：底层写前日志恢复需直接读取事务日志，不能调用会重新进入恢复的core/read或缓存。"
-   },
-   {
-    "file": "writing_quality.py",
-    "point": "split_response:json.loads:d6f7ef1d1bfdb126:1",
-    "disposition": "exempt",
-    "reason": "R1302：解析模型返回的内存质检 JSON；拒绝重复键与非有限数，不读取配置文件，不能改用文件缓存。"
-   },
-   {
-    "file": "script_workspace_service.py",
-    "point": "adopt_natural_script:json.loads:e447f3b9a080d917:1",
-    "disposition": "exempt",
-    "reason": "R1247：采用记录发布前校验内存 JSON 文本，不读取文件。"
-   },
-   {
-    "file": "agent/core.py",
-    "point": "read:json.loads:147aa04421ff03cc:1",
-    "disposition": "exempt",
-    "reason": "写入权威自身"
-   },
-   {
-    "file": "agent/core.py",
-    "point": "request:json.loads:92653333211a5c9b:1",
-    "disposition": "exempt",
-    "reason": "写入权威自身"
-   },
-   {
-    "file": "agent/media.py",
-    "point": "probe:json.loads:eb2638fa946cdd2e:1",
-    "disposition": "exempt",
-    "reason": "外部进程／网络响应解析，非文件读"
-   },
-   {
-    "file": "agent/prompt_optimizer.py",
-    "point": "start.work:json.loads:dc8382fdc56d856c:1",
-    "disposition": "exempt",
-    "reason": "外部进程／网络响应解析，非文件读"
-   },
-   {
-    "file": "asset_reference_search.py",
-    "point": "retired:f4de13da9237cb69",
-    "disposition": "migrated",
-    "reason": "R825：候选清单的正式 JSON 读取收口至 file_cache.read_json。"
-   },
-   {
-    "file": "asset_reference_search.py",
-    "point": "retired:8358efe207f309d8",
-    "disposition": "migrated",
-    "reason": "R825：JSONL 兼容输入改复用 file_cache.read_text，再按行解析。"
-   },
-   {
-    "file": "asset_thumbs.py",
-    "point": "retired:a2899e46ec61d541",
-    "disposition": "migrated",
-    "reason": "R825：缩略图后台任务描述 JSON 读取收口至 file_cache.read_json。"
-   },
-   {
-    "file": "batch_frames_tool/batch_frames.py",
-    "point": "read:json.loads:0e45f0b2be5f0aa5:1",
-    "disposition": "exempt",
-    "reason": "独立批帧工具的本地配置读写，非运行期 L2"
-   },
-   {
-    "file": "batch_frames_tool/batch_frames.py",
-    "point": "Client.request:json.loads:92653333211a5c9b:1",
-    "disposition": "exempt",
-    "reason": "独立批帧工具的本地配置读写，非运行期 L2"
-   },
-   {
-    "file": "blender_previs_template.py",
-    "point": "<module>:json.loads:8cf026a46d6ce331:1",
-    "disposition": "exempt",
-    "reason": "Blender 模板生成脚本，非运行期 L2"
-   },
-   {
-    "file": "codex_paste.py",
-    "point": "_run:json.loads:f6ad03d8d214f995:1",
-    "disposition": "exempt",
-    "reason": "外部进程／网络响应解析，非文件读"
-   },
-   {
-    "file": "codex_tasks.py",
-    "point": "RPC.__enter__.pump:json.loads:e0385179e22b5760:1",
-    "disposition": "exempt",
-    "reason": "外部进程／网络响应解析，非文件读"
-   },
-   {
-    "file": "comfy_runtime.py",
-    "point": "open_comfy:json.loads:22adc767539a2f8a:1",
-    "disposition": "exempt",
-    "reason": "外部进程／网络响应解析，非文件读"
-   },
-   {
-    "file": "comfy_service.py",
-    "point": "validate_safetensors:json.loads:1fd9fbd8107f3504:1",
-    "disposition": "exempt",
-    "reason": "外部进程／网络响应解析，非文件读"
-   },
-   {
-    "file": "comfy_service.py",
-    "point": "Comfy.request:json.loads:5b6b10da4146427f:1",
-    "disposition": "exempt",
-    "reason": "外部进程／网络响应解析，非文件读"
-   },
-   {
-    "file": "console_submit.py",
-    "point": "send:json.loads:f6ad03d8d214f995:1",
-    "disposition": "exempt",
-    "reason": "网络响应解析"
-   },
-   {
-    "file": "console_submit.py",
-    "point": "<module>:json.loads:40f93432badbdc24:1",
-    "disposition": "exempt",
-    "reason": "网络响应解析"
-   },
-   {
-    "file": "continuity_ledger.py",
-    "point": "retired:57949ef69504298e",
-    "disposition": "migrated",
-    "reason": "R826：发布后复核的 JSON 往返复制改用标准深拷贝。"
-   },
-   {
-    "file": "continuity_ledger.py",
-    "point": "retired:15beceb9c5117f36",
-    "disposition": "migrated",
-    "reason": "R826：连贯性台账读取收口至 file_cache.read_json。"
-   },
-   {
-    "file": "engine_probe.py",
-    "point": "one_shot:json.loads:92653333211a5c9b:1",
-    "disposition": "exempt",
-    "reason": "R827：外部 CLI 标准输出 JSON 解析，非文件读取。"
-   },
-   {
-    "file": "engine_probe.py",
-    "point": "retired:ad4b229077ed86b2",
-    "disposition": "migrated",
-    "reason": "R827：引擎真机验证台账读取收口至 file_cache.read_json。"
-   },
-   {
-    "file": "file_cache.py",
-    "point": "read_stable_json_snapshot:json.loads:7fedb55b216dfc4e:1",
-    "disposition": "exempt",
-    "reason": "R831：缓存权威集中执行带前后签名校验的稳定工作 JSON 快照读取。"
-   },
-   {
-    "file": "idea_transcript.py",
-    "point": "_read_rows",
-    "disposition": "migrated",
-    "reason": "R790：聊天 JSON 读取改由 L3 idea_chat_gateway 注入 file_cache。"
-   },
-   {
-    "file": "idea_transcript.py",
-    "point": "remove",
-    "disposition": "migrated",
-    "reason": "R790：删除记录读取改由 L3 idea_chat_gateway 注入 file_cache。"
-   },
-   {
-    "file": "idea_transcript.py",
-    "point": "restore_latest_removed",
-    "disposition": "migrated",
-    "reason": "R790：恢复记录读取改由 L3 idea_chat_gateway 注入 file_cache。"
-   },
-   {
-    "file": "api_endpoints.py",
-    "point": "_http_transport:json.loads:0084ee081b23442e:1",
-    "disposition": "exempt",
-    "reason": "R828：HTTP 响应体 JSON 解析，不是文件读取；模型路由网络出口的响应解码。（R1706 行号平移 863→873，客户端档案路由插在其前）（R2470 代码迁移 model_pool→api_endpoints）"
-   },
-   {
-    "file": "api_endpoints.py",
-    "point": "http_stream:json.loads:b3b008eb30efa635:1",
-    "disposition": "exempt",
-    "reason": "R828：SSE data 事件 JSON 解析，不是文件读取；模型流式响应的事件解码。（R1706 行号平移 909→919，客户端档案路由插在其前）（R2470 代码迁移 model_pool→api_endpoints）"
-   },
-   {
-    "file": "pet_agent.py",
-    "point": "parse_intent:json.loads:e796cc667c4bb3ab:1",
-    "disposition": "exempt",
-    "reason": "网络响应解析"
-   },
-   {
-    "file": "previs_automation.py",
-    "point": "verify:json.loads:61e9d77f3efbd50b:1",
-    "disposition": "exempt",
-    "reason": "网络响应解析"
-   },
-   {
-    "file": "qwen_adapter.py",
-    "point": "run_background:json.loads:6118d7cb6e968167:1",
-    "disposition": "exempt",
-    "reason": "外部进程／网络响应解析"
-   },
-   {
-    "file": "qwen_setup.py",
-    "point": "load:json.loads:ac18a8a332712bed:1",
-    "disposition": "exempt",
-    "reason": "本机 Qwen API 设置（LOCALAPPDATA/漫剧制作助手/qwen-api.json），坏文件按默认值处理，非项目正式 JSON；R1854 随 R1853 改 utf-8-sig 更新锚点"
-   },
-   {
-    "file": "script_contract.py",
-    "point": "retired:dc9677656999b4ad",
-    "disposition": "exempt",
-    "reason": "R830：L0 契约为保持单向层级，经 agent.core.read 统一读取；不直接解析 JSON 或依赖 L1 file_cache。"
-   },
-   {
-    "file": "seedream_api.py",
-    "point": "request_image:json.loads:b09d5b6e43efd9c0:1",
-    "disposition": "exempt",
-    "reason": "外部进程／网络响应解析，非文件读"
-   },
-   {
-    "file": "seedream_api.py",
-    "point": "request_image:json.loads:a142745c58a77a7c:1",
-    "disposition": "exempt",
-    "reason": "外部进程／网络响应解析，非文件读"
-   },
-   {
-    "file": "shot_numbering.py",
-    "point": "retired:b793d2a8a6c11e66",
-    "disposition": "migrated",
-    "reason": "R830：镜头编号重排的正式分镜 JSON 读取改由 file_cache.read_json。"
-   },
-   {
-    "file": "speech_api.py",
-    "point": "RealtimeSession._handle:json.loads:66e0763f09fb6123:1",
-    "disposition": "exempt",
-    "reason": "实时语音识别 WebSocket 服务端事件的 JSON 解析，非文件读"
-   },
-   {
-    "file": "smoke_test.py",
-    "point": "check_json_field:json.loads:a428a6961304f795:1",
-    "disposition": "exempt",
-    "reason": "测试基建"
-   },
-   {
-    "file": "stage_execution_service.py",
-    "point": "publish_keyframe_episode:json.loads:48da4dd596fff0b4:1",
-    "disposition": "exempt",
-    "reason": "R830：原子发布前对内存 JSON 文本的校验，不读取文件。"
-   },
-   {
-    "file": "stage_animatic_gateways.py",
-    "point": "confirm_animatic:json.loads:e447f3b9a080d917:1",
-    "disposition": "exempt",
-    "reason": "R1124：发布器对内存确认文本的 JSON 校验，不读取文件。"
-   },
-   {
-    "file": "animatic_service.py",
-    "point": "validate_bundle:json.loads:77391186c5df0f0d:1",
-    "disposition": "exempt",
-    "reason": "R1124：解析待发布包内的清单字节协议，不读取文件。"
-   },
-   {
-    "file": "edit_service.py",
-    "point": "assemble_image_timeline:json.loads:d6b836044cd065ca:1",
-    "disposition": "exempt",
-    "reason": "R1124：解析 ffprobe 子进程标准输出协议，不读取 JSON 文件。"
-   },
-   {
-    "file": "stage_handoff_gateways.py",
-    "point": "save_automatic_assemble_marker.publish_marker:json.loads:e447f3b9a080d917:1",
-    "disposition": "exempt",
-    "reason": "R830：原子发布前对内存标记文本的校验，不读取文件。"
-   },
-   {
-    "file": "stage_handoff_gateways.py",
-    "point": "save_automatic_handoff_marker.publish_marker:json.loads:e447f3b9a080d917:1",
-    "disposition": "exempt",
-    "reason": "R830：原子发布前对内存标记文本的校验，不读取文件。"
-   },
-   {
-    "file": "writing_api.py",
-    "point": "extract_idea_brief:json.loads:e447f3b9a080d917:1",
-    "disposition": "exempt",
-    "reason": "R1335 合入：阶段④分集增量接入使该 json.loads 行号由 512 平移至 548，HOLLMWOOD 框架移除后再平移至 468（R1442 又上移）；仍是简报语义提取的模型响应内存 JSON 解码，非文件读取；结果文件仍走 file_cache.read_json。"
-   },
-   {
-    "file": "stage_parallel.py",
-    "point": "log_read:json.loads:e0385179e22b5760:1",
-    "disposition": "exempt",
-    "reason": "R830：经 file_cache.read_text 读取后的 JSONL 单行日志解码，不是正式 JSON 文件读取。（R1383：文件顶部加 import pet_bus 使该行由 454 平移至 455，语义不变。）"
-   },
-   {
-    "file": "storage_maintenance.py",
-    "point": "retired:1411d7921928a01a",
-    "disposition": "exempt",
-    "reason": "删除／回收权威自身的配置读写，转 file_cache 会自引用"
-   },
-   {
-    "file": "storage_maintenance.py",
-    "point": "retired:ac69f13e7491df22",
-    "disposition": "exempt",
-    "reason": "删除／回收权威自身的回收清单读写，转 file_cache 会自引用"
-   },
-   {
-    "file": "storage_maintenance.py",
-    "point": "retired:f256ea4086bbbb9d",
-    "disposition": "exempt",
-    "reason": "删除／回收权威自身的恢复清单读写，转 file_cache 会自引用"
-   },
-   {
-    "file": "storage_maintenance.py",
-    "point": "retired:d236e79c03597727",
-    "disposition": "exempt",
-    "reason": "删除／回收权威自身的恢复清单读写，转 file_cache 会自引用"
-   },
-   {
-    "file": "storage_maintenance.py",
-    "point": "retired:3bc0019e0883f338",
-    "disposition": "exempt",
-    "reason": "删除／回收权威自身的恢复清单读写，转 file_cache 会自引用"
-   },
-   {
-    "file": "storage_maintenance.py",
-    "point": "retired:6e4da209cf6ff636",
-    "disposition": "exempt",
-    "reason": "删除／回收权威自身的状态清单读写，转 file_cache 会自引用"
-   },
-   {
-    "file": "storyboard_final_controller.py",
-    "point": "FinalStoryboardController.save_edited:json.loads:e447f3b9a080d917:1",
-    "disposition": "exempt",
-    "reason": "R830：编辑器输入框内存文本的 JSON 解析，不读取文件。"
-   },
-   {
-    "file": "storyboard_final.py",
-    "point": "finalize.validate_episode_text:json.loads:48da4dd596fff0b4:1",
-    "disposition": "exempt",
-    "reason": "R830：发布前内存 JSON 文本校验，不读取文件。"
-   },
-   {
-    "file": "storyboard_storage.py",
-    "point": "retired:1c9ce7e181a7d29c",
-    "disposition": "migrated",
-    "reason": "R831：并发稳定快照读取收口至 file_cache.read_stable_json_snapshot。"
-   },
-   {
-    "file": "video_prompt_results.py",
-    "point": "parse_result:json.loads:a142745c58a77a7c:1",
-    "disposition": "exempt",
-    "reason": "R829：外部 Agent 结果文本的 JSON 解析，不是正式项目文件读取。"
-   },
-   {
-    "file": "video_prompt_results.py",
-    "point": "parse_result:json.loads:924fad0814c25a41:1",
-    "disposition": "exempt",
-    "reason": "R829：格式修复分支对外部 Agent 结果片段的 JSON 解析，不是正式项目文件读取。"
-   },
-   {
-    "file": "video_prompt_results.py",
-    "point": "parse_result:json.loads:ad3dc98d9e794255:1",
-    "disposition": "exempt",
-    "reason": "R829：格式修复后的提示词字面量 JSON 解码，不是文件读取。"
-   },
-   {
-    "file": "workflow_engines.py",
-    "point": "_opencode_report_text:json.loads:e0385179e22b5760:1",
-    "disposition": "exempt",
-    "reason": "网络响应解析（R1706 行号平移 143→167：OpenCode 事件流逐行 JSON 解码，不是文件读取）"
-   },
-   {
-    "file": "workflow_engines.py",
-    "point": "_run_claude_json:json.loads:6118d7cb6e968167:1",
-    "disposition": "exempt",
-    "reason": "R1691 登记：读取 OpenCode CLI 自己写出的 .response.json 临时响应文件，外部进程产物不是正式项目数据，不走 file_cache。（R1706 行号平移 196→241）"
-   },
-   {
-    "file": "skills/09白模预演SKILL/create-blender-story-video/assets/render-monitor-dashboard/server.py",
-    "point": "read_json:json.loads:d8914783a47c6a77:1",
-    "disposition": "exempt",
-    "reason": "SKILL 自带脚本"
-   },
-   {
-    "file": "skills/09白模预演SKILL/create-blender-story-video/assets/render-monitor-dashboard/server.py",
-    "point": "Monitor._probe_media:json.loads:d3ab9c6132702340:1",
-    "disposition": "exempt",
-    "reason": "SKILL 自带脚本"
-   },
-   {
-    "file": "skills/imagegen/scripts/image_gen.py",
-    "point": "_read_jobs_jsonl:json.loads:e0385179e22b5760:1",
-    "disposition": "exempt",
-    "reason": "SKILL 自带脚本"
-   },
-   {
-    "file": "skills/short-drama-storyboard/scripts/storyboard_check.py",
-    "point": "_load_json:json.loads:d8914783a47c6a77:1",
-    "disposition": "exempt",
-    "reason": "SKILL 自带脚本"
-   },
-   {
-    "file": "skills/short-drama-storyboard/scripts/storyboard_check.py",
-    "point": "_load_jsonl:json.loads:e0385179e22b5760:1",
-    "disposition": "exempt",
-    "reason": "SKILL 自带脚本"
-   },
-   {
-    "file": "skills/video-storyboard-gen/scripts/validate_repo.py",
-    "point": "validate_repository:json.loads:d8914783a47c6a77:1",
-    "disposition": "exempt",
-    "reason": "SKILL 自带脚本"
-   },
-   {
-    "file": "skills/video-storyboard-gen/scripts/validate_repo.py",
-    "point": "validate_repository:json.loads:0582556804ad8235:1",
-    "disposition": "exempt",
-    "reason": "SKILL 自带脚本"
-   },
-   {
-    "file": "skills/video-storyboard-gen/scripts/validate_repo.py",
-    "point": "validate_repository:json.loads:79ac35a543a43435:1",
-    "disposition": "exempt",
-    "reason": "SKILL 自带脚本"
-   },
-   {
-    "file": "skills/video-storyboard-gen/scripts/validate_repo.py",
-    "point": "validate_repository:json.loads:05f7a192412f0dc6:1",
-    "disposition": "exempt",
-    "reason": "SKILL 自带脚本"
-   },
-   {
-    "file": "skill_notes.py",
-    "point": "_api_translator.translate:json.loads:bda0f3d830f7ed12:1",
-    "disposition": "exempt",
-    "reason": "R1125：解析模型返回的译文 JSON 字符串数组，不是文件读取；说明缓存与词表仍复用 file_cache.read_json。"
-   },
-   {
-    "file": "edit_habits.py",
-    "point": "parse_rules:json.loads:e796cc667c4bb3ab:1",
-    "disposition": "exempt",
-    "reason": "R2074：解析模型返回的修改习惯 JSON 数组，不是文件读取；记录与规则文件仍经 file_cache.read_json。"
-   },
-   {
-    "file": "lease_verifier.py",
-    "point": "verify:json.loads:001fd68b45942bb5:1",
-    "disposition": "exempt",
-    "reason": "R1895：解析已验签租约的内存 payload 字节，不读取文件。"
-   },
-   {
-    "file": "account_client.py",
-    "point": "_read_json:json.loads:ba5f15a4e6a1061d:1",
-    "disposition": "exempt",
-    "reason": "R1895：解析账号服务 HTTP 响应体，不读取文件。"
-   },
-   {
-    "file": "storyboard_direct_api.py",
-    "point": "_extract_json:json.loads:da95b1449dbe88d3:1",
-    "disposition": "exempt",
-    "reason": "直连分镜（REQ-S03-53）：解析模型回复的内存文本，不读取正式文件；文件读取沿用core.read。"
-   },
-   {
-    "file": "workflow_engines.py",
-    "point": "extract_codex_thread_id:json.loads:e447f3b9a080d917:1",
-    "disposition": "exempt",
-    "reason": "R2491：解析 codex exec --json 的 thread.started 事件行取 thread_id（进程 stdout 内存文本，不读文件）。"
-   },
-   {
-    "file": "workflow_engines.py",
-    "point": "extract_codex_message_text:json.loads:e447f3b9a080d917:1",
-    "disposition": "exempt",
-    "reason": "R2491：解析 codex exec --json 的 agent_message 事件行取正文（进程 stdout 内存文本，不读文件）。"
-   },
-   {
-    "file": "scripts/tools_lock.py",
-    "point": "main:json.loads:746e1517d527c929:1",
-    "disposition": "exempt",
-    "reason": "R2572/R2587 合并：tools_lock 是开发期锁定清单工具，main 直接读 lock 文件属脚本内直读豁免，与同类 scripts/* 登记一致"
-   }
-  ]
- },
- "覆盖率审计21": {
-  "disposition": "frozen",
-  "reason": "R1648：R837／R1394 已把进程调用收口到 platform_tools.run_process，冻结谓词真候选 0。",
-  "count": 0,
-  "baseline_pending": 6,
-  "items": [
-   {
-    "file": "agent/core.py",
-    "point": "retired:d28879ac0b05de8e",
-    "disposition": "migrated",
-    "reason": "R1394：command() 已收口到 platform_tools.run_process（惰性 import，保持启动路径轻量），不再直接 subprocess.run。"
-   },
-   {
-    "file": "agent/prompt_optimizer.py",
-    "point": "retired:11c9203579238864",
-    "disposition": "migrated",
-    "reason": "R1394：MCP 桥子进程已收口到 platform_tools.run_process（模块级 import），TimeoutExpired／SubprocessError 异常类型不变。"
-   },
-   {
-    "file": "api_endpoints.py",
-    "point": "retired:92fa5842b1871567",
-    "disposition": "exempt",
-    "reason": "R797: network call is owned only by audit 26; it is not a process-adapter pending item."
-   },
-   {
-    "file": "asset_thumbs.py",
-    "point": "retired:599c4eca5f3cc4da",
-    "disposition": "migrated",
-    "reason": "R834：缩略图 worker 保留凭据隔离与可替换启动钩子，经 platform_tools.launch_background 启动。"
-   },
-   {
-    "file": "log_maintenance.py",
-    "point": "retired:872113ffbae5c4f9",
-    "disposition": "migrated",
-    "reason": "R833：程序日志清理后台进程改经 platform_tools.launch_background。"
-   },
-   {
-    "file": "model_pool.py",
-    "point": "retired:0b470daedacbfbfb",
-    "disposition": "exempt",
-    "reason": "R797: model_pool is the approved model-routing authority (audit 26 whitelist), not a process-adapter pending item."
-   },
-   {
-    "file": "model_pool.py",
-    "point": "retired:5dcb85888c69e53c",
-    "disposition": "exempt",
-    "reason": "R797: model_pool is the approved model-routing authority (audit 26 whitelist), not a process-adapter pending item."
-   },
-   {
-    "file": "native_asset_codec.py",
-    "point": "retired:d414680eeed7b73b",
-    "disposition": "migrated",
-    "reason": "R835：ffmpeg PNG 转码经 platform_tools.run_process 执行，保留超时、输入输出和失败语义。"
-   },
-   {
-    "file": "pet_test_service.py",
-    "point": "retired:6e43648af8876906",
-    "disposition": "migrated",
-    "reason": "R836：宠物增量自检后台进程经 platform_tools.launch_background 启动，保留输出流与可替换启动钩子。"
-   },
-   {
-    "file": "stage_layout.py",
-    "point": "retired:8573bca1d39448a5",
-    "disposition": "migrated",
-    "reason": "R837：阶段目录 junction 回退经 platform_tools.run_process 执行，保留静默与返回码判定。"
-   },
-   {
-    "file": "storage_maintenance.py",
-    "point": "retired:c85e3f6d34e353a5",
-    "disposition": "migrated",
-    "reason": "R833：程序自有回收清理后台进程改经 platform_tools.launch_background。"
-   }
-  ]
- },
- "覆盖率审计24": {
-  "count": 0,
-  "baseline_pending": 0,
-  "items": [
-   {
-    "file": "asset_auto_batch_service.py",
-    "point": "retired:921439d91f484516",
-    "disposition": "exempt",
-    "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
-   },
-   {
-    "file": "asset_skill_batch.py",
-    "point": "retired:3bc160322184154a",
-    "disposition": "exempt",
-    "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
-   },
-   {
-    "file": "codex_tasks.py",
-    "point": "retired:47013059eb060ad8",
-    "disposition": "exempt",
-    "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
-   },
-   {
-    "file": "engine.py",
-    "point": "retired:02d8afd619511196",
-    "disposition": "exempt",
-    "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
-   },
-   {
-    "file": "keyframe_batch.py",
-    "point": "retired:a983e65897e14177",
-    "disposition": "exempt",
-    "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
-   },
-   {
-    "file": "keyframe_comfy.py",
-    "point": "retired:88ed5a0d35287e98",
-    "disposition": "exempt",
-    "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
-   },
-   {
-    "file": "keyframe_comfy.py",
-    "point": "retired:ab10bf5185d45ced",
-    "disposition": "exempt",
-    "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
-   },
-   {
-    "file": "keyframe_comfy.py",
-    "point": "retired:854b75835df451f0",
-    "disposition": "exempt",
-    "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
-   },
-   {
-    "file": "keyframe_comfy.py",
-    "point": "retired:1953792f381c1138",
-    "disposition": "exempt",
-    "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
-   },
-   {
-    "file": "keyframe_comfy.py",
-    "point": "retired:bbb6aad0e9605d72",
-    "disposition": "exempt",
-    "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
-   },
-   {
-    "file": "keyframe_comfy.py",
-    "point": "retired:84e8b8e3ce9c2d7a",
-    "disposition": "exempt",
-    "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
-   },
-   {
-    "file": "keyframe_comfy.py",
-    "point": "retired:0d2df0a71e3dda58",
-    "disposition": "exempt",
-    "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
-   },
-   {
-    "file": "keyframe_comfy.py",
-    "point": "retired:62ada0d58eafd743",
-    "disposition": "exempt",
-    "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
-   },
-   {
-    "file": "keyframe_comfy.py",
-    "point": "retired:dabfa67f9bd25fd1",
-    "disposition": "exempt",
-    "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
-   },
-   {
-    "file": "keyframe_comfy.py",
-    "point": "retired:28891ad2536cf7fd",
-    "disposition": "exempt",
-    "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
-   },
-   {
-    "file": "keyframe_model_service.py",
-    "point": "retired:1896fd1dd7cf50a2",
-    "disposition": "exempt",
-    "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
-   },
-   {
-    "file": "local_video.py",
-    "point": "retired:85dc6f3e72405c88",
-    "disposition": "exempt",
-    "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
-   },
-   {
-    "file": "qwen_setup.py",
-    "point": "retired:6472f9577f53829c",
-    "disposition": "exempt",
-    "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
-   },
-   {
-    "file": "script_contract.py",
-    "point": "retired:d3f9281675f773ac",
-    "disposition": "exempt",
-    "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
-   },
-   {
-    "file": "script_contract.py",
-    "point": "retired:1551004ec3bc905b",
-    "disposition": "exempt",
-    "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
-   },
-   {
-    "file": "script_contract.py",
-    "point": "retired:162584c923132860",
-    "disposition": "exempt",
-    "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
-   },
-   {
-    "file": "stage_models.py",
-    "point": "retired:42b7b83cd253b027",
-    "disposition": "exempt",
-    "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
-   },
-   {
-    "file": "storyboard_adoption_contract.py",
-    "point": "retired:8056d42c445c8bda",
-    "disposition": "exempt",
-    "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
-   },
-   {
-    "file": "white_model.py",
-    "point": "retired:12bee8e67bcdcb97",
-    "disposition": "exempt",
-    "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
-   },
-   {
-    "file": "white_model.py",
-    "point": "retired:aa3d60100e867cba",
-    "disposition": "exempt",
-    "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
-   },
-   {
-    "file": "workflow_settings.py",
-    "point": "retired:7f84512e4ce1c8d8",
-    "disposition": "exempt",
-    "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
-   },
-   {
-    "file": "workflow_settings.py",
-    "point": "retired:001c955f580aed9a",
-    "disposition": "exempt",
-    "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
-   }
-  ]
- },
- "覆盖率审计20": {
-  "disposition": "frozen",
-  "reason": "R1648：R840 逐条裁定后冻结谓词真候选 0（L3 工作流／配置替换与回滚均已注入 file_cache.published）。",
-  "count": 0,
-  "baseline_pending": 4,
-  "items": [
-   {
-    "file": "asset_detail_service.py",
-    "point": "retired:ccc2ee9fba3bb4e3",
-    "disposition": "exempt",
-    "reason": "R840：正典板图片由 asset_thumbs 管理，不是 file_cache 的正式读取路径。"
-   },
-   {
-    "file": "local_video_settings_service.py",
-    "point": "save_local_video_settings",
-    "disposition": "migrated",
-    "reason": "R840：工作流替换、配置发布及其回滚均由 L3 注入 file_cache.published。"
-   },
-   {
-    "file": "log_maintenance.py",
-    "point": "retired:a612dabb8b44c3d7",
-    "disposition": "exempt",
-    "reason": "R840：程序自有日志轮转不在 file_cache 的正式项目读取范围。"
-   },
-   {
-    "file": "log_maintenance.py",
-    "point": "retired:1b893b76950d594f",
-    "disposition": "exempt",
-    "reason": "R840：程序自有日志轮转不在 file_cache 的正式项目读取范围。"
-   }
-  ]
- },
- "覆盖率审计25": {
-  "count": 0,
-  "baseline_pending": 0,
-  "items": []
- },
- "覆盖率审计27": {
-  "count": 0,
-  "baseline_pending": 0,
-  "items": []
- },
- "覆盖率审计26": {
-  "count": 0,
-  "baseline_pending": 2,
-  "items": [
-   {
-    "file": "agent/core.py",
-    "point": "retired:a44426e0bd9c4c4d",
-    "disposition": "migrated",
-    "reason": "R1395：request() 出站调用收口至 platform_tools.open_https（唯一出站 HTTP 入口）；错误分类与密钥脱敏不变。"
-   },
-   {
-    "file": "agent/core.py",
-    "point": "retired:8b4d99f852447bae",
-    "disposition": "migrated",
-    "reason": "R1395：download() 出站调用收口至 platform_tools.open_https；HTTPS 强制、重定向校验、1GB 上限与原子发布不变。"
-   },
-   {
-    "file": "api_endpoints.py",
-    "point": "retired:e83dcf351b1ff228",
-    "disposition": "migrated",
-    "reason": "R832：无凭据 HTTP 根地址探测收口至 platform_tools.probe_http_endpoint。"
-   }
-  ]
- },
- "第五项": {
-  "count": 0,
-  "baseline_pending": 0,
-  "items": []
- },
- "覆盖率审计19": {
-  "count": 0,
-  "baseline_pending": 0,
-  "disposition": "merged",
-  "reason": "R1648：第 19 项不另建扫描器，归并第 3 项扫描器目标集合；棘轮断言 L2 的 config.json 写入点必须是第 3 项已登记项的子集。",
-  "items": []
- },
- "覆盖率审计22": {
-  "count": 0,
-  "baseline_pending": 0,
-  "disposition": "reused",
-  "reason": "R1648：删除面复用既有删除门禁（storage_maintenance.recycle_paths() 与 tests/architecture/test_remove_authority.py），冻结谓词真候选 0，与第 4 项同源。",
-  "items": []
- },
- "覆盖率审计23": {
-  "count": 0,
-  "baseline_pending": 0,
-  "disposition": "frozen",
-  "reason": "R1648：冻结窄谓词＝发出 stage.completed／script.completed 且同一函数内没有核验证据（emit_verified_completion／_completion_evidence／verified_stage_output），权威白名单 stage_completion_service／pet_bus；真候选 0，金丝雀仍覆盖未核验宣布完成。",
-  "items": []
- }
 }

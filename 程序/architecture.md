@@ -263,7 +263,7 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 
 ### SKILL 注册表与制作锁（R2862）
 
-总控宪法已废止（R2862，任务书《共享输入框与skill体系重构》）：① SKILL 唯一来源是 `skill_registry`（内置 `skills/01—13` ＋ 用户 `data/skills/`，同名用户优先），不再有总控清单投影；② 各阶段 SKILL 勾选始终由用户自由决定，面板只提供勾选与技能说明；③ 制作锁是项目级事实，经弹窗预选写入 `production_locks`，门禁（`stage_handler_registry` 与简报门禁）对手动与自动路径一律生效；④ 完整安装 skill 的登记、`/` 命令分发与共享输入框由后续轮次落地，本轮只保留注册表与锁存储。
+总控宪法已废止（R2862，任务书《共享输入框与skill体系重构》）：① SKILL 唯一来源是 `skill_registry`（内置 `skills/01—13` ＋ 用户 `data/skills/`，同名用户优先），不再有总控清单投影；② 各阶段 SKILL 勾选始终由用户自由决定，面板只提供勾选与技能说明；③ 制作锁是项目级事实，经弹窗预选写入 `production_locks`，门禁（`stage_handler_registry` 与简报门禁）对手动与自动路径一律生效；④ 完整安装 skill 的登记由 R2881 落地（`skill_import_service.import_from_repo` 薄 git 层）；R2893 落地共享输入框：`skill_command`（L2 纯解析：`/skill名`／`/阶段别名`／`/子引擎` 三形态、补全排序）与 `desktop_shared_input.SharedStageInput`（L4 单实例底部输入框，`[技能][附件]|TextArea|[模型][发送]`，`/` 与 `Esc` 经 `ShortcutRegistry` 登记）；发送门禁 `upstream_send_error` 复用 `stage_parallel.evaluate`（UPSTREAM_BLANK／BLOCKED 拦截）与 `stage_completion_service.completion_evidence`（无门禁行阶段看紧邻上游），模型快照在发送瞬间经 `writing_api.capture_request` 捕获、在途期切换只影响下一次请求；13 页接线与按模型隔离取消在轮 4。
 
 ## 当前架构门禁清单
 

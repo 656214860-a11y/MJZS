@@ -691,6 +691,12 @@
    "percent": 0.0
   },
   {
+   "module": "desktop_shared_input.py",
+   "covered": 0,
+   "total": 244,
+   "percent": 0.0
+  },
+  {
    "module": "desktop_startup_service.py",
    "covered": 0,
    "total": 31,
@@ -1468,6 +1474,12 @@
    "module": "shot_selection.py",
    "covered": 0,
    "total": 2,
+   "percent": 0.0
+  },
+  {
+   "module": "skill_command.py",
+   "covered": 0,
+   "total": 117,
    "percent": 0.0
   },
   {
@@ -2450,5 +2462,5 @@
   }
  ],
  "modules_covered": 64,
- "modules_total": 406
+ "modules_total": 408
 }
