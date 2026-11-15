@@ -27,6 +27,7 @@ sys.path.insert(0, str(PROGRAM))
 import run_selftests  # noqa: E402
 
 sys.path.insert(0, str(PROGRAM / "维护记录" / "基准脚本"))
+import branch_scope  # noqa: E402
 import round_evidence  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -54,6 +55,24 @@ def check_test_move(message: str, root: Path) -> int:
     for line in problems:
         print("拒绝提交：测试搬家轮 " + line, file=sys.stderr)
     return 5 if problems else 0
+
+
+def check_scope_overlap(root: Path) -> int:
+    """暂存区新增文件与其他活跃工作树分支的新增文件同名即拒绝（add/add 重复实现门禁）。
+
+    合并提交（MERGE_HEAD）与主干分支不触发；被合入的源分支本就含同名新文件，
+    属正常合并而非重复实现。"""
+    if _git("rev-parse", "-q", "--verify", "MERGE_HEAD", cwd=root).returncode == 0:
+        return 0
+    branch = _git("symbolic-ref", "--quiet", "--short", "HEAD", cwd=root).stdout.strip()
+    if branch in ("", "master", "main"):
+        return 0
+    report = branch_scope.commit_gate_report(root, exclude_branch=branch)
+    for line in report["skipped"]:
+        print("警告：" + line, file=sys.stderr)
+    for line in report["conflicts"]:
+        print("拒绝提交：" + line, file=sys.stderr)
+    return 5 if report["conflicts"] else 0
 
 
 def attach_evidence(message: str, keywords, root: Path) -> int:
@@ -130,7 +149,9 @@ def main(argv=None) -> int:
             print(added.stderr.strip(), file=sys.stderr)
             return added.returncode
     if args.files or _git("diff", "--cached", "--name-only").stdout.strip():
-        rejected = check_test_move(args.message, PROGRAM.parent) or attach_evidence(args.message, args.tests, PROGRAM.parent)
+        rejected = (check_test_move(args.message, PROGRAM.parent)
+                    or check_scope_overlap(PROGRAM.parent)
+                    or attach_evidence(args.message, args.tests, PROGRAM.parent))
         if rejected:
             return rejected
     staged = [line for line in _git("diff", "--cached", "--name-only").stdout.splitlines() if line]
