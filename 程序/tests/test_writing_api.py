@@ -645,7 +645,9 @@ class WritingApiTests(unittest.TestCase):
             self.assertEqual(system.count('内联技能正文'), 1)
             self.assertIn(f'<!-- 来源: {skill.resolve()} -->', system)
             self.assertNotIn('请先完整读取并遵循本地技能文件', system)
-            for obsolete in ('全局节奏模板', 'HOLLMWOOD', 'APPROVED'):
+            # R2450 起 writing 阶段递归内联 SKILL 引用；'APPROVED_R01' 是引用文档的正文，
+            # 不能再当「旧内容泄漏」哨兵——哨兵只保留仍属废弃词的两条。
+            for obsolete in ('全局节奏模板', 'HOLLMWOOD'):
                 self.assertNotIn(obsolete, system)
             prompt = chat.call_args.args[0][0]['content']
             self.assertEqual(prompt.count('<brief_complete>'), 1)

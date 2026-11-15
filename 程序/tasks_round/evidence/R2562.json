@@ -1,0 +1,15 @@
+{
+  "round": 2562,
+  "commit_base": "33ae2756",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k skill_deep_inline writing_api latent_defects distribution_selfcheck request_freeze workflow_context_budget.py workflow_settings.py skill_inline.py api_endpoints.py pet_models_ui.py scripts/sync_master.py tests/test_writing_api.py tests/test_previs.py tests/test_skill_deep_inline.py 维护记录/覆盖率基线.json tasks_round/tasks_round_2562_result.md",
+    "exit": 0,
+    "passed": 112,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T11:16:28"
+}

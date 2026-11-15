@@ -79,7 +79,7 @@ _register(4, "qwen_setup_dialog")
 # workflow_settings／legacy_compat 依赖 L3 的配置与技能注册 → L3。（登记 L2 会触发 L2 返回契约与发布债务门禁，故不选 L2。）
 _register(0, "artifact_lineage")
 _register(1, "pet_state", "ui_plugin_registry", "integrations", "qwen_setup")
-_register(3, "workflow_settings", "legacy_compat", "qwen_adapter")
+_register(3, "workflow_settings", "legacy_compat", "qwen_adapter", "skill_inline")
 # R2202（R2178 J5–J7）：Tk 弹窗拆进 L4 对话模块后，这四个模块只剩数据与规则，按真实依赖登记：
 # project_settings／cloud_assets／asset_prompt_rules 只依赖 L0／L1 → L1；
 # asset_reference_prompts 懒加载 L2 的 storyboard_catalog_service → L2。

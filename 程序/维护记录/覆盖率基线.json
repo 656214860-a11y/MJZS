@@ -1,2207 +1,2213 @@
 {
- "targets": [
-  "tests.test_money_invariants",
-  "tests.test_request_ledger",
-  "tests.test_keyframe_lifecycle_service",
-  "tests.test_video_lifecycle_service",
-  "tests.test_persistent_task_queue",
-  "tests.test_lifecycle",
-  "tests.test_publication_recovery",
-  "tests.test_claim_queue_gateway"
- ],
- "tests_ok": true,
- "modules": [
-  {
-   "module": "account_client.py",
-   "covered": 0,
-   "total": 117,
-   "percent": 0.0
-  },
-  {
-   "module": "account_controller.py",
-   "covered": 0,
-   "total": 225,
-   "percent": 0.0
-  },
-  {
-   "module": "account_inputs.py",
-   "covered": 0,
-   "total": 71,
-   "percent": 0.0
-  },
-  {
-   "module": "account_store.py",
-   "covered": 0,
-   "total": 76,
-   "percent": 0.0
-  },
-  {
-   "module": "agent/optimizer_mcp_bridge.py",
-   "covered": 0,
-   "total": 37,
-   "percent": 0.0
-  },
-  {
-   "module": "agent/prompt_optimizer.py",
-   "covered": 0,
-   "total": 181,
-   "percent": 0.0
-  },
-  {
-   "module": "agent/shot_assets.py",
-   "covered": 0,
-   "total": 125,
-   "percent": 0.0
-  },
-  {
-   "module": "agent_dispatch.py",
-   "covered": 0,
-   "total": 44,
-   "percent": 0.0
-  },
-  {
-   "module": "aigc_lint.py",
-   "covered": 0,
-   "total": 118,
-   "percent": 0.0
-  },
-  {
-   "module": "animatic_service.py",
-   "covered": 0,
-   "total": 171,
-   "percent": 0.0
-  },
-  {
-   "module": "api_models.py",
-   "covered": 0,
-   "total": 60,
-   "percent": 0.0
-  },
-  {
-   "module": "app.py",
-   "covered": 0,
-   "total": 1170,
-   "percent": 0.0
-  },
-  {
-   "module": "app_icon.py",
-   "covered": 0,
-   "total": 280,
-   "percent": 0.0
-  },
-  {
-   "module": "app_shortcut.py",
-   "covered": 0,
-   "total": 170,
-   "percent": 0.0
-  },
-  {
-   "module": "artifact_lineage.py",
-   "covered": 0,
-   "total": 122,
-   "percent": 0.0
-  },
-  {
-   "module": "artifact_schema.py",
-   "covered": 0,
-   "total": 66,
-   "percent": 0.0
-  },
-  {
-   "module": "asset_auto_batch_service.py",
-   "covered": 0,
-   "total": 38,
-   "percent": 0.0
-  },
-  {
-   "module": "asset_batch.py",
-   "covered": 0,
-   "total": 304,
-   "percent": 0.0
-  },
-  {
-   "module": "asset_batch_controller.py",
-   "covered": 0,
-   "total": 66,
-   "percent": 0.0
-  },
-  {
-   "module": "asset_batch_execution.py",
-   "covered": 0,
-   "total": 130,
-   "percent": 0.0
-  },
-  {
-   "module": "asset_batch_selection_service.py",
-   "covered": 0,
-   "total": 30,
-   "percent": 0.0
-  },
-  {
-   "module": "asset_batch_service.py",
-   "covered": 0,
-   "total": 322,
-   "percent": 0.0
-  },
-  {
-   "module": "asset_batch_settings_service.py",
-   "covered": 0,
-   "total": 61,
-   "percent": 0.0
-  },
-  {
-   "module": "asset_batch_state_service.py",
-   "covered": 0,
-   "total": 94,
-   "percent": 0.0
-  },
-  {
-   "module": "asset_contract.py",
-   "covered": 0,
-   "total": 225,
-   "percent": 0.0
-  },
-  {
-   "module": "asset_detail.py",
-   "covered": 0,
-   "total": 503,
-   "percent": 0.0
-  },
-  {
-   "module": "asset_detail_service.py",
-   "covered": 0,
-   "total": 110,
-   "percent": 0.0
-  },
-  {
-   "module": "asset_generated_import_service.py",
-   "covered": 0,
-   "total": 84,
-   "percent": 0.0
-  },
-  {
-   "module": "asset_page_controller.py",
-   "covered": 0,
-   "total": 31,
-   "percent": 0.0
-  },
-  {
-   "module": "asset_plan.py",
-   "covered": 0,
-   "total": 247,
-   "percent": 0.0
-  },
-  {
-   "module": "asset_prompt_check_dialog.py",
-   "covered": 0,
-   "total": 10,
-   "percent": 0.0
-  },
-  {
-   "module": "asset_prompt_rules.py",
-   "covered": 0,
-   "total": 26,
-   "percent": 0.0
-  },
-  {
-   "module": "asset_reference_images.py",
-   "covered": 0,
-   "total": 358,
-   "percent": 0.0
-  },
-  {
-   "module": "asset_reference_import.py",
-   "covered": 0,
-   "total": 107,
-   "percent": 0.0
-  },
-  {
-   "module": "asset_reference_prompts.py",
-   "covered": 0,
-   "total": 75,
-   "percent": 0.0
-  },
-  {
-   "module": "asset_reference_prompts_dialog.py",
-   "covered": 0,
-   "total": 8,
-   "percent": 0.0
-  },
-  {
-   "module": "asset_reference_search.py",
-   "covered": 0,
-   "total": 321,
-   "percent": 0.0
-  },
-  {
-   "module": "asset_resume.py",
-   "covered": 0,
-   "total": 78,
-   "percent": 0.0
-  },
-  {
-   "module": "asset_skill_batch.py",
-   "covered": 0,
-   "total": 97,
-   "percent": 0.0
-  },
-  {
-   "module": "asset_thumbs.py",
-   "covered": 0,
-   "total": 417,
-   "percent": 0.0
-  },
-  {
-   "module": "audio_direct_api.py",
-   "covered": 0,
-   "total": 160,
-   "percent": 0.0
-  },
-  {
-   "module": "audio_import_service.py",
-   "covered": 0,
-   "total": 64,
-   "percent": 0.0
-  },
-  {
-   "module": "background_characters.py",
-   "covered": 0,
-   "total": 138,
-   "percent": 0.0
-  },
-  {
-   "module": "batch_frames_tool/batch_frames.py",
-   "covered": 0,
-   "total": 243,
-   "percent": 0.0
-  },
-  {
-   "module": "blender_previs_template.py",
-   "covered": 0,
-   "total": 62,
-   "percent": 0.0
-  },
-  {
-   "module": "broadcaster.py",
-   "covered": 0,
-   "total": 33,
-   "percent": 0.0
-  },
-  {
-   "module": "cell_hover.py",
-   "covered": 0,
-   "total": 714,
-   "percent": 0.0
-  },
-  {
-   "module": "clipboard_lock.py",
-   "covered": 0,
-   "total": 64,
-   "percent": 0.0
-  },
-  {
-   "module": "cloud_assets.py",
-   "covered": 0,
-   "total": 80,
-   "percent": 0.0
-  },
-  {
-   "module": "cloud_assets_dialog.py",
-   "covered": 0,
-   "total": 32,
-   "percent": 0.0
-  },
-  {
-   "module": "cloud_video.py",
-   "covered": 0,
-   "total": 221,
-   "percent": 0.0
-  },
-  {
-   "module": "cloud_video_service.py",
-   "covered": 0,
-   "total": 76,
-   "percent": 0.0
-  },
-  {
-   "module": "codex_paste.py",
-   "covered": 0,
-   "total": 33,
-   "percent": 0.0
-  },
-  {
-   "module": "codex_skill_sync.py",
-   "covered": 0,
-   "total": 126,
-   "percent": 0.0
-  },
-  {
-   "module": "codex_tasks.py",
-   "covered": 0,
-   "total": 133,
-   "percent": 0.0
-  },
-  {
-   "module": "comfy_runtime.py",
-   "covered": 0,
-   "total": 40,
-   "percent": 0.0
-  },
-  {
-   "module": "comfy_service.py",
-   "covered": 0,
-   "total": 203,
-   "percent": 0.0
-  },
-  {
-   "module": "confirm_gates.py",
-   "covered": 0,
-   "total": 238,
-   "percent": 0.0
-  },
-  {
-   "module": "console_submit.py",
-   "covered": 0,
-   "total": 62,
-   "percent": 0.0
-  },
-  {
-   "module": "continuity_ledger.py",
-   "covered": 0,
-   "total": 489,
-   "percent": 0.0
-  },
-  {
-   "module": "delivery_import_service.py",
-   "covered": 0,
-   "total": 29,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop.py",
-   "covered": 0,
-   "total": 744,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_account_page.py",
-   "covered": 0,
-   "total": 557,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_asset_pages.py",
-   "covered": 0,
-   "total": 578,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_async_tasks.py",
-   "covered": 0,
-   "total": 114,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_audio_direct.py",
-   "covered": 0,
-   "total": 34,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_auto_flows.py",
-   "covered": 0,
-   "total": 536,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_auto_state.py",
-   "covered": 0,
-   "total": 98,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_automation_tick.py",
-   "covered": 0,
-   "total": 206,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_direct_dispatch.py",
-   "covered": 0,
-   "total": 29,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_file_card.py",
-   "covered": 0,
-   "total": 27,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_idea_attachments.py",
-   "covered": 0,
-   "total": 106,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_idea_bubbles.py",
-   "covered": 0,
-   "total": 458,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_idea_chat.py",
-   "covered": 0,
-   "total": 876,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_idea_deferred.py",
-   "covered": 0,
-   "total": 56,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_idea_menus.py",
-   "covered": 0,
-   "total": 82,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_image_direct.py",
-   "covered": 0,
-   "total": 22,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_launcher.py",
-   "covered": 0,
-   "total": 19,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_layout.py",
-   "covered": 0,
-   "total": 380,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_layout_resize.py",
-   "covered": 0,
-   "total": 268,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_lifecycle.py",
-   "covered": 0,
-   "total": 102,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_login_gate.py",
-   "covered": 0,
-   "total": 60,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_master_update.py",
-   "covered": 0,
-   "total": 47,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_media_pages.py",
-   "covered": 0,
-   "total": 769,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_page_nav.py",
-   "covered": 0,
-   "total": 232,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_page_registry.py",
-   "covered": 0,
-   "total": 12,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_page_support.py",
-   "covered": 0,
-   "total": 13,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_pet_bridge.py",
-   "covered": 0,
-   "total": 99,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_project_pages.py",
-   "covered": 0,
-   "total": 489,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_script_pages.py",
-   "covered": 0,
-   "total": 678,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_send_choice.py",
-   "covered": 0,
-   "total": 134,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_send_ledger.py",
-   "covered": 0,
-   "total": 134,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_settings_service.py",
-   "covered": 0,
-   "total": 40,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_startup_service.py",
-   "covered": 0,
-   "total": 31,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_storyboard_direct.py",
-   "covered": 0,
-   "total": 31,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_storyboard_page.py",
-   "covered": 0,
-   "total": 274,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_tk_gc.py",
-   "covered": 0,
-   "total": 59,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_tray.py",
-   "covered": 0,
-   "total": 324,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_video_prompt_direct.py",
-   "covered": 0,
-   "total": 31,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_writing_page.py",
-   "covered": 0,
-   "total": 665,
-   "percent": 0.0
-  },
-  {
-   "module": "diagnostic_capture.py",
-   "covered": 0,
-   "total": 107,
-   "percent": 0.0
-  },
-  {
-   "module": "download_inbox.py",
-   "covered": 0,
-   "total": 124,
-   "percent": 0.0
-  },
-  {
-   "module": "edit_export.py",
-   "covered": 0,
-   "total": 119,
-   "percent": 0.0
-  },
-  {
-   "module": "edit_habits.py",
-   "covered": 0,
-   "total": 213,
-   "percent": 0.0
-  },
-  {
-   "module": "edit_habits_dialog.py",
-   "covered": 0,
-   "total": 112,
-   "percent": 0.0
-  },
-  {
-   "module": "edit_service.py",
-   "covered": 0,
-   "total": 82,
-   "percent": 0.0
-  },
-  {
-   "module": "editing_page_controller.py",
-   "covered": 0,
-   "total": 87,
-   "percent": 0.0
-  },
-  {
-   "module": "engine_probe.py",
-   "covered": 0,
-   "total": 254,
-   "percent": 0.0
-  },
-  {
-   "module": "entitlement_service.py",
-   "covered": 0,
-   "total": 92,
-   "percent": 0.0
-  },
-  {
-   "module": "environment_check.py",
-   "covered": 0,
-   "total": 110,
-   "percent": 0.0
-  },
-  {
-   "module": "episode_contract.py",
-   "covered": 0,
-   "total": 109,
-   "percent": 0.0
-  },
-  {
-   "module": "exit_maintenance.py",
-   "covered": 0,
-   "total": 28,
-   "percent": 0.0
-  },
-  {
-   "module": "final_service.py",
-   "covered": 0,
-   "total": 8,
-   "percent": 0.0
-  },
-  {
-   "module": "frame_checks.py",
-   "covered": 0,
-   "total": 67,
-   "percent": 0.0
-  },
-  {
-   "module": "h3_reference_adapter.py",
-   "covered": 0,
-   "total": 44,
-   "percent": 0.0
-  },
-  {
-   "module": "handoff_service.py",
-   "covered": 0,
-   "total": 124,
-   "percent": 0.0
-  },
-  {
-   "module": "hash_backend.py",
-   "covered": 0,
-   "total": 28,
-   "percent": 0.0
-  },
-  {
-   "module": "idea_attachments.py",
-   "covered": 0,
-   "total": 322,
-   "percent": 0.0
-  },
-  {
-   "module": "idea_brief_form.py",
-   "covered": 0,
-   "total": 137,
-   "percent": 0.0
-  },
-  {
-   "module": "idea_chat.py",
-   "covered": 0,
-   "total": 580,
-   "percent": 0.0
-  },
-  {
-   "module": "idea_chat_controller.py",
-   "covered": 0,
-   "total": 229,
-   "percent": 0.0
-  },
-  {
-   "module": "idea_document_paths.py",
-   "covered": 0,
-   "total": 127,
-   "percent": 0.0
-  },
-  {
-   "module": "idea_script_heuristic.py",
-   "covered": 0,
-   "total": 15,
-   "percent": 0.0
-  },
-  {
-   "module": "idea_semantic_brief_service.py",
-   "covered": 0,
-   "total": 57,
-   "percent": 0.0
-  },
-  {
-   "module": "idea_transcript.py",
-   "covered": 0,
-   "total": 423,
-   "percent": 0.0
-  },
-  {
-   "module": "image_agent_runner.py",
-   "covered": 0,
-   "total": 106,
-   "percent": 0.0
-  },
-  {
-   "module": "image_direct.py",
-   "covered": 0,
-   "total": 20,
-   "percent": 0.0
-  },
-  {
-   "module": "integrations.py",
-   "covered": 0,
-   "total": 15,
-   "percent": 0.0
-  },
-  {
-   "module": "keyframe_batch.py",
-   "covered": 0,
-   "total": 193,
-   "percent": 0.0
-  },
-  {
-   "module": "keyframe_comfy.py",
-   "covered": 0,
-   "total": 719,
-   "percent": 0.0
-  },
-  {
-   "module": "keyframe_import.py",
-   "covered": 0,
-   "total": 185,
-   "percent": 0.0
-  },
-  {
-   "module": "keyframe_model_service.py",
-   "covered": 0,
-   "total": 37,
-   "percent": 0.0
-  },
-  {
-   "module": "keyframe_page_controller.py",
-   "covered": 0,
-   "total": 64,
-   "percent": 0.0
-  },
-  {
-   "module": "lease_verifier.py",
-   "covered": 0,
-   "total": 37,
-   "percent": 0.0
-  },
-  {
-   "module": "legacy_adoption_service.py",
-   "covered": 0,
-   "total": 28,
-   "percent": 0.0
-  },
-  {
-   "module": "line_endings.py",
-   "covered": 0,
-   "total": 90,
-   "percent": 0.0
-  },
-  {
-   "module": "local_previs.py",
-   "covered": 0,
-   "total": 269,
-   "percent": 0.0
-  },
-  {
-   "module": "local_video.py",
-   "covered": 0,
-   "total": 350,
-   "percent": 0.0
-  },
-  {
-   "module": "local_video_settings_service.py",
-   "covered": 0,
-   "total": 49,
-   "percent": 0.0
-  },
-  {
-   "module": "log_maintenance.py",
-   "covered": 0,
-   "total": 115,
-   "percent": 0.0
-  },
-  {
-   "module": "master_import_service.py",
-   "covered": 0,
-   "total": 126,
-   "percent": 0.0
-  },
-  {
-   "module": "master_skill.py",
-   "covered": 0,
-   "total": 138,
-   "percent": 0.0
-  },
-  {
-   "module": "master_skill_update.py",
-   "covered": 0,
-   "total": 230,
-   "percent": 0.0
-  },
-  {
-   "module": "media_page_controller.py",
-   "covered": 0,
-   "total": 145,
-   "percent": 0.0
-  },
-  {
-   "module": "model_diagnostics.py",
-   "covered": 0,
-   "total": 41,
-   "percent": 0.0
-  },
-  {
-   "module": "native_apps.py",
-   "covered": 0,
-   "total": 83,
-   "percent": 0.0
-  },
-  {
-   "module": "native_asset_codec.py",
-   "covered": 0,
-   "total": 41,
-   "percent": 0.0
-  },
-  {
-   "module": "native_assets.py",
-   "covered": 0,
-   "total": 438,
-   "percent": 0.0
-  },
-  {
-   "module": "page_navigation_controller.py",
-   "covered": 0,
-   "total": 92,
-   "percent": 0.0
-  },
-  {
-   "module": "pet_agent.py",
-   "covered": 0,
-   "total": 762,
-   "percent": 0.0
-  },
-  {
-   "module": "pet_broadcast_state.py",
-   "covered": 0,
-   "total": 79,
-   "percent": 0.0
-  },
-  {
-   "module": "pet_chat_coordinator.py",
-   "covered": 0,
-   "total": 42,
-   "percent": 0.0
-  },
-  {
-   "module": "pet_cloud.py",
-   "covered": 0,
-   "total": 835,
-   "percent": 0.0
-  },
-  {
-   "module": "pet_cloud_geometry.py",
-   "covered": 0,
-   "total": 69,
-   "percent": 0.0
-  },
-  {
-   "module": "pet_cloud_hint.py",
-   "covered": 0,
-   "total": 104,
-   "percent": 0.0
-  },
-  {
-   "module": "pet_cloud_move_guard.py",
-   "covered": 0,
-   "total": 60,
-   "percent": 0.0
-  },
-  {
-   "module": "pet_cloud_place.py",
-   "covered": 0,
-   "total": 327,
-   "percent": 0.0
-  },
-  {
-   "module": "pet_cloud_shape.py",
-   "covered": 0,
-   "total": 13,
-   "percent": 0.0
-  },
-  {
-   "module": "pet_cloud_tail.py",
-   "covered": 0,
-   "total": 24,
-   "percent": 0.0
-  },
-  {
-   "module": "pet_cloud_text.py",
-   "covered": 0,
-   "total": 27,
-   "percent": 0.0
-  },
-  {
-   "module": "pet_cloud_timing.py",
-   "covered": 0,
-   "total": 203,
-   "percent": 0.0
-  },
-  {
-   "module": "pet_models_tabs.py",
-   "covered": 0,
-   "total": 34,
-   "percent": 0.0
-  },
-  {
-   "module": "pet_models_ui.py",
-   "covered": 0,
-   "total": 780,
-   "percent": 0.0
-  },
-  {
-   "module": "pet_performance_service.py",
-   "covered": 0,
-   "total": 101,
-   "percent": 0.0
-  },
-  {
-   "module": "pet_report.py",
-   "covered": 0,
-   "total": 376,
-   "percent": 0.0
-  },
-  {
-   "module": "pet_settings_contract.py",
-   "covered": 0,
-   "total": 3,
-   "percent": 0.0
-  },
-  {
-   "module": "pet_settings_ui.py",
-   "covered": 0,
-   "total": 506,
-   "percent": 0.0
-  },
-  {
-   "module": "pet_state.py",
-   "covered": 0,
-   "total": 218,
-   "percent": 0.0
-  },
-  {
-   "module": "pet_test_service.py",
-   "covered": 0,
-   "total": 98,
-   "percent": 0.0
-  },
-  {
-   "module": "pet_ui.py",
-   "covered": 0,
-   "total": 455,
-   "percent": 0.0
-  },
-  {
-   "module": "pet_ui_popup.py",
-   "covered": 0,
-   "total": 74,
-   "percent": 0.0
-  },
-  {
-   "module": "pet_ui_settings.py",
-   "covered": 0,
-   "total": 325,
-   "percent": 0.0
-  },
-  {
-   "module": "pet_ui_stages.py",
-   "covered": 0,
-   "total": 869,
-   "percent": 0.0
-  },
-  {
-   "module": "pet_ui_support.py",
-   "covered": 0,
-   "total": 397,
-   "percent": 0.0
-  },
-  {
-   "module": "pet_ui_view.py",
-   "covered": 0,
-   "total": 585,
-   "percent": 0.0
-  },
-  {
-   "module": "pet_ui_voice.py",
-   "covered": 0,
-   "total": 897,
-   "percent": 0.0
-  },
-  {
-   "module": "previs_automation.py",
-   "covered": 0,
-   "total": 167,
-   "percent": 0.0
-  },
-  {
-   "module": "previs_batch_service.py",
-   "covered": 0,
-   "total": 27,
-   "percent": 0.0
-  },
-  {
-   "module": "previs_monitor.py",
-   "covered": 0,
-   "total": 116,
-   "percent": 0.0
-  },
-  {
-   "module": "previs_progress.py",
-   "covered": 0,
-   "total": 4,
-   "percent": 0.0
-  },
-  {
-   "module": "previs_progress_service.py",
-   "covered": 0,
-   "total": 60,
-   "percent": 0.0
-  },
-  {
-   "module": "previs_routing.py",
-   "covered": 0,
-   "total": 172,
-   "percent": 0.0
-  },
-  {
-   "module": "production_lock_fields.py",
-   "covered": 0,
-   "total": 347,
-   "percent": 0.0
-  },
-  {
-   "module": "production_model_contract.py",
-   "covered": 0,
-   "total": 6,
-   "percent": 0.0
-  },
-  {
-   "module": "project_settings_dialog.py",
-   "covered": 0,
-   "total": 5,
-   "percent": 0.0
-  },
-  {
-   "module": "projects.py",
-   "covered": 0,
-   "total": 378,
-   "percent": 0.0
-  },
-  {
-   "module": "prompt_templates.py",
-   "covered": 0,
-   "total": 80,
-   "percent": 0.0
-  },
-  {
-   "module": "prompt_window.py",
-   "covered": 0,
-   "total": 44,
-   "percent": 0.0
-  },
-  {
-   "module": "qwen_adapter.py",
-   "covered": 0,
-   "total": 113,
-   "percent": 0.0
-  },
-  {
-   "module": "qwen_setup.py",
-   "covered": 0,
-   "total": 73,
-   "percent": 0.0
-  },
-  {
-   "module": "qwen_setup_dialog.py",
-   "covered": 0,
-   "total": 66,
-   "percent": 0.0
-  },
-  {
-   "module": "recon_service.py",
-   "covered": 0,
-   "total": 407,
-   "percent": 0.0
-  },
-  {
-   "module": "recycle_recovery_controller.py",
-   "covered": 0,
-   "total": 41,
-   "percent": 0.0
-  },
-  {
-   "module": "recycle_recovery_service.py",
-   "covered": 0,
-   "total": 39,
-   "percent": 0.0
-  },
-  {
-   "module": "reference_wall.py",
-   "covered": 0,
-   "total": 168,
-   "percent": 0.0
-  },
-  {
-   "module": "responsive_ui.py",
-   "covered": 0,
-   "total": 543,
-   "percent": 0.0
-  },
-  {
-   "module": "script_brief.py",
-   "covered": 0,
-   "total": 47,
-   "percent": 0.0
-  },
-  {
-   "module": "script_contract.py",
-   "covered": 0,
-   "total": 723,
-   "percent": 0.0
-  },
-  {
-   "module": "script_manifest_schema.py",
-   "covered": 0,
-   "total": 256,
-   "percent": 0.0
-  },
-  {
-   "module": "script_natural_gate.py",
-   "covered": 0,
-   "total": 19,
-   "percent": 0.0
-  },
-  {
-   "module": "script_output_spec.py",
-   "covered": 0,
-   "total": 68,
-   "percent": 0.0
-  },
-  {
-   "module": "script_preview_service.py",
-   "covered": 0,
-   "total": 25,
-   "percent": 0.0
-  },
-  {
-   "module": "script_skill_report.py",
-   "covered": 0,
-   "total": 58,
-   "percent": 0.0
-  },
-  {
-   "module": "script_structure_edit_controller.py",
-   "covered": 0,
-   "total": 47,
-   "percent": 0.0
-  },
-  {
-   "module": "script_text_reader.py",
-   "covered": 0,
-   "total": 30,
-   "percent": 0.0
-  },
-  {
-   "module": "script_view_style.py",
-   "covered": 0,
-   "total": 171,
-   "percent": 0.0
-  },
-  {
-   "module": "script_workspace_service.py",
-   "covered": 0,
-   "total": 249,
-   "percent": 0.0
-  },
-  {
-   "module": "seedream_api.py",
-   "covered": 0,
-   "total": 139,
-   "percent": 0.0
-  },
-  {
-   "module": "seedream_settings.py",
-   "covered": 0,
-   "total": 81,
-   "percent": 0.0
-  },
-  {
-   "module": "shared_video_controls.py",
-   "covered": 0,
-   "total": 18,
-   "percent": 0.0
-  },
-  {
-   "module": "shot_batches.py",
-   "covered": 0,
-   "total": 185,
-   "percent": 0.0
-  },
-  {
-   "module": "shot_numbering.py",
-   "covered": 0,
-   "total": 195,
-   "percent": 0.0
-  },
-  {
-   "module": "shot_selection.py",
-   "covered": 0,
-   "total": 28,
-   "percent": 0.0
-  },
-  {
-   "module": "skill_import_service.py",
-   "covered": 0,
-   "total": 179,
-   "percent": 0.0
-  },
-  {
-   "module": "skill_note_render.py",
-   "covered": 0,
-   "total": 165,
-   "percent": 0.0
-  },
-  {
-   "module": "skill_notes.py",
-   "covered": 0,
-   "total": 175,
-   "percent": 0.0
-  },
-  {
-   "module": "skill_orchestrator.py",
-   "covered": 0,
-   "total": 611,
-   "percent": 0.0
-  },
-  {
-   "module": "skill_panel.py",
-   "covered": 0,
-   "total": 792,
-   "percent": 0.0
-  },
-  {
-   "module": "skill_panel_presets.py",
-   "covered": 0,
-   "total": 165,
-   "percent": 0.0
-  },
-  {
-   "module": "skill_panel_support.py",
-   "covered": 0,
-   "total": 441,
-   "percent": 0.0
-  },
-  {
-   "module": "skill_panel_workflow.py",
-   "covered": 0,
-   "total": 304,
-   "percent": 0.0
-  },
-  {
-   "module": "skill_templates.py",
-   "covered": 0,
-   "total": 72,
-   "percent": 0.0
-  },
-  {
-   "module": "skill_tools.py",
-   "covered": 0,
-   "total": 482,
-   "percent": 0.0
-  },
-  {
-   "module": "speech_api.py",
-   "covered": 0,
-   "total": 137,
-   "percent": 0.0
-  },
-  {
-   "module": "speech_settings_ui.py",
-   "covered": 0,
-   "total": 63,
-   "percent": 0.0
-  },
-  {
-   "module": "stage_completion_service.py",
-   "covered": 0,
-   "total": 625,
-   "percent": 0.0
-  },
-  {
-   "module": "stage_contract_report.py",
-   "covered": 0,
-   "total": 10,
-   "percent": 0.0
-  },
-  {
-   "module": "stage_exec.py",
-   "covered": 0,
-   "total": 114,
-   "percent": 0.0
-  },
-  {
-   "module": "stage_handler_registry.py",
-   "covered": 0,
-   "total": 101,
-   "percent": 0.0
-  },
-  {
-   "module": "stage_model_picker.py",
-   "covered": 0,
-   "total": 156,
-   "percent": 0.0
-  },
-  {
-   "module": "stage_model_value.py",
-   "covered": 0,
-   "total": 13,
-   "percent": 0.0
-  },
-  {
-   "module": "stage_workspace_service.py",
-   "covered": 0,
-   "total": 26,
-   "percent": 0.0
-  },
-  {
-   "module": "store_program_locator.py",
-   "covered": 0,
-   "total": 63,
-   "percent": 0.0
-  },
-  {
-   "module": "storyboard_adoption_contract.py",
-   "covered": 0,
-   "total": 41,
-   "percent": 0.0
-  },
-  {
-   "module": "storyboard_adoption_service.py",
-   "covered": 0,
-   "total": 8,
-   "percent": 0.0
-  },
-  {
-   "module": "storyboard_catalog.py",
-   "covered": 0,
-   "total": 6,
-   "percent": 0.0
-  },
-  {
-   "module": "storyboard_catalog_service.py",
-   "covered": 0,
-   "total": 412,
-   "percent": 0.0
-  },
-  {
-   "module": "storyboard_contract.py",
-   "covered": 0,
-   "total": 9,
-   "percent": 0.0
-  },
-  {
-   "module": "storyboard_direct_api.py",
-   "covered": 0,
-   "total": 276,
-   "percent": 0.0
-  },
-  {
-   "module": "storyboard_edit_service.py",
-   "covered": 0,
-   "total": 17,
-   "percent": 0.0
-  },
-  {
-   "module": "storyboard_files.py",
-   "covered": 0,
-   "total": 730,
-   "percent": 0.0
-  },
-  {
-   "module": "storyboard_final.py",
-   "covered": 0,
-   "total": 192,
-   "percent": 0.0
-  },
-  {
-   "module": "storyboard_final_controller.py",
-   "covered": 0,
-   "total": 98,
-   "percent": 0.0
-  },
-  {
-   "module": "storyboard_lifecycle.py",
-   "covered": 0,
-   "total": 82,
-   "percent": 0.0
-  },
-  {
-   "module": "storyboard_page_controller.py",
-   "covered": 0,
-   "total": 84,
-   "percent": 0.0
-  },
-  {
-   "module": "storyboard_plan_service.py",
-   "covered": 0,
-   "total": 18,
-   "percent": 0.0
-  },
-  {
-   "module": "storyboard_recycle_service.py",
-   "covered": 0,
-   "total": 121,
-   "percent": 0.0
-  },
-  {
-   "module": "storyboard_rows_service.py",
-   "covered": 0,
-   "total": 64,
-   "percent": 0.0
-  },
-  {
-   "module": "storyboard_selection.py",
-   "covered": 0,
-   "total": 337,
-   "percent": 0.0
-  },
-  {
-   "module": "storyboard_source_selector.py",
-   "covered": 0,
-   "total": 61,
-   "percent": 0.0
-  },
-  {
-   "module": "storyboard_source_service.py",
-   "covered": 0,
-   "total": 19,
-   "percent": 0.0
-  },
-  {
-   "module": "storyboard_storage.py",
-   "covered": 0,
-   "total": 185,
-   "percent": 0.0
-  },
-  {
-   "module": "storyboard_table_ui.py",
-   "covered": 0,
-   "total": 105,
-   "percent": 0.0
-  },
-  {
-   "module": "subtitle_export_controller.py",
-   "covered": 0,
-   "total": 9,
-   "percent": 0.0
-  },
-  {
-   "module": "subtitle_export_service.py",
-   "covered": 0,
-   "total": 76,
-   "percent": 0.0
-  },
-  {
-   "module": "subtitle_timing.py",
-   "covered": 0,
-   "total": 249,
-   "percent": 0.0
-  },
-  {
-   "module": "task_center_service.py",
-   "covered": 0,
-   "total": 168,
-   "percent": 0.0
-  },
-  {
-   "module": "task_center_ui.py",
-   "covered": 0,
-   "total": 64,
-   "percent": 0.0
-  },
-  {
-   "module": "tts_api.py",
-   "covered": 0,
-   "total": 404,
-   "percent": 0.0
-  },
-  {
-   "module": "tts_settings.py",
-   "covered": 0,
-   "total": 73,
-   "percent": 0.0
-  },
-  {
-   "module": "ui_composer_style.py",
-   "covered": 0,
-   "total": 26,
-   "percent": 0.0
-  },
-  {
-   "module": "ui_dialogs.py",
-   "covered": 0,
-   "total": 35,
-   "percent": 0.0
-  },
-  {
-   "module": "ui_hover_fade.py",
-   "covered": 0,
-   "total": 115,
-   "percent": 0.0
-  },
-  {
-   "module": "ui_icons.py",
-   "covered": 0,
-   "total": 49,
-   "percent": 0.0
-  },
-  {
-   "module": "ui_motion.py",
-   "covered": 0,
-   "total": 147,
-   "percent": 0.0
-  },
-  {
-   "module": "ui_plugin_registry.py",
-   "covered": 0,
-   "total": 9,
-   "percent": 0.0
-  },
-  {
-   "module": "ui_popup.py",
-   "covered": 0,
-   "total": 30,
-   "percent": 0.0
-  },
-  {
-   "module": "ui_rounded.py",
-   "covered": 0,
-   "total": 90,
-   "percent": 0.0
-  },
-  {
-   "module": "ui_scroll.py",
-   "covered": 0,
-   "total": 98,
-   "percent": 0.0
-  },
-  {
-   "module": "ui_shortcuts.py",
-   "covered": 0,
-   "total": 31,
-   "percent": 0.0
-  },
-  {
-   "module": "ui_splash.py",
-   "covered": 0,
-   "total": 132,
-   "percent": 0.0
-  },
-  {
-   "module": "ui_stage_popups.py",
-   "covered": 0,
-   "total": 127,
-   "percent": 0.0
-  },
-  {
-   "module": "ui_theme.py",
-   "covered": 0,
-   "total": 185,
-   "percent": 0.0
-  },
-  {
-   "module": "ui_tokens.py",
-   "covered": 0,
-   "total": 159,
-   "percent": 0.0
-  },
-  {
-   "module": "ui_tooltip.py",
-   "covered": 0,
-   "total": 101,
-   "percent": 0.0
-  },
-  {
-   "module": "ui_widgets.py",
-   "covered": 0,
-   "total": 686,
-   "percent": 0.0
-  },
-  {
-   "module": "update_notice.py",
-   "covered": 0,
-   "total": 29,
-   "percent": 0.0
-  },
-  {
-   "module": "version_picker.py",
-   "covered": 0,
-   "total": 54,
-   "percent": 0.0
-  },
-  {
-   "module": "video_navigation.py",
-   "covered": 0,
-   "total": 94,
-   "percent": 0.0
-  },
-  {
-   "module": "video_progress.py",
-   "covered": 0,
-   "total": 108,
-   "percent": 0.0
-  },
-  {
-   "module": "video_prompt_direct_api.py",
-   "covered": 0,
-   "total": 80,
-   "percent": 0.0
-  },
-  {
-   "module": "video_prompt_publication.py",
-   "covered": 0,
-   "total": 75,
-   "percent": 0.0
-  },
-  {
-   "module": "video_prompt_results.py",
-   "covered": 0,
-   "total": 113,
-   "percent": 0.0
-  },
-  {
-   "module": "video_source_evidence.py",
-   "covered": 0,
-   "total": 39,
-   "percent": 0.0
-  },
-  {
-   "module": "video_task_state.py",
-   "covered": 0,
-   "total": 71,
-   "percent": 0.0
-  },
-  {
-   "module": "white_model.py",
-   "covered": 0,
-   "total": 128,
-   "percent": 0.0
-  },
-  {
-   "module": "white_model_persistence_controller.py",
-   "covered": 0,
-   "total": 10,
-   "percent": 0.0
-  },
-  {
-   "module": "white_model_ref.py",
-   "covered": 0,
-   "total": 89,
-   "percent": 0.0
-  },
-  {
-   "module": "white_model_service.py",
-   "covered": 0,
-   "total": 488,
-   "percent": 0.0
-  },
-  {
-   "module": "workflow_agents.py",
-   "covered": 0,
-   "total": 85,
-   "percent": 0.0
-  },
-  {
-   "module": "workflow_context.py",
-   "covered": 0,
-   "total": 185,
-   "percent": 0.0
-  },
-  {
-   "module": "workflow_context_budget.py",
-   "covered": 0,
-   "total": 121,
-   "percent": 0.0
-  },
-  {
-   "module": "workflow_context_controller.py",
-   "covered": 0,
-   "total": 19,
-   "percent": 0.0
-  },
-  {
-   "module": "workflow_engines.py",
-   "covered": 0,
-   "total": 416,
-   "percent": 0.0
-  },
-  {
-   "module": "workflow_process_registry.py",
-   "covered": 0,
-   "total": 161,
-   "percent": 0.0
-  },
-  {
-   "module": "workflow_settings.py",
-   "covered": 0,
-   "total": 836,
-   "percent": 0.0
-  },
-  {
-   "module": "workflow_settings_dialog.py",
-   "covered": 0,
-   "total": 106,
-   "percent": 0.0
-  },
-  {
-   "module": "workflow_tasks.py",
-   "covered": 0,
-   "total": 212,
-   "percent": 0.0
-  },
-  {
-   "module": "workspace_maintenance.py",
-   "covered": 0,
-   "total": 289,
-   "percent": 0.0
-  },
-  {
-   "module": "writing.py",
-   "covered": 0,
-   "total": 81,
-   "percent": 0.0
-  },
-  {
-   "module": "writing_api.py",
-   "covered": 0,
-   "total": 969,
-   "percent": 0.0
-  },
-  {
-   "module": "writing_page_controller.py",
-   "covered": 0,
-   "total": 32,
-   "percent": 0.0
-  },
-  {
-   "module": "writing_quality.py",
-   "covered": 0,
-   "total": 114,
-   "percent": 0.0
-  },
-  {
-   "module": "writing_stream.py",
-   "covered": 0,
-   "total": 23,
-   "percent": 0.0
-  },
-  {
-   "module": "writing_tools.py",
-   "covered": 0,
-   "total": 71,
-   "percent": 0.0
-  },
-  {
-   "module": "writing_unconfirm.py",
-   "covered": 0,
-   "total": 95,
-   "percent": 0.0
-  },
-  {
-   "module": "tk_timers.py",
-   "covered": 9,
-   "total": 82,
-   "percent": 11.0
-  },
-  {
-   "module": "engine.py",
-   "covered": 85,
-   "total": 740,
-   "percent": 11.5
-  },
-  {
-   "module": "model_metering.py",
-   "covered": 6,
-   "total": 49,
-   "percent": 12.2
-  },
-  {
-   "module": "stage_config.py",
-   "covered": 63,
-   "total": 469,
-   "percent": 13.4
-  },
-  {
-   "module": "client_profiles.py",
-   "covered": 55,
-   "total": 379,
-   "percent": 14.5
-  },
-  {
-   "module": "api_endpoints.py",
-   "covered": 51,
-   "total": 344,
-   "percent": 14.8
-  },
-  {
-   "module": "stage_download_inbox_service.py",
-   "covered": 12,
-   "total": 81,
-   "percent": 14.8
-  },
-  {
-   "module": "skill_registry.py",
-   "covered": 98,
-   "total": 652,
-   "percent": 15.0
-  },
-  {
-   "module": "stage_models.py",
-   "covered": 35,
-   "total": 233,
-   "percent": 15.0
-  },
-  {
-   "module": "stage_parallel.py",
-   "covered": 103,
-   "total": 667,
-   "percent": 15.4
-  },
-  {
-   "module": "stage_animatic_gateways.py",
-   "covered": 19,
-   "total": 120,
-   "percent": 15.8
-  },
-  {
-   "module": "agent/volcengine.py",
-   "covered": 13,
-   "total": 72,
-   "percent": 18.1
-  },
-  {
-   "module": "platform_tools.py",
-   "covered": 98,
-   "total": 535,
-   "percent": 18.3
-  },
-  {
-   "module": "legacy_compat.py",
-   "covered": 9,
-   "total": 48,
-   "percent": 18.8
-  },
-  {
-   "module": "agent/media.py",
-   "covered": 16,
-   "total": 84,
-   "percent": 19.0
-  },
-  {
-   "module": "agent/wan.py",
-   "covered": 13,
-   "total": 66,
-   "percent": 19.7
-  },
-  {
-   "module": "asset_context.py",
-   "covered": 23,
-   "total": 117,
-   "percent": 19.7
-  },
-  {
-   "module": "model_secrets.py",
-   "covered": 40,
-   "total": 196,
-   "percent": 20.4
-  },
-  {
-   "module": "stage_write_preparation_service.py",
-   "covered": 19,
-   "total": 92,
-   "percent": 20.7
-  },
-  {
-   "module": "stage_handoff_gateways.py",
-   "covered": 42,
-   "total": 201,
-   "percent": 20.9
-  },
-  {
-   "module": "model_router.py",
-   "covered": 133,
-   "total": 622,
-   "percent": 21.4
-  },
-  {
-   "module": "stage_execution_service.py",
-   "covered": 101,
-   "total": 472,
-   "percent": 21.4
-  },
-  {
-   "module": "skill_budget.py",
-   "covered": 40,
-   "total": 172,
-   "percent": 23.3
-  },
-  {
-   "module": "app_logging.py",
-   "covered": 59,
-   "total": 248,
-   "percent": 23.8
-  },
-  {
-   "module": "stage_gate_gateways.py",
-   "covered": 20,
-   "total": 84,
-   "percent": 23.8
-  },
-  {
-   "module": "pet_bus.py",
-   "covered": 52,
-   "total": 211,
-   "percent": 24.6
-  },
-  {
-   "module": "pet_llm.py",
-   "covered": 80,
-   "total": 323,
-   "percent": 24.8
-  },
-  {
-   "module": "usage_overview.py",
-   "covered": 59,
-   "total": 237,
-   "percent": 24.9
-  },
-  {
-   "module": "storyboard_paths.py",
-   "covered": 11,
-   "total": 43,
-   "percent": 25.6
-  },
-  {
-   "module": "token_saver.py",
-   "covered": 99,
-   "total": 384,
-   "percent": 25.8
-  },
-  {
-   "module": "stage_flow.py",
-   "covered": 68,
-   "total": 255,
-   "percent": 26.7
-  },
-  {
-   "module": "stage_layout.py",
-   "covered": 58,
-   "total": 205,
-   "percent": 28.3
-  },
-  {
-   "module": "project_naming.py",
-   "covered": 4,
-   "total": 14,
-   "percent": 28.6
-  },
-  {
-   "module": "prop_assets.py",
-   "covered": 26,
-   "total": 86,
-   "percent": 30.2
-  },
-  {
-   "module": "stage_asset_gateways.py",
-   "covered": 28,
-   "total": 91,
-   "percent": 30.8
-  },
-  {
-   "module": "model_pool.py",
-   "covered": 240,
-   "total": 728,
-   "percent": 33.0
-  },
-  {
-   "module": "stage_previs_gateways.py",
-   "covered": 24,
-   "total": 72,
-   "percent": 33.3
-  },
-  {
-   "module": "agent/core.py",
-   "covered": 65,
-   "total": 194,
-   "percent": 33.5
-  },
-  {
-   "module": "storage_maintenance.py",
-   "covered": 229,
-   "total": 656,
-   "percent": 34.9
-  },
-  {
-   "module": "stage_path_service.py",
-   "covered": 20,
-   "total": 55,
-   "percent": 36.4
-  },
-  {
-   "module": "config_snapshot.py",
-   "covered": 7,
-   "total": 19,
-   "percent": 36.8
-  },
-  {
-   "module": "project_settings.py",
-   "covered": 30,
-   "total": 77,
-   "percent": 39.0
-  },
-  {
-   "module": "asset_batch_lifecycle.py",
-   "covered": 32,
-   "total": 77,
-   "percent": 41.6
-  },
-  {
-   "module": "desktop_automation_service.py",
-   "covered": 202,
-   "total": 457,
-   "percent": 44.2
-  },
-  {
-   "module": "file_cache.py",
-   "covered": 77,
-   "total": 159,
-   "percent": 48.4
-  },
-  {
-   "module": "stage_publication.py",
-   "covered": 42,
-   "total": 85,
-   "percent": 49.4
-  },
-  {
-   "module": "keyframe_evidence.py",
-   "covered": 76,
-   "total": 130,
-   "percent": 58.5
-  },
-  {
-   "module": "project_stages.py",
-   "covered": 17,
-   "total": 28,
-   "percent": 60.7
-  },
-  {
-   "module": "project_context_factory.py",
-   "covered": 6,
-   "total": 9,
-   "percent": 66.7
-  },
-  {
-   "module": "agent/video.py",
-   "covered": 5,
-   "total": 7,
-   "percent": 71.4
-  },
-  {
-   "module": "keyframe_lifecycle_service.py",
-   "covered": 97,
-   "total": 118,
-   "percent": 82.2
-  },
-  {
-   "module": "model_protocol.py",
-   "covered": 5,
-   "total": 6,
-   "percent": 83.3
-  },
-  {
-   "module": "service_contract.py",
-   "covered": 23,
-   "total": 27,
-   "percent": 85.2
-  },
-  {
-   "module": "project_context.py",
-   "covered": 12,
-   "total": 14,
-   "percent": 85.7
-  },
-  {
-   "module": "request_ledger.py",
-   "covered": 512,
-   "total": 582,
-   "percent": 88.0
-  },
-  {
-   "module": "agent/publication.py",
-   "covered": 143,
-   "total": 159,
-   "percent": 89.9
-  },
-  {
-   "module": "video_lifecycle_service.py",
-   "covered": 78,
-   "total": 83,
-   "percent": 94.0
-  },
-  {
-   "module": "app_metadata.py",
-   "covered": 3,
-   "total": 3,
-   "percent": 100.0
-  },
-  {
-   "module": "script_manifest_contract.py",
-   "covered": 10,
-   "total": 10,
-   "percent": 100.0
-  }
- ],
- "modules_covered": 59,
- "modules_total": 365
+  "targets": [
+    "tests.test_money_invariants",
+    "tests.test_request_ledger",
+    "tests.test_keyframe_lifecycle_service",
+    "tests.test_video_lifecycle_service",
+    "tests.test_persistent_task_queue",
+    "tests.test_lifecycle",
+    "tests.test_publication_recovery",
+    "tests.test_claim_queue_gateway"
+  ],
+  "tests_ok": true,
+  "modules": [
+    {
+      "module": "account_client.py",
+      "covered": 0,
+      "total": 117,
+      "percent": 0.0
+    },
+    {
+      "module": "account_controller.py",
+      "covered": 0,
+      "total": 225,
+      "percent": 0.0
+    },
+    {
+      "module": "account_inputs.py",
+      "covered": 0,
+      "total": 71,
+      "percent": 0.0
+    },
+    {
+      "module": "account_store.py",
+      "covered": 0,
+      "total": 76,
+      "percent": 0.0
+    },
+    {
+      "module": "agent/optimizer_mcp_bridge.py",
+      "covered": 0,
+      "total": 37,
+      "percent": 0.0
+    },
+    {
+      "module": "agent/prompt_optimizer.py",
+      "covered": 0,
+      "total": 181,
+      "percent": 0.0
+    },
+    {
+      "module": "agent/shot_assets.py",
+      "covered": 0,
+      "total": 125,
+      "percent": 0.0
+    },
+    {
+      "module": "agent_dispatch.py",
+      "covered": 0,
+      "total": 44,
+      "percent": 0.0
+    },
+    {
+      "module": "aigc_lint.py",
+      "covered": 0,
+      "total": 118,
+      "percent": 0.0
+    },
+    {
+      "module": "animatic_service.py",
+      "covered": 0,
+      "total": 171,
+      "percent": 0.0
+    },
+    {
+      "module": "api_models.py",
+      "covered": 0,
+      "total": 60,
+      "percent": 0.0
+    },
+    {
+      "module": "app.py",
+      "covered": 0,
+      "total": 1170,
+      "percent": 0.0
+    },
+    {
+      "module": "app_icon.py",
+      "covered": 0,
+      "total": 280,
+      "percent": 0.0
+    },
+    {
+      "module": "app_shortcut.py",
+      "covered": 0,
+      "total": 170,
+      "percent": 0.0
+    },
+    {
+      "module": "artifact_lineage.py",
+      "covered": 0,
+      "total": 122,
+      "percent": 0.0
+    },
+    {
+      "module": "artifact_schema.py",
+      "covered": 0,
+      "total": 66,
+      "percent": 0.0
+    },
+    {
+      "module": "asset_auto_batch_service.py",
+      "covered": 0,
+      "total": 38,
+      "percent": 0.0
+    },
+    {
+      "module": "asset_batch.py",
+      "covered": 0,
+      "total": 304,
+      "percent": 0.0
+    },
+    {
+      "module": "asset_batch_controller.py",
+      "covered": 0,
+      "total": 66,
+      "percent": 0.0
+    },
+    {
+      "module": "asset_batch_execution.py",
+      "covered": 0,
+      "total": 130,
+      "percent": 0.0
+    },
+    {
+      "module": "asset_batch_selection_service.py",
+      "covered": 0,
+      "total": 30,
+      "percent": 0.0
+    },
+    {
+      "module": "asset_batch_service.py",
+      "covered": 0,
+      "total": 322,
+      "percent": 0.0
+    },
+    {
+      "module": "asset_batch_settings_service.py",
+      "covered": 0,
+      "total": 61,
+      "percent": 0.0
+    },
+    {
+      "module": "asset_batch_state_service.py",
+      "covered": 0,
+      "total": 94,
+      "percent": 0.0
+    },
+    {
+      "module": "asset_contract.py",
+      "covered": 0,
+      "total": 225,
+      "percent": 0.0
+    },
+    {
+      "module": "asset_detail.py",
+      "covered": 0,
+      "total": 503,
+      "percent": 0.0
+    },
+    {
+      "module": "asset_detail_service.py",
+      "covered": 0,
+      "total": 110,
+      "percent": 0.0
+    },
+    {
+      "module": "asset_generated_import_service.py",
+      "covered": 0,
+      "total": 84,
+      "percent": 0.0
+    },
+    {
+      "module": "asset_page_controller.py",
+      "covered": 0,
+      "total": 31,
+      "percent": 0.0
+    },
+    {
+      "module": "asset_plan.py",
+      "covered": 0,
+      "total": 247,
+      "percent": 0.0
+    },
+    {
+      "module": "asset_prompt_check_dialog.py",
+      "covered": 0,
+      "total": 10,
+      "percent": 0.0
+    },
+    {
+      "module": "asset_prompt_rules.py",
+      "covered": 0,
+      "total": 26,
+      "percent": 0.0
+    },
+    {
+      "module": "asset_reference_images.py",
+      "covered": 0,
+      "total": 358,
+      "percent": 0.0
+    },
+    {
+      "module": "asset_reference_import.py",
+      "covered": 0,
+      "total": 107,
+      "percent": 0.0
+    },
+    {
+      "module": "asset_reference_prompts.py",
+      "covered": 0,
+      "total": 75,
+      "percent": 0.0
+    },
+    {
+      "module": "asset_reference_prompts_dialog.py",
+      "covered": 0,
+      "total": 8,
+      "percent": 0.0
+    },
+    {
+      "module": "asset_reference_search.py",
+      "covered": 0,
+      "total": 321,
+      "percent": 0.0
+    },
+    {
+      "module": "asset_resume.py",
+      "covered": 0,
+      "total": 78,
+      "percent": 0.0
+    },
+    {
+      "module": "asset_skill_batch.py",
+      "covered": 0,
+      "total": 97,
+      "percent": 0.0
+    },
+    {
+      "module": "asset_thumbs.py",
+      "covered": 0,
+      "total": 417,
+      "percent": 0.0
+    },
+    {
+      "module": "audio_direct_api.py",
+      "covered": 0,
+      "total": 160,
+      "percent": 0.0
+    },
+    {
+      "module": "audio_import_service.py",
+      "covered": 0,
+      "total": 64,
+      "percent": 0.0
+    },
+    {
+      "module": "background_characters.py",
+      "covered": 0,
+      "total": 138,
+      "percent": 0.0
+    },
+    {
+      "module": "batch_frames_tool/batch_frames.py",
+      "covered": 0,
+      "total": 243,
+      "percent": 0.0
+    },
+    {
+      "module": "blender_previs_template.py",
+      "covered": 0,
+      "total": 62,
+      "percent": 0.0
+    },
+    {
+      "module": "broadcaster.py",
+      "covered": 0,
+      "total": 33,
+      "percent": 0.0
+    },
+    {
+      "module": "cell_hover.py",
+      "covered": 0,
+      "total": 714,
+      "percent": 0.0
+    },
+    {
+      "module": "clipboard_lock.py",
+      "covered": 0,
+      "total": 64,
+      "percent": 0.0
+    },
+    {
+      "module": "cloud_assets.py",
+      "covered": 0,
+      "total": 80,
+      "percent": 0.0
+    },
+    {
+      "module": "cloud_assets_dialog.py",
+      "covered": 0,
+      "total": 32,
+      "percent": 0.0
+    },
+    {
+      "module": "cloud_video.py",
+      "covered": 0,
+      "total": 221,
+      "percent": 0.0
+    },
+    {
+      "module": "cloud_video_service.py",
+      "covered": 0,
+      "total": 76,
+      "percent": 0.0
+    },
+    {
+      "module": "codex_paste.py",
+      "covered": 0,
+      "total": 33,
+      "percent": 0.0
+    },
+    {
+      "module": "codex_skill_sync.py",
+      "covered": 0,
+      "total": 126,
+      "percent": 0.0
+    },
+    {
+      "module": "codex_tasks.py",
+      "covered": 0,
+      "total": 133,
+      "percent": 0.0
+    },
+    {
+      "module": "comfy_runtime.py",
+      "covered": 0,
+      "total": 40,
+      "percent": 0.0
+    },
+    {
+      "module": "comfy_service.py",
+      "covered": 0,
+      "total": 203,
+      "percent": 0.0
+    },
+    {
+      "module": "confirm_gates.py",
+      "covered": 0,
+      "total": 238,
+      "percent": 0.0
+    },
+    {
+      "module": "console_submit.py",
+      "covered": 0,
+      "total": 62,
+      "percent": 0.0
+    },
+    {
+      "module": "continuity_ledger.py",
+      "covered": 0,
+      "total": 489,
+      "percent": 0.0
+    },
+    {
+      "module": "delivery_import_service.py",
+      "covered": 0,
+      "total": 29,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop.py",
+      "covered": 0,
+      "total": 744,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_account_page.py",
+      "covered": 0,
+      "total": 557,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_asset_pages.py",
+      "covered": 0,
+      "total": 578,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_async_tasks.py",
+      "covered": 0,
+      "total": 114,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_audio_direct.py",
+      "covered": 0,
+      "total": 34,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_auto_flows.py",
+      "covered": 0,
+      "total": 536,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_auto_state.py",
+      "covered": 0,
+      "total": 98,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_automation_tick.py",
+      "covered": 0,
+      "total": 206,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_direct_dispatch.py",
+      "covered": 0,
+      "total": 29,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_file_card.py",
+      "covered": 0,
+      "total": 27,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_idea_attachments.py",
+      "covered": 0,
+      "total": 106,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_idea_bubbles.py",
+      "covered": 0,
+      "total": 458,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_idea_chat.py",
+      "covered": 0,
+      "total": 876,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_idea_deferred.py",
+      "covered": 0,
+      "total": 56,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_idea_menus.py",
+      "covered": 0,
+      "total": 82,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_image_direct.py",
+      "covered": 0,
+      "total": 22,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_launcher.py",
+      "covered": 0,
+      "total": 19,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_layout.py",
+      "covered": 0,
+      "total": 380,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_layout_resize.py",
+      "covered": 0,
+      "total": 268,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_lifecycle.py",
+      "covered": 0,
+      "total": 102,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_login_gate.py",
+      "covered": 0,
+      "total": 60,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_master_update.py",
+      "covered": 0,
+      "total": 47,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_media_pages.py",
+      "covered": 0,
+      "total": 769,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_page_nav.py",
+      "covered": 0,
+      "total": 232,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_page_registry.py",
+      "covered": 0,
+      "total": 12,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_page_support.py",
+      "covered": 0,
+      "total": 13,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_pet_bridge.py",
+      "covered": 0,
+      "total": 99,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_project_pages.py",
+      "covered": 0,
+      "total": 489,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_script_pages.py",
+      "covered": 0,
+      "total": 700,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_send_choice.py",
+      "covered": 0,
+      "total": 134,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_send_ledger.py",
+      "covered": 0,
+      "total": 134,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_settings_service.py",
+      "covered": 0,
+      "total": 40,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_startup_service.py",
+      "covered": 0,
+      "total": 31,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_storyboard_direct.py",
+      "covered": 0,
+      "total": 31,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_storyboard_page.py",
+      "covered": 0,
+      "total": 274,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_tk_gc.py",
+      "covered": 0,
+      "total": 59,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_tray.py",
+      "covered": 0,
+      "total": 324,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_video_prompt_direct.py",
+      "covered": 0,
+      "total": 31,
+      "percent": 0.0
+    },
+    {
+      "module": "desktop_writing_page.py",
+      "covered": 0,
+      "total": 665,
+      "percent": 0.0
+    },
+    {
+      "module": "diagnostic_capture.py",
+      "covered": 0,
+      "total": 107,
+      "percent": 0.0
+    },
+    {
+      "module": "download_inbox.py",
+      "covered": 0,
+      "total": 124,
+      "percent": 0.0
+    },
+    {
+      "module": "edit_export.py",
+      "covered": 0,
+      "total": 119,
+      "percent": 0.0
+    },
+    {
+      "module": "edit_habits.py",
+      "covered": 0,
+      "total": 213,
+      "percent": 0.0
+    },
+    {
+      "module": "edit_habits_dialog.py",
+      "covered": 0,
+      "total": 112,
+      "percent": 0.0
+    },
+    {
+      "module": "edit_service.py",
+      "covered": 0,
+      "total": 82,
+      "percent": 0.0
+    },
+    {
+      "module": "editing_page_controller.py",
+      "covered": 0,
+      "total": 87,
+      "percent": 0.0
+    },
+    {
+      "module": "engine_probe.py",
+      "covered": 0,
+      "total": 254,
+      "percent": 0.0
+    },
+    {
+      "module": "entitlement_service.py",
+      "covered": 0,
+      "total": 92,
+      "percent": 0.0
+    },
+    {
+      "module": "environment_check.py",
+      "covered": 0,
+      "total": 110,
+      "percent": 0.0
+    },
+    {
+      "module": "episode_contract.py",
+      "covered": 0,
+      "total": 109,
+      "percent": 0.0
+    },
+    {
+      "module": "exit_maintenance.py",
+      "covered": 0,
+      "total": 28,
+      "percent": 0.0
+    },
+    {
+      "module": "final_service.py",
+      "covered": 0,
+      "total": 8,
+      "percent": 0.0
+    },
+    {
+      "module": "frame_checks.py",
+      "covered": 0,
+      "total": 67,
+      "percent": 0.0
+    },
+    {
+      "module": "h3_reference_adapter.py",
+      "covered": 0,
+      "total": 44,
+      "percent": 0.0
+    },
+    {
+      "module": "handoff_service.py",
+      "covered": 0,
+      "total": 124,
+      "percent": 0.0
+    },
+    {
+      "module": "hash_backend.py",
+      "covered": 0,
+      "total": 28,
+      "percent": 0.0
+    },
+    {
+      "module": "idea_attachments.py",
+      "covered": 0,
+      "total": 322,
+      "percent": 0.0
+    },
+    {
+      "module": "idea_brief_form.py",
+      "covered": 0,
+      "total": 137,
+      "percent": 0.0
+    },
+    {
+      "module": "idea_chat.py",
+      "covered": 0,
+      "total": 580,
+      "percent": 0.0
+    },
+    {
+      "module": "idea_chat_controller.py",
+      "covered": 0,
+      "total": 229,
+      "percent": 0.0
+    },
+    {
+      "module": "idea_document_paths.py",
+      "covered": 0,
+      "total": 127,
+      "percent": 0.0
+    },
+    {
+      "module": "idea_script_heuristic.py",
+      "covered": 0,
+      "total": 15,
+      "percent": 0.0
+    },
+    {
+      "module": "idea_semantic_brief_service.py",
+      "covered": 0,
+      "total": 57,
+      "percent": 0.0
+    },
+    {
+      "module": "idea_transcript.py",
+      "covered": 0,
+      "total": 423,
+      "percent": 0.0
+    },
+    {
+      "module": "image_agent_runner.py",
+      "covered": 0,
+      "total": 106,
+      "percent": 0.0
+    },
+    {
+      "module": "image_direct.py",
+      "covered": 0,
+      "total": 20,
+      "percent": 0.0
+    },
+    {
+      "module": "integrations.py",
+      "covered": 0,
+      "total": 15,
+      "percent": 0.0
+    },
+    {
+      "module": "keyframe_batch.py",
+      "covered": 0,
+      "total": 193,
+      "percent": 0.0
+    },
+    {
+      "module": "keyframe_comfy.py",
+      "covered": 0,
+      "total": 719,
+      "percent": 0.0
+    },
+    {
+      "module": "keyframe_import.py",
+      "covered": 0,
+      "total": 185,
+      "percent": 0.0
+    },
+    {
+      "module": "keyframe_model_service.py",
+      "covered": 0,
+      "total": 37,
+      "percent": 0.0
+    },
+    {
+      "module": "keyframe_page_controller.py",
+      "covered": 0,
+      "total": 64,
+      "percent": 0.0
+    },
+    {
+      "module": "lease_verifier.py",
+      "covered": 0,
+      "total": 37,
+      "percent": 0.0
+    },
+    {
+      "module": "legacy_adoption_service.py",
+      "covered": 0,
+      "total": 28,
+      "percent": 0.0
+    },
+    {
+      "module": "line_endings.py",
+      "covered": 0,
+      "total": 90,
+      "percent": 0.0
+    },
+    {
+      "module": "local_previs.py",
+      "covered": 0,
+      "total": 269,
+      "percent": 0.0
+    },
+    {
+      "module": "local_video.py",
+      "covered": 0,
+      "total": 350,
+      "percent": 0.0
+    },
+    {
+      "module": "local_video_settings_service.py",
+      "covered": 0,
+      "total": 49,
+      "percent": 0.0
+    },
+    {
+      "module": "log_maintenance.py",
+      "covered": 0,
+      "total": 115,
+      "percent": 0.0
+    },
+    {
+      "module": "master_import_service.py",
+      "covered": 0,
+      "total": 127,
+      "percent": 0.0
+    },
+    {
+      "module": "master_skill.py",
+      "covered": 0,
+      "total": 138,
+      "percent": 0.0
+    },
+    {
+      "module": "master_skill_update.py",
+      "covered": 0,
+      "total": 230,
+      "percent": 0.0
+    },
+    {
+      "module": "media_page_controller.py",
+      "covered": 0,
+      "total": 145,
+      "percent": 0.0
+    },
+    {
+      "module": "model_diagnostics.py",
+      "covered": 0,
+      "total": 41,
+      "percent": 0.0
+    },
+    {
+      "module": "native_apps.py",
+      "covered": 0,
+      "total": 83,
+      "percent": 0.0
+    },
+    {
+      "module": "native_asset_codec.py",
+      "covered": 0,
+      "total": 41,
+      "percent": 0.0
+    },
+    {
+      "module": "native_assets.py",
+      "covered": 0,
+      "total": 438,
+      "percent": 0.0
+    },
+    {
+      "module": "page_navigation_controller.py",
+      "covered": 0,
+      "total": 92,
+      "percent": 0.0
+    },
+    {
+      "module": "pet_agent.py",
+      "covered": 0,
+      "total": 762,
+      "percent": 0.0
+    },
+    {
+      "module": "pet_broadcast_state.py",
+      "covered": 0,
+      "total": 79,
+      "percent": 0.0
+    },
+    {
+      "module": "pet_chat_coordinator.py",
+      "covered": 0,
+      "total": 42,
+      "percent": 0.0
+    },
+    {
+      "module": "pet_cloud.py",
+      "covered": 0,
+      "total": 835,
+      "percent": 0.0
+    },
+    {
+      "module": "pet_cloud_geometry.py",
+      "covered": 0,
+      "total": 69,
+      "percent": 0.0
+    },
+    {
+      "module": "pet_cloud_hint.py",
+      "covered": 0,
+      "total": 104,
+      "percent": 0.0
+    },
+    {
+      "module": "pet_cloud_move_guard.py",
+      "covered": 0,
+      "total": 60,
+      "percent": 0.0
+    },
+    {
+      "module": "pet_cloud_place.py",
+      "covered": 0,
+      "total": 327,
+      "percent": 0.0
+    },
+    {
+      "module": "pet_cloud_shape.py",
+      "covered": 0,
+      "total": 13,
+      "percent": 0.0
+    },
+    {
+      "module": "pet_cloud_tail.py",
+      "covered": 0,
+      "total": 24,
+      "percent": 0.0
+    },
+    {
+      "module": "pet_cloud_text.py",
+      "covered": 0,
+      "total": 27,
+      "percent": 0.0
+    },
+    {
+      "module": "pet_cloud_timing.py",
+      "covered": 0,
+      "total": 203,
+      "percent": 0.0
+    },
+    {
+      "module": "pet_models_tabs.py",
+      "covered": 0,
+      "total": 34,
+      "percent": 0.0
+    },
+    {
+      "module": "pet_models_ui.py",
+      "covered": 0,
+      "total": 772,
+      "percent": 0.0
+    },
+    {
+      "module": "pet_performance_service.py",
+      "covered": 0,
+      "total": 101,
+      "percent": 0.0
+    },
+    {
+      "module": "pet_report.py",
+      "covered": 0,
+      "total": 376,
+      "percent": 0.0
+    },
+    {
+      "module": "pet_settings_contract.py",
+      "covered": 0,
+      "total": 3,
+      "percent": 0.0
+    },
+    {
+      "module": "pet_settings_ui.py",
+      "covered": 0,
+      "total": 506,
+      "percent": 0.0
+    },
+    {
+      "module": "pet_state.py",
+      "covered": 0,
+      "total": 218,
+      "percent": 0.0
+    },
+    {
+      "module": "pet_test_service.py",
+      "covered": 0,
+      "total": 98,
+      "percent": 0.0
+    },
+    {
+      "module": "pet_ui.py",
+      "covered": 0,
+      "total": 455,
+      "percent": 0.0
+    },
+    {
+      "module": "pet_ui_popup.py",
+      "covered": 0,
+      "total": 74,
+      "percent": 0.0
+    },
+    {
+      "module": "pet_ui_settings.py",
+      "covered": 0,
+      "total": 325,
+      "percent": 0.0
+    },
+    {
+      "module": "pet_ui_stages.py",
+      "covered": 0,
+      "total": 869,
+      "percent": 0.0
+    },
+    {
+      "module": "pet_ui_support.py",
+      "covered": 0,
+      "total": 397,
+      "percent": 0.0
+    },
+    {
+      "module": "pet_ui_view.py",
+      "covered": 0,
+      "total": 585,
+      "percent": 0.0
+    },
+    {
+      "module": "pet_ui_voice.py",
+      "covered": 0,
+      "total": 897,
+      "percent": 0.0
+    },
+    {
+      "module": "previs_automation.py",
+      "covered": 0,
+      "total": 167,
+      "percent": 0.0
+    },
+    {
+      "module": "previs_batch_service.py",
+      "covered": 0,
+      "total": 27,
+      "percent": 0.0
+    },
+    {
+      "module": "previs_monitor.py",
+      "covered": 0,
+      "total": 116,
+      "percent": 0.0
+    },
+    {
+      "module": "previs_progress.py",
+      "covered": 0,
+      "total": 4,
+      "percent": 0.0
+    },
+    {
+      "module": "previs_progress_service.py",
+      "covered": 0,
+      "total": 60,
+      "percent": 0.0
+    },
+    {
+      "module": "previs_routing.py",
+      "covered": 0,
+      "total": 172,
+      "percent": 0.0
+    },
+    {
+      "module": "production_lock_fields.py",
+      "covered": 0,
+      "total": 347,
+      "percent": 0.0
+    },
+    {
+      "module": "production_model_contract.py",
+      "covered": 0,
+      "total": 6,
+      "percent": 0.0
+    },
+    {
+      "module": "project_settings_dialog.py",
+      "covered": 0,
+      "total": 5,
+      "percent": 0.0
+    },
+    {
+      "module": "projects.py",
+      "covered": 0,
+      "total": 378,
+      "percent": 0.0
+    },
+    {
+      "module": "prompt_templates.py",
+      "covered": 0,
+      "total": 80,
+      "percent": 0.0
+    },
+    {
+      "module": "prompt_window.py",
+      "covered": 0,
+      "total": 44,
+      "percent": 0.0
+    },
+    {
+      "module": "qwen_adapter.py",
+      "covered": 0,
+      "total": 112,
+      "percent": 0.0
+    },
+    {
+      "module": "qwen_setup.py",
+      "covered": 0,
+      "total": 73,
+      "percent": 0.0
+    },
+    {
+      "module": "qwen_setup_dialog.py",
+      "covered": 0,
+      "total": 66,
+      "percent": 0.0
+    },
+    {
+      "module": "recon_service.py",
+      "covered": 0,
+      "total": 407,
+      "percent": 0.0
+    },
+    {
+      "module": "recycle_recovery_controller.py",
+      "covered": 0,
+      "total": 41,
+      "percent": 0.0
+    },
+    {
+      "module": "recycle_recovery_service.py",
+      "covered": 0,
+      "total": 39,
+      "percent": 0.0
+    },
+    {
+      "module": "reference_wall.py",
+      "covered": 0,
+      "total": 168,
+      "percent": 0.0
+    },
+    {
+      "module": "responsive_ui.py",
+      "covered": 0,
+      "total": 543,
+      "percent": 0.0
+    },
+    {
+      "module": "script_brief.py",
+      "covered": 0,
+      "total": 47,
+      "percent": 0.0
+    },
+    {
+      "module": "script_contract.py",
+      "covered": 0,
+      "total": 723,
+      "percent": 0.0
+    },
+    {
+      "module": "script_manifest_schema.py",
+      "covered": 0,
+      "total": 256,
+      "percent": 0.0
+    },
+    {
+      "module": "script_natural_gate.py",
+      "covered": 0,
+      "total": 19,
+      "percent": 0.0
+    },
+    {
+      "module": "script_output_spec.py",
+      "covered": 0,
+      "total": 68,
+      "percent": 0.0
+    },
+    {
+      "module": "script_preview_service.py",
+      "covered": 0,
+      "total": 25,
+      "percent": 0.0
+    },
+    {
+      "module": "script_skill_report.py",
+      "covered": 0,
+      "total": 58,
+      "percent": 0.0
+    },
+    {
+      "module": "script_structure_edit_controller.py",
+      "covered": 0,
+      "total": 47,
+      "percent": 0.0
+    },
+    {
+      "module": "script_text_reader.py",
+      "covered": 0,
+      "total": 30,
+      "percent": 0.0
+    },
+    {
+      "module": "script_view_style.py",
+      "covered": 0,
+      "total": 171,
+      "percent": 0.0
+    },
+    {
+      "module": "script_workspace_service.py",
+      "covered": 0,
+      "total": 253,
+      "percent": 0.0
+    },
+    {
+      "module": "seedream_api.py",
+      "covered": 0,
+      "total": 139,
+      "percent": 0.0
+    },
+    {
+      "module": "seedream_settings.py",
+      "covered": 0,
+      "total": 81,
+      "percent": 0.0
+    },
+    {
+      "module": "shared_video_controls.py",
+      "covered": 0,
+      "total": 18,
+      "percent": 0.0
+    },
+    {
+      "module": "shot_batches.py",
+      "covered": 0,
+      "total": 185,
+      "percent": 0.0
+    },
+    {
+      "module": "shot_numbering.py",
+      "covered": 0,
+      "total": 195,
+      "percent": 0.0
+    },
+    {
+      "module": "shot_selection.py",
+      "covered": 0,
+      "total": 28,
+      "percent": 0.0
+    },
+    {
+      "module": "skill_import_service.py",
+      "covered": 0,
+      "total": 179,
+      "percent": 0.0
+    },
+    {
+      "module": "skill_inline.py",
+      "covered": 0,
+      "total": 105,
+      "percent": 0.0
+    },
+    {
+      "module": "skill_note_render.py",
+      "covered": 0,
+      "total": 165,
+      "percent": 0.0
+    },
+    {
+      "module": "skill_notes.py",
+      "covered": 0,
+      "total": 175,
+      "percent": 0.0
+    },
+    {
+      "module": "skill_orchestrator.py",
+      "covered": 0,
+      "total": 611,
+      "percent": 0.0
+    },
+    {
+      "module": "skill_panel.py",
+      "covered": 0,
+      "total": 792,
+      "percent": 0.0
+    },
+    {
+      "module": "skill_panel_presets.py",
+      "covered": 0,
+      "total": 165,
+      "percent": 0.0
+    },
+    {
+      "module": "skill_panel_support.py",
+      "covered": 0,
+      "total": 441,
+      "percent": 0.0
+    },
+    {
+      "module": "skill_panel_workflow.py",
+      "covered": 0,
+      "total": 304,
+      "percent": 0.0
+    },
+    {
+      "module": "skill_templates.py",
+      "covered": 0,
+      "total": 72,
+      "percent": 0.0
+    },
+    {
+      "module": "skill_tools.py",
+      "covered": 0,
+      "total": 482,
+      "percent": 0.0
+    },
+    {
+      "module": "speech_api.py",
+      "covered": 0,
+      "total": 137,
+      "percent": 0.0
+    },
+    {
+      "module": "speech_settings_ui.py",
+      "covered": 0,
+      "total": 63,
+      "percent": 0.0
+    },
+    {
+      "module": "stage_completion_service.py",
+      "covered": 0,
+      "total": 625,
+      "percent": 0.0
+    },
+    {
+      "module": "stage_contract_report.py",
+      "covered": 0,
+      "total": 10,
+      "percent": 0.0
+    },
+    {
+      "module": "stage_exec.py",
+      "covered": 0,
+      "total": 114,
+      "percent": 0.0
+    },
+    {
+      "module": "stage_handler_registry.py",
+      "covered": 0,
+      "total": 101,
+      "percent": 0.0
+    },
+    {
+      "module": "stage_model_picker.py",
+      "covered": 0,
+      "total": 197,
+      "percent": 0.0
+    },
+    {
+      "module": "stage_model_value.py",
+      "covered": 0,
+      "total": 27,
+      "percent": 0.0
+    },
+    {
+      "module": "stage_workspace_service.py",
+      "covered": 0,
+      "total": 26,
+      "percent": 0.0
+    },
+    {
+      "module": "store_program_locator.py",
+      "covered": 0,
+      "total": 63,
+      "percent": 0.0
+    },
+    {
+      "module": "storyboard_adoption_contract.py",
+      "covered": 0,
+      "total": 41,
+      "percent": 0.0
+    },
+    {
+      "module": "storyboard_adoption_service.py",
+      "covered": 0,
+      "total": 8,
+      "percent": 0.0
+    },
+    {
+      "module": "storyboard_catalog.py",
+      "covered": 0,
+      "total": 6,
+      "percent": 0.0
+    },
+    {
+      "module": "storyboard_catalog_service.py",
+      "covered": 0,
+      "total": 412,
+      "percent": 0.0
+    },
+    {
+      "module": "storyboard_contract.py",
+      "covered": 0,
+      "total": 9,
+      "percent": 0.0
+    },
+    {
+      "module": "storyboard_direct_api.py",
+      "covered": 0,
+      "total": 279,
+      "percent": 0.0
+    },
+    {
+      "module": "storyboard_edit_service.py",
+      "covered": 0,
+      "total": 17,
+      "percent": 0.0
+    },
+    {
+      "module": "storyboard_files.py",
+      "covered": 0,
+      "total": 730,
+      "percent": 0.0
+    },
+    {
+      "module": "storyboard_final.py",
+      "covered": 0,
+      "total": 192,
+      "percent": 0.0
+    },
+    {
+      "module": "storyboard_final_controller.py",
+      "covered": 0,
+      "total": 98,
+      "percent": 0.0
+    },
+    {
+      "module": "storyboard_lifecycle.py",
+      "covered": 0,
+      "total": 82,
+      "percent": 0.0
+    },
+    {
+      "module": "storyboard_page_controller.py",
+      "covered": 0,
+      "total": 84,
+      "percent": 0.0
+    },
+    {
+      "module": "storyboard_plan_service.py",
+      "covered": 0,
+      "total": 18,
+      "percent": 0.0
+    },
+    {
+      "module": "storyboard_recycle_service.py",
+      "covered": 0,
+      "total": 121,
+      "percent": 0.0
+    },
+    {
+      "module": "storyboard_rows_service.py",
+      "covered": 0,
+      "total": 64,
+      "percent": 0.0
+    },
+    {
+      "module": "storyboard_selection.py",
+      "covered": 0,
+      "total": 337,
+      "percent": 0.0
+    },
+    {
+      "module": "storyboard_source_selector.py",
+      "covered": 0,
+      "total": 61,
+      "percent": 0.0
+    },
+    {
+      "module": "storyboard_source_service.py",
+      "covered": 0,
+      "total": 19,
+      "percent": 0.0
+    },
+    {
+      "module": "storyboard_storage.py",
+      "covered": 0,
+      "total": 185,
+      "percent": 0.0
+    },
+    {
+      "module": "storyboard_table_ui.py",
+      "covered": 0,
+      "total": 105,
+      "percent": 0.0
+    },
+    {
+      "module": "subtitle_export_controller.py",
+      "covered": 0,
+      "total": 9,
+      "percent": 0.0
+    },
+    {
+      "module": "subtitle_export_service.py",
+      "covered": 0,
+      "total": 76,
+      "percent": 0.0
+    },
+    {
+      "module": "subtitle_timing.py",
+      "covered": 0,
+      "total": 249,
+      "percent": 0.0
+    },
+    {
+      "module": "task_center_service.py",
+      "covered": 0,
+      "total": 168,
+      "percent": 0.0
+    },
+    {
+      "module": "task_center_ui.py",
+      "covered": 0,
+      "total": 64,
+      "percent": 0.0
+    },
+    {
+      "module": "tts_api.py",
+      "covered": 0,
+      "total": 404,
+      "percent": 0.0
+    },
+    {
+      "module": "tts_settings.py",
+      "covered": 0,
+      "total": 73,
+      "percent": 0.0
+    },
+    {
+      "module": "ui_composer_style.py",
+      "covered": 0,
+      "total": 26,
+      "percent": 0.0
+    },
+    {
+      "module": "ui_dialogs.py",
+      "covered": 0,
+      "total": 35,
+      "percent": 0.0
+    },
+    {
+      "module": "ui_hover_fade.py",
+      "covered": 0,
+      "total": 115,
+      "percent": 0.0
+    },
+    {
+      "module": "ui_icons.py",
+      "covered": 0,
+      "total": 49,
+      "percent": 0.0
+    },
+    {
+      "module": "ui_motion.py",
+      "covered": 0,
+      "total": 147,
+      "percent": 0.0
+    },
+    {
+      "module": "ui_plugin_registry.py",
+      "covered": 0,
+      "total": 9,
+      "percent": 0.0
+    },
+    {
+      "module": "ui_popup.py",
+      "covered": 0,
+      "total": 30,
+      "percent": 0.0
+    },
+    {
+      "module": "ui_rounded.py",
+      "covered": 0,
+      "total": 90,
+      "percent": 0.0
+    },
+    {
+      "module": "ui_scroll.py",
+      "covered": 0,
+      "total": 98,
+      "percent": 0.0
+    },
+    {
+      "module": "ui_shortcuts.py",
+      "covered": 0,
+      "total": 31,
+      "percent": 0.0
+    },
+    {
+      "module": "ui_splash.py",
+      "covered": 0,
+      "total": 132,
+      "percent": 0.0
+    },
+    {
+      "module": "ui_stage_popups.py",
+      "covered": 0,
+      "total": 127,
+      "percent": 0.0
+    },
+    {
+      "module": "ui_theme.py",
+      "covered": 0,
+      "total": 185,
+      "percent": 0.0
+    },
+    {
+      "module": "ui_tokens.py",
+      "covered": 0,
+      "total": 159,
+      "percent": 0.0
+    },
+    {
+      "module": "ui_tooltip.py",
+      "covered": 0,
+      "total": 101,
+      "percent": 0.0
+    },
+    {
+      "module": "ui_widgets.py",
+      "covered": 0,
+      "total": 686,
+      "percent": 0.0
+    },
+    {
+      "module": "update_notice.py",
+      "covered": 0,
+      "total": 29,
+      "percent": 0.0
+    },
+    {
+      "module": "version_picker.py",
+      "covered": 0,
+      "total": 54,
+      "percent": 0.0
+    },
+    {
+      "module": "video_navigation.py",
+      "covered": 0,
+      "total": 94,
+      "percent": 0.0
+    },
+    {
+      "module": "video_progress.py",
+      "covered": 0,
+      "total": 108,
+      "percent": 0.0
+    },
+    {
+      "module": "video_prompt_direct_api.py",
+      "covered": 0,
+      "total": 80,
+      "percent": 0.0
+    },
+    {
+      "module": "video_prompt_publication.py",
+      "covered": 0,
+      "total": 75,
+      "percent": 0.0
+    },
+    {
+      "module": "video_prompt_results.py",
+      "covered": 0,
+      "total": 113,
+      "percent": 0.0
+    },
+    {
+      "module": "video_source_evidence.py",
+      "covered": 0,
+      "total": 39,
+      "percent": 0.0
+    },
+    {
+      "module": "video_task_state.py",
+      "covered": 0,
+      "total": 71,
+      "percent": 0.0
+    },
+    {
+      "module": "white_model.py",
+      "covered": 0,
+      "total": 128,
+      "percent": 0.0
+    },
+    {
+      "module": "white_model_persistence_controller.py",
+      "covered": 0,
+      "total": 10,
+      "percent": 0.0
+    },
+    {
+      "module": "white_model_ref.py",
+      "covered": 0,
+      "total": 89,
+      "percent": 0.0
+    },
+    {
+      "module": "white_model_service.py",
+      "covered": 0,
+      "total": 488,
+      "percent": 0.0
+    },
+    {
+      "module": "workflow_agents.py",
+      "covered": 0,
+      "total": 85,
+      "percent": 0.0
+    },
+    {
+      "module": "workflow_context.py",
+      "covered": 0,
+      "total": 185,
+      "percent": 0.0
+    },
+    {
+      "module": "workflow_context_budget.py",
+      "covered": 0,
+      "total": 129,
+      "percent": 0.0
+    },
+    {
+      "module": "workflow_context_controller.py",
+      "covered": 0,
+      "total": 19,
+      "percent": 0.0
+    },
+    {
+      "module": "workflow_engines.py",
+      "covered": 0,
+      "total": 416,
+      "percent": 0.0
+    },
+    {
+      "module": "workflow_process_registry.py",
+      "covered": 0,
+      "total": 161,
+      "percent": 0.0
+    },
+    {
+      "module": "workflow_settings.py",
+      "covered": 0,
+      "total": 791,
+      "percent": 0.0
+    },
+    {
+      "module": "workflow_settings_dialog.py",
+      "covered": 0,
+      "total": 106,
+      "percent": 0.0
+    },
+    {
+      "module": "workflow_tasks.py",
+      "covered": 0,
+      "total": 212,
+      "percent": 0.0
+    },
+    {
+      "module": "workspace_maintenance.py",
+      "covered": 0,
+      "total": 289,
+      "percent": 0.0
+    },
+    {
+      "module": "writing.py",
+      "covered": 0,
+      "total": 81,
+      "percent": 0.0
+    },
+    {
+      "module": "writing_api.py",
+      "covered": 0,
+      "total": 971,
+      "percent": 0.0
+    },
+    {
+      "module": "writing_page_controller.py",
+      "covered": 0,
+      "total": 32,
+      "percent": 0.0
+    },
+    {
+      "module": "writing_quality.py",
+      "covered": 0,
+      "total": 114,
+      "percent": 0.0
+    },
+    {
+      "module": "writing_stream.py",
+      "covered": 0,
+      "total": 23,
+      "percent": 0.0
+    },
+    {
+      "module": "writing_tools.py",
+      "covered": 0,
+      "total": 71,
+      "percent": 0.0
+    },
+    {
+      "module": "writing_unconfirm.py",
+      "covered": 0,
+      "total": 95,
+      "percent": 0.0
+    },
+    {
+      "module": "tk_timers.py",
+      "covered": 9,
+      "total": 82,
+      "percent": 11.0
+    },
+    {
+      "module": "engine.py",
+      "covered": 85,
+      "total": 740,
+      "percent": 11.5
+    },
+    {
+      "module": "model_metering.py",
+      "covered": 6,
+      "total": 49,
+      "percent": 12.2
+    },
+    {
+      "module": "stage_config.py",
+      "covered": 67,
+      "total": 478,
+      "percent": 14.0
+    },
+    {
+      "module": "api_endpoints.py",
+      "covered": 51,
+      "total": 351,
+      "percent": 14.5
+    },
+    {
+      "module": "client_profiles.py",
+      "covered": 55,
+      "total": 379,
+      "percent": 14.5
+    },
+    {
+      "module": "stage_download_inbox_service.py",
+      "covered": 12,
+      "total": 81,
+      "percent": 14.8
+    },
+    {
+      "module": "skill_registry.py",
+      "covered": 98,
+      "total": 652,
+      "percent": 15.0
+    },
+    {
+      "module": "stage_models.py",
+      "covered": 35,
+      "total": 233,
+      "percent": 15.0
+    },
+    {
+      "module": "stage_parallel.py",
+      "covered": 103,
+      "total": 667,
+      "percent": 15.4
+    },
+    {
+      "module": "stage_animatic_gateways.py",
+      "covered": 19,
+      "total": 120,
+      "percent": 15.8
+    },
+    {
+      "module": "agent/volcengine.py",
+      "covered": 13,
+      "total": 72,
+      "percent": 18.1
+    },
+    {
+      "module": "platform_tools.py",
+      "covered": 98,
+      "total": 535,
+      "percent": 18.3
+    },
+    {
+      "module": "legacy_compat.py",
+      "covered": 9,
+      "total": 48,
+      "percent": 18.8
+    },
+    {
+      "module": "agent/media.py",
+      "covered": 16,
+      "total": 84,
+      "percent": 19.0
+    },
+    {
+      "module": "agent/wan.py",
+      "covered": 13,
+      "total": 66,
+      "percent": 19.7
+    },
+    {
+      "module": "asset_context.py",
+      "covered": 23,
+      "total": 117,
+      "percent": 19.7
+    },
+    {
+      "module": "model_secrets.py",
+      "covered": 40,
+      "total": 196,
+      "percent": 20.4
+    },
+    {
+      "module": "stage_write_preparation_service.py",
+      "covered": 19,
+      "total": 92,
+      "percent": 20.7
+    },
+    {
+      "module": "stage_handoff_gateways.py",
+      "covered": 42,
+      "total": 201,
+      "percent": 20.9
+    },
+    {
+      "module": "model_router.py",
+      "covered": 137,
+      "total": 646,
+      "percent": 21.2
+    },
+    {
+      "module": "stage_execution_service.py",
+      "covered": 101,
+      "total": 472,
+      "percent": 21.4
+    },
+    {
+      "module": "skill_budget.py",
+      "covered": 40,
+      "total": 172,
+      "percent": 23.3
+    },
+    {
+      "module": "app_logging.py",
+      "covered": 59,
+      "total": 248,
+      "percent": 23.8
+    },
+    {
+      "module": "stage_gate_gateways.py",
+      "covered": 20,
+      "total": 84,
+      "percent": 23.8
+    },
+    {
+      "module": "pet_bus.py",
+      "covered": 52,
+      "total": 211,
+      "percent": 24.6
+    },
+    {
+      "module": "pet_llm.py",
+      "covered": 80,
+      "total": 323,
+      "percent": 24.8
+    },
+    {
+      "module": "usage_overview.py",
+      "covered": 59,
+      "total": 237,
+      "percent": 24.9
+    },
+    {
+      "module": "storyboard_paths.py",
+      "covered": 11,
+      "total": 43,
+      "percent": 25.6
+    },
+    {
+      "module": "token_saver.py",
+      "covered": 99,
+      "total": 384,
+      "percent": 25.8
+    },
+    {
+      "module": "stage_flow.py",
+      "covered": 68,
+      "total": 255,
+      "percent": 26.7
+    },
+    {
+      "module": "stage_layout.py",
+      "covered": 58,
+      "total": 205,
+      "percent": 28.3
+    },
+    {
+      "module": "project_naming.py",
+      "covered": 4,
+      "total": 14,
+      "percent": 28.6
+    },
+    {
+      "module": "prop_assets.py",
+      "covered": 26,
+      "total": 86,
+      "percent": 30.2
+    },
+    {
+      "module": "stage_asset_gateways.py",
+      "covered": 28,
+      "total": 91,
+      "percent": 30.8
+    },
+    {
+      "module": "model_pool.py",
+      "covered": 240,
+      "total": 728,
+      "percent": 33.0
+    },
+    {
+      "module": "stage_previs_gateways.py",
+      "covered": 24,
+      "total": 72,
+      "percent": 33.3
+    },
+    {
+      "module": "agent/core.py",
+      "covered": 65,
+      "total": 194,
+      "percent": 33.5
+    },
+    {
+      "module": "storage_maintenance.py",
+      "covered": 229,
+      "total": 656,
+      "percent": 34.9
+    },
+    {
+      "module": "stage_path_service.py",
+      "covered": 20,
+      "total": 55,
+      "percent": 36.4
+    },
+    {
+      "module": "config_snapshot.py",
+      "covered": 7,
+      "total": 19,
+      "percent": 36.8
+    },
+    {
+      "module": "project_settings.py",
+      "covered": 30,
+      "total": 77,
+      "percent": 39.0
+    },
+    {
+      "module": "asset_batch_lifecycle.py",
+      "covered": 32,
+      "total": 77,
+      "percent": 41.6
+    },
+    {
+      "module": "desktop_automation_service.py",
+      "covered": 202,
+      "total": 457,
+      "percent": 44.2
+    },
+    {
+      "module": "file_cache.py",
+      "covered": 77,
+      "total": 159,
+      "percent": 48.4
+    },
+    {
+      "module": "stage_publication.py",
+      "covered": 42,
+      "total": 85,
+      "percent": 49.4
+    },
+    {
+      "module": "keyframe_evidence.py",
+      "covered": 76,
+      "total": 130,
+      "percent": 58.5
+    },
+    {
+      "module": "project_stages.py",
+      "covered": 17,
+      "total": 28,
+      "percent": 60.7
+    },
+    {
+      "module": "project_context_factory.py",
+      "covered": 6,
+      "total": 9,
+      "percent": 66.7
+    },
+    {
+      "module": "agent/video.py",
+      "covered": 5,
+      "total": 7,
+      "percent": 71.4
+    },
+    {
+      "module": "keyframe_lifecycle_service.py",
+      "covered": 97,
+      "total": 118,
+      "percent": 82.2
+    },
+    {
+      "module": "model_protocol.py",
+      "covered": 5,
+      "total": 6,
+      "percent": 83.3
+    },
+    {
+      "module": "service_contract.py",
+      "covered": 23,
+      "total": 27,
+      "percent": 85.2
+    },
+    {
+      "module": "project_context.py",
+      "covered": 12,
+      "total": 14,
+      "percent": 85.7
+    },
+    {
+      "module": "request_ledger.py",
+      "covered": 512,
+      "total": 582,
+      "percent": 88.0
+    },
+    {
+      "module": "agent/publication.py",
+      "covered": 141,
+      "total": 159,
+      "percent": 88.7
+    },
+    {
+      "module": "video_lifecycle_service.py",
+      "covered": 78,
+      "total": 83,
+      "percent": 94.0
+    },
+    {
+      "module": "app_metadata.py",
+      "covered": 3,
+      "total": 3,
+      "percent": 100.0
+    },
+    {
+      "module": "script_manifest_contract.py",
+      "covered": 10,
+      "total": 10,
+      "percent": 100.0
+    }
+  ],
+  "modules_covered": 59,
+  "modules_total": 366
 }

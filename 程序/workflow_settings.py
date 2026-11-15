@@ -9,9 +9,11 @@ from agent.core import save
 from file_cache import read_json
 import skill_registry
 from skill_registry import nested_references as _nested_references, reference_row as _reference_row
+from skill_inline import (_charge_inline, _is_text_script, _recurse_references,
+                          _skill_inline_budget, _skipped_inline_hint)
 import client_profiles, edit_habits, stage_layout
 from script_contract import PRODUCTION_LOCK_DEFINITIONS, STAGE_LOCK_REQUIREMENTS, lock_stage
-from workflow_context_budget import REQUEST_CONTEXT_MAX_CHARS
+from workflow_context_budget import REQUEST_CONTEXT_MAX_CHARS, estimate_tokens, skill_inline_token_budget
 from store_program_locator import current_store_program, store_package_program, gui_claude_program, GUI_CLAUDE_CLI_HINT
 ENGINES={'codex':'ChatGPT / Codex','qwen':'Qwen Code（阿里云）','claude':'Claude Code','claude-desktop-app':'Claude Desktop','desktop-app':'自定义桌面应用','client-cli':'自定义命令行客户端','opencode':'opencode CLI（自动放行权限）'}
 FLOWS={'writing':'剧本创作','storyboard':'初步分镜','assets':'资产图片制作','frames':'批量首帧','previs':'白模预演','video_prompt':'视频提示词','audio':'配音与字幕'}
@@ -680,10 +682,7 @@ def validate_selected_skills(project, stage):
     for name in entry.get('skills') or ():
         if registry.getById(name) is None:
             raise ValueError(f'已勾选的 SKILL 未加载：{name}；已阻止发送，请重新确认阶段配置。')
-_TEXT_SCRIPT_SUFFIXES = ('.py', '.sh', '.ps1', '.bat', '.cmd', '.json', '.yaml', '.yml', '.toml', '.ini', '.cfg')
-def _is_text_script(suffix):
-    return suffix.lower() in _TEXT_SCRIPT_SUFFIXES
-def _skill_blocks(path, *, strict, locks=None, depth=0):
+def _skill_blocks(path, *, strict, locks=None, depth=0, budget=None):
     """走一遍技能正文与它的引用；返回 (正文, 元数据, 分块, 引用闭包)。
 
     闭包是「实际发生了什么」的唯一记录：inlined（已内联）、duplicate（重复）、
@@ -742,93 +741,45 @@ def _skill_blocks(path, *, strict, locks=None, depth=0):
             closure.append(_reference_row(entry, reference, 'missing'))
             raise ValueError(f'SKILL 引用缺失，已阻止发送：{reference}（{exc}）') from exc
         if text_script:
-            seen.add(reference)
-            blocks.append((reference, f'\n\n## 脚本: {reference.name}\n```{reference.suffix.lstrip(".")}\n{body}\n```'))
-            closure.append(_reference_row(entry, reference, 'inlined'))
+            block = f'\n\n## 脚本: {reference.name}\n```{reference.suffix.lstrip(".")}\n{body}\n```'
+            if _charge_inline(budget, block):
+                seen.add(reference)
+                blocks.append((reference, block))
+                closure.append(_reference_row(entry, reference, 'inlined'))
+            else:
+                blocks.append((reference, _skipped_inline_hint(reference)))
+                closure.append(_reference_row(entry, reference, 'skipped'))
             continue
         part = skill_registry.section(body, fragment)
         if part is not None:
+            block = f'\n\n## 引用: {reference.name}#{fragment}（节选）\n{part}'
+            if not _charge_inline(budget, block):
+                blocks.append((reference, _skipped_inline_hint(reference)))
+                closure.append(_reference_row(entry, reference, 'skipped'))
+                continue
             sections.add((reference, fragment))
-            blocks.append((reference, f'\n\n## 引用: {reference.name}#{fragment}（节选）\n{part}'))
+            blocks.append((reference, block))
             closure.append(_reference_row(entry, reference, 'section'))
             if depth != 0:
                 seen.add(reference)
                 closure.extend(_nested_references(reference, part, seen, roots))
-                closure.extend(_recurse_references(reference, part, (strict, locks, depth, blocks, seen, sections)))
+                closure.extend(_recurse_references(reference, part, (strict, locks, depth, blocks, seen, sections, budget)))
             else:
                 closure.extend(_nested_references(reference, part, seen | {reference}, roots))
             continue
+        block = f'\n\n## 引用: {reference.name}\n{body}'
+        if not _charge_inline(budget, block):
+            blocks.append((reference, _skipped_inline_hint(reference)))
+            closure.append(_reference_row(entry, reference, 'skipped'))
+            continue
         seen.add(reference)
-        blocks.append((reference, f'\n\n## 引用: {reference.name}\n{body}'))
+        blocks.append((reference, block))
         closure.append(_reference_row(entry, reference, 'inlined'))
         if depth != 0:
-            closure.extend(_recurse_references(reference, body, (strict, locks, depth, blocks, seen, sections)))
+            closure.extend(_recurse_references(reference, body, (strict, locks, depth, blocks, seen, sections, budget)))
         else:
             closure.extend(_nested_references(reference, body, seen, roots))
     return text, meta, blocks, closure
-def _recurse_references(reference, body, context):
-    """展开一个已内联引用文件里再出现的链接（递归一层），返回 closure 行。
-
-    ``seen`` 跨层去重（回环记 cycle 由调用方 _nested_references 或本函数处理）；
-    这里只负责把下一层引用真正内联进 ``blocks``。depth 递减直到 0 停止递归。
-    """
-    strict, locks, depth, blocks, seen, sections = context
-    next_depth = depth - 1 if depth > 0 else depth
-    roots = skill_registry.skill_roots()
-    out = []
-    for entry in skill_registry.reference_targets(body):
-        relative = entry['path']
-        if relative is None:
-            out.append(_reference_row(entry, None, entry['kind'], 2))
-            continue
-        if relative.is_absolute():
-            out.append(_reference_row(entry, relative, 'absolute', 2))
-            continue
-        target = skill_registry.resolve_reference(reference, relative)
-        markdown = entry['kind'] == 'markdown'
-        text_script = not markdown and _is_text_script(target.suffix)
-        if not markdown and not text_script:
-            out.append(_reference_row(entry, target, 'resource', 2))
-            if depth == -1:
-                blocks.append((target, f'\n\n<!-- 本请求不发送该资源，本地路径：{target} -->'))
-            continue
-        if target in seen:
-            out.append(_reference_row(entry, target, 'cycle', 2))
-            continue
-        if not any(target.is_relative_to(root) for root in roots):
-            out.append(_reference_row(entry, target, 'outside', 2))
-            continue
-        fragment = entry.get('fragment') or ''
-        if (target, fragment) in sections:
-            out.append(_reference_row(entry, target, 'duplicate', 2))
-            continue
-        try:
-            nested_body = target.read_text(encoding='utf-8-sig')
-        except OSError as exc:
-            out.append(_reference_row(entry, target, 'missing', 2))
-            if strict:
-                raise ValueError(f'SKILL 引用缺失，已阻止发送：{target}（{exc}）') from exc
-            continue
-        if text_script:
-            seen.add(target)
-            blocks.append((target, f'\n\n## 脚本: {target.name}\n```{target.suffix.lstrip(".")}\n{nested_body}\n```'))
-            out.append(_reference_row(entry, target, 'inlined', 2))
-            continue
-        part = skill_registry.section(nested_body, fragment)
-        if part is not None:
-            sections.add((target, fragment))
-            seen.add(target)
-            blocks.append((target, f'\n\n## 引用: {target.name}#{fragment}（节选）\n{part}'))
-            out.append(_reference_row(entry, target, 'section', 2))
-            if next_depth != 0:
-                out.extend(_recurse_references(target, part, (strict, locks, next_depth, blocks, seen, sections)))
-            continue
-        seen.add(target)
-        blocks.append((target, f'\n\n## 引用: {target.name}\n{nested_body}'))
-        out.append(_reference_row(entry, target, 'inlined', 2))
-        if next_depth != 0:
-            out.extend(_recurse_references(target, nested_body, (strict, locks, next_depth, blocks, seen, sections)))
-    return out
 def master_gate(config, stage=None, check_references=True):
     """总控门禁（见 master_skill 模块说明）：返回阻断原因，空串＝放行；手动与自动路径共用。"""
     name = str(config.get('workflow_name') or '').strip()
@@ -863,10 +814,10 @@ def master_gate(config, stage=None, check_references=True):
     if not reasons:
         return ''
     return '总控门禁已阻断：' + '；'.join(reasons)
-def _inline_skill_report(path, *, cap=REQUEST_CONTEXT_MAX_CHARS, strict=False, locks=None, depth=0):
+def _inline_skill_report(path, *, cap=REQUEST_CONTEXT_MAX_CHARS, strict=False, locks=None, depth=0, budget=None):
     """内联技能正文，并给出「实际加载了什么」的引用闭包，供请求快照留凭据。"""
     from html import escape
-    _text, meta, blocks, closure = _skill_blocks(path, strict=strict, locks=locks, depth=depth)
+    _text, meta, blocks, closure = _skill_blocks(path, strict=strict, locks=locks, depth=depth, budget=budget)
     name = str(meta.get('name') or Path(path).resolve().parent.name)
     complete = (f'<skill name="{escape(name, quote=True)}">\n'
                 + ''.join(body for _, body in blocks) + '\n</skill>')
@@ -874,9 +825,9 @@ def _inline_skill_report(path, *, cap=REQUEST_CONTEXT_MAX_CHARS, strict=False, l
         raise ValueError(f'SKILL「{name}」内容 {len(complete):,} 字符，超过上限 {cap:,} 字符，'
                          f'已阻止发送：{Path(path).resolve()}；请减少所选技能或缩短内容。')
     return complete, closure
-def _inline_skill(path, *, cap=REQUEST_CONTEXT_MAX_CHARS, strict=False, locks=None, depth=0):
+def _inline_skill(path, *, cap=REQUEST_CONTEXT_MAX_CHARS, strict=False, locks=None, depth=0, budget=None):
     """API 发送快照：技能及目录边界内的引用；``depth=-1`` 递归加载引用。"""
-    return _inline_skill_report(path, cap=cap, strict=strict, locks=locks, depth=depth)[0]
+    return _inline_skill_report(path, cap=cap, strict=strict, locks=locks, depth=depth, budget=budget)[0]
 def freeze_skills(config):
     """冻结发送内容；桌面与 API、四角色复用同一份正文，不在工作线程重读。"""
     from copy import deepcopy
@@ -889,6 +840,7 @@ def freeze_skills(config):
     if blocked:
         raise ValueError(blocked)
     selected, loaded, bodies, references, seen = [], [], [], [], set()
+    budget = _skill_inline_budget(frozen)
     for item in [*(frozen.get('stage_skills') or ()), *skills_of(frozen)]:
         path = Path(item).resolve()
         identity = os.path.normcase(str(path))
@@ -897,7 +849,7 @@ def freeze_skills(config):
         seen.add(identity)
         selected.append(str(path))
         try:
-            body, closure = _inline_skill_report(path, strict=True, locks=frozen.get('workflow_lock') or {}, depth=-1)
+            body, closure = _inline_skill_report(path, strict=True, locks=frozen.get('workflow_lock') or {}, depth=-1, budget=budget)
         except (OSError, UnicodeError, ValueError) as exc:
             raise ValueError(f'已勾选的 SKILL 或其引用未加载：{path}；已阻止发送。{exc}') from exc
         bodies.append(body)
@@ -969,7 +921,8 @@ def _one_skill_prompt(config,skill,inline=False):
     if not skill:return ''
     if inline:
         depth = -1 if config.get('stage') == 'writing' else 0
-        return _inline_skill(skill, locks=config.get('workflow_lock') or {}, depth=depth)
+        return _inline_skill(skill, locks=config.get('workflow_lock') or {}, depth=depth,
+                             budget=_skill_inline_budget(config) if depth == -1 else None)
     path=Path(skill)
     adapter=''
     if preset_folder(skill) in ('cinematic-director','video-storyboard-gen'):

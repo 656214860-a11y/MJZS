@@ -125,6 +125,31 @@ class DeepInlineTests(unittest.TestCase):
         self.assertIn('C正文', writing)
         self.assertNotIn('C正文', other)
 
+    def test_budget_skips_oversize_references_with_skipped_status(self):
+        """预算耗尽时递归引用不再内联：记 skipped 并留本地路径提示，SKILL 正文照常。"""
+        stage = self.root / '01 剧本准备SKILL'
+        a = _write(stage, 'a.skill.md',
+                   '---\nname: a\ndescription: x\nstage: 剧本准备\n---\nA 正文\n[引用B](./b.md)\n[引用C](./c.md)\n')
+        b = _write(stage, 'b.md', 'B 正文\n')
+        c = _write(stage, 'c.md', '长正文' * 500)
+        budget = {'remaining': 200}      # 只装得下小引用
+        with self._patch_roots():
+            body, closure = _inline_skill_report(a, depth=-1, budget=budget)
+        self.assertIn('A 正文', body)
+        self.assertIn('B 正文', body)                      # 小引用仍在预算内
+        self.assertNotIn('长正文' * 500, body)              # 大引用被预算挡下
+        self.assertIn('本地路径', body)                     # 留提示供目录白名单引擎按需读取
+        statuses = {row['target']: row['status'] for row in closure if row.get('status')}
+        self.assertEqual(statuses['./c.md'], 'skipped')
+
+    def test_skill_inline_token_budget_scales_with_window(self):
+        from workflow_context_budget import skill_inline_token_budget
+        self.assertIsNone(skill_inline_token_budget(0))                       # 查不到窗口不设限
+        small = skill_inline_token_budget(128_000)
+        large = skill_inline_token_budget(1_000_000)
+        self.assertLess(small, 128_000)
+        self.assertGreater(large, small)
+
 
 if __name__ == '__main__':
     unittest.main()

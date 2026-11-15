@@ -34,6 +34,20 @@ def estimate_tokens(text):
     return (ascii_count + 2) // 3 + (len(text) - ascii_count) * 2
 
 
+def skill_inline_token_budget(context_limit):
+    """递归内联 SKILL 引用的体积预算（估算 token）。
+
+    预算＝窗口 − 输出预留 − 余量 − 任务/历史/固定规则份额；查不到窗口时返回 None 表示不设限。
+    只约束 depth=-1 的递归展开：SKILL 正文与直接引用照常加载，超预算的嵌套引用记 skipped。
+    """
+    limit = int(context_limit or 0)
+    if limit <= 0:
+        return None
+    reserved = max(DEFAULT_OUTPUT_RESERVE_TOKENS, int(limit * 0.06))
+    fixed_share = max(DEFAULT_OUTPUT_RESERVE_TOKENS, int(limit * 0.16))
+    return max(0, limit - reserved - default_safety_margin(limit) - fixed_share)
+
+
 def text_fingerprint(text):
     """正文摘要：预览与实际发送用同一快照时摘要一致，便于核对。"""
     return hashlib.sha256(str(text or '').encode('utf-8')).hexdigest()[:16]

@@ -447,7 +447,7 @@ class ForceStopTests(unittest.TestCase):
                      {"id": "SH002", "action": "他追逐并抢夺道具", "camera": "跟拍", "duration": 5}]
             source.write_text(json.dumps({"episode_id": "EP001", "title": "T", "shots": shots}, ensure_ascii=False), encoding="utf-8")
             state = {"busy": False, "status": {}, "progress": {}, "selected": set()}
-            def fake_run(config, project, output, report, logfile, prompt):
+            def fake_run(config, project, output, report, logfile, prompt, on_output=None):
                 previs_automation.force_stop(project, state)          # 用户在制作过程中按了「强制停止制作」
                 raise ValueError("Codex 执行失败，请查看运行日志")
             with patch.object(white_model_service, "find_blender", lambda refresh=False: Path(sys.executable)), \

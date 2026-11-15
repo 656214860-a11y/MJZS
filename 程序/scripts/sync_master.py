@@ -73,8 +73,7 @@ def sync_master(*, root: Path = ROOT, remote: str = "backup", branch: str = "") 
         raise RuntimeError("拒绝同步：当前检出分支 %s 与指定主干 %s 不一致，不会切换分支。"
                            % (actual or "(游离)", branch))
     if not is_main_worktree(root):
-        raise RuntimeError("拒绝同步：当前不是主工作区（git-dir 与 common-dir 不同）。"
-                           "同步只在主工作区执行，功能工作树用 rebase 而非同步。")
+        raise RuntimeError("拒绝同步：当前不是主工作区。功能工作树请用 rebase 替代同步。")
     if branch not in MAIN_BRANCHES:
         raise RuntimeError("拒绝同步：当前分支 %s 不是 %s。同步只作用于主工作区主干。"
                            % (branch, "/".join(MAIN_BRANCHES)))
