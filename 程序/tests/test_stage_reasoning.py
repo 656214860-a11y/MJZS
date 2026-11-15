@@ -16,6 +16,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from skip_reasons import PLATFORM_TKINTER, PLATFORM_TK_DISPLAY
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROGRAM = os.path.dirname(HERE)
 sys.path.insert(0, PROGRAM)
@@ -197,12 +199,12 @@ class ReasoningPickerTests(unittest.TestCase):
         try:
             import tkinter as tk
         except Exception:
-            self.skipTest('本机没有 tkinter')
+            self.skipTest(PLATFORM_TKINTER)
         self.tk = tk
         try:
             self.win = self.tk.Tk()
         except self.tk.TclError:
-            self.skipTest('没有可用显示，Tk 用例跳过')
+            self.skipTest(PLATFORM_TK_DISPLAY)
         self.win.withdraw()
         self.addCleanup(self.win.destroy)
         self.tmp = tempfile.TemporaryDirectory()
