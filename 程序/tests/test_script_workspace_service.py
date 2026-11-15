@@ -123,10 +123,16 @@ class ScriptWorkspaceServiceTests(unittest.TestCase):
             self.assertEqual({draft, formal}, {row.path for row in discover_script_documents(temp)})
             self.assertEqual(formal, script_contract.resolve_script_source(temp))
             self.assertNotIn(draft, script_contract.natural_script_paths(temp))
-            for invalid in ('', '   ', '{"shots": []}', '# 结构化剧本\n角色档案'):
+            for invalid in ('', '   '):
                 with self.subTest(invalid=invalid):
                     draft.write_text(invalid, encoding='utf-8')
                     self.assertEqual([formal], [row.path for row in discover_script_documents(temp)])
+            # 「只收自然语言剧本」闸门已删除：非空工作稿不论内容形态都照常展示。
+            for visible in ('{"shots": []}', '# 结构化剧本\n角色档案'):
+                with self.subTest(visible=visible):
+                    draft.write_text(visible, encoding='utf-8')
+                    self.assertEqual({draft, formal},
+                                     {row.path for row in discover_script_documents(temp)})
 
     def test_internal_draft_resolving_outside_stage_is_not_shown(self):
         from unittest.mock import patch

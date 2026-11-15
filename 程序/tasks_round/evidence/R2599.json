@@ -1,0 +1,15 @@
+{
+  "round": 2599,
+  "commit_base": "4ef75047",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_script_contract",
+    "exit": 0,
+    "passed": 61,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T13:45:34"
+}

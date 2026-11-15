@@ -26,40 +26,37 @@ class NaturalScriptSaveTests(unittest.TestCase):
             self.assertEqual(sc.save_natural_script(target, '阿远：我回来了'), target)
             self.assertEqual(target.read_text(encoding='utf-8'), '阿远：我回来了\n')
 
-    def test_save_rejects_structured_content_and_non_markdown_target(self):
+    def test_save_rejects_non_markdown_target_and_blank_text(self):
         with tempfile.TemporaryDirectory() as folder:
             target = Path(folder) / '自然剧本.md'
-            with self.assertRaisesRegex(ValueError, '结构化内容'):
-                sc.save_natural_script(target, '# 结构化剧本\n## 分场剧本')
             with self.assertRaisesRegex(ValueError, 'Markdown'):
                 sc.save_natural_script(target.with_suffix('.txt'), '自然剧本')
+            with self.assertRaisesRegex(ValueError, '空正文'):
+                sc.save_natural_script(target, '   ')
 
-    def test_beat_table_is_not_a_forbidden_field_table(self):
-        """REQ-S01-16：自然剧本每集正文前必带本集节拍表，节拍表是合法字段表格，不能误伤。
-
-        「字段表格」拦截只针对分镜表／镜头表等结构化阶段产物；节拍表以
-        ``场次／节拍＃／情绪关键词／服务的剧本动作／权重／强度`` 六列为准，
-        是剧本准备阶段的正式交付，必须放行。
-        """
-        beat_table = (
-            '# 第1集：咔咔的超能力\n'
-            '## 本集节拍表\n'
-            '| 场次 | 节拍＃ | 情绪关键词 | 服务的剧本动作 | 权重 | 强度 |\n'
-            '|---|---|---|---|---|---|\n'
-            '| 场景 1 | 1 | 心算十楼两秒 | 咔咔抬头从一楼看到十楼，心算时间 | 主 | 5.0 |\n'
-            '| 场景 1 | 2 | 仰头喊跳 | 咔咔双手拢在嘴边仰头大喊「跳！」 | 峰值 | 6.0 |\n'
-            '\n'
-            '## 正文\n\n咔咔骑电动车冲进画面，一脚急刹。\n'
-        )
-        self.assertEqual(sc.natural_script_violations(beat_table), ())
+    def test_structured_features_no_longer_block_saving_or_listing(self):
+        """REQ-S01-83：「只收自然语言剧本」闸门已删除：带结构化特征的正文照常落盘、照常进可采用清单。"""
         with tempfile.TemporaryDirectory() as folder:
-            target = Path(folder) / '自然剧本.md'
-            sc.save_natural_script(target, beat_table)
+            target = Path(folder) / '01剧本准备' / '剧本.md'
+            target.parent.mkdir(parents=True)
+            sc.save_natural_script(target, '# 结构化剧本\n## 分场剧本\n| 镜头编号 | 景别 |\n|---|---|')
+            self.assertIn(target.resolve(),
+                          {Path(p).resolve() for p in sc.natural_script_paths(folder)})
 
-    def test_foreign_pipe_table_is_still_rejected(self):
-        """节拍表豁免不得放大到其它字段表格：分镜表／镜头表仍是结构化阶段产物。"""
-        self.assertIn('字段表格', sc.natural_script_violations(
-            '# 自然剧本\n## 正文\n| 镜头编号 | 景别 | 画面内容 |\n|---|---|---|\n| 1 | 特写 | 咔咔 |\n'))
+    def test_beat_table_with_blank_separated_rows_is_listed(self):
+        """桌面工具落盘的 ``\\r\\r\\n`` 双重回车在 ``splitlines`` 下变成行间伪空行；
+        内容闸门删除后，这类文件直接进入可采用清单。"""
+        header = '| 场次 | 节拍＃ | 情绪关键词 | 服务的剧本动作 | 权重 | 强度 |'
+        separator = '|---|---|---|---|---|---|'
+        row = '| 场景 1 | 1 | 心算十楼两秒 | 咔咔抬头心算时间 | 主 | 5.0 |'
+        text = '# 第1集\r\r\n## 本集节拍表\r\r\n' + '\r\r\n'.join(
+            (header, separator, row)) + '\r\r\n\r\r\n## 正文\r\r\n\r\r\n咔咔急刹。\r\r\n'
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder) / '01剧本准备' / '自然剧本.md'
+            target.parent.mkdir(parents=True)
+            target.write_bytes(text.encode('utf-8'))
+            self.assertIn(target.resolve(),
+                          {Path(p).resolve() for p in sc.natural_script_paths(folder)})
 
 
 class StructuredScriptPublicationTests(unittest.TestCase):

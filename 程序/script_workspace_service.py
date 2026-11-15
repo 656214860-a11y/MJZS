@@ -11,7 +11,7 @@ import re
 from service_contract import SystemError, UserError, success
 
 import project_stages
-from script_contract import RAW_SCRIPT_NAME, is_natural_script
+from script_contract import RAW_SCRIPT_NAME
 
 LOGGER = logging.getLogger(__name__)
 
@@ -80,7 +80,7 @@ def _find_draft(writing_dir, writing_root):
         draft.resolve().relative_to(writing_root)
         if draft.is_file() and draft.stat().st_size:
             state['text'] = draft.read_text(encoding='utf-8', errors='ignore').strip()
-            if is_natural_script(state['text']):
+            if state['text']:
                 state['document'] = ScriptDocument('script', draft, draft.stat().st_mtime, RAW_SCRIPT_NAME)
     except (OSError, ValueError):
         pass
@@ -278,7 +278,6 @@ def adopt_natural_script(project, source_path, *, publish):
     import script_contract
     root = Path(project).resolve()
     source = selected_workspace_document(script_contract.natural_script_paths(root), source_path)
-    script_contract.require_natural_script(source.read_text(encoding='utf-8'))
     record = {'path': source.relative_to(root).as_posix(),
               'sha256': hashlib.sha256(source.read_bytes()).hexdigest()}
     publish(script_contract.natural_script_selection_path(root),

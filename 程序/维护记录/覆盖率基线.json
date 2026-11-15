@@ -1212,12 +1212,6 @@
    "percent": 0.0
   },
   {
-   "module": "script_natural_gate.py",
-   "covered": 0,
-   "total": 19,
-   "percent": 0.0
-  },
-  {
    "module": "script_output_spec.py",
    "covered": 0,
    "total": 68,
@@ -2221,5 +2215,5 @@
   }
  ],
  "modules_covered": 59,
- "modules_total": 368
+ "modules_total": 367
 }

@@ -770,13 +770,15 @@ class WritingApiTests(unittest.TestCase):
             save(target, second)
             self.assertEqual(writing_api._complete_brief(project)['brief']['story_summary'], second['brief']['story_summary'])
 
-    def test_disabled_auto_save_rejects_structured_or_short_text_and_deduplicates_same_text(self):
+    def test_auto_save_rejects_short_text_and_deduplicates_same_text(self):
+        """「只收自然语言剧本」闸门已删除：结构化特征正文照常自动存档；只拦过短正文。"""
         with tempfile.TemporaryDirectory() as td:
             project = make_project(td)
             short = {'ok': True, 'text': '短回复'}
             structured = {'ok': True, 'text': '{"source_script": "结构化"}' * 100}
             self.assertNotIn('script_raw_path', writing_api._auto_save_script_raw(project, short))
-            self.assertNotIn('script_raw_path', writing_api._auto_save_script_raw(project, structured))
+            self.assertIn('script_raw_path',
+                          writing_api._auto_save_script_raw(project, structured, publish=publish_stage_text))
             text = self.natural_script(20).strip()
             first = writing_api._auto_save_script_raw(project, {'ok': True, 'text': text}, publish=publish_stage_text)
             with patch('writing_api._write_script_raw') as write:
