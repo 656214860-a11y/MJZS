@@ -51,6 +51,12 @@ class NormalizeTests(unittest.TestCase):
         self.assertEqual(data["estimated_duration"], 4)
         self.assertEqual(data["characters"], ["CHAR_001"], "老键一个都不动")
 
+    def test_non_dict_input_normalizes_to_defaults(self):
+        for raw in (None, "SH-raw", 12):
+            data = sb.normalize(raw)
+            self.assertIsInstance(data, dict)
+            self.assertIn("shot_id", data)
+
     def test_shot_id_falls_back_to_the_position(self):
         self.assertEqual(sb.normalize({}, 2)["shot_id"], "S03")
 
@@ -96,6 +102,12 @@ class GroupTests(unittest.TestCase):
         shots = [shot(index, 5) for index in range(1, 7)]
         batches = sb.group(shots, long=True)
         self.assertEqual([len(batch) for batch in batches], [4, 2])
+
+    def test_a_batch_accepts_exactly_the_seconds_cap(self):
+        shots = [shot(index, 6) for index in range(1, 5)]
+        batches = sb.group(shots)
+        self.assertEqual([len(batch) for batch in batches], [3, 1],
+                         "累计恰好等于 18 秒上限仍属本批，第 4 镜才切批")
 
     def test_assign_fills_batch_ids_in_order(self):
         shots = [shot(1), shot(2)]
