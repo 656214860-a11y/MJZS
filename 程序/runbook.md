@@ -191,6 +191,7 @@ AGENTS 只保留触发条件；本节是细则全文。开工领号、建工作�
 **结果侧观测（R2533 起）**：`python -B scripts/dora_report.py [--days 30]` 只读输出前置时间（分支首个独有提交到合入 master）、`R<n>-FAIL:` 占比、「7 天内被修复」比例（同模块又有「修复」提交，启发式）、返工热点前 15 个模块、红灯停留与按 `Agent:` 来源的分组，并写 `程序/logs/dora_最近.md`。红灯停留的原始数据是后台全量每次结束追加到 common-dir `full-safe-history.jsonl` 的一行（环境受阻不记）。`dev.py commit --agent <名称>` 在提交信息末尾加 `Agent: <名称>`。这些是结果侧信号，不设阈值、不是目标；冒烟 8/8 与架构门禁数量只是健康检查。
 
 **其余闸门工具（R2538 起）**：① `scripts/typecheck_baseline.py --check|--update`——开发机用 `npx pyright@1.1.414`（basic、Python 3.13）数每个生产模块的类型错误，基线 `维护记录/类型检查基线.json` 只许减少，需要 Node 与联网，不进产品和发布包；`tests/architecture/test_type_check_baseline.py` 只守基线文件自洽。② `scripts/skill_package_pins.py --check|--update`——外部技能包（gitlink）的来源、固定提交与 git 内容树哈希登记在 `维护记录/外部技能包哈希.json`，已检出的包被改过或漂移即红，升级外部包后用 `--update` 重新登记。③ `tests/architecture/test_gate_selfaudit.py`——路径权威、删除权威、静默异常、秘密出口、分层 5 个门禁各有坏／好样本，门禁被改坏时先红。④ `tests/test_fault_injection_chain.py`——传输层注入超时／429／5xx／半截响应，核对计量台账不重复计费、未知用量不算已花费、没有产物时模型嘴上说完成也不发 `stage.completed`。⑤ 结果文件标题行之后由 `dev.py commit` 写一行 `<!-- round-evidence: {...} -->`（类型、命令、退出码、通过／失败数、证据文件摘要、基线提交），已有则替换。
+**测试搬家守卫（规则 16）**：`scripts/test_move_audit.py` 核对暂存区或某个提交——测试文件新增／删除、或新旧内容除 `import` 行外有任何差异都不通过；`dev.py commit` 在提交信息首行以「R<n>: 测试搬家」开头时自动核对，不通过拒绝提交。规则 26 由 `test_rule_guard_map.py` 守卫（新增规则不登记守卫即红）。暂无守卫的规则只剩 25、30a、32，均为纯流程要求。
 **服务器端闸门（需用户部署）**：`维护记录/基准脚本/server_hooks/pre-receive`（Python 3 标准库）放到备份服务器裸仓库的 `hooks/` 下并 `chmod +x`，之后推到 master/main 的 R2527 及以后的源码轮次提交必须带同一提交里的绿色证据文件，删除 master/main 一律拒绝；部署命令写在脚本头部，本仓库不连接服务器。
 
 ## 14. 文档先行：需求 → 设计 → 实现（自 AGENTS §2.7 迁入）

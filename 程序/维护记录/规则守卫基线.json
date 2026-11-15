@@ -18,6 +18,9 @@
   "15": [
    "tests/architecture/test_agents_md.py"
   ],
+  "16": [
+   "tests/architecture/test_test_move_guard.py"
+  ],
   "17": [
    "tests/architecture/test_stage_command_contract.py"
   ],
@@ -32,6 +35,9 @@
   ],
   "22": [
    "tests/architecture/test_event_bus_boundary.py"
+  ],
+  "26": [
+   "tests/architecture/test_rule_guard_map.py"
   ],
   "27": [
    "tests/architecture/test_round_baselines.py"

@@ -13,7 +13,7 @@ sys.modules[SPEC.name] = MAP
 SPEC.loader.exec_module(MAP)
 
 # 以下是流程性规则，没有可执行的守卫；补了守卫就从这里删掉，不得新增。降为建议须经用户确认。
-UNGUARDED_CEILING = frozenset({'16', '25', '26', '30a', '32'})
+UNGUARDED_CEILING = frozenset({'25', '30a', '32'})
 
 
 class RuleGuardMapTests(unittest.TestCase):

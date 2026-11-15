@@ -29,6 +29,9 @@ import run_selftests  # noqa: E402
 sys.path.insert(0, str(PROGRAM / "维护记录" / "基准脚本"))
 import round_evidence  # noqa: E402
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import test_move_audit  # noqa: E402
+
 POLL_SECONDS = 15
 REPORT_SECONDS = 120
 REJECT_MARK = "全量安全验收锁存在"
@@ -41,6 +44,16 @@ def with_agent_trailer(message: str, agent: str) -> str:
     if not agent or any(line.startswith("Agent: ") for line in message.splitlines()):
         return message
     return message.rstrip("\n") + "\n\nAgent: " + agent
+
+
+def check_test_move(message: str, root: Path) -> int:
+    """提交信息首行以「R<n>: 测试搬家」开头时核对暂存区（规则 16）：只许移动测试与修 import；返回 0 放行，非 0 拒绝。"""
+    if not test_move_audit.is_move_round(message):
+        return 0
+    problems = test_move_audit.audit_staged(root)
+    for line in problems:
+        print("拒绝提交：测试搬家轮 " + line, file=sys.stderr)
+    return 5 if problems else 0
 
 
 def attach_evidence(message: str, keywords, root: Path) -> int:
@@ -117,7 +130,7 @@ def main(argv=None) -> int:
             print(added.stderr.strip(), file=sys.stderr)
             return added.returncode
     if args.files or _git("diff", "--cached", "--name-only").stdout.strip():
-        rejected = attach_evidence(args.message, args.tests, PROGRAM.parent)
+        rejected = check_test_move(args.message, PROGRAM.parent) or attach_evidence(args.message, args.tests, PROGRAM.parent)
         if rejected:
             return rejected
     staged = [line for line in _git("diff", "--cached", "--name-only").stdout.splitlines() if line]
