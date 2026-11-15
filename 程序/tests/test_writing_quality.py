@@ -1,5 +1,6 @@
 """No-network checks for the shared API/CLI/desktop quality receipt."""
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -74,6 +75,11 @@ class QualityTests(unittest.TestCase):
             root = Path(td)
             first = quality.publish_reports(envelope('第一稿。主角：你先走吧。'), root/'第一稿.md', root/'quality', publish=publisher).data
             second = quality.publish_reports(envelope('第二稿。主角：你先走吧。'), root/'第二稿.md', root/'quality', publish=publisher).data
+            # 两份报告可能落在同一 mtime 精度刻度内（排序退化为目录序、时红时绿）；
+            # 显式拉开时间戳，让「按 mtime 倒序」的断言确定性成立。
+            first_md = Path(first['quality_report_path'])
+            earlier = first_md.stat().st_mtime - 60
+            os.utime(first_md, (earlier, earlier))
             rows = quality.list_reports(root/'quality')
             self.assertEqual(len(rows), 2)
             # 第二稿后写，按 mtime 倒序排在最前。

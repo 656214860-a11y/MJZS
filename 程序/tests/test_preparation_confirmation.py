@@ -234,6 +234,41 @@ class ConfirmPreparationDocumentTests(unittest.TestCase):
             writing_unconfirm.confirm_preparation_document(
                 self.project, '角色卡', path, publish=publish_stage_text)
 
+    def test_confirmation_writes_snapshot_and_keeps_history_across_brief_reset(self):
+        """REQ-S01-87：确认把该版正文快照到「确认快照/」并记录台账；简报重置保留历史。"""
+        folder = preparation_folder(self.project)
+        self.write_state([])
+        path, _ = confirmed(self.project, '项目设定', '项目设定/定稿.md', '# 项目设定\n初版\n')
+        writing_unconfirm.confirm_preparation_document(
+            self.project, '项目设定', path, publish=publish_stage_text)
+        state = writing_api.read_json(folder / 'preparation_state.json')
+        self.assertEqual(len(state['snapshots']), 1)
+        record = state['snapshots'][0]
+        self.assertEqual(record['stage'], '项目设定')
+        self.assertEqual(record['path'], '项目设定/定稿.md')
+        self.assertEqual(record['sha256'], state['documents'][0]['sha256'])
+        self.assertTrue(record['confirmed_at'])
+        snapshot = folder / record['snapshot']
+        self.assertEqual(snapshot.read_text(encoding='utf-8'), '# 项目设定\n初版\n')
+
+        # 换一份文件再确认：新快照入列，两份都留档。
+        other, _ = confirmed(self.project, '项目设定', '项目设定/改后.md', '# 项目设定\n改后版\n')
+        writing_unconfirm.confirm_preparation_document(
+            self.project, '项目设定', other, publish=publish_stage_text)
+        state = writing_api.read_json(folder / 'preparation_state.json')
+        self.assertEqual(len(state['snapshots']), 2)
+        self.assertEqual((folder / state['snapshots'][1]['snapshot']).read_text(encoding='utf-8'),
+                         '# 项目设定\n改后版\n')
+
+        # 简报变化重置台账：documents 清空，快照历史保留。
+        save(folder / 'brief_complete.json', script_contract.brief_document({
+            'story_summary': '港口追查失踪的姐姐。', 'main_characters': '少年和老板',
+            'genre': '奇幻', 'length': '单集 60 秒'}))
+        _, state, _ = writing_api._preparation_state(
+            self.project, writing_api._complete_brief(self.project))
+        self.assertEqual(state['documents'], [])
+        self.assertEqual(len(state.get('snapshots') or []), 2)
+
     def test_confirm_setting_allowed_after_brief_change(self):
         """简报变化后仍可从「项目设定」重新开始设为定稿（前置为空）。"""
         _, setting = confirmed(self.project, '项目设定', '项目设定/设定.md', '# 项目设定\n旧设定\n')

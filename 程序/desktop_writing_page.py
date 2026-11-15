@@ -20,6 +20,7 @@ from tkinter import ttk
 from ui_tokens import BUTTON_GAP_TIGHT, CHAR_WIDTH, COLORS, FONTS, ICON_ADD, ICON_MICROPHONE, ICON_SEND, SCRIPT_ACTION_WIDTH, VOICE_POLL_MS, SCRIPT_FILE_FONT, SCRIPT_FILE_MAX_ROWS, SPACING
 from desktop_file_card import TreeRowCard, script_row_card
 from ui_widgets import Card, DataTable, EllipsisLabel, PrimaryButton, SecondaryButton, TextArea, Tooltip, ask_string
+from desktop_writing_snapshots import WritingSnapshotsMixin
 
 PAGE = pet_state.PAGE_OF
 
@@ -290,7 +291,7 @@ class VoiceInput:
         finally:self.spans = {}
 
 
-class _WritingPage:
+class _WritingPage(WritingSnapshotsMixin):
     """剧本准备页（从 WritingPageMixin.writing 的闭包原样改写成类，R1817）：共享的局部变量成了实例属性，嵌套函数成了方法；原来的 self（桌面主窗）改叫 page。"""
     def __init__(self, page):
         self.page = page
@@ -316,6 +317,7 @@ class _WritingPage:
         # 首绘只放示例气泡；真实历史与附件回填等布局稳定后再补，避免拖住 page.paint。
         self.page.show_example_bubble()
         self.page.defer_idea_page_updates()
+        self.page.refresh_idea_send_state()
         # 采风按钮初始隐藏；按素材来源补显隐要读阶段配置，不占用“打开项目”的首帧。
         # 页面仍在当前代次时再补状态。
         self.page_generation=getattr(self.page,'_script_page_generation',0)+1
@@ -532,6 +534,7 @@ class _WritingPage:
         # 发送框的高度由实际换行数决定；长创意无需在一行小框里横向／纵向挤着看。
         self.input_box.after_idle(self.fit_composer)
         self.update_input_hint()
+        self.page.refresh_idea_send_state()
 
     def fit_composer(self, event=None):
         """仅按实际内容撑开输入框，避免点击空框触发布局反馈回路。"""
@@ -859,5 +862,7 @@ class _WritingPage:
             if stage in preparation_confirmed_stages(self.page.root):
                 menu.command('取消已确认',lambda:self.page.safe(lambda:self.unconfirm_preparation(stage)))
             menu.command('设为'+stage+'定稿',lambda:self.page.safe(lambda:self.confirm_document(stage)))
+            menu.command('按段落采用…',lambda:self.page.safe(lambda:self.show_partial_adoption(stage)))
+            menu.command('历史快照／对比',lambda:self.page.safe(lambda:self.show_preparation_snapshots(stage)))
         menu.command('删除',lambda:self.page.safe(self.delete_script))
         return menu.popup(event)

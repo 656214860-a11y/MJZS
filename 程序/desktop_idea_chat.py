@@ -20,6 +20,7 @@ import pet_state
 import ui_plugin_registry
 from desktop_idea_attachments import IdeaAttachmentsMixin
 from desktop_idea_deferred import IdeaDeferredMixin
+from desktop_idea_send_gate import IdeaSendGateMixin
 from idea_chat_controller import (bubble_timestamp, collapse_preview, has_interruptible, interrupt_notice,
                                   queue_notice, slot_decision)
 from platform_tools import open_target
@@ -99,7 +100,7 @@ IDEA_BRIEF_DROPDOWN_VALUES = {
 DRAFT_MARK='draft'
 DRAFT_HINT='─'*18+' 写您的想法，按「发送」 '
 QUEUEING_STATUS_TEXT = '模型请求排队中（第%d位），尚未启动 CLI；可点击中断，最多等待 120 秒。'
-class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin):
+class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, IdeaSendGateMixin):
     """Desktop 的创意对话与 Agent 派发方法集（见模块说明）。"""
     @property
     def _idea_requesting(self):
@@ -132,6 +133,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin):
     @idea_attachment_paths.setter
     def idea_attachment_paths(self, paths):
         self.idea_chat_controller.replace_attachments(paths)
+        self.refresh_idea_send_state()
     def idea_chat_gateway(self):
         """L4 通过 L3 取得创意聊天的受控读写入口。"""
         from stage_execution_service import idea_chat_gateway

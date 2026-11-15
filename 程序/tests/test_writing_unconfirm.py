@@ -139,6 +139,59 @@ class WritingUnconfirmTests(unittest.TestCase):
         self.assertIsNone(script_contract.resolve_script_source(self.project))
         self.assertIn('前置阶段已更新', self.selection()['reason'])
 
+    def test_partial_adoption_of_confirmed_doc_trims_deconfirms_and_revokes_adoption(self):
+        """REQ-S01-88：已确认稿选段采用——截写文件、按取消确认口径回退该阶段、撤销自然稿采用、台账记 partial_adoption。"""
+        from stage_execution_service import apply_partial_adoption
+        outline = self.target.parent / self.original['documents'][1]['path']
+        outline.write_text('## 场一\n甲\n\n## 场二\n乙\n\n## 场三\n丙\n\n## 场四\n丁\n\n## 场五\n戊\n',
+                           encoding='utf-8')
+        self.adopt_script()
+        apply_partial_adoption(self.project, '剧本大纲', outline, keep=(0, 1, 2))
+        text = outline.read_text(encoding='utf-8')
+        self.assertIn('场三', text)
+        self.assertNotIn('场四', text)
+        documents = self.state()['documents']
+        self.assertEqual([doc['stage'] for doc in documents], ['项目设定', '剧本大纲'])
+        self.assertTrue(documents[0]['confirmed'])
+        self.assertFalse(documents[1]['confirmed'])
+        self.assertEqual(documents[1]['partial_adoption'], {'kept': [0, 1, 2], 'total': 5})
+        self.assertIsNone(script_contract.resolve_script_source(self.project))
+        self.assertIn('前置阶段已更新', self.selection()['reason'])
+
+    def test_partial_adoption_pending_draft_keeps_prefix_and_marks_ledger(self):
+        """REQ-S01-88：待确认草稿选段——文件截写、前缀确认不动、台账记标记。"""
+        from stage_execution_service import apply_partial_adoption
+        unconfirm_writing_preparation(self.project, '角色卡')
+        card = self.target.parent / self.original['documents'][2]['path']
+        card.write_text('卡A\n\n卡B\n\n卡C\n', encoding='utf-8')
+        apply_partial_adoption(self.project, '角色卡', card, keep=(0, 2))
+        self.assertEqual(card.read_text(encoding='utf-8').strip(), '卡A\n\n卡C')
+        documents = self.state()['documents']
+        self.assertTrue(documents[0]['confirmed'] and documents[1]['confirmed'])
+        self.assertFalse(documents[2]['confirmed'])
+        self.assertEqual(documents[2]['partial_adoption'], {'kept': [0, 2], 'total': 3})
+
+    def test_partial_adoption_all_sections_is_noop(self):
+        """REQ-S01-88：全选等同不操作——文件与台账都不动。"""
+        from stage_execution_service import apply_partial_adoption
+        outline = self.target.parent / self.original['documents'][1]['path']
+        outline.write_text('## 一\n甲\n\n## 二\n乙\n', encoding='utf-8')
+        before_state = self.target.read_text(encoding='utf-8')
+        before_file = outline.read_text(encoding='utf-8')
+        apply_partial_adoption(self.project, '剧本大纲', outline, keep=(0, 1))
+        self.assertEqual(outline.read_text(encoding='utf-8'), before_file)
+        self.assertEqual(self.target.read_text(encoding='utf-8'), before_state)
+
+    def test_adoption_sections_splits_headings_then_paragraphs(self):
+        """REQ-S01-88：markdown 标题分段；无标题按空行分段。"""
+        import writing_unconfirm
+        sections = writing_unconfirm.adoption_sections('## 一\n甲\n\n## 二\n乙')
+        self.assertEqual(len(sections), 2)
+        self.assertEqual(sections[0]['title'], '## 一')
+        self.assertIn('甲', sections[0]['text'])
+        plain = writing_unconfirm.adoption_sections('段甲\n\n段乙\n\n段丙')
+        self.assertEqual([s['text'] for s in plain], ['段甲', '段乙', '段丙'])
+
     def test_req_s01_52_unconfirm_does_not_require_api_model(self):
         """REQ-S01-52：取消已确认只改台账，不依赖所选模型，桌面／命令行模型也不报「请选择 API 模型」。"""
         stage_config.put(self.project, 'script', model='')  # 桌面／命令行：selected_model 返回空

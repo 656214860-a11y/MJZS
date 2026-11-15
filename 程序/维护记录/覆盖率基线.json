@@ -453,7 +453,7 @@
   {
    "module": "desktop_idea_chat.py",
    "covered": 0,
-   "total": 888,
+   "total": 890,
    "percent": 0.0
   },
   {
@@ -466,6 +466,12 @@
    "module": "desktop_idea_menus.py",
    "covered": 0,
    "total": 82,
+   "percent": 0.0
+  },
+  {
+   "module": "desktop_idea_send_gate.py",
+   "covered": 0,
+   "total": 69,
    "percent": 0.0
   },
   {
@@ -615,7 +621,13 @@
   {
    "module": "desktop_writing_page.py",
    "covered": 0,
-   "total": 665,
+   "total": 670,
+   "percent": 0.0
+  },
+  {
+   "module": "desktop_writing_snapshots.py",
+   "covered": 0,
+   "total": 111,
    "percent": 0.0
   },
   {
@@ -1407,7 +1419,7 @@
   {
    "module": "stage_completion_service.py",
    "covered": 0,
-   "total": 625,
+   "total": 664,
    "percent": 0.0
   },
   {
@@ -1869,7 +1881,7 @@
   {
    "module": "writing_api.py",
    "covered": 0,
-   "total": 960,
+   "total": 953,
    "percent": 0.0
   },
   {
@@ -1881,13 +1893,13 @@
   {
    "module": "writing_preparation_ledger.py",
    "covered": 0,
-   "total": 39,
+   "total": 127,
    "percent": 0.0
   },
   {
    "module": "writing_quality.py",
    "covered": 0,
-   "total": 114,
+   "total": 135,
    "percent": 0.0
   },
   {
@@ -1905,7 +1917,7 @@
   {
    "module": "writing_unconfirm.py",
    "covered": 0,
-   "total": 98,
+   "total": 155,
    "percent": 0.0
   },
   {
@@ -2036,9 +2048,9 @@
   },
   {
    "module": "stage_execution_service.py",
-   "covered": 101,
-   "total": 471,
-   "percent": 21.4
+   "covered": 102,
+   "total": 475,
+   "percent": 21.5
   },
   {
    "module": "skill_budget.py",
@@ -2276,5 +2288,5 @@
   }
  ],
  "modules_covered": 61,
- "modules_total": 377
+ "modules_total": 379
 }

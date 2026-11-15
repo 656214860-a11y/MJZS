@@ -1,0 +1,15 @@
+{
+  "round": 2767,
+  "commit_base": "d4001aa0",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_preparation_parallel",
+    "exit": 0,
+    "passed": 7,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T18:06:30"
+}

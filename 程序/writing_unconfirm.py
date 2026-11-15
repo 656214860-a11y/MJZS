@@ -8,6 +8,7 @@ writing_unconfirm，R2400 起为收窄 writing_api 体积合入本模块。
 """
 import hashlib
 import json
+import re
 from pathlib import Path
 
 from file_cache import read_json
@@ -77,7 +78,10 @@ def confirm_preparation_document(project, stage, path, *, publish):
                         if isinstance(doc, dict) and doc.get('confirmed') is True)
     document = {'stage': stage, 'path': chosen.relative_to(folder).as_posix(),
                 'sha256': hashlib.sha256(text.encode('utf-8')).hexdigest(), 'confirmed': True}
-    state.get('revision', state)['documents'] = prefix + [document]
+    # REQ-S01-89：确认本阶段后，其后未确认的并行草稿记录保留；已确认下游照旧作废。
+    state.get('revision', state)['documents'] = prefix + [document] + [
+        doc for doc in documents[index + 1:]
+        if isinstance(doc, dict) and doc.get('confirmed') is not True]
     revision = state.get('revision')
     # 重写稿确认到三阶段齐全才切换采用版本；中途确认仍留在 revision，
     # 与聊天「推进才采用」同口径，避免采用版本与自然稿采用记录错位。
@@ -141,3 +145,77 @@ def unconfirm_preparation_document(project, stage, *, publish):
     state.pop('pending_restart', None)
     _save_preparation_state_guarded(project, target, state, publish)
     return invalidated
+
+
+_HEADING = re.compile(r'^#{1,6}\s')
+
+
+def adoption_sections(text):
+    """REQ-S01-88：待采用稿分段——markdown 标题分段（标题前导文自成一段）；无标题按空行分段。
+
+    返回 [{'title', 'text'}]，title 供勾选列表展示。"""
+    lines = str(text or '').splitlines()
+    heads = [index for index, line in enumerate(lines) if _HEADING.match(line)]
+    sections = []
+    if heads:
+        bounds = heads + [len(lines)]
+        if heads[0] > 0 and '\n'.join(lines[:heads[0]]).strip():
+            bounds = [0] + bounds
+        for position in range(len(bounds) - 1):
+            body = '\n'.join(lines[bounds[position]:bounds[position + 1]]).strip('\n')
+            if body.strip():
+                sections.append({'title': body.splitlines()[0].strip(), 'text': body})
+    else:
+        for chunk in re.split(r'\n\s*\n', str(text or '')):
+            if chunk.strip():
+                sections.append({'title': chunk.strip().splitlines()[0].strip(),
+                                 'text': chunk.strip()})
+    return sections
+
+
+def apply_partial_adoption(project, stage, path, keep, *, publish):
+    """REQ-S01-88：只保留所选段落；台账命中的记录写 partial_adoption 标记。
+
+    已确认稿被截写等同取消该阶段确认：同 unconfirm 口径截断其后记录，确认基线
+    收窄时既有守卫自动撤销自然稿采用；待确认草稿只改标记与文件，指纹按既有
+    待确认重绑口径在下次装载时更新。文件不在台账登记时只做截写。全选为不操作。"""
+    if not callable(publish):
+        raise TypeError('剧本准备阶段需要 L3 注入发布器')
+    if stage not in PREPARATION_STAGES:
+        raise ValueError('请选择项目设定、剧本大纲或角色卡')
+    from stage_path_service import write_dir
+    folder = write_dir(project, 'script').resolve()
+    target = folder / 'preparation_state.json'
+    chosen = Path(path).resolve()
+    if not chosen.is_relative_to(folder):
+        raise ValueError('采用文件必须位于当前剧本准备目录内')
+    text = chosen.read_text(encoding='utf-8') if chosen.is_file() else ''
+    sections = adoption_sections(text)
+    if len(sections) < 2:
+        raise ValueError('稿件不足两段，无需按段落采用')
+    keep = sorted(set(int(index) for index in keep))
+    if not keep or keep[0] < 0 or keep[-1] >= len(sections):
+        raise ValueError('请选择要采用的段落')
+    if keep == list(range(len(sections))):
+        return {'kept': keep, 'total': len(sections), 'changed': False}
+    kept_text = '\n\n'.join(sections[index]['text'] for index in keep).strip() + '\n'
+    publish(chosen, kept_text, lambda value: bool(str(value).strip()), lambda _target: None)
+    state = read_json(target) if target.is_file() else None
+    if not isinstance(state, dict):
+        return {'kept': keep, 'total': len(sections), 'changed': True}
+    relative = chosen.relative_to(folder).as_posix()
+    box = state['revision'] if isinstance(state.get('revision'), dict) else state
+    documents = box.get('documents') if isinstance(box, dict) else None
+    if isinstance(documents, list):
+        index = next((position for position, document in enumerate(documents)
+                      if isinstance(document, dict) and document.get('stage') == stage
+                      and document.get('path') == relative), None)
+        if index is not None:
+            document = dict(documents[index],
+                            partial_adoption={'kept': keep, 'total': len(sections)})
+            if document.get('confirmed') is True:
+                box['documents'] = documents[:index] + [dict(document, confirmed=False)]
+            else:
+                box['documents'] = documents[:index] + [document] + documents[index + 1:]
+            _save_preparation_state_guarded(project, target, state, publish)
+    return {'kept': keep, 'total': len(sections), 'changed': True}
