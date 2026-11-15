@@ -344,6 +344,12 @@ class LayoutMixin:
         return bool(path) and (path==base or path.startswith(base+'.'))
     def scroll_page(self,event):
         widget=event.widget
+        if not isinstance(widget,str):
+            # 控件自带 Ctrl+滚轮缩放（如剧本正文）：交给控件处理，不走页面滚动。
+            zoom=getattr(widget,'_ctrl_wheel_zoom',None)
+            if zoom is not None and event.state & 0x4 and getattr(event,'delta',0):
+                zoom(1 if event.delta>0 else -1)
+                return 'break'
         steps=self.wheel_steps(event)
         if isinstance(widget,str):
             # 下拉框弹出的列表／滚动条由 Tk 自己创建，事件里拿到的是路径字符串。

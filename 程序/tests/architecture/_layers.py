@@ -73,6 +73,8 @@ _register(4, "asset_thumbs", "storyboard_source_selector")
 _register(1, "store_program_locator")
 # R2189：Qwen「API 设置」窗口从 qwen_setup 拆出（R2178 J2），qwen_setup 自身不再导入 Tk。
 _register(4, "qwen_setup_dialog")
+# R2641（REQ-S02-36）：剧本阅读框的行号槽／查找替换条／大纲面板，均消费 tk 与 ui_widgets/ui_tokens。
+_register(4, "script_line_numbers", "script_find_bar", "script_outline", "script_reading")
 
 # R2191（R2178 J3）：按真实静态依赖重登记，纠正按名字后缀落在 L3／L4 的旧账，不改任何生产代码。
 # artifact_lineage 无依赖且被 L0 契约引用 → L0；pet_state／ui_plugin_registry／integrations 只依赖 L0／L1 → L1；
