@@ -48,6 +48,21 @@ class ConfirmPreparationDocumentTests(unittest.TestCase):
         save(target, state)
         return target
 
+    def adopt_script(self):
+        """写入一份自然稿并登记采用。"""
+        folder = preparation_folder(self.project) / '项目剧本'
+        folder.mkdir(parents=True, exist_ok=True)
+        script = folder / '旧剧本.md'
+        script.write_text('# 自然剧本\n旧稿\n', encoding='utf-8')
+        save(script_contract.natural_script_selection_path(self.project), {
+            'path': script.relative_to(self.project).as_posix(),
+            'sha256': hashlib.sha256(script.read_bytes()).hexdigest()})
+        return script
+
+    def selection(self):
+        path = script_contract.natural_script_selection_path(self.project)
+        return json.loads(path.read_text(encoding='utf-8')) if path.is_file() else None
+
     def test_confirm_registers_current_file_so_guard_stops_failing(self):
         """记录指向已搬走的旧稿时，确认现有文件后校验必须恢复通过。"""
         self.write_state([{'stage': '项目设定', 'path': '项目设定/搬走了.md',
@@ -141,6 +156,47 @@ class ConfirmPreparationDocumentTests(unittest.TestCase):
         selection = json.loads(
             script_contract.natural_script_selection_path(self.project).read_text(encoding='utf-8'))
         self.assertIn('前置阶段已更新', selection['reason'])
+
+    def test_confirm_unchanged_adopted_file_preserves_natural_script_adoption(self):
+        """REQ-S01-14 口径扩展：重确认内容未变的文件不改采用基线，保留自然稿采用。"""
+        _, setting = confirmed(self.project, '项目设定', '项目设定/设定.md', '# 项目设定\n旧设定\n')
+        _, outline = confirmed(self.project, '剧本大纲', '剧本大纲/大纲.md', '# 剧本大纲\n三幕\n')
+        card_path, card = confirmed(self.project, '角色卡', '角色卡/卡.md', '# 角色卡\n少年\n')
+        self.write_state([setting, outline, card])
+        script = self.adopt_script()
+        invalidated = writing_unconfirm.confirm_preparation_document(
+            self.project, '角色卡', card_path, publish=publish_stage_text)
+        self.assertEqual(invalidated, ())
+        self.assertEqual(script_contract.resolve_script_source(self.project), script.resolve())
+
+    def test_confirm_different_adopted_file_revokes_natural_script_adoption(self):
+        """REQ-S01-14 口径扩展：同阶段换文件改采用基线时，已采用自然稿撤销采用。"""
+        _, setting = confirmed(self.project, '项目设定', '项目设定/设定.md', '# 项目设定\n旧设定\n')
+        _, outline = confirmed(self.project, '剧本大纲', '剧本大纲/大纲.md', '# 剧本大纲\n三幕\n')
+        _, card = confirmed(self.project, '角色卡', '角色卡/旧卡.md', '# 角色卡\n旧少年\n')
+        self.write_state([setting, outline, card])
+        self.adopt_script()
+        path, _ = confirmed(self.project, '角色卡', '角色卡/新卡.md', '# 角色卡\n新少年\n')
+        writing_unconfirm.confirm_preparation_document(
+            self.project, '角色卡', path, publish=publish_stage_text)
+        self.assertIsNone(script_contract.resolve_script_source(self.project))
+        self.assertIn('前置阶段已更新', self.selection()['reason'])
+        self.assertEqual(self.selection()['path'], '')
+
+    def test_confirm_after_brief_change_revokes_natural_script_adoption(self):
+        """REQ-S01-14 口径扩展：简报变化后重确认，采用基线随之清空并撤销自然稿采用。"""
+        _, setting = confirmed(self.project, '项目设定', '项目设定/设定.md', '# 项目设定\n旧设定\n')
+        _, outline = confirmed(self.project, '剧本大纲', '剧本大纲/大纲.md', '# 剧本大纲\n三幕\n')
+        self.write_state([setting, outline])
+        self.adopt_script()
+        save(preparation_folder(self.project) / 'brief_complete.json', script_contract.brief_document({
+            'story_summary': '港口追查失踪的姐姐。', 'main_characters': '少年和老板',
+            'genre': '奇幻', 'length': '单集 60 秒'}))
+        path, _ = confirmed(self.project, '项目设定', '项目设定/新设定.md', '# 项目设定\n新设定\n')
+        writing_unconfirm.confirm_preparation_document(
+            self.project, '项目设定', path, publish=publish_stage_text)
+        self.assertIsNone(script_contract.resolve_script_source(self.project))
+        self.assertIn('前置阶段已更新', self.selection()['reason'])
 
     def test_confirm_rejects_file_outside_preparation_folder(self):
         """只能登记剧本准备目录内的文件，避免把外部文件当成本阶段成果。"""

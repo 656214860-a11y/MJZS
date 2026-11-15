@@ -960,6 +960,33 @@ def _revoke_natural_script_adoption(project, target, state, publish):
             lambda _target: _save_preparation_state(target, state, publish))
 
 
+def _confirmed_basis(state):
+    """采用版本里已确认内容的 {(阶段, sha256)} 集合——自然稿采用的依据基线。"""
+    documents = state.get('documents') if isinstance(state, dict) else None
+    if not isinstance(documents, list):
+        return frozenset()
+    return frozenset((document.get('stage'), document.get('sha256'))
+                     for document in documents
+                     if isinstance(document, dict) and document.get('confirmed') is True)
+
+
+def _save_preparation_state_guarded(project, target, state, publish):
+    """写阶段台账；采用版本确认基线变化且存在有效自然稿采用时先撤销采用。
+
+    覆盖非重写确认路径的基线变化：「取消已确认」、简报变化后重确认、菜单/聊天
+    直接改写采用版本。与 ``_promote_revision`` 的重写切换同口径；基线未变或
+    没有有效采用时直接保存，不给从未采用过的项目写多余的失效记录。"""
+    from script_contract import natural_script_selection_path
+    old = read_json(target) if target.is_file() else None
+    if _confirmed_basis(old) != _confirmed_basis(state):
+        selection = natural_script_selection_path(project)
+        adopted = read_json(selection) if selection.is_file() else None
+        if isinstance(adopted, dict) and adopted.get('path'):
+            _revoke_natural_script_adoption(project, target, state, publish)
+            return
+    _save_preparation_state(target, state, publish)
+
+
 def _promote_revision(state, project, target, publish):
     """revision 存在时把它切换为采用版本并撤销自然稿采用（与推进确认同口径）。
 
@@ -1086,7 +1113,7 @@ def _preparation_step(request, *, publish, cancelled, user_message=None, identit
     documents = _working_documents(state)
     pending_restart = state.pop('pending_restart', None)
     if (documents or pending_restart is not None) and state != read_json(target):
-        _save_preparation_state(target, state, publish)
+        _save_preparation_state_guarded(project, target, state, publish)
     index = len(documents) if not documents or documents[-1].get('confirmed') is True else len(documents) - 1
     if index == len(PREPARATION_STAGES):
         # 重写稿已全部确认（右键「设为定稿」可走到这里）：与推进确认同口径切换采用版本。
@@ -1153,7 +1180,7 @@ def _preparation_step(request, *, publish, cancelled, user_message=None, identit
     advancing = natural or selected > index
     def save_decision():
         if not (advancing and _promote_revision(state, project, target, publish)):
-            _save_preparation_state(target, state, publish)
+            _save_preparation_state_guarded(project, target, state, publish)
     if natural:
         documents[-1]['confirmed'] = True
         save_decision()

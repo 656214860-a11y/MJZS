@@ -13,8 +13,7 @@ from pathlib import Path
 from file_cache import read_json
 from writing_api import (PREPARATION_STAGES, _complete_brief, _confirmed_prefix,
                          _preparation_brief_hash, _promote_revision,
-                         _revoke_natural_script_adoption, _save_preparation_state,
-                         _working_documents)
+                         _save_preparation_state_guarded, _working_documents)
 
 
 def confirm_preparation_document(project, stage, path, *, publish):
@@ -52,7 +51,6 @@ def confirm_preparation_document(project, stage, path, *, publish):
     if not isinstance(documents, list):
         raise ValueError('剧本准备阶段记录无效，不能确认输出')
     prefix = _confirmed_prefix(documents, index)
-    rebound = False
     if prefix is None and isinstance(state.get('revision'), dict):
         # 进行中的重写草稿（revision.documents）未推进到目标阶段时，显式「设为定稿」
         # 回到采用版本（顶层 documents）操作，而不是误报前置未确认——采用版本里
@@ -64,7 +62,6 @@ def confirm_preparation_document(project, stage, path, *, publish):
                 documents = adopted
                 state.pop('revision', None)
                 state.pop('pending_restart', None)
-                rebound = True
     if prefix is None:
         if brief_changed:
             raise ValueError('创作简报已变化，前置确认已失效；请先重设为「项目设定」定稿，'
@@ -88,11 +85,9 @@ def confirm_preparation_document(project, stage, path, *, publish):
                 and len(revision.get('documents') or ()) == len(PREPARATION_STAGES)
                 and _promote_revision(state, project, target, publish))
     if not promoted:
-        if rebound:
-            # 放弃重写回到采用版本操作时采用版本同样变化，已采用自然稿一并撤销。
-            _revoke_natural_script_adoption(project, target, state, publish)
-        else:
-            _save_preparation_state(target, state, publish)
+        # 放弃重写回到采用版本（rebound）、重确认同阶段换文件等都会改采用版本；
+        # 基线守卫只在确认基线实际变化且存在有效采用时撤销自然稿采用。
+        _save_preparation_state_guarded(project, target, state, publish)
     return invalidated
 
 
@@ -144,5 +139,5 @@ def unconfirm_preparation_document(project, stage, *, publish):
     state['documents'] = documents[:index] + [dict(document, confirmed=False)]
     state.pop('revision', None)
     state.pop('pending_restart', None)
-    _save_preparation_state(target, state, publish)
+    _save_preparation_state_guarded(project, target, state, publish)
     return invalidated
