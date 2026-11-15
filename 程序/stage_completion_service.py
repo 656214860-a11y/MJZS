@@ -601,7 +601,12 @@ def preparation_progress(project):
       blocked —— 卡住的阶段名，空串表示前三阶段齐全且都已确认（或不适用）；
       missing —— 卡住是否因为文件缺失（False 表示文件在但尚未确认）；
       confirmed —— 从「项目设定」起连续已确认的阶段数（0~3）；
-      stages —— 各阶段现状 (阶段名, 文件在否, 已确认否)，只到卡住那一步为止。
+      stages —— 各阶段现状 (阶段名, 文件在否, 已确认否)，只到卡住那一步为止；
+      applicable —— 四阶段确认流程是否适用（存在已确认简报）；False 时
+                    confirmed==3 仅表示门禁不适用，与「未开始」区分；
+      script —— 自然稿采用状态：'已采用'／'需重新采用'／'待采用'（报告级，
+                完成核验仍以 resolve_script_source 为准）；
+      next_actions —— 按现状推导的下一步动作建议元组。
     """
     from file_cache import read_json
     from stage_path_service import write_dir
@@ -609,7 +614,10 @@ def preparation_progress(project):
     folder = write_dir(project, 'script').resolve()
     brief = folder / 'brief_complete.json'
     if not brief.is_file() and not (Path(project) / 'writing' / 'brief_complete.json').is_file():
-        return {'blocked': '', 'missing': False, 'confirmed': len(PREPARATION_STAGES), 'stages': ()}
+        return {'blocked': '', 'missing': False, 'confirmed': len(PREPARATION_STAGES),
+                'stages': (), 'applicable': False,
+                'script': _script_adoption_state(project),
+                'next_actions': ('完成项目创作信息',)}
     target = folder / 'preparation_state.json'
     try:
         state = read_json(target) if target.is_file() else None
@@ -642,7 +650,36 @@ def preparation_progress(project):
             break
         stages.append((stage, True, True))
         confirmed += 1
-    return {'blocked': blocked, 'missing': missing, 'confirmed': confirmed, 'stages': tuple(stages)}
+    script = _script_adoption_state(project)
+    if blocked:
+        actions = ('生成「%s」并设为定稿' % blocked if missing
+                   else '确认「%s」（右键设为定稿，或聊天回复确认）' % blocked,)
+    elif script == '需重新采用':
+        actions = ('重新生成或明确采用自然剧本',)
+    elif script == '待采用':
+        actions = ('生成自然剧本并明确采用',)
+    else:
+        actions = ()
+    return {'blocked': blocked, 'missing': missing, 'confirmed': confirmed,
+            'stages': tuple(stages), 'applicable': True, 'script': script,
+            'next_actions': actions}
+
+
+def _script_adoption_state(project):
+    """自然稿采用状态（报告级）：'已采用'／'需重新采用'／'待采用'。
+
+    只读 selection 记录与文件存在性；sha 等完整核验由 resolve_script_source
+    在完成核验时执行，这里不重复。"""
+    from file_cache import read_json
+    from script_contract import natural_script_selection_path
+    selection = natural_script_selection_path(project)
+    record = read_json(selection) if selection.is_file() else None
+    if isinstance(record, dict) and record.get('reason') and not record.get('path'):
+        return '需重新采用'
+    if (isinstance(record, dict) and record.get('path')
+            and (Path(project) / str(record['path'])).is_file()):
+        return '已采用'
+    return '待采用'
 
 
 def completion_evidence(root, stage, video_ready=None):

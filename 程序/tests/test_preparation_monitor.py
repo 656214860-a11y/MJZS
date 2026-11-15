@@ -103,6 +103,42 @@ class PreparationProgressTests(unittest.TestCase):
         self.assertEqual(progress['blocked'], '剧本大纲')
         self.assertTrue(progress['missing'])
 
+    def test_progress_reports_applicable_script_and_next_actions(self):
+        """REQ-S01-84：进入确认流程的项目报 applicable、自然稿采用状态与下一步动作。"""
+        progress = stage_completion_service.preparation_progress(self.project)
+        self.assertTrue(progress['applicable'])
+        self.assertEqual(progress['script'], '待采用')
+        self.assertIn('项目设定', progress['next_actions'][0])
+
+    def test_next_actions_distinguish_missing_and_unconfirmed(self):
+        """REQ-S01-84：缺文件指向生成并设为定稿，未确认指向确认动作。"""
+        _, setting = confirmed(self.project, '项目设定', '项目设定/定稿.md', '# 项目设定\n旧设定\n')
+        _, outline = confirmed(self.project, '剧本大纲', '剧本大纲/大纲.md', '# 剧本大纲\n三幕\n')
+        outline['confirmed'] = False
+        self.write_state([setting, outline])
+        progress = stage_completion_service.preparation_progress(self.project)
+        self.assertIn('剧本大纲', progress['next_actions'][0])
+        self.assertIn('确认', progress['next_actions'][0])
+
+    def test_next_actions_cover_revoked_and_pending_adoption(self):
+        """REQ-S01-84：三阶段齐全后，待采用指向生成采用，失效记录指向重新采用。"""
+        _, setting = confirmed(self.project, '项目设定', '项目设定/定稿.md', '# 项目设定\n旧设定\n')
+        _, outline = confirmed(self.project, '剧本大纲', '剧本大纲/大纲.md', '# 剧本大纲\n三幕\n')
+        _, card = confirmed(self.project, '角色卡', '角色卡/卡.md', '# 角色卡\n少年\n')
+        self.write_state([setting, outline, card])
+        progress = stage_completion_service.preparation_progress(self.project)
+        self.assertEqual(progress['script'], '待采用')
+        self.assertIn('自然剧本', progress['next_actions'][0])
+        write_natural_script(self.project)
+        progress = stage_completion_service.preparation_progress(self.project)
+        self.assertEqual(progress['script'], '已采用')
+        self.assertEqual(progress['next_actions'], ())
+        save(script_contract.natural_script_selection_path(self.project), {
+            'path': '', 'sha256': '', 'reason': '前置阶段已更新，请重新生成或明确采用自然剧本'})
+        progress = stage_completion_service.preparation_progress(self.project)
+        self.assertEqual(progress['script'], '需重新采用')
+        self.assertIn('重新', progress['next_actions'][0])
+
 
 class CompletionEvidenceMonitorTests(unittest.TestCase):
     """阶段完成核验复用同一判据：准备顺序未完成就不算剧本阶段完成。"""
@@ -176,6 +212,12 @@ class EmptyProjectBehaviorTests(unittest.TestCase):
         progress = stage_completion_service.preparation_progress(self.project)
         self.assertEqual(progress['blocked'], '')
         self.assertEqual(progress['confirmed'], len(writing_api.PREPARATION_STAGES))
+
+    def test_applicable_false_distinguishes_not_applicable_from_not_started(self):
+        """REQ-S01-84：无简报=门禁不适用（applicable=False），区别于「未开始」（applicable=True、confirmed=0）。"""
+        progress = stage_completion_service.preparation_progress(self.project)
+        self.assertFalse(progress['applicable'])
+        self.assertEqual(progress['script'], '待采用')
 
     def test_completion_evidence_keeps_natural_script_reason(self):
         """空项目没有自然剧本：仍返回「没有找到…成果」，不冒出准备阶段卡点文案。"""

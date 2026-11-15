@@ -944,7 +944,8 @@ def _preparation_state(project, brief, *, restart_stage=None):
             document['sha256'] = digest
             document['user_edited'] = True
         if not text.strip() or document['sha256'] not in (digest, with_newline):
-            raise ValueError(document['stage'] + '文件已删除或修改，原确认失效；请恢复已审阅文件后继续')
+            raise ValueError(document['stage'] + '文件已删除或修改，原确认失效；请恢复已审阅文件后继续，'
+                             '或确认文件无误后右键「设为定稿」重新登记')
         texts.append(text)
     return target, state, texts
 
