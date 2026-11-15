@@ -133,15 +133,24 @@ def _batch_folder_documents(category, folder, writing_dir, writing_root, draft):
         folder.resolve().relative_to(writing_root)
     except (OSError, ValueError):
         return
+    # 目录级已确认 folder 在 writing_root 内。逐文件 resolve() 只剩「符号链接指向
+    # 外部」这一个意义，却占发现总耗时过半（真实大项目实测 4098 次调用约 287ms，
+    # 占 53.5%）。普通文件按构造必然在写作根内，只对符号链接补一次 resolve 即可
+    # 守住安全边界，把 99% 的调用降为一次廉价的 lstat 判断。
     for path in folder.iterdir():
         if not path.is_file() or path.suffix.lower() not in VISIBLE_SUFFIXES:
             continue
         try:
-            path.resolve().relative_to(writing_root)
-            modified_at = path.stat().st_mtime
+            stat = path.stat()
             relative_path = path.relative_to(writing_dir).as_posix()
         except (OSError, ValueError):
             continue
+        if path.is_symlink():
+            try:
+                path.resolve().relative_to(writing_root)
+            except (OSError, ValueError):
+                continue
+        modified_at = stat.st_mtime
         if (draft['document'] is not None and category == 'script'
                 and path.suffix.lower() in {'.md', '.txt'}):
             try:
