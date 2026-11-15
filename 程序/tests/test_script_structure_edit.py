@@ -96,7 +96,11 @@ class ScriptStructureEditButtonTests(unittest.TestCase):
         from desktop_script_pages import _install_script_edit_controls, _reset_preview_text
         # 合并 R1842／重构批次：入参收进内容框对象（参数个数门禁），各值不变。
         box = types.SimpleNamespace(preview=preview, loaded=loaded, active=active, kind=kind,
-                                    title='自然剧本', editable=editable, attribute='box')
+                                    title='自然剧本', editable=editable, attribute='box',
+                                    # R2529：编辑时页面负责扩展/复原分屏；假页面只给空实现。
+                                    owner=types.SimpleNamespace(
+                                        expand_editing_box=lambda content: None,
+                                        restore_split_boxes=lambda: None))
         def set_preview(value):
             loaded['raw'] = value
             _reset_preview_text(preview, value, kind)

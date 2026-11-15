@@ -178,6 +178,7 @@ def _install_script_edit_controls(page, controls, box):
         if controller.dirty and not page.script_page_services.confirm(page.win, '退出编辑', '有未保存的修改，退出将放弃这些修改。确定退出吗？'):
             return
         editing['value'] = False
+        box.owner.restore_split_boxes()
         suppress['value'] = True
         try:
             box.set_preview(loaded['raw'])
@@ -203,6 +204,7 @@ def _install_script_edit_controls(page, controls, box):
         preview.edit_modified(False)
         controller.begin_edit(loaded['raw'])
         editing['value'] = True
+        box.owner.expand_editing_box(box)
         sync_buttons()
         preview.focus_set()
 
@@ -646,6 +648,7 @@ class _ScriptStructurePage:
         split_area.columnconfigure(0, weight=1)
         split_area.rowconfigure(0, weight=1, uniform='script_structure_preview')
         split_area.rowconfigure(1, weight=1, uniform='script_structure_preview')
+        self.split_boxes = []
         structure_note = '本地规则整理，不调用模型；不切镜头、不改自然语言原稿。'
         from script_preview_service import LOADING_PREVIEW, preview_chunks, read_preview, should_load_async
         self.LOADING_PREVIEW = LOADING_PREVIEW; self.preview_chunks = preview_chunks; self.read_preview = read_preview; self.should_load_async = should_load_async
@@ -686,7 +689,29 @@ class _ScriptStructurePage:
         self.page.script_structure_output_directory = structure_directory
 
     def content_box(self, parent, title, file_heading, documents, active_path, empty, attribute, editable=True, kind='natural'):
-        return _ContentBox(self, parent, title, file_heading, documents, active_path, empty, attribute, editable, kind).build()
+        content = _ContentBox(self, parent, title, file_heading, documents, active_path, empty, attribute, editable, kind)
+        frame = content.build()
+        self.split_boxes.append(content)
+        return frame
+
+    def expand_editing_box(self, editing):
+        """进入编辑：本框占满上下两行、盖住另一个内容框；退出时由 restore_split_boxes 复原。"""
+        for content in self.split_boxes:
+            if content is editing:
+                content._home_row = int(content.frame.grid_info().get('row') or 0)
+                content.frame.grid_configure(row=0, rowspan=2)
+            else:
+                # grid_remove 记住原行列与边距，复原时直接 grid() 还原。
+                content.frame.grid_remove()
+
+    def restore_split_boxes(self):
+        """退出编辑：两个内容框回到上下各占一半。"""
+        for content in self.split_boxes:
+            if getattr(content, '_home_row', None) is not None:
+                content.frame.grid_configure(row=content._home_row, rowspan=1)
+                content._home_row = None
+            elif not content.frame.winfo_manager():
+                content.frame.grid()
 
     def start_structure(self):
         if self.script_contract.resolve_script_source(self.page.root) is None:
@@ -721,6 +746,7 @@ class _ContentBox:
     def build(self):
         # 剧本文件选择改为正文上方的横向下拉框，与操作按钮同一行；正文独占整行宽度。
         box = ttk.Frame(self.parent, padding=(SPACING["xs"], SPACING["none"]))
+        self.frame = box
         self.available = tuple(path for path in self.documents if path and path.is_file())
         preview_area = ttk.Frame(box); preview_area.pack(fill='both', expand=True)
         preview_header = ttk.Frame(preview_area)
