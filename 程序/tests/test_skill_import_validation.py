@@ -7,6 +7,7 @@ from unittest import mock
 import skill_panel
 import skill_import_service
 import skill_registry
+from skip_reasons import PLATFORM_SYMLINK
 from test_skills import write_skill
 
 
@@ -222,7 +223,7 @@ class SkillImportBoundsTests(unittest.TestCase):
         try:
             link.symlink_to(outside)
         except (OSError, NotImplementedError):
-            self.skipTest('本机不支持创建符号链接')
+            self.skipTest(PLATFORM_SYMLINK)
         with self.assertRaises(skill_import_service.ImportBlocked):
             skill_import_service._check_package_bounds(package)
 
