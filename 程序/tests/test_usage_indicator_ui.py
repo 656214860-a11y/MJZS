@@ -4,6 +4,7 @@
 含 Tk，须经 ``工作流任务/gui_hidden.py`` 在隐藏桌面运行。
 """
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -16,6 +17,19 @@ from ui_usage_detail import TodayDetailsDialog, UsageDetailDialog
 from ui_usage_indicator import UsageIndicator, place_in_title_row
 
 
+class _Status:
+    """desktop.status（tk.StringVar）的最小替身。"""
+
+    def __init__(self):
+        self.text = ''
+
+    def set(self, value):
+        self.text = value
+
+    def get(self):
+        return self.text
+
+
 class _Desktop:
     """指示器只需要 desktop.root（项目路径）与 desktop.pet（可为空）。"""
 
@@ -23,6 +37,7 @@ class _Desktop:
         self.root = project
         self.pet = None
         self.win = win
+        self.status = _Status()
 
 
 class UsageIndicatorTests(unittest.TestCase):
@@ -101,14 +116,16 @@ class UsageIndicatorTests(unittest.TestCase):
         self.snapshot.record_call('assets', 'gpt-y', 300)
         dialog = TodayDetailsDialog(self.root, self.desktop)
         self.addCleanup(dialog.close)
-        target = Path(self.tmp.name) / 'usage.csv'
-        dialog._write_csv(target)
+        dialog._export_csv()
+        target = self.project / ('今日调用明细_%s.csv' % time.strftime('%Y%m%d'))
+        self.assertTrue(target.is_file(), '未写到项目目录固定文件名')
         raw = target.read_bytes()
         self.assertTrue(raw.startswith(b'\xef\xbb\xbf'), '缺 UTF-8-SIG BOM')
         text = raw.decode('utf-8-sig')
         self.assertIn('时间,阶段,模型,Token', text)
         self.assertIn('script,gpt-x,1200', text)
         self.assertIn('assets,gpt-y,300', text)
+        self.assertIn('已导出', self.desktop.status.get())
 
     def test_indicator_does_not_overlap_avatar_geometry(self):
         layer = tk.Frame(self.root, width=800, height=PATCH_ROOM_FOR_TEST)

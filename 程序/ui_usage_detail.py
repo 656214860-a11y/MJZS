@@ -13,7 +13,6 @@ from pathlib import Path
 from tkinter import ttk
 
 from agent.core import save_text
-from ui_dialogs import FileDialog
 from ui_tokens import FONTS, SPACING, TEXT_ROWS
 from ui_widgets import BaseDialog, DataTable, notify
 from usage_snapshot import get_snapshot, money_amount, money_text
@@ -21,7 +20,7 @@ from usage_snapshot import get_snapshot, money_amount, money_text
 
 def _tokens_text(tokens):
     n = int(tokens or 0)
-    return '%s（%s万）' % (format(n, ','), format(n / 10000, '.1f'))
+    return '%s (%s万)' % (format(n, ','), format(n / 10000, '.1f'))
 
 
 def _calls_text(calls):
@@ -126,13 +125,19 @@ class TodayDetailsDialog(BaseDialog):
         save_text(Path(target), self._csv_text(), encoding='utf-8-sig')
 
     def _export_csv(self):
-        target = FileDialog(self).save_file(
-            defaultextension='.csv',
-            filetypes=[('CSV 文件', '*.csv')],
-            initialfile='usage_%s.csv' % time.strftime('%Y-%m-%d'))
-        if not target:
+        """任务书口径：直接写 ``<项目>/今日调用明细_YYYYMMDD.csv``（UTF-8-SIG），状态栏提示。"""
+        root = getattr(self.desktop, 'root', None)
+        if root is None:
             return
+        target = Path(root) / ('今日调用明细_%s.csv' % time.strftime('%Y%m%d'))
         try:
             self._write_csv(target)
         except (OSError, ValueError) as exc:
             notify(self, '导出失败：' + str(exc), level='error', title='导出 CSV')
+            return
+        status = getattr(self.desktop, 'status', None)
+        try:
+            if status is not None:
+                status.set('已导出今日调用明细：' + str(target))
+        except Exception:
+            pass
