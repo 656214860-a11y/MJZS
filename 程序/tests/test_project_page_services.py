@@ -39,7 +39,11 @@ class ProjectPageServicesTests(unittest.TestCase):
         item = {'name': '甲', 'path': 'p/甲'}
         tree = SimpleNamespace(identify_row=lambda y: 'p/甲')
         host = SimpleNamespace(project_page_services=services, win=object(), worker=False, list=tree,
+                               _project_home_tree=tree,
                                projects=SimpleNamespace(info={'projects': [item]}), safe=Mock())
+        # R2911 起 project_menu 先取 _project_home_tree 再委托 _project_item_menu；
+        # 最小替身补上这两个入口，断言目标（菜单走注入的 context_menu）不变。
+        host._project_item_menu = lambda it, ev: ProjectPagesMixin._project_item_menu(host, it, ev)
         try:
             ProjectPagesMixin.project_menu(host, SimpleNamespace(y=0, x_root=0, y_root=0))
         except Exception:

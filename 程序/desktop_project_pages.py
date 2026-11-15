@@ -234,7 +234,7 @@ class ProjectPagesMixin:
         self.project_picker.bind('<<ComboboxSelected>>',self.switch);self.project_picker.bind('<Button-3>',self.project_picker_menu)
         self._picker_tip=Tooltip(self.project_picker,'选择项目')
         tools=ttk.Frame(self.project_block);tools.pack(fill='x',pady=(SPACING['xs'],SPACING['none']))
-        for attr,key,cmd,tip in (('project_new_button','new',self.new,'＋ 新建项目'),
+        for attr,key,cmd,tip in (('project_new_button','new',self.new,'+ 新建项目'),
                                  ('project_open_button','open',self.open_current_project,'打开项目目录')):
             btn=SecondaryButton(tools,text='',image=IconLoader.nav_icon(side,PROJECT_ACTION_ICONS[key]),
                                 compound='image',command=cmd,style='RailIcon.TButton')

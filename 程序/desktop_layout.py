@@ -422,8 +422,10 @@ class LayoutMixin:
     def on_window_map(self,event=None):
         """主窗口从最小化恢复后，重新排定整页滚动范围。"""
         # 最小化恢复属于非拖动场景：撤销挂起的拖动合并，立即重排。
+        # 只认顶层窗口自己的 <Map>：后代控件映射也会经 bindtags 冒到这里，
+        # 内容区冻结/解冻引发的整批 <Map> 若在此撤销合并，拖动补做必然丢失。
+        if event is not None and event.widget is not self.win:return
         coalescer=getattr(self,'resize_scheduler',None)
         if coalescer is not None:coalescer.flush()
-        if event is not None and event.widget is not self.win:return
         if getattr(self,'shutting_down',False):return
         self.fit_content()
