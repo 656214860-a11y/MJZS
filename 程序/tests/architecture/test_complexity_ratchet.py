@@ -73,7 +73,7 @@ CLASS_CAPS = {
     ('pet_ui_stages.py', 'PetStagesMixin'): 1186,
     ('pet_ui_voice.py', 'PetVoiceMixin'): 1119,
     ('desktop_media_pages.py', 'MediaPagesMixin'): 890,
-    ('pet_ui_view.py', 'PetViewMixin'): 774,
+    ('pet_ui_view.py', 'PetViewMixin'): 746,  # R2876：猫爪列布局四法迁 PetPatchLayoutMixin 后 832→731，登记 746
     ('engine.py', 'Studio'): 735,
     ('skill_orchestrator.py', 'Orchestrator'): 719,
     ('request_ledger.py', 'RequestLedger'): 639,
