@@ -40,7 +40,6 @@ from datetime import datetime
 from pathlib import Path
 from script_manifest_contract import (HEADER, KIND_OF_MANIFEST, KINDS, MANIFEST_OF_KIND,
                                       MANIFESTS, STAGE_OUTPUTS, STRUCTURE_MANIFESTS)
-from script_natural_gate import has_foreign_field_table
 
 # ── 五类产出（任务 5）─────────────────────────────────────────────────────────
 
@@ -59,54 +58,17 @@ _CLOTHING = ('衣', '衫', '裙', '裤', '鞋', '外套', '风衣', '校服', '�
 _PROP_DECLARATION = re.compile(r'(?:道具|物品)[：:]?\s*([^，。；\n]{1,30})')
 _DIMENSION = re.compile(r'\d+(?:\.\d+)?\s*(?:厘米|公分|cm|CM|米|m)')
 
-# 剧本准备与剧本结构的边界必须可执行，不能只写在提示词中。这里故意只拦截
-# 明确属于结构阶段的版式，普通剧本中的“场景”“镜头”等叙事用语不会被误伤。
-_NATURAL_SCRIPT_FORBIDDEN = (
-    ('结构化剧本', '结构化剧本标题'), ('角色档案', '角色档案'), ('场景档案', '场景档案'),
-    ('道具档案', '道具档案'), ('分场剧本', '分场剧本'), ('镜头编号', '镜头编号'),
-    ('镜头表', '镜头表'), ('分镜表', '分镜表'), ('首帧提示词', '首帧提示词'),
-    ('视频提示词', '视频提示词'), ('```json', 'JSON 代码块'), ('"source_script"', '分镜 JSON'),
-)
-
-def natural_script_violations(text):
-    """返回剧本准备阶段不允许落盘的结构化产物特征。"""
-    value = str(text or '').strip()
-    if not value:
-        return ('空正文',)
-    violations = []
-    if value.startswith(('{', '[')):
-        violations.append('JSON 正文')
-    folded = value.casefold()
-    for needle, label in _NATURAL_SCRIPT_FORBIDDEN:
-        if needle.casefold() in folded and label not in violations:
-            violations.append(label)
-    if has_foreign_field_table(value):
-        violations.append('字段表格')
-    return tuple(violations)
-
-
-def require_natural_script(text):
-    """剧本准备的保存闸门：只接收自然语言剧本原稿。"""
-    violations = natural_script_violations(text)
-    if violations:
-        raise ValueError('剧本准备阶段只接受完整自然语言剧本；检测到结构化内容：' + '、'.join(violations))
-    return str(text or '').strip()
-
-
 def save_natural_script(path, text):
-    """原子保存用户手改的自然剧本，拒绝写入结构化阶段正文。"""
+    """原子保存用户手改的自然剧本。"""
     path = Path(path)
     if path.suffix.lower() != '.md':
         raise ValueError('自然剧本必须保存为 Markdown 文件。')
-    value = require_natural_script(text)
+    value = str(text or '').strip()
+    if not value:
+        raise ValueError('空正文')
     from agent.core import save_text
     save_text(path, value + '\n')
     return path
-
-
-def is_natural_script(text):
-    """供列表与兼容读取使用；文件名已是剧本时只排除明确的错阶段内容。"""
-    return not natural_script_violations(text)
 
 
 def _unique(values):
@@ -176,7 +138,7 @@ def natural_script_paths(project):
                 and not numbered_script and not categorized_script):
             continue
         try:
-            if path.stat().st_size and is_natural_script(path.read_text(encoding='utf-8', errors='ignore')):
+            if path.stat().st_size:
                 candidates.append((priority, path))
         except OSError:
             continue
@@ -416,8 +378,7 @@ def resolve_script_source(project):
         if not any(source.is_relative_to(folder.resolve()) for folder in read_dirs(project, 'script')):
             return None
         content = source.read_bytes()
-        if (hashlib.sha256(content).hexdigest() != selection.get('sha256')
-                or not is_natural_script(content.decode('utf-8', errors='ignore'))):
+        if hashlib.sha256(content).hexdigest() != selection.get('sha256'):
             return None
         return source
     if len(paths) == 1:
@@ -427,8 +388,7 @@ def resolve_script_source(project):
     from stage_path_service import read_dirs
     for primary in (folder / RAW_SCRIPT_NAME for folder in read_dirs(project, 'script')):
         try:
-            if (primary.is_file() and primary.stat().st_size
-                    and is_natural_script(primary.read_text(encoding='utf-8', errors='ignore'))):
+            if primary.is_file() and primary.stat().st_size:
                 return primary
         except OSError:
             continue

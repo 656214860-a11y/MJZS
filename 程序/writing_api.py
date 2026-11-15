@@ -344,9 +344,10 @@ def _write_script_raw(project, text, *, publish=None):
     root = Path(project)
     # 用户可见成果只能进入当前阶段目录；旧 ``writing/`` 仅作为读取兼容路径。
     from stage_path_service import write_dir
-    from script_contract import require_natural_script
     from writing_quality import split_response
-    text = require_natural_script(split_response(text)[0])
+    text = str(split_response(text)[0] or '').strip()
+    if not text:
+        raise ValueError('空正文')
     if not callable(publish):
         raise TypeError('剧本成果发布需要 L3 注入发布器')
     folder = write_dir(root, 'script')
@@ -392,13 +393,8 @@ def _auto_save_script_raw(project, result, *, publish=None, model='', identity=N
     if not isinstance(result, dict) or not result.get('ok'):
         return result
     from writing_quality import split_response
-    text = split_response(result.get('text'))[0]
+    text = str(split_response(result.get('text'))[0] or '').strip()
     if len(text) < SCRIPT_RAW_AUTO_SAVE_MIN_CHARS:
-        return result
-    from script_contract import require_natural_script
-    try:
-        text = require_natural_script(text)
-    except ValueError:
         return result
     from stage_path_service import write_dir
     target = write_dir(Path(project), 'script') / 'script_raw.md'
@@ -1324,16 +1320,15 @@ def _save_formal_script(project, result, *, model='', identity=None, publish, pr
     """已获准发布的自然剧本复用下载路径、同稿去重和异稿编号规则。"""
     import idea_document_paths
     from project_context_factory import project_context
-    from script_contract import require_natural_script
     from writing_quality import split_response, publish_reports, OPEN
     response = result['text']
-    text = require_natural_script(split_response(response)[0]).strip()
+    text = str(split_response(response)[0] or '').strip()
     baseline = _episode_baseline_text(project) if previous_script is None else previous_script
     provider, label = identity or idea_document_paths.storage_identity(model or result.get('model', ''))
     target = idea_document_paths.reply_document_path(project_context(project), text,
                                           provider=provider, model=label, file_type='自然剧本')
     if not target.is_file() or target.read_text(encoding='utf-8').strip() != text:
-        publish(target, text + '\n', lambda value: bool(require_natural_script(value)), lambda _target: None)
+        publish(target, text + '\n', lambda value: bool(str(value).strip()), lambda _target: None)
     _record_episode_ledger(project, text, baseline)
     saved = dict(result, text=text, natural_script_path=str(target))
     if result.get('quality_required') or OPEN in response:

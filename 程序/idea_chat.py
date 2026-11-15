@@ -110,9 +110,6 @@ def save_reply(root, text, at=None, provider='', model='', *, publish=None, reus
     if not callable(publish):
         raise TypeError('模型创意文件需要由 L3 注入发布器。')
     file_type = _project_file_type(value)
-    if file_type == '自然剧本':
-        from script_contract import require_natural_script
-        value = require_natural_script(value)
     from stage_path_service import write_dir
     path = reply_document_path(context, value, at=at, provider=provider, model=model, file_type=file_type,
                                reuse_latest=reuse_latest)
@@ -318,8 +315,6 @@ def save_manual_creative(root, text, at=None, *, publish=None):
     if not callable(publish):
         raise TypeError('手动创意文件需要由 L3 注入发布器。')
     day = _file_day(at)
-    from script_contract import require_natural_script
-    require_natural_script(value)
     name = '/'.join(('创意_' + day, project_document_directory('自然剧本'),
                      project_script_filename(context, at=at, file_type='自然剧本',
                                           content='手动创意')))
@@ -358,9 +353,8 @@ AutoSaved = namedtuple('AutoSaved', 'kind path kept new_script')
 
 
 def _script_reply(text):
-    """会存成项目剧本的模型回复：剧本结构完整，且过得了自然剧本闸门。"""
-    from script_contract import is_natural_script
-    return download_kind(text) == '剧本' and is_natural_script(text)
+    """会存成项目剧本的模型回复：剧本结构完整。"""
+    return download_kind(text) == '剧本'
 
 
 def auto_save_reply(root, model='', *, publish=None, gateway=None, at=None):
@@ -379,9 +373,6 @@ def auto_save_reply(root, model='', *, publish=None, gateway=None, at=None):
     provider, name = storage_identity(model)
     file_type = _project_file_type(reply)
     value = reply
-    if file_type == '自然剧本':
-        from script_contract import require_natural_script
-        value = require_natural_script(reply)
     current = reply_document_path(context, value, at=at, provider=provider, model=name, file_type=file_type)
     existing = (current.read_text(encoding='utf-8', errors='ignore').replace('\r\n', '\n').strip()
                 if current.is_file() else '')
@@ -402,11 +393,9 @@ def import_local_document(root, text, filename, at=None, *, publish=None):
         raise ValueError('文件里没有文字')
     if not callable(publish):
         raise TypeError('添加的剧本文件需要由 L3 注入发布器。')
-    from script_contract import project_name, require_natural_script, stage_file_info
+    from script_contract import project_name, stage_file_info
     from stage_path_service import write_dir
     file_type = _project_file_type(value)
-    if file_type == '自然剧本':
-        value = require_natural_script(value)
     stem = Path(filename).stem
     label = (stage_file_info(stem + '.md') or {}).get('content') or stem
     title = project_name(context.root)

@@ -305,7 +305,6 @@ def collect_writing_quality(project, script_path):
     """Recover a desktop delivery through the same report publisher as API/CLI."""
     from writing_quality import split_response, publish_reports
     from stage_path_service import write_dir
-    from script_contract import require_natural_script
     target = Path(script_path)
     folder = write_dir(project, 'script').resolve()
     if not target.resolve().is_relative_to(folder):
@@ -313,7 +312,7 @@ def collect_writing_quality(project, script_path):
     before = target.stat()
     response = target.read_text(encoding='utf-8')
     body, _, _ = split_response(response)
-    body = require_natural_script(body)
+    body = str(body or '').strip()
     result = publish_reports(response, target, folder / 'quality', publish=publish_stage_text).data
     after = target.stat()
     if (before.st_mtime_ns, before.st_size) != (after.st_mtime_ns, after.st_size):
@@ -321,7 +320,7 @@ def collect_writing_quality(project, script_path):
     # 只要正文被剥离出附块（无论附块是否闭合、是否损坏），都写回干净正文，
     # 避免半截 <script_quality> JSON 残留在自然剧本文件末尾。
     if response.strip() != body.strip():
-        publish_stage_text(target, body.strip() + '\n', lambda value: bool(require_natural_script(value)), lambda _target: None)
+        publish_stage_text(target, body.strip() + '\n', lambda value: bool(str(value).strip()), lambda _target: None)
     return dict(result, text=body, natural_script_path=str(target))
 
 
