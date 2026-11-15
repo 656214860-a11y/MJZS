@@ -35,6 +35,14 @@ REJECT_MARK = "全量安全验收锁存在"
 ROUND_MESSAGE_RE = re.compile(r"^R(\d+):")
 
 
+def with_agent_trailer(message: str, agent: str) -> str:
+    """提交信息末尾加 ``Agent: <名称>`` 行（已有则不重复）；名称为空则原样返回。"""
+    agent = (agent or "").strip()
+    if not agent or any(line.startswith("Agent: ") for line in message.splitlines()):
+        return message
+    return message.rstrip("\n") + "\n\nAgent: " + agent
+
+
 def attach_evidence(message: str, keywords, root: Path) -> int:
     """R<N>（N 不早于证据制度起点）的提交必须带绿色证据文件：凭据扫描无命中，改了 .py 则定向测试须绿。
 
@@ -93,10 +101,12 @@ def main(argv=None) -> int:
     parser.add_argument("-m", "--message", required=True, help="提交说明，首行须为 R<轮次>: 说明")
     parser.add_argument("--tests", nargs="*", default=[], metavar="关键词",
                         help="定向测试的模块关键词（run_selftests.py -k），用于生成轮次证据")
+    parser.add_argument("--agent", default="", help="本次改动的来源（模型／工具名），写入提交信息的 Agent: 行")
     parser.add_argument("--wait-minutes", type=float, default=30.0, help="最多等验收锁多少分钟")
     parser.add_argument("files", nargs="*", help="要暂存的 repo 内路径；省略则只提交已暂存内容")
     args = parser.parse_args(argv)
 
+    args.message = with_agent_trailer(args.message, args.agent)
     if args.files:
         added = _git("add", "--", *args.files)
         if added.returncode:

@@ -41,5 +41,11 @@ class CommitRoundTests(unittest.TestCase):
         self.assertGreater(round_evidence.EVIDENCE_REQUIRED_FROM, 1931)
 
 
+    def test_agent_trailer_is_appended_once_and_only_when_named(self):
+        self.assertEqual(commit_round.with_agent_trailer('R1: x', ''), 'R1: x')
+        once = commit_round.with_agent_trailer('R1: x', 'swe-2')
+        self.assertEqual(once, 'R1: x\n\nAgent: swe-2')
+        self.assertEqual(commit_round.with_agent_trailer(once, 'swe-2'), once)
+
 if __name__ == '__main__':
     unittest.main()

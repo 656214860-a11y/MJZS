@@ -106,6 +106,26 @@ def _result_path() -> Path:
     return Path(run_selftests.git_common_dir() or PROGRAM) / RESULT_NAME
 
 
+HISTORY_NAME = "full-safe-history.jsonl"
+
+
+def _history_path() -> Path:
+    return Path(run_selftests.git_common_dir() or PROGRAM) / HISTORY_NAME
+
+
+def append_history(head: str, returncode: int, seconds: float, red: list[str], blocked: str = '') -> None:
+    """每次真实的全量结果追加一行（红灯起止时间的原始数据）；环境受阻不算，写失败不影响主流程。"""
+    if blocked:
+        return
+    row = {"at": time.strftime("%Y-%m-%dT%H:%M:%S"), "head": head, "ok": returncode == 0,
+           "seconds": round(seconds), "failed_files": red}
+    try:
+        with _history_path().open("a", encoding="utf-8", newline="\n") as handle:
+            handle.write(json.dumps(row, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
+
+
 def red_modules(log_text: str) -> list[str]:
     """从全量日志里取出有红的测试文件名（``### 名称（N 条红）`` 行），去重保序。"""
     found = []
@@ -126,6 +146,7 @@ def write_result(head: str, returncode: int, seconds: float, blocked: str = '') 
     if blocked:
         payload["blocked"] = str(blocked)
     _result_path().write_text(json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8")
+    append_history(head, returncode, seconds, payload["red"], blocked)
 
 
 def last_result() -> dict:

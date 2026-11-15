@@ -12,12 +12,14 @@
 from __future__ import annotations
 
 import argparse
-import json
 import re
 import sys
 from pathlib import Path
 
 PROGRAM = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROGRAM))
+import file_cache  # noqa: E402
+
 AGENTS = PROGRAM / 'AGENTS.md'
 BASELINE = PROGRAM / '维护记录' / '规则守卫基线.json'
 REPORT = PROGRAM / '维护记录' / '规则守卫对照.md'
@@ -40,7 +42,7 @@ def parse_rules(text):
 
 
 def load_guards(path=BASELINE):
-    return json.loads(Path(path).read_text(encoding='utf-8')).get('guards', {})
+    return file_cache.read_json(Path(path)).get('guards', {})
 
 
 def build(agents=AGENTS, baseline=BASELINE):

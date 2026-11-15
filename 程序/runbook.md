@@ -186,6 +186,8 @@ AGENTS 只保留触发条件；本节是细则全文。开工领号、建工作�
 
 **规则文件预算与规则守卫（R2530 起）**：`tests/architecture/test_agent_doc_budget.py` 限制 `程序/AGENTS.md` ≤16000 字节、根 `AGENTS.md` ≤2000、`CLAUDE.md` ≤4000，并要求 §5、§8、§2.6 的标题落在前 16384 字节内、相对链接都存在；超了先删旧规则，细则写进本手册。`scripts/rule_guard_map.py --write` 生成 `维护记录/规则守卫对照.md`（规则编号→守卫测试，登记在 `维护记录/规则守卫基线.json`，`test_rule_guard_map.py` 校验同步）；没有守卫的规则上限固定在该测试的 `UNGUARDED_CEILING`，只许减少。可选的外部体检：`npx agents-md-polish audit 程序/AGENTS.md`（需联网，不进 CI）。出站 HTTP 只许经 `platform_tools.open_https()`（规则 42，`test_outbound_http_authority.py` 守卫，ComfyUI 本机请求也已迁入）。
 
+**结果侧观测（R2533 起）**：`python -B scripts/dora_report.py [--days 30]` 只读输出前置时间（分支首个独有提交到合入 master）、`R<n>-FAIL:` 占比、「7 天内被修复」比例（同模块又有「修复」提交，启发式）、返工热点前 15 个模块、红灯停留与按 `Agent:` 来源的分组，并写 `程序/logs/dora_最近.md`。红灯停留的原始数据是后台全量每次结束追加到 common-dir `full-safe-history.jsonl` 的一行（环境受阻不记）。`dev.py commit --agent <名称>` 在提交信息末尾加 `Agent: <名称>`。这些是结果侧信号，不设阈值、不是目标；冒烟 8/8 与架构门禁数量只是健康检查。
+
 ## 14. 文档先行：需求 → 设计 → 实现（自 AGENTS §2.7 迁入）
 
 适用范围：`docs/stages/` 下已建需求与设计的阶段（01–13 已全部建立）。
