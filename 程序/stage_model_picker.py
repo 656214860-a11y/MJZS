@@ -14,7 +14,7 @@ from skill_panel_support import (
     desktop_project, grouped_model_choices, pet_of, pool_records, register_live,
                                  stage_for, unregister_live)
 from ui_tokens import CHAR_WIDTH, SPACING
-from ui_widgets import PrimaryButton
+from ui_widgets import ContextMenu, PrimaryButton
 
 ADD_MODEL_LABEL = '+ 添加模型…'
 LEVEL_MENU = '推理等级：%s'
@@ -37,11 +37,13 @@ class StageModelPicker(ttk.Frame):
         self._level = tk.StringVar(value='auto')
         self.models = ttk.Menubutton(self, textvariable=self.model)
         self.models.pack(side='left')
-        self._menu = tk.Menu(self.models, tearoff=False, postcommand=self._fill_menu)
+        self._menu_ctx = ContextMenu(self.models)
+        self._menu = self._menu_ctx.menu
         self.models.configure(menu=self._menu)
-        self._level_menu = tk.Menu(self._menu, tearoff=False)
+        self._level_ctx = self._menu_ctx.submenu()
+        self._level_menu = self._level_ctx.menu
         for value in stage_config.REASONING_LEVELS:
-            self._level_menu.add_radiobutton(
+            self._level_ctx.radio(
                 label=stage_config.REASONING_LABELS[value], variable=self._level,
                 value=value, command=lambda level=value: self.choose_reasoning(level))
         register_live(self)
@@ -91,6 +93,7 @@ class StageModelPicker(ttk.Frame):
                     self._capable.add(model_id)
         self._level.set(self.saved_reasoning())
         self.set_model(self.saved_model())
+        self._fill_menu()
         return self.groups
 
     def set_model(self, model):
@@ -131,21 +134,23 @@ class StageModelPicker(ttk.Frame):
 
     # ── 菜单 ────────────────────────────────────────────────────────────────
     def _fill_menu(self):
-        """展开前重建菜单：模型池改动立即可见，档位标记跟着已保存配置走。"""
+        """重建菜单条目：模型池或推理档位变了就重新摆一遍（条目持久，只有内容重建）。"""
         level = self.saved_reasoning()
         self._level.set(level)
         level_label = stage_config.REASONING_LABELS[level]
-        self._menu.delete(0, 'end')
+        self._menu_ctx.clear()
         self._choice.set(self._by_display.get(str(self.model.get() or ''), ''))
         for model_id, label in self._items:
-            badge = '推理·' + level_label if model_id in self._capable else ''
-            self._menu.add_radiobutton(
-                label=label, accelerator=badge, variable=self._choice, value=model_id,
+            self._menu_ctx.radio(
+                label=label, variable=self._choice, value=model_id,
                 command=lambda value=model_id: self.choose_model(value))
-        self._menu.add_separator()
-        self._menu.add_cascade(label=LEVEL_MENU % level_label, menu=self._level_menu)
-        self._menu.add_separator()
-        self._menu.add_command(label=ADD_MODEL_LABEL, command=self.open_model_manager)
+            if model_id in self._capable:
+                self._menu.entryconfigure(self._menu.index('end'),
+                                          accelerator='推理·' + level_label)
+        self._menu_ctx.separator()
+        self._menu_ctx.cascade(label=LEVEL_MENU % level_label, submenu=self._level_ctx)
+        self._menu_ctx.separator()
+        self._menu_ctx.command(ADD_MODEL_LABEL, self.open_model_manager)
 
     # ── 交互 ────────────────────────────────────────────────────────────────
     def choose_model(self, model_id=None):
@@ -167,7 +172,9 @@ class StageModelPicker(ttk.Frame):
         project = self.project()
         if not project:
             return None
-        return stage_config.put(project, self.stage, reasoning=level)
+        entry = stage_config.put(project, self.stage, reasoning=level)
+        self._fill_menu()
+        return entry
 
     def save(self):
         """只写模型这一项，SKILL 勾选与推理等级保持原样。"""
