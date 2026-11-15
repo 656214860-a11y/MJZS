@@ -9,7 +9,7 @@ import pet_cloud
 from tkinter import TclError
 from ui_tokens import BUTTON_BORDER_WIDTH, COLORS, PET_LAYOUT
 from ui_widgets import ContextMenu
-from pet_ui_support import ACTIVE_MS, BUSY_TAPS, BUSY_WINDOW, CANVAS_BG, CAPTION_RIGHT, CAPTION_ROOM, CAPTION_Y, CHAT_MUTE_SECONDS, DETAIL_MENU_LABEL, HEAD_PAD, IDLE_MS, PANEL_DIVIDER, PANEL_HEAD, PANEL_MENU_LABEL, PANEL_SECTIONS, PATCH_ROOM, PATCH_X, PAW_ARC, PAW_COL_HEIGHT, PAW_COL_WIDTH, PAW_COL_X, PAW_COL_Y, PAW_COLORS, PAW_GAP, PAW_HOVER, PAW_IDLE, PAW_LEVELS, PAW_HIT_SIZE, PAW_SIZE, PAW_STEP, QUIT_LABEL, SETTINGS_ENTRIES, SETTINGS_LABEL, SIZE, SNOOZE_SECONDS, paint, paw_dy, paw_parts
+from pet_ui_support import ACTIVE_MS, BUSY_TAPS, BUSY_WINDOW, CANVAS_BG, CAPTION_ROOM, CAPTION_Y, CHAT_MUTE_SECONDS, DETAIL_MENU_LABEL, HEAD_PAD, IDLE_MS, PANEL_DIVIDER, PANEL_HEAD, PANEL_MENU_LABEL, PANEL_SECTIONS, PATCH_ROOM, PATCH_X, PAW_ARC, PAW_COL_HEIGHT, PAW_COL_WIDTH, PAW_COL_X, PAW_COL_Y, PAW_COLORS, PAW_GAP, PAW_HOVER, PAW_IDLE, PAW_LEVELS, PAW_HIT_SIZE, PAW_SIZE, PAW_STEP, QUIT_LABEL, SETTINGS_ENTRIES, SETTINGS_LABEL, SIZE, SNOOZE_SECONDS, paint, paw_dy, paw_parts
 
 
 class PetViewMixin:
@@ -336,9 +336,11 @@ class PetViewMixin:
             # 不钉宽度的话「待确认 N」那一行会把小字撑到猫脸上（实测过）。
             self.caption = ttk.Label(parent, text='', style='Muted.TLabel',
                                      wraplength=CAPTION_ROOM, justify='right', anchor='e')
-            # 第 21 期：小字落在三虎右边那条空档里（anchor='ne' ＋ 往内收 CAPTION_RIGHT）。
-            self.caption.place(relx=1.0, rely=0.0, anchor='ne', x=-CAPTION_RIGHT,
+            # 第 2876 期：小字落到三虎图像正下方（anchor='ne' ＋ 右沿对齐头像右沿 PATCH_X）。
+            self.caption.place(relx=1.0, rely=0.0, anchor='ne', x=PATCH_X,
                                y=CAPTION_Y, width=CAPTION_ROOM)
+            # 小字一行／两行换行时高度会变：猫爪列底边要跟着它走（见 _align_paws）。
+            self.caption.bind('<Configure>', lambda event: self._align_paws())
             self.show_caption()
         except Exception as exc:
             self.errors.append(('caption', str(exc)))
@@ -366,6 +368,63 @@ class PetViewMixin:
         except Exception as exc:
             self.errors.append(('room', str(exc)))
         return parent
+    def _paw_col_top(self):
+        """猫爪列顶边：让列内最后一只爪的视觉底边贴等级小字底边（本期用户要「底部对齐」）。
+
+        小字高度按 ``winfo_reqheight`` 取实测值（一行／两行都准，未映射时也能算）；
+        取不到就退回 PAW_COL_Y 那个按 token 行高估的占位。
+        """
+        caption = self.caption
+        if caption is None:
+            return PAW_COL_Y
+        try:
+            height = int(caption.winfo_reqheight())
+        except (TclError, ValueError):
+            return PAW_COL_Y
+        if height <= 0:
+            return PAW_COL_Y
+        return PAW_COL_Y + height - PET_LAYOUT['caption_height']
+    def _align_paws(self, event=None):
+        """小字换行（一行↔两行）后把猫爪列整列平移：列底边始终贴小字底边。"""
+        paws = self.paws
+        if paws is None:
+            return None
+        try:
+            y = self._paw_col_top()
+        except Exception:
+            return None
+        if y == getattr(self, '_paw_col_y', None):
+            return y
+        self._paw_col_y = y
+        try:
+            paws.place_configure(y=y)
+            for index, hit in enumerate(getattr(self, 'paw_hits', ())):
+                centre_y = index * PAW_STEP + PAW_SIZE // 2 + paw_dy(index)
+                hit.place_configure(y=y + centre_y - PAW_HIT_SIZE // 2)
+        except TclError:
+            return None
+        self._sync_patch_room()
+        return y
+    def _sync_patch_room(self):
+        """标题行要留的高度＝小字底边＋猫爪命中区下沿的出头；变了就让宿主重排一次。"""
+        caption = self.caption
+        try:
+            height = int(caption.winfo_reqheight()) if caption is not None else 0
+        except (TclError, ValueError):
+            height = 0
+        if height <= 0:
+            height = 2 * PET_LAYOUT['caption_height']
+        room = CAPTION_Y + height + PAW_HIT_SIZE // 2 - PAW_SIZE // 2
+        if room == getattr(self, 'patch_room', None):
+            return room
+        self.patch_room = room
+        try:
+            align = getattr(self.desktop, 'align_header', None)
+            if callable(align):
+                align()
+        except Exception as exc:
+            self.errors.append(('room', str(exc)))
+        return room
     def _build_paws(self):
         """三虎右侧那列猫爪：原 16px 图形不变，每只外加 32×32 键盘／鼠标承接区。"""
         import tkinter as tk
@@ -377,11 +436,13 @@ class PetViewMixin:
             except TclError:
                 pass
         self.paw_hits = []
+        col_y = self._paw_col_top()
+        self._paw_col_y = col_y
         ring = BUTTON_BORDER_WIDTH * 2
         for index in range(len(PAW_LEVELS)):
             centre_y = index * PAW_STEP + PAW_SIZE // 2 + paw_dy(index)
             # 承接区上沿 = 列顶 + 该爪中心 - 半个承接区；x 全列共用，水平与列中心对齐。
-            top = PAW_COL_Y + centre_y - PAW_HIT_SIZE // 2
+            top = col_y + centre_y - PAW_HIT_SIZE // 2
             right = PAW_COL_X - PAW_COL_WIDTH // 2 + PAW_HIT_SIZE // 2
             hit = tk.Canvas(parent, width=PAW_HIT_SIZE - ring * 2,
                             height=PAW_HIT_SIZE - ring * 2, bd=0,
@@ -399,13 +460,14 @@ class PetViewMixin:
             self.paw_hits.append(hit)
         self.paws = tk.Canvas(parent, width=PAW_COL_WIDTH, height=PAW_COL_HEIGHT, bd=0,
                               highlightthickness=0, bg=CANVAS_BG)
-        self.paws.place(relx=1.0, rely=0.0, anchor='ne', x=PAW_COL_X, y=PAW_COL_Y)
+        self.paws.place(relx=1.0, rely=0.0, anchor='ne', x=PAW_COL_X, y=col_y)
         self.paws.bind('<Button-1>', self.paw_click)
         self.paws.bind('<Button-3>', self.popup)
         # 第 23 期：鼠标扫过哪只爪就把哪只提亮——三档点哪一档，扫一眼就知道。
         self.paws.bind('<Motion>', self.paw_hover)
         self.paws.bind('<Leave>', self.paw_leave)
         self.draw_paws()
+        self._sync_patch_room()
         return self.paws
     def draw_paws(self, level=None, force=False):
         """按当前等级重画那排猫爪；键盘焦点用 COLORS['focus'] 画出可见方框。"""
