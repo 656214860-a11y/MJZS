@@ -197,3 +197,50 @@ class StableImportTests(unittest.TestCase):
         self.assertIsNone(result)
         self.assertIn('内容为空', self.state_text())
         self.assertEqual(list(self.target_dir.iterdir()), [])
+
+class SkillImportBoundsTests(unittest.TestCase):
+    """R2555 批次：导入体积与符号链接护栏。"""
+
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.root = Path(temp.name)
+        self.target_dir = self.root / 'target' / '01剧本准备SKILL'
+        self.registry = skill_registry.Registry.__new__(skill_registry.Registry)
+
+    def _package(self):
+        package = self.root / 'pkg'
+        package.mkdir()
+        (package / 'SKILL.md').write_text('---\nname: pkg\n---\n# 正文\n', encoding='utf-8')
+        return package
+
+    def test_package_with_symlink_is_blocked(self):
+        package = self._package()
+        outside = self.root / 'outside.txt'
+        outside.write_text('secret', encoding='utf-8')
+        link = package / 'leak.txt'
+        try:
+            link.symlink_to(outside)
+        except (OSError, NotImplementedError):
+            self.skipTest('本机不支持创建符号链接')
+        with self.assertRaises(skill_import_service.ImportBlocked):
+            skill_import_service._check_package_bounds(package)
+
+    def test_package_over_file_count_is_blocked(self):
+        package = self._package()
+        with mock.patch.object(skill_import_service, 'PACKAGE_MAX_FILES', 1):
+            skill_import_service._check_package_bounds(package)  # 仅 SKILL.md，不超限
+            (package / 'a.txt').write_text('x', encoding='utf-8')
+            with self.assertRaises(skill_import_service.ImportBlocked):
+                skill_import_service._check_package_bounds(package)
+
+    def test_single_manifest_over_size_is_blocked_before_read(self):
+        source = self.root / 'big.skill.md'
+        source.write_bytes(b'x' * 16)
+        with mock.patch.object(skill_import_service, 'SINGLE_MAX_BYTES', 8):
+            with self.assertRaises(skill_import_service.ImportBlocked):
+                skill_import_service.plan_import(source, self.target_dir, 'script', self.registry)
+
+    def test_normal_package_passes_bounds(self):
+        package = self._package()
+        skill_import_service._check_package_bounds(package)  # 不抛即过

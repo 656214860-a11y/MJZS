@@ -16,7 +16,8 @@ def main() -> int:
     if not ruff:
         print('未找到 ruff：pip install -r dev-requirements.txt', file=sys.stderr)
         return 2
-    steps = [[ruff, 'check', '--no-cache', '.'], ['python', '-m', 'mypy']]
+    steps = [[ruff, 'check', '--no-cache', '.'], ['python', '-m', 'mypy'],
+             [sys.executable, '-B', 'scripts/tools_lock.py', '--check']]
     if shutil.which('python') is None:
         steps[1][0] = sys.executable
     code = 0
