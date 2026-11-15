@@ -51,7 +51,7 @@ from ui_dialogs import FileDialog
 from ui_motion import Spinner
 from ui_shortcuts import ShortcutRegistry
 import ui_stage_popups  # noqa: F401  导入即向 stage_exec 登记阶段弹窗呈现器
-from ui_widgets import (SelectBox, BaseDialog, BusyState, ContextMenu, Card, DataTable, NotificationDispatcher,
+from ui_widgets import (BaseDialog, BusyState, ContextMenu, Card, DataTable, NotificationDispatcher,
                         PrimaryButton, SecondaryButton, TextArea, HintLabel, Tooltip, EllipsisLabel, ask_confirmation, ask_string, setup_styles)
 from ui_icons import IconLoader
 
@@ -105,8 +105,8 @@ import pet_state
 
 # 第 44 期：版本号只写这一份——系统标题栏与左上角那一行（齿轮就挨着它）都用它。
 from contract.app_metadata import APP_NAME, VERSION
-from desktop_page_registry import (ASSET_ROSTER_ICON, CACHED_PAGES, PAGE, PAGE_ACCOUNT, PAGE_NAV_ICONS,
-                                   PAGE_SITES, PAGES, PROJECT_ACTION_ICONS, PROJECT_GROUP_ICONS, nav_label, page_title)
+from desktop_page_registry import (CACHED_PAGES, PAGE, PAGE_ACCOUNT, PAGE_NAV_ICONS,
+                                   PAGE_SITES, PAGES, nav_label, page_title)
 
 # 「页面第一次画完」按页指标名：用 PAGE 稳定键区分 14 页，不用会变的中文标题。
 
@@ -240,35 +240,11 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         # 实际文字尺寸决定齿轮位置；字号或显示名改变时不留旧名称的空洞。
         self.settings_gear_layer=win
         self.settings_gear_position=(0,0)
-        # 项目区收成三行图标控件：分组筛选、项目选择器、新建/打开目录（R2897 图标轨改版）。
-        self.project_block=ttk.Frame(side);self.project_block.pack(fill='x',pady=(SPACING['xs'],SPACING['none']))
-        self._project_group='making';self._picker_items=[]
-        filters=ttk.Frame(self.project_block);filters.pack(fill='x')
-        self.project_group_buttons={}
-        for state in ('making','completed'):
-            btn=SecondaryButton(filters,text='',image=IconLoader.nav_icon(win,PROJECT_GROUP_ICONS[state]),
-                                compound='image',command=lambda s=state:self.set_project_group(s),style='RailIcon.TButton')
-            btn.pack(side='left',fill='x',expand=True,padx=(SPACING['none'],SPACING['xs']))
-            Tooltip(btn,'在制作项目' if state=='making' else '已完成项目')
-            self.project_group_buttons[state]=btn
-        self.project_picker=SelectBox(self.project_block,state='readonly')
-        self.project_picker.pack(fill='x',pady=(SPACING['xs'],SPACING['none']))
-        self.project_picker.bind('<<ComboboxSelected>>',self.switch)
-        self.project_picker.bind('<Button-3>',self.project_picker_menu)
-        self._picker_tip=Tooltip(self.project_picker,'选择项目')
-        tools=ttk.Frame(self.project_block);tools.pack(fill='x',pady=(SPACING['xs'],SPACING['none']))
-        self.project_new_button=SecondaryButton(tools,text='',image=IconLoader.nav_icon(win,PROJECT_ACTION_ICONS['new']),
-                                                 compound='image',command=self.new,style='RailIcon.TButton')
-        self.project_open_button=SecondaryButton(tools,text='',image=IconLoader.nav_icon(win,PROJECT_ACTION_ICONS['open']),
-                                                  compound='image',command=self.open_current_project,style='RailIcon.TButton')
-        for btn,tip in ((self.project_new_button,'＋ 新建项目'),(self.project_open_button,'打开项目目录')):
-            btn.pack(side='left',fill='x',expand=True,padx=(SPACING['none'],SPACING['xs']))
-            Tooltip(btn,tip)
-        self.project_buttons=(self.project_new_button,self.project_open_button)
-        self._sync_project_group_styles();self._sync_project_picker()
+        # 项目区收成三行图标控件：分组筛选、项目选择器、新建/打开目录（R2897 图标轨改版，构建在 ProjectPagesMixin）。
+        self._build_project_rail(side)
         ttk.Separator(side).pack(fill='x',pady=DESKTOP_LAYOUT['section_gap'])
         self.nav=[]
-        self.asset_list_button=None;self.build_account_nav(side)
+        self.build_account_nav(side)
         for i,title in enumerate(PAGES):
             # 第 48 期第 3 条：点「10 视频生成」的入口逻辑——本次启动第一次点先摆「选择生成方式」
             # 那一屏；之后（用户已经选过线上或线下）再点就直接回他选的那一侧，不再反复拦在选择页上。
@@ -280,15 +256,8 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
             Tooltip(b,page_title(i))
             b.pack(anchor='w',fill='x',pady=(SPACING['none'],DESKTOP_LAYOUT['nav_gap']));self.nav.append(b)
             if i==PAGE['assets']:
-                # 第 71 期任务 2：「05 资产管理」下面挂一级缩进的二级入口「资产清单」——
-                # 一页看完每个角色的正典板与换状态面板（见 asset_detail.show_roster）。
-                sub_image=IconLoader.nav_icon(win,ASSET_ROSTER_ICON)
-                sub=SecondaryButton(side,text='',image=sub_image,
-                                    compound='image' if sub_image is not None else 'text',
-                                    command=lambda:self.safe(self.open_asset_roster),style='Sub.Nav.TButton')
-                Tooltip(sub,'资产清单')
-                sub.pack(anchor='w',fill='x',pady=(SPACING['none'],DESKTOP_LAYOUT['nav_gap']))
-                self.asset_list_button=sub
+                # 第 71 期任务 2：「05 资产管理」下面挂一级缩进的二级入口「资产清单」（构建在 ProjectPagesMixin）。
+                self._build_asset_roster_nav(side)
         # 侧栏内容按自然高度依次 pack；超出视口的部分由外层 ScrollForm 滚动。
         self.sidebar_size=None
         self.project_block.bind('<Configure>',self.schedule_sidebar_fit,add='+')

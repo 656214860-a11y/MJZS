@@ -91,8 +91,7 @@ def _install_button_styles(style, root):
     _configure_button(style, "Selected.Compact.TButton", background=COLORS["primary"], **solid)
     # 侧栏选中态＝浅灰胶囊＋深色内容（X 桌面风格），不再用主色实心块。
     pill = dict(background=COLORS["surface_pressed"], foreground=COLORS["text_primary"],
-                active_background=COLORS["border_input"], active_foreground=COLORS["text_primary"],
-                pressed_background=COLORS["border_input_hover"])
+                active_background=COLORS["border_input"], active_foreground=COLORS["text_primary"], pressed_background=COLORS["border_input_hover"])
     _configure_button(style, "Selected.Nav.TButton", anchor="w", **pill)
     _configure_button(style, "Selected.Sub.Nav.TButton", anchor="w",
                       padding=(NAV_SUB_PADDING_X, CONTROL_PADDING_Y), **pill)
@@ -136,10 +135,8 @@ def _install_button_styles(style, root):
     _configure_button(style, "Sub.Nav.TButton", anchor="w",
                       padding=(NAV_SUB_PADDING_X, CONTROL_PADDING_Y), **nav)
     # 纯图标小按钮（项目分组筛选／新建／打开目录）：居中、最小横向内边距，一行放两颗。
-    _configure_button(style, "RailIcon.TButton", anchor="center",
-                      padding=(SPACING["xs"], SPACING["xs"]), **nav)
-    _configure_button(style, "Selected.RailIcon.TButton", anchor="center",
-                      padding=(SPACING["xs"], SPACING["xs"]), **pill)
+    _configure_button(style, "RailIcon.TButton", anchor="center", padding=(SPACING["xs"], SPACING["xs"]), **nav)
+    _configure_button(style, "Selected.RailIcon.TButton", anchor="center", padding=(SPACING["xs"], SPACING["xs"]), **pill)
     _configure_button(style, "Tokens.Text.TButton",
                       background=COLORS["background_primary"],
                       foreground=COLORS["primary"],

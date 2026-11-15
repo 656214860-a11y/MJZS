@@ -7,12 +7,13 @@ import page_navigation_controller as page_nav
 import contract.pet_bus as pet_bus
 import tkinter as tk
 from agent.core import read, save
-from desktop_page_registry import CACHED_PAGES, PAGE, PAGE_ACCOUNT, PAGE_SITES, page_title
+from desktop_page_registry import ASSET_ROSTER_ICON, CACHED_PAGES, PAGE, PAGE_ACCOUNT, PAGE_SITES, page_title
 from desktop_page_support import _prefs
 from pathlib import Path
 from tkinter import ttk
+from ui_icons import IconLoader
 from ui_tokens import DESKTOP_LAYOUT, FONTS, SPACING
-from ui_widgets import SelectBox
+from ui_widgets import SecondaryButton, SelectBox, Tooltip
 
 
 # 「页面第一次画完」按页指标名：用 PAGE 稳定键区分 14 页，不用会变的中文标题。
@@ -312,3 +313,17 @@ class PageNavMixin:
         if not shots:return ''
         if self.final_missing_assets(source):return ''
         return '；当前分镜引用的资产都已导入，可在'+pet_bus.stage_step('final')+'「分镜定稿」生成定稿（定稿接管后续流程，工作稿移入回收站）'
+    def mark_nav(self,index):
+        """侧栏高亮：阶段页按钮与「00 会员账户」只亮当前那一颗。"""
+        for i,b in enumerate(self.nav):b.configure(style='Selected.Nav.TButton' if i==index else 'Nav.TButton')
+        account_button=getattr(self,'account_button',None)
+        if account_button is not None:account_button.configure(style='Selected.Nav.TButton' if index==PAGE_ACCOUNT else 'Nav.TButton')
+    def _build_asset_roster_nav(self,side):
+        """「05 资产管理」下的二级入口「资产清单」——一页看完每个角色的正典板与换状态面板。"""
+        sub_image=IconLoader.nav_icon(side,ASSET_ROSTER_ICON)
+        sub=SecondaryButton(side,text='',image=sub_image,
+                            compound='image' if sub_image is not None else 'text',
+                            command=lambda:self.safe(self.open_asset_roster),style='Sub.Nav.TButton')
+        Tooltip(sub,'资产清单')
+        sub.pack(anchor='w',fill='x',pady=(SPACING['none'],DESKTOP_LAYOUT['nav_gap']))
+        self.asset_list_button=sub

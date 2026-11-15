@@ -16,9 +16,11 @@ from tkinter import ttk
 from responsive_ui import FlowBar, auto_height
 from ui_motion import EmptyState, bind_row_hover
 from ui_tokens import TEXT_ROWS, COLORS, FONTS, SPACING, TEXT_DESC, DESKTOP_LAYOUT
-from desktop_page_registry import ACCOUNT_TITLE, PAGE_ACCOUNT, PAGE_NAV_ICONS, nav_label
+from desktop_page_registry import (ACCOUNT_TITLE, PAGE_ACCOUNT, PAGE_NAV_ICONS,
+                                   PROJECT_ACTION_ICONS, PROJECT_GROUP_ICONS, nav_label)
 from ui_icons import IconLoader
-from ui_widgets import BaseDialog, Card, DataTable, NotificationDispatcher, PrimaryButton, SecondaryButton, Tooltip
+from ui_widgets import (BaseDialog, Card, DataTable, NotificationDispatcher, PrimaryButton, SecondaryButton,
+                        SelectBox, Tooltip)
 from dataclasses import dataclass
 from typing import Callable
 
@@ -215,6 +217,31 @@ class ProjectPagesMixin:
         tip=getattr(self,'_picker_tip',None)
         if tip is not None:
             tip.text=values[index] if index>=0 else '选择项目'
+    def _build_project_rail(self,side):
+        """侧栏项目区三行图标控件：分组筛选、项目选择器、新建/打开目录（R2897 图标轨改版）。"""
+        self.project_block=ttk.Frame(side);self.project_block.pack(fill='x',pady=(SPACING['xs'],SPACING['none']))
+        self._project_group='making';self._picker_items=[]
+        filters=ttk.Frame(self.project_block);filters.pack(fill='x')
+        self.project_group_buttons={}
+        for state in ('making','completed'):
+            btn=SecondaryButton(filters,text='',image=IconLoader.nav_icon(side,PROJECT_GROUP_ICONS[state]),
+                                compound='image',command=lambda s=state:self.set_project_group(s),style='RailIcon.TButton')
+            btn.pack(side='left',fill='x',expand=True,padx=(SPACING['none'],SPACING['xs']))
+            Tooltip(btn,'在制作项目' if state=='making' else '已完成项目')
+            self.project_group_buttons[state]=btn
+        self.project_picker=SelectBox(self.project_block,state='readonly')
+        self.project_picker.pack(fill='x',pady=(SPACING['xs'],SPACING['none']))
+        self.project_picker.bind('<<ComboboxSelected>>',self.switch);self.project_picker.bind('<Button-3>',self.project_picker_menu)
+        self._picker_tip=Tooltip(self.project_picker,'选择项目')
+        tools=ttk.Frame(self.project_block);tools.pack(fill='x',pady=(SPACING['xs'],SPACING['none']))
+        for attr,key,cmd,tip in (('project_new_button','new',self.new,'＋ 新建项目'),
+                                 ('project_open_button','open',self.open_current_project,'打开项目目录')):
+            btn=SecondaryButton(tools,text='',image=IconLoader.nav_icon(side,PROJECT_ACTION_ICONS[key]),
+                                compound='image',command=cmd,style='RailIcon.TButton')
+            btn.pack(side='left',fill='x',expand=True,padx=(SPACING['none'],SPACING['xs']))
+            Tooltip(btn,tip);setattr(self,attr,btn)
+        self.project_buttons=(self.project_new_button,self.project_open_button)
+        self._sync_project_group_styles();self._sync_project_picker()
     def project_switch_blocker(self):
         """当前项目还有任务在跑时的拦截原因；空串表示可以切换。"""
         if self.worker:return '后台任务仍在运行'
@@ -422,11 +449,6 @@ class ProjectPagesMixin:
             command=lambda:self.go_page(PAGE_ACCOUNT),style='Nav.TButton')
         Tooltip(self.account_button,ACCOUNT_TITLE)
         self.account_button.pack(anchor='w',fill='x',pady=(SPACING['none'],DESKTOP_LAYOUT['nav_gap']))
-    def mark_nav(self,index):
-        """侧栏高亮：阶段页按钮与「00 会员账户」只亮当前那一颗。"""
-        for i,b in enumerate(self.nav):b.configure(style='Selected.Nav.TButton' if i==index else 'Nav.TButton')
-        account_button=getattr(self,'account_button',None)
-        if account_button is not None:account_button.configure(style='Selected.Nav.TButton' if index==PAGE_ACCOUNT else 'Nav.TButton')
     def project_home(self):
         self.note('选择一个故事继续制作。右键项目可标记完成、恢复制作或删除项目。删除项目＝移入项目库回收站（可恢复，不是永久清除）；同一块磁盘上回收不等于释放空间；登记与磁盘不一致时点“重建项目索引”；可再生缓存由自动清理单独回收。')
         tree=ttk.Treeview(self.content,show='tree',height=TEXT_ROWS['2xl'],selectmode='browse')
