@@ -61,6 +61,26 @@ class NaturalScriptSaveTests(unittest.TestCase):
         self.assertIn('字段表格', sc.natural_script_violations(
             '# 自然剧本\n## 正文\n| 镜头编号 | 景别 | 画面内容 |\n|---|---|---|\n| 1 | 特写 | 咔咔 |\n'))
 
+    def test_beat_table_with_blank_separated_rows_is_still_natural(self):
+        """桌面工具落盘的 ``\\r\\r\\n`` 双重回车在 ``splitlines`` 下变成行间伪空行，
+        节拍表整块豁免必须跨过空行，但不能放行空行之后的异列字段表格。"""
+        header = '| 场次 | 节拍＃ | 情绪关键词 | 服务的剧本动作 | 权重 | 强度 |'
+        separator = '|---|---|---|---|---|---|'
+        row = '| 场景 1 | 1 | 心算十楼两秒 | 咔咔抬头心算时间 | 主 | 5.0 |'
+        # 与真实文件一致：每行以 \r\r\n 结尾，read_text 通用换行后是行间空行。
+        text = '# 第1集\r\r\n## 本集节拍表\r\r\n' + '\r\r\n'.join(
+            (header, separator, row)) + '\r\r\n\r\r\n## 正文\r\r\n\r\r\n咔咔急刹。\r\r\n'
+        self.assertEqual(sc.natural_script_violations(text), ())
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder) / '01剧本准备' / '自然剧本.md'
+            target.parent.mkdir(parents=True)
+            target.write_bytes(text.encode('utf-8'))
+            self.assertIn(target.resolve(),
+                          {Path(p).resolve() for p in sc.natural_script_paths(folder)})
+            # 伪空行豁免以节拍表六列为界；空行之后接异列字段表格仍拦截。
+            self.assertIn('字段表格', sc.natural_script_violations(
+                text + '| 镜头编号 | 景别 | 画面内容 |\r\r\n'))
+
 
 class StructuredScriptPublicationTests(unittest.TestCase):
     def test_empty_explicit_structured_content_is_not_published(self):

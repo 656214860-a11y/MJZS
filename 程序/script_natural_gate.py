@@ -13,6 +13,16 @@ import re
 _BEAT_TABLE_HEADER = re.compile(
     r'^\s*\|?\s*场次\s*\|[^|]*节拍[^|]*\|[^|]*情绪关键词[^|]*\|'
     r'[^|]*服务的剧本动作[^|]*\|[^|]*权重[^|]*\|[^|]*强度\s*\|?\s*$')
+# 节拍表六列数据行：恰好七个 ``|``（行首一个＋六个单元格边界）。空行豁免只允许
+# 桥接到同列数的行，防止把空行之后的其它字段表格一并吞掉。
+_BEAT_TABLE_ROW = re.compile(r'^\s*\|(?:[^|]*\|){6}\s*$')
+
+
+def _next_nonblank(lines, start):
+    i = start
+    while i < len(lines) and not lines[i].strip():
+        i += 1
+    return i
 
 
 def has_foreign_field_table(value):
@@ -20,6 +30,10 @@ def has_foreign_field_table(value):
 
     节拍表整块（表头＋分隔行＋数据行，直到空行或非 ``|`` 起始行）豁免；
     其余任何 ``| … |`` 表格行仍算结构化阶段产物。
+
+    外部工具落盘时可能写出 ``\\r\\r\\n`` 双重回车，``splitlines`` 把每个 ``\\r``
+    都当成行界，于是节拍表行间出现伪空行；空行只在下一个非空行仍是六列节拍行
+    时才视作表格内部空行跨过。
     """
     lines = value.splitlines()
     i = 0
@@ -28,8 +42,15 @@ def has_foreign_field_table(value):
         line = lines[i]
         if _BEAT_TABLE_HEADER.match(line):
             i += 1
-            while i < n and re.match(r'^\s*\|', lines[i]):
-                i += 1
+            while i < n:
+                if re.match(r'^\s*\|', lines[i]):
+                    i += 1
+                    continue
+                nxt = _next_nonblank(lines, i)
+                if nxt < n and _BEAT_TABLE_ROW.match(lines[nxt]):
+                    i = nxt
+                    continue
+                break
             continue
         if re.match(r'^\s*\|.+\|\s*$', line):
             return True
