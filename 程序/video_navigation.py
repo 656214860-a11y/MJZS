@@ -5,7 +5,7 @@ from tkinter import ttk
 from file_cache import read_json as read_cached_json
 from ui_tokens import COLORS, SPACING
 from ui_widgets import SecondaryButton
-import pet_bus
+import contract.pet_bus as pet_bus
 
 
 def read_json(path):

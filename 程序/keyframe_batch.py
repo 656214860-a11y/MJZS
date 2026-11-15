@@ -1,6 +1,6 @@
 """First-frame batch entry points sharing the project's asset task."""
 import json
-import pet_bus
+import contract.pet_bus as pet_bus
 from pathlib import Path
 from contract.storyboard_paths import media_root
 from file_cache import read_json

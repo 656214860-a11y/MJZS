@@ -6,7 +6,7 @@ from file_cache import read_json
 from project_settings import read_prefs
 from project_context_factory import project_context
 from storyboard_adoption_contract import adopted as _adopted, paths, problem_text, resolve_source
-import pet_bus
+import contract.pet_bus as pet_bus
 
 
 def _asset_plan_gateway(gateway):

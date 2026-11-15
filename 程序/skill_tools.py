@@ -17,7 +17,7 @@ from pathlib import Path
 import line_endings
 import contract.stage_layout as stage_layout
 from agent.core import read
-from pet_bus import STAGES, STAGE_NAMES, stage_label
+from contract.pet_bus import STAGES, STAGE_NAMES, stage_label
 
 PAGE_TITLES = tuple('%02d %s' % (index + 1, STAGE_NAMES[stage]) for index, stage in enumerate(STAGES))
 STAGE_PAGE = {stage: index for index, stage in enumerate(STAGES)}
@@ -621,7 +621,7 @@ READY = {
 }
 
 # 只能在页面上按的那几步：页序号按 STAGES 的顺序（与左侧导航一一对应）。
-from pet_bus import STAGES, STAGE_NAMES
+from contract.pet_bus import STAGES, STAGE_NAMES
 _SCRIPT, _SCRIPT_STRUCTURE, _STORYBOARD, _ANIMATIC, _ASSETS, _CONTINUITY, _FINAL, _KEYFRAME, _PREVIS, _VIDEO, _AUDIO, _EDIT, _DELIVERY = map(STAGES.index, STAGES)
 PAGES = {
     'animatic.generate': (_ANIMATIC, '生成分镜预演'),

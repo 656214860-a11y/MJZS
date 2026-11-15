@@ -4,7 +4,7 @@
 """
 import app_logging
 import page_navigation_controller as page_nav
-import pet_bus
+import contract.pet_bus as pet_bus
 import tkinter as tk
 from agent.core import read, save
 from desktop_page_registry import CACHED_PAGES, PAGE, PAGE_ACCOUNT, PAGE_SITES, page_title

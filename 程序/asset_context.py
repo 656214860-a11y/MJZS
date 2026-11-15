@@ -3,7 +3,7 @@ from pathlib import Path
 import re
 from agent.core import read
 from contract.project_context import ProjectContext
-import pet_bus
+import contract.pet_bus as pet_bus
 
 
 def _project_root(project=None, *, context=None):

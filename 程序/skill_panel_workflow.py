@@ -65,7 +65,7 @@ import skill_registry
 import stage_config
 import stage_models
 import ui_plugin_registry
-from pet_bus import STAGE_NAMES, read_json, stage_label as _bus_stage_label
+from contract.pet_bus import STAGE_NAMES, read_json, stage_label as _bus_stage_label
 from storage_maintenance import recycle_paths
 from ui_tokens import (BUTTON_GAP, COLORS, FONTS, SPACING, NOTE_HEIGHT_COMPACT,
                        NOTE_HEIGHT_REGULAR, NOTE_LIST_MAX_WIDTH, NOTE_LIST_MIN_WIDTH,

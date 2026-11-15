@@ -6,7 +6,7 @@
 import datetime
 import re
 import pet_agent
-import pet_bus
+import contract.pet_bus as pet_bus
 import pet_cloud
 import pet_report
 import pet_state

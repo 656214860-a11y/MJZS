@@ -47,7 +47,7 @@ import tkinter as tk
 from tkinter import ttk
 from ui_widgets import BaseDialog, LineInput
 
-from pet_bus import ErrorLog
+from contract.pet_bus import ErrorLog
 from pet_ui_support import accepts_keyword
 from pet_agent import PET_NAME as SPEAKER     # 猫咪的名字（三虎）：云朵里每句话都挂在它名下
 from pet_cloud_text import reply_lines as _reply_lines, tight

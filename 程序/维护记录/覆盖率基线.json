@@ -1051,6 +1051,12 @@
    "percent": 0.0
   },
   {
+   "module": "pet_bus.py",
+   "covered": 0,
+   "total": 2,
+   "percent": 0.0
+  },
+  {
    "module": "pet_chat_coordinator.py",
    "covered": 0,
    "total": 42,
@@ -2185,7 +2191,7 @@
    "percent": 23.8
   },
   {
-   "module": "pet_bus.py",
+   "module": "contract/pet_bus.py",
    "covered": 52,
    "total": 211,
    "percent": 24.6
@@ -2420,5 +2426,5 @@
   }
  ],
  "modules_covered": 64,
- "modules_total": 401
+ "modules_total": 402
 }

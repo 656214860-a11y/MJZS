@@ -16,7 +16,7 @@
 3. 并发上限是硬上限（全局 8，单阶段按表），挡下来的活儿排队降速，直接丢掉。
 """
 import json
-import pet_bus
+import contract.pet_bus as pet_bus
 from file_cache import read_text
 import time
 import threading
@@ -139,7 +139,7 @@ def rate_limited(stage):
 
 
 def label(stage):
-    from pet_bus import STAGE_NAMES
+    from contract.pet_bus import STAGE_NAMES
     return str(STAGE_NAMES.get(str(stage or ''), stage or ''))
 
 

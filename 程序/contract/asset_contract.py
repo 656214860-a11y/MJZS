@@ -20,7 +20,7 @@ state_variants 里那一条的 override 合并注入（merged_anchor）。
 import re
 from pathlib import Path
 
-import pet_bus
+import contract.pet_bus as pet_bus
 import contract.script_contract as script_contract
 
 # 正典板转盘图：上排 4 格全身，下排 3 格头部（任务 3）。

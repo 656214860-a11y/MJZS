@@ -4,7 +4,7 @@
 ``PetStagesMixin`` 获得；用到的模块级名字来自 ``pet_ui_support``。
 """
 import pet_agent
-import pet_bus
+import contract.pet_bus as pet_bus
 import pet_cloud
 import stage_flow
 import stage_handler_registry

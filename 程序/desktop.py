@@ -96,7 +96,7 @@ def confirm_project_removal_from_last_script(parent, files):
     return result['accepted']
 
 
-import pet_bus
+import contract.pet_bus as pet_bus
 # 页面序号一律由阶段表推出来（PAGES 与 pet_bus.STAGES 一一对应），
 # 再加一个阶段时只改 pet_bus.STAGES／STAGE_NAMES。
 import pet_state

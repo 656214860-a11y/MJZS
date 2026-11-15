@@ -5,7 +5,7 @@
 from ui_tokens import PET_PALETTE
 import sys
 import pet_agent
-import pet_bus
+import contract.pet_bus as pet_bus
 from pathlib import Path
 from tkinter import TclError
 from ui_tokens import BUTTON_BORDER_WIDTH, COLORS, CONTROL_HIT_MIN, PET_LAYOUT

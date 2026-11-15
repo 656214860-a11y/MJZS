@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 import contract.stage_layout as stage_layout
 from agent.core import save
-from pet_bus import STAGES, STAGE_NAMES, STAGE_EVENTS, read_json
+from contract.pet_bus import STAGES, STAGE_NAMES, STAGE_EVENTS, read_json
 
 PENDING, RUNNING, SUCCESS, FAILED, RETRYING, SKIPPED = ('pending', 'running', 'success', 'failed', 'retrying', 'skipped')
 SETTLED = (SUCCESS, SKIPPED)

@@ -5,7 +5,7 @@ import json, os, queue, threading
 import tkinter as tk
 from tkinter import ttk, messagebox
 from agent.core import read
-import pet_bus
+import contract.pet_bus as pet_bus
 from contract.storyboard_paths import is_final_dir
 from storyboard_catalog_service import (
     IGNORED, discover_files, linked_path as _linked_path, content_preview as _content_preview, is_deliverable as _is_deliverable,

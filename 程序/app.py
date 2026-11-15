@@ -5,7 +5,7 @@
 import app_logging
 import hash_backend
 hash_backend.install()
-import pet_bus
+import contract.pet_bus as pet_bus
 import queue
 import threading
 import time

@@ -13,7 +13,7 @@ from agent.media import check, probe
 import project_settings
 from project_naming import dated_path
 from legacy_compat import resolved_storyboard_alias
-import pet_bus
+import contract.pet_bus as pet_bus
 
 def approved_versions(versions):
     """已下载＋技术质检通过＋已验收的版本；自动粗剪、手动拼装与交接包共用同一口径。

@@ -2,7 +2,7 @@
 
 page 常量被 Desktop 的多处方法共用；放在单独模块由 desktop 按原名转回，避免与某个 Mixin 绑死。
 """
-import pet_bus
+import contract.pet_bus as pet_bus
 import pet_state
 
 

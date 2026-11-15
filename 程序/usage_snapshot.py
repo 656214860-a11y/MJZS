@@ -176,7 +176,7 @@ class UsageSnapshot:
     def _notify(self, seq, request_id):
         """结算后通知界面刷新；总线缺失／事件不合契约都只记一笔，绝不影响结算。"""
         try:
-            import pet_bus
+            import contract.pet_bus as pet_bus
             if _bus is None or self.project is None:
                 return
             pet_bus.emit_safe(_bus, _errors, 'usage_updated',

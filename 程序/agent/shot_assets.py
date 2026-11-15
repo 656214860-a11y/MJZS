@@ -3,7 +3,7 @@ from pathlib import Path
 from contract.storyboard_paths import media_root
 import base64, copy, hashlib, re
 from .core import read
-import pet_bus
+import contract.pet_bus as pet_bus
 
 def registry(source):
     source=Path(source).resolve()

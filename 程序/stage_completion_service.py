@@ -2,7 +2,7 @@
 from pathlib import Path
 import math
 
-import pet_bus
+import contract.pet_bus as pet_bus
 
 
 def media_output_folders(root, stage):

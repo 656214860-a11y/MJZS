@@ -28,7 +28,7 @@ from api_endpoints import (configured_key, no_redirect, normalize_url,
     _retry_delay, _wait_before_retry, _decode_response_body, _content_length_exceeded,
     _limited_read, _wait_for_rate_limit, set_host_rate_limit, wait_for_rpm,
     elapsed_ms, _RateBucket, _http_opener, HTTP_USER_AGENT)
-from pet_bus import read_json
+from contract.pet_bus import read_json
 
 PROGRAM = Path(__file__).resolve().parent
 CONFIG_PATH = ('配置', '宠物', '配置.json')

@@ -45,7 +45,7 @@ class PetBridgeMixin:
         now=time.monotonic()
         if flow_get(self,name,'_due',0)>now+UNATTENDED_BACKOFF_FLOOR:return ''
         flow_set(self,name,'_due',0)
-        import pet_bus
+        import contract.pet_bus as pet_bus
         return '已把「'+pet_bus.STAGE_NAMES.get(stage,stage)+'」这一步提前叫醒一轮'
     def pet_start(self,stage):
         """第 67 期任务 5：三虎在自动档要「自动开始每个阶段的任务」。

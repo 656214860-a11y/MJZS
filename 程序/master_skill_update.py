@@ -22,7 +22,7 @@ import zipfile
 from pathlib import Path, PurePosixPath
 
 import master_skill
-import pet_bus
+import contract.pet_bus as pet_bus
 import platform_tools
 import storage_maintenance
 import workflow_settings

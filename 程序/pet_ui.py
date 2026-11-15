@@ -44,7 +44,7 @@ from broadcaster import Broadcaster, PREFIX_PATTERNS
 import pet_agent
 import pet_cloud
 from pet_chat_coordinator import ChatCoordinator
-import pet_bus
+import contract.pet_bus as pet_bus
 import pet_llm
 import pet_report
 import pet_state

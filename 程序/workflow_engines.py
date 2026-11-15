@@ -22,7 +22,7 @@ import client_profiles
 
 def _stage_slot_arguments(stage):
     """阶段名（英文键或中文名）→ 槽位注册表要的 (键, 阶段并发上限, 全局上限, 显示名)。"""
-    from pet_bus import STAGE_NAMES
+    from contract.pet_bus import STAGE_NAMES
     from stage_parallel import GLOBAL_LIMIT, concurrency_limit, label
     value = str(stage or '')
     key = next((name for name, text in STAGE_NAMES.items() if value in (name, text)), value)

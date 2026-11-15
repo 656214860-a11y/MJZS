@@ -7,7 +7,7 @@
 import pet_state
 import json
 import threading
-import pet_bus
+import contract.pet_bus as pet_bus
 import tkinter as tk
 import ui_plugin_registry
 from agent.core import read

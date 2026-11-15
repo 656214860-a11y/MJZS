@@ -8,7 +8,7 @@ from contract.storyboard_paths import media_root
 from urllib.request import Request,build_opener,HTTPRedirectHandler,ProxyHandler
 from urllib.error import HTTPError,URLError
 from urllib.parse import urlparse,urlencode
-import pet_bus
+import contract.pet_bus as pet_bus
 
 def read(p):
     try:return json.loads(Path(p).read_text(encoding='utf-8-sig'))

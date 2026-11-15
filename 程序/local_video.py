@@ -12,7 +12,7 @@ from agent.media import check, png_size
 import project_settings
 from ui_tokens import CHAR_WIDTH, WRAPLENGTH, SPACING
 from ui_widgets import BaseDialog, Card, LineInput, PrimaryButton, SecondaryButton
-import pet_bus
+import contract.pet_bus as pet_bus
 
 def model_name(cfg=None):
     """本地视频当前使用的模型：取已保存工作流的文件名，未配置时按默认 H3 显示。"""

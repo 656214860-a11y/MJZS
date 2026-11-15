@@ -21,7 +21,7 @@ from agent.core import save, save_text
 import pet_llm
 import pet_state, stage_layout
 from pet_agent import CATEGORY_NAMES
-from pet_bus import STAGES, STAGE_NAMES, read_json
+from contract.pet_bus import STAGES, STAGE_NAMES, read_json
 
 REPORT_DIR = (stage_layout.WORKFLOW_DIR, '宠物', '日报')
 SUMMARY_NAME = '汇总.json'

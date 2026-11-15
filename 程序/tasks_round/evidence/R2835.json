@@ -1,0 +1,15 @@
+{
+  "round": 2835,
+  "commit_base": "a4b17da5",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k pet_bus broadcaster stage_flow pet_error_log coverage_baseline static_hygiene layers circular size_ratchet complexity service_return structured_script gate_selfaudit app_metadata facade",
+    "exit": 0,
+    "passed": 155,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T19:04:35"
+}

@@ -18,7 +18,7 @@ from pathlib import Path
 
 import stage_parallel
 import tk_timers
-from pet_bus import STAGES, STAGE_NAMES
+from contract.pet_bus import STAGES, STAGE_NAMES
 
 # 「自动」那一档在模型池里的 id（挑不出来时弹窗就写「自动」）。
 model_router_AUTO = 'auto'

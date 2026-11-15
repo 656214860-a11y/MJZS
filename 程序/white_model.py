@@ -8,7 +8,7 @@ from contract.storyboard_paths import project_root
 import white_model_service as _service
 from ui_dialogs import FileDialog
 from ui_widgets import SelectBox, BaseDialog, Card, PrimaryButton, SecondaryButton, TextArea, notify
-import pet_bus
+import contract.pet_bus as pet_bus
 from ui_tokens import TEXT_ROWS, WRAPLENGTH, FONTS, SPACING
 
 TOOLS = (

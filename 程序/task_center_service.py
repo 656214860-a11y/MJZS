@@ -91,7 +91,7 @@ def project_snapshot(project, *, stage_records=None, gates=None, task_id=None) -
                     add('video', sid, version, path.relative_to(root).as_posix())
                 else:
                     result['errors'].append('视频版本记录格式错误：' + str(sid))
-    from pet_bus import STAGES
+    from contract.pet_bus import STAGES
     for stage in STAGES:
         saved = (stage_records or {}).get(stage, {})
         saved = saved if isinstance(saved, dict) else {}

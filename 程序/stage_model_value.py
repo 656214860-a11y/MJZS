@@ -2,7 +2,7 @@
 
 from file_cache import read_json
 import contract.stage_layout as stage_layout
-from pet_bus import STAGES
+from contract.pet_bus import STAGES
 
 
 def value(project, stage):

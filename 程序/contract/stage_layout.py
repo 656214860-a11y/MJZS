@@ -237,7 +237,7 @@ def stage_contract_errors():
     用户可见目录与 README 输入输出契约。两份表必须一一对应；这里刻意在
     调用时才导入，避免把总线的运行依赖带入普通路径查询。
     """
-    from pet_bus import STAGES as runtime_stages
+    from contract.pet_bus import STAGES as runtime_stages
     layout_stages = tuple(row[1] for row in STAGES)
     errors = []
     if layout_stages != tuple(runtime_stages):

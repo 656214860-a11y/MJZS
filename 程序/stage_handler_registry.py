@@ -125,7 +125,7 @@ def start(desktop, stage, trigger='auto', fallback=None, **options):
     if stage == 'storyboard':
         return _start_storyboard(desktop, trigger)
     if stage == 'animatic':
-        from pet_bus import STAGES
+        from contract.pet_bus import STAGES
         desktop.show(STAGES.index('animatic'))
         return _fail(desktop, stage, trigger, '分镜预演需要选择参考图与临时声音，生成后请您确认节奏、时长和对白同步')
     if stage == 'pet_performance':

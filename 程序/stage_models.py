@@ -16,7 +16,7 @@
 会把生产模型挡在 SKILL 编排之外（它不是模型池里的模型 id）。
 """
 import app_logging
-from pet_bus import STAGES
+from contract.pet_bus import STAGES
 from stage_flow import manual_label as manual_label_for
 
 
@@ -305,7 +305,7 @@ def before_manual(desktop, stage, parent=None):
     if stage in asked:
         return True
     asked.add(stage)
-    from pet_bus import STAGE_NAMES
+    from contract.pet_bus import STAGE_NAMES
     label = STAGE_NAMES.get(stage, stage)
     if not _ask('先挑一下模型',
                 '「%s」这一步的模型还是「自动」。\n\n'

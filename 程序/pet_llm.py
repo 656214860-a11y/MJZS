@@ -23,7 +23,7 @@ import token_saver
 from model_metering import REPLAYABLE_RETRY_STATUS, metered, replayable_retry
 from contract.app_metadata import APP_NAME
 from agent.core import save
-from pet_bus import read_json
+from contract.pet_bus import read_json
 from api_endpoints import configured_key, normalize_url
 
 LOGGER = logging.getLogger(__name__)
