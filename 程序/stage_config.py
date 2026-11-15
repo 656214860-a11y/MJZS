@@ -27,6 +27,11 @@ PRESET_PATH = ('配置', 'SKILL', '预设.json')
 # 确保一个项目的创作风格不会意外影响其他项目。
 WRITER_STYLE_STAGES = ('script',)
 WRITER_STYLE = 'writer_style'
+# 阶段级推理等级：模型选择器「推理等级」子菜单写入这里；auto 表示交给模型默认，
+# 请求参数映射只在带 reasoning 能力标签的模型上发生（REQ-S01-82）。
+REASONING = 'reasoning'
+REASONING_LEVELS = ('auto', 'low', 'medium', 'high')
+REASONING_LABELS = {'auto': '自动', 'low': '低', 'medium': '中', 'high': '高'}
 # 旧版四角色协作的编剧规则字段；只读一次迁入编剧风格，下次保存即不再写出。
 _LEGACY_WRITER_RULES = 'hollmwood_writer_rules'
 
@@ -66,13 +71,19 @@ def preset_path(program=None):
 
 
 def default_entry(stage, registry=None):
-    """默认配置：模型「自动」，勾上这个阶段仍在维护的全部 SKILL。"""
+    """默认配置：模型「自动」，推理等级「自动」，勾上这个阶段仍在维护的全部 SKILL。"""
     reg = registry or skill_registry.default_registry()
-    entry = {'model': model_router.AUTO,
+    entry = {'model': model_router.AUTO, REASONING: 'auto',
              'skills': [skill.name for skill in reg.getByStage(stage) if not skill.deprecated]}
     if stage in WRITER_STYLE_STAGES:
         entry.update(_writer_style_fields({}))
     return entry
+
+
+def clean_reasoning(value):
+    """推理等级归一：缺省与不认识的值都记成「自动」（不附加任何请求参数）。"""
+    text = str(value or '').strip().lower()
+    return text if text in REASONING_LEVELS else 'auto'
 
 
 def clean_writer_style(value):
@@ -186,6 +197,7 @@ def load(project, registry=None):
         entry = data.get(stage) if isinstance(data.get(stage), dict) else {}
         if entry:
             out[stage] = {'model': clean_model(entry.get('model')),
+                          REASONING: clean_reasoning(entry.get(REASONING)),
                           'skills': clean_skills(entry.get('skills'), stage, reg),
                           **(_writer_style_fields(entry) if stage in WRITER_STYLE_STAGES else {})}
         else:
@@ -304,6 +316,7 @@ def save_all(project, data, workflow=None):
     for stage in STAGES:
         entry = data.get(stage) or {}
         payload[stage] = {'model': clean_model(entry.get('model')),
+                          REASONING: clean_reasoning(entry.get(REASONING)),
                           'skills': list(entry.get('skills') or [])}
         if stage in WRITER_STYLE_STAGES:
             payload[stage].update(_writer_style_fields(entry))
@@ -338,6 +351,7 @@ def get(project, stage, registry=None):
             _GET_CACHE.setdefault(key, {})[stage] = copy.deepcopy(result)
         return result
     result = {'model': clean_model(entry.get('model')),
+              REASONING: clean_reasoning(entry.get(REASONING)),
               'skills': clean_skills(entry.get('skills'), stage, reg)}
     if stage in WRITER_STYLE_STAGES:
         result.update(_writer_style_fields(entry))
@@ -346,7 +360,7 @@ def get(project, stage, registry=None):
     return result
 
 
-def put(project, stage, model=None, skills=None, registry=None, writer_style=None):
+def put(project, stage, model=None, skills=None, registry=None, writer_style=None, reasoning=None):
     """写一个阶段的配置：只改传进来的那几项，其余保持原样。"""
     reg = registry or skill_registry.default_registry()
     if stage not in STAGES:
@@ -357,6 +371,8 @@ def put(project, stage, model=None, skills=None, registry=None, writer_style=Non
         entry['model'] = clean_model(model)
     if skills is not None:
         entry['skills'] = clean_skills(skills, stage, reg)
+    if reasoning is not None:
+        entry[REASONING] = clean_reasoning(reasoning)
     if stage in WRITER_STYLE_STAGES and writer_style is not None:
         entry[WRITER_STYLE] = clean_writer_style(writer_style)
     data[stage] = entry

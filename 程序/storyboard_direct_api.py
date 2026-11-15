@@ -115,7 +115,10 @@ def _ask(batch, messages):
                            output_reserved=MAX_TOKENS, report=True)
     if batch.cancelled():
         raise _Stopped()
-    result = batch.adapter.stream(messages, options={'max_tokens': MAX_TOKENS}, model=batch.chosen, system=batch.system,
+    import stage_model_value
+    options = {'max_tokens': MAX_TOKENS}
+    options.update(stage_model_value.reasoning_options(batch.project, batch.stage))
+    result = batch.adapter.stream(messages, options=options, model=batch.chosen, system=batch.system,
                             on_chunk=lambda _chunk: None, cancelled=batch.cancelled)
     if result.get('ok'):
         record_circuit_success(batch.chosen)
@@ -142,7 +145,7 @@ def _ask(batch, messages):
                                                timeout=REQUEST_TIMEOUT)
                 fallback = chat_metered(
                     fallback_adapter, RequestLedger(batch.project), batch.stage, messages,
-                    {'max_tokens': MAX_TOKENS}, candidate, batch.system)
+                    options, candidate, batch.system)
                 if batch.cancelled():
                     raise _Stopped()
                 if fallback.get('ok'):

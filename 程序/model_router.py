@@ -30,6 +30,10 @@ CHOICE_IDS = tuple(choice[0] for choice in CHOICES)
 LABEL_OF = dict(CHOICES)
 DEFAULT_MODEL = 'deepseek-v4-flash'
 AUTO = 'auto'
+# 阶段配置可调推理等级（REQ-S01-82）：auto 不加任何参数；只对有 reasoning
+# 能力标签的模型下发，免得给不支持的服务端送去不认得的字段被判 400。
+REASONING_EFFORTS = ('low', 'medium', 'high')
+REASONING_THINKING_BUDGET = {'low': 1024, 'medium': 8192, 'high': 32768}
 CIRCUIT_FAILURE_THRESHOLD = 3
 CIRCUIT_COOLDOWN_SECONDS = 60.0
 # 记为熔断失败的状态：本地网络异常（0）与可重放的 HTTP 状态。与 model_metering.REPLAYABLE_RETRY_STATUS
@@ -311,12 +315,36 @@ class ModelAdapter:
             # 采样参数和 token 上限一样属于请求体：显式给了就不能因为换协议而悄悄丢掉。
             if 'temperature' in options:
                 payload['temperature'] = options['temperature']
+            budget = self._thinking_budget(model, options)
+            if budget:
+                payload['thinking'] = {'type': 'enabled', 'budget_tokens': budget}
             return payload
+        effort = self._reasoning_effort(model, options)
+        if effort and self.wire_api == 'responses':
+            body['reasoning'] = {'effort': effort}
+        elif effort:
+            body['reasoning_effort'] = effort
         if self.wire_api == 'responses':
             body['input'] = self.prefixed(messages, system)
         else:
             body['messages'] = self.prefixed(messages, system)
         return body
+
+    def _reasoning_effort(self, model, options):
+        """options['reasoning'] → 线协议档位；模型没标推理能力时不下发。"""
+        if 'reasoning' not in self.capabilities(model):
+            return ''
+        effort = str((options or {}).get('reasoning') or '').strip().lower()
+        return effort if effort in REASONING_EFFORTS else ''
+
+    def _thinking_budget(self, model, options):
+        """Anthropic 思考预算：档位映射 token 数，必须小于 max_tokens（下限 1024）。"""
+        effort = self._reasoning_effort(model, options)
+        if not effort:
+            return 0
+        budget = REASONING_THINKING_BUDGET[effort]
+        limit = int((options or {}).get('max_tokens') or 1024) - 1
+        return min(budget, limit) if limit >= 1024 else 0
 
     def chat(self, messages, options=None, model='', system=''):
         """统一入口：返回 {'ok', 'text', 'model', 'status', 'usage', 'error'}，不抛异常。"""
