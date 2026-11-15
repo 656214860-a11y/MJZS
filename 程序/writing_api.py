@@ -18,6 +18,10 @@ import token_saver
 from file_cache import read_json
 from model_router import ModelAdapter, PoolAdapter
 import edit_habits, workflow_context, writing_tools
+from writing_preparation_ledger import (_confirmed_basis, _promote_revision,
+                                        _revoke_natural_script_adoption,
+                                        _save_preparation_state,
+                                        _save_preparation_state_guarded)
 from writing_quality import enabled as quality_enabled
 from writing_stream import chat_streaming
 from workflow_context_budget import (REQUEST_CONTEXT_MAX_CHARS, budget_advice, budget_sections,
@@ -945,11 +949,6 @@ def _preparation_state(project, brief, *, restart_stage=None):
     return target, state, texts
 
 
-def _save_preparation_state(target, state, publish):
-    payload = json.dumps(state, ensure_ascii=False, indent=2) + '\n'
-    publish(target, payload, lambda value: value == payload, lambda _target: None)
-
-
 def _preparation_document(text, title):
     """只规范单份当前阶段文件的说明前缀及显式待确认尾节。"""
     headings = list(re.finditer(r'^# ([^\n]+)\n', text, re.MULTILINE))
@@ -1060,9 +1059,11 @@ def _preparation_step(request, *, publish, cancelled, user_message=None, identit
     documents = _working_documents(state)
     pending_restart = state.pop('pending_restart', None)
     if (documents or pending_restart is not None) and state != read_json(target):
-        _save_preparation_state(target, state, publish)
+        _save_preparation_state_guarded(project, target, state, publish)
     index = len(documents) if not documents or documents[-1].get('confirmed') is True else len(documents) - 1
     if index == len(PREPARATION_STAGES):
+        # 重写稿已全部确认（右键「设为定稿」可走到这里）：与推进确认同口径切换采用版本。
+        _promote_revision(state, project, target, publish)
         return None, dict(zip(PREPARATION_STAGES, texts))
     stage = PREPARATION_STAGES[index]
     publish = _versioned_publisher(project, publish)
@@ -1124,18 +1125,8 @@ def _preparation_step(request, *, publish, cancelled, user_message=None, identit
         return rejected, None
     advancing = natural or selected > index
     def save_decision():
-        if advancing and 'revision' in state:
-            revision = state.pop('revision')
-            state['documents'] = revision['documents']
-            state['brief_hash'] = revision.get('brief_hash', state['brief_hash'])
-            from script_contract import natural_script_selection_path
-            payload = json.dumps({'path': '', 'sha256': '',
-                                  'reason': '前置阶段已更新，请重新生成或明确采用自然剧本'}, ensure_ascii=False)
-            publish(natural_script_selection_path(project), payload,
-                    lambda value: value == payload,
-                    lambda _target: _save_preparation_state(target, state, publish))
-        else:
-            _save_preparation_state(target, state, publish)
+        if not (advancing and _promote_revision(state, project, target, publish)):
+            _save_preparation_state_guarded(project, target, state, publish)
     if natural:
         documents[-1]['confirmed'] = True
         save_decision()

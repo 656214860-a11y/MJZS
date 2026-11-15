@@ -12,7 +12,8 @@ from pathlib import Path
 
 from file_cache import read_json
 from writing_api import (PREPARATION_STAGES, _complete_brief, _confirmed_prefix,
-                         _preparation_brief_hash, _save_preparation_state, _working_documents)
+                         _preparation_brief_hash, _promote_revision,
+                         _save_preparation_state_guarded, _working_documents)
 
 
 def confirm_preparation_document(project, stage, path, *, publish):
@@ -77,7 +78,16 @@ def confirm_preparation_document(project, stage, path, *, publish):
     document = {'stage': stage, 'path': chosen.relative_to(folder).as_posix(),
                 'sha256': hashlib.sha256(text.encode('utf-8')).hexdigest(), 'confirmed': True}
     state.get('revision', state)['documents'] = prefix + [document]
-    _save_preparation_state(target, state, publish)
+    revision = state.get('revision')
+    # 重写稿确认到三阶段齐全才切换采用版本；中途确认仍留在 revision，
+    # 与聊天「推进才采用」同口径，避免采用版本与自然稿采用记录错位。
+    promoted = (isinstance(revision, dict)
+                and len(revision.get('documents') or ()) == len(PREPARATION_STAGES)
+                and _promote_revision(state, project, target, publish))
+    if not promoted:
+        # 放弃重写回到采用版本（rebound）、重确认同阶段换文件等都会改采用版本；
+        # 基线守卫只在确认基线实际变化且存在有效采用时撤销自然稿采用。
+        _save_preparation_state_guarded(project, target, state, publish)
     return invalidated
 
 
@@ -129,5 +139,5 @@ def unconfirm_preparation_document(project, stage, *, publish):
     state['documents'] = documents[:index] + [dict(document, confirmed=False)]
     state.pop('revision', None)
     state.pop('pending_restart', None)
-    _save_preparation_state(target, state, publish)
+    _save_preparation_state_guarded(project, target, state, publish)
     return invalidated

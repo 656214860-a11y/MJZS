@@ -61,6 +61,7 @@ CONTRACT = {
     'budget.warning': ('budget', 'used', 'limit'),
     'budget.exceeded': ('budget', 'used', 'limit'),
     'notify.aggregate': ('text',),
+    'usage_updated': ('project',),
     'intent.command': ('text',),
 }
 STAGE_EVENTS = ('stage.started', 'stage.completed', 'stage.failed', 'stage.retrying')

@@ -35,7 +35,8 @@ class ContractTests(unittest.TestCase):
         """每条登记的事件都能被构造出来：契约与实现不会各写一份。"""
         payload = {"stage": "assets", "error": "超时", "attempt": 1, "delay": 30, "shot": "SH001",
                    "character": "CHAR_001", "candidates": 3, "path": "exports/MASTER.mp4",
-                   "budget": "video", "used": 5, "limit": 10, "text": "继续"}
+                   "budget": "video", "used": 5, "limit": 10, "text": "继续",
+                   "project": "demo"}
         for kind, fields in pet_bus.CONTRACT.items():
             with self.subTest(kind=kind):
                 item = pet_bus.event(kind, **{name: payload[name] for name in fields})

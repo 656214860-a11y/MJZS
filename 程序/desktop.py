@@ -33,6 +33,7 @@ import asset_thumbs
 import asset_resume
 import frame_checks
 import pet_ui
+import ui_usage_indicator
 import project_stages
 import ui_plugin_registry
 import stage_handler_registry
@@ -290,6 +291,9 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         # 第 30 期第 3 条：把「前台窗口是不是本进程」交上去——用户切到别的应用时，三虎的自动
         # 播报（心跳、进度气泡、主动询问、失败提醒）一律不冒；自己点开的对话框照旧一条都不拦。
         self.pet=pet_ui.attach(self,front=pet_ui.our_process_in_front)
+        # 用量指示器（费用统计模块）：标题行右上角、三虎头像左侧常驻；总线绑定由每拍 sync_bus 负责。
+        self.usage_indicator=ui_usage_indicator.UsageIndicator(self.pet_layer,self)
+        ui_usage_indicator.place_in_title_row(self.usage_indicator,self.pet_layer)
         # 页面仍由画布和鼠标滚轮滚动，但不显示贴在窗口最右侧的整页长滑块。
         # 各页面共用这一层，因而无需在 11 个页面里分别隐藏；表格、对话框等局部滚动条照常保留。
         area=ttk.Frame(self.body);area.pack(fill='both',expand=True)
@@ -746,6 +750,10 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
             if message:self._stage_model_sync_results.put((generation,target,{'master':message}))
         threading.Thread(target=work,daemon=True).start()
     def _tick_stage_model_sync_result(self):
+        indicator=getattr(self,'usage_indicator',None)  # 总线随项目重建，每拍对齐 usage_updated 订阅
+        if indicator is not None:
+            try:indicator.sync_bus()
+            except Exception:app_logging.swallowed()
         try:generation,target,result=self._stage_model_sync_results.get_nowait()
         except queue.Empty:return
         if generation!=self._stage_model_sync_generation or target!=self.root:return

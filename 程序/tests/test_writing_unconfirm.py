@@ -3,6 +3,7 @@
 
 REQ-S01-78：取消①②③任一步的确认并回退；REQ-S01-52：取消确认不依赖所选模型。
 """
+import hashlib
 import json
 import tempfile
 import unittest
@@ -10,6 +11,7 @@ from unittest.mock import Mock, patch
 
 import model_pool
 import project_stages
+import script_contract
 import stage_config
 import writing_api
 from agent.core import save
@@ -40,6 +42,21 @@ class WritingUnconfirmTests(unittest.TestCase):
     def file_texts(self):
         return {self.target.parent / doc['path']: (self.target.parent / doc['path']).read_text(encoding='utf-8')
                 for doc in self.original['documents']}
+
+    def adopt_script(self):
+        """写入一份自然稿并登记采用。"""
+        folder = self.target.parent / '项目剧本'
+        folder.mkdir(parents=True, exist_ok=True)
+        script = folder / '旧剧本.md'
+        script.write_text('# 自然剧本\n旧稿\n', encoding='utf-8')
+        save(script_contract.natural_script_selection_path(self.project), {
+            'path': script.relative_to(self.project).as_posix(),
+            'sha256': hashlib.sha256(script.read_bytes()).hexdigest()})
+        return script
+
+    def selection(self):
+        path = script_contract.natural_script_selection_path(self.project)
+        return json.loads(path.read_text(encoding='utf-8')) if path.is_file() else None
 
     def test_unconfirm_middle_stage_keeps_setting_and_cancels_outline_and_character(self):
         """REQ-S01-78：取消中间阶段（剧本大纲）→ 项目设定仍确认，大纲与角色卡一并取消。"""
@@ -94,6 +111,33 @@ class WritingUnconfirmTests(unittest.TestCase):
         self.assertNotIn('revision', state)
         self.assertEqual([doc['stage'] for doc in state['documents']], ['项目设定'])
         self.assertFalse(state['documents'][0]['confirmed'])
+
+    def test_unconfirm_revokes_natural_script_adoption(self):
+        """REQ-S01-14 口径扩展：取消已确认使采用基线变化，已采用自然稿同步撤销。"""
+        self.adopt_script()
+        unconfirm_writing_preparation(self.project, '剧本大纲')
+        self.assertIsNone(script_contract.resolve_script_source(self.project))
+        self.assertIn('前置阶段已更新', self.selection()['reason'])
+        self.assertEqual(self.selection()['path'], '')
+
+    def test_unconfirm_without_adoption_writes_no_selection_record(self):
+        """从未采用过自然稿的项目，取消确认只改台账，不产生多余的失效记录。"""
+        unconfirm_writing_preparation(self.project, '剧本大纲')
+        self.assertIsNone(self.selection())
+
+    def test_unconfirm_then_reconfirm_different_file_keeps_adoption_revoked(self):
+        """REQ-S01-14 口径扩展：取消后改文件重确认，采用基线仍不同，采用维持撤销。"""
+        import writing_unconfirm
+        from stage_execution_service import publish_stage_text
+        self.adopt_script()
+        unconfirm_writing_preparation(self.project, '角色卡')
+        path = self.target.parent / '角色卡' / '新卡.md'
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('# 角色卡\n新少年\n', encoding='utf-8')
+        writing_unconfirm.confirm_preparation_document(
+            self.project, '角色卡', path, publish=publish_stage_text)
+        self.assertIsNone(script_contract.resolve_script_source(self.project))
+        self.assertIn('前置阶段已更新', self.selection()['reason'])
 
     def test_req_s01_52_unconfirm_does_not_require_api_model(self):
         """REQ-S01-52：取消已确认只改台账，不依赖所选模型，桌面／命令行模型也不报「请选择 API 模型」。"""
