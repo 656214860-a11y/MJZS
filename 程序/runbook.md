@@ -58,6 +58,18 @@
 - 回滚靠 Git：`升级备份/` 与 `.bak_*` 是历史证据、今后不再新增（AGENTS §2.6）。回滚后跑 §3 第一档自检。
 - `程序\outputs\`、`程序\logs\`、私有配置不进发布包。
 
+### 远端备份与服务器 CI（T1）
+
+私有服务器 `backup`（`root@8.138.223.126`，仓库 `/srv/git/manju-assistant.git`）承担三件事，全部只用 python3 标准库、不依赖 Tk 与项目解释器：
+
+- **pre-receive 门禁**：`维护记录/基准脚本/remote_pre_receive.py` 部署为 `hooks/pre-receive`——推送 `.py` 编译检查、凭据形态扫描、gitleaks（可选）、`master`/`main` 轮次证据门禁。参照副本 `/srv/git/ci/remote_pre_receive.py`。
+- **post-receive 远端 CI**：`维护记录/基准脚本/remote_post_receive_ci.py` 部署为 `hooks/post-receive`——对 `master`/`main`/`codex/*` 推送把 bare 仓库 `--shared` 克隆到 `/srv/git/ci/work/<ref>`（含 `.git`，gitlink 技能包按 `维护记录/外部技能包哈希.json` 检出固定提交），在 `程序/` 下跑静态门禁＋架构门禁（平台边界用例按脚本内显式清单排除）；结果在 `/srv/git/ci/results/`（`last_ci_status.json` 与 `<ref>.status.json` 汇总，逐 ref 日志同目录）。post-receive 不能拒绝推送，红了看状态文件与日志。
+- **每周 bundle 备份**：`/etc/cron.d/manju-bundle` 每周一 04:00 跑 `/srv/git/ci/weekly_bundle.sh`，产物 `/srv/git/backups/manju-<日期>.bundle`，只留最近 4 份。校验：`python -B scripts/backup_verify.py /srv/git/backups`（自动以同级 `manju-assistant.git` 作 verify 上下文；bundle verify 必须在仓库内跑）。
+
+**覆盖差异（T1 口径）**：Linux 远端只覆盖「静态门禁＋架构门禁」；默认冒烟（Tk）、增量门禁、安全全量自检仍在 Windows 本机（`scripts/local_ci.py exit`、`run_selftests.py --all --safe`、auto_full_safe 凭据）。服务器 Python 3.11 与本机 3.15 有版本差，远端绿不等于本机绿——合入 master 仍以本机 CI 出口为准。
+
+**夜间全量**：`auto_full_safe.py` 在 master 欠账到线时由 post-commit 自动补跑；计划任务 `ManjuNightlyFullSafe` 每天 03:30 对 `.wt/ci` 干净树兜底跑一次（机器未开机错过的当天不补，下个欠账触发点自然覆盖）。安装/卸载：`维护记录/基准脚本/install_nightly_task.cmd [install|uninstall]`。
+
 ## 6. 常见故障
 
 | 现象 | 先看 | 处置 |
