@@ -12,7 +12,7 @@ from desktop import Desktop, PAGE
 from skip_reasons import PLATFORM_TK_DISPLAY
 import test_desktop_startup_perf as startup_fixtures
 import project_stages
-from ui_tokens import CONTROL_HEIGHT, DESKTOP_LAYOUT
+from ui_tokens import DESKTOP_LAYOUT
 
 
 class CompactDesktopGeometryTests(unittest.TestCase):
@@ -63,24 +63,26 @@ class CompactDesktopGeometryTests(unittest.TestCase):
                 # 上一档可能把侧栏留在底部；每档从顶部量起，后续断言才不受滚动位置影响。
                 d.sidebar_canvas.yview_moveto(0);d.align_header();self.pump(.05)
                 self.assertEqual(d.app_title.cget('text'), '性能项目')  # R2056：侧栏顶部写当前项目名
-                self.assertAlmostEqual(d.idea_log.winfo_rooty(), d.list.winfo_rooty(), delta=2)
+                self.assertAlmostEqual(d.idea_log.winfo_rooty(), d.project_block.winfo_rooty(), delta=2)
                 self.assertLess(d.title.winfo_rooty(), d.app_title.winfo_rooty() + d.app_title.winfo_height())
                 self.assertAlmostEqual(d.title.winfo_rootx(), d.idea_log.winfo_rootx(), delta=2)
                 gear, title = d.pet.gear.canvas, d.app_title
                 self.assertAlmostEqual(gear.winfo_rooty()+gear.winfo_height()/2, title.winfo_rooty()+title.winfo_reqheight()/2, delta=2)
                 self.assertAlmostEqual(gear.winfo_rootx(), title.winfo_rootx()+title.winfo_reqwidth()+DESKTOP_LAYOUT['gear_gap'], delta=2)
-                row_height = int(ttk.Style(self.win).lookup('Project.Treeview', 'rowheight'))
-                rows = int(d.list.cget('height'))
-                chrome = d.list.winfo_reqheight() - rows * row_height
-                self.assertGreaterEqual(rows, DESKTOP_LAYOUT['project_min_rows'])
-                self.assertEqual(rows, (d.list.winfo_height()-chrome)//row_height)
-                previous_bottom = d.list.winfo_rooty()+d.list.winfo_height()
-                for widget in (*d.project_buttons, *d.nav):
+                # R2897 图标轨：项目区之后依次是账号钮与 14 个阶段钮（二级「资产清单」跟在 05 后）。
+                rail=[d.account_button]
+                for i,b in enumerate(d.nav):
+                    rail.append(b)
+                    if i==PAGE['assets'] and d.asset_list_button is not None:rail.append(d.asset_list_button)
+                previous_bottom = d.project_block.winfo_rooty()+d.project_block.winfo_height()
+                for widget in rail:
                     self.assertGreaterEqual(widget.winfo_rooty(), previous_bottom)
                     previous_bottom = widget.winfo_rooty()+widget.winfo_height()
                 self.assertEqual(len(d.nav), 14, '14 个阶段按钮都要在侧栏里')
                 canvas = d.sidebar_canvas
-                for widget in (*d.project_buttons, *d.nav):
+                rail_widgets=(*d.project_group_buttons.values(),d.project_picker,
+                              d.project_new_button,d.project_open_button,*rail)
+                for widget in rail_widgets:
                     self.reveal(widget)
                     self.assertGreaterEqual(widget.winfo_rooty(), canvas.winfo_rooty()-1)
                     self.assertLessEqual(widget.winfo_rooty()+widget.winfo_height(),
@@ -124,47 +126,23 @@ class CompactDesktopGeometryTests(unittest.TestCase):
                             available=min(rect(p)[0] for p in pets)-rect(d.title)[2]
                             self.assertLess(available, d.header_slogan.winfo_reqwidth()+2*DESKTOP_LAYOUT['slogan_gap'])
                         if stage == 'script':
-                            self.assertAlmostEqual(d.idea_log.winfo_rooty(), d.list.winfo_rooty(), delta=2)
+                            self.assertAlmostEqual(d.idea_log.winfo_rooty(), d.project_block.winfo_rooty(), delta=2)
                             for pet in pets:separate(d.idea_log, pet)
         finally:
             d.show(PAGE['script']); self.pump()
 
-    def test_project_tree_tracks_visible_rows_and_leaves_space_below_navigation(self):
+    def test_project_icon_buttons_are_compact_rail_controls(self):
+        """R2897：新建/打开与分组筛选都是纯图标 RailIcon 钮，配 Tooltip，不再占整行文字。"""
         self.resize(942, 1032)
         d = self.desktop
-        tree = d.list
-        tree.delete(*tree.get_children())
-        tree.insert('', 'end', iid='test-group', text='项目', open=True)
-        for i in range(5):tree.insert('test-group', 'end', iid=f'test-{i}', text=str(i))
-        d.schedule_sidebar_fit(); self.pump()
-        self.assertEqual(int(tree.cget('height')), 6)
-        self.assertAlmostEqual(tree.winfo_height(), tree.winfo_reqheight(), delta=2)
-        self.assertLessEqual(d.project_buttons[0].winfo_rooty()-(tree.winfo_rooty()+tree.winfo_height()), 2*DESKTOP_LAYOUT['row_gap']+2)
-        tree.item('test-group', open=False)
-        tree.event_generate('<<TreeviewClose>>'); self.pump()
-        self.assertEqual(int(tree.cget('height')), 3)
-        tree.item('test-group', open=True)
-        tree.event_generate('<<TreeviewOpen>>'); self.pump()
-        self.assertEqual(int(tree.cget('height')), 6)
-        tree.delete('test-0', 'test-1')
-        d.schedule_sidebar_fit(); self.pump()
-        self.assertEqual(int(tree.cget('height')), 4)
-
-    def control_height(self):
-        """用 setup_styles 配好的默认按钮量全局控件高度，不写死像素。"""
-        reference = ttk.Button(self.win, text='控件高度', style='TButton')
-        self.win.update_idletasks()
-        height = reference.winfo_reqheight()
-        reference.destroy()
-        return height
-
-    def test_project_buttons_match_global_control_height(self):
-        self.resize(942, 1032)
-        d = self.desktop
-        expected = self.control_height()
-        self.assertAlmostEqual(expected, CONTROL_HEIGHT, delta=2)
         for button in d.project_buttons:
-            self.assertAlmostEqual(button.winfo_height(), expected, delta=2)
+            self.assertEqual(button.cget('style'), 'RailIcon.TButton')
+        for state, button in d.project_group_buttons.items():
+            # 当前组是 Selected.RailIcon.TButton，其余组是 RailIcon.TButton。
+            self.assertIn(button.cget('style'), ('RailIcon.TButton', 'Selected.RailIcon.TButton'))
+        for button in (*d.project_buttons, *d.project_group_buttons.values()):
+            self.assertEqual(str(button.cget('compound')), 'image')
+            self.assertTrue(button.cget('image'))
             self.assertGreaterEqual(button.winfo_height(), button.winfo_reqheight())
 
     def test_actions_hint_and_full_file_details(self):
@@ -183,10 +161,19 @@ class CompactDesktopGeometryTests(unittest.TestCase):
         self.assertAlmostEqual(d.idea_input_hint.winfo_rootx(),
                                d.idea_input.winfo_rootx() + d.idea_input.bbox('1.0')[0],
                                delta=2)
-        self.assertFalse(d.list.item('group:completed', 'open'))
-        self.assertIn('empty-group', d.list.item('group:completed', 'tags'))
-        d.list.item('group:completed', open=True)
-        self.assertTrue(d.list.item('group:completed', 'open'))
+        # R2897：侧栏项目区改为分组筛选图标＋项目选择器；组筛选状态与「●」当前标记走选择器。
+        self.assertEqual(d._project_group, 'making')
+        self.assertTrue(d.project_picker.get().startswith('● '), '选择器应标出当前项目')
+        making_paths = sorted(p['path'] for p in d.projects.info['projects']
+                              if p.get('status', 'making') == 'making')
+        self.assertEqual(sorted(p['path'] for p in d._picker_items), making_paths)
+        d.set_project_group('completed')
+        self.assertEqual(d._project_group, 'completed')
+        self.assertEqual(d.project_group_buttons['completed'].cget('style'), 'Selected.RailIcon.TButton')
+        self.assertEqual(d.project_group_buttons['making'].cget('style'), 'RailIcon.TButton')
+        completed_paths = sorted(p['path'] for p in d.projects.info['projects']
+                                 if p.get('status', 'making') == 'completed')
+        self.assertEqual(sorted(p['path'] for p in d._picker_items), completed_paths)
         # R1862：四类文件复原为四张并排表，每张表一个行提示。
         self.assertEqual(set(d.script_row_category.values()), {'setting', 'outline', 'character', 'script'},
                          '四类文件都出现在各自的表里')

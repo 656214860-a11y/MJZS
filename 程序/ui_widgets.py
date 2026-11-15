@@ -18,6 +18,7 @@ from ui_tokens import (COLORS, COMBOBOX_ARROW_COLOR, COMBOBOX_CONTROL_PADDING,
                        INPUT_FOCUS_BORDER, INPUT_FONT, INPUT_FOREGROUND,
                        INPUT_PADDING_X, INPUT_PADDING_Y, INPUT_PLACEHOLDER_FOREGROUND,
                        ICON_FONT, BUTTON_RADIUS, CONTROL_CORNER_SURFACE, ROUND_TILE_BUTTON, ROUND_TILE_CARD,
+                       NAV_SUB_PADDING_X,
                        SCROLLBAR_THUMB, SCROLLBAR_THUMB_ACTIVE, SCROLLBAR_TROUGH, SCROLLBAR_BORDER_WIDTH, SCROLLBAR_WIDTH)
 from ui_motion import bind_row_hover, empty_icon
 from ui_hover_fade import install_hover_fade
@@ -88,9 +89,12 @@ def _install_button_styles(style, root):
     _configure_button(style, "Tokens.Primary.TButton", background=COLORS["primary"], **solid)
     _configure_button(style, "Send.TButton", background=COLORS["primary"], **solid)
     _configure_button(style, "Selected.Compact.TButton", background=COLORS["primary"], **solid)
-    _configure_button(style, "Selected.Nav.TButton", background=COLORS["primary"], anchor="w", **solid)
-    _configure_button(style, "Selected.Sub.Nav.TButton", background=COLORS["primary"],
-                      anchor="w", padding=(SPACING["xl"], CONTROL_PADDING_Y), **solid)
+    # 侧栏选中态＝浅灰胶囊＋深色内容（X 桌面风格），不再用主色实心块。
+    pill = dict(background=COLORS["surface_pressed"], foreground=COLORS["text_primary"],
+                active_background=COLORS["border_input"], active_foreground=COLORS["text_primary"], pressed_background=COLORS["border_input_hover"])
+    _configure_button(style, "Selected.Nav.TButton", anchor="w", **pill)
+    _configure_button(style, "Selected.Sub.Nav.TButton", anchor="w",
+                      padding=(NAV_SUB_PADDING_X, CONTROL_PADDING_Y), **pill)
     _configure_button(style, "Highlight.TButton", background=COLORS["primary_pressed"],
                       foreground=COLORS["background_card"],
                       active_background=COLORS["primary_pressed"],
@@ -126,9 +130,13 @@ def _install_button_styles(style, root):
                active_background=COLORS["surface_hover"],
                active_foreground=COLORS["text_primary"],
                pressed_background=COLORS["surface_pressed"])
-    _configure_button(style, "Nav.TButton", anchor="w", **nav)
+    _configure_button(style, "Nav.TButton", anchor="w",
+                      padding=(SPACING["xs"], CONTROL_PADDING_Y), **nav)
     _configure_button(style, "Sub.Nav.TButton", anchor="w",
-                      padding=(SPACING["xl"], CONTROL_PADDING_Y), **nav)
+                      padding=(NAV_SUB_PADDING_X, CONTROL_PADDING_Y), **nav)
+    # 纯图标小按钮（项目分组筛选／新建／打开目录）：居中、最小横向内边距，一行放两颗。
+    _configure_button(style, "RailIcon.TButton", anchor="center", padding=(SPACING["xs"], SPACING["xs"]), **nav)
+    _configure_button(style, "Selected.RailIcon.TButton", anchor="center", padding=(SPACING["xs"], SPACING["xs"]), **pill)
     _configure_button(style, "Tokens.Text.TButton",
                       background=COLORS["background_primary"],
                       foreground=COLORS["primary"],

@@ -24,6 +24,8 @@ def make_app(root='D:/p/甲_20260101', projects=None, busy=''):
     app.script_agent_processes.return_value = [('k', 'p')] if busy == 'agent' else []
     app.project_switch_blocker = lambda: desktop.Desktop.project_switch_blocker(app)
     app.restore_project_selection = lambda: desktop.Desktop.restore_project_selection(app)
+    app._sync_project_picker = lambda **kw: desktop.Desktop._sync_project_picker(app,**kw)
+    app._sync_project_group_styles = lambda: desktop.Desktop._sync_project_group_styles(app)
     return app
 
 
@@ -33,7 +35,9 @@ class ProjectSwitchGuardTests(unittest.TestCase):
         with patch.object(desktop, 'confirm', return_value=False):
             self.assertFalse(desktop.Desktop.request_project_switch(app, 'D:/p/乙_20260102'))
         app.open_project_or_cleanup.assert_not_called()
-        app.list.selection_set.assert_called_once_with(str(Path('D:/p/甲_20260101')))
+        # R2897：高亮＝选择器回到「● 当前项目」；甲是当前项目，应选中第 0 项。
+        app.project_picker.current.assert_called_with(0)
+        self.assertIn('● 甲', app.project_picker.set_values.call_args.args[0])
 
     def test_confirm_names_both_projects_then_opens(self):
         app = make_app()
@@ -53,7 +57,7 @@ class ProjectSwitchGuardTests(unittest.TestCase):
                         desktop.Desktop.request_project_switch(app, 'D:/p/乙_20260102')
                 ask.assert_not_called()
                 app.open_project_or_cleanup.assert_not_called()
-                app.list.selection_set.assert_called_once()
+                app.project_picker.current.assert_called_with(0)
 
     def test_current_project_row_is_marked(self):
         app = make_app()

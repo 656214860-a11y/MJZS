@@ -1,0 +1,15 @@
+{
+  "round": 2911,
+  "commit_base": "0e8e22b9",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k module_size complexity shared_state data_table agents_md compact_layout sidebar_project_title account_page page_lock ui_batch3 button_consistency project_switch_guard project_rename_reconcile ui_icons startup_perf asset_roster asset_detail",
+    "exit": 0,
+    "passed": 179,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T05:56:10"
+}

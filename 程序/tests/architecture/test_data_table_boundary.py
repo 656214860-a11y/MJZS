@@ -22,7 +22,7 @@ class DataTableBoundaryTests(unittest.TestCase):
                      and isinstance(node.func, ast.Attribute) and node.func.attr == 'Treeview']
             if calls:
                 actual[str(path.relative_to(ROOT))] = len(calls)
-        self.assertEqual(actual, {'desktop.py': 1, 'desktop_project_pages.py': 2},  # R1505：项目首页构建迁入 ProjectPagesMixin，合计仍 3 处
+        self.assertEqual(actual, {'desktop_project_pages.py': 2},  # R2897：侧栏项目树改分组筛选＋选择器，desktop.py 不再有树；项目选择弹窗与首页仍各一处
                          
                          '业务数据表必须通过 DataTable；项目树是唯一语义导航例外')
 
@@ -74,8 +74,8 @@ class DataTableBoundaryTests(unittest.TestCase):
         direct = [node for method in methods for node in ast.walk(method)
                   if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
                   and node.func.attr == 'Treeview']
-        self.assertEqual(len(direct), 2,
-                         '仅项目选择与项目主页可保留树形导航选择器')
+        self.assertEqual(len(direct), 1,
+                         'R2897 侧栏项目树改选择器后，仅项目主页保留树形导航选择器')
 
     def test_script_file_lists_use_data_table_not_a_page_treeview(self):
         tree = parse_desktop()

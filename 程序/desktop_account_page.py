@@ -17,7 +17,7 @@ import account_client
 import entitlement_service
 from account_controller import RENEW_VIEW_INTERVAL, AccountController
 import contract.pet_bus as pet_bus
-from desktop_page_registry import PAGE_ACCOUNT, PAGES
+from desktop_page_registry import PAGE_ACCOUNT, PAGES, nav_label
 from ui_tokens import DIALOG_CONTENT_PADDING, DIALOG_MIN_HEIGHT, FONTS, SPACING, TEXT_DESC
 from account_inputs import EmailInput, PASSWORD_MASK, PasswordInput
 from ui_widgets import BaseDialog, Card, LineInput, PrimaryButton, SecondaryButton, ask_confirmation
@@ -64,7 +64,7 @@ def device_text(device):
                                          _when(device.get('first_seen')), _when(device.get('last_seen')))
 
 
-NAV_LOCK_MARK = '  🔒'                        # 侧栏上未授权不能进的页
+NAV_LOCK_MARK = ' 🔒'                         # 侧栏上未授权不能进的页
 
 
 class AccountPageMixin:
@@ -207,7 +207,7 @@ class AccountPageMixin:
         reasons = self.page_lock_reasons()
         current, flipped = getattr(self, 'page_index', None), False
         for index, button in enumerate(getattr(self, 'nav', ())):
-            text = PAGES[index] + (NAV_LOCK_MARK if index in reasons else '')
+            text = nav_label(index) + (NAV_LOCK_MARK if index in reasons else '')
             if button.cget('text') != text:
                 button.configure(text=text)
                 flipped = flipped or index == current

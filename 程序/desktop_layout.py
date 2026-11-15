@@ -55,7 +55,7 @@ class LayoutMixin:
         if canvas is None or not nav:return ()
         try:
             return (tuple(round(v,4) for v in canvas.yview()),str(canvas.cget('scrollregion')),
-                    nav[-1].winfo_y(),int(self.list.cget('height')),getattr(self,'_header_list_gap',SPACING['none']))
+                    nav[-1].winfo_y(),len(getattr(self,'_picker_items',())),getattr(self,'_header_list_gap',SPACING['none']))
         except tk.TclError:
             return ()
     def _settle_sidebar_paint(self):
@@ -118,8 +118,11 @@ class LayoutMixin:
         if self.sidebar_size!=compact:
             self.sidebar_size=compact
             pad_y=NAV_PADDING_Y_COMPACT if compact else NAV_PADDING_Y
-            for name in ('Compact.TButton','Selected.Compact.TButton','Nav.TButton','Selected.Nav.TButton'):
+            for name in ('Compact.TButton','Selected.Compact.TButton'):
                 set_button_padding(style,name,(NAV_PADDING_X,pad_y),font=font)
+            # 图标轨（R2897）：编号+图标左对齐，锁标也放得下；纯图标小按钮用更小内边距。
+            for name in ('Nav.TButton','Selected.Nav.TButton','RailIcon.TButton','Selected.RailIcon.TButton'):
+                set_button_padding(style,name,(SPACING['xs'],pad_y),font=font)
             for name in ('Sub.Nav.TButton','Selected.Sub.Nav.TButton'):
                 set_button_padding(style,name,(NAV_SUB_PADDING_X,pad_y),font=font)
             # 项目动作与全局控件同高（36px）：横向沿用侧栏紧凑内边距，纵向取控件标准内边距；
@@ -127,26 +130,6 @@ class LayoutMixin:
             set_button_padding(style,'ProjectAction.TButton',
                                (DESKTOP_LAYOUT['project_button_padding'][0],SPACING['xs'] if compact else CONTROL_PADDING_Y),font=font)
             style.configure('Project.Treeview',font=font,rowheight=row_height)
-        # 由可用像素反算最大整行数；不以 Treeview 上一次请求高度作为下一次预算。
-        # 侧栏内容顶部现在让给固定标题浮层：垂直留白取自 side 的实际 padding，不再写死 sidebar_padding×2。
-        gap=DESKTOP_LAYOUT['row_gap']*2
-        padding=self.sidebar.cget('padding')
-        if isinstance(padding,(tuple,list)) and len(padding)==4:
-            vertical_pad=int(padding[1])+int(padding[3])
-        else:
-            vertical_pad=int(padding)*2 if str(padding).lstrip('-').isdigit() else DESKTOP_LAYOUT['sidebar_padding']*2
-        fixed=vertical_pad+getattr(self,'_header_list_gap',SPACING['none'])
-        for child in self.sidebar.winfo_children():
-            fixed+=gap
-            if child is not self.list:
-                fixed+=max(child.winfo_reqheight(),SPACING['xs'] if isinstance(child,ttk.Separator) else 0)
-        chrome=max(0,self.list.winfo_reqheight()-int(self.list.cget('height'))*row_height)
-        def visible(parent=''):
-            return sum(1+(visible(item) if self.list.item(item,'open') else 0)
-                       for item in self.list.get_children(parent))
-        maximum=max(DESKTOP_LAYOUT['project_min_rows'],(viewport.winfo_height()-fixed-chrome)//row_height)
-        rows=min(maximum,max(DESKTOP_LAYOUT['project_min_rows'],visible()))
-        if int(self.list.cget('height'))!=rows:self.list.configure(height=rows)
         self.align_header()
     def align_header(self,event=None):
         """用真实控件边界对齐齿轮与聊天顶边，不参与页面业务或读盘。"""
@@ -161,18 +144,19 @@ class LayoutMixin:
             canvas.place_configure(x=x,y=y)
         pet_room=getattr(getattr(self,'pet',None),'patch_room',None)
         minimum=max(self.title.winfo_reqheight(),pet_room or pet_ui.PATCH_ROOM)
-        list_top=self.list.winfo_rooty()-self.title_row.winfo_rooty()
+        block=getattr(self,'project_block',None)
+        list_top=block.winfo_rooty()-self.title_row.winfo_rooty() if block is not None else minimum
         # 侧栏可滚动后，屏幕坐标会随画布偏移变化；换算回内容坐标再参与表头对齐。
         sidebar_canvas=getattr(self,'sidebar_canvas',None)
-        if sidebar_canvas is not None:list_top+=sidebar_canvas.canvasy(0)
+        if sidebar_canvas is not None and block is not None:list_top+=sidebar_canvas.canvasy(0)
         measurement=(list_top,minimum)
-        if self.list.winfo_ismapped() and measurement!=getattr(self,'_header_list_measurement',None):
+        if block is not None and block.winfo_ismapped() and measurement!=getattr(self,'_header_list_measurement',None):
             self._header_list_measurement=measurement
             previous=getattr(self,'_header_list_gap',SPACING['none'])
             gap=max(SPACING['none'],minimum-(list_top-previous))
             if gap!=previous:
                 self._header_list_gap=gap
-                self.list.pack_configure(pady=(DESKTOP_LAYOUT['row_gap']+gap,DESKTOP_LAYOUT['row_gap']))
+                block.pack_configure(pady=(DESKTOP_LAYOUT['row_gap']+gap,DESKTOP_LAYOUT['row_gap']))
         height=max(minimum,list_top)
         if int(self.title_row.cget('height'))!=height:self.title_row.configure(height=height)
         content=getattr(self,'content',None)

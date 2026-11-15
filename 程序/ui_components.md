@@ -160,7 +160,7 @@
 | 加载转圈 | `Spinner(master, host=控件)`，挂到 `BusyState(spinner=…)` | 忙碌时叠在 host 右端转一段主色圆弧，结束即撤并停定时器；主窗口挂在状态栏上 | `SPINNER_*` |
 | 空态 | `EmptyState(master, 文案, anchor_widget=列表)`；`DataTable.empty_label` 同样带图标 | 柔和圆角图标（`ui_rounded.empty_icon_photo`，缓存在根窗口）在文字上方，居中盖在列表上 | `EMPTY_*` |
 
-侧栏导航胶囊的悬停（`surface_hover`）与选中（`primary`）仍由 `Nav.TButton` / `Selected.Nav.TButton` 的圆角底图提供；
+侧栏自 R2897 起为图标轨：阶段导航是「编号＋实心图标」（`assets/nav/*.png`，由 `scripts/build_nav_icons.py` 用 Fluent System Icons Filled/MIT 开发期栅格化，运行时零依赖），项目区是分组筛选图标＋项目选择器＋新建/打开图标，全部配 `Tooltip`。一级／二级导航胶囊的悬停（`surface_hover`）与选中（`surface_pressed` 浅灰胶囊、深色内容）由 `Nav.TButton` / `Selected.Nav.TButton` / `Sub.Nav.TButton` 的圆角底图提供；纯图标小按钮用 `RailIcon.TButton` / `Selected.RailIcon.TButton`；
 页面边距、导航间距、状态栏间距取自 `DESKTOP_LAYOUT` 的 `body_padding`／`nav_gap`／`section_gap`／`status_gap`。
 
 ## 动效与拖窗口（性能/资源轮）

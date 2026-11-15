@@ -1,0 +1,15 @@
+{
+  "round": 2897,
+  "commit_base": "e231a3b7",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k ui_icons compact_layout startup_perf page_lock account_entry account_page login_gate ui_batch3 rename_reconcile switch_guard sidebar_project_title resize_coalescing button_consistency page_cache paint_freeze claude_writing_session",
+    "exit": 0,
+    "passed": 140,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T01:34:59"
+}
