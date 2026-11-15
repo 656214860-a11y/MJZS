@@ -14,8 +14,14 @@
    默认 ``/srv/git/ci/bin/gitleaks``；配置取推送版的 ``程序/.gitleaks.toml``，
    缺失退回 ``GITLEAKS_CONFIG`` 部署副本）。gitleaks 未安装或自身报错不阻断，
    由第 2 项形态扫描兜底。
+4. 推到 ``master``/``main`` 的 R2527 及以后轮次提交必须带同一提交里的绿色证据
+   ``程序/tasks_round/evidence/R<n>.json``（凭据扫描已跑且无命中、定向测试退出码
+   0 且无红；文档轮／合并轮按证据里的 skipped 记录放行），删除 master/main 一律
+   拒绝。判据与 ``server_hooks/pre-receive``、``round_evidence.judge`` 同口径，
+   其它分支不受此限。
 
-stdin 协议：每行 ``<old> <new> <ref>``；``new`` 为全零是删分支，跳过。
+stdin 协议：每行 ``<old> <new> <ref>``；``new`` 为全零是删分支，跳过静态检查，
+但删除 ``master``/``main`` 会被第 4 项拒绝。
 新分支的 old 用空树 ``4b825dc642cb6eb9a060e54bf8d69288fbee4904`` 做 diff 基线。
 退出码：0 放行，1 拒绝。
 """
@@ -43,8 +49,19 @@ SECRET_PATTERNS = (
 )
 
 
-def git(*args):
-    return subprocess.run(['git', '-c', 'core.quotepath=false', *args], capture_output=True, text=True,
+EVIDENCE_FROM = 2527
+PROTECTED_REFS = ('refs/heads/master', 'refs/heads/main')
+ZERO = '0' * 40
+ALLOWED_SKIPS = ('docs-only', 'merge-ci-exit')
+EVIDENCE_PATH = '程序/tasks_round/evidence/R%d.json'
+
+
+def git(*args, repo=None):
+    command = ['git', '-c', 'core.quotepath=false']
+    if repo:
+        command += ['--git-dir', str(repo)]
+    command += list(args)
+    return subprocess.run(command, capture_output=True, text=True,
                           encoding='utf-8', errors='replace')
 
 
@@ -125,10 +142,68 @@ def scan_added_lines(diff_text):
     return hits
 
 
+def round_of(subject):
+    """``R<n>: …`` 返回 n；``R<n>-FAIL: …`` 与其它标题返回 None。"""
+    head = subject.split(':', 1)[0].strip()
+    if head.startswith('R') and head[1:].isdigit() and ':' in subject:
+        return int(head[1:])
+    return None
+
+
+def evidence_problem(raw):
+    """证据文本不合格返回原因，合格返回空串（与 round_evidence.judge 同口径）。"""
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        return '证据文件不是合法 JSON'
+    scan, tests = data.get('credential_scan') or {}, data.get('targeted') or {}
+    if scan.get('ran') is not True or scan.get('hits'):
+        return '凭据扫描未执行或有命中'
+    skipped_ok = tests.get('skipped') in ALLOWED_SKIPS and tests.get('exit') == 0
+    if not (skipped_ok or (tests.get('exit') == 0 and tests.get('failed') == 0 and tests.get('passed', 0) > 0)):
+        return '定向测试未通过或未执行'
+    return ''
+
+
+def commit_problems(sha, repo=None):
+    subject = git('log', '-1', '--format=%s', sha, repo=repo).stdout.strip()
+    number = round_of(subject)
+    if number is None or number < EVIDENCE_FROM:
+        return []
+    parents = git('log', '-1', '--format=%P', sha, repo=repo).stdout
+    names = git('show', '--name-only', '--format=', '-m', '--first-parent', sha,
+                repo=repo).stdout
+    needs = len(parents.split()) > 1 or any(n.startswith(PROGRAM_PREFIX) and n.endswith('.py')
+                                           for n in names.splitlines())
+    if not needs:
+        return []
+    shown = git('show', '%s:%s' % (sha, EVIDENCE_PATH % number), repo=repo)
+    if shown.returncode:
+        return ['%s R%d：缺少 %s' % (sha[:10], number, EVIDENCE_PATH % number)]
+    reason = evidence_problem(shown.stdout)
+    return ['%s R%d：%s' % (sha[:10], number, reason)] if reason else []
+
+
+def check_push(old, new, ref, repo=None):
+    """返回拒绝原因列表（空即放行）；只管 master/main，其它 ref 恒为空。"""
+    if ref not in PROTECTED_REFS:
+        return []
+    if new == ZERO:
+        return ['不允许删除 %s' % ref]
+    if old == ZERO:
+        return []
+    listing = git('rev-list', '%s..%s' % (old, new), repo=repo).stdout
+    problems = []
+    for sha in listing.split():
+        problems += commit_problems(sha, repo)
+    return problems
+
+
 def main() -> int:
     updates = [line.split() for line in sys.stdin if line.strip()]
     problems = []
     for old, new, ref in updates:
+        problems.extend(check_push(old, new, ref))
         if set(new) == {'0'}:
             continue
         base = old if set(old) != {'0'} else EMPTY_TREE
