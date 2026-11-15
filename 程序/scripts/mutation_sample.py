@@ -16,23 +16,23 @@ PYTHON = sys.executable
 
 # 每个位点：(模块, 测试文件, 标签, 原文, 变异文)。原文必须在模块源里唯一出现。
 SITES = [
-    ("artifact_schema", "test_artifact_schema.py",
+    ("contract.artifact_schema", "test_artifact_schema.py",
      "validate 版本不一致翻转", "elif found != item['version']:", "elif found == item['version']:"),
-    ("artifact_schema", "test_artifact_schema.py",
+    ("contract.artifact_schema", "test_artifact_schema.py",
      "migrate 版本迁移条件翻转", "elif current != item['version']:", "elif current == item['version']:"),
-    ("artifact_schema", "test_artifact_schema.py",
+    ("contract.artifact_schema", "test_artifact_schema.py",
      "stamp 默认版本归零", "int(version if version is not None else item['version'])",
      "int(version if version is not None else 0)"),
-    ("shot_batches", "test_shot_batches.py",
+    ("contract.shot_batches", "test_shot_batches.py",
      "duration 空串回退漏判", "if value in (None, ''):", "if value is None:"),
-    ("shot_batches", "test_shot_batches.py",
+    ("contract.shot_batches", "test_shot_batches.py",
      "批次满员边界偏一", "len(current) >= cap_shots", "len(current) > cap_shots"),
-    ("shot_batches", "test_shot_batches.py",
+    ("contract.shot_batches", "test_shot_batches.py",
      "批次秒数上限放宽", "seconds + duration(item) > cap", "seconds + duration(item) >= cap"),
-    ("shot_batches", "test_shot_batches.py",
+    ("contract.shot_batches", "test_shot_batches.py",
      "三元组一致性翻转", "triplet(item) != triplet(current[-1])",
      "triplet(item) == triplet(current[-1])"),
-    ("shot_batches", "test_shot_batches.py",
+    ("contract.shot_batches", "test_shot_batches.py",
      "normalize 非 dict 输入漏挡", "out = dict(shot) if isinstance(shot, dict) else {}",
      "out = dict(shot)"),
 ]
@@ -55,11 +55,13 @@ sys.exit(0 if result.wasSuccessful() else 1)
 
 
 def _apply(module: str, old: str, new: str) -> Path:
-    source = (ROOT / (module + ".py")).read_text(encoding="utf-8")
+    rel = module.replace(".", "/") + ".py"
+    source = (ROOT / rel).read_text(encoding="utf-8")
     if source.count(old) != 1:
         raise RuntimeError("位点不唯一或不存在：%s / %r" % (module, old))
     tmp = Path(tempfile.mkdtemp(prefix="mut_"))
-    target = tmp / (module + ".py")
+    target = tmp / rel
+    target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(source.replace(old, new), encoding="utf-8")
     return target
 

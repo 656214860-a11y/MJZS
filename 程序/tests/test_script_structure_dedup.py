@@ -12,7 +12,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-import script_contract as contract
+import contract.script_contract as contract
 from stage_path_service import write_dir
 
 

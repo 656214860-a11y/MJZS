@@ -120,7 +120,7 @@ class LayoutWiringTests(_Harness):
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             d, _win = self.desktop(proj)
-            with mock.patch('stage_layout.ensure', side_effect=OSError('阶段目录无写入权限')):
+            with mock.patch('contract.stage_layout.ensure', side_effect=OSError('阶段目录无写入权限')):
                 try:
                     self.assertEqual(d.ensure_stage_layout(), [])
                 except Exception as exc:
@@ -132,7 +132,7 @@ class LayoutWiringTests(_Harness):
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             d, _win = self.desktop(proj)
-            with mock.patch('stage_layout.adopt_legacy', side_effect=OSError('目录联接不可用')):
+            with mock.patch('contract.stage_layout.adopt_legacy', side_effect=OSError('目录联接不可用')):
                 self.assertEqual(d.adopt_legacy_layout(), {})
             self.assertIn("旧目录未归入新架构", d.status.get())
 
@@ -263,7 +263,7 @@ class FinalizeWiringTests(unittest.TestCase):
 
     def test_finalize_calls_assign(self):
         source = Path(PROGRAM, "storyboard_final.py").read_text(encoding="utf-8")
-        self.assertIn("from shot_batches import assign", source)
+        self.assertIn("from contract.shot_batches import assign", source)
         self.assertIn("episode['shots']=list(assign(episode['shots']))", source)
 
     def test_the_batch_step_puts_ids_in_and_keeps_validate_episode_happy(self):

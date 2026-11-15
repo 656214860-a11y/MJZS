@@ -1,0 +1,15 @@
+{
+  "round": 2866,
+  "commit_base": "4f5ff077",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k video_task_state_cache stage_parallel req_s07 stage_wiring desktop_send_steps script_agent_delivery flow_agent_launch asset_detail script_structure_dedup mutation_sample script_workspace_results desktop_startup_perf",
+    "exit": 0,
+    "passed": 193,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T21:33:39"
+}
