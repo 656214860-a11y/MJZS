@@ -1992,15 +1992,18 @@ class BubbleLayoutTests(_Harness):
             footer = box.tag_ranges('bubble_0_time')
             self.assertTrue(footer, '时间在正文下面的页脚行')
             self.assertTrue(box.compare(footer[0], '>=', body[1]), '页脚在正文之后')
-            # 页脚在底框外面：贴对话区左边沿（不跟用户气泡右移）、不铺底色、整句按词换行不被裁。
+            # 页脚在底框外面：左右边距钉在对话区边沿（不跟用户气泡收窄）、不铺底色、
+            # 整句按词换行不被裁；用户消息的页脚右对齐，贴着右侧的气泡列。
             self.assertEqual(int(float(box.tag_cget('bubble_0_time', 'lmargin1'))),
                              desktop_idea_chat.BUBBLE_GAP,
-                             '页脚贴对话区左边沿，不随用户气泡右移')
+                             '页脚左边距钉在对话区边沿，不随用户气泡收窄')
             self.assertEqual(int(float(box.tag_cget('bubble_0_time', 'lmargin2'))),
                              desktop_idea_chat.BUBBLE_GAP,
                              '页脚续行同样回到对话区左边沿')
             self.assertEqual(box.tag_cget('bubble_0_time', 'background'), '', '页脚不铺底色，留在框外')
             self.assertEqual(box.tag_cget('bubble_0_time', 'wrap'), 'word', '页脚按词换行，不裁切')
+            self.assertEqual(str(box.tag_cget('bubble_0_time', 'justify')), 'right',
+                             '用户消息的 SKILL／时间页脚右对齐')
             self.assertEqual(d.rewind_bubble_message(0), '第一条创意正文')
             self.assertEqual(d.idea_input.get('1.0', 'end').strip(), '第一条创意正文')
             self.assertEqual(len(idea_chat.load(proj)), 1, '回退只回填输入框，不改聊天记录')
@@ -2031,6 +2034,11 @@ class BubbleLayoutTests(_Harness):
             clipped = [char for offset, char in enumerate(shown)
                        if box.bbox('%s+%dc' % (start, offset)) is None]
             self.assertEqual(clipped, [], '页脚不得被裁切：被裁掉的字符 %r' % ''.join(clipped)[:40])
+            # 页脚对齐跟气泡分列一致：用户消息右对齐贴右沿，模型消息左对齐。
+            self.assertEqual(str(box.tag_cget('bubble_0_time', 'justify')), 'right',
+                             '用户消息的 SKILL／时间页脚右对齐')
+            self.assertEqual(str(box.tag_cget('bubble_1_time', 'justify')), 'left',
+                             '模型消息页脚仍左对齐')
             # ② 用户气泡仍贴右（靠边距分列），但正文与署名一律左对齐，符合阅读习惯。
             self.assertEqual(box.tag_cget('bubble_0', 'justify'), 'left', '用户气泡正文左对齐')
             self.assertEqual(box.tag_cget('bubble_0_meta', 'justify'), 'left', '用户气泡署名跟着左对齐')
