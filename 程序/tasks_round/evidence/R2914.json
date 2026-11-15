@@ -1,15 +1,16 @@
 {
   "round": 2914,
-  "commit_base": "e99d21a5",
+  "commit_base": "e26bddaf",
   "credential_scan": {
     "ran": true,
     "hits": []
   },
   "targeted": {
-    "cmd": "run_selftests.py -k backup_verify remote_post_receive",
+    "cmd": "",
     "exit": 0,
-    "passed": 25,
-    "failed": 0
+    "passed": 0,
+    "failed": 0,
+    "skipped": "docs-only"
   },
-  "generated_at": "2026-11-16T05:58:05"
+  "generated_at": "2026-11-16T06:04:42"
 }
