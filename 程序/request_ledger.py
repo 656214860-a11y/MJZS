@@ -14,6 +14,7 @@ import threading
 from contextlib import contextmanager
 from pathlib import Path
 
+import app_logging
 import stage_layout
 from agent.core import save, read
 
@@ -624,8 +625,7 @@ class RequestLedger:
                 raise ValueError('请求预留记录缺失')
             if entry.get('money_state') == 'reconciled' or (entry.get('state') == 'settled' and entry.get('money_state') == 'estimated'):
                 return
-            keys = ('prompt_tokens', 'completion_tokens')
-            known = all(type(usage.get(key)) is int and usage[key] >= 0 for key in keys)
+            keys = ('prompt_tokens', 'completion_tokens');known = all(type(usage.get(key)) is int and usage[key] >= 0 for key in keys)
             if not known:
                 self.mark_unknown(request_id)
                 entry['money_state'] = 'unknown'
@@ -634,6 +634,7 @@ class RequestLedger:
             rates = entry.get('rates')
             cost = sum((self.decimal(usage[key]) * self.decimal(rates[key]) for key in keys), self.decimal(0)) if rates else None
             entry.update(budget_cost=str(cost) if cost is not None else None, money_state='estimated')
+        _record_model_usage(self.project, request_id, entry)  # 费用统计模块挂接：失败只记日志
 
     def reconcile_cost(self, request_id, kind, amount, currency, evidence, reviewer):
         """人工核对请求的最终账单金额，保留每次修订，不改变远端任务状态。"""
@@ -712,3 +713,20 @@ def record_request(project, request_id, kind, amount, *, note='', mode='reported
         return ledger
     except (OSError, ValueError, TypeError):
         return None
+
+
+def _record_model_usage(project, request_id, entry):
+    """``settle_model`` 结算成功后的用量快照挂接（费用统计模块）。
+
+    任何失败都只记一笔日志：记账绝不能弄断请求结算与生产调用。
+    """
+    if project is None or not isinstance(entry, dict) or entry.get('state') == 'duplicate':
+        return
+    try:
+        from usage_snapshot import get_snapshot
+        get_snapshot(project).record_call(
+            entry.get('stage'), entry.get('model'), int(entry.get('amount') or 0),
+            cost=entry.get('budget_cost') or '', currency=entry.get('currency') or '',
+            request_id=str(request_id))
+    except Exception:
+        app_logging.swallowed()

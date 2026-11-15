@@ -7,7 +7,8 @@
   "tests.test_persistent_task_queue",
   "tests.test_lifecycle",
   "tests.test_publication_recovery",
-  "tests.test_claim_queue_gateway"
+  "tests.test_claim_queue_gateway",
+  "tests.test_usage_snapshot"
  ],
  "tests_ok": true,
  "modules": [
@@ -380,7 +381,7 @@
   {
    "module": "desktop.py",
    "covered": 0,
-   "total": 744,
+   "total": 751,
    "percent": 0.0
   },
   {
@@ -452,7 +453,7 @@
   {
    "module": "desktop_idea_chat.py",
    "covered": 0,
-   "total": 876,
+   "total": 888,
    "percent": 0.0
   },
   {
@@ -720,6 +721,12 @@
    "percent": 0.0
   },
   {
+   "module": "http_client.py",
+   "covered": 0,
+   "total": 120,
+   "percent": 0.0
+  },
+  {
    "module": "idea_attachments.py",
    "covered": 0,
    "total": 322,
@@ -734,7 +741,7 @@
   {
    "module": "idea_chat.py",
    "covered": 0,
-   "total": 580,
+   "total": 569,
    "percent": 0.0
   },
   {
@@ -1166,7 +1173,7 @@
   {
    "module": "recon_service.py",
    "covered": 0,
-   "total": 407,
+   "total": 425,
    "percent": 0.0
   },
   {
@@ -1202,7 +1209,7 @@
   {
    "module": "script_contract.py",
    "covered": 0,
-   "total": 723,
+   "total": 699,
    "percent": 0.0
   },
   {
@@ -1250,7 +1257,7 @@
   {
    "module": "script_workspace_service.py",
    "covered": 0,
-   "total": 253,
+   "total": 252,
    "percent": 0.0
   },
   {
@@ -1668,6 +1675,18 @@
    "percent": 0.0
   },
   {
+   "module": "ui_usage_detail.py",
+   "covered": 0,
+   "total": 92,
+   "percent": 0.0
+  },
+  {
+   "module": "ui_usage_indicator.py",
+   "covered": 0,
+   "total": 88,
+   "percent": 0.0
+  },
+  {
    "module": "ui_widgets.py",
    "covered": 0,
    "total": 686,
@@ -1820,13 +1839,19 @@
   {
    "module": "writing_api.py",
    "covered": 0,
-   "total": 971,
+   "total": 960,
    "percent": 0.0
   },
   {
    "module": "writing_page_controller.py",
    "covered": 0,
    "total": 32,
+   "percent": 0.0
+  },
+  {
+   "module": "writing_preparation_ledger.py",
+   "covered": 0,
+   "total": 39,
    "percent": 0.0
   },
   {
@@ -1850,7 +1875,7 @@
   {
    "module": "writing_unconfirm.py",
    "covered": 0,
-   "total": 95,
+   "total": 98,
    "percent": 0.0
   },
   {
@@ -1922,8 +1947,8 @@
   {
    "module": "agent/volcengine.py",
    "covered": 13,
-   "total": 72,
-   "percent": 18.1
+   "total": 77,
+   "percent": 16.9
   },
   {
    "module": "platform_tools.py",
@@ -1946,8 +1971,8 @@
   {
    "module": "agent/wan.py",
    "covered": 13,
-   "total": 66,
-   "percent": 19.7
+   "total": 68,
+   "percent": 19.1
   },
   {
    "module": "asset_context.py",
@@ -1982,7 +2007,7 @@
   {
    "module": "stage_execution_service.py",
    "covered": 101,
-   "total": 472,
+   "total": 471,
    "percent": 21.4
   },
   {
@@ -2118,16 +2143,16 @@
    "percent": 44.2
   },
   {
-   "module": "file_cache.py",
-   "covered": 77,
-   "total": 159,
-   "percent": 48.4
-  },
-  {
    "module": "stage_publication.py",
    "covered": 42,
    "total": 85,
    "percent": 49.4
+  },
+  {
+   "module": "file_cache.py",
+   "covered": 79,
+   "total": 159,
+   "percent": 49.7
   },
   {
    "module": "keyframe_evidence.py",
@@ -2152,6 +2177,18 @@
    "covered": 5,
    "total": 7,
    "percent": 71.4
+  },
+  {
+   "module": "usage_snapshot.py",
+   "covered": 126,
+   "total": 172,
+   "percent": 73.3
+  },
+  {
+   "module": "usage_history.py",
+   "covered": 44,
+   "total": 54,
+   "percent": 81.5
   },
   {
    "module": "keyframe_lifecycle_service.py",
@@ -2179,15 +2216,15 @@
   },
   {
    "module": "request_ledger.py",
-   "covered": 512,
-   "total": 582,
-   "percent": 88.0
+   "covered": 518,
+   "total": 591,
+   "percent": 87.6
   },
   {
    "module": "agent/publication.py",
-   "covered": 143,
+   "covered": 141,
    "total": 159,
-   "percent": 89.9
+   "percent": 88.7
   },
   {
    "module": "video_lifecycle_service.py",
@@ -2206,14 +2243,8 @@
    "covered": 10,
    "total": 10,
    "percent": 100.0
-  },
-  {
-   "module": "http_client.py",
-   "covered": 0,
-   "total": 108,
-   "percent": 0.0
   }
  ],
- "modules_covered": 59,
- "modules_total": 367
+ "modules_covered": 61,
+ "modules_total": 372
 }

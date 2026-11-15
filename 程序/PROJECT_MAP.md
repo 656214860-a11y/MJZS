@@ -26,6 +26,7 @@ R1247 数据边界：剧本聊天及回收站位于 `01剧本准备/模型会话
 | 首帧/预演/视频 | `keyframe_comfy.py`、`local_previs.py`、`cloud_video.py`、`local_video.py`、`engine.py` | 首帧、白模预演；`cloud_video`／`local_video` 是 L4 云端会话设置与本地 ComfyUI 页面，云端提交与轮询在 L3 `engine.Studio`（经 `agent/wan.py`、`agent/volcengine.py` 适配器） |
 | 阶段基础设施 | `stage_layout.py`、`stage_path_service.py`、`project_context.py`、`project_context_factory.py`、`stage_execution_service.py`、`stage_parallel.py`、`confirm_gates.py` | 13 阶段目录、唯一写入路径、L3 唯一工厂装配并注入的项目上下文、成果发布编排、并发限制、SG 门禁与确认门禁 |
 | 成本与运行保障 | `token_saver.py`、`tk_timers.py`、`storage_maintenance.py`、`log_maintenance.py`、`workspace_maintenance.py`、`recycle_recovery_service.py`、`recycle_recovery_controller.py` | Token/媒体预算、Tk 回调回收、退出后保守清理；程序日志保留/轮转/容量帽；仓库级可再生卫生（__pycache__、超期 .selftmp、已并净 .wt 工作树）；回收清单的项目内／项目库受控恢复 |
+| 用量统计 | `usage_snapshot.py`、`usage_history.py`、`ui_usage_indicator.py`、`ui_usage_detail.py`；`request_ledger.py` 结算挂接、`desktop.py` 右上角挂载 | 模型调用用量快照（今日明细＋项目累计 `usage_summary.json`＋跨天归档 `usage_history/YYYY-MM.json`）；金额只在有 `cost_profile.json` 价格表时由 `request_ledger.report(price_table)` 折算，全程 Decimal；结算后经 `pet_bus` `usage_updated` 事件刷新右上角指示器（Token/¥/余额，三档阈值色）与详情、今日明细弹窗（CSV 导出 UTF-8-SIG） |
 
 ### 日志维护归属
 
