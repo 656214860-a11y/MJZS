@@ -1,0 +1,15 @@
+{
+  "round": 2893,
+  "commit_base": "d625f023",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_skill_command test_shared_input_ui",
+    "exit": 0,
+    "passed": 25,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T01:17:34"
+}

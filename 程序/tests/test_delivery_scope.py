@@ -8,6 +8,7 @@ import pet_bus
 import script_contract
 import skill_tools
 import stage_completion_service
+import stage_config
 import stage_flow
 import stage_layout
 import stage_parallel
@@ -59,8 +60,7 @@ class DeliveryScopeTests(unittest.TestCase):
         for name in SKILLS:
             with self.subTest(skill=name):
                 self.assertTrue((SKILL_DIR / (name + '.skill.md')).is_file())
-        preset = workflow_settings.BUILTIN_WORKFLOW_PRESETS['AIGC全流程']
-        self.assertEqual(preset['stage_skills']['delivery'], ['pipeline-delivery'])
+        self.assertIn('pipeline-delivery', stage_config.default_entry('delivery')['skills'])
 
     def test_req_s13_51_parallel_config_runs_independent_checks(self):
         config = stage_parallel.CONFIG['delivery']

@@ -39,6 +39,16 @@ class StageTemplateExecutionTests(unittest.TestCase):
             self.assertIn('【阶段 5/13】资产处理', messages)
             self.assertIn('【门禁】检测到 0 个角色缺少正典板，是否生成？', messages)
 
+    def test_explicit_empty_names_never_falls_back_to_all_stage_skills(self):
+        """R2905：names=[] 是「一个都没勾」，不是「没指定」——不得回退成全阶段 SKILL。"""
+        with tempfile.TemporaryDirectory() as folder:
+            orch = Orchestrator(project=folder)
+            run = orch.run_stage_with_template('assets', names=[], mode='auto',
+                                               broadcast=lambda text: None)
+            self.assertFalse(run['ok'])
+            self.assertEqual(run['results'], [], '空勾选不得执行任何 SKILL')
+            self.assertIn('未启用可执行 SKILL', run['text'])
+
     def test_template_recovery_uses_template_step_count(self):
         with tempfile.TemporaryDirectory() as folder:
             status = {'checkpoint': {'stage': 'assets', 'step': 3, 'step_name': '生成缺失的正典板'}}

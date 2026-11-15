@@ -167,7 +167,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, I
         """内容真正送出后，清除对应的内存草稿。"""
         if self.root:getattr(self,'_idea_drafts',{}).pop(str(Path(self.root).resolve()),None)
     def idea_chat_model(self):
-        """当前剧本阶段的模型标识；它也是独立聊天页的持久化分区键。"""
+        """当前剧本阶段的模型标识；R2898 起它只是单一创意对话线程里的行内署名与视图筛选。"""
         if not self.root:
             return ''
         import writing_api
@@ -435,13 +435,12 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, I
             try:
                 validate_production_locks(values)
                 if self.root == project and self.idea_input is box and box.winfo_exists():
-                    if stage_config.current_workflow(project).get('name'):
-                        from stage_execution_service import save_writing_production_locks
-                        old_values = {}
-                        for item in PRODUCTION_LOCK_DEFINITIONS[:5]:
-                            if item['label'] in dialog.brief_fields:
-                                old_values[item['key']] = _entry_text(dialog.brief_fields[item['label']])
-                        save_writing_production_locks(project, {**old_values, **values})
+                    from stage_execution_service import save_writing_production_locks
+                    old_values = {}
+                    for item in PRODUCTION_LOCK_DEFINITIONS[:5]:
+                        if item['label'] in dialog.brief_fields:
+                            old_values[item['key']] = _entry_text(dialog.brief_fields[item['label']])
+                    save_writing_production_locks(project, {**old_values, **values})
                     updated = {label: _entry_text(entry)
                                for label, entry in dialog.brief_fields.items()}
                     updated.update({item['label']: values[item['key']] for item in PRODUCTION_LOCK_DEFINITIONS[5:]})
@@ -467,11 +466,9 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, I
         direct_model = request_model['label']
         continuing = bool(direct_model and prepared and
                           writing_api.preparation_continuation(self.root, value))
-        import stage_config, workflow_settings
-        workflow_config = stage_config.current_workflow(self.root)
-        preset = workflow_settings.WORKFLOW_PRESETS.get(workflow_config.get('name'), {})
-        lock_definitions = preset.get('locks') or tuple(
-            item for definition in workflow_settings.WORKFLOW_PRESETS.values() for item in definition.get('locks', ()))
+        import stage_config
+        from contract.script_contract import PRODUCTION_LOCK_DEFINITIONS
+        lock_definitions = PRODUCTION_LOCK_DEFINITIONS
         attachment_fields = {}
         if prepared is not None:
             from stage_execution_service import stage_idea_brief_defaults
@@ -485,7 +482,6 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, I
                         text, extra_labels=lock_labels, include_extra=True).items():
                     lock_fields.setdefault(label, field)
             attachment_fields.update(lock_fields)
-        from contract.script_contract import PRODUCTION_LOCK_DEFINITIONS
         configured_locks = stage_config.workflow_lock(self.root)
         attachment_fields.update({item['label']: configured_locks[item['key']]
             for item in PRODUCTION_LOCK_DEFINITIONS if configured_locks.get(item['key'])})
@@ -503,15 +499,13 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, I
         visible_value=prepared['visible_value']
         if direct_model and self.idea_chat_controller.requesting:
             raise ValueError('模型正在回复，请不要重复发送。')
-        brief = {'missing': ()} if continuing else idea_chat.receive_brief(self.idea_chat_context(), submission, workflow=workflow_config,
+        brief = {'missing': ()} if continuing else idea_chat.receive_brief(self.idea_chat_context(), submission,
                                         lock_definitions=lock_definitions, gateway=self.idea_chat_gateway(),
                                         attachment_reference=prepared['attachments'], inline_text=value, stage='script',
                                         created_at=stage_config.project_created_at(self.root))
         if brief['missing']:
             self.notifier.info((brief.get('attachment_notice', '') + '\n' + brief['followup']).strip(), modal=True)
             return
-        if brief.get('workflow_projection') is not None:
-            stage_config.put_workflow(self.root, brief['workflow_projection'])
         request_model = writing_api.capture_request(self.root)
         direct_model = request_model['label']
         if direct_model:

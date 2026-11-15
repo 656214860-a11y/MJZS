@@ -20,7 +20,7 @@ from ui_tokens import (BUTTON_GAP, BUTTON_GAP_TIGHT, BUTTON_MIN_WIDTH, NAV_PADDI
 
 ROOT = Path(__file__).resolve().parents[1]
 DIALOG_FILES = ("asset_reference_import.py", "seedream_settings.py", "reference_wall.py",
-                "background_characters.py", "skill_panel_presets.py", "skill_panel_workflow.py",
+                "background_characters.py", "skill_panel_workflow.py",
                 "pet_models_ui.py")
 
 STYLES = ("TButton", "Primary.TButton", "Tokens.Primary.TButton", "Tokens.Secondary.TButton",

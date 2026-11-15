@@ -1,0 +1,15 @@
+{
+  "round": 2905,
+  "commit_base": "c81ee860",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k stage_flow stage_command skill_templates pet_ui",
+    "exit": 0,
+    "passed": 677,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T05:01:07"
+}

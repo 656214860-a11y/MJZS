@@ -40,7 +40,6 @@ import skill_budget
 import skill_orchestrator
 import skill_note_render
 import skill_panel
-import skill_panel_presets
 import skill_registry
 import skill_tools
 import stage_config
@@ -516,56 +515,6 @@ class StageConfigTests(unittest.TestCase):
             stage_config.path(td).unlink()
             self.assertEqual(stage_config.problems(td), [], '删掉了就当没配置过')
 
-    def test_presets_save_apply_drop(self):
-        with tempfile.TemporaryDirectory() as td:
-            program = Path(td) / '程序'
-            program.mkdir()
-            with tempfile.TemporaryDirectory() as proj:
-                stage_config.save_preset('省钱先跑', 'deepseek-v4-flash', ['firstframe-batch'],
-                                         stage='keyframe', program=program)
-                self.assertIn('省钱先跑', stage_config.presets(program))
-                entry = stage_config.apply_preset(proj, 'keyframe', '省钱先跑', program=program)
-                self.assertEqual(entry['model'], 'deepseek-v4-flash')
-                self.assertEqual(entry['skills'], ['firstframe-batch'])
-                self.assertTrue(stage_config.drop_preset('省钱先跑', program=program))
-                self.assertEqual(stage_config.presets(program), {})
-                with self.assertRaises(ValueError):
-                    stage_config.save_preset('', 'auto', [], program=program)
-
-    def test_preset_of_another_stage_is_cleaned_on_apply(self):
-        with tempfile.TemporaryDirectory() as td:
-            program = Path(td) / '程序'
-            program.mkdir()
-            stage_config.save_preset('混搭', 'gpt-4o', ['video-batch-submit'], program=program)
-            with tempfile.TemporaryDirectory() as proj:
-                entry = stage_config.apply_preset(proj, 'keyframe', '混搭', program=program)
-                self.assertEqual(entry['skills'], [])          # 不是这一阶段的 SKILL 一律落掉
-
-    def test_rename_preset_keeps_the_content_and_the_slot(self):
-        """第 51 期第 4 条：预设改个名字，内容和它在下拉框里的位置都不动。
-
-        名字空着、原名不在、新名撞上别人的都当场报错——改名不该顺手覆盖掉另一份预设。
-        """
-        with tempfile.TemporaryDirectory() as td:
-            program = Path(td) / '程序'
-            program.mkdir()
-            stage_config.save_preset('甲', 'qwen-max', ['firstframe-batch'], stage='keyframe', program=program)
-            stage_config.save_preset('乙', 'gpt-4o', ['firstframe-quality'], stage='keyframe', program=program)
-            entry = stage_config.rename_preset('甲', '省钱先跑', program=program)
-            self.assertEqual(entry['model'], 'qwen-max', '改名不动内容')
-            self.assertEqual(entry['skills'], ['firstframe-batch'])
-            self.assertEqual(list(stage_config.presets(program)), ['省钱先跑', '乙'], '位置照旧')
-            self.assertEqual(stage_config.rename_preset('省钱先跑', '省钱先跑', program=program)['model'],
-                             'qwen-max', '改成同一个名字不算改，也不报错')
-            with self.assertRaises(ValueError):
-                stage_config.rename_preset('没有这份', '新名', program=program)
-            with self.assertRaises(ValueError):
-                stage_config.rename_preset('省钱先跑', '   ', program=program)
-            with self.assertRaises(ValueError):
-                stage_config.rename_preset('省钱先跑', '乙', program=program)
-            self.assertEqual(list(stage_config.presets(program)), ['省钱先跑', '乙'], '报错之后原样不动')
-
-
     def test_program_wide_model_api_is_absent(self):
         """用户决策：阶段模型不再有程序级兜底。"""
         names = vars(stage_config)
@@ -915,194 +864,6 @@ class PanelTests(unittest.TestCase):
         self.desktop.app.mkdir(parents=True, exist_ok=True)
         self.desktop.status = self.tk.StringVar(master=self.win, value='')
 
-    def _workflow_dialog_controls(self, panel, preset, switching=False):
-        dialog = panel.workflow_apply_dialog('AIGC全流程', preset, switching)
-        def descendants(widget):
-            return [child for item in widget.winfo_children()
-                    for child in [item] + descendants(item)]
-        controls = descendants(dialog)
-        checks = [w for w in controls if w.winfo_class() == 'TCheckbutton']
-        buttons = {w.cget('text'): w for w in controls
-                   if w.winfo_class() in ('TButton', 'Button')}
-        return dialog, checks, buttons
-
-    def test_workflow_explicit_choice_can_replace_existing_skills(self):
-        for switching in (False, True):
-            with self.subTest(switching=switching):
-                stage_config.put(self.desktop.root, 'script',
-                                 skills=['pipeline-script-preparation', 'screenplay-writer'])
-                stage_config.put(self.desktop.root, 'storyboard', skills=['pipeline-storyboard-draft'])
-                panel = skill_panel.Panel(self.win, self.desktop, 'script')
-                preset = {'package': 'skills/AIGC/SKILL.md', 'stage_skills': {
-                    'script': ['pipeline-script-preparation'], 'storyboard': []}}
-                _dialog, checks, buttons = self._workflow_dialog_controls(panel, preset, switching)
-                self.assertEqual(len(checks), 2)
-                self.assertTrue(all(not box.instate(['disabled']) for box in checks))
-                self.assertTrue(all(not box.instate(['selected']) for box in checks))
-                before = stage_config.get(self.desktop.root, 'script')['skills']
-                checks[0].invoke()
-                self.assertTrue(checks[0].instate(['selected']))
-                self.assertEqual(stage_config.get(self.desktop.root, 'script')['skills'], before)
-                buttons['确认套用'].invoke()
-                self.assertEqual(stage_config.get(self.desktop.root, 'script')['skills'],
-                                 ['pipeline-script-preparation'])
-                self.assertEqual(stage_config.get(self.desktop.root, 'storyboard')['skills'],
-                                 ['pipeline-storyboard-draft'])
-                panel.destroy()
-
-    def test_workflow_apply_syncs_checks_without_losing_pending_model(self):
-        stage_config.put(self.desktop.root, 'script', model='deepseek-v4-flash', skills=[])
-        panel = skill_panel.Panel(self.win, self.desktop, 'script')
-        panel.set_model('deepseek-v4-pro')
-        preset = {'package': 'skills/AIGC/SKILL.md',
-                  'stage_skills': {'script': ['pipeline-script-preparation']}}
-        _dialog, checks, buttons = self._workflow_dialog_controls(panel, preset)
-        self.assertTrue(checks[0].instate(['selected']))
-        buttons['确认套用'].invoke()
-        self.assertEqual(panel.selected(), ['pipeline-script-preparation'])
-        self.assertEqual(panel.model_id(), 'deepseek-v4-pro')
-        self.assertEqual(stage_config.get(self.desktop.root, 'script')['model'], 'deepseek-v4-flash')
-        panel.save()
-        self.assertEqual(stage_config.get(self.desktop.root, 'script')['skills'],
-                         ['pipeline-script-preparation'])
-        self.assertEqual(stage_config.get(self.desktop.root, 'script')['model'], 'deepseek-v4-pro')
-
-    def test_workflow_same_skills_are_marked_and_not_rewritten(self):
-        stage_config.put(self.desktop.root, 'script', skills=['pipeline-script-preparation'])
-        panel = skill_panel.Panel(self.win, self.desktop, 'script')
-        preset = {'package': 'skills/AIGC/SKILL.md',
-                  'stage_skills': {'script': ['pipeline-script-preparation']}}
-        _dialog, checks, buttons = self._workflow_dialog_controls(panel, preset)
-        self.assertIn('已一致，无需重复套用', checks[0].cget('text'))
-        self.assertFalse(checks[0].instate(['disabled']))
-        checks[0].invoke()
-        with mock.patch.object(stage_config, 'put', wraps=stage_config.put) as put:
-            buttons['确认套用'].invoke()
-        put.assert_not_called()
-
-    def test_workflow_cancel_preserves_stage_and_coordinator(self):
-        stage_config.put(self.desktop.root, 'script', skills=[])
-        panel = skill_panel.Panel(self.win, self.desktop, 'script')
-        before = stage_config.path(self.desktop.root).read_bytes()
-        preset = {'package': 'skills/AIGC/SKILL.md',
-                  'stage_skills': {'script': ['pipeline-script-preparation']}}
-        _dialog, _checks, buttons = self._workflow_dialog_controls(panel, preset)
-        buttons['取消'].invoke()
-        self.assertEqual(stage_config.path(self.desktop.root).read_bytes(), before)
-
-    def test_workflow_default_keeps_existing_stage_choices(self):
-        stage_config.put(self.desktop.root, 'script', skills=['screenplay-writer'])
-        panel = skill_panel.Panel(self.win, self.desktop, 'script')
-        preset = {'package': 'skills/AIGC/SKILL.md',
-                  'stage_skills': {'script': ['pipeline-script-preparation']}}
-        _dialog, checks, buttons = self._workflow_dialog_controls(panel, preset)
-        self.assertFalse(checks[0].instate(['selected']))
-        buttons['确认套用'].invoke()
-        self.assertEqual(stage_config.get(self.desktop.root, 'script')['skills'],
-                         ['screenplay-writer'])
-
-    @staticmethod
-    def _thirteen_stage_preset():
-        """13 个阶段、每阶段 6 条 SKILL：复现「窗口比屏幕还高」的真实数据量。"""
-        return {'package': 'skills/AIGC/SKILL.md',
-                'stage_skills': {stage: ['pipeline-script-preparation', 'screenplay-writer',
-                                         'pipeline-storyboard-draft', 'asset-manager',
-                                         'frame-artist', 'video-director']
-                                 for stage in pet_bus.STAGES}}
-
-    def test_workflow_apply_dialog_fits_screen_and_keeps_actions_visible(self):
-        """REQ-S01-57 套用总控对话框不超屏，确认／取消常驻底部，长表格可滚动。"""
-        preset = self._thirteen_stage_preset()
-        # 真 Tk 要量可见几何：根窗口必须先映射，transient 对话框才会显示。
-        self.win.deiconify()
-        self.win.update()
-        # 任务书口径：可用高度＝屏幕高度减去标题栏 32、任务栏 48 的余量。
-        for screen_h, switching in ((800, False), (800, True), (700, False)):
-            with self.subTest(screen_h=screen_h, switching=switching):
-                panel = skill_panel.Panel(self.win, self.desktop, 'script')
-                self.addCleanup(panel.destroy)
-                with mock.patch.object(skill_panel.tk.Misc, 'winfo_screenheight',
-                                       return_value=screen_h), \
-                     mock.patch.object(skill_panel.tk.Misc, 'winfo_screenwidth',
-                                       return_value=1280):
-                    dialog, checks, buttons = self._workflow_dialog_controls(
-                        panel, preset, switching)
-                    dialog.update()
-                    available = screen_h - 32 - 48
-                    self.assertLessEqual(dialog.winfo_height(), available,
-                                         '对话框高度超过屏幕可用高度')
-                    self.assertGreaterEqual(dialog.winfo_height(), 240)
-                    for text in ('确认套用', '取消'):
-                        button = buttons[text]
-                        self.assertTrue(button.winfo_viewable(), text + ' 不可见')
-                        bottom = (button.winfo_rooty() - dialog.winfo_rooty()
-                                  + button.winfo_height())
-                        self.assertLessEqual(bottom, dialog.winfo_height(),
-                                             text + ' 超出对话框底边')
-                        self.assertLessEqual(button.winfo_rooty() + button.winfo_height(),
-                                             screen_h, text + ' 落到屏幕外')
-                    def descendants(widget):
-                        return [child for item in widget.winfo_children()
-                                for child in [item] + descendants(item)]
-                    bars = [widget for widget in descendants(dialog)
-                            if widget.winfo_class() == 'TScrollbar'
-                            and widget.winfo_viewable()]
-                    self.assertTrue(bars, '长表格没有可用的滚动条')
-                    canvas = next(widget for widget in descendants(dialog)
-                                  if widget.winfo_class() == 'Canvas')
-                    table = canvas.winfo_children()[0]
-                    self.assertLessEqual(table.winfo_reqwidth(), canvas.winfo_width(),
-                                         '对照表宽度被裁切，列看不全')
-                    before = canvas.yview()
-                    table.event_generate('<MouseWheel>', delta=-120)
-                    dialog.update()
-                    self.assertNotEqual(canvas.yview(), before, '鼠标滚轮没有滚动表格')
-                    self.assertGreaterEqual(dialog.winfo_x(), 0)
-                    self.assertGreaterEqual(dialog.winfo_y(), 0)
-                    self.assertLessEqual(dialog.winfo_x() + dialog.winfo_width(), 1280)
-                    self.assertLessEqual(dialog.winfo_y() + dialog.winfo_height(), screen_h)
-
-    def test_workflow_dialog_close_paths_restore_saved_master(self):
-        """REQ-S01-57 取消／标题栏关闭／Esc 未确认时，总控显示还原为已保存值。"""
-        preset = {'package': 'skills/AIGC/SKILL.md',
-                  'stage_skills': {'script': ['pipeline-script-preparation']}}
-        saved = {'name': 'AIGC全流程', 'skill_ref': 'skills/AIGC/SKILL.md', 'lock': {}}
-        self.win.deiconify()
-        self.win.update()
-        for has_saved in (True, False):
-            with self.subTest(has_saved=has_saved):
-                stage_config.clear_workflow(self.desktop.root)
-                if has_saved:
-                    stage_config.put_workflow(self.desktop.root, saved)
-                panel = skill_panel.Panel(self.win, self.desktop, 'script')
-                self.addCleanup(panel.destroy)
-                expected = 'AIGC全流程' if has_saved else skill_panel.NO_MASTER
-                for path in ('cancel', 'wm', 'escape'):
-                    with self.subTest(path=path):
-                        # 用户在下拉框里挑了另一项，但还没有点「确认套用」。
-                        panel.workflow_choice.set(
-                            skill_panel.NO_MASTER if has_saved else 'AIGC全流程')
-                        with mock.patch.object(skill_panel.tk.Misc, 'winfo_screenheight',
-                                               return_value=800), \
-                             mock.patch.object(skill_panel.tk.Misc, 'winfo_screenwidth',
-                                               return_value=1280):
-                            dialog, _checks, buttons = self._workflow_dialog_controls(
-                                panel, preset)
-                            dialog.update()
-                            if path == 'cancel':
-                                buttons['取消'].invoke()
-                            elif path == 'wm':
-                                dialog.tk.call(dialog.protocol('WM_DELETE_WINDOW'))
-                            else:
-                                # 真实键盘事件只发给焦点窗口；先让对话框取得焦点再按 Esc。
-                                dialog.focus_force()
-                                dialog.update()
-                                dialog.event_generate('<Escape>')
-                            dialog.update()
-                        self.assertFalse(dialog.winfo_exists())
-                        self.assertEqual(panel.workflow_choice.get(), expected,
-                                         '未确认关闭后总控下拉显示没有还原')
-
     def test_imported_package_hint_only_appears_for_api_models(self):
         """外部包总入口在 API 模型下必须明确提示，桌面与普通 SKILL 均不提示。"""
         imported = skill_registry.Skill({'name': 'external-package',
@@ -1112,35 +873,15 @@ class PanelTests(unittest.TestCase):
         self.addCleanup(panel.destroy)
         panel.skills = [imported]
         panel.vars = {imported.name: self.tk.BooleanVar(master=self.win, value=True)}
-        panel.set_model('deepseek-v4-pro')
+        # R2862：面板模型选择器已删，model_id() 改读项目配置；提示逻辑不变。
+        stage_config.put(self.desktop.root, 'script', model='deepseek-v4-pro')
         self.assertIn('外部包总入口', panel.refresh_external_package_hint())
         self.assertIn('外部包总入口', panel.external_package_hint.cget('text'))
-        panel.set_model('chatgpt-desktop')
+        stage_config.put(self.desktop.root, 'script', model='chatgpt-desktop')
         self.assertEqual(panel.refresh_external_package_hint(), '')
         panel.skills = [normal]
-        panel.set_model('deepseek-v4-pro')
+        stage_config.put(self.desktop.root, 'script', model='deepseek-v4-pro')
         self.assertEqual(panel.refresh_external_package_hint(), '')
-
-    def test_writer_style_entry_is_script_only_and_survives_panel_save(self):
-        panel = skill_panel.Panel(self.win, self.desktop, 'script')
-        self.addCleanup(panel.destroy)
-        def descendants(widget):
-            return [child for item in widget.winfo_children()
-                    for child in [item] + descendants(item)]
-        controls = descendants(panel)
-        buttons = [child for child in controls if str(child.winfo_class()) in ('TButton', 'Button')
-                   and child.cget('text') == '编辑编剧风格']
-        self.assertEqual(len(buttons), 1)
-        self.assertFalse([child for child in controls if str(child.winfo_class()) == 'TCheckbutton'
-                          and child.cget('text') == '四角色协作'])
-        stage_config.put(self.desktop.root, 'script', writer_style='参考好莱坞编剧')
-        panel.save()
-        self.assertEqual(stage_config.writer_style(self.desktop.root), '参考好莱坞编剧')
-        labels = [child.cget('text') for child in controls if str(child.winfo_class()) == 'TLabel']
-        self.assertTrue(any('参考好莱坞编剧' in text for text in labels))
-        other = skill_panel.Panel(self.win, self.desktop, 'storyboard')
-        self.addCleanup(other.destroy)
-        self.assertIsNone(getattr(other, 'writer_style_button', None))
 
     def test_stage_panel_uses_compact_aligned_rows_and_short_hints(self):
         panel = skill_panel.Panel(self.win, self.desktop, 'script')
@@ -1150,10 +891,11 @@ class PanelTests(unittest.TestCase):
                     for child in [item] + descendants(item)]
         labels = [child for child in descendants(panel) if str(child.winfo_class()) == 'TLabel']
         widths = {label.cget('text'): label.cget('width') for label in labels}
-        self.assertEqual(widths['预设'], 10)
+        # R2862：预设／总控／模型选择行已删，只剩 SKILL 标签与制作锁入口。
+        self.assertNotIn('预设', widths)
         self.assertNotIn('厂商', widths, '厂商／模型下拉已拆到按钮右侧的两级选择器')
         self.assertEqual(widths['SKILL'], 10)
-        self.assertEqual(panel.state.cget('text'), '选择预设即可套用；确认保存本页。')
+        self.assertIn('确认保存本页', panel.state.cget('text'))
         self.assertEqual(skill_panel.EXTERNAL_PACKAGE_API_HINT,
                          '外部包总入口：桌面引擎可完整执行；API 仅传入入口。')
 
@@ -1172,29 +914,6 @@ class PanelTests(unittest.TestCase):
         for name in ('TLabel', 'TCheckbutton', 'TLabelframe.Label'):
             self.assertEqual(style.lookup(name, 'font'), expected, name)
 
-    def test_writer_style_editor_is_above_skill_checks_and_saves_and_clears(self):
-        panel = skill_panel.Panel(self.win, self.desktop, 'script')
-        self.addCleanup(panel.destroy)
-        packed = list(panel.pack_slaves())
-        self.assertLess(packed.index(panel.writer_style_button.master.master),
-                        packed.index(panel.skill_content.master))
-        self.assertIs(panel.external_package_hint.master, panel.skill_action_row)
-        def descendants(widget):
-            return [child for item in widget.winfo_children()
-                    for child in [item] + descendants(item)]
-        window = panel.open_writer_style_editor()
-        self.addCleanup(lambda: window.winfo_exists() and window.destroy())
-        text = next(child for child in descendants(window) if str(child.winfo_class()) == 'Text')
-        text.insert('1.0', '  参考好莱坞编剧，三幕清晰  ')
-        next(child for child in descendants(window) if child.winfo_class() in ('TButton', 'Button')
-             and child.cget('text') == '保存风格').invoke()
-        self.assertEqual(stage_config.writer_style(self.desktop.root), '参考好莱坞编剧，三幕清晰')
-        window = panel.open_writer_style_editor()
-        self.addCleanup(lambda: window.winfo_exists() and window.destroy())
-        next(child for child in descendants(window) if child.winfo_class() in ('TButton', 'Button')
-             and child.cget('text') == '清空风格').invoke()
-        self.assertEqual(stage_config.writer_style(self.desktop.root), '')
-
     def test_stage_of_page_covers_the_production_pages(self):
         self.assertEqual([skill_panel.stage_of_page(index) for index in range(len(pet_bus.STAGES))],
                          list(pet_bus.STAGES))
@@ -1205,53 +924,6 @@ class PanelTests(unittest.TestCase):
         self.assertEqual(skill_panel.stage_for('frames'), 'keyframe')
         self.assertEqual(skill_panel.stage_for('audio'), 'audio')
         self.assertEqual(skill_panel.stage_for('没有这个'), '没有这个')
-
-    def test_panel_shows_the_pool_models_and_the_stage_skills(self):
-        """第 43 期：下拉的选项＝模型管理里的那几条（「自动」在前），不写死字面档位。
-
-        第 46 期第 7／8 条：首帧／资产这两个阶段再并上它们自己的生产模型（本地 ComfyUI／
-        云端生图／首帧 Agent 引擎）——那几条原来只长在制作窗口的下拉框里。
-        """
-        import stage_models
-        panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
-        import workflow_settings
-        labels = [workflow_settings.desktop_model_label(model_id, item['label'])
-                  for model_id, item in model_pool.pool(program=self.desktop.app).items()]
-        extra = [label for _value, label in stage_models.keyframe_choices(self.desktop.root)]
-        grouped_labels = [label for options in panel.groups.values() for _model, label in options]
-        self.assertFalse(hasattr(panel, 'models'), '面板里不再有模型下拉框')
-        self.assertEqual(sorted(grouped_labels), sorted(set([model_pool.AUTO_LABEL] + labels + extra)))
-        self.assertNotIn('DeepSeek Pro', grouped_labels, '写死的字面档位不该再出现在下拉里')
-        self.assertEqual(panel.model.get(), '自动')
-        self.assertEqual(sorted(panel.vars), sorted(['firstframe-auto-fill', 'firstframe-batch', 'firstframe-quality',
-                          'firstframe-retry', 'firstframe-thumbnail', 'pipeline-keyframe']))
-        self.assertEqual(sorted(panel.selected()), sorted(['firstframe-auto-fill', 'firstframe-batch', 'firstframe-quality',
-                          'firstframe-retry', 'firstframe-thumbnail', 'pipeline-keyframe']))
-
-    def test_a_model_added_in_the_manager_shows_up_and_is_saved_as_is(self):
-        """规格：模型管理是唯一入口——池里加一条，阶段配置就选得到，存下来也是那条 id。"""
-        data = model_pool.upsert(model_pool.raw(self.desktop.app),
-                                 {'label': '我的本地模型', 'model': 'llama-3-8b',
-                                  'base_url': 'http://127.0.0.1:8000/v1', 'key_env': ''})
-        model_pool.store(data, self.desktop.app)
-        panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
-        self.assertIn('我的本地模型', [label for options in panel.groups.values()
-                                      for _model, label in options])
-        panel.set_model('llama-3-8b')
-        panel.save()
-        self.assertEqual(stage_config.get(self.desktop.root, 'keyframe')['model'], 'llama-3-8b',
-                         '池里的自定义模型要原样存住，不许被抹成「自动」')
-
-    def test_refresh_models_follows_the_pool(self):
-        """模型管理里删了一条：还开着的面板跟着换选项，当前那一档不在池里了就退回「自动」。"""
-        panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
-        panel.model.set('Qwen-Max')
-        self.assertEqual(panel.model_id(), 'qwen-max')
-        model_pool.store(model_pool.remove(model_pool.raw(self.desktop.app), 'qwen-max'),
-                         self.desktop.app)
-        panel.refresh_models()
-        self.assertNotIn('Qwen-Max', [label for options in panel.groups.values() for _id, label in options])
-        self.assertEqual(panel.model.get(), model_pool.AUTO_LABEL)
 
     def test_the_dropdown_keeps_all_saved_api_models_for_every_stage(self):
         """统一配置保存的模型不因能力标签被隐藏，阶段配置都应能手动选择。"""
@@ -1285,17 +957,6 @@ class PanelTests(unittest.TestCase):
         groups = skill_panel.grouped_model_choices(self.desktop, 'script')
         self.assertIn('我的厂商', groups)
         self.assertIn(('my-gpt', '我的 GPT'), groups['我的厂商'])
-
-    def test_model_route_notice_is_lazy_and_visible_only_after_user_selects(self):
-        import workflow_settings
-        with mock.patch.object(workflow_settings, 'desktop_route_notice', return_value='将优先使用本机程序；启动失败回落 API') as notice:
-            panel = skill_panel.Panel(self.win, self.desktop, 'script')
-            self.assertEqual(notice.call_count, 0, '打开阶段配置不得扫描本机程序')
-            panel.set_model('gpt-4o')
-            panel.show_desktop_route_notice()
-            self.assertEqual(notice.call_count, 1)
-            self.assertIn('优先使用本机程序', panel.route_hint.cget('text'))
-            panel.destroy()
 
     def test_stage_button_text_is_fixed_and_picker_follows_it(self):
         """按钮名固定为「阶段配置」，当前模型改由按钮右侧的模型选择器显示。"""
@@ -1358,8 +1019,8 @@ class PanelTests(unittest.TestCase):
     def test_confirming_script_model_saves_and_refreshes_history_without_sending(self):
         window = tk.Toplevel(self.win)
         self.desktop.refresh_script_chat_for_selected_model = mock.Mock()
+        stage_config.put(self.desktop.root, 'script', model='deepseek-v4-flash')
         panel = skill_panel.Panel(window, self.desktop, 'script')
-        panel.set_model('deepseek-v4-flash')
         panel.confirm_button.invoke()
         self.desktop.refresh_script_chat_for_selected_model.assert_called_once_with()
         self.assertEqual(stage_config.get(self.desktop.root, 'script')['model'], 'deepseek-v4-flash')
@@ -1369,7 +1030,7 @@ class PanelTests(unittest.TestCase):
         """模型池里的 API 模型由用户决定用途，不能因能力标签自动改回自动。"""
         stage_config.put(self.desktop.root, 'previs', model='qwen-max')
         panel = skill_panel.Panel(self.win, self.desktop, 'previs')
-        self.assertEqual(panel.model.get(), 'Qwen-Max')
+        self.assertEqual(panel.model_id(), 'qwen-max')
         self.assertEqual(stage_config.get(self.desktop.root, 'previs')['model'], 'qwen-max')
         panel.destroy()
 
@@ -1378,9 +1039,9 @@ class PanelTests(unittest.TestCase):
         stage_config.put(self.desktop.root, 'script', model='Seedream 5.0 Pro')
         panel = skill_panel.Panel(self.win, self.desktop, 'script')
         self.assertEqual(stage_config.get(self.desktop.root, 'script')['model'], 'auto')
+        # R2862：面板模型选择器已删；跨阶段生产模型仍可经 stage_config 写入并被面板保留。
+        stage_config.put(self.desktop.root, 'keyframe', model='Seedream 5.0 Pro')
         keyframe = skill_panel.Panel(self.win, self.desktop, 'keyframe')
-        keyframe.model.set('Seedream 5.0 Pro')
-        keyframe.save()
         self.assertEqual(stage_config.get(self.desktop.root, 'keyframe')['model'], 'Seedream 5.0 Pro',
                          '首帧那一步自己的生产模型照旧选得中、存得下')
         panel.destroy(); keyframe.destroy()
@@ -1389,16 +1050,16 @@ class PanelTests(unittest.TestCase):
         """池里没有的 id 是用户自己填的：不替他判死，照旧留着。"""
         stage_config.put(self.desktop.root, 'previs', model='my-local-model')
         panel = skill_panel.Panel(self.win, self.desktop, 'previs')
-        self.assertEqual(panel.model.get(), 'my-local-model')
+        self.assertEqual(panel.model_id(), 'my-local-model')
         self.assertEqual(stage_config.get(self.desktop.root, 'previs')['model'], 'my-local-model')
 
     def test_saving_writes_project_skill_config(self):
         panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
         panel.vars['firstframe-quality'].set(False)
-        panel.model.set('DeepSeek V4 Pro')
         panel.save()
         entry = stage_config.get(self.desktop.root, 'keyframe')
-        self.assertEqual(entry['model'], 'deepseek-v4-pro')
+        # R2862：面板不再有模型选择器，保存时模型保持项目里已存的值（新项目即「自动」）。
+        self.assertEqual(entry['model'], 'auto')
         self.assertEqual(entry['skills'], ['firstframe-auto-fill', 'firstframe-batch', 'firstframe-retry',
                                             'firstframe-thumbnail', 'pipeline-keyframe'])
         self.assertTrue(stage_config.path(self.desktop.root).is_file())
@@ -1408,7 +1069,8 @@ class PanelTests(unittest.TestCase):
         panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
         self.assertFalse(hasattr(panel, 'check_all'), '面板上的「全选」接口一并删掉')
         self.assertTrue(hasattr(panel, 'reset_defaults'))
-        self.assertEqual(panel.restore_defaults_button.cget('text'), '恢复默认')
+        # R2862：「恢复默认」按钮随预设行删除，reset_defaults 保留为可编程入口。
+        self.assertFalse(hasattr(panel, 'restore_defaults_button'))
         for name in panel.vars:
             panel.vars[name].set(False)
         self.assertEqual(panel.selected(), [])
@@ -1416,7 +1078,7 @@ class PanelTests(unittest.TestCase):
         stage_config.reset(self.desktop.root, 'keyframe')
         panel.load()
         self.assertEqual(len(panel.selected()), 6)
-        self.assertEqual(panel.model.get(), '自动')
+        self.assertEqual(panel.model_id(), 'auto')
 
     def test_every_stage_has_a_panel(self):
         for stage in pet_bus.STAGES:
@@ -1427,104 +1089,12 @@ class PanelTests(unittest.TestCase):
             self.assertEqual(panel.stage, stage)
             panel.destroy()
 
-    def test_presets_round_trip_through_the_panel(self):
-        panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
-        panel.vars['firstframe-quality'].set(False)
-        panel.model.set('Qwen-Max')
-        stage_config.save_preset('只批不改', 'qwen-max', panel.selected(), stage='keyframe',
-                                 program=self.desktop.app)
-        for name in panel.vars:
-            panel.vars[name].set(True)
-        panel.model.set('自动')
-        panel.preset.set('只批不改')
-        panel.apply_preset()
-        self.assertEqual(panel.model.get(), 'Qwen-Max')
-        self.assertEqual(panel.selected(), ['firstframe-auto-fill', 'firstframe-batch', 'firstframe-retry',
-                                             'firstframe-thumbnail', 'pipeline-keyframe'])
-        self.assertIn('只批不改', panel.preset_names())
-
-    def test_preset_picker_starts_with_placeholder_and_can_overwrite_selection(self):
-        """预设框默认「请选择」，实际选中后保存时才预填该名称以支持覆盖。"""
-        class Typed(object):
-            seen = {}
-
-            @classmethod
-            def ask_string(cls, *args, **kwargs):
-                cls.seen = kwargs
-                return kwargs.get('initialvalue', '')
-
-        stage_config.save_preset('B预设', 'qwen-max', ['firstframe-batch'], stage='keyframe',
-                                 program=self.desktop.app)
-        stage_config.save_preset('A预设', 'deepseek-v4-pro', ['firstframe-quality'], stage='keyframe',
-                                 program=self.desktop.app)
-        panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
-        self.assertEqual(panel.preset.get(), '请选择')
-        self.assertEqual(tuple(panel.presets.cget('values'))[0], '请选择')
-        real = skill_panel_presets.ask_string
-        skill_panel_presets.ask_string = Typed.ask_string
-        self.addCleanup(setattr, skill_panel_presets, 'ask_string', real)
-        real_mode = skill_panel_presets.ask_preset_mode
-        skill_panel_presets.ask_preset_mode = lambda parent, initial='': '短剧'
-        self.addCleanup(setattr, skill_panel_presets, 'ask_preset_mode', real_mode)
-        panel.model.set('Qwen-Max')
-        panel.preset.set('A预设')
-        self.assertEqual(panel.save_preset(), 'A预设')
-        self.assertEqual(Typed.seen.get('initialvalue'), 'A预设')
-        self.assertEqual(stage_config.presets(self.desktop.app)['A预设']['model'], 'qwen-max')
-        self.assertIn('已覆盖预设：A预设', panel.state.cget('text'))
-        panel.destroy()
-
-    def test_preset_keeps_master_style_and_mode_and_groups_the_dropdown(self):
-        """预设整套：总控＋模型(厂商)＋风格＋SKILL，下拉按创作模式分组，分组标题选中不套用。"""
-        program = self.desktop.app
-        import workflow_settings
-        master = next(iter(workflow_settings.refresh_workflow_presets()))
-        stage_config.put_workflow(self.desktop.root, {'name': master, 'skill_ref': 'x/SKILL.md',
-                                                       'lock': {master: {'track': '短剧'}}})
-        stage_config.put(self.desktop.root, 'script', writer_style='好莱坞')
-        stage_config.save_preset('甲', 'qwen-max', ['pipeline-script-preparation'], stage='script',
-                                 program=program,
-                                 extra={'mode': '短剧', 'workflow': stage_config.current_workflow(self.desktop.root),
-                                        'lock': stage_config.workflow_lock(self.desktop.root),
-                                        'writer_style': '好莱坞'})
-        stage_config.save_preset('乙', 'qwen-max', [], stage='script', program=program,
-                                 extra={'mode': '动画'})
-        stage_config.save_preset('丙', 'qwen-max', [], stage='script', program=program)  # 旧式：无模式
-        stage_config.put_workflow(self.desktop.root, {})
-        stage_config.put(self.desktop.root, 'script', writer_style='')
-        panel = skill_panel.Panel(self.win, self.desktop, 'script')
-        self.addCleanup(panel.destroy)
-        values = list(panel.presets.cget('values'))
-        self.assertEqual(values, ['请选择', '—— 短剧 ——', '甲', '—— 动画 ——', '乙', '—— 未分类 ——', '丙'])
-        panel.preset.set('—— 动画 ——')
-        self.assertIsNone(panel.apply_preset())
-        self.assertEqual(panel.preset.get(), '请选择')
-        panel.preset.set('甲')
-        panel.apply_preset()
-        self.assertEqual(stage_config.current_workflow(self.desktop.root).get('name'), master)
-        self.assertEqual(stage_config.workflow_lock(self.desktop.root).get('track'), '短剧')
-        self.assertEqual(stage_config.writer_style(self.desktop.root, 'script'), '好莱坞')
-        self.assertEqual(panel.workflow_choice.get(), master)
-        panel.preset.set('丙')       # 旧式预设不带总控与风格：套用后保持原样
-        panel.apply_preset()
-        self.assertEqual(stage_config.current_workflow(self.desktop.root).get('name'), master)
-        self.assertEqual(stage_config.writer_style(self.desktop.root, 'script'), '好莱坞')
-
-    def test_preset_controls_have_a_concise_green_hint(self):
-        panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
-        from ui_widgets import ProgressLabel
-        self.assertIsInstance(panel.preset_hint, ProgressLabel)
-        hint = str(panel.preset_hint.cget('text'))
-        for text in ('选择预设即可套用', '确认'):
-            self.assertIn(text, hint)
-        panel.destroy()
-
     def test_confirm_saves_current_page_configuration_and_is_in_bottom_action_bar(self):
         """确认在底部动作条，预设行不承担关闭窗口的责任。"""
         window = tk.Toplevel(self.win)
+        stage_config.put(self.desktop.root, 'keyframe', model='qwen-max')
         panel = skill_panel.Panel(window, self.desktop, 'keyframe', compact=False)
         panel.pack()
-        panel.model.set('Qwen-Max')
         panel.vars['firstframe-quality'].set(False)
         self.win.update_idletasks()
         self.assertEqual(panel.confirm_button.master, panel.bottom_bar)
@@ -1538,32 +1108,6 @@ class PanelTests(unittest.TestCase):
         self.assertEqual(entry['model'], 'qwen-max')
         self.assertNotIn('firstframe-quality', entry['skills'])
         self.assertFalse(window.winfo_exists())
-
-    def test_the_panel_renames_the_preset_in_the_combobox(self):
-        """第 51 期第 4 条：这一格原来只能存不能改，「重命名预设」把挑中的那份当场改名。"""
-        class Typed(object):
-            def __init__(self, answer):
-                self.answer = answer
-
-            def ask_string(self, *args, **kwargs):
-                return self.answer
-
-        panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
-        stage_config.save_preset('旧名字', 'qwen-max', ['firstframe-batch'], stage='keyframe',
-                                 program=self.desktop.app)
-        panel.presets.configure(values=panel.preset_names())
-        self.assertEqual(panel.rename_preset(), '', '没在下拉框里挑，就先别说改名')
-        self.assertIn('先在下拉框里挑', panel.state.cget('text'))
-        real = skill_panel_presets.ask_string
-        skill_panel_presets.ask_string = Typed('  新 名字  ').ask_string
-        self.addCleanup(setattr, skill_panel_presets, 'ask_string', real)
-        panel.preset.set('旧名字')
-        self.assertEqual(panel.rename_preset(), '新 名字')
-        self.assertEqual(panel.preset.get(), '新 名字', '改完下拉框里那份还选着')
-        self.assertIn('新 名字', panel.preset_names())
-        self.assertNotIn('旧名字', panel.preset_names())
-        self.assertIn('预设已改名', panel.state.cget('text'))
-        panel.destroy()
 
     def test_open_for_page_maps_the_page_to_its_stage(self):
         panel = skill_panel.open_for_page(self.desktop, pet_bus.STAGES.index('keyframe'))
@@ -1614,7 +1158,6 @@ class PanelTests(unittest.TestCase):
                     if child.winfo_class() == 'TFrame' and child is not panel.bottom_bar]
         for previous, current in zip(sections, sections[1:]):
             self.assertLessEqual(current.winfo_y() - previous.winfo_y() - previous.winfo_height(), 2)
-        self.assertEqual(panel.route_hint.winfo_manager(), '')
         self.assertEqual(panel.reason.winfo_manager(), '')
         window.geometry('880x600')
         window.update()
@@ -1657,40 +1200,6 @@ class PanelTests(unittest.TestCase):
             skill.write_text('# SKILL 说明', encoding='utf-8')
             self.assertEqual(skill_panel.markdown_document(skill), '# SKILL 说明')
 
-    def test_the_panel_keeps_the_interfaces(self):
-        """第 29 期第 1／4 条：页面上重复的入口并进面板，但接口本身一个都不少。
-
-        第 50 期第 1 条把模型与 SKILL 搬进两个下拉框；第 51 期第 3 条再把剩下的那颗「引擎设置」
-        也删掉——那扇窗里能配的东西现在都在本面板上，用户判它重复。这一行只剩两个付费接口：
-        视频阶段的「调用设置」（原「线上视频 API」）与配音阶段的「配音接口（TTS）」。
-        """
-        video = [label for label, _open in skill_panel.interfaces_of(self.desktop, 'video')]
-        self.assertEqual(video, ['调用设置'], '视频阶段留那颗付费的线上视频接口')
-        audio = [label for label, _open in skill_panel.interfaces_of(self.desktop, 'audio')]
-        self.assertEqual(audio, ['配音接口（TTS）'], '配音阶段留那颗付费的 TTS 接口')
-        self.assertEqual(skill_panel.interfaces_of(self.desktop, 'delivery'), [],
-                         '这一阶段没有接口：那一行干脆不画')
-
-    def test_only_the_paid_interfaces_remain(self):
-        """第 51 期第 3 条：删掉重复的「引擎设置」之后，只有两个付费接口还占着这一行。
-
-        编排流程那几个阶段（剧本／分镜／资产／首帧／预演）现在一个接口都没有——模型与 SKILL
-        都在本面板上挑，那一行干脆不画。
-        """
-        for stage in ('script', 'storyboard', 'assets', 'keyframe', 'previs'):
-            with self.subTest(stage=stage):
-                self.assertEqual(skill_panel.interfaces_of(self.desktop, stage), [], stage)
-        self.assertEqual([label for label, _open in skill_panel.interfaces_of(self.desktop, 'audio')],
-                         ['配音接口（TTS）'])
-        self.assertEqual([label for label, _open in skill_panel.interfaces_of(self.desktop, 'video')],
-                         ['调用设置'])
-        for stage in ('final', 'edit', 'delivery'):
-            with self.subTest(stage=stage):
-                self.assertEqual(skill_panel.interfaces_of(self.desktop, stage), [], stage)
-        panel = skill_panel.Panel(self.win, self.desktop, 'video')
-        self.assertEqual([button.cget('text') for button in panel.interface_buttons], ['调用设置'])
-        panel.destroy()
-
     def test_the_skill_manage_dropdown_has_the_single_grid_actions(self):
         """面板只有阶段注册网格；旧引擎档清单不再生成第二套勾选框。"""
         panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
@@ -1698,8 +1207,7 @@ class PanelTests(unittest.TestCase):
         self.assertEqual(panel.flow_skill_label.cget('text'), 'SKILL')
         self.assertIs(panel.flow_skill_label.master, panel.skill_action_row, 'SKILL 标签必须留在操作栏左侧')
         self.assertEqual(list(panel.skill_action_row.winfo_children())[1].cget('values'),
-                     (skill_panel.MANAGE_ALL, skill_panel.MANAGE_NONE, skill_panel.MANAGE_ADD,
-                      skill_panel.MANAGE_DELETE))
+                     skill_panel.MANAGE_LABELS)
         self.assertFalse(hasattr(panel, 'delete_skill_button'))
         self.assertEqual(panel.skill_action.get(), '请选择')
         with mock.patch.object(panel, 'check_all_skills') as check_all:
@@ -1738,22 +1246,6 @@ class PanelTests(unittest.TestCase):
                          [item.name for item in delivery.registry.getByStage('delivery') if not item.deprecated])
         delivery.destroy()
 
-    def test_models_picked_in_a_page_are_synced_into_the_pool(self):
-        """第 59 期第 12 条：各页面阶段配置里挑过的模型自动补进模型池（设置 → 模型配置 里也有）。"""
-        stage_config.put(self.desktop.root, 'script', model='my-local-7b', skills=[])
-        stage_config.put(self.desktop.root, 'assets', model='Seedream 5.0 Pro', skills=[])
-        self.assertEqual(skill_panel.sync_models(self.desktop.root, self.desktop.app), ['my-local-7b'])
-        records = model_pool.pool(program=self.desktop.app)
-        self.assertIn('my-local-7b', records)
-        self.assertEqual(records['my-local-7b']['label'], 'my-local-7b')
-        self.assertNotIn('Seedream 5.0 Pro', records, '生产模型不是发请求的模型 id，不搬进池子')
-        self.assertEqual(skill_panel.sync_models(self.desktop.root, self.desktop.app), [],
-                         '已经同步过就不再重复写一遍')
-        panel = skill_panel.Panel(self.win, self.desktop, 'script')
-        self.assertIn('my-local-7b', [label for options in panel.groups.values() for _id, label in options],
-                      '补进池子之后每个页面的下拉都点得到')
-        panel.destroy()
-
     def test_legacy_engine_skill_list_is_read_only_and_not_rendered(self):
         """旧引擎档仍可读取，但只会在提示词末尾消费，面板不再画第二套框。"""
         folder = Path(self.tmp.name) / '我的分镜'; folder.mkdir()
@@ -1789,28 +1281,6 @@ class PanelTests(unittest.TestCase):
         clipped = panel.skill_label('名称' * 20, limit=12)
         self.assertTrue(clipped.endswith('...'))
         self.assertEqual(len(clipped), 12)
-
-    def test_writer_style_precedes_skill_checks_and_hint_is_single_line(self):
-        self.win.deiconify()
-        self.win.geometry('1200x900')
-        self.win.update_idletasks()
-        panel = skill_panel.open_for_page(self.desktop, 0)
-        window = panel.winfo_toplevel()
-        self.addCleanup(window.destroy)
-        panel.external_package_hint.configure(text=skill_panel.EXTERNAL_PACKAGE_API_HINT)
-        window.geometry('880x690')
-        window.update()
-        row = panel.writer_style_button.master
-        label = next(child for child in row.winfo_children()
-                     if child.winfo_class() == 'TLabel' and child.cget('text') == '风格')
-        self.assertGreaterEqual(label.winfo_width(), label.winfo_reqwidth())
-        self.assertLess(row.master.winfo_y(), panel.skill_content.master.winfo_y())
-        hint = panel.external_package_hint
-        self.assertEqual(int(hint.cget('wraplength')), 0)
-        self.assertGreaterEqual(hint.winfo_width(), hint.winfo_reqwidth())
-        for widget in panel.skill_controls:
-            self.assertLessEqual(widget.winfo_x() + widget.winfo_width(),
-                                 panel.flow_skill_row.winfo_width())
 
     def test_stage_panel_skill_display_keeps_chinese_and_aigc_name(self):
         self.assertEqual(skill_panel.chinese_skill_display('全流程AIGC·剧本'), '全流程AIGC·剧本')
@@ -1962,46 +1432,27 @@ class PanelTests(unittest.TestCase):
         self.assertEqual(skill_panel.flow_skill_paths(self.desktop.root, 'frames'), [str(source)])
         self.assertEqual(panel.selected(), [])
 
-    def test_a_broken_interface_is_reported_not_raised(self):
-        panel = skill_panel.Panel(self.win, self.desktop, 'video')
-
-        def boom():
-            raise RuntimeError('接口坏了')
-
-        self.assertIsNone(panel.open_interface(boom))
-        self.assertIn('接口坏了', panel.state.cget('text'))
-        panel.destroy()
-
-
     def test_restore_defaults_requires_confirmation(self):
         real = skill_panel.confirm
         skill_panel.confirm = lambda *args, **kwargs: False
         self.addCleanup(setattr, skill_panel, 'confirm', real)
+        stage_config.put(self.desktop.root, 'keyframe', model='qwen-max')
         panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
-        panel.model.set('Qwen-Max')
         self.assertIsNone(panel.reset_defaults())
-        self.assertEqual(panel.model.get(), 'Qwen-Max')
+        self.assertEqual(stage_config.get(self.desktop.root, 'keyframe')['model'], 'qwen-max')
 
     def test_restore_defaults_resets_only_the_current_stage(self):
         real = skill_panel.confirm
         skill_panel.confirm = lambda *args, **kwargs: True
         self.addCleanup(setattr, skill_panel, 'confirm', real)
+        stage_config.put(self.desktop.root, 'keyframe', model='qwen-max')
         panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
-        panel.model.set('Qwen-Max')
         panel.vars['firstframe-quality'].set(False)
         panel.save()
         entry = panel.reset_defaults()
         self.assertEqual(entry['model'], 'auto')
         self.assertTrue(panel.vars['firstframe-quality'].get())
-        self.assertIn('总控与制作锁未改变', panel.state.cget('text'))
-
-    def test_copy_preset_requires_a_selected_preset(self):
-        panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
-        self.addCleanup(panel.destroy)
-        with mock.patch.object(skill_panel.tk, 'Toplevel') as dialog:
-            self.assertIsNone(panel.share_preset_copy())
-        dialog.assert_not_called()
-        self.assertEqual(panel.state.cget('text'), '先在上方选一个预设')
+        self.assertIn('制作锁未改变', panel.state.cget('text'))
 
     def test_add_skill_action_uses_the_file_picker(self):
         panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')

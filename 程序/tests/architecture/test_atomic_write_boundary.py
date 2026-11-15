@@ -22,7 +22,6 @@ _REPLACE_REGISTERED = {
     "image_agent_runner.py": 1,
     "log_maintenance.py": 2,
     "skill_import_service.py": 2,
-    "master_import_service.py": 1,
     "skill_registry.py": 1,
     "stage_execution_service.py": 1,
     "stage_asset_gateways.py": 1,

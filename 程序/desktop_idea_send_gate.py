@@ -57,16 +57,12 @@ class IdeaSendGateMixin:
         """与 send_message 同判据：当前输入现在送出去会不会被必填缺失拦下。"""
         import idea_chat
         import stage_config
-        import workflow_settings
         import writing_api
         value = self.draft_text()
         if writing_api.preparation_continuation(self.root, value):
             return ()
-        workflow_config = stage_config.current_workflow(self.root)
-        preset = workflow_settings.WORKFLOW_PRESETS.get(workflow_config.get('name'), {})
-        lock_definitions = preset.get('locks') or tuple(
-            item for definition in workflow_settings.WORKFLOW_PRESETS.values()
-            for item in definition.get('locks', ()))
+        from contract.script_contract import PRODUCTION_LOCK_DEFINITIONS
+        lock_definitions = PRODUCTION_LOCK_DEFINITIONS
         return idea_chat.inline_required_missing(
             None, value, attachment_fields=self._idea_live_attachment_fields(lock_definitions),
             stage='script', lock_definitions=lock_definitions,

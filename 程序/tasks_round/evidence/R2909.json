@@ -1,0 +1,15 @@
+{
+  "round": 2909,
+  "commit_base": "e196b527",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k pet_ui test_skills module_size",
+    "exit": 0,
+    "passed": 737,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T05:38:56"
+}

@@ -682,7 +682,10 @@ class Orchestrator:
         except (TypeError, ValueError):
             start_step = 1
         start_step = min(max(start_step, 1), len(template.steps) + 1)
-        selected = [item for item in (names or [row.name for row in self.registry.getByStage(template.stage_id)])
+        # R2905：names=None 才表示「没指定」→ 该阶段全部已启用 SKILL；显式空表
+        # 是「一个都没勾」，绝不能回退成全跑——那会让取消勾选形同虚设。
+        selected = [item for item in (names if names is not None
+                                      else [row.name for row in self.registry.getByStage(template.stage_id)])
                     if self.skill(item) is not None and self.skill(item).stage == template.stage_id]
         if not callable(execute_action) and not selected:
             message = '【阻塞】%s 未启用可执行 SKILL' % template.name

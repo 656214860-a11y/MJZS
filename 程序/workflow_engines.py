@@ -10,7 +10,7 @@ from file_cache import remove_temporary_file
 from datetime import datetime
 from agent.core import save,save_text,read,temporary_path,replace
 import edit_habits, stage_layout
-from workflow_settings import find_program,gui_claude_program,GUI_CLAUDE_CLI_HINT,ENGINES,skill_prompt,stage_output_contract,writer_style_prompt,master_gate
+from workflow_settings import find_program,gui_claude_program,GUI_CLAUDE_CLI_HINT,ENGINES,skill_prompt,stage_output_contract,writer_style_prompt
 from workflow_process_registry import (register_process, forget_process, processes, run_registered,
                                        reserve_process_slot, release_process_slot,
                                        request_process_slot, claim_process_slot,
@@ -55,8 +55,6 @@ def cancel_stage_slot_request(ticket):
     return cancel_slot_request(ticket)
 
 def prompt_with_settings(prompt,config,stage=None):
-    blocked=master_gate(config,stage)
-    if blocked:raise ValueError(blocked)
     extra=config.get('instructions','')
     language=('\n统一语言要求：所有面向用户的回复、剧本、分镜描述、资产外观、正负向提示词、首帧图片提示词、视频提示词及制作说明，统一使用简体中文。'
               '技术字段名、资产和镜头编号、模型 ID、文件路径、程序代码及必须保持原样的专有标识保留原文。'

@@ -7,7 +7,7 @@ from unittest.mock import Mock, patch
 
 import idea_chat
 import script_contract
-import workflow_settings
+from contract.script_contract import PRODUCTION_LOCK_DEFINITIONS
 from tests.test_idea_chat import _Harness, idea_chat as injected_chat
 from tests.ui_edges_support import make_minimal_project
 
@@ -38,10 +38,9 @@ class InlineBriefTests(unittest.TestCase):
             '故事题材：冒险喜剧\n交付形态：markdown文档', attachment_fields=fields), ())
         with tempfile.TemporaryDirectory() as td:
             root = make_minimal_project(td)
-            preset = next(iter(workflow_settings.WORKFLOW_PRESETS.values()))
             result = injected_chat.receive_brief(root, '【附档：输入/材料.xlsx】',
                 inline_text='故事题材：冒险喜剧\n交付形态：markdown文档',
-                lock_definitions=preset['locks'], attachment_reference={'brief_texts': [text]})
+                lock_definitions=PRODUCTION_LOCK_DEFINITIONS, attachment_reference={'brief_texts': [text]})
             self.assertEqual(result['missing'], ())
             self.assertIn('12集', result['fields']['length'])
             self.assertEqual(result['fields']['story_summary'], '修表师寻找失踪的父亲')
@@ -86,10 +85,9 @@ class InlineBriefTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = make_minimal_project(td)
             template = draft({label: '示例' + label for label in VALUES})
-            preset = next(iter(workflow_settings.WORKFLOW_PRESETS.values()))
             text = draft().replace('故事画幅:', '画幅:').replace('视频模型:', '视频模型版本:')
             result = injected_chat.receive_brief(root, '【附档：输入/材料.md】',
-                inline_text=template, inline_template=template, lock_definitions=preset['locks'],
+                inline_text=template, inline_template=template, lock_definitions=PRODUCTION_LOCK_DEFINITIONS,
                 attachment_reference={'brief_texts': [text]})
             self.assertEqual(result['missing'], ())
             self.assertEqual(result['fields']['story_summary'], VALUES['故事梗概'])
@@ -97,7 +95,7 @@ class InlineBriefTests(unittest.TestCase):
             self.assertEqual(result['fields']['production_locks']['video_model_version'], 'MiniMax H3')
             changed = template.replace('示例故事梗概', '手写梗概').replace('示例故事画幅', '4:3')
             result = injected_chat.receive_brief(root, '【附档：输入/材料.md】',
-                inline_text=changed, inline_template=template, lock_definitions=preset['locks'],
+                inline_text=changed, inline_template=template, lock_definitions=PRODUCTION_LOCK_DEFINITIONS,
                 attachment_reference={'brief_texts': [text]})
             self.assertEqual(result['fields']['story_summary'], '手写梗概')
             self.assertEqual(result['fields']['production_locks']['aspect_ratio'], '4:3')
@@ -105,31 +103,20 @@ class InlineBriefTests(unittest.TestCase):
     def test_non_inline_receive_reads_attachment_lock_aliases(self):
         with tempfile.TemporaryDirectory() as td:
             root = make_minimal_project(td)
-            preset = next(iter(workflow_settings.WORKFLOW_PRESETS.values()))
-            result = injected_chat.receive_brief(root, '请读取附档\n故事画幅：', lock_definitions=preset['locks'],
+            result = injected_chat.receive_brief(root, '请读取附档\n故事画幅：', lock_definitions=PRODUCTION_LOCK_DEFINITIONS,
                 attachment_reference={'brief_texts': [draft()]})
             self.assertEqual(result['fields']['production_locks'],
                              {'aspect_ratio': '9:16', 'video_model_version': 'MiniMax H3',
                               'delivery_format': '只要 markdown 文档'})
 
-    def test_coordinator_refreshes_editable_locks_without_save_badge(self):
-        from skill_panel import Panel
-        name, preset = next(iter(workflow_settings.WORKFLOW_PRESETS.items()))
-        view = SimpleNamespace(project=lambda: 'unused', workflow_choice=Mock(),
-                               workflow_summary=Mock(), show_workflow_differences=Mock(), sync_master_skill=Mock(return_value=None),
-                               lock_inputs={item['key']: Mock() for item in preset['locks']},
-                               lock_fields=Mock())
-        with patch('stage_config.current_workflow', return_value={'name': name}), \
-                patch('stage_config.workflow_lock', return_value={'aspect_ratio': '9:16'}), \
-                patch('stage_config.workflow_deviation_count', return_value=2), \
-                patch('stage_execution_service.sync_writing_attachment_locks'):
-            Panel.refresh_workflow(view)
-        for item in preset['locks']:
-            view.lock_inputs[item['key']].insert.assert_called_once_with(
-                0, '9:16' if item['key'] == 'aspect_ratio' else '')
-        view.workflow_summary.configure.assert_not_called()
-        view.workflow_summary.bind.assert_not_called()
-        self.assertFalse(hasattr(Panel, 'open_workflow_brief'))
+    def test_refresh_locks_syncs_attachments_and_returns_project_locks(self):
+        # R2862：总控与内联制作锁协调器已删；制作锁改由弹窗预选，入口只读项目锁。
+        from skill_panel_workflow import PanelWorkflowMixin
+        view = SimpleNamespace(project=lambda: 'unused')
+        with patch('stage_execution_service.sync_writing_attachment_locks') as sync, \
+                patch('stage_config.workflow_lock', return_value={'aspect_ratio': '9:16'}):
+            self.assertEqual(PanelWorkflowMixin.refresh_locks(view), {'aspect_ratio': '9:16'})
+        sync.assert_called_once_with('unused')
 
     def test_every_empty_or_unchanged_value_is_missing_in_order(self):
         template = draft({label: '示例' + label for label in VALUES})
@@ -155,9 +142,8 @@ class InlineBriefTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = make_minimal_project(td)
             injected_chat.save_brief_creation(root, draft(dict(VALUES, 故事梗概='旧梗概')))
-            preset = next(iter(workflow_settings.WORKFLOW_PRESETS.values()))
             result = injected_chat.receive_brief(root, draft(), inline_text=draft(),
-                                                lock_definitions=preset['locks'])
+                                                lock_definitions=PRODUCTION_LOCK_DEFINITIONS)
             self.assertEqual(result['missing'], ())
             self.assertEqual(result['fields']['story_summary'], VALUES['故事梗概'])
             self.assertEqual(result['fields']['production_locks'],
@@ -315,6 +301,11 @@ class InlineBriefDesktopTests(_Harness):
                 d.idea_log.event_generate('<Return>'); win.update()
                 self.assertEqual(d.idea_log.get('1.0', 'end-1c'), before)
                 send.assert_not_called()
+                # 轮 4 契约：共享输入框空文本 Enter 不派发（send() 直接拒收）；
+                # 有内容时 Enter 才进 send_message。
+                d.idea_input.event_generate('<Return>'); win.update()
+                send.assert_not_called()
+                d.idea_input.insert('1.0', '一条创意'); win.update()
                 d.idea_input.focus_force(); win.update()
                 d.idea_input.event_generate('<Return>'); win.update()
                 send.assert_called_once()

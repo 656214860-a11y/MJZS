@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest import mock
 
 import skill_panel
+import skill_panel_import
 import skill_import_service
 import skill_registry
 from skip_reasons import PLATFORM_SYMLINK
@@ -25,8 +26,8 @@ class SkillImportValidationTests(unittest.TestCase):
         self.panel.skill_content.winfo_children.return_value = []
 
     def run_import(self, source, accept=False):
-        with mock.patch.object(skill_panel, 'FileDialog') as dialog, \
-                mock.patch.object(skill_panel, 'confirm', return_value=accept) as confirm:
+        with mock.patch.object(skill_panel_import, 'FileDialog') as dialog, \
+                mock.patch.object(skill_panel_import, 'confirm', return_value=accept) as confirm:
             dialog.return_value.open_file.return_value = str(source)
             result = skill_panel.Panel.add_skill_from_file(self.panel)
         return result, confirm
@@ -110,8 +111,8 @@ class StableImportTests(unittest.TestCase):
         self.panel.skill_content.winfo_children.return_value = []
 
     def run_import(self, source, accept=False):
-        with mock.patch.object(skill_panel, 'FileDialog') as dialog, \
-                mock.patch.object(skill_panel, 'confirm', return_value=accept) as confirm:
+        with mock.patch.object(skill_panel_import, 'FileDialog') as dialog, \
+                mock.patch.object(skill_panel_import, 'confirm', return_value=accept) as confirm:
             dialog.return_value.open_file.return_value = str(source)
             result = skill_panel.Panel.add_skill_from_file(self.panel)
         return result, confirm

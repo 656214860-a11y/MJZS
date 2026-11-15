@@ -133,6 +133,12 @@ def run(desktop, stage, only=None, trigger='manual'):
     if project is None:
         raise ValueError('请先选择项目。')
     names = list(only) if only else stage_flow.selected_skills(project, stage)
+    if not names:
+        # R2905：勾选列表为空是「这一步没勾 SKILL」，不是「跑全部」——直接回一份
+        # skipped 汇总，手动执行页如实展示，自动链由 stage_handler_registry 先行跳过。
+        text = '「%s」未勾选 SKILL：请先在阶段配置里勾选，或点「恢复默认」。' % stage_flow.stage_name(stage)
+        return {'ok': False, 'skipped': True, 'skills': [], 'results': [], 'failed': [],
+                'errors': [text], 'text': text}
     if stage == 'script_structure':
         return _run_script_structure(desktop, project, names, trigger)
     if stage == 'delivery':

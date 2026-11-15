@@ -227,13 +227,12 @@ class StagePromptGovernanceTests(unittest.TestCase):
         self.assertNotIn('制作锁：custom=', workflow_settings.skill_prompt(config, stage='frames'))
 
     def test_coordinator_is_scoped_in_real_stage_config(self):
+        """R2862：总控投影已删除，阶段配置不再注入统筹提示词。"""
         import stage_config
         with tempfile.TemporaryDirectory() as td:
             root = make_minimal_project(td)
-            stage_config.put_workflow(root, {'name': 'AIGC全流程'})
             config = workflow_settings.current(root, 'writing')
-            self.assertIn('不全文加载总控 SKILL', config['workflow_skill_prompt'])
-            self.assertNotIn('完整读取', config['workflow_skill_prompt'])
+            self.assertNotIn('workflow_skill_prompt', config)
 
 
 if __name__ == '__main__':

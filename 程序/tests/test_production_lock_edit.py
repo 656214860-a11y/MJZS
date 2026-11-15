@@ -8,7 +8,7 @@ from agent.core import save
 import file_cache
 import stage_config
 import stage_execution_service as service
-import workflow_settings
+from contract.script_contract import PRODUCTION_LOCK_DEFINITIONS
 from idea_chat import brief_complete_path
 from project_context_factory import project_context
 
@@ -18,9 +18,8 @@ class ProductionLockTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
-        self.name = next(iter(workflow_settings.WORKFLOW_PRESETS))
-        stage_config.put_workflow(self.root, {'name': self.name, 'lock': {
-            self.name: {'aspect_ratio': '9:16', 'delivery_format': 'markdown文件'}}})
+        stage_config.put_production_locks(self.root, {
+            'aspect_ratio': '9:16', 'delivery_format': 'markdown文件'})
         self.brief = brief_complete_path(project_context(self.root))
         save(self.brief, {'brief': {'story_summary': '原故事', 'production_locks': {
             'aspect_ratio': '9:16', 'delivery_format': 'markdown文件'}}})
@@ -58,8 +57,7 @@ class ProductionLockTests(unittest.TestCase):
         service.sync_writing_attachment_locks(self.root, reference=reference)
         service.save_writing_production_locks(self.root, {'aspect_ratio': '16:9'})
         result = injected_chat.receive_brief(self.root, '请创作',
-            workflow=stage_config.current_workflow(self.root),
-            lock_definitions=workflow_settings.WORKFLOW_PRESETS[self.name]['locks'],
+            lock_definitions=PRODUCTION_LOCK_DEFINITIONS,
             attachment_reference=reference)
         self.assertEqual(result['fields']['production_locks']['aspect_ratio'], '16:9')
         self.assertEqual(result['missing'], ())
@@ -71,8 +69,7 @@ class ProductionLockTests(unittest.TestCase):
         service.save_writing_production_locks(self.root, {'aspect_ratio': '16:9'})
         for message, expected in [('请创作', '16:9'), ('故事画幅：21:9', '21:9')]:
             result = injected_chat.receive_brief(self.root, message,
-                workflow=stage_config.current_workflow(self.root),
-                lock_definitions=workflow_settings.WORKFLOW_PRESETS[self.name]['locks'])
+                lock_definitions=PRODUCTION_LOCK_DEFINITIONS)
             self.assertEqual(result['fields']['production_locks']['aspect_ratio'], expected)
 
     def test_bundle_failure_restores_both_files(self):

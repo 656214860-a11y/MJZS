@@ -20,7 +20,7 @@ from datetime import datetime
 from pathlib import Path
 
 from contract.project_context import ProjectContext
-from idea_document_paths import ChatModel, _storage_name, storage_identity
+from idea_document_paths import ChatModel
 
 
 FOLDER = '创意对话'
@@ -69,19 +69,9 @@ def chat_model(model):
 
 
 def model_history_path(context, model, provider=''):
-    """当前模型的唯一聊天记录位置：不再混放在剧本准备根目录。"""
-    identity = chat_model(model) if not provider else ChatModel(str(model))
-    if identity.model_id and not provider:
-        import hashlib
-        provider_name = '模型会话'
-        model_name = (_storage_name(identity.model_id, '模型') + '--' +
-                      hashlib.sha256(identity.model_id.encode('utf-8')).hexdigest()[:12])
-    else:
-        provider_name, model_name = (storage_identity(model) if not provider else
-                                 (_storage_name(provider, '未知Provider'),
-                                  _storage_name(model, '未知模型')))
-    from contract.project_stages import writing
-    return writing(_context(context).root) / provider_name / model_name / FOLDER / CHAT_NAME
+    """单一创意对话目录（任务书轮 4）：所有模型共用 ``创意对话/对话.json``，
+    不再按 ``模型会话/<模型>/创意对话/`` 分目录；``model``／``provider`` 仅作行内署名。"""
+    return history_path(context)
 
 
 def deleted_history_path(root, model=None, provider=''):
@@ -124,88 +114,42 @@ def _read_rows(path, gateway):
     return [dict(row) for row in rows]
 
 
+def _merge_legacy_model_files(root, gateway):
+    """旧 ``<写作区>/<提供方>/<模型>/创意对话/对话.json`` 首次读取时并入单一创意对话文件。
+
+    只迁移不删旧文件（任务书轮 4）：旧目录原样保留，统一文件按 ``at`` 时间归并、
+    按整行指纹去重；已并入的旧文件下次读取不再重复发布。
+    """
+    from contract.project_stages import writing
+    base = writing(_context(root).root)
+    target = Path(history_path(root))
+    current = _read_rows(target, gateway)
+    seen = {json.dumps(row, ensure_ascii=False, sort_keys=True) for row in current}
+    extra = []
+    if base.is_dir():
+        for path in base.glob('*/*/' + FOLDER + '/' + CHAT_NAME):
+            path = Path(path)
+            if path == target:
+                continue
+            for row in _read_rows(path, gateway):
+                fingerprint = json.dumps(row, ensure_ascii=False, sort_keys=True)
+                if fingerprint not in seen:
+                    seen.add(fingerprint)
+                    extra.append(row)
+    if not extra:
+        return
+    merged = sorted(current + extra, key=lambda row: str(row.get('at') or ''))
+    save_rows(root, merged, gateway=gateway)
+
+
 def _all_rows(root, model=None, provider='', *, gateway=None):
-    """读取聊天记录；指定模型时优先 Provider/模型目录并兼容导入旧统一记录。"""
+    """读取聊天记录：单一创意对话目录，旧模型目录已并入（只迁移不删旧文件）。
+
+    ``model``／``provider`` 只影响调用方的行级筛选（``_row_indexes``），不再决定文件位置。
+    """
     gateway = _require_gateway(gateway)
-    key = str(model or '').strip()
-    if not key:
-        rows = _read_rows(history_path(root), gateway)
-        from contract.project_stages import writing
-        base = writing(_context(root).root)
-        if base.is_dir():
-            for path in base.glob('*/*/' + FOLDER + '/' + CHAT_NAME):
-                if path == history_path(root):
-                    continue
-                rows.extend(_read_rows(path, gateway))
-        # 兼容导入期间旧统一文件和新模型文件可能短暂都含同一行；按完整记录
-        # 去重，避免聊天框把一条消息显示两次。
-        unique = []
-        fingerprints = set()
-        for row in rows:
-            fingerprint = json.dumps(row, ensure_ascii=False, sort_keys=True)
-            if fingerprint not in fingerprints:
-                fingerprints.add(fingerprint)
-                unique.append(row)
-        return unique
-    identity = chat_model(model)
-    current = model_history_path(root, identity, provider=provider)
-    legacy_labels = {key, str(identity)}
-    # 旧显示名目录只作一次性迁移源。先发布新副本，再清空旧记录；失败可重试。
-    if identity.model_id and not provider:
-        import model_pool
-        records = model_pool.pool(program=Path(__file__).resolve().parent)
-        locations = records.get(identity.model_id, {}).get('history_locations', [])
-        legacy_labels.update(entry['label'] for entry in locations)
-        old_paths = [model_history_path(root, str(identity), provider=identity.provider or '未知Provider')]
-        old_paths.extend(model_history_path(root, entry['label'], provider=entry['provider']) for entry in locations)
-        migration_paths = [(old, current) for old in dict.fromkeys(old_paths)]
-        migration_paths.extend((old.with_name('已删除消息.json'), current.with_name('已删除消息.json'))
-                               for old in dict.fromkeys(old_paths))
-        for source, target in migration_paths:
-            legacy = gateway['read_json'](source) if source.is_file() else {}
-            legacy_rows = legacy.get('messages', []) if isinstance(legacy, dict) else []
-            legacy_rows = [row for row in legacy_rows if isinstance(row, dict)]
-            if legacy_rows and source != target:
-                owners = set()
-                for model_id, record in records.items():
-                    candidates = [{'label': record.get('label') or model_id,
-                                   'provider': model_pool.provider_name(model_id, record)}]
-                    candidates.extend(record.get('history_locations') or [])
-                    if any(model_history_path(root, entry['label'], provider=entry['provider']).parent == source.parent
-                           for entry in candidates):
-                        owners.add(model_id)
-                if owners - {identity.model_id}:
-                    raise ValueError('旧历史目录对应多个模型，无法确定归属；原记录已保留，请先核对模型身份。')
-                existing = gateway['read_json'](target) if target.is_file() else {}
-                migrated = list(existing.get('messages', [])) if isinstance(existing, dict) else []
-                for row in legacy_rows:
-                    item = dict(row, model_id=identity.model_id)
-                    if isinstance(item.get('row'), dict):
-                        item['row'] = dict(item['row'], model_id=identity.model_id)
-                    if item not in migrated:
-                        migrated.append(item)
-                gateway['publish_json'](target, {'version': 2, 'model_id': identity.model_id, 'messages': migrated})
-                gateway['publish_json'](source, {'version': 2, 'migrated_to': str(target.relative_to(_context(root).root)), 'messages': []})
-    rows = _read_rows(current, gateway)
-    if rows or current.exists():
-        return rows
-    # 历史版本把所有模型写进一份根目录 JSON；首次切到模型页时只导入它自己的
-    # 记录，避免不同 Provider 的聊天页再度串线。
-    legacy = _read_rows(history_path(root), gateway)
-    selected = [row for row in legacy if (row.get('model_id') == identity.model_id
-                if row.get('model_id') and identity.model_id else str(row.get('model') or '') in legacy_labels)]
-    if not selected and legacy and not any(str(row.get('model') or '').strip() for row in legacy):
-        selected = legacy
-    if selected:
-        # 导入是迁移而不是复制：保留未属于当前模型的旧记录，移除已迁入部分，
-        # 防止无模型读取时重新显示已删除／已编辑的旧副本。
-        selected_fingerprints = {json.dumps(row, ensure_ascii=False, sort_keys=True) for row in selected}
-        remaining = [row for row in legacy
-                     if json.dumps(row, ensure_ascii=False, sort_keys=True) not in selected_fingerprints]
-        save_rows(root, selected, model=identity, provider=provider, gateway=gateway)
-        if remaining != legacy:
-            save_rows(root, remaining, gateway=gateway)
-    return selected
+    _merge_legacy_model_files(root, gateway)
+    return _read_rows(history_path(root), gateway)
 
 
 def load(root, model=None, *, gateway=None):
@@ -320,8 +264,9 @@ def save_rows(root, rows, model=None, provider='', *, gateway=None):
     gateway = _require_gateway(gateway)
     identity = chat_model(model) if str(model or '').strip() else None
     if identity is not None and identity.model_id:
+        # 单一创意对话目录里 ``model`` 为空的行归属不明，不能再按"本文件属于该模型"补写 model_id。
         rows = [dict(row, model_id=identity.model_id)
-                if not row.get('model_id') and str(row.get('model') or '') in ('', str(identity), identity.model_id)
+                if not row.get('model_id') and str(row.get('model') or '') in (str(identity), identity.model_id)
                 else dict(row) for row in rows]
     path = model_history_path(root, model, provider=provider) if str(model or '').strip() else history_path(root)
     gateway['publish_json'](path, {'version': 1, 'messages': rows})
@@ -502,15 +447,60 @@ def remove_all(root, model, *, gateway=None):
     # 先清旧版改名残留里署名为该模型的记录（不然清空后标签仍在、记录从残留里重新显示）：
     # 备份全部进回收站才改写，失败就整体中止，本模型文件此时还没动。
     label = str(model).strip()
-    stripped = _drop_rows(root, lambda item: str(item.get('model') or '').strip() == label, gateway=gateway,
-                          skip=(model_history_path(root, model),), backup=recycle)
+    own_path = model_history_path(root, model)
+    identity = chat_model(model)
+
+    def _mine(item):
+        """与 ``_row_indexes`` 同口径：优先稳定 model_id，否则按显示名／调用名匹配。"""
+        if not isinstance(item, dict):
+            return False
+        if item.get('model_id') and identity.model_id:
+            return item.get('model_id') == identity.model_id
+        return str(item.get('model') or '').strip() in (label, str(identity))
+
+    # 单一创意对话目录落地后，旧目录残留下多是已迁移进统一文件的同一批消息：
+    # 只有统一文件里没有的残留才算额外删除，否则同一条消息会被数两遍。
+    seen = {json.dumps(row, ensure_ascii=False, sort_keys=True) for row in rows}
+    extra = 0
+    for path in _chat_files(root):
+        if path == own_path:
+            continue
+        try:
+            data = gateway['read_json'](path)
+        except (OSError, ValueError):
+            continue
+        items = data.get('messages') if isinstance(data, dict) else data
+        if not isinstance(items, list):
+            continue
+        extra += sum(1 for item in items if _mine(item)
+                     and json.dumps(item, ensure_ascii=False, sort_keys=True) not in seen)
+    _drop_rows(root, _mine, gateway=gateway, skip=(own_path,), backup=recycle)
     legacy = _read_rows(legacy_path, gateway)
     selected = set(_row_indexes(legacy, model))
     remaining = [row for index, row in enumerate(legacy) if index not in selected]
-    paths = [model_history_path(root, model), deleted_history_path(root, model=model)]
-    if selected:
-        paths.append(legacy_path)
-    paths = [path for path in paths if path.is_file()]
+    # 统一文件混放所有模型：只有本模型确有行可删时才整文件回收（回收后按 remaining 重写
+    # 其他模型的行）；本模型在统一文件里没有行时不能碰它，否则别家对话会被一起删掉。
+    paths = [own_path] if selected else []
+    # 最近删除记录同样跨模型混在统一文件里：只摘除本模型的记录，其他模型的保留；
+    # 全部记录都属本模型时才连文件一起回收（对齐旧版按模型分文件的口径）。
+    trash = deleted_history_path(root, model=model)
+    kept_records = None
+    try:
+        history = gateway['read_json'](trash) if trash.is_file() else {}
+    except (OSError, ValueError):
+        history = {}
+    records = history.get('messages') if isinstance(history, dict) else []
+    records = records if isinstance(records, list) else []
+    kept = [record for record in records if not (
+        isinstance(record, dict) and (
+            (record.get('model_id') == identity.model_id)
+            if record.get('model_id') and identity.model_id
+            else str(record.get('model') or '').strip() in (label, str(identity))))]
+    if len(kept) != len(records):
+        if kept:
+            kept_records = kept
+        elif trash.is_file():
+            paths.append(trash)
     if paths:
         try:
             recycle(_context(root).root, paths, '删除全部聊天信息')
@@ -519,7 +509,9 @@ def remove_all(root, model, *, gateway=None):
         finally:
             if selected and remaining and not legacy_path.exists():
                 save_rows(root, remaining, gateway=gateway)
-    return len(rows) + stripped
+    if kept_records is not None:
+        gateway['publish_json'](trash, {'version': 1, 'messages': kept_records})
+    return len(rows) + extra
 
 
 def restore_latest_removed(root, model=None, *, gateway=None):

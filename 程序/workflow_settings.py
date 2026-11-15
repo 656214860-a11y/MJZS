@@ -1,6 +1,5 @@
 """Project-scoped engine profiles for the white-model production entry."""
 import app_logging
-import copy
 import os
 import re
 import shutil
@@ -39,66 +38,6 @@ FLOW_SKILLS={
 }
 STAGE_CONFIG_STAGES={'writing':'script','storyboard':'storyboard','assets':'assets','frames':'keyframe',
                      'previs':'previs','video_prompt':'video','audio':'audio'}
-BUILTIN_WORKFLOW_PRESETS={'AIGC全流程': {
-    'package': 'skills/00全流程SKILL/AIGC创作全流程/short-drama-director/SKILL.md',
-    'stage_skills': {'script':['pipeline-script-preparation'], 'script_structure':['pipeline-script-structure'],
-        'storyboard':['pipeline-storyboard-draft'], 'assets':['pipeline-assets'], 'continuity':['pipeline-continuity'],
-        'final':['pipeline-storyboard-final'], 'keyframe':['pipeline-keyframe'], 'previs':['pipeline-previs'],
-        'video':['pipeline-video-generation'], 'audio':['pipeline-audio-subtitle'], 'edit':['pipeline-editing'],
-        'delivery':['pipeline-delivery']},
-    'locks': list(PRODUCTION_LOCK_DEFINITIONS),
-}}
-MASTER_MANIFEST=Path(__file__).resolve().parent/'skills'/'00全流程SKILL'/'总控.json'
-WORKFLOW_PRESETS={}
-MASTER_MANIFEST_PROBLEMS=[]
-_MASTER_MANIFEST_STAMP={'value': object()}
-def _manifest_presets(data):
-    """把总控清单转成预设表；锁键换成契约定义，未知键与非法项记为问题而不是静默丢弃。"""
-    problems=[]
-    rows=data.get('presets') if isinstance(data,dict) else None
-    if not isinstance(rows,dict) or not rows:
-        return {},['总控清单缺少 presets']
-    definitions={item['key']:item for item in PRODUCTION_LOCK_DEFINITIONS}
-    out={}
-    for name,row in rows.items():
-        if not isinstance(row,dict) or not str(row.get('package') or '').strip():
-            problems.append('总控「%s」缺少 package' % name);continue
-        stages=row.get('stage_skills')
-        if not isinstance(stages,dict):
-            problems.append('总控「%s」的 stage_skills 不是表' % name);continue
-        keys=row.get('locks')
-        keys=list(definitions) if keys is None else [str(key) for key in keys]
-        unknown=[key for key in keys if key not in definitions]
-        if unknown:problems.append('总控「%s」有未登记的制作锁：%s' % (name,'、'.join(unknown)))
-        out[str(name)]={'package':str(row['package']),
-                        'stage_skills':{str(stage):[str(item) for item in (items or ())]
-                                        for stage,items in stages.items()},
-                        'locks':[definitions[key] for key in keys if key in definitions]}
-    return out,problems
-def refresh_workflow_presets(force=False):
-    """按总控清单刷新 WORKFLOW_PRESETS；文件没变就什么都不做。返回当前预设表。"""
-    try:
-        stat=MASTER_MANIFEST.stat();stamp=(stat.st_mtime_ns,stat.st_size)
-    except OSError:
-        stamp=None
-    if not force and stamp==_MASTER_MANIFEST_STAMP['value']:
-        return WORKFLOW_PRESETS
-    _MASTER_MANIFEST_STAMP['value']=stamp
-    presets,problems=({},['总控清单不存在：%s' % MASTER_MANIFEST]) if stamp is None else ({},[])
-    if stamp is not None:
-        try:
-            data=read_json(MASTER_MANIFEST)
-        except (OSError,UnicodeError,ValueError) as exc:
-            problems=['总控清单读不出：%s' % exc]
-        else:
-            presets,problems=_manifest_presets(data)
-    if not presets:
-        presets=copy.deepcopy(BUILTIN_WORKFLOW_PRESETS)
-        problems.append('已改用出厂内置总控')
-    WORKFLOW_PRESETS.clear();WORKFLOW_PRESETS.update(presets)
-    MASTER_MANIFEST_PROBLEMS[:]=problems
-    return WORKFLOW_PRESETS
-refresh_workflow_presets(force=True)
 _DESKTOP_INSTALLATION_CACHE={}
 _STAGE_OUTPUT_CONTRACTS={
     'writing': ('\n\n【剧本准备阶段输出契约（最高优先级）】\n'
@@ -476,18 +415,12 @@ def current(project,stage='previs', *, direct_api=False, model_snapshot=None):
     model,api=(selected, {}) if direct_api else (stage_model(project,stage) if engine=='qwen' else ('',''))
     if model:profile['model']=model
     if api:profile['api']=api
-    workflow = stage_config.current_workflow(project)
     locks = stage_config.workflow_lock(project)
     profile['project_created_at'] = stage_config.project_created_at(project)
     if locks:
         profile['workflow_lock'] = locks
     profile.update(edit_habits.config_fields(stage))  # REQ-S01-61：建配置时读一次已采用的修改习惯
     if stage == 'writing': profile['writer_style'] = stage_config.writer_style(project, 'script')
-    name = str(workflow.get('name') or '').strip()
-    preset = refresh_workflow_presets().get(name, {})
-    if preset:
-        profile['workflow_name'] = name
-        profile['workflow_skill_prompt'] = '按当前阶段需要，只读取总控 SKILL 中与本阶段交付相关的章节，不全文加载总控 SKILL 及无关 reference：' + str(preset['package'])
     try:
         import skill_registry
         reg = skill_registry.default_registry()
@@ -780,40 +713,6 @@ def _skill_blocks(path, *, strict, locks=None, depth=0, budget=None):
         else:
             closure.extend(_nested_references(reference, body, seen, roots))
     return text, meta, blocks, closure
-def master_gate(config, stage=None, check_references=True):
-    """总控门禁（见 master_skill 模块说明）：返回阻断原因，空串＝放行；手动与自动路径共用。"""
-    name = str(config.get('workflow_name') or '').strip()
-    if not name:
-        return ''
-    stage = lock_stage(stage if stage is not None else config.get('stage'))
-    reasons = []
-    from contract.script_contract import stage_lock_requirements
-    required_keys = stage_lock_requirements(stage, config.get('project_created_at'))
-    if stage == 'script':
-        required_keys = tuple(key for key in required_keys if key != 'delivery_format')
-    if required_keys:
-        preset = WORKFLOW_PRESETS.get(name, {})
-        declared = {item['key']: item.get('label') or item['key'] for item in preset.get('locks') or ()}
-        locks = config.get('workflow_lock') or {}
-        missing = [declared[key] for key in required_keys
-                   if key in declared and not str(locks.get(key) or '').strip()]
-        if missing:
-            reasons.append('本阶段必填制作锁未填：' + '、'.join(missing)
-                           + '（在阶段配置的总控栏或 01 剧本准备发送框补齐）')
-    config['workflow_lock_warnings'] = [item['label'] + '未选（旧项目兼容，不阻断）'
-        for item in PRODUCTION_LOCK_DEFINITIONS if stage == 'script' and item.get('required_from')
-        and item['key'] not in required_keys and not (config.get('workflow_lock') or {}).get(item['key'])]
-    if check_references:
-        for item in [*(config.get('stage_skills') or ()), *skills_of(config)]:
-            if not item:
-                continue
-            try:
-                _skill_blocks(item, strict=True)
-            except (OSError, UnicodeError, ValueError) as exc:
-                reasons.append(str(exc))
-    if not reasons:
-        return ''
-    return '总控门禁已阻断：' + '；'.join(reasons)
 def _inline_skill_report(path, *, cap=REQUEST_CONTEXT_MAX_CHARS, strict=False, locks=None, depth=0, budget=None):
     """内联技能正文，并给出「实际加载了什么」的引用闭包，供请求快照留凭据。"""
     from html import escape
@@ -836,9 +735,6 @@ def freeze_skills(config):
     frozen = deepcopy(config)
     if 'frozen_skill_prompt' in frozen:
         return frozen
-    blocked = master_gate(frozen, check_references=False)
-    if blocked:
-        raise ValueError(blocked)
     selected, loaded, bodies, references, seen = [], [], [], [], set()
     budget = _skill_inline_budget(frozen)
     for item in [*(frozen.get('stage_skills') or ()), *skills_of(frozen)]:
@@ -903,9 +799,6 @@ def skill_prompt(config, stage=None, inline=False):
                      and production_lock_active(definitions.get(key, {}), locks))
     if header:
         header += '以项目锁定值为准，不要再向用户弹问这些锁。\n'
-    coordinator = str(config.get('workflow_skill_prompt') or '')
-    if coordinator and not coordinator.endswith('\n'):
-        coordinator += '\n'
     items = [*(config.get('stage_skills') or ()), *skills_of(config)]
     prompts, seen = [], set()
     for item in items:
@@ -916,7 +809,7 @@ def skill_prompt(config, stage=None, inline=False):
             continue
         seen.add(identity)
         prompts.append(_one_skill_prompt(config, item, inline=inline))
-    return header + coordinator + ''.join(prompts)
+    return header + ''.join(prompts)
 def _one_skill_prompt(config,skill,inline=False):
     if not skill:return ''
     if inline:

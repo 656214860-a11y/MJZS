@@ -7,6 +7,7 @@ from unittest import mock
 import codex_skill_sync
 import skill_import_service
 import skill_panel
+import skill_panel_import
 import skill_registry
 import workflow_settings
 from agent.core import save
@@ -76,8 +77,8 @@ class UserImportTests(UserLayerTestCase):
         before = builtin.read_bytes()
         source = write_skill(self.base / 'download', 'lead', display='用户版')
         panel = self.panel(self.registry())
-        with mock.patch.object(skill_panel, 'FileDialog') as dialog, \
-                mock.patch.object(skill_panel, 'confirm', return_value=True) as confirm:
+        with mock.patch.object(skill_panel_import, 'FileDialog') as dialog, \
+                mock.patch.object(skill_panel_import, 'confirm', return_value=True) as confirm:
             dialog.return_value.open_file.return_value = str(source)
             result = skill_panel.Panel.add_skill_from_file(panel)
         self.assertEqual(result, self.user / STAGE_DIR / 'lead.skill.md')
@@ -92,8 +93,8 @@ class UserImportTests(UserLayerTestCase):
         write_skill(self.user / '02剧本结构SKILL', 'lead')
         source = write_skill(self.base / 'download', 'lead')
         panel = self.panel(self.registry())
-        with mock.patch.object(skill_panel, 'FileDialog') as dialog, \
-                mock.patch.object(skill_panel, 'confirm', return_value=True) as confirm:
+        with mock.patch.object(skill_panel_import, 'FileDialog') as dialog, \
+                mock.patch.object(skill_panel_import, 'confirm', return_value=True) as confirm:
             dialog.return_value.open_file.return_value = str(source)
             result = skill_panel.Panel.add_skill_from_file(panel)
         self.assertIsNone(result)

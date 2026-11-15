@@ -66,11 +66,11 @@ PARAM_CAPS = {
 }
 CLASS_CAPS = {
     ('pet_cloud.py', 'Cloud'): 1108,
-    ('desktop_idea_chat.py', 'IdeaChatMixin'): 650,  # R2505：附件聚簇迁到 desktop_idea_attachments.IdeaAttachmentsMixin 后 769→665；R2519 收口实测 635，登记 650
+    ('desktop_idea_chat.py', 'IdeaChatMixin'): 645,  # R2862：receive_brief 去掉 configured_locks 透传后实测 630，登记 645
     ('app.py', 'App'): 1388,
     ('desktop.py', 'Desktop'): 836,
-    ('skill_panel.py', 'Panel'): 923,
-    ('pet_ui_stages.py', 'PetStagesMixin'): 1186,
+    ('skill_panel.py', 'Panel'): 683,  # R2881：导入动作拆到 skill_panel_import.PanelImportMixin 后实测 668，登记 683
+    ('pet_ui_stages.py', 'PetStagesMixin'): 1182,  # R2909：询问助手下沉 PetPopupMixin 后实测 1167，登记 1182
     ('pet_ui_voice.py', 'PetVoiceMixin'): 1119,
     ('desktop_media_pages.py', 'MediaPagesMixin'): 890,
     ('pet_ui_view.py', 'PetViewMixin'): 746,  # R2876：猫爪列布局四法迁 PetPatchLayoutMixin 后 832→731，登记 746
