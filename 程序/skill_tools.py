@@ -199,7 +199,7 @@ def _recon_target(context, project, material_source):
 
 def _recon_card(context):
     """素材采风：③④ 才激活；把对标对象的公开情报抓回来装成《对标情报卡》。"""
-    from recon_service import MATERIAL_SOURCES, collect, save_card, summary
+    from recon_service import MATERIAL_SOURCES, ReconPorts, collect, save_card, summary
     import stage_config
     ctx = context or {}
     project = project_of(ctx)
@@ -212,9 +212,9 @@ def _recon_card(context):
     if not target:
         raise ToolNeedsInput('采风需要先给出对标对象：在阶段配置选对标爆款并写明剧名，'
                              '或在阶段 input/recon_request.json 里写下 name／topic')
-    card = collect(target, material_source, transport=ctx.get('transport'),
-                   headers=ctx.get('headers'), pause=ctx.get('pause'),
-                   program=ctx.get('program'))
+    card = collect(target, material_source, ports=ReconPorts(
+        transport=ctx.get('transport'), headers=ctx.get('headers'),
+        pause=ctx.get('pause'), program=ctx.get('program')))
     saved = save_card(project, card, save=ctx.get('save'), save_text=ctx.get('save_text'))
     if not saved.ok:
         # 原来 save_card 抛 ValueError，本工具不拦，交给编排器记失败／页面报错；

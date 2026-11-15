@@ -18,7 +18,6 @@ CLASS_SLACK = 15
 NESTING_CAPS = {
 }
 PARAM_CAPS = {
-    ('recon_service.py', 'run'): 13,
     ('ui_widgets.py', '_configure_button'): 14,
     ('animatic_service.py', 'build_bundle'): 12,
     ('app.py', '__init__'): 11,
@@ -32,7 +31,6 @@ PARAM_CAPS = {
     ('native_assets.py', 'attach_controls'): 10,
     ('pet_llm.py', '_attempt'): 10,
     ('pet_report.py', 'gather'): 10,
-    ('recon_service.py', 'collect'): 10,
     ('skill_orchestrator.py', '__init__'): 10,
     ('tts_api.py', 'run_lines'): 10,
     ('ui_widgets.py', '__init__'): 10,
@@ -59,8 +57,6 @@ PARAM_CAPS = {
     ('pet_chat_coordinator.py', '__init__'): 8,
     ('request_ledger.py', 'settle'): 8,
     ('previs_automation.py', 'start'): 8,
-    ('recon_service.py', '_fetch_all'): 8,
-    ('recon_service.py', '_search_all'): 8,
     ('reference_wall.py', 'show'): 8,
     ('skill_orchestrator.py', 'run_stage_with_template'): 8,
     ('workflow_context_budget.py', 'prepare_request_context'): 8,

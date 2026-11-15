@@ -49,6 +49,47 @@ def model_error_display(result, default='未收到模型回复'):
     if kind in ('network', 'server'):
         return '模型暂时无法响应，请稍后重试', True
     return '系统内部错误，已记录日志', True
+def _row_signature(row):
+    return json.dumps({k:v for k,v in row.items() if k!='context_compacted'},sort_keys=True,ensure_ascii=False)
+def _visible_rows(rows, hidden):
+    """按本次要隐藏的消息预算过滤历史行；签名相同的行逐条抵消。"""
+    remaining=hidden.copy() if hidden is not None else {}
+    visible=[]
+    for index,row in enumerate(rows):
+        if remaining:
+            signature=_row_signature(row)
+            if remaining.get(signature,0):
+                remaining[signature]-=1
+                continue
+        visible.append((index,row))
+    return visible
+def _brief_field_factory(label, definitions):
+    """补充创作信息弹窗的字段控件：有 options 的下拉可输入可点选，其余为文字输入。"""
+    lock_options = next((item['options'] for item in definitions
+                         if label in (item['label'], *item.get('aliases', ()), item['key']) and item.get('options')),
+                        None)
+    if label in IDEA_BRIEF_DROPDOWN_VALUES or lock_options:
+        values = IDEA_BRIEF_DROPDOWN_VALUES.get(label) or tuple(lock_options)
+        return lambda field: SelectBox(field, values=values, state='normal',
+                                       width=STAGE_PANEL_LAYOUT['select_width'])
+    return lambda field: TextArea(field, height=1,
+                                  width=STAGE_PANEL_LAYOUT['text_width'],
+                                  pady=STAGE_PANEL_LAYOUT['text_pady'], wrap='word')
+def _entry_text(entry):
+    return entry.get('1.0', 'end-1c') if isinstance(entry, tk.Text) else entry.get()
+def _append_in_batches(rows, *, alive, later, idle, add, finish):
+    """长记录按空闲批次插入（每批 8 条），视图失效即停，不阻塞剧本页首帧。"""
+    cursor=[0]
+    def append_batch():
+        if not alive():return
+        end=min(cursor[0]+8,len(rows))
+        while cursor[0]<end:
+            index,row=rows[cursor[0]]
+            add(index,row);cursor[0]+=1
+        if cursor[0]<len(rows):
+            later(12,append_batch)
+        else:finish()
+    idle(append_batch)
 IDEA_FIELDS=('故事集数','单集时间','故事画风','故事主体','故事梗概','故事题材','故事角色','物理特征','故事分集','特殊要求','内容补充')
 IDEA_BRIEF_DROPDOWN_VALUES = {
     '故事题材': ('都市', '悬疑', '奇幻', '科幻', '仙侠'),
@@ -196,15 +237,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin):
         model=cached[1] if root and isinstance(cached,tuple) else ''
         rows=self.idea_view_rows(root,model,resolving_model)
         hidden=getattr(self,'_idea_hidden_messages',{}).get(self.bubble_view_key(model))
-        remaining=hidden.copy() if hidden is not None else {}
-        visible=[]
-        for index,row in enumerate(rows):
-            if remaining:
-                signature=json.dumps({k:v for k,v in row.items() if k!='context_compacted'},sort_keys=True,ensure_ascii=False)
-                if remaining.get(signature,0):
-                    remaining[signature]-=1
-                    continue
-            visible.append((index,row))
+        visible=_visible_rows(rows, hidden)
         self._clear_bubble_view(box)
         def finish():
             if not alive():return
@@ -229,17 +262,8 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin):
                 except tk.TclError:pass
             idle(lambda: alive() and self._fit_content_now())
         if visible:
-            cursor=[0]
-            def append_batch():
-                if not alive():return
-                end=min(cursor[0]+8,len(visible))
-                while cursor[0]<end:
-                    index,row=visible[cursor[0]]
-                    self.add_bubble(box,row,index);cursor[0]+=1
-                if cursor[0]<len(visible):
-                    later(12,append_batch)
-                else:finish()
-            idle(append_batch)
+            _append_in_batches(visible, alive=alive, later=later, idle=idle,
+                               add=lambda index,row:self.add_bubble(box,row,index), finish=finish)
         else:
             if hidden is None:self.show_example_bubble(loading=resolving_model and self.idea_history_expected())  # R1949：没读到≠没有，有记录就留读取提示等 resume
             finish()
@@ -382,18 +406,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin):
             else:
                 brief_specs.append(label)
         def brief_field_factory(label):
-            # 下拉框字段（题材/集数/时间，以及交付形态等有 options 的锁）可输入可点选；
-            # 其余纯文本字段（故事角色）仍为文字输入，宽度与下拉框统一（text_width 对齐 select_width 像素宽）。
-            lock_options = next((item['options'] for item in PRODUCTION_LOCK_DEFINITIONS
-                                 if label in (item['label'], *item.get('aliases', ()), item['key']) and item.get('options')),
-                                None)
-            if label in IDEA_BRIEF_DROPDOWN_VALUES or lock_options:
-                values = IDEA_BRIEF_DROPDOWN_VALUES.get(label) or tuple(lock_options)
-                return lambda field: SelectBox(field, values=values, state='normal',
-                                               width=STAGE_PANEL_LAYOUT['select_width'])
-            return lambda field: TextArea(field, height=1,
-                                          width=STAGE_PANEL_LAYOUT['text_width'],
-                                          pady=STAGE_PANEL_LAYOUT['text_pady'], wrap='word')
+            return _brief_field_factory(label, PRODUCTION_LOCK_DEFINITIONS)
         dialog.lock_fields = ProductionLockFields(
             dialog.content, definitions=PRODUCTION_LOCK_DEFINITIONS[5:],
             leading=tuple({'key': label, 'label': label, 'factory': brief_field_factory(label)}
@@ -415,8 +428,6 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin):
                 current = str(fields.get(label, '')).strip()
                 if current:
                     entry.set(current)
-        def entry_text(entry):
-            return entry.get('1.0', 'end-1c') if isinstance(entry, tk.Text) else entry.get()
         def save():
             values = dialog.lock_fields.values()
             try:
@@ -427,9 +438,9 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin):
                         old_values = {}
                         for item in PRODUCTION_LOCK_DEFINITIONS[:5]:
                             if item['label'] in dialog.brief_fields:
-                                old_values[item['key']] = entry_text(dialog.brief_fields[item['label']])
+                                old_values[item['key']] = _entry_text(dialog.brief_fields[item['label']])
                         save_writing_production_locks(project, {**old_values, **values})
-                    updated = {label: entry_text(entry)
+                    updated = {label: _entry_text(entry)
                                for label, entry in dialog.brief_fields.items()}
                     updated.update({item['label']: values[item['key']] for item in PRODUCTION_LOCK_DEFINITIONS[5:]})
                     self.fill_idea_brief(updated)
