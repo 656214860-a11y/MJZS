@@ -606,6 +606,9 @@ def preparation_progress(project):
                     confirmed==3 仅表示门禁不适用，与「未开始」区分；
       script —— 自然稿采用状态：'已采用'／'需重新采用'／'待采用'（报告级，
                 完成核验仍以 resolve_script_source 为准）；
+      script_quality —— 采用稿的质检状态表（`writing_quality.REPORTS` 键→status），
+                未生成报告为 None；采用稿质检有 fail/invalid 项时 next_actions
+                指向重新生成或修订后重新采用；
       next_actions —— 按现状推导的下一步动作建议元组。
     """
     from file_cache import read_json
@@ -617,6 +620,7 @@ def preparation_progress(project):
         return {'blocked': '', 'missing': False, 'confirmed': len(PREPARATION_STAGES),
                 'stages': (), 'applicable': False,
                 'script': _script_adoption_state(project),
+                'script_quality': _adopted_script_quality(project),
                 'next_actions': ('完成项目创作信息',)}
     target = folder / 'preparation_state.json'
     try:
@@ -651,6 +655,7 @@ def preparation_progress(project):
         stages.append((stage, True, True))
         confirmed += 1
     script = _script_adoption_state(project)
+    quality = _adopted_script_quality(project) if script == '已采用' else None
     if blocked:
         actions = ('生成「%s」并设为定稿' % blocked if missing
                    else '确认「%s」（右键设为定稿，或聊天回复确认）' % blocked,)
@@ -658,11 +663,14 @@ def preparation_progress(project):
         actions = ('重新生成或明确采用自然剧本',)
     elif script == '待采用':
         actions = ('生成自然剧本并明确采用',)
+    elif quality is not None and any(
+            status in ('fail', 'invalid') for status in quality.values()):
+        actions = ('采用的自然剧本辅助质检未通过，请重新生成或修订后重新采用',)
     else:
         actions = ()
     return {'blocked': blocked, 'missing': missing, 'confirmed': confirmed,
             'stages': tuple(stages), 'applicable': True, 'script': script,
-            'next_actions': actions}
+            'script_quality': quality, 'next_actions': actions}
 
 
 def _script_adoption_state(project):
@@ -680,6 +688,18 @@ def _script_adoption_state(project):
             and (Path(project) / str(record['path'])).is_file()):
         return '已采用'
     return '待采用'
+
+
+def _adopted_script_quality(project):
+    """当前采用稿的质检状态表；无采用稿或未生成报告返回 None（报告级只读）。"""
+    try:
+        from script_contract import resolve_script_source
+        from stage_path_service import write_dir
+        from writing_quality import adopted_quality
+        source = resolve_script_source(project)
+        return adopted_quality(source, write_dir(project, 'script') / 'quality') if source else None
+    except (ImportError, OSError, TypeError, ValueError):
+        return None
 
 
 def completion_evidence(root, stage, video_ready=None):
@@ -707,6 +727,17 @@ def completion_evidence(root, stage, video_ready=None):
             source = (script_contract.resolve_script_source(root) if stage == 'script'
                       else script_contract.structured_script_path(root))
             ok = (source is not None) if stage == 'script' else script_contract.is_structured_script(source)
+            if ok and stage == 'script':
+                # REQ-S01-22：采用稿存在质检报告时，fail/invalid 项硬卡完成核验。
+                from stage_path_service import write_dir
+                from writing_quality import adopted_quality, REPORTS, QUALITY_BLOCKING
+                statuses = adopted_quality(source, write_dir(root, 'script') / 'quality')
+                if statuses is not None:
+                    blocked = [key for key in REPORTS if statuses.get(key) in QUALITY_BLOCKING]
+                    if blocked:
+                        return False, ('采用的自然剧本辅助质检未通过（'
+                                       + '、'.join(REPORTS[key][0] for key in blocked)
+                                       + '）；请重新生成或修订后重新采用')
             if ok and stage == 'script_structure':
                 problems = script_contract.structure_manifest_problems(root, source)  # R2178 J16：与编排器同一判据
                 if problems:

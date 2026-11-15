@@ -46,6 +46,17 @@ def write_natural_script(project):
     return source
 
 
+def write_quality_report(project, source, statuses):
+    """按 publish_reports 的定位规则（路径哈希／正文 sha256）落一份采用稿质检报告。"""
+    digest = hashlib.sha256(source.read_text(encoding='utf-8').strip().encode('utf-8')).hexdigest()
+    identity = hashlib.sha256(str(source.resolve()).encode('utf-8')).hexdigest()[:12]
+    folder = write_dir(project, 'script') / 'quality' / identity / digest
+    folder.mkdir(parents=True, exist_ok=True)
+    for key, status in statuses.items():
+        save(folder / (key + '.json'), {'status': status})
+    return folder
+
+
 class PreparationProgressTests(unittest.TestCase):
     """只读判据：按顺序点出卡住的阶段，并区分缺文件／未确认。"""
 
@@ -198,6 +209,49 @@ class CompletionEvidenceMonitorTests(unittest.TestCase):
             self.project, 'script', '完成', emit)
         self.assertTrue(ok)
         self.assertEqual([kind for kind, _kwargs in events], ['stage.completed'])
+
+    def _confirmed_three(self):
+        _, setting = confirmed(self.project, '项目设定', '项目设定/定稿.md', '# 项目设定\n旧设定\n')
+        _, outline = confirmed(self.project, '剧本大纲', '剧本大纲/大纲.md', '# 剧本大纲\n三幕\n')
+        _, card = confirmed(self.project, '角色卡', '角色卡/卡.md', '# 角色卡\n少年\n')
+        self.write_state([setting, outline, card])
+
+    def test_failed_quality_report_on_adopted_script_blocks_completion(self):
+        """REQ-S01-22：采用稿存在质检报告且含未过项时，阶段完成核验不通过。"""
+        self._confirmed_three()
+        source = write_natural_script(self.project)
+        statuses = {key: 'pass' for key in ('screenplay_gates', 'emotion_curve',
+                                            'dialogue_diagnosis', 'dialogue_speed_check')}
+        statuses['emotion_curve'] = 'fail'
+        write_quality_report(self.project, source, statuses)
+        ok, detail = stage_completion_service.completion_evidence(self.project, 'script')
+        self.assertFalse(ok)
+        self.assertIn('质检', detail)
+        progress = stage_completion_service.preparation_progress(self.project)
+        self.assertEqual(progress['script'], '已采用')
+        self.assertEqual(progress['script_quality']['emotion_curve'], 'fail')
+        self.assertIn('质检', progress['next_actions'][0])
+
+    def test_passed_quality_report_keeps_completion_and_reports_status(self):
+        """REQ-S01-22：采用稿质检全过 → 完成核验通过；无报告的手动采用稿不受限。"""
+        self._confirmed_three()
+        source = write_natural_script(self.project)
+        statuses = {key: 'pass' for key in ('screenplay_gates', 'emotion_curve',
+                                            'dialogue_diagnosis', 'dialogue_speed_check')}
+        write_quality_report(self.project, source, statuses)
+        ok, _detail = stage_completion_service.completion_evidence(self.project, 'script')
+        self.assertTrue(ok)
+        progress = stage_completion_service.preparation_progress(self.project)
+        self.assertEqual(progress['script_quality']['screenplay_gates'], 'pass')
+        # 手动采用稿没有质检报告：完成核验不受限，script_quality 为 None。
+        second = tempfile.TemporaryDirectory()
+        self.addCleanup(second.cleanup)
+        other = make_project(second.name)
+        stage_config.put(other, 'script', model='gpt-4o')
+        write_natural_script(other)
+        ok, _detail = stage_completion_service.completion_evidence(other, 'script')
+        self.assertTrue(ok)
+        self.assertIsNone(stage_completion_service.preparation_progress(other)['script_quality'])
 
 
 class EmptyProjectBehaviorTests(unittest.TestCase):

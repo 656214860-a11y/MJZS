@@ -579,10 +579,10 @@ _PREPARATION_REWRITE = re.compile(
     + r')\s*(?:阶段)?\s*(?:要|需要|需|得|全部|整个|从头)?\s*'
     + r'(?:推翻|推倒|重写|重做|重来|重新写|重新创作|重新生成|重新输出)'
     + r'\s*(?:一遍|一次|重来|重新来)?')
+# REQ-S01-12：回退重写的二次确认只认明确词，与询问文案「回复“确认”即从该阶段重写」
+# 一致；随口应答（好／继续／ok 等）按保持现状处理。阶段推进不依赖本表，由模型按语义判断。
 _PREPARATION_AFFIRMATIVE = frozenset(
-    word.casefold() for word in ('确认', '确定', '是', '是的', '对', '对的',
-                                 '好', '好的', '可以', '继续', '同意',
-                                 '执行', '确认重写', 'yes', 'y', 'ok'))
+    word.casefold() for word in ('确认', '确定', '确认重写', '重写', 'yes'))
 
 
 def _preparation_stage_alias(text):

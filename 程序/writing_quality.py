@@ -153,6 +153,36 @@ def publish_reports(response, script_path, quality_root, *, publish):
                         quality_report_path=str(report_path), quality_statuses=statuses))
 
 
+def adopted_quality(script_path, quality_root):
+    """定位采用稿正文对应的辅助质检状态表；未生成报告返回 None。
+
+    定位口径与 ``publish_reports`` 一致：``sha256(脚本路径)[:12] / sha256(正文)``。
+    手动添加、下载收回或未启用质检的采用稿没有报告，返回 None 由调用方按
+    「不适用」处理（REQ-S01-22：有报告才门禁，missing／incomplete 不硬卡）。"""
+    try:
+        body = Path(script_path).read_text(encoding='utf-8').strip()
+    except OSError:
+        return None
+    if not body:
+        return None
+    digest = hashlib.sha256(body.encode('utf-8')).hexdigest()
+    identity = hashlib.sha256(str(Path(script_path).resolve()).encode('utf-8')).hexdigest()[:12]
+    folder = Path(quality_root) / identity / digest
+    if not folder.is_dir():
+        return None
+    statuses = {}
+    for key in REPORTS:
+        path = folder / (key + '.json')
+        try:
+            statuses[key] = str(json.loads(path.read_text(encoding='utf-8')).get('status') or 'invalid')
+        except (OSError, ValueError):
+            statuses[key] = 'invalid'
+    return statuses
+
+
+QUALITY_BLOCKING = ('fail', 'invalid')
+
+
 def list_reports(quality_root):
     """列出质检目录下全部报告，按修改时间倒序，供「质检报告」按钮快速定位。
 

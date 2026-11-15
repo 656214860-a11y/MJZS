@@ -73,6 +73,37 @@ class WritingRestartIntentTests(unittest.TestCase):
         self.assertEqual([doc['stage'] for doc in state['revision']['documents']], ['\u9879\u76ee\u8bbe\u5b9a'])
         self.assertFalse(state['revision']['documents'][-1]['confirmed'])
 
+    def test_casual_reply_keeps_status_quo_and_clears_pending_restart(self):
+        """REQ-S01-12：二次确认只认明确词；「好的」「继续」「ok」属保持现状。"""
+        from copy import deepcopy
+        for word in ('好的', '继续', 'ok'):
+            with self.subTest(word=word):
+                save(self.target, deepcopy(self.original))
+                asked = writing_api.reply(self.project, '回到设定阶段重新写',
+                                          publish=publish_stage_text)
+                self.assertEqual(self.state()['pending_restart']['stage'], '项目设定')
+                with patch('writing_api.PoolAdapter.chat', return_value={
+                        'ok': True, 'text': '# 项目设定\n新版本：雨夜寻找失踪的姐姐。\n待确认'}):
+                    result = writing_api.reply(self.project, word, publish=publish_stage_text)
+                self.assertTrue(result['ok'])
+                state = self.state()
+                self.assertNotIn('pending_restart', state)
+                self.assertNotIn('revision', state)
+                self.assertEqual(state['documents'], self.original['documents'])
+
+        save(self.target, deepcopy(self.original))
+        asked = writing_api.reply(self.project, '回到设定阶段重新写',
+                                  publish=publish_stage_text)
+        self.assertEqual(self.state()['pending_restart']['stage'], '项目设定')
+        with patch('writing_api.PoolAdapter.chat', return_value={
+                'ok': True, 'text': '# 项目设定\n新版本：雨夜寻找失踪的姐姐。\n待确认'}) as chat:
+            result = writing_api.reply(self.project, '确认', publish=publish_stage_text)
+        self.assertTrue(chat.called)
+        self.assertTrue(result['ok'])
+        state = self.state()
+        self.assertNotIn('pending_restart', state)
+        self.assertIn('revision', state)
+
     def test_rollback_not_run_without_confirmation(self):
         state = self.state()
         state['documents'] = state['documents'][:2]
