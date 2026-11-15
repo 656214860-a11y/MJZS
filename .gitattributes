@@ -27,3 +27,4 @@
 *.wav binary
 *.mp4 binary
 *.mov binary
+程序/维护记录/基准脚本/server_hooks/* text eol=lf

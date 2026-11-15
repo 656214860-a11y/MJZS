@@ -92,11 +92,11 @@ LAYER_BASELINE_NAME = os.path.join('维护记录', '测试分层基线.json')
 FULL_SAFE_TREE_TTL = timedelta(days=7)
 # 全量欠账按「改过源码的轮次」计数：纯文档／测试／维护记录轮不计。满 INTERVAL 个才拦，
 # 提前 AUTO_LEAD 个由后台干净副本自动补跑（scripts/auto_full_safe.py），凭据先于门禁落地。
-FULL_SAFE_ROUND_INTERVAL = 8
+FULL_SAFE_ROUND_INTERVAL = 5
 FULL_SAFE_AUTO_LEAD = 2
 # 风险路径（启动入口／删除语义／层级表）改动：后台立即补跑，但门禁给宽限——其后再积累这么多个源码轮次
 # 仍没有凭据才报红；连续几轮改启动文件会合并成一次全量，而不是每轮一次。
-FULL_SAFE_RISK_GRACE = 3
+FULL_SAFE_RISK_GRACE = 2
 AUTO_FULL_LOCK_NAME = 'auto-full-safe.lock'
 AUTO_FULL_STALE_SECONDS = 3 * 3600
 NON_SOURCE_DIRS = ('tests/', 'tasks_round/', '维护记录/', '说明/', 'logs/')

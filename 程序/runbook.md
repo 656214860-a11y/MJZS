@@ -40,7 +40,7 @@
 
 ## 4. 全量欠账与绿色凭据
 
-- 规则：主干提交序列里累计 **8 个改过源码的轮次**要求一次完整安全全量；启动入口、
+- 规则：主干提交序列里累计 **5 个改过源码的轮次**（R2538 起，原 8；批次 3 基线显示 7 天内被修复的轮次比例约 69%，欠账越长返工越难定位）要求一次完整安全全量；启动入口、
   `storage_maintenance.py`、`tests/architecture/_layers.py` 属风险路径，另有宽限计数（权威阈值在 `run_selftests`）。
 - 凭据：`.git/full-safe-receipts.json`（同一 `HEAD:程序` 内容树 7 日内可复用）。补跑由 post-commit 触发，
   日志 `程序\logs\auto_full_safe.log`，结果 `.git/auto-full-safe-result.json`。
@@ -48,7 +48,7 @@
 
 ### 详细口径（自 AGENTS §5 迁入）
 
-**全量欠账口径（R1439，用户批准）**：唯一实现是 `run_selftests.FULL_SAFE_ROUND_INTERVAL`（8）、`source_rounds_since()`、`full_safe_required()`。只数 `last_full_safe_all_round` 之后、提交标题为 `R<n>:`／`R<n>-FAIL:` 且改过源码的轮次；纯文档、测试、`tasks_round/`、`维护记录/`、`说明/` 的轮次不计（`skills/` 下的 md 是 SKILL 源，计入）；读不出 git 历史时退回按全部轮次计。本节所列风险触发不受阈值影响：启动入口（`启动漫剧制作助手.pyw`／`开发者工具/启动助手.cmd`）、`storage_maintenance.py`（删除语义）、`tests/architecture/_layers.py`（层级登记表）由 `has_risk_change()` 按路径自动判定，任一轮改过就**立即触发后台补跑**，但门禁有宽限（`FULL_SAFE_RISK_GRACE`＝3）：自最早一次风险改动之后再积累 3 个源码轮次仍无凭据才报红，连续几轮改启动文件合并成一次全量（`risk_overdue()`）；Tk 控件生命周期（销毁／重建）无法静态判定，仍由执行者人工判断并手动跑全量；仅替换 `desktop.py` 注入点且未改变控件生命周期不单独触发全量。
+**全量欠账口径（R1439，用户批准）**：唯一实现是 `run_selftests.FULL_SAFE_ROUND_INTERVAL`（5）、`source_rounds_since()`、`full_safe_required()`。只数 `last_full_safe_all_round` 之后、提交标题为 `R<n>:`／`R<n>-FAIL:` 且改过源码的轮次；纯文档、测试、`tasks_round/`、`维护记录/`、`说明/` 的轮次不计（`skills/` 下的 md 是 SKILL 源，计入）；读不出 git 历史时退回按全部轮次计。本节所列风险触发不受阈值影响：启动入口（`启动漫剧制作助手.pyw`／`开发者工具/启动助手.cmd`）、`storage_maintenance.py`（删除语义）、`tests/architecture/_layers.py`（层级登记表）由 `has_risk_change()` 按路径自动判定，任一轮改过就**立即触发后台补跑**，但门禁有宽限（`FULL_SAFE_RISK_GRACE`＝2）：自最早一次风险改动之后再积累 2 个源码轮次仍无凭据才报红，连续几轮改启动文件合并成一次全量（`risk_overdue()`）；Tk 控件生命周期（销毁／重建）无法静态判定，仍由执行者人工判断并手动跑全量；仅替换 `desktop.py` 注入点且未改变控件生命周期不单独触发全量。
 
 **后台自动补跑**（带防抖）：欠账达到门禁线前 `FULL_SAFE_AUTO_LEAD`（2）个源码轮次，master 的 git post-commit 钩子（`维护记录/基准脚本/hooks/post-commit`，由 `install_git_hooks.py` 安装）调用 `scripts/auto_full_safe.py --spawn`，先起一个后台等待者（`--wait-run`，同一时刻只有一个）：等「安静」15 分钟（期间每有新提交就重新计时）再跑一次，连续拆分系列的 N 轮只补跑 1 次；欠账已让门禁报红或等满 60 分钟则立即跑。跑时在根目录 `.wt/ci` 干净分离检出上后台跑 `--all --safe`，绿凭据写入 common-dir 的 `full-safe-receipts.json`，日志在 `程序/logs/auto_full_safe.log`。钩子失败或已有同类任务在跑都静默跳过，不阻塞提交；后台运行期间（`auto_full_running()`）架构门禁不报「欠全量」，手动 `--all --safe` 也会被拒绝并提示等待（`--force` 可强制）——**欠账红灯出现时不要立刻手动跑全量，先看后台是否已在补跑**；`scripts/auto_full_safe.py --status` 查看欠账。后台全量红了不会自动改任何文件，按 §8 失败处置人工接续；**红后冷却**（R1781，`RED_COOLDOWN_SECONDS`＝4 小时）：上次后台全量是真红时，同一 HEAD 不再自动重跑，换了 HEAD 也要等冷却期过去才补跑，只有门禁已因欠账报红才越过时间冷却，避免红着不修时每次提交都白跑约 16 分钟，`--status` 显示「红后冷却」；结果写入 common-dir 的 `auto-full-safe-result.json`，post-commit 钩子每次提交先跑 `--notice`，上次未通过就在提交输出里打印红的测试文件与日志路径，`--status` 也会显示。`round_claim.py next` 领号时会自检 git 钩子，缺失或与版本受控源不一致就自动安装，新克隆无需手工装钩子。
 
@@ -87,6 +87,8 @@
 | Claude Desktop / Codex / Claude Code 命令行 | 可选（手动发送与命令行模型） | `workflow_settings.find_program` | 对应入口不出现 | `environment_check.check_desktop_programs` |
 | Qwen Code | 可选 | 安装记录在 `安装信息.json`（`qwen` 字段） | 对应适配不可用 | `安装信息.json`、`qwen_adapter` |
 | 模型密钥（网络服务） | 按需 | 本机加密存储（`.env` 与 `private/.env` 的密钥第一次读取时一次性迁入，文件不删、之后不再读）→ 环境变量；**不落库** | 对应模型不可用，报「密钥无效或没配」 | `pet_llm.credential`、`README.md` 密钥表 |
+
+**最低版本（建议值）**：`environment_check.MIN_VERSIONS`——FFmpeg／FFprobe ≥ 4.4、Blender ≥ 3.6。只在用户点「环境自检」时启动程序读版本（`run_checks(probe=...)`，默认不探测），低于最低版本只给「提示」、不拦截，版本认不出（如 git 构建）原样保留状态。
 
 密钥名（`README.md` 密钥表）：`DEEPSEEK_API_KEY`、`OPENAI_API_KEY`、`DASHSCOPE_API_KEY`（也认 `QWEN_API_KEY`）、
 `COMFY_API_KEY`（Comfy 云）、`TTS_API_KEY`（配音）。
@@ -187,6 +189,9 @@ AGENTS 只保留触发条件；本节是细则全文。开工领号、建工作�
 **规则文件预算与规则守卫（R2530 起）**：`tests/architecture/test_agent_doc_budget.py` 限制 `程序/AGENTS.md` ≤16000 字节、根 `AGENTS.md` ≤2000、`CLAUDE.md` ≤4000，并要求 §5、§8、§2.6 的标题落在前 16384 字节内、相对链接都存在；超了先删旧规则，细则写进本手册。`scripts/rule_guard_map.py --write` 生成 `维护记录/规则守卫对照.md`（规则编号→守卫测试，登记在 `维护记录/规则守卫基线.json`，`test_rule_guard_map.py` 校验同步）；没有守卫的规则上限固定在该测试的 `UNGUARDED_CEILING`，只许减少。可选的外部体检：`npx agents-md-polish audit 程序/AGENTS.md`（需联网，不进 CI）。出站 HTTP 只许经 `platform_tools.open_https()`（规则 42，`test_outbound_http_authority.py` 守卫，ComfyUI 本机请求也已迁入）。
 
 **结果侧观测（R2533 起）**：`python -B scripts/dora_report.py [--days 30]` 只读输出前置时间（分支首个独有提交到合入 master）、`R<n>-FAIL:` 占比、「7 天内被修复」比例（同模块又有「修复」提交，启发式）、返工热点前 15 个模块、红灯停留与按 `Agent:` 来源的分组，并写 `程序/logs/dora_最近.md`。红灯停留的原始数据是后台全量每次结束追加到 common-dir `full-safe-history.jsonl` 的一行（环境受阻不记）。`dev.py commit --agent <名称>` 在提交信息末尾加 `Agent: <名称>`。这些是结果侧信号，不设阈值、不是目标；冒烟 8/8 与架构门禁数量只是健康检查。
+
+**其余闸门工具（R2538 起）**：① `scripts/typecheck_baseline.py --check|--update`——开发机用 `npx pyright@1.1.414`（basic、Python 3.13）数每个生产模块的类型错误，基线 `维护记录/类型检查基线.json` 只许减少，需要 Node 与联网，不进产品和发布包；`tests/architecture/test_type_check_baseline.py` 只守基线文件自洽。② `scripts/skill_package_pins.py --check|--update`——外部技能包（gitlink）的来源、固定提交与 git 内容树哈希登记在 `维护记录/外部技能包哈希.json`，已检出的包被改过或漂移即红，升级外部包后用 `--update` 重新登记。③ `tests/architecture/test_gate_selfaudit.py`——路径权威、删除权威、静默异常、秘密出口、分层 5 个门禁各有坏／好样本，门禁被改坏时先红。④ `tests/test_fault_injection_chain.py`——传输层注入超时／429／5xx／半截响应，核对计量台账不重复计费、未知用量不算已花费、没有产物时模型嘴上说完成也不发 `stage.completed`。⑤ 结果文件标题行之后由 `dev.py commit` 写一行 `<!-- round-evidence: {...} -->`（类型、命令、退出码、通过／失败数、证据文件摘要、基线提交），已有则替换。
+**服务器端闸门（需用户部署）**：`维护记录/基准脚本/server_hooks/pre-receive`（Python 3 标准库）放到备份服务器裸仓库的 `hooks/` 下并 `chmod +x`，之后推到 master/main 的 R2527 及以后的源码轮次提交必须带同一提交里的绿色证据文件，删除 master/main 一律拒绝；部署命令写在脚本头部，本仓库不连接服务器。
 
 ## 14. 文档先行：需求 → 设计 → 实现（自 AGENTS §2.7 迁入）
 

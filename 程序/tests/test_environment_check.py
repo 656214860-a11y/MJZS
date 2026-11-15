@@ -72,5 +72,50 @@ class EnvironmentCheckTests(unittest.TestCase):
         self.assertTrue(all(item['status'] in env.STATUS_TEXT for item in rows))
 
 
+    def test_version_parsing_covers_release_and_git_builds(self):
+        self.assertEqual(env.parse_version('ffmpeg version 6.1.1-essentials_build Copyright'), (6, 1))
+        self.assertEqual(env.parse_version('ffmpeg version n7.0.2-static'), (7, 0))
+        self.assertEqual(env.parse_version('Blender 4.2.1 LTS\n\tbuild date'), (4, 2))
+        self.assertIsNone(env.parse_version('ffmpeg version N-112233-gabcdef'))
+        self.assertIsNone(env.parse_version(''))
+
+    def test_versions_below_the_minimum_become_hints_and_never_launch_without_a_probe(self):
+        rows = [env.row('ffmpeg', 'FFmpeg', env.OK, r'C:\f\ffmpeg.exe'), env.row('blender', 'Blender', env.OK, r'C:\b\blender.exe'),
+                env.row('ffprobe', 'FFprobe', env.MISSING, '未配置也不在 PATH')]
+        probed = []
+
+        def probe(key, exe):
+            probed.append(key)
+            return {'ffmpeg': (3, 9), 'blender': (4, 2)}[key]
+        out = {item['key']: item for item in env.apply_versions(rows, probe)}
+        self.assertEqual(probed, ['ffmpeg', 'blender'], '缺失的程序不探测')
+        self.assertEqual(out['ffmpeg']['status'], env.WARN)
+        self.assertIn('低于建议最低 4.4', out['ffmpeg']['detail'])
+        self.assertIn('升级', out['ffmpeg']['next'])
+        self.assertEqual((out['blender']['status'], out['blender']['detail']), (env.OK, r'C:\b\blender.exe；版本 4.2'))
+        self.assertEqual(out['ffprobe']['status'], env.MISSING)
+
+    def test_unreadable_version_keeps_the_status_and_says_so(self):
+        out = env.apply_versions([env.row('ffmpeg', 'FFmpeg', env.OK, 'x.exe')], lambda key, exe: None)[0]
+        self.assertEqual(out['status'], env.OK)
+        self.assertIn('版本无法识别', out['detail'])
+
+    def test_probe_failure_is_none_and_run_checks_probes_only_when_asked(self):
+        def boom(*args, **kwargs):
+            raise OSError('nope')
+        self.assertIsNone(env.probe_version('ffmpeg', 'x.exe', run=boom))
+        with tempfile.TemporaryDirectory() as folder:
+            exe = Path(folder) / 'ffmpeg.exe'
+            exe.write_bytes(b'x')
+            calls = []
+            kwargs = dict(config={'ffmpeg': str(exe), 'ffprobe': str(exe)}, settings={}, models={}, profiles=[],
+                          find_blender=lambda: None)
+            with mock.patch.object(env.comfy_runtime, 'executable', return_value=None):
+                plain = env.run_checks(Path(folder), **kwargs)
+                probed = env.run_checks(Path(folder), probe=lambda key, path: calls.append(key) or (6, 0), **kwargs)
+        self.assertNotIn('版本', plain[0]['detail'])
+        self.assertIn('版本 6.0', probed[0]['detail'])
+        self.assertEqual(calls, ['ffmpeg', 'ffprobe'])
+
 if __name__ == '__main__':
     unittest.main()

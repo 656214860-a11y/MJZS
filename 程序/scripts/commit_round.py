@@ -56,6 +56,10 @@ def attach_evidence(message: str, keywords, root: Path) -> int:
     scan_ok, tests_ok, detail = round_evidence.judge(number)
     _git("add", "--", str(target), cwd=root)
     if scan_ok and tests_ok:
+        result = PROGRAM / "tasks_round" / ("tasks_round_%d_result.md" % number)
+        staged = _git("diff", "--cached", "--name-only", cwd=root).stdout.splitlines()
+        if any(name.endswith(result.name) for name in staged) and round_evidence.stamp_result(result, number):
+            _git("add", "--", str(result), cwd=root)
         return 0
     print("拒绝提交：R%d 证据不通过（%s）。凭据命中先移除；改了 .py 须用 --tests <模块关键词> 跑定向测试且全绿。" % (number, detail),
           file=sys.stderr)

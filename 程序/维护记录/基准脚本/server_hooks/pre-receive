@@ -1,0 +1,98 @@
+#!/usr/bin/env python3
+"""服务器端 pre-receive：推到 master/main 的每个 R 轮次提交必须带绿色轮次证据（对应 G5）。
+
+部署（由用户在服务器上执行，本仓库不连接服务器）::
+
+    scp 维护记录/基准脚本/server_hooks/pre-receive root@<服务器>:/srv/git/manju-assistant.git/hooks/pre-receive
+    ssh root@<服务器> chmod +x /srv/git/manju-assistant.git/hooks/pre-receive
+
+服务器只需要 git 与 Python 3（标准库）。判据与 ``round_evidence.judge`` 一致：R2527 及以后的 ``R<n>:`` 提交，
+只要改了 ``程序/`` 下的 .py 或是合并提交，就必须在同一提交里带 ``程序/tasks_round/evidence/R<n>.json``，
+且凭据扫描已执行且无命中、定向测试退出码 0 且无红（文档轮／合并轮按证据里的 skipped 记录）。
+``R<n>-FAIL:`` 诊断检查点放行。删除 master/main 一律拒绝。紧急绕过只能由服务器管理员临时摘掉这个钩子。
+"""
+import json
+import subprocess
+import sys
+
+EVIDENCE_FROM = 2527
+PROTECTED = ('refs/heads/master', 'refs/heads/main')
+ZERO = '0' * 40
+ALLOWED_SKIPS = ('docs-only', 'merge-ci-exit')
+EVIDENCE_PATH = '程序/tasks_round/evidence/R%d.json'
+
+
+def git(*args, repo=None):
+    command = ['git', '-c', 'core.quotepath=false'] + (['--git-dir', repo] if repo else []) + list(args)
+    done = subprocess.run(command, capture_output=True, text=True, encoding='utf-8', errors='replace')
+    return done.returncode, done.stdout
+
+
+def round_of(subject):
+    """``R<n>: …`` 返回 n；``R<n>-FAIL: …`` 与其它标题返回 None。"""
+    head = subject.split(':', 1)[0].strip()
+    if head.startswith('R') and head[1:].isdigit() and ':' in subject:
+        return int(head[1:])
+    return None
+
+
+def evidence_problem(raw):
+    """证据文本不合格返回原因，合格返回空串（与 round_evidence.judge 同口径）。"""
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        return '证据文件不是合法 JSON'
+    scan, tests = data.get('credential_scan') or {}, data.get('targeted') or {}
+    if scan.get('ran') is not True or scan.get('hits'):
+        return '凭据扫描未执行或有命中'
+    skipped_ok = tests.get('skipped') in ALLOWED_SKIPS and tests.get('exit') == 0
+    if not (skipped_ok or (tests.get('exit') == 0 and tests.get('failed') == 0 and tests.get('passed', 0) > 0)):
+        return '定向测试未通过或未执行'
+    return ''
+
+
+def commit_problems(sha, repo=None):
+    _code, subject = git('log', '-1', '--format=%s', sha, repo=repo)
+    number = round_of(subject.strip())
+    if number is None or number < EVIDENCE_FROM:
+        return []
+    _code, parents = git('log', '-1', '--format=%P', sha, repo=repo)
+    _code, names = git('show', '--name-only', '--format=', '-m', '--first-parent', sha, repo=repo)
+    needs = len(parents.split()) > 1 or any(n.startswith('程序/') and n.endswith('.py') for n in names.splitlines())
+    if not needs:
+        return []
+    code, raw = git('show', '%s:%s' % (sha, EVIDENCE_PATH % number), repo=repo)
+    if code:
+        return ['%s R%d：缺少 %s' % (sha[:10], number, EVIDENCE_PATH % number)]
+    reason = evidence_problem(raw)
+    return ['%s R%d：%s' % (sha[:10], number, reason)] if reason else []
+
+
+def check_push(old, new, ref, repo=None):
+    """返回拒绝原因列表（空即放行）。"""
+    if ref not in PROTECTED:
+        return []
+    if new == ZERO:
+        return ['不允许删除 %s' % ref]
+    if old == ZERO:
+        return []
+    _code, listing = git('rev-list', '%s..%s' % (old, new), repo=repo)
+    problems = []
+    for sha in listing.split():
+        problems += commit_problems(sha, repo)
+    return problems
+
+
+def main():
+    problems = []
+    for line in sys.stdin.read().splitlines():
+        parts = line.split()
+        if len(parts) == 3:
+            problems += check_push(*parts)
+    for item in problems:
+        sys.stderr.write('拒绝推送：%s\n' % item)
+    return 1 if problems else 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

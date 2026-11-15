@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import subprocess
@@ -124,6 +125,40 @@ def judge(number, directory=EVIDENCE_DIR):
         tests.get('exit') == 0 and tests.get('failed') == 0 and tests.get('passed', 0) > 0)
     return scan_ok, tests_ok, 'scan hits=%s, tests exit=%s failed=%s' % (
         len(scan.get('hits') or []), tests.get('exit'), tests.get('failed'))
+
+
+HEADER_PREFIX = '<!-- round-evidence: '
+HEADER_RE = re.compile(r'^<!-- round-evidence: .* -->$', re.M)
+
+
+def result_header(number, directory=EVIDENCE_DIR):
+    """结果文件头里的机器可读一行：类型、命令、退出码、通过／失败数、证据文件摘要与基线提交。"""
+    target = evidence_path(number, directory)
+    raw = target.read_bytes()
+    data = json.JSONDecoder().decode(raw.decode('utf-8'))
+    tests = data.get('targeted') or {}
+    summary = {'round': number, 'commit_base': data.get('commit_base', ''),
+               'tests': tests.get('skipped') or tests.get('cmd', ''), 'exit': tests.get('exit'),
+               'passed': tests.get('passed'), 'failed': tests.get('failed'),
+               'credential_hits': len((data.get('credential_scan') or {}).get('hits') or []),
+               'evidence_sha256': hashlib.sha256(raw).hexdigest()[:16]}
+    return HEADER_PREFIX + json.dumps(summary, ensure_ascii=False, sort_keys=True) + ' -->'
+
+
+def stamp_result(result, number, directory=EVIDENCE_DIR):
+    """把机器头写进结果文件标题行之后（已有则替换）；文件不存在返回 False。"""
+    result = Path(result)
+    if not result.is_file():
+        return False
+    header = result_header(number, directory)
+    text = result.read_text(encoding='utf-8')
+    if HEADER_RE.search(text):
+        text = HEADER_RE.sub(lambda _match: header, text, count=1)
+    else:
+        first, _, rest = text.partition('\n')
+        text = first + '\n' + header + '\n' + rest
+    result.write_text(text, encoding='utf-8', newline='\n')
+    return True
 
 
 def main(argv=None):
