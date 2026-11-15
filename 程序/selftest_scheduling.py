@@ -355,6 +355,7 @@ def _run_unit(payload):
     os.chdir(env.HERE)
     if env.HERE not in sys.path:
         sys.path.insert(0, env.HERE)
+    env.install_temp_sandbox()
     protect_tk()
     stdio_save = sys.stdout, sys.stderr
     buf = io.StringIO()
