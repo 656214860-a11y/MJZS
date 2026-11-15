@@ -147,6 +147,8 @@ import 也算**；唯一放行的是只在 Blender 宿主里存在的 `bpy`）�
 
 要一份真实的「未覆盖模块」清单，须另立一次全量 `sys.settrace` 测量（成本高，须用户同意）。
 
+分支覆盖率（SWE-2 T8.4，L0/L1 棘轮）：`维护记录\分支覆盖率基线.json` 同样是**定向测量**，不是全量套件分支覆盖率。口径：对 `_layers.LAYERS` 登记层 0/1 的 80 个顶层模块统计「决策点双结果覆盖」——`if`／`while`／`for`／`try`（含 `except*`）／`match` 每个决策点要求两个方向都被真实执行过；单行复合语句（`if x: y`）、表达式短路（`and`／`or`／三元／推导式 if）、`try/finally`（无 handler）不计入分母；`while` 退出＝条件判假、`for` 耗尽＝迭代器走完（`break` 离开不算）；`match` 末位 `case _` 时只要求 case 被进入。动态证据按 `(文件, co_qualname)` 归属代码对象作用域。测量工具 `scripts\branch_coverage_report.py`（同 `sys.settrace`、零第三方依赖），棘轮下限在 `维护记录\分支覆盖率下限.json`（只许人工上调，工具重测不改写），门禁 `tests\architecture\test_branch_coverage_floor.py` 只做结构自洽、模块集合相等、下限不回退与工具可用性四件事，不重跑测量。刷新基线必须显式重跑工具并同步上调下限表，目标用例失败时工具拒绝写基线。
+
 ## 12. 领号、并行车道与工作树流程（自 AGENTS §2.5 规则 27／34a 迁入）
 
 AGENTS 只保留触发条件；本节是细则全文。开工领号、建工作树、回收车道时读本节。
