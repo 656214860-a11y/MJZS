@@ -1,0 +1,15 @@
+{
+  "round": 2628,
+  "commit_base": "2da8074e",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k mutation_sample shot_batches artifact_schema",
+    "exit": 0,
+    "passed": 44,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T15:37:58"
+}
