@@ -1242,8 +1242,14 @@ class BriefTintTests(unittest.TestCase):
         idea_chat.append(project_context(d.root), 'user', '我的创意：一只会说话的猫。',
                          model=d.idea_chat_model(), gateway=d.idea_chat_gateway())
         d.show(0)
-        win.update()
-        shown = str(d.idea_log.get("1.0", "end-1c"))
+        shown = ''
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            win.update()
+            shown = str(d.idea_log.get("1.0", "end-1c"))
+            if "我的创意：一只会说话的猫。" in shown:
+                break
+            time.sleep(.01)
         self.assertIn("我的创意：一只会说话的猫。", shown, "上次存下的创意要看得见")
         self.assertEqual(d.draft_text(), '')
 
