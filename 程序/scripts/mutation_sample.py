@@ -73,8 +73,13 @@ def run_sites(sites=SITES, timeout=120):
             "mod": module, "mut": str(mutant), "test": test_file,
             "tests": str(ROOT / "tests"), "root": str(ROOT), "nul": "nul" if sys.platform == "win32" else "/dev/null",
         }
-        proc = subprocess.run([PYTHON, "-B", "-c", code], cwd=str(ROOT),
-                              capture_output=True, text=True, timeout=timeout)
+        try:
+            proc = subprocess.run([PYTHON, "-B", "-c", code], cwd=str(ROOT),
+                                  capture_output=True, text=True, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            rows.append({"module": module, "test": test_file, "site": label,
+                         "verdict": "错误", "stderr_tail": "运行超过 %d 秒被回收" % timeout})
+            continue
         if proc.returncode == 0:
             verdict = "存活"
         elif proc.returncode == 1:

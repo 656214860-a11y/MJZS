@@ -1,0 +1,15 @@
+{
+  "round": 2661,
+  "commit_base": "d098f24e",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k cli_streaming selftest_incremental mutation_sample production_locks workflow_engines",
+    "exit": 0,
+    "passed": 41,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T16:51:03"
+}

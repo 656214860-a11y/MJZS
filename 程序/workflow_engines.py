@@ -376,17 +376,28 @@ def _background_session_path(project):
 
 
 def save_background_session(project, stage, engine, session_id):
-    """记录后台引擎某阶段跑完后的 session id，供失败重试 resume；不同 engine 互不覆盖。"""
+    """记录后台引擎某阶段跑完后的 session id，供失败重试 resume；不同 engine 互不覆盖。
+
+    会话绑定只是失败重试的辅助记录：绑定文件损坏按空记录重建，写不动也不把
+    已经成功的一轮变成失败。
+    """
     path = _background_session_path(project)
-    data = read(path) if path.is_file() else {}
-    if not isinstance(data, dict):
-        data = {}
-    entry = data.get(stage)
-    if not isinstance(entry, dict):
-        entry = {}
-    entry[engine] = session_id
-    data[stage] = entry
-    save(path, data)
+    try:
+        try:
+            data = read(path) if path.is_file() else {}
+        except (OSError, ValueError, TypeError):
+            data = {}
+        if not isinstance(data, dict):
+            data = {}
+        entry = data.get(stage)
+        if not isinstance(entry, dict):
+            entry = {}
+        entry[engine] = session_id
+        data[stage] = entry
+        save(path, data)
+    except (OSError, ValueError, TypeError):
+        import app_logging
+        app_logging.swallowed('后台引擎会话绑定落盘')
 
 
 def load_background_session(project, stage, engine):

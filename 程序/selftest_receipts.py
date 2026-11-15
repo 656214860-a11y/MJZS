@@ -422,7 +422,8 @@ def incremental(names, cache):
         known = {}                             # 旧口径记下的依赖清单不可信：本趟全部照跑
     modules_now = {name: env._digest(path) for name, path in discovery.project_modules().items()}
     data_now = {rel: env._digest(path) for rel, path in discovery.data_files().items()}
-    data_moved = sorted(rel for rel, value in data_now.items() if old_data.get(rel) != value)
+    # 删掉的 SKILL 说明文件同样算「数据变了」：只按现文件集合比会漏掉删除，宁可全跑不许漏检。
+    data_moved = sorted(rel for rel in set(old_data) | set(data_now) if old_data.get(rel) != data_now.get(rel))
     todo, skipped, tests_now = [], [], {}
     for name in names:
         path = discovery.test_path(name)

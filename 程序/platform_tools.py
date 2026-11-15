@@ -212,39 +212,17 @@ def _stream_communicate_or_kill(process, data, timeout, on_output):
     def pump(stream, name):
         try:
             for line in stream or ():
-                on_output(line, name)
+                try:
+                    on_output(line, name)
+                except Exception:
+                    # 回调抛异常只吞掉并继续，不让一次失败截断整路输出与回写日志。
+                    pass
         except Exception:
-            # 读流被打断（进程退出、PIPE 关闭）属预期；回调异常由调用方 wrapper 处理。
+            # 读流被打断（进程退出、PIPE 关闭）属预期。
             return
 
     out_thread = threading.Thread(target=pump, args=(process.stdout, 'stdout'), daemon=True)
     err_thread = threading.Thread(target=pump, args=(process.stderr, 'stderr'), daemon=True)
-    out_thread.start()
-    err_thread.start()
-    try:
-        process.stdin.write(data or '')
-        process.stdin.flush()
-        process.stdin.close()
-    except (OSError, ValueError, AttributeError):
-        # stdin 不是 PIPE（如某些调用方用文件对象）时，无法喂输入，忽略。
-        pass
-    try:
-        process.wait(timeout=timeout)
-    except subprocess.TimeoutExpired:
-        terminate_process_tree(process)
-        try:
-            process.wait(timeout=3)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait(timeout=3)
-        raise
-    finally:
-        out_thread.join(timeout=3)
-        err_thread.join(timeout=3)
-    return process.returncode
-
-    out_thread = threading.Thread(target=pump, args=(process.stdout,), daemon=True)
-    err_thread = threading.Thread(target=pump, args=(process.stderr,), daemon=True)
     out_thread.start()
     err_thread.start()
     try:

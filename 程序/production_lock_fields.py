@@ -281,7 +281,6 @@ class ProductionLockFields(FlowFields):
         self.definitions = tuple(definitions)
         self.on_change = on_change
         self.inputs, self.hints, self.fields = {}, {}, {}
-        self.tooltips = {}          # key → Tooltip；提示改悬停浮层，不再占一行黄色文字
         self.leading_inputs = {}
         self.enabled = True
         self.context_values = {}
