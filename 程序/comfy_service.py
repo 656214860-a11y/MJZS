@@ -81,12 +81,10 @@ class Comfy:
         self.url=url.rstrip('/');p=urlparse(self.url)
         if p.scheme!='http' or p.hostname not in ('localhost','127.0.0.1','::1'):raise ValueError('请输入本机ComfyUI地址，例如 http://127.0.0.1:8189')
     def request(self,path,data=None,raw=False,timeout=20):
-        from urllib.request import Request, urlopen      # 第 34 期第 9 条：HTTP 栈按需加载
-        from platform_tools import current_execution
+        from platform_tools import current_execution, open_https      # 唯一出站入口（含截止时间与重定向凭据保护）
         control = current_execution()
-        if control is not None:timeout = control.remaining(timeout)
         body=None if data is None else json.dumps(data).encode()
-        with urlopen(Request(self.url+path,data=body,headers={'Content-Type':'application/json'}),timeout=timeout) as r:b=r.read()
+        with open_https(self.url+path,data=body,headers={'Content-Type':'application/json'},timeout=timeout) as r:b=r.read()
         if raw and control is not None:control.checkpoint()
         return b if raw else json.loads(b)
     def models(self):

@@ -184,6 +184,8 @@ AGENTS 只保留触发条件；本节是细则全文。开工领号、建工作�
 
 **轮次证据与合入门禁（R2527 起）**：`dev.py commit` 对 R2527 及以后的提交生成 `tasks_round/evidence/R<N>.json`（`维护记录/基准脚本/round_evidence.py`）：凭据扫描由脚本对已暂存的新增行执行，只记「文件:行:规则名」；定向测试由 `--tests <模块关键词>` 触发 `run_selftests.py -k`。改了 `程序/` 下 `.py` 而没带 `--tests`、凭据命中或测试有红，一律拒绝提交；纯文档提交记为 `docs-only`，合并提交记为 `merge-ci-exit`。`round_gate.py` 读这份证据，不再匹配结果文件里的文字，阈值取自 `维护记录/测试分层基线.json` 的 `architecture_gate_files_min`／`skill_registry_count`／`smoke_checks_expected`（只增不减）。`dev.py merge` 在提交合并前跑 `local_ci.py exit`，非 0 则中止并还原，没有跳过开关。pre-commit 在暂存了 `程序/*.py` 时先跑 `tests.test_static_names` 与 `tests.architecture.test_static_hygiene`（约 6 秒），红则拒绝提交。
 
+**规则文件预算与规则守卫（R2530 起）**：`tests/architecture/test_agent_doc_budget.py` 限制 `程序/AGENTS.md` ≤16000 字节、根 `AGENTS.md` ≤2000、`CLAUDE.md` ≤4000，并要求 §5、§8、§2.6 的标题落在前 16384 字节内、相对链接都存在；超了先删旧规则，细则写进本手册。`scripts/rule_guard_map.py --write` 生成 `维护记录/规则守卫对照.md`（规则编号→守卫测试，登记在 `维护记录/规则守卫基线.json`，`test_rule_guard_map.py` 校验同步）；没有守卫的规则上限固定在该测试的 `UNGUARDED_CEILING`，只许减少。可选的外部体检：`npx agents-md-polish audit 程序/AGENTS.md`（需联网，不进 CI）。出站 HTTP 只许经 `platform_tools.open_https()`（规则 42，`test_outbound_http_authority.py` 守卫，ComfyUI 本机请求也已迁入）。
+
 ## 14. 文档先行：需求 → 设计 → 实现（自 AGENTS §2.7 迁入）
 
 适用范围：`docs/stages/` 下已建需求与设计的阶段（01–13 已全部建立）。

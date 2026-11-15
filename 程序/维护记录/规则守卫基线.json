@@ -1,0 +1,62 @@
+{
+ "说明": "规则编号→守卫测试（手工登记，门禁校验文件存在）；未登记的规则只能在 tests/architecture/test_rule_guard_map.py 的 UNGUARDED_CEILING 里，且只许减少。",
+ "guards": {
+  "11": [
+   "tests/architecture/test_layers.py",
+   "tests/architecture/test_no_circular_import.py"
+  ],
+  "12": [
+   "tests/architecture/test_path_authority.py",
+   "tests/architecture/test_workflow_dir_ratchet.py"
+  ],
+  "13": [
+   "tests/architecture/test_event_bus_boundary.py"
+  ],
+  "14": [
+   "tests/architecture/test_remove_authority.py"
+  ],
+  "15": [
+   "tests/architecture/test_agents_md.py"
+  ],
+  "17": [
+   "tests/architecture/test_stage_command_contract.py"
+  ],
+  "18": [
+   "tests/architecture/test_dynamic_import_registry.py"
+  ],
+  "19": [
+   "tests/architecture/test_stage_paths.py"
+  ],
+  "20": [
+   "tests/architecture/test_completion_gate.py"
+  ],
+  "22": [
+   "tests/architecture/test_event_bus_boundary.py"
+  ],
+  "27": [
+   "tests/architecture/test_round_baselines.py"
+  ],
+  "28": [
+   "tests/architecture/test_unification_ratchet.py"
+  ],
+  "29": [
+   "tests/architecture/test_round_baselines.py"
+  ],
+  "30": [
+   "tests/test_cancellation_status.py",
+   "tests/architecture/test_busy_state_boundary.py"
+  ],
+  "33": [
+   "tests/architecture/test_startup_budget.py"
+  ],
+  "34": [
+   "tests/architecture/test_token_boundary.py"
+  ],
+  "34a": [
+   "tests/test_git_hooks.py"
+  ],
+  "42": [
+   "tests/architecture/test_outbound_http_authority.py"
+  ]
+ }
+}
