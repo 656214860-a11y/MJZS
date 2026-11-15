@@ -2,8 +2,11 @@
 from __future__ import annotations
 
 import tkinter as tk
+from pathlib import Path
 
 from ui_tokens import COLORS
+
+_NAV_DIR = Path(__file__).resolve().parent / 'assets' / 'nav'
 
 
 class IconLoader:
@@ -40,6 +43,29 @@ class IconLoader:
             image.put(color, to=(x, y, x + max(1, round(6 * scale_x)), y + 1))
         image.put(color, to=(round(9 * scale_x), round(13 * scale_y),
                                  round(42 * scale_x), round(19 * scale_y)))
+        cache[key] = image
+        return image
+
+    @classmethod
+    def nav_icon(cls, master, name):
+        """返回 ``assets/nav/<name>.png`` 侧栏图标，按宿主与名称缓存；缺资源时返回 None。
+
+        PNG 由 ``scripts/build_nav_icons.py`` 用 Fluent System Icons（Filled，MIT）
+        开发期栅格化，运行时不依赖字体或第三方库；页面只按语义名取图。
+        """
+        if not name:
+            return None
+        path = _NAV_DIR / f'{name}.png'
+        if not path.is_file():
+            return None
+        key = ('nav_icon', str(path))
+        cache = cls._cache(master)
+        if key in cache:
+            return cache[key]
+        try:
+            image = tk.PhotoImage(master=master, file=str(path))
+        except tk.TclError:
+            return None
         cache[key] = image
         return image
 

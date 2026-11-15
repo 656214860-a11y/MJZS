@@ -16,8 +16,9 @@ from tkinter import ttk
 from responsive_ui import FlowBar, auto_height
 from ui_motion import EmptyState, bind_row_hover
 from ui_tokens import TEXT_ROWS, COLORS, FONTS, SPACING, TEXT_DESC, DESKTOP_LAYOUT
-from desktop_page_registry import ACCOUNT_TITLE, PAGE_ACCOUNT
-from ui_widgets import BaseDialog, Card, DataTable, NotificationDispatcher, PrimaryButton, SecondaryButton
+from desktop_page_registry import ACCOUNT_TITLE, PAGE_ACCOUNT, PAGE_NAV_ICONS, nav_label
+from ui_icons import IconLoader
+from ui_widgets import BaseDialog, Card, DataTable, NotificationDispatcher, PrimaryButton, SecondaryButton, Tooltip
 from dataclasses import dataclass
 from typing import Callable
 
@@ -79,20 +80,16 @@ class ProjectPagesMixin:
         if primary:button.configure(style='Tokens.Primary.TButton')
         return button
     def fill_projects(self,tree):
-        sidebar=tree is getattr(self,'list',None)
-        # R2056：侧栏的分组默认收起；用户展开过的，刷新时保持他的选择。
-        kept={g:bool(tree.item(g,'open')) for g in tree.get_children()} if sidebar else {}
         tree.delete(*tree.get_children())
         for state,label in [('making','在制作项目'),('completed','已完成项目')]:
             items=[p for p in self.projects.info['projects'] if p.get('status','making')==state]
             tree.tag_configure('empty-group',foreground=COLORS['text_muted'])
-            tree.insert('','end',iid='group:'+state,text=f'{label}（{len(items)}）',open=kept.get('group:'+state,False) if sidebar else bool(items),tags=() if items else ('empty-group',))
+            tree.insert('','end',iid='group:'+state,text=f'{label}（{len(items)}）',open=bool(items),tags=() if items else ('empty-group',))
             for p in sorted(items,key=project_sort_key):
                 tree.insert('group:'+state,'end',iid=p['path'],text=self.project_row_text(p))
         # 一个项目都没有时，列表中央给出柔和提示，而不是只留两个空分组标题。
         empty=getattr(tree,'_empty_state',None)
         if empty is not None:empty.show(not self.projects.info['projects'])
-        if sidebar:self.refresh_sidebar_title()
     def refresh_sidebar_title(self):
         """R2056：侧栏顶部写当前项目名（过长截断，免得把齿轮挤出侧栏）；没打开项目时仍写应用名。"""
         title=getattr(self,'app_title',None)
@@ -112,13 +109,12 @@ class ProjectPagesMixin:
         current=root is not None and Path(p['path'])==root
         return ('● ' if current else '')+p['name']+('（目录已失效，可右键清除登记）' if missing else '')
     def mark_current_project(self):
-        """切换项目后只改行文字（不重建树，选中状态保持），并把项目名写进窗口标题。"""
-        trees=[self.list]
+        """切换项目后同步侧栏选择器与首页行文字（● 标记），并把项目名写进窗口标题。"""
+        self._sync_project_picker(snap=True)
         home=getattr(self,'_project_home_tree',None)
-        if home is not None and home.winfo_exists():trees.append(home)
-        for tree in trees:
+        if home is not None and home.winfo_exists():
             for p in (getattr(self.projects,'info',None) or {}).get('projects',[]):
-                if tree.exists(p['path']):tree.item(p['path'],text=self.project_row_text(p))
+                if home.exists(p['path']):home.item(p['path'],text=self.project_row_text(p))
         self.refresh_sidebar_title()
         title=APP_NAME+' · '+VERSION
         if self.root is not None:
@@ -170,8 +166,55 @@ class ProjectPagesMixin:
             self.status.set('旧目录归位记录未写入：%s；请稍后重试。' % exc)
             return None
     def restore_project_selection(self):
-        """侧栏高亮回到当前项目；高亮＝当前项目，用户取消或被拦下时不能留在别的行上。"""
-        if self.root is not None:self.list.selection_set(str(self.root))
+        """选择器复位回当前项目；高亮＝当前项目，用户取消或被拦下时不能留在别的项上。"""
+        self._sync_project_picker(snap=True)
+    def set_project_group(self,state):
+        """侧栏分组筛选：making/completed 两枚图标钮切换选择器列出的项目集合。"""
+        if state==self._project_group:return
+        self._project_group=state
+        self._sync_project_group_styles();self._sync_project_picker()
+    def _sync_project_group_styles(self):
+        active=getattr(self,'_project_group','making')
+        for state,btn in getattr(self,'project_group_buttons',{}).items():
+            btn.configure(style='Selected.RailIcon.TButton' if state==active else 'RailIcon.TButton')
+    def _sync_project_picker(self,snap=False):
+        """项目选择器：按分组列项目，「●」标当前项。
+
+        ``snap`` 只在项目状态真正变化时（打开/取消/标记完成后 reload）把组吸附回
+        当前项目所在组；用户主动点分组图标浏览另一组时不吸附，否则筛选失效。
+        """
+        picker=getattr(self,'project_picker',None)
+        if picker is None:return
+        projects=(getattr(self.projects,'info',None) or {}).get('projects',[]) or []
+        root=getattr(self,'root',None)
+        def is_current(p):
+            if root is None:return False
+            try:return Path(str(p.get('path')))==root
+            except (OSError,ValueError):return False
+        group=getattr(self,'_project_group','making')
+        if group not in ('making','completed'):group='making'
+        if snap:
+            current_group=next((p.get('status','making') for p in projects if is_current(p)),None)
+            if current_group is not None and current_group!=group:
+                group=current_group
+                self._project_group=group
+                self._sync_project_group_styles()
+        items=[p for p in projects if p.get('status','making')==group]
+        items.sort(key=project_sort_key)
+        self._picker_items=items
+        values=[]
+        for p in items:
+            name=p.get('name') or Path(p['path']).name
+            values.append(('● ' if is_current(p) else '')+name)
+        picker.set_values(values)
+        index=next((i for i,p in enumerate(items) if is_current(p)),-1)
+        try:
+            if index>=0:picker.current(index)
+            else:picker.set('')
+        except tk.TclError:pass
+        tip=getattr(self,'_picker_tip',None)
+        if tip is not None:
+            tip.text=values[index] if index>=0 else '选择项目'
     def project_switch_blocker(self):
         """当前项目还有任务在跑时的拦截原因；空串表示可以切换。"""
         if self.worker:return '后台任务仍在运行'
@@ -373,7 +416,11 @@ class ProjectPagesMixin:
         popup.bind('<Escape>',lambda e:popup.destroy());popup.grab_set();tree.focus_set()
     def build_account_nav(self,side):
         """「00 会员账户」排在 01 之上；它不在 self.nav 里，翻页键与阶段页序号都不受影响。"""
-        self.account_button=SecondaryButton(side,text=ACCOUNT_TITLE,command=lambda:self.go_page(PAGE_ACCOUNT),style='Nav.TButton')
+        image=IconLoader.nav_icon(side,PAGE_NAV_ICONS.get(PAGE_ACCOUNT))
+        self.account_button=SecondaryButton(side,text=nav_label(PAGE_ACCOUNT),image=image,
+            compound='left' if image is not None else 'text',
+            command=lambda:self.go_page(PAGE_ACCOUNT),style='Nav.TButton')
+        Tooltip(self.account_button,ACCOUNT_TITLE)
         self.account_button.pack(anchor='w',fill='x',pady=(SPACING['none'],DESKTOP_LAYOUT['nav_gap']))
     def mark_nav(self,index):
         """侧栏高亮：阶段页按钮与「00 会员账户」只亮当前那一颗。"""
@@ -426,7 +473,7 @@ class ProjectPagesMixin:
         return outcome
     def set_project_status(self,item,status):
         self._project_result_data(self.projects.set_status(item['path'],status));self.reload()
-        if self.root:self.list.selection_set(str(self.root))
+        if self.root:self._sync_project_picker(snap=True)
         else:self.show(0)
         self.status.set('已完成项目' if status=='completed' else '已恢复到在制作项目')
     def restore_scroll(self,offset):
@@ -497,11 +544,22 @@ class ProjectPagesMixin:
         return dialog
     def project_menu(self,event,tree=None):
         if self.worker:return
-        tree=tree if tree is not None else self.list
+        tree=tree if tree is not None else getattr(self,'_project_home_tree',None)
+        if tree is None:return
         path=tree.identify_row(event.y)
         if not path or path.startswith('group:'):return
         item=next((dict(p) for p in self.projects.info['projects'] if p['path']==path),None)
         if item is None:return
+        return self._project_item_menu(item,event)
+    def project_picker_menu(self,event):
+        """侧栏项目选择器右键：菜单与项目列表行一致。"""
+        if self.worker:return
+        picker=getattr(self,'project_picker',None);items=getattr(self,'_picker_items',())
+        if picker is None or not items:return
+        index=picker.current()
+        if index<0 or index>=len(items):return
+        return self._project_item_menu(items[index],event)
+    def _project_item_menu(self,item,event):
         menu=self.project_page_services.context_menu(self.win)
         completed=item.get('status','making')=='completed'
         menu.command('恢复为在制作项目' if completed else '标记为已完成项目',lambda:self.safe(lambda:self.set_project_status(item,'making' if completed else 'completed')))

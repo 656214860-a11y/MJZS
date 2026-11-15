@@ -15,7 +15,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parent))
 import pet_bus
 from account_controller import AccountController
 from desktop import Desktop, PAGES
-from desktop_page_registry import ACCOUNT_TITLE, PAGE, PAGE_ACCOUNT, PAGE_SITES, page_title
+from desktop_page_registry import ACCOUNT_TITLE, PAGE, PAGE_ACCOUNT, PAGE_SITES, nav_label, page_title
 from skip_reasons import PLATFORM_TK_DISPLAY
 import test_desktop_startup_perf as startup_fixtures
 from test_account_client import NOW, _Client, _Store
@@ -63,7 +63,7 @@ class AccountEntryTests(unittest.TestCase):
 
     def test_account_button_sits_above_first_stage(self):
         d=self.desktop
-        self.assertEqual(d.account_button.cget('text'),ACCOUNT_TITLE)
+        self.assertEqual(d.account_button.cget('text'),nav_label(PAGE_ACCOUNT))
         self.assertNotIn(d.account_button,d.nav)
         self.assertEqual(len(d.nav),len(PAGES))
         self.assertLess(d.account_button.winfo_y(),d.nav[0].winfo_y())

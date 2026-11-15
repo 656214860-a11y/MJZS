@@ -132,7 +132,8 @@ class WindowResizeCoalescingTests(unittest.TestCase):
         return (self.win.winfo_width(), self.win.winfo_height(),
                 d.canvas.itemcget(d.content_id, 'width'),
                 d.canvas.cget('scrollregion'),
-                int(d.list.cget('height')),
+                str(d.sidebar_canvas.cget('scrollregion')),
+                len(getattr(d, '_picker_items', ())),
                 int(d.title_row.cget('height')))
 
     def test_continuous_drag_coalesces_until_quiet(self):

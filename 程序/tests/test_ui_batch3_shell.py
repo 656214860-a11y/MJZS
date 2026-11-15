@@ -12,7 +12,8 @@ HERE=str(Path(__file__).resolve().parents[1])
 sys.path.insert(0,HERE)
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 
-from desktop import Desktop, PAGES, status_kind
+from desktop import Desktop, status_kind
+from desktop_page_registry import nav_label
 from skip_reasons import PLATFORM_TK_DISPLAY
 import test_desktop_startup_perf as startup_fixtures
 from ui_tokens import COLORS, FONTS
@@ -64,7 +65,7 @@ class ShellScrollAndStatusTests(unittest.TestCase):
 
     def test_last_sidebar_stage_is_reachable_at_four_window_sizes(self):
         d=self.desktop
-        self.assertEqual(d.nav[-1].cget('text'),PAGES[-1])
+        self.assertEqual(d.nav[-1].cget('text'),nav_label(-1))
         for width,height in ((800,600),(1080,740),(1280,800),(1360,900)):
             with self.subTest(size=(width,height)):
                 self.resize(width,height)

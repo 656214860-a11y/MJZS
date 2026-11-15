@@ -117,7 +117,8 @@ class LifecycleMixin:
         from exit_maintenance import launch_cleanup
         launch_cleanup(self.app, forced=getattr(self, '_forcing_quit', False))
     def reload(self):
-        self.fill_projects(self.list)
+        self._sync_project_picker()
+        self.refresh_sidebar_title()
         self.schedule_sidebar_fit()
         tree=getattr(self,'_project_home_tree',None)
         if tree is not None and tree.winfo_exists():self.fill_projects(tree)

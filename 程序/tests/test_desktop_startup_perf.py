@@ -385,18 +385,31 @@ class DesktopStartupPerfTests(unittest.TestCase):
                 self.assertLessEqual(callback_times[0], .2)
                 self.assertNotEqual(str(desktop.status.get()), '正在载入今日项目…',
                                     '项目页回调完成后不得把项目选择页伪装成仍在载入')
-                self.assertIn(str(desktop.status.get()),
-                              ('正在打开剧本准备…', str(project)))
+                # R2897 图标轨让 reload/load 变快后，发送门禁的 after(250) 防抖可能落在
+                # 「正在打开剧本准备…」之后触发；「还缺必填：…」是真实页面状态而非假加载，
+                # 与打开提示、项目路径同为合法过渡态。
+                status_text = str(desktop.status.get())
+                self.assertTrue(
+                    status_text in ('正在打开剧本准备…', str(project))
+                    or status_text.startswith('还缺必填：'),
+                    '过渡状态只能是打开提示、项目路径或必填缺失提示，实际：' + status_text)
                 # update() 会因宿主机器的消息泵时机选择在本轮或下一轮执行 40ms
                 # 回调；无论哪种时机，已由上面的回调耗时锁定“完整建页不在
                 # show_loaded_project 内同步执行”。
+                # R2897：建页后发送门禁的 after(250) 防抖可能才触发，把项目路径状态
+                # 覆盖为「还缺必填：…」/「就绪」——那是 REQ-S01-86 的真实终态，不是卡住。
+                def settled_status():
+                    text = str(desktop.status.get())
+                    return (text == str(project) or text == '就绪'
+                            or text.startswith('还缺必填：'))
                 deadline=time.perf_counter()+1.5
-                while (str(desktop.status.get()) != str(project)
+                while (not settled_status()
                        and time.perf_counter() < deadline):
                     window.update()
                     time.sleep(.01)
                 self.assertEqual(desktop.page_index, 0)
-                self.assertEqual(str(desktop.status.get()), str(project))
+                self.assertTrue(settled_status(),
+                                '建页后状态应停在项目路径或发送门禁提示，实际：' + str(desktop.status.get()))
                 desktop._complete_project_recovery = original_recovery
         finally:
             if desktop is not None:

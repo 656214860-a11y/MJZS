@@ -44,8 +44,8 @@ class RenameReconcileTests(unittest.TestCase):
             out=service.reconcile_missing(old).data
             self.assertEqual(out['state'],'claimed');self.assertEqual(out['path'],str(new))
             self.assertEqual(service.info['active'],str(new));self.assertEqual(service.info['projects'][0]['status'],'making')
-            self.assertEqual(json.loads((new/'config.json').read_text())['episode_dir'],str(new/'03初步分镜'/'分镜拆分'))
-            self.assertEqual(json.loads((cloud/'config.json').read_text())['episode_dir'],str(new/'03初步分镜'))
+            self.assertEqual(json.loads((new/'config.json').read_text(encoding='utf-8'))['episode_dir'],str(new/'03初步分镜'/'分镜拆分'))
+            self.assertEqual(json.loads((cloud/'config.json').read_text(encoding='utf-8'))['episode_dir'],str(new/'03初步分镜'))
             self.assertTrue((new/'13质检交付').is_dir())
 
     def test_multiple_fingerprint_candidates_requires_confirmation(self):
@@ -102,35 +102,33 @@ class DesktopRenameReconcileTests(unittest.TestCase):
         app=MagicMock()
         app.projects=service
         app._project_result_data=lambda result:desktop.Desktop._project_result_data(app,result)
+        app._sync_project_picker=lambda **kw:desktop.Desktop._sync_project_picker(app,**kw)
+        app._sync_project_group_styles=lambda:desktop.Desktop._sync_project_group_styles(app)
+        app.mark_current_project=lambda:desktop.Desktop.mark_current_project(app)
         app.fill_projects=lambda tree:desktop.Desktop.fill_projects(app,tree)
         app.project_row_text=lambda p:desktop.Desktop.project_row_text(app,p)
         app.reload=lambda:desktop.Desktop.reload(app)
-        rows={}
-        app.list.get_children.side_effect=lambda:tuple(rows)
-        app.list.delete.side_effect=lambda *items:[rows.pop(item) for item in items]
-        def insert(parent,index,*,iid,text,**kwargs):rows[iid]=text
-        app.list.insert.side_effect=insert
-        def select(item):
-            self.assertIn(item,rows,'load selected a renamed iid before refreshing the project tree')
-        app.list.selection_set.side_effect=select
         app.reload()
-        return app,rows
+        return app
 
-    def test_automatic_claim_refreshes_tree_before_selecting_and_building_page(self):
+    def picker_paths(self, app):
+        return [p['path'] for p in app._picker_items]
+
+    def test_automatic_claim_refreshes_picker_before_selecting_and_building_page(self):
         fixture=RenameReconcileTests()
         for deferred in (False,True):
             with self.subTest(deferred=deferred),tempfile.TemporaryDirectory() as td:
                 service,base=fixture.make_service(td)
                 old=service.info['active'];new=fixture.renamed(base,old=old)
-                app,rows=self.make_desktop(service)
-                self.assertIn(old,rows)
+                app=self.make_desktop(service)
+                self.assertIn(old,self.picker_paths(app))
                 with patch.object(desktop,'open_studio',return_value=None):
                     desktop.Desktop.load(app,old,defer_page=deferred)
-                self.assertNotIn(old,rows)
-                self.assertEqual(rows[str(new)],'新故事')
+                paths=self.picker_paths(app)
+                self.assertNotIn(old,paths)
+                self.assertIn(str(new),paths)
+                app.project_picker.current.assert_called_with(paths.index(str(new)))
                 self.assertEqual(app.root,new)
-                app.list.selection_set.assert_called_once_with(str(new))
-                app.list.see.assert_called_once_with(str(new))
                 app._sync_desktop_project_paths.assert_called_once_with(old,str(new))
                 self.assertEqual(service.info['active'],str(new))
                 if deferred:
@@ -138,17 +136,17 @@ class DesktopRenameReconcileTests(unittest.TestCase):
                     app.show.assert_not_called()
                 else:app.show.assert_called_once_with(0)
 
-    def test_unchanged_project_keeps_valid_tree_and_opens_normally(self):
+    def test_unchanged_project_keeps_valid_picker_and_opens_normally(self):
         fixture=RenameReconcileTests()
         with tempfile.TemporaryDirectory() as td:
             service,base=fixture.make_service(td)
             root=Path(service.info['active']);root.mkdir()
-            app,rows=self.make_desktop(service)
-            before=dict(rows)
+            app=self.make_desktop(service)
+            before=self.picker_paths(app)
             with patch.object(desktop,'open_studio',return_value=None):
                 desktop.Desktop.load(app,str(root))
-            self.assertEqual(rows,before)
-            app.list.selection_set.assert_called_once_with(str(root))
+            self.assertEqual(self.picker_paths(app),before)
+            app.project_picker.current.assert_called_with(before.index(str(root)))
             app.show.assert_called_once_with(0)
             app._sync_desktop_project_paths.assert_not_called()
 
@@ -168,9 +166,12 @@ class DesktopMissingRegistrationTests(unittest.TestCase):
             context_menu=lambda *a, **k: desktop.ContextMenu(*a, **k),
             confirm=lambda *a, **k: desktop.confirm(*a, **k))
         self.app.win=self.win;self.app.root=None;self.app.projects=self.service
-        self.app.content=ttk.Frame(self.win);self.app.list=ttk.Treeview(self.win)
+        self.app.content=ttk.Frame(self.win)
         self.app._project_home_tree=None
         self.app._project_result_data=lambda r:desktop.Desktop._project_result_data(self.app,r)
+        self.app._sync_project_picker=lambda **kw:desktop.Desktop._sync_project_picker(self.app,**kw)
+        self.app._sync_project_group_styles=lambda:desktop.Desktop._sync_project_group_styles(self.app)
+        self.app.refresh_sidebar_title=lambda:desktop.Desktop.refresh_sidebar_title(self.app)
         self.app.fill_projects=lambda tree:desktop.Desktop.fill_projects(self.app,tree)
         self.app.reload=lambda:desktop.Desktop.reload(self.app)
         self.app.reload();desktop.Desktop.project_home(self.app)
@@ -180,16 +181,19 @@ class DesktopMissingRegistrationTests(unittest.TestCase):
     def clear(self,confirmed=True):
         return desktop.Desktop.clear_missing_project(self.app,{'path':self.old},confirmed=confirmed)
 
+    def picker_has(self,path):
+        return any(p['path']==path for p in getattr(self.app,'_picker_items',[]))
+
     def assert_unchanged(self):
         self.assertEqual(self.service.registry.read_bytes(),self.before)
-        self.assertTrue(self.app.list.exists(self.old))
+        self.assertTrue(self.picker_has(self.old))
         self.assertTrue(self.home.exists(self.old))
 
-    def test_clear_refreshes_both_lists_without_rebuilding_page_or_touching_other_tree(self):
+    def test_clear_refreshes_picker_and_home_without_rebuilding_page_or_touching_other_tree(self):
         other=ttk.Treeview(self.app.content);other.insert('','end',iid='unrelated',text='保留')
         self.assertTrue(self.clear())
         self.assertEqual(self.service.refresh_registry(),{'active':None,'projects':[]})
-        self.assertFalse(self.app.list.exists(self.old))
+        self.assertFalse(self.picker_has(self.old))
         self.assertFalse(self.home.exists(self.old),'homepage retained cleared ghost registration')
         self.assertTrue(other.exists('unrelated'))
         self.assertTrue(self.home.winfo_exists())
@@ -216,7 +220,7 @@ class DesktopMissingRegistrationTests(unittest.TestCase):
     def test_destroyed_homepage_is_not_refreshed(self):
         self.home.destroy()
         self.assertTrue(self.clear())
-        self.assertFalse(self.app.list.exists(self.old))
+        self.assertFalse(self.picker_has(self.old))
         self.assertEqual(self.service.refresh_registry()['projects'],[])
 
 

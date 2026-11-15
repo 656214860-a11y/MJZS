@@ -1571,8 +1571,7 @@ class SendMessageTests(_Harness):
             proj = make_minimal_project(td)
             target = make_minimal_project(other)
             d, win, registry, running, pending = self.queued_api_request(proj)
-            with patch.object(d.list, 'selection_set'), patch.object(d.list, 'see'):
-                d.load(target)
+            d.load(target)
             registry.release_process_slot(running)
             self.settle_script_page(win, .3)
             self.assertFalse(d.idea_chat_controller.requesting)

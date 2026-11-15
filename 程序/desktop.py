@@ -46,13 +46,14 @@ from desktop_page_nav import PageNavMixin
 from desktop_lifecycle import LifecycleMixin
 from desktop_automation_service import BackgroundTaskLifecycle, DesktopAutomationScheduler, BackgroundTaskQueue, PersistentBackgroundTaskQueue, inspect_project_storage, RetryRegistry
 from idea_chat_controller import IdeaChatController, speaker_name
-from ui_tokens import BUTTON_GAP, BUTTON_WIDTH_DIALOG, CHAR_WIDTH, TEXT_ROWS, WRAPLENGTH, COLORS, FONTS, SPACING, DESKTOP_LAYOUT, SCRIPT_ACTION_WIDTH, SCRIPT_ACTION_PADDING, SCRIPT_FILE_FONT, ICON_FOLDER, ICON_DELETE
+from ui_tokens import BUTTON_GAP, BUTTON_WIDTH_DIALOG, CHAR_WIDTH, WRAPLENGTH, COLORS, FONTS, SPACING, DESKTOP_LAYOUT, SCRIPT_ACTION_WIDTH, SCRIPT_ACTION_PADDING, SCRIPT_FILE_FONT, ICON_FOLDER, ICON_DELETE
 from ui_dialogs import FileDialog
-from ui_motion import Spinner, bind_row_hover
+from ui_motion import Spinner
 from ui_shortcuts import ShortcutRegistry
 import ui_stage_popups  # noqa: F401  导入即向 stage_exec 登记阶段弹窗呈现器
 from ui_widgets import (SelectBox, BaseDialog, BusyState, ContextMenu, Card, DataTable, NotificationDispatcher,
-                        PrimaryButton, SecondaryButton, TextArea, HintLabel, Tooltip, TreeRowTooltip, EllipsisLabel, ask_confirmation, ask_string, setup_styles)
+                        PrimaryButton, SecondaryButton, TextArea, HintLabel, Tooltip, EllipsisLabel, ask_confirmation, ask_string, setup_styles)
+from ui_icons import IconLoader
 
 ROOT=Path(__file__).resolve().parent
 LOGGER=logging.getLogger(__name__)
@@ -104,7 +105,8 @@ import pet_state
 
 # 第 44 期：版本号只写这一份——系统标题栏与左上角那一行（齿轮就挨着它）都用它。
 from contract.app_metadata import APP_NAME, VERSION
-from desktop_page_registry import CACHED_PAGES, PAGE, PAGE_ACCOUNT, PAGES, PAGE_SITES, page_title
+from desktop_page_registry import (ASSET_ROSTER_ICON, CACHED_PAGES, PAGE, PAGE_ACCOUNT, PAGE_NAV_ICONS,
+                                   PAGE_SITES, PAGES, PROJECT_ACTION_ICONS, PROJECT_GROUP_ICONS, nav_label, page_title)
 
 # 「页面第一次画完」按页指标名：用 PAGE 稳定键区分 14 页，不用会变的中文标题。
 
@@ -238,12 +240,32 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         # 实际文字尺寸决定齿轮位置；字号或显示名改变时不留旧名称的空洞。
         self.settings_gear_layer=win
         self.settings_gear_position=(0,0)
-        self.list=ttk.Treeview(side,show='tree',height=TEXT_ROWS['sm'],selectmode='browse',style='Project.Treeview');self.list.column('#0',width=SPACING['sm'] * 17,minwidth=96,stretch=True);self.list.pack(fill='x',pady=(SPACING['xs'],SPACING['none']))
-        self.list.bind('<<TreeviewSelect>>',self.switch);self.list.bind('<Button-3>',self.project_menu)
-        bind_row_hover(self.list)
-        self.project_tip=TreeRowTooltip(self.list,lambda item:self.list.item(item,'text'))
-        self.project_buttons=(self.button(side,'+ 新建项目',self.new),self.button(side,'打开项目目录',self.open_current_project))
-        for button in self.project_buttons:button.configure(style='ProjectAction.TButton')
+        # 项目区收成三行图标控件：分组筛选、项目选择器、新建/打开目录（R2897 图标轨改版）。
+        self.project_block=ttk.Frame(side);self.project_block.pack(fill='x',pady=(SPACING['xs'],SPACING['none']))
+        self._project_group='making';self._picker_items=[]
+        filters=ttk.Frame(self.project_block);filters.pack(fill='x')
+        self.project_group_buttons={}
+        for state in ('making','completed'):
+            btn=SecondaryButton(filters,text='',image=IconLoader.nav_icon(win,PROJECT_GROUP_ICONS[state]),
+                                compound='image',command=lambda s=state:self.set_project_group(s),style='RailIcon.TButton')
+            btn.pack(side='left',fill='x',expand=True,padx=(SPACING['none'],SPACING['xs']))
+            Tooltip(btn,'在制作项目' if state=='making' else '已完成项目')
+            self.project_group_buttons[state]=btn
+        self.project_picker=SelectBox(self.project_block,state='readonly')
+        self.project_picker.pack(fill='x',pady=(SPACING['xs'],SPACING['none']))
+        self.project_picker.bind('<<ComboboxSelected>>',self.switch)
+        self.project_picker.bind('<Button-3>',self.project_picker_menu)
+        self._picker_tip=Tooltip(self.project_picker,'选择项目')
+        tools=ttk.Frame(self.project_block);tools.pack(fill='x',pady=(SPACING['xs'],SPACING['none']))
+        self.project_new_button=SecondaryButton(tools,text='',image=IconLoader.nav_icon(win,PROJECT_ACTION_ICONS['new']),
+                                                 compound='image',command=self.new,style='RailIcon.TButton')
+        self.project_open_button=SecondaryButton(tools,text='',image=IconLoader.nav_icon(win,PROJECT_ACTION_ICONS['open']),
+                                                  compound='image',command=self.open_current_project,style='RailIcon.TButton')
+        for btn,tip in ((self.project_new_button,'＋ 新建项目'),(self.project_open_button,'打开项目目录')):
+            btn.pack(side='left',fill='x',expand=True,padx=(SPACING['none'],SPACING['xs']))
+            Tooltip(btn,tip)
+        self.project_buttons=(self.project_new_button,self.project_open_button)
+        self._sync_project_group_styles();self._sync_project_picker()
         ttk.Separator(side).pack(fill='x',pady=DESKTOP_LAYOUT['section_gap'])
         self.nav=[]
         self.asset_list_button=None;self.build_account_nav(side)
@@ -251,17 +273,25 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
             # 第 48 期第 3 条：点「10 视频生成」的入口逻辑——本次启动第一次点先摆「选择生成方式」
             # 那一屏；之后（用户已经选过线上或线下）再点就直接回他选的那一侧，不再反复拦在选择页上。
             # 页内切分镜、刷新列表仍直接调 show()。
-            b=SecondaryButton(side,text=title,command=lambda n=i:self.go_page(n),style='Nav.TButton');b.pack(anchor='w',fill='x',pady=(SPACING['none'],DESKTOP_LAYOUT['nav_gap']));self.nav.append(b)
+            image=IconLoader.nav_icon(win,PAGE_NAV_ICONS.get(i))
+            b=SecondaryButton(side,text=nav_label(i),image=image,
+                              compound='left' if image is not None else 'text',
+                              command=lambda n=i:self.go_page(n),style='Nav.TButton')
+            Tooltip(b,page_title(i))
+            b.pack(anchor='w',fill='x',pady=(SPACING['none'],DESKTOP_LAYOUT['nav_gap']));self.nav.append(b)
             if i==PAGE['assets']:
                 # 第 71 期任务 2：「05 资产管理」下面挂一级缩进的二级入口「资产清单」——
                 # 一页看完每个角色的正典板与换状态面板（见 asset_detail.show_roster）。
-                sub=SecondaryButton(side,text='资产清单',command=lambda:self.safe(self.open_asset_roster),style='Sub.Nav.TButton')
+                sub_image=IconLoader.nav_icon(win,ASSET_ROSTER_ICON)
+                sub=SecondaryButton(side,text='',image=sub_image,
+                                    compound='image' if sub_image is not None else 'text',
+                                    command=lambda:self.safe(self.open_asset_roster),style='Sub.Nav.TButton')
+                Tooltip(sub,'资产清单')
                 sub.pack(anchor='w',fill='x',pady=(SPACING['none'],DESKTOP_LAYOUT['nav_gap']))
                 self.asset_list_button=sub
         # 侧栏内容按自然高度依次 pack；超出视口的部分由外层 ScrollForm 滚动。
         self.sidebar_size=None
-        self.list.bind('<<TreeviewOpen>>',self.schedule_sidebar_fit,add='+')
-        self.list.bind('<<TreeviewClose>>',self.schedule_sidebar_fit,add='+')
+        self.project_block.bind('<Configure>',self.schedule_sidebar_fit,add='+')
         side.bind('<Configure>',self.schedule_sidebar_fit)
         self.sidebar_canvas.bind('<Configure>',self.schedule_sidebar_fit,add='+')
 
@@ -275,7 +305,7 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
                                    style='Muted.TLabel',font=DESKTOP_LAYOUT['slogan_font'])
         self.title.bind('<Configure>',self.align_header,add='+')
         self.app_title.bind('<Configure>',self.align_header,add='+')
-        self.list.bind('<Configure>',self.schedule_sidebar_fit,add='+')
+        self.project_block.bind('<Configure>',self.schedule_sidebar_fit,add='+')
         self.title_row.bind('<Configure>',self.align_header,add='+')
         self.header_info=ttk.Frame(self.title_row);self.header_info.pack(side='right',fill='x',expand=True,padx=(SPACING['md'],SPACING['none']))
         self.header_model=ttk.Label(self.header_info,style='Muted.TLabel',font=FONTS['pet_hint'],anchor='e');self.header_model.pack(side='bottom',fill='x')
@@ -632,7 +662,7 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
                     original_path=path
                     path=recovered['path']
                     self._sync_desktop_project_paths(original_path,path)
-                    # 认领已替换登记路径，先同步以路径为 iid 的侧栏再选择新项目。
+                    # 认领已替换登记路径，先同步项目选择器再选中新项目。
                     self.reload()
                     self.status.set('已按新位置同步项目登记')
                 elif recovered.get('state')=='confirm':
@@ -664,13 +694,9 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
                 # 打开仍可继续，但必须明确告知“本次项目未记为当前项目”，
                 # 否则下次启动回到旧项目会被误认为无响应或打开错误。
                 self.status.set('项目已打开，但当前项目登记未同步：%s；请稍后重新打开项目。' % exc)
-            self.list.selection_set(str(self.root))
-            # R2056：see 会把收起的分组展开；只在所在分组已展开时才滚到可见
-            if self.list.exists(str(self.root)) and self.list.item(self.list.parent(str(self.root)),'open'):self.list.see(str(self.root))
             self.mark_current_project()
         else:
-            selected=self.list.selection()
-            if selected:self.list.selection_remove(*selected)
+            self._sync_project_picker()
             self.refresh_sidebar_title()
         if defer_page:
             # 先把已映射的壳交还给 Windows；剧本准备页本身控件很多，不能与
@@ -766,9 +792,13 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
             return
         if result:self.status.set('已同步项目模型：'+'、'.join(result))
     def switch(self,event=None):
-        selected=self.list.selection()
-        if not selected or selected[0].startswith('group:'):return
-        path=selected[0]
+        """项目选择器换选：确认后才真正切换；取消由 restore_project_selection 把框复位。"""
+        picker=getattr(self,'project_picker',None)
+        items=getattr(self,'_picker_items',())
+        if picker is None or not items:return
+        index=picker.current()
+        if index<0 or index>=len(items):return
+        path=items[index]['path']
         if Path(path)!=self.root:self.safe(lambda:self.request_project_switch(path))
 
     def new(self):

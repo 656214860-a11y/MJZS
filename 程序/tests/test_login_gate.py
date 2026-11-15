@@ -158,16 +158,16 @@ class LoginGateTests(unittest.TestCase):
     def test_unlicensed_pages_are_locked_and_unlock_after_renewal(self):
         """R2048：授权失效时只放会员页与免费阶段，其余页整页锁定、侧栏挂锁；授权恢复后解锁并重建当前页。"""
         from desktop_account_page import NAV_LOCK_MARK
-        from desktop_page_registry import PAGE, PAGE_ACCOUNT, PAGE_SITES, PAGES
+        from desktop_page_registry import PAGE, PAGE_ACCOUNT, PAGE_SITES, nav_label
         d=self.desktop
         store=self.use(_Client(),lease=sign(payload(state='expired',trial_ends_at=NOW-DAY)))
         d._require_login=True;d.refresh_nav_locks()
         def locked():
             return any(getattr(w,'cget',None) and _text(w)=='需要登录或授权' for w in _walk(d.content))
         try:
-            self.assertEqual(d.nav[PAGE['storyboard']].cget('text'),PAGES[PAGE['storyboard']]+NAV_LOCK_MARK)
-            self.assertEqual(d.nav[PAGE_SITES].cget('text'),PAGES[PAGE_SITES]+NAV_LOCK_MARK)
-            self.assertEqual(d.nav[PAGE['script_structure']].cget('text'),PAGES[PAGE['script_structure']])
+            self.assertEqual(d.nav[PAGE['storyboard']].cget('text'),nav_label(PAGE['storyboard'])+NAV_LOCK_MARK)
+            self.assertEqual(d.nav[PAGE_SITES].cget('text'),nav_label(PAGE_SITES)+NAV_LOCK_MARK)
+            self.assertEqual(d.nav[PAGE['script_structure']].cget('text'),nav_label(PAGE['script_structure']))
             d.show(PAGE_SITES);self.pump()
             self.assertTrue(locked())
             self.assertIn('试用或会员已到期',d.status.get())
@@ -176,7 +176,7 @@ class LoginGateTests(unittest.TestCase):
             d.show(PAGE_SITES);self.pump()
             account_store.save_session({'email':'a@b.c','refresh_token':'r','lease':sign(payload()),'server_time':NOW},store.path)
             d._account_changed();self.pump()
-            self.assertEqual(d.nav[PAGE_SITES].cget('text'),PAGES[PAGE_SITES])
+            self.assertEqual(d.nav[PAGE_SITES].cget('text'),nav_label(PAGE_SITES))
             self.assertFalse(locked())
         finally:
             d._require_login=False;d.refresh_nav_locks()

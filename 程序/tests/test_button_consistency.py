@@ -94,9 +94,9 @@ class StageDialogButtonTests(unittest.TestCase):
 
     def test_fit_sidebar_uses_tokens_and_covers_selected_compact(self):
         text = (ROOT / "desktop_layout.py").read_text(encoding="utf-8")
-        body = text[text.index("def fit_sidebar"):]
-        body = body[:body.index("# 由可用像素反算")]
+        body = text[text.index("def fit_sidebar"):text.index("def align_header")]
         self.assertIn("'Selected.Compact.TButton'", body)
+        self.assertIn("'RailIcon.TButton'", body)   # R2897：纯图标小按钮与导航行同受紧凑内边距约束
         self.assertNotIn("20 if compact else 24", body)
         self.assertIn("NAV_ROW_HEIGHT_COMPACT", body)
 

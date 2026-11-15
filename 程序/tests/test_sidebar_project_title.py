@@ -1,4 +1,8 @@
-"""R2056：侧栏顶部写当前项目名；项目分组默认收起，用户展开后刷新不再收回。"""
+"""R2056：侧栏顶部写当前项目名。
+
+R2897：侧栏项目树改为分组筛选＋项目选择器后，「分组默认收起／展开保持」的
+侧栏树契约随之移除；项目列表分组只保留在项目首页树上（非空组默认展开）。
+"""
 import tkinter as tk
 import unittest
 from pathlib import Path
@@ -11,7 +15,6 @@ from ui_tokens import DESKTOP_LAYOUT
 
 class Host(ProjectPagesMixin):
     def __init__(self, root, projects, current=None):
-        self.list = ttk.Treeview(root, show='tree')
         self.app_title = ttk.Label(root, text=APP_NAME)
         self.projects = type('P', (), {'info': {'projects': projects}})()
         self.root = Path(current) if current else None
@@ -28,24 +31,16 @@ class SidebarProjectTitleTests(unittest.TestCase):
         self.items = [{'name': '摄影侠', 'path': 'C:/p/a', 'status': 'making'},
                       {'name': '一百块流浪记很长的名字', 'path': 'C:/p/b', 'status': 'making'}]
 
-    def test_groups_collapsed_by_default_and_user_choice_survives_refresh(self):
+    def test_project_trees_open_non_empty_groups(self):
         host = Host(self.tk, self.items)
-        host.fill_projects(host.list)
-        self.assertFalse(host.list.item('group:making', 'open'))
-        host.list.item('group:making', open=True)
-        host.fill_projects(host.list)
-        self.assertTrue(host.list.item('group:making', 'open'))
-        self.assertFalse(host.list.item('group:completed', 'open'))
-
-    def test_other_trees_keep_opening_non_empty_groups(self):
-        host = Host(self.tk, self.items)
-        other = ttk.Treeview(self.tk, show='tree')
-        host.fill_projects(other)
-        self.assertTrue(other.item('group:making', 'open'))
+        tree = ttk.Treeview(self.tk, show='tree')
+        host.fill_projects(tree)
+        self.assertTrue(tree.item('group:making', 'open'))
+        self.assertFalse(tree.item('group:completed', 'open'))
 
     def test_title_follows_current_project_and_falls_back_to_app_name(self):
         host = Host(self.tk, self.items)
-        host.fill_projects(host.list)
+        host.refresh_sidebar_title()
         self.assertEqual(host.app_title.cget('text'), APP_NAME)
         host.root = Path('C:/p/a')
         host.refresh_sidebar_title()

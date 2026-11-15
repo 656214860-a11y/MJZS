@@ -85,7 +85,7 @@ BUTTON_WIDTH_EDIT = 7
 BUTTON_WIDTH_DIALOG = CHAR_WIDTH["xl"]
 # 侧栏导航按钮横向内边距与矮窗口（compact）纵向内边距；fit_sidebar 只经这些令牌改样式。
 NAV_PADDING_X = 10
-NAV_SUB_PADDING_X = 26
+NAV_SUB_PADDING_X = 16
 NAV_PADDING_Y_COMPACT = 1
 NAV_PADDING_Y = SPACING["xs"]
 NAV_ROW_HEIGHT = 24
@@ -242,7 +242,7 @@ DESKTOP_LAYOUT = {
     'default_width': 1280, 'default_height': 800,
     'window_margin_x': SPACING['xl'], 'window_margin_y': SPACING['xl'] * 2,
     'min_width': 800, 'min_height': 600,
-    'sidebar_width': 154, 'sidebar_title_chars': 5, 'login_gate_width': 460, 'sidebar_padding': SPACING['sm'], 'row_gap': 1,
+    'sidebar_width': 92, 'sidebar_title_chars': 5, 'login_gate_width': 460, 'sidebar_padding': SPACING['sm'], 'row_gap': 1,
     # 侧栏导航胶囊之间的垂直间距与「我的项目」「导航」两段之间的呼吸距。
     'nav_gap': SPACING['xs'], 'section_gap': SPACING['md'],
     'compact_below': 690, 'project_min_rows': 3,

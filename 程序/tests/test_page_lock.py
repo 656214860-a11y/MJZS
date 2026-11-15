@@ -5,7 +5,7 @@ import entitlement_service as ent
 import pet_bus
 from account_controller import AccountController
 from desktop_account_page import AccountPageMixin, NAV_LOCK_MARK
-from desktop_page_registry import PAGES, PAGE_SITES
+from desktop_page_registry import PAGES, PAGE_SITES, nav_label
 
 
 class PageBlockMessageTests(unittest.TestCase):
@@ -62,7 +62,7 @@ class Host(AccountPageMixin):
     def __init__(self, locked, require_login=True):
         self._require_login = require_login
         self.locked = locked
-        self.nav = [FakeButton(title) for title in PAGES]
+        self.nav = [FakeButton(nav_label(index)) for index in range(len(PAGES))]
         self.page_index = PAGE_SITES
         self.shown = []
         self._account_controller = self
@@ -79,22 +79,22 @@ class NavLockTests(unittest.TestCase):
     def test_marks_locked_pages_and_rebuilds_current_page_on_flip(self):
         host = Host(locked={2, PAGE_SITES})
         host.refresh_nav_locks()
-        self.assertEqual(host.nav[2].text, PAGES[2] + NAV_LOCK_MARK)
-        self.assertEqual(host.nav[1].text, PAGES[1])
+        self.assertEqual(host.nav[2].text, nav_label(2) + NAV_LOCK_MARK)
+        self.assertEqual(host.nav[1].text, nav_label(1))
         self.assertEqual(host.shown, [PAGE_SITES])
         self.assertEqual(host.pages[PAGE_SITES], (PAGE_SITES, None, '参考网站'))
         host.refresh_nav_locks()
         self.assertEqual(host.shown, [PAGE_SITES], '锁定状态没翻转就不重建')
         host.locked = set()
         host.refresh_nav_locks()
-        self.assertEqual(host.nav[2].text, PAGES[2])
+        self.assertEqual(host.nav[2].text, nav_label(2))
         self.assertEqual(host.shown, [PAGE_SITES, PAGE_SITES])
 
     def test_hosts_that_do_not_require_login_never_lock(self):
         host = Host(locked={2}, require_login=False)
         self.assertEqual(host.page_lock_reasons(), {})
         host.refresh_nav_locks()
-        self.assertEqual(host.nav[2].text, PAGES[2])
+        self.assertEqual(host.nav[2].text, nav_label(2))
 
 
 if __name__ == '__main__':

@@ -23,5 +23,27 @@ def page_title(index):
     """页序号 → 页标题；会员账户页不在 PAGES 里，单独给名。"""
     return ACCOUNT_TITLE if index==PAGE_ACCOUNT else PAGES[index]
 
+
+# 侧栏图标轨：页序号 → assets/nav/<键>.png 语义名（图标由 scripts/build_nav_icons.py 生成）。
+# 阶段页按 pet_bus.STAGES 顺序取 NAV_STAGE_ICONS；「参考网站」与会员账户是工具页。
+NAV_STAGE_ICONS={
+    'script':'script','script_structure':'structure','storyboard':'storyboard',
+    'animatic':'animatic','assets':'assets','continuity':'continuity','final':'final',
+    'keyframe':'keyframe','previs':'previs','video':'video','audio':'audio',
+    'edit':'edit','delivery':'delivery',
+}
+PAGE_NAV_ICONS={index:NAV_STAGE_ICONS[stage] for index,stage in enumerate(pet_bus.STAGES)}
+PAGE_NAV_ICONS[PAGE_SITES]='sites'
+PAGE_NAV_ICONS[PAGE_ACCOUNT]='account'
+ASSET_ROSTER_ICON='asset_list'
+# 项目区小图标：在做／已完成分组筛选与新建、打开目录操作。
+PROJECT_GROUP_ICONS={'making':'project_making','completed':'project_done'}
+PROJECT_ACTION_ICONS={'new':'project_new','open':'project_open'}
+
+
+def nav_label(index):
+    """页序号 → 侧栏按钮上的短编号（'01'…'14'）；会员账户页给 '00'。"""
+    return '00' if index==PAGE_ACCOUNT else PAGES[index].split(None,1)[0]
+
 # 侧栏切回时复用：02 以内容签名校验，03 沿用后台目录监听。
 CACHED_PAGES=frozenset({PAGE['script_structure'],PAGE['storyboard']})
