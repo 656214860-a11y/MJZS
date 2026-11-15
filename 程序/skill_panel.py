@@ -1,7 +1,4 @@
-# 预设区（占位项常量与八个预设方法）在 skill_panel_presets；按原名转发，旧补丁点有效。
-from skill_panel_workflow import (DIALOG_SCREEN_MARGIN_BOTTOM, DIALOG_SCREEN_MARGIN_TOP,
-                                   DIALOG_SCREEN_MARGIN_X, NO_MASTER, NO_MASTER_LOCK_HINT, PanelWorkflowMixin, dialog_working_area)  # R1851 后迁出
-from skill_panel_presets import PRESET_PLACEHOLDER, PresetMixin
+from skill_panel_workflow import PanelWorkflowMixin
 from skill_panel_support import (
     FLOW_STAGE,
     EXTERNAL_PACKAGE_API_HINT,
@@ -11,10 +8,6 @@ from skill_panel_support import (
     markdown_document,
     note_text,
     external_package_api_hint,
-    workflow_note_text,
-    open_cloud_video,
-    open_tts,
-    interfaces_of,
     flow_skill_choices,
     flow_skill_display,
     chinese_skill_display,
@@ -52,21 +45,13 @@ from skill_panel_support import (
     unregister_live,
 )
 # -*- coding: utf-8 -*-
-"""统一阶段配置面板：模型下拉 ＋ SKILL 勾选 ＋ 接口 ＋ SKILL 说明 ＋ 保存为预设／重置。
+"""统一阶段配置面板（R2862）：SKILL 勾选 ＋ 技能说明 ＋ 制作锁弹窗预选。
 
-规格（第 28 期第 4 条）要一块面板管住全部 10 个制作阶段：
-- 第 43 期起模型下拉的选项全部从「模型管理」里的模型池长出来（「自动」在最前面），默认
-  「自动」——面板这里不另存一份模型清单，模型管理里加一条，这里就多一个选项；
-- SKILL 勾选支持多选、全选、重置，还能存成预设、下次一键套用；
-- 数据源就是 skill_registry.getByStage(stage)，勾选写进 project.skillConfig[stage]
-  ＝ skill_config.json 里的 {'model': ..., 'skills': [...]}；
-- 第 54 期附件一：面板只做配置（模型／SKILL／预设／说明），**不留执行入口**——
-  「执行选中」那颗按钮删掉了，和每页那颗「手动制作XX」重复。要跑就跑页面上的
-  「手动制作XX」，那一条路同样走 skill_orchestrator（Panel.run 留着当可编程入口，
-  自检与外部调用照旧能用）。
+总控预设与面板内模型选择已删除：模型选择移到共享输入框（轮 3），制作锁改为
+弹窗预选（PanelWorkflowMixin.open_lock_dialog）。本面板只保留 skill 勾选与
+技能说明查看——点击说明即渲染该 *.skill.md 完整文档。
 
-SKILL 不绑定模型：这里挑的模型是「用户偏好」，model_router 还得看 SKILL 声明的 preferredModels
-与能力才定得下来。面板只管把选择记下来、把选中的跑起来，不替模型说话。
+SKILL 不绑定模型：面板只管把选择记下来、把选中的跑起来，不替模型说话。
 """
 from pathlib import Path
 import re
@@ -77,9 +62,9 @@ from production_lock_fields import CompactLabel, FlowFields, label_pixel_width
 
 import model_pool
 import model_router
-import edit_habits_dialog, skill_note_render
+import skill_note_render
 import skill_notes
-from stage_model_picker import attach_stage_pickers, stage_button_for
+from stage_model_picker import stage_button_for
 from tk_timers import repeat
 import skill_budget
 import skill_orchestrator
@@ -101,8 +86,6 @@ from ui_tokens import CHAR_WIDTH
 
 TITLE = '阶段配置'
 confirm = ask_confirmation
-
-# 总控还没生效时制作锁为什么是灰的：锁解锁只发生在「确认套用」之后。
 
 
 
@@ -157,7 +140,7 @@ def stage_button(parent, desktop, index, text='阶段配置'):
     return button
 
 
-class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
+class Panel(PanelWorkflowMixin, FormScrollMixin, ttk.Frame):
     """一块阶段配置面板：模型 ＋ SKILL 勾选 ＋ 底部三个按钮。"""
 
     def __init__(self, master, desktop, stage, function=None, compact=True, scroll=False):
@@ -180,16 +163,10 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
         # 兼容别名仍留在注册表供旧项目读取；配置面板只展示仍可单独执行的主 SKILL。
         self.skills = [item for item in self.registry.getByStage(self.stage) if not item.deprecated]
         self.vars = {}
-        self.model = tk.StringVar(value=model_router.AUTO)
-        self.preset = tk.StringVar(value=PRESET_PLACEHOLDER)
-        self.preset_action = tk.StringVar(value='选择操作')
-        # 下拉的选项＝模型管理里那几条（第 43 期：不写死，池子加一条这里就多一项）。
+        # 模型选择已移到共享输入框（轮 3）；这里只留存档模型的只读查询。
         self.choices = model_choices(self.desktop, self.stage)
-        self.groups = grouped_model_choices(self.desktop, self.stage)
-        self.provider = tk.StringVar(value=next(iter(self.groups), '自动选择'))
         # 第 36 期第 1／4 条：这一阶段对应的编排流程（没有就是 None）——流程 SKILL 与手动配置都要它。
         self._flow = STAGE_FLOW.get(self.stage)
-        self.workflow_choice = tk.StringVar(value=NO_MASTER)
         self._build()
         self.bind('<Destroy>', self.cancel_skill_layout, add='+')
         register_live(self)
@@ -243,12 +220,10 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
     def _build(self):
         # 阶段配置以连续表单阅读为主，统一使用最小设计间距和标签宽度，避免控件跳列。
         pad = SPACING['xs']
-        # 第一列标签列宽：预设／厂商／总控／SKILL／风格同宽，左侧下拉框上下对齐；
-        # 制作锁其余各列按本列最宽标签收窄，第一列被撑宽时经 align_label_column 同步。
-        label_texts = ['预设', '厂商', '总控', 'SKILL', '风格']
+        # 第一列标签列宽：SKILL／制作锁同宽，左侧控件上下对齐。
+        label_texts = ['SKILL', '制作锁']
         self.label_px = max(label_pixel_width(self, label_texts, style=name)
                             for name in ('TLabel', 'Muted.TLabel'))
-        select_width = STAGE_PANEL_LAYOUT['select_width']
         item_gap = STAGE_PANEL_LAYOUT['item_gap']
         # 卡片之间不留额外空隙：相邻卡片的 1px 边框就是分隔线，间距取 none 档。
         section_gap = SPACING['none']
@@ -257,49 +232,16 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
         # 底栏固定优先，其次是不可伸缩的阶段配置，最后是可伸缩的技能说明区。
         self.bottom_bar = ttk.Frame(self)
         self.bottom_bar.pack(side='bottom', fill='x', pady=(pad, SPACING['none']))
-        self.state = ProgressLabel(self.bottom_bar, text='选择预设即可套用；确认保存本页。')
+        self.state = ProgressLabel(self.bottom_bar, text='勾选项已自动保存；确认保存本页。')
         self.state.pack(side='left')
-        self.preset_hint = self.state
         self.confirm_button = PrimaryButton(self.bottom_bar, text='确认并关闭', width=CHAR_WIDTH['xl'],
                                             command=self.confirm)
         self.confirm_button.pack(side='right')
         body = self._build_form_body()
-        # 预设决定整套配置，因此置于厂商／模型之前；与下方卡片使用同一左内边距，标签对齐。
-        row = WrappingActionRow(body, padding=(pad, 0))
-        row.pack(fill='x', pady=(SPACING['none'], section_gap))
-        CompactLabel(row, text='预设', style='Muted.TLabel', min_px=self.label_px).pack(side='left')
-        self.presets = SelectBox(row, textvariable=self.preset, width=select_width,
-                                    values=[PRESET_PLACEHOLDER] + self.preset_names())
-        self.presets.pack(side='left', padx=(STAGE_PANEL_LAYOUT['field_gap'], item_gap))
-        self.presets.gap_after = item_gap
-        self.presets.bind('<<ComboboxSelected>>', lambda event: self.apply_preset())
-        self.preset_actions = SelectBox(
-            row, textvariable=self.preset_action, width=select_width,
-            values=['选择操作', '保存为预设', '删除预设', '重命名预设', '复制本预设到其他页面'])
-        self.preset_actions.pack(side='left', padx=(SPACING['none'], item_gap))
-        self.preset_actions.gap_after = item_gap
-        self.preset_actions.bind('<<ComboboxSelected>>', lambda event: self.run_preset_action())
-        self.restore_defaults_button = SecondaryButton(row, text='恢复默认', width=CHAR_WIDTH['xl'],
-                                                       command=self.reset_defaults)
-        self.restore_defaults_button.pack(side='left')
-        HintLabel(row, text='勾选项与模型已自动保存').pack(side='left', padx=(SPACING['sm'], SPACING['none']))
-        row._schedule_wrap()
-
-        coordinator = ttk.Frame(body, padding=pad, relief='solid', borderwidth=1)
-        coordinator.pack(fill='x', pady=(SPACING['none'], section_gap))
-        self.build_workflow_coordinator(pad, coordinator)
-
-        engine = ttk.Frame(body, padding=pad, relief='solid', borderwidth=1)
-        # 只在用户改选模型后按需探测；构造／load 不调用，避免打开页面时扫描本机程序。
-        self.engine_frame = engine
-        self.route_hint = HintLabel(engine, text='')
-        specific = ttk.Frame(body, padding=pad, relief='solid', borderwidth=1)
-        self.route_anchor = specific
-        specific.pack(fill='x', pady=(SPACING['none'], section_gap))
-        self.build_writer_style_editor(pad, specific)
-        self.build_interfaces(pad, specific)
-        if not specific.winfo_children():
-            specific.pack_forget()
+        # 制作锁预选入口（R2862）：锁值是项目级事实，由弹窗统一编辑，不再铺进行内表单。
+        locks = ttk.Frame(body, padding=pad, relief='solid', borderwidth=1)
+        locks.pack(fill='x', pady=(SPACING['none'], section_gap))
+        self.build_lock_entry(pad, locks)
         skill_section = ttk.Frame(body, padding=pad, relief='solid', borderwidth=1)
         skill_section.pack(fill='x', pady=(SPACING['none'], section_gap))
         self.skill_content = ttk.Frame(skill_section)
@@ -314,102 +256,6 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
         if self.form_canvas is not None:
             self._sync_form_view()
             self._bind_form_wheel()
-
-    def build_writer_style_editor(self, pad, parent=None):
-        """仅剧本阶段提供编剧风格编辑，避免无关页面出现无效入口。"""
-        if self.stage not in stage_config.WRITER_STYLE_STAGES:
-            return None
-        row = WrappingActionRow(parent or self)
-        row.pack(fill='x', pady=(SPACING['none'], pad))
-        CompactLabel(row, text='风格', style='Muted.TLabel',
-                     min_px=getattr(self, 'label_px', 0)).pack(side='left')
-        self.writer_style_button = SecondaryButton(row, text='编辑编剧风格', width=CHAR_WIDTH['2xl'],
-                                                   command=self.open_writer_style_editor)
-        self.writer_style_button.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
-        self.edit_habits_button = edit_habits_dialog.entry_button(row, self)  # REQ-S01-60：跨项目修改习惯
-        DescriptionBlock(row, text='编剧角色按此风格创作并审核五阶门控，例如参考好莱坞编剧；留空则不附加风格。').pack(side='left', padx=(SPACING['sm'], SPACING['none']))
-        row._schedule_wrap()
-        return row
-
-    def open_writer_style_editor(self):
-        """在独立弹窗编辑项目级编剧风格；留空即不附加，不写程序内置 SKILL。"""
-        project = desktop_project(self.desktop)
-        if not project:
-            notify(self.winfo_toplevel(), '请先选择项目。', title=TITLE,
-                   status=getattr(self.desktop, 'status', None), modal=False)
-            return None
-        title = '编辑编剧风格'
-        current = stage_config.writer_style(project, self.stage)
-        window = BaseDialog(self.winfo_toplevel(), title + ' · ' + stage_label(self.stage),
-                            minsize=(620, 430), modal=False, chrome=False)
-        body = ttk.Frame(window, padding=SPACING['md'])
-        body.pack(fill='both', expand=True)
-        DescriptionBlock(body, text='项目级风格：保存后仅在本项目下一次创作自然剧本时生效。'
-                                    '例如：参考好莱坞编剧，三幕结构清晰，每场戏有明确目标与阻碍，对白短促并带潜台词。').pack(
-            anchor='w', pady=(SPACING['none'], SPACING['sm']))
-        editor = TextArea(body, wrap='word', undo=True, font=FONTS['body'],
-                         bg=COLORS['background_card'], fg=COLORS['text_primary'],
-                         insertbackground=COLORS['primary'])
-        editor.insert('1.0', current)
-        scroll = ttk.Scrollbar(body, orient='vertical', command=editor.yview)
-        editor.configure(yscrollcommand=scroll.set)
-        scroll.pack(side='right', fill='y')
-        editor.pack(fill='both', expand=True)
-        actions = ttk.Frame(body)
-        actions.pack(fill='x', pady=(SPACING['sm'], SPACING['none']))
-
-        def save_style():
-            stage_config.put(project, self.stage, writer_style=editor.get('1.0', 'end-1c').strip())
-            self.state.configure(text=title + '已保存；下一次自然剧本创作将使用此风格。')
-            window.destroy()
-
-        def clear_style():
-            stage_config.put(project, self.stage, writer_style='')
-            editor.delete('1.0', 'end')
-            self.state.configure(text='编剧风格已清空，不再附加项目级风格。')
-
-        PrimaryButton(actions, text='保存风格', width=CHAR_WIDTH['xl'],
-                      command=save_style).pack(side='left')
-        SecondaryButton(actions, text='清空风格', width=CHAR_WIDTH['xl'],
-                        command=clear_style).pack(side='left', padx=(SPACING['sm'], SPACING['none']))
-        SecondaryButton(actions, text='取消', width=CHAR_WIDTH['xl'],
-                        command=window.destroy).pack(side='right')
-        return window
-
-
-    def toggle_optional_locks(self):
-        self._optional_locks_expanded = not self._optional_locks_expanded
-        for key in self._optional_lock_keys:
-            self.lock_fields.set_visible(key, self._optional_locks_expanded)
-        self.more_locks_button.configure(text='收起选填锁' if self._optional_locks_expanded else '更多制作锁')
-        bind_wheel = getattr(self, '_bind_form_wheel', None)
-        if self._optional_locks_expanded and callable(bind_wheel):
-            bind_wheel(self.lock_fields)
-        sync_form = getattr(self, '_sync_form_view', None)
-        if callable(sync_form):
-            sync_form()
-
-
-
-    def sync_master_skill(self, quiet=False):
-        """打开阶段配置时检查总控是否更新；更新了就自动同步各阶段并返回提示文字。"""
-        import master_skill
-        project = self.project()
-        if not project:
-            return ''
-        try:
-            result = master_skill.sync(project, getattr(self, 'registry', None))
-        except (OSError, ValueError, TypeError, KeyError) as exc:
-            return '总控同步未完成：%s' % exc
-        if result['stages'] and getattr(self, 'stage', None) in result['stages'] and getattr(self, 'vars', None):
-            entry = stage_config.get(project, self.stage)
-            for name, var in self.vars.items():
-                var.set(name in entry['skills'])
-        return ('；' if quiet and result['message'] else '') + result['message']
-
-
-
-
 
     def build_flow_skill(self, parent):
         """SKILL 操作行：标签＋按内容定宽的下拉框＋勾选框流式排布＋外部包提示。"""
@@ -654,44 +500,6 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
         self.state.configure(text='已移入回收站：' + names)
         return records
 
-    def show_desktop_route_notice(self):
-        """模型由用户主动改选后，才按需查询本机优先路由；不改变保存或执行。"""
-        notice = ''
-        if self._flow:
-            try:
-                import workflow_settings
-                notice = workflow_settings.desktop_route_notice(
-                    self.project(), self._flow, self.model_id(), pool_records(self.desktop))
-            except Exception:
-                notice = ''
-        self.route_hint.configure(text=notice)
-        if notice:
-            self.engine_frame.pack(fill='x', pady=(SPACING['none'], SPACING['none']),
-                                   before=self.route_anchor)
-            self.route_hint.pack(fill='x')
-        else:
-            self.route_hint.pack_forget()
-            self.engine_frame.pack_forget()
-        return notice
-
-    def set_model(self, model):
-        """按已保存的 id 记下当前模型；手填的本地 id 也必须原样保留。"""
-        wanted = str(model or model_router.AUTO)
-        for provider, options in self.groups.items():
-            for model_id, label in options:
-                if model_id == wanted:
-                    self.provider.set(provider)
-                    self.model.set(label)
-                    return wanted
-        if wanted == model_router.AUTO:
-            return model_router.AUTO
-        # 用户手写的本地模型尚未登记到模型池时，不替用户丢掉配置。
-        provider = '自定义'
-        self.groups.setdefault(provider, []).append((wanted, wanted))
-        self.provider.set(provider)
-        self.model.set(wanted)
-        return wanted
-
     def manual(self):
         """项目里这一阶段手动配的那一档（没配过就是空的一份）。"""
         try:
@@ -699,33 +507,7 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
         except Exception:
             return {}
 
-    # ── 接口与 SKILL 说明（第 29 期第 1／2／4 条） ──────────────────────────
-    def build_interfaces(self, pad, parent=None):
-        """「接口」那一行：点开还是原来那个窗口，只是不再每页各放一份。"""
-        self.interface_buttons = []
-        for label, opener in interfaces_of(self.desktop, self.stage, self.function):
-            if not self.interface_buttons:
-                line = WrappingActionRow(parent or self)
-                line.pack(fill='x', pady=(pad, SPACING['none']))
-                ttk.Label(line, text='接口', style='Muted.TLabel').pack(side='left')
-            button = SecondaryButton(line, text=label,
-                                     command=lambda f=opener: self.open_interface(f))
-            button.pack(side='left', padx=(SPACING['xs'], SPACING['none']))
-            self.interface_buttons.append(button)
-        if self.interface_buttons:
-            line._schedule_wrap()
-        return self.interface_buttons
-
-    def open_interface(self, opener):
-        """点接口按钮：出错就写在面板的提示行上，不往用户脸上抛。"""
-        try:
-            result = opener()
-        except Exception as exc:
-            self.state.configure(text='接口没打开：' + str(exc))
-            return None
-        self.state.configure(text='接口已打开')
-        return result
-
+    # ── SKILL 说明（第 29 期第 4 条） ────────────────────────────────────────
     def build_notes(self, pad):
         """左侧目录、右侧正文：选择 SKILL 后在同一行阅读说明。"""
         self.note_list = None
@@ -819,8 +601,7 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
         if self.note_text is None:
             return ''
         entry = self.current_note()
-        body = (note_text(entry[1], localize=False) if entry and entry[0] == 'registered'
-                else workflow_note_text(entry[1], entry[2]) if entry else '')
+        body = note_text(entry[1], localize=False) if entry and entry[0] == 'registered' else ''
         source = body
         body, pending = skill_notes.preview(source, program_of(self.desktop))
         self._note_source = source
@@ -877,23 +658,26 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
         return project
 
     def model_id(self, text=None):
-        """下拉框里那一格 → 模型 id（「自动」与认不出来的文案都原样退回）。"""
-        return model_pool.id_of_label(self.model.get() if text is None else text, self.choices)
+        """面板已无模型控件（轮 3 移到共享输入框）：返回项目里存的这一档模型。"""
+        if text is not None:
+            return model_pool.id_of_label(text, self.choices)
+        try:
+            return str(self.entry().get('model') or model_router.AUTO)
+        except Exception:
+            return model_router.AUTO
 
     def model_label(self, model=None):
-        """模型 id → 下拉框那一格的文案（池里的显示名，池里没有就照原样念）。"""
+        """模型 id → 池里的显示名（池里没有就照原样念）。"""
         return model_pool.label_of(model, pool_records(self.desktop))
 
     def refresh_models(self):
-        """模型池或阶段模型变了：换掉选项，当前这一档以项目配置为准（不在池里了就退回「自动」）。"""
+        """模型池或阶段模型变了：重查存档模型是否还属本页，并刷新勾选与提示。"""
         try:
             current = str(self.entry().get('model') or model_router.AUTO)
         except Exception:
-            current = self.model_id()
+            current = model_router.AUTO
         self.choices = model_choices(self.desktop, self.stage)
-        self.groups = grouped_model_choices(self.desktop, self.stage)
-        kept = [model_id for model_id, _label in self.choices if model_id == current]
-        self.set_model(kept[0] if kept else model_router.AUTO)
+        self.drop_mismatched(current)
         self.refresh_external_package_hint()
         return self.choices
 
@@ -932,12 +716,9 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
         except Exception:
             return None
         kept = self.drop_mismatched(entry.get('model') or model_router.AUTO, entry.get('skills'))
-        self.set_model(kept or model_router.AUTO)
         chosen = set(entry.get('skills') or [])
         for name, var in self.vars.items():
             var.set(name in chosen)
-        self.show_presets(self.preset.get())
-        self.refresh_workflow()
         manual = self.manual()
         if manual.get('model') or manual.get('skill'):
             # 第 36 期第 4 条：手动配过就把这一档说出来，别让人猜「我配的生效了没有」。
@@ -945,6 +726,8 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
                                  + ' · ' + (Path(manual['skill']).name if manual.get('skill') else 'SKILL 按上方勾选'))
         self.refresh_notes()
         self.refresh_external_package_hint()
+        self.refresh_locks()
+        self.refresh_lock_hint()
         return entry
 
     def selected(self):
@@ -983,12 +766,12 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
         return entry
 
     def reset_defaults(self):
-        """经确认后仅恢复本阶段模型与 SKILL 默认值；统筹和制作锁保持不变。"""
-        if not confirm(self.winfo_toplevel(), TITLE, '恢复本阶段的默认模型和 SKILL？\n总控与制作锁不会改变。'):
+        """经确认后仅恢复本阶段模型与 SKILL 默认值；制作锁保持不变。"""
+        if not confirm(self.winfo_toplevel(), TITLE, '恢复本阶段的默认模型和 SKILL？\n制作锁不会改变。'):
             return None
         entry = stage_config.reset(self.project(), self.stage, registry=self.registry)
         self.load()
-        self.state.configure(text='已恢复本阶段默认配置；总控与制作锁未改变。')
+        self.state.configure(text='已恢复本阶段默认配置；制作锁未改变。')
         return entry
 
     # ── 执行 ────────────────────────────────────────────────────────────────

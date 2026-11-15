@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import idea_chat
 import script_contract
-import workflow_settings
+from contract.script_contract import PRODUCTION_LOCK_DEFINITIONS
 from tests.test_idea_chat import _Harness, idea_chat as injected_chat
 from tests.ui_edges_support import make_minimal_project
 
@@ -31,9 +31,8 @@ class LocalBriefTests(unittest.TestCase):
         self.assertEqual(idea_chat.inline_required_missing(None, '', attachment_fields=fields), ())
         with tempfile.TemporaryDirectory() as td:
             root = make_minimal_project(td)
-            preset = next(iter(workflow_settings.WORKFLOW_PRESETS.values()))
             result = injected_chat.receive_brief(root, '【附档：输入/材料.md】', inline_text='',
-                lock_definitions=preset['locks'], attachment_reference={'brief_texts': [MATERIAL]})
+                lock_definitions=PRODUCTION_LOCK_DEFINITIONS, attachment_reference={'brief_texts': [MATERIAL]})
             self.assertEqual(result['missing'], ())
             self.assertEqual(result['fields']['story_summary'], '修表师寻找失踪的父亲')
             self.assertEqual(result['fields']['main_characters'], '林青与阿禾')

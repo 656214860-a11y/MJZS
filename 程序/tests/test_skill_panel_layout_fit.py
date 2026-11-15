@@ -1,4 +1,4 @@
-"""R1684 阶段配置页：制作锁下拉自适应宽度、总控＋制作锁区域布局与厂商显示名回归。"""
+"""R1684/R2862 阶段配置页：制作锁下拉自适应宽度、制作锁弹窗布局与厂商显示名回归。"""
 import tempfile
 import tkinter as tk
 import unittest
@@ -44,49 +44,33 @@ class LockFitTests(unittest.TestCase):
         source = view.inputs['material_source']
         self.assertEqual(int(source.cget('width')), STAGE_PANEL_LAYOUT['select_width'])
 
-    def _build_panel(self):
+    def _open_dialog(self):
         import skill_panel
-        import stage_config
-        import workflow_settings
-        name = next(iter(workflow_settings.WORKFLOW_PRESETS))
-        stage_config.put_workflow(self.desktop.root, {'name': name,
-            'lock': {name: {'aspect_ratio': '9:16'}}})
         panel = skill_panel.Panel(self.win, self.desktop, 'script')
         self.addCleanup(panel.destroy)
         panel.pack(fill='x')
-        panel.toggle_optional_locks()          # 展开选填锁，覆盖完整区域
-        return panel
+        window = panel.open_lock_dialog()
+        self.assertIsNotNone(window)
+        self.win.update()
+        return panel, window
 
-    def test_coordinator_region_does_not_overflow_at_two_widths(self):
+    def test_lock_dialog_region_does_not_overflow_at_two_widths(self):
+        # R2862：内联制作锁协调器已删，锁编辑移入弹窗；几何契约改为弹窗内不越界。
         for width in (900, 560):
             with self.subTest(width=width):
                 self.win.deiconify()
                 self.win.geometry('%dx800' % width)
-                panel = self._build_panel()
-                self.win.update()
-                coordinator = panel.workflow_coordinator
-                right = coordinator.winfo_rootx() + coordinator.winfo_width()
-                for widget in _descendants(coordinator):
+                panel, window = self._open_dialog()
+                right = window.winfo_rootx() + window.winfo_width()
+                for widget in _descendants(window):
                     if widget.winfo_width() <= 1:
                         continue
                     self.assertLessEqual(widget.winfo_rootx() + widget.winfo_width(),
                                          right + 1,
-                                         '子控件越出面板：%s' % widget)
-                self._assert_no_overlap_in_row(panel.lock_fields)
+                                         '子控件越出弹窗：%s' % widget)
+                window.destroy()
                 panel.destroy()
                 self.win.withdraw()
-
-    def _assert_no_overlap_in_row(self, row):
-        children = [c for c in row.winfo_children() if c.winfo_width() > 1]
-        by_row = {}
-        for child in children:
-            by_row.setdefault(child.winfo_rooty(), []).append(child)
-        for _y, group in by_row.items():
-            spans = sorted((c.winfo_rootx(), c.winfo_rootx() + c.winfo_width())
-                           for c in group)
-            for (l0, r0), (l1, _r1) in zip(spans, spans[1:]):
-                self.assertLessEqual(r0, l1 + 1, '同一行相邻控件 x 范围重叠：%r' % spans)
-
 
 class ProviderLabelTests(unittest.TestCase):
     def test_openai_compatible_label_and_id_round_trip(self):

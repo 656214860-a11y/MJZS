@@ -813,17 +813,12 @@ def save_writing_production_locks(project, values, *, attachment_signature=None)
     from contract.script_contract import validate_production_locks
     validate_production_locks(updates)
     config_path = stage_config.path(project)
-    config = deepcopy(file_cache.read_json(config_path) or {})
-    workflow = config.get('workflow') or {}
-    name = str(workflow.get('name') or '').strip()
-    if not name:
-        raise ValueError('请先在阶段配置选择总控')
+    config = deepcopy(stage_config._workflow_data(project))
     locks = stage_config.workflow_lock(project)
     locks.update(updates)
-    workflow.setdefault('lock', {})[name] = locks
+    config['production_locks'] = {key: value for key, value in locks.items() if str(value or '').strip()}
     if attachment_signature is not None:
-        workflow.setdefault('lock_attachment_signatures', {})[name] = attachment_signature
-    config['workflow'] = workflow
+        config['production_lock_attachment_signature'] = attachment_signature
     documents = {config_path: config}
     brief_path = brief_complete_path(project_context(project))
     if brief_path.is_file():
@@ -831,7 +826,8 @@ def save_writing_production_locks(project, values, *, attachment_signature=None)
         brief['brief'].setdefault('production_locks', {}).update(updates)
         documents[brief_path] = brief
     payload = {path: json.dumps(value, ensure_ascii=False, indent=2).encode('utf-8')
-               for path, value in documents.items() if value != file_cache.read_json(path)}
+               for path, value in documents.items()
+               if value != (file_cache.read_json(path) if Path(path).is_file() else None)}
     if payload:
         publish_stage_bundle(payload, lambda items: all(raw for _, raw in items),
                              lambda: stage_config._invalidate_cache(project))
@@ -842,10 +838,7 @@ def sync_writing_attachment_locks(project, *, reference=None):
     from hashlib import sha256
     from idea_brief_form import extract_brief_creation
     from contract.script_contract import PRODUCTION_LOCK_DEFINITIONS
-    workflow = stage_config.current_workflow(project)
-    name = str(workflow.get('name') or '').strip()
-    if not name:
-        return
+    data = stage_config._workflow_data(project)
     if reference is None:
         from idea_attachments import brief_sources
         reference = brief_sources(project_context(project),
@@ -864,7 +857,7 @@ def sync_writing_attachment_locks(project, *, reference=None):
     if not values:
         return
     signature = sha256(json.dumps(values, ensure_ascii=False, sort_keys=True).encode('utf-8')).hexdigest()
-    if workflow.get('lock_attachment_signatures', {}).get(name) != signature:
+    if data.get('production_lock_attachment_signature') != signature:
         save_writing_production_locks(project, values, attachment_signature=signature)
 
 

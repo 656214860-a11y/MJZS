@@ -7,6 +7,7 @@ import continuity_ledger
 import script_contract
 import stage_flow
 import stage_layout
+import stage_config
 import stage_parallel
 import workflow_settings
 
@@ -135,8 +136,7 @@ class ContinuityScopeTests(unittest.TestCase):
                 text = (SKILL_DIR / (name + '.skill.md')).read_text(encoding='utf-8')
                 self.assertIn('name: ' + name, text)
                 self.assertIn('stage: 连贯性清单', text)
-        preset = workflow_settings.BUILTIN_WORKFLOW_PRESETS['AIGC全流程']['stage_skills']
-        self.assertEqual(preset['continuity'], ['pipeline-continuity'])
+        self.assertIn('pipeline-continuity', stage_config.default_entry('continuity')['skills'])
 
     def test_req_s06_26_g08_is_optional_and_sg02_does_not_depend_on_it(self):
         """REQ-S06-26：G-08 人工裁决可选、建议，不是 SG-02 的放行条件。"""

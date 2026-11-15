@@ -40,7 +40,6 @@ import stage_handler_registry
 from contract.platform_tools import find_editor_shortcut, launch_windows_app, open_directory, open_path, open_target, tcp_listener
 from desktop_startup_service import DesktopStartupController
 from desktop_account_page import AccountPageMixin
-from desktop_master_update import MasterUpdateMixin
 from desktop_login_gate import LoginGateMixin
 from desktop_page_nav import PageNavMixin
 from desktop_lifecycle import LifecycleMixin
@@ -157,7 +156,7 @@ def status_kind(message):
     if any(marker in text for marker in STATUS_RUNNING_MARKERS):return 'running'
     return 'ready'
 
-class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMixin, LoginGateMixin, MasterUpdateMixin, IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin, ProjectPagesMixin, StoryboardPageMixin, WritingPageMixin, IdeaChatMixin, AutoFlowsMixin, AutomationTickMixin, LayoutMixin, PetBridgeMixin, AsyncTasksMixin, TrayMixin):
+class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMixin, LoginGateMixin, IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin, ProjectPagesMixin, StoryboardPageMixin, WritingPageMixin, IdeaChatMixin, AutoFlowsMixin, AutomationTickMixin, LayoutMixin, PetBridgeMixin, AsyncTasksMixin, TrayMixin):
     def __init__(self,win,root=ROOT,*,require_login=False,**page_services):
         self._init_window_and_sidebar(win, root, page_services)
         self._init_body_and_status(win)
@@ -739,15 +738,6 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
                 app_logging.swallowed()
                 result={'error':str(exc), 'kind': 'bug'}
             self._stage_model_sync_results.put((generation,target,result))
-            # 总控（00全流程SKILL）有更新就自动同步各阶段；只把提示文字带回主线程。
-            if target is None:return
-            try:
-                from master_skill import sync as sync_master_skill
-                message=sync_master_skill(target).get('message','')
-            except Exception as exc:
-                app_logging.swallowed()
-                message='总控同步未完成：%s；请打开阶段配置重试。' % exc
-            if message:self._stage_model_sync_results.put((generation,target,{'master':message}))
         threading.Thread(target=work,daemon=True).start()
     def _tick_stage_model_sync_result(self):
         indicator=getattr(self,'usage_indicator',None)  # 总线随项目重建，每拍对齐 usage_updated 订阅
@@ -757,9 +747,6 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         try:generation,target,result=self._stage_model_sync_results.get_nowait()
         except queue.Empty:return
         if generation!=self._stage_model_sync_generation or target!=self.root:return
-        if isinstance(result,dict) and result.get('master'):
-            self.status.set(result['master'])
-            return
         if isinstance(result,dict) and result.get('error'):
             LOGGER.warning('项目模型同步失败：%s', result['error'])
             self.status.set('项目模型同步未完成：%s；请稍后重试。' % result['error'])

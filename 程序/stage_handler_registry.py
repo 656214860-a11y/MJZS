@@ -8,34 +8,27 @@ from storyboard_plan_service import storyboard_work_plan
 
 
 def _workflow_lock_error(project, stage, trigger):
-    """总控门禁（制作锁）：手动与自动同样阻断。
+    """制作锁门禁：手动与自动同样阻断（R2862 起不再依赖总控预设）。
 
-    自动剧本链须有总控声明的全部锁；其他阶段按契约 STAGE_LOCK_REQUIREMENTS 取本阶段必填锁。
+    必填口径统一走契约 ``stage_lock_requirements``（含项目创建日期过滤）；
     手动剧本准备不经这里（简报采集对话本身在收集制作锁，由简报门禁负责）。
     """
-    from contract.script_contract import STAGE_LOCK_REQUIREMENTS
+    from contract.script_contract import (PRODUCTION_LOCK_DEFINITIONS, STAGE_LOCK_REQUIREMENTS,
+                                          lock_stage, stage_lock_requirements)
     if not project or (stage == 'script' and trigger != 'auto'):
         return ''
-    if stage != 'script' and not STAGE_LOCK_REQUIREMENTS.get(stage):
+    if lock_stage(stage) not in STAGE_LOCK_REQUIREMENTS:
         return ''
     import stage_config
-    import workflow_settings
-    workflow = stage_config.current_workflow(project)
-    preset = workflow_settings.refresh_workflow_presets().get(workflow.get('name'), {})
-    declared = tuple(preset.get('locks') or ())
-    if stage == 'script':
-        required = declared
-    else:
-        wanted = STAGE_LOCK_REQUIREMENTS.get(stage, ())
-        required = tuple(item for item in declared if item.get('key') in wanted)
-    if not required:
+    required_keys = stage_lock_requirements(stage, stage_config.project_created_at(project))
+    if not required_keys:
         return ''
+    labels = {item['key']: item.get('label') or item['key'] for item in PRODUCTION_LOCK_DEFINITIONS}
     selected = stage_config.workflow_lock(project)
-    missing = [item.get('label') or item.get('key') for item in required
-               if not str(selected.get(item.get('key')) or '').strip()]
+    missing = [labels[key] for key in required_keys if not str(selected.get(key) or '').strip()]
     if not missing:
         return ''
-    return '请先在 01 剧本准备 的发送框内写明制作锁（故事画幅／视频模型／交付形态）：' + '、'.join(missing)
+    return '请先在 01 剧本准备 的发送框内写明制作锁：' + '、'.join(missing)
 
 
 def _account_gate_error(desktop, stage):

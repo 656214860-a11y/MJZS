@@ -1,0 +1,15 @@
+{
+  "round": 2862,
+  "commit_base": "f4afbe32",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k skill stage_config stage_model_value stage_execution_service workflow idea production_lock stage_command stage_prompt scope manual_plan button_consistency release_bindings req_s script_agent stage_notes",
+    "exit": 0,
+    "passed": 1150,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T23:33:39"
+}

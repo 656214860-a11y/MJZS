@@ -7,6 +7,7 @@ from unittest import mock
 
 import pet_bus
 import shot_batches
+import stage_config
 import stage_flow
 import stage_layout
 import stage_parallel
@@ -168,11 +169,7 @@ class StoryboardFinalScopeTests(unittest.TestCase):
                          sorted(name + '.skill.md' for name in SKILLS))
 
     def test_req_s07_50_default_skill_is_the_pipeline_entry(self):
-        manifest = json.loads(workflow_settings.MASTER_MANIFEST.read_text(encoding='utf-8'))
-        self.assertIn(['pipeline-storyboard-final'], [
-            value['final'] for value in _walk(manifest) if isinstance(value, dict) and 'final' in value])
-        builtin = workflow_settings.BUILTIN_WORKFLOW_PRESETS['AIGC全流程']['stage_skills']
-        self.assertEqual(builtin['final'], ['pipeline-storyboard-final'])
+        self.assertIn('pipeline-storyboard-final', stage_config.default_entry('final')['skills'])
 
     def test_req_s07_51_pipeline_skill_reads_locks_and_freezes_seams(self):
         text = (SKILL_DIR / 'pipeline-storyboard-final.skill.md').read_text(encoding='utf-8')

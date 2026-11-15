@@ -1,6 +1,6 @@
 {
  "tool": "pyright 1.1.414 basic python3.13",
- "total": 3023,
+ "total": 2950,
  "modules": {
   "agent/optimizer_mcp_bridge.py": 4,
   "agent/wan.py": 1,
@@ -42,7 +42,6 @@
   "desktop_layout.py": 93,
   "desktop_lifecycle.py": 16,
   "desktop_login_gate.py": 5,
-  "desktop_master_update.py": 13,
   "desktop_media_pages.py": 258,
   "desktop_page_nav.py": 94,
   "desktop_pet_bridge.py": 14,
@@ -70,7 +69,6 @@
   "keyframe_evidence.py": 4,
   "lease_verifier.py": 1,
   "local_previs.py": 23,
-  "master_import_service.py": 3,
   "model_diagnostics.py": 3,
   "model_pool.py": 17,
   "model_protocol.py": 1,
@@ -113,7 +111,6 @@
   "skill_notes.py": 1,
   "skill_orchestrator.py": 3,
   "skill_panel.py": 26,
-  "skill_panel_presets.py": 57,
   "skill_panel_support.py": 7,
   "skill_panel_workflow.py": 49,
   "skill_registry.py": 9,

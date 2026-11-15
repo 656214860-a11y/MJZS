@@ -495,7 +495,7 @@
   {
    "module": "desktop.py",
    "covered": 0,
-   "total": 751,
+   "total": 740,
    "percent": 0.0
   },
   {
@@ -537,7 +537,7 @@
   {
    "module": "desktop_automation_tick.py",
    "covered": 0,
-   "total": 206,
+   "total": 205,
    "percent": 0.0
   },
   {
@@ -567,7 +567,7 @@
   {
    "module": "desktop_idea_chat.py",
    "covered": 0,
-   "total": 890,
+   "total": 885,
    "percent": 0.0
   },
   {
@@ -585,7 +585,7 @@
   {
    "module": "desktop_idea_send_gate.py",
    "covered": 0,
-   "total": 69,
+   "total": 67,
    "percent": 0.0
   },
   {
@@ -622,12 +622,6 @@
    "module": "desktop_login_gate.py",
    "covered": 0,
    "total": 60,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_master_update.py",
-   "covered": 0,
-   "total": 47,
    "percent": 0.0
   },
   {
@@ -873,7 +867,7 @@
   {
    "module": "idea_chat.py",
    "covered": 0,
-   "total": 569,
+   "total": 571,
    "percent": 0.0
   },
   {
@@ -994,24 +988,6 @@
    "module": "log_maintenance.py",
    "covered": 0,
    "total": 115,
-   "percent": 0.0
-  },
-  {
-   "module": "master_import_service.py",
-   "covered": 0,
-   "total": 127,
-   "percent": 0.0
-  },
-  {
-   "module": "master_skill.py",
-   "covered": 0,
-   "total": 138,
-   "percent": 0.0
-  },
-  {
-   "module": "master_skill_update.py",
-   "covered": 0,
-   "total": 230,
    "percent": 0.0
   },
   {
@@ -1527,13 +1503,7 @@
   {
    "module": "skill_panel.py",
    "covered": 0,
-   "total": 792,
-   "percent": 0.0
-  },
-  {
-   "module": "skill_panel_presets.py",
-   "covered": 0,
-   "total": 165,
+   "total": 636,
    "percent": 0.0
   },
   {
@@ -1545,7 +1515,7 @@
   {
    "module": "skill_panel_workflow.py",
    "covered": 0,
-   "total": 304,
+   "total": 90,
    "percent": 0.0
   },
   {
@@ -1593,7 +1563,7 @@
   {
    "module": "stage_handler_registry.py",
    "covered": 0,
-   "total": 101,
+   "total": 95,
    "percent": 0.0
   },
   {
@@ -1605,7 +1575,7 @@
   {
    "module": "stage_model_value.py",
    "covered": 0,
-   "total": 27,
+   "total": 48,
    "percent": 0.0
   },
   {
@@ -2007,7 +1977,7 @@
   {
    "module": "workflow_engines.py",
    "covered": 0,
-   "total": 421,
+   "total": 419,
    "percent": 0.0
   },
   {
@@ -2019,7 +1989,7 @@
   {
    "module": "workflow_settings.py",
    "covered": 0,
-   "total": 791,
+   "total": 703,
    "percent": 0.0
   },
   {
@@ -2107,12 +2077,6 @@
    "percent": 12.2
   },
   {
-   "module": "stage_config.py",
-   "covered": 67,
-   "total": 478,
-   "percent": 14.0
-  },
-  {
    "module": "api_endpoints.py",
    "covered": 52,
    "total": 366,
@@ -2141,6 +2105,12 @@
    "covered": 35,
    "total": 233,
    "percent": 15.0
+  },
+  {
+   "module": "stage_config.py",
+   "covered": 54,
+   "total": 352,
+   "percent": 15.3
   },
   {
    "module": "stage_parallel.py",
@@ -2217,8 +2187,8 @@
   {
    "module": "stage_execution_service.py",
    "covered": 102,
-   "total": 475,
-   "percent": 21.5
+   "total": 467,
+   "percent": 21.8
   },
   {
    "module": "skill_budget.py",
@@ -2432,9 +2402,9 @@
   },
   {
    "module": "agent/publication.py",
-   "covered": 145,
+   "covered": 143,
    "total": 159,
-   "percent": 91.2
+   "percent": 89.9
   },
   {
    "module": "video_lifecycle_service.py",
@@ -2474,5 +2444,5 @@
   }
  ],
  "modules_covered": 64,
- "modules_total": 410
+ "modules_total": 405
 }

@@ -323,9 +323,10 @@ class PanelTests(unittest.TestCase):
             for gone in ('全选', '重置'):
                 self.assertNotIn(gone, texts, '重复入口「%s」该删掉' % gone)
             self.assertNotIn('执行', texts, '保存预设已并入左侧下拉，不再保留独立执行按钮')
-            self.assertEqual(
-                tuple(panel.preset_actions.cget('values')),
-                ('选择操作', '保存为预设', '删除预设', '重命名预设', '复制本预设到其他页面'))
+            # R2862：预设与总控已删除，面板只剩 SKILL 勾选、技能说明与制作锁弹窗入口。
+            self.assertFalse(hasattr(panel, 'preset_actions'), '预设操作下拉已随总控删除')
+            self.assertTrue(hasattr(panel, 'lock_button'), '制作锁弹窗入口仍在')
+            self.assertIsNotNone(panel.note_list, '「SKILL 说明」那一栏还在')
 
     def test_the_skill_notes_are_untouched(self):
         if self.tk is None:

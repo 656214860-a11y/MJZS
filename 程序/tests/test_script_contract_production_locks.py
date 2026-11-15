@@ -4,9 +4,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 import script_contract as contract
-import workflow_settings
-import master_skill
 import stage_config
+import stage_handler_registry
+import workflow_settings
 import idea_chat
 from idea_brief_form import extract_brief_creation, inline_required_missing
 from stage_execution_service import save_writing_production_locks
@@ -28,7 +28,9 @@ class ProductionLockContractTests(unittest.TestCase):
             self.assertEqual(items[key]['required_from'], '2026-10-15')
             self.assertNotIn(key, contract.stage_lock_requirements('script', '2026-10-14'))
             self.assertIn(key, contract.stage_lock_requirements('script', '2026-10-15'))
-        self.assertEqual({item['key'] for item in workflow_settings.refresh_workflow_presets()['AIGC全流程']['locks']}, set(items))
+        self.assertEqual(contract.stage_lock_requirements('script', '2026-10-15'),
+                         ('delivery_format', 'track', 'material_source'))
+        self.assertTrue(set(contract.stage_lock_requirements('script', '2026-10-15')) <= set(items))
 
     def test_creation_date_uses_registry_not_copied_directory_time(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -42,20 +44,23 @@ class ProductionLockContractTests(unittest.TestCase):
 
     def test_gate_old_warns_new_blocks_and_selected_passes(self):
         """REQ-S01-03：制作锁必填项按项目创建日期生效；旧项目缺赛道／素材来源只提示，新项目阻断。"""
-        config = {'workflow_name': 'AIGC全流程', 'stage': 'writing', 'project_created_at': '2026-10-14'}
-        self.assertEqual(master_skill.gate(config, check_references=False), '')
-        self.assertEqual(len(config['workflow_lock_warnings']), 2)
-        config['project_created_at'] = '2026-10-15'
-        blocked = master_skill.gate(config, check_references=False)
-        self.assertIn('赛道', blocked)
-        self.assertIn('素材来源', blocked)
-        config['workflow_lock'] = {'track': '海外剧', 'material_source': '原创'}
-        self.assertEqual(master_skill.gate(config, check_references=False), '')
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            stage_config.put_production_locks(root, {'delivery_format': '两者都交付'})
+            with patch.object(stage_config, 'project_created_at', return_value='2026-10-14'):
+                self.assertEqual(stage_handler_registry._workflow_lock_error(root, 'writing', 'auto'), '')
+            with patch.object(stage_config, 'project_created_at', return_value='2026-10-15'):
+                blocked = stage_handler_registry._workflow_lock_error(root, 'writing', 'auto')
+            self.assertIn('赛道', blocked)
+            self.assertIn('素材来源', blocked)
+            stage_config.put_production_locks(root, {'delivery_format': '两者都交付',
+                                                     'track': '海外剧', 'material_source': '原创'})
+            with patch.object(stage_config, 'project_created_at', return_value='2026-10-15'):
+                self.assertEqual(stage_handler_registry._workflow_lock_error(root, 'writing', 'auto'), '')
 
     def test_publisher_roundtrip_and_card_limit(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            stage_config.put_workflow(root, {'name': 'AIGC全流程', 'lock': {}})
             values = {'track': '海外剧', 'material_source': '原创', 'reference_mode': '首尾帧模式',
                       'splice_mode': '空镜过渡', 'style_base': '水墨二维', 'style_directors': '徐克，王家卫'}
             save_writing_production_locks(root, values)

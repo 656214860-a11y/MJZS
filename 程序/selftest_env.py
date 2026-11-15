@@ -18,7 +18,7 @@ from datetime import timedelta
 os.environ.setdefault("DRAMA_SUPPRESS_MODAL", "1")
 # 同理：测试里构造 Desktop 不起真实托盘线程（见 desktop_tray.SUPPRESS_TRAY_ENV）。
 os.environ.setdefault("DRAMA_SUPPRESS_TRAY", "1")
-# 同理：首帧自动检查总控包更新不真联网，也不会因“有新版本”弹确认窗卡住（见 master_skill_update.SUPPRESS_NETWORK_ENV）。
+# 同理：自检环境不真联网（账号、总控包更新等网络探测一律跳过，见 account_client.SUPPRESS_NETWORK_ENV）。
 os.environ.setdefault("DRAMA_SUPPRESS_NETWORK", "1")
 # 同理：测试里故意触发的报错不写进程序自己的诊断记录（见 diagnostic_capture.SUPPRESS_DIAGNOSTICS_ENV）。
 os.environ.setdefault("DRAMA_SUPPRESS_DIAGNOSTICS", "1")

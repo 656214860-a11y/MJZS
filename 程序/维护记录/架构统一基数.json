@@ -903,18 +903,6 @@
     "reason": "R830：L0 契约为保持单向层级，经 agent.core.read 统一读取；不直接解析 JSON 或依赖 L1 file_cache。"
    },
    {
-    "file": "scripts/migrate_workflow_presets.py",
-    "point": "registered_projects:json.loads:c2d533f874793f37:1",
-    "disposition": "exempt",
-    "reason": "一次性迁移脚本，非运行期 L2"
-   },
-   {
-    "file": "scripts/migrate_workflow_presets.py",
-    "point": "legacy_skills:json.loads:5a202d5f6ec64c35:1",
-    "disposition": "exempt",
-    "reason": "一次性迁移脚本，非运行期 L2"
-   },
-   {
     "file": "seedream_api.py",
     "point": "request_image:json.loads:b09d5b6e43efd9c0:1",
     "disposition": "exempt",
@@ -1491,14 +1479,7 @@
  "第五项": {
   "count": 0,
   "baseline_pending": 0,
-  "items": [
-   {
-    "file": "scripts/migrate_workflow_presets.py",
-    "point": "registered_projects",
-    "disposition": "exempt",
-    "reason": "R1646：统筹模式迁移工具是程序外的独立脚本，没有宿主上下文，只能自行读取项目登记表；扫到即登记豁免。"
-   }
-  ]
+  "items": []
  },
  "覆盖率审计19": {
   "count": 0,

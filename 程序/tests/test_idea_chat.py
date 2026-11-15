@@ -807,7 +807,13 @@ class _Harness(unittest.TestCase):
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
         import stage_config
-        if not stage_config.path(proj).exists():
+        # R2862：附档同步可能先落一份只有 production_locks 的 skill_config.json；
+        # 只看文件存在会漏配 script 条目，改为检查 script 阶段条目本身。
+        try:
+            raw_config = json.loads(stage_config.path(proj).read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            raw_config = {}
+        if not isinstance(raw_config, dict) or not isinstance(raw_config.get('script'), dict):
             stage_config.put(proj, 'script', skills=['pipeline-script-preparation'])
         import desktop as desktop_module
         original = desktop_module.Desktop.choose_project
@@ -1666,33 +1672,6 @@ class SendMessageTests(_Harness):
             self.settle_script_page(win)
             self.assertIn('新模型回复', self.log_text(d))
             self.assertEqual(idea_chat.load(proj, model=old_model)[-1]['text'], '旧模型历史')
-
-    def test_model_selection_waits_for_confirmation_and_cancel_discards_it(self):
-        import skill_panel
-        import stage_config
-        from unittest.mock import Mock
-        with tempfile.TemporaryDirectory() as td:
-            proj = make_minimal_project(td)
-            stage_config.put(proj, 'script', model='deepseek-v4-flash',
-                             skills=['pipeline-script-preparation'])
-            d, win = self.desktop(proj)
-            d.send_message = Mock()
-            for confirm_selection in (False, True):
-                window = self.tk.Toplevel(win)
-                panel = skill_panel.Panel(window, d, 'script')
-                self.assertEqual(panel.model_id(), 'deepseek-v4-flash')
-                panel.set_model('qwen-max')
-                self.assertEqual(stage_config.get(proj, 'script')['model'], 'deepseek-v4-flash')
-                panel.save_and_refresh_notes()
-                panel.check_all_skills(False)
-                self.assertEqual(stage_config.get(proj, 'script')['model'], 'deepseek-v4-flash')
-                if confirm_selection:
-                    panel.confirm()
-                    self.assertEqual(stage_config.get(proj, 'script')['model'], 'qwen-max')
-                else:
-                    window.destroy()
-                    self.assertEqual(stage_config.get(proj, 'script')['model'], 'deepseek-v4-flash')
-            d.send_message.assert_not_called()
 
     def test_direct_reply_failure_shows_the_error_and_next_request_is_accepted(self):
         import model_pool

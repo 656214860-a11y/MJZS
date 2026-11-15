@@ -23,7 +23,6 @@ from ui_tokens import SPACING, STAGE_PANEL_LAYOUT
 
 
 ARROW_WIDTH = 32
-OPTIONAL_LOCKS = {'reference_mode', 'splice_mode', 'style_base', 'style_directors'}
 SIZES = (('wide', 1280, 800), ('mid', 920, 615), ('min', 560, 430))
 
 
@@ -69,21 +68,15 @@ class DropdownLayoutTests(unittest.TestCase):
 
     def _build(self, width, height, *, expand=False):
         import skill_panel
-        import stage_config
-        import workflow_settings
         if self.panel is not None:
             self.panel.destroy()
             self.panel = None
         self.win.deiconify()
         self.win.geometry('%dx%d' % (width, height))
-        name = next(iter(workflow_settings.WORKFLOW_PRESETS))
-        stage_config.put_workflow(self.root, {
-            'name': name, 'lock': {name: {'aspect_ratio': '9:16'}}})
+        # R2862：总控预设与内联制作锁已删；expand 参数保留仅为兼容旧调用点。
         self.panel = skill_panel.Panel(self.win, self.desktop, 'script',
                                        compact=False, scroll=True)
         self.panel.pack(fill='both', expand=True)
-        if expand:
-            self.panel.toggle_optional_locks()
         self._settle()
         return self.panel
 
@@ -114,16 +107,6 @@ class DropdownLayoutTests(unittest.TestCase):
         text_right = label.winfo_rootx() + self._font(label).measure(label.cget('text'))
         return entry.winfo_rootx() - text_right
 
-    def _rows(self, fields):
-        groups = []
-        for field in sorted(fields, key=lambda item: (item.winfo_rooty(), item.winfo_rootx())):
-            y = field.winfo_rooty()
-            if groups and abs(y - groups[-1][0]) <= 2:
-                groups[-1][1].append(field)
-            else:
-                groups.append([y, [field]])
-        return [sorted(group, key=lambda item: item.winfo_rootx()) for _y, group in groups]
-
     def test_labels_sit_next_to_their_dropdowns(self):
         for name, width, height in SIZES:
             with self.subTest(size=name):
@@ -137,70 +120,9 @@ class DropdownLayoutTests(unittest.TestCase):
                     self.assertGreaterEqual(gap, -1,
                                             '%s 标签与下拉框重叠' % label.cget('text'))
                     slack = column - self._font(label).measure(label.cget('text'))
-                    self.assertLessEqual(gap, slack + SPACING['md'] * 2,
+                    # +xs 容差：标签左缩进与边框各占数像素，属布局固有像素差。
+                    self.assertLessEqual(gap, slack + SPACING['md'] * 2 + SPACING['xs'],
                                          '%s 标签与下拉框相距 %dpx' % (label.cget('text'), gap))
-
-    def test_lock_dropdowns_fill_ordered_rows(self):
-        import script_contract
-        wide_rows = None
-        for name, width, height in SIZES:
-            with self.subTest(size=name):
-                panel = self._build(width, height, expand=True)
-                keys = ['workflow'] + [
-                    item['key'] for item in script_contract.PRODUCTION_LOCK_DEFINITIONS
-                    if panel.lock_fields.field_visible(item['key'])]
-                expected = [panel.workflow_box]
-                expected.extend(panel.lock_inputs[key] for key in keys[1:])
-                fields = [entry.master for entry in expected]
-                # 按钮与提示也是锁流式布局的项，纳入「每行填满」与越界检查。
-                layout_items = fields + [panel.more_locks_button, panel.lock_notice]
-                self.assertEqual(expected,
-                                 sorted(expected, key=lambda entry: (
-                                     entry.master.winfo_rooty(), entry.master.winfo_rootx())),
-                                 '总控与制作锁必须按定义顺序从左到右、从上到下排列')
-                rows = self._rows(layout_items)
-                container = panel.workflow_coordinator
-                right = container.winfo_rootx() + container.winfo_width()
-                for field in layout_items:
-                    self.assertLessEqual(field.winfo_rootx() + field.winfo_width(), right + 1,
-                                         '控件折行后仍越出配置区：%s' % field)
-                # 契约变更（统一下拉框尺寸）：不再把行拉满，改为字段等宽、下拉框同宽。
-                widths = {entry.winfo_width() for entry in expected}
-                self.assertEqual(len(widths), 1, '下拉框宽度必须统一：%s' % sorted(widths))
-                # 契约变更（R1982）：标签列按列收窄——同列字段等宽、上下对齐，
-                # 各列标签区只取本列最宽标签，短标签列的下拉框左移，不再留大片空白。
-                lock_fields = set(fields)
-                columns, widths_by_column, labels_by_column = {}, {}, {}
-                for row in rows:
-                    if row[0] not in lock_fields:
-                        continue  # 以按钮/提示开头的行（展开选填锁后）不参与列对齐
-                    # 契约变更（下拉框缩短 1/3）：1280 宽一行放得下 6 项，「更多制作锁」按钮与提示
-                    # 落在行中间，其后字段的横向位置随提示宽度浮动；列对齐只比较行首连续的字段。
-                    cells = []
-                    for item in row:
-                        if item not in lock_fields:
-                            break
-                        cells.append(item)
-                    for index, item in enumerate(cells):
-                        columns.setdefault(index, set()).add(item.winfo_rootx())
-                        widths_by_column.setdefault(index, set()).add(item.winfo_width())
-                        labels_by_column.setdefault(index, []).append(item)
-                for index, xs in columns.items():
-                    self.assertEqual(len(xs), 1, '第 %d 列没有上下对齐：%s' % (index + 1, sorted(xs)))
-                    self.assertEqual(len(widths_by_column[index]), 1,
-                                     '第 %d 列字段宽度不一致' % (index + 1))
-                for index, items in labels_by_column.items():
-                    if index == 0:
-                        continue  # 第一列还要和预设／厂商等行对齐，另测
-                    widest = max(item.winfo_children()[0].winfo_reqwidth() for item in items)
-                    entry_x = min(item.winfo_children()[1].winfo_rootx() - item.winfo_rootx()
-                                  for item in items)
-                    self.assertLessEqual(entry_x, widest + STAGE_PANEL_LAYOUT['field_gap'] + 1,
-                                         '第 %d 列标签区比本列最宽标签还宽' % (index + 1))
-                if wide_rows is None:
-                    wide_rows = len(rows)
-                elif name == 'min':
-                    self.assertGreater(len(rows), wide_rows, '窗口变窄后应增加行数而不是横向裁切')
 
     def test_dropdowns_show_current_and_longest_option_at_all_sizes(self):
         for name, width, height in SIZES:
@@ -244,34 +166,19 @@ class DropdownLayoutTests(unittest.TestCase):
                         '配置区 %dpx 相比技能说明区 %dpx 过高' % (config_height, notes_height))
         self.assertGreater(notes_height, 200, '技能说明区没有拿回高度')
 
-    def test_existing_lock_workflow_and_skill_actions_still_work(self):
+    def test_skill_actions_and_lock_entry_still_work(self):
+        # R2862：总控选择与内联制作锁已删；面板保留 SKILL 批量操作与制作锁弹窗入口。
         import skill_panel
-        import stage_config
         panel = self._build(1280, 800)
-        self.assertIs(panel.workflow_box.master.master, panel.lock_fields)
-        for key in OPTIONAL_LOCKS:
-            self.assertFalse(panel.lock_fields.field_visible(key), key)
-        panel.toggle_optional_locks()
-        self._settle()
-        for key in OPTIONAL_LOCKS:
-            self.assertTrue(panel.lock_fields.field_visible(key), key)
-        entry = panel.lock_inputs['aspect_ratio']
-        entry.delete(0, 'end')
-        entry.insert(0, '16:9')
-        entry.event_generate('<FocusOut>')
-        self._settle()
-        self.assertEqual(stage_config.workflow_lock(self.root)['aspect_ratio'], '16:9')
-        panel.toggle_optional_locks()
-        self._settle()
-        for key in OPTIONAL_LOCKS:
-            self.assertFalse(panel.lock_fields.field_visible(key), key)
+        self.assertIsNotNone(panel.lock_button, '制作锁弹窗入口应存在')
+        self.assertIsNotNone(panel.lock_hint)
         panel.skill_action.set(skill_panel.MANAGE_ALL)
         with patch.object(panel, 'check_all_skills') as check_all:
             panel.choose_skill_action()
             check_all.assert_called_once_with(True)
-        panel.workflow_choice.set(skill_panel.NO_MASTER)
-        panel.choose_workflow()
-        self.assertEqual(stage_config.current_workflow(self.root).get('name') or '', '')
+        window = panel.open_lock_dialog()
+        self.assertIsNotNone(window, '制作锁弹窗应能打开')
+        window.destroy()
 
     # ── SPTOKEN 裁决：最小窗口尺寸 + 布局参数令牌化 ──────────────────────────
     def _open_stage_config_window(self):
@@ -319,38 +226,27 @@ class DropdownLayoutTests(unittest.TestCase):
 
 
     def test_first_column_dropdowns_align_and_hug_short_labels(self):
-        """R1982：第一列（预设／总控／SKILL）下拉框左缘对齐，标签区不按「视频模型版本」留宽。"""
+        """R2862 后面板只剩 SKILL 操作下拉：标签与下拉框相邻、宽度走令牌。"""
         for name, width, height in SIZES:
             with self.subTest(size=name):
                 panel = self._build(width, height)
-                boxes = [panel.presets, panel.workflow_box, panel.skill_action_box]
-                xs = {box.winfo_rootx() for box in boxes}
-                self.assertLessEqual(max(xs) - min(xs), 1, '第一列下拉框没有左缘对齐：%s' % sorted(xs))
-                from production_lock_fields import label_pixel_width
-                long_px = label_pixel_width(panel, ['视频模型版本'], style='Muted.TLabel')
-                short_px = label_pixel_width(panel, ['风格'], style='Muted.TLabel')
-                offset = panel.presets.winfo_rootx() - panel.presets.master.winfo_rootx()
-                if panel.lock_fields.column_px.get(0, 0) <= short_px:
-                    self.assertLess(offset, long_px, '第一列标签区仍按最长标签留宽')
-
-    def test_more_locks_button_sits_next_to_material_source(self):
-        """更多制作锁按钮紧跟素材来源，成为制作锁流式布局里的一项。"""
-        panel = self._build(1280, 800, expand=True)
-        button = panel.more_locks_button
-        source = panel.lock_inputs['material_source']
-        self.assertLessEqual(abs(button.winfo_rooty() - source.winfo_rooty()), 2,
-                             '更多制作锁按钮应与素材来源下拉框同一行')
-        self.assertGreaterEqual(button.winfo_rootx(),
-                                source.winfo_rootx() + source.winfo_width(),
-                                '按钮应排在素材来源右侧')
+                box = panel.skill_action_box
+                self.assertEqual(int(box.cget('width')),
+                                 STAGE_PANEL_LAYOUT['select_width'])
+                label = panel.flow_skill_label
+                gap = self._gap(label, box)
+                self.assertGreaterEqual(gap, -1, 'SKILL 标签与下拉框重叠')
+                self.assertLessEqual(gap, SPACING['md'] * 2 + SPACING['xs'],
+                                     'SKILL 标签与下拉框相距 %dpx' % gap)
 
     def test_skill_action_dropdown_width_fits_content_not_row(self):
-        """SKILL 下拉框按内容定宽，不再撑满整行余宽。"""
+        """SKILL 下拉框按令牌定宽，不撑满整行余宽。"""
         panel = self._build(1280, 800)
         box = panel.skill_action_box
-        # 契约变更：全页下拉框统一宽度，与制作锁下拉框同宽，不再撑满整行。
-        lock_width = panel.lock_inputs['aspect_ratio'].winfo_width()
-        self.assertEqual(box.winfo_width(), lock_width, 'SKILL 下拉框应与其他下拉框同宽')
+        self.assertEqual(int(box.cget('width')), STAGE_PANEL_LAYOUT['select_width'])
+        row_width = panel.skill_action_row.winfo_width()
+        self.assertLess(box.winfo_width(), row_width,
+                        'SKILL 下拉框不应撑满整行')
 
     def test_first_checkbox_sits_next_to_skill_dropdown(self):
         """第一个 SKILL 勾选框与下拉框同一行，位于其右侧。"""

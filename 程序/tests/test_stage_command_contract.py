@@ -79,17 +79,13 @@ class StageCommandEventContractTests(unittest.TestCase):
 
     def test_missing_workflow_locks_block_only_unattended_script_start(self):
         with tempfile.TemporaryDirectory() as project:
-            preset = workflow_settings.WORKFLOW_PRESETS['AIGC全流程']
-            stage_config.put_workflow(project, {
-                'name': 'AIGC全流程', 'skill_ref': preset['package'],
-                'lock': {'AIGC全流程': {'aspect_ratio': '9:16'}},
-            })
+            stage_config.put_production_locks(project, {'aspect_ratio': '9:16'})
             auto = self._Host()
             auto.root = project
             called = []
             error = stage_handler_registry.start(
                 auto, 'script', 'auto', lambda stage, trigger: called.append((stage, trigger)))
-            self.assertIn('发送框内写明制作锁（故事画幅／视频模型／交付形态）', error)
+            self.assertIn('发送框内写明制作锁', error)
             self.assertIn('交付形态', error)
             self.assertEqual(called, [])
             self.assertEqual(auto.pet.events, [('stage.failed', {'stage': 'script', 'error': error})])

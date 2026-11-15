@@ -186,10 +186,10 @@ class PrevisProjectIndexTests(unittest.TestCase):
         text = SKILL.read_text(encoding='utf-8')
         self.assertIn('全流程预设里的本阶段入口是 `pipeline-previs`', text)
         self.assertIn('桌面白模页的默认技能是 `create-blender-story-video`', text)
+        import stage_config
         import workflow_settings
         self.assertEqual(workflow_settings.DEFAULT_SKILLS['previs'], 'create-blender-story-video')
-        self.assertEqual(workflow_settings.BUILTIN_WORKFLOW_PRESETS['AIGC全流程']['stage_skills']['previs'],
-                         ['pipeline-previs'])
+        self.assertIn('pipeline-previs', stage_config.default_entry('previs')['skills'])
 
 
 class PrevisEvidenceTests(unittest.TestCase):

@@ -34,7 +34,6 @@ class AutomationTickMixin:
         # 会员授权续签在首帧之后才排程，启动路径不等网络（设计文档 §5.4）。
         if hasattr(self,'start_account_renewal'):self.win.after(RENEW_DELAY_MS,self.start_account_renewal)
         if hasattr(self,'start_update_check'):self.win.after(RENEW_DELAY_MS*2,self.start_update_check)
-        if hasattr(self,'start_master_update_check'):self.win.after(RENEW_DELAY_MS*3,self.start_master_update_check)
         # 首帧通知不能覆盖用户已发起的后台操作（例如“强制关闭 ComfyUI”）；
         # 否则任务实际结束后状态栏仍停在“正在打开今日项目”。
         # 自动续开尚未选择项目时才显示这条启动提示。已有项目（含测试或

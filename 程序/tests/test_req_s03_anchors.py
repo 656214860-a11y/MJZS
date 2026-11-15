@@ -79,10 +79,9 @@ class ReqS03DocAnchorTests(unittest.TestCase):
     def test_req_s03_51_legacy_flow_coexists_but_stage_preset_is_authoritative(self):
         """REQ-S03-51：旧单独流程默认技能是兼容层，AIGC 全流程阶段预设才是权威。"""
         legacy = workflow_settings.DEFAULT_SKILLS['storyboard']
-        preset = workflow_settings.BUILTIN_WORKFLOW_PRESETS['AIGC全流程']['stage_skills']['storyboard']
         self.assertEqual(legacy, 'short-drama-storyboard')
-        self.assertEqual(preset, ['pipeline-storyboard-draft'])
-        self.assertNotEqual(legacy, preset[0], '兼容层与阶段预设必须保留为两条不同入口')
+        self.assertIn('pipeline-storyboard-draft', stage_config.default_entry('storyboard')['skills'])
+        self.assertNotEqual(legacy, 'pipeline-storyboard-draft', '兼容层与阶段默认必须保留为两条不同入口')
 
 
 class ReqS03AnchorTests(unittest.TestCase):
@@ -90,20 +89,17 @@ class ReqS03AnchorTests(unittest.TestCase):
     def test_req_s03_03_workflow_lock_blocks_manual_and_auto_before_start(self):
         """REQ-S03-03：启动前先过总控制作锁门禁，手动与自动同样阻断；入口只有 stage_handler_registry.start()。"""
         host = _Host(Path('D:/project'))
-        preset = {'locks': ({'key': 'aspect_ratio', 'label': '故事画幅'},)}
         with tempfile.TemporaryDirectory() as temporary:
             project = Path(temporary)
-            with patch.dict('script_contract.STAGE_LOCK_REQUIREMENTS',
+            with patch.dict('contract.script_contract.STAGE_LOCK_REQUIREMENTS',
                             {'storyboard': ('aspect_ratio',)}), \
-                    patch.object(stage_config, 'current_workflow', return_value={'name': '测试预设'}), \
-                    patch.object(stage_config, 'workflow_lock', return_value={}), \
-                    patch.object(workflow_settings, 'refresh_workflow_presets',
-                                 return_value={'测试预设': preset}):
+                    patch.object(stage_config, 'project_created_at', return_value=None), \
+                    patch.object(stage_config, 'workflow_lock', return_value={}):
                 host.root = project
                 manual = stage_handler_registry.start(host, 'storyboard', 'manual')
                 auto = stage_handler_registry.start(host, 'storyboard', 'auto')
         for result in (manual, auto):
-            self.assertIn('故事画幅', result)
+            self.assertIn('画幅', result)
             self.assertIn('发送框内写明制作锁', result)
         self.assertEqual(host.opened, [], '门禁拦住时不能打开分镜任务')
         self.assertEqual(host.pet.events, [('stage.failed', {'stage': 'storyboard', 'error': auto})])

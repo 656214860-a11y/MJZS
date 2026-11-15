@@ -117,9 +117,10 @@ class SkillNotesTests(unittest.TestCase):
     def test_workflow_note_hides_frontmatter_before_adding_label(self):
         source = '---\nname: workflow\ndescription: 统筹说明\ntools: [script.generate]\n---\n中文正文'
         # R1620 把 workflow_note_text 与 markdown_document 一起迁到 skill_panel_support，
-        # 调用点在那边解析名字：补丁要打在定义处，打在 skill_panel 的转出口上不生效。
+        # 调用点在那边解析名字：补丁要打在定义处；R2862 删总控后面板不再转出该函数，
+        # 直接从定义模块调用。
         with patch.object(skill_panel_support, 'markdown_document', return_value=source):
-            shown = skill_panel.workflow_note_text('统筹技能', None)
+            shown = skill_panel_support.workflow_note_text('统筹技能', None)
         self.assertEqual(shown, '统筹技能\n\n简介：统筹说明\n\n中文正文')
 
     def test_failed_or_incomplete_translation_never_cached(self):

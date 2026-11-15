@@ -11,6 +11,7 @@ import pet_bus
 import project_stages
 import skill_tools
 import stage_completion_service
+import stage_config
 import stage_flow
 import stage_layout
 import stage_parallel
@@ -156,8 +157,7 @@ class EditingScopeTests(unittest.TestCase):
         self.assertEqual(config['retry']['on_exhaust'], stage_parallel.ON_BLOCK)
 
     def test_req_s12_30_default_skill_and_seven_skill_files(self):
-        preset = workflow_settings.BUILTIN_WORKFLOW_PRESETS['AIGC全流程']
-        self.assertEqual(preset['stage_skills']['edit'], ['pipeline-editing'])
+        self.assertIn('pipeline-editing', stage_config.default_entry('edit')['skills'])
         files = sorted(path.name for path in SKILL_DIR.glob('*.skill.md'))
         self.assertEqual(len(files), 7)
         self.assertIn('pipeline-editing.skill.md', files)
