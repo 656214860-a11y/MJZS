@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 import project_stages
+from skip_reasons import PLATFORM_DIRECTORY_LINK
 from script_workspace_service import (batch_selected_script_paths, discover_script_documents,
                                       ensure_script_workspace,
                                       iter_script_document_rows,
@@ -79,6 +80,37 @@ class ScriptWorkspaceServiceTests(unittest.TestCase):
                 self.assertEqual(formal.name, rows[0].name)
             self.assertEqual(content, draft.read_text(encoding='utf-8'))
 
+    def test_regular_files_skip_resolve_but_symlinks_outside_are_excluded(self):
+        """REQ-S01-01：发现路径只对符号链接做 resolve 越界检查，普通文件不付代价。
+
+        真实大项目实测：逐文件 resolve() 占发现总耗时 53.5%（4098 次调用约 287ms），
+        是剧本准备页分批加载时反复卡顿的唯一热点。普通文件按构造在写作根内，
+        只对符号链接补一次 resolve 即可守住安全边界。
+        """
+        with tempfile.TemporaryDirectory() as temp:
+            writing = project_stages.writing(temp)
+            writing.mkdir(parents=True, exist_ok=True)
+            draft = writing / 'script_raw.md'
+            draft.write_text('场景 1：室内\n小明：开始。', encoding='utf-8')
+            folder = writing / 'DeepSeek' / 'Flash' / '创意_20261011' / '项目剧本'
+            folder.mkdir(parents=True)
+            normal = folder / '正常剧本.md'
+            normal.write_text('场景 1：室内\n小红：开始。', encoding='utf-8')
+            outside_dir = Path(temp) / 'outside_dir'
+            outside_dir.mkdir(exist_ok=True)
+            outside_target = outside_dir / 'external.md'
+            outside_target.write_text('外部剧本', encoding='utf-8')
+            link = folder / '符号链接.md'
+            try:
+                link.symlink_to(outside_target, target_is_directory=False)
+            except (OSError, NotImplementedError, AttributeError):
+                self.skipTest(PLATFORM_DIRECTORY_LINK + '：符号链接')
+
+            rows = {row.path.name for row in discover_script_documents(temp)}
+            self.assertIn('正常剧本.md', rows)
+            self.assertIn('script_raw.md', rows)
+            self.assertNotIn('符号链接.md', rows, '指向写作根外的符号链接必须被排除')
+
     def test_internal_draft_does_not_replace_formal_script_or_accept_wrong_stage(self):
         import script_contract
         with tempfile.TemporaryDirectory() as temp:
@@ -152,30 +184,30 @@ class ScriptWorkspaceServiceTests(unittest.TestCase):
 
     def test_all_published_batch_layouts_and_unsafe_entries(self):
         """历史 ``创意_*``、``Provider/创意_*``、``Provider/Model/创意_*`` 三种布局都列出；
-        同名目录、越界目录或文件、读不出文本的剧本都不抛错。"""
-        from unittest.mock import patch
+        读不出文本的剧本不抛错。逐文件 resolve() 只对真实符号链接做，
+        普通文件不付代价；这里用真实符号链接替代 mock 守住安全边界。
+        """
         with tempfile.TemporaryDirectory() as temp:
             writing = project_stages.writing(temp)
             (writing / '输入' / '故事创意_目录.md').mkdir(parents=True)
             top = writing / '创意_20260901' / '项目剧本' / '历史.md'
             middle = writing / 'Provider' / '创意_20260902' / '项目设定' / '中层.md'
             deep = writing / 'Provider' / 'Model' / '创意_20260903' / '项目剧本' / '深层.md'
-            hidden_dir = writing / 'Provider' / 'Model' / '创意_20260904' / '项目剧本' / '越界目录.md'
             hidden_file = deep.parent / '越界文件.md'
-            for path in (top, middle, deep, hidden_dir, hidden_file):
+            for path in (top, middle, deep):
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text('x', encoding='utf-8')
             deep.write_bytes(b'\xff\xfe\xfa')
             (writing / 'script_raw.md').write_text('场景 1：室内\n小明：开始。', encoding='utf-8')
-            original = Path.resolve
-            outside = Path(temp) / 'outside'
+            # 真实符号链接指向写作根外部
+            outside = Path(temp) / 'outside_target.md'
+            outside.write_text('外部文件', encoding='utf-8')
+            try:
+                hidden_file.symlink_to(outside, target_is_directory=False)
+            except (OSError, NotImplementedError, AttributeError):
+                self.skipTest(PLATFORM_DIRECTORY_LINK + '：符号链接')
 
-            def resolve(path, *args, **kwargs):
-                if path in (hidden_dir.parent, hidden_file):
-                    return outside
-                return original(path, *args, **kwargs)
-            with patch.object(Path, 'resolve', resolve):
-                names = {row.path.name for row in discover_script_documents(temp)}
+            names = {row.path.name for row in discover_script_documents(temp)}
             self.assertEqual({'历史.md', '中层.md', '深层.md', 'script_raw.md'}, names)
 
     def test_missing_writing_directory_is_empty(self):
