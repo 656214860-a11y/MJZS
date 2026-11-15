@@ -42,7 +42,7 @@ VICTIMS = (
     ('维护记录/体积分析_20260921.md', line_endings.CRLF),
 )
 # 接上「写入即校验行尾」的写入点；以后新加的文本写入面往这儿补一行。
-WRITERS = ('run_selftests.py', 'skill_tools.py')
+WRITERS = ('selftest_receipts.py', 'skill_tools.py')
 
 
 class ProgramTreeTests(unittest.TestCase):
