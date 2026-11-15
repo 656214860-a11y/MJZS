@@ -48,7 +48,7 @@ class VolcengineAdapter(VideoAdapter):
 
     def call(self, task_id=None, payload=None):
         import urllib.error, urllib.parse   # 第 34 期第 9 条：HTTP 栈按需加载
-        import http_client
+        import infra.http_client as http_client
         from api_endpoints import configured_key
         from contract.platform_tools import current_execution
         control = current_execution()

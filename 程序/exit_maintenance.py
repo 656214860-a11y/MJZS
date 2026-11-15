@@ -19,14 +19,14 @@ def launch_cleanup(program, *, forced=False):
         result['storage'] = 'scheduled'
         if not forced:
             try:
-                from log_maintenance import launch_cleanup as logs
+                from infra.log_maintenance import launch_cleanup as logs
                 result['logs'] = 'launch-failed'
                 logs(program)
                 result['logs'] = 'scheduled'
             except OSError:
                 pass
             try:
-                from workspace_maintenance import launch_cleanup as workspace
+                from infra.workspace_maintenance import launch_cleanup as workspace
                 result['workspace'] = 'launch-failed'
                 workspace(program)
                 result['workspace'] = 'scheduled'

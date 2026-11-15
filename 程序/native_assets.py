@@ -33,7 +33,7 @@ MODELS=[LOCAL,*CLOUD_MODELS]                    # 云模型清单只有 cloud_as
 
 def _seedream_payload(profile_model, prompt, aspect_ratio, ref_paths):
     """Compatibility facade for callers of the former window module API."""
-    from native_asset_codec import seedream_payload
+    from infra.native_asset_codec import seedream_payload
     return seedream_payload(profile_model, prompt, aspect_ratio, ref_paths)
 
 
@@ -71,7 +71,7 @@ def cleanup_batches(folder, days=7):
 
 
 def _to_png(raw):
-    from native_asset_codec import to_png
+    from infra.native_asset_codec import to_png
     return to_png(raw)
 
 
@@ -107,7 +107,7 @@ def _run_seedream_direct(project, base, items, options, report, stop=None):
     from asset_reference_images import resolve, reference_instruction
     from asset_reference_prompts import display_prompt
     from asset_batch_service import register_image, image_ready
-    from native_asset_codec import seedream_provenance
+    from infra.native_asset_codec import seedream_provenance
     gateway=_asset_batch_gateway()
     profile=load_profile(options.get('seedream_profile',''))
     report(seedream_cost_preview(project, base, items, options))

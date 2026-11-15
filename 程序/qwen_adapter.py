@@ -98,7 +98,7 @@ def launch_interactive(project,stage,title,prompt,config,followup=None):
     args+=['--prompt-interactive',f'本次流程：{title}。完整读取并执行任务文件：{task}。后续任务在当前对话继续。']
     process=launch_windows_app(args[0], 'Qwen Code', args=args, cwd=project, env=env,
                                creationflags=getattr(subprocess, 'CREATE_NEW_CONSOLE', 0))
-    from workflow_process_registry import register_process
+    from infra.workflow_process_registry import register_process
     register_process(project, process)
     process.qwen_input=incoming;process.qwen_events=events;process.qwen_folder=folder;process.qwen_started=time.monotonic()
     process.qwen_input_lock=threading.Lock();process.qwen_title=title;process.qwen_renamed_title=''
@@ -130,7 +130,7 @@ def run_background(config,project,output,report,logfile,prompt):
     # 用户点了停止还在制作（报的就是这条链路）。改成 Popen ＋ 登记，与其它引擎同一套。
     # 适配器只能依赖无业务规则的进程注册表，不能反向导入工作流引擎；
     # 引擎的停止控制也使用同一注册表，因此任务生命周期仍可被统一观察。
-    from workflow_process_registry import run_registered
+    from infra.workflow_process_registry import run_registered
     try:
         with Path(logfile).open('w',encoding='utf-8') as log,response_temp.open('w',encoding='utf-8') as out:
             returncode=run_registered(args,project,prompt,(out,log),config.get('timeout_seconds') or TIMEOUT_SECONDS,

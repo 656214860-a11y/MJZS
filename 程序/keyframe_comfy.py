@@ -132,7 +132,7 @@ def run_seedream(source, shots, options, log, stop=None, *, project=None):
     from seedream_api import UNSETTLED, load_profile, request_image
     from pet_llm import RequestLedger, BudgetRejected
     from uuid import uuid4
-    from native_asset_codec import seedream_payload as _seedream_payload, to_png as _to_png, seedream_provenance as _seedream_provenance
+    from infra.native_asset_codec import seedream_payload as _seedream_payload, to_png as _to_png, seedream_provenance as _seedream_provenance
     from importlib import import_module
     keyframe_import = import_module('keyframe_import')
     register, fingerprint = keyframe_import.register, keyframe_import.fingerprint

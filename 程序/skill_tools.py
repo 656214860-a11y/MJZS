@@ -525,7 +525,7 @@ def _raise_if_unmounted(result, fallback):
 
 def _feed_validate(context):
     """投喂稿机检：C1~C30 / H1~H12。输入 model/track/aspect 取项目锁，缺省按国内剧 2.5。"""
-    from aigc_lint import validate_prompt
+    from infra.aigc_lint import validate_prompt
     ctx = context or {}
     locks = _locks(ctx)
     result = validate_prompt(_feed_text(ctx),
@@ -537,7 +537,7 @@ def _feed_validate(context):
 
 def _feed_gate_check(context):
     """投喂层六道闸门 + 素材形态一致性。"""
-    from aigc_lint import gate_check
+    from infra.aigc_lint import gate_check
     ctx = context or {}
     locks = _locks(ctx)
     result = gate_check(_feed_text(ctx), model=locks.get('video_model_version'),
@@ -547,7 +547,7 @@ def _feed_gate_check(context):
 
 def _feed_audit_contract(context):
     """全流程交付契约核销（P0~P5 硬产出 + 权威源模板）。"""
-    from aigc_lint import audit_contract
+    from infra.aigc_lint import audit_contract
     ctx = context or {}
     result = audit_contract(_feed_text(ctx), mode=ctx.get('mode') or 'auto',
                             director=ctx.get('director'))
@@ -556,7 +556,7 @@ def _feed_audit_contract(context):
 
 def _style_lock_recommend(context):
     """画风锁推荐：题材 → 候选池（含打斗/特效承载排除）。"""
-    from aigc_lint import style_recommend
+    from infra.aigc_lint import style_recommend
     ctx = context or {}
     genre = ctx.get('genre') or ctx.get('subject') or ctx.get('text') or ''
     if not str(genre).strip():
@@ -569,7 +569,7 @@ def _style_lock_recommend(context):
 
 def _style_lock_ladder(context):
     """画风锁递进阶梯：影像基底 → 技法家族 → 导演卡 → 可选质感。"""
-    from aigc_lint import style_ladder
+    from infra.aigc_lint import style_ladder
     ctx = context or {}
     genre = ctx.get('genre') or ctx.get('subject') or ctx.get('text') or ''
     if not str(genre).strip():

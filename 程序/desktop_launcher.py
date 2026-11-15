@@ -5,7 +5,7 @@
 """
 from __future__ import annotations
 
-import hash_backend
+import infra.hash_backend as hash_backend
 hash_backend.install()
 import tkinter as tk
 from ui_widgets import notify

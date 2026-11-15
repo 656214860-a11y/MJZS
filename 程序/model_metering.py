@@ -22,14 +22,14 @@ def metered(ledger, request, send, usage_of, on_result=None):
     except Exception:
         ledger.settle_model(request_id, {})
         if hasattr(ledger, '_find'):
-            from request_ledger import record_request_attempt
+            from infra.request_ledger import record_request_attempt
             record_request_attempt(ledger, request_id, error_class='exception')
         raise
     usage = usage_of(result)
     if on_result is not None:
         on_result(result, usage)
     if hasattr(ledger, '_find'):
-        from request_ledger import record_request_attempt
+        from infra.request_ledger import record_request_attempt
         meta = result.get('response_meta') if isinstance(result, dict) else None
         record_request_attempt(
             ledger,

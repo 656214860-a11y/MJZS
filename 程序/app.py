@@ -3,7 +3,7 @@
 # Several imported services fingerprint files during initialization; doing this
 # here avoids loading OpenSSL merely because the desktop shell starts.
 import app_logging
-import hash_backend
+import infra.hash_backend as hash_backend
 hash_backend.install()
 import contract.pet_bus as pet_bus
 import queue

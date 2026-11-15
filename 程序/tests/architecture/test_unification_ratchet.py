@@ -9,6 +9,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from tests.architecture._layers import LAYERS
+from tests.architecture._scan import PACKAGE_NAMES
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -23,6 +24,10 @@ def _json_source_files():
     """固定审计集合；台账的增删绝不影响扫描范围。"""
     files = set(ROOT.glob('*.py'))
     files.update((ROOT / 'agent').glob('*.py'))
+    # T10 包化：包实体继续纳入同一审计口径（contract 已迁 30 个模块、infra 首批 23 个；
+    # 顶层同名门面仍由 *.py 通配覆盖，不产生第二条扫描路径）。
+    for package in PACKAGE_NAMES:
+        files.update((ROOT / package).glob('*.py'))
     files.update((ROOT / 'batch_frames_tool').glob('*.py'))
     files.update((ROOT / 'scripts').glob('*.py'))
     files.update(ROOT.glob('skills/**/scripts/*.py'))

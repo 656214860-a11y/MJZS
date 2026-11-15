@@ -18,7 +18,7 @@ import tempfile
 from pathlib import Path
 from file_cache import remove_temporary_file
 
-import app_icon
+import infra.app_icon as app_icon
 from contract.app_metadata import APP_NAME
 from agent.core import save_bytes
 

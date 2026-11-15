@@ -140,7 +140,7 @@ class LocalStudio(Studio):
                 for node in graph.values():
                     if node.get('class_type')=='CreateVideo':node['inputs'].pop('audio',None)
             report('首帧比例匹配：'+('、'.join(f'{w}×{h}' for w,h in sizes) or '沿用工作流')+'；'+('生成音轨' if has_audio else '无音轨'))
-            from h3_reference_adapter import attach
+            from infra.h3_reference_adapter import attach
             references=attach(graph,options,self.episode_path,shot)
             if references:report('已接入 '+str(len(references))+' 张资产参考图；需要 Ref2VA 模型')
             from native_apps import open_comfy,wait_comfy

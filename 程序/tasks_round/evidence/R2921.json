@@ -1,0 +1,15 @@
+{
+  "round": 2921,
+  "commit_base": "74220116",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k account_store aigc_lint app_icon broadcaster clipboard_lock config_snapshot engine_probe h3_reference hash_backend http_client lease_verifier line_endings log_maintenance model_diagnostics native_asset_codec request_ledger script_text_reader store_program_locator update_notice usage_history usage_snapshot workflow_process_registry workspace_maintenance",
+    "exit": 0,
+    "passed": 202,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T07:08:53"
+}

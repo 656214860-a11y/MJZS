@@ -19,7 +19,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-import config_snapshot, model_secrets, token_saver
+import infra.config_snapshot as config_snapshot, model_secrets, token_saver
 import client_profiles
 from model_metering import REPLAYABLE_RETRY_STATUS
 from agent.core import save, replace, temporary_path

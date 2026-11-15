@@ -33,7 +33,7 @@
   {
    "module": "account_store.py",
    "covered": 0,
-   "total": 76,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -63,7 +63,7 @@
   {
    "module": "aigc_lint.py",
    "covered": 0,
-   "total": 118,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -87,7 +87,7 @@
   {
    "module": "app_icon.py",
    "covered": 0,
-   "total": 280,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -291,7 +291,7 @@
   {
    "module": "broadcaster.py",
    "covered": 0,
-   "total": 33,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -303,7 +303,7 @@
   {
    "module": "clipboard_lock.py",
    "covered": 0,
-   "total": 64,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -358,6 +358,12 @@
    "module": "comfy_service.py",
    "covered": 0,
    "total": 201,
+   "percent": 0.0
+  },
+  {
+   "module": "config_snapshot.py",
+   "covered": 0,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -495,7 +501,7 @@
   {
    "module": "desktop.py",
    "covered": 0,
-   "total": 743,
+   "total": 740,
    "percent": 0.0
   },
   {
@@ -603,7 +609,7 @@
   {
    "module": "desktop_layout.py",
    "covered": 0,
-   "total": 385,
+   "total": 373,
    "percent": 0.0
   },
   {
@@ -615,7 +621,7 @@
   {
    "module": "desktop_lifecycle.py",
    "covered": 0,
-   "total": 102,
+   "total": 103,
    "percent": 0.0
   },
   {
@@ -633,13 +639,13 @@
   {
    "module": "desktop_page_nav.py",
    "covered": 0,
-   "total": 250,
+   "total": 263,
    "percent": 0.0
   },
   {
    "module": "desktop_page_registry.py",
    "covered": 0,
-   "total": 12,
+   "total": 22,
    "percent": 0.0
   },
   {
@@ -657,7 +663,7 @@
   {
    "module": "desktop_project_pages.py",
    "covered": 0,
-   "total": 489,
+   "total": 559,
    "percent": 0.0
   },
   {
@@ -699,7 +705,7 @@
   {
    "module": "desktop_shared_send.py",
    "covered": 0,
-   "total": 220,
+   "total": 221,
    "percent": 0.0
   },
   {
@@ -741,13 +747,13 @@
   {
    "module": "desktop_writing_page.py",
    "covered": 0,
-   "total": 684,
+   "total": 709,
    "percent": 0.0
   },
   {
    "module": "desktop_writing_snapshots.py",
    "covered": 0,
-   "total": 111,
+   "total": 113,
    "percent": 0.0
   },
   {
@@ -795,7 +801,7 @@
   {
    "module": "engine_probe.py",
    "covered": 0,
-   "total": 254,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -843,7 +849,7 @@
   {
    "module": "h3_reference_adapter.py",
    "covered": 0,
-   "total": 44,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -855,13 +861,13 @@
   {
    "module": "hash_backend.py",
    "covered": 0,
-   "total": 28,
+   "total": 2,
    "percent": 0.0
   },
   {
    "module": "http_client.py",
    "covered": 0,
-   "total": 120,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -909,7 +915,7 @@
   {
    "module": "idea_transcript.py",
    "covered": 0,
-   "total": 439,
+   "total": 406,
    "percent": 0.0
   },
   {
@@ -922,6 +928,120 @@
    "module": "image_direct.py",
    "covered": 0,
    "total": 20,
+   "percent": 0.0
+  },
+  {
+   "module": "infra/account_store.py",
+   "covered": 0,
+   "total": 76,
+   "percent": 0.0
+  },
+  {
+   "module": "infra/aigc_lint.py",
+   "covered": 0,
+   "total": 118,
+   "percent": 0.0
+  },
+  {
+   "module": "infra/app_icon.py",
+   "covered": 0,
+   "total": 280,
+   "percent": 0.0
+  },
+  {
+   "module": "infra/broadcaster.py",
+   "covered": 0,
+   "total": 33,
+   "percent": 0.0
+  },
+  {
+   "module": "infra/clipboard_lock.py",
+   "covered": 0,
+   "total": 64,
+   "percent": 0.0
+  },
+  {
+   "module": "infra/engine_probe.py",
+   "covered": 0,
+   "total": 254,
+   "percent": 0.0
+  },
+  {
+   "module": "infra/h3_reference_adapter.py",
+   "covered": 0,
+   "total": 44,
+   "percent": 0.0
+  },
+  {
+   "module": "infra/hash_backend.py",
+   "covered": 0,
+   "total": 28,
+   "percent": 0.0
+  },
+  {
+   "module": "infra/http_client.py",
+   "covered": 0,
+   "total": 120,
+   "percent": 0.0
+  },
+  {
+   "module": "infra/lease_verifier.py",
+   "covered": 0,
+   "total": 37,
+   "percent": 0.0
+  },
+  {
+   "module": "infra/line_endings.py",
+   "covered": 0,
+   "total": 90,
+   "percent": 0.0
+  },
+  {
+   "module": "infra/log_maintenance.py",
+   "covered": 0,
+   "total": 115,
+   "percent": 0.0
+  },
+  {
+   "module": "infra/model_diagnostics.py",
+   "covered": 0,
+   "total": 41,
+   "percent": 0.0
+  },
+  {
+   "module": "infra/native_asset_codec.py",
+   "covered": 0,
+   "total": 41,
+   "percent": 0.0
+  },
+  {
+   "module": "infra/script_text_reader.py",
+   "covered": 0,
+   "total": 30,
+   "percent": 0.0
+  },
+  {
+   "module": "infra/store_program_locator.py",
+   "covered": 0,
+   "total": 63,
+   "percent": 0.0
+  },
+  {
+   "module": "infra/update_notice.py",
+   "covered": 0,
+   "total": 29,
+   "percent": 0.0
+  },
+  {
+   "module": "infra/workflow_process_registry.py",
+   "covered": 0,
+   "total": 161,
+   "percent": 0.0
+  },
+  {
+   "module": "infra/workspace_maintenance.py",
+   "covered": 0,
+   "total": 289,
    "percent": 0.0
   },
   {
@@ -963,7 +1083,7 @@
   {
    "module": "lease_verifier.py",
    "covered": 0,
-   "total": 37,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -975,7 +1095,7 @@
   {
    "module": "line_endings.py",
    "covered": 0,
-   "total": 90,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -999,7 +1119,7 @@
   {
    "module": "log_maintenance.py",
    "covered": 0,
-   "total": 115,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -1011,7 +1131,7 @@
   {
    "module": "model_diagnostics.py",
    "covered": 0,
-   "total": 41,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -1029,7 +1149,7 @@
   {
    "module": "native_asset_codec.py",
    "covered": 0,
-   "total": 41,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -1179,7 +1299,7 @@
   {
    "module": "pet_ui_popup.py",
    "covered": 0,
-   "total": 74,
+   "total": 93,
    "percent": 0.0
   },
   {
@@ -1191,19 +1311,19 @@
   {
    "module": "pet_ui_stages.py",
    "covered": 0,
-   "total": 869,
+   "total": 851,
    "percent": 0.0
   },
   {
    "module": "pet_ui_support.py",
    "covered": 0,
-   "total": 397,
+   "total": 398,
    "percent": 0.0
   },
   {
    "module": "pet_ui_view.py",
    "covered": 0,
-   "total": 585,
+   "total": 635,
    "percent": 0.0
   },
   {
@@ -1351,6 +1471,12 @@
    "percent": 0.0
   },
   {
+   "module": "request_ledger.py",
+   "covered": 0,
+   "total": 2,
+   "percent": 0.0
+  },
+  {
    "module": "responsive_ui.py",
    "covered": 0,
    "total": 543,
@@ -1431,7 +1557,7 @@
   {
    "module": "script_text_reader.py",
    "covered": 0,
-   "total": 30,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -1581,13 +1707,13 @@
   {
    "module": "stage_exec.py",
    "covered": 0,
-   "total": 114,
+   "total": 117,
    "percent": 0.0
   },
   {
    "module": "stage_handler_registry.py",
    "covered": 0,
-   "total": 95,
+   "total": 120,
    "percent": 0.0
   },
   {
@@ -1617,7 +1743,7 @@
   {
    "module": "store_program_locator.py",
    "covered": 0,
-   "total": 63,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -1809,7 +1935,7 @@
   {
    "module": "ui_icons.py",
    "covered": 0,
-   "total": 49,
+   "total": 67,
    "percent": 0.0
   },
   {
@@ -1893,13 +2019,13 @@
   {
    "module": "ui_widgets.py",
    "covered": 0,
-   "total": 686,
+   "total": 689,
    "percent": 0.0
   },
   {
    "module": "update_notice.py",
    "covered": 0,
-   "total": 29,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -2007,7 +2133,7 @@
   {
    "module": "workflow_process_registry.py",
    "covered": 0,
-   "total": 161,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -2031,7 +2157,7 @@
   {
    "module": "workspace_maintenance.py",
    "covered": 0,
-   "total": 289,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -2055,13 +2181,13 @@
   {
    "module": "writing_preparation_ledger.py",
    "covered": 0,
-   "total": 127,
+   "total": 132,
    "percent": 0.0
   },
   {
    "module": "writing_quality.py",
    "covered": 0,
-   "total": 135,
+   "total": 136,
    "percent": 0.0
   },
   {
@@ -2264,9 +2390,9 @@
   },
   {
    "module": "stage_flow.py",
-   "covered": 68,
-   "total": 255,
-   "percent": 26.7
+   "covered": 69,
+   "total": 265,
+   "percent": 26.0
   },
   {
    "module": "contract/stage_layout.py",
@@ -2323,7 +2449,7 @@
    "percent": 36.4
   },
   {
-   "module": "config_snapshot.py",
+   "module": "infra/config_snapshot.py",
    "covered": 7,
    "total": 19,
    "percent": 36.8
@@ -2383,13 +2509,13 @@
    "percent": 71.4
   },
   {
-   "module": "usage_snapshot.py",
+   "module": "infra/usage_snapshot.py",
    "covered": 126,
    "total": 172,
    "percent": 73.3
   },
   {
-   "module": "usage_history.py",
+   "module": "infra/usage_history.py",
    "covered": 44,
    "total": 54,
    "percent": 81.5
@@ -2419,7 +2545,7 @@
    "percent": 85.7
   },
   {
-   "module": "request_ledger.py",
+   "module": "infra/request_ledger.py",
    "covered": 518,
    "total": 591,
    "percent": 87.6
@@ -2455,6 +2581,12 @@
    "percent": 100.0
   },
   {
+   "module": "infra/__init__.py",
+   "covered": 1,
+   "total": 1,
+   "percent": 100.0
+  },
+  {
    "module": "service_contract.py",
    "covered": 2,
    "total": 2,
@@ -2465,8 +2597,20 @@
    "covered": 2,
    "total": 2,
    "percent": 100.0
+  },
+  {
+   "module": "usage_history.py",
+   "covered": 2,
+   "total": 2,
+   "percent": 100.0
+  },
+  {
+   "module": "usage_snapshot.py",
+   "covered": 2,
+   "total": 2,
+   "percent": 100.0
   }
  ],
- "modules_covered": 64,
- "modules_total": 409
+ "modules_covered": 67,
+ "modules_total": 433
 }

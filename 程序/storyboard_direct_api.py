@@ -329,7 +329,7 @@ class Job(threading.Thread):
 
     def run(self):
         from contract.platform_tools import execution_scope
-        from workflow_process_registry import forget_request
+        from infra.workflow_process_registry import forget_request
         try:
             with execution_scope(self.control):
                 self.results = self.execute(cancelled=self.control.stopped.is_set)
@@ -344,7 +344,7 @@ class Job(threading.Thread):
 
 def launch(project, config, skill_text, *, done=None, job_class=None, **kwargs):
     """启动后台直连作业；同一项目已有作业时拒绝（正在直连制作）。"""
-    from workflow_process_registry import register_request
+    from infra.workflow_process_registry import register_request
     job = (job_class or Job)(project, config, skill_text, **kwargs)
     job.done = done
     if not register_request(job.project, job):

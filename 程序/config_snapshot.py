@@ -1,27 +1,10 @@
-"""配置覆盖前的环形快照（U10）：固定 ``SLOTS`` 个槽位轮流覆盖，不需要删除旧文件。
+"""历史入口：实体已迁至 ``infra.config_snapshot``（T10 包化）。
 
-调用方只在写入前调一次 ``keep(path, folder, prefix)``；失败只记日志，绝不拦住真正的保存。
+``import config_snapshot`` 返回 ``infra.config_snapshot`` 本体：私有名、模块级状态与
+按扁平名打的 ``mock.patch`` 补丁面和包内路径完全一致；生产侧一律用包路径。
+门面清除轮统一改写测试导入后删除本文件。
 """
-import os
-from pathlib import Path
+import sys as _sys
+from infra import config_snapshot as _entity
 
-import app_logging
-from agent.core import save_bytes
-
-SLOTS = 20
-
-
-def keep(path, folder, prefix, slots=SLOTS):
-    """把 ``path`` 现有内容复制进 ``folder`` 里最久没写的槽位；源文件不存在则什么也不做。"""
-    try:
-        path = Path(path)
-        if not path.is_file():
-            return None
-        folder = Path(folder)
-        names = [folder / ('%s_%02d.json' % (prefix, index)) for index in range(slots)]
-        target = min(names, key=lambda item: os.path.getmtime(item) if item.exists() else 0.0)
-        save_bytes(target, path.read_bytes())
-        return target
-    except OSError:
-        app_logging.swallowed()
-        return None
+_sys.modules[__name__] = _entity

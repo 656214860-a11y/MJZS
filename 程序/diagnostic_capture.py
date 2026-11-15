@@ -17,7 +17,7 @@ from pathlib import Path
 
 import app_logging
 from agent.core import read_json, save_bytes, save_text
-from log_maintenance import RETENTION_DAYS
+from infra.log_maintenance import RETENTION_DAYS
 
 
 PROGRAM = Path(__file__).resolve().parent
