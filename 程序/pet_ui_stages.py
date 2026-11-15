@@ -268,6 +268,10 @@ class PetStagesMixin:
         if self.agent.level not in stage_flow.AUTO_LEVELS:
             # 第 67 期任务 4：只提醒档只看着——连「提前叫醒一轮」都不做，一个阶段都不替他开。
             return ''
+        # R2905：一个 SKILL 都没勾的阶段直接跳过并提示——先于付费审批，
+        # 反正不会跑，没必要先问「要不要花钱」。L3 入口里还有同一道门禁兜底。
+        if stage_flow.unchecked(getattr(self.desktop, 'root', None), stage):
+            return stage_handler_registry.skip_unchecked(self.desktop, stage)
         kick = getattr(self.desktop, 'pet_start', None)
         allowed = False
         if callable(kick):
@@ -532,8 +536,12 @@ class PetStagesMixin:
         if not names and stage:
             names = [item.name for item in registry.getByStage(stage)]
         if stage:
-            chosen = set(stage_config.get(project, stage, registry=registry)['skills'] or [])
-            picked = [name for name in names if name in chosen]
+            # R2905：执行顺序以阶段配置里的勾选顺序（面板顺序）为准，
+            # 不是注册表遍历顺序——勾选列表本身就是「默认勾选的 skill」清单。
+            chosen = [str(name) for name in
+                      (stage_config.get(project, stage, registry=registry)['skills'] or [])]
+            chosen_set = set(chosen)
+            picked = [name for name in chosen if name in names]
             if not picked:
                 self.notice = '「%s」这一阶段的 SKILL 都被您取消勾选了——先到阶段配置里勾上再说。' % stage
                 self.show_progress(self.notice)

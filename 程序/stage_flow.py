@@ -198,6 +198,24 @@ def selected_skills(project, stage):
         return []
 
 
+def unchecked(project, stage):
+    """自动编排的勾选门禁（R2905）：这一步一个 SKILL 都没勾时返回跳过原因，勾了返回空串。
+
+    只管 ``OWN_ORDER`` 里的制作阶段；pet_performance／pet_test 这类宿主自检阶段
+    不在表里，一律不设闸。没有可解析的项目路径时不设闸——配置无从读起，
+    交给各阶段自己的前置检查说话（与「读不出来就当空」的老口径一致）。
+    """
+    if stage not in OWN_ORDER:
+        return ''
+    try:
+        project = Path(project) if project else None
+    except TypeError:
+        project = None
+    if project is None:
+        return ''
+    return '' if selected_skills(project, stage) else '未勾选 SKILL'
+
+
 def model_label(desktop, project, stage):
     """弹窗「模型」那一行：挑过的写模型名，没挑过写「自动」。"""
     try:

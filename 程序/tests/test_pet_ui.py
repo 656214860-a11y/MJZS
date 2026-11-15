@@ -7164,6 +7164,19 @@ class AutoStartTests(PetTestCase):
         self.pet.start_stage('assets', at=self.now)
         self.assertEqual(self.started, ['assets'], '全自动档连会花钱的步骤也自己开')
 
+    def test_a_stage_without_checked_skills_is_skipped_before_any_dispatch(self):
+        """R2905：一个 SKILL 都没勾的阶段自动跳过并提示——先于付费审批与派发。"""
+        import json as _json
+        (self.fake.root / 'skill_config.json').write_text(_json.dumps(
+            {'assets': {'model': 'auto', 'skills': []}}, ensure_ascii=False), encoding='utf-8')
+        self.pet.set_level('semi')
+        text = self.pet.start_stage('assets', at=self.now)
+        self.assertIn('跳过', text)
+        self.assertEqual(self.started, [], '未勾选的阶段不得进入 pet_start 派发')
+        self.assertEqual(self.fake.advances, [], '跳过的阶段也不叫醒轮询')
+        self.pet.bus.pump()
+        self.assertEqual(self.pet.machine.stages['assets']['state'], 'skipped')
+
     def test_the_hint_level_starts_nothing_at_all(self):
         """第 67 期任务 4：只提醒档只看着，一个阶段都不替他开。"""
         self.script_done()

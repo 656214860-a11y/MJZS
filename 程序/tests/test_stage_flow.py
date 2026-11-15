@@ -228,6 +228,48 @@ class SummaryTests(unittest.TestCase):
         self.assertEqual(self.module.DEPENDS['delivery'], ('edit',))
 
 
+class UncheckedTests(unittest.TestCase):
+    """R2905：自动编排的勾选门禁——勾选列表是唯一依据，空表才算「没勾」。"""
+
+    @staticmethod
+    def project(td, skills_marker):
+        proj = Path(td) / 'p'
+        proj.mkdir(parents=True, exist_ok=True)
+        if skills_marker is not None:
+            (proj / 'skill_config.json').write_text(
+                json.dumps({'assets': {'model': 'auto', 'skills': skills_marker}},
+                           ensure_ascii=False), encoding='utf-8')
+        return proj
+
+    def test_default_config_counts_as_checked(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = self.project(td, None)
+            self.assertTrue(stage_flow.selected_skills(proj, 'assets'))
+            self.assertEqual(stage_flow.unchecked(proj, 'assets'), '')
+
+    def test_an_empty_selection_is_unchecked(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = self.project(td, [])
+            self.assertEqual(stage_flow.selected_skills(proj, 'assets'), [])
+            self.assertEqual(stage_flow.unchecked(proj, 'assets'), '未勾选 SKILL')
+
+    def test_a_partial_selection_is_still_checked(self):
+        import skill_registry
+        name = skill_registry.default_registry().getByStage('assets')[0].name
+        with tempfile.TemporaryDirectory() as td:
+            proj = self.project(td, [name])
+            self.assertEqual(stage_flow.selected_skills(proj, 'assets'), [name])
+            self.assertEqual(stage_flow.unchecked(proj, 'assets'), '')
+
+    def test_non_stage_entries_are_never_gated(self):
+        self.assertEqual(stage_flow.unchecked(None, 'pet_test'), '')
+        self.assertEqual(stage_flow.unchecked(None, 'pet_performance'), '')
+
+    def test_an_unresolvable_root_is_not_gated(self):
+        self.assertEqual(stage_flow.unchecked(object(), 'assets'), '')
+        self.assertEqual(stage_flow.unchecked(None, 'assets'), '')
+
+
 class AutoTests(unittest.TestCase):
     """附件四：剧本做完之后按依赖图推进，暂停／恢复可用。"""
 

@@ -4,6 +4,7 @@
 选择与去重决策则由文件服务产出工作计划。
 """
 import app_logging
+import stage_flow
 from storyboard_plan_service import storyboard_work_plan
 
 
@@ -41,6 +42,38 @@ def _account_gate_error(desktop, stage):
     gate = getattr(account, 'stage_gate', None)
     reason = gate(stage) if callable(gate) else ''
     return reason if isinstance(reason, str) else ''
+
+
+def skip_unchecked(desktop, stage):
+    """自动档下「一个 SKILL 都没勾」的阶段：标 skipped、放行自动链、说一句人话（R2905）。
+
+    勾选列表为空不是失败——是用户在阶段配置里明确关掉了这一步的自动执行；
+    状态机落 skipped（与 success 同属已收场），自动链照常推进到下一阶段，
+    也不发 stage.completed——那要过产物核验，跳过的阶段没有产物可验。
+    """
+    import contract.pet_bus as pet_bus
+    name = pet_bus.STAGE_NAMES.get(stage, stage)
+    text = '「%s」没有勾选 SKILL，三虎自动已跳过这一步' % name
+    pet = getattr(desktop, 'pet', None)
+    if pet is not None:
+        try:
+            machine = pet.machine
+            if machine is not None:
+                machine.skip(stage, '未勾选 SKILL')
+                machine.save()
+        except Exception:
+            app_logging.swallowed()
+        try:
+            auto = getattr(pet, 'auto', None)
+            if auto is not None:
+                auto.done(stage, True)
+        except Exception:
+            app_logging.swallowed()
+        try:
+            pet.broadcast('【警告】' + text + '（阶段配置里勾选后可重跑）')
+        except Exception:
+            app_logging.swallowed()
+    return text
 
 
 def _fail(desktop, stage, trigger, error):
@@ -115,6 +148,10 @@ def start(desktop, stage, trigger='auto', fallback=None, **options):
     if error:
         # 手动路径也阻断：直接把原因交回调用方展示，不经三虎失败事件。
         return _fail(desktop, stage, trigger, error) if trigger == 'auto' else error
+    if trigger == 'auto' and stage_flow.unchecked(getattr(desktop, 'root', None), stage):
+        # R2905：自动编排只认阶段配置里勾上的 SKILL 列表；一个都没勾就跳过并提示，
+        # 不再回退去跑「该阶段全部 SKILL」，也不让空阶段把自动链卡住。
+        return skip_unchecked(desktop, stage)
     if stage == 'storyboard':
         return _start_storyboard(desktop, trigger)
     if stage == 'animatic':
