@@ -356,7 +356,9 @@ class DesktopStartupPerfTests(unittest.TestCase):
                 # 模拟已有项目而非 root=None 的项目选择页；文件表仍走产品的
                 # 异步发现入口，回调本身必须先交还输入区。
                 (project / '01剧本准备' / '输入').mkdir(parents=True)
-                (project / '01剧本准备' / '输入' / '故事创意_01.md').write_text('故事梗概：测试', encoding='utf-8')
+                (project / '01剧本准备' / '输入' / '故事创意_01.md').write_text(
+                    '故事梗概：测试\n故事题材：都市\n故事角色：林青\n故事集数：1\n单集时间：60\n交付形态：短剧\n',
+                    encoding='utf-8')
                 (project / 'config.json').write_text('{}', encoding='utf-8')
                 desktop = Desktop(window, root=project)
                 desktop.startup_controller.cancel()

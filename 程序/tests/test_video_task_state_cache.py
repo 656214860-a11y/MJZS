@@ -8,7 +8,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 os.chdir(os.path.dirname(HERE))
 
-import storyboard_paths as sp
+import contract.storyboard_paths as sp
 import video_task_state as vts
 
 

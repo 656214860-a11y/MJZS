@@ -66,7 +66,7 @@ class AgentDeliveryPathsTests(unittest.TestCase):
                 with self.subTest(name=name), patch(
                         'workflow_engines.cancel_stage_slot_requests'), patch(
                         'workflow_engines.forget_process'), patch(
-                        'script_contract.resolve_script_source', return_value=root / name):
+                        'contract.script_contract.resolve_script_source', return_value=root / name):
                     app = SimpleNamespace(root=root, status=Mock(),
                         pet=SimpleNamespace(auto=SimpleNamespace(active='script'), report_done=Mock()),
                         flow_processes={(str(root), 'writing', 'codex', 'test'): Mock(poll=lambda: 0)})

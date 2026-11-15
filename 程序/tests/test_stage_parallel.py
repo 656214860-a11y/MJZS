@@ -430,7 +430,7 @@ class GateTests(unittest.TestCase):
                 with self.subTest(shot=shot['id']), \
                         patch.object(spec, '_adopted', return_value=[(source, [shot])]), \
                         patch.object(spec, 'has_run', return_value=True), \
-                        patch('storyboard_paths.media_root', return_value=base):
+                        patch('contract.storyboard_paths.media_root', return_value=base):
                     result = spec.frames_ready(root)
                     self.assertFalse(result['ok'])
                     self.assertTrue(result['started'])
@@ -448,7 +448,7 @@ class GateTests(unittest.TestCase):
                 with self.subTest(shots=shots), \
                         patch.object(spec, '_adopted', return_value=[(root / 'adopted.json', shots)]), \
                         patch.object(spec, 'has_run', return_value=False), \
-                        patch('storyboard_paths.media_root', return_value=root):
+                        patch('contract.storyboard_paths.media_root', return_value=root):
                     result = spec.frames_ready(root)
                     self.assertTrue(result['ok'])
                     self.assertFalse(result['started'])
@@ -472,10 +472,10 @@ class GateTests(unittest.TestCase):
             second = (root / 'ep2.json', [{'id': 'S001'}])
             with patch.object(spec, '_adopted', return_value=[first, second]), \
                     patch.object(spec, 'has_run', return_value=False), \
-                    patch('storyboard_paths.media_root', return_value=root):
+                    patch('contract.storyboard_paths.media_root', return_value=root):
                 self.assertFalse(spec.frames_ready(root)['ok'])
             with patch.object(spec, '_adopted', return_value=[first]), \
-                    patch('storyboard_paths.media_root', return_value=root):
+                    patch('contract.storyboard_paths.media_root', return_value=root):
                 result = spec.frames_ready(root)
                 self.assertTrue(result['ok'])
                 self.assertTrue(result['started'])

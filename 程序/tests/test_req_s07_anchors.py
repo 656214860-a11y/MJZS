@@ -296,7 +296,7 @@ class S07AnchorTests(unittest.TestCase):
         """REQ-S07-18：同步期间源被修改即中止、保留原 JSON；发布前后各校验一次。"""
         with tempfile.TemporaryDirectory() as td:
             project, episode, source = _project(Path(td) / 'p')
-            import shot_batches
+            import contract.shot_batches as shot_batches
             real_assign = shot_batches.assign
             original = source.read_bytes()
 
@@ -572,7 +572,7 @@ class S07AnchorTests(unittest.TestCase):
             project, episode, source = _project(Path(td) / 'p')
             original = source.read_bytes()
             finals_root = project / '07分镜定稿' / '分镜'
-            import shot_batches
+            import contract.shot_batches as shot_batches
             failure = RuntimeError('三元组字典损坏')
             retired = []
             with mock.patch.object(shot_batches, 'assign', side_effect=failure):
@@ -594,7 +594,7 @@ class S07AnchorTests(unittest.TestCase):
 
     def test_req_s07_44_finalize_derives_batch_plan_and_shot_table(self):
         """REQ-S07-44：定稿写出后按 stage_layout 的 docs/ 派生批次说明与镜头表，只由定稿数据派生。"""
-        import shot_batches
+        import contract.shot_batches as shot_batches
         from stage_layout import dirname_of, paths
         with tempfile.TemporaryDirectory() as td:
             project, episode, source = _project(Path(td) / 'p')

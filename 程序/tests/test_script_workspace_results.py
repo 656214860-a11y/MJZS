@@ -86,7 +86,7 @@ class ScriptWorkspaceResultTests(unittest.TestCase):
         desktop = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == 'WritingPageMixin')
         method = next(node for node in desktop.body if isinstance(node, ast.FunctionDef) and node.name == 'writing')
         page_class = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == '_WritingPage')  # R1817：页面主体改写成了类
-        env = {}
+        env = {'WritingSnapshotsMixin': object}  # R2831 起 _WritingPage 继承 mixin；抽取执行只需基类名可解析
         exec(compile(ast.Module(body=[method, page_class], type_ignores=[]), str(source), 'exec'), env)
         with patch('script_workspace_service.ensure_script_workspace', return_value=SystemError('初始化失败')):
             with self.assertRaisesRegex(ValueError, '初始化失败'):

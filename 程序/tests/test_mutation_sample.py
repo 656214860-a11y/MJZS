@@ -11,7 +11,7 @@ import mutation_sample
 class SiteTableTests(unittest.TestCase):
     def test_every_site_matches_its_source_exactly_once(self):
         for module, _test, label, old, _new in mutation_sample.SITES:
-            source = (mutation_sample.ROOT / (module + ".py")).read_text(encoding="utf-8")
+            source = (mutation_sample.ROOT / (module.replace(".", "/") + ".py")).read_text(encoding="utf-8")
             self.assertEqual(source.count(old), 1, "位点失配：%s / %s" % (module, label))
 
     def test_apply_produces_the_mutant(self):

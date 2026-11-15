@@ -64,7 +64,7 @@ class FlowAgentLaunchTests(unittest.TestCase):
             'workflow_context.snapshot': Mock(return_value={}),
             'workflow_context.continuation_instruction': Mock(return_value=''),
             'workflow_context_controller.request_stage_instruction': Mock(return_value=('', 'stage')),
-            'workflow_context_budget.prepare_request_context': lambda text, *a, **k: (text, {}),
+            'contract.workflow_context_budget.prepare_request_context': lambda text, *a, **k: (text, {}),
             'workflow_engines.prompt_with_settings': lambda prompt, config, stage: prompt,
             'prompt_window.copy_text': Mock(),
             'codex_paste.paste_existing': self.paste,

@@ -52,7 +52,7 @@ class StepMaterialTests(unittest.TestCase):
 
     def targets(self, request):
         with patch.object(ledger, '_confirmed_documents', return_value={'项目设定': self.confirmed}), \
-                patch('script_contract.script_baseline_path', return_value=self.adopted):
+                patch('contract.script_contract.script_baseline_path', return_value=self.adopted):
             return dict(ledger.material_targets(self.project, DISPLAY, request))
 
     def test_req_s01_72_outline_step_excludes_character_cards_and_script(self):
