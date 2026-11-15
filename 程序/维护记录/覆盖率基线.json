@@ -547,9 +547,15 @@
    "percent": 0.0
   },
   {
+   "module": "desktop_script_edit_session.py",
+   "covered": 0,
+   "total": 238,
+   "percent": 0.0
+  },
+  {
    "module": "desktop_script_pages.py",
    "covered": 0,
-   "total": 700,
+   "total": 564,
    "percent": 0.0
   },
   {
@@ -1119,7 +1125,7 @@
   {
    "module": "production_lock_fields.py",
    "covered": 0,
-   "total": 347,
+   "total": 346,
    "percent": 0.0
   },
   {
@@ -1239,7 +1245,7 @@
   {
    "module": "script_structure_edit_controller.py",
    "covered": 0,
-   "total": 47,
+   "total": 33,
    "percent": 0.0
   },
   {
@@ -1665,7 +1671,7 @@
   {
    "module": "ui_tokens.py",
    "covered": 0,
-   "total": 159,
+   "total": 160,
    "percent": 0.0
   },
   {
@@ -1677,7 +1683,7 @@
   {
    "module": "ui_usage_detail.py",
    "covered": 0,
-   "total": 92,
+   "total": 99,
    "percent": 0.0
   },
   {
@@ -1797,7 +1803,7 @@
   {
    "module": "workflow_engines.py",
    "covered": 0,
-   "total": 416,
+   "total": 421,
    "percent": 0.0
   },
   {
@@ -1951,12 +1957,6 @@
    "percent": 16.9
   },
   {
-   "module": "platform_tools.py",
-   "covered": 98,
-   "total": 535,
-   "percent": 18.3
-  },
-  {
    "module": "legacy_compat.py",
    "covered": 9,
    "total": 48,
@@ -1966,6 +1966,12 @@
    "module": "agent/media.py",
    "covered": 16,
    "total": 84,
+   "percent": 19.0
+  },
+  {
+   "module": "platform_tools.py",
+   "covered": 98,
+   "total": 517,
    "percent": 19.0
   },
   {
@@ -2222,9 +2228,9 @@
   },
   {
    "module": "agent/publication.py",
-   "covered": 141,
+   "covered": 143,
    "total": 159,
-   "percent": 88.7
+   "percent": 89.9
   },
   {
    "module": "video_lifecycle_service.py",
@@ -2246,5 +2252,5 @@
   }
  ],
  "modules_covered": 61,
- "modules_total": 372
+ "modules_total": 373
 }

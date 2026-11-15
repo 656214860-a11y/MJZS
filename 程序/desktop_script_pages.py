@@ -3,7 +3,6 @@
 ``ScriptPagesMixin`` 通过实例的 ``script_page_services`` 使用文件打开与菜单服务。
 Desktop 在组合入口注入服务；独立页面测试不需要初始化 Desktop 或登记全局宿主。
 """
-import edit_habits
 import pet_state
 import logging
 import queue
@@ -20,7 +19,6 @@ from pathlib import Path
 from responsive_ui import FlowBar
 from tkinter import ttk
 from ui_tokens import (
-    BUTTON_WIDTH_EDIT,
     COLORS,
     SCRIPT_VIEW_FONT,
     SCRIPT_VIEW_PADDING,
@@ -28,6 +26,11 @@ from ui_tokens import (
 )
 from ui_widgets import PrimaryButton, SecondaryButton, TextArea
 from desktop_page_support import STAGE_ACTION_WIDTH
+from desktop_script_edit_session import (
+    SCRIPT_EDIT_BUTTON_WIDTH,
+    _install_script_edit_controls,
+    _reset_preview_text,
+)
 
 PAGE = pet_state.PAGE_OF
 
@@ -74,9 +77,6 @@ def _build_script_preview(text_area):
     return preview, horizontal
 
 
-SCRIPT_EDIT_BUTTON_WIDTH = BUTTON_WIDTH_EDIT  # 编辑/后退/恢复三按钮的字符宽度，给下拉框让出横向空间。
-
-
 class _DocumentPicker(ttk.Combobox):
     """剧本文件下拉框；对外保持 selection/get_children/item 接口，供页面逻辑与测试读取。"""
     def __init__(self, master, paths, active):
@@ -101,176 +101,6 @@ class _DocumentPicker(ttk.Combobox):
             self.current(self.get_children().index(iid))
 
 
-def _reset_preview_text(preview, text, kind):
-    """清空预览并整段刷入文本、按需加样式；返回后留在 normal 态由调用方决定下一步。"""
-    preview.configure(state='normal')
-    preview.delete('1.0', 'end')
-    preview.insert('1.0', text)
-    if script_view_style.should_style(text):
-        script_view_style.apply_tags(preview, text, kind)
-    preview.edit_reset()
-
-
-def _record_natural_edit(page, before, after, name):
-    """REQ-S01-58：记下这次修改供「修改习惯」归纳；记录失败不影响已完成的保存。"""
-    if not getattr(page, 'root', None):
-        return
-    try:
-        edit_habits.record_edit(page.root, 'script', before, after, name)
-    except (OSError, ValueError, TypeError) as exc:
-        LOGGER.warning('修改记录未保存：%s', exc)
-
-
-def _install_script_edit_controls(page, controls, box):
-    """给单个剧本预览框装上「编辑／后退／恢复／保存」按钮与无 Tk 的编辑控制器。
-
-    控制器持有撤销栈，只在点「保存」时落盘；本函数只把 Tk 事件与按钮接到控制器回调，不写项目
-    数据（落盘由控制器注入的 save_document 完成）。按钮与控制器实例以
-    ``attribute + '_edit_button'`` 等名登记到页面实例上，供测试与页面逻辑读取。
-    """
-    # box 是 _ContentBox：预览框、已读原文、当前文档与内容框配置都从它取。
-    preview, loaded, active, kind = box.preview, box.loaded, box.active, box.kind
-    title, editable, attribute = box.title, box.editable, box.attribute
-    from script_structure_edit_controller import ScriptStructureEditController
-
-    def save_document(value):
-        destination = Path(active['path'])
-        value = str(value or '').strip()
-        if not value:
-            raise ValueError('剧本内容不能为空。')
-        if kind == 'natural':
-            from script_contract import save_natural_script
-            save_natural_script(destination, value)
-        else:
-            from agent.core import save_text
-            save_text(destination, value + '\n')
-
-    controller = ScriptStructureEditController(save=save_document)
-    editing = {'value': False}
-    suppress = {'value': False}
-
-    def sync_buttons():
-        if editing['value']:
-            # 编辑态下「编辑」变成「退出」，未改动也能直接离开编辑（用户 R1864 要求）。
-            edit_button.configure(text='退出')
-            edit_button.state(['!disabled'])
-            back_button.state(['!disabled'] if controller.can_undo else ['disabled'])
-            restore_button.state(['!disabled'])
-            save_button.state(['!disabled'] if controller.dirty else ['disabled'])
-        else:
-            # 框里没有文档就没有可编辑的对象：「编辑」直接禁用，不再点了才报错（R2168）。
-            edit_button.state(['!disabled'] if active['path'] is not None else ['disabled'])
-            back_button.state(['disabled'])
-            restore_button.state(['disabled'])
-            save_button.state(['disabled'])
-            edit_button.configure(text='编辑')
-        if delete_button is not None:
-            can_delete = not editing['value'] and active['path'] is not None
-            delete_button.state(['!disabled'] if can_delete else ['disabled'])
-
-    def toggle_edit():
-        if editing['value']:
-            exit_edit()
-        else:
-            begin_edit()
-
-    def exit_edit():
-        if controller.dirty and not page.script_page_services.confirm(page.win, '退出编辑', '有未保存的修改，退出将放弃这些修改。确定退出吗？'):
-            return
-        editing['value'] = False
-        box.owner.restore_split_boxes()
-        suppress['value'] = True
-        try:
-            box.set_preview(loaded['raw'])
-        finally:
-            suppress['value'] = False
-        sync_buttons()
-        page.status.set('已退出' + title + '编辑。')
-
-    def delete_document():
-        if editing['value']:
-            raise ValueError('请先退出编辑，再删除。')
-        if active['path'] is None:
-            raise ValueError('当前没有可删除的' + title + '。')
-        name = Path(active['path']).name
-        if not page.script_page_services.confirm(page.win, '删除' + title, '将「' + name + '」移入项目回收站，确定删除吗？', dangerous=True):
-            return
-        box.delete_document()
-
-    def begin_edit():
-        if not editable or active['path'] is None:
-            raise ValueError('当前没有可修改的剧本文档。')
-        _reset_preview_text(preview, loaded['raw'], kind)
-        preview.edit_modified(False)
-        controller.begin_edit(loaded['raw'])
-        editing['value'] = True
-        box.owner.expand_editing_box(box)
-        sync_buttons()
-        preview.focus_set()
-
-    def on_modified(_event=None):
-        if suppress['value'] or not editing['value'] or str(preview.cget('state')) != 'normal':
-            return
-        if not preview.edit_modified():
-            return
-        preview.edit_modified(False)
-        controller.record_edit(preview.get('1.0', 'end-1c'))
-        sync_buttons()
-
-    preview.bind('<<Modified>>', on_modified, add=True)
-
-    def back():
-        if not editable or active['path'] is None:
-            raise ValueError('当前没有可后退的剧本文档。')
-        text = controller.undo()
-        suppress['value'] = True
-        try:
-            _reset_preview_text(preview, text, kind)
-            preview.edit_modified(False)
-        finally:
-            suppress['value'] = False
-        sync_buttons()
-        page.status.set('已后退' + title + '（未保存）：' + Path(active['path']).name)
-
-    def save():
-        if not editing['value'] or active['path'] is None:
-            raise ValueError('请先点击“编辑”，修改后再保存。')
-        before = loaded['raw']
-        controller.save_now()
-        loaded['raw'] = controller.current
-        sync_buttons()
-        hint = '；如要据此制作结构剧本，请重新点击“采用选中剧本”。' if kind == 'natural' else ''
-        if kind == 'natural':
-            _record_natural_edit(page, before, controller.current, Path(active['path']).name)
-        page.status.set('已保存' + title + '：' + Path(active['path']).name + hint)
-
-    def restore_deleted():
-        if not editing['value']:
-            raise ValueError('请先点击“编辑”，再恢复刚删除的文字。')
-        try:
-            preview.edit_undo()
-        except tk.TclError as exc:
-            raise ValueError('没有可恢复的删除内容。') from exc
-
-    delete_button = None
-    edit_button = SecondaryButton(controls, width=SCRIPT_EDIT_BUTTON_WIDTH, text='编辑', command=lambda: page.safe(toggle_edit))
-    edit_button.pack(side='left')
-    back_button = SecondaryButton(controls, width=SCRIPT_EDIT_BUTTON_WIDTH, text='后退', command=lambda: page.safe(back))
-    back_button.pack(side='left', padx=(SPACING["sm"], SPACING["none"])); back_button.state(['disabled'])
-    restore_button = SecondaryButton(controls, width=SCRIPT_EDIT_BUTTON_WIDTH, text='恢复', command=lambda: page.safe(restore_deleted))
-    restore_button.pack(side='left', padx=(SPACING["sm"], SPACING["none"])); restore_button.state(['disabled'])
-    save_button = SecondaryButton(controls, width=SCRIPT_EDIT_BUTTON_WIDTH, text='保存', command=lambda: page.safe(save))
-    save_button.pack(side='left', padx=(SPACING["sm"], SPACING["none"])); save_button.state(['disabled'])
-    setattr(page, attribute + '_save_button', save_button)
-    if kind == 'structured':
-        delete_button = SecondaryButton(controls, width=SCRIPT_EDIT_BUTTON_WIDTH, text='删除', command=lambda: page.safe(delete_document))
-        delete_button.pack(side='left', padx=(SPACING["sm"], SPACING["none"]))
-        setattr(page, attribute + '_delete_button', delete_button)
-    sync_buttons()
-    setattr(page, attribute + '_edit_button', edit_button)
-    setattr(page, attribute + '_back_button', back_button)
-    setattr(page, attribute + '_restore_button', restore_button)
-    setattr(page, attribute + '_controller', controller)
 
 
 @dataclass(frozen=True)
@@ -731,7 +561,7 @@ class _ScriptStructurePage:
 
 
 class _ContentBox:
-    """剧本结构页的一个内容框：文档下拉、正文预览（大文本后台读取、分块插入）与编辑／后退／恢复。"""
+    """剧本结构页的一个内容框：文档下拉、正文预览（大文本后台读取、分块插入）与编辑会话。"""
     _SPEC = ('title', 'file_heading', 'documents', 'active_path', 'empty', 'attribute', 'editable', 'kind')
 
     def __init__(self, owner, parent, *spec):
@@ -847,10 +677,15 @@ class _ContentBox:
         selected = self.file_list.selection()
         if not selected or not self.available:
             return
-        if str(self.preview.cget('state')) == 'normal':
-            self.file_list.selection_set(str(self.active['path']))
-            self.owner.page.status.set('请先保存或完成当前修改，再切换剧本。')
-            return
+        session = getattr(self, 'edit_session', None)
+        if session is not None:
+            # 编辑态切换先退出编辑：exit_edit 内含自动保存 flush，落盘失败则留在原文档。
+            try:
+                session.exit_edit()
+            except (OSError, ValueError) as exc:
+                self.file_list.selection_set(str(self.active['path']))
+                self.owner.page.status.set('保存失败，未切换' + self.title + '：' + str(exc))
+                return
         chosen = Path(selected[0])
         if chosen == self.active['path']:
             return

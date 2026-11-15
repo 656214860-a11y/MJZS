@@ -126,11 +126,12 @@ def _catches_tcl_error(node):
 class ViewTimerLifecycleTests(unittest.TestCase):
     """R1649：页面重排 Tk 定时器时，关窗竞态不得逃逸为未捕获的 tk.TclError。
 
-    `desktop_script_pages.py` 是 P2-3 定位到的未保护重排点文件；其它页面改用
-    `after_cancel` 在销毁时撤销定时器（另一条等价路径），故本门禁只钉这一处已知回归面。
+    `desktop_script_pages.py` 与拆出的 `desktop_script_edit_session.py` 是 P2-3 定位到的
+    未保护重排点文件；其它页面改用 `after_cancel` 在销毁时撤销定时器（另一条等价路径），
+    故本门禁只钉这两处已知回归面。
     """
 
-    GUARDED_FILES = ('desktop_script_pages',)
+    GUARDED_FILES = ('desktop_script_pages', 'desktop_script_edit_session')
 
     def test_timer_reschedules_are_guarded_against_a_destroyed_window(self):
         unguarded = []

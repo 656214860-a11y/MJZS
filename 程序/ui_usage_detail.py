@@ -12,6 +12,7 @@ from pathlib import Path
 
 from tkinter import ttk
 
+import app_logging
 from agent.core import save_text
 from ui_tokens import FONTS, SPACING, TEXT_ROWS
 from ui_widgets import BaseDialog, DataTable, notify
@@ -140,4 +141,4 @@ class TodayDetailsDialog(BaseDialog):
             if status is not None:
                 status.set('已导出今日调用明细：' + str(target))
         except Exception:
-            pass
+            app_logging.swallowed()
