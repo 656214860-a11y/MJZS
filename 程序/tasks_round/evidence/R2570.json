@@ -1,0 +1,15 @@
+{
+  "round": 2570,
+  "commit_base": "feafa48e",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k remote_pre_receive",
+    "exit": 0,
+    "passed": 3,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T11:40:56"
+}

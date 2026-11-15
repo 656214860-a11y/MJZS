@@ -278,6 +278,7 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 - 阶段/UI 契约：`test_dynamic_import_registry.py`、`test_stage_command_contract.py`、`test_completion_gate.py`、`test_event_bus_boundary.py`、`test_skill_dependency_dag.py`、`test_pipeline_stage_io_contract.py`、`test_skill_reference_injection.py`、`test_project_entry_boundary.py`。
 - 依赖与平台边界：`test_import_error_boundaries.py`、`test_model_provider_boundary.py`、`test_platform_opening.py`、`test_platform_process_boundary.py`、`test_migrated_ui_boundaries.py`。
 - 体验与布局：`test_responsive_layout_contract.py`、`test_combobox_boundary.py`。
+- 出站与文档预算：`test_outbound_http_authority.py`（直接建连只许在 `platform_tools`）、`test_agent_doc_budget.py`（规则文件体积与链接）、`test_rule_guard_map.py`（规则→守卫登记，暂无守卫的规则只许减少）、`test_gate_selfaudit.py`（5 个关键门禁的坏／好样本自审）、`test_type_check_baseline.py`（开发期类型检查基线只许减少）、`test_skill_package_pins.py`（外部技能包固定提交与内容树哈希）、`test_test_move_guard.py`（测试搬家轮只许移动文件与修 import）。
 - 启动预算：`test_startup_budget.py`。
 - 源码文本契约锁：`test_source_text_contracts.py`（原散落在功能测试里的 `inspect.getsource` 断言，内容未动）。
 - 历史兼容门面：`test_legacy_facade_manifest.py`。

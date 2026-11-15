@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """后台自动全量：钩子里的欠账判断和起的子进程都不受 git 导出的 GIT_* 变量影响，未到触发点或已有任务时不起进程。"""
 import importlib.util
+import json
 import os
 import subprocess
 import sys
@@ -343,6 +344,20 @@ class ScanIsolationTests(unittest.TestCase):
         names = [path.relative_to(_scan.ROOT).as_posix() for path in _scan.production_runtime_files()]
         self.assertFalse([name for name in names if name.startswith(('.wt/', '.selftmp/'))], names[:5])
 
+
+    def test_history_records_green_and_red_runs_but_not_blocked_ones(self):
+        with tempfile.TemporaryDirectory() as folder:
+            with mock.patch.object(auto, '_history_path', return_value=Path(folder) / 'h.jsonl'):
+                auto.append_history('abc', 1, 12.4, ['test_a'])
+                auto.append_history('def', 0, 30, [])
+                auto.append_history('ghi', 1, 1, [], blocked='sandbox')
+            rows = [json.loads(line) for line in (Path(folder) / 'h.jsonl').read_text(encoding='utf-8').splitlines()]
+        self.assertEqual([(row['head'], row['ok'], row['failed_files']) for row in rows],
+                         [('abc', False, ['test_a']), ('def', True, [])])
+
+    def test_history_write_failure_never_breaks_the_run(self):
+        with mock.patch.object(auto, '_history_path', return_value=Path('/nonexistent-dir/h.jsonl')):
+            auto.append_history('abc', 0, 1, [])
 
 if __name__ == '__main__':
     unittest.main()

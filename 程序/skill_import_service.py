@@ -36,6 +36,34 @@ from storage_maintenance import recycle_paths, restore_recycle_batch
 LEDGER_NAME = '导入台账.json'
 STAGING_PREFIX = '.导入中-'
 IGNORED_PARTS = ('.git', '__pycache__', '.DS_Store')
+# 导入体积护栏：防止超大包拖垮磁盘、巨型单文件占满内存、符号链接把包外文件读进来。
+SINGLE_MAX_BYTES = 20 * 1024 * 1024
+PACKAGE_MAX_FILES = 2000
+PACKAGE_MAX_BYTES = 200 * 1024 * 1024
+
+
+def _is_link(path):
+    return path.is_symlink() or bool(getattr(path, 'is_junction', lambda: False)())
+
+
+def _check_package_bounds(package_root):
+    """包导入的体积与链接护栏；违规抛 ImportBlocked，调用方原样展示。"""
+    root = Path(package_root)
+    if _is_link(root):
+        raise ImportBlocked('包根是链接，已拒绝导入')
+    total = 0
+    count = 0
+    for path in root.rglob('*'):
+        if _is_link(path):
+            raise ImportBlocked('包内含链接「%s」，已拒绝导入' % path.relative_to(root).as_posix())
+        if not path.is_file():
+            continue
+        count += 1
+        if count > PACKAGE_MAX_FILES:
+            raise ImportBlocked('包内文件数超过 %d 个上限' % PACKAGE_MAX_FILES)
+        total += path.stat().st_size
+        if total > PACKAGE_MAX_BYTES:
+            raise ImportBlocked('包总体积超过 %d MB 上限' % (PACKAGE_MAX_BYTES // 1024 // 1024))
 
 
 class ImportBlocked(ValueError):
@@ -70,6 +98,8 @@ def plan_import(source, target_dir, stage, registry):
     kind = _kind(source)
     target = (target_dir / source.parent.name / skill_registry.PACKAGE_SKILL_FILENAME
               if kind == 'package' else target_dir / source.name)
+    if kind == 'manifest' and source.is_file() and source.stat().st_size > SINGLE_MAX_BYTES:
+        raise ImportBlocked('源文件超过 %d MB 上限' % (SINGLE_MAX_BYTES // 1024 // 1024))
     try:
         raw = source.read_text(encoding='utf-8-sig')
     except (OSError, UnicodeError) as exc:
@@ -169,6 +199,7 @@ def perform_import(plan, program, now=None):
     batch = None
     try:
         if package:
+            _check_package_bounds(plan['source'].parent)
             shutil.copytree(plan['source'].parent, staged, ignore=shutil.ignore_patterns(*IGNORED_PARTS))
         else:
             shutil.copy2(plan['source'], staged)

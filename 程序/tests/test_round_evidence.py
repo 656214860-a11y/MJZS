@@ -105,6 +105,28 @@ class JudgeTests(unittest.TestCase):
             evidence.write_evidence(9999, [], directory, root, skip='trust-me')
             self.assertEqual(evidence.judge(9999, directory)[:2], (True, False))
 
+    def test_result_header_is_written_once_after_the_title_and_is_replaced_not_duplicated(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root, directory = Path(temporary), Path(temporary) / 'ev'
+            _repo(root)
+            _stage(root, '程序/a.py', 'value = 1\n')
+            evidence.write_evidence(9999, ['x'], directory, root, run_tests=_green)
+            result = root / 'result.md'
+            result.write_text('# R9999 结果\n\n1. 类型\n', encoding='utf-8')
+            self.assertTrue(evidence.stamp_result(result, 9999, directory))
+            self.assertTrue(evidence.stamp_result(result, 9999, directory))
+            lines = result.read_text(encoding='utf-8').splitlines()
+            self.assertEqual(lines[0], '# R9999 结果')
+            self.assertTrue(lines[1].startswith(evidence.HEADER_PREFIX))
+            self.assertEqual(sum(1 for line in lines if line.startswith(evidence.HEADER_PREFIX)), 1)
+            payload = json.JSONDecoder().decode(lines[1][len(evidence.HEADER_PREFIX):-len(' -->')])
+            self.assertEqual((payload['round'], payload['exit'], payload['passed'], payload['failed'],
+                              payload['credential_hits']), (9999, 0, 3, 0, 0))
+            self.assertEqual(len(payload['evidence_sha256']), 16)
+
+    def test_stamping_a_missing_result_file_is_a_noop(self):
+        self.assertFalse(evidence.stamp_result(Path('no-such-result.md'), 1))
+
     def test_rounds_before_the_cutoff_are_exempt(self):
         self.assertEqual(evidence.judge(evidence.EVIDENCE_REQUIRED_FROM - 1, Path('missing'))[:2], (True, True))
 

@@ -1,0 +1,15 @@
+{
+  "round": 2555,
+  "commit_base": "256a06b5",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k error_codes silent_exception dev-entry distribution",
+    "exit": 0,
+    "passed": 24,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T11:06:49"
+}

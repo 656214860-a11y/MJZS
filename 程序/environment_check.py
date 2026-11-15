@@ -7,6 +7,7 @@
 """
 from __future__ import annotations
 
+import re
 import shutil
 from pathlib import Path
 
@@ -14,6 +15,7 @@ import comfy_runtime
 import client_profiles
 import file_cache
 import model_pool
+import platform_tools
 import white_model_service
 import workflow_settings
 
@@ -23,6 +25,49 @@ PROGRAM = Path(__file__).resolve().parent
 DESKTOP_PROGRAMS = (('claude-desktop-app', 'Claude Desktop', '剧本准备可选「Claude Desktop」手动发送'),
                     ('codex', 'ChatGPT / Codex', '剧本准备可选「ChatGPT Desktop · Codex」'),
                     ('claude', 'Claude Code 命令行', '阶段工作流可选「Claude Code」命令行模型'))
+
+
+# 最低版本（建议值）：低于它只给「提示」，不拦截；版本探测要启动程序，所以只在用户点「环境自检」时做。
+MIN_VERSIONS = {'ffmpeg': (4, 4), 'ffprobe': (4, 4), 'blender': (3, 6)}
+VERSION_ARGS = {'ffmpeg': ['-version'], 'ffprobe': ['-version'], 'blender': ['--version']}
+_VERSION_RE = re.compile(r'(?:version|Blender)\s+[nN]?(\d+)\.(\d+)')
+
+
+def parse_version(text):
+    """从 ``ffmpeg version 6.1.1`` 或 ``Blender 4.2.1`` 的首行取 ``(主, 次)``；认不出（如 git 构建）返回 None。"""
+    lines = str(text or '').strip().splitlines()
+    matched = _VERSION_RE.search(lines[0]) if lines else None
+    return (int(matched.group(1)), int(matched.group(2))) if matched else None
+
+
+def probe_version(key, exe, run=platform_tools.run_process):
+    """启动 ``exe`` 读版本（8 秒超时）；任何失败都返回 None，不抛错。"""
+    try:
+        done = run([str(exe), *VERSION_ARGS[key]], capture_output=True, text=True, timeout=8, check=False)
+    except Exception:
+        return None
+    return parse_version(done.stdout or done.stderr)
+
+
+def apply_versions(rows, probe=probe_version):
+    """给 FFmpeg／FFprobe／Blender 行补上版本；低于最低版本降为「提示」。返回新行列表。"""
+    result = []
+    for item in rows:
+        key, minimum = item['key'], MIN_VERSIONS.get(item['key'])
+        found_it = item['status'] == OK or (item['status'] == WARN and key in ('ffmpeg', 'ffprobe'))
+        exe = item['detail'].split('；')[0] if minimum and found_it else ''
+        found = probe(key, exe) if exe else None
+        if not minimum or not exe:
+            result.append(item)
+        elif found is None:
+            result.append(dict(item, detail=item['detail'] + '；版本无法识别'))
+        elif found < minimum:
+            need = '.'.join(map(str, minimum))
+            result.append(dict(item, status=WARN, detail='%s；版本 %d.%d 低于建议最低 %s' % (item['detail'], *found, need),
+                               next='升级 %s 到 %s 以上' % (item['label'], need)))
+        else:
+            result.append(dict(item, detail='%s；版本 %d.%d' % (item['detail'], *found)))
+    return result
 
 
 def _find_profile(profile_row):
@@ -145,13 +190,18 @@ def run_checks(program=None, *, config=None, settings=None, models=None, which=s
     return rows
 
 
+def run_checks_with_versions(program=None, *, probe=probe_version, **kwargs):
+    """``run_checks`` 再给 FFmpeg／FFprobe／Blender 补版本；会启动这些程序，只在用户点「环境自检」时用。"""
+    return apply_versions(run_checks(program, **kwargs), probe)
+
+
 def summary(rows):
     counts = {status: sum(1 for item in rows if item['status'] == status) for status in (OK, WARN, MISSING)}
     return '共 %d 项：正常 %d，提示 %d，缺失 %d' % (len(rows), counts[OK], counts[WARN], counts[MISSING])
 
 
 def report_text(rows=None):
-    data = rows if rows is not None else run_checks()
+    data = rows if rows is not None else run_checks_with_versions()
     lines = [summary(data), '']
     for item in data:
         lines.append('[%s] %s：%s' % (STATUS_TEXT[item['status']], item['label'], item['detail']))

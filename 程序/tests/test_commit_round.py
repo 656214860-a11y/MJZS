@@ -41,5 +41,22 @@ class CommitRoundTests(unittest.TestCase):
         self.assertGreater(round_evidence.EVIDENCE_REQUIRED_FROM, 1931)
 
 
+    def test_agent_trailer_is_appended_once_and_only_when_named(self):
+        self.assertEqual(commit_round.with_agent_trailer('R1: x', ''), 'R1: x')
+        once = commit_round.with_agent_trailer('R1: x', 'swe-2')
+        self.assertEqual(once, 'R1: x\n\nAgent: swe-2')
+        self.assertEqual(commit_round.with_agent_trailer(once, 'swe-2'), once)
+
+    def test_test_move_check_only_runs_for_move_round_messages(self):
+        from unittest import mock
+        with mock.patch.object(commit_round.test_move_audit, 'audit_staged', return_value=['x：改了断言']) as audit:
+            self.assertEqual(commit_round.check_test_move('R1: 普通改动', Path('.')), 0)
+            self.assertEqual(commit_round.check_test_move('R1: 补测试搬家守卫', Path('.')), 0)
+            audit.assert_not_called()
+            self.assertEqual(commit_round.check_test_move('R1: 测试搬家：迁入 tests/', Path('.')), 5)
+            audit.assert_called_once()
+        with mock.patch.object(commit_round.test_move_audit, 'audit_staged', return_value=[]):
+            self.assertEqual(commit_round.check_test_move('R1: 测试搬家', Path('.')), 0)
+
 if __name__ == '__main__':
     unittest.main()

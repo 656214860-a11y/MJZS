@@ -672,9 +672,10 @@ def dev_page(frame, pet, width=None):
     def check_environment():
         """环境自检：只读核对外部依赖，结果弹窗显示，不改任何设置。"""
         from ui_widgets import notify
-        text = environment_check.report_text()
+        rows = environment_check.run_checks_with_versions()
+        text = environment_check.report_text(rows)
         notify(pet.win, text, title='环境自检')
-        hint.set(environment_check.summary(environment_check.run_checks()))
+        hint.set(environment_check.summary(rows))
         return text
 
     bar = ttk.Frame(frame)

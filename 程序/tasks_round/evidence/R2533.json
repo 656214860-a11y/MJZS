@@ -1,0 +1,15 @@
+{
+  "round": 2533,
+  "commit_base": "0e2807bb",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k dora_report auto_full_safe commit_round rule_guard_map unification_ratchet",
+    "exit": 0,
+    "passed": 57,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T09:58:21"
+}

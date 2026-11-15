@@ -29,10 +29,31 @@ import run_selftests  # noqa: E402
 sys.path.insert(0, str(PROGRAM / "维护记录" / "基准脚本"))
 import round_evidence  # noqa: E402
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import test_move_audit  # noqa: E402
+
 POLL_SECONDS = 15
 REPORT_SECONDS = 120
 REJECT_MARK = "全量安全验收锁存在"
 ROUND_MESSAGE_RE = re.compile(r"^R(\d+):")
+
+
+def with_agent_trailer(message: str, agent: str) -> str:
+    """提交信息末尾加 ``Agent: <名称>`` 行（已有则不重复）；名称为空则原样返回。"""
+    agent = (agent or "").strip()
+    if not agent or any(line.startswith("Agent: ") for line in message.splitlines()):
+        return message
+    return message.rstrip("\n") + "\n\nAgent: " + agent
+
+
+def check_test_move(message: str, root: Path) -> int:
+    """提交信息首行以「R<n>: 测试搬家」开头时核对暂存区（规则 16）：只许移动测试与修 import；返回 0 放行，非 0 拒绝。"""
+    if not test_move_audit.is_move_round(message):
+        return 0
+    problems = test_move_audit.audit_staged(root)
+    for line in problems:
+        print("拒绝提交：测试搬家轮 " + line, file=sys.stderr)
+    return 5 if problems else 0
 
 
 def attach_evidence(message: str, keywords, root: Path) -> int:
@@ -48,6 +69,10 @@ def attach_evidence(message: str, keywords, root: Path) -> int:
     scan_ok, tests_ok, detail = round_evidence.judge(number)
     _git("add", "--", str(target), cwd=root)
     if scan_ok and tests_ok:
+        result = PROGRAM / "tasks_round" / ("tasks_round_%d_result.md" % number)
+        staged = _git("diff", "--cached", "--name-only", cwd=root).stdout.splitlines()
+        if any(name.endswith(result.name) for name in staged) and round_evidence.stamp_result(result, number):
+            _git("add", "--", str(result), cwd=root)
         return 0
     print("拒绝提交：R%d 证据不通过（%s）。凭据命中先移除；改了 .py 须用 --tests <模块关键词> 跑定向测试且全绿。" % (number, detail),
           file=sys.stderr)
@@ -93,17 +118,19 @@ def main(argv=None) -> int:
     parser.add_argument("-m", "--message", required=True, help="提交说明，首行须为 R<轮次>: 说明")
     parser.add_argument("--tests", nargs="*", default=[], metavar="关键词",
                         help="定向测试的模块关键词（run_selftests.py -k），用于生成轮次证据")
+    parser.add_argument("--agent", default="", help="本次改动的来源（模型／工具名），写入提交信息的 Agent: 行")
     parser.add_argument("--wait-minutes", type=float, default=30.0, help="最多等验收锁多少分钟")
     parser.add_argument("files", nargs="*", help="要暂存的 repo 内路径；省略则只提交已暂存内容")
     args = parser.parse_args(argv)
 
+    args.message = with_agent_trailer(args.message, args.agent)
     if args.files:
         added = _git("add", "--", *args.files)
         if added.returncode:
             print(added.stderr.strip(), file=sys.stderr)
             return added.returncode
     if args.files or _git("diff", "--cached", "--name-only").stdout.strip():
-        rejected = attach_evidence(args.message, args.tests, PROGRAM.parent)
+        rejected = check_test_move(args.message, PROGRAM.parent) or attach_evidence(args.message, args.tests, PROGRAM.parent)
         if rejected:
             return rejected
     staged = [line for line in _git("diff", "--cached", "--name-only").stdout.splitlines() if line]

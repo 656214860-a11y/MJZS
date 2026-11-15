@@ -49,6 +49,7 @@
 | `安装信息.json`、`程序/config.json`、`程序/desktop_settings.json`、`程序/projects.json`、`程序/task-execution.log`、`程序/漫剧制作助手.lnk` | 本机状态 | 安装记录、用户配置、项目索引与本机快捷方式，由目标机器生成；升级也只保留不覆盖。 |
 | `程序/h3_launcher.pyw` | 个人开发工具 | 写死本机 ComfyUI 路径的临时启动器，不随分发。 |
 | `程序/reference/**` | 参考资料 | 外部参考仓库快照，非运行时内容。 |
+| `程序/pyproject.toml`、`程序/dev-requirements.txt`、`程序/.ruff_cache/**`、`程序/.mypy_cache/**`、`程序/.gitleaks.toml`、`程序/external_tools.lock.json`、`程序/SECURITY.md`、`程序/CHANGELOG.md`、`程序/GLOSSARY.md`、`程序/docs/adr/**` | 开发期工具与治理文档 | 静态分析、密钥扫描配置与治理文档；运行时仍零第三方依赖，不进分发副本。 |
 
 ## 运行期维护与分发的区别
 

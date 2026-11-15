@@ -321,8 +321,8 @@ class IncrementalTests(unittest.TestCase):
         commits = [(101, ['程序/desktop.py']), (101, ['程序/tests/t.py']), (102, ['程序/project_status.md']),
                    (103, ['程序/tests/t.py']), (104, ['程序/engine.py']), (90, ['程序/engine.py'])]
         self.assertEqual(run_selftests.count_source_rounds(commits, 100, 104, prefix), 2)
-        self.assertFalse(run_selftests.full_safe_required(120, 100, True, source_rounds=7))
-        self.assertTrue(run_selftests.full_safe_required(120, 100, True, source_rounds=8))
+        self.assertFalse(run_selftests.full_safe_required(120, 100, True, source_rounds=run_selftests.FULL_SAFE_ROUND_INTERVAL - 1))
+        self.assertTrue(run_selftests.full_safe_required(120, 100, True, source_rounds=run_selftests.FULL_SAFE_ROUND_INTERVAL))
 
     def test_detached_auto_checkout_may_certify_only_its_own_head(self):
         with mock.patch.object(run_selftests, 'is_master_checkout', return_value=False),              mock.patch.object(run_selftests, '_git_text', return_value='abc'):

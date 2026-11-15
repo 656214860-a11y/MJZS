@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "note": "随附解释器与受控工具的完整性锁；--update 重新生成",
+  "tools": {
+    "运行环境/Python/python.exe": {
+      "sha256": "727b92dc55e1ac0f17a48cbd20557427fdb8d9f50731de0355c4fd4c08d2f473",
+      "bytes": 105696,
+      "version": "Python 3.15.0"
+    }
+  }
+}

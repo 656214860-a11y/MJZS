@@ -1,0 +1,15 @@
+{
+  "round": 2538,
+  "commit_base": "490d4177",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k gate_selfaudit type_check_baseline skill_package_pins fault_injection_chain environment_check server_pre_receive round_evidence commit_round test_selftests",
+    "exit": 0,
+    "passed": 116,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T10:10:05"
+}
