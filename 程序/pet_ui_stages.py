@@ -10,7 +10,7 @@ import stage_flow
 import stage_handler_registry
 import stage_parallel
 from tkinter import TclError
-from ui_widgets import ask_confirmation, ask_string
+from ui_widgets import ask_confirmation
 from pet_ui_support import ADVANCE_SECONDS, AUTO_STAGE_VARIABLES, AUTO_VARIABLE_NAMES, CONFIRM_NEED, CONFIRM_TITLE, FALLBACK_ASK, LEVEL_SWITCH_NOTES, ONE_CLICK_ASK, ONE_CLICK_TITLE, PAGE_ASKS, PAW_LEVELS, SANHU_MODES, STAGE_ASK_SECONDS, _BooleanFlag, accepts_keyword
 
 
@@ -523,7 +523,6 @@ class PetStagesMixin:
         import skill_panel
         import skill_registry
         import skill_templates
-        import stage_config
         params = plan.get('params') or {}
         stage = plan.get('stage')
         project = getattr(self.desktop, 'root', None)
@@ -536,12 +535,8 @@ class PetStagesMixin:
         if not names and stage:
             names = [item.name for item in registry.getByStage(stage)]
         if stage:
-            # R2905：执行顺序以阶段配置里的勾选顺序（面板顺序）为准，
-            # 不是注册表遍历顺序——勾选列表本身就是「默认勾选的 skill」清单。
-            chosen = [str(name) for name in
-                      (stage_config.get(project, stage, registry=registry)['skills'] or [])]
-            chosen_set = set(chosen)
-            picked = [name for name in chosen if name in names]
+            # R2905：执行顺序按阶段配置勾选顺序（面板顺序），不是注册表遍历顺序。
+            picked = [name for name in stage_flow.selected_skills(project, stage) if name in set(names)]
             if not picked:
                 self.notice = '「%s」这一阶段的 SKILL 都被您取消勾选了——先到阶段配置里勾上再说。' % stage
                 self.show_progress(self.notice)
@@ -592,13 +587,6 @@ class PetStagesMixin:
         self.show_progress(self.notice)
         self.refresh(at=at)
         return self.notice
-    def template_choice(self, text):
-        """手动模板门禁：由用户确认生成类步骤；不可交互时保守跳过。"""
-        try:
-            return str(ask_string(self.win, '确认三虎步骤', text) or '').strip()
-        except Exception as exc:
-            self.errors.append(('template.ask', str(exc)))
-            return ''
     def run_test_mode(self, params, at=None):
         """启动增量自检；真实完成由既有 pump 心跳汇报，绝不阻塞 Tk。"""
         if self._test_session is not None:
@@ -668,20 +656,6 @@ class PetStagesMixin:
             self._performance_session = None
             self.notice = '优化检查失败：' + str(exc)
             return self.announce(self.notice, at=at)
-    def recovery_choice(self, text):
-        """等待用户从继续、跳过、重做中选一项；不可交互时不擅自恢复。"""
-        asker = self.recovery_asker
-        if callable(asker):
-            try:
-                return str(asker(text) or '').strip()
-            except Exception as exc:
-                self.errors.append(('recovery.ask', str(exc)))
-                return ''
-        try:
-            return str(ask_string(self.win, '恢复三虎任务', text) or '').strip()
-        except Exception as exc:
-            self.errors.append(('recovery.ask', str(exc)))
-            return ''
     def recover_project_checkpoint(self):
         """三虎启动时检查当前项目，并把用户选择留给下一次阶段执行。"""
         project = getattr(self.desktop, 'root', None)

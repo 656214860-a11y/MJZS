@@ -3,8 +3,12 @@
 用户原话：「只有存在待办任务时才弹窗提醒，尽量能不弹窗就不弹窗……用户零操作时适当停留长一点，
 用户任务多频繁操作时短暂停留，主动关闭减少对用户的打扰」。``Pet`` 通过继承 ``PetPopupMixin``
 获得这些方法；只读内存里的台账与钟点，不读盘、不建控件。
+
+R2909 起本模块同时收纳阶段执行中的用户询问助手（``template_choice``／``recovery_choice``）：
+两者都是「向用户弹窗要一个决定」的同类入口，从 ``pet_ui_stages.py`` 下沉以归还行数上限。
 """
 from pet_ui_support import STAGE_TODO_STATES
+from ui_widgets import ask_string
 from ui_tokens import (PET_ACTIVITY_BUSY_COUNT, PET_ACTIVITY_WINDOW_SECONDS, PET_CLOUD_AUTO_CLOSE_MS,
                        PET_CLOUD_BUSY_CLOSE_MS, PET_CLOUD_IDLE_CLOSE_MS, PET_DISMISS_MUTE_SECONDS,
                        PET_DISMISS_WINDOW_SECONDS)
@@ -95,6 +99,29 @@ class PetPopupMixin:
             return top is self.win
         except Exception:
             return True
+    def template_choice(self, text):
+        """手动模板门禁：由用户确认生成类步骤；不可交互时保守跳过。"""
+        try:
+            return str(ask_string(self.win, '确认三虎步骤', text) or '').strip()
+        except Exception as exc:
+            self.errors.append(('template.ask', str(exc)))
+            return ''
+
+    def recovery_choice(self, text):
+        """等待用户从继续、跳过、重做中选一项；不可交互时不擅自恢复。"""
+        asker = self.recovery_asker
+        if callable(asker):
+            try:
+                return str(asker(text) or '').strip()
+            except Exception as exc:
+                self.errors.append(('recovery.ask', str(exc)))
+                return ''
+        try:
+            return str(ask_string(self.win, '恢复三虎任务', text) or '').strip()
+        except Exception as exc:
+            self.errors.append(('recovery.ask', str(exc)))
+            return ''
+
     def can_pop(self):
         """三虎自己冒泡的总闸：人在本应用前台，且在主界面里（不在子窗口里填表）。"""
         return not self.login_locked() and self.attending() and self.in_main_view()
