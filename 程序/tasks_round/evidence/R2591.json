@@ -1,0 +1,15 @@
+{
+  "round": 2591,
+  "commit_base": "0c730585",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k coverage_baseline complexity_ratchet http_client http_boundary",
+    "exit": 0,
+    "passed": 22,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T13:01:17"
+}

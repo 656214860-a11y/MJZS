@@ -71,19 +71,32 @@ def _default_opener():
     return urllib.request.build_opener(no_redirect())
 
 
-def request_json(method, url, *, headers=None, payload=None, timeout,
-                 retries=0, retry_statuses=DEFAULT_RETRY_STATUSES,
-                 max_bytes=MAX_BODY_BYTES, allow_retry_post=False,
-                 opener=None, sleep=_time.sleep):
+_OPTION_KEYS = frozenset({'retries', 'retry_statuses', 'max_bytes',
+                          'allow_retry_post', 'opener', 'sleep'})
+
+
+def request_json(method, url, *, headers=None, payload=None, timeout, **opts):
     """发一次 JSON 请求；``timeout`` 必填。``payload`` 非空视为 POST。
 
-    重试只在调用方显式给 ``retries>0`` 且状态码可重试时发生；带 body 的
-    POST 默认永不重试（计费接口），需 ``allow_retry_post=True`` 显式放行。
-    响应体超过 ``max_bytes`` 视为协议错误，不落盘不解析。
+    可选项经 ``opts``：``retries``、``retry_statuses``、``max_bytes``、
+    ``allow_retry_post``、``opener``、``sleep``。重试只在调用方显式给
+    ``retries>0`` 且状态码可重试时发生；带 body 的 POST 默认永不重试
+    （计费接口），需 ``allow_retry_post=True`` 显式放行。响应体超过
+    ``max_bytes`` 视为协议错误，不落盘不解析。
     """
     import urllib.error
     import urllib.parse
     import urllib.request
+
+    unknown = set(opts) - _OPTION_KEYS
+    if unknown:
+        raise TypeError('request_json() got unexpected keyword arguments: ' + ', '.join(sorted(unknown)))
+    retries = opts.get('retries', 0)
+    retry_statuses = opts.get('retry_statuses', DEFAULT_RETRY_STATUSES)
+    max_bytes = opts.get('max_bytes', MAX_BODY_BYTES)
+    allow_retry_post = opts.get('allow_retry_post', False)
+    opener = opts.get('opener')
+    sleep = opts.get('sleep', _time.sleep)
 
     method = (method or 'GET').upper()
     host = urllib.parse.urlparse(url).hostname or ''
