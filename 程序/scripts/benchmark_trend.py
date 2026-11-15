@@ -4,7 +4,6 @@
 数据源：Git common-dir 的 ``full-safe-receipts.json``（唯一权威凭据）。
 用法：python -B scripts/benchmark_trend.py  → 恒退 0（告警写 stdout）。
 """
-import json
 import sys
 from pathlib import Path
 
@@ -48,6 +47,7 @@ def trend_report(rows):
 
 def main(argv=None):
     try:
+        import file_cache
         import selftest_env as env
         receipts = Path(env.git_common_dir()) / 'full-safe-receipts.json'
     except Exception:
@@ -55,7 +55,7 @@ def main(argv=None):
     if not receipts or not receipts.exists():
         print("[CI] 基准趋势：无全量绿凭据，跳过。")
         return 0
-    document = json.loads(receipts.read_text(encoding='utf-8'))
+    document = file_cache.read_json(receipts)
     alerts, summary = trend_report(load_receipts(document))
     print("[CI] 基准趋势：%s" % summary)
     for line in alerts:

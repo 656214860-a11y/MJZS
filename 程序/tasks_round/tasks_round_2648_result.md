@@ -14,3 +14,5 @@
 - 实测：最近绿全量 406s（R2633）vs 中位 448s，比值 0.91，无告警。
 - 启动耗时侧：app_logging 的 perf_metrics 只有 fast/slow 桶，无结构化启动秒数；
   记录为后续项（test_desktop_startup_perf 已有断言但无历史写入）。
+- 棘轮复核：首次合并出口被 test_unification_ratchet 拦下（json.loads 裸调用未登记），
+  已改用 file_cache.read_json（唯一权威读取口径）后复绿。
