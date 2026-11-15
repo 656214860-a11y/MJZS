@@ -1,0 +1,15 @@
+{
+  "round": 2527,
+  "commit_base": "d3821666",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k round_evidence round_gate git_hooks merge_round commit_round static_names",
+    "exit": 0,
+    "passed": 47,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T09:50:37"
+}

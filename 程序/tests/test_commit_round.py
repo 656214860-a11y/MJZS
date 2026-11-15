@@ -34,6 +34,12 @@ class CommitRoundTests(unittest.TestCase):
             self.assertFalse(commit_round.wait_for_lock(Path(tmp), 0.05, poll=0.01, out=lambda _: None))
             self.assertTrue(path.exists())
 
+    def test_old_round_numbers_skip_evidence_and_new_ones_require_it(self):
+        import round_evidence
+        self.assertEqual(commit_round.attach_evidence('R1931: 旧轮', [], Path('.')), 0)
+        self.assertEqual(commit_round.attach_evidence('WIP: 半成品', [], Path('.')), 0)
+        self.assertGreater(round_evidence.EVIDENCE_REQUIRED_FROM, 1931)
+
 
 if __name__ == '__main__':
     unittest.main()

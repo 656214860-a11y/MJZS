@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import subprocess
 import sys
 import time
@@ -25,9 +26,32 @@ PROGRAM = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROGRAM))
 import run_selftests  # noqa: E402
 
+sys.path.insert(0, str(PROGRAM / "维护记录" / "基准脚本"))
+import round_evidence  # noqa: E402
+
 POLL_SECONDS = 15
 REPORT_SECONDS = 120
 REJECT_MARK = "全量安全验收锁存在"
+ROUND_MESSAGE_RE = re.compile(r"^R(\d+):")
+
+
+def attach_evidence(message: str, keywords, root: Path) -> int:
+    """R<N>（N 不早于证据制度起点）的提交必须带绿色证据文件：凭据扫描无命中，改了 .py 则定向测试须绿。
+
+    返回 0 放行（证据已暂存），非 0 拒绝提交。"""
+    matched = ROUND_MESSAGE_RE.match(message)
+    if not matched or int(matched.group(1)) < round_evidence.EVIDENCE_REQUIRED_FROM:
+        return 0
+    number = int(matched.group(1))
+    merging = _git("rev-parse", "-q", "--verify", "MERGE_HEAD", cwd=root).returncode == 0
+    target = round_evidence.write_evidence(number, keywords, root=root, skip="merge-ci-exit" if merging else None)
+    scan_ok, tests_ok, detail = round_evidence.judge(number)
+    _git("add", "--", str(target), cwd=root)
+    if scan_ok and tests_ok:
+        return 0
+    print("拒绝提交：R%d 证据不通过（%s）。凭据命中先移除；改了 .py 须用 --tests <模块关键词> 跑定向测试且全绿。" % (number, detail),
+          file=sys.stderr)
+    return 4
 
 
 def _git(*args: str, cwd: Path = PROGRAM) -> subprocess.CompletedProcess:
@@ -67,6 +91,8 @@ def wait_for_lock(common: Path, timeout: float, *, poll: float = POLL_SECONDS,
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("-m", "--message", required=True, help="提交说明，首行须为 R<轮次>: 说明")
+    parser.add_argument("--tests", nargs="*", default=[], metavar="关键词",
+                        help="定向测试的模块关键词（run_selftests.py -k），用于生成轮次证据")
     parser.add_argument("--wait-minutes", type=float, default=30.0, help="最多等验收锁多少分钟")
     parser.add_argument("files", nargs="*", help="要暂存的 repo 内路径；省略则只提交已暂存内容")
     args = parser.parse_args(argv)
@@ -76,6 +102,10 @@ def main(argv=None) -> int:
         if added.returncode:
             print(added.stderr.strip(), file=sys.stderr)
             return added.returncode
+    if args.files or _git("diff", "--cached", "--name-only").stdout.strip():
+        rejected = attach_evidence(args.message, args.tests, PROGRAM.parent)
+        if rejected:
+            return rejected
     staged = [line for line in _git("diff", "--cached", "--name-only").stdout.splitlines() if line]
     if not staged:
         print("没有已暂存的改动，未提交。", file=sys.stderr)

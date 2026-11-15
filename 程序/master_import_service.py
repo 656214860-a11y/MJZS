@@ -25,6 +25,7 @@ import shutil
 import uuid
 from pathlib import Path
 
+import skill_registry
 import workflow_settings
 from agent.core import save as save_json
 from file_cache import read_json
