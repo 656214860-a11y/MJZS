@@ -69,8 +69,8 @@ CLASS_CAPS = {
     ('desktop_idea_chat.py', 'IdeaChatMixin'): 645,  # R2862：receive_brief 去掉 configured_locks 透传后实测 630，登记 645
     ('app.py', 'App'): 1388,
     ('desktop.py', 'Desktop'): 836,
-    ('skill_panel.py', 'Panel'): 683,  # R2881：导入动作拆到 skill_panel_import.PanelImportMixin 后实测 668，登记 683
-    ('pet_ui_stages.py', 'PetStagesMixin'): 1186,
+    ('skill_panel.py', 'Panel'): 646,  # R2916：删除技能说明区后实测 631，登记下调到 646
+    ('pet_ui_stages.py', 'PetStagesMixin'): 1182,  # R2916：收口 R2909 遗留——实测 1167，登记下调到 1182
     ('pet_ui_voice.py', 'PetVoiceMixin'): 1119,
     ('desktop_media_pages.py', 'MediaPagesMixin'): 890,
     ('pet_ui_view.py', 'PetViewMixin'): 774,

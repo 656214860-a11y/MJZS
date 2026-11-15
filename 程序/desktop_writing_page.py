@@ -97,17 +97,21 @@ class WritingPageMixin:
         return _WritingPage(self).build()
 
     def _composer_dispatch(self, name, event):
-        """共享输入框（跨页同一 Text）上的剧本页事件转派：只在剧本页且控制器新鲜时转发。
+        """剧本页输入框事件的按名转派：只在剧本页且控制器新鲜时转发。
 
-        输入区换成共享实例后，页面级绑定若每次建页都加，会在同一 Text 上越积越多
-        （旧控制器实例也被 Tk 回调永久持有）。这里统一由 Desktop 侧一次性绑定、按名
-        转派给当前 ``_writing_page_controller``，重建页面只换控制器不加绑定。
+        R2916：剧本页恢复自有输入框后，绑定随控件每次重建；转派按方法签名容错
+        （有的回调不接收 event，如 stop_input_hint），避免每次建页/销毁抛 TypeError。
         """
         if getattr(self, 'page_index', None) != PAGE['script']:
             return None
         controller = getattr(self, '_writing_page_controller', None)
         method = getattr(controller, name, None)
-        return method(event) if method is not None else None
+        if method is None:
+            return None
+        try:
+            return method(event)
+        except TypeError:
+            return method()
 
     def build_script_quality_buttons(self, foot):
         """动作栏末尾的「质检报告／采风」。动作栏按创建顺序排列，这两颗要最后创建。
@@ -333,9 +337,8 @@ def _composer_input_tail(page, ctrl, input_row, frame):
     page.idea_input_row=input_row
     # 附件明细（字数等）只作数据：卡片悬停提示与发送前校验都读它，不再单独占一行。
     page.idea_attachment_status=tk.StringVar(value='')
-    # 输入区是共享栏里的 Text 时，place(in_=…) 要求 in_ 是提示标签祖先的后代：
-    # 提示标签改挂共享输入框本体，否则 place 抛 TclError、提示永远不显示。
-    hint_master=getattr(page,'shared_input',None) or frame
+    # R2916：输入框回到页面自己的 composer 卡片内，提示标签也挂回卡片（不再挂共享栏）。
+    hint_master=frame
     hint=getattr(page,'idea_input_hint',None)
     if hint is None or not hint.winfo_exists() or hint.master is not hint_master:
         hint=ttk.Label(hint_master,text='输入想法，Enter 发送，点 + 上传附件',style='Composer.Muted.TLabel')
@@ -485,15 +488,11 @@ class _WritingPage(WritingSnapshotsMixin):
         # 仿 Claude Code 桌面版：附件卡片、输入区、「+」上传与发送／终止都收在同一个圆角框里。
         frame=Card(composer,padding=(SPACING['sm'],SPACING['xs']));frame.pack(fill='x')
         self.page.idea_composer_frame=frame
-        shared_box=getattr(getattr(self.page,'shared_input',None),'input',None)
-        if shared_box is not None:
-            # 任务书轮 4：输入区换成桌面级共享输入框里的同一个 Text——不新建实例；
-            # 它已 pack 在底部共享栏，本卡片只保留附件行与发送／终止按钮。
-            self.input_box=shared_box
-        else:
-            self.input_box=TextArea(frame,bg=COLORS['background_card'],fg=COLORS['text_primary'],insertbackground=COLORS['primary'],height=COMPOSER_MIN_LINES,wrap='word',
-                              font=FONTS['body'],relief='flat',bd=0,highlightthickness=0,padx=SPACING['xs'],pady=SPACING['xs'],undo=True)
-            self.input_box.pack(side='top',fill='x')
+        # R2916：剧本准备页恢复自己的输入框——底部共享栏在本页隐藏（desktop_page_nav），
+        # 页面回到「输入框就在发送键上方」的原有布局，不再复用共享 Text。
+        self.input_box=TextArea(frame,bg=COLORS['background_card'],fg=COLORS['text_primary'],insertbackground=COLORS['primary'],height=COMPOSER_MIN_LINES,wrap='word',
+                          font=FONTS['body'],relief='flat',bd=0,highlightthickness=0,padx=SPACING['xs'],pady=SPACING['xs'],undo=True)
+        self.input_box.pack(side='top',fill='x')
         input_row=ttk.Frame(frame,style='Composer.TFrame');input_row.pack(side='top',fill='x')
         attach_button=SecondaryButton(input_row,text=ICON_ADD,width=CHAR_WIDTH['xs'],style='Tokens.Composer.Icon.TButton',
                                  command=lambda:self.page.safe(self.page.choose_idea_attachments))

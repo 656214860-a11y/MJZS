@@ -22,10 +22,13 @@ import skill_command
 import ui_plugin_registry
 from contract import pet_bus
 from ui_shortcuts import ShortcutRegistry
-from ui_tokens import FONTS, SPACING, TEXT_ROWS
-from ui_widgets import SecondaryButton, TextArea, PrimaryButton
+from ui_tokens import COLORS, FONTS, ICON_ADD, ICON_SEND, ICON_SKILL, SPACING, TEXT_ROWS
+from ui_widgets import BaseDialog, SecondaryButton, TextArea, PrimaryButton
 
 SHORTCUT_SCOPE = 'shared_input'
+# 技能说明悬停卡片的正文尺寸（字符口径常量，R2916：避免内联字面量触碰视觉 token 棘轮）。
+SKILL_CARD_ROWS = TEXT_ROWS['3xl']
+SKILL_CARD_CHARS = 46
 
 
 def project_root(desktop):
@@ -113,27 +116,37 @@ class SharedStageInput(ttk.Frame):
 
     # ── 构建 ────────────────────────────────────────────────────────────
     def _build(self):
-        left = ttk.Frame(self)
-        left.pack(side='left', fill='y', padx=(SPACING['sm'], SPACING['xs']))
-        self.skill_button = SecondaryButton(left, text='技能', width=0,
-                                            command=self.open_skill_config)
-        self.skill_button.pack(side='left', padx=(SPACING['none'], SPACING['xs']))
-        self.attachment_button = SecondaryButton(left, text='附件', width=0,
-                                                 command=self.open_attachments)
-        self.attachment_button.pack(side='left')
-
-        self.input = TextArea(self, height=TEXT_ROWS['sm'], wrap='word')
-        self.input.pack(side='left', fill='both', expand=True,
-                        padx=(SPACING['xs'], SPACING['sm']))
-
-        right = ttk.Frame(self)
-        right.pack(side='right', fill='y', padx=(SPACING['xs'], SPACING['sm']))
-        self.model_button = SecondaryButton(right, text='模型', width=0,
-                                            command=self.open_model_picker)
-        self.model_button.pack(side='left', padx=(SPACING['none'], SPACING['xs']))
-        self.send_button = PrimaryButton(right, text='发送', width=0,
+        # R2916 重排：发送图标先占右侧位，输入框包装后占剩余空间——原顺序里
+        # expand 输入框先打包会把右侧按钮压成 1×1。技能/附件图标与模型文字
+        # 都收进输入框内部（左下角图标、右下角模型名，仿 Devin／DeepSeek 桌面）。
+        self.send_button = PrimaryButton(self, text=ICON_SEND, width=0,
+                                         style='Tokens.Composer.Send.TButton',
                                          command=self.send)
-        self.send_button.pack(side='left')
+        self.send_button.pack(side='right', padx=(SPACING['xs'], SPACING['sm']))
+
+        box = ttk.Frame(self)
+        box.pack(side='left', fill='both', expand=True,
+                 padx=(SPACING['sm'], SPACING['xs']))
+        self.input = TextArea(box, height=TEXT_ROWS['sm'], wrap='word')
+        self.input.pack(fill='x')
+
+        # 输入盒内部下一行：左下角技能图标（星形）＋附件图标，右下角无边框模型名
+        # （仿 DeepSeek 桌面，选择器只留文字、去外框；点击模型名换模型）。
+        row = ttk.Frame(box)
+        row.pack(fill='x')
+        self.skill_button = SecondaryButton(row, text=ICON_SKILL, width=0,
+                                            style='Tokens.Composer.Icon.TButton',
+                                            command=self.open_skill_list)
+        self.skill_button.pack(side='left', padx=(SPACING['xs'], SPACING['none']))
+        self.attachment_button = SecondaryButton(row, text=ICON_ADD, width=0,
+                                                 style='Tokens.Composer.Icon.TButton',
+                                                 command=self.open_attachments)
+        self.attachment_button.pack(side='left', padx=(SPACING['xs'], SPACING['none']))
+        self.model_button = tk.Label(row, text='模型', cursor='hand2',
+                                     bg=COLORS['background_card'],
+                                     fg=COLORS['text_muted'], font=FONTS['hint'])
+        self.model_button.pack(side='right', padx=(SPACING['none'], SPACING['sm']))
+        self.model_button.bind('<Button-1>', lambda _event: self.open_model_picker())
 
         self._completion = ttk.Frame(self)
         self._list = tk.Listbox(self._completion, exportselection=False,
@@ -184,6 +197,7 @@ class SharedStageInput(ttk.Frame):
 
     # ── 入口回调 ────────────────────────────────────────────────────────
     def open_skill_config(self):
+        """阶段配置兜底入口（技能图标现走 open_skill_list，此路保留给宿主回调）。"""
         if callable(self.on_skill_config):
             return self.on_skill_config()
         try:
@@ -191,6 +205,213 @@ class SharedStageInput(ttk.Frame):
         except Exception as exc:
             _say(self.status, '阶段配置打开失败：%s' % exc)
             return None
+
+    # ── 技能列表浮层（R2916：Devin 风格，点击技能图标弹出） ─────────────────
+    def open_skill_list(self):
+        """技能图标 → 无边框技能列表浮层：当前阶段技能在前，悬停右侧出说明卡片，
+        点击条目把 ``/技能名`` 写进输入框；列表底部保留「从仓库导入／本地安装」两条。"""
+        if self._skill_menu_open():
+            self._close_skill_menu()
+            return
+        items = self._skill_list_items()
+        menu = BaseDialog(self, '技能', modal=False, chrome=False)
+        menu.configure(bg=COLORS['background_card'])
+        self._skill_menu = menu
+        self._skill_card = None
+
+        header = tk.Label(menu, text='技能（点击插入 /技能名）', anchor='w',
+                          bg=COLORS['background_card'], fg=COLORS['text_muted'],
+                          font=FONTS['hint'], padx=SPACING['sm'], pady=SPACING['xs'])
+        header.pack(fill='x')
+
+        def hover(_event, item):
+            self._show_skill_card(item, menu)
+
+        def leave(_event):
+            self._hide_skill_card()
+
+        for item in items:
+            row = tk.Label(menu, text=self._skill_display(item), anchor='w',
+                           bg=COLORS['background_card'], fg=COLORS['text_primary'],
+                           font=FONTS['body'], padx=SPACING['sm'], pady=SPACING['xs'],
+                           cursor='hand2')
+            row.pack(fill='x')
+            row.bind('<Enter>', lambda event, it=item: hover(event, it))
+            row.bind('<Leave>', leave)
+            row.bind('<Button-1>', lambda _event, it=item: self._pick_skill(it))
+
+        tk.Frame(menu, bg=COLORS['border_input_hover'], height=1).pack(fill='x',
+                                                                       padx=SPACING['sm'])
+        for label, action in (('从仓库导入', self._import_skill_repo),
+                              ('本地安装 skill', self._import_skill_local)):
+            row = tk.Label(menu, text=label, anchor='w',
+                           bg=COLORS['background_card'], fg=COLORS['primary'],
+                           font=FONTS['body'], padx=SPACING['sm'], pady=SPACING['xs'],
+                           cursor='hand2')
+            row.pack(fill='x')
+            row.bind('<Button-1>', lambda _event, act=action: act())
+
+        menu.update_idletasks()
+        x = self.skill_button.winfo_rootx()
+        y = self.skill_button.winfo_rooty() - menu.winfo_reqheight() - SPACING['sm']
+        menu.geometry('+%d+%d' % (max(0, x), max(0, y)))
+
+    def _skill_menu_open(self):
+        menu = getattr(self, '_skill_menu', None)
+        return menu is not None and menu.winfo_exists()
+
+    def _close_skill_menu(self):
+        menu = getattr(self, '_skill_menu', None)
+        self._skill_menu = None
+        self._hide_skill_card()
+        if menu is not None:
+            try:
+                menu.destroy()
+            except Exception:
+                app_logging.swallowed()
+
+    def _hide_skill_card(self):
+        card = getattr(self, '_skill_card', None)
+        self._skill_card = None
+        if card is not None:
+            try:
+                card.destroy()
+            except Exception:
+                app_logging.swallowed()
+
+    @staticmethod
+    def _skill_name(item):
+        if isinstance(item, dict):
+            return str(item.get('name') or '')
+        return str(item or '')
+
+    @staticmethod
+    def _skill_display(item):
+        name = SharedStageInput._skill_name(item)
+        shown = name
+        if isinstance(item, dict) and item.get('displayName'):
+            shown = '%s · %s' % (item.get('displayName'), name)
+        return shown or '（未命名技能）'
+
+    def _skill_list_items(self):
+        """当前阶段技能在前、其余在后；去重、限量。"""
+        try:
+            import skill_registry
+            registry = skill_registry.default_registry()
+            current = list(registry.getByStage(self.stage))
+            seen = {self._skill_name(item) for item in current if self._skill_name(item)}
+            others = [item for item in registry.getAll()
+                      if self._skill_name(item) and self._skill_name(item) not in seen]
+            return (current + others)[:20]
+        except Exception:
+            app_logging.swallowed()
+            return list(self.skill_items())[:20]
+
+    def _show_skill_card(self, item, owner):
+        """悬停卡片：浮层右侧渲染该技能说明（复用 skill_note_render 的全文渲染）。"""
+        self._hide_skill_card()
+        try:
+            import skill_note_render
+            from ui_tokens import NOTE_PADDING_X, NOTE_PADDING_Y
+            body = self._skill_description(item)
+            if not body:
+                body = '（该技能没有填写 description）'
+            card = BaseDialog(self, '', modal=False, chrome=False)
+            card.configure(bg=COLORS['background_card'])
+            text = TextArea(card, wrap='word', relief='flat', bg=COLORS['background_card'],
+                            fg=COLORS['text_primary'], font=FONTS['body'],
+                            padx=NOTE_PADDING_X, pady=NOTE_PADDING_Y,
+                            height=SKILL_CARD_ROWS, width=SKILL_CARD_CHARS)
+            text.pack(fill='both', expand=True)
+            skill_note_render.apply(text, body)
+            text.configure(state='disabled')
+            card.update_idletasks()
+            x = owner.winfo_rootx() + owner.winfo_width()
+            y = owner.winfo_rooty()
+            card.geometry('+%d+%d' % (x, y))
+            self._skill_card = card
+        except Exception:
+            app_logging.swallowed()
+
+    @staticmethod
+    def _skill_description(item):
+        if isinstance(item, dict):
+            return str(item.get('description') or '')
+        try:
+            import skill_registry
+            registry = skill_registry.default_registry()
+            found = registry.getById(str(item))
+            return str(found.get('description') or '') if isinstance(found, dict) else ''
+        except Exception:
+            return ''
+
+    def _pick_skill(self, item):
+        """点击技能：把 ``/技能名`` 写进输入框并聚焦（不自动发送）。"""
+        name = self._skill_name(item)
+        self._close_skill_menu()
+        if name:
+            self.set_text('/' + name + ' ')
+            try:
+                self.input.focus_set()
+                self.input.icursor('end')
+            except Exception:
+                app_logging.swallowed()
+
+    def _import_skill_repo(self):
+        """从仓库地址导入（浮层底部入口）：走 skill_import_service 同一管线。"""
+        from ui_widgets import ask_string, ask_confirmation
+        self._close_skill_menu()
+        ref = ask_string(self.winfo_toplevel(), '从仓库导入',
+                         'SKILL 仓库地址或本地目录（owner/repo、完整 URL 可带 @分支）：')
+        if not ref:
+            return
+        try:
+            import skill_import_service, skill_registry
+            from pathlib import Path
+            registry = skill_registry.default_registry()
+            program = Path(skill_import_service.__file__).resolve().parent
+            report = skill_import_service.import_from_repo(
+                str(ref).strip(), program, registry, stage_hint=self.stage,
+                confirm=lambda message: ask_confirmation(
+                    self.winfo_toplevel(), '从仓库导入', message, dangerous=True))
+        except (skill_import_service.ImportBlocked, OSError, ValueError) as exc:
+            _say(self.status, '仓库导入失败：%s' % exc)
+            return
+        _say(self.status, '仓库导入完成（%s）' % str(report.get('label') or ''))
+        self._skills = []
+
+    def _import_skill_local(self):
+        """本地安装（浮层底部入口）：选 SKILL.md/包 → plan_import → perform_import。"""
+        from ui_dialogs import FileDialog
+        from ui_widgets import ask_confirmation
+        self._close_skill_menu()
+        source = FileDialog(self.winfo_toplevel()).open_file(
+            title='本地安装 skill', filetypes=[('SKILL', ('*.skill.md', 'SKILL.md')),
+                                               ('全部文件', '*.*')])
+        if not source:
+            return
+        try:
+            import skill_import_service, skill_registry
+            registry = skill_registry.default_registry()
+            plan = skill_import_service.plan_import(
+                source, registry.user_stage_directory_for(self.stage), self.stage, registry)
+        except skill_import_service.ImportBlocked as exc:
+            _say(self.status, '本地安装失败：%s' % exc)
+            return
+        if plan['problems']:
+            message = ('导入前发现以下问题：\n\n' + '\n'.join('· ' + p for p in plan['problems'])
+                       + '\n\n仍要导入吗？')
+            if not ask_confirmation(self.winfo_toplevel(), '本地安装 skill', message,
+                                    dangerous=True):
+                return
+        try:
+            result = skill_import_service.perform_import(
+                plan, skill_import_service.program_of(plan['target_dir']))
+        except (skill_import_service.ImportBlocked, OSError, ValueError) as exc:
+            _say(self.status, '本地安装失败：%s' % exc)
+            return
+        _say(self.status, '已安装 SKILL：' + str(result['target'].name))
+        self._skills = []
 
     def open_attachments(self):
         if callable(self.on_attachment):
@@ -205,14 +426,14 @@ class SharedStageInput(ttk.Frame):
         return None
 
     def _sync_model_label(self):
-        """模型按钮显示当前请求模型名（只读标签；选择逻辑在宿主回调里）。"""
+        """输入框右下角模型名（R2916：无边框纯文字；选择逻辑在宿主回调里）。"""
         label = ''
         try:
             import writing_api
             label = str(writing_api.capture_request_model(self.project)['label'] or '')
         except Exception:
             label = ''
-        self.model_button.configure(text=('模型·' + label) if label else '模型')
+        self.model_button.configure(text=label if label else '模型')
 
     # ── ``/`` 补全 ───────────────────────────────────────────────────────
     def _on_slash_key(self, _event):

@@ -468,50 +468,13 @@ class Panel(PanelWorkflowMixin, PanelImportMixin, FormScrollMixin, ttk.Frame):
         except Exception:
             return {}
 
-    # ── SKILL 说明（第 29 期第 4 条） ────────────────────────────────────────
+    # ── SKILL 说明（第 29 期第 4 条；R2916 删除：说明改由共享输入框技能列表的悬停卡片提供） ──
     def build_notes(self, pad):
-        """左侧目录、右侧正文：选择 SKILL 后在同一行阅读说明。"""
+        """说明区已删除：不再建目录与正文；refresh_notes／show_note 对空句柄自守卫。"""
         self.note_list = None
         self.note_text = None
-        self.note_items = self.note_entries()
-        if not self.note_items:
-            return None
-        box = ttk.LabelFrame(self, text='技能说明', padding=pad)
-        box.pack(fill='both', expand=True, pady=(SPACING['none'], SPACING['none']))
-        # LabelFrame 默认会按子控件的请求高度收缩；锁定其几何传播后再按面板
-        # 剩余高度分配，拖动阶段配置窗口才不会留下空白而说明区仍停在 12 行。
-        box.grid_propagate(False)
-        # 说明框占用面板剩余空间：窗口放大时目录和正文一起变高，优先露出更多 SKILL。
-        box.columnconfigure(1, weight=0)
-        box.rowconfigure(0, weight=1)
-        height = NOTE_HEIGHT_COMPACT if self.compact else NOTE_HEIGHT_REGULAR
-        self.note_list = tk.Listbox(box, height=height, width=NOTE_LIST_MIN_WIDTH,
-                                    exportselection=False, activestyle='none',
-                                    font=FONTS['body'], selectbackground=COLORS['selection_bg'],
-                                    selectforeground=COLORS['selection_text'])
-        self.note_list.grid(row=0, column=0, sticky='ns')
-        self.note_list.bind('<<ListboxSelect>>', lambda event: self.show_note())
-        self.note_list_bar = ttk.Scrollbar(box, orient='vertical', command=self.note_list.yview)
-        self.note_list_bar.grid(row=0, column=1, sticky='ns', padx=(SPACING['none'], pad))
-        self.note_list.configure(yscrollcommand=self.note_list_bar.set)
-        body = ttk.Frame(box)
-        body.grid(row=0, column=2, sticky='nsew')
-        box.columnconfigure(2, weight=1)
-        body.columnconfigure(0, weight=1)
-        body.rowconfigure(0, weight=1)
-        bar = ttk.Scrollbar(body, orient='vertical')
-        bar.grid(row=0, column=1, sticky='ns')
-        self.note_text = TextArea(body, height=height, wrap='word', relief='flat',
-                                 bg=COLORS['background_card'], fg=COLORS['text_primary'],
-                                 font=FONTS['body'], padx=NOTE_PADDING_X, pady=NOTE_PADDING_Y,
-                                 selectbackground=COLORS['selection_bg'],
-                                 selectforeground=COLORS['selection_text'], yscrollcommand=bar.set)
-        self.note_text.grid(row=0, column=0, sticky='nsew')
-        bar.configure(command=self.note_text.yview)
-        self.note_text.configure(state='disabled')
-
-        self.refresh_notes()
-        return self.note_list
+        self.note_items = []
+        return None
 
     def note_entries(self):
         """说明目录与唯一的阶段勾选网格保持一致。"""

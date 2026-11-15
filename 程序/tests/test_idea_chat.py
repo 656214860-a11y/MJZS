@@ -1001,14 +1001,16 @@ class SendMessageTests(_Harness):
             d, win = self.desktop(proj)
             d.show(0); self.settle_script_page(win)
             d.idea_input.delete('1.0', 'end'); win.update(); d._fit_composer()
-            from ui_tokens import TEXT_ROWS
-            # 任务书轮 4：输入区是共享输入条，行数固定 TEXT_ROWS['sm']，不再随内容撑开。
-            self.assertEqual(int(d.idea_input.cget('height')), TEXT_ROWS['sm'], '共享输入框保持固定行数')
-            self.assertIs(d.idea_input, d.shared_input.input, '剧本页输入框必须是共享实例')
+            # R2916 契约变更：剧本准备页恢复自己的输入框；底部共享栏在本页隐藏。
+            from desktop_writing_page import COMPOSER_MIN_LINES
+            self.assertIsNot(d.idea_input, d.shared_input.input, '剧本页输入框回到页面自己的实例')
+            self.assertFalse(d.shared_input.winfo_ismapped(), '剧本准备页不显示共享输入栏')
+            self.assertEqual(int(d.idea_input.cget('height')), COMPOSER_MIN_LINES,
+                             '空输入框保持最小行数')
             d.idea_input.insert('1.0', '第一行创意\n第二行创意\n第三行创意')
             win.update(); d._fit_composer(); win.update()
-            self.assertEqual(int(d.idea_input.cget('height')), TEXT_ROWS['sm'],
-                             '多行输入在共享输入框内滚动，框高不变')
+            self.assertGreaterEqual(int(d.idea_input.cget('height')), COMPOSER_MIN_LINES,
+                                    '多行输入不低于最小行数')
             sent = []
             d.send_message = lambda: sent.append(True)
             d.idea_input.focus_force(); win.update()
@@ -1026,10 +1028,10 @@ class SendMessageTests(_Harness):
             for _ in range(6):
                 win.update_idletasks(); win.update()
                 heights.append(int(d.idea_input.cget('height')))
-            from ui_tokens import TEXT_ROWS
-            self.assertEqual(heights[0], TEXT_ROWS['sm'])
+            from desktop_writing_page import COMPOSER_MIN_LINES
+            self.assertEqual(heights[0], COMPOSER_MIN_LINES)
             self.assertEqual(len(set(heights)), 1,
-                             '空输入框点击后必须保持共享输入框固定行数，不能随对话区压缩来回变化')
+                             '空输入框点击后必须保持输入框行数稳定，不能随对话区压缩来回变化')
 
     def test_narrow_composer_keeps_the_attachment_button_visible(self):
         """缩窄窗口时先保留右侧附件入口，输入框使用剩余宽度。"""
@@ -1054,10 +1056,10 @@ class SendMessageTests(_Harness):
             d.show(0); win.update()
             d.idea_input.delete('1.0', 'end'); win.update()
             self.assertTrue(d.idea_input_hint.place_info(), '空输入框时提示应已显示')
+            tall = int(d.idea_input.cget('height'))
             d.idea_input_hint.event_generate('<Button-1>'); win.update()
-            from ui_tokens import TEXT_ROWS
-            self.assertEqual(int(d.idea_input.cget('height')), TEXT_ROWS['sm'],
-                             '点击提示只应聚焦，不能改变共享输入框行数')
+            self.assertEqual(int(d.idea_input.cget('height')), tall,
+                             '点击提示只应聚焦，不能改变输入框行数')
             self.assertFalse(d.idea_input_hint.place_info(), '取得焦点后必须撤掉提示层')
 
     def test_composer_right_click_only_offers_paste_for_text_clipboard(self):
@@ -1512,8 +1514,10 @@ class SendMessageTests(_Harness):
             self.assertLess(chips[0].winfo_rootx(), chips[1].winfo_rootx())
             self.assertLess(chips[1].winfo_rootx(), chips[2].winfo_rootx())
             # REQ-S01-71：卡片排在麦克风右侧、发送左侧，按上传顺序从左往右，放不下自动换行；没有附件不占位。
-            # R2898：输入区是桌面底部共享栏，附件卡片所在工具行在共享栏上方的 Composer 卡片里。
-            self.assertLessEqual(chips[0].winfo_rooty() + chips[0].winfo_height(), d.idea_input.winfo_rooty(), '附件卡片在共享输入栏上方')
+            # R2916：输入框回到 Composer 卡片内，附件卡片排在输入框下方那一行（不再是共享栏上方）。
+            self.assertGreaterEqual(chips[0].winfo_rooty(),
+                                    d.idea_input.winfo_rooty() + d.idea_input.winfo_height(),
+                                    '附件卡片排在输入框下方')
             left = getattr(d, 'idea_voice_button', d.idea_attachment_button)
             self.assertGreaterEqual(chips[0].winfo_rootx(), left.winfo_rootx() + left.winfo_width(), '附件卡片在麦克风右侧')
             self.assertLessEqual(chips[2].winfo_rootx() + chips[2].winfo_width(), d.idea_submit.winfo_rootx(), '附件卡片在发送键左侧')

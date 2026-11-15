@@ -363,6 +363,8 @@ ICON_COPY = "\uE8C8"
 ICON_REWIND = "\uE7A7"
 ICON_MICROPHONE = "\uE720"
 ICON_FONT_SMALL = ("Segoe MDL2 Assets", 7)
+# 技能图标（共享输入框左下角，Devin 风格星形入口；U+2726 走 Segoe UI Symbol，非彩色表情）。
+ICON_SKILL = "\u2726"
 
 # 主窗口三虎：绘图保留原坐标系，显示尺寸和命中区域共用这组紧凑布局值。
 PET_LAYOUT = {

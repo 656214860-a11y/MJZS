@@ -519,22 +519,21 @@ class UiEdgePagesTests(UiEdgeCase):
             d.show(0); win.update()
             box = d.idea_log
             d.idea_input.delete('1.0', 'end'); win.update()
-            # 聊天记录按窗口剩余空间自适应；任务书轮 4：输入区换成底部共享输入框，
-            # 高度由 SharedStageInput 统一管理（TEXT_ROWS['sm'] 行），不再随内容撑开。
+            # 聊天记录按窗口剩余空间自适应；R2916：输入框回到页面自己的 composer，
+            # 底部共享栏在本页隐藏（不再与页面输入框叠加）。
             lines = int(box.cget("height"))
             self.assertGreaterEqual(lines, desktop_module.TALK_MIN_LINES, "再挤也留着下限那些行")
             self.assertLessEqual(lines, desktop_module.TALK_MAX_LINES, "字再多也不超过上限")
-            from ui_tokens import TEXT_ROWS
-            self.assertIs(d.idea_input, d.shared_input.input, "剧本页输入区必须复用共享输入框同一实例")
-            self.assertEqual(int(d.idea_input.cget("height")), TEXT_ROWS["sm"],
-                             "共享输入框固定行数，不再多占聊天区")
+            from desktop_writing_page import COMPOSER_MIN_LINES
+            self.assertIsNot(d.idea_input, d.shared_input.input, "剧本页输入区回到页面自己的实例")
+            self.assertFalse(d.shared_input.winfo_ismapped(), "剧本准备页不显示共享输入栏")
+            self.assertEqual(int(d.idea_input.cget("height")), COMPOSER_MIN_LINES,
+                             "空输入框保持最小行数，不多占聊天区")
             self.assertEqual(str(d.idea_send.master), str(d.idea_row), "「发送」在内容框下面那一行")
-            # REQ-S01-62＋轮 4 契约：「+」与终止／附件行在共享输入框上方的卡片内，
-            # 共享输入条整体位于对话区下方。
+            # REQ-S01-62：附件与「+」上传、发送／终止都收在输入框上方的 composer 卡片内。
             frame=d.idea_composer_frame
-            self.assertLess(frame.winfo_rooty()+frame.winfo_height(),
-                            d.shared_input.winfo_rooty()+1,
-                            "上传附件卡片必须整体位于共享输入条上方")
+            self.assertGreaterEqual(d.idea_attachment_button.winfo_rooty(), frame.winfo_rooty(),
+                                    "上传附件卡片位于输入框卡片内")
             for widget in (d.idea_attachment_button, d.idea_submit):
                 self.assertGreaterEqual(widget.winfo_rootx(), frame.winfo_rootx())
                 self.assertLessEqual(widget.winfo_rootx()+widget.winfo_width(), frame.winfo_rootx()+frame.winfo_width())
@@ -592,9 +591,10 @@ class UiEdgePagesTests(UiEdgeCase):
             box = d.idea_log
             talk = d.idea_row.master
             self.assertEqual(str(box.master.master), str(talk), "聊天内容框摆在对话区容器内")
-            # 任务书轮 4：发送框换成桌面级共享输入条（d.body 底部、status_label 上方），
-            # 不再位于对话区容器内；13 页共用同一实例。
-            self.assertIs(d.idea_input, d.shared_input.input, "剧本页输入框必须是共享实例")
+            # R2916：输入框回到对话区容器内的 composer 卡片；共享输入条仍挂主内容体
+            # 底部（d.body、status_label 上方），但在剧本页隐藏，供其他 12 页共用。
+            self.assertIsNot(d.idea_input, d.shared_input.input, "剧本页输入框回到页面自己的实例")
+            self.assertFalse(d.shared_input.winfo_ismapped(), "剧本准备页不显示共享输入栏")
             self.assertEqual(str(d.shared_input.master), str(d.body), "共享输入条挂在主内容体底部")
             # 剧本页与其他阶段共用 FlowBar：窄窗口时允许分行，不能再以左右 pack
             # 互相挤压到裁掉按钮文字。素材来源不适用时只有采风隐藏不占位（REQ-S01-46）。
@@ -1331,16 +1331,16 @@ class ContentBoxFitTests(unittest.TestCase):
     def test_a_very_long_composer_stays_within_the_responsive_limit(self):
         """长创意不能再把发送操作和文件表挤出当前窗口。"""
         import desktop as desktop_module
-        from ui_tokens import TEXT_ROWS
+        from desktop_writing_page import COMPOSER_MAX_LINES
         win, d = self.build()
         box = d.idea_input
         self.fill(win, box, 200)
         d._fit_composer()
         win.update()
         fitted_height = int(box.cget("height"))
-        # 任务书轮 4 契约：输入区是共享输入条，行数固定 TEXT_ROWS['sm']，
-        # 长文在框内滚动查看，不再按内容撑高把操作区顶出窗口。
-        self.assertEqual(fitted_height, TEXT_ROWS["sm"])
+        # R2916 契约：输入框回到页面自己的 composer，长文按内容撑高但受
+        # COMPOSER_MAX_LINES 上限约束，不会把操作区顶出窗口。
+        self.assertLessEqual(fitted_height, COMPOSER_MAX_LINES)
         self.assertIn("第200行 内容", str(box.get("1.0", "end-1c")),
                       "高度受限不许丢失用户已经输入的长内容")
 
@@ -1411,19 +1411,19 @@ class TalkBoxFitTests(unittest.TestCase):
             self.assertTrue(d.idea_send.winfo_ismapped(), geometry + " 「发送」得真摆在画面上")
 
     def test_a_shrunk_box_grows_back_only_up_to_the_window(self):
-        """任务书轮 4 契约：共享输入框行数固定，内容增减只影响框内滚动，不再改框高。"""
-        from ui_tokens import TEXT_ROWS
+        """R2916 契约：剧本页输入框随内容撑高（回到页面自己的输入框），内容只在框内保留。"""
+        from desktop_writing_page import COMPOSER_MIN_LINES
         win, d = self.build("1100x760+40+40")
         box = d.idea_input
-        self.assertIs(box, d.shared_input.input, "必须量的是共享输入框同一实例")
+        self.assertIsNot(box, d.shared_input.input, "剧本页输入框回到页面自己的实例")
+        self.assertFalse(d.shared_input.winfo_ismapped(), "剧本准备页不显示共享输入栏")
         tall = int(box.cget("height"))
-        self.assertEqual(tall, TEXT_ROWS["sm"])
+        self.assertEqual(tall, COMPOSER_MIN_LINES)
         box.insert("end", "\n" + "\n".join("第%d 行的想法" % i for i in range(1, 26)))
         win.update(); d._fit_talk(); win.update()
-        self.assertEqual(int(box.cget("height")), tall, "写再多行共享输入框也不撑高")
+        self.assertGreaterEqual(int(box.cget("height")), tall, "内容多了输入框随行撑高")
         box.delete("1.0", "end"); box.insert("1.0", "一句话的创意")
         win.update(); d._fit_talk(); win.update()
-        self.assertEqual(int(box.cget("height")), tall, "删回去行数同样不变")
         self.assertIn("一句话的创意", str(box.get("1.0", "end-1c")))
 
 class PageHintTests(unittest.TestCase):

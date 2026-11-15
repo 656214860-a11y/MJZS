@@ -1,0 +1,15 @@
+{
+  "round": 2916,
+  "commit_base": "64f7546d",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_idea_chat test_ui_edges_pages test_skills test_manual_plan test_skill_panel_dropdown_layout test_complexity_ratchet",
+    "exit": 0,
+    "passed": 375,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T06:54:58"
+}
