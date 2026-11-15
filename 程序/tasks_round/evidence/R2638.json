@@ -1,0 +1,15 @@
+{
+  "round": 2638,
+  "commit_base": "0acbc0bf",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_preparation_confirmation test_writing_unconfirm",
+    "exit": 0,
+    "passed": 26,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T16:06:02"
+}
