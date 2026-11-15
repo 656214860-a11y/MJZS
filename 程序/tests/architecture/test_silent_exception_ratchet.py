@@ -9,17 +9,20 @@ import unittest
 from pathlib import Path
 
 PROGRAM = Path(__file__).resolve().parents[2]
+# R2600（T5 核销）：run_selftests、smoke_test、scripts/auto_full_safe 已改经
+# app_logging.swallowed() 留痕；扫描面同步扩到 scripts/。剩余登记位：
+# app_logging 自身（日志基建不能递归记日志）与 agent/volcengine（agent 子包
+# 不引 app_logging，且错误路径随后仍 raise）。
 ALLOWED = {
     'app_logging.py': 10,
-    'run_selftests.py': 2,
-    'smoke_test.py': 1,
     'agent/volcengine.py': 1,
 }
 
 
 def silent_exception_sites():
     found = {}
-    for path in list(PROGRAM.glob('*.py')) + list((PROGRAM / 'agent').rglob('*.py')):
+    for path in (list(PROGRAM.glob('*.py')) + list((PROGRAM / 'agent').rglob('*.py'))
+                 + list((PROGRAM / 'scripts').glob('*.py'))):
         tree = ast.parse(path.read_text(encoding='utf-8', errors='replace'))
         rows = [n.lineno for n in ast.walk(tree)
                 if isinstance(n, ast.ExceptHandler) and n.type is not None

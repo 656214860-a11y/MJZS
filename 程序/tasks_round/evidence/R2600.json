@@ -1,0 +1,15 @@
+{
+  "round": 2600,
+  "commit_base": "4ee740d0",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_selftests test_auto_full_safe test_swallowed_cleanup architecture.test_silent_exception_ratchet",
+    "exit": 0,
+    "passed": 101,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T14:02:22"
+}

@@ -169,6 +169,15 @@ class WorkerCleanupTests(unittest.TestCase):
             run_selftests.cleanup_unit_helpers()
         reset.assert_called_once_with()
 
+    def test_cleanup_failure_leaves_swallowed_trace(self):
+        """缩略图工作单元清理失败必须经 app_logging.swallowed 留痕，不能无声吞掉。"""
+        import app_logging
+        import asset_thumbs
+        before = len(app_logging._recent_swallowed)
+        with mock.patch.object(asset_thumbs, 'forget', side_effect=RuntimeError('simulated cleanup failure')):
+            run_selftests.cleanup_unit_helpers()
+        self.assertGreater(len(app_logging._recent_swallowed), before)
+
     def test_unit_cleans_worker_after_import_failure(self):
         with mock.patch.object(run_selftests, 'cleanup_unit_helpers') as cleanup:
             with mock.patch.object(run_selftests.importlib, 'import_module',
