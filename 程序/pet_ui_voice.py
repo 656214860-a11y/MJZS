@@ -1154,7 +1154,7 @@ class PetVoiceMixin:
         self.announce(text)
         return text
     def caption_text(self):
-        """三虎右边那行小字：哪一档自动化等级；暂停时写「已暂停」（第 18 期）。
+        """三虎图像下方那行小字：哪一档自动化等级；暂停时写「已暂停」（第 18 期）。
 
         第 23 期：有卡住的活儿就带上「· 待确认 N」——不打开任何窗口，一眼就知道有没有事
         等着自己处理（数字来自父 Agent 的失败清单，不编）。
@@ -1167,11 +1167,11 @@ class PetVoiceMixin:
         except Exception:
             pending = 0
         text = LEVEL_CAPTIONS.get(self.level(), LEVEL_CAPTIONS['hint'])
-        # 第 23 期补：这行小字是从右沿往左长的（anchor='ne'），加长必须往下一行走。
-        # 「只提醒 · 待确认 2」横着写实测压住猫的左脸（贴片特写截屏），所以第二行另起。
+        # 第 23 期补：这行小字宽度钉死在 CAPTION_ROOM 上，「待确认 N」另起一行，
+        # 两行换行时猫爪列底边跟着小字底边走（pet_ui_view._align_paws）。
         return '%s\n待确认 %d' % (text, pending) if pending else text
     def show_caption(self):
-        """把等级字样写到三虎右边（写不进去就少一行字，不影响别的）。"""
+        """把等级字样写到三虎图像下方（写不进去就少一行字，不影响别的）。"""
         if self.caption is None:
             return None
         value = self.caption_text()

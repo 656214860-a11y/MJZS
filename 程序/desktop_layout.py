@@ -159,7 +159,8 @@ class LayoutMixin:
             y=title.winfo_rooty()-self.win.winfo_rooty()+round((title.winfo_reqheight()-canvas.winfo_reqheight())/2)
             self.settings_gear_position=(x,y)
             canvas.place_configure(x=x,y=y)
-        minimum=max(self.title.winfo_reqheight(),pet_ui.PATCH_ROOM)
+        pet_room=getattr(getattr(self,'pet',None),'patch_room',None)
+        minimum=max(self.title.winfo_reqheight(),pet_room or pet_ui.PATCH_ROOM)
         list_top=self.list.winfo_rooty()-self.title_row.winfo_rooty()
         # 侧栏可滚动后，屏幕坐标会随画布偏移变化；换算回内容坐标再参与表头对齐。
         sidebar_canvas=getattr(self,'sidebar_canvas',None)
