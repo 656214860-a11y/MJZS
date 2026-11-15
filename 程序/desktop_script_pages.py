@@ -18,6 +18,10 @@ from desktop_idea_chat import model_error_display
 from pathlib import Path
 from responsive_ui import FlowBar
 from tkinter import ttk
+from script_find_bar import FindBar
+from script_line_numbers import LineNumberGutter
+from script_outline import OutlinePanel
+from script_reading import ReadingAids
 from ui_tokens import (
     COLORS,
     SCRIPT_VIEW_FONT,
@@ -63,18 +67,26 @@ def _set_script_wrap(preview, horizontal, styled):
 
 
 def _build_script_preview(text_area):
-    """剧本正文文本框与两条滚动条；返回 (文本框, 横向滚动条)。"""
+    """剧本正文文本框、左侧行号槽与两条滚动条；返回 (文本框, 横向滚动条, 行号槽)。"""
     preview = TextArea(text_area, bg=COLORS["background_card"], fg=COLORS["text_primary"], height=1,
                        wrap='word', undo=True, maxundo=-1, font=SCRIPT_VIEW_FONT, relief='flat',
                        padx=SCRIPT_VIEW_PADDING[0], pady=SCRIPT_VIEW_PADDING[1])
+    gutter = LineNumberGutter(text_area, preview)
     scroll = ttk.Scrollbar(text_area, orient='vertical', command=preview.yview)
     # 大文件保留全文，以横向滚动浏览长行；小文件由 set_preview 改为按词换行。
     horizontal = ttk.Scrollbar(text_area, orient='horizontal', command=preview.xview)
-    preview.configure(yscrollcommand=scroll.set, xscrollcommand=horizontal.set)
-    preview.grid(row=0, column=0, sticky='nsew'); scroll.grid(row=0, column=1, sticky='ns')
-    horizontal.grid(row=1, column=0, sticky='ew')
-    text_area.columnconfigure(0, weight=1); text_area.rowconfigure(0, weight=1)
-    return preview, horizontal
+
+    def sync_scroll(first, last):
+        scroll.set(first, last)
+        gutter.refresh()
+
+    preview.configure(yscrollcommand=sync_scroll, xscrollcommand=horizontal.set)
+    gutter.grid(row=0, column=0, sticky='ns')
+    preview.grid(row=0, column=1, sticky='nsew')
+    scroll.grid(row=0, column=2, sticky='ns')
+    horizontal.grid(row=1, column=1, sticky='ew')
+    text_area.columnconfigure(1, weight=1); text_area.rowconfigure(0, weight=1)
+    return preview, horizontal, gutter
 
 
 class _DocumentPicker(ttk.Combobox):
@@ -99,8 +111,6 @@ class _DocumentPicker(ttk.Combobox):
     def selection_set(self, iid):
         if self._paths and iid in self.get_children():
             self.current(self.get_children().index(iid))
-
-
 
 
 @dataclass(frozen=True)
@@ -579,24 +589,49 @@ class _ContentBox:
         self.frame = box
         self.available = tuple(path for path in self.documents if path and path.is_file())
         preview_area = ttk.Frame(box); preview_area.pack(fill='both', expand=True)
+        # 网格三行：页头／查找条（默认隐藏）／正文行（正文＋右侧大纲栏，默认折叠）。
+        preview_area.columnconfigure(0, weight=1)
+        preview_area.rowconfigure(2, weight=1)
         preview_header = ttk.Frame(preview_area)
-        preview_header.pack(fill='x')
+        preview_header.grid(row=0, column=0, sticky='ew')
         # 编辑操作贴着标题行右侧，下拉框占用其余宽度。
         controls = ttk.Frame(preview_header)
         controls.pack(side='right', padx=(SPACING["sm"], SPACING["none"]))
         self.file_list = _DocumentPicker(preview_header, self.available, self.active_path)
         self.file_list.pack(side='left', fill='x', expand=True)
         self.active = {'path': self.active_path if self.active_path in self.available else (self.available[0] if self.available else None)}
-        text_area = ttk.Frame(preview_area); text_area.pack(fill='both', expand=True)
-        self.preview, self.horizontal = _build_script_preview(text_area)
+        text_area = ttk.Frame(preview_area)
+        text_area.grid(row=2, column=0, sticky='nsew')
+        self.preview, self.horizontal, self.gutter = _build_script_preview(text_area)
         self.preview_ticket = {'value': 0}
         self.loaded = {'raw': ''}
+        self.zoom_delta = 0
+        self.aids = ReadingAids(self)
+        self.find_bar = FindBar(
+            preview_area, self.preview,
+            on_changed=self.aids.refresh_reading_views,
+            notify=lambda message: self.owner.page.status.set(message),
+            run=self.owner.page.safe,
+        )
+        self.find_bar.grid(row=1, column=0, sticky='ew')
+        self.find_bar.grid_remove()
+        self.outline = OutlinePanel(preview_area, self.preview)
+        self.outline.grid(row=0, column=1, rowspan=3, sticky='ns')
+        self.outline.grid_remove()
+        # 「大纲」开合钮先入 controls，排在编辑按钮组左侧。
+        self.outline_toggle = SecondaryButton(controls, text='大纲', command=self.aids.toggle_outline)
+        self.outline_toggle.pack(side='left')
+        # 必须先于 load_preview 挂上：首屏小文档走 _reset_preview_text，靠它收尾同步三件套。
+        self.preview._reading_sync = self.aids.after_text_load
         self.load_preview(self.active['path'])
         self.file_list.bind('<<ComboboxSelected>>', self.select_document)
         self.file_list.bind('<Button-3>', self.open_document_menu)
         _install_script_edit_controls(self.owner.page, controls, self)
+        self.preview.bind('<<Modified>>', self.aids.schedule_reading_views, add='+')
+        self.aids.install_reading_shortcuts()
         setattr(self.owner.page, self.attribute, self.preview)
         setattr(self.owner.page, self.attribute + '_files', self.file_list)
+        setattr(self.owner.page, self.attribute + '_content_box', self)
         return box
 
     def set_preview(self, value, ticket=None):
@@ -622,6 +657,7 @@ class _ContentBox:
                     # 初始预览不能成为“恢复删除”的一条历史记录；只恢复用户本次编辑中的动作。
                     self.preview.edit_reset()
                     self.preview.configure(state='disabled')
+                    self.aids.after_text_load()
                 except tk.TclError:
                     pass
                 return

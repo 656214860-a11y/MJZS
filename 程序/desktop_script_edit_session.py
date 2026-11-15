@@ -31,6 +31,10 @@ def _reset_preview_text(preview, text, kind):
     if script_view_style.should_style(text):
         script_view_style.apply_tags(preview, text, kind)
     preview.edit_reset()
+    # apply_tags 会把全部 tag 字体重置回基础值；缩放状态经 _reading_sync 回调重放。
+    sync = getattr(preview, '_reading_sync', None)
+    if callable(sync):
+        sync()
 
 
 def _record_natural_edit(page, before, after, name):
