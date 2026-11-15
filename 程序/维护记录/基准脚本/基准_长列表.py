@@ -10,7 +10,7 @@ import tkinter as tk
 from tkinter import ttk
 from desktop import Desktop
 import local_video
-import test_ui_edges as T
+import ui_edges_support as T
 from project_stages import storyboard as storyboard_stage
 from test_perf_baseline import big_project as performance_big_project
 from pet_state import PAGE_OF

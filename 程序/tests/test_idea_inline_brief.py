@@ -9,7 +9,7 @@ import idea_chat
 import script_contract
 import workflow_settings
 from tests.test_idea_chat import _Harness, idea_chat as injected_chat
-from tests.test_ui_edges import make_minimal_project
+from tests.ui_edges_support import make_minimal_project
 
 
 VALUES = {'故事梗概': '修表师寻找失踪的父亲', '故事题材': '冒险喜剧',

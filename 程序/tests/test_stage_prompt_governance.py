@@ -10,7 +10,7 @@ import workflow_engines
 import workflow_settings
 from workflow_tasks import script_prompt
 from tests.test_idea_chat import idea_chat as injected_chat
-from tests.test_ui_edges import make_minimal_project
+from tests.ui_edges_support import make_minimal_project
 
 
 STORY = '故事梗概：修表师寻找父亲\n故事题材：冒险\n故事角色：林青与阿禾\n故事集数：12集\n单集时间：90秒'

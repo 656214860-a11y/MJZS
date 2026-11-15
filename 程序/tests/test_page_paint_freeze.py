@@ -72,7 +72,7 @@ class PaintFreezeTests(unittest.TestCase):
 class PageSwitchFreezeTests(unittest.TestCase):
     def open_desktop(self, td):
         import tkinter as tk
-        import test_ui_edges
+        import ui_edges_support
         from desktop import Desktop
         from local_video import open_studio
         win = tk.Tk(); win.geometry('1200x800+0+0')
@@ -81,7 +81,7 @@ class PageSwitchFreezeTests(unittest.TestCase):
         d = Desktop(win, root=app)
         self.addCleanup(d.cancel_timers)
         d.startup_controller.cancel()
-        d.root = test_ui_edges.make_populated_project(td)
+        d.root = ui_edges_support.make_populated_project(td)
         d.studio = open_studio(d.root)
         win.update()
         return win, d

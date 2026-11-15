@@ -10,7 +10,7 @@ import idea_chat
 import idea_semantic_brief_service
 from stage_execution_service import project_context
 from tests.test_idea_chat import _Harness
-from tests.test_ui_edges import make_minimal_project
+from tests.ui_edges_support import make_minimal_project
 
 
 SOURCE = '修表师林青追查父亲失踪之谜，与船长阿禾一起冒险。计划12集，每集120秒，9:16，MiniMax H3，交付 markdown 文档。'

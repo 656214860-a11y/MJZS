@@ -589,7 +589,7 @@ stage_config.apply_preset(project, 'video', '稳一点出片')
 ### 5. 视频生成：去掉重复的那颗「阶段配置」
 
 「选择生成方式」那一屏右上的「阶段配置」和进去以后工作台里那颗是同一个面板，`video_home()` 里的
-`header_stage_config(6)` 已经删掉；08／09／10 三页照旧各有一颗。`test_ui_edges` 逐页核对的那条用例
+`header_stage_config(6)` 已经删掉；08／09／10 三页照旧各有一颗。`test_ui_edges_pages` 逐页核对的那条用例
 也改成：第 6 页断言「没有」，7／8／9 断言「有且只有一颗」。
 
 ### 6. 视频生成入口：记住上一次选的是哪一侧
@@ -1510,7 +1510,7 @@ return batches
    `README.md` 的**文件夹**，紧接着写正文就报 `PermissionError: [Errno 13]`。修法是只拿目录键
    （`key != 'readme'`），并补一条用例专门盯「README.md 必须是文件」。
 2. **剪贴板被写了第二处。** 「复制锚点」那颗按钮第一版直接调 `clipboard_clear／clipboard_append`，
-   而项目早有一条规矩（`test_ui_edges.PromptWindowSourceGuardTests`）：**全程序只有
+   而项目早有一条规矩（`test_ui_edges_guards.PromptWindowSourceGuardTests`）：**全程序只有
    `prompt_window.copy_text` 写剪贴板**——历史上正是各写一份才出现「一个窗口复制后关、另一个不关」。
    自检当场把它拦下来，改成转调那一份。
 
@@ -1793,7 +1793,7 @@ Agent 预筛的「待确认」候选也摆在这一页，点一下采用（走 `
 按 `displaylines`（自动换行的折行也算）把高度撑到放得下全部文字，封顶 40 行；**只长不缩**，
 不会把滚动位置弹回开头。接线只有两处——`Desktop.text()`（剧本准备／后期剪辑／质检三页共用）与
 剧本准备页那格「与模型的对话」，其余页面自动同步。回归用例：
-`test_ui_edges.ContentBoxFitTests`。
+`test_ui_edges_pages.ContentBoxFitTests`。
 
 ### 27.6 缩略图缩小一倍
 
@@ -2011,7 +2011,7 @@ Provider 地址清单与本地路由环境变量，外加「怎么起」的四�
 （复跑全量 206.9 秒；第 66 期基线 75 个文件 / 369 路 / 2498 条）。本期净增 18 条，落在 `test_ui_theme`
 （云朵框不带那两颗缩放键、还原之后不许掉线）、`test_cell_menu`（悬停放大尺寸两处）、
 `test_stage_flow`（`Auto.arm_from` 四条）、`test_pet_ui`（`AutoStartTests` 六条、`Desktop.pet_start`
-三条、云朵框一条）与 `test_ui_edges`（`StoryboardRowLayoutTests`：分镜一多，按钮行仍要落在画布
+三条、云朵框一条）与 `test_ui_edges_tables`（`StoryboardRowLayoutTests`：分镜一多，按钮行仍要落在画布
 可见区里——这条用例先把修复摘掉验过一次，确实会红）。
 
 ---

@@ -401,7 +401,7 @@ class ExecPageTests(unittest.TestCase):
 
 
 class ManualButtonNameTests(unittest.TestCase):
-    """附件二第 3 条：每页那颗按钮的文字就是那张表里的名字（页面级由 test_ui_edges 盯着）。"""
+    """附件二第 3 条：每页那颗按钮的文字就是那张表里的名字（页面级由 test_ui_edges_pages 盯着）。"""
 
     def test_the_table_is_the_only_source_of_truth(self):
         import stage_models

@@ -115,7 +115,7 @@ tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
 td = Path(tmp.name)
 # 这台机器上 TEMP 取不到时，临时目录会落在「程序\」里——中途抛错也要删干净（第 58 期）。
 atexit.register(shutil.rmtree, str(td), True)
-import test_ui_edges as T
+import ui_edges_support as T
 proj = T.make_populated_project(str(td))
 
 d.root = proj

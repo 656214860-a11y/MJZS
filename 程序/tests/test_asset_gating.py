@@ -62,7 +62,7 @@ def adopted_project(td, shots=None):
     第 55 期那几条用例要看资产表里的行，而 asset_plan.sync_plan 只按「当前分镜里用到的
     资产」出行：项目没有已采用的分镜，这一页就是一张空表（一行都没有，断言全落空）。
     """
-    from test_ui_edges import adopt_storyboard_fixture, make_minimal_project
+    from ui_edges_support import adopt_storyboard_fixture, make_minimal_project
     proj = make_minimal_project(td)
     if shots is not None:
         source = proj / "episode" / "episode.json"
@@ -129,7 +129,7 @@ class AssetPageContentTests(_TkHarness):
     def open_assets(self, proj, geometry="1180x760+40+40"):
         # Desktop.__init__ 末尾挂了个 after(150, choose_project)：win.update() 一旦让那个定时器
         # 到期，它就会照用户机器上「唯一在建项目」把整页换掉（资产表跟着销毁），断言就全打在
-        # 死控件上。自测里一律把它换成空函数（test_ui_edges 同款做法）。
+        # 死控件上。自测里一律把它换成空函数（ui_edges_support 同款做法）。
         import desktop as desktop_module
         original = desktop_module.Desktop.choose_project
         desktop_module.Desktop.choose_project = lambda self: None

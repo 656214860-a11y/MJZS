@@ -30,7 +30,7 @@ import confirm_gates
 from stage_execution_service import apply_asset_plan_gate_choice as apply_gate_choice
 from test_asset_thumbs import png
 from widget_test_support import widget_list, widget_texts
-from test_ui_edges import adopt_storyboard_fixture, make_minimal_project
+from ui_edges_support import adopt_storyboard_fixture, make_minimal_project
 
 ANGLE_LABELS = ("正面 0°", "右侧 90°", "左侧 -90°", "背面 180°", "3/4 左", "3/4 右")
 

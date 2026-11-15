@@ -365,7 +365,7 @@ class GateTests(unittest.TestCase):
             self.assertEqual(spec.blocked_stages(proj, 'continuity'), ())
 
     def test_assets_that_stopped_halfway_block_the_continuity_step(self):
-        from test_ui_edges import make_minimal_project
+        from ui_edges_support import make_minimal_project
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             store = proj / 'episode' / 'assets' / '资产清单'
@@ -381,7 +381,7 @@ class GateTests(unittest.TestCase):
             self.assertIn('先到 05 资产管理', text)
 
     def test_a_stage_that_never_started_is_not_a_blocker(self):
-        from test_ui_edges import make_minimal_project
+        from ui_edges_support import make_minimal_project
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             store = proj / 'episode' / 'assets' / '资产清单'
@@ -392,7 +392,7 @@ class GateTests(unittest.TestCase):
             self.assertEqual(spec.blocked_stages(proj, 'continuity'), ())
 
     def test_missing_first_frames_block_the_previs_step_once_keyframe_has_run(self):
-        from test_ui_edges import make_adopted_project
+        from ui_edges_support import make_adopted_project
         with tempfile.TemporaryDirectory() as td:
             proj = make_adopted_project(td)
             self.assertTrue(spec.evaluate(proj, 'previs')['ok'], '首帧这一步压根没开始时不许拦')
@@ -579,7 +579,7 @@ class FlowWiringTests(unittest.TestCase):
 
     def test_the_gate_joins_the_blocker_list(self):
         import stage_flow
-        from test_ui_edges import make_minimal_project
+        from ui_edges_support import make_minimal_project
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             store = proj / 'episode' / 'assets' / '资产清单'

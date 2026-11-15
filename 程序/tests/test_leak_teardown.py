@@ -141,7 +141,7 @@ def _count_widgets(widget):
 
 class PageSwitchGrowthTests(_TkCase):
     def _open_desktop(self, td):
-        import test_ui_edges
+        import ui_edges_support
         import white_model_service
         from desktop import Desktop
         from local_video import open_studio
@@ -153,7 +153,7 @@ class PageSwitchGrowthTests(_TkCase):
         desktop = Desktop(self.win, root=app)
         self.addCleanup(desktop.cancel_timers)
         desktop.startup_controller.cancel()
-        desktop.root = test_ui_edges.make_populated_project(td)
+        desktop.root = ui_edges_support.make_populated_project(td)
         desktop.studio = open_studio(desktop.root)
         return desktop
 
