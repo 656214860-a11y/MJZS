@@ -28,6 +28,7 @@ test_pet_ui／test_ui_edges 各自七八十秒，整跑就被它们俩顶住了�
 维护记录/自检增量.json。--all 会忽略台账全跑，跑绿之后重写台账。
 怀疑漏检时用 --all 或 --serial 对照，两条路都在。
 """
+import app_logging
 import ast
 import atexit
 import glob
@@ -1012,7 +1013,7 @@ def sink_test_windows():
         try:
             tk.Misc.lower(widget)
         except Exception:
-            pass
+            app_logging.swallowed('测试窗口下沉')
 
     def wrap(cls, name):
         original = getattr(cls, name, None)
@@ -1264,7 +1265,7 @@ def cleanup_unit_helpers():
         asset_thumbs.forget()
         asset_thumbs.reset_worker()
     except Exception:
-        pass                         # 清理失败不能覆盖原测试的报错
+        app_logging.swallowed('清理缩略图工作单元')  # 清理失败不能覆盖原测试的报错
 
 
 def slowest_units(results, limit=SLOW_UNITS_LIMIT):

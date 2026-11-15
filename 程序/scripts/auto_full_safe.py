@@ -27,6 +27,7 @@ from pathlib import Path
 
 PROGRAM = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROGRAM))
+import app_logging  # noqa: E402
 import file_cache  # noqa: E402
 import run_selftests  # noqa: E402
 
@@ -458,7 +459,7 @@ def _dispatch(args: list) -> int:
             if text:
                 print(text)
         except Exception:      # 提示是附加信息，任何异常都不能影响提交
-            pass
+            app_logging.swallowed('--notice 附加提示')
         return 0
     if "--spawn" in args:
         try:

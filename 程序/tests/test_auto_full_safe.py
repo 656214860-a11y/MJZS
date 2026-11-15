@@ -182,6 +182,14 @@ class FailureNoticeTests(unittest.TestCase):
         with mock.patch.object(auto, 'failure_notice', side_effect=RuntimeError('x')):
             self.assertEqual(auto.main(['--notice']), 0)
 
+    def test_notice_failure_leaves_swallowed_trace(self):
+        """--notice 的附加提示故障必须经 app_logging.swallowed 留痕，不能无声吞掉。"""
+        import app_logging
+        before = len(app_logging._recent_swallowed)
+        with mock.patch.object(auto, 'failure_notice', side_effect=RuntimeError('x')):
+            self.assertEqual(auto.main(['--notice']), 0)
+        self.assertGreater(len(app_logging._recent_swallowed), before)
+
 
 BROKEN = ('concurrent.futures.process.BrokenProcessPool: A child process terminated abruptly, '
           'the process pool is not usable anymore\n')
