@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""剧本准备台账的落盘与自然稿采用撤销：从 writing_api 拆出，口径不变。
+"""剧本准备台账的落盘、自然稿采用撤销与草稿位次路由：从 writing_api 拆出，口径不变。
 
 R2653：writing_api 行数超过模块棘轮上限（R2630 与快照提交把采用版本确认
 基线守卫加进来后 1388 行 > 1372），按 R2400 先例把这组自包含的台账读写
@@ -10,6 +10,25 @@ import json
 from datetime import datetime
 
 from file_cache import read_json
+
+PREPARATION_STAGES = ('项目设定', '剧本大纲', '角色卡')
+
+
+_PREPARATION_STAGE_WORDS = (
+    ('项目设定', ('项目设定', '设定')),
+    ('剧本大纲', ('剧本大纲', '大纲', '纲要')),
+    ('角色卡', ('角色卡', '人物设定（角色卡）', '人物设定', '人物卡')),
+)
+
+
+def _preparation_stage_alias(text):
+    """原话点名的最长阶段别名对应的阶段；未点名阶段返回 None。"""
+    found = None
+    for stage, words in _PREPARATION_STAGE_WORDS:
+        for word in words:
+            if word in text and (found is None or len(word) > found[0]):
+                found = (len(word), stage)
+    return None if found is None else found[1]
 
 
 def _snapshot_basis(state):
@@ -75,6 +94,66 @@ def _save_preparation_state(target, state, publish):
     _record_confirmation_snapshots(target, state, publish)
     payload = json.dumps(state, ensure_ascii=False, indent=2) + '\n'
     publish(target, payload, lambda value: value == payload, lambda _target: None)
+
+
+def _working_documents(state):
+    """重新创作的草稿与当前采用版本分开，确认前不替换采用版本。"""
+    return state.get('revision', state)['documents']
+
+
+def _confirmed_prefix(documents, index):
+    """该阶段之前的记录必须齐全且都已确认；满足时返回这段前缀，否则 None。"""
+    prefix = documents[:index]
+    if len(prefix) != index or any(not isinstance(doc, dict) or doc.get('confirmed') is not True
+                                   for doc in prefix):
+        return None
+    return prefix
+
+
+# REQ-S01-89：首行以确认/推进词开头的消息，点名阶段视为交给模型的推进请求。
+_PREPARATION_ADVANCE_LEAD = tuple(word.casefold() for word in (
+    '确认', '确定', '好的', '好', '可以', '行', '嗯', '通过', '同意',
+    'ok', 'okay', 'yes', '继续'))
+
+
+def _preparation_work_index(documents, message):
+    """REQ-S01-89：本轮处理的阶段位次。
+
+    原话点名未确认草稿→修订该位；点名紧邻未起草阶段→追加并行草稿位；点名更远的
+    未起草阶段→报错；点名已确认阶段或未点名→首个未确认位，全已确认则追加位。"""
+    default = next((position for position, doc in enumerate(documents)
+                    if not isinstance(doc, dict) or doc.get('confirmed') is not True),
+                   len(documents))
+    first = str(message or '').strip().split('\n', 1)[0].strip()
+    if first.casefold().startswith(_PREPARATION_ADVANCE_LEAD):
+        # 「确认，输出角色卡」一类：确认词领衔时点名是交给模型的推进请求，
+        # 不做草稿路由（REQ-S01-89；确认与推进由模型语义判定）。
+        return default
+    stage = _preparation_stage_alias(first)
+    if stage is None:
+        return default
+    position = PREPARATION_STAGES.index(stage)
+    if position > len(documents):
+        raise ValueError('「' + stage + '」之前还有阶段未起草；请先起草「'
+                         + PREPARATION_STAGES[len(documents)] + '」')
+    if position == len(documents):
+        return position
+    document = documents[position]
+    if isinstance(document, dict) and document.get('confirmed') is not True:
+        return position
+    return default
+
+
+def _preparation_draft_is_parallel(project, requested):
+    """REQ-S01-89：重写口令指向未确认并行草稿时按重起草处理，不走采用稿重写。"""
+    from stage_path_service import write_dir
+    target = write_dir(project, 'script') / 'preparation_state.json'
+    early = read_json(target) if target.is_file() else None
+    documents = _working_documents(early) if isinstance(early, dict) else []
+    position = PREPARATION_STAGES.index(requested)
+    return (position < len(documents) and isinstance(documents[position], dict)
+            and documents[position].get('confirmed') is not True
+            and _confirmed_prefix(documents, position) is None)
 
 
 def _revoke_natural_script_adoption(project, target, state, publish):

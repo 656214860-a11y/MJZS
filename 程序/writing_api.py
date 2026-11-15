@@ -18,10 +18,15 @@ import token_saver
 from file_cache import read_json
 from model_router import ModelAdapter, PoolAdapter
 import edit_habits, workflow_context, writing_tools
-from writing_preparation_ledger import (_confirmed_basis, _promote_revision,
+from writing_preparation_ledger import (PREPARATION_STAGES, _PREPARATION_STAGE_WORDS,
+                                        _confirmed_basis, _confirmed_prefix,
+                                        _preparation_draft_is_parallel,
+                                        _preparation_stage_alias,
+                                        _preparation_work_index, _promote_revision,
                                         _revoke_natural_script_adoption,
                                         _save_preparation_state,
-                                        _save_preparation_state_guarded)
+                                        _save_preparation_state_guarded,
+                                        _working_documents)
 from writing_quality import enabled as quality_enabled
 from writing_stream import chat_streaming
 from workflow_context_budget import (REQUEST_CONTEXT_MAX_CHARS, budget_advice, budget_sections,
@@ -514,9 +519,6 @@ def extract_idea_brief(project, request):
     return semantic_brief_values(data, request['request_id'], request['source'])
 
 
-PREPARATION_STAGES = ('项目设定', '剧本大纲', '角色卡')
-
-
 def preparation_continuation(project, text):
     """简报完成后的普通追问/失败重试沿用简报；显式字段仍走原录入校验。"""
     from idea_brief_form import extract_brief_creation
@@ -527,11 +529,6 @@ def preparation_continuation(project, text):
         return False
     _preparation_state(project, brief, restart_stage=_preparation_restart_target(project, text))
     return True
-
-
-def _working_documents(state):
-    """重新创作的草稿与当前采用版本分开，确认前不替换采用版本。"""
-    return state.get('revision', state)['documents']
 
 
 def _preparation_brief_hash(state):
@@ -562,11 +559,6 @@ def confirmed_preparation_files(project):
     return found
 
 
-_PREPARATION_STAGE_WORDS = (
-    ('项目设定', ('项目设定', '设定')),
-    ('剧本大纲', ('剧本大纲', '大纲', '纲要')),
-    ('角色卡', ('角色卡', '人物设定（角色卡）', '人物设定', '人物卡')),
-)
 _PREPARATION_STAGE_ALT = '|'.join(sorted(
     (word for _stage, words in _PREPARATION_STAGE_WORDS for word in words), key=len, reverse=True))
 _PREPARATION_BACK = re.compile(
@@ -583,20 +575,6 @@ _PREPARATION_REWRITE = re.compile(
 # 一致；随口应答（好／继续／ok 等）按保持现状处理。阶段推进不依赖本表，由模型按语义判断。
 _PREPARATION_AFFIRMATIVE = frozenset(
     word.casefold() for word in ('确认', '确定', '确认重写', '重写', 'yes'))
-# REQ-S01-89：首行以确认/推进词开头的消息，点名阶段视为交给模型的推进请求。
-_PREPARATION_ADVANCE_LEAD = tuple(word.casefold() for word in (
-    '确认', '确定', '好的', '好', '可以', '行', '嗯', '通过', '同意',
-    'ok', 'okay', 'yes', '继续'))
-
-
-def _preparation_stage_alias(text):
-    """原话点名的最长阶段别名对应的阶段；未点名阶段返回 None。"""
-    found = None
-    for stage, words in _PREPARATION_STAGE_WORDS:
-        for word in words:
-            if word in text and (found is None or len(word) > found[0]):
-                found = (len(word), stage)
-    return None if found is None else found[1]
 
 
 def preparation_restart_intent(text):
@@ -678,17 +656,6 @@ def restart_preparation(project, stage, *, publish):
     target, state, _ = _preparation_state(project, brief, restart_stage=stage)
     state.pop('pending_restart', None)
     _save_preparation_state(target, state, publish)
-
-
-def _confirmed_prefix(documents, index):
-    """该阶段之前的记录必须齐全且都已确认；满足时返回这段前缀，否则 None。"""
-    prefix = documents[:index]
-    if len(prefix) != index or any(not isinstance(doc, dict) or doc.get('confirmed') is not True
-                                   for doc in prefix):
-        return None
-    return prefix
-
-
 
 
 def preparation_file_labels(project):
@@ -998,34 +965,6 @@ def _preserve_preparation_response(project, result, publish):
 _PreparationRequest = namedtuple('_PreparationRequest', 'project chosen record settings brief creative')
 
 
-def _preparation_work_index(documents, message):
-    """REQ-S01-89：本轮处理的阶段位次。
-
-    原话点名未确认草稿→修订该位；点名紧邻未起草阶段→追加并行草稿位；点名更远的
-    未起草阶段→报错；点名已确认阶段或未点名→首个未确认位，全已确认则追加位。"""
-    default = next((position for position, doc in enumerate(documents)
-                    if not isinstance(doc, dict) or doc.get('confirmed') is not True),
-                   len(documents))
-    first = str(message or '').strip().split('\n', 1)[0].strip()
-    if first.casefold().startswith(_PREPARATION_ADVANCE_LEAD):
-        # 「确认，输出角色卡」一类：确认词领衔时点名是交给模型的推进请求，
-        # 不做草稿路由（REQ-S01-89；确认与推进由模型语义判定）。
-        return default
-    stage = _preparation_stage_alias(first)
-    if stage is None:
-        return default
-    position = PREPARATION_STAGES.index(stage)
-    if position > len(documents):
-        raise ValueError('「' + stage + '」之前还有阶段未起草；请先起草「'
-                         + PREPARATION_STAGES[len(documents)] + '」')
-    if position == len(documents):
-        return position
-    document = documents[position]
-    if isinstance(document, dict) and document.get('confirmed') is not True:
-        return position
-    return default
-
-
 def _preparation_task(request, user_message, state, documents, texts, index):
     """拼本轮准备阶段的请求正文；返回 (titles, pending, next_index, task)。"""
     from stage_path_service import write_dir
@@ -1071,27 +1010,16 @@ def _preparation_task(request, user_message, state, documents, texts, index):
 def _preparation_step(request, *, publish, cancelled, user_message=None, identity=None):
     """一次请求最多产出一个待确认阶段；返回 None 才可开始自然剧本。request 是 _PreparationRequest。"""
     project, chosen, record, settings, brief, creative = request
-    import idea_document_paths
-    import workflow_settings
+    import idea_document_paths, workflow_settings
     from copy import deepcopy
     from project_context_factory import project_context
     from stage_path_service import write_dir
     if not callable(publish): raise TypeError('剧本准备阶段需要 L3 注入发布器')
-    response_publisher = publish
-    publish = _cancellable_publisher(publish, cancelled)
+    response_publisher, publish = publish, _cancellable_publisher(publish, cancelled)
     message = creative if user_message is None else user_message
     requested = _preparation_restart_target(project, message)
-    if requested:
-        # REQ-S01-89：重写口令指向未确认草稿时按重起草该稿处理，不走采用稿重写。
-        from stage_path_service import write_dir as _wd
-        early = read_json(_wd(project, 'script') / 'preparation_state.json') \
-            if (_wd(project, 'script') / 'preparation_state.json').is_file() else None
-        early_docs = _working_documents(early) if isinstance(early, dict) else []
-        position = PREPARATION_STAGES.index(requested)
-        if (position < len(early_docs) and isinstance(early_docs[position], dict)
-                and early_docs[position].get('confirmed') is not True
-                and _confirmed_prefix(early_docs, position) is None):
-            requested = None
+    if requested and _preparation_draft_is_parallel(project, requested):
+        requested = None
     if requested:
         # 先用当前文件验证重写可行性；询问期间不写入预览 revision。
         target, preview, _ = _preparation_state(project, brief, restart_stage=requested)

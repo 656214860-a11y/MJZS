@@ -4,6 +4,7 @@ import json
 import math
 import re
 from pathlib import Path
+from file_cache import read_json
 from service_contract import success
 
 REPORTS = {
@@ -174,7 +175,7 @@ def adopted_quality(script_path, quality_root):
     for key in REPORTS:
         path = folder / (key + '.json')
         try:
-            statuses[key] = str(json.loads(path.read_text(encoding='utf-8')).get('status') or 'invalid')
+            statuses[key] = str(read_json(path).get('status') or 'invalid')
         except (OSError, ValueError):
             statuses[key] = 'invalid'
     return statuses
