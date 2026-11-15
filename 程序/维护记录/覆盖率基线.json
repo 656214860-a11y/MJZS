@@ -373,6 +373,18 @@
    "percent": 0.0
   },
   {
+   "module": "contract/__init__.py",
+   "covered": 0,
+   "total": 1,
+   "percent": 0.0
+  },
+  {
+   "module": "contract/error_codes.py",
+   "covered": 0,
+   "total": 33,
+   "percent": 0.0
+  },
+  {
    "module": "delivery_import_service.py",
    "covered": 0,
    "total": 29,
@@ -681,7 +693,7 @@
   {
    "module": "error_codes.py",
    "covered": 0,
-   "total": 33,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -1119,7 +1131,7 @@
   {
    "module": "production_lock_fields.py",
    "covered": 0,
-   "total": 347,
+   "total": 346,
    "percent": 0.0
   },
   {
@@ -1797,7 +1809,7 @@
   {
    "module": "workflow_engines.py",
    "covered": 0,
-   "total": 416,
+   "total": 421,
    "percent": 0.0
   },
   {
@@ -1951,12 +1963,6 @@
    "percent": 16.9
   },
   {
-   "module": "platform_tools.py",
-   "covered": 98,
-   "total": 535,
-   "percent": 18.3
-  },
-  {
    "module": "legacy_compat.py",
    "covered": 9,
    "total": 48,
@@ -1966,6 +1972,12 @@
    "module": "agent/media.py",
    "covered": 16,
    "total": 84,
+   "percent": 19.0
+  },
+  {
+   "module": "platform_tools.py",
+   "covered": 98,
+   "total": 517,
    "percent": 19.0
   },
   {
@@ -2222,9 +2234,9 @@
   },
   {
    "module": "agent/publication.py",
-   "covered": 141,
+   "covered": 145,
    "total": 159,
-   "percent": 88.7
+   "percent": 91.2
   },
   {
    "module": "video_lifecycle_service.py",
@@ -2246,5 +2258,5 @@
   }
  ],
  "modules_covered": 61,
- "modules_total": 372
+ "modules_total": 374
 }

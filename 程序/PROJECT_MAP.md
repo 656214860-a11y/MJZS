@@ -19,7 +19,7 @@ R1247 数据边界：剧本聊天及回收站位于 `01剧本准备/模型会话
 | 阶段配置 | `stage_config.py`、`stage_models.py`、`skill_panel.py` | 单次 > 项目模型优先级、SKILL、预设 |
 | Codex 技能同步 | `codex_skill_sync.py` | L3：阶段单文件技能物化、来源 hash、所有权保护与孤儿回收；首帧后台和发送前校验 |
 | Agent 工作流 | `workflow_settings.py`、`workflow_engines.py`、`workflow_tasks.py` | GPT/Anthropic API 在对应本机程序可启动时优先本机执行、启动失败兼容 API 回退；桌面模型显式选择、任务文件与进程台账 |
-| 模型与安全 | `model_pool.py`、`model_router.py`、`pet_llm.py`、`model_secrets.py`、`http_client.py` | 厂商/模型池、协议路由、唯一密钥判据、DPAPI；`http_client` 是 L1 统一 JSON HTTP 传输（超时必填、错误码分类、有界重试、响应上限、凭据脱敏），直连 `urlopen`／`build_opener` 由 `test_http_boundary` 白名单棘轮守卫 |
+| 模型与安全 | `model_pool.py`、`model_router.py`、`pet_llm.py`、`model_secrets.py`、`http_client.py`、`contract/error_codes.py` | 厂商/模型池、协议路由、唯一密钥判据、DPAPI；`http_client` 是 L1 统一 JSON HTTP 传输（超时必填、错误码分类、有界重试、响应上限、凭据脱敏），直连 `urlopen`／`build_opener` 由 `test_http_boundary` 白名单棘轮守卫；L0 错误码注册表实体在 `contract/error_codes.py`，顶层 `error_codes.py` 为历史门面 |
 | 剧本与契约 | `idea_chat.py`、`idea_attachments.py`、`idea_chat_controller.py`、`script_contract.py`、`prompt_templates.py` | 聊天、受控文本附档、无 Tk 对话请求/节流/流式进度编排、创意工作流、五类 manifest、提示词模板 |
 | 资产与连续性 | `asset_contract.py`、`asset_batch_controller.py`、`asset_thumbs.py`、`continuity_ledger.py` | 资产契约；无 Tk 批量页表单、模型检测与启动前门禁编排；受控缩略图 worker、连续性台账 |
 | 分镜与批次 | `shot_batches.py`、`storyboard_selection.py` | 已采用分镜、批次/三元组约束、定稿输入 |

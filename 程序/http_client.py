@@ -2,7 +2,7 @@
 
 所有调用方经 ``request_json`` 发请求；直接 ``urlopen``／``build_opener`` 由
 ``tests/architecture/test_http_boundary.py`` 拦截（白名单只减不增）。
-返回 ``service_contract.ServiceResult`` 四字段结果；错误码取自 ``error_codes``。
+返回 ``service_contract.ServiceResult`` 四字段结果；错误码取自 ``contract.error_codes``。
 
 第 34 期第 9 条：``urllib.request`` 连 ssl 一起加载（约 4.4 MB 常驻），
 网络栈在函数内按需 import，模块导入零成本。
@@ -11,7 +11,7 @@ import json as _json
 import random as _random
 import time as _time
 
-from error_codes import code_data, lookup
+from contract.error_codes import code_data, lookup
 from service_contract import ServiceResult, success
 
 MAX_BODY_BYTES = 32 * 1024 * 1024
