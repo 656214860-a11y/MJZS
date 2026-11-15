@@ -950,6 +950,32 @@ def _save_preparation_state(target, state, publish):
     publish(target, payload, lambda value: value == payload, lambda _target: None)
 
 
+def _revoke_natural_script_adoption(project, target, state, publish):
+    """采用版本变化后撤销自然稿采用：先落采用记录失效，再回写阶段台账。"""
+    from script_contract import natural_script_selection_path
+    payload = json.dumps({'path': '', 'sha256': '',
+                          'reason': '前置阶段已更新，请重新生成或明确采用自然剧本'}, ensure_ascii=False)
+    publish(natural_script_selection_path(project), payload,
+            lambda value: value == payload,
+            lambda _target: _save_preparation_state(target, state, publish))
+
+
+def _promote_revision(state, project, target, publish):
+    """revision 存在时把它切换为采用版本并撤销自然稿采用（与推进确认同口径）。
+
+    聊天 advancing、右键「设为定稿」确认完整重写稿、三阶段齐全的遗留 revision
+    都由调用方判定时机；revision.documents 可以带未确认尾稿。返回是否发生切换。"""
+    revision = state.get('revision')
+    documents = revision.get('documents') if isinstance(revision, dict) else None
+    if not (isinstance(documents, list) and documents):
+        return False
+    state.pop('revision')
+    state['documents'] = documents
+    state['brief_hash'] = revision.get('brief_hash', state.get('brief_hash'))
+    _revoke_natural_script_adoption(project, target, state, publish)
+    return True
+
+
 def _preparation_document(text, title):
     """只规范单份当前阶段文件的说明前缀及显式待确认尾节。"""
     headings = list(re.finditer(r'^# ([^\n]+)\n', text, re.MULTILINE))
@@ -1063,6 +1089,8 @@ def _preparation_step(request, *, publish, cancelled, user_message=None, identit
         _save_preparation_state(target, state, publish)
     index = len(documents) if not documents or documents[-1].get('confirmed') is True else len(documents) - 1
     if index == len(PREPARATION_STAGES):
+        # 重写稿已全部确认（右键「设为定稿」可走到这里）：与推进确认同口径切换采用版本。
+        _promote_revision(state, project, target, publish)
         return None, dict(zip(PREPARATION_STAGES, texts))
     stage = PREPARATION_STAGES[index]
     publish = _versioned_publisher(project, publish)
@@ -1124,17 +1152,7 @@ def _preparation_step(request, *, publish, cancelled, user_message=None, identit
         return rejected, None
     advancing = natural or selected > index
     def save_decision():
-        if advancing and 'revision' in state:
-            revision = state.pop('revision')
-            state['documents'] = revision['documents']
-            state['brief_hash'] = revision.get('brief_hash', state['brief_hash'])
-            from script_contract import natural_script_selection_path
-            payload = json.dumps({'path': '', 'sha256': '',
-                                  'reason': '前置阶段已更新，请重新生成或明确采用自然剧本'}, ensure_ascii=False)
-            publish(natural_script_selection_path(project), payload,
-                    lambda value: value == payload,
-                    lambda _target: _save_preparation_state(target, state, publish))
-        else:
+        if not (advancing and _promote_revision(state, project, target, publish)):
             _save_preparation_state(target, state, publish)
     if natural:
         documents[-1]['confirmed'] = True

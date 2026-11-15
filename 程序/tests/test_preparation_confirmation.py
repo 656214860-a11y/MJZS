@@ -1,5 +1,6 @@
 """把磁盘上的当前文件登记为阶段确认输出（右键入口）的行为契约。"""
 import hashlib
+import json
 import tempfile
 import unittest
 
@@ -112,6 +113,34 @@ class ConfirmPreparationDocumentTests(unittest.TestCase):
         self.assertEqual([d['stage'] for d in state['documents']],
                          ['项目设定', '剧本大纲', '角色卡'])
         self.assertTrue(state['documents'][2]['confirmed'])
+
+    def test_confirm_last_rewrite_stage_promotes_revision_and_revokes_script(self):
+        """重写稿经右键「设为定稿」确认到三阶段齐全时，与聊天确认同口径：
+        采用版本切换到重写稿、revision 清除、已采用自然稿撤销采用。"""
+        _, setting = confirmed(self.project, '项目设定', '项目设定/设定.md', '# 项目设定\n旧设定\n')
+        _, outline = confirmed(self.project, '剧本大纲', '剧本大纲/大纲.md', '# 剧本大纲\n三幕\n')
+        _, card = confirmed(self.project, '角色卡', '角色卡/旧卡.md', '# 角色卡\n旧少年\n')
+        self.write_state([setting, outline, card])
+        script = preparation_folder(self.project) / '项目剧本' / '旧剧本.md'
+        script.parent.mkdir(parents=True, exist_ok=True)
+        script.write_text('# 自然剧本\n旧稿正文\n', encoding='utf-8')
+        save(script_contract.natural_script_selection_path(self.project), {
+            'path': script.relative_to(self.project).as_posix(),
+            'sha256': hashlib.sha256(script.read_bytes()).hexdigest()})
+        restart_writing_preparation(self.project, '角色卡')
+        path, _ = confirmed(self.project, '角色卡', '角色卡/新卡.md', '# 角色卡\n新少年\n')
+        self.assertEqual(writing_unconfirm.confirm_preparation_document(
+            self.project, '角色卡', path, publish=publish_stage_text), ())
+        state = writing_api.read_json(preparation_folder(self.project) / 'preparation_state.json')
+        self.assertNotIn('revision', state)
+        self.assertEqual([doc['stage'] for doc in state['documents']],
+                         ['项目设定', '剧本大纲', '角色卡'])
+        self.assertEqual(state['documents'][2]['path'], '角色卡/新卡.md')
+        self.assertTrue(all(doc['confirmed'] for doc in state['documents']))
+        self.assertIsNone(script_contract.resolve_script_source(self.project))
+        selection = json.loads(
+            script_contract.natural_script_selection_path(self.project).read_text(encoding='utf-8'))
+        self.assertIn('前置阶段已更新', selection['reason'])
 
     def test_confirm_rejects_file_outside_preparation_folder(self):
         """只能登记剧本准备目录内的文件，避免把外部文件当成本阶段成果。"""
