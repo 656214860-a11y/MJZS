@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest import mock
 
 import run_selftests as runner
+import selftest_env
 
 
 class PidReuseTokenTests(unittest.TestCase):
@@ -58,7 +59,7 @@ class PidReuseTokenTests(unittest.TestCase):
             runner.acquire_pid_lock(runner.GUI_LOCK_NAME, str(self.common))
 
     def test_creation_time_failure_falls_back_to_pid_check(self):
-        with mock.patch.object(runner, '_process_created_at', return_value=None):
+        with mock.patch.object(selftest_env, '_process_created_at', return_value=None):
             self.assertTrue(runner._pid_is_alive(os.getpid(), time.time() - 86400))
         # 不存在的 PID：OpenProcess 失败，取不到创建时间，只能沿用“只看 PID”的判死结果。
         missing = 0x7FFFFFF0

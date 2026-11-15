@@ -77,7 +77,7 @@ R1124 插入 Animatic 后，旧中文编号目录由 `stage_path_service.read_di
 | 测试 | 守护内容 |
 | --- | --- |
 | `smoke_test.py` | 快速导入、静态名称、受影响模块门禁 |
-| `run_selftests.py --all --safe` | 安全全量回归、受控 Tk 工作池与清理；实际调度与超时策略以执行器为准，不等同于强制串行 |
+| `run_selftests.py --all --safe` | 安全全量回归、受控 Tk 工作池与清理；薄壳入口＋`selftest_env`/`selftest_discovery`/`selftest_receipts`/`selftest_scheduling`/`selftest_reporting`（基座/发现/凭据/调度/报告）；实际调度与超时策略以执行器为准 |
 | `test_stage_parallel.py` | SG-01~05、并发上限、阶段提示 |
 | `test_script_contract.py` | 五类 manifest 与剧本契约 |
 | `test_idea_chat.py` | 聊天布局、草稿、发送工作流 |
