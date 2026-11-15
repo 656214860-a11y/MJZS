@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
 import shutil
 import subprocess
@@ -173,6 +174,56 @@ class GitHookTests(unittest.TestCase):
             duplicate = self.run_hook(HOOKS / "commit-msg", str(message), cwd=root)
             self.assertNotEqual(duplicate.returncode, 0)
             self.assertIn("非祖先分支使用", duplicate.stderr)
+
+    def _counter_with_claims(self, root: Path, claims: dict, last: int = 873) -> None:
+        (root / ".git" / "round-counter.json").write_text(
+            json.dumps({"last_claimed": last}), encoding="utf-8")
+        (root / ".git" / "round-claims.json").write_text(
+            json.dumps({"claims": claims}), encoding="utf-8")
+
+    def test_commit_message_accepts_round_owned_by_this_worktree(self):
+        """轮次号竞态修复：其他车道领走更新的号后，本工作树已领轮次仍可提交。"""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            subprocess.run(["git", "init", "--quiet"], cwd=root, check=True)
+            subprocess.run(["git", "-c", "user.name=Hook Test", "-c", "user.email=hook@example.invalid",
+                            "commit", "--allow-empty", "-m", "seed"], cwd=root, check=True)
+            top = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=root,
+                                 capture_output=True, text=True, check=True).stdout.strip()
+            self._counter_with_claims(root, {"871": {"worktree": top, "branch": "codex/lane",
+                                                  "at": "2026-11-15T00:00:00"}})
+            message = root / "message"
+            message.write_text("R871: claimed here\n", encoding="utf-8")
+            self.assertEqual(self.run_hook(HOOKS / "commit-msg", str(message), cwd=root).returncode, 0)
+
+    def test_commit_message_rejects_round_owned_by_other_worktree(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            subprocess.run(["git", "init", "--quiet"], cwd=root, check=True)
+            self._counter_with_claims(root, {"871": {"worktree": "D:/other/lane",
+                                                  "branch": "codex/other",
+                                                  "at": "2026-11-15T00:00:00"}})
+            message = root / "message"
+            message.write_text("R871: not mine\n", encoding="utf-8")
+            done = self.run_hook(HOOKS / "commit-msg", str(message), cwd=root)
+            self.assertNotEqual(done.returncode, 0)
+            self.assertIn("其他工作树", done.stderr)
+
+    def test_commit_message_legacy_latest_round_still_passes_with_claims_present(self):
+        """升级前已领、尚无归属记录的轮次沿用旧规则：等于 last_claimed 即可提交。"""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            subprocess.run(["git", "init", "--quiet"], cwd=root, check=True)
+            self._counter_with_claims(root, {"870": {"worktree": "D:/other/lane",
+                                                  "branch": "codex/other",
+                                                  "at": "2026-11-15T00:00:00"}}, last=872)
+            message = root / "message"
+            message.write_text("R872: legacy latest\n", encoding="utf-8")
+            self.assertEqual(self.run_hook(HOOKS / "commit-msg", str(message), cwd=root).returncode, 0)
+            message.write_text("R871: legacy stale\n", encoding="utf-8")
+            stale = self.run_hook(HOOKS / "commit-msg", str(message), cwd=root)
+            self.assertNotEqual(stale.returncode, 0)
+            self.assertIn("R871 不等于中央已领取轮次 R872", stale.stderr)
 
     def test_precommit_requires_explicit_allowlist_for_program_code(self):
         with tempfile.TemporaryDirectory() as temporary:

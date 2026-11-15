@@ -1,0 +1,15 @@
+{
+  "round": 2695,
+  "commit_base": "ec62c7cc",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k git_hooks round_claim",
+    "exit": 0,
+    "passed": 38,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T17:48:42"
+}

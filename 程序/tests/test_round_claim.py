@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import sys
 import subprocess
 import tempfile
@@ -66,6 +67,57 @@ class RoundClaimTests(unittest.TestCase):
             with mock.patch('builtins.print') as printed:
                 self.assertEqual(round_claim.claim_next(common_dir=common, tasks_round=self._tasks(root, 3), root=root), 1017)
             printed.assert_called_once_with("计数器已从 997 追平到 1016")
+
+    def test_claim_records_owner_worktree_branch_and_time(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._init_repo(root)
+            top = subprocess.run(["git", "-C", str(root), "rev-parse", "--show-toplevel"],
+                                 capture_output=True, text=True, check=True).stdout.strip()
+            branch = subprocess.run(["git", "-C", str(root), "symbolic-ref", "--quiet", "--short", "HEAD"],
+                                    capture_output=True, text=True).stdout.strip()
+            self.assertEqual(round_claim.claim_next(common_dir=root / ".git",
+                                                    tasks_round=self._tasks(root), root=root), 1)
+            claims = json.loads((root / ".git" / round_claim.CLAIMS_NAME).read_text(encoding="utf-8"))
+            entry = claims["claims"]["1"]
+            self.assertEqual(os.path.normcase(os.path.normpath(entry["worktree"])),
+                             os.path.normcase(os.path.normpath(top)))
+            self.assertEqual(entry["branch"], branch)
+            self.assertTrue(entry["at"])
+
+    def test_record_claim_backfills_owner_and_rejects_foreign_or_unallocated(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._init_repo(root)
+            common = root / ".git"
+            tasks = self._tasks(root)
+            self.assertEqual(round_claim.claim_next(common_dir=common, tasks_round=tasks, root=root), 1)
+            other = Path(temporary) / "other-lane"
+            other.mkdir()
+            counter = common / "round-counter.json"
+            doc = json.loads(counter.read_text(encoding="utf-8"))
+            doc["last_claimed"] = 3
+            counter.write_text(json.dumps(doc), encoding="utf-8")
+            claims_file = common / round_claim.CLAIMS_NAME
+            claims_file.write_text(json.dumps({"claims": {
+                "2": {"worktree": str(other), "branch": "codex/other", "at": "x"},
+                "3": {"worktree": str(Path(temporary) / "gone-lane"),
+                      "branch": "codex/gone", "at": "x"}}}), encoding="utf-8")
+            with self.assertRaisesRegex(RuntimeError, "其他工作树"):
+                round_claim.record_claim(common_dir=common, number=2, claimant_dir=root)
+            with self.assertRaisesRegex(RuntimeError, "尚未分配"):
+                round_claim.record_claim(common_dir=common, number=4, claimant_dir=root)
+            entry = round_claim.record_claim(common_dir=common, number=1, claimant_dir=root)
+            saved = json.loads(claims_file.read_text(encoding="utf-8"))["claims"]
+            self.assertEqual(os.path.normcase(os.path.normpath(saved["2"]["worktree"])),
+                             os.path.normcase(os.path.normpath(str(other))))
+            self.assertEqual(os.path.normcase(os.path.normpath(saved["1"]["worktree"])),
+                             os.path.normcase(os.path.normpath(entry["worktree"])))
+            # 登记路径已不存在的失效记录允许补登到新位置。
+            moved = round_claim.record_claim(common_dir=common, number=3, claimant_dir=root)
+            saved = json.loads(claims_file.read_text(encoding="utf-8"))["claims"]
+            self.assertEqual(os.path.normcase(os.path.normpath(saved["3"]["worktree"])),
+                             os.path.normcase(os.path.normpath(moved["worktree"])))
 
     def test_concurrent_claims_are_unique_and_contiguous(self):
         with tempfile.TemporaryDirectory() as temporary:

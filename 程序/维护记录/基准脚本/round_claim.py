@@ -19,6 +19,7 @@ RESULT_RE = re.compile(r"tasks_round_(\d+)_result\.md$")
 COMMIT_ROUND_RE = re.compile(r"^R(\d+)(?:-FAIL)?:")
 LOCK_NAME = "round-claim.lock"
 COUNTER_NAME = "round-counter.json"
+CLAIMS_NAME = "round-claims.json"
 QUEUE_NAME = "maintenance-queue.json"
 SNAPSHOT = Path("程序") / "维护记录" / "任务队列.json"
 
@@ -157,6 +158,56 @@ def read_counter(counter: Path) -> int:
         return 0
 
 
+def _read_counter_doc(counter: Path) -> dict:
+    try:
+        value = json.loads(counter.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def _counter_last(doc: dict) -> int:
+    try:
+        return int(doc.get("last_claimed") or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _read_claims_doc(claims_path: Path) -> dict:
+    """认领归属登记独立成文件：旧版 claim_next 只重写 round-counter.json，
+    混合版本并行时登记不被他车道的旧代码抹掉。"""
+    try:
+        value = json.loads(claims_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    claims = value.get("claims") if isinstance(value, dict) else None
+    return claims if isinstance(claims, dict) else {}
+
+
+def _write_claims_doc(claims_path: Path, claims: dict) -> None:
+    _atomic_json_write(claims_path, {"claims": claims})
+
+
+def worktree_root(cwd: Path) -> str:
+    """``cwd`` 所在工作树的顶层路径；与 commit-msg 钩子核对归属用同一条 git 命令。"""
+    result = subprocess.run(["git", "-C", str(cwd), "rev-parse", "--show-toplevel"],
+                            capture_output=True, text=True)
+    if result.returncode:
+        return str(Path(cwd).resolve())
+    return result.stdout.strip()
+
+
+def current_branch(cwd: Path) -> str:
+    result = subprocess.run(["git", "-C", str(cwd), "symbolic-ref", "--quiet", "--short", "HEAD"],
+                            capture_output=True, text=True)
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
+def _claim_owner(claimant_dir: Path) -> dict:
+    return {"worktree": worktree_root(claimant_dir), "branch": current_branch(claimant_dir),
+            "at": datetime.now().astimezone().isoformat(timespec="seconds")}
+
+
 def _acquire_lock(common_dir: Path, timeout: float = 15.0) -> Path:
     lock = common_dir / LOCK_NAME
     deadline = time.monotonic() + timeout
@@ -192,18 +243,57 @@ def _atomic_json_write(path: Path, value: object) -> None:
     os.replace(temporary, path)
 
 
-def claim_next(*, common_dir: Path, tasks_round: Path, root: Path = ROOT) -> int:
-    """在共享 git common-dir 下原子地领取下一个未使用轮次。"""
+def claim_next(*, common_dir: Path, tasks_round: Path, root: Path = ROOT,
+               claimant_dir: Path | None = None) -> int:
+    """在共享 git common-dir 下原子地领取下一个未使用轮次，并记录认领工作树归属。
+
+    ``round-claims.json`` 让 commit-msg 校验「本轮次属于本工作树」而不是「本轮次是全局最新领号」，
+    多车道并行时先领号的车道在测试与等待期间不再被后领号车道顶掉提交。"""
     with shared_lock(common_dir):
         counter = common_dir / COUNTER_NAME
-        claimed = read_counter(counter)
+        doc = _read_counter_doc(counter)
+        claimed = _counter_last(doc)
         git_floor = latest_git_round(root)
         if claimed < git_floor:
             print("计数器已从 %s 追平到 %s" % (claimed, git_floor))
             claimed = git_floor
         next_round = max(claimed, latest_result_round(tasks_round)) + 1
-        _atomic_json_write(counter, {"last_claimed": next_round})
+        # 先写计数器再写归属：中途崩溃时新号仍是 last_claimed，旧规则兜底可提交。
+        doc.pop("claims", None)  # 早期试装把 claims 写进计数器，迁出到独立文件
+        doc["last_claimed"] = next_round
+        _atomic_json_write(counter, doc)
+        claims_path = common_dir / CLAIMS_NAME
+        claims = _read_claims_doc(claims_path)
+        claims[str(next_round)] = _claim_owner(Path(claimant_dir) if claimant_dir else Path(root))
+        _write_claims_doc(claims_path, claims)
         return next_round
+
+
+def record_claim(*, common_dir: Path, number: int, claimant_dir: Path) -> dict:
+    """为已分配但缺归属记录的轮次补登当前工作树（升级前在途认领的迁移路径）。
+
+    只允许登记 ``last_claimed`` 以内的号；已有他主记录时拒绝，避免抢占他人轮次。"""
+    with shared_lock(common_dir):
+        counter = common_dir / COUNTER_NAME
+        doc = _read_counter_doc(counter)
+        last = _counter_last(doc)
+        if number < 1 or number > last:
+            raise RuntimeError("轮次 R%d 尚未分配（last_claimed=%d），请先 next 领号" % (number, last))
+        claims_path = common_dir / CLAIMS_NAME
+        claims = _read_claims_doc(claims_path)
+        existing = claims.get(str(number))
+        owner = existing.get("worktree") if isinstance(existing, dict) else existing
+        mine = worktree_root(Path(claimant_dir))
+        same = owner and os.path.normcase(os.path.normpath(str(owner))) == \
+            os.path.normcase(os.path.normpath(mine))
+        # 登记路径已不存在（工作树被移动或删除）时视为失效记录，允许补登新位置。
+        stranded = owner and not same and not os.path.isdir(str(owner))
+        if owner and not same and not stranded:
+            raise RuntimeError("轮次 R%d 已登记属于其他工作树：%s" % (number, owner))
+        entry = _claim_owner(Path(claimant_dir))
+        claims[str(number)] = entry
+        _write_claims_doc(claims_path, claims)
+        return dict(entry)
 
 
 def require_branch(root: Path = ROOT) -> None:
@@ -401,6 +491,8 @@ def main(argv: list[str] | None = None) -> int:
     for command in ("show", "validate"):
         sub = subparsers.add_parser(command)
         sub.add_argument("--queue", type=Path, default=DEFAULT_QUEUE)
+    record_parser = subparsers.add_parser("record", help="为已分配轮次补登当前工作树归属")
+    record_parser.add_argument("number", type=int)
     for command, help_text in (("claim", "认领队列任务"), ("release", "释放队列任务"), ("complete", "收口队列任务")):
         sub = subparsers.add_parser(command, help=help_text)
         sub.add_argument("task_id")
@@ -423,7 +515,8 @@ def main(argv: list[str] | None = None) -> int:
         except (RuntimeError, subprocess.CalledProcessError) as error:
             print(str(error), file=sys.stderr)
             return 2
-        number = claim_next(common_dir=common_dir, tasks_round=PROGRAM / "tasks_round", root=ROOT)
+        number = claim_next(common_dir=common_dir, tasks_round=PROGRAM / "tasks_round",
+                            root=ROOT, claimant_dir=Path.cwd())
         park_dirty_checkout(number, Path.cwd())
         ensure_hooks(common_dir)
         print(number)
@@ -439,6 +532,14 @@ def main(argv: list[str] | None = None) -> int:
                 print("WARN " + message)
             print("validate: %d errors, %d warnings" % (len(errors), len(warnings)))
             return int(bool(errors))
+    elif args.command == "record":
+        try:
+            require_branch(Path.cwd())
+        except RuntimeError as error:
+            print(str(error), file=sys.stderr)
+            return 2
+        entry = record_claim(common_dir=common_dir, number=args.number, claimant_dir=Path.cwd())
+        print(json.dumps(entry, ensure_ascii=False))
     elif args.command == "claim":
         item = claim_task(common_dir=common_dir, queue_path=args.queue, task_id=args.task_id,
                           owner=args.owner, lease_minutes=args.lease_minutes)
