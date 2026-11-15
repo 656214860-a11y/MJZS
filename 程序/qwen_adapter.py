@@ -11,8 +11,6 @@ from workflow_context_budget import ensure_request_context
 # 比 --max-wall-time 2h 多留 10 分钟：CLI 自己的时限先生效，它卡死时由这里兜底。
 TIMEOUT_SECONDS = 2 * 3600 + 600
 
-def install_root():return Path(os.environ.get('LOCALAPPDATA',str(Path.home())))/'qwen-code/qwen-code'
-
 def command(config):
     return client_profiles.qwen_command(config)
 

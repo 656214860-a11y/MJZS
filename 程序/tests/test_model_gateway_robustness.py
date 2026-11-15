@@ -57,7 +57,6 @@ class StreamLifecycleTests(unittest.TestCase):
         return result, seen
 
     def test_stream_without_completion_event_is_rejected(self):
-        import urllib.request
         body = (b'data: {"choices":[{"delta":{"content":"ok"}}]}\n\n')
         result, seen = self.stream(body)
         self.assertFalse(result['ok'])
@@ -65,7 +64,6 @@ class StreamLifecycleTests(unittest.TestCase):
         self.assertEqual(seen, ['ok'])
 
     def test_stream_with_finish_reason_is_complete(self):
-        import urllib.request
         body = (b'data: {"choices":[{"delta":{"content":"ok"}}]}\n\n'
                 b'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n')
         result, seen = self.stream(body)

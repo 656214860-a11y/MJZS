@@ -32,6 +32,9 @@ DEFAULT_MODEL = 'deepseek-v4-flash'
 AUTO = 'auto'
 CIRCUIT_FAILURE_THRESHOLD = 3
 CIRCUIT_COOLDOWN_SECONDS = 60.0
+# 记为熔断失败的状态：本地网络异常（0）与可重放的 HTTP 状态。与 model_metering.REPLAYABLE_RETRY_STATUS
+# 同口径，但刻意不含 409——那是「提交已受理」的冲突码，不该把模型判进熔断。
+CIRCUIT_RETRY_STATUS = (0, 408, 425, 429, 500, 502, 503, 504)
 _CIRCUIT_LOCK = threading.Lock()
 _CIRCUITS = {}
 
@@ -151,13 +154,6 @@ def _parse_response(wire_api, data, target):
         text = _WIRE_PARSERS.get(wire_api, _parse_completions)(data, meta)
     meta['content_length'] = len(text)
     return text, meta
-
-
-_REQUIRED_RESPONSE_FIELDS = {
-    'chat': ('choices',),
-    'responses': ('output',),
-    'messages': ('content',),
-}
 
 
 def response_envelope_error(wire_api, data):
@@ -698,7 +694,7 @@ class ModelRouter:
                     self.ledger.record(model, result.get('usage') or {}, tier=tier,
                                        at=self.clock() if callable(self.clock) else None)
                 return result
-            if result.get('status') in (0, 408, 425, 429, 500, 502, 503, 504):
+            if result.get('status') in CIRCUIT_RETRY_STATUS:
                 record_circuit_failure(model)
             if not policy['retryable']:
                 return result
@@ -741,7 +737,7 @@ class ModelGateway:
             result = dict(result, attempts=results)
             if result.get('ok'):
                 record_circuit_success(model)
-            elif result.get('status') in (0, 408, 425, 429, 500, 502, 503, 504):
+            elif result.get('status') in CIRCUIT_RETRY_STATUS:
                 record_circuit_failure(model)
             if result.get('ok') or not policy['retryable']:
                 return result
@@ -761,7 +757,7 @@ class ModelGateway:
                                     on_chunk=on_chunk, cancelled=cancelled)
             if result.get('ok'):
                 record_circuit_success(model)
-            elif result.get('status') in (0, 408, 425, 429, 500, 502, 503, 504):
+            elif result.get('status') in CIRCUIT_RETRY_STATUS:
                 record_circuit_failure(model)
             if result.get('ok') or not failure_policy(result)['retryable']:
                 return result
