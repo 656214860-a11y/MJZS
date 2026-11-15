@@ -102,7 +102,8 @@ def main(argv=None) -> int:
     if foreign_changes(_git("status", "--porcelain", "--untracked-files=no").stdout):
         print("master 检出有未提交改动或他人暂存，先处理再合并。", file=sys.stderr)
         return 2
-    # 先等全量验收锁再领号：等锁可能几十分钟，期间别的会话会领走下一个号，领早了提交就被钩子拒。
+    # 先等全量验收锁再合并：等锁可能几十分钟；轮次号在 --no-commit 成功后才领，
+    # 避免冲突中止白白烧号。认领归属记入 round-claims.json，之后他车道领新号不再顶掉本合并提交。
     if not commit_round.wait_for_lock(commit_round.common_dir(), 30 * 60):
         print("等全量验收锁超过 30 分钟，未合并。", file=sys.stderr)
         return 3

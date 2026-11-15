@@ -17,23 +17,67 @@ if ! printf '%s\n' "$first_line" | grep -Eq '^R[0-9]+(-FAIL)?: .+'; then
 fi
 round=$(printf '%s\n' "$first_line" | sed -E 's/^R([0-9]+)(-FAIL)?: .*/\1/')
 common=$(git rev-parse --git-common-dir) || exit 1
-last_claimed=$(python - "$common/round-counter.json" <<'PY'
+top=$(git rev-parse --show-toplevel) || exit 1
+# 轮次归属：round-claims.json 的 claims 记录每个轮次由哪个工作树领走（独立文件，
+# 旧版领号只重写 round-counter.json，不会抹掉登记）；commit-msg 校验
+# 「本轮次属于本工作树」而非「是全局最新领号」，多车道并行不再互相顶掉。
+# 无归属记录的旧格式轮次沿用旧规则（须等于 last_claimed）。
+verdict=$(python - "$common/round-counter.json" "$common/round-claims.json" "$top" "$round" <<'PY'
 import json
+import os
 import sys
+
+
+def norm(path):
+    return os.path.normcase(os.path.normpath(path))
+
+
+counter_path, claims_path, top, want_raw = sys.argv[1:5]
 try:
-    with open(sys.argv[1], encoding='utf-8') as handle:
-        print(int(json.load(handle)['last_claimed']))
-except (OSError, ValueError, KeyError, TypeError):
+    want = int(want_raw)
+    with open(counter_path, encoding='utf-8') as handle:
+        counter = json.load(handle)
+except (OSError, ValueError, TypeError):
     sys.exit(2)
+if not isinstance(counter, dict):
+    sys.exit(2)
+try:
+    last = int(counter.get('last_claimed') or 0)
+except (TypeError, ValueError):
+    last = 0
+try:
+    with open(claims_path, encoding='utf-8') as handle:
+        payload = json.load(handle)
+    claims = payload.get('claims') if isinstance(payload, dict) else None
+except (OSError, ValueError):
+    claims = None
+entry = claims.get(str(want)) if isinstance(claims, dict) else None
+owner = entry.get('worktree') if isinstance(entry, dict) else entry
+if owner:
+    print('ok' if norm(str(owner)) == norm(top) else 'foreign')
+elif entry is not None:
+    print('foreign')
+elif want == last:
+    print('ok')
+else:
+    print('stale:%d' % last)
 PY
 ) || {
   echo "拒绝提交：未找到有效中央轮次号；请先跑 round_claim.py next。" >&2
   exit 1
 }
-if [ "$round" != "$last_claimed" ]; then
-  echo "拒绝提交：R$round 不等于中央已领取轮次 R$last_claimed；请先跑 round_claim.py next。" >&2
-  exit 1
-fi
+case "$verdict" in
+  ok) ;;
+  foreign)
+    echo "拒绝提交：R$round 的轮次认领属于其他工作树；请在认领它的工作树提交，或重新领号。" >&2
+    exit 1 ;;
+  stale:*)
+    echo "拒绝提交：R$round 不等于中央已领取轮次 R${verdict#stale:}；请先跑 round_claim.py next。" >&2
+    exit 1 ;;
+  *)
+    echo "拒绝提交：无法核对中央轮次号；请先跑 round_claim.py next。" >&2
+    exit 1 ;;
+esac
 if git log --all --not HEAD --format=%s | grep -Eq "^R${round}(-FAIL)?:"; then
   echo "拒绝提交：R$round 已被非祖先分支使用；请先跑 round_claim.py next。" >&2
   exit 1
