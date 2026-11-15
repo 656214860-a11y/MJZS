@@ -81,7 +81,7 @@ class IdeaSendGateMixin:
             return self._idea_live_attach_fields
         from stage_execution_service import (stage_idea_attachment_reference,
                                              stage_idea_brief_defaults)
-        from script_contract import PRODUCTION_LOCK_DEFINITIONS
+        from contract.script_contract import PRODUCTION_LOCK_DEFINITIONS
         reference = stage_idea_attachment_reference(self.root, self.draft_text(), paths)
         fields = dict(stage_idea_brief_defaults(self.root, reference=reference)['values'])
         lock_labels = tuple(label for item in lock_definitions

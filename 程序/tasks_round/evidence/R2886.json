@@ -1,0 +1,15 @@
+{
+  "round": 2886,
+  "commit_base": "f4afbe32",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k writing_quality writing_unconfirm stage_completion_service remote_pre_receive idea_send_gate script_workspace_results",
+    "exit": 0,
+    "passed": 89,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T23:45:04"
+}

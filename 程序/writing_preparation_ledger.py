@@ -145,11 +145,19 @@ def _preparation_work_index(documents, message):
 
 
 def _preparation_draft_is_parallel(project, requested):
-    """REQ-S01-89：重写口令指向未确认并行草稿时按重起草处理，不走采用稿重写。"""
-    from stage_path_service import write_dir
+    """REQ-S01-89：重写口令指向未确认并行草稿时按重起草处理，不走采用稿重写。
+
+    台账不是 dict 或缺 ``documents`` 列表时按非并行处理，交给
+    ``_preparation_state`` 的「记录无效」校验给出原口径报错。"""
+    from contract.stage_path_service import write_dir
     target = write_dir(project, 'script') / 'preparation_state.json'
     early = read_json(target) if target.is_file() else None
-    documents = _working_documents(early) if isinstance(early, dict) else []
+    box = early.get('revision') if isinstance(early, dict) else None
+    if not isinstance(box, dict):
+        box = early
+    documents = box.get('documents') if isinstance(box, dict) else None
+    if not isinstance(documents, list):
+        return False
     position = PREPARATION_STAGES.index(requested)
     return (position < len(documents) and isinstance(documents[position], dict)
             and documents[position].get('confirmed') is not True

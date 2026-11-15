@@ -156,6 +156,8 @@ def evidence_problem(raw):
         data = json.loads(raw)
     except ValueError:
         return '证据文件不是合法 JSON'
+    if not isinstance(data, dict):
+        return '证据文件不是 JSON 对象'
     scan, tests = data.get('credential_scan') or {}, data.get('targeted') or {}
     if scan.get('ran') is not True or scan.get('hits'):
         return '凭据扫描未执行或有命中'

@@ -175,9 +175,11 @@ def adopted_quality(script_path, quality_root):
     for key in REPORTS:
         path = folder / (key + '.json')
         try:
-            statuses[key] = str(read_json(path).get('status') or 'invalid')
+            data = read_json(path)
         except (OSError, ValueError):
-            statuses[key] = 'invalid'
+            data = None
+        statuses[key] = (str(data.get('status') or 'invalid')
+                         if isinstance(data, dict) else 'invalid')
     return statuses
 
 

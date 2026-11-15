@@ -679,7 +679,7 @@ def _script_adoption_state(project):
     只读 selection 记录与文件存在性；sha 等完整核验由 resolve_script_source
     在完成核验时执行，这里不重复。"""
     from file_cache import read_json
-    from script_contract import natural_script_selection_path
+    from contract.script_contract import natural_script_selection_path
     selection = natural_script_selection_path(project)
     record = read_json(selection) if selection.is_file() else None
     if isinstance(record, dict) and record.get('reason') and not record.get('path'):
@@ -693,8 +693,8 @@ def _script_adoption_state(project):
 def _adopted_script_quality(project):
     """当前采用稿的质检状态表；无采用稿或未生成报告返回 None（报告级只读）。"""
     try:
-        from script_contract import resolve_script_source
-        from stage_path_service import write_dir
+        from contract.script_contract import resolve_script_source
+        from contract.stage_path_service import write_dir
         from writing_quality import adopted_quality
         source = resolve_script_source(project)
         return adopted_quality(source, write_dir(project, 'script') / 'quality') if source else None
@@ -729,7 +729,7 @@ def completion_evidence(root, stage, video_ready=None):
             ok = (source is not None) if stage == 'script' else script_contract.is_structured_script(source)
             if ok and stage == 'script':
                 # REQ-S01-22：采用稿存在质检报告时，fail/invalid 项硬卡完成核验。
-                from stage_path_service import write_dir
+                from contract.stage_path_service import write_dir
                 from writing_quality import adopted_quality, REPORTS, QUALITY_BLOCKING
                 statuses = adopted_quality(source, write_dir(root, 'script') / 'quality')
                 if statuses is not None:

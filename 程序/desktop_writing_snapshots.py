@@ -19,9 +19,12 @@ class WritingSnapshotsMixin:
     def preparation_snapshots(self, stage):
         """REQ-S01-87：该阶段已登记的确认快照（台账倒序，新→旧）。"""
         from file_cache import read_json
-        from stage_path_service import write_dir
+        from contract.stage_path_service import write_dir
         folder = write_dir(self.page.root, 'script')
-        state = read_json(folder / 'preparation_state.json') or {}
+        try:
+            state = read_json(folder / 'preparation_state.json') or {}
+        except OSError:
+            state = {}
         return [item for item in reversed(state.get('snapshots') or [])
                 if isinstance(item, dict) and item.get('stage') == stage]
 
@@ -62,7 +65,7 @@ class WritingSnapshotsMixin:
 
     def _show_snapshot_text(self, stage, record, *, diff):
         """快照查看或快照→当前文件 unified diff 弹窗；正文差异一目了然。"""
-        from stage_path_service import write_dir
+        from contract.stage_path_service import write_dir
         folder = write_dir(self.page.root, 'script')
         snapshot = folder / str(record.get('snapshot') or '')
         try:

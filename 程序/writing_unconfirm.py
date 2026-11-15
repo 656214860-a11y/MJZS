@@ -183,7 +183,7 @@ def apply_partial_adoption(project, stage, path, keep, *, publish):
         raise TypeError('剧本准备阶段需要 L3 注入发布器')
     if stage not in PREPARATION_STAGES:
         raise ValueError('请选择项目设定、剧本大纲或角色卡')
-    from stage_path_service import write_dir
+    from contract.stage_path_service import write_dir
     folder = write_dir(project, 'script').resolve()
     target = folder / 'preparation_state.json'
     chosen = Path(path).resolve()
