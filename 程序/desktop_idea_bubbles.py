@@ -310,12 +310,13 @@ class IdeaBubblesMixin:
             box.tag_bind(toggle,'<Enter>',lambda event,b=box:b.configure(cursor='hand2'))
             box.tag_bind(toggle,'<Leave>',lambda event,b=box:b.configure(cursor='xterm'))
         # SKILL 注入与时间合成一行，放在这条消息的最下面（复制／删除图标之上）。
-        # 页脚留在底框外面，但必须整句可见：贴对话区左边沿、整段按词换行——
-        # 若跟着用户气泡右移，右侧只剩一个气泡的宽度，再加 wrap='none' 就会被内容框裁掉。
+        # 页脚留在底框外面，但必须整句可见：左右边距钉在对话区边沿、整段按词换行——
+        # 若跟着用户气泡收窄，右侧只剩一个气泡的宽度，再加 wrap='none' 就会被内容框裁掉。
+        # 文字对齐跟气泡分列一致：用户消息（SKILL 摘要只挂在用户消息上）右对齐，模型消息左对齐。
         import idea_chat
         footer='  '.join(part for part in (idea_chat.skill_injection_summary(row),self.bubble_time(row.get('at'))) if part)
         if footer:
-            box.tag_configure(name+'_time',justify='left',foreground=COLORS['text_muted'],
+            box.tag_configure(name+'_time',justify='right' if mine else 'left',foreground=COLORS['text_muted'],
                               lmargin1=BUBBLE_GAP,lmargin2=BUBBLE_GAP,rmargin=BUBBLE_GAP,
                               spacing1=0,spacing3=1,font=BUBBLE_TIME_FONT,wrap='word')
             box.insert('end',footer+'\n',name+'_time')
