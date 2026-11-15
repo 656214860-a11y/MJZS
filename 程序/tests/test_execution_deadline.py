@@ -46,7 +46,8 @@ class ExecutionDeadlineTests(unittest.TestCase):
                 opener.assert_not_called()
                 response = opener.return_value.open.return_value.__enter__.return_value
                 import json
-                response.read.return_value = json.dumps(receipt).encode()
+                body = json.dumps(receipt).encode()
+                response.read.side_effect = [body, b'']
                 with mock.patch('api_endpoints.configured_key', return_value='test'):
                     adapter.poll('saved-task')
                 request = opener.return_value.open.call_args.args[0]

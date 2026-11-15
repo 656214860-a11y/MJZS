@@ -2212,8 +2212,14 @@
    "covered": 10,
    "total": 10,
    "percent": 100.0
+  },
+  {
+   "module": "http_client.py",
+   "covered": 0,
+   "total": 108,
+   "percent": 0.0
   }
  ],
  "modules_covered": 59,
- "modules_total": 367
+ "modules_total": 368
 }

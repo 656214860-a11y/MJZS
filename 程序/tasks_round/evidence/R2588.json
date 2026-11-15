@@ -1,0 +1,15 @@
+{
+  "round": 2588,
+  "commit_base": "332353f1",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k http_client http_boundary layers agent_doc service_return",
+    "exit": 0,
+    "passed": 49,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T12:56:20"
+}

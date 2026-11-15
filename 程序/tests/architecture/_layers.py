@@ -39,7 +39,7 @@ _register(5, "app_shortcut")
 _register(0, "artifact_schema", "api_models", "frame_checks", "model_protocol", "pet_settings_contract",
           "prop_assets", "shot_selection", "storyboard_contract", "workflow_context_budget")
 _register(1, "api_endpoints", "broadcaster", "clipboard_lock",
-          "comfy_service", "engine_probe", "h3_reference_adapter", "model_diagnostics", "model_router",
+          "comfy_service", "engine_probe", "h3_reference_adapter", "http_client", "model_diagnostics", "model_router",
           "native_apps", "seedream_api", "token_saver", "tk_timers")
 _register(2, "asset_batch_settings_service", "asset_plan", "asset_resume", "audio_import_service", "edit_export", "usage_overview",
           "desktop_settings_service", "legacy_adoption_service", "project_naming",

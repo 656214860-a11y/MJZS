@@ -70,7 +70,7 @@
 19. **阶段路径新写旧读**：新写入走 `stage_path_service`；旧目录只读兼容。
 20. **完成事件以产物核验为准**：由 `stage_completion_service` 核验产物；模型文字和 UI 提示不算完成证据。
 22. **事件发送边界**：跨模块状态只经 `pet_bus.emit_safe()`；仅 `pet_agent._emit()` 与 `pet_ui._emit()` 可作受控转发，不直调 `Bus.emit()`。`broadcaster` 只记录用户可见文本日志。
-42. **出站请求唯一入口**：HTTP 请求走 `platform_tools.open_https()`（模型 API 走 `api_endpoints`），必须设超时；直接建连只允许出现在 `platform_tools`，由 `test_outbound_http_authority` 守卫。
+42. **出站请求唯一入口**：新 JSON API 走 `http_client.request_json()`（超时必填、错误码、有界重试、响应上限、脱敏）；存量直连逐步迁入；`urlopen`／`build_opener` 只许 `http_client` 与登记白名单，`test_http_boundary` 守卫。
 
 ### 2.4 测试契约变更
 

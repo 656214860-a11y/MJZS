@@ -32,8 +32,8 @@ class WanAdapter(VideoAdapter):
                            'prompt_extend': False, 'watermark': False}}
 
     def call(self, task_id=None, payload=None):
-        import urllib.request, urllib.error          # 第 34 期第 9 条：HTTP 栈按需加载
-        from api_endpoints import no_redirect
+        import urllib.error, urllib.parse          # 第 34 期第 9 条：HTTP 栈按需加载
+        import http_client
         from api_endpoints import configured_key
         from platform_tools import current_execution
         control = current_execution()
@@ -42,23 +42,24 @@ class WanAdapter(VideoAdapter):
             timeout = control.remaining(timeout)
         key = configured_key(self.cfg)
         url = self.base + ('/tasks/' + urllib.parse.quote(task_id, safe='') if task_id else '/services/aigc/video-generation/video-synthesis')
-        headers = {'Authorization': 'Bearer '+key, 'Content-Type': 'application/json'}
+        headers = {'Authorization': 'Bearer '+key}
         if payload is not None:
             headers['X-DashScope-Async'] = 'enable'
-        data = json.dumps(payload, ensure_ascii=False).encode() if payload is not None else None
-        req = urllib.request.Request(url, data=data, headers=headers)
-        try:
-            with urllib.request.build_opener(no_redirect()).open(req, timeout=timeout) as r:
-                result = json.load(r)
-        except urllib.error.HTTPError as e:
-            try:
-                result = json.loads(e.read(8192))
-            except Exception:
-                result = {}
-            message = str(result.get('message', '')).replace(key, '[REDACTED]')
-            message = re.sub(r'data:image/[^\s\"]+', '[IMAGE]', message)[:600]
-            raise ArkRejected(f"HTTP {e.code} / {result.get('code', 'Unknown')} / {message} / request_id={result.get('request_id', '')}") from None
-        return result
+        result = http_client.request_json('POST' if payload is not None else 'GET', url,
+                                          headers=headers, payload=payload, timeout=timeout)
+        data = result.data or {}
+        if result.ok:
+            parsed = data.get('json')
+            if parsed is None:
+                raise ValueError('接口返回非 JSON 响应')
+            return parsed
+        status = data.get('status')
+        if status is None:
+            raise urllib.error.URLError(str(data.get('error_body') or result.reason))
+        body = data.get('error_json') or {}
+        message = str(body.get('message', '')).replace(key, '[REDACTED]')
+        message = re.sub(r'data:image/[^\s\"]+', '[IMAGE]', message)[:600]
+        raise ArkRejected(f"HTTP {status} / {body.get('code', 'Unknown')} / {message} / request_id={body.get('request_id', '')}") from None
 
     def submit(self, shot, frame, request_id, *, payload=None):
         result = self.call(payload=self.payload(shot, frame) if payload is None else payload)

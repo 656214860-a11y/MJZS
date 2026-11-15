@@ -1,0 +1,15 @@
+{
+  "round": 2593,
+  "commit_base": "bc5a805b",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k unification_ratchet http_client http_boundary execution_deadline shared_adapter cloud_video",
+    "exit": 0,
+    "passed": 54,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T13:18:56"
+}
