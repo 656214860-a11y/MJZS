@@ -65,7 +65,7 @@ import model_pool
 import model_router
 import skill_note_render
 import skill_notes
-from stage_model_picker import stage_button_for
+from stage_model_picker import attach_stage_pickers, stage_button_for
 from tk_timers import repeat
 import skill_budget
 import skill_orchestrator

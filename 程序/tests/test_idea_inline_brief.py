@@ -301,6 +301,11 @@ class InlineBriefDesktopTests(_Harness):
                 d.idea_log.event_generate('<Return>'); win.update()
                 self.assertEqual(d.idea_log.get('1.0', 'end-1c'), before)
                 send.assert_not_called()
+                # 轮 4 契约：共享输入框空文本 Enter 不派发（send() 直接拒收）；
+                # 有内容时 Enter 才进 send_message。
+                d.idea_input.event_generate('<Return>'); win.update()
+                send.assert_not_called()
+                d.idea_input.insert('1.0', '一条创意'); win.update()
                 d.idea_input.focus_force(); win.update()
                 d.idea_input.event_generate('<Return>'); win.update()
                 send.assert_called_once()

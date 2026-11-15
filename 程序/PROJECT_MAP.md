@@ -4,7 +4,7 @@
 
 R1250：项目共享的准备文件可通过文件右键“从本阶段重新创作”进入重写。既有 preparation_state 的 documents 保留采用版本，revision.documents 保存当前待确认分支；确认后撤销下游确认并清空自然稿采用选择，历史文件不删除。切换模型本身不清空确认。API 输出发布前校验输入版本及模型选择；与按模型隔离的聊天历史分开管理。
 
-R1247 数据边界：剧本聊天及回收站位于 `01剧本准备/模型会话/<稳定模型ID--摘要>/创意对话/`；显示名仅作展示，旧目录首次读取迁移。自然稿采用记录 `01剧本准备/natural_script_selection.json` 绑定相对路径与内容摘要，多稿须明确采用。API 快照、历史和输出归属同一次提交；用量为本模型最近回复的估算／实报，项目已确认资料仍共享。
+R1247 数据边界（R2898 更新）：剧本聊天及回收站统一位于 `01剧本准备/创意对话/`（对话.json／已删除消息.json），不再按模型分目录；旧 `模型会话/<稳定模型ID--摘要>/创意对话/` 与 `<提供方>/<模型>/创意对话/` 目录首次读取时只迁移不删地并入统一文件，显示名仅作行内署名与筛选视图。自然稿采用记录 `01剧本准备/natural_script_selection.json` 绑定相对路径与内容摘要，多稿须明确采用。API 快照、历史和输出归属同一次提交；用量为本模型最近回复的估算／实报，项目已确认资料仍共享。
 
 执行与验证规则统一见 `AGENTS.md`；分层说明见 `architecture.md`，当前验收事实见 `project_status.md`；
 数据字段见 `data_model.md`，任务状态与尝试链见 `task_states.md`，部署与运维见 `runbook.md`（R1625）；联调/测试阶段出口、需求→用例三态映射与缺陷守护索引见 `说明/联调测试出口基线.md`（R1627）。下列目录表是 `pet_bus.STAGES`／`STAGE_NAMES` 与 `stage_layout.STAGES` 的阅读投影，变更契约时须同步代码及文档；本轮仅校正文档，不改变权威定义。
@@ -16,7 +16,7 @@ R1247 数据边界：剧本聊天及回收站位于 `01剧本准备/模型会话
 | 桌面与页面 | `app.py`、`desktop.py`、`desktop_startup_service.py`、`storyboard_files.py` | `desktop` 创建窗口和绑定事件；无 Tk 启动控制器编排首帧延迟、项目选择与取消；其余负责项目选择、13 阶段页面、文件表及关闭清理 |
 | UI 设计系统 | `ui_tokens.py`、`ui_widgets.py`（`Tooltip`／`Splash` 已拆到 `ui_tooltip.py`／`ui_splash.py`，原路径仍可导入）、`ui_stage_popups.py`（阶段执行窗／手动制作窗呈现器）、`ui_rounded.py`（圆角底图生成）、`ui_motion.py`（行悬停淡入、加载转圈、空态提示）、`ui_scroll.py`（滚轮缓动）、`ui_hover_fade.py`（按钮悬停渐变）、`design_tokens.md`、`ui_components.md` | 设计 token 的代码化事实来源，以及主/次按钮、卡片的 Tk 组件唯一入口 |
 | 三虎与自动化 | `pet_ui.py`（含 `pet_ui_stages／settings／voice／view／support`）、`pet_cloud.py`、`stage_flow.py`、`desktop_automation_service.py`、`desktop_auto_flows.py`、`desktop_idea_chat.py`、`desktop_writing_page.py`、`desktop_storyboard_page.py`、`desktop_page_support.py`、`desktop_asset_pages.py`、`desktop_script_pages.py`（含 `desktop_script_edit_session.py` 剧本框编辑会话：自动保存／右键菜单／撤销快捷键；剧本结构页双阅读框的装配点，经 `script_line_numbers.py` 行号槽、`script_find_bar.py` 查找替换条、`script_outline.py` 大纲面板、`script_reading.py` 阅读辅助编排四个 L4 模块实现，REQ-S02-36）、`desktop_media_pages.py`、`desktop_project_pages.py`、`desktop_idea_menus.py` | 前缀播报、手动/全自动、检查点、暂停和强制停止；桌面自动流程的周期调度、取消、受控异常与到期轮询由无 Tk 服务统一编排 |
-| 阶段配置 | `stage_config.py`、`stage_models.py`、`skill_panel.py`（＋`skill_panel_workflow.py` 制作锁弹窗、`skill_panel_import.py` SKILL 导入、`skill_panel_support.py`）、`skill_registry.py`、`skill_command.py`（`/` 命令解析）、`desktop_shared_input.py`（共享底部输入框） | 单次 > 项目模型优先级、SKILL 勾选与说明、`production_locks` 制作锁（R2862 起无总控预设）、`/` 命令与上游发送门禁（R2893） |
+| 阶段配置 | `stage_config.py`、`stage_models.py`、`skill_panel.py`（＋`skill_panel_workflow.py` 制作锁弹窗、`skill_panel_import.py` SKILL 导入、`skill_panel_support.py`）、`skill_registry.py`、`skill_command.py`（`/` 命令解析）、`desktop_shared_input.py`（共享底部输入框）、`desktop_shared_send.py`（13 页发送分流与模型弹窗） | 单次 > 项目模型优先级、SKILL 勾选与说明、`production_locks` 制作锁（R2862 起无总控预设）、`/` 命令与上游发送门禁（R2893）、13 页共用输入框与按模型隔离取消（R2898） |
 | Codex 技能同步 | `codex_skill_sync.py` | L3：阶段单文件技能物化、来源 hash、所有权保护与孤儿回收；首帧后台和发送前校验 |
 | Agent 工作流 | `workflow_settings.py`、`workflow_engines.py`、`workflow_tasks.py` | GPT/Anthropic API 在对应本机程序可启动时优先本机执行、启动失败兼容 API 回退；桌面模型显式选择、任务文件与进程台账 |
 | 模型与安全 | `model_pool.py`、`model_router.py`、`pet_llm.py`、`model_secrets.py`、`http_client.py`、`contract/error_codes.py` | 厂商/模型池、协议路由、唯一密钥判据、DPAPI；`http_client` 是 L1 统一 JSON HTTP 传输（超时必填、错误码分类、有界重试、响应上限、凭据脱敏），直连 `urlopen`／`build_opener` 由 `test_http_boundary` 白名单棘轮守卫；L0 错误码注册表实体在 `contract/error_codes.py`，顶层 `error_codes.py` 为历史门面 |

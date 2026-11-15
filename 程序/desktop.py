@@ -10,6 +10,7 @@ from desktop_storyboard_page import StoryboardPageMixin, StoryboardPageServices
 from desktop_writing_page import WritingPageMixin, WritingPageServices, TALK_MIN_LINES, TALK_MAX_LINES
 from desktop_page_support import ASSET_FIRST_ROWS, ASSET_ROWS_PER_FRAME, ASSET_ROW_LABEL, STAGE_ACTION_WIDTH, _prefs, THUMB_SIZE, ASSET_ROW_HEIGHT
 from desktop_idea_chat import IdeaChatMixin, IDEA_FIELDS, BUBBLE_FLOOR, BUBBLE_LINE, BUBBLE_MAX_RATIO, script_raw_saved_notice, model_error_display
+import desktop_shared_send
 from desktop_auto_state import AutoStateHolderMixin, create_auto_state
 from desktop_auto_flows import AutoFlowsMixin, UNATTENDED_NEXT, UNATTENDED_BACKOFF_FLOOR, ASSET_RETRY_LIMIT
 import os, shutil, queue, threading, subprocess, sys, time, uuid, hashlib, re, json, logging
@@ -328,6 +329,12 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         self.status_label=ttk.Label(self.body,textvariable=self.banner_status,
                                     style='PaleGreenHint.TLabel',wraplength=WRAPLENGTH['lg'])
         self.status_label.pack(fill='x',pady=DESKTOP_LAYOUT['status_gap'])
+        # 共享底部输入框（任务书轮 4）：13 个阶段页共用同一实例，位于画布与状态栏之间；
+        # 页面切换只调 set_stage 换上下文（desktop_page_nav._sync_shared_input），
+        # 非阶段页与锁定／首页路由由 pack_forget 隐藏。``before`` 把它的包裹位次插到
+        # 状态栏之上，重 pack 也不会掉到状态栏下面。
+        self.shared_input=desktop_shared_send.make_shared_input(self)
+        self.shared_input.pack(side='top',fill='x',before=self.status_label)
         # 忙碌时在状态栏右端转一个小圆圈（BusyState 起停）；平时不占位。
         self.busy_state.spinner=Spinner(self.body,host=self.status_label)
         self._install_status_styles();self.status.trace_add('write',self.sync_status_style);self.sync_status_style()

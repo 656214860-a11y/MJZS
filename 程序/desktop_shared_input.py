@@ -149,6 +149,8 @@ class SharedStageInput(ttk.Frame):
         self.shortcuts.bind(self.input, ('<Escape>',),
                             lambda _e: self.close_completion(),
                             scope=SHORTCUT_SCOPE, name='dismiss_completion')
+        self.shortcuts.bind(self.input, ('<KP_Enter>',), self._on_return,
+                            scope=SHORTCUT_SCOPE, name='send_on_enter')
         self._sync_model_label()
 
     # ── 上下文 ──────────────────────────────────────────────────────────
@@ -231,12 +233,20 @@ class SharedStageInput(ttk.Frame):
             self.close_completion()
 
     def _on_return(self, event):
+        """Enter 发送（Shift+Enter 换行）；补全候选优先——有选中先补全不发送。
+
+        返回 ``'break'`` 拦截同组件上后绑的页面级 Enter 绑定（如剧本页 send_on_enter），
+        保证 13 页共用同一条发送路径；Shift+Enter 返回 None 放行默认换行。
+        """
+        if getattr(event, 'state', 0) & 0x1:
+            return None
         if self._completion_open and self._list.size():
             selection = self._list.curselection()
             if selection:
                 self._apply_completion(self._list.get(selection[0]))
                 return 'break'
-        return None
+        self.send()
+        return 'break'
 
     def _refresh_completion(self):
         options = skill_command.completions(self.text(), stage=self.stage,
@@ -267,10 +277,13 @@ class SharedStageInput(ttk.Frame):
         self.close_completion()
 
     def close_completion(self):
+        """关闭补全层；只在确实关掉了候选时 ``'break'``，否则放行 Esc 的其他宿主绑定
+        （如剧本页输入框的「 Esc 中断任务」）。"""
         if self._completion_open:
             self._completion.pack_forget()
             self._completion_open = False
-        return 'break'
+            return 'break'
+        return None
 
     # ── 发送 ────────────────────────────────────────────────────────────
     def text(self):

@@ -3,6 +3,7 @@
 含侧栏导航入口 go_page／go、整页缓存、show 及其前置 _show_reset_page、按页首帧耗时装饰器，以及两条页内提示。
 """
 import app_logging
+import desktop_shared_send
 import page_navigation_controller as page_nav
 import contract.pet_bus as pet_bus
 import tkinter as tk
@@ -138,6 +139,9 @@ class PageNavMixin:
             'asset_roster':getattr(self,'asset_roster',False),
             'loading_project':getattr(self.win,'_desktop_loading_project',False)},
             free_pages=(PAGE_SITES,PAGE_ACCOUNT),cached_pages=CACHED_PAGES)
+        shared_input=getattr(self,'shared_input',None)
+        if shared_input is not None and plan.route in ('locked','free','home'):
+            shared_input.pack_forget()
         if plan.route=='locked':
             self.locked_page(plan.reason)       # 未登录或授权失效：免费阶段与会员页之外整页换成锁定说明
             self.fit_content()
@@ -244,6 +248,7 @@ class PageNavMixin:
             self.preserve_idea_draft()
         scroll_offset=self.canvas.canvasy(0) if previous_index==index else 0
         self.page_index=index
+        self._sync_shared_input()
         # 第 71 期任务 2：资产详情页与资产清单页都是「05 资产管理」的子路由；翻到别的页就回主页面。
         if index!=PAGE['assets']:self.asset_detail_id=None;self.asset_roster=False
 
@@ -286,6 +291,22 @@ class PageNavMixin:
             self._pending_scroll_layout=None
             self.canvas.yview_moveto(0)
         return scroll_offset, page_cache
+    def _sync_shared_input(self):
+        """共享输入框跟页走（任务书轮 4）：阶段页 ``set_stage`` 换上下文不重建实例，
+        非阶段页（参考网站／会员账户／首页）隐藏；锁定／免费路由由 ``show`` 再隐藏一次。"""
+        shared=getattr(self,'shared_input',None)
+        if shared is None:return
+        stage=desktop_shared_send.stage_for_index(getattr(self,'page_index',None))
+        if not stage:
+            shared.pack_forget()
+            return
+        shared.set_stage(stage)
+        options={'side':'top','fill':'x'}
+        label=getattr(self,'status_label',None)
+        # 视频页会把状态栏 pack_forget：锚点不在管理中时不能用 before，否则 Tcl 报错。
+        if label is not None and label.winfo_manager()=='pack':options['before']=label
+        shared.pack(**options)
+
     def shot_numbering_hint(self):
         """编号与剧本顺序不一致时返回一句提示。只提示不自动改名：重排会改写项目里的文件名与
         文本引用，属于用户可见的改动，必须由人在 03 初步分镜 点「重排镜头编号」确认后执行。"""

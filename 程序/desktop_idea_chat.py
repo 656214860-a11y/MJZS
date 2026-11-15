@@ -167,7 +167,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, I
         """内容真正送出后，清除对应的内存草稿。"""
         if self.root:getattr(self,'_idea_drafts',{}).pop(str(Path(self.root).resolve()),None)
     def idea_chat_model(self):
-        """当前剧本阶段的模型标识；它也是独立聊天页的持久化分区键。"""
+        """当前剧本阶段的模型标识；R2898 起它只是单一创意对话线程里的行内署名与视图筛选。"""
         if not self.root:
             return ''
         import writing_api

@@ -32,6 +32,26 @@ class RemoveRestoreTests(unittest.TestCase):
         idea_chat.restore_latest_removed(self.root, model='模型甲', gateway=self.gateway)
         self.assertEqual(self.texts('模型甲'), ['第一条', '第二条', '第三条'], '恢复应插回原位置，不是对话最顶部')
 
+    def test_remove_all_without_rows_preserves_other_models_chat_and_trash(self):
+        """R2898 契约：统一文件混放所有模型——无行模型的 remove_all 不能误删他人对话与回收站。"""
+        idea_chat.append(self.root, 'user', '乙的对话', model='模型乙', gateway=self.gateway)
+        idea_chat.append(self.root, 'user', '甲的对话', model='模型甲', gateway=self.gateway)
+        idea_chat.append(self.root, 'user', '甲的待删', model='模型甲', gateway=self.gateway)
+        idea_chat.remove_message(self.root, idea_chat.load(self.root, model='模型甲', gateway=self.gateway)[1],
+                                 gateway=self.gateway)
+        trash = idea_transcript.deleted_history_path(self.root, model='模型甲')
+        # 模型丙没有任何行：返回 0，统一对话文件与回收站原样保留。
+        self.assertEqual(idea_chat.remove_all(self.root, model='模型丙', gateway=self.gateway), 0)
+        self.assertEqual(self.texts('模型乙'), ['乙的对话'])
+        self.assertEqual(self.texts('模型甲'), ['甲的对话'])
+        records = json.loads(trash.read_text(encoding='utf-8'))['messages']
+        self.assertEqual([record.get('model') for record in records], ['模型甲'])
+        # 模型甲清空：自己的对话行与删除记录移除，模型乙的对话不受影响。
+        self.assertEqual(idea_chat.remove_all(self.root, model='模型甲', gateway=self.gateway), 1)
+        self.assertEqual(self.texts('模型甲'), [])
+        self.assertEqual(self.texts('模型乙'), ['乙的对话'])
+        self.assertFalse(trash.exists(), '删除记录全部属于本模型时回收站文件整体回收')
+
     def test_remove_all_changes_nothing_when_legacy_backup_cannot_be_recycled(self):
         idea_chat.append(self.root, 'user', '本模型会话', model='模型甲', gateway=self.gateway)
         legacy = writing(Path(self.tmp.name)) / '旧Provider' / '旧名' / idea_transcript.FOLDER / idea_transcript.CHAT_NAME

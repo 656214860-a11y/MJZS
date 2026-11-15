@@ -119,33 +119,36 @@ class SavingTests(unittest.TestCase):
             self.assertEqual([r['text'] for r in idea_chat.load(td, model=identity)], ['旧消息', '已删消息'])
             idea_chat.remove_all(td, model=identity)
             self.assertEqual(idea_chat.load(td, model=identity), [])
-            self.assertEqual(json.loads(old.read_text(encoding='utf-8'))['messages'], [])
+            # R2898 契约：统一文件被整体回收，不再有「清空 messages 的旧模型文件」。
+            self.assertFalse(old.exists())
 
-    def test_rename_before_first_read_preserves_legacy_folder_lookup(self):
+    def test_rename_before_first_read_preserves_rows_in_single_thread(self):
+        """契约变更（R2898）：单一创意对话目录下，改名前写入的旧署名记录仍在同一线程。"""
         import model_pool
         with tempfile.TemporaryDirectory() as td:
             records = model_pool.default_pool()
             old = records['gpt-4o']
-            path = idea_chat.model_history_path(td, old['label'], provider=model_pool.provider_name('gpt-4o', old))
-            path.parent.mkdir(parents=True)
+            path = idea_chat.history_path(td)
+            path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps({'messages': [{'role': 'user', 'text': '尚未迁移', 'model': old['label']}]}), encoding='utf-8')
             changed = model_pool.upsert({'models': records}, dict(old, label='新名称'), 'gpt-4o')
             with patch('model_pool.pool', return_value=changed['models']):
-                self.assertEqual([r['text'] for r in idea_chat.load(td, model='gpt-4o')], ['尚未迁移'])
+                self.assertEqual([r['text'] for r in idea_chat.load(td, model='')], ['尚未迁移'])
 
-    def test_ambiguous_legacy_folder_is_not_assigned_to_either_model(self):
+    def test_same_label_rows_stay_in_single_thread_without_owner_assignment(self):
+        """契约变更（R2898）：不再做旧目录归属判定——单一线程里同名署名的记录都可见，旧文件保留。"""
         import model_pool
         with tempfile.TemporaryDirectory() as td:
             records = {'first': dict(model='first', label='同名', provider='GPT'),
                        'second': dict(model='second', label='同名', provider='GPT')}
-            old = idea_chat.model_history_path(td, '同名', provider='GPT')
-            old.parent.mkdir(parents=True)
+            legacy = (idea_chat.history_path(td).parent.parent / '某商' / '同名' /
+                      idea_chat.FOLDER / idea_chat.CHAT_NAME)
+            legacy.parent.mkdir(parents=True)
             content = json.dumps({'messages': [{'role': 'user', 'text': '旧记录', 'model': '同名'}]})
-            old.write_text(content, encoding='utf-8')
+            legacy.write_text(content, encoding='utf-8')
             with patch('model_pool.pool', return_value=records):
-                with self.assertRaisesRegex(ValueError, '无法确定'):
-                    idea_chat.load(td, model='first')
-            self.assertEqual(old.read_text(encoding='utf-8'), content)
+                self.assertEqual([r['text'] for r in idea_chat.load(td, model='')], ['旧记录'])
+            self.assertEqual(legacy.read_text(encoding='utf-8'), content)
 
     def autosave_page(self, root):
         return SimpleNamespace(
@@ -692,23 +695,21 @@ class SavingTests(unittest.TestCase):
             self.assertEqual([row['text'] for row in idea_chat.load(td, model='DeepSeek V4 Flash')],
                              ['旧模型的创意', '旧模型的回复'])
 
-    def test_model_history_is_stored_by_stable_id_and_imports_legacy_rows(self):
+    def test_model_history_shares_one_file_and_keeps_row_labels(self):
+        """契约变更（R2898）：所有模型共用 ``创意对话/对话.json``，模型名只是行内署名。"""
         import model_pool
-        # 隔离本机模型池：稳定 ID 目录（模型会话/<stable-id>/）来自内建模型池。
         self.enterContext(patch('model_pool.pool', return_value=model_pool.default_pool()))
         with tempfile.TemporaryDirectory() as td:
-            idea_chat.append(td, 'user', '旧位置的 DeepSeek 创意', model='DeepSeek V4 Flash')
+            idea_chat.append(td, 'user', 'DeepSeek 的创意', model='DeepSeek V4 Flash')
             path = idea_chat.model_history_path(td, 'DeepSeek V4 Flash')
             self.assertTrue(path.is_file())
-            self.assertIn('模型会话', path.parts)
-            self.assertTrue(path.parent.parent.name.startswith('deepseek-v4-flash--'))
-            legacy = idea_chat.history_path(td)
-            legacy.parent.mkdir(parents=True, exist_ok=True)
-            legacy.write_text(json.dumps({'messages': [
-                {'role': 'user', 'text': '旧统一记录', 'model': 'Claude Opus', 'at': 'x'}
-            ]}, ensure_ascii=False), encoding='utf-8')
-            self.assertEqual([row['text'] for row in idea_chat.load(td, model='Claude Opus')], ['旧统一记录'])
-            self.assertTrue(idea_chat.model_history_path(td, 'Claude Opus').is_file())
+            self.assertEqual(path, idea_chat.history_path(td))
+            self.assertEqual(path.parent.name, '创意对话')
+            self.assertNotIn('模型会话', path.parts)
+            idea_chat.append(td, 'user', 'Claude 的创意', model='Claude Opus')
+            rows = idea_chat.load(td, model='')
+            self.assertEqual([row['text'] for row in rows],
+                             ['DeepSeek 的创意', 'Claude 的创意'])
 
     def test_legacy_rows_do_not_mix_into_a_model_partition(self):
         with tempfile.TemporaryDirectory() as td:
@@ -1000,10 +1001,14 @@ class SendMessageTests(_Harness):
             d, win = self.desktop(proj)
             d.show(0); self.settle_script_page(win)
             d.idea_input.delete('1.0', 'end'); win.update(); d._fit_composer()
-            self.assertEqual(int(d.idea_input.cget('height')), 2, '空输入框保持两行')
+            from ui_tokens import TEXT_ROWS
+            # 任务书轮 4：输入区是共享输入条，行数固定 TEXT_ROWS['sm']，不再随内容撑开。
+            self.assertEqual(int(d.idea_input.cget('height')), TEXT_ROWS['sm'], '共享输入框保持固定行数')
+            self.assertIs(d.idea_input, d.shared_input.input, '剧本页输入框必须是共享实例')
             d.idea_input.insert('1.0', '第一行创意\n第二行创意\n第三行创意')
             win.update(); d._fit_composer(); win.update()
-            self.assertGreaterEqual(int(d.idea_input.cget('height')), 3, '输入框自动显示完整多行文字')
+            self.assertEqual(int(d.idea_input.cget('height')), TEXT_ROWS['sm'],
+                             '多行输入在共享输入框内滚动，框高不变')
             sent = []
             d.send_message = lambda: sent.append(True)
             d.idea_input.focus_force(); win.update()
@@ -1021,9 +1026,10 @@ class SendMessageTests(_Harness):
             for _ in range(6):
                 win.update_idletasks(); win.update()
                 heights.append(int(d.idea_input.cget('height')))
-            self.assertEqual(heights[0], 2)
+            from ui_tokens import TEXT_ROWS
+            self.assertEqual(heights[0], TEXT_ROWS['sm'])
             self.assertEqual(len(set(heights)), 1,
-                             '空输入框点击后必须保持两行，不能随对话区压缩来回变化')
+                             '空输入框点击后必须保持共享输入框固定行数，不能随对话区压缩来回变化')
 
     def test_narrow_composer_keeps_the_attachment_button_visible(self):
         """缩窄窗口时先保留右侧附件入口，输入框使用剩余宽度。"""
@@ -1049,7 +1055,9 @@ class SendMessageTests(_Harness):
             d.idea_input.delete('1.0', 'end'); win.update()
             self.assertTrue(d.idea_input_hint.place_info(), '空输入框时提示应已显示')
             d.idea_input_hint.event_generate('<Button-1>'); win.update()
-            self.assertEqual(int(d.idea_input.cget('height')), 2, '点击提示只应聚焦，不能扩大空输入框')
+            from ui_tokens import TEXT_ROWS
+            self.assertEqual(int(d.idea_input.cget('height')), TEXT_ROWS['sm'],
+                             '点击提示只应聚焦，不能改变共享输入框行数')
             self.assertFalse(d.idea_input_hint.place_info(), '取得焦点后必须撤掉提示层')
 
     def test_composer_right_click_only_offers_paste_for_text_clipboard(self):
@@ -1503,8 +1511,9 @@ class SendMessageTests(_Harness):
             self.assertLessEqual(abs(chips[0].winfo_rooty() - chips[2].winfo_rooty()), 2, '卡片横向排在同一行')
             self.assertLess(chips[0].winfo_rootx(), chips[1].winfo_rootx())
             self.assertLess(chips[1].winfo_rootx(), chips[2].winfo_rootx())
-            # REQ-S01-71：卡片在输入区下方的工具行，排在麦克风（或「+」）右侧、发送键左侧。
-            self.assertGreaterEqual(chips[0].winfo_rooty(), d.idea_input.winfo_rooty() + d.idea_input.winfo_height(), '附件卡片在输入区下方')
+            # REQ-S01-71：卡片排在麦克风右侧、发送左侧，按上传顺序从左往右，放不下自动换行；没有附件不占位。
+            # R2898：输入区是桌面底部共享栏，附件卡片所在工具行在共享栏上方的 Composer 卡片里。
+            self.assertLessEqual(chips[0].winfo_rooty() + chips[0].winfo_height(), d.idea_input.winfo_rooty(), '附件卡片在共享输入栏上方')
             left = getattr(d, 'idea_voice_button', d.idea_attachment_button)
             self.assertGreaterEqual(chips[0].winfo_rootx(), left.winfo_rootx() + left.winfo_width(), '附件卡片在麦克风右侧')
             self.assertLessEqual(chips[2].winfo_rootx() + chips[2].winfo_width(), d.idea_submit.winfo_rootx(), '附件卡片在发送键左侧')
@@ -2066,7 +2075,7 @@ class BubbleLayoutTests(_Harness):
             configured = d.idea_chat_model()
             idea_chat.append(proj, 'user', '配置模型的话', model=configured)
             idea_chat.append(proj, 'user', '甲的新记录', model='模型甲')
-            stray = idea_chat.model_history_path(proj, '模型甲').parent.parent.parent.parent / '旧目录' / '模型甲' / idea_chat.FOLDER
+            stray = idea_chat.history_path(proj).parent.parent / '旧目录' / '模型甲' / idea_chat.FOLDER
             stray.mkdir(parents=True)
             (stray / idea_chat.CHAT_NAME).write_text(json.dumps({'messages': [
                 {'role': 'assistant', 'text': '甲的旧残留', 'model': '模型甲', 'at': '20261001_000000_000001'}]}), encoding='utf-8')
@@ -2110,7 +2119,7 @@ class BubbleLayoutTests(_Harness):
             row = {'role': 'user', 'text': '重复副本消息', 'model': '模型甲', 'at': '20261009_042000_000001'}
             idea_chat.save_rows(proj, [row], model='模型甲')
             idea_chat.save_rows(proj, [dict(row)])
-            stray = idea_chat.model_history_path(proj, '模型甲').parent.parent.parent.parent / '旧目录' / '模型甲' / idea_chat.FOLDER
+            stray = idea_chat.history_path(proj).parent.parent / '旧目录' / '模型甲' / idea_chat.FOLDER
             stray.mkdir(parents=True)
             (stray / idea_chat.CHAT_NAME).write_text(json.dumps({'messages': [dict(row, model_id='x')]}), encoding='utf-8')
             idea_chat.append(proj, 'user', '保留的其他消息', model='模型乙')
@@ -2131,7 +2140,7 @@ class BubbleLayoutTests(_Harness):
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)
             row = {'role': 'user', 'text': '旧目录里的记录', 'model': '旧模型', 'at': '20261009_042000_000001'}
-            stray = idea_chat.model_history_path(proj, '模型甲').parent.parent.parent.parent / '自定义' / '旧模型' / idea_chat.FOLDER
+            stray = idea_chat.history_path(proj).parent.parent / '自定义' / '旧模型' / idea_chat.FOLDER
             stray.mkdir(parents=True)
             (stray / idea_chat.CHAT_NAME).write_text(json.dumps({'messages': [row]}), encoding='utf-8')
             idea_chat.append(proj, 'user', '其他模型', model='模型乙')
@@ -2322,8 +2331,7 @@ class BubbleLayoutTests(_Harness):
             d, win = self.desktop(proj)
             with patch.object(d, 'idea_chat_model', return_value='模型甲'):
                 idea_chat.append(proj, 'user', '相同正文', at=1000, model='模型甲')
-                saved = idea_chat.load(proj, model='模型甲')
-                idea_chat.save_rows(proj, [dict(saved[0], model='模型乙')], model='模型乙')
+                idea_chat.append(proj, 'user', '相同正文', at=2000, model='模型乙')
                 idea_chat.append(other_proj, 'user', '另一项目历史', model='模型甲')
                 d.show(0)
                 self.settle_script_page(win)
@@ -2331,7 +2339,8 @@ class BubbleLayoutTests(_Harness):
                 d.show_conversation()
                 self.settle_script_page(win)
                 self.assertEqual(self.log_text(d), '')
-                idea_chat.save_rows(proj, saved + saved, model='模型甲')
+                # R2898 单一创意对话目录：save_rows 是整文件原子写，跨模型共存的行用追加产生。
+                idea_chat.append(proj, 'user', '相同正文', at=3000, model='模型甲')
                 d.show_conversation()
                 self.settle_script_page(win)
                 self.assertEqual(self.log_text(d).count('相同正文'), 1)

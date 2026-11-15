@@ -1126,8 +1126,13 @@ class DesktopSeamTests(unittest.TestCase):
             self.assertEqual(image.width(), 1)
             for cls in (self.tk.Variable, self.tk.Image, tkfont.Font):
                 self.assertTrue(getattr(cls, "_dramaGuarded", False))
-            # 三个对象都被拦下来排队，等主线程释放：就地释放会把 Tkapp 一起在 worker 里析构
-            self.assertEqual(len(desktop_module._PENDING_TK_GC), len(calls))
+            # 三个对象都被拦下来排队，等主线程释放：就地释放会把 Tkapp 一起在 worker 里析构。
+            # 队列是进程级的：同进程先前用例在 worker 线程回收的 Tk 对象也可能还没排干，
+            # 按对象身份断言本批三者都在队列里，不要求队列恰好只有它们。
+            pending = desktop_module._PENDING_TK_GC
+            for _function, target in calls:
+                self.assertTrue(any(item is target for item in pending),
+                                'worker 线程回收的 Tk 对象必须进排队等主线程释放')
             desktop_module.drain_tk_gc()
             self.assertEqual(desktop_module._PENDING_TK_GC, [])
         finally:
@@ -3741,9 +3746,11 @@ class ModelPoolTests(PetTestCase):
         self.assertEqual(combos[2].get(), 'DeepSeek V4 Pro')
         self.assertEqual(combos[3].get(), 'DeepSeek V4 Flash')
 
-    def test_saving_claude_code_refreshes_the_open_stage_vendor_dropdown(self):
+    def test_saving_claude_code_refreshes_the_open_stage_model_picker(self):
+        """R2862 契约：阶段面板不再内嵌模型下拉，模型选择收口到 StageModelPicker；
+        「存池即刷 open 选择器」的契约平移到它身上（provider 下拉已不存在）。"""
         from unittest.mock import patch
-        import skill_panel
+        import stage_model_picker
         import stage_config
         import workflow_settings
         workflow_settings.clear_desktop_installation_cache()
@@ -3751,19 +3758,17 @@ class ModelPoolTests(PetTestCase):
         finder = patch.object(workflow_settings, 'find_program', return_value='test-claude.exe')
         finder.start()
         self.addCleanup(finder.stop)
-        panel = skill_panel.Panel(self.win, self.fake, 'script')
-        self.addCleanup(panel.destroy)
+        picker = stage_model_picker.StageModelPicker(self.win, self.fake, 'script')
+        self.addCleanup(picker.destroy)
         stage_config.put(self.fake.root, 'script', model='claude-desktop')
-        panel.refresh_models()
+        picker.refresh_models()
         self.pet.save_pool({'label': 'Claude Code Cli', 'model': 'claude code',
                             'provider': 'desktop'})
-        self.assertEqual(panel.provider.get(), 'Anthropic')
-        self.assertEqual(panel.model_id(), 'claude-desktop')
-        self.assertIn('Claude Code Cli', [label for options in panel.groups.values() for _id, label in options])
-        panel.set_model('claude code')
-        self.assertEqual(panel.provider.get(), 'Anthropic')
-        self.assertEqual(panel.model_id(), 'claude code')
-        self.assertEqual(model_pool.desktop_engine(panel.model_id()), 'claude')
+        self.assertIn('Claude Code Cli', [label for options in picker.groups.values() for _id, label in options])
+        self.assertEqual(picker.model_id(), 'claude-desktop')
+        picker.set_model('claude code')
+        self.assertEqual(picker.model_id(), 'claude code')
+        self.assertEqual(model_pool.desktop_engine(picker.model_id()), 'claude')
 
     def test_the_manager_adds_and_deletes_a_model(self):
         win = self.pet.open_model_manager()
@@ -4526,7 +4531,10 @@ class DesktopPetSeamTests(unittest.TestCase):
         self.assertEqual(self.d.auto.asset_due, 0, "顺手把这一步提前叫醒一轮")
 
     def test_a_step_without_an_unattended_poll_starts_nothing(self):
+        import stage_config
         self.d.root = self.base
+        # R2862 契约：自动启动先过制作锁门禁；补齐剧本必填锁后才轮到「没有无人值守轮询」的判定。
+        stage_config.put_production_locks(self.base, {'delivery_format': '两者都交付'})
         self.assertEqual(self.d.pet_start("script"), "", "剧本没有无人值守轮询")
         self.assertEqual(self.d.pet_start("audio"), "", "配音没有无人值守轮询")
 
