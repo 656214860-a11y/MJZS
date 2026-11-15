@@ -40,7 +40,7 @@ from tkinter import TclError
 import model_pool
 import model_router
 from contract.app_metadata import APP_NAME
-from broadcaster import Broadcaster, PREFIX_PATTERNS
+from infra.broadcaster import Broadcaster, PREFIX_PATTERNS
 import pet_agent
 import pet_cloud
 from pet_chat_coordinator import ChatCoordinator

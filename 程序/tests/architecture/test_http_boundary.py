@@ -10,7 +10,7 @@ import unittest
 from tests.architecture._scan import parse, production_runtime_files
 
 ALLOWED = frozenset({
-    'http_client.py',
+    'infra/http_client.py',
     # 存量直连点，按 T3 迁移计划逐个迁入 http_client 后移除
     'api_endpoints.py',
     'batch_frames_tool/batch_frames.py',
@@ -55,7 +55,7 @@ class HttpBoundaryTests(unittest.TestCase):
     def test_allowlist_has_no_stale_entries(self):
         present = {rel for path in production_runtime_files()
                    if _http_calls(path) for rel in [_rel(path)]}
-        stale = sorted((ALLOWED - {'http_client.py'}) - present)
+        stale = sorted((ALLOWED - {'infra/http_client.py'}) - present)
         self.assertEqual(stale, [], '白名单条目已无直连调用，请移除：' + '; '.join(stale))
 
 

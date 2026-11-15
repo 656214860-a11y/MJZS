@@ -406,7 +406,7 @@ class Client:
         """每次发送前保存未知事件，响应后原位更新；正文和凭据不落盘。"""
         if self.project is None:
             return None
-        from model_diagnostics import record, event
+        from infra.model_diagnostics import record, event
         envelope = dict(result or {})
         envelope['response_meta'] = {
             'requested_model': str(envelope.get('model') or ''),
@@ -514,5 +514,5 @@ class Client:
                     'degraded': False, 'budget': False, 'usage': usage_of(None), 'request': None}
 
 
-from request_ledger import (REQUEST_KINDS, REQUEST_LEDGER_PATH, REQUEST_MODES, REQUEST_STATES,
+from infra.request_ledger import (REQUEST_KINDS, REQUEST_LEDGER_PATH, REQUEST_MODES, REQUEST_STATES,
                              BudgetRejected, RequestLedger, record_request, request_ledger_path)

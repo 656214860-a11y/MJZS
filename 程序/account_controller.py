@@ -12,9 +12,9 @@ import time
 from pathlib import Path
 
 import account_client
-import account_store
+import infra.account_store as account_store
 import entitlement_service
-import update_notice
+import infra.update_notice as update_notice
 from agent.core import save
 from contract.service_contract import SystemError, success
 

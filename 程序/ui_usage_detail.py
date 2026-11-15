@@ -16,7 +16,7 @@ import app_logging
 from agent.core import save_text
 from ui_tokens import FONTS, SPACING, TEXT_ROWS
 from ui_widgets import BaseDialog, DataTable, notify
-from usage_snapshot import get_snapshot, money_amount, money_text
+from infra.usage_snapshot import get_snapshot, money_amount, money_text
 
 
 def _tokens_text(tokens):

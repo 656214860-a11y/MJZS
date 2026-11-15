@@ -13,7 +13,7 @@
 from dataclasses import dataclass
 import time
 
-import lease_verifier
+import infra.lease_verifier as lease_verifier
 from contract.pet_bus import STAGES, STAGE_NAMES
 
 VALID = 'valid'

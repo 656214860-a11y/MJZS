@@ -16,7 +16,7 @@ def skill_file(folder,skill_home=None):
     if not path.is_file():raise ValueError('未找到Codex已安装技能：'+str(path))
     return path
 
-from script_text_reader import script_text
+from infra.script_text_reader import script_text
 
 
 def comfy_executable(settings):

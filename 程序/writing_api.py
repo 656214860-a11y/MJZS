@@ -118,7 +118,7 @@ class WritingCancelledError(RuntimeError):
 def _record_model_diagnostic(project, result, purpose='chat'):
     """保存无正文/协议诊断的安全元数据，绝不把对话或推理正文写入日志。"""
     try:
-        from model_diagnostics import record
+        from infra.model_diagnostics import record
         return record(Path(project) / 'logs', result, {'stage': 'script', 'purpose': purpose})
     except (OSError, TypeError, ValueError):
         return None

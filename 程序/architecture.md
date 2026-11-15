@@ -22,6 +22,7 @@ R1041（J5 分轮 2）：app 日志视图清空、desktop 最后剧本回收确�
 ├─ contract/              L0 契约包（error_codes 与 L0 契约族共 30 个模块；顶层同名 .py 为历史门面）
 ├─ data/                  程序内置数据、示例数据
 ├─ episode/               默认/演示剧集输出
+├─ infra/                 L1 基础设施包（首批 23 个低扇出模块；顶层同名 .py 为历史门面）
 ├─ logs/                  运行、模型与三虎日志
 ├─ private/               本机私有配置和加密密钥副本
 ├─ scripts/               Python 维护/迁移工具

@@ -12,7 +12,7 @@ import tkinter as tk
 
 import app_logging
 from ui_tokens import COLORS, FONTS, PET_LAYOUT, SPACING
-from usage_snapshot import abbr_number, get_snapshot, money_amount, money_text
+from infra.usage_snapshot import abbr_number, get_snapshot, money_amount, money_text
 
 _TOKEN_WARN = 500000     # ≥50 万：黄色
 _TOKEN_DANGER = 1500000  # ≥150 万：红色
@@ -103,7 +103,7 @@ class UsageIndicator(tk.Frame):
             return
         self._bus = bus
         try:
-            import usage_snapshot
+            import infra.usage_snapshot as usage_snapshot
             usage_snapshot.bind_bus(bus, getattr(pet, 'errors', None))
         except Exception:
             app_logging.swallowed()

@@ -74,7 +74,7 @@ def content_preview(path):
                 return _board_preview(path, data)
         text = ''
         try:
-            from script_text_reader import script_text
+            from infra.script_text_reader import script_text
             text = script_text(path)
         except Exception:
             text = path.read_text(encoding='utf-8-sig', errors='replace')

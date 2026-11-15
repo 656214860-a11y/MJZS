@@ -3,7 +3,7 @@
 
 def subtitle_export_gateway():
     """装配统一的行尾校验文本发布器。"""
-    import line_endings
+    import infra.line_endings as line_endings
     return {'publish_text': line_endings.write_text}
 
 

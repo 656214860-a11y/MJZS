@@ -52,26 +52,76 @@ def package_entity_files() -> tuple[Path, ...]:
     return tuple(files)
 
 
+def _is_main_guard(test: ast.expr) -> bool:
+    """``__name__ == '__main__'``（含反向书写）的入口守卫。"""
+    if not isinstance(test, ast.Compare) or len(test.ops) != 1:
+        return False
+    sides = [test.left, *test.comparators]
+    names = [side.id for side in sides if isinstance(side, ast.Name)]
+    literals = [side.value for side in sides
+                if isinstance(side, ast.Constant) and isinstance(side.value, str)]
+    return ('__name__' in names and '__main__' in literals
+            and (isinstance(test.ops[0], ast.Eq)))
+
+
 def is_package_facade(path: Path) -> bool:
-    """顶层同名门面：除 docstring 外只含 ``from <包>.<同名模块> import ...``。"""
+    """顶层同名门面，两种薄形态：
+
+    ① 名单再导出（contract/ 存量）：除 docstring 外只含
+       ``from <包>.<同名模块> import ...``；
+    ② 模块别名（infra/ 起）：``import sys``＋``from <包> import <同名模块>``
+       ＋``sys.modules[__name__] = <实体名>``——``import <扁平名>`` 直接返回
+       包内实体模块，私有名、模块级状态与 ``mock.patch('<扁平名>.…')`` 补丁面
+       与包路径完全一致。
+    """
     if path.parent != ROOT:
         return False
     try:
         tree = parse(path)
     except (SyntaxError, UnicodeDecodeError):
         return False
-    saw_entity_import = False
+    sys_names: set[str] = set()
+    entity_names: set[str] = set()
+    saw_legacy_export = False
+    saw_alias = False
     for node in tree.body:
         if (isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant)
                 and isinstance(node.value.value, str)):
             continue  # 模块 docstring
+        if isinstance(node, ast.Import):
+            sys_names.update(alias.asname or alias.name for alias in node.names
+                             if alias.name == 'sys')
+            continue
         if isinstance(node, ast.ImportFrom) and node.module:
             package, _, tail = node.module.partition(".")
-            if package in PACKAGE_NAMES and tail == path.stem:
-                saw_entity_import = True
+            if package not in PACKAGE_NAMES:
+                return False
+            if tail == path.stem:
+                saw_legacy_export = True
                 continue
+            if not tail:
+                entity_names.update(alias.asname or alias.name for alias in node.names
+                                    if alias.name == path.stem)
+                continue
+            return False
+        if (isinstance(node, ast.If) and _is_main_guard(node.test)
+                and not any(isinstance(inner, (ast.Import, ast.ImportFrom))
+                            for inner in ast.walk(node))):
+            continue  # __main__ 转发块：入口壳可执行实体 main()，不产生依赖边
+        if (isinstance(node, ast.Assign) and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Subscript)
+                and isinstance(node.targets[0].slice, ast.Name)
+                and node.targets[0].slice.id == '__name__'
+                and isinstance(node.targets[0].value, ast.Attribute)
+                and node.targets[0].value.attr == 'modules'
+                and isinstance(node.targets[0].value.value, ast.Name)
+                and node.targets[0].value.value.id in sys_names
+                and isinstance(node.value, ast.Name)
+                and node.value.id in entity_names):
+            saw_alias = True
+            continue
         return False
-    return saw_entity_import
+    return saw_alias or saw_legacy_export or bool(entity_names)
 
 
 def module_scan_files() -> tuple[Path, ...]:

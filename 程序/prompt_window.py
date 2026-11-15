@@ -9,7 +9,7 @@ import tkinter as tk
 from tkinter import ttk
 import re
 
-from clipboard_lock import hold as hold_clipboard
+from infra.clipboard_lock import hold as hold_clipboard
 from ui_widgets import BaseDialog, PrimaryButton, TextArea, notify
 from ui_tokens import WRAPLENGTH, SPACING
 

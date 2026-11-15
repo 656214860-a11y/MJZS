@@ -826,13 +826,13 @@
         "reason": "R826：连贯性台账读取收口至 file_cache.read_json。"
       },
       {
-        "file": "engine_probe.py",
+        "file": "infra/engine_probe.py",
         "point": "one_shot:json.loads:92653333211a5c9b:1",
         "disposition": "exempt",
         "reason": "R827：外部 CLI 标准输出 JSON 解析，非文件读取。"
       },
       {
-        "file": "engine_probe.py",
+        "file": "infra/engine_probe.py",
         "point": "retired:ad4b229077ed86b2",
         "disposition": "migrated",
         "reason": "R827：引擎真机验证台账读取收口至 file_cache.read_json。"
@@ -1132,7 +1132,7 @@
         "reason": "R2074：解析模型返回的修改习惯 JSON 数组，不是文件读取；记录与规则文件仍经 file_cache.read_json。"
       },
       {
-        "file": "lease_verifier.py",
+        "file": "infra/lease_verifier.py",
         "point": "verify:json.loads:001fd68b45942bb5:1",
         "disposition": "exempt",
         "reason": "R1895：解析已验签租约的内存 payload 字节，不读取文件。"
