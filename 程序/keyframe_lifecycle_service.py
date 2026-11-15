@@ -3,7 +3,7 @@ import re
 from functools import wraps
 from pathlib import Path
 
-from service_contract import SystemError, UserError, success
+from contract.service_contract import SystemError, UserError, success
 
 
 def _lifecycle_result(operation):

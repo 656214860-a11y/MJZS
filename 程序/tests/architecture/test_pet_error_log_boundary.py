@@ -26,7 +26,7 @@ def _unbounded(node: ast.AST) -> bool:
 def _sites(path: Path, name: str) -> list[str]:
     sites = []
     for cls in ast.walk(parse(path)):
-        if not isinstance(cls, ast.ClassDef) or (name, cls.name) in ALLOWED:
+        if not isinstance(cls, ast.ClassDef) or (name.rsplit('/', 1)[-1], cls.name) in ALLOWED:
             continue
         for node in ast.walk(cls):
             if isinstance(node, ast.Assign):

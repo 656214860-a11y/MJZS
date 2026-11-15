@@ -8,14 +8,14 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 from agent.core import read, save, save_bytes
-from platform_tools import open_path
+from contract.platform_tools import open_path
 import ui_plugin_registry
 from responsive_ui import FlowBar, CHECK_COLUMN_WIDTH, configure_check_column, refresh_check_heading, scroll_form
-from storyboard_paths import media_root
+from contract.storyboard_paths import media_root
 from ui_tokens import CHAR_WIDTH, TEXT_ROWS, WRAPLENGTH, COLORS, FONTS, SPACING
 from keyframe_batch import (MODE_LABELS, MODE_MISSING, MODE_RETRY, STATE_MISSING,
                             batch_plan, frame_prompt, frame_state, plan_summary)
-from production_model_contract import (LOCAL_KEYFRAME_MODEL,
+from contract.production_model_contract import (LOCAL_KEYFRAME_MODEL,
                                        SEEDREAM_KEYFRAME_MODEL,
                                        KEYFRAME_MODELS)
 from ui_widgets import (SelectBox, BaseDialog, Card, DataTable, DescriptionBlock, LineInput, PrimaryButton,
@@ -139,7 +139,7 @@ def run_seedream(source, shots, options, log, stop=None, *, project=None):
     source = Path(source).resolve(); base = media_root(source).resolve()
     profile = load_profile(options.get('seedream_profile', ''))
     log(seedream_cost_preview(project, source, shots, options))
-    from asset_contract import resolve_aspect_ratio
+    from contract.asset_contract import resolve_aspect_ratio
     aspect = resolve_aspect_ratio(options.get('workflow_lock'), options.get('aspect_ratio'), '9:16')
     folder = source.parent / '首帧任务'; folder.mkdir(parents=True, exist_ok=True)
     done = []; failed = []; blocked = []
@@ -439,7 +439,7 @@ class _KeyframeComfyWindow(_KeyframeComfyRows):
         self.mode_var = tk.StringVar(value=MODE_LABELS[MODE_MISSING])
         self.choices = {}
         # 统筹制作锁只给默认初值；用户已保存的首帧偏好仍是第二优先级。
-        from asset_contract import resolve_aspect_ratio
+        from contract.asset_contract import resolve_aspect_ratio
         try:
             import stage_config
             self.locked = stage_config.workflow_lock(self.project)

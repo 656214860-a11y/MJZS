@@ -7,7 +7,7 @@ import tkinter as tk
 from tkinter import ttk
 
 import stage_config
-from pet_bus import STAGE_NAMES
+from contract.pet_bus import STAGE_NAMES
 from skill_panel_support import program_of
 from ui_tokens import BUTTON_GAP, SPACING
 from ui_widgets import (BaseDialog, DescriptionBlock, FormDialog, PrimaryButton, SecondaryButton,

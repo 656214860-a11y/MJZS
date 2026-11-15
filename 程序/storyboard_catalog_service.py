@@ -6,7 +6,7 @@
 import os
 import re
 from pathlib import Path
-from project_context import ProjectContext
+from contract.project_context import ProjectContext
 
 
 IGNORED = {'历史版本', '分镜历史', '剧本输入', 'frames', 'video_prompts', 'assets',
@@ -21,13 +21,13 @@ def _context(value):
 
 def working_dir(context):
     """Return the structured JSON storyboard workspace without creating it."""
-    from project_stages import storyboard
+    from contract.project_stages import storyboard
     return storyboard(_context(context).root) / '分镜拆分'
 
 
 def document_dir(context):
     """Return the user-readable storyboard document directory without creating it."""
-    from project_stages import storyboard
+    from contract.project_stages import storyboard
     return storyboard(_context(context).root) / '分镜文档'
 
 
@@ -106,8 +106,8 @@ def has_synced_assets(path):
 
 def file_snapshot(context, ignored=IGNORED):
     """Return a cheap, safe catalog change signature without parsing document content."""
-    from project_stages import writing, storyboard
-    from stage_path_service import read_dirs
+    from contract.project_stages import writing, storyboard
+    from contract.stage_path_service import read_dirs
     project = _context(context).root.resolve()
     roots = (writing(project).resolve(), storyboard(project).resolve(),
              (project / 'writing').resolve(), (project / 'storyboard').resolve(),
@@ -123,7 +123,7 @@ def file_snapshot(context, ignored=IGNORED):
 def default_source(context):
     """Find the current storyboard source without loading the file-picker page."""
     from agent.core import read
-    from project_stages import storyboard
+    from contract.project_stages import storyboard
     project = _context(context).root
     prefs = read(project / 'ui_settings.json') if (project / 'ui_settings.json').is_file() else {}
     value = prefs.get('storyboard_file') if isinstance(prefs, dict) else None
@@ -147,7 +147,7 @@ def default_source(context):
 def resolve_source(context, path):
     """Resolve aliases and legacy episode placeholders to a current storyboard source."""
     from storyboard_storage import resolved_alias
-    from project_stages import storyboard
+    from contract.project_stages import storyboard
     project = _context(context).root.resolve()
     path = resolved_alias(project, Path(path))
     legacy_episode = project / 'storyboard' / 'episode.json'
@@ -160,7 +160,7 @@ def check_adoptable(paths):
     """Validate every selected storyboard before an adoption command mutates preferences."""
     from file_cache import read_json
     from storyboard_adoption_contract import problem_text
-    from storyboard_paths import media_root
+    from contract.storyboard_paths import media_root
     from writing import validate_episode
     problems = []
     for path in paths:
@@ -273,7 +273,7 @@ def adoption_impact(context, paths):
     """
     from file_cache import read_json
     from storyboard_adoption_contract import adopted as adopted_paths
-    from storyboard_paths import media_root
+    from contract.storyboard_paths import media_root
     project = _context(context).root.resolve()
     try:
         baseline_paths = list(adopted_paths(project))
@@ -353,7 +353,7 @@ def adoption_impact(context, paths):
 
 
 def _is_structured_name(path):
-    from script_contract import is_structured_script_file_name
+    from contract.script_contract import is_structured_script_file_name
     return is_structured_script_file_name(path)
 
 
@@ -408,7 +408,7 @@ def _source_script_from_data(context, data):
     if source is None or source.name.casefold() != 'script.md':
         return source
     try:
-        from script_contract import structured_script_path
+        from contract.script_contract import structured_script_path
         current = structured_script_path(_context(context).root.resolve()).resolve()
     except (OSError, ValueError):
         return None
@@ -448,13 +448,13 @@ def catalog_snapshot(context, ignored=IGNORED):
 
 
 def _catalog(context, kind, ignored, *, completed=None, sources=None, previews=False):
-    from artifact_lineage import MISSING, STALE, check
+    from contract.artifact_lineage import MISSING, STALE, check
     from file_cache import read_json
-    from project_stages import writing, structure, storyboard, stage
-    from storyboard_paths import is_final_dir
+    from contract.project_stages import writing, structure, storyboard, stage
+    from contract.storyboard_paths import is_final_dir
     from writing import duration_gap
     project = _context(context).root.resolve()
-    from stage_path_service import read_dirs, write_dir
+    from contract.stage_path_service import read_dirs, write_dir
     final_dirs = read_dirs(project, 'final') if kind != 'script' else ()
     current_roots = ((writing(project).resolve(), structure(project).resolve()) if kind == 'script'
                      else (storyboard(project).resolve(), *final_dirs))
@@ -464,7 +464,7 @@ def _catalog(context, kind, ignored, *, completed=None, sources=None, previews=F
     current_structured = None
     if kind == 'script':
         try:
-            from script_contract import structured_script_path
+            from contract.script_contract import structured_script_path
             candidate = structured_script_path(project).resolve()
             current_structured = candidate if candidate.is_file() else None
         except (OSError, ValueError):

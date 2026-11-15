@@ -3,12 +3,12 @@ import uuid, re, time, copy, os, logging
 from functools import wraps
 from datetime import datetime
 from pathlib import Path
-from storyboard_paths import media_root
-from episode_contract import validate_episode, relative
-import project_stages, stage_layout
+from contract.storyboard_paths import media_root
+from contract.episode_contract import validate_episode, relative
+import contract.project_stages as project_stages, stage_layout
 from storage_maintenance import remove_project_link_node
 from file_cache import file_digest, read_json as cached_read_json
-from service_contract import SystemError, success
+from contract.service_contract import SystemError, success
 
 _LOG = logging.getLogger(__name__)
 

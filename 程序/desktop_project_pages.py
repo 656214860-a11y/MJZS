@@ -8,7 +8,7 @@ import queue
 import threading
 import tkinter as tk
 import ui_plugin_registry
-from app_metadata import APP_NAME, VERSION
+from contract.app_metadata import APP_NAME, VERSION
 from datetime import date
 from pathlib import Path
 from projects import needs_cleanup_after_open_error
@@ -122,7 +122,7 @@ class ProjectPagesMixin:
         self.refresh_sidebar_title()
         title=APP_NAME+' · '+VERSION
         if self.root is not None:
-            from script_contract import project_name
+            from contract.script_contract import project_name
             title+=' · 当前项目：'+project_name(self.root)
         win=getattr(self,'win',None)
         if win is not None:win.title(title)
@@ -150,7 +150,7 @@ class ProjectPagesMixin:
         """
         if not self.root:return {}
         try:
-            from stage_layout import adopt_legacy
+            from contract.stage_layout import adopt_legacy
             result=adopt_legacy(self.root)
         except Exception as exc:
             self.status.set('旧目录未归入新架构：%s；请稍后重试。' % exc)
@@ -180,7 +180,7 @@ class ProjectPagesMixin:
         return ''
     def request_project_switch(self,path):
         """侧栏单击不再直接切换：先拦住进行中的任务，再让用户确认；取消就留在原项目。"""
-        from script_contract import project_name
+        from contract.script_contract import project_name
         reason=self.project_switch_blocker()
         if reason and self.root is not None:
             self.restore_project_selection()

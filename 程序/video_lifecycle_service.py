@@ -2,7 +2,7 @@
 from pathlib import Path
 from functools import wraps
 import logging
-from service_contract import SystemError, UserError, success
+from contract.service_contract import SystemError, UserError, success
 
 from agent.core import read
 

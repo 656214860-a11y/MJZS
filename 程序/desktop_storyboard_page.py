@@ -9,13 +9,13 @@ import pet_state
 from dataclasses import dataclass
 from typing import Callable
 import asset_thumbs
-import frame_checks
+import contract.frame_checks as frame_checks
 import tkinter as tk
 import ui_plugin_registry
 from agent.core import read
 from pathlib import Path
 from responsive_ui import CheckboxColumn, FlowBar, MIN_COL, bind_row_toggle, bind_space_toggle, configure_check_column, fit_columns_by_content, fit_row_height, refresh_request_width
-from storyboard_paths import media_root
+from contract.storyboard_paths import media_root
 from tkinter import ttk
 from ui_tokens import TEXT_ROWS, COLORS, SPACING, TABLE_HEADER_FONT, TABLE_ROW_FONT
 from ui_widgets import DataTable, SelectBox

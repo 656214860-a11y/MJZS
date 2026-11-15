@@ -3,11 +3,11 @@ import re
 from pathlib import Path
 from functools import wraps
 import logging
-from service_contract import SystemError, success
+from contract.service_contract import SystemError, success
 
 from agent.core import read
 from project_naming import dated_path
-from project_context import ProjectContext
+from contract.project_context import ProjectContext
 
 
 def _write_result(function):

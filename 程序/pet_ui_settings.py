@@ -7,7 +7,7 @@ import model_pool
 import model_router
 import pet_agent
 import token_saver
-from app_metadata import APP_NAME
+from contract.app_metadata import APP_NAME
 from pet_ui_support import Autostart, GearButton, PROGRAM, autostart_command
 from ui_tokens import SPACING
 
@@ -114,7 +114,7 @@ class PetSettingsMixin:
     def pool_model_stages(self, model_id):
         """删除前给确认框用：当前项目里会改成「自动」的阶段名。"""
         import stage_config
-        from pet_bus import STAGE_NAMES
+        from contract.pet_bus import STAGE_NAMES
         found = stage_config.project_model_references(self._current_project(), *self._pool_model_names(model_id))
         return [STAGE_NAMES.get(stage, stage) for stage in found]
     def _pool_model_names(self, model_id):
@@ -126,7 +126,7 @@ class PetSettingsMixin:
     def pool_model_presets(self, model_id):
         """删除前给确认框用：会改成「自动」的预设，[(阶段名, 预设名)]。"""
         import stage_config
-        from pet_bus import STAGE_NAMES
+        from contract.pet_bus import STAGE_NAMES
         found = stage_config.preset_model_references(*self._pool_model_names(model_id), program=self.program)
         return [(STAGE_NAMES.get(stage, stage), label) for stage, label in found]
     def _refresh_model_choices(self):

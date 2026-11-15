@@ -6,8 +6,8 @@ import uuid
 from pathlib import Path
 from functools import wraps
 import logging
-from service_contract import SystemError, UserError, success
-from project_context import ProjectContext
+from contract.service_contract import SystemError, UserError, success
+from contract.project_context import ProjectContext
 
 
 def _project_root(project=None, *, context=None):

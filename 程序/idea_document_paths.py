@@ -10,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 import re
 
-from project_context import ProjectContext
+from contract.project_context import ProjectContext
 
 
 def _context(value):
@@ -58,7 +58,7 @@ def _file_part(value, fallback):
 
 def project_script_filename(context, at=None, file_type='自然剧本', content='模型输出'):
     """用户可见创作文件名：``项目名_文件类型_文件内容_年月日.md``。"""
-    from script_contract import stage_file_name
+    from contract.script_contract import stage_file_name
     return stage_file_name(_context(context).root, _file_part(file_type, '自然剧本'),
                            _file_part(content, '模型输出'), at=at)
 
@@ -93,7 +93,7 @@ def reply_document_path(context, text, at=None, provider='', model='', file_type
     """自动保存与下载共用：相同正文复用；审阅参考覆盖，正式剧本异稿递增编号。
 
     ``reuse_latest=False`` 时审阅参考稿不回到跨批次的最新一份，按 ``at`` 的日期另存。"""
-    from stage_path_service import write_dir
+    from contract.stage_path_service import write_dir
     context = _context(context)
     file_type = file_type or _project_file_type(text)
     parts = reply_path_parts(context, at=at, provider=provider, model=model, file_type=file_type)
@@ -137,7 +137,7 @@ def delivery_document_path(context, file_type, at=None, provider='', model=''):
     用户手改过的设定／大纲／角色卡／剧本就在这份文件里；模型重新生成时读它、覆盖它，
     不因跨天或重试落到新的 创意_日期 批次。纯路径计算，不读写正文。
     """
-    from stage_path_service import write_dir
+    from contract.stage_path_service import write_dir
     context = _context(context)
     parts = reply_path_parts(context, at=at, provider=provider, model=model, file_type=file_type)
     target = write_dir(context.root, 'script').joinpath(*parts)
@@ -191,17 +191,17 @@ BRIEF_COMPLETE_NAME = 'brief_complete.json'
 
 def brief_raw_path(context):
     """剧本准备的原始用户简报（唯一文件：brief_creation.md）。"""
-    from project_stages import writing
+    from contract.project_stages import writing
     return writing(_context(context).root) / BRIEF_RAW_NAME
 
 
 def legacy_brief_raw_path(context):
     """旧项目的简报位置；仅在新文件尚未创建时导入读取。"""
-    from project_stages import writing
+    from contract.project_stages import writing
     return writing(_context(context).root) / LEGACY_BRIEF_RAW_NAME
 
 
 def brief_complete_path(context):
     """经完整性检查后才会出现的剧本准备输入文件。"""
-    from project_stages import writing
+    from contract.project_stages import writing
     return writing(_context(context).root) / BRIEF_COMPLETE_NAME

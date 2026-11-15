@@ -1,7 +1,7 @@
 """通用回收站恢复的领域服务：只投影清单，恢复仍委托唯一底层入口。"""
 from pathlib import Path
 import logging
-from service_contract import SystemError, UserError, success
+from contract.service_contract import SystemError, UserError, success
 
 from storage_maintenance import read_recycle_batch, recycle_base, restore_recycle_batch
 

@@ -35,7 +35,7 @@ class WanAdapter(VideoAdapter):
         import urllib.error, urllib.parse          # 第 34 期第 9 条：HTTP 栈按需加载
         import http_client
         from api_endpoints import configured_key
-        from platform_tools import current_execution
+        from contract.platform_tools import current_execution
         control = current_execution()
         timeout = 90
         if control is not None:
@@ -66,7 +66,7 @@ class WanAdapter(VideoAdapter):
         task_id = result.get('output', {}).get('task_id')
         if not isinstance(task_id, str) or not task_id:
             raise RuntimeError('No task ID returned; check console before retrying')
-        from platform_tools import current_execution
+        from contract.platform_tools import current_execution
         control = current_execution()
         if control is not None:
             control.report(event='remote', remote_task_id=task_id, provider='wan', costly=True)

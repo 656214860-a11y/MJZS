@@ -173,7 +173,7 @@ def sync(project, registry=None, program=PROGRAM, now=None):
     if not first:
         parts.append('%s「%s」已更新' % (LABEL, name))
         if changed:
-            from pet_bus import STAGE_NAMES
+            from contract.pet_bus import STAGE_NAMES
             parts.append('已同步 %d 个阶段：%s' % (len(changed), '、'.join(STAGE_NAMES.get(s, s) for s in changed)))
         else:
             parts.append('各阶段勾选无需调整，新内容在下次发送时生效')

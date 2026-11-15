@@ -6,14 +6,14 @@ import time
 import uuid
 from contextlib import contextmanager
 from pathlib import Path
-from storyboard_paths import media_root, is_cloud_workspace, project_root
+from contract.storyboard_paths import media_root, is_cloud_workspace, project_root
 from agent.core import read, save, save_text, fingerprint, file_hash, download, command, replace, temporary_path
 from agent.wan import WanAdapter, ArkRejected
 from agent.media import check, probe
 import project_settings
 from project_naming import dated_path
 from legacy_compat import resolved_storyboard_alias
-import pet_bus
+import contract.pet_bus as pet_bus
 
 def approved_versions(versions):
     """已下载＋技术质检通过＋已验收的版本；自动粗剪、手动拼装与交接包共用同一口径。
@@ -179,7 +179,7 @@ def episode_file_of(project,cfg,episode_file=None):
     先按映射表认名字，再按定稿目录兜底，最后才把「找不到的那条路」交给上层报清楚。
     """
     project=Path(project).resolve()
-    from project_stages import storyboard
+    from contract.project_stages import storyboard
     # 配置文件里的相对路径必须相对于项目解析。此前 ``storyboard/…`` 会被
     # 错当成进程工作目录下的路径，迁移前项目即使文件仍在也会被判为丢失。
     def _project_path(value):
@@ -363,7 +363,7 @@ class Studio:
     def publish_manifest(self,state=None):
         """把视频阶段清单同时写成 videos.json 与 video_manifest.json；写失败只记警告，不影响已落盘的成片。"""
         import logging
-        from stage_path_service import write_dir
+        from contract.stage_path_service import write_dir
         from video_task_state import MANIFEST_NAMES
         try:
             payload=self.video_manifest(state if state is not None else self.state())
@@ -405,7 +405,7 @@ class Studio:
         return self.factory(self.cfg)
 
     def submit(self,sid):
-        from api_models import ensure_cloud_model
+        from contract.api_models import ensure_cloud_model
         ensure_cloud_model(self.root,self.cfg)
         from importlib import import_module
         # 第 8 轮：勾了「白模 · 上传」时它返回那份参考视频的描述（接不上就当场抛）；不勾返回 None。
@@ -434,7 +434,7 @@ class Studio:
             media_sources = submitted_sources(preview, frame, shot.get('_white_model_reference'), shot['_asset_references'])
             v={'version':len(versions)+1,'state':'submitting','seconds':shot['duration'],'charged':True,
                'signature':fingerprint(payload),'review':'pending','created':time.time(),'local_request':uuid.uuid4().hex}
-            from platform_tools import execution_metadata
+            from contract.platform_tools import execution_metadata
             v['execution'] = execution_metadata('video', sid, attempt=v['local_request'])
             v['retry_reason'] = 'explicit_after_' + str(versions[-1].get('state', 'unknown')) if versions else 'initial'
             v['generate_audio']=bool(shot.get('generate_audio',True))
@@ -666,7 +666,7 @@ class Studio:
             full_name='_'.join(shot_names)
             # Keep paths short on Windows; the manifest below records every shot.
             label=full_name if len(full_name)<=100 else '_'.join(shot_names[:5])+f'_等{len(shot_names)}镜'
-            from project_stages import exports
+            from contract.project_stages import exports
             parent=exports(self.root);parent.mkdir(parents=True,exist_ok=True)
             out=dated_path(parent,label)
             out.mkdir()
@@ -787,7 +787,7 @@ class Studio:
 
     def _encode(self,chosen,out,coverage=None):
         # 编码放在项目锁之外：ffmpeg 可能持续几分钟，占着锁会让同时进行的下载／验收全部报「另一操作正在运行」。
-        from script_contract import output_filter,loudness_filter,overlay_metrics
+        from contract.script_contract import output_filter,loudness_filter,overlay_metrics
         spec=self.output_spec()
         listing=[]
         for shot,v,path in chosen:
@@ -870,7 +870,7 @@ class Studio:
         return overlap
 
     def edit_settings_path(self):
-        import project_stages
+        import contract.project_stages as project_stages
         from edit_export import EDITS_NAME
         return project_stages.editing(self.root)/EDITS_NAME
 
@@ -894,7 +894,7 @@ class Studio:
 
     def _project_music(self,source):
         """背景音乐先带来源记录放进项目（授权清单只认项目内、可追溯的文件），已在项目内的原样使用。"""
-        import project_stages
+        import contract.project_stages as project_stages
         from agent.core import copy_file_new
         from agent.media import media_facts
         source=Path(source).resolve()
@@ -912,7 +912,7 @@ class Studio:
 
     def edit_inputs(self):
         """上游配音与字幕产物（后期阶段依赖 S11）：只登记路径与摘要，不并入画面。"""
-        import project_stages
+        import contract.project_stages as project_stages
         rows={'audio':[],'subtitles':[]}
         for key,folder,suffixes in (('audio',project_stages.audio(self.root),AUDIO_SUFFIXES),
                                     ('subtitles',project_stages.subtitles(self.root),SUBTITLE_SUFFIXES)):
@@ -924,7 +924,7 @@ class Studio:
 
     def export_platform(self,master,spec,key):
         """按平台规格把成片另转一份到成片目录的「平台版本」子目录，并登记进该批次的 edits.json。"""
-        from script_contract import output_filter
+        from contract.script_contract import output_filter
         master=Path(master).resolve()
         if not master.is_file():raise ValueError('成片不存在，请先生成成片')
         folder=master.parent/PLATFORM_FOLDER;folder.mkdir(exist_ok=True)
@@ -955,10 +955,10 @@ class Studio:
     def output_spec(self):
         """本项目的正式交付规格：画幅／分辨率／帧率来自制作锁，缺省才用出厂默认。"""
         from stage_config import workflow_lock
-        from script_contract import resolve_output_spec
+        from contract.script_contract import resolve_output_spec
         return resolve_output_spec(workflow_lock(self.root))
 
     def output_spec_text(self):
         """给界面的一行实际规格（导出前显示「实际怎么出」）。"""
-        from script_contract import describe_output_spec
+        from contract.script_contract import describe_output_spec
         return describe_output_spec(self.output_spec())

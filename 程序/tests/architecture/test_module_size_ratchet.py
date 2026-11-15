@@ -6,7 +6,7 @@
 """
 import unittest
 
-from tests.architecture._scan import ROOT, production_files
+from tests.architecture._scan import ROOT, module_scan_files
 
 LIMIT = 1000
 SLACK = 100
@@ -27,7 +27,7 @@ OVERSIZE_CAPS = {
 
 def _lines():
     return {p.name: len(p.read_text(encoding='utf-8', errors='replace').splitlines())
-            for p in production_files()}
+            for p in module_scan_files()}
 
 
 class ModuleSizeRatchet(unittest.TestCase):

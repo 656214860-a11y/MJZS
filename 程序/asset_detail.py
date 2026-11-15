@@ -24,11 +24,11 @@ from tkinter import messagebox, ttk
 
 import asset_thumbs
 from agent.core import read
-from platform_tools import open_path
+from contract.platform_tools import open_path
 from responsive_ui import FlowBar
 from ui_dialogs import FileDialog
 from ui_widgets import BaseDialog, Card, DescriptionBlock, HintLabel, PrimaryButton, SecondaryButton, TextArea, ask_confirmation, ask_string, notify
-import pet_bus
+import contract.pet_bus as pet_bus
 from ui_tokens import CHAR_WIDTH, TEXT_ROWS, COLORS, FONTS, SPACING, TEXT_DESC, TEXT_HINT
 
 CELL_SIZE = 48                       # 转盘图每一格的缩略图长边（第 65 期任务 4：96 → 48，缩小一倍）
@@ -154,7 +154,7 @@ def edit_anchor(desktop, aid):
 
 def edit_role(desktop, aid):
     """编辑参考职责声明：负责什么 ＋ 不继承什么（附件任务 2.2 区域 4）。"""
-    from asset_contract import DEFAULT_EXCLUDE, DEFAULT_RESPONSIBILITY
+    from contract.asset_contract import DEFAULT_EXCLUDE, DEFAULT_RESPONSIBILITY
     asset = desktop.asset_requirements().get(aid) or {}
     role = ask_string(desktop.win, '参考职责 · 负责',
                       '这一项参考图负责什么：',
@@ -183,7 +183,7 @@ def toggle_lock(desktop, aid):
 
 def add_variant(desktop, aid):
     """新增状态变体（附件任务 2.2 区域 5 的「新增状态变体」）。"""
-    from asset_contract import STATE_PREFIX, normalize_variant, state_variants
+    from contract.asset_contract import STATE_PREFIX, normalize_variant, state_variants
     asset = desktop.asset_requirements().get(aid) or {}
     rows = [dict(item) for item in state_variants(asset)]
     name = ask_string(desktop.win, '新增状态变体', '状态名称（例如「日常装」）：')
@@ -200,7 +200,7 @@ def add_variant(desktop, aid):
 
 def edit_variant(desktop, aid, state_id):
     """编辑一条状态变体的名称与覆盖描述（编号不变）。"""
-    from asset_contract import state_variants
+    from contract.asset_contract import state_variants
     asset = desktop.asset_requirements().get(aid) or {}
     rows = [dict(item) for item in state_variants(asset)]
     target = next((item for item in rows if item.get('state_id') == state_id), None)
@@ -226,7 +226,7 @@ def edit_variant(desktop, aid, state_id):
 
 def delete_variant(desktop, aid, state_id):
     """删掉一条状态变体（问一句再动手）。"""
-    from asset_contract import state_variants
+    from contract.asset_contract import state_variants
     asset = desktop.asset_requirements().get(aid) or {}
     rows = [dict(item) for item in state_variants(asset)]
     target = next((item for item in rows if item.get('state_id') == state_id), None)
@@ -317,7 +317,7 @@ def _header(desktop, aid, asset):
 
 def _board_block(desktop, aid, asset):
     """区域 2：正典板展示区（角色 7 格，场景／道具各一格宽幅参考图）。"""
-    from asset_contract import cells
+    from contract.asset_contract import cells
     box = Card(desktop.content)
     ttk.Label(box, text='正典板').pack(anchor='w')
     box.pack(fill='x', pady=(SPACING['xs'], SPACING['none']))
@@ -376,7 +376,7 @@ def _board_block(desktop, aid, asset):
 
 
 def _anchor_block(desktop, aid, asset):
-    from asset_contract import card_lines
+    from contract.asset_contract import card_lines
     box = Card(desktop.content)
     ttk.Label(box, text='锚点字符串').pack(anchor='w')
     box.pack(fill='x', pady=(SPACING['xs'], SPACING['none']))
@@ -401,7 +401,7 @@ def _anchor_block(desktop, aid, asset):
 
 
 def _role_block(desktop, aid, asset):
-    from asset_contract import DEFAULT_EXCLUDE, DEFAULT_RESPONSIBILITY
+    from contract.asset_contract import DEFAULT_EXCLUDE, DEFAULT_RESPONSIBILITY
     box = Card(desktop.content)
     ttk.Label(box, text='参考职责声明').pack(anchor='w')
     box.pack(fill='x', pady=(SPACING['xs'], SPACING['none']))
@@ -416,7 +416,7 @@ def _role_block(desktop, aid, asset):
 
 def _variants_block(desktop, aid, asset):
     """区域 5：状态变体折叠区（折叠标题「状态变体（N 个）」）。"""
-    from asset_contract import state_variants
+    from contract.asset_contract import state_variants
     rows = state_variants(asset)
     box = ttk.Frame(desktop.content)
     box.pack(fill='x', pady=(SPACING['xs'], SPACING['none']))
@@ -600,7 +600,7 @@ def _roster_thumb(desktop, parent, base, value, title, side='left'):
 
 def _roster_role(desktop, aid, asset):
     """一个角色一块：正典板那几格 ＋ 换状态那几条（场景／道具只有正典板）。"""
-    from asset_contract import cells, state_variants
+    from contract.asset_contract import cells, state_variants
     base = _base(desktop)
     box = Card(desktop.content)
     ttk.Label(box, text=aid + ' · ' + str(asset.get('name') or aid) + '　'

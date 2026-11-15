@@ -16,7 +16,7 @@
 import base64
 import hashlib
 from pathlib import Path
-import pet_bus
+import contract.pet_bus as pet_bus
 
 SUFFIXES = ('.mp4', '.webm', '.mov')
 MIME = {'.mp4': 'video/mp4', '.webm': 'video/webm', '.mov': 'video/quicktime'}

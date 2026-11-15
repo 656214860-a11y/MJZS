@@ -12,7 +12,7 @@ from agent.media import check, png_size
 import project_settings
 from ui_tokens import CHAR_WIDTH, WRAPLENGTH, SPACING
 from ui_widgets import BaseDialog, Card, LineInput, PrimaryButton, SecondaryButton
-import pet_bus
+import contract.pet_bus as pet_bus
 
 def model_name(cfg=None):
     """本地视频当前使用的模型：取已保存工作流的文件名，未配置时按默认 H3 显示。"""
@@ -28,7 +28,7 @@ class LocalAPI:
         self.opener=build_opener(ProxyHandler({}),no_redirect())
     def call(self,path,payload=None,body=None,content_type=None):
         from urllib.request import Request                     # 第 34 期第 9 条：HTTP 栈按需加载
-        from platform_tools import current_execution
+        from contract.platform_tools import current_execution
         control = current_execution()
         timeout = control.remaining(30) if control is not None else 30
         data=json.dumps(payload).encode() if payload is not None else body
@@ -46,7 +46,7 @@ class LocalAPI:
             evidence.update(path=str(Path(frame).resolve()), sha256=hashlib.sha256(data).hexdigest())
         return (result.get('subfolder','').strip('/')+'/' + result['name']).lstrip('/')
     def download(self,item,dest):
-        from platform_tools import current_execution, execution_checkpoint
+        from contract.platform_tools import current_execution, execution_checkpoint
         control = current_execution()
         timeout = control.remaining(90) if control is not None else 90
         query=urlencode({k:item.get(k,'') for k in ('filename','subfolder','type')})
@@ -160,7 +160,7 @@ class LocalStudio(Studio):
             if any(not item.get('path') or not item.get('sha256') for item in [first_frame, *source_assets]):
                 raise ValueError('本地上传缺少素材来源回执，尚未提交生成')
             v={'version':len(versions)+1,'state':'submitting','seconds':shot['duration'],'charged':False,'backend':'comfy','endpoint':api.url,'output_node':options.get('output','92'),'review':'pending','created':time.time(),'signature':fingerprint(graph)}
-            from platform_tools import execution_metadata
+            from contract.platform_tools import execution_metadata
             v['execution'] = execution_metadata('video', sid)
             v['retry_reason'] = 'explicit_after_' + str(versions[-1].get('state', 'unknown')) if versions else 'initial'
             v.update(generate_audio=has_audio,source_aspect=ratio,reference_assets=[{'id':a['id'],'name':a['name'],'picture':a['picture'],'path':a['path']} for a in references])

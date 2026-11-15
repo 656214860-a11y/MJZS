@@ -8,7 +8,7 @@
 import ast
 import unittest
 
-from tests.architecture._scan import production_files
+from tests.architecture._scan import module_scan_files
 
 NEST_LIMIT = 6
 PARAM_LIMIT = 7
@@ -102,7 +102,7 @@ def _param_count(node):
 def measure():
     """返回 (嵌套深度, 参数个数, 类行数) 三张 {(文件名, 名字): 数值} 表；同名取最大。"""
     nesting, params, classes = {}, {}, {}
-    for path in production_files():
+    for path in module_scan_files():
         tree = ast.parse(path.read_text(encoding='utf-8', errors='replace'))
         for node in ast.walk(tree):
             key = (path.name, node.name) if hasattr(node, 'name') else None

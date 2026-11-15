@@ -1,7 +1,7 @@
 """Save a complete final bundle, then retire its original working JSON."""
 import app_logging
 from pathlib import Path
-from storyboard_paths import media_root, is_final_dir
+from contract.storyboard_paths import media_root, is_final_dir
 from datetime import datetime
 import copy, shutil, re, uuid, hashlib, json
 from agent.core import read
@@ -31,12 +31,12 @@ def _lineage_source(project, source):
 def _record_lineage(project, episodefile, source):
     lineage_source = _lineage_source(project, source)
     if lineage_source is not None:
-        from artifact_lineage import record
+        from contract.artifact_lineage import record
         record(project, episodefile, lineage_source, 'final_storyboard')
 
 def _batch_plan_markdown(episode):
     """批次划分说明（人读）：只从定稿镜头派生，不含时间戳。"""
-    from shot_batches import BATCH_MAX_SHOTS, BATCH_SECONDS, batches, duration
+    from contract.shot_batches import BATCH_MAX_SHOTS, BATCH_SECONDS, batches, duration
     shots = episode.get('shots') if isinstance(episode, dict) else None
     shots = shots if isinstance(shots, list) else []
     grouped = batches(shots)
@@ -63,7 +63,7 @@ def _batch_plan_markdown(episode):
 
 def _shot_table_markdown(episode):
     """一镜一行的镜头表（人读）：只从定稿镜头派生，不含时间戳。"""
-    from shot_batches import duration
+    from contract.shot_batches import duration
     shots = episode.get('shots') if isinstance(episode, dict) else None
     shots = shots if isinstance(shots, list) else []
     lines = ['# 镜头表', '',
@@ -88,7 +88,7 @@ def _publish_final_docs(project, episode):
     路径来自 L0 权威（dirname_of＋paths），发布沿用 finalize 写 episode.json 的同一
     L3 入口 ``publish_stage_text``；不直接 save_text。切批失败等路径不会走到这里。
     """
-    from stage_layout import dirname_of, paths
+    from contract.stage_layout import dirname_of, paths
     docs = paths(project, dirname_of('final'))['docs']
     from stage_execution_service import publish_stage_text
     for name, text in (('batch_plan.md', _batch_plan_markdown(episode)),
@@ -110,7 +110,7 @@ def finalize(project,episode_dir,source,retire_working=None,*,gateway=None):
     if not isinstance(mapping,dict):mapping={}
     episode=copy.deepcopy(read(source));missing=[];used=set()
     if not isinstance(episode,dict) or not isinstance(episode.get('shots'),list):raise ValueError('分镜JSON格式错误：顶层须为对象且 shots 为数组')
-    from prop_assets import normalize_shot
+    from contract.prop_assets import normalize_shot
     planned=read(base/'assets/资产清单/assets.json')
     if not isinstance(planned,dict):planned={}
     episode['shots']=[normalize_shot(shot,planned) for shot in episode['shots']];from continuity_ledger import require_final_ready;require_final_ready(project,episode['shots'])
@@ -146,7 +146,7 @@ def finalize(project,episode_dir,source,retire_working=None,*,gateway=None):
     # 第 61 期 v0.8 任务 10：按三元组切批次并回填 batch_id（B01…），顺手补齐那九个必填字段。
     # 只增不改——老的 id／characters／location／duration 一个都不动，validate_episode 照旧过。
     try:
-        from shot_batches import assign
+        from contract.shot_batches import assign
         episode['shots']=list(assign(episode['shots']))
     except Exception as exc:
         app_logging.swallowed()
@@ -157,12 +157,12 @@ def finalize(project,episode_dir,source,retire_working=None,*,gateway=None):
     assets={aid:{k:v for k,v in rows[aid].items() if k!='status'} for aid in used}
     validate_episode(episode,frame_base,assets)
     wanted=signature(episode,assets,base)
-    from project_stages import stage
+    from contract.project_stages import stage
     # 定稿的唯一写入目录。此前读取 ``分镜拆分``、写入 ``分镜``，下一次定稿扫不到上次
     # 产物而重复创建；旧目录仅兼容读取历史项目。
     finals_root=stage(project, 'final')/'分镜'
     existing_files=[]
-    from stage_path_service import read_dirs
+    from contract.stage_path_service import read_dirs
     for root in (folder / name for folder in read_dirs(project,'final') for name in ('分镜','分镜拆分')):
         if root.is_dir():
             existing_files.extend(p for p in root.glob('*/episode.json') if is_final_dir(p.parent.name))

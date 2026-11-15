@@ -9,7 +9,7 @@ import time
 from desktop_auto_flows import UNATTENDED_BACKOFF_FLOOR
 from desktop_auto_state import PET_STAGE_POLL, UNATTENDED_SWITCH, flow_get, flow_set
 from desktop_page_registry import PAGES
-from storyboard_paths import media_root
+from contract.storyboard_paths import media_root
 import stage_handler_registry
 
 class PetBridgeMixin:
@@ -45,7 +45,7 @@ class PetBridgeMixin:
         now=time.monotonic()
         if flow_get(self,name,'_due',0)>now+UNATTENDED_BACKOFF_FLOOR:return ''
         flow_set(self,name,'_due',0)
-        import pet_bus
+        import contract.pet_bus as pet_bus
         return '已把「'+pet_bus.STAGE_NAMES.get(stage,stage)+'」这一步提前叫醒一轮'
     def pet_start(self,stage):
         """第 67 期任务 5：三虎在自动档要「自动开始每个阶段的任务」。

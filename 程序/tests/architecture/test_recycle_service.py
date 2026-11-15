@@ -5,7 +5,7 @@ import ast
 import unittest
 
 from tests.architecture._layers import LAYERS
-from tests.architecture._scan import module_name, parse, production_files
+from tests.architecture._scan import module_name, parse, module_scan_files
 
 
 _REMOVE_CALLS = frozenset({'os.remove', 'os.unlink', 'shutil.rmtree'})
@@ -33,7 +33,7 @@ class RecycleServiceTests(unittest.TestCase):
     def test_physical_removal_is_recycle_or_tempfile_owned(self) -> None:
         """非授权生产模块的删除调用必须提供文件和行号。"""
         violations = []
-        for path in production_files():
+        for path in module_scan_files():
             if module_name(path) in _AUTHORITIES:
                 continue
             layer = LAYERS.get(module_name(path), '未登记')

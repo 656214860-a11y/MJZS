@@ -3,13 +3,13 @@ from pathlib import Path
 import stage_parallel
 from integrations import script_text
 from asset_prompt_rules import rules as asset_rules
-from storyboard_contract import rules as storyboard_rules
+from contract.storyboard_contract import rules as storyboard_rules
 
 def natural_script_delivery_path(project, at):
     """Exact desktop output target, shared by the task and its receipt watcher."""
     from idea_document_paths import reply_path_parts, storage_identity
     from project_context_factory import project_context
-    from project_stages import writing
+    from contract.project_stages import writing
     from workflow_settings import model_name
     provider, model = storage_identity(model_name(project, 'writing'))
     return writing(project).joinpath(*reply_path_parts(
@@ -71,7 +71,7 @@ def creative_source(text):
 def _episode_change_notice(project):
     """本地 Agent 的分集改动提示：只给集号，不暴露账本文件与实现细节。"""
     try:
-        from script_contract import (episode_change_report, episode_label,
+        from contract.script_contract import (episode_change_report, episode_label,
                                      read_episode_ledger, script_episode_baseline)
         baseline = script_episode_baseline(project)
         if not baseline.strip():
@@ -96,7 +96,7 @@ def _current_script_notice(project):
     """本地 Agent 的当前剧本指引：桌面产物按模型分目录，交付路径只指向本模型目录，
     用户手改的采用版可能在其他模型目录下，须显式给出绝对路径。"""
     try:
-        from script_contract import RAW_SCRIPT_NAME, script_baseline_path
+        from contract.script_contract import RAW_SCRIPT_NAME, script_baseline_path
         path = script_baseline_path(project)
     except (OSError, ValueError, TypeError):
         return ''
@@ -112,7 +112,7 @@ def script_prompt(project,script,stage,existing=None,creative_text=None,*,agent_
     project=Path(project).resolve();script=Path(script).resolve() if script else None
     text=str(creative_text or '').strip() if creative_text is not None else (script_text(script) if script else '沿用本次所选分镜对应的剧本。')
     if stage=='writing':
-        from project_stages import writing as writing_stage
+        from contract.project_stages import writing as writing_stage
         writing=writing_stage(project)
         task=(f'你正在项目“01剧本准备”工作阶段。项目目录：{project}。本次创意输入：{script if script else "聊天输入（尚未保存为剧本文件）"}。'
               + (_BOUNDED_READING_SCOPE if agent_delivery and bounded_input else
@@ -142,7 +142,7 @@ def script_prompt(project,script,stage,existing=None,creative_text=None,*,agent_
             if notice:
                 task += '\n' + notice
     elif stage=='storyboard':
-        from project_stages import assets as assets_stage, storyboard as storyboard_stage
+        from contract.project_stages import assets as assets_stage, storyboard as storyboard_stage
         storyboard_dir=storyboard_stage(project)
         assets_dir=assets_stage(project)
         task=(f'制作本项目的分镜。项目目录：{project}。本次选定剧本：{script or "沿用所选分镜"}，不要换成其他剧本。'

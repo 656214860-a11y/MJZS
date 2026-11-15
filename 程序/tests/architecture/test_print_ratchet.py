@@ -18,7 +18,7 @@ R1610 J 第三批 Q9 的后半（R1623 落地）：桌面程序在 pythonw 下 `
 import ast
 import unittest
 
-from tests.architecture._scan import production_files
+from tests.architecture._scan import module_scan_files
 
 CONSOLE_ENTRIES = {
     'app_icon.py': 2,
@@ -37,7 +37,7 @@ CONSOLE_ENTRIES = {
 
 def _print_counts():
     counts = {}
-    for path in production_files():
+    for path in module_scan_files():
         tree = ast.parse(path.read_text(encoding='utf-8', errors='replace'), filename=str(path))
         found = sum(1 for node in ast.walk(tree)
                     if isinstance(node, ast.Call)
@@ -50,7 +50,7 @@ def _print_counts():
 
 def _call_sites():
     sites = []
-    for path in production_files():
+    for path in module_scan_files():
         tree = ast.parse(path.read_text(encoding='utf-8', errors='replace'), filename=str(path))
         for node in ast.walk(tree):
             if (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)

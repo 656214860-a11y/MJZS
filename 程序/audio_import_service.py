@@ -2,7 +2,7 @@
 import uuid
 import logging
 from pathlib import Path
-from service_contract import SystemError, UserError, success
+from contract.service_contract import SystemError, UserError, success
 from agent.media import MediaValidationError
 
 
@@ -16,7 +16,7 @@ def import_audio(project, source, *, publish, stage='audio', kind='dialogue'):
     ``kind`` 标明音轨用途（对白／旁白／BGM／音效／整轨）：非对白音轨加可识别前缀，
     完成核验据此判断「导入 BGM 不能算作对白已完成」。
     """
-    from stage_path_service import write_dir
+    from contract.stage_path_service import write_dir
     from tts_api import AUDIO_KINDS, marked_audio_name
     if stage not in ('audio', 'animatic'):
         raise ValueError('不支持的音频导入阶段')
@@ -34,7 +34,7 @@ def import_audio(project, source, *, publish, stage='audio', kind='dialogue'):
             return UserError('请选择 WAV、MP3、M4A 或 AAC 音频文件')
         folder = write_dir(project, stage)
         if stage == 'audio':
-            from project_stages import audio
+            from contract.project_stages import audio
             folder = audio(project)
         folder.mkdir(parents=True, exist_ok=True)
         destination = folder / (marked_audio_name(source.stem, kind) + '_' + uuid.uuid4().hex[:6] + suffix)
@@ -75,7 +75,7 @@ def audio_manifests(project):
 
     只读目录，不做哈希之外的内容解析；音轨用途沿用文件名前缀口径（认不出按对白）。
     """
-    from project_stages import audio, subtitles
+    from contract.project_stages import audio, subtitles
     from tts_api import audio_kind
     project = Path(project).resolve()
     tracks = [{'file': rel, 'kind': audio_kind(path.name), 'bytes': size}

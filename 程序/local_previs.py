@@ -9,7 +9,7 @@ from previs_batch_service import prepare_batch
 import previs_routing
 from stage_execution_service import previs_entries, previs_ready, previs_records_directory, white_model_shot_directory, record_previs_evidence
 import ui_plugin_registry
-from platform_tools import open_path
+from contract.platform_tools import open_path
 from responsive_ui import (FlowBar, auto_height, auto_columns, configure_check_column, CheckboxColumn,
                            work_rows, work_hint, view_row)
 from ui_tokens import CHAR_WIDTH, TEXT_ROWS, WRAPLENGTH, COLORS, SPACING
@@ -143,7 +143,7 @@ class _LocalPrevisWindow:
         for shot in self.shots:
             sid=shot['id'];self.tree.insert('','end',iid=sid,text='',image=self.icons[int(self.key(sid) in self.state['selected'])],values=(sid,shot.get('title',''),shot.get('duration',5),''))
         self.box=CheckboxColumn(self.tree, self.icons, lambda sid: self.key(sid) in self.state['selected'], lambda sid,v: (self.state['selected'].add(self.key(sid)) if v else self.state['selected'].discard(self.key(sid))))
-        from shot_selection import bind_shot_checks
+        from contract.shot_selection import bind_shot_checks
         bind_shot_checks(self.tree,self.toggle)
         # 第 53 期第 2 条：镜头内容框的格子加悬停高亮。高亮层是盖在格子上的 Label，鼠标因此落不到
         # 树上——单击／右键照原样重发给树（打勾选还是上面 bind_shot_checks 那一套），一条不改。

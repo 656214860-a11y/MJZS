@@ -3,7 +3,7 @@ import app_logging
 import time as _time
 import tkinter as tk
 import ui_tokens as T
-from app_metadata import APP_NAME
+from contract.app_metadata import APP_NAME
 
 
 # 进度按真实启动阶段推进：每段有目标百分比，段内匀速爬向下一段，爬到头就停等。

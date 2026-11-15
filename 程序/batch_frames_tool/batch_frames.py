@@ -4,11 +4,11 @@ from pathlib import Path
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parent.parent))
 from agent.core import save as atomic_save, save_bytes
-from storyboard_paths import media_root
+from contract.storyboard_paths import media_root
 from urllib.request import Request,build_opener,HTTPRedirectHandler,ProxyHandler
 from urllib.error import HTTPError,URLError
 from urllib.parse import urlparse,urlencode
-import pet_bus
+import contract.pet_bus as pet_bus
 
 def read(p):
     try:return json.loads(Path(p).read_text(encoding='utf-8-sig'))
@@ -62,7 +62,7 @@ class Client:
         if p.scheme!='http' or p.hostname not in ('127.0.0.1','localhost','::1') or p.username or p.password:raise ValueError('仅支持本机ComfyUI地址')
         self.url=url.rstrip('/');self.opener=build_opener(ProxyHandler({}),NoRedirect)
     def request(self,path,data=None,raw=False,content_type='application/json'):
-        from platform_tools import current_execution
+        from contract.platform_tools import current_execution
         control = current_execution()
         timeout = control.remaining(30) if control is not None else 30
         if isinstance(data,dict):data=json.dumps(data).encode()
@@ -113,7 +113,7 @@ class Client:
 
 def shot_inputs(shot,base,assets):
     from asset_context import references
-    from prop_assets import normalize_shot
+    from contract.prop_assets import normalize_shot
     shot=normalize_shot(shot,assets)
     ids=[value for _,value in references(shot)]
     images=[];labels=[]
@@ -256,7 +256,7 @@ def _run(source,cfg,log,stop):
             if dest.exists():dest=frames/(shot['id']+'_'+uuid.uuid4().hex[:8]+'.png')
             # ComfyUI 返回的 PNG 先完成原子替换，之后才允许更新镜头索引。
             # ``dest`` 已按 UUID 避开已有成果，避免覆盖用户现有首帧。
-            from platform_tools import execution_checkpoint
+            from contract.platform_tools import execution_checkpoint
             execution_checkpoint()
             save_bytes(dest,raw)
             latest=read(source);current=next(s for s in latest['shots'] if s['id']==shot['id'])

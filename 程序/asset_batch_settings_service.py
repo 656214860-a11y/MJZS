@@ -3,7 +3,7 @@ import logging
 from pathlib import Path
 
 from project_settings import read_prefs
-from service_contract import SystemError, UserError, success
+from contract.service_contract import SystemError, UserError, success
 
 LOGGER = logging.getLogger(__name__)
 

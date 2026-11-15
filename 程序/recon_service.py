@@ -19,13 +19,13 @@ from collections import abc
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-import artifact_schema
+import contract.artifact_schema as artifact_schema
 import model_pool
-import stage_layout
+import contract.stage_layout as stage_layout
 from agent import core
 from file_cache import read_json
-from service_contract import UserError, success
-from stage_path_service import write_dir
+from contract.service_contract import UserError, success
+from contract.stage_path_service import write_dir
 
 STAGE = 'script'
 KIND = 'recon_card'

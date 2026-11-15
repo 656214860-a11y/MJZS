@@ -2,9 +2,9 @@
 import json,re
 from datetime import datetime
 from pathlib import Path
-import stage_layout
+import contract.stage_layout as stage_layout
 from agent.core import read
-from project_context import ProjectContext
+from contract.project_context import ProjectContext
 
 LEVELS={'simple':'简单／固定动作','medium':'中等动作','complex':'复杂动作'}
 ROUTES={'simple':'无需白模','medium':'线上简单白模','complex':'Agent 自动制作'}

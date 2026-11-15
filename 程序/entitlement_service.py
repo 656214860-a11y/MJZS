@@ -14,7 +14,7 @@ from dataclasses import dataclass
 import time
 
 import lease_verifier
-from pet_bus import STAGES, STAGE_NAMES
+from contract.pet_bus import STAGES, STAGE_NAMES
 
 VALID = 'valid'
 GRACE = 'grace'

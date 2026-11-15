@@ -33,7 +33,7 @@ def cards(text):
     return result
 
 def discover(project,source_script=None):
-    from project_stages import writing
+    from contract.project_stages import writing
     from storyboard_catalog_service import discover_files
     project=Path(project).resolve();writing=writing(project).resolve();candidates=[]
     script=(project/Path(source_script)).resolve() if source_script else None

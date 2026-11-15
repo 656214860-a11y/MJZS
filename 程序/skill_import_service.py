@@ -30,7 +30,7 @@ from pathlib import Path
 
 import skill_registry
 from agent.core import replace, save
-from pet_bus import read_json
+from contract.pet_bus import read_json
 from storage_maintenance import recycle_paths, restore_recycle_batch
 
 LEDGER_NAME = '导入台账.json'

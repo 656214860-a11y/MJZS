@@ -1,7 +1,7 @@
 """Atomic persistence for desktop-wide, non-project preferences."""
 from pathlib import Path
 import logging
-from service_contract import SystemError, UserError, success
+from contract.service_contract import SystemError, UserError, success
 
 LOGGER = logging.getLogger(__name__)
 

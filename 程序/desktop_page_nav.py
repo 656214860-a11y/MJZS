@@ -4,7 +4,7 @@
 """
 import app_logging
 import page_navigation_controller as page_nav
-import pet_bus
+import contract.pet_bus as pet_bus
 import tkinter as tk
 from agent.core import read, save
 from desktop_page_registry import CACHED_PAGES, PAGE, PAGE_ACCOUNT, PAGE_SITES, page_title
@@ -305,7 +305,7 @@ class PageNavMixin:
         try:source=self.current_frame_json() if source is None else source
         except (OSError,ValueError):return ''
         if not source:return ''
-        from storyboard_paths import is_final_dir
+        from contract.storyboard_paths import is_final_dir
         if is_final_dir(Path(source).parent.name):return ''
         episode=read(source)
         shots=episode.get('shots',[]) if isinstance(episode,dict) else []

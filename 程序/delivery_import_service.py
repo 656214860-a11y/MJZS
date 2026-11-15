@@ -3,8 +3,8 @@ import logging
 import uuid
 from pathlib import Path
 
-from project_context import ProjectContext
-from service_contract import SystemError, UserError, success
+from contract.project_context import ProjectContext
+from contract.service_contract import SystemError, UserError, success
 from agent.media import MediaValidationError
 
 

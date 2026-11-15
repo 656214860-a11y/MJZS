@@ -180,7 +180,7 @@ def run_registered(args, project, prompt, streams, timeout, *, timeout_label, op
     ``streams`` 里对应的文件对象，又回调出去）。未提供时行为与原先一致。
     """
     import subprocess
-    from platform_tools import communicate_or_kill, duration_text, launch_text_process, terminate_process_tree
+    from contract.platform_tools import communicate_or_kill, duration_text, launch_text_process, terminate_process_tree
     options = options or {}
     env = options.get('env')
     on_output = options.get('on_output')

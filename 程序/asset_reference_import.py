@@ -65,7 +65,7 @@ def show(app,aid=None,role=None,pending=False,parent=None,on_saved=None):
     category_box.bind('<<ComboboxSelected>>',update_categories)
     role_box.bind('<<ComboboxSelected>>',update_destination);asset_box.bind('<<ComboboxSelected>>',update_destination)
     def choose_files():
-        from stage_path_service import shared_reference_dir
+        from contract.stage_path_service import shared_reference_dir
         selected=FileDialog(win).open_files(title='选择参考图片（可多选）',initialdir=str(shared_reference_dir(app.root)),filetypes=[('参考图片',' '.join('*'+suffix for suffix in sorted(EXTENSIONS)))])
         for value in selected:
             if value not in paths:paths.append(value);files.insert('end',Path(value).name)

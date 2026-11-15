@@ -19,7 +19,7 @@ def current_store_program(program):
     match=_STORE_PACKAGE.match(program)
     if not match or Path(program).is_file():return program
     prefix=(match['name']+'_').casefold();suffix=('_'+match['arch']+'__'+match['publisher']).casefold()
-    from platform_tools import windows_registry
+    from contract.platform_tools import windows_registry
     winreg=windows_registry()
     if winreg is None:return program
     try:
@@ -40,7 +40,7 @@ def current_store_program(program):
 
 def store_package_program(package, relative):
     """按已安装的商店包定位程序：WindowsApps 不可列目录，只读注册表包清单，新版本优先。"""
-    from platform_tools import windows_registry
+    from contract.platform_tools import windows_registry
     winreg=windows_registry()
     if winreg is None:return ''
     prefix=(str(package)+'_').casefold()

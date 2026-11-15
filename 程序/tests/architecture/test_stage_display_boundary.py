@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 import pet_bus
-from tests.architecture._scan import production_files
+from tests.architecture._scan import module_scan_files
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -69,7 +69,7 @@ class StageDisplayBoundaryTests(unittest.TestCase):
         numbers = _stage_numbers()
         pattern = _stage_pattern(numbers)
         offenders = {}
-        for path in production_files():
+        for path in module_scan_files():
             if path.name in legacy:
                 continue
             tree = ast.parse(path.read_text(encoding='utf-8'), filename=str(path))

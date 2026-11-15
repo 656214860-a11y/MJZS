@@ -12,8 +12,8 @@ from skill_registry import nested_references as _nested_references, reference_ro
 from skill_inline import (_charge_inline, _is_text_script, _recurse_references,
                           _skill_inline_budget, _skipped_inline_hint)
 import client_profiles, edit_habits, stage_layout
-from script_contract import PRODUCTION_LOCK_DEFINITIONS, STAGE_LOCK_REQUIREMENTS, lock_stage
-from workflow_context_budget import REQUEST_CONTEXT_MAX_CHARS, estimate_tokens, skill_inline_token_budget
+from contract.script_contract import PRODUCTION_LOCK_DEFINITIONS, STAGE_LOCK_REQUIREMENTS, lock_stage
+from contract.workflow_context_budget import REQUEST_CONTEXT_MAX_CHARS, estimate_tokens, skill_inline_token_budget
 from store_program_locator import current_store_program, store_package_program, gui_claude_program, GUI_CLAUDE_CLI_HINT
 ENGINES={'codex':'ChatGPT / Codex','qwen':'Qwen Code（阿里云）','claude':'Claude Code','claude-desktop-app':'Claude Desktop','desktop-app':'自定义桌面应用','client-cli':'自定义命令行客户端','opencode':'opencode CLI（自动放行权限）'}
 FLOWS={'writing':'剧本创作','storyboard':'初步分镜','assets':'资产图片制作','frames':'批量首帧','previs':'白模预演','video_prompt':'视频提示词','audio':'配音与字幕'}
@@ -552,7 +552,7 @@ def find_model_program(model, mode):
     if not re.fullmatch(r'[a-z0-9][a-z0-9.-]*', app):
         raise ValueError('未找到对应桌面应用，请填写应用名或手动浏览安装路径')
     executable = app + '.exe'
-    from platform_tools import windows_registry
+    from contract.platform_tools import windows_registry
     registry = windows_registry()
     if registry is not None:
         for hive in (registry.HKEY_CURRENT_USER, registry.HKEY_LOCAL_MACHINE):
@@ -787,7 +787,7 @@ def master_gate(config, stage=None, check_references=True):
         return ''
     stage = lock_stage(stage if stage is not None else config.get('stage'))
     reasons = []
-    from script_contract import stage_lock_requirements
+    from contract.script_contract import stage_lock_requirements
     required_keys = stage_lock_requirements(stage, config.get('project_created_at'))
     if stage == 'script':
         required_keys = tuple(key for key in required_keys if key != 'delivery_format')
@@ -861,7 +861,7 @@ def freeze_skills(config):
     from writing_quality import enabled, prompt as quality_prompt
     if enabled(frozen['frozen_skill_prompt']):
         frozen['frozen_skill_prompt'] += quality_prompt()
-    from workflow_context_budget import prepare_request_context
+    from contract.workflow_context_budget import prepare_request_context
     prepare_request_context(frozen['frozen_skill_prompt'], 'SKILL')
     frozen['skill_injection'] = {'mode': frozen.get('invocation_mode') or frozen.get('engine', ''),
                                 'engine': frozen.get('engine', ''),
@@ -895,7 +895,7 @@ def skill_prompt(config, stage=None, inline=False):
     stage = lock_stage(stage if stage is not None else config.get('stage'))
     locks = config.get('workflow_lock') or {}
     required = STAGE_LOCK_REQUIREMENTS.get(stage)
-    from script_contract import production_lock_active
+    from contract.script_contract import production_lock_active
     definitions = {item['key']: item for item in PRODUCTION_LOCK_DEFINITIONS}
     extra = {item['key'] for item in PRODUCTION_LOCK_DEFINITIONS[5:]}
     header = ''.join('制作锁：%s=%s%s\n' % (key, value, _lock_fallback(key, value)) for key, value in locks.items()

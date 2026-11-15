@@ -7,7 +7,7 @@
 import ast
 import unittest
 
-from tests.architecture._scan import production_files
+from tests.architecture._scan import module_scan_files
 
 LIMIT = 150
 SLACK = 15
@@ -17,7 +17,7 @@ OVERSIZE_CAPS = {
 
 def _lengths():
     out = {}
-    for path in production_files():
+    for path in module_scan_files():
         tree = ast.parse(path.read_text(encoding='utf-8', errors='replace'))
         for node in ast.walk(tree):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):

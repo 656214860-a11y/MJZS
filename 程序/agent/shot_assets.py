@@ -1,9 +1,9 @@
 """Resolve current storyboard identities to registered project images."""
 from pathlib import Path
-from storyboard_paths import media_root
+from contract.storyboard_paths import media_root
 import base64, copy, hashlib, re
 from .core import read
-import pet_bus
+import contract.pet_bus as pet_bus
 
 def registry(source):
     source=Path(source).resolve()
@@ -41,7 +41,7 @@ def asset_rows(source):
 
 def assets(source,shot,strict=False):
     from asset_context import references
-    from prop_assets import normalize_shot
+    from contract.prop_assets import normalize_shot
     entries=asset_rows(source);result=[];seen=set()
     shot=normalize_shot(shot,entries)
     for prefix,value in references(shot):
@@ -69,7 +69,7 @@ def image_url(path):
     return 'data:'+mime+';base64,'+base64.b64encode(data).decode()
 
 def prepare(source,shot,cfg,white=None):
-    from prop_assets import normalize_shot,inline_text
+    from contract.prop_assets import normalize_shot,inline_text
     entries=asset_rows(source)
     shot=normalize_shot(shot,entries)
     model=cfg['model'];provider=cfg.get('cloud_provider','wan')
@@ -128,7 +128,7 @@ def prompt_context(source,shot,cfg,output_source=None):
     source=Path(source).resolve()
     refs=assets(source,shot)
     output=media_root(output_source or source)/'video_prompts'/(shot['id']+'.json')
-    from prop_assets import normalize_shot
+    from contract.prop_assets import normalize_shot
     context={'shot_id':shot['id'],'episode_id':read(source).get('episode_id',''),'shot':normalize_shot(shot,asset_rows(source)),'assets':refs,'model':cfg['model'],'source_signature':fingerprint(shot)}
     return context,output
 
@@ -141,7 +141,7 @@ def prompt_task(source,shot,cfg,output_source=None):
     import json
     source=Path(source).resolve()
     context,output=prompt_context(source,shot,cfg,output_source)
-    from prop_assets import RULES
+    from contract.prop_assets import RULES
     return (f'为当前镜头整理图生视频提示词，输入分镜：{source}。只整理文本，不调用视频API。\n'
         '沿用初步分镜的剧本、动作边界、空间连续性与声音设计。读取下面每张实际资产图片，'
         '提示词中的角色、场景和需要参考图的关键道具写对应CHAR/LOC/PROP编号，不能重新分配编号；普通道具按名称和描述写入画面。'

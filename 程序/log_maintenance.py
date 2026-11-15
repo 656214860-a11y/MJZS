@@ -19,7 +19,7 @@ import re
 import subprocess
 import sys
 import time
-from platform_tools import launch_background
+from contract.platform_tools import launch_background
 
 
 RETENTION_DAYS = 30

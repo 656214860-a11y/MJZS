@@ -1,6 +1,6 @@
 """One top action bar for local and cloud generation pages."""
 from responsive_ui import FlowBar
-from platform_tools import open_path
+from contract.platform_tools import open_path
 from ui_widgets import SecondaryButton
 from ui_tokens import SPACING
 

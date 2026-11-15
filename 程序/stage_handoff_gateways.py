@@ -4,7 +4,7 @@
 """
 from pathlib import Path
 from project_context_factory import project_context
-from stage_path_service import write_dir
+from contract.stage_path_service import write_dir
 from stage_publication import publish_stage_bundle
 from stage_publication import publish_stage_text
 from stage_write_preparation_service import prepare_legacy_stage_path
@@ -245,7 +245,7 @@ def publish_response_archive(project, text):
     """
     from datetime import datetime
     from uuid import uuid4
-    from stage_path_service import write_dir
+    from contract.stage_path_service import write_dir
     value = str(text or '').replace('\r\n', '\n')
     if not value.strip():
         return ''
@@ -258,6 +258,6 @@ def publish_response_archive(project, text):
 def import_downloaded_creatives(context, provider='', model='', backups=None):
     """L3 编排：从本机「下载」文件夹收回桌面 Agent 窗口给出的同项目创作文件并发布。"""
     from idea_chat import import_downloaded_documents
-    from platform_tools import downloads_directory
+    from contract.platform_tools import downloads_directory
     return import_downloaded_documents(context, downloads_directory(), provider=provider, model=model,
                                        publish=publish_idea_creative, backups=backups)

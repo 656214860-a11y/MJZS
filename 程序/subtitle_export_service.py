@@ -4,9 +4,9 @@ import json
 import logging
 import uuid
 
-from project_stages import subtitles
+from contract.project_stages import subtitles
 from subtitle_timing import ass_text, calibrate_entries, rows_from_entries, validate_entries
-from service_contract import SystemError, UserError, success
+from contract.service_contract import SystemError, UserError, success
 
 LOGGER = logging.getLogger(__name__)
 

@@ -523,7 +523,7 @@ class MediaCompletionTests(unittest.TestCase):
 
     def test_real_probe_accepts_wave_and_rejects_fake_mp4(self):
         import struct
-        from platform_tools import tool_path
+        from contract.platform_tools import tool_path
         executable = tool_path('ffprobe') or 'D:/Tools/ffmpeg/bin/ffprobe.exe'
         self.assertTrue(Path(executable).is_file(), '测试用 FFprobe 必须可用以验证真实媒体链路')
         save(self.root / 'config.json', {'ffprobe': executable})

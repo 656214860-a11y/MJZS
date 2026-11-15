@@ -4,10 +4,10 @@ from datetime import datetime
 from pathlib import Path
 from agent.core import save
 from file_cache import read_json
-from storyboard_paths import media_root
-import stage_layout
+from contract.storyboard_paths import media_root
+import contract.stage_layout as stage_layout
 import white_model_service as wm
-from platform_tools import hidden_console_flags
+from contract.platform_tools import hidden_console_flags
 
 def verify(project,sid,seconds,source=None):
     """媒体可播放且来源未变才算通过；通过后登记来源摘要与媒体事实，供复用与失效判定。"""
@@ -144,7 +144,7 @@ def start(project,source,ids,state,monitor=False,ticket=None,is_current=None,exe
                 state['summary']=f'{i+1}/{len(shots)} · {sid} 自动制作中'
                 state['status'][key]=engine_name+' 制作中';state['progress'][key]='running';result[sid]={'state':'running'};persist()
                 try:
-                    from platform_tools import execution_checkpoint, ExecutionStopped
+                    from contract.platform_tools import execution_checkpoint, ExecutionStopped
                     execution_checkpoint()
                     if verify(project,sid,shot.get('duration',5),source=source):
                         result[sid]={'state':'ready','reused':True};state['status'][key]='已就绪';state['progress'][key]='ready';completed+=1;continue
@@ -204,7 +204,7 @@ def start(project,source,ids,state,monitor=False,ticket=None,is_current=None,exe
             # 解除新批次的忙碌态。无生命周期调用方维持原有兼容行为。
             if is_current is None or is_current(ticket):state['busy']=False
     def controlled_worker():
-        from platform_tools import ExecutionStopped
+        from contract.platform_tools import ExecutionStopped
         try:
             execute(worker)
         except ExecutionStopped:

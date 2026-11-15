@@ -23,7 +23,7 @@ def show(desktop):
         from agent.core import read
         from pet_state import state_path
         import stage_parallel
-        from pet_bus import STAGES
+        from contract.pet_bus import STAGES
         path = state_path(project)
         errors = []
         try:

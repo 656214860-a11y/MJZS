@@ -5,7 +5,7 @@ from tkinter import ttk
 from file_cache import read_json as read_cached_json
 from ui_tokens import COLORS, SPACING
 from ui_widgets import SecondaryButton
-import pet_bus
+import contract.pet_bus as pet_bus
 
 
 def read_json(path):
@@ -34,7 +34,7 @@ def frame_facts(source):
     """(就绪镜头数, 总镜头数)：这份分镜里已经有好首帧的镜头。"""
     if not source:
         return 0,0
-    from storyboard_paths import media_root
+    from contract.storyboard_paths import media_root
     source=Path(source)
     media=media_root(source)
     shots=[shot for shot in (read_json(source).get('shots') or []) if isinstance(shot,dict)]

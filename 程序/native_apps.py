@@ -7,7 +7,7 @@ import subprocess
 import threading
 import time
 from pathlib import Path
-from platform_tools import hidden_console_flags, launch_windows_app, require_windows
+from contract.platform_tools import hidden_console_flags, launch_windows_app, require_windows
 
 _launch_lock = threading.Lock()
 _blender_process = None

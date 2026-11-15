@@ -19,7 +19,7 @@ from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
 
-from project_context import ProjectContext
+from contract.project_context import ProjectContext
 from idea_document_paths import ChatModel, _storage_name, storage_identity
 
 
@@ -44,7 +44,7 @@ def _require_gateway(gateway):
 
 
 def folder(context):
-    from project_stages import writing
+    from contract.project_stages import writing
     return writing(_context(context).root) / FOLDER
 
 
@@ -80,7 +80,7 @@ def model_history_path(context, model, provider=''):
         provider_name, model_name = (storage_identity(model) if not provider else
                                  (_storage_name(provider, '未知Provider'),
                                   _storage_name(model, '未知模型')))
-    from project_stages import writing
+    from contract.project_stages import writing
     return writing(_context(context).root) / provider_name / model_name / FOLDER / CHAT_NAME
 
 
@@ -130,7 +130,7 @@ def _all_rows(root, model=None, provider='', *, gateway=None):
     key = str(model or '').strip()
     if not key:
         rows = _read_rows(history_path(root), gateway)
-        from project_stages import writing
+        from contract.project_stages import writing
         base = writing(_context(root).root)
         if base.is_dir():
             for path in base.glob('*/*/' + FOLDER + '/' + CHAT_NAME):
@@ -394,7 +394,7 @@ def remove(root, index, model=None, *, gateway=None):
 
 def _chat_files(root):
     """项目里所有聊天记录文件：旧版统一文件＋各 Provider／模型目录（含旧版改名残留）。"""
-    from project_stages import writing
+    from contract.project_stages import writing
     base = writing(_context(root).root)
     paths = [history_path(root)]
     if base.is_dir():

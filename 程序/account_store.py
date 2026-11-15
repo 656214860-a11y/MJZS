@@ -9,7 +9,7 @@ import secrets
 from pathlib import Path
 
 from agent.core import read_json, save
-from platform_tools import windows_registry
+from contract.platform_tools import windows_registry
 from storage_maintenance import remove_private_file
 
 PROGRAM = Path(__file__).resolve().parent

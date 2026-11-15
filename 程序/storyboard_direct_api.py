@@ -109,7 +109,7 @@ def _ask(batch, messages):
     """发一次请求；返回回复文本。取消、失败、被截断都抛出带原因的异常。"""
     import model_pool
     from model_router import failure_policy, record_circuit_failure, record_circuit_success
-    from workflow_context_budget import ensure_request_context
+    from contract.workflow_context_budget import ensure_request_context
     ensure_request_context(batch.system + '\n'.join(str(m['content']) for m in messages), STAGE_LABEL,
                            context_limit=model_pool.context_length_of((batch.record or {}).get('context_length')) or None,
                            output_reserved=MAX_TOKENS, report=True)
@@ -171,7 +171,7 @@ def _validated(text, project, number, start, target_hint, source):
     shots = [shot for shot in data.get('shots', []) if isinstance(shot, dict)]
     if shots and _shot_number(shots[0]) != start:
         problems.append('第一个镜头编号必须是 SH%03d' % start)
-    from episode_contract import validate_episode
+    from contract.episode_contract import validate_episode
     try:
         validate_episode(data, target_hint)
     except ValueError as error:
@@ -314,7 +314,7 @@ class Job(threading.Thread):
 
     def __init__(self, project, config, skill_text, **kwargs):
         super().__init__(daemon=True, name=self.thread_name)
-        from platform_tools import ExecutionControl
+        from contract.platform_tools import ExecutionControl
         self.project, self.config, self.skill_text, self.kwargs = Path(project).resolve(), config, skill_text, kwargs
         self.control = ExecutionControl(timeout=6 * 3600)
         self.results = []
@@ -328,7 +328,7 @@ class Job(threading.Thread):
         return run_batch(self.project, self.config, self.skill_text, **services, **self.kwargs)
 
     def run(self):
-        from platform_tools import execution_scope
+        from contract.platform_tools import execution_scope
         from workflow_process_registry import forget_request
         try:
             with execution_scope(self.control):

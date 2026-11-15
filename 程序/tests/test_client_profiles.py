@@ -207,7 +207,7 @@ class DeliveryFallbackTests(unittest.TestCase):
     def test_req_s01_54_paste_exception_falls_back_to_clipboard(self):
         host = self.host()
         finish = Mock()
-        with patch('platform_tools.launch_windows_app'), \
+        with patch('contract.platform_tools.launch_windows_app'), \
                 patch('codex_paste.paste_existing', side_effect=RuntimeError('uia failed')):
             desktop_send_choice.deliver_desktop_app(
                 host, finish, 'r', 'task.md', '任务', '正文', r'C:\Tool.exe', 'Tool')
@@ -218,7 +218,7 @@ class DeliveryFallbackTests(unittest.TestCase):
     def test_req_s01_54_clipboard_delivery_does_not_call_paste(self):
         host = self.host()
         finish = Mock()
-        with patch('platform_tools.launch_windows_app'), \
+        with patch('contract.platform_tools.launch_windows_app'), \
                 patch('codex_paste.paste_existing') as paste:
             desktop_send_choice.deliver_desktop_app(
                 host, finish, 'r', 'task.md', '任务', '正文', r'C:\Tool.exe', 'Tool',
@@ -230,7 +230,7 @@ class DeliveryFallbackTests(unittest.TestCase):
     def test_req_s01_54_missing_program_is_manual_not_a_crash(self):
         host = self.host()
         finish = Mock()
-        with patch('platform_tools.launch_windows_app') as launch:
+        with patch('contract.platform_tools.launch_windows_app') as launch:
             desktop_send_choice.deliver_desktop_app(
                 host, finish, 'r', 'task.md', '任务', '正文', '', 'Tool')
         launch.assert_not_called()

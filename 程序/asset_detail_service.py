@@ -11,8 +11,8 @@ from agent.core import replace, temporary_path
 from asset_context import library_dir
 from asset_plan import plan_file, _update_fields as update_fields
 from file_cache import remove_temporary_file
-from project_context import ProjectContext
-from service_contract import SystemError, UserError, success
+from contract.project_context import ProjectContext
+from contract.service_contract import SystemError, UserError, success
 
 _IMAGE_SUFFIXES = frozenset({'.png', '.jpg', '.jpeg', '.webp'})
 
@@ -126,7 +126,7 @@ def bind_canonical_view(project, episode_dir, aid, view, source, *, gateway=None
 def bind_variant_thumbnail(project, episode_dir, aid, state_id, source, *, gateway=None, context=None):
     """绑定一个既有状态变体的缩略图。"""
     from agent.core import read
-    from asset_contract import state_variants
+    from contract.asset_contract import state_variants
     state_id = _safe_part(state_id, '状态变体编号')
     project = _project_root(project, context=context)
     index = plan_file(project, episode_dir)

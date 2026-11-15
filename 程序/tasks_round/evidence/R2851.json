@@ -1,0 +1,15 @@
+{
+  "round": 2851,
+  "commit_base": "8d22d2cb",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k agents_md atomic_write function_size gate_selfaudit http_boundary import_error legacy_facade notification_boundary outbound_http path_authority platform_process print_ratchet recycle_service secret_sink shared_state silent_exception stage_display todo_comment token_boundary layers no_circular_import coverage static_hygiene platform_tools script_contract cli_streaming client_profiles claude_program_detection desktop_attachment_send desktop_idea_chat_desktop_paste desktop_send_ledger execution_deadline idea_download_import model_failure_route open_https_redirect req_s04 req_s09 req_s13 runtime_projection script_composer speech_api stage_completion_service video_revision test_workflow account_offline master_skill_update",
+    "exit": 0,
+    "passed": 594,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T21:02:52"
+}

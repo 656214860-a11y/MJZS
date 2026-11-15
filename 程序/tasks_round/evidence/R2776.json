@@ -1,0 +1,15 @@
+{
+  "round": 2776,
+  "commit_base": "31e6577a",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k error_codes http_client",
+    "exit": 0,
+    "passed": 16,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T18:08:13"
+}

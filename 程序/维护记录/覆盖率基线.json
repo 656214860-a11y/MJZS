@@ -75,7 +75,7 @@
   {
    "module": "api_models.py",
    "covered": 0,
-   "total": 60,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -91,6 +91,12 @@
    "percent": 0.0
   },
   {
+   "module": "app_metadata.py",
+   "covered": 0,
+   "total": 2,
+   "percent": 0.0
+  },
+  {
    "module": "app_shortcut.py",
    "covered": 0,
    "total": 170,
@@ -99,13 +105,13 @@
   {
    "module": "artifact_lineage.py",
    "covered": 0,
-   "total": 122,
+   "total": 2,
    "percent": 0.0
   },
   {
    "module": "artifact_schema.py",
    "covered": 0,
-   "total": 66,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -159,7 +165,7 @@
   {
    "module": "asset_contract.py",
    "covered": 0,
-   "total": 225,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -370,6 +376,114 @@
    "module": "continuity_ledger.py",
    "covered": 0,
    "total": 489,
+   "percent": 0.0
+  },
+  {
+   "module": "contract/api_models.py",
+   "covered": 0,
+   "total": 60,
+   "percent": 0.0
+  },
+  {
+   "module": "contract/artifact_lineage.py",
+   "covered": 0,
+   "total": 122,
+   "percent": 0.0
+  },
+  {
+   "module": "contract/artifact_schema.py",
+   "covered": 0,
+   "total": 66,
+   "percent": 0.0
+  },
+  {
+   "module": "contract/asset_contract.py",
+   "covered": 0,
+   "total": 225,
+   "percent": 0.0
+  },
+  {
+   "module": "contract/episode_contract.py",
+   "covered": 0,
+   "total": 109,
+   "percent": 0.0
+  },
+  {
+   "module": "contract/error_codes.py",
+   "covered": 0,
+   "total": 33,
+   "percent": 0.0
+  },
+  {
+   "module": "contract/frame_checks.py",
+   "covered": 0,
+   "total": 67,
+   "percent": 0.0
+  },
+  {
+   "module": "contract/pet_settings_contract.py",
+   "covered": 0,
+   "total": 3,
+   "percent": 0.0
+  },
+  {
+   "module": "contract/production_model_contract.py",
+   "covered": 0,
+   "total": 6,
+   "percent": 0.0
+  },
+  {
+   "module": "contract/prompt_templates.py",
+   "covered": 0,
+   "total": 80,
+   "percent": 0.0
+  },
+  {
+   "module": "contract/script_brief.py",
+   "covered": 0,
+   "total": 47,
+   "percent": 0.0
+  },
+  {
+   "module": "contract/script_contract.py",
+   "covered": 0,
+   "total": 699,
+   "percent": 0.0
+  },
+  {
+   "module": "contract/script_manifest_schema.py",
+   "covered": 0,
+   "total": 256,
+   "percent": 0.0
+  },
+  {
+   "module": "contract/script_output_spec.py",
+   "covered": 0,
+   "total": 68,
+   "percent": 0.0
+  },
+  {
+   "module": "contract/shot_batches.py",
+   "covered": 0,
+   "total": 185,
+   "percent": 0.0
+  },
+  {
+   "module": "contract/shot_selection.py",
+   "covered": 0,
+   "total": 28,
+   "percent": 0.0
+  },
+  {
+   "module": "contract/storyboard_contract.py",
+   "covered": 0,
+   "total": 9,
+   "percent": 0.0
+  },
+  {
+   "module": "contract/workflow_context_budget.py",
+   "covered": 0,
+   "total": 129,
    "percent": 0.0
   },
   {
@@ -693,13 +807,13 @@
   {
    "module": "episode_contract.py",
    "covered": 0,
-   "total": 109,
+   "total": 2,
    "percent": 0.0
   },
   {
    "module": "error_codes.py",
    "covered": 0,
-   "total": 33,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -717,7 +831,7 @@
   {
    "module": "frame_checks.py",
    "covered": 0,
-   "total": 67,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -913,6 +1027,12 @@
    "percent": 0.0
   },
   {
+   "module": "model_protocol.py",
+   "covered": 0,
+   "total": 2,
+   "percent": 0.0
+  },
+  {
    "module": "native_apps.py",
    "covered": 0,
    "total": 83,
@@ -946,6 +1066,12 @@
    "module": "pet_broadcast_state.py",
    "covered": 0,
    "total": 79,
+   "percent": 0.0
+  },
+  {
+   "module": "pet_bus.py",
+   "covered": 0,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -1035,7 +1161,7 @@
   {
    "module": "pet_settings_contract.py",
    "covered": 0,
-   "total": 3,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -1099,6 +1225,12 @@
    "percent": 0.0
   },
   {
+   "module": "platform_tools.py",
+   "covered": 0,
+   "total": 2,
+   "percent": 0.0
+  },
+  {
    "module": "previs_automation.py",
    "covered": 0,
    "total": 167,
@@ -1143,13 +1275,25 @@
   {
    "module": "production_model_contract.py",
    "covered": 0,
-   "total": 6,
+   "total": 2,
+   "percent": 0.0
+  },
+  {
+   "module": "project_context.py",
+   "covered": 0,
+   "total": 2,
    "percent": 0.0
   },
   {
    "module": "project_settings_dialog.py",
    "covered": 0,
    "total": 5,
+   "percent": 0.0
+  },
+  {
+   "module": "project_stages.py",
+   "covered": 0,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -1161,13 +1305,19 @@
   {
    "module": "prompt_templates.py",
    "covered": 0,
-   "total": 80,
+   "total": 2,
    "percent": 0.0
   },
   {
    "module": "prompt_window.py",
    "covered": 0,
    "total": 44,
+   "percent": 0.0
+  },
+  {
+   "module": "prop_assets.py",
+   "covered": 0,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -1221,13 +1371,13 @@
   {
    "module": "script_brief.py",
    "covered": 0,
-   "total": 47,
+   "total": 2,
    "percent": 0.0
   },
   {
    "module": "script_contract.py",
    "covered": 0,
-   "total": 699,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -1243,9 +1393,15 @@
    "percent": 0.0
   },
   {
+   "module": "script_manifest_contract.py",
+   "covered": 0,
+   "total": 2,
+   "percent": 0.0
+  },
+  {
    "module": "script_manifest_schema.py",
    "covered": 0,
-   "total": 256,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -1257,7 +1413,7 @@
   {
    "module": "script_output_spec.py",
    "covered": 0,
-   "total": 68,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -1323,7 +1479,7 @@
   {
    "module": "shot_batches.py",
    "covered": 0,
-   "total": 185,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -1335,7 +1491,7 @@
   {
    "module": "shot_selection.py",
    "covered": 0,
-   "total": 28,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -1453,6 +1609,12 @@
    "percent": 0.0
   },
   {
+   "module": "stage_path_service.py",
+   "covered": 0,
+   "total": 2,
+   "percent": 0.0
+  },
+  {
    "module": "stage_workspace_service.py",
    "covered": 0,
    "total": 26,
@@ -1491,7 +1653,7 @@
   {
    "module": "storyboard_contract.py",
    "covered": 0,
-   "total": 9,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -1534,6 +1696,12 @@
    "module": "storyboard_page_controller.py",
    "covered": 0,
    "total": 84,
+   "percent": 0.0
+  },
+  {
+   "module": "storyboard_paths.py",
+   "covered": 0,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -1827,7 +1995,7 @@
   {
    "module": "workflow_context_budget.py",
    "covered": 0,
-   "total": 129,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -2005,7 +2173,7 @@
    "percent": 19.0
   },
   {
-   "module": "platform_tools.py",
+   "module": "contract/platform_tools.py",
    "covered": 98,
    "total": 517,
    "percent": 19.0
@@ -2071,7 +2239,7 @@
    "percent": 23.8
   },
   {
-   "module": "pet_bus.py",
+   "module": "contract/pet_bus.py",
    "covered": 52,
    "total": 211,
    "percent": 24.6
@@ -2089,7 +2257,7 @@
    "percent": 24.9
   },
   {
-   "module": "storyboard_paths.py",
+   "module": "contract/storyboard_paths.py",
    "covered": 11,
    "total": 43,
    "percent": 25.6
@@ -2107,7 +2275,7 @@
    "percent": 26.7
   },
   {
-   "module": "stage_layout.py",
+   "module": "contract/stage_layout.py",
    "covered": 58,
    "total": 205,
    "percent": 28.3
@@ -2119,7 +2287,7 @@
    "percent": 28.6
   },
   {
-   "module": "prop_assets.py",
+   "module": "contract/prop_assets.py",
    "covered": 26,
    "total": 86,
    "percent": 30.2
@@ -2155,7 +2323,7 @@
    "percent": 34.9
   },
   {
-   "module": "stage_path_service.py",
+   "module": "contract/stage_path_service.py",
    "covered": 20,
    "total": 55,
    "percent": 36.4
@@ -2203,7 +2371,7 @@
    "percent": 58.5
   },
   {
-   "module": "project_stages.py",
+   "module": "contract/project_stages.py",
    "covered": 17,
    "total": 28,
    "percent": 60.7
@@ -2239,19 +2407,19 @@
    "percent": 82.2
   },
   {
-   "module": "model_protocol.py",
+   "module": "contract/model_protocol.py",
    "covered": 5,
    "total": 6,
    "percent": 83.3
   },
   {
-   "module": "service_contract.py",
+   "module": "contract/service_contract.py",
    "covered": 23,
    "total": 27,
    "percent": 85.2
   },
   {
-   "module": "project_context.py",
+   "module": "contract/project_context.py",
    "covered": 12,
    "total": 14,
    "percent": 85.7
@@ -2275,18 +2443,36 @@
    "percent": 94.0
   },
   {
-   "module": "app_metadata.py",
+   "module": "contract/__init__.py",
+   "covered": 1,
+   "total": 1,
+   "percent": 100.0
+  },
+  {
+   "module": "contract/app_metadata.py",
    "covered": 3,
    "total": 3,
    "percent": 100.0
   },
   {
-   "module": "script_manifest_contract.py",
+   "module": "contract/script_manifest_contract.py",
    "covered": 10,
    "total": 10,
    "percent": 100.0
+  },
+  {
+   "module": "service_contract.py",
+   "covered": 2,
+   "total": 2,
+   "percent": 100.0
+  },
+  {
+   "module": "stage_layout.py",
+   "covered": 2,
+   "total": 2,
+   "percent": 100.0
   }
  ],
- "modules_covered": 61,
- "modules_total": 379
+ "modules_covered": 64,
+ "modules_total": 410
 }

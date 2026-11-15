@@ -3,7 +3,7 @@ import os
 import re
 from datetime import datetime
 
-from pet_bus import STAGES
+from contract.pet_bus import STAGES
 
 
 PREFIX_PATTERNS = (

@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from tests.architecture._scan import parse, production_files
+from tests.architecture._scan import parse, module_scan_files
 
 ROOT = Path(__file__).resolve().parents[2]
 CANARY = Path(__file__).with_name('_canary') / 'audit27_secret_violation.py'
@@ -59,7 +59,7 @@ def sink_kind(node):
 def audit(paths=None):
     """返回同一函数内由受控密钥读取流入敏感 sink 的 `file:line:kind`。"""
     hits = set()
-    for path in production_files() if paths is None else paths:
+    for path in module_scan_files() if paths is None else paths:
         tree = parse(path) if paths is None else ast.parse(path.read_text(encoding='utf-8'))
         for function in (node for node in ast.walk(tree)
                          if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))):

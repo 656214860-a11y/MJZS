@@ -1,8 +1,8 @@
 """无编排依赖的项目阶段模型只读访问。"""
 
 from file_cache import read_json
-import stage_layout
-from pet_bus import STAGES
+import contract.stage_layout as stage_layout
+from contract.pet_bus import STAGES
 
 
 def value(project, stage):

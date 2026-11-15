@@ -29,8 +29,8 @@ import skill_registry
 import workflow_settings
 from agent.core import save as save_json
 from file_cache import read_json
-from pet_bus import STAGES
-from script_contract import PRODUCTION_LOCK_DEFINITIONS
+from contract.pet_bus import STAGES
+from contract.script_contract import PRODUCTION_LOCK_DEFINITIONS
 from storage_maintenance import recycle_paths, restore_recycle_batch
 
 STAGING_PREFIX = '.导入中-'

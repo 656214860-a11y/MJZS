@@ -23,7 +23,7 @@ from desktop_idea_deferred import IdeaDeferredMixin
 from desktop_idea_send_gate import IdeaSendGateMixin
 from idea_chat_controller import (bubble_timestamp, collapse_preview, has_interruptible, interrupt_notice,
                                   queue_notice, slot_decision)
-from platform_tools import open_target
+from contract.platform_tools import open_target
 from ui_tokens import CHAR_WIDTH, COLORS, FONTS, SPACING, STAGE_PANEL_LAYOUT
 from ui_widgets import FormDialog, SelectBox, TextArea
 from desktop_idea_bubbles import (BUBBLE_BACK, BUBBLE_FILL, BUBBLE_FLOOR, BUBBLE_FONT, BUBBLE_GAP, BUBBLE_LINE, BUBBLE_MAX_RATIO,
@@ -382,7 +382,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, I
         dialog = FormDialog(self.win, '补充创作信息')
         self._idea_missing_dialog = dialog
         ttk.Label(dialog.content, text=notice + '以下信息尚未填写。保存后请再次点击发送。').pack(anchor='w', pady=SPACING['sm'])
-        from script_contract import PRODUCTION_LOCK_DEFINITIONS, validate_production_locks
+        from contract.script_contract import PRODUCTION_LOCK_DEFINITIONS, validate_production_locks
         from production_lock_fields import ProductionLockFields
         import stage_config
         lock_labels = {label for item in PRODUCTION_LOCK_DEFINITIONS[5:]
@@ -485,7 +485,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, I
                         text, extra_labels=lock_labels, include_extra=True).items():
                     lock_fields.setdefault(label, field)
             attachment_fields.update(lock_fields)
-        from script_contract import PRODUCTION_LOCK_DEFINITIONS
+        from contract.script_contract import PRODUCTION_LOCK_DEFINITIONS
         configured_locks = stage_config.workflow_lock(self.root)
         attachment_fields.update({item['label']: configured_locks[item['key']]
             for item in PRODUCTION_LOCK_DEFINITIONS if configured_locks.get(item['key'])})
@@ -702,7 +702,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, I
         sessions=getattr(self,'flow_processes',{})
         for key,process in processes:
             try:
-                from platform_tools import terminate_process_tree
+                from contract.platform_tools import terminate_process_tree
                 if terminate_process_tree(process):
                     stopped.append(str(process.pid))
                 forget_process(self.root,process)
@@ -728,7 +728,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, I
         except OSError:
             text=''
         if not text.strip():
-            from script_contract import INLINE_REQUIRED_LABELS
+            from contract.script_contract import INLINE_REQUIRED_LABELS
             text='\n'.join(label+'：' for label in dict.fromkeys((*IDEA_FIELDS, *INLINE_REQUIRED_LABELS)))+'\n'
         self._idea_example=text
         return text
@@ -784,7 +784,7 @@ class _FlowAgentLaunch:
         from workflow_context import continuation_instruction,snapshot
         from stage_execution_service import project_context
         from workflow_context_controller import request_stage_instruction
-        from workflow_context_budget import prepare_request_context
+        from contract.workflow_context_budget import prepare_request_context
         if self.config['engine']=='codex':
             from codex_skill_sync import sync_codex_skills
             sync_result=sync_codex_skills()
@@ -963,7 +963,7 @@ class _FlowAgentLaunch:
         copy_text(self.host.win,clipboard_text)
         if self.native_claude:
             from workflow_settings import find_program
-            from platform_tools import launch_windows_app
+            from contract.platform_tools import launch_windows_app
             program = find_program(self.config)
             if self.config['engine'] == 'desktop-app':
                 app = self.config.get('display_model') or '桌面模型'
@@ -987,7 +987,7 @@ class _FlowAgentLaunch:
             self.host.async_(lambda:paste_existing(self.title,clipboard_text,program=program,deadline_seconds=45),claude_pasted)
             return
         if self.config.get('desktop_program'):
-            from platform_tools import launch_windows_app
+            from contract.platform_tools import launch_windows_app
             launch_windows_app(self.config['desktop_program'], 'Codex 桌面')
         open_target(result['url'])
         from codex_paste import paste_existing

@@ -5,7 +5,7 @@
 from ui_tokens import PET_PALETTE
 import sys
 import pet_agent
-import pet_bus
+import contract.pet_bus as pet_bus
 from pathlib import Path
 from tkinter import TclError
 from ui_tokens import BUTTON_BORDER_WIDTH, COLORS, CONTROL_HIT_MIN, PET_LAYOUT
@@ -183,7 +183,7 @@ SETTINGS_LABEL = '设置'
 # 之后，右键这里还写着「模型配置…」，用户看到的就是两份对不上）。
 def _settings_entries():
     try:
-        from pet_settings_contract import TABS
+        from contract.pet_settings_contract import TABS
         return tuple(TABS)
     except Exception:
         return (('basic', '基础功能'), ('model', '三虎模型配置'), ('level', '自动化等级'),
@@ -581,7 +581,7 @@ def autostart_command(program=PROGRAM):
     return '"%s" "%s"' % (exe, launcher)
 def startup_api():
     """注册表入口：非 Windows 或没有 winreg 时返回 None，整套开机自启降级为「不可用」。"""
-    from platform_tools import windows_registry
+    from contract.platform_tools import windows_registry
     return windows_registry()
 _UNSET = object()          # 「没传」与「明确传 None（本机没有 winreg）」必须分开
 class Autostart:

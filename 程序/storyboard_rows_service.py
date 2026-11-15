@@ -8,8 +8,8 @@ without constructing a window.
 from pathlib import Path
 
 from agent.core import read
-from storyboard_paths import media_root
-from pet_bus import read_json
+from contract.storyboard_paths import media_root
+from contract.pet_bus import read_json
 
 
 def shot_stats(paths):

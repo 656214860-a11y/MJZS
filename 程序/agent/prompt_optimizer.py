@@ -1,13 +1,13 @@
 """Nonblocking desktop integration; no API call on opening settings."""
 import json,subprocess,threading,queue,re
-import platform_tools
+import contract.platform_tools as platform_tools
 from pathlib import Path
-from storyboard_paths import media_root
+from contract.storyboard_paths import media_root
 from urllib.parse import urlparse
 import tkinter as tk
 from tkinter import ttk
 from .core import read,save,fingerprint
-from api_models import records,remember,remove,label as model_label,identity
+from contract.api_models import records,remember,remove,label as model_label,identity
 from .shot_assets import assets
 import tk_timers
 from ui_tokens import WRAPLENGTH, SPACING

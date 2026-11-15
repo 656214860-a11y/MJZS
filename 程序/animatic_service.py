@@ -9,9 +9,9 @@ from contextlib import nullcontext
 from pathlib import Path
 
 import file_cache
-from project_context import ProjectContext
-from service_contract import success
-from stage_path_service import write_dir
+from contract.project_context import ProjectContext
+from contract.service_contract import success
+from contract.stage_path_service import write_dir
 
 MANIFEST = 'animatic_manifest.json'
 CONFIRMATIONS = ('rhythm', 'duration', 'dialogue_sync')

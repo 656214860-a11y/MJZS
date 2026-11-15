@@ -5,7 +5,7 @@ from pathlib import Path
 import hashlib,os,re
 
 from agent.core import read,save,save_bytes
-from platform_tools import open_path
+from contract.platform_tools import open_path
 
 # 第 46 期第 1 条：内容框的右键菜单（查看／删除）与其它页共用同一份实现。
 from cell_hover import bind_row_menu

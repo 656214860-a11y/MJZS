@@ -1,7 +1,7 @@
 """Headless planning, recycle, and restore operations for storyboard files."""
 from pathlib import Path
 
-import stage_layout
+import contract.stage_layout as stage_layout
 from storage_maintenance import recycle_paths
 
 RECYCLE_REASON = '分镜页删除'    # 写进批次清单，「恢复最近删除」据此认出本页自己的批次
@@ -18,8 +18,8 @@ def recycle_plan(project, kind, path):
     from stage_execution_service import storyboard_catalog as catalog
     from storyboard_catalog_service import linked_path
     from stage_execution_service import project_context
-    from storyboard_paths import is_final_dir
-    from project_stages import writing, structure, storyboard
+    from contract.storyboard_paths import is_final_dir
+    from contract.project_stages import writing, structure, storyboard
     project = Path(project).resolve()
     path = Path(path)
     if kind not in ('script', 'storyboard'):
@@ -79,7 +79,7 @@ def detach_video_refs(project, targets):
 def recycle_files(project, kind, paths):
     """Move verified files to one recoverable batch and repair related state."""
     from agent.core import read, save
-    from project_stages import writing, structure, storyboard
+    from contract.project_stages import writing, structure, storyboard
     from storyboard_catalog_service import linked_path
     from stage_execution_service import project_context
     from storyboard_selection import remember_many, selected_many

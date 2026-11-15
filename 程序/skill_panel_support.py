@@ -14,7 +14,7 @@ import skill_registry
 import stage_config
 import stage_models
 import ui_plugin_registry
-from pet_bus import STAGE_NAMES, read_json, stage_label as _bus_stage_label
+from contract.pet_bus import STAGE_NAMES, read_json, stage_label as _bus_stage_label
 from ui_tokens import CHAR_WIDTH, COLORS, SPACING, OVERLAY_RATIO, STAGE_PANEL_LAYOUT
 
 
@@ -593,7 +593,7 @@ def sync_models(project, program=None):
         return []
     wanted = []
     try:
-        from pet_bus import STAGES
+        from contract.pet_bus import STAGES
         for stage in STAGES:
             value = str(stage_config.get(project, stage).get('model') or '').strip()
             if value and value != model_router.AUTO and not stage_models.is_production(stage, value):

@@ -65,7 +65,7 @@ import skill_registry
 import stage_config
 import stage_models
 import ui_plugin_registry
-from pet_bus import STAGE_NAMES, read_json, stage_label as _bus_stage_label
+from contract.pet_bus import STAGE_NAMES, read_json, stage_label as _bus_stage_label
 from storage_maintenance import recycle_paths
 from ui_tokens import (BUTTON_GAP, COLORS, FONTS, SPACING, NOTE_HEIGHT_COMPACT,
                        NOTE_HEIGHT_REGULAR, NOTE_LIST_MAX_WIDTH, NOTE_LIST_MIN_WIDTH,
@@ -112,7 +112,7 @@ class PanelWorkflowMixin:
         """受控统筹入口；阶段勾选网格仍是唯一可编辑清单。"""
         import workflow_settings
         from production_lock_fields import ProductionLockFields, align_label_column
-        from script_contract import PRODUCTION_LOCK_DEFINITIONS
+        from contract.script_contract import PRODUCTION_LOCK_DEFINITIONS
         names = list(workflow_settings.refresh_workflow_presets()) + [CHECK_UPDATE, '浏览本地…', NO_MASTER]
         coordinator = parent or self
         self.workflow_coordinator = coordinator
@@ -181,7 +181,7 @@ class PanelWorkflowMixin:
                 entry.state(['disabled'])
         self.lock_fields.set_values(locks, enabled=bool(name))
         self._saved_workflow_locks = {key: entry.get() for key, entry in self.lock_inputs.items()}
-        from script_contract import stage_lock_requirements
+        from contract.script_contract import stage_lock_requirements
         required = stage_lock_requirements('script', stage_config.project_created_at(self.project()))
         legacy_missing = [label for key, label in (('track', '赛道'), ('material_source', '素材来源'))
                           if key not in required and not locks.get(key)]

@@ -29,7 +29,7 @@ from writing_preparation_ledger import (PREPARATION_STAGES, _PREPARATION_STAGE_W
                                         _working_documents)
 from writing_quality import enabled as quality_enabled
 from writing_stream import chat_streaming
-from workflow_context_budget import (REQUEST_CONTEXT_MAX_CHARS, budget_advice, budget_sections,
+from contract.workflow_context_budget import (REQUEST_CONTEXT_MAX_CHARS, budget_advice, budget_sections,
                                      context_budget_report, text_fingerprint)
 
 
@@ -238,7 +238,7 @@ class WritingRequestAdapter(ModelAdapter):
             options.setdefault(key, value)
         rpm = int((self.record or {}).get('rpm') or 0)
         if rpm > 0:
-            from platform_tools import current_execution
+            from contract.platform_tools import current_execution
             model_pool.wait_for_rpm((self.record or {}).get('base_url'), rpm, current_execution())
         limit = model_pool.context_length_of(self.record.get('context_length')) or None
         reserved = max(0, int(options.get('max_tokens') or 0))
@@ -328,7 +328,7 @@ def _writing_adapter(record, chosen, *, project, settings=None, cancelled=None):
 def _complete_brief(project):
     """读取并按唯一契约复核已确认简报；缺失文件保留既有普通对话路径。"""
     import idea_chat
-    from script_contract import brief_document
+    from contract.script_contract import brief_document
     from project_context_factory import project_context
     path = idea_chat.brief_complete_path(project_context(project))
     # 已迁移项目只从当前阶段读取；历史项目保留一次只读兼容，避免因目录升级
@@ -352,7 +352,7 @@ def _write_script_raw(project, text, *, publish=None):
     """script_raw.md 的唯一业务落盘点：用原子替换写入人读友好的自然语言剧本。"""
     root = Path(project)
     # 用户可见成果只能进入当前阶段目录；旧 ``writing/`` 仅作为读取兼容路径。
-    from stage_path_service import write_dir
+    from contract.stage_path_service import write_dir
     from writing_quality import split_response
     text = str(split_response(text)[0] or '').strip()
     if not text:
@@ -368,7 +368,7 @@ def _write_script_raw(project, text, *, publish=None):
 def _episode_baseline_text(project):
     """阶段④的当前剧本正文；读取问题一律退化为空串，绝不阻断生成。"""
     try:
-        from script_contract import script_episode_baseline
+        from contract.script_contract import script_episode_baseline
         return script_episode_baseline(project)
     except (OSError, ValueError, TypeError):
         return ''
@@ -377,7 +377,7 @@ def _episode_baseline_text(project):
 def _episode_reference_hint(project):
     """阶段④参考改动：只贴变化的集正文，未变化的集只给集号，不重复正文。"""
     try:
-        from script_contract import (episode_reference_block, read_episode_ledger,
+        from contract.script_contract import (episode_reference_block, read_episode_ledger,
                                      script_episode_baseline)
         baseline = script_episode_baseline(project)
         if not baseline.strip():
@@ -391,7 +391,7 @@ def _episode_reference_hint(project):
 def _record_episode_ledger(project, text, previous_text=''):
     """调用后更新分集增量账本；账本问题绝不阻断剧本交付。"""
     try:
-        from script_contract import record_episode_ledger
+        from contract.script_contract import record_episode_ledger
         return record_episode_ledger(project, text, previous_text=previous_text)
     except (OSError, ValueError, TypeError):
         return None
@@ -405,7 +405,7 @@ def _auto_save_script_raw(project, result, *, publish=None, model='', identity=N
     text = str(split_response(result.get('text'))[0] or '').strip()
     if len(text) < SCRIPT_RAW_AUTO_SAVE_MIN_CHARS:
         return result
-    from stage_path_service import write_dir
+    from contract.stage_path_service import write_dir
     target = write_dir(Path(project), 'script') / 'script_raw.md'
     try:
         unchanged = target.is_file() and target.read_text(encoding='utf-8').strip() == text
@@ -539,7 +539,7 @@ def _preparation_brief_hash(state):
 
 def confirmed_preparation_files(project):
     """只读：已确认阶段文件的绝对路径→阶段名（采用版本与重写草稿都算），供删除前提示。"""
-    from stage_path_service import write_dir
+    from contract.stage_path_service import write_dir
     folder = write_dir(project, 'script')
     target = folder / 'preparation_state.json'
     try:
@@ -612,7 +612,7 @@ def _preparation_restart_target(project, text):
     requested = preparation_restart_intent(text)
     if requested or not _preparation_restart_affirmative(text):
         return requested
-    from stage_path_service import write_dir
+    from contract.stage_path_service import write_dir
     target = write_dir(project, 'script') / 'preparation_state.json'
     state = read_json(target) if target.is_file() else None
     pending = state.get('pending_restart') if isinstance(state, dict) else None
@@ -637,7 +637,7 @@ def restart_preparation(project, stage, *, publish):
     """显式从指定阶段重写；None 放弃未确认重写，恢复原采用版本。"""
     if stage is None:
         from copy import deepcopy
-        from stage_path_service import write_dir
+        from contract.stage_path_service import write_dir
         target = write_dir(project, 'script') / 'preparation_state.json'
         state = deepcopy(read_json(target)) if target.is_file() else None
         if state is None:
@@ -660,8 +660,8 @@ def restart_preparation(project, stage, *, publish):
 
 def preparation_file_labels(project):
     """按绝对路径返回版本标记，script 键是自然稿类别的缺省标记。"""
-    from stage_path_service import write_dir
-    from script_contract import natural_script_selection_path
+    from contract.stage_path_service import write_dir
+    from contract.script_contract import natural_script_selection_path
     folder = write_dir(project, 'script')
     target = folder / 'preparation_state.json'
     state = read_json(target) if target.is_file() else {}
@@ -739,7 +739,7 @@ def chat_session_overview(project, model=None):
     """说明创意对话涉及的四个维度：会话模型与调用方式、本次请求身份、上下文来源
     与项目共享成果。只读：不切换会话、不复制权威稿、也不改变任何采用状态。"""
     import idea_chat
-    from stage_path_service import write_dir
+    from contract.stage_path_service import write_dir
     chosen = selected_model(project)[0] if model is None else model
     engine = model_pool.desktop_engine(chosen)
     invocation = ('本机 CLI（' + engine + '）') if engine else ('API 直连' if chosen else '未选择模型')
@@ -749,7 +749,7 @@ def chat_session_overview(project, model=None):
     state = read_json(target) if target.is_file() else {}
     confirmed = len([doc for doc in state.get('documents', [])
                      if isinstance(doc, dict) and doc.get('confirmed') is True])
-    from script_contract import natural_script_selection_path
+    from contract.script_contract import natural_script_selection_path
     selection = natural_script_selection_path(project)
     adopted = read_json(selection) if selection.is_file() else {}
     if adopted.get('path'):
@@ -821,7 +821,7 @@ def chat_session_lines(project, model=None):
 def _preparation_state(project, brief, *, restart_stage=None):
     """简报不是阶段完成凭据；确认必须绑定实际落盘的那一版正文。"""
     from copy import deepcopy
-    from stage_path_service import write_dir
+    from contract.stage_path_service import write_dir
     folder = write_dir(project, 'script')
     target = folder / 'preparation_state.json'
     fingerprint = hashlib.sha256(json.dumps(brief['brief'], ensure_ascii=False,
@@ -952,7 +952,7 @@ def _preparation_document(text, title):
 
 def _preserve_preparation_response(project, result, publish):
     """保留可见正文，不登记为阶段产物，也不改变采用状态。"""
-    from stage_path_service import write_dir
+    from contract.stage_path_service import write_dir
     text = str(result.get('text') or '').replace('\r\n', '\n')
     if not text.strip():
         return result
@@ -967,7 +967,7 @@ _PreparationRequest = namedtuple('_PreparationRequest', 'project chosen record s
 
 def _preparation_task(request, user_message, state, documents, texts, index):
     """拼本轮准备阶段的请求正文；返回 (titles, pending, next_index, task)。"""
-    from stage_path_service import write_dir
+    from contract.stage_path_service import write_dir
     project, chosen, record, settings, brief, creative = request
     stage = PREPARATION_STAGES[index]
     titles = ('项目设定', '剧本大纲', '人物设定（角色卡）')
@@ -1013,7 +1013,7 @@ def _preparation_step(request, *, publish, cancelled, user_message=None, identit
     import idea_document_paths, workflow_settings
     from copy import deepcopy
     from project_context_factory import project_context
-    from stage_path_service import write_dir
+    from contract.stage_path_service import write_dir
     if not callable(publish): raise TypeError('剧本准备阶段需要 L3 注入发布器')
     response_publisher, publish = publish, _cancellable_publisher(publish, cancelled)
     message = creative if user_message is None else user_message
@@ -1232,7 +1232,7 @@ def reply(project, creative, cancelled=None, *, publish=None, archive=None, user
 
 def _versioned_publisher(project, publish):
     """网络等待期间输入发生变化时拒绝发布，自己的写入同步更新快照。"""
-    from stage_path_service import write_dir
+    from contract.stage_path_service import write_dir
     folder = write_dir(project, 'script')
     target = folder / 'preparation_state.json'
     state = read_json(target) if target.is_file() else {'documents': []}
@@ -1320,7 +1320,7 @@ def _save_formal_script(project, result, *, model='', identity=None, publish, pr
     _record_episode_ledger(project, text, baseline)
     saved = dict(result, text=text, natural_script_path=str(target))
     if result.get('quality_required') or OPEN in response:
-        from stage_path_service import write_dir
+        from contract.stage_path_service import write_dir
         try:
             saved.update(publish_reports(response, target, write_dir(project, 'script') / 'quality', publish=publish).data)
         except OSError as exc:

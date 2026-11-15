@@ -338,7 +338,7 @@ def install(root=None, crash_sink=None) -> bool:
         return False
     _installed = True
     try:
-        from app_metadata import VERSION
+        from contract.app_metadata import VERSION
         logging.getLogger("startup").info("启动 %s commit=%s Python %s", VERSION, build_commit() or "-", sys.version.split()[0])
     except Exception:
         pass

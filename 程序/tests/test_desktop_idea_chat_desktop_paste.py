@@ -55,7 +55,7 @@ class DesktopModelPasteContractTests(unittest.TestCase):
             with patch("agent_dispatch.claim", return_value={"duplicate": False}), \
                     patch("agent_dispatch.finish") as finish, \
                     patch("prompt_window.copy_text") as copy, \
-                    patch("platform_tools.launch_windows_app") as launch, \
+                    patch("contract.platform_tools.launch_windows_app") as launch, \
                     patch("codex_paste.paste_existing",
                           return_value={"ok": True, "reason": receipt}) as paste:
                 Desktop.open_flow_agent(
@@ -86,7 +86,7 @@ class DesktopModelPasteContractTests(unittest.TestCase):
             with patch("agent_dispatch.claim", return_value={"duplicate": False}), \
                     patch("agent_dispatch.finish") as finish, \
                     patch("prompt_window.copy_text"), \
-                    patch("platform_tools.launch_windows_app"), \
+                    patch("contract.platform_tools.launch_windows_app"), \
                     patch("codex_paste.paste_existing",
                           return_value={"ok": False, "reason": reason}):
                 Desktop.open_flow_agent(

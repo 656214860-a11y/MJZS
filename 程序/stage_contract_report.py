@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import confirm_gates
-import stage_layout
+import contract.stage_layout as stage_layout
 
 
 def contract_rows():

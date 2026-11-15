@@ -7,7 +7,7 @@ from agent.core import read
 
 def production_choices(project):
     """返回首帧阶段可选生产模型，不加载手动制作窗口。"""
-    from production_model_contract import LOCAL_KEYFRAME_MODEL, SEEDREAM_KEYFRAME_MODEL
+    from contract.production_model_contract import LOCAL_KEYFRAME_MODEL, SEEDREAM_KEYFRAME_MODEL
     items = [(LOCAL_KEYFRAME_MODEL, LOCAL_KEYFRAME_MODEL),
              (SEEDREAM_KEYFRAME_MODEL, SEEDREAM_KEYFRAME_MODEL)]
     try:
@@ -26,7 +26,7 @@ def production_choices(project):
 
 def current_model(project):
     """阶段配置优先；未迁移旧项目才读取旧首帧偏好。"""
-    from production_model_contract import LOCAL_KEYFRAME_MODEL
+    from contract.production_model_contract import LOCAL_KEYFRAME_MODEL
     from stage_model_value import value as configured_value
     try:
         value = configured_value(project, 'keyframe')

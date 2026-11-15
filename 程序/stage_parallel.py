@@ -16,7 +16,7 @@
 3. 并发上限是硬上限（全局 8，单阶段按表），挡下来的活儿排队降速，直接丢掉。
 """
 import json
-import pet_bus
+import contract.pet_bus as pet_bus
 from file_cache import read_text
 import time
 import threading
@@ -139,7 +139,7 @@ def rate_limited(stage):
 
 
 def label(stage):
-    from pet_bus import STAGE_NAMES
+    from contract.pet_bus import STAGE_NAMES
     return str(STAGE_NAMES.get(str(stage or ''), stage or ''))
 
 
@@ -378,7 +378,7 @@ def parallel_map(stage, items, worker, governor=None, at=None, wait=WAIT_SECONDS
     submissions/process launches. Running results remain unknown, never retryable
     merely because the caller stopped waiting. Python threads are not killed.
     """
-    import platform_tools
+    import contract.platform_tools as platform_tools
     control = control or platform_tools.current_execution() or platform_tools.ExecutionControl(timeout)
     governor = shared() if governor is None else governor
     values = list(items)
@@ -779,7 +779,7 @@ def batches_ready(project):
     拿它当门禁会把「没走定稿就直接做首帧」这条老路堵死。
     """
     row = gate_for('keyframe')
-    from shot_batches import check_batches
+    from contract.shot_batches import check_batches
     entries = _adopted(project)
     if not entries:
         return _result(row, True, False, '还没有已采用的分镜，先不拦')
@@ -830,7 +830,7 @@ def _shot_frame_problem(source, episode, shot, base, aspect, frame_problem):
 def frames_ready(project):
     """SG-04：每个镜头的首帧都在，且不是空文件。"""
     row = gate_for('previs')
-    from storyboard_paths import media_root
+    from contract.storyboard_paths import media_root
     from keyframe_evidence import frame_problem
     from file_cache import read_json
     from stage_config import workflow_lock

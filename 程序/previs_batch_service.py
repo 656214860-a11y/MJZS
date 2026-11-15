@@ -2,7 +2,7 @@
 from datetime import datetime
 from pathlib import Path
 
-import stage_layout
+import contract.stage_layout as stage_layout
 import stage_parallel
 import white_model_service
 from file_cache import read_json

@@ -785,7 +785,7 @@ class DesktopModelPoolTests(unittest.TestCase):
             with patch('agent_dispatch.claim', return_value={'duplicate': False}), \
                     patch('agent_dispatch.finish') as finish, \
                     patch('prompt_window.copy_text') as copy, \
-                    patch('platform_tools.launch_windows_app') as launch, \
+                    patch('contract.platform_tools.launch_windows_app') as launch, \
                     patch('codex_paste.paste_existing') as paste, \
                     patch('workflow_engines.launch_interactive') as cli, \
                     patch('codex_tasks.prepare_task') as codex:
@@ -834,7 +834,7 @@ class DesktopModelPoolTests(unittest.TestCase):
             with self.subTest(engine=config['engine']), tempfile.TemporaryDirectory() as td:
                 desktop, send = host(make_project(td))
                 with patch('agent_dispatch.finish'), patch('prompt_window.copy_text'), \
-                        patch('platform_tools.launch_windows_app'), \
+                        patch('contract.platform_tools.launch_windows_app'), \
                         patch('workflow_settings.find_program', return_value=config['program']), \
                         patch('codex_paste.paste_existing', return_value={'ok': True, 'reason': '已粘贴，请手动发送'}), \
                         patch('codex_skill_sync.sync_codex_skills', return_value={'errors': [], 'conflicts': []}), \
@@ -941,7 +941,7 @@ class DesktopModelPoolTests(unittest.TestCase):
             with patch('agent_dispatch.claim', return_value={'duplicate': False}), \
                     patch('agent_dispatch.finish') as finish, \
                     patch('prompt_window.copy_text') as copy, \
-                    patch('platform_tools.launch_windows_app') as launch, \
+                    patch('contract.platform_tools.launch_windows_app') as launch, \
                     patch('codex_paste.paste_existing', return_value={'ok': True, 'reason': '已粘贴'}) as paste, \
                     patch('workflow_engines.launch_interactive') as cli, \
                     patch('codex_tasks.prepare_task') as codex:
@@ -979,7 +979,7 @@ class DesktopModelPoolTests(unittest.TestCase):
             with patch('agent_dispatch.claim', return_value={'duplicate': False}), \
                     patch('agent_dispatch.finish'), \
                     patch('prompt_window.copy_text') as copy, \
-                    patch('platform_tools.launch_windows_app'), \
+                    patch('contract.platform_tools.launch_windows_app'), \
                     patch('codex_paste.paste_existing', return_value={'ok': True, 'reason': '已粘贴'}) as paste:
                 Desktop.open_flow_agent(desktop, 'writing', '创作', '用户本轮创作要求', _config=config)
             tasks = list((proj / '工作流任务' / 'writing').glob('*.md'))

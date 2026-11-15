@@ -9,7 +9,7 @@ import hashlib
 from datetime import datetime
 from pathlib import Path
 
-import artifact_schema
+import contract.artifact_schema as artifact_schema
 from agent.core import save
 from file_cache import path_key, read_json
 
@@ -86,7 +86,7 @@ def current_step(root, request_text=''):
 def _latest_document(root, name):
     """本项目任一模型交付的该类最新文件（固定深度 Provider/模型/创意_日期/类型，不递归）；没有返回 None。"""
     from idea_document_paths import project_document_directory
-    from stage_path_service import write_dir
+    from contract.stage_path_service import write_dir
     try:
         found = [path for path in write_dir(root, 'script').glob(
                  '*/*/创意_*/' + project_document_directory(name) + '/*.md') if path.is_file()]
@@ -111,7 +111,7 @@ def material_targets(root, model_label, request_text=''):
     只取本轮那一步及之前的材料。"""
     from idea_document_paths import brief_complete_path, delivery_document_path, storage_identity
     from project_context_factory import project_context
-    from script_contract import RAW_SCRIPT_NAME, script_baseline_path
+    from contract.script_contract import RAW_SCRIPT_NAME, script_baseline_path
     context = project_context(root)
     provider, model = storage_identity(model_label)
     confirmed = _confirmed_documents(root)

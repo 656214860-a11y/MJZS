@@ -19,6 +19,7 @@ R1041（J5 分轮 2）：app 日志视图清空、desktop 最后剧本回收确�
 ├─ agent/                 通用 Agent、媒体与视频服务适配器
 ├─ assets/                图标和程序静态资源
 ├─ batch_frames_tool/     批量首帧辅助工具
+├─ contract/              L0 契约包（error_codes 与 L0 契约族共 30 个模块；顶层同名 .py 为历史门面）
 ├─ data/                  程序内置数据、示例数据
 ├─ episode/               默认/演示剧集输出
 ├─ logs/                  运行、模型与三虎日志

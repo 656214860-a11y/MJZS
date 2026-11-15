@@ -8,7 +8,7 @@ import tokenize
 import unittest
 from pathlib import Path
 
-from tests.architecture._scan import production_files
+from tests.architecture._scan import module_scan_files, registry_key
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -27,7 +27,7 @@ def _scope_at(tree, line):
 
 def _comment_items(paths=None, *, root=ROOT):
     found = []
-    for path in production_files() if paths is None else paths:
+    for path in module_scan_files() if paths is None else paths:
         source = path.read_text(encoding='utf-8')
         tree = ast.parse(source, filename=str(path))
         for token in tokenize.generate_tokens(io.StringIO(source).readline):
@@ -36,7 +36,8 @@ def _comment_items(paths=None, *, root=ROOT):
             comment = token.string[1:].strip()
             if any(marker in comment.lower() for marker in MARKERS):
                 found.append({
-                    'file': path.relative_to(root).as_posix(),
+                    'file': (registry_key(path) if path.is_relative_to(ROOT)
+                             else path.relative_to(root).as_posix()),
                     'scope': _scope_at(tree, token.start[0]),
                     'comment': comment,
                 })

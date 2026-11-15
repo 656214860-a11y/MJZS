@@ -96,7 +96,7 @@ def _record_failure(project, state, aid, exc, publish_ledger):
 def run_batch(project, base, items, options, events, stop, client_factory=Comfy):
     """Generate and register one image per eligible asset without UI access."""
     from cloud_assets import LOCAL, MODELS, validate as validate_cloud, graph as cloud_graph, get_key
-    from prop_assets import requires_asset
+    from contract.prop_assets import requires_asset
     from stage_execution_service import asset_batch_gateway, prepare_asset_write
     base = prepare_asset_write(project, base)
     gateway = asset_batch_gateway()
@@ -125,7 +125,7 @@ def run_batch(project, base, items, options, events, stop, client_factory=Comfy)
                 continue  # 原有任务冲突或待核实：执行循环报告，不计作新增付费请求。
             if not old:count += 1
         if count:
-            from asset_contract import resolve_aspect_ratio
+            from contract.asset_contract import resolve_aspect_ratio
             inputs = {'model': options['backend'], 'quality': options.get('quality', 'medium'),
                       'aspect_ratio': resolve_aspect_ratio(options.get('workflow_lock'), options.get('aspect_ratio'), '1:1')}
             model = cloud_price_model({'30': {'class_type': 'DramaCloudImage', 'inputs': inputs}})
@@ -150,7 +150,7 @@ def run_batch(project, base, items, options, events, stop, client_factory=Comfy)
             else:
                 images = resolve(base, asset)
                 workflow = cloud_graph(client, aid, asset, prompt, images, options) if cloud else (client.reference_graph(prompt, images, reference_cfg) if images else None)
-                from platform_tools import execution_metadata
+                from contract.platform_tools import execution_metadata
                 state[aid] = {'state':'submitting','prompt':prompt,'url':options['url'],'asset':asset,'references':asset['_reference_signature'],'generation':generation,
                               'execution': execution_metadata('assets', aid)}; save_ledger(project, state, publish=publish_ledger)
                 record = client.submit_graph(project, kind, prompt, workflow, extra_data={'api_key_comfy_org':get_key()}) if cloud else (client.submit_graph(project, kind, prompt, workflow) if images else client.submit(project, kind, prompt, options['model'], options['workflow'] or None, options['node'], options['field']))

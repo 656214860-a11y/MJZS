@@ -24,7 +24,7 @@ import subprocess
 import sys
 import time
 
-from platform_tools import launch_background, run_process, tool_path
+from contract.platform_tools import launch_background, run_process, tool_path
 from storage_maintenance import remove_regenerable_tree
 
 

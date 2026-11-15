@@ -5,7 +5,7 @@
 # 第 34 期第 9 条：`urllib.request` 连 ssl 一起加载（约 4.4 MB 常驻），验证连接时才 import。
 import tkinter as tk
 from tkinter import ttk
-from api_models import records,remember,remove,label,identity
+from contract.api_models import records,remember,remove,label,identity
 from agent.core import save
 from qwen_setup import load,probe,save_key,settings_path,unified_key,validate
 import tk_timers

@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 
 import pet_bus
-from tests.architecture._scan import ROOT, production_files
+from tests.architecture._scan import ROOT, module_scan_files
 from tests.architecture._layers import LAYERS
 from tests.architecture.test_path_authority import _WHITELIST as PATH_AUTHORITIES
 from tests.architecture.test_remove_authority import _WHITELIST as REMOVE_AUTHORITIES
@@ -131,7 +131,7 @@ class AgentsMdConsistencyTests(unittest.TestCase):
                    'asset_prompt_check_dialog.py', 'asset_reference_prompts_dialog.py'}
         pattern = re.compile(r'第\s*0?\d{1,2}\s*步')
         offenders = {}
-        for path in production_files():
+        for path in module_scan_files():
             tree = ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
             hits = sorted({node.value for node in ast.walk(tree)
                            if isinstance(node, ast.Constant) and isinstance(node.value, str)

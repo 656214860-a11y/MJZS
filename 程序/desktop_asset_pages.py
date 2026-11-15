@@ -15,7 +15,7 @@ import ui_plugin_registry
 from agent.core import read
 from desktop_auto_flows import ASSET_RETRY_LIMIT
 from pathlib import Path
-from platform_tools import open_target
+from contract.platform_tools import open_target
 from responsive_ui import CheckboxColumn, FlowBar, MIN_COL, auto_columns, bind_row_toggle, bind_space_toggle, bind_show_all, configure_check_column, fit_row_height, refresh_check_heading, refresh_request_width, remember_columns
 from tkinter import ttk
 from ui_tokens import TEXT_ROWS, COLORS, SPACING, TABLE_HEADER_FONT, TABLE_ROW_FONT, TEXT_HINT
@@ -120,7 +120,7 @@ class AssetPagesMixin:
         if not self.root:return []
         try:
             from asset_batch_state_service import prune_raw_outputs
-            from stage_path_service import LEGACY_NUMBERED
+            from contract.stage_path_service import LEGACY_NUMBERED
             if self.asset_base() == Path(self.root)/LEGACY_NUMBERED['assets']:
                 return []
             removed=prune_raw_outputs(self.asset_base())
@@ -228,7 +228,7 @@ class AssetPagesMixin:
     def asset_page(self):
         from asset_skill_batch import resume
         from asset_reference_images import prepare_folders
-        from stage_path_service import write_dir
+        from contract.stage_path_service import write_dir
         resume(self)
         if self.asset_base() == write_dir(self.root,'assets'):
             prepare_folders(self.asset_base())
@@ -348,7 +348,7 @@ class AssetPagesMixin:
         return scope_sources(self.root,self.asset_scope())
     def asset_requirements(self):
         from stage_execution_service import sync_asset_plan
-        from stage_path_service import write_dir, LEGACY_NUMBERED
+        from contract.stage_path_service import write_dir, LEGACY_NUMBERED
         base=self.asset_base()
         if base == Path(self.root)/LEGACY_NUMBERED['assets']:
             # 查看历史清单不触发复制或自动同步；第一次修改由 L3 复制。
@@ -582,7 +582,7 @@ class _AssetPage:
 
     def build(self):
         from asset_context import ensure_browser_directory
-        from stage_path_service import LEGACY_NUMBERED
+        from contract.stage_path_service import LEGACY_NUMBERED
         base=self.page.asset_base()
         folder=ensure_browser_directory(base,self.kind,create=base != Path(self.page.root)/LEGACY_NUMBERED['assets'])
         self.registry=self.page.asset_requirements()

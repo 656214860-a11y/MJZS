@@ -4,7 +4,7 @@ from __future__ import annotations
 import ast
 import unittest
 
-from tests.architecture._scan import ROOT, parse, production_files
+from tests.architecture._scan import ROOT, parse, module_scan_files
 
 
 class NotificationBoundaryTests(unittest.TestCase):
@@ -41,7 +41,7 @@ class NotificationBoundaryTests(unittest.TestCase):
     def test_all_root_business_modules_use_the_notification_entry(self):
         direct = {
             path.name: len(_display_messageboxes(parse(path)))
-            for path in production_files() if path.name != 'ui_widgets.py'
+            for path in module_scan_files() if path.name != 'ui_widgets.py'
             if _display_messageboxes(parse(path))
         }
         self.assertEqual(direct, {}, '根目录业务模块不得直接显示 messagebox：' + str(direct))

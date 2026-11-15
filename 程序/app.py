@@ -5,14 +5,14 @@
 import app_logging
 import hash_backend
 hash_backend.install()
-import pet_bus
+import contract.pet_bus as pet_bus
 import queue
 import threading
 import time
 import tkinter as tk
 from tkinter import ttk, messagebox
 from pathlib import Path
-from storyboard_paths import media_root, project_root
+from contract.storyboard_paths import media_root, project_root
 from responsive_ui import FlowBar,QuietVar,configure_check_column,CheckboxColumn,fit_columns_by_content,fit_row_height,row_height_for
 from local_video import open_studio,LocalStudio,settings_window
 from engine import review_label
@@ -22,7 +22,7 @@ from video_progress import snapshot as shared_video_snapshot,display as progress
 import project_settings
 import asset_thumbs
 import ui_plugin_registry
-from platform_tools import open_path
+from contract.platform_tools import open_path
 from ui_tokens import CHAR_WIDTH, TEXT_ROWS, WRAPLENGTH, COLORS, FONTS, SPACING
 from ui_widgets import (SelectBox, BaseDialog, Card, BusyState, ContextMenu, DataTable, LineInput, NotificationDispatcher,
                         ask_confirmation, ask_string,
@@ -168,7 +168,7 @@ class App:
         self.tree.column('id',width=SPACING['sm'] * 14);table_shell.grid(row=0,column=0,sticky='ew')
         self.tree.tag_configure('completed',background=COLORS['row_completed'],foreground=COLORS['success'])
         self.tree.bind('<<TreeviewSelect>>',lambda e:self.select())
-        from shot_selection import bind_shot_checks
+        from contract.shot_selection import bind_shot_checks
         self.tree.is_shot_checked=lambda sid:bool(self.edit_checks.get(sid,False))
         # 第 41 期第 1 条：「选择资产」那一格点开下拉框，不跟着切换本行勾选。
         bind_shot_checks(self.tree,self.toggle_edit_check,cell_click=self.asset_cell_click)
@@ -1376,7 +1376,7 @@ class App:
             except Exception as e:self.notifier.error(str(e), title='无法保存')
         PrimaryButton(body,text='保存',command=commit).grid(row=len(labels)+1,column=1,pady=SPACING['md'])
     def open_assembled(self):
-        from project_stages import exports
+        from contract.project_stages import exports
         folder=exports(self.root);folder.mkdir(parents=True,exist_ok=True)
         open_path(str(folder))
     def run(self,fn,quiet=False,on_success=None):

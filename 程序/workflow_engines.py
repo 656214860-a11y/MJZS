@@ -15,14 +15,14 @@ from workflow_process_registry import (register_process, forget_process, process
                                        reserve_process_slot, release_process_slot,
                                        request_process_slot, claim_process_slot,
                                        cancel_project_slot_requests, cancel_project_requests, cancel_slot_request)
-from platform_tools import launch_windows_app, terminate_process_tree
-from workflow_context_budget import ensure_request_context
+from contract.platform_tools import launch_windows_app, terminate_process_tree
+from contract.workflow_context_budget import ensure_request_context
 import client_profiles
 
 
 def _stage_slot_arguments(stage):
     """阶段名（英文键或中文名）→ 槽位注册表要的 (键, 阶段并发上限, 全局上限, 显示名)。"""
-    from pet_bus import STAGE_NAMES
+    from contract.pet_bus import STAGE_NAMES
     from stage_parallel import GLOBAL_LIMIT, concurrency_limit, label
     value = str(stage or '')
     key = next((name for name, text in STAGE_NAMES.items() if value in (name, text)), value)

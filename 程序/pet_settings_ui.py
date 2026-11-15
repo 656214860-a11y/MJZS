@@ -20,8 +20,8 @@ import environment_check
 import skill_budget
 import usage_overview
 import token_saver
-from app_metadata import APP_NAME
-from pet_settings_contract import TABS, LEVEL_NOTES
+from contract.app_metadata import APP_NAME
+from contract.pet_settings_contract import TABS, LEVEL_NOTES
 from ui_tokens import FONTS, SPACING, TEXT_DESC, TEXT_HINT
 from ui_widgets import BaseDialog, Card, LineInput, PrimaryButton, SecondaryButton, TextArea, SelectBox
 
@@ -633,7 +633,7 @@ def token_page(frame, pet, width=None, show_save=True):
 
 def app_version():
     """版本号来自基础元数据，不为一个常量反向导入桌面宿主。"""
-    from app_metadata import VERSION
+    from contract.app_metadata import VERSION
     return str(VERSION or '')
 
 

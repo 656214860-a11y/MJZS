@@ -35,6 +35,101 @@ def production_files() -> tuple[Path, ...]:
     return tuple(sorted(path for path in ROOT.glob("*.py")
                         if not path.stem.startswith("test") and path.stem not in _EXCLUDED_STEMS))
 
+
+# T10 包化：contract/infra/domain/orchestrator/ui 五个分层包的实体模块以扁平名
+# 参与分层／环／规模棘轮；顶层同名门面只做再导出，不产生依赖边，扫描时排除。
+PACKAGE_NAMES = ("contract", "infra", "domain", "orchestrator", "ui")
+
+
+def package_entity_files() -> tuple[Path, ...]:
+    """五个 T10 包的实体 .py（不含 __init__）；包内暂按单层目录放置。"""
+    files: list[Path] = []
+    for package in PACKAGE_NAMES:
+        directory = ROOT / package
+        if directory.is_dir():
+            files.extend(path for path in sorted(directory.glob("*.py"))
+                         if path.stem != "__init__")
+    return tuple(files)
+
+
+def is_package_facade(path: Path) -> bool:
+    """顶层同名门面：除 docstring 外只含 ``from <包>.<同名模块> import ...``。"""
+    if path.parent != ROOT:
+        return False
+    try:
+        tree = parse(path)
+    except (SyntaxError, UnicodeDecodeError):
+        return False
+    saw_entity_import = False
+    for node in tree.body:
+        if (isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant)
+                and isinstance(node.value.value, str)):
+            continue  # 模块 docstring
+        if isinstance(node, ast.ImportFrom) and node.module:
+            package, _, tail = node.module.partition(".")
+            if package in PACKAGE_NAMES and tail == path.stem:
+                saw_entity_import = True
+                continue
+        return False
+    return saw_entity_import
+
+
+def module_scan_files() -> tuple[Path, ...]:
+    """分层／环／规模棘轮的扫描集：顶层生产文件（去门面）＋包实体文件。
+
+    实体与门面同干系名；排除门面后每个原始模块恰有一个扫描代表，
+    棘轮登记键（path.name／path.stem）与搬家前一致。
+    """
+    return (tuple(path for path in production_files() if not is_package_facade(path))
+            + package_entity_files())
+
+
+def registry_key(path: Path) -> str:
+    """棘轮登记键：T10 包实体归一为 ``<模块名>.py``（与搬家前顶层路径一致），
+    其余文件保持相对 ``程序/`` 的 posix 路径（如 ``agent/core.py``）。"""
+    parts = path.relative_to(ROOT).parts
+    if len(parts) > 1 and parts[0] in PACKAGE_NAMES:
+        return parts[-1]
+    return "/".join(parts)
+
+
+def _package_target(dotted: str) -> str:
+    """``contract.x`` 归一化为扁平登记名 ``x``；非 T10 包名取首段（同 import_rows）。"""
+    parts = dotted.split(".")
+    if len(parts) > 1 and parts[0] in PACKAGE_NAMES:
+        return parts[1]
+    return parts[0]
+
+
+def module_import_rows(path: Path) -> Iterator[tuple[int, str]]:
+    """package-aware 版 import_rows：T10 包路径还原为扁平登记名。"""
+    for node in ast.walk(parse(path)):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                yield node.lineno, _package_target(alias.name)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            yield node.lineno, _package_target(node.module)
+
+
+def module_dynamic_import_rows(path: Path) -> Iterator[tuple[int, str]]:
+    """package-aware 版 dynamic_import_rows。"""
+    for node in ast.walk(parse(path)):
+        if not isinstance(node, ast.Call) or not node.args:
+            continue
+        func = node.func
+        name = func.id if isinstance(func, ast.Name) else func.attr if isinstance(func, ast.Attribute) else None
+        first = node.args[0]
+        if name in ("import_module", "__import__") and isinstance(first, ast.Constant) and isinstance(first.value, str):
+            yield node.lineno, _package_target(first.value)
+
+
+def module_imports_of(path: Path) -> frozenset[str]:
+    return frozenset(name for _, name in module_import_rows(path))
+
+
+def module_imports_with_dynamic_of(path: Path) -> frozenset[str]:
+    return frozenset(name for _, name in (*module_import_rows(path), *module_dynamic_import_rows(path)))
+
 # 非产品目录：技能随附脚本、开发／维护脚本、参考资料、构建产物与外部附加工具。
 # 它们是独立工具，不属于产品运行时，不参与「正式资源目标」类审计的扫描范围。
 NON_PRODUCT_PARTS = frozenset({"skills", "scripts", "reference", "outputs", "附加工具"})

@@ -4,7 +4,7 @@ import hashlib
 import subprocess
 from pathlib import Path
 
-from platform_tools import run_process, tool_path
+from contract.platform_tools import run_process, tool_path
 
 
 def seedream_payload(profile_model, prompt, aspect_ratio, ref_paths):

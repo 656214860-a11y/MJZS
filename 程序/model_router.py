@@ -348,7 +348,7 @@ class ModelAdapter:
 
     def chat(self, messages, options=None, model='', system=''):
         """统一入口：返回 {'ok', 'text', 'model', 'status', 'usage', 'error'}，不抛异常。"""
-        from platform_tools import current_execution
+        from contract.platform_tools import current_execution
         control = current_execution()
         timeout = control.remaining(self.timeout) if control is not None else self.timeout
         target = str(model or '') or next(iter(self.models), '')
@@ -386,7 +386,7 @@ class ModelAdapter:
         """仅 chat 协议走 SSE；已发送后失败不得自动再次提交。"""
         if self.wire_api != 'chat' or not callable(on_chunk):
             return self.chat(messages, options=options, model=model, system=system)
-        from platform_tools import current_execution
+        from contract.platform_tools import current_execution
         control = current_execution()
         timeout = control.remaining(self.timeout) if control is not None else self.timeout
         target = str(model or '') or next(iter(self.models), '')
@@ -696,7 +696,7 @@ class ModelRouter:
         if not getattr(choice, 'ok', False):
             return {'ok': False, 'status': 0, 'error': choice.reason or '没有可用模型', 'model': '',
                     'text': '', 'usage': pet_llm.usage_of(None)}
-        from platform_tools import execution_checkpoint
+        from contract.platform_tools import execution_checkpoint
         attempts = []
         candidates = [choice.model] + list(getattr(choice, 'fallback_models', ()))
         result = {}

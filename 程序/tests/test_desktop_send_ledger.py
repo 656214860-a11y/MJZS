@@ -69,7 +69,7 @@ class DesktopResendTests(unittest.TestCase):
             'stage_execution_service.register_download_inbox': Mock(),
             'prompt_window.copy_text': self.copy,
             'codex_paste.paste_existing': self.paste,
-            'platform_tools.launch_windows_app': Mock(),
+            'contract.platform_tools.launch_windows_app': Mock(),
             'desktop_send_ledger.PROGRAM': self.program,
             'desktop_send_choice.ask_send_mode': self.ask,
         }

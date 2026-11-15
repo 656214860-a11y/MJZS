@@ -9,7 +9,7 @@ from stage_execution_service import remove_asset_batch_model as remove_model, sa
 import tk_timers
 import ui_plugin_registry
 from responsive_ui import FlowBar, scroll_form
-from platform_tools import open_target
+from contract.platform_tools import open_target
 from ui_tokens import TEXT_ROWS, WRAPLENGTH, COLORS, SPACING
 from ui_dialogs import FileDialog
 from ui_widgets import SelectBox, BaseDialog, Card, DataTable, DescriptionBlock, LineInput, PrimaryButton, ProgressLabel, SecondaryButton, ask_confirmation
@@ -289,7 +289,7 @@ class _AssetBatchWindow:
         return self.controller.options({key:value.get() for key,value in self.values.items()}, current_model(self.project), self.aspect.get(), self.quality.get())
 
     def model_key(self):
-        from api_models import identity
+        from contract.api_models import identity
         return identity(self.values['url'].get(),self.values['model'].get())
 
     def delete_model(self):
@@ -309,7 +309,7 @@ class _AssetBatchWindow:
         url=self.values['url'].get();client=Comfy(url)
         if not self.app.launch_comfy():return
         def load():
-            from api_models import identity
+            from contract.api_models import identity
             current=_prefs(self.prefsfile)
             deleted=current.get('asset_batch',{}).get('deleted_models',[])
             return self.controller.detect(client.models, url, deleted, identity)
@@ -397,5 +397,5 @@ class _AssetBatchWindow:
         self.app.async_(lambda:run_batch(self.project,self.base,items,options,self.events,self.stop),done)
 
     def records(self):
-        from platform_tools import open_path
+        from contract.platform_tools import open_path
         folder=self.project/'workflows';folder.mkdir(exist_ok=True);open_path(folder)

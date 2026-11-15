@@ -6,7 +6,7 @@ SKILLS={'screenplay':('万能工作流','coconah-ai-short-drama-agent-skill','�
         'drama-skills':('Drama分镜','short-drama-storyboard','short-drama-storyboard'),
         'jingju-skills':('鲸剧工作流','jingju-skills','jingju-skills')}
 
-from platform_tools import tool_path, _TOOL_CACHE
+from contract.platform_tools import tool_path, _TOOL_CACHE
 
 
 def skill_file(folder,skill_home=None):

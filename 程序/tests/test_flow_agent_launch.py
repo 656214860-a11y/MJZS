@@ -68,7 +68,7 @@ class FlowAgentLaunchTests(unittest.TestCase):
             'workflow_engines.prompt_with_settings': lambda prompt, config, stage: prompt,
             'prompt_window.copy_text': Mock(),
             'codex_paste.paste_existing': self.paste,
-            'platform_tools.launch_windows_app': Mock(),
+            'contract.platform_tools.launch_windows_app': Mock(),
         }
         targets.update(extra)
         with contextlib.ExitStack() as stack:
@@ -117,7 +117,7 @@ class FlowAgentLaunchTests(unittest.TestCase):
                 patch('native_apps.open_blender') as blender, \
                 patch('codex_tasks.prepare_task', return_value=task) as prepare, \
                 patch('desktop_idea_chat.open_target') as target, \
-                patch('platform_tools.launch_windows_app') as launch:
+                patch('contract.platform_tools.launch_windows_app') as launch:
             self.open(host, 'previs', config)
         blender.assert_called_once_with()
         self.assertEqual('previs', prepare.call_args.args[2])

@@ -1,10 +1,10 @@
 """Conservative project cleanup; run only after the UI has closed."""
 import math, os, shutil, subprocess, sys, time, uuid
 from pathlib import Path, PurePosixPath
-import stage_layout
+import contract.stage_layout as stage_layout
 from agent.core import save
 from file_cache import recycled, read_json
-from platform_tools import launch_background
+from contract.platform_tools import launch_background
 
 PROGRAM=Path(__file__).resolve().parent
 def downloads_root():
@@ -514,7 +514,7 @@ def edit_source_versions(root):
     root=Path(root)
     pairs=set();digests=set()
     try:
-        from project_stages import exports
+        from contract.project_stages import exports
         parent=exports(root)
     except (OSError,ValueError):
         return pairs,digests

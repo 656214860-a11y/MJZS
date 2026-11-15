@@ -5,7 +5,7 @@ import uuid
 from pathlib import Path
 
 from file_cache import read_json
-from project_context import ProjectContext
+from contract.project_context import ProjectContext
 
 KINDS = {'CHAR': ('characters', '角色'), 'LOC': ('scenes', '场景'),
          'PROP': ('props', '道具')}
@@ -304,7 +304,7 @@ def automatic_plan(project, base, sources, settings, scope='adopted', *, gateway
     """Return independently generatable assets without constructing any Tk UI."""
     from asset_plan import _sync_plan
     from asset_prompt_rules import issues
-    from prop_assets import requires_asset
+    from contract.prop_assets import requires_asset
 
     project = _project_root(project, context=context)
     base = Path(base)
@@ -339,7 +339,7 @@ def auto_settings(project=None, *, context=None):
 
 def current_model(project=None, *, context=None):
     """Resolve the asset model from the same stage configuration as execution."""
-    from production_model_contract import ASSET_CLOUD_MODELS, ASSET_LOCAL_MODEL
+    from contract.production_model_contract import ASSET_CLOUD_MODELS, ASSET_LOCAL_MODEL
     from stage_model_value import value as configured_value
     try:
         value = configured_value(_project_root(project, context=context), 'assets')

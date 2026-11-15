@@ -24,7 +24,7 @@ import time
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
-from pet_bus import STAGES, STAGE_NAMES
+from contract.pet_bus import STAGES, STAGE_NAMES
 
 SKILL_SUFFIX = '.skill.md'
 PACKAGE_SKILL_FILENAME = 'SKILL.md'

@@ -10,9 +10,9 @@ import tempfile
 import time
 from pathlib import Path
 
-import stage_layout
+import contract.stage_layout as stage_layout
 from agent.core import read_json
-from project_context import ProjectContext
+from contract.project_context import ProjectContext
 
 LEDGER_PATH = (stage_layout.WORKFLOW_DIR, '宠物', '优化.json')
 SLOWDOWN_THRESHOLD = 1.4

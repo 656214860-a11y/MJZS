@@ -165,7 +165,7 @@ class ScriptComposerTests(unittest.TestCase):
 
     def test_microphone_dictates_live_into_input(self):
         import queue
-        import platform_tools
+        import contract.platform_tools as platform_tools
         import speech_api
 
         class FakeRecorder:
@@ -263,7 +263,7 @@ class ScriptComposerTests(unittest.TestCase):
             self.assertEqual(str(button.cget('style')), 'Tokens.Composer.Icon.TButton')
 
     def test_microphone_without_key_explains_in_status(self):
-        import platform_tools
+        import contract.platform_tools as platform_tools
         import speech_api
         with tempfile.TemporaryDirectory() as td, \
                 patch.object(speech_api, 'missing_reason', return_value='没有配置语音识别密钥 DASHSCOPE_API_KEY'), \

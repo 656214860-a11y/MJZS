@@ -14,9 +14,9 @@ import re
 import ssl
 import urllib.error
 
-import platform_tools
-from app_metadata import VERSION
-from service_contract import SystemError, UserError, success
+import contract.platform_tools as platform_tools
+from contract.app_metadata import VERSION
+from contract.service_contract import SystemError, UserError, success
 
 BASE_URL = 'https://8.138.223.126'
 TIMEOUT = 15

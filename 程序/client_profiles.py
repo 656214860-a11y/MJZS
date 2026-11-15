@@ -249,7 +249,7 @@ def _registry_candidates(names):
     if not names:
         return []
     try:
-        from platform_tools import windows_registry
+        from contract.platform_tools import windows_registry
         registry = windows_registry()
     except Exception:
         return []

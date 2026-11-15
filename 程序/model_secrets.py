@@ -14,7 +14,7 @@ import os
 import re
 from pathlib import Path
 from storage_maintenance import remove_private_file
-from model_protocol import BytesProtector
+from contract.model_protocol import BytesProtector
 from agent.core import read_json, replace, save as save_json, temporary_path
 
 PROGRAM = Path(__file__).resolve().parent

@@ -11,7 +11,7 @@ import unittest
 from tests.architecture._scan import ROOT, parse, production_runtime_files
 
 RAW_CALLS = frozenset({'urlopen', 'urlretrieve', 'HTTPConnection', 'HTTPSConnection', 'create_connection'})
-ALLOWED = frozenset({'platform_tools.py'})
+ALLOWED = frozenset({'contract/platform_tools.py'})
 
 
 def raw_calls(tree):

@@ -3,7 +3,7 @@ from pathlib import Path
 
 from agent.core import read
 from asset_batch_service import KINDS
-from project_context import ProjectContext
+from contract.project_context import ProjectContext
 
 
 def _project_root(project=None, *, context=None):

@@ -20,9 +20,9 @@ import json
 import time
 from pathlib import Path
 
-import pet_bus
+import contract.pet_bus as pet_bus
 import pet_llm
-import script_contract
+import contract.script_contract as script_contract
 import skill_budget
 import skill_registry
 import skill_templates

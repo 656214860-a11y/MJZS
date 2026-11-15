@@ -4,7 +4,7 @@ from __future__ import annotations
 import ast
 import unittest
 
-from tests.architecture._scan import module_name, parse, production_files
+from tests.architecture._scan import module_name, module_scan_files, parse
 
 
 _ALLOWED = frozenset({
@@ -28,7 +28,7 @@ def _catches_import_error(handler: ast.ExceptHandler) -> bool:
 class ImportErrorBoundaryTests(unittest.TestCase):
     def test_import_error_handlers_have_a_single_registered_boundary(self):
         found = {}
-        for path in production_files():
+        for path in module_scan_files():
             lines = tuple(node.lineno for node in ast.walk(parse(path))
                           if isinstance(node, ast.ExceptHandler) and _catches_import_error(node))
             if lines:
@@ -37,11 +37,11 @@ class ImportErrorBoundaryTests(unittest.TestCase):
                          '未经分类的 ImportError 容错必须迁入 facade/平台/核验边界：%r' % found)
 
     def test_legacy_facade_declares_a_retirement_date(self):
-        path = next(path for path in production_files() if module_name(path) == 'legacy_compat')
+        path = next(path for path in module_scan_files() if module_name(path) == 'legacy_compat')
         self.assertIn("RETIRE_AFTER = '2027-03-31'", path.read_text(encoding='utf-8'))
 
     def test_non_compatibility_boundaries_keep_their_failure_semantics(self):
-        source = {module_name(path): path.read_text(encoding='utf-8') for path in production_files()}
+        source = {module_name(path): path.read_text(encoding='utf-8') for path in module_scan_files()}
         self.assertIn("if os.name != 'nt'", source['platform_tools'])
         self.assertIn('sys.builtin_module_names', source['hash_backend'])
         self.assertIn("return False, '成果校验失败", source['stage_completion_service'])

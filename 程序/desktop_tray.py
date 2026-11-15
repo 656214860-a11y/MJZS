@@ -26,7 +26,7 @@ from ctypes import wintypes
 from pathlib import Path
 
 import app_logging
-import platform_tools
+import contract.platform_tools as platform_tools
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 LAUNCHER = REPO_ROOT / '启动漫剧制作助手.pyw'

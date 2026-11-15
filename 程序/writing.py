@@ -4,10 +4,10 @@ import logging
 import re
 import uuid
 from pathlib import Path
-from storyboard_paths import media_root
+from contract.storyboard_paths import media_root
 from agent.core import read
-from episode_contract import duration_gap, edited_total, number, relative, validate_episode
-from service_contract import SystemError, success
+from contract.episode_contract import duration_gap, edited_total, number, relative, validate_episode
+from contract.service_contract import SystemError, success
 
 _LOG = logging.getLogger(__name__)
 

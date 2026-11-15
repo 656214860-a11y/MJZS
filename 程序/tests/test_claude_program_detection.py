@@ -16,7 +16,7 @@ class ClaudeProgramDetectionTests(unittest.TestCase):
             executable.parent.mkdir(parents=True)
             executable.write_bytes(b'test-only')
             with patch.dict(os.environ, {'LOCALAPPDATA': folder}), \
-                    patch('platform_tools.windows_registry', return_value=None):
+                    patch('contract.platform_tools.windows_registry', return_value=None):
                 self.assertEqual(Path(settings.find_model_program('Google Gemini 4 Argon', 'Desktop')), executable)
 
     def test_desktop_name_finds_matching_installation_only(self):
@@ -25,7 +25,7 @@ class ClaudeProgramDetectionTests(unittest.TestCase):
             executable.parent.mkdir(parents=True)
             executable.write_bytes(b'test-only')
             with patch.dict(os.environ, {'LOCALAPPDATA': folder}), \
-                    patch('platform_tools.windows_registry', return_value=None):
+                    patch('contract.platform_tools.windows_registry', return_value=None):
                 self.assertEqual(settings.find_model_program('Google Gemini 4', 'Desktop'), str(executable))
                 executable.unlink()
                 with self.assertRaisesRegex(ValueError, '未找到'):
@@ -136,7 +136,7 @@ class StoreDesktopDetectionTests(unittest.TestCase):
                 (base / 'app' / 'Claude.exe').write_bytes(b'test-only')
             roots = {'Other_9.0.0.0_x64__x': str(apps / 'Other'), old.name: str(old), new.name: str(new)}
             fake = self.fake_registry(roots)
-            with patch('platform_tools.windows_registry', return_value=fake), \
+            with patch('contract.platform_tools.windows_registry', return_value=fake), \
                     patch.dict(os.environ, {'LOCALAPPDATA': str(root / 'empty')}):
                 self.assertEqual(settings.find_program({'engine': 'claude-desktop-app', 'program': ''}),
                                  str(new / 'app' / 'Claude.exe'))
@@ -152,13 +152,13 @@ class StoreDesktopDetectionTests(unittest.TestCase):
             exe.parent.mkdir(parents=True)
             exe.write_bytes(b'test-only')
             fake = self.fake_registry({name: None})
-            with patch('platform_tools.windows_registry', return_value=fake), \
+            with patch('contract.platform_tools.windows_registry', return_value=fake), \
                     patch.dict(os.environ, {'LOCALAPPDATA': str(root / 'empty'), 'ProgramFiles': str(root)}):
                 self.assertEqual(settings.store_package_program('Claude', Path('app') / 'Claude.exe'), str(exe))
 
     def test_no_registry_keeps_not_found_error(self):
         with tempfile.TemporaryDirectory() as folder:
-            with patch('platform_tools.windows_registry', return_value=None), \
+            with patch('contract.platform_tools.windows_registry', return_value=None), \
                     patch.dict(os.environ, {'LOCALAPPDATA': folder}):
                 with self.assertRaisesRegex(ValueError, '未找到 Claude Desktop'):
                     settings.find_program({'engine': 'claude-desktop-app', 'program': ''})

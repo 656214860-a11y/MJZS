@@ -4,7 +4,7 @@ from __future__ import annotations
 import ast
 import unittest
 
-from tests.architecture._scan import production_files, parse
+from tests.architecture._scan import module_scan_files, parse
 
 
 _BACKGROUND_BOUNDARIES = frozenset({
@@ -25,7 +25,7 @@ def _dotted_name(node: ast.AST) -> str | None:
 class PlatformProcessBoundaryTests(unittest.TestCase):
     def test_direct_popen_is_limited_to_platform_or_background_boundaries(self):
         offenders = []
-        for path in production_files():
+        for path in module_scan_files():
             for node in ast.walk(parse(path)):
                 if isinstance(node, ast.Call) and _dotted_name(node.func) == 'subprocess.Popen':
                     if path.stem not in _BACKGROUND_BOUNDARIES | {'platform_tools'}:
@@ -37,7 +37,7 @@ class PlatformProcessBoundaryTests(unittest.TestCase):
 
     def test_taskkill_is_limited_to_native_or_platform_adapters(self):
         offenders = []
-        for path in production_files():
+        for path in module_scan_files():
             for node in ast.walk(parse(path)):
                 if not isinstance(node, ast.Call) or _dotted_name(node.func) != 'subprocess.run':
                     continue

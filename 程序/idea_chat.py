@@ -15,8 +15,8 @@ import re
 from collections import namedtuple
 from pathlib import Path
 from idea_script_heuristic import looks_like_script
-from project_context import ProjectContext
-from script_contract import INLINE_REQUIRED_LABELS, PRODUCTION_LOCK_DEFINITIONS, stage_lock_requirements, stage_lock_definitions
+from contract.project_context import ProjectContext
+from contract.script_contract import INLINE_REQUIRED_LABELS, PRODUCTION_LOCK_DEFINITIONS, stage_lock_requirements, stage_lock_definitions
 from idea_brief_form import (
     BRIEF_CREATION_FIELDS, brief_creation_values, extract_brief_creation, format_brief_creation,
     inline_required_missing, inline_template_labels, merge_brief_creation,
@@ -51,7 +51,7 @@ def _require_gateway(gateway):
 
 
 def folder(context):
-    from project_stages import writing
+    from contract.project_stages import writing
     return writing(_context(context).root) / FOLDER
 
 
@@ -110,7 +110,7 @@ def save_reply(root, text, at=None, provider='', model='', *, publish=None, reus
     if not callable(publish):
         raise TypeError('模型创意文件需要由 L3 注入发布器。')
     file_type = _project_file_type(value)
-    from stage_path_service import write_dir
+    from contract.stage_path_service import write_dir
     path = reply_document_path(context, value, at=at, provider=provider, model=model, file_type=file_type,
                                reuse_latest=reuse_latest)
     # 正文与既有文件一致才复用；审阅参考稿（设定／大纲／角色卡）正文变了要覆盖写入。
@@ -206,8 +206,8 @@ def import_downloaded_documents(root, folder, provider='', model='', *, publish=
         raise TypeError('收回下载文件需要由 L3 注入发布器。')
     import time
     import storage_maintenance
-    from script_contract import project_name, stage_file_info
-    from stage_path_service import write_dir
+    from contract.script_contract import project_name, stage_file_info
+    from contract.stage_path_service import write_dir
     source = Path(folder)
     try:
         entries = tuple(source.glob('*.md')) if source.is_dir() else ()
@@ -393,8 +393,8 @@ def import_local_document(root, text, filename, at=None, *, publish=None):
         raise ValueError('文件里没有文字')
     if not callable(publish):
         raise TypeError('添加的剧本文件需要由 L3 注入发布器。')
-    from script_contract import project_name, stage_file_info
-    from stage_path_service import write_dir
+    from contract.script_contract import project_name, stage_file_info
+    from contract.stage_path_service import write_dir
     file_type = _project_file_type(value)
     stem = Path(filename).stem
     label = (stage_file_info(stem + '.md') or {}).get('content') or stem
@@ -436,7 +436,7 @@ def _brief_value(text, labels):
 def _brief_fields(raw):
     """把累计的用户原话提取为契约字段；无标签的整段创意仍是故事梗概。"""
     text = str(raw or '').strip()
-    from script_contract import normalize_brief
+    from contract.script_contract import normalize_brief
     genre_words = ('都市', '悬疑', '奇幻', '科幻', '仙侠', '武侠', '校园', '爱情', '喜剧', '恐怖', '冒险', '现实')
     genre = _brief_value(text, ('故事题材', '故事主题', '题材类型', '题材', '类型', '风格'))
     if not genre:
@@ -505,7 +505,7 @@ def _brief_source_text(root, raw, *, gateway=None):
 
 def brief_followup(fields):
     """一次性询问所有仍缺的必填信息，不重复索要已提供的内容。"""
-    from script_contract import BRIEF_LABELS, missing_brief_fields
+    from contract.script_contract import BRIEF_LABELS, missing_brief_fields
     missing = missing_brief_fields(fields)
     if not missing:
         return ''
@@ -554,9 +554,9 @@ def receive_brief(root, text, workflow=None, lock_definitions=(), *, gateway=Non
             or next((value for source in lock_sources
                      if (value := _brief_value(source, labels))), ''))
     fields['production_locks'] = {key: value for key, value in selected_locks.items() if value}
-    from script_contract import validate_production_locks
+    from contract.script_contract import validate_production_locks
     validate_production_locks(fields['production_locks'])
-    from script_contract import brief_document, missing_brief_fields
+    from contract.script_contract import brief_document, missing_brief_fields
     missing_locks = tuple(item for item in lock_definitions
                           if item['key'] in stage_lock_requirements(stage, created_at)
                           and not selected_locks.get(item['key']))
@@ -600,7 +600,7 @@ def initial_brief_document(root):
     优先采用分类创意目录中最新的一份；老项目仍可从剧本准备根目录的 Markdown
     文件恢复，完全没有历史内容时则返回页面可首次保存的默认路径。
     """
-    from project_stages import writing
+    from contract.project_stages import writing
     context = _context(root)
     writing_dir = writing(context.root)
     versions = creative_documents(root)
@@ -613,13 +613,13 @@ def initial_brief_document(root):
 
 def default_brief_document(root):
     """没有创意历史时，剧本准备页可首次保存的默认路径。"""
-    from project_stages import writing
+    from contract.project_stages import writing
     return writing(_context(root).root) / '创意与剧本.md'
 
 
 def creative_documents(root):
     """剧本准备阶段可见的创意文件，兼容旧文件但只把新文件写入分类目录。"""
-    from project_stages import writing
+    from contract.project_stages import writing
     writing = writing(_context(root).root)
     # 新文件名不再依赖“创意与剧本”字样；目录本身才是下载版本的唯一归属。
     # 同时保留旧命名文件，让升级后仍能打开历史剧本。

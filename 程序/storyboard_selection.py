@@ -6,7 +6,7 @@ from file_cache import read_json
 from project_settings import read_prefs
 from project_context_factory import project_context
 from storyboard_adoption_contract import adopted as _adopted, paths, problem_text, resolve_source
-import pet_bus
+import contract.pet_bus as pet_bus
 
 
 def _asset_plan_gateway(gateway):
@@ -83,7 +83,7 @@ def remember_final_view(project, source):
 
 def sync_structured_script(project):
     """Put the newest structured script first while preserving user selections."""
-    from script_contract import structured_script_path
+    from contract.script_contract import structured_script_path
     project = Path(project).resolve()
     script = structured_script_path(project).resolve()
     if not script.is_file():
@@ -216,7 +216,7 @@ DRAFT_NAME='storyboard_draft.json';BREAKDOWN_NAME='scene_breakdown.json'
 
 
 def draft_dir(project):
-    import stage_layout
+    import contract.stage_layout as stage_layout
     return stage_layout.paths(Path(project),'03初步分镜')['output']
 
 
@@ -255,7 +255,7 @@ def _draft_sources(project,sources):
 
 def sync_draft_outputs(project):
     """把已采用分镜同步成 03初步分镜/output/ 下的 storyboard_draft.json 与 scene_breakdown.json。"""
-    from script_manifest_schema import manifest
+    from contract.script_manifest_schema import manifest
     project=Path(project).resolve();sources=adopted(project);folder=draft_dir(project)
     save(folder/DRAFT_NAME,{'manifest':DRAFT_NAME,'kind':'storyboard_draft','sources':_draft_sources(project,sources)})
     save(folder/BREAKDOWN_NAME,manifest('scene_breakdown',_breakdown_items(sources)))
@@ -269,7 +269,7 @@ def _read_output(path):
 
 def draft_problems(project):
     """核验 03 的两份落盘产物与当前已采用分镜一致；旧项目缺文件时先按已采用分镜补写。空列表＝通过。"""
-    from script_manifest_schema import duplicate_ids,items_of,validate
+    from contract.script_manifest_schema import duplicate_ids,items_of,validate
     project=Path(project).resolve();sources=adopted(project)
     if not sources:return []
     folder=draft_dir(project)
@@ -297,7 +297,7 @@ def draft_problems(project):
 def adopt(project,values,*,gateway=None):
     """Validate the whole request before changing any adoption or asset state."""
     from writing import validate_episode
-    from storyboard_paths import media_root
+    from contract.storyboard_paths import media_root
     from asset_context import library_dir
     from asset_plan import _sync_plan
     project=Path(project).resolve();incoming=paths(project,values)
@@ -364,7 +364,7 @@ def repair_working_episode(project,source=None):
 
 def _validate(path):
     from writing import validate_episode
-    from storyboard_paths import media_root
+    from contract.storyboard_paths import media_root
     try:validate_episode(read(path),media_root(path))
     except ValueError as exc:raise ValueError(f'{Path(path).name}：'+problem_text(exc)) from None
 
@@ -373,7 +373,7 @@ def tree_signature(project):
     """分镜目录的轻量指纹：只数 JSON 与最新写入时间，用来跳过没有变化的重扫。"""
     from storyboard_catalog_service import IGNORED, discover_files
     # 新产物统一位于“03初步分镜”；不再因旧 ``storyboard/`` 目录为空而漏掉自动采用。
-    from project_stages import storyboard
+    from contract.project_stages import storyboard
     root=storyboard(project);count=0;latest=0.0
     if not root.is_dir():return (count,latest)
     for _path,_resolved,stat in discover_files((root,), {'.json'}, IGNORED):

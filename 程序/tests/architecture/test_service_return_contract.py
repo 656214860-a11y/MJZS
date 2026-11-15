@@ -135,7 +135,8 @@ class ServiceReturnContractBoundaryTests(unittest.TestCase):
             if not path.is_file():
                 continue  # 历史兼容逻辑名仍可登记为 L2，但不是可扫描源码模块。
             tree = ast.parse(path.read_text(encoding='utf-8'))
-            if any(isinstance(node, ast.ImportFrom) and node.module == 'service_contract'
+            if any(isinstance(node, ast.ImportFrom)
+                   and node.module in {'service_contract', 'contract.service_contract'}
                    for node in ast.walk(tree)):
                 adopters.add(module)
         self.assertEqual(adopters, {'account_client', 'animatic_service', 'asset_batch_settings_service', 'asset_detail_service', 'asset_resume', 'asset_plan', 'storyboard_storage', 'idea_attachments', 'audio_import_service', 'delivery_import_service', 'desktop_settings_service', 'keyframe_lifecycle_service', 'projects',
@@ -150,7 +151,7 @@ class ServiceReturnContractBoundaryTests(unittest.TestCase):
         self.assertEqual(LAYERS['delivery_import_service'], 2)
         tree = ast.parse((Path(ROOT) / 'delivery_import_service.py').read_text(encoding='utf-8'))
         imports = {name.name for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
-                   and node.module == 'service_contract' for name in node.names}
+                   and node.module in {'service_contract', 'contract.service_contract'} for name in node.names}
         self.assertEqual(imports, {'SystemError', 'UserError', 'success'})
 
     def test_keyframe_lifecycle_is_registered_l2_and_uses_result_contract(self):
@@ -158,7 +159,7 @@ class ServiceReturnContractBoundaryTests(unittest.TestCase):
         self.assertEqual(LAYERS['keyframe_lifecycle_service'], 2)
         tree = ast.parse((Path(ROOT) / 'keyframe_lifecycle_service.py').read_text(encoding='utf-8'))
         imports = {name.name for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
-                   and node.module == 'service_contract' for name in node.names}
+                   and node.module in {'service_contract', 'contract.service_contract'} for name in node.names}
         self.assertEqual(imports, {'SystemError', 'UserError', 'success'})
         lifecycle = {'delete_keyframe', 'restore_keyframe', 'replace_keyframe'}
         decorators = {

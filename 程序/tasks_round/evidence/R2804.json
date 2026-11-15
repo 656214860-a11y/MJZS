@@ -1,0 +1,15 @@
+{
+  "round": 2804,
+  "commit_base": "42210dec",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k api_models artifact_schema asset_contract episode_contract frame_checks model_protocol pet_settings production_model prompt_templates prop_assets script_brief script_manifest script_output shot_batches shot_selection storyboard_contract workflow_context_budget app_metadata static_hygiene layers coverage_baseline",
+    "exit": 0,
+    "passed": 201,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T18:29:26"
+}

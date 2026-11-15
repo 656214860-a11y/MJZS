@@ -13,7 +13,7 @@ def _workflow_lock_error(project, stage, trigger):
     自动剧本链须有总控声明的全部锁；其他阶段按契约 STAGE_LOCK_REQUIREMENTS 取本阶段必填锁。
     手动剧本准备不经这里（简报采集对话本身在收集制作锁，由简报门禁负责）。
     """
-    from script_contract import STAGE_LOCK_REQUIREMENTS
+    from contract.script_contract import STAGE_LOCK_REQUIREMENTS
     if not project or (stage == 'script' and trigger != 'auto'):
         return ''
     if stage != 'script' and not STAGE_LOCK_REQUIREMENTS.get(stage):
@@ -125,7 +125,7 @@ def start(desktop, stage, trigger='auto', fallback=None, **options):
     if stage == 'storyboard':
         return _start_storyboard(desktop, trigger)
     if stage == 'animatic':
-        from pet_bus import STAGES
+        from contract.pet_bus import STAGES
         desktop.show(STAGES.index('animatic'))
         return _fail(desktop, stage, trigger, '分镜预演需要选择参考图与临时声音，生成后请您确认节奏、时长和对白同步')
     if stage == 'pet_performance':
