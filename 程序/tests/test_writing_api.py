@@ -280,6 +280,28 @@ class WritingApiTests(unittest.TestCase):
             self.assertEqual(len(state['documents']), 1)
             self.assertIs(state['documents'][0]['confirmed'], False)
 
+    def test_preparation_document_records_model_time_and_token_usage(self):
+        """REQ-S01-85：阶段稿台账记录生成模型、生成时间与 token 用量。"""
+        from agent.core import save
+        with tempfile.TemporaryDirectory() as td:
+            project = make_project(td)
+            stage_config.put(project, 'script', model='gpt-4o')
+            brief = self.complete_brief()
+            save(project_stages.writing(project) / 'brief_complete.json', brief)
+            with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
+                 patch('writing_api.PoolAdapter.chat', return_value={
+                     'ok': True, 'text': '# 项目设定\n都市雨夜，少年追查底片。\n待确认',
+                     'usage': {'prompt_tokens': 120, 'completion_tokens': 40,
+                               'cached_tokens': 0}}):
+                result = writing_api.reply(project, '开始', publish=publish_stage_text)
+            self.assertTrue(result['ok'])
+            _, state, _ = writing_api._preparation_state(project, brief)
+            document = state['documents'][0]
+            self.assertEqual(document['model_id'], 'gpt-4o')
+            self.assertTrue(document['generated_at'])
+            self.assertEqual(document['token_usage']['prompt_tokens'], 120)
+            self.assertEqual(document['token_usage']['completion_tokens'], 40)
+
     def test_recent_history_keeps_twelve_messages_without_excerpt(self):
         rows = [{'role': 'user', 'text': '完整消息' + str(index)} for index in range(12)]
         history = writing_api._recent_chat_history(rows)

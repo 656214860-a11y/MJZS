@@ -1147,7 +1147,10 @@ def _preparation_step(request, *, publish, cancelled, user_message=None, identit
     file_type = ('项目设定', '项目大纲', '角色卡')[index]
     path = idea_document_paths.reply_document_path(context, text, provider=provider, model=model, file_type=file_type)
     document = {'stage': stage, 'path': path.relative_to(write_dir(project, 'script')).as_posix(),
-                'sha256': hashlib.sha256((text + '\n').encode('utf-8')).hexdigest(), 'confirmed': False}
+                'sha256': hashlib.sha256((text + '\n').encode('utf-8')).hexdigest(), 'confirmed': False,
+                'model_id': chosen, 'generated_at': datetime.now().isoformat(timespec='seconds')}
+    if isinstance(result.get('usage'), dict) and result['usage']:
+        document['token_usage'] = dict(result['usage'])
     state.get('revision', state)['documents'] = documents[:index] + [document]
     if 'revision' in state:
         state['revision'].pop('source_path', None)

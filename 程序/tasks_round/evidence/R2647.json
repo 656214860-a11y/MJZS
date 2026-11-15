@@ -1,0 +1,15 @@
+{
+  "round": 2647,
+  "commit_base": "85fd99c3",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_writing_api test_writing_quality",
+    "exit": 0,
+    "passed": 89,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T16:24:09"
+}
