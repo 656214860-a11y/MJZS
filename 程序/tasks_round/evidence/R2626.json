@@ -1,0 +1,15 @@
+{
+  "round": 2626,
+  "commit_base": "b061746f",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k auto_full_safe swallowed_cleanup ui_style_engine",
+    "exit": 0,
+    "passed": 49,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T15:32:54"
+}

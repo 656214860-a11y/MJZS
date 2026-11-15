@@ -185,6 +185,7 @@ class FailureNoticeTests(unittest.TestCase):
     def test_notice_failure_leaves_swallowed_trace(self):
         """--notice 的附加提示故障必须经 app_logging.swallowed 留痕，不能无声吞掉。"""
         import app_logging
+        app_logging._recent_swallowed.clear()
         before = len(app_logging._recent_swallowed)
         with mock.patch.object(auto, 'failure_notice', side_effect=RuntimeError('x')):
             self.assertEqual(auto.main(['--notice']), 0)

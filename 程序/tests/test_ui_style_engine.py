@@ -242,7 +242,8 @@ class WindowPolicyTests(unittest.TestCase):
         ui_theme.install_window_placement(root)
         for _ in range(6):
             root.update()
-        expected = ui_theme.main_window_size(root.winfo_screenwidth(), root.winfo_screenheight())
+        left, top, right, bottom = ui_theme._work_area(root, root)
+        expected = ui_theme.main_window_size(right - left, bottom - top)
         self.assertEqual((root.winfo_width(), root.winfo_height()), expected,
                          "主窗口首次尺寸应为 1280×800（屏幕放不下时收缩）")
         self.assertEqual(root.minsize(), (800, 600))
