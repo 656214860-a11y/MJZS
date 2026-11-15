@@ -139,16 +139,20 @@ def request_json(method, url, *, headers=None, payload=None, timeout, **opts):
         except urllib.error.HTTPError as exc:
             status = exc.code
             code = _classify(status)
+            error_body = ''
+            error_json = None
             try:
                 error_body = exc.read(ERROR_BODY_MAX_BYTES).decode('utf-8', errors='replace')
+                error_json = _json.loads(error_body)
             except Exception:
-                error_body = ''
+                error_body = error_body or ''
             last = (code, status, error_body)
             retryable = lookup(code).retryable and status in retry_statuses
             if not retryable or attempt >= attempts:
                 item = lookup(code)
                 return ServiceResult(False, f'[{item.code}] {item.user_message}', item.retryable,
                                      code_data(code, status=status, error_body=error_body,
+                                               error_json=error_json,
                                                retry_count=attempt - 1, headers=_safe_headers(exc.headers)))
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
             reason = str(exc).lower()

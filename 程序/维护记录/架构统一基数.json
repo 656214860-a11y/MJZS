@@ -735,18 +735,6 @@
     "reason": "外部进程／网络响应解析，非文件读"
    },
    {
-    "file": "agent/volcengine.py",
-    "point": "VolcengineAdapter.call:json.loads:afdfcfcc35a86da6:1",
-    "disposition": "exempt",
-    "reason": "外部进程／网络响应解析，非文件读"
-   },
-   {
-    "file": "agent/wan.py",
-    "point": "WanAdapter.call:json.loads:afdfcfcc35a86da6:1",
-    "disposition": "exempt",
-    "reason": "外部进程／网络响应解析，非文件读"
-   },
-   {
     "file": "asset_reference_search.py",
     "point": "retired:f4de13da9237cb69",
     "disposition": "migrated",

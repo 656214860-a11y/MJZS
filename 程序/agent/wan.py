@@ -49,14 +49,14 @@ class WanAdapter(VideoAdapter):
                                           headers=headers, payload=payload, timeout=timeout)
         data = result.data or {}
         if result.ok:
-            return json.loads(data['text'])
+            parsed = data.get('json')
+            if parsed is None:
+                raise ValueError('接口返回非 JSON 响应')
+            return parsed
         status = data.get('status')
         if status is None:
             raise urllib.error.URLError(str(data.get('error_body') or result.reason))
-        try:
-            body = json.loads(data.get('error_body') or '{}')
-        except Exception:
-            body = {}
+        body = data.get('error_json') or {}
         message = str(body.get('message', '')).replace(key, '[REDACTED]')
         message = re.sub(r'data:image/[^\s\"]+', '[IMAGE]', message)[:600]
         raise ArkRejected(f"HTTP {status} / {body.get('code', 'Unknown')} / {message} / request_id={body.get('request_id', '')}") from None
