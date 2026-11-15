@@ -1,35 +1,8 @@
-"""Shared production tables: every row click toggles its submission checkbox."""
+"""历史入口：实体已迁至 ``contract.shot_selection``（T10 包化）。
 
-def bind_shot_checks(tree,toggle,cell_click=None):
-    def select(sid):
-        tree.focus_set()
-        tree.focus(sid)
-        if tree.selection()!=(sid,):
-            tree.selection_set(sid)
-
-    def click(event):
-        # Leave heading sorting/select-all and separator resizing to ttk.
-        if tree.identify_region(event.x,event.y) not in ('tree','cell'):
-            return
-        sid=tree.identify_row(event.y)
-        if not sid:return
-        # 第 41 期第 1 条：带下拉框的格子（「选择资产」）自己认下这一下——它认了就不
-        # 切换本行勾选，认不了（返回假）才照旧切换。
-        if cell_click is not None and cell_click(event):
-            return 'break'
-        select(sid)
-        toggle(sid)
-        return 'break'
-
-    def space(event):
-        sid=tree.focus()
-        if not sid or not tree.exists(sid):
-            selected=tree.selection()
-            sid=selected[0] if selected else None
-        if sid:
-            select(sid)
-            toggle(sid)
-        return 'break'
-
-    tree.bind('<Button-1>',click)
-    tree.bind('<space>',space)
+测试与未改写的消费方仍按扁平名导入；生产侧一律用包路径。
+门面清除轮统一改写测试导入后删除本文件。
+"""
+from contract.shot_selection import (
+    bind_shot_checks,
+)

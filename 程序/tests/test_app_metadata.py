@@ -44,7 +44,7 @@ class AppMetadataTests(unittest.TestCase):
             with self.subTest(path=path.name):
                 tree = ast.parse(path.read_text(encoding='utf-8-sig'))
                 self.assertTrue(any(
-                    isinstance(node, ast.ImportFrom) and node.module == 'app_metadata'
+                    isinstance(node, ast.ImportFrom) and node.module == 'contract.app_metadata'
                     and any(alias.name == 'APP_NAME' for alias in node.names)
                     for node in ast.walk(tree)))
                 self.assertTrue(any(isinstance(node, ast.Name) and node.id == 'APP_NAME'

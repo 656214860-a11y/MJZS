@@ -7,7 +7,7 @@ os.chdir(root)
 # 所以赶在下面那句 import hashlib 之前先切过去；切换失败会自动退回原样。
 sys.path.insert(0,str(root/'程序'))
 import hash_backend
-from app_metadata import APP_NAME
+from contract.app_metadata import APP_NAME
 hash_backend.install()
 import app_logging
 app_logging.install(crash_sink=lambda exc,trace:__import__('diagnostic_capture').record_crash(exc,trace))
@@ -108,7 +108,7 @@ try:
     finally:
         kernel.CloseHandle(activation);kernel.CloseHandle(mutex)
 except Exception:
-    import time;from app_metadata import VERSION
+    import time;from contract.app_metadata import VERSION
     log=root/'启动错误.log'
     # 追加而非覆盖，并带时间／版本／解释器，反复失败时能看出何时开始、是否同一原因（保留最近约 64KB）。
     try:old=log.read_text(encoding='utf-8',errors='replace')[-65536:]

@@ -23,7 +23,7 @@ sys.dont_write_bytecode = True
 
 PROGRAM = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROGRAM))
-from app_metadata import APP_NAME
+from contract.app_metadata import APP_NAME
 
 DIST_ROOT = PROGRAM.parent
 RUNTIME_PYTHON = DIST_ROOT / "运行环境" / "Python"
