@@ -69,7 +69,7 @@ CLASS_CAPS = {
     ('desktop_idea_chat.py', 'IdeaChatMixin'): 645,  # R2862：receive_brief 去掉 configured_locks 透传后实测 630，登记 645
     ('app.py', 'App'): 1388,
     ('desktop.py', 'Desktop'): 836,
-    ('skill_panel.py', 'Panel'): 723,  # R2862：面板精简为 SKILL 勾选＋说明＋制作锁入口后实测 708，登记 723
+    ('skill_panel.py', 'Panel'): 683,  # R2881：导入动作拆到 skill_panel_import.PanelImportMixin 后实测 668，登记 683
     ('pet_ui_stages.py', 'PetStagesMixin'): 1186,
     ('pet_ui_voice.py', 'PetVoiceMixin'): 1119,
     ('desktop_media_pages.py', 'MediaPagesMixin'): 890,

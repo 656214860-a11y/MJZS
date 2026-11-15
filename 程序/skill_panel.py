@@ -1,4 +1,5 @@
 from skill_panel_workflow import PanelWorkflowMixin
+from skill_panel_import import PanelImportMixin
 from skill_panel_support import (
     FLOW_STAGE,
     EXTERNAL_PACKAGE_API_HINT,
@@ -81,7 +82,6 @@ from ui_tokens import (COLORS, FONTS, SPACING, NOTE_HEIGHT_COMPACT,
 from ui_widgets import (SelectBox, BaseDialog, DescriptionBlock, HintLabel, PrimaryButton, ProgressLabel,
                         TextArea,
                         SecondaryButton, Tooltip, ask_confirmation, notify, _display_width)
-from ui_dialogs import FileDialog
 from ui_tokens import CHAR_WIDTH
 
 TITLE = '阶段配置'
@@ -104,8 +104,9 @@ STAGE_FLOW = {FLOW_STAGE[name]: name for name in FLOW_NAMES if name in FLOW_STAG
 MANAGE_ALL = '全选'
 MANAGE_NONE = '取消'
 MANAGE_ADD = '新增'
+MANAGE_ADD_REPO = '从仓库地址导入'
 MANAGE_DELETE = '删除已勾选 SKILL'
-MANAGE_LABELS = (MANAGE_ALL, MANAGE_NONE, MANAGE_ADD, MANAGE_DELETE)
+MANAGE_LABELS = (MANAGE_ALL, MANAGE_NONE, MANAGE_ADD, MANAGE_ADD_REPO, MANAGE_DELETE)
 # 外部包只登记总入口；API 调用只会收到入口指针，不能假装会展开其中的本地子模块。
 # 勾选框按「功能分组／流程先后」排（第 59 期第 6 条）：文件名前缀就是那条流程里的功能分组。
 
@@ -140,7 +141,7 @@ def stage_button(parent, desktop, index, text='阶段配置'):
     return button
 
 
-class Panel(PanelWorkflowMixin, FormScrollMixin, ttk.Frame):
+class Panel(PanelWorkflowMixin, PanelImportMixin, FormScrollMixin, ttk.Frame):
     """一块阶段配置面板：模型 ＋ SKILL 勾选 ＋ 底部三个按钮。"""
 
     def __init__(self, master, desktop, stage, function=None, compact=True, scroll=False):
@@ -275,7 +276,7 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, ttk.Frame):
         self.skill_action_box = SelectBox(
             self.skill_action_row, textvariable=self.skill_action,
             width=STAGE_PANEL_LAYOUT['select_width'],
-            values=(MANAGE_ALL, MANAGE_NONE, MANAGE_ADD, MANAGE_DELETE))
+            values=MANAGE_LABELS)
         self.skill_action_box.gap_after = STAGE_PANEL_LAYOUT['item_gap']  # 下拉框与首个勾选框拉开
         self.skill_action_row.add(self.skill_action_box)
         self.skill_action_box.bind('<<ComboboxSelected>>', lambda event: self.choose_skill_action())
@@ -388,54 +389,14 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, ttk.Frame):
         if picked == MANAGE_ADD:
             self.skill_action.set(MANAGE_ALL)
             return self.add_skill_from_file()
+        if picked == MANAGE_ADD_REPO:
+            self.skill_action.set(MANAGE_ALL)
+            return self.add_skill_from_repo()
         if picked == MANAGE_ALL:
             return self.check_all_skills(True)
         if picked == MANAGE_NONE:
             return self.check_all_skills(False)
         return ''
-
-    def add_skill_from_file(self):
-        """显式导入 SKILL 到本阶段的受控注册目录：外部包整包导入，预检、试冻结、旧版进回收站。"""
-        import skill_import_service
-        source = FileDialog(self.winfo_toplevel()).open_file(title='新增 SKILL',
-                                            filetypes=[('SKILL', ('*.skill.md', 'SKILL.md')), ('全部文件', '*.*')])
-        if not source:
-            return None
-        try:
-            plan = skill_import_service.plan_import(
-                source, self.registry.user_stage_directory_for(self.stage), self.stage, self.registry)
-        except skill_import_service.ImportBlocked as exc:
-            self.state.configure(text='新增 SKILL 失败：' + str(exc))
-            return None
-        if plan['problems']:
-            message = ('导入前发现以下问题：\n\n' + '\n'.join('· ' + p for p in plan['problems'])
-                       + '\n\n仍要导入吗？')
-            if not confirm(self.winfo_toplevel(), TITLE, message, dangerous=True):
-                return None
-        try:
-            # 回收站跟随程序目录（R2073：用户层在 程序/data/skills/<阶段>/）。
-            result = skill_import_service.perform_import(plan, skill_import_service.program_of(plan['target_dir']))
-        except (skill_import_service.ImportBlocked, OSError, ValueError) as exc:
-            self.state.configure(text='新增 SKILL 失败：' + str(exc))
-            return None
-        target = result['target']
-        self.registry.scan(force=True)
-        self.skills = list(self.registry.getByStage(self.stage))
-        for child in self.skill_content.winfo_children():
-            child.destroy()
-        self.vars = {}
-        self.build_flow_skill(self.skill_content)
-        bind_wheel = getattr(self, '_bind_form_wheel', None)
-        if callable(bind_wheel):
-            bind_wheel(self.skill_content)
-        sync_form = getattr(self, '_sync_form_view', None)
-        if callable(sync_form):
-            sync_form()
-        self.load()
-        label = target.parent.name if plan['kind'] == 'package' else target.name
-        self.state.configure(text='已新增 SKILL：' + label + ('（整包导入）' if plan['kind'] == 'package' else ''))
-        self.refresh_notes(str(target))
-        return target
 
     def check_all_skills(self, value=True):
         """全选／取消全选只作用于唯一的阶段 SKILL 网格。"""

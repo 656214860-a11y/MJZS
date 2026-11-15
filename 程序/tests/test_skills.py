@@ -1207,8 +1207,7 @@ class PanelTests(unittest.TestCase):
         self.assertEqual(panel.flow_skill_label.cget('text'), 'SKILL')
         self.assertIs(panel.flow_skill_label.master, panel.skill_action_row, 'SKILL 标签必须留在操作栏左侧')
         self.assertEqual(list(panel.skill_action_row.winfo_children())[1].cget('values'),
-                     (skill_panel.MANAGE_ALL, skill_panel.MANAGE_NONE, skill_panel.MANAGE_ADD,
-                      skill_panel.MANAGE_DELETE))
+                     skill_panel.MANAGE_LABELS)
         self.assertFalse(hasattr(panel, 'delete_skill_button'))
         self.assertEqual(panel.skill_action.get(), '请选择')
         with mock.patch.object(panel, 'check_all_skills') as check_all:

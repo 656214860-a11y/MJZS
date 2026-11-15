@@ -18,12 +18,19 @@
 - R2073：用户导入落在 ``程序/data/skills/<阶段>/``（升级保留），台账也在那里；与内置
   SKILL 同名不再硬拦，改为软提示「将覆盖内置版」，删除用户版后内置版恢复。
   ``migrate_legacy_imports`` 把旧版导进 ``程序/skills/`` 并记在旧台账里的条目迁过去。
+- R2881：仓库导入 ``import_from_repo`` 对齐 skill-mgr 生命周期——``install``／
+  ``update`` 同为「克隆（或本地目录直读）→ 扫描 → 逐候选走上面的预检→暂存→换入→
+  试冻结→登记管线」；``uninstall`` 经回收站移除，``validate`` 即试冻结，``list``
+  就是 ``skill_registry.getAll()``。薄 git 层只用 ``git clone --depth 1``，
+  不引第三方；仓库地址支持 ``owner/repo`` 简写、完整 URL（可带 ``@分支``）与本地目录。
 """
 from __future__ import annotations
 
 import hashlib
 import os
+import re
 import shutil
+import subprocess
 import time
 import uuid
 from pathlib import Path
@@ -31,6 +38,7 @@ from pathlib import Path
 import skill_registry
 from agent.core import replace, save
 from contract.pet_bus import read_json
+from contract import platform_tools
 from storage_maintenance import recycle_paths, restore_recycle_batch
 
 LEDGER_NAME = '导入台账.json'
@@ -179,7 +187,8 @@ def record(program, plan, digest, now=None):
         if target.is_relative_to(root.resolve()):
             key = target.relative_to(root.resolve()).as_posix()
             break
-    items[key] = {'source': str(plan['source'].parent if plan['kind'] == 'package' else plan['source']),
+    items[key] = {'source': str(plan.get('ledger_source')
+                              or (plan['source'].parent if plan['kind'] == 'package' else plan['source'])),
                   'kind': plan['kind'], 'name': plan['name'], 'sha256': digest,
                   'imported_at': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(now or time.time()))}
     save(path, {'version': 1, 'items': items})
@@ -284,3 +293,245 @@ def migrate_legacy_imports(program=None, now=None):
     else:
         recycle_paths(program, [old_path], '旧导入台账已迁到 data/skills', now=now)
     return report
+
+
+# ── 仓库（git）导入：install／update 同一入口，uninstall／validate／list 见下 ──
+
+REPO_CLONE_TIMEOUT = 180
+REPO_CLONE_PREFIX = '.仓库克隆-'
+REPO_MAX_CANDIDATES = 100
+_REF_TAIL = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._/-]*$')
+_SCP_LIKE = re.compile(r'^[^/@\s:]+@[^/\s:]+:.+')
+
+
+def _split_ref(spec):
+    """从末尾剥 ``@ref``：只在头部仍像合法仓库地址时认；userinfo 里的 @ 不会被误剥。"""
+    head, sep, tail = spec.rpartition('@')
+    if sep and _REF_TAIL.match(tail) and head:
+        if '://' in head:
+            # URL：头部必须仍带非空路径，避免把 https://user:pass@host 的 @ 当成 ref。
+            rest = head.split('://', 1)[1]
+            if '/' in rest.split('@', 1)[-1]:
+                return head, tail
+        elif ':' not in head:
+            return head, tail
+    return spec, ''
+
+
+def parse_repo_ref(text):
+    """解析仓库来源 → ``{'kind': 'url'|'local', 'url'/'path': ..., 'ref': ..., 'label': ...}``。
+
+    支持 ``owner/repo`` 简写（默认 github.com）、``https://``／``git@`` 完整地址、
+    已存在的本地目录；``@分支`` 后缀可带在简写与 https URL 上。
+    """
+    raw = str(text or '').strip().strip('"').strip("'")
+    if not raw:
+        raise ImportBlocked('仓库地址为空')
+    head, ref = _split_ref(raw)
+    # 本地目录优先：先剥掉可能的 @ref 再判存在，带 ref 的本地路径不支持（clone 语义才有 ref）。
+    local = Path(head)
+    try:
+        if local.is_dir():
+            return {'kind': 'local', 'path': local, 'ref': ref, 'label': str(local)}
+    except OSError:
+        pass
+    if _SCP_LIKE.match(raw):
+        return {'kind': 'url', 'url': raw, 'ref': '', 'label': raw}
+    if '://' in head:
+        return {'kind': 'url', 'url': head, 'ref': ref, 'label': repo_label(head, ref)}
+    if re.match(r'^[\w.-]+/[\w.-]+$', head):
+        url = 'https://github.com/' + head
+        return {'kind': 'url', 'url': url, 'ref': ref, 'label': repo_label(url, ref)}
+    if re.match(r'^[A-Za-z]:[\\/]|^[~/\\.]', raw):
+        # 盘符、用户目录、当前目录开头的一定是本地路径；不存在与否交给导入方报错。
+        return {'kind': 'local', 'path': Path(raw), 'ref': ref, 'label': repo_label(str(raw))}
+    if Path(raw).exists():
+        raise ImportBlocked('「%s」存在但不是目录，仓库导入只接受目录或仓库地址' % raw)
+    raise ImportBlocked('无法识别的仓库地址「%s」：支持 owner/repo、完整 URL（可带 @分支）或本地目录' % raw)
+
+
+def repo_label(url, ref=''):
+    """台账与界面用的来源标签：去掉 userinfo，不回显可能夹带的凭据。"""
+    text = str(url or '')
+    text = re.sub(r'://[^/@\s]+@', '://***@', text)
+    host_path = text.split('://', 1)[-1]
+    return host_path + ('@' + str(ref) if ref else '')
+
+
+def _sanitize_git_error(text):
+    """clone 失败信息脱敏：屏蔽 URL userinfo，截断长度。"""
+    message = re.sub(r'://[^/@\s]+@', '://***@', str(text or ''))
+    return message.strip()[-400:]
+
+
+def _git_clone(url, ref, dest):
+    """薄 git 层唯一动作：``git clone --depth 1 [--branch ref]``；失败抛 ImportBlocked。"""
+    git = shutil.which('git')
+    if not git:
+        raise ImportBlocked('未找到 git 可执行文件，无法克隆仓库')
+    args = [git, 'clone', '--depth', '1']
+    if ref:
+        args += ['--branch', ref]
+    args += [url, str(dest)]
+    try:
+        done = platform_tools.run_process(args, capture_output=True, text=True,
+                                          timeout=REPO_CLONE_TIMEOUT, stdin=subprocess.DEVNULL)
+    except subprocess.TimeoutExpired as exc:
+        raise ImportBlocked('git clone 超时（%d 秒）' % REPO_CLONE_TIMEOUT) from exc
+    except OSError as exc:
+        raise ImportBlocked('无法启动 git：%s' % exc) from exc
+    if done.returncode != 0:
+        detail = _sanitize_git_error(done.stderr or done.stdout)
+        raise ImportBlocked('git clone 失败：%s' % (detail or '退出码 %d' % done.returncode))
+
+
+def _repo_candidates(root):
+    """扫描仓库内容：含 ``SKILL.md`` 的目录＝外部包（不再向内递归），
+    其余位置的 ``*.skill.md``＝单文件清单。点开头目录与 ``.git`` 一律跳过。"""
+    root = Path(root)
+    candidates = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = sorted(d for d in dirnames
+                             if not d.startswith('.') and d != '__pycache__')
+        current = Path(dirpath)
+        if skill_registry.PACKAGE_SKILL_FILENAME in filenames:
+            candidates.append({'source': current / skill_registry.PACKAGE_SKILL_FILENAME,
+                               'kind': 'package'})
+            dirnames[:] = []          # 包是整体，一包内不再找第二个包或清单
+            continue
+        for name in sorted(filenames):
+            if name.endswith(skill_registry.SKILL_SUFFIX):
+                candidates.append({'source': current / name, 'kind': 'manifest'})
+    if len(candidates) > REPO_MAX_CANDIDATES:
+        raise ImportBlocked('仓库内 SKILL 候选超过 %d 个上限' % REPO_MAX_CANDIDATES)
+    return candidates
+
+
+def _candidate_stage(source, clone_root, stage_hint):
+    """阶段判定顺序：frontmatter ``stage`` → 仓库内 ``NN`` 目录 → 面板当前阶段提示。"""
+    try:
+        meta, _body = skill_registry.parse(
+            Path(source).read_text(encoding='utf-8-sig'), source=str(source))
+    except (OSError, UnicodeError):
+        meta = {}
+    sid = skill_registry.stage_id(meta.get('stage', ''))
+    if not sid:
+        try:
+            relative = Path(source).relative_to(Path(clone_root))
+        except ValueError:
+            relative = Path(source)
+        sid = skill_registry.stage_from_path(relative)
+    return sid or str(stage_hint or '')
+
+
+def import_from_repo(text, program, registry, stage_hint='', confirm=None):
+    """仓库导入主入口（install／update 同一实现）：解析 → 取源码 → 扫描 → 逐候选预检
+    → 确认 → 逐候选换入。任一候选失败只影响该候选，已成功的不回滚。
+
+    ``confirm`` 收到汇总问题文本，返回真才继续换入；``None`` 时有问题即中止。
+    返回 ``{'label', 'installed', 'failed', 'skipped', 'candidates'}``。
+    """
+    program = Path(program)
+    spec = parse_repo_ref(text)
+    staging = None
+    try:
+        if spec['kind'] == 'local':
+            root = Path(spec['path'])
+            if root.exists() and not root.is_dir():
+                raise ImportBlocked('「%s」存在但不是目录，仓库导入只接受目录或仓库地址' % root)
+            if not root.is_dir():
+                raise ImportBlocked('本地目录不存在：%s' % root)
+            label = repo_label(str(root))
+        else:
+            staging = (skill_registry.default_user_root(program)
+                       / (REPO_CLONE_PREFIX + uuid.uuid4().hex[:8]))
+            staging.parent.mkdir(parents=True, exist_ok=True)
+            _git_clone(spec['url'], spec.get('ref', ''), staging)
+            root = staging
+            label = spec['label']
+        candidates = _repo_candidates(root)
+        if not candidates:
+            raise ImportBlocked('仓库中没有找到 SKILL.md 或 *.skill.md')
+        plans, problems, errors = [], [], []
+        seen_targets = set()
+        for candidate in candidates:
+            source = candidate['source']
+            stage = _candidate_stage(source, root, stage_hint)
+            if not stage:
+                errors.append('%s：无法识别阶段（frontmatter stage、NN 目录与阶段提示都没有）'
+                              % source.name)
+                continue
+            try:
+                plan = plan_import(source, registry.user_stage_directory_for(stage),
+                                   stage, registry)
+            except ImportBlocked as exc:
+                errors.append('%s：%s' % (source.name, exc))
+                continue
+            key = (str(plan['target'].parent if plan['kind'] == 'package' else plan['target']).casefold(),)
+            if key in seen_targets:
+                errors.append('%s：与同仓库另一候选目标重复，跳过' % source.name)
+                continue
+            seen_targets.add(key)
+            plan['ledger_source'] = label
+            plans.append(plan)
+            problems.extend('%s：%s' % (plan['name'], problem) for problem in plan['problems'])
+        if problems:
+            message = ('仓库导入前发现以下问题：\n\n'
+                       + '\n'.join('· ' + item for item in problems))
+            if errors:
+                message += '\n\n以下条目将跳过：\n' + '\n'.join('· ' + item for item in errors)
+            message += '\n\n仍要导入吗？'
+            if confirm is None or not confirm(message):
+                raise ImportBlocked('已取消仓库导入')
+        elif errors and not plans:
+            raise ImportBlocked('没有可导入的 SKILL：\n' + '\n'.join('· ' + e for e in errors))
+        installed, failed = [], []
+        for plan in plans:
+            try:
+                perform_import(plan, program)
+                installed.append({'name': plan['name'], 'kind': plan['kind'],
+                                  'stage': plan.get('stage', ''), 'target': str(plan['target'])})
+            except (ImportBlocked, OSError, ValueError) as exc:
+                failed.append({'name': plan['name'], 'error': str(exc)})
+        if not installed and not failed:
+            raise ImportBlocked('没有可导入的 SKILL：\n' + '\n'.join('· ' + e for e in errors))
+        return {'label': label, 'installed': installed, 'failed': failed,
+                'skipped': errors, 'candidates': len(candidates)}
+    finally:
+        if staging is not None and staging.exists():
+            recycle_paths(program, [staging], 'SKILL 仓库克隆暂存收尾')
+
+
+def update_from_repo(text, program, registry, stage_hint='', confirm=None):
+    """skill-mgr ``update``：同来源刷新＝重新取最新内容走同一导入管线，旧版进回收站。"""
+    return import_from_repo(text, program, registry, stage_hint=stage_hint, confirm=confirm)
+
+
+def uninstall_skill(program, registry, name):
+    """skill-mgr ``uninstall``：按注册名回收站移除；整包收目录、清单收文件。"""
+    program = Path(program)
+    matches = [skill for skill in registry.getAll() if skill.name == str(name or '').strip()]
+    if not matches:
+        raise ImportBlocked('注册表中没有 SKILL「%s」' % name)
+    skill = matches[0]
+    path = getattr(skill, 'path', None)
+    if path is None:
+        raise ImportBlocked('SKILL「%s」没有可定位的文件' % name)
+    path = Path(path)
+    roots = skill_registry.skill_roots(program)
+    if not path.is_file() or not any(path.resolve().is_relative_to(root) for root in roots):
+        raise ImportBlocked('SKILL「%s」不在可卸载目录' % name)
+    target = path.parent if skill.get(skill_registry.IMPORTED_PACKAGE_FLAG, False) else path
+    records = recycle_paths(program, [target], '卸载 SKILL：' + skill.name)
+    if not records:
+        raise ImportBlocked('SKILL「%s」未能移入回收站' % name)
+    return {'name': skill.name, 'target': str(target)}
+
+
+def validate_skill(path):
+    """skill-mgr ``validate``：与导入同一道试冻结闸；返回 ``(True, '')`` 或 ``(False, 原因)``。"""
+    try:
+        _verify(Path(path))
+    except ImportBlocked as exc:
+        return False, str(exc)
+    return True, ''

@@ -1473,7 +1473,7 @@
   {
    "module": "skill_import_service.py",
    "covered": 0,
-   "total": 205,
+   "total": 391,
    "percent": 0.0
   },
   {
@@ -1503,7 +1503,13 @@
   {
    "module": "skill_panel.py",
    "covered": 0,
-   "total": 636,
+   "total": 604,
+   "percent": 0.0
+  },
+  {
+   "module": "skill_panel_import.py",
+   "covered": 0,
+   "total": 69,
    "percent": 0.0
   },
   {
@@ -2444,5 +2450,5 @@
   }
  ],
  "modules_covered": 64,
- "modules_total": 405
+ "modules_total": 406
 }

@@ -7,6 +7,7 @@ from unittest.mock import Mock, patch
 
 import skill_notes
 import skill_panel
+import skill_panel_import
 import skill_panel_support
 
 
@@ -190,8 +191,8 @@ class SkillNotesTests(unittest.TestCase):
                                     stage='script', state=Mock(), skill_content=Mock(),
                                     build_flow_skill=Mock(), load=Mock(), refresh_notes=Mock())
             panel.skill_content.winfo_children.return_value = []
-            with patch.object(skill_panel, 'FileDialog') as dialog, \
-                    patch.object(skill_panel, 'confirm', return_value=True) as confirm:
+            with patch.object(skill_panel_import, 'FileDialog') as dialog, \
+                    patch.object(skill_panel_import, 'confirm', return_value=True) as confirm:
                 dialog.return_value.open_file.return_value = str(source)
                 target = skill_panel.Panel.add_skill_from_file(panel)
             confirm.assert_called_once()
