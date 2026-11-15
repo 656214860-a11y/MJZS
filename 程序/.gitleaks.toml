@@ -9,6 +9,7 @@ paths = [
   '''维护记录/''',
   '''tasks_round/''',
   '''docs/''',
+  '''说明/版本文件校验\.json''',
 ]
 regexes = [
   '''(?i)(example|sample|fake|dummy|test|placeholder|your[_-]?(api|key|token|secret))''',

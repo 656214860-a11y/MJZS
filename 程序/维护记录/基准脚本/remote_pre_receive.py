@@ -10,18 +10,28 @@
    （``SyntaxWarning`` 按错误处理）直接拒绝——对应本机 ``test_static_hygiene`` 的
    轻量子集；完整架构门禁仍在 Windows 本机跑。
 2. 新增行里的高置信凭据形态（与 ``round_evidence.SECRET_PATTERNS`` 同族）。
+3. 装了 gitleaks 时对推送提交区间跑全树密钥扫描（``GITLEAKS_BIN`` 指定二进制，
+   默认 ``/srv/git/ci/bin/gitleaks``；配置取推送版的 ``程序/.gitleaks.toml``，
+   缺失退回 ``GITLEAKS_CONFIG`` 部署副本）。gitleaks 未安装或自身报错不阻断，
+   由第 2 项形态扫描兜底。
 
 stdin 协议：每行 ``<old> <new> <ref>``；``new`` 为全零是删分支，跳过。
 新分支的 old 用空树 ``4b825dc642cb6eb9a060e54bf8d69288fbee4904`` 做 diff 基线。
 退出码：0 放行，1 拒绝。
 """
+import json
+import os
 import re
 import subprocess
 import sys
+import tempfile
 import warnings
+from pathlib import Path
 
 EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
 PROGRAM_PREFIX = '程序/'
+GITLEAKS_BIN = os.environ.get('GITLEAKS_BIN', '/srv/git/ci/bin/gitleaks')
+GITLEAKS_CONFIG = os.environ.get('GITLEAKS_CONFIG', '/srv/git/ci/.gitleaks.toml')
 SECRET_PATTERNS = (
     ('private-key', re.compile(r'-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----')),
     ('openai-style-key', re.compile(r'\bsk-[A-Za-z0-9_-]{20,}')),
@@ -53,6 +63,48 @@ def compile_check(rev, path):
     except SyntaxWarning as exc:
         return '无效转义 %s:%s %s' % (path, exc.lineno, exc.msg)
     return None
+
+
+def _gitleaks_config(new):
+    """优先用推送提交里的 程序/.gitleaks.toml，缺失退回 CI 部署副本。"""
+    shown = git('show', '%s:%s' % (new, PROGRAM_PREFIX + '.gitleaks.toml'))
+    if shown.returncode or not shown.stdout.strip():
+        return GITLEAKS_CONFIG, None
+    fd, path = tempfile.mkstemp(prefix='gitleaks-', suffix='.toml')
+    with os.fdopen(fd, 'w', encoding='utf-8') as handle:
+        handle.write(shown.stdout)
+    return path, path
+
+
+def gitleaks_scan(base, new):
+    """装了 gitleaks 时对 ``base..new`` 提交区间做全树密钥扫描，返回命中描述。
+
+    未装二进制或扫描器自身异常（非 1 退出码、超时、报告不可读）都返回 []——
+    第 2 项形态扫描是硬门禁，gitleaks 是增强层，不能把故障升级为阻断。
+    """
+    if not (os.path.isfile(GITLEAKS_BIN) and os.access(GITLEAKS_BIN, os.X_OK)):
+        return []
+    config, temporary = _gitleaks_config(new)
+    fd, report = tempfile.mkstemp(prefix='gitleaks-report-', suffix='.json')
+    os.close(fd)
+    try:
+        done = subprocess.run(
+            [GITLEAKS_BIN, 'git', '--log-opts', '%s..%s' % (base, new), '--redact',
+             '--config', config, '--report-format', 'json', '--report-path', report, '.'],
+            capture_output=True, text=True, timeout=300)
+        if done.returncode != 1:
+            return []
+        findings = json.loads(Path(report).read_text(encoding='utf-8') or '[]')
+        return ['gitleaks:%s %s:%s' % (item.get('RuleID', '?'), item.get('File', '?'),
+                                     item.get('StartLine', '?')) for item in findings][:20]
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        return []
+    finally:
+        for path in [report] + ([temporary] if temporary else []):
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
 
 
 def scan_added_lines(diff_text):
@@ -88,6 +140,7 @@ def main() -> int:
                 problems.append(problem)
         diff = git('diff', '-U0', '--no-color', base, new, '--', PROGRAM_PREFIX).stdout
         problems.extend(scan_added_lines(diff))
+        problems.extend(gitleaks_scan(base, new))
     if problems:
         sys.stderr.write('pre-receive 拒绝：\n' + '\n'.join('  ' + p for p in problems[:50]) + '\n')
         if len(problems) > 50:
