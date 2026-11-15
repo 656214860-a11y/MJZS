@@ -1,0 +1,18 @@
+{
+  "audio": 3,
+  "calibrated": 3,
+  "estimated": false,
+  "mode": "audio",
+  "overflow": [],
+  "shots": 2,
+  "source": {
+    "audio": 3,
+    "calibrated": 3,
+    "entries": 3,
+    "overflow": [],
+    "total_seconds": 19.0,
+    "uncalibrated": 0
+  },
+  "total": 19.0,
+  "uncalibrated": []
+}
