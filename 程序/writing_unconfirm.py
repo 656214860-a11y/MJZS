@@ -78,7 +78,10 @@ def confirm_preparation_document(project, stage, path, *, publish):
                         if isinstance(doc, dict) and doc.get('confirmed') is True)
     document = {'stage': stage, 'path': chosen.relative_to(folder).as_posix(),
                 'sha256': hashlib.sha256(text.encode('utf-8')).hexdigest(), 'confirmed': True}
-    state.get('revision', state)['documents'] = prefix + [document]
+    # REQ-S01-89：确认本阶段后，其后未确认的并行草稿记录保留；已确认下游照旧作废。
+    state.get('revision', state)['documents'] = prefix + [document] + [
+        doc for doc in documents[index + 1:]
+        if isinstance(doc, dict) and doc.get('confirmed') is not True]
     revision = state.get('revision')
     # 重写稿确认到三阶段齐全才切换采用版本；中途确认仍留在 revision，
     # 与聊天「推进才采用」同口径，避免采用版本与自然稿采用记录错位。

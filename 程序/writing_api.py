@@ -583,6 +583,10 @@ _PREPARATION_REWRITE = re.compile(
 # 一致；随口应答（好／继续／ok 等）按保持现状处理。阶段推进不依赖本表，由模型按语义判断。
 _PREPARATION_AFFIRMATIVE = frozenset(
     word.casefold() for word in ('确认', '确定', '确认重写', '重写', 'yes'))
+# REQ-S01-89：首行以确认/推进词开头的消息，点名阶段视为交给模型的推进请求。
+_PREPARATION_ADVANCE_LEAD = tuple(word.casefold() for word in (
+    '确认', '确定', '好的', '好', '可以', '行', '嗯', '通过', '同意',
+    'ok', 'okay', 'yes', '继续'))
 
 
 def _preparation_stage_alias(text):
@@ -860,6 +864,7 @@ def _preparation_state(project, brief, *, restart_stage=None):
         raise ValueError('剧本准备阶段记录无效，不能启动四角色')
     if state is None:
         state = {'version': 1, 'brief_hash': fingerprint, 'documents': []}
+    draft_target = False
     if restart_stage is not None:
         if restart_stage not in PREPARATION_STAGES:
             raise ValueError('请选择项目设定、剧本大纲或角色卡')
@@ -877,23 +882,32 @@ def _preparation_state(project, brief, *, restart_stage=None):
                 sources = working
         prefix = _confirmed_prefix(sources, index)
         if prefix is None:
-            raise ValueError('请先确认所选阶段之前的文件')
-        # 显式重写使用当前正文；旧采用记录留在顶层，确认新稿后再切换。
-        state['revision'] = {'documents': deepcopy(prefix), 'brief_hash': fingerprint}
-        if index < len(sources):
-            source = sources[index]
-            if (not isinstance(source, dict) or source.get('stage') != restart_stage
-                    or not isinstance(source.get('path'), str)):
-                raise ValueError('剧本准备阶段文件记录无效')
-            state['revision']['source_path'] = source['path']
-        elif sources is working and previous_revision.get('source_path'):
-            state['revision']['source_path'] = previous_revision['source_path']
-    elif _preparation_brief_hash(state) != fingerprint:
-        # 简报变化重置确认台账；确认快照历史保留（REQ-S01-87）。
-        fresh = {'version': 1, 'brief_hash': fingerprint, 'documents': []}
-        if state.get('snapshots'):
-            fresh['snapshots'] = state['snapshots']
-        return target, fresh, []
+            existing = sources[index] if index < len(sources) else None
+            draft_target = (isinstance(existing, dict)
+                            and existing.get('confirmed') is not True)
+            if not draft_target:
+                raise ValueError('请先确认所选阶段之前的文件')
+            # REQ-S01-89：重写口令目标是未确认草稿且无已确认前缀——按重起草处理，
+            # 不走采用稿重写前缀校验。
+        if not draft_target:
+            # 显式重写使用当前正文；旧采用记录留在顶层，确认新稿后再切换。
+            state['revision'] = {'documents': deepcopy(prefix), 'brief_hash': fingerprint}
+            if index < len(sources):
+                source = sources[index]
+                if (not isinstance(source, dict) or source.get('stage') != restart_stage
+                        or not isinstance(source.get('path'), str)):
+                    raise ValueError('剧本准备阶段文件记录无效')
+                state['revision']['source_path'] = source['path']
+            elif sources is working and previous_revision.get('source_path'):
+                state['revision']['source_path'] = previous_revision['source_path']
+    if restart_stage is None or draft_target:
+        # REQ-S01-89：重写口令目标是未确认草稿时按重起草处理，不走采用稿重写校验；
+        # 其余照旧检查简报一致性。简报变化重置确认台账；确认快照历史保留（REQ-S01-87）。
+        if _preparation_brief_hash(state) != fingerprint:
+            fresh = {'version': 1, 'brief_hash': fingerprint, 'documents': []}
+            if state.get('snapshots'):
+                fresh['snapshots'] = state['snapshots']
+            return target, fresh, []
     revision = state.get('revision')
     if revision is not None and (not isinstance(revision, dict) or 'documents' not in revision):
         raise ValueError('剧本准备重写记录无效')
@@ -912,9 +926,6 @@ def _preparation_state(project, brief, *, restart_stage=None):
         path = (folder / document['path']).resolve()
         if not path.is_relative_to(folder.resolve()) or document['stage'] != PREPARATION_STAGES[index]:
             raise ValueError('剧本准备阶段文件记录无效')
-        if index < len(documents) - 1 and document.get('confirmed') is not True:
-            raise ValueError('「' + document['stage'] + '」尚未确认，不能跳到后续阶段；请先确认「'
-                             + document['stage'] + '」')
         text = path.read_text(encoding='utf-8') if path.is_file() else ''
         if not path.exists():
             # 旧版自动保存与下载名称不同；仅重定位同目录、同正文的副本。
@@ -941,8 +952,11 @@ def _preparation_state(project, brief, *, restart_stage=None):
         # 被真正改动或删除才判失效，换行口径差异不再误报“文件已删除或修改”。
         digest = hashlib.sha256(text.encode('utf-8')).hexdigest()
         with_newline = hashlib.sha256((text + '\n').encode('utf-8')).hexdigest()
-        pending = index == len(documents) - 1 and document.get('confirmed') is not True
-        if (pending or restart_stage is not None) and text.strip() and document['sha256'] not in (digest, with_newline):
+        # REQ-S01-89：任一未确认草稿（不止末尾）都可重绑用户手改正文；
+        # 采用稿重写才重绑已确认前置，重写口令指向未确认草稿时不放开。
+        draft = document.get('confirmed') is not True
+        if (draft or (restart_stage is not None and not draft_target)) \
+                and text.strip() and document['sha256'] not in (digest, with_newline):
             # 待确认的当前草稿从未被确认过，用户手改正是要模型据此修订：
             # 以改后正文为新基准；显式重写也可重新绑定前置正文，仅更新重写分支。
             document['sha256'] = digest
@@ -984,13 +998,42 @@ def _preserve_preparation_response(project, result, publish):
 _PreparationRequest = namedtuple('_PreparationRequest', 'project chosen record settings brief creative')
 
 
+def _preparation_work_index(documents, message):
+    """REQ-S01-89：本轮处理的阶段位次。
+
+    原话点名未确认草稿→修订该位；点名紧邻未起草阶段→追加并行草稿位；点名更远的
+    未起草阶段→报错；点名已确认阶段或未点名→首个未确认位，全已确认则追加位。"""
+    default = next((position for position, doc in enumerate(documents)
+                    if not isinstance(doc, dict) or doc.get('confirmed') is not True),
+                   len(documents))
+    first = str(message or '').strip().split('\n', 1)[0].strip()
+    if first.casefold().startswith(_PREPARATION_ADVANCE_LEAD):
+        # 「确认，输出角色卡」一类：确认词领衔时点名是交给模型的推进请求，
+        # 不做草稿路由（REQ-S01-89；确认与推进由模型语义判定）。
+        return default
+    stage = _preparation_stage_alias(first)
+    if stage is None:
+        return default
+    position = PREPARATION_STAGES.index(stage)
+    if position > len(documents):
+        raise ValueError('「' + stage + '」之前还有阶段未起草；请先起草「'
+                         + PREPARATION_STAGES[len(documents)] + '」')
+    if position == len(documents):
+        return position
+    document = documents[position]
+    if isinstance(document, dict) and document.get('confirmed') is not True:
+        return position
+    return default
+
+
 def _preparation_task(request, user_message, state, documents, texts, index):
     """拼本轮准备阶段的请求正文；返回 (titles, pending, next_index, task)。"""
     from stage_path_service import write_dir
     project, chosen, record, settings, brief, creative = request
     stage = PREPARATION_STAGES[index]
     titles = ('项目设定', '剧本大纲', '人物设定（角色卡）')
-    pending = bool(documents and documents[-1].get('confirmed') is not True)
+    pending = index < len(documents) and isinstance(documents[index], dict) \
+        and documents[index].get('confirmed') is not True
     next_index = index + 1 if pending else index
     task = ('<brief_complete>\n' + json.dumps(brief, ensure_ascii=False) + '\n</brief_complete>\n'
             + '当前工作阶段：' + stage + '。请根据本轮用户原话的完整语义判断修订当前阶段还是推进下一阶段，'
@@ -1007,7 +1050,9 @@ def _preparation_task(request, user_message, state, documents, texts, index):
              '只返回 {"next_stage":"自然剧本"}，由程序启动既有剧本生成流程，不在本轮重复撰写自然剧本。\n' + workflow_context.preparation_source_priority(documents, creative))
     for position, text in enumerate(texts):
         current = pending and position == index
-        task += '\n' + ('当前待修改草稿：' if current else '已确认前置文件：')
+        task += '\n' + ('当前待修改草稿：' if current else (
+            '已确认前置文件：' if documents[position].get('confirmed') is True
+            else '并行未确认草稿（可点名修订，未按序确认）：'))
         if current and documents[position].get('user_edited'):
             task += '（用户已直接修改这份草稿；以改后正文为准，保留其改动，在此基础上修订）'
         task += '\n<' + PREPARATION_STAGES[position] + '>\n' + text + '\n</' + PREPARATION_STAGES[position] + '>\n'
@@ -1037,6 +1082,17 @@ def _preparation_step(request, *, publish, cancelled, user_message=None, identit
     message = creative if user_message is None else user_message
     requested = _preparation_restart_target(project, message)
     if requested:
+        # REQ-S01-89：重写口令指向未确认草稿时按重起草该稿处理，不走采用稿重写。
+        from stage_path_service import write_dir as _wd
+        early = read_json(_wd(project, 'script') / 'preparation_state.json') \
+            if (_wd(project, 'script') / 'preparation_state.json').is_file() else None
+        early_docs = _working_documents(early) if isinstance(early, dict) else []
+        position = PREPARATION_STAGES.index(requested)
+        if (position < len(early_docs) and isinstance(early_docs[position], dict)
+                and early_docs[position].get('confirmed') is not True
+                and _confirmed_prefix(early_docs, position) is None):
+            requested = None
+    if requested:
         # 先用当前文件验证重写可行性；询问期间不写入预览 revision。
         target, preview, _ = _preparation_state(project, brief, restart_stage=requested)
         state = deepcopy(read_json(target)) if target.is_file() else preview
@@ -1065,7 +1121,7 @@ def _preparation_step(request, *, publish, cancelled, user_message=None, identit
     pending_restart = state.pop('pending_restart', None)
     if (documents or pending_restart is not None) and state != read_json(target):
         _save_preparation_state_guarded(project, target, state, publish)
-    index = len(documents) if not documents or documents[-1].get('confirmed') is True else len(documents) - 1
+    index = _preparation_work_index(documents, message)
     if index == len(PREPARATION_STAGES):
         # 重写稿已全部确认（右键「设为定稿」可走到这里）：与推进确认同口径切换采用版本。
         _promote_revision(state, project, target, publish)
@@ -1129,11 +1185,15 @@ def _preparation_step(request, *, publish, cancelled, user_message=None, identit
                 '截断' if finish in ('length', 'max_tokens') else '格式不合格')
         return rejected, None
     advancing = natural or selected > index
+    if advancing and _confirmed_prefix(documents, index) is None:
+        # REQ-S01-89：前置草稿未确认时本轮产出只落为并行草稿，不越序确认。
+        natural = False
+        advancing = False
     def save_decision():
         if not (advancing and _promote_revision(state, project, target, publish)):
             _save_preparation_state_guarded(project, target, state, publish)
     if natural:
-        documents[-1]['confirmed'] = True
+        documents[index]['confirmed'] = True
         save_decision()
         return None, dict(zip(PREPARATION_STAGES, texts))
     body = text.split('\n', 1)[1].removesuffix('待确认').strip()
@@ -1144,7 +1204,7 @@ def _preparation_step(request, *, publish, cancelled, user_message=None, identit
             rejected['preparation_reject'] = '正文为空'
         return rejected, None
     if advancing:
-        documents[-1]['confirmed'] = True
+        documents[index]['confirmed'] = True
     index, stage = selected, PREPARATION_STAGES[selected]
     context = project_context(project)
     provider, model = identity or idea_document_paths.storage_identity(chosen)
@@ -1155,7 +1215,8 @@ def _preparation_step(request, *, publish, cancelled, user_message=None, identit
                 'model_id': chosen, 'generated_at': datetime.now().isoformat(timespec='seconds')}
     if isinstance(result.get('usage'), dict) and result['usage']:
         document['token_usage'] = dict(result['usage'])
-    state.get('revision', state)['documents'] = documents[:index] + [document]
+    state.get('revision', state)['documents'] = \
+        documents[:index] + [document] + documents[index + 1:]
     if 'revision' in state:
         state['revision'].pop('source_path', None)
     try:
