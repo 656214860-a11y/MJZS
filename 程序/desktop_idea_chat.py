@@ -132,6 +132,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin):
     @idea_attachment_paths.setter
     def idea_attachment_paths(self, paths):
         self.idea_chat_controller.replace_attachments(paths)
+        self.refresh_idea_send_state()
     def idea_chat_gateway(self):
         """L4 通过 L3 取得创意聊天的受控读写入口。"""
         from stage_execution_service import idea_chat_gateway
@@ -451,6 +452,90 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin):
             dialog.close()
         dialog.add_form_actions('保存', save)
         return dialog
+    def refresh_idea_send_state(self):
+        """输入或附件变化后防抖刷新发送可用态（REQ-S01-86：简报必填前置到输入框）。"""
+        win = getattr(self, 'win', None)
+        if win is None:
+            return
+        pending = getattr(self, '_idea_send_state_after', None)
+        if pending is not None:
+            try:
+                win.after_cancel(pending)
+            except tk.TclError:
+                pass
+        try:
+            self._idea_send_state_after = win.after(250, self._apply_idea_send_state)
+        except tk.TclError:
+            self._idea_send_state_after = None
+
+    def _apply_idea_send_state(self):
+        self._idea_send_state_after = None
+        send = getattr(self, 'idea_send', None)
+        if send is None:
+            return
+        try:
+            missing = self._idea_live_missing()
+        except Exception:
+            missing = ()
+        try:
+            send.state(['disabled'] if missing else ['!disabled'])
+        except tk.TclError:
+            return
+        # 内联发送键的状态唯一入口是 update_script_interrupt_button（运行中=终止键）；
+        # 空闲时它跟随底栏发送键的禁用态，保持两颗键同口径。
+        sync = getattr(self, 'update_script_interrupt_button', None)
+        if callable(sync):
+            sync()
+        hint = '还缺必填：' + '、'.join(missing) if missing else ''
+        if hint != getattr(self, '_idea_send_hint', ''):
+            self._idea_send_hint = hint
+            status = getattr(self, 'status', None)
+            if status is not None:
+                status.set(hint or '就绪')
+
+    def _idea_live_missing(self):
+        """与 send_message 同判据：当前输入现在送出去会不会被必填缺失拦下。"""
+        import idea_chat
+        import stage_config
+        import workflow_settings
+        import writing_api
+        value = self.draft_text()
+        if writing_api.preparation_continuation(self.root, value):
+            return ()
+        workflow_config = stage_config.current_workflow(self.root)
+        preset = workflow_settings.WORKFLOW_PRESETS.get(workflow_config.get('name'), {})
+        lock_definitions = preset.get('locks') or tuple(
+            item for definition in workflow_settings.WORKFLOW_PRESETS.values()
+            for item in definition.get('locks', ()))
+        return idea_chat.inline_required_missing(
+            None, value, attachment_fields=self._idea_live_attachment_fields(lock_definitions),
+            stage='script', lock_definitions=lock_definitions,
+            created_at=stage_config.project_created_at(self.root))
+
+    def _idea_live_attachment_fields(self, lock_definitions):
+        """附件与制作锁提供的字段值（按附件路径集合缓存，避免每次按键重读文件）。"""
+        import idea_chat
+        import stage_config
+        paths = tuple(self.idea_attachment_paths)
+        if getattr(self, '_idea_live_attach_key', None) == paths:
+            return self._idea_live_attach_fields
+        from stage_execution_service import (stage_idea_attachment_reference,
+                                             stage_idea_brief_defaults)
+        from script_contract import PRODUCTION_LOCK_DEFINITIONS
+        reference = stage_idea_attachment_reference(self.root, self.draft_text(), paths)
+        fields = dict(stage_idea_brief_defaults(self.root, reference=reference)['values'])
+        lock_labels = tuple(label for item in lock_definitions
+                            for label in (item['label'], *item.get('aliases', ())))
+        for text in reference.get('brief_texts', ()):
+            for label, field in idea_chat.extract_brief_creation(
+                    text, extra_labels=lock_labels, include_extra=True).items():
+                fields.setdefault(label, field)
+        configured_locks = stage_config.workflow_lock(self.root)
+        fields.update({item['label']: configured_locks[item['key']]
+                       for item in PRODUCTION_LOCK_DEFINITIONS if configured_locks.get(item['key'])})
+        self._idea_live_attach_key, self._idea_live_attach_fields = paths, fields
+        return fields
+
     def send_message(self):
         """提交创意；显式 API 模型在聊天框内回复，其余仍启动剧本 Agent。"""
         box=getattr(self,'idea_input',None)

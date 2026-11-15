@@ -41,7 +41,15 @@ class ScriptComposerTests(unittest.TestCase):
     def test_submit_switches_between_send_and_stop(self):
         from ui_tokens import ICON_SEND, ICON_STOP
         with tempfile.TemporaryDirectory() as td:
-            d, win = self.desktop(make_minimal_project(td))
+            proj = make_minimal_project(td)
+            # REQ-S01-86：简报必填未齐时发送置灰；本测关注发送/终止切换，先落一份完整简报。
+            import project_stages
+            from agent.core import save
+            from test_writing_api import WritingApiTests
+            save(project_stages.writing(proj) / 'brief_complete.json', WritingApiTests.complete_brief())
+            d, win = self.desktop(proj)
+            d._apply_idea_send_state()
+            win.update()
             self.assertEqual(d.idea_submit.cget('text'), ICON_SEND)
             self.assertFalse(d.idea_submit.instate(['disabled']))
             with patch.object(d, 'send_message') as sent:
