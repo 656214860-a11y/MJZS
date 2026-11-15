@@ -13,9 +13,12 @@ PROGRAM = Path(__file__).resolve().parents[2]
 # app_logging.swallowed() 留痕；扫描面同步扩到 scripts/。剩余登记位：
 # app_logging 自身（日志基建不能递归记日志）与 agent/volcengine（agent 子包
 # 不引 app_logging，且错误路径随后仍 raise）。
+# platform_tools（R2669）：底层平台适配引 app_logging 构成越层（test_layers 实证），
+# 流式回调失败按注释语义降噪豁免一处。
 ALLOWED = {
     'app_logging.py': 10,
     'agent/volcengine.py': 1,
+    'platform_tools.py': 1,
 }
 
 

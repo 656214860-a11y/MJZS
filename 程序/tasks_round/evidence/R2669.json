@@ -1,0 +1,15 @@
+{
+  "round": 2669,
+  "commit_base": "2a18c9b4",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k silent_exception platform_process",
+    "exit": 0,
+    "passed": 6,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T17:02:38"
+}
