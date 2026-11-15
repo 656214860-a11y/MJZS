@@ -24,7 +24,7 @@ class IncrementalDoesNotMissDependencies(unittest.TestCase):
         (self.root / 'tests').mkdir()
         (self.root / 'agent' / '__init__.py').write_text('', encoding='utf-8')
         saved = selftest_env.HERE, selftest_env.TESTS_DIR
-        self.addCleanup(lambda: setattr(run_selftests, 'HERE', saved[0]) or setattr(run_selftests, 'TESTS_DIR', saved[1]))
+        self.addCleanup(lambda: setattr(selftest_env, 'HERE', saved[0]) or setattr(selftest_env, 'TESTS_DIR', saved[1]))
         selftest_env.HERE = str(self.root)
         selftest_env.TESTS_DIR = str(self.root / 'tests')
         run_selftests.imports_of.cache_clear()
