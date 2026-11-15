@@ -47,8 +47,8 @@ class VolcengineAdapter(VideoAdapter):
         return payload
 
     def call(self, task_id=None, payload=None):
-        import urllib.request, urllib.error, urllib.parse   # 第 34 期第 9 条：HTTP 栈按需加载
-        from api_endpoints import no_redirect
+        import urllib.error, urllib.parse   # 第 34 期第 9 条：HTTP 栈按需加载
+        import http_client
         from api_endpoints import configured_key
         from platform_tools import current_execution
         control = current_execution()
@@ -57,25 +57,28 @@ class VolcengineAdapter(VideoAdapter):
             timeout = control.remaining(timeout)
         key = configured_key(self.cfg)
         url = self.endpoint if task_id is None else self.endpoint + '/' + urllib.parse.quote(task_id, safe='')
-        data = None if payload is None else json.dumps(payload, ensure_ascii=False).encode('utf-8')
-        req = urllib.request.Request(url, data=data, headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'})
+        result = http_client.request_json('POST' if payload is not None else 'GET', url,
+                                          headers={'Authorization': 'Bearer ' + key},
+                                          payload=payload, timeout=timeout)
+        data = result.data or {}
+        if result.ok:
+            return json.loads(data['text'])
+        status = data.get('status')
+        if status is None:
+            raise urllib.error.URLError(str(data.get('error_body') or result.reason))
+        code = 'Unknown'
+        message = ''
         try:
-            with urllib.request.build_opener(no_redirect()).open(req, timeout=timeout) as r:
-                return json.load(r)
-        except urllib.error.HTTPError as e:
-            code = 'Unknown'
-            message = ''
-            try:
-                error = json.loads(e.read(8192)).get('error', {})
-                vendor_code = error.get('code', '')
-                message = str(error.get('message', '')).replace(key, '[REDACTED]')
-                message = re.sub(r'data:image/[^\s\"]+', '[IMAGE]', message)[:700]
-                if re.fullmatch(r'[A-Za-z0-9_.-]{1,100}', vendor_code):
-                    code = vendor_code
-            except Exception:
-                pass
-            # Print only whitelisted error code, never echoed request or credentials.
-            raise ArkRejected(f'火山接口 HTTP {e.code} / {code}。{message} 未自动重试。') from None
+            error = json.loads(data.get('error_body') or '{}').get('error', {})
+            vendor_code = error.get('code', '')
+            message = str(error.get('message', '')).replace(key, '[REDACTED]')
+            message = re.sub(r'data:image/[^\s\"]+', '[IMAGE]', message)[:700]
+            if re.fullmatch(r'[A-Za-z0-9_.-]{1,100}', vendor_code):
+                code = vendor_code
+        except Exception:
+            pass
+        # Print only whitelisted error code, never echoed request or credentials.
+        raise ArkRejected(f'火山接口 HTTP {status} / {code}。{message} 未自动重试。') from None
 
     def submit(self, shot, frame, request_id, *, payload=None):
         result = self.call(payload=self.payload(shot, frame) if payload is None else payload)

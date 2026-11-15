@@ -12,8 +12,6 @@ from tests.architecture._scan import parse, production_runtime_files
 ALLOWED = frozenset({
     'http_client.py',
     # 存量直连点，按 T3 迁移计划逐个迁入 http_client 后移除
-    'agent/volcengine.py',
-    'agent/wan.py',
     'api_endpoints.py',
     'batch_frames_tool/batch_frames.py',
     'local_video.py',

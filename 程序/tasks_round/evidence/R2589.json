@@ -1,0 +1,15 @@
+{
+  "round": 2589,
+  "commit_base": "e521a5a6",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k execution_deadline shared_adapter cloud_video http",
+    "exit": 0,
+    "passed": 56,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T12:58:16"
+}
