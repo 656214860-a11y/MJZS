@@ -23,10 +23,12 @@ HERE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(HERE))
 TESTS = Path(__file__).resolve().parent
 sys.path.insert(0, str(TESTS))
+sys.path.insert(0, str(HERE / 'scripts'))
 os.chdir(HERE)
 
 import tkinter as tk
 
+import benchmark_trend
 from desktop import Desktop, PAGES
 import skill_registry
 from performance_contract import (AUTO_RESUME_TO_SCRIPT_SECONDS,
@@ -129,7 +131,9 @@ class DesktopStartupPerfTests(unittest.TestCase):
                 desktop.startup_controller.cancel()
                 window.update_idletasks()
                 window.update()
-                self.assertLessEqual(time.perf_counter() - started, 4.5)
+                elapsed = time.perf_counter() - started
+                self.assertLessEqual(elapsed, 4.5)
+                benchmark_trend.record_startup_perf(elapsed, 'empty_project')
         finally:
             if desktop is not None:
                 desktop.cancel_timers()
@@ -233,7 +237,9 @@ class DesktopStartupPerfTests(unittest.TestCase):
                 desktop = Desktop(window, root=app)
                 window.update_idletasks()
                 window.update()
-                self.assertLessEqual(time.perf_counter() - started, FIRST_EVENT_LOOP_SECONDS)
+                elapsed = time.perf_counter() - started
+                self.assertLessEqual(elapsed, FIRST_EVENT_LOOP_SECONDS)
+                benchmark_trend.record_startup_perf(elapsed, 'first_day')
         finally:
             if desktop is not None:
                 desktop.cancel_timers()
@@ -295,6 +301,7 @@ class DesktopStartupPerfTests(unittest.TestCase):
                              and desktop.title.cget('text') == PAGES[0]),
                     started + AUTO_RESUME_TO_SCRIPT_SECONDS),
                     '同日自动续开不得在“我的项目”停留超过 1 秒')
+                benchmark_trend.record_startup_perf(time.perf_counter() - started, 'same_day')
         finally:
             if desktop is not None:
                 desktop.cancel_timers()

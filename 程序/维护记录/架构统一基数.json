@@ -1177,6 +1177,12 @@
     "point": "main:json.loads:746e1517d527c929:1",
     "disposition": "exempt",
     "reason": "R2572/R2587 合并：tools_lock 是开发期锁定清单工具，main 直接读 lock 文件属脚本内直读豁免，与同类 scripts/* 登记一致"
+   },
+   {
+    "file": "scripts/benchmark_trend.py",
+    "point": "load_startup_rows:json.loads:e0385179e22b5760:1",
+    "disposition": "exempt",
+    "reason": "R2733：benchmark_trend 是 CI 基准脚本，load_startup_rows 逐行解析 common-dir 启动耗时 JSONL（追加式日志，file_cache 只读整文档 JSON），与 skills _load_jsonl 同类豁免。"
    }
   ]
  },
