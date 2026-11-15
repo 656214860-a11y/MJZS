@@ -96,7 +96,7 @@ def _record_failure(project, state, aid, exc, publish_ledger):
 def run_batch(project, base, items, options, events, stop, client_factory=Comfy):
     """Generate and register one image per eligible asset without UI access."""
     from cloud_assets import LOCAL, MODELS, validate as validate_cloud, graph as cloud_graph, get_key
-    from prop_assets import requires_asset
+    from contract.prop_assets import requires_asset
     from stage_execution_service import asset_batch_gateway, prepare_asset_write
     base = prepare_asset_write(project, base)
     gateway = asset_batch_gateway()
@@ -125,7 +125,7 @@ def run_batch(project, base, items, options, events, stop, client_factory=Comfy)
                 continue  # 原有任务冲突或待核实：执行循环报告，不计作新增付费请求。
             if not old:count += 1
         if count:
-            from asset_contract import resolve_aspect_ratio
+            from contract.asset_contract import resolve_aspect_ratio
             inputs = {'model': options['backend'], 'quality': options.get('quality', 'medium'),
                       'aspect_ratio': resolve_aspect_ratio(options.get('workflow_lock'), options.get('aspect_ratio'), '1:1')}
             model = cloud_price_model({'30': {'class_type': 'DramaCloudImage', 'inputs': inputs}})

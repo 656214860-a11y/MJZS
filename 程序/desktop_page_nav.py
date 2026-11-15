@@ -305,7 +305,7 @@ class PageNavMixin:
         try:source=self.current_frame_json() if source is None else source
         except (OSError,ValueError):return ''
         if not source:return ''
-        from storyboard_paths import is_final_dir
+        from contract.storyboard_paths import is_final_dir
         if is_final_dir(Path(source).parent.name):return ''
         episode=read(source)
         shots=episode.get('shots',[]) if isinstance(episode,dict) else []

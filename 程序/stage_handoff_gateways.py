@@ -4,7 +4,7 @@
 """
 from pathlib import Path
 from project_context_factory import project_context
-from stage_path_service import write_dir
+from contract.stage_path_service import write_dir
 from stage_publication import publish_stage_bundle
 from stage_publication import publish_stage_text
 from stage_write_preparation_service import prepare_legacy_stage_path
@@ -245,7 +245,7 @@ def publish_response_archive(project, text):
     """
     from datetime import datetime
     from uuid import uuid4
-    from stage_path_service import write_dir
+    from contract.stage_path_service import write_dir
     value = str(text or '').replace('\r\n', '\n')
     if not value.strip():
         return ''

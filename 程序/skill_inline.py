@@ -9,7 +9,7 @@ from pathlib import Path
 
 import skill_registry
 from skill_registry import reference_row as _reference_row
-from workflow_context_budget import estimate_tokens, skill_inline_token_budget
+from contract.workflow_context_budget import estimate_tokens, skill_inline_token_budget
 
 _TEXT_SCRIPT_SUFFIXES = ('.py', '.sh', '.ps1', '.bat', '.cmd', '.json', '.yaml', '.yml', '.toml', '.ini', '.cfg')
 

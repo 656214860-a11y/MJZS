@@ -252,7 +252,7 @@ class PetStagesMixin:
     def has_structured_script(project):
         """真实的结构剧本是否已落盘（兼容历史状态机没有记录的旧项目）。"""
         try:
-            from script_contract import structured_script_path
+            from contract.script_contract import structured_script_path
             structured = structured_script_path(project) if project else None
             return bool(structured and structured.is_file() and structured.stat().st_size > 0)
         except (OSError, TypeError, ValueError):

@@ -8,10 +8,10 @@ from datetime import datetime
 from pathlib import Path
 import logging
 import re
-from service_contract import SystemError, UserError, success
+from contract.service_contract import SystemError, UserError, success
 
-import project_stages
-from script_contract import RAW_SCRIPT_NAME
+import contract.project_stages as project_stages
+from contract.script_contract import RAW_SCRIPT_NAME
 
 LOGGER = logging.getLogger(__name__)
 
@@ -234,8 +234,8 @@ def _document_display_name(path):
 
 def script_structure_documents(project):
     """返回剧本结构页所需的阶段目录、当前来源与可见文件列表。"""
-    import script_contract
-    from stage_path_service import write_dir
+    import contract.script_contract as script_contract
+    from contract.stage_path_service import write_dir
 
     source_directory = write_dir(project, 'script').resolve()
     output_directory = write_dir(project, 'structure').resolve()
@@ -275,7 +275,7 @@ def adopt_natural_script(project, source_path, *, publish):
     """采用明确选中的自然剧本内容版本，经 L3 发布台账。"""
     import hashlib
     import json
-    import script_contract
+    import contract.script_contract as script_contract
     root = Path(project).resolve()
     source = selected_workspace_document(script_contract.natural_script_paths(root), source_path)
     record = {'path': source.relative_to(root).as_posix(),

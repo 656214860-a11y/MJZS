@@ -15,7 +15,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-import artifact_schema
+import contract.artifact_schema as artifact_schema
 import model_pool
 import model_router
 from model_metering import chat_metered

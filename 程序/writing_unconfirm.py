@@ -25,7 +25,7 @@ def confirm_preparation_document(project, stage, path, *, publish):
         raise ValueError('请先完成项目创作信息')
     if stage not in PREPARATION_STAGES:
         raise ValueError('请选择项目设定、剧本大纲或角色卡')
-    from stage_path_service import write_dir
+    from contract.stage_path_service import write_dir
     folder = write_dir(project, 'script').resolve()
     target = folder / 'preparation_state.json'
     chosen = Path(path).resolve()
@@ -93,7 +93,7 @@ def confirm_preparation_document(project, stage, path, *, publish):
 
 def preparation_confirmed_stages(project):
     """只读：当前已确认的①②③阶段名元组（采用状态），供菜单判断「取消已确认」是否可用。"""
-    from stage_path_service import write_dir
+    from contract.stage_path_service import write_dir
     target = write_dir(project, 'script') / 'preparation_state.json'
     state = read_json(target) if target.is_file() else None
     if not isinstance(state, dict):
@@ -117,7 +117,7 @@ def unconfirm_preparation_document(project, stage, *, publish):
         raise TypeError('剧本准备阶段需要 L3 注入发布器')
     if stage not in PREPARATION_STAGES:
         raise ValueError('请选择项目设定、剧本大纲或角色卡')
-    from stage_path_service import write_dir
+    from contract.stage_path_service import write_dir
     target = write_dir(project, 'script') / 'preparation_state.json'
     state = read_json(target) if target.is_file() else None
     if state is None:

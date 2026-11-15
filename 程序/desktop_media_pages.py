@@ -19,7 +19,7 @@ from pathlib import Path
 from platform_tools import launch_windows_app, open_target, tcp_listener
 from project_naming import dated_path
 from responsive_ui import FlowBar, MIN_COL, auto_columns, fit_row_height, refresh_request_width, remember_columns
-from storyboard_paths import media_root
+from contract.storyboard_paths import media_root
 from tkinter import ttk
 from ui_tokens import CHAR_WIDTH, COLORS, SPACING, TABLE_HEADER_FONT, TABLE_ROW_FONT, TEXT_DESC
 from ui_widgets import Card, DataTable, DescriptionBlock, PrimaryButton, SecondaryButton, ask_string
@@ -688,7 +688,7 @@ class MediaPagesMixin:
         if not entries:raise ValueError('当前分镜没有对白，无法生成配音')
         tts_settings=tts_api.read_settings()
         lines=tts_api.build_lines(entries,assets,tts_settings.get('voices'),tts_settings.get('speeds'),settings=tts_settings)
-        from project_stages import audio
+        from contract.project_stages import audio
         folder=audio(self.root)/'配音分句'
         # 同一项目可有多集：把集标识纳入批次指纹，两集同名台词／音色不会共用缓存目录。
         token=(episode.get('episode_id') or episode.get('id')) if isinstance(episode,dict) else None

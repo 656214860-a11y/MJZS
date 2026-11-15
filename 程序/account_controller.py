@@ -16,7 +16,7 @@ import account_store
 import entitlement_service
 import update_notice
 from agent.core import save
-from service_contract import SystemError, success
+from contract.service_contract import SystemError, success
 
 RENEW_INTERVAL = 12 * 3600
 RENEW_VIEW_INTERVAL = 60      # R2064：进账号页、窗口回前台时的最短续签间隔（秒），后台改了到期日能很快看到

@@ -3,7 +3,7 @@ import tkinter as tk
 from tkinter import font as tkfont
 from tkinter import ttk
 
-from script_contract import PRODUCTION_LOCK_DEFINITIONS, production_lock_active
+from contract.script_contract import PRODUCTION_LOCK_DEFINITIONS, production_lock_active
 from ui_tokens import SPACING, STAGE_PANEL_LAYOUT
 from ui_tooltip import Tooltip
 from ui_widgets import SelectBox

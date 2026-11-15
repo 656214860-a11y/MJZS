@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 
 import file_cache
-import stage_layout
+import contract.stage_layout as stage_layout
 
 
 DOWNLOAD_INBOX_LEDGER = (stage_layout.WORKFLOW_DIR, '下载收件箱.json')

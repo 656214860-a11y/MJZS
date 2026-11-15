@@ -1,7 +1,7 @@
 """Track Agent dispatch separately from image output; recover unsubmitted legacy batches."""
 import time
 from pathlib import Path
-from project_context import ProjectContext
+from contract.project_context import ProjectContext
 
 
 def _project_root(project, *, context=None):

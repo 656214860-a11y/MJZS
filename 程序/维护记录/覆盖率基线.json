@@ -445,6 +445,12 @@
    "percent": 0.0
   },
   {
+   "module": "contract/script_contract.py",
+   "covered": 0,
+   "total": 699,
+   "percent": 0.0
+  },
+  {
    "module": "contract/script_manifest_schema.py",
    "covered": 0,
    "total": 256,
@@ -1243,9 +1249,21 @@
    "percent": 0.0
   },
   {
+   "module": "project_context.py",
+   "covered": 0,
+   "total": 2,
+   "percent": 0.0
+  },
+  {
    "module": "project_settings_dialog.py",
    "covered": 0,
    "total": 5,
+   "percent": 0.0
+  },
+  {
+   "module": "project_stages.py",
+   "covered": 0,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -1329,7 +1347,7 @@
   {
    "module": "script_contract.py",
    "covered": 0,
-   "total": 699,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -1537,6 +1555,12 @@
    "percent": 0.0
   },
   {
+   "module": "stage_path_service.py",
+   "covered": 0,
+   "total": 2,
+   "percent": 0.0
+  },
+  {
    "module": "stage_workspace_service.py",
    "covered": 0,
    "total": 26,
@@ -1618,6 +1642,12 @@
    "module": "storyboard_page_controller.py",
    "covered": 0,
    "total": 84,
+   "percent": 0.0
+  },
+  {
+   "module": "storyboard_paths.py",
+   "covered": 0,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -2173,7 +2203,7 @@
    "percent": 24.9
   },
   {
-   "module": "storyboard_paths.py",
+   "module": "contract/storyboard_paths.py",
    "covered": 11,
    "total": 43,
    "percent": 25.6
@@ -2191,7 +2221,7 @@
    "percent": 26.7
   },
   {
-   "module": "stage_layout.py",
+   "module": "contract/stage_layout.py",
    "covered": 58,
    "total": 205,
    "percent": 28.3
@@ -2239,7 +2269,7 @@
    "percent": 34.9
   },
   {
-   "module": "stage_path_service.py",
+   "module": "contract/stage_path_service.py",
    "covered": 20,
    "total": 55,
    "percent": 36.4
@@ -2287,7 +2317,7 @@
    "percent": 58.5
   },
   {
-   "module": "project_stages.py",
+   "module": "contract/project_stages.py",
    "covered": 17,
    "total": 28,
    "percent": 60.7
@@ -2329,13 +2359,13 @@
    "percent": 83.3
   },
   {
-   "module": "service_contract.py",
+   "module": "contract/service_contract.py",
    "covered": 23,
    "total": 27,
    "percent": 85.2
   },
   {
-   "module": "project_context.py",
+   "module": "contract/project_context.py",
    "covered": 12,
    "total": 14,
    "percent": 85.7
@@ -2348,9 +2378,9 @@
   },
   {
    "module": "agent/publication.py",
-   "covered": 145,
+   "covered": 143,
    "total": 159,
-   "percent": 91.2
+   "percent": 89.9
   },
   {
    "module": "video_lifecycle_service.py",
@@ -2375,8 +2405,20 @@
    "covered": 10,
    "total": 10,
    "percent": 100.0
+  },
+  {
+   "module": "service_contract.py",
+   "covered": 2,
+   "total": 2,
+   "percent": 100.0
+  },
+  {
+   "module": "stage_layout.py",
+   "covered": 2,
+   "total": 2,
+   "percent": 100.0
   }
  ],
- "modules_covered": 62,
- "modules_total": 394
+ "modules_covered": 64,
+ "modules_total": 401
 }

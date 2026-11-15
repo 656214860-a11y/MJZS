@@ -12,7 +12,7 @@ import random as _random
 import time as _time
 
 from contract.error_codes import code_data, lookup
-from service_contract import ServiceResult, success
+from contract.service_contract import ServiceResult, success
 
 MAX_BODY_BYTES = 32 * 1024 * 1024
 ERROR_BODY_MAX_BYTES = 64 * 1024

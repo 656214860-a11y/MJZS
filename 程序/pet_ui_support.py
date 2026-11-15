@@ -183,7 +183,7 @@ SETTINGS_LABEL = '设置'
 # 之后，右键这里还写着「模型配置…」，用户看到的就是两份对不上）。
 def _settings_entries():
     try:
-        from pet_settings_contract import TABS
+        from contract.pet_settings_contract import TABS
         return tuple(TABS)
     except Exception:
         return (('basic', '基础功能'), ('model', '三虎模型配置'), ('level', '自动化等级'),

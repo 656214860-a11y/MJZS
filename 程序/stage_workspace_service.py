@@ -2,9 +2,9 @@
 """阶段页面的目录初始化服务，不依赖 Tk。"""
 from pathlib import Path
 import logging
-from service_contract import SystemError, success
+from contract.service_contract import SystemError, success
 
-import project_stages
+import contract.project_stages as project_stages
 
 LOGGER = logging.getLogger(__name__)
 

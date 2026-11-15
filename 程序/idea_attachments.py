@@ -11,8 +11,8 @@ import zipfile
 from functools import wraps
 import logging
 import re
-from service_contract import SystemError, UserError, success
-from project_context import ProjectContext
+from contract.service_contract import SystemError, UserError, success
+from contract.project_context import ProjectContext
 
 
 MAX_FILES = 5
@@ -162,7 +162,7 @@ _ARCHIVE_NAME = re.compile(r'^(?P<project>.+)_(?P<kind>原始附件|附件文本
 
 def archive_targets(context, source, now=None):
     """四段式附件命名；同日同名序号置于内容段，原件和转换稿一起避让。"""
-    from script_contract import project_name, stage_file_name
+    from contract.script_contract import project_name, stage_file_name
     source = Path(source)
     folder = input_folder(context)
     content = source.stem

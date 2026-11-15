@@ -12,7 +12,7 @@ import threading
 from contextlib import contextmanager
 from pathlib import Path
 
-import stage_layout
+import contract.stage_layout as stage_layout
 from agent.core import save
 from pet_bus import read_json
 

@@ -6,7 +6,7 @@ import json
 import logging
 from functools import wraps
 from pathlib import Path
-from service_contract import SystemError, UserError, success
+from contract.service_contract import SystemError, UserError, success
 
 from agent.core import fingerprint, read
 from project_naming import dated_path

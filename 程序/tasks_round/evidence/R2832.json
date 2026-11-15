@@ -1,0 +1,15 @@
+{
+  "round": 2832,
+  "commit_base": "7eca9163",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k layers circular size_ratchet complexity service_return structured_script gate_selfaudit coverage_baseline static_hygiene app_metadata facade project_context project_stages service_contract stage_path_service stage_layout",
+    "exit": 0,
+    "passed": 116,
+    "failed": 0
+  },
+  "generated_at": "2026-11-15T19:00:36"
+}

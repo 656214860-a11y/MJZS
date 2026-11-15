@@ -74,7 +74,7 @@ def cloud_removed(project,config):
 
 def ensure_cloud_model(root,config):
     from pathlib import Path
-    from storyboard_paths import is_cloud_workspace
+    from contract.storyboard_paths import is_cloud_workspace
     root=Path(root)
     if is_cloud_workspace(root) and cloud_removed(root.parent.parent,config):
         raise ValueError('此 API 模型已删除，请重新选择并保存模型后生成。历史任务仍可查询。')

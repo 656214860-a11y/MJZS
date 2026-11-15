@@ -8,7 +8,7 @@ import pet_bus
 def media_output_folders(root, stage):
     """返回媒体阶段的成果目录与允许扩展名（成片后缀与导入共用 delivery_import_service 那一份）。"""
     from delivery_import_service import ALLOWED_SUFFIXES
-    from stage_path_service import read_dirs
+    from contract.stage_path_service import read_dirs
     video = set(ALLOWED_SUFFIXES)
     if stage == 'audio':
         return tuple(folder / '音频' for folder in read_dirs(root,'audio')), {'.mp3', '.wav', '.m4a', '.aac'}
@@ -38,7 +38,7 @@ def media_scope(root):
 
 def media_manifest_path(root, stage, scope):
     from agent.core import fingerprint
-    from stage_path_service import write_dir
+    from contract.stage_path_service import write_dir
     if stage not in ('audio', 'edit', 'delivery'):
         raise ValueError('不支持的媒体成果阶段')
     return write_dir(root, stage) / '成果确认' / (fingerprint(scope['source'])[:24] + '.json')
@@ -203,14 +203,14 @@ def package_delivery(root):
     root = Path(root).resolve()
     data = delivery_record(root)
     publish_delivery_artifacts(root, data)
-    from stage_path_service import write_dir
+    from contract.stage_path_service import write_dir
     return read(write_dir(root, 'delivery') / 'delivery_manifest.json')['files']
 
 
 def publish_delivery_report(root):
     """交付报告（人读）：成片、质检结论、警告与商用状态；只陈述记录，不替人审核。"""
     from agent.core import save_text
-    from stage_path_service import write_dir
+    from contract.stage_path_service import write_dir
     root = Path(root).resolve()
     data = delivery_record(root)
     qc = data['qc']
@@ -260,7 +260,7 @@ def publish_delivery_artifacts(root, data):
     """交付确认后落盘本阶段声明的产物：质检报告、交付摘要和带摘要的文件清单。"""
     import time
     from agent.core import file_hash, save
-    from stage_path_service import write_dir
+    from contract.stage_path_service import write_dir
     root = Path(root).resolve()
     folder = write_dir(root, 'delivery')
     now = time.time()
@@ -604,7 +604,7 @@ def preparation_progress(project):
       stages —— 各阶段现状 (阶段名, 文件在否, 已确认否)，只到卡住那一步为止。
     """
     from file_cache import read_json
-    from stage_path_service import write_dir
+    from contract.stage_path_service import write_dir
     from writing_api import PREPARATION_STAGES
     folder = write_dir(project, 'script').resolve()
     brief = folder / 'brief_complete.json'
@@ -660,7 +660,7 @@ def completion_evidence(root, stage, video_ready=None):
         if stage in ('audio', 'edit', 'delivery'):
             return media_completion_evidence(root, stage)
         if stage in ('script', 'script_structure'):
-            import script_contract
+            import contract.script_contract as script_contract
             if stage == 'script':
                 progress = preparation_progress(root)
                 if progress['blocked']:
@@ -696,7 +696,7 @@ def completion_evidence(root, stage, video_ready=None):
             return bool(digest), '没有全部下载、质检并验收的视频镜头'
         folders, suffixes = media_output_folders(root, stage)
         if not folders and stage in pet_bus.STAGES:
-            from project_stages import stage as stage_dir
+            from contract.project_stages import stage as stage_dir
             folders = (stage_dir(root, stage),)
         for folder in folders:
             if folder.is_dir():
@@ -729,11 +729,11 @@ def publish_stage_manifest(root, stage):
     from agent.core import save
     from project_context_factory import project_context
     from stage_parallel import _adopted
-    from stage_path_service import write_dir
+    from contract.stage_path_service import write_dir
     root = Path(root)
     stamp = datetime.now().isoformat(timespec='seconds')
     if stage == 'keyframe':
-        from storyboard_paths import media_root
+        from contract.storyboard_paths import media_root
         episodes = []
         for source, shots in _adopted(root):
             base = media_root(source).resolve()

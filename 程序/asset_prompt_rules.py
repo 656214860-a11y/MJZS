@@ -1,11 +1,11 @@
 """The same asset JSON contract for Codex, Claude and ComfyUI."""
 from pathlib import Path
 import re
-from prop_assets import RULES as PROP_RULES, CHARACTER_RULES
+from contract.prop_assets import RULES as PROP_RULES, CHARACTER_RULES
 
 def prompt_rules():
     """第 61 期 v0.8 任务 12：图片提示词＝锚点＋场景＋构图。规则句从 prompt_templates 取，只留一份真相。"""
-    from prompt_templates import common_lines
+    from contract.prompt_templates import common_lines
     return ''.join(common_lines())
 
 

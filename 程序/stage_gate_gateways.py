@@ -4,7 +4,7 @@
 """
 from pathlib import Path
 from project_context_factory import project_context
-from stage_path_service import write_dir
+from contract.stage_path_service import write_dir
 from stage_asset_gateways import _json_gateway
 
 

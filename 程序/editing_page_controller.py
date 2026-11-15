@@ -39,7 +39,7 @@ class EditingPageController:
         """本页最近一次粗剪的成片；重启后退回导出目录里最新的一份。"""
         if self.last_master is not None and self.last_master.is_file():
             return self.last_master
-        from project_stages import exports
+        from contract.project_stages import exports
         folder = exports(self.project)
         found = sorted((path for path in folder.glob('*/MASTER.mp4') if path.is_file()),
                        key=lambda path: path.stat().st_mtime) if folder.is_dir() else []

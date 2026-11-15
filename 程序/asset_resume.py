@@ -23,7 +23,7 @@ from functools import wraps
 import logging
 
 from agent.core import read_json
-from service_contract import SystemError, success
+from contract.service_contract import SystemError, success
 
 FILE_NAME = '资产续跑台账.json'
 STEP = 60                      # 每多试一次，退避多等这么些秒（与进程内那份 60×次数 一致）

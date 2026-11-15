@@ -4,8 +4,8 @@ import logging
 from datetime import datetime
 from pathlib import Path
 from agent.core import read
-from service_contract import SystemError, success
-from project_context import ProjectContext
+from contract.service_contract import SystemError, success
+from contract.project_context import ProjectContext
 
 
 _LOG = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ def episode_number(name):
 
 def _reference_documents(project, ignored):
     """扫描当前及历史剧本目录中的可用设定资料。"""
-    from project_stages import writing
+    from contract.project_stages import writing
     references = []
     # 当前阶段优先；旧 writing/ 只作历史素材读取，不能成为新产物落点。
     roots=(writing(project).resolve(), (project / 'writing').resolve())
@@ -101,16 +101,16 @@ def snapshot(context):
     references = _reference_documents(project, IGNORED)
 
     # 05资产管理是当前唯一写入位置；episode/assets 仅兼容旧项目的历史资料。
-    from project_stages import assets as assets_stage
+    from contract.project_stages import assets as assets_stage
     current_assets = assets_stage(project).resolve() / 'assets.json'
-    from asset_contract import legacy_asset_paths
+    from contract.asset_contract import legacy_asset_paths
     legacy_plan, legacy_registry = legacy_asset_paths(project)
     plan_path = current_assets if current_assets.is_file() else legacy_plan
     registry_path = current_assets if current_assets.is_file() else legacy_registry
     plan = mapping(plan_path)
     registry = mapping(registry_path)
     assets = []
-    from prop_assets import requires_asset
+    from contract.prop_assets import requires_asset
     keys = [key for key in (set(plan) | set(registry)) if isinstance(key, str)]
     for aid in sorted(keys):
         if not re.fullmatch(r'(CHAR|LOC|PROP)_\d+', aid):
@@ -151,7 +151,7 @@ def _instruction_text(project, stage, data=None, *, publish=None):
     if not callable(publish):
         raise TypeError('项目接续进度需要由 L3 注入发布器。')
     publish(target, data)
-    from prop_assets import RULES as PROP_RULES
+    from contract.prop_assets import RULES as PROP_RULES
     lines = [
         '【项目接续要求：先读取已有成果，再执行本次任务】',
         f'当前阶段：{stage}。项目进度文件：{target}。本清单由本地文件生成，跨 Codex、Qwen、Claude 共用。',

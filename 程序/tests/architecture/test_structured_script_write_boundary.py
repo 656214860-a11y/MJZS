@@ -22,7 +22,7 @@ class StructuredScriptWriteBoundaryTests(unittest.TestCase):
         calls = [node for node in ast.walk(desktop) if isinstance(node, ast.Call)
                  and isinstance(node.func, ast.Name) and node.func.id == 'save_natural_script']
         self.assertEqual(len(calls), 1, '结构页手改自然剧本必须委托 script_contract')
-        function = _function(parse(ROOT / 'script_contract.py'), 'save_natural_script')
+        function = _function(parse(ROOT / 'contract' / 'script_contract.py'), 'save_natural_script')
         saves = [node.lineno for node in ast.walk(function) if isinstance(node, ast.Call)
                  and isinstance(node.func, ast.Name) and node.func.id == 'save_text']
         self.assertEqual(len(saves), 1, '自然剧本服务必须使用原子 save_text')
@@ -47,7 +47,7 @@ class StructuredScriptWriteBoundaryTests(unittest.TestCase):
         ]
         self.assertEqual(direct_writers, [], 'stage_exec 不得直接发布结构剧本：' + str(direct_writers))
 
-        publish = _function(parse(ROOT / 'script_contract.py'), 'write_structured_script')
+        publish = _function(parse(ROOT / 'contract' / 'script_contract.py'), 'write_structured_script')
         saves = [node.lineno for node in ast.walk(publish) if isinstance(node, ast.Call)
                  and isinstance(node.func, ast.Name) and node.func.id == 'save_text']
         records = [node.lineno for node in ast.walk(publish) if isinstance(node, ast.Call)

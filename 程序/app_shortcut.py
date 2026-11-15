@@ -19,7 +19,7 @@ from pathlib import Path
 from file_cache import remove_temporary_file
 
 import app_icon
-from app_metadata import APP_NAME
+from contract.app_metadata import APP_NAME
 from agent.core import save_bytes
 
 PROGRAM = Path(__file__).resolve().parent

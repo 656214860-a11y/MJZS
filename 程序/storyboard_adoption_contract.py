@@ -31,7 +31,7 @@ def resolve_source(project, value):
     # the catalog/selection command layers.
     from importlib import import_module
     path = import_module('storyboard_storage').resolved_alias(project, path)
-    from project_stages import storyboard
+    from contract.project_stages import storyboard
     legacy_episode = project / 'storyboard' / 'episode.json'
     if not path.exists() and path in (storyboard(project) / 'episode.json', legacy_episode):
         current = storyboard(project) / 'episode.json'

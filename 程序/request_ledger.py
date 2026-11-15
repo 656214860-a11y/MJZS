@@ -15,7 +15,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import app_logging
-import stage_layout
+import contract.stage_layout as stage_layout
 from agent.core import save, read
 
 _REQUEST_LOCK = threading.RLock()

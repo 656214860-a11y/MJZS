@@ -15,7 +15,7 @@ import json
 from pathlib import Path
 
 import line_endings
-import stage_layout
+import contract.stage_layout as stage_layout
 from agent.core import read
 from pet_bus import STAGES, STAGE_NAMES, stage_label
 
@@ -108,8 +108,8 @@ def _storyboard_save(context):
 
 def _structure_script(context):
     """读取已确认原稿并复用剧本契约生成结构化 Markdown。"""
-    from script_contract import RAW_SCRIPT_NAME, structure_script
-    from stage_path_service import read_dirs
+    from contract.script_contract import RAW_SCRIPT_NAME, structure_script
+    from contract.stage_path_service import read_dirs
     root = project_of(context)
     source = next((folder / RAW_SCRIPT_NAME for folder in read_dirs(root, 'script')
                    if (folder / RAW_SCRIPT_NAME).is_file()), None)
@@ -121,7 +121,7 @@ def _structure_script(context):
 
 def _write_structured_script(context):
     """将已确认原稿原子写入唯一的结构化剧本目标。"""
-    from script_contract import write_structured_script
+    from contract.script_contract import write_structured_script
     root = project_of(context)
 
     def supersede(paths):
@@ -136,10 +136,10 @@ def _write_structured_script(context):
 
 def _review_structured_script(context):
     """Run the Editor review against the same canonical source as Writer."""
-    from script_contract import review_structured_script
+    from contract.script_contract import review_structured_script
     rendered = _structure_script(context)
     root = project_of(context)
-    from script_contract import resolve_script_source
+    from contract.script_contract import resolve_script_source
     source = resolve_script_source(root)
     if source is None:
         raise ToolNeedsInput('未找到已确认的自然剧本：请先完成剧本准备阶段')
@@ -148,7 +148,7 @@ def _review_structured_script(context):
 
 def _revise_structured_script(context):
     """Let Writer regenerate from Editor feedback without writing a partial file."""
-    from script_contract import revise_structured_script, resolve_script_source
+    from contract.script_contract import revise_structured_script, resolve_script_source
     rendered = _structure_script(context)
     root = project_of(context)
     source = resolve_script_source(root)

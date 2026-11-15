@@ -8,7 +8,7 @@ import stage_parallel
 import tk_timers
 
 def launch(app,project,base,items):
-    from prop_assets import requires_asset
+    from contract.prop_assets import requires_asset
     items=[(aid,asset) for aid,asset in items if requires_asset(aid,asset) and not image_ready(base,aid)]
     if not items:
         app.status.set('没有待生成的独立资产；已就绪图片跳过，普通道具随镜头画面生成。');return

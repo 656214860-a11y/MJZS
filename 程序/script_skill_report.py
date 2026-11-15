@@ -5,7 +5,7 @@ so core script facts remain usable without loading the stage Skill registry.
 """
 from pathlib import Path
 
-from script_contract import (AUDIT, CATEGORIES, MERGED, MERGE_LANDING, MERGE_OWNER,
+from contract.script_contract import (AUDIT, CATEGORIES, MERGED, MERGE_LANDING, MERGE_OWNER,
                              MERGE_PART, PRODUCER_SKILLS, SCRIPT_SKILL_STAGES, STAGE,
                              program_root)
 
@@ -70,7 +70,7 @@ def merge_problems(program=None):
         if part not in text:
             out.append('%s 没写清并回的是哪一段（%s）' % (skill, part))
         if landing.startswith('docs/'):
-            import stage_layout
+            import contract.stage_layout as stage_layout
             row = stage_layout.stage_dir(STAGE)
             stage_name = row[0] if row else STAGE
             names = tuple(item[0] for item in stage_layout.DOCS.get(stage_name, ()))

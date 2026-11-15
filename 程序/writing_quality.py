@@ -4,7 +4,7 @@ import json
 import math
 import re
 from pathlib import Path
-from service_contract import success
+from contract.service_contract import success
 
 REPORTS = {
     'screenplay_gates': ('五阶门控', 5),

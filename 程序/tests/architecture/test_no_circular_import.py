@@ -1,6 +1,6 @@
 from __future__ import annotations
 import unittest
-from tests.architecture._scan import imports_of, module_name, production_files
+from tests.architecture._scan import module_imports_of, module_imports_with_dynamic_of, module_name, module_scan_files
 
 def _tarjan(graph: dict[str, set[str]]) -> list[list[str]]:
     index, indexes, lowlinks = 0, {}, {}
@@ -35,9 +35,9 @@ def _tarjan(graph: dict[str, set[str]]) -> list[list[str]]:
 
 class CircularImportTests(unittest.TestCase):
     def test_root_production_modules_have_no_import_cycle(self) -> None:
-        paths = production_files()
+        paths = module_scan_files()
         names = {module_name(path) for path in paths}
-        graph = {module_name(path): {target for target in imports_of(path) if target in names} for path in paths}
+        graph = {module_name(path): {target for target in module_imports_of(path) if target in names} for path in paths}
         cycles = [component for component in _tarjan(graph) if len(component) > 1]
         cycles.extend([[node] for node, edges in graph.items() if node in edges])
         if cycles:
@@ -57,10 +57,9 @@ KNOWN_DYNAMIC_CYCLES = (
 
 class DynamicImportCycleRatchetTests(unittest.TestCase):
     def test_dynamic_imports_do_not_add_import_cycles(self) -> None:
-        from tests.architecture._scan import imports_with_dynamic_of
-        paths = production_files()
+        paths = module_scan_files()
         names = {module_name(path) for path in paths}
-        graph = {module_name(path): {target for target in imports_with_dynamic_of(path)
+        graph = {module_name(path): {target for target in module_imports_with_dynamic_of(path)
                                      if target in names and target != module_name(path)} for path in paths}
         found = {tuple(component) for component in _tarjan(graph) if len(component) > 1}
         known = set(KNOWN_DYNAMIC_CYCLES)

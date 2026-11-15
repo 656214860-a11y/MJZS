@@ -2,9 +2,9 @@
 from pathlib import Path
 import copy,hashlib
 from agent.core import read,fingerprint,file_hash
-from project_context import ProjectContext
+from contract.project_context import ProjectContext
 from storyboard_storage import _references,ALIAS_FILE,resolved_alias
-from storyboard_paths import media_root
+from contract.storyboard_paths import media_root
 
 
 def _context(value):
@@ -16,7 +16,7 @@ def _context(value):
 
 def working_roots(context):
     """当前初步分镜目录优先，旧 storyboard 只作为历史读取兼容。"""
-    from project_stages import storyboard
+    from contract.project_stages import storyboard
     project=_context(context).root.resolve()
     return (storyboard(project).resolve(), (project/'storyboard').resolve())
 

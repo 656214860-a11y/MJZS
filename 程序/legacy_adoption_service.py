@@ -4,8 +4,8 @@ from datetime import datetime
 from pathlib import Path
 import logging
 
-from stage_layout import ARCHIVE
-from service_contract import SystemError, success
+from contract.stage_layout import ARCHIVE
+from contract.service_contract import SystemError, success
 
 LOGGER = logging.getLogger(__name__)
 

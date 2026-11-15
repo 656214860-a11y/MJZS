@@ -109,7 +109,7 @@ class AutomationTickMixin:
         不起批次（「把工作稿移进回收站」那件事只有 poll_auto_final 与手动按钮能做）。
         """
         from storyboard_selection import adopted
-        from storyboard_paths import is_final_dir
+        from contract.storyboard_paths import is_final_dir
         from asset_context import references
         from asset_batch_state_service import ready_asset_ids
         try:sources=list(adopted(self.root))

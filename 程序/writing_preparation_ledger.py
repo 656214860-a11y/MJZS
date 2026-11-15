@@ -18,7 +18,7 @@ def _save_preparation_state(target, state, publish):
 
 def _revoke_natural_script_adoption(project, target, state, publish):
     """采用版本变化后撤销自然稿采用：先落采用记录失效，再回写阶段台账。"""
-    from script_contract import natural_script_selection_path
+    from contract.script_contract import natural_script_selection_path
     payload = json.dumps({'path': '', 'sha256': '',
                           'reason': '前置阶段已更新，请重新生成或明确采用自然剧本'}, ensure_ascii=False)
     publish(natural_script_selection_path(project), payload,
@@ -42,7 +42,7 @@ def _save_preparation_state_guarded(project, target, state, publish):
     覆盖非重写确认路径的基线变化：「取消已确认」、简报变化后重确认、菜单/聊天
     直接改写采用版本。与 ``_promote_revision`` 的重写切换同口径；基线未变或
     没有有效采用时直接保存，不给从未采用过的项目写多余的失效记录。"""
-    from script_contract import natural_script_selection_path
+    from contract.script_contract import natural_script_selection_path
     old = read_json(target) if target.is_file() else None
     if _confirmed_basis(old) != _confirmed_basis(state):
         selection = natural_script_selection_path(project)

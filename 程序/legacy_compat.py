@@ -44,7 +44,7 @@ def canonical_stage_name(value):
     """将历史阶段标识转换为当前显示目录名；未知值原样返回。"""
     text = str(value or '').strip().rstrip('/\\')
     try:
-        from stage_layout import stage_dir
+        from contract.stage_layout import stage_dir
     except ImportError:
         return text
     row = stage_dir(text)

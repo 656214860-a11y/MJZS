@@ -156,11 +156,29 @@ def migrate(package: str, modules: list[str], dry_run: bool = False) -> int:
         facade.write_text(body, encoding="utf-8")
         facades.append(f"{mod}.py")
 
-    # 5) 生产侧 import 改写：先 AST 定位真实 import 的文件，再行级正则改写
+    # 5) 生产侧 import 改写
+    rewritten = _rewrite_imports(package, targets)
+
+    # 6) 汇总
+    print(f"搬家 {len(moved)} 个模块 → {package}/")
+    for item in moved:
+        print("  mv", item)
+    print(f"门面 {len(facades)} 个")
+    print(f"改写 import 的生产文件 {len(rewritten)} 个")
+    for item in rewritten:
+        print("  rw", item)
+    if dyn_hits:
+        print(f"!! 动态字符串引用 {len(dyn_hits)} 处，需人工核对：")
+        for hit in dyn_hits:
+            print("  ", hit)
+    return 0
+
+
+def _rewrite_imports(package: str, targets: set[str]) -> list[str]:
+    """生产侧 ``import <mod>``／``from <mod> import`` 改写为包路径；幂等，可重入。"""
+    rewritten = []
     for path in production_runtime_files():
         rel = path.relative_to(PROGRAM).as_posix()
-        if rel.startswith(f"{package}/") and rel.count("/") == 1:
-            pass  # 包内文件同样要改写（它们可能 import 本批其他模块）
         try:
             text = path.read_text(encoding="utf-8")
             tree = ast.parse(text)
@@ -180,26 +198,13 @@ def migrate(package: str, modules: list[str], dry_run: bool = False) -> int:
             # 才保持 ``mod.attr`` 可用（裸 ``import pkg.mod`` 会绑定 pkg）。
             new = re.sub(
                 rf"(?m)^([ \t]*)import {re.escape(mod)}(?![\w.])(\s+as\s+(\w+))?",
-                lambda m: f"{m.group(1)}import {pkg_mod} as {m.group(4) or mod}",
+                lambda m: f"{m.group(1)}import {pkg_mod} as {m.group(3) or mod}",
                 new)
         if new != text:
             ast.parse(new)  # 改写后语法自检
             path.write_text(new, encoding="utf-8")
             rewritten.append(rel)
-
-    # 6) 汇总
-    print(f"搬家 {len(moved)} 个模块 → {package}/")
-    for item in moved:
-        print("  mv", item)
-    print(f"门面 {len(facades)} 个")
-    print(f"改写 import 的生产文件 {len(rewritten)} 个")
-    for item in rewritten:
-        print("  rw", item)
-    if dyn_hits:
-        print(f"!! 动态字符串引用 {len(dyn_hits)} 处，需人工核对：")
-        for hit in dyn_hits:
-            print("  ", hit)
-    return 0
+    return rewritten
 
 
 def fix_facades(package: str) -> int:
@@ -235,12 +240,20 @@ def main(argv=None) -> int:
     parser.add_argument("--package", required=True, help="目标包名（contract/infra/domain/orchestrator/ui）")
     parser.add_argument("--modules", nargs="*", default=[], help="顶层模块名（不带 .py）")
     parser.add_argument("--fix-facades", action="store_true", help="把包内星号门面改写为显式再导出")
+    parser.add_argument("--rewrite-only", action="store_true",
+                        help="只重跑生产侧 import 改写（git mv/门面已完成时的恢复入口，幂等）")
     parser.add_argument("--dry-run", action="store_true", help="只报告，不改动")
     args = parser.parse_args(argv)
     if args.fix_facades:
         return fix_facades(args.package)
     if not args.modules:
         parser.error("--modules 不能为空（除非 --fix-facades）")
+    if args.rewrite_only:
+        rewritten = _rewrite_imports(args.package, set(args.modules))
+        print(f"改写 import 的生产文件 {len(rewritten)} 个")
+        for item in rewritten:
+            print("  rw", item)
+        return 0
     return migrate(args.package, args.modules, dry_run=args.dry_run)
 
 

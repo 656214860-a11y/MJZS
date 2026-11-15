@@ -1,6 +1,6 @@
 """One persisted Codex task per project/stage. Never starts a model turn."""
 import json,os,queue,shutil,subprocess,threading,time
-import stage_layout
+import contract.stage_layout as stage_layout
 import token_saver
 from pathlib import Path
 from contextlib import contextmanager
@@ -9,7 +9,7 @@ from agent.core import read,save,save_text
 from pet_bus import read_json
 from pet_llm import config_path
 from platform_tools import terminate_process_tree
-from workflow_context_budget import ensure_request_context
+from contract.workflow_context_budget import ensure_request_context
 
 class RPC:
     def __init__(self, program=None):

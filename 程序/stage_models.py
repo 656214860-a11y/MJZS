@@ -49,7 +49,7 @@ def keyframe_choices(project=None):
     引擎那几条的名字跟着「Skill 调用设置」里那一档走（与 keyframe_comfy 原来那个合并下拉框
     用的是同一份算法），所以没给项目时只列前两条。
     """
-    from production_model_contract import LOCAL_KEYFRAME_MODEL, SEEDREAM_KEYFRAME_MODEL
+    from contract.production_model_contract import LOCAL_KEYFRAME_MODEL, SEEDREAM_KEYFRAME_MODEL
     items = [(LOCAL_KEYFRAME_MODEL, LOCAL_KEYFRAME_MODEL),
              (SEEDREAM_KEYFRAME_MODEL, SEEDREAM_KEYFRAME_MODEL)]
     if not project:
@@ -358,7 +358,7 @@ def default_model(stage):
     if stage == 'assets':
         from cloud_assets import LOCAL
         return LOCAL
-    from production_model_contract import LOCAL_KEYFRAME_MODEL
+    from contract.production_model_contract import LOCAL_KEYFRAME_MODEL
     return LOCAL_KEYFRAME_MODEL
 
 

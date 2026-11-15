@@ -4,8 +4,8 @@ from datetime import datetime
 from pathlib import Path
 from agent.core import save
 from file_cache import read_json
-from storyboard_paths import media_root
-import stage_layout
+from contract.storyboard_paths import media_root
+import contract.stage_layout as stage_layout
 import white_model_service as wm
 from platform_tools import hidden_console_flags
 

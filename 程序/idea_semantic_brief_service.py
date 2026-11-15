@@ -8,7 +8,7 @@
 import json
 import re
 from pathlib import Path
-from script_contract import BRIEF_EXTRACTION_LABELS
+from contract.script_contract import BRIEF_EXTRACTION_LABELS
 
 SEMANTIC_BRIEF_TIMEOUT = 300
 SEMANTIC_BRIEF_POLL_SECONDS = 1

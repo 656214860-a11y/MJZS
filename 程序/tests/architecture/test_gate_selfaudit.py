@@ -92,9 +92,9 @@ class LayerSelfAuditTests(unittest.TestCase):
             low = _write(folder, 'low.py', 'import high\n')
             high = _write(folder, 'high.py', 'import low\n')
             with mock.patch.object(test_layers, 'LAYERS', {'low': 0, 'high': 4}):
-                with mock.patch.object(test_layers, 'production_files', return_value=(low,)):
+                with mock.patch.object(test_layers, 'module_scan_files', return_value=(low,)):
                     self.assertEqual(test_layers._upward_pairs(), {('low.py', 'low', 'high')})
-                with mock.patch.object(test_layers, 'production_files', return_value=(high,)):
+                with mock.patch.object(test_layers, 'module_scan_files', return_value=(high,)):
                     self.assertEqual(test_layers._upward_pairs(), set())
 
 

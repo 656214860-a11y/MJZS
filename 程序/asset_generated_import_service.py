@@ -5,7 +5,7 @@ from pathlib import Path
 from file_cache import remove_temporary_file
 
 from agent.core import read
-from project_context import ProjectContext
+from contract.project_context import ProjectContext
 
 
 def _project_root(project=None, *, context=None):

@@ -4,7 +4,7 @@
 """
 from pathlib import Path
 from project_context_factory import project_context
-from stage_path_service import write_dir
+from contract.stage_path_service import write_dir
 from stage_publication import publish_stage_bundle
 from stage_publication import publish_stage_text
 import file_cache
@@ -35,7 +35,7 @@ def publish_animatic_bundle(project, artifacts, *, validate, update_index=None):
 
 
 def import_animatic_references(project, sources):
-    from stage_path_service import shared_reference_dir
+    from contract.stage_path_service import shared_reference_dir
     from animatic_service import digest
     folder = shared_reference_dir(project).resolve()
     if not folder.is_relative_to(Path(project).resolve()):
@@ -112,7 +112,7 @@ def confirm_animatic(project, *, rhythm, duration, dialogue_sync):
 
 
 def animatic_reference_paths(project):
-    from stage_path_service import shared_reference_read_dirs
+    from contract.stage_path_service import shared_reference_read_dirs
     return tuple(dict.fromkeys(path for folder in shared_reference_read_dirs(project) if folder.is_dir()
                                for path in sorted(folder.rglob('*'))
                                if path.is_file() and path.suffix.lower() in ('.png', '.jpg', '.jpeg', '.webp')))
@@ -149,5 +149,5 @@ def generate_animatic_reference(project, prompt, model, settings=None):
 def animatic_preview_spec(project):
     """预演低清规格：画幅跟项目制作锁，分辨率与帧率保持低配；与正式交付规格同源。"""
     import stage_config
-    from script_contract import preview_spec
+    from contract.script_contract import preview_spec
     return preview_spec(stage_config.workflow_lock(Path(project)))

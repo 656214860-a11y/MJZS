@@ -380,7 +380,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin):
         dialog = FormDialog(self.win, '补充创作信息')
         self._idea_missing_dialog = dialog
         ttk.Label(dialog.content, text=notice + '以下信息尚未填写。保存后请再次点击发送。').pack(anchor='w', pady=SPACING['sm'])
-        from script_contract import PRODUCTION_LOCK_DEFINITIONS, validate_production_locks
+        from contract.script_contract import PRODUCTION_LOCK_DEFINITIONS, validate_production_locks
         from production_lock_fields import ProductionLockFields
         import stage_config
         lock_labels = {label for item in PRODUCTION_LOCK_DEFINITIONS[5:]
@@ -483,7 +483,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin):
                         text, extra_labels=lock_labels, include_extra=True).items():
                     lock_fields.setdefault(label, field)
             attachment_fields.update(lock_fields)
-        from script_contract import PRODUCTION_LOCK_DEFINITIONS
+        from contract.script_contract import PRODUCTION_LOCK_DEFINITIONS
         configured_locks = stage_config.workflow_lock(self.root)
         attachment_fields.update({item['label']: configured_locks[item['key']]
             for item in PRODUCTION_LOCK_DEFINITIONS if configured_locks.get(item['key'])})
@@ -726,7 +726,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin):
         except OSError:
             text=''
         if not text.strip():
-            from script_contract import INLINE_REQUIRED_LABELS
+            from contract.script_contract import INLINE_REQUIRED_LABELS
             text='\n'.join(label+'：' for label in dict.fromkeys((*IDEA_FIELDS, *INLINE_REQUIRED_LABELS)))+'\n'
         self._idea_example=text
         return text
@@ -782,7 +782,7 @@ class _FlowAgentLaunch:
         from workflow_context import continuation_instruction,snapshot
         from stage_execution_service import project_context
         from workflow_context_controller import request_stage_instruction
-        from workflow_context_budget import prepare_request_context
+        from contract.workflow_context_budget import prepare_request_context
         if self.config['engine']=='codex':
             from codex_skill_sync import sync_codex_skills
             sync_result=sync_codex_skills()

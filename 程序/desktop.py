@@ -16,7 +16,7 @@ import os, shutil, queue, threading, subprocess, sys, time, uuid, hashlib, re, j
 from datetime import date
 from pathlib import Path
 from file_cache import remove_temporary_file
-from storyboard_paths import media_root
+from contract.storyboard_paths import media_root
 import tkinter as tk
 from tkinter import ttk, messagebox
 from agent.core import read,save,save_text,save_bytes
@@ -31,10 +31,10 @@ from ui_theme import apply as apply_theme, install_window_placement
 from project_naming import dated_path
 import asset_thumbs
 import asset_resume
-import frame_checks
+import contract.frame_checks as frame_checks
 import pet_ui
 import ui_usage_indicator
-import project_stages
+import contract.project_stages as project_stages
 import ui_plugin_registry
 import stage_handler_registry
 from platform_tools import find_editor_shortcut, launch_windows_app, open_directory, open_path, open_target, tcp_listener
@@ -103,7 +103,7 @@ import pet_state
 
 
 # 第 44 期：版本号只写这一份——系统标题栏与左上角那一行（齿轮就挨着它）都用它。
-from app_metadata import APP_NAME, VERSION
+from contract.app_metadata import APP_NAME, VERSION
 from desktop_page_registry import CACHED_PAGES, PAGE, PAGE_ACCOUNT, PAGES, PAGE_SITES, page_title
 
 # 「页面第一次画完」按页指标名：用 PAGE 稳定键区分 14 页，不用会变的中文标题。
@@ -501,7 +501,7 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
                 # 桌面 Agent 的正常退出不是成功证据；只有它写出规范自然剧本时，
                 # 才通知三虎继续。先发 script.completed 以武装自动链，再收场 script。
                 try:
-                    import script_contract
+                    import contract.script_contract as script_contract
                     source=script_contract.resolve_script_source(project)
                 except (OSError, TypeError, ValueError):
                     source=None
@@ -718,7 +718,7 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         """
         if not self.root:return []
         try:
-            from stage_layout import ensure
+            from contract.stage_layout import ensure
             return ensure(self.root)
         except Exception as exc:
             self.status.set('阶段目录未补齐：%s；请稍后重试。' % exc)
@@ -945,7 +945,7 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         p=FileDialog(self.win).open_file(initialdir=delivery_dir,filetypes=[('成片','*.mp4 *.mov *.mkv')])
         if not p:return
         def work():
-            from service_contract import UserError
+            from contract.service_contract import UserError
             from stage_execution_service import import_delivery_master
             result=import_delivery_master(self.root,p)
             if result.ok:return '最终成片已导入：'+str(result.data)

@@ -31,7 +31,7 @@ def install_ui_presenters(execution_presenter, plan_presenter, confirmation_pres
 
 def _run_script_structure(desktop, project, names, trigger):
     """本地规则提取、规则校验并按反馈重提取后，才把结构化正稿写入 script.md（不调用模型）。"""
-    import script_contract
+    import contract.script_contract as script_contract
     from stage_execution_service import build_orchestrator, publish_stage_text, stage_context
     state = {}
 

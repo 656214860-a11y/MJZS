@@ -19,11 +19,11 @@ import hashlib
 from pathlib import Path
 
 from file_cache import read_json
-from asset_contract import missing_ids
-from asset_contract import normalize as normalize_asset
-from shot_batches import check_batches, validate as validate_shot
+from contract.asset_contract import missing_ids
+from contract.asset_contract import normalize as normalize_asset
+from contract.shot_batches import check_batches, validate as validate_shot
 from legacy_compat import canonical_stage_name
-from project_context import ProjectContext
+from contract.project_context import ProjectContext
 
 OBJECTIVE = '客观'
 SUBJECTIVE = '主观'
@@ -198,7 +198,7 @@ _CHECKS = {'fields': check_fields, 'triplets': check_triplets, 'roles': check_ro
 
 
 def _validate_asset(asset, aid):
-    from asset_contract import validate
+    from contract.asset_contract import validate
     return validate(asset, aid)
 
 
@@ -295,7 +295,7 @@ def confirm_path(project=None, *, context=None):
         if project is not None and Path(project).resolve() != root:
             raise ValueError('项目路径与注入的 ProjectContext 不一致。')
         return context.stage_resolver('continuity') / 'output' / CONFIRM_NAME
-    import stage_layout
+    import contract.stage_layout as stage_layout
     return stage_layout.paths(project, FOLDER)['output'] / CONFIRM_NAME
 
 
@@ -305,7 +305,7 @@ def confirmations(project=None, *, context=None):
         return {}
     path = confirm_path(project, context=context)
     if not path.is_file():
-        from stage_path_service import read_file
+        from contract.stage_path_service import read_file
         path = read_file(context.root if context is not None else project,
                          'continuity', 'output', CONFIRM_NAME)
     if not path.is_file():

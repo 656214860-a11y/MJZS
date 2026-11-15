@@ -2,7 +2,7 @@
 from pathlib import Path
 import re
 from agent.core import read
-from project_context import ProjectContext
+from contract.project_context import ProjectContext
 import pet_bus
 
 
@@ -40,7 +40,7 @@ def ensure_browser_directory(base, kind, *, create=True):
 def library_dir(project=None, fallback=None, *, context=None):
     project=_project_root(project, context=context)
     cfg=read(project/'config.json') if (project/'config.json').is_file() else {}
-    from stage_path_service import existing_dir, write_dir, LEGACY_NUMBERED
+    from contract.stage_path_service import existing_dir, write_dir, LEGACY_NUMBERED
     standard=write_dir(project, 'assets')
     value=cfg.get('asset_library_dir')
     if (standard/'assets.json').is_file() or (standard/'assets/资产清单/assets.json').is_file():
@@ -73,7 +73,7 @@ def active_source(project=None, storyboard=None, fallback=None, *, context=None)
 
 def references(shot):
     """All declared assets, including assets visible only in the first frame."""
-    from prop_assets import normalize_shot
+    from contract.prop_assets import normalize_shot
     shot=normalize_shot(shot)
     seen=set()
     for prefix,key in [('CHAR','characters'),('LOC','location'),('PROP','props'),(None,'first_frame_assets')]:
@@ -127,7 +127,7 @@ def referencing_shots(shots, aid):
     与 :func:`references` 同口径（先 normalize_shot 再取声明资产）；用于「改动会影响哪些
     镜头」的只读影响视图，不写盘、不改镜头编号。
     """
-    from prop_assets import normalize_shot
+    from contract.prop_assets import normalize_shot
     target = str(aid or '').strip()
     rows = []
     if not target:

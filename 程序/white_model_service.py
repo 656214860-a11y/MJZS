@@ -12,8 +12,8 @@ from pathlib import Path
 from file_cache import probe_writable, read_json, remove_temporary_file
 from platform_tools import run_process
 from project_naming import dated_path
-import stage_layout
-from project_context import ProjectContext
+import contract.stage_layout as stage_layout
+from contract.project_context import ProjectContext
 
 _BLENDER_CACHE = []
 _WORKSPACE_CACHE = {}
@@ -64,7 +64,7 @@ def project_identity(root):
 
 def _reroot(root, path):
     """绝对路径失效（项目改名／移动）时，按阶段目录名在项目内重新定位同一份分镜。"""
-    from project_stages import STAGES
+    from contract.project_stages import STAGES
     names = set(STAGES.values())
     parts = Path(path).parts
     for index, part in enumerate(parts):
@@ -234,7 +234,7 @@ _PREVIEW_SUFFIXES = ('.mp4', '.webm', '.mov')
 
 def project_index_path(context, *, write=False):
     """项目内预演索引 `09白模预演/output/previs.json`（stage_layout 契约名）；读取时旧目录只读兼容。"""
-    from stage_path_service import read_file, write_dir
+    from contract.stage_path_service import read_file, write_dir
     root = _context(context).root
     if write:
         return write_dir(root, 'previs') / 'output' / PROJECT_INDEX
@@ -261,7 +261,7 @@ def sync_project_copy(context, sid, source, *, publish):
         return None
     if evidence_state(record, path, source, sid) != 'ok':
         return None
-    from stage_path_service import write_dir
+    from contract.stage_path_service import write_dir
     folder = write_dir(context.root, 'previs') / 'assets' / _segment(sid)
     target = folder / path.name
     if not target.is_file() or target.stat().st_size != path.stat().st_size:

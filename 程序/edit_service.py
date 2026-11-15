@@ -2,8 +2,8 @@
 from pathlib import Path
 from functools import wraps
 import logging
-from service_contract import SystemError, success
-from project_context import ProjectContext
+from contract.service_contract import SystemError, success
+from contract.project_context import ProjectContext
 
 
 def _project_root(project=None, *, context=None):
@@ -37,7 +37,7 @@ def save_editing_checklist(project, text, *, publish=None, context=None):
     """发布用户维护的剪辑优化清单；正式发布器必须由 L3 注入。"""
     if not callable(publish):
         raise TypeError('剪辑优化清单需要由 L3 注入发布器。')
-    from project_stages import editing
+    from contract.project_stages import editing
     target = editing(_project_root(project, context=context)) / CHECKLIST_NAME
     return publish(target, str(text or ''))
 
@@ -104,11 +104,11 @@ def assemble_image_timeline(images, durations, audio, destination, *, ffmpeg, ff
 
 def preview_filter(spec=None):
     """预演只降分辨率与帧率，画幅仍跟项目；不给规格就回到历史的 1280x720。"""
-    from script_contract import output_filter, preview_spec
+    from contract.script_contract import output_filter, preview_spec
     return output_filter(preview_spec() if spec is None else spec)
 
 
 def preview_fps(spec=None):
     """预演帧率：不给规格时是 24。"""
-    from script_contract import preview_spec
+    from contract.script_contract import preview_spec
     return (preview_spec() if spec is None else spec)['fps']

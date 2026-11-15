@@ -10,7 +10,7 @@ import skill_budget
 import stage_config
 import stage_models
 from project_context_factory import project_context
-from stage_path_service import write_dir
+from contract.stage_path_service import write_dir
 from stage_asset_gateways import (  # noqa: F401  re-export
     _json_gateway,
     asset_batch_gateway,
@@ -304,7 +304,7 @@ def reply_to_writing(project, creative, cancelled=None, *, user_message=None, re
 def collect_writing_quality(project, script_path):
     """Recover a desktop delivery through the same report publisher as API/CLI."""
     from writing_quality import split_response, publish_reports
-    from stage_path_service import write_dir
+    from contract.stage_path_service import write_dir
     target = Path(script_path)
     folder = write_dir(project, 'script').resolve()
     if not target.resolve().is_relative_to(folder):
@@ -799,12 +799,12 @@ def save_writing_production_locks(project, values, *, attachment_signature=None)
     """制作锁与已存在的简报作为一包发布，失败不留下两份不同值。"""
     from copy import deepcopy
     from idea_chat import brief_complete_path
-    from script_contract import PRODUCTION_LOCK_DEFINITIONS
+    from contract.script_contract import PRODUCTION_LOCK_DEFINITIONS
     allowed = {item['key'] for item in PRODUCTION_LOCK_DEFINITIONS}
     if set(values) - allowed:
         raise ValueError('未知制作锁字段')
     updates = {key: str(value).strip() for key, value in values.items()}
-    from script_contract import validate_production_locks
+    from contract.script_contract import validate_production_locks
     validate_production_locks(updates)
     config_path = stage_config.path(project)
     config = deepcopy(file_cache.read_json(config_path) or {})
@@ -835,7 +835,7 @@ def sync_writing_attachment_locks(project, *, reference=None):
     """仅在附档制作参数变化时同步，保留随后手动修订的值。"""
     from hashlib import sha256
     from idea_brief_form import extract_brief_creation
-    from script_contract import PRODUCTION_LOCK_DEFINITIONS
+    from contract.script_contract import PRODUCTION_LOCK_DEFINITIONS
     workflow = stage_config.current_workflow(project)
     name = str(workflow.get('name') or '').strip()
     if not name:

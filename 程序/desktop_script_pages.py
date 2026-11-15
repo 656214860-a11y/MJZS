@@ -11,7 +11,7 @@ import threading
 import time
 from dataclasses import dataclass
 from typing import Callable
-import project_stages
+import contract.project_stages as project_stages
 import script_view_style
 import tkinter as tk
 import ui_plugin_registry
@@ -139,7 +139,7 @@ def _install_script_edit_controls(page, controls, box):
         if not value:
             raise ValueError('剧本内容不能为空。')
         if kind == 'natural':
-            from script_contract import save_natural_script
+            from contract.script_contract import save_natural_script
             save_natural_script(destination, value)
         else:
             from agent.core import save_text
@@ -563,7 +563,7 @@ class ScriptPagesMixin:
                 self._auto_structure_retry=True
                 return '当前后台任务完成后将自动制作结构剧本'
             return ''
-        import script_contract
+        import contract.script_contract as script_contract
         source=script_contract.resolve_script_source(self.root)
         if source is None:
             # 自动链已经把 script_structure 标成 active；这里若只静默返回空串，
@@ -589,7 +589,7 @@ class ScriptPagesMixin:
             # 否则全自动的 pet_storyboard_batch 会看到空输入而不派发任务。
             try:
                 from storyboard_selection import sync_structured_script
-                from script_contract import structured_script_path
+                from contract.script_contract import structured_script_path
                 location = structured_script_path(self.root)
                 selected = sync_structured_script(self.root)
                 if location.resolve() not in {Path(path).resolve() for path in selected}:
@@ -633,7 +633,7 @@ class _ScriptStructurePage:
         self.page = page
 
     def build(self):
-        import script_contract
+        import contract.script_contract as script_contract
         self.script_contract = script_contract
         from script_workspace_service import script_structure_documents
         structure = script_structure_documents(self.page.root)

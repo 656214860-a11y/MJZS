@@ -9,7 +9,7 @@
 from tkinter import ttk
 
 import entitlement_service
-from app_metadata import APP_NAME
+from contract.app_metadata import APP_NAME
 from desktop_page_registry import PAGE_ACCOUNT
 from ui_tokens import DESKTOP_LAYOUT, FONTS, SPACING
 

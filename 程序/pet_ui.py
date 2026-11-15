@@ -39,7 +39,7 @@ from tkinter import TclError
 
 import model_pool
 import model_router
-from app_metadata import APP_NAME
+from contract.app_metadata import APP_NAME
 from broadcaster import Broadcaster, PREFIX_PATTERNS
 import pet_agent
 import pet_cloud
@@ -52,7 +52,7 @@ import stage_handler_registry
 import stage_flow
 import stage_parallel
 import token_saver
-from pet_settings_contract import LEVEL_NOTES
+from contract.pet_settings_contract import LEVEL_NOTES
 from ui_widgets import ContextMenu, ask_confirmation
 from ui_tokens import PET_LAYOUT
 from pet_broadcast_state import PetBroadcastAliasesMixin, PetBroadcastState, PetOfferState

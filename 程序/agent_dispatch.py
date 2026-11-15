@@ -2,7 +2,7 @@
 import hashlib,json,time
 from pathlib import Path
 from agent.core import read,save
-import stage_layout
+import contract.stage_layout as stage_layout
 from codex_tasks import task_lock
 
 def signature(stage,prompt,followup,config,context):

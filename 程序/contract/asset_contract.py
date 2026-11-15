@@ -21,7 +21,7 @@ import re
 from pathlib import Path
 
 import pet_bus
-import script_contract
+import contract.script_contract as script_contract
 
 # 正典板转盘图：上排 4 格全身，下排 3 格头部（任务 3）。
 TURNAROUND = (('front', '正面 0°', '全身'), ('right', '右侧 90°', '全身'),

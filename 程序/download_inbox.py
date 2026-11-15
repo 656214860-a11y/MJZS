@@ -14,7 +14,7 @@ Claude Desktop 等桌面应用读得到任务书，却常常不能直接写入�
 from __future__ import annotations
 
 import re
-import stage_layout
+import contract.stage_layout as stage_layout
 from datetime import datetime
 from pathlib import Path
 

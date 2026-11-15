@@ -68,7 +68,7 @@ def _execute(project,manifest,stop=None):
         base=contained(project,data['base'])
         pending=[item for item in data['assets'] if item.get('state')=='pending']
         planned=read(base/'assets/资产清单/assets.json')
-        from prop_assets import requires_asset
+        from contract.prop_assets import requires_asset
         for item in pending:
             aid=item['id'];current=planned.get(aid)
             if not current or not requires_asset(aid,current):raise ValueError(aid+' 已移除或改为普通道具，请重新建立批次')
@@ -94,7 +94,7 @@ def _execute(project,manifest,stop=None):
         if missing:raise ValueError('尚未出图：'+'、'.join(missing))
     elif 'items' in data:
         from batch_frames_tool.batch_frames import run
-        from storyboard_paths import media_root
+        from contract.storyboard_paths import media_root
         source=contained(project,data['source']);ep=read(source);selected=[]
         items=[item for item in data['items'] if item.get('state')=='pending']
         for item in items:

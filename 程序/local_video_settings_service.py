@@ -3,7 +3,7 @@ from pathlib import Path
 
 from agent.core import file_hash, temporary_path
 from file_cache import remove_temporary_file
-from project_context import ProjectContext
+from contract.project_context import ProjectContext
 
 
 def save_local_video_settings(context, current_config, options, *, gateway=None):

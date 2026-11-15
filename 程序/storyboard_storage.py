@@ -5,7 +5,7 @@ import logging
 from functools import wraps
 from agent.core import read
 from file_cache import read_stable_json_snapshot
-from project_stages import storyboard
+from contract.project_stages import storyboard
 from storage_maintenance import recycle_paths
 
 ALIAS_FILE='文件路径映射.json'
@@ -15,7 +15,7 @@ def _storage_result(operation):
     @wraps(operation)
     def run(*args, **kwargs):
         try:
-            from service_contract import SystemError, success
+            from contract.service_contract import SystemError, success
             return success(operation(*args, **kwargs))
         except OSError as exc:
             logging.getLogger(__name__).exception('分镜存储写入失败')
@@ -122,7 +122,7 @@ def _references(project,mapping, gateway=None):
         original=read(config);updated=replace(original)
         if updated.get('episode_file')!=original.get('episode_file') and updated.get('episode_file'):
             if config==main and not updated.get('asset_library_dir'):
-                from project_stages import assets
+                from contract.project_stages import assets
                 updated['asset_library_dir']=str(assets(project))
             updated['episode_dir']=str((project/updated['episode_file']).resolve().parent)
         if updated!=original:gateway['publish_json'](config,updated)

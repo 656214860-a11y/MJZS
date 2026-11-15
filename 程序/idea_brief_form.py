@@ -9,7 +9,7 @@
 """
 import re
 
-from script_contract import (
+from contract.script_contract import (
     INLINE_REQUIRED_LABELS, PRODUCTION_LOCK_DEFINITIONS, stage_lock_definitions, stage_lock_requirements)
 from idea_document_paths import brief_raw_path, legacy_brief_raw_path
 

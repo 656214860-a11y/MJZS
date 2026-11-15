@@ -6,7 +6,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from agent.core import read
 import pet_bus
-from storyboard_paths import is_final_dir
+from contract.storyboard_paths import is_final_dir
 from storyboard_catalog_service import (
     IGNORED, discover_files, linked_path as _linked_path, content_preview as _content_preview, is_deliverable as _is_deliverable,
     file_order as _file_order,
@@ -668,7 +668,7 @@ class _StoryboardFilesPage:
         """顶部工具栏：刷新、打开、浏览、目录等按钮（从 build 原样切出，R1813）。"""
         self.toolbar=FlowBar(self.desktop.content);self.toolbar.pack(
             fill='x', pady=(SPACING['none'], SPACING['none']))
-        from project_stages import writing
+        from contract.project_stages import writing
         self.writing = writing
         for text,command in [('刷新列表',self.refresh),('打开选中剧本',lambda:self.open_selected('script')),('选择其他剧本',self.browse),('剧本目录',lambda:self.desktop.open_folder(self.writing(self.project))),('删除选中剧本',lambda:self.delete_selected('script')),('恢复最近删除',self.restore_latest)]:
             button=SecondaryButton(self.toolbar,text=text,command=lambda c=command:self.desktop.safe(c))
@@ -959,7 +959,7 @@ class _StoryboardFilesPage:
         self.desktop.status.set('已恢复 %d 项剧本／分镜文件' % len(restored))
 
     def browse(self):
-        from project_stages import writing
+        from contract.project_stages import writing
         values=FileDialog(self.desktop.win).open_files(title='选择用于制作分镜的剧本（可多选）',initialdir=writing(self.project),filetypes=[('剧本','*.md *.txt *.docx')])
         if values:self.choose('script',[Path(p).resolve() for p in values]);self.refresh()
 

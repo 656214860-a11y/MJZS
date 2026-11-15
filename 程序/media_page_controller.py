@@ -76,7 +76,7 @@ def build_ledger(read_episode, read_assets):
 
 def continuity_folder(project):
     """连贯性阶段落盘的目录（03_continuity/output）。"""
-    import stage_layout
+    import contract.stage_layout as stage_layout
     return stage_layout.paths(project, '03_continuity')['output']
 
 

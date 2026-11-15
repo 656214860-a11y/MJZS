@@ -17,10 +17,10 @@ import re
 from copy import deepcopy
 from pathlib import Path
 
-from asset_contract import KIND_OF, merged_anchor, state_variants
+from contract.asset_contract import KIND_OF, merged_anchor, state_variants
 from agent.core import restore_bytes, save, save_text
 from file_cache import read_json
-from shot_batches import TRIPLET, batches, normalize, triplet
+from contract.shot_batches import TRIPLET, batches, normalize, triplet
 
 # 附件里给的 Agent Prompt 模板（逐字照抄，程序直接复用这一句）。
 PROMPT = (
@@ -308,7 +308,7 @@ def _triplet_rows(ledger):
 
 def publish_bundle(project, ledger):
     """原子发布连贯性成果及共享索引；任一失败则恢复本轮之前的全部文件。"""
-    import stage_layout
+    import contract.stage_layout as stage_layout
     paths = stage_layout.paths(project, '06连贯性清单')
     file = paths['output'] / LEDGER_NAME
     targets = (
@@ -352,7 +352,7 @@ def read(project):
 
 def ledger_path(project):
     """已生成台账的实际路径：当前目录优先，历史编号目录只读回退。"""
-    from stage_path_service import read_file
+    from contract.stage_path_service import read_file
     return read_file(project, 'continuity', 'output', LEDGER_NAME)
 
 
@@ -486,7 +486,7 @@ def issues(ledger):
 
 def issues_path(project):
     """问题闭环登记表落在当前阶段目录的 output/continuity_issues.json。"""
-    import stage_layout
+    import contract.stage_layout as stage_layout
     return stage_layout.paths(project, '06连贯性清单')['output'] / ISSUE_NAME
 
 
@@ -494,7 +494,7 @@ def read_issues(project):
     """已经登记过的问题（编号 → 记录）；没有或读不动就给空表。"""
     path = issues_path(project)
     if not path.is_file():
-        from stage_path_service import read_file
+        from contract.stage_path_service import read_file
         path = read_file(project, 'continuity', 'output', ISSUE_NAME)
     if not path.is_file():
         return {}

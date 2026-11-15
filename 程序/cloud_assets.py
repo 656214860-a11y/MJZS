@@ -3,7 +3,7 @@ import os
 import re
 from pathlib import Path
 from seedream_api import protect
-import production_model_contract
+import contract.production_model_contract as production_model_contract
 
 KEY_LABEL = '本机 Comfy API Key'                      # 只用于出错提示；DPAPI 实现在 seedream_api.protect
 KEY_ENV = 'COMFY_API_KEY'                             # 第 65 期任务 1：统一那份 .env 里的变量名
@@ -81,7 +81,7 @@ def graph(client, aid, asset, prompt, images, options):
             inputs['previous'] = [previous, 0]
         workflow[node] = {'class_type': 'DramaOptionalReferenceImage', 'inputs': inputs}
         previous = node
-    from asset_contract import resolve_aspect_ratio
+    from contract.asset_contract import resolve_aspect_ratio
     inputs = {'model': model, 'prompt': prompt, 'aspect_ratio': resolve_aspect_ratio(
               options.get('workflow_lock'), options.get('aspect_ratio'), '1:1'),
               'quality': options.get('quality', 'medium'), 'seed': int.from_bytes(os.urandom(4), 'little') % 2147483648}

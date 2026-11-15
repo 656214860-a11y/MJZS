@@ -4,7 +4,7 @@ from pathlib import Path
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parent.parent))
 from agent.core import save as atomic_save, save_bytes
-from storyboard_paths import media_root
+from contract.storyboard_paths import media_root
 from urllib.request import Request,build_opener,HTTPRedirectHandler,ProxyHandler
 from urllib.error import HTTPError,URLError
 from urllib.parse import urlparse,urlencode
@@ -113,7 +113,7 @@ class Client:
 
 def shot_inputs(shot,base,assets):
     from asset_context import references
-    from prop_assets import normalize_shot
+    from contract.prop_assets import normalize_shot
     shot=normalize_shot(shot,assets)
     ids=[value for _,value in references(shot)]
     images=[];labels=[]

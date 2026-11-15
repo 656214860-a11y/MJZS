@@ -2,9 +2,9 @@
 """剧本阶段提供给 Claude 的受控项目文件工具。"""
 from pathlib import Path
 
-from stage_path_service import write_dir
+from contract.stage_path_service import write_dir
 import logging
-from service_contract import SystemError, success
+from contract.service_contract import SystemError, success
 
 
 _LOG = logging.getLogger(__name__)

@@ -13,7 +13,7 @@ def _workflow_lock_error(project, stage, trigger):
     自动剧本链须有总控声明的全部锁；其他阶段按契约 STAGE_LOCK_REQUIREMENTS 取本阶段必填锁。
     手动剧本准备不经这里（简报采集对话本身在收集制作锁，由简报门禁负责）。
     """
-    from script_contract import STAGE_LOCK_REQUIREMENTS
+    from contract.script_contract import STAGE_LOCK_REQUIREMENTS
     if not project or (stage == 'script' and trigger != 'auto'):
         return ''
     if stage != 'script' and not STAGE_LOCK_REQUIREMENTS.get(stage):

@@ -2,8 +2,8 @@
 from pathlib import Path
 
 import file_cache
-from project_context import ProjectContext
-from stage_path_service import write_dir
+from contract.project_context import ProjectContext
+from contract.stage_path_service import write_dir
 
 
 def project_context(project, *, settings_snapshot=None, cache=None):

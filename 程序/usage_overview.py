@@ -63,7 +63,7 @@ def _number(value):
 def delivery_duration(project, selected):
     """从已确认且内容未变的交付记录取片长；每份采用分镜只计一个导出。"""
     from agent.core import file_hash, fingerprint
-    from stage_path_service import read_dirs, write_dir
+    from contract.stage_path_service import read_dirs, write_dir
     from storyboard_adoption_contract import adopted
     root = Path(project).resolve()
     if not isinstance(selected, list) or not selected or any(not isinstance(p, str) or not p for p in selected):

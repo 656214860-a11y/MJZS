@@ -4,7 +4,7 @@ import webbrowser
 from tkinter import messagebox, ttk
 from platform_tools import open_path
 from file_cache import read_json
-from storyboard_paths import project_root
+from contract.storyboard_paths import project_root
 import white_model_service as _service
 from ui_dialogs import FileDialog
 from ui_widgets import SelectBox, BaseDialog, Card, PrimaryButton, SecondaryButton, TextArea, notify

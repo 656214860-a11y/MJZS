@@ -7,7 +7,7 @@ from pathlib import Path
 from ui_tokens import WRAPLENGTH, SPACING
 from ui_widgets import SelectBox, Card, BaseDialog, LineInput, PrimaryButton, ProgressLabel, SecondaryButton, ask_confirmation, notify
 from agent.core import read
-from api_models import identity,cloud_removed
+from contract.api_models import identity,cloud_removed
 
 PROVIDERS={
     '阿里云百炼 · 万相':('wan','https://dashscope.aliyuncs.com/api/v1','wan2.6-i2v-flash','DASHSCOPE_API_KEY'),

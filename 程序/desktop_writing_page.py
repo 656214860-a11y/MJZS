@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import Callable
 import time
 import app_logging
-import project_stages
+import contract.project_stages as project_stages
 import os
 import tkinter as tk
 import ui_plugin_registry

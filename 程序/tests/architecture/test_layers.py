@@ -2,7 +2,8 @@ from __future__ import annotations
 import json
 import unittest
 from tests.architecture._layers import LAYERS, LAYER_NAMES, TOOLS
-from tests.architecture._scan import ROOT, dynamic_import_rows, import_rows, module_name, production_files
+from tests.architecture._scan import (ROOT, dynamic_import_rows, import_rows, module_dynamic_import_rows,
+                                      module_import_rows, module_name, module_scan_files, production_files)
 
 
 LEDGER = ROOT / "维护记录" / "架构统一基数.json"
@@ -14,12 +15,12 @@ def _layer_ledger() -> dict:
 
 def _upward_pairs() -> set[tuple[str, str, str]]:
     pairs = set()
-    for path in production_files():
+    for path in module_scan_files():
         importer = module_name(path)
         source_layer = LAYERS.get(importer)
         if source_layer is None:
             continue
-        for _line, imported in import_rows(path):
+        for _line, imported in module_import_rows(path):
             target_layer = LAYERS.get(imported)
             if target_layer is not None and source_layer < target_layer:
                 pairs.add((path.name, importer, imported))
@@ -36,12 +37,12 @@ KNOWN_DYNAMIC_UPWARD = frozenset({
 
 def _dynamic_upward_pairs() -> set[tuple[str, str, str]]:
     pairs = set()
-    for path in production_files():
+    for path in module_scan_files():
         importer = module_name(path)
         source_layer = LAYERS.get(importer)
         if source_layer is None:
             continue
-        for _line, imported in dynamic_import_rows(path):
+        for _line, imported in module_dynamic_import_rows(path):
             target_layer = LAYERS.get(imported)
             if target_layer is not None and source_layer < target_layer:
                 pairs.add((path.name, importer, imported))
@@ -60,10 +61,10 @@ class LayerDirectionTests(unittest.TestCase):
         """附件文本编排是领域服务，必须受分层扫描保护。"""
         source = "idea_attachments"
         self.assertEqual(LAYERS.get(source), 2)
-        for path in production_files():
+        for path in module_scan_files():
             if module_name(path) != source:
                 continue
-            for _line, target in import_rows(path):
+            for _line, target in module_import_rows(path):
                 target_layer = LAYERS.get(target)
                 self.assertFalse(
                     target_layer is not None and LAYERS[source] < target_layer,

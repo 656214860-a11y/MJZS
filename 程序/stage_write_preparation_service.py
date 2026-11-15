@@ -11,7 +11,7 @@ from __future__ import annotations
 import threading
 from pathlib import Path
 
-from stage_path_service import write_dir
+from contract.stage_path_service import write_dir
 
 
 
@@ -33,7 +33,7 @@ def _copy_stage_for_write(project, stage, *, source=None):
     import shutil
     import tempfile
     from file_cache import remove_temporary_tree
-    from stage_path_service import existing_dir
+    from contract.stage_path_service import existing_dir
     root = Path(project).resolve()
     target = write_dir(root, stage)
     origin = Path(source) if source is not None else existing_dir(root, stage)
@@ -92,7 +92,7 @@ def _copy_stage_for_write(project, stage, *, source=None):
 
 def prepare_asset_write(project, base=None):
     from asset_context import library_dir
-    from stage_path_service import LEGACY_NUMBERED
+    from contract.stage_path_service import LEGACY_NUMBERED
     root = Path(project).resolve()
     base = library_dir(root, base)
     # 本轮编号升级不迁移用户另行配置的资产库，保留既有自定义目录契约。
@@ -103,7 +103,7 @@ def prepare_asset_write(project, base=None):
 
 def prepare_legacy_asset_base(base):
     """兼容仍只接收资产库路径的 UI 操作；不推测自定义目录所属项目。"""
-    from stage_path_service import LEGACY_NUMBERED
+    from contract.stage_path_service import LEGACY_NUMBERED
     base = Path(base).resolve()
     if base.name == LEGACY_NUMBERED['assets']:
         return prepare_asset_write(base.parent, base)
@@ -116,7 +116,7 @@ def prepare_legacy_stage_path(path):
     仅识别权威表中的完整旧目录名，不迁移普通目录或英文自定义目录。
     调用方保留空 source 的既有回退语义。
     """
-    from stage_path_service import LEGACY_NUMBERED
+    from contract.stage_path_service import LEGACY_NUMBERED
     if path is None:
         return None
     target = Path(path).absolute()

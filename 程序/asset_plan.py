@@ -4,7 +4,7 @@ import re
 import logging
 from functools import wraps
 from agent.core import read
-from service_contract import SystemError, success
+from contract.service_contract import SystemError, success
 
 
 def _asset_plan_result(operation):
@@ -94,7 +94,7 @@ def _sync_plan(project,episode_dir,storyboard=None,*,scope='current',_adopting=F
         if not re.fullmatch(r'(CHAR|LOC|PROP)_\d{3,}',aid) or not isinstance(asset,dict):
             raise ValueError('资产清单编号或格式错误：'+str(aid))
     from storyboard_catalog_service import resolve_source
-    from project_context import ProjectContext
+    from contract.project_context import ProjectContext
     if not isinstance(context, ProjectContext):
         raise TypeError('资产计划需要由 L3 注入 ProjectContext。')
     if isinstance(storyboard,(list,tuple)):
@@ -110,7 +110,7 @@ def _sync_plan(project,episode_dir,storyboard=None,*,scope='current',_adopting=F
     registry=read(episode_dir/'assets.json') if (episode_dir/'assets.json').exists() else {}
     for aid,asset in registry.items():
         planned.setdefault(aid,{k:v for k,v in asset.items() if k!='image'})
-    from prop_assets import normalize_shot,removed_ids,requires_asset
+    from contract.prop_assets import normalize_shot,removed_ids,requires_asset
     aliases={}
     for aid,asset in planned.items():
         names=[asset.get('name',aid)]+asset.get('aliases',[])
@@ -170,7 +170,7 @@ def _sync_plan(project,episode_dir,storyboard=None,*,scope='current',_adopting=F
     # 第 64 期任务 13：契约字段（正典板、锚点字符串、状态变体、锁定…）落到资产清单里。
     # 以前只在内存里被 normalize 补出来、从没落过盘，用户看到的就是「正典板和换状态面板两次
     # 新增都失败」。只补缺的键，已有的值一个都不动。
-    from asset_contract import normalize as _fill_contract
+    from contract.asset_contract import normalize as _fill_contract
     for aid,asset in list(planned.items()):
         filled=_fill_contract(asset,aid)
         if filled!=asset:planned[aid]=filled
@@ -298,9 +298,9 @@ def asset_impact(project, aid, *, episode_dir=''):
     采用镜头引用它（可回收），``protected`` 为真表示被采用镜头引用（改动需先核对）。
     """
     from asset_context import referencing_shots
-    from asset_contract import state_variants
+    from contract.asset_contract import state_variants
     from storyboard_catalog_service import _generated_video_shots
-    from storyboard_paths import media_root
+    from contract.storyboard_paths import media_root
     project = Path(project).resolve()
     aid = str(aid or '').strip()
     if not re.fullmatch(r'(CHAR|LOC|PROP)_\d{3,}', aid):

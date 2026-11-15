@@ -2,9 +2,9 @@
 import json
 import pet_bus
 from pathlib import Path
-from storyboard_paths import media_root
+from contract.storyboard_paths import media_root
 from file_cache import read_json
-from project_context import ProjectContext
+from contract.project_context import ProjectContext
 
 
 def batch_signature(source, pending, available_asset_ids, asset_references):
@@ -28,7 +28,7 @@ def frame_prompt(shot,assets=None):
     """Use an image prompt, never silently substitute a motion/video prompt."""
     prompt=next((shot[key].strip() for key in ('frame_prompt','keyframe_prompt','first_frame_prompt','image_prompt') if isinstance(shot.get(key),str) and shot[key].strip()),'')
     if not prompt:return ''
-    from prop_assets import inline_text
+    from contract.prop_assets import inline_text
     ordinary=inline_text(shot,assets)
     return prompt+('\n'+ordinary if ordinary else '')
 

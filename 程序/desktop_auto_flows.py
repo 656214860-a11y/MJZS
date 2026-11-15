@@ -15,7 +15,7 @@ import asset_resume
 import pet_state
 from agent.core import read
 from desktop_auto_state import UNATTENDED_NEXT, flow_get, flow_set
-from storyboard_paths import media_root
+from contract.storyboard_paths import media_root
 
 LOGGER = logging.getLogger(__name__)
 PAGE = pet_state.PAGE_OF
@@ -411,7 +411,7 @@ class AutoFlowsMixin:
         if self.auto.final_busy or not self.align_studio():return
         studio=self.studio
         signature,digest=self.edit_ready()
-        from project_stages import editing
+        from contract.project_stages import editing
         marker=editing(self.root)/'自动粗剪.json'
         done=read(marker) if marker.is_file() else {}
         from edit_service import automatic_assemble_decision
@@ -624,7 +624,7 @@ class AutoFlowsMixin:
         if self.auto.final_busy or not self.align_studio():return
         studio=self.studio
         signature,digest=self.edit_ready()
-        from project_stages import editing
+        from contract.project_stages import editing
         marker=editing(self.root)/'自动交接.json'
         done=read(marker) if marker.is_file() else {}
         from handoff_service import automatic_decision

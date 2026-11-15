@@ -9,7 +9,7 @@ import time
 from desktop_auto_flows import UNATTENDED_BACKOFF_FLOOR
 from desktop_auto_state import PET_STAGE_POLL, UNATTENDED_SWITCH, flow_get, flow_set
 from desktop_page_registry import PAGES
-from storyboard_paths import media_root
+from contract.storyboard_paths import media_root
 import stage_handler_registry
 
 class PetBridgeMixin:
