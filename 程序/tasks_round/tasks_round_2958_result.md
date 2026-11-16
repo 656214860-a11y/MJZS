@@ -62,3 +62,11 @@
 - 合并后验证：冒烟 8/8；`--architecture` 470/470 全绿（`test_round_number_continuous` 转绿）；定向 `script_composer`+`shared_input_voice`+`dialog_voice_input` 19/19、`idea_chat` 170/170 全绿；`ui_edges_autopilot/tables/pages` 共 5 红已在纯 master `25a12c55` 独立工作树复现同因（`video_navigation.show_back` pack 进 canvas 帧 + structure 页 justify），属 R2960 导航改版既有回归，与本合并无关，如实记录不代修。
 - runbook §13 核对命令原始输出：`git diff 25a12c55..HEAD -- 程序/project_status.md | grep '^-' | grep -v '^---' | grep -v '当前轮次：'` 输出为空；`git show HEAD:程序/project_status.md | grep -oE '^R[0-9]+' | sort -u` 输出 `R1036 R1265 R1440 R1507 R1691 R1693 R2912`（两侧并集，本支未改状态页）。
 - 全量 `--all --safe` 于合并后树运行中，凭据以 `full-safe-receipts.json` 为准；`dev.py merge codex/wip-R2958` 待主工作区执行。
+
+## master 合入落地记录（合并轮 R2963 后补记）
+
+- 合入提交：`db2ee60c`（`dev.py merge codex/wip-R2958`，merge_round 含 local_ci 出口；冲突消解基线 `4541553c`＋收口 `8726eaf9`/`9720b745`）。
+- 合并轮验证：local_ci 出口全绿（默认冒烟 8/8、静态门禁、架构门禁）；合并树上定向 189 条全绿。
+- 全量 `--all --safe`（合并后树）：7653 条用例 20 红——18 红在纯 master `25a12c55` 独立工作树复现同因（`video_navigation.show_back` pack 父级漂移、structure 页 justify、inline-brief 重复 continuation、skill 路径缺失等 master 既有回归），2 红为本支欠账（voice_engine 七文件未登记 distribution_manifest、voice_ai 提示词未登记 copy_rules 白名单）已由 `8726eaf9` 闭环复测转绿；性能警告（1058s vs 中位 475s）非阻断。
+- 状态页：合并轮已将当前轮次同步为 2964；本补记由 R2965 在 master 单独提交（`R2965: 补记分支 codex/wip-R2958 的轮次记录`），project_status.md 轮次头补入 R2941/R2943/R2947/R2952/R2958 五条功能轮记录。
+- 分支收口：`codex/wip-R2958` 全部提交已在 master（merge-base 后 6 提交：74242f1b/14356e62/9801cdd3/54fb2fdd/68b6004c＋冲突消解链），分支可留作历史证据。
