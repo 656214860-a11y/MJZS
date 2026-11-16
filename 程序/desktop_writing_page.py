@@ -195,7 +195,7 @@ class VoiceInput:
         self.page, self.box, self.button = page, box, button
         from desktop_automation_service import BackgroundTaskLifecycle
         self.recorder, self.session, self.settings, self.pending, self.ticket = None, None, None, None, None
-        self.spans, self.deadline, self.serial = {}, None, 0
+        self.spans, self.deadline, self.serial, self.notice = {}, None, 0, None
         self.tasks = BackgroundTaskLifecycle()
         box.tag_configure(self.PARTIAL_TAG, foreground=COLORS['text_muted'])
         box.bind('<Destroy>', lambda event: self.stop() if event.widget is box else None, add='+')
@@ -216,7 +216,7 @@ class VoiceInput:
         self.settings = speech_api.read_settings()
         reason = speech_api.missing_reason(self.settings)
         if reason:return self.page.status.set('语音输入未能启动（%s）。' % reason)
-        session = speech_api.RealtimeSession(self.settings)
+        session = speech_api.create_session(self.settings)
         recorder = platform_tools.MicrophoneRecorder(max_seconds=self.settings['max_seconds'], on_chunk=session.send)
         reason = recorder.start()
         if reason:return self.page.status.set('语音输入未能启动（%s）；请检查麦克风连接与 Windows 设置「隐私和安全性 › 麦克风」。' % reason)
@@ -224,6 +224,7 @@ class VoiceInput:
         self.ticket = self.tasks.submit(object(), costly=True, label='语音输入',
                                         timeout=self.settings['max_seconds'] + self.settings['timeout'] + 30)
         self.recorder, self.session, self.spans, self.deadline = recorder, session, {}, None
+        self.notice = None
         self.button.configure(style=self.LISTENING_STYLE)
         self.box.focus_force()
         self.poll()
@@ -263,11 +264,17 @@ class VoiceInput:
         while True:
             try:kind, item, text = session.events.get_nowait()
             except queue.Empty:break
-            if kind in ('partial', 'final'):self.write(item, text, kind == 'final')
+            if kind in ('partial', 'final'):
+                self.notice = None
+                self.write(item, text, kind == 'final')
+            elif kind == 'log':
+                self.notice = text
             elif kind == 'error':return self.end(False, '语音输入中断（%s）。' % text)
             elif kind == 'closed':return self.end(True, '语音输入已关闭。')
         if self.recorder is not None:
-            if self.recorder.finished:self.close()
+            if self.notice:
+                self.page.status.set(self.notice)
+            elif self.recorder.finished:self.close()
             elif self.recorder.seconds >= self.SILENCE_HINT_SECONDS and self.recorder.peak < self.SILENCE_PEAK:
                 self.page.status.set('没听到声音：请检查麦克风是否静音，以及 Windows 设置「隐私和安全性 › 麦克风」是否允许桌面应用使用麦克风。')
             else:
@@ -281,6 +288,7 @@ class VoiceInput:
     def end(self, succeeded, message):
         """会话结束（正常关闭、出错或超时）：未定稿的浅色文字原样保留为正常文字。"""
         ticket, self.ticket = self.ticket, None
+        self.notice = None
         self.stop()
         if not self.tasks.finish(ticket, succeeded=succeeded, error='' if succeeded else message):
             return self.page.status.set('语音输入已取消。')

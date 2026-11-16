@@ -1,0 +1,15 @@
+{
+  "round": 2943,
+  "commit_base": "68b6004c",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k offline_asr speech script_composer model_manager",
+    "exit": 0,
+    "passed": 73,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T10:56:37"
+}

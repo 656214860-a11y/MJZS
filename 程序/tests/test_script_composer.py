@@ -197,7 +197,8 @@ class ScriptComposerTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as td, patch.object(platform_tools, 'MicrophoneRecorder', FakeRecorder), \
                 patch.object(speech_api, 'missing_reason', return_value=''), \
-                patch.object(speech_api, 'RealtimeSession', FakeSession):
+                patch.object(speech_api, 'create_session',
+                             side_effect=lambda settings, **kw: FakeSession(settings)):
             d, win = self.desktop(make_minimal_project(td))
             button, box, voice = d.idea_voice_button, d.idea_input, d.idea_voice_input
             frame = d.idea_composer_frame

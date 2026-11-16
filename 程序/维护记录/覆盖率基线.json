@@ -747,7 +747,7 @@
   {
    "module": "desktop_writing_page.py",
    "covered": 0,
-   "total": 709,
+   "total": 717,
    "percent": 0.0
   },
   {
@@ -847,6 +847,12 @@
    "percent": 0.0
   },
   {
+   "module": "domain/offline_asr_client.py",
+   "covered": 0,
+   "total": 431,
+   "percent": 0.0
+  },
+  {
    "module": "domain/recycle_recovery_service.py",
    "covered": 0,
    "total": 39,
@@ -855,7 +861,7 @@
   {
    "module": "domain/speech_api.py",
    "covered": 0,
-   "total": 137,
+   "total": 197,
    "percent": 0.0
   },
   {
@@ -1282,6 +1288,12 @@
    "module": "native_assets.py",
    "covered": 0,
    "total": 438,
+   "percent": 0.0
+  },
+  {
+   "module": "offline_asr_client.py",
+   "covered": 0,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -1935,7 +1947,7 @@
   {
    "module": "speech_settings_ui.py",
    "covered": 0,
-   "total": 63,
+   "total": 73,
    "percent": 0.0
   },
   {
@@ -2499,7 +2511,7 @@
   {
    "module": "voice_engine/offline_asr_server.py",
    "covered": 0,
-   "total": 398,
+   "total": 412,
    "percent": 0.0
   },
   {
@@ -3056,5 +3068,5 @@
   }
  ],
  "modules_covered": 70,
- "modules_total": 507
+ "modules_total": 509
 }

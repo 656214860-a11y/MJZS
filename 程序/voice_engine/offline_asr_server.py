@@ -5,7 +5,7 @@
 协议（任务书 §4.1）：
   主程序 -> 引擎（逐行 JSON，音频 base64 分块）：
     {"cmd":"start","sample_rate":16000,"hotword":"..."}
-    {"cmd":"audio","data":"<base64 pcm>"} / {"cmd":"stop"} / {"cmd":"shutdown"}
+    {"cmd":"audio","data":"<base64 pcm>"} / {"cmd":"stop"} / {"cmd":"cancel"} / {"cmd":"shutdown"}
   引擎 -> 主程序：
     {"type":"ready",...}   模型加载完成（进程启动后发一次）
     {"type":"log","message":"..."}   进度/诊断（可选）
@@ -441,14 +441,25 @@ class OfflineAsrEngine:
         self.session = None
         self.segmenter = None
 
-    def open_session(self, sample_rate=SAMPLE_RATE, hotword="", log_fn=None):
+    def open_session(self, sample_rate=SAMPLE_RATE, hotword="", vad=None, log_fn=None):
         if int(sample_rate) != SAMPLE_RATE:
             raise ValueError("离线引擎仅支持 %d Hz 单声道 16bit PCM" % SAMPLE_RATE)
+        overrides = {}
+        if isinstance(vad, dict):
+            for key in ("tick_ms", "trailing_ms", "window_ms", "min_ms", "max_ms"):
+                value = vad.get(key)
+                if isinstance(value, (int, float)) and not isinstance(value, bool):
+                    overrides[key] = value
         self.session = PcmSession(sample_rate, hotword)
         self.segmenter = Segmenter(
             self.backend.vad, self.backend.asr, self.backend.punc,
-            log_fn=log_fn or _emit_log)
+            log_fn=log_fn or _emit_log, **overrides)
         return self.session
+
+    def cancel_session(self, emit):
+        """丢弃当前会话缓冲，不产出句子；只发 log 不发 done（done 只属于 stop 收尾）。"""
+        self.session = None
+        emit({"type": "log", "message": "识别会话已取消"})
 
     def _require_session(self):
         if self.session is None or not self.session.active:
@@ -526,12 +537,14 @@ def main(argv=None):
             if cmd == "start":
                 engine.open_session(
                     msg.get("sample_rate", SAMPLE_RATE),
-                    msg.get("hotword", ""), log_fn=_emit_log)
+                    msg.get("hotword", ""), vad=msg.get("vad"), log_fn=_emit_log)
                 emit_message({"type": "log", "message": "识别会话已开始"})
             elif cmd == "audio":
                 engine.feed(msg.get("data", ""), emit_message)
             elif cmd == "stop":
                 engine.stop(emit_message)
+            elif cmd == "cancel":
+                engine.cancel_session(emit_message)
             elif cmd == "shutdown":
                 break
             else:

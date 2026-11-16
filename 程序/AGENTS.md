@@ -51,6 +51,8 @@
 | L2 写服务结果 / 项目上下文 / 阶段成果发布器 | `service_contract` 四字段结果、L3 注入的 `project_context.ProjectContext`、`stage_execution_service.publish_stage_*()`；每轮最多迁 3 个 service，细则见 `architecture.md` §“权威源补充条款” |
 | 正式 JSON 读写 | 读 `file_cache.read_json()`；写 `agent.core.save()`／`save_text()` 或 L3 发布器；L2 写服务只接收注入的发布器 |
 | 持久化产物版本 | `artifact_schema`：新写入写 `schema_version`，读取侧容忍缺版本 |
+| 语音识别后端路由 | `domain.speech_api.create_session()`：按 `backend` 设置分流 `offline`（`domain.offline_asr_client` 子进程）／`cloud`（`RealtimeSession`），离线不可用且已配云端密钥时自动降级 |
+| 离线 ASR 引擎 | `voice_engine/offline_asr_server.py`：独立子进程常驻，stdio JSON-Lines；模型缓存 `data/voice_models/`、运行时 `data/voice_asr_venv/`，引擎脚本不 import 主运行时模块 |
 
 `stage_layout.validate_stage_contract()` 守卫目录阶段契约；变更 `pet_bus.STAGES` 或 `stage_layout.STAGES` 的轮次必须使它通过。
 

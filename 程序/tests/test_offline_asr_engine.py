@@ -265,6 +265,27 @@ class OfflineAsrEngineTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             engine.feed("!!!", lambda _e: None)
 
+    def test_cancel_discards_session_without_done(self):
+        engine = self._engine(["你好"])
+        engine.open_session(16000)
+        emitted = []
+        pcm = build_pcm([(0, 500, False), (500, 1500, True), (1500, 2300, False)])
+        engine.feed(base64.b64encode(pcm).decode(), emitted.append)
+        engine.cancel_session(emitted.append)
+        self.assertEqual(emitted[-1]["type"], "log")
+        self.assertNotIn("done", [e["type"] for e in emitted])
+        with self.assertRaises(RuntimeError):
+            engine.feed("", emitted.append)
+
+    def test_vad_overrides_reach_segmenter(self):
+        engine = srv.OfflineAsrEngine(FakeBackend())
+        engine.open_session(16000, vad={"trailing_ms": 50, "min_ms": 300,
+                                        "bogus": 9, "tick_ms": "x"})
+        self.assertEqual(engine.segmenter.trailing_ms, 50)
+        self.assertEqual(engine.segmenter.min_ms, 300)
+        self.assertEqual(engine.segmenter.tick_ms, srv.VAD_TICK_MS)
+        self.assertEqual(engine.segmenter.max_ms, srv.MAX_SENTENCE_MS)
+
 
 class FunAsrBackendTests(unittest.TestCase):
     def test_asr_result_parsing_onnx_and_torch(self):
