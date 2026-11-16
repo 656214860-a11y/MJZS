@@ -11,6 +11,8 @@ from ui_tokens import BUTTON_BORDER_WIDTH, COLORS, DESKTOP_LAYOUT, PET_LAYOUT, S
 from ui_widgets import ContextMenu
 from pet_ui_support import ACTIVE_MS, BUSY_TAPS, BUSY_WINDOW, CANVAS_BG, CAPTION_Y, CHAT_MUTE_SECONDS, DETAIL_MENU_LABEL, DOCK_CAPTION_GAP, DOCK_CAPTION_ROOM, DOCK_CLUSTER_W, DOCK_PAD_BOTTOM, DOCK_PAD_TOP, DOCK_PAD_X, DOCK_PAW_RIGHT, DOCK_ROOM, IDLE_MS, PANEL_DIVIDER, PANEL_HEAD, PANEL_MENU_LABEL, PANEL_SECTIONS, PATCH_X, PAW_ARC, PAW_COL_HEIGHT, PAW_COL_WIDTH, PAW_COL_X, PAW_COLORS, PAW_GAP, PAW_HOVER, PAW_IDLE, PAW_LEVELS, PAW_HIT_SIZE, PAW_HIT_X, PAW_SIZE, PAW_STEP, QUIT_LABEL, SETTINGS_ENTRIES, SETTINGS_LABEL, SIZE, SNOOZE_SECONDS, paint, paw_dy, paw_parts
 
+CLICK_MOVE_CANCEL_PX = 8    # R3012：单击待决窗口内指针挪开超过该距离＝这次单击不算数
+
 
 class PetPatchLayoutMixin:
     """贴片簇布局：头像＋小字左列、猫爪列右列，簇区恒为正方形（第 R2946 期）。
@@ -780,6 +782,10 @@ class PetViewMixin(PetPatchLayoutMixin):
             # 自绘气泡也跟着主窗口走：主窗口没了，气泡留在屏幕上就是没人管的孤儿窗。
             # 云朵框同理：主窗口没了，浮层与它的定时器都要跟着停。
             self.win.bind('<Destroy>', self.close_chat, add='+')
+            # R3012：单击待决窗口内指针挪开（超出双击容差或离开宠物窗）＝取消这次单击，
+            # 不再「点击后鼠标一动，云朵照样弹出」。
+            self.win.bind('<Motion>', self._pet_move, add='+')
+            self.win.bind('<Leave>', self._pet_away, add='+')
         except Exception as exc:
             self.errors.append(('bind', str(exc)))
     def pet_click(self, event=None):
@@ -787,8 +793,29 @@ class PetViewMixin(PetPatchLayoutMixin):
 
         为什么还等 CLICK_MS：第二下（双击）该由 double_click 接管，单击才真的切一次；
         下拉栏改成只跟右键，不再跟弹出的菜单抢那一下点击（“再点一下关不掉”就是这么来的）。
+        记录点击起点：待决窗口内把指针挪开（R3012）就取消这次单击。
         """
+        try:
+            self._click_xy = None if event is None else (event.x_root, event.y_root)
+        except AttributeError:
+            self._click_xy = None        # 事件替身没有坐标：不取消（测试替身路径）
         return self._chat_interaction.request_single()
+    def _pet_move(self, event):
+        """单击待决窗口内指针挪出双击容差＝取消（双击允许的微小位移不计）。"""
+        if not self._chat_interaction.pending or self._click_xy is None:
+            return None
+        px, py = self._click_xy
+        if (event.x_root - px) ** 2 + (event.y_root - py) ** 2 <= CLICK_MOVE_CANCEL_PX ** 2:
+            return None
+        return self._cancel_pending_click()
+    def _pet_away(self, _event=None):
+        """指针已经离开宠物窗：待决的单击不算数（R3012）。"""
+        if self._chat_interaction.pending and self._click_xy is not None:
+            return self._cancel_pending_click()
+        return None
+    def _cancel_pending_click(self):
+        self._click_xy = None
+        return self.cancel_click()
     def cloud_visible(self, sticker_only=False):
         """云朵框这会儿是不是真露着（含云朵框／圆／标签这些贴纸形态）。
 
