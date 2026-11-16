@@ -39,6 +39,8 @@ ASSET_ROSTER_ICON='asset_list'
 # 项目区小图标：在做／已完成分组筛选与新建、打开目录操作。
 PROJECT_GROUP_ICONS={'making':'project_making','completed':'project_done'}
 PROJECT_ACTION_ICONS={'new':'project_new','open':'project_open'}
+# 未授权页的锁标：R2933 起替换原文字 🔒，授权恢复后换回 PAGE_NAV_ICONS 原图。
+NAV_LOCK_ICON='lock'
 
 
 def nav_label(index):

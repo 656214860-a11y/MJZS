@@ -1167,7 +1167,7 @@ class PetVoiceMixin:
         except Exception:
             pending = 0
         text = LEVEL_CAPTIONS.get(self.level(), LEVEL_CAPTIONS['hint'])
-        # 第 23 期补：这行小字宽度钉死在 CAPTION_ROOM 上，「待确认 N」另起一行，
+        # 第 R2933 期补：这行小字宽度钉死在 DOCK_CAPTION_ROOM 上，「待确认 N」另起一行，
         # 两行换行时猫爪列底边跟着小字底边走（pet_ui_view._align_paws）。
         return '%s\n待确认 %d' % (text, pending) if pending else text
     def show_caption(self):

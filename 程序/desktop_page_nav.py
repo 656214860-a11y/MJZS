@@ -334,10 +334,10 @@ class PageNavMixin:
         if self.final_missing_assets(source):return ''
         return '；当前分镜引用的资产都已导入，可在'+pet_bus.stage_step('final')+'「分镜定稿」生成定稿（定稿接管后续流程，工作稿移入回收站）'
     def mark_nav(self,index):
-        """侧栏高亮：阶段页按钮与「00 会员账户」只亮当前那一颗。"""
-        for i,b in enumerate(self.nav):b.configure(style='Selected.Nav.TButton' if i==index else 'Nav.TButton')
+        """侧栏高亮：阶段页按钮与「00 会员账户」只亮当前那一颗（R2933 起纯图标轨）。"""
+        for i,b in enumerate(self.nav):b.configure(style='Selected.RailIcon.TButton' if i==index else 'RailIcon.TButton')
         account_button=getattr(self,'account_button',None)
-        if account_button is not None:account_button.configure(style='Selected.Nav.TButton' if index==PAGE_ACCOUNT else 'Nav.TButton')
+        if account_button is not None:account_button.configure(style='Selected.RailIcon.TButton' if index==PAGE_ACCOUNT else 'RailIcon.TButton')
     def _build_asset_roster_nav(self,side):
         """「05 资产管理」下的二级入口「资产清单」——一页看完每个角色的正典板与换状态面板。"""
         sub_image=IconLoader.nav_icon(side,ASSET_ROSTER_ICON)
@@ -345,5 +345,5 @@ class PageNavMixin:
                             compound='image' if sub_image is not None else 'text',
                             command=lambda:self.safe(self.open_asset_roster),style='Sub.Nav.TButton')
         Tooltip(sub,'资产清单')
-        sub.pack(anchor='w',fill='x',pady=(SPACING['none'],DESKTOP_LAYOUT['nav_gap']))
+        sub.pack(anchor='center',fill='x',pady=(SPACING['none'],DESKTOP_LAYOUT['nav_gap']))
         self.asset_list_button=sub

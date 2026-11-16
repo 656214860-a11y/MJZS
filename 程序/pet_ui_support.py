@@ -8,7 +8,7 @@ import pet_agent
 import contract.pet_bus as pet_bus
 from pathlib import Path
 from tkinter import TclError
-from ui_tokens import BUTTON_BORDER_WIDTH, COLORS, CONTROL_HIT_MIN, PET_LAYOUT
+from ui_tokens import BUTTON_BORDER_WIDTH, COLORS, CONTROL_HIT_MIN, PET_LAYOUT, SPACING
 
 PROGRAM = Path(__file__).resolve().parent
 SIZE = PET_LAYOUT['avatar_size']  # 显示与命中区域共用的贴片边长
@@ -68,38 +68,31 @@ LEVEL_SWITCH_NOTES = {
     'hint': '只提醒：我只报进度，不自动制作。',
     'semi': '半自动：免费步骤自动做，付费前先问您。',
     'auto': '全自动：按流程制作；付费或阻塞时会停下。'}
-# 第 2876 期：等级小字从「三虎右边」挪到「三虎图像正下方」（用户要的），右沿与头像右沿对齐；
-# 整簇仍贴窗口右上角——猫爪列让出原来小字占的右边距，命中区右沿离窗口边 CAPTION_RIGHT。
-# 贴片右沿离窗口右边还有 -(PATCH_X) 那么宽；小字在头像下方占 CAPTION_ROOM 宽，
-# 它的左沿比头像左沿更靠左，标题栏文字按 HEAD_PAD 让开整簇。
-CAPTION_RIGHT = PET_LAYOUT['caption_right']
-CAPTION_ROOM = PET_LAYOUT['caption_width']
-# 36px 命中区比 16px 猫爪列每侧宽 10px：列与头像的间距必须盖过这 10px 出头，
-# 否则命中区左沿会压到头像上，重叠处的点击被头像截走。
-PAW_COL_GAP = PAW_HIT_SIZE // 2 - PAW_COL_WIDTH // 2   # 命中区每侧比列宽 10px，列两侧间距都要 ≥10 才不会压到邻居
-PAW_COL_X = -(CAPTION_RIGHT + PAW_COL_GAP)   # 猫爪列视觉右沿（anchor='ne' 的 x）：命中区右沿正好离窗口边 CAPTION_RIGHT
-PATCH_X = PAW_COL_X - PAW_COL_GAP - PAW_COL_WIDTH   # 头像右沿：与猫爪列隔 PAW_COL_GAP
+# 第 R2933 期：三虎簇从标题行右上角搬进侧栏左下角固定底栏（齿轮之下）。
+# 左列＝头像（上）＋等级小字（下，间距收紧）；右列＝猫爪竖排，对「头像＋小字」整组垂直居中，
+# 小字一行／两行换行时由 pet_ui_view._align_paws 随动重算。
+DOCK_PAD_X = SPACING['xs'] // 2      # 头像／小字左边距（相对 pet_dock）：让猫爪命中区左沿正好贴头像右沿
+DOCK_PAD_TOP = SPACING['xs']          # 簇顶边距
+DOCK_PAD_BOTTOM = SPACING['xs']       # 簇底边距（dock 高度合成用）
+DOCK_CAPTION_GAP = SPACING['xs'] // 2  # 小字与头像间距：比原 caption_gap(sm=8) 收紧
+DOCK_CAPTION_ROOM = 44                # 小字宽度：「待确认 NN」一行尽量放得下
+DOCK_PAW_RIGHT = SPACING['md']        # 猫爪列视觉右沿离 pet_dock 右边；命中区右沿收在 dock 内不压正文
+PATCH_X = DOCK_PAD_X                  # 头像 place 的 x（anchor='nw'）
 CAPTION_INK = PET_PALETTE['caption_ink']                           # 第 21 期：三档小字一律黑色（既有用例与用户要求都钉死这一色）
-# 标题栏文字按整簇（小字＋头像＋猫爪列）让开：最宽的是小字左沿（CAPTION_ROOM 比头像宽）。
-HEAD_PAD = -(PATCH_X - CAPTION_ROOM) + PET_LAYOUT['header_gap']
-# 猫爪列不再有固定顶边：列内最后一只爪的视觉底边贴等级小字底边（用户要求「底部对齐」），
-# 小字一行／两行换行时整列由 pet_ui_view._align_paws 随动；PAW_COL_Y 只是按 token 行高估的首帧占位。
-PAW_COL_BOTTOM_LOCAL = (len(PAW_LEVELS) - 1) * PAW_STEP + PAW_SIZE
-CAPTION_Y = PET_LAYOUT['top'] + SIZE + PET_LAYOUT['caption_gap']
-PAW_COL_Y = CAPTION_Y + PET_LAYOUT['caption_height'] - PAW_COL_BOTTOM_LOCAL
-# 标题行保留高度按最坏情况给：小字最多两行（等级那行＋待确认那行），猫爪命中区底边比
-# 小字底边再出头 PAW_HIT_SIZE//2 - PAW_SIZE//2；运行时 pet.patch_room 跟着小字实高收缩。
-PATCH_ROOM = (CAPTION_Y + 2 * PET_LAYOUT['caption_height']
-              + PAW_HIT_SIZE // 2 - PAW_SIZE // 2)
-# 第 44 期：设置入口做成齿轮，摆在窗口左上角标题（V0.7）旁边。用户要的是「醒目提示」——
-# 它不藏在右键菜单里：主题蓝齿身 ＋ 深色描边，鼠标停上去再加深一档；旁边那句「设置」后来删了。
+CAPTION_Y = DOCK_PAD_TOP + SIZE + DOCK_CAPTION_GAP
+# 猫爪列不再有固定顶边：对「头像＋小字」整组垂直居中（_paw_col_top 实测小字高度）。
+PAW_COL_X = -DOCK_PAW_RIGHT           # 猫爪列 place 的 x（anchor='ne'）：视觉右沿离 dock 右边 DOCK_PAW_RIGHT
+# 36px 命中区比 16px 猫爪列每侧宽 10px：承接区右沿比列右沿再出头同样的量，整列命中区右沿贴 dock 右沿。
+PAW_HIT_X = PAW_COL_X - PAW_COL_WIDTH // 2 + PAW_HIT_SIZE // 2
+# pet_dock 保留高度按最坏情况给：小字最多两行；运行时 pet.patch_room 跟着小字实高收缩。
+DOCK_ROOM = (DOCK_PAD_TOP + SIZE + DOCK_CAPTION_GAP + 2 * PET_LAYOUT['caption_height']
+             + DOCK_PAD_BOTTOM)
+# 第 44 期：设置入口做成齿轮；第 R2933 期改用 Fluent settings 图标（assets/nav/settings.png），
+# 与侧栏导航同一套字形；PNG 缺失时退回原手绘齿轮。命中区仍是 CONTROL_HIT_MIN 的 36px。
 GEAR_SIZE = 22                                    # 齿轮图形的边长
 GEAR_HIT_SIZE = CONTROL_HIT_MIN                    # 齿轮按钮的命中边长
-GEAR_COLOR = (COLORS['primary'], COLORS['primary_pressed'])          # 齿身／描边
-GEAR_HOVER = (COLORS['primary_hover'], COLORS['primary_pressed'])    # 鼠标停上去时加深
-# 第 45 期：原先齿轮旁边还写着一句「设置」，230 像素宽的侧栏装不下（应用名 ＋ V0.7 ＋ 齿轮
-# 之后它排在最后，整句被裁掉——用户报的「齿轮旁边的文字被遮挡」）。用户要删掉，所以只留这颗
-# 主题蓝齿轮本身（与主操作同色）；这句话退成无障碍名字，不再画出来。
+GEAR_COLOR = (COLORS['primary'], COLORS['primary_pressed'])          # 兜底手绘齿轮的齿身／描边
+GEAR_HOVER = (COLORS['primary_hover'], COLORS['primary_pressed'])    # 兜底手绘齿轮的悬停加深
 GEAR_TIP = '设置'
 # 第 22 期重做形象：用户要的「配色冷酷、线条流畅、造型醒目」。
 # 三件事怎么分：造型与线条归 paint()（尖耳、钟形脸、上挑的细长眼、长胡须）；
@@ -286,12 +279,11 @@ def gear_parts(size=GEAR_SIZE, teeth=8):
     return {'teeth': tuple(points), 'body': (centre, centre, body),
             'hole': (centre, centre, max(2.0, body * 0.38))}
 class GearButton:
-    """左上角那颗齿轮（第 44 期）：点一下开「设置」。
+    """侧栏底栏顶部那颗设置齿轮（第 44 期；第 R2933 期搬进 sidebar_dock）。
 
-    用户要「醒目提示」，所以它不藏在菜单里——主色齿身 ＋ 深色描边，鼠标停上去再加深一档。
-    第 45 期起不再在旁边写字：那句「设置」在侧栏里会被裁掉，用户要的就是把它删掉（见 GEAR_TIP）。
-    画布 pack 进宿主给的那一行（desktop.sidebar_head），与贴片同一套做法：
-    只往既有容器里塞一个控件，不动原布局代码。
+    用户要「醒目提示」，所以它不藏在菜单里——Fluent settings 图标（PNG 缺失退回
+    手绘齿轮），鼠标停上去垫一层浅灰底衬。第 45 期起不再在旁边写字（见 GEAR_TIP）。
+    画布由宿主 pack 进 settings_gear_layer 行，与三虎簇同一块底栏。
     """
 
     def __init__(self, master, command=None, size=GEAR_SIZE, tip=GEAR_TIP, bg=CANVAS_BG):
@@ -320,12 +312,17 @@ class GearButton:
             self.tooltip = Tooltip(self.canvas, self.tip_text)
         return None
 
+    def _gear_image(self):
+        """Fluent settings 图标（assets/nav/settings.png），与侧栏导航同一套字形；缺资源返回 None。"""
+        try:
+            from ui_icons import IconLoader
+            return IconLoader.nav_icon(self.canvas, 'settings')
+        except Exception:
+            return None
+
     def draw(self):
         """按当前状态重画齿轮与键盘焦点环；图形尺寸不变，画布只多出命中留白。"""
-        shape = gear_parts(self.visual_size)
         offset = self._offset
-        points = tuple(value + offset for value in shape['teeth'])
-        fill, outline = GEAR_HOVER if self._hover else GEAR_COLOR
         self.canvas.delete('gear')
         self.canvas.delete('gear-focus')
         if self._focused:
@@ -333,6 +330,19 @@ class GearButton:
             self.canvas.create_rectangle(
                 inset, inset, self.hit_size - inset, self.hit_size - inset,
                 outline=COLORS['focus'], width=BUTTON_BORDER_WIDTH * 2, tags=('gear-focus',))
+        if self._hover:
+            # 悬停底衬：与导航钮的浅灰悬停胶囊同族（PNG 是单色字形，改不了墨色，只能垫底色）。
+            self.canvas.create_oval(2, 2, self.hit_size - 2, self.hit_size - 2,
+                                    fill=COLORS['surface_hover'], outline='', tags=('gear',))
+        image = self._gear_image()
+        if image is not None:
+            self.canvas.create_image(self.hit_size // 2, self.hit_size // 2,
+                                     image=image, tags=('gear', 'gear-icon'))
+            return self.canvas.find_withtag('gear')
+        # 兜底：PNG 缺失时退回原手绘齿轮（gear-teeth／gear-body／gear-hole 三件套）。
+        shape = gear_parts(self.visual_size)
+        points = tuple(value + offset for value in shape['teeth'])
+        fill, outline = GEAR_HOVER if self._hover else GEAR_COLOR
         self.canvas.create_polygon(*points, fill=fill, outline=outline, width=1.4,
                                    tags=('gear', 'gear-teeth'))
         centre_x, centre_y, radius = shape['body']
@@ -379,28 +389,23 @@ class GearButton:
         return self.command()
 
     def place(self, **options):
-        """便利：把齿轮与旁边那句「设置」一起摆好（画布与标签用同一套 place 参数）。"""
+        """便利：把齿轮画布摆好（R2933 起不再有旁边的文字标签，tip 已删）。"""
         self.canvas.place(**options)
-        tip = dict(options)
-        tip.pop('anchor', None)
-        tip['x'] = int(options.get('x', 0)) + int(self.canvas.cget('width')) + 4
-        if 'rely' in tip:
-            tip['rely'] = 0.5
-            tip['anchor'] = 'w'
-        try:
-            self.tip.place(**tip)
-        except TclError:
-            # 主窗口销毁后布局补位已无意义；其他错误必须继续暴露。
-            pass
         return self.canvas
 
     def destroy(self):
-        for widget in (self.tip, self.canvas):
+        tip = getattr(self, 'tooltip', None)
+        if tip is not None:
             try:
-                widget.destroy()
+                tip.hide()          # Tooltip 不是控件：收浮层，不 destroy
             except TclError:
-                # 重复销毁属于 Tk 生命周期竞态；其余异常须上抛。
+                # 销毁竞态：根窗已走后 after_cancel／destroy 会抛 TclError；其余异常须上抛。
                 pass
+        try:
+            self.canvas.destroy()
+        except TclError:
+            # 重复销毁属于 Tk 生命周期竞态；其余异常须上抛。
+            pass
         return None
 def palette(mood='idle', level=None):
     """取这一帧的三种颜色：暂停优先置灰，其余按等级色（头像＝等级），再退回心情色。

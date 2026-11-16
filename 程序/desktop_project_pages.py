@@ -93,7 +93,7 @@ class ProjectPagesMixin:
         empty=getattr(tree,'_empty_state',None)
         if empty is not None:empty.show(not self.projects.info['projects'])
     def refresh_sidebar_title(self):
-        """R2056：侧栏顶部写当前项目名（过长截断，免得把齿轮挤出侧栏）；没打开项目时仍写应用名。"""
+        """R2933：侧栏顶部浮层已删；方法保留给既有调用点，app_title 不存在时直接返回。"""
         title=getattr(self,'app_title',None)
         if title is None:return
         root=getattr(self,'root',None)
@@ -170,21 +170,22 @@ class ProjectPagesMixin:
     def restore_project_selection(self):
         """选择器复位回当前项目；高亮＝当前项目，用户取消或被拦下时不能留在别的项上。"""
         self._sync_project_picker(snap=True)
-    def set_project_group(self,state):
-        """侧栏分组筛选：making/completed 两枚图标钮切换选择器列出的项目集合。"""
-        if state==self._project_group:return
-        self._project_group=state
-        self._sync_project_group_styles();self._sync_project_picker()
+    def set_project_group(self,state,popup=False):
+        """侧栏分组筛选：making/completed 图标钮切换项目集合；popup 时顺带展开选择器下拉（R2933）。"""
+        if state!=self._project_group:self._project_group=state;self._sync_project_group_styles();self._sync_project_picker()
+        if popup:self._post_project_picker()
+    def _post_project_picker(self):
+        """展开项目选择器下拉；ttk::combobox::Post 会走 SelectBox 的 postcommand 重 fitting。"""
+        picker=getattr(self,'project_picker',None)
+        if picker is None:return
+        try:picker.tk.call('ttk::combobox::Post',picker)
+        except tk.TclError:pass
     def _sync_project_group_styles(self):
         active=getattr(self,'_project_group','making')
         for state,btn in getattr(self,'project_group_buttons',{}).items():
             btn.configure(style='Selected.RailIcon.TButton' if state==active else 'RailIcon.TButton')
     def _sync_project_picker(self,snap=False):
-        """项目选择器：按分组列项目，「●」标当前项。
-
-        ``snap`` 只在项目状态真正变化时（打开/取消/标记完成后 reload）把组吸附回
-        当前项目所在组；用户主动点分组图标浏览另一组时不吸附，否则筛选失效。
-        """
+        """项目选择器：按分组列项目，「●」标当前项；snap 仅状态真变时吸附组。"""
         picker=getattr(self,'project_picker',None)
         if picker is None:return
         projects=(getattr(self.projects,'info',None) or {}).get('projects',[]) or []
@@ -225,7 +226,7 @@ class ProjectPagesMixin:
         self.project_group_buttons={}
         for state in ('making','completed'):
             btn=SecondaryButton(filters,text='',image=IconLoader.nav_icon(side,PROJECT_GROUP_ICONS[state]),
-                                compound='image',command=lambda s=state:self.set_project_group(s),style='RailIcon.TButton')
+                                compound='image',command=lambda s=state:self.set_project_group(s,popup=True),style='RailIcon.TButton')
             btn.pack(side='left',fill='x',expand=True,padx=(SPACING['none'],SPACING['xs']))
             Tooltip(btn,'在制作项目' if state=='making' else '已完成项目')
             self.project_group_buttons[state]=btn
@@ -445,10 +446,10 @@ class ProjectPagesMixin:
         """「00 会员账户」排在 01 之上；它不在 self.nav 里，翻页键与阶段页序号都不受影响。"""
         image=IconLoader.nav_icon(side,PAGE_NAV_ICONS.get(PAGE_ACCOUNT))
         self.account_button=SecondaryButton(side,text=nav_label(PAGE_ACCOUNT),image=image,
-            compound='left' if image is not None else 'text',
-            command=lambda:self.go_page(PAGE_ACCOUNT),style='Nav.TButton')
+            compound='image' if image is not None else 'text',
+            command=lambda:self.go_page(PAGE_ACCOUNT),style='RailIcon.TButton')
         Tooltip(self.account_button,ACCOUNT_TITLE)
-        self.account_button.pack(anchor='w',fill='x',pady=(SPACING['none'],DESKTOP_LAYOUT['nav_gap']))
+        self.account_button.pack(anchor='center',fill='x',pady=(SPACING['none'],DESKTOP_LAYOUT['nav_gap']))
     def project_home(self):
         self.note('选择一个故事继续制作。右键项目可标记完成、恢复制作或删除项目。删除项目＝移入项目库回收站（可恢复，不是永久清除）；同一块磁盘上回收不等于释放空间；登记与磁盘不一致时点“重建项目索引”；可再生缓存由自动清理单独回收。')
         tree=ttk.Treeview(self.content,show='tree',height=TEXT_ROWS['2xl'],selectmode='browse')

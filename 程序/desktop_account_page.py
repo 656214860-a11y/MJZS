@@ -17,7 +17,9 @@ import account_client
 import entitlement_service
 from orchestrator.account_controller import RENEW_VIEW_INTERVAL, AccountController
 import contract.pet_bus as pet_bus
-from desktop_page_registry import PAGE_ACCOUNT, PAGES, nav_label
+from desktop_page_registry import (NAV_LOCK_ICON, PAGE_ACCOUNT, PAGE_NAV_ICONS, PAGES,
+                                   nav_label, page_title)
+from ui_icons import IconLoader
 from ui_tokens import DIALOG_CONTENT_PADDING, DIALOG_MIN_HEIGHT, FONTS, SPACING, TEXT_DESC
 from account_inputs import EmailInput, PASSWORD_MASK, PasswordInput
 from ui_widgets import BaseDialog, Card, LineInput, PrimaryButton, SecondaryButton, ask_confirmation
@@ -203,14 +205,24 @@ class AccountPageMixin:
         self.status.set(reason)
 
     def refresh_nav_locks(self):
-        """授权变化后给侧栏被锁的页加／去锁标记；当前页的锁定状态翻转就重建这一页。"""
+        """授权变化后给侧栏被锁的页换锁图标／换回原图标（R2933：图标轨不再有文字锁标）；
+        PNG 缺失的兜底文字态才保留 🔒 字样。当前页的锁定状态翻转就重建这一页。"""
         reasons = self.page_lock_reasons()
         current, flipped = getattr(self, 'page_index', None), False
         for index, button in enumerate(getattr(self, 'nav', ())):
-            text = nav_label(index) + (NAV_LOCK_MARK if index in reasons else '')
-            if button.cget('text') != text:
-                button.configure(text=text)
-                flipped = flipped or index == current
+            locked = index in reasons
+            if getattr(button, '_nav_locked', False) == locked:
+                continue
+            button._nav_locked = locked
+            base = getattr(button, '_nav_icon_name', None) or PAGE_NAV_ICONS.get(index)
+            image = IconLoader.nav_icon(button, NAV_LOCK_ICON if locked else base)
+            compound = 'image' if image is not None else 'text'
+            text = nav_label(index) + (NAV_LOCK_MARK if locked and image is None else '')
+            button.configure(image=image, compound=compound, text=text)
+            tip = getattr(button, '_nav_tooltip', None)
+            if tip is not None:
+                tip.text = page_title(index) + ('（需要登录或授权）' if locked else '')
+            flipped = flipped or index == current
         if flipped and not getattr(self, 'login_gate_active', False):
             self.show(current)
 

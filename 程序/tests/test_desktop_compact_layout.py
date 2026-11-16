@@ -62,13 +62,17 @@ class CompactDesktopGeometryTests(unittest.TestCase):
                 self.resize(width, height)
                 # 上一档可能把侧栏留在底部；每档从顶部量起，后续断言才不受滚动位置影响。
                 d.sidebar_canvas.yview_moveto(0);d.align_header();self.pump(.05)
-                self.assertEqual(d.app_title.cget('text'), '性能项目')  # R2056：侧栏顶部写当前项目名
+                # R2933：侧栏顶部浮层删了，项目名只留在窗口标题「当前项目：…」里。
+                self.assertIn('当前项目：', d.win.title())
                 self.assertAlmostEqual(d.idea_log.winfo_rooty(), d.project_block.winfo_rooty(), delta=2)
-                self.assertLess(d.title.winfo_rooty(), d.app_title.winfo_rooty() + d.app_title.winfo_height())
                 self.assertAlmostEqual(d.title.winfo_rootx(), d.idea_log.winfo_rootx(), delta=2)
-                gear, title = d.pet.gear.canvas, d.app_title
-                self.assertAlmostEqual(gear.winfo_rooty()+gear.winfo_height()/2, title.winfo_rooty()+title.winfo_reqheight()/2, delta=2)
-                self.assertAlmostEqual(gear.winfo_rootx(), title.winfo_rootx()+title.winfo_reqwidth()+DESKTOP_LAYOUT['gear_gap'], delta=2)
+                # R2933：齿轮在底栏齿轮行、三虎簇在 pet_dock，都钉在侧栏左下角、不参与滚动。
+                gear, dock = d.pet.gear.canvas, d.pet_dock
+                self.assertEqual(str(gear.winfo_parent()), str(d.settings_gear_layer))
+                self.assertEqual(str(dock.winfo_parent()), str(d.sidebar_dock))
+                self.assertGreaterEqual(gear.winfo_rooty(), d.sidebar_canvas.winfo_rooty())
+                self.assertLessEqual(dock.winfo_rooty()+dock.winfo_height(),
+                                     d.sidebar_area.winfo_rooty()+d.sidebar_area.winfo_height()+1)
                 # R2897 图标轨：项目区之后依次是账号钮与 14 个阶段钮（二级「资产清单」跟在 05 后）。
                 rail=[d.account_button]
                 for i,b in enumerate(d.nav):
@@ -108,23 +112,24 @@ class CompactDesktopGeometryTests(unittest.TestCase):
                         d.show(PAGE[stage]); self.pump()
                         anchor = d.idea_log if stage == 'script' else d.content
                         self.assertAlmostEqual(d.title.winfo_rootx(), anchor.winfo_rootx(), delta=2)
-                        self.assertEqual(d.header_slogan.cget('text'), '✦  把灵感变成故事')
-                        self.assertLessEqual(d.project_label.winfo_rooty()-(d.app_title.winfo_rooty()+d.app_title.winfo_height()), DESKTOP_LAYOUT['project_label_gap'])
+                        # R2933：页头标语删除；Token 指示器 pack 在标题右侧同一行。
+                        self.assertFalse(hasattr(d, 'header_slogan'), '页头不再有标语')
+                        self.assertEqual(d.usage_indicator.master, d.title_row)
+                        self.assertAlmostEqual(d.usage_indicator.winfo_rooty() + d.usage_indicator.winfo_height() / 2,
+                                               d.title.winfo_rooty() + d.title.winfo_height() / 2, delta=max(2, d.title.winfo_height()))
+                        # 「我的项目」标签顶到侧栏滚动区上沿（顶部浮层删掉后上移）。
+                        self.assertGreaterEqual(d.project_label.winfo_rooty(),
+                                                d.sidebar_canvas.winfo_rooty() - 1)
+                        # 三虎簇钉在侧栏底栏：头像在 pet_dock 内、不碰标题行与正文。
                         pets = (d.pet.canvas, d.pet.paws, d.pet.caption)
                         for pet in pets:
                             self.assertTrue(pet.winfo_ismapped())
-                            self.assertGreaterEqual(rect(pet)[0], rect(d.body)[0])
-                            self.assertGreaterEqual(rect(pet)[1], rect(d.body)[1])
-                            self.assertLessEqual(rect(pet)[2], rect(d.body)[2])
-                            self.assertLessEqual(rect(pet)[3], rect(d.body)[3])
-                            self.assertLessEqual(rect(pet)[3], rect(d.pet_layer)[3])
-                        if d.header_slogan.winfo_ismapped():
-                            self.assertAlmostEqual(d.header_slogan.winfo_rooty()+d.header_slogan.winfo_height()/2, d.title.winfo_rooty()+d.title.winfo_height()/2, delta=2)
-                            self.assertGreaterEqual(rect(d.header_slogan)[0], rect(d.title)[2])
-                            for pet in pets:separate(d.header_slogan, pet)
-                        else:
-                            available=min(rect(p)[0] for p in pets)-rect(d.title)[2]
-                            self.assertLess(available, d.header_slogan.winfo_reqwidth()+2*DESKTOP_LAYOUT['slogan_gap'])
+                            self.assertEqual(str(pet.winfo_parent()), str(d.pet_dock))
+                            self.assertGreaterEqual(rect(pet)[0], rect(d.sidebar_area)[0])
+                            self.assertLessEqual(rect(pet)[2], rect(d.sidebar_area)[2] + 1)
+                            self.assertGreaterEqual(rect(pet)[1], rect(d.sidebar_area)[1])
+                            self.assertLessEqual(rect(pet)[3], rect(d.sidebar_area)[3] + 1)
+                            self.assertLessEqual(rect(pet)[3], rect(d.sidebar_dock)[3] + 1)
                         if stage == 'script':
                             self.assertAlmostEqual(d.idea_log.winfo_rooty(), d.project_block.winfo_rooty(), delta=2)
                             for pet in pets:separate(d.idea_log, pet)
@@ -167,6 +172,18 @@ class CompactDesktopGeometryTests(unittest.TestCase):
         completed_paths = sorted(p['path'] for p in d.projects.info['projects']
                                  if p.get('status', 'making') == 'completed')
         self.assertEqual(sorted(p['path'] for p in d._picker_items), completed_paths)
+        # R2933：点分组图标＝切组＋展开该组项目下拉；两组各弹各的列表。
+        posted = []
+        real_post = d._post_project_picker
+        d._post_project_picker = lambda: posted.append(d._project_group)
+        try:
+            d.project_group_buttons['making'].invoke()
+            self.assertEqual(posted, ['making'], '点「在制作」图标要展开选择器')
+            d.project_group_buttons['completed'].invoke()
+            self.assertEqual(posted, ['making', 'completed'], '点「已完成」图标也要展开')
+        finally:
+            d._post_project_picker = real_post
+        self.assertEqual(d._project_group, 'completed')
         self.assertEqual(set(d.script_row_category.values()), {'setting', 'outline', 'character', 'script'},
                          '四类文件都出现在同一条列表里')
         tree = d.script_tree

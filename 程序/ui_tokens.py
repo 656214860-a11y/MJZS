@@ -250,9 +250,7 @@ DESKTOP_LAYOUT = {
     # 页面边距加大一档：内容与窗口边缘、进度条与状态栏之间都留出呼吸感。
     'body_padding': (SPACING['xl'], SPACING['lg'], SPACING['xl'], SPACING['md']),
     'status_gap': (SPACING['sm'], SPACING['md']),
-    'title_inset': SPACING['xs'], 'gear_gap': SPACING['xs'],
-    'slogan_gap': SPACING['md'], 'slogan_font': FONTS['pet_body'],
-    'project_label_gap': SPACING['sm'], 'pet_clearance': SPACING['xs'],
+    'title_inset': SPACING['xs'],
     # 主窗口拖动：停止拖动后等这么久没有新尺寸才整页重排一次（约 8 帧，远长于
     # Windows 拖动时 WM_SIZE 的间隔，又不至于松手后明显停顿）。
     'resize_quiet_ms': 128,
@@ -377,13 +375,7 @@ PET_LAYOUT = {
     "paw_gap": 2,
     "paw_gap_y": 2,
     "paw_arc": 0,
-    "top": SPACING["none"],
-    "right_gap": SPACING["xs"],
-    "caption_right": SPACING["sm"],
-    "caption_gap": SPACING["sm"],
-    "caption_width": 64,
     "caption_height": 20,
-    "header_gap": SPACING["sm"],
 }
 
 # 表格行悬停：行背景由底色淡入到悬停面（STEPS 帧、每帧 FRAME_MS 毫秒），只用 Treeview 标签实现。

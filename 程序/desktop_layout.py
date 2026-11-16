@@ -132,18 +132,22 @@ class LayoutMixin:
             style.configure('Project.Treeview',font=font,rowheight=row_height)
         self.align_header()
     def align_header(self,event=None):
-        """用真实控件边界对齐齿轮与聊天顶边，不参与页面业务或读盘。"""
+        """页头对齐（第 R2933 期重写）：标题左沿与内容区齐、标题行高度收齐标题／用量／右侧信息；
+        侧栏底栏 pet_dock 高度跟三虎小字实高（patch_room）走，项目列表顶边仍对齐标题行底。"""
         if not hasattr(self,'title_row'):return
-        title=self.app_title
-        gear=getattr(getattr(self,'pet',None),'gear',None)
-        if gear is not None:
-            canvas=gear.canvas
-            x=title.winfo_rootx()-self.win.winfo_rootx()+title.winfo_reqwidth()+DESKTOP_LAYOUT['gear_gap']
-            y=title.winfo_rooty()-self.win.winfo_rooty()+round((title.winfo_reqheight()-canvas.winfo_reqheight())/2)
-            self.settings_gear_position=(x,y)
-            canvas.place_configure(x=x,y=y)
-        pet_room=getattr(getattr(self,'pet',None),'patch_room',None)
-        minimum=max(self.title.winfo_reqheight(),pet_room or pet_ui.PATCH_ROOM)
+        pet=getattr(self,'pet',None)
+        pet_room=getattr(pet,'patch_room',None)
+        dock=getattr(self,'pet_dock',None)
+        if dock is not None:
+            room=max(pet_ui.DOCK_ROOM,int(pet_room or pet_ui.DOCK_ROOM))
+            if int(dock.cget('height'))!=room:dock.configure(height=room)
+        candidates=[self.title.winfo_reqheight()]
+        for name in ('usage_indicator','header_info'):
+            widget=getattr(self,name,None)
+            if widget is None:continue
+            try:candidates.append(int(widget.winfo_reqheight()))
+            except tk.TclError:pass
+        minimum=max(candidates)
         block=getattr(self,'project_block',None)
         list_top=block.winfo_rooty()-self.title_row.winfo_rooty() if block is not None else minimum
         # 侧栏可滚动后，屏幕坐标会随画布偏移变化；换算回内容坐标再参与表头对齐。
@@ -172,31 +176,6 @@ class LayoutMixin:
         title_pad=(inset,SPACING['none'])
         if horizontal_pad(self.title)!=title_pad:
             self.title.pack_configure(padx=title_pad)
-        pet=getattr(self,'pet',None)
-        obstacles=[w for w in (getattr(pet,'canvas',None),getattr(pet,'paws',None),
-                               getattr(pet,'caption',None)) if w is not None and w.winfo_exists()]
-        if script and box.winfo_ismapped():
-            dialog=box.master
-            overlapping=[w for w in obstacles if w.winfo_rooty()<box.winfo_rooty()+box.winfo_height()
-                         and w.winfo_rooty()+w.winfo_height()>box.winfo_rooty()]
-            right=dialog.master.winfo_rootx()+dialog.master.winfo_width()-SPACING['xs']
-            reserve=max([SPACING['none']]+[right-w.winfo_rootx()+DESKTOP_LAYOUT['pet_clearance'] for w in overlapping])
-            dialog_pad=(SPACING['none'],reserve)
-            if horizontal_pad(dialog)!=dialog_pad:
-                dialog.pack_configure(padx=dialog_pad)
-        slogan=self.header_slogan
-        x=inset+self.title.winfo_reqwidth()+DESKTOP_LAYOUT['slogan_gap']
-        edge=min([self.title_row.winfo_width()]+[w.winfo_rootx()-self.title_row.winfo_rootx() for w in obstacles])
-        stage=getattr(self,'header_stage_button',None)
-        if stage is not None and stage.winfo_exists() and stage.winfo_ismapped():
-            edge=min(edge,stage.winfo_rootx()-self.title_row.winfo_rootx())
-        if x+slogan.winfo_reqwidth()+DESKTOP_LAYOUT['slogan_gap']<=edge:
-            y=round(self.title.winfo_y()+self.title.winfo_height()/2)
-            placed=slogan.place_info()
-            if not placed or (int(placed['x']),int(placed['y']))!=(x,y):
-                slogan.place(x=x,y=y,anchor='w')
-                slogan.tk.call('raise',str(slogan))
-        else:slogan.place_forget()
     def fit_content(self,event=None):
         # 尺寸事件落在拖动期间：并进松手后的补做。主动调用（页面切换、最小化恢复）
         # 不带事件，保持原来的同步 after_idle 语义，不受静默影响。

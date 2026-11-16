@@ -13,7 +13,6 @@ sys.path.insert(0,HERE)
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 
 from desktop import Desktop, status_kind
-from desktop_page_registry import nav_label
 from skip_reasons import PLATFORM_TK_DISPLAY
 import test_desktop_startup_perf as startup_fixtures
 from ui_tokens import COLORS, FONTS
@@ -65,7 +64,10 @@ class ShellScrollAndStatusTests(unittest.TestCase):
 
     def test_last_sidebar_stage_is_reachable_at_four_window_sizes(self):
         d=self.desktop
-        self.assertEqual(d.nav[-1].cget('text'),nav_label(-1))
+        # R2933：导航纯图标，文字为空；末项是「参考网站」。
+        self.assertEqual(str(d.nav[-1].cget('compound')),'image')
+        self.assertTrue(d.nav[-1].cget('image'))
+        self.assertEqual(d.nav[-1]._nav_icon_name,'sites')
         for width,height in ((800,600),(1080,740),(1280,800),(1360,900)):
             with self.subTest(size=(width,height)):
                 self.resize(width,height)
@@ -84,16 +86,16 @@ class ShellScrollAndStatusTests(unittest.TestCase):
         for key in ('<Prior>','<Next>','<Home>','<End>'):self.assertTrue(self.win.bind(key))
         d.sidebar_canvas.yview_moveto(0);self.pump(.1)
         top=d.sidebar_canvas.yview()[0]
-        title_y=d.app_title.winfo_rooty();gear_y=d.pet.gear.canvas.winfo_rooty()
+        dock_y=d.sidebar_dock.winfo_rooty();gear_y=d.pet.gear.canvas.winfo_rooty()
         d.nav[0].event_generate('<MouseWheel>',delta=-120);self.pump(.15)
         self.assertGreater(d.sidebar_canvas.yview()[0],top)
-        self.assertEqual(d.app_title.winfo_rooty(),title_y,'滚动侧栏时应用名固定不动')
+        self.assertEqual(d.sidebar_dock.winfo_rooty(),dock_y,'滚动侧栏时底栏固定不动')
         self.assertEqual(d.pet.gear.canvas.winfo_rooty(),gear_y,'滚动侧栏时齿轮固定不动')
         d.nav[0].event_generate('<MouseWheel>',delta=120);self.pump(.15)
         self.assertAlmostEqual(d.sidebar_canvas.yview()[0],top,places=3)
         self.press(d.sidebar_canvas,'End');self.pump(.1)
         self.assertAlmostEqual(d.sidebar_canvas.yview()[1],1.0,places=3)
-        self.assertEqual(d.app_title.winfo_rooty(),title_y,'滚到底时应用名仍固定')
+        self.assertEqual(d.sidebar_dock.winfo_rooty(),dock_y,'滚到底时底栏仍固定')
         self.press(d.sidebar_canvas,'Home');self.pump(.1)
         self.assertAlmostEqual(d.sidebar_canvas.yview()[0],0.0,places=3)
 
@@ -142,9 +144,9 @@ class ShellScrollAndStatusTests(unittest.TestCase):
     def test_shell_fonts_come_from_tokens(self):
         d=self.desktop
         def actual(widget):return font.Font(root=self.win,font=widget.cget('font')).actual()
-        heading=actual(d.app_title);self.assertEqual((heading['family'],heading['size'],heading['weight']),
+        heading=actual(d.title);self.assertEqual((heading['family'],heading['size'],heading['weight']),
                                                        (FONTS['heading_1'][0],FONTS['heading_1'][1],'bold'))
-        self.assertEqual(actual(d.title)['size'],FONTS['heading_1'][1])
+        self.assertFalse(hasattr(d,'app_title'),'R2933：侧栏顶部浮层已删')
         for widget in (d.header_model,d.header_status):
             self.assertEqual(actual(widget)['size'],FONTS['pet_hint'][1])
 
