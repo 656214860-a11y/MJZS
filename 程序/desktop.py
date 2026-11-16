@@ -300,7 +300,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         self.status=tk.StringVar(value='就绪 · 所有项目共用一份程序')
         # R2989 P1：统一状态栏——右区消息走 StatusBus；旧状态条暂隐藏、StringVar 作桥（P2 收编）。
         self.status_bus=StatusBus()
-        self._status_bridge_active=False
+        self._init_status_bridge()
         self.notifier=NotificationDispatcher(self.status, parent=win, bus=self.status_bus)
         self.status_bus.subscribe(self._bus_to_status)
         self.status.trace_add('write',self._status_to_bus)
@@ -320,7 +320,6 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         self.status_bar.set_segment('path','')
         self.usage_indicator=ui_usage_indicator.UsageIndicator(self.status_bar.left_zone,self)
         self.usage_indicator.pack(side='left',padx=(SPACING['xs'],SPACING['none']))
-        self._segment_traces={}
         # 共享底部输入框（任务书轮 4）：13 个阶段页共用同一实例，位于画布与状态栏之间；
         # 页面切换只调 set_stage 换上下文（desktop_page_nav._sync_shared_input），
         # 非阶段页与锁定／首页路由由 pack_forget 隐藏。``before`` 把它的包裹位次插到
@@ -793,11 +792,6 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         self.status_bus.pump()
         return self.status_bar.message
 
-    def _set_status_quiet(self,text):
-        """只更新 StringVar 的既有消费方（三虎、忙碌态、启动验收探针），不桥进右区消息。"""
-        self._status_bridge_active=True
-        try:self.status.set(text)
-        finally:self._status_bridge_active=False
     def storyboard_creation(self):
         from storyboard_files import show
         show(self)

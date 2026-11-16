@@ -25,6 +25,11 @@ def status_kind(message):
 class StatusBridgeMixin:
     """Desktop 的统一状态栏桥接与左区段管理（R2989 P1／R3016 P2／R3056 拆类）。"""
 
+    def _init_status_bridge(self):
+        """桥接私有状态只在本 Mixin 内初始化（共享状态棘轮：单一写者）。"""
+        self._status_bridge_active=False
+        self._segment_traces={}
+
     def _bus_to_status(self,event):
         """总线当前消息镜像回旧 StringVar：三虎、忙碌态等既有消费方继续工作。"""
         kind,message,_previous=event
