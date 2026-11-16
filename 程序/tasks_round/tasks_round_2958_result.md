@@ -1,5 +1,5 @@
 # R2958 结果：语音离线化·轮5——其余输入框接入＋文档/契约/门禁收尾
-<!-- round-evidence: {"commit_base": "74242f1b", "credential_hits": 0, "evidence_sha256": "e1f0dfea0014f02a", "exit": 0, "failed": 0, "passed": 0, "round": 2958, "tests": "docs-only"} -->
+<!-- round-evidence: {"commit_base": "a141a9b1", "credential_hits": 0, "evidence_sha256": "4a599e449fe0aab4", "exit": 0, "failed": 0, "passed": 0, "round": 2958, "tests": "docs-only"} -->
 
 ## 三问
 
@@ -44,3 +44,13 @@
 - **冲突预览**（`git merge-tree master codex/wip-R2958`，基线 merge-base `0581308b`，对 master@R2954）：9 个冲突文件——`desktop_shared_input.py`（master +505/−73 重构共享输入框嵌模型选择器、删 13 页阶段配置按钮；本支 +42/−4 加麦克风与听写实例，**语义冲突需把 voice 挂进新结构**）、`desktop_writing_page.py`（双方均重构，master +115/−185、本支 +48/−156）、`desktop_script_pages.py`、`desktop_idea_attachments.py`（master 仅 1 行）、`runbook.md`、`tests/test_idea_chat.py`、`tests/test_script_composer.py`、`tests/test_ui_edges_pages.py`、`维护记录/覆盖率基线.json`（双方重生成，取并集口径）；`PROJECT_MAP.md`/`architecture.md`/`desktop_page_nav.py` 自动合并无冲突。R2959 落地后冲突面可能再变，合并时以当时 master 为准重跑 merge-tree。
 - **合并后验证**：冲突解决后跑 `smoke_test.py`＋`--affected desktop_shared_input desktop_writing_page desktop_script_pages desktop_idea_attachments`＋`--architecture`；共享输入框/写作页/附件是高险区，重点核对麦克风按钮位置、voice_input 生命周期绑定、composer 工具行契约；`test_round_number_continuous` 在合并提交后应转绿（状态页同步为最新结果+1）。
 - **合并命令**：主工作区干净后 `dev.py merge codex/wip-R2958 -s "<说明>"`（含 local_ci 出口与领号）；合并提交后单独提交 `project_status.md` 补记（`R<n>: 补记分支 codex/wip-R2958 的轮次记录`），并把冲突解决命令原始输出贴进本文件（runbook §13 要求：第一条 diff 输出须为空、轮次号为并集）。
+
+### 语义合并要点（已核实双方实现，合并时照此执行）
+
+- **架构级冲突**：master R2942 已在共享栏加麦克风，但走 `on_voice` 回调——`SharedStageInput.voice_button`/`_toggle_voice`→`options['on_voice']`→`desktop_shared_send.host_options`→`_voice()`→`from desktop_writing_page import VoiceInput`（**旧云端版类**，构造签名 `VoiceInput(desktop, box, button)`）。本支轮 3 把 `VoiceInput` 提炼为 `desktop_voice_input.VoiceInput`（签名 `VoiceInput(box, button, *, status, listening_style, idle_style, project)`）并从 `desktop_writing_page` 删除旧类，共享栏改为自持 `mic_button`/`voice_input`/`_make_voice_input`。
+- **`desktop_shared_input.py` 解法**：取 master 结构（`voice_button`＋`on_voice` 回调＋`_toggle_voice` 委托），**舍弃本支** `mic_button`/`self.voice_input`/`_make_voice_input`/自管 `_toggle_voice`——master 的宿主回调管线是更新的解耦设计且已被 `desktop_shared_send` 消费；本支独有的 docstring/layout 行说明合并时按 master 版微调。
+- **`desktop_shared_send.py` 必修（自动合并不会报冲突但会炸）**：本支未动此文件，合并自动取 master 版——其中 `_voice()` 仍 `from desktop_writing_page import VoiceInput`，合并后该类已不存在。须改为 `from desktop_voice_input import VoiceInput` 并按新签名构造：`VoiceInput(box, button, status=desktop.status, project=desktop.root)`（`desktop.root` 为项目根、`desktop.status` 为 StringVar，均已在 `_voice` 作用域可用）；`desktop.shared_voice` 复用/重绑 `voice.button` 逻辑保留。
+- **`desktop_writing_page.py` 解法**：取 master 的 R2942 页面重构（+115/−185）为底，**再移除旧 `VoiceInput` 类与 composer 内麦克风残留**（本支已做的提炼）；`page.idea_voice_input`/`idea_voice_button` 兼容引用按本支口径处理（共享栏唯一实例，不再有页级按钮）。
+- **`desktop_script_pages.py`/`desktop_idea_attachments.py`/`runbook.md`/测试三件/`覆盖率基线.json`**：常规冲突，基线取 master、叠加本支增量；覆盖率基线两边重生成，按合并后实际模块集重跑生成脚本刷新，不手工挑行。
+- **对话框两处**（`white_model.py`/`workflow_settings_dialog.py`）不在冲突列表，自动合并保留；其 `ui_plugin_registry.module('desktop_voice_input')` 调用不受影响。
+- **合并后必跑**：`smoke_test.py`、`--affected desktop_shared_input desktop_shared_send desktop_writing_page desktop_script_pages desktop_idea_attachments desktop_voice_input`、`--architecture`；重点核对共享栏麦克风按钮存在且 `on_voice`→新 `VoiceInput` 链路通、13 页 `set_stage` 不重建会话、输入框销毁停录、`test_round_number_continuous` 转绿。
