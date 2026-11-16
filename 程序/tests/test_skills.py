@@ -970,7 +970,7 @@ class PanelTests(unittest.TestCase):
         picker = stage_model_picker.StageModelPicker(self.win, self.desktop, 'script')
         self.addCleanup(picker.destroy)
         picker.pack(side='left')
-        self.assertIsInstance(picker.models, ttk.Menubutton, '模型选择器是下拉框按钮，不是弹窗')
+        self.assertIsInstance(picker.models, ttk.Button, '模型选择器是无外框下拉按钮，不是弹窗')
         self.assertEqual(picker.model_id(), 'deepseek-v4-flash')
         self.assertIn('DeepSeek', picker.model.get())
         self.assertNotIn(' · ', picker.model.get(),
@@ -987,9 +987,10 @@ class PanelTests(unittest.TestCase):
         self.addCleanup(setattr, pet_models_ui, 'open_manager', real)
         picker = stage_model_picker.StageModelPicker(self.win, self.desktop, 'keyframe')
         self.addCleanup(picker.destroy)
-        picker._fill_menu()
-        last = picker._menu.index('end')
-        self.assertEqual(picker._menu.entrycget(last, 'label'), stage_model_picker.ADD_MODEL_LABEL)
+        spec = picker._popup_spec()
+        self.assertEqual(spec[-1]['kind'], 'add')
+        self.assertEqual(spec[-1]['label'], stage_model_picker.ADD_MODEL_LABEL,
+                         '「+ 添加模型…」仍是浮层尾项')
         picker.set_model('qwen-max')
         picker.choose_model()
         self.assertEqual(stage_config.get(self.desktop.root, 'keyframe')['model'], 'qwen-max')

@@ -291,10 +291,11 @@ class SharedStageInput(ttk.Frame):
                                          command=self.send)
         self.send_button.pack(side='right', padx=(SPACING['xs'], SPACING['xs']))
         # R2942：模型选择器=下拉框按钮（点击弹出模型列表），与各页原「模型下拉框」同款，
-        # 不再弹模态选择窗。StageModelPicker 自带 Menubutton＋弹出菜单（含推理档位子菜单）。
+        # 不再弹模态选择窗。StageModelPicker 自带按钮＋弹出卡片（含推理档位区）。
+        # R2964：与发送键拉开一档间距（右侧 padx），避免模型钮贴着发送图标误触。
         from stage_model_picker import StageModelPicker
         self.model_picker = StageModelPicker(row, self.desktop, self.stage)
-        self.model_picker.pack(side='right', padx=(SPACING['sm'], SPACING['none']))
+        self.model_picker.pack(side='right', padx=(SPACING['sm'], SPACING['md']))
         # R2942 定版：五个图标都有悬停提示卡（Tooltip，不进 grab 不抢焦点）。
         Tooltip(self.skill_button, '技能\n查看本阶段技能、勾选默认；输入 / 可快速调用')
         Tooltip(self.attachment_button, '添加附件\n上传文本资料，本轮发送时随文引用')

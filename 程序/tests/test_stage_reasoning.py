@@ -193,7 +193,7 @@ class WritingReasoningInjectionTests(unittest.TestCase):
 
 
 class ReasoningPickerTests(unittest.TestCase):
-    """REQ-S01-82：选择器仅模型名、推理标记与档位子菜单。"""
+    """REQ-S01-82：选择器仅模型名、推理标记与档位区（R2964 起为上方卡片浮层）。"""
 
     def setUp(self):
         try:
@@ -220,17 +220,10 @@ class ReasoningPickerTests(unittest.TestCase):
         self.desktop.app = Path(self.tmp.name) / '程序'
         self.desktop.app.mkdir(parents=True, exist_ok=True)
 
-    def _menu_rows(self, menu):
-        end = menu.index('end')
-        rows = []
-        for index in range((end or -1) + 1):
-            kind = menu.type(index)
-            rows.append((kind,
-                         menu.entrycget(index, 'label') if kind != 'separator' else '',
-                         menu.entrycget(index, 'accelerator') if kind != 'separator' else ''))
-        return rows
+    def _spec_rows(self, picker):
+        return picker._popup_spec()
 
-    def test_menu_shows_names_level_badge_and_persists_choice(self):
+    def test_popup_shows_names_level_badge_and_persists_choice(self):
         import model_pool
         import stage_model_picker
         data = model_pool.upsert(model_pool.raw(self.desktop.app),
@@ -246,33 +239,31 @@ class ReasoningPickerTests(unittest.TestCase):
                 self.assertNotIn('%s · %s' % (provider, label), picker.labels(),
                                  '菜单项只显示模型名称，不得带「供应商 · 」前缀')
 
-        picker._fill_menu()
-        rows = self._menu_rows(picker._menu)
-        capable = [row for row in rows if row[1] == '会推理']
+        spec = self._spec_rows(picker)
+        models = [row for row in spec if row['kind'] == 'model']
+        capable = [row for row in models if row['label'] == '会推理']
         self.assertEqual(len(capable), 1)
-        self.assertEqual(capable[0][2], '推理·自动', '能推理的模型项要带当前档位标记')
-        plain = [row for row in rows
-                 if row[0] == 'radiobutton'
-                 and picker._by_display.get(row[1]) not in picker._capable]
-        self.assertTrue(plain and all(not row[2] for row in plain),
+        self.assertEqual(capable[0]['badge'], '推理·自动', '能推理的模型项要带当前档位标记')
+        plain = [row for row in models if row['id'] not in picker._capable]
+        self.assertTrue(plain and all(not row['badge'] for row in plain),
                         '不带推理能力的模型项不得有档位标记')
-        cascade = [row for row in rows if row[0] == 'cascade']
-        self.assertEqual([row[1] for row in cascade], ['推理等级：自动'])
-        self.assertEqual(rows[-1][1], stage_model_picker.ADD_MODEL_LABEL,
-                         '「+ 添加模型…」仍是菜单尾项')
-
-        levels = [(picker._level_menu.entrycget(i, 'label'),
-                   picker._level_menu.entrycget(i, 'value'))
-                  for i in range(picker._level_menu.index('end') + 1)]
-        self.assertEqual([value for _label, value in levels],
+        reasoning = [row for row in spec if row['kind'] == 'reasoning']
+        self.assertEqual([row['label'] for row in reasoning], ['推理等级'])
+        self.assertEqual([value for value, _label, _cur in reasoning[0]['levels']],
                          ['auto', 'low', 'medium', 'high'])
+        self.assertEqual(spec[-1]['kind'], 'add')
+        self.assertEqual(spec[-1]['label'], stage_model_picker.ADD_MODEL_LABEL,
+                         '「+ 添加模型…」仍是浮层尾项')
 
         picker.choose_reasoning('high')
         self.assertEqual(stage_config.get(self.desktop.root, 'keyframe')['reasoning'], 'high')
-        picker._fill_menu()
-        rows = self._menu_rows(picker._menu)
-        self.assertEqual([row[2] for row in rows if row[1] == '会推理'], ['推理·高'])
-        self.assertEqual([row[1] for row in rows if row[0] == 'cascade'], ['推理等级：高'])
+        spec = self._spec_rows(picker)
+        models = [row for row in spec if row['kind'] == 'model']
+        self.assertEqual([row['badge'] for row in models if row['label'] == '会推理'],
+                         ['推理·高'])
+        reasoning = [row for row in spec if row['kind'] == 'reasoning']
+        self.assertEqual([cur for _v, _l, cur in reasoning[0]['levels']],
+                         [False, False, False, True], '高档应为当前档')
 
         picker.choose_reasoning('没这档')
         self.assertEqual(stage_config.get(self.desktop.root, 'keyframe')['reasoning'], 'auto')

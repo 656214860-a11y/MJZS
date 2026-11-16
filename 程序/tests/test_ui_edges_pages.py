@@ -395,12 +395,12 @@ class UiEdgePagesTests(UiEdgeCase):
             d.show(PAGE["video"], video_mode="cloud"); win.update()
             self.assertIn("配置线上视频 API", widget_texts(d.content),
                          "还没配线上接口时，工作台那一屏仍留一处能配")
-            # 共享输入框的模型选择器是下拉框按钮：点击弹菜单列表，不弹模态窗。
+            # 共享输入框的模型选择器是无外框下拉按钮（R2964）：点击在上方弹卡片，不弹模态窗。
             from tkinter import ttk
             shared = d.shared_input
             self.assertIsNotNone(getattr(shared, 'model_picker', None), '共享输入框有模型下拉框')
-            self.assertIsInstance(shared.model_picker.models, ttk.Menubutton,
-                                  '模型选择器是 Menubutton 下拉框')
+            self.assertIsInstance(shared.model_picker.models, ttk.Button,
+                                  '模型选择器是无外框下拉按钮')
 
     def test_writing_page_first_line_and_removed_labels(self):
         """第 31 期第 1 条＋第 69 期任务 4：01 剧本准备页不再摆那一长句说明，四处多余文字也删掉。"""
@@ -1126,8 +1126,8 @@ class StageConfigEntryTests(unittest.TestCase):
                     self.assertIsNone(d.header_stage_button,
                                       "第 %d 页标题旁没有阶段配置" % index)
             from tkinter import ttk
-            self.assertIsInstance(d.shared_input.model_picker.models, ttk.Menubutton,
-                                  "共享输入框的模型选择器是下拉框按钮")
+            self.assertIsInstance(d.shared_input.model_picker.models, ttk.Button,
+                                  "共享输入框的模型选择器是无外框下拉按钮")
         self.assertEqual(errors, [], "这一步不该靠弹框收场")
 
 class BriefTintTests(unittest.TestCase):
