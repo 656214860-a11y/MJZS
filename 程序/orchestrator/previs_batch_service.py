@@ -3,7 +3,7 @@ from datetime import datetime
 from pathlib import Path
 
 import contract.stage_layout as stage_layout
-import stage_parallel
+import orchestrator.stage_parallel as stage_parallel
 import domain.white_model_service as white_model_service
 from file_cache import read_json
 

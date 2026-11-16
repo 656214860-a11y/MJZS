@@ -7,8 +7,8 @@ R2540 给递归补上按模型窗口推导的估算 token 预算（``_charge_inl
 """
 from pathlib import Path
 
-import skill_registry
-from skill_registry import reference_row as _reference_row
+import orchestrator.skill_registry as skill_registry
+from orchestrator.skill_registry import reference_row as _reference_row
 from contract.workflow_context_budget import estimate_tokens, skill_inline_token_budget
 
 _TEXT_SCRIPT_SUFFIXES = ('.py', '.sh', '.ps1', '.bat', '.cmd', '.json', '.yaml', '.yml', '.toml', '.ini', '.cfg')

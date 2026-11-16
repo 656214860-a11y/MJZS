@@ -16,7 +16,7 @@
 import app_logging
 from pathlib import Path
 
-import stage_parallel
+import orchestrator.stage_parallel as stage_parallel
 import tk_timers
 from contract.pet_bus import STAGES, STAGE_NAMES
 
@@ -192,7 +192,7 @@ def selected_skills(project, stage):
     if project is None:
         return []
     try:
-        import stage_config
+        import orchestrator.stage_config as stage_config
         return [str(name) for name in (stage_config.get(project, stage).get('skills') or [])]
     except Exception:
         return []
@@ -219,7 +219,7 @@ def unchecked(project, stage):
 def model_label(desktop, project, stage):
     """弹窗「模型」那一行：挑过的写模型名，没挑过写「自动」。"""
     try:
-        import stage_config
+        import orchestrator.stage_config as stage_config
         chosen = str(stage_config.get(project, stage).get('model') or '')
     except Exception:
         chosen = ''
@@ -235,7 +235,7 @@ def model_label(desktop, project, stage):
 def paid_count(stage, names=None):
     """这一步会花钱的 SKILL 有几个（表读不出来就按 0）。"""
     try:
-        import skill_registry
+        import orchestrator.skill_registry as skill_registry
         known = {skill.name: skill for skill in skill_registry.default_registry().getByStage(stage)}
     except Exception:
         return 0

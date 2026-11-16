@@ -6,8 +6,8 @@ import shutil
 from pathlib import Path
 from agent.core import save
 from file_cache import read_json
-import skill_registry
-from skill_registry import nested_references as _nested_references, reference_row as _reference_row
+import orchestrator.skill_registry as skill_registry
+from orchestrator.skill_registry import nested_references as _nested_references, reference_row as _reference_row
 from orchestrator.skill_inline import (_charge_inline, _is_text_script, _recurse_references,
                           _skill_inline_budget, _skipped_inline_hint)
 import client_profiles, orchestrator.edit_habits as edit_habits, stage_layout
@@ -270,8 +270,8 @@ def stage_model(project,stage):
       各自那一栏决定，硬塞一个别的服务商的模型名只会让窗口起不来。
     """
     try:
-        import stage_config
-        import stage_models
+        import orchestrator.stage_config as stage_config
+        import orchestrator.stage_models as stage_models
         import model_pool
         chosen=str(stage_config.get(project,STAGE_CONFIG_STAGES.get(stage,stage)).get('model') or '').strip()
     except Exception:
@@ -307,7 +307,7 @@ def effective_model(project,stage='previs'):
     if engine == 'desktop-app':
         return cfg['display_model']
     try:
-        import stage_config
+        import orchestrator.stage_config as stage_config
         import model_pool
         selected = str(stage_config.get(project, STAGE_CONFIG_STAGES.get(stage, stage)).get('model') or '').strip()
         if model_pool.desktop_engine(selected):
@@ -355,7 +355,7 @@ def desktop_route_notice(project, stage, selected, item=None):
 def current(project,stage='previs', *, direct_api=False, model_snapshot=None):
     value=load(project,stage);engine=value['engine']
     selected='';item={};local_program=''
-    import stage_config
+    import orchestrator.stage_config as stage_config
     import model_pool
     if model_snapshot is None:
         selected = str(stage_config.get(project, STAGE_CONFIG_STAGES.get(stage, stage)).get('model') or '').strip()
@@ -422,7 +422,7 @@ def current(project,stage='previs', *, direct_api=False, model_snapshot=None):
     profile.update(edit_habits.config_fields(stage))  # REQ-S01-61：建配置时读一次已采用的修改习惯
     if stage == 'writing': profile['writer_style'] = stage_config.writer_style(project, 'script')
     try:
-        import skill_registry
+        import orchestrator.skill_registry as skill_registry
         reg = skill_registry.default_registry()
         profile['stage_skills'] = [str(reg.getById(item).path) for item in
                                   stage_config.get(project, STAGE_CONFIG_STAGES.get(stage, stage)).get('skills', ())
@@ -601,8 +601,8 @@ def desktop_model_label(model_id, label):
     return str(label or '')+('（未安装）' if not _DESKTOP_INSTALLATION_CACHE[engine] else '')
 def validate_selected_skills(project, stage):
     """在解析前检查保留的选择，禁止把失效选择静默变成未勾选。"""
-    import stage_config
-    import skill_registry
+    import orchestrator.stage_config as stage_config
+    import orchestrator.skill_registry as skill_registry
     from file_cache import read_json
     target = stage_config.path(project)
     data = read_json(target)

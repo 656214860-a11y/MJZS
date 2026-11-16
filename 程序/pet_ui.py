@@ -51,7 +51,7 @@ import pet_report
 import pet_state
 import orchestrator.stage_handler_registry as stage_handler_registry
 import orchestrator.stage_flow as stage_flow
-import stage_parallel
+import orchestrator.stage_parallel as stage_parallel
 import token_saver
 from contract.pet_settings_contract import LEVEL_NOTES
 from ui_widgets import ContextMenu, ask_confirmation

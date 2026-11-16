@@ -169,7 +169,7 @@ def _recon_request(project):
 def _recon_topic(project):
     """热点速成只借「故事题材」这一个方向词起手；梗概等原创内容不出去。"""
     from domain.idea_brief_form import brief_creation_values
-    from project_context_factory import project_context
+    from orchestrator.project_context_factory import project_context
     try:
         values = brief_creation_values(project_context(project))
     except (OSError, ValueError, TypeError):
@@ -200,7 +200,7 @@ def _recon_target(context, project, material_source):
 def _recon_card(context):
     """素材采风：③④ 才激活；把对标对象的公开情报抓回来装成《对标情报卡》。"""
     from domain.recon_service import MATERIAL_SOURCES, ReconPorts, collect, save_card, summary
-    import stage_config
+    import orchestrator.stage_config as stage_config
     ctx = context or {}
     project = project_of(ctx)
     lock = stage_config.workflow_lock(project) or {}

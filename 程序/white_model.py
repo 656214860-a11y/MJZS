@@ -26,7 +26,7 @@ _BLENDER_CACHE = _service._BLENDER_CACHE
 def _brief_block(stage):
     """Load orchestration guidance only when composing a white-model task."""
     from importlib import import_module
-    return import_module('stage_parallel').brief_block(stage)
+    return import_module('orchestrator.stage_parallel').brief_block(stage)
 
 
 def choose_previs(desktop):
@@ -72,7 +72,7 @@ def project_for_app(app):
 _BASE_CACHE = _service._BASE_CACHE
 _DIR_CACHE = _service._DIR_CACHE
 def shot_directory(project,sid,source=None):
-    from project_context_factory import project_context
+    from orchestrator.project_context_factory import project_context
     return _service.shot_directory(project_context(project),sid,workspace(),source)
 
 def find_blender(refresh=False):

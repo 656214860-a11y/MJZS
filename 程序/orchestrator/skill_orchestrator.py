@@ -24,10 +24,10 @@ import contract.pet_bus as pet_bus
 import pet_llm
 import contract.script_contract as script_contract
 import orchestrator.skill_budget as skill_budget
-import skill_registry
+import orchestrator.skill_registry as skill_registry
 import orchestrator.skill_templates as skill_templates
 import skill_tools
-import stage_parallel
+import orchestrator.stage_parallel as stage_parallel
 from file_cache import read_json
 from model_router import spend_kind
 

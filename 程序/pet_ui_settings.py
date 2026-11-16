@@ -90,7 +90,7 @@ class PetSettingsMixin:
         return key
     def delete_pool_model(self, model_id):
         """模型管理里删一条：顺手把四个维度里指向它的那一项退回默认、SKILL 预设与当前项目各阶段里指向它的模型改回「自动」，不留死引用。"""
-        import stage_config
+        import orchestrator.stage_config as stage_config
         names, keep = self._pool_model_names(model_id)
         data = self._prune_tasks(model_pool.remove(model_pool.raw(self.program), model_id))
         self._agent_file = model_pool.store(data, self.program)
@@ -113,7 +113,7 @@ class PetSettingsMixin:
         return Path(root) if root else None
     def pool_model_stages(self, model_id):
         """删除前给确认框用：当前项目里会改成「自动」的阶段名。"""
-        import stage_config
+        import orchestrator.stage_config as stage_config
         from contract.pet_bus import STAGE_NAMES
         found = stage_config.project_model_references(self._current_project(), *self._pool_model_names(model_id))
         return [STAGE_NAMES.get(stage, stage) for stage in found]
@@ -125,7 +125,7 @@ class PetSettingsMixin:
         return names_of(model_id, records.get(model_id)), keep
     def pool_model_presets(self, model_id):
         """删除前给确认框用：会改成「自动」的预设，[(阶段名, 预设名)]。"""
-        import stage_config
+        import orchestrator.stage_config as stage_config
         from contract.pet_bus import STAGE_NAMES
         found = stage_config.preset_model_references(*self._pool_model_names(model_id), program=self.program)
         return [(STAGE_NAMES.get(stage, stage), label) for stage, label in found]

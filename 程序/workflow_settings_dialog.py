@@ -34,7 +34,7 @@ def show_settings(desktop,project,on_saved=None,stage='previs',function=None):
     ttk.Label(body,text='当前项目的本流程生效；保存后用于新任务，进行中的整批任务不变。',wraplength=WRAPLENGTH['lg']).grid(row=0,column=0,columnspan=3,sticky='w',pady=(SPACING['none'],SPACING['xs']))
     # 第 63 期任务 3.1／3.2：每一次打开阶段配置都能看见「本步怎么并行」和「门禁过没过」——
     # 口径只有 stage_parallel 一处（附件那张并行配置速查表）。
-    from stage_parallel import page_lines
+    from orchestrator.stage_parallel import page_lines
     ttk.Label(body,text='\n'.join(page_lines(project,stage)),justify='left',
               wraplength=WRAPLENGTH['lg'],style='Muted.TLabel').grid(row=0,column=0,columnspan=3,sticky='w',pady=(SPACING['none'],SPACING['md']))
     chosen=tk.StringVar(value=ENGINES[saved['engine']]);active=[saved['engine']]

@@ -52,7 +52,7 @@ class PanelWorkflowMixin:
         except Exception:
             app_logging.swallowed()
         try:
-            import stage_config
+            import orchestrator.stage_config as stage_config
             return stage_config.workflow_lock(project)
         except Exception:
             return {}
@@ -63,7 +63,7 @@ class PanelWorkflowMixin:
         if hint is None:
             return ''
         try:
-            import stage_config
+            import orchestrator.stage_config as stage_config
             values = stage_config.workflow_lock(self.project())
         except Exception:
             values = {}
@@ -97,7 +97,7 @@ class PanelWorkflowMixin:
             notify(self.winfo_toplevel(), str(exc), title='制作锁预选',
                    status=getattr(self.desktop, 'status', None), modal=False)
             return None
-        import stage_config
+        import orchestrator.stage_config as stage_config
         current = stage_config.workflow_lock(project)
         window = BaseDialog(self.winfo_toplevel(), '制作锁预选', modal=False, chrome=False)
         window.resizable(True, True)

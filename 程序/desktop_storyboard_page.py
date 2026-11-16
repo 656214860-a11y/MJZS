@@ -64,7 +64,7 @@ class _FirstFramePage:
             side='bottom', fill='x', pady=(SPACING['sm'], SPACING['none'])
         )
         table_box.pack(fill='both',expand=True)
-        from stage_models import manual_command
+        from orchestrator.stage_models import manual_command
         make_button=self.page.button(actions,'手动制作首帧',manual_command(self.page,'keyframe',self.make_frames,self.page.win))
         make_button.configure(style='Tokens.Primary.TButton')
         make_button.pack_configure(

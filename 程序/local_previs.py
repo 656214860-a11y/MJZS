@@ -168,7 +168,7 @@ class _LocalPrevisWindow:
         # 与标题栏那颗「阶段配置」重复，一并删掉——模型、SKILL、调用设置、SKILL 说明都在面板里。
         # 第 32 期第 1 条：这颗按钮改名「手动制作白模」（与其它阶段页的「手动XX」一个写法）。
         # 第 47 期第 3 条：点「手动制作白模」先问一句模型配没配（没配就问要不要现在去「阶段配置」）。
-        from stage_models import manual_command
+        from orchestrator.stage_models import manual_command
         self.start_button=PrimaryButton(buttons,text='手动制作白模',width=CHAR_WIDTH['3xl'],
                                    command=manual_command(self.desktop,'previs',self.start,self.desktop.win))
         self.start_button.pack(side='left',padx=(SPACING['none'],SPACING['xs']),pady=SPACING['xs']);ui_plugin_registry.module('stage_flow').follow(self.start_button,'previs')

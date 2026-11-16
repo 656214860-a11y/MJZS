@@ -23,7 +23,7 @@ def set_execution_presenter(presenter):
 
 def install_ui_presenters(execution_presenter, plan_presenter, confirmation_presenter):
     """由 L4 组合根一次安装阶段窗口与确认呈现器。"""
-    import stage_models
+    import orchestrator.stage_models as stage_models
     set_execution_presenter(execution_presenter)
     stage_models.set_plan_window_presenter(plan_presenter)
     stage_models.set_confirmation_presenter(confirmation_presenter)

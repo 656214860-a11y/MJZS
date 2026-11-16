@@ -5,7 +5,7 @@
 from pathlib import Path
 
 import file_cache
-from project_context_factory import project_context
+from orchestrator.project_context_factory import project_context
 from orchestrator.stage_write_preparation_service import prepare_asset_write
 
 

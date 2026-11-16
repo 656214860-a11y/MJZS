@@ -62,7 +62,7 @@ def upstream_send_error(project, stage):
     if not stage or stage == 'script' or stage not in pet_bus.STAGES:
         return ''
     try:
-        import stage_parallel
+        import orchestrator.stage_parallel as stage_parallel
         row = stage_parallel.gate_for(stage)
     except Exception:
         return ''
@@ -81,7 +81,7 @@ def upstream_send_error(project, stage):
         return ''
     upstream = pet_bus.STAGES[index - 1]
     try:
-        import stage_parallel as _sp
+        import orchestrator.stage_parallel as _sp
         if _sp.stage_state(project, upstream) in _sp.EXEMPT_STATES:
             return ''
     except Exception:
@@ -349,7 +349,7 @@ class SharedStageInput(ttk.Frame):
         if self._skills_cache is not None:
             return self._skills_cache
         try:
-            import skill_registry
+            import orchestrator.skill_registry as skill_registry
             self._skills_cache = list(skill_registry.default_registry().getAll())
             return self._skills_cache
         except Exception:
@@ -478,7 +478,7 @@ class SharedStageInput(ttk.Frame):
     def _skill_list_items(self):
         """当前阶段技能在前、其余在后；去重、限量。"""
         try:
-            import skill_registry
+            import orchestrator.skill_registry as skill_registry
             registry = skill_registry.default_registry()
             current = list(registry.getByStage(self.stage))
             seen = {self._skill_name(item) for item in current if self._skill_name(item)}
@@ -492,7 +492,7 @@ class SharedStageInput(ttk.Frame):
     def _default_skills(self):
         """当前阶段在三虎默认里的 skill 名单（stage_config 条目的 skills 字段）。"""
         try:
-            import stage_config
+            import orchestrator.stage_config as stage_config
             project = self.project
             if project is None:
                 return []
@@ -504,7 +504,7 @@ class SharedStageInput(ttk.Frame):
 
     def _toggle_skill_default(self, name):
         """勾选/取消本阶段默认 skill：写回 stage_config（三虎自动流程按此执行）。"""
-        import stage_config
+        import orchestrator.stage_config as stage_config
         project = self.project
         if project is None:
             _say(self.status, '请先打开一个项目，再设置本阶段默认技能')
@@ -547,7 +547,7 @@ class SharedStageInput(ttk.Frame):
         if isinstance(item, dict):
             return str(item.get('description') or '')
         try:
-            import skill_registry
+            import orchestrator.skill_registry as skill_registry
             registry = skill_registry.default_registry()
             found = registry.getById(str(item))
             return str(found.get('description') or '') if isinstance(found, dict) else ''
@@ -575,7 +575,7 @@ class SharedStageInput(ttk.Frame):
         if not ref:
             return
         try:
-            import skill_import_service, skill_registry
+            import skill_import_service, orchestrator.skill_registry as skill_registry
             from pathlib import Path
             registry = skill_registry.default_registry()
             program = Path(skill_import_service.__file__).resolve().parent
@@ -601,7 +601,7 @@ class SharedStageInput(ttk.Frame):
         if not source:
             return
         try:
-            import skill_import_service, skill_registry
+            import skill_import_service, orchestrator.skill_registry as skill_registry
             registry = skill_registry.default_registry()
             plan = skill_import_service.plan_import(
                 source, registry.user_stage_directory_for(self.stage), self.stage, registry)

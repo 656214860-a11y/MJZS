@@ -273,4 +273,4 @@ def image_prompt(source, context, shot_id=None, outputs=None,shot_ids=None):
 def _brief_block(stage):
     """Obtain optional orchestration guidance only while building an agent task."""
     from importlib import import_module
-    return import_module('stage_parallel').brief_block(stage)
+    return import_module('orchestrator.stage_parallel').brief_block(stage)

@@ -22,7 +22,7 @@ def show(desktop):
     if project is not None:
         from agent.core import read
         from pet_state import state_path
-        import stage_parallel
+        import orchestrator.stage_parallel as stage_parallel
         from contract.pet_bus import STAGES
         path = state_path(project)
         errors = []

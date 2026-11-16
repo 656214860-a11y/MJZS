@@ -4,7 +4,7 @@ import json
 import uuid
 from agent.core import read,save
 from domain.asset_batch_service import asset_prompt, register_image, KINDS, image_ready
-import stage_parallel
+import orchestrator.stage_parallel as stage_parallel
 import tk_timers
 
 def launch(app,project,base,items):

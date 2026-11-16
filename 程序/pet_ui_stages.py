@@ -8,7 +8,7 @@ import contract.pet_bus as pet_bus
 import ui.pet_cloud as pet_cloud
 import orchestrator.stage_flow as stage_flow
 import orchestrator.stage_handler_registry as stage_handler_registry
-import stage_parallel
+import orchestrator.stage_parallel as stage_parallel
 from tkinter import TclError
 from ui_widgets import ask_confirmation
 from pet_ui_support import ADVANCE_SECONDS, AUTO_STAGE_VARIABLES, AUTO_VARIABLE_NAMES, CONFIRM_NEED, CONFIRM_TITLE, FALLBACK_ASK, LEVEL_SWITCH_NOTES, ONE_CLICK_ASK, ONE_CLICK_TITLE, PAGE_ASKS, PAW_LEVELS, SANHU_MODES, STAGE_ASK_SECONDS, _BooleanFlag, accepts_keyword
@@ -523,7 +523,7 @@ class PetStagesMixin:
         skill_orchestrator 分层执行、付费的并成一个气泡问一次、结果统一汇报给三虎说出去。
         """
         import skill_panel
-        import skill_registry
+        import orchestrator.skill_registry as skill_registry
         import orchestrator.skill_templates as skill_templates
         params = plan.get('params') or {}
         stage = plan.get('stage')

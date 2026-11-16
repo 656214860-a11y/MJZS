@@ -512,7 +512,7 @@ class _ScriptStructurePage:
             'script_structure_output_preview', editable=True, kind='structured')
         self.page.script_structure_output_box.grid(row=1, column=0, sticky='nsew')
         actions = FlowBar(split_area); actions.grid(row=2, column=0, sticky='ew', pady=(SPACING["xs"], SPACING["none"]))
-        from stage_models import manual_command
+        from orchestrator.stage_models import manual_command
         self.manual_command = manual_command
         action_group = ttk.Frame(actions)
         action_group.pack(anchor='center', pady=SPACING["xs"])

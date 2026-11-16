@@ -3,13 +3,13 @@
 自 stage_execution_service 拆出；那边按原名重新导出，旧调用点与测试补丁点不变。
 """
 from pathlib import Path
-from project_context_factory import project_context
+from orchestrator.project_context_factory import project_context
 from contract.stage_path_service import write_dir
 from orchestrator.stage_publication import publish_stage_bundle
 from orchestrator.stage_publication import publish_stage_text
 import file_cache
 import json
-import stage_config
+import orchestrator.stage_config as stage_config
 from orchestrator.stage_gate_gateways import media_import_publisher
 
 
@@ -55,7 +55,7 @@ def import_animatic_references(project, sources):
 def run_animatic(project, source, references, audio=None, settings=None):
     import tempfile
     from agent.core import save_bytes
-    import stage_parallel
+    import orchestrator.stage_parallel as stage_parallel
     from domain.animatic_service import build_bundle, validate_bundle
     from contract.platform_tools import tool_path
     settings = dict(settings or {})
@@ -148,6 +148,6 @@ def generate_animatic_reference(project, prompt, model, settings=None):
 
 def animatic_preview_spec(project):
     """预演低清规格：画幅跟项目制作锁，分辨率与帧率保持低配；与正式交付规格同源。"""
-    import stage_config
+    import orchestrator.stage_config as stage_config
     from contract.script_contract import preview_spec
     return preview_spec(stage_config.workflow_lock(Path(project)))

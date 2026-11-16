@@ -151,7 +151,7 @@ def _skill_items(desktop):
         except Exception:
             app_logging.swallowed()
     try:
-        import skill_registry
+        import orchestrator.skill_registry as skill_registry
         return list(skill_registry.default_registry().getAll())
     except Exception:
         return []

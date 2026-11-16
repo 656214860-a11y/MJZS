@@ -330,7 +330,7 @@ def _complete_brief(project):
     """读取并按唯一契约复核已确认简报；缺失文件保留既有普通对话路径。"""
     import domain.idea_chat as idea_chat
     from contract.script_contract import brief_document
-    from project_context_factory import project_context
+    from orchestrator.project_context_factory import project_context
     path = idea_chat.brief_complete_path(project_context(project))
     # 已迁移项目只从当前阶段读取；历史项目保留一次只读兼容，避免因目录升级
     # 退化为普通单轮聊天。后续保存始终由当前阶段目录负责，绝不复制回旧 writing。
@@ -1013,7 +1013,7 @@ def _preparation_step(request, *, publish, cancelled, user_message=None, identit
     project, chosen, record, settings, brief, creative = request
     import domain.idea_document_paths as idea_document_paths, workflow_settings
     from copy import deepcopy
-    from project_context_factory import project_context
+    from orchestrator.project_context_factory import project_context
     from contract.stage_path_service import write_dir
     if not callable(publish): raise TypeError('剧本准备阶段需要 L3 注入发布器')
     response_publisher, publish = publish, _cancellable_publisher(publish, cancelled)
@@ -1191,7 +1191,7 @@ def reply(project, creative, cancelled=None, *, publish=None, archive=None, user
         publish = _versioned_publisher(root, publish)
     auto_save_enabled = brief is not None
     from orchestrator.workflow_context_controller import publish_writing_context
-    from project_context_factory import project_context
+    from orchestrator.project_context_factory import project_context
     _ensure_reply_active(cancelled)
     context = publish_writing_context(root, 'writing', workflow_context.snapshot(project_context(root)))
     task = script_prompt(root, None, 'writing', creative_text=creative)
@@ -1308,7 +1308,7 @@ def _cancellable_publisher(publish, cancelled):
 def _save_formal_script(project, result, *, model='', identity=None, publish, previous_script=None):
     """已获准发布的自然剧本复用下载路径、同稿去重和异稿编号规则。"""
     import domain.idea_document_paths as idea_document_paths
-    from project_context_factory import project_context
+    from orchestrator.project_context_factory import project_context
     from domain.writing_quality import split_response, publish_reports, OPEN
     response = result['text']
     text = str(split_response(response)[0] or '').strip()

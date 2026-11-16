@@ -644,7 +644,7 @@ class MediaPagesMixin:
             # R2942：「阶段配置」按钮＋模型下拉框已删除，工作台不再暴露独立入口。
             return
         panel=ttk.Frame(self.content);panel.pack(fill='both',expand=True)
-        from stage_models import manual_command
+        from orchestrator.stage_models import manual_command
         # R2942：视频工作台的「阶段配置」按钮＋模型下拉框删除（模型/技能走共享输入框）。
         self.video=App(panel,video_root,settings_callback=(lambda:ui_plugin_registry.module('cloud_video').settings_window(self)) if is_cloud else None,prompt_callback=prepare_video_prompt,episode_file=None if is_cloud else source,missing_frame_callback=lambda sid,source=source:self.focus_missing_frame(source,sid),report_callback=self.pet_report,manual_command_factory=manual_command)
         # 视频页自己的文字框重排也听主窗口合并器：拖动时并进松手后的补做。
@@ -741,7 +741,7 @@ class MediaPagesMixin:
                 button.pack_configure(pady=SPACING['xs'])
             return button
 
-        from stage_models import manual_command as _manual_audio
+        from orchestrator.stage_models import manual_command as _manual_audio
         _audio_button=audio_button(production,'手动制作配音',
                                    _manual_audio(self,'audio',self.open_audio_skill,self.win),primary=True)
         ui_plugin_registry.module('stage_flow').follow(_audio_button,'audio')
@@ -788,7 +788,7 @@ class MediaPagesMixin:
         return p
     def stage_action_bar(self,stage,manual_text):
         """后期／交付页顶部一行：「手动制作…」按钮（R2942：阶段配置按钮已删）。"""
-        from stage_models import manual_command
+        from orchestrator.stage_models import manual_command
         bar=FlowBar(self.content);bar.pack(fill='x',pady=(SPACING['xs'],SPACING['xs']))
         manual=PrimaryButton(bar,text=manual_text,width=STAGE_ACTION_WIDTH,
                              command=lambda:self.safe(manual_command(self,stage,

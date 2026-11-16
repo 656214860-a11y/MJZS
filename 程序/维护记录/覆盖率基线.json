@@ -2161,6 +2161,12 @@
    "percent": 0.0
   },
   {
+   "module": "project_context_factory.py",
+   "covered": 0,
+   "total": 3,
+   "percent": 0.0
+  },
+  {
    "module": "project_naming.py",
    "covered": 0,
    "total": 4,
@@ -2449,6 +2455,12 @@
    "percent": 0.0
   },
   {
+   "module": "skill_registry.py",
+   "covered": 0,
+   "total": 3,
+   "percent": 0.0
+  },
+  {
    "module": "skill_templates.py",
    "covered": 0,
    "total": 4,
@@ -2486,6 +2498,12 @@
   },
   {
    "module": "stage_completion_service.py",
+   "covered": 0,
+   "total": 3,
+   "percent": 0.0
+  },
+  {
+   "module": "stage_config.py",
    "covered": 0,
    "total": 3,
    "percent": 0.0
@@ -2542,6 +2560,18 @@
    "module": "stage_model_value.py",
    "covered": 0,
    "total": 48,
+   "percent": 0.0
+  },
+  {
+   "module": "stage_models.py",
+   "covered": 0,
+   "total": 3,
+   "percent": 0.0
+  },
+  {
+   "module": "stage_parallel.py",
+   "covered": 0,
+   "total": 3,
    "percent": 0.0
   },
   {
@@ -3223,25 +3253,25 @@
    "percent": 14.8
   },
   {
-   "module": "stage_models.py",
+   "module": "orchestrator/stage_models.py",
    "covered": 36,
    "total": 244,
    "percent": 14.8
   },
   {
-   "module": "skill_registry.py",
+   "module": "orchestrator/skill_registry.py",
    "covered": 98,
    "total": 652,
    "percent": 15.0
   },
   {
-   "module": "stage_config.py",
+   "module": "orchestrator/stage_config.py",
    "covered": 54,
    "total": 352,
    "percent": 15.3
   },
   {
-   "module": "stage_parallel.py",
+   "module": "orchestrator/stage_parallel.py",
    "covered": 103,
    "total": 667,
    "percent": 15.4
@@ -3475,7 +3505,7 @@
    "percent": 60.7
   },
   {
-   "module": "project_context_factory.py",
+   "module": "orchestrator/project_context_factory.py",
    "covered": 6,
    "total": 9,
    "percent": 66.7
@@ -3632,5 +3662,5 @@
   }
  ],
  "modules_covered": 74,
- "modules_total": 603
+ "modules_total": 608
 }

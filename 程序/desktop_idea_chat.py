@@ -384,7 +384,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, I
         ttk.Label(dialog.content, text=notice + '以下信息尚未填写。保存后请再次点击发送。').pack(anchor='w', pady=SPACING['sm'])
         from contract.script_contract import PRODUCTION_LOCK_DEFINITIONS, validate_production_locks
         from production_lock_fields import ProductionLockFields
-        import stage_config
+        import orchestrator.stage_config as stage_config
         lock_labels = {label for item in PRODUCTION_LOCK_DEFINITIONS[5:]
                        for label in (item['label'], *item.get('aliases', ()), item['key'])}
         dialog.brief_fields = {}
@@ -466,7 +466,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, I
         direct_model = request_model['label']
         continuing = bool(direct_model and prepared and
                           writing_api.preparation_continuation(self.root, value))
-        import stage_config
+        import orchestrator.stage_config as stage_config
         from contract.script_contract import PRODUCTION_LOCK_DEFINITIONS
         lock_definitions = PRODUCTION_LOCK_DEFINITIONS
         attachment_fields = {}

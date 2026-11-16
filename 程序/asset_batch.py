@@ -1,5 +1,5 @@
 """Sequential local asset generation with ID-based registration and resumable jobs."""
-import json,os,re,uuid,threading,queue
+import json, os, re, uuid, threading, queue
 from pathlib import Path
 import tkinter as tk
 from tkinter import ttk,messagebox
@@ -8,7 +8,7 @@ from comfy_service import Comfy
 from stage_execution_service import remove_asset_batch_model as remove_model, save_asset_batch_settings as save_settings
 import tk_timers
 import ui_plugin_registry
-import stage_models
+import orchestrator.stage_models as stage_models
 from responsive_ui import FlowBar, scroll_form
 from contract.platform_tools import open_target
 from ui_tokens import TEXT_ROWS, WRAPLENGTH, COLORS, SPACING

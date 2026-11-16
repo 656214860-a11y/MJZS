@@ -2,7 +2,7 @@
 
 自 stage_execution_service 拆出；那边按原名重新导出，旧调用点与测试补丁点不变。
 """
-from project_context_factory import project_context
+from orchestrator.project_context_factory import project_context
 from orchestrator.stage_asset_gateways import _json_gateway
 
 

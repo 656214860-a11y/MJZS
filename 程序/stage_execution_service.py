@@ -7,9 +7,9 @@ import file_cache
 import model_pool
 import model_router
 import orchestrator.skill_budget as skill_budget
-import stage_config
-import stage_models
-from project_context_factory import project_context
+import orchestrator.stage_config as stage_config
+import orchestrator.stage_models as stage_models
+from orchestrator.project_context_factory import project_context
 from contract.stage_path_service import write_dir
 from orchestrator.stage_asset_gateways import (  # noqa: F401  re-export
     _json_gateway,
@@ -794,7 +794,7 @@ unwrap_project_result = unwrap_service_result
 
 def require_formal_asset_generation(project, *, online_model):
     """生成正式资产前核验 SG-B 与线上模型；纯计划和浏览不受影响。"""
-    import stage_parallel
+    import orchestrator.stage_parallel as stage_parallel
     gate = stage_parallel.evaluate(project, 'assets')
     if not gate['ok']:
         raise ValueError(stage_parallel.blocked_text(gate))

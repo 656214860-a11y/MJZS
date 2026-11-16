@@ -441,7 +441,7 @@ class _KeyframeComfyWindow(_KeyframeComfyRows):
         # 统筹制作锁只给默认初值；用户已保存的首帧偏好仍是第二优先级。
         from contract.asset_contract import resolve_aspect_ratio
         try:
-            import stage_config
+            import orchestrator.stage_config as stage_config
             self.locked = stage_config.workflow_lock(self.project)
         except Exception:
             self.locked = {}
@@ -607,7 +607,7 @@ class _KeyframeComfyWindow(_KeyframeComfyRows):
 
     def open_stage_config(self):
         """R2942：去底部共享输入框的模型下拉框挑首帧模型（唯一入口）。"""
-        import stage_models
+        import orchestrator.stage_models as stage_models
         stage_models.open_model_dropdown(self.app)
 
     def open_agent_settings(self):

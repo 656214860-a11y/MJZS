@@ -117,7 +117,7 @@ class WritingPageMixin:
 
     def update_recon_button(self):
         """素材来源是「对标爆款」「热点速成」时显示采风，其余来源隐藏（REQ-S01-46）。"""
-        import domain.recon_service as recon_service, stage_config
+        import domain.recon_service as recon_service, orchestrator.stage_config as stage_config
         button=getattr(self,'recon_button',None)
         try:
             if button is None or not button.winfo_exists():return
@@ -131,7 +131,7 @@ class WritingPageMixin:
         页面只做「查素材来源 → 问剧名 → 写请求 → 交给后台」，不联网、不写卡片：
         检索与抓取在 L2 `recon_service`，网络在 L1 `model_pool`。
         """
-        import domain.recon_service as recon_service, stage_config, skill_tools
+        import domain.recon_service as recon_service, orchestrator.stage_config as stage_config, skill_tools
         project = self.root
         if not project:
             return self.status.set('先选项目，再采集对标情报')

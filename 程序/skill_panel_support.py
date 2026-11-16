@@ -10,9 +10,9 @@ import model_pool
 import model_router
 import orchestrator.skill_notes as skill_notes
 import orchestrator.skill_orchestrator as skill_orchestrator
-import skill_registry
-import stage_config
-import stage_models
+import orchestrator.skill_registry as skill_registry
+import orchestrator.stage_config as stage_config
+import orchestrator.stage_models as stage_models
 import ui_plugin_registry
 from contract.pet_bus import STAGE_NAMES, read_json, stage_label as _bus_stage_label
 from ui_tokens import CHAR_WIDTH, COLORS, SPACING, OVERLAY_RATIO, STAGE_PANEL_LAYOUT

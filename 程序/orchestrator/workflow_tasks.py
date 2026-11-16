@@ -1,6 +1,6 @@
 """Content requirements independent of the selected engine or skill."""
 from pathlib import Path
-import stage_parallel
+import orchestrator.stage_parallel as stage_parallel
 from integrations import script_text
 from asset_prompt_rules import rules as asset_rules
 from contract.storyboard_contract import rules as storyboard_rules
@@ -8,7 +8,7 @@ from contract.storyboard_contract import rules as storyboard_rules
 def natural_script_delivery_path(project, at):
     """Exact desktop output target, shared by the task and its receipt watcher."""
     from domain.idea_document_paths import reply_path_parts, storage_identity
-    from project_context_factory import project_context
+    from orchestrator.project_context_factory import project_context
     from contract.project_stages import writing
     from workflow_settings import model_name
     provider, model = storage_identity(model_name(project, 'writing'))
@@ -17,7 +17,7 @@ def natural_script_delivery_path(project, at):
 
 def _agent_delivery_contract(project, at=None):
     from domain.idea_document_paths import PROJECT_DOCUMENT_DIRS, delivery_document_path, storage_identity
-    from project_context_factory import project_context
+    from orchestrator.project_context_factory import project_context
     from workflow_settings import model_name
     from datetime import datetime
     at = datetime.now().timestamp() if at is None else at
@@ -235,7 +235,7 @@ def storyboard_batch_plan(project,scripts,existing):
     """所选输入去掉已做完与同集重复项，返回 (待制作剧本, 待修订分镜, 跳过清单)；任务书与直连执行器共用。"""
     from domain.storyboard_catalog_service import file_order
     from domain.storyboard_catalog_service import catalog, produced_episodes, produced_scripts, resolve_source
-    from project_context_factory import project_context
+    from orchestrator.project_context_factory import project_context
     from storyboard_selection import adopted
     project=Path(project).resolve()
     context=project_context(project)

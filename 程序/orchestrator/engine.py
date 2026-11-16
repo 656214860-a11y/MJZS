@@ -426,7 +426,7 @@ class Studio:
                 if isinstance(value,dict):return {k:redact(v) for k,v in value.items()}
                 if isinstance(value,list):return [redact(v) for v in value]
                 if isinstance(value,str) and value.startswith(('data:image/','data:video/')):
-                    import hashlib,base64
+                    import hashlib, base64
                     return 'sha256:'+hashlib.sha256(base64.b64decode(value.split(',',1)[1])).hexdigest()
                 return value
             preview=redact(payload)
@@ -954,7 +954,7 @@ class Studio:
 
     def output_spec(self):
         """本项目的正式交付规格：画幅／分辨率／帧率来自制作锁，缺省才用出厂默认。"""
-        from stage_config import workflow_lock
+        from orchestrator.stage_config import workflow_lock
         from contract.script_contract import resolve_output_spec
         return resolve_output_spec(workflow_lock(self.root))
 

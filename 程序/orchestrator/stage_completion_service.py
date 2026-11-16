@@ -297,7 +297,7 @@ def _commercial_inventory(root, scope, outputs):
     """只预填可追溯文件，不推断授权，也不扫描无关项目文件。"""
     from agent.core import file_hash, read
     from domain.storyboard_catalog_service import board_source_script
-    from project_context_factory import project_context
+    from orchestrator.project_context_factory import project_context
     root = Path(root).resolve()
     categories = {key: {'items': [], 'unused_reason': ''} for key in COMMERCIAL_CATEGORIES}
     warnings, seen = [], set()
@@ -434,7 +434,7 @@ def validate_commercial_evidence(root, evidence):
             frozen_file(item.get('authorization'))
     # 来源剧本沿用分镜目录的解析规则；不能拿其他作品的授权代替。
     from domain.storyboard_catalog_service import board_source_script
-    from project_context_factory import project_context
+    from orchestrator.project_context_factory import project_context
     board_path = root / scope['source']
     source_value = read(board_path).get('source_script')
     if source_value is not None and not isinstance(source_value, str):
@@ -747,7 +747,7 @@ def completion_evidence(root, stage, video_ready=None):
             from domain.animatic_service import evidence
             return evidence(root)
         if stage == 'storyboard':
-            from stage_parallel import _adopted
+            from orchestrator.stage_parallel import _adopted
             from storyboard_selection import draft_problems
             if not any(shots for _source, shots in _adopted(root)):
                 return False, '还没有已采用且含镜头的分镜 JSON'
@@ -756,7 +756,7 @@ def completion_evidence(root, stage, video_ready=None):
         checks = {'assets': 'assets_locked', 'continuity': 'ledger_ready', 'final': 'batches_ready',
                   'keyframe': 'frames_ready', 'previs': 'previs_ready'}
         if stage in checks:
-            import stage_parallel
+            import orchestrator.stage_parallel as stage_parallel
             result = getattr(stage_parallel, checks[stage])(root)
             return bool(result.get('ok') and result.get('started')), str(result.get('detail') or '阶段成果尚未通过校验')
         if stage == 'video' and callable(video_ready):
@@ -795,8 +795,8 @@ def publish_stage_manifest(root, stage):
     """核验通过后落盘阶段输出清单（stage_layout 契约名 frames.json／previs.json）；清单是回执，不是完成证据。"""
     from datetime import datetime
     from agent.core import save
-    from project_context_factory import project_context
-    from stage_parallel import _adopted
+    from orchestrator.project_context_factory import project_context
+    from orchestrator.stage_parallel import _adopted
     from contract.stage_path_service import write_dir
     root = Path(root)
     stamp = datetime.now().isoformat(timespec='seconds')

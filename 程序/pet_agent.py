@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pet_llm
 import pet_state, stage_layout
-import stage_parallel
+import orchestrator.stage_parallel as stage_parallel
 from agent.core import save
 from contract.pet_bus import SEEN_LIMIT, STAGE_NAMES, STAGES, ErrorLog, emit_safe, read_json
 from pet_agent_rules import PATTERNS, REPLIES, RULES, UNKNOWN_REPLY, VERDICTS
@@ -186,7 +186,7 @@ def match_skill(text, registry=None, current=None):
     lowered = body.lower()
     if 'skill' not in lowered and not any(word in body for word in SKILL_VERBS):
         return None
-    import skill_registry
+    import orchestrator.skill_registry as skill_registry
     reg = registry or skill_registry.default_registry()
     hits, stages, labels = [], [], []
     for item in reg.getAll():

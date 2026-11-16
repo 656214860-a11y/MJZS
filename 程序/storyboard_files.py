@@ -774,7 +774,7 @@ class _StoryboardFilesPage:
                 # 阶段配置紧挨在它右边。
                 row=ttk.Frame(center);row.pack(anchor='w')
                 # 第 47 期第 3 条：点「手动制作分镜」先问一句模型配没配（没配就问要不要现在去「阶段配置」）。
-                from stage_models import manual_command
+                from orchestrator.stage_models import manual_command
                 self.manual_command = manual_command
                 self.controls['agent']=PrimaryButton(
                     row,text='手动制作分镜',command=lambda:self.desktop.safe(

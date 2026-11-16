@@ -312,7 +312,7 @@ class AssetPagesMixin:
         # 第 32 期第 1／5 条：按钮改名「手动制作资产」，并把「手动XX」摆到最左边（左对齐）——
         # 「制图」那个行首标签去掉，按钮自己说得清是干什么的。
         # 第 47 期第 3 条：点「手动制作资产」先问一句模型配没配（没配就问要不要现在去「阶段配置」）。
-        from stage_models import manual_command as _manual
+        from orchestrator.stage_models import manual_command as _manual
         b=PrimaryButton(production,text='手动制作资产',width=STAGE_ACTION_WIDTH,command=lambda:self.safe(_manual(self,'assets',start_assets,self.win)));b.pack(side='left',padx=(SPACING['none'],SPACING['xs']),pady=SPACING['xs']);self.asset_gated_buttons.append(b);self.asset_start_button=b
         ui_plugin_registry.module('stage_flow').follow(b,'assets')       # 三虎在跑这一步就写「自动执行中」并置灰
         # R2942：「阶段配置」按钮＋模型下拉框删除（模型选择已收进共享输入框，技能走 ✦ 图标）。

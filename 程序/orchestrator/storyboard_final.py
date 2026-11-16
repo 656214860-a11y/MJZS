@@ -7,7 +7,7 @@ import copy, shutil, re, uuid, hashlib, json
 from agent.core import read
 from domain.asset_plan import _sync_plan
 from domain.project_naming import dated_path
-from project_context_factory import project_context
+from orchestrator.project_context_factory import project_context
 
 
 def _lineage_source(project, source):

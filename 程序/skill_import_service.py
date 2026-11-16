@@ -35,7 +35,7 @@ import time
 import uuid
 from pathlib import Path
 
-import skill_registry
+import orchestrator.skill_registry as skill_registry
 from agent.core import replace, save
 from contract.pet_bus import read_json
 from contract import platform_tools
