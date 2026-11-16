@@ -57,7 +57,7 @@
   {
    "module": "agent/voice_mcp_server.py",
    "covered": 0,
-   "total": 167,
+   "total": 176,
    "percent": 0.0
   },
   {
@@ -303,7 +303,13 @@
   {
    "module": "cell_hover.py",
    "covered": 0,
-   "total": 714,
+   "total": 682,
+   "percent": 0.0
+  },
+  {
+   "module": "cell_menu.py",
+   "covered": 0,
+   "total": 48,
    "percent": 0.0
   },
   {
@@ -507,7 +513,7 @@
   {
    "module": "desktop.py",
    "covered": 0,
-   "total": 709,
+   "total": 704,
    "percent": 0.0
   },
   {
@@ -565,9 +571,15 @@
    "percent": 0.0
   },
   {
+   "module": "desktop_files_panel.py",
+   "covered": 0,
+   "total": 415,
+   "percent": 0.0
+  },
+  {
    "module": "desktop_idea_attachments.py",
    "covered": 0,
-   "total": 106,
+   "total": 98,
    "percent": 0.0
   },
   {
@@ -591,7 +603,7 @@
   {
    "module": "desktop_idea_menus.py",
    "covered": 0,
-   "total": 84,
+   "total": 71,
    "percent": 0.0
   },
   {
@@ -615,7 +627,7 @@
   {
    "module": "desktop_layout.py",
    "covered": 0,
-   "total": 318,
+   "total": 326,
    "percent": 0.0
   },
   {
@@ -645,7 +657,7 @@
   {
    "module": "desktop_page_nav.py",
    "covered": 0,
-   "total": 400,
+   "total": 403,
    "percent": 0.0
   },
   {
@@ -705,7 +717,13 @@
   {
    "module": "desktop_shared_input.py",
    "covered": 0,
-   "total": 572,
+   "total": 679,
+   "percent": 0.0
+  },
+  {
+   "module": "desktop_shared_menus.py",
+   "covered": 0,
+   "total": 354,
    "percent": 0.0
   },
   {
@@ -723,7 +741,7 @@
   {
    "module": "desktop_status_bridge.py",
    "covered": 0,
-   "total": 58,
+   "total": 62,
    "percent": 0.0
   },
   {
@@ -765,7 +783,7 @@
   {
    "module": "desktop_writing_page.py",
    "covered": 0,
-   "total": 557,
+   "total": 314,
    "percent": 0.0
   },
   {
@@ -831,7 +849,7 @@
   {
    "module": "domain/idea_attachments.py",
    "covered": 0,
-   "total": 322,
+   "total": 323,
    "percent": 0.0
   },
   {
@@ -1623,7 +1641,13 @@
   {
    "module": "pet_agent.py",
    "covered": 0,
-   "total": 762,
+   "total": 758,
+   "percent": 0.0
+  },
+  {
+   "module": "pet_agent_rules.py",
+   "covered": 0,
+   "total": 6,
    "percent": 0.0
   },
   {
@@ -1713,7 +1737,7 @@
   {
    "module": "pet_performance_service.py",
    "covered": 0,
-   "total": 101,
+   "total": 106,
    "percent": 0.0
   },
   {
@@ -1767,7 +1791,7 @@
   {
    "module": "pet_ui_stages.py",
    "covered": 0,
-   "total": 851,
+   "total": 854,
    "percent": 0.0
   },
   {
@@ -1779,7 +1803,7 @@
   {
    "module": "pet_ui_view.py",
    "covered": 0,
-   "total": 664,
+   "total": 695,
    "percent": 0.0
   },
   {
@@ -2073,7 +2097,7 @@
   {
    "module": "skill_command.py",
    "covered": 0,
-   "total": 117,
+   "total": 134,
    "percent": 0.0
   },
   {
@@ -2211,7 +2235,7 @@
   {
    "module": "stage_model_picker.py",
    "covered": 0,
-   "total": 161,
+   "total": 334,
    "percent": 0.0
   },
   {
@@ -2487,7 +2511,7 @@
   {
    "module": "ui/ui_composer_style.py",
    "covered": 0,
-   "total": 26,
+   "total": 27,
    "percent": 0.0
   },
   {
@@ -2529,7 +2553,7 @@
   {
    "module": "ui/ui_tooltip.py",
    "covered": 0,
-   "total": 101,
+   "total": 281,
    "percent": 0.0
   },
   {
@@ -2637,7 +2661,7 @@
   {
    "module": "ui_tokens.py",
    "covered": 0,
-   "total": 166,
+   "total": 168,
    "percent": 0.0
   },
   {
@@ -2733,7 +2757,7 @@
   {
    "module": "voice_engine/bootstrap.py",
    "covered": 0,
-   "total": 135,
+   "total": 138,
    "percent": 0.0
   },
   {
@@ -2751,7 +2775,7 @@
   {
    "module": "voice_engine/offline_asr_server.py",
    "covered": 0,
-   "total": 426,
+   "total": 436,
    "percent": 0.0
   },
   {
@@ -3019,16 +3043,16 @@
    "percent": 21.8
   },
   {
+   "module": "app_logging.py",
+   "covered": 59,
+   "total": 265,
+   "percent": 22.3
+  },
+  {
    "module": "orchestrator/skill_budget.py",
    "covered": 40,
    "total": 172,
    "percent": 23.3
-  },
-  {
-   "module": "app_logging.py",
-   "covered": 59,
-   "total": 248,
-   "percent": 23.8
   },
   {
    "module": "orchestrator/stage_gate_gateways.py",
@@ -3314,5 +3338,5 @@
   }
  ],
  "modules_covered": 71,
- "modules_total": 550
+ "modules_total": 554
 }
