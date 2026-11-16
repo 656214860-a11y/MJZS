@@ -22,7 +22,7 @@ from skill_panel_support import (
                                  stage_for, unregister_live)
 from ui_popup import Flyout, monitor_bounds
 from ui_tokens import COLORS, FONTS, SPACING
-from ui_widgets import setup_styles
+from ui_widgets import SecondaryButton, setup_styles
 
 ADD_MODEL_LABEL = '+ 添加模型…'
 LEVEL_MENU = '推理等级'
@@ -58,9 +58,10 @@ class StageModelPicker(ttk.Frame):
         self._popup_win = None         # 浮层所属主窗（解绑点外部监听用）
         self._popup_binds = []         # 主窗上的点外部／Esc 绑定 (event, seqid)
         # R2964：Menubutton 换无外框按钮——文案经 _display 带「▾」，model 变量仍是纯模型名。
-        self.models = ttk.Button(self, textvariable=self._display,
-                                 style='Tokens.Composer.Model.TButton',
-                                 command=self.toggle_popup, takefocus=0)
+        # 语义组件 SecondaryButton＋自定义无框样式（按钮边界门禁要求走 ui_widgets 组件）。
+        self.models = SecondaryButton(self, textvariable=self._display,
+                                      style='Tokens.Composer.Model.TButton',
+                                      command=self.toggle_popup, takefocus=0)
         self.models.pack(side='left')
         register_live(self)
         self.bind('<Destroy>', self._on_destroy, add='+')
@@ -307,9 +308,11 @@ class StageModelPicker(ttk.Frame):
 
     def _model_row(self, parent, spec):
         row = tk.Frame(parent, bg=COLORS['background_primary'])
-        tk.Label(row, text='✓' if spec['current'] else '', width=2,
-                 bg=COLORS['background_primary'], fg=COLORS['primary'],
-                 font=FONTS['hint'], anchor='w', pady=SPACING['xs']).pack(side='left')
+        # ✓ 常渲染、非当前项用底色藏起：列宽恒定且不写数字 width（token 棘轮门禁）。
+        tk.Label(row, text='✓', anchor='w',
+                 bg=COLORS['background_primary'],
+                 fg=COLORS['primary'] if spec['current'] else COLORS['background_primary'],
+                 font=FONTS['hint'], pady=SPACING['xs']).pack(side='left')
         tk.Label(row, text=spec['label'], anchor='w',
                  bg=COLORS['background_primary'], fg=COLORS['text_primary'],
                  font=FONTS['hint'], padx=SPACING['sm'],
