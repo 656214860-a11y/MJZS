@@ -10,7 +10,7 @@ import time
 import tkinter as tk
 from tkinter import ttk
 
-from ui_tokens import COLORS, FONTS, SPACING
+from ui_tokens import CHAR_WIDTH, COLORS, FONTS, SPACING, TEXT_ROWS
 from ui_widgets import EllipsisLabel
 from ui.ui_status_bus import StatusBus
 
@@ -166,8 +166,8 @@ class StatusBar(ttk.Frame):
             self._open_history()
 
     def _open_history(self):
-        # 弹窗走统一组件 BaseDialog（ui_widgets），业务模块不得直接建 Toplevel。
-        from ui_widgets import BaseDialog
+        # 弹窗走统一组件 BaseDialog、正文走 TextArea（业务模块不得直接建 Toplevel/Text）。
+        from ui_widgets import BaseDialog, TextArea
         popup = BaseDialog(self, '消息历史', modal=False, chrome=False,
                            on_close=self._on_history_closed)
         header = tk.Label(popup.content, text='消息历史', bg=COLORS['background_card'],
@@ -177,10 +177,8 @@ class StatusBar(ttk.Frame):
                          fg=COLORS['text_muted'], font=FONTS['body'])
         close.place(relx=1.0, x=-SPACING['sm'] - 12, y=SPACING['xs'], anchor='ne')
         close.bind('<Button-1>', lambda _event: popup.close())
-        text = tk.Text(popup.content, width=64, height=8, relief='flat', wrap='word',
-                       bg=COLORS['background_card'], fg=COLORS['text_primary'],
-                       font=FONTS['pet_hint'], state='disabled',
-                       highlightthickness=0, padx=SPACING['xs'], pady=SPACING['xs'])
+        text = TextArea(popup.content, width=CHAR_WIDTH['field_md'], height=TEXT_ROWS['lg'],
+                        wrap='word', state='disabled')
         text.pack(fill='both', expand=True, padx=SPACING['xs'], pady=(SPACING['none'], SPACING['sm']))
         lines = []
         for msg in self._bus.history():

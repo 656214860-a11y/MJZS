@@ -9,6 +9,7 @@ API 形态借鉴 PyPubSub（BSD-2-Clause）的 subscribe/publish；零第三方�
 """
 from __future__ import annotations
 
+import logging
 import queue
 import threading
 import time
@@ -41,6 +42,21 @@ class Message:
         """按级别给默认生命周期：error/warning 常驻（直到替换或处理），其余自动消失。"""
         ttl = None if level in PERSISTENT_LEVELS else (AUTO_DISMISS_MS if auto else None)
         return cls(level=level, text=str(text), ttl=ttl, source=source)
+
+
+def deliver_notice(bus, status, level, text):
+    """通知分发的统一出口（R3056 从 ui_widgets 迁入以守住模块行数棘轮）：
+    有总线走四级消息并同步泵（旧 StringVar 同帧镜像），无总线落旧状态栏；
+    错误级另写应用日志（app_logging 轮转日志+脱敏过滤）。"""
+    if bus is not None:
+        bus.publish(Message.make(level, text, source='notifier'))
+        bus.pump()
+    else:
+        setter = getattr(status, 'set', None)
+        if callable(setter):
+            setter(text)
+    if level == 'error':
+        logging.getLogger('ui_widgets').error('通知错误：%s', text)
 
 
 class StatusBus:

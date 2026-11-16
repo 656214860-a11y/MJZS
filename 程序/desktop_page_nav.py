@@ -180,7 +180,10 @@ class PageNavMixin:
             target=self.root
             ttk.Label(self.content,text='剧本准备',font=FONTS['heading_1']).pack(anchor='w',padx=SPACING['lg'],pady=(SPACING['lg'],SPACING['sm']))
             ttk.Label(self.content,text='正在打开剧本准备…',style='Muted.TLabel').pack(anchor='w',padx=SPACING['lg'])
-            self.status.set('正在打开剧本准备…')
+            # R3056：加载提示只留在内容区标签；状态变量静默落项目路径——二次进壳与慢构建
+            # 都不再把它覆盖回「正在打开…」，启动验收探针与三虎始终读到已落位的事实。
+            self._set_status_quiet(str(self.root))
+            self.status_bar.set_segment('path',str(self.root),tooltip=str(self.root))
             self.fit_content()
             def build_startup_script_page():
                 # 启动画面还盖着时直接在幕后建完整页：揭开后用户看到的就是完整页面。

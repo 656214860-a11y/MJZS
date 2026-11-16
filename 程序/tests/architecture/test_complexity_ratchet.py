@@ -66,7 +66,7 @@ PARAM_CAPS = {
 }
 CLASS_CAPS = {
     ('pet_cloud.py', 'Cloud'): 1108,
-    ('desktop_idea_chat.py', 'IdeaChatMixin'): 645,  # R2862：receive_brief 去掉 configured_locks 透传后实测 630，登记 645
+    ('desktop_idea_chat.py', 'IdeaChatMixin'): 637,  # R3056：R2989 删除会话说明行后实测 622，登记下调
     ('app.py', 'App'): 1388,
     ('desktop.py', 'Desktop'): 819,  # R2942：页面级阶段配置按钮/模型下拉框删除，实测 819，登记下调
     ('skill_panel.py', 'Panel'): 646,  # R2942：阶段配置按钮工厂删除后实测 631，登记 646

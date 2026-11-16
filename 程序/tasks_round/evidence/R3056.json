@@ -1,0 +1,15 @@
+{
+  "round": 3056,
+  "commit_base": "ac519f6b",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k ui_status writing_status ui_batch3 desktop_startup_perf ui_widgets usage_indicator test_layers test_complexity_ratchet test_module_size_ratchet test_token_boundary test_input_boundary test_silent_exception_ratchet",
+    "exit": 0,
+    "passed": 104,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T22:50:43"
+}

@@ -55,7 +55,7 @@ from ui_shortcuts import ShortcutRegistry
 import ui.ui_stage_popups as ui_stage_popups# noqa: F401  导入即向 stage_exec 登记阶段弹窗呈现器
 from ui_widgets import (BaseDialog, BusyState, ContextMenu, Card, DataTable, NotificationDispatcher,
                         PrimaryButton, SecondaryButton, TextArea, HintLabel, Tooltip, ask_confirmation, ask_string, setup_styles)
-from ui.ui_status_bus import Message, StatusBus  # R2989 P1：统一状态栏消息总线
+from ui.ui_status_bus import StatusBus  # R2989 P1：统一状态栏消息总线
 from ui.ui_status_bar import StatusBar
 from ui_icons import IconLoader
 
@@ -147,23 +147,10 @@ from desktop_layout import LayoutMixin
 from desktop_pet_bridge import PetBridgeMixin, PET_STAGE_POLL, UNATTENDED_SWITCH
 from desktop_async_tasks import AsyncTasksMixin
 from desktop_tray import TrayMixin
+# R3056 收尾：桥接与左区段方法拆入 StatusBridgeMixin；status_kind/STATUS_* 一并迁出，别名保留给既有导入。
+from desktop_status_bridge import STATUS_ERROR_MARKERS, STATUS_RUNNING_MARKERS, StatusBridgeMixin, status_kind  # noqa: F401
 
-
-
-STATUS_ERROR_MARKERS=('失败','错误','异常','无法','未能','未完成','未启动','出错','中断','超时','暂缓')
-STATUS_RUNNING_MARKERS=('正在','处理中','执行中','生成中','加载中','检测中','排队','请稍候','等待')
-# 数量为零的写法（「失败 0 个」「0 个失败」「失败：0」）只报计数，不算错误；分色前先把这些片段抹掉。
-_STATUS_ZERO_COUNT=re.compile(r'(?:'+('|'.join(STATUS_ERROR_MARKERS))+r')\s*[:：]?\s*0(?![\d.])|(?<![\d.])0\s*个?\s*(?:'+('|'.join(STATUS_ERROR_MARKERS))+r')')
-
-
-def status_kind(message):
-    """把状态栏文本归为就绪／执行中／失败三类；失败优先于执行中，零计数的失败不算错误。"""
-    text='' if message is None else str(message)
-    if any(marker in _STATUS_ZERO_COUNT.sub('', text) for marker in STATUS_ERROR_MARKERS):return 'error'
-    if any(marker in text for marker in STATUS_RUNNING_MARKERS):return 'running'
-    return 'ready'
-
-class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMixin, LoginGateMixin, IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin, ProjectPagesMixin, StoryboardPageMixin, WritingPageMixin, IdeaChatMixin, AutoFlowsMixin, AutomationTickMixin, LayoutMixin, PetBridgeMixin, AsyncTasksMixin, TrayMixin):
+class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMixin, LoginGateMixin, IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin, ProjectPagesMixin, StoryboardPageMixin, WritingPageMixin, IdeaChatMixin, AutoFlowsMixin, AutomationTickMixin, LayoutMixin, PetBridgeMixin, AsyncTasksMixin, TrayMixin):
     def __init__(self,win,root=ROOT,*,require_login=False,**page_services):
         self._init_window_and_sidebar(win, root, page_services)
         self._init_body_and_status(win)
@@ -365,52 +352,9 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         side=ttk.Frame(scroll.form,padding=(DESKTOP_LAYOUT['sidebar_padding'],SPACING['xs'],DESKTOP_LAYOUT['sidebar_padding'],DESKTOP_LAYOUT['sidebar_padding']));self.sidebar=side
         side.pack(fill='both',expand=True)
 
-
-    # ---- R2989 P1：统一状态栏桥接 ----
-    def _bus_to_status(self,event):
-        """总线当前消息镜像回旧 StringVar：三虎、忙碌态等既有消费方继续工作。"""
-        kind,message,_previous=event
-        if kind!='current' or message is None or self._status_bridge_active:return
-        self._status_bridge_active=True
-        try:self.status.set(message.text)
-        finally:self._status_bridge_active=False
-
-    def _status_to_bus(self,*_unused):
-        """旧 StringVar 写入桥接进总线（常驻，沿用旧栏「不自动消失」语义）。"""
-        if self._status_bridge_active:return
-        text=self.status.get()
-        kind=status_kind(text)
-        level={'error':'error','running':'warning','ready':'info'}[kind]
-        self.status_bus.publish(Message.make(level,text,source='status',auto=False))
-
-    def set_status_segment(self,key,text,*,tooltip=None):
-        """把页面上下文信息写进统一底栏左区常驻段；返回该段标签。"""
-        return self.status_bar.set_segment(key,text,tooltip=tooltip)
-
-    def bind_status_segment(self,key,var):
-        """把 StringVar 实时绑定为左区常驻段（视频页生成状态等高频更新场景）。"""
-        self._unbind_status_segment(key)
-        def _sync(*_unused):
-            value=str(var.get())
-            self.set_status_segment(key,value,tooltip=value)
-        trace_id=var.trace_add('write',_sync)
-        self._segment_traces[key]=(var,trace_id)
-        _sync()
-
-    def _unbind_status_segment(self,key):
-        pair=self._segment_traces.pop(key,None)
-        if pair is None:return
-        var,trace_id=pair
-        try:var.trace_remove('write',trace_id)
-        except Exception:
-            pass
-
-    def clear_page_segments(self):
-        """换页时清空页面专用段并解除其 StringVar 绑定（page/path/用量指示器为全局常驻）。"""
-        for key in ('usage','script_note','storyboard','video_model','video'):
-            self.status_bar.clear_segment(key)
-            self._unbind_status_segment(key)
-
+    # R3056 收尾：_bus_to_status／_status_to_bus／set_status_segment／bind_status_segment／
+    # _unbind_status_segment／clear_page_segments／_set_status_quiet 已拆入 StatusBridgeMixin
+    # （desktop_status_bridge），Desktop 类行数退回棘轮上限内。
 
     def _initialize_automation_state(self):
         """建立各阶段自动队列的完整初始契约，避免 UI 构造中遗漏状态（状态本体见 desktop_auto_state）。"""
