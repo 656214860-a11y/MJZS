@@ -26,9 +26,9 @@ from storyboard_selection import (
     adopted as _adopted, summary as _summary,
     prune_invalid_adoptions as _prune_invalid_adoptions,
 )
-from storyboard_final_controller import FinalStoryboardController
+from orchestrator.storyboard_final_controller import FinalStoryboardController
 from script_preview_service import should_load_async, preview_chunks, LOADING_PREVIEW
-from storyboard_page_controller import StoryboardPageController
+from orchestrator.storyboard_page_controller import StoryboardPageController
 from storyboard_recycle_service import (
     recycle_plan as _recycle_plan, detach_video_refs as _detach_video_refs,
     recycle_files as _recycle_files, latest_recycle_batch as _latest_recycle_batch,

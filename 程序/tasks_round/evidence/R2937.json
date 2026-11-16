@@ -1,0 +1,15 @@
+{
+  "round": 2937,
+  "commit_base": "b1f4ad2d",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k controller account idea_chat storyboard_final storyboard_page subtitle_export white_model workflow_context page_navigation recycle editing media_page asset_page asset_batch keyframe_page writing_api stage_execution",
+    "exit": 0,
+    "passed": 638,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T09:41:52"
+}

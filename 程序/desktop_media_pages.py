@@ -12,7 +12,7 @@ import tkinter as tk
 import ui_plugin_registry
 from agent.core import read
 from app import App
-import media_page_controller as media_logic
+import orchestrator.media_page_controller as media_logic
 import video_progress
 from local_video import skip_summary
 from pathlib import Path
@@ -802,7 +802,7 @@ class MediaPagesMixin:
         self.stage_button.configure(style='Tokens.Primary.TButton')
         self.stage_button.pack(side='left',padx=(SPACING['sm'],SPACING['xs']),pady=SPACING['xs'])
     def editing(self):
-        from editing_page_controller import EditingPageController
+        from orchestrator.editing_page_controller import EditingPageController
         from domain.stage_workspace_service import ensure_editing_workspace
         controller = EditingPageController(self.root, self.studio)
         result=ensure_editing_workspace(self.root)
@@ -859,7 +859,7 @@ class MediaPagesMixin:
         from stage_execution_service import save_stage_editing_checklist
         edit_button('保存剪辑优化清单',lambda:save_stage_editing_checklist(self.root,box.get('1.0','end-1c')),primary=True)
     def find_editor(self):
-        from media_page_controller import editor_candidates;saved=self.settings.get('jianying','')
+        from orchestrator.media_page_controller import editor_candidates;saved=self.settings.get('jianying','')
         for executable in editor_candidates(saved):
             if executable.is_file():
                 if str(executable)!=saved:

@@ -510,7 +510,7 @@ class ProjectPagesMixin:
         self.project_page_services.open_path(self.root)
     def open_recycle_recovery(self):
         """打开已承诺的回收站恢复入口；恢复决策与磁盘操作均留在 L2/L3。"""
-        from recycle_recovery_controller import RecycleRecoveryController
+        from orchestrator.recycle_recovery_controller import RecycleRecoveryController
         dialog=BaseDialog(self.win,'恢复回收站内容',geometry='920x580',minsize=(720,420))
         controller=RecycleRecoveryController(self.root,self.projects.base,
             register_restored=self.projects.register_restored_projects)

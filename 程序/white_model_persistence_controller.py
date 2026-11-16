@@ -1,18 +1,10 @@
-"""白模预演记录的 L3 发布编排，避免 UI 直连正式写入器。"""
-from agent.core import save
+"""历史入口：实体已迁至 ``orchestrator.white_model_persistence_controller``（T10 包化）。
 
+``import white_model_persistence_controller`` 返回 ``orchestrator.white_model_persistence_controller`` 本体：私有名、模块级状态与
+按扁平名打的 ``mock.patch`` 补丁面和包内路径完全一致；生产侧一律用包路径。
+门面清除轮统一改写测试导入后删除本文件。
+"""
+import sys as _sys
+from orchestrator import white_model_persistence_controller as _entity
 
-def _gateway():
-    return {'publish_json': save}
-
-
-def write_record(root, data, *, writer):
-    return writer(root, data, publish=_gateway()['publish_json'])
-
-
-def import_media(root, sid, source, *, importer):
-    return importer(root, sid, source, publish=_gateway()['publish_json'])
-
-
-def save_notes(root, sid, notes, *, saver):
-    return saver(root, sid, notes, publish=_gateway()['publish_json'])
+_sys.modules[__name__] = _entity

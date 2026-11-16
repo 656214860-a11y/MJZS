@@ -21,7 +21,7 @@
   {
    "module": "account_controller.py",
    "covered": 0,
-   "total": 225,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -129,7 +129,7 @@
   {
    "module": "asset_batch_controller.py",
    "covered": 0,
-   "total": 66,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -189,7 +189,7 @@
   {
    "module": "asset_page_controller.py",
    "covered": 0,
-   "total": 31,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -921,7 +921,7 @@
   {
    "module": "editing_page_controller.py",
    "covered": 0,
-   "total": 87,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -1017,7 +1017,7 @@
   {
    "module": "idea_chat_controller.py",
    "covered": 0,
-   "total": 229,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -1203,7 +1203,7 @@
   {
    "module": "keyframe_page_controller.py",
    "covered": 0,
-   "total": 64,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -1251,7 +1251,7 @@
   {
    "module": "media_page_controller.py",
    "covered": 0,
-   "total": 145,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -1285,6 +1285,60 @@
    "percent": 0.0
   },
   {
+   "module": "orchestrator/account_controller.py",
+   "covered": 0,
+   "total": 225,
+   "percent": 0.0
+  },
+  {
+   "module": "orchestrator/asset_batch_controller.py",
+   "covered": 0,
+   "total": 66,
+   "percent": 0.0
+  },
+  {
+   "module": "orchestrator/asset_page_controller.py",
+   "covered": 0,
+   "total": 31,
+   "percent": 0.0
+  },
+  {
+   "module": "orchestrator/editing_page_controller.py",
+   "covered": 0,
+   "total": 87,
+   "percent": 0.0
+  },
+  {
+   "module": "orchestrator/idea_chat_controller.py",
+   "covered": 0,
+   "total": 229,
+   "percent": 0.0
+  },
+  {
+   "module": "orchestrator/keyframe_page_controller.py",
+   "covered": 0,
+   "total": 64,
+   "percent": 0.0
+  },
+  {
+   "module": "orchestrator/media_page_controller.py",
+   "covered": 0,
+   "total": 145,
+   "percent": 0.0
+  },
+  {
+   "module": "orchestrator/page_navigation_controller.py",
+   "covered": 0,
+   "total": 92,
+   "percent": 0.0
+  },
+  {
+   "module": "orchestrator/recycle_recovery_controller.py",
+   "covered": 0,
+   "total": 41,
+   "percent": 0.0
+  },
+  {
    "module": "orchestrator/script_skill_report.py",
    "covered": 0,
    "total": 58,
@@ -1315,6 +1369,36 @@
    "percent": 0.0
   },
   {
+   "module": "orchestrator/storyboard_final_controller.py",
+   "covered": 0,
+   "total": 98,
+   "percent": 0.0
+  },
+  {
+   "module": "orchestrator/storyboard_page_controller.py",
+   "covered": 0,
+   "total": 84,
+   "percent": 0.0
+  },
+  {
+   "module": "orchestrator/subtitle_export_controller.py",
+   "covered": 0,
+   "total": 9,
+   "percent": 0.0
+  },
+  {
+   "module": "orchestrator/white_model_persistence_controller.py",
+   "covered": 0,
+   "total": 10,
+   "percent": 0.0
+  },
+  {
+   "module": "orchestrator/workflow_context_controller.py",
+   "covered": 0,
+   "total": 19,
+   "percent": 0.0
+  },
+  {
    "module": "orchestrator/writing_preparation_ledger.py",
    "covered": 0,
    "total": 132,
@@ -1323,7 +1407,7 @@
   {
    "module": "page_navigation_controller.py",
    "covered": 0,
-   "total": 92,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -1617,7 +1701,7 @@
   {
    "module": "recycle_recovery_controller.py",
    "covered": 0,
-   "total": 41,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -2007,7 +2091,7 @@
   {
    "module": "storyboard_final_controller.py",
    "covered": 0,
-   "total": 98,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -2019,7 +2103,7 @@
   {
    "module": "storyboard_page_controller.py",
    "covered": 0,
-   "total": 84,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -2079,7 +2163,7 @@
   {
    "module": "subtitle_export_controller.py",
    "covered": 0,
-   "total": 9,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -2397,7 +2481,7 @@
   {
    "module": "white_model_persistence_controller.py",
    "covered": 0,
-   "total": 10,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -2433,7 +2517,7 @@
   {
    "module": "workflow_context_controller.py",
    "covered": 0,
-   "total": 19,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -2942,5 +3026,5 @@
   }
  ],
  "modules_covered": 70,
- "modules_total": 488
+ "modules_total": 502
 }

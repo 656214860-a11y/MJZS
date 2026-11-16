@@ -7,7 +7,7 @@ import sys
 import unittest
 from pathlib import Path
 
-from tests.architecture._scan import ROOT, parse
+from tests.architecture._scan import ROOT, entity_file, parse
 
 
 SERVICES = frozenset({
@@ -51,7 +51,7 @@ class MigratedServiceBoundaryTests(unittest.TestCase):
     def test_migrated_services_never_import_tk(self):
         violations = []
         for module in SERVICES:
-            for line, package, _name in _imports(parse(ROOT / (module + '.py'))):
+            for line, package, _name in _imports(parse(entity_file(module))):
                 if package == 'tkinter':
                     violations.append(f'{module}.py:{line}')
         self.assertEqual(violations, [], '无 Tk 服务不得导入 tkinter：' + ', '.join(violations))
@@ -73,7 +73,7 @@ class LowerLayersNeverImportTkTests(unittest.TestCase):
         from tests.architecture._layers import LAYERS
         violations = []
         for module, layer in sorted(LAYERS.items()):
-            path = ROOT / (module + '.py')
+            path = entity_file(module)
             if layer >= 4 or not path.is_file():
                 continue
             for line, package, _name in _imports(parse(path)):

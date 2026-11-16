@@ -11,10 +11,10 @@ from tests.architecture._scan import stage_execution_source
 class FinalBundleBoundaryTests(unittest.TestCase):
     def test_desktop_finalization_delegates_retirement_to_l3(self) -> None:
         desktop = (ROOT / 'desktop.py').read_text(encoding='utf-8')
-        controller = (ROOT / 'storyboard_final_controller.py').read_text(encoding='utf-8')
+        controller = (ROOT / 'orchestrator/storyboard_final_controller.py').read_text(encoding='utf-8')
         finalizer = (ROOT / 'orchestrator/storyboard_final.py').read_text(encoding='utf-8')
-        self.assertIn('from storyboard_final_controller import finalize_stage_storyboard', desktop)
-        self.assertNotIn('from storyboard_final import finalize', desktop)
+        self.assertIn('storyboard_final_controller import finalize_stage_storyboard', desktop)
+        self.assertNotIn('storyboard_final import finalize', desktop)
         self.assertIn('def finalize_stage_storyboard(', controller)
         self.assertIn('retire_working=retire_stage_storyboard', controller)
         self.assertNotIn('from storyboard_lifecycle import signature,retire', finalizer)

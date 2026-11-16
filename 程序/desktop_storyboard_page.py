@@ -116,7 +116,7 @@ class _FirstFramePage:
         from keyframe_import import resume,watch_list
         from keyframe_batch import frame_prompt
         self.frame_prompt = frame_prompt
-        from keyframe_page_controller import KeyframePageController
+        from orchestrator.keyframe_page_controller import KeyframePageController
         resume(self.page)
         self.source=self.page.current_frame_json()
         self.episode=read(self.source);self.base=media_root(self.source)
