@@ -147,7 +147,8 @@ class LayoutMixin:
         # header_stage_button 只在没有「手动XX」行的阶段页出现（约 36px），有它的页标题行
         # 只能收到按钮高度；其余页仍是单行 22px。video_back（视频工作区返回钮，R2966 修复轮
         # 计入）只在视频子页 pack，hide_back 后 pack_forget，按 winfo_manager 只量在管的；
-        # files_button（R2962 项目文件入口）只在有项目的生产页 pack，同样按在管与否取舍。
+        # files_button（R2962 项目文件入口，R2998 起迁至内容区右缘图标列）只在有项目的
+        # 生产页 pack，同样按在管与否取舍——它已不在标题行内，但仍以同高节奏撑住页头。
         for name in ('usage_indicator','header_info','header_stage_button','video_back','files_button'):
             widget=getattr(self,name,None)
             if widget is None or not widget.winfo_manager():continue
