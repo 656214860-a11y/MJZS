@@ -216,6 +216,28 @@ class PerfBaseline(unittest.TestCase):
         win.update()
         return ((time.perf_counter() - wall0) * 1000.0, (time.process_time() - cpu0) * 1000.0)
 
+    def settle_asset_rows(self, win, table, expected, timeout=30.0):
+        """分批插行与缩略图收图都走 ``after`` 定时器；单次 ``update`` 会把整条链排空，
+        滚动必须等行长齐再量，否则量到的是半截表（R2979 与基准_长列表.py 同口径）。"""
+        import asset_thumbs
+        start = time.perf_counter()
+        rows = last = -1
+        quiet = still = 0
+        while time.perf_counter() - start < timeout:
+            win.update()
+            try:
+                rows = len(table.get_children())
+            except Exception:
+                rows = -1
+            still = still + 1 if rows == last else 0
+            last = rows
+            done = asset_thumbs.pending() == 0 and (rows >= expected or still >= 40)
+            quiet = quiet + 1 if done else 0
+            if quiet >= 3:
+                break
+            time.sleep(0.05)
+        return rows
+
     # ── ① 冷启动 ───────────────────────────────────────────────────────────
     def test_cold_start_reaches_the_first_frame(self):
         """冷启动到首帧：Desktop 构造（建第一页）＋ 一次 update。"""
@@ -286,6 +308,8 @@ class PerfBaseline(unittest.TestCase):
             d, proj, win = self.desktop(td)
             self.open_asset_page(d, win)
             table = d.asset_table
+            rows = self.settle_asset_rows(win, table, 300)
+            self.assertGreaterEqual(rows, 300, '滚动门禁必须量到全表，分批插行没有长齐')
             frames = []
             for _ in range(60):
                 start = time.perf_counter()
