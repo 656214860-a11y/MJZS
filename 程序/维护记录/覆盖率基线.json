@@ -1519,12 +1519,6 @@
    "percent": 0.0
   },
   {
-   "module": "orchestrator/stage_contract_report.py",
-   "covered": 0,
-   "total": 10,
-   "percent": 0.0
-  },
-  {
    "module": "orchestrator/stage_exec.py",
    "covered": 0,
    "total": 117,
@@ -2176,12 +2170,6 @@
    "module": "stage_completion_service.py",
    "covered": 0,
    "total": 664,
-   "percent": 0.0
-  },
-  {
-   "module": "stage_contract_report.py",
-   "covered": 0,
-   "total": 4,
    "percent": 0.0
   },
   {
@@ -3296,5 +3284,5 @@
   }
  ],
  "modules_covered": 71,
- "modules_total": 547
+ "modules_total": 545
 }
