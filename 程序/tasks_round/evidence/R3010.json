@@ -1,0 +1,15 @@
+{
+  "round": 3010,
+  "commit_base": "5efaee2e",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k offline_asr voice_mcp",
+    "exit": 0,
+    "passed": 68,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T19:20:45"
+}
