@@ -461,6 +461,7 @@ class CellImages:
         self.zoom_label = None
         self.zoom_key = None
         self.zoom_pending = None
+        self._zoom_suppress = False              # R3012：点击这格后抑制放大，直到指针离开再进入
         self.zoom_watch = None                   # 第 60 期第 5 条：盯着指针的那个定时器
         self.zoom_at = None                      # 上一次看到的指针（没动过就不必再判一遍）
         self.view_refresh_delay = max(0, int(view_refresh_delay or 0))
@@ -595,9 +596,16 @@ class CellImages:
                 app_logging.swallowed()
         return None
 
+    def _zoom_click(self, key):
+        """这格被点击（选择行／双击打开）后：收起放大图并抑制重弹，直到指针离开再进入（R3012）。"""
+        self._zoom_suppress = True
+        if self.zoom_key == key:
+            self.zoom_hide()
+        return None
+
     def zoom_in(self, key):
         """鼠标停在盖着缩略图的那一格上：旁边弹一张放大的图（够看清人物与背景）。"""
-        if self.zoom is None:
+        if self.zoom is None or self._zoom_suppress:
             return None
         row, column = key
         bounds = self.tree.bbox(row, column)
@@ -789,8 +797,9 @@ class CellImages:
         """鼠标离开那一格：等一小会儿再看一眼指针在不在放大图上（压在图上就算还在看）。
 
         放大图压在那一格旁边的机会不小，直接收会把「正凑近看」的人手里的图收走；等这一小会儿
-        再看指针落点，图上／那一格上都算还在看，别处才收。
+        再看指针落点，图上／那一格上都算还在看，别处才收。离开这里同时解除点击抑制（R3012）。
         """
+        self._zoom_suppress = False
         if self.zoom is None or self.zoom_key is None or self.zoom_pending is not None:
             return None
 
@@ -848,6 +857,9 @@ class CellImages:
             label.bind('<Enter>', lambda event, key=key: self.zoom_in(key), add='+')
             label.bind('<Leave>', lambda event, key=key: self.zoom_leave(key), add='+')
             label.bind('<MouseWheel>', lambda event: self.zoom_hide(), add='+')
+            # R3012：点击选择行／打开后抑制放大，直到指针离开再进入（登记在前，不拦原行为）。
+            label.bind('<Button-1>', lambda event, key=key: self._zoom_click(key), add='+')
+            label.bind('<Double-1>', lambda event, key=key: self._zoom_click(key), add='+')
         # 第 55 期第 2 条：这一格盖着图，鼠标落不到树上——forward 给了就把这一下重发给树
         # （树上的原行为一条不动），右键照旧转给 CellHover 那份「查看／删除」菜单。
         # 第 60 期第 3 条撤掉的那条左键路，第 64 期任务 12 按用户要求补回来一半：**只认双击**
