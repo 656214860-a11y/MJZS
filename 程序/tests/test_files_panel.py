@@ -222,9 +222,25 @@ class FilesPanelTests(unittest.TestCase):
             needed = max(font.measure(v) for v in values) + SCRIPT_CELL_OVERHEAD
             cap = min(int(d.canvas.master.winfo_width() * .5), SCRIPT_PANEL_MAX_WIDTH)
             # 面板宽＝sizer＋盒内边距，应不小于「最长行宽＋留白」与上限的较小值。
-            self.assertGreaterEqual(d.script_box.winfo_width(), min(needed, cap),
+            wide_w = d.script_box.winfo_width()
+            self.assertGreaterEqual(wide_w, min(needed, cap),
                                     '面板宽应跟上最长文件名（上限内）')
-            self.assertGreater(d.script_box.winfo_width(), 200, '长文件名把面板撑宽')
+            self.assertGreater(wide_w, 200, '长文件名把面板撑宽')
+            # 回归：删掉最长名文件并重扫后，面板宽必须回落——Treeview stretch 列
+            # reqwidth 会锁成当时分配宽，靠 script_list.grid_propagate(False) 隔离。
+            from storage_maintenance import recycle_paths
+            recycle_paths(d.root, [target / long_name], '删除项目剧本')
+            d.files_panel.fill_script_list()
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline and any(
+                    long_name in d.script_tree.item(i, 'values')[0]
+                    for i in d.script_tree.get_children()):
+                self.pump(.05)
+            self.pump(.5)   # 等 finish() 里的 _fit_script_width 与几何重排落定
+            self.assertNotIn(long_name, [d.script_tree.item(i, 'values')[0]
+                                         for i in d.script_tree.get_children()])
+            self.assertLess(d.script_box.winfo_width(), wide_w - 40,
+                            '删除最长名后面板宽应回落')
         finally:
             (target / long_name).unlink(missing_ok=True)
             d.files_panel.collapse(); self.pump(.1)

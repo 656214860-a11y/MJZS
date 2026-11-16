@@ -1,5 +1,5 @@
 # R2998 结果：「项目文件」入口迁至内容区右缘图标列，文件名列宽动态自适应
-<!-- round-evidence: {"commit_base": "2fb0c240", "credential_hits": 0, "evidence_sha256": "40b1d06bf803c11e", "exit": 0, "failed": 0, "passed": 17, "round": 2998, "tests": "run_selftests.py -k files_panel writing_page"} -->
+<!-- round-evidence: {"commit_base": "e2f57603", "credential_hits": 0, "evidence_sha256": "8e87dc334c13f1ef", "exit": 0, "failed": 0, "passed": 8, "round": 2998, "tests": "run_selftests.py -k files_panel"} -->
 
 ## 三问
 
@@ -22,9 +22,18 @@
 - `程序/docs/stages/S01_剧本准备.md`：REQ-S01-90／DES-S01-90 改写为图标列位置、列内留白与动态宽度契约。
 - `程序/tests/test_files_panel.py`：契约断言同步＋两个新用例（列共享、动态宽度）。
 
+## 预览复测修复（同轮第二提交）
+
+- **现象**：预览中删除最长名文件后停靠面板不回缩（`sizer` 已缩到 184，`script_box` reqwidth 仍锁 419）。
+- **根因**：`ttk.Treeview` 在 `delete(*all)`＋重插后会把 stretch 列的 reqwidth 锁成当时分配宽（探针实测 reqw=alloc 且此后不再回落，改 column width/stretch 均无效）——`script_list` 经 pack 把该 reqwidth 透传给 `script_box`，形成「面板宽→树 reqwidth→面板宽」的单向棘轮。
+- **修复**：`script_list.grid_propagate(False)` 让 DataTable 框不再向 `script_box` 透传树的 reqwidth，面板宽只由 `script_width_sizer` 决定；列 `stretch` 保留，视觉铺满不变；sizer 初始宽改为 `SCRIPT_LIST_MIN_WIDTH`，面板打开即为合理宽、不再先窄后跳。
+- **回归断言**：`test_file_list_width_fits_longest_filename` 增补「删除最长名→重扫→面板宽回落 >40px」断言。
+- **文档**：DES-S01-90 补记 `grid_propagate` 隔离机制。
+
 ## 验证记录
 
-- `run_selftests.py -k files_panel`：8 条全绿（14.0 秒）。
+- `run_selftests.py -k files_panel`：8 条全绿（10.9 秒，含回缩回归断言）。
+- 修复后复测探针：删除最长名文件 `script_box` 由 419 回落至 192（sizer 184＋边距）。
 - `run_selftests.py -k compact_layout ui_edges_pages idea_chat`：8 个测试文件 215 条 0 红（537.6 秒）。
 - `smoke_test.py`：8/8；`smoke_test.py --affected desktop_files_panel desktop_layout`：门禁 13 个测试文件 ALL TESTS PASSED，冒烟合计 9/9（门禁 701 秒）。
 - **环境注记**：首次 `-k compact_layout ui_edges_pages idea_chat` 中 `test_idea_chat` 5 个分片共 16 红，全部为 `workflow_settings.freeze_skills` 报 `SKILL 引用缺失`——本工作树 4 个 gitlink 技能子仓未物化（`reference/HoLLMwood`、`skills/00全流程SKILL/AIGC创作全流程`、`skills/01 剧本准备SKILL/编剧技能集`；`剧本制作` 主工作区本就为空，属既有状态）。按 R2966 先例将主工作区 `D:\漫剧制作助手\程序` 对应目录整目录同步进工作树（含 `.git`，供 skill_package_pins 哈希核验）后复跑 215 条全绿；`git status` 确认子仓内容不进暂存区，本轮提交不含子仓文件。建议后续在工作树引导或文档中固化该同步步骤（R2966 已提同一建议）。

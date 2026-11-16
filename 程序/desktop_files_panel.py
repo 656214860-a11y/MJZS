@@ -85,7 +85,11 @@ class ProjectFilesPanel(WritingSnapshotsMixin):
         self.script_list.pack(fill='both', expand=True, pady=(SPACING['none'], SPACING['xs']))
         # R2998：文件名列宽不再写死——0 高 sizer 驱动 script_box 请求宽，
         # _fit_script_width 按最长文件名量宽后 configure；列 stretch 铺满。
-        self.script_width_sizer = tk.Frame(self.script_box, width=0, height=0)
+        # 必须关 grid 传播：Treeview 删行重填后会把 stretch 列的 reqwidth 锁成
+        # 当时分配宽（delete+insert 实测 reqw=alloc 且不再回落），不关掉面板
+        # 就永远缩不回来；关掉后面板宽只由 sizer 决定，列 stretch 仍管视觉铺满。
+        self.script_list.grid_propagate(False)
+        self.script_width_sizer = tk.Frame(self.script_box, width=SCRIPT_LIST_MIN_WIDTH, height=0)
         self.script_width_sizer.pack()
         # 状态标记放在文件名前面：列窄时被截掉的是文件名尾巴，不是[已确认]/[待确认]。
         ttk.Style(self.script_tree).configure('Script.Treeview', font=SCRIPT_FILE_FONT)
