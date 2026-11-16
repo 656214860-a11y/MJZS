@@ -57,7 +57,7 @@
   {
    "module": "agent/voice_mcp_server.py",
    "covered": 0,
-   "total": 167,
+   "total": 176,
    "percent": 0.0
   },
   {
@@ -303,7 +303,13 @@
   {
    "module": "cell_hover.py",
    "covered": 0,
-   "total": 714,
+   "total": 680,
+   "percent": 0.0
+  },
+  {
+   "module": "cell_menu.py",
+   "covered": 0,
+   "total": 48,
    "percent": 0.0
   },
   {
@@ -711,7 +717,7 @@
   {
    "module": "desktop_shared_input.py",
    "covered": 0,
-   "total": 643,
+   "total": 644,
    "percent": 0.0
   },
   {
@@ -771,7 +777,7 @@
   {
    "module": "desktop_writing_page.py",
    "covered": 0,
-   "total": 319,
+   "total": 324,
    "percent": 0.0
   },
   {
@@ -1761,7 +1767,7 @@
   {
    "module": "pet_ui.py",
    "covered": 0,
-   "total": 455,
+   "total": 456,
    "percent": 0.0
   },
   {
@@ -1791,7 +1797,7 @@
   {
    "module": "pet_ui_view.py",
    "covered": 0,
-   "total": 664,
+   "total": 686,
    "percent": 0.0
   },
   {
@@ -2529,7 +2535,7 @@
   {
    "module": "ui/ui_tooltip.py",
    "covered": 0,
-   "total": 101,
+   "total": 277,
    "percent": 0.0
   },
   {
@@ -2625,7 +2631,7 @@
   {
    "module": "ui_tokens.py",
    "covered": 0,
-   "total": 166,
+   "total": 168,
    "percent": 0.0
   },
   {
@@ -2739,7 +2745,7 @@
   {
    "module": "voice_engine/offline_asr_server.py",
    "covered": 0,
-   "total": 426,
+   "total": 436,
    "percent": 0.0
   },
   {
@@ -3009,8 +3015,8 @@
   {
    "module": "app_logging.py",
    "covered": 59,
-   "total": 257,
-   "percent": 23.0
+   "total": 265,
+   "percent": 22.3
   },
   {
    "module": "orchestrator/skill_budget.py",
@@ -3302,5 +3308,5 @@
   }
  ],
  "modules_covered": 71,
- "modules_total": 548
+ "modules_total": 549
 }

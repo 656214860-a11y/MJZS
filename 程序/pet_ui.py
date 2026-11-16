@@ -405,7 +405,6 @@ class Pet(PetBroadcastAliasesMixin, PetStagesMixin, PetSettingsMixin, PetVoiceMi
             close_chat=lambda: self.close_chat(), mute=lambda **kw: self.dismissed(**kw),
             on_error=lambda name, message: self.errors.append((name, message)))
         self._greet_id = None             # 还没到点的开机招呼（关窗比招呼先到时必须收回来）
-        self._click_xy = None             # R3012：单击待决窗口内的点击起点（挪开即取消）
         self._quiet_until = None          # 招呼之后的安静期到哪一刻（第 68 期任务 11）
         self.cat = Cat()                  # 第 17 期：三虎的猫样（随机做点猫的事，见 Cat）
         self.caption = None               # 第 18 期：三虎图像下方那行小字（正常／半自动／全自动）
