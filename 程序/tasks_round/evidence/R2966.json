@@ -1,0 +1,15 @@
+{
+  "round": 2966,
+  "commit_base": "a1027c6d",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k video_navigation desktop_layout ui_edges inline_brief video_ui idea_chat",
+    "exit": 0,
+    "passed": 388,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T14:37:23"
+}
