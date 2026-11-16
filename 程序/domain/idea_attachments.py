@@ -314,8 +314,12 @@ def referenced(context, message='', selected_paths=(), *, local_mode=False, mark
     available = uploaded(context, local_mode=local_mode)
     selected = tuple(path for value in selected_paths for path in available
                      if Path(value) in archive_pair(path))
+    # R2980：@ 既认归档文件名（旧插入形态），也认显示名（新候选浮层插入形态）。
+    message_text = str(message or '')
     explicit = tuple(path for path in available if any(
-        ('@' + item.name) in str(message or '') for item in archive_pair(path)))
+        token in message_text
+        for token in tuple('@' + item.name for item in archive_pair(path))
+        + ('@' + display_name(path),)))
     # @ 指向优先，其次完整保留本次选择；仅无明确选择时沿用最近三份。
     candidates = explicit or selected or available[:3]
     unique = []

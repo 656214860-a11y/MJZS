@@ -183,11 +183,15 @@ class SharedInputHostTests(unittest.TestCase):
         self.assertEqual(self.box._on_return(_Event()), 'break')
         self.assertEqual(self.desktop.send_message.call_count, 2)
 
-    # ── R2942：/ 补全浮在输入框上方 + 图标悬停提示卡 + 按键/鼠标交互 ──
+    # ── R2980／REQ-S01-91：/ 与 @ 光标级候选浮层（自绘行＋光标锚定翻转） ──
+
+    def _caret_end(self):
+        self.box.input.mark_set('insert', 'end-1c')
 
     def _open_completion(self):
         self.box.set_text('/')
-        self.box._refresh_completion()
+        self._caret_end()
+        self.box._refresh_candidates()
         self.win.update_idletasks()
         self.win.update()
 
@@ -197,62 +201,71 @@ class SharedInputHostTests(unittest.TestCase):
         self.win.update_idletasks()
         self.win.update()
 
-    def test_completion_panel_floats_above_the_input_card(self):
+    def test_completion_anchors_to_cursor_and_flips_above(self):
+        """候选卡锚在文本光标：输入框贴窗口底部时下方空间不足，翻到光标上方。"""
         self.box.pack(side='bottom', fill='x')
         self._show_window()
         self._open_completion()
-        popup = self.box.completion
+        popup = self.box.candidates
         self.assertTrue(popup.open)
-        panel, card = popup.frame, self.box.input_card
-        self.assertEqual(panel.winfo_manager(), 'place', '候选层用 place 浮层，不再 pack 进输入条')
-        # 相对坐标（两者同父）：下缘在输入盒上沿之上、左缘对齐、同宽。
-        self.assertLessEqual(panel.winfo_y() + panel.winfo_height(),
-                             card.winfo_y() + 1, '候选卡片在输入盒正上方')
-        self.assertAlmostEqual(panel.winfo_x(), card.winfo_x(), delta=1,
-                               msg='候选卡片与输入盒左缘对齐')
-        self.assertAlmostEqual(panel.winfo_width(), card.winfo_width(), delta=2,
-                               msg='候选卡片与输入盒同宽')
-        self.assertEqual(popup.list.curselection(), (0,), '默认高亮第一项')
+        panel = popup.frame
+        self.assertEqual(panel.winfo_manager(), 'place', '候选层用 place 浮层')
+        self.assertIs(panel.master, self.win, '浮层挂顶层窗：光标上方空间也画得出')
+        cursor_x, cursor_top, cursor_bottom = popup._cursor_anchor()
+        panel_bottom = panel.winfo_rooty() + panel.winfo_height()
+        panel_right = panel.winfo_rootx() + panel.winfo_width()
+        # 输入框在窗口底部：光标下方放不下 → 浮层整体翻到光标上方。
+        self.assertLessEqual(panel_bottom, cursor_top + 1,
+                             '底部空间不足时候选卡翻到光标上方')
+        # 横向锚在光标附近且不出可视区。
+        self.assertGreaterEqual(panel.winfo_rootx(), 0)
+        self.assertLessEqual(panel_right, self.win.winfo_screenwidth())
+        self.assertEqual(popup.index, 0, '默认高亮第一项')
         self.assertEqual(self.box.input.get('1.0', 'end-1c'), '/', '高亮不得误采纳候选')
 
     def test_completion_up_down_tab_and_enter_accept(self):
         self.box.pack(side='bottom', fill='x')
         self._show_window()
         self._open_completion()
-        popup = self.box.completion
-        options = list(popup.list.get(0, 'end'))
-        self.assertGreaterEqual(len(options), 2)
+        popup = self.box.candidates
+        self.assertGreaterEqual(len(popup.entries), 2)
+
         class _Event:
             keysym = 'Down'
         self.assertEqual(popup.key(_Event()), 'break')
-        self.assertEqual(popup.list.curselection(), (1,), 'Down 移到第二项')
+        self.assertEqual(popup.index, 1, 'Down 移到第二项')
         _Event.keysym = 'Up'
         popup.key(_Event())
-        self.assertEqual(popup.list.curselection(), (0,), 'Up 移回第一项')
-        _Event.keysym = 'Tab'
-        popup.key(_Event())
-        self.assertFalse(popup.open, 'Tab 采纳后收掉弹层')
-        self.assertTrue(self.box.input.get('1.0', 'end-1c').startswith('/'),
-                        '采纳把候选写回输入框')
+        self.assertEqual(popup.index, 0, 'Up 移回第一项')
+        # Enter 走宿主 _on_return：候选开着时采纳当前项而不是发送。
+        class _Return:
+            state = 0
+        self.assertEqual(self.box._on_return(_Return()), 'break')
+        self.assertFalse(popup.open, 'Enter 采纳后收掉浮层')
+        value = self.box.input.get('1.0', 'end-1c')
+        self.assertTrue(value.startswith('/'), '采纳把候选写回输入框')
+        self.assertTrue(value.endswith(' '), '采纳结果带尾空格')
+        self.assertEqual(getattr(self.desktop, 'navigated', []), [],
+                         '行首 /name 之外 Enter 不得触发发送分流')
 
     def test_completion_hover_highlights_but_click_applies(self):
         self.box.pack(side='bottom', fill='x')
         self._show_window()
         self._open_completion()
-        popup = self.box.completion
-        self.assertGreaterEqual(popup.list.size(), 2)
-        box = popup.list.bbox(1)
-        self.assertIsNotNone(box, '第二项必须可见才能量悬停位置')
-        y = box[1] + box[3] // 2
-        popup._hover(type('E', (), {'y': y})())
-        self.assertEqual(popup.list.curselection(), (1,), '悬停跟随高亮')
+        popup = self.box.candidates
+        self.assertGreaterEqual(len(popup.entries), 2)
+        row = popup._rows[1]
+        label = next(w for w in row['widgets']
+                     if w.winfo_class() == 'Label' and str(w.cget('text') or ''))
+        label.event_generate('<Enter>')
+        self.win.update()
+        self.assertEqual(popup.index, 1, '悬停跟随高亮')
         self.assertEqual(self.box.input.get('1.0', 'end-1c'), '/', '悬停不自动采纳')
         self.assertTrue(popup.open)
-        popup.list.selection_clear(0, 'end')
-        popup.list.selection_set(0)
-        popup.list.activate(0)
-        popup._choose()
+        label.event_generate('<Button-1>', x=2, y=2)
+        self.win.update()
         self.assertFalse(popup.open, '点击采纳后收掉')
+        self.assertTrue(self.box.input.get('1.0', 'end-1c').startswith('/'))
 
     def test_completion_closes_when_focus_leaves_input(self):
         self.box.pack(side='bottom', fill='x')
@@ -260,7 +273,7 @@ class SharedInputHostTests(unittest.TestCase):
         other.pack()
         self.win.update()
         self._open_completion()
-        popup = self.box.completion
+        popup = self.box.candidates
         self.assertTrue(popup.open)
         original = self.win.focus_get
         try:
