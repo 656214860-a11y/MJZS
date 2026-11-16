@@ -52,6 +52,8 @@
 
 **后台自动补跑**（带防抖）：欠账达到门禁线前 `FULL_SAFE_AUTO_LEAD`（2）个源码轮次，master 的 git post-commit 钩子（`维护记录/基准脚本/hooks/post-commit`，由 `install_git_hooks.py` 安装）调用 `scripts/auto_full_safe.py --spawn`，先起一个后台等待者（`--wait-run`，同一时刻只有一个）：等「安静」15 分钟（期间每有新提交就重新计时）再跑一次，连续拆分系列的 N 轮只补跑 1 次；欠账已让门禁报红或等满 60 分钟则立即跑。跑时在根目录 `.wt/ci` 干净分离检出上后台跑 `--all --safe`，绿凭据写入 common-dir 的 `full-safe-receipts.json`，日志在 `程序/logs/auto_full_safe.log`。钩子失败或已有同类任务在跑都静默跳过，不阻塞提交；后台运行期间（`auto_full_running()`）架构门禁不报「欠全量」，手动 `--all --safe` 也会被拒绝并提示等待（`--force` 可强制）——**欠账红灯出现时不要立刻手动跑全量，先看后台是否已在补跑**；`scripts/auto_full_safe.py --status` 查看欠账。后台全量红了不会自动改任何文件，按 §8 失败处置人工接续；**红后冷却**（R1781，`RED_COOLDOWN_SECONDS`＝4 小时）：上次后台全量是真红时，同一 HEAD 不再自动重跑，换了 HEAD 也要等冷却期过去才补跑，只有门禁已因欠账报红才越过时间冷却，避免红着不修时每次提交都白跑约 16 分钟，`--status` 显示「红后冷却」；结果写入 common-dir 的 `auto-full-safe-result.json`，post-commit 钩子每次提交先跑 `--notice`，上次未通过就在提交输出里打印红的测试文件与日志路径，`--status` 也会显示。`round_claim.py next` 领号时会自检 git 钩子，缺失或与版本受控源不一致就自动安装，新克隆无需手工装钩子。
 
+**合并门禁与红后冷却的关系（R2995）**：合并出口门禁（`tests/architecture/test_round_baselines.py` 欠账项）在 required 且无在跑全量、无同树绿凭据、非全量进程本身时，「同 HEAD 已红」冷却（`auto-full-safe-result.json` 的 head 与当前 HEAD 相同）不报红放行——合并提交推进 HEAD 是该冷却降级为 'time'（required 下自动补跑）的唯一途径，此时拦合并即死锁（2026-11-16 事故：全量红在 test_ui_batch5→同 HEAD 冷却→合并全卡，靠手动 `--run` 陪跑解开）；'time' 冷却与 BLOCKED 环境受阻结果仍报红。冷却判定唯一实现 `auto_full_safe.current_cooling()`／`red_cooldown()`。
+
 ## 5. 升级、备份与回滚
 
 - 发布流程以 `说明/发布检查单.md` 为准；安装后对照 `安装信息.json` 与 `distribution_manifest.md` 核对落位（旧文档里的 `reorganize_install.py`／`install_release.py` 仓库里已不存在）。
