@@ -71,7 +71,7 @@ class StatusBarTests(unittest.TestCase):
     def test_message_renders_level_style(self):
         msg = Message.make('error', '生成失败')
         self.bus.publish(msg)
-        self.pump(0.05)
+        self.pump(0.25)  # 必须长于 100ms 心跳周期，消息才会被泵上屏
         self.assertEqual(self.bar.message.full_text, '✕ 生成失败')
         self.assertEqual(str(self.bar.message.cget('background')), COLORS['danger_subtle'])
         self.assertEqual(str(self.bar.message.cget('foreground')), COLORS['danger_text'])

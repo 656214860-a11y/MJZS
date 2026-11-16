@@ -145,45 +145,14 @@ class LayoutMixin:
             style.configure('Project.Treeview',font=font,rowheight=row_height)
         self.align_header()
     def align_header(self,event=None):
-        """页头对齐（第 R2950 期）：标题行单行——Token 用量（左）与状态／模型（右），
-        行高收齐用量块／右侧信息两者的请求高；用量块左沿对齐内容区内缩，pet_dock 高度跟
-        三虎簇正方形边长（patch_room）走。旧 project_block/list_top 对齐是页头下拉框时代的
-        遗留——分组图标进侧栏后它只会把 title_row 顶高、还反向污染侧栏项目区 pady，已摘除。"""
-        if not hasattr(self,'title_row'):return
+        """页头对齐（第 R2950 期建，R3016 P2 收编）：顶部标题行已删，标题行高度与
+        用量块左沿对齐逻辑随之移除；pet_dock 高度仍跟三虎簇正方形边长（patch_room）走。"""
         pet=getattr(self,'pet',None)
         pet_room=getattr(pet,'patch_room',None)
         dock=getattr(self,'pet_dock',None)
         if dock is not None:
             room=max(pet_ui.DOCK_ROOM,int(pet_room or pet_ui.DOCK_ROOM))
             if int(dock.cget('height'))!=room:dock.configure(height=room)
-        minimum=0
-        # header_stage_button 只在没有「手动XX」行的阶段页出现（约 36px），有它的页标题行
-        # 只能收到按钮高度；其余页仍是单行 22px。video_back（视频工作区返回钮，R2966 修复轮
-        # 计入）只在视频子页 pack，hide_back 后 pack_forget，按 winfo_manager 只量在管的；
-        # files_button（R2962 项目文件入口，R2998 起迁至内容区右缘图标列）只在有项目的
-        # 生产页 pack，同样按在管与否取舍——它已不在标题行内，但仍以同高节奏撑住页头。
-        for name in ('usage_indicator','header_info','header_stage_button','video_back','files_button'):
-            widget=getattr(self,name,None)
-            if widget is None or not widget.winfo_manager():continue
-            try:minimum=max(minimum,int(widget.winfo_reqheight()))
-            except tk.TclError:pass
-        if int(self.title_row.cget('height'))!=minimum:self.title_row.configure(height=minimum)
-        content=getattr(self,'content',None)
-        if content is None:return
-        box=getattr(self,'idea_log',None)
-        script=self.page_index==PAGE['script'] and box is not None and box.winfo_exists()
-        anchor=box if script else content
-        inset=max(SPACING['none'],anchor.winfo_rootx()-self.title_row.winfo_rootx())
-        def horizontal_pad(widget):
-            value=widget.pack_info()['padx']
-            values=tuple(map(int,value if isinstance(value,tuple) else widget.tk.splitlist(str(value))))
-            return values if len(values)>1 else values*2
-        # 第 R2946 期：标题搬进侧栏后，标题行左沿对齐改由 Token 用量块承担。
-        usage=getattr(self,'usage_indicator',None)
-        if usage is not None:
-            title_pad=(inset,SPACING['none'])
-            if horizontal_pad(usage)!=title_pad:
-                usage.pack_configure(padx=title_pad)
     def fit_content(self,event=None):
         # 尺寸事件落在拖动期间：并进松手后的补做。主动调用（页面切换、最小化恢复）
         # 不带事件，保持原来的同步 after_idle 语义，不受静默影响。

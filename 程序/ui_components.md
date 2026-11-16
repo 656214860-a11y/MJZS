@@ -92,7 +92,7 @@
 
 - 消息唯一入口 `ui/ui_status_bus.py:StatusBus.publish(Message(level, text, ttl, source))`；业务模块只发消息，不得直接写状态栏（`status.set`）或组合 `messagebox`；`NotificationDispatcher` 保留为分级渲染的既有入口，内部转交 StatusBus。
 - 视觉取值一律引用 `design_tokens.md`：就绪 `color.text.primary`、成功 `color.success`／`color.success.subtle`、警告与错误沿用 `color.danger.text`／`color.danger.subtle` 及既有 `status_kind` 样式；圆角、间距、字体只取 token。
-- 顶部标题行自 P2 起删除：原页头状态／模型名信息等价迁移（视频页模型/状态、剧本页流程说明、分镜页「当前 JSON」提示进左区或右区消息），功能不丢；侧栏图标轨随页标题下移而上移。
+- 顶部标题行自 R3016 起已删除：原页头状态／模型名信息等价迁移（视频页模型/状态进左区段 `video_model`/`video`、剧本页流程说明进 `script_note`、分镜页「当前 JSON」进 `storyboard`），功能不丢；页标题进左区 `page` 段，侧栏图标轨上移填空。
 
 ## 右键菜单
 

@@ -552,7 +552,7 @@ class MediaPagesMixin:
         进去之后就不用再翻回来问，两个入口也改成主色按钮，一眼能看见。
         """
         from video_navigation import confirm_rows,local_model
-        self.title.set_text(pet_bus.stage_label('video')+' · 选择生成方式')
+        self.set_status_segment('page',pet_bus.stage_label('video')+' · 选择生成方式')
         # 第 48 期第 2 条：这一屏不再挂「阶段配置」；R2942 起页面级阶段配置按钮与
         # 标题旁入口全部删除，模型/技能走共享输入框。
         # 第 38 期第 2 条：「线上走」和「API（按秒计费）」之间那个空格是整句唯一的断点，
@@ -595,7 +595,7 @@ class MediaPagesMixin:
         if mode is None:
             self.video_home()
             return
-        self.title.set_text(pet_bus.stage_label('video')+' · '+('线上生成' if mode=='cloud' else '本地生成'))
+        self.set_status_segment('page',pet_bus.stage_label('video')+' · '+('线上生成' if mode=='cloud' else '本地生成'))
         from video_navigation import show_back
         show_back(self)
         top=ttk.Frame(self.content);top.pack(fill='x',pady=(SPACING['none'],SPACING['xs']))
@@ -617,7 +617,8 @@ class MediaPagesMixin:
             return
         if is_cloud:
             video_root=ui_plugin_registry.module('cloud_video').align_source(self,video_root)
-            self.header_model.configure(text='当前模型：'+read(video_root/'config.json')['model'])
+            self.set_status_segment('video_model','当前模型：'+read(video_root/'config.json')['model'],
+                                    tooltip='当前视频模型')
         from shared_video_controls import build
         build(self,heading,is_cloud)
         def prepare_video_prompt(sid):
@@ -640,7 +641,7 @@ class MediaPagesMixin:
                 cached.studio.cfg=read(video_root/'config.json')
                 cached.studio.episode=read(cached.studio.episode_path)
                 cached.refresh();cached.update_progress();cached.next_poll=0
-            if is_cloud:self.header_status.configure(textvariable=cached.status)
+            if is_cloud:self.bind_status_segment('video',cached.status)
             # R2942：「阶段配置」按钮＋模型下拉框已删除，工作台不再暴露独立入口。
             return
         panel=ttk.Frame(self.content);panel.pack(fill='both',expand=True)
@@ -649,7 +650,7 @@ class MediaPagesMixin:
         self.video=App(panel,video_root,settings_callback=(lambda:ui_plugin_registry.module('cloud_video').settings_window(self)) if is_cloud else None,prompt_callback=prepare_video_prompt,episode_file=None if is_cloud else source,missing_frame_callback=lambda sid,source=source:self.focus_missing_frame(source,sid),report_callback=self.pet_report,manual_command_factory=manual_command)
         # 视频页自己的文字框重排也听主窗口合并器：拖动时并进松手后的补做。
         self.video.resize_scheduler=self.resize_scheduler
-        if is_cloud:self.header_status.configure(textvariable=self.video.status)
+        if is_cloud:self.bind_status_segment('video',self.video.status)
         self.video_sessions[session_key]=self.video
         self.stage_button=getattr(self.video,'stage_button',None)
         # The shared workspace owns script/project actions.

@@ -54,7 +54,7 @@ from ui_motion import Spinner
 from ui_shortcuts import ShortcutRegistry
 import ui.ui_stage_popups as ui_stage_popups# noqa: F401  导入即向 stage_exec 登记阶段弹窗呈现器
 from ui_widgets import (BaseDialog, BusyState, ContextMenu, Card, DataTable, NotificationDispatcher,
-                        PrimaryButton, SecondaryButton, TextArea, HintLabel, Tooltip, EllipsisLabel, ask_confirmation, ask_string, setup_styles)
+                        PrimaryButton, SecondaryButton, TextArea, HintLabel, Tooltip, ask_confirmation, ask_string, setup_styles)
 from ui.ui_status_bus import Message, StatusBus  # R2989 P1：统一状态栏消息总线
 from ui.ui_status_bar import StatusBar
 from ui_icons import IconLoader
@@ -276,32 +276,22 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         self.sidebar_canvas.bind('<Configure>',self.schedule_sidebar_fit,add='+')
 
     def _init_body_and_status(self, win):
-        """主体区：标题行右侧信息、页面画布、进度条、状态栏与尺寸把手，从 __init__ 原样切出，R1808。"""
+        """主体区：页面画布、统一状态栏与尺寸把手，从 __init__ 原样切出，R1808。"""
         self.body=ttk.Frame(win,padding=DESKTOP_LAYOUT['body_padding']);self.body.pack(side='left',fill='both',expand=True)
-        self.title_row=ttk.Frame(self.body);self.title_row.pack(fill='x');self.title_row.pack_propagate(False)
-        # 第 R2946/R2950 期：页标题入侧栏顶行；标题行收单行（Token 左、状态/模型右）与侧栏标题同带。
+        # R3016 P2：顶部标题行整体删除——页标题、项目路径、用量指示器全部收入底部统一状态栏左区；
+        # 页头状态/模型名信息等价迁移（视频页模型/状态、剧本页流程说明、分镜页 JSON 提示），内容区上移填空。
         self.project_block.bind('<Configure>',self.schedule_sidebar_fit,add='+')
-        self.title_row.bind('<Configure>',self.align_header,add='+')
-        self.header_info=ttk.Frame(self.title_row);self.header_info.pack(side='right',fill='x',expand=True,padx=(SPACING['md'],SPACING['none']))
-        # 第 R2950 期：页头单行——状态居左可伸展、模型名贴右（原两行堆叠把聊天区顶低）。
-        self.header_model=ttk.Label(self.header_info,style='Muted.TLabel',font=FONTS['pet_hint'],anchor='e');self.header_model.pack(side='right',anchor='e')
-        self.header_status=ttk.Label(self.header_info,style='Muted.TLabel',font=FONTS['pet_hint'],anchor='w',justify='left');self.header_status.pack(side='left',fill='x',expand=True)
         # 第 30 期第 6／8 条：阶段配置那颗按钮从标题栏挪到「剧本准备」页的「创作入口」那一行，
         # 紧挨着「手动制作剧本」（按钮那时才建得出来，见 brief_editor）；这里先留个占位，别的页没有它。
         self.stage_button=None
         # 第 33 期第 4 条：07 分镜定稿那一页没有「手动XX」，它的「阶段配置」挂在页标题右边。
         self.header_stage_button=None
-        self.header_status.bind('<Configure>',lambda e:self.header_status.configure(wraplength=max(120,e.width)))
-        self.header_model.bind('<Configure>',lambda e:self.header_model.configure(wraplength=max(120,e.width)))
         # 宠物贴片（方案 A）：第 R2933 期改挂侧栏左下角底栏，不再浮在标题行。
         # 第 30 期第 3 条：把「前台窗口是不是本进程」交上去——用户切到别的应用时，三虎的自动
         # 播报（心跳、进度气泡、主动询问、失败提醒）一律不冒；自己点开的对话框照旧一条都不拦。
         # 宠物簇（第 R2933 期）：挂进侧栏底栏 pet_dock（pet_layer 在 _build_sidebar 已指好），
         # 头像上／小字下／猫爪列右居中；前台窗口判定照旧交给三虎管自动播报。
         self.pet=pet_ui.attach(self,front=pet_ui.our_process_in_front)
-        # 用量指示器（费用统计模块）：第 R2933 期挪到页标题右侧同一行；总线绑定由每拍 sync_bus 负责。
-        self.usage_indicator=ui_usage_indicator.UsageIndicator(self.title_row,self)
-        self.usage_indicator.pack(side='left',padx=(SPACING['md'],SPACING['none']))
         # 页面仍由画布和鼠标滚轮滚动，但不显示贴在窗口最右侧的整页长滑块。
         # 各页面共用这一层，因而无需在 11 个页面里分别隐藏；表格、对话框等局部滚动条照常保留。
         area=ttk.Frame(self.body);area.pack(fill='both',expand=True)
@@ -334,27 +324,24 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         # ui_theme 的窗口定位失败只做恢复，不另建反馈链；状态栏建好后把
         # 既有可见提示入口交给根窗口。
         win._drama_place_notice=self.status.set
-        self.banner_status=tk.StringVar(value='')
-        def refresh_banner(*_unused):
-            self.banner_status.set(self.status.get().strip())
-        self.status.trace_add('write',refresh_banner);refresh_banner()
         pet_ui.watch_status(self,self.pet)
-        self.status_label=ttk.Label(self.body,textvariable=self.banner_status,
-                                    style='PaleGreenHint.TLabel',wraplength=WRAPLENGTH['lg'])
-        self.status_label.pack(fill='x',pady=DESKTOP_LAYOUT['status_gap'])
+        # R3016 P2：统一状态栏组件钉在窗口最底部；旧状态条与顶部标题行一并删除。
+        # 左区常驻段：页标题、项目路径、用量指示器（Token/¥/余额，点击开详情）；各页专用段按需清空。
+        self.status_bar=StatusBar(self.body,self.status_bus)
+        self.status_bar.pack(side='top',fill='x',pady=DESKTOP_LAYOUT['status_gap'])
+        self.status_bar.set_segment('page','')
+        self.status_bar.set_segment('path','')
+        self.usage_indicator=ui_usage_indicator.UsageIndicator(self.status_bar.left_zone,self)
+        self.usage_indicator.pack(side='left',padx=(SPACING['xs'],SPACING['none']))
+        self._segment_traces={}
         # 共享底部输入框（任务书轮 4）：13 个阶段页共用同一实例，位于画布与状态栏之间；
         # 页面切换只调 set_stage 换上下文（desktop_page_nav._sync_shared_input），
         # 非阶段页与锁定／首页路由由 pack_forget 隐藏。``before`` 把它的包裹位次插到
         # 状态栏之上，重 pack 也不会掉到状态栏下面。
         self.shared_input=desktop_shared_send.make_shared_input(self)
-        self.shared_input.pack(side='top',fill='x',before=self.status_label)
-        # R2989 P1：统一状态栏组件钉在窗口最底部；旧状态条先隐藏（P2 删除，样式与桥接一并收编）。
-        self.status_bar=StatusBar(self.body,self.status_bus)
-        self.status_bar.pack(side='top',fill='x',pady=DESKTOP_LAYOUT['status_gap'])
-        self.status_label.pack_forget()
+        self.shared_input.pack(side='top',fill='x',before=self.status_bar)
         # 忙碌时在状态栏右端转一个小圆圈（BusyState 起停）；平时不占位。
         self.busy_state.spinner=Spinner(self.body,host=self.status_bar)
-        self._install_status_styles();self.status.trace_add('write',self.sync_status_style);self.sync_status_style()
         # 不放 ttk.Sizegrip：它由 Tk 逐像素实时改窗口大小、内容跟着重排，和另三个角（系统边框缩放）表现不一致；右下角也走系统边框。
 
     def _build_sidebar(self,win):
@@ -374,26 +361,10 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         scroll=ScrollForm(sidebar_area,bg=COLORS['background_primary'],scrollbar=False)
         self.sidebar_viewport=sidebar_area;self.sidebar_scroll=scroll;self.sidebar_canvas=scroll.canvas
         scroll.canvas.configure(takefocus=True)
-        # 「我的项目」标签 R2946 删、页标题顶到侧栏上沿；内边距上沿收到 xs，与页头 token 同带。
+        # 「我的项目」标签 R2946 删、页标题 R3016 起收入底部统一状态栏左区；侧栏图标轨顶到上沿。
         side=ttk.Frame(scroll.form,padding=(DESKTOP_LAYOUT['sidebar_padding'],SPACING['xs'],DESKTOP_LAYOUT['sidebar_padding'],DESKTOP_LAYOUT['sidebar_padding']));self.sidebar=side
-        # 页标题放滚动内容顶端、内边距之外：96px 轨宽下最长页名也放得下；
-        # EllipsisLabel 窄窗才省略号、Tooltip 留全文；各页用 set_text(…) 写入。
-        self.title=EllipsisLabel(scroll.form,text='',font=FONTS['body_bold'],anchor='w')
-        self.title.pack(side='top',fill='x',anchor='w',pady=(SPACING['xs'],SPACING['xs']))
         side.pack(fill='both',expand=True)
 
-
-    def _install_status_styles(self):
-        """状态栏三类语义色；就绪沿用既有 PaleGreenHint，执行中／失败只在本页登记。"""
-        style=ttk.Style(self.win)
-        style.configure('Tokens.Status.Running.TLabel',background=COLORS['primary_subtle'],foreground=COLORS['primary_pressed'],padding=(SPACING['sm'],SPACING['xs']))
-        style.configure('Tokens.Status.Error.TLabel',background=COLORS['danger_subtle'],foreground=COLORS['danger_text'],padding=(SPACING['sm'],SPACING['xs']))
-
-
-    def sync_status_style(self,*_unused):
-        kind=status_kind(self.status.get())
-        name={'ready':'PaleGreenHint.TLabel','running':'Tokens.Status.Running.TLabel','error':'Tokens.Status.Error.TLabel'}[kind]
-        self.status_label.configure(style=name)
 
     # ---- R2989 P1：统一状态栏桥接 ----
     def _bus_to_status(self,event):
@@ -409,11 +380,36 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         if self._status_bridge_active:return
         text=self.status.get()
         kind=status_kind(text)
-        self.status_bus.publish(Message.make('error' if kind=='error' else 'info',text,source='status',auto=False))
+        level={'error':'error','running':'warning','ready':'info'}[kind]
+        self.status_bus.publish(Message.make(level,text,source='status',auto=False))
 
     def set_status_segment(self,key,text,*,tooltip=None):
-        """把页面上下文信息写进统一底栏左区常驻段。"""
-        self.status_bar.set_segment(key,text,tooltip=tooltip)
+        """把页面上下文信息写进统一底栏左区常驻段；返回该段标签。"""
+        return self.status_bar.set_segment(key,text,tooltip=tooltip)
+
+    def bind_status_segment(self,key,var):
+        """把 StringVar 实时绑定为左区常驻段（视频页生成状态等高频更新场景）。"""
+        self._unbind_status_segment(key)
+        def _sync(*_unused):
+            value=str(var.get())
+            self.set_status_segment(key,value,tooltip=value)
+        trace_id=var.trace_add('write',_sync)
+        self._segment_traces[key]=(var,trace_id)
+        _sync()
+
+    def _unbind_status_segment(self,key):
+        pair=self._segment_traces.pop(key,None)
+        if pair is None:return
+        var,trace_id=pair
+        try:var.trace_remove('write',trace_id)
+        except Exception:
+            pass
+
+    def clear_page_segments(self):
+        """换页时清空页面专用段并解除其 StringVar 绑定（page/path/用量指示器为全局常驻）。"""
+        for key in ('usage','script_note','storyboard','video_model','video'):
+            self.status_bar.clear_segment(key)
+            self._unbind_status_segment(key)
 
 
     def _initialize_automation_state(self):
@@ -845,11 +841,19 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
     def text(self,value,height=10):
         t=TextArea(self.content,bg=COLORS['background_card'],fg=COLORS['text_primary'],insertbackground=COLORS['primary'],height=height,wrap='word',font=('Microsoft YaHei UI',11),relief='flat',padx=SPACING['md'],pady=SPACING['md']);t.insert('1.0',value);t.pack(fill='both',expand=True,pady=SPACING['sm']);bind_show_all(t,after=self.fit_content);return t
     def note(self,value):
-        """把页面操作说明写入共享绿色信息栏，不再额外占一行。"""
+        """把页面操作说明写入统一状态栏（R3016 起经 StringVar 桥进右区消息），不再额外占一行。"""
         text=' '.join(str(value or '').split())
         if not text:return None
         self.status.set(text)
-        return self.status_label
+        # 立即泵一次：右区消息当帧可见（调用方通常马上断言/展示）。
+        self.status_bus.pump()
+        return self.status_bar.message
+
+    def _set_status_quiet(self,text):
+        """只更新 StringVar 的既有消费方（三虎、忙碌态、启动验收探针），不桥进右区消息。"""
+        self._status_bridge_active=True
+        try:self.status.set(text)
+        finally:self._status_bridge_active=False
     def storyboard_creation(self):
         from storyboard_files import show
         show(self)

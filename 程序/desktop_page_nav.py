@@ -64,7 +64,7 @@ class PageNavMixin:
         # 即刻反馈最后一次点击，包括连续点击后又回到当前页的情况。
         try:
             self.mark_nav(index)
-            self.title.set_text(page_title(index))
+            self.set_status_segment('page',page_title(index))
         except (tk.TclError,IndexError,AttributeError):pass
         pending=getattr(self,'_navigation_job',None)
         if pending is not None:self.win.after_cancel(pending)
@@ -154,7 +154,7 @@ class PageNavMixin:
             self.fit_content()
             return
         if plan.route=='home':
-            self.title.set_text('我的项目');self.status.set('选择项目开始创作');self.project_home()
+            self.set_status_segment('page','我的项目');self.status.set('选择项目开始创作');self.project_home()
             # 首屏此前在这里提前返回，项目树虽已创建却没有重新量画布；窗口刚映射时
             # content window 常仍是 1px 高，于是用户只看到白屏和底部状态栏。
             self.fit_content()
@@ -192,8 +192,11 @@ class PageNavMixin:
                     self._request_tick_resume_after_first_paint()
                     return
                 for child in self.content.winfo_children():child.destroy()
+                # R3016：路径是已知事实，先落位（StringVar 静默+底栏段），再开始慢构建；
+                # 构建期间状态不再停留在「正在打开…」假加载文案。
+                self._set_status_quiet(str(self.root))
+                self.status_bar.set_segment('path',str(self.root),tooltip=str(self.root))
                 self.writing()
-                self.status.set(str(self.root))
                 self.fit_content()
                 self.pet_at_stage(PAGE['script'],automatic=True)
                 self._request_tick_resume_after_first_paint()
@@ -264,9 +267,10 @@ class PageNavMixin:
         if index!=PAGE['assets']:self.asset_detail_id=None;self.asset_roster=False
 
         if index==PAGE['video']:
-            self.status_label.pack_forget()
+            # 视频工作台自带底栏，统一状态栏让位（R3016 P2：沿用旧状态条同款进退逻辑）。
+            self.status_bar.pack_forget()
         else:
-            self.status_label.pack(fill='x',pady=DESKTOP_LAYOUT['status_gap'])
+            self.status_bar.pack(side='top',fill='x',pady=DESKTOP_LAYOUT['status_gap'])
         if index==PAGE['video']:
             prefs_path=self.root/'ui_settings.json' if self.root else None
             prefs=_prefs(prefs_path)
@@ -301,10 +305,12 @@ class PageNavMixin:
                 if image is not None:
                     assets_button.configure(image=image)
                     assets_button._nav_icon_name=key
-        self.header_status.configure(text='',textvariable='');self.header_model.configure(text='');self.title.set_text(page_title(index));self.status.set(str(self.root))
-        # R2989 P1：换页即清空统一底栏左区的用量摘要段（剧本准备页专用上下文，不带到别的页）。
-        status_bar=getattr(self,'status_bar',None)
-        if status_bar is not None:status_bar.clear_segment('usage')
+        # R3016 P2：页标题与项目路径进统一底栏左区常驻段；页面专用段（用量摘要等）换页即清。
+        # 路径另以静默方式保留在 StringVar（启动验收探针与三虎读它），不桥进右区消息。
+        self.status_bar.set_segment('page',page_title(index))
+        self.status_bar.set_segment('path',str(self.root),tooltip=str(self.root))
+        self._set_status_quiet(str(self.root))
+        self.clear_page_segments()
         self.stage_button=None                 # 那一行随页面重建：旧按钮这会儿已跟着 content 一起销毁
         if self.header_stage_button is not None:
             self.header_stage_button.destroy();self.header_stage_button=None    # 页标题旁那颗同理
@@ -332,8 +338,8 @@ class PageNavMixin:
                 try:sync()
                 except Exception:app_logging.swallowed()
         options={'side':'top','fill':'x'}
-        label=getattr(self,'status_label',None)
-        # 视频页会把状态栏 pack_forget：锚点不在管理中时不能用 before，否则 Tcl 报错。
+        label=getattr(self,'status_bar',None)
+        # 视频页会把统一状态栏 pack_forget：锚点不在管理中时不能用 before，否则 Tcl 报错。
         if label is not None and label.winfo_manager()=='pack':options['before']=label
         shared.pack(**options)
 
