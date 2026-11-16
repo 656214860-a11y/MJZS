@@ -5,7 +5,7 @@ from tkinter import ttk
 
 from contract.script_contract import PRODUCTION_LOCK_DEFINITIONS, production_lock_active
 from ui_tokens import SPACING, STAGE_PANEL_LAYOUT
-from ui_tooltip import Tooltip
+from ui.ui_tooltip import Tooltip
 from ui_widgets import SelectBox
 
 

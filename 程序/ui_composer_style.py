@@ -1,49 +1,10 @@
-"""剧本准备页输入框样式（仿 Claude Code 桌面版），由 ui_widgets.setup_styles 调用。"""
-from ui_rounded import rounded_photo
-from ui_tokens import COLORS, ICON_FONT, ICON_FONT_SMALL, RADIUS, ROUND_TILE_BUTTON, SPACING
+"""历史入口：实体已迁至 ``ui.ui_composer_style``（T10 包化）。
 
+``import ui_composer_style`` 返回 ``ui.ui_composer_style`` 本体：私有名、模块级状态与
+按扁平名打的 ``mock.patch`` 补丁面和包内路径完全一致；生产侧一律用包路径。
+门面清除轮统一改写测试导入后删除本文件。
+"""
+import sys as _sys
+from ui import ui_composer_style as _entity
 
-def install_composer_styles(style, root, configure_button):
-    """剧本准备页输入框（仿 Claude Code 桌面版）：框内底色、附件卡片、框内图标按钮。
-
-    框内控件都画在卡片白底上，所以圆角按钮透出的表面色要改成卡片底色，否则四角是页面灰。
-    """
-    card = COLORS["background_card"]
-    style.configure("Composer.TFrame", background=card)
-    style.configure("Composer.TLabel", background=card, foreground=COLORS["text_primary"])
-    style.configure("Composer.Muted.TLabel", background=card, foreground=COLORS["text_secondary"])
-    style.configure("Composer.Chip.Icon.TLabel", background=card, font=ICON_FONT,
-                    foreground=COLORS["text_secondary"])
-    style.configure("Composer.Chip.Close.TLabel", background=card, font=ICON_FONT_SMALL,
-                    foreground=COLORS["text_muted"], padding=SPACING["xs"])
-    style.map("Composer.Chip.Close.TLabel",
-              foreground=[("active", COLORS["danger"])],
-              background=[("active", COLORS["surface_hover"])])
-    factor = float(root.tk.call("tk", "scaling")) / (96.0 / 72.0)
-    pr = max(1, round(RADIUS["md"] * factor))
-    tile_w, tile_h = ROUND_TILE_BUTTON
-    for name, border, width in (("Tokens.Chip.TFrame", COLORS["border_default"], 1),
-                                ("Tokens.Chip.Selected.TFrame", COLORS["primary"], 2)):
-        image, _ = rounded_photo(root, card, RADIUS["md"],
-                                  width=RADIUS["md"] * 2 + tile_w, height=RADIUS["md"] * 2 + tile_h,
-                                  border=border, border_width=width)
-        element = "Drama." + name.replace(".", "_")
-        if element not in style.element_names():
-            style.element_create(element, "image", image, border=(pr, pr, pr, pr),
-                                 padding=(0, 0, 0, 0), width=1, height=1, sticky="nsew")
-        style.layout(name, [(element, {"sticky": "nsew", "children": [
-            ("Button.padding", {"sticky": "nsew"})]})])
-        style.configure(name, background=card)  # 内边距写在卡片控件上（见 desktop_idea_chat），样式里的不生效
-    configure_button(style, "Tokens.Composer.Icon.TButton", font=ICON_FONT,
-                      background=card, foreground=COLORS["text_secondary"],
-                      active_background=COLORS["surface_hover"],
-                      active_foreground=COLORS["text_primary"],
-                      pressed_background=COLORS["surface_pressed"],
-                      padding=(SPACING["sm"], SPACING["xs"]))
-    configure_button(style, "Tokens.Composer.Send.TButton", font=ICON_FONT,
-                      background=COLORS["primary"], foreground=card,
-                      active_background=COLORS["primary_hover"], active_foreground=card,
-                      pressed_background=COLORS["primary_pressed"],
-                      padding=(SPACING["sm"], SPACING["xs"]))
-    for name in ("Tokens.Composer.Icon.TButton", "Tokens.Composer.Send.TButton"):
-        style.configure(name, background=card)
+_sys.modules[__name__] = _entity
