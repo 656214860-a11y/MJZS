@@ -6,8 +6,8 @@ import queue
 def run_storyboard_direct(host, config):
     """初步分镜直连 API：后台线程执行，进度经队列在 Tk 主线程播报（REQ-S03-53）。"""
     from orchestrator.storyboard_direct_api import launch
-    from storyboard_selection import selected_many
-    from workflow_settings import skill_prompt
+    from orchestrator.storyboard_selection import selected_many
+    from orchestrator.workflow_settings import skill_prompt
     messages=queue.Queue()
     state={}
     def drain():

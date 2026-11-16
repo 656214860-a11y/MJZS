@@ -149,7 +149,7 @@ def plan_import(source, target_dir, stage, registry):
 
 def _verify(target):
     """按真实发送流程冻结一次：正文为空、引用缺失／越界、超出上限都在此暴露。"""
-    import workflow_settings
+    import orchestrator.workflow_settings as workflow_settings
     try:
         workflow_settings._inline_skill_report(target, strict=True)
     except (OSError, UnicodeError, ValueError) as exc:

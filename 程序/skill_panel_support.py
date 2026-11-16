@@ -287,7 +287,7 @@ def flow_skill_choices(flow):
     只留这一流程登记过、并且文件真在本地的那几个——摆出来让人挑的必须是点得动的。
     顺序就是预设表的顺序，勾选框按它排。
     """
-    import workflow_settings as ws
+    import orchestrator.workflow_settings as ws
     rows = []
     allowed = ws.FLOW_SKILLS.get(flow, ())
     for label, folder in ws.SKILL_PRESETS:
@@ -312,7 +312,7 @@ def flow_skill_display(skill):
     text = str(skill or '')
     if not text:
         return ''
-    import workflow_settings as ws
+    import orchestrator.workflow_settings as ws
     label = ws.preset_label(text)
     if label != '自定义 Skill':
         return label
@@ -360,7 +360,7 @@ def flow_skill_paths(project, flow):
 
     直读项目里那一份设置；失效路径由面板加载时过滤并回写，避免已删除文件继续出现在勾选区。
     """
-    import workflow_settings as ws
+    import orchestrator.workflow_settings as ws
     try:
         path = ws.settings_path(project)
         data = read_json(path) if path.is_file() else {}
@@ -381,7 +381,7 @@ def flow_skill_value(project, flow):
 
 def set_flow_skills(project, flow, values):
     """把勾中的那几份 SKILL 写进这一流程当前的引擎档（与「调用设置」里是同一处），返回写下的路径清单。"""
-    import workflow_settings as ws
+    import orchestrator.workflow_settings as ws
     path = ws.settings_path(project)
     data = read_json(path) if path.is_file() else {}
     data = data if isinstance(data, dict) else {}
@@ -552,7 +552,7 @@ def model_choices(desktop, stage=None):
     页面专用的生产模型仍由 ``stage_models`` 按所属阶段追加。
     """
     records = pool_records(desktop)
-    import workflow_settings
+    import orchestrator.workflow_settings as workflow_settings
     options = list(model_pool.options(records, with_auto=True,
                                       labeler=workflow_settings.desktop_model_label))
     seen = {label for _model_id, label in options}

@@ -10,7 +10,7 @@ def natural_script_delivery_path(project, at):
     from domain.idea_document_paths import reply_path_parts, storage_identity
     from orchestrator.project_context_factory import project_context
     from contract.project_stages import writing
-    from workflow_settings import model_name
+    from orchestrator.workflow_settings import model_name
     provider, model = storage_identity(model_name(project, 'writing'))
     return writing(project).joinpath(*reply_path_parts(
         project_context(project), at=at, provider=provider, model=model, file_type='自然剧本'))
@@ -18,7 +18,7 @@ def natural_script_delivery_path(project, at):
 def _agent_delivery_contract(project, at=None):
     from domain.idea_document_paths import PROJECT_DOCUMENT_DIRS, delivery_document_path, storage_identity
     from orchestrator.project_context_factory import project_context
-    from workflow_settings import model_name
+    from orchestrator.workflow_settings import model_name
     from datetime import datetime
     at = datetime.now().timestamp() if at is None else at
     context = project_context(project)
@@ -236,7 +236,7 @@ def storyboard_batch_plan(project,scripts,existing):
     from domain.storyboard_catalog_service import file_order
     from domain.storyboard_catalog_service import catalog, produced_episodes, produced_scripts, resolve_source
     from orchestrator.project_context_factory import project_context
-    from storyboard_selection import adopted
+    from orchestrator.storyboard_selection import adopted
     project=Path(project).resolve()
     context=project_context(project)
     scripts=list(dict.fromkeys(Path(path).resolve() for path in scripts))

@@ -495,7 +495,7 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         sessions=getattr(self,'flow_processes',{})
         if not sessions:return
         from orchestrator.workflow_engines import forget_process
-        from workflow_settings import STAGE_CONFIG_STAGES
+        from orchestrator.workflow_settings import STAGE_CONFIG_STAGES
         remaining={}
         for key,process in list(sessions.items()):
             try:code=process.poll()
@@ -835,7 +835,7 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         batch={}
         def work():
             from stage_execution_service import storyboard_produced_scripts as produced_scripts
-            from storyboard_selection import selected_many
+            from orchestrator.storyboard_selection import selected_many
             from orchestrator.workflow_tasks import storyboard_batch_prompt
             scripts=selected_many(self.root,'script');existing=selected_many(self.root,'storyboard')
             made=produced_scripts(self.root);already=[p for p in scripts if p in made]
@@ -898,14 +898,14 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
             refresh_storyboard_studios(self, project)
             final_source = folder / 'episode.json'
             self.remember_frame_json(final_source)
-            from storyboard_selection import remember_final_view
+            from orchestrator.storyboard_selection import remember_final_view
             remember_final_view(project, final_source)
             # 只在用户本来就在分镜定稿页时重建页面：无人值守不该把人从别的页面拽走（手动按钮本来就在这一页）。
             if getattr(self,'page_index',None)==PAGE['final']:self.show(PAGE['final'])
         return 'JSON已刷新：'+str(folder)+f'；另有 {missing} 项资产待补齐。'
     def sync_working_episode(self):
         """采用分镜后，若项目还没有视频任务，把工作集指针切到最新采用的分镜。"""
-        from storyboard_selection import sync_working_episode
+        from orchestrator.storyboard_selection import sync_working_episode
         target=sync_working_episode(self.root)
         if target is None:return None
         if Path(self.studio.episode_path).resolve()!=target:self.studio=open_studio(self.root)

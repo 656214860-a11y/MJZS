@@ -107,7 +107,7 @@ class AutomationTickMixin:
         资产都在清单里且有图。04 页那条提示条每 1.5 秒问一次，所以这一份必须只读——不动文件、
         不起批次（「把工作稿移进回收站」那件事只有 poll_auto_final 与手动按钮能做）。
         """
-        from storyboard_selection import adopted
+        from orchestrator.storyboard_selection import adopted
         from contract.storyboard_paths import is_final_dir
         from domain.asset_context import references
         from domain.asset_batch_state_service import ready_asset_ids
@@ -219,7 +219,7 @@ class AutomationTickMixin:
         就早退了，这一步没人补，04 之后各步就还按旧分镜走——用户报的「三虎没有自动同步已经
         完成的分镜」就是这个。这里只补指针，不擅自采用用户没勾「自动采用」的东西。
         """
-        from storyboard_selection import repair_working_episode
+        from orchestrator.storyboard_selection import repair_working_episode
         try:switched=repair_working_episode(self.root)
         except (OSError,ValueError,KeyError,TypeError) as exc:
             self.status.set('工作集同步暂缓：'+str(exc));return None

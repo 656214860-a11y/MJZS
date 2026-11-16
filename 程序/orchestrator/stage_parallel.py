@@ -629,7 +629,7 @@ def has_run(project, stage):
 def _adopted(project):
     """已采用的分镜：返回 [(文件路径, 镜头列表)]；读不出来的跳过。"""
     from agent.core import read
-    from storyboard_selection import adopted
+    from orchestrator.storyboard_selection import adopted
     out = []
     for source in adopted(project):
         try:
@@ -667,7 +667,7 @@ def animatic_input_ready(project):
             raise ValueError('尚未采用分镜初稿')
         for _source, shots in adopted:
             shots_of({'shots': shots})
-        from storyboard_selection import draft_problems
+        from orchestrator.storyboard_selection import draft_problems
         problems = draft_problems(project)
         if problems:
             raise ValueError('；'.join(problems[:2]))

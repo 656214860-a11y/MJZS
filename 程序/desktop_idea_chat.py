@@ -174,7 +174,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, I
         direct = writing_api.model_label(self.root)
         if direct:
             return direct
-        from workflow_settings import model_name
+        from orchestrator.workflow_settings import model_name
         return model_name(self.root, 'writing')
     def show_conversation(self):
         """重绘只读聊天记录；长记录按空闲批次插入，不阻塞剧本页首帧。"""
@@ -460,7 +460,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, I
         prepared=self.idea_chat_controller.prepare_submission(self.root, value, is_example=False)
         import domain.idea_chat as idea_chat
         import writing_api
-        import workflow_settings
+        import orchestrator.workflow_settings as workflow_settings
         workflow_settings.validate_selected_skills(self.root, 'writing')
         request_model = writing_api.capture_request_model(self.root)
         direct_model = request_model['label']
@@ -744,7 +744,7 @@ class _FlowAgentLaunch:
         for name in _FlowAgentRequest.__slots__:
             setattr(self, name, getattr(request, name))
     def build(self):
-        from workflow_settings import writer_style_summary
+        from orchestrator.workflow_settings import writer_style_summary
         self.writer_style_summary = writer_style_summary
         from orchestrator.workflow_engines import prompt_with_settings,launch_interactive
         self.prompt_with_settings = prompt_with_settings; self.launch_interactive = launch_interactive
@@ -753,7 +753,7 @@ class _FlowAgentLaunch:
         if self.host.worker:raise ValueError('正在打开或发送 Agent 任务，请稍候；未重复发送。')
         if self.stage == 'writing' and getattr(self.host, '_script_agent_queue', None):
             raise ValueError('剧本模型请求正在排队，请等待或先点击中断；未重复发送。')
-        from workflow_settings import resolve_for_send
+        from orchestrator.workflow_settings import resolve_for_send
         self.config=resolve_for_send(self.host.root,self.stage,config=self._config,intake_only=self.intake_only);self.followup=self.followup if self.followup is not None else self.prompt
         from desktop_direct_dispatch import dispatch
         if dispatch(self.host,self.stage,self.config,self.direct,self.intake_only):return
@@ -956,7 +956,7 @@ class _FlowAgentLaunch:
         from prompt_window import copy_text
         copy_text(self.host.win,clipboard_text)
         if self.native_claude:
-            from workflow_settings import find_program
+            from orchestrator.workflow_settings import find_program
             from contract.platform_tools import launch_windows_app
             program = find_program(self.config)
             if self.config['engine'] == 'desktop-app':

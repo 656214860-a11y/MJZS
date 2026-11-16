@@ -8,7 +8,7 @@ from pathlib import Path
 from tkinter import ttk
 import tkinter as tk
 
-from workflow_settings import (ENGINES, FLOWS, FLOW_SKILLS, SKILL_DETAILS, SKILL_PRESETS, agent_label,
+from orchestrator.workflow_settings import (ENGINES, FLOWS, FLOW_SKILLS, SKILL_DETAILS, SKILL_PRESETS, agent_label,
                                find_program, load, preset_folder, preset_skill, save_flow, set_skills,
                                skills_of, sync_qwen_model, validate_stage_profile)
 from ui_dialogs import FileDialog

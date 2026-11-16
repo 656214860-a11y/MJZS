@@ -10,7 +10,7 @@ from stage_execution_service import (
     storyboard_default_source as default_source, storyboard_produced_episodes as produced_episodes,
     storyboard_produced_scripts as produced_scripts, storyboard_resolve_source as resolve_source,
 )
-from storyboard_selection import remember_many, selected_many, sync_structured_script
+from orchestrator.storyboard_selection import remember_many, selected_many, sync_structured_script
 
 
 def remember(project, kind, path):

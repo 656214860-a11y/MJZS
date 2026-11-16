@@ -428,7 +428,7 @@ class PetVoiceMixin:
         except Exception as exc:
             self.errors.append(('counts.storyboard', str(exc)))
         try:
-            import storyboard_selection
+            import orchestrator.storyboard_selection as storyboard_selection
             result['adopted'] = len(storyboard_selection.adopted(project))
         except Exception as exc:
             self.errors.append(('counts.adopted', str(exc)))

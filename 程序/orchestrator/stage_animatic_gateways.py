@@ -68,7 +68,7 @@ def run_animatic(project, source, references, audio=None, settings=None):
     gate = stage_parallel.evaluate(project, 'animatic')
     if gate and not gate['ok']:
         raise ValueError(stage_parallel.blocked_text(gate))
-    from storyboard_selection import adopted
+    from orchestrator.storyboard_selection import adopted
     if Path(source).resolve() not in {Path(path).resolve() for path in adopted(project)}:
         raise ValueError('请选择已采用的本项目分镜初稿')
     from comfy_runtime import wait_comfy

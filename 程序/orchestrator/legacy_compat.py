@@ -58,7 +58,7 @@ def optional_workflow_model_name(project, stage):
     模块自行猜默认模型或打印导入异常。
     """
     try:
-        from workflow_settings import model_name
+        from orchestrator.workflow_settings import model_name
     except ImportError:
         return ''
     try:

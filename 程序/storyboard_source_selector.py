@@ -7,7 +7,7 @@ storyboard_selection，Tk 控件只在这里。
 import app_logging
 from pathlib import Path
 from agent.core import save
-from storyboard_selection import adopted, focus, writable_prefs
+from orchestrator.storyboard_selection import adopted, focus, writable_prefs
 from ui_tokens import SPACING
 
 

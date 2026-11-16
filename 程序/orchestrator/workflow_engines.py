@@ -10,7 +10,7 @@ from file_cache import remove_temporary_file
 from datetime import datetime
 from agent.core import save,save_text,read,temporary_path,replace
 import orchestrator.edit_habits as edit_habits, stage_layout
-from workflow_settings import find_program,gui_claude_program,GUI_CLAUDE_CLI_HINT,ENGINES,skill_prompt,stage_output_contract,writer_style_prompt
+from orchestrator.workflow_settings import find_program,gui_claude_program,GUI_CLAUDE_CLI_HINT,ENGINES,skill_prompt,stage_output_contract,writer_style_prompt
 from infra.workflow_process_registry import (register_process, forget_process, processes, run_registered,
                                        reserve_process_slot, release_process_slot,
                                        request_process_slot, claim_process_slot,
@@ -125,7 +125,7 @@ def background_command(config,project,output,report,prompt_file=None,*,prompt=''
             args += ['--session-id', session_id]
             config['session_id'] = session_id
     # 勾选的 SKILL 目录一并授权给 CLI 模型，让模型能读全文、看图、跑脚本（等效 desktop 原生）。
-    from workflow_settings import skill_roots_for_config
+    from orchestrator.workflow_settings import skill_roots_for_config
     for directory in skill_roots_for_config(config):
         args += ['--add-dir', str(directory)]
     if config.get('model'):args+=['--model',config['model']]
@@ -562,5 +562,5 @@ def submit_existing(process,prompt,title=None):
 
 def current_config(project, stage):
     """供 L3 编排读取实际引擎配置；复用引擎模块既有的设置依赖边界。"""
-    from workflow_settings import current
+    from orchestrator.workflow_settings import current
     return current(project, stage)

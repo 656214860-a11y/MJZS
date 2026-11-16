@@ -353,7 +353,7 @@ class _KeyframeComfyRows:
         用的模型池条目）时按本地 ComfyUI 走。
         """
         from importlib import import_module
-        settings = import_module('workflow_settings')
+        settings = import_module('orchestrator.workflow_settings')
         cfg = settings.load(self.project, STAGE)
         items = {LOCAL_MODEL: ('local', None), SEEDREAM: ('cloud', None)}
         for engine_name, display in settings.ENGINES.items():
@@ -590,7 +590,7 @@ class _KeyframeComfyWindow(_KeyframeComfyRows):
             self.account.grid_remove()
             if current == 'agent':
                 from importlib import import_module
-                cfg = import_module('workflow_settings').load(self.project, STAGE)
+                cfg = import_module('orchestrator.workflow_settings').load(self.project, STAGE)
                 agent_label = import_module('workflow_agents').label
                 self.hint.set('交给首帧 Agent 逐镜生成，Skill 用“Skill 调用设置”切换；当前：'
                          + agent_label(cfg['profiles'][self.engine_of()], STAGE, self.engine_of(), '首帧制作'))
@@ -624,7 +624,7 @@ class _KeyframeComfyWindow(_KeyframeComfyRows):
         if self.kind() != 'agent':
             return
         from importlib import import_module
-        engine = self.engine_of(); cfg = import_module('workflow_settings').load(self.project, STAGE)
+        engine = self.engine_of(); cfg = import_module('orchestrator.workflow_settings').load(self.project, STAGE)
         choose_agent = import_module('workflow_agents').choose
         if engine and engine != cfg['engine']:
             choose_agent(self.project, STAGE, (engine, cfg['profiles'][engine]['skill']))
@@ -865,7 +865,7 @@ class _KeyframeComfyWindow(_KeyframeComfyRows):
             self.poll.last = str(value)
         try:
             from importlib import import_module
-            stamp = import_module('workflow_settings').settings_path(self.project).stat().st_mtime_ns
+            stamp = import_module('orchestrator.workflow_settings').settings_path(self.project).stat().st_mtime_ns
         except OSError:
             stamp = 0
         if stamp != self.agent_stamp[0]:

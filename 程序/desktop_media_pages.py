@@ -384,7 +384,7 @@ class MediaPagesMixin:
     # 第 50 期第 1 条：原来那颗「选择镜头 JSON」删掉——首帧页看的永远是「当前分镜」，
     # 也就是初步分镜页采用的那一份（自动认领见 current_frame_json），不用在这儿再挑一遍。
     def focus_missing_frame(self,source,sid):
-        from storyboard_selection import focus
+        from orchestrator.storyboard_selection import focus
         focus(self.root,source)
         self.pending_frame_selection=sid
         self.show(PAGE['keyframe'])
@@ -398,7 +398,7 @@ class MediaPagesMixin:
     def remember_frame_json(self,path):
         return self.adopt_frame_jsons([path])
     def current_frame_json(self):
-        from storyboard_selection import current_source
+        from orchestrator.storyboard_selection import current_source
         episode_dir = getattr(getattr(self, 'studio', None), 'episode_dir', None)
         return current_source(
             self.root,

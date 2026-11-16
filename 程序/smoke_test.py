@@ -412,7 +412,7 @@ ROUND_CHECKS = {
          'msg': 'API 统一配置不再放 Claude 桌面启动按钮'},
         {'kind': 'keyword', 'path': r'程序\skill_panel_support.py', 'keyword': 'def grouped_model_choices(',
          'msg': '阶段配置具备供应商到模型的两级下拉数据'},
-        {'kind': 'keyword', 'path': r'程序\workflow_settings.py', 'keyword': 'STAGE_CONFIG_STAGES',
+        {'kind': 'keyword', 'path': r'程序\orchestrator\workflow_settings.py', 'keyword': 'STAGE_CONFIG_STAGES',
          'msg': '工作流阶段正确映射到阶段配置'},
         {'kind': 'keyword', 'path': r'程序\domain\idea_transcript.py', 'keyword': 'def load(root, model=None, *, gateway=None):',
          'msg': '切换模型保留各自独立聊天记录且经 L3 网关读取'},

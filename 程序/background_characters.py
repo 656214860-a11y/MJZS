@@ -83,7 +83,7 @@ def scan(project):
 
 def apply(project, selected):
     """Mark selected chars as non-assets and remove them from adopted storyboards."""
-    from storyboard_selection import adopted
+    from orchestrator.storyboard_selection import adopted
     project = Path(project).resolve()
     selected = {str(aid) for aid in selected}
     if not selected:

@@ -132,7 +132,7 @@ class PageNavMixin:
         scroll_offset, page_cache = self._show_reset_page(index, video_mode)
         locks = getattr(self, 'page_lock_reasons', None)
         def adopted_storyboards():
-            from storyboard_selection import prefs
+            from orchestrator.storyboard_selection import prefs
             return prefs(self.root).get('adopted_storyboards')
         plan=page_nav.decide(index,PAGE,{
             'lock_reason':(locks().get(index) if callable(locks) and index != PAGE_ACCOUNT else ''),

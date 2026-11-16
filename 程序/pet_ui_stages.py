@@ -240,7 +240,7 @@ class PetStagesMixin:
                 if str(states.get(stage) or '') in ('', 'pending'):
                     states[stage] = 'success'
             try:
-                from storyboard_selection import sync_structured_script
+                from orchestrator.storyboard_selection import sync_structured_script
                 sync_structured_script(project)
             except (OSError, ValueError, TypeError) as exc:
                 self.errors.append(('structured_script.sync', str(exc)))

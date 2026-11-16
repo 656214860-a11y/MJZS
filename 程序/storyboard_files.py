@@ -20,7 +20,7 @@ from stage_execution_service import (
     storyboard_working_dir as _working_dir,
     storyboard_adoption_impact as _adoption_impact,
 )
-from storyboard_selection import (
+from orchestrator.storyboard_selection import (
     remember_many as _remember_many, selected_many as _selected_many,
     sync_structured_script as _sync_structured_script, remember_final_view as _remember_final_view,
     adopted as _adopted, summary as _summary,

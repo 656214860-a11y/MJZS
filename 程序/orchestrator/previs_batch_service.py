@@ -11,7 +11,7 @@ from file_cache import read_json
 def prepare_batch(project, source, ids, call_config=None):
     project = Path(project)
     source = Path(source)
-    from workflow_settings import current
+    from orchestrator.workflow_settings import current
     call_config = call_config if call_config is not None else current(project, 'previs')
     episode = read_json(source)
     shots = [shot for shot in episode.get('shots', []) if shot.get('id') in ids]

@@ -12,7 +12,7 @@ def production_choices(project):
              (SEEDREAM_KEYFRAME_MODEL, SEEDREAM_KEYFRAME_MODEL)]
     try:
         from importlib import import_module
-        settings = import_module('workflow_settings')
+        settings = import_module('orchestrator.workflow_settings')
         config = settings.load(project, 'assets')
         for engine_name, display in settings.ENGINES.items():
             name = str(config['profiles'][engine_name].get('model', '') or '').strip() or display

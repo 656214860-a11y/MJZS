@@ -86,7 +86,7 @@ def force_stop(project,state):
 
 def start(project,source,ids,state,monitor=False,ticket=None,is_current=None,execute=None):
     if state.get('busy'):raise ValueError('已有白模任务进行中')
-    from workflow_settings import current,find_program,ENGINES
+    from orchestrator.workflow_settings import current,find_program,ENGINES
     call_config=current(project,'previs')
     require_local_agent(call_config)
     from domain.previs_routing import ready

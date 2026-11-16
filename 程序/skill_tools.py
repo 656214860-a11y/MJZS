@@ -97,7 +97,7 @@ def _episode_validate(context):
 
 
 def _storyboard_save(context):
-    from storyboard_selection import remember_many
+    from orchestrator.storyboard_selection import remember_many
     ctx = context or {}
     path = ctx.get('episode_file') or ctx.get('source')
     if not path or not Path(path).is_file():

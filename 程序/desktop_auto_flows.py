@@ -367,7 +367,7 @@ class AutoFlowsMixin:
             self.reconcile_storyboards()
         if not self.pet.should_auto_run('auto_adopt'):
             self.auto.adopt_signature=None;self.auto.adopt_pending=False;return
-        from storyboard_selection import tree_signature
+        from orchestrator.storyboard_selection import tree_signature
         from stage_execution_service import poll_asset_storyboard_adoption
         # 目录里没有新增或改写的分镜时不必反复解析全部 JSON；只有等写入完成的文件才继续轮询。
         signature=tree_signature(self.root)
@@ -501,7 +501,7 @@ class AutoFlowsMixin:
         if signature==self.auto.previs_signature:return
         self.auto.previs_signature=signature;self.auto.previs_notice=notice
         try:
-            from workflow_settings import current,ENGINES
+            from orchestrator.workflow_settings import current,ENGINES
             engine=previs_automatic_engine(self.root,current,ENGINES)
         except Exception as exc:
             self.auto.previs_signature=None;self.auto.previs_due=time.monotonic()+300

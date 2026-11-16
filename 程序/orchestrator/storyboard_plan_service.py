@@ -26,8 +26,8 @@ def storyboard_work_plan(project):
     """兼容当前扫描实现；L3 调用方不再直接依赖 UI 文件。"""
     # 延迟导入是服务边界的适配，不是 UI 调用方的任意动态导入；扫描迁出后可删除。
     from stage_execution_service import storyboard_produced_scripts
-    from storyboard_selection import selected_many
-    from storyboard_selection import adopted
+    from orchestrator.storyboard_selection import selected_many
+    from orchestrator.storyboard_selection import adopted
     root = Path(project).resolve()
     scripts = selected_many(root, 'script')
     boards = selected_many(root, 'storyboard')

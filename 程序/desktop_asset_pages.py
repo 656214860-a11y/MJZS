@@ -341,7 +341,7 @@ class AssetPagesMixin:
         from stage_execution_service import prepare_legacy_asset_base
         return prepare_legacy_asset_base(self.asset_base())
     def asset_scope(self):
-        from storyboard_selection import prefs
+        from orchestrator.storyboard_selection import prefs
         return 'current' if prefs(self.root).get('asset_scope')=='current' else 'adopted'
     def asset_sources(self):
         from domain.asset_context import scope_sources
@@ -596,7 +596,7 @@ class _AssetPage:
         label={'scenes':'场景','characters':'角色','props':'道具','all':'全部资产'}[self.kind]
         scope_label={'all':'全部资产','adopted':'已采用分镜','current':'选择分镜'}[self.page.asset_scope()]
         used_label='本集' if self.page.asset_scope()=='current' else '已采用分镜'
-        from storyboard_selection import summary
+        from orchestrator.storyboard_selection import summary
         self.page.note(f'{label} {count} 项 · {scope_label}')
         from domain.asset_reference_prompts import display_prompt
         from asset_reference_prompts_dialog import show_prompt

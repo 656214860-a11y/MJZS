@@ -2,12 +2,14 @@
 import os
 import unittest
 
+from tests.architecture._scan import entity_file
+
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 class WorkflowSettingsJsonBoundaryTests(unittest.TestCase):
     def test_workflow_settings_use_cache_for_read_and_core_for_write(self):
-        path = os.path.join(ROOT, 'workflow_settings.py')
+        path = str(entity_file('workflow_settings'))
         with open(path, encoding='utf-8') as handle:
             source = handle.read()
         self.assertIn('from file_cache import read_json', source)

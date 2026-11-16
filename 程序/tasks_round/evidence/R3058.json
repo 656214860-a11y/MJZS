@@ -1,0 +1,15 @@
+{
+  "round": 3058,
+  "commit_base": "d6e50d8c",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k workflow_settings storyboard_selection workflow file_cache agents_md",
+    "exit": 0,
+    "passed": 170,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T22:50:59"
+}

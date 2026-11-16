@@ -65,17 +65,17 @@ def note_asset_resume_round(project, ids, limit=None, now=None):
 
 
 def adopt_asset_storyboards(project, values):
-    from storyboard_selection import adopt
+    from orchestrator.storyboard_selection import adopt
     return adopt(project, values, gateway=asset_plan_gateway())
 
 
 def remove_asset_storyboards(project, values):
-    from storyboard_selection import remove
+    from orchestrator.storyboard_selection import remove
     return remove(project, values, gateway=asset_plan_gateway())
 
 
 def poll_asset_storyboard_adoption(project, minimum_age=10):
-    from storyboard_selection import adopt_pending
+    from orchestrator.storyboard_selection import adopt_pending
     return adopt_pending(project, minimum_age=minimum_age, gateway=asset_plan_gateway())
 
 

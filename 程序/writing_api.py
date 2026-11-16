@@ -64,7 +64,7 @@ def capture_request_model(project):
 
 def capture_request(project):
     """发送边界：模型、调用方式、技能内容只解析一次。"""
-    import workflow_settings
+    import orchestrator.workflow_settings as workflow_settings
     request = capture_request_model(project)
     cli = model_pool.desktop_engine(request['id']) == 'claude'
 
@@ -1011,7 +1011,7 @@ def _preparation_task(request, user_message, state, documents, texts, index):
 def _preparation_step(request, *, publish, cancelled, user_message=None, identity=None):
     """一次请求最多产出一个待确认阶段；返回 None 才可开始自然剧本。request 是 _PreparationRequest。"""
     project, chosen, record, settings, brief, creative = request
-    import domain.idea_document_paths as idea_document_paths, workflow_settings
+    import domain.idea_document_paths as idea_document_paths, orchestrator.workflow_settings as workflow_settings
     from copy import deepcopy
     from orchestrator.project_context_factory import project_context
     from contract.stage_path_service import write_dir
@@ -1172,7 +1172,7 @@ def reply(project, creative, cancelled=None, *, publish=None, archive=None, user
         raise ValueError('当前未选择可直接对话的 API 模型')
     import domain.idea_transcript as idea_transcript
     import domain.workflow_context as workflow_context
-    import workflow_settings
+    import orchestrator.workflow_settings as workflow_settings
     from orchestrator.workflow_tasks import script_prompt
 
     settings = request_model.get('settings')

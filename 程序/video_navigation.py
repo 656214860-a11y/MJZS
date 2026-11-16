@@ -20,7 +20,7 @@ def read_json(path):
 def storyboard_facts(project):
     """(份数, 镜头数)：已采用的分镜。一份都没有、文件缺失或读坏都当 0。"""
     try:
-        from storyboard_selection import adopted
+        from orchestrator.storyboard_selection import adopted
         files=adopted(project)
     except Exception:
         return 0,0

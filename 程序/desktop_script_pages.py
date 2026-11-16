@@ -141,7 +141,7 @@ class ScriptPagesMixin:
         调用设置负责，避免普通聊天提示词绕开鲸剧等 SKILL 的开工门禁。
         """
         import domain.idea_chat as idea_chat
-        from workflow_settings import model_name
+        from orchestrator.workflow_settings import model_name
         model = config['display_model'] if config is not None else model_name(self.root, 'writing')
         from orchestrator.workflow_tasks import script_followup, script_prompt, writing_restart_requested
         from orchestrator.workflow_engines import current_config
@@ -159,7 +159,7 @@ class ScriptPagesMixin:
         self.open_flow_agent('writing', '剧本准备', prompt, followup, _config=config,
                              new_session=writing_restart_requested(creative),
                              desktop_paste=True)
-        from workflow_settings import skill_prompt
+        from orchestrator.workflow_settings import skill_prompt
         from domain.writing_quality import enabled
         if enabled(skill_prompt(config or current_config(self.root, 'writing'), inline=True)):
             from orchestrator.workflow_tasks import natural_script_delivery_path
@@ -432,7 +432,7 @@ class ScriptPagesMixin:
             # 阶段完成会立刻通知三虎继续下游；必须先把正稿写入初步分镜的选择，
             # 否则全自动的 pet_storyboard_batch 会看到空输入而不派发任务。
             try:
-                from storyboard_selection import sync_structured_script
+                from orchestrator.storyboard_selection import sync_structured_script
                 from contract.script_contract import structured_script_path
                 location = structured_script_path(self.root)
                 selected = sync_structured_script(self.root)

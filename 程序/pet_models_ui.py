@@ -40,7 +40,7 @@ def report_error(hint, message):
 
 def model_options(records, with_auto=True):
     """模型设置页展示候选；桌面 Agent 状态只在此按需查询一次。"""
-    import workflow_settings
+    import orchestrator.workflow_settings as workflow_settings
     return model_pool.options(records, with_auto=with_auto,
                               labeler=workflow_settings.desktop_model_label)
 # 第 51 期第 2 条：窗口长高 90px，多出来的高度全归上面的模型池（下面那张表单同时收紧，见 open_manager）。
@@ -275,7 +275,7 @@ def settings_page(parent, pet, close=None, with_manager=True, label_width=None, 
     for key, label, note in model_pool.TASK_FIELDS:
         pairs = choices['default'] if key == 'default' else choices['plain']
         values = [text for _model_id, text in pairs]
-        import workflow_settings
+        import orchestrator.workflow_settings as workflow_settings
         var = tk.StringVar(value=model_pool.label_of(tasks.get(key) or model_pool.TASKS_DEFAULT[key],
                                                      records, labeler=workflow_settings.desktop_model_label))
         picked[key] = var
@@ -406,7 +406,7 @@ def _derive_client_profile(path, display, mode, entries, *, probe):
 def _probe_local_model(pet, value, mode, entries, program_entry, hint):
     '''Locate and adapt a local Desktop program, filling the path back into the form.'''
     from pathlib import Path
-    from workflow_settings import find_model_program, current_store_program
+    from orchestrator.workflow_settings import find_model_program, current_store_program
     if not value.get('program') and not value.get('model'):
         report_error(hint, '先填模型 ID，或点“浏览…”选择 .exe。')
         return None
@@ -681,7 +681,7 @@ class _ModelManager(ModelManagerModeTabsMixin):
         """只用当前表单身份搜寻，绝不借用被编辑记录的旧 ID。"""
         if not self.desktop_mode() or (quiet and self.program_entry.get().strip()):
             return None
-        from workflow_settings import find_model_program
+        from orchestrator.workflow_settings import find_model_program
         model = self.entries['model'].get().strip()
         if not model:
             report_error(self.hint, '请先填写模型 ID，再自动搜寻安装路径。')
@@ -931,7 +931,7 @@ class _ModelManager(ModelManagerModeTabsMixin):
                 path = Path(self.program_entry.get().strip()).expanduser()
                 if not path.is_absolute() or path.suffix.lower() != '.exe' or not path.is_file():
                     raise ValueError('请选择存在的应用 .exe 安装路径')
-                from workflow_settings import gui_claude_program, GUI_CLAUDE_CLI_HINT
+                from orchestrator.workflow_settings import gui_claude_program, GUI_CLAUDE_CLI_HINT
                 if self.mode.get() == 'CLI' and gui_claude_program(str(path)):
                     raise ValueError(GUI_CLAUDE_CLI_HINT)
                 _adapted, switched = _derive_client_profile(

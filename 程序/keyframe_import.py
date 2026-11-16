@@ -1,6 +1,6 @@
 """Import only complete, manifest-bound first frames into the matching shots."""
 from pathlib import Path
-import hashlib,json,re,time,uuid,shutil
+import hashlib, json, re, time, uuid, shutil
 from datetime import datetime
 import tk_timers
 from agent.core import read,save,save_bytes_new
@@ -121,7 +121,7 @@ def clear_stale_tasks(app,project,source,blocked,waiting):
 def launch(app,source,shot_id=None,shot_ids=None):
     from domain.keyframe_batch import candidates,frame_prompt
     from stage_execution_service import keyframe_image_prompt
-    from workflow_settings import current
+    from orchestrator.workflow_settings import current
     source=Path(source).resolve();project=Path(app.root).resolve()
     if not source.is_relative_to(project):raise ValueError('请选择当前项目的镜头JSON')
     shots=candidates(source,shot_id,shot_ids)

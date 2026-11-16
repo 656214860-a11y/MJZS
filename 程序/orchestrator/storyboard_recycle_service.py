@@ -82,7 +82,7 @@ def recycle_files(project, kind, paths):
     from contract.project_stages import writing, structure, storyboard
     from domain.storyboard_catalog_service import linked_path
     from stage_execution_service import project_context
-    from storyboard_selection import remember_many, selected_many
+    from orchestrator.storyboard_selection import remember_many, selected_many
     project = Path(project).resolve()
     sources = [Path(path).resolve() for path in paths]
     targets = list(dict.fromkeys(

@@ -54,7 +54,7 @@ def keyframe_choices(project=None):
         return tuple(items)
     try:
         from importlib import import_module
-        settings = import_module('workflow_settings')
+        settings = import_module('orchestrator.workflow_settings')
         ENGINES, load = settings.ENGINES, settings.load
         cfg = load(project, 'assets')
         for engine_name, display in ENGINES.items():

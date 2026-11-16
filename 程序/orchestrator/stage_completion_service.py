@@ -748,7 +748,7 @@ def completion_evidence(root, stage, video_ready=None):
             return evidence(root)
         if stage == 'storyboard':
             from orchestrator.stage_parallel import _adopted
-            from storyboard_selection import draft_problems
+            from orchestrator.storyboard_selection import draft_problems
             if not any(shots for _source, shots in _adopted(root)):
                 return False, '还没有已采用且含镜头的分镜 JSON'
             problems = draft_problems(root)
