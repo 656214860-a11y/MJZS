@@ -4,7 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from stage_execution_service import storyboard_catalog_snapshot as catalog_snapshot, storyboard_produced_scripts as produced_scripts, storyboard_resolve_source as resolve_source
-from storyboard_recycle_service import (
+from orchestrator.storyboard_recycle_service import (
     latest_recycle_batch, recycle_files, recycle_plan, restore_latest_recycled_files,
 )
 from storyboard_selection import adopted, prune_invalid_adoptions, remember_many, selected_many, summary

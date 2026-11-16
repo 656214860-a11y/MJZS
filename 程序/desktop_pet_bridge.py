@@ -7,10 +7,10 @@ UNATTENDED_SWITCH 的唯一定义在 desktop_auto_state（R2230 J15），desktop
 import time
 
 from desktop_auto_flows import UNATTENDED_BACKOFF_FLOOR
-from desktop_auto_state import PET_STAGE_POLL, UNATTENDED_SWITCH, flow_get, flow_set
+from orchestrator.desktop_auto_state import PET_STAGE_POLL, UNATTENDED_SWITCH, flow_get, flow_set
 from desktop_page_registry import PAGES
 from contract.storyboard_paths import media_root
-import stage_handler_registry
+import orchestrator.stage_handler_registry as stage_handler_registry
 
 class PetBridgeMixin:
     def pet_show_text(self,title,text,receipt=''):

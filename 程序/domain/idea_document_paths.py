@@ -38,7 +38,7 @@ def storage_identity(model_label):
     """模型显示名对应的 Provider 与模型目录名；未知模型也不会混入根目录。"""
     if isinstance(model_label, ChatModel) and model_label.model_id:
         return _storage_name(model_label.provider, '未知Provider'), _storage_name(model_label, '未知模型')
-    from legacy_compat import optional_model_identity
+    from orchestrator.legacy_compat import optional_model_identity
     provider, label = optional_model_identity(model_label, Path(__file__).resolve().parents[1])
     return _storage_name(provider, '未知Provider'), _storage_name(label, '未知模型')
 

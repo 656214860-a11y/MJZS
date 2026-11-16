@@ -339,7 +339,7 @@
   {
    "module": "codex_skill_sync.py",
    "covered": 0,
-   "total": 126,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -537,7 +537,7 @@
   {
    "module": "desktop_auto_state.py",
    "covered": 0,
-   "total": 98,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -903,7 +903,7 @@
   {
    "module": "edit_habits.py",
    "covered": 0,
-   "total": 213,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -1035,7 +1035,7 @@
   {
    "module": "idea_semantic_brief_service.py",
    "covered": 0,
-   "total": 57,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -1219,6 +1219,12 @@
    "percent": 0.0
   },
   {
+   "module": "legacy_compat.py",
+   "covered": 0,
+   "total": 4,
+   "percent": 0.0
+  },
+  {
    "module": "line_endings.py",
    "covered": 0,
    "total": 4,
@@ -1327,6 +1333,18 @@
    "percent": 0.0
   },
   {
+   "module": "orchestrator/codex_skill_sync.py",
+   "covered": 0,
+   "total": 126,
+   "percent": 0.0
+  },
+  {
+   "module": "orchestrator/desktop_auto_state.py",
+   "covered": 0,
+   "total": 98,
+   "percent": 0.0
+  },
+  {
    "module": "orchestrator/desktop_send_ledger.py",
    "covered": 0,
    "total": 134,
@@ -1336,6 +1354,12 @@
    "module": "orchestrator/desktop_startup_service.py",
    "covered": 0,
    "total": 31,
+   "percent": 0.0
+  },
+  {
+   "module": "orchestrator/edit_habits.py",
+   "covered": 0,
+   "total": 213,
    "percent": 0.0
   },
   {
@@ -1354,6 +1378,12 @@
    "module": "orchestrator/idea_chat_controller.py",
    "covered": 0,
    "total": 229,
+   "percent": 0.0
+  },
+  {
+   "module": "orchestrator/idea_semantic_brief_service.py",
+   "covered": 0,
+   "total": 57,
    "percent": 0.0
   },
   {
@@ -1393,6 +1423,12 @@
    "percent": 0.0
   },
   {
+   "module": "orchestrator/previs_automation.py",
+   "covered": 0,
+   "total": 167,
+   "percent": 0.0
+  },
+  {
    "module": "orchestrator/previs_batch_service.py",
    "covered": 0,
    "total": 27,
@@ -1402,6 +1438,12 @@
    "module": "orchestrator/previs_monitor.py",
    "covered": 0,
    "total": 116,
+   "percent": 0.0
+  },
+  {
+   "module": "orchestrator/qwen_adapter.py",
+   "covered": 0,
+   "total": 112,
    "percent": 0.0
   },
   {
@@ -1417,6 +1459,24 @@
    "percent": 0.0
   },
   {
+   "module": "orchestrator/skill_notes.py",
+   "covered": 0,
+   "total": 175,
+   "percent": 0.0
+  },
+  {
+   "module": "orchestrator/skill_orchestrator.py",
+   "covered": 0,
+   "total": 611,
+   "percent": 0.0
+  },
+  {
+   "module": "orchestrator/skill_templates.py",
+   "covered": 0,
+   "total": 72,
+   "percent": 0.0
+  },
+  {
    "module": "orchestrator/stage_contract_report.py",
    "covered": 0,
    "total": 10,
@@ -1426,6 +1486,12 @@
    "module": "orchestrator/stage_exec.py",
    "covered": 0,
    "total": 117,
+   "percent": 0.0
+  },
+  {
+   "module": "orchestrator/stage_handler_registry.py",
+   "covered": 0,
+   "total": 120,
    "percent": 0.0
   },
   {
@@ -1459,6 +1525,18 @@
    "percent": 0.0
   },
   {
+   "module": "orchestrator/storyboard_plan_service.py",
+   "covered": 0,
+   "total": 18,
+   "percent": 0.0
+  },
+  {
+   "module": "orchestrator/storyboard_recycle_service.py",
+   "covered": 0,
+   "total": 121,
+   "percent": 0.0
+  },
+  {
    "module": "orchestrator/subtitle_export_controller.py",
    "covered": 0,
    "total": 9,
@@ -1483,9 +1561,21 @@
    "percent": 0.0
   },
   {
+   "module": "orchestrator/workflow_tasks.py",
+   "covered": 0,
+   "total": 212,
+   "percent": 0.0
+  },
+  {
    "module": "orchestrator/writing_preparation_ledger.py",
    "covered": 0,
    "total": 132,
+   "percent": 0.0
+  },
+  {
+   "module": "orchestrator/writing_unconfirm.py",
+   "covered": 0,
+   "total": 155,
    "percent": 0.0
   },
   {
@@ -1671,7 +1761,7 @@
   {
    "module": "previs_automation.py",
    "covered": 0,
-   "total": 167,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -1761,7 +1851,7 @@
   {
    "module": "qwen_adapter.py",
    "covered": 0,
-   "total": 112,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -1939,6 +2029,12 @@
    "percent": 0.0
   },
   {
+   "module": "skill_budget.py",
+   "covered": 0,
+   "total": 4,
+   "percent": 0.0
+  },
+  {
    "module": "skill_command.py",
    "covered": 0,
    "total": 117,
@@ -1965,13 +2061,13 @@
   {
    "module": "skill_notes.py",
    "covered": 0,
-   "total": 175,
+   "total": 4,
    "percent": 0.0
   },
   {
    "module": "skill_orchestrator.py",
    "covered": 0,
-   "total": 611,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -2001,7 +2097,7 @@
   {
    "module": "skill_templates.py",
    "covered": 0,
-   "total": 72,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -2047,6 +2143,12 @@
    "percent": 0.0
   },
   {
+   "module": "stage_download_inbox_service.py",
+   "covered": 0,
+   "total": 4,
+   "percent": 0.0
+  },
+  {
    "module": "stage_exec.py",
    "covered": 0,
    "total": 4,
@@ -2061,7 +2163,7 @@
   {
    "module": "stage_handler_registry.py",
    "covered": 0,
-   "total": 120,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -2199,13 +2301,13 @@
   {
    "module": "storyboard_plan_service.py",
    "covered": 0,
-   "total": 18,
+   "total": 4,
    "percent": 0.0
   },
   {
    "module": "storyboard_recycle_service.py",
    "covered": 0,
-   "total": 121,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -2631,7 +2733,7 @@
   {
    "module": "workflow_tasks.py",
    "covered": 0,
-   "total": 212,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -2685,7 +2787,7 @@
   {
    "module": "writing_unconfirm.py",
    "covered": 0,
-   "total": 155,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -2719,7 +2821,7 @@
    "percent": 14.5
   },
   {
-   "module": "stage_download_inbox_service.py",
+   "module": "orchestrator/stage_download_inbox_service.py",
    "covered": 12,
    "total": 81,
    "percent": 14.8
@@ -2761,7 +2863,7 @@
    "percent": 16.9
   },
   {
-   "module": "legacy_compat.py",
+   "module": "orchestrator/legacy_compat.py",
    "covered": 9,
    "total": 48,
    "percent": 18.8
@@ -2821,7 +2923,7 @@
    "percent": 21.8
   },
   {
-   "module": "skill_budget.py",
+   "module": "orchestrator/skill_budget.py",
    "covered": 40,
    "total": 172,
    "percent": 23.3
@@ -2947,7 +3049,7 @@
    "percent": 41.6
   },
   {
-   "module": "desktop_automation_service.py",
+   "module": "orchestrator/desktop_automation_service.py",
    "covered": 202,
    "total": 457,
    "percent": 44.2
@@ -3061,6 +3163,12 @@
    "percent": 100.0
   },
   {
+   "module": "desktop_automation_service.py",
+   "covered": 4,
+   "total": 4,
+   "percent": 100.0
+  },
+  {
    "module": "domain/__init__.py",
    "covered": 1,
    "total": 1,
@@ -3109,6 +3217,6 @@
    "percent": 100.0
   }
  ],
- "modules_covered": 70,
- "modules_total": 516
+ "modules_covered": 71,
+ "modules_total": 534
 }

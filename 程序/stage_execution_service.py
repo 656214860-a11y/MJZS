@@ -6,7 +6,7 @@ from pathlib import Path
 import file_cache
 import model_pool
 import model_router
-import skill_budget
+import orchestrator.skill_budget as skill_budget
 import stage_config
 import stage_models
 from project_context_factory import project_context
@@ -108,7 +108,7 @@ from orchestrator.stage_write_preparation_service import (
     prepare_legacy_asset_base,
     prepare_legacy_stage_path,
     prepare_stage_write)
-from stage_download_inbox_service import (
+from orchestrator.stage_download_inbox_service import (
     DOWNLOAD_INBOX_LEDGER,
     _download_inbox_path,
     collect_download_inbox,
@@ -277,19 +277,19 @@ def restart_writing_preparation(project, stage):
     return restart_preparation(project, stage, publish=publish_stage_text)
 def confirm_writing_preparation(project, stage, path):
     """显式把当前文件登记为该阶段确认输出的编排入口，复用统一阶段发布器。"""
-    from writing_unconfirm import confirm_preparation_document
+    from orchestrator.writing_unconfirm import confirm_preparation_document
     return confirm_preparation_document(project, stage, path, publish=publish_stage_text)
 
 
 def unconfirm_writing_preparation(project, stage):
     """显式取消该阶段确认并把准备流程回退到该阶段的编排入口，复用统一阶段发布器。"""
-    from writing_unconfirm import unconfirm_preparation_document
+    from orchestrator.writing_unconfirm import unconfirm_preparation_document
     return unconfirm_preparation_document(project, stage, publish=publish_stage_text)
 
 
 def apply_partial_adoption(project, stage, path, keep):
     """按段落采用编排入口：截写所选段落并登记标记，复用统一阶段发布器。"""
-    from writing_unconfirm import apply_partial_adoption as apply_adoption
+    from orchestrator.writing_unconfirm import apply_partial_adoption as apply_adoption
     return apply_adoption(project, stage, path, keep, publish=publish_stage_text)
 
 
@@ -428,7 +428,7 @@ def stage_idea_brief_defaults(project, *, reference=None):
 
 
 def prepare_idea_semantic_brief(project, draft, reference):
-    from idea_semantic_brief_service import semantic_brief_request
+    from orchestrator.idea_semantic_brief_service import semantic_brief_request
     return semantic_brief_request(project_context(project), draft, reference,
                                   local_mode=idea_attachment_local_mode(project))
 
@@ -442,7 +442,7 @@ def validate_idea_semantic_sources(request):
 
 def read_idea_semantic_brief(request):
     """只轮询本次唯一文件；模型尚未原子发布时继续等待。"""
-    from idea_semantic_brief_service import SEMANTIC_BRIEF_MAX_BYTES, semantic_brief_values
+    from orchestrator.idea_semantic_brief_service import SEMANTIC_BRIEF_MAX_BYTES, semantic_brief_values
     path = request['path']
     if not path.is_file():
         return None
@@ -748,7 +748,7 @@ def _model_ids(desktop, stage):
 
 
 def build_orchestrator(desktop, project):
-    import skill_orchestrator
+    import orchestrator.skill_orchestrator as skill_orchestrator
     errors = getattr(desktop, 'errors', None)
     if not isinstance(errors, list): errors = []
     return skill_orchestrator.default_orchestrator(

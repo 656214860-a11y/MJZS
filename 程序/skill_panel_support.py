@@ -8,8 +8,8 @@ import tkinter as tk
 from tkinter import ttk
 import model_pool
 import model_router
-import skill_notes
-import skill_orchestrator
+import orchestrator.skill_notes as skill_notes
+import orchestrator.skill_orchestrator as skill_orchestrator
 import skill_registry
 import stage_config
 import stage_models

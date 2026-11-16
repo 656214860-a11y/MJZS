@@ -48,7 +48,7 @@ import contract.pet_bus as pet_bus
 import pet_llm
 import pet_report
 import pet_state
-import stage_handler_registry
+import orchestrator.stage_handler_registry as stage_handler_registry
 import stage_flow
 import stage_parallel
 import token_saver

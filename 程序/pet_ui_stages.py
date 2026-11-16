@@ -7,7 +7,7 @@ import pet_agent
 import contract.pet_bus as pet_bus
 import ui.pet_cloud as pet_cloud
 import stage_flow
-import stage_handler_registry
+import orchestrator.stage_handler_registry as stage_handler_registry
 import stage_parallel
 from tkinter import TclError
 from ui_widgets import ask_confirmation
@@ -522,7 +522,7 @@ class PetStagesMixin:
         """
         import skill_panel
         import skill_registry
-        import skill_templates
+        import orchestrator.skill_templates as skill_templates
         params = plan.get('params') or {}
         stage = plan.get('stage')
         project = getattr(self.desktop, 'root', None)

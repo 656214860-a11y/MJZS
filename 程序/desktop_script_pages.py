@@ -143,7 +143,7 @@ class ScriptPagesMixin:
         import idea_chat
         from workflow_settings import model_name
         model = config['display_model'] if config is not None else model_name(self.root, 'writing')
-        from workflow_tasks import script_followup, script_prompt, writing_restart_requested
+        from orchestrator.workflow_tasks import script_followup, script_prompt, writing_restart_requested
         from workflow_engines import current_config
         bounded_input = (config or current_config(self.root, 'writing')).get('engine') == 'claude'
         delivery_at = time.time()
@@ -162,7 +162,7 @@ class ScriptPagesMixin:
         from workflow_settings import skill_prompt
         from writing_quality import enabled
         if enabled(skill_prompt(config or current_config(self.root, 'writing'), inline=True)):
-            from workflow_tasks import natural_script_delivery_path
+            from orchestrator.workflow_tasks import natural_script_delivery_path
             self.watch_script_quality(natural_script_delivery_path(self.root, delivery_at))
         return model, False
     def show_script_quality(self, result):
@@ -257,7 +257,7 @@ class ScriptPagesMixin:
         import writing_api
         repaired = idea_chat.repair_internal_replies(self.idea_chat_context(), model=self.idea_chat_model(), gateway=self.idea_chat_gateway())
         getattr(self,'_idea_hidden_messages',{}).pop(self.bubble_view_key(self.idea_chat_model()),None)
-        from stage_download_inbox_service import overwrite_backup_notice
+        from orchestrator.stage_download_inbox_service import overwrite_backup_notice
         backups = []
         imported = self.import_script_downloads(backups)
         notice = ('已从下载文件夹更新' + '、'.join(kind + '「' + path.name + '」' for kind, path in imported) + '；'

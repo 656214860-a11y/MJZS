@@ -29,7 +29,7 @@ from storyboard_selection import (
 from orchestrator.storyboard_final_controller import FinalStoryboardController
 from script_preview_service import should_load_async, preview_chunks, LOADING_PREVIEW
 from orchestrator.storyboard_page_controller import StoryboardPageController
-from storyboard_recycle_service import (
+from orchestrator.storyboard_recycle_service import (
     recycle_plan as _recycle_plan, detach_video_refs as _detach_video_refs,
     recycle_files as _recycle_files, latest_recycle_batch as _latest_recycle_batch,
     restore_latest_recycled_files as _restore_latest_recycled_files,

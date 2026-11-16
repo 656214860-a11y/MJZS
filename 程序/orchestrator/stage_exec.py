@@ -8,7 +8,7 @@
 这一页摆出来——手动与自动共用同一台编排器，只有 trigger 不同（这一页按 'manual'）。
 """
 import stage_flow
-import skill_orchestrator
+import orchestrator.skill_orchestrator as skill_orchestrator
 
 
 # L4 在应用组合时注入窗口构造；本层只保留执行结果和重试语义。

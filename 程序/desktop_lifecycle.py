@@ -70,7 +70,7 @@ class LifecycleMixin:
         state=getattr(self,'previs_jobs',None)
         if isinstance(state,dict) and state.get('busy'):
             try:
-                from previs_automation import force_stop
+                from orchestrator.previs_automation import force_stop
                 force_stop(self.root,state)
             except Exception as exc:
                 LOGGER.warning('强制关闭：白模批次未收干净（%s）', exc)

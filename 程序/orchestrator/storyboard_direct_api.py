@@ -236,7 +236,7 @@ class _Batch:
     """一批直连请求共用的服务：项目、适配器、模型、system 文本与取消探针。"""
 
     def __init__(self, project, config, skill_text, adapter=None, record=None, cancelled=None, profile=None):
-        from workflow_tasks import storyboard_direct_rules
+        from orchestrator.workflow_tasks import storyboard_direct_rules
         stage, rules = profile or ('storyboard', storyboard_direct_rules())
         self.project = Path(project).resolve()
         self.chosen = str((config or {}).get('model') or '')
@@ -282,7 +282,7 @@ def _jobs(batch, scripts, existing):
 def run_batch(project, config, skill_text, *, scripts=(), existing=(), report=None, **services):
     """同步处理一批：每集一次请求。services 可给 adapter／record／cancelled。
     返回 [{'source','ok','path','error','stopped'}]；report(text) 播报每集结果。"""
-    from workflow_tasks import storyboard_batch_plan
+    from orchestrator.workflow_tasks import storyboard_batch_plan
     report = report or (lambda _text: None)
     batch = _Batch(project, config, skill_text, **services)
     scripts, existing, _skipped = storyboard_batch_plan(batch.project, list(scripts), list(existing))

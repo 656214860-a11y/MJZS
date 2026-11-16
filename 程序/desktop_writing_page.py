@@ -193,7 +193,7 @@ class VoiceInput:
 
     def __init__(self, page, box, button):
         self.page, self.box, self.button = page, box, button
-        from desktop_automation_service import BackgroundTaskLifecycle
+        from orchestrator.desktop_automation_service import BackgroundTaskLifecycle
         self.recorder, self.session, self.settings, self.pending, self.ticket = None, None, None, None, None
         self.spans, self.deadline, self.serial = {}, None, 0
         self.tasks = BackgroundTaskLifecycle()
@@ -877,7 +877,7 @@ class _WritingPage(WritingSnapshotsMixin):
     def unconfirm_preparation(self, stage):
         """右键「取消已确认」：取消该阶段确认并把准备流程回退到该阶段；只改台账、不删文件。"""
         from writing_api import PREPARATION_STAGES
-        from writing_unconfirm import preparation_confirmed_stages
+        from orchestrator.writing_unconfirm import preparation_confirmed_stages
         confirmed = preparation_confirmed_stages(self.page.root)
         if stage not in confirmed:
             return
@@ -929,7 +929,7 @@ class _WritingPage(WritingSnapshotsMixin):
         else:
             stages={'setting':'项目设定','outline':'剧本大纲','character':'角色卡'}
             stage=stages[category]
-            from writing_unconfirm import preparation_confirmed_stages
+            from orchestrator.writing_unconfirm import preparation_confirmed_stages
             if stage in preparation_confirmed_stages(self.page.root):
                 menu.command('取消已确认',lambda:self.page.safe(lambda:self.unconfirm_preparation(stage)))
             menu.command('设为'+stage+'定稿',lambda:self.page.safe(lambda:self.confirm_document(stage)))

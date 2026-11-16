@@ -567,7 +567,7 @@ def shot_stats(paths):
     return _shot_stats(paths)
 def asset_counts(base):
     """资产库：登记的资产数，以及其中已经有图片的个数（与无人值守同一口径）。"""
-    from legacy_compat import optional_asset_counts
+    from orchestrator.legacy_compat import optional_asset_counts
     return optional_asset_counts(base, pet_bus.read_json)
 def autostart_command(program=PROGRAM):
     """开机自启要执行的命令行：优先同目录的 pythonw.exe（不弹控制台），拿不到就退回当前解释器。

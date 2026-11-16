@@ -27,6 +27,6 @@ def dispatch(host, stage, config, direct, intake_only):
         run_image_direct(host, direct)
         return True
     if stage == 'previs':                               # REQ-S09-50：白模预演只走本地 Agent
-        from previs_automation import require_local_agent
+        from orchestrator.previs_automation import require_local_agent
         require_local_agent(config)
     return False

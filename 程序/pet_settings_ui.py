@@ -17,7 +17,7 @@ from tkinter import ttk
 import pet_agent
 import pet_models_ui
 import environment_check
-import skill_budget
+import orchestrator.skill_budget as skill_budget
 import usage_overview
 import token_saver
 from contract.app_metadata import APP_NAME
