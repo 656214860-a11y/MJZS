@@ -267,3 +267,41 @@ def import_from_url(text, program, registry, stage_hint='', confirm=None, *, ope
     return skill_archive.import_archive(
         zip_path, program, registry, stage_hint=stage_hint, confirm=confirm,
         install_source=source, scope=spec.get('scope', ''))
+
+
+def _remote_entry_digests(spec, program, registry, *, opener=None, cache=None):
+    """下载 → ``skill_archive`` 解包 → ``{台账键: 摘要}``；``cache`` 按下载地址复用。"""
+    cache = cache if cache is not None else {}
+    if spec['url'] in cache:
+        return cache[spec['url']]
+    zip_path = download(spec['url'], cache_dir(program) / spec['cache_name'],
+                        opener=opener, recycle_root=program)
+    digests = skill_archive.archive_entry_digests(
+        zip_path, program, registry, scope=spec.get('scope', ''))
+    cache[spec['url']] = digests
+    return digests
+
+
+def probe_row(key, row, program, registry, *, opener=None, cache=None):
+    """远程台账行的更新探测：``source_url`` 可解析为 GitHub 仓库或 .zip 直链才接管。
+
+    返回 ``'unchanged'|'source-newer'|'source-missing'``；不接管返回 ``None``
+    （交给 ``skill_import_service`` 的克隆／本地判定）。下载失败、坏包、候选消失
+    一律 ``source-missing``；``cache`` 在同一次检查内按下载地址复用摘要。
+    """
+    url = str(row.get('source_url') or '')
+    if not url:
+        return None
+    text = url
+    if str(row.get('source_kind') or '') == 'repo' and row.get('source_ref'):
+        text = url + '#' + str(row['source_ref'])
+    try:
+        spec = parse_source(text)
+    except skill_import_service.ImportBlocked:
+        return None
+    try:
+        digests = _remote_entry_digests(spec, program, registry,
+                                        opener=opener, cache=cache)
+    except (skill_import_service.ImportBlocked, OSError):
+        return 'source-missing'
+    return skill_import_service._entry_status(key, row, digests)

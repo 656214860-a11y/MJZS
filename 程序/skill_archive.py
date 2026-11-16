@@ -167,3 +167,41 @@ def import_archive(zip_path, program, registry, stage_hint='', confirm=None, *,
     finally:
         if staging.exists():
             recycle_paths(program, [staging], 'SKILL 压缩包解压暂存收尾')
+
+
+def archive_entry_digests(zip_path, program, registry, scope=''):
+    """ZIP → ``{台账键: 内容摘要}``：安全解包到暂存（用后回收）→ 候选扫描 → 逐候选摘要。
+
+    更新检测专用：只读不安装；``scope`` 与 ``import_archive`` 同义（包内子目录）。
+    """
+    program = Path(program)
+    zip_path = Path(zip_path)
+    staging = (skill_registry.default_user_root(program)
+               / (ARCHIVE_STAGING_PREFIX + uuid.uuid4().hex[:8]))
+    root = staging / _staging_name(zip_path)
+    try:
+        _extract(zip_path, root)
+        if scope:
+            root = _scope_root(root, scope)
+        return skill_import_service._entry_digests(root, registry)
+    finally:
+        if staging.exists():
+            recycle_paths(program, [staging], 'SKILL 更新检测解包暂存收尾')
+
+
+def probe_row(key, row, program, registry):
+    """本地 ZIP 台账行的更新探测：``source_kind=='archive'`` 且无 ``source_url`` 才接管。
+
+    返回 ``'unchanged'|'source-newer'|'source-missing'``；不接管的行返回 ``None``
+    （交给 ``skill_import_service`` 的默认判定或远程探针）。
+    """
+    if str(row.get('source_kind') or '') != 'archive' or row.get('source_url'):
+        return None
+    source = str(row.get('source') or '')
+    if not source or not Path(source).is_file():
+        return 'source-missing'
+    try:
+        digests = archive_entry_digests(source, program, registry)
+    except (skill_import_service.ImportBlocked, OSError):
+        return 'source-missing'
+    return skill_import_service._entry_status(key, row, digests)

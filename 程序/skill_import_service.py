@@ -26,6 +26,7 @@
 """
 from __future__ import annotations
 
+import app_logging
 import hashlib
 import os
 import re
@@ -597,6 +598,7 @@ def uninstall_skill(program, registry, name):
     records = recycle_paths(program, [target], '卸载 SKILL：' + skill.name)
     if not records:
         raise ImportBlocked('SKILL「%s」未能移入回收站' % name)
+    forget_ledger_targets(program, [target])
     return {'name': skill.name, 'target': str(target)}
 
 
@@ -607,3 +609,184 @@ def validate_skill(path):
     except ImportBlocked as exc:
         return False, str(exc)
     return True, ''
+
+
+# ── 台账消费（T4）：更新检测与删除闭环 ──
+
+UPDATE_STATES = ('unchanged', 'source-newer', 'local-modified', 'source-missing')
+
+
+def ledger_items(program):
+    """导入台账行（只读）：``{key: row}``；更新检测与界面展示共用同一读取口径。"""
+    return _read_items(ledger_path(Path(program)))
+
+
+def forget_ledger_targets(program, targets):
+    """删除闭环：已回收的安装目标同步摘除台账行；返回摘除行数（幂等）。
+
+    台账键是目标相对用户层／内置层根的路径；目标不在两层根下或没有对应行时跳过。
+    与 ``migrate_legacy_imports`` 同一 ``save()`` 入口写回。
+    """
+    program = Path(program)
+    items = _read_items(ledger_path(program))
+    if not items:
+        return 0
+    roots = (skill_registry.default_user_root(program).resolve(),
+             skill_registry.default_root(program).resolve())
+    doomed = set()
+    for target in targets:
+        path = Path(target).resolve()
+        for root in roots:
+            if path.is_relative_to(root):
+                doomed.add(path.relative_to(root).as_posix())
+                break
+    removed = [key for key in doomed if key in items]
+    if removed:
+        for key in removed:
+            items.pop(key, None)
+        save(ledger_path(program), {'version': 1, 'items': items})
+    return len(removed)
+
+
+def _resolve_ledger_target(program, key):
+    """台账键 → 已安装目标：先用户层后内置层（同名用户版优先，与注册表口径一致）。"""
+    for root in (skill_registry.default_user_root(program).resolve(),
+                 skill_registry.default_root(program).resolve()):
+        candidate = root / str(key)
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _candidate_ledger_key(candidate, root, registry):
+    """候选 → 台账键 ``<阶段目录名>/<条目名>``；阶段判不出返回 None（不猜）。"""
+    stage = _candidate_stage(candidate['source'], root, '')
+    if not stage:
+        return None
+    stage_dir = registry.user_stage_directory_for(stage)
+    if stage_dir is None:
+        return None
+    entry = (candidate['source'].parent.name if candidate['kind'] == 'package'
+             else candidate['source'].name)
+    return Path(stage_dir).name + '/' + entry
+
+
+def _entry_digests(root, registry):
+    """候选树 → ``{台账键: 内容摘要}``；与安装时 ``_tree_digest`` 同口径。"""
+    digests = {}
+    for candidate in _repo_candidates(Path(root)):
+        key = _candidate_ledger_key(candidate, root, registry)
+        if not key:
+            continue
+        content = (candidate['source'].parent if candidate['kind'] == 'package'
+                   else candidate['source'])
+        try:
+            digests[key] = _tree_digest(content)
+        except OSError:
+            continue
+    return digests
+
+
+def _entry_status(key, row, digests):
+    """候选摘要表 → 行状态：候选消失→``source-missing``，摘要异→``source-newer``。"""
+    if not digests:
+        return 'source-missing'
+    digest = digests.get(key)
+    if digest is None:
+        return 'source-missing'
+    return 'unchanged' if digest == str(row.get('sha256') or '') else 'source-newer'
+
+
+def _clone_entry_digests(url, ref, program, registry):
+    """远程仓库行：重新 ``git clone --depth 1`` 到暂存（用后回收）取候选摘要。"""
+    program = Path(program)
+    staging = (skill_registry.default_user_root(program)
+               / (REPO_CLONE_PREFIX + uuid.uuid4().hex[:8]))
+    staging.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        _git_clone(url, ref, staging)
+        try:
+            return _entry_digests(staging, registry)
+        except ImportBlocked:
+            return None
+    except ImportBlocked:
+        return None
+    finally:
+        if staging.exists():
+            recycle_paths(program, [staging], 'SKILL 更新检测克隆暂存收尾')
+
+
+def _default_source_status(key, row, program, registry, cache):
+    """默认来源判定：file/dir 本地路径、repo 本地目录与远程克隆；其余返回 None 交探针。"""
+    kind = str(row.get('source_kind') or
+               ('dir' if row.get('kind') == 'package' else 'file'))
+    if kind in ('file', 'dir'):
+        source = Path(str(row.get('source') or ''))
+        if not source.exists():
+            return 'source-missing'
+        return ('unchanged' if _tree_digest(source) == str(row.get('sha256') or '')
+                else 'source-newer')
+    if kind != 'repo':
+        return None
+    if row.get('source_url'):
+        signature = (str(row['source_url']), str(row.get('source_ref') or ''))
+        if signature not in cache:
+            cache[signature] = _clone_entry_digests(
+                signature[0], signature[1], program, registry)
+        digests = cache[signature]
+    else:
+        source = Path(str(row.get('source') or ''))
+        try:
+            digests = (_entry_digests(source, registry)
+                       if source.is_dir() else None)
+        except ImportBlocked:
+            digests = None
+    return _entry_status(key, row, digests)
+
+
+def check_updates(program, *, probe=None):
+    """遍历导入台账做更新体检 → ``{台账键: UPDATE_STATES 之一}``。
+
+    判定顺序：已安装目标缺失→``source-missing``；已安装内容摘要与台账 ``sha256``
+    不一致→``local-modified``（用户手改过，不提示覆盖）；其余按来源重算：
+    ``file``／``dir`` 本地路径直读、``repo`` 本地目录重扫候选、``repo`` 远程
+    重新克隆；``archive`` 与 T3 远程链接行交给 ``probe(key, row)``（返回同组
+    状态或 ``None`` 表示不接管）；探针缺省、拒绝、出错或来源不可用→
+    ``source-missing``。只读不写：不改台账、不动已安装内容。
+    """
+    program = Path(program)
+    registry = skill_registry.Registry(
+        skill_registry.default_root(program),
+        user_root=skill_registry.default_user_root(program))
+    statuses = {}
+    cache = {}
+    for key, row in ledger_items(program).items():
+        if not isinstance(row, dict):
+            statuses[key] = 'source-missing'
+            continue
+        target = _resolve_ledger_target(program, key)
+        if target is None:
+            statuses[key] = 'source-missing'
+            continue
+        try:
+            installed = _tree_digest(target)
+        except OSError:
+            statuses[key] = 'source-missing'
+            continue
+        if installed != str(row.get('sha256') or ''):
+            statuses[key] = 'local-modified'
+            continue
+        kind = str(row.get('source_kind') or
+                   ('dir' if row.get('kind') == 'package' else 'file'))
+        status = None
+        if probe is not None and (kind == 'archive'
+                                  or (kind == 'repo' and bool(row.get('source_url')))):
+            try:
+                status = probe(key, row)
+            except Exception:
+                app_logging.swallowed('skill_import_service 更新探针失败')
+                status = None
+        if status is None:
+            status = _default_source_status(key, row, program, registry, cache)
+        statuses[key] = status or 'source-missing'
+    return statuses

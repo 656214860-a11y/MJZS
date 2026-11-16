@@ -1,13 +1,19 @@
 """阶段配置面板的 SKILL 导入动作（R2881 拆出）：文件导入与仓库导入。
 
-面板本体在 ``skill_panel.Panel``；本模块只承载「新增 SKILL」两条入口的
-交互与 ``skill_import_service`` 调用，导入管线（预检→暂存→换入→试冻结→
-登记）仍全部在服务层。仓库地址形态见 ``skill_import_service.parse_repo_ref``。
+面板本体在 ``skill_panel.Panel``；本模块只承载「新增 SKILL」各入口与
+「检查更新」的交互，导入管线（预检→暂存→换入→试冻结→登记）与台账消费
+（``check_updates``／``forget_ledger_targets``）仍全部在服务层。
+仓库地址形态见 ``skill_import_service.parse_repo_ref``。
 """
+import tkinter as tk
 from pathlib import Path
+from tkinter import ttk
 
 from ui_dialogs import FileDialog
-from ui_widgets import ask_confirmation, ask_string
+from ui_tokens import (CHAR_WIDTH, DIALOG_MIN_HEIGHT, DIALOG_MIN_WIDTH,
+                       FONTS, SPACING)
+from ui_widgets import (BaseDialog, HintLabel, PrimaryButton, SecondaryButton,
+                        TextArea, ask_confirmation, ask_string)
 
 TITLE = '阶段配置'
 confirm = ask_confirmation
@@ -183,3 +189,204 @@ class PanelImportMixin:
             self.state.configure(text='链接导入失败：' + str(exc))
             return None
         return _report_batch(self, report, '链接导入完成')
+
+    # ── T4：台账消费——检查更新与重新导入 ──
+
+    def check_skill_updates(self):
+        """「检查更新」：遍历导入台账做更新体检；有更新的条目给「重新导入」。"""
+        import skill_import_service
+        program = Path(skill_import_service.__file__).resolve().parent
+        cache = {}
+
+        def _probe(key, row):
+            import skill_archive
+            import skill_remote_service
+            status = skill_remote_service.probe_row(
+                key, row, program, self.registry, cache=cache)
+            if status is None:
+                status = skill_archive.probe_row(key, row, program, self.registry)
+            return status
+
+        try:
+            statuses = skill_import_service.check_updates(program, probe=_probe)
+            items = skill_import_service.ledger_items(program)
+        except Exception as exc:
+            self.state.configure(text='SKILL 更新检查失败：' + str(exc))
+            return None
+        return show_skill_updates(self, items, statuses)
+
+
+_UPDATE_STATUS_LABELS = {'unchanged': '已是最新', 'source-newer': '有更新',
+                         'local-modified': '本地已修改', 'source-missing': '源不可用'}
+
+
+def _update_detail_text(key, row, status):
+    return '\n'.join([
+        '%s（%s）' % (row.get('name') or key, key),
+        '状态：%s' % _UPDATE_STATUS_LABELS.get(status, status),
+        '来源：%s' % (row.get('source') or '—'),
+        '版本：%s' % (row.get('version') or '—'),
+        '导入时间：%s' % (row.get('imported_at') or '—'),
+    ])
+
+
+def _reimport_ledger_row(panel, key, row):
+    """按台账行重走对应来源的导入管线（旧版自动进回收站）；返回是否完成换入。"""
+    import skill_archive
+    import skill_import_service
+    import skill_registry
+    import skill_remote_service
+    program = Path(skill_import_service.__file__).resolve().parent
+    kind = str(row.get('source_kind') or
+               ('dir' if row.get('kind') == 'package' else 'file'))
+    stage = skill_registry.stage_from_path(Path(key).parent / 'stage_probe') \
+        or str(getattr(panel, 'stage', '') or '')
+    stage = skill_registry.stage_id(stage) or stage
+
+    def _confirm(message):
+        return confirm(panel.winfo_toplevel(), TITLE, message, dangerous=True)
+
+    try:
+        if kind in ('file', 'dir'):
+            source = Path(str(row.get('source') or ''))
+            if kind == 'dir':
+                entry = skill_registry.Registry._package_source(source)
+                if entry is None:
+                    raise skill_import_service.ImportBlocked(
+                        '来源文件夹已不是 SKILL 包：' + str(source))
+                source = entry
+            plan = skill_import_service.plan_import(
+                source, panel.registry.user_stage_directory_for(stage),
+                stage, panel.registry)
+            return _import_plan(panel, plan) is not None
+        report = None
+        if kind == 'archive':
+            if row.get('source_url'):
+                report = skill_remote_service.import_from_url(
+                    str(row['source_url']), program, panel.registry,
+                    stage_hint=stage, confirm=_confirm)
+            else:
+                report = skill_archive.import_archive(
+                    str(row.get('source') or ''), program, panel.registry,
+                    stage_hint=stage, confirm=_confirm)
+        elif kind == 'repo':
+            url = str(row.get('source_url') or '')
+            ref = str(row.get('source_ref') or '')
+            if url:
+                text = url + ('#' + ref if ref else '')
+                try:
+                    skill_remote_service.parse_source(text)
+                except skill_import_service.ImportBlocked:
+                    text = ''
+                if text:
+                    report = skill_remote_service.import_from_url(
+                        text, program, panel.registry, stage_hint=stage,
+                        confirm=_confirm)
+            if report is None:
+                text = (url + ('@' + ref if ref else '')) if url \
+                    else str(row.get('source') or '')
+                report = skill_import_service.import_from_repo(
+                    text, program, panel.registry, stage_hint=stage,
+                    confirm=_confirm)
+        else:
+            raise skill_import_service.ImportBlocked('台账来源类型无法识别：' + kind)
+        _report_batch(panel, report, '重新导入完成')
+        return True
+    except (skill_import_service.ImportBlocked, OSError, ValueError) as exc:
+        panel.state.configure(text='重新导入失败：' + str(exc))
+        return False
+
+
+def show_skill_updates(panel, items, statuses):
+    """更新检查结果窗（只读列表＋详情）；``source-newer`` 条目可「重新导入所选」。"""
+    if not items:
+        panel.state.configure(text='SKILL 更新检查：没有导入记录')
+        return None
+    pending = [(key, row) for key, row in items.items()
+               if statuses.get(key) != 'unchanged']
+    if not pending:
+        panel.state.configure(text='SKILL 更新检查：全部已是最新')
+        return None
+    window = BaseDialog(panel.winfo_toplevel(), 'SKILL 更新检查',
+                        modal=False, chrome=False)
+    window.resizable(True, True)
+    window.minsize(DIALOG_MIN_WIDTH, DIALOG_MIN_HEIGHT)
+    body = ttk.Frame(window, padding=SPACING['md'])
+    body.pack(fill='both', expand=True)
+
+    counts = {}
+    for key, _row in pending:
+        state = statuses[key]
+        counts[state] = counts.get(state, 0) + 1
+    summary = '导入台账 %d 条，需关注 %d 条：%s（已是最新 %d 条未列出）' % (
+        len(items), len(pending),
+        ' · '.join('%s %d' % (_UPDATE_STATUS_LABELS.get(state, state), count)
+                   for state, count in sorted(counts.items())),
+        len(items) - len(pending))
+    HintLabel(body, text=summary).pack(anchor='w', pady=(SPACING['none'], SPACING['sm']))
+
+    content = ttk.Frame(body)
+    content.pack(fill='both', expand=True)
+    content.columnconfigure(1, weight=1)
+    content.rowconfigure(0, weight=1)
+    list_frame = ttk.Frame(content)
+    list_frame.grid(row=0, column=0, sticky='ns',
+                    padx=(SPACING['none'], SPACING['sm']))
+    box = tk.Listbox(list_frame, selectmode='browse', exportselection=False,
+                     width=CHAR_WIDTH['field_md'] // 2, font=FONTS['body'])
+    box.pack(side='left', fill='both', expand=True)
+    list_scroll = ttk.Scrollbar(list_frame, orient='vertical', command=box.yview)
+    list_scroll.pack(side='right', fill='y')
+    box.configure(yscrollcommand=list_scroll.set)
+    for key, row in pending:
+        box.insert('end', '%s · %s' % (row.get('name') or key,
+                                       _UPDATE_STATUS_LABELS.get(statuses[key],
+                                                                 statuses[key])))
+
+    detail = TextArea(content, state='disabled')
+    detail.grid(row=0, column=1, sticky='nsew')
+    detail_scroll = ttk.Scrollbar(content, orient='vertical', command=detail.yview)
+    detail_scroll.grid(row=0, column=2, sticky='ns')
+    detail.configure(yscrollcommand=detail_scroll.set)
+
+    def _selected():
+        pick = box.curselection()
+        if not pick:
+            return None, None
+        return pending[pick[0]]
+
+    def show_detail(_event=None):
+        key, row = _selected()
+        detail.configure(state='normal')
+        detail.delete('1.0', 'end')
+        if key is not None:
+            detail.insert('1.0', _update_detail_text(key, row, statuses[key]))
+        detail.configure(state='disabled')
+
+    def reimport():
+        key, row = _selected()
+        if key is None:
+            panel.state.configure(text='SKILL 更新检查：先在列表里选一条')
+            return
+        if statuses.get(key) != 'source-newer':
+            panel.state.configure(text='SKILL 更新检查：该条目不是「有更新」，无需重新导入')
+            return
+        if _reimport_ledger_row(panel, key, row):
+            window.destroy()
+            panel.check_skill_updates()
+
+    box.bind('<<ListboxSelect>>', show_detail)
+    box.selection_set(0)
+    show_detail()
+
+    actions = ttk.Frame(body)
+    actions.pack(fill='x', pady=(SPACING['sm'], SPACING['none']))
+    SecondaryButton(actions, text='关闭', width=CHAR_WIDTH['xl'],
+                    command=window.destroy).pack(side='right')
+    SecondaryButton(actions, text='刷新', width=CHAR_WIDTH['xl'],
+                    command=lambda: (window.destroy(),
+                                     panel.check_skill_updates())).pack(
+        side='right', padx=(SPACING['none'], SPACING['sm']))
+    PrimaryButton(actions, text='重新导入所选', width=CHAR_WIDTH['xl'],
+                  command=reimport).pack(side='left')
+    return window

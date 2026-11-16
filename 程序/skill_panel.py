@@ -108,9 +108,11 @@ MANAGE_ADD_ZIP = '新增·ZIP'
 MANAGE_ADD_REPO = '从仓库地址导入'
 MANAGE_ADD_URL = '从链接导入'
 MANAGE_HEALTH = '体检'
+MANAGE_CHECK_UPDATES = '检查更新'
 MANAGE_DELETE = '删除已勾选 SKILL'
 MANAGE_LABELS = (MANAGE_ALL, MANAGE_NONE, MANAGE_ADD, MANAGE_ADD_DIR, MANAGE_ADD_ZIP,
-                 MANAGE_ADD_REPO, MANAGE_ADD_URL, MANAGE_HEALTH, MANAGE_DELETE)
+                 MANAGE_ADD_REPO, MANAGE_ADD_URL, MANAGE_HEALTH, MANAGE_CHECK_UPDATES,
+                 MANAGE_DELETE)
 # 外部包只登记总入口；API 调用只会收到入口指针，不能假装会展开其中的本地子模块。
 # 勾选框按「功能分组／流程先后」排（第 59 期第 6 条）：文件名前缀就是那条流程里的功能分组。
 
@@ -396,9 +398,9 @@ class Panel(PanelWorkflowMixin, PanelImportMixin, FormScrollMixin, ttk.Frame):
         if picked == MANAGE_ADD_URL:
             self.skill_action.set(MANAGE_ALL)
             return self.add_skill_from_url()
-        if picked == MANAGE_HEALTH:
+        if picked in (MANAGE_HEALTH, MANAGE_CHECK_UPDATES):
             self.skill_action.set(MANAGE_ALL)
-            return show_skill_health(self)
+            return show_skill_health(self) if picked == MANAGE_HEALTH else self.check_skill_updates()
         if picked == MANAGE_ALL:
             return self.check_all_skills(True)
         if picked == MANAGE_NONE:
@@ -453,6 +455,8 @@ class Panel(PanelWorkflowMixin, PanelImportMixin, FormScrollMixin, ttk.Frame):
         if not records:
             self.state.configure(text='SKILL 未删除：回收服务未返回记录')
             return []
+        import skill_import_service
+        skill_import_service.forget_ledger_targets(program, [path for _item, path in paths])
         removed = {item.name for item, _path in paths}
         self.skills = [item for item in self.skills if item.name not in removed]
         for name in removed:

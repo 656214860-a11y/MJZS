@@ -2067,7 +2067,7 @@
   {
    "module": "skill_archive.py",
    "covered": 0,
-   "total": 107,
+   "total": 131,
    "percent": 0.0
   },
   {
@@ -2085,7 +2085,7 @@
   {
    "module": "skill_import_service.py",
    "covered": 0,
-   "total": 423,
+   "total": 551,
    "percent": 0.0
   },
   {
@@ -2115,13 +2115,13 @@
   {
    "module": "skill_panel.py",
    "covered": 0,
-   "total": 676,
+   "total": 679,
    "percent": 0.0
   },
   {
    "module": "skill_panel_import.py",
    "covered": 0,
-   "total": 124,
+   "total": 263,
    "percent": 0.0
   },
   {
@@ -2139,7 +2139,7 @@
   {
    "module": "skill_remote_service.py",
    "covered": 0,
-   "total": 173,
+   "total": 201,
    "percent": 0.0
   },
   {
