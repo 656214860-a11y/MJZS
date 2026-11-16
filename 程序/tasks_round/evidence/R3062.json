@@ -1,15 +1,16 @@
 {
   "round": 3062,
-  "commit_base": "320be4ee",
+  "commit_base": "9b095027",
   "credential_scan": {
     "ran": true,
     "hits": []
   },
   "targeted": {
-    "cmd": "run_selftests.py -k test_shared_state_ratchet test_complexity_ratchet test_module_size_ratchet ui_status writing_status",
+    "cmd": "",
     "exit": 0,
-    "passed": 39,
-    "failed": 0
+    "passed": 0,
+    "failed": 0,
+    "skipped": "docs-only"
   },
-  "generated_at": "2026-11-16T23:13:14"
+  "generated_at": "2026-11-16T23:46:39"
 }

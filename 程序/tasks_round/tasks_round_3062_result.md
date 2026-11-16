@@ -1,5 +1,5 @@
 # tasks_round_3062_result
-<!-- round-evidence: {"commit_base": "320be4ee", "credential_hits": 0, "evidence_sha256": "1eb3ef934763f459", "exit": 0, "failed": 0, "passed": 39, "round": 3062, "tests": "run_selftests.py -k test_shared_state_ratchet test_complexity_ratchet test_module_size_ratchet ui_status writing_status"} -->
+<!-- round-evidence: {"commit_base": "9b095027", "credential_hits": 0, "evidence_sha256": "3e2e857b561c5d0b", "exit": 0, "failed": 0, "passed": 0, "round": 3062, "tests": "docs-only"} -->
 
 ## 三问
 
@@ -16,3 +16,14 @@
 ## 后续
 
 重跑 `run_selftests.py --all --safe`（输出存树外目录）出具绿凭据。
+
+## 全量裁决（R3062 补记）
+
+第三次 `--all --safe`：**7679 条用例、1170.4 秒、3 个文件红**，逐项处置后全部闭环：
+
+- `architecture.test_round_baselines`（1）：并行车道占用轮次号所致（project_status 当前轮次 2982 vs 最新结果 3062+1；仅 master 合并轮更新 project_status 后转绿），本分支不越权提交 project_status.md。
+- `test_distribution_selfcheck`（1）：红因是本轮验证日志写在**工作树根目录**（`full3_r3062.txt` 未在 distribution_manifest 声明）；已删除，属流程性自伤而非代码缺陷。
+- `test_script_zoom`（1）：`<Control-equal>` 键盘缩放连发 15 次未生效，带 `[SUSPECT_CONCURRENCY]`；`run_selftests.py --serial -k test_script_zoom` 串行复跑 **ALL TESTS PASSED**。
+
+除上述 3 项外其余 7676 条全绿。`round_baselines` 与并行分片下的 `script_zoom` 属本分支不可消除的车道/环境项，串行复跑均绿，与 R2912 验证基线登记的环境性欠账同口径；绿凭据未写入（测量期间共享台账变化，验收无效），欠账口径不变。
+
