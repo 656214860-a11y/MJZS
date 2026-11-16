@@ -5,7 +5,7 @@
 """
 import pet_agent
 import contract.pet_bus as pet_bus
-import pet_cloud
+import ui.pet_cloud as pet_cloud
 from tkinter import TclError
 from ui_tokens import BUTTON_BORDER_WIDTH, COLORS, PET_LAYOUT
 from ui_widgets import ContextMenu

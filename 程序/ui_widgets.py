@@ -21,12 +21,12 @@ from ui_tokens import (COLORS, COMBOBOX_ARROW_COLOR, COMBOBOX_CONTROL_PADDING,
                        NAV_SUB_PADDING_X,
                        SCROLLBAR_THUMB, SCROLLBAR_THUMB_ACTIVE, SCROLLBAR_TROUGH, SCROLLBAR_BORDER_WIDTH, SCROLLBAR_WIDTH)
 from ui_motion import bind_row_hover, empty_icon
-from ui_hover_fade import install_hover_fade
-from ui_composer_style import install_composer_styles
+from ui.ui_hover_fade import install_hover_fade
+from ui.ui_composer_style import install_composer_styles
 from ui_rounded import (button_specs, pressed_padding, rounded_layout, set_button_padding, rounded_photo as _rounded_photo,
                         rounded_png_bytes as _rounded_png_bytes)
-from ui_splash import SPLASH_STAGES, Splash  # noqa: F401  转出，旧导入路径不变
-from ui_tooltip import Tooltip, TreeRowTooltip  # noqa: F401  转出，旧导入路径不变
+from ui.ui_splash import SPLASH_STAGES, Splash  # noqa: F401  转出，旧导入路径不变
+from ui.ui_tooltip import Tooltip, TreeRowTooltip  # noqa: F401  转出，旧导入路径不变
 
 
 def _configure_button(style, name, *, background, foreground,

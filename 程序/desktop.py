@@ -34,7 +34,7 @@ import asset_thumbs
 import asset_resume
 import contract.frame_checks as frame_checks
 import pet_ui
-import ui_usage_indicator
+import ui.ui_usage_indicator as ui_usage_indicator
 import contract.project_stages as project_stages
 import ui_plugin_registry
 import stage_handler_registry
@@ -50,7 +50,7 @@ from ui_tokens import BUTTON_GAP, BUTTON_WIDTH_DIALOG, CHAR_WIDTH, WRAPLENGTH, C
 from ui_dialogs import FileDialog
 from ui_motion import Spinner
 from ui_shortcuts import ShortcutRegistry
-import ui_stage_popups  # noqa: F401  导入即向 stage_exec 登记阶段弹窗呈现器
+import ui.ui_stage_popups as ui_stage_popups# noqa: F401  导入即向 stage_exec 登记阶段弹窗呈现器
 from ui_widgets import (BaseDialog, BusyState, ContextMenu, Card, DataTable, NotificationDispatcher,
                         PrimaryButton, SecondaryButton, TextArea, HintLabel, Tooltip, EllipsisLabel, ask_confirmation, ask_string, setup_styles)
 from ui_icons import IconLoader

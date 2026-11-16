@@ -42,7 +42,7 @@ import model_router
 from contract.app_metadata import APP_NAME
 from infra.broadcaster import Broadcaster, PREFIX_PATTERNS
 import pet_agent
-import pet_cloud
+import ui.pet_cloud as pet_cloud
 from pet_chat_coordinator import ChatCoordinator
 import contract.pet_bus as pet_bus
 import pet_llm

@@ -1353,55 +1353,55 @@
   {
    "module": "pet_cloud.py",
    "covered": 0,
-   "total": 835,
+   "total": 4,
    "percent": 0.0
   },
   {
    "module": "pet_cloud_geometry.py",
    "covered": 0,
-   "total": 69,
+   "total": 4,
    "percent": 0.0
   },
   {
    "module": "pet_cloud_hint.py",
    "covered": 0,
-   "total": 104,
+   "total": 4,
    "percent": 0.0
   },
   {
    "module": "pet_cloud_move_guard.py",
    "covered": 0,
-   "total": 60,
+   "total": 4,
    "percent": 0.0
   },
   {
    "module": "pet_cloud_place.py",
    "covered": 0,
-   "total": 327,
+   "total": 4,
    "percent": 0.0
   },
   {
    "module": "pet_cloud_shape.py",
    "covered": 0,
-   "total": 13,
+   "total": 4,
    "percent": 0.0
   },
   {
    "module": "pet_cloud_tail.py",
    "covered": 0,
-   "total": 24,
+   "total": 4,
    "percent": 0.0
   },
   {
    "module": "pet_cloud_text.py",
    "covered": 0,
-   "total": 27,
+   "total": 4,
    "percent": 0.0
   },
   {
    "module": "pet_cloud_timing.py",
    "covered": 0,
-   "total": 203,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -2119,9 +2119,117 @@
    "percent": 0.0
   },
   {
-   "module": "ui_composer_style.py",
+   "module": "ui/__init__.py",
+   "covered": 0,
+   "total": 1,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/pet_cloud.py",
+   "covered": 0,
+   "total": 835,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/pet_cloud_geometry.py",
+   "covered": 0,
+   "total": 69,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/pet_cloud_hint.py",
+   "covered": 0,
+   "total": 104,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/pet_cloud_move_guard.py",
+   "covered": 0,
+   "total": 60,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/pet_cloud_place.py",
+   "covered": 0,
+   "total": 327,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/pet_cloud_shape.py",
+   "covered": 0,
+   "total": 13,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/pet_cloud_tail.py",
+   "covered": 0,
+   "total": 24,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/pet_cloud_text.py",
+   "covered": 0,
+   "total": 27,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/pet_cloud_timing.py",
+   "covered": 0,
+   "total": 203,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/ui_composer_style.py",
    "covered": 0,
    "total": 26,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/ui_hover_fade.py",
+   "covered": 0,
+   "total": 115,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/ui_popup.py",
+   "covered": 0,
+   "total": 30,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/ui_splash.py",
+   "covered": 0,
+   "total": 132,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/ui_stage_popups.py",
+   "covered": 0,
+   "total": 127,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/ui_tooltip.py",
+   "covered": 0,
+   "total": 101,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/ui_usage_detail.py",
+   "covered": 0,
+   "total": 100,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/ui_usage_indicator.py",
+   "covered": 0,
+   "total": 88,
+   "percent": 0.0
+  },
+  {
+   "module": "ui_composer_style.py",
+   "covered": 0,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -2133,7 +2241,7 @@
   {
    "module": "ui_hover_fade.py",
    "covered": 0,
-   "total": 115,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -2157,7 +2265,7 @@
   {
    "module": "ui_popup.py",
    "covered": 0,
-   "total": 30,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -2181,13 +2289,13 @@
   {
    "module": "ui_splash.py",
    "covered": 0,
-   "total": 132,
+   "total": 4,
    "percent": 0.0
   },
   {
    "module": "ui_stage_popups.py",
    "covered": 0,
-   "total": 127,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -2205,19 +2313,19 @@
   {
    "module": "ui_tooltip.py",
    "covered": 0,
-   "total": 101,
+   "total": 4,
    "percent": 0.0
   },
   {
    "module": "ui_usage_detail.py",
    "covered": 0,
-   "total": 100,
+   "total": 4,
    "percent": 0.0
   },
   {
    "module": "ui_usage_indicator.py",
    "covered": 0,
-   "total": 88,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -2834,5 +2942,5 @@
   }
  ],
  "modules_covered": 70,
- "modules_total": 470
+ "modules_total": 488
 }
