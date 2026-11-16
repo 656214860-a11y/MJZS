@@ -455,6 +455,17 @@ class BootstrapTests(unittest.TestCase):
         self.assertEqual(code, bootstrap.EXIT_ENV_ERROR)
         self.assertEqual(json.loads(buf.getvalue().strip())["type"], "error")
 
+    def test_main_rejects_python_above_max(self):
+        with mock.patch.object(bootstrap, "probe_python",
+                               return_value=(True, "3.14.7", "")):
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                code = bootstrap.main(["--python", "too-new-python"])
+        self.assertEqual(code, bootstrap.EXIT_ENV_ERROR)
+        payload = json.loads(buf.getvalue().strip().splitlines()[-1])
+        self.assertEqual(payload["type"], "error")
+        self.assertIn("3.10", payload["message"])
+
     def test_ensure_pip_runs_ensurepip_when_missing(self):
         responses = iter([
             types.SimpleNamespace(returncode=1, stdout="", stderr=""),   # pip --version 失败
