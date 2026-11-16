@@ -1,0 +1,15 @@
+{
+  "round": 2958,
+  "commit_base": "14356e62",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k dialog_voice_input req_s09_anchors shared_input_voice white_model previs dynamic_import_registry no_circular_import",
+    "exit": 0,
+    "passed": 233,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T13:06:26"
+}

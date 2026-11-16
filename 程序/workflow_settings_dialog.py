@@ -3,6 +3,7 @@
 只负责 Tk 控件与事件；配置的解析、校验与读写都经 ``workflow_settings``，保存走 ``save_flow``。
 """
 import copy
+import os
 from pathlib import Path
 from tkinter import ttk
 import tkinter as tk
@@ -11,9 +12,10 @@ from workflow_settings import (ENGINES, FLOWS, FLOW_SKILLS, SKILL_DETAILS, SKILL
                                find_program, load, preset_folder, preset_skill, save_flow, set_skills,
                                skills_of, sync_qwen_model, validate_stage_profile)
 from ui_dialogs import FileDialog
-from ui_widgets import BaseDialog, Card, PrimaryButton, SecondaryButton, notify
+import ui_plugin_registry
+from ui_widgets import BaseDialog, Card, PrimaryButton, SecondaryButton, Tooltip, notify
 from ui_widgets import LineInput, TextArea
-from ui_tokens import TEXT_ROWS, WRAPLENGTH, SPACING
+from ui_tokens import TEXT_ROWS, WRAPLENGTH, SPACING, ICON_MICROPHONE
 
 
 def show_settings(desktop,project,on_saved=None,stage='previs',function=None):
@@ -62,6 +64,14 @@ def show_settings(desktop,project,on_saved=None,stage='previs',function=None):
     notes=TextArea(body,height=TEXT_ROWS['sm'],wrap='word',undo=True);notes.grid(row=5,column=0,columnspan=3,sticky='nsew',pady=SPACING['xs']);body.rowconfigure(5,weight=1)
     feedback=tk.StringVar(value='模型与 Skill 在主页面切换；此处编辑当前配置，保存后自动关闭。')
     ttk.Label(body,textvariable=feedback,wraplength=WRAPLENGTH['lg']).grid(row=6,column=0,columnspan=3,sticky='w',pady=SPACING['xs'])
+    # 语音输入离线化任务书轮 5：补充要求框复用共享听写组件（非 Windows 不显示麦克风）。
+    # 经 ui_plugin_registry 延迟加载，避免 L4 页面散落动态 import（规则 18）。
+    if os.name=='nt':
+        mic=SecondaryButton(body,text=ICON_MICROPHONE,width=0,style='Tokens.Composer.Icon.TButton')
+        mic.grid(row=4,column=2,sticky='e')
+        mic.configure(command=lambda:voice_input.toggle())
+        Tooltip(mic,'语音输入：点一下开始录音，再点一下结束并转成文字')
+        voice_input=ui_plugin_registry.module('desktop_voice_input').VoiceInput(notes,mic,status=feedback,project=project)
     ttk.Label(body,text='当前 Agent').grid(row=2,column=0,sticky='w')
     agent_name=tk.StringVar()
     ttk.Label(body,textvariable=agent_name,wraplength=WRAPLENGTH['sm']).grid(row=2,column=1,columnspan=2,sticky='w',pady=SPACING['xs'])

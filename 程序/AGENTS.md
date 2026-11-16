@@ -8,7 +8,7 @@
 - **范围明确的小任务**：读本文件和任务点名的文件；`architecture.md`、`PROJECT_MAP.md`、`project_status.md` 用标题或 grep 定位相关节。
 - **自主开工的会话**：读本文件；`project_status.md` 只读轮次头、新对话接续协议、检查点、验证基线、已知阻塞与待办；`architecture.md` 读 §3 分层表和与本轮模块相关的节；`PROJECT_MAP.md` 读相关节。历史条目只在涉及本轮或追溯凭据时读，旧记录不作当前验收。
 
-读完前只定位和读取，修改、测试、认领放到读完之后。接续依据文件系统，不依赖旧对话历史。
+读完前只定位和读取，修改、测试、认领放到读完后；接续依据文件系统。
 
 ## 1. 项目速览
 
@@ -46,13 +46,14 @@
 | 阶段命令入口 | `stage_handler_registry.start()` |
 | 动态导入 | `ui_plugin_registry.module()` |
 | 阶段路径 | `stage_path_service.write_dir()` / `read_dirs()` |
-| 阶段完成核验 | `stage_completion_service`；剧本准备顺序确认用其 `preparation_progress()`（设定→大纲→角色卡，三虎监控共用） |
+| 阶段完成核验 | `stage_completion_service`；剧本准备顺序确认用其 `preparation_progress()` |
 | UI 组件与弹窗 | `ui_widgets`（组件与全局 Style）／`ui_tokens`（视觉 token）／`ui_shortcuts`（快捷键登记） |
-| L2 写服务结果 / 项目上下文 / 阶段成果发布器 | `service_contract` 四字段结果、L3 注入的 `project_context.ProjectContext`、`stage_execution_service.publish_stage_*()`；每轮最多迁 3 个 service，细则见 `architecture.md` §“权威源补充条款” |
+| L2 写服务结果 / 项目上下文 / 阶段成果发布器 | `service_contract` 四字段结果、L3 注入的 `project_context.ProjectContext`、`stage_execution_service.publish_stage_*()`；每轮最多迁 3 个，细则见 `architecture.md` |
 | 正式 JSON 读写 | 读 `file_cache.read_json()`；写 `agent.core.save()`／`save_text()` 或 L3 发布器；L2 写服务只接收注入的发布器 |
 | 持久化产物版本 | `artifact_schema`：新写入写 `schema_version`，读取侧容忍缺版本 |
 | 语音识别后端路由 | `domain.speech_api.create_session()`：按 `backend` 设置分流 `offline`（`domain.offline_asr_client` 子进程）／`cloud`（`RealtimeSession`），离线不可用且已配云端密钥时自动降级 |
 | 离线 ASR 引擎 | `voice_engine/offline_asr_server.py`：独立子进程常驻，stdio JSON-Lines；模型缓存 `data/voice_models/`、运行时 `data/voice_asr_venv/`，引擎脚本不 import 主运行时模块 |
+| 语音词典与 AI 优化 | `data/语音词典.json` 读写校验在 `speech_api`，热词随会话下发、替换表定稿后处理；模板化优化在 `voice_ai`（`chat` 注入式） |
 
 `stage_layout.validate_stage_contract()` 守卫目录阶段契约；变更 `pet_bus.STAGES` 或 `stage_layout.STAGES` 的轮次必须使它通过。
 
@@ -81,11 +82,11 @@
 
 25. **任务范围优先**：治理和审计由实际风险或用户任务触发，不为凑固定轮次插入无关改动。
 26. **新规则必须配测试**：2.3 节每新增一条硬约束，同一轮或下一轮补一个自动化测试；没有测试的约束降级为「建议」，不列入 2.3 节。
-27. **轮次与队列跨树唯一**：开工先运行 `维护记录/基准脚本/round_claim.py next` 领取轮次，有匹配队列任务时再 `claim <队列ID> --owner <署名>`；有效租约属于他人时不覆盖。每轮结束检查 `N == M + 1`（N 状态页轮次，M 最新结果轮次）。一轮＝一个可独立回滚的完整变更集。并行车道、租约、检查点细则见 `runbook.md` §12。
+27. **轮次与队列跨树唯一**：开工先 `维护记录/基准脚本/round_claim.py next` 领轮次，有匹配队列任务时再 `claim <队列ID> --owner <署名>`；有效租约属于他人时不覆盖。每轮结束检查 `N == M + 1`（N 状态页轮次，M 最新结果轮次）。一轮＝一个可独立回滚的完整变更集。并行车道、租约、检查点细则见 `runbook.md` §12。
 28. **一个动作一个入口**：新增功能前先搜已有入口能否复用；本轮范围内存在重复入口时，先核验消费者与兼容要求再统一；范围外重复项只记录。
 29. **三个基线数**：每轮结束报告：默认冒烟基线 8/8；架构门禁当轮实际总数、失败集合与改前后比较（历史绿色结果不等于当前树通过）；全量回归与欠账以 `full-safe-receipts.json` 真实凭据为唯一权威（口径见 `runbook.md` §4）。
 30. **桌面主动后台任务**：`Desktop.async_()` 的提交、取消、成败收尾与迟到结果拒绝经 `BackgroundTaskLifecycle`；已取消或被新代次替换的结果不触发 UI 回调。
-30a. **欠账如实记录**：本轮产生的欠账在授权范围内闭环；历史欠账先核验影响，保留记录、不扩大任务。
+30a. **欠账如实记录**：本轮产生的欠账在授权范围内闭环；历史欠账先核验影响，保留记录不扩大任务。
 32. 连续两次修复未解决同一问题时，先补充复现、堆栈或测量证据并重新诊断，再继续修复。
 33. **启动路径零递归扫描**：窗口出现到可交互之间不 rglob / walk 任何目录；文件列表来自缓存、后台线程加载后更新，或用户点按钮时懒加载。
 34. **UI 设计唯一权威**：`design_tokens.md` 与 `ui_components.md`。`padx` / `pady`、颜色、字号、圆角从 token 取值，不写魔法数字与内联 hex。
@@ -160,7 +161,7 @@
 
 1. 按规则 27 领号并新增结果文件，状态页轮次头同步为最新结果轮次加一；只读诊断保留既有编号。
 2. 结果文件位于 `程序/tasks_round/tasks_round_N_result.md`，开头回答三问：本轮属于 §3 哪种类型？测试跑了吗、三个基线过了吗？`project_status.md` 的欠账少了吗？
-3. 按 §2.6 收尾提交。`升级备份/` 与 `.bak_*` 是历史证据，回滚靠 Git，不再新增 `.bak_*`。
+3. 按 §2.6 收尾提交；`升级备份/`、`.bak_*` 是历史证据，回滚靠 Git。
 
 ## 8. 任务执行协议
 
