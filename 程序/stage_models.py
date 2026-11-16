@@ -1,19 +1,17 @@
 # -*- coding: utf-8 -*-
-"""第 46 期第 7／8 条：首帧／资产两个阶段的「生产模型」也收进「阶段配置 → 模型」。
+"""第 46 期第 7／8 条：首帧／资产两个阶段的「生产模型」也收进统一模型下拉框。
 
 第 54 期附件三：点「手动制作XX」先弹一扇精简窗（模型／SKILL 数量／预计 ＋ 三个折叠
 项 ＋ 修改配置／直接执行／取消），这一份就是那扇窗与那颗按钮的外套。
 
-用户的要求：
-- 首帧管理 → 手动制作首帧 → 把「生成模型与接口」下拉框里的模型搬到「阶段配置 → 模型」右侧那个
-  下拉框，删掉重复的模型；
-- 资产管理 → 手动制作资产 → 把「生图模型」下拉框里的模型照同一条搬过去。
+R2942：页面级「阶段配置」按钮＋模型下拉框删除后，「挑模型」统一走底部共享输入框
+右下角的模型下拉框（before_manual 的提醒改指向它，并就地弹开菜单）。
 
 于是这一份登记每个阶段有哪些「生产模型」（本地 ComfyUI／云端生图／首帧 Agent 引擎）：
-阶段配置的模型下拉＝模型池 ＋ 这一份，制作窗口里那个重复的下拉框整条撤掉，只剩一行只读的
+模型下拉＝模型池 ＋ 这一份，制作窗口里那个重复的下拉框整条撤掉，只剩一行只读的
 「当前模型」——挑模型的地方只有一处。值仍然落在项目自己那份配置里（skill_config.json 的
-[阶段]['model']），面板、制作窗口、无人值守勾选框读到的都是同一格；skill_panel.stage_context
-会把生产模型挡在 SKILL 编排之外（它不是模型池里的模型 id）。
+[阶段]['model']），共享输入框下拉框、制作窗口、无人值守勾选框读到的都是同一格；
+skill_panel.stage_context 会把生产模型挡在 SKILL 编排之外（它不是模型池里的模型 id）。
 """
 import app_logging
 from contract.pet_bus import STAGES
@@ -248,7 +246,7 @@ def plan_window(desktop, stage, parent=None):
 
 
 def open_config(desktop, stage):
-    """「修改配置」：跳到这一阶段页面的阶段配置区（就是那颗「阶段配置」按钮打开的面板）。"""
+    """「修改配置」：打开这一阶段的 SKILL／制作锁面板（R2942：面板不再含模型选择）。"""
     try:
         from ui_plugin_registry import module
         return module('skill_panel').show(desktop, stage)
@@ -278,15 +276,33 @@ def remember_model_asked(desktop, stage):
         app_logging.swallowed()
 
 
-def before_manual(desktop, stage, parent=None):
-    """点「手动XX」之前的那一句提醒：这一阶段的模型还是「自动」就请用户去「阶段配置 → 模型」。
+def open_model_dropdown(desktop):
+    """R2942：把底部共享输入框右下角的模型下拉框就地弹开（等同用户点击）。"""
+    shared = getattr(desktop, 'shared_input', None)
+    picker = getattr(shared, 'model_picker', None)
+    button = getattr(picker, 'models', None)
+    menu = getattr(picker, '_menu', None)
+    if button is None or menu is None:
+        _status(desktop, '模型请在底部输入框右侧的模型下拉框里挑选。')
+        return None
+    try:
+        menu.tk_popup(button.winfo_rootx(),
+                      button.winfo_rooty() + button.winfo_height())
+        return True
+    except Exception:
+        app_logging.swallowed()
+        return None
 
-    返回 True＝照旧动手（本来就配好了，或用户说「先不配」）；False＝这一次不开始，改去打开
-    「阶段配置」面板挑模型。
+
+def before_manual(desktop, stage, parent=None):
+    """点「手动XX」之前的那一句提醒：这一阶段的模型还是「自动」就请用户去底部输入框的模型下拉框。
+
+    返回 True＝照旧动手（本来就配好了，或用户说「先不配」）；False＝这一次不开始，改去弹开
+    共享输入框的模型下拉框挑模型。
 
     用户要的「同步到其他页面」说的就是这里：模型只存一份（项目的 skill_config.json 里
-    [阶段]['model']），各页那颗「阶段配置」按钮与制作窗口读的都是这一格，改一次处处生效——
-    面板里那句提示写的也是这句话。同一个阶段一个会话里只提醒一次，别让每次点都弹一遍。
+    [阶段]['model']），共享输入框的模型下拉框与制作窗口读的都是这一格，改一次处处生效。
+    同一个阶段一个会话里只提醒一次，别让每次点都弹一遍。
     """
     if ASKER is None and tests_active():
         return True                                   # 第 65 期任务 11：测试阶段免弹窗，也不拦
@@ -309,17 +325,13 @@ def before_manual(desktop, stage, parent=None):
     label = STAGE_NAMES.get(stage, stage)
     if not _ask('先挑一下模型',
                 '「%s」这一步的模型还是「自动」。\n\n'
-                '每一页的「阶段配置 → 模型」是同一份配置：在那里挑一次，'
+                '底部输入框右下角的模型下拉框是这一阶段同一份配置：在那里挑一次，'
                 '所有页面和制作窗口都跟着变，不用一页一页改。\n\n'
-                '现在就打开「阶段配置」挑模型吗？\n'
+                '现在就弹开模型下拉框挑模型吗？\n'
                 '（选「否」照旧开始，模型仍按「自动」走。）' % label, parent):
         return True
-    _status(desktop, '模型还是「自动」：先在「阶段配置 → 模型」里挑一个，挑完再点「手动××」。')
-    try:
-        from ui_plugin_registry import module
-        module('skill_panel').show(desktop, stage)
-    except Exception:
-        app_logging.swallowed()
+    _status(desktop, '模型还是「自动」：先在底部输入框的模型下拉框里挑一个，挑完再点「手动××」。')
+    open_model_dropdown(desktop)
     return False
 
 

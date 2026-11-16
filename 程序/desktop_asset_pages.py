@@ -315,7 +315,7 @@ class AssetPagesMixin:
         from stage_models import manual_command as _manual
         b=PrimaryButton(production,text='手动制作资产',width=STAGE_ACTION_WIDTH,command=lambda:self.safe(_manual(self,'assets',start_assets,self.win)));b.pack(side='left',padx=(SPACING['none'],SPACING['xs']),pady=SPACING['xs']);self.asset_gated_buttons.append(b);self.asset_start_button=b
         ui_plugin_registry.module('stage_flow').follow(b,'assets')       # 三虎在跑这一步就写「自动执行中」并置灰
-        self.stage_button=ui_plugin_registry.module('skill_panel').stage_button(production,self,PAGE['assets']);self.stage_button.pack(side='left',padx=(SPACING['sm'],SPACING['xs']),pady=SPACING['xs'])
+        # R2942：「阶段配置」按钮＋模型下拉框删除（模型选择已收进共享输入框，技能走 ✦ 图标）。
         # 第 65 期任务 1：这两颗从「资产图片制作」弹窗搬到「阶段配置」右边（原话：移到主界面阶段配置旁）。
         def kill_comfy_here():
             # taskkill 逐个镜像、每个最长 10 秒，按下时 ComfyUI 通常正卡着——不能在界面线程上等。

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from tests.architecture._scan import desktop_text  # R1490：Desktop 方法分布在 desktop.py 与迁出的 Mixin 模块
+from tests.architecture._scan import desktop_text, entity_file  # R1490：Desktop 方法分布在 desktop.py 与迁出的 Mixin 模块
 import tempfile
 import unittest
 from pathlib import Path
@@ -42,8 +42,7 @@ class InteractiveLaunchTests(unittest.TestCase):
 
     def test_qwen_readiness_waits_stay_off_the_desktop_callback(self):
         """续发和启动后的命名都可能等待 Qwen 就绪，必须经后台边界。"""
-        root = Path(__file__).resolve().parents[1]
-        adapter = (root / 'qwen_adapter.py').read_text(encoding='utf-8')
+        adapter = entity_file('qwen_adapter').read_text(encoding='utf-8')
         desktop = desktop_text()
         self.assertIn(
             "threading.Thread(target=name_when_ready,args=(process,),daemon=True).start()",
@@ -51,5 +50,5 @@ class InteractiveLaunchTests(unittest.TestCase):
         start = desktop.index("if key in sessions and sessions[key].poll() is None:")
         end = desktop.index("        def launched(result):", start)  # R1840：open_flow_agent 改写成类，缩进少一级
         continuation = desktop[start:end]
-        self.assertIn("from qwen_adapter import submit_existing", continuation)
+        self.assertIn("from orchestrator.qwen_adapter import submit_existing", continuation)
         self.assertIn("self.host.async_(submit,submitted);return", continuation)  # R1840：经宿主调用

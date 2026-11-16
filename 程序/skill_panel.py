@@ -64,11 +64,10 @@ from production_lock_fields import CompactLabel, FlowFields, label_pixel_width
 import model_pool
 import model_router
 import skill_note_render
-import skill_notes
-from stage_model_picker import attach_stage_pickers, stage_button_for
+import orchestrator.skill_notes as skill_notes
 from tk_timers import repeat
-import skill_budget
-import skill_orchestrator
+import orchestrator.skill_budget as skill_budget
+import orchestrator.skill_orchestrator as skill_orchestrator
 import skill_registry
 import stage_config
 import stage_models
@@ -127,18 +126,9 @@ MANAGE_LABELS = (MANAGE_ALL, MANAGE_NONE, MANAGE_ADD, MANAGE_ADD_REPO, MANAGE_DE
 # 下拉框里（「+ 添加模型…」／「+ SKILL 入口…」），再留一扇窗就是重复入口，整块删掉。
 # manual_entry 留着读：旧项目里手动填过的模型 ID 仍然算数（见 Panel.context）。
 
-
-def stage_button(parent, desktop, index, text='阶段配置'):
-    """各阶段页「手动XX」右边那颗「阶段配置」（第 32 期第 6 条）。
-
-    面板此前只在剧本准备页挂着，用户到了别的阶段还得跑回去点；现在每页各留一颗，
-    按页序号找阶段（stage_of_page），点开的就是这一页那一个阶段的模型与 SKILL。
-    """
-    stage = stage_of_page(index)
-    button = stage_button_for(parent, lambda: None, text, desktop, stage)
-    # 阶段配置只读取／编辑配置，不会启动生产任务；后台任务进行时仍须允许用户查看或调整它。
-    button.configure(command=lambda: open_for_page(desktop, index, button))
-    return button
+# R2942：页面级「阶段配置」按钮＋其模型下拉框全部删除——模型选择收进共享输入框的
+# 下拉框按钮，SKILL 走 ✦ 图标，制作锁在剧本准备页简报表单里编辑。本模块的 Panel／show
+# 仍保留：手动制作的「修改配置」预检与资产/首帧弹窗里的入口还走它。
 
 
 class Panel(PanelWorkflowMixin, PanelImportMixin, FormScrollMixin, ttk.Frame):
@@ -468,50 +458,13 @@ class Panel(PanelWorkflowMixin, PanelImportMixin, FormScrollMixin, ttk.Frame):
         except Exception:
             return {}
 
-    # ── SKILL 说明（第 29 期第 4 条） ────────────────────────────────────────
+    # ── SKILL 说明（第 29 期第 4 条；R2916 删除：说明改由共享输入框技能列表的悬停卡片提供） ──
     def build_notes(self, pad):
-        """左侧目录、右侧正文：选择 SKILL 后在同一行阅读说明。"""
+        """说明区已删除：不再建目录与正文；refresh_notes／show_note 对空句柄自守卫。"""
         self.note_list = None
         self.note_text = None
-        self.note_items = self.note_entries()
-        if not self.note_items:
-            return None
-        box = ttk.LabelFrame(self, text='技能说明', padding=pad)
-        box.pack(fill='both', expand=True, pady=(SPACING['none'], SPACING['none']))
-        # LabelFrame 默认会按子控件的请求高度收缩；锁定其几何传播后再按面板
-        # 剩余高度分配，拖动阶段配置窗口才不会留下空白而说明区仍停在 12 行。
-        box.grid_propagate(False)
-        # 说明框占用面板剩余空间：窗口放大时目录和正文一起变高，优先露出更多 SKILL。
-        box.columnconfigure(1, weight=0)
-        box.rowconfigure(0, weight=1)
-        height = NOTE_HEIGHT_COMPACT if self.compact else NOTE_HEIGHT_REGULAR
-        self.note_list = tk.Listbox(box, height=height, width=NOTE_LIST_MIN_WIDTH,
-                                    exportselection=False, activestyle='none',
-                                    font=FONTS['body'], selectbackground=COLORS['selection_bg'],
-                                    selectforeground=COLORS['selection_text'])
-        self.note_list.grid(row=0, column=0, sticky='ns')
-        self.note_list.bind('<<ListboxSelect>>', lambda event: self.show_note())
-        self.note_list_bar = ttk.Scrollbar(box, orient='vertical', command=self.note_list.yview)
-        self.note_list_bar.grid(row=0, column=1, sticky='ns', padx=(SPACING['none'], pad))
-        self.note_list.configure(yscrollcommand=self.note_list_bar.set)
-        body = ttk.Frame(box)
-        body.grid(row=0, column=2, sticky='nsew')
-        box.columnconfigure(2, weight=1)
-        body.columnconfigure(0, weight=1)
-        body.rowconfigure(0, weight=1)
-        bar = ttk.Scrollbar(body, orient='vertical')
-        bar.grid(row=0, column=1, sticky='ns')
-        self.note_text = TextArea(body, height=height, wrap='word', relief='flat',
-                                 bg=COLORS['background_card'], fg=COLORS['text_primary'],
-                                 font=FONTS['body'], padx=NOTE_PADDING_X, pady=NOTE_PADDING_Y,
-                                 selectbackground=COLORS['selection_bg'],
-                                 selectforeground=COLORS['selection_text'], yscrollcommand=bar.set)
-        self.note_text.grid(row=0, column=0, sticky='nsew')
-        bar.configure(command=self.note_text.yview)
-        self.note_text.configure(state='disabled')
-
-        self.refresh_notes()
-        return self.note_list
+        self.note_items = []
+        return None
 
     def note_entries(self):
         """说明目录与唯一的阶段勾选网格保持一致。"""

@@ -64,7 +64,7 @@ def execute(project,manifest,stop=None):
 def _execute(project,manifest,stop=None):
     data=read(manifest);stop=stop if stop is not None else threading.Event()
     if 'assets' in data:
-        from asset_batch_execution import run_batch
+        from orchestrator.asset_batch_execution import run_batch
         base=contained(project,data['base'])
         pending=[item for item in data['assets'] if item.get('state')=='pending']
         planned=read(base/'assets/资产清单/assets.json')

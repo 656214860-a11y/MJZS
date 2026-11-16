@@ -28,6 +28,7 @@ os.chdir(HERE)
 import idea_chat as _idea_chat
 import script_contract
 import desktop_idea_chat
+from ui_tokens import ICON_ADD
 from stage_execution_service import idea_chat_gateway, publish_idea_creative, project_context
 from desktop import Desktop, PAGE
 from project_stages import writing as writing_dir
@@ -978,7 +979,7 @@ class SendMessageTests(_Harness):
             self.assertEqual(messages, [])
             self.assertEqual(tuple(d._idea_missing_dialog.brief_fields), ('故事题材', '故事角色', '故事集数', '单集时间', '交付形态'))
             notice.assert_not_called()
-            self.assertEqual(d.idea_row.winfo_manager(), 'pack', '启动工作流后发送框仍固定显示')
+            self.assertTrue(d.shared_input.winfo_ismapped(), '拦截后共享输入框仍固定显示')
 
     def test_unlabelled_prose_falls_back_to_story_summary(self):
         with tempfile.TemporaryDirectory() as td:
@@ -1000,14 +1001,16 @@ class SendMessageTests(_Harness):
             d, win = self.desktop(proj)
             d.show(0); self.settle_script_page(win)
             d.idea_input.delete('1.0', 'end'); win.update(); d._fit_composer()
+            # R2923 契约：13 页共用底部共享输入框，剧本页输入框就是共享实例。
             from ui_tokens import TEXT_ROWS
-            # 任务书轮 4：输入区是共享输入条，行数固定 TEXT_ROWS['sm']，不再随内容撑开。
-            self.assertEqual(int(d.idea_input.cget('height')), TEXT_ROWS['sm'], '共享输入框保持固定行数')
             self.assertIs(d.idea_input, d.shared_input.input, '剧本页输入框必须是共享实例')
+            self.assertTrue(d.shared_input.winfo_ismapped(), '剧本准备页显示底部共享输入框')
+            self.assertEqual(int(d.idea_input.cget('height')), TEXT_ROWS['sm'],
+                             '共享输入框保持固定行数')
             d.idea_input.insert('1.0', '第一行创意\n第二行创意\n第三行创意')
             win.update(); d._fit_composer(); win.update()
             self.assertEqual(int(d.idea_input.cget('height')), TEXT_ROWS['sm'],
-                             '多行输入在共享输入框内滚动，框高不变')
+                             '内容增多在框内滚动，共享输入框行数不变')
             sent = []
             d.send_message = lambda: sent.append(True)
             d.idea_input.focus_force(); win.update()
@@ -1028,36 +1031,29 @@ class SendMessageTests(_Harness):
             from ui_tokens import TEXT_ROWS
             self.assertEqual(heights[0], TEXT_ROWS['sm'])
             self.assertEqual(len(set(heights)), 1,
-                             '空输入框点击后必须保持共享输入框固定行数，不能随对话区压缩来回变化')
+                             '空输入框点击后必须保持共享输入框行数稳定')
 
     def test_narrow_composer_keeps_the_attachment_button_visible(self):
-        """缩窄窗口时先保留右侧附件入口，输入框使用剩余宽度。"""
+        """缩窄窗口时附件图标仍可见（＋ 已并入共享输入框）。"""
         with tempfile.TemporaryDirectory() as td:
             d, win = self.desktop(make_minimal_project(td))
             win.geometry('360x760+40+40')
             d.show(0); win.update_idletasks(); win.update()
-            row=d.idea_input.master
-            button=d.idea_attachment_button
+            button=d.shared_input.attachment_button
             self.assertTrue(button.winfo_ismapped(), '缩窄窗口后附件图标仍须可见')
             self.assertGreater(button.winfo_width(), 0, '附件图标必须保留实际宽度')
-            self.assertLess(d.idea_input.winfo_width(), row.winfo_width(),
-                            '窄窗口应缩短输入框，为附件图标留出空间')
-            self.assertLessEqual(button.winfo_rootx()+button.winfo_width(),
-                                 row.winfo_rootx()+row.winfo_width()+1,
-                                 '附件图标不得被挤出输入行右侧')
 
     def test_clicking_the_composer_hint_focuses_the_real_input_and_hides_the_static_hint(self):
-        """覆盖输入框的静态提示不能吞掉点击。"""
+        """R2923：页面不再有覆盖输入框的静态提示层——点击直接聚焦共享输入框。"""
         with tempfile.TemporaryDirectory() as td:
             d, win = self.desktop(make_minimal_project(td))
             d.show(0); win.update()
             d.idea_input.delete('1.0', 'end'); win.update()
-            self.assertTrue(d.idea_input_hint.place_info(), '空输入框时提示应已显示')
-            d.idea_input_hint.event_generate('<Button-1>'); win.update()
-            from ui_tokens import TEXT_ROWS
-            self.assertEqual(int(d.idea_input.cget('height')), TEXT_ROWS['sm'],
-                             '点击提示只应聚焦，不能改变共享输入框行数')
-            self.assertFalse(d.idea_input_hint.place_info(), '取得焦点后必须撤掉提示层')
+            self.assertFalse(hasattr(d, 'idea_input_hint'), '静态提示层已随 R2923 删除')
+            tall = int(d.idea_input.cget('height'))
+            d.idea_input.event_generate('<Button-1>'); win.update()
+            self.assertEqual(int(d.idea_input.cget('height')), tall,
+                             '点击输入框不改变行数')
 
     def test_composer_right_click_only_offers_paste_for_text_clipboard(self):
         with tempfile.TemporaryDirectory() as td:
@@ -1092,15 +1088,33 @@ class SendMessageTests(_Harness):
             d.show(0); win.update()
             win.deiconify()
             self.settle_script_page(win, .4)
-            self.assertTrue(d.script_box.winfo_ismapped(), '没有文件也保留分类标题栏')
-            # R1862：四类文件复原为四张并排表，表头即分类名。
-            titles = {'setting': '项目设定', 'outline': '项目大纲', 'character': '角色卡', 'script': '项目剧本'}
-            for category, tree in d.script_trees.items():
-                self.assertEqual(tree.heading('name')['text'], titles[category])
-                self.assertTrue(tree.winfo_ismapped())
-                self.assertFalse(tree._data_table.empty_label.winfo_ismapped(), '空态不能遮住标题栏')
-                self.assertEqual(tree.get_children(), ())
+            self.assertTrue(d.script_box.winfo_ismapped(), '没有文件也保留「项目文件」栏头')
+            # R2942：四类文件合成一条「项目文件」列表，表头即「文件名」。
+            self.assertEqual(str(d.script_title.cget('text')), '项目文件')
+            tree = d.script_tree
+            self.assertEqual(tree.heading('name')['text'], '文件名')
+            self.assertTrue(tree.winfo_ismapped())
+            self.assertFalse(tree._data_table.empty_label.winfo_ismapped(), '空态不能遮住标题栏')
+            self.assertEqual(tree.get_children(), ())
             self.assertTrue(d.idea_log.winfo_ismapped(), '聊天记录仍保留可用空间')
+
+    def test_project_files_bar_collapses_and_expands(self):
+        """R2942：点击折叠图标隐藏「项目文件」列表，再点恢复；图标方向随之切换。"""
+        from ui_tokens import ICON_CHEVRON_LEFT, ICON_CHEVRON_RIGHT
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            d, win = self.desktop(proj)
+            d.show(0); win.deiconify()
+            self.settle_script_page(win, .4)
+            self.assertTrue(d.script_tree.winfo_ismapped(), '默认展开「项目文件」列表')
+            self.assertEqual(d.script_toggle.cget('text'), ICON_CHEVRON_LEFT)
+            d.script_toggle.invoke(); win.update()
+            self.assertFalse(d.script_tree.winfo_ismapped(), '折叠后文件列表隐藏')
+            self.assertEqual(d.script_toggle.cget('text'), ICON_CHEVRON_RIGHT, '折叠后图标切换为展开方向')
+            self.assertTrue(d.idea_log.winfo_ismapped(), '折叠后聊天区仍可用')
+            d.script_toggle.invoke(); win.update()
+            self.assertTrue(d.script_tree.winfo_ismapped(), '再点恢复「项目文件」列表')
+            self.assertEqual(d.script_toggle.cget('text'), ICON_CHEVRON_LEFT)
 
     def test_delayed_script_rows_are_not_covered_by_empty_state(self):
         with tempfile.TemporaryDirectory() as td:
@@ -1160,51 +1174,43 @@ class SendMessageTests(_Harness):
             self.assertFalse(tree._data_table.empty_label.winfo_ismapped())
 
     def test_stage_settings_is_immediately_to_the_right_of_send(self):
+        """R2923：阶段配置入口已删——模型在共享输入框右下角，技能经 ✦ 图标。"""
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)
             d.show(0); win.update()
-            self.assertIs(d.stage_button.master, d.idea_row)
-            self.assertEqual(d.stage_button.winfo_manager(), 'place')
-            self.assertGreaterEqual(d.stage_button.winfo_x(),
-                                    d.idea_send.winfo_x()+d.idea_send.winfo_width(),
-                                    '阶段配置紧随发送按钮右侧')
+            self.assertIsNone(d.stage_button, '页面「阶段配置」按钮已随 R2942 删除')
 
     def test_script_interrupt_is_merged_into_submit_and_releases_direct_chat(self):
-        # REQ-S01-62：轮 3 契约——「中断」并入共享输入框发送键，运行中切换为终止图标，
-        # 空闲态文字「发送」（共享栏全阶段统一，不再用页内图标）。
-        from ui_tokens import ICON_STOP
+        """R2923：「中断」并入共享输入框——运行中按 Esc 等同点终止，空闲不拦截。"""
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)
             d.show(0); win.update()
-            labels = {str(c.cget('text')) for c in d.idea_row.winfo_children() if isinstance(c, ttk.Button)}
-            self.assertNotIn('中断', labels, '底栏不再有中断按钮')
-            self.assertEqual(d.idea_submit.cget('text'), '发送')
-            d._idea_requesting = True; d.worker = True
-            d.update_script_interrupt_button(); win.update()
-            self.assertEqual(d.idea_submit.cget('text'), ICON_STOP)
-            self.assertFalse(d.idea_submit.instate(['disabled']))
-            self.assertTrue(d.interrupt_script_agent())
+            d._idea_requesting = True
+            event = type('Event', (), {'state': 0})()
+            with patch.object(d, 'script_task_active', return_value=True):
+                result = d._writing_page_controller.interrupt_from_input(event)
+            self.assertEqual(result, 'break', '运行中 Esc 拦截并终止')
             self.assertFalse(d._idea_requesting)
-            self.assertFalse(d.worker)
-            self.assertEqual(d.idea_submit.cget('text'), '发送')
 
     def test_rebuilt_writing_page_keeps_queued_request_interruptible(self):
+        """R2923：页面重建后 Esc 终止绑定仍生效（绑定挂在共享 Text 上）。"""
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)
             d.show(0); win.update()
-            from ui_tokens import ICON_STOP
             d._script_agent_launching = True
             d.show(0); win.update()
-            self.assertEqual(d.idea_submit.cget('text'), ICON_STOP)
-            self.assertFalse(d.idea_submit.instate(['disabled']))
-            d._script_agent_launching = False
-            d.update_script_interrupt_button()
-            self.assertEqual(d.idea_submit.cget('text'), '发送')
+            event = type('Event', (), {'state': 0})()
+            with patch.object(d, 'script_task_active', return_value=True), \
+                 patch.object(d, 'interrupt_script_agent') as interrupt:
+                result = d._writing_page_controller.interrupt_from_input(event)
+            interrupt.assert_called_once()
+            self.assertEqual(result, 'break')
 
     def test_refresh_is_next_to_stage_settings_and_repairs_old_claude_blocks(self):
+        """R2923：刷新按钮已删；修复旧 Claude 思考块的逻辑随方法保留。"""
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)
@@ -1212,87 +1218,58 @@ class SendMessageTests(_Harness):
             idea_chat.append(proj, 'user', '请写第一集', model=model)
             idea_chat.append(proj, 'assistant', "[{'type': 'thinking', 'thinking': 'internal'}, {'type': 'text', 'text': '第一集正文'}]", model=model)
             d.show(0); win.update()
-            self.assertGreaterEqual(d.idea_refresh.winfo_x(),
-                                    d.stage_button.winfo_x()+d.stage_button.winfo_width())
+            self.assertFalse(hasattr(d, 'idea_refresh'), '「刷新」按钮已随 R2923 删除')
             self.assertTrue(d.refresh_script_workspace())
             self.assertEqual(idea_chat.latest_text(proj), '第一集正文')
 
     def test_action_bar_buttons_follow_creation_order_without_overlap(self):
-        """REQ-S01-76：「添加剧本」「剧本目录」「质检报告」依次跟在「刷新」后面，换行时也互不遮挡。"""
+        """R2923：页面动作栏整体删除——发送/刷新/添加剧本/剧本目录/质检报告/采风/阶段配置不再有按钮。"""
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)
             d.show(0); win.update()
             self.assertFalse(hasattr(d, 'idea_download'))
-            by_text = {str(c.cget('text')): c for c in d.idea_row.winfo_children() if isinstance(c, ttk.Button)}
-            chain = [by_text['刷新'], d.idea_add_script, d.idea_open_folder, by_text['质检报告']]
-            self.assertEqual([button.cget('text') for button in chain], ['刷新', '添加剧本', '剧本目录', '质检报告'])
-            self.assertTrue(all(button.winfo_manager() == 'place' for button in chain))
-            boxes = [(b.winfo_x(), b.winfo_y(), b.winfo_width(), b.winfo_height()) for b in chain]
-            for index, (left, top, width, height) in enumerate(boxes):
-                for other_left, other_top, other_width, other_height in boxes[index + 1:]:
-                    overlap = (left < other_left + other_width and other_left < left + width
-                               and top < other_top + other_height and other_top < top + height)
-                    self.assertFalse(overlap, '动作栏在窄窗口换行时按钮也不能互相遮挡')
-            for (left, top, width, _height), (next_left, next_top, _w, _h) in zip(boxes, boxes[1:]):
-                self.assertTrue(next_top > top or (next_top == top and next_left >= left + width),
-                                '按创建顺序排列：同一行在右侧，或换到下一行')
+            self.assertFalse(hasattr(d, 'idea_row'), '动作栏容器已随 R2923 删除')
+            self.assertIsNone(d.stage_button, '页面「阶段配置」按钮已随 R2942 删除（含顶部 header 入口）')
+            self.assertIsNone(d.header_stage_button, '标题旁「阶段配置」也已删')
+            for name in ('idea_send', 'idea_refresh', 'idea_add_script', 'idea_open_folder', 'recon_button'):
+                self.assertFalse(hasattr(d, name), '「%s」按钮已随 R2923 删除' % name)
 
     def test_script_action_bar_has_no_download_delete_or_split_quality_buttons(self):
-        """REQ-S01-76：模型回复自动存档，底栏不再有「下载文件」；删除只走表格右键；两颗质检按钮合成「质检报告」。"""
+        """R2923：底栏动作按钮全部删除，历史下载/删除按钮同样不复存在。"""
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)
             d.show(0); win.update()
-            buttons = [c for c in d.idea_row.winfo_children() if isinstance(c, ttk.Button)]
-            labels = {str(c.cget('text')) for c in buttons}
-            for removed in ('删除', '删除剧本', '下载文件', '下载剧本', '查看质检报告', '质检目录'):
-                self.assertNotIn(removed, labels)
-            refresh, add = d.idea_refresh, d.idea_add_script
-            self.assertLessEqual(abs(refresh.winfo_rooty() - add.winfo_rooty()), 2, '同一行')
-            self.assertGreaterEqual(add.winfo_rootx(), refresh.winfo_rootx() + refresh.winfo_width() - 2)
-            between = [c for c in buttons if c not in (refresh, add) and c.winfo_manager() == 'place'
-                       and abs(c.winfo_rooty() - refresh.winfo_rooty()) <= 2
-                       and refresh.winfo_rootx() < c.winfo_rootx() < add.winfo_rootx()]
-            self.assertEqual(between, [], '添加剧本紧跟在刷新右侧，中间没有别的按钮')
+            self.assertFalse(hasattr(d, 'idea_row'), '动作栏容器已随 R2923 删除')
 
     def test_script_action_bar_uses_compact_renamed_buttons(self):
-        import desktop
+        """R2923：动作栏删除后，页面不再出现这些按钮文案。"""
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)
             d.show(0); win.update()
-            buttons = [child for child in d.idea_row.winfo_children()
-                       if isinstance(child, ttk.Button)]
-            action_labels = {'发送', '刷新', '剧本目录', '添加剧本', '质检报告', '采风'}
-            labels = {button.cget('text') for button in buttons}
-            self.assertTrue(action_labels <= labels)
-            self.assertNotIn('中断', labels)
-            self.assertNotIn('下载文件', labels)
-            self.assertNotIn('删除', labels)
-            for button in buttons:
-                if button.cget('text') in action_labels:
-                    self.assertEqual(button.cget('width'), desktop.SCRIPT_ACTION_WIDTH)
+            texts = []
+            def walk(w):
+                try:
+                    texts.append(str(w.cget('text')))
+                except Exception:
+                    pass
+                for child in w.winfo_children():
+                    walk(child)
+            walk(d.content)
+            for gone in ('发送', '刷新', '剧本目录', '添加剧本', '质检报告', '采风', '阶段配置', '中断', '下载文件', '删除'):
+                self.assertNotIn(gone, texts, '「%s」按钮已随 R2923 删除' % gone)
 
     def test_script_action_bar_wraps_instead_of_clipping_buttons_when_narrow(self):
-        """剧本页缩窄时操作栏分行，不能把按钮挤成半个字；不适用的采风隐藏且不占位（REQ-S01-46）。"""
+        """R2923：动作栏删除——窄窗口不再有按钮换行问题，共享输入框仍可见。"""
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)
             win.geometry('520x760+40+40')
             d.show(0); win.update_idletasks(); win.update()
-            buttons = [child for child in d.idea_row.winfo_children()
-                       if isinstance(child, ttk.Button)]
-            self.assertEqual(d.idea_row.winfo_class(), 'TFrame')
-            self.assertEqual(d.idea_row.hidden_children, {d.recon_button})
-            self.assertEqual(d.recon_button.cget('text'), '采风')
-            self.assertEqual(d.recon_button.winfo_manager(), '')
-            shown = [button for button in buttons if button is not d.recon_button]
-            self.assertTrue(shown)
-            self.assertTrue(all(button.winfo_manager() == 'place' for button in shown))
-            self.assertTrue(all(button.winfo_width() >= min(button.winfo_reqwidth(),
-                                                             d.idea_row.winfo_width())
-                                for button in shown))
+            self.assertFalse(hasattr(d, 'idea_row'), '动作栏容器已随 R2923 删除')
+            self.assertTrue(d.shared_input.winfo_ismapped(), '窄窗口共享输入框仍可见')
 
     def test_the_composer_remains_visible_after_script_confirmation(self):
         with tempfile.TemporaryDirectory() as td:
@@ -1300,7 +1277,7 @@ class SendMessageTests(_Harness):
             d, win = self.desktop(proj)
             d.show(0); win.update()
             d.close_dialog(); win.update()
-            self.assertEqual(d.idea_row.winfo_manager(), 'pack', '保存剧本也不隐藏发送框')
+            self.assertTrue(d.shared_input.winfo_ismapped(), '确认剧本后共享输入框仍可见')
             self.assertEqual(d.idea_input.cget('state'), 'normal')
 
     def test_the_example_is_never_sent(self):
@@ -1422,8 +1399,7 @@ class SendMessageTests(_Harness):
             self.assertEqual(len(d.idea_attachment_paths), 1)
             self.assertTrue(Path(d.idea_attachment_paths[0]).is_file())
             self.assertEqual(Path(d.idea_attachment_paths[0]).parent.name, '输入')
-            # 轮 3 契约：附件入口是共享输入条的「附件」按钮（文字键，非页内「+」图标）。
-            self.assertEqual(d.idea_attachment_button.cget('text'), '附件')
+            self.assertEqual(d.shared_input.attachment_button.cget('text'), ICON_ADD)
             attachment_name = Path(d.idea_attachment_paths[0]).name
             self.assertRegex(attachment_name, r'^p_附件文本_角色设定_\d{8}\.md$')
             self.assertIn('已引用：' + attachment_name, d.idea_attachment_status.get())
@@ -1462,7 +1438,8 @@ class SendMessageTests(_Harness):
 
     @staticmethod
     def attachment_chips(d):
-        return [chip for chip in d.idea_uploaded_panel.winfo_children() if hasattr(chip, 'attachment_path')]
+        return [chip for chip in d.shared_input.attachment_panel.winfo_children()
+                if hasattr(chip, 'attachment_path')]
 
     def test_uploaded_file_list_survives_send_clear_and_deletes_only_confirmed_copy(self):
         # REQ-S01-63：卡片右上角 × 删单个，先确认，只把项目副本移入回收站。
@@ -1478,7 +1455,7 @@ class SendMessageTests(_Harness):
             self.assertEqual([chip.attachment_path for chip in chips], [archived])
             d.idea_attachment_paths = ()
             d.update_idea_attachment_status(); win.update()
-            self.assertTrue(d.idea_uploaded_panel.winfo_manager())
+            self.assertTrue(d.shared_input.attachment_panel.winfo_manager())
             with patch('desktop.confirm', return_value=False):
                 d.delete_uploaded_idea_attachment(archived)
             self.assertTrue(archived.is_file())
@@ -1491,7 +1468,7 @@ class SendMessageTests(_Harness):
             self.assertTrue(source.is_file())
             self.assertFalse(archived.exists())
             self.assertEqual(self.attachment_chips(d), [])
-            self.assertFalse(d.idea_uploaded_panel.winfo_manager())
+            self.assertFalse(d.shared_input.attachment_panel.winfo_manager())
             self.assertIn('原始文件未删除', d.status.get())
 
     def test_uploaded_attachments_are_horizontal_ordered_and_openable(self):
@@ -1512,13 +1489,14 @@ class SendMessageTests(_Harness):
             self.assertLessEqual(abs(chips[0].winfo_rooty() - chips[2].winfo_rooty()), 2, '卡片横向排在同一行')
             self.assertLess(chips[0].winfo_rootx(), chips[1].winfo_rootx())
             self.assertLess(chips[1].winfo_rootx(), chips[2].winfo_rootx())
-            # REQ-S01-71＋轮 3 契约：卡片排在共享输入栏上方的 Composer 卡片里，
-            # 横向按上传顺序从左往右；麦克风／附件／发送入口已统一到共享输入条。
-            self.assertLessEqual(chips[0].winfo_rooty() + chips[0].winfo_height(), d.idea_input.winfo_rooty(), '附件卡片在共享输入栏上方')
-            frame = d.idea_composer_frame
-            self.assertGreaterEqual(chips[0].winfo_rootx(), frame.winfo_rootx())
-            self.assertLessEqual(chips[2].winfo_rootx() + chips[2].winfo_width(),
-                                 frame.winfo_rootx() + frame.winfo_width(), '附件卡片不出 composer 卡片')
+            # REQ-S01-71：卡片按上传顺序从左往右，放不下自动换行；没有附件不占位。
+            # R2923：附件卡片挂在共享输入框内，独占输入行下方的一整行。
+            self.assertGreaterEqual(chips[0].winfo_rooty(),
+                                    d.idea_input.winfo_rooty() + d.idea_input.winfo_height(),
+                                    '附件卡片排在共享输入框的输入行下方')
+            shared = d.shared_input
+            self.assertLessEqual(chips[0].winfo_rootx(), shared.attachment_button.winfo_rootx(),
+                                 '附件卡片行与共享输入框左缘对齐')
             from idea_attachments import archive_pair
             with patch('desktop.open_path') as opened:
                 chips[1].event_generate('<Button-1>')
@@ -1672,8 +1650,6 @@ class SendMessageTests(_Harness):
                 d.idea_input.event_generate('<Return>')
                 self.settle_script_page(win)
             self.assertEqual(len(pending), 1)
-            import skill_panel
-            self.assertEqual(d.stage_button.cget('text'), '阶段配置')
             self.assertEqual(d.draft_text(), '')
             self.assertIn('切换模型后的新输入', idea_chat.load(proj, model=new_model)[-1]['text'])
             self.assertIn('切换模型后的新输入', self.log_text(d))
@@ -2531,7 +2507,8 @@ class ComposerLayoutTests(_Harness):
                 try: labels.append(str(widget.cget('text')))
                 except Exception: pass
             self.assertNotIn('手动制作剧本', labels)
-            self.assertEqual(d.idea_send.cget('text'), '发送')
+            # R2923：发送键并入共享输入框（发送图标），页面不再有独立「发送」按钮。
+            self.assertFalse(hasattr(d, 'idea_send'), '页面「发送」按钮已随 R2923 删除')
 
     def test_session_label_explains_dimensions_and_follows_model_switch(self):
         """O14：界面要说明会话模型/调用方式、请求身份、上下文与项目共享成果。"""
@@ -2607,7 +2584,7 @@ class ModelBarUITests(_Harness):
             self.assertFalse(d.idea_model_bar.winfo_manager(), '无聊天记录（示例气泡）时不显示目录条')
 
     def test_select_idea_model_syncs_stage_model_picker(self):
-        """REQ-S01-80：点目录条模型标签后，把该模型显示名传给阶段配置的 picker；无 picker 时安全跳过。"""
+        """REQ-S01-80：点目录条模型标签后，把该模型显示名传给共享输入框的模型下拉；无下拉时安全跳过。"""
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             idea_chat.append(proj, 'user', '甲', model='模型甲')
@@ -2616,11 +2593,11 @@ class ModelBarUITests(_Harness):
             self.settle_script_page(win)
             picker = Mock()
             picker.set_model_label = Mock()
-            d.stage_button = Mock(picker=picker)
+            d.shared_input.model_picker = Mock(set_model_label=picker.set_model_label)
             d.select_idea_model('模型甲')
             picker.set_model_label.assert_called_once_with('模型甲')
-            # 无 stage_button 时不抛错、不调用
-            d.stage_button = None
+            # 无 model_picker 时不抛错、不调用
+            d.shared_input.model_picker = None
             d.select_idea_model('全部')
 
 

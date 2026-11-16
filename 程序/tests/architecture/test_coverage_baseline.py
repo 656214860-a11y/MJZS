@@ -39,7 +39,7 @@ CORE_FLOORS = {
     "domain/video_lifecycle_service.py": 75.0,  # 状态机：视频生命周期
     "asset_batch_lifecycle.py": 28.0,  # 状态机：资产批次生命周期
     "agent/publication.py": 70.0,  # 发布：原子发布
-    "desktop_automation_service.py": 30.0,  # 队列：PersistentBackgroundTaskQueue
+    "orchestrator/desktop_automation_service.py": 30.0,  # 队列：PersistentBackgroundTaskQueue
 }
 # 工具自检目标：取第一个存在的即可，避免某个用例改名后本门禁误红。
 SMOKE_TARGETS = (

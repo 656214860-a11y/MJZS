@@ -1,0 +1,15 @@
+{
+  "round": 2950,
+  "commit_base": "180b20f6",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k desktop pet_ui ui_popup ui_tokens ui_widgets asset_detail",
+    "exit": 0,
+    "passed": 786,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T12:28:39"
+}

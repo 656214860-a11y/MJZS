@@ -96,6 +96,15 @@ class FakeDesktop:
         self.title_row.pack(fill="x")
         self.body = ttk.Frame(win)
         self.body.pack(fill="both", expand=True)
+        # 第 R2933 期：三虎簇的真实宿主是侧栏底栏 pet_dock（pet_layer 指向它）；
+        # 假宿主给同一对属性，让用例走和真 Desktop 一样的承载路径。
+        # settings_gear_layer 也要有：没有它齿轮会退回 pet_dock，把猫爪命中区挤掉。
+        self.settings_gear_layer = ttk.Frame(win)
+        self.settings_gear_layer.pack(side="bottom", fill="x")
+        self.pet_dock = ttk.Frame(win, height=pet_ui.DOCK_ROOM)
+        self.pet_dock.pack(side="bottom", fill="x")
+        self.pet_dock.pack_propagate(False)
+        self.pet_layer = self.pet_dock
         self.header_status = ttk.Label(self.title_row, text="就绪")
         self.header_status.pack(side="right")
         self.header_model = ttk.Label(self.title_row, text="模型")
@@ -187,33 +196,49 @@ class GeometryTests(PetTestCase):
         self.win.update()
 
     def test_compact_avatar_paws_and_caption_fit_both_window_sizes(self):
+        """第 R2946 期：三虎簇收成正方形——左列头像上小字下、右列猫爪对整组垂直居中。"""
         self.assertLess(pet_ui.SIZE, pet_ui.PET_LAYOUT['source_size'])
         for width, height in ((942, 1032), (800, 600)):
             with self.subTest(size=(width, height)):
                 self.show_at(width, height)
                 avatar, paws, caption = self.pet.canvas, self.pet.paws, self.pet.caption
-                row = self.fake.title_row
-                self.assertAlmostEqual(avatar.winfo_rooty(), row.winfo_rooty(), delta=2)
+                dock = self.fake.pet_dock
+                layout = self.pet._cluster_layout()
                 self.assertAlmostEqual(
-                    paws.winfo_rootx() - (avatar.winfo_rootx() + avatar.winfo_width()),
-                    pet_ui.PAW_COL_GAP, delta=2)
+                    avatar.winfo_rootx(), dock.winfo_rootx() + layout['avatar_x'], delta=2,
+                    msg='头像在簇左列')
                 self.assertAlmostEqual(
-                    paws.winfo_rooty() + paws.winfo_height(),
-                    caption.winfo_rooty() + caption.winfo_height(), delta=2,
-                    msg='猫爪列底边与小字底边对齐')
-                self.assertGreaterEqual(caption.winfo_rooty(),
-                                        avatar.winfo_rooty() + avatar.winfo_height() - 2,
-                                        msg='小字在头像正下方')
+                    avatar.winfo_rooty(), dock.winfo_rooty() + layout['avatar_y'], delta=2,
+                    msg='头像在簇区内垂直居中')
+                # 猫爪列视觉右沿＝簇内容右缘内侧 DOCK_PAW_RIGHT（place 的 x 是相对右沿的偏移）。
+                paw_right = layout['paw_x'] + dock.winfo_width()
                 self.assertAlmostEqual(
-                    caption.winfo_rootx() + caption.winfo_width(),
-                    avatar.winfo_rootx() + avatar.winfo_width(), delta=2,
-                    msg='小字右沿与头像右沿对齐')
+                    paws.winfo_rootx() + paws.winfo_width(),
+                    dock.winfo_rootx() + paw_right, delta=2,
+                    msg='猫爪列右沿收在簇右缘内侧')
+                # 猫爪列对「头像＋小字间距＋小字实高」整组垂直居中。
+                caption_h = int(caption.winfo_reqheight())
+                if caption_h <= 0:
+                    caption_h = 2 * pet_ui.PET_LAYOUT['caption_height']
+                group_h = pet_ui.SIZE + pet_ui.DOCK_CAPTION_GAP + caption_h
+                group_cy = dock.winfo_rooty() + layout['avatar_y'] + group_h / 2.0
+                self.assertAlmostEqual(
+                    paws.winfo_rooty() + paws.winfo_height() / 2.0, group_cy, delta=2,
+                    msg='猫爪列对头像＋小字整组垂直居中')
+                self.assertAlmostEqual(
+                    caption.winfo_rooty(),
+                    avatar.winfo_rooty() + pet_ui.SIZE + pet_ui.DOCK_CAPTION_GAP, delta=2,
+                    msg='小字在头像正下方')
+                self.assertAlmostEqual(
+                    caption.winfo_rootx(), avatar.winfo_rootx(), delta=2,
+                    msg='小字左沿与头像左沿对齐')
                 for widget in (avatar, paws, caption):
-                    self.assertGreaterEqual(widget.winfo_rootx(), row.winfo_rootx() - 2)
+                    self.assertGreaterEqual(widget.winfo_rootx(), dock.winfo_rootx() - 2)
                     self.assertLessEqual(widget.winfo_rootx() + widget.winfo_width(),
-                                         row.winfo_rootx() + row.winfo_width() + 2)
+                                         dock.winfo_rootx() + dock.winfo_width() + 2)
+                    self.assertGreaterEqual(widget.winfo_rooty(), dock.winfo_rooty() - 2)
                     self.assertLessEqual(widget.winfo_rooty() + widget.winfo_height(),
-                                         row.winfo_rooty() + row.winfo_height() + 2)
+                                         dock.winfo_rooty() + dock.winfo_height() + 2)
 
     def test_every_pose_is_scaled_into_the_avatar_hit_rectangle(self):
         for pose in pet_ui.POSES:
@@ -257,7 +282,7 @@ class GeometryTests(PetTestCase):
                 previous = anchor
 
     def test_host_pet_layer_keeps_control_of_its_height_and_propagation(self):
-        layer = self.ttk.Frame(self.fake.body, height=pet_ui.PATCH_ROOM + 12)
+        layer = self.ttk.Frame(self.fake.body, height=pet_ui.DOCK_ROOM + 12)
         layer.pack(fill='x')
         layer.pack_propagate(False)
         self.fake.pet_layer = layer
@@ -268,31 +293,36 @@ class GeometryTests(PetTestCase):
         self.pet._reserve_room(layer, needed=False)
         self.assertEqual(self.pet.canvas.winfo_parent(), str(layer))
         self.assertEqual(self.pet.paws.winfo_parent(), str(layer))
-        self.assertEqual(int(layer.cget('height')), pet_ui.PATCH_ROOM + 12)
+        self.assertEqual(int(layer.cget('height')), pet_ui.DOCK_ROOM + 12)
         self.assertFalse(layer.pack_propagate())
 
-    def test_pet_sits_at_the_top_right_of_the_title_row(self):
+    def test_pet_sits_inside_the_square_cluster(self):
+        """第 R2946 期：簇区正方形——头像在左列、猫爪列右沿收在簇右缘内侧，坐标由 _cluster_layout 细算。"""
+        layout = self.pet._cluster_layout()
         info = self.pet.canvas.place_info()
-        self.assertEqual(float(info["relx"]), 1.0)
-        self.assertEqual(float(info["rely"]), 0.0)
-        self.assertEqual(info["anchor"], "ne")
+        self.assertEqual(info["anchor"], "nw")
+        self.assertAlmostEqual(float(info["x"]), layout["avatar_x"], delta=1)
+        self.assertAlmostEqual(float(info["y"]), layout["avatar_y"], delta=1)
         self.assertEqual(int(self.pet.canvas.cget("width")), pet_ui.SIZE)
         self.assertEqual(int(self.pet.canvas.cget("height")), pet_ui.SIZE)
-        # 第 18 期：贴片往左挪了一个身位（原来贴着窗口右边，猫脸被控件压住）。
-        self.assertEqual(int(info["x"]), pet_ui.PATCH_X)
-        # 第 2876 期：猫爪列让到窗口右缘，头像右沿与猫爪列左沿只隔 PAW_COL_GAP。
-        self.assertAlmostEqual(
-            pet_ui.PAW_COL_X - pet_ui.PAW_COL_WIDTH - pet_ui.PATCH_X,
-            pet_ui.PAW_COL_GAP, delta=0,
-            msg='头像右沿与猫爪列左沿之间是 PAW_COL_GAP')
+        paws = self.pet.paws.place_info()
+        self.assertEqual(float(paws['relx']), 1.0)
+        self.assertEqual(paws['anchor'], 'ne')
+        self.assertAlmostEqual(float(paws['x']), layout['paw_x'], delta=1)
+        caption = self.pet.caption.place_info()
+        self.assertAlmostEqual(float(caption['x']), layout['avatar_x'], delta=1)
+        self.assertAlmostEqual(float(caption['y']), layout['caption_y'], delta=1)
 
-    def test_pet_lives_inside_the_title_row(self):
-        self.assertEqual(str(self.pet.canvas.winfo_parent()), str(self.fake.title_row))
+    def test_pet_lives_inside_the_dock(self):
+        self.assertEqual(str(self.pet.canvas.winfo_parent()), str(self.fake.pet_dock))
         self.assertIs(self.pet.canvas.winfo_toplevel(), self.win)
 
-    def test_header_text_leaves_room_for_the_pet(self):
+    def test_the_pet_cluster_left_the_header_row(self):
+        """第 R2933 期：三虎簇搬进侧栏底栏，标题行文字不再需要给贴片让位。"""
+        for widget in (self.pet.canvas, self.pet.paws, self.pet.caption):
+            self.assertNotEqual(str(widget.winfo_parent()), str(self.fake.title_row))
         for widget in (self.fake.header_status, self.fake.header_model):
-            self.assertGreaterEqual(self.pad_of(widget)[2], pet_ui.SIZE)
+            self.assertEqual(str(widget.winfo_parent()), str(self.fake.title_row))
 
 
 class MainWindowRestoreTests(PetTestCase):
@@ -1089,7 +1119,8 @@ class DesktopSeamTests(unittest.TestCase):
             self.assertEqual(d.status.get(), "接缝自检：状态栏照旧")
             self.assertTrue(getattr(self.tk.Variable, "_dramaGuarded", False))
             self.assertIsNotNone(d.pet.canvas)
-            self.assertEqual(str(d.pet.canvas.winfo_parent()), str(d.title_row))
+            # 第 R2933 期：三虎簇的真实宿主是侧栏底栏 pet_dock，不再是标题行。
+            self.assertEqual(str(d.pet.canvas.winfo_parent()), str(d.pet_dock))
             stubs = [(box.stage, box) for box in (d.auto.final_queue, d.auto.edit_queue, d.auto.keyframe_queue,
                                                   d.auto.asset_queue, d.auto.video_queue, d.auto.handoff_queue)]
             self.assertEqual(sorted(stage for stage, _ in stubs),
@@ -2946,22 +2977,20 @@ class CaptionTests(PetTestCase):
     """第 18 期：贴片左边那行小字写着现在是哪一档（用户报「正常／半自动／全自动不显示了」）。"""
 
     def test_the_caption_sits_below_the_patch(self):
-        """第 2876 期：小字挪到三虎图像正下方，右沿与头像右沿对齐。"""
+        """第 R2946 期：小字在头像正下方、左沿对齐（坐标由 _cluster_layout 细算）。"""
         caption = self.pet.caption
         self.assertIsNotNone(caption, '三虎图像下方该有一行等级小字')
         info = caption.place_info()
-        self.assertEqual(float(info['relx']), 1.0)
-        self.assertEqual(info['anchor'], 'ne')
-        patch = int(self.pet.canvas.place_info()['x'])
-        self.assertEqual(patch, pet_ui.PATCH_X, '贴片右沿位置')
-        self.assertEqual(int(info['x']), pet_ui.PATCH_X,
-                         '小字右沿与头像右沿对齐（同一个 x 锚点）')
-        self.assertEqual(int(info['y']), pet_ui.CAPTION_Y)
-        self.assertGreater(int(info['y']), pet_ui.SIZE,
-                           '小字在头像下方（CAPTION_Y 比头像边长大）')
+        self.assertEqual(info['anchor'], 'nw')
+        layout = self.pet._cluster_layout()
+        self.assertAlmostEqual(float(info['x']), layout['avatar_x'], delta=1,
+                               msg='小字左沿与头像左沿对齐（同一个 x 锚点）')
+        self.assertAlmostEqual(float(info['y']), layout['caption_y'], delta=1)
+        self.assertGreater(layout['caption_y'], pet_ui.SIZE,
+                           '小字在头像下方（caption_y 比头像边长大）')
 
     def test_the_caption_clears_the_patch(self):
-        """小字落在头像正下方：不出窗口、不压猫脸；标题栏文字还要让开。"""
+        """小字落在头像正下方：不出底栏、不压猫脸；标题行文字已不再需要让位。"""
         for width, height in ((942, 1032), (800, 600)):
             with self.subTest(size=(width, height)):
                 self.win.geometry(f'{width}x{height}+0+0')
@@ -2969,22 +2998,18 @@ class CaptionTests(PetTestCase):
                 self.win.update_idletasks()
                 self.win.update()
                 caption, avatar, paws = self.pet.caption, self.pet.canvas, self.pet.paws
-                row = self.fake.title_row
+                dock = self.fake.pet_dock
                 self.assertGreaterEqual(
                     caption.winfo_rooty(),
                     avatar.winfo_rooty() + avatar.winfo_height() - 2,
                     '状态字在头像正下方，不压猫脸')
                 self.assertLessEqual(caption.winfo_rootx() + caption.winfo_width(),
-                                     row.winfo_rootx() + row.winfo_width() + 2,
-                                     '状态字完整留在宿主行内')
+                                     dock.winfo_rootx() + dock.winfo_width() + 2,
+                                     '状态字完整留在底栏内')
                 self.assertGreaterEqual(caption.winfo_width(), caption.winfo_reqwidth(),
                                         '状态字画布必须容纳完整文案')
-                pet_left = min(widget.winfo_rootx() for widget in (avatar, paws, caption))
-                for widget in (self.fake.header_status, self.fake.header_model):
-                    text_right = widget.winfo_rootx() + widget.winfo_width() - self.pad_of(widget)[2]
-                    self.assertLessEqual(text_right,
-                                         pet_left - pet_ui.PET_LAYOUT['header_gap'] + 2,
-                                         '标题文字区域必须让开头像、爪排和状态字')
+                # 第 R2933 期：小字在底栏里，标题行的 header_status／header_model 不再与它同层，
+                # 「标题文字让开贴片」的旧契约随迁移作废（dock 与标题行不相交）。
 
     def test_the_caption_is_black_ink(self):
         """第 21 期：三档小字一律黑色（用户要的「文字全部用黑色」）。"""
@@ -4768,13 +4793,13 @@ class CaptionPendingTests(PetTestCase):
         self.assertEqual(self.pet.caption_text(), pet_ui.PAUSED_CAPTION)
 
     def test_wider_pending_text_folds_down_instead_of_over_the_cat(self):
-        """第 23 期补：小字宽度钉死在 CAPTION_ROOM 上——「待确认 N」另起一行折下，不加宽。"""
+        """第 R2933 期：小字宽度钉死在 DOCK_CAPTION_ROOM 上——「待确认 N」另起一行折下，不加宽。"""
         self.pet.agent.fail('keyframe', '超时', attempt=4)
         self.pet.draw()
         self.win.update_idletasks()
         caption = self.pet.caption
-        self.assertEqual(int(caption.cget('wraplength')), pet_ui.CAPTION_ROOM, '宽度得钉死')
-        self.assertLessEqual(caption.winfo_reqwidth(), pet_ui.CAPTION_ROOM, '小字最多占 CAPTION_ROOM 宽')
+        self.assertEqual(int(caption.cget('wraplength')), pet_ui.DOCK_CAPTION_ROOM, '宽度得钉死')
+        self.assertLessEqual(caption.winfo_reqwidth(), pet_ui.DOCK_CAPTION_ROOM, '小字最多占 DOCK_CAPTION_ROOM 宽')
         self.assertIn('待确认', caption.cget('text'))
 
     def test_the_caption_stays_black_in_every_case(self):
@@ -4818,50 +4843,55 @@ class PawTests(PetTestCase):
         self.assertTrue(all(part[0] == 'oval' for part in parts))
         self.assertGreater(parts[0][3], max(part[3] for part in parts[1:]), '掌垫比脚趾大')
 
-    def test_the_paws_sit_beside_the_patch(self):
-        """用户要求：「3 个猫爪型按钮移动到三虎图像右侧，竖向排列」；本期列底边贴小字底边。"""
+    def test_the_paws_sit_at_the_dock_right_edge(self):
+        """第 R2946 期：猫爪列收在簇右缘内侧，对「头像＋小字」整组垂直居中。"""
         info = self.pet.paws.place_info()
         self.assertEqual(float(info['relx']), 1.0)
-        self.assertEqual(int(float(info['x'])), pet_ui.PAW_COL_X)
-        patch = self.pet.canvas.place_info()
-        self.assertAlmostEqual(float(info['x']) - pet_ui.PAW_COL_WIDTH,
-                               float(patch['x']) + pet_ui.PAW_COL_GAP, delta=2,
-                               msg='猫爪列左沿与头像右沿只隔 PAW_COL_GAP')
+        self.assertEqual(info['anchor'], 'ne')
+        layout = self.pet._cluster_layout()
+        self.assertAlmostEqual(float(info['x']), layout['paw_x'], delta=1)
+        dock_w = self.fake.pet_dock.winfo_width()
+        paw_right = layout['paw_x'] + dock_w
+        self.assertAlmostEqual(paw_right,
+                               pet_ui.DOCK_CLUSTER_W - pet_ui.DOCK_PAW_RIGHT + max(0.0, (dock_w - pet_ui.DOCK_CLUSTER_W) / 2.0),
+                               delta=1, msg='猫爪列视觉右沿收在簇右缘内侧 DOCK_PAW_RIGHT')
         caption = self.pet.caption
-        cap_bottom = (int(float(caption.place_info()['y']))
-                      + caption.winfo_reqheight())
-        paws_bottom = (int(float(info['y']))
-                       + 2 * pet_ui.PAW_STEP + pet_ui.PAW_SIZE)
-        self.assertAlmostEqual(paws_bottom, cap_bottom, delta=2,
-                               msg='猫爪列最下面那只爪的底边与小字底边对齐')
+        height = int(caption.winfo_reqheight()) if caption is not None else 0
+        if height <= 0:
+            height = 2 * pet_ui.PET_LAYOUT['caption_height']
+        group = pet_ui.SIZE + pet_ui.DOCK_CAPTION_GAP + height
+        expected = layout['avatar_y'] + (group - pet_ui.PAW_COL_HEIGHT) / 2.0
+        self.assertAlmostEqual(float(info['y']), expected, delta=2,
+                               msg='猫爪列顶边＝整组居中后的顶边')
 
     def test_the_paws_and_the_patch_never_overlap(self):
-        """头像与猫爪列的矩形不许相交：猫爪列在头像右侧，中间隔 PAW_COL_GAP。"""
+        """头像在底栏左列、猫爪列在右沿：视觉与命中区都不压头像；小字在头像正下方。"""
+        self.win.geometry('800x600+0+0')
+        self.win.deiconify()
+        self.win.update_idletasks()
         patch = self.pet.canvas.place_info()
         paws = self.pet.paws.place_info()
-        self.assertAlmostEqual(float(paws['x']) - pet_ui.PAW_COL_WIDTH,
-                               float(patch['x']) + pet_ui.PAW_COL_GAP, delta=2,
-                               msg='猫爪列左沿与头像右沿只隔一条缝，矩形不相交')
-        self.assertAlmostEqual(
-            int(float(paws['y'])) + 2 * pet_ui.PAW_STEP + pet_ui.PAW_SIZE,
-            int(float(self.pet.caption.place_info()['y']))
-            + self.pet.caption.winfo_reqheight(), delta=2,
-            msg='猫爪列最下面那只爪的底边与小字底边对齐')
-        self.assertLessEqual(int(float(paws['y'])) + pet_ui.PAW_COL_HEIGHT,
-                             int(float(patch['y'])) + pet_ui.PATCH_ROOM + 2,
-                             '猫爪列整列落在标题行保留高度内')
+        self.assertEqual(paws['anchor'], 'ne')
+        layout = self.pet._cluster_layout()
+        self.assertAlmostEqual(float(paws['x']), layout['paw_x'], delta=1)
+        avatar_right = (self.pet.canvas.winfo_rootx() + self.pet.canvas.winfo_width())
+        self.assertGreater(self.pet.paws.winfo_rootx(), avatar_right,
+                           '猫爪列在头像右侧，矩形不相交')
+        for hit in self.pet.paw_hits:
+            self.assertGreaterEqual(hit.winfo_rootx(), avatar_right,
+                                    '猫爪命中区左沿不压头像右沿')
         self.assertEqual(int(self.pet.canvas.cget('height')), pet_ui.SIZE)
         self.assertEqual(int(self.pet.paws.cget('height')), pet_ui.PAW_COL_HEIGHT)
         self.assertEqual(int(self.pet.paws.cget('width')), pet_ui.PAW_COL_WIDTH)
         caption = self.pet.caption.place_info()
         self.assertGreaterEqual(int(float(caption['y'])),
                                 int(float(patch['y'])) + pet_ui.SIZE,
-                                '等级小字落在头像下方（第 2876 期），不再占右侧那一格')
-        # 标题行：按「小字实高＋猫爪命中区」定高，内容框随之上移。
-        row = self.fake.title_row
-        self.assertEqual(int(row.cget('height')), pet_ui.PATCH_ROOM)
-        self.assertFalse(bool(row.pack_propagate()), '标题行不再随标签收缩')
-        self.assertGreaterEqual(pet_ui.PATCH_ROOM, pet_ui.SIZE, '头像要装得下')
+                                '等级小字落在头像下方（第 R2933 期），不再占右侧那一格')
+        # 底栏：按「小字实高」定高（宿主 align_header 同步 patch_room），内容不反向撑高。
+        dock = self.fake.pet_dock
+        self.assertEqual(int(dock.cget('height')), pet_ui.DOCK_ROOM)
+        self.assertFalse(bool(dock.pack_propagate()), '底栏不随 place 子控件收缩')
+        self.assertGreaterEqual(pet_ui.DOCK_ROOM, pet_ui.SIZE, '头像要装得下')
 
     def test_the_selected_paw_is_filled_with_the_level_colour(self):
         self.pet.draw_paws('auto', force=True)

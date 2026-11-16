@@ -575,7 +575,7 @@ class _ModelManager(ModelManagerModeTabsMixin):
     def _build_program_row(self, body, footer):
         """应用安装路径行、自动搜寻与浏览按钮、连接字段显隐、身份变化监听（从 build 原样切出，R1812）。"""
         self.entries['program'] = self.program_entry
-        from desktop_automation_service import BackgroundTaskLifecycle
+        from orchestrator.desktop_automation_service import BackgroundTaskLifecycle
         from queue import Queue, Empty
         self.Queue = Queue; self.Empty = Empty
         from threading import Thread

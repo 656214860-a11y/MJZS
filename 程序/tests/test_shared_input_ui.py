@@ -43,32 +43,37 @@ class SharedInputLayoutTests(unittest.TestCase):
         box = self._make()
         texts = {str(w.cget('text')) for w in _descendants(box)
                  if isinstance(w, tk.Widget) and w.winfo_class() in ('TButton',)}
-        for label in ('技能', '附件', '发送'):
+        # R2923/R2942：入口改图标文字按钮——✦ 技能、＋ 附件、🎤 语音与发送图标；
+        # 模型选择器是共享框内右侧的下拉按钮（Menubutton），非模态弹窗、无外框纯下拉。
+        from ui_tokens import ICON_ADD, ICON_MICROPHONE, ICON_SEND, ICON_SKILL
+        for label in (ICON_SKILL, ICON_ADD, ICON_MICROPHONE, ICON_SEND):
             self.assertIn(label, texts)
-        self.assertTrue(any(text.startswith('模型') for text in texts), texts)
+        menus = [w for w in _descendants(box)
+                 if isinstance(w, tk.Widget) and w.winfo_class() == 'TMenubutton']
+        self.assertEqual(len(menus), 1, '共享输入框内应有一颗模型下拉按钮')
+        self.assertTrue(str(menus[0].cget('text')).strip(), '模型下拉按钮显示当前模型名')
         self.assertIsInstance(box.input, tk.Text)
-        # 左侧两个入口、右侧模型与发送：按 pack side 与创建顺序核对。
-        order = [w for w in box.winfo_children()]
-        self.assertEqual(order[0].winfo_class(), 'TFrame')   # 左簇
-        self.assertEqual(order[1], box.input)               # 输入框
-        self.assertEqual(order[2].winfo_class(), 'TFrame')  # 右簇
+        # R2923：整个输入盒收进一张 Card——输入框在上、图标行在下（左✦＋🎤，右模型下拉＋发送）。
+        self.assertEqual(box.input.master.winfo_class(), 'TFrame')
+        row = box.input.master.winfo_children()[-1]
+        self.assertEqual(row.winfo_class(), 'TFrame')
 
     def test_slash_completion_opens_and_escape_closes(self):
         box = self._make()
         box.set_text('/sto')
         box._on_key_release(SimpleNamespace(keysym='s'))
         self.win.update()
-        self.assertTrue(box._completion_open)
-        self.assertGreater(box._list.size(), 0)
-        self.assertIn('storyboard', box._list.get(0))
+        self.assertTrue(box.completion.open)
+        self.assertGreater(box.completion.list.size(), 0)
+        self.assertIn('storyboard', box.completion.list.get(0))
         box.close_completion()
-        self.assertFalse(box._completion_open)
+        self.assertFalse(box.completion.open)
 
     def test_completion_prefers_current_stage_skills(self):
         box = self._make(stage='storyboard')
         box.set_text('/')
         box._on_key_release(SimpleNamespace(keysym='/'))
-        self.assertEqual(box._list.get(0), '/mine-skill')
+        self.assertEqual(box.completion.list.get(0), '/mine-skill')
         box.close_completion()
 
     def test_send_blocked_when_upstream_blank(self):

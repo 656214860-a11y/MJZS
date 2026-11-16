@@ -1,0 +1,15 @@
+{
+  "round": 2939,
+  "commit_base": "0581308b",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k direct_api image_direct dispatch send_ledger send_steps auto_batch batch_execution asset_batch previs startup exit_maintenance coordinator broadcast image_agent pet_ui local_previs auto_flows idea_chat writing_page",
+    "exit": 0,
+    "passed": 1061,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T10:30:21"
+}

@@ -10,7 +10,7 @@ import skill_registry
 from skill_registry import nested_references as _nested_references, reference_row as _reference_row
 from skill_inline import (_charge_inline, _is_text_script, _recurse_references,
                           _skill_inline_budget, _skipped_inline_hint)
-import client_profiles, edit_habits, stage_layout
+import client_profiles, orchestrator.edit_habits as edit_habits, stage_layout
 from contract.script_contract import PRODUCTION_LOCK_DEFINITIONS, STAGE_LOCK_REQUIREMENTS, lock_stage
 from contract.workflow_context_budget import REQUEST_CONTEXT_MAX_CHARS, estimate_tokens, skill_inline_token_budget
 from infra.store_program_locator import current_store_program, store_package_program, gui_claude_program, GUI_CLAUDE_CLI_HINT

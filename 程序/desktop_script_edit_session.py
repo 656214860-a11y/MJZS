@@ -9,7 +9,7 @@ import time
 import tkinter as tk
 from pathlib import Path
 
-import edit_habits
+import orchestrator.edit_habits as edit_habits
 import script_view_style
 from ui_tokens import (
     BUTTON_WIDTH_EDIT,

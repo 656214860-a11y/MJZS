@@ -157,14 +157,12 @@ class DropdownLayoutTests(unittest.TestCase):
                                          '操作行子项越出右侧边界')
 
     def test_configuration_gives_height_back_to_skill_notes(self):
+        """R2916：技能说明区已删除——面板只留阶段配置，不再给说明区留高。"""
         panel = self._build(1280, 800)
+        self.assertIsNone(panel.note_list, '说明目录已随 R2916 删除')
+        self.assertIsNone(panel.note_text, '说明正文已随 R2916 删除')
         config_height = panel.form_body.winfo_height()
-        notes_height = panel.note_list.master.winfo_height()
-        # 契约变更（统一下拉框尺寸）：制作锁等宽后 1280 宽下排成两行，比旧版多一行（约 58px）；
-        # 配置区允许比说明区高出这一行，说明区仍须保有可读高度。
-        self.assertLess(config_height, notes_height + 80,
-                        '配置区 %dpx 相比技能说明区 %dpx 过高' % (config_height, notes_height))
-        self.assertGreater(notes_height, 200, '技能说明区没有拿回高度')
+        self.assertGreater(config_height, 0, '阶段配置区仍正常渲染')
 
     def test_skill_actions_and_lock_entry_still_work(self):
         # R2862：总控选择与内联制作锁已删；面板保留 SKILL 批量操作与制作锁弹窗入口。

@@ -78,7 +78,7 @@ class WritingPageServicesTests(unittest.TestCase):
             tree.get_children.return_value = tuple(str(path) for path in files)
             tree.selection.return_value = (str(files[0]), str(files[2]))
             tree.identify_row.return_value = str(files[0])
-            page.script_trees = {'script': tree}
+            page.script_tree = tree
             page.script_menu(tree, SimpleNamespace(y=0))
             tree.selection_set.assert_not_called()
             menu = services.context_menu.return_value

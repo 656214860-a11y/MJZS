@@ -1,11 +1,17 @@
-"""R2048：未登录或授权失效时，侧栏只放「00 会员账户」与免费阶段，其余整页换成锁定页。"""
+"""R2048：未登录或授权失效时，侧栏只放「00 会员账户」与免费阶段，其余整页换成锁定页。
+R2933：图标轨上锁定不再追加 🔒 文字，改为把导航图标换成 lock.png。"""
+import re
+import tkinter as tk
 import unittest
+from tkinter import ttk
 
 import entitlement_service as ent
 import pet_bus
 from account_controller import AccountController
 from desktop_account_page import AccountPageMixin, NAV_LOCK_MARK
-from desktop_page_registry import PAGES, PAGE_SITES, nav_label
+from desktop_page_registry import (NAV_LOCK_ICON, PAGE_NAV_ICONS, PAGES,
+                                   PAGE_SITES)
+from ui_icons import IconLoader
 
 
 class PageBlockMessageTests(unittest.TestCase):
@@ -47,22 +53,16 @@ class PageGateControllerTests(unittest.TestCase):
         self.assertEqual(account.page_gate([(13, None, '参考网站')]), {})
 
 
-class FakeButton:
-    def __init__(self, text):
-        self.text = text
-
-    def cget(self, key):
-        return self.text
-
-    def configure(self, text):
-        self.text = text
-
-
 class Host(AccountPageMixin):
-    def __init__(self, locked, require_login=True):
+    def __init__(self, root, locked, require_login=True):
         self._require_login = require_login
         self.locked = locked
-        self.nav = [FakeButton(nav_label(index)) for index in range(len(PAGES))]
+        # R2933：真图标钮——锁定走 IconLoader 换 lock.png，假按钮过不了 PhotoImage。
+        self.nav = []
+        for index in range(len(PAGES)):
+            b = ttk.Button(root, text='', compound='image')
+            b._nav_icon_name = PAGE_NAV_ICONS.get(index)
+            self.nav.append(b)
         self.page_index = PAGE_SITES
         self.shown = []
         self._account_controller = self
@@ -76,25 +76,58 @@ class Host(AccountPageMixin):
 
 
 class NavLockTests(unittest.TestCase):
+    def setUp(self):
+        self.tk = tk.Tk()
+        self.tk.withdraw()
+        self.addCleanup(self.tk.destroy)
+
+    def icon_of(self, button, name):
+        return IconLoader.nav_icon(button, name)
+
+    def image_name(self, widget):
+        """ttk cget('image') 回的是 repr 元组串 "('pyimageN',)"，取引号内图像名。"""
+        value = str(widget.cget('image'))
+        found = re.findall(r"'([^']+)'", value)
+        return found[0] if found else value
+
     def test_marks_locked_pages_and_rebuilds_current_page_on_flip(self):
-        host = Host(locked={2, PAGE_SITES})
+        host = Host(self.tk, locked={2, PAGE_SITES})
         host.refresh_nav_locks()
-        self.assertEqual(host.nav[2].text, nav_label(2) + NAV_LOCK_MARK)
-        self.assertEqual(host.nav[1].text, nav_label(1))
+        locked_btn, free_btn = host.nav[2], host.nav[1]
+        self.assertTrue(locked_btn._nav_locked)
+        self.assertEqual(self.image_name(locked_btn), str(self.icon_of(locked_btn, NAV_LOCK_ICON)),
+                         '被锁页的图标换成 lock.png')
+        self.assertEqual(str(locked_btn.cget('compound')), 'image')
+        self.assertFalse(getattr(free_btn, '_nav_locked', False))
+        self.assertEqual(host.nav[1].cget('text'), '')
         self.assertEqual(host.shown, [PAGE_SITES])
         self.assertEqual(host.pages[PAGE_SITES], (PAGE_SITES, None, '参考网站'))
         host.refresh_nav_locks()
         self.assertEqual(host.shown, [PAGE_SITES], '锁定状态没翻转就不重建')
         host.locked = set()
         host.refresh_nav_locks()
-        self.assertEqual(host.nav[2].text, nav_label(2))
+        self.assertFalse(locked_btn._nav_locked)
+        self.assertEqual(self.image_name(locked_btn), str(self.icon_of(locked_btn, PAGE_NAV_ICONS[2])),
+                         '授权恢复后换回原阶段图标')
         self.assertEqual(host.shown, [PAGE_SITES, PAGE_SITES])
 
+    def test_lock_mark_text_is_only_a_png_missing_fallback(self):
+        """PNG 都在时纯图标（compound=image、不带 🔒）；锁图标加载失败才退回文字锁标。"""
+        host = Host(self.tk, locked={2})
+        host.refresh_nav_locks()
+        button = host.nav[2]
+        if self.icon_of(button, NAV_LOCK_ICON) is None:
+            self.assertEqual(str(button.cget('compound')), 'text')
+            self.assertTrue(button.cget('text').endswith(NAV_LOCK_MARK))
+        else:
+            self.assertEqual(str(button.cget('compound')), 'image')
+            self.assertNotIn('🔒', button.cget('text'))
+
     def test_hosts_that_do_not_require_login_never_lock(self):
-        host = Host(locked={2}, require_login=False)
+        host = Host(self.tk, locked={2}, require_login=False)
         self.assertEqual(host.page_lock_reasons(), {})
         host.refresh_nav_locks()
-        self.assertEqual(host.nav[2].text, nav_label(2))
+        self.assertFalse(getattr(host.nav[2], '_nav_locked', False))
 
 
 if __name__ == '__main__':

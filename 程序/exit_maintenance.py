@@ -1,43 +1,10 @@
-"""Post-window-close dispatch policy; scheduled never means cleanup completed."""
+"""历史入口：实体已迁至 ``orchestrator.exit_maintenance``（T10 包化）。
 
+``import exit_maintenance`` 返回 ``orchestrator.exit_maintenance`` 本体：私有名、模块级状态与
+按扁平名打的 ``mock.patch`` 补丁面和包内路径完全一致；生产侧一律用包路径。
+门面清除轮统一改写测试导入后删除本文件。
+"""
+import sys as _sys
+from orchestrator import exit_maintenance as _entity
 
-def launch_cleanup(program, *, forced=False):
-    """Preserve launch order and errors, without waiting, retrying or serializing workers.
-
-    Storage is attempted even on forced exit and its errors propagate. Optional
-    workers only suppress OSError. The fixed-size summary contains no paths,
-    exception text or worker output; the existing workers own cleanup results.
-    Repeated-close protection remains owned by Desktop.close, not this function.
-    """
-    result = dict.fromkeys(('storage', 'logs', 'workspace'), 'not-attempted')
-    if forced:
-        result.update(logs='skipped-force', workspace='skipped-force')
-    try:
-        from storage_maintenance import launch_cleanup as storage
-        result['storage'] = 'launch-failed'
-        storage(program)
-        result['storage'] = 'scheduled'
-        if not forced:
-            try:
-                from infra.log_maintenance import launch_cleanup as logs
-                result['logs'] = 'launch-failed'
-                logs(program)
-                result['logs'] = 'scheduled'
-            except OSError:
-                pass
-            try:
-                from infra.workspace_maintenance import launch_cleanup as workspace
-                result['workspace'] = 'launch-failed'
-                workspace(program)
-                result['workspace'] = 'scheduled'
-            except OSError:
-                pass
-        return result
-    finally:
-        # A broken output stream must not mask the existing launch exception.
-        try:
-            print('exit-maintenance dispatch: ' + ', '.join(
-                f'{name}={status}' for name, status in result.items())
-                + '; completion=unobserved')
-        except (OSError, ValueError):
-            pass
+_sys.modules[__name__] = _entity

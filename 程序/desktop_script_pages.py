@@ -143,7 +143,7 @@ class ScriptPagesMixin:
         import idea_chat
         from workflow_settings import model_name
         model = config['display_model'] if config is not None else model_name(self.root, 'writing')
-        from workflow_tasks import script_followup, script_prompt, writing_restart_requested
+        from orchestrator.workflow_tasks import script_followup, script_prompt, writing_restart_requested
         from workflow_engines import current_config
         bounded_input = (config or current_config(self.root, 'writing')).get('engine') == 'claude'
         delivery_at = time.time()
@@ -162,7 +162,7 @@ class ScriptPagesMixin:
         from workflow_settings import skill_prompt
         from writing_quality import enabled
         if enabled(skill_prompt(config or current_config(self.root, 'writing'), inline=True)):
-            from workflow_tasks import natural_script_delivery_path
+            from orchestrator.workflow_tasks import natural_script_delivery_path
             self.watch_script_quality(natural_script_delivery_path(self.root, delivery_at))
         return model, False
     def show_script_quality(self, result):
@@ -239,36 +239,29 @@ class ScriptPagesMixin:
                     getattr(self,'_script_agent_queue',None) or
                     getattr(self,'_script_agent_launching',False) or self.script_agent_processes())
     def update_script_interrupt_button(self):
-        """发送／终止合一键的唯一状态入口：共享输入框在时作用于其发送键——运行中显示
-        终止图标，空闲恢复「发送」并跟随底栏「发送」的可用态；旧页面回退页内内联键。"""
+        """共享输入框发送键的唯一状态入口：运行中显示终止，空闲时按简报必填置灰（REQ-S01-62/86）。"""
         from ui_tokens import ICON_SEND, ICON_STOP
-        shared=getattr(self,'shared_input',None)
-        if shared is not None and getattr(self,'page_index',None)!=PAGE['script']:
-            # 共享发送键的改写只属于剧本页；别的阶段页保持 set_stage 复位后的默认态。
+        shared = getattr(self, 'shared_input', None)
+        button = getattr(shared, 'send_button', None)
+        if button is None or not button.winfo_exists():
             return
-        button=(getattr(shared,'send_button',None) if shared is not None
-                else getattr(self,'idea_submit',None))
-        if button is None or not button.winfo_exists():return
         if self.script_task_active():
-            button.configure(text=ICON_STOP,command=lambda:self.safe(self.interrupt_script_agent))
+            button.configure(text=ICON_STOP, command=lambda: self.safe(self.interrupt_script_agent))
             button.state(['!disabled'])
             return
-        send=getattr(self,'idea_send',None)
-        if shared is not None:
-            # 恢复共享发送键默认态：文字「发送」、命令回到 SharedStageInput.send
-            # （/skill 等命令解析不能被页级改写绕过）。
-            button.configure(text='发送',command=shared.send)
-        else:
-            button.configure(text=ICON_SEND,command=lambda:send.invoke() if send is not None else None)
-        idle=send is not None and send.winfo_exists() and not send.instate(['disabled'])
-        button.state(['!disabled'] if idle else ['disabled'])
+        button.configure(text=ICON_SEND, command=lambda: self.safe(shared.send))
+        try:
+            missing = self._idea_live_missing()
+        except Exception:
+            missing = ()
+        button.state(['disabled'] if missing else ['!disabled'])
     def refresh_script_workspace(self):
         """刷新剧本聊天和文件表；旧 Claude 思考块会先清洗，必要时仅重发一次正文请求。"""
         import idea_chat
         import writing_api
         repaired = idea_chat.repair_internal_replies(self.idea_chat_context(), model=self.idea_chat_model(), gateway=self.idea_chat_gateway())
         getattr(self,'_idea_hidden_messages',{}).pop(self.bubble_view_key(self.idea_chat_model()),None)
-        from stage_download_inbox_service import overwrite_backup_notice
+        from orchestrator.stage_download_inbox_service import overwrite_backup_notice
         backups = []
         imported = self.import_script_downloads(backups)
         notice = ('已从下载文件夹更新' + '、'.join(kind + '「' + path.name + '」' for kind, path in imported) + '；'
@@ -529,8 +522,7 @@ class _ScriptStructurePage:
                                command=lambda:self.page.safe(self.manual_command(self.page, 'script_structure', self.start_structure, self.page.win)))
         manual.pack(side='left', padx=(SPACING["none"], SPACING["xs"])); self.page.script_structure_manual_button = manual
         ui_plugin_registry.module('stage_flow').follow(manual, 'script_structure')
-        self.page.stage_button = ui_plugin_registry.module('skill_panel').stage_button(action_group, self.page, PAGE['script_structure'])
-        self.page.stage_button.pack(side='left', padx=(SPACING["sm"], SPACING["xs"]))
+        # R2942：「阶段配置」按钮＋模型下拉框删除。
         # 流程说明放到页头右上角（header_status 随宽度自动换行，换页时清空），
         # 不再在内容框下方单占一行，把高度让给两块剧本内容（用户 R1862 要求）。
         info = self.page.header_status

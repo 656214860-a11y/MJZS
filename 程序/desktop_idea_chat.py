@@ -314,7 +314,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, I
     def poll_idea_semantic_brief(self):
         pending = getattr(self, '_idea_semantic_pending', None)
         if not pending:return
-        from idea_semantic_brief_service import SEMANTIC_BRIEF_POLL_SECONDS, SEMANTIC_BRIEF_TIMEOUT
+        from orchestrator.idea_semantic_brief_service import SEMANTIC_BRIEF_POLL_SECONDS, SEMANTIC_BRIEF_TIMEOUT
         if (getattr(self, 'shutting_down', False) or self.page_index != PAGE['script']
                 or self._idea_semantic_key(self.draft_text()) != pending['key']):
             self._idea_semantic_pending = None
@@ -748,7 +748,7 @@ class _FlowAgentLaunch:
         self.writer_style_summary = writer_style_summary
         from workflow_engines import prompt_with_settings,launch_interactive
         self.prompt_with_settings = prompt_with_settings; self.launch_interactive = launch_interactive
-        from agent_dispatch import signature,claim,finish,outcome,retryable
+        from orchestrator.agent_dispatch import signature,claim,finish,outcome,retryable
         self.signature = signature; self.claim = claim; self.finish = finish; self.outcome = outcome; self.retryable = retryable
         if self.host.worker:raise ValueError('正在打开或发送 Agent 任务，请稍候；未重复发送。')
         if self.stage == 'writing' and getattr(self.host, '_script_agent_queue', None):
@@ -771,7 +771,7 @@ class _FlowAgentLaunch:
         name=next((p['name'] for p in self.host.projects.info['projects'] if Path(p['path'])==self.project),self.project.name)
         self.title=name+' '+self.label
         if self.config['engine']=='qwen':
-            from qwen_adapter import window_title
+            from orchestrator.qwen_adapter import window_title
             self.title=window_title(name,self.stage,getattr(self.host,'page_index',None))
         self.host.async_(self.prepare,self.dispatch)
     def prepare(self):
@@ -780,7 +780,7 @@ class _FlowAgentLaunch:
         from orchestrator.workflow_context_controller import request_stage_instruction
         from contract.workflow_context_budget import prepare_request_context
         if self.config['engine']=='codex':
-            from codex_skill_sync import sync_codex_skills
+            from orchestrator.codex_skill_sync import sync_codex_skills
             sync_result=sync_codex_skills()
             if sync_result['errors'] or sync_result['conflicts']:
                 raise ValueError('Codex 技能同步未完成：'+ '; '.join(
@@ -866,7 +866,7 @@ class _FlowAgentLaunch:
             def submit():
                 try:
                     if self.config['engine']=='qwen':
-                        from qwen_adapter import submit_existing
+                        from orchestrator.qwen_adapter import submit_existing
                         text=submit_existing(sessions[key],continuation,title=self.title)
                         return {'ok':True,'reason':text,'send_dispatched':True}
                     from workflow_engines import submit_existing

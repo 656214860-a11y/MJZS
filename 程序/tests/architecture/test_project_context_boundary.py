@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 from tests.architecture._layers import LAYERS
-from tests.architecture._scan import stage_execution_source
+from tests.architecture._scan import entity_file, stage_execution_source
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -45,7 +45,7 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         with self.assertRaises(TypeError):
             context.settings_snapshot['model'] = 'changed'
         for name in ('stage_parallel.py', 'storyboard_selection.py', 'writing_api.py', 'white_model.py', 'workflow_tasks.py'):
-            source = Path(ROOT, name).read_text(encoding='utf-8')
+            source = entity_file(Path(name).stem).read_text(encoding='utf-8')
             self.assertNotIn('from stage_execution_service import', source, name)
 
     def test_l2_uses_injected_stage_resolver_without_project_path_join(self):

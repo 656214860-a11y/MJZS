@@ -127,7 +127,7 @@ class DesktopRenameReconcileTests(unittest.TestCase):
                 paths=self.picker_paths(app)
                 self.assertNotIn(old,paths)
                 self.assertIn(str(new),paths)
-                app.project_picker.current.assert_called_with(paths.index(str(new)))
+                # R2946：选择器是弹层，「●」标记按 self.root 实时算；契约＝新路径已进 _picker_items 且 root 已认领。
                 self.assertEqual(app.root,new)
                 app._sync_desktop_project_paths.assert_called_once_with(old,str(new))
                 self.assertEqual(service.info['active'],str(new))
@@ -146,7 +146,7 @@ class DesktopRenameReconcileTests(unittest.TestCase):
             with patch.object(desktop,'open_studio',return_value=None):
                 desktop.Desktop.load(app,str(root))
             self.assertEqual(self.picker_paths(app),before)
-            app.project_picker.current.assert_called_with(before.index(str(root)))
+            # R2946：弹层选择器没有 current() 概念，「●」标记随 self.root 实时计算。
             app.show.assert_called_once_with(0)
             app._sync_desktop_project_paths.assert_not_called()
 

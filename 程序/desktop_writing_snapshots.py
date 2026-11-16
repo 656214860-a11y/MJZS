@@ -102,7 +102,7 @@ class WritingSnapshotsMixin:
         except ValueError as error:
             self.page.status.set(str(error))
             return
-        from writing_unconfirm import adoption_sections
+        from orchestrator.writing_unconfirm import adoption_sections
         try:
             sections = adoption_sections(path.read_text(encoding='utf-8'))
         except OSError:

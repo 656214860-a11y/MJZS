@@ -1,0 +1,15 @@
+{
+  "round": 2945,
+  "commit_base": "4cf25601",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k storyboard_plan_service codex_skill_sync qwen_adapter skill_notes skill_templates storyboard_recycle_service stage_download_inbox_service desktop_auto_state idea_semantic_brief_service stage_handler_registry writing_unconfirm previs_automation edit_habits legacy_compat skill_budget skill_orchestrator workflow_tasks desktop_automation_service",
+    "exit": 0,
+    "passed": 92,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T11:19:19"
+}

@@ -6,7 +6,7 @@ import queue
 
 def run_video_prompt_direct(host, config, direct):
     """视频页提示词渲染选了模型池 API 模型时由程序直连（唯一分流点在 _FlowAgentLaunch.build）。"""
-    from video_prompt_direct_api import launch
+    from orchestrator.video_prompt_direct_api import launch
     from workflow_settings import skill_prompt
     messages = queue.Queue()
     state = {}

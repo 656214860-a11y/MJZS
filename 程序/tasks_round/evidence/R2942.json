@@ -1,0 +1,15 @@
+{
+  "round": 2942,
+  "commit_base": "db5f56ff",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_idea_chat test_ui_edges_pages test_desktop_compact_layout test_writing_page_services test_shared_input_ui test_shared_input_stages test_video_ui test_skills",
+    "exit": 0,
+    "passed": 443,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T12:31:56"
+}

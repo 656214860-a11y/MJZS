@@ -154,8 +154,9 @@ class DialogTests(unittest.TestCase):
             win, app, dialog, src = self.open_dialog(td)
             labels = [str(w.cget("text")) for w in self.widgets(dialog, (ttk.Button, self.tk.Button))]
             for text in ("开始逐镜生成", "停止后续镜头", "检查参考资产",
-                         "保存设置", "启动并检测", "删除模型", "生成记录", "关闭", "Skill 调用设置", "阶段配置"):
+                         "保存设置", "启动并检测", "删除模型", "生成记录", "关闭", "Skill 调用设置", "模型"):
                 self.assertIn(text, labels)
+            self.assertNotIn("阶段配置", labels, "R2942：制作窗口的「阶段配置」按钮改叫「模型」")
             notes = [str(w.cget("text")) for w in self.widgets(dialog, ttk.Label)]
             self.assertIn("图片格式", notes)
             boxes = [w for w in self.widgets(dialog, ttk.Combobox)]

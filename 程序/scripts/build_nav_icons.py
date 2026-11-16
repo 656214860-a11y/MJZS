@@ -43,10 +43,13 @@ ICONS = {
     'project_done':   0xF27E,  # certificate    已完成项目
     'project_new':    0xF420,  # folder-add     新建项目
     'project_open':   0xE89F,  # open-folder    打开项目目录
+    # 固定底栏与授权态
+    'settings':       0xF6B2,  # settings       设置（齿轮入口，与导航同套 Filled 图标）
+    'lock':           0xE79D,  # lock-closed    未授权页的锁标（替换原文字 🔒）
 }
 
-RENDER_PX = 36      # 2 倍渲染后 LANCZOS 缩到 18px，边缘更顺
-TARGET_PX = 18
+RENDER_PX = 48      # 2 倍渲染后 LANCZOS 缩到 24px，边缘更顺（R2946 图标放大一档）
+TARGET_PX = 24
 
 
 def render_icons(ink: tuple[int, int, int, int]):

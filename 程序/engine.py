@@ -12,7 +12,7 @@ from agent.wan import WanAdapter, ArkRejected
 from agent.media import check, probe
 import project_settings
 from project_naming import dated_path
-from legacy_compat import resolved_storyboard_alias
+from orchestrator.legacy_compat import resolved_storyboard_alias
 import contract.pet_bus as pet_bus
 
 def approved_versions(versions):

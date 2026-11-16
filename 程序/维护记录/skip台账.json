@@ -2505,7 +2505,7 @@
     },
     {
       "file": "tests/test_shared_input_voice.py",
-      "test": "SharedInputVoiceTests.test_mic_button_and_voice_bound_to_shared_text",
+      "test": "SharedInputVoiceTests.test_voice_button_and_voice_bound_to_shared_text",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_WINDOWS_ONLY",
@@ -2514,7 +2514,7 @@
     },
     {
       "file": "tests/test_shared_input_voice.py",
-      "test": "SharedInputVoiceTests.test_mic_button_and_voice_bound_to_shared_text",
+      "test": "SharedInputVoiceTests.test_voice_button_and_voice_bound_to_shared_text",
       "ordinal": 2,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_WINDOWS_ONLY",

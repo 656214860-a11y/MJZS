@@ -7,7 +7,7 @@
 import logging
 from pathlib import Path
 
-import desktop_send_ledger as ledger
+import orchestrator.desktop_send_ledger as ledger
 from ui_widgets import BaseDialog, DescriptionBlock
 
 LOGGER = logging.getLogger(__name__)
@@ -88,7 +88,7 @@ def _resend_plan(launch, full):
     """剧本准备的续发计划；返回 (计划, 完整稿, 增量稿)。"""
     from workflow_settings import model_name
     skill_hash = ledger.digest(launch.prompt_with_settings('', launch.config, stage=launch.stage))
-    from workflow_tasks import creative_source
+    from orchestrator.workflow_tasks import creative_source
     materials = ledger.snapshot(launch.project, model_name(launch.project, launch.stage),
                                 creative_source(launch.followup or launch.prompt))
     plan = ledger.plan(launch.project, launch.stage, launch.config, skill_hash, materials)

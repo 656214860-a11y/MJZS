@@ -14,7 +14,7 @@ from pathlib import Path
 import asset_resume
 import pet_state
 from agent.core import read
-from desktop_auto_state import UNATTENDED_NEXT, flow_get, flow_set
+from orchestrator.desktop_auto_state import UNATTENDED_NEXT, flow_get, flow_set
 from contract.storyboard_paths import media_root
 
 LOGGER = logging.getLogger(__name__)
@@ -48,7 +48,7 @@ class AutoFlowsMixin:
         now=time.monotonic()
         if self.root is None or now<getattr(self,'_download_inbox_due',0):return []
         self._download_inbox_due=now+5
-        from stage_download_inbox_service import collect_download_inbox, overwrite_backup_notice
+        from orchestrator.stage_download_inbox_service import collect_download_inbox, overwrite_backup_notice
         try:backups=[];done=collect_download_inbox(self.root,backups=backups)
         except (OSError, ValueError) as exc:
             LOGGER.warning('下载收件箱收回失败：%s', exc);return []
@@ -508,7 +508,7 @@ class AutoFlowsMixin:
             self.auto.previs_error='白模调用设置无法读取：'+str(exc);self.status.set('无人值守自动补白模暂缓：'+str(exc));return
         self.status.set('无人值守自动补白模：使用 '+engine+' 制作 '+str(len(pending))+' 镜复杂动作…')
         try:
-            from previs_automation import start
+            from orchestrator.previs_automation import start
             self.auto.previs_ticket+=1
             ticket=self.auto.previs_tasks.submit(self.auto.previs_ticket,project=getattr(self,'root',None))
             start(self.root,source,pending,state,ticket=ticket,is_current=self.auto.previs_tasks.accepts,
@@ -569,7 +569,7 @@ class AutoFlowsMixin:
             self.status.set('自动补资产：'+'、'.join(blocked)+' 上次提交结果无法确认，已跳过；'
                             '请在 ComfyUI 或云端核实后点「手动制作资产」重新生成。')
         def worker():
-            from asset_auto_batch_service import auto_batch
+            from orchestrator.asset_auto_batch_service import auto_batch
             try:self.auto.asset_queue.put((ticket,True,self.auto.asset_tasks.run(ticket,lambda:auto_batch(project,base,sources,'adopted',lambda text:self.auto_asset_log(ticket,text))),signature))
             except Exception as exc:self.auto.asset_queue.put((ticket,False,'自动补资产未完成：'+str(exc),signature))
         threading.Thread(target=worker,daemon=True).start()

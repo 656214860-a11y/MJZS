@@ -323,21 +323,19 @@ class PanelTests(unittest.TestCase):
             for gone in ('全选', '重置'):
                 self.assertNotIn(gone, texts, '重复入口「%s」该删掉' % gone)
             self.assertNotIn('执行', texts, '保存预设已并入左侧下拉，不再保留独立执行按钮')
-            # R2862：预设与总控已删除，面板只剩 SKILL 勾选、技能说明与制作锁弹窗入口。
+            # R2862：预设与总控已删除；R2916：技能说明区也删除（改由共享输入框技能列表悬停卡片提供）。
             self.assertFalse(hasattr(panel, 'preset_actions'), '预设操作下拉已随总控删除')
             self.assertTrue(hasattr(panel, 'lock_button'), '制作锁弹窗入口仍在')
-            self.assertIsNotNone(panel.note_list, '「SKILL 说明」那一栏还在')
+            self.assertIsNone(panel.note_list, '「SKILL 说明」那一栏已随 R2916 删除')
 
     def test_the_skill_notes_are_untouched(self):
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             win, panel = self.build(project(td))
-            self.assertIsNotNone(panel.note_list, '「SKILL 说明」那一栏还在')
-            self.assertIsNotNone(panel.note_text)
-            self.assertGreater(panel.note_list.size(), 0, '左边列着这一阶段的 SKILL')
-            self.assertGreater(len(panel.note_text.get('1.0', 'end').strip()), 0,
-                               '右边排着选中那一条的说明正文')
+            # R2916：技能说明区删除——悬停卡片承担说明展示（卡片实现见 desktop_shared_input）。
+            self.assertIsNone(panel.note_list, '「SKILL 说明」那一栏已随 R2916 删除')
+            self.assertIsNone(panel.note_text)
 
     def test_the_panel_still_runs_when_asked_programmatically(self):
         """按钮没了，run() 留着当可编程入口——自检与外部调用照旧能用。"""

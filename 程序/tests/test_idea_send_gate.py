@@ -27,7 +27,9 @@ class IdeaSendGateTests(unittest.TestCase):
         self.page.win.after_cancel = Mock()
         self.page.root = self.project
         self.page.idea_chat_controller = IdeaChatController()
-        self.page.idea_send = Mock()
+        self.page.shared_input = Mock()
+        self.page.shared_input.send_button = Mock()
+        self.page.update_script_interrupt_button = Mock()
         self.page.status = Mock()
         self.page._idea_send_state_after = None
         self.page._idea_send_hint = ''
@@ -39,9 +41,9 @@ class IdeaSendGateTests(unittest.TestCase):
         self.page._apply_idea_send_state()
 
     def test_incomplete_draft_disables_send_and_names_missing_fields(self):
-        """REQ-S01-86：必填缺失时发送置灰，状态行点名缺哪些字段。"""
+        """REQ-S01-86：必填缺失时置灰发送（经 update_script_interrupt_button），状态行点名缺哪些字段。"""
         self.draft('')
-        self.page.idea_send.state.assert_called_with(['disabled'])
+        self.page.update_script_interrupt_button.assert_called_once()
         hint = self.page.status.set.call_args[0][0]
         self.assertIn('还缺必填', hint)
         self.assertIn('故事梗概', hint)
@@ -51,8 +53,8 @@ class IdeaSendGateTests(unittest.TestCase):
         self.draft('故事梗概：雨夜少年发现会说话的底片。\n故事题材：奇幻\n'
                    '故事角色：少年、老板\n故事集数：80\n单集时间：60秒')
         missing = self.page._idea_live_missing()
+        self.page.update_script_interrupt_button.assert_called_once()
         if not missing:
-            self.page.idea_send.state.assert_called_with(['!disabled'])
             self.assertEqual(self.page.status.set.call_args[0][0], '就绪')
         else:
             # 新项目若另有必填制作锁，缺失提示须点名锁字段而不是静默通过。
@@ -65,7 +67,7 @@ class IdeaSendGateTests(unittest.TestCase):
         save(project_stages.writing(self.project) / 'brief_complete.json',
              test_writing_api.WritingApiTests.complete_brief())
         self.draft('继续')
-        self.page.idea_send.state.assert_called_with(['!disabled'])
+        self.page.update_script_interrupt_button.assert_called_once()
 
     def test_refresh_debounces_through_after(self):
         """REQ-S01-86：输入期防抖——重复刷新只保留最近一次 after 回调。"""

@@ -73,12 +73,13 @@ class AccountEntryTests(unittest.TestCase):
         d.go_page(PAGE_ACCOUNT);self.pump()
         self.assertEqual(d.page_index,PAGE_ACCOUNT)
         self.assertEqual(d.title.cget('text'),ACCOUNT_TITLE)
-        self.assertEqual(d.account_button.cget('style'),'Selected.Nav.TButton')
-        self.assertTrue(all(b.cget('style')=='Nav.TButton' for b in d.nav))
+        # R2933：导航纯图标轨，选中态走 RailIcon 样式（原 Nav.TButton 胶囊样式退役）。
+        self.assertEqual(d.account_button.cget('style'),'Selected.RailIcon.TButton')
+        self.assertTrue(all(b.cget('style')=='RailIcon.TButton' for b in d.nav))
         self.assertIn('disabled',d.account_login_button.state())
         d.go_page(PAGE_SITES);self.pump()
-        self.assertEqual(d.account_button.cget('style'),'Nav.TButton')
-        self.assertEqual(d.nav[PAGE_SITES].cget('style'),'Selected.Nav.TButton')
+        self.assertEqual(d.account_button.cget('style'),'RailIcon.TButton')
+        self.assertEqual(d.nav[PAGE_SITES].cget('style'),'Selected.RailIcon.TButton')
 
 
 if __name__=='__main__':

@@ -1,4 +1,5 @@
-"""阶段配置按钮右侧的模型选择器：按钮弹出菜单，项内只列模型名，推理档位内嵌子菜单。
+"""共享输入框右下角的模型选择器（R2942 定版）：Menubutton 弹出菜单，项内只列模型名，
+推理档位内嵌子菜单，不再弹模态选择窗。
 
 模型的唯一写入口仍是 ``stage_config.put``；选项仍来自 ``grouped_model_choices``（模型池＋页面生产模型）。
 REQ-S01-82：菜单项只显示模型名称（不带供应商前缀），带 reasoning 能力标签的模型
@@ -13,8 +14,7 @@ import stage_config
 from skill_panel_support import (
     desktop_project, grouped_model_choices, pet_of, pool_records, register_live,
                                  stage_for, unregister_live)
-from ui_tokens import CHAR_WIDTH, SPACING
-from ui_widgets import ContextMenu, PrimaryButton
+from ui_widgets import ContextMenu
 
 ADD_MODEL_LABEL = '+ 添加模型…'
 LEVEL_MENU = '推理等级：%s'
@@ -199,60 +199,6 @@ class StageModelPicker(ttk.Frame):
         except Exception:
             return ''
 
-
-class StageConfigButton(PrimaryButton):
-    """「阶段配置」按钮；挂了 ``picker_target`` 后，布局时在它右边带上模型选择器。"""
-
-    picker_target = None
-    picker = None
-
-    def attach_picker(self, desktop, stage):
-        self.picker_target = (desktop, stage)
-        if self.winfo_manager() == 'pack':      # 按钮已经摆好：就地把选择器补在右边
-            self.pack(**self.pack_info())
-        return self
-
-    def pack(self, **options):
-        result = PrimaryButton.pack(self, **{key: value for key, value in options.items() if key != 'in'})
-        if self.picker_target is not None and self.picker is None:
-            desktop, stage = self.picker_target
-            self.picker = StageModelPicker(self.master, desktop, stage)
-        if self.picker is not None:
-            self.picker.pack(side=options.get('side', 'left'), after=self,
-                             padx=(SPACING['xs'], SPACING['none']), pady=options.get('pady', 0))
-        return result
-
-    def pack_forget(self):
-        if self.picker is not None:
-            self.picker.pack_forget()
-        return PrimaryButton.pack_forget(self)
-
-    def destroy(self):
-        picker, self.picker = self.picker, None
-        if picker is not None:
-            try:
-                picker.destroy()
-            except tk.TclError:
-                pass
-        PrimaryButton.destroy(self)
-
-
-def stage_button_for(parent, command, text='阶段配置', desktop=None, stage=None):
-    """各阶段统一使用与发送键相同的蓝色填充「阶段配置」按钮。
-
-    给了 ``desktop`` 与 ``stage`` 时，按钮布局后右侧自带模型选择器（仅模型名＋推理等级子菜单）。
-    """
-    button = StageConfigButton(parent, text=text, command=command, width=CHAR_WIDTH['3xl'])
-    if desktop is not None and stage:
-        button.attach_picker(desktop, stage)
-    # 这是语义标记而非视觉样式；回归可据此找到入口，不再耦合已废弃的暖色样式名。
-    button._stage_config_entry = True
-    return button
-
-
-def attach_stage_pickers(app, desktop):
-    """视频工作台里两颗「阶段配置」（提示词＝final、视频＝video）在建好后补上右侧选择器。"""
-    for name, stage in (('prompt_stage_button', 'final'), ('stage_button', 'video')):
-        button = getattr(app, name, None)
-        if isinstance(button, StageConfigButton):
-            button.attach_picker(desktop, stage)
+# R2942：页面级「阶段配置」按钮＋模型下拉框删除——模型选择收进共享输入框的下拉框按钮。
+# StageModelPicker（Menubutton＋弹出菜单）保留，就是共享输入框右下角那颗的通用实现；
+# 原 StageConfigButton／stage_button_for／attach_stage_pickers 三个按钮工厂不再有调用方，一并删除。
