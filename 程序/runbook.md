@@ -148,6 +148,8 @@ import 也算**；唯一放行的是只在 Blender 宿主里存在的 `bpy`）�
 
 要让归档重新成为判据，必须先把探针指标名与 `performance_contract` 对齐、再在真机重跑一次；对齐之前，不得用 `基准历史.json` 的数字声称「回归」或「达标」。门禁在 `tests\architecture\test_agents_md.py`：断言本节存在，并在 `performance_contract` 的指标名与 `基准历史.json` 出现同名时报警，逼一次口径更新。
 
+R2979 起探针侧已按 `performance_contract.py` 末尾对照表补齐同口径指标：长列表新增 `scroll_median_ms`（与 `LONG_LIST_SCROLL_MEDIAN_MS` 同为 60 帧中位数）、`fill_ms`（分批插行长齐总时长），长列表滚动测量前先等行长齐（与 `test_perf_baseline` 同口径 settle）；`first_frame_ms` 本就同口径。归档其余指标（页面墙钟、行数、内存绝对值、热点路径）仍无契约常量对应物，只作期间趋势参考、不作判据。
+
 ## 11. 覆盖率口径
 
 `维护记录\覆盖率基线.json` 是**定向测量**，不是整仓覆盖率。当前基线：生产运行时模块 545 个，其中 71 个有行覆盖（其余 474 个在这 9 组定向用例里没被碰到），测量使用 9 组定向用例，测量时刻这些用例全通过。

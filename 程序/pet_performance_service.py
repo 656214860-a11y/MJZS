@@ -21,6 +21,8 @@ BASELINE_NAME = '基准结果_启动与页面_start.json'
 SCRIPT_NAME = '基准_启动与页面.py'
 LONG_LIST_BASELINE_NAME = '基准结果_长列表.json'
 LONG_LIST_SCRIPT_NAME = '基准_长列表.py'
+HOTSPOT_BASELINE_NAME = '基准结果_热点路径.json'
+HOTSPOT_SCRIPT_NAME = '基准_热点路径.py'
 
 
 def _report(value):
@@ -110,6 +112,12 @@ def start_startup_check(program, project, executable=None, popen=None):
 def start_long_list_check(program, project, executable=None, popen=None):
     """启动 300/1000 行资产列表基准；仍只写项目运行报告。"""
     return _start_check(program, project, LONG_LIST_SCRIPT_NAME, LONG_LIST_BASELINE_NAME,
+                        (), executable, popen)
+
+
+def start_hotspot_check(program, project, executable=None, popen=None):
+    """启动热点路径离线基准（换项目／目录刷新／长对话／媒体导入）；只写项目运行报告。"""
+    return _start_check(program, project, HOTSPOT_SCRIPT_NAME, HOTSPOT_BASELINE_NAME,
                         (), executable, popen)
 
 

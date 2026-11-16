@@ -26,3 +26,15 @@ QUEUE_ITEM_MS = 400.0
 # 因此多线程并发提交不提高吞吐、只排队，吞吐上限约为 1／（入队＋领取）。实测（2026-10-17，本机）：
 # 16 项／4 生产者／2 消费者实测 2.07 项／秒（7.7 秒）。只作退化报警（下限取观察值的一半），不是性能承诺。
 CONCURRENT_SUBMIT_ITEMS_PER_SECOND = 1.0
+
+# ── 归档指标 ↔ 契约口径对照（R2979，runbook §10 的落地表）────────────────────
+# 基准历史.json 仍是「历史参考」，但下列指标名与本文件常量**同口径**，可横向比趋势；
+# 名字刻意不与常量同名（test_agents_md 门禁禁止同名碰撞），对照靠这张表。
+#   startup_page.first_frame_ms      ↔ STARTUP_FIRST_FRAME_MS（Desktop 构造＋首次 update）
+#   long_list.*.scroll_median_ms     ↔ LONG_LIST_SCROLL_MEDIAN_MS（60 帧取中位，R2979 起探针才有）
+#   startup_page.*_300_*ms／thumbs   ↔ 无契约常量：页面打开判的是 CPU 时间比（test_perf_baseline），
+#                                     墙钟值只作机器忙闲旁证，不作判据
+#   long_list.*.cold_ms/warm_ms/fill_ms、hotspot paths.*.first_ms
+#                                   ↔ 无契约常量：只作期间趋势参考
+#   内存 after_*_mb 绝对值          ↔ MEMORY_DELTA_MB 是「增量」口径，归档只存绝对值，
+#                                     增量需同次记录内相减，不直接可比
