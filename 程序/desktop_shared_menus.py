@@ -15,6 +15,7 @@ import tkinter as tk
 
 import app_logging
 from ui_icons import IconLoader
+from ui_popup import monitor_bounds
 from ui_tokens import COLORS, FONTS, ICON_DOCUMENT, ICON_FONT, SPACING
 from ui_widgets import Tooltip
 
@@ -72,17 +73,20 @@ class AnchoredPanel(tk.Frame):
         """点这些控件不算「点到面板外」（各面板的触发图标钮）。"""
         return ()
 
-    # ── 几何：与 CompletionPopup.place 同一套锚定 ──────────────────────
+    # ── 几何：面板底边悬在图标行上沿一行（R3031：原锚输入盒上沿，
+    #    整个 TextArea 隔在面板与图标之间） ──────────────────────────────
     def place_panel(self):
-        """下缘悬在输入盒上沿、左缘对齐、同宽；顶出屏幕才退回贴顶。
+        """下缘贴图标行上沿、左缘对齐输入盒、同宽封顶；顶出窗口才退回贴顶。
 
-        坐标换算到窗口（master）相对系：卡片屏幕坐标减窗口原点；
+        坐标换算到窗口（master）相对系：锚点屏幕坐标减窗口原点；
         ``lift`` 保证面板压在页面内容之上（同级兄弟后建者居上）。
         """
         if not self.is_open():
             return
         try:
             card = self.host.input_card
+            row = getattr(self.host, 'icon_row', None)
+            anchor_top = row.winfo_rooty() if row is not None else card.winfo_rooty()
             top = self.master
             self.update_idletasks()
             height = self.winfo_reqheight()
@@ -90,9 +94,8 @@ class AnchoredPanel(tk.Frame):
             width = max(SPACING['md'] * 8,
                         min(self.winfo_reqwidth(), card.winfo_width()))
             x = card.winfo_rootx() - top.winfo_rootx()
-            screen_top = card.winfo_rooty() - height - SPACING['xs']
-            y = (0 if screen_top < 0
-                 else card.winfo_rooty() - top.winfo_rooty() - height - SPACING['xs'])
+            # place 画不出窗口（master）外：y 负值会被整体裁掉，贴顶兜底看相对坐标。
+            y = max(0, anchor_top - top.winfo_rooty() - height - SPACING['xs'])
             self.place(x=x, y=y, width=width)
             self.lift()
         except tk.TclError:
@@ -423,8 +426,10 @@ class CandidatePopup:
     def place(self):
         """光标正下方优先；下方空间不足翻到光标上方；最后钳到可视区四边。
 
-        可视区＝顶层窗矩形与屏幕矩形的交集——``place`` 画不出窗口外，
-        输入框贴窗口底部时「下方」实际只有图标行与状态栏，必须按窗口底边判翻转。
+        可视区＝顶层窗矩形与**光标所在显示器**矩形的交集——``place`` 画不出
+        窗口外，输入框贴窗口底部时「下方」实际只有图标行与状态栏，必须按窗口
+        底边判翻转；``winfo_screenwidth/height`` 恒为主屏尺寸，副屏上会把浮层
+        钳成窄缝（R3031），显示器边界走 ``monitor_bounds``（ui_popup 同口径）。
         """
         if not self.open:
             return
@@ -432,21 +437,20 @@ class CandidatePopup:
             self.frame.update_idletasks()
             height = self.frame.winfo_reqheight()
             top = self.frame.winfo_toplevel()
-            hx = top.winfo_rootx()
-            hy = top.winfo_rooty()
-            left = max(SPACING['xs'], hx)
-            right = min(hx + top.winfo_width(),
-                        self.frame.winfo_screenwidth() - SPACING['xs'])
-            bottom = min(hy + top.winfo_height(),
-                         self.frame.winfo_screenheight() - SPACING['xs'])
-            top_edge = max(SPACING['xs'], hy)
-            width = min(self.frame.winfo_reqwidth(),
-                        max(SPACING['md'] * 8, self.host.winfo_width()),
-                        max(SPACING['md'] * 4, right - left))
             anchor = self._cursor_anchor()
             if anchor is None:
                 return
             cursor_x, cursor_top, cursor_bottom = anchor
+            hx = top.winfo_rootx()
+            hy = top.winfo_rooty()
+            mleft, mtop, mright, mbottom = monitor_bounds(top, cursor_x, cursor_top)
+            left = max(SPACING['xs'], hx, mleft)
+            right = min(hx + top.winfo_width(), mright - SPACING['xs'])
+            bottom = min(hy + top.winfo_height(), mbottom - SPACING['xs'])
+            top_edge = max(SPACING['xs'], hy, mtop)
+            width = min(self.frame.winfo_reqwidth(),
+                        max(SPACING['md'] * 8, self.host.winfo_width()),
+                        max(SPACING['md'] * 4, right - left))
             gap = SPACING['xs'] // 2
             y = cursor_bottom + gap
             if y + height > bottom:
@@ -454,6 +458,7 @@ class CandidatePopup:
             y = max(top_edge, min(y, bottom - height))
             x = max(left, min(cursor_x, right - width))
             self.frame.place(x=x - hx, y=y - hy, width=width)
+            self.frame.lift()
         except tk.TclError:
             app_logging.swallowed()
 
