@@ -67,6 +67,46 @@ def big_project(td, count):
     return proj
 
 
+def find_tree(root):
+    """内容框里最后一个有行的 Treeview（资产表）。"""
+    found = [None]
+    def walk(w):
+        for child in w.winfo_children():
+            if isinstance(child, ttk.Treeview) and len(child.get_children()) > 0:
+                found[0] = child
+            walk(child)
+    walk(root)
+    return found[0]
+
+
+def settle_rows(win, table, expected, timeout=30.0):
+    """像 mainloop 一样分段 ``update``，等分批插行与缩略图落地走完再量。
+
+    单次 ``win.update()`` 会把整条 ``after`` 链排空：行数读数与滚动帧测到的都是
+    「全量建完」的瞬间，看不到「首帧之后渐进长齐」的真实过程（R2979 定性：
+    此前 treeview_rows 在 24／300 间摆动、scroll 225ms→1.4ms 的落差都是这个口径
+    造成的，不是产品退化）。返回 (耗时 ms, 最终行数)。
+    """
+    import asset_thumbs
+    start = time.perf_counter()
+    rows = last = -1
+    quiet = still = 0
+    while time.perf_counter() - start < timeout:
+        win.update()
+        try:
+            rows = len(table.get_children())
+        except Exception:
+            rows = -1
+        still = still + 1 if rows == last else 0
+        last = rows
+        done = asset_thumbs.pending() == 0 and (rows >= expected or still >= 40)
+        quiet = quiet + 1 if done else 0
+        if quiet >= 3:
+            break
+        time.sleep(0.05)
+    return round((time.perf_counter() - start) * 1000, 1), rows
+
+
 Desktop.choose_project = lambda self: None
 win = tk.Tk()
 d = Desktop(win, root=PROG)
@@ -81,24 +121,17 @@ for count in (300, 1000):
         d.asset_kind = 'all'
         import asset_thumbs
         asset_thumbs.forget()
+        expected = 3 * max(1, count // 3)             # CHAR_/LOC_/PROP_ 各 per 项
         t = time.perf_counter(); d.show(PAGE_OF['assets']); win.update(); cold = round((time.perf_counter() - t) * 1000, 1)
-        rows = []
-        def walk(w):
-            for child in w.winfo_children():
-                if isinstance(child, ttk.Treeview):
-                    rows.append(len(child.get_children()) or 0)
-                walk(child)
-        walk(d.content)
+        table = find_tree(d.content)
+        # fill_ms＝从 show() 到行长齐的总时长＝首帧 update 已耗时长＋补齐余量；
+        # 首帧 update 把整条 after 链排空时它≈cold_ms，如实反映「全量可用」的代价。
+        rest_ms, rows = settle_rows(win, table, expected) if table is not None else (0.0, 0)
+        fill_ms = round(cold + rest_ms, 1) if rest_ms is not None else None
         t = time.perf_counter(); d.show(PAGE_OF['assets']); win.update(); warm = round((time.perf_counter() - t) * 1000, 1)
-        table = None
-        def find(w):
-            global table
-            for child in w.winfo_children():
-                # 资产页按视口虚拟化，Treeview 只保留可见行；不能再用“>100 子项”否定真列表。
-                if isinstance(child, ttk.Treeview) and len(child.get_children()) > 0:
-                    table = child
-                find(child)
-        find(d.content)
+        table = find_tree(d.content)
+        if table is not None:
+            settle_rows(win, table, expected)
         frames = []
         if table is not None:
             for i in range(60):
@@ -106,17 +139,24 @@ for count in (300, 1000):
                 table.yview_scroll(3, 'units')
                 win.update()
                 frames.append(round((time.perf_counter() - a) * 1000, 2))
-        out[count] = {'cold_ms': cold, 'warm_ms': warm, 'treeview_rows': max(rows or [0]),
+        # 中位数与性能门禁同口径（test_perf_baseline 的 median 判据）；avg/max 只作参考。
+        ordered = sorted(frames)
+        median_ms = ordered[len(ordered) // 2] if ordered else None
+        out[count] = {'cold_ms': cold, 'warm_ms': warm, 'treeview_rows': rows, 'fill_ms': fill_ms,
                       'scroll_avg_ms': round(sum(frames) / len(frames), 2) if frames else None,
+                      'scroll_median_ms': median_ms,
                       'scroll_max_ms': max(frames) if frames else None}
         print(count, out[count])
 win.destroy()
 result_path = output_path(sys.argv[1:], Path(__file__).resolve().parent / '基准结果_长列表.json')
+result_path.parent.mkdir(parents=True, exist_ok=True)
 result_path.write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding='utf-8')
 for count, values in out.items():
     append_history(family='long_list', condition=measurement_conditions(cache_state='cold', first_frame=False),
-                   metrics={'row_count': int(count), 'cold_ms': values['cold_ms']}, source_result=result_path.name)
+                   metrics={'row_count': int(count), 'cold_ms': values['cold_ms'],
+                            'fill_ms': values['fill_ms']}, source_result=result_path.name)
     append_history(family='long_list', condition=measurement_conditions(cache_state='warm', first_frame=False),
                    metrics={'row_count': int(count), 'warm_ms': values['warm_ms'],
                             'scroll_avg_ms': values['scroll_avg_ms'],
+                            'scroll_median_ms': values['scroll_median_ms'],
                             'scroll_max_ms': values['scroll_max_ms']}, source_result=result_path.name)

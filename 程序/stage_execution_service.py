@@ -173,9 +173,10 @@ def pet_performance_gateway():
 
 def start_pet_performance_check(program, project, kind='startup'):
     """L3 编排宠物离线基准启动；L4 不直接调用 L2 服务。"""
-    from pet_performance_service import start_long_list_check, start_startup_check
-    starter = start_long_list_check if kind == 'long_list' else start_startup_check
-    return starter(program, project)
+    from pet_performance_service import (start_hotspot_check, start_long_list_check,
+                                         start_startup_check)
+    starters = {'long_list': start_long_list_check, 'hotspot': start_hotspot_check}
+    return starters.get(kind, start_startup_check)(program, project)
 
 
 def poll_pet_performance_check(session, at=None):

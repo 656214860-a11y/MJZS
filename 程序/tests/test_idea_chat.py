@@ -885,6 +885,12 @@ class _Harness(unittest.TestCase):
                 pump(.05)
             pump(seconds)
 
+    def open_files_panel(self, d, win, seconds=.4):
+        """REQ-S01-90：项目文件面板默认隐藏；打开后等渐进批次填表。"""
+        d.files_panel.open_panel()
+        win.update()
+        self.settle_script_page(win, seconds)
+
     def log_text(self, d):
         return str(d.idea_log.get('1.0', 'end-1c'))
 
@@ -1088,7 +1094,8 @@ class SendMessageTests(_Harness):
             d.show(0); win.update()
             win.deiconify()
             self.settle_script_page(win, .4)
-            self.assertTrue(d.script_box.winfo_ismapped(), '没有文件也保留「项目文件」栏头')
+            self.open_files_panel(d, win)
+            self.assertTrue(d.script_box.winfo_ismapped(), '打开后保留「项目文件」面板')
             # R2942：四类文件合成一条「项目文件」列表，表头即「文件名」。
             self.assertEqual(str(d.script_title.cget('text')), '项目文件')
             tree = d.script_tree
@@ -1098,23 +1105,29 @@ class SendMessageTests(_Harness):
             self.assertEqual(tree.get_children(), ())
             self.assertTrue(d.idea_log.winfo_ismapped(), '聊天记录仍保留可用空间')
 
-    def test_project_files_bar_collapses_and_expands(self):
-        """R2942：点击折叠图标隐藏「项目文件」列表，再点恢复；图标方向随之切换。"""
-        from ui_tokens import ICON_CHEVRON_LEFT, ICON_CHEVRON_RIGHT
+    def test_project_files_panel_toggle_and_page_switch(self):
+        """REQ-S01-90：面板默认隐藏；点图标钮向左展开，收起钮／再点／切页均收起。"""
+        from ui_tokens import ICON_CHEVRON_RIGHT
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)
             d.show(0); win.deiconify()
             self.settle_script_page(win, .4)
-            self.assertTrue(d.script_tree.winfo_ismapped(), '默认展开「项目文件」列表')
-            self.assertEqual(d.script_toggle.cget('text'), ICON_CHEVRON_LEFT)
+            self.assertFalse(d.script_box.winfo_ismapped(), '默认隐藏「项目文件」列表')
+            d.files_button.invoke(); win.update()
+            self.assertTrue(d.script_box.winfo_ismapped(), '点击后右侧停靠面板展开')
+            self.assertEqual(d.script_toggle.cget('text'), ICON_CHEVRON_RIGHT)
+            self.settle_script_page(win, .4)
             d.script_toggle.invoke(); win.update()
-            self.assertFalse(d.script_tree.winfo_ismapped(), '折叠后文件列表隐藏')
-            self.assertEqual(d.script_toggle.cget('text'), ICON_CHEVRON_RIGHT, '折叠后图标切换为展开方向')
-            self.assertTrue(d.idea_log.winfo_ismapped(), '折叠后聊天区仍可用')
-            d.script_toggle.invoke(); win.update()
-            self.assertTrue(d.script_tree.winfo_ismapped(), '再点恢复「项目文件」列表')
-            self.assertEqual(d.script_toggle.cget('text'), ICON_CHEVRON_LEFT)
+            self.assertFalse(d.script_box.winfo_ismapped(), '收起钮收起整个面板')
+            self.assertTrue(d.idea_log.winfo_ismapped(), '收起后聊天区仍可用')
+            d.files_button.invoke(); win.update()
+            self.settle_script_page(win, .4)
+            self.assertTrue(d.script_box.winfo_ismapped(), '再点图标钮恢复面板')
+            self.assertEqual(d.script_toggle.cget('text'), ICON_CHEVRON_RIGHT)
+            from desktop_page_registry import PAGE_ACCOUNT
+            d.show(PAGE_ACCOUNT); win.update()
+            self.assertFalse(d.script_box.winfo_ismapped(), '切换页面自动收起面板')
 
     def test_delayed_script_rows_are_not_covered_by_empty_state(self):
         with tempfile.TemporaryDirectory() as td:
@@ -1125,6 +1138,7 @@ class SendMessageTests(_Harness):
             d, win = self.desktop(proj)
             d.show(0); win.deiconify()
             self.settle_script_page(win, .4)
+            self.open_files_panel(d, win)
             tree = d.script_tree
             self.assertIn(str(path), tree.get_children())
             self.assertFalse(tree._data_table.empty_label.winfo_ismapped(), '延迟填表后不能仍显示暂无数据')
@@ -1138,6 +1152,7 @@ class SendMessageTests(_Harness):
             d, win = self.desktop(proj)
             d.show(0); win.deiconify()
             self.settle_script_page(win, .4)
+            self.open_files_panel(d, win)
             tree = d.script_tree
             item = str(path)
             self.assertIn(item, tree.get_children())
@@ -1164,6 +1179,7 @@ class SendMessageTests(_Harness):
             d, win = self.desktop(proj)
             d.show(0); win.deiconify()
             self.settle_script_page(win, .4)
+            self.open_files_panel(d, win)
             path = writing_dir(proj) / script_contract.RAW_SCRIPT_NAME
             path.write_text('\n'.join('## 第%d集\n场景 1：室内\n小明：开始。' % n for n in range(1, 11)), encoding='utf-8')
             self.assertTrue(d.refresh_script_workspace())

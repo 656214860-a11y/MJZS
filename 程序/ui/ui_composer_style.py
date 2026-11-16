@@ -1,6 +1,6 @@
 """剧本准备页输入框样式（仿 Claude Code 桌面版），由 ui_widgets.setup_styles 调用。"""
 from ui_rounded import rounded_photo
-from ui_tokens import COLORS, ICON_FONT, ICON_FONT_SMALL, RADIUS, ROUND_TILE_BUTTON, SPACING
+from ui_tokens import COLORS, FONTS, ICON_FONT, ICON_FONT_SMALL, RADIUS, ROUND_TILE_BUTTON, SPACING
 
 
 def install_composer_styles(style, root, configure_button):
@@ -45,5 +45,13 @@ def install_composer_styles(style, root, configure_button):
                       active_background=COLORS["primary_hover"], active_foreground=card,
                       pressed_background=COLORS["primary_pressed"],
                       padding=(SPACING["sm"], SPACING["xs"]))
-    for name in ("Tokens.Composer.Icon.TButton", "Tokens.Composer.Send.TButton"):
+    # 模型选择器触发钮（R2964）：卡片底同色＝无外框文字钮，悬停才透出圆角底。
+    configure_button(style, "Tokens.Composer.Model.TButton", font=FONTS["body"],
+                      background=card, foreground=COLORS["text_secondary"],
+                      active_background=COLORS["surface_hover"],
+                      active_foreground=COLORS["text_primary"],
+                      pressed_background=COLORS["surface_pressed"],
+                      padding=(SPACING["xs"], SPACING["xs"]))
+    for name in ("Tokens.Composer.Icon.TButton", "Tokens.Composer.Send.TButton",
+                 "Tokens.Composer.Model.TButton"):
         style.configure(name, background=card)

@@ -1,0 +1,15 @@
+{
+  "round": 2952,
+  "commit_base": "9801cdd3",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k voice_dict voice_ai_optimize voice_mcp shared_input_voice model_manager_actions speech_api offline_asr_engine offline_asr_client",
+    "exit": 0,
+    "passed": 107,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T12:48:21"
+}

@@ -200,7 +200,8 @@ class ScriptComposerTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as td, patch.object(platform_tools, 'MicrophoneRecorder', FakeRecorder), \
                 patch.object(speech_api, 'missing_reason', return_value=''), \
-                patch.object(speech_api, 'RealtimeSession', FakeSession):
+                patch.object(speech_api, 'create_session',
+                             side_effect=lambda settings, **kw: FakeSession(settings)):
             d, win = self.desktop(make_minimal_project(td))
             button, box = d.shared_input.voice_button, d.idea_input
             shared = d.shared_input
@@ -248,6 +249,11 @@ class ScriptComposerTests(unittest.TestCase):
             voice.poll(); win.update()
             self.assertIn('没听到声音', d.status.get())
             # 服务端报错：停录、说明原因、按钮复原。
+            # 发送门禁的 250ms 防抖可能在 win.update() 里落进来覆盖语音状态，先撤掉 pending 刷新。
+            pending = getattr(d, '_idea_send_state_after', None)
+            if pending is not None:
+                win.after_cancel(pending)
+                d._idea_send_state_after = None
             FakeSession.instances[-1].events.put(('error', '', '密钥无效'))
             voice.poll(); win.update()
             self.assertTrue(FakeRecorder.instances[-1].stopped)

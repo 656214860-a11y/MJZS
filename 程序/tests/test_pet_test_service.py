@@ -134,6 +134,25 @@ class PetTestServiceTests(unittest.TestCase):
             finally:
                 session['output'].close()
 
+    def test_hotspot_check_uses_its_own_script_and_project_report(self):
+        seen = {}
+        with tempfile.TemporaryDirectory() as folder:
+            program, project = Path(folder) / '程序', Path(folder) / '项目'
+            scripts = program / '维护记录' / '基准脚本'
+            scripts.mkdir(parents=True)
+            (scripts / pet_performance_service.HOTSPOT_SCRIPT_NAME).write_text('', encoding='utf-8')
+            (scripts / pet_performance_service.HOTSPOT_BASELINE_NAME).write_text('{}', encoding='utf-8')
+            def popen(args, **kwargs):
+                seen['args'] = args
+                return SimpleNamespace()
+            session = pet_performance_service.start_hotspot_check(program, project, popen=popen)
+            try:
+                self.assertEqual(seen['args'][1], str(scripts / pet_performance_service.HOTSPOT_SCRIPT_NAME))
+                self.assertNotIn('start', seen['args'][2:])
+                self.assertEqual(session['current'].name, pet_performance_service.HOTSPOT_BASELINE_NAME)
+            finally:
+                session['output'].close()
+
     def test_failed_performance_process_does_not_write_output_to_ledger(self):
         with tempfile.TemporaryDirectory() as folder:
             output = tempfile.TemporaryFile(mode='w+b')

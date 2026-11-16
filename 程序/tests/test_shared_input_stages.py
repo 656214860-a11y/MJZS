@@ -183,7 +183,7 @@ class SharedInputHostTests(unittest.TestCase):
         self.assertEqual(self.box._on_return(_Event()), 'break')
         self.assertEqual(self.desktop.send_message.call_count, 2)
 
-    # ── R2980／REQ-S01-91：/ 与 @ 光标级候选浮层（自绘行＋光标锚定翻转） ──
+    # ── R2980／REQ-S01-92：/ 与 @ 光标级候选浮层（自绘行＋光标锚定翻转） ──
 
     def _caret_end(self):
         self.box.input.mark_set('insert', 'end-1c')

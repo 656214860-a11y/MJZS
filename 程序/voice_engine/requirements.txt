@@ -1,0 +1,9 @@
+# 离线语音识别独立运行环境依赖（仅安装到独立 venv，不进入主程序运行时）
+# 版本基线对齐 vocotype-cli (Apache-2.0) 参考环境；全部为成熟发布版本。
+numpy>=1.26,<3
+onnxruntime>=1.17,<2
+funasr_onnx==0.4.1
+jieba==0.42.1
+modelscope==1.30.0
+librosa==0.11.0
+soundfile==0.13.1

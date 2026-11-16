@@ -254,6 +254,12 @@ class PageNavMixin:
         scroll_offset=self.canvas.canvasy(0) if previous_index==index else 0
         self.page_index=index
         self._sync_shared_input()
+        # R2962：项目文件面板——project_changed 识别项目根变化（含 load(None)）并收起，
+        # 页序号变化同样收起（同页重建不算切换）；入口显隐随 root/page_index 同步。
+        files_panel=getattr(self,'files_panel',None)
+        if files_panel is not None:
+            if index!=previous_index:files_panel.collapse()
+            files_panel.project_changed()
         # 第 71 期任务 2：资产详情页与资产清单页都是「05 资产管理」的子路由；翻到别的页就回主页面。
         if index!=PAGE['assets']:self.asset_detail_id=None;self.asset_roster=False
 
@@ -315,6 +321,13 @@ class PageNavMixin:
             shared.pack_forget()
             return
         shared.set_stage(stage)
+        if stage=='script':
+            # 剧本页的「发送／终止合一」改写作用在共享发送键上：切回本页时按当前
+            # 任务态重挂（任务进行中→终止图标），其余阶段已由 set_stage 复位默认。
+            sync=getattr(self,'update_script_interrupt_button',None)
+            if callable(sync):
+                try:sync()
+                except Exception:app_logging.swallowed()
         options={'side':'top','fill':'x'}
         label=getattr(self,'status_label',None)
         # 视频页会把状态栏 pack_forget：锚点不在管理中时不能用 before，否则 Tcl 报错。

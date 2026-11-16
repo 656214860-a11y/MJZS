@@ -977,15 +977,15 @@ class PanelTests(unittest.TestCase):
         picker = stage_model_picker.StageModelPicker(self.win, self.desktop, 'script')
         self.addCleanup(picker.destroy)
         picker.pack(side='left')
-        self.assertIsInstance(picker.models, ttk.Menubutton, '模型选择器是下拉框按钮，不是弹窗')
+        self.assertIsInstance(picker.models, ttk.Button, '模型选择器是无外框下拉按钮，不是弹窗')
         self.assertEqual(picker.model_id(), 'deepseek-v4-flash')
         self.assertIn('DeepSeek', picker.model.get())
         self.assertNotIn(' · ', picker.model.get(),
                          'REQ-S01-82：选择器当前项只显示模型名称，不带供应商前缀')
 
     def test_add_menu_model_entry_opens_the_manager_and_reverts(self):
-        """REQ-S01-90：「添加模型…」移到共享输入框「＋」下拉；模型池仍只有模型管理
-        这一扇门，模型选择器菜单不再保留添加尾项。"""
+        """REQ-S01-91：「添加模型…」移到共享输入框「＋」下拉；模型池仍只有模型管理
+        这一扇门，模型选择器浮层不再保留添加尾项。"""
         import desktop_shared_input, pet_models_ui, stage_model_picker
         opened = []
         pet = object()
@@ -995,15 +995,9 @@ class PanelTests(unittest.TestCase):
         self.addCleanup(setattr, pet_models_ui, 'open_manager', real)
         picker = stage_model_picker.StageModelPicker(self.win, self.desktop, 'keyframe')
         self.addCleanup(picker.destroy)
-        picker._fill_menu()
-        menu_labels = []
-        for i in range(picker._menu.index('end') + 1):
-            try:
-                menu_labels.append(picker._menu.entrycget(i, 'label'))
-            except self.tk.TclError:
-                continue  # 分隔线等无 -label 的项
-        self.assertFalse(any('添加模型' in str(label) for label in menu_labels),
-                         '模型下拉不再保留「+ 添加模型…」尾项')
+        spec = picker._popup_spec()
+        self.assertFalse(any(row['kind'] == 'add' for row in spec),
+                         '模型浮层不再保留「+ 添加模型…」尾项')
         box = desktop_shared_input.SharedStageInput(
             self.win, desktop=self.desktop, stage='keyframe',
             options={'on_send': None})

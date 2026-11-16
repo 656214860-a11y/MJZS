@@ -145,10 +145,12 @@ class LayoutMixin:
             if int(dock.cget('height'))!=room:dock.configure(height=room)
         minimum=0
         # header_stage_button 只在没有「手动XX」行的阶段页出现（约 36px），有它的页标题行
-        # 只能收到按钮高度；其余页仍是单行 22px。
-        for name in ('usage_indicator','header_info','header_stage_button'):
+        # 只能收到按钮高度；其余页仍是单行 22px。video_back（视频工作区返回钮，R2966 修复轮
+        # 计入）只在视频子页 pack，hide_back 后 pack_forget，按 winfo_manager 只量在管的；
+        # files_button（R2962 项目文件入口）只在有项目的生产页 pack，同样按在管与否取舍。
+        for name in ('usage_indicator','header_info','header_stage_button','video_back','files_button'):
             widget=getattr(self,name,None)
-            if widget is None:continue
+            if widget is None or not widget.winfo_manager():continue
             try:minimum=max(minimum,int(widget.winfo_reqheight()))
             except tk.TclError:pass
         if int(self.title_row.cget('height'))!=minimum:self.title_row.configure(height=minimum)

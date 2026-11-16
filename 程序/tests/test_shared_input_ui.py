@@ -44,14 +44,17 @@ class SharedInputLayoutTests(unittest.TestCase):
         texts = {str(w.cget('text')) for w in _descendants(box)
                  if isinstance(w, tk.Widget) and w.winfo_class() in ('TButton',)}
         # R2923/R2942：入口改图标文字按钮——✦ 技能、＋ 附件、🎤 语音与发送图标；
-        # 模型选择器是共享框内右侧的下拉按钮（Menubutton），非模态弹窗、无外框纯下拉。
+        # 模型选择器是共享框内右侧的无外框下拉按钮（R2964：ttk.Button＋上方卡片浮层），非模态弹窗。
+        from tkinter import ttk
         from ui_tokens import ICON_ADD, ICON_MICROPHONE, ICON_SEND, ICON_SKILL
         for label in (ICON_SKILL, ICON_ADD, ICON_MICROPHONE, ICON_SEND):
             self.assertIn(label, texts)
-        menus = [w for w in _descendants(box)
-                 if isinstance(w, tk.Widget) and w.winfo_class() == 'TMenubutton']
-        self.assertEqual(len(menus), 1, '共享输入框内应有一颗模型下拉按钮')
-        self.assertTrue(str(menus[0].cget('text')).strip(), '模型下拉按钮显示当前模型名')
+        picker = getattr(box, 'model_picker', None)
+        self.assertIsNotNone(picker, '共享输入框内应有一颗模型下拉按钮')
+        self.assertIsInstance(picker.models, ttk.Button, '模型下拉按钮是无外框按钮')
+        self.assertTrue(str(picker.model.get()).strip(), '模型下拉按钮显示当前模型名')
+        self.assertTrue(str(picker._display.get()).rstrip().endswith('▾'),
+                        '模型下拉按钮文案带下拉箭头')
         self.assertIsInstance(box.input, tk.Text)
         # R2923：整个输入盒收进一张 Card——输入框在上、图标行在下（左✦＋🎤，右模型下拉＋发送）。
         self.assertEqual(box.input.master.winfo_class(), 'TFrame')
@@ -83,7 +86,7 @@ class SharedInputLayoutTests(unittest.TestCase):
         self.assertEqual(box.candidates.entries[0]['label'], '/mine-skill')
         box.close_completion()
 
-    # ── R2980／REQ-S01-91：光标级 ``/`` 与 ``@`` 候选浮层 ──
+    # ── R2980／REQ-S01-92：光标级 ``/`` 与 ``@`` 候选浮层 ──
 
     def test_slash_trigger_boundaries(self):
         """``/`` 只在行首或空白后触发：词中、URL、分数都不弹。"""
@@ -237,7 +240,7 @@ class SharedInputLayoutTests(unittest.TestCase):
         self.assertIs(box.input, input_widget)
         self.assertEqual(box.stage, 'assets')
 
-    # ── R2971／REQ-S01-90：✦／＋ 图标下拉面板（与 / 补全同款浮层） ──
+    # ── R2971／REQ-S01-91：✦／＋ 图标下拉面板（与 / 补全同款浮层） ──
 
     def _panel_labels(self, panel):
         return [w for w in _descendants(panel)

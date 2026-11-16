@@ -144,7 +144,8 @@ class ScriptPageLayoutTests(unittest.TestCase):
         self.assertEqual(actions.winfo_width(), source.winfo_width(),
                          '中间动作栏与卡片同宽')
         info = desktop.script_structure_info_label
-        self.assertEqual(str(info.cget('justify')), 'right')  # R1862：说明放到页头右上角，靠右换行
+        # R2950 页头改单行：状态居左可伸展、模型名贴右（原两行右对齐时代的 justify='right' 断言同步为 left）。
+        self.assertEqual(str(info.cget('justify')), 'left')
         self.assertLessEqual(info.winfo_rootx() + info.winfo_width(),
                              source.winfo_rootx() + source.winfo_width() + 1,
                              '说明文字不得越出卡片右沿')

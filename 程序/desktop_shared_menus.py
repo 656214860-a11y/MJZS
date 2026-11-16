@@ -86,7 +86,7 @@ class AnchoredPanel(tk.Frame):
             top = self.master
             self.update_idletasks()
             height = self.winfo_reqheight()
-            # 宽高随内容自适应（REQ-S01-90 定版）：宽取行内容自然宽，封顶输入盒宽。
+            # 宽高随内容自适应（REQ-S01-91 定版）：宽取行内容自然宽，封顶输入盒宽。
             width = max(SPACING['md'] * 8,
                         min(self.winfo_reqwidth(), card.winfo_width()))
             x = card.winfo_rootx() - top.winfo_rootx()
@@ -251,7 +251,7 @@ class AddMenuPanel(AnchoredPanel):
 
 
 class CandidatePopup:
-    """``/`` 命令与 ``@`` 引用共用的光标级候选浮层（R2980，REQ-S01-91）。
+    """``/`` 命令与 ``@`` 引用共用的光标级候选浮层（R2980，REQ-S01-92）。
 
     与 ``AnchoredPanel`` 同一张卡片描边，但锚点是**文本光标**而非输入盒：
     优先摆在光标正下方，底部空间不足翻到光标上方，再不行钳到屏幕内；

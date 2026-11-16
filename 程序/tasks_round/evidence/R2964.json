@@ -1,0 +1,15 @@
+{
+  "round": 2964,
+  "commit_base": "efe90cc7",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k button_boundary token_boundary stage_reasoning shared_input_ui",
+    "exit": 0,
+    "passed": 63,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T14:53:55"
+}

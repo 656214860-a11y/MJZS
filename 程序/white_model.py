@@ -1,4 +1,5 @@
 """Shot-by-shot online white-model previs references."""
+import os
 import tkinter as tk
 import webbrowser
 from tkinter import messagebox, ttk
@@ -7,9 +8,10 @@ from file_cache import read_json
 from contract.storyboard_paths import project_root
 import white_model_service as _service
 from ui_dialogs import FileDialog
-from ui_widgets import SelectBox, BaseDialog, Card, PrimaryButton, SecondaryButton, TextArea, notify
+import ui_plugin_registry
+from ui_widgets import SelectBox, BaseDialog, Card, PrimaryButton, SecondaryButton, TextArea, Tooltip, notify
 import contract.pet_bus as pet_bus
-from ui_tokens import TEXT_ROWS, WRAPLENGTH, FONTS, SPACING
+from ui_tokens import TEXT_ROWS, WRAPLENGTH, FONTS, SPACING, ICON_MICROPHONE
 
 TOOLS = (
     ('打开 LensBlock 白模工作台', 'https://ilcaretz.github.io/lensblock/'),
@@ -135,10 +137,20 @@ def open_previs(desktop,sid=None):
         row = ttk.Frame(online); row.pack(fill='x', pady=SPACING['xs'])
         ttk.Label(row, text=f'{number}. {title}').pack(side='left')
         SecondaryButton(row, text='打开网站', command=lambda u=url: webbrowser.open(u)).pack(side='right')
-    ttk.Label(body, text='动作与机位备注（可复制到视频提示词）：').pack(anchor='w', pady=(SPACING['lg'], SPACING['xs']))
+    note_bar=ttk.Frame(body);note_bar.pack(fill='x',pady=(SPACING['lg'],SPACING['xs']))
+    ttk.Label(note_bar,text='动作与机位备注（可复制到视频提示词）：').pack(side='left')
     notes = TextArea(body, height=TEXT_ROWS['xl'], wrap='word', undo=True)
     notes.pack(fill='both', expand=True)
     notes.insert('1.0', saved.get('notes', ''))
+    # 语音输入离线化任务书轮 5：备注框复用共享听写组件（非 Windows 不显示麦克风）。
+    # 经 ui_plugin_registry 延迟加载：white_model→desktop_voice_input 会与
+    # desktop_voice_input→desktop_automation_service→engine→white_model 成环（R2958）。
+    if os.name=='nt':
+        mic=SecondaryButton(note_bar,text=ICON_MICROPHONE,width=0,style='Tokens.Composer.Icon.TButton')
+        mic.pack(side='right')
+        Tooltip(mic,'语音输入：点一下开始录音，再点一下结束并转成文字')
+        mic.configure(command=lambda:voice_input.toggle())
+        voice_input=ui_plugin_registry.module('desktop_voice_input').VoiceInput(notes,mic,status=desktop.status,project=desktop.root)
     path_text = tk.StringVar(value=saved.get('preview') or '尚未导入预演视频')
     project_text = tk.StringVar(value=saved.get('project_file') or '尚未导入白模工程')
     ttk.Label(body, textvariable=path_text, wraplength=WRAPLENGTH['lg']).pack(anchor='w', pady=SPACING['sm'])

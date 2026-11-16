@@ -244,7 +244,7 @@ class RecycleBatchTests(unittest.TestCase):
                 self.assertEqual(sorted(path.name for path in folder.iterdir()), ['x.txt', 'y.txt'])
 
     def test_a_partial_batch_delete_refreshes_the_list_first(self):
-        import desktop_writing_page
+        import desktop_files_panel
         root, folder = self.project()
         events = []
         page = SimpleNamespace(root=root, win=None,
@@ -255,7 +255,7 @@ class RecycleBatchTests(unittest.TestCase):
                                   confirmed_note=lambda paths: '',
                                   fill_script_list=lambda: events.append('refresh'))
         with self.assertRaises(OSError):
-            desktop_writing_page._WritingPage.delete_script(writing)
+            desktop_files_panel.ProjectFilesPanel.delete_script(writing)
         self.assertFalse((folder / 'x.txt').exists(), '还在的那份已进回收站')
         self.assertEqual(events, ['refresh'], '报错前先刷新列表，别再列着已进回收站的文件')
 
