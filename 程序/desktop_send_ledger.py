@@ -85,7 +85,7 @@ def current_step(root, request_text=''):
 
 def _latest_document(root, name):
     """本项目任一模型交付的该类最新文件（固定深度 Provider/模型/创意_日期/类型，不递归）；没有返回 None。"""
-    from idea_document_paths import project_document_directory
+    from domain.idea_document_paths import project_document_directory
     from contract.stage_path_service import write_dir
     try:
         found = [path for path in write_dir(root, 'script').glob(
@@ -109,7 +109,7 @@ def material_targets(root, model_label, request_text=''):
 
     已确认的设定／大纲／角色卡用确认那一份，其余用本模型的交付路径，本模型没有再取别的模型最新一份；
     只取本轮那一步及之前的材料。"""
-    from idea_document_paths import brief_complete_path, delivery_document_path, storage_identity
+    from domain.idea_document_paths import brief_complete_path, delivery_document_path, storage_identity
     from project_context_factory import project_context
     from contract.script_contract import RAW_SCRIPT_NAME, script_baseline_path
     context = project_context(root)

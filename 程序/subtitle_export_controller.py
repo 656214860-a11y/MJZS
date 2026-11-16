@@ -9,5 +9,5 @@ def subtitle_export_gateway():
 
 def publish_stage_srt_text(target, text):
     """SKILL 生成字幕的唯一 L3 文本发布入口。"""
-    from subtitle_export_service import publish_srt_text
+    from domain.subtitle_export_service import publish_srt_text
     return publish_srt_text(target, text, publish=subtitle_export_gateway()['publish_text'])

@@ -5,7 +5,7 @@
 """
 from __future__ import annotations
 
-import confirm_gates
+import domain.confirm_gates as confirm_gates
 import contract.stage_layout as stage_layout
 
 

@@ -11,7 +11,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 
 class IdeaAttachmentPublicationBoundaryTests(unittest.TestCase):
     def test_l2_store_requires_injected_publisher_without_direct_write(self):
-        path = os.path.join(ROOT, 'idea_attachments.py')
+        path = os.path.join(ROOT, 'domain/idea_attachments.py')
         with open(path, encoding='utf-8') as handle:
             tree = ast.parse(handle.read())
         store = next(node for node in tree.body

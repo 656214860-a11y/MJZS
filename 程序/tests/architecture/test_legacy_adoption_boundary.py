@@ -19,7 +19,7 @@ class LegacyAdoptionBoundaryTests(unittest.TestCase):
         direct = [node.lineno for node in ast.walk(method) if isinstance(node, ast.Call)
                   and isinstance(node.func, ast.Attribute) and node.func.attr in {'mkdir', 'save'}]
         self.assertEqual([], direct, '旧目录归位日志不得由桌面页直接发布: ' + str(direct))
-        service = (ROOT / 'legacy_adoption_service.py').read_text(encoding='utf-8')
+        service = (ROOT / 'domain/legacy_adoption_service.py').read_text(encoding='utf-8')
         stage = stage_execution_source()
         self.assertNotIn('from agent.core import save', service)
         self.assertIn('def legacy_adoption_gateway()', stage)

@@ -19,7 +19,7 @@ class AudioImportBoundaryTests(unittest.TestCase):
         self.assertIn("return import_audio(project, source, publish=media_import_publisher(project, 'audio'))", orchestration,
                       '生产音频导入必须由 L3 注入统一媒体校验及流式发布器')
         self.assertIn('return publish_imported_media(target, source, lambda temporary: validate_import(temporary, config, kind), kind)', orchestration)
-        domain = (ROOT / 'audio_import_service.py').read_text(encoding='utf-8')
+        domain = (ROOT / 'domain/audio_import_service.py').read_text(encoding='utf-8')
         self.assertNotIn('read_bytes(', domain, '媒体导入不能整文件读入内存')
         prohibited = {'copy2', 'save', 'save_bytes', 'write_text', 'write_bytes', 'remove_temporary_file'}
         direct = [node.lineno for node in ast.walk(method) if isinstance(node, ast.Call)

@@ -141,7 +141,7 @@ def keyframe_image_prompt(project, source, shot_id=None, outputs=None, shot_ids=
 
 def import_delivery_master(project, source, *, settings_snapshot=None, cache=None):
     """交付成片导入编排：L3 负责上下文和发布器注入。"""
-    from delivery_import_service import import_final_master
+    from domain.delivery_import_service import import_final_master
     return import_final_master(
         project_context(project, settings_snapshot=settings_snapshot, cache=cache), source,
         publish=media_import_publisher(project, 'video'))
@@ -213,7 +213,7 @@ def import_stage_audio(project, source):
 
 def _import_audio_file(project, source):
     """音频导入编排：L3 注入校验与有界文件发布器。"""
-    from audio_import_service import import_audio
+    from domain.audio_import_service import import_audio
     return import_audio(project, source, publish=media_import_publisher(project, 'audio'))
 
 
@@ -223,7 +223,7 @@ def _import_audio_file(project, source):
 
 def export_stage_srt(project, episode):
     """字幕导出编排：L3 注入统一文本阶段发布器。"""
-    from subtitle_export_service import export_srt
+    from domain.subtitle_export_service import export_srt
     result = export_srt(project, episode, publish=publish_stage_text)
     if result.ok:
         refresh_audio_manifests(project)
@@ -258,7 +258,7 @@ def import_video_prompt(studio, sid, text):
 
 def export_stage_dialogue_script(project, episode, assets):
     """对白脚本导出编排：L3 注入统一文本阶段发布器。"""
-    from subtitle_export_service import export_dialogue_script
+    from domain.subtitle_export_service import export_dialogue_script
     result = export_dialogue_script(project, episode, assets, publish=publish_stage_text)
     if result.ok:
         refresh_audio_manifests(project)
@@ -349,7 +349,7 @@ def legacy_adoption_gateway():
 
 def record_stage_legacy_adoption(project, linked_paths, now=None):
     """旧目录归位记录只经 L3 网关发布。"""
-    from legacy_adoption_service import record_legacy_adoption
+    from domain.legacy_adoption_service import record_legacy_adoption
     result = record_legacy_adoption(project, linked_paths, now=now,
                                     gateway=legacy_adoption_gateway())
     if not result.ok:
@@ -371,7 +371,7 @@ def idea_attachment_local_mode(project):
 
 def archive_idea_attachments(project, paths, now=None):
     """剧本准备附档归档编排：L3 注入统一文本阶段发布器。"""
-    from idea_attachments import store
+    from domain.idea_attachments import store
 
     def publish_attachment(target, text):
         if isinstance(text, bytes):
@@ -391,13 +391,13 @@ def archive_idea_attachments(project, paths, now=None):
 
 def stage_idea_attachment_paths(project, limit=None):
     """列出已入库创意附档；项目根只由 L3 上下文提供。"""
-    from idea_attachments import uploaded
+    from domain.idea_attachments import uploaded
     return uploaded(project_context(project), limit, local_mode=idea_attachment_local_mode(project))
 
 
 def stage_idea_attachment_reference(project, message='', selected_paths=()):
     """为剧本准备对话解析已入库附档，不向 L2 暴露裸项目路径。"""
-    from idea_attachments import referenced, brief_sources
+    from domain.idea_attachments import referenced, brief_sources
     from workflow_engines import current_config
     context = project_context(project)
     local_mode = idea_attachment_local_mode(project)
@@ -410,13 +410,13 @@ def stage_idea_attachment_reference(project, message='', selected_paths=()):
 
 def prepare_idea_attachment_selection(project, paths):
     """仅预检刚上传的附件，不把历史最近三份混入上传结果。"""
-    from idea_attachments import prepare
+    from domain.idea_attachments import prepare
     return prepare(paths, local_mode=idea_attachment_local_mode(project), context=project_context(project))
 
 
 def stage_idea_brief_defaults(project, *, reference=None):
     """复用本轮引用的解析副本，不再扫描目录或改变模型投递上下文。"""
-    from idea_brief_form import extract_brief_creation
+    from domain.idea_brief_form import extract_brief_creation
     if reference is None:
         reference = stage_idea_attachment_reference(project)
     values = {}
@@ -547,7 +547,7 @@ def confirm_gates_gateway():
 
 def record_stage_confirmation(project, key, choice='', by='human', state='applied', digest=''):
     """记录确认门禁；L4 不得自行装配或直写确认账本。state 见 confirm_gates.record。"""
-    from confirm_gates import record
+    from domain.confirm_gates import record
     return record(project, key, choice, by=by, state=state, digest=digest,
                   publish=confirm_gates_gateway()['publish_json'],
                   context=project_context(project))
@@ -555,7 +555,7 @@ def record_stage_confirmation(project, key, choice='', by='human', state='applie
 
 def forget_stage_confirmation(project, key):
     """撤销确认门禁；保持与记录入口相同的 L3 发布边界。"""
-    from confirm_gates import forget
+    from domain.confirm_gates import forget
     return forget(project, key, publish=confirm_gates_gateway()['publish_json'],
                   context=project_context(project))
 
@@ -566,7 +566,7 @@ def adopt_asset_plan_choice(project, key, choice, digest=''):
     先记 pending：进程中断只留下 pending，候选会重新摆出、可再点一次；落盘失败记 failed，
     同样不算确认完成。任何一步没走完，都不会出现「未采用却已审核通过」（O10）。
     """
-    from confirm_gates import APPLIED, FAILED, PENDING
+    from domain.confirm_gates import APPLIED, FAILED, PENDING
     record_stage_confirmation(project, key, choice, state=PENDING, digest=digest)
     try:
         result = apply_asset_plan_gate_choice(project, key, choice)
@@ -591,7 +591,7 @@ def reopen_asset_plan_choices(project, aid):
 
 def run_stage_confirmation_gate(project, gate_id, *, shots=None, assets=None, ledger=None):
     """L3 运行确认门禁，并为需要确认记忆的 L2 注入项目上下文。"""
-    from confirm_gates import run
+    from domain.confirm_gates import run
     return run(gate_id, project=project, shots=shots, assets=assets, ledger=ledger,
                context=project_context(project))
 
@@ -724,7 +724,7 @@ def replace_stage_keyframe(base, source, episode, shot, data):
 
 def publish_stage_handoff_bundle(project, shots, rows, subtitle=None, auto=False):
     """交接包编排：L3 注入项目上下文与唯一阶段发布器。"""
-    from handoff_service import publish_bundle
+    from domain.handoff_service import publish_bundle
     result = publish_bundle(project, shots, rows, subtitle, auto,
                             publish=publish_handoff_bundle,
                             context=project_context(project))
@@ -836,11 +836,11 @@ def save_writing_production_locks(project, values, *, attachment_signature=None)
 def sync_writing_attachment_locks(project, *, reference=None):
     """仅在附档制作参数变化时同步，保留随后手动修订的值。"""
     from hashlib import sha256
-    from idea_brief_form import extract_brief_creation
+    from domain.idea_brief_form import extract_brief_creation
     from contract.script_contract import PRODUCTION_LOCK_DEFINITIONS
     data = stage_config._workflow_data(project)
     if reference is None:
-        from idea_attachments import brief_sources
+        from domain.idea_attachments import brief_sources
         reference = brief_sources(project_context(project),
                                   {'paths': stage_idea_attachment_paths(project, limit=3)})
     definitions = PRODUCTION_LOCK_DEFINITIONS

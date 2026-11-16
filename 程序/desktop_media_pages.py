@@ -660,7 +660,7 @@ class MediaPagesMixin:
         from tts_settings import show
         show(self.win)
     def generate_tts(self):
-        import tts_api
+        import domain.tts_api as tts_api
         entries,estimated=self.dialogue_entries();assets=self.dialogue_assets()
         if not entries:raise ValueError('当前分镜没有对白，无法生成配音')
         script=tts_api.build_script(entries,assets)
@@ -682,7 +682,7 @@ class MediaPagesMixin:
             return note
         self.async_(work)
     def generate_tts_per_line(self):
-        import tts_api
+        import domain.tts_api as tts_api
         episode=self.current_episode()
         entries,estimated=self.dialogue_entries(episode);assets=self.dialogue_assets()
         if not entries:raise ValueError('当前分镜没有对白，无法生成配音')
@@ -716,7 +716,7 @@ class MediaPagesMixin:
         source=self.current_frame_json()
         self.open_flow_agent('audio','配音制作',audio_prompt(self.root,source))
     def audio(self):
-        from stage_workspace_service import ensure_audio_workspace
+        from domain.stage_workspace_service import ensure_audio_workspace
         result=ensure_audio_workspace(self.root)
         if not result.ok:raise ValueError(result.reason)
         audio_dir,subtitle_dir=result.data
@@ -762,7 +762,7 @@ class MediaPagesMixin:
         audio_button(self.content,'打开字幕目录',lambda:self.media_page_services.open_path(subtitle_dir))
         audio_button(self.content,'打开 ElevenLabs（浏览器）',lambda:self.safe(lambda:open_target('https://elevenlabs.io/app')))
     def import_audio(self):
-        from stage_workspace_service import ensure_audio_workspace
+        from domain.stage_workspace_service import ensure_audio_workspace
         result=ensure_audio_workspace(self.root)
         if not result.ok:raise ValueError(result.reason)
         folder,_=result.data
@@ -777,7 +777,7 @@ class MediaPagesMixin:
         self.async_(work,lambda dest:self.status.set('音频已导入：'+str(dest)))
     def subtitle_rows(self):
         """按剧本对白时间算出 SRT 行；没有对白时抛 ValueError。只读文件、不碰界面，可在工作线程里用。"""
-        from subtitle_timing import srt_rows
+        from domain.subtitle_timing import srt_rows
         rows,estimated=srt_rows(self.current_episode())
         if not rows:raise ValueError('当前分镜没有对白，无法导出字幕')
         return rows,estimated
@@ -803,7 +803,7 @@ class MediaPagesMixin:
         self.stage_button.pack(side='left',padx=(SPACING['sm'],SPACING['xs']),pady=SPACING['xs'])
     def editing(self):
         from editing_page_controller import EditingPageController
-        from stage_workspace_service import ensure_editing_workspace
+        from domain.stage_workspace_service import ensure_editing_workspace
         controller = EditingPageController(self.root, self.studio)
         result=ensure_editing_workspace(self.root)
         if not result.ok:raise ValueError(result.reason)
@@ -919,7 +919,7 @@ class MediaPagesMixin:
             self.status.set('交接包校验未通过：'+'；'.join(report.get('problems') or ['未知问题']))
         self.async_(work,done)
     def delivery(self):
-        from stage_workspace_service import ensure_delivery_workspace
+        from domain.stage_workspace_service import ensure_delivery_workspace
         result=ensure_delivery_workspace(self.root)
         if not result.ok:raise ValueError(result.reason)
         delivery_dir,export_dir=result.data

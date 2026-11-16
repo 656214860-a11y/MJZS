@@ -17,12 +17,12 @@ class WritingApiStageConfigBoundaryTests(unittest.TestCase):
     def test_restart_intent_uses_l2_heuristic_not_l3_workflow_tasks(self):
         """P0-2：回退口令判定下沉 L2 idea_script_heuristic，不得反向依赖 L3 workflow_tasks。"""
         source = (ROOT / 'writing_api.py').read_text(encoding='utf-8')
-        self.assertIn('from idea_script_heuristic import writing_restart_requested', source)
+        self.assertIn('from domain.idea_script_heuristic import writing_restart_requested', source)
         self.assertNotIn('from workflow_tasks import writing_restart_requested', source)
 
     def test_l2_heuristic_is_pure_text_without_orchestration_deps(self):
         """下沉的回退口令判定须保持纯文本：不读阶段配置、不碰编排层。"""
-        source = (ROOT / 'idea_script_heuristic.py').read_text(encoding='utf-8')
+        source = (ROOT / 'domain/idea_script_heuristic.py').read_text(encoding='utf-8')
         self.assertIn('def writing_restart_requested(text):', source)
         self.assertNotIn('import stage_config', source)
         self.assertNotIn('import workflow_tasks', source)
@@ -31,7 +31,7 @@ class WritingApiStageConfigBoundaryTests(unittest.TestCase):
         """workflow_tasks.writing_restart_requested 按名转发 L2 实现，保持既有调用与测试锚点。"""
         source = (ROOT / 'workflow_tasks.py').read_text(encoding='utf-8')
         self.assertIn('def writing_restart_requested(text):', source)
-        self.assertIn('from idea_script_heuristic import writing_restart_requested', source)
+        self.assertIn('from domain.idea_script_heuristic import writing_restart_requested', source)
 
 
 if __name__ == '__main__':

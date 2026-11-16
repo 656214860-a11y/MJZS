@@ -17,7 +17,7 @@ ALLOWED = frozenset({
     'local_video.py',
     'contract/platform_tools.py',
     'seedream_api.py',
-    'tts_api.py',
+    'domain/tts_api.py',
 })
 
 

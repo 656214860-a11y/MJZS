@@ -212,7 +212,7 @@ class VoiceInput:
         if self.closing:return self.page.status.set('正在写完最后一句，请稍候…')
         if self.listening:return self.close()
         import contract.platform_tools as platform_tools
-        import speech_api
+        import domain.speech_api as speech_api
         self.settings = speech_api.read_settings()
         reason = speech_api.missing_reason(self.settings)
         if reason:return self.page.status.set('语音输入未能启动（%s）。' % reason)

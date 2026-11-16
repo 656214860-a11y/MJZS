@@ -3,7 +3,7 @@ import tkinter as tk
 import webbrowser
 from tkinter import ttk, messagebox
 
-import tts_api as api
+import domain.tts_api as api
 import tk_timers
 from ui_tokens import WRAPLENGTH, SPACING
 from account_inputs import PasswordInput

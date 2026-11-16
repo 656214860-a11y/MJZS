@@ -287,7 +287,7 @@ class IdeaChatController:
             raise ValueError('附档处理或模型请求进行中，请完成后再删除。')
         from stage_execution_service import stage_idea_attachment_paths
         from storage_maintenance import recycle_paths
-        from idea_attachments import archive_pair
+        from domain.idea_attachments import archive_pair
         path = Path(path)
         # 模型切换会改变列表优先展示的副本；原件与转换稿仍属于同一份归档。
         if not any(path in archive_pair(uploaded) for uploaded in stage_idea_attachment_paths(project)):

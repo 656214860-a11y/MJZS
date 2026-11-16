@@ -6,7 +6,7 @@ import tkinter as tk
 from tkinter import font as tkfont
 from tkinter import ttk
 
-import speech_api
+import domain.speech_api as speech_api
 from agent.core import save as save_json
 from ui_tokens import BUTTON_GAP, DIALOG_CONTENT_PADDING, DIALOG_MIN_HEIGHT, FONTS, SPACING, TEXT_DESC
 from ui_widgets import BaseDialog, Card, LineInput, PrimaryButton, SecondaryButton, SelectBox

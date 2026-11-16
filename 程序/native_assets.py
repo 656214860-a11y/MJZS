@@ -105,7 +105,7 @@ def _run_seedream_direct(project, base, items, options, report, stop=None):
     from pet_llm import RequestLedger, BudgetRejected
     from uuid import uuid4
     from asset_reference_images import resolve, reference_instruction
-    from asset_reference_prompts import display_prompt
+    from domain.asset_reference_prompts import display_prompt
     from asset_batch_service import register_image, image_ready
     from infra.native_asset_codec import seedream_provenance
     gateway=_asset_batch_gateway()
@@ -223,7 +223,7 @@ def run(project, base, items, url, report, timeout=7200, options=None, stop=None
     from asset_batch_service import image_ready, register_image
     from asset_prompt_rules import issues
     from asset_reference_images import snapshot, resolve
-    from asset_reference_prompts import display_prompt
+    from domain.asset_reference_prompts import display_prompt
     from batch_frames_tool.batch_frames import Client
     from native_apps import wait_comfy
     gateway=_asset_batch_gateway()

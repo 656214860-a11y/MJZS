@@ -19,7 +19,7 @@ SEMANTIC_BRIEF_INFERRED = ('故事梗概', '故事题材', '故事角色')
 def semantic_brief_request(context, draft, reference, *, local_mode=True):
     """生成一次性提取任务；本地通道只给归档路径，不注入附档全文。"""
     from uuid import uuid4
-    from idea_attachments import archive_pair, input_folder
+    from domain.idea_attachments import archive_pair, input_folder
     from idea_chat import brief_raw_path
     request_id = uuid4().hex
     # 复用 L2 的路径权威；它对非 ProjectContext 的入参会按原语义抛错。

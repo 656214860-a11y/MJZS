@@ -1,10 +1,10 @@
-"""无人值守自动定稿的无界面派发决策。"""
+"""历史入口：实体已迁至 ``domain.final_service``（T10 包化）。
 
+``import final_service`` 返回 ``domain.final_service`` 本体：私有名、模块级状态与
+按扁平名打的 ``mock.patch`` 补丁面和包内路径完全一致；生产侧一律用包路径。
+门面清除轮统一改写测试导入后删除本文件。
+"""
+import sys as _sys
+from domain import final_service as _entity
 
-def automatic_finalize_decision(signature, previous_signature, production_busy):
-    """决定自动定稿应跳过、等待正在读工作稿的批次，还是启动一次定稿。"""
-    if signature == previous_signature:
-        return {'action': 'skip', 'signature': signature}
-    if production_busy:
-        return {'action': 'wait', 'signature': signature}
-    return {'action': 'dispatch', 'signature': signature}
+_sys.modules[__name__] = _entity

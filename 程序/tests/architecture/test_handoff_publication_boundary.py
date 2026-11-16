@@ -23,7 +23,7 @@ class HandoffPublicationBoundaryTests(unittest.TestCase):
         self.assertNotIn("镜头顺序.json", source)
 
     def test_service_owns_manifest_and_instruction_writes(self):
-        with open(os.path.join(ROOT, 'handoff_service.py'), encoding='utf-8') as handle:
+        with open(os.path.join(ROOT, 'domain/handoff_service.py'), encoding='utf-8') as handle:
             source = handle.read()
         self.assertIn('def publish_bundle(', source)
         self.assertIn("镜头顺序.json", source)
@@ -51,7 +51,7 @@ class HandoffPublicationBoundaryTests(unittest.TestCase):
             method = _method(ast.parse(handle.read()), 'AutoFlowsMixin', 'poll_auto_handoff')
         calls = [node for node in ast.walk(method) if isinstance(node, ast.Call) and getattr(node.func, 'id', '') == 'save_automatic_handoff_marker']
         self.assertEqual(len(calls), 1)
-        with open(os.path.join(ROOT, 'handoff_service.py'), encoding='utf-8') as handle:
+        with open(os.path.join(ROOT, 'domain/handoff_service.py'), encoding='utf-8') as handle:
             service = ast.parse(handle.read())
         marker = next(node for node in service.body if isinstance(node, ast.FunctionDef) and node.name == 'save_automatic_handoff_marker')
         calls = {getattr(node.func, 'id', '') for node in ast.walk(marker) if isinstance(node, ast.Call)}

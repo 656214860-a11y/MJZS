@@ -598,7 +598,7 @@ class _AssetPage:
         used_label='本集' if self.page.asset_scope()=='current' else '已采用分镜'
         from storyboard_selection import summary
         self.page.note(f'{label} {count} 项 · {scope_label}')
-        from asset_reference_prompts import display_prompt
+        from domain.asset_reference_prompts import display_prompt
         from asset_reference_prompts_dialog import show_prompt
         self.display_prompt = display_prompt; self.show_prompt = show_prompt
         from asset_reference_images import role_summary

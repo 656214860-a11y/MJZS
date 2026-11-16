@@ -364,7 +364,7 @@ class ScriptPagesMixin:
                                             filetypes=[('文本与 Word', '*.txt *.md *.markdown *.docx')])
         if not paths:
             return []
-        import idea_attachments
+        import domain.idea_attachments as idea_attachments
         import idea_chat
         from stage_execution_service import publish_idea_creative
         added, failed = [], []

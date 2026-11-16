@@ -844,19 +844,19 @@
         "reason": "R831：缓存权威集中执行带前后签名校验的稳定工作 JSON 快照读取。"
       },
       {
-        "file": "idea_transcript.py",
+        "file": "domain/idea_transcript.py",
         "point": "_read_rows",
         "disposition": "migrated",
         "reason": "R790：聊天 JSON 读取改由 L3 idea_chat_gateway 注入 file_cache。"
       },
       {
-        "file": "idea_transcript.py",
+        "file": "domain/idea_transcript.py",
         "point": "remove",
         "disposition": "migrated",
         "reason": "R790：删除记录读取改由 L3 idea_chat_gateway 注入 file_cache。"
       },
       {
-        "file": "idea_transcript.py",
+        "file": "domain/idea_transcript.py",
         "point": "restore_latest_removed",
         "disposition": "migrated",
         "reason": "R790：恢复记录读取改由 L3 idea_chat_gateway 注入 file_cache。"
@@ -922,7 +922,7 @@
         "reason": "R830：镜头编号重排的正式分镜 JSON 读取改由 file_cache.read_json。"
       },
       {
-        "file": "speech_api.py",
+        "file": "domain/speech_api.py",
         "point": "RealtimeSession._handle:json.loads:66e0763f09fb6123:1",
         "disposition": "exempt",
         "reason": "实时语音识别 WebSocket 服务端事件的 JSON 解析，非文件读"
@@ -946,13 +946,13 @@
         "reason": "R1124：发布器对内存确认文本的 JSON 校验，不读取文件。"
       },
       {
-        "file": "animatic_service.py",
+        "file": "domain/animatic_service.py",
         "point": "validate_bundle:json.loads:77391186c5df0f0d:1",
         "disposition": "exempt",
         "reason": "R1124：解析待发布包内的清单字节协议，不读取文件。"
       },
       {
-        "file": "edit_service.py",
+        "file": "domain/edit_service.py",
         "point": "assemble_image_timeline:json.loads:d6b836044cd065ca:1",
         "disposition": "exempt",
         "reason": "R1124：解析 ffprobe 子进程标准输出协议，不读取 JSON 文件。"

@@ -7,7 +7,7 @@ from contract.storyboard_contract import rules as storyboard_rules
 
 def natural_script_delivery_path(project, at):
     """Exact desktop output target, shared by the task and its receipt watcher."""
-    from idea_document_paths import reply_path_parts, storage_identity
+    from domain.idea_document_paths import reply_path_parts, storage_identity
     from project_context_factory import project_context
     from contract.project_stages import writing
     from workflow_settings import model_name
@@ -16,7 +16,7 @@ def natural_script_delivery_path(project, at):
         project_context(project), at=at, provider=provider, model=model, file_type='自然剧本'))
 
 def _agent_delivery_contract(project, at=None):
-    from idea_document_paths import PROJECT_DOCUMENT_DIRS, delivery_document_path, storage_identity
+    from domain.idea_document_paths import PROJECT_DOCUMENT_DIRS, delivery_document_path, storage_identity
     from project_context_factory import project_context
     from workflow_settings import model_name
     from datetime import datetime
@@ -41,7 +41,7 @@ def writing_restart_requested(text):
 
     判定规则沉淀在 L2 ``idea_script_heuristic``，供 API 与桌面 Agent 共用同一口径；
     这里按原名转发，保持既有 ``workflow_tasks.writing_restart_requested`` 调用与测试锚点。"""
-    from idea_script_heuristic import writing_restart_requested as _restart_requested
+    from domain.idea_script_heuristic import writing_restart_requested as _restart_requested
     return _restart_requested(text)
 
 
@@ -309,7 +309,7 @@ def storyboard_batch_prompt(project,scripts,existing):
 def audio_prompt(project, source):
     """配音与字幕任务书：只产出配音脚本和字幕时间轴，不生成音频。"""
     from agent.core import read
-    from subtitle_timing import timed_entries
+    from domain.subtitle_timing import timed_entries
     project = Path(project).resolve()
     source = Path(source).resolve() if source else None
     episode = read(source) if source and source.is_file() else {}

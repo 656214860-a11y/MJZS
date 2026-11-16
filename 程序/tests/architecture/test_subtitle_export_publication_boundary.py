@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 class SubtitleExportPublicationBoundaryTests(unittest.TestCase):
     def test_l2_requires_injected_text_publisher(self):
-        source = (ROOT / 'subtitle_export_service.py').read_text(encoding='utf-8')
+        source = (ROOT / 'domain/subtitle_export_service.py').read_text(encoding='utf-8')
         self.assertIn('def publish_srt_text(target, text, *, publish=None):', source)
         self.assertNotIn('import line_endings', source)
         self.assertIn("TypeError('字幕文本发布需要 L3 注入发布器')", source)

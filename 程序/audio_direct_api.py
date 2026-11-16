@@ -80,7 +80,7 @@ def _parse_srt(srt, total):
 
 def validate_reply(reply, episode):
     """拆分并校验模型回复；返回 (配音脚本文本, SRT 文本)，不合格抛 ValueError（多条问题换行连接）。"""
-    from subtitle_timing import _shot_duration, timed_entries
+    from domain.subtitle_timing import _shot_duration, timed_entries
     script, srt = _split(reply)
     shots = [s for s in (episode or {}).get('shots', []) if isinstance(s, dict)]
     total = sum(_shot_duration(s) for s in shots)
@@ -150,7 +150,7 @@ def _publish(batch, episode, script, srt):
 
 def _episode(batch, source):
     from agent.core import read
-    from subtitle_timing import timed_entries
+    from domain.subtitle_timing import timed_entries
     episode = read(source) if source and Path(source).is_file() else None
     if not isinstance(episode, dict):
         raise ValueError('找不到可读取的分镜 JSON：' + str(source))

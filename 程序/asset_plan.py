@@ -153,7 +153,7 @@ def _sync_plan(project,episode_dir,storyboard=None,*,scope='current',_adopting=F
             if shot.get('id') and shot['id'] not in used:used.append(shot['id'])
             history=planned[aid].setdefault('used_in',[])
             if shot.get('id') and shot['id'] not in history:history.append(shot['id'])
-    from asset_reference_prompts import sync_reference_prompts,AUTO_FIELDS,discover as discover_reference_documents
+    from domain.asset_reference_prompts import sync_reference_prompts,AUTO_FIELDS,discover as discover_reference_documents
     reference_documents={}
     for _,ep in episodes:
         # 上面这几步往清单里补过编号，这一份重新算一次；口径与 normalize_shot 内部一致。

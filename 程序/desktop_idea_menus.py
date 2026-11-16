@@ -66,14 +66,14 @@ class IdeaMenusMixin:
     def open_uploaded_idea_attachment(self,path):
         """单击附件卡片：原件在就打开原件，否则打开项目副本。"""
         if path is not None:
-            from idea_attachments import archive_pair
+            from domain.idea_attachments import archive_pair
             original,_converted=archive_pair(path)
             self.project_page_services.open_path(original if original.is_file() else path)
         return 'break'
     def delete_uploaded_idea_attachment(self,path):
         """附件卡片右上角 ×：确认后把这一份项目副本移入回收站，原始文件不动。"""
         if path is None:return
-        from idea_attachments import display_name
+        from domain.idea_attachments import display_name
         name=display_name(path)
         if not self.project_page_services.confirm(self.win,'删除附件',
                        '确定将“%s”的项目副本移入回收站吗？\n原始文件不受影响；可从回收站恢复。' % name,

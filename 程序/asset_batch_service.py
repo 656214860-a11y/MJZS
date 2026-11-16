@@ -33,7 +33,7 @@ def _require_gateway(gateway):
 
 def asset_prompt(asset, kind):
     from asset_prompt_rules import positive
-    from asset_reference_prompts import display_prompt
+    from domain.asset_reference_prompts import display_prompt
     if not positive(asset):
         raise ValueError('资产提示词不全，请回第1步（固定角色）或第2步（场景、道具）补齐。')
     from asset_reference_images import reference_instruction

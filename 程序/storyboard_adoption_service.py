@@ -1,10 +1,10 @@
-"""无人值守分镜采用的无界面轮询决策。"""
+"""历史入口：实体已迁至 ``domain.storyboard_adoption_service``（T10 包化）。
 
+``import storyboard_adoption_service`` 返回 ``domain.storyboard_adoption_service`` 本体：私有名、模块级状态与
+按扁平名打的 ``mock.patch`` 补丁面和包内路径完全一致；生产侧一律用包路径。
+门面清除轮统一改写测试导入后删除本文件。
+"""
+import sys as _sys
+from domain import storyboard_adoption_service as _entity
 
-def automatic_poll_decision(signature, previous_signature, has_waiting, final_busy):
-    """决定自动采用分镜应等待、跳过，还是扫描待采用文件。"""
-    if final_busy:
-        return {'action': 'wait', 'signature': signature}
-    if signature == previous_signature and not has_waiting:
-        return {'action': 'skip', 'signature': signature}
-    return {'action': 'scan', 'signature': signature}
+_sys.modules[__name__] = _entity
