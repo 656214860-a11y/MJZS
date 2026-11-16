@@ -4,7 +4,7 @@
 选择与去重决策则由文件服务产出工作计划。
 """
 import app_logging
-import stage_flow
+import orchestrator.stage_flow as stage_flow
 from orchestrator.storyboard_plan_service import storyboard_work_plan
 
 

@@ -22,7 +22,7 @@ def refresh_audio_manifests(project):
 
 
 def media_import_publisher(project, kind):
-    from stage_completion_service import publish_imported_media
+    from orchestrator.stage_completion_service import publish_imported_media
     from agent.core import read
     from agent.media import validate_import
     from contract.platform_tools import tool_path

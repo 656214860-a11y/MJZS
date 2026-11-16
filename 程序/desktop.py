@@ -25,7 +25,7 @@ from agent.core import read,save,save_text,save_bytes
 import project_settings
 from domain.projects import Projects, needs_cleanup_after_open_error, is_missing_storyboard_open_error
 from responsive_ui import FlowBar,ScrollForm,growable_extra,configure_check_column,refresh_check_heading,CheckboxColumn,fit_columns_by_content,auto_columns,bind_row_toggle,fit_row_height,row_height_for,bind_show_all
-from engine import approved_versions, review_label, adoption_summary
+from orchestrator.engine import approved_versions, review_label, adoption_summary
 from local_video import open_studio,skip_summary
 from app import App
 from integrations import comfy_executable
@@ -494,7 +494,7 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         """
         sessions=getattr(self,'flow_processes',{})
         if not sessions:return
-        from workflow_engines import forget_process
+        from orchestrator.workflow_engines import forget_process
         from workflow_settings import STAGE_CONFIG_STAGES
         remaining={}
         for key,process in list(sessions.items()):
@@ -941,7 +941,7 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         self.async_(work)
 
     def commercial_delivery_review(self,create=False):
-        from stage_completion_service import create_commercial_template, confirm_commercial_evidence
+        from orchestrator.stage_completion_service import create_commercial_template, confirm_commercial_evidence
         root=Path(self.root).resolve()
         if create:
             target=create_commercial_template(root)
@@ -956,7 +956,7 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         self.async_(work)
 
     def confirm_stage_media(self,stage):
-        from stage_completion_service import (media_output_folders, media_scope,
+        from orchestrator.stage_completion_service import (media_output_folders, media_scope,
                                               prepare_media_completion, confirm_media_completion)
         root=Path(self.root).resolve()
         scope=media_scope(root)

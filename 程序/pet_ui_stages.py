@@ -6,7 +6,7 @@
 import pet_agent
 import contract.pet_bus as pet_bus
 import ui.pet_cloud as pet_cloud
-import stage_flow
+import orchestrator.stage_flow as stage_flow
 import orchestrator.stage_handler_registry as stage_handler_registry
 import stage_parallel
 from tkinter import TclError
@@ -23,14 +23,14 @@ class PetStagesMixin:
         一段提示词，或者页面仍在等待用户采用。三虎只能把可复核的项目产物标成完成。
         没有项目的轻量宿主（旧插件和自检替身）不持久化阶段状态，保留其原有行为。
         """
-        import stage_completion_service
+        import orchestrator.stage_completion_service as stage_completion_service
         studio = getattr(self.desktop, 'studio', None)
         return stage_completion_service.completion_evidence(
             getattr(self.desktop, 'root', None), stage,
             getattr(studio, 'auto_edit_ready', None))
     def _complete_if_verified(self, stage, text):
         """唯一的自动完成出口；缺少产物时只停止运行态，绝不推进自动链。"""
-        import stage_completion_service
+        import orchestrator.stage_completion_service as stage_completion_service
         studio = getattr(self.desktop, 'studio', None)
         ok, detail, emitted = stage_completion_service.emit_verified_completion(
             getattr(self.desktop, 'root', None), stage, text, self._emit,
@@ -92,7 +92,7 @@ class PetStagesMixin:
         if not text:
             return ''
         try:
-            import stage_completion_service
+            import orchestrator.stage_completion_service as stage_completion_service
             # 自动链先由 script.completed 武装，再消费同一次的 stage.completed。
             # 反过来发会让队长尚未 armed 就吞掉完成事件，停在剧本阶段。
             studio = getattr(self.desktop, 'studio', None)

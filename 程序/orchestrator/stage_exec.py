@@ -7,7 +7,7 @@
 剪辑／交付这两步原来没有自己的制作窗口，第 54 期给它们补的「手动制作剪辑／交付」就把
 这一页摆出来——手动与自动共用同一台编排器，只有 trigger 不同（这一页按 'manual'）。
 """
-import stage_flow
+import orchestrator.stage_flow as stage_flow
 import orchestrator.skill_orchestrator as skill_orchestrator
 
 
@@ -82,7 +82,7 @@ def _run_script_structure(desktop, project, names, trigger):
 
 def _run_delivery(desktop, project, names, trigger):
     """按交付模板四步程序化执行：核验已确认成片与质检 → 打包 → 报告 → 写清单（不调用模型）。"""
-    import stage_completion_service as service
+    import orchestrator.stage_completion_service as service
     from stage_execution_service import build_orchestrator, stage_context
     state = {}
 

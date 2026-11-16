@@ -361,7 +361,7 @@ def record_stage_legacy_adoption(project, linked_paths, now=None):
 def idea_attachment_local_mode(project):
     """显式 API 选择优先；其余按 writing 实际目标识别本地 Agent。"""
     import model_pool
-    from workflow_engines import current_config
+    from orchestrator.workflow_engines import current_config
     import writing_api
     if writing_api.model_label(project):
         return False
@@ -399,7 +399,7 @@ def stage_idea_attachment_paths(project, limit=None):
 def stage_idea_attachment_reference(project, message='', selected_paths=()):
     """为剧本准备对话解析已入库附档，不向 L2 暴露裸项目路径。"""
     from domain.idea_attachments import referenced, brief_sources
-    from workflow_engines import current_config
+    from orchestrator.workflow_engines import current_config
     context = project_context(project)
     local_mode = idea_attachment_local_mode(project)
     result = referenced(context, message, selected_paths,

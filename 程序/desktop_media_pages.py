@@ -927,7 +927,7 @@ class MediaPagesMixin:
             return button
         lines=media_logic.delivery_lines(self.root,self.studio,video_progress.LABELS,video_progress.status_next)
         box=self.text('\n'.join(lines),12);box.configure(state='disabled')
-        from stage_completion_service import commercial_status
+        from orchestrator.stage_completion_service import commercial_status
         self.note(commercial_status(self.root)[1])
         delivery_button('导入剪映最终成片',self.final_import,primary=True)
         delivery_button('校验并确认本阶段成果',lambda:self.confirm_stage_media('delivery'))

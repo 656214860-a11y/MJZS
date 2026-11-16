@@ -38,7 +38,7 @@ class DeliveryScopeTests(unittest.TestCase):
         self.assertEqual(row[0], '13质检交付')
         self.assertEqual(row[4], ('edits.json',))
         self.assertEqual(row[5], ('qc_report.json', 'delivery.json'))
-        source = (ROOT / 'stage_completion_service.py').read_text(encoding='utf-8')
+        source = Path(stage_completion_service.__file__).read_text(encoding='utf-8')
         for name in ('qc_report', 'delivery.json', 'delivery_manifest'):
             with self.subTest(name=name):
                 self.assertIn(name, source)

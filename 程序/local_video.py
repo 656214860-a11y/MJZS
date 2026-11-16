@@ -1,12 +1,12 @@
 """Persistent ComfyUI video jobs, local loopback only; no cloud key or quota."""
-import copy,json,time,uuid,math
+import copy, json, time, uuid, math
 from pathlib import Path
 from api_endpoints import no_redirect
 from file_cache import remove_temporary_file
 # 第 34 期第 9 条：`urllib.request`／`urllib.error` 连 ssl 一起加载（约 4.4 MB 常驻），
 # 本模块只在真要发本机 HTTP 时用得到——都改成函数内 import。
 from urllib.parse import urlparse,urlencode,quote
-from engine import Studio, REVIEW_PASS, AUTO_REVIEW_NOTE, auto_review_ready
+from orchestrator.engine import Studio, REVIEW_PASS, AUTO_REVIEW_NOTE, auto_review_ready
 from agent.core import read,save,file_hash,command,fingerprint,temporary_path,replace
 from agent.media import check, png_size
 import project_settings

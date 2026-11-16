@@ -275,7 +275,7 @@ class AutomationTickMixin:
         第 64 期任务 6：hint（只提示）档一个字都不做；半自动／全自动不该卡在等人点。
         每一条只处理一次（记进 gate_confirmations.json），选择同时写进资产清单。
         """
-        import stage_flow
+        import orchestrator.stage_flow as stage_flow
         from domain.confirm_gates import AUTO
         from stage_execution_service import record_stage_confirmation
         from stage_execution_service import apply_asset_plan_gate_choice

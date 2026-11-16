@@ -8,7 +8,7 @@ from agent.core import save
 from file_cache import read_json
 import skill_registry
 from skill_registry import nested_references as _nested_references, reference_row as _reference_row
-from skill_inline import (_charge_inline, _is_text_script, _recurse_references,
+from orchestrator.skill_inline import (_charge_inline, _is_text_script, _recurse_references,
                           _skill_inline_budget, _skipped_inline_hint)
 import client_profiles, orchestrator.edit_habits as edit_habits, stage_layout
 from contract.script_contract import PRODUCTION_LOCK_DEFINITIONS, STAGE_LOCK_REQUIREMENTS, lock_stage

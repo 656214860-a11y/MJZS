@@ -87,7 +87,7 @@ def upstream_send_error(project, stage):
     except Exception:
         app_logging.swallowed()
     try:
-        from stage_completion_service import completion_evidence
+        from orchestrator.stage_completion_service import completion_evidence
         ok, detail = completion_evidence(project, upstream)
     except Exception:
         return ''

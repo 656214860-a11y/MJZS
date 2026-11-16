@@ -58,7 +58,7 @@ def verified_stage_output(project, stage):
     if stage not in ('script', 'script_structure'):
         return False
     try:
-        import stage_completion_service  # 判据只在完成服务一处（R2178 J16）
+        import orchestrator.stage_completion_service as stage_completion_service  # 判据只在完成服务一处（R2178 J16）
         return bool(stage_completion_service.completion_evidence(root, stage)[0])
     except (OSError, TypeError, ValueError):
         return False

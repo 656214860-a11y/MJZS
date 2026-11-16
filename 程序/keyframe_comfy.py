@@ -72,7 +72,7 @@ def current_model(project):
     升级上来的老项目里 ui_settings.json 存过的那一档仍然兜底：模型下拉框还没挑过生产模型时按它
     显示，看到的还是原来那个模型（换过 Agent 引擎的人不会突然回到本地）；挑过就以统一配置为准。
     """
-    from keyframe_model_service import current_model as resolve
+    from orchestrator.keyframe_model_service import current_model as resolve
     return resolve(project)
 
 

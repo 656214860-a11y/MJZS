@@ -1056,13 +1056,13 @@
         "reason": "R829：格式修复后的提示词字面量 JSON 解码，不是文件读取。"
       },
       {
-        "file": "workflow_engines.py",
+        "file": "orchestrator/workflow_engines.py",
         "point": "_opencode_report_text:json.loads:e0385179e22b5760:1",
         "disposition": "exempt",
         "reason": "网络响应解析（R1706 行号平移 143→167：OpenCode 事件流逐行 JSON 解码，不是文件读取）"
       },
       {
-        "file": "workflow_engines.py",
+        "file": "orchestrator/workflow_engines.py",
         "point": "_run_claude_json:json.loads:6118d7cb6e968167:1",
         "disposition": "exempt",
         "reason": "R1691 登记：读取 OpenCode CLI 自己写出的 .response.json 临时响应文件，外部进程产物不是正式项目数据，不走 file_cache。（R1706 行号平移 196→241）"
@@ -1152,13 +1152,13 @@
         "reason": "直连分镜（REQ-S03-53）：解析模型回复的内存文本，不读取正式文件；文件读取沿用core.read。"
       },
       {
-        "file": "workflow_engines.py",
+        "file": "orchestrator/workflow_engines.py",
         "point": "extract_codex_thread_id:json.loads:e447f3b9a080d917:1",
         "disposition": "exempt",
         "reason": "R2491：解析 codex exec --json 的 thread.started 事件行取 thread_id（进程 stdout 内存文本，不读文件）。"
       },
       {
-        "file": "workflow_engines.py",
+        "file": "orchestrator/workflow_engines.py",
         "point": "extract_codex_message_text:json.loads:e447f3b9a080d917:1",
         "disposition": "exempt",
         "reason": "R2491：解析 codex exec --json 的 agent_message 事件行取正文（进程 stdout 内存文本，不读文件）。"

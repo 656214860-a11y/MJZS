@@ -15,7 +15,7 @@ skill_panel.stage_context 会把生产模型挡在 SKILL 编排之外（它不�
 """
 import app_logging
 from contract.pet_bus import STAGES
-from stage_flow import manual_label as manual_label_for
+from orchestrator.stage_flow import manual_label as manual_label_for
 
 
 # L4 在应用组合时注入窗口和确认呈现器；阶段层仅决定文案、阻断条件和返回选择。
@@ -232,7 +232,7 @@ def plan_window(desktop, stage, parent=None):
     第 65 期任务 11：这一扇窗本身照旧随时可建（用例直接建它看控件树）；「代码测试阶段
     不许冒窗」那条保险装在上一层 plan()／manual_command 上——按钮那条路上它根本走不到这儿。
     """
-    import stage_flow
+    import orchestrator.stage_flow as stage_flow
     host = parent if parent is not None else getattr(desktop, 'win', None)
     if host is None:
         return 'run'                      # 没有窗口可挂：不拦，照旧动手

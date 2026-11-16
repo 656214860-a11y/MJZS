@@ -427,7 +427,7 @@ def _delivery_manifest(context):
 
 def _delivery_validate(context):
     """质检：核验成片已确认且质检结论通过（依据成果确认清单里的可复核事实，不采信模型文字）。"""
-    import stage_completion_service as service
+    import orchestrator.stage_completion_service as service
     project = project_of(context or {})
     try:
         record = service.delivery_record(project)
@@ -439,7 +439,7 @@ def _delivery_validate(context):
 
 def _delivery_package(context):
     """打包交付：落盘质检报告、交付摘要和带摘要的文件清单；质检未通过时拒绝。"""
-    import stage_completion_service as service
+    import orchestrator.stage_completion_service as service
     project = project_of(context or {})
     try:
         files = service.package_delivery(project)

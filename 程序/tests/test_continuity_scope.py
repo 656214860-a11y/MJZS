@@ -6,6 +6,7 @@ from pathlib import Path
 import continuity_ledger
 import script_contract
 import stage_flow
+import stage_completion_service
 import stage_layout
 import stage_config
 import stage_parallel
@@ -126,7 +127,7 @@ class ContinuityScopeTests(unittest.TestCase):
         self.assertGreaterEqual(pages.count('self.generate_continuity_ledger('), 2)
 
     def test_req_s06_23_completion_uses_sg02_with_started(self):
-        source = (ROOT / 'stage_completion_service.py').read_text(encoding='utf-8')
+        source = Path(stage_completion_service.__file__).read_text(encoding='utf-8')
         self.assertIn("'continuity': 'ledger_ready'", source)
         self.assertIn("result.get('ok') and result.get('started')", source)
 

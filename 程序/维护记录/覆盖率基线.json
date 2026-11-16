@@ -1225,6 +1225,12 @@
    "percent": 0.0
   },
   {
+   "module": "engine.py",
+   "covered": 0,
+   "total": 3,
+   "percent": 0.0
+  },
+  {
    "module": "engine_probe.py",
    "covered": 0,
    "total": 6,
@@ -1503,7 +1509,7 @@
   {
    "module": "keyframe_model_service.py",
    "covered": 0,
-   "total": 37,
+   "total": 3,
    "percent": 0.0
   },
   {
@@ -1705,6 +1711,12 @@
    "percent": 0.0
   },
   {
+   "module": "orchestrator/keyframe_model_service.py",
+   "covered": 0,
+   "total": 37,
+   "percent": 0.0
+  },
+  {
    "module": "orchestrator/keyframe_page_controller.py",
    "covered": 0,
    "total": 64,
@@ -1771,6 +1783,12 @@
    "percent": 0.0
   },
   {
+   "module": "orchestrator/skill_inline.py",
+   "covered": 0,
+   "total": 105,
+   "percent": 0.0
+  },
+  {
    "module": "orchestrator/skill_notes.py",
    "covered": 0,
    "total": 175,
@@ -1786,6 +1804,12 @@
    "module": "orchestrator/skill_templates.py",
    "covered": 0,
    "total": 72,
+   "percent": 0.0
+  },
+  {
+   "module": "orchestrator/stage_completion_service.py",
+   "covered": 0,
+   "total": 664,
    "percent": 0.0
   },
   {
@@ -1870,6 +1894,12 @@
    "module": "orchestrator/workflow_context_controller.py",
    "covered": 0,
    "total": 19,
+   "percent": 0.0
+  },
+  {
+   "module": "orchestrator/workflow_engines.py",
+   "covered": 0,
+   "total": 419,
    "percent": 0.0
   },
   {
@@ -2373,7 +2403,7 @@
   {
    "module": "skill_inline.py",
    "covered": 0,
-   "total": 105,
+   "total": 3,
    "percent": 0.0
   },
   {
@@ -2457,7 +2487,7 @@
   {
    "module": "stage_completion_service.py",
    "covered": 0,
-   "total": 664,
+   "total": 3,
    "percent": 0.0
   },
   {
@@ -2476,6 +2506,12 @@
    "module": "stage_exec.py",
    "covered": 0,
    "total": 4,
+   "percent": 0.0
+  },
+  {
+   "module": "stage_flow.py",
+   "covered": 0,
+   "total": 3,
    "percent": 0.0
   },
   {
@@ -3069,7 +3105,7 @@
   {
    "module": "workflow_engines.py",
    "covered": 0,
-   "total": 419,
+   "total": 3,
    "percent": 0.0
   },
   {
@@ -3157,7 +3193,7 @@
    "percent": 11.0
   },
   {
-   "module": "engine.py",
+   "module": "orchestrator/engine.py",
    "covered": 85,
    "total": 740,
    "percent": 11.5
@@ -3331,7 +3367,7 @@
    "percent": 25.8
   },
   {
-   "module": "stage_flow.py",
+   "module": "orchestrator/stage_flow.py",
    "covered": 69,
    "total": 265,
    "percent": 26.0
@@ -3596,5 +3632,5 @@
   }
  ],
  "modules_covered": 74,
- "modules_total": 597
+ "modules_total": 603
 }

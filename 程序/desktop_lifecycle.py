@@ -86,7 +86,7 @@ class LifecycleMixin:
         self._automation_processes_stopped=True
         if self.root is None:return []
         try:
-            from workflow_engines import terminate
+            from orchestrator.workflow_engines import terminate
             killed=terminate(self.root)
         except Exception as exc:
             LOGGER.warning('关闭：引擎进程未收干净（%s）', exc)

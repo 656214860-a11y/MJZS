@@ -610,7 +610,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, I
             self.status.set(self.auto_save_script_reply(model,result) or '已收到 '+model+' 的回复。')
     def submit_idea_api_request(self, project, token, cancelled, ask, received, label, async_ticket=None):
         """发送与恢复共用票据生命周期；项目切换和取消均撤销本次排队。"""
-        from workflow_engines import (request_stage_process_slot, claim_stage_process_slot,
+        from orchestrator.workflow_engines import (request_stage_process_slot, claim_stage_process_slot,
                                       release_stage_process_slot, cancel_stage_slot_request)
         controller = self.idea_chat_controller
         request = request_stage_process_slot(project, 'writing')
@@ -692,7 +692,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, I
         if getattr(self,'idea_send',None) is not None and self.idea_send.winfo_exists():self.idea_send.state(['!disabled'])
         self.clear_thinking()
         stopped=[]
-        from workflow_engines import forget_process
+        from orchestrator.workflow_engines import forget_process
         sessions=getattr(self,'flow_processes',{})
         for key,process in processes:
             try:
@@ -746,7 +746,7 @@ class _FlowAgentLaunch:
     def build(self):
         from workflow_settings import writer_style_summary
         self.writer_style_summary = writer_style_summary
-        from workflow_engines import prompt_with_settings,launch_interactive
+        from orchestrator.workflow_engines import prompt_with_settings,launch_interactive
         self.prompt_with_settings = prompt_with_settings; self.launch_interactive = launch_interactive
         from orchestrator.agent_dispatch import signature,claim,finish,outcome,retryable
         self.signature = signature; self.claim = claim; self.finish = finish; self.outcome = outcome; self.retryable = retryable
@@ -760,7 +760,7 @@ class _FlowAgentLaunch:
         self.native_claude = self.config['engine'] in ('claude-desktop-app', 'desktop-app')
         self.bounded_writing = self.stage == 'writing' and self.config['engine'] == 'claude'
         if self.stage == 'writing' and self.config['engine'] == 'claude' and not self.intake_only and not self.new_session:
-            from workflow_engines import claude_session_stale
+            from orchestrator.workflow_engines import claude_session_stale
             self.new_session = claude_session_stale(self.host.root, self.stage)
         self.new_session = bool(self.new_session and self.stage == 'writing' and self.config['engine'] == 'claude' and not self.intake_only)
         self.use_cli = not self.native_claude and (self.config['engine']!='codex' or self.config['program'] or self.config['model'])
@@ -855,7 +855,7 @@ class _FlowAgentLaunch:
         if key in sessions and sessions[key].poll() is None:
             if self.new_session:
                 def close_old():
-                    from workflow_engines import close_for_restart
+                    from orchestrator.workflow_engines import close_for_restart
                     try:close_for_restart(self.project,sessions[key])
                     except Exception as exc:self.finish(receipt,'failed',str(exc));raise
                 def closed(_):
@@ -869,7 +869,7 @@ class _FlowAgentLaunch:
                         from orchestrator.qwen_adapter import submit_existing
                         text=submit_existing(sessions[key],continuation,title=self.title)
                         return {'ok':True,'reason':text,'send_dispatched':True}
-                    from workflow_engines import submit_existing
+                    from orchestrator.workflow_engines import submit_existing
                     return submit_existing(sessions[key],continuation,title=self.title)
                 except Exception as exc:
                     self.finish(receipt,'uncertain',str(exc));raise
@@ -888,14 +888,14 @@ class _FlowAgentLaunch:
             try:return self.launch_interactive(self.project,self.stage,self.title,full,self.config,followup=continuation,slot=slot,
                                           **({'new_session':True} if self.new_session else {}))
             except Exception as exc:
-                from workflow_engines import release_stage_process_slot
+                from orchestrator.workflow_engines import release_stage_process_slot
                 release_stage_process_slot(slot)
                 self.finish(receipt,'failed',str(exc));raise
-        from workflow_engines import request_stage_process_slot, claim_stage_process_slot
+        from orchestrator.workflow_engines import request_stage_process_slot, claim_stage_process_slot
         request=request_stage_process_slot(self.project,self.stage)
         if request['state']=='granted':
             self.host.async_(lambda:launch(request['slot']),launched);return
-        from workflow_engines import cancel_stage_slot_request
+        from orchestrator.workflow_engines import cancel_stage_slot_request
         pending = {'timer': None, 'cancelled': False, 'started': time.monotonic()}
         def cleanup():
             pending['cancelled'] = True

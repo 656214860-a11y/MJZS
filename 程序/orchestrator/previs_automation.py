@@ -73,7 +73,7 @@ def force_stop(project,state):
     界面线程不等待。
     """
     state['stop']=True
-    from workflow_engines import terminate
+    from orchestrator.workflow_engines import terminate
     killed=terminate(project)
     for key,value in state.get('progress',{}).items():
         if value in ('queued','running','validating'):state['status'][key]='已强制停止'
@@ -160,7 +160,7 @@ def start(project,source,ids,state,monitor=False,ticket=None,is_current=None,exe
                              '不要模拟百分比。分段渲染时应汇总已完成帧数和总帧数，写入相同JSON的shot_id、stage=render、completed、total字段。')
                     from stage_execution_service import white_model_shot_directory
                     output=white_model_shot_directory(project,sid,source=source);output.mkdir(parents=True,exist_ok=True)
-                    from workflow_engines import run_background
+                    from orchestrator.workflow_engines import run_background
                     # 引擎实时输出尾随最后 N 行写进 state，监视页边跑边显示；不落额外文件。
                     ENGINE_LOG_TAIL = 200
                     def engine_output(line, stream):

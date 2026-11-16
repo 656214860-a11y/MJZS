@@ -144,7 +144,7 @@ class ScriptPagesMixin:
         from workflow_settings import model_name
         model = config['display_model'] if config is not None else model_name(self.root, 'writing')
         from orchestrator.workflow_tasks import script_followup, script_prompt, writing_restart_requested
-        from workflow_engines import current_config
+        from orchestrator.workflow_engines import current_config
         bounded_input = (config or current_config(self.root, 'writing')).get('engine') == 'claude'
         delivery_at = time.time()
         prompt = script_prompt(self.root, None, 'writing', creative_text=creative,
