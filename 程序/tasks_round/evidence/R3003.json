@@ -1,0 +1,15 @@
+{
+  "round": 3003,
+  "commit_base": "8e581258",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k pet_agent pet_ui_stages test_pet_agent pet_agent_rules",
+    "exit": 0,
+    "passed": 80,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T18:35:41"
+}
