@@ -9,7 +9,7 @@ from pathlib import Path
 from file_cache import remove_temporary_file
 from datetime import datetime
 from agent.core import save,save_text,read,temporary_path,replace
-import edit_habits, stage_layout
+import orchestrator.edit_habits as edit_habits, stage_layout
 from workflow_settings import find_program,gui_claude_program,GUI_CLAUDE_CLI_HINT,ENGINES,skill_prompt,stage_output_contract,writer_style_prompt
 from infra.workflow_process_registry import (register_process, forget_process, processes, run_registered,
                                        reserve_process_slot, release_process_slot,
@@ -284,7 +284,7 @@ def run_background(config,project,output,report,logfile,prompt,on_output=None):
                 if response_temp.exists():remove_temporary_file(response_temp)
             return None
         if config['engine']=='qwen':
-            from qwen_adapter import run_background as run_qwen
+            from orchestrator.qwen_adapter import run_background as run_qwen
             return run_qwen(config,project,output,report,logfile,prompt)
         if config['engine']=='opencode':
             return _run_opencode(config,project,output,report,logfile,prompt)
@@ -471,7 +471,7 @@ def launch_interactive(project,stage,title,prompt,config,followup=None,slot=None
     if config['engine']=='qwen':
         slot=slot or reserve_stage_process_slot(project, stage)
         try:
-            from qwen_adapter import launch_interactive as launch_qwen
+            from orchestrator.qwen_adapter import launch_interactive as launch_qwen
             result=launch_qwen(project,stage,title,prompt,config,followup)
             result['process'].workflow_process_slot=slot
             return result
@@ -527,7 +527,7 @@ def launch_interactive(project,stage,title,prompt,config,followup=None,slot=None
             raise ValueError('本机 Agent 无法启动；未配置可兼容的 API 回退，请检查本机客户端或模型管理。') from exc
         fallback_config={'engine':'qwen', **dict(fallback.get('profile') or {}),
                          'model':fallback.get('model',''), 'api':api}
-        from qwen_adapter import launch_interactive as launch_qwen
+        from orchestrator.qwen_adapter import launch_interactive as launch_qwen
         release_process_slot(slot)
         return launch_interactive(project,stage,title,prompt,fallback_config,followup)
     # 交互窗口也是本应用派发的制作任务；登记后关闭应用能收掉它及其子进程。

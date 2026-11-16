@@ -2,6 +2,8 @@
 from pathlib import Path
 import unittest
 
+from tests.architecture._scan import entity_file
+
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -29,7 +31,7 @@ class WritingApiStageConfigBoundaryTests(unittest.TestCase):
 
     def test_workflow_tasks_re_exports_heuristic_for_existing_callers(self):
         """workflow_tasks.writing_restart_requested 按名转发 L2 实现，保持既有调用与测试锚点。"""
-        source = (ROOT / 'workflow_tasks.py').read_text(encoding='utf-8')
+        source = entity_file('workflow_tasks').read_text(encoding='utf-8')
         self.assertIn('def writing_restart_requested(text):', source)
         self.assertIn('from domain.idea_script_heuristic import writing_restart_requested', source)
 

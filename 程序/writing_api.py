@@ -17,7 +17,7 @@ import stage_model_value
 import token_saver
 from file_cache import read_json
 from model_router import ModelAdapter, PoolAdapter
-import edit_habits, workflow_context, writing_tools
+import orchestrator.edit_habits as edit_habits, workflow_context, writing_tools
 from orchestrator.writing_preparation_ledger import (PREPARATION_STAGES, _PREPARATION_STAGE_WORDS,
                                         _confirmed_basis, _confirmed_prefix,
                                         _preparation_draft_is_parallel,
@@ -497,7 +497,7 @@ def _reply_with_project_tools(adapter, chosen, system, task, project, *, publish
 
 def extract_idea_brief(project, request):
     """显式 API 的提取请求不走剧本发布或工具写入。"""
-    from idea_semantic_brief_service import SEMANTIC_BRIEF_MAX_BYTES, semantic_brief_values
+    from orchestrator.idea_semantic_brief_service import SEMANTIC_BRIEF_MAX_BYTES, semantic_brief_values
     chosen, record = selected_model(project)
     if not chosen:
         raise ValueError('当前未选择可直接对话的 API 模型')
@@ -1172,7 +1172,7 @@ def reply(project, creative, cancelled=None, *, publish=None, archive=None, user
     import domain.idea_transcript as idea_transcript
     import workflow_context
     import workflow_settings
-    from workflow_tasks import script_prompt
+    from orchestrator.workflow_tasks import script_prompt
 
     settings = request_model.get('settings')
     if settings is None:

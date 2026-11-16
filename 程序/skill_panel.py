@@ -64,11 +64,11 @@ from production_lock_fields import CompactLabel, FlowFields, label_pixel_width
 import model_pool
 import model_router
 import skill_note_render
-import skill_notes
+import orchestrator.skill_notes as skill_notes
 from stage_model_picker import attach_stage_pickers, stage_button_for
 from tk_timers import repeat
-import skill_budget
-import skill_orchestrator
+import orchestrator.skill_budget as skill_budget
+import orchestrator.skill_orchestrator as skill_orchestrator
 import skill_registry
 import stage_config
 import stage_models

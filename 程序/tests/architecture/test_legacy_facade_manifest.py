@@ -10,18 +10,23 @@ import legacy_compat
 from tests.architecture._scan import module_name, parse, module_scan_files
 
 
+def _is_legacy_compat(module):
+    """T10 包化后生产侧写 ``orchestrator.legacy_compat``，扁平名与包路径都算同一门面。"""
+    return module == 'legacy_compat' or module.endswith('.legacy_compat')
+
+
 def _production_callers():
     callers = {}
     for path in module_scan_files():
         tree = parse(path)
         aliases = set()
         for node in ast.walk(tree):
-            if isinstance(node, ast.ImportFrom) and node.module == 'legacy_compat':
+            if isinstance(node, ast.ImportFrom) and node.module and _is_legacy_compat(node.module):
                 for name in node.names:
                     callers.setdefault(name.name, set()).add(module_name(path))
             elif isinstance(node, ast.Import):
                 aliases.update(name.asname or name.name for name in node.names
-                               if name.name == 'legacy_compat')
+                               if _is_legacy_compat(name.name))
         for node in ast.walk(tree):
             if (isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name)
                     and node.value.id in aliases):
@@ -32,7 +37,7 @@ def _production_callers():
 class LegacyFacadeManifestTests(unittest.TestCase):
     def test_every_public_compatibility_entry_has_one_owned_manifest_row(self):
         public = {name for name, value in vars(legacy_compat).items()
-                  if isinstance(value, FunctionType) and value.__module__ == 'legacy_compat'}
+                  if isinstance(value, FunctionType) and value.__module__ == legacy_compat.__name__}
         self.assertEqual(set(legacy_compat.FACADE_MANIFEST), public)
         for name, row in legacy_compat.FACADE_MANIFEST.items():
             self.assertEqual(row['owner'], 'legacy_compat', name)

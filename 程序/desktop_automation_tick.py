@@ -5,7 +5,7 @@
 """
 import pet_ui
 from pathlib import Path
-from desktop_automation_service import PersistentBackgroundTaskQueue
+from orchestrator.desktop_automation_service import PersistentBackgroundTaskQueue
 from agent.core import read
 from desktop_page_registry import PAGE
 from desktop_tk_gc import drain_tk_gc
@@ -26,7 +26,7 @@ class AutomationTickMixin:
         """首帧已交给 Tk 后，才恢复会触发轮询／回填的周期 tick。"""
         self.win._desktop_first_paint_complete=True
         if not getattr(self,'_codex_skill_sync_started',False):
-            from codex_skill_sync import start_codex_skill_sync
+            from orchestrator.codex_skill_sync import start_codex_skill_sync
             self._codex_skill_sync_started=True
             # R2073：旧版导进 skills/ 的用户 SKILL 先迁到 data/skills/，再同步给 Codex；同一后台线程。
             start_codex_skill_sync(before=_migrate_imported_skills)

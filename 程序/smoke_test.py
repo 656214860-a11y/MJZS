@@ -388,7 +388,7 @@ ROUND_CHECKS = {
     9: [
         {'kind': 'keyword', 'path': r'程序\desktop.py', 'keyword': 'def start_script_workflow(',
          'msg': '剧本发送统一进入 Agent 工作流'},
-        {'kind': 'keyword', 'path': r'程序\workflow_tasks.py', 'keyword': '禁止擅自直接返回剧本、大纲或分镜方案',
+        {'kind': 'keyword', 'path': r'程序\orchestrator\workflow_tasks.py', 'keyword': '禁止擅自直接返回剧本、大纲或分镜方案',
          'msg': '剧本任务带 SKILL 开工门禁'},
         {'kind': 'absent', 'path': r'程序\desktop.py', 'keyword': "client.ask('chat'",
          'msg': '剧本页没有绕过工作流的聊天 API 调用'},

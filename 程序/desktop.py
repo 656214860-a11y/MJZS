@@ -11,7 +11,7 @@ from desktop_writing_page import WritingPageMixin, WritingPageServices, TALK_MIN
 from desktop_page_support import ASSET_FIRST_ROWS, ASSET_ROWS_PER_FRAME, ASSET_ROW_LABEL, STAGE_ACTION_WIDTH, _prefs, THUMB_SIZE, ASSET_ROW_HEIGHT
 from desktop_idea_chat import IdeaChatMixin, IDEA_FIELDS, BUBBLE_FLOOR, BUBBLE_LINE, BUBBLE_MAX_RATIO, script_raw_saved_notice, model_error_display
 import desktop_shared_send
-from desktop_auto_state import AutoStateHolderMixin, create_auto_state
+from orchestrator.desktop_auto_state import AutoStateHolderMixin, create_auto_state
 from desktop_auto_flows import AutoFlowsMixin, UNATTENDED_NEXT, UNATTENDED_BACKOFF_FLOOR, ASSET_RETRY_LIMIT
 import os, shutil, queue, threading, subprocess, sys, time, uuid, hashlib, re, json, logging
 from datetime import date
@@ -37,14 +37,14 @@ import pet_ui
 import ui.ui_usage_indicator as ui_usage_indicator
 import contract.project_stages as project_stages
 import ui_plugin_registry
-import stage_handler_registry
+import orchestrator.stage_handler_registry as stage_handler_registry
 from contract.platform_tools import find_editor_shortcut, launch_windows_app, open_directory, open_path, open_target, tcp_listener
 from orchestrator.desktop_startup_service import DesktopStartupController
 from desktop_account_page import AccountPageMixin
 from desktop_login_gate import LoginGateMixin
 from desktop_page_nav import PageNavMixin
 from desktop_lifecycle import LifecycleMixin
-from desktop_automation_service import BackgroundTaskLifecycle, DesktopAutomationScheduler, BackgroundTaskQueue, PersistentBackgroundTaskQueue, inspect_project_storage, RetryRegistry
+from orchestrator.desktop_automation_service import BackgroundTaskLifecycle, DesktopAutomationScheduler, BackgroundTaskQueue, PersistentBackgroundTaskQueue, inspect_project_storage, RetryRegistry
 from orchestrator.idea_chat_controller import IdeaChatController, speaker_name
 from ui_tokens import BUTTON_GAP, BUTTON_WIDTH_DIALOG, CHAR_WIDTH, WRAPLENGTH, COLORS, FONTS, SPACING, DESKTOP_LAYOUT, SCRIPT_ACTION_WIDTH, SCRIPT_ACTION_PADDING, SCRIPT_FILE_FONT, ICON_FOLDER, ICON_DELETE
 from ui_dialogs import FileDialog
@@ -842,7 +842,7 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         def work():
             from stage_execution_service import storyboard_produced_scripts as produced_scripts
             from storyboard_selection import selected_many
-            from workflow_tasks import storyboard_batch_prompt
+            from orchestrator.workflow_tasks import storyboard_batch_prompt
             scripts=selected_many(self.root,'script');existing=selected_many(self.root,'storyboard')
             made=produced_scripts(self.root);already=[p for p in scripts if p in made]
             prompt,followup=storyboard_batch_prompt(self.root,scripts,existing)

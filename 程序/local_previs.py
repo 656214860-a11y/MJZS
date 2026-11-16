@@ -22,7 +22,7 @@ def engine_name(project):
     「cannot import name model_name」，而正确做法是页面照常打开、只是名字暂时显示为空。
     写成模块级函数（不是页面里的闭包）是为了让自检能直接喂一个坏掉的 workflow_settings 进来。
     """
-    from legacy_compat import optional_workflow_model_name
+    from orchestrator.legacy_compat import optional_workflow_model_name
     return optional_workflow_model_name(project, 'previs')
 
 

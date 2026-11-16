@@ -688,7 +688,7 @@
     "baseline_pending": 35,
     "items": [
       {
-        "file": "desktop_automation_service.py",
+        "file": "orchestrator/desktop_automation_service.py",
         "point": "PersistentBackgroundTaskQueue.enqueue_descriptor:json.loads:47a6f8acff753622:1",
         "disposition": "exempt",
         "reason": "R1600：内存任务参数JSON序列化复制校验，不读取正式文件；文件读取沿用core.read。"
@@ -880,13 +880,13 @@
         "reason": "网络响应解析"
       },
       {
-        "file": "previs_automation.py",
+        "file": "orchestrator/previs_automation.py",
         "point": "verify:json.loads:61e9d77f3efbd50b:1",
         "disposition": "exempt",
         "reason": "网络响应解析"
       },
       {
-        "file": "qwen_adapter.py",
+        "file": "orchestrator/qwen_adapter.py",
         "point": "run_background:json.loads:6118d7cb6e968167:1",
         "disposition": "exempt",
         "reason": "外部进程／网络响应解析"
@@ -1120,13 +1120,13 @@
         "reason": "SKILL 自带脚本"
       },
       {
-        "file": "skill_notes.py",
+        "file": "orchestrator/skill_notes.py",
         "point": "_api_translator.translate:json.loads:bda0f3d830f7ed12:1",
         "disposition": "exempt",
         "reason": "R1125：解析模型返回的译文 JSON 字符串数组，不是文件读取；说明缓存与词表仍复用 file_cache.read_json。"
       },
       {
-        "file": "edit_habits.py",
+        "file": "orchestrator/edit_habits.py",
         "point": "parse_rules:json.loads:e796cc667c4bb3ab:1",
         "disposition": "exempt",
         "reason": "R2074：解析模型返回的修改习惯 JSON 数组，不是文件读取；记录与规则文件仍经 file_cache.read_json。"

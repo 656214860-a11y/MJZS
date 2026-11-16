@@ -1,11 +1,11 @@
 """P2：供应商适配器只依赖模型基础设施，不得反向依赖三虎客户端。"""
 import ast
 import unittest
-from pathlib import Path
+
+from tests.architecture._scan import entity_file
 
 
-ROOT = Path(__file__).resolve().parents[2]
-PROVIDER_ADAPTERS = ('seedream_api.py', 'qwen_adapter.py')
+PROVIDER_ADAPTERS = ('seedream_api', 'qwen_adapter')
 
 
 def imported_modules(path):
@@ -22,10 +22,10 @@ def imported_modules(path):
 class ModelProviderBoundaryTests(unittest.TestCase):
     def test_provider_adapters_do_not_import_pet_llm(self):
         offenders = [name for name in PROVIDER_ADAPTERS
-                    if 'pet_llm' in imported_modules(ROOT / name)]
+                     if 'pet_llm' in imported_modules(entity_file(name))]
         self.assertEqual(offenders, [], '供应商只可依赖协议/密钥接口：' + ', '.join(offenders))
 
     def test_shared_protocol_does_not_depend_on_clients_or_providers(self):
-        imports = imported_modules(ROOT / 'model_protocol.py')
+        imports = imported_modules(entity_file('model_protocol'))
         self.assertFalse({'pet_llm', 'model_pool', 'seedream_api', 'qwen_adapter'} & imports)
 

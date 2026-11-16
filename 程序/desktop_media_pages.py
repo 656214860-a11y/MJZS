@@ -712,7 +712,7 @@ class MediaPagesMixin:
             return note+f'；目录 {out}'
         self.async_(work)
     def open_audio_skill(self):
-        from workflow_tasks import audio_prompt
+        from orchestrator.workflow_tasks import audio_prompt
         source=self.current_frame_json()
         self.open_flow_agent('audio','配音制作',audio_prompt(self.root,source))
     def audio(self):
