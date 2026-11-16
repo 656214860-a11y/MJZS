@@ -8,7 +8,7 @@ import pet_state
 from dataclasses import dataclass
 from typing import Callable
 import time
-import asset_resume
+import domain.asset_resume as asset_resume
 import asset_thumbs
 import tkinter as tk
 import ui_plugin_registry

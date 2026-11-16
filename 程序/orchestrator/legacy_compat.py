@@ -34,7 +34,7 @@ def resolved_storyboard_alias(project, path):
     """将历史分镜别名解析为当前文件；映射组件不可用时保留原路径只读尝试。"""
     candidate = Path(path)
     try:
-        from storyboard_storage import resolved_alias
+        from domain.storyboard_storage import resolved_alias
     except ImportError:
         return candidate
     return Path(resolved_alias(Path(project), candidate))

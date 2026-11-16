@@ -76,7 +76,7 @@ def cloud_facts(project):
     model=str(config.get('model') or '')
     if not model:
         return '',''
-    from cloud_video_service import PROVIDERS, provider_label
+    from domain.cloud_video_service import PROVIDERS, provider_label
     return provider_label(config, PROVIDERS),model
 
 

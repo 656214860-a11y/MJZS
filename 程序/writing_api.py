@@ -18,7 +18,7 @@ import token_saver
 from file_cache import read_json
 from model_router import ModelAdapter, PoolAdapter
 import domain.writing_tools as writing_tools
-import orchestrator.edit_habits as edit_habits, workflow_context
+import orchestrator.edit_habits as edit_habits, domain.workflow_context as workflow_context
 from orchestrator.writing_preparation_ledger import (PREPARATION_STAGES, _PREPARATION_STAGE_WORDS,
                                         _confirmed_basis, _confirmed_prefix,
                                         _preparation_draft_is_parallel,
@@ -28,7 +28,7 @@ from orchestrator.writing_preparation_ledger import (PREPARATION_STAGES, _PREPAR
                                         _save_preparation_state,
                                         _save_preparation_state_guarded,
                                         _working_documents)
-from writing_quality import enabled as quality_enabled
+from domain.writing_quality import enabled as quality_enabled
 from domain.writing_stream import chat_streaming
 from contract.workflow_context_budget import (REQUEST_CONTEXT_MAX_CHARS, budget_advice, budget_sections,
                                      context_budget_report, text_fingerprint)
@@ -354,7 +354,7 @@ def _write_script_raw(project, text, *, publish=None):
     root = Path(project)
     # 用户可见成果只能进入当前阶段目录；旧 ``writing/`` 仅作为读取兼容路径。
     from contract.stage_path_service import write_dir
-    from writing_quality import split_response
+    from domain.writing_quality import split_response
     text = str(split_response(text)[0] or '').strip()
     if not text:
         raise ValueError('空正文')
@@ -402,7 +402,7 @@ def _auto_save_script_raw(project, result, *, publish=None, model='', identity=N
     """合格且足够长的 API 正文经唯一写入点发布原稿。"""
     if not isinstance(result, dict) or not result.get('ok'):
         return result
-    from writing_quality import split_response
+    from domain.writing_quality import split_response
     text = str(split_response(result.get('text'))[0] or '').strip()
     if len(text) < SCRIPT_RAW_AUTO_SAVE_MIN_CHARS:
         return result
@@ -1171,7 +1171,7 @@ def reply(project, creative, cancelled=None, *, publish=None, archive=None, user
     if not chosen:
         raise ValueError('当前未选择可直接对话的 API 模型')
     import domain.idea_transcript as idea_transcript
-    import workflow_context
+    import domain.workflow_context as workflow_context
     import workflow_settings
     from orchestrator.workflow_tasks import script_prompt
 
@@ -1309,7 +1309,7 @@ def _save_formal_script(project, result, *, model='', identity=None, publish, pr
     """已获准发布的自然剧本复用下载路径、同稿去重和异稿编号规则。"""
     import domain.idea_document_paths as idea_document_paths
     from project_context_factory import project_context
-    from writing_quality import split_response, publish_reports, OPEN
+    from domain.writing_quality import split_response, publish_reports, OPEN
     response = result['text']
     text = str(split_response(response)[0] or '').strip()
     baseline = _episode_baseline_text(project) if previous_script is None else previous_script

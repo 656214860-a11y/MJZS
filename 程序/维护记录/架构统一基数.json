@@ -702,13 +702,13 @@
         "reason": "R1599：底层写前日志恢复需直接读取事务日志，不能调用会重新进入恢复的core/read或缓存。"
       },
       {
-        "file": "writing_quality.py",
+        "file": "domain/writing_quality.py",
         "point": "split_response:json.loads:d6f7ef1d1bfdb126:1",
         "disposition": "exempt",
         "reason": "R1302：解析模型返回的内存质检 JSON；拒绝重复键与非有限数，不读取配置文件，不能改用文件缓存。"
       },
       {
-        "file": "script_workspace_service.py",
+        "file": "domain/script_workspace_service.py",
         "point": "adopt_natural_script:json.loads:e447f3b9a080d917:1",
         "disposition": "exempt",
         "reason": "R1247：采用记录发布前校验内存 JSON 文本，不读取文件。"

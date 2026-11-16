@@ -23,16 +23,16 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from agent.core import read,save,save_text,save_bytes
 import project_settings
-from projects import Projects, needs_cleanup_after_open_error, is_missing_storyboard_open_error
+from domain.projects import Projects, needs_cleanup_after_open_error, is_missing_storyboard_open_error
 from responsive_ui import FlowBar,ScrollForm,growable_extra,configure_check_column,refresh_check_heading,CheckboxColumn,fit_columns_by_content,auto_columns,bind_row_toggle,fit_row_height,row_height_for,bind_show_all
 from engine import approved_versions, review_label, adoption_summary
 from local_video import open_studio,skip_summary
 from app import App
 from integrations import comfy_executable
 from ui_theme import apply as apply_theme, install_window_placement
-from project_naming import dated_path
+from domain.project_naming import dated_path
 import asset_thumbs
-import asset_resume
+import domain.asset_resume as asset_resume
 import contract.frame_checks as frame_checks
 import pet_ui
 import ui.ui_usage_indicator as ui_usage_indicator

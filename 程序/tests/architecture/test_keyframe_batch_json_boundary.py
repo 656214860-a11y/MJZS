@@ -3,10 +3,12 @@ import ast
 import unittest
 from pathlib import Path
 
+from tests.architecture._scan import entity_file
+
 
 class KeyframeBatchJsonBoundaryTests(unittest.TestCase):
     def test_candidates_uses_cache_for_episode_json(self):
-        source = Path(__file__).resolve().parents[2] / 'keyframe_batch.py'
+        source = entity_file('keyframe_batch')
         tree = ast.parse(source.read_text(encoding='utf-8'))
         self.assertIn('from file_cache import read_json', source.read_text(encoding='utf-8'))
         method = next(node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)

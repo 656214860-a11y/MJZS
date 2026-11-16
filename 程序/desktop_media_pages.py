@@ -17,7 +17,7 @@ import video_progress
 from local_video import skip_summary
 from pathlib import Path
 from contract.platform_tools import launch_windows_app, open_target, tcp_listener
-from project_naming import dated_path
+from domain.project_naming import dated_path
 from responsive_ui import FlowBar, MIN_COL, auto_columns, fit_row_height, refresh_request_width, remember_columns
 from contract.storyboard_paths import media_root
 from tkinter import ttk
@@ -75,7 +75,7 @@ class MediaPagesMixin:
         """
         from asset_batch_state_service import ready_asset_ids
         from asset_context import references
-        from keyframe_batch import batch_signature
+        from domain.keyframe_batch import batch_signature
         return batch_signature(source,pending,ready_asset_ids(self.asset_base()),references)
     def keyframe_settings(self):
         """「首帧制作」窗口保存的本地 ComfyUI 设置里还缺哪几项；空列表表示已就绪。"""
@@ -838,7 +838,7 @@ class MediaPagesMixin:
             music_button.configure(text='背景音乐：'+controller.music_label())
         music_button.configure(command=lambda:self.safe(pick_music))
         edit_button('清除背景音乐',lambda:self.safe(clear_music))
-        from edit_export import PLATFORMS
+        from domain.edit_export import PLATFORMS
         for platform_key,platform in PLATFORMS.items():
             edit_button('导出%s版（%dx%d）'%(platform['label'],platform['width'],platform['height']),
                         lambda key=platform_key:self.account_blocked('delivery') or self.async_(lambda:controller.export_platform(key),

@@ -208,7 +208,7 @@ def storyboard_adoption_impact(project, paths):
 
 def asset_impact(project, aid, *, episode_dir=''):
     """L3 门面：资产变更影响视图（只读）。"""
-    from asset_plan import asset_impact as _impact
+    from domain.asset_plan import asset_impact as _impact
     return _impact(project, aid, episode_dir=episode_dir)
 
 

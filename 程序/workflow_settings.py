@@ -754,7 +754,7 @@ def freeze_skills(config):
         references.extend(dict(row, skill=str(path)) for row in closure)
     header_config = dict(frozen, skills=[], skill='', stage_skills=[])
     frozen['frozen_skill_prompt'] = skill_prompt(header_config, inline=True) + ''.join(bodies)
-    from writing_quality import enabled, prompt as quality_prompt
+    from domain.writing_quality import enabled, prompt as quality_prompt
     if enabled(frozen['frozen_skill_prompt']):
         frozen['frozen_skill_prompt'] += quality_prompt()
     from contract.workflow_context_budget import prepare_request_context

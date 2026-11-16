@@ -94,7 +94,7 @@ JSON仅为制作计划，不自动提交视频。
 
 def import_project(root,json_file,*,gateway=None,publish_report=None):
     """Create a data-only project; reuse the one installed application and skills."""
-    from projects import Projects
+    from domain.projects import Projects
     if not isinstance(gateway,dict):
         raise TypeError('项目导入需要由 L3 注入项目登记读写网关。')
     if not callable(publish_report):

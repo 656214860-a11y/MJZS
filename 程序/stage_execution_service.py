@@ -135,7 +135,7 @@ def program_of(desktop):
 
 def keyframe_image_prompt(project, source, shot_id=None, outputs=None, shot_ids=None):
     """L3 为首帧批次任务书注入唯一的项目上下文。"""
-    from keyframe_batch import image_prompt
+    from domain.keyframe_batch import image_prompt
     return image_prompt(source, project_context(project), shot_id, outputs, shot_ids=shot_ids)
 
 
@@ -268,7 +268,7 @@ def export_stage_dialogue_script(project, episode, assets):
 
 def adopt_natural_script(project, source_path):
     """为显式采用的自然剧本版本注入统一发布器。"""
-    from script_workspace_service import adopt_natural_script as adopt
+    from domain.script_workspace_service import adopt_natural_script as adopt
     return adopt(project, source_path, publish=publish_stage_text)
 
 
@@ -310,7 +310,7 @@ def reply_to_writing(project, creative, cancelled=None, *, user_message=None, re
 
 def collect_writing_quality(project, script_path):
     """Recover a desktop delivery through the same report publisher as API/CLI."""
-    from writing_quality import split_response, publish_reports
+    from domain.writing_quality import split_response, publish_reports
     from contract.stage_path_service import write_dir
     target = Path(script_path)
     folder = write_dir(project, 'script').resolve()
@@ -668,13 +668,13 @@ def storyboard_gateway():
 
 
 def publish_final_storyboard_bundle(episodefile, assetfile, episode, assets, validate):
-    from storyboard_storage import publish_final_bundle
+    from domain.storyboard_storage import publish_final_bundle
     return unwrap_service_result(publish_final_bundle(episodefile, assetfile, episode, assets, validate,
                                                        gateway=storyboard_gateway()))
 
 
 def normalize_storyboard_for_desktop(desktop):
-    from storyboard_storage import normalize_for_desktop
+    from domain.storyboard_storage import normalize_for_desktop
     return unwrap_service_result(normalize_for_desktop(desktop, gateway=storyboard_gateway()))
 
 

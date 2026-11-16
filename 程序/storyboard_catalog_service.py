@@ -146,7 +146,7 @@ def default_source(context):
 
 def resolve_source(context, path):
     """Resolve aliases and legacy episode placeholders to a current storyboard source."""
-    from storyboard_storage import resolved_alias
+    from domain.storyboard_storage import resolved_alias
     from contract.project_stages import storyboard
     project = _context(context).root.resolve()
     path = resolved_alias(project, Path(path))
@@ -159,7 +159,7 @@ def resolve_source(context, path):
 def check_adoptable(paths):
     """Validate every selected storyboard before an adoption command mutates preferences."""
     from file_cache import read_json
-    from storyboard_adoption_contract import problem_text
+    from domain.storyboard_adoption_contract import problem_text
     from contract.storyboard_paths import media_root
     from writing import validate_episode
     problems = []
@@ -272,7 +272,7 @@ def adoption_impact(context, paths):
     只读：不改采用清单、不改资产、不删文件、不改镜头编号。
     """
     from file_cache import read_json
-    from storyboard_adoption_contract import adopted as adopted_paths
+    from domain.storyboard_adoption_contract import adopted as adopted_paths
     from contract.storyboard_paths import media_root
     project = _context(context).root.resolve()
     try:
@@ -520,8 +520,8 @@ def _catalog(context, kind, ignored, *, completed=None, sources=None, previews=F
             sources[resolved] = linked
         entries.append(entry)
     if kind != 'script':
-        from storyboard_storage import unique_entries
-        from storyboard_adoption_contract import adopted
+        from domain.storyboard_storage import unique_entries
+        from domain.storyboard_adoption_contract import adopted
         entries = unique_entries(entries, project)
         try:
             used = set(adopted(project))

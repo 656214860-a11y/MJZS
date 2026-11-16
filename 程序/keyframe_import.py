@@ -47,7 +47,7 @@ def publish_frame_reference(source,base,item,dest):
     if not dest.is_relative_to(base) or not dest.is_file():raise ValueError('首帧尚未安全发布')
     latest=read(source);current=next((s for s in latest['shots'] if s['id']==sid),None)
     if not current or fingerprint(current)!=item['shot_signature']:raise ValueError('镜头刚被修改，生成图已保留，未更新关联')
-    from keyframe_evidence import make_evidence
+    from domain.keyframe_evidence import make_evidence
     if not isinstance(item.get('source_evidence'), dict):
         raise ValueError('旧首帧任务缺少来源版本，生成图已保留，请通过导入首帧确认')
     evidence=make_evidence(source,latest,current,dest,frozen_source=item['source_evidence'],
@@ -71,7 +71,7 @@ def register(source,item,image):
     if shot.get('frame_deleted') or target.is_file():raise ValueError('此镜头已删除或已有首帧，生成图已保留，未覆盖')
     raw=Path(image).read_bytes()
     if len(raw)<33 or not raw.startswith(b'\x89PNG\r\n\x1a\n') or raw[12:16]!=b'IHDR' or raw[-8:-4]!=b'IEND':raise ValueError('PNG首帧尚未保存完整')
-    from keyframe_evidence import make_evidence
+    from domain.keyframe_evidence import make_evidence
     make_evidence(source,episode,shot,raw,frozen_source=item.get('source_evidence'),
                   expected_size=item.get('expected_size'),aspect_ratio=item.get('aspect_ratio'))
     folder=base/'frames'
@@ -119,7 +119,7 @@ def clear_stale_tasks(app,project,source,blocked,waiting):
     return [sid for sid in blocked if sid not in stale]
 
 def launch(app,source,shot_id=None,shot_ids=None):
-    from keyframe_batch import candidates,frame_prompt
+    from domain.keyframe_batch import candidates,frame_prompt
     from stage_execution_service import keyframe_image_prompt
     from workflow_settings import current
     source=Path(source).resolve();project=Path(app.root).resolve()
@@ -142,7 +142,7 @@ def launch(app,source,shot_id=None,shot_ids=None):
     if current(app.root,'assets')['engine']=='qwen':
         if not app.launch_comfy(silent=True):return                 # 第 62 期任务 8：静默拉起，不弹选择框
     folder=project/'workflows/首帧批次'/uuid.uuid4().hex[:12];folder.mkdir(parents=True)
-    from keyframe_evidence import source_evidence
+    from domain.keyframe_evidence import source_evidence
     episode=read(source)
     items=[{'shot_id':shot['id'],'shot_signature':fingerprint(shot),'output':shot['id']+'.png','state':'pending',
             'source_evidence':source_evidence(source,episode,shot)} for shot in shots]

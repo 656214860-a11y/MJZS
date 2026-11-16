@@ -466,7 +466,7 @@ def _continuity_ledger(context):
 
 def platform_spec(name):
     """导出规范表：页面上的导出与编排器共用 edit_export 的那一份。"""
-    from edit_export import platform_spec as table
+    from domain.edit_export import platform_spec as table
     try:
         spec = table(name)
     except ValueError as exc:

@@ -11,7 +11,7 @@ from agent.core import read, save, save_text, fingerprint, file_hash, download, 
 from agent.wan import WanAdapter, ArkRejected
 from agent.media import check, probe
 import project_settings
-from project_naming import dated_path
+from domain.project_naming import dated_path
 from orchestrator.legacy_compat import resolved_storyboard_alias
 import contract.pet_bus as pet_bus
 
@@ -278,7 +278,7 @@ class Studio:
         return True
 
     def validate(self):
-        from video_task_state import shot_count_error
+        from domain.video_task_state import shot_count_error
         limit=shot_count_error(self.episode['shots'])
         if limit:raise ValueError(limit)
         ids=[s['id'] for s in self.episode['shots']]
@@ -364,7 +364,7 @@ class Studio:
         """把视频阶段清单同时写成 videos.json 与 video_manifest.json；写失败只记警告，不影响已落盘的成片。"""
         import logging
         from contract.stage_path_service import write_dir
-        from video_task_state import MANIFEST_NAMES
+        from domain.video_task_state import MANIFEST_NAMES
         try:
             payload=self.video_manifest(state if state is not None else self.state())
             folder=write_dir(project_root(self.root),'video')/'output'
@@ -413,7 +413,7 @@ class Studio:
         with self.lock():
             if not self.cfg['live_enabled']: raise ValueError('当前为离线模式；请在设置中开启联网操作')
             st=self.state(); versions=st['shots'][sid]; shot=self.shot(sid)
-            from video_task_state import submission_block_reason
+            from domain.video_task_state import submission_block_reason
             blocked=submission_block_reason(versions)
             if blocked:raise ValueError(blocked)
             if shot['duration']>self.remaining(): raise ValueError('超过可用制作秒数；备用额度不会自动动用')
@@ -511,7 +511,7 @@ class Studio:
                 RequestLedger(project_root(self.root)).settle_units(v['money_request_id'],
                     amount=1 if v['state']=='succeeded' else None, remote_task_id=remote)
             if v['state']=='failed':
-                from video_task_state import provider_failure_reason
+                from domain.video_task_state import provider_failure_reason
                 reason = provider_failure_reason(v)
                 return (sid+' · 生成失败；下一步：到服务商控制台核实后手动重做。'+reason+
                         '；保守保留预算占用，请核对账单。')
@@ -686,7 +686,7 @@ class Studio:
         master = Path(master).resolve()
         if not master.is_file() or not master.is_relative_to(out):
             raise ValueError('成片尚未安全发布，不能登记剪辑成果')
-        from edit_export import EDITS_NAME, TRANSITIONS, layout, nominal_fps, timecode
+        from domain.edit_export import EDITS_NAME, TRANSITIONS, layout, nominal_fps, timecode
         inputs = self.edit_inputs()
         clips = edit_clips(chosen)
         spec = report.get('output_spec') if isinstance(report.get('output_spec'), dict) else {}
@@ -744,7 +744,7 @@ class Studio:
                     row['category'] = 'image'
                 if row not in references:
                     references.append(row)
-        from edit_export import EDITS_NAME
+        from domain.edit_export import EDITS_NAME
         music_file = ((edits or {}).get('music') or {}).get('file')
         music = ([{'path': os.path.relpath(music_file, out).replace('\\', '/'), 'sha256': file_hash(music_file)}]
                  if music_file and Path(music_file).drive.casefold() == out.drive.casefold() else [])
@@ -770,7 +770,7 @@ class Studio:
     def publish_edit_lists(self, out, chosen, spec):
         """发布剪辑交换清单并返回实际结果；失败不删除已发布成片。"""
         import logging
-        from edit_export import export_texts, TRACKS_NAME
+        from domain.edit_export import export_texts, TRACKS_NAME
         try:
             clips = edit_clips(chosen)
             sources = {shot['id']: {'version': version.get('version'), 'sha256': version.get('sha256')}
@@ -838,7 +838,7 @@ class Studio:
 
     def _join_shots(self,out,chosen,pending_master,edits):
         """把逐镜编码结果接成成片：无转场走无损拼接，有转场重编码；有配乐再混一遍。返回转场吃掉的总秒数。"""
-        from edit_export import transition_filter,transition_seconds,music_filter
+        from domain.edit_export import transition_filter,transition_seconds,music_filter
         ffmpeg=self.cfg['ffmpeg'];names=[shot['id']+'.mp4' for shot,_,_ in chosen]
         kind=edits['transition']['kind'];overlap=0.0
         durations=[float(shot.get('duration') or 0) for shot,_,_ in chosen]
@@ -871,12 +871,12 @@ class Studio:
 
     def edit_settings_path(self):
         import contract.project_stages as project_stages
-        from edit_export import EDITS_NAME
+        from domain.edit_export import EDITS_NAME
         return project_stages.editing(self.root)/EDITS_NAME
 
     def edit_settings(self):
         """转场／配乐设置（后期阶段的 edits.json）；没存过或损坏时用默认。"""
-        from edit_export import normalize_edits
+        from domain.edit_export import normalize_edits
         try:
             raw=read(self.edit_settings_path())
         except (OSError,ValueError):
@@ -884,7 +884,7 @@ class Studio:
         return normalize_edits(raw)
 
     def save_edit_settings(self,kind='none',seconds=None,music_file='',volume=None):
-        from edit_export import normalize_edits
+        from domain.edit_export import normalize_edits
         if music_file and not Path(music_file).is_file():raise ValueError('背景音乐文件不存在：'+str(music_file))
         if music_file:music_file=self._project_music(music_file)
         data=normalize_edits({'transition':{'kind':kind,'seconds':seconds},
@@ -939,7 +939,7 @@ class Studio:
             if pending.exists():
                 from file_cache import remove_temporary_file
                 remove_temporary_file(pending)
-        from edit_export import EDITS_NAME
+        from domain.edit_export import EDITS_NAME
         try:
             record=read(master.parent/EDITS_NAME)
         except (OSError,ValueError):

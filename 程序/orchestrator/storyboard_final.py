@@ -5,8 +5,8 @@ from contract.storyboard_paths import media_root, is_final_dir
 from datetime import datetime
 import copy, shutil, re, uuid, hashlib, json
 from agent.core import read
-from asset_plan import _sync_plan
-from project_naming import dated_path
+from domain.asset_plan import _sync_plan
+from domain.project_naming import dated_path
 from project_context_factory import project_context
 
 
@@ -181,7 +181,7 @@ def finalize(project,episode_dir,source,retire_working=None,*,gateway=None):
     if source.name=='episode.json' and is_final_dir(source.parent.name) and source.is_relative_to(finals_root):
         dest=source.parent
     else:
-        from storyboard_storage import ALIAS_FILE
+        from domain.storyboard_storage import ALIAS_FILE
         aliasfile=finals_root/ALIAS_FILE
         aliases=read(aliasfile) if aliasfile.is_file() else {}
         if not isinstance(aliases,dict):aliases={}

@@ -5,7 +5,7 @@ from agent.core import read,save
 from file_cache import read_json
 from project_settings import read_prefs
 from project_context_factory import project_context
-from storyboard_adoption_contract import adopted as _adopted, paths, problem_text, resolve_source
+from domain.storyboard_adoption_contract import adopted as _adopted, paths, problem_text, resolve_source
 import contract.pet_bus as pet_bus
 
 
@@ -299,7 +299,7 @@ def adopt(project,values,*,gateway=None):
     from writing import validate_episode
     from contract.storyboard_paths import media_root
     from asset_context import library_dir
-    from asset_plan import _sync_plan
+    from domain.asset_plan import _sync_plan
     project=Path(project).resolve();incoming=paths(project,values)
     if not incoming:raise ValueError('请先选择一份或多份分镜 JSON')
     existing=adopted(project);incoming=[p for p in incoming if p not in existing]
@@ -415,7 +415,7 @@ def adopt_pending(project,minimum_age=10,*,gateway=None):
 
 def remove(project,values,*,gateway=None):
     from asset_context import library_dir
-    from asset_plan import _sync_plan
+    from domain.asset_plan import _sync_plan
     project=Path(project).resolve();removed=set(paths(project,values))
     remaining=[p for p in adopted(project) if p not in removed]
     data=writable_prefs(project)

@@ -18,7 +18,7 @@ import pet_agent
 import pet_models_ui
 import environment_check
 import orchestrator.skill_budget as skill_budget
-import usage_overview
+import domain.usage_overview as usage_overview
 import token_saver
 from contract.app_metadata import APP_NAME
 from contract.pet_settings_contract import TABS, LEVEL_NOTES

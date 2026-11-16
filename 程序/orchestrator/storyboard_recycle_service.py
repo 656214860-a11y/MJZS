@@ -14,7 +14,7 @@ def recycle_plan(project, kind, path):
     the existing recycle executor makes any filesystem mutation.
     """
     from agent.core import read
-    from storyboard_adoption_contract import adopted
+    from domain.storyboard_adoption_contract import adopted
     from stage_execution_service import storyboard_catalog as catalog
     from storyboard_catalog_service import linked_path
     from stage_execution_service import project_context

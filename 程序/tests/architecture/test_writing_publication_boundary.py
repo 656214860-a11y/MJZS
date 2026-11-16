@@ -45,7 +45,7 @@ class WritingPublicationBoundaryTests(unittest.TestCase):
         self.assertIn('prepare_writing_project(self.root,text,stage.get(),duration.get())', app_source)
 
     def test_context_and_import_reports_require_l3_publishers(self):
-        context = (ROOT / 'workflow_context.py').read_text(encoding='utf-8')
+        context = entity_file('workflow_context').read_text(encoding='utf-8')
         writing = (ROOT / 'writing.py').read_text(encoding='utf-8')
         controller = (ROOT / 'orchestrator/workflow_context_controller.py').read_text(encoding='utf-8')
         stage = stage_execution_source()

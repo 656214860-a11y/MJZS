@@ -35,7 +35,7 @@ def verify(project,sid,seconds,source=None):
 
 def select_agent_shots(project,source,ids,state):
     """只把复杂动作交给 Agent：简单镜头无需白模、中等镜头走线上入口，都只跳过、不中断整批。"""
-    from previs_routing import partition
+    from domain.previs_routing import partition
     from stage_execution_service import project_context
     groups,_=partition(project_context(project),source,ids)
     for level,note in (('simple','无需白模，已跳过'),('medium','待线上制作／导入')):
@@ -89,7 +89,7 @@ def start(project,source,ids,state,monitor=False,ticket=None,is_current=None,exe
     from workflow_settings import current,find_program,ENGINES
     call_config=current(project,'previs')
     require_local_agent(call_config)
-    from previs_routing import ready
+    from domain.previs_routing import ready
     from stage_execution_service import project_context
     context=project_context(project)
     ids=[sid for sid in select_agent_shots(project,source,ids,state) if not ready(context,sid,source)]

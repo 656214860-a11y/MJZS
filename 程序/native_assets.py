@@ -39,17 +39,17 @@ def _seedream_payload(profile_model, prompt, aspect_ratio, ref_paths):
 
 def generated_plan(base):
     """生成目录对应的资产清单；缺失或格式不符时返回空表。"""
-    from asset_generated_import_service import generated_plan as _generated_plan
+    from domain.asset_generated_import_service import generated_plan as _generated_plan
     return _generated_plan(base)
 
 def pending_generated_files(project, base, plan=None):
     """生成目录中尚未登记、可自动导入的 (目录, 文件, 资产编号) 列表；只扫描不写盘。"""
-    from asset_generated_import_service import pending_generated_files as _pending_generated_files
+    from domain.asset_generated_import_service import pending_generated_files as _pending_generated_files
     return _pending_generated_files(project, base, plan)
 
 def pending_generated(project, base):
     """生成目录中尚未登记的资产编号；用于启动时轻量预检，不写盘。"""
-    from asset_generated_import_service import pending_generated as _pending_generated
+    from domain.asset_generated_import_service import pending_generated as _pending_generated
     return _pending_generated(project, base)
 
 def _asset_batch_gateway():
@@ -60,13 +60,13 @@ def _asset_batch_gateway():
 
 def import_pending_generated(project, base, report=None):
     """扫描生成目录，把尚未登记的资产图片自动导入资产库（JPEG 自动转 PNG）。"""
-    from asset_generated_import_service import import_pending_generated as _import_pending_generated
+    from domain.asset_generated_import_service import import_pending_generated as _import_pending_generated
     return _import_pending_generated(project, base, report, gateway=_asset_batch_gateway())
 
 
 def cleanup_batches(folder, days=7):
     """Compatibility facade for generated-asset batch cleanup."""
-    from asset_generated_import_service import cleanup_batches as _cleanup_batches
+    from domain.asset_generated_import_service import cleanup_batches as _cleanup_batches
     return _cleanup_batches(folder, days)
 
 

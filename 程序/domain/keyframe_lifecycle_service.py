@@ -117,7 +117,7 @@ def replace_keyframe(base, source, episode, shot, data, *, publish=None, publish
         raise ValueError('其他镜头正在使用这个文件名，请先修正其图片关联')
     if not callable(publish) or not callable(publish_episode):
         raise TypeError('首帧成果需要由 L3 注入图片与索引发布器。')
-    from keyframe_evidence import make_evidence
+    from domain.keyframe_evidence import make_evidence
     evidence = make_evidence(source, episode, shot, raw)
     from file_cache import remove_temporary_file
     from storage_maintenance import recycle_paths, restore_latest_recycled_path

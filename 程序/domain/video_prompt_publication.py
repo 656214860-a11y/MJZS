@@ -9,7 +9,7 @@ from pathlib import Path
 from contract.service_contract import SystemError, UserError, success
 
 from agent.core import fingerprint, read
-from project_naming import dated_path
+from domain.project_naming import dated_path
 
 
 LOGGER = logging.getLogger('video_prompt_publication')

@@ -11,7 +11,7 @@ import threading
 import time
 from pathlib import Path
 
-import asset_resume
+import domain.asset_resume as asset_resume
 import pet_state
 from agent.core import read
 from orchestrator.desktop_auto_state import UNATTENDED_NEXT, flow_get, flow_set
@@ -448,7 +448,7 @@ class AutoFlowsMixin:
             return
         # 先判重再派发：批次跑着的时候这一批的指纹已经记下，不会在生成过程中重复下单。
         sent,message,signature=self.start_keyframe_batch('无人值守自动补首帧',unless_signature=self.auto.keyframe_signature)
-        from keyframe_batch import automatic_poll_decision
+        from domain.keyframe_batch import automatic_poll_decision
         decision=automatic_poll_decision(sent,message,signature,self.auto.keyframe_signature)
         if decision['action'] in ('quiet','skip'):return
         # 这一批补不了（缺参考资产／缺提示词／资产清单还没同步）：记住它，别每 30 秒重复同一句话；
@@ -476,7 +476,7 @@ class AutoFlowsMixin:
         if source is None:return
         episode=read(source)
         shots=episode.get('shots',[]) if isinstance(episode,dict) else []
-        from previs_routing import automatic_notice, automatic_signature
+        from domain.previs_routing import automatic_notice, automatic_signature
         from stage_execution_service import previs_automatic_candidates, previs_automatic_engine
         try:
             frame_pending = None

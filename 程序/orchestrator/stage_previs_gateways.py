@@ -13,41 +13,41 @@ def previs_routing_gateway():
 
 def save_stage_previs_override(project, source, shot_id, value):
     """保存白模复杂度人工覆写；L4 只委托 L3。"""
-    from previs_routing import set_override
+    from domain.previs_routing import set_override
     return set_override(project_context(project), source, shot_id, value,
                         publish=previs_routing_gateway()['publish_json'])
 
 
 def dispatch_stage_previs(project, source, shot_ids, state, monitor=False, start_complex=None):
     """发布白模分流记录；执行器仍由调用方注入，路由落盘只经 L3。"""
-    from previs_routing import dispatch
+    from domain.previs_routing import dispatch
     return dispatch(project_context(project), source, shot_ids, state, monitor=monitor,
                     start_complex=start_complex,
                     publish=previs_routing_gateway()['publish_json'])
 
 
 def previs_entries(project, source):
-    from previs_routing import entries
+    from domain.previs_routing import entries
     return entries(project_context(project), source)
 
 
 def previs_ready(project, shot_id, source=None):
-    from previs_routing import ready
+    from domain.previs_routing import ready
     return ready(project_context(project), shot_id, source)
 
 
 def previs_records_directory(project, state):
-    from previs_routing import records_directory
+    from domain.previs_routing import records_directory
     return records_directory(project_context(project), state)
 
 
 def previs_automatic_candidates(project, source, shots, wait_for_frames=False, pending_frame_ids=None):
-    from previs_routing import automatic_candidates
+    from domain.previs_routing import automatic_candidates
     return automatic_candidates(project_context(project), source, shots, wait_for_frames, pending_frame_ids)
 
 
 def previs_automatic_engine(project, read_settings, engines):
-    from previs_routing import automatic_engine
+    from domain.previs_routing import automatic_engine
     return automatic_engine(project_context(project), read_settings, engines)
 
 

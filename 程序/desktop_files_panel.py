@@ -207,7 +207,7 @@ class ProjectFilesPanel(WritingSnapshotsMixin):
         """渐进加载剧本文件表；面板收起或无项目时跳过目录扫描，下次打开重扫。"""
         if not self._open:
             return
-        from script_workspace_service import iter_script_document_rows
+        from domain.script_workspace_service import iter_script_document_rows
         from writing_api import preparation_file_labels
         if getattr(self.page, 'root', None) is None:
             self.script_tree.delete(*self.script_tree.get_children())
@@ -309,13 +309,13 @@ class ProjectFilesPanel(WritingSnapshotsMixin):
         selected = tree.selection() if tree else ()
         if not selected:
             raise ValueError('请先选择剧本文件')
-        from script_workspace_service import selected_script_paths
+        from domain.script_workspace_service import selected_script_paths
         return selected_script_paths(self.page.root, [selected[0]])[0]
 
     def selected_scripts(self):
         """当前表里选中的各行（Ctrl／Shift 多选），并标出是否选中了列表里的全部文件。"""
         tree = self.current_script_tree()
-        from script_workspace_service import script_deletion_selection
+        from domain.script_workspace_service import script_deletion_selection
         return script_deletion_selection(self.page.root, self.all_script_items(), tree.selection() if tree else ())
 
     def rename_script(self):
@@ -323,7 +323,7 @@ class ProjectFilesPanel(WritingSnapshotsMixin):
         new = ask_string(self.page.win, '重命名文件', '新文件名：', initialvalue=path.name)
         if not new:
             return
-        from script_workspace_service import rename_script_document
+        from domain.script_workspace_service import rename_script_document
         result = rename_script_document(self.page.root, path, new)
         if not result.ok:
             raise ValueError(result.reason)

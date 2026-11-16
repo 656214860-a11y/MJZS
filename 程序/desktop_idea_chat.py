@@ -775,7 +775,7 @@ class _FlowAgentLaunch:
             self.title=window_title(name,self.stage,getattr(self.host,'page_index',None))
         self.host.async_(self.prepare,self.dispatch)
     def prepare(self):
-        from workflow_context import continuation_instruction,snapshot
+        from domain.workflow_context import continuation_instruction,snapshot
         from stage_execution_service import project_context
         from orchestrator.workflow_context_controller import request_stage_instruction
         from contract.workflow_context_budget import prepare_request_context

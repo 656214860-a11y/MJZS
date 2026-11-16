@@ -111,7 +111,7 @@ class _FirstFramePage:
     def _build_state_and_table(self):
         """读取分镜与勾选状态，建出首帧表格及其列样式（从 build 原样切出，R1814）。"""
         from keyframe_import import resume,watch_list
-        from keyframe_batch import frame_prompt
+        from domain.keyframe_batch import frame_prompt
         self.frame_prompt = frame_prompt
         from orchestrator.keyframe_page_controller import KeyframePageController
         resume(self.page)

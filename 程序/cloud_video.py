@@ -18,7 +18,7 @@ PROVIDERS.update({'自定义 · 万相兼容':('wan','','','DASHSCOPE_API_KEY'),
 KEY_REVEAL_MS=10_000
 
 def provider_label(config):
-    from cloud_video_service import provider_label as _provider_label
+    from domain.cloud_video_service import provider_label as _provider_label
     return _provider_label(config,PROVIDERS)
 
 def session_folder(project, kind, base, model, source):

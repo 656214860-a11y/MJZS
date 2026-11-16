@@ -100,7 +100,7 @@ class PageNavMixin:
             self.content=base
         cache=getattr(self,'_page_cache',None)
         if cache is None:cache=self._page_cache={}
-        from script_workspace_service import script_structure_signature
+        from domain.script_workspace_service import script_structure_signature
         for key in page_nav.stale_cache_keys(cache,index,PAGE,root=self.root,
                 rebuild=same_page or not getattr(self,'_reuse_cached_page',False),
                 alive=lambda entry:entry['holder'].winfo_exists(),signature=script_structure_signature):
@@ -124,7 +124,7 @@ class PageNavMixin:
         builder()
         cache[index]=page_nav.cache_entry(holder,self.root,self.status.get(),str(self.root))
         if index==PAGE['script_structure']:
-            from script_workspace_service import script_structure_signature
+            from domain.script_workspace_service import script_structure_signature
             cache[index]['signature']=script_structure_signature(self.root)
     @app_logging.timed('page.show',800)
     @_page_paint_timed

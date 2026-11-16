@@ -13,7 +13,7 @@ from pathlib import Path
 
 import domain.account_client as account_client
 import infra.account_store as account_store
-import entitlement_service
+import domain.entitlement_service as entitlement_service
 import infra.update_notice as update_notice
 from agent.core import save
 from contract.service_contract import SystemError, success

@@ -302,7 +302,7 @@ def batch_complete(base, aids):
 
 def automatic_plan(project, base, sources, settings, scope='adopted', *, gateway=None, context=None):
     """Return independently generatable assets without constructing any Tk UI."""
-    from asset_plan import _sync_plan
+    from domain.asset_plan import _sync_plan
     from asset_prompt_rules import issues
     from contract.prop_assets import requires_asset
 

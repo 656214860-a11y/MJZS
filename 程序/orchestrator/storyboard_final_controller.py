@@ -8,7 +8,7 @@ from pathlib import Path
 from file_cache import read_json, read_text
 from stage_execution_service import save_edited_stage_storyboard
 from storyboard_selection import remember_final_view
-from storyboard_storage import resolved_alias
+from domain.storyboard_storage import resolved_alias
 
 
 def storyboard_lifecycle_gateway():

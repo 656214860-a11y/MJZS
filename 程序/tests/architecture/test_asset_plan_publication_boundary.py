@@ -4,12 +4,12 @@ from __future__ import annotations
 import ast
 import unittest
 
-from tests.architecture._scan import ROOT, parse
+from tests.architecture._scan import ROOT, entity_file, parse
 
 
 class AssetPlanPublicationBoundaryTests(unittest.TestCase):
     def test_sync_plan_delegates_all_output_to_bundle_publisher(self) -> None:
-        tree = parse(ROOT / 'asset_plan.py')
+        tree = parse(entity_file('asset_plan'))
         sync = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == '_sync_plan')
         calls = [node for node in ast.walk(sync) if isinstance(node, ast.Call)
                  and isinstance(node.func, ast.Name)]
@@ -22,8 +22,8 @@ class AssetPlanPublicationBoundaryTests(unittest.TestCase):
         self.assertIn('_asset_plan_result', [item.id for item in public.decorator_list if isinstance(item, ast.Name)])
 
     def test_l2_requires_injected_publishers_and_l3_owns_their_assembly(self) -> None:
-        plan = parse(ROOT / 'asset_plan.py')
-        resume = parse(ROOT / 'asset_resume.py')
+        plan = parse(entity_file('asset_plan'))
+        resume = parse(entity_file('asset_resume'))
         stage = parse(ROOT / 'orchestrator/stage_asset_gateways.py')
         plan_imports = [name.name for node in plan.body if isinstance(node, ast.ImportFrom)
                         and node.module == 'agent.core' for name in node.names]

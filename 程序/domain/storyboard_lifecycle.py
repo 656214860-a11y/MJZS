@@ -3,7 +3,7 @@ from pathlib import Path
 import copy,hashlib
 from agent.core import read,fingerprint,file_hash
 from contract.project_context import ProjectContext
-from storyboard_storage import _references,ALIAS_FILE,resolved_alias
+from domain.storyboard_storage import _references,ALIAS_FILE,resolved_alias
 from contract.storyboard_paths import media_root
 
 

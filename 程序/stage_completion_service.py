@@ -22,7 +22,7 @@ def media_output_folders(root, stage):
 def media_scope(root):
     """当前已采用分镜及内容版本；切集和改稿均使旧确认失效。"""
     from agent.core import file_hash, read
-    from storyboard_adoption_contract import adopted, prefs, resolve_source
+    from domain.storyboard_adoption_contract import adopted, prefs, resolve_source
     root = Path(root).resolve()
     sources = adopted(root)
     selected = prefs(root).get('frame_json')
@@ -695,7 +695,7 @@ def _adopted_script_quality(project):
     try:
         from contract.script_contract import resolve_script_source
         from contract.stage_path_service import write_dir
-        from writing_quality import adopted_quality
+        from domain.writing_quality import adopted_quality
         source = resolve_script_source(project)
         return adopted_quality(source, write_dir(project, 'script') / 'quality') if source else None
     except (ImportError, OSError, TypeError, ValueError):
@@ -730,7 +730,7 @@ def completion_evidence(root, stage, video_ready=None):
             if ok and stage == 'script':
                 # REQ-S01-22：采用稿存在质检报告时，fail/invalid 项硬卡完成核验。
                 from contract.stage_path_service import write_dir
-                from writing_quality import adopted_quality, REPORTS, QUALITY_BLOCKING
+                from domain.writing_quality import adopted_quality, REPORTS, QUALITY_BLOCKING
                 statuses = adopted_quality(source, write_dir(root, 'script') / 'quality')
                 if statuses is not None:
                     blocked = [key for key in REPORTS if statuses.get(key) in QUALITY_BLOCKING]
@@ -817,7 +817,7 @@ def publish_stage_manifest(root, stage):
         save(target, {'schema': 1, 'stage': 'keyframe', 'generated_at': stamp, 'episodes': episodes})
         return target
     import white_model_service as wm
-    from previs_routing import decisions_for
+    from domain.previs_routing import decisions_for
     context = project_context(root)
     required = {}
     for source, shots in _adopted(root):

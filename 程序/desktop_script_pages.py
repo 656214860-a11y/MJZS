@@ -160,7 +160,7 @@ class ScriptPagesMixin:
                              new_session=writing_restart_requested(creative),
                              desktop_paste=True)
         from workflow_settings import skill_prompt
-        from writing_quality import enabled
+        from domain.writing_quality import enabled
         if enabled(skill_prompt(config or current_config(self.root, 'writing'), inline=True)):
             from orchestrator.workflow_tasks import natural_script_delivery_path
             self.watch_script_quality(natural_script_delivery_path(self.root, delivery_at))
@@ -180,7 +180,7 @@ class ScriptPagesMixin:
             return
         # 内存无记录（如重启后）时，扫描质检目录，把 hash 目录映射回具体剧本，打开最新的报告。
         if folder is not None and folder.is_dir():
-            from writing_quality import list_reports
+            from domain.writing_quality import list_reports
             rows = list_reports(folder)
             if rows and Path(rows[0]['report_path']).is_file():
                 self.script_page_services.open_path(rows[0]['report_path'])
@@ -213,7 +213,7 @@ class ScriptPagesMixin:
                     state.update(signature=signature, changed=time.monotonic())
                 elif signature != state['reported'] and time.monotonic() - state['changed'] >= 10:
                     from stage_execution_service import collect_writing_quality
-                    from writing_quality import OPEN, CLOSE
+                    from domain.writing_quality import OPEN, CLOSE
                     text = target.read_text(encoding='utf-8')
                     if OPEN not in text or text.rstrip().endswith(CLOSE) or time.monotonic() - state['changed'] >= 30:
                         result = collect_writing_quality(project, target)
@@ -479,7 +479,7 @@ class _ScriptStructurePage:
     def build(self):
         import contract.script_contract as script_contract
         self.script_contract = script_contract
-        from script_workspace_service import script_structure_documents
+        from domain.script_workspace_service import script_structure_documents
         structure = script_structure_documents(self.page.root)
         source_directory = structure.source_directory
         structure_directory = structure.output_directory
@@ -734,7 +734,7 @@ class _ContentBox:
     def delete_document(self):
         """目录右键删除只移入项目回收站；来源稿删除后刷新会隐藏关联结构稿。"""
         selected = self.file_list.selection()
-        from script_workspace_service import selected_workspace_document
+        from domain.script_workspace_service import selected_workspace_document
         destination = selected_workspace_document(self.available, selected[0] if selected else None)
         from storage_maintenance import recycle_paths
         records = recycle_paths(self.owner.page.root, [destination], '删除' + self.title)

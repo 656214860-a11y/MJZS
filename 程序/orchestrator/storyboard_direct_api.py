@@ -186,7 +186,7 @@ def _episode(batch, script, existing_board):
     from integrations import script_text
     from project_context_factory import project_context
     from storyboard_catalog_service import document_dir, file_order, working_dir
-    from storyboard_storage import canonical_name
+    from domain.storyboard_storage import canonical_name
     project = batch.project
     context = project_context(project)
     number = file_order(script)[0]

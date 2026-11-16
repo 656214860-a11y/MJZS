@@ -50,7 +50,7 @@ def import_result(studio, sid, path):
     with ExitStack() as stack:
         try: stack.enter_context(studio.lock())
         except ValueError as exc: raise BlockingIOError('项目正被其他操作使用') from exc
-        from video_task_state import generation_active
+        from domain.video_task_state import generation_active
         if generation_active(studio,sid):raise BlockingIOError('视频生成期间暂缓导入提示词')
         episode = read(studio.episode_path)
         shot = next((item for item in episode['shots'] if item['id'] == sid), None)
@@ -92,7 +92,7 @@ class PromptResults:
         for shot in episode['shots']:
             sid = shot['id']; path = app.studio.media_dir/'video_prompts'/(sid+'.json')
             if not path.is_file(): continue
-            from video_task_state import prompt_locked
+            from domain.video_task_state import prompt_locked
             if prompt_locked(app,sid):continue
             stat = path.stat(); key = (stat.st_mtime_ns, stat.st_size, fingerprint(shot))
             if self.seen.get(sid) == key: continue

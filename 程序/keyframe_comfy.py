@@ -13,7 +13,7 @@ import ui_plugin_registry
 from responsive_ui import FlowBar, CHECK_COLUMN_WIDTH, configure_check_column, refresh_check_heading, scroll_form
 from contract.storyboard_paths import media_root
 from ui_tokens import CHAR_WIDTH, TEXT_ROWS, WRAPLENGTH, COLORS, FONTS, SPACING
-from keyframe_batch import (MODE_LABELS, MODE_MISSING, MODE_RETRY, STATE_MISSING,
+from domain.keyframe_batch import (MODE_LABELS, MODE_MISSING, MODE_RETRY, STATE_MISSING,
                             batch_plan, frame_prompt, frame_state, plan_summary)
 from contract.production_model_contract import (LOCAL_KEYFRAME_MODEL,
                                        SEEDREAM_KEYFRAME_MODEL,
@@ -175,7 +175,7 @@ def run_seedream(source, shots, options, log, stop=None, *, project=None):
             failed.append(sid + '：参考图超过 10 张'); log(sid + '：参考图超过 10 张，Seedream 每项最多 10 张'); continue
         payload = _seedream_payload(profile['model'], prompt, aspect, images)
         trace = {'model': profile['model'], 'shot_id': sid, 'provenance': _seedream_provenance(payload)}
-        from keyframe_evidence import source_evidence
+        from domain.keyframe_evidence import source_evidence
         frozen_source = source_evidence(source, episode, current)
         request_id = 'image:' + uuid4().hex
         save(record_file, {'request_id': request_id, 'state': 'sending', **trace})

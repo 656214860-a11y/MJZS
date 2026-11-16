@@ -11,7 +11,7 @@ import ui_plugin_registry
 from contract.app_metadata import APP_NAME, VERSION
 from datetime import date
 from pathlib import Path
-from projects import needs_cleanup_after_open_error
+from domain.projects import needs_cleanup_after_open_error
 from tkinter import ttk
 from responsive_ui import FlowBar, auto_height
 from ui_motion import EmptyState, bind_row_hover

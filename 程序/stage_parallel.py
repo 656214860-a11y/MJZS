@@ -647,7 +647,7 @@ def _current_shots(project):
     if not entries:
         return []
     try:
-        from storyboard_adoption_contract import prefs, resolve_source
+        from domain.storyboard_adoption_contract import prefs, resolve_source
         frame = prefs(project).get('frame_json')
         if frame:
             target = resolve_source(project, frame)
@@ -831,7 +831,7 @@ def frames_ready(project):
     """SG-04：每个镜头的首帧都在，且不是空文件。"""
     row = gate_for('previs')
     from contract.storyboard_paths import media_root
-    from keyframe_evidence import frame_problem
+    from domain.keyframe_evidence import frame_problem
     from file_cache import read_json
     from stage_config import workflow_lock
     aspect = workflow_lock(project).get('aspect_ratio')
@@ -866,7 +866,7 @@ def frames_ready(project):
 def previs_ready(project):
     """SG-05：需要白模的镜头（复杂动作与中等动作）都有可播放的预演产物。"""
     row = gate_for('video')
-    from previs_routing import classify, decisions_for, ready
+    from domain.previs_routing import classify, decisions_for, ready
     from project_context_factory import project_context
     context = project_context(project)
     adopted = _adopted(project)

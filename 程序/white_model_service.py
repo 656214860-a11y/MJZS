@@ -11,7 +11,7 @@ from pathlib import Path
 
 from file_cache import probe_writable, read_json, remove_temporary_file
 from contract.platform_tools import run_process
-from project_naming import dated_path
+from domain.project_naming import dated_path
 import contract.stage_layout as stage_layout
 from contract.project_context import ProjectContext
 
@@ -545,7 +545,7 @@ def shot_directory(context, sid, workspace_path=None, source=None):
 
 def _adopted_shots(root):
     """采用分镜的「镜头→集」映射与来源版本；同一镜头落在两集时拒绝猜。"""
-    from storyboard_adoption_contract import adopted
+    from domain.storyboard_adoption_contract import adopted
     mapping, versions = {}, {}
     for path in adopted(root):
         stat = Path(path).stat()

@@ -92,7 +92,7 @@ def references(shot):
 
 
 def scope_sources(project=None,scope='all', *, context=None):
-    from storyboard_adoption_contract import adopted
+    from domain.storyboard_adoption_contract import adopted
     project=_project_root(project, context=context)
     result=adopted(project)
     if scope=='current':

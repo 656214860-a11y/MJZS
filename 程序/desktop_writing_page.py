@@ -181,7 +181,7 @@ class _WritingPage:
         self.page = page
 
     def build(self):
-        from script_workspace_service import ensure_script_workspace
+        from domain.script_workspace_service import ensure_script_workspace
         result=ensure_script_workspace(self.page.root)
         if not result.ok:raise ValueError(result.reason)
         # 第 69 期任务 4：原来第一行那句「在下面的对话框写想法…」删掉——页面自己会说清怎么走。

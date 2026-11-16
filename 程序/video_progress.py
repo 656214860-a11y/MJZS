@@ -2,7 +2,7 @@
 import time
 from pathlib import Path
 from file_cache import read_json_shared as read_cached
-from video_task_state import ACTIVE,elapsed_text,provider_failure_reason
+from domain.video_task_state import ACTIVE,elapsed_text,provider_failure_reason
 from contract.storyboard_paths import config_listing,resolved_path
 
 LABELS={'submitting':'提交中','unknown':'待核实','queued':'排队中','running':'生成中',
