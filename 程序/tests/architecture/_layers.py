@@ -64,7 +64,6 @@ _register(2, "entitlement_service", "account_client")
 _register(3, "account_controller")
 _register(4, "account_inputs", "desktop_account_page", "desktop_login_gate", "desktop_page_nav", "desktop_lifecycle", "desktop_files_panel")
 _register(3, "edit_habits")
-_register(4, "edit_habits_dialog")
 # R2184：工作流调用设置窗口从 workflow_settings 拆出（R2178 J1），workflow_settings 自身不再导入 Tk。
 _register(4, "workflow_settings_dialog")
 # R2311（J 路线 #20）：缩略图缓存要 tk.PhotoImage，调用方全是 L4，改登记 L4；「选择分镜」下拉框从 storyboard_selection 拆出。
@@ -88,7 +87,7 @@ _register(3, "workflow_settings", "legacy_compat", "qwen_adapter", "skill_inline
 # asset_reference_prompts 懒加载 L2 的 storyboard_catalog_service → L2。
 _register(1, "project_settings", "cloud_assets", "asset_prompt_rules")
 _register(2, "asset_reference_prompts")
-_register(4, "project_settings_dialog", "cloud_assets_dialog", "asset_prompt_check_dialog", "asset_reference_prompts_dialog")
+_register(4, "cloud_assets_dialog", "asset_prompt_check_dialog", "asset_reference_prompts_dialog")
 # R2203（R2178 J10）：模型调用计量序列只依赖传入的台账对象，无导入 → L1。
 _register(1, "model_metering")
 _register(3, "desktop_send_ledger")

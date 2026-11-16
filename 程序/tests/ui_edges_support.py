@@ -179,14 +179,6 @@ def make_populated_project(td):
     return proj
 
 class UiEdgeCase(unittest.TestCase):
-    def setUp(self):
-        """第 32 期第 2 条：无人值守的勾选框现在勾上就先弹一次确认——用例里默认放行，
-        确认逻辑本身由 test_unattended_switch_asks_first 单独盯着。"""
-        import project_settings_dialog
-        real = project_settings_dialog.confirm_unattended
-        self.addCleanup(setattr, project_settings_dialog, "confirm_unattended", real)
-        project_settings_dialog.confirm_unattended = lambda *a, **k: True
-
     def enable_sanhu_auto(self, desktop, *enabled_variables):
         """通过三虎的公开模式接口启动无人值守，避免测试绕过实际门禁。"""
         import pet_ui
