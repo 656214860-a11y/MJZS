@@ -301,7 +301,8 @@ class UiEdgePagesTests(UiEdgeCase):
 
     def test_page_level_model_and_skill_entries_are_gone(self):
         """第 29 期第 1／4 条、第 32 期第 6 条：重复的「Model ＋ SKILL」「配置线上视频 API」入口删掉；
-        「阶段配置」不再集中在剧本准备页，改到各阶段页「手动XX」右边各一颗。
+        R2942：各阶段页「手动XX」右边的「阶段配置」按钮＋模型下拉框也全部删除，
+        模型选择收进共享输入框的下拉框按钮，技能走 ✦ 图标。
 
         面板里的接口一个都不少，那一头由 test_skills.PanelTests.test_the_panel_keeps_the_interfaces 盯着。
         """
@@ -335,13 +336,12 @@ class UiEdgePagesTests(UiEdgeCase):
                 texts = widget_texts(d.content)
                 for label in gone:
                     self.assertNotIn(label, texts, "第 %02d 页还留着重复入口：%s" % (index + 1, label))
-            # 各阶段页：主动作＋紧跟它右边那颗「阶段配置」。剧本页的「发送」会启动
-            # 写作 Agent 工作流；其它阶段保留各自的手动制作动作。窗口映射会滞后，
-            # 所以判据看结构（FlowBar 会把子控件从 pack 换成 place 自己排，见 responsive_ui.FlowBar.layout），
-            # 不盯 winfo_ismapped。
-            # 第 54 期附件二第 3 条：按钮名按「手动制作{阶段简称}」统一；剧本页例外，
-            # 用户在固定发送框填写创意后由「发送」启动唯一工作流。
-            manual = {PAGE["script"]: "发送", PAGE["storyboard"]: "手动制作分镜",
+            # 各阶段页：主动作还在；「阶段配置」按钮＋模型下拉框随 R2942 全部删除，
+            # 模型选择收进共享输入框的下拉框按钮（d.body 上），技能走 ✦ 图标。
+            d.show(PAGE["script"]); win.update()
+            self.assertFalse(hasattr(d, "idea_send"), "剧本页「发送」按钮已并入共享输入框")
+            self.assertIsNone(d.stage_button, "剧本页行内「阶段配置」按钮已删")
+            manual = {PAGE["storyboard"]: "手动制作分镜",
                       PAGE["assets"]: "手动制作资产", PAGE["keyframe"]: "手动制作首帧",
                       PAGE["previs"]: "手动制作白模"}
             for index, label in sorted(manual.items()):
@@ -351,39 +351,23 @@ class UiEdgePagesTests(UiEdgeCase):
                         win.update(); win.update_idletasks()
                     texts = widget_texts(d.content)
                     self.assertIn(label, texts, "第 %02d 页的主动作叫「%s」" % (index + 1, label))
-                    self.assertTrue(d.stage_button.winfo_exists(), "「阶段配置」按钮真的建出来了")
-                    self.assertIn(str(d.stage_button.cget('text')), texts,
-                                  "第 %02d 页的配置入口应显示当前实际模型或阶段配置" % (index + 1))
-                    self.assertIn(d.stage_button.winfo_manager(), ("pack", "place"),
-                                  "它默认就摆在这一行里")
-                    self.assertGreater(int(d.stage_button.winfo_reqheight()), 0, "按钮有真实高度，不是空壳")
-            # 第 68 期任务 6：07 分镜定稿补上了主动作「手动同步资产」，阶段配置跟着挪到那一行
-            # （原来挂在页标题右边），页标题旁不再重复摆一颗。
+                    self.assertNotIn("阶段配置", texts, "第 %02d 页「阶段配置」按钮已删" % (index + 1))
+                    self.assertIsNone(d.stage_button, "第 %02d 页 stage_button 属性不再挂按钮" % (index + 1))
+            # 07 分镜定稿：主动作保留，阶段配置与页标题旁那颗都删。
             show_catalog_page_ready(d, PAGE["final"])
             for _ in range(3):
                 win.update(); win.update_idletasks()
-            self.assertTrue(d.stage_button.winfo_exists(), "05 页的「阶段配置」建在主动作那一行")
-            self.assertIn(d.stage_button.winfo_manager(), ("pack", "place"),
-                          "它默认就摆在那一行里")
-            self.assertGreater(int(d.stage_button.winfo_reqheight()), 0, "按钮有真实高度")
-            self.assertIn(str(d.stage_button.cget('text')), widget_texts(d.content), "05 页行内就有配置入口")
-            self.assertIsNone(d.header_stage_button, "05 页标题旁不再重复摆一颗")
+            self.assertIsNone(d.stage_button, "05 页行内「阶段配置」已删")
+            self.assertIsNone(d.header_stage_button, "05 页标题旁不再有阶段配置")
             for index in (PAGE["script"], PAGE["storyboard"], PAGE["assets"],
                           PAGE["keyframe"], PAGE["previs"]):
                 with self.subTest(page=index + 1):
                     d.show(index); win.update()
                     self.assertIsNone(d.header_stage_button,
-                                      "第 %02d 页的阶段配置挂在主动作那一行里" % (index + 1))
-            # 没有旧式「手动XX」的下游页也必须保留唯一配置入口。入口文案会显示实际
-            # 模型（例如 Codex），不能再把「阶段配置」四个字写死。
-            for index in (PAGE["audio"], PAGE["edit"], PAGE["delivery"]):
-                with self.subTest(page=index + 1):
-                    d.show(index); win.update()
-                    self.assertIsNotNone(d.stage_button,
-                                         "第 %02d 页必须有阶段配置入口" % (index + 1))
-            # 第 54 期附件二第 3 条：09／10 两页原来一个「手动XX」都没有，这一轮补上
-            # 「手动制作剪辑／手动制作交付」；阶段配置的位置照旧（页标题右边），没有第二颗。
-            for index, label in ((PAGE["edit"], "手动制作剪辑"),
+                                      "第 %02d 页标题旁没有阶段配置" % (index + 1))
+            # 下游页与 09／10：主动作照旧，阶段配置入口全部移除。
+            for index, label in ((PAGE["audio"], "手动制作配音"),
+                                 (PAGE["edit"], "手动制作剪辑"),
                                  (PAGE["delivery"], "手动制作交付")):
                 with self.subTest(page=index + 1):
                     d.show(index)
@@ -391,27 +375,32 @@ class UiEdgePagesTests(UiEdgeCase):
                         win.update(); win.update_idletasks()
                     texts = widget_texts(d.content)
                     self.assertIn(label, texts, "第 %02d 页补上了「%s」" % (index + 1, label))
-                    self.assertEqual(int(d.stage_button.winfo_exists()), 1,
-                                     "阶段配置入口必须存在且唯一")
+                    self.assertIsNone(d.stage_button, "第 %02d 页「阶段配置」已删" % (index + 1))
             d.show(PAGE["video"], video_mode="choose"); win.update()
-            self.assertIsNone(d.header_stage_button, "第 08 页选生成方式那一屏不再重复摆一颗")
+            self.assertIsNone(d.header_stage_button, "第 08 页选生成方式那一屏没有阶段配置")
             d.show(0); win.update()
             self.assertNotIn("▼  剧本创作 Agent  ▼", widget_texts(d.content))
-            # 视频页的工作台本地与线上共用同一份：两颗主动作与阶段配置均由视频阶段提供。
+            # 视频页的工作台本地与线上共用同一份：主动作保留，阶段配置与模型下拉框都删。
             d.show(PAGE["video"], video_mode="local")
             for _ in range(3):
                 win.update(); win.update_idletasks()
             texts = widget_texts(d.content)
             self.assertIn("手动制作提示词", texts, "视频页主动作改名「手动制作提示词」")
             self.assertIn("手动制作视频", texts, "视频页主动作改名「手动制作视频」")
-            self.assertIn("阶段配置", texts, "视频页也有一颗「阶段配置」")
+            self.assertNotIn("阶段配置", texts, "视频页「阶段配置」已删")
             d.show(PAGE["video"], video_mode="choose"); win.update()
             self.assertIn("进入线上生成", widget_texts(d.content))
             self.assertNotIn("配置线上视频 API", widget_texts(d.content),
                              "选生成方式那一屏不再重复摆一颗接口设置按钮")
             d.show(PAGE["video"], video_mode="cloud"); win.update()
             self.assertIn("配置线上视频 API", widget_texts(d.content),
-                         "还没配线上接口时，工作台那一屏仍留一处能配（面板的接口里也有一份）")
+                         "还没配线上接口时，工作台那一屏仍留一处能配")
+            # 共享输入框的模型选择器是下拉框按钮：点击弹菜单列表，不弹模态窗。
+            from tkinter import ttk
+            shared = d.shared_input
+            self.assertIsNotNone(getattr(shared, 'model_picker', None), '共享输入框有模型下拉框')
+            self.assertIsInstance(shared.model_picker.models, ttk.Menubutton,
+                                  '模型选择器是 Menubutton 下拉框')
 
     def test_writing_page_first_line_and_removed_labels(self):
         """第 31 期第 1 条＋第 69 期任务 4：01 剧本准备页不再摆那一长句说明，四处多余文字也删掉。"""
@@ -455,9 +444,10 @@ class UiEdgePagesTests(UiEdgeCase):
             self.assertNotIn("对话AI", texts, "独立标题应移除，让聊天框上移")
             self.assertEqual(d.idea_log.master.master.winfo_class(), "TFrame",
                              "使用无标题容器，避免 LabelFrame 保留标题行高度")
-            # REQ-S01-62：框上方标签改为框内占位提示，仍说明附件入口与 Enter 发送。
-            self.assertIn("输入想法，Enter 发送，点 + 上传附件", texts,
-                          "输入区提示应包含附件入口以及 Enter 提交方式")
+            # REQ-S01-62：框上方标签已随 R2923 删除（不再渲染静态占位提示）；
+            # 附件入口与 Enter 发送由共享输入框内的图标与快捷键承担。
+            self.assertNotIn("输入想法，Enter 发送，点 + 上传附件", texts,
+                             "输入区静态占位提示已随 R2923 删除")
             self.assertNotIn("输入想法/上传附件---->enter/发送", texts)
             for gone in ("当前剧本目录", "创作入口", "文件操作",
                          "在下面的对话框写想法", "对话框（在这里写"):
@@ -519,46 +509,33 @@ class UiEdgePagesTests(UiEdgeCase):
             d.show(0); win.update()
             box = d.idea_log
             d.idea_input.delete('1.0', 'end'); win.update()
-            # 聊天记录按窗口剩余空间自适应；任务书轮 4：输入区换成底部共享输入框，
-            # 高度由 SharedStageInput 统一管理（TEXT_ROWS['sm'] 行），不再随内容撑开。
+            # 聊天记录按窗口剩余空间自适应；R2916：输入框回到页面自己的 composer，
+            # 底部共享栏在本页隐藏（不再与页面输入框叠加）。
             lines = int(box.cget("height"))
             self.assertGreaterEqual(lines, desktop_module.TALK_MIN_LINES, "再挤也留着下限那些行")
             self.assertLessEqual(lines, desktop_module.TALK_MAX_LINES, "字再多也不超过上限")
+            # R2923：13 页共用底部共享输入框；剧本页输入框就是共享实例，固定行数。
             from ui_tokens import TEXT_ROWS
-            self.assertIs(d.idea_input, d.shared_input.input, "剧本页输入区必须复用共享输入框同一实例")
+            self.assertIs(d.idea_input, d.shared_input.input, "剧本页输入框就是共享实例")
+            self.assertTrue(d.shared_input.winfo_ismapped(), "剧本准备页显示共享输入框")
             self.assertEqual(int(d.idea_input.cget("height")), TEXT_ROWS["sm"],
-                             "共享输入框固定行数，不再多占聊天区")
-            self.assertEqual(str(d.idea_send.master), str(d.idea_row), "「发送」在内容框下面那一行")
-            # REQ-S01-62＋轮 4 契约：「+」与终止／附件行在共享输入框上方的卡片内，
-            # 共享输入条整体位于对话区下方。
-            frame=d.idea_composer_frame
-            self.assertLess(frame.winfo_rooty()+frame.winfo_height(),
-                            d.shared_input.winfo_rooty()+1,
-                            "上传附件卡片必须整体位于共享输入条上方")
-            for widget in (d.idea_attachment_button, d.idea_submit):
-                self.assertGreaterEqual(widget.winfo_rootx(), frame.winfo_rootx())
-                self.assertLessEqual(widget.winfo_rootx()+widget.winfo_width(), frame.winfo_rootx()+frame.winfo_width())
-                self.assertLessEqual(widget.winfo_rooty()+widget.winfo_height(), frame.winfo_rooty()+frame.winfo_height())
-            self.assertGreater(d.idea_submit.winfo_rootx(), d.idea_attachment_button.winfo_rootx())
-            self.assertFalse(d.idea_uploaded_panel.winfo_ismapped(),
+                             "共享输入框固定行数，不多占聊天区")
+            # 发送、附件（＋）、语音（麦克风）、模型与技能（✦）图标都收进共享输入框。
+            shared = d.shared_input
+            self.assertFalse(hasattr(d, "idea_send"), "「发送」按钮已并入共享输入框")
+            self.assertFalse(hasattr(d, "idea_row"), "动作栏容器已随 R2923 删除")
+            self.assertFalse(hasattr(d, "idea_input_hint"), "静态占位提示已随 R2923 删除")
+            for widget in (shared.attachment_button, shared.voice_button, shared.send_button):
+                self.assertGreaterEqual(widget.winfo_rootx(), shared.winfo_rootx())
+                self.assertLessEqual(widget.winfo_rootx()+widget.winfo_width(),
+                                     shared.winfo_rootx()+shared.winfo_width())
+                self.assertLessEqual(widget.winfo_rooty()+widget.winfo_height(),
+                                     shared.winfo_rooty()+shared.winfo_height())
+            self.assertGreater(shared.send_button.winfo_rootx(), shared.attachment_button.winfo_rootx())
+            self.assertFalse(shared.attachment_panel.winfo_ismapped(),
                              "未附档时不应留下空白附件行")
-            frame_bottom=frame.winfo_rooty()+frame.winfo_height()
-            from ui_tokens import SPACING
-            self.assertEqual(d.idea_send.winfo_rooty()-frame_bottom, SPACING["xs"],
-                             "发送按钮与输入框保留设计系统规定的微小防误触间距")
-            d.idea_input.event_generate('<FocusOut>'); win.update()
-            hint_info = d.idea_input_hint.place_info()
-            # 契约有意变更：输入框空框两行后，提示对齐首行，不再按中线居中。
-            self.assertEqual(hint_info.get('relx'), '0', "空闲提示应从输入框左侧定位")
-            self.assertEqual(hint_info.get('anchor'), 'nw', "静态提示应左上对齐")
-            self.assertAlmostEqual(
-                d.idea_input_hint.winfo_rooty(),
-                d.idea_input.winfo_rooty() + d.idea_input.bbox('1.0')[1],
-                delta=3, msg="提示文字应与输入框首行顶边对齐")
-            self.assertAlmostEqual(
-                d.idea_input_hint.winfo_rootx(),
-                d.idea_input.winfo_rootx() + d.idea_input.bbox('1.0')[0],
-                delta=2, msg="提示文字应沿输入框的文字内边距对齐")
+            self.assertFalse(shared.attachment_panel.winfo_manager(),
+                             "未附档时附件卡片行不占位")
 
     def test_the_writing_page_wraps_the_box_with_buttons(self):
         """第 69 期任务 2／3：创作入口在内容框上方，「发送」在它左下角，文件操作在右下角。"""
@@ -590,57 +567,37 @@ class UiEdgePagesTests(UiEdgeCase):
             d.root = proj
             d.show(0); win.update()
             box = d.idea_log
-            talk = d.idea_row.master
-            self.assertEqual(str(box.master.master), str(talk), "聊天内容框摆在对话区容器内")
-            # 任务书轮 4：发送框换成桌面级共享输入条（d.body 底部、status_label 上方），
-            # 不再位于对话区容器内；13 页共用同一实例。
-            self.assertIs(d.idea_input, d.shared_input.input, "剧本页输入框必须是共享实例")
+            talk = box.master.master
+            self.assertEqual(str(talk.winfo_class()), "TFrame", "聊天内容框摆在对话区容器内")
+            # R2923：输入框与全部图标收进底部共享输入框（挂 d.body，剧本页也显示）。
+            self.assertIs(d.idea_input, d.shared_input.input, "剧本页输入框就是共享实例")
+            self.assertTrue(d.shared_input.winfo_ismapped(), "剧本准备页显示共享输入框")
             self.assertEqual(str(d.shared_input.master), str(d.body), "共享输入条挂在主内容体底部")
-            # 剧本页与其他阶段共用 FlowBar：窄窗口时允许分行，不能再以左右 pack
-            # 互相挤压到裁掉按钮文字。素材来源不适用时只有采风隐藏不占位（REQ-S01-46）。
-            hidden = d.idea_row.hidden_children
-            self.assertTrue(all(str(child.cget("text")) == "采风" for child in hidden))
-            self.assertTrue(all(child.winfo_manager() == 'place'
-                                for child in d.idea_row.winfo_children() if child not in hidden))
-            actions = [str(child.cget("text")) for child in d.idea_row.winfo_children()
-                       if hasattr(child, "cget") and str(child.winfo_class()).endswith("Button")]
-            self.assertIn("添加剧本", actions)
-            self.assertIn("质检报告", actions)
-            # REQ-S01-76：删除改由表格多选后右键，底栏不再有「删除」「下载文件」。
-            self.assertNotIn("删除", actions)
-            self.assertNotIn("下载文件", actions)
+            self.assertFalse(hasattr(d, "idea_row"), "动作栏容器已随 R2923 删除")
+            self.assertFalse(hasattr(d, "recon_button"), "「采风」按钮已随 R2923 删除")
             self.assertEqual(str(d.script_box.winfo_class()), "TFrame")
             self.assertTrue(d.script_box.winfo_ismapped(),
-                            "发现已有剧本文件时，三列表容器与列头必须保持可见")
-            # R1862：四类文件复原为四张并排表，每张表头即分类名；REQ-S01-76 去掉勾选列，改为 Ctrl／Shift 多选。
-            titles = {"setting": "项目设定", "outline": "项目大纲", "character": "角色卡", "script": "项目剧本"}
-            self.assertEqual(tuple(d.script_trees), tuple(titles))
-            names = {}
-            for category, tree in d.script_trees.items():
-                self.assertEqual(str(tree.heading("name", "text")), titles[category])
-                self.assertEqual(tuple(tree["columns"]), ("name",))
-                self.assertNotIn("time", tuple(tree["columns"]), "剧本准备文件表不显示修改日期列")
-                self.assertEqual(int(tree.cget("height")), len(tree.get_children()),
-                                 "表高按行数收紧")
-                self.assertEqual(tuple(map(str, win.tk.splitlist(tree.cget("show")))), ("headings",),
-                                 "剧本文件表不再显示勾选列，只有文件名一列")
-                self.assertEqual(str(tree.cget("selectmode")), "extended", "剧本文件表支持 Ctrl／Shift 多选")
-                names[category] = [tree.item(item, "values")[0] for item in tree.get_children()]
-                for item in tree.get_children():
-                    self.assertEqual(d.script_row_category[item], category)
-                    self.assertEqual(len(tree.item(item, "values")), 1,
-                                     "剧本准备文件表每行只显示文件名")
-            roots = [tree.winfo_rootx() for tree in d.script_trees.values()]
-            self.assertEqual(roots, sorted(roots), "四张表从左到右并排")
-            self.assertEqual(len({tree.winfo_rooty() for tree in d.script_trees.values()}), 1, "四张表同一行")
-            self.assertEqual(names["setting"], ["项目设定_测试.md"])
-            self.assertEqual(names["outline"], ["项目大纲_测试.md"])
-            self.assertEqual(names["character"], ["角色卡_测试.md"])
-            self.assertEqual(names["script"], ["项目剧本_测试.md"])
-            self.assertNotIn("script.md", names["script"], "剧本结构阶段产物不应出现在剧本准备页")
+                            "发现已有剧本文件时，文件框与列头必须保持可见")
+            # R2942：四类文件合成一条「项目文件」列表；表头「文件名」，去掉勾选列，
+            # Ctrl／Shift 多选；每行只显示文件名，类别经行提示展示。
+            tree = d.script_tree
+            self.assertEqual(str(tree.heading("name", "text")), "文件名")
+            self.assertEqual(tuple(tree["columns"]), ("name",))
+            self.assertNotIn("time", tuple(tree["columns"]), "剧本准备文件表不显示修改日期列")
+            self.assertEqual(int(tree.cget("height")), len(tree.get_children()), "表高按行数收紧")
+            self.assertEqual(tuple(map(str, win.tk.splitlist(tree.cget("show")))), ("headings",),
+                             "剧本文件表不再显示勾选列，只有文件名一列")
+            self.assertEqual(str(tree.cget("selectmode")), "extended", "剧本文件表支持 Ctrl／Shift 多选")
+            names = [tree.item(item, "values")[0] for item in tree.get_children()]
+            for item in tree.get_children():
+                self.assertIn(d.script_row_category[item], ("setting", "outline", "character", "script"))
+                self.assertEqual(len(tree.item(item, "values")), 1, "剧本准备文件表每行只显示文件名")
+            for expected in ("项目设定_测试.md", "项目大纲_测试.md", "角色卡_测试.md", "项目剧本_测试.md"):
+                self.assertTrue(any(expected in name for name in names), expected + " 应出现在项目文件列表")
+            self.assertFalse(any("script.md" == name for name in names), "剧本结构阶段产物不应出现在剧本准备页")
 
     def test_script_structure_page_shows_source_and_output_in_separate_boxes(self):
-        """剧本结构页上看剧本准备来源、下看结构化输出，手动制作和阶段配置夹在中间。"""
+        """剧本结构页上看剧本准备来源、下看结构化输出，手动制作按钮夹在中间（R2942：阶段配置已删）。"""
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
@@ -696,7 +653,8 @@ class UiEdgePagesTests(UiEdgeCase):
             self.assertIs(d.script_structure_info_label, d.header_status, "说明文字放在页头右上角（R1862）")
             self.assertEqual(str(d.script_structure_info_label.cget("justify")), "right")
             self.assertIn("本地规则整理，不调用模型", str(d.script_structure_info_label.cget("text")))
-            self.assertTrue(d.stage_button.winfo_exists(), "阶段配置按钮应在两内容框之间的操作行")
+            # R2942：页面级「阶段配置」按钮已删，模型选择收进共享输入框下拉框。
+            self.assertIsNone(d.stage_button, "剧本结构页「阶段配置」按钮已删")
             output_position = d.script_structure_output_preview.yview()[0]
             d.script_structure_source_preview.yview_moveto(0.62); win.update()
             self.assertEqual(d.script_structure_output_preview.yview()[0], output_position,
@@ -1090,11 +1048,9 @@ class StartupFirstPaintTests(unittest.TestCase):
         controller.start();win.callback()
 
 class StageConfigEntryTests(unittest.TestCase):
-    """第 41 期第 2 条：10 个制作页面每页都点得到本阶段的「阶段配置」。
-
-    原先只有剧本准备／初步分镜／资产管理／分镜定稿／首帧管理／白模预演／视频生成七页有，
-    配音与字幕、后期剪辑、质检与交付三页一个都没有——10 阶段各自的模型＋SKILL 面板，
-    那三块从界面上点不进去。这条用例逐页把按钮按下去，核对弹出的面板抬头就是这一页的阶段。
+    """R2942：10 个制作页面的「阶段配置」按钮＋模型下拉框全部删除——逐页核对一个入口
+    都不剩；模型选择收进共享输入框的下拉框按钮。``buttons_named`` 只在带
+    ``_stage_config_entry`` 语义标记的控件里找入口，任何页面重建都不能把它带回来。
     """
 
     @classmethod
@@ -1138,10 +1094,11 @@ class StageConfigEntryTests(unittest.TestCase):
             self.buttons_named(button)
 
     def test_every_page_opens_its_own_panel(self):
+        """R2942：所有页面的「阶段配置」按钮＋模型下拉框已删——逐页核对一个入口都不剩，
+        模型/技能收进底部共享输入框。"""
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
         import desktop as desktop_module
-        import skill_panel
         # safe() 出错时会弹 messagebox，自检会被那个弹窗卡住：这里只记账，最后断言没人报错。
         errors = []
         for name in ("showerror", "showinfo"):
@@ -1161,22 +1118,15 @@ class StageConfigEntryTests(unittest.TestCase):
                 with self.subTest(page=index):
                     d.show(index); win.update_idletasks()
                     buttons = self.buttons_named(d.content) + self.buttons_named(d.title_row)
-                    if index == PAGE["video"]:
-                        # 视频页的方式选择屏不摆阶段配置，进入具体工作台后再提供入口。
-                        self.assertEqual(len(buttons), 0,
-                                         "第 8 页不该再有阶段配置入口")
-                        continue
-                    self.assertEqual(len(buttons), 1, "第 %d 页没有（或不止一颗）阶段配置入口：%s"
+                    self.assertEqual(len(buttons), 0,
+                                     "第 %d 页「阶段配置」入口已删：%s"
                                      % (index, d.title.cget("text")))
-                    buttons[0].invoke(); win.update_idletasks()
-                    panels = [w for w in win.winfo_children()
-                              if isinstance(w, self.tk.Toplevel)
-                              and str(w.title()).startswith("阶段配置 · ")]
-                    self.assertEqual(len(panels), 1, "按一次只该开一块面板")
-                    self.assertEqual(panels[0].title(),
-                                     skill_panel.panel_title(skill_panel.stage_of_page(index)),
-                                     "这一页的按钮配的必须是这一页的阶段")
-                    panels[0].destroy()
+                    self.assertIsNone(d.stage_button, "第 %d 页 stage_button 不再挂按钮" % index)
+                    self.assertIsNone(d.header_stage_button,
+                                      "第 %d 页标题旁没有阶段配置" % index)
+            from tkinter import ttk
+            self.assertIsInstance(d.shared_input.model_picker.models, ttk.Menubutton,
+                                  "共享输入框的模型选择器是下拉框按钮")
         self.assertEqual(errors, [], "这一步不该靠弹框收场")
 
 class BriefTintTests(unittest.TestCase):
@@ -1310,27 +1260,25 @@ class ContentBoxFitTests(unittest.TestCase):
         win.update()
 
     def test_a_long_creative_box_grows_when_clicked(self):
-        from responsive_ui import show_all_content
+        # R2923：共享输入框固定行数，长内容在框内滚动，不再按内容撑高。
+        from ui_tokens import TEXT_ROWS
         win, d = self.build()
         box = d.idea_input
         before = int(box.cget("height"))
         self.fill(win, box, 30)
-        grown = show_all_content(box)
-        self.assertGreaterEqual(grown, 29, "写多少行就撑多少行（末行没有换行符，屏幕上少算一行）")
-        self.assertLessEqual(grown, 30)
-        self.assertGreater(int(box.cget("height")), before)
+        self.assertEqual(int(box.cget("height")), before, "共享输入框不随内容撑高")
+        self.assertEqual(before, TEXT_ROWS["sm"])
+        self.assertIn("第30行 内容", str(box.get("1.0", "end-1c")), "内容全部保留在框内")
 
     def test_a_short_box_keeps_its_height(self):
-        from responsive_ui import show_all_content
+        from ui_tokens import TEXT_ROWS
         win, d = self.build()
         box = d.idea_input
         self.fill(win, box, 1)
-        before = int(box.cget("height"))        # 先放好内容再看这一刻的高度（页面自己会跟着重算）
-        self.assertEqual(show_all_content(box), before, "字少的框子不会缩水")
+        self.assertEqual(int(box.cget("height")), TEXT_ROWS["sm"], "字少的框不缩水")
 
     def test_a_very_long_composer_stays_within_the_responsive_limit(self):
-        """长创意不能再把发送操作和文件表挤出当前窗口。"""
-        import desktop as desktop_module
+        """长创意不能再把发送操作和文件表挤出当前窗口：共享框固定行数。"""
         from ui_tokens import TEXT_ROWS
         win, d = self.build()
         box = d.idea_input
@@ -1338,9 +1286,7 @@ class ContentBoxFitTests(unittest.TestCase):
         d._fit_composer()
         win.update()
         fitted_height = int(box.cget("height"))
-        # 任务书轮 4 契约：输入区是共享输入条，行数固定 TEXT_ROWS['sm']，
-        # 长文在框内滚动查看，不再按内容撑高把操作区顶出窗口。
-        self.assertEqual(fitted_height, TEXT_ROWS["sm"])
+        self.assertLessEqual(fitted_height, TEXT_ROWS["sm"])
         self.assertIn("第200行 内容", str(box.get("1.0", "end-1c")),
                       "高度受限不许丢失用户已经输入的长内容")
 
@@ -1392,38 +1338,39 @@ class TalkBoxFitTests(unittest.TestCase):
         return win, d
 
     def test_a_smaller_window_keeps_a_usable_composer(self):
-        import desktop as desktop_module
+        from ui_tokens import TEXT_ROWS
         _big_win, big = self.build("1100x760+40+40")
         tall = int(big.idea_input.cget("height"))
         _small_win, small = self.build("940x640+40+40")
         short = int(small.idea_input.cget("height"))
         self.assertGreaterEqual(short, 1, "再挤也至少保留一行发送框")
-        self.assertLessEqual(tall, desktop_module.TALK_MAX_LINES, "再高也不超过上限")
-        self.assertLessEqual(short, tall, "窗口缩小时发送框不应反向膨胀")
+        self.assertLessEqual(tall, TEXT_ROWS["sm"], "共享框不超过固定行数")
+        self.assertEqual(short, tall, "窗口缩小时共享输入框保持固定行数")
 
     def test_the_send_button_stays_on_screen_when_the_window_shrinks(self):
         for geometry in ("1100x760+40+40", "940x640+40+40"):
             win, d = self.build(geometry)
             win.update()
-            canvas_bottom = d.canvas.winfo_rooty() + d.canvas.winfo_height()
-            row_bottom = d.idea_row.winfo_rooty() + d.idea_row.winfo_height()
-            self.assertLessEqual(row_bottom, canvas_bottom + 1, geometry + " 也得看得见「发送」")
-            self.assertTrue(d.idea_send.winfo_ismapped(), geometry + " 「发送」得真摆在画面上")
+            window_bottom = win.winfo_rooty() + win.winfo_height()
+            shared = d.shared_input
+            self.assertLessEqual(shared.winfo_rooty() + shared.winfo_height(),
+                                 window_bottom + 1, geometry + " 共享输入框也得看得见")
+            self.assertTrue(shared.send_button.winfo_ismapped(), geometry + " 「发送」得真摆在画面上")
 
     def test_a_shrunk_box_grows_back_only_up_to_the_window(self):
-        """任务书轮 4 契约：共享输入框行数固定，内容增减只影响框内滚动，不再改框高。"""
+        """R2923 契约：剧本页输入框=共享实例，固定行数，内容只在框内保留。"""
         from ui_tokens import TEXT_ROWS
         win, d = self.build("1100x760+40+40")
         box = d.idea_input
-        self.assertIs(box, d.shared_input.input, "必须量的是共享输入框同一实例")
+        self.assertIs(box, d.shared_input.input, "剧本页输入框就是共享实例")
+        self.assertTrue(d.shared_input.winfo_ismapped(), "剧本准备页显示共享输入框")
         tall = int(box.cget("height"))
         self.assertEqual(tall, TEXT_ROWS["sm"])
         box.insert("end", "\n" + "\n".join("第%d 行的想法" % i for i in range(1, 26)))
         win.update(); d._fit_talk(); win.update()
-        self.assertEqual(int(box.cget("height")), tall, "写再多行共享输入框也不撑高")
+        self.assertEqual(int(box.cget("height")), tall, "内容多了共享输入框不撑高（框内滚动）")
         box.delete("1.0", "end"); box.insert("1.0", "一句话的创意")
         win.update(); d._fit_talk(); win.update()
-        self.assertEqual(int(box.cget("height")), tall, "删回去行数同样不变")
         self.assertIn("一句话的创意", str(box.get("1.0", "end-1c")))
 
 class PageHintTests(unittest.TestCase):

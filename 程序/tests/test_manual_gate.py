@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 """第 47 期第 3 条：点「手动XX」先问一句「模型配了吗」。
 
-用户的要求：点「手动XX」按钮后弹窗提示用户到「阶段配置」配模型，并且配一次各页同步
+用户的要求：点「手动XX」按钮后弹窗提示用户去配模型，并且配一次各页同步
 （模型只存一份，各页读的都是它）。这一份盯住：
 
 * 模型已经挑过（不是「自动」）就不啰嗦；没选项目也不拦；
-* 还是「自动」时问一句：答「是」→ 打开「阶段配置」面板，这一次不开始制作（返回 False）；
-  答「否」→ 照旧开始；
+* 还是「自动」时问一句：答「是」→ 就地弹开底部共享输入框的模型下拉框（R2942 起，
+  替代原「阶段配置」面板），这一次不开始制作（返回 False）；答「否」→ 照旧开始；
 * 同一个阶段一个会话里只问一次（别每点一下都弹）；
 * 六个阶段页的「手动XX」都套了这一层：闸拦下来时那一步真的没动手。
 
@@ -52,6 +52,10 @@ class GateTests(unittest.TestCase):
         original = skill_panel.show
         skill_panel.show = lambda desktop, stage, function=None: self.opened.append(stage)
         self.addCleanup(setattr, skill_panel, "show", original)
+        self.dropped = []
+        original_drop = stage_models.open_model_dropdown
+        stage_models.open_model_dropdown = lambda desktop: self.dropped.append(desktop)
+        self.addCleanup(setattr, stage_models, "open_model_dropdown", original_drop)
 
     def message(self):
         return str(self.asks[-1][0][1]) if self.asks else ""
@@ -86,8 +90,9 @@ class GateTests(unittest.TestCase):
             desktop = stub_desktop(proj)
             self.answer = True
             self.assertFalse(self.sm.before_manual(desktop, "assets"), "答「是」这一次不开始")
-            self.assertEqual(self.opened, ["assets"], "打开的就是这一页那一个阶段的面板")
-            self.assertIn("阶段配置", desktop.status.text)
+            self.assertEqual(self.dropped, [desktop], "答「是」就弹开共享输入框的模型下拉框")
+            self.assertEqual(self.opened, [], "不再打开阶段配置面板")
+            self.assertIn("模型下拉框", desktop.status.text)
             self.assertIn("模型", desktop.status.text)
 
     def test_the_message_points_at_the_stage_config_and_the_shared_setting(self):
@@ -95,7 +100,7 @@ class GateTests(unittest.TestCase):
             proj = Path(td) / "p"; proj.mkdir()
             self.sm.before_manual(stub_desktop(proj), "previs")
             text = self.message()
-            self.assertIn("阶段配置", text)
+            self.assertIn("模型下拉框", text)
             self.assertIn("模型", text)
             self.assertIn("白模预演", text, "说清是哪一步")
             self.assertIn("跟着变", text, "说清「配一次各页同步」")

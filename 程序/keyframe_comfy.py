@@ -65,12 +65,12 @@ def write_settings(values):
 def current_model(project):
     """「首帧制作」窗口这会儿用的首帧模型（第 46 期第 7 条）。
 
-    用户要的是「把『生成模型与接口』下拉框里的模型搬到阶段配置 → 模型」，所以这份清单不再各存
+    用户要的是「把『生成模型与接口』下拉框里的模型搬到统一模型下拉框」，所以这份清单不再各存
     一份：挑中的那一档就写在项目的 skill_config.json（阶段 id＝keyframe）里，页面上的勾选框、
-    这里、以及阶段配置面板读到的都是同一格；「自动」与认不出来的值一律按本地 FLUX 显示。
+    这里、以及共享输入框的模型下拉框读到的都是同一格；「自动」与认不出来的值一律按本地 FLUX 显示。
 
-    升级上来的老项目里 ui_settings.json 存过的那一档仍然兜底：阶段配置还没挑过生产模型时按它
-    显示，看到的还是原来那个模型（换过 Agent 引擎的人不会突然回到本地）；挑过就以阶段配置为准。
+    升级上来的老项目里 ui_settings.json 存过的那一档仍然兜底：模型下拉框还没挑过生产模型时按它
+    显示，看到的还是原来那个模型（换过 Agent 引擎的人不会突然回到本地）；挑过就以统一配置为准。
     """
     from keyframe_model_service import current_model as resolve
     return resolve(project)
@@ -503,8 +503,8 @@ class _KeyframeComfyWindow(_KeyframeComfyRows):
         self.model_box.columnconfigure(1, weight=1)
         ttk.Label(self.model_box, text='生成模型与接口').grid(row=0, column=0, columnspan=6, sticky='w')
         # 第 46 期第 7 条：这一格原来是一个「模型」下拉框（本地 ComfyUI／Seedream／首帧 Agent 引擎
-        # 三条模型都摆在这儿，与阶段配置的模型下拉重复）。现在只剩只读的一行——挑模型的地方只有
-        # 阶段配置那一处，右边留一颗「阶段配置」就地打开它（与页面上那颗按钮同一个面板）。
+        # 三条模型都摆在这儿，与统一模型下拉框重复）。现在只剩只读的一行——挑模型的地方只有
+        # 底部共享输入框的模型下拉框，右边留一颗「模型」就地弹开它（R2942）。
         ttk.Label(self.model_box, text='模型').grid(row=1, column=0, sticky='w', padx=(SPACING['none'], SPACING['xs']))
         selector = ttk.Label(self.model_box, textvariable=self.model, anchor='w')
         selector.grid(row=1, column=1, sticky='w')
@@ -523,7 +523,7 @@ class _KeyframeComfyWindow(_KeyframeComfyRows):
         self.account.grid(row=3, column=0, sticky='w')
         self.skill_button = SecondaryButton(self.model_box, text='Skill 调用设置')
         self.skill_button.grid(row=3, column=1, sticky='w')
-        stage_button = SecondaryButton(self.model_box, text='阶段配置',
+        stage_button = SecondaryButton(self.model_box, text='模型',
                                   command=lambda: self.app.safe(self.open_stage_config))
         stage_button.grid(row=3, column=2, sticky='w', padx=SPACING['xs'])
 
@@ -606,8 +606,9 @@ class _KeyframeComfyWindow(_KeyframeComfyRows):
         seedream_show(self.win, on_saved=self.update_model_ui)
 
     def open_stage_config(self):
-        """去「阶段配置 → 模型」挑首帧模型（与页面上那颗按钮同一个面板）。"""
-        ui_plugin_registry.module('skill_panel').show(self.app, 'keyframe')
+        """R2942：去底部共享输入框的模型下拉框挑首帧模型（唯一入口）。"""
+        import stage_models
+        stage_models.open_model_dropdown(self.app)
 
     def open_agent_settings(self):
         self.app.flow_settings(STAGE, '首帧制作')

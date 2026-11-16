@@ -140,7 +140,7 @@ class App:
         self._build_progress_and_log()
         from video_prompt_results import PromptResults
         self.prompt_results=PromptResults()
-        # 第 59 期第 7 条：self.stage_button 在这里不再清空——它就是「手动制作视频」右边那一颗。
+        # R2942：视频工作台的「阶段配置」按钮＋模型下拉框已删，stage_button 属性只留 None 占位。
         self.closed=False;self.window.bind('<Destroy>',self.cancel_timers,add='+')
         self.refresh();self.timer=self.scheduler.after(150,self.tick)
 
@@ -281,9 +281,7 @@ class App:
         # 第 32 期第 4 条：主动作改名「手动制作提示词」并用主色按钮突出，其余是辅助动作。
         # 本地生成与线上生成共用这一份工作台，改一处两边都生效。
         # 第 45 期：「MCP 优化」也要醒目——它是要花钱的那一步，样式表里给它留了一档琥珀色。
-        # 第 58 期第 4 条：「阶段配置」摆在「手动制作提示词」右边（见下面的循环）。
-        # 第 59 期第 7 条：两行各有一颗、各配各的阶段；桌面端认的 self.stage_button 改指
-        # 「手动制作视频」右边那一颗（它才是这一页的阶段：10 视频生成）。
+        # R2942：两行「阶段配置」按钮＋模型下拉框删除，stage_button／prompt_stage_button 只留 None 占位。
         self.stage_button=None;self.prompt_stage_button=None
         for label,action in [('手动制作提示词',self.start_prompt_skill),('MCP 优化',self.make_prompt),('MCP 设置',lambda:ui_plugin_registry.module('agent.prompt_optimizer').settings(self)),('保存提示词',self.save_prompt),('导入提示词',self.import_prompt),('当前提示词目录',self.open_prompt_folder)]:
             # MCP 优化会产生额外调用成本；保留既有警示层级，其余动作统一走 token 组件。
@@ -296,13 +294,7 @@ class App:
                                 command=lambda f=action:self.safe(f))
             btn.pack(side='left',padx=(SPACING['none'],SPACING['xs']),pady=SPACING['xs'])
             if label!='当前提示词目录':self.prompt_buttons.append(btn)
-            # 第 58 期第 4 条：「阶段配置」紧挨在「手动制作提示词」右边。
-            # 第 59 期第 7 条：这一颗配的是出提示词那一步（宿主传进来的 prompt_stage_callback），
-            # 与下面视频那一颗不是同一份配置——两步本来就各用各的模型与 SKILL。
-            if label=='手动制作提示词' and self.prompt_stage_callback is not None:
-                self.prompt_stage_button=ui_plugin_registry.module('skill_panel').stage_button_for(
-                    prompt_actions,lambda:self.safe(self.prompt_stage_callback))
-                self.prompt_stage_button.pack(side='left',padx=(SPACING['sm'],SPACING['xs']),pady=SPACING['xs'])
+            # R2942：「阶段配置」按钮＋模型下拉框删除（模型/技能走共享输入框）。
 
     def _build_white_model_cells(self, table_shell):
         """白模勾选格与镜头表滚动联动（从 __init__ 原样切出，R1807）。"""
@@ -333,8 +325,9 @@ class App:
         def add(bar,title,fn,primary=False):
             """按想要的次序建按钮：FlowBar 是按建控件的先后排的（不是 pack 顺序）。
 
-            第 39 期第 2 条起分成两条 FlowBar：第一行「手动制作视频」→「阶段配置」→「播放视频」→
-            其余常用动作；第二行「通过」→ 目录与任务 →「需修改」→「批量生成勾选镜头」→ 验收备注。
+            第 39 期第 2 条起分成两条 FlowBar：第一行「手动制作视频」→「播放视频」→
+            其余常用动作（R2942：原「阶段配置」按钮已删）；第二行「通过」→ 目录与任务 →
+            「需修改」→「批量生成勾选镜头」→ 验收备注。
             """
             button=(PrimaryButton if primary else SecondaryButton)(bar,text=title,
                               width=16 if primary else 0,
@@ -343,20 +336,14 @@ class App:
             if primary:
                 self.generate_button=button
                 # 第 32 期第 4／6 条、第 54 期附件二第 3 条：主动作叫「手动制作视频」并突出。
-                # 第 59 期第 7 条：主动作右边还是要有一颗属于这一步的「阶段配置」（见下面那一行）。
+                # R2942：主动作右边不再挂「阶段配置」按钮。
             return button
         # 第 54 期附件二第 3 条：这一页的主动作改名「手动制作视频」（阶段简称＝视频），
         # 并按三虎的跑没跑刷字与置灰。
         _video_button=add(controls,'手动制作视频',
                           self.manual_command_factory(self,'video',self.generate,self.window),True)
         ui_plugin_registry.module('stage_flow').follow(_video_button,'video')
-        # 第 59 期第 7 条：「手动制作视频」右边补回它自己的「阶段配置」。
-        # 它配的是 10 视频生成这一段（出视频的模型、视频那几个 SKILL），
-        # 与上面提示词那一颗各管各的一步——不是重复入口。
-        if self.stage_callback is not None:
-            self.stage_button=ui_plugin_registry.module('skill_panel').stage_button_for(
-                controls,lambda:self.safe(self.stage_callback))
-            self.stage_button.pack(side='left',padx=(SPACING['sm'],SPACING['xs']),pady=SPACING['xs'])
+        # R2942：「阶段配置」按钮＋模型下拉框删除（模型/技能走共享输入框）。
         self.play_button=add(controls,'播放视频',self.play)
         add(controls,'查看全部版本',self.versions)
         # 第 35 期第 5 条：线上的「API 设置」与「阶段配置 → 接口 → 线上视频 API」是同一扇窗

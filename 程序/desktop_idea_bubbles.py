@@ -490,8 +490,9 @@ class IdeaBubblesMixin:
         self._sync_stage_model_picker(model)
 
     def _sync_stage_model_picker(self, model):
-        """目录条切到某模型时，让下方「阶段配置」的供应商/模型下拉跟着显示该模型。"""
-        picker = getattr(getattr(self, 'stage_button', None), 'picker', None)
+        """目录条切到某模型时，让共享输入框的模型下拉跟着显示该模型。"""
+        shared = getattr(self, 'shared_input', None)
+        picker = getattr(shared, 'model_picker', None)
         if picker is not None and callable(getattr(picker, 'set_model_label', None)):
             picker.set_model_label(model)
 

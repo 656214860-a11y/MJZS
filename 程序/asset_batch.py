@@ -8,6 +8,7 @@ from comfy_service import Comfy
 from stage_execution_service import remove_asset_batch_model as remove_model, save_asset_batch_settings as save_settings
 import tk_timers
 import ui_plugin_registry
+import stage_models
 from responsive_ui import FlowBar, scroll_form
 from contract.platform_tools import open_target
 from ui_tokens import TEXT_ROWS, WRAPLENGTH, COLORS, SPACING
@@ -99,7 +100,7 @@ def auto_settings(project):
 def current_model(project):
     """「资产图片制作」窗口当前的生图模型（第 46 期第 8 条）。
 
-    模型只有一个入口——「阶段配置 → 模型」（写在项目自己的 skill_config.json 里，阶段 id＝assets），
+    模型只有一个入口——底部共享输入框的模型下拉框（写在项目自己的 skill_config.json 里，阶段 id＝assets），
     这里只是把它翻成一行只读文字。升级上来的老项目里 ui_settings.json 存过的那一档仍然兜底：
     阶段配置还没挑过生产模型时按它显示，看到的还是原来那个模型；挑过就以阶段配置为准。
     """
@@ -180,9 +181,8 @@ class _AssetBatchWindow:
         from cloud_assets_dialog import settings as cloud_settings
         self.LOCAL = LOCAL; self.MODELS = MODELS; self.cloud_settings = cloud_settings
         self.chooser=FlowBar(form);self.chooser.pack(fill='x',padx=SPACING['lg'],pady=SPACING['sm'])
-        # 第 46 期第 8 条：这一格原来是一个「生图模型」下拉框（本地 ComfyUI／云端生图都摆在这儿，
-        # 与「阶段配置 → 模型」重复）。现在只剩一行只读的当前模型，右边留一颗「阶段配置」就地打开
-        # 唯一能挑模型的那一处。
+        # 第 46 期第 8 条：这一格原来是一个「生图模型」下拉框（与统一模型下拉框重复）。
+        # R2942：只剩一行只读的当前模型，右边一颗「模型」就地弹开共享输入框的模型下拉框。
         workflow_default=str(Path(__file__).with_name('flux2_klein_asset_text_api.json'))
         defaults, aspect_default, quality_default, backend_default=self.controller.form_defaults(workflow_default,current_model(self.project))
         self.backend=tk.StringVar(value=backend_default)
@@ -190,8 +190,8 @@ class _AssetBatchWindow:
         self.quality=tk.StringVar(value=quality_default)
         ttk.Label(self.chooser,text='生图模型').pack(side='left')
         ttk.Label(self.chooser,textvariable=self.backend).pack(side='left',padx=SPACING['xs'])
-        SecondaryButton(self.chooser,text='阶段配置',
-                        command=lambda:self.app.safe(lambda:ui_plugin_registry.module('skill_panel').show(self.app,'assets'))).pack(side='left',padx=SPACING['xs'])
+        SecondaryButton(self.chooser,text='模型',
+                        command=lambda:self.app.safe(lambda:stage_models.open_model_dropdown(self.app))).pack(side='left',padx=SPACING['xs'])
         ttk.Label(self.chooser,text='云模型画幅').pack(side='left',padx=(SPACING['sm'],SPACING['none']))
         SelectBox(self.chooser,textvariable=self.aspect,values=['1:1','9:16','16:9']).pack(side='left',padx=SPACING['xs'])
         SecondaryButton(self.chooser,text='云模型设置',command=lambda:self.app.safe(lambda:self.cloud_settings(self.win))).pack(side='left',padx=SPACING['xs'])

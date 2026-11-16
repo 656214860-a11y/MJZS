@@ -239,18 +239,22 @@ class ScriptPagesMixin:
                     getattr(self,'_script_agent_queue',None) or
                     getattr(self,'_script_agent_launching',False) or self.script_agent_processes())
     def update_script_interrupt_button(self):
-        """输入框内发送／终止合一按钮的唯一状态入口：运行中显示终止，空闲时跟随底栏「发送」。"""
+        """共享输入框发送键的唯一状态入口：运行中显示终止，空闲时按简报必填置灰（REQ-S01-62/86）。"""
         from ui_tokens import ICON_SEND, ICON_STOP
-        button=getattr(self,'idea_submit',None)
-        if button is None or not button.winfo_exists():return
+        shared = getattr(self, 'shared_input', None)
+        button = getattr(shared, 'send_button', None)
+        if button is None or not button.winfo_exists():
+            return
         if self.script_task_active():
-            button.configure(text=ICON_STOP,command=lambda:self.safe(self.interrupt_script_agent))
+            button.configure(text=ICON_STOP, command=lambda: self.safe(self.interrupt_script_agent))
             button.state(['!disabled'])
             return
-        send=getattr(self,'idea_send',None)
-        button.configure(text=ICON_SEND,command=lambda:send.invoke() if send is not None else None)
-        idle=send is not None and send.winfo_exists() and not send.instate(['disabled'])
-        button.state(['!disabled'] if idle else ['disabled'])
+        button.configure(text=ICON_SEND, command=lambda: self.safe(shared.send))
+        try:
+            missing = self._idea_live_missing()
+        except Exception:
+            missing = ()
+        button.state(['disabled'] if missing else ['!disabled'])
     def refresh_script_workspace(self):
         """刷新剧本聊天和文件表；旧 Claude 思考块会先清洗，必要时仅重发一次正文请求。"""
         import idea_chat
@@ -518,8 +522,7 @@ class _ScriptStructurePage:
                                command=lambda:self.page.safe(self.manual_command(self.page, 'script_structure', self.start_structure, self.page.win)))
         manual.pack(side='left', padx=(SPACING["none"], SPACING["xs"])); self.page.script_structure_manual_button = manual
         ui_plugin_registry.module('stage_flow').follow(manual, 'script_structure')
-        self.page.stage_button = ui_plugin_registry.module('skill_panel').stage_button(action_group, self.page, PAGE['script_structure'])
-        self.page.stage_button.pack(side='left', padx=(SPACING["sm"], SPACING["xs"]))
+        # R2942：「阶段配置」按钮＋模型下拉框删除。
         # 流程说明放到页头右上角（header_status 随宽度自动换行，换页时清空），
         # 不再在内容框下方单占一行，把高度让给两块剧本内容（用户 R1862 要求）。
         info = self.page.header_status

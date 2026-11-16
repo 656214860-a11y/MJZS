@@ -41,19 +41,20 @@ class PageCacheTests(unittest.TestCase):
         return d._page_cache[PAGE['storyboard']]['holder']
 
     def test_nav_back_reuses_page_and_restores_stage_button(self):
+        """R2942：页面级「阶段配置」按钮已删除——换页回来只验页面缓存与共享输入框复用。"""
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             win, d = self.open_desktop(td)
             d.go_page(PAGE['storyboard']); win.update_idletasks()
-            first, button = self.holder(d), d.stage_button
-            self.assertIsNotNone(button)
+            first, shared = self.holder(d), d.shared_input
+            self.assertIsNone(d.stage_button)
             d.go_page(PAGE['assets']); win.update_idletasks()
             self.assertTrue(first.winfo_exists())
             self.assertFalse(first.winfo_ismapped())
             d.go_page(PAGE['storyboard']); win.update_idletasks()
             self.assertIs(self.holder(d), first)
-            self.assertIs(d.stage_button, button)
+            self.assertIs(d.shared_input, shared, '共享输入框跨页复用同一实例')
 
     def test_same_page_refresh_and_plain_show_rebuild(self):
         if self.tk is None:

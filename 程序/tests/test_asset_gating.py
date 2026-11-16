@@ -553,14 +553,13 @@ class NativeAssetsGatingTests(_TkHarness):
             self.assertEqual(texts, ["启动并检测", "预估费用", "取消检测"])
 
     def test_the_main_page_owns_the_comfy_housekeeping_buttons(self):
-        """第 65 期任务 1：「强制关闭 ComfyUI」「制作记录」搬到主界面「阶段配置」右边。
+        """第 65 期任务 1：「强制关闭 ComfyUI」「制作记录」搬到主界面动作行。
 
-        这两颗与制作窗口无关，原来摆在弹窗里等于同一件事两个入口。
+        R2942：原「阶段配置」按钮删除，这两颗紧跟「手动制作资产」。
         """
         with tempfile.TemporaryDirectory() as td:
             d, _ = self.desktop(td)
             d.show(PAGE_OF['assets']); d.win.update_idletasks()
-            config_label = '阶段配置'  # 按钮名固定，当前模型在按钮右侧的选择器里
             buttons = []
             def walk(w):
                 if isinstance(w, (self.tk.Button, self.ttk.Button)):
@@ -571,10 +570,10 @@ class NativeAssetsGatingTests(_TkHarness):
             texts = [str(b.cget("text")) for b in buttons]
             self.assertIn("强制关闭 ComfyUI", texts)
             self.assertIn("制作记录", texts)
-            self.assertIn(config_label, texts)
-            order = [t for t in texts if t in ("手动制作资产", config_label, "强制关闭 ComfyUI", "制作记录")]
-            self.assertEqual(order, ["手动制作资产", config_label, "强制关闭 ComfyUI", "制作记录"],
-                             "就摆在阶段配置右边，顺序别乱")
+            self.assertNotIn("阶段配置", texts, "R2942：资产页「阶段配置」按钮已删")
+            order = [t for t in texts if t in ("手动制作资产", "强制关闭 ComfyUI", "制作记录")]
+            self.assertEqual(order, ["手动制作资产", "强制关闭 ComfyUI", "制作记录"],
+                             "紧跟主动作，顺序别乱")
 
     def test_kill_comfy_runs_off_the_ui_thread(self):
         """「强制关闭 ComfyUI」在主界面阶段配置旁，后台线程执行：按下时 ComfyUI 往往已经卡住，界面不能跟着僵。"""

@@ -113,7 +113,6 @@ class PageNavMixin:
         if entry is not None:
             self.content=entry['holder']
             self.canvas.itemconfigure(self.content_id,window=self.content)
-            self.stage_button=entry['stage_button']
             if entry['note']:self.status.set(entry['note'])
             return
         holder=ttk.Frame(self.canvas)
@@ -121,7 +120,7 @@ class PageNavMixin:
         self.content=holder
         self.canvas.itemconfigure(self.content_id,window=holder)
         builder()
-        cache[index]=page_nav.cache_entry(holder,self.root,self.stage_button,self.status.get(),str(self.root))
+        cache[index]=page_nav.cache_entry(holder,self.root,self.status.get(),str(self.root))
         if index==PAGE['script_structure']:
             from script_workspace_service import script_structure_signature
             cache[index]['signature']=script_structure_signature(self.root)
@@ -293,7 +292,7 @@ class PageNavMixin:
             self.canvas.yview_moveto(0)
         return scroll_offset, page_cache
     def _sync_shared_input(self):
-        """共享输入框跟页走（任务书轮 4）：阶段页 ``set_stage`` 换上下文不重建实例，
+        """共享输入框跟页走（R2923：13 个阶段页共用同一实例，剧本准备页也显示）；
         非阶段页（参考网站／会员账户／首页）隐藏；锁定／免费路由由 ``show`` 再隐藏一次。"""
         shared=getattr(self,'shared_input',None)
         if shared is None:return

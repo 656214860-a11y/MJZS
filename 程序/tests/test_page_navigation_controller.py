@@ -152,9 +152,9 @@ class PageCacheTests(unittest.TestCase):
         self.assertEqual(asked, [])
 
     def test_cache_entry_keeps_note_only_when_it_is_not_the_project_path(self):
-        self.assertEqual(nav.cache_entry('h', 'P', 'btn', 'D:/p', 'D:/p')['note'], '')
-        self.assertEqual(nav.cache_entry('h', 'P', 'btn', '已加载', 'D:/p'),
-                         {'holder': 'h', 'root': 'P', 'stage_button': 'btn', 'note': '已加载'})
+        self.assertEqual(nav.cache_entry('h', 'P', 'D:/p', 'D:/p')['note'], '')
+        self.assertEqual(nav.cache_entry('h', 'P', '已加载', 'D:/p'),
+                         {'holder': 'h', 'root': 'P', 'note': '已加载'})
 
 
 if __name__ == '__main__':

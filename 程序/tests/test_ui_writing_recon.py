@@ -61,35 +61,23 @@ class WritingReconButtonTests(unittest.TestCase):
         return page, win
 
     def test_the_recon_button_is_on_the_writing_page(self):
-        """REQ-S01-46：素材来源是「对标爆款」时，采风在页脚上可见、可点。"""
+        """R2923：「采风」页脚按钮已随动作栏删除；行为方法 collect_recon/recon_done 保留。"""
         with tempfile.TemporaryDirectory() as td:
             page, _win = self.open_page(td, '对标爆款')
-            button = getattr(page, 'recon_button', None)
-            self.assertIsNotNone(button, '剧本准备页脚必须有「采风」入口')
-            self.assertEqual(str(button.cget('text')), '采风')
-            self.assertNotEqual(str(button.cget('state')), 'disabled', '采风入口不能是禁用态')
-            foot = button.master
-            self.assertNotIn(button, foot.hidden_children)
-            self.assertEqual(button.winfo_manager(), 'place', '适用的素材来源下采风要显示出来')
-            labels = [child.cget('text') for child in foot.winfo_children() if 'text' in child.keys()]
-            self.assertIn('采风', labels)
-            self.assertIn('质检报告', labels, '采风与质检那组应在同一页脚')
+            self.assertIsNone(getattr(page, 'recon_button', None), '「采风」页脚按钮已删除')
             self.assertTrue(callable(getattr(page, 'collect_recon', None)))
             self.assertTrue(callable(getattr(page, 'recon_done', None)))
 
     def test_recon_button_hides_for_other_sources_until_source_applies(self):
-        """REQ-S01-46：素材来源不是「对标爆款」「热点速成」时采风隐藏不占位；改成适用来源后显示。"""
+        """R2923：采风按钮删除后不再随素材来源显隐——所有来源下均无该按钮。"""
         import stage_config
         with tempfile.TemporaryDirectory() as td:
             page, win = self.open_page(td, '原创')
-            button = page.recon_button
-            self.assertIn(button, button.master.hidden_children)
-            self.assertEqual(button.winfo_manager(), '', '不适用时采风不占动作栏位置')
+            self.assertIsNone(getattr(page, 'recon_button', None), '原创来源下也无采风按钮')
             stage_config.put_workflow(Path(td), _workflow('热点速成'))
             page.update_recon_button()
             win.update()
-            self.assertNotIn(button, button.master.hidden_children)
-            self.assertEqual(button.winfo_manager(), 'place')
+            self.assertIsNone(getattr(page, 'recon_button', None), '改适用来源后仍无采风按钮')
 
 
 if __name__ == '__main__':

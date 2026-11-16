@@ -959,16 +959,21 @@ class PanelTests(unittest.TestCase):
         self.assertIn(('my-gpt', '我的 GPT'), groups['我的厂商'])
 
     def test_stage_button_text_is_fixed_and_picker_follows_it(self):
-        """按钮名固定为「阶段配置」，当前模型改由按钮右侧的模型选择器显示。"""
+        """R2942：页面级「阶段配置」按钮＋模型下拉框已删；模型选择收进共享输入框的
+        StageModelPicker 下拉框按钮——按钮文案即当前模型名，点击弹菜单列表而非模态窗。"""
+        import stage_model_picker
+        from tkinter import ttk
         stage_config.put(self.desktop.root, 'script', model='deepseek-v4-flash')
-        button = skill_panel.stage_button(self.win, self.desktop, 0)
-        self.addCleanup(button.destroy)
-        button.pack(side='left')
-        self.assertEqual(button.cget('text'), '阶段配置')
-        self.assertIsNotNone(button.picker)
-        self.assertEqual(button.picker.model_id(), 'deepseek-v4-flash')
-        self.assertIn('DeepSeek', button.picker.model.get())
-        self.assertNotIn(' · ', button.picker.model.get(),
+        self.assertFalse(hasattr(skill_panel, 'stage_button'), '页面级阶段配置按钮工厂已删')
+        self.assertFalse(hasattr(stage_model_picker, 'stage_button_for'), '按钮工厂已删')
+        self.assertFalse(hasattr(stage_model_picker, 'attach_stage_pickers'), '选择器补挂入口已删')
+        picker = stage_model_picker.StageModelPicker(self.win, self.desktop, 'script')
+        self.addCleanup(picker.destroy)
+        picker.pack(side='left')
+        self.assertIsInstance(picker.models, ttk.Menubutton, '模型选择器是下拉框按钮，不是弹窗')
+        self.assertEqual(picker.model_id(), 'deepseek-v4-flash')
+        self.assertIn('DeepSeek', picker.model.get())
+        self.assertNotIn(' · ', picker.model.get(),
                          'REQ-S01-82：选择器当前项只显示模型名称，不带供应商前缀')
 
     def test_picker_add_model_entry_opens_the_manager_and_reverts(self):
@@ -1115,67 +1120,37 @@ class PanelTests(unittest.TestCase):
         panel.winfo_toplevel().destroy()
 
     def test_the_panel_shows_the_skill_markdown(self):
-        """说明目录沿用勾选列表的注册表顺序，并显示对应 Markdown 文件原文。"""
+        """R2916：面板内联说明区已删除——说明改由共享输入框技能列表的悬停卡片提供。"""
         panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
         self.assertEqual([box.cget('text') for box in panel.registered_boxes.values()],
                          [skill_panel.registered_skill_checkbox_label(item) for item in panel.skills],
                          '勾选框必须显示注册表中的用户可见名称，不能退化为通用 SKILL.md 文件名')
-        expected = [skill_panel.chinese_skill_display(item.displayName or item.name)
-                    for item in panel.skills]
-        self.assertEqual(list(panel.note_list.get(0, 'end')), expected,
-                         '说明目录必须与上方工作流 SKILL、阶段 SKILL 的显示顺序一致')
-        self.assertEqual(len(panel.note_list.get(0, 'end')), len(expected))
-        first = panel.note_items[0]
-        shown = panel.note_text.get('1.0', 'end').strip()
-        body = skill_panel.note_text(first[1])
-        rendered = ''.join(fragment for fragment, _tags in skill_note_render.parse(body)).strip()
-        self.assertEqual(shown, rendered,
-                         '注册表首项应在打开面板时立即显示说明内容（Markdown 排版后的可见文字）')
-        registered_index = 1
-        panel.note_list.selection_clear(0, 'end')
-        panel.note_list.selection_set(registered_index)
-        self.assertEqual(panel.show_note(), skill_panel.note_text(panel.skills[1]))
-        self.assertIn(str(panel.skills[1].displayName), panel.note_text.get('1.0', 'end'))
-        self.assertEqual(panel.note_list.grid_info()['column'], 0, '说明目录应在左侧')
-        self.assertEqual(panel.note_text.master.grid_info()['column'], 2, '说明正文应在目录右侧')
-        self.assertTrue(panel.note_list_bar.grid_info(), '目录较长时必须可以滚动')
+        self.assertIsNone(panel.note_list, '说明目录已随 R2916 删除')
+        self.assertIsNone(panel.note_text, '说明正文已随 R2916 删除')
+        self.assertEqual(panel.note_items, [], '说明条目列表已清空')
         panel.destroy()
 
     def test_skill_notes_resize_with_the_stage_panel(self):
-        """说明目录和正文必须吃掉窗口伸缩后留下的空间，而不是卡在固定行数。"""
+        """R2916：说明区已删除——窗口伸缩时阶段配置与底栏仍正确重排。"""
         self.win.deiconify()
         self.win.geometry('1200x800')
         self.win.update_idletasks()
         panel = skill_panel.open_for_page(self.desktop, 0)
         window = panel.winfo_toplevel()
         self.addCleanup(window.destroy)
+        self.assertIsNone(panel.note_list, '说明目录已随 R2916 删除')
+        self.assertIsNone(panel.note_text, '说明正文已随 R2916 删除')
         window.geometry('880x690')
         window.update()
-        tall_list = panel.note_list.winfo_height()
-        tall_text = panel.note_text.winfo_height()
-        self.assertGreaterEqual(tall_text, 150, '默认窗口必须留出可阅读的技能说明高度')
-        sections = [child for child in panel.winfo_children()
-                    if child.winfo_class() == 'TFrame' and child is not panel.bottom_bar]
-        for previous, current in zip(sections, sections[1:]):
-            self.assertLessEqual(current.winfo_y() - previous.winfo_y() - previous.winfo_height(), 2)
         self.assertEqual(panel.reason.winfo_manager(), '')
         window.geometry('880x600')
         window.update()
-        self.assertLessEqual(panel.note_list.master.winfo_y() + panel.note_list.master.winfo_height(),
-                             panel.bottom_bar.winfo_y())
-        self.assertGreater(tall_list, 0)
-        self.assertGreater(tall_text, 0)
-        self.assertLess(panel.note_text.winfo_height(), tall_text)
         window.geometry('880x900')
         window.update()
-        self.assertGreater(panel.note_text.winfo_height(), tall_text)
-        self.assertEqual(panel.note_list.master.winfo_manager(), 'pack')
         window.geometry('800x460')
         window.update()
         self.assertTrue(panel.bottom_bar.winfo_ismapped())
-        if panel.note_list.master.winfo_ismapped():
-            self.assertLessEqual(panel.note_list.master.winfo_y() + panel.note_list.master.winfo_height(),
-                                 panel.bottom_bar.winfo_y())
+        window.destroy()
 
     def test_note_text_reads_the_body_and_survives_an_empty_skill(self):
         skill = skill_registry.default_registry().getById('firstframe-batch')
@@ -1231,13 +1206,12 @@ class PanelTests(unittest.TestCase):
                             for _label, path in choices))
 
     def test_the_skill_boxes_and_notes_follow_registry_order(self):
-        """注册 SKILL 勾选与说明共用注册表返回顺序，打开时即建立说明。"""
+        """注册 SKILL 勾选沿用注册表返回顺序；R2916：说明区已删除（悬停卡片替代）。"""
         audio = skill_panel.Panel(self.win, self.desktop, 'audio')
         expected = [item.name for item in audio.registry.getByStage('audio') if not item.deprecated]
         self.assertEqual([item.name for item in audio.skills], expected)
-        self.assertTrue(audio.note_list.size())
-        registered_notes = [entry[1].name for entry in audio.note_items if entry[0] == 'registered']
-        self.assertEqual(registered_notes, expected)
+        self.assertIsNone(audio.note_list, '说明目录已随 R2916 删除')
+        self.assertEqual(audio.note_items, [], '说明条目列表已清空')
         self.assertEqual(list(audio.registered_boxes), expected,
                          '勾选框与说明目录必须使用同一注册表返回顺序')
         audio.destroy()
@@ -1295,19 +1269,12 @@ class PanelTests(unittest.TestCase):
         self.assertEqual(skill_panel.registered_skill_checkbox_label(skill), '全流程AIGC·剧本')
 
     def test_note_selection_focuses_the_matching_skill_checkbox(self):
-        """点击左侧说明目录时，对应顶部勾选框成为焦点。"""
+        """R2916：说明目录已删除——面板不再有说明↔勾选框的联动。"""
         panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
         self.addCleanup(panel.destroy)
-        focused = []
-        first = panel.note_items[0][1]
-        box = panel.registered_boxes[first.name]
-        real_focus = box.focus_set
-        box.focus_set = lambda: focused.append(box)
-        self.addCleanup(setattr, box, 'focus_set', real_focus)
-        panel.note_list.selection_clear(0, 'end')
-        panel.note_list.selection_set(0)
-        panel.show_note()
-        self.assertEqual(focused, [box])
+        self.assertIsNone(panel.note_list, '说明目录已随 R2916 删除')
+        self.assertEqual(panel.note_items, [], '说明条目列表已清空')
+        self.assertIsNone(panel.note_text, '说明正文已随 R2916 删除')
 
     def test_delete_checked_program_skill_recycles_it_and_refreshes_the_panel(self):
         """删除按钮只能把程序 skills/ 的 .skill.md 移到程序回收站，并立即刷新。"""

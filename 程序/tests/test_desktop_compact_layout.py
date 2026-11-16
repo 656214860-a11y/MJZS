@@ -148,19 +148,12 @@ class CompactDesktopGeometryTests(unittest.TestCase):
     def test_actions_hint_and_full_file_details(self):
         self.resize(800, 600)
         d = self.desktop
-        # 素材来源不适用时采风隐藏不占位（REQ-S01-46），只有它可以不量宽度。
-        self.assertTrue(all(button.cget('text') == '采风' for button in d.idea_row.hidden_children))
-        for button in d.idea_row.winfo_children():
-            if 'text' not in button.keys() or button in d.idea_row.hidden_children:continue
-            style = ttk.Style(button)
-            font_spec = style.lookup(button.cget('style') or 'TButton', 'font')
-            self.assertGreaterEqual(button.winfo_width(), font.Font(root=button, font=font_spec).measure(button.cget('text')))
-            self.assertLessEqual(button.winfo_rootx()+button.winfo_width(), d.idea_row.winfo_rootx()+d.idea_row.winfo_width())
-        # R2131：空输入框改为两行，提示由垂直居中改为对齐首行（契约有意变更：原 'w'）。
-        self.assertEqual(d.idea_input_hint.place_info()['anchor'], 'nw')
-        self.assertAlmostEqual(d.idea_input_hint.winfo_rootx(),
-                               d.idea_input.winfo_rootx() + d.idea_input.bbox('1.0')[0],
-                               delta=2)
+        # R2923：动作栏与静态占位提示删除；发送/附件/语音/模型/技能图标收进共享输入框。
+        self.assertFalse(hasattr(d, 'idea_row'), '动作栏容器已随 R2923 删除')
+        self.assertFalse(hasattr(d, 'recon_button'), '「采风」按钮已随 R2923 删除')
+        self.assertFalse(hasattr(d, 'idea_input_hint'), '静态占位提示已随 R2923 删除')
+        self.assertTrue(d.shared_input.winfo_ismapped(), '共享输入框可见')
+        # R2942：四类文件合成一条「项目文件」列表，每个文件一行提示。
         # R2897：侧栏项目区改为分组筛选图标＋项目选择器；组筛选状态与「●」当前标记走选择器。
         self.assertEqual(d._project_group, 'making')
         self.assertTrue(d.project_picker.get().startswith('● '), '选择器应标出当前项目')
@@ -174,16 +167,15 @@ class CompactDesktopGeometryTests(unittest.TestCase):
         completed_paths = sorted(p['path'] for p in d.projects.info['projects']
                                  if p.get('status', 'making') == 'completed')
         self.assertEqual(sorted(p['path'] for p in d._picker_items), completed_paths)
-        # R1862：四类文件复原为四张并排表，每张表一个行提示。
         self.assertEqual(set(d.script_row_category.values()), {'setting', 'outline', 'character', 'script'},
-                         '四类文件都出现在各自的表里')
-        for category, tree in d.script_trees.items():
-          self.assertTrue(tree.get_children(), category)
-          self.assertEqual(str(tree.heading('#0', 'anchor')), 'center')
-          self.assertEqual(str(tree.heading('name', 'anchor')), 'center')
-          for item in tree.get_children():
+                         '四类文件都出现在同一条列表里')
+        tree = d.script_tree
+        self.assertTrue(tree.get_children())
+        self.assertEqual(str(tree.heading('#0', 'anchor')), 'center')
+        self.assertEqual(str(tree.heading('name', 'anchor')), 'center')
+        for item in tree.get_children():
             with self.subTest(item=item):
-                details = d.script_file_tips[category].text_for(item)
+                details = d.script_file_tips.text_for(item)
                 self.assertIn(Path(item).name, details)
                 expected = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(Path(item).stat().st_mtime))
                 self.assertIn(expected, details)
