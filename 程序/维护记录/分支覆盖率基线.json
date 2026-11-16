@@ -69,8 +69,8 @@
   "tests.test_model_router_diagnostics"
  ],
  "tests_ok": true,
- "points_total": 2153,
- "points_covered": 1047,
+ "points_total": 2138,
+ "points_covered": 1044,
  "modules": [
   {
    "module": "aigc_lint.py",
@@ -117,12 +117,6 @@
   {
    "module": "script_output_spec.py",
    "points": 7,
-   "covered": 0,
-   "percent": 0.0
-  },
-  {
-   "module": "shot_selection.py",
-   "points": 5,
    "covered": 0,
    "percent": 0.0
   },
@@ -212,12 +206,6 @@
   },
   {
    "module": "qwen_setup.py",
-   "points": 10,
-   "covered": 3,
-   "percent": 30.0
-  },
-  {
-   "module": "store_program_locator.py",
    "points": 10,
    "covered": 3,
    "percent": 30.0
@@ -535,5 +523,5 @@
    "percent": 100.0
   }
  ],
- "modules_total": 77
+ "modules_total": 75
 }

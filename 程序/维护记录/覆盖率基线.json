@@ -1063,12 +1063,6 @@
    "percent": 0.0
   },
   {
-   "module": "idea_script_heuristic.py",
-   "covered": 0,
-   "total": 4,
-   "percent": 0.0
-  },
-  {
    "module": "idea_semantic_brief_service.py",
    "covered": 0,
    "total": 4,
@@ -2035,12 +2029,6 @@
    "percent": 0.0
   },
   {
-   "module": "shot_selection.py",
-   "covered": 0,
-   "total": 2,
-   "percent": 0.0
-  },
-  {
    "module": "skill_budget.py",
    "covered": 0,
    "total": 4,
@@ -2216,12 +2204,6 @@
   },
   {
    "module": "stage_write_preparation_service.py",
-   "covered": 0,
-   "total": 4,
-   "percent": 0.0
-  },
-  {
-   "module": "store_program_locator.py",
    "covered": 0,
    "total": 4,
    "percent": 0.0
@@ -3254,5 +3236,5 @@
   }
  ],
  "modules_covered": 71,
- "modules_total": 540
+ "modules_total": 537
 }
