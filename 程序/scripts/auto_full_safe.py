@@ -75,6 +75,18 @@ def red_cooldown(result: dict, head: str, now: float) -> str:
     return "time" if 0 <= now - finished < RED_COOLDOWN_SECONDS else ""
 
 
+def current_cooling() -> str:
+    """门禁视角的红后冷却：对当前 HEAD 取 ``red_cooldown`` 的原始判定（'head'／'time'／''）。
+
+    ``status()`` 会在 required 时把 'time' 抹掉，那是给补跑决策用的；合并门禁要看未加工的冷却，
+    因为「同 HEAD 已红」是唯一无法靠等时间消除、必须靠新提交推进 HEAD 才能解锁的状态。"""
+    try:
+        head = _git("rev-parse", "HEAD")
+    except (OSError, subprocess.SubprocessError):
+        head = ""
+    return red_cooldown(last_result(), head, time.time())
+
+
 def status() -> dict:
     document = run_selftests.load_layer_document()
     last_full = int(document.get("last_full_safe_all_round", 0))
