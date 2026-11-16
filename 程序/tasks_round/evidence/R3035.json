@@ -1,0 +1,15 @@
+{
+  "round": 3035,
+  "commit_base": "7d758edf",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k cell_zoom cell_menu module_size test_layers",
+    "exit": 0,
+    "passed": 49,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T21:10:07"
+}

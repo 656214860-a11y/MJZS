@@ -26,6 +26,7 @@ from ui_tokens import COLORS, SPACING
 import tkinter as tk
 from tkinter import ttk
 from ui_widgets import ContextMenu, LineInput
+from cell_zoom_suppress import CellZoomSuppress
 
 ROW_MENU_VIEW = '查看'          # 右键菜单第一项：等同单击这一格
 ROW_MENU_DELETE = '删除'        # 右键菜单第二项：逐个删除（目标就是右键那一行）
@@ -416,7 +417,7 @@ class CellHover:
         entry.commit_edit=commit;entry.cancel_edit=cancel
 
 
-class CellImages:
+class CellImages(CellZoomSuppress):
     """在内容框的某几列上盖一层图片（第 52 期第 3 条）。
 
     ttk.Treeview 只有 #0 那一格能摆图，其余格子只能写文字——所以缩略图得另盖一层 Label。
@@ -461,7 +462,6 @@ class CellImages:
         self.zoom_label = None
         self.zoom_key = None
         self.zoom_pending = None
-        self._zoom_suppress = False              # R3012：点击这格后抑制放大，直到指针离开再进入
         self.zoom_watch = None                   # 第 60 期第 5 条：盯着指针的那个定时器
         self.zoom_at = None                      # 上一次看到的指针（没动过就不必再判一遍）
         self.view_refresh_delay = max(0, int(view_refresh_delay or 0))
@@ -578,31 +578,6 @@ class CellImages:
         self.write(key[0], key[1], text)
 
     # ── 悬停放大（第 57 期第 5 条）────────────────────────────────────────
-    def zoom_hide(self):
-        """收起放大图：鼠标一走、一滚、这一层一重排就收。"""
-        if self.zoom_pending is not None:
-            try:
-                self._zoom_owner.after_cancel(self.zoom_pending)
-            except Exception:
-                app_logging.swallowed()
-            self.zoom_pending = None
-        self.zoom_cancel_watch()
-        self.zoom_key = None
-        self.zoom_at = None
-        if self.zoom_label is not None:
-            try:
-                self.zoom_label.place_forget()
-            except Exception:
-                app_logging.swallowed()
-        return None
-
-    def _zoom_click(self, key):
-        """这格被点击（选择行／双击打开）后：收起放大图并抑制重弹，直到指针离开再进入（R3012）。"""
-        self._zoom_suppress = True
-        if self.zoom_key == key:
-            self.zoom_hide()
-        return None
-
     def zoom_in(self, key):
         """鼠标停在盖着缩略图的那一格上：旁边弹一张放大的图（够看清人物与背景）。"""
         if self.zoom is None or self._zoom_suppress:
@@ -684,15 +659,6 @@ class CellImages:
             return int(x), int(y)
         except Exception:
             return None
-
-    def zoom_cancel_watch(self):
-        if self.zoom_watch is not None:
-            try:
-                self._zoom_owner.after_cancel(self.zoom_watch)
-            except Exception:
-                app_logging.swallowed()
-            self.zoom_watch = None
-        return None
 
     def zoom_watch_arm(self):
         """保险丝：放大图在的时候，隔一小会儿自己看一眼指针（第 60 期第 5 条）。
@@ -857,9 +823,7 @@ class CellImages:
             label.bind('<Enter>', lambda event, key=key: self.zoom_in(key), add='+')
             label.bind('<Leave>', lambda event, key=key: self.zoom_leave(key), add='+')
             label.bind('<MouseWheel>', lambda event: self.zoom_hide(), add='+')
-            # R3012：点击选择行／打开后抑制放大，直到指针离开再进入（登记在前，不拦原行为）。
-            label.bind('<Button-1>', lambda event, key=key: self._zoom_click(key), add='+')
-            label.bind('<Double-1>', lambda event, key=key: self._zoom_click(key), add='+')
+            self._bind_zoom_click(label, key)
         # 第 55 期第 2 条：这一格盖着图，鼠标落不到树上——forward 给了就把这一下重发给树
         # （树上的原行为一条不动），右键照旧转给 CellHover 那份「查看／删除」菜单。
         # 第 60 期第 3 条撤掉的那条左键路，第 64 期任务 12 按用户要求补回来一半：**只认双击**
