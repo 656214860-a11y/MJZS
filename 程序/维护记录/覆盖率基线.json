@@ -621,7 +621,7 @@
   {
    "module": "desktop_layout.py",
    "covered": 0,
-   "total": 341,
+   "total": 342,
    "percent": 0.0
   },
   {
@@ -1623,7 +1623,13 @@
   {
    "module": "pet_agent.py",
    "covered": 0,
-   "total": 762,
+   "total": 758,
+   "percent": 0.0
+  },
+  {
+   "module": "pet_agent_rules.py",
+   "covered": 0,
+   "total": 6,
    "percent": 0.0
   },
   {
@@ -1713,7 +1719,7 @@
   {
    "module": "pet_performance_service.py",
    "covered": 0,
-   "total": 101,
+   "total": 106,
    "percent": 0.0
   },
   {
@@ -1767,7 +1773,7 @@
   {
    "module": "pet_ui_stages.py",
    "covered": 0,
-   "total": 851,
+   "total": 854,
    "percent": 0.0
   },
   {
@@ -2211,7 +2217,7 @@
   {
    "module": "stage_model_picker.py",
    "covered": 0,
-   "total": 161,
+   "total": 347,
    "percent": 0.0
   },
   {
@@ -2487,7 +2493,7 @@
   {
    "module": "ui/ui_composer_style.py",
    "covered": 0,
-   "total": 26,
+   "total": 27,
    "percent": 0.0
   },
   {
@@ -2995,16 +3001,16 @@
    "percent": 21.8
   },
   {
+   "module": "app_logging.py",
+   "covered": 59,
+   "total": 257,
+   "percent": 23.0
+  },
+  {
    "module": "orchestrator/skill_budget.py",
    "covered": 40,
    "total": 172,
    "percent": 23.3
-  },
-  {
-   "module": "app_logging.py",
-   "covered": 59,
-   "total": 248,
-   "percent": 23.8
   },
   {
    "module": "orchestrator/stage_gate_gateways.py",
@@ -3206,9 +3212,9 @@
   },
   {
    "module": "agent/publication.py",
-   "covered": 141,
+   "covered": 143,
    "total": 159,
-   "percent": 88.7
+   "percent": 89.9
   },
   {
    "module": "domain/video_lifecycle_service.py",
@@ -3290,5 +3296,5 @@
   }
  ],
  "modules_covered": 71,
- "modules_total": 546
+ "modules_total": 547
 }
