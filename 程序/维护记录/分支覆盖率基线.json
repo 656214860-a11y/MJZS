@@ -69,8 +69,8 @@
   "tests.test_model_router_diagnostics"
  ],
  "tests_ok": true,
- "points_total": 2157,
- "points_covered": 1050,
+ "points_total": 2153,
+ "points_covered": 1047,
  "modules": [
   {
    "module": "aigc_lint.py",
@@ -403,12 +403,6 @@
    "percent": 75.0
   },
   {
-   "module": "script_brief.py",
-   "points": 4,
-   "covered": 3,
-   "percent": 75.0
-  },
-  {
    "module": "artifact_schema.py",
    "points": 13,
    "covered": 10,
@@ -493,18 +487,6 @@
    "percent": 100.0
   },
   {
-   "module": "model_protocol.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
-   "module": "pet_settings_contract.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
    "module": "production_model_contract.py",
    "points": 0,
    "covered": 0,
@@ -553,5 +535,5 @@
    "percent": 100.0
   }
  ],
- "modules_total": 80
+ "modules_total": 77
 }
