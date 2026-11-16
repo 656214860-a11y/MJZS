@@ -191,6 +191,8 @@ class LayoutMixin:
         def run():
             self._fit_job=None
             self._fit_pending=False
+            # R2990：每跑完一轮整页布局记一次；page.paint 用它拆「等布局 vs 建页/其它」。
+            self._layout_pass_count=getattr(self,'_layout_pass_count',0)+1
             layout_key=None
             try:layout_key=self._fit_content_now()
             except Exception:app_logging.swallowed()

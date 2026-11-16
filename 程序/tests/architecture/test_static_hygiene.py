@@ -5,7 +5,9 @@
 刻意不做"未用导入"等易误报项，避免把说明性代码误判为缺陷。
 
 扫描范围只含本仓自有的 .py：`skills/` 是独立版本化的外部技能包（含 git 子模块），
-不属本仓维护；其它嵌套仓库同理跳过，避免既检测不属自己的代码、又无法提交修复。
+`data/voice_asr_venv/` 是离线 ASR 运行时按需创建的第三方 venv（pip 装出的
+jieba/_yaml/cffi 等，约 7700 个 .py），都不属本仓维护；其它嵌套仓库同理跳过，
+避免既检测不属自己的代码、又无法提交修复。
 """
 from __future__ import annotations
 
@@ -16,8 +18,9 @@ from pathlib import Path
 
 from tests.architecture._scan import ROOT, production_runtime_files
 
-# 非本仓维护目录：字节码缓存、Git 元数据、历史记录、外包技能包。
-_EXCLUDED_PARTS = frozenset({"__pycache__", ".git", "维护记录", "tasks_round", "skills"})
+# 非本仓维护目录：字节码缓存、Git 元数据、历史记录、外包技能包、离线 ASR 运行时 venv。
+_EXCLUDED_PARTS = frozenset({"__pycache__", ".git", "维护记录", "tasks_round", "skills",
+                             "voice_asr_venv"})
 
 
 def _nested_repo_dirs() -> frozenset[Path]:
@@ -97,6 +100,15 @@ class StaticHygieneTests(unittest.TestCase):
         leaked = [path.relative_to(ROOT).as_posix() for path in _all_sources()
                   if "skills" in path.relative_to(ROOT).parts]
         self.assertEqual(leaked, [], "外部技能包不得计入本仓静态卫生扫描范围")
+
+    def test_scan_scope_excludes_runtime_asr_venv(self) -> None:
+        """`data/voice_asr_venv/` 是离线 ASR 运行时创建的第三方 venv（约 7700 个 .py），
+        不属本仓自有代码，不得计入静态卫生扫描（R2990 合并阻断修复）。"""
+        self.assertIn("voice_asr_venv", _EXCLUDED_PARTS,
+                      "静态卫生必须显式排除离线 ASR 运行时 venv")
+        leaked = [path.relative_to(ROOT).as_posix() for path in _all_sources()
+                  if "voice_asr_venv" in path.relative_to(ROOT).parts]
+        self.assertEqual(leaked, [], "离线 ASR venv 不得计入本仓静态卫生扫描范围")
 
 if __name__ == "__main__":
     unittest.main()

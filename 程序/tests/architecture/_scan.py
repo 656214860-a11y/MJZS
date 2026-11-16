@@ -14,7 +14,11 @@ _EXCLUDED_STEMS = frozenset({"smoke_test", "run_selftests", "selftest_sandbox",
 # `.wt` 是本仓库的干净检出区（后台全量在 `.wt/ci` 上跑），里面是同一份生产模块的副本，
 # 不能算成第二批模块；`.selftmp` 是自检临时区（gitignored、随时被清），探针脚本不是产品模块。
 # R1693 之前这两处要么不存在、要么没人往里放 .py，才没暴露这个问题。
-EXCLUDED_PARTS = frozenset({"tests", "tasks_round", "维护记录", ".git", ".wt", ".selftmp", "__pycache__"})
+# `voice_asr_venv` 是离线 ASR 运行时按需创建的第三方 venv（data/voice_asr_venv/，
+# pip 装出的 jieba/_yaml/cffi 等约 7700 个 .py）：不是本仓产品代码，任何生产门禁
+# 都不该把它当模块扫（R2990 合并阻断修复）。
+EXCLUDED_PARTS = frozenset({"tests", "tasks_round", "维护记录", ".git", ".wt", ".selftmp", "__pycache__",
+                            "voice_asr_venv"})
 
 
 def production_files_recursive() -> tuple[Path, ...]:

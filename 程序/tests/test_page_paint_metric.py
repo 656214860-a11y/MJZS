@@ -73,6 +73,26 @@ class PagePaintMetricTests(unittest.TestCase):
         self.assertGreaterEqual(snap['page.paint.script_structure']['count'], 1)
         self._cleanup(window, desktop)
 
+    def test_page_switch_records_fit_breakdown_counters(self):
+        """R2990：首帧计时窗内的布局等待 polls 与布局轮次记入 counters，供首帧分解。"""
+        from desktop import PAGE
+        app_logging._metrics.clear()
+        app_logging._counters.clear()
+        window = desktop = None
+        with tempfile.TemporaryDirectory(prefix='page-paint-fit-') as td:
+            window, desktop = self._make_desktop(td)
+            desktop.show(PAGE['script_structure'])
+            window.update_idletasks()
+            window.update()
+            for _ in range(30):
+                window.update()
+        snap = app_logging.metrics_snapshot()
+        counters = snap.get('counters') or {}
+        self.assertIn('page.paint.script_structure.fitwaits', counters)
+        self.assertIn('page.paint.script_structure.fitpasses', counters)
+        self.assertGreaterEqual(counters['page.paint.script_structure.fitpasses'], 0)
+        self._cleanup(window, desktop)
+
     def test_rapid_switch_records_only_last_page(self):
         from desktop import PAGE
         app_logging._metrics.clear()
