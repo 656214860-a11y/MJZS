@@ -38,6 +38,13 @@
 跑测试要带 `PYTHONPATH`：`<程序>\tests;<程序>`（`ci_*.cmd` 已包装）。纪律：**全量不当排错工具**，
 失败先用 `--affected` / `-k` 在定向层面修到绿，再复验全量；GUI 锁等待就等到底，不要中途终止后又重跑。
 
+**隐藏桌面强制执行（R3039 起）**：含 Tk 的测试一律由运行器强制在隐藏桌面运行——`run_selftests.py`／`smoke_test.py`
+检测本轮范围含 Tk（静态扫 `import tkinter`／`tk.Tk(`）即自包装到 `scripts/gui_hidden.py` 的临时桌面（`DRAMA_HIDDEN_DESKTOP=1` 防递归）；
+隐藏桌面创建失败即中止（退出码 3），绝不降级为可见桌面直跑。`--visible` 仅人工调试（默认关，打印醒目警告），后台补跑禁止使用。
+每轮 smoke 自带 `scripts/gui_hidden.py --probe` 秒级自检（建桌面即销毁），失败记冒烟失败。
+`auto_full_safe.py` 用入库包装（随 `.wt/ci` 干净检出走），包装缺失或退出码 2/3/4 一律记 BLOCKED（环境阻塞，不冒充测试红、不触发红冷却）。
+仓库外钩子 `~/.claude/hooks/gui_test_guard.py`（R1837 所装）已废弃，职责收敛到上述入库硬闸。门禁守护：`tests/architecture/test_hidden_desktop_gate.py`。
+
 ## 4. 全量欠账与绿色凭据
 
 - 规则：主干提交序列里累计 **5 个改过源码的轮次**（R2538 起，原 8；批次 3 基线显示 7 天内被修复的轮次比例约 69%，欠账越长返工越难定位）要求一次完整安全全量；启动入口、

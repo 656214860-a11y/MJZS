@@ -61,6 +61,9 @@
   "34a": [
    "tests/test_git_hooks.py"
   ],
+  "35": [
+   "tests/architecture/test_taskbook_closure.py"
+  ],
   "42": [
    "tests/architecture/test_outbound_http_authority.py"
   ]

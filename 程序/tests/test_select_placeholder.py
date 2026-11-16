@@ -1,6 +1,6 @@
 """下拉框空值占位“请选择”（R2002）：只读下拉框取值为空时显示占位，取值本身不变。
 
-含 Tk，须经 ``工作流任务/gui_hidden.py`` 在隐藏桌面运行。
+含 Tk，由运行器自动隐藏桌面执行（scripts/gui_hidden.py）。
 """
 from __future__ import annotations
 
