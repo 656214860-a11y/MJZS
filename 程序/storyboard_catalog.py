@@ -1,17 +1,10 @@
-"""Stable, Tk-free facade for storyboard catalog and selection callers.
+"""历史入口：实体已迁至 ``orchestrator.storyboard_catalog``（T10 包化）。
 
-Callers outside the page import this module.  New implementations live in the
-catalog/selection services; this facade is retained for compatibility until the
-2027-03-31 legacy project-path retirement.
+``import storyboard_catalog`` 返回 ``orchestrator.storyboard_catalog`` 本体：私有名、模块级状态与
+按扁平名打的 ``mock.patch`` 补丁面和包内路径完全一致；生产侧一律用包路径。
+门面清除轮统一改写测试导入后删除本文件。
 """
-from storyboard_catalog_service import IGNORED, file_order, check_adoptable
-from stage_execution_service import (
-    storyboard_board_source_script as board_source_script, storyboard_catalog as catalog,
-    storyboard_default_source as default_source, storyboard_produced_episodes as produced_episodes,
-    storyboard_produced_scripts as produced_scripts, storyboard_resolve_source as resolve_source,
-)
-from storyboard_selection import remember_many, selected_many, sync_structured_script
+import sys as _sys
+from orchestrator import storyboard_catalog as _entity
 
-
-def remember(project, kind, path):
-    return remember_many(project, kind, [path] if path else [])
+_sys.modules[__name__] = _entity

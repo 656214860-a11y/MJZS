@@ -129,7 +129,7 @@ def _messages(episode, entries, prior=None):
 def _publish(batch, episode, script, srt):
     import uuid
     from contract.project_stages import audio, subtitles
-    from stage_publication import publish_stage_bundle
+    from orchestrator.stage_publication import publish_stage_bundle
     import file_cache
     folder, history = audio(batch.project), audio(batch.project) / '历史版本'
     target = folder / '配音脚本.md'

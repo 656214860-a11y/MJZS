@@ -130,7 +130,7 @@ class StoryboardFinalScopeTests(unittest.TestCase):
         self.assertIn("'final': 'batches_ready'", text)
 
     def test_req_s07_52_finalize_reads_the_continuity_ledger_before_syncing(self):
-        source = (ROOT / 'storyboard_final.py').read_text(encoding='utf-8')
+        source = (ROOT / 'orchestrator/storyboard_final.py').read_text(encoding='utf-8')
         call = source.index('require_final_ready(project,episode')
         self.assertLess(call, source.index("for shot in episode['shots']:\n        refs=[]"))
         import continuity_ledger

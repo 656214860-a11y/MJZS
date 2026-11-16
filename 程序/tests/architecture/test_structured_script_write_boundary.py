@@ -31,7 +31,7 @@ class StructuredScriptWriteBoundaryTests(unittest.TestCase):
         """L3 不直接发布结构稿，L0 服务须在成功保存后才建立血缘。"""
         self.assertEqual(LAYERS['script_contract'], 0)
         self.assertEqual(LAYERS['stage_exec'], 3)
-        executor = parse(ROOT / 'stage_exec.py')
+        executor = parse(ROOT / 'orchestrator/stage_exec.py')
         executor_calls = [
             node for node in ast.walk(executor)
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)

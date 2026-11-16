@@ -264,4 +264,8 @@ STAGE_EXECUTION_MODULES = ("stage_execution_service", "stage_asset_gateways", "s
 
 def stage_execution_source() -> str:
     """门面与拆出模块的源码拼接；源码文本与 AST 类门禁按它读，不因函数搬家而漏检。"""
-    return "\n\n".join((ROOT / (name + ".py")).read_text(encoding="utf-8") for name in STAGE_EXECUTION_MODULES)
+    parts = []
+    for name in STAGE_EXECUTION_MODULES:
+        entity = ROOT / "orchestrator" / (name + ".py")
+        parts.append((entity if entity.exists() else ROOT / (name + ".py")).read_text(encoding="utf-8"))
+    return "\n\n".join(parts)

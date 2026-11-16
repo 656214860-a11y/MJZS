@@ -262,7 +262,7 @@ class FinalizeWiringTests(unittest.TestCase):
     """任务 10：分镜定稿切批次并回填 batch_id。"""
 
     def test_finalize_calls_assign(self):
-        source = Path(PROGRAM, "storyboard_final.py").read_text(encoding="utf-8")
+        source = Path(PROGRAM, "orchestrator/storyboard_final.py").read_text(encoding="utf-8")
         self.assertIn("from contract.shot_batches import assign", source)
         self.assertIn("episode['shots']=list(assign(episode['shots']))", source)
 

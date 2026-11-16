@@ -1,20 +1,10 @@
-"""阶段契约的展示聚合。
+"""历史入口：实体已迁至 ``orchestrator.stage_contract_report``（T10 包化）。
 
-目录事实属于 ``stage_layout``；门禁归属属于 ``confirm_gates``。
-本模块只把两者组装给 UI／报告使用，避免路径层反向导入门禁层。
+``import stage_contract_report`` 返回 ``orchestrator.stage_contract_report`` 本体：私有名、模块级状态与
+按扁平名打的 ``mock.patch`` 补丁面和包内路径完全一致；生产侧一律用包路径。
+门面清除轮统一改写测试导入后删除本文件。
 """
-from __future__ import annotations
+import sys as _sys
+from orchestrator import stage_contract_report as _entity
 
-import domain.confirm_gates as confirm_gates
-import contract.stage_layout as stage_layout
-
-
-def contract_rows():
-    """返回阶段、输入、输出、文档和适用门禁的展示行。"""
-    rows = []
-    for folder, stage, title, _duty, inputs, outputs in stage_layout.STAGES:
-        rows.append({'folder': folder, 'stage': stage, 'title': title,
-                     'input': tuple(inputs), 'output': tuple(outputs),
-                     'docs': tuple(name for name, _text in stage_layout.DOCS.get(folder, ())),
-                     'gates': tuple(confirm_gates.stage_gates(folder))})
-    return tuple(rows)
+_sys.modules[__name__] = _entity

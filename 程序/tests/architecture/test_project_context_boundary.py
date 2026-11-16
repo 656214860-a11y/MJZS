@@ -63,7 +63,7 @@ class ProjectContextBoundaryTests(unittest.TestCase):
                              for node in calls), '页面不得把裸路径直接传给 L2 白模目录服务')
         self.assertEqual(sum(isinstance(node.func, ast.Name) and node.func.id == 'white_model_shot_directory'
                              for node in calls), 4)
-        finalize = _tree('storyboard_final.py')
+        finalize = _tree('orchestrator/storyboard_final.py')
         sync = next(node for node in ast.walk(finalize) if isinstance(node, ast.Call)
                     and isinstance(node.func, ast.Name) and node.func.id == '_sync_plan')
         context = next(keyword.value for keyword in sync.keywords if keyword.arg == 'context')

@@ -26,7 +26,7 @@ def retire_stage_storyboard(project, source, target, expected):
 
 def finalize_stage_storyboard(project, episode_dir, source):
     """桌面定稿入口：完成发布后才允许经 L3 退役工作分镜。"""
-    from storyboard_final import finalize
+    from orchestrator.storyboard_final import finalize
     from stage_execution_service import asset_plan_gateway
     return finalize(project, episode_dir, source, retire_working=retire_stage_storyboard,
                     gateway=asset_plan_gateway())
