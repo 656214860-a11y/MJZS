@@ -185,7 +185,10 @@ class InlineBriefDesktopTests(_Harness):
                  patch.object(d, 'show_missing_idea_brief') as missing, \
                  patch.object(d, 'refresh_script_list') as refresh, \
                  patch.object(d, 'async_', side_effect=finish), \
-                 patch('workflow_engines.request_stage_process_slot', return_value={'state': 'granted', 'slot': 'test'}):
+                 patch('workflow_engines.request_stage_process_slot', return_value={'state': 'granted', 'slot': 'test'}), \
+                 patch.object(d, '_idea_live_missing', return_value=()):
+                # 发送门禁防抖（R2663）在 send_message 内的 update 里可能落进来，以清空后的草稿
+                # 再调一次被 mock 的 preparation_continuation；把门禁缺失判据隔离，本断言只核 send_message 的调用。
                 d.send_message()
             continuation.assert_called_once_with(d.root, '确认')
             self.assertEqual(reply.call_args.kwargs['user_message'], '确认')

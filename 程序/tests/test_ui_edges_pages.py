@@ -651,7 +651,8 @@ class UiEdgePagesTests(UiEdgeCase):
                 "TFrame",
             )
             self.assertIs(d.script_structure_info_label, d.header_status, "说明文字放在页头右上角（R1862）")
-            self.assertEqual(str(d.script_structure_info_label.cget("justify")), "right")
+            # R2950 页头改单行：状态居左可伸展、模型名贴右（原两行右对齐时代的 justify='right' 断言同步为 left）。
+            self.assertEqual(str(d.script_structure_info_label.cget("justify")), "left")
             self.assertIn("本地规则整理，不调用模型", str(d.script_structure_info_label.cget("text")))
             # R2942：页面级「阶段配置」按钮已删，模型选择收进共享输入框下拉框。
             self.assertIsNone(d.stage_button, "剧本结构页「阶段配置」按钮已删")

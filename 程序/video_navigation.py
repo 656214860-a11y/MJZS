@@ -124,7 +124,9 @@ def show_back(desktop):
         button.image=icon
         button.pack(fill='both',expand=True)
         desktop.video_back=box
-    box.pack(side='left',before=desktop.title,padx=(SPACING['none'],SPACING['md']),anchor='center')
+    # R2946/R2950 期页标题搬进侧栏顶行，title_row 里只剩用量块（左）与状态/模型（右）；
+    # 返回钮仍占标题行最左，before 锚到同 master 的 usage_indicator（原 before=desktop.title 跨父级报 TclError）。
+    box.pack(side='left',before=desktop.usage_indicator,padx=(SPACING['none'],SPACING['md']),anchor='center')
 
 
 def hide_back(desktop):
