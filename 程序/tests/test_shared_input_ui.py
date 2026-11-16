@@ -317,6 +317,67 @@ class SharedInputLayoutTests(unittest.TestCase):
         texts = [str(w.cget('text')) for w in self._panel_labels(panel)]
         self.assertEqual(texts, ['添加附件', '添加模型…', '添加技能…'])
 
+    def test_add_menu_drilldown_keeps_panel_open(self):
+        """＋下钻与返回后面板保持开：销毁被点行不再被误判成「点到面板外」（R3040）。"""
+        box = self._make()
+        box.open_add_menu()
+        self.win.update_idletasks()
+        panel = box.add_panel
+        drill = next(w for w in self._panel_labels(panel)
+                     if str(w.cget('text')) == '添加技能…')
+        self._click(drill)
+        self.assertTrue(panel.is_open(), '下钻后面板应保持打开')
+        texts = [str(w.cget('text')) for w in self._panel_labels(panel)]
+        self.assertEqual(texts, ['‹ 返回', '从仓库导入', '本地安装'])
+        back = next(w for w in self._panel_labels(panel)
+                    if str(w.cget('text')) == '‹ 返回')
+        self._click(back)
+        self.assertTrue(panel.is_open(), '返回后面板应保持打开')
+        texts = [str(w.cget('text')) for w in self._panel_labels(panel)]
+        self.assertEqual(texts, ['添加附件', '添加模型…', '添加技能…'])
+
+    def test_skill_panel_checks_reflect_stage_config(self):
+        """勾选框所见即真：打开按 stage_config 预填、点击即时取反写回且面板不关；
+        跨阶段技能行不渲染勾选框、名称仍可点插入（R3040）。"""
+        import stage_config
+        from desktop_shared_menus import CHECK_SIZE
+        from ui_icons import IconLoader
+        box = self._make(stage='script')
+        box._skill_list_items = lambda: [
+            {'name': 'pipeline-script-preparation', 'stage': 'script'},
+            {'name': 'mine-skill', 'stage': 'storyboard'}]
+        box.open_skill_list()
+        self.win.update_idletasks()
+        panel = box.skill_panel
+        self.assertTrue(panel.is_open())
+        check = panel._check_rows.get('pipeline-script-preparation')
+        self.assertIsNotNone(check, '本阶段技能应渲染勾选框')
+        self.assertNotIn('mine-skill', panel._check_rows,
+                         '跨阶段技能不渲染勾选框')
+        # pipeline-script-preparation 是 script 阶段真实技能 → 默认勾选 → 预填已选。
+        checked = IconLoader.check_indicator(panel, size=CHECK_SIZE,
+                                             selected=True).name
+        unchecked = IconLoader.check_indicator(panel, size=CHECK_SIZE,
+                                               selected=False).name
+        self.assertEqual(check.cget('image'), checked,
+                         '默认技能打开时应预填勾选态')
+        # 点击＝从默认移除：配置同步、勾选像翻转、面板保持开。
+        self._click(check)
+        self.assertTrue(panel.is_open(), '勾选点击后面板应保持打开')
+        skills = stage_config.get(box.project, 'script').get('skills') or []
+        self.assertNotIn('pipeline-script-preparation', skills)
+        self.assertEqual(check.cget('image'), unchecked)
+        # 再点加回：勾选像回到已选。
+        self._click(check)
+        skills = stage_config.get(box.project, 'script').get('skills') or []
+        self.assertIn('pipeline-script-preparation', skills)
+        self.assertEqual(check.cget('image'), checked)
+        # 跨阶段行的名称仍可点插入 /名称。
+        target = next(w for w in self._panel_labels(panel)
+                      if str(w.cget('text')) == 'mine-skill')
+        self._click(target)
+        self.assertEqual(box.text(), '/mine-skill')
+
     def test_panels_are_mutually_exclusive_and_outside_click_closes(self):
         """两个图标面板互斥；点面板与图标钮之外收掉，点图标钮本身仍是开合。"""
         box = self._make()

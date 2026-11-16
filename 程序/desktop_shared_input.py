@@ -35,14 +35,29 @@ SHORTCUT_SCOPE = 'shared_input'
 SKILL_CARD_WRAP = 300
 
 
+def _widget_path(widget):
+    """控件的 Tk 路径：Widget 取 ``_w``；``event.widget`` 在被点控件随绑定销毁时
+    回退成路径字符串（R3040），两种形态统一成路径再比较。"""
+    if widget is None:
+        return ''
+    path = getattr(widget, '_w', None)
+    return str(path) if path else str(widget)
+
+
 def _widget_within(widget, ancestor):
-    """widget 是否落在 ancestor 子树内（place 出去的浮层也是它的子孙）。"""
-    node = widget
-    while node is not None:
-        if node is ancestor:
-            return True
-        node = getattr(node, 'master', None)
-    return False
+    """widget 是否落在 ancestor 子树内（place 出去的浮层也是它的子孙）。
+
+    按路径判：``wpath == apath`` 或以 ``apath + '.'`` 开头；ancestor 为根 ``.``
+    时恒真。销毁控件的事件回退字符串与活控件走同一规则，不再依赖 ``.master`` 链
+    （字符串没有 master，旧写法对它恒 False，曾把面板内点击误判成外部点击）。
+    """
+    wpath = _widget_path(widget)
+    apath = _widget_path(ancestor)
+    if not wpath or not apath:
+        return False
+    if apath == '.':
+        return True
+    return wpath == apath or wpath.startswith(apath + '.')
 
 
 def project_root(desktop):
@@ -577,6 +592,41 @@ class SharedStageInput(_CandidateFlow, ttk.Frame):
     def _skill_display(item):
         """列表行只显示技能包原始 ``name``（REQ-S01-91），不拼 displayName。"""
         return SharedStageInput._skill_name(item) or '（未命名技能）'
+
+    def _skill_stage(self, item):
+        """技能归属阶段 id（``stage_id`` 归一）：显式 ``stage`` 字段优先，
+        缺失按名回查注册表；判不出返回 ``''``。"""
+        stage = item.get('stage') if isinstance(item, dict) else getattr(item, 'stage', None)
+        if not stage:
+            name = self._skill_name(item)
+            if name:
+                try:
+                    import skill_registry
+                    found = skill_registry.default_registry().getById(name)
+                    stage = getattr(found, 'stage', None) if found is not None else None
+                except Exception:
+                    app_logging.swallowed()
+        if not stage:
+            return ''
+        try:
+            import skill_registry
+            return skill_registry.stage_id(stage)
+        except Exception:
+            return str(stage)
+
+    def _skill_defaultable(self, item):
+        """可设为本阶段默认：项目已开 且 归属阶段==当前阶段（R3040：
+        跨阶段与判不出阶段的行不给会永远写不进的死勾选框）。"""
+        if self.project is None:
+            return False
+        own = self._skill_stage(item)
+        if not own:
+            return False
+        try:
+            import skill_registry
+            return own == skill_registry.stage_id(self.stage)
+        except Exception:
+            return own == self.stage
 
     def _skill_list_items(self):
         """当前阶段技能在前、其余在后；去重、限量。"""
