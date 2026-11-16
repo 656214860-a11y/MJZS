@@ -21,14 +21,13 @@
 要看这一格的文件双击缩略图，或者走右键菜单里的「查看」。
 """
 import app_logging
-import inspect
+from cell_menu import (ROW_MENU_DELETE, ROW_MENU_VIEW, bind_row_menu, call_delete,
+                       popup_row_menu, wants_column)
 from ui_tokens import COLORS, SPACING
 import tkinter as tk
 from tkinter import ttk
-from ui_widgets import ContextMenu, LineInput
+from ui_widgets import LineInput
 
-ROW_MENU_VIEW = '查看'          # 右键菜单第一项：等同单击这一格
-ROW_MENU_DELETE = '删除'        # 右键菜单第二项：逐个删除（目标就是右键那一行）
 ZOOM_SIZE = 480                 # 缩略图悬停放大后的长边（第 57 期第 5 条）：看清人物与背景
 # 第 59 期第 1 条：用户嫌放大图还是小，长边从 240 提到 480（再放大一倍）。
 # 第 64 期任务 12：用户还是要更大，480 → 960（再放大一倍）；各页的 zoom= 都取这一个常量。
@@ -194,75 +193,6 @@ def watch_view(tree, callback):
     return callback
 
 
-def wants_column(callback):
-    """这个回调要不要第二个人参（「哪一列」）：delete(row) 与 delete(row, column) 都收。
-
-    第 57 期第 3 条：资产页「参考图」那一格删的是这一格的参考图，别处删的还是这一行的那张图——
-    同一份右键菜单得把「右键落在哪一列」交给回调，而老写法（一个人参）照旧不动。
-    """
-    try:
-        parameters = list(inspect.signature(callback).parameters.values())
-    except (TypeError, ValueError):
-        return False
-    if any(item.kind == item.VAR_POSITIONAL for item in parameters):
-        return True
-    return len([item for item in parameters
-                if item.kind in (item.POSITIONAL_ONLY, item.POSITIONAL_OR_KEYWORD)]) >= 2
-
-
-def call_delete(delete, row, column):
-    """按回调自己的签名把「那一列」传下去。"""
-    return delete(row, column) if wants_column(delete) else delete(row)
-
-
-def popup_row_menu(tree, row, column, view=None, delete=None, x=None, y=None):
-    """弹一次「查看／删除」：view(row, column) 与 delete 拿到的都是右键那一格那一行。
-
-    column 给 None＝这一格没有「查看」（比如勾选列）。两项都摆不出来就不弹，返回 None。
-    delete 收一个人参＝delete(row)，收两个人参＝delete(row, column)。
-    """
-    # 保留本模块的可替换菜单工厂，供无 Tk 根窗口的逻辑测试使用。
-    context_menu = ContextMenu(tree, menu_factory=tk.Menu)
-    if view is not None and column is not None:
-        context_menu.command(ROW_MENU_VIEW, lambda: view(row, column))
-    if delete is not None:
-        context_menu.command(ROW_MENU_DELETE, lambda: call_delete(delete, row, column))
-    menu = context_menu.menu
-    if menu.index('end') is None:
-        return None
-    context_menu.popup_at(x if x is not None else tree.winfo_pointerx(),
-                          y if y is not None else tree.winfo_pointery())
-    return menu
-
-
-def bind_row_menu(tree, view=None, delete=None, columns=None, checkbox_column='#0'):
-    """给内容框装右键菜单（第 46 期第 1 条）：columns 给 None 就认所有格。
-
-    只认格子上（表头、列宽拖动条上不弹），并把右键那一行交给调用方——调用方因此不必
-    去猜「用户到底想删高亮那行还是勾选那行」。
-
-    第 52 期第 2 条：勾选列不弹（那一格没有可打开的文件）；columns 给了就只认这几列。
-    """
-    allowed = None if columns is None else {str(item) for item in columns}
-
-    def handler(event):
-        if tree.identify_region(event.x, event.y) not in ('cell', 'tree'):
-            return None
-        row = tree.identify_row(event.y)
-        if not row:
-            return None
-        column = tree.identify_column(event.x)
-        if column == checkbox_column:
-            return None
-        if allowed is not None and column not in allowed:
-            return None
-        popup_row_menu(tree, row, column, view, delete, event.x_root, event.y_root)
-        return 'break'
-
-    tree.bind('<Button-3>', handler, add='+')
-    tree.row_menu = handler
-    return handler
-
 class CellHover:
     def __init__(self, tree, columns, command, cell_image=None, hover_only=False, checked=None, toggle=None, checkbox_column='#0', delete=None, forward=None, plain_columns=()):
         self.tree=tree;self.columns=set(columns);self.command=command;self.cell_image=cell_image;self.hover_only=hover_only
@@ -416,166 +346,8 @@ class CellHover:
         entry.commit_edit=commit;entry.cancel_edit=cancel
 
 
-class CellImages:
-    """在内容框的某几列上盖一层图片（第 52 期第 3 条）。
-
-    ttk.Treeview 只有 #0 那一格能摆图，其余格子只能写文字——所以缩略图得另盖一层 Label。
-    位置全是现问 tree.bbox 要的，视图一变（滚动条一动、列宽一变、内容框改尺寸）就得重排：
-    这一层挂进 watch_view，调用方不必再往 xscrollcommand 末尾补一次 refresh——漏一处，
-    格子向左走了、缩略图还钉在原处。
-
-    盖住的那一格鼠标就落不到树上了，第 55 期第 2 条起改成：
-    · 不再走高亮：那一格上只挂一样东西（图）。原来两层叠在同一格上互相顶掉，用户看到的
-      就是「高亮和缩略图打架、显示不对」；
-    · 单击不打开（第 60 期第 3 条），双击打开（第 64 期任务 12）：单击那一下常被当成
-      「先点亮这一行」，看着像点了没反应，所以只认双击；右键菜单里的「查看」照旧是同一条路；
-    · 右键照旧转给 CellHover——「查看／删除」那一份菜单没变（放大图上右键也认这一格）。
-
-    第 55 期第 3 条：盖上的那一格也不再写字——文字由这一层收着（盖上时读走并清空，撤掉时
-    写回）。页面因此不必为了「这一格要不要写字」去解每一张图：那是整页卡顿的来源（100 项
-    资产＝100 张图全解一遍，其中绝大多数根本不在可视区）。
-
-    第 57 期第 5 条：缩略图多了「鼠标停上去就放大」——zoom(row, column) 给一张放大图就生效。
-    放大图另起一个 Label，挂在**顶层窗口**下（挂在内容框里会被它裁掉）；鼠标离开那一格先等
-    一小会儿再看一眼指针在不在放大图上，压在图上就算还在看。
-
-    第 58 期第 3 条：这张放大图**紧贴鼠标的右上角**——底边压着指针、往右上铺开（见 zoom_spot）。
-    原来它按「格子的右边、竖直居中」摆，而 place 用的是顶层窗口的坐标、格子象限却是内容框自己的，
-    内容框一旦不在窗口角上（几页的内容框都不是），那一份坐标就整块偏出去。
-    """
-
-    def __init__(self, tree, columns, provider, hover=None, background=COLORS['background_card'], forward=None, plain=None,
-                 zoom=None, view_refresh_delay=0):
-        self.tree = tree
-        self.columns = tuple(columns)
-        self.provider = provider                 # (row, column) → (image, text) 或 None
-        self.hover = hover                       # 盖住那格的悬停／右键转给它
-        self.forward = forward                   # 第 53 期第 1／5 条：盖住那格的单击／右键重发给树
-        # 第 55 期第 2 条：这几列归图这一层，不再走高亮。默认就是转交那份 CellHover；只借高亮
-        # 那一条关系、不借它的交互时（07 线上生成那一页就是）用 plain 单独指一份。
-        self.plain = hover if plain is None else plain
-        self.background = background             # 底色：一个颜色，或者 background(row)
-        self.labels = {}
-        self.texts = {}                          # 盖上图的那几格原来写了什么（撤掉时写回去）
-        self.zoom = zoom                         # 第 57 期第 5 条：(row, column) → 放大后的图，None＝不放大
-        self.zoom_label = None
-        self.zoom_key = None
-        self.zoom_pending = None
-        self._zoom_suppress = False              # R3012：点击这格后抑制放大，直到指针离开再进入
-        self.zoom_watch = None                   # 第 60 期第 5 条：盯着指针的那个定时器
-        self.zoom_at = None                      # 上一次看到的指针（没动过就不必再判一遍）
-        self.view_refresh_delay = max(0, int(view_refresh_delay or 0))
-        self._view_refresh_id = None
-        self._initial_refresh_id = None
-        self._initial_map_bind = None
-        self._initial_mapped = False
-        # `after` 归整套 Tcl 解释器管理。根窗口直接销毁时，子 Treeview 的 <Destroy>
-        # 绑定可能已来不及撤掉 Python 命令；同时监听顶层窗口，先于子控件销毁取消它。
-        self._zoom_owner = tree.winfo_toplevel()
-        if self.plain is not None:
-            self.plain.cover(*self.columns)
-        # 视图滚动时，留在可视区的格子仍是同一张图层；只需重摆位置，不必再问一次
-        # provider（资产缩略图会因此重复 stat／缓存查询）。显式 refresh() 仍全量重读，
-        # 以便调用方在文件或数据变更后立即撤掉／替换覆盖层。
-        callback = self._schedule_view_refresh if self.view_refresh_delay else \
-            (lambda: self.refresh(reuse_existing=True))
-        watch_view(tree, callback)
-        tree.bind('<Destroy>', self.destroy, add='+')
-        # 顶层销毁时 Tk 会先依次销毁它的子控件；不把 event 原样转发，确保
-        # 放大图 Label 先收到销毁事件时也能立即撤掉悬挂的 watcher。
-        self._zoom_owner.bind('<Destroy>', lambda event: self.destroy(), add='+')
-
-    def _schedule_view_refresh(self):
-        """连续滚动时合并图片覆盖层重排；表格本体不等待这份装饰层。"""
-        if self._view_refresh_id is not None:
-            try:
-                self.tree.after_cancel(self._view_refresh_id)
-            except Exception:
-                app_logging.swallowed()
-            self._view_refresh_id = None
-
-        def run():
-            self._view_refresh_id = None
-            self.refresh(reuse_existing=True)
-
-        try:
-            self._view_refresh_id = self.tree.after(self.view_refresh_delay, run)
-        except Exception:
-            self._view_refresh_id = None
-
-    def schedule_initial_refresh(self):
-        """首帧映射完成后补一次覆盖层刷新，避免未取得 bbox 时留下空白。"""
-        if self._initial_mapped or self._initial_refresh_id is not None:
-            return self._initial_refresh_id
-
-        def mapped(event):
-            if event.widget is not self.tree or self._initial_mapped:
-                return None
-            self._initial_mapped = True
-            if self._initial_refresh_id is not None:
-                try:
-                    self.tree.after_cancel(self._initial_refresh_id)
-                except Exception:
-                    app_logging.swallowed()
-                self._initial_refresh_id = None
-            self.refresh()
-            return None
-
-        try:
-            self._initial_map_bind = self.tree.bind('<Map>', mapped, add='+')
-        except Exception:
-            self._initial_map_bind = None
-
-        def run():
-            self._initial_refresh_id = None
-            if not self._initial_mapped:
-                self.refresh()
-
-        try:
-            self._initial_refresh_id = self.tree.after_idle(run)
-        except Exception:
-            self._initial_refresh_id = None
-        return self._initial_refresh_id
-
-    # ── 格子里的文字（第 55 期第 3 条）：盖上收走、撤掉写回 ─────────────────
-    def text_at(self, row, column):
-        """这一格现在写的是什么（行已经没了就返回空串）。"""
-        try:
-            return str(self.tree.item(row, 'text') if column == '#0' else self.tree.set(row, column))
-        except Exception:
-            return ''
-
-    def write(self, row, column, text):
-        try:
-            if column == '#0':
-                self.tree.item(row, text=text)
-            else:
-                self.tree.set(row, column, text)
-            return True
-        except Exception:
-            return False                         # 行已被删除（换页、刷新列表）
-
-    def blank(self, row, column):
-        """这一格盖上了图：把原来的文字收好、格子清空。"""
-        key = (row, column)
-        current = self.text_at(row, column)
-        if key not in self.texts or current:
-            self.texts[key] = current            # 行重建会写上新文字，以新的为准
-        if current:
-            self.write(row, column, '')
-
-    def restore(self, key):
-        """这一格不再盖图：把收着的文字写回去。
-
-        只在格子还空着的时候写——页面重建行、改了状态之后，格子里已经写上了新文字，
-        这时候把旧的写回去就成了「状态回退」，那比空着还糟。
-        """
-        text = self.texts.pop(key, None)
-        if not text:
-            return
-        if self.text_at(key[0], key[1]):
-            return
-        self.write(key[0], key[1], text)
+class CellImagesZoomMixin:
+    """悬停放大那一层：放大图的弹出／收起、点击抑制与指针盯梢（自 CellImages 拆出，R3033 类棘轮）。"""
 
     # ── 悬停放大（第 57 期第 5 条）────────────────────────────────────────
     def zoom_hide(self):
@@ -824,6 +596,168 @@ class CellImages:
         except Exception:
             self.zoom_pending = None
         return None
+
+
+class CellImages(CellImagesZoomMixin):
+    """在内容框的某几列上盖一层图片（第 52 期第 3 条）。
+
+    ttk.Treeview 只有 #0 那一格能摆图，其余格子只能写文字——所以缩略图得另盖一层 Label。
+    位置全是现问 tree.bbox 要的，视图一变（滚动条一动、列宽一变、内容框改尺寸）就得重排：
+    这一层挂进 watch_view，调用方不必再往 xscrollcommand 末尾补一次 refresh——漏一处，
+    格子向左走了、缩略图还钉在原处。
+
+    盖住的那一格鼠标就落不到树上了，第 55 期第 2 条起改成：
+    · 不再走高亮：那一格上只挂一样东西（图）。原来两层叠在同一格上互相顶掉，用户看到的
+      就是「高亮和缩略图打架、显示不对」；
+    · 单击不打开（第 60 期第 3 条），双击打开（第 64 期任务 12）：单击那一下常被当成
+      「先点亮这一行」，看着像点了没反应，所以只认双击；右键菜单里的「查看」照旧是同一条路；
+    · 右键照旧转给 CellHover——「查看／删除」那一份菜单没变（放大图上右键也认这一格）。
+
+    第 55 期第 3 条：盖上的那一格也不再写字——文字由这一层收着（盖上时读走并清空，撤掉时
+    写回）。页面因此不必为了「这一格要不要写字」去解每一张图：那是整页卡顿的来源（100 项
+    资产＝100 张图全解一遍，其中绝大多数根本不在可视区）。
+
+    第 57 期第 5 条：缩略图多了「鼠标停上去就放大」——zoom(row, column) 给一张放大图就生效。
+    放大图另起一个 Label，挂在**顶层窗口**下（挂在内容框里会被它裁掉）；鼠标离开那一格先等
+    一小会儿再看一眼指针在不在放大图上，压在图上就算还在看。
+
+    第 58 期第 3 条：这张放大图**紧贴鼠标的右上角**——底边压着指针、往右上铺开（见 zoom_spot）。
+    原来它按「格子的右边、竖直居中」摆，而 place 用的是顶层窗口的坐标、格子象限却是内容框自己的，
+    内容框一旦不在窗口角上（几页的内容框都不是），那一份坐标就整块偏出去。
+    """
+
+    def __init__(self, tree, columns, provider, hover=None, background=COLORS['background_card'], forward=None, plain=None,
+                 zoom=None, view_refresh_delay=0):
+        self.tree = tree
+        self.columns = tuple(columns)
+        self.provider = provider                 # (row, column) → (image, text) 或 None
+        self.hover = hover                       # 盖住那格的悬停／右键转给它
+        self.forward = forward                   # 第 53 期第 1／5 条：盖住那格的单击／右键重发给树
+        # 第 55 期第 2 条：这几列归图这一层，不再走高亮。默认就是转交那份 CellHover；只借高亮
+        # 那一条关系、不借它的交互时（07 线上生成那一页就是）用 plain 单独指一份。
+        self.plain = hover if plain is None else plain
+        self.background = background             # 底色：一个颜色，或者 background(row)
+        self.labels = {}
+        self.texts = {}                          # 盖上图的那几格原来写了什么（撤掉时写回去）
+        self.zoom = zoom                         # 第 57 期第 5 条：(row, column) → 放大后的图，None＝不放大
+        self.zoom_label = None
+        self.zoom_key = None
+        self.zoom_pending = None
+        self._zoom_suppress = False              # R3012：点击这格后抑制放大，直到指针离开再进入
+        self.zoom_watch = None                   # 第 60 期第 5 条：盯着指针的那个定时器
+        self.zoom_at = None                      # 上一次看到的指针（没动过就不必再判一遍）
+        self.view_refresh_delay = max(0, int(view_refresh_delay or 0))
+        self._view_refresh_id = None
+        self._initial_refresh_id = None
+        self._initial_map_bind = None
+        self._initial_mapped = False
+        # `after` 归整套 Tcl 解释器管理。根窗口直接销毁时，子 Treeview 的 <Destroy>
+        # 绑定可能已来不及撤掉 Python 命令；同时监听顶层窗口，先于子控件销毁取消它。
+        self._zoom_owner = tree.winfo_toplevel()
+        if self.plain is not None:
+            self.plain.cover(*self.columns)
+        # 视图滚动时，留在可视区的格子仍是同一张图层；只需重摆位置，不必再问一次
+        # provider（资产缩略图会因此重复 stat／缓存查询）。显式 refresh() 仍全量重读，
+        # 以便调用方在文件或数据变更后立即撤掉／替换覆盖层。
+        callback = self._schedule_view_refresh if self.view_refresh_delay else \
+            (lambda: self.refresh(reuse_existing=True))
+        watch_view(tree, callback)
+        tree.bind('<Destroy>', self.destroy, add='+')
+        # 顶层销毁时 Tk 会先依次销毁它的子控件；不把 event 原样转发，确保
+        # 放大图 Label 先收到销毁事件时也能立即撤掉悬挂的 watcher。
+        self._zoom_owner.bind('<Destroy>', lambda event: self.destroy(), add='+')
+
+    def _schedule_view_refresh(self):
+        """连续滚动时合并图片覆盖层重排；表格本体不等待这份装饰层。"""
+        if self._view_refresh_id is not None:
+            try:
+                self.tree.after_cancel(self._view_refresh_id)
+            except Exception:
+                app_logging.swallowed()
+            self._view_refresh_id = None
+
+        def run():
+            self._view_refresh_id = None
+            self.refresh(reuse_existing=True)
+
+        try:
+            self._view_refresh_id = self.tree.after(self.view_refresh_delay, run)
+        except Exception:
+            self._view_refresh_id = None
+
+    def schedule_initial_refresh(self):
+        """首帧映射完成后补一次覆盖层刷新，避免未取得 bbox 时留下空白。"""
+        if self._initial_mapped or self._initial_refresh_id is not None:
+            return self._initial_refresh_id
+
+        def mapped(event):
+            if event.widget is not self.tree or self._initial_mapped:
+                return None
+            self._initial_mapped = True
+            if self._initial_refresh_id is not None:
+                try:
+                    self.tree.after_cancel(self._initial_refresh_id)
+                except Exception:
+                    app_logging.swallowed()
+                self._initial_refresh_id = None
+            self.refresh()
+            return None
+
+        try:
+            self._initial_map_bind = self.tree.bind('<Map>', mapped, add='+')
+        except Exception:
+            self._initial_map_bind = None
+
+        def run():
+            self._initial_refresh_id = None
+            if not self._initial_mapped:
+                self.refresh()
+
+        try:
+            self._initial_refresh_id = self.tree.after_idle(run)
+        except Exception:
+            self._initial_refresh_id = None
+        return self._initial_refresh_id
+
+    # ── 格子里的文字（第 55 期第 3 条）：盖上收走、撤掉写回 ─────────────────
+    def text_at(self, row, column):
+        """这一格现在写的是什么（行已经没了就返回空串）。"""
+        try:
+            return str(self.tree.item(row, 'text') if column == '#0' else self.tree.set(row, column))
+        except Exception:
+            return ''
+
+    def write(self, row, column, text):
+        try:
+            if column == '#0':
+                self.tree.item(row, text=text)
+            else:
+                self.tree.set(row, column, text)
+            return True
+        except Exception:
+            return False                         # 行已被删除（换页、刷新列表）
+
+    def blank(self, row, column):
+        """这一格盖上了图：把原来的文字收好、格子清空。"""
+        key = (row, column)
+        current = self.text_at(row, column)
+        if key not in self.texts or current:
+            self.texts[key] = current            # 行重建会写上新文字，以新的为准
+        if current:
+            self.write(row, column, '')
+
+    def restore(self, key):
+        """这一格不再盖图：把收着的文字写回去。
+
+        只在格子还空着的时候写——页面重建行、改了状态之后，格子里已经写上了新文字，
+        这时候把旧的写回去就成了「状态回退」，那比空着还糟。
+        """
+        text = self.texts.pop(key, None)
+        if not text:
+            return
+        if self.text_at(key[0], key[1]):
+            return
+        self.write(key[0], key[1], text)
 
     # ── 那一层 Label ───────────────────────────────────────────────────────
     def hide(self, key):
