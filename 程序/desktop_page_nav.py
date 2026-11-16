@@ -302,6 +302,13 @@ class PageNavMixin:
             shared.pack_forget()
             return
         shared.set_stage(stage)
+        if stage=='script':
+            # 剧本页的「发送／终止合一」改写作用在共享发送键上：切回本页时按当前
+            # 任务态重挂（任务进行中→终止图标），其余阶段已由 set_stage 复位默认。
+            sync=getattr(self,'update_script_interrupt_button',None)
+            if callable(sync):
+                try:sync()
+                except Exception:app_logging.swallowed()
         options={'side':'top','fill':'x'}
         label=getattr(self,'status_label',None)
         # 视频页会把状态栏 pack_forget：锚点不在管理中时不能用 before，否则 Tcl 报错。

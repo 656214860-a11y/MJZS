@@ -455,8 +455,9 @@ class UiEdgePagesTests(UiEdgeCase):
             self.assertNotIn("对话AI", texts, "独立标题应移除，让聊天框上移")
             self.assertEqual(d.idea_log.master.master.winfo_class(), "TFrame",
                              "使用无标题容器，避免 LabelFrame 保留标题行高度")
-            # REQ-S01-62：框上方标签改为框内占位提示，仍说明附件入口与 Enter 发送。
-            self.assertIn("输入想法，Enter 发送，点 + 上传附件", texts,
+            # REQ-S01-62＋轮 3 契约：框上方标签改为框内占位提示；附件入口已统一到
+            # 共享输入条的「附件」按钮，提示语同步改为指向它。
+            self.assertIn("输入想法，Enter 发送，附件点「附件」", texts,
                           "输入区提示应包含附件入口以及 Enter 提交方式")
             self.assertNotIn("输入想法/上传附件---->enter/发送", texts)
             for gone in ("当前剧本目录", "创作入口", "文件操作",
@@ -529,23 +530,20 @@ class UiEdgePagesTests(UiEdgeCase):
             self.assertEqual(int(d.idea_input.cget("height")), TEXT_ROWS["sm"],
                              "共享输入框固定行数，不再多占聊天区")
             self.assertEqual(str(d.idea_send.master), str(d.idea_row), "「发送」在内容框下面那一行")
-            # REQ-S01-62＋轮 4 契约：「+」与终止／附件行在共享输入框上方的卡片内，
-            # 共享输入条整体位于对话区下方。
-            frame=d.idea_composer_frame
-            self.assertLess(frame.winfo_rooty()+frame.winfo_height(),
-                            d.shared_input.winfo_rooty()+1,
-                            "上传附件卡片必须整体位于共享输入条上方")
+            # REQ-S01-62＋轮 3 契约：工具行入口（附件／发送）在共享输入条内；
+            # composer 卡片只在有附件卡片时出现，空附件时整体收起不留空条。
+            shared=d.shared_input
             for widget in (d.idea_attachment_button, d.idea_submit):
-                self.assertGreaterEqual(widget.winfo_rootx(), frame.winfo_rootx())
-                self.assertLessEqual(widget.winfo_rootx()+widget.winfo_width(), frame.winfo_rootx()+frame.winfo_width())
-                self.assertLessEqual(widget.winfo_rooty()+widget.winfo_height(), frame.winfo_rooty()+frame.winfo_height())
+                self.assertGreaterEqual(widget.winfo_rooty(), shared.winfo_rooty())
+                self.assertLessEqual(widget.winfo_rooty()+widget.winfo_height(), shared.winfo_rooty()+shared.winfo_height())
             self.assertGreater(d.idea_submit.winfo_rootx(), d.idea_attachment_button.winfo_rootx())
+            frame=d.idea_composer_frame
+            self.assertFalse(frame.winfo_ismapped(), "未附档时 composer 卡片整体收起")
             self.assertFalse(d.idea_uploaded_panel.winfo_ismapped(),
                              "未附档时不应留下空白附件行")
-            frame_bottom=frame.winfo_rooty()+frame.winfo_height()
-            from ui_tokens import SPACING
-            self.assertEqual(d.idea_send.winfo_rooty()-frame_bottom, SPACING["xs"],
-                             "发送按钮与输入框保留设计系统规定的微小防误触间距")
+            self.assertLess(d.idea_send.winfo_rooty()+d.idea_send.winfo_height(),
+                            shared.winfo_rooty()+1,
+                            "底栏「发送」整体位于共享输入条上方")
             d.idea_input.event_generate('<FocusOut>'); win.update()
             hint_info = d.idea_input_hint.place_info()
             # 契约有意变更：输入框空框两行后，提示对齐首行，不再按中线居中。

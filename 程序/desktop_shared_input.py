@@ -1,6 +1,6 @@
 """共享底部输入框（R2893，任务书轮 3）：13 个阶段页共用同一实例。
 
-布局（任务书 §4）：``[skill 图标][附件图标] | [TextArea 输入框] | [模型图标][发送]``；
+布局（任务书 §4＋语音输入离线化轮 3）：``[skill 图标][附件图标][麦克风] | [TextArea 输入框] | [模型图标][发送]``；
 视觉 token 走 ``ui_tokens``，快捷键登记走宿主 ``ShortcutRegistry``（``/`` 补全与
 ``Esc`` 关闭）。命令解析在无 Tk 的 ``skill_command``；发送门禁复用
 ``stage_parallel`` 上游判定与 ``stage_completion_service.completion_evidence``。
@@ -13,6 +13,7 @@ parsed)``（返回真值表示已受理，假值＝本组件恢复可用态）�
 """
 from __future__ import annotations
 
+import os
 import tkinter as tk
 from tkinter import ttk
 from pathlib import Path
@@ -22,8 +23,8 @@ import skill_command
 import ui_plugin_registry
 from contract import pet_bus
 from ui_shortcuts import ShortcutRegistry
-from ui_tokens import FONTS, SPACING, TEXT_ROWS
-from ui_widgets import SecondaryButton, TextArea, PrimaryButton
+from ui_tokens import FONTS, ICON_MICROPHONE, SPACING, TEXT_ROWS
+from ui_widgets import SecondaryButton, TextArea, PrimaryButton, Tooltip
 
 SHORTCUT_SCOPE = 'shared_input'
 
@@ -109,6 +110,8 @@ class SharedStageInput(ttk.Frame):
         self.in_flight = False
         self.request_model = None
         self._completion_open = False
+        self.mic_button = None
+        self.voice_input = None
         self._build()
 
     # ── 构建 ────────────────────────────────────────────────────────────
@@ -121,6 +124,13 @@ class SharedStageInput(ttk.Frame):
         self.attachment_button = SecondaryButton(left, text='附件', width=0,
                                                  command=self.open_attachments)
         self.attachment_button.pack(side='left')
+        # 语音输入离线化任务书轮 3：麦克风入口只此一处（非 Windows 不显示，REQ-S01-71
+        # 原口径）；听写会话绑定本栏共享 Text，13 页切页只换 set_stage 上下文不重建。
+        if os.name == 'nt':
+            self.mic_button = SecondaryButton(left, text=ICON_MICROPHONE, width=0,
+                                              command=self._toggle_voice)
+            self.mic_button.pack(side='left', padx=(SPACING['xs'], SPACING['none']))
+            Tooltip(self.mic_button, '语音输入：点一下开始录音，再点一下结束并转成文字')
 
         self.input = TextArea(self, height=TEXT_ROWS['sm'], wrap='word')
         self.input.pack(side='left', fill='both', expand=True,
@@ -151,7 +161,25 @@ class SharedStageInput(ttk.Frame):
                             scope=SHORTCUT_SCOPE, name='dismiss_completion')
         self.shortcuts.bind(self.input, ('<KP_Enter>',), self._on_return,
                             scope=SHORTCUT_SCOPE, name='send_on_enter')
+        if self.mic_button is not None:
+            self.voice_input = self._make_voice_input()
         self._sync_model_label()
+
+    def _make_voice_input(self):
+        """共享栏唯一一份听写会话：跟随 ``self.input``（跨页同一 Text 实例）。"""
+        import desktop_voice_input
+        return desktop_voice_input.VoiceInput(
+            self.input, self.mic_button, status=self.status,
+            listening_style='Tokens.Primary.TButton', idle_style='Tokens.Secondary.TButton')
+
+    def _toggle_voice(self):
+        voice = self.voice_input
+        if voice is None:
+            return
+        try:
+            voice.toggle()
+        except Exception as exc:
+            _say(self.status, '语音输入未能启动（%s）。' % exc)
 
     # ── 上下文 ──────────────────────────────────────────────────────────
     @property
@@ -159,11 +187,20 @@ class SharedStageInput(ttk.Frame):
         return project_root(self.desktop)
 
     def set_stage(self, stage):
-        """切页只换上下文：不重建实例，只刷新补全候选与模型标签。"""
+        """切页只换上下文：不重建实例，只刷新补全候选、模型标签与发送键默认态。"""
         self.stage = str(stage or 'script')
+        self._reset_send_button()
         self._sync_model_label()
         if self._completion_open:
             self._refresh_completion()
+
+    def _reset_send_button(self):
+        """页面级对发送键的改写（剧本页运行中＝终止图标）随切页复位，回到默认「发送」。"""
+        try:
+            self.send_button.configure(text='发送', command=self.send)
+            self.send_button.state(['!disabled'])
+        except tk.TclError:
+            app_logging.swallowed()
 
     def skill_items(self):
         if self._skills:

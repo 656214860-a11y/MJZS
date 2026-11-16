@@ -79,7 +79,18 @@ class IdeaAttachmentsMixin:
             close.bind('<Button-1>',lambda event,item=path:self.safe(lambda:self.delete_uploaded_idea_attachment(item)) or 'break')
             for sequence,flag in (('<Enter>','active'),('<Leave>','!active')):close.bind(sequence,lambda event,flag=flag:event.widget.state([flag]),add='+')
             Tooltip(close,'删除附件')
-        if not paths:return panel.pack_forget()
+        if not paths:
+            panel.pack_forget()
+            # 共享模式下卡片是 composer 卡片唯一内容：没有附件时整卡收起，不留空条。
+            frame=getattr(self,'idea_composer_frame',None)
+            if (frame is not None and getattr(self,'_composer_shared_mode',False)
+                    and frame.winfo_manager()):
+                frame.pack_forget()
+            return
+        frame=getattr(self,'idea_composer_frame',None)
+        if (frame is not None and getattr(self,'_composer_shared_mode',False)
+                and not frame.winfo_manager()):
+            frame.pack(fill='x')
         if not panel.winfo_manager():panel.pack(side='left',fill='x',expand=True,padx=(SPACING['xs'],SPACING['xs']))
         panel.schedule()
     def choose_idea_attachments(self):

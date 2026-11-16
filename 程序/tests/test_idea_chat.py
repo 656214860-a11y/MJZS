@@ -28,7 +28,6 @@ os.chdir(HERE)
 import idea_chat as _idea_chat
 import script_contract
 import desktop_idea_chat
-from ui_tokens import ICON_ADD
 from stage_execution_service import idea_chat_gateway, publish_idea_creative, project_context
 from desktop import Desktop, PAGE
 from project_stages import writing as writing_dir
@@ -1172,15 +1171,16 @@ class SendMessageTests(_Harness):
                                     '阶段配置紧随发送按钮右侧')
 
     def test_script_interrupt_is_merged_into_submit_and_releases_direct_chat(self):
-        # REQ-S01-62：「中断」并入输入框内的发送键，运行中切换为终止图标。
-        from ui_tokens import ICON_SEND, ICON_STOP
+        # REQ-S01-62：轮 3 契约——「中断」并入共享输入框发送键，运行中切换为终止图标，
+        # 空闲态文字「发送」（共享栏全阶段统一，不再用页内图标）。
+        from ui_tokens import ICON_STOP
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)
             d.show(0); win.update()
             labels = {str(c.cget('text')) for c in d.idea_row.winfo_children() if isinstance(c, ttk.Button)}
             self.assertNotIn('中断', labels, '底栏不再有中断按钮')
-            self.assertEqual(d.idea_submit.cget('text'), ICON_SEND)
+            self.assertEqual(d.idea_submit.cget('text'), '发送')
             d._idea_requesting = True; d.worker = True
             d.update_script_interrupt_button(); win.update()
             self.assertEqual(d.idea_submit.cget('text'), ICON_STOP)
@@ -1188,21 +1188,21 @@ class SendMessageTests(_Harness):
             self.assertTrue(d.interrupt_script_agent())
             self.assertFalse(d._idea_requesting)
             self.assertFalse(d.worker)
-            self.assertEqual(d.idea_submit.cget('text'), ICON_SEND)
+            self.assertEqual(d.idea_submit.cget('text'), '发送')
 
     def test_rebuilt_writing_page_keeps_queued_request_interruptible(self):
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)
             d.show(0); win.update()
-            from ui_tokens import ICON_SEND, ICON_STOP
+            from ui_tokens import ICON_STOP
             d._script_agent_launching = True
             d.show(0); win.update()
             self.assertEqual(d.idea_submit.cget('text'), ICON_STOP)
             self.assertFalse(d.idea_submit.instate(['disabled']))
             d._script_agent_launching = False
             d.update_script_interrupt_button()
-            self.assertEqual(d.idea_submit.cget('text'), ICON_SEND)
+            self.assertEqual(d.idea_submit.cget('text'), '发送')
 
     def test_refresh_is_next_to_stage_settings_and_repairs_old_claude_blocks(self):
         with tempfile.TemporaryDirectory() as td:
@@ -1422,7 +1422,8 @@ class SendMessageTests(_Harness):
             self.assertEqual(len(d.idea_attachment_paths), 1)
             self.assertTrue(Path(d.idea_attachment_paths[0]).is_file())
             self.assertEqual(Path(d.idea_attachment_paths[0]).parent.name, '输入')
-            self.assertEqual(d.idea_attachment_button.cget('text'), ICON_ADD)
+            # 轮 3 契约：附件入口是共享输入条的「附件」按钮（文字键，非页内「+」图标）。
+            self.assertEqual(d.idea_attachment_button.cget('text'), '附件')
             attachment_name = Path(d.idea_attachment_paths[0]).name
             self.assertRegex(attachment_name, r'^p_附件文本_角色设定_\d{8}\.md$')
             self.assertIn('已引用：' + attachment_name, d.idea_attachment_status.get())
@@ -1511,12 +1512,13 @@ class SendMessageTests(_Harness):
             self.assertLessEqual(abs(chips[0].winfo_rooty() - chips[2].winfo_rooty()), 2, '卡片横向排在同一行')
             self.assertLess(chips[0].winfo_rootx(), chips[1].winfo_rootx())
             self.assertLess(chips[1].winfo_rootx(), chips[2].winfo_rootx())
-            # REQ-S01-71：卡片排在麦克风右侧、发送左侧，按上传顺序从左往右，放不下自动换行；没有附件不占位。
-            # R2898：输入区是桌面底部共享栏，附件卡片所在工具行在共享栏上方的 Composer 卡片里。
+            # REQ-S01-71＋轮 3 契约：卡片排在共享输入栏上方的 Composer 卡片里，
+            # 横向按上传顺序从左往右；麦克风／附件／发送入口已统一到共享输入条。
             self.assertLessEqual(chips[0].winfo_rooty() + chips[0].winfo_height(), d.idea_input.winfo_rooty(), '附件卡片在共享输入栏上方')
-            left = getattr(d, 'idea_voice_button', d.idea_attachment_button)
-            self.assertGreaterEqual(chips[0].winfo_rootx(), left.winfo_rootx() + left.winfo_width(), '附件卡片在麦克风右侧')
-            self.assertLessEqual(chips[2].winfo_rootx() + chips[2].winfo_width(), d.idea_submit.winfo_rootx(), '附件卡片在发送键左侧')
+            frame = d.idea_composer_frame
+            self.assertGreaterEqual(chips[0].winfo_rootx(), frame.winfo_rootx())
+            self.assertLessEqual(chips[2].winfo_rootx() + chips[2].winfo_width(),
+                                 frame.winfo_rootx() + frame.winfo_width(), '附件卡片不出 composer 卡片')
             from idea_attachments import archive_pair
             with patch('desktop.open_path') as opened:
                 chips[1].event_generate('<Button-1>')

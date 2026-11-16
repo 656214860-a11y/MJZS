@@ -39,7 +39,7 @@ class ScriptComposerTests(unittest.TestCase):
         return d, win
 
     def test_submit_switches_between_send_and_stop(self):
-        from ui_tokens import ICON_SEND, ICON_STOP
+        from ui_tokens import ICON_STOP
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             # REQ-S01-86：简报必填未齐时发送置灰；本测关注发送/终止切换，先落一份完整简报。
@@ -50,8 +50,10 @@ class ScriptComposerTests(unittest.TestCase):
             d, win = self.desktop(proj)
             d._apply_idea_send_state()
             win.update()
-            self.assertEqual(d.idea_submit.cget('text'), ICON_SEND)
+            # 轮 3 契约：内联发送／终止键统一到共享输入框发送键，空闲态文字「发送」。
+            self.assertEqual(d.idea_submit.cget('text'), '发送')
             self.assertFalse(d.idea_submit.instate(['disabled']))
+            d.idea_input.delete('1.0', 'end'); d.idea_input.insert('1.0', '写一个开场')
             with patch.object(d, 'send_message') as sent:
                 d.idea_submit.invoke()
             sent.assert_called_once()
@@ -64,7 +66,7 @@ class ScriptComposerTests(unittest.TestCase):
             d._idea_requesting = False
             d.idea_send.state(['disabled'])  # 附件入库校验期间底栏发送不可点
             d.update_script_interrupt_button()
-            self.assertEqual(d.idea_submit.cget('text'), ICON_SEND)
+            self.assertEqual(d.idea_submit.cget('text'), '发送')
             self.assertTrue(d.idea_submit.instate(['disabled']))
 
     def test_escape_in_input_stops_only_while_running(self):
@@ -101,10 +103,15 @@ class ScriptComposerTests(unittest.TestCase):
                                          - chip.winfo_rootx() - chip.winfo_width()), 2)
                 self.assertLessEqual(abs(close.winfo_rooty() - chip.winfo_rooty()), 2)
             frame = d.idea_composer_frame
-            for widget in (d.idea_uploaded_panel, d.idea_attachment_button, d.idea_submit):
-                self.assertGreaterEqual(widget.winfo_rooty(), frame.winfo_rooty())
+            self.assertGreaterEqual(d.idea_uploaded_panel.winfo_rooty(), frame.winfo_rooty())
+            self.assertLessEqual(d.idea_uploaded_panel.winfo_rooty() + d.idea_uploaded_panel.winfo_height(),
+                                 frame.winfo_rooty() + frame.winfo_height())
+            # 轮 3 契约：附件／发送入口在共享输入条内，不在 composer 卡片里。
+            shared = d.shared_input
+            for widget in (d.idea_attachment_button, d.idea_submit):
+                self.assertGreaterEqual(widget.winfo_rooty(), shared.winfo_rooty())
                 self.assertLessEqual(widget.winfo_rooty() + widget.winfo_height(),
-                                     frame.winfo_rooty() + frame.winfo_height())
+                                     shared.winfo_rooty() + shared.winfo_height())
 
     def test_chip_content_keeps_off_the_border(self):
         """图标和文件名不贴卡片外沿，否则白底会盖断圆角边框（选中时主色框断成几截）。"""
@@ -201,15 +208,20 @@ class ScriptComposerTests(unittest.TestCase):
                              side_effect=lambda settings, **kw: FakeSession(settings)):
             d, win = self.desktop(make_minimal_project(td))
             button, box, voice = d.idea_voice_button, d.idea_input, d.idea_voice_input
-            frame = d.idea_composer_frame
+            # 轮 3 契约：麦克风入口在共享输入条左簇（附件右侧），听写会话绑定共享 Text。
+            self.assertIs(button, d.shared_input.mic_button)
+            self.assertIs(voice, d.shared_input.voice_input)
+            self.assertIs(box, d.shared_input.input)
             self.assertGreater(button.winfo_rootx(), d.idea_attachment_button.winfo_rootx())
-            self.assertLessEqual(button.winfo_rooty() + button.winfo_height(), frame.winfo_rooty() + frame.winfo_height())
+            self.assertGreaterEqual(button.winfo_rooty(), d.shared_input.winfo_rooty())
+            self.assertLessEqual(button.winfo_rooty() + button.winfo_height(),
+                                 d.shared_input.winfo_rooty() + d.shared_input.winfo_height())
             box.delete('1.0', 'end'); box.insert('1.0', '开头：')
             button.invoke(); win.update()
             recorder, session = FakeRecorder.instances[-1], FakeSession.instances[-1]
             self.assertTrue(session.started)
             self.assertEqual(recorder.on_chunk, session.send, '录音块直接推给实时会话')
-            self.assertEqual(str(button.cget('style')), 'Tokens.Composer.Send.TButton', '听写中按钮高亮')
+            self.assertEqual(str(button.cget('style')), 'Tokens.Primary.TButton', '听写中按钮高亮')
             self.assertIs(win.focus_get(), box)
             self.assertIn('正在听写', d.status.get())
             # 中间结果浅色写在光标处并随结果替换，定稿后变正常文字；下一句接在后面。
@@ -228,7 +240,7 @@ class ScriptComposerTests(unittest.TestCase):
             button.invoke(); win.update()
             self.assertTrue(recorder.stopped)
             self.assertTrue(session.finished)
-            self.assertEqual(str(button.cget('style')), 'Tokens.Composer.Icon.TButton')
+            self.assertEqual(str(button.cget('style')), 'Tokens.Secondary.TButton')
             self.assertTrue(voice.closing)
             session.events.put(('final', 'b', '回头看了一眼。'))
             session.events.put(('closed', '', ''))
@@ -244,11 +256,16 @@ class ScriptComposerTests(unittest.TestCase):
             voice.poll(); win.update()
             self.assertIn('没听到声音', d.status.get())
             # 服务端报错：停录、说明原因、按钮复原。
+            # 发送门禁的 250ms 防抖可能在 win.update() 里落进来覆盖语音状态，先撤掉 pending 刷新。
+            pending = getattr(d, '_idea_send_state_after', None)
+            if pending is not None:
+                win.after_cancel(pending)
+                d._idea_send_state_after = None
             FakeSession.instances[-1].events.put(('error', '', '密钥无效'))
             voice.poll(); win.update()
             self.assertTrue(FakeRecorder.instances[-1].stopped)
             self.assertIn('密钥无效', d.status.get())
-            self.assertEqual(str(button.cget('style')), 'Tokens.Composer.Icon.TButton')
+            self.assertEqual(str(button.cget('style')), 'Tokens.Secondary.TButton')
             # 录满上限自动关麦。
             button.invoke(); win.update()
             FakeRecorder.instances[-1].finished = True
@@ -261,7 +278,7 @@ class ScriptComposerTests(unittest.TestCase):
             FakeRecorder.next_reason = '没有找到麦克风'
             button.invoke(); win.update()
             self.assertIn('没有找到麦克风', d.status.get())
-            self.assertEqual(str(button.cget('style')), 'Tokens.Composer.Icon.TButton')
+            self.assertEqual(str(button.cget('style')), 'Tokens.Secondary.TButton')
 
     def test_microphone_without_key_explains_in_status(self):
         import contract.platform_tools as platform_tools
@@ -272,7 +289,7 @@ class ScriptComposerTests(unittest.TestCase):
             d, win = self.desktop(make_minimal_project(td))
             d.idea_voice_button.invoke(); win.update()
             self.assertIn('DASHSCOPE_API_KEY', d.status.get())
-            self.assertEqual(str(d.idea_voice_button.cget('style')), 'Tokens.Composer.Icon.TButton')
+            self.assertEqual(str(d.idea_voice_button.cget('style')), 'Tokens.Secondary.TButton')
 
 
 if __name__ == '__main__':

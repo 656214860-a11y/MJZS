@@ -239,16 +239,27 @@ class ScriptPagesMixin:
                     getattr(self,'_script_agent_queue',None) or
                     getattr(self,'_script_agent_launching',False) or self.script_agent_processes())
     def update_script_interrupt_button(self):
-        """输入框内发送／终止合一按钮的唯一状态入口：运行中显示终止，空闲时跟随底栏「发送」。"""
+        """发送／终止合一键的唯一状态入口：共享输入框在时作用于其发送键——运行中显示
+        终止图标，空闲恢复「发送」并跟随底栏「发送」的可用态；旧页面回退页内内联键。"""
         from ui_tokens import ICON_SEND, ICON_STOP
-        button=getattr(self,'idea_submit',None)
+        shared=getattr(self,'shared_input',None)
+        if shared is not None and getattr(self,'page_index',None)!=PAGE['script']:
+            # 共享发送键的改写只属于剧本页；别的阶段页保持 set_stage 复位后的默认态。
+            return
+        button=(getattr(shared,'send_button',None) if shared is not None
+                else getattr(self,'idea_submit',None))
         if button is None or not button.winfo_exists():return
         if self.script_task_active():
             button.configure(text=ICON_STOP,command=lambda:self.safe(self.interrupt_script_agent))
             button.state(['!disabled'])
             return
         send=getattr(self,'idea_send',None)
-        button.configure(text=ICON_SEND,command=lambda:send.invoke() if send is not None else None)
+        if shared is not None:
+            # 恢复共享发送键默认态：文字「发送」、命令回到 SharedStageInput.send
+            # （/skill 等命令解析不能被页级改写绕过）。
+            button.configure(text='发送',command=shared.send)
+        else:
+            button.configure(text=ICON_SEND,command=lambda:send.invoke() if send is not None else None)
         idle=send is not None and send.winfo_exists() and not send.instate(['disabled'])
         button.state(['!disabled'] if idle else ['disabled'])
     def refresh_script_workspace(self):
