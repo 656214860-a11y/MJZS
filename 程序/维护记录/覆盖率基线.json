@@ -2473,6 +2473,36 @@
    "percent": 0.0
   },
   {
+   "module": "voice_engine/__init__.py",
+   "covered": 0,
+   "total": 6,
+   "percent": 0.0
+  },
+  {
+   "module": "voice_engine/bootstrap.py",
+   "covered": 0,
+   "total": 135,
+   "percent": 0.0
+  },
+  {
+   "module": "voice_engine/download_models.py",
+   "covered": 0,
+   "total": 85,
+   "percent": 0.0
+  },
+  {
+   "module": "voice_engine/funasr_config.py",
+   "covered": 0,
+   "total": 7,
+   "percent": 0.0
+  },
+  {
+   "module": "voice_engine/offline_asr_server.py",
+   "covered": 0,
+   "total": 398,
+   "percent": 0.0
+  },
+  {
    "module": "white_model.py",
    "covered": 0,
    "total": 128,
@@ -3026,5 +3056,5 @@
   }
  ],
  "modules_covered": 70,
- "modules_total": 502
+ "modules_total": 507
 }
