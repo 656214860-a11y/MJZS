@@ -1144,7 +1144,7 @@
         "reason": "R1895：解析账号服务 HTTP 响应体，不读取文件。"
       },
       {
-        "file": "storyboard_direct_api.py",
+        "file": "orchestrator/storyboard_direct_api.py",
         "point": "_extract_json:json.loads:da95b1449dbe88d3:1",
         "disposition": "exempt",
         "reason": "直连分镜（REQ-S03-53）：解析模型回复的内存文本，不读取正式文件；文件读取沿用core.read。"
@@ -1254,7 +1254,7 @@
     "baseline_pending": 0,
     "items": [
       {
-        "file": "asset_auto_batch_service.py",
+        "file": "orchestrator/asset_auto_batch_service.py",
         "point": "retired:921439d91f484516",
         "disposition": "exempt",
         "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."

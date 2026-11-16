@@ -43,7 +43,7 @@ from contract.app_metadata import APP_NAME
 from infra.broadcaster import Broadcaster, PREFIX_PATTERNS
 import pet_agent
 import ui.pet_cloud as pet_cloud
-from pet_chat_coordinator import ChatCoordinator
+from orchestrator.pet_chat_coordinator import ChatCoordinator
 import contract.pet_bus as pet_bus
 import pet_llm
 import pet_report
@@ -55,7 +55,7 @@ import token_saver
 from contract.pet_settings_contract import LEVEL_NOTES
 from ui_widgets import ContextMenu, ask_confirmation
 from ui_tokens import PET_LAYOUT
-from pet_broadcast_state import PetBroadcastAliasesMixin, PetBroadcastState, PetOfferState
+from orchestrator.pet_broadcast_state import PetBroadcastAliasesMixin, PetBroadcastState, PetOfferState
 from pet_ui_stages import PetStagesMixin
 from pet_ui_settings import PetSettingsMixin
 from pet_ui_voice import PetVoiceMixin

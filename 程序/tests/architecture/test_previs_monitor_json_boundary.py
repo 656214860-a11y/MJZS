@@ -1,12 +1,13 @@
 """白模监视页的正式进度 JSON 必须经缓存入口读取。"""
 import ast
 import unittest
-from pathlib import Path
+
+from tests.architecture._scan import entity_file
 
 
 class PrevisMonitorJsonBoundaryTests(unittest.TestCase):
     def test_progress_reader_uses_cache(self):
-        source = Path(__file__).resolve().parents[2] / 'previs_monitor.py'
+        source = entity_file('previs_monitor')
         text = source.read_text(encoding='utf-8')
         tree = ast.parse(text)
         method = next(node for node in tree.body

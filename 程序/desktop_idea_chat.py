@@ -748,7 +748,7 @@ class _FlowAgentLaunch:
         self.writer_style_summary = writer_style_summary
         from workflow_engines import prompt_with_settings,launch_interactive
         self.prompt_with_settings = prompt_with_settings; self.launch_interactive = launch_interactive
-        from agent_dispatch import signature,claim,finish,outcome,retryable
+        from orchestrator.agent_dispatch import signature,claim,finish,outcome,retryable
         self.signature = signature; self.claim = claim; self.finish = finish; self.outcome = outcome; self.retryable = retryable
         if self.host.worker:raise ValueError('正在打开或发送 Agent 任务，请稍候；未重复发送。')
         if self.stage == 'writing' and getattr(self.host, '_script_agent_queue', None):

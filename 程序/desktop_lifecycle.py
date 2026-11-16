@@ -103,7 +103,7 @@ class LifecycleMixin:
         state=getattr(self,'previs_jobs',None)
         if isinstance(state,dict) and state.get('monitor'):
             try:
-                from previs_monitor import stop as stop_monitor
+                from orchestrator.previs_monitor import stop as stop_monitor
                 stop_monitor(state)
             except Exception:app_logging.swallowed()
         try:
@@ -114,7 +114,7 @@ class LifecycleMixin:
             # 关窗清理仅忽略 Tk 生命周期竞态。
             pass
         self.win.destroy()
-        from exit_maintenance import launch_cleanup
+        from orchestrator.exit_maintenance import launch_cleanup
         launch_cleanup(self.app, forced=getattr(self, '_forcing_quit', False))
     def reload(self):
         self._sync_project_picker()

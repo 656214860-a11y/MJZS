@@ -5,7 +5,7 @@
 
 def run_image_direct(host, direct):
     """引擎为 qwen 的资产／首帧出图由程序直连（唯一分流点在 _FlowAgentLaunch.build）。"""
-    from image_direct import launch
+    from orchestrator.image_direct import launch
     state = {}
 
     def drain():

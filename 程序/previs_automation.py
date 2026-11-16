@@ -105,7 +105,7 @@ def start(project,source,ids,state,monitor=False,ticket=None,is_current=None,exe
         environment(call_config.get('model',''),call_config.get('api'))
     engine_name=ENGINES[call_config['engine']]
     if not wm.find_blender(refresh=True):raise ValueError('未找到本地 Blender')
-    from previs_batch_service import prepare_batch
+    from orchestrator.previs_batch_service import prepare_batch
     # Capture source before dispatch: later selection/source edits cannot change this batch.
     episode=read_json(source)
     shots=[s for s in episode.get('shots',[]) if s.get('id') in ids]
@@ -120,7 +120,7 @@ def start(project,source,ids,state,monitor=False,ticket=None,is_current=None,exe
     # 第 47 期第 2 条：手动派发时把浏览器监视页打开（用户要的是「HTTP 浏览器里看制作」，
     # 不是再弹一个桌面 Blender 窗口）。无人值守那条路不弹浏览器——用户不在跟前，弹了也没人看。
     if monitor:
-        from previs_monitor import start as start_monitor,url_of
+        from orchestrator.previs_monitor import start as start_monitor,url_of
         start_monitor(state,project)
         if url_of(state):state['summary']='制作监视页已开在浏览器里：'+url_of(state)
     state.setdefault('progress',{})

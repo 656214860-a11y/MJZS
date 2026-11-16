@@ -569,7 +569,7 @@ class AutoFlowsMixin:
             self.status.set('自动补资产：'+'、'.join(blocked)+' 上次提交结果无法确认，已跳过；'
                             '请在 ComfyUI 或云端核实后点「手动制作资产」重新生成。')
         def worker():
-            from asset_auto_batch_service import auto_batch
+            from orchestrator.asset_auto_batch_service import auto_batch
             try:self.auto.asset_queue.put((ticket,True,self.auto.asset_tasks.run(ticket,lambda:auto_batch(project,base,sources,'adopted',lambda text:self.auto_asset_log(ticket,text))),signature))
             except Exception as exc:self.auto.asset_queue.put((ticket,False,'自动补资产未完成：'+str(exc),signature))
         threading.Thread(target=worker,daemon=True).start()
