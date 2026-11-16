@@ -421,6 +421,10 @@ class PetViewMixin(PetPatchLayoutMixin, PetClickCancelMixin):
         进度、等级、暂停这些还会跟着变，只是猫不再换动作（关掉是为了省一点 CPU）。
         """
         state = self.snapshot()
+        # R3025：首帧收敛前跳过 draw() 全帧重绘（step ~125ms 一次 canvas 重绘会抢首帧事件循环），节拍照常续排。
+        if not getattr(getattr(self, 'desktop', None), '_first_paint_settled', True):
+            self._schedule(state)
+            return self.frame
         if self.animation_enabled():
             self.frame += 1
             self.cat.next(self.frame)
