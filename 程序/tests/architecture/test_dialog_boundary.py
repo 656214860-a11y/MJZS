@@ -11,7 +11,7 @@ from tests.architecture._scan import ROOT, parse
 # BaseDialog／FormDialog／ConfirmDialog。
 TOPLEVEL_OWNERS = {'ui_widgets.py', 'ui_splash.py', 'ui_tooltip.py', 'ui_theme.py', 'run_selftests.py'}  # ui_splash/ui_tooltip 自 ui_widgets 拆出，职责不变
 # 与 test_data_table_boundary 一致：测试、轮次记录与维护记录不参与生产门禁。
-EXCLUDED_PARTS = {'tests', 'tasks_round', '维护记录', '.git', '__pycache__'}
+EXCLUDED_PARTS = {'tests', 'tasks_round', '维护记录', '.git', '__pycache__', 'voice_asr_venv'}
 
 
 def _raw_toplevel_calls(tree):
