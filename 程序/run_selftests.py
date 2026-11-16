@@ -34,6 +34,7 @@ import importlib
 import io
 import json
 import os
+import subprocess
 import sys
 import time
 
@@ -186,10 +187,53 @@ from selftest_reporting import (
 )
 
 
+def _scope_has_tk(names):
+    """静态判定本轮范围内的测试文件是否含 Tk（import tkinter 或 tk.Tk() 调用点）。"""
+    if not names:
+        return False
+    for name in names:
+        path = os.path.join(TESTS_DIR, name + '.py')
+        if not os.path.isfile(path):
+            continue
+        try:
+            with open(path, 'r', encoding='utf-8', errors='replace') as fh:
+                text = fh.read()
+        except OSError:
+            continue
+        if 'import tkinter' in text or 'from tkinter' in text or 'tk.Tk(' in text:
+            return True
+    return False
+
+
+def _run_hidden(argv):
+    """把本进程同参数重新拉起在隐藏桌面上运行；隐藏桌面不可用即中止（退出码 3），绝不直跑。"""
+    helper = os.path.join(HERE, 'scripts', 'gui_hidden.py')
+    if not os.path.isfile(helper):
+        print('[隐藏桌面] scripts/gui_hidden.py 缺失：拒绝在可见桌面运行含 Tk 的测试。')
+        return 3
+    log = os.path.join(HERE, 'logs', 'hidden_selftest.log')
+    try:
+        os.makedirs(os.path.dirname(log), exist_ok=True)
+    except OSError:
+        pass
+    env = dict(os.environ, DRAMA_HIDDEN_DESKTOP='1')
+    print('[隐藏桌面] 本轮含 Tk 测试，整轮迁到隐藏桌面运行（日志 %s）' % log, flush=True)
+    result = subprocess.run([sys.executable, '-B', helper, log, HERE, '--',
+                             sys.executable, '-B', 'run_selftests.py'] + argv, env=env)
+    if os.path.isfile(log):
+        try:
+            with open(log, 'r', encoding='utf-8', errors='replace') as fh:
+                sys.stdout.write(fh.read())
+        except OSError:
+            pass
+    return result.returncode
+
+
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
+    raw_argv = list(argv)
     keys, jobs, serial, listing, whole = [], 0, False, False, False
-    everything, safe, force, layer = False, False, False, ''
+    everything, safe, force, layer, visible = False, False, False, '', False
     allow_dirty_diagnostic = False
     gui_override = None
     gui_wait = GUI_WAIT_SECONDS
@@ -212,6 +256,8 @@ def main(argv=None):
             allow_dirty_diagnostic = True
         elif arg == '--all':
             everything = True
+        elif arg == '--visible':
+            visible = True
         elif arg == '--incremental':
             # 默认就是增量模式；保留显式开关给三虎测试模式与脚本调用，不能把它当成 -k 关键字。
             pass
@@ -245,6 +291,11 @@ def main(argv=None):
         for name in names:
             print(name)
         return 0
+    # 硬闸：本轮范围含 Tk 测试且未显式 --visible 时，整轮强制迁到隐藏桌面；隐藏桌面不可用即中止。
+    if not visible and os.environ.get('DRAMA_HIDDEN_DESKTOP') != '1' and _scope_has_tk(names):
+        return _run_hidden(raw_argv)
+    if visible:
+        print('[--visible] 在可见桌面运行：窗口会弹到用户屏幕，仅限人工调试。')
     full_safe = everything and safe and not keys and not layer
     no_receipt = full_safe and allow_dirty_diagnostic
     start_head = ''

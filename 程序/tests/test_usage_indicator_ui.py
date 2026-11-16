@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """UsageIndicator／用量详情弹窗：标签文本、隐藏规则、三档颜色、点击弹窗、CSV 导出、几何不重叠。
 
-含 Tk，须经 ``工作流任务/gui_hidden.py`` 在隐藏桌面运行。
+含 Tk，由运行器自动隐藏桌面执行（scripts/gui_hidden.py）。
 """
 import tempfile
 import time
