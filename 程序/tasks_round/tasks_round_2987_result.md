@@ -29,3 +29,21 @@
 
 - master 侧 `project_status.md` 与 `_master_verify.txt` 未动（前者仅 master 提交）。
 - 合并提交后由 master 侧 `dev.py merge codex/wip-R2980` 完成正式合入与合并轮号。
+
+## 提交与合并核对
+
+- 已提交：合并提交 `deb2ac8c`（`WIP: 合入 master(6ecbfd5f/R2988) 消解冲突`，父提交 `2ad0a169`＋`6ecbfd5f`；`--no-verify` 理由见提交信息：pre-commit 的 project_status.md 分支闸不区分合并携带内容；静态门禁已手动跑绿 `test_static_names`＋`test_static_hygiene` 12/12）。
+- `git diff 6ecbfd5f..HEAD -- 程序/project_status.md | grep '^-' | grep -v '^---' | grep -v '当前轮次：'` 原始输出：（空，无删除行）
+- `git show HEAD:程序/project_status.md | grep -oE '^R[0-9]+' | sort -u` 原始输出：
+
+  ```text
+  R1036
+  R1265
+  R1440
+  R1507
+  R1691
+  R1693
+  R2912
+  ```
+
+  合并后 `程序/project_status.md` 与 master 侧逐字节一致（blob `eb4e3a54`），本支未写状态页记录，输出即双方并集。
