@@ -15,7 +15,7 @@ from stage_gate_gateways import media_import_publisher
 
 def publish_animatic_bundle(project, artifacts, *, validate, update_index=None):
     """整包校验、原子发布、索引更新；失败时恢复成果及同包索引。"""
-    from animatic_service import MANIFEST
+    from domain.animatic_service import MANIFEST
     root = Path(project).resolve()
     folder = write_dir(root, 'animatic').resolve()
     if not folder.is_relative_to(root) or MANIFEST not in artifacts:
@@ -36,7 +36,7 @@ def publish_animatic_bundle(project, artifacts, *, validate, update_index=None):
 
 def import_animatic_references(project, sources):
     from contract.stage_path_service import shared_reference_dir
-    from animatic_service import digest
+    from domain.animatic_service import digest
     folder = shared_reference_dir(project).resolve()
     if not folder.is_relative_to(Path(project).resolve()):
         raise ValueError('共享参考图路径越界')
@@ -56,7 +56,7 @@ def run_animatic(project, source, references, audio=None, settings=None):
     import tempfile
     from agent.core import save_bytes
     import stage_parallel
-    from animatic_service import build_bundle, validate_bundle
+    from domain.animatic_service import build_bundle, validate_bundle
     from contract.platform_tools import tool_path
     settings = dict(settings or {})
     settings['retry_attempts'] = stage_parallel.retry_attempts('animatic')
@@ -97,7 +97,7 @@ def run_animatic(project, source, references, audio=None, settings=None):
 
 def confirm_animatic(project, *, rhythm, duration, dialogue_sync):
     from copy import deepcopy
-    from animatic_service import MANIFEST, evidence
+    from domain.animatic_service import MANIFEST, evidence
     if not all(value is True for value in (rhythm, duration, dialogue_sync)):
         raise ValueError('节奏、时长与对白同步必须全部确认')
     ok, reason = evidence(project, require_confirmation=False)
@@ -119,12 +119,12 @@ def animatic_reference_paths(project):
 
 
 def import_animatic_audio(project, source):
-    from audio_import_service import import_audio
+    from domain.audio_import_service import import_audio
     return import_audio(project, source, publish=media_import_publisher(project, 'audio'), stage='animatic')
 
 
 def animatic_video(project):
-    from animatic_service import MANIFEST, evidence
+    from domain.animatic_service import MANIFEST, evidence
     ok, reason = evidence(project, require_confirmation=False)
     if not ok:
         raise ValueError(reason)
@@ -135,7 +135,7 @@ def animatic_video(project):
 def generate_animatic_reference(project, prompt, model, settings=None):
     """本地草图准备与发布，复用 ComfyUI，不进入正式资产登记。"""
     import tempfile
-    from animatic_service import prepare_reference
+    from domain.animatic_service import prepare_reference
     from comfy_runtime import wait_comfy
     settings = dict(settings or {})
     wait_comfy(settings.get('url', 'http://127.0.0.1:8188'), timeout=settings.get('readiness_timeout', 45))

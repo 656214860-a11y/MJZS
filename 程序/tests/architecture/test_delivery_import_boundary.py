@@ -20,7 +20,7 @@ class DeliveryImportBoundaryTests(unittest.TestCase):
         self.assertNotIn('copy2', ast.get_source_segment(open(os.path.join(ROOT, 'desktop.py'), encoding='utf-8').read(), method))
 
     def test_l2_requires_l3_publisher_without_copy_fallback(self):
-        service = open(os.path.join(ROOT, 'delivery_import_service.py'), encoding='utf-8').read()
+        service = open(os.path.join(ROOT, 'domain/delivery_import_service.py'), encoding='utf-8').read()
         self.assertIn("if not callable(publish):", service)
         self.assertNotIn('shutil.copy2', service)
         self.assertNotIn('read_bytes(', service, '成片导入不能整文件读入内存')

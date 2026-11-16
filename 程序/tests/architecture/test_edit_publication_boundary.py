@@ -43,7 +43,7 @@ class EditPublicationBoundaryTests(unittest.TestCase):
         calls = [node for node in ast.walk(desktop) if isinstance(node, ast.Call)
                  and isinstance(node.func, ast.Name) and node.func.id == 'save_stage_editing_checklist']
         self.assertEqual(len(calls), 1)
-        with open(os.path.join(ROOT, 'edit_service.py'), encoding='utf-8') as handle:
+        with open(os.path.join(ROOT, 'domain/edit_service.py'), encoding='utf-8') as handle:
             service = ast.parse(handle.read())
         function = next(node for node in service.body
                         if isinstance(node, ast.FunctionDef) and node.name == 'save_editing_checklist')
@@ -61,7 +61,7 @@ class EditPublicationBoundaryTests(unittest.TestCase):
         calls = [node for node in ast.walk(desktop) if isinstance(node, ast.Call)
                  and isinstance(node.func, ast.Name) and node.func.id == 'save_automatic_assemble_marker']
         self.assertEqual(len(calls), 1)
-        with open(os.path.join(ROOT, 'edit_service.py'), encoding='utf-8') as handle:
+        with open(os.path.join(ROOT, 'domain/edit_service.py'), encoding='utf-8') as handle:
             service = ast.parse(handle.read())
         function = next(node for node in service.body
                         if isinstance(node, ast.FunctionDef) and node.name == 'save_automatic_assemble_marker')

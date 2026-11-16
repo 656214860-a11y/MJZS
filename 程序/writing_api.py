@@ -53,7 +53,7 @@ def model_label(project):
 def capture_request_model(project):
     """在提交线程捕获本次路由及归属；副本只在内存中传递，不持久化凭据。"""
     from copy import deepcopy
-    from idea_document_paths import ChatModel
+    from domain.idea_document_paths import ChatModel
     chosen, record = selected_model(project)
     provider = model_pool.provider_name(chosen, record) if chosen else ''
     return {'id': chosen, 'record': deepcopy(record),
@@ -521,7 +521,7 @@ def extract_idea_brief(project, request):
 
 def preparation_continuation(project, text):
     """简报完成后的普通追问/失败重试沿用简报；显式字段仍走原录入校验。"""
-    from idea_brief_form import extract_brief_creation
+    from domain.idea_brief_form import extract_brief_creation
     if extract_brief_creation(text):
         return False
     brief = _complete_brief(project)
@@ -593,7 +593,7 @@ def preparation_restart_intent(text):
     stage = _preparation_stage_alias(first)
     if stage is None:
         return None
-    from idea_script_heuristic import writing_restart_requested
+    from domain.idea_script_heuristic import writing_restart_requested
     if writing_restart_requested(first) or re.fullmatch(
             r'(?:请)?重写\s*(?:' + _PREPARATION_STAGE_ALT + r')', first):
         return stage
@@ -899,7 +899,7 @@ def _preparation_state(project, brief, *, restart_stage=None):
             candidates = list(path.parent.glob('*.md'))
             if document['stage'] == '角色卡' and path.parent.name == '项目设定':
                 # 角色卡独立分类后，旧记录仍可能指向同批次的项目设定目录。
-                from idea_document_paths import project_document_directory
+                from domain.idea_document_paths import project_document_directory
                 category = path.parent.parent / project_document_directory('角色卡')
                 candidates.extend(category.glob('*.md'))
             for candidate in sorted(candidates):
@@ -1010,7 +1010,7 @@ def _preparation_task(request, user_message, state, documents, texts, index):
 def _preparation_step(request, *, publish, cancelled, user_message=None, identity=None):
     """一次请求最多产出一个待确认阶段；返回 None 才可开始自然剧本。request 是 _PreparationRequest。"""
     project, chosen, record, settings, brief, creative = request
-    import idea_document_paths, workflow_settings
+    import domain.idea_document_paths as idea_document_paths, workflow_settings
     from copy import deepcopy
     from project_context_factory import project_context
     from contract.stage_path_service import write_dir
@@ -1169,7 +1169,7 @@ def reply(project, creative, cancelled=None, *, publish=None, archive=None, user
     identity = (request_model['provider'], request_model['label'])
     if not chosen:
         raise ValueError('当前未选择可直接对话的 API 模型')
-    import idea_transcript
+    import domain.idea_transcript as idea_transcript
     import workflow_context
     import workflow_settings
     from workflow_tasks import script_prompt
@@ -1306,7 +1306,7 @@ def _cancellable_publisher(publish, cancelled):
 
 def _save_formal_script(project, result, *, model='', identity=None, publish, previous_script=None):
     """已获准发布的自然剧本复用下载路径、同稿去重和异稿编号规则。"""
-    import idea_document_paths
+    import domain.idea_document_paths as idea_document_paths
     from project_context_factory import project_context
     from writing_quality import split_response, publish_reports, OPEN
     response = result['text']

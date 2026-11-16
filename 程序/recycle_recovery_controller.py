@@ -1,7 +1,7 @@
 """恢复页面的无 Tk 编排：汇总项目内与项目库两个独立回收站。"""
 from pathlib import Path
 
-import recycle_recovery_service as service
+import domain.recycle_recovery_service as service
 
 
 class RecycleRecoveryController:

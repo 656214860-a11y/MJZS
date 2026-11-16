@@ -259,7 +259,7 @@ def _gates_block(desktop, aid):
     附件要的是「Agent 预筛 2 个候选 ＋ 推荐理由，人工一键确认」；第 64 期任务 13 之前这两条
     主观门禁在界面上根本没有入口，点了也无处落盘——这是「两次新增都失败」的核心原因。
     """
-    from confirm_gates import run
+    from domain.confirm_gates import run
     registry = desktop.asset_requirements()
     box = Card(desktop.content)
     ttk.Label(box, text='待确认（Agent 已预筛，点一下采用）').pack(anchor='w')

@@ -1,5 +1,5 @@
 """资产提示词窗口（L4）；提示词取数与展示文本在 ``asset_reference_prompts``。"""
-from asset_reference_prompts import display_prompt
+from domain.asset_reference_prompts import display_prompt
 
 
 def show_prompt(app,aid,asset):

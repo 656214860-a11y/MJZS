@@ -12,7 +12,7 @@ def refresh_audio_manifests(project):
     """配音字幕成果变化后重写 voice／subtitles／audio_manifest；清单写入失败只记警告，不回滚已发布成果。"""
     import logging
     from agent.core import save
-    from audio_import_service import audio_manifests
+    from domain.audio_import_service import audio_manifests
     try:
         folder = write_dir(project, 'audio') / 'output'
         for name, payload in audio_manifests(project).items():
@@ -42,12 +42,12 @@ def tts_gateway():
 
 
 def save_tts_key(base_url, model, voice, key, voices=None, speeds=None):
-    from tts_api import save_key
+    from domain.tts_api import save_key
     return save_key(base_url, model, voice, key, voices, speeds, gateway=tts_gateway())
 
 
 def publish_tts_full_track(project, signature, raw):
-    from tts_api import publish_full_track
+    from domain.tts_api import publish_full_track
     result = publish_full_track(project_context(project), signature, raw, gateway=tts_gateway())
     refresh_audio_manifests(project)
     return result
@@ -55,12 +55,12 @@ def publish_tts_full_track(project, signature, raw):
 
 def reusable_tts_full_track(project, signature):
     """L3 为整段配音复用检查注入项目上下文。"""
-    from tts_api import reusable_full_track
+    from domain.tts_api import reusable_full_track
     return reusable_full_track(project_context(project), signature)
 
 
 def run_tts_lines(lines, folder, generate=None, report=None, stop=None, episode=None, project=None):
-    from tts_api import run_lines
+    from domain.tts_api import run_lines
     result = run_lines(lines, folder, generate, report, stop, gateway=tts_gateway(), episode=episode, project=project)
     if project:
         refresh_audio_manifests(project)

@@ -15,7 +15,7 @@
 | `程序/app.py`、`程序/desktop.py` 及其生产 Python 模块 | 主界面与业务实现。 |
 | `程序/assets/`、`程序/skills/`、`程序/workflows/`、`程序/data/` | 内置资源、SKILL、流程和内置数据。 |
 | `程序/配置/` 与程序随附说明 | 默认配置和面向用户的资料。 |
-| `程序/*.py`（生产 Python 模块）、`程序/agent/**`、`程序/contract/**`、`程序/infra/**`、`程序/说明/**`、`程序/附加工具/**`、`程序/batch_frames_tool/**` | 主界面之外的生产模块、随附说明与独立批处理小工具。 |
+| `程序/*.py`（生产 Python 模块）、`程序/agent/**`、`程序/contract/**`、`程序/domain/**`、`程序/infra/**`、`程序/说明/**`、`程序/附加工具/**`、`程序/batch_frames_tool/**` | 主界面之外的生产模块、随附说明与独立批处理小工具。 |
 | `使用说明.md`、`使用说明.txt`、`漫剧制作助手.ico` | 面向用户的说明与程序图标（根目录唯一正式图标为 git 跟踪的 `漫剧制作助手.ico`）。 |
 | `程序/README.md`、`程序/runbook.md`、`程序/配置说明.md`、`程序/批量资产说明.md`、`程序/默认创意示例.md`、`程序/requirements.txt` | 面向用户的随附说明与依赖声明。 |
 | `程序/asset_manifest.schema.json`、`程序/flux2_klein_asset_text_api.json`、`程序/z_image_assets_api.json`、`程序/z_image_official.json`、`程序/codex_paste.ps1` | 运行时按文件名读取的内置模板与辅助脚本。 |

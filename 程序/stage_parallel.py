@@ -660,7 +660,7 @@ def _current_shots(project):
 
 
 def animatic_input_ready(project):
-    from animatic_service import shots_of
+    from domain.animatic_service import shots_of
     adopted = _adopted(project)
     try:
         if not adopted:
@@ -677,7 +677,7 @@ def animatic_input_ready(project):
 
 
 def animatic_ready(project):
-    from animatic_service import evidence
+    from domain.animatic_service import evidence
     ok, reason = evidence(project)
     return _result(gate_for('assets'), ok, True, reason or '分镜预演三项确认通过')
 

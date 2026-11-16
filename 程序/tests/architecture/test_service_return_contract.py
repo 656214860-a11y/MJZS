@@ -127,12 +127,14 @@ class ServiceReturnContractBoundaryTests(unittest.TestCase):
     def test_only_approved_l2_adopters_import_service_contract(self):
         """解冻后的每批迁移仍必须显式更新采用方棘轮。"""
         from tests.architecture._layers import LAYERS
+        from tests.architecture._scan import module_name, module_scan_files
+        entities = {module_name(path): path for path in module_scan_files()}
         adopters = set()
         for module, layer in LAYERS.items():
             if layer != 2:
                 continue
-            path = Path(ROOT) / f'{module}.py'
-            if not path.is_file():
+            path = entities.get(module)
+            if path is None:
                 continue  # 历史兼容逻辑名仍可登记为 L2，但不是可扫描源码模块。
             tree = ast.parse(path.read_text(encoding='utf-8'))
             if any(isinstance(node, ast.ImportFrom)
@@ -149,7 +151,7 @@ class ServiceReturnContractBoundaryTests(unittest.TestCase):
     def test_delivery_import_is_registered_l2_and_uses_result_contract(self):
         from tests.architecture._layers import LAYERS
         self.assertEqual(LAYERS['delivery_import_service'], 2)
-        tree = ast.parse((Path(ROOT) / 'delivery_import_service.py').read_text(encoding='utf-8'))
+        tree = ast.parse((Path(ROOT) / 'domain/delivery_import_service.py').read_text(encoding='utf-8'))
         imports = {name.name for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
                    and node.module in {'service_contract', 'contract.service_contract'} for name in node.names}
         self.assertEqual(imports, {'SystemError', 'UserError', 'success'})

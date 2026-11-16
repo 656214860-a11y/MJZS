@@ -9,11 +9,21 @@ from collections import defaultdict
 from pathlib import Path
 
 from tests.architecture._layers import LAYERS
-from tests.architecture._scan import PACKAGE_NAMES
+from tests.architecture._scan import PACKAGE_NAMES, module_name, module_scan_files
 
 
 ROOT = Path(__file__).resolve().parents[2]
 LEDGER = ROOT / '维护记录' / '架构统一基数.json'
+
+# T10 包化：台账 file 字段可能是扁平名（第三项沿用 basename 口径）或包内相对路径
+# （第四项沿用 relpath 口径）；扫描实体一律经 module_scan_files 归一，门面不算实体。
+_ENTITY_BY_NAME = {module_name(path): path for path in module_scan_files()}
+
+
+def _ledger_path(name):
+    if '/' in name:
+        return ROOT / name
+    return _ENTITY_BY_NAME.get(Path(name).stem, ROOT / name)
 
 
 def _ledger():
@@ -78,8 +88,8 @@ def _bare_json_loads(paths=None, *, root=ROOT):
 
 
 def _l2_source_files():
-    return [ROOT / f'{name}.py' for name, layer in LAYERS.items()
-            if layer == 2 and (ROOT / f'{name}.py').is_file()]
+    return [path for name, layer in LAYERS.items() if layer == 2
+            for path in [_ENTITY_BY_NAME.get(name)] if path is not None]
 
 
 def _is_temporary(node):
@@ -174,7 +184,7 @@ def _projects_direct_storage_calls():
 
 
 def _point_exists(item, actual=None):
-    path = ROOT / item['file']
+    path = _ledger_path(item['file'])
     if not path.is_file():
         return False
     point = str(item['point'])

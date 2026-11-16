@@ -7,7 +7,7 @@ import contract.pet_bus as pet_bus
 
 def media_output_folders(root, stage):
     """返回媒体阶段的成果目录与允许扩展名（成片后缀与导入共用 delivery_import_service 那一份）。"""
-    from delivery_import_service import ALLOWED_SUFFIXES
+    from domain.delivery_import_service import ALLOWED_SUFFIXES
     from contract.stage_path_service import read_dirs
     video = set(ALLOWED_SUFFIXES)
     if stage == 'audio':
@@ -120,7 +120,7 @@ def prepare_media_completion(root, stage, paths, *, scope=None):
     if not outputs:
         raise ValueError('请至少选择一份本阶段媒体成果；字幕或压缩包不能替代媒体')
     if stage == 'audio':
-        from tts_api import audio_kind
+        from domain.tts_api import audio_kind
         if not any(audio_kind(Path(output['path']).name) == 'dialogue' for output in outputs):
             raise ValueError('所选音频都不是对白音轨（只有 BGM／音效／旁白），不能代替对白配音完成核验')
     data = {'schema': 1, 'stage': stage, 'scope': scope, 'status': 'pending_review', 'outputs': outputs}
@@ -744,7 +744,7 @@ def completion_evidence(root, stage, video_ready=None):
                     return False, '剧本结构清单未通过核验：' + problems[0]
             return ok, '没有找到可读取的%s成果' % pet_bus.STAGE_NAMES.get(stage, stage)
         if stage == 'animatic':
-            from animatic_service import evidence
+            from domain.animatic_service import evidence
             return evidence(root)
         if stage == 'storyboard':
             from stage_parallel import _adopted

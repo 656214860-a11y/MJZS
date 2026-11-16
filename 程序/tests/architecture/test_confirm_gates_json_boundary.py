@@ -10,7 +10,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 
 class ConfirmGatesJsonBoundaryTests(unittest.TestCase):
     def test_confirmations_use_cache_and_recording_accepts_l3_publisher(self):
-        path = os.path.join(ROOT, 'confirm_gates.py')
+        path = os.path.join(ROOT, 'domain/confirm_gates.py')
         with open(path, encoding='utf-8') as handle:
             source = handle.read()
         self.assertIn('from file_cache import read_json', source)

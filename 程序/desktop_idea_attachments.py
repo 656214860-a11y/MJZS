@@ -18,14 +18,14 @@ class IdeaAttachmentsMixin:
         """仅展示用户已选择的文件名；路径和正文不出现在界面或聊天记录。"""
         label=getattr(self,'idea_attachment_status',None)
         prepared=getattr(self.idea_chat_controller,'attachment_details',())
-        from idea_attachments import display_name
+        from domain.idea_attachments import display_name
         tips,details,local={},[],'原文件，将由 Agent 自行读取'
         def note(shown,key,tip):
             tips[key]=tip;details.append('%s（%s）' % (shown,tip))
         for name,count in prepared:
             key=display_name(name);note(key if count is None else name,key,local if count is None else '%d 字' % count)
         if not tips:
-            import idea_attachments
+            import domain.idea_attachments as idea_attachments
             from stage_execution_service import idea_attachment_local_mode
             local_mode=idea_attachment_local_mode(self.root)
             for value in getattr(self,'idea_attachment_paths',()):
@@ -42,7 +42,7 @@ class IdeaAttachmentsMixin:
         panel=getattr(self,'idea_uploaded_panel',None)
         if panel is None or not panel.winfo_exists():return
         from stage_execution_service import stage_idea_attachment_paths
-        from idea_attachments import archive_pair, display_name
+        from domain.idea_attachments import archive_pair, display_name
         from ui_tokens import ICON_CLOSE, ICON_DOCUMENT
         from ui_widgets import Tooltip
         def upload_order(path):

@@ -369,7 +369,7 @@ def show(app,aid):
 
     from tkinter import ttk
 
-    from asset_reference_prompts import display_prompt
+    from domain.asset_reference_prompts import display_prompt
 
     from responsive_ui import FlowBar, auto_columns
 

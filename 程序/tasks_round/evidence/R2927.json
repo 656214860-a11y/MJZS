@@ -1,0 +1,15 @@
+{
+  "round": 2927,
+  "commit_base": "c93c164e",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k animatic_service audio_import_service confirm_gates delivery_import_service edit_service final_service handoff_service idea_attachments idea_brief_form idea_document_paths idea_script_heuristic idea_transcript legacy_adoption_service recycle_recovery_service speech_api stage_workspace_service storyboard_adoption_service subtitle_export_service subtitle_timing tts_api video_lifecycle_service asset_reference_prompts",
+    "exit": 0,
+    "passed": 153,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T08:23:18"
+}

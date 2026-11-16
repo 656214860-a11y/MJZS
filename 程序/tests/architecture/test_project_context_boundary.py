@@ -18,7 +18,7 @@ def _tree(name):
 class ProjectContextBoundaryTests(unittest.TestCase):
     def test_context_contract_is_l0_and_constructed_only_by_l3(self):
         self.assertEqual(LAYERS['project_context'], 0)
-        delivery = _tree('delivery_import_service.py')
+        delivery = _tree('domain/delivery_import_service.py')
         calls = [node for node in ast.walk(delivery) if isinstance(node, ast.Call)
                  and getattr(node.func, 'id', '') == 'ProjectContext']
         self.assertEqual(calls, [], 'L2 只可消费 ProjectContext，不得自行构造')
@@ -49,8 +49,8 @@ class ProjectContextBoundaryTests(unittest.TestCase):
             self.assertNotIn('from stage_execution_service import', source, name)
 
     def test_l2_uses_injected_stage_resolver_without_project_path_join(self):
-        delivery = _tree('delivery_import_service.py')
-        source = Path(ROOT, 'delivery_import_service.py').read_text(encoding='utf-8')
+        delivery = _tree('domain/delivery_import_service.py')
+        source = Path(ROOT, 'domain/delivery_import_service.py').read_text(encoding='utf-8')
         self.assertIn("context.stage_resolver('delivery')", source)
         self.assertNotIn('project_stages', source)
         self.assertNotIn('os.path.join', source)
@@ -82,10 +82,10 @@ class ProjectContextBoundaryTests(unittest.TestCase):
             self.assertIn('ProjectContext', source)
 
     def test_confirmation_service_consumes_context_and_l3_injects_it(self):
-        source = Path(ROOT, 'confirm_gates.py').read_text(encoding='utf-8')
+        source = Path(ROOT, 'domain/confirm_gates.py').read_text(encoding='utf-8')
         self.assertIn('ProjectContext', source)
         self.assertIn("context.stage_resolver('continuity')", source)
-        tree = _tree('confirm_gates.py')
+        tree = _tree('domain/confirm_gates.py')
         constructors = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
                         and getattr(node.func, 'id', '') == 'ProjectContext']
         self.assertEqual(constructors, [])
@@ -104,10 +104,10 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         self.assertIn('save_local_video_settings(project_context(project)', orchestrator)
 
     def test_idea_attachments_consume_context_and_l3_injects_it(self):
-        source = Path(ROOT, 'idea_attachments.py').read_text(encoding='utf-8')
+        source = Path(ROOT, 'domain/idea_attachments.py').read_text(encoding='utf-8')
         self.assertIn('ProjectContext', source)
         self.assertIn("context.stage_resolver('script')", source)
-        tree = _tree('idea_attachments.py')
+        tree = _tree('domain/idea_attachments.py')
         constructors = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
                         and getattr(node.func, 'id', '') == 'ProjectContext']
         self.assertEqual(constructors, [])
@@ -182,7 +182,7 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         self.assertIn('catalog(project_context(project)', orchestrator)
 
     def test_tts_consumes_context_and_l3_injects_it(self):
-        source = Path(ROOT, 'tts_api.py').read_text(encoding='utf-8')
+        source = Path(ROOT, 'domain/tts_api.py').read_text(encoding='utf-8')
         self.assertIn('ProjectContext', source)
         self.assertIn('def _context(value)', source)
         self.assertIn('audio(_context(context).root)', source)

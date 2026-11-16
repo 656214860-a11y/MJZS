@@ -19,6 +19,6 @@ class VideoDeleteBoundaryTests(unittest.TestCase):
                              for node in calls))
 
     def test_lifecycle_service_requires_l3_gateway_for_publication(self):
-        source = (ROOT / 'video_lifecycle_service.py').read_text(encoding='utf-8')
+        source = (ROOT / 'domain/video_lifecycle_service.py').read_text(encoding='utf-8')
         self.assertIn('def _require_gateway', source)
         self.assertNotIn('from agent.core import read, save', source)

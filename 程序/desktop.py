@@ -416,7 +416,7 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         if box is None or not box.winfo_exists():return ''
         start,end=self.idea_draft_range()
         try:
-            from idea_brief_form import strip_inline_required_markers
+            from domain.idea_brief_form import strip_inline_required_markers
             return strip_inline_required_markers(box.get(start,end))
         except tk.TclError:return ''
     def text_width(self,text):
@@ -778,7 +778,7 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
                 self._request_tick_resume_after_first_paint()
     def import_json(self):
         if self.root:
-            from stage_workspace_service import ensure_storyboard_workspace
+            from domain.stage_workspace_service import ensure_storyboard_workspace
             result=ensure_storyboard_workspace(self.root)
             if not result.ok:raise ValueError(result.reason)
             base=result.data
@@ -922,7 +922,7 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         return read(self.current_frame_json())
     def dialogue_entries(self,episode=None):
         """对白行与「时间轴是草稿」标记；已经读过盘就把 episode 传进来，不重复读。"""
-        from subtitle_timing import timed_entries
+        from domain.subtitle_timing import timed_entries
         return timed_entries(self.current_episode() if episode is None else episode)
 
 
@@ -931,7 +931,7 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         from version_picker import open_picker
         return open_picker(self)
     def final_import(self):
-        from stage_workspace_service import ensure_delivery_workspace
+        from domain.stage_workspace_service import ensure_delivery_workspace
         result=ensure_delivery_workspace(self.root)
         if not result.ok:raise ValueError(result.reason)
         delivery_dir,_=result.data

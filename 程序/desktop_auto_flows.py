@@ -338,7 +338,7 @@ class AutoFlowsMixin:
         self.auto.final_notice=None
         from agent.core import file_hash
         signature=(str(source),file_hash(source))
-        from final_service import automatic_finalize_decision
+        from domain.final_service import automatic_finalize_decision
         decision=automatic_finalize_decision(signature,self.auto.final_signature,self.busy_production())
         if decision['action']=='skip':self.auto.final_blocked=False;return
         # 定稿本来这轮就该动手，只是还有别的制作批次在读这份工作稿：把「定稿在等」记下来，
@@ -371,7 +371,7 @@ class AutoFlowsMixin:
         from stage_execution_service import poll_asset_storyboard_adoption
         # 目录里没有新增或改写的分镜时不必反复解析全部 JSON；只有等写入完成的文件才继续轮询。
         signature=tree_signature(self.root)
-        from storyboard_adoption_service import automatic_poll_decision
+        from domain.storyboard_adoption_service import automatic_poll_decision
         decision=automatic_poll_decision(signature,self.auto.adopt_signature,self.auto.adopt_pending,self.auto.final_busy)
         if decision['action'] in ('wait','skip'):return
         self.auto.adopt_signature=decision['signature']
@@ -414,7 +414,7 @@ class AutoFlowsMixin:
         from contract.project_stages import editing
         marker=editing(self.root)/'自动粗剪.json'
         done=read(marker) if marker.is_file() else {}
-        from edit_service import automatic_assemble_decision
+        from domain.edit_service import automatic_assemble_decision
         decision=automatic_assemble_decision(signature,digest,self.auto.edit_signature,done)
         if decision['action']=='skip':return
         self.auto.edit_signature=decision['signature']
@@ -627,7 +627,7 @@ class AutoFlowsMixin:
         from contract.project_stages import editing
         marker=editing(self.root)/'自动交接.json'
         done=read(marker) if marker.is_file() else {}
-        from handoff_service import automatic_decision
+        from domain.handoff_service import automatic_decision
         decision=automatic_decision(signature,digest,self.auto.handoff_signature,done)
         if decision['action']=='skip':return
         self.auto.handoff_signature=decision['signature']

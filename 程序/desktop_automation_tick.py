@@ -276,7 +276,7 @@ class AutomationTickMixin:
         每一条只处理一次（记进 gate_confirmations.json），选择同时写进资产清单。
         """
         import stage_flow
-        from confirm_gates import AUTO
+        from domain.confirm_gates import AUTO
         from stage_execution_service import record_stage_confirmation
         from stage_execution_service import apply_asset_plan_gate_choice
         if self.gate_level() not in stage_flow.AUTO_LEVELS:return 0

@@ -168,7 +168,7 @@ def _recon_request(project):
 
 def _recon_topic(project):
     """热点速成只借「故事题材」这一个方向词起手；梗概等原创内容不出去。"""
-    from idea_brief_form import brief_creation_values
+    from domain.idea_brief_form import brief_creation_values
     from project_context_factory import project_context
     try:
         values = brief_creation_values(project_context(project))
@@ -260,7 +260,7 @@ def _copyright_filter(context):
 
 
 def _subtitle_align(context):
-    from subtitle_timing import timed_entries
+    from domain.subtitle_timing import timed_entries
     episode = episode_of(context)
     entries, estimated = timed_entries(episode)
     return {'ok': True, 'entries': [{'shot': sid, 'speaker': speaker, 'text': text,
@@ -270,7 +270,7 @@ def _subtitle_align(context):
 
 
 def _subtitle_generate(context):
-    from subtitle_timing import srt_rows
+    from domain.subtitle_timing import srt_rows
     ctx = context or {}
     rows, estimated = srt_rows(episode_of(ctx))
     text = '\n'.join(rows)
@@ -290,7 +290,7 @@ def _subtitle_generate(context):
 
 def _subtitle_sync(context):
     """音画同步检查：每句字幕都要落在对应镜头的时长里，串行不重叠。"""
-    from subtitle_timing import timed_entries
+    from domain.subtitle_timing import timed_entries
     episode = episode_of(context)
     durations = {}
     for shot in shots_of(episode):

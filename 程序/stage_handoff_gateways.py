@@ -14,7 +14,7 @@ from stage_gate_gateways import video_lifecycle_gateway
 
 
 def mark_stage_video_deleted(source, sid, versions):
-    from video_lifecycle_service import mark_video_deleted
+    from domain.video_lifecycle_service import mark_video_deleted
     result = mark_video_deleted(prepare_legacy_stage_path(source), sid, versions, gateway=video_lifecycle_gateway())
     if not result.ok:
         raise ValueError(result.reason)
@@ -22,7 +22,7 @@ def mark_stage_video_deleted(source, sid, versions):
 
 
 def save_stage_video_options(source, sid, selected, generate_audio, is_local):
-    from video_lifecycle_service import save_video_options
+    from domain.video_lifecycle_service import save_video_options
     result = save_video_options(prepare_legacy_stage_path(source), sid, selected, generate_audio, is_local,
                               gateway=video_lifecycle_gateway())
     if not result.ok:
@@ -31,7 +31,7 @@ def save_stage_video_options(source, sid, selected, generate_audio, is_local):
 
 
 def save_stage_white_model_upload(source, sid, enabled):
-    from video_lifecycle_service import save_white_model_upload
+    from domain.video_lifecycle_service import save_white_model_upload
     result = save_white_model_upload(prepare_legacy_stage_path(source), sid, enabled, gateway=video_lifecycle_gateway())
     if not result.ok:
         raise ValueError(result.reason)
@@ -40,7 +40,7 @@ def save_stage_white_model_upload(source, sid, enabled):
 
 def save_stage_editing_checklist(project, text):
     """剪辑清单保存编排：保留用户清空清单的既有语义。"""
-    from edit_service import save_editing_checklist
+    from domain.edit_service import save_editing_checklist
 
     def publish_checklist(target, value):
         return publish_stage_text(
@@ -77,7 +77,7 @@ def publish_handoff_bundle(project, name, artifacts, *, auto=False, summary=None
         if data is None:
             data = Path(item['source']).read_bytes()
         payload[target] = bytes(data)
-    from handoff_service import BUNDLE_MANIFEST_NAME, build_bundle_manifest
+    from domain.handoff_service import BUNDLE_MANIFEST_NAME, build_bundle_manifest
     manifest = build_bundle_manifest(summary, [{'name': Path(target).name, 'data': data}
                                                for target, data in payload.items()])
     payload[output / BUNDLE_MANIFEST_NAME] = json.dumps(manifest, ensure_ascii=False, indent=2).encode('utf-8')
@@ -145,7 +145,7 @@ def publish_idea_creative(project, artifacts):
 
 def save_automatic_assemble_marker(project, digest, master, completed_at):
     """自动粗剪完成标记：L3 定位阶段目录并注入原子发布器。"""
-    from edit_service import AUTOMATIC_ASSEMBLE_MARKER_NAME, save_automatic_assemble_marker as save_marker
+    from domain.edit_service import AUTOMATIC_ASSEMBLE_MARKER_NAME, save_automatic_assemble_marker as save_marker
     target = write_dir(Path(project), 'edit') / AUTOMATIC_ASSEMBLE_MARKER_NAME
 
     def publish_marker(path, payload):
@@ -161,7 +161,7 @@ def save_automatic_assemble_marker(project, digest, master, completed_at):
 
 def save_automatic_handoff_marker(project, digest, folder, shot_count):
     """自动交接完成标记：L3 定位阶段目录并注入原子发布器。"""
-    from handoff_service import AUTOMATIC_HANDOFF_MARKER_NAME, save_automatic_handoff_marker as save_marker
+    from domain.handoff_service import AUTOMATIC_HANDOFF_MARKER_NAME, save_automatic_handoff_marker as save_marker
     target = write_dir(Path(project), 'edit') / AUTOMATIC_HANDOFF_MARKER_NAME
 
     def publish_marker(path, payload):
@@ -177,7 +177,7 @@ def save_automatic_handoff_marker(project, digest, folder, shot_count):
 
 def verify_handoff_bundle(folder):
     """离线校验一个已解包的交接包：读清单、按清单核对每个文件，只读不改。"""
-    from handoff_service import BUNDLE_MANIFEST_NAME, verify_manifest
+    from domain.handoff_service import BUNDLE_MANIFEST_NAME, verify_manifest
     folder = Path(folder).resolve()
     manifest_path = folder / BUNDLE_MANIFEST_NAME
     if not manifest_path.is_file():
