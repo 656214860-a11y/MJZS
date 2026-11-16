@@ -80,6 +80,20 @@
 
 **错误策略（R1689 裁决，UI 批次 2 落地）**：可恢复的错误（网络、模型、校验）默认非模态——`NotificationDispatcher.error()` 默认 `modal=False`，只把完整文案落到状态栏，不弹系统框、不锁界面；需要“查看详情／重试”的页面自行在动作附近提供。只有删除、覆盖等破坏性确认保留模态，但它们走 `ConfirmDialog`／`ask_confirmation`，不在本函数内。仅当后续代码确实必须等用户关掉提示才能继续时，调用方才显式传 `modal=True` 并写明理由。状态栏颜色按级别区分（就绪中性、成功绿、警告、错误红），不再一律绿色。
 
+## 统一状态栏（文字提示模块，R2984 起）
+
+应用只保留一条全局底部状态栏 `ui/ui_status_bar.py:StatusBar`，散落的文字提示统一为一个模块：
+
+| 区段 | 内容 | 规则 |
+| --- | --- | --- |
+| 左区（常驻） | 页标题「NN 名称」、项目路径、Token/¥/余额（点击开用量详情）、模型用量摘要 | 每段独立 `EllipsisLabel`：放不下截断、悬停 Tooltip 全文；点击展开详情；无数据时段隐藏，不显示假 0 |
+| 右区（消息） | 四级消息 info/success/warning/error | error/warning 常驻直到被处理或下一条替换；info/success 约 8 秒自动消失；错误仍写日志 |
+| 历史 | 点击右区展开最近 N 条 | 含时间、级别、全文；不另开窗口 |
+
+- 消息唯一入口 `ui/ui_status_bus.py:StatusBus.publish(Message(level, text, ttl, source))`；业务模块只发消息，不得直接写状态栏（`status.set`）或组合 `messagebox`；`NotificationDispatcher` 保留为分级渲染的既有入口，内部转交 StatusBus。
+- 视觉取值一律引用 `design_tokens.md`：就绪 `color.text.primary`、成功 `color.success`／`color.success.subtle`、警告与错误沿用 `color.danger.text`／`color.danger.subtle` 及既有 `status_kind` 样式；圆角、间距、字体只取 token。
+- 顶部标题行自 P2 起删除：原页头状态／模型名信息等价迁移（视频页模型/状态、剧本页流程说明、分镜页「当前 JSON」提示进左区或右区消息），功能不丢；侧栏图标轨随页标题下移而上移。
+
 ## 右键菜单
 
 `ui_widgets.ContextMenu` 是右键菜单的构建、定位和 grab 释放入口。页面只声明菜单项与领域回调；历史菜单按独立轮次迁移。
