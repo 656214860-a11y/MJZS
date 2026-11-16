@@ -84,7 +84,7 @@ class SpeechApiTests(unittest.TestCase):
         self.assertTrue(socket.closed)
 
     def test_failures_become_readable_reasons_without_key(self):
-        settings = dict(speech_api.DEFAULTS)
+        settings = {**dict(speech_api.DEFAULTS), 'backend': 'cloud'}
 
         def denied(url, **kwargs):
             raise platform_tools.WebSocketRefused(401)

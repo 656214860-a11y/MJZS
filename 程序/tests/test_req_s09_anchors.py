@@ -411,6 +411,9 @@ class NotesAndEntryAnchorTests(_WorkspaceCase):
             def pack(self, *args, **kwargs):
                 pass
 
+            def grid(self, *args, **kwargs):
+                pass
+
             def insert(self, *args, **kwargs):
                 pass
 
@@ -421,6 +424,15 @@ class NotesAndEntryAnchorTests(_WorkspaceCase):
                 pass
 
             def lift(self, *args, **kwargs):
+                pass
+
+            def bind(self, *args, **kwargs):
+                pass
+
+            def configure(self, *args, **kwargs):
+                pass
+
+            def tag_configure(self, *args, **kwargs):
                 pass
 
         buttons = {}

@@ -23,7 +23,7 @@ _register(2, "task_center_service", "keyframe_evidence", "animatic_service", "wr
           "storyboard_edit_service",
           "asset_context", "asset_gating", "asset_batch_lifecycle",
           "asset_batch_service", "asset_batch_state_service", "asset_batch_selection_service", "asset_generated_import_service", "asset_detail_service",
-          "keyframe", "keyframe_api", "keyframe_batch", "keyframe_lifecycle_service", "cloud_video_service", "white_model_service", "storyboard_source_service", "tts_api", "speech_api", "subtitle_timing", "pet_test_service", "pet_performance_service", "local_video_settings_service",
+          "keyframe", "keyframe_api", "keyframe_batch", "keyframe_lifecycle_service", "cloud_video_service", "white_model_service", "storyboard_source_service", "tts_api", "speech_api", "voice_ai", "subtitle_timing", "pet_test_service", "pet_performance_service", "local_video_settings_service",
           "previs", "previs_routing", "previs_progress_service", "handoff_service", "edit_service", "final_service", "storyboard_adoption_service", "delivery_import_service", "confirm_gates", "recycle_recovery_service",
           "recon_service", "skill_command")
 # R1649：删除 3 个既无实体文件、也无采用方的僵尸登记名（project_storage／asset_detail_ui／workflow）；
@@ -43,14 +43,14 @@ _register(1, "api_endpoints", "broadcaster", "clipboard_lock",
           "comfy_service", "engine_probe", "h3_reference_adapter", "http_client", "model_diagnostics", "model_router",
           "native_apps", "seedream_api", "token_saver", "tk_timers")
 _register(2, "asset_batch_settings_service", "asset_plan", "asset_resume", "audio_import_service", "edit_export", "usage_overview",
-          "desktop_settings_service", "legacy_adoption_service", "project_naming",
+          "desktop_settings_service", "legacy_adoption_service", "offline_asr_client", "project_naming",
           "projects", "script_preview_service", "script_structure_edit_controller", "script_workspace_service", "stage_workspace_service",
           "storyboard_adoption_contract", "storyboard_rows_service",
           "storyboard_storage", "subtitle_export_service", "video_lifecycle_service", "video_prompt_publication",
           "video_task_state", "workflow_context", "writing", "writing_tools", "writing_quality", "writing_stream")
 _register(3, "image_agent_runner", "keyframe_model_service", "skill_budget", "skill_templates", "subtitle_export_controller",
           "stage_handler_registry", "storyboard_recycle_service", "workflow_context_controller", "workflow_engines", "recycle_recovery_controller")
-_register(4, "desktop_auto_flows", "desktop_direct_dispatch", "desktop_storyboard_direct", "desktop_audio_direct", "desktop_video_prompt_direct", "desktop_image_direct", "desktop_file_card", "desktop_idea_bubbles", "desktop_idea_attachments", "desktop_page_registry", "desktop_tk_gc", "desktop_tray", "desktop_automation_tick", "desktop_layout", "desktop_layout_resize", "desktop_pet_bridge", "desktop_async_tasks", "desktop_idea_chat", "desktop_idea_deferred", "desktop_writing_page", "desktop_storyboard_page", "desktop_idea_menus", "pet_ui_support", "pet_ui_stages", "pet_ui_settings", "pet_ui_voice", "pet_ui_view", "pet_ui_popup", "desktop_asset_pages", "desktop_script_pages", "desktop_script_edit_session", "desktop_media_pages", "desktop_project_pages", "desktop_page_support", "task_center_ui", "environment_check", "version_picker", "skill_import_service", "asset_reference_images", "asset_reference_import", "desktop_idea_send_gate", "desktop_writing_snapshots", 
+_register(4, "desktop_auto_flows", "desktop_direct_dispatch", "desktop_storyboard_direct", "desktop_audio_direct", "desktop_video_prompt_direct", "desktop_image_direct", "desktop_file_card", "desktop_idea_bubbles", "desktop_idea_attachments", "desktop_page_registry", "desktop_tk_gc", "desktop_tray", "desktop_automation_tick", "desktop_layout", "desktop_layout_resize", "desktop_pet_bridge", "desktop_async_tasks", "desktop_idea_chat", "desktop_idea_deferred", "desktop_writing_page", "desktop_storyboard_page", "desktop_idea_menus", "pet_ui_support", "pet_ui_stages", "pet_ui_settings", "pet_ui_voice", "pet_ui_view", "pet_ui_popup", "desktop_asset_pages", "desktop_script_pages", "desktop_script_edit_session", "desktop_media_pages", "desktop_project_pages", "desktop_page_support", "task_center_ui", "environment_check", "version_picker", "skill_import_service", "asset_reference_images", "asset_reference_import", "desktop_idea_send_gate", "desktop_writing_snapshots", "desktop_voice_input", 
           "asset_reference_search", "asset_skill_batch", "background_characters", "keyframe_comfy",
           "keyframe_import", "pet_agent", "pet_models_ui", "pet_models_tabs", "speech_settings_ui", "pet_report", "pet_settings_ui",
           "reference_wall", "responsive_ui", "seedream_settings",
