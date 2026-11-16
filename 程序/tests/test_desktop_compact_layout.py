@@ -170,19 +170,11 @@ class CompactDesktopGeometryTests(unittest.TestCase):
     def test_actions_hint_and_full_file_details(self):
         self.resize(800, 600)
         d = self.desktop
-        # 素材来源不适用时采风隐藏不占位（REQ-S01-46），只有它可以不量宽度。
-        self.assertTrue(all(button.cget('text') == '采风' for button in d.idea_row.hidden_children))
-        for button in d.idea_row.winfo_children():
-            if 'text' not in button.keys() or button in d.idea_row.hidden_children:continue
-            style = ttk.Style(button)
-            font_spec = style.lookup(button.cget('style') or 'TButton', 'font')
-            self.assertGreaterEqual(button.winfo_width(), font.Font(root=button, font=font_spec).measure(button.cget('text')))
-            self.assertLessEqual(button.winfo_rootx()+button.winfo_width(), d.idea_row.winfo_rootx()+d.idea_row.winfo_width())
-        # R2131：空输入框改为两行，提示由垂直居中改为对齐首行（契约有意变更：原 'w'）。
-        self.assertEqual(d.idea_input_hint.place_info()['anchor'], 'nw')
-        self.assertAlmostEqual(d.idea_input_hint.winfo_rootx(),
-                               d.idea_input.winfo_rootx() + d.idea_input.bbox('1.0')[0],
-                               delta=2)
+        # R2923：动作栏与静态占位提示删除；发送/附件/语音/模型/技能图标收进共享输入框。
+        self.assertFalse(hasattr(d, 'idea_row'), '动作栏容器已随 R2923 删除')
+        self.assertFalse(hasattr(d, 'recon_button'), '「采风」按钮已随 R2923 删除')
+        self.assertFalse(hasattr(d, 'idea_input_hint'), '静态占位提示已随 R2923 删除')
+        self.assertTrue(d.shared_input.winfo_ismapped(), '共享输入框可见')
         self.assertFalse(d.list.item('group:completed', 'open'))
         self.assertIn('empty-group', d.list.item('group:completed', 'tags'))
         d.list.item('group:completed', open=True)

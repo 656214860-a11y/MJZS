@@ -22,13 +22,15 @@ import skill_command
 import ui_plugin_registry
 from contract import pet_bus
 from ui_shortcuts import ShortcutRegistry
-from ui_tokens import COLORS, FONTS, ICON_ADD, ICON_SEND, ICON_SKILL, SPACING, TEXT_ROWS
-from ui_widgets import BaseDialog, SecondaryButton, TextArea, PrimaryButton
+from ui_tokens import (COLORS, FONTS, ICON_ADD, ICON_MICROPHONE, ICON_SEND, ICON_SKILL,
+                       SPACING, TEXT_ROWS)
+from ui_widgets import BaseDialog, Card, SecondaryButton, TextArea, PrimaryButton
 
 SHORTCUT_SCOPE = 'shared_input'
-# 技能说明悬停卡片的正文尺寸（字符口径常量，R2916：避免内联字面量触碰视觉 token 棘轮）。
-SKILL_CARD_ROWS = TEXT_ROWS['3xl']
-SKILL_CARD_CHARS = 46
+# 技能悬停说明卡片的换行宽度（像素常量，R2923：避免内联字面量触碰视觉 token 棘轮）。
+SKILL_CARD_WRAP = 300
+# 技能列表浮层里默认勾选框的尺寸（像素常量，同上）。
+SKILL_CHECK_SIZE = 14
 
 
 def project_root(desktop):
@@ -107,6 +109,7 @@ class SharedStageInput(ttk.Frame):
         self.on_skill_config = options.get('on_skill_config')
         self.on_attachment = options.get('on_attachment')
         self.on_model = options.get('on_model')
+        self.on_voice = options.get('on_voice')
         self._skills = list(options.get('skills') or ())
         self._engines = options.get('engines')
         self.in_flight = False
@@ -116,22 +119,18 @@ class SharedStageInput(ttk.Frame):
 
     # ── 构建 ────────────────────────────────────────────────────────────
     def _build(self):
-        # R2916 重排：发送图标先占右侧位，输入框包装后占剩余空间——原顺序里
-        # expand 输入框先打包会把右侧按钮压成 1×1。技能/附件图标与模型文字
-        # 都收进输入框内部（左下角图标、右下角模型名，仿 Devin／DeepSeek 桌面）。
-        self.send_button = PrimaryButton(self, text=ICON_SEND, width=0,
-                                         style='Tokens.Composer.Send.TButton',
-                                         command=self.send)
-        self.send_button.pack(side='right', padx=(SPACING['xs'], SPACING['sm']))
-
-        box = ttk.Frame(self)
+        # R2923 定版：全部收进一个圆角输入盒——上输入、下一行图标（✦ 技能／＋ 附件／
+        # 麦克风语音在左，无边框模型名与发送图标在右，仿 DeepSeek／Devin 桌面）。
+        # 模型名在发送按钮左侧、无外框只留文字。
+        box = Card(self, padding=(SPACING['sm'], SPACING['xs']))
         box.pack(side='left', fill='both', expand=True,
-                 padx=(SPACING['sm'], SPACING['xs']))
+                 padx=(SPACING['sm'], SPACING['none']))
+        # 附件卡片行：无附件时不占位（由桌面侧 refresh_uploaded_idea_attachments 管理显隐）。
+        from responsive_ui import FlowBar
+        self.attachment_panel = FlowBar(box, style='Composer.TFrame')
         self.input = TextArea(box, height=TEXT_ROWS['sm'], wrap='word')
         self.input.pack(fill='x')
 
-        # 输入盒内部下一行：左下角技能图标（星形）＋附件图标，右下角无边框模型名
-        # （仿 DeepSeek 桌面，选择器只留文字、去外框；点击模型名换模型）。
         row = ttk.Frame(box)
         row.pack(fill='x')
         self.skill_button = SecondaryButton(row, text=ICON_SKILL, width=0,
@@ -142,10 +141,18 @@ class SharedStageInput(ttk.Frame):
                                                  style='Tokens.Composer.Icon.TButton',
                                                  command=self.open_attachments)
         self.attachment_button.pack(side='left', padx=(SPACING['xs'], SPACING['none']))
+        self.voice_button = SecondaryButton(row, text=ICON_MICROPHONE, width=0,
+                                            style='Tokens.Composer.Icon.TButton',
+                                            command=self._toggle_voice)
+        self.voice_button.pack(side='left', padx=(SPACING['xs'], SPACING['none']))
+        self.send_button = PrimaryButton(row, text=ICON_SEND, width=0,
+                                         style='Tokens.Composer.Send.TButton',
+                                         command=self.send)
+        self.send_button.pack(side='right', padx=(SPACING['xs'], SPACING['xs']))
         self.model_button = tk.Label(row, text='模型', cursor='hand2',
                                      bg=COLORS['background_card'],
                                      fg=COLORS['text_muted'], font=FONTS['hint'])
-        self.model_button.pack(side='right', padx=(SPACING['none'], SPACING['sm']))
+        self.model_button.pack(side='right', padx=(SPACING['sm'], SPACING['none']))
         self.model_button.bind('<Button-1>', lambda _event: self.open_model_picker())
 
         self._completion = ttk.Frame(self)
@@ -206,20 +213,21 @@ class SharedStageInput(ttk.Frame):
             _say(self.status, '阶段配置打开失败：%s' % exc)
             return None
 
-    # ── 技能列表浮层（R2916：Devin 风格，点击技能图标弹出） ─────────────────
+    # ── 技能列表浮层（R2923 定版：Devin 风格——点击图标弹列表，悬停显示简单说明，
+    #    勾选框=本阶段默认 skill，供三虎自动流程使用） ──────────────────────────
     def open_skill_list(self):
-        """技能图标 → 无边框技能列表浮层：当前阶段技能在前，悬停右侧出说明卡片，
-        点击条目把 ``/技能名`` 写进输入框；列表底部保留「从仓库导入／本地安装」两条。"""
         if self._skill_menu_open():
             self._close_skill_menu()
             return
         items = self._skill_list_items()
+        defaults = self._default_skills()
         menu = BaseDialog(self, '技能', modal=False, chrome=False)
         menu.configure(bg=COLORS['background_card'])
         self._skill_menu = menu
         self._skill_card = None
+        self._skill_check_images = []
 
-        header = tk.Label(menu, text='技能（点击插入 /技能名）', anchor='w',
+        header = tk.Label(menu, text='技能（勾选=本阶段默认，点击名字插入 /技能名）', anchor='w',
                           bg=COLORS['background_card'], fg=COLORS['text_muted'],
                           font=FONTS['hint'], padx=SPACING['sm'], pady=SPACING['xs'])
         header.pack(fill='x')
@@ -230,12 +238,22 @@ class SharedStageInput(ttk.Frame):
         def leave(_event):
             self._hide_skill_card()
 
+        from ui_icons import IconLoader
         for item in items:
-            row = tk.Label(menu, text=self._skill_display(item), anchor='w',
+            name = self._skill_name(item)
+            line = tk.Frame(menu, bg=COLORS['background_card'])
+            line.pack(fill='x')
+            if self.project is not None:
+                image = IconLoader.check_indicator(menu, size=SKILL_CHECK_SIZE,
+                                                   selected=name in defaults)
+                self._skill_check_images.append(image)
+                check = tk.Label(line, image=image, bg=COLORS['background_card'], cursor='hand2')
+                check.pack(side='left', padx=(SPACING['sm'], SPACING['xs']))
+                check.bind('<Button-1>', lambda _event, n=name: self._toggle_skill_default(n))
+            row = tk.Label(line, text=self._skill_display(item), anchor='w',
                            bg=COLORS['background_card'], fg=COLORS['text_primary'],
-                           font=FONTS['body'], padx=SPACING['sm'], pady=SPACING['xs'],
-                           cursor='hand2')
-            row.pack(fill='x')
+                           font=FONTS['body'], pady=SPACING['xs'], cursor='hand2')
+            row.pack(side='left', fill='x', expand=True)
             row.bind('<Enter>', lambda event, it=item: hover(event, it))
             row.bind('<Leave>', leave)
             row.bind('<Button-1>', lambda _event, it=item: self._pick_skill(it))
@@ -307,24 +325,51 @@ class SharedStageInput(ttk.Frame):
             app_logging.swallowed()
             return list(self.skill_items())[:20]
 
+    def _default_skills(self):
+        """当前阶段在三虎默认里的 skill 名单（stage_config 条目的 skills 字段）。"""
+        try:
+            import stage_config
+            project = self.project
+            if project is None:
+                return []
+            entry = stage_config.get(project, self.stage) or {}
+            return list(entry.get('skills') or [])
+        except Exception:
+            app_logging.swallowed()
+            return []
+
+    def _toggle_skill_default(self, name):
+        """勾选/取消本阶段默认 skill：写回 stage_config（三虎自动流程按此执行）。"""
+        import stage_config
+        project = self.project
+        if project is None:
+            _say(self.status, '请先打开一个项目，再设置本阶段默认技能')
+            return
+        skills = self._default_skills()
+        if name in skills:
+            skills.remove(name)
+        else:
+            skills.append(name)
+        try:
+            stage_config.put(project, self.stage, skills=skills)
+        except (OSError, ValueError) as exc:
+            _say(self.status, '默认技能保存失败：%s' % exc)
+            return
+        self._close_skill_menu()
+        self.open_skill_list()
+
     def _show_skill_card(self, item, owner):
-        """悬停卡片：浮层右侧渲染该技能说明（复用 skill_note_render 的全文渲染）。"""
+        """悬停卡片：浮层右侧用简单文字显示该技能 description（R2923 定版）。"""
         self._hide_skill_card()
         try:
-            import skill_note_render
-            from ui_tokens import NOTE_PADDING_X, NOTE_PADDING_Y
             body = self._skill_description(item)
             if not body:
                 body = '（该技能没有填写 description）'
             card = BaseDialog(self, '', modal=False, chrome=False)
             card.configure(bg=COLORS['background_card'])
-            text = TextArea(card, wrap='word', relief='flat', bg=COLORS['background_card'],
-                            fg=COLORS['text_primary'], font=FONTS['body'],
-                            padx=NOTE_PADDING_X, pady=NOTE_PADDING_Y,
-                            height=SKILL_CARD_ROWS, width=SKILL_CARD_CHARS)
-            text.pack(fill='both', expand=True)
-            skill_note_render.apply(text, body)
-            text.configure(state='disabled')
+            tk.Label(card, text=body, justify='left', wraplength=SKILL_CARD_WRAP,
+                     bg=COLORS['background_card'], fg=COLORS['text_primary'],
+                     font=FONTS['hint'], padx=SPACING['md'], pady=SPACING['sm']).pack()
             card.update_idletasks()
             x = owner.winfo_rootx() + owner.winfo_width()
             y = owner.winfo_rooty()
@@ -417,6 +462,17 @@ class SharedStageInput(ttk.Frame):
         if callable(self.on_attachment):
             return self.on_attachment()
         _say(self.status, '附件入口由当前页面提供')
+        return None
+
+    def _toggle_voice(self):
+        """麦克风听写开关：宿主接线 VoiceInput（绑定本输入框），首击即开麦。"""
+        if callable(self.on_voice):
+            voice = self.on_voice(self.voice_button)
+            if voice is not None:
+                safe = getattr(self.desktop, 'safe', None)
+                (safe(voice.toggle) if callable(safe) else voice.toggle)()
+            return None
+        _say(self.status, '语音输入由当前页面提供')
         return None
 
     def open_model_picker(self):

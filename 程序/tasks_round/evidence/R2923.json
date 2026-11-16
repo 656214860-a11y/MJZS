@@ -1,0 +1,15 @@
+{
+  "round": 2923,
+  "commit_base": "926abd2d",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_idea_chat test_script_composer test_idea_send_gate test_ui_writing_recon test_ui_edges_pages test_desktop_compact_layout",
+    "exit": 0,
+    "passed": 221,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T09:18:55"
+}

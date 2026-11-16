@@ -30,19 +30,12 @@ class IdeaSendGateMixin:
 
     def _apply_idea_send_state(self):
         self._idea_send_state_after = None
-        send = getattr(self, 'idea_send', None)
-        if send is None:
-            return
         try:
             missing = self._idea_live_missing()
         except Exception:
             missing = ()
-        try:
-            send.state(['disabled'] if missing else ['!disabled'])
-        except tk.TclError:
-            return
-        # 内联发送键的状态唯一入口是 update_script_interrupt_button（运行中=终止键）；
-        # 空闲时它跟随底栏发送键的禁用态，保持两颗键同口径。
+        # R2923：发送键并入共享输入框（send_button）；状态唯一入口是
+        # update_script_interrupt_button（运行中=终止键，空闲时按必填置灰）。
         sync = getattr(self, 'update_script_interrupt_button', None)
         if callable(sync):
             sync()

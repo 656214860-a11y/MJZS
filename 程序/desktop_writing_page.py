@@ -308,49 +308,6 @@ class VoiceInput:
         finally:self.spans = {}
 
 
-def _composer_input_tail(page, ctrl, input_row, frame):
-    """composer 输入行尾段：语音按钮、附件条、提示标签、共享 Text 的常驻绑定。
-
-    任务书轮 4：输入框是共享 Text（跨页同一实例）——录音会话与提示标签按控件
-    实例复用，页面级绑定只在首次遇到该控件时挂一次（``_composer_bound_box``），
-    重建页面不再叠加绑定、不再多出控件。
-    """
-    if os.name=='nt':
-        voice_button=SecondaryButton(input_row,text=ICON_MICROPHONE,width=CHAR_WIDTH['xs'],style='Tokens.Composer.Icon.TButton')
-        voice_button.pack(side='left',padx=(SPACING['xs'],SPACING['none']))
-        Tooltip(voice_button,'语音输入：点一下开始录音，再点一下结束并转成文字')
-        voice=getattr(page,'idea_voice_input',None)
-        if voice is None or getattr(voice,'box',None) is not ctrl.input_box:
-            voice=VoiceInput(page,ctrl.input_box,voice_button)
-        else:
-            voice.button=voice_button
-        page.idea_voice_input=voice
-        voice_button.configure(command=lambda:page.safe(page.idea_voice_input.toggle))
-        page.idea_voice_button=voice_button
-    # REQ-S01-71：附件卡片排在麦克风右侧、发送左侧，按上传顺序从左往右，放不下自动换行；没有附件不占位。
-    page.idea_uploaded_panel=FlowBar(input_row,style='Composer.TFrame')
-    submit_button=SecondaryButton(input_row,text=ICON_SEND,width=CHAR_WIDTH['xs'],style='Tokens.Composer.Send.TButton',
-                             command=lambda:page.idea_send.invoke())
-    submit_button.pack(side='right')
-    Tooltip(submit_button,'Enter 发送；Shift+Enter 换行；运行中点击或按 Esc 终止')
-    page.idea_submit=submit_button
-    page.idea_input_row=input_row
-    # 附件明细（字数等）只作数据：卡片悬停提示与发送前校验都读它，不再单独占一行。
-    page.idea_attachment_status=tk.StringVar(value='')
-    # R2916：输入框回到页面自己的 composer 卡片内，提示标签也挂回卡片（不再挂共享栏）。
-    hint_master=frame
-    hint=getattr(page,'idea_input_hint',None)
-    if hint is None or not hint.winfo_exists() or hint.master is not hint_master:
-        hint=ttk.Label(hint_master,text='输入想法，Enter 发送，点 + 上传附件',style='Composer.Muted.TLabel')
-    ctrl.input_hint=hint
-    page.idea_input_hint=ctrl.input_hint
-    # <Destroy> 随共享 Text 常驻：只在首次绑定时挂一次，经转派到当前控制器。
-    if getattr(page,'_composer_bound_box',None) is not ctrl.input_box:
-        ctrl.input_box.bind('<Destroy>',lambda event:page._composer_dispatch('stop_input_hint',event),add='+')
-    page.shortcuts.bind(ctrl.input_box, ('<Escape>',), ctrl.interrupt_from_input,
-                        scope='剧本准备·输入框', name='终止当前任务')
-
-
 class _WritingPage(WritingSnapshotsMixin):
     """剧本准备页（从 WritingPageMixin.writing 的闭包原样改写成类，R1817）：共享的局部变量成了实例属性，嵌套函数成了方法；原来的 self（桌面主窗）改叫 page。"""
     def __init__(self, page):
@@ -361,8 +318,8 @@ class _WritingPage(WritingSnapshotsMixin):
         result=ensure_script_workspace(self.page.root)
         if not result.ok:raise ValueError(result.reason)
         # 第 69 期任务 4：原来第一行那句「在下面的对话框写想法…」删掉——页面自己会说清怎么走。
-        brief, foot = self._build_composer()
-        self._build_dialog(brief, foot)
+        brief = self._build_composer()
+        self._build_dialog(brief)
         self.page._writing_page_controller = self
         # 输入区是共享 Text 时同一控件跨页常驻：绑定按「控件身份」只挂一次，
         # 由 Desktop._composer_dispatch 转派给当前控制器；页内回退 TextArea 每次
@@ -371,13 +328,12 @@ class _WritingPage(WritingSnapshotsMixin):
         if bound_box is not self.input_box:
             self.page._composer_bound_box = self.input_box
             self.input_box.bind('<Button-3>',self.page.open_idea_paste_menu,add='+')
-            self.input_box.bind('<Button-1>',lambda event:self.page._composer_dispatch('expand_composer_for_click',event),add='+')
-            self.input_box.bind('<FocusIn>',lambda event:self.page._composer_dispatch('update_input_hint',event),add='+')
-            self.input_box.bind('<FocusOut>',lambda event:self.page._composer_dispatch('update_input_hint',event),add='+')
             self.input_box.bind('<KeyRelease>',self.page.show_idea_reference_menu,add='+')
             self.input_box.bind('<Return>',lambda event:self.page._composer_dispatch('send_on_enter',event),add='+')
             self.input_box.bind('<KP_Enter>',lambda event:self.page._composer_dispatch('send_on_enter',event),add='+')
             self.input_box.bind('<<Modified>>',lambda event:self.page._composer_dispatch('on_modified',event))
+            # 运行中按 Esc 等同点终止（共享框的 Esc 先关补全，不拦这条）。
+            self.input_box.bind('<Escape>',lambda event:self.page._composer_dispatch('interrupt_from_input',event),add='+')
         self.box.bind('<Configure>',self.page.refit_bubbles,add='+')
         self.page.restore_idea_draft()
         self.update_input_hint()
@@ -385,17 +341,17 @@ class _WritingPage(WritingSnapshotsMixin):
         self.page.show_example_bubble()
         self.page.defer_idea_page_updates()
         self.page.refresh_idea_send_state()
-        # 采风按钮初始隐藏；按素材来源补显隐要读阶段配置，不占用“打开项目”的首帧。
         # 页面仍在当前代次时再补状态。
         self.page_generation=getattr(self.page,'_script_page_generation',0)+1
         self.page._script_page_generation=self.page_generation
-        self.script_box=ttk.Frame(self.page.content,padding=(SPACING['xs'],SPACING['xs']));self.script_box.pack(fill='x',expand=False,pady=SPACING['none'])
+        # R2923：文件框改到左侧竖向（工作目录列表右侧、聊天区左侧），四类文件
+        # 合成一条竖向列表，每类一个带小标题的分组。
+        self.script_box=ttk.Frame(self.page.content,padding=(SPACING['xs'],SPACING['xs']))
+        self.script_box.pack(side='left',fill='y',expand=False,pady=SPACING['none'])
         self.page.script_box=self.script_box
-        try:self.recon_state_job=self.page.win.after(250,self.refresh_recon_state)
-        except tk.TclError:self.recon_state_job=None
         self.script_box.bind('<Destroy>',self.cancel_recon_state,add='+')
-        # 四类文件并排成四列小表（用户 R1862 要求复原）：合成一张整宽表时只有一列文件名，
-        # 横向大片留白、纵向却越排越高。每列表头即分类名，组内按修改时间；Ctrl／Shift 可多选。
+        # R2923：四类文件合成左侧一条竖向列表（每类一个带小标题的分组，组内按修改时间；
+        # Ctrl／Shift 可多选）。原横向四列小表（R1862 口径）作废。
         categories=(('setting','项目设定'),('outline','项目大纲'),('character','角色卡'),('script','项目剧本'))
         self.script_box.columnconfigure(0,weight=1);self.script_box.rowconfigure(0,weight=1)
         lists=ttk.Frame(self.script_box);lists.grid(row=0,column=0,sticky='nsew')
@@ -404,8 +360,7 @@ class _WritingPage(WritingSnapshotsMixin):
         self.script_row_category={}
         tips=lambda item:self.script_row_details.get(item,'')
         self.page.script_file_tips={}
-        for column,(category,title) in enumerate(categories):
-            lists.columnconfigure(column,weight=1,uniform='script-files')
+        for category,title in categories:
             table=DataTable(lists,columns=[('name',title,180)],show='headings',height=1,
                             selectmode='extended',style='Script.Treeview',auto_hide_scrollbars=True,
                             empty_text='',horizontal=False)
@@ -413,8 +368,7 @@ class _WritingPage(WritingSnapshotsMixin):
             tree.heading('name',text=title,anchor='center')
             tree.column('name',width=SPACING['sm'] * 23,minwidth=100,stretch=True)
             self.page.script_file_tips[category]=TreeRowCard(tree,tips)
-            last=column==len(categories)-1
-            table.grid(row=0,column=column,sticky='nsew',padx=SPACING['none'] if last else (SPACING['none'],SPACING['xs']))
+            table.pack(fill='both',expand=True,pady=(SPACING['none'],SPACING['xs']))
             self.script_trees[category]=tree
         self.page.script_trees=self.script_trees
         # 测距与样式只需任取一张；旧的外部访问 script_tree 指向「项目剧本」这一列。
@@ -455,23 +409,17 @@ class _WritingPage(WritingSnapshotsMixin):
         self.fill_script_list()
 
     def _build_composer(self):
-        """上半区：阶段标题、文件表、想法输入框与附件区。"""
+        """上半区：聊天区与底部用量/会话状态行；输入、发送、附件、语音、模型与技能
+        全部收进底部共享输入框（R2923：13 页同一个输入框）。"""
         import idea_chat
         # 先使用不扫描目录的默认路径；历史创意文件由页面建好后在后台发现。
         brief=idea_chat.default_brief_document(self.page.idea_chat_context())
         self.page.idea_template=self.page.idea_example()
-        # 聊天记录与发送框分离：记录可滚动，发送框固定停在聊天区域底部。
+        # 聊天记录与发送框分离：记录可滚动，共享输入框固定停在窗口底部。
         self.talk=ttk.Frame(self.page.content,style='Box.TFrame',padding=(SPACING['xs'],SPACING['none']))
         # 标题、聊天框与左侧内容起点同高；不在标题下额外留出一档空白。
         self.talk.pack(fill='both',expand=True,pady=SPACING['none'])
-        # 第 69 期任务 2：「发送」挪到创意框左下角；第 69 期任务 3：文件操作挪到右下角。
-        # 第 71 期任务 5：这一行先摆下来（pack 先给谁算尺寸，谁就不会被挤掉）——窗口缩小时
-        # 收的是上面的创意框，那颗「发送」永远留在看得见的地方。
-        # 动作栏与其余制作阶段共用可换行布局。普通 pack 的左右两组按钮会在窗口
-        # 变窄时互相挤压，最后把按钮文字裁成一个字；FlowBar 会按可用宽度分行，
-        # 每颗按钮始终保留自己的完整文字宽度。
-        # 用量与会话说明合成页面最底部的单行状态栏：不换行、放不下就截断，悬停看全文，
-        # 不再夹在提示与输入框之间把聊天区往上挤。
+        # 用量与会话说明合成页面最底部的单行状态栏：不换行、放不下就截断，悬停看全文。
         status_row=ttk.Frame(self.talk);status_row.pack(side='bottom',fill='x',pady=SPACING['none'])
         status_row.columnconfigure(0,weight=1,uniform='status-summary')
         status_row.columnconfigure(2,weight=2,uniform='status-summary')
@@ -482,28 +430,25 @@ class _WritingPage(WritingSnapshotsMixin):
         self.page.idea_session_label = EllipsisLabel(status_row, text='', style='Muted.TLabel')
         self.page.idea_session_label.grid(row=0,column=2,sticky='ew')
         self.page.idea_session_tip = self.page.idea_session_label.tooltip
-        foot=FlowBar(self.talk);foot.pack(side='bottom',fill='x',pady=SPACING['none'])
-        # 输入框与操作栏保留极小缓冲带，视觉仍紧凑，同时避免鼠标落点贴边误触发送。
-        composer=ttk.Frame(self.talk);composer.pack(side='bottom',fill='x',pady=(SPACING['none'],SPACING['xs']))
-        # 仿 Claude Code 桌面版：附件卡片、输入区、「+」上传与发送／终止都收在同一个圆角框里。
-        frame=Card(composer,padding=(SPACING['sm'],SPACING['xs']));frame.pack(fill='x')
-        self.page.idea_composer_frame=frame
-        # R2916：剧本准备页恢复自己的输入框——底部共享栏在本页隐藏（desktop_page_nav），
-        # 页面回到「输入框就在发送键上方」的原有布局，不再复用共享 Text。
-        self.input_box=TextArea(frame,bg=COLORS['background_card'],fg=COLORS['text_primary'],insertbackground=COLORS['primary'],height=COMPOSER_MIN_LINES,wrap='word',
-                          font=FONTS['body'],relief='flat',bd=0,highlightthickness=0,padx=SPACING['xs'],pady=SPACING['xs'],undo=True)
-        self.input_box.pack(side='top',fill='x')
-        input_row=ttk.Frame(frame,style='Composer.TFrame');input_row.pack(side='top',fill='x')
-        attach_button=SecondaryButton(input_row,text=ICON_ADD,width=CHAR_WIDTH['xs'],style='Tokens.Composer.Icon.TButton',
-                                 command=lambda:self.page.safe(self.page.choose_idea_attachments))
-        attach_button.pack(side='left')
-        Tooltip(attach_button,'上传附件')
-        self.page.idea_attachment_button=attach_button
-        _composer_input_tail(self.page, self, input_row, frame)
-        return brief, foot
+        # R2923：输入框=底部共享框里的同一个 Text；无共享实例时页内兜底一张。
+        shared_input=getattr(self.page,'shared_input',None)
+        shared_box=getattr(shared_input,'input',None)
+        if shared_box is not None:
+            self.input_box=shared_box
+            # 附件卡片行改挂共享输入盒内部（＋ 图标也在共享框里）。
+            self.page.idea_uploaded_panel=shared_input.attachment_panel
+        else:
+            self.input_box=TextArea(self.talk,bg=COLORS['background_card'],fg=COLORS['text_primary'],
+                              insertbackground=COLORS['primary'],height=COMPOSER_MIN_LINES,wrap='word',
+                              font=FONTS['body'],relief='flat',bd=0,highlightthickness=0,
+                              padx=SPACING['xs'],pady=SPACING['xs'],undo=True)
+            self.input_box.pack(side='bottom',fill='x',pady=(SPACING['none'],SPACING['xs']))
+        self.page.idea_attachment_status=tk.StringVar(value='')
+        return brief
 
-    def _build_dialog(self, brief, foot):
-        """对话区：聊天记录框及其快捷键与右键菜单。"""
+    def _build_dialog(self, brief):
+        """对话区：聊天记录框及其快捷键与右键菜单（R2923：发送/刷新/添加剧本/剧本目录/
+        质检报告/采风/阶段配置按钮已删除，动作统一进底部共享输入框）。"""
         self.dialog=ttk.Frame(self.talk);self.dialog.pack(side='top',fill='both',expand=True,pady=SPACING['none'])
         self.page.build_idea_model_bar(self.dialog)  # 聊天气泡框左上角的模型目录条（先隐藏）
         dialog_scroll=ttk.Scrollbar(self.dialog,orient='vertical')
@@ -526,45 +471,15 @@ class _WritingPage(WritingSnapshotsMixin):
         self.box.bind('<Button-3>',self.page.open_bubble_menu,add='+')
         self.box.bind('<KeyPress>',self.page.guard_bubble_key,add='+')
         self.box.bind('<<Paste>>',self.page.guard_bubble_key,add='+')
-        self.page.idea_row=foot
-        # 输入框下方的动作统一为紧凑尺寸，避免长旧文案把聊天区挤窄。
-        script_action_width=SCRIPT_ACTION_WIDTH
-        send_button=PrimaryButton(foot,text='发送',width=script_action_width,
-                               command=lambda:self.page.safe(self.page.send_message))
-        send_button.pack(side='left',pady=SPACING['none']);self.page.idea_send=send_button
-        # 剧本阶段的唯一配置入口贴着发送键：写完想法后就能直接调整模型／SKILL，
-        # 不再在对话框上方额外占一行。
-        # 阶段按钮属于首帧可交互核心。使用无配置读取的轻量入口，既保持“设置—
-        # 中断”原有相邻顺序，也不再把 stage_config.synchronize 塞进建页回调。
-        self.panel=ui_plugin_registry.module('skill_panel')
-        self.holder={}
-        self.page.stage_button=self.panel.stage_button_for(foot,self.open_stage_panel,desktop=self.page,stage='script')
-        self.holder['button']=self.page.stage_button
-        self.page.stage_button.pack(side='left',padx=(BUTTON_GAP_TIGHT,SPACING['none']),pady=SPACING['none'])
-        refresh_button=SecondaryButton(foot,text='刷新',width=script_action_width,command=lambda:self.page.safe(self.page.refresh_script_workspace))
-        refresh_button.pack(side='left',padx=(BUTTON_GAP_TIGHT,SPACING['none']));self.page.idea_refresh=refresh_button
-        # 动作栏按子控件创建顺序排列：添加剧本、剧本目录、质检报告、采风依次跟在「刷新」后面。
-        add_button=SecondaryButton(foot,text='添加剧本',width=script_action_width,
-                                   command=lambda:self.page.safe(self.page.add_script_files))
-        add_button.pack(side='right');self.page.idea_add_script=add_button
-        open_folder_button=SecondaryButton(foot,text='剧本目录',width=script_action_width,
-                                      command=lambda:self.page.safe(lambda:self.page.open_folder(project_stages.writing(self.page.root))))
-        open_folder_button.pack(side='right',padx=(SPACING['none'],SPACING['sm']));self.page.idea_open_folder=open_folder_button
-        self.page.build_script_quality_buttons(foot)
-        for action_button in foot.winfo_children():
-            # 不再单独压内边距：样式层的按下态内边距会覆盖控件级 padding，按下时按钮高度会回弹。
-            action_button.configure(width=script_action_width)
-        # 提示标签随共享输入复用：点击绑定按标签实例只挂一次，重建页面不叠加；
-        # 经 _composer_dispatch 转派给当前控制器，避免持有旧控制器。
-        if not getattr(self.input_hint,'_composer_click_bound',False):
-            self.input_hint._composer_click_bound=True
-            self.input_hint.bind('<Button-1>',
-                lambda event:self.page._composer_dispatch('focus_composer_from_hint',event),add='+')
-        # 「中断」并入框内发送键：运行中切换为终止图标，由它统一同步状态。
-        self.page.update_script_interrupt_button()
 
     def stop_input_hint(self):
-        self.input_hint.place_forget()
+        # R2923：输入框并入底部共享框，页面不再自建提示标签；兜底清空。
+        hint = getattr(self, 'input_hint', None)
+        if hint is not None:
+            try:
+                hint.place_forget()
+            except tk.TclError:
+                pass
 
     def _composer_page_active(self):
         """共享输入框跨页常驻后，composer 的页面级绑定只在剧本准备页生效（任务书轮 4）。"""
@@ -574,10 +489,13 @@ class _WritingPage(WritingSnapshotsMixin):
         if not self._composer_page_active():
             self.stop_input_hint()
             return
+        hint = getattr(self, 'input_hint', None)
+        if hint is None:
+            return
         try:
             if not self.page.draft_text().strip() and self.input_box.focus_get() is not self.input_box:
-                # Text 的 inside 边界已含文字内边距，避免再次累加 padx；纵向对齐首行（框有两行，不再居中）。
-                self.input_hint.place(in_=self.input_box,x=SPACING['none'],y=SPACING['none'],anchor='nw')
+                # Text 的 inside 边界已含文字内边距，避免再次累加 padx；纵向对齐首行。
+                hint.place(in_=self.input_box,x=SPACING['none'],y=SPACING['none'],anchor='nw')
             else:self.stop_input_hint()
         except tk.TclError:pass
 
@@ -595,8 +513,9 @@ class _WritingPage(WritingSnapshotsMixin):
             return
         if event is not None and not self.input_box.edit_modified():return
         self.input_box.edit_modified(False)
-        # 发送框的高度由实际换行数决定；长创意无需在一行小框里横向／纵向挤着看。
-        self.input_box.after_idle(self.fit_composer)
+        # R2923：共享输入框固定行数、内容在框内滚动，不再按内容撑高。
+        if getattr(self.page,'shared_input',None) is None or self.input_box is not self.page.shared_input.input:
+            self.input_box.after_idle(self.fit_composer)
         self.update_input_hint()
         self.page.refresh_idea_send_state()
 
@@ -653,10 +572,10 @@ class _WritingPage(WritingSnapshotsMixin):
             self.page.update_recon_button()
 
     def cancel_recon_state(self, event=None):
-        """页面已销毁时不再执行采风显隐的延后刷新。"""
+        """页面已销毁时不再执行采风显隐的延后刷新（R2923：按钮已删，仅兜底清理）。"""
         if event is not None and getattr(event,'widget',None) is not self.script_box:
             return None
-        if self.recon_state_job is not None:
+        if getattr(self, 'recon_state_job', None) is not None:
             try:self.page.win.after_cancel(self.recon_state_job)
             except tk.TclError:pass
         return None

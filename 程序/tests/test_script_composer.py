@@ -50,22 +50,25 @@ class ScriptComposerTests(unittest.TestCase):
             d, win = self.desktop(proj)
             d._apply_idea_send_state()
             win.update()
-            self.assertEqual(d.idea_submit.cget('text'), ICON_SEND)
-            self.assertFalse(d.idea_submit.instate(['disabled']))
+            button = d.shared_input.send_button
+            self.assertEqual(button.cget('text'), ICON_SEND)
+            self.assertFalse(button.instate(['disabled']))
+            d.idea_input.insert('1.0', '继续')
             with patch.object(d, 'send_message') as sent:
-                d.idea_submit.invoke()
+                button.invoke()
             sent.assert_called_once()
             d._idea_requesting = True
             d.update_script_interrupt_button()
-            self.assertEqual(d.idea_submit.cget('text'), ICON_STOP)
+            self.assertEqual(button.cget('text'), ICON_STOP)
             with patch.object(d, 'interrupt_script_agent') as stopped:
-                d.idea_submit.invoke()
+                button.invoke()
             stopped.assert_called_once()
             d._idea_requesting = False
-            d.idea_send.state(['disabled'])  # 附件入库校验期间底栏发送不可点
-            d.update_script_interrupt_button()
-            self.assertEqual(d.idea_submit.cget('text'), ICON_SEND)
-            self.assertTrue(d.idea_submit.instate(['disabled']))
+            # 必填缺失时共享发送键置灰（REQ-S01-86）。
+            with patch.object(d, '_idea_live_missing', return_value=('故事梗概',)):
+                d.update_script_interrupt_button()
+            self.assertEqual(button.cget('text'), ICON_SEND)
+            self.assertTrue(button.instate(['disabled']))
 
     def test_escape_in_input_stops_only_while_running(self):
         with tempfile.TemporaryDirectory() as td:
@@ -90,7 +93,7 @@ class ScriptComposerTests(unittest.TestCase):
             d, win = self.desktop(proj)
             d.idea_attachment_paths = (archived[1],)
             d.update_idea_attachment_status(); win.update_idletasks(); win.update()
-            chips = {chip.attachment_path: chip for chip in d.idea_uploaded_panel.winfo_children()
+            chips = {chip.attachment_path: chip for chip in d.shared_input.attachment_panel.winfo_children()
                      if hasattr(chip, 'attachment_path')}
             self.assertEqual(str(chips[archived[0]].cget('style')), 'Tokens.Chip.TFrame')
             self.assertEqual(str(chips[archived[1]].cget('style')), 'Tokens.Chip.Selected.TFrame')
@@ -100,11 +103,11 @@ class ScriptComposerTests(unittest.TestCase):
                 self.assertLessEqual(abs(close.winfo_rootx() + close.winfo_width()
                                          - chip.winfo_rootx() - chip.winfo_width()), 2)
                 self.assertLessEqual(abs(close.winfo_rooty() - chip.winfo_rooty()), 2)
-            frame = d.idea_composer_frame
-            for widget in (d.idea_uploaded_panel, d.idea_attachment_button, d.idea_submit):
-                self.assertGreaterEqual(widget.winfo_rooty(), frame.winfo_rooty())
+            shared = d.shared_input
+            for widget in (shared.attachment_panel, shared.attachment_button, shared.send_button):
+                self.assertGreaterEqual(widget.winfo_rooty(), shared.input.winfo_rooty())
                 self.assertLessEqual(widget.winfo_rooty() + widget.winfo_height(),
-                                     frame.winfo_rooty() + frame.winfo_height())
+                                     shared.winfo_rooty() + shared.winfo_height())
 
     def test_chip_content_keeps_off_the_border(self):
         """图标和文件名不贴卡片外沿，否则白底会盖断圆角边框（选中时主色框断成几截）。"""
@@ -118,7 +121,7 @@ class ScriptComposerTests(unittest.TestCase):
             d, win = self.desktop(proj)
             d.idea_attachment_paths = (archived[0],)
             d.update_idea_attachment_status(); win.update_idletasks(); win.update()
-            chip = next(chip for chip in d.idea_uploaded_panel.winfo_children()
+            chip = next(chip for chip in d.shared_input.attachment_panel.winfo_children()
                         if hasattr(chip, 'attachment_path'))
             for widget in chip.pack_slaves():
                 self.assertGreaterEqual(widget.winfo_x(), SPACING['sm'])
@@ -199,12 +202,14 @@ class ScriptComposerTests(unittest.TestCase):
                 patch.object(speech_api, 'missing_reason', return_value=''), \
                 patch.object(speech_api, 'RealtimeSession', FakeSession):
             d, win = self.desktop(make_minimal_project(td))
-            button, box, voice = d.idea_voice_button, d.idea_input, d.idea_voice_input
-            frame = d.idea_composer_frame
-            self.assertGreater(button.winfo_rootx(), d.idea_attachment_button.winfo_rootx())
-            self.assertLessEqual(button.winfo_rooty() + button.winfo_height(), frame.winfo_rooty() + frame.winfo_height())
+            button, box = d.shared_input.voice_button, d.idea_input
+            shared = d.shared_input
+            self.assertGreater(button.winfo_rootx(), shared.attachment_button.winfo_rootx())
+            self.assertLessEqual(button.winfo_rooty() + button.winfo_height(),
+                                 shared.winfo_rooty() + shared.winfo_height())
             box.delete('1.0', 'end'); box.insert('1.0', '开头：')
             button.invoke(); win.update()
+            voice = d.shared_voice
             recorder, session = FakeRecorder.instances[-1], FakeSession.instances[-1]
             self.assertTrue(session.started)
             self.assertEqual(recorder.on_chunk, session.send, '录音块直接推给实时会话')
@@ -269,9 +274,10 @@ class ScriptComposerTests(unittest.TestCase):
                 patch.object(speech_api, 'missing_reason', return_value='没有配置语音识别密钥 DASHSCOPE_API_KEY'), \
                 patch.object(platform_tools, 'MicrophoneRecorder', side_effect=AssertionError('不应开麦')):
             d, win = self.desktop(make_minimal_project(td))
-            d.idea_voice_button.invoke(); win.update()
+            button = d.shared_input.voice_button
+            button.invoke(); win.update()
             self.assertIn('DASHSCOPE_API_KEY', d.status.get())
-            self.assertEqual(str(d.idea_voice_button.cget('style')), 'Tokens.Composer.Icon.TButton')
+            self.assertEqual(str(button.cget('style')), 'Tokens.Composer.Icon.TButton')
 
 
 if __name__ == '__main__':

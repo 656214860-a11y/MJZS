@@ -273,8 +273,26 @@ def _model_picker(desktop):
         _notify_error(desktop, '模型选择打开失败：%s' % exc)
 
 
+def _voice(desktop, box, button):
+    """共享输入框的麦克风听写：VoiceInput 绑定共享 Text，按钮按原样式接线。"""
+    try:
+        from desktop_writing_page import VoiceInput
+    except Exception:
+        return None
+    voice = getattr(desktop, 'shared_voice', None)
+    if voice is None or getattr(voice, 'box', None) is not box:
+        voice = VoiceInput(desktop, box, button)
+        desktop.shared_voice = voice
+    else:
+        voice.button = button
+    safe = getattr(desktop, 'safe', None)
+    button.configure(command=(lambda: safe(voice.toggle)) if callable(safe)
+                    else voice.toggle)
+    return voice
+
+
 def host_options(desktop):
-    """``SharedStageInput`` 的宿主回调集：发送分流、附件、模型弹窗。"""
+    """``SharedStageInput`` 的宿主回调集：发送分流、附件、模型弹窗、语音。"""
 
     def on_send(text, parsed):
         shared = getattr(desktop, 'shared_input', None)
@@ -290,7 +308,10 @@ def host_options(desktop):
 
     return {'on_send': on_send,
             'on_attachment': lambda: _attachments(desktop),
-            'on_model': lambda: _model_picker(desktop)}
+            'on_model': lambda: _model_picker(desktop),
+            'on_voice': lambda button: _voice(desktop,
+                                              getattr(desktop, 'shared_input').input,
+                                              button)}
 
 
 def make_shared_input(desktop):

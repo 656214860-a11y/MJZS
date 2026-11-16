@@ -292,13 +292,12 @@ class PageNavMixin:
             self.canvas.yview_moveto(0)
         return scroll_offset, page_cache
     def _sync_shared_input(self):
-        """共享输入框跟页走（任务书轮 4）：阶段页 ``set_stage`` 换上下文不重建实例，
-        非阶段页（参考网站／会员账户／首页）隐藏；锁定／免费路由由 ``show`` 再隐藏一次。
-        R2916：剧本准备页保留页面自己的输入框，共享栏在本页隐藏不叠加。"""
+        """共享输入框跟页走（R2923：13 个阶段页共用同一实例，剧本准备页也显示）；
+        非阶段页（参考网站／会员账户／首页）隐藏；锁定／免费路由由 ``show`` 再隐藏一次。"""
         shared=getattr(self,'shared_input',None)
         if shared is None:return
         stage=desktop_shared_send.stage_for_index(getattr(self,'page_index',None))
-        if not stage or stage=='script':
+        if not stage:
             shared.pack_forget()
             return
         shared.set_stage(stage)

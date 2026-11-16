@@ -80,7 +80,7 @@ class IdeaAttachmentsMixin:
             for sequence,flag in (('<Enter>','active'),('<Leave>','!active')):close.bind(sequence,lambda event,flag=flag:event.widget.state([flag]),add='+')
             Tooltip(close,'删除附件')
         if not paths:return panel.pack_forget()
-        if not panel.winfo_manager():panel.pack(side='left',fill='x',expand=True,padx=(SPACING['xs'],SPACING['xs']))
+        if not panel.winfo_manager():panel.pack(side='top',fill='x',expand=False,padx=(SPACING['xs'],SPACING['xs']))
         panel.schedule()
     def choose_idea_attachments(self):
         """选择创意附档；分模式准入、归档和解析均在后台进行。"""
