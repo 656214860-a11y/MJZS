@@ -1,5 +1,5 @@
 # R2958 结果：语音离线化·轮5——其余输入框接入＋文档/契约/门禁收尾
-<!-- round-evidence: {"commit_base": "14356e62", "credential_hits": 0, "evidence_sha256": "34756acdee23a851", "exit": 0, "failed": 0, "passed": 233, "round": 2958, "tests": "run_selftests.py -k dialog_voice_input req_s09_anchors shared_input_voice white_model previs dynamic_import_registry no_circular_import"} -->
+<!-- round-evidence: {"commit_base": "74242f1b", "credential_hits": 0, "evidence_sha256": "e1f0dfea0014f02a", "exit": 0, "failed": 0, "passed": 0, "round": 2958, "tests": "docs-only"} -->
 
 ## 三问
 
@@ -36,3 +36,11 @@
 - `project_status.md` 轮次头仍为 2939：状态页只能由 master 提交，合并轮次时同步为最新结果轮次加一（当前应为 2959）。
 - 其余短文本输入框（资产改名、云端回复框、查找栏）登记待定；如后续任务书点名再接入，组件已可直接复用。
 - 任务书文件本身不入库（gitignored/未跟踪约定）。
+
+## 合并预备（交接，R2958 提交后补记）
+
+- **分支状态**：`codex/wip-R2958` HEAD `74242f1b`，五轮提交 `68b6004c/54fb2fdd/9801cdd3/14356e62/74242f1b` 齐备，工作树干净（仅任务书未跟踪）。
+- **合入阻塞**：主工作区 `D:\漫剧制作助手` 有另一车道在途合并——`project_status.md` 未提交改动声明「当前轮次 2960（R2959 合并轮：R2933+R2946+R2950 导航图标轨）」，`_master_verify.txt` 为其验证输出；`merge_round.py` 的 foreign-changes/MERGE_HEAD 检查会拒绝在脏树上合并。须等该车道提交后再合。
+- **冲突预览**（`git merge-tree master codex/wip-R2958`，基线 merge-base `0581308b`，对 master@R2954）：9 个冲突文件——`desktop_shared_input.py`（master +505/−73 重构共享输入框嵌模型选择器、删 13 页阶段配置按钮；本支 +42/−4 加麦克风与听写实例，**语义冲突需把 voice 挂进新结构**）、`desktop_writing_page.py`（双方均重构，master +115/−185、本支 +48/−156）、`desktop_script_pages.py`、`desktop_idea_attachments.py`（master 仅 1 行）、`runbook.md`、`tests/test_idea_chat.py`、`tests/test_script_composer.py`、`tests/test_ui_edges_pages.py`、`维护记录/覆盖率基线.json`（双方重生成，取并集口径）；`PROJECT_MAP.md`/`architecture.md`/`desktop_page_nav.py` 自动合并无冲突。R2959 落地后冲突面可能再变，合并时以当时 master 为准重跑 merge-tree。
+- **合并后验证**：冲突解决后跑 `smoke_test.py`＋`--affected desktop_shared_input desktop_writing_page desktop_script_pages desktop_idea_attachments`＋`--architecture`；共享输入框/写作页/附件是高险区，重点核对麦克风按钮位置、voice_input 生命周期绑定、composer 工具行契约；`test_round_number_continuous` 在合并提交后应转绿（状态页同步为最新结果+1）。
+- **合并命令**：主工作区干净后 `dev.py merge codex/wip-R2958 -s "<说明>"`（含 local_ci 出口与领号）；合并提交后单独提交 `project_status.md` 补记（`R<n>: 补记分支 codex/wip-R2958 的轮次记录`），并把冲突解决命令原始输出贴进本文件（runbook §13 要求：第一条 diff 输出须为空、轮次号为并集）。
