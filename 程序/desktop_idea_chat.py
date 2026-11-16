@@ -21,7 +21,7 @@ import ui_plugin_registry
 from desktop_idea_attachments import IdeaAttachmentsMixin
 from desktop_idea_deferred import IdeaDeferredMixin
 from desktop_idea_send_gate import IdeaSendGateMixin
-from idea_chat_controller import (bubble_timestamp, collapse_preview, has_interruptible, interrupt_notice,
+from orchestrator.idea_chat_controller import (bubble_timestamp, collapse_preview, has_interruptible, interrupt_notice,
                                   queue_notice, slot_decision)
 from contract.platform_tools import open_target
 from ui_tokens import CHAR_WIDTH, COLORS, FONTS, SPACING, STAGE_PANEL_LAYOUT
@@ -777,7 +777,7 @@ class _FlowAgentLaunch:
     def prepare(self):
         from workflow_context import continuation_instruction,snapshot
         from stage_execution_service import project_context
-        from workflow_context_controller import request_stage_instruction
+        from orchestrator.workflow_context_controller import request_stage_instruction
         from contract.workflow_context_budget import prepare_request_context
         if self.config['engine']=='codex':
             from codex_skill_sync import sync_codex_skills

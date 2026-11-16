@@ -27,7 +27,7 @@ class IdeaAttachmentPublicationBoundaryTests(unittest.TestCase):
         self.assertIn('def archive_idea_attachments(', source)
         self.assertIn('def stage_idea_attachment_reference(', source)
         self.assertIn('publish_stage_text(', source)
-        with open(os.path.join(ROOT, 'idea_chat_controller.py'), encoding='utf-8') as handle:
+        with open(os.path.join(ROOT, 'orchestrator', 'idea_chat_controller.py'), encoding='utf-8') as handle:
             controller = handle.read()
         self.assertIn('archive_idea_attachments(root, selected)', controller)
         self.assertNotIn('idea_attachments.store(root, selected)', controller)

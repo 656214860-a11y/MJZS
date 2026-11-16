@@ -5,7 +5,7 @@
 import logging
 import app_logging
 import asset_thumbs
-import page_navigation_controller as page_nav
+import orchestrator.page_navigation_controller as page_nav
 import tkinter as tk
 
 LOGGER = logging.getLogger(__name__)

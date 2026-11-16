@@ -362,7 +362,7 @@ class AssetPagesMixin:
             return {}
     def asset_page_controller(self,registry=None,kind=None):
         """资产页的无 Tk 筛选与勾选编排；控件状态仍由本页面持有。"""
-        from asset_page_controller import AssetPageController
+        from orchestrator.asset_page_controller import AssetPageController
         if not hasattr(self,'asset_checks'):self.asset_checks={}
         root=getattr(self,'root',None)
         checks=self.asset_checks.setdefault(str(Path(root).resolve()),{}) if root is not None else {}

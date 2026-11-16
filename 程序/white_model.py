@@ -51,14 +51,14 @@ def read_record(root):
     return _service.read_record(root)
 
 def write_record(root,data):
-    from white_model_persistence_controller import write_record as publish_record
+    from orchestrator.white_model_persistence_controller import write_record as publish_record
     return publish_record(root, data, writer=_service.write_record)
 
 def import_media(root,sid,parent):
     name=FileDialog(parent).open_file(title='为 '+sid+' 导入白模',
         filetypes=[('白模视频或工程','*.mp4 *.webm *.mov *.blend *.json *.cclayproject'),('所有文件','*.*')])
     if not name:return None
-    from white_model_persistence_controller import import_media
+    from orchestrator.white_model_persistence_controller import import_media
     return import_media(root, sid, name, importer=_service.import_previs_media)
 
 def project_for_app(app):
@@ -144,7 +144,7 @@ def open_previs(desktop,sid=None):
     ttk.Label(body, textvariable=path_text, wraplength=WRAPLENGTH['lg']).pack(anchor='w', pady=SPACING['sm'])
     ttk.Label(body,textvariable=project_text,wraplength=WRAPLENGTH['lg']).pack(anchor='w',pady=SPACING['none'])
     def save():
-        from white_model_persistence_controller import save_notes
+        from orchestrator.white_model_persistence_controller import save_notes
         save_notes(root, sid, notes.get('1.0', 'end-1c'), saver=_service.save_previs_notes)
         desktop.status.set(sid + ' 白模预演已保存')
     def import_preview():

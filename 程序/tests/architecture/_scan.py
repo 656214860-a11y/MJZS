@@ -194,6 +194,19 @@ def production_runtime_files() -> tuple[Path, ...]:
     return tuple(path for path in production_files_recursive()
                  if not NON_PRODUCT_PARTS.intersection(path.relative_to(ROOT).parts))
 
+def entity_file(module: str) -> Path:
+    """扁平登记名对应的实体源文件：T10 包实体优先，顶层文件（门面或未迁移）兜底。
+
+    读「模块源码行为」的门禁必须经本函数取径，否则搬家后读到的是同名薄门面，
+    门禁对象被静默换成 9 行转发壳。
+    """
+    for package in PACKAGE_NAMES:
+        candidate = ROOT / package / (module + ".py")
+        if candidate.is_file():
+            return candidate
+    return ROOT / (module + ".py")
+
+
 def module_name(path: Path) -> str:
     return path.stem
 

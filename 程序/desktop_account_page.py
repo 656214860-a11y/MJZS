@@ -15,7 +15,7 @@ from tkinter import ttk
 
 import account_client
 import entitlement_service
-from account_controller import RENEW_VIEW_INTERVAL, AccountController
+from orchestrator.account_controller import RENEW_VIEW_INTERVAL, AccountController
 import contract.pet_bus as pet_bus
 from desktop_page_registry import PAGE_ACCOUNT, PAGES, nav_label
 from ui_tokens import DIALOG_CONTENT_PADDING, DIALOG_MIN_HEIGHT, FONTS, SPACING, TEXT_DESC

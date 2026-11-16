@@ -1189,7 +1189,7 @@ def reply(project, creative, cancelled=None, *, publish=None, archive=None, user
         brief = dict(brief, 已确认阶段文件=confirmed)
         publish = _versioned_publisher(root, publish)
     auto_save_enabled = brief is not None
-    from workflow_context_controller import publish_writing_context
+    from orchestrator.workflow_context_controller import publish_writing_context
     from project_context_factory import project_context
     _ensure_reply_active(cancelled)
     context = publish_writing_context(root, 'writing', workflow_context.snapshot(project_context(root)))

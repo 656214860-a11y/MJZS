@@ -349,7 +349,7 @@ class AutoFlowsMixin:
         project=self.root;episode=self.asset_base()
         self.status.set('无人值守自动定稿：正在同步资产并生成定稿…')
         def worker():
-            from storyboard_final_controller import finalize_stage_storyboard
+            from orchestrator.storyboard_final_controller import finalize_stage_storyboard
             try:self.auto.final_queue.put((True,(finalize_stage_storyboard(project,episode,source),project),signature))
             except Exception as exc:self.auto.final_queue.put((False,'自动定稿未完成：'+str(exc),signature))
         threading.Thread(target=worker,daemon=True).start()

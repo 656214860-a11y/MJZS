@@ -1018,7 +1018,7 @@
         "reason": "删除／回收权威自身的状态清单读写，转 file_cache 会自引用"
       },
       {
-        "file": "storyboard_final_controller.py",
+        "file": "orchestrator/storyboard_final_controller.py",
         "point": "FinalStoryboardController.save_edited:json.loads:e447f3b9a080d917:1",
         "disposition": "exempt",
         "reason": "R830：编辑器输入框内存文本的 JSON 解析，不读取文件。"

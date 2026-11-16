@@ -771,7 +771,7 @@ def stage_context(desktop, stage, function=None, extra=None):
 def import_writing_project(root, json_file):
     """L3 编排剧本 JSON 导入与其校验报告发布。"""
     from writing import import_project
-    from workflow_context_controller import workflow_context_gateway
+    from orchestrator.workflow_context_controller import workflow_context_gateway
     result = import_project(root, json_file, gateway=project_registry_gateway(),
                             publish_report=workflow_context_gateway()['publish_json'])
     if not result.ok:

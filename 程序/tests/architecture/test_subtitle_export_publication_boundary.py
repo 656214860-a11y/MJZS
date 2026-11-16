@@ -14,15 +14,15 @@ class SubtitleExportPublicationBoundaryTests(unittest.TestCase):
         self.assertIn("TypeError('字幕文本发布需要 L3 注入发布器')", source)
 
     def test_l3_controller_owns_writer_injection(self):
-        source = (ROOT / 'subtitle_export_controller.py').read_text(encoding='utf-8')
+        source = (ROOT / 'orchestrator/subtitle_export_controller.py').read_text(encoding='utf-8')
         self.assertIn('def subtitle_export_gateway():', source)
         self.assertIn('line_endings.write_text', source)
         self.assertIn('def publish_stage_srt_text(target, text):', source)
 
     def test_skill_tool_calls_l3_controller_only(self):
         source = (ROOT / 'skill_tools.py').read_text(encoding='utf-8')
-        self.assertIn('from subtitle_export_controller import publish_stage_srt_text', source)
-        self.assertNotIn('from subtitle_export_service import publish_srt_text', source)
+        self.assertIn('subtitle_export_controller import publish_stage_srt_text', source)
+        self.assertNotIn('subtitle_export_service import publish_srt_text', source)
 
 
 if __name__ == '__main__':

@@ -1,13 +1,10 @@
-"""字幕文本发布的 L3 编排入口。"""
+"""历史入口：实体已迁至 ``orchestrator.subtitle_export_controller``（T10 包化）。
 
+``import subtitle_export_controller`` 返回 ``orchestrator.subtitle_export_controller`` 本体：私有名、模块级状态与
+按扁平名打的 ``mock.patch`` 补丁面和包内路径完全一致；生产侧一律用包路径。
+门面清除轮统一改写测试导入后删除本文件。
+"""
+import sys as _sys
+from orchestrator import subtitle_export_controller as _entity
 
-def subtitle_export_gateway():
-    """装配统一的行尾校验文本发布器。"""
-    import infra.line_endings as line_endings
-    return {'publish_text': line_endings.write_text}
-
-
-def publish_stage_srt_text(target, text):
-    """SKILL 生成字幕的唯一 L3 文本发布入口。"""
-    from domain.subtitle_export_service import publish_srt_text
-    return publish_srt_text(target, text, publish=subtitle_export_gateway()['publish_text'])
+_sys.modules[__name__] = _entity

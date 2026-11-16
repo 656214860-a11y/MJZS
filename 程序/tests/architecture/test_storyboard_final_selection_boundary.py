@@ -11,7 +11,9 @@ class StoryboardFinalSelectionBoundaryTests(unittest.TestCase):
     def test_final_viewer_delegates_selection_persistence(self):
         tree = ast.parse((ROOT / 'storyboard_files.py').read_text(encoding='utf-8'))
         imported = {name.name for node in tree.body if isinstance(node, ast.ImportFrom)
-                    and node.module == 'storyboard_final_controller' for name in node.names}
+                    and node.module in {'storyboard_final_controller',
+                                        'orchestrator.storyboard_final_controller'}
+                    for name in node.names}
         self.assertIn('FinalStoryboardController', imported)
         show_final = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == '_FinalStoryboardPage')  # R1813：show_final 的闭包改写成了类，嵌套函数成了它的方法；断言不变
         choose = next(node for node in ast.walk(show_final) if isinstance(node, ast.FunctionDef) and node.name == 'choose')

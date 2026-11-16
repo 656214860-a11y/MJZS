@@ -4,7 +4,7 @@
 """
 import app_logging
 import desktop_shared_send
-import page_navigation_controller as page_nav
+import orchestrator.page_navigation_controller as page_nav
 import contract.pet_bus as pet_bus
 import tkinter as tk
 from agent.core import read, save

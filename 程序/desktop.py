@@ -1,6 +1,6 @@
 """Shared, lazy project workspace. Standard-library-only desktop UI."""
 import app_logging
-import page_navigation_controller as page_nav
+import orchestrator.page_navigation_controller as page_nav
 from desktop_idea_menus import IdeaMenusMixin
 from desktop_asset_pages import AssetPagesMixin, AssetPageServices
 from desktop_script_pages import ScriptPagesMixin, ScriptPageServices
@@ -45,7 +45,7 @@ from desktop_login_gate import LoginGateMixin
 from desktop_page_nav import PageNavMixin
 from desktop_lifecycle import LifecycleMixin
 from desktop_automation_service import BackgroundTaskLifecycle, DesktopAutomationScheduler, BackgroundTaskQueue, PersistentBackgroundTaskQueue, inspect_project_storage, RetryRegistry
-from idea_chat_controller import IdeaChatController, speaker_name
+from orchestrator.idea_chat_controller import IdeaChatController, speaker_name
 from ui_tokens import BUTTON_GAP, BUTTON_WIDTH_DIALOG, CHAR_WIDTH, WRAPLENGTH, COLORS, FONTS, SPACING, DESKTOP_LAYOUT, SCRIPT_ACTION_WIDTH, SCRIPT_ACTION_PADDING, SCRIPT_FILE_FONT, ICON_FOLDER, ICON_DELETE
 from ui_dialogs import FileDialog
 from ui_motion import Spinner
@@ -885,7 +885,7 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
     def make_final_storyboard(self,source=None):
         if source is None:source=self.current_frame_json()
         if not source or not Path(source).is_file():raise ValueError('请先到'+pet_bus.stage_step('assets')+'选择'+pet_bus.stage_step('storyboard')+'生成的JSON并同步资产清单')
-        from storyboard_final_controller import finalize_stage_storyboard
+        from orchestrator.storyboard_final_controller import finalize_stage_storyboard
         if self.worker or any(getattr(v,'busy',False) for v in self.video_sessions.values()):raise ValueError('请等待当前制作任务结束后再生成定稿')
         project=self.root;episode=self.asset_base()
         def done(folder):
