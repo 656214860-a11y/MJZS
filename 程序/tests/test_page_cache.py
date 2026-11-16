@@ -104,7 +104,7 @@ class PageCacheTests(unittest.TestCase):
             d.go = lambda index, **kw: (seen.append(str(d.nav[index].cget('style'))), real(index, **kw))
             d.go_page(PAGE['assets'])
             win.update_idletasks()
-            self.assertEqual(seen, ['Selected.Nav.TButton'])
+            self.assertEqual(seen, ['Selected.RailIcon.TButton'])  # R2933：纯图标轨
 
     def test_rapid_navigation_builds_only_last_request(self):
         if self.tk is None:self.skipTest(PLATFORM_TKINTER)
@@ -113,7 +113,7 @@ class PageCacheTests(unittest.TestCase):
             with mock.patch.object(d, 'go') as build:
                 for page in (1, 2, 4, 3, 1):d.go_page(page)
                 build.assert_not_called()
-                self.assertEqual(str(d.nav[1].cget('style')), 'Selected.Nav.TButton')
+                self.assertEqual(str(d.nav[1].cget('style')), 'Selected.RailIcon.TButton')
                 win.update_idletasks()
                 build.assert_called_once_with(1, video_mode=None)
 

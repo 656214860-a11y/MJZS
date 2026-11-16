@@ -16,7 +16,7 @@ from collections import defaultdict
 from tests.architecture._scan import parse, module_scan_files
 
 SHARED_STATE_CAPS = {
-    'Desktop': 45,  # R2029：方法拆到 PageNavMixin/LifecycleMixin 后跨类写入计数被动 +7；R2032：gate_due／gate_error 迁入 AutoState 后 -1；气泡框台账写入收进 _clear_bubble_view 单一入口 -3
+    'Desktop': 44,  # R2933：app_title／header_slogan 等侧栏浮层属性删除后实测 44；R2029：方法拆到 PageNavMixin/LifecycleMixin 后跨类写入计数被动 +7；R2032：gate_due／gate_error 迁入 AutoState 后 -1；气泡框台账写入收进 _clear_bubble_view 单一入口 -3
     'Pet': 54,    # R2281 J-Pet：_offer_* 五件收进 Pet.offer（PetOfferState）-5
     'Cloud': 11,    # J-Cloud：_hint_* 四件收进 Cloud.hint_state（CloudHintState）-4
     'Panel': 4,  # R2862：总控/预设/模型选择行删除后跨类写入实测 4

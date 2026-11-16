@@ -8,12 +8,14 @@ import orchestrator.page_navigation_controller as page_nav
 import contract.pet_bus as pet_bus
 import tkinter as tk
 from agent.core import read, save
-from desktop_page_registry import ASSET_ROSTER_ICON, CACHED_PAGES, PAGE, PAGE_ACCOUNT, PAGE_SITES, page_title
+from desktop_page_registry import (ASSET_ROSTER_ICON, CACHED_PAGES, PAGE, PAGE_ACCOUNT, PAGE_NAV_ICONS,
+                                   PAGE_SITES, page_title)
 from desktop_page_support import _prefs
 from pathlib import Path
 from tkinter import ttk
 from ui_icons import IconLoader
-from ui_tokens import DESKTOP_LAYOUT, FONTS, SPACING
+from ui_popup import Flyout, monitor_bounds
+from ui_tokens import COLORS, DESKTOP_LAYOUT, FONTS, SPACING
 from ui_widgets import SecondaryButton, SelectBox, Tooltip
 
 
@@ -62,7 +64,7 @@ class PageNavMixin:
         # 即刻反馈最后一次点击，包括连续点击后又回到当前页的情况。
         try:
             self.mark_nav(index)
-            self.title.configure(text=page_title(index))
+            self.title.set_text(page_title(index))
         except (tk.TclError,IndexError,AttributeError):pass
         pending=getattr(self,'_navigation_job',None)
         if pending is not None:self.win.after_cancel(pending)
@@ -152,7 +154,7 @@ class PageNavMixin:
             self.fit_content()
             return
         if plan.route=='home':
-            self.title.configure(text='我的项目');self.status.set('选择项目开始创作');self.project_home()
+            self.title.set_text('我的项目');self.status.set('选择项目开始创作');self.project_home()
             # 首屏此前在这里提前返回，项目树虽已创建却没有重新量画布；窗口刚映射时
             # content window 常仍是 1px 高，于是用户只看到白屏和底部状态栏。
             self.fit_content()
@@ -238,6 +240,9 @@ class PageNavMixin:
         if pending is not None:
             self.win.after_cancel(pending)
             self._navigation_job=None
+        # 换页先收掉侧栏选择浮层（项目选择层／资产清单层），避免旧列表浮在新页面上。
+        close_popup=getattr(self,'_close_sidebar_popup',None)
+        if callable(close_popup):close_popup()
         from video_navigation import hide_back
         hide_back(self)
         # 同一页重建（切换分镜、刷新列表、自动流程刷新）保留原来的滚动位置：
@@ -279,9 +284,18 @@ class PageNavMixin:
             if c in retained:c.pack_forget()
             else:c.destroy()
         self.mark_nav(index)
-        # 第 71 期任务 2：二级入口只在它自己那一屏高亮
-        if self.asset_list_button is not None:self.asset_list_button.configure(style='Selected.Sub.Nav.TButton' if (index==PAGE['assets'] and self.asset_roster) else 'Sub.Nav.TButton')
-        self.header_status.configure(text='',textvariable='');self.header_model.configure(text='');self.title.configure(text=page_title(index));self.status.set(str(self.root))
+        # 第 R2946 期：资产清单不再是常驻二级钮——点「05 资产管理」图标弹选择层；
+        # 清单页激活时把该图标临时换成清单字形，离开资产页即还原。
+        nav_buttons=getattr(self,'nav',None)
+        if nav_buttons is not None and len(nav_buttons)>PAGE['assets']:
+            assets_button=nav_buttons[PAGE['assets']]
+            if assets_button is not None and assets_button.winfo_exists():
+                key=ASSET_ROSTER_ICON if getattr(self,'asset_roster',False) else PAGE_NAV_ICONS.get(PAGE['assets'])
+                image=IconLoader.nav_icon(self.win,key)
+                if image is not None:
+                    assets_button.configure(image=image)
+                    assets_button._nav_icon_name=key
+        self.header_status.configure(text='',textvariable='');self.header_model.configure(text='');self.title.set_text(page_title(index));self.status.set(str(self.root))
         self.stage_button=None                 # 那一行随页面重建：旧按钮这会儿已跟着 content 一起销毁
         if self.header_stage_button is not None:
             self.header_stage_button.destroy();self.header_stage_button=None    # 页标题旁那颗同理
@@ -334,16 +348,150 @@ class PageNavMixin:
         if self.final_missing_assets(source):return ''
         return '；当前分镜引用的资产都已导入，可在'+pet_bus.stage_step('final')+'「分镜定稿」生成定稿（定稿接管后续流程，工作稿移入回收站）'
     def mark_nav(self,index):
-        """侧栏高亮：阶段页按钮与「00 会员账户」只亮当前那一颗。"""
-        for i,b in enumerate(self.nav):b.configure(style='Selected.Nav.TButton' if i==index else 'Nav.TButton')
+        """侧栏高亮：阶段页按钮与「00 会员账户」只亮当前那一颗（R2933 起纯图标轨）。"""
+        for i,b in enumerate(self.nav):b.configure(style='Selected.RailIcon.TButton' if i==index else 'RailIcon.TButton')
         account_button=getattr(self,'account_button',None)
-        if account_button is not None:account_button.configure(style='Selected.Nav.TButton' if index==PAGE_ACCOUNT else 'Nav.TButton')
-    def _build_asset_roster_nav(self,side):
+        if account_button is not None:account_button.configure(style='Selected.RailIcon.TButton' if index==PAGE_ACCOUNT else 'RailIcon.TButton')
+    # ── 侧栏图标弹出选择层（第 R2946 期）────────────────────────────────────
+    # 「05 资产管理」的二级入口「资产清单」与项目分组的项目列表都走这一个弹层：
+    # 无边框 Toplevel 贴在图标下方，点外部／Esc／选中即关；锚点本身的点击放行给按钮。
+    def _open_sidebar_popup(self,anchor,fill):
+        """在 ``anchor`` 按钮下方开一层选择浮层；``fill(body)`` 负责填内容。返回 Toplevel。"""
+        self._close_sidebar_popup()
+        top=Flyout(self.win)
+        fill(top.body)
+        top.update_idletasks()
+        width=top.winfo_reqwidth();height=top.winfo_reqheight()
+        x=anchor.winfo_rootx();y=anchor.winfo_rooty()+anchor.winfo_height()+2
+        # 钳位必须落在锚点所在显示器：winfo_screenwidth 只给主屏尺寸，
+        # 主窗在副屏时旧写法会把浮层拽回主屏（R2950 修复「点了图标看不到弹层」）。
+        left,stop,right,sbottom=monitor_bounds(self.win,x,y)
+        if x+width>right-4:x=max(left+4,right-4-width)
+        if y+height>sbottom-4:y=max(stop+4,anchor.winfo_rooty()-height-2)
+        top.geometry('%dx%d+%d+%d'%(width,height,x,y))
+        self._sidebar_popup_win=top
+        self._sidebar_popup_anchor=anchor
+        # 监听挂在主窗自己的绑定上（bindtags 让主窗内所有控件的点击都经过它），不用 bind_all：
+        # Tcl 的 bind 不支持按 funcid 摘除 all 标签上的单条绑定，unbind_all 会连坐别人的监听。
+        # 主窗 unbind(seq, funcid) 能精确摘除；浮层内的点击根本到不了这条绑定，不会误关。
+        self._popup_button_bind=self.win.bind('<Button-1>',self._sidebar_popup_outside,add='+')
+        self._popup_escape_bind=self.win.bind('<Escape>',lambda event:self._close_sidebar_popup(),add='+')
+        # 浮层内控件 takefocus=0，焦点留在主窗——Esc 由上面主窗那条绑定兜住，不再给浮层单独挂。
+        top.bind('<Destroy>',self._sidebar_popup_destroyed)
+        return top
+    def _sidebar_popup_outside(self,event):
+        """浮层外按下左键即关；锚点按钮与浮层内部的点击放行。"""
+        top=getattr(self,'_sidebar_popup_win',None)
+        if top is None:return
+        try:
+            if not top.winfo_exists():
+                self._close_sidebar_popup();return
+            widget=event.widget
+            if widget is getattr(self,'_sidebar_popup_anchor',None):return
+            if widget is not None and widget.winfo_toplevel() is top:return
+        except (tk.TclError,AttributeError):
+            self._close_sidebar_popup();return
+        self._close_sidebar_popup()
+    def _sidebar_popup_destroyed(self,event=None):
+        """浮层被外部销毁时只清绑定，不再重复 destroy（_close 先清引用，这里自然跳过）。"""
+        top=getattr(self,'_sidebar_popup_win',None)
+        if top is None:return
+        if event is not None and event.widget is not top:return
+        button_bind=getattr(self,'_popup_button_bind',None)
+        escape_bind=getattr(self,'_popup_escape_bind',None)
+        self._sidebar_popup_win=None;self._sidebar_popup_anchor=None
+        self._popup_button_bind=None;self._popup_escape_bind=None
+        if button_bind:
+            try:self.win.unbind('<Button-1>',button_bind)
+            except tk.TclError:pass
+        if escape_bind:
+            try:self.win.unbind('<Escape>',escape_bind)
+            except tk.TclError:pass
+    def _close_sidebar_popup(self):
+        """关掉侧栏选择浮层并摘掉点外部／Esc 监听（unbind 带 funcid，只摘自己那条）。"""
+        top=getattr(self,'_sidebar_popup_win',None)
+        button_bind=getattr(self,'_popup_button_bind',None)
+        escape_bind=getattr(self,'_popup_escape_bind',None)
+        self._sidebar_popup_win=None;self._sidebar_popup_anchor=None
+        self._popup_button_bind=None;self._popup_escape_bind=None
+        if button_bind:
+            try:self.win.unbind('<Button-1>',button_bind)
+            except tk.TclError:pass
+        if escape_bind:
+            try:self.win.unbind('<Escape>',escape_bind)
+            except tk.TclError:pass
+        if top is not None:
+            try:
+                if top.winfo_exists():top.destroy()
+            except tk.TclError:pass
+    def _assets_nav_toggle(self):
+        """点「05 资产管理」图标：弹「资产清单」二级选择层；选择层开着时再点进资产管理主页。"""
+        top=getattr(self,'_sidebar_popup_win',None)
+        if top is not None and top.winfo_exists():
+            self._close_sidebar_popup()
+            # 清单页激活时再点图标要回主页面：asset_roster 不复位的话 show(assets) 仍停在清单。
+            if getattr(self,'asset_roster',False):self.asset_roster=False
+            self.go_page(PAGE['assets']);return
+        self._open_asset_flyout()
+    def _open_asset_flyout(self):
         """「05 资产管理」下的二级入口「资产清单」——一页看完每个角色的正典板与换状态面板。"""
-        sub_image=IconLoader.nav_icon(side,ASSET_ROSTER_ICON)
-        sub=SecondaryButton(side,text='',image=sub_image,
-                            compound='image' if sub_image is not None else 'text',
-                            command=lambda:self.safe(self.open_asset_roster),style='Sub.Nav.TButton')
-        Tooltip(sub,'资产清单')
-        sub.pack(anchor='w',fill='x',pady=(SPACING['none'],DESKTOP_LAYOUT['nav_gap']))
-        self.asset_list_button=sub
+        buttons=getattr(self,'nav',None)
+        if buttons is None or len(buttons)<=PAGE['assets']:return
+        anchor=buttons[PAGE['assets']]
+        if anchor is None or not anchor.winfo_exists():return
+        image=IconLoader.nav_icon(self.win,ASSET_ROSTER_ICON)
+        def fill(body):
+            SecondaryButton(body,text='资产清单',image=image,compound='left',
+                            command=lambda:(self._close_sidebar_popup(),self.safe(self.open_asset_roster))).pack(fill='x')
+        self._open_sidebar_popup(anchor,fill)
+    def _open_rail_settings(self):
+        """图标轨末尾的设置钮（第 R2946 期）：走三虎既有设置 hub，pet.act 保持原语义。"""
+        pet=getattr(self,'pet',None)
+        if pet is None:return
+        pet.act(pet.open_settings)
+    # ── 项目分组选择层（第 R2946 期）────────────────────────────────────────
+    # 「在制作／已完成」图标点了弹的项目列表；弹层基座与资产清单层共用 _open_sidebar_popup。
+    def _post_project_picker(self,state=None):
+        """点分组图标弹出的项目选择层：列出该组项目（● 标当前项），点项走切换确认流。
+
+        第 R2946 期：下拉框删除，选择器改为图标下的弹层；同一分组图标再点一次收起。
+        """
+        state=state or getattr(self,'_project_group','making')
+        button=getattr(self,'project_group_buttons',{}).get(state)
+        if button is None or not button.winfo_exists():return
+        top=getattr(self,'_sidebar_popup_win',None)
+        if top is not None and top.winfo_exists() and getattr(self,'_sidebar_popup_anchor',None) is button:
+            self._close_sidebar_popup();return
+        items=list(getattr(self,'_picker_items',()))
+        root=getattr(self,'root',None)
+        def fill(body):
+            if not items:
+                tk.Label(body,text='该分组暂无项目',bg=COLORS['background_primary'],
+                         fg=COLORS['text_secondary'],font=FONTS['body'],anchor='w',
+                         padx=SPACING['sm'],pady=SPACING['xs']).pack(fill='x')
+            for p in items:
+                name=p.get('name') or Path(p['path']).name
+                current=root is not None and Path(str(p.get('path')))==root
+                row=self._popup_row(body,('● ' if current else '')+name)
+                row.bind('<Button-1>',lambda event,path=p['path']:self._popup_pick_project(path))
+                row.bind('<Button-3>',lambda event,item=p:self._project_item_menu(item,event))
+            ttk.Separator(body).pack(fill='x',pady=(SPACING['xs'],SPACING['xs']))
+            manage=self._popup_row(body,'项目管理…')
+            manage.bind('<Button-1>',lambda event:self._popup_manage_projects())
+        self._open_sidebar_popup(button,fill)
+    def _popup_row(self,body,text):
+        """选择层里的一行项目：tk.Label 承载，悬停换底色、单击选择、右键出项目菜单。"""
+        row=tk.Label(body,text=text,bg=COLORS['background_primary'],fg=COLORS['text_primary'],
+                     font=FONTS['body'],anchor='w',cursor='hand2',padx=SPACING['sm'],pady=SPACING['xs'])
+        row.pack(fill='x')
+        row.bind('<Enter>',lambda event,r=row:r.configure(bg=COLORS['surface_hover']))
+        row.bind('<Leave>',lambda event,r=row:r.configure(bg=COLORS['background_primary']))
+        return row
+    def _popup_pick_project(self,path):
+        """选择层里点中一个项目：先收层，再走既有的切换确认流程（取消就留在原项目）。"""
+        self._close_sidebar_popup()
+        if Path(path)!=self.root:self.safe(lambda:self.request_project_switch(path))
+    def _popup_manage_projects(self):
+        """选择层底部「项目管理…」：打开既有项目选择窗（标记完成／删除等入口都在里面）。"""
+        self._close_sidebar_popup()
+        self.safe(self.choose_project)

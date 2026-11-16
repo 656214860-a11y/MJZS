@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """启动登录闸：未登录先盖登录页，登录后才启动；已登录（含到期）直接进。"""
+import re
 import tempfile
 import unittest
 import unittest.mock
@@ -156,18 +157,33 @@ class LoginGateTests(unittest.TestCase):
         self.assertFalse(hasattr(d,'membership_badge'))   # R2027：侧栏到期小字已删
 
     def test_unlicensed_pages_are_locked_and_unlock_after_renewal(self):
-        """R2048：授权失效时只放会员页与免费阶段，其余页整页锁定、侧栏挂锁；授权恢复后解锁并重建当前页。"""
+        """R2048：授权失效时只放会员页与免费阶段，其余页整页锁定、侧栏挂锁；授权恢复后解锁并重建当前页。
+        R2933：图标轨上锁定改为换 lock.png（PNG 缺失才退回 🔒 文字兜底）。"""
         from desktop_account_page import NAV_LOCK_MARK
-        from desktop_page_registry import PAGE, PAGE_ACCOUNT, PAGE_SITES, nav_label
+        from desktop_page_registry import (NAV_LOCK_ICON, PAGE, PAGE_ACCOUNT,
+                                           PAGE_NAV_ICONS, PAGE_SITES)
+        from ui_icons import IconLoader
         d=self.desktop
         store=self.use(_Client(),lease=sign(payload(state='expired',trial_ends_at=NOW-DAY)))
         d._require_login=True;d.refresh_nav_locks()
         def locked():
             return any(getattr(w,'cget',None) and _text(w)=='需要登录或授权' for w in _walk(d.content))
+        def nav_icon(index,name):
+            return IconLoader.nav_icon(d.nav[index],name)
+        def image_name(index):
+            value=str(d.nav[index].cget('image'))
+            found=re.findall(r"'([^']+)'",value)
+            return found[0] if found else value
         try:
-            self.assertEqual(d.nav[PAGE['storyboard']].cget('text'),nav_label(PAGE['storyboard'])+NAV_LOCK_MARK)
-            self.assertEqual(d.nav[PAGE_SITES].cget('text'),nav_label(PAGE_SITES)+NAV_LOCK_MARK)
-            self.assertEqual(d.nav[PAGE['script_structure']].cget('text'),nav_label(PAGE['script_structure']))
+            for index in (PAGE['storyboard'],PAGE_SITES):
+                button=d.nav[index]
+                self.assertTrue(button._nav_locked)
+                if nav_icon(index,NAV_LOCK_ICON) is not None:
+                    self.assertEqual(image_name(index),str(nav_icon(index,NAV_LOCK_ICON)))
+                    self.assertEqual(str(button.cget('compound')),'image')
+                else:
+                    self.assertTrue(button.cget('text').endswith(NAV_LOCK_MARK))
+            self.assertFalse(getattr(d.nav[PAGE['script_structure']],'_nav_locked',False))
             d.show(PAGE_SITES);self.pump()
             self.assertTrue(locked())
             self.assertIn('试用或会员已到期',d.status.get())
@@ -176,7 +192,10 @@ class LoginGateTests(unittest.TestCase):
             d.show(PAGE_SITES);self.pump()
             account_store.save_session({'email':'a@b.c','refresh_token':'r','lease':sign(payload()),'server_time':NOW},store.path)
             d._account_changed();self.pump()
-            self.assertEqual(d.nav[PAGE_SITES].cget('text'),nav_label(PAGE_SITES))
+            self.assertFalse(d.nav[PAGE_SITES]._nav_locked)
+            if nav_icon(PAGE_SITES,PAGE_NAV_ICONS[PAGE_SITES]) is not None:
+                self.assertEqual(image_name(PAGE_SITES),
+                                 str(nav_icon(PAGE_SITES,PAGE_NAV_ICONS[PAGE_SITES])))
             self.assertFalse(locked())
         finally:
             d._require_login=False;d.refresh_nav_locks()

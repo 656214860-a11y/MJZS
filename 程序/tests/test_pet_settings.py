@@ -237,13 +237,14 @@ class ManagerGeometryTests(unittest.TestCase):
 
 
 class GearTests(SettingsCase):
-    """齿轮入口（用户要的「做成齿轮外观的入口，放在左上角文字 V0.7 旁边，醒目提示」）。"""
+    """齿轮入口（第 R2933 期：Fluent settings 图标，与导航同套字形；PNG 缺失退回手绘齿轮）。"""
 
-    def test_the_gear_hangs_on_the_hosts_top_row(self):
+    def test_the_gear_hangs_on_the_hosts_fallback_row(self):
+        """假宿主没有 settings_gear_layer／pet_dock 时，齿轮退回 sidebar_head 那一行。"""
         gear = self.pet.gear
         self.assertIsNotNone(gear, '贴片一起来的那颗齿轮')
         self.assertEqual(str(gear.canvas.winfo_parent()), str(self.fake.sidebar_head),
-                         '挂在宿主给的左上角那一行上（应用名 ＋ V0.7 那一行）')
+                         '缺底栏承载层时挂在宿主给的兜底行上')
         self.assertEqual(gear.tip_text, pet_ui.GEAR_TIP)
 
     def test_no_caption_sits_beside_the_gear(self):
@@ -256,13 +257,25 @@ class GearTests(SettingsCase):
         self.assertEqual(gear.tip_text, pet_ui.GEAR_TIP, "那句话只留在提示文本里")
 
     def test_the_gear_is_really_drawn_like_a_gear(self):
-        """齿＋齿身圆＋中孔三件都有，而且是醒目色——不是一颗灰点。"""
-        tags = self.pet.gear.canvas.find_withtag('gear')
-        self.assertEqual(len(tags), 3)
-        self.assertTrue(self.pet.gear.canvas.find_withtag('gear-teeth'), '有齿')
-        self.assertTrue(self.pet.gear.canvas.find_withtag('gear-hole'), '中间挖了孔')
-        body = self.pet.gear.canvas.find_withtag('gear-body')[0]
-        self.assertEqual(self.pet.gear.canvas.itemcget(body, 'fill'), pet_ui.GEAR_COLOR[0])
+        """PNG 在时画 Fluent settings 图标；强制无图时手绘齿轮三件套仍要在。"""
+        gear = self.pet.gear
+        gear.draw()
+        if gear._gear_image() is not None:
+            self.assertTrue(gear.canvas.find_withtag('gear-icon'),
+                            'settings.png 在时画的是图标字形')
+        original = gear._gear_image
+        gear._gear_image = lambda: None
+        try:
+            gear.draw()
+            tags = gear.canvas.find_withtag('gear')
+            self.assertEqual(len(tags), 3)
+            self.assertTrue(gear.canvas.find_withtag('gear-teeth'), '有齿')
+            self.assertTrue(gear.canvas.find_withtag('gear-hole'), '中间挖了孔')
+            body = gear.canvas.find_withtag('gear-body')[0]
+            self.assertEqual(gear.canvas.itemcget(body, 'fill'), pet_ui.GEAR_COLOR[0])
+        finally:
+            gear._gear_image = original
+            gear.draw()
         self.assertNotEqual(pet_ui.GEAR_COLOR[0], pet_ui.PAW_IDLE[0], '与没选中的灰爪不是同一个颜色')
 
     def test_a_gear_shape_has_eight_teeth_around_the_body(self):
@@ -277,11 +290,20 @@ class GearTests(SettingsCase):
         return canvas.itemcget(canvas.find_withtag('gear-body')[0], 'fill')
 
     def test_hovering_the_gear_brightens_it(self):
-        self.assertEqual(self.body_fill(), pet_ui.GEAR_COLOR[0])
-        self.pet.gear.hover_on()
-        self.assertEqual(self.body_fill(), pet_ui.GEAR_HOVER[0])
-        self.pet.gear.hover_off()
-        self.assertEqual(self.body_fill(), pet_ui.GEAR_COLOR[0])
+        """悬停加深只在手绘兜底路径有意义；PNG 图标路径垫一层浅灰底衬。"""
+        gear = self.pet.gear
+        original = gear._gear_image
+        gear._gear_image = lambda: None
+        gear.draw()
+        try:
+            self.assertEqual(self.body_fill(), pet_ui.GEAR_COLOR[0])
+            gear.hover_on()
+            self.assertEqual(self.body_fill(), pet_ui.GEAR_HOVER[0])
+            gear.hover_off()
+            self.assertEqual(self.body_fill(), pet_ui.GEAR_COLOR[0])
+        finally:
+            gear._gear_image = original
+            gear.draw()
 
     def test_clicking_the_gear_opens_the_settings_window(self):
         opened = []
@@ -869,7 +891,7 @@ class QuitMenuTests(SettingsCase):
 
 
 class DesktopGearSeamTests(unittest.TestCase):
-    """真接缝：齿轮真的挂在主窗口左上角那一行（应用名 ＋ V0.7）上，点得到、开得出设置。"""
+    """真接缝：第 R2946 期设置入口并入图标轨末尾（settings_rail_button），三虎簇在 pet_dock，点得到、开得出设置。"""
 
     @classmethod
     def setUpClass(cls):
@@ -884,32 +906,35 @@ class DesktopGearSeamTests(unittest.TestCase):
             self.skipTest(PLATFORM_TKINTER)
         win = self.tk.Tk()
         win.withdraw()
+        # 显式给尺寸：withdrawn 窗口不映射，winfo_ismapped 恒假，但几何（rooty）仍按给定尺寸结算。
+        win.geometry('1280x800')
         from desktop import Desktop
         return win, Desktop(win, root=PROGRAM)
 
-    def test_the_gear_sits_next_to_the_title_without_a_sidebar_version_label(self):
+    def test_the_gear_sits_in_the_sidebar_dock_without_a_sidebar_version_label(self):
         win, desktop = self.build()
         try:
             self.assertEqual(win.title(), __import__('app_metadata').APP_NAME + ' · V0.7')
-            row = desktop.sidebar_head
-            texts = [str(child.cget('text')) for child in row.winfo_children()
-                     if 'text' in child.keys()]
-            self.assertIn(__import__('app_metadata').APP_NAME, texts)
-            self.assertNotIn('V0.7', texts, '侧栏不再重复显示版本号')
-            gear = desktop.pet.gear
-            self.assertIsNotNone(gear)
-            self.assertEqual(str(gear.canvas.winfo_parent()), str(win),
-                             '真 Desktop 的齿轮直接挂在主窗口根层，不受侧栏裁剪')
-            info = gear.canvas.place_info()
+            # 第 R2933 期：侧栏顶部浮层（应用名）与标题行标语都删了；项目名只留窗口标题。
+            self.assertFalse(hasattr(desktop, 'app_title'), '侧栏不再有应用名浮层')
+            self.assertFalse(hasattr(desktop, 'sidebar_head'), '侧栏不再有顶部浮层行')
+            self.assertFalse(hasattr(desktop, 'header_slogan'), '页头不再有标语')
+            # 第 R2946 期：齿轮不再进底栏——设置入口是图标轨末尾的轨钮，三虎簇独占 pet_dock。
+            self.assertIsNone(desktop.pet.gear, '真桌面不再建底栏齿轮')
+            rail = desktop.settings_rail_button
+            self.assertIsNotNone(rail, '图标轨末尾有设置钮')
+            self.assertEqual(str(rail.winfo_parent()), str(desktop.sidebar),
+                             '设置钮与 00–14 阶段钮同在侧栏滚动区')
+            self.assertEqual(rail.cget('style'), 'RailIcon.TButton')
+            self.assertEqual(rail.winfo_manager(), 'pack', '设置钮已 pack 进图标轨')
             win.update_idletasks()
-            desktop.align_header()
-            info = gear.canvas.place_info()
-            title = desktop.app_title
-            from ui_tokens import DESKTOP_LAYOUT
-            self.assertEqual(int(info['x']), title.winfo_rootx()-win.winfo_rootx()+title.winfo_reqwidth()+DESKTOP_LAYOUT['gear_gap'])
-            # R1451：用户要求齿轮与标题文字垂直居中（此前是底对齐）；断言由底边相等改为中线相等（用 reqheight：窗口 withdraw 时 winfo_height 不可信，且不能 update()，它会触发启动期弹窗而挂死并行池）。
-            self.assertAlmostEqual(int(info['y'])+gear.canvas.winfo_reqheight()/2, title.winfo_rooty()-win.winfo_rooty()+title.winfo_reqheight()/2, delta=2)
-            self.assertEqual(gear.tip_text, '设置')
+            self.assertGreater(rail.winfo_rooty(), desktop.nav[-1].winfo_rooty(),
+                               '设置钮排在最后一个阶段钮下面')
+            self.assertEqual(rail._nav_tooltip.text, '设置')
+            # 三虎簇在 pet_dock：头像／小字／猫爪都归它管。
+            self.assertEqual(str(desktop.pet.canvas.winfo_parent()), str(desktop.pet_dock))
+            self.assertEqual(str(desktop.pet_dock.winfo_parent()), str(desktop.sidebar_dock))
+            self.assertFalse(hasattr(desktop, 'settings_gear_layer'), '齿轮行已随齿轮一起撤掉')
         finally:
             win.destroy()
 
@@ -920,7 +945,7 @@ class DesktopGearSeamTests(unittest.TestCase):
             original = desktop.pet.open_settings
             desktop.pet.open_settings = lambda tab=None: opened.append(tab) or 'ok'
             try:
-                desktop.pet.gear.click()
+                desktop.settings_rail_button.invoke()
             finally:
                 desktop.pet.open_settings = original
             self.assertEqual(opened, [None])

@@ -20,7 +20,7 @@ from desktop_page_registry import (ACCOUNT_TITLE, PAGE_ACCOUNT, PAGE_NAV_ICONS,
                                    PROJECT_ACTION_ICONS, PROJECT_GROUP_ICONS, nav_label)
 from ui_icons import IconLoader
 from ui_widgets import (BaseDialog, Card, DataTable, NotificationDispatcher, PrimaryButton, SecondaryButton,
-                        SelectBox, Tooltip)
+                        Tooltip)
 from dataclasses import dataclass
 from typing import Callable
 
@@ -93,7 +93,7 @@ class ProjectPagesMixin:
         empty=getattr(tree,'_empty_state',None)
         if empty is not None:empty.show(not self.projects.info['projects'])
     def refresh_sidebar_title(self):
-        """R2056：侧栏顶部写当前项目名（过长截断，免得把齿轮挤出侧栏）；没打开项目时仍写应用名。"""
+        """R2933：侧栏顶部浮层已删；方法保留给既有调用点，app_title 不存在时直接返回。"""
         title=getattr(self,'app_title',None)
         if title is None:return
         root=getattr(self,'root',None)
@@ -170,23 +170,16 @@ class ProjectPagesMixin:
     def restore_project_selection(self):
         """选择器复位回当前项目；高亮＝当前项目，用户取消或被拦下时不能留在别的项上。"""
         self._sync_project_picker(snap=True)
-    def set_project_group(self,state):
-        """侧栏分组筛选：making/completed 两枚图标钮切换选择器列出的项目集合。"""
-        if state==self._project_group:return
-        self._project_group=state
-        self._sync_project_group_styles();self._sync_project_picker()
+    def set_project_group(self,state,popup=False):
+        """侧栏分组筛选：making/completed 图标钮切换项目集合；popup 时弹出该组项目选择层（R2946，弹层实现在 PageNavMixin）。"""
+        if state!=self._project_group:self._project_group=state;self._sync_project_group_styles();self._sync_project_picker()
+        if popup:self._post_project_picker(state)
     def _sync_project_group_styles(self):
         active=getattr(self,'_project_group','making')
         for state,btn in getattr(self,'project_group_buttons',{}).items():
             btn.configure(style='Selected.RailIcon.TButton' if state==active else 'RailIcon.TButton')
     def _sync_project_picker(self,snap=False):
-        """项目选择器：按分组列项目，「●」标当前项。
-
-        ``snap`` 只在项目状态真正变化时（打开/取消/标记完成后 reload）把组吸附回
-        当前项目所在组；用户主动点分组图标浏览另一组时不吸附，否则筛选失效。
-        """
-        picker=getattr(self,'project_picker',None)
-        if picker is None:return
+        """项目集合同步：按分组算 ``_picker_items``（R2946 起选择器是弹层，没有下拉框可填）。"""
         projects=(getattr(self.projects,'info',None) or {}).get('projects',[]) or []
         root=getattr(self,'root',None)
         def is_current(p):
@@ -204,35 +197,18 @@ class ProjectPagesMixin:
         items=[p for p in projects if p.get('status','making')==group]
         items.sort(key=project_sort_key)
         self._picker_items=items
-        values=[]
-        for p in items:
-            name=p.get('name') or Path(p['path']).name
-            values.append(('● ' if is_current(p) else '')+name)
-        picker.set_values(values)
-        index=next((i for i,p in enumerate(items) if is_current(p)),-1)
-        try:
-            if index>=0:picker.current(index)
-            else:picker.set('')
-        except tk.TclError:pass
-        tip=getattr(self,'_picker_tip',None)
-        if tip is not None:
-            tip.text=values[index] if index>=0 else '选择项目'
     def _build_project_rail(self,side):
-        """侧栏项目区三行图标控件：分组筛选、项目选择器、新建/打开目录（R2897 图标轨改版）。"""
+        """侧栏项目区图标控件：分组筛选（点了弹项目选择层）＋新建/打开目录（R2946 去下拉框）。"""
         self.project_block=ttk.Frame(side);self.project_block.pack(fill='x',pady=(SPACING['xs'],SPACING['none']))
         self._project_group='making';self._picker_items=[]
         filters=ttk.Frame(self.project_block);filters.pack(fill='x')
         self.project_group_buttons={}
         for state in ('making','completed'):
             btn=SecondaryButton(filters,text='',image=IconLoader.nav_icon(side,PROJECT_GROUP_ICONS[state]),
-                                compound='image',command=lambda s=state:self.set_project_group(s),style='RailIcon.TButton')
+                                compound='image',command=lambda s=state:self.set_project_group(s,popup=True),style='RailIcon.TButton')
             btn.pack(side='left',fill='x',expand=True,padx=(SPACING['none'],SPACING['xs']))
             Tooltip(btn,'在制作项目' if state=='making' else '已完成项目')
             self.project_group_buttons[state]=btn
-        self.project_picker=SelectBox(self.project_block,state='readonly')
-        self.project_picker.pack(fill='x',pady=(SPACING['xs'],SPACING['none']))
-        self.project_picker.bind('<<ComboboxSelected>>',self.switch);self.project_picker.bind('<Button-3>',self.project_picker_menu)
-        self._picker_tip=Tooltip(self.project_picker,'选择项目')
         tools=ttk.Frame(self.project_block);tools.pack(fill='x',pady=(SPACING['xs'],SPACING['none']))
         for attr,key,cmd,tip in (('project_new_button','new',self.new,'+ 新建项目'),
                                  ('project_open_button','open',self.open_current_project,'打开项目目录')):
@@ -445,10 +421,10 @@ class ProjectPagesMixin:
         """「00 会员账户」排在 01 之上；它不在 self.nav 里，翻页键与阶段页序号都不受影响。"""
         image=IconLoader.nav_icon(side,PAGE_NAV_ICONS.get(PAGE_ACCOUNT))
         self.account_button=SecondaryButton(side,text=nav_label(PAGE_ACCOUNT),image=image,
-            compound='left' if image is not None else 'text',
-            command=lambda:self.go_page(PAGE_ACCOUNT),style='Nav.TButton')
+            compound='image' if image is not None else 'text',
+            command=lambda:self.go_page(PAGE_ACCOUNT),style='RailIcon.TButton')
         Tooltip(self.account_button,ACCOUNT_TITLE)
-        self.account_button.pack(anchor='w',fill='x',pady=(SPACING['none'],DESKTOP_LAYOUT['nav_gap']))
+        self.account_button.pack(anchor='center',fill='x',pady=(SPACING['none'],DESKTOP_LAYOUT['nav_gap']))
     def project_home(self):
         self.note('选择一个故事继续制作。右键项目可标记完成、恢复制作或删除项目。删除项目＝移入项目库回收站（可恢复，不是永久清除）；同一块磁盘上回收不等于释放空间；登记与磁盘不一致时点“重建项目索引”；可再生缓存由自动清理单独回收。')
         tree=ttk.Treeview(self.content,show='tree',height=TEXT_ROWS['2xl'],selectmode='browse')
@@ -573,14 +549,6 @@ class ProjectPagesMixin:
         item=next((dict(p) for p in self.projects.info['projects'] if p['path']==path),None)
         if item is None:return
         return self._project_item_menu(item,event)
-    def project_picker_menu(self,event):
-        """侧栏项目选择器右键：菜单与项目列表行一致。"""
-        if self.worker:return
-        picker=getattr(self,'project_picker',None);items=getattr(self,'_picker_items',())
-        if picker is None or not items:return
-        index=picker.current()
-        if index<0 or index>=len(items):return
-        return self._project_item_menu(items[index],event)
     def _project_item_menu(self,item,event):
         menu=self.project_page_services.context_menu(self.win)
         completed=item.get('status','making')=='completed'

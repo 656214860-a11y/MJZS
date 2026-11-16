@@ -1064,7 +1064,7 @@ class EllipsisLabel(ttk.Label):
     """单行摘要按实际宽度省略，鼠标和键盘焦点说明保留全文。"""
 
     def __init__(self, master, *, text='', **kwargs):
-        super().__init__(master, text='', width=1, anchor='w', **kwargs)
+        super().__init__(master, text='', width=1, **{'anchor': 'w', **kwargs})
         self.full_text = str(text)
         self.tooltip = Tooltip(self, self.full_text)
         self.bind('<Configure>', self._render, add='+')

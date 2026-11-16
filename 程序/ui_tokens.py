@@ -242,17 +242,19 @@ DESKTOP_LAYOUT = {
     'default_width': 1280, 'default_height': 800,
     'window_margin_x': SPACING['xl'], 'window_margin_y': SPACING['xl'] * 2,
     'min_width': 800, 'min_height': 600,
-    'sidebar_width': 92, 'sidebar_title_chars': 5, 'login_gate_width': 460, 'sidebar_padding': SPACING['sm'], 'row_gap': 1,
+    # 第 R2946 期：侧栏顶行要完整放下「0X  连贯性清单」这类最长页名（10pt 实测 89px），
+    # 轨宽收到 96 后 EllipsisLabel 可用宽度＝92px，最长页名不再省略号截断。
+    'sidebar_width': 96, 'sidebar_title_chars': 5, 'login_gate_width': 460, 'sidebar_padding': SPACING['sm'], 'row_gap': 1,
     # 侧栏导航胶囊之间的垂直间距与「我的项目」「导航」两段之间的呼吸距。
     'nav_gap': SPACING['xs'], 'section_gap': SPACING['md'],
     'compact_below': 690, 'project_min_rows': 3,
     'project_button_padding': (SPACING['sm'], SPACING['none']),
     # 页面边距加大一档：内容与窗口边缘、进度条与状态栏之间都留出呼吸感。
-    'body_padding': (SPACING['xl'], SPACING['lg'], SPACING['xl'], SPACING['md']),
+    # 第 R2946 期：左边距收到 sm——侧栏图标轨与右侧功能区之间不再留 xl 宽的空档。
+    # 第 R2950 期：顶距 lg→xs，让页头「token」行与侧栏「01 XXX」标题同一水平带。
+    'body_padding': (SPACING['sm'], SPACING['xs'], SPACING['xl'], SPACING['md']),
     'status_gap': (SPACING['sm'], SPACING['md']),
-    'title_inset': SPACING['xs'], 'gear_gap': SPACING['xs'],
-    'slogan_gap': SPACING['md'], 'slogan_font': FONTS['pet_body'],
-    'project_label_gap': SPACING['sm'], 'pet_clearance': SPACING['xs'],
+    'title_inset': SPACING['xs'],
     # 主窗口拖动：停止拖动后等这么久没有新尺寸才整页重排一次（约 8 帧，远长于
     # Windows 拖动时 WM_SIZE 的间隔，又不至于松手后明显停顿）。
     'resize_quiet_ms': 128,
@@ -370,20 +372,15 @@ ICON_CHEVRON_LEFT = "\uE76B"
 ICON_CHEVRON_RIGHT = "\uE76C"
 
 # 主窗口三虎：绘图保留原坐标系，显示尺寸和命中区域共用这组紧凑布局值。
+# 第 R2946 期：左下角簇整体缩成正方形——头像 48→44、爪印 16→14，簇区恒为正方形。
 PET_LAYOUT = {
     "source_size": 64,
-    "avatar_size": 48,
-    "paw_size": 16,
+    "avatar_size": 44,
+    "paw_size": 14,
     "paw_gap": 2,
     "paw_gap_y": 2,
     "paw_arc": 0,
-    "top": SPACING["none"],
-    "right_gap": SPACING["xs"],
-    "caption_right": SPACING["sm"],
-    "caption_gap": SPACING["sm"],
-    "caption_width": 64,
     "caption_height": 20,
-    "header_gap": SPACING["sm"],
 }
 
 # 表格行悬停：行背景由底色淡入到悬停面（STEPS 帧、每帧 FRAME_MS 毫秒），只用 Treeview 标签实现。

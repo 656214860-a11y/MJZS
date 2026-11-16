@@ -237,10 +237,6 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         win.minsize(DESKTOP_LAYOUT['min_width'],DESKTOP_LAYOUT['min_height']);apply_theme(win);setup_styles(win);install_window_placement(win)
         self._build_sidebar(win)
         side=self.sidebar
-        # 设置齿轮直接落在主窗口根层，避免侧栏或页面画布在窄窗口时裁掉入口；
-        # 实际文字尺寸决定齿轮位置；字号或显示名改变时不留旧名称的空洞。
-        self.settings_gear_layer=win
-        self.settings_gear_position=(0,0)
         # 项目区收成三行图标控件：分组筛选、项目选择器、新建/打开目录（R2897 图标轨改版，构建在 ProjectPagesMixin）。
         self._build_project_rail(side)
         ttk.Separator(side).pack(fill='x',pady=DESKTOP_LAYOUT['section_gap'])
@@ -250,15 +246,26 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
             # 第 48 期第 3 条：点「10 视频生成」的入口逻辑——本次启动第一次点先摆「选择生成方式」
             # 那一屏；之后（用户已经选过线上或线下）再点就直接回他选的那一侧，不再反复拦在选择页上。
             # 页内切分镜、刷新列表仍直接调 show()。
+            # 第 R2933 期：编号撤掉，导航只留居中图标（PNG 缺失退回编号文字）；
+            # 完整阶段名走悬停 Tooltip，页标题仍显示「NN  名称」。
             image=IconLoader.nav_icon(win,PAGE_NAV_ICONS.get(i))
+            # 第 R2946 期：「05 资产管理」不再直接进页——点它弹「资产清单」二级选择层，
+            # 选择层开着时再点才进资产管理主页（见 _assets_nav_toggle）。
+            command=self._assets_nav_toggle if i==PAGE['assets'] else (lambda n=i:self.go_page(n))
             b=SecondaryButton(side,text=nav_label(i),image=image,
-                              compound='left' if image is not None else 'text',
-                              command=lambda n=i:self.go_page(n),style='Nav.TButton')
-            Tooltip(b,page_title(i))
-            b.pack(anchor='w',fill='x',pady=(SPACING['none'],DESKTOP_LAYOUT['nav_gap']));self.nav.append(b)
-            if i==PAGE['assets']:
-                # 第 71 期任务 2：「05 资产管理」下面挂一级缩进的二级入口「资产清单」（构建在 ProjectPagesMixin）。
-                self._build_asset_roster_nav(side)
+                              compound='image' if image is not None else 'text',
+                              command=command,style='RailIcon.TButton')
+            b._nav_icon_name=PAGE_NAV_ICONS.get(i)
+            b._nav_tooltip=Tooltip(b,page_title(i))
+            b.pack(anchor='center',fill='x',pady=(SPACING['none'],DESKTOP_LAYOUT['nav_gap']));self.nav.append(b)
+        # 第 R2946 期：设置入口并入图标轨末尾（与 00–14 同列同款）；不进 self.nav，
+        # 翻页键与阶段页序号不受影响。点击开三虎设置hub（pet.act 走既有通路）。
+        settings_image=IconLoader.nav_icon(win,'settings')
+        self.settings_rail_button=SecondaryButton(side,text='',image=settings_image,
+            compound='image' if settings_image is not None else 'text',
+            command=self._open_rail_settings,style='RailIcon.TButton')
+        self.settings_rail_button._nav_tooltip=Tooltip(self.settings_rail_button,'设置')
+        self.settings_rail_button.pack(anchor='center',fill='x',pady=(SPACING['none'],DESKTOP_LAYOUT['nav_gap']))
         # 侧栏内容按自然高度依次 pack；超出视口的部分由外层 ScrollForm 滚动。
         self.sidebar_size=None
         self.project_block.bind('<Configure>',self.schedule_sidebar_fit,add='+')
@@ -269,17 +276,13 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         """主体区：标题行右侧信息、页面画布、进度条、状态栏与尺寸把手，从 __init__ 原样切出，R1808。"""
         self.body=ttk.Frame(win,padding=DESKTOP_LAYOUT['body_padding']);self.body.pack(side='left',fill='both',expand=True)
         self.title_row=ttk.Frame(self.body);self.title_row.pack(fill='x');self.title_row.pack_propagate(False)
-        self.pet_layer=self.title_row
-        self.title=ttk.Label(self.title_row,font=FONTS['heading_1']);self.title.pack(side='left',anchor='n',padx=(DESKTOP_LAYOUT['title_inset'],SPACING['none']))
-        self.header_slogan=ttk.Label(self.title_row,text='✦  把灵感变成故事',
-                                   style='Muted.TLabel',font=DESKTOP_LAYOUT['slogan_font'])
-        self.title.bind('<Configure>',self.align_header,add='+')
-        self.app_title.bind('<Configure>',self.align_header,add='+')
+        # 第 R2946/R2950 期：页标题入侧栏顶行；标题行收单行（Token 左、状态/模型右）与侧栏标题同带。
         self.project_block.bind('<Configure>',self.schedule_sidebar_fit,add='+')
         self.title_row.bind('<Configure>',self.align_header,add='+')
         self.header_info=ttk.Frame(self.title_row);self.header_info.pack(side='right',fill='x',expand=True,padx=(SPACING['md'],SPACING['none']))
-        self.header_model=ttk.Label(self.header_info,style='Muted.TLabel',font=FONTS['pet_hint'],anchor='e');self.header_model.pack(side='bottom',fill='x')
-        self.header_status=ttk.Label(self.header_info,style='Muted.TLabel',font=FONTS['pet_hint'],anchor='e',justify='right');self.header_status.pack(side='top',fill='x')
+        # 第 R2950 期：页头单行——状态居左可伸展、模型名贴右（原两行堆叠把聊天区顶低）。
+        self.header_model=ttk.Label(self.header_info,style='Muted.TLabel',font=FONTS['pet_hint'],anchor='e');self.header_model.pack(side='right',anchor='e')
+        self.header_status=ttk.Label(self.header_info,style='Muted.TLabel',font=FONTS['pet_hint'],anchor='w',justify='left');self.header_status.pack(side='left',fill='x',expand=True)
         # 第 30 期第 6／8 条：阶段配置那颗按钮从标题栏挪到「剧本准备」页的「创作入口」那一行，
         # 紧挨着「手动制作剧本」（按钮那时才建得出来，见 brief_editor）；这里先留个占位，别的页没有它。
         self.stage_button=None
@@ -287,13 +290,16 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         self.header_stage_button=None
         self.header_status.bind('<Configure>',lambda e:self.header_status.configure(wraplength=max(120,e.width)))
         self.header_model.bind('<Configure>',lambda e:self.header_model.configure(wraplength=max(120,e.width)))
-        # 宠物贴片（方案 A）：挂在标题栏右上角，随主窗口移动，不参与布局计算。
+        # 宠物贴片（方案 A）：第 R2933 期改挂侧栏左下角底栏，不再浮在标题行。
         # 第 30 期第 3 条：把「前台窗口是不是本进程」交上去——用户切到别的应用时，三虎的自动
         # 播报（心跳、进度气泡、主动询问、失败提醒）一律不冒；自己点开的对话框照旧一条都不拦。
+        # 宠物簇（第 R2933 期）：挂进侧栏底栏 pet_dock（pet_layer 在 _build_sidebar 已指好），
+        # 头像上／小字下／猫爪列右居中；前台窗口判定照旧交给三虎管自动播报。
         self.pet=pet_ui.attach(self,front=pet_ui.our_process_in_front)
         # 用量指示器（费用统计模块）：标题行右上角、三虎头像左侧常驻；总线绑定由每拍 sync_bus 负责。
-        self.usage_indicator=ui_usage_indicator.UsageIndicator(self.pet_layer,self)
-        ui_usage_indicator.place_in_title_row(self.usage_indicator,self.pet_layer)
+        # 用量指示器（费用统计模块）：第 R2933 期挪到页标题右侧同一行；总线绑定由每拍 sync_bus 负责。
+        self.usage_indicator=ui_usage_indicator.UsageIndicator(self.title_row,self)
+        self.usage_indicator.pack(side='left',padx=(SPACING['md'],SPACING['none']))
         # 页面仍由画布和鼠标滚轮滚动，但不显示贴在窗口最右侧的整页长滑块。
         # 各页面共用这一层，因而无需在 11 个页面里分别隐藏；表格、对话框等局部滚动条照常保留。
         area=ttk.Frame(self.body);area.pack(fill='both',expand=True)
@@ -341,22 +347,29 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         # 不放 ttk.Sizegrip：它由 Tk 逐像素实时改窗口大小、内容跟着重排，和另三个角（系统边框缩放）表现不一致；右下角也走系统边框。
 
     def _build_sidebar(self,win):
-        """应用名做成固定浮层盖在滚动区顶；滚轮只滚下面的目录与导航，标题和齿轮不动。"""
+        """侧栏：顶部无浮层，项目区与导航在滚动区内；底部固定底栏放设置齿轮行与三虎簇。
+
+        第 R2933 期：应用名浮层与标题行标语都删了，导航只留居中图标；齿轮与三虎
+        （头像＋小字＋猫爪）收进 sidebar_dock——它先于滚动区 pack，永远钉在左下角。
+        """
         sidebar_area=ttk.Frame(win,width=DESKTOP_LAYOUT['sidebar_width']);sidebar_area.pack(side='left',fill='y');sidebar_area.pack_propagate(False)
+        self.sidebar_area=sidebar_area
+        # 固定底栏只剩三虎簇（pet_dock）；齿轮 R2946 上移进图标轨末尾，高跟 patch_room。
+        self.sidebar_dock=ttk.Frame(sidebar_area,padding=(SPACING['xs'],SPACING['xs'],SPACING['none'],SPACING['xs']))
+        self.sidebar_dock.pack(side='bottom',fill='x')
+        self.pet_dock=ttk.Frame(self.sidebar_dock,height=pet_ui.DOCK_ROOM);self.pet_dock.pack(fill='x')
+        self.pet_dock.pack_propagate(False)
+        self.pet_layer=self.pet_dock
         scroll=ScrollForm(sidebar_area,bg=COLORS['background_primary'],scrollbar=False)
         self.sidebar_viewport=sidebar_area;self.sidebar_scroll=scroll;self.sidebar_canvas=scroll.canvas
         scroll.canvas.configure(takefocus=True)
-        # 固定头是 place 浮层，不参与 pack，不改变滚动画布视口高度（避免整页布局被侧栏结构扰动）。
-        self.sidebar_head=ttk.Frame(sidebar_area,padding=(DESKTOP_LAYOUT['sidebar_padding'],DESKTOP_LAYOUT['sidebar_padding'],DESKTOP_LAYOUT['sidebar_padding'],SPACING['xs']))
-        self.app_title=ttk.Label(self.sidebar_head,text=APP_NAME,font=FONTS['heading_1'])
-        self.app_title.pack(side='left')
-        self.sidebar_head.place(x=0,y=0,relwidth=1.0)
-        header_height=self.sidebar_head.winfo_reqheight()
-        # 滚动内容从浮层下沿开始，顶部留出与浮层等高的空当，标题不会盖住「我的项目」。
-        side=ttk.Frame(scroll.form,padding=(DESKTOP_LAYOUT['sidebar_padding'],header_height,DESKTOP_LAYOUT['sidebar_padding'],DESKTOP_LAYOUT['sidebar_padding']));self.sidebar=side
+        # 「我的项目」标签 R2946 删、页标题顶到侧栏上沿；内边距上沿收到 xs，与页头 token 同带。
+        side=ttk.Frame(scroll.form,padding=(DESKTOP_LAYOUT['sidebar_padding'],SPACING['xs'],DESKTOP_LAYOUT['sidebar_padding'],DESKTOP_LAYOUT['sidebar_padding']));self.sidebar=side
+        # 页标题放滚动内容顶端、内边距之外：96px 轨宽下最长页名也放得下；
+        # EllipsisLabel 窄窗才省略号、Tooltip 留全文；各页用 set_text(…) 写入。
+        self.title=EllipsisLabel(scroll.form,text='',font=FONTS['body_bold'],anchor='w')
+        self.title.pack(side='top',fill='x',anchor='w',pady=(SPACING['xs'],SPACING['xs']))
         side.pack(fill='both',expand=True)
-        self.project_label=ttk.Label(side,text='我的项目')
-        self.project_label.pack(anchor='w',pady=(DESKTOP_LAYOUT['row_gap'],SPACING['none']))
 
 
     def _install_status_styles(self):
@@ -755,16 +768,6 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
             self.status.set('项目模型同步未完成：%s；请稍后重试。' % result['error'])
             return
         if result:self.status.set('已同步项目模型：'+'、'.join(result))
-    def switch(self,event=None):
-        """项目选择器换选：确认后才真正切换；取消由 restore_project_selection 把框复位。"""
-        picker=getattr(self,'project_picker',None)
-        items=getattr(self,'_picker_items',())
-        if picker is None or not items:return
-        index=picker.current()
-        if index<0 or index>=len(items):return
-        path=items[index]['path']
-        if Path(path)!=self.root:self.safe(lambda:self.request_project_switch(path))
-
     def new(self):
         name=ask_string(self.win,'新建项目','项目名称：')
         if name:

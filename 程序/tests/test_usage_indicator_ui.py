@@ -10,11 +10,10 @@ from pathlib import Path
 
 import tkinter as tk
 
-from pet_ui_support import PATCH_X
-from ui_tokens import COLORS, PET_LAYOUT
+from ui_tokens import COLORS
 from usage_snapshot import get_snapshot
 from ui_usage_detail import TodayDetailsDialog, UsageDetailDialog
-from ui_usage_indicator import UsageIndicator, place_in_title_row
+from ui_usage_indicator import UsageIndicator
 
 
 class _Status:
@@ -127,27 +126,18 @@ class UsageIndicatorTests(unittest.TestCase):
         self.assertIn('assets,gpt-y,300', text)
         self.assertIn('已导出', self.desktop.status.get())
 
-    def test_indicator_does_not_overlap_avatar_geometry(self):
-        layer = tk.Frame(self.root, width=800, height=PATCH_ROOM_FOR_TEST)
-        layer.pack()
-        avatar = tk.Canvas(layer, width=PET_LAYOUT['avatar_size'],
-                           height=PET_LAYOUT['avatar_size'], bd=0,
-                           highlightthickness=0)
-        avatar.place(relx=1.0, rely=0.0, anchor='ne', x=PATCH_X,
-                     y=PET_LAYOUT['top'])
-        indicator = UsageIndicator(layer, self.desktop)
-        place_in_title_row(indicator, layer)
+    def test_indicator_labels_pack_horizontally_for_the_title_row(self):
+        """R2933：指示器 pack 进标题行、Token/费用/余额同一行从左到右排开。"""
+        self.snapshot.record_call('a', 'm', 1200, cost='0.82', currency='CNY')
+        self.indicator.refresh()
         self.root.update()
-        ind_right = indicator.winfo_rootx() + indicator.winfo_width()
-        ava_left = avatar.winfo_rootx()
-        self.assertLessEqual(ind_right, ava_left,
-                             '指示器右沿 %d 压到头像左沿 %d' % (ind_right, ava_left))
-        self.assertGreater(indicator.winfo_width(), 0)
-        indicator.destroy()
-        layer.destroy()
-
-
-PATCH_ROOM_FOR_TEST = 120
+        labels = [label for label in self.indicator._labels.values() if label.winfo_manager()]
+        self.assertEqual(len(labels), 2, 'Token 与金额两项都该排出来')
+        for label in labels:
+            self.assertEqual(label.pack_info()['side'], 'left')
+            self.assertGreater(label.winfo_width(), 0)
+        tops = {label.winfo_rooty() for label in labels}
+        self.assertEqual(len(tops), 1, '三段标签必须在同一行')
 
 
 if __name__ == '__main__':

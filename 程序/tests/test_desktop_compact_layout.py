@@ -2,6 +2,7 @@
 import tempfile
 import time
 import unittest
+from unittest import mock
 import tk_test_support
 from pathlib import Path
 import tkinter as tk
@@ -62,25 +63,31 @@ class CompactDesktopGeometryTests(unittest.TestCase):
                 self.resize(width, height)
                 # 上一档可能把侧栏留在底部；每档从顶部量起，后续断言才不受滚动位置影响。
                 d.sidebar_canvas.yview_moveto(0);d.align_header();self.pump(.05)
-                self.assertEqual(d.app_title.cget('text'), '性能项目')  # R2056：侧栏顶部写当前项目名
-                self.assertAlmostEqual(d.idea_log.winfo_rooty(), d.project_block.winfo_rooty(), delta=2)
-                self.assertLess(d.title.winfo_rooty(), d.app_title.winfo_rooty() + d.app_title.winfo_height())
-                self.assertAlmostEqual(d.title.winfo_rootx(), d.idea_log.winfo_rootx(), delta=2)
-                gear, title = d.pet.gear.canvas, d.app_title
-                self.assertAlmostEqual(gear.winfo_rooty()+gear.winfo_height()/2, title.winfo_rooty()+title.winfo_reqheight()/2, delta=2)
-                self.assertAlmostEqual(gear.winfo_rootx(), title.winfo_rootx()+title.winfo_reqwidth()+DESKTOP_LAYOUT['gear_gap'], delta=2)
-                # R2897 图标轨：项目区之后依次是账号钮与 14 个阶段钮（二级「资产清单」跟在 05 后）。
-                rail=[d.account_button]
-                for i,b in enumerate(d.nav):
-                    rail.append(b)
-                    if i==PAGE['assets'] and d.asset_list_button is not None:rail.append(d.asset_list_button)
+                # R2946：页标题在侧栏滚动内容顶端（self.title 直接挂 scroll.form，避开 side 内边距）。
+                self.assertIn('当前项目：', d.win.title())
+                self.assertEqual(str(d.title.winfo_parent()), str(d.sidebar_scroll.form))
+                # R2950：页头单行化后聊天框顶与侧栏项目区顶不再逐像素对齐（两列内容各自上移）；
+                # 新契约＝聊天框位于页头下沿 40px 内的内容区上部。
+                header_bottom=d.title_row.winfo_rooty()+d.title_row.winfo_height()
+                self.assertGreaterEqual(d.idea_log.winfo_rooty(),header_bottom-1)
+                self.assertLessEqual(d.idea_log.winfo_rooty()-header_bottom,40,
+                                     '聊天框应紧贴单行页头下沿')
+                # R2946：设置入口是图标轨末尾的轨钮，三虎簇在 pet_dock，都钉在侧栏左下角、不参与滚动。
+                self.assertIsNone(d.pet.gear, '真桌面不再建底栏齿轮')
+                gear, dock = d.settings_rail_button, d.pet_dock
+                self.assertEqual(str(dock.winfo_parent()), str(d.sidebar_dock))
+                self.assertGreaterEqual(gear.winfo_rooty(), d.sidebar_canvas.winfo_rooty())
+                self.assertLessEqual(dock.winfo_rooty()+dock.winfo_height(),
+                                     d.sidebar_area.winfo_rooty()+d.sidebar_area.winfo_height()+1)
+                # R2897 图标轨：项目区之后依次是账号钮、14 个阶段钮与末尾设置钮。
+                rail=[d.account_button,*d.nav,d.settings_rail_button]
                 previous_bottom = d.project_block.winfo_rooty()+d.project_block.winfo_height()
                 for widget in rail:
                     self.assertGreaterEqual(widget.winfo_rooty(), previous_bottom)
                     previous_bottom = widget.winfo_rooty()+widget.winfo_height()
                 self.assertEqual(len(d.nav), 14, '14 个阶段按钮都要在侧栏里')
                 canvas = d.sidebar_canvas
-                rail_widgets=(*d.project_group_buttons.values(),d.project_picker,
+                rail_widgets=(*d.project_group_buttons.values(),
                               d.project_new_button,d.project_open_button,*rail)
                 for widget in rail_widgets:
                     self.reveal(widget)
@@ -107,26 +114,33 @@ class CompactDesktopGeometryTests(unittest.TestCase):
                     with self.subTest(size=(width,height), stage=stage):
                         d.show(PAGE[stage]); self.pump()
                         anchor = d.idea_log if stage == 'script' else d.content
-                        self.assertAlmostEqual(d.title.winfo_rootx(), anchor.winfo_rootx(), delta=2)
-                        self.assertEqual(d.header_slogan.cget('text'), '✦  把灵感变成故事')
-                        self.assertLessEqual(d.project_label.winfo_rooty()-(d.app_title.winfo_rooty()+d.app_title.winfo_height()), DESKTOP_LAYOUT['project_label_gap'])
+                        # R2946：页标题在侧栏滚动内容顶端（self.title 直接挂 scroll.form，避开 side 内边距）。
+                        self.assertEqual(str(d.title.winfo_parent()), str(d.sidebar_scroll.form))
+                        self.assertTrue(d.title.winfo_ismapped())
+                        # R2946：页头标语删除；Token 指示器 pack 在标题行左侧。
+                        self.assertFalse(hasattr(d, 'header_slogan'), '页头不再有标语')
+                        self.assertEqual(d.usage_indicator.master, d.title_row)
+                        self.assertAlmostEqual(d.usage_indicator.winfo_rooty() + d.usage_indicator.winfo_height() / 2,
+                                               d.title_row.winfo_rooty() + d.title_row.winfo_height() / 2, delta=max(2, d.title_row.winfo_height()))
+                        # 页标题顶到侧栏滚动区上沿（「我的项目」标签已删）。
+                        self.assertGreaterEqual(d.title.winfo_rooty(),
+                                                d.sidebar_canvas.winfo_rooty() - 1)
+                        # 三虎簇钉在侧栏底栏：头像在 pet_dock 内、不碰标题行与正文。
                         pets = (d.pet.canvas, d.pet.paws, d.pet.caption)
                         for pet in pets:
                             self.assertTrue(pet.winfo_ismapped())
-                            self.assertGreaterEqual(rect(pet)[0], rect(d.body)[0])
-                            self.assertGreaterEqual(rect(pet)[1], rect(d.body)[1])
-                            self.assertLessEqual(rect(pet)[2], rect(d.body)[2])
-                            self.assertLessEqual(rect(pet)[3], rect(d.body)[3])
-                            self.assertLessEqual(rect(pet)[3], rect(d.pet_layer)[3])
-                        if d.header_slogan.winfo_ismapped():
-                            self.assertAlmostEqual(d.header_slogan.winfo_rooty()+d.header_slogan.winfo_height()/2, d.title.winfo_rooty()+d.title.winfo_height()/2, delta=2)
-                            self.assertGreaterEqual(rect(d.header_slogan)[0], rect(d.title)[2])
-                            for pet in pets:separate(d.header_slogan, pet)
-                        else:
-                            available=min(rect(p)[0] for p in pets)-rect(d.title)[2]
-                            self.assertLess(available, d.header_slogan.winfo_reqwidth()+2*DESKTOP_LAYOUT['slogan_gap'])
+                            self.assertEqual(str(pet.winfo_parent()), str(d.pet_dock))
+                            self.assertGreaterEqual(rect(pet)[0], rect(d.sidebar_area)[0])
+                            self.assertLessEqual(rect(pet)[2], rect(d.sidebar_area)[2] + 1)
+                            self.assertGreaterEqual(rect(pet)[1], rect(d.sidebar_area)[1])
+                            self.assertLessEqual(rect(pet)[3], rect(d.sidebar_area)[3] + 1)
+                            self.assertLessEqual(rect(pet)[3], rect(d.sidebar_dock)[3] + 1)
                         if stage == 'script':
-                            self.assertAlmostEqual(d.idea_log.winfo_rooty(), d.project_block.winfo_rooty(), delta=2)
+                            # R2950：同上——聊天框贴页头下沿，不再与侧栏项目区顶逐像素对齐。
+                            header_bottom=d.title_row.winfo_rooty()+d.title_row.winfo_height()
+                            self.assertGreaterEqual(d.idea_log.winfo_rooty(),header_bottom-1)
+                            self.assertLessEqual(d.idea_log.winfo_rooty()-header_bottom,40,
+                                                 '聊天框应紧贴单行页头下沿')
                             for pet in pets:separate(d.idea_log, pet)
         finally:
             d.show(PAGE['script']); self.pump()
@@ -154,9 +168,10 @@ class CompactDesktopGeometryTests(unittest.TestCase):
         self.assertFalse(hasattr(d, 'idea_input_hint'), '静态占位提示已随 R2923 删除')
         self.assertTrue(d.shared_input.winfo_ismapped(), '共享输入框可见')
         # R2942：四类文件合成一条「项目文件」列表，每个文件一行提示。
-        # R2897：侧栏项目区改为分组筛选图标＋项目选择器；组筛选状态与「●」当前标记走选择器。
+        # R2946：侧栏项目区＝分组筛选图标（点了弹项目选择层）＋新建/打开；
+        # 「●」当前标记与组筛选状态都走 _picker_items。
         self.assertEqual(d._project_group, 'making')
-        self.assertTrue(d.project_picker.get().startswith('● '), '选择器应标出当前项目')
+        self.assertTrue(any(Path(p['path']) == d.root for p in d._picker_items), '当前项目应在在制作组里')
         making_paths = sorted(p['path'] for p in d.projects.info['projects']
                               if p.get('status', 'making') == 'making')
         self.assertEqual(sorted(p['path'] for p in d._picker_items), making_paths)
@@ -167,6 +182,31 @@ class CompactDesktopGeometryTests(unittest.TestCase):
         completed_paths = sorted(p['path'] for p in d.projects.info['projects']
                                  if p.get('status', 'making') == 'completed')
         self.assertEqual(sorted(p['path'] for p in d._picker_items), completed_paths)
+        # R2946：点分组图标＝切组＋弹出该组项目选择层；两组各弹各的列表。
+        posted = []
+        real_post = d._post_project_picker
+        d._post_project_picker = lambda state=None: posted.append(d._project_group)
+        try:
+            d.project_group_buttons['making'].invoke()
+            self.assertEqual(posted, ['making'], '点「在制作」图标要弹选择层')
+            d.project_group_buttons['completed'].invoke()
+            self.assertEqual(posted, ['making', 'completed'], '点「已完成」图标也要弹')
+        finally:
+            d._post_project_picker = real_post
+        self.assertEqual(d._project_group, 'completed')
+        # 选择层真开一次：浮层里有「●」标当前项目的行，点外部即关。
+        d.set_project_group('making', popup=True); self.pump()
+        top = getattr(d, '_sidebar_popup_win', None)
+        self.assertIsNotNone(top, '点分组图标要弹出项目选择层')
+        labels = []
+        def collect(widget):
+            for child in widget.winfo_children():
+                if isinstance(child, tk.Label):labels.append(str(child.cget('text')))
+                collect(child)
+        collect(top)
+        self.assertTrue(any(t.startswith('● ') for t in labels), '选择层里当前项目带 ● 标记')
+        d._close_sidebar_popup(); self.pump()
+        self.assertIsNone(getattr(d, '_sidebar_popup_win', None), '点外部后选择层收起')
         self.assertEqual(set(d.script_row_category.values()), {'setting', 'outline', 'character', 'script'},
                          '四类文件都出现在同一条列表里')
         tree = d.script_tree
@@ -179,6 +219,26 @@ class CompactDesktopGeometryTests(unittest.TestCase):
                 self.assertIn(Path(item).name, details)
                 expected = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(Path(item).stat().st_mtime))
                 self.assertIn(expected, details)
+
+    def test_sidebar_popup_clamps_to_anchor_monitor(self):
+        """R2950：主窗在副屏时选择层钳位取锚点所在显示器，不被主屏宽度拽回主屏。"""
+        self.resize(942, 1032)
+        d = self.desktop
+        # 把窗口挪到副屏坐标系（隐藏测试桌面坐标是虚拟的，直接给几何即可）。
+        self.win.geometry('+2500+80'); self.pump()
+        try:
+            with mock.patch('desktop_page_nav.monitor_bounds', return_value=(1920, 0, 3840, 1080)):
+                d.set_project_group('making', popup=True); self.pump()
+                top = getattr(d, '_sidebar_popup_win', None)
+                self.assertIsNotNone(top, '点分组图标要弹出项目选择层')
+                anchor = d.project_group_buttons['making']
+                self.assertGreaterEqual(anchor.winfo_rootx(), 1920)
+                self.assertGreaterEqual(top.winfo_rootx(), 1920,
+                                        '副屏上的选择层不得被钳回主屏（旧代码按主屏宽度钳位）')
+                self.assertAlmostEqual(top.winfo_rootx(), anchor.winfo_rootx(), delta=2,
+                                       msg='选择层应贴在锚点正下方')
+        finally:
+            d._close_sidebar_popup(); self.pump()
 
 
 if __name__ == '__main__':unittest.main()

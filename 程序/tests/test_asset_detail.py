@@ -684,15 +684,19 @@ class RosterTests(_Harness):
                          "非字典的条目不上榜")
 
     def test_the_sidebar_entry_opens_the_roster_page(self):
-        """侧栏那一格点一下：进清单页，每个角色都有正典板与换状态面板。"""
+        """第 R2946 期：资产清单是「05 资产管理」图标的二级入口——点图标弹选择层，层里点「资产清单」。"""
         with tempfile.TemporaryDirectory() as td:
             proj = project_with(td)
             d, win = self.desktop(proj)
-            d.show(d.page_of("assets")); win.update()
-            self.assertIsNotNone(d.asset_list_button, "侧栏挂了二级入口")
-            self.assertEqual(str(d.asset_list_button.cget("style")), "Sub.Nav.TButton",
-                             "没进去时是普通样式")
-            d.asset_list_button.invoke(); win.update()
+            index = d.page_of("assets")
+            d.show(index); win.update()
+            d.nav[index].invoke(); win.update()
+            top = getattr(d, "_sidebar_popup_win", None)
+            self.assertIsNotNone(top, "点资产管理图标要弹出二级选择层")
+            entries = [w for w in widget_list(top, (self.ttk.Button, self.tk.Button))
+                       if str(w.cget("text")) == "资产清单"]
+            self.assertEqual(len(entries), 1, "选择层里只有「资产清单」一项")
+            entries[0].invoke(); win.update()
             self.assertTrue(d.asset_roster)
             self.assertIsNone(d.asset_detail_id)
             texts = self.texts(d.content)
@@ -700,20 +704,27 @@ class RosterTests(_Harness):
             self.assertTrue(any("正典板" in t for t in texts), "每个角色都有正典板")
             self.assertTrue(any("换状态" in t for t in texts), "角色还有换状态面板")
             self.assertTrue(self.buttons(d.content, "编辑这一项"), "改内容还得能进详情页")
-            self.assertEqual(str(d.asset_list_button.cget("style")), "Selected.Sub.Nav.TButton",
-                             "在这一屏时高亮")
+            self.assertEqual(d.nav[index]._nav_icon_name, "asset_list",
+                             "清单页激活时资产管理图标换成清单字形")
+            # 选择层开着时再点图标回资产管理主页，图标换回常态。
+            d.nav[index].invoke(); win.update()
+            d.nav[index].invoke(); win.update()
+            self.assertFalse(d.asset_roster, "再点一次图标回资产管理主页")
+            self.assertEqual(d.nav[index]._nav_icon_name, "assets")
 
     def test_leaving_the_page_drops_the_roster_route(self):
-        """翻到别的页就回主页面，二级入口也恢复普通样式。"""
+        """翻到别的页就回主页面，资产管理图标也换回常态字形。"""
         with tempfile.TemporaryDirectory() as td:
             proj = project_with(td)
             d, win = self.desktop(proj)
+            index = d.page_of("assets")
             d.open_asset_roster(); win.update()
             self.assertTrue(d.asset_roster)
+            self.assertEqual(d.nav[index]._nav_icon_name, "asset_list")
             d.show(d.page_of("script")); win.update()
             self.assertFalse(d.asset_roster, "翻到别的页就回主页面")
             self.assertIsNone(d.asset_detail_id)
-            self.assertEqual(str(d.asset_list_button.cget("style")), "Sub.Nav.TButton")
+            self.assertEqual(d.nav[index]._nav_icon_name, "assets")
 
     def test_back_returns_to_the_asset_main_page(self):
         """清单页的「返回资产管理」回资产管理主页面。"""

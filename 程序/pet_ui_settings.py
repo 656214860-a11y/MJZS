@@ -166,23 +166,31 @@ class PetSettingsMixin:
         import pet_settings_ui
         return pet_settings_ui.open_hub(self, tab)
     def build_gear(self, parent=None):
-        """左上角那颗齿轮（用户要的「做成齿轮外观的入口…醒目提示」）。
+        """设置入口齿轮（第 R2946 期：真桌面改由侧栏图标轨末尾的 settings 钮承担）。
 
-        真 Desktop 放进主窗口根层预留的安全位，既不会被侧栏裁掉，也不遮住标题或正文；
-        没有该安全位的宿主（自检里的假桌面）仍嵌入标题行——绝不因为缺个容器就起不来。
+        真 Desktop 建有 ``settings_rail_button`` 时直接返回——齿轮不再进底栏；
+        没有该控件的宿主（自检里的假桌面）照旧建齿轮，退回 pet_dock／标题行／根窗。
         """
         if self.gear is not None:
             return self.gear
-        holder = parent if parent is not None else getattr(self.desktop, 'settings_gear_layer', None)
-        holder = holder if holder is not None else getattr(self.desktop, 'sidebar_head', None)
+        desktop = getattr(self, 'desktop', None)
+        if getattr(desktop, 'settings_rail_button', None) is not None:
+            return None
+        gear_layer = getattr(desktop, 'settings_gear_layer', None)
+        holder = parent if parent is not None else gear_layer
+        holder = holder if holder is not None else getattr(desktop, 'pet_dock', None)
+        holder = holder if holder is not None else getattr(desktop, 'sidebar_head', None)
         holder = holder if holder is not None else self.win
         try:
             self.gear = GearButton(holder, command=lambda: self.act(self.open_settings))
             if holder is self.win:
                 # 主窗口根层不受侧栏、标题行或页面画布的裁剪；它在页面控件之后创建，
                 # 因而位于根层子控件的最前。
-                x, y = getattr(self.desktop, 'settings_gear_position', (112, 8))
+                x, y = getattr(desktop, 'settings_gear_position', (112, 8))
                 self.gear.canvas.place(x=x, y=y, anchor='nw')
+            elif holder is gear_layer:
+                # 底栏齿轮行：画布保持 36px 命中区，pack 居中、不拉伸。
+                self.gear.canvas.pack()
             else:
                 # 无真实 Desktop 的轻量宿主仍嵌入其标题行，方便复用与无界面自检。
                 self.gear.canvas.pack(side='right', padx=(SPACING['none'], SPACING['xs']))

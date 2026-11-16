@@ -35,9 +35,10 @@ class ProjectSwitchGuardTests(unittest.TestCase):
         with patch.object(desktop, 'confirm', return_value=False):
             self.assertFalse(desktop.Desktop.request_project_switch(app, 'D:/p/乙_20260102'))
         app.open_project_or_cleanup.assert_not_called()
-        # R2897：高亮＝选择器回到「● 当前项目」；甲是当前项目，应选中第 0 项。
-        app.project_picker.current.assert_called_with(0)
-        self.assertIn('● 甲', app.project_picker.set_values.call_args.args[0])
+        # R2946：高亮＝弹层里的「● 当前项目」行；复位后 _picker_items 仍含当前项目甲。
+        paths = [p['path'] for p in app._picker_items]
+        self.assertIn('D:/p/甲_20260101', paths)
+        self.assertIn('D:/p/乙_20260102', paths)
 
     def test_confirm_names_both_projects_then_opens(self):
         app = make_app()
@@ -57,7 +58,8 @@ class ProjectSwitchGuardTests(unittest.TestCase):
                         desktop.Desktop.request_project_switch(app, 'D:/p/乙_20260102')
                 ask.assert_not_called()
                 app.open_project_or_cleanup.assert_not_called()
-                app.project_picker.current.assert_called_with(0)
+                # R2946：复位后弹层数据仍含当前项目甲。
+                self.assertIn('D:/p/甲_20260101', [p['path'] for p in app._picker_items])
 
     def test_current_project_row_is_marked(self):
         app = make_app()

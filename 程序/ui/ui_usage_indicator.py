@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-"""主窗口右上角用量指示器（费用统计模块任务书）。
+"""页标题右侧用量指示器（费用统计模块任务书）。
 
-挂在 ``Desktop.pet_layer``（即标题行）右上角、三虎头像左侧；显示今日
-Token 用量、今日费用（仅在有价格表折算出非零金额时）与平台余额（查不到就
-隐藏，绝不显示假 0）。Token 颜色按日用量三档取 ``ui_tokens`` 语义色。
+第 R2933 期：从标题行右上角浮层改为 pack 进标题行、紧跟页标题同一行；
+显示今日 Token 用量、今日费用（仅在有价格表折算出非零金额时）与平台余额
+（查不到就隐藏，绝不显示假 0）。Token 颜色按日用量三档取 ``ui_tokens`` 语义色。
 
 订阅 ``pet_bus`` 的 ``usage_updated`` 事件刷新；``sync_bus()`` 由 desktop
 每拍调用，保证换项目重建总线后重新绑定，不丢刷新。
@@ -11,23 +11,11 @@ Token 用量、今日费用（仅在有价格表折算出非零金额时）与�
 import tkinter as tk
 
 import app_logging
-from ui_tokens import COLORS, FONTS, PET_LAYOUT, SPACING
+from ui_tokens import COLORS, FONTS, SPACING
 from infra.usage_snapshot import abbr_number, get_snapshot, money_amount, money_text
 
 _TOKEN_WARN = 500000     # ≥50 万：黄色
 _TOKEN_DANGER = 1500000  # ≥150 万：红色
-
-
-def place_in_title_row(indicator, layer):
-    """把指示器钉在标题行右上角、三虎头像左侧。
-
-    右沿偏移由 ``pet_ui_support.PATCH_X``（头像右沿）减头像边长与间距得出，
-    与三虎布局同一组 token，贴片位置调整时这里自动跟随；``relx`` 锚定保证
-    窗口缩放时不压到头像。
-    """
-    from pet_ui_support import PATCH_X
-    inset = PATCH_X - PET_LAYOUT['avatar_size'] - SPACING['sm']
-    indicator.place(relx=1.0, rely=0.0, anchor='ne', x=inset, y=PET_LAYOUT['top'])
 
 
 class UsageIndicator(tk.Frame):
