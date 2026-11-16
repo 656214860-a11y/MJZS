@@ -106,10 +106,11 @@ MANAGE_ADD = '新增·文件'
 MANAGE_ADD_DIR = '新增·文件夹'
 MANAGE_ADD_ZIP = '新增·ZIP'
 MANAGE_ADD_REPO = '从仓库地址导入'
+MANAGE_ADD_URL = '从链接导入'
 MANAGE_HEALTH = '体检'
 MANAGE_DELETE = '删除已勾选 SKILL'
 MANAGE_LABELS = (MANAGE_ALL, MANAGE_NONE, MANAGE_ADD, MANAGE_ADD_DIR, MANAGE_ADD_ZIP,
-                 MANAGE_ADD_REPO, MANAGE_HEALTH, MANAGE_DELETE)
+                 MANAGE_ADD_REPO, MANAGE_ADD_URL, MANAGE_HEALTH, MANAGE_DELETE)
 # 外部包只登记总入口；API 调用只会收到入口指针，不能假装会展开其中的本地子模块。
 # 勾选框按「功能分组／流程先后」排（第 59 期第 6 条）：文件名前缀就是那条流程里的功能分组。
 
@@ -392,6 +393,9 @@ class Panel(PanelWorkflowMixin, PanelImportMixin, FormScrollMixin, ttk.Frame):
         if picked == MANAGE_ADD_REPO:
             self.skill_action.set(MANAGE_ALL)
             return self.add_skill_from_repo()
+        if picked == MANAGE_ADD_URL:
+            self.skill_action.set(MANAGE_ALL)
+            return self.add_skill_from_url()
         if picked == MANAGE_HEALTH:
             self.skill_action.set(MANAGE_ALL)
             return show_skill_health(self)

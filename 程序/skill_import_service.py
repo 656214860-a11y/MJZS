@@ -183,8 +183,24 @@ def _read_items(path):
     return dict(data.get('items')) if isinstance(data.get('items'), dict) else {}
 
 
+def _frontmatter_version(target):
+    """台账 ``version`` 字段：取已安装入口文件 frontmatter 的 ``version``，没有记空串。"""
+    try:
+        meta, _body = skill_registry.parse(
+            Path(target).read_text(encoding='utf-8-sig'), source=str(target))
+    except (OSError, UnicodeError, ValueError):
+        return ''
+    value = meta.get('version')
+    return value.strip() if isinstance(value, str) and value.strip() else ''
+
+
 def record(program, plan, digest, now=None):
-    """导入台账：按目标相对路径记一行，同一目标再次导入时覆盖该行。"""
+    """导入台账：按目标相对路径记一行，同一目标再次导入时覆盖该行。
+
+    T3 起每行带 ``source_url``／``source_ref``（远程可更新坐标，本地来源为空串）
+    与 ``version``（入口文件 frontmatter，无则空串）；读取侧 ``_read_items``
+    对旧行缺字段天然容忍。
+    """
     path = ledger_path(program)
     items = _read_items(path)
     target = (plan['target'].parent if plan['kind'] == 'package' else plan['target']).resolve()
@@ -198,6 +214,9 @@ def record(program, plan, digest, now=None):
                   'kind': plan['kind'], 'name': plan['name'], 'sha256': digest,
                   'source_kind': plan.get('source_kind')
                                  or ('dir' if plan['kind'] == 'package' else 'file'),
+                  'source_url': str(plan.get('source_url') or ''),
+                  'source_ref': str(plan.get('source_ref') or ''),
+                  'version': _frontmatter_version(plan['target']),
                   'imported_at': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(now or time.time()))}
     save(path, {'version': 1, 'items': items})
     return path
@@ -463,11 +482,17 @@ def _candidate_plans(candidates, root, registry, stage_hint):
 
 
 class _InstallSource(NamedTuple):
-    """``_install_candidate_plans`` 的来源信息：台账来源、界面标签、来源类别与提示称谓。"""
+    """``_install_candidate_plans`` 的来源信息：台账来源、界面标签、来源类别与提示称谓。
+
+    ``source_url``／``source_ref`` 是 T3 远程来源的可更新坐标（仓库地址、ref），
+    写进每行台账供 T4 更新检测；本地文件／文件夹／压缩包来源留空。
+    """
     ledger_source: str
     label: str
     source_kind: str = ''
     origin: str = '仓库'
+    source_url: str = ''
+    source_ref: str = ''
 
 
 def _install_candidate_plans(plans, problems, errors, program, confirm, source):
@@ -492,6 +517,10 @@ def _install_candidate_plans(plans, problems, errors, program, confirm, source):
         plan['ledger_source'] = source.ledger_source
         if source.source_kind:
             plan['source_kind'] = source.source_kind
+        if source.source_url:
+            plan['source_url'] = source.source_url
+        if source.source_ref:
+            plan['source_ref'] = source.source_ref
         try:
             perform_import(plan, program)
             installed.append({'name': plan['name'], 'kind': plan['kind'],
@@ -533,10 +562,13 @@ def import_from_repo(text, program, registry, stage_hint='', confirm=None):
         if not candidates:
             raise ImportBlocked('仓库中没有找到 SKILL.md 或 *.skill.md')
         plans, problems, errors = _candidate_plans(candidates, root, registry, stage_hint)
+        remote = spec['kind'] == 'url'
         return _install_candidate_plans(
             plans, problems, errors, program, confirm,
             _InstallSource(ledger_source=label, label=label,
-                           source_kind='repo', origin='仓库'))
+                           source_kind='repo', origin='仓库',
+                           source_url=spec['url'] if remote else '',
+                           source_ref=spec.get('ref', '') if remote else ''))
     finally:
         if staging is not None and staging.exists():
             recycle_paths(program, [staging], 'SKILL 仓库克隆暂存收尾')

@@ -117,12 +117,32 @@ def _staging_name(zip_path):
     return (stem or '压缩包')[:80]
 
 
-def import_archive(zip_path, program, registry, stage_hint='', confirm=None):
+def _scope_root(root, scope):
+    """ZIP 内子目录作用域（远程 GitHub ``/tree/<ref>/<子目录>`` 用）：必须是解压根内的目录。"""
+    parts = [part for part in str(scope).replace('\\', '/').split('/') if part]
+    if not parts or any(part in ('.', '..') for part in parts):
+        raise skill_import_service.ImportBlocked('压缩包子目录路径不安全：「%s」' % scope)
+    target = Path(root).joinpath(*parts)
+    resolved = target.resolve()
+    if not resolved.is_relative_to(Path(root).resolve()):
+        raise skill_import_service.ImportBlocked('压缩包子目录越界：「%s」' % scope)
+    if not resolved.is_dir():
+        raise skill_import_service.ImportBlocked('压缩包中没有目录「%s」' % scope)
+    return resolved
+
+
+def import_archive(zip_path, program, registry, stage_hint='', confirm=None, *,
+                   install_source=None, scope=''):
     """ZIP 导入主入口：安全解包 → 候选扫描 → 与仓库导入同一条安装管线。
 
     返回 ``{'label', 'installed', 'failed', 'skipped', 'candidates'}``，
     结构与 ``skill_import_service.import_from_repo`` 一致；台账 ``source``
     记压缩包绝对路径、``source_kind`` 记 ``archive``。
+
+    ``install_source``：远程链接导入（``skill_remote_service``）传入的
+    :class:`skill_import_service._InstallSource`，覆盖台账来源与 ``source_url``／
+    ``source_ref``；``scope`` 是包内子目录（如 GitHub ``/tree/<ref>/<子目录>``），
+    只在该目录下找 SKILL 候选。
     """
     program = Path(program)
     zip_path = Path(zip_path)
@@ -131,17 +151,19 @@ def import_archive(zip_path, program, registry, stage_hint='', confirm=None):
     root = staging / _staging_name(zip_path)
     try:
         _extract(zip_path, root)
+        if scope:
+            root = _scope_root(root, scope)
         candidates = skill_import_service._repo_candidates(root)
         if not candidates:
             raise skill_import_service.ImportBlocked(
                 '压缩包中没有找到 SKILL.md 或 *.skill.md')
         plans, problems, errors = skill_import_service._candidate_plans(
             candidates, root, registry, stage_hint)
+        source = install_source or skill_import_service._InstallSource(
+            ledger_source=str(zip_path.resolve()), label=zip_path.name,
+            source_kind='archive', origin='压缩包')
         return skill_import_service._install_candidate_plans(
-            plans, problems, errors, program, confirm,
-            skill_import_service._InstallSource(
-                ledger_source=str(zip_path.resolve()), label=zip_path.name,
-                source_kind='archive', origin='压缩包'))
+            plans, problems, errors, program, confirm, source)
     finally:
         if staging.exists():
             recycle_paths(program, [staging], 'SKILL 压缩包解压暂存收尾')

@@ -61,6 +61,19 @@ def _import_plan(panel, plan):
     return target
 
 
+def _report_batch(panel, report, lead):
+    """批量来源导入（ZIP／仓库／链接）成功后的共用收尾：重扫面板＋状态行。"""
+    _reload_panel_skills(panel)
+    names = '、'.join(item['name'] for item in report['installed']) or '无'
+    suffix = ''
+    if report['failed']:
+        suffix = '；失败 ' + str(len(report['failed'])) + ' 个'
+    if report['skipped']:
+        suffix += '；跳过 ' + str(len(report['skipped'])) + ' 个'
+    panel.state.configure(text=lead + '（%s）：%s%s' % (report['label'], names, suffix))
+    return report
+
+
 class PanelImportMixin:
     """Panel 的 SKILL 导入方法集（面板本体在 skill_panel.Panel）。"""
 
@@ -123,15 +136,7 @@ class PanelImportMixin:
         except (skill_import_service.ImportBlocked, OSError, ValueError) as exc:
             self.state.configure(text='ZIP 导入失败：' + str(exc))
             return None
-        _reload_panel_skills(self)
-        names = '、'.join(item['name'] for item in report['installed']) or '无'
-        suffix = ''
-        if report['failed']:
-            suffix = '；失败 ' + str(len(report['failed'])) + ' 个'
-        if report['skipped']:
-            suffix += '；跳过 ' + str(len(report['skipped'])) + ' 个'
-        self.state.configure(text='ZIP 导入完成（%s）：%s%s' % (report['label'], names, suffix))
-        return report
+        return _report_batch(self, report, 'ZIP 导入完成')
 
     def add_skill_from_repo(self):
         """从仓库地址导入 SKILL：owner/repo 简写、完整 URL（可带 @分支）或本地目录；
@@ -153,12 +158,28 @@ class PanelImportMixin:
         except (skill_import_service.ImportBlocked, OSError, ValueError) as exc:
             self.state.configure(text='仓库导入失败：' + str(exc))
             return None
-        _reload_panel_skills(self)
-        names = '、'.join(item['name'] for item in report['installed']) or '无'
-        suffix = ''
-        if report['failed']:
-            suffix = '；失败 ' + str(len(report['failed'])) + ' 个'
-        if report['skipped']:
-            suffix += '；跳过 ' + str(len(report['skipped'])) + ' 个'
-        self.state.configure(text='仓库导入完成（%s）：%s%s' % (report['label'], names, suffix))
-        return report
+        return _report_batch(self, report, '仓库导入完成')
+
+    def add_skill_from_url(self):
+        """从 http(s) 链接导入 SKILL：GitHub 仓库（``#ref``／``/tree/<ref>/<子目录>``）
+        或 ``.zip`` 直链；下载进 ``data/skills/下载缓存/`` 后走与本地 ZIP 相同的
+        解包→预检→换入→试冻结→登记管线（``skill_remote_service``）。"""
+        import skill_import_service
+        import skill_remote_service
+        text = ask_string(self.winfo_toplevel(), TITLE,
+                          'SKILL 链接（GitHub 仓库地址或 .zip 直链）：')
+        if not text or not str(text).strip():
+            return None
+        program = Path(skill_import_service.__file__).resolve().parent
+
+        def _confirm(message):
+            return confirm(self.winfo_toplevel(), TITLE, message, dangerous=True)
+
+        try:
+            report = skill_remote_service.import_from_url(
+                str(text).strip(), program, self.registry,
+                stage_hint=self.stage, confirm=_confirm)
+        except (skill_import_service.ImportBlocked, OSError, ValueError) as exc:
+            self.state.configure(text='链接导入失败：' + str(exc))
+            return None
+        return _report_batch(self, report, '链接导入完成')
