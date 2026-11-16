@@ -24,7 +24,7 @@ class AssetPlanPublicationBoundaryTests(unittest.TestCase):
     def test_l2_requires_injected_publishers_and_l3_owns_their_assembly(self) -> None:
         plan = parse(ROOT / 'asset_plan.py')
         resume = parse(ROOT / 'asset_resume.py')
-        stage = parse(ROOT / 'stage_asset_gateways.py')
+        stage = parse(ROOT / 'orchestrator/stage_asset_gateways.py')
         plan_imports = [name.name for node in plan.body if isinstance(node, ast.ImportFrom)
                         and node.module == 'agent.core' for name in node.names]
         resume_imports = [name.name for node in resume.body if isinstance(node, ast.ImportFrom)

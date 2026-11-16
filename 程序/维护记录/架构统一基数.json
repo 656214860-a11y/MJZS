@@ -940,7 +940,7 @@
         "reason": "R830：原子发布前对内存 JSON 文本的校验，不读取文件。"
       },
       {
-        "file": "stage_animatic_gateways.py",
+        "file": "orchestrator/stage_animatic_gateways.py",
         "point": "confirm_animatic:json.loads:e447f3b9a080d917:1",
         "disposition": "exempt",
         "reason": "R1124：发布器对内存确认文本的 JSON 校验，不读取文件。"
@@ -958,13 +958,13 @@
         "reason": "R1124：解析 ffprobe 子进程标准输出协议，不读取 JSON 文件。"
       },
       {
-        "file": "stage_handoff_gateways.py",
+        "file": "orchestrator/stage_handoff_gateways.py",
         "point": "save_automatic_assemble_marker.publish_marker:json.loads:e447f3b9a080d917:1",
         "disposition": "exempt",
         "reason": "R830：原子发布前对内存标记文本的校验，不读取文件。"
       },
       {
-        "file": "stage_handoff_gateways.py",
+        "file": "orchestrator/stage_handoff_gateways.py",
         "point": "save_automatic_handoff_marker.publish_marker:json.loads:e447f3b9a080d917:1",
         "disposition": "exempt",
         "reason": "R830：原子发布前对内存标记文本的校验，不读取文件。"
@@ -1024,7 +1024,7 @@
         "reason": "R830：编辑器输入框内存文本的 JSON 解析，不读取文件。"
       },
       {
-        "file": "storyboard_final.py",
+        "file": "orchestrator/storyboard_final.py",
         "point": "finalize.validate_episode_text:json.loads:48da4dd596fff0b4:1",
         "disposition": "exempt",
         "reason": "R830：发布前内存 JSON 文本校验，不读取文件。"

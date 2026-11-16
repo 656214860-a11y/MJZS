@@ -219,7 +219,7 @@ def _episode(batch, script, existing_board):
         stamp = time.strftime('%Y%m%d_%H%M%S')
         artifacts[history / ('%s_%s.json' % (target.stem, stamp))] = Path(existing_board).read_bytes()
     import file_cache
-    from stage_publication import publish_stage_bundle
+    from orchestrator.stage_publication import publish_stage_bundle
 
     def allowed(_items):
         return not batch.cancelled() and (bool(existing_board) or not target.exists())

@@ -1,0 +1,15 @@
+{
+  "round": 2930,
+  "commit_base": "01cf2f88",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k stage_exec stage_gateway stage_publication storyboard_final storyboard_catalog writing_preparation script_skill_report stage_contract handoff_gateway previs animatic",
+    "exit": 0,
+    "passed": 213,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T08:35:59"
+}

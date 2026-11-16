@@ -11,7 +11,7 @@ import stage_config
 import stage_models
 from project_context_factory import project_context
 from contract.stage_path_service import write_dir
-from stage_asset_gateways import (  # noqa: F401  re-export
+from orchestrator.stage_asset_gateways import (  # noqa: F401  re-export
     _json_gateway,
     asset_batch_gateway,
     asset_plan_gateway,
@@ -30,7 +30,7 @@ from stage_asset_gateways import (  # noqa: F401  re-export
     pending_generated_assets,
     import_pending_generated_assets,
     unwrap_service_result)
-from stage_animatic_gateways import (  # noqa: F401  re-export
+from orchestrator.stage_animatic_gateways import (  # noqa: F401  re-export
     animatic_preview_spec,
     animatic_reference_paths,
     animatic_video,
@@ -40,7 +40,7 @@ from stage_animatic_gateways import (  # noqa: F401  re-export
     import_animatic_references,
     publish_animatic_bundle,
     run_animatic)
-from stage_previs_gateways import (  # noqa: F401  re-export
+from orchestrator.stage_previs_gateways import (  # noqa: F401  re-export
     dispatch_stage_previs,
     install_stage_previs_progress,
     previs_automatic_candidates,
@@ -62,7 +62,7 @@ from stage_previs_gateways import (  # noqa: F401  re-export
     storyboard_produced_scripts,
     storyboard_resolve_source,
     storyboard_working_dir)
-from stage_gate_gateways import (  # noqa: F401  re-export
+from orchestrator.stage_gate_gateways import (  # noqa: F401  re-export
     cloud_video_gateway,
     cloud_video_saved_provider_key,
     cloud_video_session_folder,
@@ -77,7 +77,7 @@ from stage_gate_gateways import (  # noqa: F401  re-export
     save_tts_key,
     tts_gateway,
     video_lifecycle_gateway)
-from stage_handoff_gateways import (  # noqa: F401  re-export
+from orchestrator.stage_handoff_gateways import (  # noqa: F401  re-export
     asset_impact,
     continuity_issue_report,
     decide_continuity_issue,
@@ -95,13 +95,13 @@ from stage_handoff_gateways import (  # noqa: F401  re-export
     storyboard_adoption_impact,
     sync_continuity_issues,
     verify_handoff_bundle)
-from stage_publication import (
+from orchestrator.stage_publication import (
     project_registry_gateway,
     publish_stage_bundle,
     publish_stage_bytes,
     publish_stage_text,
     recover_stage_publications)
-from stage_write_preparation_service import (
+from orchestrator.stage_write_preparation_service import (
     _STAGE_COPY_LOCK,
     _copy_stage_for_write,
     prepare_asset_write,
