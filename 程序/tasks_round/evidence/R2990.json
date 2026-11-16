@@ -1,0 +1,15 @@
+{
+  "round": 2990,
+  "commit_base": "6ecbfd5f",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k page_paint app_logging",
+    "exit": 0,
+    "passed": 30,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T17:58:12"
+}
