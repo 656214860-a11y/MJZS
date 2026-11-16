@@ -19,7 +19,7 @@ from asset_batch_service import (
     automatic_plan as _automatic_plan, auto_settings as _auto_settings,
     current_model as _current_model, unattended_plan as _unattended_plan,
 )
-from asset_auto_batch_service import auto_batch as _auto_batch
+from orchestrator.asset_auto_batch_service import auto_batch as _auto_batch
 from asset_batch_state_service import ledger_path, uncertain_assets, prune_raw_outputs, ready_asset_ids
 from asset_batch_selection_service import all_selected, scope_label, set_selection, toggle_excluded
 from orchestrator.asset_batch_controller import AssetBatchController, WORKFLOW_MODEL
@@ -88,7 +88,7 @@ def batch_complete(base,aids):
 
 def run_batch(project,base,items,options,events,stop,client_factory=Comfy):
     """Compatibility entry point; UI code delegates to the headless executor."""
-    from asset_batch_execution import run_batch as execute_batch
+    from orchestrator.asset_batch_execution import run_batch as execute_batch
     return execute_batch(project,base,items,options,events,stop,client_factory)
 
 def auto_settings(project):

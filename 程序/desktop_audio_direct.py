@@ -5,7 +5,7 @@ import queue
 
 def run_audio_direct(host, config):
     """配音与字幕阶段选了模型池 API 模型时由程序直连（唯一分流点在 _FlowAgentLaunch.build）。"""
-    from audio_direct_api import launch
+    from orchestrator.audio_direct_api import launch
     from workflow_settings import skill_prompt
     source = host.current_frame_json()
     if not source:

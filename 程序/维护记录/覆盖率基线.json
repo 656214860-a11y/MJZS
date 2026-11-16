@@ -57,7 +57,7 @@
   {
    "module": "agent_dispatch.py",
    "covered": 0,
-   "total": 44,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -117,7 +117,7 @@
   {
    "module": "asset_auto_batch_service.py",
    "covered": 0,
-   "total": 38,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -135,7 +135,7 @@
   {
    "module": "asset_batch_execution.py",
    "covered": 0,
-   "total": 130,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -261,7 +261,7 @@
   {
    "module": "audio_direct_api.py",
    "covered": 0,
-   "total": 160,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -687,7 +687,7 @@
   {
    "module": "desktop_send_ledger.py",
    "covered": 0,
-   "total": 134,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -711,7 +711,7 @@
   {
    "module": "desktop_startup_service.py",
    "covered": 0,
-   "total": 31,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -957,7 +957,7 @@
   {
    "module": "exit_maintenance.py",
    "covered": 0,
-   "total": 28,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -1053,7 +1053,7 @@
   {
    "module": "image_direct.py",
    "covered": 0,
-   "total": 20,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -1291,13 +1291,49 @@
    "percent": 0.0
   },
   {
+   "module": "orchestrator/agent_dispatch.py",
+   "covered": 0,
+   "total": 44,
+   "percent": 0.0
+  },
+  {
+   "module": "orchestrator/asset_auto_batch_service.py",
+   "covered": 0,
+   "total": 38,
+   "percent": 0.0
+  },
+  {
    "module": "orchestrator/asset_batch_controller.py",
    "covered": 0,
    "total": 66,
    "percent": 0.0
   },
   {
+   "module": "orchestrator/asset_batch_execution.py",
+   "covered": 0,
+   "total": 130,
+   "percent": 0.0
+  },
+  {
    "module": "orchestrator/asset_page_controller.py",
+   "covered": 0,
+   "total": 31,
+   "percent": 0.0
+  },
+  {
+   "module": "orchestrator/audio_direct_api.py",
+   "covered": 0,
+   "total": 160,
+   "percent": 0.0
+  },
+  {
+   "module": "orchestrator/desktop_send_ledger.py",
+   "covered": 0,
+   "total": 134,
+   "percent": 0.0
+  },
+  {
+   "module": "orchestrator/desktop_startup_service.py",
    "covered": 0,
    "total": 31,
    "percent": 0.0
@@ -1309,9 +1345,21 @@
    "percent": 0.0
   },
   {
+   "module": "orchestrator/exit_maintenance.py",
+   "covered": 0,
+   "total": 28,
+   "percent": 0.0
+  },
+  {
    "module": "orchestrator/idea_chat_controller.py",
    "covered": 0,
    "total": 229,
+   "percent": 0.0
+  },
+  {
+   "module": "orchestrator/image_direct.py",
+   "covered": 0,
+   "total": 20,
    "percent": 0.0
   },
   {
@@ -1330,6 +1378,30 @@
    "module": "orchestrator/page_navigation_controller.py",
    "covered": 0,
    "total": 92,
+   "percent": 0.0
+  },
+  {
+   "module": "orchestrator/pet_broadcast_state.py",
+   "covered": 0,
+   "total": 79,
+   "percent": 0.0
+  },
+  {
+   "module": "orchestrator/pet_chat_coordinator.py",
+   "covered": 0,
+   "total": 42,
+   "percent": 0.0
+  },
+  {
+   "module": "orchestrator/previs_batch_service.py",
+   "covered": 0,
+   "total": 27,
+   "percent": 0.0
+  },
+  {
+   "module": "orchestrator/previs_monitor.py",
+   "covered": 0,
+   "total": 116,
    "percent": 0.0
   },
   {
@@ -1363,6 +1435,12 @@
    "percent": 0.0
   },
   {
+   "module": "orchestrator/storyboard_direct_api.py",
+   "covered": 0,
+   "total": 279,
+   "percent": 0.0
+  },
+  {
    "module": "orchestrator/storyboard_final.py",
    "covered": 0,
    "total": 192,
@@ -1384,6 +1462,12 @@
    "module": "orchestrator/subtitle_export_controller.py",
    "covered": 0,
    "total": 9,
+   "percent": 0.0
+  },
+  {
+   "module": "orchestrator/video_prompt_direct_api.py",
+   "covered": 0,
+   "total": 80,
    "percent": 0.0
   },
   {
@@ -1419,7 +1503,7 @@
   {
    "module": "pet_broadcast_state.py",
    "covered": 0,
-   "total": 79,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -1431,7 +1515,7 @@
   {
    "module": "pet_chat_coordinator.py",
    "covered": 0,
-   "total": 42,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -1593,13 +1677,13 @@
   {
    "module": "previs_batch_service.py",
    "covered": 0,
-   "total": 27,
+   "total": 4,
    "percent": 0.0
   },
   {
    "module": "previs_monitor.py",
    "covered": 0,
-   "total": 116,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -2067,7 +2151,7 @@
   {
    "module": "storyboard_direct_api.py",
    "covered": 0,
-   "total": 279,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -2445,7 +2529,7 @@
   {
    "module": "video_prompt_direct_api.py",
    "covered": 0,
-   "total": 80,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -3026,5 +3110,5 @@
   }
  ],
  "modules_covered": 70,
- "modules_total": 502
+ "modules_total": 516
 }

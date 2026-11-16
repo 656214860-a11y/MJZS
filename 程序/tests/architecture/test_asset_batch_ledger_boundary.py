@@ -3,13 +3,15 @@ import ast
 import unittest
 from pathlib import Path
 
+from tests.architecture._scan import entity_file
+
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 class AssetBatchLedgerBoundaryTests(unittest.TestCase):
     def test_executor_uses_state_service_not_direct_ledger_persistence(self):
-        tree = ast.parse((ROOT / 'asset_batch_execution.py').read_text(encoding='utf-8'))
+        tree = ast.parse(entity_file('asset_batch_execution').read_text(encoding='utf-8'))
         imported = {name.name for node in tree.body if isinstance(node, ast.ImportFrom)
                     and node.module == 'asset_batch_state_service' for name in node.names}
         self.assertTrue({'read_ledger', 'save_ledger'} <= imported)

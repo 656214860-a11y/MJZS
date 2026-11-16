@@ -39,7 +39,7 @@ import contract.project_stages as project_stages
 import ui_plugin_registry
 import stage_handler_registry
 from contract.platform_tools import find_editor_shortcut, launch_windows_app, open_directory, open_path, open_target, tcp_listener
-from desktop_startup_service import DesktopStartupController
+from orchestrator.desktop_startup_service import DesktopStartupController
 from desktop_account_page import AccountPageMixin
 from desktop_login_gate import LoginGateMixin
 from desktop_page_nav import PageNavMixin

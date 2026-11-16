@@ -7,7 +7,7 @@
 import logging
 from pathlib import Path
 
-import desktop_send_ledger as ledger
+import orchestrator.desktop_send_ledger as ledger
 from ui_widgets import BaseDialog, DescriptionBlock
 
 LOGGER = logging.getLogger(__name__)

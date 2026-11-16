@@ -1,12 +1,13 @@
 """白模批处理消费正式分镜 JSON 时必须复用缓存入口。"""
 import ast
 import unittest
-from pathlib import Path
+
+from tests.architecture._scan import entity_file
 
 
 class PrevisBatchJsonBoundaryTests(unittest.TestCase):
     def test_prepare_batch_uses_cache_for_episode_json(self):
-        source = Path(__file__).resolve().parents[2] / 'previs_batch_service.py'
+        source = entity_file('previs_batch_service')
         tree = ast.parse(source.read_text(encoding='utf-8'))
         imports = [node for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
                    and node.module == 'file_cache']

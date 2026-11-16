@@ -10,11 +10,11 @@ import ast
 import unittest
 from pathlib import Path
 
-from tests.architecture._scan import desktop_text, parse_desktop
+from tests.architecture._scan import desktop_text, entity_file, parse_desktop
 
 ROOT = Path(__file__).resolve().parents[2]
 DESKTOP = ROOT / 'desktop.py'  # R1505：进入路径分布在 desktop.py 与迁出的 Mixin 模块，下面统一读合并源码
-CONTROLLER = ROOT / 'desktop_startup_service.py'
+CONTROLLER = entity_file('desktop_startup_service')
 
 # 直接调用 `self.load(<非 None>)` 的「项目进入」路径（冻结，只增需登记）。
 ENTERING_ENTRYPOINTS = frozenset({
