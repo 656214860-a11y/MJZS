@@ -8,6 +8,7 @@ from desktop_media_pages import MediaPagesMixin, MediaPageServices
 from desktop_project_pages import ProjectPagesMixin, ProjectPageServices
 from desktop_storyboard_page import StoryboardPageMixin, StoryboardPageServices
 from desktop_writing_page import WritingPageMixin, WritingPageServices, TALK_MIN_LINES, TALK_MAX_LINES
+from desktop_files_panel import ProjectFilesPanel
 from desktop_page_support import ASSET_FIRST_ROWS, ASSET_ROWS_PER_FRAME, ASSET_ROW_LABEL, STAGE_ACTION_WIDTH, _prefs, THUMB_SIZE, ASSET_ROW_HEIGHT
 from desktop_idea_chat import IdeaChatMixin, IDEA_FIELDS, BUBBLE_FLOOR, BUBBLE_LINE, BUBBLE_MAX_RATIO, script_raw_saved_notice, model_error_display
 import desktop_shared_send
@@ -296,7 +297,6 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         # 宠物簇（第 R2933 期）：挂进侧栏底栏 pet_dock（pet_layer 在 _build_sidebar 已指好），
         # 头像上／小字下／猫爪列右居中；前台窗口判定照旧交给三虎管自动播报。
         self.pet=pet_ui.attach(self,front=pet_ui.our_process_in_front)
-        # 用量指示器（费用统计模块）：标题行右上角、三虎头像左侧常驻；总线绑定由每拍 sync_bus 负责。
         # 用量指示器（费用统计模块）：第 R2933 期挪到页标题右侧同一行；总线绑定由每拍 sync_bus 负责。
         self.usage_indicator=ui_usage_indicator.UsageIndicator(self.title_row,self)
         self.usage_indicator.pack(side='left',padx=(SPACING['md'],SPACING['none']))
@@ -304,10 +304,10 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         # 各页面共用这一层，因而无需在 11 个页面里分别隐藏；表格、对话框等局部滚动条照常保留。
         area=ttk.Frame(self.body);area.pack(fill='both',expand=True)
         self.canvas=tk.Canvas(area,bg=COLORS['background_primary'],highlightthickness=0)
-        self.canvas.pack(fill='both',expand=True)
+        self.canvas.pack(side='left',fill='both',expand=True)  # R2962：side='left' 供右侧停靠面板拿全高竖条
         self.page_scrollbar=None
         self.content=ttk.Frame(self.canvas);self.content_id=self.canvas.create_window(0,0,window=self.content,anchor='nw')
-        self.content.bind('<Configure>',self.align_header,add='+')
+        self.content.bind('<Configure>',self.align_header,add='+');self.files_panel=ProjectFilesPanel(self);self.files_panel.build()  # R2962 项目文件全局面板（REQ-S01-90）
         self.watch_window_resize(win)
         protect_readonly_combobox(win);protect_tk_gc(win)
         win.bind_class('DramaPageWheel','<MouseWheel>',self.scroll_page)

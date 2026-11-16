@@ -52,11 +52,11 @@ class CancelScriptLoadTests(unittest.TestCase):
         """页面销毁时窗口已不在，after_cancel 抛 TclError 也要把待办批次清掉。"""
         import tkinter as tk
         import types
-        from desktop_writing_page import _WritingPage
+        from desktop_files_panel import ProjectFilesPanel
 
         def dead_cancel(job):
             raise tk.TclError('application has been destroyed')
-        page = _WritingPage.__new__(_WritingPage)
+        page = ProjectFilesPanel.__new__(ProjectFilesPanel)
         page.script_loader = ScriptListLoadController(('setting',))
         generation = page.script_loader.start([])
         page.script_load_job = 'after#1'

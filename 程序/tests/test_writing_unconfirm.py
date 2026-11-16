@@ -214,7 +214,8 @@ class WritingUnconfirmTests(unittest.TestCase):
         """REQ-S01-78：右键菜单文案「取消已确认」，且只在阶段已确认时出现，旧「重写／放弃重写」已移除。"""
         import tkinter as tk
         from types import SimpleNamespace
-        from desktop_writing_page import _WritingPage, WritingPageServices
+        from desktop_files_panel import ProjectFilesPanel
+        from desktop_writing_page import WritingPageServices
         from ui_widgets import ContextMenu
         from skip_reasons import PLATFORM_TKINTER, PLATFORM_TK_DISPLAY
         try:
@@ -237,7 +238,7 @@ class WritingUnconfirmTests(unittest.TestCase):
 
         services = WritingPageServices(open_path=Mock(), context_menu=context_menu,
                                        confirm=Mock(return_value=True), confirm_project_removal=Mock())
-        page = _WritingPage.__new__(_WritingPage)
+        page = ProjectFilesPanel.__new__(ProjectFilesPanel)
         page.page = SimpleNamespace(win=win, root=self.project, writing_page_services=services,
                                     safe=lambda call: call())
         page.script_row_category = {'row-setting': 'setting', 'row-outline': 'outline'}

@@ -220,7 +220,7 @@ DESKTOP_PARTS = ("desktop.py", "desktop_auto_flows.py", "desktop_idea_chat.py", 
                  "desktop_idea_attachments.py", "desktop_writing_page.py",
                  "desktop_storyboard_page.py",
                  "desktop_idea_menus.py", "desktop_asset_pages.py", "desktop_script_pages.py", "desktop_script_edit_session.py", "desktop_media_pages.py", "desktop_project_pages.py",
-                 "desktop_layout.py", "desktop_pet_bridge.py", "desktop_async_tasks.py", "desktop_page_nav.py", "desktop_lifecycle.py")
+                 "desktop_layout.py", "desktop_pet_bridge.py", "desktop_async_tasks.py", "desktop_page_nav.py", "desktop_lifecycle.py", "desktop_files_panel.py")
 
 
 def desktop_text() -> str:
