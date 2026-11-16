@@ -24,7 +24,7 @@ import skill_command
 import ui_plugin_registry
 from contract import pet_bus
 from desktop_shared_menus import AddMenuPanel, CandidatePopup, SkillPickPanel
-from ui_popup import make_passive_popup
+from ui_popup import make_passive_popup, monitor_bounds
 from ui_shortcuts import ShortcutRegistry
 from ui_tokens import (COLORS, FONTS, ICON_ADD, ICON_MICROPHONE, ICON_SEND, ICON_SKILL,
                        SPACING, TEXT_ROWS)
@@ -363,6 +363,8 @@ class SharedStageInput(_CandidateFlow, ttk.Frame):
 
         row = ttk.Frame(box)
         row.pack(fill='x')
+        # 图标行是 ✦／＋ 面板的锚点（R3031：面板底边贴本行上沿，不再隔整个输入框）。
+        self.icon_row = row
         self.skill_button = SecondaryButton(row, text=ICON_SKILL, width=0,
                                             style='Tokens.Composer.Icon.TButton',
                                             command=self.open_skill_list)
@@ -681,14 +683,16 @@ class SharedStageInput(_CandidateFlow, ttk.Frame):
             ph = owner.winfo_height()
             margin = SPACING['sm']
             gap = SPACING['xs']
-            screen_w = self.winfo_screenwidth()
-            screen_h = self.winfo_screenheight()
+            # 钳位跟技能行所在显示器走：winfo_screenwidth/height 恒为主屏尺寸，
+            # 副屏上会把说明卡拽回主屏矩形（R3031，同 CandidatePopup 修法）。
+            mleft, mtop, mright, mbottom = monitor_bounds(
+                self.winfo_toplevel(), px + pw + gap, py + ph // 2)
             x = px + pw + gap
-            if x + card_w > screen_w - margin:
+            if x + card_w > mright - margin:
                 x = px - card_w - gap
             y = py + (ph - card_h) // 2
-            x = max(margin, min(x, screen_w - card_w - margin))
-            y = max(margin, min(y, screen_h - card_h - margin))
+            x = max(mleft + margin, min(x, mright - card_w - margin))
+            y = max(mtop + margin, min(y, mbottom - card_h - margin))
             card.geometry('+%d+%d' % (x, y))
             # Toplevel 的 geometry 定的是含边框的窗口原点，winfo_root* 是客户区
             # 原点——实测一次偏差再按差值贴正（标题栏/侧框宽度随主题变）。

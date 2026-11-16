@@ -348,6 +348,79 @@ class SharedInputLayoutTests(unittest.TestCase):
         self.assertFalse(box.skill_panel.is_open())
         self.assertTrue(box.candidates.open)
 
+    # ── R3031：✦／＋ 面板与 / 候选浮层的真实几何回归 ──
+
+    def _make_bottom(self, **kwargs):
+        """输入框贴窗口底部（与 Desktop ``pack(before=status_label)`` 同构），供 winfo 实尺断言。"""
+        options = {'on_send': lambda text, parsed: self.sent.append((text, parsed)) or True,
+                   'skills': [SimpleNamespace(name='mine-skill', stage='storyboard')],
+                   'engines': ()}
+        options.update(kwargs.pop('options', {}))
+        filler = tk.Frame(self.win)
+        filler.pack(fill='both', expand=True)
+        box = shared_input.SharedStageInput(self.win, desktop=self.desktop,
+                                            options=options, **kwargs)
+        box.pack(side='bottom', fill='x')
+        self.win.deiconify()
+        self.win.geometry('1000x800')
+        for _ in range(6):
+            self.win.update_idletasks()
+            self.win.update()
+        self.addCleanup(box.destroy)
+        return box
+
+    @staticmethod
+    def _bottom(widget):
+        return widget.winfo_rooty() + widget.winfo_height()
+
+    def test_icon_panels_bottom_sits_one_row_above_icon_row(self):
+        """✦／＋ 面板底边应在图标行上方一行内——用户定版：不隔着整个输入框。"""
+        from ui_tokens import SPACING
+        box = self._make_bottom()
+        row = box.skill_button.master
+        for open_panel, panel in ((box.open_skill_list, box.skill_panel),
+                                  (box.open_add_menu, box.add_panel)):
+            with self.subTest(panel=panel):
+                open_panel()
+                self.win.update_idletasks()
+                self.assertTrue(panel.is_open())
+                gap = row.winfo_rooty() - self._bottom(panel)
+                self.assertLessEqual(self._bottom(panel), row.winfo_rooty() + 1,
+                                     '面板底边不应压住图标行')
+                self.assertLessEqual(gap, SPACING['sm'],
+                                     '面板底边距图标行上沿 %dpx，期望≈%dpx（xs 刻度）'
+                                     % (gap, SPACING['xs']))
+                box.close_completion()
+
+    def test_candidates_clamped_to_cursor_monitor_not_primary_screen(self):
+        """副屏（主屏右侧之外）窗口：候选浮层宽度与横向锚点跟随光标所在显示器，
+        不得被 ``winfo_screenwidth``（恒为主屏宽）钳成一条窄缝贴到窗口左缘。"""
+        from unittest import mock
+        import desktop_shared_menus
+        from ui_tokens import SPACING
+        box = self._make_bottom()
+        screen_w = self.win.winfo_screenwidth()
+        screen_h = self.win.winfo_screenheight()
+        self.win.geometry('1000x800+%d+80' % (screen_w + 400))
+        for _ in range(4):
+            self.win.update_idletasks()
+            self.win.update()
+        fake_bounds = (screen_w, 0, screen_w + 2000, screen_h)
+        box.set_text('/')
+        box.input.mark_set('insert', 'end-1c')
+        with mock.patch.object(desktop_shared_menus, 'monitor_bounds',
+                               return_value=fake_bounds, create=True):
+            box._on_key_release(SimpleNamespace(keysym='/'))
+            self.win.update()
+        self.assertTrue(box.candidates.open)
+        frame = box.candidates.frame
+        self.assertGreater(frame.winfo_width(), SPACING['md'] * 8,
+                           '副屏上候选浮层被钳成 %dpx 宽' % frame.winfo_width())
+        box_pos = box.input.bbox('insert')
+        cursor_x = box.input.winfo_rootx() + box_pos[0]
+        self.assertAlmostEqual(frame.winfo_rootx(), cursor_x, delta=SPACING['md'],
+                               msg='候选浮层应锚在光标处，而非被钳到窗口左缘')
+
 
 class UpstreamGateTests(unittest.TestCase):
     """``upstream_send_error`` 的放行／拦截分支（门禁本体由 stage_parallel／completion_evidence 保证）。"""
