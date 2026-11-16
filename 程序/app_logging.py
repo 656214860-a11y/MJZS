@@ -202,18 +202,30 @@ def _schedule_page_paint(desktop, gen, started, name):
             # 布局迟迟不收敛也按当前时间记一条：一次 show 至多一条记录，且不永远挂住。
             logging.getLogger("perf").warning("页面布局等待超时 %s", name)
         elapsed_ms = (time.perf_counter() - started) * 1000.0
+        # R3008：每进程首个画完的页属「启动窗口」相位，指标名加 .boot 后缀——启动争用
+        # （项目打开 I/O、DeferredFill、缩略图/pet 初始化）会把首帧墙钟抬到秒级，
+        # 与稳态翻页分开统计才看得清页面本身的构建成本。只标记第一次完成的测量。
+        metric = name
+        try:
+            if not getattr(desktop, '_page_paint_boot_done', False):
+                desktop._page_paint_boot_done = True
+                metric = name + '.boot'
+        except Exception:
+            metric = name
         # R2990：把「等 _fit_pending 的 16ms 轮询数」与「窗内实际跑完的整页布局轮次」
         # 记成按页计数器（perf_metrics.json counters），慢操作告警附分解，供定性首帧瓶颈。
         try:
             layout_passes = max(0, getattr(desktop, '_layout_pass_count', 0)
                                 - getattr(desktop, '_page_paint_layout0', 0))
-            count(name + '.fitwaits', waits)
-            count(name + '.fitpasses', layout_passes)
+            count(metric + '.fitwaits', waits)
+            count(metric + '.fitpasses', layout_passes)
             detail = '布局等待≈%dms/%d polls，窗内布局轮次 %d' % (
                 waits * PAGE_PAINT_WAIT_MS, waits, layout_passes)
+            if metric != name:
+                detail = '启动窗口；' + detail
         except Exception:
             detail = ''
-        record_elapsed(name, elapsed_ms, PAGE_PAINT_WARN_MS, detail=detail)
+        record_elapsed(metric, elapsed_ms, PAGE_PAINT_WARN_MS, detail=detail)
     try:
         desktop._page_paint_job = _arm_paint_timer(desktop, finish)
     except Exception:
