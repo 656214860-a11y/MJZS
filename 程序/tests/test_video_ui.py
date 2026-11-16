@@ -705,51 +705,40 @@ class FooterLayoutTests(unittest.TestCase):
                 if child.winfo_class() in ("TButton", "Button")]
 
     def test_each_manual_action_keeps_its_own_stage_config(self):
-        """第 59 期第 7 条：两行各有一颗「阶段配置」，各配各的阶段。
-
-        提示词那一步走的是另一条路（Agent 出提示词），与出视频那一步不是同一份配置：
-        两颗按钮各弹各的面板，桌面端认的是视频那一颗（它才是这一页的阶段：10 视频生成）。
-        """
+        """R2942：两行「阶段配置」按钮＋模型下拉框都删了——模型/技能走共享输入框，
+        提示词那一步与出视频那一步不再各挂一颗入口。"""
         with tempfile.TemporaryDirectory() as td:
             opened = []
             app = self.make_app(td, prompt_stage=lambda: opened.append("prompt"))
             row = self.button(app, "手动制作提示词").master
-            self.assertEqual(self.row_texts(row),
-                             ["手动制作提示词", "阶段配置", "MCP 优化", "MCP 设置",
-                              "保存提示词", "导入提示词", "当前提示词目录"],
-                             "「阶段配置」紧挨主动作右边，其余照旧")
+            self.assertNotIn("阶段配置", self.row_texts(row),
+                             "提示词那一行的「阶段配置」已删")
             video_row = self.button(app, "手动制作视频").master
             self.assertIsNot(video_row, row, "「手动制作视频」另起一行")
-            self.assertEqual(self.row_texts(video_row)[:2], ["手动制作视频", "阶段配置"],
-                             "视频那一颗就在它右边")
-            both = self.buttons(app, "阶段配置")
-            self.assertEqual(len(both), 2, "两行各一颗")
-            self.assertIs(app.stage_button, [b for b in both if b.master is video_row][0],
-                          "桌面端认的是视频那一颗（10 视频生成）")
-            self.assertIs(app.prompt_stage_button, [b for b in both if b.master is row][0],
-                          "提示词那一颗是宿主传进来的那扇面板")
-            app.prompt_stage_button.invoke(); app.window.update_idletasks()
-            self.assertEqual(opened, ["prompt"], "点它开的是提示词那一步的面板")
+            self.assertNotIn("阶段配置", self.row_texts(video_row),
+                             "视频那一行的「阶段配置」已删")
+            self.assertEqual(self.buttons(app, "阶段配置"), [], "页面不再有阶段配置按钮")
+            self.assertIsNone(app.stage_button, "桌面端不再认页面级阶段配置按钮")
+            self.assertIsNone(app.prompt_stage_button, "提示词那颗也删了")
 
     def test_the_prompt_row_falls_back_to_the_page_stage_without_a_host_callback(self):
-        """第 59 期第 7 条：宿主没给提示词面板时，那一颗照旧开本页阶段面板。"""
+        """R2942：宿主回调与页面级阶段配置按钮一并移除，两行都只剩自己的动作按钮。"""
         with tempfile.TemporaryDirectory() as td:
             app = self.make_app(td)
             row = self.button(app, "手动制作提示词").master
-            self.assertIn("阶段配置", self.row_texts(row))
+            self.assertNotIn("阶段配置", self.row_texts(row))
             video_row = self.button(app, "手动制作视频").master
-            self.assertIs(app.stage_button, [b for b in self.buttons(app, "阶段配置")
-                                             if b.master is video_row][0])
-            self.assertIs(app.prompt_stage_button, [b for b in self.buttons(app, "阶段配置")
-                                                    if b.master is row][0])
+            self.assertNotIn("阶段配置", self.row_texts(video_row))
+            self.assertIsNone(app.stage_button)
+            self.assertIsNone(app.prompt_stage_button)
 
     def test_the_main_row_keeps_the_manual_action_and_the_common_ones(self):
         with tempfile.TemporaryDirectory() as td:
             app = self.make_app(td)
             main = self.button(app, "手动制作视频").master
             self.assertEqual(self.row_texts(main),
-                             ["手动制作视频", "阶段配置", "播放视频", "查看全部版本"],
-                             "第一行：主动作右边是它自己的「阶段配置」，其余是常用动作")
+                             ["手动制作视频", "播放视频", "查看全部版本"],
+                             "R2942：第一行只剩主动作＋常用动作，「阶段配置」已删")
             for moved in ("通过", "需修改", "批量生成勾选镜头", "打开素材目录", "恢复任务编号"):
                 self.assertIsNot(self.button(app, moved).master, main, moved + " 不在第一行")
 
@@ -1162,21 +1151,15 @@ class VideoEntryTests(unittest.TestCase):
             self.assertIsNone(d.video_mode, "新的一次启动：第一次点先摆选择页")
 
     def test_manual_prompt_stage_config_opens_prompt_render_stage(self):
-        """线上/本地共用工作台的提示词按钮必须配置分镜定稿，而非初步分镜。"""
+        """R2942：视频工作台的提示词「阶段配置」按钮已删——不再有指向分镜定稿面板的入口。"""
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
-        import skill_panel
         with tempfile.TemporaryDirectory() as td:
             d, win, _proj = self.page(td)
             d.show(PAGE['video'], video_mode="local")
             for _ in range(3):
                 win.update(); win.update_idletasks()
-            opened = []
-            original = skill_panel.show
-            skill_panel.show = lambda desktop, stage, **_kwargs: opened.append((desktop, stage))
-            self.addCleanup(setattr, skill_panel, 'show', original)
-            d.video.prompt_stage_button.invoke()
-            self.assertEqual(opened, [(d, 'final')])
+            self.assertIsNone(getattr(d.video, 'prompt_stage_button', None), '提示词阶段的配置按钮已删')
 
 
 class PromptBoxHeightTests(unittest.TestCase):

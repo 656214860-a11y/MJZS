@@ -65,7 +65,6 @@ import model_pool
 import model_router
 import skill_note_render
 import skill_notes
-from stage_model_picker import attach_stage_pickers, stage_button_for
 from tk_timers import repeat
 import skill_budget
 import skill_orchestrator
@@ -127,18 +126,9 @@ MANAGE_LABELS = (MANAGE_ALL, MANAGE_NONE, MANAGE_ADD, MANAGE_ADD_REPO, MANAGE_DE
 # 下拉框里（「+ 添加模型…」／「+ SKILL 入口…」），再留一扇窗就是重复入口，整块删掉。
 # manual_entry 留着读：旧项目里手动填过的模型 ID 仍然算数（见 Panel.context）。
 
-
-def stage_button(parent, desktop, index, text='阶段配置'):
-    """各阶段页「手动XX」右边那颗「阶段配置」（第 32 期第 6 条）。
-
-    面板此前只在剧本准备页挂着，用户到了别的阶段还得跑回去点；现在每页各留一颗，
-    按页序号找阶段（stage_of_page），点开的就是这一页那一个阶段的模型与 SKILL。
-    """
-    stage = stage_of_page(index)
-    button = stage_button_for(parent, lambda: None, text, desktop, stage)
-    # 阶段配置只读取／编辑配置，不会启动生产任务；后台任务进行时仍须允许用户查看或调整它。
-    button.configure(command=lambda: open_for_page(desktop, index, button))
-    return button
+# R2942：页面级「阶段配置」按钮＋其模型下拉框全部删除——模型选择收进共享输入框的
+# 下拉框按钮，SKILL 走 ✦ 图标，制作锁在剧本准备页简报表单里编辑。本模块的 Panel／show
+# 仍保留：手动制作的「修改配置」预检与资产/首帧弹窗里的入口还走它。
 
 
 class Panel(PanelWorkflowMixin, PanelImportMixin, FormScrollMixin, ttk.Frame):

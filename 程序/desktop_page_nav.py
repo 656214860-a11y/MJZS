@@ -112,7 +112,6 @@ class PageNavMixin:
         if entry is not None:
             self.content=entry['holder']
             self.canvas.itemconfigure(self.content_id,window=self.content)
-            self.stage_button=entry['stage_button']
             if entry['note']:self.status.set(entry['note'])
             return
         holder=ttk.Frame(self.canvas)
@@ -120,7 +119,7 @@ class PageNavMixin:
         self.content=holder
         self.canvas.itemconfigure(self.content_id,window=holder)
         builder()
-        cache[index]=page_nav.cache_entry(holder,self.root,self.stage_button,self.status.get(),str(self.root))
+        cache[index]=page_nav.cache_entry(holder,self.root,self.status.get(),str(self.root))
         if index==PAGE['script_structure']:
             from script_workspace_service import script_structure_signature
             cache[index]['signature']=script_structure_signature(self.root)

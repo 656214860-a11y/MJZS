@@ -1,6 +1,6 @@
 """共享底部输入框（R2893，任务书轮 3）：13 个阶段页共用同一实例。
 
-布局（任务书 §4）：``[skill 图标][附件图标] | [TextArea 输入框] | [模型图标][发送]``；
+布局（R2942 定版）：``[✦ 技能][＋ 附件][🎤 语音] | [TextArea 输入框] | [模型下拉框][发送]``；
 视觉 token 走 ``ui_tokens``，快捷键登记走宿主 ``ShortcutRegistry``（``/`` 补全与
 ``Esc`` 关闭）。命令解析在无 Tk 的 ``skill_command``；发送门禁复用
 ``stage_parallel`` 上游判定与 ``stage_completion_service.completion_evidence``。
@@ -8,8 +8,9 @@
 宿主契约（轮 4 由 Desktop／页面接线）：``desktop.root`` 为项目根、
 ``desktop.status`` 为状态栏 StringVar；``options`` 携带 ``on_send(text,
 parsed)``（返回真值表示已受理，假值＝本组件恢复可用态）与 ``on_skill_config``／
-``on_attachment``／``on_model`` 三个入口回调、``status``、``skills``、``engines``，
-缺省给出可用兜底。
+``on_attachment``／``on_voice`` 入口回调、``status``、``skills``、``engines``，
+缺省给出可用兜底。模型选择器（R2942 起）内嵌为右下角 ``StageModelPicker`` 下拉框按钮，
+点击弹出模型列表（不再弹模态窗）。
 """
 from __future__ import annotations
 
@@ -24,7 +25,7 @@ from contract import pet_bus
 from ui_shortcuts import ShortcutRegistry
 from ui_tokens import (COLORS, FONTS, ICON_ADD, ICON_MICROPHONE, ICON_SEND, ICON_SKILL,
                        SPACING, TEXT_ROWS)
-from ui_widgets import BaseDialog, Card, SecondaryButton, TextArea, PrimaryButton
+from ui_widgets import BaseDialog, Card, SecondaryButton, TextArea, PrimaryButton, Tooltip
 
 SHORTCUT_SCOPE = 'shared_input'
 # 技能悬停说明卡片的换行宽度（像素常量，R2923：避免内联字面量触碰视觉 token 棘轮）。
@@ -95,6 +96,143 @@ def upstream_send_error(project, stage):
     return '请先完成/确认「%s」阶段（%s）' % (pet_bus.stage_name(upstream), detail or '上游成果未完成')
 
 
+class CompletionPopup:
+    """``/`` 补全候选浮层（R2942，DSH 风格）：卡片锚定在输入盒正上方、同宽左对齐；
+    上下键移动高亮、Tab／点击／Enter 采纳、失焦自动收掉，窗口重排时跟随锚定。"""
+
+    MAX_ITEMS = 12
+
+    def __init__(self, host):
+        self.host = host
+        self.open = False
+        self.selecting = False
+        self.frame = tk.Frame(host, bg=COLORS['background_card'],
+                              highlightthickness=1,
+                              highlightbackground=COLORS['border_input_hover'])
+        self.list = tk.Listbox(self.frame, exportselection=False,
+                               height=TEXT_ROWS['md'], font=FONTS['hint'],
+                               borderwidth=0, highlightthickness=0, activestyle='none',
+                               bg=COLORS['background_card'], fg=COLORS['text_primary'],
+                               selectbackground=COLORS['surface_hover'],
+                               selectforeground=COLORS['text_primary'])
+        self.list.pack(fill='both', expand=True, padx=SPACING['xs'], pady=SPACING['xs'])
+        self.list.bind('<<ListboxSelect>>', self._choose)
+        self.list.bind('<Escape>', lambda _e: self.host.close_completion())
+        self.list.bind('<Motion>', self._hover)
+
+    def refresh(self, options):
+        self.list.delete(0, 'end')
+        for item in options[:self.MAX_ITEMS]:
+            self.list.insert('end', item)
+        if not self.list.size():
+            self.host.close_completion()
+            return
+        self.list.configure(height=min(self.list.size(), TEXT_ROWS['md']))
+        self._highlight(0)
+        self.open = True
+        self.place()
+
+    def _highlight(self, index):
+        self.selecting = True
+        try:
+            self.list.selection_clear(0, 'end')
+            self.list.selection_set(index)
+            self.list.activate(index)
+            self.list.see(index)
+        finally:
+            self.selecting = False
+
+    def place(self):
+        """锚定在输入盒正上方：下缘悬在盒顶、左缘对齐、同宽；顶出屏幕才退回贴顶。"""
+        if not self.open:
+            return
+        try:
+            card = self.host.input_card
+            self.frame.update_idletasks()
+            height = self.frame.winfo_reqheight()
+            width = max(SPACING['md'] * 8, card.winfo_width())
+            x = card.winfo_x()
+            root_y = self.host.winfo_rooty() + card.winfo_y() - height - SPACING['xs']
+            y = 0 if root_y < 0 else card.winfo_y() - height - SPACING['xs']
+            self.frame.place(x=x, y=y, width=width)
+        except tk.TclError:
+            app_logging.swallowed()
+
+    def selected(self):
+        selection = self.list.curselection()
+        return self.list.get(selection[0]) if selection else None
+
+    def key(self, event):
+        """候选开着时：上下键移动高亮、Tab 采纳当前项；否则放行默认行为。"""
+        if not self.open or not self.list.size():
+            return None
+        if event.keysym in ('Up', 'Down'):
+            self.move(1 if event.keysym == 'Down' else -1)
+            return 'break'
+        if event.keysym == 'Tab':
+            option = self.selected()
+            if option is not None:
+                self.host._apply_completion(option)
+                return 'break'
+        return None
+
+    def move(self, delta):
+        selection = self.list.curselection()
+        current = selection[0] if selection else (-1 if delta > 0 else 0)
+        index = max(0, min(self.list.size() - 1, current + delta))
+        if selection and selection[0] == index:
+            return
+        self._highlight(index)
+
+    def _hover(self, event):
+        """鼠标扫过候选时跟随高亮（点击即采纳）；同一项不重复改选中。"""
+        try:
+            index = self.list.nearest(event.y)
+        except tk.TclError:
+            return
+        if index < 0:
+            return
+        selection = self.list.curselection()
+        if selection and selection[0] == index:
+            return
+        self._highlight(index)
+
+    def _choose(self, _event=None):
+        """用户点击采纳；程序化高亮（selecting 期间）不得误触。"""
+        if self.selecting:
+            return
+        option = self.selected()
+        if option is not None:
+            self.host._apply_completion(option)
+
+    def focus_out(self, _event=None):
+        """焦点离开输入框：等下一次空闲看落在哪，没落在输入/候选上就收掉弹层。"""
+        if not self.open:
+            return None
+        try:
+            self.host.after_idle(self.close_if_focus_away)
+        except Exception:
+            app_logging.swallowed()
+        return None
+
+    def close_if_focus_away(self):
+        if not self.open:
+            return
+        try:
+            focus = self.host.winfo_toplevel().focus_get()
+        except Exception:
+            return
+        if focus not in (self.host.input, self.list):
+            self.host.close_completion()
+
+    def close(self):
+        if self.open:
+            self.frame.place_forget()
+            self.open = False
+            return 'break'
+        return None
+
+
 class SharedStageInput(ttk.Frame):
     """底部固定共享输入框：单实例跨页复用，``stage`` 只换补全与门禁上下文。"""
 
@@ -108,23 +246,26 @@ class SharedStageInput(ttk.Frame):
         self.on_send = options.get('on_send')
         self.on_skill_config = options.get('on_skill_config')
         self.on_attachment = options.get('on_attachment')
-        self.on_model = options.get('on_model')
         self.on_voice = options.get('on_voice')
         self._skills = list(options.get('skills') or ())
         self._engines = options.get('engines')
         self.in_flight = False
         self.request_model = None
-        self._completion_open = False
+        # R2942 流畅度：/ 补全与技能列表每次按键都读注册表/目录，这里按内容树记忆，
+        # 导入新 skill 或切阶段后失效。
+        self._skills_cache = None
+        self._engines_cache = None
         self._build()
 
     # ── 构建 ────────────────────────────────────────────────────────────
     def _build(self):
         # R2923 定版：全部收进一个圆角输入盒——上输入、下一行图标（✦ 技能／＋ 附件／
-        # 麦克风语音在左，无边框模型名与发送图标在右，仿 DeepSeek／Devin 桌面）。
-        # 模型名在发送按钮左侧、无外框只留文字。
+        # 麦克风语音在左，模型下拉框与发送图标在右，仿 DeepSeek／Devin 桌面）。
+        # R2942：模型名不再是无框文字，改为下拉框按钮（点击弹模型列表），位于发送按钮左侧。
         box = Card(self, padding=(SPACING['sm'], SPACING['xs']))
         box.pack(side='left', fill='both', expand=True,
                  padx=(SPACING['sm'], SPACING['none']))
+        self.input_card = box
         # 附件卡片行：无附件时不占位（由桌面侧 refresh_uploaded_idea_attachments 管理显隐）。
         from responsive_ui import FlowBar
         self.attachment_panel = FlowBar(box, style='Composer.TFrame')
@@ -149,20 +290,28 @@ class SharedStageInput(ttk.Frame):
                                          style='Tokens.Composer.Send.TButton',
                                          command=self.send)
         self.send_button.pack(side='right', padx=(SPACING['xs'], SPACING['xs']))
-        self.model_button = tk.Label(row, text='模型', cursor='hand2',
-                                     bg=COLORS['background_card'],
-                                     fg=COLORS['text_muted'], font=FONTS['hint'])
-        self.model_button.pack(side='right', padx=(SPACING['sm'], SPACING['none']))
-        self.model_button.bind('<Button-1>', lambda _event: self.open_model_picker())
+        # R2942：模型选择器=下拉框按钮（点击弹出模型列表），与各页原「模型下拉框」同款，
+        # 不再弹模态选择窗。StageModelPicker 自带 Menubutton＋弹出菜单（含推理档位子菜单）。
+        from stage_model_picker import StageModelPicker
+        self.model_picker = StageModelPicker(row, self.desktop, self.stage)
+        self.model_picker.pack(side='right', padx=(SPACING['sm'], SPACING['none']))
+        # R2942 定版：五个图标都有悬停提示卡（Tooltip，不进 grab 不抢焦点）。
+        Tooltip(self.skill_button, '技能\n查看本阶段技能、勾选默认；输入 / 可快速调用')
+        Tooltip(self.attachment_button, '添加附件\n上传文本资料，本轮发送时随文引用')
+        Tooltip(self.voice_button, '语音输入\n点击开始／停止麦克风听写')
+        Tooltip(self.send_button, '发送（Enter）\nShift+Enter 换行；运行中变为终止')
+        Tooltip(self.model_picker, '选择模型\n切换本阶段对话模型与推理档位')
 
-        self._completion = ttk.Frame(self)
-        self._list = tk.Listbox(self._completion, exportselection=False,
-                                height=TEXT_ROWS['md'], font=FONTS['hint'])
-        self._list.pack(fill='x')
-        self._list.bind('<<ListboxSelect>>', self._choose_completion)
-        self._list.bind('<Escape>', lambda _e: self.close_completion())
+        # ``/`` 补全候选：浮在输入框正上方的卡片（R2942：不再 pack 进输入条挤到右侧）。
+        self.completion = CompletionPopup(self)
         self.input.bind('<KeyRelease>', self._on_key_release, add='+')
         self.input.bind('<Return>', self._on_return, add='+')
+        # 候选开着时：上下键选、Tab 采纳、失焦收掉、窗口重排跟随锚定（DSH 行为）。
+        self.input.bind('<Up>', self.completion.key, add='+')
+        self.input.bind('<Down>', self.completion.key, add='+')
+        self.input.bind('<Tab>', self.completion.key, add='+')
+        self.input.bind('<FocusOut>', self.completion.focus_out, add='+')
+        self.bind('<Configure>', self._on_input_configure, add='+')
         # ``/`` 触发与 ``Esc`` 关闭都走宿主 ShortcutRegistry 登记（任务书轮 3 验收）。
         self.shortcuts.bind(self.input, ('/',), self._on_slash_key,
                             scope=SHORTCUT_SCOPE, name='slash_completion')
@@ -179,26 +328,40 @@ class SharedStageInput(ttk.Frame):
         return project_root(self.desktop)
 
     def set_stage(self, stage):
-        """切页只换上下文：不重建实例，只刷新补全候选与模型标签。"""
+        """切页只换上下文：不重建实例，只刷新模型下拉框与补全候选。"""
         self.stage = str(stage or 'script')
+        picker = getattr(self, 'model_picker', None)
+        if picker is not None:
+            try:
+                from skill_panel_support import stage_for
+                picker.stage = stage_for(self.stage)
+            except Exception:
+                app_logging.swallowed()
+        # R2942：换页先收掉补全弹层（锚点与候选都变），并让技能/引擎缓存下轮重取。
+        self.close_completion()
+        self._skills_cache = None
         self._sync_model_label()
-        if self._completion_open:
-            self._refresh_completion()
 
     def skill_items(self):
         if self._skills:
             return list(self._skills)
+        if self._skills_cache is not None:
+            return self._skills_cache
         try:
             import skill_registry
-            return list(skill_registry.default_registry().getAll())
+            self._skills_cache = list(skill_registry.default_registry().getAll())
+            return self._skills_cache
         except Exception:
             return []
 
     def engine_names(self):
         if self._engines is not None:
             return tuple(self._engines)
+        if self._engines_cache is not None:
+            return self._engines_cache
         try:
-            return skill_command.sub_engine_names()
+            self._engines_cache = tuple(skill_command.sub_engine_names())
+            return self._engines_cache
         except Exception:
             return ()
 
@@ -424,6 +587,7 @@ class SharedStageInput(ttk.Frame):
             return
         _say(self.status, '仓库导入完成（%s）' % str(report.get('label') or ''))
         self._skills = []
+        self._skills_cache = None
 
     def _import_skill_local(self):
         """本地安装（浮层底部入口）：选 SKILL.md/包 → plan_import → perform_import。"""
@@ -457,6 +621,7 @@ class SharedStageInput(ttk.Frame):
             return
         _say(self.status, '已安装 SKILL：' + str(result['target'].name))
         self._skills = []
+        self._skills_cache = None
 
     def open_attachments(self):
         if callable(self.on_attachment):
@@ -475,21 +640,14 @@ class SharedStageInput(ttk.Frame):
         _say(self.status, '语音输入由当前页面提供')
         return None
 
-    def open_model_picker(self):
-        if callable(self.on_model):
-            return self.on_model()
-        _say(self.status, '模型选择由当前页面提供')
-        return None
-
     def _sync_model_label(self):
-        """输入框右下角模型名（R2916：无边框纯文字；选择逻辑在宿主回调里）。"""
-        label = ''
-        try:
-            import writing_api
-            label = str(writing_api.capture_request_model(self.project)['label'] or '')
-        except Exception:
-            label = ''
-        self.model_button.configure(text=label if label else '模型')
+        """模型下拉框刷新：按当前阶段重读模型选项，把已保存的一档摆回按钮文案。"""
+        picker = getattr(self, 'model_picker', None)
+        if picker is not None:
+            try:
+                picker.refresh_models()
+            except Exception:
+                app_logging.swallowed()
 
     # ── ``/`` 补全 ───────────────────────────────────────────────────────
     def _on_slash_key(self, _event):
@@ -506,7 +664,7 @@ class SharedStageInput(ttk.Frame):
         token = skill_command.command_token(self.text())
         if token:
             self._refresh_completion()
-        elif self._completion_open:
+        elif self.completion.open:
             self.close_completion()
 
     def _on_return(self, event):
@@ -517,10 +675,10 @@ class SharedStageInput(ttk.Frame):
         """
         if getattr(event, 'state', 0) & 0x1:
             return None
-        if self._completion_open and self._list.size():
-            selection = self._list.curselection()
-            if selection:
-                self._apply_completion(self._list.get(selection[0]))
+        if self.completion.open and self.completion.list.size():
+            option = self.completion.selected()
+            if option is not None:
+                self._apply_completion(option)
                 return 'break'
         self.send()
         return 'break'
@@ -529,20 +687,16 @@ class SharedStageInput(ttk.Frame):
         options = skill_command.completions(self.text(), stage=self.stage,
                                             skills=self.skill_items(),
                                             engines=self.engine_names())
-        self._list.delete(0, 'end')
-        for item in options[:12]:
-            self._list.insert('end', item)
-        if self._list.size():
-            self._completion.pack(fill='x', padx=SPACING['sm'],
-                                  pady=(SPACING['none'], SPACING['xs']))
-            self._completion_open = True
-        else:
-            self.close_completion()
+        self.completion.refresh(options)
 
-    def _choose_completion(self, _event=None):
-        selection = self._list.curselection()
-        if selection:
-            self._apply_completion(self._list.get(selection[0]))
+    def _on_input_configure(self, event=None):
+        if event is not None and getattr(event, 'widget', None) is not self:
+            return
+        if self.completion.open:
+            try:
+                self.after_idle(self.completion.place)
+            except Exception:
+                app_logging.swallowed()
 
     def _apply_completion(self, option):
         name = str(option).lstrip('/')
@@ -552,15 +706,16 @@ class SharedStageInput(ttk.Frame):
         self.input.delete('1.0', 'end')
         self.input.insert('1.0', '/' + name + (' ' + rest if rest else ''))
         self.close_completion()
+        try:
+            self.input.focus_set()
+            self.input.icursor('end')
+        except Exception:
+            app_logging.swallowed()
 
     def close_completion(self):
         """关闭补全层；只在确实关掉了候选时 ``'break'``，否则放行 Esc 的其他宿主绑定
         （如剧本页输入框的「 Esc 中断任务」）。"""
-        if self._completion_open:
-            self._completion.pack_forget()
-            self._completion_open = False
-            return 'break'
-        return None
+        return self.completion.close()
 
     # ── 发送 ────────────────────────────────────────────────────────────
     def text(self):

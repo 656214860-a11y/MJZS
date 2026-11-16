@@ -172,10 +172,7 @@ class _LocalPrevisWindow:
         self.start_button=PrimaryButton(buttons,text='手动制作白模',width=CHAR_WIDTH['3xl'],
                                    command=manual_command(self.desktop,'previs',self.start,self.desktop.win))
         self.start_button.pack(side='left',padx=(SPACING['none'],SPACING['xs']),pady=SPACING['xs']);ui_plugin_registry.module('stage_flow').follow(self.start_button,'previs')
-        # 第 32 期第 6 条：这一页的阶段配置就挂在「手动制作白模」右边。
-        self.desktop.stage_button=ui_plugin_registry.module('skill_panel').stage_button(buttons,self.desktop,self.desktop.page_of('previs'));self.desktop.stage_button.pack(
-            side='left',padx=(SPACING['sm'],SPACING['xs']),pady=SPACING['xs']
-        )
+        # R2942：「阶段配置」按钮＋模型下拉框删除。
         import project_settings
         previs_engine=engine_name(self.project)
         SecondaryButton(buttons,text='强制停止制作',command=self.stop).pack(side='left',padx=SPACING['xs'])

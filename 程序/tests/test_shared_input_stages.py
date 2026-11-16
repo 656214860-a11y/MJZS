@@ -183,6 +183,124 @@ class SharedInputHostTests(unittest.TestCase):
         self.assertEqual(self.box._on_return(_Event()), 'break')
         self.assertEqual(self.desktop.send_message.call_count, 2)
 
+    # ── R2942：/ 补全浮在输入框上方 + 图标悬停提示卡 + 按键/鼠标交互 ──
+
+    def _open_completion(self):
+        self.box.set_text('/')
+        self.box._refresh_completion()
+        self.win.update_idletasks()
+        self.win.update()
+
+    def _show_window(self):
+        self.win.geometry('1000x700+40+40')
+        self.win.deiconify()
+        self.win.update_idletasks()
+        self.win.update()
+
+    def test_completion_panel_floats_above_the_input_card(self):
+        self.box.pack(side='bottom', fill='x')
+        self._show_window()
+        self._open_completion()
+        popup = self.box.completion
+        self.assertTrue(popup.open)
+        panel, card = popup.frame, self.box.input_card
+        self.assertEqual(panel.winfo_manager(), 'place', '候选层用 place 浮层，不再 pack 进输入条')
+        # 相对坐标（两者同父）：下缘在输入盒上沿之上、左缘对齐、同宽。
+        self.assertLessEqual(panel.winfo_y() + panel.winfo_height(),
+                             card.winfo_y() + 1, '候选卡片在输入盒正上方')
+        self.assertAlmostEqual(panel.winfo_x(), card.winfo_x(), delta=1,
+                               msg='候选卡片与输入盒左缘对齐')
+        self.assertAlmostEqual(panel.winfo_width(), card.winfo_width(), delta=2,
+                               msg='候选卡片与输入盒同宽')
+        self.assertEqual(popup.list.curselection(), (0,), '默认高亮第一项')
+        self.assertEqual(self.box.input.get('1.0', 'end-1c'), '/', '高亮不得误采纳候选')
+
+    def test_completion_up_down_tab_and_enter_accept(self):
+        self.box.pack(side='bottom', fill='x')
+        self._show_window()
+        self._open_completion()
+        popup = self.box.completion
+        options = list(popup.list.get(0, 'end'))
+        self.assertGreaterEqual(len(options), 2)
+        class _Event:
+            keysym = 'Down'
+        self.assertEqual(popup.key(_Event()), 'break')
+        self.assertEqual(popup.list.curselection(), (1,), 'Down 移到第二项')
+        _Event.keysym = 'Up'
+        popup.key(_Event())
+        self.assertEqual(popup.list.curselection(), (0,), 'Up 移回第一项')
+        _Event.keysym = 'Tab'
+        popup.key(_Event())
+        self.assertFalse(popup.open, 'Tab 采纳后收掉弹层')
+        self.assertTrue(self.box.input.get('1.0', 'end-1c').startswith('/'),
+                        '采纳把候选写回输入框')
+
+    def test_completion_hover_highlights_but_click_applies(self):
+        self.box.pack(side='bottom', fill='x')
+        self._show_window()
+        self._open_completion()
+        popup = self.box.completion
+        self.assertGreaterEqual(popup.list.size(), 2)
+        box = popup.list.bbox(1)
+        self.assertIsNotNone(box, '第二项必须可见才能量悬停位置')
+        y = box[1] + box[3] // 2
+        popup._hover(type('E', (), {'y': y})())
+        self.assertEqual(popup.list.curselection(), (1,), '悬停跟随高亮')
+        self.assertEqual(self.box.input.get('1.0', 'end-1c'), '/', '悬停不自动采纳')
+        self.assertTrue(popup.open)
+        popup.list.selection_clear(0, 'end')
+        popup.list.selection_set(0)
+        popup.list.activate(0)
+        popup._choose()
+        self.assertFalse(popup.open, '点击采纳后收掉')
+
+    def test_completion_closes_when_focus_leaves_input(self):
+        self.box.pack(side='bottom', fill='x')
+        other = tk.Label(self.win, text='别处')
+        other.pack()
+        self.win.update()
+        self._open_completion()
+        popup = self.box.completion
+        self.assertTrue(popup.open)
+        original = self.win.focus_get
+        try:
+            self.win.focus_get = lambda: other
+            popup.close_if_focus_away()
+            self.assertFalse(popup.open, '焦点移走即收掉候选层')
+            self._open_completion()
+            self.win.focus_get = lambda: self.box.input
+            popup.close_if_focus_away()
+            self.assertTrue(popup.open, '焦点还在输入框就不收')
+        finally:
+            self.win.focus_get = original
+
+    def test_input_icons_carry_hover_tooltips(self):
+        from unittest.mock import patch
+        captured = []
+        def fake_tooltip(widget, text, **kwargs):
+            captured.append((widget, text))
+            return widget
+        with patch('desktop_shared_input.Tooltip', side_effect=fake_tooltip):
+            box = shared_input.SharedStageInput(self.win, desktop=self.desktop,
+                                                options={'on_send': None})
+            self.addCleanup(box.destroy)
+        by_widget = {str(widget): text for widget, text in captured}
+        for widget, head in ((box.skill_button, '技能'), (box.attachment_button, '添加附件'),
+                             (box.voice_button, '语音输入'), (box.send_button, '发送'),
+                             (box.model_picker, '选择模型')):
+            with self.subTest(widget=widget):
+                self.assertTrue(by_widget[str(widget)].startswith(head),
+                                '图标必须挂悬停提示卡（Tooltip）')
+
+    def test_skill_and_engine_lists_are_cached_until_stage_or_import(self):
+        first = self.box.skill_items()
+        self.assertIs(self.box.skill_items(), first, '技能清单按实例缓存，不每次按键重读')
+        engines = self.box.engine_names()
+        self.assertIs(self.box.engine_names(), engines, '子引擎名单同样缓存')
+        self.box.set_stage('storyboard')
+        self.assertIsNone(self.box._skills_cache, '切阶段后技能缓存失效')
+        self.assertIsNot(self.box.skill_items(), first, '切阶段后重新取技能清单')
+
 
 class SingleThreadTranscriptTests(unittest.TestCase):
     """任务书轮 4 契约：模型会话目录 → 单一创意对话目录，旧目录首次读取迁移。"""

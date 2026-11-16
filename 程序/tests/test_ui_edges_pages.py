@@ -301,7 +301,8 @@ class UiEdgePagesTests(UiEdgeCase):
 
     def test_page_level_model_and_skill_entries_are_gone(self):
         """第 29 期第 1／4 条、第 32 期第 6 条：重复的「Model ＋ SKILL」「配置线上视频 API」入口删掉；
-        「阶段配置」不再集中在剧本准备页，改到各阶段页「手动XX」右边各一颗。
+        R2942：各阶段页「手动XX」右边的「阶段配置」按钮＋模型下拉框也全部删除，
+        模型选择收进共享输入框的下拉框按钮，技能走 ✦ 图标。
 
         面板里的接口一个都不少，那一头由 test_skills.PanelTests.test_the_panel_keeps_the_interfaces 盯着。
         """
@@ -335,13 +336,8 @@ class UiEdgePagesTests(UiEdgeCase):
                 texts = widget_texts(d.content)
                 for label in gone:
                     self.assertNotIn(label, texts, "第 %02d 页还留着重复入口：%s" % (index + 1, label))
-            # 各阶段页：主动作＋紧跟它右边那颗「阶段配置」。剧本页的「发送」会启动
-            # 写作 Agent 工作流；其它阶段保留各自的手动制作动作。窗口映射会滞后，
-            # 所以判据看结构（FlowBar 会把子控件从 pack 换成 place 自己排，见 responsive_ui.FlowBar.layout），
-            # 不盯 winfo_ismapped。
-            # 第 54 期附件二第 3 条：按钮名按「手动制作{阶段简称}」统一；剧本页例外——
-            # R2923 起剧本页不再有「发送」按钮与行内「阶段配置」按钮，两者都收进
-            # 底部共享输入框（发送图标＋模型选择器＋✦ 技能图标，挂在 d.body）。
+            # 各阶段页：主动作还在；「阶段配置」按钮＋模型下拉框随 R2942 全部删除，
+            # 模型选择收进共享输入框的下拉框按钮（d.body 上），技能走 ✦ 图标。
             d.show(PAGE["script"]); win.update()
             self.assertFalse(hasattr(d, "idea_send"), "剧本页「发送」按钮已并入共享输入框")
             self.assertIsNone(d.stage_button, "剧本页行内「阶段配置」按钮已删")
@@ -355,39 +351,23 @@ class UiEdgePagesTests(UiEdgeCase):
                         win.update(); win.update_idletasks()
                     texts = widget_texts(d.content)
                     self.assertIn(label, texts, "第 %02d 页的主动作叫「%s」" % (index + 1, label))
-                    self.assertTrue(d.stage_button.winfo_exists(), "「阶段配置」按钮真的建出来了")
-                    self.assertIn(str(d.stage_button.cget('text')), texts,
-                                  "第 %02d 页的配置入口应显示当前实际模型或阶段配置" % (index + 1))
-                    self.assertIn(d.stage_button.winfo_manager(), ("pack", "place"),
-                                  "它默认就摆在这一行里")
-                    self.assertGreater(int(d.stage_button.winfo_reqheight()), 0, "按钮有真实高度，不是空壳")
-            # 第 68 期任务 6：07 分镜定稿补上了主动作「手动同步资产」，阶段配置跟着挪到那一行
-            # （原来挂在页标题右边），页标题旁不再重复摆一颗。
+                    self.assertNotIn("阶段配置", texts, "第 %02d 页「阶段配置」按钮已删" % (index + 1))
+                    self.assertIsNone(d.stage_button, "第 %02d 页 stage_button 属性不再挂按钮" % (index + 1))
+            # 07 分镜定稿：主动作保留，阶段配置与页标题旁那颗都删。
             show_catalog_page_ready(d, PAGE["final"])
             for _ in range(3):
                 win.update(); win.update_idletasks()
-            self.assertTrue(d.stage_button.winfo_exists(), "05 页的「阶段配置」建在主动作那一行")
-            self.assertIn(d.stage_button.winfo_manager(), ("pack", "place"),
-                          "它默认就摆在那一行里")
-            self.assertGreater(int(d.stage_button.winfo_reqheight()), 0, "按钮有真实高度")
-            self.assertIn(str(d.stage_button.cget('text')), widget_texts(d.content), "05 页行内就有配置入口")
-            self.assertIsNone(d.header_stage_button, "05 页标题旁不再重复摆一颗")
+            self.assertIsNone(d.stage_button, "05 页行内「阶段配置」已删")
+            self.assertIsNone(d.header_stage_button, "05 页标题旁不再有阶段配置")
             for index in (PAGE["script"], PAGE["storyboard"], PAGE["assets"],
                           PAGE["keyframe"], PAGE["previs"]):
                 with self.subTest(page=index + 1):
                     d.show(index); win.update()
                     self.assertIsNone(d.header_stage_button,
-                                      "第 %02d 页的阶段配置挂在主动作那一行里" % (index + 1))
-            # 没有旧式「手动XX」的下游页也必须保留唯一配置入口。入口文案会显示实际
-            # 模型（例如 Codex），不能再把「阶段配置」四个字写死。
-            for index in (PAGE["audio"], PAGE["edit"], PAGE["delivery"]):
-                with self.subTest(page=index + 1):
-                    d.show(index); win.update()
-                    self.assertIsNotNone(d.stage_button,
-                                         "第 %02d 页必须有阶段配置入口" % (index + 1))
-            # 第 54 期附件二第 3 条：09／10 两页原来一个「手动XX」都没有，这一轮补上
-            # 「手动制作剪辑／手动制作交付」；阶段配置的位置照旧（页标题右边），没有第二颗。
-            for index, label in ((PAGE["edit"], "手动制作剪辑"),
+                                      "第 %02d 页标题旁没有阶段配置" % (index + 1))
+            # 下游页与 09／10：主动作照旧，阶段配置入口全部移除。
+            for index, label in ((PAGE["audio"], "手动制作配音"),
+                                 (PAGE["edit"], "手动制作剪辑"),
                                  (PAGE["delivery"], "手动制作交付")):
                 with self.subTest(page=index + 1):
                     d.show(index)
@@ -395,27 +375,32 @@ class UiEdgePagesTests(UiEdgeCase):
                         win.update(); win.update_idletasks()
                     texts = widget_texts(d.content)
                     self.assertIn(label, texts, "第 %02d 页补上了「%s」" % (index + 1, label))
-                    self.assertEqual(int(d.stage_button.winfo_exists()), 1,
-                                     "阶段配置入口必须存在且唯一")
+                    self.assertIsNone(d.stage_button, "第 %02d 页「阶段配置」已删" % (index + 1))
             d.show(PAGE["video"], video_mode="choose"); win.update()
-            self.assertIsNone(d.header_stage_button, "第 08 页选生成方式那一屏不再重复摆一颗")
+            self.assertIsNone(d.header_stage_button, "第 08 页选生成方式那一屏没有阶段配置")
             d.show(0); win.update()
             self.assertNotIn("▼  剧本创作 Agent  ▼", widget_texts(d.content))
-            # 视频页的工作台本地与线上共用同一份：两颗主动作与阶段配置均由视频阶段提供。
+            # 视频页的工作台本地与线上共用同一份：主动作保留，阶段配置与模型下拉框都删。
             d.show(PAGE["video"], video_mode="local")
             for _ in range(3):
                 win.update(); win.update_idletasks()
             texts = widget_texts(d.content)
             self.assertIn("手动制作提示词", texts, "视频页主动作改名「手动制作提示词」")
             self.assertIn("手动制作视频", texts, "视频页主动作改名「手动制作视频」")
-            self.assertIn("阶段配置", texts, "视频页也有一颗「阶段配置」")
+            self.assertNotIn("阶段配置", texts, "视频页「阶段配置」已删")
             d.show(PAGE["video"], video_mode="choose"); win.update()
             self.assertIn("进入线上生成", widget_texts(d.content))
             self.assertNotIn("配置线上视频 API", widget_texts(d.content),
                              "选生成方式那一屏不再重复摆一颗接口设置按钮")
             d.show(PAGE["video"], video_mode="cloud"); win.update()
             self.assertIn("配置线上视频 API", widget_texts(d.content),
-                         "还没配线上接口时，工作台那一屏仍留一处能配（面板的接口里也有一份）")
+                         "还没配线上接口时，工作台那一屏仍留一处能配")
+            # 共享输入框的模型选择器是下拉框按钮：点击弹菜单列表，不弹模态窗。
+            from tkinter import ttk
+            shared = d.shared_input
+            self.assertIsNotNone(getattr(shared, 'model_picker', None), '共享输入框有模型下拉框')
+            self.assertIsInstance(shared.model_picker.models, ttk.Menubutton,
+                                  '模型选择器是 Menubutton 下拉框')
 
     def test_writing_page_first_line_and_removed_labels(self):
         """第 31 期第 1 条＋第 69 期任务 4：01 剧本准备页不再摆那一长句说明，四处多余文字也删掉。"""
@@ -593,37 +578,26 @@ class UiEdgePagesTests(UiEdgeCase):
             self.assertEqual(str(d.script_box.winfo_class()), "TFrame")
             self.assertTrue(d.script_box.winfo_ismapped(),
                             "发现已有剧本文件时，文件框与列头必须保持可见")
-            # R2923：四类文件合成左侧一条竖向列表（每类一个带小标题的分组），
-            # 表头即分类名；REQ-S01-76 去掉勾选列，改为 Ctrl／Shift 多选。
-            titles = {"setting": "项目设定", "outline": "项目大纲", "character": "角色卡", "script": "项目剧本"}
-            self.assertEqual(tuple(d.script_trees), tuple(titles))
-            names = {}
-            for category, tree in d.script_trees.items():
-                self.assertEqual(str(tree.heading("name", "text")), titles[category])
-                self.assertEqual(tuple(tree["columns"]), ("name",))
-                self.assertNotIn("time", tuple(tree["columns"]), "剧本准备文件表不显示修改日期列")
-                self.assertEqual(int(tree.cget("height")), len(tree.get_children()),
-                                 "表高按行数收紧")
-                self.assertEqual(tuple(map(str, win.tk.splitlist(tree.cget("show")))), ("headings",),
-                                 "剧本文件表不再显示勾选列，只有文件名一列")
-                self.assertEqual(str(tree.cget("selectmode")), "extended", "剧本文件表支持 Ctrl／Shift 多选")
-                names[category] = [tree.item(item, "values")[0] for item in tree.get_children()]
-                for item in tree.get_children():
-                    self.assertEqual(d.script_row_category[item], category)
-                    self.assertEqual(len(tree.item(item, "values")), 1,
-                                     "剧本准备文件表每行只显示文件名")
-            roots = [tree.winfo_rootx() for tree in d.script_trees.values()]
-            self.assertLessEqual(max(roots) - min(roots), 2, "四张表左对齐成一条竖向列表")
-            ypos = [tree.winfo_rooty() for tree in d.script_trees.values()]
-            self.assertEqual(ypos, sorted(ypos), "四张表按分类顺序自上而下堆叠")
-            self.assertEqual(names["setting"], ["项目设定_测试.md"])
-            self.assertEqual(names["outline"], ["项目大纲_测试.md"])
-            self.assertEqual(names["character"], ["角色卡_测试.md"])
-            self.assertEqual(names["script"], ["项目剧本_测试.md"])
-            self.assertNotIn("script.md", names["script"], "剧本结构阶段产物不应出现在剧本准备页")
+            # R2942：四类文件合成一条「项目文件」列表；表头「文件名」，去掉勾选列，
+            # Ctrl／Shift 多选；每行只显示文件名，类别经行提示展示。
+            tree = d.script_tree
+            self.assertEqual(str(tree.heading("name", "text")), "文件名")
+            self.assertEqual(tuple(tree["columns"]), ("name",))
+            self.assertNotIn("time", tuple(tree["columns"]), "剧本准备文件表不显示修改日期列")
+            self.assertEqual(int(tree.cget("height")), len(tree.get_children()), "表高按行数收紧")
+            self.assertEqual(tuple(map(str, win.tk.splitlist(tree.cget("show")))), ("headings",),
+                             "剧本文件表不再显示勾选列，只有文件名一列")
+            self.assertEqual(str(tree.cget("selectmode")), "extended", "剧本文件表支持 Ctrl／Shift 多选")
+            names = [tree.item(item, "values")[0] for item in tree.get_children()]
+            for item in tree.get_children():
+                self.assertIn(d.script_row_category[item], ("setting", "outline", "character", "script"))
+                self.assertEqual(len(tree.item(item, "values")), 1, "剧本准备文件表每行只显示文件名")
+            for expected in ("项目设定_测试.md", "项目大纲_测试.md", "角色卡_测试.md", "项目剧本_测试.md"):
+                self.assertTrue(any(expected in name for name in names), expected + " 应出现在项目文件列表")
+            self.assertFalse(any("script.md" == name for name in names), "剧本结构阶段产物不应出现在剧本准备页")
 
     def test_script_structure_page_shows_source_and_output_in_separate_boxes(self):
-        """剧本结构页上看剧本准备来源、下看结构化输出，手动制作和阶段配置夹在中间。"""
+        """剧本结构页上看剧本准备来源、下看结构化输出，手动制作按钮夹在中间（R2942：阶段配置已删）。"""
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
@@ -679,7 +653,8 @@ class UiEdgePagesTests(UiEdgeCase):
             self.assertIs(d.script_structure_info_label, d.header_status, "说明文字放在页头右上角（R1862）")
             self.assertEqual(str(d.script_structure_info_label.cget("justify")), "right")
             self.assertIn("本地规则整理，不调用模型", str(d.script_structure_info_label.cget("text")))
-            self.assertTrue(d.stage_button.winfo_exists(), "阶段配置按钮应在两内容框之间的操作行")
+            # R2942：页面级「阶段配置」按钮已删，模型选择收进共享输入框下拉框。
+            self.assertIsNone(d.stage_button, "剧本结构页「阶段配置」按钮已删")
             output_position = d.script_structure_output_preview.yview()[0]
             d.script_structure_source_preview.yview_moveto(0.62); win.update()
             self.assertEqual(d.script_structure_output_preview.yview()[0], output_position,
@@ -1073,11 +1048,9 @@ class StartupFirstPaintTests(unittest.TestCase):
         controller.start();win.callback()
 
 class StageConfigEntryTests(unittest.TestCase):
-    """第 41 期第 2 条：10 个制作页面每页都点得到本阶段的「阶段配置」。
-
-    原先只有剧本准备／初步分镜／资产管理／分镜定稿／首帧管理／白模预演／视频生成七页有，
-    配音与字幕、后期剪辑、质检与交付三页一个都没有——10 阶段各自的模型＋SKILL 面板，
-    那三块从界面上点不进去。这条用例逐页把按钮按下去，核对弹出的面板抬头就是这一页的阶段。
+    """R2942：10 个制作页面的「阶段配置」按钮＋模型下拉框全部删除——逐页核对一个入口
+    都不剩；模型选择收进共享输入框的下拉框按钮。``buttons_named`` 只在带
+    ``_stage_config_entry`` 语义标记的控件里找入口，任何页面重建都不能把它带回来。
     """
 
     @classmethod
@@ -1121,10 +1094,11 @@ class StageConfigEntryTests(unittest.TestCase):
             self.buttons_named(button)
 
     def test_every_page_opens_its_own_panel(self):
+        """R2942：所有页面的「阶段配置」按钮＋模型下拉框已删——逐页核对一个入口都不剩，
+        模型/技能收进底部共享输入框。"""
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
         import desktop as desktop_module
-        import skill_panel
         # safe() 出错时会弹 messagebox，自检会被那个弹窗卡住：这里只记账，最后断言没人报错。
         errors = []
         for name in ("showerror", "showinfo"):
@@ -1144,28 +1118,15 @@ class StageConfigEntryTests(unittest.TestCase):
                 with self.subTest(page=index):
                     d.show(index); win.update_idletasks()
                     buttons = self.buttons_named(d.content) + self.buttons_named(d.title_row)
-                    if index == PAGE["video"]:
-                        # 视频页的方式选择屏不摆阶段配置，进入具体工作台后再提供入口。
-                        self.assertEqual(len(buttons), 0,
-                                         "第 8 页不该再有阶段配置入口")
-                        continue
-                    if index == PAGE["script"]:
-                        # R2923：剧本页「阶段配置」按钮删除，模型选择与技能入口
-                        # 收进底部共享输入框，不再有独立阶段配置按钮。
-                        self.assertEqual(len(buttons), 0,
-                                         "剧本页「阶段配置」按钮已并入共享输入框")
-                        continue
-                    self.assertEqual(len(buttons), 1, "第 %d 页没有（或不止一颗）阶段配置入口：%s"
+                    self.assertEqual(len(buttons), 0,
+                                     "第 %d 页「阶段配置」入口已删：%s"
                                      % (index, d.title.cget("text")))
-                    buttons[0].invoke(); win.update_idletasks()
-                    panels = [w for w in win.winfo_children()
-                              if isinstance(w, self.tk.Toplevel)
-                              and str(w.title()).startswith("阶段配置 · ")]
-                    self.assertEqual(len(panels), 1, "按一次只该开一块面板")
-                    self.assertEqual(panels[0].title(),
-                                     skill_panel.panel_title(skill_panel.stage_of_page(index)),
-                                     "这一页的按钮配的必须是这一页的阶段")
-                    panels[0].destroy()
+                    self.assertIsNone(d.stage_button, "第 %d 页 stage_button 不再挂按钮" % index)
+                    self.assertIsNone(d.header_stage_button,
+                                      "第 %d 页标题旁没有阶段配置" % index)
+            from tkinter import ttk
+            self.assertIsInstance(d.shared_input.model_picker.models, ttk.Menubutton,
+                                  "共享输入框的模型选择器是下拉框按钮")
         self.assertEqual(errors, [], "这一步不该靠弹框收场")
 
 class BriefTintTests(unittest.TestCase):

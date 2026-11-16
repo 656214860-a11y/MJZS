@@ -36,7 +36,7 @@ import contract.frame_checks as frame_checks
 import pet_ui
 import ui_usage_indicator
 import contract.project_stages as project_stages
-import ui_plugin_registry
+import tkinter as tk
 import stage_handler_registry
 from contract.platform_tools import find_editor_shortcut, launch_windows_app, open_directory, open_path, open_target, tcp_listener
 from desktop_startup_service import DesktopStartupController
@@ -816,22 +816,12 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         if not text:return None
         self.status.set(text)
         return self.status_label
-    def header_stage_config(self,index):
-        """页标题右边那颗「阶段配置」（第 41 期第 2 条）。
-
-        没有「手动XX」那一行的页面（分镜定稿／配音与字幕／后期剪辑／质检与交付）就摆在这里：
-        原先只有分镜定稿手写了两行，下游三页因此一个入口都没有，11 个阶段的模型＋SKILL
-        面板里那三块从界面上点不进去。按钮随页面重建一起销毁（见 show()）。
-        """
-        self.header_stage_button=ui_plugin_registry.module('skill_panel').stage_button(self.title_row,self,index)
-        self.header_stage_button.pack(side='left',padx=(SPACING['md'],SPACING['none']))
-        return self.header_stage_button
     def storyboard_creation(self):
         from storyboard_files import show
         show(self)
-    # 第 29 期第 1 条：页面上那几处重复的「Model ＋ SKILL」控制行整个拿掉——入口只留那颗
-    # 「阶段配置」。第 32 期第 6 条起它不再集中在剧本准备页，而是各阶段页「手动XX」右边各一颗
-    # （见 skill_panel.stage_button），模型／SKILL／接口／说明都在面板里。
+    # 第 29 期第 1 条：页面上那几处重复的「Model ＋ SKILL」控制行整个拿掉。R2942 起页面级
+    # 「阶段配置」按钮＋模型下拉框也全部删除：模型选择走共享输入框的下拉框按钮，
+    # SKILL 走 ✦ 图标；skill_panel.show 面板仍由手动制作预检「修改配置」等入口打开。
     # flow_settings 留着：首帧页的「Skill 调用设置」在模型接口窗口里还要用它（第 26 期那处）。
     def flow_settings(self,stage,function=None):
         from workflow_settings_dialog import show_settings

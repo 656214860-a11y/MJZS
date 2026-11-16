@@ -313,22 +313,13 @@ class ButtonRowTests(FinalViewerCase):
                       "「刷新列表」还留在这一行")
 
     def test_the_stage_config_sits_to_the_right_of_the_manual_button(self):
+        """R2942：「阶段配置」按钮＋模型下拉框已删除；该行只剩手动/刷新/目录三键。"""
         manual = self.button("手动同步资产")
-        self.assertIs(manual.master, self.app.stage_button.master, "两颗按钮在同一行")
-        order = manual.master.winfo_children()
-        self.assertLess(order.index(manual), order.index(self.app.stage_button),
-                        "「阶段配置」要在「手动同步资产」右边")
-        # 第 71 期任务 3：这一行是 FlowBar，它按「控件建出来的先后」从左往右排（见
-        # responsive_ui.FlowBar.layout），所以「右边第一位」＝它在子控件清单里紧跟主动作，
-        # 排在「刷新列表」前面。
-        def slot(label):
-            for index, child in enumerate(order):
-                if self.text_of(child) == label:
-                    return index
-            self.fail("这一行里没有「%s」" % label)
-        self.assertLess(slot("手动同步资产"), slot("阶段配置"))
-        self.assertLess(slot("阶段配置"), slot("刷新列表"), "「刷新列表」排在它右边")
-        self.assertLess(slot("刷新列表"), slot("分镜目录"))
+        labels = [self.text_of(child) for child in manual.master.winfo_children()]
+        self.assertNotIn("阶段配置", labels, "「阶段配置」已随 R2942 删除")
+        self.assertLess(labels.index("手动同步资产"), labels.index("刷新列表"),
+                        "「刷新列表」仍跟在手动动作后面")
+        self.assertLess(labels.index("刷新列表"), labels.index("分镜目录"))
 
     def test_refresh_sits_left_of_the_storyboard_folder(self):
         order = self.button("手动同步资产").master.winfo_children()

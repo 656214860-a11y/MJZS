@@ -214,8 +214,7 @@ class MediaPagesMixin:
         _make=PrimaryButton(bar,text='手动生成连贯性清单',style='Primary.TButton',width=STAGE_ACTION_WIDTH,command=lambda:self.safe(make))
         _make.pack(side='left',padx=(SPACING['none'],SPACING['xs']),pady=SPACING['xs'])
         ui_plugin_registry.module('stage_flow').follow(_make,'continuity')     # 三虎在跑这一步就写「自动执行中」并置灰
-        self.stage_button=ui_plugin_registry.module('skill_panel').stage_button(bar,self,PAGE['continuity'])
-        self.stage_button.pack(side='left',padx=(SPACING['sm'],SPACING['xs']),pady=SPACING['xs'])
+        # R2942：「阶段配置」按钮＋模型下拉框删除。
         SecondaryButton(bar,text='清单目录',style='Asset.TButton',
                    command=lambda:self.safe(lambda:self.media_page_services.open_path(self.continuity_folder()))).pack(side='left',padx=SPACING['xs'],pady=SPACING['xs'])
         head=ttk.Frame(self.content);head.pack(fill='x',pady=(SPACING['xs'],SPACING['none']))
@@ -445,7 +444,6 @@ class MediaPagesMixin:
                                              generate_animatic_reference)
         from ui_widgets import DescriptionBlock, PrimaryButton, SecondaryButton, ProgressLabel, LineInput, HintLabel
         from ui_tokens import SPACING
-        self.header_stage_config(PAGE['animatic'])
         project = self.root
         selected = {'source': None, 'audio': None}
         comfy_settings = {'url': self.settings.get('comfy_url', 'http://127.0.0.1:8188')}
@@ -555,8 +553,8 @@ class MediaPagesMixin:
         """
         from video_navigation import confirm_rows,local_model
         self.title.configure(text=pet_bus.stage_label('video')+' · 选择生成方式')
-        # 第 48 期第 2 条：这一屏不再挂「阶段配置」——选定方式后进工作台那一步也有一颗，两处是同一件事。
-        # （仍是页标题右边没有入口的页面只剩 08／09／10，见 header_stage_config。）
+        # 第 48 期第 2 条：这一屏不再挂「阶段配置」；R2942 起页面级阶段配置按钮与
+        # 标题旁入口全部删除，模型/技能走共享输入框。
         # 第 38 期第 2 条：「线上走」和「API（按秒计费）」之间那个空格是整句唯一的断点，
         # 窗口一窄就把这两个词劈成两行；改成不换行空格粘住，并自己在这里断句，两种方式各占一行。
         lead=ttk.Label(self.content,text='本地走本机 ComfyUI（免费，用显卡），线上走\u00a0API（按秒计费）。\n两种都用同一份分镜与首帧；先确认下面几项，选定方式后再挑镜头。',
@@ -643,12 +641,12 @@ class MediaPagesMixin:
                 cached.studio.episode=read(cached.studio.episode_path)
                 cached.refresh();cached.update_progress();cached.next_poll=0
             if is_cloud:self.header_status.configure(textvariable=cached.status)
-            # 第 32 期第 6 条：这一页那颗「阶段配置」跟着工作台一起复用。
-            self.stage_button=getattr(cached,'stage_button',None)
+            # R2942：「阶段配置」按钮＋模型下拉框已删除，工作台不再暴露独立入口。
             return
         panel=ttk.Frame(self.content);panel.pack(fill='both',expand=True)
         from stage_models import manual_command
-        self.video=App(panel,video_root,settings_callback=(lambda:ui_plugin_registry.module('cloud_video').settings_window(self)) if is_cloud else None,prompt_callback=prepare_video_prompt,episode_file=None if is_cloud else source,missing_frame_callback=lambda sid,source=source:self.focus_missing_frame(source,sid),stage_callback=lambda:ui_plugin_registry.module('skill_panel').open_for_page(self,PAGE['video']),report_callback=self.pet_report,prompt_stage_callback=lambda:ui_plugin_registry.module('skill_panel').show(self,'final'),manual_command_factory=manual_command);ui_plugin_registry.module('skill_panel').attach_stage_pickers(self.video,self)
+        # R2942：视频工作台的「阶段配置」按钮＋模型下拉框删除（模型/技能走共享输入框）。
+        self.video=App(panel,video_root,settings_callback=(lambda:ui_plugin_registry.module('cloud_video').settings_window(self)) if is_cloud else None,prompt_callback=prepare_video_prompt,episode_file=None if is_cloud else source,missing_frame_callback=lambda sid,source=source:self.focus_missing_frame(source,sid),report_callback=self.pet_report,manual_command_factory=manual_command)
         # 视频页自己的文字框重排也听主窗口合并器：拖动时并进松手后的补做。
         self.video.resize_scheduler=self.resize_scheduler
         if is_cloud:self.header_status.configure(textvariable=self.video.status)
@@ -747,8 +745,7 @@ class MediaPagesMixin:
         _audio_button=audio_button(production,'手动制作配音',
                                    _manual_audio(self,'audio',self.open_audio_skill,self.win),primary=True)
         ui_plugin_registry.module('stage_flow').follow(_audio_button,'audio')
-        self.stage_button=ui_plugin_registry.module('skill_panel').stage_button(production,self,PAGE['audio'])
-        self.stage_button.pack(side='left',padx=(SPACING['none'],SPACING['sm']),pady=SPACING['xs'])
+        # R2942：「阶段配置」按钮＋模型下拉框删除。
         dialogue_buttons=[]
         dialogue_buttons.append(audio_button(production,'生成配音（TTS）',self.generate_tts))
         dialogue_buttons.append(audio_button(production,'逐句配音（分句）',self.generate_tts_per_line))
@@ -790,7 +787,7 @@ class MediaPagesMixin:
         self.status.set(media_logic.subtitle_status(report))
         return p
     def stage_action_bar(self,stage,manual_text):
-        """后期／交付页顶部一行：「手动制作…」按钮＋该阶段的技能面板按钮（自动制作入口）。"""
+        """后期／交付页顶部一行：「手动制作…」按钮（R2942：阶段配置按钮已删）。"""
         from stage_models import manual_command
         bar=FlowBar(self.content);bar.pack(fill='x',pady=(SPACING['xs'],SPACING['xs']))
         manual=PrimaryButton(bar,text=manual_text,width=STAGE_ACTION_WIDTH,
@@ -798,9 +795,6 @@ class MediaPagesMixin:
                                  lambda:ui_plugin_registry.module('stage_exec').show(self,stage),self.win)))
         manual.pack(side='left',padx=(SPACING['none'],SPACING['xs']),pady=SPACING['xs'])
         ui_plugin_registry.module('stage_flow').follow(manual,stage)
-        self.stage_button=ui_plugin_registry.module('skill_panel').stage_button(bar,self,PAGE[stage])
-        self.stage_button.configure(style='Tokens.Primary.TButton')
-        self.stage_button.pack(side='left',padx=(SPACING['sm'],SPACING['xs']),pady=SPACING['xs'])
     def editing(self):
         from editing_page_controller import EditingPageController
         from stage_workspace_service import ensure_editing_workspace

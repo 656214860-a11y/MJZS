@@ -522,8 +522,7 @@ class _ScriptStructurePage:
                                command=lambda:self.page.safe(self.manual_command(self.page, 'script_structure', self.start_structure, self.page.win)))
         manual.pack(side='left', padx=(SPACING["none"], SPACING["xs"])); self.page.script_structure_manual_button = manual
         ui_plugin_registry.module('stage_flow').follow(manual, 'script_structure')
-        self.page.stage_button = ui_plugin_registry.module('skill_panel').stage_button(action_group, self.page, PAGE['script_structure'])
-        self.page.stage_button.pack(side='left', padx=(SPACING["sm"], SPACING["xs"]))
+        # R2942：「阶段配置」按钮＋模型下拉框删除。
         # 流程说明放到页头右上角（header_status 随宽度自动换行，换页时清空），
         # 不再在内容框下方单占一行，把高度让给两块剧本内容（用户 R1862 要求）。
         info = self.page.header_status

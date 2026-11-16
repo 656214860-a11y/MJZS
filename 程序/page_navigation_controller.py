@@ -103,9 +103,12 @@ def stale_cache_keys(cache, index, page, *, root, rebuild, alive, signature=None
     return stale_keys
 
 
-def cache_entry(holder, root, stage_button, status_text, project_text):
-    """缓存项：内容框、所属项目、阶段按钮，以及离开时底栏上的那句话（等于项目路径的不留）。"""
-    return {'holder': holder, 'root': root, 'stage_button': stage_button,
+def cache_entry(holder, root, status_text, project_text):
+    """缓存项：内容框、所属项目，以及离开时底栏上的那句话（等于项目路径的不留）。
+
+    R2942：页面级「阶段配置」按钮已删，缓存不再存 stage_button。
+    """
+    return {'holder': holder, 'root': root,
             'note': '' if status_text == project_text else status_text}
 
 

@@ -215,8 +215,7 @@ class _FinalStoryboardPage:
         self.row_buttons={}
         self.row_button('手动同步资产',lambda:self.desktop.make_final_storyboard(self.chosen()),'Primary.TButton')
         ui_plugin_registry.module('stage_flow').follow(self.row_buttons['手动同步资产'],'final')
-        self.desktop.stage_button=ui_plugin_registry.module('skill_panel').stage_button(self.row,self.desktop,PAGE_OF['final'])
-        self.desktop.stage_button.pack(side='left',padx=(SPACING['sm'],SPACING['xs']))
+        # R2942：「阶段配置」按钮＋模型下拉框删除。
         self.row_button('刷新列表',self.refresh)
         self.row_button('分镜目录',lambda:self.desktop.open_folder(working_dir(self.project)))
         self.desktop.pet.auto_variable('auto_final_var')
@@ -782,8 +781,7 @@ class _StoryboardFilesPage:
                         self.manual_command(self.desktop,'storyboard',lambda:self.desktop.open_storyboard_skill(None),self.desktop.win)))
                 self.controls['agent'].pack(side='left',padx=(SPACING['none'], SPACING['xs']))
                 ui_plugin_registry.module('stage_flow').follow(self.controls['agent'],'storyboard')
-                self.desktop.stage_button=ui_plugin_registry.module('skill_panel').stage_button(row,self.desktop,1)
-                self.desktop.stage_button.pack(side='left',padx=(SPACING['sm'], SPACING['none']))
+                # R2942：「阶段配置」按钮＋模型下拉框删除。
                 self.controls['agent'].bind('<Button-1>',lambda e: (notify(self.desktop.win, '请先在上方选择需要制作的剧本，或选择要采用的 JSON 分镜。', title='手动制作分镜', status=self.desktop.status) if self.controls['agent'].cget('state')=='disabled' else None),add='+')
 
     def current_selection(self, kind):

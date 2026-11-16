@@ -959,16 +959,21 @@ class PanelTests(unittest.TestCase):
         self.assertIn(('my-gpt', '我的 GPT'), groups['我的厂商'])
 
     def test_stage_button_text_is_fixed_and_picker_follows_it(self):
-        """按钮名固定为「阶段配置」，当前模型改由按钮右侧的模型选择器显示。"""
+        """R2942：页面级「阶段配置」按钮＋模型下拉框已删；模型选择收进共享输入框的
+        StageModelPicker 下拉框按钮——按钮文案即当前模型名，点击弹菜单列表而非模态窗。"""
+        import stage_model_picker
+        from tkinter import ttk
         stage_config.put(self.desktop.root, 'script', model='deepseek-v4-flash')
-        button = skill_panel.stage_button(self.win, self.desktop, 0)
-        self.addCleanup(button.destroy)
-        button.pack(side='left')
-        self.assertEqual(button.cget('text'), '阶段配置')
-        self.assertIsNotNone(button.picker)
-        self.assertEqual(button.picker.model_id(), 'deepseek-v4-flash')
-        self.assertIn('DeepSeek', button.picker.model.get())
-        self.assertNotIn(' · ', button.picker.model.get(),
+        self.assertFalse(hasattr(skill_panel, 'stage_button'), '页面级阶段配置按钮工厂已删')
+        self.assertFalse(hasattr(stage_model_picker, 'stage_button_for'), '按钮工厂已删')
+        self.assertFalse(hasattr(stage_model_picker, 'attach_stage_pickers'), '选择器补挂入口已删')
+        picker = stage_model_picker.StageModelPicker(self.win, self.desktop, 'script')
+        self.addCleanup(picker.destroy)
+        picker.pack(side='left')
+        self.assertIsInstance(picker.models, ttk.Menubutton, '模型选择器是下拉框按钮，不是弹窗')
+        self.assertEqual(picker.model_id(), 'deepseek-v4-flash')
+        self.assertIn('DeepSeek', picker.model.get())
+        self.assertNotIn(' · ', picker.model.get(),
                          'REQ-S01-82：选择器当前项只显示模型名称，不带供应商前缀')
 
     def test_picker_add_model_entry_opens_the_manager_and_reverts(self):

@@ -179,16 +179,16 @@ class CompactDesktopGeometryTests(unittest.TestCase):
         self.assertIn('empty-group', d.list.item('group:completed', 'tags'))
         d.list.item('group:completed', open=True)
         self.assertTrue(d.list.item('group:completed', 'open'))
-        # R1862：四类文件复原为四张并排表，每张表一个行提示。
+        # R2942：四类文件合成一条「项目文件」列表，每个文件一行提示。
         self.assertEqual(set(d.script_row_category.values()), {'setting', 'outline', 'character', 'script'},
-                         '四类文件都出现在各自的表里')
-        for category, tree in d.script_trees.items():
-          self.assertTrue(tree.get_children(), category)
-          self.assertEqual(str(tree.heading('#0', 'anchor')), 'center')
-          self.assertEqual(str(tree.heading('name', 'anchor')), 'center')
-          for item in tree.get_children():
+                         '四类文件都出现在同一条列表里')
+        tree = d.script_tree
+        self.assertTrue(tree.get_children())
+        self.assertEqual(str(tree.heading('#0', 'anchor')), 'center')
+        self.assertEqual(str(tree.heading('name', 'anchor')), 'center')
+        for item in tree.get_children():
             with self.subTest(item=item):
-                details = d.script_file_tips[category].text_for(item)
+                details = d.script_file_tips.text_for(item)
                 self.assertIn(Path(item).name, details)
                 expected = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(Path(item).stat().st_mtime))
                 self.assertIn(expected, details)

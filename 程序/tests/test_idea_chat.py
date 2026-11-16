@@ -1088,15 +1088,33 @@ class SendMessageTests(_Harness):
             d.show(0); win.update()
             win.deiconify()
             self.settle_script_page(win, .4)
-            self.assertTrue(d.script_box.winfo_ismapped(), '没有文件也保留分类标题栏')
-            # R1862：四类文件复原为四张并排表，表头即分类名。
-            titles = {'setting': '项目设定', 'outline': '项目大纲', 'character': '角色卡', 'script': '项目剧本'}
-            for category, tree in d.script_trees.items():
-                self.assertEqual(tree.heading('name')['text'], titles[category])
-                self.assertTrue(tree.winfo_ismapped())
-                self.assertFalse(tree._data_table.empty_label.winfo_ismapped(), '空态不能遮住标题栏')
-                self.assertEqual(tree.get_children(), ())
+            self.assertTrue(d.script_box.winfo_ismapped(), '没有文件也保留「项目文件」栏头')
+            # R2942：四类文件合成一条「项目文件」列表，表头即「文件名」。
+            self.assertEqual(str(d.script_title.cget('text')), '项目文件')
+            tree = d.script_tree
+            self.assertEqual(tree.heading('name')['text'], '文件名')
+            self.assertTrue(tree.winfo_ismapped())
+            self.assertFalse(tree._data_table.empty_label.winfo_ismapped(), '空态不能遮住标题栏')
+            self.assertEqual(tree.get_children(), ())
             self.assertTrue(d.idea_log.winfo_ismapped(), '聊天记录仍保留可用空间')
+
+    def test_project_files_bar_collapses_and_expands(self):
+        """R2942：点击折叠图标隐藏「项目文件」列表，再点恢复；图标方向随之切换。"""
+        from ui_tokens import ICON_CHEVRON_LEFT, ICON_CHEVRON_RIGHT
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            d, win = self.desktop(proj)
+            d.show(0); win.deiconify()
+            self.settle_script_page(win, .4)
+            self.assertTrue(d.script_tree.winfo_ismapped(), '默认展开「项目文件」列表')
+            self.assertEqual(d.script_toggle.cget('text'), ICON_CHEVRON_LEFT)
+            d.script_toggle.invoke(); win.update()
+            self.assertFalse(d.script_tree.winfo_ismapped(), '折叠后文件列表隐藏')
+            self.assertEqual(d.script_toggle.cget('text'), ICON_CHEVRON_RIGHT, '折叠后图标切换为展开方向')
+            self.assertTrue(d.idea_log.winfo_ismapped(), '折叠后聊天区仍可用')
+            d.script_toggle.invoke(); win.update()
+            self.assertTrue(d.script_tree.winfo_ismapped(), '再点恢复「项目文件」列表')
+            self.assertEqual(d.script_toggle.cget('text'), ICON_CHEVRON_LEFT)
 
     def test_delayed_script_rows_are_not_covered_by_empty_state(self):
         with tempfile.TemporaryDirectory() as td:
@@ -1161,7 +1179,7 @@ class SendMessageTests(_Harness):
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)
             d.show(0); win.update()
-            self.assertIsNone(d.stage_button, '页面「阶段配置」按钮已随 R2923 删除')
+            self.assertIsNone(d.stage_button, '页面「阶段配置」按钮已随 R2942 删除')
 
     def test_script_interrupt_is_merged_into_submit_and_releases_direct_chat(self):
         """R2923：「中断」并入共享输入框——运行中按 Esc 等同点终止，空闲不拦截。"""
@@ -1212,7 +1230,8 @@ class SendMessageTests(_Harness):
             d.show(0); win.update()
             self.assertFalse(hasattr(d, 'idea_download'))
             self.assertFalse(hasattr(d, 'idea_row'), '动作栏容器已随 R2923 删除')
-            self.assertIsNone(d.stage_button, '页面「阶段配置」按钮已随 R2923 删除（仅剩顶部 header 入口）')
+            self.assertIsNone(d.stage_button, '页面「阶段配置」按钮已随 R2942 删除（含顶部 header 入口）')
+            self.assertIsNone(d.header_stage_button, '标题旁「阶段配置」也已删')
             for name in ('idea_send', 'idea_refresh', 'idea_add_script', 'idea_open_folder', 'recon_button'):
                 self.assertFalse(hasattr(d, name), '「%s」按钮已随 R2923 删除' % name)
 
@@ -2566,7 +2585,7 @@ class ModelBarUITests(_Harness):
             self.assertFalse(d.idea_model_bar.winfo_manager(), '无聊天记录（示例气泡）时不显示目录条')
 
     def test_select_idea_model_syncs_stage_model_picker(self):
-        """REQ-S01-80：点目录条模型标签后，把该模型显示名传给阶段配置的 picker；无 picker 时安全跳过。"""
+        """REQ-S01-80：点目录条模型标签后，把该模型显示名传给共享输入框的模型下拉；无下拉时安全跳过。"""
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             idea_chat.append(proj, 'user', '甲', model='模型甲')
@@ -2575,11 +2594,11 @@ class ModelBarUITests(_Harness):
             self.settle_script_page(win)
             picker = Mock()
             picker.set_model_label = Mock()
-            d.stage_button = Mock(picker=picker)
+            d.shared_input.model_picker = Mock(set_model_label=picker.set_model_label)
             d.select_idea_model('模型甲')
             picker.set_model_label.assert_called_once_with('模型甲')
-            # 无 stage_button 时不抛错、不调用
-            d.stage_button = None
+            # 无 model_picker 时不抛错、不调用
+            d.shared_input.model_picker = None
             d.select_idea_model('全部')
 
 

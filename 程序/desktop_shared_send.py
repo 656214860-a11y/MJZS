@@ -243,36 +243,6 @@ def _attachments(desktop):
     _say(desktop, '附件请在当前阶段页面的制作入口中添加')
 
 
-def _model_picker(desktop):
-    """模型图标：当前阶段的模型选择器收进统一弹窗（StageModelPicker 原样复用）。"""
-    stage = current_stage(desktop)
-    if stage not in FLOW_FOR_STAGE and stage not in pet_bus.STAGES:
-        _say(desktop, '请先打开一个制作阶段页面')
-        return
-    try:
-        import stage_model_picker
-        from ui_widgets import BaseDialog, PrimaryButton
-        dialog = BaseDialog(desktop.win, '模型选择', modal=True)
-        body = dialog.content if getattr(dialog, 'content', None) is not None else dialog
-        picker = stage_model_picker.StageModelPicker(body, desktop, stage)
-        picker.pack(fill='x', padx=SPACING['md'], pady=(SPACING['md'], SPACING['none']))
-        actions = getattr(dialog, 'actions', None)
-        if actions is not None:
-            def save():
-                try:
-                    picker.save()
-                except Exception as exc:
-                    _notify_error(desktop, '模型保存失败：%s' % exc)
-                    return
-                dialog.destroy()
-            PrimaryButton(actions, text='保存', command=save).pack(side='right')
-        else:
-            PrimaryButton(body, text='保存',
-                          command=lambda: (picker.save(), dialog.destroy())).pack(pady=SPACING['md'])
-    except Exception as exc:
-        _notify_error(desktop, '模型选择打开失败：%s' % exc)
-
-
 def _voice(desktop, box, button):
     """共享输入框的麦克风听写：VoiceInput 绑定共享 Text，按钮按原样式接线。"""
     try:
@@ -292,7 +262,7 @@ def _voice(desktop, box, button):
 
 
 def host_options(desktop):
-    """``SharedStageInput`` 的宿主回调集：发送分流、附件、模型弹窗、语音。"""
+    """``SharedStageInput`` 的宿主回调集：发送分流、附件、语音（模型选择器已内嵌为下拉框）。"""
 
     def on_send(text, parsed):
         shared = getattr(desktop, 'shared_input', None)
@@ -308,7 +278,6 @@ def host_options(desktop):
 
     return {'on_send': on_send,
             'on_attachment': lambda: _attachments(desktop),
-            'on_model': lambda: _model_picker(desktop),
             'on_voice': lambda button: _voice(desktop,
                                               getattr(desktop, 'shared_input').input,
                                               button)}

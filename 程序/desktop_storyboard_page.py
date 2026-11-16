@@ -71,10 +71,7 @@ class _FirstFramePage:
             padx=(SPACING['none'], SPACING['sm']), pady=SPACING['xs']
         )
         ui_plugin_registry.module('stage_flow').follow(make_button,'keyframe')
-        # 第 32 期第 6 条：这一页的阶段配置就挂在「手动制作首帧」右边。
-        self.page.stage_button=ui_plugin_registry.module('skill_panel').stage_button(actions,self.page,PAGE['keyframe']);self.page.stage_button.pack(
-            side='left', padx=(SPACING['sm'], SPACING['none'])
-        )
+        # R2942：「阶段配置」按钮＋模型下拉框删除。
 
         self.page.pet.auto_variable('auto_first_frame_var')
         self.target.bind('<<ComboboxSelected>>',self.choose_target)
