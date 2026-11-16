@@ -55,7 +55,7 @@ class LayoutMixin:
         if canvas is None or not nav:return ()
         try:
             return (tuple(round(v,4) for v in canvas.yview()),str(canvas.cget('scrollregion')),
-                    nav[-1].winfo_y(),len(getattr(self,'_picker_items',())),getattr(self,'_header_list_gap',SPACING['none']))
+                    nav[-1].winfo_y(),len(getattr(self,'_picker_items',())))
         except tk.TclError:
             return ()
     def _settle_sidebar_paint(self):
@@ -132,9 +132,10 @@ class LayoutMixin:
             style.configure('Project.Treeview',font=font,rowheight=row_height)
         self.align_header()
     def align_header(self,event=None):
-        """页头对齐（第 R2946 期重写）：标题行只剩 Token 用量（左）与状态／模型（右），
-        行高收齐用量块／右侧信息两者；用量块左沿对齐内容区内缩，pet_dock 高度跟
-        三虎簇正方形边长（patch_room）走。"""
+        """页头对齐（第 R2950 期）：标题行单行——Token 用量（左）与状态／模型（右），
+        行高收齐用量块／右侧信息两者的请求高；用量块左沿对齐内容区内缩，pet_dock 高度跟
+        三虎簇正方形边长（patch_room）走。旧 project_block/list_top 对齐是页头下拉框时代的
+        遗留——分组图标进侧栏后它只会把 title_row 顶高、还反向污染侧栏项目区 pady，已摘除。"""
         if not hasattr(self,'title_row'):return
         pet=getattr(self,'pet',None)
         pet_room=getattr(pet,'patch_room',None)
@@ -142,28 +143,15 @@ class LayoutMixin:
         if dock is not None:
             room=max(pet_ui.DOCK_ROOM,int(pet_room or pet_ui.DOCK_ROOM))
             if int(dock.cget('height'))!=room:dock.configure(height=room)
-        candidates=[]
-        for name in ('usage_indicator','header_info'):
+        minimum=0
+        # header_stage_button 只在没有「手动XX」行的阶段页出现（约 36px），有它的页标题行
+        # 只能收到按钮高度；其余页仍是单行 22px。
+        for name in ('usage_indicator','header_info','header_stage_button'):
             widget=getattr(self,name,None)
             if widget is None:continue
-            try:candidates.append(int(widget.winfo_reqheight()))
+            try:minimum=max(minimum,int(widget.winfo_reqheight()))
             except tk.TclError:pass
-        minimum=max(candidates) if candidates else 0
-        block=getattr(self,'project_block',None)
-        list_top=block.winfo_rooty()-self.title_row.winfo_rooty() if block is not None else minimum
-        # 侧栏可滚动后，屏幕坐标会随画布偏移变化；换算回内容坐标再参与表头对齐。
-        sidebar_canvas=getattr(self,'sidebar_canvas',None)
-        if sidebar_canvas is not None and block is not None:list_top+=sidebar_canvas.canvasy(0)
-        measurement=(list_top,minimum)
-        if block is not None and block.winfo_ismapped() and measurement!=getattr(self,'_header_list_measurement',None):
-            self._header_list_measurement=measurement
-            previous=getattr(self,'_header_list_gap',SPACING['none'])
-            gap=max(SPACING['none'],minimum-(list_top-previous))
-            if gap!=previous:
-                self._header_list_gap=gap
-                block.pack_configure(pady=(DESKTOP_LAYOUT['row_gap']+gap,DESKTOP_LAYOUT['row_gap']))
-        height=max(minimum,list_top)
-        if int(self.title_row.cget('height'))!=height:self.title_row.configure(height=height)
+        if int(self.title_row.cget('height'))!=minimum:self.title_row.configure(height=minimum)
         content=getattr(self,'content',None)
         if content is None:return
         box=getattr(self,'idea_log',None)

@@ -276,13 +276,13 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         """主体区：标题行右侧信息、页面画布、进度条、状态栏与尺寸把手，从 __init__ 原样切出，R1808。"""
         self.body=ttk.Frame(win,padding=DESKTOP_LAYOUT['body_padding']);self.body.pack(side='left',fill='both',expand=True)
         self.title_row=ttk.Frame(self.body);self.title_row.pack(fill='x');self.title_row.pack_propagate(False)
-        # 第 R2946 期：页标题「01 剧本准备」搬进侧栏顶部（见 _build_sidebar 的 self.title），
-        # 标题行只剩 Token 用量（左）与状态／模型（右）。
+        # 第 R2946/R2950 期：页标题入侧栏顶行；标题行收单行（Token 左、状态/模型右）与侧栏标题同带。
         self.project_block.bind('<Configure>',self.schedule_sidebar_fit,add='+')
         self.title_row.bind('<Configure>',self.align_header,add='+')
         self.header_info=ttk.Frame(self.title_row);self.header_info.pack(side='right',fill='x',expand=True,padx=(SPACING['md'],SPACING['none']))
-        self.header_model=ttk.Label(self.header_info,style='Muted.TLabel',font=FONTS['pet_hint'],anchor='e');self.header_model.pack(side='bottom',fill='x')
-        self.header_status=ttk.Label(self.header_info,style='Muted.TLabel',font=FONTS['pet_hint'],anchor='e',justify='right');self.header_status.pack(side='top',fill='x')
+        # 第 R2950 期：页头单行——状态居左可伸展、模型名贴右（原两行堆叠把聊天区顶低）。
+        self.header_model=ttk.Label(self.header_info,style='Muted.TLabel',font=FONTS['pet_hint'],anchor='e');self.header_model.pack(side='right',anchor='e')
+        self.header_status=ttk.Label(self.header_info,style='Muted.TLabel',font=FONTS['pet_hint'],anchor='w',justify='left');self.header_status.pack(side='left',fill='x',expand=True)
         # 第 30 期第 6／8 条：阶段配置那颗按钮从标题栏挪到「剧本准备」页的「创作入口」那一行，
         # 紧挨着「手动制作剧本」（按钮那时才建得出来，见 brief_editor）；这里先留个占位，别的页没有它。
         self.stage_button=None
@@ -354,8 +354,7 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         """
         sidebar_area=ttk.Frame(win,width=DESKTOP_LAYOUT['sidebar_width']);sidebar_area.pack(side='left',fill='y');sidebar_area.pack_propagate(False)
         self.sidebar_area=sidebar_area
-        # 固定底栏：只剩三虎簇（pet_dock）；齿轮入口第 R2946 期上移进图标轨末尾，
-        # 底栏高度由 pet_dock（patch_room＝簇区正方形边长）合成。
+        # 固定底栏只剩三虎簇（pet_dock）；齿轮 R2946 上移进图标轨末尾，高跟 patch_room。
         self.sidebar_dock=ttk.Frame(sidebar_area,padding=(SPACING['xs'],SPACING['xs'],SPACING['none'],SPACING['xs']))
         self.sidebar_dock.pack(side='bottom',fill='x')
         self.pet_dock=ttk.Frame(self.sidebar_dock,height=pet_ui.DOCK_ROOM);self.pet_dock.pack(fill='x')
@@ -364,13 +363,12 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         scroll=ScrollForm(sidebar_area,bg=COLORS['background_primary'],scrollbar=False)
         self.sidebar_viewport=sidebar_area;self.sidebar_scroll=scroll;self.sidebar_canvas=scroll.canvas
         scroll.canvas.configure(takefocus=True)
-        # 滚动内容四面同距：「我的项目」标签第 R2946 期删除，页标题（self.title）顶到侧栏上沿。
-        side=ttk.Frame(scroll.form,padding=(DESKTOP_LAYOUT['sidebar_padding'],)*4);self.sidebar=side
-        # 页标题放滚动内容顶端、侧栏内边距之外：92→96px 轨宽下最长页名「0X  连贯性清单」
-        # 也能整词放下；EllipsisLabel 只在窗口进一步变窄时才出省略号，Tooltip 留全文。
-        # 各页用 set_text(…) 写入（ui_widgets.EllipsisLabel）。
+        # 「我的项目」标签 R2946 删、页标题顶到侧栏上沿；内边距上沿收到 xs，与页头 token 同带。
+        side=ttk.Frame(scroll.form,padding=(DESKTOP_LAYOUT['sidebar_padding'],SPACING['xs'],DESKTOP_LAYOUT['sidebar_padding'],DESKTOP_LAYOUT['sidebar_padding']));self.sidebar=side
+        # 页标题放滚动内容顶端、内边距之外：96px 轨宽下最长页名也放得下；
+        # EllipsisLabel 窄窗才省略号、Tooltip 留全文；各页用 set_text(…) 写入。
         self.title=EllipsisLabel(scroll.form,text='',font=FONTS['body_bold'],anchor='w')
-        self.title.pack(side='top',fill='x',anchor='w',pady=(SPACING['xs'],SPACING['sm']))
+        self.title.pack(side='top',fill='x',anchor='w',pady=(SPACING['xs'],SPACING['xs']))
         side.pack(fill='both',expand=True)
 
 

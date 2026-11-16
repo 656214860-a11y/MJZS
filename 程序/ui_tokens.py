@@ -251,7 +251,8 @@ DESKTOP_LAYOUT = {
     'project_button_padding': (SPACING['sm'], SPACING['none']),
     # 页面边距加大一档：内容与窗口边缘、进度条与状态栏之间都留出呼吸感。
     # 第 R2946 期：左边距收到 sm——侧栏图标轨与右侧功能区之间不再留 xl 宽的空档。
-    'body_padding': (SPACING['sm'], SPACING['lg'], SPACING['xl'], SPACING['md']),
+    # 第 R2950 期：顶距 lg→xs，让页头「token」行与侧栏「01 XXX」标题同一水平带。
+    'body_padding': (SPACING['sm'], SPACING['xs'], SPACING['xl'], SPACING['md']),
     'status_gap': (SPACING['sm'], SPACING['md']),
     'title_inset': SPACING['xs'],
     # 主窗口拖动：停止拖动后等这么久没有新尺寸才整页重排一次（约 8 帧，远长于

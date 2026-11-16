@@ -2,6 +2,7 @@
 import tempfile
 import time
 import unittest
+from unittest import mock
 import tk_test_support
 from pathlib import Path
 import tkinter as tk
@@ -65,7 +66,12 @@ class CompactDesktopGeometryTests(unittest.TestCase):
                 # R2946：页标题在侧栏滚动内容顶端（self.title 直接挂 scroll.form，避开 side 内边距）。
                 self.assertIn('当前项目：', d.win.title())
                 self.assertEqual(str(d.title.winfo_parent()), str(d.sidebar_scroll.form))
-                self.assertAlmostEqual(d.idea_log.winfo_rooty(), d.project_block.winfo_rooty(), delta=2)
+                # R2950：页头单行化后聊天框顶与侧栏项目区顶不再逐像素对齐（两列内容各自上移）；
+                # 新契约＝聊天框位于页头下沿 40px 内的内容区上部。
+                header_bottom=d.title_row.winfo_rooty()+d.title_row.winfo_height()
+                self.assertGreaterEqual(d.idea_log.winfo_rooty(),header_bottom-1)
+                self.assertLessEqual(d.idea_log.winfo_rooty()-header_bottom,40,
+                                     '聊天框应紧贴单行页头下沿')
                 # R2946：设置入口是图标轨末尾的轨钮，三虎簇在 pet_dock，都钉在侧栏左下角、不参与滚动。
                 self.assertIsNone(d.pet.gear, '真桌面不再建底栏齿轮')
                 gear, dock = d.settings_rail_button, d.pet_dock
@@ -130,7 +136,11 @@ class CompactDesktopGeometryTests(unittest.TestCase):
                             self.assertLessEqual(rect(pet)[3], rect(d.sidebar_area)[3] + 1)
                             self.assertLessEqual(rect(pet)[3], rect(d.sidebar_dock)[3] + 1)
                         if stage == 'script':
-                            self.assertAlmostEqual(d.idea_log.winfo_rooty(), d.project_block.winfo_rooty(), delta=2)
+                            # R2950：同上——聊天框贴页头下沿，不再与侧栏项目区顶逐像素对齐。
+                            header_bottom=d.title_row.winfo_rooty()+d.title_row.winfo_height()
+                            self.assertGreaterEqual(d.idea_log.winfo_rooty(),header_bottom-1)
+                            self.assertLessEqual(d.idea_log.winfo_rooty()-header_bottom,40,
+                                                 '聊天框应紧贴单行页头下沿')
                             for pet in pets:separate(d.idea_log, pet)
         finally:
             d.show(PAGE['script']); self.pump()
@@ -209,6 +219,26 @@ class CompactDesktopGeometryTests(unittest.TestCase):
                 self.assertIn(Path(item).name, details)
                 expected = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(Path(item).stat().st_mtime))
                 self.assertIn(expected, details)
+
+    def test_sidebar_popup_clamps_to_anchor_monitor(self):
+        """R2950：主窗在副屏时选择层钳位取锚点所在显示器，不被主屏宽度拽回主屏。"""
+        self.resize(942, 1032)
+        d = self.desktop
+        # 把窗口挪到副屏坐标系（隐藏测试桌面坐标是虚拟的，直接给几何即可）。
+        self.win.geometry('+2500+80'); self.pump()
+        try:
+            with mock.patch('desktop_page_nav.monitor_bounds', return_value=(1920, 0, 3840, 1080)):
+                d.set_project_group('making', popup=True); self.pump()
+                top = getattr(d, '_sidebar_popup_win', None)
+                self.assertIsNotNone(top, '点分组图标要弹出项目选择层')
+                anchor = d.project_group_buttons['making']
+                self.assertGreaterEqual(anchor.winfo_rootx(), 1920)
+                self.assertGreaterEqual(top.winfo_rootx(), 1920,
+                                        '副屏上的选择层不得被钳回主屏（旧代码按主屏宽度钳位）')
+                self.assertAlmostEqual(top.winfo_rootx(), anchor.winfo_rootx(), delta=2,
+                                       msg='选择层应贴在锚点正下方')
+        finally:
+            d._close_sidebar_popup(); self.pump()
 
 
 if __name__ == '__main__':unittest.main()

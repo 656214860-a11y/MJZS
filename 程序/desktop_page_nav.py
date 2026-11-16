@@ -14,7 +14,7 @@ from desktop_page_support import _prefs
 from pathlib import Path
 from tkinter import ttk
 from ui_icons import IconLoader
-from ui_popup import Flyout
+from ui_popup import Flyout, monitor_bounds
 from ui_tokens import COLORS, DESKTOP_LAYOUT, FONTS, SPACING
 from ui_widgets import SecondaryButton, SelectBox, Tooltip
 
@@ -363,9 +363,11 @@ class PageNavMixin:
         top.update_idletasks()
         width=top.winfo_reqwidth();height=top.winfo_reqheight()
         x=anchor.winfo_rootx();y=anchor.winfo_rooty()+anchor.winfo_height()+2
-        screen_w=self.win.winfo_screenwidth();screen_h=self.win.winfo_screenheight()
-        if x+width>screen_w-4:x=max(4,screen_w-4-width)
-        if y+height>screen_h-4:y=max(4,anchor.winfo_rooty()-height-2)
+        # 钳位必须落在锚点所在显示器：winfo_screenwidth 只给主屏尺寸，
+        # 主窗在副屏时旧写法会把浮层拽回主屏（R2950 修复「点了图标看不到弹层」）。
+        left,stop,right,sbottom=monitor_bounds(self.win,x,y)
+        if x+width>right-4:x=max(left+4,right-4-width)
+        if y+height>sbottom-4:y=max(stop+4,anchor.winfo_rooty()-height-2)
         top.geometry('%dx%d+%d+%d'%(width,height,x,y))
         self._sidebar_popup_win=top
         self._sidebar_popup_anchor=anchor
