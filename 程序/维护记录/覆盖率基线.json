@@ -2143,12 +2143,6 @@
    "percent": 0.0
   },
   {
-   "module": "stage_handoff_gateways.py",
-   "covered": 0,
-   "total": 4,
-   "percent": 0.0
-  },
-  {
    "module": "stage_model_picker.py",
    "covered": 0,
    "total": 334,
@@ -2164,18 +2158,6 @@
    "module": "stage_path_service.py",
    "covered": 0,
    "total": 2,
-   "percent": 0.0
-  },
-  {
-   "module": "stage_previs_gateways.py",
-   "covered": 0,
-   "total": 4,
-   "percent": 0.0
-  },
-  {
-   "module": "stage_publication.py",
-   "covered": 0,
-   "total": 4,
    "percent": 0.0
   },
   {
@@ -3218,5 +3200,5 @@
   }
  ],
  "modules_covered": 71,
- "modules_total": 534
+ "modules_total": 531
 }
