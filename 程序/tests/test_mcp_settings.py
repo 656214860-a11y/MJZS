@@ -19,6 +19,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -230,6 +231,25 @@ class NewInterfaceSaveTests(SettingsCase):
         self.assertEqual(self.labels(), [])
         again = self.open_settings()
         self.assertNotIn(label, self.values(again))
+
+
+class OptimizerHomeTests(unittest.TestCase):
+    """R3029 P3：优化器工具链根目录跟随全局下载根，不再写死 D: 盘。"""
+
+    def test_home_follows_configured_downloads_root(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / 'config.json').write_text(
+                json.dumps({'downloads_root': 'E:/我的下载'}), encoding='utf-8')
+            with patch.object(optimizer, 'ROOT', root):
+                self.assertEqual(optimizer._optimizer_home(),
+                                 Path('E:/我的下载') / 'PromptOptimizer')
+
+    def test_home_falls_back_to_default_without_config(self):
+        with tempfile.TemporaryDirectory() as td:
+            with patch.object(optimizer, 'ROOT', Path(td)):
+                self.assertEqual(optimizer._optimizer_home(),
+                                 Path('D:/漫剧下载') / 'PromptOptimizer')
 
 
 if __name__ == "__main__":

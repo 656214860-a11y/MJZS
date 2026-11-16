@@ -1,5 +1,6 @@
 """遵循 ui_components.md 的 Tk 组件入口。"""
 import app_logging
+import logging
 import os
 import tkinter as tk
 from tkinter import messagebox, ttk
@@ -683,6 +684,9 @@ class NotificationDispatcher:
             setter = getattr(self.status, "set", None)
             if callable(setter):
                 setter(text)
+        if level == 'error':
+            # R3029 P3：错误必落盘（app_logging.install 的轮转日志，含脱敏过滤）。
+            logging.getLogger(__name__).error('通知错误：%s', text)
         if modal:
             dialog = getattr(self.dialogs, self._DIALOGS[level])
             dialog(title or "操作提示", text, parent=self.parent)

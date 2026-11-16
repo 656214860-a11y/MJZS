@@ -125,6 +125,23 @@ class DesktopStatusLineTests(_Harness):
             self.assertEqual(d.status_bar.message.full_text, '路径已切换 D:/x')
             self.assertEqual(d.status_bus.current.level, 'info')
 
+    def test_notifier_error_is_logged(self):
+        """R3029 P3：错误必落盘——通知错误写入应用日志（含脱敏过滤的轮转日志）。"""
+        import model_pool
+        import stage_config
+        self.enterContext(patch('model_pool.pool', return_value=model_pool.default_pool()))
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            stage_config.put(proj, 'script', model='deepseek-v4-flash',
+                             skills=['pipeline-script-preparation'])
+            d, win = self.desktop(proj)
+            self.sync_async(d)
+            d.show(0)
+            self.settle_script_page(win)
+            with self.assertLogs('ui_widgets', level='ERROR') as captured:
+                d.notifier.error('记录日志')
+            self.assertTrue(any('记录日志' in line for line in captured.output))
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
