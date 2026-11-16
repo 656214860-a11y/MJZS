@@ -552,7 +552,7 @@ class MediaPagesMixin:
         进去之后就不用再翻回来问，两个入口也改成主色按钮，一眼能看见。
         """
         from video_navigation import confirm_rows,local_model
-        self.title.configure(text=pet_bus.stage_label('video')+' · 选择生成方式')
+        self.title.set_text(pet_bus.stage_label('video')+' · 选择生成方式')
         # 第 48 期第 2 条：这一屏不再挂「阶段配置」；R2942 起页面级阶段配置按钮与
         # 标题旁入口全部删除，模型/技能走共享输入框。
         # 第 38 期第 2 条：「线上走」和「API（按秒计费）」之间那个空格是整句唯一的断点，
@@ -595,7 +595,7 @@ class MediaPagesMixin:
         if mode is None:
             self.video_home()
             return
-        self.title.configure(text=pet_bus.stage_label('video')+' · '+('线上生成' if mode=='cloud' else '本地生成'))
+        self.title.set_text(pet_bus.stage_label('video')+' · '+('线上生成' if mode=='cloud' else '本地生成'))
         from video_navigation import show_back
         show_back(self)
         top=ttk.Frame(self.content);top.pack(fill='x',pady=(SPACING['none'],SPACING['xs']))

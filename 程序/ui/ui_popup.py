@@ -1,5 +1,29 @@
 # -*- coding: utf-8 -*-
-"""提示浮层不当对话框（R1976）。"""
+"""提示浮层不当对话框（R1976）；R2946 起兼管图标下方的无边框选择浮层 Flyout。"""
+import tkinter as tk
+
+from ui_tokens import COLORS, SPACING
+
+
+class Flyout(tk.Toplevel):
+    """锚点控件下方的无边框选择浮层：1px 描边壳＋内容体（``self.body``）。
+
+    第 R2946 期：侧栏「资产清单」「项目选择」等二级入口共用的弹出选择层。
+    定位、点外部关闭与 Esc 由宿主（desktop_page_nav）负责；本类只管窗体与描边。
+    """
+
+    def __init__(self, master):
+        super().__init__(master)
+        self.overrideredirect(True)
+        make_passive_popup(self)
+        self.configure(bg=COLORS['border_default'])
+        shell = tk.Frame(self, bg=COLORS['border_default'], bd=0)
+        shell.pack(fill='both', expand=True)
+        # 内容体四周让出 xs 刻度的四分之一（＝1px），border_default 壳显成一圈细描边。
+        self.body = tk.Frame(shell, bg=COLORS['background_primary'],
+                             padx=SPACING['xs'], pady=SPACING['xs'])
+        self.body.pack(fill='both', expand=True,
+                       padx=SPACING['xs'] // 4, pady=SPACING['xs'] // 4)
 
 
 def make_passive_popup(window):

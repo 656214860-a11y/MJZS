@@ -7,63 +7,107 @@ import pet_agent
 import contract.pet_bus as pet_bus
 import ui.pet_cloud as pet_cloud
 from tkinter import TclError
-from ui_tokens import BUTTON_BORDER_WIDTH, COLORS, PET_LAYOUT
+from ui_tokens import BUTTON_BORDER_WIDTH, COLORS, DESKTOP_LAYOUT, PET_LAYOUT, SPACING
 from ui_widgets import ContextMenu
-from pet_ui_support import ACTIVE_MS, BUSY_TAPS, BUSY_WINDOW, CANVAS_BG, CAPTION_Y, CHAT_MUTE_SECONDS, DETAIL_MENU_LABEL, DOCK_CAPTION_GAP, DOCK_CAPTION_ROOM, DOCK_PAD_BOTTOM, DOCK_PAD_TOP, DOCK_PAD_X, DOCK_ROOM, IDLE_MS, PANEL_DIVIDER, PANEL_HEAD, PANEL_MENU_LABEL, PANEL_SECTIONS, PATCH_X, PAW_ARC, PAW_COL_HEIGHT, PAW_COL_WIDTH, PAW_COL_X, PAW_COLORS, PAW_GAP, PAW_HOVER, PAW_IDLE, PAW_LEVELS, PAW_HIT_SIZE, PAW_HIT_X, PAW_SIZE, PAW_STEP, QUIT_LABEL, SETTINGS_ENTRIES, SETTINGS_LABEL, SIZE, SNOOZE_SECONDS, paint, paw_dy, paw_parts
+from pet_ui_support import ACTIVE_MS, BUSY_TAPS, BUSY_WINDOW, CANVAS_BG, CAPTION_Y, CHAT_MUTE_SECONDS, DETAIL_MENU_LABEL, DOCK_CAPTION_GAP, DOCK_CAPTION_ROOM, DOCK_CLUSTER_W, DOCK_PAD_BOTTOM, DOCK_PAD_TOP, DOCK_PAD_X, DOCK_PAW_RIGHT, DOCK_ROOM, IDLE_MS, PANEL_DIVIDER, PANEL_HEAD, PANEL_MENU_LABEL, PANEL_SECTIONS, PATCH_X, PAW_ARC, PAW_COL_HEIGHT, PAW_COL_WIDTH, PAW_COL_X, PAW_COLORS, PAW_GAP, PAW_HOVER, PAW_IDLE, PAW_LEVELS, PAW_HIT_SIZE, PAW_HIT_X, PAW_SIZE, PAW_STEP, QUIT_LABEL, SETTINGS_ENTRIES, SETTINGS_LABEL, SIZE, SNOOZE_SECONDS, paint, paw_dy, paw_parts
 
 
 class PetPatchLayoutMixin:
-    """贴片簇布局：猫爪列顶边随「头像＋小字」整组高度校准、底栏保留高度同步
-    （R2933 拆出沿用；状态只经本类写 self.patch_room）。"""
-    def _paw_col_top(self):
-        """猫爪列顶边：对「头像＋小字」整组垂直居中（R2933 左下角 dock 布局）。
+    """贴片簇布局：头像＋小字左列、猫爪列右列，簇区恒为正方形（第 R2946 期）。
 
-        组高＝头像 SIZE ＋ 小字间距 ＋ 小字实测高（``winfo_reqheight``，一行／两行都准，
-        未映射时退回按 token 行高估的两行）；取不到就退回两行估值。
-        """
-        caption = self.caption
+    正方形边长 ``side=max(DOCK_CLUSTER_W, 内容高+上下边距)``；内容在 side 内水平垂直
+    居中，``patch_room``＝side 由宿主 align_header 写成 pet_dock 高。小字一行／两行
+    换行、dock 宽度变化时由 ``_align_paws`` 重算全部 place 坐标（状态只经本类写
+    ``self.patch_room``）。
+    """
+    def _dock_widget(self):
+        """簇的承载层：pet_layer → pet_dock → title_row → 根窗（与 _build_canvas 同链）。"""
+        return (getattr(self.desktop, 'pet_layer', None)
+                or getattr(self.desktop, 'pet_dock', None)
+                or getattr(self.desktop, 'title_row', None) or self.win)
+    def _caption_height(self):
+        """小字实测高；未映射或取不到时退回按 token 行高估的两行。"""
+        caption = getattr(self, 'caption', None)
         try:
             height = int(caption.winfo_reqheight()) if caption is not None else 0
         except (TclError, ValueError):
             height = 0
-        if height <= 0:
-            height = 2 * PET_LAYOUT['caption_height']
-        group = SIZE + DOCK_CAPTION_GAP + height
-        return DOCK_PAD_TOP + (group - PAW_COL_HEIGHT) / 2.0
-    def _align_paws(self, event=None):
-        """小字换行（一行↔两行）后把猫爪列整列平移：列对「头像＋小字」整组垂直居中。"""
-        paws = self.paws
-        if paws is None:
-            return None
+        return height if height > 0 else 2 * PET_LAYOUT['caption_height']
+    def _cluster_layout(self):
+        """算出正方形边长与全部 place 坐标；dock 未映射时宽度退回侧栏内宽估值。"""
+        dock = self._dock_widget()
         try:
-            y = self._paw_col_top()
+            dock_w = int(dock.winfo_width())
+        except (TclError, ValueError, AttributeError):
+            dock_w = 0
+        if dock_w <= 0:
+            dock_w = DESKTOP_LAYOUT['sidebar_width'] - SPACING['xs']
+        group_h = SIZE + DOCK_CAPTION_GAP + self._caption_height()
+        count = len(PAW_LEVELS)
+        col_rel = (group_h - PAW_COL_HEIGHT) / 2.0
+        last = count - 1
+        hit_bottom_rel = (col_rel + last * PAW_STEP + PAW_SIZE // 2
+                          + paw_dy(last) + PAW_HIT_SIZE // 2)
+        hit_top_rel = col_rel + PAW_SIZE // 2 + paw_dy(0) - PAW_HIT_SIZE // 2
+        inner_top = min(0.0, hit_top_rel)
+        inner_bottom = max(float(group_h), hit_bottom_rel)
+        inner_h = inner_bottom - inner_top
+        side = max(float(DOCK_CLUSTER_W), DOCK_PAD_TOP + inner_h + DOCK_PAD_BOTTOM)
+        content_left = max(0.0, (dock_w - DOCK_CLUSTER_W) / 2.0)
+        avatar_x = content_left + DOCK_PAD_X
+        avatar_y = ((side - DOCK_PAD_TOP - DOCK_PAD_BOTTOM - inner_h) / 2.0
+                    + DOCK_PAD_TOP - inner_top)
+        caption_y = avatar_y + SIZE + DOCK_CAPTION_GAP
+        paw_col_y = avatar_y + (group_h - PAW_COL_HEIGHT) / 2.0
+        paw_right = content_left + DOCK_CLUSTER_W - DOCK_PAW_RIGHT
+        paw_x = paw_right - dock_w
+        # 承接区比猫爪宽：右沿可能探出 dock 一点，钳在 dock 内不压正文（仍盖住整只爪）。
+        hit_right = min(paw_right - PAW_COL_WIDTH // 2 + PAW_HIT_SIZE // 2, float(dock_w))
+        hit_x = hit_right - dock_w
+        hit_ys = [paw_col_y + i * PAW_STEP + PAW_SIZE // 2 + paw_dy(i)
+                  - PAW_HIT_SIZE // 2 for i in range(count)]
+        return {'side': side, 'avatar_x': avatar_x, 'avatar_y': avatar_y,
+                'caption_y': caption_y, 'paw_col_y': paw_col_y,
+                'paw_x': paw_x, 'hit_x': hit_x, 'hit_ys': hit_ys}
+    def _paw_col_top(self):
+        """猫爪列顶边＝_cluster_layout 的 paw_col_y（保留方法名给既有调用与测试）。"""
+        return self._cluster_layout()['paw_col_y']
+    def _align_cluster(self):
+        """把头像画布、小字、猫爪列与全部命中区 place 到正方形布局算出的坐标。"""
+        layout = self._cluster_layout()
+        canvas = getattr(self, 'canvas', None)
+        if canvas is not None:
+            try:
+                canvas.place_configure(x=layout['avatar_x'], y=layout['avatar_y'])
+            except TclError:
+                pass
+        caption = getattr(self, 'caption', None)
+        if caption is not None:
+            try:
+                caption.place_configure(x=layout['avatar_x'], y=layout['caption_y'],
+                                        width=DOCK_CAPTION_ROOM)
+            except TclError:
+                pass
+        paws = getattr(self, 'paws', None)
+        if paws is not None:
+            try:
+                paws.place_configure(x=layout['paw_x'], y=layout['paw_col_y'])
+                for hit, top in zip(getattr(self, 'paw_hits', ()), layout['hit_ys']):
+                    hit.place_configure(x=layout['hit_x'], y=top)
+            except TclError:
+                pass
+        return layout
+    def _align_paws(self, event=None):
+        """小字换行（一行↔两行）或 dock 尺寸变化后重算整簇 place 坐标并同步底栏高度。"""
+        try:
+            layout = self._align_cluster()
         except Exception:
             return None
-        try:
-            paws.place_configure(y=y)
-            for index, hit in enumerate(getattr(self, 'paw_hits', ())):
-                centre_y = index * PAW_STEP + PAW_SIZE // 2 + paw_dy(index)
-                hit.place_configure(y=y + centre_y - PAW_HIT_SIZE // 2)
-        except TclError:
-            return None
         self._sync_patch_room()
-        return y
+        return layout['paw_col_y']
     def _sync_patch_room(self):
-        """底栏要留的高度＝簇顶边距＋头像＋小字间距＋小字实高＋簇底边距；
-        再与猫爪命中区下沿取大者，变了就让宿主重排一次。"""
-        caption = self.caption
-        try:
-            height = int(caption.winfo_reqheight()) if caption is not None else 0
-        except (TclError, ValueError):
-            height = 0
-        if height <= 0:
-            height = 2 * PET_LAYOUT['caption_height']
-        group = SIZE + DOCK_CAPTION_GAP + height
-        room = DOCK_PAD_TOP + group + DOCK_PAD_BOTTOM
-        col_y = DOCK_PAD_TOP + (group - PAW_COL_HEIGHT) / 2.0
-        hit_bottom = (col_y + (len(PAW_LEVELS) - 1) * PAW_STEP + PAW_SIZE // 2
-                      + paw_dy(len(PAW_LEVELS) - 1) + PAW_HIT_SIZE // 2)
-        room = max(room, int(hit_bottom + 0.999) + DOCK_PAD_BOTTOM)
+        """底栏要留的高度＝簇区正方形边长 side；变了就让宿主重排一次。"""
+        room = int(self._cluster_layout()['side'] + 0.999)
         if room == getattr(self, 'patch_room', None):
             return room
         self.patch_room = room
@@ -75,29 +119,26 @@ class PetPatchLayoutMixin:
             self.errors.append(('room', str(exc)))
         return room
     def _build_paws(self):
-        """三虎右侧那列猫爪：原 16px 图形不变，每只外加 32×32 键盘／鼠标承接区。"""
+        """三虎右侧那列猫爪：原图形不变，每只外加一块键盘／鼠标承接区（命中区尺寸不变）。"""
         import tkinter as tk
-        parent = (getattr(self.desktop, 'pet_layer', None)
-                  or getattr(self.desktop, 'pet_dock', None)
-                  or getattr(self.desktop, 'title_row', None) or self.win)
+        parent = self._dock_widget()
         for old_hit in getattr(self, 'paw_hits', ()):
             try:
                 old_hit.destroy()
             except TclError:
                 pass
         self.paw_hits = []
-        col_y = self._paw_col_top()
+        layout = self._cluster_layout()
         ring = BUTTON_BORDER_WIDTH * 2
         for index in range(len(PAW_LEVELS)):
-            centre_y = index * PAW_STEP + PAW_SIZE // 2 + paw_dy(index)
-            # 承接区上沿 = 列顶 + 该爪中心 - 半个承接区；x 全列共用，命中区右沿收在 dock 内。
-            top = col_y + centre_y - PAW_HIT_SIZE // 2
+            # 承接区：列内每爪一个，右沿比列中心再出头半个承接区，整列命中区右沿贴 dock 右沿。
+            top = layout['hit_ys'][index]
             hit = tk.Canvas(parent, width=PAW_HIT_SIZE - ring * 2,
                             height=PAW_HIT_SIZE - ring * 2, bd=0,
                             highlightthickness=ring,
                             highlightbackground=CANVAS_BG, highlightcolor=COLORS['focus'],
                             bg=CANVAS_BG, cursor='hand2', takefocus=1)
-            hit.place(relx=1.0, rely=0.0, anchor='ne', x=PAW_HIT_X, y=top)
+            hit.place(relx=1.0, rely=0.0, anchor='ne', x=layout['hit_x'], y=top)
             hit.bind('<Button-1>', lambda event, i=index: self.paw_choose_event(event, i))
             hit.bind('<Enter>', lambda event, i=index: self.paw_hover_at(i))
             hit.bind('<Leave>', self.paw_leave)
@@ -108,7 +149,7 @@ class PetPatchLayoutMixin:
             self.paw_hits.append(hit)
         self.paws = tk.Canvas(parent, width=PAW_COL_WIDTH, height=PAW_COL_HEIGHT, bd=0,
                               highlightthickness=0, bg=CANVAS_BG)
-        self.paws.place(relx=1.0, rely=0.0, anchor='ne', x=PAW_COL_X, y=col_y)
+        self.paws.place(relx=1.0, rely=0.0, anchor='ne', x=layout['paw_x'], y=layout['paw_col_y'])
         self.paws.bind('<Button-1>', self.paw_click)
         self.paws.bind('<Button-3>', self.popup)
         # 第 23 期：鼠标扫过哪只爪就把哪只提亮——三档点哪一档，扫一眼就知道。
@@ -415,8 +456,11 @@ class PetViewMixin(PetPatchLayoutMixin):
                   or getattr(self.desktop, 'pet_dock', None)
                   or getattr(self.desktop, 'title_row', None) or self.win)
         self.canvas = tk.Canvas(parent, width=SIZE, height=SIZE, bd=0, highlightthickness=0, bg=CANVAS_BG)
-        # 第 R2933 期：三虎簇进侧栏左下角固定底栏——头像左上、等级小字紧贴其下、猫爪列居右。
+        # 第 R2933 期：三虎簇进侧栏左下角固定底栏；第 R2946 期簇区收成正方形，
+        # 头像／小字／猫爪的坐标统一由 _cluster_layout 细算（见 _align_cluster）。
         self.canvas.place(x=PATCH_X, y=DOCK_PAD_TOP, anchor='nw')
+        # dock 宽高一变（侧栏宽度、patch_room 写入）整簇重算坐标。
+        parent.bind('<Configure>', lambda event: self._align_paws())
         self._reserve_room(parent)
         # 第 16 期：单击＝收起云朵框＋唤出功能下拉栏（用户要的是「点一下就能唤出」）；
         # 双击仍然是云朵框（要说话就双击我）。
@@ -432,12 +476,13 @@ class PetViewMixin(PetPatchLayoutMixin):
             self.caption = ttk.Label(parent, text='', style='Muted.TLabel',
                                      wraplength=DOCK_CAPTION_ROOM, justify='left', anchor='w')
             self.caption.place(x=DOCK_PAD_X, y=CAPTION_Y, anchor='nw', width=DOCK_CAPTION_ROOM)
-            # 小字一行／两行换行时高度会变：猫爪列与底栏高度跟着它走（见 _align_paws）。
+            # 小字一行／两行换行、dock 尺寸变化时整簇重算（见 _align_paws／_cluster_layout）。
             self.caption.bind('<Configure>', lambda event: self._align_paws())
             self.show_caption()
         except Exception as exc:
             self.errors.append(('caption', str(exc)))
             self.caption = None
+        self._align_cluster()
         return self.canvas
     def _reserve_room(self, parent, needed=True):
         """给贴片簇在宿主里留够高度（第 R2933 期沿用：底栏由宿主按 patch_room 管高度）。

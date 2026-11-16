@@ -48,8 +48,8 @@ ICONS = {
     'lock':           0xE79D,  # lock-closed    未授权页的锁标（替换原文字 🔒）
 }
 
-RENDER_PX = 36      # 2 倍渲染后 LANCZOS 缩到 18px，边缘更顺
-TARGET_PX = 18
+RENDER_PX = 48      # 2 倍渲染后 LANCZOS 缩到 24px，边缘更顺（R2946 图标放大一档）
+TARGET_PX = 24
 
 
 def render_icons(ink: tuple[int, int, int, int]):

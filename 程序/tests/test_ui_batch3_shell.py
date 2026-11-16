@@ -86,11 +86,11 @@ class ShellScrollAndStatusTests(unittest.TestCase):
         for key in ('<Prior>','<Next>','<Home>','<End>'):self.assertTrue(self.win.bind(key))
         d.sidebar_canvas.yview_moveto(0);self.pump(.1)
         top=d.sidebar_canvas.yview()[0]
-        dock_y=d.sidebar_dock.winfo_rooty();gear_y=d.pet.gear.canvas.winfo_rooty()
+        dock_y=d.sidebar_dock.winfo_rooty();pet_y=d.pet.canvas.winfo_rooty()
         d.nav[0].event_generate('<MouseWheel>',delta=-120);self.pump(.15)
         self.assertGreater(d.sidebar_canvas.yview()[0],top)
         self.assertEqual(d.sidebar_dock.winfo_rooty(),dock_y,'滚动侧栏时底栏固定不动')
-        self.assertEqual(d.pet.gear.canvas.winfo_rooty(),gear_y,'滚动侧栏时齿轮固定不动')
+        self.assertEqual(d.pet.canvas.winfo_rooty(),pet_y,'滚动侧栏时三虎簇固定不动')
         d.nav[0].event_generate('<MouseWheel>',delta=120);self.pump(.15)
         self.assertAlmostEqual(d.sidebar_canvas.yview()[0],top,places=3)
         self.press(d.sidebar_canvas,'End');self.pump(.1)
@@ -144,8 +144,9 @@ class ShellScrollAndStatusTests(unittest.TestCase):
     def test_shell_fonts_come_from_tokens(self):
         d=self.desktop
         def actual(widget):return font.Font(root=self.win,font=widget.cget('font')).actual()
+        # 第 R2946 期：页标题收进 96px 图标轨顶行，字号降到 body_bold（10pt 加粗），最长页名不截断。
         heading=actual(d.title);self.assertEqual((heading['family'],heading['size'],heading['weight']),
-                                                       (FONTS['heading_1'][0],FONTS['heading_1'][1],'bold'))
+                                                       (FONTS['body_bold'][0],FONTS['body_bold'][1],'bold'))
         self.assertFalse(hasattr(d,'app_title'),'R2933：侧栏顶部浮层已删')
         for widget in (d.header_model,d.header_status):
             self.assertEqual(actual(widget)['size'],FONTS['pet_hint'][1])

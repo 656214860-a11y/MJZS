@@ -205,7 +205,8 @@ class BreathingRoomTokenTests(unittest.TestCase):
             self.assertIn(DESKTOP_LAYOUT[key], SPACING.values(), key)
         for value in DESKTOP_LAYOUT['body_padding'] + tuple(DESKTOP_LAYOUT['status_gap']):
             self.assertIn(value, SPACING.values())
-        self.assertGreater(DESKTOP_LAYOUT['body_padding'][0], 14)
+        # R2946：图标轨收窄后正文左边距收到 sm 刻度，右侧功能区多拿 8px。
+        self.assertEqual(DESKTOP_LAYOUT['body_padding'][0], SPACING['sm'])
 
 
 if __name__ == '__main__':

@@ -891,7 +891,7 @@ class QuitMenuTests(SettingsCase):
 
 
 class DesktopGearSeamTests(unittest.TestCase):
-    """真接缝：齿轮挂在侧栏底栏的齿轮行（settings_gear_layer），三虎簇在 pet_dock，点得到、开得出设置。"""
+    """真接缝：第 R2946 期设置入口并入图标轨末尾（settings_rail_button），三虎簇在 pet_dock，点得到、开得出设置。"""
 
     @classmethod
     def setUpClass(cls):
@@ -906,6 +906,8 @@ class DesktopGearSeamTests(unittest.TestCase):
             self.skipTest(PLATFORM_TKINTER)
         win = self.tk.Tk()
         win.withdraw()
+        # 显式给尺寸：withdrawn 窗口不映射，winfo_ismapped 恒假，但几何（rooty）仍按给定尺寸结算。
+        win.geometry('1280x800')
         from desktop import Desktop
         return win, Desktop(win, root=PROGRAM)
 
@@ -917,16 +919,22 @@ class DesktopGearSeamTests(unittest.TestCase):
             self.assertFalse(hasattr(desktop, 'app_title'), '侧栏不再有应用名浮层')
             self.assertFalse(hasattr(desktop, 'sidebar_head'), '侧栏不再有顶部浮层行')
             self.assertFalse(hasattr(desktop, 'header_slogan'), '页头不再有标语')
-            gear = desktop.pet.gear
-            self.assertIsNotNone(gear)
-            self.assertEqual(str(gear.canvas.winfo_parent()), str(desktop.settings_gear_layer),
-                             '齿轮 pack 进底栏顶部的齿轮行')
-            self.assertEqual(gear.canvas.winfo_manager(), 'pack', '齿轮行里是 pack 布局')
-            # 三虎簇在齿轮行下面那块 pet_dock：头像／小字／猫爪都归它管。
+            # 第 R2946 期：齿轮不再进底栏——设置入口是图标轨末尾的轨钮，三虎簇独占 pet_dock。
+            self.assertIsNone(desktop.pet.gear, '真桌面不再建底栏齿轮')
+            rail = desktop.settings_rail_button
+            self.assertIsNotNone(rail, '图标轨末尾有设置钮')
+            self.assertEqual(str(rail.winfo_parent()), str(desktop.sidebar),
+                             '设置钮与 00–14 阶段钮同在侧栏滚动区')
+            self.assertEqual(rail.cget('style'), 'RailIcon.TButton')
+            self.assertEqual(rail.winfo_manager(), 'pack', '设置钮已 pack 进图标轨')
+            win.update_idletasks()
+            self.assertGreater(rail.winfo_rooty(), desktop.nav[-1].winfo_rooty(),
+                               '设置钮排在最后一个阶段钮下面')
+            self.assertEqual(rail._nav_tooltip.text, '设置')
+            # 三虎簇在 pet_dock：头像／小字／猫爪都归它管。
             self.assertEqual(str(desktop.pet.canvas.winfo_parent()), str(desktop.pet_dock))
             self.assertEqual(str(desktop.pet_dock.winfo_parent()), str(desktop.sidebar_dock))
-            self.assertEqual(str(desktop.settings_gear_layer.winfo_parent()), str(desktop.sidebar_dock))
-            self.assertEqual(gear.tip_text, '设置')
+            self.assertFalse(hasattr(desktop, 'settings_gear_layer'), '齿轮行已随齿轮一起撤掉')
         finally:
             win.destroy()
 
@@ -937,7 +945,7 @@ class DesktopGearSeamTests(unittest.TestCase):
             original = desktop.pet.open_settings
             desktop.pet.open_settings = lambda tab=None: opened.append(tab) or 'ok'
             try:
-                desktop.pet.gear.click()
+                desktop.settings_rail_button.invoke()
             finally:
                 desktop.pet.open_settings = original
             self.assertEqual(opened, [None])

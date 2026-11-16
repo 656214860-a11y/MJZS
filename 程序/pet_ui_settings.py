@@ -166,14 +166,16 @@ class PetSettingsMixin:
         import pet_settings_ui
         return pet_settings_ui.open_hub(self, tab)
     def build_gear(self, parent=None):
-        """侧栏底栏顶部那颗齿轮（第 R2933 期：Fluent settings 图标，与导航同套字形）。
+        """设置入口齿轮（第 R2946 期：真桌面改由侧栏图标轨末尾的 settings 钮承担）。
 
-        真 Desktop 放进 ``settings_gear_layer``（sidebar_dock 里的齿轮行），pack 居中；
-        没有该容器的宿主（自检里的假桌面）退回根窗绝对定位——绝不因为缺个容器就起不来。
+        真 Desktop 建有 ``settings_rail_button`` 时直接返回——齿轮不再进底栏；
+        没有该控件的宿主（自检里的假桌面）照旧建齿轮，退回 pet_dock／标题行／根窗。
         """
         if self.gear is not None:
             return self.gear
         desktop = getattr(self, 'desktop', None)
+        if getattr(desktop, 'settings_rail_button', None) is not None:
+            return None
         gear_layer = getattr(desktop, 'settings_gear_layer', None)
         holder = parent if parent is not None else gear_layer
         holder = holder if holder is not None else getattr(desktop, 'pet_dock', None)

@@ -132,8 +132,9 @@ class LayoutMixin:
             style.configure('Project.Treeview',font=font,rowheight=row_height)
         self.align_header()
     def align_header(self,event=None):
-        """页头对齐（第 R2933 期重写）：标题左沿与内容区齐、标题行高度收齐标题／用量／右侧信息；
-        侧栏底栏 pet_dock 高度跟三虎小字实高（patch_room）走，项目列表顶边仍对齐标题行底。"""
+        """页头对齐（第 R2946 期重写）：标题行只剩 Token 用量（左）与状态／模型（右），
+        行高收齐用量块／右侧信息两者；用量块左沿对齐内容区内缩，pet_dock 高度跟
+        三虎簇正方形边长（patch_room）走。"""
         if not hasattr(self,'title_row'):return
         pet=getattr(self,'pet',None)
         pet_room=getattr(pet,'patch_room',None)
@@ -141,13 +142,13 @@ class LayoutMixin:
         if dock is not None:
             room=max(pet_ui.DOCK_ROOM,int(pet_room or pet_ui.DOCK_ROOM))
             if int(dock.cget('height'))!=room:dock.configure(height=room)
-        candidates=[self.title.winfo_reqheight()]
+        candidates=[]
         for name in ('usage_indicator','header_info'):
             widget=getattr(self,name,None)
             if widget is None:continue
             try:candidates.append(int(widget.winfo_reqheight()))
             except tk.TclError:pass
-        minimum=max(candidates)
+        minimum=max(candidates) if candidates else 0
         block=getattr(self,'project_block',None)
         list_top=block.winfo_rooty()-self.title_row.winfo_rooty() if block is not None else minimum
         # 侧栏可滚动后，屏幕坐标会随画布偏移变化；换算回内容坐标再参与表头对齐。
@@ -173,9 +174,12 @@ class LayoutMixin:
             value=widget.pack_info()['padx']
             values=tuple(map(int,value if isinstance(value,tuple) else widget.tk.splitlist(str(value))))
             return values if len(values)>1 else values*2
-        title_pad=(inset,SPACING['none'])
-        if horizontal_pad(self.title)!=title_pad:
-            self.title.pack_configure(padx=title_pad)
+        # 第 R2946 期：标题搬进侧栏后，标题行左沿对齐改由 Token 用量块承担。
+        usage=getattr(self,'usage_indicator',None)
+        if usage is not None:
+            title_pad=(inset,SPACING['none'])
+            if horizontal_pad(usage)!=title_pad:
+                usage.pack_configure(padx=title_pad)
     def fit_content(self,event=None):
         # 尺寸事件落在拖动期间：并进松手后的补做。主动调用（页面切换、最小化恢复）
         # 不带事件，保持原来的同步 after_idle 语义，不受静默影响。

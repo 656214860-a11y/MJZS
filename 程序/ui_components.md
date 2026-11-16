@@ -160,9 +160,9 @@
 | 加载转圈 | `Spinner(master, host=控件)`，挂到 `BusyState(spinner=…)` | 忙碌时叠在 host 右端转一段主色圆弧，结束即撤并停定时器；主窗口挂在状态栏上 | `SPINNER_*` |
 | 空态 | `EmptyState(master, 文案, anchor_widget=列表)`；`DataTable.empty_label` 同样带图标 | 柔和圆角图标（`ui_rounded.empty_icon_photo`，缓存在根窗口）在文字上方，居中盖在列表上 | `EMPTY_*` |
 
-侧栏自 R2897 起为图标轨，R2933 再收紧为纯图标：阶段导航只留居中实心图标（编号撤掉，`assets/nav/*.png` 由 `scripts/build_nav_icons.py` 用 Fluent System Icons Filled/MIT 开发期栅格化，运行时零依赖；PNG 缺失退回编号文字），完整阶段名走 `Tooltip` 与页标题「NN 名称」。项目区是分组筛选图标＋项目选择器＋新建/打开图标；点「在制作／已完成」分组图标＝切组并展开该组项目下拉（`set_project_group(state, popup=True)` → `ttk::combobox::Post`），两组各弹各的列表。未授权页不再追加 🔒 文字，改为把导航图标换成 `lock.png`（`refresh_nav_locks`），PNG 缺失才退回文字锁标。侧栏顶部浮层（应用名）与页头标语已删；页标题保留在内容区标题行，Token 用量指示器 pack 在其右侧同一行。
+侧栏自 R2897 起为图标轨，R2933 收紧为纯图标，R2946 再迭代一轮：轨宽 96px，导航图标放大到 24px（`RENDER_PX` 48 超采样），阶段名「NN 名称」搬进侧栏滚动区顶端（`EllipsisLabel`，10pt 加粗，最长页名不截断，Tooltip 留全文），页头只剩 Token 用量与状态行。项目区是分组图标＋新建/打开图标，常驻下拉框已删：点「在制作／已完成」分组图标＝切组并弹出该组项目的 `Flyout` 选择层（`_post_project_picker`，● 标当前项、右键项目菜单、「项目管理…」入口都在层里），再点同组图标收起。「05 资产管理」的二级入口「资产清单」默认不显示：点资产图标弹同一 `Flyout` 基座的单选层，选中进清单页、图标临时换 `asset_list.png`，再点图标回资产管理主页（`_assets_nav_toggle`）。未授权页把导航图标换成 `lock.png`（`refresh_nav_locks`）。侧栏顶部浮层（应用名）与页头标语已删；当前项目名只留窗口标题「当前项目：…」。
 
-侧栏底部是固定 `sidebar_dock`（先于滚动区 pack，永不参与滚动）：顶部 `settings_gear_layer` 放设置齿轮（Fluent `settings.png`，PNG 缺失退回手绘齿轮），下面 `pet_dock` 放三虎簇——猫头像左上、等级小字紧贴其下（宽 `DOCK_CAPTION_ROOM`，一行／两行换行）、猫爪列贴右沿（`DOCK_PAW_RIGHT`）并对「头像＋小字」整组垂直居中；`pet.patch_room` 随小字实高同步底栏高度（`align_header`）。
+侧栏底部是固定 `sidebar_dock`（先于滚动区 pack，永不参与滚动）：设置入口第 R2946 期上移为图标轨末尾的 `settings_rail_button`（Fluent `settings.png`，`RailIcon.TButton`，点开既有设置 hub），底栏只剩 `pet_dock` 三虎簇——簇整体收成正方形（`_cluster_layout`：边长取内容宽／高较大者，`DOCK_ROOM` 初值即边长），左列猫头像（44px）＋等级小字紧贴其下（宽 `DOCK_CAPTION_ROOM`，一行／两行换行）、右列猫爪竖排（14px）贴右沿（`DOCK_PAW_RIGHT`）并对「头像＋小字」整组垂直居中，命中区右沿钳在 dock 内；`pet.patch_room` 随实测簇高同步底栏高度（`align_header`）。弹出选择层统一走 `ui_popup.Flyout`（无边框 Toplevel＋1px 描边壳），点外部／Esc／选中即关，监听挂主窗 `bind`/`unbind(funcid)` 精确摘除。
 
 一级／二级导航胶囊的悬停（`surface_hover`）与选中（`surface_pressed` 浅灰胶囊、深色内容）由 `Nav.TButton` / `Selected.Nav.TButton` / `Sub.Nav.TButton` 的圆角底图提供；纯图标小按钮用 `RailIcon.TButton` / `Selected.RailIcon.TButton`；
 页面边距、导航间距、状态栏间距取自 `DESKTOP_LAYOUT` 的 `body_padding`／`nav_gap`／`section_gap`／`status_gap`；底栏几何取自 `pet_ui_support` 的 `DOCK_*` 常量组。

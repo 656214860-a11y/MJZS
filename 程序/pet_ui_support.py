@@ -69,24 +69,29 @@ LEVEL_SWITCH_NOTES = {
     'semi': '半自动：免费步骤自动做，付费前先问您。',
     'auto': '全自动：按流程制作；付费或阻塞时会停下。'}
 # 第 R2933 期：三虎簇从标题行右上角搬进侧栏左下角固定底栏（齿轮之下）。
-# 左列＝头像（上）＋等级小字（下，间距收紧）；右列＝猫爪竖排，对「头像＋小字」整组垂直居中，
-# 小字一行／两行换行时由 pet_ui_view._align_paws 随动重算。
-DOCK_PAD_X = SPACING['xs'] // 2      # 头像／小字左边距（相对 pet_dock）：让猫爪命中区左沿正好贴头像右沿
+# 第 R2946 期：簇整体收成正方形——左列＝头像（上）＋等级小字（下，间距收紧）；
+# 右列＝猫爪竖排，对「头像＋小字」整组垂直居中；簇区边长取「内容宽／高」较大者，
+# 小字一行／两行换行时由 pet_ui_view._align_paws 随动重算，dock 高＝正方形边长。
+DOCK_PAD_X = SPACING['xs'] // 2      # 头像／小字左边距（相对 pet_dock 内左列）
 DOCK_PAD_TOP = SPACING['xs']          # 簇顶边距
 DOCK_PAD_BOTTOM = SPACING['xs']       # 簇底边距（dock 高度合成用）
 DOCK_CAPTION_GAP = SPACING['xs'] // 2  # 小字与头像间距：比原 caption_gap(sm=8) 收紧
-DOCK_CAPTION_ROOM = 44                # 小字宽度：「待确认 NN」一行尽量放得下
-DOCK_PAW_RIGHT = SPACING['md']        # 猫爪列视觉右沿离 pet_dock 右边；命中区右沿收在 dock 内不压正文
-PATCH_X = DOCK_PAD_X                  # 头像 place 的 x（anchor='nw'）
+DOCK_CAPTION_ROOM = 56                # 小字宽度：「待确认 NN」尽量一行放下（两行换行由正方形逻辑兜底）
+DOCK_PAW_GAP = SPACING['sm']          # 左列（头像＋小字）与猫爪列之间的间距
+DOCK_PAW_RIGHT = SPACING['sm']        # 猫爪列视觉右沿离 pet_dock 右边；命中区右沿收在 dock 内不压正文
+PATCH_X = DOCK_PAD_X                  # 头像 place 的 x（anchor='nw'；运行时由 _cluster_layout 细算）
 CAPTION_INK = PET_PALETTE['caption_ink']                           # 第 21 期：三档小字一律黑色（既有用例与用户要求都钉死这一色）
 CAPTION_Y = DOCK_PAD_TOP + SIZE + DOCK_CAPTION_GAP
 # 猫爪列不再有固定顶边：对「头像＋小字」整组垂直居中（_paw_col_top 实测小字高度）。
 PAW_COL_X = -DOCK_PAW_RIGHT           # 猫爪列 place 的 x（anchor='ne'）：视觉右沿离 dock 右边 DOCK_PAW_RIGHT
-# 36px 命中区比 16px 猫爪列每侧宽 10px：承接区右沿比列右沿再出头同样的量，整列命中区右沿贴 dock 右沿。
+# 命中区比猫爪列每侧宽出一截：承接区右沿比列右沿再出头同样的量，整列命中区右沿贴 dock 右沿。
 PAW_HIT_X = PAW_COL_X - PAW_COL_WIDTH // 2 + PAW_HIT_SIZE // 2
-# pet_dock 保留高度按最坏情况给：小字最多两行；运行时 pet.patch_room 跟着小字实高收缩。
-DOCK_ROOM = (DOCK_PAD_TOP + SIZE + DOCK_CAPTION_GAP + 2 * PET_LAYOUT['caption_height']
-             + DOCK_PAD_BOTTOM)
+# 簇内容总宽＝左内边距＋左列宽（头像与小字取大）＋爪列间距＋爪列宽＋右边距；
+# dock 宽恒为侧栏内宽，正方形边长 side=max(本值, 内容高+边距)。
+DOCK_CLUSTER_W = (DOCK_PAD_X + max(SIZE, DOCK_CAPTION_ROOM) + DOCK_PAW_GAP
+                  + PAW_COL_WIDTH + DOCK_PAW_RIGHT)
+# pet_dock 保留高度初值取正方形边长；运行时 pet.patch_room 跟着内容实高走。
+DOCK_ROOM = DOCK_CLUSTER_W
 # 第 44 期：设置入口做成齿轮；第 R2933 期改用 Fluent settings 图标（assets/nav/settings.png），
 # 与侧栏导航同一套字形；PNG 缺失时退回原手绘齿轮。命中区仍是 CONTROL_HIT_MIN 的 36px。
 GEAR_SIZE = 22                                    # 齿轮图形的边长
@@ -279,11 +284,12 @@ def gear_parts(size=GEAR_SIZE, teeth=8):
     return {'teeth': tuple(points), 'body': (centre, centre, body),
             'hole': (centre, centre, max(2.0, body * 0.38))}
 class GearButton:
-    """侧栏底栏顶部那颗设置齿轮（第 44 期；第 R2933 期搬进 sidebar_dock）。
+    """设置齿轮按钮（第 44 期；第 R2933 期搬进 sidebar_dock；第 R2946 期真桌面改走图标轨）。
 
     用户要「醒目提示」，所以它不藏在菜单里——Fluent settings 图标（PNG 缺失退回
     手绘齿轮），鼠标停上去垫一层浅灰底衬。第 45 期起不再在旁边写字（见 GEAR_TIP）。
-    画布由宿主 pack 进 settings_gear_layer 行，与三虎簇同一块底栏。
+    真 Desktop 有 ``settings_rail_button`` 时 build_gear 不再建它；无该控件的宿主
+    仍把画布 pack 进 settings_gear_layer／pet_dock 等既有承载层。
     """
 
     def __init__(self, master, command=None, size=GEAR_SIZE, tip=GEAR_TIP, bg=CANVAS_BG):
