@@ -1,6 +1,7 @@
 """轮次接续与最低验证基线不得因文档或测试迁移而倒退。"""
 from __future__ import annotations
 
+import importlib.util
 import re
 import json
 import unittest
@@ -8,6 +9,12 @@ import unittest
 import smoke_test
 import run_selftests
 from tests.architecture._scan import ROOT
+
+# scripts/ 不在包路径里；与 test_auto_full_safe 同法按文件装载，冷却判定仍只有 auto_full_safe 一份实现。
+_AUTO_SPEC = importlib.util.spec_from_file_location(
+    'auto_full_safe_for_round_baselines', ROOT / 'scripts' / 'auto_full_safe.py')
+auto_full_safe = importlib.util.module_from_spec(_AUTO_SPEC)
+_AUTO_SPEC.loader.exec_module(auto_full_safe)
 
 
 STATUS = ROOT / 'project_status.md'
@@ -69,7 +76,11 @@ class RoundBaselineTests(unittest.TestCase):
             baseline.get('full_safe_verified_trees', []), run_selftests.content_tree())
         # A run cannot have its own success receipt before its tests finish.
         # Other processes still need an actual receipt, not report prose.
-        self.assertTrue(receipt or run_selftests.participating_full_safe_run(latest),
+        # 同 HEAD 红冷却（'head'）是机制对相同内容树的确定性抑制：合并提交是唯一能推进 HEAD、
+        # 让冷却降级为 'time'（required 下自动补跑）的途径，此时拦合并就是死锁（2026-11-16 事故）。
+        cooling = auto_full_safe.current_cooling()
+        self.assertTrue(receipt or run_selftests.participating_full_safe_run(latest)
+                        or cooling == 'head',
                         f'R{latest} 欠一次完整安全全量。后台会自动补跑（post-commit 钩子触发），请勿手动全量；'
                         '进度见 程序/logs/auto_full_safe.log，或运行 scripts/auto_full_safe.py --status')
 
