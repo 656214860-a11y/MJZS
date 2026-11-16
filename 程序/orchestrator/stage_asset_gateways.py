@@ -49,7 +49,7 @@ def apply_asset_plan_gate_choice(project, key, choice, episode_dir=''):
 
 def plan_unattended_assets(project, base, sources, scope='adopted'):
     """L3 为无人值守资产计划装配唯一的发布网关。"""
-    from asset_batch_service import unattended_plan
+    from domain.asset_batch_service import unattended_plan
     base = prepare_asset_write(project, base)
     return unattended_plan(project, base, sources, scope, gateway=asset_plan_gateway(),
                            context=project_context(project))
@@ -81,7 +81,7 @@ def poll_asset_storyboard_adoption(project, minimum_age=10):
 
 def release_uncertain_asset_batch(project, ids):
     """L3 为确认后的资产批次未知提交记录提供唯一放开入口。"""
-    from asset_batch_state_service import release_uncertain
+    from domain.asset_batch_state_service import release_uncertain
     return release_uncertain(None, ids, context=project_context(project),
                              publish=asset_batch_gateway()['publish_json'])
 

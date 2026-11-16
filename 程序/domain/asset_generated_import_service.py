@@ -50,8 +50,8 @@ def generated_plan(base):
 
 def pending_generated_files(project, base, plan=None, *, context=None):
     """返回尚未登记、可自动导入的 (目录, 文件, 资产编号)；只扫描不写盘。"""
-    from asset_context import generated_dir
-    from asset_batch_service import image_ready
+    from domain.asset_context import generated_dir
+    from domain.asset_batch_service import image_ready
     project = _project_root(project, context=context)
     base = Path(base).resolve()
     plan = generated_plan(base) if plan is None else plan
@@ -79,7 +79,7 @@ def pending_generated(project, base, *, context=None):
 
 def import_pending_generated(project, base, report=None, *, gateway=None, context=None):
     """自动导入未登记生成图；JPEG 等格式统一转换为 PNG。"""
-    from asset_batch_service import register_image
+    from domain.asset_batch_service import register_image
     from infra.native_asset_codec import to_png
     publish_bytes = gateway.get('publish_bytes') if isinstance(gateway, dict) else None
     if not callable(publish_bytes):

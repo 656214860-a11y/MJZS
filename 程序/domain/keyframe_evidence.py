@@ -90,7 +90,7 @@ def image_facts(image):
 
 def source_evidence(source, episode, shot):
     """Bind creative source and referenced assets, excluding generated frame state."""
-    from asset_context import references
+    from domain.asset_context import references
     creative = dict(episode)
     creative['shots'] = [{k: v for k, v in row.items() if k not in _FRAME_FIELDS}
                          for row in episode.get('shots', ())]

@@ -16,7 +16,7 @@ import client_profiles
 import file_cache
 import model_pool
 import contract.platform_tools as platform_tools
-import white_model_service
+import domain.white_model_service as white_model_service
 import workflow_settings
 
 OK, WARN, MISSING = 'ok', 'warn', 'missing'

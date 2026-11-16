@@ -81,7 +81,7 @@ def shots_of(episode):
 
 # ── ready：本机跑得完的那几步 ───────────────────────────────────────────────
 def _episode_validate(context):
-    from writing import validate_episode
+    from domain.writing import validate_episode
     episode = episode_of(context)
     ctx = context or {}
     source = ctx.get('source') or ctx.get('episode_file') or project_of(ctx) / 'episode' / 'episode.json'

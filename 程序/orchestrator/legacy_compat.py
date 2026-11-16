@@ -89,7 +89,7 @@ def optional_model_identity(label, program):
 def optional_asset_counts(base, read_json):
     """返回资产登记数和就绪图片数；历史安装缺少资产状态服务时安全降级。"""
     try:
-        from asset_batch_state_service import ready_asset_ids
+        from domain.asset_batch_state_service import ready_asset_ids
         root = Path(base)
         ready = len(ready_asset_ids(root))
         registry = read_json(root / 'assets.json')

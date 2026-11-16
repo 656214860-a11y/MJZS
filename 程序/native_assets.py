@@ -78,8 +78,8 @@ def _to_png(raw):
 def seedream_cost_preview(project, base, items, options):
     """按当前资产与恢复记录预估新增请求，不把取回已有图片算作新生成。"""
     from seedream_api import UNSETTLED, load_profile
-    from asset_context import generated_dir
-    from asset_batch_service import image_ready
+    from domain.asset_context import generated_dir
+    from domain.asset_batch_service import image_ready
     from pet_llm import RequestLedger
     profile = load_profile(options.get('seedream_profile', ''))
     folder = generated_dir(base, create=False)
@@ -106,12 +106,12 @@ def _run_seedream_direct(project, base, items, options, report, stop=None):
     from uuid import uuid4
     from asset_reference_images import resolve, reference_instruction
     from domain.asset_reference_prompts import display_prompt
-    from asset_batch_service import register_image, image_ready
+    from domain.asset_batch_service import register_image, image_ready
     from infra.native_asset_codec import seedream_provenance
     gateway=_asset_batch_gateway()
     profile=load_profile(options.get('seedream_profile',''))
     report(seedream_cost_preview(project, base, items, options))
-    from asset_context import generated_dir
+    from domain.asset_context import generated_dir
     folder=generated_dir(base)
     aspect=options.get('aspect_ratio','1:1')
     total=len(items);done=[];failed=[];blocked=[]
@@ -220,7 +220,7 @@ def _submit_job(client, state, options, key, health):
     return {'state':dispatched['state'],'error':dispatched.get('error','')}
 
 def run(project, base, items, url, report, timeout=7200, options=None, stop=None):
-    from asset_batch_service import image_ready, register_image
+    from domain.asset_batch_service import image_ready, register_image
     from asset_prompt_rules import issues
     from asset_reference_images import snapshot, resolve
     from domain.asset_reference_prompts import display_prompt
@@ -250,7 +250,7 @@ def run(project, base, items, url, report, timeout=7200, options=None, stop=None
                          '“手动制作资产”；已提交的批次会接着上次的进度走，不会重复提交。') from None
     options=options or health['options']
     if options['model'] not in MODELS:raise ValueError('请选择支持的生图模型。')
-    from asset_context import generated_dir
+    from domain.asset_context import generated_dir
     # 生成图从第 48 期起统一进 generated_dir。
     gen=generated_dir(base)
     # 第 48 期第 3 条：这个目录名（Comfy 资产批次）已经落在用户盘上，改名会让旧项目里生成好的图失联，
@@ -482,7 +482,7 @@ class _AssetControls:
             except ValueError as exc:
                 self.progress_text.set(str(exc));self.account();return
             from seedream_settings import confirm_unsettled
-            from asset_context import generated_dir
+            from domain.asset_context import generated_dir
             confirm_unsettled(self.win,generated_dir(self.base),[aid for aid,_ in items],'资产')
             self.progress_text.set(seedream_cost_preview(self.project, self.base, items, options))
         elif options['model']!=LOCAL:
@@ -509,7 +509,7 @@ class _AssetControls:
                 if self.win.winfo_exists():
                     # 按资产库里的落盘结果判断，不靠返回文案里的关键字：取消、超时、
                     # 只导入一部分的批次都不算完成，不能弹「已自动保存」。
-                    from asset_batch_service import batch_complete
+                    from domain.asset_batch_service import batch_complete
                     if batch_complete(self.base,[aid for aid,_ in items]):
                         self.notify(self.win, result+'\n\n已自动保存到资产库。', title='制作完成', status=self.app.status)
                     else:

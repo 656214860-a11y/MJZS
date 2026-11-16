@@ -55,7 +55,7 @@ def _reference_documents(project, ignored):
 
 def snapshot(context):
     """读取已有成果；目录服务所需上下文由 L3 注入。"""
-    from storyboard_catalog_service import IGNORED, catalog
+    from domain.storyboard_catalog_service import IGNORED, catalog
     if not isinstance(context, ProjectContext):
         raise TypeError('项目接续快照需要由 L3 注入 ProjectContext。')
     project = context.root.resolve()

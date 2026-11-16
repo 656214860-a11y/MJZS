@@ -4,7 +4,7 @@ from pathlib import Path
 
 import contract.stage_layout as stage_layout
 import stage_parallel
-import white_model_service
+import domain.white_model_service as white_model_service
 from file_cache import read_json
 
 

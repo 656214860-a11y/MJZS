@@ -514,14 +514,14 @@ def refresh_storyboard_studios(desktop, project):
 
 def white_model_shot_directory(project, sid, workspace_path=None, source=None):
     """L3 为白模镜头工作目录解析注入项目上下文；source 明确本次是哪一集。"""
-    from white_model_service import shot_directory
+    from domain.white_model_service import shot_directory
     return shot_directory(project_context(project), sid, workspace_path, source)
 
 
 def migrate_white_model_directories(project):
     """L3 为白模旧目录迁移注入项目上下文与正式发布器。"""
     from agent.core import save
-    from white_model_service import migrate_legacy_directories
+    from domain.white_model_service import migrate_legacy_directories
     return migrate_legacy_directories(project_context(project), publish=save)
 
 
@@ -610,7 +610,7 @@ def run_stage_confirmation_gate(project, gate_id, *, shots=None, assets=None, le
 def record_previs_evidence(project, sid, source, media=None):
     """L3 为白模就绪登记注入项目上下文与正式发布器。"""
     from agent.core import save
-    from white_model_service import record_evidence
+    from domain.white_model_service import record_evidence
     root = white_model_shot_directory(project, sid, source=source)
     return _with_previs_copy(record_evidence(root, sid, source, publish=save, media=media), project, sid, source)
 
@@ -771,7 +771,7 @@ def stage_context(desktop, stage, function=None, extra=None):
 
 def import_writing_project(root, json_file):
     """L3 编排剧本 JSON 导入与其校验报告发布。"""
-    from writing import import_project
+    from domain.writing import import_project
     from orchestrator.workflow_context_controller import workflow_context_gateway
     result = import_project(root, json_file, gateway=project_registry_gateway(),
                             publish_report=workflow_context_gateway()['publish_json'])
@@ -782,7 +782,7 @@ def import_writing_project(root, json_file):
 
 def prepare_writing_project(root, brief, stage, target):
     """L3 编排剧本任务书发布并只向界面交付成功数据。"""
-    from writing import prepare
+    from domain.writing import prepare
     result = prepare(root, brief, stage, target, publish=publish_writing_preparation)
     if not result.ok:
         raise ValueError(result.reason)
@@ -805,7 +805,7 @@ def require_formal_asset_generation(project, *, online_model):
 def save_writing_production_locks(project, values, *, attachment_signature=None):
     """制作锁与已存在的简报作为一包发布，失败不留下两份不同值。"""
     from copy import deepcopy
-    from idea_chat import brief_complete_path
+    from domain.idea_chat import brief_complete_path
     from contract.script_contract import PRODUCTION_LOCK_DEFINITIONS
     allowed = {item['key'] for item in PRODUCTION_LOCK_DEFINITIONS}
     if set(values) - allowed:
@@ -881,7 +881,7 @@ def sync_writing_attachment_locks(project, *, reference=None):
 def sync_previs_copy(project, sid, source):
     """已校验的预演在项目内留副本并登记 previs.json；副本失败不否定已通过的校验。"""
     from agent.core import save
-    from white_model_service import sync_project_copy
+    from domain.white_model_service import sync_project_copy
     try:
         return sync_project_copy(project_context(project), sid, source, publish=save)
     except (OSError, ValueError):

@@ -27,7 +27,7 @@ def _ref_id(value):
 
 
 def _asset_map(project):
-    from asset_context import library_dir
+    from domain.asset_context import library_dir
     project = Path(project).resolve()
     lib = library_dir(project, project / 'episode')
     plan_file = lib / 'assets' / '资产清单' / 'assets.json'

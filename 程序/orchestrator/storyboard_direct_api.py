@@ -60,7 +60,7 @@ def _first_shot_number(project, episode_number, exclude=None):
     """集号更小的已有分镜里最大的镜头编号 +1（镜头编号按集号连续，REQ-S03-14）。"""
     from agent.core import read
     from project_context_factory import project_context
-    from storyboard_catalog_service import file_order, working_dir
+    from domain.storyboard_catalog_service import file_order, working_dir
     folder = working_dir(project_context(project))
     last = 0
     for path in folder.glob('*_分镜.json') if folder.is_dir() else ():
@@ -185,7 +185,7 @@ def _episode(batch, script, existing_board):
     from agent.core import read
     from integrations import script_text
     from project_context_factory import project_context
-    from storyboard_catalog_service import document_dir, file_order, working_dir
+    from domain.storyboard_catalog_service import document_dir, file_order, working_dir
     from domain.storyboard_storage import canonical_name
     project = batch.project
     context = project_context(project)
@@ -269,7 +269,7 @@ class _Batch:
 def _jobs(batch, scripts, existing):
     from agent.core import read
     from project_context_factory import project_context
-    from storyboard_catalog_service import resolve_source
+    from domain.storyboard_catalog_service import resolve_source
     context = project_context(batch.project)
     jobs = [(path, None) for path in scripts]
     for board in existing:

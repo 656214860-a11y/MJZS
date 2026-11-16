@@ -49,7 +49,7 @@ class IdeaDeferredMixin:
         known=getattr(self,'_idea_history_known',None)
         if not isinstance(known,dict):known=self._idea_history_known={}
         if root not in known:
-            import idea_chat
+            import domain.idea_chat as idea_chat
             try:known[root]=idea_chat.has_history(self.idea_chat_context(),gateway=self.idea_chat_gateway())
             except Exception:
                 app_logging.swallowed()

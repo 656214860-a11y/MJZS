@@ -98,7 +98,7 @@ def _publish_final_docs(project, episode):
 
 
 def finalize(project,episode_dir,source,retire_working=None,*,gateway=None):
-    from asset_context import library_dir,references
+    from domain.asset_context import library_dir,references
     from stage_execution_service import storyboard_resolve_source as resolve_source
     from domain.storyboard_lifecycle import signature
     project=Path(project).resolve();base=library_dir(project,episode_dir)
@@ -153,7 +153,7 @@ def finalize(project,episode_dir,source,retire_working=None,*,gateway=None):
         raise ValueError('批次划分失败，已中止定稿：'+str(exc)) from exc
     episode['missing_assets']=sorted(set(missing))
     episode['assets_ready']=not missing
-    from writing import validate_episode
+    from domain.writing import validate_episode
     assets={aid:{k:v for k,v in rows[aid].items() if k!='status'} for aid in used}
     validate_episode(episode,frame_base,assets)
     wanted=signature(episode,assets,base)

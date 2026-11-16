@@ -2,7 +2,7 @@
 from pathlib import Path
 
 from file_cache import read_json
-from storyboard_catalog_service import file_order
+from domain.storyboard_catalog_service import file_order
 
 
 ALL_SOURCES_LABEL = '全部分镜'

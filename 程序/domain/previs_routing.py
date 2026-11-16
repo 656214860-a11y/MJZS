@@ -106,7 +106,7 @@ def decisions_for(context,source,shots):
 def ready(context,sid,source=None):
     """这一镜的预演是否就绪：来源分镜与预演文件都未变才算，变过只判过期、不删成果。"""
     context=_context(context)
-    import white_model_service as wm
+    import domain.white_model_service as wm
     # 工作区里没有可用预览（被清理／换机）时，退回项目内副本 previs.json 判断；工作区有预览则以它为准。
     try:
         record=wm.read_record(wm.shot_directory(context,sid,source=source))

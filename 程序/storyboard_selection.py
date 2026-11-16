@@ -103,7 +103,7 @@ def current_source(project, legacy_sources=(), fallbacks=(), remember=None):
     解析规则不依赖 Tk；``remember`` 只由调用方提供，用于把仍可用的旧指针迁移到
     当前采用记录。这样首帧、资产和视频页面可以共享同一来源约束。
     """
-    from storyboard_catalog_service import default_source, resolve_source
+    from domain.storyboard_catalog_service import default_source, resolve_source
 
     project = Path(project).resolve()
     settings_path = project / 'ui_settings.json'
@@ -152,7 +152,7 @@ def source_script_error(project, board, available=None):
     批量校验（prune_invalid_adoptions）传惰性取数器，只有真正需要来源比对时才扫一次，
     之后各板复用；提前返回的板与空采用列表都不触发扫描。
     """
-    from storyboard_catalog_service import board_source_script, catalog
+    from domain.storyboard_catalog_service import board_source_script, catalog
     project=Path(project).resolve();board=Path(board).resolve()
     try:data=read_json(board)
     except (OSError,ValueError,TypeError):return '无法读取 JSON 的分镜初稿来源'
@@ -186,7 +186,7 @@ def prune_invalid_adoptions(project):
     # 惰性扫描、多板复用：第一个真正要做来源比对的板才取一次“当前可用剧本集合”，
     # 调用次数不随已采用分镜数增长（N 个板到达比对时都只扫一遍剧本目录）；
     # 空采用列表或所有板提前返回时一次都不扫，不给 UI 线程新增整库扫描。
-    from storyboard_catalog_service import catalog
+    from domain.storyboard_catalog_service import catalog
     cache=[]
     def available():
         if not cache:
@@ -296,9 +296,9 @@ def draft_problems(project):
 
 def adopt(project,values,*,gateway=None):
     """Validate the whole request before changing any adoption or asset state."""
-    from writing import validate_episode
+    from domain.writing import validate_episode
     from contract.storyboard_paths import media_root
-    from asset_context import library_dir
+    from domain.asset_context import library_dir
     from domain.asset_plan import _sync_plan
     project=Path(project).resolve();incoming=paths(project,values)
     if not incoming:raise ValueError('请先选择一份或多份分镜 JSON')
@@ -323,7 +323,7 @@ def adopt(project,values,*,gateway=None):
 
 def sync_working_episode(project,source=None):
     """项目还没有视频任务时，把工作集指针切到该分镜（config 的 episode_dir／episode_file）。"""
-    from asset_context import library_dir
+    from domain.asset_context import library_dir
     project=Path(project).resolve()
     sources=paths(project,[source]) if source else adopted(project)
     if not sources:return None
@@ -363,7 +363,7 @@ def repair_working_episode(project,source=None):
 
 
 def _validate(path):
-    from writing import validate_episode
+    from domain.writing import validate_episode
     from contract.storyboard_paths import media_root
     try:validate_episode(read(path),media_root(path))
     except ValueError as exc:raise ValueError(f'{Path(path).name}：'+problem_text(exc)) from None
@@ -371,7 +371,7 @@ def _validate(path):
 
 def tree_signature(project):
     """分镜目录的轻量指纹：只数 JSON 与最新写入时间，用来跳过没有变化的重扫。"""
-    from storyboard_catalog_service import IGNORED, discover_files
+    from domain.storyboard_catalog_service import IGNORED, discover_files
     # 新产物统一位于“03初步分镜”；不再因旧 ``storyboard/`` 目录为空而漏掉自动采用。
     from contract.project_stages import storyboard
     root=storyboard(project);count=0;latest=0.0
@@ -389,7 +389,7 @@ def adopt_pending(project,minimum_age=10,*,gateway=None):
     minimum_age 秒，避免读到 agent 正在写的一半内容（记在 waiting，下一轮再看）；某一份
     不合法只跳过它，其余照常采用；整批只同步一次资产计划，重复调用不会重复采用。
     """
-    from storyboard_catalog_service import catalog
+    from domain.storyboard_catalog_service import catalog
     project=Path(project).resolve();now=time.time()
     used=set(adopted(project))
     entries=sorted((entry for entry in catalog(project_context(project),'storyboard') if entry['path'] not in used),key=lambda entry:entry['order'])
@@ -414,7 +414,7 @@ def adopt_pending(project,minimum_age=10,*,gateway=None):
 
 
 def remove(project,values,*,gateway=None):
-    from asset_context import library_dir
+    from domain.asset_context import library_dir
     from domain.asset_plan import _sync_plan
     project=Path(project).resolve();removed=set(paths(project,values))
     remaining=[p for p in adopted(project) if p not in removed]

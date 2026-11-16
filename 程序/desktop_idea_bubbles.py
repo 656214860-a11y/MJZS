@@ -175,7 +175,7 @@ class IdeaBubblesMixin:
         """当前气泡框显示的行（按显示顺序）；尚未渲染时回退到当前模型的历史。"""
         rows=getattr(self,'_idea_view_rows',None)
         if rows is not None:return rows
-        import idea_chat
+        import domain.idea_chat as idea_chat
         return idea_chat.load(self.idea_chat_context(),model=self.displayed_chat_model(),gateway=self.idea_chat_gateway())
     def copy_bubble_message(self,index):
         """消息左下角「复制」图标：只取持久化的正文，不把界面元信息混进去。"""
@@ -208,7 +208,7 @@ class IdeaBubblesMixin:
         return text
     def delete_bubble_message(self,index):
         """消息左下角「删除」图标：移出当前对话，并保留最近删除恢复记录。"""
-        import idea_chat
+        import domain.idea_chat as idea_chat
         rows=self._idea_display_rows()
         if not 0<=index<len(rows):return None
         row=rows[index]
@@ -222,7 +222,7 @@ class IdeaBubblesMixin:
         return index
     def restore_latest_bubble_message(self):
         """恢复当前模型聊天页最近删除的一条完整消息。"""
-        import idea_chat
+        import domain.idea_chat as idea_chat
         last=getattr(self,'_idea_last_deleted',None)
         model=last[1] if isinstance(last,tuple) and last[0]==self.root and last[1] else self.displayed_chat_model()
         row=idea_chat.restore_latest_removed(self.idea_chat_context(),model=model,gateway=self.idea_chat_gateway())
@@ -232,7 +232,7 @@ class IdeaBubblesMixin:
         return row
     def clear_bubble_view(self):
         """压缩当前聊天的模型上下文并隐藏旧消息；刷新仅恢复原文显示。"""
-        import idea_chat
+        import domain.idea_chat as idea_chat
         from collections import Counter
         model=self.displayed_chat_model()
         rows=idea_chat.compact_context(self.idea_chat_context(),model=model,gateway=self.idea_chat_gateway()) if self.root else []
@@ -313,7 +313,7 @@ class IdeaBubblesMixin:
         # 页脚留在底框外面，但必须整句可见：左右边距钉在对话区边沿、整段按词换行——
         # 若跟着用户气泡收窄，右侧只剩一个气泡的宽度，再加 wrap='none' 就会被内容框裁掉。
         # 文字对齐跟气泡分列一致：用户消息（SKILL 摘要只挂在用户消息上）右对齐，模型消息左对齐。
-        import idea_chat
+        import domain.idea_chat as idea_chat
         footer='  '.join(part for part in (idea_chat.skill_injection_summary(row),self.bubble_time(row.get('at'))) if part)
         if footer:
             box.tag_configure(name+'_time',justify='right' if mine else 'left',foreground=COLORS['text_muted'],
@@ -502,7 +502,7 @@ class IdeaBubblesMixin:
         目录条标签取自合并后的全部记录；只读本模型文件会出现“有标签、点开却没记录”。
         """
         from stage_execution_service import project_context
-        import idea_chat
+        import domain.idea_chat as idea_chat
         own=idea_chat.load(project_context(root),model=selected,gateway=self.idea_chat_gateway())
         def labelled(rows):
             return [row for row in rows if isinstance(row,dict) and str(row.get('model') or '').strip()==selected]
@@ -521,7 +521,7 @@ class IdeaBubblesMixin:
         if root!=getattr(self,'_idea_model_filter_root',None):
             self.set_idea_model_filter(None,root)
         from stage_execution_service import project_context
-        import idea_chat
+        import domain.idea_chat as idea_chat
         all_rows=idea_chat.load(project_context(root),model='',gateway=self.idea_chat_gateway()) if root and not resolving_model else []
         items=model_bar_items(all_rows)
         if not resolving_model:

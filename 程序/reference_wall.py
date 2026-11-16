@@ -41,7 +41,7 @@ class _ReferenceWall:
 
     def build(self):
         from stage_execution_service import sync_asset_plan
-        from asset_context import scope_sources
+        from domain.asset_context import scope_sources
         self.project = Path(self.app.root)
         self.base = Path(self.base) if self.base else Path(self.app.asset_base())
         self.parent = self.parent or self.app.win

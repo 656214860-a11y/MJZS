@@ -48,8 +48,8 @@ def frame_rows(project, source, episode, base, scope='current', on_skip=None):
     source = Path(source).resolve()
     pairs = [(source, Path(base).resolve(), episode)]
     if scope == 'adopted':
-        from asset_context import scope_sources
-        from writing import validate_episode
+        from domain.asset_context import scope_sources
+        from domain.writing import validate_episode
         try:
             found = list(scope_sources(project, 'adopted'))
         except (ValueError, OSError, KeyError):

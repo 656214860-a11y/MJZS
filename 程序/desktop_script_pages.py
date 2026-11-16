@@ -140,7 +140,7 @@ class ScriptPagesMixin:
         发送框不再直连任意文本 API。模型、SKILL 和追问顺序均由 writing 工作流的
         调用设置负责，避免普通聊天提示词绕开鲸剧等 SKILL 的开工门禁。
         """
-        import idea_chat
+        import domain.idea_chat as idea_chat
         from workflow_settings import model_name
         model = config['display_model'] if config is not None else model_name(self.root, 'writing')
         from orchestrator.workflow_tasks import script_followup, script_prompt, writing_restart_requested
@@ -221,7 +221,7 @@ class ScriptPagesMixin:
                         state['reported'] = state['signature'] = (stat.st_mtime_ns, stat.st_size)
                         self.show_script_quality(result)
                         self._script_quality_result = result
-                        import idea_chat
+                        import domain.idea_chat as idea_chat
                         notice = result['text'] + '\n\n' + result['quality_summary'] + '\n查看质检报告：' + result['quality_report_path']
                         idea_chat.append(self.idea_chat_context(), 'assistant', notice,
                                          gateway=self.idea_chat_gateway())
@@ -257,7 +257,7 @@ class ScriptPagesMixin:
         button.state(['disabled'] if missing else ['!disabled'])
     def refresh_script_workspace(self):
         """刷新剧本聊天和文件表；旧 Claude 思考块会先清洗，必要时仅重发一次正文请求。"""
-        import idea_chat
+        import domain.idea_chat as idea_chat
         import writing_api
         repaired = idea_chat.repair_internal_replies(self.idea_chat_context(), model=self.idea_chat_model(), gateway=self.idea_chat_gateway())
         getattr(self,'_idea_hidden_messages',{}).pop(self.bubble_view_key(self.idea_chat_model()),None)
@@ -322,7 +322,7 @@ class ScriptPagesMixin:
         return True
     def import_script_downloads(self, backups=None):
         """刷新时收回 Claude Desktop 等窗口已下载到「下载」文件夹的同项目设定／大纲／角色卡／剧本：同类覆盖原文件。"""
-        import idea_chat
+        import domain.idea_chat as idea_chat
         from stage_execution_service import import_downloaded_creatives
         selected = self.displayed_chat_model()
         if not selected:return []
@@ -344,7 +344,7 @@ class ScriptPagesMixin:
         """
         if any(result.get(key) for key in ('preparation_path', 'script_raw_path', 'natural_script_path')):
             return ''
-        import idea_chat
+        import domain.idea_chat as idea_chat
         from stage_execution_service import publish_idea_creative
         try:
             saved = idea_chat.auto_save_reply(self.idea_chat_context(), model, publish=publish_idea_creative,
@@ -369,7 +369,7 @@ class ScriptPagesMixin:
         if not paths:
             return []
         import domain.idea_attachments as idea_attachments
-        import idea_chat
+        import domain.idea_chat as idea_chat
         from stage_execution_service import publish_idea_creative
         added, failed = [], []
         for value in paths:

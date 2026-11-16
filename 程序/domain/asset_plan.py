@@ -84,7 +84,7 @@ def publish_plan_bundle(folder, mappings, planned, source_info, progress_text, *
 
 def _sync_plan(project,episode_dir,storyboard=None,*,scope='current',_adopting=False,gateway=None,context=None):
     if scope not in ('all','current','adopted'):raise ValueError('未知的资产显示范围')
-    from asset_context import library_dir,active_source,references
+    from domain.asset_context import library_dir,active_source,references
     project=Path(project).resolve();episode_dir=library_dir(project,episode_dir)
     folder=episode_dir/'assets'/'资产清单';folder.mkdir(parents=True,exist_ok=True)
     file=folder/'assets.json'
@@ -93,7 +93,7 @@ def _sync_plan(project,episode_dir,storyboard=None,*,scope='current',_adopting=F
     for aid,asset in planned.items():
         if not re.fullmatch(r'(CHAR|LOC|PROP)_\d{3,}',aid) or not isinstance(asset,dict):
             raise ValueError('资产清单编号或格式错误：'+str(aid))
-    from storyboard_catalog_service import resolve_source
+    from domain.storyboard_catalog_service import resolve_source
     from contract.project_context import ProjectContext
     if not isinstance(context, ProjectContext):
         raise TypeError('资产计划需要由 L3 注入 ProjectContext。')
@@ -207,7 +207,7 @@ def sync_plan(project,episode_dir,storyboard=None,*,scope='current',_adopting=Fa
 
 def plan_file(project,episode_dir):
     """这一项的「人写的资产清单」落在哪：资产库/assets/资产清单/assets.json。"""
-    from asset_context import library_dir
+    from domain.asset_context import library_dir
     return library_dir(project,episode_dir)/'assets/资产清单/assets.json'
 
 
@@ -218,7 +218,7 @@ def _update_fields(project,episode_dir,aid,values,*,gateway=None):
     从来没有落过盘——资产详情页读到的一直是空，用户看到的就是「正典板和换状态面板两次
     新增都失败」。这里补上唯一的落盘入口，界面与门禁都走它。
     """
-    from asset_context import library_dir
+    from domain.asset_context import library_dir
     return _update_planned(library_dir(project,episode_dir),aid,values,gateway=gateway)
 
 
@@ -297,9 +297,9 @@ def asset_impact(project, aid, *, episode_dir=''):
     依赖采用分镜与项目任务状态；不写盘、不改资产、不删文件。``orphan`` 为真表示当前没有
     采用镜头引用它（可回收），``protected`` 为真表示被采用镜头引用（改动需先核对）。
     """
-    from asset_context import referencing_shots
+    from domain.asset_context import referencing_shots
     from contract.asset_contract import state_variants
-    from storyboard_catalog_service import _generated_video_shots
+    from domain.storyboard_catalog_service import _generated_video_shots
     from contract.storyboard_paths import media_root
     project = Path(project).resolve()
     aid = str(aid or '').strip()

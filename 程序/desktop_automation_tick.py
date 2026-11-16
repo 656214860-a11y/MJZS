@@ -109,8 +109,8 @@ class AutomationTickMixin:
         """
         from storyboard_selection import adopted
         from contract.storyboard_paths import is_final_dir
-        from asset_context import references
-        from asset_batch_state_service import ready_asset_ids
+        from domain.asset_context import references
+        from domain.asset_batch_state_service import ready_asset_ids
         try:sources=list(adopted(self.root))
         except (OSError,ValueError,KeyError):sources=[]
         available=ready_asset_ids(self.asset_base())

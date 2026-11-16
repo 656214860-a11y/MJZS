@@ -153,7 +153,7 @@
   {
    "module": "asset_batch_service.py",
    "covered": 0,
-   "total": 322,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -165,7 +165,13 @@
   {
    "module": "asset_batch_state_service.py",
    "covered": 0,
-   "total": 94,
+   "total": 4,
+   "percent": 0.0
+  },
+  {
+   "module": "asset_context.py",
+   "covered": 0,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -799,9 +805,21 @@
    "percent": 0.0
   },
   {
+   "module": "domain/asset_batch_service.py",
+   "covered": 0,
+   "total": 322,
+   "percent": 0.0
+  },
+  {
    "module": "domain/asset_batch_settings_service.py",
    "covered": 0,
    "total": 61,
+   "percent": 0.0
+  },
+  {
+   "module": "domain/asset_batch_state_service.py",
+   "covered": 0,
+   "total": 94,
    "percent": 0.0
   },
   {
@@ -910,6 +928,12 @@
    "module": "domain/idea_brief_form.py",
    "covered": 0,
    "total": 137,
+   "percent": 0.0
+  },
+  {
+   "module": "domain/idea_chat.py",
+   "covered": 0,
+   "total": 571,
    "percent": 0.0
   },
   {
@@ -1045,6 +1069,12 @@
    "percent": 0.0
   },
   {
+   "module": "domain/storyboard_catalog_service.py",
+   "covered": 0,
+   "total": 412,
+   "percent": 0.0
+  },
+  {
    "module": "domain/storyboard_edit_service.py",
    "covered": 0,
    "total": 17,
@@ -1123,9 +1153,21 @@
    "percent": 0.0
   },
   {
+   "module": "domain/white_model_service.py",
+   "covered": 0,
+   "total": 488,
+   "percent": 0.0
+  },
+  {
    "module": "domain/workflow_context.py",
    "covered": 0,
    "total": 185,
+   "percent": 0.0
+  },
+  {
+   "module": "domain/writing.py",
+   "covered": 0,
+   "total": 81,
    "percent": 0.0
   },
   {
@@ -1269,7 +1311,7 @@
   {
    "module": "idea_chat.py",
    "covered": 0,
-   "total": 571,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -2523,7 +2565,7 @@
   {
    "module": "storyboard_catalog_service.py",
    "covered": 0,
-   "total": 412,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -2997,7 +3039,7 @@
   {
    "module": "white_model_service.py",
    "covered": 0,
-   "total": 488,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -3063,7 +3105,7 @@
   {
    "module": "writing.py",
    "covered": 0,
-   "total": 81,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -3205,7 +3247,7 @@
    "percent": 19.1
   },
   {
-   "module": "asset_context.py",
+   "module": "domain/asset_context.py",
    "covered": 23,
    "total": 117,
    "percent": 19.7
@@ -3452,9 +3494,9 @@
   },
   {
    "module": "agent/publication.py",
-   "covered": 143,
+   "covered": 145,
    "total": 159,
-   "percent": 89.9
+   "percent": 91.2
   },
   {
    "module": "domain/video_lifecycle_service.py",
@@ -3554,5 +3596,5 @@
   }
  ],
  "modules_covered": 74,
- "modules_total": 590
+ "modules_total": 597
 }

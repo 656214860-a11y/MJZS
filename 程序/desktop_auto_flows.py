@@ -68,8 +68,8 @@ class AutoFlowsMixin:
             on_error=on_error, handled_exceptions=errors)
     def final_missing_assets(self,source):
         """当前分镜引用的资产里还没有图片的编号集合；空集表示可以定稿。"""
-        from asset_context import references
-        from asset_batch_state_service import ready_asset_ids
+        from domain.asset_context import references
+        from domain.asset_batch_state_service import ready_asset_ids
         episode=read(source)
         shots=episode.get('shots',[]) if isinstance(episode,dict) else []
         available=ready_asset_ids(self.asset_base())
@@ -530,9 +530,9 @@ class AutoFlowsMixin:
             if self.auto.asset_tasks.cancel():self.auto.asset_busy=False
             return
         if self.auto.asset_busy or self.worker or self.auto.final_busy:return
-        from asset_batch_service import current_model, unattended_signature, unattended_retry_decision
+        from domain.asset_batch_service import current_model, unattended_signature, unattended_retry_decision
         from stage_execution_service import plan_unattended_assets as auto_plan
-        from asset_context import scope_sources
+        from domain.asset_context import scope_sources
         project=self.root;base=self.asset_base();sources=scope_sources(project,'adopted')
         missing,skipped,saved=auto_plan(project,base,sources,'adopted')
         if not missing:
@@ -561,7 +561,7 @@ class AutoFlowsMixin:
         # 不自动重提，以免重复扣费——但必须说给用户听，否则这一项会永远卡在「待导入」，
         # 看起来就是「三虎没有自动继续完成制图任务」。
         try:
-            from asset_batch_state_service import uncertain_assets
+            from domain.asset_batch_state_service import uncertain_assets
             blocked=[aid for aid in uncertain_assets(project) if aid in {a for a,_ in missing}]
         except Exception:
             blocked=[]

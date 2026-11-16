@@ -6,7 +6,7 @@ from tkinter import messagebox, ttk
 from contract.platform_tools import open_path
 from file_cache import read_json
 from contract.storyboard_paths import project_root
-import white_model_service as _service
+import domain.white_model_service as _service
 from ui_dialogs import FileDialog
 import ui_plugin_registry
 from ui_widgets import SelectBox, BaseDialog, Card, PrimaryButton, SecondaryButton, TextArea, Tooltip, notify

@@ -10,7 +10,7 @@ from responsive_ui import (
     configure_check_column, configure_column, fit_columns_by_content, measure,
     remember_columns, squeeze, view_width,
 )
-from storyboard_catalog_service import content_preview, has_synced_assets
+from domain.storyboard_catalog_service import content_preview, has_synced_assets
 
 
 def file_table(parent, height=4, selectmode='browse', first_label='文件 / 内容', status_label=None):

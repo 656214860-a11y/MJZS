@@ -183,7 +183,7 @@ def _repeated_tool_error(chosen, read_only=False):
 
 def _recent_chat_history(rows):
     """有界地发送近况及较早对话摘录，控制远端请求的上下文体积。"""
-    import idea_chat
+    import domain.idea_chat as idea_chat
     return idea_chat.history_context(rows, recent_limit=12, char_limit=CHAT_HISTORY_CHAR_LIMIT)
 
 
@@ -328,7 +328,7 @@ def _writing_adapter(record, chosen, *, project, settings=None, cancelled=None):
 
 def _complete_brief(project):
     """读取并按唯一契约复核已确认简报；缺失文件保留既有普通对话路径。"""
-    import idea_chat
+    import domain.idea_chat as idea_chat
     from contract.script_contract import brief_document
     from project_context_factory import project_context
     path = idea_chat.brief_complete_path(project_context(project))
@@ -739,7 +739,7 @@ def preparation_reply_message(result):
 def chat_session_overview(project, model=None):
     """说明创意对话涉及的四个维度：会话模型与调用方式、本次请求身份、上下文来源
     与项目共享成果。只读：不切换会话、不复制权威稿、也不改变任何采用状态。"""
-    import idea_chat
+    import domain.idea_chat as idea_chat
     from contract.stage_path_service import write_dir
     chosen = selected_model(project)[0] if model is None else model
     engine = model_pool.desktop_engine(chosen)

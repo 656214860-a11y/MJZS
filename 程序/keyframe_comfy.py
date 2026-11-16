@@ -94,7 +94,7 @@ def pending_shots(shots, base):
 
 def reference_count(shot):
     try:
-        from asset_context import references
+        from domain.asset_context import references
         return len({value for _, value in references(shot)})
     except Exception:
         return 0

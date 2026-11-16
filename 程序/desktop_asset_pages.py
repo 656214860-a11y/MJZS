@@ -56,7 +56,7 @@ class AssetPagesMixin:
         接着试，全在内存里——窗口一关就没了。
         """
         from stage_execution_service import plan_unattended_assets as auto_plan
-        from asset_context import scope_sources
+        from domain.asset_context import scope_sources
         try:
             missing,_skipped,_saved=auto_plan(self.root,self.asset_base(),scope_sources(self.root,'adopted'),'adopted')
         except (OSError,ValueError,KeyError,TypeError):
@@ -119,7 +119,7 @@ class AssetPagesMixin:
         """
         if not self.root:return []
         try:
-            from asset_batch_state_service import prune_raw_outputs
+            from domain.asset_batch_state_service import prune_raw_outputs
             from contract.stage_path_service import LEGACY_NUMBERED
             if self.asset_base() == Path(self.root)/LEGACY_NUMBERED['assets']:
                 return []
@@ -335,7 +335,7 @@ class AssetPagesMixin:
         self.update_asset_buttons()
     def asset_base(self):
         # 资产库属于项目：不跟着当前选择的分镜走，工作集切到别的分镜时资产库位置必须保持稳定。
-        from asset_context import library_dir
+        from domain.asset_context import library_dir
         return library_dir(self.root)
     def asset_write_base(self):
         from stage_execution_service import prepare_legacy_asset_base
@@ -344,7 +344,7 @@ class AssetPagesMixin:
         from storyboard_selection import prefs
         return 'current' if prefs(self.root).get('asset_scope')=='current' else 'adopted'
     def asset_sources(self):
-        from asset_context import scope_sources
+        from domain.asset_context import scope_sources
         return scope_sources(self.root,self.asset_scope())
     def asset_requirements(self):
         from stage_execution_service import sync_asset_plan
@@ -493,7 +493,7 @@ class AssetPagesMixin:
                 f'删除 {aid} 的已导入图片？\n{image}\n\n图片将移入项目回收站，该资产恢复为待导入。',
                 dangerous=True):
             return False
-        from asset_batch_service import remove_asset_image
+        from domain.asset_batch_service import remove_asset_image
         base=AssetPagesMixin.asset_write_base(self)
         remove_asset_image(base,aid,gateway=AssetPagesMixin.asset_batch_gateway())
         if ask:
@@ -541,7 +541,7 @@ class AssetPagesMixin:
         if ask and not self.asset_page_services.confirm(self.win,'恢复资产图片',
                 f'恢复 {aid} 的最近删除图片？'):
             return False
-        from asset_batch_service import restore_asset_image
+        from domain.asset_batch_service import restore_asset_image
         base=AssetPagesMixin.asset_write_base(self)
         restore_asset_image(base,aid,gateway=AssetPagesMixin.asset_batch_gateway())
         self.show(PAGE['assets'])
@@ -554,7 +554,7 @@ class AssetPagesMixin:
         if name is None:return
         name=name.strip()
         if not name:raise ValueError('资产名称不能为空')
-        from asset_batch_service import rename_asset as _rename_asset
+        from domain.asset_batch_service import rename_asset as _rename_asset
         _rename_asset(AssetPagesMixin.asset_write_base(self),aid,old,name,gateway=AssetPagesMixin.asset_batch_gateway())
         if refresh:self.show(2)
         self.status.set('名称已保存')
@@ -564,7 +564,7 @@ class AssetPagesMixin:
         if not p:return
         aid=selected or ask_string(self.win,'资产编号','例如 CHAR_001 / LOC_001 / PROP_001')
         if not aid:return
-        from asset_batch_service import import_asset_image
+        from domain.asset_batch_service import import_asset_image
         kind,result=import_asset_image(AssetPagesMixin.asset_write_base(self),self.root,aid,p,self.asset_requirements(),gateway=AssetPagesMixin.asset_batch_gateway())
         self.asset_kind=kind;self.show(PAGE['assets']);self.status.set(result)
     def dialogue_assets(self):
@@ -581,7 +581,7 @@ class _AssetPage:
         self.kind = kind
 
     def build(self):
-        from asset_context import ensure_browser_directory
+        from domain.asset_context import ensure_browser_directory
         from contract.stage_path_service import LEGACY_NUMBERED
         base=self.page.asset_base()
         folder=ensure_browser_directory(base,self.kind,create=base != Path(self.page.root)/LEGACY_NUMBERED['assets'])

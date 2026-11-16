@@ -685,7 +685,7 @@ def animatic_ready(project):
 def assets_locked(project):
     """SG-01：资产清单每一项都导入了图片，角色锚点已锁定。"""
     from agent.core import read
-    from asset_context import library_dir
+    from domain.asset_context import library_dir
     row = gate_for('continuity')
     try:
         base = library_dir(project)

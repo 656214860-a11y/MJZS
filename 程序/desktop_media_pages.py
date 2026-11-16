@@ -73,8 +73,8 @@ class MediaPagesMixin:
         资产补齐后清单会变，于是自动补首帧能再跑一轮（否则参考图缺失的镜头跑过一遍就再也不会重试）；
         无人值守与「一键执行」共用同一份指纹，两条路派发出来的批次不会互相再触发一次。
         """
-        from asset_batch_state_service import ready_asset_ids
-        from asset_context import references
+        from domain.asset_batch_state_service import ready_asset_ids
+        from domain.asset_context import references
         from domain.keyframe_batch import batch_signature
         return batch_signature(source,pending,ready_asset_ids(self.asset_base()),references)
     def keyframe_settings(self):

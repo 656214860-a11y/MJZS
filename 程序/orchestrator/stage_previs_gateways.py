@@ -52,47 +52,47 @@ def previs_automatic_engine(project, read_settings, engines):
 
 
 def storyboard_catalog(project, kind, ignored=None):
-    from storyboard_catalog_service import catalog
+    from domain.storyboard_catalog_service import catalog
     return catalog(project_context(project), kind) if ignored is None else catalog(project_context(project), kind, ignored)
 
 
 def storyboard_produced_scripts(project, entries=None):
-    from storyboard_catalog_service import produced_scripts
+    from domain.storyboard_catalog_service import produced_scripts
     return produced_scripts(project_context(project), entries)
 
 
 def storyboard_produced_episodes(project, entries=None):
-    from storyboard_catalog_service import produced_episodes
+    from domain.storyboard_catalog_service import produced_episodes
     return produced_episodes(project_context(project), entries)
 
 
 def storyboard_default_source(project):
-    from storyboard_catalog_service import default_source
+    from domain.storyboard_catalog_service import default_source
     return default_source(project_context(project))
 
 
 def storyboard_resolve_source(project, path):
-    from storyboard_catalog_service import resolve_source
+    from domain.storyboard_catalog_service import resolve_source
     return resolve_source(project_context(project), path)
 
 
 def storyboard_board_source_script(project, board):
-    from storyboard_catalog_service import board_source_script
+    from domain.storyboard_catalog_service import board_source_script
     return board_source_script(project_context(project), board)
 
 
 def storyboard_working_dir(project):
-    from storyboard_catalog_service import working_dir
+    from domain.storyboard_catalog_service import working_dir
     return working_dir(project_context(project))
 
 
 def storyboard_document_dir(project):
-    from storyboard_catalog_service import document_dir
+    from domain.storyboard_catalog_service import document_dir
     return document_dir(project_context(project))
 
 
 def storyboard_file_snapshot(project, ignored=None):
-    from storyboard_catalog_service import file_snapshot
+    from domain.storyboard_catalog_service import file_snapshot
     return file_snapshot(project_context(project)) if ignored is None else file_snapshot(project_context(project), ignored)
 
 
@@ -117,6 +117,6 @@ def install_stage_previs_progress(path, shot_id):
 
 
 def storyboard_catalog_snapshot(project, ignored=None):
-    from storyboard_catalog_service import catalog_snapshot
+    from domain.storyboard_catalog_service import catalog_snapshot
     context = project_context(project)
     return catalog_snapshot(context) if ignored is None else catalog_snapshot(context, ignored)

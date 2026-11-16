@@ -233,8 +233,8 @@ STORYBOARD_SAVE_RULE = ('分镜保存规则更新：每集只保存一份工作J
 
 def storyboard_batch_plan(project,scripts,existing):
     """所选输入去掉已做完与同集重复项，返回 (待制作剧本, 待修订分镜, 跳过清单)；任务书与直连执行器共用。"""
-    from storyboard_catalog_service import file_order
-    from storyboard_catalog_service import catalog, produced_episodes, produced_scripts, resolve_source
+    from domain.storyboard_catalog_service import file_order
+    from domain.storyboard_catalog_service import catalog, produced_episodes, produced_scripts, resolve_source
     from project_context_factory import project_context
     from storyboard_selection import adopted
     project=Path(project).resolve()
@@ -272,7 +272,7 @@ def storyboard_batch_prompt(project,scripts,existing):
     """One task for the selected files, with completed work excluded by provenance."""
     import json
     from agent.core import read
-    from storyboard_catalog_service import file_order
+    from domain.storyboard_catalog_service import file_order
     project=Path(project).resolve()
     scripts,existing,skipped=storyboard_batch_plan(project,scripts,existing)
     tasks=[]

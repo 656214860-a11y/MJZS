@@ -406,7 +406,7 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
             if read_text(path,encoding='utf-8')==value:
                 self.status.set('文字未改动，未创建新版本')
                 return path
-        import idea_chat
+        import domain.idea_chat as idea_chat
         from stage_execution_service import publish_idea_creative
         dest=idea_chat.save_manual_creative(self.idea_chat_context(),value,publish=publish_idea_creative)
         editor=getattr(self,'brief_editor',None)
@@ -600,7 +600,7 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         # 这只是首帧后的只读发现，不能占用 ``worker``：后者是用户提交操作的
         # 全局门禁，若复用它，输入框刚出现就会被误报为“当前操作尚未结束”。
         def discover():
-            import idea_chat
+            import domain.idea_chat as idea_chat
             from stage_execution_service import project_context
             try:
                 path=idea_chat.initial_brief_document(project_context(root));error=None

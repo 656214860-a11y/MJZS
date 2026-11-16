@@ -296,7 +296,7 @@ def publish_imported_media(target, source, validate, kind):
 def _commercial_inventory(root, scope, outputs):
     """只预填可追溯文件，不推断授权，也不扫描无关项目文件。"""
     from agent.core import file_hash, read
-    from storyboard_catalog_service import board_source_script
+    from domain.storyboard_catalog_service import board_source_script
     from project_context_factory import project_context
     root = Path(root).resolve()
     categories = {key: {'items': [], 'unused_reason': ''} for key in COMMERCIAL_CATEGORIES}
@@ -433,7 +433,7 @@ def validate_commercial_evidence(root, evidence):
                 raise ValueError('授权范围或履约记录不完整：' + category)
             frozen_file(item.get('authorization'))
     # 来源剧本沿用分镜目录的解析规则；不能拿其他作品的授权代替。
-    from storyboard_catalog_service import board_source_script
+    from domain.storyboard_catalog_service import board_source_script
     from project_context_factory import project_context
     board_path = root / scope['source']
     source_value = read(board_path).get('source_script')
@@ -816,7 +816,7 @@ def publish_stage_manifest(root, stage):
         target = write_dir(root, 'keyframe') / 'output' / 'frames.json'
         save(target, {'schema': 1, 'stage': 'keyframe', 'generated_at': stamp, 'episodes': episodes})
         return target
-    import white_model_service as wm
+    import domain.white_model_service as wm
     from domain.previs_routing import decisions_for
     context = project_context(root)
     required = {}

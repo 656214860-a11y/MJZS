@@ -6,7 +6,7 @@ from agent.core import save
 from file_cache import read_json
 from contract.storyboard_paths import media_root
 import contract.stage_layout as stage_layout
-import white_model_service as wm
+import domain.white_model_service as wm
 from contract.platform_tools import hidden_console_flags
 
 def verify(project,sid,seconds,source=None):

@@ -48,7 +48,7 @@ class IdeaSendGateMixin:
 
     def _idea_live_missing(self):
         """与 send_message 同判据：当前输入现在送出去会不会被必填缺失拦下。"""
-        import idea_chat
+        import domain.idea_chat as idea_chat
         import stage_config
         import writing_api
         value = self.draft_text()
@@ -63,7 +63,7 @@ class IdeaSendGateMixin:
 
     def _idea_live_attachment_fields(self, lock_definitions):
         """附件与制作锁提供的字段值（按附件路径集合缓存，避免每次按键重读文件）。"""
-        import idea_chat
+        import domain.idea_chat as idea_chat
         import stage_config
         paths = tuple(self.idea_attachment_paths)
         if getattr(self, '_idea_live_attach_key', None) == paths:

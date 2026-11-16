@@ -633,7 +633,7 @@ class App:
             check.state(['!disabled'] if self.white_ready.get(sid) or var.get() else ['disabled'])
             x,y,w,h=bbox;check.place(x=x+2,y=y+1,width=w-4,height=h-2)
     def writing_setup(self):
-        from writing import STAGES
+        from domain.writing import STAGES
         from stage_execution_service import prepare_writing_project
         win=BaseDialog(self.window,'剧本准备 · 五阶段编剧技能',geometry='780x540',modal=False,chrome=False);win.attributes('-alpha',0)
         ttk.Label(win,text='填写创意或粘贴已有剧本：').pack(anchor='w',padx=SPACING['md'],pady=SPACING['xs'])
@@ -675,7 +675,7 @@ class App:
             except Exception as e:self.notifier.error(str(e), title='无法准备')
         PrimaryButton(win,text='生成编剧任务书（离线）',command=generate).pack(pady=SPACING['md'])
     def import_json(self):
-        from writing import validate_episode
+        from domain.writing import validate_episode
         from agent.core import read
         from stage_execution_service import import_writing_project
         file=FileDialog(self.window).open_file(title='选择编剧输出的镜头JSON',filetypes=[('镜头JSON','*.json')])

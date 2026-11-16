@@ -84,7 +84,7 @@ def record_of(folder, record=None):
     """读那一份 `预演记录.json`（已经拿到就传进来，别再读一遍盘）。"""
     if record is not None:
         return record
-    from white_model_service import read_record
+    from domain.white_model_service import read_record
     return read_record(folder)
 
 

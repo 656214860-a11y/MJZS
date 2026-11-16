@@ -123,7 +123,7 @@ def _shot_references(shot, references=None):
         except Exception:
             return []
     try:
-        from asset_context import references as lookup
+        from domain.asset_context import references as lookup
         return [str(value) for _kind, value in lookup(shot)]
     except Exception:
         return []

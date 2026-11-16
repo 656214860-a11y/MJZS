@@ -30,7 +30,7 @@ def save_images(base,aid,role,paths,active_ids,pending=False):
 
 def show(app,aid=None,role=None,pending=False,parent=None,on_saved=None):
     from stage_execution_service import sync_asset_plan
-    from asset_context import scope_sources
+    from domain.asset_context import scope_sources
     project=Path(app.root);base=app.asset_base()
     rows=sync_asset_plan(project,base,scope_sources(project,'adopted'),scope='adopted')
     base=app.asset_base()

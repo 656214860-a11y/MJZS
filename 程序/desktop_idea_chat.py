@@ -178,7 +178,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, I
         return model_name(self.root, 'writing')
     def show_conversation(self):
         """重绘只读聊天记录；长记录按空闲批次插入，不阻塞剧本页首帧。"""
-        import idea_chat
+        import domain.idea_chat as idea_chat
         box=getattr(self,'idea_log',None)
         if box is None or not box.winfo_exists():return
         self._idea_view_generation=getattr(self,'_idea_view_generation',0)+1
@@ -349,7 +349,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, I
         except ValueError as exc:
             self.notifier.info(str(exc), modal=True)
             return
-        import idea_chat
+        import domain.idea_chat as idea_chat
         fields = idea_chat.extract_brief_creation(current, extra_labels=idea_chat.INLINE_REQUIRED_LABELS,
                                                   include_extra=True)
         additions = [label + '：' + value for label, value in values.items() if not fields.get(label)]
@@ -359,7 +359,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, I
         self.status.set('已智能识别并回填创作信息，正在核验必填项。')
         self.send_message()
     def fill_idea_brief(self, values):
-        import idea_chat
+        import domain.idea_chat as idea_chat
         box = getattr(self, 'idea_input', None)
         if box is None or not box.winfo_exists():return
         current = self.draft_text()
@@ -374,7 +374,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, I
         if existing is not None and existing.winfo_exists():
             existing.lift()
             return existing
-        import idea_chat
+        import domain.idea_chat as idea_chat
         project, box = self.root, self.idea_input
         fields = dict(attachment_fields)
         fields.update(idea_chat.extract_brief_creation(self.draft_text(),
@@ -458,7 +458,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, I
         if box is None or not box.winfo_exists():raise ValueError('这一页还没建好，请重新打开这一页')
         value=self.draft_text()
         prepared=self.idea_chat_controller.prepare_submission(self.root, value, is_example=False)
-        import idea_chat
+        import domain.idea_chat as idea_chat
         import writing_api
         import workflow_settings
         workflow_settings.validate_selected_skills(self.root, 'writing')
@@ -553,7 +553,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, I
             self.status.set(prefix+'已提交创意并启动剧本 Agent。')
     def _idea_api_received(self, token, model, request_model, result):
         """直连 API 模型的回复落地：聊天记录、状态栏、失败提示与三虎终态。"""
-        import idea_chat
+        import domain.idea_chat as idea_chat
         from writing_api import preparation_reply_message
         if not self.idea_chat_controller.finish_request(token):return
         if getattr(self,'idea_send',None) is not None and self.idea_send.winfo_exists():self.idea_send.state(['!disabled'])

@@ -23,7 +23,7 @@ class FinalBundleBoundaryTests(unittest.TestCase):
         tree = parse(ROOT / 'orchestrator/storyboard_final.py')
         imported = {
             alias.name for node in ast.walk(tree)
-            if isinstance(node, ast.ImportFrom) and node.module == 'storyboard_storage'
+            if isinstance(node, ast.ImportFrom) and node.module in {'storyboard_storage', 'domain.storyboard_storage'}
             for alias in node.names
         }
         self.assertNotIn('publish_final_bundle', imported)

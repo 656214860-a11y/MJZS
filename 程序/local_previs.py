@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, messagebox
-import white_model_service as wm
+import domain.white_model_service as wm
 from file_cache import read_json
 from orchestrator.previs_batch_service import prepare_batch
 import domain.previs_routing as previs_routing

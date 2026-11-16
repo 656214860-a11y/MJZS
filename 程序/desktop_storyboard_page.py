@@ -120,7 +120,7 @@ class _FirstFramePage:
         self.rows=self.load_rows()
         self.page_controller=KeyframePageController(self.source,self.episode,self.base,self.rows)
         self.row_ctx=self.page_controller.row_context
-        from writing import validate_episode
+        from domain.writing import validate_episode
         validate_episode(self.episode,self.base)
         # 勾选表按行编号记账：只有一份时键就是那一份的路径（与从前同一个键），多份时合成一张。
         self.page._frame_checks_key=self.page_controller.checks_key

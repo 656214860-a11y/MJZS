@@ -235,7 +235,7 @@ class _WritingPage:
     def _build_composer(self):
         """上半区：聊天区与底部用量/会话状态行；输入、发送、附件、语音、模型与技能
         全部收进底部共享输入框（R2923：13 页同一个输入框）。"""
-        import idea_chat
+        import domain.idea_chat as idea_chat
         # 先使用不扫描目录的默认路径；历史创意文件由页面建好后在后台发现。
         brief=idea_chat.default_brief_document(self.page.idea_chat_context())
         self.page.idea_template=self.page.idea_example()

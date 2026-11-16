@@ -19,7 +19,7 @@ class IdeaMenusMixin:
         if not model:return None
         if not self.project_page_services.confirm(self.win,'删除全部信息',
                        '删除 '+model+' 的全部历史对话？\n聊天记录将移入回收站，已保存的剧本和附件保留。',dangerous=True):return None
-        import idea_chat
+        import domain.idea_chat as idea_chat
         count=idea_chat.remove_all(self.idea_chat_context(),model=model,gateway=self.idea_chat_gateway())
         getattr(self,'_idea_hidden_messages',{}).pop(self.bubble_view_key(model),None)
         self.set_idea_model_filter(None)
