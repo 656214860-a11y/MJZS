@@ -615,6 +615,11 @@ def validate_selected_skills(project, stage):
     for name in entry.get('skills') or ():
         if registry.getById(name) is None:
             raise ValueError(f'已勾选的 SKILL 未加载：{name}；已阻止发送，请重新确认阶段配置。')
+def _closure_blocked(message, closure):
+    """发送阻断异常附带已走到的引用闭包，供 SKILL 体检展示「断在哪、之前加载了什么」。"""
+    error = ValueError(message)
+    error.skill_closure = list(closure)
+    return error
 def _skill_blocks(path, *, strict, locks=None, depth=0, budget=None):
     """走一遍技能正文与它的引用；返回 (正文, 元数据, 分块, 引用闭包)。
 
@@ -652,7 +657,7 @@ def _skill_blocks(path, *, strict, locks=None, depth=0, budget=None):
         within_folder = reference.is_relative_to(path.parent)
         if (markdown or text_script) and strict and not (within_root or within_folder):
             closure.append(_reference_row(entry, reference, 'outside'))
-            raise ValueError(f'SKILL 引用超出允许目录，已阻止发送：{reference}')
+            raise _closure_blocked(f'SKILL 引用超出允许目录，已阻止发送：{reference}', closure)
         if not markdown and not text_script:
             closure.append(_reference_row(entry, reference, 'resource'))
             if depth == -1:
@@ -672,7 +677,8 @@ def _skill_blocks(path, *, strict, locks=None, depth=0, budget=None):
             body = reference.read_text(encoding='utf-8-sig')
         except OSError as exc:
             closure.append(_reference_row(entry, reference, 'missing'))
-            raise ValueError(f'SKILL 引用缺失，已阻止发送：{reference}（{exc}）') from exc
+            raise _closure_blocked(f'SKILL 引用缺失，已阻止发送：{reference}（{exc}）',
+                                   closure) from exc
         if text_script:
             block = f'\n\n## 脚本: {reference.name}\n```{reference.suffix.lstrip(".")}\n{body}\n```'
             if _charge_inline(budget, block):
@@ -721,8 +727,9 @@ def _inline_skill_report(path, *, cap=REQUEST_CONTEXT_MAX_CHARS, strict=False, l
     complete = (f'<skill name="{escape(name, quote=True)}">\n'
                 + ''.join(body for _, body in blocks) + '\n</skill>')
     if len(complete) > cap:
-        raise ValueError(f'SKILL「{name}」内容 {len(complete):,} 字符，超过上限 {cap:,} 字符，'
-                         f'已阻止发送：{Path(path).resolve()}；请减少所选技能或缩短内容。')
+        raise _closure_blocked(f'SKILL「{name}」内容 {len(complete):,} 字符，超过上限 {cap:,} 字符，'
+                               f'已阻止发送：{Path(path).resolve()}；请减少所选技能或缩短内容。',
+                               closure)
     return complete, closure
 def _inline_skill(path, *, cap=REQUEST_CONTEXT_MAX_CHARS, strict=False, locks=None, depth=0, budget=None):
     """API 发送快照：技能及目录边界内的引用；``depth=-1`` 递归加载引用。"""
@@ -841,3 +848,66 @@ def summary(project,stage='previs'):
     cfg=current(project,stage);profile=cfg
     skill=Path(profile['skill']).parent.name if profile['skill'] else '内置制作要求'
     return f"调用：{ENGINES[cfg['engine']]} · {effective_model(project,stage)} · {skill}"
+
+
+# ── SKILL 体检（R3006 T1）：注册表问题上屏＋发送前引用闭包干跑 ──────────────
+def _health_attribute(lines, by_name):
+    """把 ``名字：说明`` 形式的问题／警告行归到对应 SKILL；归不了位的进全局清单。"""
+    per, global_lines = {}, []
+    for line in lines or ():
+        text = str(line)
+        head = text.split('：', 1)[0].strip()
+        if head and head in by_name:
+            per.setdefault(head, []).append(text)
+        else:
+            global_lines.append(text)
+    return per, global_lines
+
+
+def _health_row(skill, problems, warnings, *, locks=None):
+    """单个 SKILL 的体检行：字段问题＋发送前干跑（strict、depth=-1，与 freeze 同口径）。"""
+    row = {'name': skill.name, 'display_name': skill.displayName, 'stage': skill.stage,
+           'layer': skill.layer, 'path': str(skill.path or ''),
+           'problems': list(problems), 'warnings': list(warnings),
+           'closure': [], 'chars': 0, 'char_limit': REQUEST_CONTEXT_MAX_CHARS,
+           'error': None, 'status': 'ok'}
+    path = getattr(skill, 'path', None)
+    if path is None or not Path(path).is_file():
+        row['error'] = 'SKILL 源文件不存在' if path else 'SKILL 没有源文件'
+    else:
+        try:
+            complete, closure = _inline_skill_report(path, strict=True, locks=locks or {},
+                                                     depth=-1)
+        except (OSError, UnicodeError, ValueError) as exc:
+            row['error'] = str(exc)
+            row['closure'] = [dict(item) for item in getattr(exc, 'skill_closure', ()) or ()]
+        else:
+            row['chars'] = len(complete)
+            row['closure'] = [dict(item) for item in closure]
+    if row['error']:
+        row['status'] = 'error'
+    elif row['problems']:
+        row['status'] = 'problem'
+    elif row['warnings']:
+        row['status'] = 'warning'
+    return row
+
+
+def skill_health_report(registry=None, *, program=None, stage=None, locks=None):
+    """SKILL 体检报告：注册表 problems/warnings 按名归位＋每个 SKILL 的发送前引用闭包干跑。
+
+    只读不发送、不落盘；``stage`` 给阶段 id 或中文名时只出该阶段的行，全局问题照常列出。
+    闭包行沿用 ``reference_row`` 字段（kind/status/target/depth/path）；干跑失败的行带
+    ``error`` 与异常附带的部分闭包（``skill_closure``）。
+    """
+    registry = registry or skill_registry.default_registry(program)
+    registry.scan(force=True)
+    sid = skill_registry.stage_id(stage) if stage else ''
+    all_skills = registry.getAll()
+    by_name = {skill.name: skill for skill in all_skills}
+    problems_per, global_problems = _health_attribute(registry.problems(), by_name)
+    warnings_per, global_warnings = _health_attribute(registry.warnings(), by_name)
+    rows = [_health_row(skill, problems_per.get(skill.name, ()),
+                        warnings_per.get(skill.name, ()), locks=locks)
+            for skill in all_skills if not sid or skill.stage == sid]
+    return {'skills': rows, 'problems': global_problems, 'warnings': global_warnings}

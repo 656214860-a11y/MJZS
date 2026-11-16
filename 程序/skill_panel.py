@@ -104,8 +104,9 @@ MANAGE_ALL = '全选'
 MANAGE_NONE = '取消'
 MANAGE_ADD = '新增'
 MANAGE_ADD_REPO = '从仓库地址导入'
+MANAGE_HEALTH = '体检'
 MANAGE_DELETE = '删除已勾选 SKILL'
-MANAGE_LABELS = (MANAGE_ALL, MANAGE_NONE, MANAGE_ADD, MANAGE_ADD_REPO, MANAGE_DELETE)
+MANAGE_LABELS = (MANAGE_ALL, MANAGE_NONE, MANAGE_ADD, MANAGE_ADD_REPO, MANAGE_HEALTH, MANAGE_DELETE)
 # 外部包只登记总入口；API 调用只会收到入口指针，不能假装会展开其中的本地子模块。
 # 勾选框按「功能分组／流程先后」排（第 59 期第 6 条）：文件名前缀就是那条流程里的功能分组。
 
@@ -382,6 +383,9 @@ class Panel(PanelWorkflowMixin, PanelImportMixin, FormScrollMixin, ttk.Frame):
         if picked == MANAGE_ADD_REPO:
             self.skill_action.set(MANAGE_ALL)
             return self.add_skill_from_repo()
+        if picked == MANAGE_HEALTH:
+            self.skill_action.set(MANAGE_ALL)
+            return show_skill_health(self)
         if picked == MANAGE_ALL:
             return self.check_all_skills(True)
         if picked == MANAGE_NONE:
@@ -762,6 +766,128 @@ class Panel(PanelWorkflowMixin, PanelImportMixin, FormScrollMixin, ttk.Frame):
         status_of(self.desktop, text.splitlines()[0] if text else '')
         run_report(self.desktop, text)
         return run
+
+
+_HEALTH_STATUS_LABELS = {'ok': '正常', 'warning': '有警告', 'problem': '有问题', 'error': '预演失败'}
+_HEALTH_LAYER_LABELS = {'builtin': '内置', 'user': '用户'}
+
+
+def _health_detail_text(row, globals_):
+    """体检详情文本：字段问题、软警告、发送前干跑错误与引用闭包表（只读展示）。"""
+    lines = ['%s（%s）' % (row['display_name'] or row['name'], row['name']),
+             '阶段：%s · 层：%s · %s'
+             % (row['stage'], _HEALTH_LAYER_LABELS.get(row['layer'], row['layer'] or '—'),
+                row['path'] or '—'),
+             '状态：%s' % _HEALTH_STATUS_LABELS.get(row['status'], row['status'])]
+    for title, key in (('问题', 'problems'), ('警告', 'warnings')):
+        if row[key]:
+            lines.append(title + '：')
+            lines.extend('  · ' + item for item in row[key])
+    if row['error']:
+        lines.append('发送前干跑：' + row['error'])
+    lines.append('引用闭包（发送前干跑：strict＋递归内联，只读不发送）：')
+    if row['closure']:
+        lines.append('  %-4s %-10s %-10s %s' % ('深度', '状态', '类型', '目标'))
+        for item in row['closure']:
+            lines.append('  %-4s %-10s %-10s %s' % (item.get('depth'), item.get('status'),
+                                                   item.get('kind'), item.get('target')))
+    else:
+        lines.append('  （无引用）')
+    lines.append('预计内联：%s / 上限 %s 字符'
+                 % (format(row['chars'], ','), format(row['char_limit'], ',')))
+    if globals_:
+        lines.append('')
+        lines.append('全局问题／警告（不属于单个 SKILL）：')
+        lines.extend('  · ' + item for item in globals_)
+    return '\n'.join(lines)
+
+
+def show_skill_health(panel):
+    """「体检」：本阶段 SKILL 的字段问题、软警告与发送前引用闭包干跑（只读，不发送不落盘）。"""
+    import workflow_settings
+    try:
+        locks = stage_config.workflow_lock(panel.project())
+    except Exception:
+        locks = {}
+    try:
+        report = workflow_settings.skill_health_report(panel.registry, stage=panel.stage,
+                                                      locks=locks)
+    except Exception as exc:
+        notify(panel.winfo_toplevel(), 'SKILL 体检失败：%s' % exc, title=TITLE,
+               status=getattr(panel.desktop, 'status', None), modal=False)
+        return None
+    window = BaseDialog(panel.winfo_toplevel(), 'SKILL 体检', modal=False, chrome=False)
+    window.resizable(True, True)
+    window.minsize(DIALOG_MIN_WIDTH, DIALOG_MIN_HEIGHT)
+    body = ttk.Frame(window, padding=SPACING['md'])
+    body.pack(fill='both', expand=True)
+
+    counts = {}
+    for row in report['skills']:
+        counts[row['status']] = counts.get(row['status'], 0) + 1
+    summary = ('本阶段 %d 个 SKILL：正常 %d · 有警告 %d · 有问题 %d · 预演失败 %d'
+               % (len(report['skills']), counts.get('ok', 0), counts.get('warning', 0),
+                  counts.get('problem', 0), counts.get('error', 0)))
+    if report['problems'] or report['warnings']:
+        summary += '；另有全局问题 %d 条、警告 %d 条' % (len(report['problems']),
+                                                       len(report['warnings']))
+    HintLabel(body, text=summary).pack(anchor='w', pady=(SPACING['none'], SPACING['sm']))
+
+    content = ttk.Frame(body)
+    content.pack(fill='both', expand=True)
+    content.columnconfigure(1, weight=1)
+    content.rowconfigure(0, weight=1)
+    rows = report['skills']
+    globals_ = list(report['problems']) + list(report['warnings'])
+    if rows:
+        list_frame = ttk.Frame(content)
+        list_frame.grid(row=0, column=0, sticky='ns', padx=(SPACING['none'], SPACING['sm']))
+        box = tk.Listbox(list_frame, selectmode='browse', exportselection=False,
+                         width=CHAR_WIDTH['field_md'] // 2, font=FONTS['body'])
+        box.pack(side='left', fill='both', expand=True)
+        list_scroll = ttk.Scrollbar(list_frame, orient='vertical', command=box.yview)
+        list_scroll.pack(side='right', fill='y')
+        box.configure(yscrollcommand=list_scroll.set)
+        for row in rows:
+            box.insert('end', '%s · %s' % (row['display_name'] or row['name'],
+                                           _HEALTH_STATUS_LABELS.get(row['status'],
+                                                                     row['status'])))
+
+        detail = TextArea(content, state='disabled')
+        detail.grid(row=0, column=1, sticky='nsew')
+        detail_scroll = ttk.Scrollbar(content, orient='vertical', command=detail.yview)
+        detail_scroll.grid(row=0, column=2, sticky='ns')
+        detail.configure(yscrollcommand=detail_scroll.set)
+
+        def show_detail(_event=None):
+            pick = box.curselection()
+            if not pick:
+                return
+            row = rows[pick[0]]
+            detail.configure(state='normal')
+            detail.delete('1.0', 'end')
+            detail.insert('1.0', _health_detail_text(row, globals_))
+            detail.configure(state='disabled')
+
+        box.bind('<<ListboxSelect>>', show_detail)
+        box.selection_set(0)
+        show_detail()
+    else:
+        HintLabel(content, text='本阶段没有已登记的 SKILL。').grid(row=0, column=0,
+                                                               columnspan=3, sticky='w')
+        if globals_:
+            detail = TextArea(content)
+            detail.grid(row=1, column=0, columnspan=3, sticky='nsew')
+            detail.insert('1.0', '\n'.join('  · ' + item for item in globals_))
+            detail.configure(state='disabled')
+
+    actions = ttk.Frame(body)
+    actions.pack(fill='x', pady=(SPACING['sm'], SPACING['none']))
+    SecondaryButton(actions, text='关闭', width=CHAR_WIDTH['xl'],
+                    command=window.destroy).pack(side='right')
+    PrimaryButton(actions, text='刷新', width=CHAR_WIDTH['xl'],
+                  command=lambda: (window.destroy(), show_skill_health(panel))).pack(side='left')
+    return window
 
 
 def show(desktop, stage, function=None, launcher_button=None):

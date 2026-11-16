@@ -552,40 +552,53 @@ class Registry:
         return existing or self.user_root / builtin.name
 
     def _migrate_root_manifests(self):
-        """把 skills 根目录的旧 .skill.md 移入其 frontmatter 指定的阶段目录。
+        """把 skills 根目录的旧 .skill.md 移入其 frontmatter 指定的阶段目录（内置层与用户层同口径）。
 
         这是打开阶段配置后的懒迁移：只枚举根目录的一层文件，绝不触碰 00 全流程包、
         其他资料包或用户项目。没有合法 stage、目标目录或同名目标时保留原文件并报明原因。
+        用户层根目录文件同样迁移：目标是用户层同名阶段目录（不存在时按内置目录名补建，
+        与「新增 SKILL」写入目录同一口径）；此前用户层根目录文件静默不可见。
         """
         problems = []
-        try:
-            paths = sorted(self.root.glob('*' + SKILL_SUFFIX), key=lambda path: str(path))
-        except OSError:
-            self._root_migration_problems = ()
-            return
-        for path in paths:
+        for root, layer in self._layers():
             try:
-                meta, _ = parse(path.read_text(encoding='utf-8-sig'), source=str(path))
-            except (OSError, UnicodeError) as exc:
-                problems.append('%s：根目录遗留 SKILL 读不出来（%s）' % (path.name, exc))
+                paths = sorted(root.glob('*' + SKILL_SUFFIX), key=lambda path: str(path))
+            except OSError:
                 continue
-            sid = stage_id(meta.get('stage', ''))
-            if not sid:
-                problems.append('%s：根目录遗留 SKILL 没有可识别的阶段 stage，未自动归档' % path.name)
-                continue
-            target_dir = self._stage_directory_for(sid)
-            if target_dir is None:
-                problems.append('%s：阶段 %s 没有对应目录，未自动归档' % (path.name, sid))
-                continue
-            target = target_dir / path.name
-            if target.exists():
-                problems.append('%s：目标 %s 已存在，未覆盖也未自动归档' %
-                                (path.name, target.name))
-                continue
-            try:
-                path.replace(target)
-            except OSError as exc:
-                problems.append('%s：自动归档失败（%s）' % (path.name, exc))
+            for path in paths:
+                try:
+                    meta, _ = parse(path.read_text(encoding='utf-8-sig'), source=str(path))
+                except (OSError, UnicodeError) as exc:
+                    problems.append('%s：根目录遗留 SKILL 读不出来（%s）' % (path.name, exc))
+                    continue
+                sid = stage_id(meta.get('stage', ''))
+                if not sid:
+                    problems.append('%s：根目录遗留 SKILL 没有可识别的阶段 stage，未自动归档'
+                                    % path.name)
+                    continue
+                if layer == 'user':
+                    target_dir = self.user_stage_directory_for(sid)
+                    if target_dir is not None and not target_dir.exists():
+                        try:
+                            target_dir.mkdir(parents=True, exist_ok=True)
+                        except OSError as exc:
+                            problems.append('%s：用户层阶段目录建不出来（%s），未自动归档'
+                                            % (path.name, exc))
+                            continue
+                else:
+                    target_dir = self._stage_directory_for(sid)
+                if target_dir is None:
+                    problems.append('%s：阶段 %s 没有对应目录，未自动归档' % (path.name, sid))
+                    continue
+                target = target_dir / path.name
+                if target.exists():
+                    problems.append('%s：目标 %s 已存在，未覆盖也未自动归档' %
+                                    (path.name, target.name))
+                    continue
+                try:
+                    path.replace(target)
+                except OSError as exc:
+                    problems.append('%s：自动归档失败（%s）' % (path.name, exc))
         self._root_migration_problems = tuple(problems)
 
     @staticmethod

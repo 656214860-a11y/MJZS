@@ -37,7 +37,7 @@
 | 阶段顺序 | `pet_bus.STAGES` / `STAGE_NAMES` |
 | 并行与重试 | `stage_parallel.CONFIG` |
 | 模型池 | 模型管理保存的模型池 |
-| SKILL 注册表与制作锁 | `skills/01—13 阶段目录/*.skill.md`（内置层）＋ `data/skills/<同名阶段目录>/`（用户导入层，同名用户优先）与 `skill_registry.py`；制作锁存 `skill_config.json` 顶层 `production_locks`（弹窗预选，R2862 起与总控脱钩） |
+| SKILL 注册表与制作锁 | `skills/01—13 阶段目录/*.skill.md`（内置层）＋ `data/skills/<同名阶段目录>/`（用户导入层，同名用户优先）与 `skill_registry.py`；制作锁存 `skill_config.json` 顶层 `production_locks`；体检 `skill_health_report` |
 | 分层依赖 | `architecture.md` 第 3 节分层表 |
 | 路径 | `stage_layout` / `storyboard_paths` / `script_contract` / `asset_contract` / `model_pool.env_file` |
 | 事件与前缀 | `pet_bus` 事件表 / `broadcaster` 前缀表 |
