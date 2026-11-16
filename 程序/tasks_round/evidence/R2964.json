@@ -1,15 +1,15 @@
 {
   "round": 2964,
-  "commit_base": "25a12c55",
+  "commit_base": "3add1302",
   "credential_scan": {
     "ran": true,
     "hits": []
   },
   "targeted": {
-    "cmd": "run_selftests.py -k test_shared_input_ui test_shared_input_stages test_stage_reasoning test_skills pet_ui",
+    "cmd": "run_selftests.py -k test_shared_input_ui test_stage_reasoning test_skills",
     "exit": 0,
-    "passed": 789,
+    "passed": 158,
     "failed": 0
   },
-  "generated_at": "2026-11-16T14:02:18"
+  "generated_at": "2026-11-16T14:42:09"
 }

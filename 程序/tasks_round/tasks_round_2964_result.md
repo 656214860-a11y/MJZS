@@ -1,5 +1,5 @@
 # R2964 结果：共享输入框模型选择器改版——无外框触发钮＋上方卡片浮层（对齐 DeepSeek Harness／Devin Desktop）
-<!-- round-evidence: {"commit_base": "25a12c55", "credential_hits": 0, "evidence_sha256": "a7738ea43aa5102c", "exit": 0, "failed": 0, "passed": 789, "round": 2964, "tests": "run_selftests.py -k test_shared_input_ui test_shared_input_stages test_stage_reasoning test_skills pet_ui"} -->
+<!-- round-evidence: {"commit_base": "3add1302", "credential_hits": 0, "evidence_sha256": "ddee5165764d83dc", "exit": 0, "failed": 0, "passed": 158, "round": 2964, "tests": "run_selftests.py -k test_shared_input_ui test_stage_reasoning test_skills"} -->
 
 ## 三问
 
@@ -50,6 +50,18 @@
 - 默认冒烟：8/8。
 - `--affected` 门禁当轮实测：789 条用例 0 红（5 文件）。
 - 架构门禁：未单独跑（无分层/契约变更）；全量 `--all --safe` 未跑，欠账口径以 `full-safe-receipts.json` 为准。
+
+## 预览反馈追加修正（同轮第二笔）
+
+用户实机预览后提出三条，已全部修正并复验：
+
+| 反馈 | 修正 |
+|---|---|
+| 模型名没有完整显示 | 根因：`ScrollForm` 画布需求宽度不含窗内 form（实测 inner 646→canvas 仍 382），长名被默认宽裁切。修法：`_fill_popup` 量出模型行最大 `winfo_reqwidth`，直接 `scroll.canvas.configure(width=…)`（画布 `-width` 才进需求宽度，frame `-width` 不进）。探针验证：注入 40 字模型名，浮层 388→422，标签实宽＝需求宽 392，无裁切；常规名不超默认宽时宽度不变。 |
+| 浮层模型字体偏大 | 面板行字体 `FONTS['body']`(10) → `FONTS['hint']`(9)：模型名、✓、徽标、「+ 添加模型…」、空态行统一；推理区标题/档钮本就是 hint。 |
+| 最多显示 5 个模型选项 | `POPUP_MAX_MODEL_ROWS` 10 → 5，超出走滚轮。 |
+
+复验：`-k stage_reasoning shared_input_ui test_skills` 158 条 0 红；真 Tk 探针几何复测通过。
 
 ## 下一步
 

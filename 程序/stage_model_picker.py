@@ -29,7 +29,7 @@ LEVEL_MENU = '推理等级'
 # 触发钮文案截断：模型名过长时不把输入行撑破（保守按字符数截，CJK 视觉更宽）。
 MODEL_LABEL_MAX_CHARS = 24
 # 浮层模型区最多露出的行数；超出走滚轮。
-POPUP_MAX_MODEL_ROWS = 10
+POPUP_MAX_MODEL_ROWS = 5
 
 
 def _clip_label(text):
@@ -210,6 +210,7 @@ class StageModelPicker(ttk.Frame):
         anchor_bottom = anchor_top + self.models.winfo_height()
         win = self._popup_win if self._popup_win is not None else self.winfo_toplevel()
         left, stop, right, sbottom = monitor_bounds(win, anchor_x, anchor_top)
+        width = min(width, right - left - 2 * SPACING['xs'])
         x = anchor_x - width
         y = anchor_top - height - SPACING['xs']
         if y < stop + SPACING['xs']:
@@ -232,21 +233,30 @@ class StageModelPicker(ttk.Frame):
         holder.pack(fill='x')
         scroll = ScrollForm(holder, bg=COLORS['background_primary'], scrollbar=False)
         first_row = [None]
+        row_widgets = []
         if models:
             for row_spec in models:
                 row = self._model_row(scroll.form, row_spec)
                 row.pack(fill='x')
+                row_widgets.append(row)
                 if first_row[0] is None:
                     first_row[0] = row
         else:
-            self._text_row(scroll.form, '暂无可用模型', fg=COLORS['text_muted'],
-                           command=lambda: None)
+            row_widgets.append(self._text_row(
+                scroll.form, '暂无可用模型', fg=COLORS['text_muted'],
+                command=lambda: None))
         scroll.form.update_idletasks()
+        # ScrollForm 的画布不把内容需求宽度传给外层：模型行最宽者决定浮层宽度，
+        # 否则长模型名会被画布宽度裁掉（R2964 预览反馈）。
+        need_w = max((w.winfo_reqwidth() for w in row_widgets), default=0)
         row_h = (first_row[0].winfo_reqheight() if first_row[0] is not None
                  else SPACING['xl'])
         content_h = scroll.form.winfo_reqheight()
         view_h = min(content_h, row_h * POPUP_MAX_MODEL_ROWS + SPACING['lg'])
         holder.configure(height=view_h)
+        # 画布需求宽度不含窗内 form：把最宽模型行的需求宽度直接喂给画布，
+        # 否则长模型名会被画布默认宽度裁掉（R2964 预览反馈）。
+        scroll.canvas.configure(width=max(need_w, scroll.canvas.winfo_reqwidth()))
         scroll.bind_wheel()
 
         pinned = tk.Frame(body, bg=COLORS['background_primary'])
@@ -299,10 +309,10 @@ class StageModelPicker(ttk.Frame):
         row = tk.Frame(parent, bg=COLORS['background_primary'])
         tk.Label(row, text='✓' if spec['current'] else '', width=2,
                  bg=COLORS['background_primary'], fg=COLORS['primary'],
-                 font=FONTS['body'], anchor='w', pady=SPACING['xs']).pack(side='left')
+                 font=FONTS['hint'], anchor='w', pady=SPACING['xs']).pack(side='left')
         tk.Label(row, text=spec['label'], anchor='w',
                  bg=COLORS['background_primary'], fg=COLORS['text_primary'],
-                 font=FONTS['body'], padx=SPACING['sm'],
+                 font=FONTS['hint'], padx=SPACING['sm'],
                  pady=SPACING['xs']).pack(side='left', fill='x', expand=True)
         if spec['badge']:
             tk.Label(row, text=spec['badge'], anchor='e',
@@ -337,7 +347,7 @@ class StageModelPicker(ttk.Frame):
     def _text_row(self, parent, text, *, fg, command):
         row = tk.Frame(parent, bg=COLORS['background_primary'])
         tk.Label(row, text=text, anchor='w', bg=COLORS['background_primary'],
-                 fg=fg, font=FONTS['body'], padx=SPACING['sm'], pady=SPACING['xs']
+                 fg=fg, font=FONTS['hint'], padx=SPACING['sm'], pady=SPACING['xs']
                  ).pack(fill='x')
         self._bind_row_events(row, command)
         row.pack(fill='x')
