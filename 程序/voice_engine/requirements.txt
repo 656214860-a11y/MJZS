@@ -2,7 +2,9 @@
 # 版本基线对齐 vocotype-cli (Apache-2.0) 参考环境；全部为成熟发布版本。
 numpy>=1.26,<3
 onnxruntime>=1.17,<2
-funasr_onnx==0.4.1
+# funasr_onnx 0.4.1 的包 __init__ 无条件 import torch（仅 SenseVoice 需要的未声明依赖，
+# 干净环境装不上）；0.4.11 已移除 torch 导入，Paraformer/Fsmn_vad/CT_Transformer 接口不变。
+funasr_onnx==0.4.11
 jieba==0.42.1
 modelscope==1.30.0
 librosa==0.11.0
