@@ -258,8 +258,8 @@ class ReasoningPickerTests(unittest.TestCase):
                         '不带推理能力的模型项不得有档位标记')
         cascade = [row for row in rows if row[0] == 'cascade']
         self.assertEqual([row[1] for row in cascade], ['推理等级：自动'])
-        self.assertEqual(rows[-1][1], stage_model_picker.ADD_MODEL_LABEL,
-                         '「+ 添加模型…」仍是菜单尾项')
+        self.assertFalse(any('添加模型' in str(row[1]) for row in rows),
+                         'REQ-S01-90：「+ 添加模型…」移到共享输入框「＋」下拉，模型菜单不再保留')
 
         levels = [(picker._level_menu.entrycget(i, 'label'),
                    picker._level_menu.entrycget(i, 'value'))

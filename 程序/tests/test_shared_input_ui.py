@@ -119,6 +119,113 @@ class SharedInputLayoutTests(unittest.TestCase):
         self.assertIs(box.input, input_widget)
         self.assertEqual(box.stage, 'assets')
 
+    # ── R2971／REQ-S01-90：✦／＋ 图标下拉面板（与 / 补全同款浮层） ──
+
+    def _panel_labels(self, panel):
+        return [w for w in _descendants(panel)
+                if isinstance(w, tk.Label) and str(w.cget('text') or '')]
+
+    def _click(self, widget):
+        """合成一次真实单击：映射窗口后按控件中心坐标投递（与 test_cell_menu 同法）。"""
+        self.win.deiconify()
+        self.win.update()
+        x, y = widget.winfo_width() // 2, widget.winfo_height() // 2
+        widget.event_generate('<Button-1>', x=x, y=y,
+                              rootx=widget.winfo_rootx() + x,
+                              rooty=widget.winfo_rooty() + y)
+        self.win.update()
+
+    def test_skill_dropdown_shows_canonical_names_and_inserts(self):
+        """✦ 下拉行只显示技能包原始 name（不映射别名、不拼 displayName），
+        点名把 /name 写进输入框、不自动发送；面板是 place 浮层不是弹窗。"""
+        box = self._make()
+        box._skill_list_items = lambda: [
+            {'name': 'pipeline-script-preparation', 'displayName': '全流程AIGC·剧本',
+             'description': '剧本技能说明'},
+            SimpleNamespace(name='mine-skill', stage='storyboard')]
+        box.open_skill_list()
+        self.win.update_idletasks()
+        panel = box.skill_panel
+        self.assertTrue(panel.is_open())
+        self.assertEqual(panel.winfo_manager(), 'place', '下拉面板是 place 浮层，不是弹窗')
+        texts = [str(w.cget('text')) for w in self._panel_labels(panel)]
+        self.assertIn('pipeline-script-preparation', texts)
+        self.assertIn('mine-skill', texts)
+        self.assertFalse(any('全流程AIGC' in t or ' · ' in t for t in texts),
+                         '技能行只显示原始 name，不映射别名')
+        target = next(w for w in self._panel_labels(panel)
+                      if str(w.cget('text')) == 'mine-skill')
+        self._click(target)
+        self.assertEqual(box.text(), '/mine-skill')
+        self.assertEqual(self.sent, [], '点技能只插入命令，不自动发送')
+        self.assertFalse(panel.is_open())
+
+    def test_skill_dropdown_toggle_and_escape_close(self):
+        """再点 ✦ 收起；Esc 与切页同样收掉图标下拉。"""
+        box = self._make()
+        box.open_skill_list()
+        self.assertTrue(box.skill_panel.is_open())
+        box.open_skill_list()
+        self.assertFalse(box.skill_panel.is_open())
+        box.open_add_menu()
+        self.assertTrue(box.add_panel.is_open())
+        self.assertEqual(box.close_completion(), 'break')
+        self.assertFalse(box.add_panel.is_open())
+        box.open_skill_list()
+        self.assertTrue(box.skill_panel.is_open())
+        box.set_stage('assets')
+        self.assertFalse(box.skill_panel.is_open(), '切页收掉图标下拉')
+
+    def test_add_menu_entries_and_skill_drilldown(self):
+        """＋ 下拉含添加附件／添加模型…／添加技能…；技能项下钻出仓库与本地。"""
+        box = self._make()
+        box.open_add_menu()
+        self.win.update_idletasks()
+        panel = box.add_panel
+        self.assertTrue(panel.is_open())
+        texts = [str(w.cget('text')) for w in self._panel_labels(panel)]
+        self.assertEqual(texts, ['添加附件', '添加模型…', '添加技能…'])
+        drill = next(w for w in self._panel_labels(panel)
+                     if str(w.cget('text')) == '添加技能…')
+        self._click(drill)
+        texts = [str(w.cget('text')) for w in self._panel_labels(panel)]
+        self.assertEqual(texts, ['‹ 返回', '从仓库导入', '本地安装'])
+        back = next(w for w in self._panel_labels(panel)
+                    if str(w.cget('text')) == '‹ 返回')
+        self._click(back)
+        texts = [str(w.cget('text')) for w in self._panel_labels(panel)]
+        self.assertEqual(texts, ['添加附件', '添加模型…', '添加技能…'])
+
+    def test_panels_are_mutually_exclusive_and_outside_click_closes(self):
+        """两个图标面板互斥；点面板与图标钮之外收掉，点图标钮本身仍是开合。"""
+        box = self._make()
+        box.pack(fill='x')
+        self.win.update_idletasks()
+        box.open_skill_list()
+        self.assertTrue(box.skill_panel.is_open())
+        box.open_add_menu()
+        self.assertFalse(box.skill_panel.is_open(), '开＋先收✦')
+        self.assertTrue(box.add_panel.is_open())
+        self._click(box.input)
+        self.assertFalse(box.add_panel.is_open(), '点输入框＝面板外，收掉')
+        box.open_add_menu()
+        self.assertTrue(box.add_panel.is_open())
+        self._click(box.attachment_button)
+        self.assertTrue(box.add_panel.is_open(), '点图标钮不算外点')
+        box.attachment_button.invoke()
+        self.assertFalse(box.add_panel.is_open(), '图标钮 command 负责开合')
+
+    def test_typing_slash_closes_icon_panel(self):
+        """面板开着时输入 / ：收掉图标面板、照常弹补全。"""
+        box = self._make()
+        box.open_skill_list()
+        self.assertTrue(box.skill_panel.is_open())
+        box.set_text('/')
+        box._on_key_release(SimpleNamespace(keysym='/'))
+        self.win.update()
+        self.assertFalse(box.skill_panel.is_open())
+        self.assertTrue(box.completion.open)
+
 
 class UpstreamGateTests(unittest.TestCase):
     """``upstream_send_error`` 的放行／拦截分支（门禁本体由 stage_parallel／completion_evidence 保证）。"""

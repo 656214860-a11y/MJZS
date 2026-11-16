@@ -4,6 +4,8 @@
 模型的唯一写入口仍是 ``stage_config.put``；选项仍来自 ``grouped_model_choices``（模型池＋页面生产模型）。
 REQ-S01-82：菜单项只显示模型名称（不带供应商前缀），带 reasoning 能力标签的模型
 右侧标「推理·<当前档位>」；「推理等级」子菜单的档位写进阶段配置的 ``reasoning`` 字段。
+R2971：「+ 添加模型…」不再是菜单尾项——模型管理入口收口到共享输入框「＋」下拉
+（``SharedStageInput.open_model_manager`` → 本类 ``open_model_manager``）。
 """
 import tkinter as tk
 from tkinter import ttk
@@ -16,7 +18,6 @@ from skill_panel_support import (
                                  stage_for, unregister_live)
 from ui_widgets import ContextMenu
 
-ADD_MODEL_LABEL = '+ 添加模型…'
 LEVEL_MENU = '推理等级：%s'
 
 
@@ -129,7 +130,7 @@ class StageModelPicker(ttk.Frame):
         return None
 
     def labels(self):
-        """菜单里的模型项显示名（「+ 添加模型…」不在内）。"""
+        """菜单里的模型项显示名。"""
         return [label for _model_id, label in self._items]
 
     # ── 菜单 ────────────────────────────────────────────────────────────────
@@ -149,19 +150,12 @@ class StageModelPicker(ttk.Frame):
                                           accelerator='推理·' + level_label)
         self._menu_ctx.separator()
         self._menu_ctx.cascade(label=LEVEL_MENU % level_label, submenu=self._level_ctx)
-        self._menu_ctx.separator()
-        self._menu_ctx.command(ADD_MODEL_LABEL, self.open_model_manager)
 
     # ── 交互 ────────────────────────────────────────────────────────────────
     def choose_model(self, model_id=None):
         if model_id is not None:
-            if model_id == ADD_MODEL_LABEL:
-                return self.open_model_manager()
             self.set_model(model_id)
             return self.save()
-        if self.model.get() == ADD_MODEL_LABEL:
-            self.model.set(self._picked)
-            return self.open_model_manager()
         self._picked = self.model.get()
         return self.save()
 
@@ -189,7 +183,7 @@ class StageModelPicker(ttk.Frame):
         return entry
 
     def open_model_manager(self):
-        """「+ 添加模型…」：模型池只有模型管理这一扇门。"""
+        """模型管理入口（R2971 起由共享输入框「＋」下拉调用）：模型池只有模型管理这一扇门。"""
         pet = pet_of(self.desktop)
         if pet is None:
             return ''

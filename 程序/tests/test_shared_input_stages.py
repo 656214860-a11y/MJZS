@@ -285,7 +285,7 @@ class SharedInputHostTests(unittest.TestCase):
                                                 options={'on_send': None})
             self.addCleanup(box.destroy)
         by_widget = {str(widget): text for widget, text in captured}
-        for widget, head in ((box.skill_button, '技能'), (box.attachment_button, '添加附件'),
+        for widget, head in ((box.skill_button, '技能'), (box.attachment_button, '添加'),
                              (box.voice_button, '语音输入'), (box.send_button, '发送'),
                              (box.model_picker, '选择模型')):
             with self.subTest(widget=widget):

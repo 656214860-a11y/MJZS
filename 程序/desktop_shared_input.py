@@ -1,6 +1,7 @@
 """共享底部输入框（R2893，任务书轮 3）：13 个阶段页共用同一实例。
 
-布局（R2942 定版）：``[✦ 技能][＋ 附件][🎤 语音] | [TextArea 输入框] | [模型下拉框][发送]``；
+布局（R2942 定版）：``[✦ 技能][＋ 添加][🎤 语音] | [TextArea 输入框] | [模型下拉框][发送]``；
+✦ 与 ＋ 点开与 ``/`` 补全同款的下拉面板（R2971，``desktop_shared_menus``），不再弹窗。
 视觉 token 走 ``ui_tokens``，快捷键登记走宿主 ``ShortcutRegistry``（``/`` 补全与
 ``Esc`` 关闭）。命令解析在无 Tk 的 ``skill_command``；发送门禁复用
 ``stage_parallel`` 上游判定与 ``stage_completion_service.completion_evidence``。
@@ -22,6 +23,7 @@ import app_logging
 import skill_command
 import ui_plugin_registry
 from contract import pet_bus
+from desktop_shared_menus import AddMenuPanel, SkillPickPanel
 from ui_shortcuts import ShortcutRegistry
 from ui_tokens import (COLORS, FONTS, ICON_ADD, ICON_MICROPHONE, ICON_SEND, ICON_SKILL,
                        SPACING, TEXT_ROWS)
@@ -30,8 +32,16 @@ from ui_widgets import BaseDialog, Card, SecondaryButton, TextArea, PrimaryButto
 SHORTCUT_SCOPE = 'shared_input'
 # 技能悬停说明卡片的换行宽度（像素常量，R2923：避免内联字面量触碰视觉 token 棘轮）。
 SKILL_CARD_WRAP = 300
-# 技能列表浮层里默认勾选框的尺寸（像素常量，同上）。
-SKILL_CHECK_SIZE = 14
+
+
+def _widget_within(widget, ancestor):
+    """widget 是否落在 ancestor 子树内（place 出去的浮层也是它的子孙）。"""
+    node = widget
+    while node is not None:
+        if node is ancestor:
+            return True
+        node = getattr(node, 'master', None)
+    return False
 
 
 def project_root(desktop):
@@ -280,7 +290,7 @@ class SharedStageInput(ttk.Frame):
         self.skill_button.pack(side='left', padx=(SPACING['xs'], SPACING['none']))
         self.attachment_button = SecondaryButton(row, text=ICON_ADD, width=0,
                                                  style='Tokens.Composer.Icon.TButton',
-                                                 command=self.open_attachments)
+                                                 command=self.open_add_menu)
         self.attachment_button.pack(side='left', padx=(SPACING['xs'], SPACING['none']))
         self.voice_button = SecondaryButton(row, text=ICON_MICROPHONE, width=0,
                                             style='Tokens.Composer.Icon.TButton',
@@ -296,14 +306,23 @@ class SharedStageInput(ttk.Frame):
         self.model_picker = StageModelPicker(row, self.desktop, self.stage)
         self.model_picker.pack(side='right', padx=(SPACING['sm'], SPACING['none']))
         # R2942 定版：五个图标都有悬停提示卡（Tooltip，不进 grab 不抢焦点）。
-        Tooltip(self.skill_button, '技能\n查看本阶段技能、勾选默认；输入 / 可快速调用')
-        Tooltip(self.attachment_button, '添加附件\n上传文本资料，本轮发送时随文引用')
+        Tooltip(self.skill_button, '技能\n点选插入 /名称，勾选=本阶段默认；输入 / 可快速调用')
+        Tooltip(self.attachment_button, '添加\n附件、模型与技能导入的统一入口')
         Tooltip(self.voice_button, '语音输入\n点击开始／停止麦克风听写')
         Tooltip(self.send_button, '发送（Enter）\nShift+Enter 换行；运行中变为终止')
         Tooltip(self.model_picker, '选择模型\n切换本阶段对话模型与推理档位')
 
         # ``/`` 补全候选：浮在输入框正上方的卡片（R2942：不再 pack 进输入条挤到右侧）。
         self.completion = CompletionPopup(self)
+        # R2971：✦／＋ 两个图标下拉与 / 补全同一卡片浮层（desktop_shared_menus）；
+        # 点面板与各自图标钮之外自动收掉，图标钮自身开合仍走 command。
+        self.skill_panel = SkillPickPanel(self)
+        self.add_panel = AddMenuPanel(self)
+        self._panel_click_top = self.winfo_toplevel()
+        self._panel_click_id = (self._panel_click_top.bind(
+            '<Button-1>', self._panel_outside_click, add='+')
+            if self._panel_click_top is not None else None)
+        self.bind('<Destroy>', self._release_panel_click, add='+')
         self.input.bind('<KeyRelease>', self._on_key_release, add='+')
         self.input.bind('<Return>', self._on_return, add='+')
         # 候选开着时：上下键选、Tab 采纳、失焦收掉、窗口重排跟随锚定（DSH 行为）。
@@ -376,80 +395,71 @@ class SharedStageInput(ttk.Frame):
             _say(self.status, '阶段配置打开失败：%s' % exc)
             return None
 
-    # ── 技能列表浮层（R2923 定版：Devin 风格——点击图标弹列表，悬停显示简单说明，
-    #    勾选框=本阶段默认 skill，供三虎自动流程使用） ──────────────────────────
+    # ── 图标下拉面板（R2971 定版：✦ 技能／＋ 添加，与 / 补全同一卡片浮层，
+    #    不再弹 BaseDialog；勾选框=本阶段默认 skill，点名插入 /技能名） ──────────
     def open_skill_list(self):
-        if self._skill_menu_open():
-            self._close_skill_menu()
-            return
-        items = self._skill_list_items()
-        defaults = self._default_skills()
-        menu = BaseDialog(self, '技能', modal=False, chrome=False)
-        menu.configure(bg=COLORS['background_card'])
-        self._skill_menu = menu
-        self._skill_card = None
-        self._skill_check_images = []
+        """✦ 技能下拉：面板开合互斥，点名插入、勾选默认、悬停看说明。"""
+        self._show_panel(self.skill_panel)
 
-        header = tk.Label(menu, text='技能（勾选=本阶段默认，点击名字插入 /技能名）', anchor='w',
-                          bg=COLORS['background_card'], fg=COLORS['text_muted'],
-                          font=FONTS['hint'], padx=SPACING['sm'], pady=SPACING['xs'])
-        header.pack(fill='x')
+    def open_add_menu(self):
+        """＋ 添加下拉：附件、本阶段模型管理、技能导入（仓库／本地）。"""
+        self._show_panel(self.add_panel)
 
-        def hover(_event, item):
-            self._show_skill_card(item, menu)
+    def open_model_manager(self):
+        """＋ 菜单「添加模型…」：复用模型选择器的模型管理入口（模型池唯一门）。"""
+        opener = getattr(getattr(self, 'model_picker', None),
+                         'open_model_manager', None)
+        if callable(opener):
+            return opener()
+        return ''
 
-        def leave(_event):
+    def _show_panel(self, panel):
+        """图标下拉互斥展开：先收 / 补全与另一个面板；已开着再点图标＝收起。"""
+        self.completion.close()
+        other = self.add_panel if panel is self.skill_panel else self.skill_panel
+        if other.is_open():
+            other.hide()
+        panel.toggle()
+        self._hide_skill_card()
+
+    def _hide_panels(self):
+        """收掉 ✦／＋ 两个图标下拉与悬停说明卡；返回是否有面板原本开着。"""
+        hidden = False
+        for panel in (getattr(self, 'skill_panel', None),
+                      getattr(self, 'add_panel', None)):
+            if panel is not None and panel.is_open():
+                panel.hide()
+                hidden = True
+        self._hide_skill_card()
+        return hidden
+
+    def _panel_outside_click(self, event):
+        """点在面板与它的图标钮之外：收掉开着的下拉（图标钮开合走 command）。"""
+        widget = getattr(event, 'widget', None)
+        for panel in (getattr(self, 'skill_panel', None),
+                      getattr(self, 'add_panel', None)):
+            if panel is None or not panel.is_open():
+                continue
+            if _widget_within(widget, panel):
+                continue
+            anchors = [anchor for anchor in panel.anchor_widgets()
+                       if anchor is not None]
+            if any(_widget_within(widget, anchor) for anchor in anchors):
+                continue
+            panel.hide()
             self._hide_skill_card()
 
-        from ui_icons import IconLoader
-        for item in items:
-            name = self._skill_name(item)
-            line = tk.Frame(menu, bg=COLORS['background_card'])
-            line.pack(fill='x')
-            if self.project is not None:
-                image = IconLoader.check_indicator(menu, size=SKILL_CHECK_SIZE,
-                                                   selected=name in defaults)
-                self._skill_check_images.append(image)
-                check = tk.Label(line, image=image, bg=COLORS['background_card'], cursor='hand2')
-                check.pack(side='left', padx=(SPACING['sm'], SPACING['xs']))
-                check.bind('<Button-1>', lambda _event, n=name: self._toggle_skill_default(n))
-            row = tk.Label(line, text=self._skill_display(item), anchor='w',
-                           bg=COLORS['background_card'], fg=COLORS['text_primary'],
-                           font=FONTS['body'], pady=SPACING['xs'], cursor='hand2')
-            row.pack(side='left', fill='x', expand=True)
-            row.bind('<Enter>', lambda event, it=item: hover(event, it))
-            row.bind('<Leave>', leave)
-            row.bind('<Button-1>', lambda _event, it=item: self._pick_skill(it))
-
-        tk.Frame(menu, bg=COLORS['border_input_hover'], height=1).pack(fill='x',
-                                                                       padx=SPACING['sm'])
-        for label, action in (('从仓库导入', self._import_skill_repo),
-                              ('本地安装 skill', self._import_skill_local)):
-            row = tk.Label(menu, text=label, anchor='w',
-                           bg=COLORS['background_card'], fg=COLORS['primary'],
-                           font=FONTS['body'], padx=SPACING['sm'], pady=SPACING['xs'],
-                           cursor='hand2')
-            row.pack(fill='x')
-            row.bind('<Button-1>', lambda _event, act=action: act())
-
-        menu.update_idletasks()
-        x = self.skill_button.winfo_rootx()
-        y = self.skill_button.winfo_rooty() - menu.winfo_reqheight() - SPACING['sm']
-        menu.geometry('+%d+%d' % (max(0, x), max(0, y)))
-
-    def _skill_menu_open(self):
-        menu = getattr(self, '_skill_menu', None)
-        return menu is not None and menu.winfo_exists()
-
-    def _close_skill_menu(self):
-        menu = getattr(self, '_skill_menu', None)
-        self._skill_menu = None
-        self._hide_skill_card()
-        if menu is not None:
-            try:
-                menu.destroy()
-            except Exception:
-                app_logging.swallowed()
+    def _release_panel_click(self, event):
+        """输入框销毁时摘掉整窗 ``<Button-1>`` 监听，不留指向死控件的绑定。"""
+        if event.widget is not self:
+            return
+        top = getattr(self, '_panel_click_top', None)
+        funcid = getattr(self, '_panel_click_id', None)
+        try:
+            if top is not None and funcid:
+                top.unbind('<Button-1>', funcid)
+        except Exception:
+            app_logging.swallowed()
 
     def _hide_skill_card(self):
         card = getattr(self, '_skill_card', None)
@@ -462,17 +472,19 @@ class SharedStageInput(ttk.Frame):
 
     @staticmethod
     def _skill_name(item):
+        """技能规范名：``Skill`` 对象取 ``.name``、字典取 ``name``、字符串原样——
+        不取 ``str(item)`` 的 ``Skill(name @ stage)`` repr，也不映射别名。"""
         if isinstance(item, dict):
             return str(item.get('name') or '')
+        name = getattr(item, 'name', None)
+        if name is not None:
+            return str(name)
         return str(item or '')
 
     @staticmethod
     def _skill_display(item):
-        name = SharedStageInput._skill_name(item)
-        shown = name
-        if isinstance(item, dict) and item.get('displayName'):
-            shown = '%s · %s' % (item.get('displayName'), name)
-        return shown or '（未命名技能）'
+        """列表行只显示技能包原始 ``name``（REQ-S01-90），不拼 displayName。"""
+        return SharedStageInput._skill_name(item) or '（未命名技能）'
 
     def _skill_list_items(self):
         """当前阶段技能在前、其余在后；去重、限量。"""
@@ -518,11 +530,14 @@ class SharedStageInput(ttk.Frame):
         except (OSError, ValueError) as exc:
             _say(self.status, '默认技能保存失败：%s' % exc)
             return
-        self._close_skill_menu()
-        self.open_skill_list()
+        self._hide_skill_card()
+        panel = getattr(self, 'skill_panel', None)
+        if panel is not None and panel.is_open():
+            panel.refresh()
 
     def _show_skill_card(self, item, owner):
-        """悬停卡片：浮层右侧用简单文字显示该技能 description（R2923 定版）。"""
+        """悬停卡片：面板右侧放说明；面板已铺满输入盒宽度、右缘多半放不下时，
+        卡片右对齐面板并抬到面板上方，顶到屏幕上沿再退回面板下方（R2971）。"""
         self._hide_skill_card()
         try:
             body = self._skill_description(item)
@@ -534,8 +549,22 @@ class SharedStageInput(ttk.Frame):
                      bg=COLORS['background_card'], fg=COLORS['text_primary'],
                      font=FONTS['hint'], padx=SPACING['md'], pady=SPACING['sm']).pack()
             card.update_idletasks()
-            x = owner.winfo_rootx() + owner.winfo_width()
-            y = owner.winfo_rooty()
+            card_w = card.winfo_reqwidth()
+            card_h = card.winfo_reqheight()
+            px, py = owner.winfo_rootx(), owner.winfo_rooty()
+            pw = owner.winfo_width()
+            margin = SPACING['sm']
+            screen_w = self.winfo_screenwidth()
+            screen_h = self.winfo_screenheight()
+            x = px + pw
+            y = py
+            if x + card_w + margin > screen_w:
+                x = px + pw - card_w
+                y = py - card_h - SPACING['xs']
+                if y < margin:
+                    y = py + owner.winfo_height() + SPACING['xs']
+            x = max(margin, min(x, screen_w - card_w - margin))
+            y = max(margin, min(y, screen_h - card_h - margin))
             card.geometry('+%d+%d' % (x, y))
             self._skill_card = card
         except Exception:
@@ -543,32 +572,39 @@ class SharedStageInput(ttk.Frame):
 
     @staticmethod
     def _skill_description(item):
+        """悬停说明：字典取 ``description``；``Skill`` 对象直接读属性（``str(item)``
+        是 ``Skill(name @ stage)`` repr，不能拿去 ``getById`` 查——R2971 修正）。"""
         if isinstance(item, dict):
             return str(item.get('description') or '')
+        desc = getattr(item, 'description', None)
+        if desc is not None:
+            return str(desc)
         try:
             import skill_registry
             registry = skill_registry.default_registry()
-            found = registry.getById(str(item))
-            return str(found.get('description') or '') if isinstance(found, dict) else ''
+            found = registry.getById(SharedStageInput._skill_name(item))
+            if found is not None:
+                return str(getattr(found, 'description', '') or '')
         except Exception:
-            return ''
+            app_logging.swallowed()
+        return ''
 
     def _pick_skill(self, item):
         """点击技能：把 ``/技能名`` 写进输入框并聚焦（不自动发送）。"""
         name = self._skill_name(item)
-        self._close_skill_menu()
+        self._hide_panels()
         if name:
             self.set_text('/' + name + ' ')
             try:
                 self.input.focus_set()
-                self.input.icursor('end')
+                self.input.mark_set('insert', 'end-1c')
             except Exception:
                 app_logging.swallowed()
 
     def _import_skill_repo(self):
-        """从仓库地址导入（浮层底部入口）：走 skill_import_service 同一管线。"""
+        """从仓库地址导入（＋ 菜单「添加技能…」下钻）：走 skill_import_service 同一管线。"""
         from ui_widgets import ask_string, ask_confirmation
-        self._close_skill_menu()
+        self._hide_panels()
         ref = ask_string(self.winfo_toplevel(), '从仓库导入',
                          'SKILL 仓库地址或本地目录（owner/repo、完整 URL 可带 @分支）：')
         if not ref:
@@ -590,13 +626,13 @@ class SharedStageInput(ttk.Frame):
         self._skills_cache = None
 
     def _import_skill_local(self):
-        """本地安装（浮层底部入口）：选 SKILL.md/包 → plan_import → perform_import。"""
+        """本地安装（＋ 菜单「添加技能…」下钻）：选 SKILL.md/包 → plan_import → perform_import。"""
         from ui_dialogs import FileDialog
         from ui_widgets import ask_confirmation
-        self._close_skill_menu()
+        self._hide_panels()
         source = FileDialog(self.winfo_toplevel()).open_file(
-            title='本地安装 skill', filetypes=[('SKILL', ('*.skill.md', 'SKILL.md')),
-                                               ('全部文件', '*.*')])
+            title='本地安装', filetypes=[('SKILL', ('*.skill.md', 'SKILL.md')),
+                                          ('全部文件', '*.*')])
         if not source:
             return
         try:
@@ -610,7 +646,7 @@ class SharedStageInput(ttk.Frame):
         if plan['problems']:
             message = ('导入前发现以下问题：\n\n' + '\n'.join('· ' + p for p in plan['problems'])
                        + '\n\n仍要导入吗？')
-            if not ask_confirmation(self.winfo_toplevel(), '本地安装 skill', message,
+            if not ask_confirmation(self.winfo_toplevel(), '本地安装', message,
                                     dangerous=True):
                 return
         try:
@@ -619,7 +655,7 @@ class SharedStageInput(ttk.Frame):
         except (skill_import_service.ImportBlocked, OSError, ValueError) as exc:
             _say(self.status, '本地安装失败：%s' % exc)
             return
-        _say(self.status, '已安装 SKILL：' + str(result['target'].name))
+        _say(self.status, '已安装技能：' + str(result['target'].name))
         self._skills = []
         self._skills_cache = None
 
@@ -684,6 +720,8 @@ class SharedStageInput(ttk.Frame):
         return 'break'
 
     def _refresh_completion(self):
+        # 输入命令文本时收掉图标下拉：/ 补全与 ✦／＋ 面板互不叠加（R2971）。
+        self._hide_panels()
         options = skill_command.completions(self.text(), stage=self.stage,
                                             skills=self.skill_items(),
                                             engines=self.engine_names())
@@ -697,6 +735,13 @@ class SharedStageInput(ttk.Frame):
                 self.after_idle(self.completion.place)
             except Exception:
                 app_logging.swallowed()
+        for panel in (getattr(self, 'skill_panel', None),
+                      getattr(self, 'add_panel', None)):
+            if panel is not None and panel.is_open():
+                try:
+                    self.after_idle(panel.place_panel)
+                except Exception:
+                    app_logging.swallowed()
 
     def _apply_completion(self, option):
         name = str(option).lstrip('/')
@@ -713,9 +758,13 @@ class SharedStageInput(ttk.Frame):
             app_logging.swallowed()
 
     def close_completion(self):
-        """关闭补全层；只在确实关掉了候选时 ``'break'``，否则放行 Esc 的其他宿主绑定
+        """关闭 / 补全与 ✦／＋ 图标下拉（Esc／失焦／切页共用入口）；
+        只在确实关掉了浮层时 ``'break'``，否则放行 Esc 的其他宿主绑定
         （如剧本页输入框的「 Esc 中断任务」）。"""
-        return self.completion.close()
+        closed = self.completion.close()
+        if self._hide_panels() or closed == 'break':
+            return 'break'
+        return None
 
     # ── 发送 ────────────────────────────────────────────────────────────
     def text(self):
