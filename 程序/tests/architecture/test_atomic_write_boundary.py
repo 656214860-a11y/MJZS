@@ -10,7 +10,9 @@ from tests.architecture._scan import (ROOT, module_name, module_scan_files, pars
 
 _DIRECT_WRITE_METHODS = frozenset({"write_text", "write_bytes"})
 _ATOMIC_BOUNDARIES = frozenset({"model_secrets", "qwen_adapter", "workflow_engines"})
-_TEMPORARY_BOUNDARIES = frozenset({"app_shortcut"})
+# skill_archive 的 open(target,'wb') 只写 ZIP 解压暂存区（用后经回收站收走），
+# 包内文件是任意字节不是正式成果，不走 agent.core 文本保存口径。
+_TEMPORARY_BOUNDARIES = frozenset({"app_shortcut", "skill_archive"})
 
 # R1854：直接 os.replace／Path.replace 会绕过 agent.core.replace 的 Windows 共享冲突重试与发布记录
 # （R1853 的 asset_detail_service 就是这样一次“拒绝访问”整次失败）。agent/core.py 是权威实现；

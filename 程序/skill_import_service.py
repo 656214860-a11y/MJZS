@@ -34,6 +34,7 @@ import subprocess
 import time
 import uuid
 from pathlib import Path
+from typing import NamedTuple
 
 import skill_registry
 from agent.core import replace, save
@@ -78,8 +79,13 @@ class ImportBlocked(ValueError):
     """导入被硬性拦截；消息可直接展示给用户。"""
 
 
+_PACKAGE_ENTRY_NAMES = {skill_registry.PACKAGE_SKILL_FILENAME.casefold()} | {
+    name.casefold() for name in skill_registry.PACKAGE_README_FILENAMES}
+
+
 def _kind(source):
-    return 'package' if Path(source).name.casefold() == skill_registry.PACKAGE_SKILL_FILENAME.casefold() else 'manifest'
+    """包入口口径与 ``Registry._package_source`` 一致：SKILL.md 优先，README 兜底。"""
+    return 'package' if Path(source).name.casefold() in _PACKAGE_ENTRY_NAMES else 'manifest'
 
 
 def _tree_digest(path):
@@ -104,7 +110,7 @@ def plan_import(source, target_dir, stage, registry):
         raise ImportBlocked('未找到本阶段注册目录')
     target_dir = Path(target_dir)
     kind = _kind(source)
-    target = (target_dir / source.parent.name / skill_registry.PACKAGE_SKILL_FILENAME
+    target = (target_dir / source.parent.name / source.name
               if kind == 'package' else target_dir / source.name)
     if kind == 'manifest' and source.is_file() and source.stat().st_size > SINGLE_MAX_BYTES:
         raise ImportBlocked('源文件超过 %d MB 上限' % (SINGLE_MAX_BYTES // 1024 // 1024))
@@ -190,6 +196,8 @@ def record(program, plan, digest, now=None):
     items[key] = {'source': str(plan.get('ledger_source')
                               or (plan['source'].parent if plan['kind'] == 'package' else plan['source'])),
                   'kind': plan['kind'], 'name': plan['name'], 'sha256': digest,
+                  'source_kind': plan.get('source_kind')
+                                 or ('dir' if plan['kind'] == 'package' else 'file'),
                   'imported_at': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(now or time.time()))}
     save(path, {'version': 1, 'items': items})
     return path
@@ -424,6 +432,78 @@ def _candidate_stage(source, clone_root, stage_hint):
     return sid or str(stage_hint or '')
 
 
+def _candidate_plans(candidates, root, registry, stage_hint):
+    """候选 → ``(plans, problems, errors)``：阶段判定与 ``plan_import`` 只读预检；同目标去重。
+
+    仓库导入与压缩包导入共用：``root`` 是候选所在的本地树（克隆目录或解压目录）。
+    """
+    plans, problems, errors = [], [], []
+    seen_targets = set()
+    for candidate in candidates:
+        source = candidate['source']
+        stage = _candidate_stage(source, root, stage_hint)
+        if not stage:
+            errors.append('%s：无法识别阶段（frontmatter stage、NN 目录与阶段提示都没有）'
+                          % source.name)
+            continue
+        try:
+            plan = plan_import(source, registry.user_stage_directory_for(stage),
+                               stage, registry)
+        except ImportBlocked as exc:
+            errors.append('%s：%s' % (source.name, exc))
+            continue
+        key = (str(plan['target'].parent if plan['kind'] == 'package' else plan['target']).casefold(),)
+        if key in seen_targets:
+            errors.append('%s：与另一候选目标重复，跳过' % source.name)
+            continue
+        seen_targets.add(key)
+        plans.append(plan)
+        problems.extend('%s：%s' % (plan['name'], problem) for problem in plan['problems'])
+    return plans, problems, errors
+
+
+class _InstallSource(NamedTuple):
+    """``_install_candidate_plans`` 的来源信息：台账来源、界面标签、来源类别与提示称谓。"""
+    ledger_source: str
+    label: str
+    source_kind: str = ''
+    origin: str = '仓库'
+
+
+def _install_candidate_plans(plans, problems, errors, program, confirm, source):
+    """问题汇总 → 确认 → 逐候选换入 → 报告；``confirm`` 收到汇总文本返回真才继续。
+
+    ``source`` 是 :class:`_InstallSource`：``origin`` 是来源称谓（仓库／压缩包），
+    只进提示文案；``ledger_source`` 与 ``source_kind`` 写进每行台账（T4 更新检测
+    按它分辨本地目录／压缩包／仓库源）。
+    """
+    if problems:
+        message = ('%s导入前发现以下问题：\n\n' % source.origin
+                   + '\n'.join('· ' + item for item in problems))
+        if errors:
+            message += '\n\n以下条目将跳过：\n' + '\n'.join('· ' + item for item in errors)
+        message += '\n\n仍要导入吗？'
+        if confirm is None or not confirm(message):
+            raise ImportBlocked('已取消%s导入' % source.origin)
+    elif errors and not plans:
+        raise ImportBlocked('没有可导入的 SKILL：\n' + '\n'.join('· ' + e for e in errors))
+    installed, failed = [], []
+    for plan in plans:
+        plan['ledger_source'] = source.ledger_source
+        if source.source_kind:
+            plan['source_kind'] = source.source_kind
+        try:
+            perform_import(plan, program)
+            installed.append({'name': plan['name'], 'kind': plan['kind'],
+                              'stage': plan.get('stage', ''), 'target': str(plan['target'])})
+        except (ImportBlocked, OSError, ValueError) as exc:
+            failed.append({'name': plan['name'], 'error': str(exc)})
+    if not installed and not failed:
+        raise ImportBlocked('没有可导入的 SKILL：\n' + '\n'.join('· ' + e for e in errors))
+    return {'label': source.label, 'installed': installed, 'failed': failed,
+            'skipped': errors, 'candidates': len(plans) + len(errors)}
+
+
 def import_from_repo(text, program, registry, stage_hint='', confirm=None):
     """仓库导入主入口（install／update 同一实现）：解析 → 取源码 → 扫描 → 逐候选预检
     → 确认 → 逐候选换入。任一候选失败只影响该候选，已成功的不回滚。
@@ -452,51 +532,11 @@ def import_from_repo(text, program, registry, stage_hint='', confirm=None):
         candidates = _repo_candidates(root)
         if not candidates:
             raise ImportBlocked('仓库中没有找到 SKILL.md 或 *.skill.md')
-        plans, problems, errors = [], [], []
-        seen_targets = set()
-        for candidate in candidates:
-            source = candidate['source']
-            stage = _candidate_stage(source, root, stage_hint)
-            if not stage:
-                errors.append('%s：无法识别阶段（frontmatter stage、NN 目录与阶段提示都没有）'
-                              % source.name)
-                continue
-            try:
-                plan = plan_import(source, registry.user_stage_directory_for(stage),
-                                   stage, registry)
-            except ImportBlocked as exc:
-                errors.append('%s：%s' % (source.name, exc))
-                continue
-            key = (str(plan['target'].parent if plan['kind'] == 'package' else plan['target']).casefold(),)
-            if key in seen_targets:
-                errors.append('%s：与同仓库另一候选目标重复，跳过' % source.name)
-                continue
-            seen_targets.add(key)
-            plan['ledger_source'] = label
-            plans.append(plan)
-            problems.extend('%s：%s' % (plan['name'], problem) for problem in plan['problems'])
-        if problems:
-            message = ('仓库导入前发现以下问题：\n\n'
-                       + '\n'.join('· ' + item for item in problems))
-            if errors:
-                message += '\n\n以下条目将跳过：\n' + '\n'.join('· ' + item for item in errors)
-            message += '\n\n仍要导入吗？'
-            if confirm is None or not confirm(message):
-                raise ImportBlocked('已取消仓库导入')
-        elif errors and not plans:
-            raise ImportBlocked('没有可导入的 SKILL：\n' + '\n'.join('· ' + e for e in errors))
-        installed, failed = [], []
-        for plan in plans:
-            try:
-                perform_import(plan, program)
-                installed.append({'name': plan['name'], 'kind': plan['kind'],
-                                  'stage': plan.get('stage', ''), 'target': str(plan['target'])})
-            except (ImportBlocked, OSError, ValueError) as exc:
-                failed.append({'name': plan['name'], 'error': str(exc)})
-        if not installed and not failed:
-            raise ImportBlocked('没有可导入的 SKILL：\n' + '\n'.join('· ' + e for e in errors))
-        return {'label': label, 'installed': installed, 'failed': failed,
-                'skipped': errors, 'candidates': len(candidates)}
+        plans, problems, errors = _candidate_plans(candidates, root, registry, stage_hint)
+        return _install_candidate_plans(
+            plans, problems, errors, program, confirm,
+            _InstallSource(ledger_source=label, label=label,
+                           source_kind='repo', origin='仓库'))
     finally:
         if staging is not None and staging.exists():
             recycle_paths(program, [staging], 'SKILL 仓库克隆暂存收尾')

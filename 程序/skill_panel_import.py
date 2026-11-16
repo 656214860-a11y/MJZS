@@ -34,6 +34,33 @@ def _reload_panel_skills(panel):
     panel.load()
 
 
+def _import_plan(panel, plan):
+    """预检问题确认 → ``perform_import`` → 重建面板；文件与文件夹入口共用。
+
+    模块级函数而非 Panel 方法：既有测试以未绑定方式调用 Panel 方法、self 是 Mock，
+    方法内再调 self._import_plan 会落到 Mock 自动属性上空转（同 ``_reload_panel_skills``）。
+    """
+    import skill_import_service
+    if plan['problems']:
+        message = ('导入前发现以下问题：\n\n' + '\n'.join('· ' + p for p in plan['problems'])
+                   + '\n\n仍要导入吗？')
+        if not confirm(panel.winfo_toplevel(), TITLE, message, dangerous=True):
+            return None
+    try:
+        # 回收站跟随程序目录（R2073：用户层在 程序/data/skills/<阶段>/）。
+        result = skill_import_service.perform_import(
+            plan, skill_import_service.program_of(plan['target_dir']))
+    except (skill_import_service.ImportBlocked, OSError, ValueError) as exc:
+        panel.state.configure(text='新增 SKILL 失败：' + str(exc))
+        return None
+    target = result['target']
+    _reload_panel_skills(panel)
+    label = target.parent.name if plan['kind'] == 'package' else target.name
+    panel.state.configure(text='已新增 SKILL：' + label + ('（整包导入）' if plan['kind'] == 'package' else ''))
+    panel.refresh_notes(str(target))
+    return target
+
+
 class PanelImportMixin:
     """Panel 的 SKILL 导入方法集（面板本体在 skill_panel.Panel）。"""
 
@@ -50,23 +77,61 @@ class PanelImportMixin:
         except skill_import_service.ImportBlocked as exc:
             self.state.configure(text='新增 SKILL 失败：' + str(exc))
             return None
-        if plan['problems']:
-            message = ('导入前发现以下问题：\n\n' + '\n'.join('· ' + p for p in plan['problems'])
-                       + '\n\n仍要导入吗？')
-            if not confirm(self.winfo_toplevel(), TITLE, message, dangerous=True):
-                return None
+        return _import_plan(self, plan)
+
+    def add_skill_from_folder(self):
+        """本地文件夹导入：根目录须是 SKILL 包（SKILL.md，README 兜底，同 ``_package_source``
+        口径），整包走与文件导入相同的预检→换入→试冻结→登记管线。"""
+        import skill_import_service
+        import skill_registry
+        folder = FileDialog(self.winfo_toplevel()).directory(title='新增 SKILL（文件夹）')
+        if not folder:
+            return None
         try:
-            # 回收站跟随程序目录（R2073：用户层在 程序/data/skills/<阶段>/）。
-            result = skill_import_service.perform_import(plan, skill_import_service.program_of(plan['target_dir']))
-        except (skill_import_service.ImportBlocked, OSError, ValueError) as exc:
+            entry = skill_registry.Registry._package_source(Path(folder))
+        except OSError:
+            entry = None
+        if entry is None:
+            self.state.configure(text='新增 SKILL 失败：所选文件夹不是 SKILL 包（根目录需要 SKILL.md）')
+            return None
+        try:
+            plan = skill_import_service.plan_import(
+                entry, self.registry.user_stage_directory_for(self.stage), self.stage, self.registry)
+        except skill_import_service.ImportBlocked as exc:
             self.state.configure(text='新增 SKILL 失败：' + str(exc))
             return None
-        target = result['target']
+        return _import_plan(self, plan)
+
+    def add_skill_from_archive(self):
+        """ZIP 压缩包导入：``skill_archive`` 安全解包后按包／清单候选走与仓库导入
+        相同的预检→换入→试冻结→登记管线。"""
+        import skill_archive
+        import skill_import_service
+        path = FileDialog(self.winfo_toplevel()).open_file(
+            title='新增 SKILL（ZIP）',
+            filetypes=[('ZIP 压缩包', '*.zip'), ('全部文件', '*.*')])
+        if not path:
+            return None
+        program = Path(skill_import_service.__file__).resolve().parent
+
+        def _confirm(message):
+            return confirm(self.winfo_toplevel(), TITLE, message, dangerous=True)
+
+        try:
+            report = skill_archive.import_archive(
+                path, program, self.registry, stage_hint=self.stage, confirm=_confirm)
+        except (skill_import_service.ImportBlocked, OSError, ValueError) as exc:
+            self.state.configure(text='ZIP 导入失败：' + str(exc))
+            return None
         _reload_panel_skills(self)
-        label = target.parent.name if plan['kind'] == 'package' else target.name
-        self.state.configure(text='已新增 SKILL：' + label + ('（整包导入）' if plan['kind'] == 'package' else ''))
-        self.refresh_notes(str(target))
-        return target
+        names = '、'.join(item['name'] for item in report['installed']) or '无'
+        suffix = ''
+        if report['failed']:
+            suffix = '；失败 ' + str(len(report['failed'])) + ' 个'
+        if report['skipped']:
+            suffix += '；跳过 ' + str(len(report['skipped'])) + ' 个'
+        self.state.configure(text='ZIP 导入完成（%s）：%s%s' % (report['label'], names, suffix))
+        return report
 
     def add_skill_from_repo(self):
         """从仓库地址导入 SKILL：owner/repo 简写、完整 URL（可带 @分支）或本地目录；

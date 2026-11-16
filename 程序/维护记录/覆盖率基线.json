@@ -1713,7 +1713,7 @@
   {
    "module": "pet_performance_service.py",
    "covered": 0,
-   "total": 101,
+   "total": 106,
    "percent": 0.0
   },
   {
@@ -2065,6 +2065,12 @@
    "percent": 0.0
   },
   {
+   "module": "skill_archive.py",
+   "covered": 0,
+   "total": 92,
+   "percent": 0.0
+  },
+  {
    "module": "skill_budget.py",
    "covered": 0,
    "total": 4,
@@ -2079,7 +2085,7 @@
   {
    "module": "skill_import_service.py",
    "covered": 0,
-   "total": 391,
+   "total": 409,
    "percent": 0.0
   },
   {
@@ -2109,13 +2115,13 @@
   {
    "module": "skill_panel.py",
    "covered": 0,
-   "total": 571,
+   "total": 672,
    "percent": 0.0
   },
   {
    "module": "skill_panel_import.py",
    "covered": 0,
-   "total": 69,
+   "total": 114,
    "percent": 0.0
   },
   {
@@ -2211,7 +2217,7 @@
   {
    "module": "stage_model_picker.py",
    "covered": 0,
-   "total": 161,
+   "total": 347,
    "percent": 0.0
   },
   {
@@ -2487,7 +2493,7 @@
   {
    "module": "ui/ui_composer_style.py",
    "covered": 0,
-   "total": 26,
+   "total": 27,
    "percent": 0.0
   },
   {
@@ -2793,7 +2799,7 @@
   {
    "module": "workflow_settings.py",
    "covered": 0,
-   "total": 703,
+   "total": 748,
    "percent": 0.0
   },
   {
@@ -2907,8 +2913,8 @@
   {
    "module": "skill_registry.py",
    "covered": 98,
-   "total": 652,
-   "percent": 15.0
+   "total": 659,
+   "percent": 14.9
   },
   {
    "module": "stage_config.py",
@@ -3206,9 +3212,9 @@
   },
   {
    "module": "agent/publication.py",
-   "covered": 141,
+   "covered": 145,
    "total": 159,
-   "percent": 88.7
+   "percent": 91.2
   },
   {
    "module": "domain/video_lifecycle_service.py",
@@ -3290,5 +3296,5 @@
   }
  ],
  "modules_covered": 71,
- "modules_total": 546
+ "modules_total": 547
 }

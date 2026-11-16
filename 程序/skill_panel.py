@@ -102,11 +102,14 @@ STAGE_FLOW = {FLOW_STAGE[name]: name for name in FLOW_NAMES if name in FLOW_STAG
 # 「不使用 SKILL」这一项删掉了：一份都不勾就是不用。
 MANAGE_ALL = '全选'
 MANAGE_NONE = '取消'
-MANAGE_ADD = '新增'
+MANAGE_ADD = '新增·文件'
+MANAGE_ADD_DIR = '新增·文件夹'
+MANAGE_ADD_ZIP = '新增·ZIP'
 MANAGE_ADD_REPO = '从仓库地址导入'
 MANAGE_HEALTH = '体检'
 MANAGE_DELETE = '删除已勾选 SKILL'
-MANAGE_LABELS = (MANAGE_ALL, MANAGE_NONE, MANAGE_ADD, MANAGE_ADD_REPO, MANAGE_HEALTH, MANAGE_DELETE)
+MANAGE_LABELS = (MANAGE_ALL, MANAGE_NONE, MANAGE_ADD, MANAGE_ADD_DIR, MANAGE_ADD_ZIP,
+                 MANAGE_ADD_REPO, MANAGE_HEALTH, MANAGE_DELETE)
 # 外部包只登记总入口；API 调用只会收到入口指针，不能假装会展开其中的本地子模块。
 # 勾选框按「功能分组／流程先后」排（第 59 期第 6 条）：文件名前缀就是那条流程里的功能分组。
 
@@ -380,6 +383,12 @@ class Panel(PanelWorkflowMixin, PanelImportMixin, FormScrollMixin, ttk.Frame):
         if picked == MANAGE_ADD:
             self.skill_action.set(MANAGE_ALL)
             return self.add_skill_from_file()
+        if picked == MANAGE_ADD_DIR:
+            self.skill_action.set(MANAGE_ALL)
+            return self.add_skill_from_folder()
+        if picked == MANAGE_ADD_ZIP:
+            self.skill_action.set(MANAGE_ALL)
+            return self.add_skill_from_archive()
         if picked == MANAGE_ADD_REPO:
             self.skill_action.set(MANAGE_ALL)
             return self.add_skill_from_repo()
