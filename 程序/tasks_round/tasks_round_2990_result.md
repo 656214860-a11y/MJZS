@@ -1,5 +1,5 @@
 # R2990 结果：page.paint 首帧指标分解（布局等待 polls＋窗内布局轮次）
-<!-- round-evidence: {"commit_base": "6ecbfd5f", "credential_hits": 0, "evidence_sha256": "ab2a98ff7771fc09", "exit": 0, "failed": 0, "passed": 30, "round": 2990, "tests": "run_selftests.py -k page_paint app_logging"} -->
+<!-- round-evidence: {"commit_base": "aa529f37", "credential_hits": 0, "evidence_sha256": "6ee2ce3d81b0a1c2", "exit": 0, "failed": 0, "passed": 5, "round": 2990, "tests": "run_selftests.py -k static_hygiene"} -->
 
 **类型**：性能/资源轮（度量增强，不改产品行为）。
 **测试**：跑了——`test_page_paint_metric` 8 条、`test_page_paint_freeze` 9 条、`test_app_logging` 13 条全绿（含新增计数器断言）；默认冒烟 8/8；四个改动文件 py_compile 通过。跨树 GUI 令牌被另一工作树全量串行回归（PID 39528，dsh-1be9aed2 车道）占用，`run_selftests -k` 排队超时后改由直接 `python tests/<file>.py` 验证同三文件。
@@ -23,7 +23,11 @@
 
 ## 改动文件
 
-`app_logging.py`、`desktop_layout.py`、`tests/test_page_paint_metric.py`、`维护记录/基准脚本/paint_stats.py`。
+`app_logging.py`、`desktop_layout.py`、`tests/test_page_paint_metric.py`、`tests/architecture/test_static_hygiene.py`、`维护记录/基准脚本/paint_stats.py`。
+
+## 合并阻断修复（同轮附带）
+
+首次合并 CI 静态门禁失败：`data/voice_asr_venv/`（离线 ASR 运行时 pip venv，约 7700 个第三方 .py／630MB）被 `test_static_hygiene._all_sources` 当成本仓代码扫描，eval/exec、无效转义、星号导入三项误报。该目录与 `skills/` 同性质——非本仓维护代码。修复：`_EXCLUDED_PARTS` 增加 `"voice_asr_venv"`＋docstring／注释说明＋新增 `test_scan_scope_excludes_runtime_asr_venv` 断言排除生效（5/5 绿）。门禁语义未弱化：扫描范围收敛到门禁文档本就声明的「本仓自有 .py」。
 
 ## 下一步（证据驱动）
 
