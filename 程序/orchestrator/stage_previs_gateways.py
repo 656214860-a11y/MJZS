@@ -104,14 +104,14 @@ def previs_progress_gateway():
 
 def publish_stage_previs_progress(path, shot_id, stage, completed=None, total=None):
     """发布单镜头白模进度；宿主兼容门面只委托此 L3 入口。"""
-    from previs_progress_service import publish
+    from domain.previs_progress_service import publish
     return publish(path, shot_id, stage, completed, total,
                    publish_text=previs_progress_gateway()['publish_text'])
 
 
 def install_stage_previs_progress(path, shot_id):
     """为 Blender 安装进度回调，并向 L2 注入正式发布器。"""
-    from previs_progress_service import install_blender_progress
+    from domain.previs_progress_service import install_blender_progress
     return install_blender_progress(path, shot_id,
                                     publish_text=previs_progress_gateway()['publish_text'])
 

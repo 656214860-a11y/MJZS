@@ -60,7 +60,7 @@ class _ScriptEditSession:
 
     def __init__(self, page, controls, box):
         # box 是 _ContentBox：预览框、已读原文、当前文档与内容框配置都从它取。
-        from script_structure_edit_controller import ScriptStructureEditController
+        from domain.script_structure_edit_controller import ScriptStructureEditController
         self.page = page
         self.box = box
         self.preview = box.preview

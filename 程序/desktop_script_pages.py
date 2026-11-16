@@ -494,7 +494,7 @@ class _ScriptStructurePage:
         split_area.rowconfigure(1, weight=1, uniform='script_structure_preview')
         self.split_boxes = []
         structure_note = '本地规则整理，不调用模型；不切镜头、不改自然语言原稿。'
-        from script_preview_service import LOADING_PREVIEW, preview_chunks, read_preview, should_load_async
+        from domain.script_preview_service import LOADING_PREVIEW, preview_chunks, read_preview, should_load_async
         self.LOADING_PREVIEW = LOADING_PREVIEW; self.preview_chunks = preview_chunks; self.read_preview = read_preview; self.should_load_async = should_load_async
         self.page.script_structure_source_box = self.content_box(
             split_area,

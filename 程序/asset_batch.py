@@ -22,7 +22,7 @@ from asset_batch_service import (
 )
 from orchestrator.asset_auto_batch_service import auto_batch as _auto_batch
 from asset_batch_state_service import ledger_path, uncertain_assets, prune_raw_outputs, ready_asset_ids
-from asset_batch_selection_service import all_selected, scope_label, set_selection, toggle_excluded
+from domain.asset_batch_selection_service import all_selected, scope_label, set_selection, toggle_excluded
 from orchestrator.asset_batch_controller import AssetBatchController, WORKFLOW_MODEL
 
 

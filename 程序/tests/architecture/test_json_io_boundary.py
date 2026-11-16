@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 from tests.architecture._layers import LAYERS
-from tests.architecture._scan import stage_execution_source
+from tests.architecture._scan import entity_file, stage_execution_source
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -15,7 +15,7 @@ class JsonIoBoundaryTests(unittest.TestCase):
     def test_previs_progress_uses_cache_and_l3_injected_publisher(self):
         """L2 进度轮询不得退回裸读写，正式发布器必须由 L3 注入。"""
         self.assertEqual(LAYERS['previs_progress_service'], 2)
-        source = (ROOT / 'previs_progress_service.py').read_text(encoding='utf-8')
+        source = entity_file('previs_progress_service').read_text(encoding='utf-8')
         self.assertIn('from file_cache import read_json', source)
         self.assertIn('data = read_json(path)', source)
         self.assertIn("if not callable(publish_text):", source)

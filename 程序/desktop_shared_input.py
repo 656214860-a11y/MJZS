@@ -19,7 +19,7 @@ from tkinter import ttk
 from pathlib import Path
 
 import app_logging
-import skill_command
+import domain.skill_command as skill_command
 import ui_plugin_registry
 from contract import pet_bus
 from ui_shortcuts import ShortcutRegistry

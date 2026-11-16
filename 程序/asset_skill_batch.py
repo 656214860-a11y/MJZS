@@ -12,7 +12,7 @@ def launch(app,project,base,items):
     items=[(aid,asset) for aid,asset in items if requires_asset(aid,asset) and not image_ready(base,aid)]
     if not items:
         app.status.set('没有待生成的独立资产；已就绪图片跳过，普通道具随镜头画面生成。');return
-    from asset_batch_lifecycle import reconcile,prepare,attach,fail,status
+    from domain.asset_batch_lifecycle import reconcile,prepare,attach,fail,status
     from stage_execution_service import asset_batch_gateway
     gateway=asset_batch_gateway()
     sessions=getattr(app,'flow_processes',{})
@@ -87,7 +87,7 @@ def watch(app,manifest):
                 save(manifest,data)
                 if Path(app.root).resolve()==manifest.parents[3].resolve() and getattr(app,'page_index',None)==2:
                     app.show(2)
-            from asset_batch_lifecycle import status
+            from domain.asset_batch_lifecycle import status
             execution=status(manifest,gateway=gateway)
             if execution['state']=='failed':
                 for item in data['assets']:

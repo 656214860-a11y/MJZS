@@ -1140,7 +1140,7 @@
         "reason": "R1895：解析已验签租约的内存 payload 字节，不读取文件。"
       },
       {
-        "file": "account_client.py",
+        "file": "domain/account_client.py",
         "point": "_read_json:json.loads:ba5f15a4e6a1061d:1",
         "disposition": "exempt",
         "reason": "R1895：解析账号服务 HTTP 响应体，不读取文件。"

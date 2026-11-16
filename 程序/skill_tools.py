@@ -162,7 +162,7 @@ def _revise_structured_script(context):
 
 def _recon_request(project):
     """用户在 input/recon_request.json 里写下的采风请求（有就用，没有返回空表）。"""
-    from recon_service import load_request
+    from domain.recon_service import load_request
     return load_request(project)
 
 
@@ -199,7 +199,7 @@ def _recon_target(context, project, material_source):
 
 def _recon_card(context):
     """素材采风：③④ 才激活；把对标对象的公开情报抓回来装成《对标情报卡》。"""
-    from recon_service import MATERIAL_SOURCES, ReconPorts, collect, save_card, summary
+    from domain.recon_service import MATERIAL_SOURCES, ReconPorts, collect, save_card, summary
     import stage_config
     ctx = context or {}
     project = project_of(ctx)

@@ -17,7 +17,7 @@ def source_selector(app,index,*,select_box):
     from tkinter import ttk
     sources=adopted(app.root)
     if not sources:return
-    from storyboard_source_service import source_options
+    from domain.storyboard_source_service import source_options
     labels,sources,current_index=source_options(sources,app.asset_scope(),app.current_frame_json())
     row=ttk.Frame(app.content);row.pack(fill='x',pady=(SPACING['none'],SPACING['xs']))
     # 第 64 期任务 5：「全部分镜」这一项原来只有资产管理页有，用户要它同步到其他页面的

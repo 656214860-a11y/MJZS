@@ -89,7 +89,7 @@ def stale_tasks(project,source,agent_running=False,limit=300):
 
     有执行记录（Agent 真跑过）或已经产出图片的批次必须保留：前者可能仍在生成，后者正等自动导入。
     """
-    from asset_batch_lifecycle import status as lifecycle
+    from domain.asset_batch_lifecycle import status as lifecycle
     from stage_execution_service import asset_batch_gateway
     gateway=asset_batch_gateway()
     now=time.time();stale={}

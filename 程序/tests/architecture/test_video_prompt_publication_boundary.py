@@ -2,7 +2,7 @@
 import ast
 import os
 import unittest
-from tests.architecture._scan import stage_execution_source
+from tests.architecture._scan import entity_file, stage_execution_source
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -37,7 +37,7 @@ class VideoPromptPublicationBoundaryTests(unittest.TestCase):
         self.assertNotIn('save(studio.episode_path', source)
 
     def test_service_owns_all_prompt_artifact_names(self):
-        source = open(os.path.join(ROOT, 'video_prompt_publication.py'), encoding='utf-8').read()
+        source = entity_file('video_prompt_publication').read_text(encoding='utf-8')
         self.assertIn('def publish(', source)
         self.assertIn('def stage_import(', source)
         self.assertNotIn('stage_execution_service', source)
@@ -46,7 +46,7 @@ class VideoPromptPublicationBoundaryTests(unittest.TestCase):
             self.assertIn(name, source)
 
     def test_l2_requires_l3_publishers_for_legacy_and_import_paths(self):
-        source = open(os.path.join(ROOT, 'video_prompt_publication.py'), encoding='utf-8').read()
+        source = entity_file('video_prompt_publication').read_text(encoding='utf-8')
         stage = stage_execution_source()
         self.assertIn('def _publish_legacy_bundle(artifacts, *, publish_bundle=None)', source)
         self.assertIn('def _import_gateway(gateway)', source)

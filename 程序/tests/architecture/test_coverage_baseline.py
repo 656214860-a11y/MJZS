@@ -35,9 +35,9 @@ TOOL = ROOT / "scripts" / "coverage_report.py"
 CORE_FLOORS = {
     "infra/request_ledger.py": 50.0,  # 计费：RequestLedger 记账与金额不变量（自 pet_llm 拆出；T10 迁 infra/）
     "usage_overview.py": 18.0,  # 计费：用量与成本汇总
-    "keyframe_lifecycle_service.py": 65.0,  # 状态机：首帧生命周期
+    "domain/keyframe_lifecycle_service.py": 65.0,  # 状态机：首帧生命周期
     "domain/video_lifecycle_service.py": 75.0,  # 状态机：视频生命周期
-    "asset_batch_lifecycle.py": 28.0,  # 状态机：资产批次生命周期
+    "domain/asset_batch_lifecycle.py": 28.0,  # 状态机：资产批次生命周期
     "agent/publication.py": 70.0,  # 发布：原子发布
     "orchestrator/desktop_automation_service.py": 30.0,  # 队列：PersistentBackgroundTaskQueue
 }

@@ -430,7 +430,7 @@ class Studio:
                     return 'sha256:'+hashlib.sha256(base64.b64decode(value.split(',',1)[1])).hexdigest()
                 return value
             preview=redact(payload)
-            from video_source_evidence import submitted_sources
+            from domain.video_source_evidence import submitted_sources
             media_sources = submitted_sources(preview, frame, shot.get('_white_model_reference'), shot['_asset_references'])
             v={'version':len(versions)+1,'state':'submitting','seconds':shot['duration'],'charged':True,
                'signature':fingerprint(payload),'review':'pending','created':time.time(),'local_request':uuid.uuid4().hex}

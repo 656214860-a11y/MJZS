@@ -170,7 +170,7 @@ def _same_project_name(candidate, expected):
 
 def _filename_day(filename):
     "四段式 .md 文件名末尾的日期段（规则同下载收回），不是合法日期返回空串。"
-    from download_inbox import filename_day
+    from domain.download_inbox import filename_day
     name = Path(str(filename or '')).name
     return filename_day(name) if name.lower().endswith('.md') else ''
 

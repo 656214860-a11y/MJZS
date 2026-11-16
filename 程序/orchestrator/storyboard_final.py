@@ -100,7 +100,7 @@ def _publish_final_docs(project, episode):
 def finalize(project,episode_dir,source,retire_working=None,*,gateway=None):
     from asset_context import library_dir,references
     from stage_execution_service import storyboard_resolve_source as resolve_source
-    from storyboard_lifecycle import signature
+    from domain.storyboard_lifecycle import signature
     project=Path(project).resolve();base=library_dir(project,episode_dir)
     source=resolve_source(project,source);original=source.read_bytes()
     original_hash=hashlib.sha256(original).hexdigest()

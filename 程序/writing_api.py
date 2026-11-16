@@ -17,7 +17,8 @@ import stage_model_value
 import token_saver
 from file_cache import read_json
 from model_router import ModelAdapter, PoolAdapter
-import orchestrator.edit_habits as edit_habits, workflow_context, writing_tools
+import domain.writing_tools as writing_tools
+import orchestrator.edit_habits as edit_habits, workflow_context
 from orchestrator.writing_preparation_ledger import (PREPARATION_STAGES, _PREPARATION_STAGE_WORDS,
                                         _confirmed_basis, _confirmed_prefix,
                                         _preparation_draft_is_parallel,
@@ -28,7 +29,7 @@ from orchestrator.writing_preparation_ledger import (PREPARATION_STAGES, _PREPAR
                                         _save_preparation_state_guarded,
                                         _working_documents)
 from writing_quality import enabled as quality_enabled
-from writing_stream import chat_streaming
+from domain.writing_stream import chat_streaming
 from contract.workflow_context_budget import (REQUEST_CONTEXT_MAX_CHARS, budget_advice, budget_sections,
                                      context_budget_report, text_fingerprint)
 

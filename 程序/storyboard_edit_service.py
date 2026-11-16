@@ -1,21 +1,10 @@
-"""Persistence boundary for user-edited storyboard JSON documents."""
-import logging
-from pathlib import Path
+"""历史入口：实体已迁至 ``domain.storyboard_edit_service``（T10 包化）。
 
-from contract.service_contract import SystemError, UserError, success
+``import storyboard_edit_service`` 返回 ``domain.storyboard_edit_service`` 本体：私有名、模块级状态与
+按扁平名打的 ``mock.patch`` 补丁面和包内路径完全一致；生产侧一律用包路径。
+门面清除轮统一改写测试导入后删除本文件。
+"""
+import sys as _sys
+from domain import storyboard_edit_service as _entity
 
-LOGGER = logging.getLogger(__name__)
-
-def save_edited_json(path, data, publish=None):
-    """Return a result carrying the saved path; the injected publisher is atomic."""
-    if not callable(publish):
-        raise TypeError('分镜编辑发布必须由 L3 注入。')
-    try:
-        target = Path(path).resolve()
-        if target.suffix.lower() != '.json':
-            return UserError('分镜编辑只能保存 JSON 文件')
-        publish(target, data)
-    except OSError:
-        LOGGER.exception('分镜编辑保存失败')
-        return SystemError('分镜保存失败，请检查文件权限和磁盘空间后重试。')
-    return success(target)
+_sys.modules[__name__] = _entity

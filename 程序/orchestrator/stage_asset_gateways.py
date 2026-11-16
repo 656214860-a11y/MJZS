@@ -93,7 +93,7 @@ def asset_detail_gateway():
 
 def bind_asset_canonical_view(project, episode_dir, aid, view, source):
     """L3 编排资产详情正典板绑定。"""
-    from asset_detail_service import bind_canonical_view
+    from domain.asset_detail_service import bind_canonical_view
     episode_dir = prepare_asset_write(project, episode_dir)
     result = bind_canonical_view(project, episode_dir, aid, view, source,
                                 gateway=asset_detail_gateway(), context=project_context(project))
@@ -104,7 +104,7 @@ def bind_asset_canonical_view(project, episode_dir, aid, view, source):
 
 def bind_asset_variant_thumbnail(project, episode_dir, aid, state_id, source):
     """L3 编排资产详情状态变体缩略图绑定。"""
-    from asset_detail_service import bind_variant_thumbnail
+    from domain.asset_detail_service import bind_variant_thumbnail
     episode_dir = prepare_asset_write(project, episode_dir)
     result = bind_variant_thumbnail(project, episode_dir, aid, state_id, source,
                                    gateway=asset_detail_gateway(), context=project_context(project))

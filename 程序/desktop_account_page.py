@@ -13,7 +13,7 @@ import webbrowser
 import tkinter as tk
 from tkinter import ttk
 
-import account_client
+import domain.account_client as account_client
 import entitlement_service
 from orchestrator.account_controller import RENEW_VIEW_INTERVAL, AccountController
 import contract.pet_bus as pet_bus

@@ -161,7 +161,7 @@ def local_video_settings_gateway():
 
 def publish_local_video_settings(project, current_config, options):
     """L3 编排本地视频工作流与项目设置的成对发布。"""
-    from local_video_settings_service import save_local_video_settings
+    from domain.local_video_settings_service import save_local_video_settings
     return save_local_video_settings(project_context(project), current_config, options,
                                      gateway=local_video_settings_gateway())
 
@@ -173,7 +173,7 @@ def pet_performance_gateway():
 
 def start_pet_performance_check(program, project, kind='startup'):
     """L3 编排宠物离线基准启动；L4 不直接调用 L2 服务。"""
-    from pet_performance_service import (start_hotspot_check, start_long_list_check,
+    from domain.pet_performance_service import (start_hotspot_check, start_long_list_check,
                                          start_startup_check)
     starters = {'long_list': start_long_list_check, 'hotspot': start_hotspot_check}
     return starters.get(kind, start_startup_check)(program, project)
@@ -181,7 +181,7 @@ def start_pet_performance_check(program, project, kind='startup'):
 
 def poll_pet_performance_check(session, at=None):
     """L3 轮询宠物离线基准，并向 L2 注入正式账本发布器。"""
-    from pet_performance_service import poll_startup_check
+    from domain.pet_performance_service import poll_startup_check
     return poll_startup_check(session, project_context(session['project']), at=at,
                               publish=pet_performance_gateway()['publish_json'])
 
@@ -193,13 +193,13 @@ def pet_test_gateway():
 
 def start_pet_test_check(program, text=''):
     """L3 编排宠物增量自检启动；L4 不直接调用 L2 服务。"""
-    from pet_test_service import start_incremental
+    from domain.pet_test_service import start_incremental
     return start_incremental(program, text)
 
 
 def poll_pet_test_check(session, project, at=None):
     """L3 轮询宠物增量自检，并向 L2 注入正式账本发布器。"""
-    from pet_test_service import poll_incremental
+    from domain.pet_test_service import poll_incremental
     return poll_incremental(session, project_context(project), at=at,
                             publish=pet_test_gateway()['publish_json'])
 
@@ -242,7 +242,7 @@ def video_prompt_gateway():
 
 
 def publish_video_prompt(studio, sid, text):
-    from video_prompt_publication import publish
+    from domain.video_prompt_publication import publish
     result = publish(studio, sid, text, publish_bundle=video_prompt_gateway()['publish_bundle'])
     if not result.ok:
         raise ValueError(result.reason)
@@ -250,7 +250,7 @@ def publish_video_prompt(studio, sid, text):
 
 
 def import_video_prompt(studio, sid, text):
-    from video_prompt_publication import stage_import
+    from domain.video_prompt_publication import stage_import
     result = stage_import(studio, sid, text, gateway=video_prompt_gateway())
     if not result.ok:
         raise ValueError(result.reason)
@@ -338,7 +338,7 @@ def desktop_settings_gateway():
 
 def publish_desktop_preferences(settings_path, current, updates):
     """桌面设置持久化只经 L3 装配的发布器。"""
-    from desktop_settings_service import publish_desktop_settings
+    from domain.desktop_settings_service import publish_desktop_settings
     return publish_desktop_settings(settings_path, current, updates,
                                     publish=desktop_settings_gateway()['publish_json'])
 
@@ -475,13 +475,13 @@ def asset_batch_settings_gateway():
 
 
 def save_asset_batch_settings(project, options, categories=None, restored_model_id=None):
-    from asset_batch_settings_service import save_settings
+    from domain.asset_batch_settings_service import save_settings
     return save_settings(project, options, categories, restored_model_id,
                          publish=asset_batch_settings_gateway()['publish_json'])
 
 
 def remove_asset_batch_model(project, url, model, model_id):
-    from asset_batch_settings_service import remove_model
+    from domain.asset_batch_settings_service import remove_model
     return remove_model(project, url, model, model_id,
                         publish=asset_batch_settings_gateway()['publish_json'])
 
@@ -496,19 +496,19 @@ def remove_asset_batch_model(project, url, model, model_id):
 
 def storyboard_working_source(project, source):
     """L3 为分镜生命周期的工作稿判定注入项目上下文。"""
-    from storyboard_lifecycle import is_working_source
+    from domain.storyboard_lifecycle import is_working_source
     return is_working_source(project_context(project), source)
 
 
 def retire_storyboard(project, source, target, expected, publish):
     """L3 为已发布定稿退役工作分镜注入项目上下文。"""
-    from storyboard_lifecycle import retire
+    from domain.storyboard_lifecycle import retire
     return retire(project_context(project), source, target, expected, publish=publish)
 
 
 def refresh_storyboard_studios(desktop, project):
     """L3 为定稿后的已开分镜工作集刷新注入项目上下文。"""
-    from storyboard_lifecycle import refresh_open_studios
+    from domain.storyboard_lifecycle import refresh_open_studios
     return refresh_open_studios(desktop, project_context(project))
 
 
@@ -652,7 +652,7 @@ def storyboard_edit_gateway():
 
 def save_edited_stage_storyboard(path, data):
     """保存已校验的定稿分镜；L3 保持正式发布器唯一装配点。"""
-    from storyboard_edit_service import save_edited_json
+    from domain.storyboard_edit_service import save_edited_json
     return save_edited_json(prepare_legacy_stage_path(path), data,
                             publish=storyboard_edit_gateway()['publish_json'])
 
@@ -701,19 +701,19 @@ def publish_keyframe_episode(target, episode):
 
 def delete_stage_keyframe(base, source, episode, shot):
     """首帧删除编排：L3 注入索引发布器。"""
-    from keyframe_lifecycle_service import delete_keyframe
+    from domain.keyframe_lifecycle_service import delete_keyframe
     return delete_keyframe(prepare_legacy_stage_path(base), prepare_legacy_stage_path(source), episode, shot, publish=publish_keyframe_episode)
 
 
 def restore_stage_keyframe(base, source, episode, shot):
     """首帧恢复编排：L3 注入索引发布器。"""
-    from keyframe_lifecycle_service import restore_keyframe
+    from domain.keyframe_lifecycle_service import restore_keyframe
     return restore_keyframe(prepare_legacy_stage_path(base), prepare_legacy_stage_path(source), episode, shot, publish=publish_keyframe_episode)
 
 
 def replace_stage_keyframe(base, source, episode, shot, data):
     """首帧替换编排：L3 注入图片与索引两个原子发布器。"""
-    from keyframe_lifecycle_service import replace_keyframe
+    from domain.keyframe_lifecycle_service import replace_keyframe
     return replace_keyframe(
         prepare_legacy_stage_path(base), prepare_legacy_stage_path(source), episode, shot, data, publish=publish_stage_bytes,
         publish_episode=publish_keyframe_episode)

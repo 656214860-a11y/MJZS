@@ -171,7 +171,7 @@ class _FirstFramePage:
     # 选到「全部分镜」时，把已采用的每一份的镜头一起列出来，每一镜各自认自己那一份的目录与文件。
     # 只有一份（用户选了「只这一份」，或本来就只采用了一份）时，下面与从前一字不差。
     def load_rows(self):
-        from storyboard_rows_service import frame_rows
+        from domain.storyboard_rows_service import frame_rows
         return frame_rows(self.page.root, self.source, self.episode, self.base, self.page.asset_scope(), self.page.note)
 
     def use_rows(self):

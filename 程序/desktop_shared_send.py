@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import app_logging
-import skill_command
+import domain.skill_command as skill_command
 from contract import pet_bus
 from ui_tokens import SPACING
 

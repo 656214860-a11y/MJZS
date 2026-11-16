@@ -387,7 +387,7 @@ class IdeaBubblesMixin:
         self.poll_stream(self._stream_generation)
     def stream_call(self,fn,*args,**kwargs):
         """工作线程里调用 fn，期间模型返回的文字片段交给 push_stream。"""
-        import writing_stream
+        import domain.writing_stream as writing_stream
         with writing_stream.stream_to(self.push_stream):return fn(*args,**kwargs)
     def push_stream(self,chunk):
         """工作线程调用：只往缓冲追加，不碰 Tk；界面由 poll_stream 在主线程里取。"""

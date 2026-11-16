@@ -3,6 +3,8 @@ import os
 import unittest
 from pathlib import Path
 
+from tests.architecture._scan import entity_file
+
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
@@ -20,7 +22,7 @@ class AssetDetailBindingBoundaryTests(unittest.TestCase):
             self.assertNotIn('_fields(', method_source)
 
     def test_service_requires_l3_gateway_and_has_no_direct_byte_publisher(self):
-        source = (Path(ROOT) / 'asset_detail_service.py').read_text(encoding='utf-8')
+        source = entity_file('asset_detail_service').read_text(encoding='utf-8')
         tree = ast.parse(source)
         imports = [name.name for node in tree.body if isinstance(node, ast.ImportFrom)
                    and node.module == 'agent.core' for name in node.names]
