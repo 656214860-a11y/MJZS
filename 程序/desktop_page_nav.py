@@ -302,6 +302,9 @@ class PageNavMixin:
                     assets_button.configure(image=image)
                     assets_button._nav_icon_name=key
         self.header_status.configure(text='',textvariable='');self.header_model.configure(text='');self.title.set_text(page_title(index));self.status.set(str(self.root))
+        # R2989 P1：换页即清空统一底栏左区的用量摘要段（剧本准备页专用上下文，不带到别的页）。
+        status_bar=getattr(self,'status_bar',None)
+        if status_bar is not None:status_bar.clear_segment('usage')
         self.stage_button=None                 # 那一行随页面重建：旧按钮这会儿已跟着 content 一起销毁
         if self.header_stage_button is not None:
             self.header_stage_button.destroy();self.header_stage_button=None    # 页标题旁那颗同理

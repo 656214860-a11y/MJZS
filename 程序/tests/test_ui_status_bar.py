@@ -86,10 +86,11 @@ class StatusBarTests(unittest.TestCase):
             self.assertEqual(style['fg'], COLORS[keys[1]])
 
     def test_transient_message_auto_expires(self):
-        self.bus.publish(Message('info', '临时', ttl=80.0))
-        self.pump(0.05)
+        # ttl 必须明显长于 100ms 心跳周期，先确认上屏，再确认到期回中性。
+        self.bus.publish(Message('info', '临时', ttl=400.0))
+        self.pump(0.25)
         self.assertEqual(self.bar.message.full_text, '临时')
-        self.pump(0.5)
+        self.pump(0.8)
         self.assertIsNone(self.bus.current)
         self.assertEqual(self.bar.message.full_text, '就绪')
 
@@ -109,8 +110,16 @@ class StatusBarTests(unittest.TestCase):
         self.bar._toggle_history()
         self.pump(0.05)
         self.assertIsNotNone(self.bar._popup)
-        text = self.bar._popup.winfo_children()
-        self.assertTrue(any(w.winfo_class() == 'Text' for w in text))
+        found = []
+
+        def walk(widget):
+            for child in widget.winfo_children():
+                if child.winfo_class() == 'Text':
+                    found.append(child)
+                walk(child)
+
+        walk(self.bar._popup)
+        self.assertTrue(found)
         self.bar._close_history()
         self.assertIsNone(self.bar._popup)
 

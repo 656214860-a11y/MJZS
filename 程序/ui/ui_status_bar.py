@@ -46,7 +46,7 @@ class StatusBar(ttk.Frame):
         self._popup = None
         self._pending_afters = {}
         self._destroyed = False
-        self.bind('<Destroy>', lambda _event: setattr(self, '_destroyed', True), add='+')
+        self.bind('<Destroy>', self._on_destroy, add='+')
         self._build()
         self._unsub = bus.subscribe(self._on_event)
         self._show_neutral()
@@ -56,9 +56,14 @@ class StatusBar(ttk.Frame):
     def _after(self, ms, fn, *args):
         def _wrap(*_a):
             self._pending_afters.pop(after_id, None)
+            if self._destroyed:
+                return
             return fn(*_a)
 
-        after_id = self.after(int(ms), _wrap, *args)
+        try:
+            after_id = self.after(int(ms), _wrap, *args)
+        except tk.TclError:
+            return None
         self._pending_afters[after_id] = True
         return after_id
 
@@ -106,6 +111,16 @@ class StatusBar(ttk.Frame):
         if sep is not None:
             sep.destroy()
 
+    def _on_destroy(self, _event):
+        """销毁时停掉全部 after：Tk 会删除已登记命令名，残留脚本会以 invalid command 报错。"""
+        self._destroyed = True
+        for after_id in list(self._pending_afters):
+            self._pending_afters.pop(after_id, None)
+            try:
+                self.after_cancel(after_id)
+            except tk.TclError:
+                pass
+
     # ---- 消息渲染 ----
     def _on_event(self, event):
         if self._destroyed:
@@ -138,6 +153,8 @@ class StatusBar(ttk.Frame):
 
     # ---- 心跳 ----
     def _tick(self):
+        if self._destroyed:
+            return
         self._bus.pump()
         self._after(self._tick_ms, self._tick)
 
@@ -149,18 +166,18 @@ class StatusBar(ttk.Frame):
             self._open_history()
 
     def _open_history(self):
-        popup = tk.Toplevel(self)
-        popup.overrideredirect(True)
-        popup.configure(bg=COLORS['background_card'],
-                        highlightthickness=1, highlightbackground=COLORS['border_default'])
-        header = tk.Label(popup, text='消息历史', bg=COLORS['background_card'],
+        # 弹窗走统一组件 BaseDialog（ui_widgets），业务模块不得直接建 Toplevel。
+        from ui_widgets import BaseDialog
+        popup = BaseDialog(self, '消息历史', modal=False, chrome=False,
+                           on_close=self._on_history_closed)
+        header = tk.Label(popup.content, text='消息历史', bg=COLORS['background_card'],
                           fg=COLORS['text_heading'], font=FONTS['body'])
         header.pack(anchor='w', padx=SPACING['sm'], pady=(SPACING['sm'], SPACING['none']))
-        close = tk.Label(popup, text='×', bg=COLORS['background_card'],
+        close = tk.Label(popup.content, text='×', bg=COLORS['background_card'],
                          fg=COLORS['text_muted'], font=FONTS['body'])
         close.place(relx=1.0, x=-SPACING['sm'] - 12, y=SPACING['xs'], anchor='ne')
-        close.bind('<Button-1>', lambda _event: self._close_history())
-        text = tk.Text(popup, width=64, height=8, relief='flat', wrap='word',
+        close.bind('<Button-1>', lambda _event: popup.close())
+        text = tk.Text(popup.content, width=64, height=8, relief='flat', wrap='word',
                        bg=COLORS['background_card'], fg=COLORS['text_primary'],
                        font=FONTS['pet_hint'], state='disabled',
                        highlightthickness=0, padx=SPACING['xs'], pady=SPACING['xs'])
@@ -173,8 +190,7 @@ class StatusBar(ttk.Frame):
             text.configure(state='normal')
             text.insert('1.0', '\n'.join(lines))
             text.configure(state='disabled')
-        popup.bind('<Escape>', lambda _event: self._close_history())
-        popup.bind('<FocusOut>', lambda _event: self._close_history())
+        popup.bind('<FocusOut>', lambda _event: popup.close())
         popup.update_idletasks()
         x = self.winfo_rootx() + self.winfo_width() - popup.winfo_reqwidth()
         y = self.winfo_rooty() - popup.winfo_reqheight()
@@ -182,9 +198,12 @@ class StatusBar(ttk.Frame):
         popup.focus_set()
         self._popup = popup
 
+    def _on_history_closed(self):
+        self._popup = None
+
     def _close_history(self):
         if self._popup is not None and self._popup.winfo_exists():
-            self._popup.destroy()
+            self._popup.close()
         self._popup = None
 
     # ---- 生命周期 ----

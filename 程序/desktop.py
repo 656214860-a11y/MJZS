@@ -55,6 +55,8 @@ from ui_shortcuts import ShortcutRegistry
 import ui.ui_stage_popups as ui_stage_popups# noqa: F401  导入即向 stage_exec 登记阶段弹窗呈现器
 from ui_widgets import (BaseDialog, BusyState, ContextMenu, Card, DataTable, NotificationDispatcher,
                         PrimaryButton, SecondaryButton, TextArea, HintLabel, Tooltip, EllipsisLabel, ask_confirmation, ask_string, setup_styles)
+from ui.ui_status_bus import Message, StatusBus  # R2989 P1：统一状态栏消息总线
+from ui.ui_status_bar import StatusBar
 from ui_icons import IconLoader
 
 ROOT=Path(__file__).resolve().parent
@@ -319,7 +321,12 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         win.bind('<FocusIn>',self.refresh_membership_view,add='+')    # R2064：回到前台时静默续签
         # 全部阶段只保留一条绿色信息栏：操作说明与动态状态汇总在这里。
         self.status=tk.StringVar(value='就绪 · 所有项目共用一份程序')
-        self.notifier=NotificationDispatcher(self.status, parent=win)
+        # R2989 P1：统一状态栏——右区消息走 StatusBus；旧状态条暂隐藏、StringVar 作桥（P2 收编）。
+        self.status_bus=StatusBus()
+        self._status_bridge_active=False
+        self.notifier=NotificationDispatcher(self.status, parent=win, bus=self.status_bus)
+        self.status_bus.subscribe(self._bus_to_status)
+        self.status.trace_add('write',self._status_to_bus)
         self.file_dialog=FileDialog(win, notifier=self.notifier)
         self.shortcuts=ShortcutRegistry()
         # 不再用进度条：忙碌只由状态栏右端的转圈表示（spinner 在状态栏建好后挂上）。
@@ -341,8 +348,12 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         # 状态栏之上，重 pack 也不会掉到状态栏下面。
         self.shared_input=desktop_shared_send.make_shared_input(self)
         self.shared_input.pack(side='top',fill='x',before=self.status_label)
+        # R2989 P1：统一状态栏组件钉在窗口最底部；旧状态条先隐藏（P2 删除，样式与桥接一并收编）。
+        self.status_bar=StatusBar(self.body,self.status_bus)
+        self.status_bar.pack(side='top',fill='x',pady=DESKTOP_LAYOUT['status_gap'])
+        self.status_label.pack_forget()
         # 忙碌时在状态栏右端转一个小圆圈（BusyState 起停）；平时不占位。
-        self.busy_state.spinner=Spinner(self.body,host=self.status_label)
+        self.busy_state.spinner=Spinner(self.body,host=self.status_bar)
         self._install_status_styles();self.status.trace_add('write',self.sync_status_style);self.sync_status_style()
         # 不放 ttk.Sizegrip：它由 Tk 逐像素实时改窗口大小、内容跟着重排，和另三个角（系统边框缩放）表现不一致；右下角也走系统边框。
 
@@ -383,6 +394,26 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         kind=status_kind(self.status.get())
         name={'ready':'PaleGreenHint.TLabel','running':'Tokens.Status.Running.TLabel','error':'Tokens.Status.Error.TLabel'}[kind]
         self.status_label.configure(style=name)
+
+    # ---- R2989 P1：统一状态栏桥接 ----
+    def _bus_to_status(self,event):
+        """总线当前消息镜像回旧 StringVar：三虎、忙碌态等既有消费方继续工作。"""
+        kind,message,_previous=event
+        if kind!='current' or message is None or self._status_bridge_active:return
+        self._status_bridge_active=True
+        try:self.status.set(message.text)
+        finally:self._status_bridge_active=False
+
+    def _status_to_bus(self,*_unused):
+        """旧 StringVar 写入桥接进总线（常驻，沿用旧栏「不自动消失」语义）。"""
+        if self._status_bridge_active:return
+        text=self.status.get()
+        kind=status_kind(text)
+        self.status_bus.publish(Message.make('error' if kind=='error' else 'info',text,source='status',auto=False))
+
+    def set_status_segment(self,key,text,*,tooltip=None):
+        """把页面上下文信息写进统一底栏左区常驻段。"""
+        self.status_bar.set_segment(key,text,tooltip=tooltip)
 
 
     def _initialize_automation_state(self):

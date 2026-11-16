@@ -27,6 +27,7 @@ from ui_rounded import (button_specs, pressed_padding, rounded_layout, set_butto
                         rounded_png_bytes as _rounded_png_bytes)
 from ui.ui_splash import SPLASH_STAGES, Splash  # noqa: F401  转出，旧导入路径不变
 from ui.ui_tooltip import Tooltip, TreeRowTooltip  # noqa: F401  转出，旧导入路径不变
+from ui.ui_status_bus import Message  # R2989 P1：通知分发器可注入统一状态栏总线
 
 
 def _configure_button(style, name, *, background, foreground,
@@ -655,9 +656,12 @@ class NotificationDispatcher:
         "info": "showinfo",
     }
 
-    def __init__(self, status, parent=None, dialogs=messagebox):
+    def __init__(self, status, parent=None, dialogs=messagebox, bus=None):
         self.status = status
         self.parent = parent
+        # R2989 P1：注入统一状态栏总线时，通知走四级消息（error/warning 常驻、其余自动消失）；
+        # 旧 StringVar 仍由总线镜像回写，无总线宿主（独立设置窗）沿用原状态栏路径。
+        self.bus = bus
         # 自检与本地 CI 设置 DRAMA_SUPPRESS_MODAL=1：默认系统框改为静默，避免模态框卡住整轮测试；
         # 用例显式注入的 dialogs 不受影响，仍可断言弹窗行为。
         if dialogs is messagebox and "1" in (os.environ.get(SUPPRESS_MODAL_ENV), os.environ.get(AUTO_CONFIRM_ENV)):
@@ -671,9 +675,14 @@ class NotificationDispatcher:
         text = " ".join(str(message or "").split())
         if not text:
             return ""
-        setter = getattr(self.status, "set", None)
-        if callable(setter):
-            setter(text)
+        if self.bus is not None:
+            self.bus.publish(Message.make(level, text, source='notifier'))
+            # 立即泵一次：旧 StringVar 镜像同步生效，调用方在同一帧就能读到状态栏文本。
+            self.bus.pump()
+        else:
+            setter = getattr(self.status, "set", None)
+            if callable(setter):
+                setter(text)
         if modal:
             dialog = getattr(self.dialogs, self._DIALOGS[level])
             dialog(title or "操作提示", text, parent=self.parent)

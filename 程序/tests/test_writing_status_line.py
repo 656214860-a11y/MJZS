@@ -72,7 +72,8 @@ class SessionSummaryTests(unittest.TestCase):
 
 
 class DesktopStatusLineTests(_Harness):
-    def test_visible_label_is_compact_and_tooltip_keeps_detail(self):
+    def test_usage_summary_lands_in_unified_bar_and_session_line_is_gone(self):
+        """R2989 P1：页内状态行删除；用量摘要入统一底栏左区段（截断+悬停全文）。"""
         import model_pool
         import stage_config
         # 不依赖本机全局模型配置：全量里其他用例留下的缓存会让默认模型解析为空。
@@ -85,13 +86,44 @@ class DesktopStatusLineTests(_Harness):
             self.sync_async(d)
             d.show(0)
             self.settle_script_page(win)
-            visible = d.idea_session_label.cget('text')
-            detail = d.idea_session_tip.text
-            self.assertIn('API 直连', visible)
-            self.assertNotIn('请求身份', visible)
-            self.assertNotIn('不隐藏也不复制', visible)
-            self.assertIn('当前会话：', detail)
-            self.assertIn('不隐藏也不复制项目成果', detail)
+            # 会话说明已按用户裁定删除；页内标签也不再存在。
+            self.assertIsNone(getattr(d, 'idea_session_label', None))
+            self.assertIsNone(getattr(d, 'idea_usage_label', None))
+            # 用量摘要落在统一底栏左区的 usage 段：可见文本紧凑、悬停全文。
+            segment = d.status_bar._segments['usage'][1]
+            self.assertEqual(segment.full_text, '本模型暂无用量记录')
+            self.assertIn('本模型暂无用量记录', segment.tooltip.text)
+
+    def test_notifier_and_legacy_status_bridge_into_unified_bar(self):
+        """R2989 P1：错误经总线进右区消息并镜像回 StringVar；旧 StringVar 写入也进右区。"""
+        import model_pool
+        import stage_config
+        self.enterContext(patch('model_pool.pool', return_value=model_pool.default_pool()))
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            stage_config.put(proj, 'script', model='deepseek-v4-flash',
+                             skills=['pipeline-script-preparation'])
+            d, win = self.desktop(proj)
+            self.sync_async(d)
+            d.show(0)
+            self.settle_script_page(win)
+
+            def pump(span):
+                import time as _t
+                until = _t.monotonic() + span
+                while _t.monotonic() < until:
+                    win.update()
+                    _t.sleep(.01)
+                win.update()
+
+            d.notifier.error('生成失败')
+            pump(.2)
+            self.assertEqual(d.status_bar.message.full_text, '✕ 生成失败')
+            self.assertEqual(d.status.get(), '生成失败')
+            d.status.set('路径已切换 D:/x')
+            pump(.2)
+            self.assertEqual(d.status_bar.message.full_text, '路径已切换 D:/x')
+            self.assertEqual(d.status_bus.current.level, 'info')
 
 
 if __name__ == '__main__':
