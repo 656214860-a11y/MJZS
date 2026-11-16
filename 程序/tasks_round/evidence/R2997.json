@@ -1,0 +1,15 @@
+{
+  "round": 2997,
+  "commit_base": "ae577ab7",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k hover_card compact_widgets script_file",
+    "exit": 0,
+    "passed": 19,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T18:53:08"
+}

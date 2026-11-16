@@ -24,6 +24,7 @@ import skill_command
 import ui_plugin_registry
 from contract import pet_bus
 from desktop_shared_menus import AddMenuPanel, CandidatePopup, SkillPickPanel
+from ui_popup import make_passive_popup
 from ui_shortcuts import ShortcutRegistry
 from ui_tokens import (COLORS, FONTS, ICON_ADD, ICON_MICROPHONE, ICON_SEND, ICON_SKILL,
                        SPACING, TEXT_ROWS)
@@ -660,9 +661,11 @@ class SharedStageInput(_CandidateFlow, ttk.Frame):
             if not body:
                 body = '（该技能没有填写 description）'
             card = BaseDialog(self, '', modal=False, chrome=False)
-            # 说明卡自定位：建窗即标 _positioned_once，别让 ui_theme 的 <Map>
-            # 接管把它重摆到父窗中央（pet_cloud／ui_popup 同款写法）。
-            card._positioned_once = True
+            # 说明卡必须豁免 ui_theme 接管（R2997 悬停状态机口径）：只标 _positioned_once
+            # 防得住居中、防不住隐藏初始化挂的 <Map>→grab——grab 一抢，技能行 Leave/Enter
+            # 循环、卡片反复弹出（用户报的 bug）。make_passive_popup 摘掉 Map 绑定并恢复
+            # 透明度（pet_cloud／ui_popup／ui_tooltip 同款写法）。
+            make_passive_popup(card)
             card.configure(bg=COLORS['background_card'])
             tk.Label(card, text=body, justify='left', wraplength=SKILL_CARD_WRAP,
                      bg=COLORS['background_card'], fg=COLORS['text_primary'],
