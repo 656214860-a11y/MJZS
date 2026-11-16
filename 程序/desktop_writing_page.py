@@ -450,4 +450,12 @@ class _WritingPage:
         self.fit_talk(event)
         # 动作栏换行或聊天请求高度变化后，容器完成几何传播才重新量画布。
         # 即使聊天行数没变也要收敛；固定画布自身不会收到请求高度变化事件。
-        self.page.fit_content()
+        # R3018：只在内容请求尺寸真正变化时才整页重排——talk 的 Configure 在建页/
+        # DeferredFill 期间会密集触发，此前每次都无条件 fit_content，是首帧窗内
+        # 十几趟整页布局的主要来源之一。
+        try:
+            req=(self.page.content.winfo_reqwidth(),self.page.content.winfo_reqheight())
+        except (tk.TclError,AttributeError):return
+        if getattr(self,'_talk_fit_req',None)!=req:
+            self._talk_fit_req=req
+            self.page.fit_content()

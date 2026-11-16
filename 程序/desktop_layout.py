@@ -196,18 +196,24 @@ class LayoutMixin:
             layout_key=None
             try:layout_key=self._fit_content_now()
             except Exception:app_logging.swallowed()
+            # R3018：pending 期间到达的重复 fit_content 不再无条件补排——本轮
+            # _fit_content_now 已按最新几何计算，签名没变时重排结果必然相同；
+            # 真实变化由下方请求尺寸签名稳定性检查兜底（上限仍是 8 轮）。
             if getattr(self,'_fit_again',False):
                 self._fit_again=False
-                self._relayout()
-                return
+                app_logging.count('layout.fit_again.suppressed',1)
             # Canvas 固定内容高度后，子控件请求高度变化不再触发内容框 Configure。
             # 沿现有空闲队列等请求尺寸逐层传播；最多补八轮，避免异常布局反复排队。
-            signature=getattr(self,'_fit_request_signature',layout_key)
+            # R3018：收敛判据改用画布结果三元组（宽/请求高/目标高）——控件级请求分布
+            # 变化但总高不变时画布配置完全一致，补排是纯浪费；真正影响画布的变化
+            # 必然反映在 req/target 上。
+            signature=layout_key if layout_key is not None else getattr(self,'_fit_request_signature',None)
             changed=signature!=getattr(self,'_last_fit_request_signature',None)
             self._last_fit_request_signature=signature
             passes=getattr(self,'_fit_stability_passes',0)
             if changed and passes<8:
                 self._fit_stability_passes=passes+1
+                app_logging.count('layout.repass.stability',1)
                 self._relayout()
                 return
             self._fit_stability_passes=0
