@@ -229,7 +229,7 @@ class Segmenter:
             return ""
         with tempfile.TemporaryDirectory(prefix="voice_asr_") as tmpdir:
             wav_path = pcm_to_temp_wav(pcm, session.sample_rate, tmpdir)
-            raw_text = self.asr_fn(wav_path)
+            raw_text = self.asr_fn(wav_path, hotword=getattr(session, "hotword", "") or "")
         text = str(raw_text or "").strip()
         if text and self.punc_fn:
             try:
@@ -386,9 +386,31 @@ class FunAsrBackend:
             wav_path = pcm_to_temp_wav(pcm, sample_rate, tmpdir)
             return self.vad_model(wav_path)
 
-    def asr(self, wav_path: str) -> str:
-        """对 WAV 文件跑 Paraformer，返回识别文本（兼容 PyTorch/ONNX 返回格式）。"""
-        result = self.asr_model([wav_path])
+    def asr(self, wav_path: str, hotword: str = "") -> str:
+        """对 WAV 文件跑 Paraformer，返回识别文本（兼容 PyTorch/ONNX 返回格式）。
+
+        ``hotword`` 空格分隔的热词串：仅上下文偏置模型（带 ``proc_hotword`` 的
+        ContextualParaformer 一系）支持 ``hotwords`` 入参；普通 Paraformer 不具备
+        模型级热词能力，忽略并在 stderr 留一条诊断（确定性纠错走主程序替换表）。
+        """
+        hotword = str(hotword or "").strip()
+        kwargs = {}
+        if hotword and hasattr(self.asr_model, "proc_hotword"):
+            kwargs["hotwords"] = hotword
+        elif hotword and not getattr(self, "_hotword_noted", False):
+            self._hotword_noted = True
+            import sys
+            print("[voice-asr] 当前识别模型不支持热词纠偏，热词仅走主程序替换表",
+                  file=sys.stderr)
+        try:
+            result = self.asr_model([wav_path], **kwargs) if kwargs else self.asr_model([wav_path])
+        except TypeError:
+            if not kwargs:
+                raise
+            # 模型可调用但不收热词入参：退回无热词识别（确定性纠错走主程序替换表）。
+            import sys
+            print("[voice-asr] 识别模型不接受热词入参，本次按无热词识别", file=sys.stderr)
+            result = self.asr_model([wav_path])
         if isinstance(result, list) and result:
             first = result[0]
             if isinstance(first, dict):

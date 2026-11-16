@@ -2502,6 +2502,150 @@
       "reason_constant": "PLATFORM_SYMLINK",
       "reason": "当前环境不支持创建符号链接；支持符号链接时应恢复执行",
       "reference": ""
+    },
+    {
+      "file": "tests/test_shared_input_voice.py",
+      "test": "SharedInputVoiceTests.test_mic_button_and_voice_bound_to_shared_text",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_WINDOWS_ONLY",
+      "reason": "受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_shared_input_voice.py",
+      "test": "SharedInputVoiceTests.test_mic_button_and_voice_bound_to_shared_text",
+      "ordinal": 2,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_WINDOWS_ONLY",
+      "reason": "受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_shared_input_voice.py",
+      "test": "SharedInputVoiceTests.test_set_stage_keeps_voice_session_alive",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_WINDOWS_ONLY",
+      "reason": "受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_shared_input_voice.py",
+      "test": "SharedInputVoiceTests.test_set_stage_keeps_voice_session_alive",
+      "ordinal": 2,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_WINDOWS_ONLY",
+      "reason": "受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_shared_input_voice.py",
+      "test": "SharedInputVoiceTests.test_dictation_writes_into_shared_input_and_closes",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_WINDOWS_ONLY",
+      "reason": "受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_shared_input_voice.py",
+      "test": "SharedInputVoiceTests.test_dictation_writes_into_shared_input_and_closes",
+      "ordinal": 2,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_WINDOWS_ONLY",
+      "reason": "受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_shared_input_voice.py",
+      "test": "SharedInputVoiceTests.test_destroying_shared_input_stops_and_cancels",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_WINDOWS_ONLY",
+      "reason": "受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_shared_input_voice.py",
+      "test": "SharedInputVoiceTests.test_destroying_shared_input_stops_and_cancels",
+      "ordinal": 2,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_WINDOWS_ONLY",
+      "reason": "受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_shared_input_voice.py",
+      "test": "SharedInputVoiceTests.test_ai_optimize_replaces_dictated_region",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_WINDOWS_ONLY",
+      "reason": "受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_shared_input_voice.py",
+      "test": "SharedInputVoiceTests.test_ai_optimize_replaces_dictated_region",
+      "ordinal": 2,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_WINDOWS_ONLY",
+      "reason": "受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_shared_input_voice.py",
+      "test": "SharedInputVoiceTests.test_ai_optimize_skipped_when_disabled",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_WINDOWS_ONLY",
+      "reason": "受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_shared_input_voice.py",
+      "test": "SharedInputVoiceTests.test_ai_optimize_skipped_when_disabled",
+      "ordinal": 2,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_WINDOWS_ONLY",
+      "reason": "受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_shared_input_voice.py",
+      "test": "SharedInputVoiceTests.test_ai_optimize_never_overwrites_user_edits",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_WINDOWS_ONLY",
+      "reason": "受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_shared_input_voice.py",
+      "test": "SharedInputVoiceTests.test_ai_optimize_never_overwrites_user_edits",
+      "ordinal": 2,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_WINDOWS_ONLY",
+      "reason": "受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_shared_input_voice.py",
+      "test": "SharedInputVoiceTests.test_ai_optimize_failure_keeps_original_text",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_WINDOWS_ONLY",
+      "reason": "受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_shared_input_voice.py",
+      "test": "SharedInputVoiceTests.test_ai_optimize_failure_keeps_original_text",
+      "ordinal": 2,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_WINDOWS_ONLY",
+      "reason": "受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+      "reference": ""
     }
   ]
 }

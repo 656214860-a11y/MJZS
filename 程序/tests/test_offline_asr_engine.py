@@ -72,8 +72,8 @@ class FakeBackend:
     def vad(self, pcm, sample_rate):
         return fake_vad_scan(pcm, sample_rate)
 
-    def asr(self, wav_path):
-        self.calls.append(wav_path)
+    def asr(self, wav_path, hotword=""):
+        self.calls.append((wav_path, hotword))
         return self.texts.pop(0) if self.texts else "识别文本"
 
     def punc(self, text):
@@ -215,6 +215,16 @@ class SegmenterTests(unittest.TestCase):
         events = seg.poll(session)
         self.assertEqual(events[0]["text"], "文本")
 
+    def test_session_hotword_reaches_asr_fn(self):
+        session = srv.PcmSession(16000, hotword="漫剧 子进程")
+        session.feed(build_pcm([(0, 500, False), (500, 1500, True),
+                                (1500, 2200, False)]))
+        seg, backend = self._segmenter(["你好"])
+        seg.poll(session)
+        self.assertEqual(len(backend.calls), 1)
+        self.assertEqual(backend.calls[0][1], "漫剧 子进程")
+        self.assertTrue(backend.calls[0][0].endswith(".wav"))
+
     def test_window_clipping_logs_and_caps(self):
         session = self._session_with([(i * 100, i * 100 + 50, True)
                                       for i in range(30)])
@@ -296,6 +306,46 @@ class FunAsrBackendTests(unittest.TestCase):
         self.assertEqual(backend.asr("x.wav"), "torch文本")
         backend.asr_model = lambda _paths: []
         self.assertEqual(backend.asr("x.wav"), "")
+
+    def test_hotword_forwarded_only_to_capable_model(self):
+        backend = srv.FunAsrBackend(cache_root=tempfile.mkdtemp())
+        seen = {}
+
+        class Contextual:
+            proc_hotword = object()
+
+            def __call__(self, paths, **kwargs):
+                seen.update(kwargs)
+                return [{"text": "文本"}]
+
+        backend.asr_model = Contextual()
+        self.assertEqual(backend.asr("x.wav", hotword="漫剧 子进程"), "文本")
+        self.assertEqual(seen, {"hotwords": "漫剧 子进程"})
+
+        # 普通模型：不带 proc_hotword → 不传热词，stderr 留一条诊断，识别照常
+        backend2 = srv.FunAsrBackend(cache_root=tempfile.mkdtemp())
+        backend2.asr_model = lambda paths: [{"text": "普通"}]
+        with mock.patch("sys.stderr") as stderr:
+            self.assertEqual(backend2.asr("x.wav", hotword="热词"), "普通")
+            self.assertTrue(any("热词" in str(call) for call in stderr.write.call_args_list))
+        self.assertEqual(backend2.asr("x.wav", hotword="热词"), "普通")
+
+    def test_hotword_typeerror_falls_back_without_kwarg(self):
+        backend = srv.FunAsrBackend(cache_root=tempfile.mkdtemp())
+        calls = []
+
+        class Picky:
+            proc_hotword = object()
+
+            def __call__(self, paths, **kwargs):
+                calls.append(kwargs)
+                if kwargs:
+                    raise TypeError("unexpected keyword 'hotwords'")
+                return [{"text": "回退文本"}]
+
+        backend.asr_model = Picky()
+        self.assertEqual(backend.asr("x.wav", hotword="热词"), "回退文本")
+        self.assertEqual(calls, [{"hotwords": "热词"}, {}])
 
     def test_punc_tuple_parsing(self):
         backend = srv.FunAsrBackend(cache_root=tempfile.mkdtemp())

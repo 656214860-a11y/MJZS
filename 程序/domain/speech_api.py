@@ -23,7 +23,13 @@ import contract.platform_tools as platform_tools
 
 PROGRAM = Path(__file__).resolve().parents[1]
 USER_FILE = PROGRAM / 'data' / '语音识别.json'
+DICT_FILE = PROGRAM / 'data' / '语音词典.json'
 BACKENDS = ('offline', 'cloud')
+DICT_DEFAULTS = {
+    'hotword': [],                 # 领域热词：随 start.hotword 下发给支持热词的引擎
+    'replace': {},                 # 同音替换表 {误识别: 正确词}：final 文本定稿后处理
+    'ai': {'enabled': False, 'template': 'fix', 'prompt': ''},  # AI 优化文本（domain.voice_ai 模板）
+}
 DEFAULTS = {
     'backend': 'offline',
     'base_url': 'wss://dashscope.aliyuncs.com/api-ws/v1/realtime',
@@ -83,18 +89,6 @@ def _clean_offline(raw):
     return merged
 
 
-def read_settings(path=None):
-    """内置默认合并用户覆盖；文件缺失或不是对象时用默认。"""
-    try:
-        data = file_cache.read_json(Path(path or USER_FILE))
-    except (OSError, ValueError):
-        data = None
-    merged = dict(DEFAULTS)
-    if isinstance(data, dict):
-        merged.update({key: data[key] for key in DEFAULTS if data.get(key) not in (None, '')})
-    return merged
-
-
 NUMBER_RANGES = {'silence_ms': (100, 2000), 'max_seconds': (10, 3600), 'timeout': (3, 120)}
 
 
@@ -135,6 +129,181 @@ def api_key(settings=None):
     return model_pool.named_key((settings or read_settings())['key_env'])
 
 
+# ── 语音词典（热词／同音替换／AI 优化），独立文件 data/语音词典.json ──────────
+
+_HOTWORD_SEPARATORS = '，,；;、 \n\r\t'
+
+
+def _hotword_items(text):
+    """把一串热词按中英文逗号/分号/顿号/空白切成列表。"""
+    for sep in _HOTWORD_SEPARATORS:
+        text = text.replace(sep, ',')
+    return [item.strip() for item in text.split(',')]
+
+
+def _clean_hotword(raw):
+    """热词列表：字符串按逗号/分号/顿号/换行切分，列表逐项清洗去重，保序。"""
+    if raw in (None, ''):
+        items = []
+    elif isinstance(raw, str):
+        items = _hotword_items(raw)
+    elif isinstance(raw, (list, tuple)):
+        items = []
+        for entry in raw:
+            items.extend(_hotword_items(str(entry)))
+    else:
+        raise ValueError('热词格式不正确')
+    seen, result = set(), []
+    for item in items:
+        word = str(item).strip()
+        if not word:
+            continue
+        if len(word) > 100:
+            raise ValueError('热词「%s…」过长（单条不超过 100 字）' % word[:20])
+        if word not in seen:
+            seen.add(word)
+            result.append(word)
+    if len(result) > 200:
+        raise ValueError('热词最多 200 条')
+    return result
+
+
+def _clean_replace(raw):
+    """同音替换表：{误识别: 正确词}，两端去空白、丢弃空键与同值对。"""
+    if raw in (None, ''):
+        return {}
+    if not isinstance(raw, dict):
+        raise ValueError('替换词表格式不正确')
+    table = {}
+    for wrong, right in raw.items():
+        key, value = str(wrong).strip(), str(right).strip()
+        if not key or not value:
+            continue
+        if len(key) > 100 or len(value) > 100:
+            raise ValueError('替换词「%s」过长（单条不超过 100 字）' % (key or value)[:20])
+        if key != value:
+            table[key] = value
+    if len(table) > 500:
+        raise ValueError('替换词最多 500 条')
+    return table
+
+
+def _clean_ai(raw):
+    """AI 优化配置：enabled/template/prompt；模板名由 domain.voice_ai 校验。"""
+    import domain.voice_ai as voice_ai
+    source = raw if isinstance(raw, dict) else {}
+    enabled = source.get('enabled', DICT_DEFAULTS['ai']['enabled'])
+    if isinstance(enabled, str):
+        enabled = enabled.strip().lower() in ('1', 'true', 'on', 'yes', '开')
+    template = str(source.get('template') or DICT_DEFAULTS['ai']['template']).strip()
+    if template not in voice_ai.TEMPLATES:
+        raise ValueError('AI 优化模板必须是 %s 之一' % '／'.join(voice_ai.TEMPLATES))
+    prompt = str(source.get('prompt') or '').strip()
+    if len(prompt) > 2000:
+        raise ValueError('AI 优化自定义提示词过长（不超过 2000 字）')
+    return {'enabled': bool(enabled), 'template': template, 'prompt': prompt}
+
+
+def normalize_dictionary(raw):
+    """校验并规整词典对象；不合法抛带中文原因的 ``ValueError``。"""
+    source = raw if isinstance(raw, dict) else {}
+    return {'hotword': _clean_hotword(source.get('hotword')),
+            'replace': _clean_replace(source.get('replace')),
+            'ai': _clean_ai(source.get('ai'))}
+
+
+def read_dictionary(path=None):
+    """读 ``data/语音词典.json``：缺文件/坏节回默认，不抛错。"""
+    merged = {'hotword': [], 'replace': {},
+              'ai': dict(DICT_DEFAULTS['ai'])}
+    try:
+        data = file_cache.read_json(Path(path or DICT_FILE))
+    except (OSError, ValueError):
+        data = None
+    if isinstance(data, dict):
+        for key in merged:
+            try:
+                merged[key] = normalize_dictionary({key: data[key]})[key]
+            except (ValueError, KeyError):
+                pass
+    return merged
+
+
+def save_dictionary(values, *, publish, path=None):
+    """保存词典：先 ``normalize_dictionary`` 校验，通过后整体写入并失效缓存。
+
+    ``publish(路径, 对象)`` 由界面层注入（如 ``agent.core.save``）。返回规整后的词典。
+    """
+    normalized = normalize_dictionary(values)
+    target = Path(path or DICT_FILE)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    publish(target, normalized)
+    file_cache.invalidate(target)
+    return normalized
+
+
+def hotword_text(dictionary=None):
+    """热词列表 → 引擎 ``start.hotword`` 的空格分隔串（FunASR 热词格式）。"""
+    return ' '.join((dictionary or read_dictionary()).get('hotword') or ())
+
+
+def apply_replacements(text, replace=None):
+    """按替换表修正识别文本：正则交替按键长降序一次扫描，长键优先且不重复扫
+    已替换出的文本（``子进程`` 不会被 ``进程`` 二次改写）；返回新文本。"""
+    import re
+    text = str(text or '')
+    table = replace if replace is not None else (read_dictionary().get('replace') or {})
+    items = [(str(k), str(v)) for k, v in table.items() if str(k or '').strip()]
+    if not text or not items:
+        return text
+    items.sort(key=lambda pair: len(pair[0]), reverse=True)
+    lookup = dict(items)
+    pattern = re.compile('|'.join(re.escape(key) for key, _value in items))
+    return pattern.sub(lambda match: lookup[match.group(0)], text)
+
+
+class _DictionarySession:
+    """词典替换表包装：``final`` 事件文本先过 ``apply_replacements`` 再交给消费方。
+
+    与 ``RealtimeSession``/``OfflineAsrSession`` 同一外部接口；另起一个 daemon 线程
+    转发事件，``closed`` 之后退出，``cancel`` 置停。仅当替换表非空时由
+    ``create_session`` 启用，默认路径零开销。
+    """
+
+    def __init__(self, inner, replacements):
+        self._inner, self._replacements = inner, dict(replacements)
+        self.events = queue.Queue()
+        self._stop = threading.Event()
+        self._thread = None
+
+    def start(self):
+        self._inner.start()
+        self._thread = threading.Thread(target=self._pump, name='voice-dict', daemon=True)
+        self._thread.start()
+
+    def send(self, pcm):
+        self._inner.send(pcm)
+
+    def finish(self):
+        self._inner.finish()
+
+    def cancel(self):
+        self._stop.set()
+        self._inner.cancel()
+
+    def _pump(self):
+        while not self._stop.is_set():
+            try:
+                kind, item, text = self._inner.events.get(timeout=0.2)
+            except queue.Empty:
+                continue
+            if kind == 'final':
+                text = apply_replacements(text, self._replacements)
+            self.events.put((kind, item, text))
+            if kind == 'closed':
+                return
+
+
 def cloud_missing_reason(settings):
     """云端后端缺密钥时的原因；``RealtimeSession`` 内部固定走这里，不看 ``backend``。"""
     if not api_key(settings):
@@ -164,13 +333,26 @@ def create_session(settings, *, connect=None):
     内部自动降级并先发一条 ``('log', ...)`` 通知。
     """
     settings = settings or read_settings()
+    dictionary = read_dictionary()
     if (settings.get('backend') or 'offline') != 'offline':
-        return RealtimeSession(settings, connect=connect)
-    import domain.offline_asr_client as offline_asr_client
-    fallback = None
-    if api_key(settings):
-        fallback = lambda merged: RealtimeSession(merged, connect=connect)
-    return offline_asr_client.OfflineAsrSession(settings, fallback=fallback)
+        session = RealtimeSession(settings, connect=connect)
+    else:
+        import domain.offline_asr_client as offline_asr_client
+        hotwords = hotword_text(dictionary)
+        if hotwords:
+            settings = dict(settings)
+            offline = dict(settings.get('offline') or {})
+            existing = str(offline.get('hotword') or '').strip()
+            offline['hotword'] = ' '.join(part for part in (existing, hotwords) if part)
+            settings['offline'] = offline
+        fallback = None
+        if api_key(settings):
+            fallback = lambda merged: RealtimeSession(merged, connect=connect)
+        session = offline_asr_client.OfflineAsrSession(settings, fallback=fallback)
+    replace = dictionary.get('replace') or {}
+    if replace:
+        return _DictionarySession(session, replace)
+    return session
 
 
 def endpoint(settings):

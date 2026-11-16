@@ -170,7 +170,8 @@ class SharedStageInput(ttk.Frame):
         import desktop_voice_input
         return desktop_voice_input.VoiceInput(
             self.input, self.mic_button, status=self.status,
-            listening_style='Tokens.Primary.TButton', idle_style='Tokens.Secondary.TButton')
+            listening_style='Tokens.Primary.TButton', idle_style='Tokens.Secondary.TButton',
+            project=self.project)
 
     def _toggle_voice(self):
         voice = self.voice_input

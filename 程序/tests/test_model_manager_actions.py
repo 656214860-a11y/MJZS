@@ -127,9 +127,11 @@ class SpeechSettingsTests(Batch7Case):
         _button(win, '恢复默认').invoke()
         self.assertEqual(win._pet_speech_vars['language'].get(), 'zh')
         win._pet_speech_vars['model'].set('qwen3-asr-flash-realtime-2026')
-        with mock.patch.object(speech_settings_ui.speech_api, 'save_settings') as save_settings:
+        with mock.patch.object(speech_settings_ui.speech_api, 'save_settings') as save_settings, \
+                mock.patch.object(speech_settings_ui.speech_api, 'save_dictionary') as save_dict:
             _button(win, '保存').invoke()
         self.assertEqual(save_settings.call_args.args[0]['model'], 'qwen3-asr-flash-realtime-2026')
+        save_dict.assert_called_once(), '词典与设置同窗保存'
         self.assertFalse(win.winfo_exists())
 
 if __name__ == '__main__':

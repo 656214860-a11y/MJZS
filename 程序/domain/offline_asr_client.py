@@ -16,8 +16,10 @@ import queue
 import subprocess
 import threading
 import time
+from json import loads as _json_loads
 from pathlib import Path
 
+import app_logging
 import contract.platform_tools as platform_tools
 
 PROGRAM = Path(__file__).resolve().parents[1]
@@ -80,7 +82,7 @@ def _emit_safe(callback, message):
     try:
         callback(message)
     except Exception:  # noqa: BLE001 —— 进度回调失败不影响引擎
-        pass
+        app_logging.swallowed()
 
 
 class EngineHost:
@@ -137,7 +139,7 @@ class EngineHost:
                 if not line:
                     continue
                 try:
-                    message = json.loads(line)
+                    message = _json_loads(line)
                 except ValueError:
                     continue
                 if isinstance(message, dict):
@@ -287,7 +289,7 @@ class EngineHost:
                 try:
                     process.kill()
                 except Exception:  # noqa: BLE001
-                    pass
+                    app_logging.swallowed()
 
     def shutdown(self):
         """退出前收尾：请引擎自尽，超时强杀。"""
@@ -299,7 +301,7 @@ class EngineHost:
                     process.stdin.flush()
                     process.wait(timeout=5)
                 except Exception:  # noqa: BLE001
-                    pass
+                    app_logging.swallowed()
         self.kill('应用退出')
 
 
@@ -321,7 +323,7 @@ def _shutdown_host():
         try:
             host.shutdown()
         except Exception:  # noqa: BLE001 —— 退出路径不抛
-            pass
+            app_logging.swallowed()
 
 
 atexit.register(_shutdown_host)
@@ -458,7 +460,7 @@ class OfflineAsrSession:
                 try:
                     host.detach(self)
                 except Exception:  # noqa: BLE001
-                    pass
+                    app_logging.swallowed()
             self._emit_closed()
 
     def _acquire(self):

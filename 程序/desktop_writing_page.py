@@ -201,7 +201,8 @@ def _composer_input_tail(page, ctrl, input_row, frame):
             Tooltip(voice_button,'语音输入：点一下开始录音，再点一下结束并转成文字')
             voice=getattr(page,'idea_voice_input',None)
             if voice is None or getattr(voice,'box',None) is not ctrl.input_box:
-                voice=VoiceInput(ctrl.input_box,voice_button,status=page.status)
+                voice=VoiceInput(ctrl.input_box,voice_button,status=page.status,
+                                 project=getattr(page,'root',None))
             else:
                 voice.button=voice_button
             page.idea_voice_input=voice

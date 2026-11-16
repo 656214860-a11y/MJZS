@@ -7,6 +7,7 @@
 import os
 import queue
 import tempfile
+import time
 import tkinter as tk
 import unittest
 from pathlib import Path
@@ -16,6 +17,8 @@ from unittest.mock import patch
 import desktop_shared_input as shared_input
 import contract.platform_tools as platform_tools
 import domain.speech_api as speech_api
+import writing_api
+from skip_reasons import PLATFORM_WINDOWS_ONLY
 
 
 def _descendants(widget):
@@ -93,7 +96,7 @@ class SharedInputVoiceTests(unittest.TestCase):
             self.win.update()
         return _FakeRecorder.instances[-1], _FakeSession.instances[-1]
 
-    @unittest.skipIf(os.name != 'nt', '麦克风入口仅 Windows 显示')
+    @unittest.skipIf(os.name != 'nt', PLATFORM_WINDOWS_ONLY)
     def test_mic_button_and_voice_bound_to_shared_text(self):
         box = self._make()
         self.assertIsNotNone(box.mic_button)
@@ -107,7 +110,7 @@ class SharedInputVoiceTests(unittest.TestCase):
         order = list(box.winfo_children())
         self.assertLess(order.index(left), order.index(box.input))
 
-    @unittest.skipIf(os.name != 'nt', '麦克风入口仅 Windows 显示')
+    @unittest.skipIf(os.name != 'nt', PLATFORM_WINDOWS_ONLY)
     def test_set_stage_keeps_voice_session_alive(self):
         box = self._make()
         recorder, session = self._listen(box)
@@ -121,7 +124,7 @@ class SharedInputVoiceTests(unittest.TestCase):
         # 其他阶段的发送键不受剧本页改写影响。
         self.assertEqual(str(box.send_button.cget('text')), '发送')
 
-    @unittest.skipIf(os.name != 'nt', '麦克风入口仅 Windows 显示')
+    @unittest.skipIf(os.name != 'nt', PLATFORM_WINDOWS_ONLY)
     def test_dictation_writes_into_shared_input_and_closes(self):
         box = self._make()
         recorder, session = self._listen(box)
@@ -139,7 +142,7 @@ class SharedInputVoiceTests(unittest.TestCase):
         self.assertEqual(box.input.get('1.0', 'end-1c'), '开头：主角走进雨夜。')
         self.assertFalse(box.input.tag_ranges(box.voice_input.PARTIAL_TAG))
 
-    @unittest.skipIf(os.name != 'nt', '麦克风入口仅 Windows 显示')
+    @unittest.skipIf(os.name != 'nt', PLATFORM_WINDOWS_ONLY)
     def test_destroying_shared_input_stops_and_cancels(self):
         box = self._make()
         recorder, session = self._listen(box)
@@ -147,6 +150,78 @@ class SharedInputVoiceTests(unittest.TestCase):
         self.win.update()
         self.assertTrue(recorder.stopped, '输入框销毁必须停录')
         self.assertTrue(session.cancelled, '输入框销毁必须取消识别会话')
+
+    def _ai_dictionary(self, enabled=True):
+        return {'hotword': [], 'replace': {},
+                'ai': {'enabled': enabled, 'template': 'fix', 'prompt': ''}}
+
+    def _ai_patches(self, chat_result):
+        adapter = SimpleNamespace(chat=lambda *a, **k: chat_result)
+        return (patch.object(speech_api, 'read_dictionary',
+                             return_value=self._ai_dictionary()),
+                patch.object(writing_api, 'selected_model',
+                             return_value=('m1', {'label': 'm1'})),
+                patch.object(writing_api, '_writing_adapter', return_value=adapter))
+
+    def _dictate_and_close(self, box, session, text='他说子进成。'):
+        session.events.put(('final', 'a', text))
+        session.events.put(('closed', '', ''))
+        box.voice_input.poll()
+        self.win.update()
+
+    @unittest.skipIf(os.name != 'nt', PLATFORM_WINDOWS_ONLY)
+    def test_ai_optimize_replaces_dictated_region(self):
+        box = self._make()
+        patches = self._ai_patches({'ok': True, 'text': '他说子进程。'})
+        with patches[0], patches[1], patches[2]:
+            _recorder, session = self._listen(box)
+            self._dictate_and_close(box, session)
+            time.sleep(0.3)
+            self.win.update()
+        self.assertEqual(box.input.get('1.0', 'end-1c'), '他说子进程。')
+        self.assertIn('AI 优化完成', self.status.get())
+
+    @unittest.skipIf(os.name != 'nt', PLATFORM_WINDOWS_ONLY)
+    def test_ai_optimize_skipped_when_disabled(self):
+        box = self._make()
+        adapter = SimpleNamespace(chat=lambda *a, **k: {'ok': True, 'text': '不应出现'})
+        with patch.object(speech_api, 'read_dictionary',
+                          return_value=self._ai_dictionary(enabled=False)), \
+             patch.object(writing_api, 'selected_model',
+                          return_value=('m1', {'label': 'm1'})), \
+             patch.object(writing_api, '_writing_adapter', return_value=adapter):
+            _recorder, session = self._listen(box)
+            self._dictate_and_close(box, session)
+            time.sleep(0.3)
+            self.win.update()
+        self.assertEqual(box.input.get('1.0', 'end-1c'), '他说子进成。')
+        self.assertNotIn('AI 优化', self.status.get())
+
+    @unittest.skipIf(os.name != 'nt', PLATFORM_WINDOWS_ONLY)
+    def test_ai_optimize_never_overwrites_user_edits(self):
+        box = self._make()
+        patches = self._ai_patches({'ok': True, 'text': 'AI改写'})
+        with patches[0], patches[1], patches[2]:
+            _recorder, session = self._listen(box)
+            self._dictate_and_close(box, session)
+            # 模型结果回来前用户手动改了听写区域 → 结果不得覆盖。
+            box.input.insert('1.0', '手改：')
+            time.sleep(0.3)
+            self.win.update()
+        self.assertEqual(box.input.get('1.0', 'end-1c'), '手改：他说子进成。')
+        self.assertIn('未写入', self.status.get())
+
+    @unittest.skipIf(os.name != 'nt', PLATFORM_WINDOWS_ONLY)
+    def test_ai_optimize_failure_keeps_original_text(self):
+        box = self._make()
+        patches = self._ai_patches({'ok': False, 'text': '他说子进成。', 'reason': '余额不足'})
+        with patches[0], patches[1], patches[2]:
+            _recorder, session = self._listen(box)
+            self._dictate_and_close(box, session)
+            time.sleep(0.3)
+            self.win.update()
+        self.assertEqual(box.input.get('1.0', 'end-1c'), '他说子进成。')
+        self.assertIn('余额不足', self.status.get())
 
     def test_non_windows_hides_mic_button(self):
         with patch.object(os, 'name', 'posix'):

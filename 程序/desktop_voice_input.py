@@ -28,9 +28,11 @@ class VoiceInput:
     SILENCE_PEAK, SILENCE_HINT_SECONDS, LEVEL_BARS = 300, 3, 5
     PARTIAL_TAG = 'voice_partial'
 
-    def __init__(self, box, button, *, status=None, listening_style=None, idle_style=None):
+    def __init__(self, box, button, *, status=None, listening_style=None, idle_style=None,
+                 project=None):
         self.box, self.button = box, button
         self._status = status
+        self.project = project
         if listening_style:
             self.LISTENING_STYLE = listening_style
         if idle_style:
@@ -39,6 +41,7 @@ class VoiceInput:
         self.recorder, self.session, self.settings, self.pending, self.ticket = None, None, None, None, None
         self.spans, self.deadline, self.serial, self.notice = {}, None, 0, None
         self.tasks = BackgroundTaskLifecycle()
+        self._dictated, self._ai_ticket, self._ai_after = [], None, None
         box.tag_configure(self.PARTIAL_TAG, foreground=COLORS['text_muted'])
         box.bind('<Destroy>', lambda event: self.stop() if event.widget is box else None, add='+')
 
@@ -88,6 +91,13 @@ class VoiceInput:
                                         timeout=self.settings['max_seconds'] + self.settings['timeout'] + 30)
         self.recorder, self.session, self.spans, self.deadline = recorder, session, {}, None
         self.notice = None
+        self._dictated = []
+        try:
+            self.box.mark_unset('voice_ai_start')
+            self.box.mark_set('voice_ai_start', 'insert')
+            self.box.mark_gravity('voice_ai_start', 'left')
+        except tk.TclError:
+            pass
         self.button.configure(style=self.LISTENING_STYLE)
         self.box.focus_force()
         self.poll()
@@ -117,6 +127,7 @@ class VoiceInput:
         box.insert(start, text, () if final else (self.PARTIAL_TAG,))
         if final:
             box.mark_unset(start, end); del self.spans[item]
+            self._dictated.append(text)
         box.see('insert')
 
     def poll(self):
@@ -165,6 +176,91 @@ class VoiceInput:
             self._say('语音输入已取消。')
             return
         self._say(message)
+        if succeeded:
+            self._maybe_ai_optimize()
+
+    def _maybe_ai_optimize(self):
+        """会话正常关闭后：词典开了 AI 优化且本段听写文本与词典替换后一致才优化。
+
+        定位用会话首尾两个 mark；区域文本与累计 final 不一致（用户中途手动改过）
+        就跳过——宁可不优化也不覆盖用户编辑。
+        """
+        import domain.speech_api as speech_api
+        config = (speech_api.read_dictionary().get('ai') or {})
+        if not config.get('enabled') or not self._dictated or not self.project:
+            return
+        box = self.box
+        try:
+            box.mark_set('voice_ai_end', 'insert')
+            box.mark_gravity('voice_ai_end', 'right')
+            expected = ''.join(self._dictated)
+            region = box.get('voice_ai_start', 'voice_ai_end')
+        except tk.TclError:
+            return
+        if region != expected or not expected.strip():
+            self._say('内容已手动改动，未自动优化。')
+            return
+        self._start_ai_optimize(expected, 'voice_ai_start', 'voice_ai_end', config)
+
+    def _start_ai_optimize(self, text, start, end, config):
+        """异步跑一次模板化优化：走 writing_api 适配器（模型池＋计量），结果回写输入框。"""
+        import queue
+        import threading
+        import domain.voice_ai as voice_ai
+        import writing_api
+        project = self.project
+        try:
+            chosen, record = writing_api.selected_model(project)
+        except Exception:
+            chosen, record = '', {}
+        if not chosen:
+            self._say('未配置文本模型，已跳过 AI 优化。')
+            return
+        adapter = writing_api._writing_adapter(record, chosen, project=project)
+        ticket = self.tasks.submit(object(), costly=True, label='语音AI优化', timeout=90)
+        self._ai_ticket = ticket
+        results = queue.Queue()
+
+        def work():
+            try:
+                results.put(voice_ai.optimize_text(
+                    text, chat=adapter.chat, model=chosen, config=config))
+            except Exception as exc:  # noqa: BLE001
+                results.put({'ok': False, 'text': text, 'reason': str(exc)[:160]})
+
+        threading.Thread(target=work, daemon=True).start()
+
+        def poll():
+            self._ai_after = None
+            if not self.box.winfo_exists():
+                return
+            try:
+                result = results.get_nowait()
+            except queue.Empty:
+                if self.tasks.accepts(ticket):
+                    self._ai_after = self.box.after(120, poll)
+                return
+            self._ai_ticket = None
+            finished = self.tasks.finish(ticket, succeeded=bool(result.get('ok')),
+                                         error=result.get('reason') or '')
+            if not finished:
+                return
+            if not result.get('ok'):
+                self._say(result.get('reason') or 'AI 优化未完成，已保留原文。')
+                return
+            optimized = result['text']
+            try:
+                current = self.box.get(start, end)
+            except tk.TclError:
+                return
+            if current != text:
+                self._say('内容已改动，AI 优化结果未写入（原文保留）。')
+                return
+            self.box.delete(start, end)
+            self.box.insert(start, optimized)
+            self._say('AI 优化完成。')
+
+        self._ai_after = self.box.after(120, poll)
 
     def stop(self):
         if self.pending is not None:
@@ -173,7 +269,15 @@ class VoiceInput:
             except tk.TclError:
                 pass
             self.pending = None
+        if self._ai_after is not None:
+            try:
+                self.box.after_cancel(self._ai_after)
+            except tk.TclError:
+                pass
+            self._ai_after = None
         recorder, session, ticket = self.recorder, self.session, self.ticket
+        ai_ticket = self._ai_ticket
+        self._ai_ticket = None
         self.recorder, self.session, self.ticket, self.deadline = None, None, None, None
         if recorder is not None:
             recorder.stop()
@@ -181,6 +285,8 @@ class VoiceInput:
             session.cancel()
         if ticket is not None and self.tasks.accepts(ticket):
             self.tasks.cancel(ticket)
+        if ai_ticket is not None and self.tasks.accepts(ai_ticket):
+            self.tasks.cancel(ai_ticket)
         try:
             self.box.tag_remove(self.PARTIAL_TAG, '1.0', 'end')
             for marks in self.spans.values():
