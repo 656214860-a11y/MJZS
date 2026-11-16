@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 PROGRAM = Path(__file__).resolve().parents[2]
-EXCLUDED_PARTS = {"tests", "tasks_round", "维护记录", "skills", ".git", "__pycache__"}
+EXCLUDED_PARTS = {"tests", "tasks_round", "维护记录", "skills", ".git", "__pycache__", "voice_asr_venv"}
 # UI 图标经 IconLoader、缩略图经 asset_thumbs；圆角按钮/卡片底图由 ui_widgets 用标准库生成（2026-10-21 起）。
 PHOTOIMAGE_OWNERS = {"ui_icons.py", "asset_thumbs.py", "ui_rounded.py"}
 

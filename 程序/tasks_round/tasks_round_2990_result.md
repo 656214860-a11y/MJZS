@@ -1,5 +1,5 @@
 # R2990 结果：page.paint 首帧指标分解（布局等待 polls＋窗内布局轮次）
-<!-- round-evidence: {"commit_base": "351e1ef0", "credential_hits": 0, "evidence_sha256": "7190dbe49d2634e8", "exit": 0, "failed": 0, "passed": 7, "round": 2990, "tests": "run_selftests.py -k static_hygiene module_size"} -->
+<!-- round-evidence: {"commit_base": "60e76dfe", "credential_hits": 0, "evidence_sha256": "9be07b29ea164b2b", "exit": 0, "failed": 0, "passed": 306, "round": 2990, "tests": "run_selftests.py -k boundary coverage static_hygiene"} -->
 
 **类型**：性能/资源轮（度量增强，不改产品行为）。
 **测试**：跑了——`test_page_paint_metric` 8 条、`test_page_paint_freeze` 9 条、`test_app_logging` 13 条全绿（含新增计数器断言）；默认冒烟 8/8；四个改动文件 py_compile 通过。跨树 GUI 令牌被另一工作树全量串行回归（PID 39528，dsh-1be9aed2 车道）占用，`run_selftests -k` 排队超时后改由直接 `python tests/<file>.py` 验证同三文件。
@@ -25,14 +25,16 @@
 
 `app_logging.py`、`desktop_layout.py`、`tests/test_page_paint_metric.py`、`tests/architecture/test_static_hygiene.py`、`维护记录/基准脚本/paint_stats.py`。
 
-## 合并阻断修复（同轮附带）
+## 合并阻断修复（同轮附带，三轮 CI 暴露后补齐）
 
-首次合并 CI 静态门禁失败：`data/voice_asr_venv/`（离线 ASR 运行时 pip venv，约 7700 个第三方 .py／630MB）被静态门禁当成本仓代码扫描。两处修复：
+`data/voice_asr_venv/`（离线 ASR 运行时 pip venv，约 7700 个第三方 .py／630MB）被各源码扫描器当成本仓代码扫描。三轮 CI 逐层暴露，最终共修 **18 个文件**：
 
-1. `test_static_hygiene._EXCLUDED_PARTS` 增加 `"voice_asr_venv"`＋docstring／注释＋新增 `test_scan_scope_excludes_runtime_asr_venv`（修无效转义／星号导入两项误报）；
-2. `_scan.EXCLUDED_PARTS` 同步增加 `"voice_asr_venv"`——`production_files_recursive`/`production_runtime_files` 的全部消费者（含 eval/exec 门禁）不再把 venv 当生产模块（修第三项误报）。
+1. `test_static_hygiene._EXCLUDED_PARTS`＋`_scan.EXCLUDED_PARTS` 加 `"voice_asr_venv"`（无效转义／星号导入／eval-exec 门禁＋全部 `_scan` 消费者）；
+2. 九个自带排除集的 boundary 测试（busy_state/button/copy_entry/data_table/dialog/input/shortcut_registry/token/ui_icons）集合加 `"voice_asr_venv"`；
+3. 六个内联过滤的 boundary 测试（combobox×2/context_menu/file_dialog/notification/scrollbar_theme/tooltip）条件加 `or 'voice_asr_venv' in relative.parts`；
+4. `scripts/coverage_report.py` 排除集合同步（修模块数 6360≠546 基线失配）。
 
-门禁语义未弱化：扫描范围收敛到门禁文档本就声明的「本仓自有 .py」；venv 与 `skills/` 同性质——第三方运行时代码，不属本仓维护、无法提交修复。各 boundary 测试自带的局部 EXCLUDED_PARTS 未动（实测对 venv 内容无命中，保持绿）。
+排除语义统一：venv 与 `skills/` 同性质——第三方运行时代码，不属本仓维护、无法提交修复；门禁断言未弱化，只是扫描范围收敛到「本仓自有 .py」。已核对其余 rglob 扫描器（silent_exception/service_return/skip_hygiene/round_baselines/requirement_traceability/path_authority/startup_budget）作用域不含 data/，无需改。新增 `test_scan_scope_excludes_runtime_asr_venv` 断言排除生效；本地 99 条相关架构测试全绿。
 
 ## 下一步（证据驱动）
 

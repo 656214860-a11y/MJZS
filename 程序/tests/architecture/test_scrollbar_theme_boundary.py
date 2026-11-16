@@ -29,7 +29,7 @@ class ScrollbarThemeBoundaryTests(unittest.TestCase):
             relative = path.relative_to(PROGRAM)
             if (path.name in {'ui_theme.py', 'ui_widgets.py'} or path.name.startswith('test')
                     or 'tests' in relative.parts or 'tasks_round' in relative.parts
-                    or '维护记录' in relative.parts):
+                    or '维护记录' in relative.parts or 'voice_asr_venv' in relative.parts):
                 continue
             tree = ast.parse(path.read_text(encoding='utf-8'))
             for node in ast.walk(tree):

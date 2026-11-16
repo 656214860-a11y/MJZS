@@ -52,6 +52,7 @@ class NotificationBoundaryTests(unittest.TestCase):
             relative = path.relative_to(ROOT)
             if (path.name.startswith('test') or 'tests' in relative.parts
                     or 'tasks_round' in relative.parts or '维护记录' in relative.parts
+                    or 'voice_asr_venv' in relative.parts
                     or path.name == 'ui_widgets.py'):
                 continue
             count = len(_display_messageboxes(parse(path)))
