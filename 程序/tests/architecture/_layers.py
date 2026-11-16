@@ -62,7 +62,7 @@ _register(5, "desktop_launcher")
 _register(1, "lease_verifier", "account_store", "update_notice")
 _register(2, "entitlement_service", "account_client")
 _register(3, "account_controller")
-_register(4, "account_inputs", "desktop_account_page", "desktop_login_gate", "desktop_page_nav", "desktop_lifecycle")
+_register(4, "account_inputs", "desktop_account_page", "desktop_login_gate", "desktop_page_nav", "desktop_lifecycle", "desktop_files_panel")
 _register(3, "edit_habits")
 _register(4, "edit_habits_dialog")
 # R2184：工作流调用设置窗口从 workflow_settings 拆出（R2178 J1），workflow_settings 自身不再导入 Tk。

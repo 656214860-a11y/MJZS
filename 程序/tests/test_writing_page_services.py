@@ -4,12 +4,13 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from desktop_writing_page import WritingPageServices, _WritingPage
+from desktop_files_panel import ProjectFilesPanel
+from desktop_writing_page import WritingPageServices
 
 
 def _page(services, **kwargs):
     host = SimpleNamespace(win=object(), writing_page_services=services, **kwargs)
-    page = _WritingPage.__new__(_WritingPage)
+    page = ProjectFilesPanel.__new__(ProjectFilesPanel)
     page.page = host
     return page
 

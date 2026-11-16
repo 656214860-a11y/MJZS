@@ -10,8 +10,9 @@ class ScriptRenameBoundaryTests(unittest.TestCase):
         tree = parse_desktop()
         desktop = ast.Module(body=[member for cls in tree.body if isinstance(cls, ast.ClassDef) for member in cls.body], type_ignores=[])  # R1499：Desktop 方法分布在 desktop.py 与迁出的 Mixin 类里
         # R1817：writing 的闭包改写成了 _WritingPage 类，页面构造代码现在在类里；薄方法和新类两处都扫
-        scopes = [node for node in desktop.body if isinstance(node, ast.FunctionDef) and node.name == 'writing'] + [cls for cls in tree.body if isinstance(cls, ast.ClassDef) and cls.name == '_WritingPage']
-        self.assertEqual(len(scopes), 2)
+        # R2962：文件列表方法迁入 desktop_files_panel.ProjectFilesPanel（已入 DESKTOP_PARTS），rename_script 在其中。
+        scopes = [node for node in desktop.body if isinstance(node, ast.FunctionDef) and node.name == 'writing'] + [cls for cls in tree.body if isinstance(cls, ast.ClassDef) and cls.name in ('_WritingPage', 'ProjectFilesPanel')]
+        self.assertEqual(len(scopes), 3)
         names = [node.func.id for writing in scopes for node in ast.walk(writing) if isinstance(node, ast.Call)
                  and isinstance(node.func, ast.Name)]
         self.assertIn('ensure_script_workspace', names)
@@ -20,8 +21,9 @@ class ScriptRenameBoundaryTests(unittest.TestCase):
         tree = parse_desktop()
         desktop = ast.Module(body=[member for cls in tree.body if isinstance(cls, ast.ClassDef) for member in cls.body], type_ignores=[])  # R1499：Desktop 方法分布在 desktop.py 与迁出的 Mixin 类里
         # R1817：writing 的闭包改写成了 _WritingPage 类，页面构造代码现在在类里；薄方法和新类两处都扫
-        scopes = [node for node in desktop.body if isinstance(node, ast.FunctionDef) and node.name == 'writing'] + [cls for cls in tree.body if isinstance(cls, ast.ClassDef) and cls.name == '_WritingPage']
-        self.assertEqual(len(scopes), 2)
+        # R2962：文件列表方法迁入 desktop_files_panel.ProjectFilesPanel（已入 DESKTOP_PARTS），rename_script 在其中。
+        scopes = [node for node in desktop.body if isinstance(node, ast.FunctionDef) and node.name == 'writing'] + [cls for cls in tree.body if isinstance(cls, ast.ClassDef) and cls.name in ('_WritingPage', 'ProjectFilesPanel')]
+        self.assertEqual(len(scopes), 3)
         rename = next(node for writing in scopes for node in ast.walk(writing)
                       if isinstance(node, ast.FunctionDef) and node.name == 'rename_script')
         names = [node.func.id for node in ast.walk(rename) if isinstance(node, ast.Call)

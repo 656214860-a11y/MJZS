@@ -95,7 +95,11 @@ class CompactDesktopGeometryTests(unittest.TestCase):
                     self.assertLessEqual(widget.winfo_rooty()+widget.winfo_height(),
                                          canvas.winfo_rooty()+canvas.winfo_height()+1)
                     self.assertGreaterEqual(widget.winfo_height(), widget.winfo_reqheight())
+                # R2962：文件栏改右侧停靠面板（默认收起）；打开后底边仍不得越出内容区。
+                d.files_panel.open_panel();self.pump(.05)
+                self.assertTrue(d.files_panel._open,'有项目时入口允许打开文件面板')
                 self.assertLessEqual(d.script_box.winfo_rooty()+d.script_box.winfo_height(), d.canvas.winfo_rooty()+d.canvas.winfo_height()+2)
+                d.files_panel.collapse();self.pump(.05)
                 self.assertLessEqual(d.content.winfo_height(), d.canvas.winfo_height()+2)
 
     def test_header_geometry_across_stages_and_sizes(self):
@@ -207,6 +211,8 @@ class CompactDesktopGeometryTests(unittest.TestCase):
         self.assertTrue(any(t.startswith('● ') for t in labels), '选择层里当前项目带 ● 标记')
         d._close_sidebar_popup(); self.pump()
         self.assertIsNone(getattr(d, '_sidebar_popup_win', None), '点外部后选择层收起')
+        # R2962：文件栏迁为右侧停靠面板，默认隐藏；断言列表内容前先打开并等渐进批次。
+        d.files_panel.open_panel();self.pump(.4)
         self.assertEqual(set(d.script_row_category.values()), {'setting', 'outline', 'character', 'script'},
                          '四类文件都出现在同一条列表里')
         tree = d.script_tree

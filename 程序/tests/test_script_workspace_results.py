@@ -51,7 +51,7 @@ class ScriptWorkspaceResultTests(unittest.TestCase):
                 ensure_script_workspace('project')
 
     def test_desktop_rename_success_failure_and_cancel(self):
-        source = Path(__file__).resolve().parents[1] / 'desktop_writing_page.py'  # R1499：writing 已原样迁到 WritingPageMixin
+        source = Path(__file__).resolve().parents[1] / 'desktop_files_panel.py'  # R2962：文件列表迁到 ProjectFilesPanel
         tree = ast.parse(source.read_text(encoding='utf-8'))
         methods = [node for node in ast.walk(tree)
                    if isinstance(node, ast.FunctionDef) and node.name == 'rename_script']
@@ -59,7 +59,7 @@ class ScriptWorkspaceResultTests(unittest.TestCase):
         for result in (SystemError('保存失败'), success(Path('new.md'))):
             app, dialog, refresh = Mock(), Mock(), Mock()
             dialog.ask_string.return_value = 'new.md'
-            # R1817：rename_script 成了 _WritingPage 的方法，原来的闭包变量成了实例属性、桌面主窗成了 page
+            # R2962：rename_script 成了 ProjectFilesPanel 的方法，原来的闭包变量成了实例属性、桌面主窗成了 page
             env = dict(ask_string=dialog.ask_string)
             exec(compile(ast.Module(body=methods, type_ignores=[]), str(source), 'exec'), env)
             page = SimpleNamespace(page=app, fill_script_list=refresh, selected_script=Mock(return_value=Path('old.md')))
@@ -86,7 +86,7 @@ class ScriptWorkspaceResultTests(unittest.TestCase):
         desktop = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == 'WritingPageMixin')
         method = next(node for node in desktop.body if isinstance(node, ast.FunctionDef) and node.name == 'writing')
         page_class = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == '_WritingPage')  # R1817：页面主体改写成了类
-        env = {'WritingSnapshotsMixin': object}  # R2831 起 _WritingPage 继承 mixin；抽取执行只需基类名可解析
+        env = {}  # R2962：_WritingPage 不再继承 mixin，抽取执行无需基类名
         exec(compile(ast.Module(body=[method, page_class], type_ignores=[]), str(source), 'exec'), env)
         with patch('script_workspace_service.ensure_script_workspace', return_value=SystemError('初始化失败')):
             with self.assertRaisesRegex(ValueError, '初始化失败'):

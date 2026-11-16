@@ -566,6 +566,10 @@ class UiEdgePagesTests(UiEdgeCase):
             d = Desktop(win, root=PROGRAM)
             d.root = proj
             d.show(0); win.update()
+            # R2962：文件栏迁为右上角图标＋右侧停靠面板，默认隐藏；打开后等渐进批次填表。
+            d.files_panel.open_panel()
+            for _ in range(40):
+                win.update(); time.sleep(.02)
             box = d.idea_log
             talk = box.master.master
             self.assertEqual(str(talk.winfo_class()), "TFrame", "聊天内容框摆在对话区容器内")
@@ -577,7 +581,7 @@ class UiEdgePagesTests(UiEdgeCase):
             self.assertFalse(hasattr(d, "recon_button"), "「采风」按钮已随 R2923 删除")
             self.assertEqual(str(d.script_box.winfo_class()), "TFrame")
             self.assertTrue(d.script_box.winfo_ismapped(),
-                            "发现已有剧本文件时，文件框与列头必须保持可见")
+                            "打开项目文件面板后，文件框与列头必须保持可见")
             # R2942：四类文件合成一条「项目文件」列表；表头「文件名」，去掉勾选列，
             # Ctrl／Shift 多选；每行只显示文件名，类别经行提示展示。
             tree = d.script_tree
