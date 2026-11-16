@@ -67,33 +67,93 @@ class ParseCommandTests(unittest.TestCase):
         self.assertEqual(names, ('sd-alpha-engine',))
 
 
-class CompletionsTests(unittest.TestCase):
+class CompletionEntriesTests(unittest.TestCase):
+    """R2980：``completion_entries`` 结构化候选——当前阶段 skill → 其余 → 阶段别名 → 子引擎。"""
+
     def test_current_stage_skills_first(self):
         skills = [_skill('other-stage-skill', stage='assets'),
                   _skill('mine-a', stage='storyboard'), _skill('mine-b', stage='storyboard')]
-        out = skill_command.completions('/', stage='storyboard', skills=skills, engines=())
-        self.assertEqual(out[:2], ('/mine-a', '/mine-b'))
-        self.assertIn('/other-stage-skill', out)
+        out = skill_command.completion_entries('', stage='storyboard', skills=skills, engines=())
+        self.assertEqual([e['name'] for e in out[:2]], ['mine-a', 'mine-b'])
+        self.assertEqual([e['kind'] for e in out[:2]], ['skill', 'skill'])
+        names = [e['name'] for e in out]
+        self.assertIn('other-stage-skill', names)
+        self.assertLess(names.index('mine-a'), names.index('other-stage-skill'))
 
     def test_stage_aliases_and_engines_follow(self):
-        out = skill_command.completions('/', skills=[], engines=('sd-script-engine',))
-        joined = ' '.join(out)
-        self.assertIn('/01', joined)
-        self.assertIn('/storyboard', joined)
-        self.assertIn('/sd-script-engine', joined)
-        # 子引擎排在阶段别名之后。
-        self.assertLess(joined.index('/storyboard'), joined.index('/sd-script-engine'))
+        out = skill_command.completion_entries('', skills=[], engines=('sd-script-engine',))
+        kinds = [e['kind'] for e in out]
+        # 阶段别名排在子引擎之前。
+        self.assertLess(kinds.index('stage'), kinds.index('engine'))
+        names = [e['name'] for e in out]
+        self.assertIn('storyboard', names)
+        self.assertIn('sd-script-engine', names)
+        self.assertEqual(out[-1]['insert'], '/sd-script-engine ')
 
     def test_prefix_filters(self):
         skills = [_skill('alpha-skill'), _skill('beta-skill')]
-        out = skill_command.completions('/alpha', skills=skills, engines=())
-        self.assertEqual(out, ('/alpha-skill',))
-        self.assertEqual(skill_command.completions('abc', skills=skills), ())
+        out = skill_command.completion_entries('alpha', skills=skills, engines=())
+        self.assertEqual([e['name'] for e in out], ['alpha-skill'])
+        self.assertEqual(skill_command.completion_entries('zzz', skills=skills, engines=()), ())
 
-    def test_command_token(self):
-        self.assertEqual(skill_command.command_token('/sto rest'), '/sto')
-        self.assertEqual(skill_command.command_token('/'), '/')
-        self.assertEqual(skill_command.command_token('plain'), '')
+    def test_insert_and_label_shape(self):
+        out = skill_command.completion_entries('plot', skills=[_skill('plot')], engines=())
+        self.assertEqual(len(out), 1)
+        entry = out[0]
+        self.assertEqual(entry['kind'], 'skill')
+        self.assertEqual(entry['label'], '/plot')
+        self.assertEqual(entry['insert'], '/plot ')
+
+    def test_dict_and_plain_string_items(self):
+        skills = [{'name': 'dict-skill', 'stage': 'assets'}, 'plain-skill']
+        out = skill_command.completion_entries('', stage='storyboard', skills=skills, engines=())
+        names = [e['name'] for e in out]
+        # 字符串视为当前阶段排前；字典按 stage 键归入其余。
+        self.assertLess(names.index('plain-skill'), names.index('dict-skill'))
+
+
+class TriggerTokenTests(unittest.TestCase):
+    """R2980：``trigger_token`` 光标处 ``/``／``@`` 触发边界与 token 范围。"""
+
+    def test_line_start_and_after_space(self):
+        for text in ('/pl', '帮我 /分镜 一下', 'a\n/b'):
+            with self.subTest(text=text):
+                token = skill_command.trigger_token(text, len(text))
+                self.assertIsNotNone(token)
+                self.assertEqual(token['kind'], 'command')
+
+    def test_no_trigger_inside_word_url_or_fraction(self):
+        for text in ('a/b', 'https://example.com', '3/4', 'a@b.com'):
+            with self.subTest(text=text):
+                self.assertIsNone(skill_command.trigger_token(text, len(text)))
+
+    def test_query_and_bounds(self):
+        token = skill_command.trigger_token('帮我 /分镜一下', len('帮我 /分镜一下'))
+        self.assertEqual(token['kind'], 'command')
+        self.assertEqual(token['query'], '分镜一下')
+        self.assertEqual(token['start'], 3)
+        # 光标落在 token 中间：end 仍覆盖到词尾。
+        token = skill_command.trigger_token('/story rest', 3)
+        self.assertEqual((token['start'], token['end']), (0, 6))
+
+    def test_mention_kind(self):
+        text = '看 @人物'
+        token = skill_command.trigger_token(text, len(text))
+        self.assertEqual(token['kind'], 'mention')
+        self.assertEqual(token['query'], '人物')
+
+    def test_punctuation_terminates_end(self):
+        token = skill_command.trigger_token('/name，后文', 5)
+        self.assertEqual(token['end'], 5, '光标在标点前时 token 不得吞掉标点')
+
+    def test_nearest_trigger_wins(self):
+        token = skill_command.trigger_token('/a @b', len('/a @b'))
+        self.assertEqual(token['kind'], 'mention')
+        self.assertEqual(token['query'], 'b')
+
+    def test_full_width_space_counts_as_boundary(self):
+        token = skill_command.trigger_token('帮我　/分镜', len('帮我　/分镜'))
+        self.assertIsNotNone(token, '全角空格同样是合法触发边界')
 
 
 if __name__ == '__main__':

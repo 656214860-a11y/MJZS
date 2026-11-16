@@ -1,10 +1,11 @@
 """共享输入框右下角的模型选择器（R2964 定版）：无外框文字钮＋上方卡片浮层。
 
 按钮显示「当前模型名 ▾」，点击在输入框上方弹出 ``ui_popup.Flyout`` 卡片：
-模型行（当前项打勾、推理能力项带「推理·<档位>」徽标）、推理等级四档、
-末尾「+ 添加模型…」；点外部、Esc 或选中模型即关。上一版 ``ttk.Menubutton``＋
+模型行（当前项打勾、推理能力项带「推理·<档位>」徽标）、推理等级四档；
+点外部、Esc 或选中模型即关。上一版 ``ttk.Menubutton``＋
 ``tk.Menu`` 在输入框贴底时被系统翻转方向、盖住按钮本体，且存在误触尾项
 直接打开模型管理的反馈（R2964 用户实测四条修复点），故改自绘浮层。
+模型管理入口在共享输入框「＋」下拉（REQ-S01-91），本浮层不再保留尾项。
 
 模型的唯一写入口仍是 ``stage_config.put``；选项仍来自 ``grouped_model_choices``
 （模型池＋页面生产模型）。REQ-S01-82：条目只显示模型名称（不带供应商前缀）；
@@ -24,7 +25,6 @@ from ui_popup import Flyout, monitor_bounds
 from ui_tokens import COLORS, FONTS, SPACING
 from ui_widgets import SecondaryButton, setup_styles
 
-ADD_MODEL_LABEL = '+ 添加模型…'
 LEVEL_MENU = '推理等级'
 # 触发钮文案截断：模型名过长时不把输入行撑破（保守按字符数截，CJK 视觉更宽）。
 MODEL_LABEL_MAX_CHARS = 24
@@ -146,12 +146,12 @@ class StageModelPicker(ttk.Frame):
         return None
 
     def labels(self):
-        """浮层里的模型项显示名（「+ 添加模型…」不在内）。"""
+        """浮层里的模型项显示名。"""
         return [label for _model_id, label in self._items]
 
     # ── 浮层内容（数据视图，测试与渲染共用） ────────────────────────────────
     def _popup_spec(self):
-        """浮层行规格：模型行 → 推理等级区 → 「+ 添加模型…」尾行。"""
+        """浮层行规格：模型行 → 推理等级区（管理入口在共享输入框「＋」下拉）。"""
         level = self.saved_reasoning()
         level_label = stage_config.REASONING_LABELS[level]
         current = str(self.model.get() or '')
@@ -164,8 +164,6 @@ class StageModelPicker(ttk.Frame):
         rows.append({'kind': 'reasoning', 'label': LEVEL_MENU,
                      'levels': [(value, stage_config.REASONING_LABELS[value], value == level)
                                 for value in stage_config.REASONING_LEVELS]})
-        rows.append({'kind': 'separator'})
-        rows.append({'kind': 'add', 'label': ADD_MODEL_LABEL})
         return rows
 
     # ── 浮层开合与定位 ──────────────────────────────────────────────────────
@@ -269,9 +267,6 @@ class StageModelPicker(ttk.Frame):
                     fill='x', padx=SPACING['xs'], pady=SPACING['xs'])
             elif kind == 'reasoning':
                 self._reasoning_block(pinned, row_spec)
-            elif kind == 'add':
-                self._text_row(pinned, row_spec['label'], fg=COLORS['primary'],
-                               command=self._choose_add_model)
 
     # ── 行构造 ──────────────────────────────────────────────────────────────
     @staticmethod
@@ -417,19 +412,10 @@ class StageModelPicker(ttk.Frame):
         self.choose_model(model_id)
         self._close_popup()
 
-    def _choose_add_model(self):
-        self._close_popup()
-        self.open_model_manager()
-
     def choose_model(self, model_id=None):
         if model_id is not None:
-            if model_id == ADD_MODEL_LABEL:
-                return self.open_model_manager()
             self.set_model(model_id)
             return self.save()
-        if self.model.get() == ADD_MODEL_LABEL:
-            self.model.set(self._picked)
-            return self.open_model_manager()
         self._picked = self.model.get()
         return self.save()
 
@@ -459,7 +445,7 @@ class StageModelPicker(ttk.Frame):
         return entry
 
     def open_model_manager(self):
-        """「+ 添加模型…」：模型池只有模型管理的一扇门。"""
+        """模型管理唯一入口（共享输入框「＋」下拉调用）；模型池只有模型管理的一扇门。"""
         pet = pet_of(self.desktop)
         if pet is None:
             return ''

@@ -195,7 +195,6 @@ class _WritingPage:
         if bound_box is not self.input_box:
             self.page._composer_bound_box = self.input_box
             self.input_box.bind('<Button-3>',self.page.open_idea_paste_menu,add='+')
-            self.input_box.bind('<KeyRelease>',self.page.show_idea_reference_menu,add='+')
             self.input_box.bind('<Return>',lambda event:self.page._composer_dispatch('send_on_enter',event),add='+')
             self.input_box.bind('<KP_Enter>',lambda event:self.page._composer_dispatch('send_on_enter',event),add='+')
             self.input_box.bind('<<Modified>>',lambda event:self.page._composer_dispatch('on_modified',event))
