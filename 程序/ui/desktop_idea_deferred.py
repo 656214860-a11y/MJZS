@@ -5,7 +5,7 @@
 """
 import tkinter as tk
 
-import app_logging
+import infra.app_logging as app_logging
 import infra.pet_state as pet_state
 from orchestrator.idea_chat_controller import DeferredFill, IDEA_UPDATE_STABLE_TICKS, IDEA_UPDATE_TIMEOUT_SECONDS  # noqa: F401（常量供测试沿用旧导入路径）
 from ui_tokens import COLORS, FONTS

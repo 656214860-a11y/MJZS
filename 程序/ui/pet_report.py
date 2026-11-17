@@ -119,7 +119,7 @@ def prune(project, at=None, keep=KEEP):
     只识别日期名及数字副本名；周报保留与窗口有交集的整周。
     返回成功回收的原路径；文件占用不影响已生成的报告。
     """
-    import storage_maintenance
+    import infra.storage_maintenance as storage_maintenance
 
     folder = report_dir(project)
     start = retention_start(at, keep)

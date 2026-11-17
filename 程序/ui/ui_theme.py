@@ -1,6 +1,6 @@
 """Shared lightweight pastel theme; no image downloads or animation loop."""
 
-import app_logging
+import infra.app_logging as app_logging
 from tkinter import ttk
 from ui_tokens import COLORS, DESKTOP_LAYOUT, DIALOG_MIN_HEIGHT, DIALOG_MIN_WIDTH, FONTS, SPACING
 from responsive_ui import row_height_for,font_linespace

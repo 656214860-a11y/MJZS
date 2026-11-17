@@ -1,5 +1,5 @@
 """Project script/storyboard discovery and the shared in-page file picker."""
-import app_logging
+import infra.app_logging as app_logging
 from pathlib import Path
 import json, os, queue, threading
 import tkinter as tk
@@ -36,7 +36,7 @@ from orchestrator.storyboard_recycle_service import (
 )
 from contract.platform_tools import open_path
 import infra.tk_timers as tk_timers
-from file_cache import read_json, read_text
+from infra.file_cache import read_json, read_text
 import infra.project_settings as project_settings
 import infra.ui_plugin_registry as ui_plugin_registry
 from infra.pet_state import PAGE_OF

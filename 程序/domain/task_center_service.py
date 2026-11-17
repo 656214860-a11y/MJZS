@@ -5,7 +5,7 @@
 """
 from __future__ import annotations
 
-import app_logging
+import infra.app_logging as app_logging
 
 STATE_TEXT = {'running': '进行中', 'succeeded': '成功', 'failed': '失败', 'cancelled': '已取消'}
 

@@ -19,7 +19,7 @@ from unittest.mock import patch
 
 from agent.core import read, save
 from contract.project_stages import exports
-import storage_maintenance as sm
+import infra.storage_maintenance as sm
 
 
 NEWLINE = chr(10)

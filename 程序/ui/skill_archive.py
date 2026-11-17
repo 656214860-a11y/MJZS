@@ -25,7 +25,7 @@ from typing import NamedTuple
 
 import ui.skill_import_service as skill_import_service
 import orchestrator.skill_registry as skill_registry
-from storage_maintenance import recycle_paths
+from infra.storage_maintenance import recycle_paths
 
 ARCHIVE_STAGING_PREFIX = '.压缩包解压-'
 # ZIP 条目数上限：与包文件数护栏同量级，单独成常量便于按压缩包口径调整。

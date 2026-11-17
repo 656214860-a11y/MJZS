@@ -12,7 +12,7 @@ import re
 import tempfile
 from pathlib import Path
 
-from file_cache import read_json, read_text
+from infra.file_cache import read_json, read_text
 
 DEFAULT_THRESHOLD = 60        # 低于这个分数不上候选图墙
 DEFAULT_LIMIT = 6             # 图墙最多展示几张

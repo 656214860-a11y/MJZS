@@ -130,7 +130,7 @@ def _publish(batch, episode, script, srt):
     import uuid
     from contract.project_stages import audio, subtitles
     from orchestrator.stage_publication import publish_stage_bundle
-    import file_cache
+    import infra.file_cache as file_cache
     folder, history = audio(batch.project), audio(batch.project) / '历史版本'
     target = folder / '配音脚本.md'
     code = re.sub(r'[^\w-]+', '', str(episode.get('episode_id') or '')) or 'EP'
@@ -143,7 +143,7 @@ def _publish(batch, episode, script, srt):
                          lambda: [file_cache.published(path) for path in artifacts])
     older = sorted(history.glob('配音脚本_*.md'), key=lambda p: p.name, reverse=True)[HISTORY_KEEP:] if history.is_dir() else []
     if older:
-        from storage_maintenance import recycle_paths
+        from infra.storage_maintenance import recycle_paths
         recycle_paths(batch.project, older, '配音脚本历史版本超过 %d 份' % HISTORY_KEEP)
     return target, srt_path
 
@@ -175,7 +175,7 @@ def _episode(batch, source):
         from stage_execution_service import refresh_audio_manifests
         refresh_audio_manifests(batch.project)
     except Exception:  # 声明产出清单刷新失败不影响已发布的成果
-        import app_logging
+        import infra.app_logging as app_logging
         app_logging.swallowed()
     return target, srt_path
 

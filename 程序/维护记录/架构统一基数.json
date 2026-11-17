@@ -867,7 +867,7 @@
     "reason": "R827：引擎真机验证台账读取收口至 file_cache.read_json。"
    },
    {
-    "file": "file_cache.py",
+    "file": "infra/file_cache.py",
     "point": "read_stable_json_snapshot:json.loads:8602c6ae639554ae:1",
     "disposition": "exempt",
     "reason": "R831：缓存权威集中执行带前后签名校验的稳定工作 JSON 快照读取。"
@@ -1011,37 +1011,37 @@
     "reason": "R830：经 file_cache.read_text 读取后的 JSONL 单行日志解码，不是正式 JSON 文件读取。（R1383：文件顶部加 import pet_bus 使该行由 454 平移至 455，语义不变。）"
    },
    {
-    "file": "storage_maintenance.py",
+    "file": "infra/storage_maintenance.py",
     "point": "retired:1411d7921928a01a",
     "disposition": "exempt",
     "reason": "删除／回收权威自身的配置读写，转 file_cache 会自引用"
    },
    {
-    "file": "storage_maintenance.py",
+    "file": "infra/storage_maintenance.py",
     "point": "retired:ac69f13e7491df22",
     "disposition": "exempt",
     "reason": "删除／回收权威自身的回收清单读写，转 file_cache 会自引用"
    },
    {
-    "file": "storage_maintenance.py",
+    "file": "infra/storage_maintenance.py",
     "point": "retired:f256ea4086bbbb9d",
     "disposition": "exempt",
     "reason": "删除／回收权威自身的恢复清单读写，转 file_cache 会自引用"
    },
    {
-    "file": "storage_maintenance.py",
+    "file": "infra/storage_maintenance.py",
     "point": "retired:d236e79c03597727",
     "disposition": "exempt",
     "reason": "删除／回收权威自身的恢复清单读写，转 file_cache 会自引用"
    },
    {
-    "file": "storage_maintenance.py",
+    "file": "infra/storage_maintenance.py",
     "point": "retired:3bc0019e0883f338",
     "disposition": "exempt",
     "reason": "删除／回收权威自身的恢复清单读写，转 file_cache 会自引用"
    },
    {
-    "file": "storage_maintenance.py",
+    "file": "infra/storage_maintenance.py",
     "point": "retired:6e4da209cf6ff636",
     "disposition": "exempt",
     "reason": "删除／回收权威自身的状态清单读写，转 file_cache 会自引用"
@@ -1277,7 +1277,7 @@
     "reason": "R837：阶段目录 junction 回退经 platform_tools.run_process 执行，保留静默与返回码判定。"
    },
    {
-    "file": "storage_maintenance.py",
+    "file": "infra/storage_maintenance.py",
     "point": "retired:c85e3f6d34e353a5",
     "disposition": "migrated",
     "reason": "R833：程序自有回收清理后台进程改经 platform_tools.launch_background。"

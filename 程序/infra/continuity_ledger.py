@@ -18,7 +18,7 @@ from pathlib import Path
 
 from contract.asset_contract import merged_anchor
 from agent.core import restore_bytes, save, save_text
-from file_cache import read_json
+from infra.file_cache import read_json
 from contract.shot_batches import batches, normalize, triplet
 
 # 附件里给的 Agent Prompt 模板（逐字照抄，程序直接复用这一句）。

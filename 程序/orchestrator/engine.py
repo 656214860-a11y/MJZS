@@ -837,7 +837,7 @@ class Studio:
             replace(pending_master, master)
         finally:
             if pending_master.exists():
-                from file_cache import remove_temporary_file
+                from infra.file_cache import remove_temporary_file
                 remove_temporary_file(pending_master)
         self.publish_edit_bundle(out, master, report, chosen, edits, overlap)
         exports = self.publish_edit_lists(out, chosen, spec)
@@ -875,7 +875,7 @@ class Studio:
                 replace(mixed,pending_master)
             finally:
                 if mixed.exists():
-                    from file_cache import remove_temporary_file
+                    from infra.file_cache import remove_temporary_file
                     remove_temporary_file(mixed)
         return overlap
 
@@ -947,7 +947,7 @@ class Studio:
             replace(pending,dest)
         finally:
             if pending.exists():
-                from file_cache import remove_temporary_file
+                from infra.file_cache import remove_temporary_file
                 remove_temporary_file(pending)
         from domain.edit_export import EDITS_NAME
         try:

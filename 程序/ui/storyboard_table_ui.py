@@ -1,5 +1,5 @@
 """Tk table adapters shared by storyboard picker pages."""
-import app_logging
+import infra.app_logging as app_logging
 from datetime import datetime
 from ui_tokens import COLORS
 from ui_widgets import DataTable

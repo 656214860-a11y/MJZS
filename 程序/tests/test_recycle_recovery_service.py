@@ -8,7 +8,7 @@ from domain import recycle_recovery_service
 
 from orchestrator.recycle_recovery_controller import RecycleRecoveryController
 from domain.recycle_recovery_service import list_batches, restore_batch, restore_item
-from storage_maintenance import recycle_paths, restore_recycle_batch
+from infra.storage_maintenance import recycle_paths, restore_recycle_batch
 
 
 class RecycleRecoveryServiceTests(unittest.TestCase):

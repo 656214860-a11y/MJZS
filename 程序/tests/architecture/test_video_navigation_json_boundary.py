@@ -13,7 +13,7 @@ class VideoNavigationJsonBoundaryTests(unittest.TestCase):
                       if isinstance(node, ast.FunctionDef) and node.name == 'read_json')
         calls = [node for node in ast.walk(reader)
                  if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)]
-        self.assertIn('from file_cache import read_json as read_cached_json', text)
+        self.assertIn('from infra.file_cache import read_json as read_cached_json', text)
         self.assertTrue(any(node.func.id == 'read_cached_json' for node in calls))
         self.assertFalse(any(node.func.id == 'loads' for node in calls))
 

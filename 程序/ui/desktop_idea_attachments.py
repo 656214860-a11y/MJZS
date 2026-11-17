@@ -8,7 +8,7 @@
 import tkinter as tk
 from pathlib import Path
 
-import app_logging
+import infra.app_logging as app_logging
 
 
 class IdeaAttachmentsMixin:

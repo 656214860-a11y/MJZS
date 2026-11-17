@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-import app_logging
+import infra.app_logging as app_logging
 import task_center_service
 import task_center_ui
 

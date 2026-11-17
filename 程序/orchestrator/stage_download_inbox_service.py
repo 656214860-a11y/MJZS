@@ -10,7 +10,7 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-import file_cache
+import infra.file_cache as file_cache
 import contract.stage_layout as stage_layout
 
 
@@ -25,7 +25,7 @@ def overwrite_backup_notice(backups):
     """给状态栏的一句话：覆盖前备份放在哪；没有备份返回空串。"""
     if not backups:
         return ''
-    from storage_maintenance import OVERWRITE_BACKUP_DIR
+    from infra.storage_maintenance import OVERWRITE_BACKUP_DIR
     backup = Path(backups[-1][1])
     # 备份路径＝<项目>/工作流任务/覆盖前备份/<批次>/<原文件相对项目的路径>，提示到批次目录为止。
     folder = next((parent for parent in backup.parents if parent.parent.name == OVERWRITE_BACKUP_DIR),
@@ -87,7 +87,7 @@ def collect_download_inbox(project, now=None, downloads=None, backups=None):
     done, finished = [], []
     from agent.publication import transaction
     from contract.platform_tools import execution_checkpoint
-    from storage_maintenance import backup_before_overwrite
+    from infra.storage_maintenance import backup_before_overwrite
     # 下载件日期比登记目标新时写到新日期路径；登记表按原目标销账，对上同一份下载的旧登记一并销账。
     for source, target, registered in match_registered(downloads, pending, now):
         try:

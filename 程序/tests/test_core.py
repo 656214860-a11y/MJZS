@@ -519,7 +519,7 @@ class AgentCoreTests(unittest.TestCase):
 
     def test_atomic_publish_emits_cache_invalidation(self):
         """原子发布成功后，已缓存的正式成果不能继续留在读取缓存中。"""
-        import file_cache
+        import infra.file_cache as file_cache
         from agent.core import save_text
         with tempfile.TemporaryDirectory() as td:
             target = Path(td) / '剧本.md'

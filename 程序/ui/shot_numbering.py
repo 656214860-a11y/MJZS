@@ -11,7 +11,7 @@ EP003 反而占了 SH017-SH031）。本模块按集号升序重新分配连续�
     python shot_numbering.py <项目目录> --apply  # 执行，改写前自动备份
 """
 import json
-from file_cache import read_json
+from infra.file_cache import read_json
 import os
 import re
 import shutil

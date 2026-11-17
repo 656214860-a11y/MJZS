@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-import file_cache
+import infra.file_cache as file_cache
 
 from projects import Projects
 from stage_execution_service import project_registry_gateway

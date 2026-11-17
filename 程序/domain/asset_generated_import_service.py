@@ -2,7 +2,7 @@
 import re
 import time
 from pathlib import Path
-from file_cache import remove_temporary_file
+from infra.file_cache import remove_temporary_file
 
 from agent.core import read
 from contract.project_context import ProjectContext
@@ -21,7 +21,7 @@ def _project_root(project=None, *, context=None):
 
 def cleanup_batches(folder, days=7):
     """仅回收已明确失败的过期记录；未结算请求永久保留到核实闭环。"""
-    from storage_maintenance import recycle_paths
+    from infra.storage_maintenance import recycle_paths
     folder = Path(folder)
     cutoff = time.time() - days * 86400
     expired = []

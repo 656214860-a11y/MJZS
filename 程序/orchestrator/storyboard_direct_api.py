@@ -219,7 +219,7 @@ def _episode(batch, script, existing_board):
     if existing_board:
         stamp = time.strftime('%Y%m%d_%H%M%S')
         artifacts[history / generate_existing('storyboard_history', stem=target.stem, stamp=stamp)] = Path(existing_board).read_bytes()
-    import file_cache
+    import infra.file_cache as file_cache
     from orchestrator.stage_publication import publish_stage_bundle
 
     def allowed(_items):
@@ -229,7 +229,7 @@ def _episode(batch, script, existing_board):
     if existing_board and history.is_dir():
         older = sorted(history.glob('*.json'), key=lambda p: p.name, reverse=True)[HISTORY_KEEP:]
         if older:
-            from storage_maintenance import recycle_paths
+            from infra.storage_maintenance import recycle_paths
             recycle_paths(project, older, '分镜历史版本超过 %d 份' % HISTORY_KEEP)
     return target, data
 

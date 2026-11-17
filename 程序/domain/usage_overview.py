@@ -12,7 +12,7 @@ import hashlib
 import json
 
 import infra.pet_llm as pet_llm
-from file_cache import read_json
+from infra.file_cache import read_json
 
 _KEYS = ('prompt_tokens', 'completion_tokens', 'cached_tokens', 'total_tokens')
 

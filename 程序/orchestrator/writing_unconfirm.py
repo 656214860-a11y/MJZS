@@ -11,7 +11,7 @@ import json
 import re
 from pathlib import Path
 
-from file_cache import read_json
+from infra.file_cache import read_json
 from writing_api import (PREPARATION_STAGES, _complete_brief, _confirmed_prefix,
                          _preparation_brief_hash, _promote_revision,
                          _save_preparation_state_guarded, _working_documents)

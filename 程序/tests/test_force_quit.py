@@ -199,7 +199,7 @@ class QuitTests(unittest.TestCase):
         self.assertEqual(self.closed, ['收摊'])
 
     def maintenance_subject(self, failure=None, forcing=False):
-        import storage_maintenance
+        import infra.storage_maintenance as storage_maintenance
         from infra import log_maintenance
         from infra import workspace_maintenance
         events = []
@@ -250,7 +250,7 @@ class QuitTests(unittest.TestCase):
         self.assertEqual(self.closed, ['收摊'])
 
     def test_finish_close_takes_the_monitor_page_down(self):
-        import storage_maintenance
+        import infra.storage_maintenance as storage_maintenance
         from infra import log_maintenance
         from orchestrator import previs_monitor
         from infra import workspace_maintenance
@@ -271,7 +271,7 @@ class QuitTests(unittest.TestCase):
         self.assertEqual(launched_workspaces, [subject.app], '正常退出后才异步做仓库卫生')
 
     def test_force_quit_does_not_schedule_log_maintenance(self):
-        import storage_maintenance
+        import infra.storage_maintenance as storage_maintenance
         from infra import log_maintenance
         from infra import workspace_maintenance
         launched_logs = []

@@ -22,7 +22,7 @@ import urllib.response
 
 import infra.model_pool as model_pool
 import infra.model_router as model_router
-import storage_maintenance
+import infra.storage_maintenance as storage_maintenance
 
 
 def _read_request(conn):

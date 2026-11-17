@@ -9,7 +9,7 @@ class LocalPrevisJsonBoundaryTests(unittest.TestCase):
     def test_show_uses_cache_for_current_episode(self):
         source = entity_file('local_previs')
         tree = ast.parse(source.read_text(encoding='utf-8'))
-        self.assertIn('from file_cache import read_json', source.read_text(encoding='utf-8'))
+        self.assertIn('from infra.file_cache import read_json', source.read_text(encoding='utf-8'))
         method = next(node for node in ast.walk(tree) if isinstance(node, ast.ClassDef)
                       and node.name == '_LocalPrevisWindow')  # R1836：show 改写成类
         calls = [node for node in ast.walk(method) if isinstance(node, ast.Call)

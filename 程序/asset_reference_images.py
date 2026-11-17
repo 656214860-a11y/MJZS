@@ -232,7 +232,7 @@ def set_roles(base,aid,values,role):
     stale=[path for relative,path in old_files
            if relative not in used and path.is_relative_to((base/'assets/参考图').resolve())]
     if stale:
-        from storage_maintenance import recycle_paths
+        from infra.storage_maintenance import recycle_paths
         recycle_paths(base,stale,'更新参考图绑定')
 
 
@@ -344,7 +344,7 @@ def unbind(base,aid,values):
 
     targets=list(dict.fromkeys([*owned,*archives]))
     if targets:
-        from storage_maintenance import recycle_paths
+        from infra.storage_maintenance import recycle_paths
         recycled=recycle_paths(base,targets,'解除参考图绑定')
         moved={record['source'] for record in recycled}
         failed=[path for path in targets if path.exists() and path.resolve().relative_to(base).as_posix() not in moved]

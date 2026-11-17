@@ -3,7 +3,7 @@
 含定时器收回、窗口销毁清理、强制关闭、收摊与项目列表刷新。close 留在 desktop.py（确认框按 desktop.confirm 取，测试按该名打补丁）。
 """
 import logging
-import app_logging
+import infra.app_logging as app_logging
 import ui.asset_thumbs as asset_thumbs
 import orchestrator.page_navigation_controller as page_nav
 import tkinter as tk

@@ -2,7 +2,7 @@
 # Keep the small built-in hash backend decision ahead of every optional module.
 # Several imported services fingerprint files during initialization; doing this
 # here avoids loading OpenSSL merely because the desktop shell starts.
-import app_logging
+import infra.app_logging as app_logging
 import infra.hash_backend as hash_backend
 hash_backend.install()
 import contract.pet_bus as pet_bus

@@ -18,7 +18,7 @@ import threading
 from pathlib import Path
 from urllib.parse import urlparse
 
-import file_cache
+import infra.file_cache as file_cache
 import contract.platform_tools as platform_tools
 
 PROGRAM = Path(__file__).resolve().parents[1]

@@ -95,7 +95,7 @@ def prune_raw_outputs(base):
                               if path.resolve() not in keep)
     if not candidates:
         return []
-    from storage_maintenance import recycle_paths
+    from infra.storage_maintenance import recycle_paths
     recycled = recycle_paths(base, candidates, '清理未登记的原始资产图')
     moved = {record['source'] for record in recycled}
     return [path for path in candidates if path.resolve().relative_to(base).as_posix() in moved]

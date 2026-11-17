@@ -74,7 +74,7 @@ import orchestrator.stage_config as stage_config
 import orchestrator.stage_models as stage_models
 import infra.ui_plugin_registry as ui_plugin_registry
 from contract.pet_bus import STAGE_NAMES, read_json, stage_label as _bus_stage_label
-from storage_maintenance import recycle_paths
+from infra.storage_maintenance import recycle_paths
 from ui_tokens import (COLORS, FONTS, SPACING, NOTE_HEIGHT_COMPACT,
                        NOTE_HEIGHT_REGULAR, NOTE_LIST_MAX_WIDTH, NOTE_LIST_MIN_WIDTH,
                        NOTE_PADDING_X, NOTE_PADDING_Y, STAGE_PANEL_LAYOUT,

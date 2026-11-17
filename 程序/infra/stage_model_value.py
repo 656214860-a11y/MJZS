@@ -1,6 +1,6 @@
 """无编排依赖的项目阶段模型只读访问。"""
 
-from file_cache import read_json
+from infra.file_cache import read_json
 import contract.stage_layout as stage_layout
 from contract.pet_bus import STAGES
 

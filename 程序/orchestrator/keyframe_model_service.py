@@ -1,5 +1,5 @@
 """首帧生产模型的无界面解析规则。"""
-import app_logging
+import infra.app_logging as app_logging
 from pathlib import Path
 
 from agent.core import read

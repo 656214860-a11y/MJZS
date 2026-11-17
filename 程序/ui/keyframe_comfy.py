@@ -1,9 +1,9 @@
 """In-app first-frame production: local ComfyUI (FLUX Klein) or the Seedream 5.0 API."""
-import app_logging
+import infra.app_logging as app_logging
 import queue
 import threading
 from pathlib import Path
-from file_cache import remove_temporary_file
+from infra.file_cache import remove_temporary_file
 import tkinter as tk
 from tkinter import ttk, messagebox
 

@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-import file_cache
+import infra.file_cache as file_cache
 
 
 logger = logging.getLogger(__name__)

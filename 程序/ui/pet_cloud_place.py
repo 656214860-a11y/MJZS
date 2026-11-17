@@ -2,7 +2,7 @@
 
 方法体未改、self 语义不变，Cloud 通过继承 CloudPlaceMixin 获得；定位用的常量与 shape_root／shape_min_body 随方法迁出，
 由 pet_cloud 按原名转回。仍与 Tk 控件紧耦合，故与 pet_cloud 同属 L4。"""
-import app_logging
+import infra.app_logging as app_logging
 from ui.ui_popup import monitor_bounds
 from ui_tokens import PET_LAYOUT
 from ui.pet_cloud_shape import (SHAPES, SHAPE_CLOUD, SHAPE_PUFF, SHAPE_ROUND, SHAPE_TAG, configured_value as _configured_value)

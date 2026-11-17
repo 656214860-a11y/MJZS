@@ -3,7 +3,7 @@ from pathlib import Path
 import logging
 from contract.service_contract import SystemError, UserError, success
 
-from storage_maintenance import read_recycle_batch, recycle_base, restore_recycle_batch
+from infra.storage_maintenance import read_recycle_batch, recycle_base, restore_recycle_batch
 
 LOGGER = logging.getLogger('recycle_recovery_service')
 

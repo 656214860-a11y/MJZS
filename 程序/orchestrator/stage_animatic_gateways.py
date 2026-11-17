@@ -7,7 +7,7 @@ from orchestrator.project_context_factory import project_context
 from contract.stage_path_service import write_dir
 from orchestrator.stage_publication import publish_stage_bundle
 from orchestrator.stage_publication import publish_stage_text
-import file_cache
+import infra.file_cache as file_cache
 import json
 import orchestrator.stage_config as stage_config
 from orchestrator.stage_gate_gateways import media_import_publisher

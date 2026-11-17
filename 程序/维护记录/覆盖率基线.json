@@ -79,6 +79,12 @@
    "percent": 0.0
   },
   {
+   "module": "app_logging.py",
+   "covered": 0,
+   "total": 4,
+   "percent": 0.0
+  },
+  {
    "module": "app_shortcut.py",
    "covered": 0,
    "total": 170,
@@ -1132,6 +1138,12 @@
    "module": "environment_check.py",
    "covered": 0,
    "total": 157,
+   "percent": 0.0
+  },
+  {
+   "module": "file_cache.py",
+   "covered": 0,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -2242,6 +2254,12 @@
    "module": "stage_parallel.py",
    "covered": 0,
    "total": 3,
+   "percent": 0.0
+  },
+  {
+   "module": "storage_maintenance.py",
+   "covered": 0,
+   "total": 6,
    "percent": 0.0
   },
   {
@@ -3578,9 +3596,9 @@
   },
   {
    "module": "contract/platform_tools.py",
-   "covered": 109,
+   "covered": 107,
    "total": 554,
-   "percent": 19.7
+   "percent": 19.3
   },
   {
    "module": "domain/asset_context.py",
@@ -3619,7 +3637,7 @@
    "percent": 21.8
   },
   {
-   "module": "app_logging.py",
+   "module": "infra/app_logging.py",
    "covered": 59,
    "total": 265,
    "percent": 22.3
@@ -3709,7 +3727,7 @@
    "percent": 30.8
   },
   {
-   "module": "storage_maintenance.py",
+   "module": "infra/storage_maintenance.py",
    "covered": 244,
    "total": 747,
    "percent": 32.7
@@ -3757,7 +3775,7 @@
    "percent": 44.2
   },
   {
-   "module": "file_cache.py",
+   "module": "infra/file_cache.py",
    "covered": 78,
    "total": 158,
    "percent": 49.4
@@ -3842,9 +3860,9 @@
   },
   {
    "module": "agent/publication.py",
-   "covered": 143,
+   "covered": 145,
    "total": 159,
-   "percent": 89.9
+   "percent": 91.2
   },
   {
    "module": "domain/video_lifecycle_service.py",
@@ -3914,5 +3932,5 @@
   }
  ],
  "modules_covered": 74,
- "modules_total": 650
+ "modules_total": 653
 }

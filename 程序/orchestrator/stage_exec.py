@@ -67,7 +67,7 @@ def _run_script_structure(desktop, project, names, trigger):
             return {'ok': True, 'status': skill_orchestrator.DONE, 'detail': '规则复审通过，可写入正稿'}
         if action == 'write_structured_script':
             def supersede(paths):
-                from storage_maintenance import recycle_paths
+                from infra.storage_maintenance import recycle_paths
                 recycle_paths(project, list(paths), '重新生成同源结构剧本，回收旧份')
             target = script_contract.write_structured_script(
                 project, state.get('structured'), state.get('source'),

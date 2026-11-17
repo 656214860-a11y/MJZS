@@ -18,7 +18,7 @@ Tk 保护又会把 `\r\n` 归一，所以只有双击 `.pyw` 才炸。根子只�
 import io
 import os
 from pathlib import Path
-from file_cache import remove_temporary_file
+from infra.file_cache import remove_temporary_file
 
 from agent.core import replace, temporary_path
 

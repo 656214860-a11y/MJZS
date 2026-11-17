@@ -3,7 +3,7 @@ import hashlib, json, os, subprocess, time, uuid, re, threading
 from pathlib import Path
 import contract.stage_layout as stage_layout
 import infra.client_profiles as client_profiles
-from file_cache import remove_temporary_file
+from infra.file_cache import remove_temporary_file
 from agent.core import read,save,save_text,temporary_path,replace
 from contract.platform_tools import launch_windows_app
 from contract.workflow_context_budget import ensure_request_context

@@ -2,7 +2,7 @@
 
 含侧栏导航入口 go_page／go、整页缓存、show 及其前置 _show_reset_page、按页首帧耗时装饰器，以及两条页内提示。
 """
-import app_logging
+import infra.app_logging as app_logging
 import desktop_shared_send
 import orchestrator.page_navigation_controller as page_nav
 import contract.pet_bus as pet_bus

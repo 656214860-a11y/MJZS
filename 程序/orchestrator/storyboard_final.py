@@ -1,5 +1,5 @@
 """Save a complete final bundle, then retire its original working JSON."""
-import app_logging
+import infra.app_logging as app_logging
 from pathlib import Path
 from contract.storyboard_paths import media_root, is_final_dir
 import copy, shutil, re, uuid, hashlib, json

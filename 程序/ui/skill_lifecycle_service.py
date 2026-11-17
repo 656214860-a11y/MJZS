@@ -14,7 +14,7 @@ import orchestrator.skill_registry as skill_registry
 from agent.core import save, save_text
 from contract.pet_bus import read_json
 from contract.stage_layout import skill_config_path
-from storage_maintenance import recycle_paths
+from infra.storage_maintenance import recycle_paths
 
 # ── 生命周期操作（T8）：定位／重命名／启停用 ──
 

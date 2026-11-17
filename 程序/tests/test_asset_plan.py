@@ -10,7 +10,7 @@ import asset_plan
 
 def gateway():
     from agent.core import save, save_bytes, save_text
-    from file_cache import remove_temporary_file
+    from infra.file_cache import remove_temporary_file
     return {'publish_json': save, 'publish_bytes': save_bytes,
             'publish_text': save_text, 'remove_file': remove_temporary_file}
 

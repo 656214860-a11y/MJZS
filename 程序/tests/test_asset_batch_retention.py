@@ -39,7 +39,7 @@ class AssetBatchRetentionTests(unittest.TestCase):
                                  ['uncertain', 'sending'])
 
     def test_failed_receipt_is_recoverable_and_recent_failure_is_retained(self):
-        from storage_maintenance import recycle_base, read_recycle_batch
+        from infra.storage_maintenance import recycle_base, read_recycle_batch
         with tempfile.TemporaryDirectory() as td:
             folder = Path(td)
             failed = self.record(folder, 'failed.json', {'state': 'failed', 'id': 'remote-old'})
@@ -87,7 +87,7 @@ class AssetBatchRetentionTests(unittest.TestCase):
 
     def test_manual_resolution_remains_auditable_after_expiry(self):
         from seedream_api import release, unsettled
-        from storage_maintenance import recycle_base
+        from infra.storage_maintenance import recycle_base
         with tempfile.TemporaryDirectory() as td:
             folder = Path(td)
             record = self.record(folder / 'seedream', 'seedream_CHAR_001.json',

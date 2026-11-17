@@ -8,7 +8,7 @@ from contract.stage_path_service import write_dir
 from orchestrator.stage_publication import publish_stage_bundle
 from orchestrator.stage_publication import publish_stage_text
 from orchestrator.stage_write_preparation_service import prepare_legacy_stage_path
-import file_cache
+import infra.file_cache as file_cache
 import json
 from orchestrator.stage_gate_gateways import video_lifecycle_gateway
 
@@ -65,7 +65,7 @@ def publish_handoff_bundle(project, name, artifacts, *, auto=False, summary=None
     staging = edit_dir / '自动交接包.生成中'
     output = staging if auto else final
     if auto and staging.exists():
-        from storage_maintenance import recycle_paths
+        from infra.storage_maintenance import recycle_paths
         recycle_paths(root, [staging], '清理未完成自动交接包')
     payload = {}
     for item in artifacts:
@@ -84,7 +84,7 @@ def publish_handoff_bundle(project, name, artifacts, *, auto=False, summary=None
     publish_stage_bundle(payload, lambda _items: True, lambda: None)
     if auto:
         if final.exists():
-            from storage_maintenance import recycle_paths
+            from infra.storage_maintenance import recycle_paths
             if not recycle_paths(root, [final], '更新自动交接包'):
                 raise ValueError('旧自动交接包未能移入回收站，已保留原包')
         staging.replace(final)

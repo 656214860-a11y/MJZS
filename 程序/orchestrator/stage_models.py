@@ -13,7 +13,7 @@ R2942：页面级「阶段配置」按钮＋模型下拉框删除后，「挑模
 [阶段]['model']），共享输入框下拉框、制作窗口、无人值守勾选框读到的都是同一格；
 skill_panel.stage_context 会把生产模型挡在 SKILL 编排之外（它不是模型池里的模型 id）。
 """
-import app_logging
+import infra.app_logging as app_logging
 from contract.pet_bus import STAGES
 from orchestrator.stage_flow import manual_label as manual_label_for
 

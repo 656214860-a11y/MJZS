@@ -4,7 +4,7 @@ import tkinter as tk
 import webbrowser
 from tkinter import messagebox, ttk
 from contract.platform_tools import open_path
-from file_cache import read_json
+from infra.file_cache import read_json
 from contract.storyboard_paths import project_root
 import domain.white_model_service as _service
 from ui.ui_dialogs import FileDialog

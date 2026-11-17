@@ -5,7 +5,7 @@ from unittest.mock import Mock
 
 import asset_batch_service
 from agent.core import read, save
-from storage_maintenance import recycle_paths
+from infra.storage_maintenance import recycle_paths
 from stage_execution_service import asset_batch_gateway
 
 
