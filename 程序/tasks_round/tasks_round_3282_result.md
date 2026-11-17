@@ -1,5 +1,5 @@
 # R3282 结果：L2领域服务层优化任务书轮2（功能轮：infra/idempotency 实现＋recon 付费路径幂等收口）
-<!-- round-evidence: {"commit_base": "81d9f1dd", "credential_hits": 0, "evidence_sha256": "00609b4912f37beb", "exit": 0, "failed": 0, "passed": 69, "round": 3282, "tests": "run_selftests.py -k recon"} -->
+<!-- round-evidence: {"commit_base": "0a0462ea", "credential_hits": 0, "evidence_sha256": "848433536efeecf5", "exit": 0, "failed": 0, "passed": 69, "round": 3282, "tests": "run_selftests.py -k recon"} -->
 
 ## 三问
 
@@ -126,5 +126,5 @@ test_recon_service.IdempotencyTests: Ran 6 tests — FAILED (failures=2)
 ## 提交
 
 - 分支 `codex/wip-r3282`（领号 R3282，工作树 `dsh-864fd932-4054`）。
-- commit：待补记（主提交含代码＋测试＋本文件；`tasks_round/evidence/R3282.json` 由提交门禁生成，`round-evidence` 头由 `stamp_result` 注入）。
+- commit：`0a0462ea`（代码＋测试＋结果文件＋轮次证据主提交，6 文件）；本补记行由后续提交写入，不另占轮次。轮次证据以 `tasks_round/evidence/R3282.json` 中 `run_selftests.py -k recon` exit 0 / 69 通过 / 0 失败为准。
 - 全量回归：未运行（见三问）；合入 master 前按 §5 触发 `--all --safe`。
