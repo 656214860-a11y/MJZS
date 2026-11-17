@@ -62,7 +62,7 @@ def run_animatic(project, source, references, audio=None, settings=None):
     settings['retry_attempts'] = stage_parallel.retry_attempts('animatic')
     config = file_cache.read_json(Path(project) / 'config.json') if (Path(project) / 'config.json').is_file() else {}
     for tool in ('ffmpeg', 'ffprobe'):
-        settings[tool] = settings.get(tool) or config.get(tool) or tool_path(tool)
+        settings[tool] = tool_path(tool, configured=settings.get(tool) or config.get(tool))
         if not settings[tool]:
             raise ValueError('请在运行环境配置 ' + tool)
     gate = stage_parallel.evaluate(project, 'animatic')

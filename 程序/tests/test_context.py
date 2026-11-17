@@ -234,22 +234,72 @@ class SkillFileTests(unittest.TestCase):
 
 
 class ToolPathTests(unittest.TestCase):
+    def _patches(self, which=None, bundled=None):
+        """隔离 tool_path 的三个来源：which 与随包目录都可注入，避免依赖本机环境。"""
+        from unittest.mock import patch
+        import contract.platform_tools as platform_tools
+        return (patch("shutil.which", return_value=which),
+                patch.object(platform_tools, "_bundled_tool", return_value=bundled))
+
     def test_lookup_cached_per_tool(self):
         import integrations
-        from unittest.mock import patch
         integrations._TOOL_CACHE.clear(); self.addCleanup(integrations._TOOL_CACHE.clear)
-        with patch("shutil.which", return_value=r"X:/tools/ffmpeg.exe") as which:
+        which_patch, bundled_patch = self._patches(which=r"X:/tools/ffmpeg.exe")
+        with which_patch as which, bundled_patch:
             self.assertEqual(integrations.tool_path("ffmpeg", "fallback"), r"X:/tools/ffmpeg.exe")
             integrations.tool_path("ffmpeg", "fallback"); integrations.tool_path("ffprobe", "fallback")
             self.assertEqual(which.call_count, 2)
 
     def test_fallback_used_when_missing(self):
         import integrations
-        from unittest.mock import patch
         integrations._TOOL_CACHE.clear(); self.addCleanup(integrations._TOOL_CACHE.clear)
-        with patch("shutil.which", return_value=None):
+        which_patch, bundled_patch = self._patches(which=None)
+        with which_patch, bundled_patch:
             self.assertEqual(integrations.tool_path("ffmpeg", "D:/Tools/ffmpeg.exe"), "D:/Tools/ffmpeg.exe")
             self.assertIsNone(integrations.tool_path("ffprobe"))
+
+    def test_configured_valid_path_wins_over_bundled_and_path(self):
+        """REQ-M1：显式指定且文件真实存在的路径优先于随包版本与系统 PATH。"""
+        import integrations
+        import contract.platform_tools as platform_tools
+        integrations._TOOL_CACHE.clear(); self.addCleanup(integrations._TOOL_CACHE.clear)
+        with tempfile.TemporaryDirectory() as td:
+            exe = Path(td) / 'my-ffmpeg.exe'
+            exe.write_bytes(b'x')
+            which_patch, bundled_patch = self._patches(which=r"X:/tools/ffmpeg.exe",
+                                                       bundled=r"Y:/bundled/ffmpeg.exe")
+            with which_patch, bundled_patch:
+                self.assertEqual(integrations.tool_path("ffmpeg", configured=str(exe)), str(exe))
+                # 显式缓存结果不回写 which：显式路径每次都先生效。
+                self.assertEqual(platform_tools._TOOL_CACHE.get("ffmpeg"), None)
+
+    def test_bundled_used_when_no_valid_configured(self):
+        """REQ-M1：无显式配置时随包版本优先于系统 PATH。"""
+        import integrations
+        integrations._TOOL_CACHE.clear(); self.addCleanup(integrations._TOOL_CACHE.clear)
+        which_patch, bundled_patch = self._patches(which=r"X:/tools/ffmpeg.exe",
+                                                   bundled=r"Y:/bundled/ffmpeg.exe")
+        with which_patch, bundled_patch:
+            self.assertEqual(integrations.tool_path("ffmpeg"), r"Y:/bundled/ffmpeg.exe")
+            self.assertEqual(integrations.tool_path("ffprobe"), r"Y:/bundled/ffmpeg.exe")
+
+    def test_invalid_configured_falls_back_to_bundled_then_path(self):
+        """REQ-M1：显式路径失效（文件不存在）时回退随包/PATH，不压住它们。"""
+        import integrations
+        integrations._TOOL_CACHE.clear(); self.addCleanup(integrations._TOOL_CACHE.clear)
+        missing = r"Z:\none\ffmpeg.exe"
+        which_patch, bundled_patch = self._patches(which=r"X:/tools/ffmpeg.exe",
+                                                   bundled=r"Y:/bundled/ffmpeg.exe")
+        with which_patch, bundled_patch:
+            self.assertEqual(integrations.tool_path("ffmpeg", configured=missing),
+                             r"Y:/bundled/ffmpeg.exe")
+        integrations._TOOL_CACHE.clear()
+        which_patch, bundled_patch = self._patches(which=r"X:/tools/ffmpeg.exe", bundled=None)
+        with which_patch, bundled_patch:
+            self.assertEqual(integrations.tool_path("ffmpeg", configured=missing),
+                             r"X:/tools/ffmpeg.exe")
+            self.assertEqual(integrations.tool_path("ffmpeg", configured=missing, fallback="FB"),
+                             r"X:/tools/ffmpeg.exe")
 
 
 if __name__ == "__main__":

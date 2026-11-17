@@ -12,6 +12,7 @@
 | --- | --- |
 | `启动漫剧制作助手.pyw`、`开发者工具/启动助手.cmd` | 正式启动入口。 |
 | `运行环境/Python/` | 随应用交付的解释器与依赖。 |
+| `运行环境/ffmpeg/` | 随应用交付的 LGPL 构建 FFmpeg（`ffmpeg.exe`/`ffprobe.exe`，`bin/` 下）；须含 `LICENSE`/`NOTICE` 与构建来源、版本号说明（R3154，零依赖边界任务书 M1）。运行时经 `contract.platform_tools.tool_path` 按「显式有效配置 > 随包 > PATH」定位，用户可在配置中改用自备 FFmpeg 满足 LGPL 可替换义务。 |
 | `程序/app.py`、`程序/desktop.py` 及其生产 Python 模块 | 主界面与业务实现。 |
 | `程序/assets/`、`程序/skills/`、`程序/workflows/`、`程序/data/` | 内置资源、SKILL、流程和内置数据。 |
 | `程序/配置/` 与程序随附说明 | 默认配置和面向用户的资料。 |

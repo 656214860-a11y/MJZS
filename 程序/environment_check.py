@@ -106,12 +106,26 @@ def _json(path):
     return value if isinstance(value, dict) else {}
 
 
-def check_ffmpeg(config, which=shutil.which):
+def check_ffmpeg(config, which=shutil.which, bundled=None):
+    """FFmpeg/FFprobe 行：显式有效配置 > 随包版本 > 系统 PATH（R3154，与 tool_path 同序）。"""
+    if bundled is None:
+        bundled = platform_tools._bundled_tool
     rows = []
     for key, name in (('ffmpeg', 'FFmpeg'), ('ffprobe', 'FFprobe')):
         configured = str(config.get(key) or '').strip()
+        if configured and '/' not in configured and '\\' not in configured:
+            # 裸命令名与 tool_path 同序：原样下传、exec 时按 PATH 解析。
+            rows.append(row(key, name, OK, configured + '；按 PATH 解析'))
+            continue
         if configured and Path(configured).is_file():
             rows.append(row(key, name, OK, configured))
+            continue
+        ship = bundled(key)
+        if ship:
+            note = '配置的路径不存在，已改用随包版本' if configured else ''
+            rows.append(row(key, name, WARN if configured else OK,
+                            ship + '；随包版本' + ('；' + note if note else ''),
+                            '在 config.json 把「%s」改成实际路径' % key if configured else ''))
             continue
         found = which(key)
         if found:
@@ -119,7 +133,7 @@ def check_ffmpeg(config, which=shutil.which):
             rows.append(row(key, name, WARN if configured else OK, found + ('；' + note if note else ''),
                             '在 config.json 把「%s」改成实际路径' % key if configured else ''))
         else:
-            rows.append(row(key, name, MISSING, ('配置路径不存在：' + configured) if configured else '未配置也不在 PATH',
+            rows.append(row(key, name, MISSING, ('配置路径不存在：' + configured) if configured else '未配置、随包版本缺失也不在 PATH',
                             '安装 FFmpeg 后在 config.json 填写「%s」，成片合成与质检依赖它' % key))
     return rows
 

@@ -227,6 +227,16 @@ def current_episode(project):
     return path if path.is_file() else None
 
 
+def _media_tool(cfg,name):
+    """ffmpeg/ffprobe 在读取时统一解析：显式有效配置 > 随包 > PATH（R3154）。
+
+    模块级函数而非 Studio 方法：测试用 ``Studio.__new__``／鸭子类型替身调用
+    ``_encode``／``_join_shots``，它们只有 ``cfg`` 没有本类方法。
+    """
+    from contract.platform_tools import tool_path
+    return tool_path(name,configured=(cfg or {}).get(name))
+
+
 class Studio:
     def __init__(self, root, factory=WanAdapter,episode_file=None):
         self.root=Path(root).resolve()
@@ -417,7 +427,7 @@ class Studio:
             blocked=submission_block_reason(versions)
             if blocked:raise ValueError(blocked)
             if shot['duration']>self.remaining(): raise ValueError('超过可用制作秒数；备用额度不会自动动用')
-            command([self.cfg['ffmpeg'],'-version']); command([self.cfg['ffprobe'],'-version'])
+            command([_media_tool(self.cfg,'ffmpeg'),'-version']); command([_media_tool(self.cfg,'ffprobe'),'-version'])
             from agent.shot_assets import prepare
             shot=prepare(self.episode_path,shot,self.cfg,white=white)
             frame = self.frame(shot)
@@ -531,7 +541,7 @@ class Studio:
             v['download_completed_at']=time.time();save(self.db,st)
             try:
                 report=check(dest,v['seconds'],{**self.cfg,'require_audio':v.get('generate_audio',True)})
-                command([self.cfg['ffmpeg'],'-v','error','-xerror','-i',dest,'-f','null','-'])
+                command([_media_tool(self.cfg,'ffmpeg'),'-v','error','-xerror','-i',dest,'-f','null','-'])
                 if auto_review_ready(self.root,report):
                     # 无人值守：技术质检通过即自动放行，让下载→质检→验收→剪辑可以连续跑完。
                     # 这是技术放行、不是内容审核——沿用旧记录前缀，面板会另说是谁点的。
@@ -805,7 +815,7 @@ class Studio:
             from agent.media import probe
             streams=probe(path,self.cfg).get('streams',[])
             has_audio=any(stream.get('codec_type')=='audio' for stream in streams)
-            args=[self.cfg['ffmpeg'],'-y','-v','error','-i',path]
+            args=[_media_tool(self.cfg,'ffmpeg'),'-y','-v','error','-i',path]
             if not has_audio:args+=['-f','lavfi','-i','anullsrc=channel_layout=stereo:sample_rate=48000']
             args+=['-map','0:v:0','-map','0:a:0' if has_audio else '1:a:0','-vf',vf]
             if has_audio:args+=['-af',loudness_filter(spec)]
@@ -821,7 +831,7 @@ class Studio:
         pending_master=temporary_path(master, '.partial.mp4')
         try:
             overlap=self._join_shots(out,chosen,pending_master,edits)
-            command([self.cfg['ffmpeg'],'-v','error','-xerror','-i',pending_master,'-f','null','-'])
+            command([_media_tool(self.cfg,'ffmpeg'),'-v','error','-xerror','-i',pending_master,'-f','null','-'])
             report=check(pending_master,sum(s['duration'] for s,_,_ in chosen)-overlap,self.cfg);report['output_spec']=spec
             if coverage is not None:report['coverage']=coverage
             replace(pending_master, master)
@@ -839,7 +849,7 @@ class Studio:
     def _join_shots(self,out,chosen,pending_master,edits):
         """把逐镜编码结果接成成片：无转场走无损拼接，有转场重编码；有配乐再混一遍。返回转场吃掉的总秒数。"""
         from domain.edit_export import transition_filter,transition_seconds,music_filter
-        ffmpeg=self.cfg['ffmpeg'];names=[shot['id']+'.mp4' for shot,_,_ in chosen]
+        ffmpeg=_media_tool(self.cfg,'ffmpeg');names=[shot['id']+'.mp4' for shot,_,_ in chosen]
         kind=edits['transition']['kind'];overlap=0.0
         durations=[float(shot.get('duration') or 0) for shot,_,_ in chosen]
         if kind!='none' and len(chosen)>1:
@@ -930,10 +940,10 @@ class Studio:
         folder=master.parent/PLATFORM_FOLDER;folder.mkdir(exist_ok=True)
         dest=folder/(str(key)+'.mp4');pending=temporary_path(dest,'.partial.mp4')
         try:
-            command([self.cfg['ffmpeg'],'-y','-v','error','-i',master,'-vf',output_filter(spec),
+            command([_media_tool(self.cfg,'ffmpeg'),'-y','-v','error','-i',master,'-vf',output_filter(spec),
                      '-c:v','libx264','-preset','fast','-b:v',str(spec['bitrate']),'-c:a','aac','-ar','48000',
                      '-movflags','+faststart',pending],cwd=master.parent)
-            command([self.cfg['ffmpeg'],'-v','error','-xerror','-i',pending,'-f','null','-'])
+            command([_media_tool(self.cfg,'ffmpeg'),'-v','error','-xerror','-i',pending,'-f','null','-'])
             replace(pending,dest)
         finally:
             if pending.exists():

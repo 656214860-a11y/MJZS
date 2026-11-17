@@ -402,6 +402,8 @@ class Projects:
         else:
             ep={'episode_id':'EP001','title':name,'shots':[{'id':'SH001','title':'待编写','duration':5,'characters':['CHAR_001'],'location':'LOC_001','frame':'frames/SH001.png','video_prompt':'待填写镜头画面、动作和对白','dialogue':[]}]}
         self._publish_json(story/'episode.json',ep);self._publish_json(base/'assets.json',assets or {})
+        # ffmpeg/ffprobe 不再复制进项目配置：读取时经 tool_path 解析（显式有效配置>随包>PATH，R3154）。
+        cfg.pop('ffmpeg',None);cfg.pop('ffprobe',None)
         # 项目稳定身份：新建项目当场定下 UUID，白模等对外目录按身份隔离，不受重名或改名影响。
         cfg.update(project_id=uuid.uuid4().hex,episode_dir=str(story),episode_file=str(story/'episode.json'),asset_library_dir='05资产管理',live_enabled=False,budget_seconds=0,reserve_seconds=0,video_backend='comfy')
         self._publish_json(dst/'config.json',cfg);self.organize(dst)

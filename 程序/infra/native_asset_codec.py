@@ -47,7 +47,7 @@ def seedream_provenance(payload):
 def to_png(raw):
     if raw.startswith(b'\x89PNG\r\n\x1a\n'):
         return raw
-    ffmpeg = tool_path('ffmpeg', 'D:/Tools/ffmpeg/bin/ffmpeg.exe')
+    ffmpeg = tool_path('ffmpeg')
     proc = run_process([ffmpeg, '-y', '-v', 'error', '-i', 'pipe:0', '-f', 'image2pipe', '-c:v', 'png', 'pipe:1'],
                        input=raw, capture_output=True, timeout=120, run=subprocess.run)
     if proc.returncode != 0 or not proc.stdout.startswith(b'\x89PNG\r\n\x1a\n'):
