@@ -35,6 +35,7 @@
   ],
   "scope_audit_pending": [
    "asset_reference_prompts",
+   "domain_events",
    "offline_asr_setup",
    "script_structure_edit_controller",
    "writing_stream"
@@ -45,6 +46,7 @@
    "audio_import_service",
    "confirm_gates",
    "delivery_import_service",
+   "domain_events",
    "edit_service",
    "final_service",
    "handoff_service",

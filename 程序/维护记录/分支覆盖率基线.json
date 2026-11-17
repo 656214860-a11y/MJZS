@@ -509,6 +509,12 @@
    "percent": 100.0
   },
   {
+   "module": "business_log.py",
+   "points": 0,
+   "covered": 0,
+   "percent": 100.0
+  },
+  {
    "module": "error_codes.py",
    "points": 3,
    "covered": 3,
@@ -516,6 +522,12 @@
   },
   {
    "module": "file_index_contract.py",
+   "points": 0,
+   "covered": 0,
+   "percent": 100.0
+  },
+  {
+   "module": "idempotency.py",
    "points": 0,
    "covered": 0,
    "percent": 100.0
@@ -587,11 +599,17 @@
    "percent": 100.0
   },
   {
+   "module": "unit_of_work.py",
+   "points": 0,
+   "covered": 0,
+   "percent": 100.0
+  },
+  {
    "module": "update_notice.py",
    "points": 3,
    "covered": 3,
    "percent": 100.0
   }
  ],
- "modules_total": 84
+ "modules_total": 87
 }

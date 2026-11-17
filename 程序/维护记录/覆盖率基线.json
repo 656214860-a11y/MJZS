@@ -781,6 +781,12 @@
    "percent": 0.0
   },
   {
+   "module": "domain/domain_events.py",
+   "covered": 0,
+   "total": 13,
+   "percent": 0.0
+  },
+  {
    "module": "domain/download_inbox.py",
    "covered": 0,
    "total": 124,
@@ -1219,6 +1225,12 @@
    "percent": 0.0
   },
   {
+   "module": "infra/business_log.py",
+   "covered": 0,
+   "total": 6,
+   "percent": 0.0
+  },
+  {
    "module": "infra/clipboard_lock.py",
    "covered": 0,
    "total": 64,
@@ -1276,6 +1288,12 @@
    "module": "infra/http_client.py",
    "covered": 0,
    "total": 120,
+   "percent": 0.0
+  },
+  {
+   "module": "infra/idempotency.py",
+   "covered": 0,
+   "total": 5,
    "percent": 0.0
   },
   {
@@ -1360,6 +1378,12 @@
    "module": "infra/ui_plugin_registry.py",
    "covered": 0,
    "total": 9,
+   "percent": 0.0
+  },
+  {
+   "module": "infra/unit_of_work.py",
+   "covered": 0,
+   "total": 13,
    "percent": 0.0
   },
   {
@@ -3499,22 +3523,10 @@
    "percent": 11.6
   },
   {
-   "module": "infra/model_metering.py",
-   "covered": 6,
-   "total": 49,
-   "percent": 12.2
-  },
-  {
    "module": "orchestrator/skill_registry.py",
    "covered": 95,
    "total": 679,
    "percent": 14.0
-  },
-  {
-   "module": "infra/api_endpoints.py",
-   "covered": 52,
-   "total": 366,
-   "percent": 14.2
   },
   {
    "module": "infra/client_profiles.py",
@@ -3559,6 +3571,18 @@
    "percent": 15.4
   },
   {
+   "module": "infra/model_metering.py",
+   "covered": 11,
+   "total": 71,
+   "percent": 15.5
+  },
+  {
+   "module": "infra/api_endpoints.py",
+   "covered": 64,
+   "total": 411,
+   "percent": 15.6
+  },
+  {
    "module": "agent/volcengine.py",
    "covered": 13,
    "total": 77,
@@ -3583,6 +3607,12 @@
    "percent": 18.6
   },
   {
+   "module": "contract/platform_tools.py",
+   "covered": 119,
+   "total": 634,
+   "percent": 18.8
+  },
+  {
    "module": "orchestrator/legacy_compat.py",
    "covered": 9,
    "total": 48,
@@ -3593,12 +3623,6 @@
    "covered": 13,
    "total": 68,
    "percent": 19.1
-  },
-  {
-   "module": "contract/platform_tools.py",
-   "covered": 107,
-   "total": 554,
-   "percent": 19.3
   },
   {
    "module": "domain/asset_context.py",
@@ -3662,9 +3686,9 @@
   },
   {
    "module": "infra/pet_llm.py",
-   "covered": 78,
-   "total": 321,
-   "percent": 24.3
+   "covered": 79,
+   "total": 328,
+   "percent": 24.1
   },
   {
    "module": "contract/pet_bus.py",
@@ -3841,6 +3865,12 @@
    "percent": 83.3
   },
   {
+   "module": "infra/request_ledger.py",
+   "covered": 541,
+   "total": 641,
+   "percent": 84.4
+  },
+  {
    "module": "contract/service_contract.py",
    "covered": 23,
    "total": 27,
@@ -3853,16 +3883,10 @@
    "percent": 85.7
   },
   {
-   "module": "infra/request_ledger.py",
-   "covered": 518,
-   "total": 591,
-   "percent": 87.6
-  },
-  {
    "module": "agent/publication.py",
-   "covered": 145,
+   "covered": 143,
    "total": 159,
-   "percent": 91.2
+   "percent": 89.9
   },
   {
    "module": "domain/video_lifecycle_service.py",
@@ -3932,5 +3956,5 @@
   }
  ],
  "modules_covered": 74,
- "modules_total": 653
+ "modules_total": 657
 }
