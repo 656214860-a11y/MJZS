@@ -144,7 +144,13 @@ class DeepInlineTests(unittest.TestCase):
 
     def test_skill_inline_token_budget_scales_with_window(self):
         from contract.workflow_context_budget import skill_inline_token_budget
-        self.assertIsNone(skill_inline_token_budget(0))                       # 查不到窗口不设限
+        for unknown in (0, None, '', -1):
+            with self.subTest(context_limit=unknown):
+                self.assertEqual(skill_inline_token_budget(unknown), 0)       # 未知窗口不得放行
+        self.assertEqual(skill_inline_token_budget(32_000), 21_184)
+        self.assertEqual(skill_inline_token_budget(64_000), 46_464)
+        self.assertEqual(skill_inline_token_budget(128_000), 93_440)
+        self.assertEqual(skill_inline_token_budget(200_000), 146_000)
         small = skill_inline_token_budget(128_000)
         large = skill_inline_token_budget(1_000_000)
         self.assertLess(small, 128_000)

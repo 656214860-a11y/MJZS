@@ -73,11 +73,13 @@ def _safe_relative(root, value):
 def _index_lock(target, root):
     """串行读改写；线程锁覆盖同进程，文件锁覆盖多个后台进程。"""
     target = Path(target).absolute()
-    _relative(root, target)
-    key = os.path.normcase(str(Path(target).resolve()))
+    # resolve() can change spelling during atomic replace on Windows; choose
+    # the same thread lock before doing any filesystem-dependent validation.
+    key = os.path.normcase(str(target))
     with _LOCKS_GUARD:
         lock = _LOCKS.setdefault(key, threading.RLock())
     with lock:
+        _relative(root, target)
         # Windows 上锁文件被其它线程持有时 resolve 可能返回非最终路径；
         # 校验与打开都在同一线程互斥区，避免把合法路径误判为越界。
         _relative(root, target.with_suffix('.lock'))
@@ -112,6 +114,26 @@ def _relative(project, path):
     if not target.is_absolute():
         target = root / target
     resolved = target.resolve()
+    if (os.name == 'nt' and len(root.drive) == 2
+            and resolved.drive == '\\\\?\\' + root.drive
+            and not resolved.is_relative_to(root)):
+        # ntpath.realpath opens a leaf again before stripping \\?\; atomic
+        # replace can fail that open and leave only the leaf prefixed. Rebase
+        # only this exact spelling difference on a strictly resolved parent.
+        root = Path(project).resolve(strict=True)
+        parent = target.parent.resolve(strict=True)
+        candidate = parent / target.name
+        if (len(candidate.drive) == 2
+                and resolved == Path('\\\\?\\' + str(candidate))):
+            try:
+                leaf = target.lstat()
+            except FileNotFoundError:
+                leaf = None
+            # Never reinterpret a symlink/junction (including a dangling one)
+            # as an ordinary leaf just because its parent is inside the root.
+            if leaf is None or not (stat.S_ISLNK(leaf.st_mode) or
+                    getattr(leaf, 'st_file_attributes', 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT):
+                resolved = candidate
     if not resolved.is_relative_to(root):
         raise ValueError('索引只收项目内文件：' + str(path))
     return resolved.relative_to(root).as_posix()

@@ -62,7 +62,7 @@ class ScriptPromptAssemblyTests(unittest.TestCase):
             'story_summary': '修表师寻找父亲', 'main_characters': '林青与阿禾',
             'genre': '冒险', 'length': '12集，每集90秒'})
         for target, value in (
-            ('writing_api.selected_model', ('test-model', {})),
+            ('writing_api.selected_model', ('test-model', {'context_length': 128000})),
             ('writing_api._complete_brief', brief),
             ('workflow_context.snapshot', {}),
             ('orchestrator.workflow_context_controller.publish_writing_context', '项目接续'),

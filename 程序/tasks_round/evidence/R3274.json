@@ -1,0 +1,15 @@
+{
+  "round": 3274,
+  "commit_base": "abd48c38",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k skill_context_budget_prestage skill_deep_inline skill_reference_closure workflow_settings_cache request_freeze_entries writing_quality stage_prompt_governance",
+    "exit": 0,
+    "passed": 79,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T03:59:42"
+}

@@ -17,7 +17,7 @@ class WritingOutputBudgetTests(unittest.TestCase):
                 'currency': 'CNY', 'version': 'fixture', 'model_rates': {
                     'm': {'prompt_tokens': '0.01', 'completion_tokens': '0.01'}}}}), encoding='utf-8')
             raw = Mock()
-            adapter = writing_api.WritingRequestAdapter(raw, {}, 'm', project=td)
+            adapter = writing_api.WritingRequestAdapter(raw, {'context_length': 128000}, 'm', project=td)
             result = adapter.chat([{'role': 'user', 'content': 'hello'}], options={'max_tokens': 20})
             self.assertFalse(result['ok'])
             self.assertEqual(result['reason'], 'money_budget_exceeded')
@@ -32,7 +32,7 @@ class WritingOutputBudgetTests(unittest.TestCase):
             ledger = RequestLedger(td)
             ledger.authorize_model, ledger.settle_model = Mock(), Mock()
         with tempfile.TemporaryDirectory() as td, patch('pet_llm.RequestLedger', return_value=ledger):
-            adapter = writing_api.WritingRequestAdapter(raw, {}, 'm', project=td)
+            adapter = writing_api.WritingRequestAdapter(raw, {'context_length': 128000}, 'm', project=td)
             with self.assertRaises(RuntimeError):
                 adapter.chat([{'role': 'user', 'content': 'hello'}], options={'max_tokens': 20})
         ledger.authorize_model.assert_called_once()
@@ -76,6 +76,7 @@ class WritingOutputBudgetTests(unittest.TestCase):
                              'finish_reason': 'stop' if text else 'length'}]}}
 
         record = {'model': model, 'provider': 'test', 'wire_api': 'chat.completions',
+                  'context_length': 200000,  # 合成窗口隔离本组输出额度断言；不绕过完整请求终检。
                   'base_url': 'https://example.invalid', 'path': '/v1/chat/completions'}
         adapter = PoolAdapter(record, model, transport=transport, key='test-only')
         with tempfile.TemporaryDirectory() as td:
