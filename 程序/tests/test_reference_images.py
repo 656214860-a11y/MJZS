@@ -7,6 +7,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 os.chdir(HERE)
 
+from tests.architecture._scan import entity_file
 from asset_reference_images import EXTENSIONS, safe_name, classified_target, image_bytes
 
 PNG = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
@@ -94,7 +95,7 @@ class ExtensionSourceGuardTests(unittest.TestCase):
     """
 
     def test_dialog_filter_is_built_from_extensions(self):
-        source = (Path(HERE).parent / "asset_reference_import.py").read_text(encoding="utf-8")
+        source = entity_file("asset_reference_import").read_text(encoding="utf-8")
         self.assertIn("EXTENSIONS", source)
         self.assertNotIn("*.png", source)
         self.assertEqual(EXTENSIONS, {".png", ".jpg", ".jpeg", ".webp"})

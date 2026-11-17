@@ -3,6 +3,8 @@ import os
 import unittest
 from pathlib import Path
 
+from tests.architecture._scan import entity_file
+
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
@@ -18,6 +20,6 @@ class LocalVideoSettingsBoundaryTests(unittest.TestCase):
         self.assertNotIn('save(', method)
 
     def test_l2_requires_l3_gateway_without_direct_publishers(self):
-        source = Path(ROOT, 'local_video_settings_service.py').read_text(encoding='utf-8')
+        source = entity_file('local_video_settings_service').read_text(encoding='utf-8')
         self.assertNotIn('from agent.core import file_hash, save,', source)
         self.assertIn("'publish_json', 'publish_bytes', 'copy_file', 'replace_file'", source)

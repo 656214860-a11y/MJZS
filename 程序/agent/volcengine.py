@@ -20,7 +20,7 @@ class VolcengineAdapter(VideoAdapter):
     def payload(self, shot, frame):
         if shot.get('_reference_mode')=='seedance':
             from .shot_assets import image_url
-            from white_model_ref import entries as white_entries   # 第 8 轮：白模参考视频那一槽
+            from ui.white_model_ref import entries as white_entries   # 第 8 轮：白模参考视频那一槽
             images=[frame]+[a['path'] for a in shot['_asset_references']]
             content=[{'type':'text','text':shot['video_prompt']}]+[
                 {'type':'image_url','image_url':{'url':image_url(p)},'role':'reference_image'} for p in images]

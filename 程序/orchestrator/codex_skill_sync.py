@@ -9,7 +9,7 @@ import re
 import threading
 
 from agent.core import read_json, save, save_text
-from skill_registry import default_registry, parse, stage_from_path
+from orchestrator.skill_registry import default_registry, parse, stage_from_path
 from storage_maintenance import recycle_paths
 
 _LOCK = threading.RLock()

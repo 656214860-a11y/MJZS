@@ -3,6 +3,8 @@ import ast
 import unittest
 from pathlib import Path
 
+from tests.architecture._scan import entity_file
+
 
 PROGRAM = Path(__file__).resolve().parents[2]
 EXCLUDED_PARTS = {"tests", "tasks_round", "维护记录", "skills", ".git", "__pycache__", "voice_asr_venv"}
@@ -26,7 +28,7 @@ class UiIconsBoundaryTests(unittest.TestCase):
         self.assertEqual(offenders, [], "页面图标必须经 IconLoader：" + "; ".join(offenders))
 
     def test_video_back_uses_shared_icon_loader(self):
-        tree = ast.parse((PROGRAM / 'video_navigation.py').read_text(encoding='utf-8'))
+        tree = ast.parse(entity_file('video_navigation').read_text(encoding='utf-8'))
         show_back = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'show_back')
         source = ast.unparse(show_back)
         self.assertIn('IconLoader.return_arrow', source)

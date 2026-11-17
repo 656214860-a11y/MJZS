@@ -44,7 +44,7 @@ def register_download_inbox(project, prompt, now=None):
     """L3 编排：登记一次桌面 Agent 任务书里的目标文件，供之后从下载文件夹收回。"""
     import time
     from agent.core import save
-    from download_inbox import expected_targets, remaining
+    from domain.download_inbox import expected_targets, remaining
     now = time.time() if now is None else now
     targets = expected_targets(project, prompt)
     if not targets:
@@ -71,7 +71,7 @@ def collect_download_inbox(project, now=None, downloads=None, backups=None):
     """
     import time
     from agent.core import save, save_file
-    from download_inbox import match_registered, remaining
+    from domain.download_inbox import match_registered, remaining
     ledger = _download_inbox_path(project)
     if not ledger.is_file():
         return []

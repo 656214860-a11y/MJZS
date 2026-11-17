@@ -1,0 +1,15 @@
+{
+  "round": 3057,
+  "commit_base": "ba590a9d",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k stage_models skill_registry project_context stage_config stage_parallel skill_panel workflow_settings stage_model",
+    "exit": 0,
+    "passed": 112,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T22:45:41"
+}

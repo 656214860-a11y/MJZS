@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import contract.pet_bus as pet_bus
-from skill_registry import scalar, split_pair
+from orchestrator.skill_registry import scalar, split_pair
 
 
 @dataclass(frozen=True)

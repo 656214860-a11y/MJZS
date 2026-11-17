@@ -1,0 +1,15 @@
+{
+  "round": 3082,
+  "commit_base": "3008566c",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k asset_prompt_check task_center_ui asset_reference_import background_characters reference_wall cloud_video local_previs asset_batch native_assets asset_reference_prompts desktop_image_direct desktop_direct_dispatch desktop_storyboard_direct desktop_video_prompt_direct desktop_audio_direct desktop_file_card desktop_idea_deferred desktop_login_gate desktop_idea_send_gate desktop_idea_menus task_center reference_images previs login_gate idea_chat idea_menus file_card direct_dispatch ui_batch8 static_names button_consistency",
+    "exit": 0,
+    "passed": 438,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T08:59:30"
+}

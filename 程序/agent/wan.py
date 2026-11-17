@@ -16,7 +16,7 @@ class WanAdapter(VideoAdapter):
     def payload(self, shot, frame):
         if shot.get('_reference_mode')=='wan':
             from .shot_assets import image_url
-            from white_model_ref import entries as white_entries   # 第 8 轮：白模参考视频那一槽
+            from ui.white_model_ref import entries as white_entries   # 第 8 轮：白模参考视频那一槽
             media=[{'type':'first_frame','url':image_url(frame)}]+[
                 {'type':'reference_image','url':image_url(a['path'])} for a in shot['_asset_references']]
             media+=white_entries(shot.get('_white_model_reference'))

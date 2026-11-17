@@ -426,8 +426,8 @@ class SharedCacheSourceGuardTests(unittest.TestCase):
 
     def test_shared_readers_are_not_mutated_in_place(self):
         program = Path(HERE).parent
-        for name in ("storyboard_selection.py", "storyboard_files.py"):
-            tree = ast.parse((program / name).read_text(encoding="utf-8"))
+        for name, module in (("storyboard_selection.py", storyboard_selection), ("storyboard_files.py", storyboard_files)):
+            tree = ast.parse(Path(module.__file__).read_text(encoding="utf-8"))
             self.assertEqual(self.unsafe_writes(tree), [],
                              "%s 就地改写了 read_json 的共享缓存对象" % name)
 

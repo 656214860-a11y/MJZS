@@ -4,7 +4,7 @@ import ast
 import os
 import unittest
 import io
-from tests.architecture._scan import stage_execution_source
+from tests.architecture._scan import entity_file, stage_execution_source
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -16,8 +16,7 @@ def _method(tree, cls, name):
 
 class HandoffPublicationBoundaryTests(unittest.TestCase):
     def test_desktop_delegates_handoff_bundle_publication(self):
-        with open(os.path.join(ROOT, 'desktop_media_pages.py'), encoding='utf-8') as handle:  # R1505：handoff 已迁到 MediaPagesMixin
-            text = handle.read()
+        text = entity_file('desktop_media_pages').read_text(encoding='utf-8')  # R1505：handoff 已迁到 MediaPagesMixin
         source = ast.get_source_segment(text, _method(ast.parse(text), 'MediaPagesMixin', 'handoff'))
         self.assertIn('publish_stage_handoff_bundle(', source)
         self.assertNotIn("镜头顺序.json", source)
@@ -33,8 +32,7 @@ class HandoffPublicationBoundaryTests(unittest.TestCase):
         self.assertNotIn('shutil.copy2', source)
 
     def test_l3_injects_handoff_bundle_publisher(self):
-        with open(os.path.join(ROOT, 'desktop_media_pages.py'), encoding='utf-8') as handle:  # R1505：handoff 已迁到 MediaPagesMixin
-            text = handle.read()
+        text = entity_file('desktop_media_pages').read_text(encoding='utf-8')  # R1505：handoff 已迁到 MediaPagesMixin
         source = ast.get_source_segment(text, _method(ast.parse(text), 'MediaPagesMixin', 'handoff'))
         self.assertIn('publish_stage_handoff_bundle(', source)
         with io.StringIO(stage_execution_source()) as handle:

@@ -113,7 +113,7 @@ class ProjectRecoveryTests(unittest.TestCase):
 
 class PermanentClearIsSeparateTests(unittest.TestCase):
     def test_project_layer_never_permanently_removes(self):
-        source = (Path(desktop.__file__).parent / 'projects.py').read_text(encoding='utf-8')
+        source = Path(inspect.getfile(Projects)).read_text(encoding='utf-8')
         self.assertIn('recycle_paths', source)
         self.assertNotIn('rmtree', source)
         self.assertNotIn('unlink()', source)

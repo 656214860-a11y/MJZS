@@ -46,12 +46,12 @@ class EditingPageController:
         return found[-1] if found else None
 
     def transition_label(self):
-        from edit_export import TRANSITIONS
+        from domain.edit_export import TRANSITIONS
         return TRANSITIONS[self.studio.edit_settings()['transition']['kind']]
 
     def next_transition(self):
         """转场在候选里轮换并立即保存；返回新转场的中文名。"""
-        from edit_export import TRANSITIONS
+        from domain.edit_export import TRANSITIONS
         settings = self.studio.edit_settings()
         kinds = list(TRANSITIONS)
         kind = kinds[(kinds.index(settings['transition']['kind']) + 1) % len(kinds)]
@@ -72,7 +72,7 @@ class EditingPageController:
 
     def export_platform(self, platform):
         """把最近成片转成指定平台规格；没有成片时如实报错，不凭空生成。"""
-        from edit_export import platform_spec
+        from domain.edit_export import platform_spec
         master = self.latest_master()
         if master is None:
             raise ValueError('还没有成片，请先自动粗剪')

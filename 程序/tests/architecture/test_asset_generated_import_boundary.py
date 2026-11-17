@@ -2,12 +2,14 @@ import ast
 import unittest
 from pathlib import Path
 
+from tests.architecture._scan import entity_file
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
 class AssetGeneratedImportBoundaryTests(unittest.TestCase):
     def test_l2_requires_injected_byte_publisher(self):
-        tree = ast.parse((ROOT / 'asset_generated_import_service.py').read_text(encoding='utf-8'))
+        tree = ast.parse(entity_file('asset_generated_import_service').read_text(encoding='utf-8'))
         imported = [name.name for node in tree.body if isinstance(node, ast.ImportFrom)
                     and node.module == 'agent.core' for name in node.names]
         self.assertNotIn('save_bytes', imported)

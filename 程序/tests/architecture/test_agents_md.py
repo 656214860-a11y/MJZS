@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 
 import pet_bus
-from tests.architecture._scan import ROOT, module_scan_files
+from tests.architecture._scan import ROOT, entity_file, module_scan_files
 from tests.architecture._layers import LAYERS
 from tests.architecture.test_path_authority import _WHITELIST as PATH_AUTHORITIES
 from tests.architecture.test_remove_authority import _WHITELIST as REMOVE_AUTHORITIES
@@ -145,7 +145,7 @@ class AgentsMdConsistencyTests(unittest.TestCase):
     def test_desktop_route_documentation_matches_current_contract(self) -> None:
         architecture = _read(ARCHITECTURE)
         project_map = _read(PROJECT_MAP)
-        source = _read(ROOT / 'workflow_settings.py')
+        source = _read(entity_file('workflow_settings'))
         self.assertNotIn('不参与 API 自动抢占', architecture)
         self.assertIn('GPT/Anthropic API', architecture)
         self.assertIn('本机程序可启动', architecture)

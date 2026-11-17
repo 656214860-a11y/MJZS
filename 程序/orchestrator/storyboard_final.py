@@ -5,9 +5,9 @@ from contract.storyboard_paths import media_root, is_final_dir
 from datetime import datetime
 import copy, shutil, re, uuid, hashlib, json
 from agent.core import read
-from asset_plan import _sync_plan
-from project_naming import dated_path
-from project_context_factory import project_context
+from domain.asset_plan import _sync_plan
+from domain.project_naming import dated_path
+from orchestrator.project_context_factory import project_context
 
 
 def _lineage_source(project, source):
@@ -98,9 +98,9 @@ def _publish_final_docs(project, episode):
 
 
 def finalize(project,episode_dir,source,retire_working=None,*,gateway=None):
-    from asset_context import library_dir,references
+    from domain.asset_context import library_dir,references
     from stage_execution_service import storyboard_resolve_source as resolve_source
-    from storyboard_lifecycle import signature
+    from domain.storyboard_lifecycle import signature
     project=Path(project).resolve();base=library_dir(project,episode_dir)
     source=resolve_source(project,source);original=source.read_bytes()
     original_hash=hashlib.sha256(original).hexdigest()
@@ -153,7 +153,7 @@ def finalize(project,episode_dir,source,retire_working=None,*,gateway=None):
         raise ValueError('批次划分失败，已中止定稿：'+str(exc)) from exc
     episode['missing_assets']=sorted(set(missing))
     episode['assets_ready']=not missing
-    from writing import validate_episode
+    from domain.writing import validate_episode
     assets={aid:{k:v for k,v in rows[aid].items() if k!='status'} for aid in used}
     validate_episode(episode,frame_base,assets)
     wanted=signature(episode,assets,base)
@@ -181,7 +181,7 @@ def finalize(project,episode_dir,source,retire_working=None,*,gateway=None):
     if source.name=='episode.json' and is_final_dir(source.parent.name) and source.is_relative_to(finals_root):
         dest=source.parent
     else:
-        from storyboard_storage import ALIAS_FILE
+        from domain.storyboard_storage import ALIAS_FILE
         aliasfile=finals_root/ALIAS_FILE
         aliases=read(aliasfile) if aliasfile.is_file() else {}
         if not isinstance(aliases,dict):aliases={}

@@ -115,7 +115,7 @@ def prepare(source,shot,cfg,white=None):
     # 参考视频自己就是一种参考模式（万相→wan、火山→seedance），挂上它要把模式拨过去；
     # 拨不动（比如接口对不上）就留在上面算出来的那一支，由适配器按原样走。
     if white:
-        import white_model_ref
+        import ui.white_model_ref as white_model_ref
         result['_white_model_reference']=white
         result['_reference_mode']={'wan':'wan','volcengine':'seedance'}.get(white.get('provider'),result['_reference_mode'])
         result['video_prompt']+='\n'+white_model_ref.prompt_line(white)

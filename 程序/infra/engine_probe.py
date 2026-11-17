@@ -90,7 +90,7 @@ def app_argv(engine, exe, project, output, report, model=''):
 
     第一条换成我们要跑的那支 CLI（`find_program` 见到 program 就原样返回，不校验存在）。
     """
-    import workflow_engines
+    import orchestrator.workflow_engines as workflow_engines
     config = {'engine': engine, 'program': str(exe), 'model': model}
     argv = workflow_engines.background_command(config, Path(project), Path(output), Path(report))
     return [str(item) for item in argv], config

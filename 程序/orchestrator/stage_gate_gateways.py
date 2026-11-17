@@ -3,7 +3,7 @@
 自 stage_execution_service 拆出；那边按原名重新导出，旧调用点与测试补丁点不变。
 """
 from pathlib import Path
-from project_context_factory import project_context
+from orchestrator.project_context_factory import project_context
 from contract.stage_path_service import write_dir
 from orchestrator.stage_asset_gateways import _json_gateway
 
@@ -22,7 +22,7 @@ def refresh_audio_manifests(project):
 
 
 def media_import_publisher(project, kind):
-    from stage_completion_service import publish_imported_media
+    from orchestrator.stage_completion_service import publish_imported_media
     from agent.core import read
     from agent.media import validate_import
     from contract.platform_tools import tool_path
@@ -74,7 +74,7 @@ def cloud_video_gateway():
 
 def cloud_video_session_folder(project, kind, base, model, source):
     """L3 统一注入项目上下文并创建/复用云视频会话目录。"""
-    from cloud_video_service import session_folder
+    from domain.cloud_video_service import session_folder
     result = session_folder(project_context(project), kind, base, model, source)
     if not result.ok:
         raise ValueError(result.reason)
@@ -83,12 +83,12 @@ def cloud_video_session_folder(project, kind, base, model, source):
 
 def cloud_video_saved_provider_key(project, kind, providers, remembered=None, base_url=None, module_file=None):
     """L3 统一注入项目上下文，供 L4 查询旧会话兼容凭据。"""
-    from cloud_video_service import saved_provider_key
+    from domain.cloud_video_service import saved_provider_key
     return saved_provider_key(project_context(project), kind, providers, remembered, base_url, module_file)
 
 
 def publish_cloud_video_session_config(config_path, config, prefs_path, prefs):
-    from cloud_video_service import publish_session_config
+    from domain.cloud_video_service import publish_session_config
     result = publish_session_config(config_path, config, prefs_path, prefs, gateway=cloud_video_gateway())
     if not result.ok:
         raise ValueError(result.reason)
@@ -96,7 +96,7 @@ def publish_cloud_video_session_config(config_path, config, prefs_path, prefs):
 
 
 def publish_cloud_video_workspace_preference(prefs_path, prefs):
-    from cloud_video_service import publish_workspace_preference
+    from domain.cloud_video_service import publish_workspace_preference
     result = publish_workspace_preference(prefs_path, prefs, gateway=cloud_video_gateway())
     if not result.ok:
         raise ValueError(result.reason)
@@ -104,7 +104,7 @@ def publish_cloud_video_workspace_preference(prefs_path, prefs):
 
 
 def publish_cloud_video_studio_config(config_path, config):
-    from cloud_video_service import publish_studio_config
+    from domain.cloud_video_service import publish_studio_config
     result = publish_studio_config(config_path, config, gateway=cloud_video_gateway())
     if not result.ok:
         raise ValueError(result.reason)

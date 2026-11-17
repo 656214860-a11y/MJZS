@@ -19,6 +19,7 @@ import pet_llm
 import stage_completion_service
 import usage_overview as uo
 from agent.core import file_hash, read, save
+from tests.architecture._scan import entity_file
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -113,7 +114,7 @@ class DeliveryRequirementAnchorTests(unittest.TestCase):
     # ---- 导入与校验流程 -------------------------------------------------
     def test_req_s13_10_delivery_page_buttons_match_the_manual_flow(self):
         """REQ-S13-10：交付页按钮与「导入成片→校验确认→生成待填→核验商用」流程一致。"""
-        source = (ROOT / 'desktop_media_pages.py').read_text(encoding='utf-8')
+        source = entity_file('desktop_media_pages').read_text(encoding='utf-8')
         for label in ('导入剪映最终成片', '校验并确认本阶段成果',
                       '生成商用待填资料', '核验商用交付资料'):
             with self.subTest(label=label):

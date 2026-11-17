@@ -91,7 +91,7 @@ def _copy_stage_for_write(project, stage, *, source=None):
 
 
 def prepare_asset_write(project, base=None):
-    from asset_context import library_dir
+    from domain.asset_context import library_dir
     from contract.stage_path_service import LEGACY_NUMBERED
     root = Path(project).resolve()
     base = library_dir(root, base)
