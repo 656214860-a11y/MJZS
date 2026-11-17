@@ -64,7 +64,6 @@ def project_identity(root):
 
 def _reroot(root, path):
     """绝对路径失效（项目改名／移动）时，按阶段目录名在项目内重新定位同一份分镜。"""
-    # R3162：R3093 已把 project_stages.STAGES 收编为 stage_dirs()，此处漏改导致改名/移动项目后 ImportError。
     from contract.project_stages import stage_dirs
     names = set(stage_dirs())
     parts = Path(path).parts

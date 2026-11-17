@@ -10,7 +10,8 @@ from storage_maintenance import remove_project_link_node
 from file_cache import file_digest, read_json as cached_read_json
 from contract.service_contract import SystemError, success
 
-_LOG = logging.getLogger(__name__)
+# R3153：日志器名保持包化前的稳定标识（用例与运维日志按 'projects' 断言失败路径）。
+_LOG = logging.getLogger('projects')
 
 
 def _project_write_result(operation):

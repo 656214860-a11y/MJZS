@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
-"""「设置」窗口：齿轮点开的那四格——基础功能／模型配置／自动化等级／预算（第 44 期）。
+"""「设置」窗口：齿轮点开的那七格——基础功能／三虎模型配置／自动化等级／Token 节省／
+预算／SKILL 管理／开发信息（第 44 期；SKILL 管理格 R3089 落地）。
 
 用户这一轮的要求：
 - 「三虎设置」改名「设置」，入口做成齿轮，摆在窗口左上角标题（V0.7）旁边，做得醒目；
 - 点开这一格把原来的「基础」做进去，名字叫「基础功能」；「模型」改名「模型配置」；
-- 附件里的「SKILL 管理」这一轮不做。
+- 「SKILL 管理」格在 R3089 落地（生命周期任务书 T7）：安装级增删查，勾选仍归阶段面板。
 
 这一层只管画：落盘与即时生效全在 pet_ui.Pet 上（save_settings／budget_limits…），模型那一格借
 pet_models_ui.settings_page 画。窗口照 skill_panel 那套来：Toplevel ＋ transient ＋ Escape 关闭，
@@ -16,6 +17,7 @@ from tkinter import ttk
 
 import pet_agent
 import ui.pet_models_ui as pet_models_ui
+import pet_skills_manage
 import environment_check
 import orchestrator.skill_budget as skill_budget
 import domain.usage_overview as usage_overview
@@ -42,10 +44,10 @@ COST_CHOICE_WIDTH = 75
 BUDGET_FIELD_WIDTH = 16
 # 第 66 期：新加的那一格叫「Token 节省」——附件《Token 节省完整命令清单》全收在这儿。
 TOKEN_TITLE = 'Token 节省'
-# 分页次序＝用户要的次序：基础功能、模型配置、自动化等级、预算（SKILL 管理不做）。
+# 分页次序＝用户要的次序：基础功能、模型配置、自动化等级、Token 节省、预算、SKILL 管理、开发信息。
 # 第 46 期第 6 条：第二格改名「三虎模型配置」（用户点名要的名字）。
-NOTE_HUB = ('三虎的设置都收在这里：基础功能、三虎模型配置、自动化等级、Token 节省、预算、开发信息。'
-            '改完立刻生效，不用重启。')
+NOTE_HUB = ('三虎的设置都收在这里：基础功能、三虎模型配置、自动化等级、Token 节省、预算、'
+            'SKILL 管理、开发信息。改完立刻生效，不用重启。')
 NOTE_BASIC = '名字、贴片动画、免打扰、开机自启——改完立刻生效，同时写进全局配置。'
 NOTE_LEVEL = '这一档决定三虎「自己动手还是等您点头」；写进配置，下次开机照这一档来。'
 NOTE_BUDGET = ('硬限制：Token 按天算，其余按项目累计。越线即暂停那一步并报一声——'
@@ -163,6 +165,7 @@ def open_hub(pet, tab=None):
              'level': level_page(pages['level'], pet, width),
              'token': token_page(pages['token'], pet, width, show_save=False),
              'budget': budget_page(pages['budget'], pet, width, show_save=False),
+             'skills': pet_skills_manage.skills_page(pages['skills'], pet, width),
              'dev': dev_page(pages['dev'], pet, width)}
     seams['model']['manager'] = manager_button          # 那颗键还在这一扇窗里，只是换了一级
     win._pet_tabs = tabs

@@ -532,7 +532,7 @@ class PetStagesMixin:
             self.notice = '还没打开项目——先建一个项目，我才好按 SKILL 动手。'
             self.show_progress(self.notice)
             return self.notice
-        registry = skill_registry.default_registry()
+        registry = skill_registry.default_registry(project=project)
         names = [str(item) for item in (params.get('skills') or [])]
         if not names and stage:
             names = [item.name for item in registry.getByStage(stage)]

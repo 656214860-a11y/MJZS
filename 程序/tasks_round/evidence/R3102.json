@@ -1,0 +1,15 @@
+{
+  "round": 3102,
+  "commit_base": "75096bd6",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k message_parts idea_chat idea_transcript domain/message_parts.py domain/idea_transcript.py tests/test_message_parts.py PROJECT_MAP.md architecture.md runbook.md 维护记录/覆盖率基线.json tasks_round/tasks_round_3102_result.md",
+    "exit": 0,
+    "passed": 178,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T12:08:08"
+}

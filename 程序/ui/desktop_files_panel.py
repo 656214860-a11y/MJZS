@@ -26,8 +26,8 @@ from ui_tokens import ICON_CHEVRON_RIGHT, SCRIPT_FILE_FONT, SCRIPT_FILE_MAX_ROWS
 from ui_widgets import DataTable, SecondaryButton, Tooltip, ask_string
 from ui.writing_page_controller import ScriptListLoadController
 
-# R3131：图标钮右缘留白再收半档（xs→xs//2），图标再右移半步、停靠列同步变窄让聊天框右移。
-RAIL_BUTTON_PAD_RIGHT = SPACING['xs'] // 2
+# R3150：入口钮左右 padding 收 0——右 padding 再收半档图标再右移半步贴边，
+# 左 padding 同步收 0 使图标与左侧聊天框间距减半（实测 8px→4px，余量即按钮内边距）。
 
 # R2998：文件名列宽不再写死——面板宽度由 0 高 sizer 驱动，按最长文件名量宽。
 SCRIPT_LIST_MIN_WIDTH = SPACING['sm'] * 23      # 沿用原固定列宽下限（184）
@@ -146,8 +146,7 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
         """图标钮挂进右侧图标列顶；已在管时不重复 pack。"""
         if self.button.winfo_manager():
             return
-        self.button.pack(side='top', fill='x',
-                         padx=(SPACING['xs'], RAIL_BUTTON_PAD_RIGHT),
+        self.button.pack(side='top', fill='x', padx=SPACING['none'],
                          pady=(SPACING['sm'], SPACING['xs']))
 
     def sync_entry(self):
@@ -427,8 +426,10 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
             return
         path = Path(row)
         if not path.is_absolute():
-            # R3137：阶段筛选视图的行是项目相对 posix 路径。
-            path = Path(self.page.root) / path
+            # R3137：阶段筛选视图的行是项目相对 posix 路径；无项目（测试替身）时按原样处理。
+            root = getattr(self.page, 'root', None)
+            if root is not None:
+                path = Path(root) / path
         if path.is_file():
             self.page.writing_page_services.open_path(path)
 

@@ -26,6 +26,7 @@
 """
 from __future__ import annotations
 
+import app_logging
 import hashlib
 import os
 import re
@@ -34,11 +35,16 @@ import subprocess
 import time
 import uuid
 from pathlib import Path
+from typing import NamedTuple
 
+import skill_project_layer
 import orchestrator.skill_registry as skill_registry
 from agent.core import replace, save
 from contract.pet_bus import read_json
 from contract import platform_tools
+from skill_security_service import (  # T9 安全提示助手；re-export 供调用方走本模块名
+    ALERT_DIR_NAMES, EXECUTABLE_ALERT_SUFFIXES, import_alerts, package_alerts,
+    untrusted_source_notice)
 from storage_maintenance import recycle_paths, restore_recycle_batch
 
 LEDGER_NAME = '导入台账.json'
@@ -78,8 +84,13 @@ class ImportBlocked(ValueError):
     """导入被硬性拦截；消息可直接展示给用户。"""
 
 
+_PACKAGE_ENTRY_NAMES = {skill_registry.PACKAGE_SKILL_FILENAME.casefold()} | {
+    name.casefold() for name in skill_registry.PACKAGE_README_FILENAMES}
+
+
 def _kind(source):
-    return 'package' if Path(source).name.casefold() == skill_registry.PACKAGE_SKILL_FILENAME.casefold() else 'manifest'
+    """包入口口径与 ``Registry._package_source`` 一致：SKILL.md 优先，README 兜底。"""
+    return 'package' if Path(source).name.casefold() in _PACKAGE_ENTRY_NAMES else 'manifest'
 
 
 def _tree_digest(path):
@@ -103,8 +114,12 @@ def plan_import(source, target_dir, stage, registry):
     if target_dir is None:
         raise ImportBlocked('未找到本阶段注册目录')
     target_dir = Path(target_dir)
+    project_skills = getattr(registry, 'project_skills', None)
+    scope = ('project' if isinstance(project_skills, (str, Path)) and
+             target_dir.resolve().is_relative_to(Path(project_skills).resolve())
+             else 'user')
     kind = _kind(source)
-    target = (target_dir / source.parent.name / skill_registry.PACKAGE_SKILL_FILENAME
+    target = (target_dir / source.parent.name / source.name
               if kind == 'package' else target_dir / source.name)
     if kind == 'manifest' and source.is_file() and source.stat().st_size > SINGLE_MAX_BYTES:
         raise ImportBlocked('源文件超过 %d MB 上限' % (SINGLE_MAX_BYTES // 1024 // 1024))
@@ -130,13 +145,21 @@ def plan_import(source, target_dir, stage, registry):
     replaced = Path(os.path.normcase(str(target.resolve())))
     user_root = getattr(registry, 'user_root', None)
     into_user = isinstance(user_root, (str, Path)) and target.resolve().is_relative_to(Path(user_root).resolve())
+    into_project = scope == 'project'
+    layer_labels = skill_registry.LAYER_LABELS
     for item in registry.getAll():
         other = getattr(item, 'path', None)
         if not name or item.name != name or other is None:
             continue
         if Path(os.path.normcase(str(Path(other).resolve()))) == replaced:
             continue                     # 重新导入同一位置＝更新，不算重名
-        if into_user and getattr(item, 'layer', '') == 'builtin':
+        item_layer = getattr(item, 'layer', '')
+        if into_project and item_layer in ('user', 'builtin'):
+            higher = layer_labels.get(item_layer, item_layer)
+            problems.append('将覆盖%s SKILL「%s」（%s版保留，删除项目版后恢复）'
+                            % (higher, name, higher))
+            continue
+        if into_user and item_layer == 'builtin':
             problems.append('将覆盖内置 SKILL「%s」（内置版保留，删除用户版后恢复）' % name)
             continue
         raise ImportBlocked('与已有 SKILL「%s」重名（%s）；同名 SKILL 扫描时会被丢弃。'
@@ -144,7 +167,11 @@ def plan_import(source, target_dir, stage, registry):
     if target.exists():
         problems.append('目标 %s 已存在，继续将覆盖（旧版移入程序回收站，可恢复）' % target.name)
     return {'source': source, 'kind': kind, 'target': target, 'target_dir': target_dir,
-            'name': name, 'problems': problems}
+            'name': name, 'problems': problems, 'scope': scope,
+            'project': (str(getattr(registry, 'project_root', '') or '')
+                        if scope == 'project' and
+                        isinstance(getattr(registry, 'project_root', None), (str, Path))
+                        else '')}
 
 
 def _verify(target):
@@ -177,8 +204,24 @@ def _read_items(path):
     return dict(data.get('items')) if isinstance(data.get('items'), dict) else {}
 
 
+def _frontmatter_version(target):
+    """台账 ``version`` 字段：取已安装入口文件 frontmatter 的 ``version``，没有记空串。"""
+    try:
+        meta, _body = skill_registry.parse(
+            Path(target).read_text(encoding='utf-8-sig'), source=str(target))
+    except (OSError, UnicodeError, ValueError):
+        return ''
+    value = meta.get('version')
+    return value.strip() if isinstance(value, str) and value.strip() else ''
+
+
 def record(program, plan, digest, now=None):
-    """导入台账：按目标相对路径记一行，同一目标再次导入时覆盖该行。"""
+    """导入台账：按目标相对路径记一行，同一目标再次导入时覆盖该行。
+
+    T3 起每行带 ``source_url``／``source_ref``（远程可更新坐标，本地来源为空串）
+    与 ``version``（入口文件 frontmatter，无则空串）；读取侧 ``_read_items``
+    对旧行缺字段天然容忍。
+    """
     path = ledger_path(program)
     items = _read_items(path)
     target = (plan['target'].parent if plan['kind'] == 'package' else plan['target']).resolve()
@@ -190,6 +233,13 @@ def record(program, plan, digest, now=None):
     items[key] = {'source': str(plan.get('ledger_source')
                               or (plan['source'].parent if plan['kind'] == 'package' else plan['source'])),
                   'kind': plan['kind'], 'name': plan['name'], 'sha256': digest,
+                  'source_kind': plan.get('source_kind')
+                                 or ('dir' if plan['kind'] == 'package' else 'file'),
+                  'source_url': str(plan.get('source_url') or ''),
+                  'source_ref': str(plan.get('source_ref') or ''),
+                  'version': _frontmatter_version(plan['target']),
+                  'scope': str(plan.get('scope') or 'user'),
+                  'project': str(plan.get('project') or ''),
                   'imported_at': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(now or time.time()))}
     save(path, {'version': 1, 'items': items})
     return path
@@ -424,7 +474,102 @@ def _candidate_stage(source, clone_root, stage_hint):
     return sid or str(stage_hint or '')
 
 
-def import_from_repo(text, program, registry, stage_hint='', confirm=None):
+def _stage_dir_for(registry, stage, layer='user'):
+    """按层取阶段写入目录；轻量 registry 替身没有 ``stage_directory_for`` 时退回用户层口径。"""
+    fn = getattr(registry, 'stage_directory_for', None)
+    if fn is not None:
+        return fn(stage, layer)
+    return registry.user_stage_directory_for(stage) if layer == 'user' else None
+
+
+def _candidate_plans(candidates, root, registry, stage_hint, layer='user'):
+    """候选 → ``(plans, problems, errors)``：阶段判定与 ``plan_import`` 只读预检；同目标去重。
+
+    仓库导入与压缩包导入共用：``root`` 是候选所在的本地树（克隆目录或解压目录）；
+    ``layer`` 是导入目标层（``'user'`` 全局／``'project'`` 项目级）。
+    """
+    plans, problems, errors = [], [], []
+    seen_targets = set()
+    for candidate in candidates:
+        source = candidate['source']
+        stage = _candidate_stage(source, root, stage_hint)
+        if not stage:
+            errors.append('%s：无法识别阶段（frontmatter stage、NN 目录与阶段提示都没有）'
+                          % source.name)
+            continue
+        try:
+            plan = plan_import(source, _stage_dir_for(registry, stage, layer),
+                               stage, registry)
+        except ImportBlocked as exc:
+            errors.append('%s：%s' % (source.name, exc))
+            continue
+        key = (str(plan['target'].parent if plan['kind'] == 'package' else plan['target']).casefold(),)
+        if key in seen_targets:
+            errors.append('%s：与另一候选目标重复，跳过' % source.name)
+            continue
+        seen_targets.add(key)
+        plans.append(plan)
+        problems.extend('%s：%s' % (plan['name'], problem) for problem in plan['problems'])
+    return plans, problems, errors
+
+
+class _InstallSource(NamedTuple):
+    """``_install_candidate_plans`` 的来源信息：台账来源、界面标签、来源类别与提示称谓。
+
+    ``source_url``／``source_ref`` 是 T3 远程来源的可更新坐标（仓库地址、ref），
+    写进每行台账供 T4 更新检测；本地文件／文件夹／压缩包来源留空。
+    """
+    ledger_source: str
+    label: str
+    source_kind: str = ''
+    origin: str = '仓库'
+    source_url: str = ''
+    source_ref: str = ''
+
+
+def _install_candidate_plans(plans, problems, errors, program, confirm, source):
+    """问题汇总 → 确认 → 逐候选换入 → 报告；``confirm`` 收到汇总文本返回真才继续。
+
+    ``source`` 是 :class:`_InstallSource`：``origin`` 是来源称谓（仓库／压缩包），
+    只进提示文案；``ledger_source`` 与 ``source_kind`` 写进每行台账（T4 更新检测
+    按它分辨本地目录／压缩包／仓库源）。T9：确认框统一带 ``untrusted_source_notice``
+    来源与注入警示；包内可执行内容（``import_alerts``）在无字段问题时同样触发确认。
+    """
+    alerts = import_alerts(plans)
+    if problems or (confirm is not None and alerts):
+        parts = [untrusted_source_notice(source.label or source.origin, plans=plans)]
+        if problems:
+            parts.append('%s导入前发现以下问题：\n\n' % source.origin
+                         + '\n'.join('· ' + item for item in problems))
+        if errors:
+            parts.append('以下条目将跳过：\n' + '\n'.join('· ' + item for item in errors))
+        parts.append('仍要导入吗？')
+        if confirm is None or not confirm('\n\n'.join(parts)):
+            raise ImportBlocked('已取消%s导入' % source.origin)
+    elif errors and not plans:
+        raise ImportBlocked('没有可导入的 SKILL：\n' + '\n'.join('· ' + e for e in errors))
+    installed, failed = [], []
+    for plan in plans:
+        plan['ledger_source'] = source.ledger_source
+        if source.source_kind:
+            plan['source_kind'] = source.source_kind
+        if source.source_url:
+            plan['source_url'] = source.source_url
+        if source.source_ref:
+            plan['source_ref'] = source.source_ref
+        try:
+            perform_import(plan, program)
+            installed.append({'name': plan['name'], 'kind': plan['kind'],
+                              'stage': plan.get('stage', ''), 'target': str(plan['target'])})
+        except (ImportBlocked, OSError, ValueError) as exc:
+            failed.append({'name': plan['name'], 'error': str(exc)})
+    if not installed and not failed:
+        raise ImportBlocked('没有可导入的 SKILL：\n' + '\n'.join('· ' + e for e in errors))
+    return {'label': source.label, 'installed': installed, 'failed': failed,
+            'skipped': errors, 'candidates': len(plans) + len(errors)}
+
+
+def import_from_repo(text, program, registry, stage_hint='', confirm=None, layer='user'):
     """仓库导入主入口（install／update 同一实现）：解析 → 取源码 → 扫描 → 逐候选预检
     → 确认 → 逐候选换入。任一候选失败只影响该候选，已成功的不回滚。
 
@@ -452,59 +597,24 @@ def import_from_repo(text, program, registry, stage_hint='', confirm=None):
         candidates = _repo_candidates(root)
         if not candidates:
             raise ImportBlocked('仓库中没有找到 SKILL.md 或 *.skill.md')
-        plans, problems, errors = [], [], []
-        seen_targets = set()
-        for candidate in candidates:
-            source = candidate['source']
-            stage = _candidate_stage(source, root, stage_hint)
-            if not stage:
-                errors.append('%s：无法识别阶段（frontmatter stage、NN 目录与阶段提示都没有）'
-                              % source.name)
-                continue
-            try:
-                plan = plan_import(source, registry.user_stage_directory_for(stage),
-                                   stage, registry)
-            except ImportBlocked as exc:
-                errors.append('%s：%s' % (source.name, exc))
-                continue
-            key = (str(plan['target'].parent if plan['kind'] == 'package' else plan['target']).casefold(),)
-            if key in seen_targets:
-                errors.append('%s：与同仓库另一候选目标重复，跳过' % source.name)
-                continue
-            seen_targets.add(key)
-            plan['ledger_source'] = label
-            plans.append(plan)
-            problems.extend('%s：%s' % (plan['name'], problem) for problem in plan['problems'])
-        if problems:
-            message = ('仓库导入前发现以下问题：\n\n'
-                       + '\n'.join('· ' + item for item in problems))
-            if errors:
-                message += '\n\n以下条目将跳过：\n' + '\n'.join('· ' + item for item in errors)
-            message += '\n\n仍要导入吗？'
-            if confirm is None or not confirm(message):
-                raise ImportBlocked('已取消仓库导入')
-        elif errors and not plans:
-            raise ImportBlocked('没有可导入的 SKILL：\n' + '\n'.join('· ' + e for e in errors))
-        installed, failed = [], []
-        for plan in plans:
-            try:
-                perform_import(plan, program)
-                installed.append({'name': plan['name'], 'kind': plan['kind'],
-                                  'stage': plan.get('stage', ''), 'target': str(plan['target'])})
-            except (ImportBlocked, OSError, ValueError) as exc:
-                failed.append({'name': plan['name'], 'error': str(exc)})
-        if not installed and not failed:
-            raise ImportBlocked('没有可导入的 SKILL：\n' + '\n'.join('· ' + e for e in errors))
-        return {'label': label, 'installed': installed, 'failed': failed,
-                'skipped': errors, 'candidates': len(candidates)}
+        plans, problems, errors = _candidate_plans(candidates, root, registry, stage_hint,
+                                                 layer=layer)
+        remote = spec['kind'] == 'url'
+        return _install_candidate_plans(
+            plans, problems, errors, program, confirm,
+            _InstallSource(ledger_source=label, label=label,
+                           source_kind='repo', origin='仓库',
+                           source_url=spec['url'] if remote else '',
+                           source_ref=spec.get('ref', '') if remote else ''))
     finally:
         if staging is not None and staging.exists():
             recycle_paths(program, [staging], 'SKILL 仓库克隆暂存收尾')
 
 
-def update_from_repo(text, program, registry, stage_hint='', confirm=None):
+def update_from_repo(text, program, registry, stage_hint='', confirm=None, layer='user'):
     """skill-mgr ``update``：同来源刷新＝重新取最新内容走同一导入管线，旧版进回收站。"""
-    return import_from_repo(text, program, registry, stage_hint=stage_hint, confirm=confirm)
+    return import_from_repo(text, program, registry, stage_hint=stage_hint, confirm=confirm,
+                            layer=layer)
 
 
 def uninstall_skill(program, registry, name):
@@ -518,13 +628,17 @@ def uninstall_skill(program, registry, name):
     if path is None:
         raise ImportBlocked('SKILL「%s」没有可定位的文件' % name)
     path = Path(path)
-    roots = skill_registry.skill_roots(program)
+    roots = list(skill_registry.skill_roots(program))
+    project_skills = getattr(registry, 'project_skills', None)
+    if isinstance(project_skills, (str, Path)):
+        roots.append(Path(project_skills).resolve())
     if not path.is_file() or not any(path.resolve().is_relative_to(root) for root in roots):
         raise ImportBlocked('SKILL「%s」不在可卸载目录' % name)
     target = path.parent if skill.get(skill_registry.IMPORTED_PACKAGE_FLAG, False) else path
     records = recycle_paths(program, [target], '卸载 SKILL：' + skill.name)
     if not records:
         raise ImportBlocked('SKILL「%s」未能移入回收站' % name)
+    forget_ledger_targets(program, [target])
     return {'name': skill.name, 'target': str(target)}
 
 
@@ -535,3 +649,332 @@ def validate_skill(path):
     except ImportBlocked as exc:
         return False, str(exc)
     return True, ''
+
+
+# ── 台账消费（T4）：更新检测与删除闭环 ──
+
+UPDATE_STATES = ('unchanged', 'source-newer', 'local-modified', 'source-missing')
+
+
+def ledger_items(program):
+    """导入台账行（只读）：``{key: row}``；更新检测与界面展示共用同一读取口径。"""
+    return _read_items(ledger_path(Path(program)))
+
+
+def forget_ledger_targets(program, targets):
+    """删除闭环：已回收的安装目标同步摘除台账行；返回摘除行数（幂等）。
+
+    台账键是目标相对用户层／内置层根的路径；目标不在两层根下或没有对应行时跳过。
+    与 ``migrate_legacy_imports`` 同一 ``save()`` 入口写回。
+    """
+    program = Path(program)
+    items = _read_items(ledger_path(program))
+    if not items:
+        return 0
+    roots = (skill_registry.default_user_root(program).resolve(),
+             skill_registry.default_root(program).resolve())
+    doomed = set()
+    for target in targets:
+        path = Path(target).resolve()
+        doomed.add(str(path))          # 项目层台账键是绝对路径，直接命中
+        for root in roots:
+            if path.is_relative_to(root):
+                doomed.add(path.relative_to(root).as_posix())
+                break
+    removed = [key for key in doomed if key in items]
+    if removed:
+        for key in removed:
+            items.pop(key, None)
+        save(ledger_path(program), {'version': 1, 'items': items})
+    return len(removed)
+
+
+def _resolve_ledger_target(program, key):
+    """台账键 → 已安装目标：绝对键（项目层）直用；相对键先用户层后内置层。"""
+    candidate = Path(str(key))
+    if candidate.is_absolute() and candidate.exists():
+        return candidate
+    for root in (skill_registry.default_user_root(program).resolve(),
+                 skill_registry.default_root(program).resolve()):
+        candidate = root / str(key)
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def registry_for_ledger_row(program, row, base=None):
+    """台账行 → 对应层的注册表：``scope=='project'`` 的行用行内 ``project`` 建项目层注册表，
+    其余返回 ``base``（调用方给的全局注册表）。更新检测与探针共用同一口径。"""
+    if isinstance(row, dict) and str(row.get('scope') or '') == 'project':
+        project = str(row.get('project') or '') or None
+        return skill_registry.Registry(
+            skill_registry.default_root(program),
+            user_root=skill_registry.default_user_root(program),
+            project_root=project)
+    return base
+
+
+def _row_layer(row):
+    return 'project' if isinstance(row, dict) and str(row.get('scope') or '') == 'project' else 'user'
+
+
+def _candidate_ledger_key(candidate, root, registry, layer='user'):
+    """候选 → 台账键：用户层 ``<阶段目录名>/<条目名>``；项目层为安装目标绝对路径。
+    阶段判不出返回 None（不猜）。"""
+    stage = _candidate_stage(candidate['source'], root, '')
+    if not stage:
+        return None
+    entry = (candidate['source'].parent.name if candidate['kind'] == 'package'
+             else candidate['source'].name)
+    if layer == 'project':
+        stage_dir = getattr(registry, 'project_stage_directory_for', lambda sid: None)(stage)
+        if stage_dir is None:
+            return None
+        target = (stage_dir / candidate['source'].parent.name / entry
+                  if candidate['kind'] == 'package' else stage_dir / entry)
+        return str(target.resolve())
+    stage_dir = getattr(registry, 'user_stage_directory_for', lambda sid: None)(stage)
+    if stage_dir is None:
+        return None
+    return Path(stage_dir).name + '/' + entry
+
+
+def _entry_signatures(root, registry, layer='user'):
+    """候选树 → ``({台账键: 内容摘要}, {台账键: frontmatter version})``；与安装同口径。"""
+    digests, versions = {}, {}
+    for candidate in _repo_candidates(Path(root)):
+        key = _candidate_ledger_key(candidate, root, registry, layer)
+        if not key:
+            continue
+        content = (candidate['source'].parent if candidate['kind'] == 'package'
+                   else candidate['source'])
+        try:
+            digests[key] = _tree_digest(content)
+            versions[key] = _frontmatter_version(candidate['source'])
+        except OSError:
+            continue
+    return digests, versions
+
+
+def _entry_digests(root, registry, layer='user'):
+    """兼容包装：``skill_archive``／``skill_remote_service`` 探针只取摘要半边。"""
+    return _entry_signatures(root, registry, layer)[0]
+
+
+def _version_key(text):
+    """版本串 → 可比较元组：数字段按数值、其余按字符串（``1.10`` 大于 ``1.9``）。"""
+    key = []
+    for part in re.split(r'[.\-+_]', str(text or '').strip()):
+        if part:
+            key.append((0, int(part)) if part.isdigit() else (1, part))
+    return tuple(key)
+
+
+def _version_compare(candidate, current):
+    """候选版本 vs 台账版本 → -1/0/1；任一侧缺版本返回 ``None`` 交摘要判定。"""
+    if not candidate or not current:
+        return None
+    left, right = _version_key(candidate), _version_key(current)
+    return (left > right) - (left < right)
+
+
+def _source_version(row):
+    """file/dir 来源的入口 ``version``：文件取自身，目录取包根 ``SKILL.md``。"""
+    source = Path(str(row.get('source') or ''))
+    if not source.exists():
+        return ''
+    entry = source if source.is_file() else source / skill_registry.PACKAGE_SKILL_FILENAME
+    return _frontmatter_version(entry) if entry.is_file() else ''
+
+
+def _entry_status(key, row, digests, versions=None):
+    """候选签名表 → 行状态：候选消失→``source-missing``；版本可比时先比版本再比摘要。"""
+    if not digests:
+        return 'source-missing'
+    digest = digests.get(key)
+    if digest is None:
+        return 'source-missing'
+    verdict = _version_compare((versions or {}).get(key, ''),
+                               str(row.get('version') or ''))
+    if verdict is not None:
+        if verdict > 0:
+            return 'source-newer'
+        if verdict < 0:
+            return 'unchanged'
+    return 'unchanged' if digest == str(row.get('sha256') or '') else 'source-newer'
+
+
+def _clone_entry_signatures(url, ref, program, registry, layer='user'):
+    """远程仓库行：重新 ``git clone --depth 1`` 到暂存（用后回收）取候选签名。"""
+    program = Path(program)
+    staging = (skill_registry.default_user_root(program)
+               / (REPO_CLONE_PREFIX + uuid.uuid4().hex[:8]))
+    staging.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        _git_clone(url, ref, staging)
+        try:
+            return _entry_signatures(staging, registry, layer)
+        except ImportBlocked:
+            return None
+    except ImportBlocked:
+        return None
+    finally:
+        if staging.exists():
+            recycle_paths(program, [staging], 'SKILL 更新检测克隆暂存收尾')
+
+
+def _default_source_status(key, row, program, registry, cache, layer='user'):
+    """默认来源判定：file/dir 本地路径、repo 本地目录与远程克隆；其余返回 None 交探针。"""
+    kind = str(row.get('source_kind') or
+               ('dir' if row.get('kind') == 'package' else 'file'))
+    if kind in ('file', 'dir'):
+        source = Path(str(row.get('source') or ''))
+        if not source.exists():
+            return 'source-missing'
+        verdict = _version_compare(_source_version(row), str(row.get('version') or ''))
+        if verdict is not None:
+            if verdict > 0:
+                return 'source-newer'
+            if verdict < 0:
+                return 'unchanged'
+        return ('unchanged' if _tree_digest(source) == str(row.get('sha256') or '')
+                else 'source-newer')
+    if kind != 'repo':
+        return None
+    if row.get('source_url'):
+        signature = (str(row['source_url']), str(row.get('source_ref') or ''), layer,
+                     str(row.get('project') or ''))
+        if signature not in cache:
+            cache[signature] = _clone_entry_signatures(
+                signature[0], signature[1], program, registry, layer)
+        pair = cache[signature]
+        digests, versions = pair if pair else ({}, {})
+    else:
+        source = Path(str(row.get('source') or ''))
+        try:
+            digests, versions = (_entry_signatures(source, registry, layer)
+                                 if source.is_dir() else ({}, {}))
+        except ImportBlocked:
+            digests, versions = {}, {}
+    return _entry_status(key, row, digests, versions)
+
+
+def _installed_status(target, row):
+    """已安装目标完整性 → ``'local-modified'``／``'missing'``／``None``（与台账一致）。
+
+    ``check_updates`` 与 ``local_modifications`` 共用同一判定：目标 ``_tree_digest``
+    与台账 ``sha256`` 不一致即 ``local-modified``（用户手改），读不出按缺失处理。
+    """
+    try:
+        installed = _tree_digest(target)
+    except OSError:
+        return 'missing'
+    return 'local-modified' if installed != str(row.get('sha256') or '') else None
+
+
+def local_modifications(program):
+    """用户层台账行的本地完整性体检 → ``{SKILL 名: 台账键}``；只含被手改过的行。
+
+    与 ``check_updates`` 同一判定函数（``_installed_status``），不重算来源状态、
+    不碰项目层行；目标缺失／不可读不算手改（归 ``source-missing`` 口径）。
+    """
+    modified = {}
+    for key, row in ledger_items(Path(program)).items():
+        if not isinstance(row, dict) or _row_layer(row) != 'user':
+            continue
+        target = _resolve_ledger_target(program, key)
+        if target is None or _installed_status(target, row) != 'local-modified':
+            continue
+        leaf = Path(str(key).replace('\\', '/')).name
+        name = str(row.get('name') or '') or (
+            leaf[:-len(skill_registry.SKILL_SUFFIX)]
+            if leaf.endswith(skill_registry.SKILL_SUFFIX) else leaf)
+        if name:
+            modified[name] = key
+    return modified
+
+
+def program_of_registry(registry):
+    """注册表 → 程序根：``user_root``（``<程序>/data/skills``）上溯两级；形状不符返回 ``None``。"""
+    root = getattr(registry, 'user_root', None)
+    if not root:
+        return None
+    root = Path(root).resolve()
+    if root.parent.name != 'data' or root.name != 'skills':
+        return None
+    return root.parent.parent
+
+
+def check_updates(program, *, probe=None, project=None):
+    """遍历导入台账做更新体检 → ``{台账键: UPDATE_STATES 之一}``。
+
+    判定顺序：已安装目标缺失→``source-missing``；已安装内容摘要与台账 ``sha256``
+    不一致→``local-modified``（用户手改过，不提示覆盖）；其余按来源重算：
+    ``file``／``dir`` 本地路径直读、``repo`` 本地目录重扫候选、``repo`` 远程
+    重新克隆；``archive`` 与 T3 远程链接行交给 ``probe(key, row)``（返回同组
+    状态或 ``None`` 表示不接管）；探针缺省、拒绝、出错或来源不可用→
+    ``source-missing``。只读不写：不改台账、不动已安装内容。
+
+    T5：``scope=='project'`` 的台账行按行内 ``project`` 各自建项目层注册表求
+    候选摘要（跨项目互不串扰）；给了 ``project`` 时只评估该项目的行与用户层行，
+    其他项目的行不出现在结果里。
+    """
+    program = Path(program)
+    wanted = Path(project).resolve() if project else None
+    base_registry = skill_registry.Registry(
+        skill_registry.default_root(program),
+        user_root=skill_registry.default_user_root(program))
+    project_registries = {}
+
+    def _registry_for(row):
+        layer = _row_layer(row)
+        if layer != 'project':
+            return base_registry
+        owner = str(row.get('project') or '')
+        if owner not in project_registries:
+            project_registries[owner] = skill_registry.Registry(
+                skill_registry.default_root(program),
+                user_root=skill_registry.default_user_root(program),
+                project_root=owner or None)
+        return project_registries[owner]
+
+    statuses = {}
+    cache = {}
+    for key, row in ledger_items(program).items():
+        if not isinstance(row, dict):
+            statuses[key] = 'source-missing'
+            continue
+        layer = _row_layer(row)
+        if wanted is not None:
+            if layer == 'project':
+                owner = str(row.get('project') or '')
+                if not owner or Path(owner).resolve() != wanted:
+                    continue
+            # 用户层行任何项目视图都评估
+        registry = _registry_for(row)
+        target = _resolve_ledger_target(program, key)
+        if target is None:
+            statuses[key] = 'source-missing'
+            continue
+        installed = _installed_status(target, row)
+        if installed == 'missing':
+            statuses[key] = 'source-missing'
+            continue
+        if installed == 'local-modified':
+            statuses[key] = 'local-modified'
+            continue
+        kind = str(row.get('source_kind') or
+                   ('dir' if row.get('kind') == 'package' else 'file'))
+        status = None
+        if probe is not None and (kind == 'archive'
+                                  or (kind == 'repo' and bool(row.get('source_url')))):
+            try:
+                status = probe(key, row)
+            except Exception:
+                app_logging.swallowed('skill_import_service 更新探针失败')
+                status = None
+        if status is None:
+            status = _default_source_status(key, row, program, registry, cache, layer)
+        statuses[key] = status or 'source-missing'
+    return statuses
+
