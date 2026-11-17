@@ -303,13 +303,13 @@
   {
    "module": "cell_hover.py",
    "covered": 0,
-   "total": 695,
+   "total": 680,
    "percent": 0.0
   },
   {
-   "module": "cell_zoom_suppress.py",
+   "module": "cell_menu.py",
    "covered": 0,
-   "total": 36,
+   "total": 48,
    "percent": 0.0
   },
   {

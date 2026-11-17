@@ -32,6 +32,7 @@ import round_evidence  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import test_move_audit  # noqa: E402
+import taskbook_closure  # noqa: E402
 
 POLL_SECONDS = 15
 REPORT_SECONDS = 120
@@ -73,6 +74,20 @@ def check_scope_overlap(root: Path) -> int:
     for line in report["conflicts"]:
         print("拒绝提交：" + line, file=sys.stderr)
     return 5 if report["conflicts"] else 0
+
+
+def check_taskbook_closure(message: str, root: Path) -> int:
+    """声明「任务书收尾/完成」的提交必须通过闭环校验器（规则 35，R3039 决策 14）；返回 0 放行，5 拒绝。"""
+    staged = [line for line in _git("diff", "--cached", "--name-only", cwd=root).stdout.splitlines() if line]
+    if not taskbook_closure.declares_closure(message, staged):
+        return 0
+    problems = taskbook_closure.validate(tasks_round=root / "程序" / "tasks_round",
+                                         completion_dir=root / "程序" / "tasks_round" / "任务完成")
+    if problems:
+        for line in problems:
+            print("拒绝提交：" + line, file=sys.stderr)
+        return 5
+    return 0
 
 
 def attach_evidence(message: str, keywords, root: Path) -> int:
@@ -151,6 +166,7 @@ def main(argv=None) -> int:
     if args.files or _git("diff", "--cached", "--name-only").stdout.strip():
         rejected = (check_test_move(args.message, PROGRAM.parent)
                     or check_scope_overlap(PROGRAM.parent)
+                    or check_taskbook_closure(args.message, PROGRAM.parent)
                     or attach_evidence(args.message, args.tests, PROGRAM.parent))
         if rejected:
             return rejected

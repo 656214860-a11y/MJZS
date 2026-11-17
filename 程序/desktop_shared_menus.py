@@ -152,6 +152,9 @@ class SkillPickPanel(AnchoredPanel):
         self.clear()
         self._check_images = []
         self._check_rows = {}
+        # 勾选＝本阶段默认的真实状态（R3040 所见即真）：打开按 stage_config 预填，
+        # 点击由 _toggle_skill_default → sync_check 即时取反写回。
+        self._defaults = set(self.host._default_skills() or ())
         host = self.host
         items = host._skill_list_items()
         if not items:
@@ -165,7 +168,7 @@ class SkillPickPanel(AnchoredPanel):
             self.place_panel()
 
     def sync_check(self, name):
-        """勾选落盘后只刷这一行的勾选像：不整版重建（重建会把未点行也弹回未勾选）。"""
+        """勾选落盘后只刷这一行的勾选像：不整版重建，避免整列闪动。"""
         check = self._check_rows.get(name)
         if check is None:
             return
@@ -187,10 +190,11 @@ class SkillPickPanel(AnchoredPanel):
         row.pack(fill='x')
         widgets = [row]
         hoverables = []
-        if host.project is not None:
-            # 面板每次打开一律未勾选（用户 2026-11-16 定版）：勾选＝本阶段默认的
-            # 写回语义不变，但默认态不预填，点了才由 sync_check 体现。
-            image = IconLoader.check_indicator(self, size=CHECK_SIZE, selected=False)
+        if host._skill_defaultable(item):
+            # 仅本阶段技能给勾选框：跨阶段/判不出阶段的行配置写不进，画出来是死控件
+            # （R3040）；名称点击插入 /名称 的路径不受影响。
+            image = IconLoader.check_indicator(
+                self, size=CHECK_SIZE, selected=name in self._defaults)
             self._check_images.append(image)
             check = tk.Label(row, image=image, bg=COLORS['background_card'],
                              cursor='hand2')

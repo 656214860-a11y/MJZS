@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """R2997：Tooltip 悬停状态机——点击抑制重弹、卡片钉住、closeDelay grace、reshow 窗口、
-被动弹层豁免与单例可见，全部用真 Tk 事件驱动验证（gui_hidden 隐藏桌面运行）。"""
+被动弹层豁免与单例可见，全部用真 Tk 事件驱动验证（运行器自动隐藏桌面执行）。"""
 import time
 import tkinter as tk
 import unittest

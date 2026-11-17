@@ -162,7 +162,38 @@ class PetPatchLayoutMixin:
         return self.paws
 
 
-class PetViewMixin(PetPatchLayoutMixin):
+class PetClickCancelMixin:
+    """R3012 单击待决取消：待决窗口内指针挪开／离开宠物窗，这次单击不算数。
+
+    ``_click_xy`` 用类属性给默认值：Pet.__init__ 不再重复初始化，``self._click_xy``
+    的写入只发生在本类（共享状态棘轮按「几个类给同一 self 属性赋值」计）。
+    """
+    _click_xy = None
+    def _note_click_xy(self, event):
+        """记下这次单击的起点；事件替身没有坐标时给 None（不取消，测试替身路径）。"""
+        try:
+            self._click_xy = None if event is None else (event.x_root, event.y_root)
+        except AttributeError:
+            self._click_xy = None
+    def _pet_move(self, event):
+        """单击待决窗口内指针挪出双击容差＝取消（双击允许的微小位移不计）。"""
+        if not self._chat_interaction.pending or self._click_xy is None:
+            return None
+        px, py = self._click_xy
+        if (event.x_root - px) ** 2 + (event.y_root - py) ** 2 <= CLICK_MOVE_CANCEL_PX ** 2:
+            return None
+        return self._cancel_pending_click()
+    def _pet_away(self, _event=None):
+        """指针已经离开宠物窗：待决的单击不算数（R3012）。"""
+        if self._chat_interaction.pending and self._click_xy is not None:
+            return self._cancel_pending_click()
+        return None
+    def _cancel_pending_click(self):
+        self._click_xy = None
+        return self.cancel_click()
+
+
+class PetViewMixin(PetPatchLayoutMixin, PetClickCancelMixin):
     """Pet 的窗口与交互方法集（见模块说明）。"""
     def tap(self, label):
         """接缝③：页面按钮成功后上报「用户点了什么」（原按钮逻辑不受影响）。
@@ -390,6 +421,10 @@ class PetViewMixin(PetPatchLayoutMixin):
         进度、等级、暂停这些还会跟着变，只是猫不再换动作（关掉是为了省一点 CPU）。
         """
         state = self.snapshot()
+        # R3025：首帧收敛前跳过 draw() 全帧重绘（step ~125ms 一次 canvas 重绘会抢首帧事件循环），节拍照常续排。
+        if not getattr(getattr(self, 'desktop', None), '_first_paint_settled', True):
+            self._schedule(state)
+            return self.frame
         if self.animation_enabled():
             self.frame += 1
             self.cat.next(self.frame)
@@ -795,27 +830,8 @@ class PetViewMixin(PetPatchLayoutMixin):
         下拉栏改成只跟右键，不再跟弹出的菜单抢那一下点击（“再点一下关不掉”就是这么来的）。
         记录点击起点：待决窗口内把指针挪开（R3012）就取消这次单击。
         """
-        try:
-            self._click_xy = None if event is None else (event.x_root, event.y_root)
-        except AttributeError:
-            self._click_xy = None        # 事件替身没有坐标：不取消（测试替身路径）
+        self._note_click_xy(event)
         return self._chat_interaction.request_single()
-    def _pet_move(self, event):
-        """单击待决窗口内指针挪出双击容差＝取消（双击允许的微小位移不计）。"""
-        if not self._chat_interaction.pending or self._click_xy is None:
-            return None
-        px, py = self._click_xy
-        if (event.x_root - px) ** 2 + (event.y_root - py) ** 2 <= CLICK_MOVE_CANCEL_PX ** 2:
-            return None
-        return self._cancel_pending_click()
-    def _pet_away(self, _event=None):
-        """指针已经离开宠物窗：待决的单击不算数（R3012）。"""
-        if self._chat_interaction.pending and self._click_xy is not None:
-            return self._cancel_pending_click()
-        return None
-    def _cancel_pending_click(self):
-        self._click_xy = None
-        return self.cancel_click()
     def cloud_visible(self, sticker_only=False):
         """云朵框这会儿是不是真露着（含云朵框／圆／标签这些贴纸形态）。
 

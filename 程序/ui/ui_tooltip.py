@@ -21,6 +21,11 @@ from ui_tokens import (TOOLTIP_BACKGROUND, TOOLTIP_BORDER, TOOLTIP_BORDER_WIDTH,
 # 同一时刻只留一张可见卡片：新卡显示前 withdraw 旧卡（R2993 漏洞 21：多实例叠窗）。
 _VISIBLE_TIP = None
 
+# Tooltip 的可选项关键字集合：__init__ 收 **opts（参数棘轮），未知关键字照旧 TypeError。
+_TOOLTIP_OPTION_KEYS = frozenset((
+    'delay_ms', 'mode', 'close_delay_ms', 'reshow_ms',
+    'pin_on_click', 'wraplength', 'place'))
+
 
 def _set_visible(tip):
     """登记当前可见浮层；旧的先 withdraw，不抢事件、不叠加。"""
@@ -52,18 +57,19 @@ class Tooltip:
     传自定义定位回调 ``(tip) -> (x, y)``（仍按所在显示器钳位），默认指针＋偏移。
     """
 
-    def __init__(self, widget, text, *, delay_ms=TOOLTIP_DELAY_MS, mode='tip',
-                 close_delay_ms=TOOLTIP_CLOSE_DELAY_MS, reshow_ms=TOOLTIP_RESHOW_MS,
-                 pin_on_click=False, wraplength=TOOLTIP_WRAPLENGTH, place=None):
+    def __init__(self, widget, text, **opts):
+        unknown = sorted(set(opts) - _TOOLTIP_OPTION_KEYS)
+        if unknown:
+            raise TypeError('__init__() got an unexpected keyword argument %r' % unknown[0])
         self.widget = widget
         self.text = str(text or "")
-        self.delay_ms = delay_ms
-        self.mode = mode
-        self.close_delay_ms = close_delay_ms
-        self.reshow_ms = reshow_ms
-        self.pin_on_click = pin_on_click
-        self.wraplength = wraplength
-        self.place = place
+        self.delay_ms = opts.get('delay_ms', TOOLTIP_DELAY_MS)
+        self.mode = opts.get('mode', 'tip')
+        self.close_delay_ms = opts.get('close_delay_ms', TOOLTIP_CLOSE_DELAY_MS)
+        self.reshow_ms = opts.get('reshow_ms', TOOLTIP_RESHOW_MS)
+        self.pin_on_click = opts.get('pin_on_click', False)
+        self.wraplength = opts.get('wraplength', TOOLTIP_WRAPLENGTH)
+        self.place = opts.get('place')
         self.pinned = False
         self._job = None            # 待执行的显示回调
         self._hide_job = None       # 待执行的隐藏回调（card 的 closeDelay）

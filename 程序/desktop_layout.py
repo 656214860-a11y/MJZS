@@ -24,6 +24,9 @@ IDEA_LOG_WHEEL_LINES = 5
 
 
 class LayoutMixin:
+    # R3025：首帧布局收敛前为 False；thaw_page_paint 首次调用时置 True（实例属性），
+    # pet 动画/侧栏补排等周期工作据此避开首帧争用窗。类属性只作缺省，唯一写者是 thaw。
+    _first_paint_settled=False
     def _join_resize(self,apply,event=None):
         """拖动改窗口期间把这次重排并进松手后的补做；返回 True 表示这次不必立即做。"""
         coalescer=getattr(self,'resize_scheduler',None)
@@ -46,6 +49,10 @@ class LayoutMixin:
     def thaw_page_paint(self):
         freezer=getattr(self,'_page_paint_freeze',None)
         thawed=freezer.thaw() if freezer is not None else False
+        # R3025：首次布局收敛=首帧落定；pet 动画、侧栏补排等周期工作据此放行，
+        # 不再与首帧窗内的布局轮次争事件循环。只置一次，后续换页不重置。
+        if not getattr(self,'_first_paint_settled',False):
+            self._first_paint_settled=True
         self._settle_sidebar_paint()
         return thawed
     def _sidebar_geometry(self):
@@ -107,6 +114,12 @@ class LayoutMixin:
         if getattr(self,'_sidebar_fit_job',None) is not None:return
         def run():
             self._sidebar_fit_job=None
+            # R3025：首帧收敛前空转重排——此时每轮 _fit_content_now 已在做
+            # align_header，侧栏补排纯属重复劳动；收敛后下一次 Configure 自然接管。
+            if not getattr(self,'_first_paint_settled',True):
+                try:self._sidebar_fit_job=self.win.after_idle(run)
+                except tk.TclError:self._sidebar_fit_job=None
+                return
             self.fit_sidebar()
         self._sidebar_fit_job=self.win.after_idle(run)
     def fit_sidebar(self,event=None):
@@ -147,7 +160,8 @@ class LayoutMixin:
         # header_stage_button 只在没有「手动XX」行的阶段页出现（约 36px），有它的页标题行
         # 只能收到按钮高度；其余页仍是单行 22px。video_back（视频工作区返回钮，R2966 修复轮
         # 计入）只在视频子页 pack，hide_back 后 pack_forget，按 winfo_manager 只量在管的；
-        # files_button（R2962 项目文件入口）只在有项目的生产页 pack，同样按在管与否取舍。
+        # files_button（R2962 项目文件入口，R2998 起迁至内容区右缘图标列）只在有项目的
+        # 生产页 pack，同样按在管与否取舍——它已不在标题行内，但仍以同高节奏撑住页头。
         for name in ('usage_indicator','header_info','header_stage_button','video_back','files_button'):
             widget=getattr(self,name,None)
             if widget is None or not widget.winfo_manager():continue
