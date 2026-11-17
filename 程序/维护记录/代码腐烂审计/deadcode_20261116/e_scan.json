@@ -1,0 +1,8098 @@
+{
+ "live_files": 395,
+ "corpus_files": 1273,
+ "E1a_unused_imports": [
+  {
+   "file": "app.py",
+   "line": 13,
+   "name": "messagebox"
+  },
+  {
+   "file": "app.py",
+   "line": 19,
+   "name": "dated_path"
+  },
+  {
+   "file": "app.py",
+   "line": 22,
+   "name": "project_settings"
+  },
+  {
+   "file": "asset_batch.py",
+   "line": 2,
+   "name": "json"
+  },
+  {
+   "file": "asset_batch.py",
+   "line": 2,
+   "name": "os"
+  },
+  {
+   "file": "asset_batch.py",
+   "line": 2,
+   "name": "re"
+  },
+  {
+   "file": "asset_batch.py",
+   "line": 2,
+   "name": "uuid"
+  },
+  {
+   "file": "asset_batch.py",
+   "line": 5,
+   "name": "messagebox"
+  },
+  {
+   "file": "asset_batch.py",
+   "line": 17,
+   "name": "_automatic_plan"
+  },
+  {
+   "file": "asset_batch.py",
+   "line": 17,
+   "name": "_unattended_plan"
+  },
+  {
+   "file": "asset_batch.py",
+   "line": 24,
+   "name": "ledger_path"
+  },
+  {
+   "file": "asset_batch.py",
+   "line": 24,
+   "name": "prune_raw_outputs"
+  },
+  {
+   "file": "asset_batch.py",
+   "line": 24,
+   "name": "ready_asset_ids"
+  },
+  {
+   "file": "asset_batch_service.py",
+   "line": 3,
+   "name": "threading"
+  },
+  {
+   "file": "asset_detail.py",
+   "line": 23,
+   "name": "messagebox"
+  },
+  {
+   "file": "asset_detail.py",
+   "line": 186,
+   "name": "STATE_PREFIX"
+  },
+  {
+   "file": "asset_reference_images.py",
+   "line": 5,
+   "name": "os"
+  },
+  {
+   "file": "cloud_video.py",
+   "line": 2,
+   "name": "time"
+  },
+  {
+   "file": "cloud_video.py",
+   "line": 4,
+   "name": "messagebox"
+  },
+  {
+   "file": "continuity_ledger.py",
+   "line": 16,
+   "name": "re"
+  },
+  {
+   "file": "continuity_ledger.py",
+   "line": 20,
+   "name": "KIND_OF"
+  },
+  {
+   "file": "continuity_ledger.py",
+   "line": 20,
+   "name": "state_variants"
+  },
+  {
+   "file": "continuity_ledger.py",
+   "line": 23,
+   "name": "TRIPLET"
+  },
+  {
+   "file": "desktop.py",
+   "line": 3,
+   "name": "page_nav"
+  },
+  {
+   "file": "desktop.py",
+   "line": 10,
+   "name": "TALK_MIN_LINES"
+  },
+  {
+   "file": "desktop.py",
+   "line": 10,
+   "name": "TALK_MAX_LINES"
+  },
+  {
+   "file": "desktop.py",
+   "line": 12,
+   "name": "ASSET_FIRST_ROWS"
+  },
+  {
+   "file": "desktop.py",
+   "line": 12,
+   "name": "ASSET_ROWS_PER_FRAME"
+  },
+  {
+   "file": "desktop.py",
+   "line": 12,
+   "name": "ASSET_ROW_LABEL"
+  },
+  {
+   "file": "desktop.py",
+   "line": 12,
+   "name": "_prefs"
+  },
+  {
+   "file": "desktop.py",
+   "line": 12,
+   "name": "THUMB_SIZE"
+  },
+  {
+   "file": "desktop.py",
+   "line": 12,
+   "name": "ASSET_ROW_HEIGHT"
+  },
+  {
+   "file": "desktop.py",
+   "line": 13,
+   "name": "IDEA_FIELDS"
+  },
+  {
+   "file": "desktop.py",
+   "line": 13,
+   "name": "BUBBLE_FLOOR"
+  },
+  {
+   "file": "desktop.py",
+   "line": 13,
+   "name": "BUBBLE_MAX_RATIO"
+  },
+  {
+   "file": "desktop.py",
+   "line": 13,
+   "name": "script_raw_saved_notice"
+  },
+  {
+   "file": "desktop.py",
+   "line": 13,
+   "name": "model_error_display"
+  },
+  {
+   "file": "desktop.py",
+   "line": 16,
+   "name": "UNATTENDED_NEXT"
+  },
+  {
+   "file": "desktop.py",
+   "line": 16,
+   "name": "UNATTENDED_BACKOFF_FLOOR"
+  },
+  {
+   "file": "desktop.py",
+   "line": 16,
+   "name": "ASSET_RETRY_LIMIT"
+  },
+  {
+   "file": "desktop.py",
+   "line": 17,
+   "name": "os"
+  },
+  {
+   "file": "desktop.py",
+   "line": 17,
+   "name": "subprocess"
+  },
+  {
+   "file": "desktop.py",
+   "line": 17,
+   "name": "sys"
+  },
+  {
+   "file": "desktop.py",
+   "line": 17,
+   "name": "uuid"
+  },
+  {
+   "file": "desktop.py",
+   "line": 17,
+   "name": "json"
+  },
+  {
+   "file": "desktop.py",
+   "line": 18,
+   "name": "date"
+  },
+  {
+   "file": "desktop.py",
+   "line": 20,
+   "name": "remove_temporary_file"
+  },
+  {
+   "file": "desktop.py",
+   "line": 21,
+   "name": "media_root"
+  },
+  {
+   "file": "desktop.py",
+   "line": 23,
+   "name": "messagebox"
+  },
+  {
+   "file": "desktop.py",
+   "line": 24,
+   "name": "save"
+  },
+  {
+   "file": "desktop.py",
+   "line": 24,
+   "name": "save_text"
+  },
+  {
+   "file": "desktop.py",
+   "line": 24,
+   "name": "save_bytes"
+  },
+  {
+   "file": "desktop.py",
+   "line": 25,
+   "name": "project_settings"
+  },
+  {
+   "file": "desktop.py",
+   "line": 26,
+   "name": "needs_cleanup_after_open_error"
+  },
+  {
+   "file": "desktop.py",
+   "line": 27,
+   "name": "growable_extra"
+  },
+  {
+   "file": "desktop.py",
+   "line": 27,
+   "name": "configure_check_column"
+  },
+  {
+   "file": "desktop.py",
+   "line": 27,
+   "name": "refresh_check_heading"
+  },
+  {
+   "file": "desktop.py",
+   "line": 27,
+   "name": "CheckboxColumn"
+  },
+  {
+   "file": "desktop.py",
+   "line": 27,
+   "name": "fit_columns_by_content"
+  },
+  {
+   "file": "desktop.py",
+   "line": 27,
+   "name": "auto_columns"
+  },
+  {
+   "file": "desktop.py",
+   "line": 27,
+   "name": "bind_row_toggle"
+  },
+  {
+   "file": "desktop.py",
+   "line": 27,
+   "name": "fit_row_height"
+  },
+  {
+   "file": "desktop.py",
+   "line": 27,
+   "name": "row_height_for"
+  },
+  {
+   "file": "desktop.py",
+   "line": 28,
+   "name": "approved_versions"
+  },
+  {
+   "file": "desktop.py",
+   "line": 28,
+   "name": "review_label"
+  },
+  {
+   "file": "desktop.py",
+   "line": 28,
+   "name": "adoption_summary"
+  },
+  {
+   "file": "desktop.py",
+   "line": 29,
+   "name": "skip_summary"
+  },
+  {
+   "file": "desktop.py",
+   "line": 30,
+   "name": "App"
+  },
+  {
+   "file": "desktop.py",
+   "line": 33,
+   "name": "dated_path"
+  },
+  {
+   "file": "desktop.py",
+   "line": 34,
+   "name": "asset_thumbs"
+  },
+  {
+   "file": "desktop.py",
+   "line": 35,
+   "name": "asset_resume"
+  },
+  {
+   "file": "desktop.py",
+   "line": 36,
+   "name": "frame_checks"
+  },
+  {
+   "file": "desktop.py",
+   "line": 39,
+   "name": "project_stages"
+  },
+  {
+   "file": "desktop.py",
+   "line": 41,
+   "name": "ui_plugin_registry"
+  },
+  {
+   "file": "desktop.py",
+   "line": 42,
+   "name": "stage_handler_registry"
+  },
+  {
+   "file": "desktop.py",
+   "line": 43,
+   "name": "launch_windows_app"
+  },
+  {
+   "file": "desktop.py",
+   "line": 43,
+   "name": "open_target"
+  },
+  {
+   "file": "desktop.py",
+   "line": 43,
+   "name": "tcp_listener"
+  },
+  {
+   "file": "desktop.py",
+   "line": 49,
+   "name": "BackgroundTaskQueue"
+  },
+  {
+   "file": "desktop.py",
+   "line": 51,
+   "name": "CHAR_WIDTH"
+  },
+  {
+   "file": "desktop.py",
+   "line": 51,
+   "name": "SCRIPT_ACTION_WIDTH"
+  },
+  {
+   "file": "desktop.py",
+   "line": 51,
+   "name": "SCRIPT_ACTION_PADDING"
+  },
+  {
+   "file": "desktop.py",
+   "line": 51,
+   "name": "SCRIPT_FILE_FONT"
+  },
+  {
+   "file": "desktop.py",
+   "line": 51,
+   "name": "ICON_FOLDER"
+  },
+  {
+   "file": "desktop.py",
+   "line": 51,
+   "name": "ICON_DELETE"
+  },
+  {
+   "file": "desktop.py",
+   "line": 55,
+   "name": "ui_stage_popups"
+  },
+  {
+   "file": "desktop.py",
+   "line": 56,
+   "name": "Card"
+  },
+  {
+   "file": "desktop.py",
+   "line": 56,
+   "name": "DataTable"
+  },
+  {
+   "file": "desktop.py",
+   "line": 56,
+   "name": "HintLabel"
+  },
+  {
+   "file": "desktop.py",
+   "line": 105,
+   "name": "pet_state"
+  },
+  {
+   "file": "desktop.py",
+   "line": 110,
+   "name": "CACHED_PAGES"
+  },
+  {
+   "file": "desktop.py",
+   "line": 110,
+   "name": "PAGE_ACCOUNT"
+  },
+  {
+   "file": "desktop.py",
+   "line": 110,
+   "name": "PAGE_SITES"
+  },
+  {
+   "file": "desktop.py",
+   "line": 141,
+   "name": "drain_tk_gc"
+  },
+  {
+   "file": "desktop.py",
+   "line": 141,
+   "name": "_pin_tk_app"
+  },
+  {
+   "file": "desktop.py",
+   "line": 141,
+   "name": "_PENDING_TK_GC"
+  },
+  {
+   "file": "desktop.py",
+   "line": 141,
+   "name": "_KEEP_APPS"
+  },
+  {
+   "file": "desktop.py",
+   "line": 145,
+   "name": "PET_STAGE_POLL"
+  },
+  {
+   "file": "desktop.py",
+   "line": 145,
+   "name": "UNATTENDED_SWITCH"
+  },
+  {
+   "file": "desktop_account_page.py",
+   "line": 24,
+   "name": "PASSWORD_MASK"
+  },
+  {
+   "file": "desktop_asset_pages.py",
+   "line": 599,
+   "name": "summary"
+  },
+  {
+   "file": "desktop_auto_flows.py",
+   "line": 332,
+   "name": "project_settings"
+  },
+  {
+   "file": "desktop_idea_attachments.py",
+   "line": 8,
+   "name": "tk"
+  },
+  {
+   "file": "desktop_idea_chat.py",
+   "line": 20,
+   "name": "ui_plugin_registry"
+  },
+  {
+   "file": "desktop_idea_chat.py",
+   "line": 24,
+   "name": "bubble_timestamp"
+  },
+  {
+   "file": "desktop_idea_chat.py",
+   "line": 24,
+   "name": "collapse_preview"
+  },
+  {
+   "file": "desktop_idea_chat.py",
+   "line": 27,
+   "name": "COLORS"
+  },
+  {
+   "file": "desktop_idea_chat.py",
+   "line": 27,
+   "name": "FONTS"
+  },
+  {
+   "file": "desktop_idea_chat.py",
+   "line": 29,
+   "name": "BUBBLE_BACK"
+  },
+  {
+   "file": "desktop_idea_chat.py",
+   "line": 29,
+   "name": "BUBBLE_FILL"
+  },
+  {
+   "file": "desktop_idea_chat.py",
+   "line": 29,
+   "name": "BUBBLE_FLOOR"
+  },
+  {
+   "file": "desktop_idea_chat.py",
+   "line": 29,
+   "name": "BUBBLE_FONT"
+  },
+  {
+   "file": "desktop_idea_chat.py",
+   "line": 29,
+   "name": "BUBBLE_GAP"
+  },
+  {
+   "file": "desktop_idea_chat.py",
+   "line": 29,
+   "name": "BUBBLE_LINE"
+  },
+  {
+   "file": "desktop_idea_chat.py",
+   "line": 29,
+   "name": "BUBBLE_MAX_RATIO"
+  },
+  {
+   "file": "desktop_idea_chat.py",
+   "line": 29,
+   "name": "BUBBLE_PAD"
+  },
+  {
+   "file": "desktop_idea_chat.py",
+   "line": 29,
+   "name": "BUBBLE_SLACK"
+  },
+  {
+   "file": "desktop_idea_deferred.py",
+   "line": 10,
+   "name": "IDEA_UPDATE_STABLE_TICKS"
+  },
+  {
+   "file": "desktop_idea_deferred.py",
+   "line": 10,
+   "name": "IDEA_UPDATE_TIMEOUT_SECONDS"
+  },
+  {
+   "file": "desktop_media_pages.py",
+   "line": 554,
+   "name": "local_model"
+  },
+  {
+   "file": "desktop_media_pages.py",
+   "line": 819,
+   "name": "project_settings"
+  },
+  {
+   "file": "desktop_page_nav.py",
+   "line": 19,
+   "name": "Tooltip"
+  },
+  {
+   "file": "desktop_project_pages.py",
+   "line": 22,
+   "name": "Card"
+  },
+  {
+   "file": "desktop_script_pages.py",
+   "line": 33,
+   "name": "SCRIPT_EDIT_BUTTON_WIDTH"
+  },
+  {
+   "file": "desktop_shared_send.py",
+   "line": 15,
+   "name": "SPACING"
+  },
+  {
+   "file": "desktop_writing_page.py",
+   "line": 11,
+   "name": "time"
+  },
+  {
+   "file": "engine.py",
+   "line": 2,
+   "name": "json"
+  },
+  {
+   "file": "file_cache.py",
+   "line": 14,
+   "name": "time"
+  },
+  {
+   "file": "file_cache.py",
+   "line": 15,
+   "name": "read"
+  },
+  {
+   "file": "file_cache.py",
+   "line": 15,
+   "name": "save_file"
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 19,
+   "name": "PRODUCTION_LOCK_DEFINITIONS"
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 20,
+   "name": "brief_creation_values"
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 20,
+   "name": "merge_brief_creation"
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 24,
+   "name": "ChatModel"
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 24,
+   "name": "reply_path_parts"
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 28,
+   "name": "CHAT_NAME"
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 28,
+   "name": "_HISTORY_CACHE_LIMIT"
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 28,
+   "name": "_history_cache"
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 28,
+   "name": "_read_rows"
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 28,
+   "name": "_row_indexes"
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 28,
+   "name": "_stamp"
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 28,
+   "name": "_visible_claude_text"
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 28,
+   "name": "append"
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 28,
+   "name": "chat_model"
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 28,
+   "name": "compact_context"
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 28,
+   "name": "deleted_history_path"
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 28,
+   "name": "history_path"
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 28,
+   "name": "model_history_path"
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 28,
+   "name": "remove"
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 28,
+   "name": "remove_all"
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 28,
+   "name": "remove_message"
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 28,
+   "name": "repair_internal_replies"
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 28,
+   "name": "replace"
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 28,
+   "name": "same_message"
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 28,
+   "name": "restore_latest_removed"
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 28,
+   "name": "save_rows"
+  },
+  {
+   "file": "image_agent_runner.py",
+   "line": 2,
+   "name": "json"
+  },
+  {
+   "file": "integrations.py",
+   "line": 9,
+   "name": "tool_path"
+  },
+  {
+   "file": "integrations.py",
+   "line": 9,
+   "name": "_TOOL_CACHE"
+  },
+  {
+   "file": "integrations.py",
+   "line": 19,
+   "name": "script_text"
+  },
+  {
+   "file": "keyframe_comfy.py",
+   "line": 8,
+   "name": "messagebox"
+  },
+  {
+   "file": "keyframe_comfy.py",
+   "line": 12,
+   "name": "ui_plugin_registry"
+  },
+  {
+   "file": "local_previs.py",
+   "line": 2,
+   "name": "os"
+  },
+  {
+   "file": "local_previs.py",
+   "line": 5,
+   "name": "messagebox"
+  },
+  {
+   "file": "local_previs.py",
+   "line": 8,
+   "name": "prepare_batch"
+  },
+  {
+   "file": "local_previs.py",
+   "line": 176,
+   "name": "project_settings"
+  },
+  {
+   "file": "local_video.py",
+   "line": 10,
+   "name": "file_hash"
+  },
+  {
+   "file": "local_video.py",
+   "line": 12,
+   "name": "project_settings"
+  },
+  {
+   "file": "local_video.py",
+   "line": 378,
+   "name": "tk"
+  },
+  {
+   "file": "model_pool.py",
+   "line": 14,
+   "name": "json"
+  },
+  {
+   "file": "model_pool.py",
+   "line": 17,
+   "name": "threading"
+  },
+  {
+   "file": "model_pool.py",
+   "line": 19,
+   "name": "datetime"
+  },
+  {
+   "file": "model_pool.py",
+   "line": 19,
+   "name": "timezone"
+  },
+  {
+   "file": "model_pool.py",
+   "line": 24,
+   "name": "REPLAYABLE_RETRY_STATUS"
+  },
+  {
+   "file": "model_pool.py",
+   "line": 25,
+   "name": "replace"
+  },
+  {
+   "file": "model_pool.py",
+   "line": 25,
+   "name": "temporary_path"
+  },
+  {
+   "file": "model_pool.py",
+   "line": 26,
+   "name": "no_redirect"
+  },
+  {
+   "file": "model_pool.py",
+   "line": 26,
+   "name": "_request_headers"
+  },
+  {
+   "file": "model_pool.py",
+   "line": 26,
+   "name": "_scrub_error_detail"
+  },
+  {
+   "file": "model_pool.py",
+   "line": 26,
+   "name": "_retry_after_seconds"
+  },
+  {
+   "file": "model_pool.py",
+   "line": 26,
+   "name": "_retry_delay"
+  },
+  {
+   "file": "model_pool.py",
+   "line": 26,
+   "name": "_wait_before_retry"
+  },
+  {
+   "file": "model_pool.py",
+   "line": 26,
+   "name": "_decode_response_body"
+  },
+  {
+   "file": "model_pool.py",
+   "line": 26,
+   "name": "_content_length_exceeded"
+  },
+  {
+   "file": "model_pool.py",
+   "line": 26,
+   "name": "_limited_read"
+  },
+  {
+   "file": "model_pool.py",
+   "line": 26,
+   "name": "_wait_for_rate_limit"
+  },
+  {
+   "file": "model_pool.py",
+   "line": 26,
+   "name": "set_host_rate_limit"
+  },
+  {
+   "file": "model_pool.py",
+   "line": 26,
+   "name": "wait_for_rpm"
+  },
+  {
+   "file": "model_pool.py",
+   "line": 26,
+   "name": "_RateBucket"
+  },
+  {
+   "file": "model_pool.py",
+   "line": 26,
+   "name": "HTTP_USER_AGENT"
+  },
+  {
+   "file": "model_secrets.py",
+   "line": 13,
+   "name": "os"
+  },
+  {
+   "file": "native_apps.py",
+   "line": 4,
+   "name": "json"
+  },
+  {
+   "file": "native_apps.py",
+   "line": 8,
+   "name": "time"
+  },
+  {
+   "file": "native_assets.py",
+   "line": 3,
+   "name": "base64"
+  },
+  {
+   "file": "native_assets.py",
+   "line": 7,
+   "name": "os"
+  },
+  {
+   "file": "native_assets.py",
+   "line": 362,
+   "name": "messagebox"
+  },
+  {
+   "file": "pet_bus.py",
+   "line": 6,
+   "name": "Bus"
+  },
+  {
+   "file": "pet_bus.py",
+   "line": 6,
+   "name": "CONTRACT"
+  },
+  {
+   "file": "pet_bus.py",
+   "line": 6,
+   "name": "ERROR_LIMIT"
+  },
+  {
+   "file": "pet_bus.py",
+   "line": 6,
+   "name": "ERROR_PERSIST_LIMIT"
+  },
+  {
+   "file": "pet_bus.py",
+   "line": 6,
+   "name": "ErrorLog"
+  },
+  {
+   "file": "pet_bus.py",
+   "line": 6,
+   "name": "HISTORY_LIMIT"
+  },
+  {
+   "file": "pet_bus.py",
+   "line": 6,
+   "name": "LIVE_EVENTS"
+  },
+  {
+   "file": "pet_bus.py",
+   "line": 6,
+   "name": "PENDING_LIMIT"
+  },
+  {
+   "file": "pet_bus.py",
+   "line": 6,
+   "name": "Path"
+  },
+  {
+   "file": "pet_bus.py",
+   "line": 6,
+   "name": "SEEN_LIMIT"
+  },
+  {
+   "file": "pet_bus.py",
+   "line": 6,
+   "name": "SHEDDABLE_EVENTS"
+  },
+  {
+   "file": "pet_bus.py",
+   "line": 6,
+   "name": "STAGES"
+  },
+  {
+   "file": "pet_bus.py",
+   "line": 6,
+   "name": "STAGE_EVENTS"
+  },
+  {
+   "file": "pet_bus.py",
+   "line": 6,
+   "name": "STAGE_NAMED"
+  },
+  {
+   "file": "pet_bus.py",
+   "line": 6,
+   "name": "STAGE_NAMES"
+  },
+  {
+   "file": "pet_bus.py",
+   "line": 6,
+   "name": "emit_safe"
+  },
+  {
+   "file": "pet_bus.py",
+   "line": 6,
+   "name": "event"
+  },
+  {
+   "file": "pet_bus.py",
+   "line": 6,
+   "name": "hashlib"
+  },
+  {
+   "file": "pet_bus.py",
+   "line": 6,
+   "name": "identify"
+  },
+  {
+   "file": "pet_bus.py",
+   "line": 6,
+   "name": "is_sheddable"
+  },
+  {
+   "file": "pet_bus.py",
+   "line": 6,
+   "name": "json"
+  },
+  {
+   "file": "pet_bus.py",
+   "line": 6,
+   "name": "queue"
+  },
+  {
+   "file": "pet_bus.py",
+   "line": 6,
+   "name": "read_json"
+  },
+  {
+   "file": "pet_bus.py",
+   "line": 6,
+   "name": "stage_label"
+  },
+  {
+   "file": "pet_bus.py",
+   "line": 6,
+   "name": "stage_name"
+  },
+  {
+   "file": "pet_bus.py",
+   "line": 6,
+   "name": "stage_step"
+  },
+  {
+   "file": "pet_bus.py",
+   "line": 6,
+   "name": "threading"
+  },
+  {
+   "file": "pet_bus.py",
+   "line": 6,
+   "name": "time"
+  },
+  {
+   "file": "pet_llm.py",
+   "line": 17,
+   "name": "os"
+  },
+  {
+   "file": "pet_llm.py",
+   "line": 19,
+   "name": "contextmanager"
+  },
+  {
+   "file": "pet_llm.py",
+   "line": 27,
+   "name": "configured_key"
+  },
+  {
+   "file": "pet_llm.py",
+   "line": 517,
+   "name": "REQUEST_KINDS"
+  },
+  {
+   "file": "pet_llm.py",
+   "line": 517,
+   "name": "REQUEST_LEDGER_PATH"
+  },
+  {
+   "file": "pet_llm.py",
+   "line": 517,
+   "name": "REQUEST_MODES"
+  },
+  {
+   "file": "pet_llm.py",
+   "line": 517,
+   "name": "REQUEST_STATES"
+  },
+  {
+   "file": "pet_llm.py",
+   "line": 517,
+   "name": "BudgetRejected"
+  },
+  {
+   "file": "pet_llm.py",
+   "line": 517,
+   "name": "record_request"
+  },
+  {
+   "file": "pet_llm.py",
+   "line": 517,
+   "name": "request_ledger_path"
+  },
+  {
+   "file": "pet_settings_ui.py",
+   "line": 25,
+   "name": "TEXT_HINT"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 34,
+   "name": "datetime"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 36,
+   "name": "sys"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 42,
+   "name": "model_router"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 43,
+   "name": "APP_NAME"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 44,
+   "name": "PREFIX_PATTERNS"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 46,
+   "name": "pet_cloud"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 52,
+   "name": "stage_handler_registry"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 54,
+   "name": "stage_parallel"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 55,
+   "name": "token_saver"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 56,
+   "name": "LEVEL_NOTES"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 57,
+   "name": "ContextMenu"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 57,
+   "name": "ask_confirmation"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 58,
+   "name": "PET_LAYOUT"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "ACTIVE_MS"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "ADVANCE_SECONDS"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "AUTOSTART_KEY"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "AUTOSTART_NAME"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "AUTO_STAGE_VARIABLES"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "AUTO_VARIABLE_NAMES"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "AWAY_PAUSE_SECONDS"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "Autostart"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "BANNER_HOUR"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "BROADCAST_BUSY"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "BROADCAST_IDLE"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "BUSY_TAPS"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "BUSY_WINDOW"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "CANVAS_BG"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "CAPTION_INK"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "CAPTION_Y"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "CHAT_HINT"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "CHAT_MUTE_SECONDS"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "CONFIRM_NEED"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "CONFIRM_TITLE"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "DETAIL_MENU_LABEL"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "DOCK_CAPTION_GAP"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "DOCK_CAPTION_ROOM"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "DOCK_CLUSTER_W"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "DOCK_PAD_BOTTOM"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "DOCK_PAD_TOP"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "DOCK_PAD_X"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "DOCK_PAW_RIGHT"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "DOCK_ROOM"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "FALLBACK_ASK"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "GAP_SECONDS"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "GEAR_COLOR"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "GEAR_HOVER"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "GEAR_SIZE"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "GEAR_TIP"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "GREET_QUIET_SECONDS"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "GearButton"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "ICE"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "IDLE_MS"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "INK_SOFT"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "LEVEL_CAPTIONS"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "LEVEL_COLORS"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "LEVEL_SWITCH_NOTES"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "MOODS"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "OFFER_NO"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "OFFER_REPEAT"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "OFFER_SECONDS"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "OFFER_YES"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "ONE_CLICK_ASK"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "ONE_CLICK_TITLE"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "PAGE_ASKS"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "PANEL_DIVIDER"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "PANEL_HEAD"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "PANEL_MENU_LABEL"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "PANEL_SECTIONS"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "PATCH_X"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "PAUSED_CAPTION"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "PAW_ARC"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "PAW_COL_HEIGHT"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "PAW_COL_WIDTH"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "PAW_COL_X"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "PAW_COLORS"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "PAW_GAP"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "PAW_GAP_Y"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "PAW_HOVER"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "PAW_HIT_X"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "PAW_IDLE"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "PAW_LEVELS"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "PAW_SIZE"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "PAW_STEP"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "PROGRESS_GAPS"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "PROGRESS_SECONDS"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "PROJECT_CACHE_SECONDS"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "PROJECT_CLOSED"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "PROJECT_LIMIT"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "PROJECT_OPEN"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "QUIT_LABEL"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "REPORT_QUIET_SECONDS"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "SANHU_BLUSH"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "SANHU_EAR"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "SANHU_FUR"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "SANHU_INK"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "SANHU_MODES"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "SANHU_MUZZLE"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "SANHU_STAR"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "SETTINGS_ENTRIES"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "SETTINGS_LABEL"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "SIZE"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "SPEAK_GAP_SECONDS"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "SPOKEN_KEEP"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "STAGE_ASK_SECONDS"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "TONGUE"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "WEEKLY_FROM"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "_BooleanFlag"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "_UNSET"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "_settings_entries"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "asset_counts"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "autostart_command"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "duration"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "flourish"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "gear_parts"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "paint"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "palette"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "paw_dy"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "paw_parts"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "shot_stats"
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 65,
+   "name": "startup_api"
+  },
+  {
+   "file": "pet_ui_view.py",
+   "line": 12,
+   "name": "PAW_COL_X"
+  },
+  {
+   "file": "pet_ui_view.py",
+   "line": 12,
+   "name": "PAW_GAP"
+  },
+  {
+   "file": "pet_ui_view.py",
+   "line": 12,
+   "name": "PAW_HIT_X"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "ExecutionControl"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "ExecutionStopped"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "MicrophoneRecorder"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "Path"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "RECORD_RATE"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "WebSocket"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "WebSocketRefused"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "communicate_or_kill"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "contextmanager"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "current_execution"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "downloads_directory"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "duration_text"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "execution_checkpoint"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "execution_metadata"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "execution_scope"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "find_editor_shortcut"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "hidden_console_flags"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "launch_background"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "launch_text_process"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "launch_windows_app"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "open_directory"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "open_https"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "open_path"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "open_target"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "open_websocket"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "os"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "probe_http_endpoint"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "require_windows"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "run_process"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "shutil"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "socket"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "subprocess"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "sys"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "tcp_listener"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "terminate_process_tree"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "threading"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "time"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "tool_path"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "urlparse"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "wav_bytes"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "webbrowser"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "windows_registry"
+  },
+  {
+   "file": "platform_tools.py",
+   "line": 6,
+   "name": "work_area"
+  },
+  {
+   "file": "previs_routing.py",
+   "line": 2,
+   "name": "json"
+  },
+  {
+   "file": "projects.py",
+   "line": 2,
+   "name": "time"
+  },
+  {
+   "file": "projects.py",
+   "line": 2,
+   "name": "os"
+  },
+  {
+   "file": "reference_wall.py",
+   "line": 10,
+   "name": "messagebox"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "AUDIT"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "BRIEF_EXTRACTION_LABELS"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "BRIEF_FIELDS"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "BRIEF_LABELS"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "BRIEF_OPTIONAL_FIELDS"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "BRIEF_PRODUCTION_LOCKS_FIELD"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "BRIEF_RECOMMENDED_FIELDS"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "BRIEF_REQUIRED_FIELDS"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "BRIEF_REQUIREMENT_LEVELS"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "CATEGORIES"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "EPISODE_LEDGER_NAME"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "HEADER"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "HINTS"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "ID_FIELD"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "INLINE_REQUIRED_LABELS"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "KINDS"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "KIND_OF_MANIFEST"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "LOUDNESS_DEFAULTS"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "MANIFESTS"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "MANIFEST_OF_KIND"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "MERGED"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "MERGED_SKILLS"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "MERGE_LANDING"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "MERGE_OWNER"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "MERGE_PART"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "OUTPUT_SPEC_DEFAULTS"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "PATTERN"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "PHYSICAL_KEYS"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "PHYSICAL_LABELS"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "PREFIX"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "PREFIX_OF"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "PREVIEW_FPS"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "PREVIEW_SHORT_EDGE"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "PRODUCERS"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "PRODUCER_SKILLS"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "PRODUCTION_LOCK_DEFINITIONS"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "Path"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "RAW_SCRIPT_NAME"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "RHYTHM_TEMPLATE_FIELD"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "RHYTHM_TEMPLATE_PATH"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "SAMPLE"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "SCRIPT_SKILL_STAGES"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "SPLIT"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "STAGE"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "STAGE_LOCK_REQUIREMENTS"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "STAGE_OUTPUTS"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "STORYBOARD_STAGE"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "STRUCTURED_SCRIPT_DIR"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "STRUCTURED_SCRIPT_NAME"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "STRUCTURED_STAGE_DIR"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "STRUCTURE_MANIFESTS"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "STRUCTURE_STAGE"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "UNSPLIT_EPISODE_KEY"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "WORKFLOW_LOCK_SCHEMA"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "WORKFLOW_PROJECTION_KEY"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "audit_rows"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "brief_document"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "canonical_structured_script_path"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "completeness"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "datetime"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "defaults"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "describe_output_spec"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "duplicate_ids"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "episode_change_report"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "episode_digest"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "episode_label"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "episode_ledger_path"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "episode_reference_block"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "field_features"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "hashlib"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "id_field"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "id_of"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "is_structured_script"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "is_structured_script_file_name"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "items_of"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "json"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "kind_of_id"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "lock_stage"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "loudness_filter"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "manifest"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "manifest_name"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "manifest_rows"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "merge_problems"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "missing_brief_fields"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "natural_script_paths"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "natural_script_selection_path"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "new_id"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "normalize"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "normalize_brief"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "normalize_workflow_projection"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "output_filter"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "overlay_metrics"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "parse_ratio"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "parse_resolution"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "preview_spec"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "production_lock_active"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "production_lock_date"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "program_root"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "project_name"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "re"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "read"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "read_episode_ledger"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "reassign_ids"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "record_episode_ledger"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "resolve_output_spec"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "resolve_script_source"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "review_structured_script"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "revise_structured_script"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "sample_character_manifest"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "save_natural_script"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "schema"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "script_baseline_path"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "script_episode_baseline"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "split_features"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "split_script_episodes"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "stage_file_info"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "stage_file_name"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "stage_lock_definitions"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "stage_lock_requirements"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "structure_manifest_dir"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "structure_manifest_problems"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "structure_manifests"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "structure_script"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "structured_script_file_name"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "structured_script_path"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "structured_script_paths"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "superseded_structured_scripts"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "support_rows"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "unique_ids"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "unlisted_skills"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "validate"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "validate_production_locks"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "write_episode_ledger"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "write_structure_manifests"
+  },
+  {
+   "file": "script_contract.py",
+   "line": 6,
+   "name": "write_structured_script"
+  },
+  {
+   "file": "script_find_bar.py",
+   "line": 16,
+   "name": "COLORS"
+  },
+  {
+   "file": "script_outline.py",
+   "line": 14,
+   "name": "SPACING"
+  },
+  {
+   "file": "shared_video_controls.py",
+   "line": 15,
+   "name": "tk"
+  },
+  {
+   "file": "shared_video_controls.py",
+   "line": 16,
+   "name": "project_settings"
+  },
+  {
+   "file": "shared_video_controls.py",
+   "line": 17,
+   "name": "model_name"
+  },
+  {
+   "file": "shot_numbering.py",
+   "line": 13,
+   "name": "json"
+  },
+  {
+   "file": "skill_command.py",
+   "line": 10,
+   "name": "os"
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 3,
+   "name": "EXTERNAL_PACKAGE_API_HINT"
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 3,
+   "name": "SKILL_FLOW_ORDER"
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 3,
+   "name": "MANUAL_NAME"
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 3,
+   "name": "skill_order"
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 3,
+   "name": "markdown_document"
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 3,
+   "name": "flow_skill_choices"
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 3,
+   "name": "flow_skill_display"
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 3,
+   "name": "skill_checkbox_label"
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 3,
+   "name": "flow_skill_match"
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 3,
+   "name": "flow_skill_paths"
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 3,
+   "name": "flow_skill_value"
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 3,
+   "name": "set_flow_skills"
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 3,
+   "name": "manual_path"
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 3,
+   "name": "stage_label"
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 3,
+   "name": "pet_of"
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 3,
+   "name": "stage_capabilities"
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 3,
+   "name": "model_fits_stage"
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 3,
+   "name": "grouped_model_choices"
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 3,
+   "name": "sync_models"
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 3,
+   "name": "WrappingActionRow"
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 3,
+   "name": "refresh_all"
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 58,
+   "name": "re"
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 61,
+   "name": "messagebox"
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 69,
+   "name": "skill_budget"
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 74,
+   "name": "ui_plugin_registry"
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 75,
+   "name": "STAGE_NAMES"
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 75,
+   "name": "_bus_stage_label"
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 77,
+   "name": "FONTS"
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 77,
+   "name": "NOTE_HEIGHT_COMPACT"
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 77,
+   "name": "NOTE_HEIGHT_REGULAR"
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 77,
+   "name": "NOTE_PADDING_X"
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 77,
+   "name": "NOTE_PADDING_Y"
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 77,
+   "name": "DIALOG_MIN_HEIGHT"
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 77,
+   "name": "DIALOG_MIN_WIDTH"
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 81,
+   "name": "TextArea"
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 81,
+   "name": "SecondaryButton"
+  },
+  {
+   "file": "skill_panel_support.py",
+   "line": 18,
+   "name": "CHAR_WIDTH"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 14,
+   "name": "asset_batch_gateway"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 14,
+   "name": "asset_plan_gateway"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 14,
+   "name": "sync_asset_plan"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 14,
+   "name": "update_asset_plan_fields"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 14,
+   "name": "plan_unattended_assets"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 14,
+   "name": "note_asset_resume_round"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 14,
+   "name": "adopt_asset_storyboards"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 14,
+   "name": "remove_asset_storyboards"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 14,
+   "name": "poll_asset_storyboard_adoption"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 14,
+   "name": "release_uncertain_asset_batch"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 14,
+   "name": "asset_detail_gateway"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 14,
+   "name": "bind_asset_canonical_view"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 14,
+   "name": "bind_asset_variant_thumbnail"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 14,
+   "name": "pending_generated_assets"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 14,
+   "name": "import_pending_generated_assets"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 33,
+   "name": "animatic_preview_spec"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 33,
+   "name": "animatic_reference_paths"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 33,
+   "name": "animatic_video"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 33,
+   "name": "confirm_animatic"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 33,
+   "name": "generate_animatic_reference"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 33,
+   "name": "import_animatic_audio"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 33,
+   "name": "import_animatic_references"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 33,
+   "name": "publish_animatic_bundle"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 33,
+   "name": "run_animatic"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 43,
+   "name": "dispatch_stage_previs"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 43,
+   "name": "install_stage_previs_progress"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 43,
+   "name": "previs_automatic_candidates"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 43,
+   "name": "previs_automatic_engine"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 43,
+   "name": "previs_entries"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 43,
+   "name": "previs_progress_gateway"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 43,
+   "name": "previs_ready"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 43,
+   "name": "previs_records_directory"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 43,
+   "name": "previs_routing_gateway"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 43,
+   "name": "publish_stage_previs_progress"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 43,
+   "name": "save_stage_previs_override"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 43,
+   "name": "storyboard_board_source_script"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 43,
+   "name": "storyboard_catalog"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 43,
+   "name": "storyboard_catalog_snapshot"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 43,
+   "name": "storyboard_default_source"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 43,
+   "name": "storyboard_document_dir"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 43,
+   "name": "storyboard_file_snapshot"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 43,
+   "name": "storyboard_produced_episodes"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 43,
+   "name": "storyboard_produced_scripts"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 43,
+   "name": "storyboard_resolve_source"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 43,
+   "name": "storyboard_working_dir"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 65,
+   "name": "cloud_video_gateway"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 65,
+   "name": "cloud_video_saved_provider_key"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 65,
+   "name": "cloud_video_session_folder"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 65,
+   "name": "publish_cloud_video_session_config"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 65,
+   "name": "publish_cloud_video_studio_config"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 65,
+   "name": "publish_cloud_video_workspace_preference"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 65,
+   "name": "publish_tts_full_track"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 65,
+   "name": "reusable_tts_full_track"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 65,
+   "name": "run_tts_lines"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 65,
+   "name": "save_tts_key"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 65,
+   "name": "tts_gateway"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 65,
+   "name": "video_lifecycle_gateway"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 80,
+   "name": "asset_impact"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 80,
+   "name": "continuity_issue_report"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 80,
+   "name": "decide_continuity_issue"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 80,
+   "name": "import_downloaded_creatives"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 80,
+   "name": "mark_stage_video_deleted"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 80,
+   "name": "publish_idea_creative"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 80,
+   "name": "save_automatic_assemble_marker"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 80,
+   "name": "save_automatic_handoff_marker"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 80,
+   "name": "save_stage_editing_checklist"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 80,
+   "name": "save_stage_video_options"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 80,
+   "name": "save_stage_white_model_upload"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 80,
+   "name": "storyboard_adoption_impact"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 80,
+   "name": "sync_continuity_issues"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 80,
+   "name": "verify_handoff_bundle"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 98,
+   "name": "recover_stage_publications"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 104,
+   "name": "_STAGE_COPY_LOCK"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 104,
+   "name": "_copy_stage_for_write"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 104,
+   "name": "prepare_asset_write"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 104,
+   "name": "prepare_legacy_asset_base"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 104,
+   "name": "prepare_stage_write"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 111,
+   "name": "DOWNLOAD_INBOX_LEDGER"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 111,
+   "name": "_download_inbox_path"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 111,
+   "name": "collect_download_inbox"
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 111,
+   "name": "register_download_inbox"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "ARCHIVE"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "DEAD_FIELDS"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "DOCS"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "LEGACY"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "LEGACY_STAGE_ALIASES"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "Path"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "README"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "SHARED"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "SHARED_SUBDIRS"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "SKILL_CONFIG_NAME"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "SKILL_DEDUPE"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "STAGES"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "STAGE_MANIFESTS"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "SUBDIRS"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "WORKFLOW_DIR"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "adopt_legacy"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "anchors_path"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "dirname_of"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "docs_rows"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "ensure"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "json_md_rows"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "legacy_map"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "legacy_targets"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "link_dir"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "names"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "os"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "paths"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "readme_text"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "ready"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "real_dir"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "run_process"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "save_text"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "schema_path"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "shared_paths"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "skill_config_path"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "skill_rows"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "stage_contract_errors"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "stage_dir"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "stage_names"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "subprocess"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "tree_text"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "triplets_path"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "validate_stage_contract"
+  },
+  {
+   "file": "stage_layout.py",
+   "line": 6,
+   "name": "workflow_dir"
+  },
+  {
+   "file": "stage_models.py",
+   "line": 18,
+   "name": "manual_label_for"
+  },
+  {
+   "file": "storyboard_adoption_contract.py",
+   "line": 3,
+   "name": "read"
+  },
+  {
+   "file": "storyboard_catalog_service.py",
+   "line": 453,
+   "name": "stage"
+  },
+  {
+   "file": "storyboard_files.py",
+   "line": 4,
+   "name": "json"
+  },
+  {
+   "file": "storyboard_files.py",
+   "line": 4,
+   "name": "os"
+  },
+  {
+   "file": "storyboard_files.py",
+   "line": 6,
+   "name": "messagebox"
+  },
+  {
+   "file": "storyboard_files.py",
+   "line": 7,
+   "name": "read"
+  },
+  {
+   "file": "storyboard_files.py",
+   "line": 9,
+   "name": "is_final_dir"
+  },
+  {
+   "file": "storyboard_files.py",
+   "line": 10,
+   "name": "discover_files"
+  },
+  {
+   "file": "storyboard_files.py",
+   "line": 10,
+   "name": "_linked_path"
+  },
+  {
+   "file": "storyboard_files.py",
+   "line": 23,
+   "name": "_adopted"
+  },
+  {
+   "file": "storyboard_files.py",
+   "line": 23,
+   "name": "_summary"
+  },
+  {
+   "file": "storyboard_files.py",
+   "line": 23,
+   "name": "_prune_invalid_adoptions"
+  },
+  {
+   "file": "storyboard_files.py",
+   "line": 39,
+   "name": "read_text"
+  },
+  {
+   "file": "storyboard_files.py",
+   "line": 40,
+   "name": "project_settings"
+  },
+  {
+   "file": "storyboard_files.py",
+   "line": 44,
+   "name": "fit_file_columns"
+  },
+  {
+   "file": "storyboard_files.py",
+   "line": 44,
+   "name": "fit_final_columns"
+  },
+  {
+   "file": "storyboard_files.py",
+   "line": 44,
+   "name": "tree_columns"
+  },
+  {
+   "file": "storyboard_selection.py",
+   "line": 2,
+   "name": "os"
+  },
+  {
+   "file": "task_center_ui.py",
+   "line": 4,
+   "name": "tk"
+  },
+  {
+   "file": "tts_settings.py",
+   "line": 4,
+   "name": "messagebox"
+  },
+  {
+   "file": "ui_widgets.py",
+   "line": 26,
+   "name": "set_button_padding"
+  },
+  {
+   "file": "ui_widgets.py",
+   "line": 26,
+   "name": "_rounded_png_bytes"
+  },
+  {
+   "file": "ui_widgets.py",
+   "line": 28,
+   "name": "SPLASH_STAGES"
+  },
+  {
+   "file": "ui_widgets.py",
+   "line": 28,
+   "name": "Splash"
+  },
+  {
+   "file": "ui_widgets.py",
+   "line": 29,
+   "name": "TreeRowTooltip"
+  },
+  {
+   "file": "video_task_state.py",
+   "line": 3,
+   "name": "read"
+  },
+  {
+   "file": "white_model.py",
+   "line": 5,
+   "name": "messagebox"
+  },
+  {
+   "file": "workflow_agents.py",
+   "line": 5,
+   "name": "FLOWS"
+  },
+  {
+   "file": "workflow_agents.py",
+   "line": 5,
+   "name": "skills_of"
+  },
+  {
+   "file": "workflow_engines.py",
+   "line": 5,
+   "name": "threading"
+  },
+  {
+   "file": "workflow_settings.py",
+   "line": 15,
+   "name": "estimate_tokens"
+  },
+  {
+   "file": "workflow_settings.py",
+   "line": 15,
+   "name": "skill_inline_token_budget"
+  },
+  {
+   "file": "workflow_settings.py",
+   "line": 16,
+   "name": "gui_claude_program"
+  },
+  {
+   "file": "workflow_settings.py",
+   "line": 16,
+   "name": "GUI_CLAUDE_CLI_HINT"
+  },
+  {
+   "file": "writing.py",
+   "line": 9,
+   "name": "duration_gap"
+  },
+  {
+   "file": "writing.py",
+   "line": 9,
+   "name": "edited_total"
+  },
+  {
+   "file": "writing.py",
+   "line": 9,
+   "name": "number"
+  },
+  {
+   "file": "writing_api.py",
+   "line": 21,
+   "name": "_confirmed_basis"
+  },
+  {
+   "file": "writing_api.py",
+   "line": 21,
+   "name": "_revoke_natural_script_adoption"
+  }
+ ],
+ "E1a_count": 749,
+ "E1b_dead_syms": [
+  {
+   "file": "account_client.py",
+   "line": 81,
+   "kind": "FunctionDef",
+   "name": "valid_email",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "account_client.py",
+   "line": 87,
+   "kind": "FunctionDef",
+   "name": "password_problem",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "app.py",
+   "line": 78,
+   "kind": "FunctionDef",
+   "name": "play_ready",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "app_logging.py",
+   "line": 124,
+   "kind": "FunctionDef",
+   "name": "begin_page_paint",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "app_logging.py",
+   "line": 147,
+   "kind": "FunctionDef",
+   "name": "end_page_paint",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "app_logging.py",
+   "line": 235,
+   "kind": "FunctionDef",
+   "name": "metrics_snapshot",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "app_logging.py",
+   "line": 244,
+   "kind": "FunctionDef",
+   "name": "flush_metrics",
+   "repo_hits": 2,
+   "own_hits": 2
+  },
+  {
+   "file": "app_logging.py",
+   "line": 256,
+   "kind": "FunctionDef",
+   "name": "recent_swallowed",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "app_logging.py",
+   "line": 262,
+   "kind": "FunctionDef",
+   "name": "build_commit",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "asset_detail.py",
+   "line": 99,
+   "kind": "FunctionDef",
+   "name": "clear_view",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "asset_detail.py",
+   "line": 128,
+   "kind": "FunctionDef",
+   "name": "edit_anchor",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "asset_detail.py",
+   "line": 155,
+   "kind": "FunctionDef",
+   "name": "edit_role",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "asset_detail.py",
+   "line": 174,
+   "kind": "FunctionDef",
+   "name": "toggle_lock",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "asset_detail.py",
+   "line": 184,
+   "kind": "FunctionDef",
+   "name": "add_variant",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "asset_detail.py",
+   "line": 201,
+   "kind": "FunctionDef",
+   "name": "edit_variant",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "asset_detail.py",
+   "line": 227,
+   "kind": "FunctionDef",
+   "name": "delete_variant",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "asset_detail.py",
+   "line": 573,
+   "kind": "FunctionDef",
+   "name": "roster_rows",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "asset_detail.py",
+   "line": 672,
+   "kind": "FunctionDef",
+   "name": "asset_impact_note",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "asset_plan.py",
+   "line": 336,
+   "kind": "FunctionDef",
+   "name": "deletion_references",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "asset_prompt_rules.py",
+   "line": 6,
+   "kind": "FunctionDef",
+   "name": "prompt_rules",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "asset_reference_images.py",
+   "line": 49,
+   "kind": "FunctionDef",
+   "name": "role_order",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "asset_reference_images.py",
+   "line": 56,
+   "kind": "FunctionDef",
+   "name": "role_counts",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "asset_reference_images.py",
+   "line": 93,
+   "kind": "FunctionDef",
+   "name": "category_folder",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "asset_reference_images.py",
+   "line": 103,
+   "kind": "FunctionDef",
+   "name": "inbox",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "asset_reference_images.py",
+   "line": 217,
+   "kind": "FunctionDef",
+   "name": "set_roles",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "asset_reference_images.py",
+   "line": 360,
+   "kind": "FunctionDef",
+   "name": "selected_column",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "asset_reference_import.py",
+   "line": 14,
+   "kind": "FunctionDef",
+   "name": "save_images",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "asset_reference_search.py",
+   "line": 118,
+   "kind": "FunctionDef",
+   "name": "prompt_words",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "asset_reference_search.py",
+   "line": 172,
+   "kind": "FunctionDef",
+   "name": "score_parts",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "asset_reference_search.py",
+   "line": 237,
+   "kind": "FunctionDef",
+   "name": "explain",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "asset_reference_search.py",
+   "line": 325,
+   "kind": "FunctionDef",
+   "name": "candidates_from_file",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "asset_reference_search.py",
+   "line": 339,
+   "kind": "FunctionDef",
+   "name": "suffix_of",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "asset_reference_search.py",
+   "line": 350,
+   "kind": "FunctionDef",
+   "name": "fetch_bytes",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "asset_thumbs.py",
+   "line": 84,
+   "kind": "FunctionDef",
+   "name": "gif_size",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "asset_thumbs.py",
+   "line": 91,
+   "kind": "FunctionDef",
+   "name": "image_size",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "asset_thumbs.py",
+   "line": 137,
+   "kind": "FunctionDef",
+   "name": "placeholder_size",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "asset_thumbs.py",
+   "line": 160,
+   "kind": "FunctionDef",
+   "name": "cache_file",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "asset_thumbs.py",
+   "line": 165,
+   "kind": "FunctionDef",
+   "name": "blank_mark",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "asset_thumbs.py",
+   "line": 196,
+   "kind": "FunctionDef",
+   "name": "write_cache",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "asset_thumbs.py",
+   "line": 566,
+   "kind": "FunctionDef",
+   "name": "worker_main",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "cell_hover.py",
+   "line": 198,
+   "kind": "FunctionDef",
+   "name": "wants_column",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "cell_hover.py",
+   "line": 214,
+   "kind": "FunctionDef",
+   "name": "call_delete",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "client_profiles.py",
+   "line": 86,
+   "kind": "FunctionDef",
+   "name": "normalize_profile",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "client_profiles.py",
+   "line": 148,
+   "kind": "FunctionDef",
+   "name": "load_profiles",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "client_profiles.py",
+   "line": 166,
+   "kind": "FunctionDef",
+   "name": "clear_cache",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "client_profiles.py",
+   "line": 187,
+   "kind": "FunctionDef",
+   "name": "profile_for_mode",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "client_profiles.py",
+   "line": 204,
+   "kind": "FunctionDef",
+   "name": "profile_for_model",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "client_profiles.py",
+   "line": 225,
+   "kind": "FunctionDef",
+   "name": "engine_for_model",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "client_profiles.py",
+   "line": 315,
+   "kind": "FunctionDef",
+   "name": "pe_subsystem",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "client_profiles.py",
+   "line": 363,
+   "kind": "FunctionDef",
+   "name": "probe_cli",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "client_profiles.py",
+   "line": 484,
+   "kind": "FunctionDef",
+   "name": "build_invocation",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "client_profiles.py",
+   "line": 498,
+   "kind": "FunctionDef",
+   "name": "stdin_text",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "client_profiles.py",
+   "line": 506,
+   "kind": "FunctionDef",
+   "name": "executable_command",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "comfy_service.py",
+   "line": 16,
+   "kind": "ClassDef",
+   "name": "ComfyRecoveryUnavailable",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "comfy_service.py",
+   "line": 34,
+   "kind": "FunctionDef",
+   "name": "settle_cloud_cost",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "continuity_ledger.py",
+   "line": 50,
+   "kind": "FunctionDef",
+   "name": "anchors_of",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "continuity_ledger.py",
+   "line": 249,
+   "kind": "FunctionDef",
+   "name": "resolve_problems",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "continuity_ledger.py",
+   "line": 487,
+   "kind": "FunctionDef",
+   "name": "issues_path",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "continuity_ledger.py",
+   "line": 615,
+   "kind": "FunctionDef",
+   "name": "issue_gate",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "continuity_ledger.py",
+   "line": 641,
+   "kind": "FunctionDef",
+   "name": "final_block_reason",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "desktop.py",
+   "line": 69,
+   "kind": "FunctionDef",
+   "name": "confirm_project_removal_from_last_script",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "desktop_account_page.py",
+   "line": 62,
+   "kind": "FunctionDef",
+   "name": "device_text",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "desktop_send_choice.py",
+   "line": 35,
+   "kind": "FunctionDef",
+   "name": "attachment_hint",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "desktop_send_choice.py",
+   "line": 154,
+   "kind": "FunctionDef",
+   "name": "ask_send_mode",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "desktop_shared_menus.py",
+   "line": 32,
+   "kind": "ClassDef",
+   "name": "AnchoredPanel",
+   "repo_hits": 5,
+   "own_hits": 5
+  },
+  {
+   "file": "desktop_shared_send.py",
+   "line": 26,
+   "kind": "FunctionDef",
+   "name": "stage_for_index",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "desktop_shared_send.py",
+   "line": 287,
+   "kind": "FunctionDef",
+   "name": "make_shared_input",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "desktop_tray.py",
+   "line": 465,
+   "kind": "FunctionDef",
+   "name": "sys_platform_non_windows",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "diagnostic_capture.py",
+   "line": 58,
+   "kind": "FunctionDef",
+   "name": "record_degradation",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "diagnostic_capture.py",
+   "line": 72,
+   "kind": "FunctionDef",
+   "name": "record_startup_timing",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "diagnostic_capture.py",
+   "line": 82,
+   "kind": "FunctionDef",
+   "name": "record_gate_result",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "diagnostic_capture.py",
+   "line": 90,
+   "kind": "FunctionDef",
+   "name": "record_crash",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "diagnostic_capture.py",
+   "line": 98,
+   "kind": "FunctionDef",
+   "name": "export_candidates",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "diagnostic_capture.py",
+   "line": 107,
+   "kind": "FunctionDef",
+   "name": "retention_note",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "diagnostic_capture.py",
+   "line": 112,
+   "kind": "FunctionDef",
+   "name": "preview_detail",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "download_inbox.py",
+   "line": 89,
+   "kind": "FunctionDef",
+   "name": "dated_target",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "edit_export.py",
+   "line": 17,
+   "kind": "FunctionDef",
+   "name": "quoteattr",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "edit_export.py",
+   "line": 35,
+   "kind": "FunctionDef",
+   "name": "frames_of",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "edit_export.py",
+   "line": 59,
+   "kind": "FunctionDef",
+   "name": "build_edl",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "edit_export.py",
+   "line": 72,
+   "kind": "FunctionDef",
+   "name": "build_fcpxml",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "edit_export.py",
+   "line": 97,
+   "kind": "FunctionDef",
+   "name": "build_tracks",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "engine.py",
+   "line": 41,
+   "kind": "FunctionDef",
+   "name": "edit_clips",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "engine.py",
+   "line": 47,
+   "kind": "FunctionDef",
+   "name": "out_relative",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "engine.py",
+   "line": 54,
+   "kind": "FunctionDef",
+   "name": "shot_input_assets",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "engine.py",
+   "line": 84,
+   "kind": "FunctionDef",
+   "name": "review_source",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "engine.py",
+   "line": 96,
+   "kind": "FunctionDef",
+   "name": "content_reviewed",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "engine.py",
+   "line": 172,
+   "kind": "FunctionDef",
+   "name": "episode_file_of",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "engine.py",
+   "line": 218,
+   "kind": "FunctionDef",
+   "name": "current_episode",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "entitlement_service.py",
+   "line": 33,
+   "kind": "ClassDef",
+   "name": "Entitlement",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "entitlement_service.py",
+   "line": 65,
+   "kind": "FunctionDef",
+   "name": "days_left",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "entitlement_service.py",
+   "line": 79,
+   "kind": "FunctionDef",
+   "name": "membership_view",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "entitlement_service.py",
+   "line": 106,
+   "kind": "FunctionDef",
+   "name": "is_paid_stage",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "entitlement_service.py",
+   "line": 110,
+   "kind": "FunctionDef",
+   "name": "stage_block_message",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "entitlement_service.py",
+   "line": 117,
+   "kind": "FunctionDef",
+   "name": "page_block_message",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "environment_check.py",
+   "line": 36,
+   "kind": "FunctionDef",
+   "name": "parse_version",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "environment_check.py",
+   "line": 43,
+   "kind": "FunctionDef",
+   "name": "probe_version",
+   "repo_hits": 2,
+   "own_hits": 2
+  },
+  {
+   "file": "environment_check.py",
+   "line": 52,
+   "kind": "FunctionDef",
+   "name": "apply_versions",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "environment_check.py",
+   "line": 81,
+   "kind": "FunctionDef",
+   "name": "check_client_profiles",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "environment_check.py",
+   "line": 109,
+   "kind": "FunctionDef",
+   "name": "check_ffmpeg",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "environment_check.py",
+   "line": 127,
+   "kind": "FunctionDef",
+   "name": "check_comfy",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "environment_check.py",
+   "line": 135,
+   "kind": "FunctionDef",
+   "name": "check_blender",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "environment_check.py",
+   "line": 142,
+   "kind": "FunctionDef",
+   "name": "check_desktop_programs",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "environment_check.py",
+   "line": 159,
+   "kind": "FunctionDef",
+   "name": "check_model_keys",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "environment_check.py",
+   "line": 193,
+   "kind": "FunctionDef",
+   "name": "run_checks_with_versions",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "file_cache.py",
+   "line": 169,
+   "kind": "FunctionDef",
+   "name": "invalidate",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "file_cache.py",
+   "line": 204,
+   "kind": "FunctionDef",
+   "name": "externally_overwritten",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 58,
+   "kind": "FunctionDef",
+   "name": "has_history",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 63,
+   "kind": "FunctionDef",
+   "name": "skill_injection_summary",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 88,
+   "kind": "FunctionDef",
+   "name": "usage_compact",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 330,
+   "kind": "FunctionDef",
+   "name": "download_kind",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 344,
+   "kind": "FunctionDef",
+   "name": "is_project_document_text",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 506,
+   "kind": "FunctionDef",
+   "name": "brief_followup",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 687,
+   "kind": "FunctionDef",
+   "name": "history_text",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 696,
+   "kind": "FunctionDef",
+   "name": "history_context",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 751,
+   "kind": "FunctionDef",
+   "name": "why_empty",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 768,
+   "kind": "FunctionDef",
+   "name": "prompt_for",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "idea_chat.py",
+   "line": 779,
+   "kind": "FunctionDef",
+   "name": "reply_text",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "image_agent_runner.py",
+   "line": 30,
+   "kind": "FunctionDef",
+   "name": "contained",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "keyframe_batch.py",
+   "line": 86,
+   "kind": "FunctionDef",
+   "name": "record_attempts",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "keyframe_comfy.py",
+   "line": 51,
+   "kind": "FunctionDef",
+   "name": "initial_settings",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "keyframe_comfy.py",
+   "line": 79,
+   "kind": "FunctionDef",
+   "name": "format_of",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "keyframe_comfy.py",
+   "line": 109,
+   "kind": "FunctionDef",
+   "name": "seedream_cost_preview",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "keyframe_comfy.py",
+   "line": 130,
+   "kind": "FunctionDef",
+   "name": "run_seedream",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "local_previs.py",
+   "line": 29,
+   "kind": "FunctionDef",
+   "name": "online_window",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_pool.py",
+   "line": 137,
+   "kind": "FunctionDef",
+   "name": "default_pool",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_pool.py",
+   "line": 192,
+   "kind": "FunctionDef",
+   "name": "suggest_label",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_pool.py",
+   "line": 206,
+   "kind": "FunctionDef",
+   "name": "capabilities_of",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_pool.py",
+   "line": 221,
+   "kind": "FunctionDef",
+   "name": "capability_text",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_pool.py",
+   "line": 226,
+   "kind": "FunctionDef",
+   "name": "context_length_of",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_pool.py",
+   "line": 263,
+   "kind": "FunctionDef",
+   "name": "model_id_of",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_pool.py",
+   "line": 318,
+   "kind": "FunctionDef",
+   "name": "agent_models",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_pool.py",
+   "line": 332,
+   "kind": "FunctionDef",
+   "name": "group_candidates",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_pool.py",
+   "line": 350,
+   "kind": "FunctionDef",
+   "name": "label_of",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_pool.py",
+   "line": 369,
+   "kind": "FunctionDef",
+   "name": "id_of_label",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_pool.py",
+   "line": 378,
+   "kind": "FunctionDef",
+   "name": "wire_for_provider",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_pool.py",
+   "line": 429,
+   "kind": "FunctionDef",
+   "name": "secret_name",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_pool.py",
+   "line": 435,
+   "kind": "FunctionDef",
+   "name": "local_key_of",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_pool.py",
+   "line": 440,
+   "kind": "FunctionDef",
+   "name": "save_local_key",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_pool.py",
+   "line": 452,
+   "kind": "FunctionDef",
+   "name": "clear_local_key",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_pool.py",
+   "line": 461,
+   "kind": "FunctionDef",
+   "name": "env_file",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_pool.py",
+   "line": 465,
+   "kind": "FunctionDef",
+   "name": "migrate_key_env",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_pool.py",
+   "line": 471,
+   "kind": "FunctionDef",
+   "name": "save_key_env",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_pool.py",
+   "line": 489,
+   "kind": "FunctionDef",
+   "name": "save_named_key",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_pool.py",
+   "line": 522,
+   "kind": "FunctionDef",
+   "name": "upsert",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_pool.py",
+   "line": 561,
+   "kind": "FunctionDef",
+   "name": "with_tasks",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_pool.py",
+   "line": 580,
+   "kind": "FunctionDef",
+   "name": "patch_for",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_pool.py",
+   "line": 608,
+   "kind": "FunctionDef",
+   "name": "request_spec",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_pool.py",
+   "line": 627,
+   "kind": "FunctionDef",
+   "name": "body_signals",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_pool.py",
+   "line": 735,
+   "kind": "FunctionDef",
+   "name": "probe_summary",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_pool.py",
+   "line": 750,
+   "kind": "FunctionDef",
+   "name": "health_of",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_pool.py",
+   "line": 754,
+   "kind": "FunctionDef",
+   "name": "record_health",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_pool.py",
+   "line": 796,
+   "kind": "FunctionDef",
+   "name": "set_require_certified",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_pool.py",
+   "line": 860,
+   "kind": "FunctionDef",
+   "name": "verify_sample",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_pool.py",
+   "line": 958,
+   "kind": "FunctionDef",
+   "name": "tools_base",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_pool.py",
+   "line": 974,
+   "kind": "FunctionDef",
+   "name": "tools_headers",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_pool.py",
+   "line": 980,
+   "kind": "FunctionDef",
+   "name": "tools_error_kind",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_pool.py",
+   "line": 993,
+   "kind": "FunctionDef",
+   "name": "tools_retryable",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_pool.py",
+   "line": 1062,
+   "kind": "FunctionDef",
+   "name": "tools_fetch",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_router.py",
+   "line": 52,
+   "kind": "FunctionDef",
+   "name": "circuit_state",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_router.py",
+   "line": 64,
+   "kind": "FunctionDef",
+   "name": "circuit_allows",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_router.py",
+   "line": 163,
+   "kind": "FunctionDef",
+   "name": "response_envelope_error",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_router.py",
+   "line": 212,
+   "kind": "FunctionDef",
+   "name": "label_of",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_router.py",
+   "line": 418,
+   "kind": "ClassDef",
+   "name": "DeepSeekAdapter",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_router.py",
+   "line": 460,
+   "kind": "ClassDef",
+   "name": "QwenAdapter",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_router.py",
+   "line": 475,
+   "kind": "ClassDef",
+   "name": "AnthropicAdapter",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_router.py",
+   "line": 523,
+   "kind": "ClassDef",
+   "name": "Choice",
+   "repo_hits": 2,
+   "own_hits": 2
+  },
+  {
+   "file": "model_router.py",
+   "line": 732,
+   "kind": "ClassDef",
+   "name": "ModelGateway",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "model_router.py",
+   "line": 809,
+   "kind": "ClassDef",
+   "name": "AgentChoice",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "model_router.py",
+   "line": 837,
+   "kind": "FunctionDef",
+   "name": "complexity_of",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_router.py",
+   "line": 848,
+   "kind": "FunctionDef",
+   "name": "auto_model",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_secrets.py",
+   "line": 72,
+   "kind": "FunctionDef",
+   "name": "name_for",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_secrets.py",
+   "line": 97,
+   "kind": "FunctionDef",
+   "name": "looks_like_blob",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "model_secrets.py",
+   "line": 187,
+   "kind": "FunctionDef",
+   "name": "env_imported",
+   "repo_hits": 2,
+   "own_hits": 2
+  },
+  {
+   "file": "model_secrets.py",
+   "line": 193,
+   "kind": "FunctionDef",
+   "name": "import_env_keys",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "model_secrets.py",
+   "line": 225,
+   "kind": "FunctionDef",
+   "name": "migrate_legacy_env",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "native_assets.py",
+   "line": 40,
+   "kind": "FunctionDef",
+   "name": "generated_plan",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "native_assets.py",
+   "line": 45,
+   "kind": "FunctionDef",
+   "name": "pending_generated_files",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "native_assets.py",
+   "line": 78,
+   "kind": "FunctionDef",
+   "name": "seedream_cost_preview",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_agent.py",
+   "line": 88,
+   "kind": "FunctionDef",
+   "name": "strip_space",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_agent.py",
+   "line": 93,
+   "kind": "FunctionDef",
+   "name": "level_in",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_agent.py",
+   "line": 105,
+   "kind": "FunctionDef",
+   "name": "rule_reply",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_agent.py",
+   "line": 119,
+   "kind": "FunctionDef",
+   "name": "match_rule",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_agent.py",
+   "line": 148,
+   "kind": "FunctionDef",
+   "name": "match_model",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_agent.py",
+   "line": 166,
+   "kind": "FunctionDef",
+   "name": "skill_names",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_agent.py",
+   "line": 173,
+   "kind": "FunctionDef",
+   "name": "match_skill",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_agent.py",
+   "line": 239,
+   "kind": "FunctionDef",
+   "name": "parse_intent",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_agent.py",
+   "line": 288,
+   "kind": "FunctionDef",
+   "name": "action_for",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_agent.py",
+   "line": 384,
+   "kind": "FunctionDef",
+   "name": "snap_size",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_agent.py",
+   "line": 432,
+   "kind": "FunctionDef",
+   "name": "normalize_kind",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_agent.py",
+   "line": 487,
+   "kind": "FunctionDef",
+   "name": "stage_sentence",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_agent.py",
+   "line": 621,
+   "kind": "FunctionDef",
+   "name": "load_settings",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_agent.py",
+   "line": 715,
+   "kind": "FunctionDef",
+   "name": "prompt_hash",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_agent.py",
+   "line": 719,
+   "kind": "FunctionDef",
+   "name": "idempotency_key",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "pet_agent.py",
+   "line": 724,
+   "kind": "FunctionDef",
+   "name": "journal_path",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_llm.py",
+   "line": 106,
+   "kind": "FunctionDef",
+   "name": "save_named_key",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_llm.py",
+   "line": 131,
+   "kind": "FunctionDef",
+   "name": "clock_hour",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_llm.py",
+   "line": 141,
+   "kind": "FunctionDef",
+   "name": "next_off_peak",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_llm.py",
+   "line": 210,
+   "kind": "FunctionDef",
+   "name": "key_ok",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_llm.py",
+   "line": 218,
+   "kind": "FunctionDef",
+   "name": "fallback_patch",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_llm.py",
+   "line": 245,
+   "kind": "FunctionDef",
+   "name": "snapshot_message",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_llm.py",
+   "line": 263,
+   "kind": "FunctionDef",
+   "name": "build_payload",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_models_tabs.py",
+   "line": 14,
+   "kind": "FunctionDef",
+   "name": "list_status",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_models_ui.py",
+   "line": 20,
+   "kind": "FunctionDef",
+   "name": "form_column_width",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_models_ui.py",
+   "line": 33,
+   "kind": "FunctionDef",
+   "name": "report_error",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_models_ui.py",
+   "line": 41,
+   "kind": "FunctionDef",
+   "name": "model_options",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_models_ui.py",
+   "line": 73,
+   "kind": "FunctionDef",
+   "name": "provider_choices",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_models_ui.py",
+   "line": 77,
+   "kind": "FunctionDef",
+   "name": "parent_of",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_models_ui.py",
+   "line": 81,
+   "kind": "FunctionDef",
+   "name": "main_box",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_models_ui.py",
+   "line": 127,
+   "kind": "FunctionDef",
+   "name": "transport_of",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_models_ui.py",
+   "line": 163,
+   "kind": "ClassDef",
+   "name": "CompactLineInput",
+   "repo_hits": 3,
+   "own_hits": 3
+  },
+  {
+   "file": "pet_models_ui.py",
+   "line": 169,
+   "kind": "FunctionDef",
+   "name": "install_compact_form_styles",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_models_ui.py",
+   "line": 185,
+   "kind": "FunctionDef",
+   "name": "probe_breakdown",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_models_ui.py",
+   "line": 205,
+   "kind": "FunctionDef",
+   "name": "probe_line",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_models_ui.py",
+   "line": 221,
+   "kind": "FunctionDef",
+   "name": "verify_line",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_models_ui.py",
+   "line": 243,
+   "kind": "FunctionDef",
+   "name": "settings_page",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "pet_performance_service.py",
+   "line": 73,
+   "kind": "FunctionDef",
+   "name": "compare_and_record",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_report.py",
+   "line": 41,
+   "kind": "FunctionDef",
+   "name": "day_key",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_report.py",
+   "line": 54,
+   "kind": "FunctionDef",
+   "name": "as_day",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_report.py",
+   "line": 67,
+   "kind": "FunctionDef",
+   "name": "week_key",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_report.py",
+   "line": 81,
+   "kind": "FunctionDef",
+   "name": "weekly_path",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_report.py",
+   "line": 86,
+   "kind": "FunctionDef",
+   "name": "reminder_seen",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_report.py",
+   "line": 91,
+   "kind": "FunctionDef",
+   "name": "mark_reminder_seen",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_report.py",
+   "line": 99,
+   "kind": "FunctionDef",
+   "name": "written_at",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "pet_report.py",
+   "line": 107,
+   "kind": "FunctionDef",
+   "name": "retention_start",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_report.py",
+   "line": 157,
+   "kind": "FunctionDef",
+   "name": "summary_path",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_report.py",
+   "line": 191,
+   "kind": "FunctionDef",
+   "name": "normalize_timings",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_report.py",
+   "line": 262,
+   "kind": "FunctionDef",
+   "name": "advice",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_report.py",
+   "line": 373,
+   "kind": "FunctionDef",
+   "name": "load_rows",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_report.py",
+   "line": 379,
+   "kind": "FunctionDef",
+   "name": "merge_rows",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_report.py",
+   "line": 387,
+   "kind": "FunctionDef",
+   "name": "retained_rows",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_report.py",
+   "line": 423,
+   "kind": "FunctionDef",
+   "name": "weekly_rows",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_report.py",
+   "line": 432,
+   "kind": "FunctionDef",
+   "name": "weekly_totals",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_report.py",
+   "line": 467,
+   "kind": "FunctionDef",
+   "name": "weekly_advice",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_report.py",
+   "line": 498,
+   "kind": "FunctionDef",
+   "name": "render_weekly",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_report.py",
+   "line": 548,
+   "kind": "FunctionDef",
+   "name": "write_weekly",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_settings_ui.py",
+   "line": 77,
+   "kind": "FunctionDef",
+   "name": "save_handler",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_settings_ui.py",
+   "line": 87,
+   "kind": "FunctionDef",
+   "name": "save_current",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_settings_ui.py",
+   "line": 104,
+   "kind": "FunctionDef",
+   "name": "parent_of",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_settings_ui.py",
+   "line": 217,
+   "kind": "FunctionDef",
+   "name": "basic_page",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_settings_ui.py",
+   "line": 303,
+   "kind": "FunctionDef",
+   "name": "level_page",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_settings_ui.py",
+   "line": 331,
+   "kind": "FunctionDef",
+   "name": "pet_ui_note",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_settings_ui.py",
+   "line": 336,
+   "kind": "FunctionDef",
+   "name": "cost_reconciliation_dialog",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_settings_ui.py",
+   "line": 409,
+   "kind": "FunctionDef",
+   "name": "budget_page",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_settings_ui.py",
+   "line": 501,
+   "kind": "FunctionDef",
+   "name": "token_seed",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_settings_ui.py",
+   "line": 512,
+   "kind": "FunctionDef",
+   "name": "token_project",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_settings_ui.py",
+   "line": 634,
+   "kind": "FunctionDef",
+   "name": "app_version",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_settings_ui.py",
+   "line": 640,
+   "kind": "FunctionDef",
+   "name": "runtime_sentence",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_settings_ui.py",
+   "line": 646,
+   "kind": "FunctionDef",
+   "name": "dev_page",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_settings_ui.py",
+   "line": 696,
+   "kind": "FunctionDef",
+   "name": "skill_budget_sentence",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_test_service.py",
+   "line": 25,
+   "kind": "FunctionDef",
+   "name": "repeat_count",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_test_service.py",
+   "line": 33,
+   "kind": "FunctionDef",
+   "name": "failure_names",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_test_service.py",
+   "line": 43,
+   "kind": "FunctionDef",
+   "name": "result_of",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_test_service.py",
+   "line": 74,
+   "kind": "FunctionDef",
+   "name": "run_incremental",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 94,
+   "kind": "FunctionDef",
+   "name": "tier_models",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 99,
+   "kind": "FunctionDef",
+   "name": "register_tier",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 139,
+   "kind": "ClassDef",
+   "name": "Cat",
+   "repo_hits": 2,
+   "own_hits": 2
+  },
+  {
+   "file": "pet_ui.py",
+   "line": 888,
+   "kind": "FunctionDef",
+   "name": "tap",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "pet_ui_voice.py",
+   "line": 20,
+   "kind": "FunctionDef",
+   "name": "offer_verdict",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_ui_voice.py",
+   "line": 38,
+   "kind": "FunctionDef",
+   "name": "offer_sentence",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "pet_ui_voice.py",
+   "line": 53,
+   "kind": "FunctionDef",
+   "name": "offer_reply",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "pet_ui_voice.py",
+   "line": 66,
+   "kind": "FunctionDef",
+   "name": "offer_backoff",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "previs_routing.py",
+   "line": 49,
+   "kind": "FunctionDef",
+   "name": "overrides_file",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "production_lock_fields.py",
+   "line": 44,
+   "kind": "FunctionDef",
+   "name": "align_label_column",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "project_settings.py",
+   "line": 38,
+   "kind": "FunctionDef",
+   "name": "put",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "project_settings.py",
+   "line": 44,
+   "kind": "FunctionDef",
+   "name": "unattended_label",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "project_settings.py",
+   "line": 60,
+   "kind": "FunctionDef",
+   "name": "set_auto_review",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "project_settings.py",
+   "line": 81,
+   "kind": "FunctionDef",
+   "name": "set_auto_submit",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "qwen_setup.py",
+   "line": 13,
+   "kind": "FunctionDef",
+   "name": "child_environment",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "qwen_setup.py",
+   "line": 62,
+   "kind": "FunctionDef",
+   "name": "api_credential",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "recon_service.py",
+   "line": 84,
+   "kind": "FunctionDef",
+   "name": "stage_paths",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "recon_service.py",
+   "line": 96,
+   "kind": "FunctionDef",
+   "name": "request_path",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "recon_service.py",
+   "line": 110,
+   "kind": "FunctionDef",
+   "name": "save_request",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "recon_service.py",
+   "line": 121,
+   "kind": "FunctionDef",
+   "name": "doc_path",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "recon_service.py",
+   "line": 125,
+   "kind": "FunctionDef",
+   "name": "load_card",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "recon_service.py",
+   "line": 155,
+   "kind": "FunctionDef",
+   "name": "host_of",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "recon_service.py",
+   "line": 164,
+   "kind": "FunctionDef",
+   "name": "domain_of",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "recon_service.py",
+   "line": 175,
+   "kind": "FunctionDef",
+   "name": "publisher_of",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "recon_service.py",
+   "line": 181,
+   "kind": "FunctionDef",
+   "name": "is_encyclopedia_host",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "recon_service.py",
+   "line": 187,
+   "kind": "FunctionDef",
+   "name": "normalize_content",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "recon_service.py",
+   "line": 193,
+   "kind": "FunctionDef",
+   "name": "article_digest",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "recon_service.py",
+   "line": 208,
+   "kind": "FunctionDef",
+   "name": "independent_source_count",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "recon_service.py",
+   "line": 245,
+   "kind": "FunctionDef",
+   "name": "tier_of",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "recon_service.py",
+   "line": 257,
+   "kind": "FunctionDef",
+   "name": "clean_url",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "recon_service.py",
+   "line": 264,
+   "kind": "FunctionDef",
+   "name": "normalize_source",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "recon_service.py",
+   "line": 358,
+   "kind": "FunctionDef",
+   "name": "plan_queries",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "recon_service.py",
+   "line": 381,
+   "kind": "FunctionDef",
+   "name": "make_sender",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "recon_service.py",
+   "line": 605,
+   "kind": "FunctionDef",
+   "name": "dumps",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "responsive_ui.py",
+   "line": 16,
+   "kind": "FunctionDef",
+   "name": "register_growable",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "responsive_ui.py",
+   "line": 109,
+   "kind": "FunctionDef",
+   "name": "checked_rows",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "responsive_ui.py",
+   "line": 356,
+   "kind": "FunctionDef",
+   "name": "desired_widths",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "responsive_ui.py",
+   "line": 374,
+   "kind": "FunctionDef",
+   "name": "fit_current_columns",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "responsive_ui.py",
+   "line": 491,
+   "kind": "FunctionDef",
+   "name": "bind_view_fit",
+   "repo_hits": 2,
+   "own_hits": 2
+  },
+  {
+   "file": "responsive_ui.py",
+   "line": 601,
+   "kind": "FunctionDef",
+   "name": "row_height_of",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "responsive_ui.py",
+   "line": 681,
+   "kind": "FunctionDef",
+   "name": "show_all_content",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "script_view_style.py",
+   "line": 53,
+   "kind": "FunctionDef",
+   "name": "should_style",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "script_view_style.py",
+   "line": 58,
+   "kind": "FunctionDef",
+   "name": "wrap_mode",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "script_view_style.py",
+   "line": 63,
+   "kind": "FunctionDef",
+   "name": "compact_display",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "script_workspace_service.py",
+   "line": 29,
+   "kind": "ClassDef",
+   "name": "ScriptDocument",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "script_workspace_service.py",
+   "line": 43,
+   "kind": "ClassDef",
+   "name": "ScriptDocumentRow",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "script_workspace_service.py",
+   "line": 164,
+   "kind": "FunctionDef",
+   "name": "iter_script_documents",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "seedream_api.py",
+   "line": 22,
+   "kind": "FunctionDef",
+   "name": "key_name_for",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "seedream_api.py",
+   "line": 86,
+   "kind": "FunctionDef",
+   "name": "profile_key",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "seedream_api.py",
+   "line": 116,
+   "kind": "ClassDef",
+   "name": "Rejected",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "seedream_api.py",
+   "line": 117,
+   "kind": "ClassDef",
+   "name": "Uncertain",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "shot_numbering.py",
+   "line": 48,
+   "kind": "FunctionDef",
+   "name": "storyboard_order",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "shot_numbering.py",
+   "line": 59,
+   "kind": "FunctionDef",
+   "name": "build_mapping",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "shot_numbering.py",
+   "line": 94,
+   "kind": "FunctionDef",
+   "name": "renumber_text",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "shot_numbering.py",
+   "line": 190,
+   "kind": "FunctionDef",
+   "name": "renumber",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "skill_command.py",
+   "line": 27,
+   "kind": "FunctionDef",
+   "name": "stage_aliases",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "skill_command.py",
+   "line": 37,
+   "kind": "FunctionDef",
+   "name": "stage_alias_for",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "skill_command.py",
+   "line": 53,
+   "kind": "FunctionDef",
+   "name": "sub_engine_names",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "skill_import_service.py",
+   "line": 77,
+   "kind": "ClassDef",
+   "name": "ImportBlocked",
+   "repo_hits": 8,
+   "own_hits": 8
+  },
+  {
+   "file": "skill_import_service.py",
+   "line": 252,
+   "kind": "FunctionDef",
+   "name": "migrate_legacy_imports",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "skill_import_service.py",
+   "line": 321,
+   "kind": "FunctionDef",
+   "name": "parse_repo_ref",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "skill_import_service.py",
+   "line": 353,
+   "kind": "FunctionDef",
+   "name": "repo_label",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "skill_import_service.py",
+   "line": 427,
+   "kind": "FunctionDef",
+   "name": "import_from_repo",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "skill_import_service.py",
+   "line": 505,
+   "kind": "FunctionDef",
+   "name": "update_from_repo",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "skill_import_service.py",
+   "line": 510,
+   "kind": "FunctionDef",
+   "name": "uninstall_skill",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "skill_import_service.py",
+   "line": 531,
+   "kind": "FunctionDef",
+   "name": "validate_skill",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "skill_panel.py",
+   "line": 814,
+   "kind": "FunctionDef",
+   "name": "open_for_page",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "skill_panel_support.py",
+   "line": 251,
+   "kind": "FunctionDef",
+   "name": "open_cloud_video",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "skill_panel_support.py",
+   "line": 256,
+   "kind": "FunctionDef",
+   "name": "open_tts",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "skill_panel_support.py",
+   "line": 262,
+   "kind": "FunctionDef",
+   "name": "interfaces_of",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "skill_panel_workflow.py",
+   "line": 23,
+   "kind": "FunctionDef",
+   "name": "dialog_working_area",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "skill_registry.py",
+   "line": 56,
+   "kind": "FunctionDef",
+   "name": "default_root",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "skill_registry.py",
+   "line": 61,
+   "kind": "FunctionDef",
+   "name": "default_user_root",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "skill_registry.py",
+   "line": 71,
+   "kind": "FunctionDef",
+   "name": "resolve_reference",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "skill_registry.py",
+   "line": 109,
+   "kind": "FunctionDef",
+   "name": "markdown_heading",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "skill_registry.py",
+   "line": 115,
+   "kind": "FunctionDef",
+   "name": "markdown_summary",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "skill_registry.py",
+   "line": 124,
+   "kind": "FunctionDef",
+   "name": "imported_package_meta",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "skill_registry.py",
+   "line": 175,
+   "kind": "FunctionDef",
+   "name": "inline_list",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "skill_registry.py",
+   "line": 205,
+   "kind": "FunctionDef",
+   "name": "list_pair",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "skill_registry.py",
+   "line": 383,
+   "kind": "FunctionDef",
+   "name": "validate_skill",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "skill_registry.py",
+   "line": 441,
+   "kind": "FunctionDef",
+   "name": "reference_targets",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "skill_registry.py",
+   "line": 468,
+   "kind": "FunctionDef",
+   "name": "classify_dependencies",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "skill_registry.py",
+   "line": 482,
+   "kind": "FunctionDef",
+   "name": "dependency_report",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "skill_registry.py",
+   "line": 489,
+   "kind": "FunctionDef",
+   "name": "external_references",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "skill_registry.py",
+   "line": 861,
+   "kind": "FunctionDef",
+   "name": "condition_unmet",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "skill_tools.py",
+   "line": 30,
+   "kind": "ClassDef",
+   "name": "ToolMissing",
+   "repo_hits": 2,
+   "own_hits": 2
+  },
+  {
+   "file": "skill_tools.py",
+   "line": 38,
+   "kind": "ClassDef",
+   "name": "ToolNeedsPage",
+   "repo_hits": 2,
+   "own_hits": 2
+  },
+  {
+   "file": "skill_tools.py",
+   "line": 57,
+   "kind": "FunctionDef",
+   "name": "project_of",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "skill_tools.py",
+   "line": 720,
+   "kind": "FunctionDef",
+   "name": "ready_names",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "skill_tools.py",
+   "line": 724,
+   "kind": "FunctionDef",
+   "name": "page_names",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_completion_service.py",
+   "line": 187,
+   "kind": "FunctionDef",
+   "name": "delivery_record",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_completion_service.py",
+   "line": 210,
+   "kind": "FunctionDef",
+   "name": "publish_delivery_report",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_completion_service.py",
+   "line": 228,
+   "kind": "FunctionDef",
+   "name": "build_delivery_qc",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_completion_service.py",
+   "line": 259,
+   "kind": "FunctionDef",
+   "name": "publish_delivery_artifacts",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_completion_service.py",
+   "line": 535,
+   "kind": "FunctionDef",
+   "name": "commercial_evidence_path",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_completion_service.py",
+   "line": 582,
+   "kind": "FunctionDef",
+   "name": "media_completion_evidence",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_completion_service.py",
+   "line": 592,
+   "kind": "FunctionDef",
+   "name": "preparation_progress",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_completion_service.py",
+   "line": 794,
+   "kind": "FunctionDef",
+   "name": "publish_stage_manifest",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_config.py",
+   "line": 69,
+   "kind": "FunctionDef",
+   "name": "preset_path",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_config.py",
+   "line": 73,
+   "kind": "FunctionDef",
+   "name": "default_entry",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_config.py",
+   "line": 83,
+   "kind": "FunctionDef",
+   "name": "clean_reasoning",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_config.py",
+   "line": 89,
+   "kind": "FunctionDef",
+   "name": "clean_writer_style",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_config.py",
+   "line": 103,
+   "kind": "FunctionDef",
+   "name": "clean_model",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_config.py",
+   "line": 114,
+   "kind": "FunctionDef",
+   "name": "clean_skills",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_config.py",
+   "line": 128,
+   "kind": "FunctionDef",
+   "name": "synchronize",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_config.py",
+   "line": 213,
+   "kind": "FunctionDef",
+   "name": "current_workflow",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_config.py",
+   "line": 238,
+   "kind": "FunctionDef",
+   "name": "put_production_locks",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "stage_config.py",
+   "line": 265,
+   "kind": "FunctionDef",
+   "name": "clear_workflow",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_config.py",
+   "line": 281,
+   "kind": "FunctionDef",
+   "name": "workflow_lock_history",
+   "repo_hits": 4,
+   "own_hits": 4
+  },
+  {
+   "file": "stage_config.py",
+   "line": 287,
+   "kind": "FunctionDef",
+   "name": "save_all",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_config.py",
+   "line": 341,
+   "kind": "FunctionDef",
+   "name": "put",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_config.py",
+   "line": 446,
+   "kind": "FunctionDef",
+   "name": "preset_model_references",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_config.py",
+   "line": 454,
+   "kind": "FunctionDef",
+   "name": "release_preset_model",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_config.py",
+   "line": 465,
+   "kind": "FunctionDef",
+   "name": "project_model_references",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_config.py",
+   "line": 474,
+   "kind": "FunctionDef",
+   "name": "release_project_model",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 152,
+   "kind": "FunctionDef",
+   "name": "local_video_settings_gateway",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 234,
+   "kind": "FunctionDef",
+   "name": "video_prompt_gateway",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 346,
+   "kind": "FunctionDef",
+   "name": "legacy_adoption_gateway",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 695,
+   "kind": "FunctionDef",
+   "name": "publish_keyframe_episode",
+   "repo_hits": 3,
+   "own_hits": 3
+  },
+  {
+   "file": "stage_execution_service.py",
+   "line": 837,
+   "kind": "FunctionDef",
+   "name": "sync_writing_attachment_locks",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_flow.py",
+   "line": 111,
+   "kind": "FunctionDef",
+   "name": "trigger_of",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_flow.py",
+   "line": 115,
+   "kind": "FunctionDef",
+   "name": "button_text",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "stage_flow.py",
+   "line": 122,
+   "kind": "FunctionDef",
+   "name": "button_state",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "stage_flow.py",
+   "line": 126,
+   "kind": "FunctionDef",
+   "name": "apply_text",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "stage_flow.py",
+   "line": 169,
+   "kind": "FunctionDef",
+   "name": "listen",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "stage_flow.py",
+   "line": 185,
+   "kind": "FunctionDef",
+   "name": "project_of",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_flow.py",
+   "line": 190,
+   "kind": "FunctionDef",
+   "name": "selected_skills",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "stage_flow.py",
+   "line": 235,
+   "kind": "FunctionDef",
+   "name": "paid_count",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_flow.py",
+   "line": 247,
+   "kind": "FunctionDef",
+   "name": "state_of",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "stage_flow.py",
+   "line": 311,
+   "kind": "FunctionDef",
+   "name": "parallel_text",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_models.py",
+   "line": 26,
+   "kind": "FunctionDef",
+   "name": "set_plan_window_presenter",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_models.py",
+   "line": 32,
+   "kind": "FunctionDef",
+   "name": "set_confirmation_presenter",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_models.py",
+   "line": 38,
+   "kind": "FunctionDef",
+   "name": "assets_choices",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_models.py",
+   "line": 44,
+   "kind": "FunctionDef",
+   "name": "keyframe_choices",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_models.py",
+   "line": 89,
+   "kind": "FunctionDef",
+   "name": "self_test",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "stage_models.py",
+   "line": 100,
+   "kind": "FunctionDef",
+   "name": "tests_active",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_models.py",
+   "line": 213,
+   "kind": "FunctionDef",
+   "name": "activate_popup",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_models.py",
+   "line": 248,
+   "kind": "FunctionDef",
+   "name": "open_config",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_models.py",
+   "line": 271,
+   "kind": "FunctionDef",
+   "name": "remember_model_asked",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_models.py",
+   "line": 368,
+   "kind": "FunctionDef",
+   "name": "default_model",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_models.py",
+   "line": 389,
+   "kind": "FunctionDef",
+   "name": "is_production",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_models.py",
+   "line": 395,
+   "kind": "FunctionDef",
+   "name": "belongs_to_other_stage",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_model_value.py",
+   "line": 33,
+   "kind": "FunctionDef",
+   "name": "reasoning_options",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_parallel.py",
+   "line": 110,
+   "kind": "FunctionDef",
+   "name": "degree",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_parallel.py",
+   "line": 136,
+   "kind": "FunctionDef",
+   "name": "rate_limited",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_parallel.py",
+   "line": 146,
+   "kind": "FunctionDef",
+   "name": "degree_text",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_parallel.py",
+   "line": 151,
+   "kind": "FunctionDef",
+   "name": "degree_label",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_parallel.py",
+   "line": 159,
+   "kind": "FunctionDef",
+   "name": "unit_label",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_parallel.py",
+   "line": 178,
+   "kind": "FunctionDef",
+   "name": "table_text",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_parallel.py",
+   "line": 187,
+   "kind": "FunctionDef",
+   "name": "brief_lines",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_parallel.py",
+   "line": 224,
+   "kind": "FunctionDef",
+   "name": "brief_text",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_parallel.py",
+   "line": 229,
+   "kind": "FunctionDef",
+   "name": "brief_block",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_parallel.py",
+   "line": 449,
+   "kind": "FunctionDef",
+   "name": "log_row",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_parallel.py",
+   "line": 470,
+   "kind": "FunctionDef",
+   "name": "log_write",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_parallel.py",
+   "line": 485,
+   "kind": "FunctionDef",
+   "name": "log_read",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_parallel.py",
+   "line": 505,
+   "kind": "FunctionDef",
+   "name": "log_line",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_parallel.py",
+   "line": 537,
+   "kind": "FunctionDef",
+   "name": "gate_for",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_parallel.py",
+   "line": 546,
+   "kind": "FunctionDef",
+   "name": "gate_ids",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_parallel.py",
+   "line": 559,
+   "kind": "FunctionDef",
+   "name": "verdict_label",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_parallel.py",
+   "line": 564,
+   "kind": "FunctionDef",
+   "name": "upstream_exempt",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_parallel.py",
+   "line": 585,
+   "kind": "FunctionDef",
+   "name": "production_ready",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_parallel.py",
+   "line": 611,
+   "kind": "FunctionDef",
+   "name": "stage_state",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_parallel.py",
+   "line": 930,
+   "kind": "FunctionDef",
+   "name": "blocked_stages",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_parallel.py",
+   "line": 943,
+   "kind": "FunctionDef",
+   "name": "audit_text",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "stage_parallel.py",
+   "line": 956,
+   "kind": "FunctionDef",
+   "name": "gate_text",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "storage_maintenance.py",
+   "line": 131,
+   "kind": "FunctionDef",
+   "name": "batch_name",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "storage_maintenance.py",
+   "line": 144,
+   "kind": "FunctionDef",
+   "name": "plan_recycle",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "storage_maintenance.py",
+   "line": 539,
+   "kind": "FunctionDef",
+   "name": "retention_seconds",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "storage_maintenance.py",
+   "line": 654,
+   "kind": "FunctionDef",
+   "name": "source_protection",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "storage_maintenance.py",
+   "line": 768,
+   "kind": "FunctionDef",
+   "name": "clean_project",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "storyboard_files.py",
+   "line": 83,
+   "kind": "FunctionDef",
+   "name": "is_deliverable",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "storyboard_files.py",
+   "line": 156,
+   "kind": "FunctionDef",
+   "name": "detach_video_refs",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "storyboard_files.py",
+   "line": 178,
+   "kind": "FunctionDef",
+   "name": "synced_assets",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "storyboard_selection.py",
+   "line": 218,
+   "kind": "FunctionDef",
+   "name": "draft_dir",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "storyboard_selection.py",
+   "line": 256,
+   "kind": "FunctionDef",
+   "name": "sync_draft_outputs",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "task_center_service.py",
+   "line": 13,
+   "kind": "FunctionDef",
+   "name": "project_snapshot",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "task_center_service.py",
+   "line": 106,
+   "kind": "FunctionDef",
+   "name": "attempt_timings",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "task_center_service.py",
+   "line": 122,
+   "kind": "FunctionDef",
+   "name": "attempt_cost",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "tk_timers.py",
+   "line": 37,
+   "kind": "FunctionDef",
+   "name": "run_in_background",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "token_saver.py",
+   "line": 30,
+   "kind": "FunctionDef",
+   "name": "layout_messages",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "token_saver.py",
+   "line": 44,
+   "kind": "FunctionDef",
+   "name": "prefix_fingerprint",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "token_saver.py",
+   "line": 57,
+   "kind": "FunctionDef",
+   "name": "has_dynamic",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "token_saver.py",
+   "line": 62,
+   "kind": "FunctionDef",
+   "name": "is_stable",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "token_saver.py",
+   "line": 79,
+   "kind": "FunctionDef",
+   "name": "agents_section",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "token_saver.py",
+   "line": 84,
+   "kind": "FunctionDef",
+   "name": "merge_agents",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "token_saver.py",
+   "line": 112,
+   "kind": "FunctionDef",
+   "name": "compact_limit",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "token_saver.py",
+   "line": 134,
+   "kind": "FunctionDef",
+   "name": "parallel_advice",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "token_saver.py",
+   "line": 148,
+   "kind": "FunctionDef",
+   "name": "codexignore_text",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "token_saver.py",
+   "line": 152,
+   "kind": "FunctionDef",
+   "name": "merge_codexignore",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "token_saver.py",
+   "line": 203,
+   "kind": "FunctionDef",
+   "name": "toml_value",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "token_saver.py",
+   "line": 211,
+   "kind": "FunctionDef",
+   "name": "config_lines",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "token_saver.py",
+   "line": 217,
+   "kind": "FunctionDef",
+   "name": "config_values",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "token_saver.py",
+   "line": 233,
+   "kind": "FunctionDef",
+   "name": "merge_config",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "token_saver.py",
+   "line": 276,
+   "kind": "FunctionDef",
+   "name": "anthropic_messages_endpoint",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "token_saver.py",
+   "line": 295,
+   "kind": "ClassDef",
+   "name": "SplitSystem",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "token_saver.py",
+   "line": 300,
+   "kind": "FunctionDef",
+   "name": "split_system",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "token_saver.py",
+   "line": 307,
+   "kind": "FunctionDef",
+   "name": "anthropic_payload",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "token_saver.py",
+   "line": 330,
+   "kind": "FunctionDef",
+   "name": "anthropic_headers",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "token_saver.py",
+   "line": 368,
+   "kind": "FunctionDef",
+   "name": "anthropic_usage",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "token_saver.py",
+   "line": 407,
+   "kind": "FunctionDef",
+   "name": "seedance_prefix",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "token_saver.py",
+   "line": 420,
+   "kind": "FunctionDef",
+   "name": "cache_hit_sentence",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "token_saver.py",
+   "line": 430,
+   "kind": "FunctionDef",
+   "name": "hit_rate_line",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "token_saver.py",
+   "line": 449,
+   "kind": "FunctionDef",
+   "name": "clawmux_config",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "token_saver.py",
+   "line": 462,
+   "kind": "FunctionDef",
+   "name": "clawmux_json",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "token_saver.py",
+   "line": 467,
+   "kind": "FunctionDef",
+   "name": "routing_problems",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "token_saver.py",
+   "line": 482,
+   "kind": "FunctionDef",
+   "name": "compression_limit",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "token_saver.py",
+   "line": 488,
+   "kind": "FunctionDef",
+   "name": "health_url",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "token_saver.py",
+   "line": 492,
+   "kind": "FunctionDef",
+   "name": "clawmux_steps",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "token_saver.py",
+   "line": 513,
+   "kind": "FunctionDef",
+   "name": "provider_rows",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "token_saver.py",
+   "line": 517,
+   "kind": "FunctionDef",
+   "name": "url_ok",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "token_saver.py",
+   "line": 558,
+   "kind": "FunctionDef",
+   "name": "speed_table_text",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "token_saver.py",
+   "line": 593,
+   "kind": "FunctionDef",
+   "name": "deliver_project",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "token_saver.py",
+   "line": 603,
+   "kind": "FunctionDef",
+   "name": "deliver_global",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "token_saver.py",
+   "line": 609,
+   "kind": "FunctionDef",
+   "name": "preview_text",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "token_saver.py",
+   "line": 637,
+   "kind": "FunctionDef",
+   "name": "scan_lines",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "ui_motion.py",
+   "line": 50,
+   "kind": "ClassDef",
+   "name": "RowHover",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "ui_scroll.py",
+   "line": 18,
+   "kind": "ClassDef",
+   "name": "EasedScroll",
+   "repo_hits": 2,
+   "own_hits": 2
+  },
+  {
+   "file": "ui_theme.py",
+   "line": 90,
+   "kind": "FunctionDef",
+   "name": "install_tick_indicators",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "ui_theme.py",
+   "line": 139,
+   "kind": "FunctionDef",
+   "name": "main_window_size",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "usage_overview.py",
+   "line": 20,
+   "kind": "FunctionDef",
+   "name": "event_folders",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "usage_overview.py",
+   "line": 36,
+   "kind": "FunctionDef",
+   "name": "read_events",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "usage_overview.py",
+   "line": 169,
+   "kind": "FunctionDef",
+   "name": "estimate_scenario",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "video_navigation.py",
+   "line": 20,
+   "kind": "FunctionDef",
+   "name": "storyboard_facts",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "video_navigation.py",
+   "line": 33,
+   "kind": "FunctionDef",
+   "name": "frame_facts",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "video_navigation.py",
+   "line": 55,
+   "kind": "FunctionDef",
+   "name": "cloud_workspace",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "video_navigation.py",
+   "line": 70,
+   "kind": "FunctionDef",
+   "name": "cloud_facts",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "white_model.py",
+   "line": 87,
+   "kind": "FunctionDef",
+   "name": "environment_summary",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "white_model.py",
+   "line": 93,
+   "kind": "FunctionDef",
+   "name": "diagnose_text",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "white_model_ref.py",
+   "line": 60,
+   "kind": "FunctionDef",
+   "name": "supported_text",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "white_model_ref.py",
+   "line": 65,
+   "kind": "FunctionDef",
+   "name": "unsupported_reason",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "white_model_ref.py",
+   "line": 75,
+   "kind": "FunctionDef",
+   "name": "shot_folder",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "white_model_ref.py",
+   "line": 83,
+   "kind": "FunctionDef",
+   "name": "record_of",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "white_model_ref.py",
+   "line": 125,
+   "kind": "FunctionDef",
+   "name": "data_url",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "white_model_ref.py",
+   "line": 147,
+   "kind": "FunctionDef",
+   "name": "prompt_line",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "white_model_service.py",
+   "line": 52,
+   "kind": "FunctionDef",
+   "name": "project_identity",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "white_model_service.py",
+   "line": 104,
+   "kind": "FunctionDef",
+   "name": "episode_identity",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "white_model_service.py",
+   "line": 130,
+   "kind": "FunctionDef",
+   "name": "legacy_base",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "white_model_service.py",
+   "line": 141,
+   "kind": "FunctionDef",
+   "name": "shot_digest",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "white_model_service.py",
+   "line": 177,
+   "kind": "FunctionDef",
+   "name": "evidence_state",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "white_model_service.py",
+   "line": 235,
+   "kind": "FunctionDef",
+   "name": "project_index_path",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "white_model_service.py",
+   "line": 244,
+   "kind": "FunctionDef",
+   "name": "read_project_index",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "white_model_service.py",
+   "line": 286,
+   "kind": "FunctionDef",
+   "name": "project_copy_ready",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "white_model_service.py",
+   "line": 352,
+   "kind": "FunctionDef",
+   "name": "save_previs_notes",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "white_model_service.py",
+   "line": 359,
+   "kind": "FunctionDef",
+   "name": "user_data_dir",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "white_model_service.py",
+   "line": 378,
+   "kind": "FunctionDef",
+   "name": "default_workspace",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "white_model_service.py",
+   "line": 387,
+   "kind": "FunctionDef",
+   "name": "configured_workspace",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "white_model_service.py",
+   "line": 468,
+   "kind": "FunctionDef",
+   "name": "legacy_workspaces",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "white_model_service.py",
+   "line": 481,
+   "kind": "FunctionDef",
+   "name": "environment_summary",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "white_model_service.py",
+   "line": 517,
+   "kind": "FunctionDef",
+   "name": "diagnose_text",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "workflow_context.py",
+   "line": 234,
+   "kind": "FunctionDef",
+   "name": "preparation_priority_block",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "workflow_context.py",
+   "line": 268,
+   "kind": "FunctionDef",
+   "name": "preparation_source_priority",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "workflow_engines.py",
+   "line": 48,
+   "kind": "FunctionDef",
+   "name": "cancel_stage_slot_requests",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "workflow_engines.py",
+   "line": 171,
+   "kind": "FunctionDef",
+   "name": "engine_timeout",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "workflow_engines.py",
+   "line": 330,
+   "kind": "FunctionDef",
+   "name": "extract_codex_thread_id",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "workflow_engines.py",
+   "line": 349,
+   "kind": "FunctionDef",
+   "name": "extract_codex_message_text",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "workflow_engines.py",
+   "line": 376,
+   "kind": "FunctionDef",
+   "name": "save_background_session",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "workflow_engines.py",
+   "line": 401,
+   "kind": "FunctionDef",
+   "name": "load_background_session",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "workflow_settings.py",
+   "line": 147,
+   "kind": "FunctionDef",
+   "name": "skills_for_stage",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "workflow_settings.py",
+   "line": 166,
+   "kind": "FunctionDef",
+   "name": "shared_qwen_model",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "workflow_settings.py",
+   "line": 300,
+   "kind": "FunctionDef",
+   "name": "effective_model",
+   "repo_hits": 1,
+   "own_hits": 1
+  },
+  {
+   "file": "workflow_settings.py",
+   "line": 335,
+   "kind": "FunctionDef",
+   "name": "desktop_route_notice",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "workflow_settings.py",
+   "line": 586,
+   "kind": "FunctionDef",
+   "name": "clear_desktop_installation_cache",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "workflow_settings.py",
+   "line": 589,
+   "kind": "FunctionDef",
+   "name": "desktop_model_label",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "writing_api.py",
+   "line": 53,
+   "kind": "FunctionDef",
+   "name": "capture_request_model",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "writing_api.py",
+   "line": 64,
+   "kind": "FunctionDef",
+   "name": "capture_request",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "writing_api.py",
+   "line": 498,
+   "kind": "FunctionDef",
+   "name": "extract_idea_brief",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "writing_api.py",
+   "line": 580,
+   "kind": "FunctionDef",
+   "name": "preparation_restart_intent",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "writing_api.py",
+   "line": 685,
+   "kind": "FunctionDef",
+   "name": "preparation_reply_state",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "writing_api.py",
+   "line": 738,
+   "kind": "FunctionDef",
+   "name": "chat_session_overview",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "writing_api.py",
+   "line": 805,
+   "kind": "FunctionDef",
+   "name": "chat_session_summary",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "writing_api.py",
+   "line": 810,
+   "kind": "FunctionDef",
+   "name": "chat_session_compact",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "writing_quality.py",
+   "line": 54,
+   "kind": "FunctionDef",
+   "name": "strip_envelope",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "writing_stream.py",
+   "line": 9,
+   "kind": "FunctionDef",
+   "name": "stream_to",
+   "repo_hits": 0,
+   "own_hits": 0
+  },
+  {
+   "file": "writing_tools.py",
+   "line": 53,
+   "kind": "FunctionDef",
+   "name": "list_files",
+   "repo_hits": 0,
+   "own_hits": 0
+  }
+ ],
+ "E1b_count": 527,
+ "E2_skip_orphans": [],
+ "E4_scripts": {
+  "archive_results": {
+   "lines": 111,
+   "repo_word_hits": 2
+  },
+  "auto_full_safe": {
+   "lines": 490,
+   "repo_word_hits": 19
+  },
+  "backup_verify": {
+   "lines": 102,
+   "repo_word_hits": 13
+  },
+  "benchmark_trend": {
+   "lines": 196,
+   "repo_word_hits": 8
+  },
+  "branch_coverage_report": {
+   "lines": 377,
+   "repo_word_hits": 7
+  },
+  "build_nav_icons": {
+   "lines": 98,
+   "repo_word_hits": 4
+  },
+  "clean_dev": {
+   "lines": 290,
+   "repo_word_hits": 2
+  },
+  "commit_round": {
+   "lines": 184,
+   "repo_word_hits": 32
+  },
+  "coverage_report": {
+   "lines": 141,
+   "repo_word_hits": 7
+  },
+  "dev": {
+   "lines": 62,
+   "repo_word_hits": 55
+  },
+  "dev_lint": {
+   "lines": 30,
+   "repo_word_hits": 1
+  },
+  "distribution_build": {
+   "lines": 270,
+   "repo_word_hits": 32
+  },
+  "distribution_selfcheck": {
+   "lines": 59,
+   "repo_word_hits": 7
+  },
+  "dora_report": {
+   "lines": 209,
+   "repo_word_hits": 2
+  },
+  "drill_refresh_reuse": {
+   "lines": 41,
+   "repo_word_hits": 1
+  },
+  "local_ci": {
+   "lines": 112,
+   "repo_word_hits": 9
+  },
+  "maintain_logs": {
+   "lines": 19,
+   "repo_word_hits": 3
+  },
+  "merge_round": {
+   "lines": 137,
+   "repo_word_hits": 16
+  },
+  "mutation_sample": {
+   "lines": 123,
+   "repo_word_hits": 7
+  },
+  "package_dep_scan": {
+   "lines": 244,
+   "repo_word_hits": 3
+  },
+  "package_migrate": {
+   "lines": 261,
+   "repo_word_hits": 2
+  },
+  "release_snapshot": {
+   "lines": 92,
+   "repo_word_hits": 7
+  },
+  "release_watch": {
+   "lines": 76,
+   "repo_word_hits": 2
+  },
+  "repo_health": {
+   "lines": 72,
+   "repo_word_hits": 4
+  },
+  "rule_guard_map": {
+   "lines": 77,
+   "repo_word_hits": 5
+  },
+  "skill_package_pins": {
+   "lines": 114,
+   "repo_word_hits": 4
+  },
+  "sync_master": {
+   "lines": 122,
+   "repo_word_hits": 14
+  },
+  "test_move_audit": {
+   "lines": 96,
+   "repo_word_hits": 7
+  },
+  "tools_lock": {
+   "lines": 127,
+   "repo_word_hits": 3
+  },
+  "typecheck_baseline": {
+   "lines": 97,
+   "repo_word_hits": 4
+  },
+  "ui_snapshot": {
+   "lines": 148,
+   "repo_word_hits": 11
+  }
+ }
+}
