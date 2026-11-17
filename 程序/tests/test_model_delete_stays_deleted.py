@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
-import model_pool
+import infra.model_pool as model_pool
 import infra.model_router as model_router
 import skill_panel_support
 import stage_config

@@ -16,7 +16,7 @@ import time
 import tkinter as tk
 from pathlib import Path
 from tkinter import ttk
-import pet_state
+import infra.pet_state as pet_state
 import infra.ui_plugin_registry as ui_plugin_registry
 from ui.desktop_idea_attachments import IdeaAttachmentsMixin
 from ui.desktop_idea_deferred import IdeaDeferredMixin

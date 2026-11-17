@@ -3,7 +3,7 @@
 从 ``pet_ui.Pet`` 原样迁出（R1506）：方法体未改，``self`` 语义不变，``Pet`` 通过继承
 ``PetSettingsMixin`` 获得；用到的模块级名字来自 ``pet_ui_support``。
 """
-import model_pool
+import infra.model_pool as model_pool
 import infra.model_router as model_router
 import pet_agent
 import infra.token_saver as token_saver

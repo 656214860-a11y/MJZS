@@ -21,7 +21,7 @@ def child_environment():
 def unified_key():
     """统一那份 .env 里的密钥；没有就是空串。"""
     try:
-        import model_pool
+        import infra.model_pool as model_pool
         return model_pool.named_key(KEY_ENV)
     except Exception:
         return ''
@@ -29,7 +29,7 @@ def unified_key():
 
 def save_key(value):
     """把密钥写进统一那份 .env（界面点「保存设置」时走这里）。"""
-    import model_pool
+    import infra.model_pool as model_pool
     return model_pool.save_named_key(KEY_ENV,value)
 
 
@@ -68,7 +68,7 @@ def api_credential(api):
     name=str((api or {}).get('key_env') or '').strip()
     if not name:return ''
     try:
-        import model_pool
+        import infra.model_pool as model_pool
         return model_pool.key_of({'key_env':name})
     except Exception:
         return ''
@@ -94,7 +94,7 @@ def probe(cfg):
     """「测试连接」：带密钥查 ``/models``，返回给用户看的一句话（在后台线程里调用）。
 
     走 model_pool 的统一传输：不跟随重定向（密钥不会被转给跳转目标），并补默认 User-Agent。"""
-    import model_pool                                    # 第 34 期第 9 条：HTTP 栈按需加载
+    import infra.model_pool as model_pool  # 第 34 期第 9 条：HTTP 栈按需加载
     try:
         result=model_pool.http_transport(cfg['base_url']+'/models',None,{'Authorization':'Bearer '+cfg['api_key']},15)
         if result.get('ok'):

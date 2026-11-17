@@ -12,7 +12,7 @@ import infra.api_endpoints as api_endpoints
 from contract import api_models
 from agent.wan import WanAdapter
 from agent.volcengine import VolcengineAdapter
-from pet_state import PAGE_OF as PAGE
+from infra.pet_state import PAGE_OF as PAGE
 
 PNG = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
 
@@ -425,7 +425,7 @@ class CloudAssetsTests(unittest.TestCase):
     def test_unified_key_reads_the_model_pool_chain(self):
         from cloud_assets import _unified_key, KEY_ENV
         from unittest.mock import patch
-        import model_pool
+        import infra.model_pool as model_pool
         with patch("model_pool.credential", return_value="sk-chain") as chain:
             self.assertEqual(model_pool.named_key(KEY_ENV), "sk-chain")
             self.assertEqual(_unified_key(), "sk-chain")

@@ -83,7 +83,7 @@ def saved_provider_key(context,kind,providers,remembered=None,base_url=None,modu
     key_name='ARK_API_KEY' if kind=='volcengine' else 'DASHSCOPE_API_KEY';configs=[]
     # R505 P0：新保存的云视频会话统一由模型池读取 DPAPI；不会再回填或扫描明文。
     try:
-        from model_pool import named_key
+        from infra.model_pool import named_key
         current=named_key(key_name)
         if current:
             return current

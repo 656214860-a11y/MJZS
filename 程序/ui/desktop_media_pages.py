@@ -4,7 +4,7 @@
 ``MediaPagesMixin`` 获得。测试按 ``desktop.<名字>`` 打补丁的名字（confirm／open_path 等）经
 ``Desktop`` 注入的 ``MediaPageServices`` 在调用时取 ``desktop`` 的当前值，补丁照常生效（R1983 J2）。
 """
-import pet_state
+import infra.pet_state as pet_state
 import json
 import threading
 import contract.pet_bus as pet_bus

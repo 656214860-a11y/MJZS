@@ -62,7 +62,7 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 from production_lock_fields import CompactLabel, FlowFields, label_pixel_width
 
-import model_pool
+import infra.model_pool as model_pool
 import infra.model_router as model_router
 import ui.skill_note_render as skill_note_render
 import orchestrator.skill_notes as skill_notes

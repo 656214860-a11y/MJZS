@@ -10,7 +10,7 @@ os.chdir(HERE)
 
 import infra.continuity_ledger as cl
 import pet_agent
-import pet_state
+import infra.pet_state as pet_state
 import stage_parallel as sp
 
 ASSETS = {"CHAR_001": {"name": "林小满", "character_anchor": "黑短发、杏眼、米色针织衫"},

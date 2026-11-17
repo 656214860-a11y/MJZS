@@ -173,7 +173,7 @@ class VideoRevisionTests(unittest.TestCase):
             studio.submit('SH001')
 
     def test_money_rejection_does_not_submit_or_consume_seconds(self):
-        from pet_llm import RequestLedger
+        from infra.pet_llm import RequestLedger
         self.money_policy('0')
         studio = self.studio(Studio, [])
         studio.cfg['model'] = 'video-m'
@@ -187,7 +187,7 @@ class VideoRevisionTests(unittest.TestCase):
         self.assertEqual(RequestLedger(self.root).load().entries, [])
 
     def test_video_cloud_sessions_share_project_budget(self):
-        from pet_llm import RequestLedger
+        from infra.pet_llm import RequestLedger
         self.money_policy()
         for name, allowed in [('first', True), ('second', False)]:
             studio = self.studio(Studio, [])
@@ -209,7 +209,7 @@ class VideoRevisionTests(unittest.TestCase):
         self.assertEqual(rows[0]['amount'], 1)
 
     def test_cloud_success_settles_before_download_and_retry_does_not_charge_twice(self):
-        from pet_llm import RequestLedger
+        from infra.pet_llm import RequestLedger
         self.money_policy()
         studio = self.studio(Studio, [])
         studio.cfg['model'] = 'video-m'
@@ -231,7 +231,7 @@ class VideoRevisionTests(unittest.TestCase):
         self.assertEqual(len(RequestLedger(self.root).load().entries), 1)
 
     def test_failed_submission_preserves_unknown_money_after_restart(self):
-        from pet_llm import RequestLedger
+        from infra.pet_llm import RequestLedger
         self.money_policy()
         studio = self.studio(Studio, [])
         studio.cfg['model'] = 'video-m'

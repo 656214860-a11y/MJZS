@@ -9,7 +9,7 @@ import pet_agent
 import contract.pet_bus as pet_bus
 import ui.pet_cloud as pet_cloud
 import ui.pet_report as pet_report
-import pet_state
+import infra.pet_state as pet_state
 from infra.broadcaster import Broadcaster, PREFIX_PATTERNS
 from pathlib import Path
 from tkinter import TclError

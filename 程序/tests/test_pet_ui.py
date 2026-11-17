@@ -19,7 +19,7 @@ PROGRAM = os.path.dirname(HERE)
 sys.path.insert(0, PROGRAM)
 os.chdir(PROGRAM)
 
-import model_pool
+import infra.model_pool as model_pool
 import model_secrets
 import pet_models_ui
 import pet_agent, pet_bus, pet_report, pet_ui, stage_flow
@@ -4499,7 +4499,7 @@ class DesktopPetSeamTests(unittest.TestCase):
     def test_it_hands_the_page_index_to_show(self):
         """页序号只认 pet_state.PAGE_OF 那一份，且真的落到 show() 上。"""
         from desktop import PAGES
-        import pet_state
+        import infra.pet_state as pet_state
         self.d.root = self.base
         seen = []
         self.d.show = lambda index, video_mode=None: seen.append(index) or PAGES[index]

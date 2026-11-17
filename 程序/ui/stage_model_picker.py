@@ -14,7 +14,7 @@
 import tkinter as tk
 from tkinter import ttk
 
-import model_pool
+import infra.model_pool as model_pool
 import infra.model_router as model_router
 import orchestrator.stage_config as stage_config
 from responsive_ui import ScrollForm

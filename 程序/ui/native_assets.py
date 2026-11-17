@@ -80,7 +80,7 @@ def seedream_cost_preview(project, base, items, options):
     from infra.seedream_api import UNSETTLED, load_profile
     from domain.asset_context import generated_dir
     from domain.asset_batch_service import image_ready
-    from pet_llm import RequestLedger
+    from infra.pet_llm import RequestLedger
     profile = load_profile(options.get('seedream_profile', ''))
     folder = generated_dir(base, create=False)
     count = 0
@@ -102,7 +102,7 @@ def seedream_cost_preview(project, base, items, options):
 
 def _run_seedream_direct(project, base, items, options, report, stop=None):
     from infra.seedream_api import UNSETTLED, load_profile, request_image
-    from pet_llm import RequestLedger, BudgetRejected
+    from infra.pet_llm import RequestLedger, BudgetRejected
     from uuid import uuid4
     from asset_reference_images import resolve, reference_instruction
     from domain.asset_reference_prompts import display_prompt

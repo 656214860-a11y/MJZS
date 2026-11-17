@@ -1228,7 +1228,7 @@ class App:
 
         无人值守时不弹窗也不超预算扣费：超出预算直接报错，由用户调整预算或减少勾选。
         """
-        from pet_llm import RequestLedger
+        from infra.pet_llm import RequestLedger
         estimate = RequestLedger(project_root(self.studio.root)).preview_text(
             self.studio.cfg.get('model', ''), 'videos', {'seconds': seconds})
         message += '\n\n' + estimate

@@ -18,9 +18,9 @@ import urllib.request
 import urllib.response
 
 from infra import model_diagnostics
-import model_pool
+import infra.model_pool as model_pool
 import infra.model_router as model_router
-import pet_llm
+import infra.pet_llm as pet_llm
 import token_saver
 
 

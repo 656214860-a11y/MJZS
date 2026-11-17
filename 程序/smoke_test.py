@@ -404,9 +404,9 @@ ROUND_CHECKS = {
          'msg': '13 个制作阶段路由仍完整'},
     ],
     10: [
-        {'kind': 'keyword', 'path': r'程序\model_pool.py', 'keyword': "'chatgpt-desktop': 'codex'",
+        {'kind': 'keyword', 'path': r'程序\infra\model_pool.py', 'keyword': "'chatgpt-desktop': 'codex'",
          'msg': 'ChatGPT Desktop 是模型池中的 Codex 调用目标'},
-        {'kind': 'keyword', 'path': r'程序\model_pool.py', 'keyword': "'claude-desktop': 'claude'",
+        {'kind': 'keyword', 'path': r'程序\infra\model_pool.py', 'keyword': "'claude-desktop': 'claude'",
          'msg': 'Claude Desktop 是模型池中的 Claude 调用目标'},
         {'kind': 'absent', 'path': r'程序\ui\pet_models_ui.py', 'keyword': '打开 Claude 桌面',
          'msg': 'API 统一配置不再放 Claude 桌面启动按钮'},

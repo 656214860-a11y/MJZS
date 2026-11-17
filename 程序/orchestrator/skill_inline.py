@@ -25,7 +25,7 @@ def _skill_inline_budget(config):
     if not model:
         return None
     try:
-        import model_pool
+        import infra.model_pool as model_pool
         record = model_pool.pool(program=Path(__file__).resolve().parents[1]).get(model) or {}
     except Exception:
         import app_logging

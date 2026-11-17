@@ -18,8 +18,8 @@ import re
 import time
 from pathlib import Path
 from agent.core import save, save_text
-import pet_llm
-import pet_state, stage_layout
+import infra.pet_llm as pet_llm
+import infra.pet_state as pet_state, stage_layout
 from pet_agent import CATEGORY_NAMES
 from contract.pet_bus import STAGES, STAGE_NAMES, read_json
 

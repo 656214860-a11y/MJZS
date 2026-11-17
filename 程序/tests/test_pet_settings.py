@@ -34,7 +34,7 @@ os.chdir(PROGRAM)
 
 import desktop
 import model_secrets
-import model_pool
+import infra.model_pool as model_pool
 import pet_agent
 import pet_models_ui
 import pet_settings_ui
@@ -680,7 +680,7 @@ class LevelPageTests(SettingsCase):
 
 class BudgetPageTests(SettingsCase):
     def test_cost_reconciliation_dialog_saves_receipt_and_reports_validation(self):
-        from pet_llm import RequestLedger
+        from infra.pet_llm import RequestLedger
         with tempfile.TemporaryDirectory() as folder:
             ledger = RequestLedger(folder)
             ledger.reserve('unknown-api', 'images', 1)

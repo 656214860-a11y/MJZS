@@ -38,7 +38,7 @@ import time
 from pathlib import Path
 from tkinter import TclError
 
-import model_pool
+import infra.model_pool as model_pool
 import infra.model_router as model_router
 from contract.app_metadata import APP_NAME
 from infra.broadcaster import Broadcaster, PREFIX_PATTERNS
@@ -46,9 +46,9 @@ import pet_agent
 import ui.pet_cloud as pet_cloud
 from orchestrator.pet_chat_coordinator import ChatCoordinator
 import contract.pet_bus as pet_bus
-import pet_llm
+import infra.pet_llm as pet_llm
 import ui.pet_report as pet_report
-import pet_state
+import infra.pet_state as pet_state
 import orchestrator.stage_handler_registry as stage_handler_registry
 import orchestrator.stage_flow as stage_flow
 import orchestrator.stage_parallel as stage_parallel

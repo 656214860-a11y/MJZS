@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 import tkinter as tk
 from tkinter import ttk
-import model_pool
+import infra.model_pool as model_pool
 import infra.model_router as model_router
 import orchestrator.skill_notes as skill_notes
 import orchestrator.skill_orchestrator as skill_orchestrator

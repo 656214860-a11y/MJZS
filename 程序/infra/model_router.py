@@ -14,8 +14,8 @@ import threading
 import time
 from pathlib import Path
 
-import model_pool
-import pet_llm
+import infra.model_pool as model_pool
+import infra.pet_llm as pet_llm
 import infra.token_saver as token_saver
 from infra.model_metering import submission_retryable
 from infra.api_endpoints import configured_key, normalize_url

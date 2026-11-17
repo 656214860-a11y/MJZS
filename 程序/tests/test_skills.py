@@ -31,7 +31,7 @@ sys.path.insert(0, PROGRAM)
 sys.path.insert(1, HERE)  # legacy test fixtures are imported by their bare module name
 os.chdir(PROGRAM)
 
-import model_pool
+import infra.model_pool as model_pool
 import infra.model_router as model_router
 import pet_agent
 import pet_bus
@@ -426,7 +426,7 @@ class BudgetTests(unittest.TestCase):
             self.assertEqual(again.used('images'), 2)
 
     def test_tokens_are_read_from_the_pet_ledger(self):
-        import pet_llm
+        import infra.pet_llm as pet_llm
         ledger = pet_llm.Ledger()
         ledger.record('deepseek-v4-flash', {'prompt_tokens': 10, 'completion_tokens': 5})
         budget = skill_budget.Budget(ledger=ledger)
@@ -831,7 +831,7 @@ class OrchestratorTests(unittest.TestCase):
 
 def _beijing_hour_stamp(stamp, hour):
     """北京时间 hour 点的真实时间戳（beijing() 给的是 +8h 的平移值，要减回来）。"""
-    import pet_llm
+    import infra.pet_llm as pet_llm
     local = pet_llm.beijing(stamp)
     return local - (local % 86400) + hour * 3600 - 8 * 3600
 

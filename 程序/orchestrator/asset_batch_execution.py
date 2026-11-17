@@ -115,7 +115,7 @@ def run_batch(project, base, items, options, events, stop, client_factory=Comfy)
     state = read_ledger(project)
     if cloud:
         from infra.comfy_service import cloud_price_model
-        from pet_llm import RequestLedger
+        from infra.pet_llm import RequestLedger
         count = 0
         for aid, asset in items:
             try:

@@ -12,7 +12,7 @@ from collections import namedtuple
 from datetime import datetime
 from uuid import uuid4
 
-import model_pool
+import infra.model_pool as model_pool
 import infra.stage_model_value as stage_model_value
 import infra.token_saver as token_saver
 from file_cache import read_json
@@ -233,7 +233,7 @@ class WritingRequestAdapter(ModelAdapter):
         return getattr(self.adapter, name)
 
     def _call(self, method, messages, options=None, model='', system='', **kwargs):
-        import model_pool
+        import infra.model_pool as model_pool
         options = dict(options or {})
         for key, value in stage_model_value.reasoning_options(self.project, self.stage).items():
             options.setdefault(key, value)
@@ -295,7 +295,7 @@ class WritingRequestAdapter(ModelAdapter):
             return getattr(self.adapter, method)(messages, options=options, model=model, system=system, **kwargs)
         if self.project is not None:
             from infra.model_metering import metered
-            from pet_llm import RequestLedger
+            from infra.pet_llm import RequestLedger
             from uuid import uuid4
             estimate = body_bytes
             result, _usage, refused = metered(

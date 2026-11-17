@@ -209,7 +209,7 @@ class _CloudSettingsWindow:
                 budget_seconds=limit,reserve_seconds=0,live_enabled=self.enabled.get())
             # R505 P0：会话只标记统一模型池，密钥由当前用户的 DPAPI 存储读取。
             # 不在项目会话留下明文路径或密钥副本。
-            import model_pool
+            import infra.model_pool as model_pool
             if key and not self.revealed[0]:model_pool.save_named_key(key_env,key)
             cfg['key_provider']='model_pool'
             cfg.pop('project_dir',None)

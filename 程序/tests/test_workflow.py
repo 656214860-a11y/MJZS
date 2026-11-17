@@ -899,7 +899,7 @@ class DesktopModelPoolTests(unittest.TestCase):
     def test_native_claude_uses_saved_application_path(self):
         import workflow_settings
         import stage_config
-        import model_pool
+        import infra.model_pool as model_pool
         with tempfile.TemporaryDirectory() as td:
             proj = make_project(td)
             stage_config.put(proj, 'script', model='claude-desktop-app')
@@ -922,7 +922,7 @@ class DesktopModelPoolTests(unittest.TestCase):
 
     def test_saved_codex_desktop_path_overrides_old_cli_profile(self):
         import stage_config
-        import model_pool
+        import infra.model_pool as model_pool
         import workflow_settings
         with tempfile.TemporaryDirectory() as td:
             proj = make_project(td)
@@ -1006,7 +1006,7 @@ class DesktopModelPoolTests(unittest.TestCase):
     def test_stage_model_selects_the_matching_desktop_agent(self):
         import stage_config
         import workflow_settings
-        import model_pool
+        import infra.model_pool as model_pool
         from unittest.mock import patch
         # 与本机真实模型池隔离：用户改过的显示名不能左右这条断言。
         isolated = patch('model_pool.pool', return_value=model_pool.default_pool())
@@ -1065,7 +1065,7 @@ class DesktopModelPoolTests(unittest.TestCase):
 
     def test_unexpected_model_pool_error_is_not_silently_routed_or_written(self):
         """模型池自身故障必须保留给调用方，不能被误当作 API 回退。"""
-        import model_pool
+        import infra.model_pool as model_pool
         import stage_config
         import workflow_settings
         with tempfile.TemporaryDirectory() as td:
@@ -1082,7 +1082,7 @@ class DesktopModelPoolTests(unittest.TestCase):
         """同厂商本机客户端存在时先走它；API 只保存为启动失败时的兼容回退。"""
         import stage_config
         import workflow_settings
-        import model_pool
+        import infra.model_pool as model_pool
         with tempfile.TemporaryDirectory() as td:
             proj = make_project(td)
             stage_config.put(proj, 'script', model='gpt-4o')
@@ -1101,7 +1101,7 @@ class DesktopModelPoolTests(unittest.TestCase):
     def test_openai_api_model_uses_configured_api_when_local_client_is_absent(self):
         import stage_config
         import workflow_settings
-        import model_pool
+        import infra.model_pool as model_pool
         with tempfile.TemporaryDirectory() as td:
             proj = make_project(td)
             stage_config.put(proj, 'script', model='gpt-4o')
@@ -1117,7 +1117,7 @@ class DesktopModelPoolTests(unittest.TestCase):
 
     def test_unexpected_local_program_error_is_not_silently_routed_or_written(self):
         """仅“未安装”可回退；探测器故障不得默默改成 API 引擎。"""
-        import model_pool
+        import infra.model_pool as model_pool
         import stage_config
         import workflow_settings
         with tempfile.TemporaryDirectory() as td:
@@ -1154,7 +1154,7 @@ class DesktopModelPoolTests(unittest.TestCase):
 
     def test_deepseek_api_model_never_falls_back_to_codex(self):
         """阶段配置显示 DeepSeek 时，三虎派发必须使用同一条兼容 API。"""
-        import model_pool
+        import infra.model_pool as model_pool
         import stage_config
         import workflow_settings
         # 隔离本机模型池：内建 deepseek-v4-flash 必须在池里，才会被认成兼容 API 模型
@@ -1171,7 +1171,7 @@ class DesktopModelPoolTests(unittest.TestCase):
                              'deepseek-v4-flash')
 
     def test_summary_uses_the_same_stage_model_route_as_dispatch(self):
-        import model_pool
+        import infra.model_pool as model_pool
         import stage_config
         import workflow_settings
         # 隔离本机模型池：摘要必须与派发同路由，前提是内建 deepseek-v4-flash 可被解析。

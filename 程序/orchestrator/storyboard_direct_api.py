@@ -21,7 +21,7 @@ FORMAT_RETRY_BASE_SECONDS = 0.25
 
 def direct_model(config):
     """引擎为 qwen、所选模型在模型池里且调用方式不是桌面程序时返回 (模型名, 记录)，否则 None。"""
-    import model_pool
+    import infra.model_pool as model_pool
     config = config or {}
     chosen = str(config.get('model') or '').strip()
     if config.get('engine') != 'qwen' or not chosen or chosen == model_pool.AUTO:
@@ -107,7 +107,7 @@ class _Stopped(Exception):
 
 def _ask(batch, messages):
     """发一次请求；返回回复文本。取消、失败、被截断都抛出带原因的异常。"""
-    import model_pool
+    import infra.model_pool as model_pool
     from infra.model_router import failure_policy, record_circuit_failure, record_circuit_success
     from contract.workflow_context_budget import ensure_request_context
     ensure_request_context(batch.system + '\n'.join(str(m['content']) for m in messages), STAGE_LABEL,
@@ -130,8 +130,8 @@ def _ask(batch, messages):
         policy = failure_policy(result)
         if policy.get('retryable'):
             from infra.model_metering import chat_metered
-            from model_pool import PoolAdapter
-            from pet_llm import RequestLedger
+            from infra.model_pool import PoolAdapter
+            from infra.pet_llm import RequestLedger
             records = model_pool.pool(program=Path(__file__).resolve().parents[1])
             for candidate in batch.group_candidates:
                 if candidate == batch.chosen:
@@ -245,9 +245,9 @@ class _Batch:
         self.cancelled = cancelled or (lambda: False)
         self.system = str(skill_text or '') + '\n\n' + rules
         if adapter is None:
-            import model_pool
-            from model_pool import PoolAdapter
-            from model_pool import model_admission_error, health_is_blocked
+            import infra.model_pool as model_pool
+            from infra.model_pool import PoolAdapter
+            from infra.model_pool import model_admission_error, health_is_blocked
             from writing_api import WritingRequestAdapter
             self.record = record or direct_model(config)[1]
             problem = model_admission_error(
@@ -261,7 +261,7 @@ class _Batch:
                                                         timeout=REQUEST_TIMEOUT), self.record, self.chosen,
                                             project=self.project, stage=stage)
         self.adapter = adapter
-        import model_pool
+        import infra.model_pool as model_pool
         self.group_candidates = model_pool.group_candidates(
             (self.record or {}).get('group'), self.chosen, program=Path(__file__).resolve().parents[1])
 

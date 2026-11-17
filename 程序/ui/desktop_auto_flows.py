@@ -12,7 +12,7 @@ import time
 from pathlib import Path
 
 import domain.asset_resume as asset_resume
-import pet_state
+import infra.pet_state as pet_state
 from agent.core import read
 from orchestrator.desktop_auto_state import UNATTENDED_NEXT, flow_get, flow_set
 from contract.storyboard_paths import media_root

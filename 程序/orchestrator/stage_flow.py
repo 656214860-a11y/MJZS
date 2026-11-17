@@ -226,7 +226,7 @@ def model_label(desktop, project, stage):
     if not chosen or chosen == model_router_AUTO:
         return '自动'
     try:
-        import model_pool
+        import infra.model_pool as model_pool
         return str(model_pool.label_of(chosen, program=getattr(desktop, 'app', None) or None))
     except Exception:
         return chosen
@@ -250,7 +250,7 @@ def state_of(project):
     if project is None:
         return {}
     try:
-        import pet_state
+        import infra.pet_state as pet_state
         machine = pet_state.Machine(project, persist=False).load()
         return {stage: entry.get('state') for stage, entry in machine.stages.items()}
     except Exception:

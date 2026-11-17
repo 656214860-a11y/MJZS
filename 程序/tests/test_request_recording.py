@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import engine
-import pet_llm
+import infra.pet_llm as pet_llm
 import stage_execution_service as ses
 from domain import tts_api
 
@@ -109,7 +109,7 @@ class TtsRecordingTests(unittest.TestCase):
 
     def test_tts_budget_blocks_then_timeout_survives_resume(self, _settings):
         from unittest.mock import Mock
-        from pet_llm import RequestLedger
+        from infra.pet_llm import RequestLedger
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             config = {'budget_amount': '0', 'price_table': {'currency': 'CNY', 'version': 'test',
@@ -135,7 +135,7 @@ class TtsRecordingTests(unittest.TestCase):
             self.assertEqual(row['money_state'], 'unknown')
 
     def test_successful_tts_charges_characters_once_and_shares_image_budget(self, _settings):
-        from pet_llm import RequestLedger, BudgetRejected
+        from infra.pet_llm import RequestLedger, BudgetRejected
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             (root / 'cost_profile.json').write_text(json.dumps({'budget_amount': '0.2', 'price_table': {
@@ -153,7 +153,7 @@ class TtsRecordingTests(unittest.TestCase):
                     self.fail('must not send')
 
     def test_direct_tts_budget_checked_before_opening_connection(self, _settings):
-        from pet_llm import BudgetRejected, RequestLedger
+        from infra.pet_llm import BudgetRejected, RequestLedger
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             (root / 'cost_profile.json').write_text(json.dumps({'budget_amount': '0', 'price_table': {
@@ -165,7 +165,7 @@ class TtsRecordingTests(unittest.TestCase):
             self.assertEqual(RequestLedger(root).load().entries, [])
 
     def test_direct_tts_stable_id_prevents_resend_after_timeout(self, _settings):
-        from pet_llm import BudgetRejected, RequestLedger
+        from infra.pet_llm import BudgetRejected, RequestLedger
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             (root / 'cost_profile.json').write_text(json.dumps({'budget_amount': '1', 'price_table': {

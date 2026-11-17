@@ -21,7 +21,7 @@ def show(desktop):
     project = getattr(desktop, 'root', None)
     if project is not None:
         from agent.core import read
-        from pet_state import state_path
+        from infra.pet_state import state_path
         import orchestrator.stage_parallel as stage_parallel
         from contract.pet_bus import STAGES
         path = state_path(project)

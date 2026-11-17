@@ -5,7 +5,7 @@
 ``storyboard_page_services`` 提供，默认服务在 ``Desktop`` 组合入口按调用时取 ``desktop`` 模块的当前值，
 测试按 ``desktop.<名字>`` 打补丁照常生效；本模块只从 ``desktop_page_support`` 取页面常量。
 """
-import pet_state
+import infra.pet_state as pet_state
 from dataclasses import dataclass
 from typing import Callable
 import ui.asset_thumbs as asset_thumbs

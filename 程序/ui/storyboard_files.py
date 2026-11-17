@@ -39,7 +39,7 @@ import infra.tk_timers as tk_timers
 from file_cache import read_json, read_text
 import infra.project_settings as project_settings
 import infra.ui_plugin_registry as ui_plugin_registry
-from pet_state import PAGE_OF
+from infra.pet_state import PAGE_OF
 from responsive_ui import FlowBar, refresh_check_heading, bind_row_toggle
 from ui.storyboard_table_ui import file_table, fit_file_columns, fit_final_columns, insert_entries, tree_columns
 from ui_tokens import WRAPLENGTH, COLORS, FONTS, SPACING

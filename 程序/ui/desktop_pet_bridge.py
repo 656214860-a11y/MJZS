@@ -24,7 +24,7 @@ class PetBridgeMixin:
         页面翻不动都返回空串——聊天里先听到一句「切到「剪辑」这一步」然后什么也没发生，比不说还糟。
         返回真正翻过去的那一页标题。
         """
-        import pet_state
+        import infra.pet_state as pet_state
         index=pet_state.PAGE_OF.get(stage)
         if index is None or self.root is None:return ''
         try:

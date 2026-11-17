@@ -1309,6 +1309,12 @@
    "percent": 0.0
   },
   {
+   "module": "infra/pet_state.py",
+   "covered": 0,
+   "total": 218,
+   "percent": 0.0
+  },
+  {
    "module": "infra/qwen_setup.py",
    "covered": 0,
    "total": 73,
@@ -1435,7 +1441,19 @@
    "percent": 0.0
   },
   {
+   "module": "model_pool.py",
+   "covered": 0,
+   "total": 4,
+   "percent": 0.0
+  },
+  {
    "module": "model_router.py",
+   "covered": 0,
+   "total": 4,
+   "percent": 0.0
+  },
+  {
+   "module": "model_secrets.py",
    "covered": 0,
    "total": 4,
    "percent": 0.0
@@ -1795,6 +1813,12 @@
    "percent": 0.0
   },
   {
+   "module": "pet_llm.py",
+   "covered": 0,
+   "total": 4,
+   "percent": 0.0
+  },
+  {
    "module": "pet_models_tabs.py",
    "covered": 0,
    "total": 3,
@@ -1833,7 +1857,7 @@
   {
    "module": "pet_state.py",
    "covered": 0,
-   "total": 218,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -2282,6 +2306,12 @@
   },
   {
    "module": "tk_timers.py",
+   "covered": 0,
+   "total": 4,
+   "percent": 0.0
+  },
+  {
+   "module": "token_saver.py",
    "covered": 0,
    "total": 4,
    "percent": 0.0
@@ -3535,7 +3565,7 @@
    "percent": 23.8
   },
   {
-   "module": "pet_llm.py",
+   "module": "infra/pet_llm.py",
    "covered": 78,
    "total": 321,
    "percent": 24.3
@@ -3595,7 +3625,7 @@
    "percent": 30.8
   },
   {
-   "module": "model_pool.py",
+   "module": "infra/model_pool.py",
    "covered": 238,
    "total": 726,
    "percent": 32.8
@@ -3787,12 +3817,6 @@
    "percent": 100.0
   },
   {
-   "module": "model_secrets.py",
-   "covered": 4,
-   "total": 4,
-   "percent": 100.0
-  },
-  {
    "module": "orchestrator/__init__.py",
    "covered": 1,
    "total": 1,
@@ -3805,18 +3829,12 @@
    "percent": 100.0
   },
   {
-   "module": "token_saver.py",
-   "covered": 4,
-   "total": 4,
-   "percent": 100.0
-  },
-  {
    "module": "usage_overview.py",
    "covered": 4,
    "total": 4,
    "percent": 100.0
   }
  ],
- "modules_covered": 74,
- "modules_total": 634
+ "modules_covered": 72,
+ "modules_total": 637
 }

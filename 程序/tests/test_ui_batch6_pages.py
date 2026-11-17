@@ -19,7 +19,7 @@ PROGRAM = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROGRAM))
 
 import asset_detail
-import pet_state
+import infra.pet_state as pet_state
 from desktop_page_registry import PAGE_SITES
 from skip_reasons import PLATFORM_TKINTER
 from ui_tokens import (FONTS, SPACING, TABLE_EMPTY_PADDING, TABLE_HEADER_FONT,

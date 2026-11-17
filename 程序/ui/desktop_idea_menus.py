@@ -64,7 +64,7 @@ class IdeaMenusMixin:
     def open_idea_paste_menu(self,event):
         """输入框右键：落在「@附件名」行上时给附件操作（R3060），否则仅剪贴板有文字时给粘贴。"""
         box=event.widget
-        from pet_state import PAGE_OF
+        from infra.pet_state import PAGE_OF
         ref=self._idea_attachment_at(event) if getattr(self,'page_index',None)==PAGE_OF['script'] else None
         if ref is not None:
             menu=self.project_page_services.context_menu(box, menu_factory=tk.Menu)

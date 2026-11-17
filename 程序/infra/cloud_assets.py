@@ -20,7 +20,7 @@ def _secret_file():
 def _unified_key():
     """经 model_pool 的唯一取钥链（本机 DPAPI → .env → 环境变量）取密钥；没有就是空串。"""
     try:
-        import model_pool
+        import infra.model_pool as model_pool
         return model_pool.named_key(KEY_ENV)   # 即 credential(KEY_ENV)：本机 DPAPI → .env → 环境变量
     except Exception:
         return ''
@@ -45,7 +45,7 @@ def save_key(value):
     value = value.strip()
     if not value or any(c.isspace() for c in value):
         raise ValueError('请填写 Comfy 账户的 API Key')
-    import model_pool
+    import infra.model_pool as model_pool
     model_pool.save_named_key(KEY_ENV, value)
 
 

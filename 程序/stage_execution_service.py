@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 import file_cache
-import model_pool
+import infra.model_pool as model_pool
 import infra.model_router as model_router
 import orchestrator.skill_budget as skill_budget
 import orchestrator.stage_config as stage_config
@@ -31,8 +31,8 @@ from orchestrator.stage_asset_gateways import (  # noqa: F401  re-export
     import_pending_generated_assets,
     unwrap_service_result)
 from orchestrator.stage_animatic_gateways import animatic_reference_paths, animatic_video, confirm_animatic, generate_animatic_reference, import_animatic_audio, import_animatic_references, publish_animatic_bundle, run_animatic
-from orchestrator.stage_previs_gateways import dispatch_stage_previs, install_stage_previs_progress, previs_automatic_candidates, previs_automatic_engine, previs_entries, previs_ready, previs_records_directory, publish_stage_previs_progress, save_stage_previs_override, storyboard_board_source_script, storyboard_catalog, storyboard_catalog_snapshot, storyboard_default_source, storyboard_document_dir, storyboard_file_snapshot, storyboard_produced_episodes, storyboard_produced_scripts, storyboard_resolve_source, storyboard_working_dir
-from orchestrator.stage_gate_gateways import cloud_video_saved_provider_key, cloud_video_session_folder, media_import_publisher, publish_cloud_video_session_config, publish_cloud_video_studio_config, publish_cloud_video_workspace_preference, publish_tts_full_track, refresh_audio_manifests, reusable_tts_full_track, run_tts_lines, save_tts_key, tts_gateway
+from orchestrator.stage_previs_gateways import dispatch_stage_previs, install_stage_previs_progress, previs_automatic_candidates, previs_automatic_engine, previs_entries, previs_progress_gateway, previs_ready, previs_records_directory, previs_routing_gateway, publish_stage_previs_progress, save_stage_previs_override, storyboard_board_source_script, storyboard_catalog, storyboard_catalog_snapshot, storyboard_default_source, storyboard_document_dir, storyboard_file_snapshot, storyboard_produced_episodes, storyboard_produced_scripts, storyboard_resolve_source, storyboard_working_dir
+from orchestrator.stage_gate_gateways import cloud_video_gateway, cloud_video_saved_provider_key, cloud_video_session_folder, media_import_publisher, publish_cloud_video_session_config, publish_cloud_video_studio_config, publish_cloud_video_workspace_preference, publish_tts_full_track, refresh_audio_manifests, reusable_tts_full_track, run_tts_lines, save_tts_key, tts_gateway, video_lifecycle_gateway
 from orchestrator.stage_handoff_gateways import (  # noqa: F401  re-export
     asset_impact,
     continuity_issue_report,
@@ -306,7 +306,7 @@ def record_stage_legacy_adoption(project, linked_paths, now=None):
 
 def idea_attachment_local_mode(project):
     """显式 API 选择优先；其余按 writing 实际目标识别本地 Agent。"""
-    import model_pool
+    import infra.model_pool as model_pool
     from orchestrator.workflow_engines import current_config
     import writing_api
     if writing_api.model_label(project):

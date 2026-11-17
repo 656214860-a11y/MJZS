@@ -224,7 +224,7 @@ class ReasoningPickerTests(unittest.TestCase):
         return picker._popup_spec()
 
     def test_popup_shows_names_level_badge_and_persists_choice(self):
-        import model_pool
+        import infra.model_pool as model_pool
         import stage_model_picker
         data = model_pool.upsert(model_pool.raw(self.desktop.app),
                                  {'label': '会推理', 'model': 'reasoner-1',

@@ -109,7 +109,7 @@ def check_shot(source, shot):
 def seedream_cost_preview(project, source, shots, options):
     """报价只覆盖尚需发送的镜头；不释放未知请求，不把恢复算作新增。"""
     from infra.seedream_api import UNSETTLED, load_profile
-    from pet_llm import RequestLedger
+    from infra.pet_llm import RequestLedger
     source = Path(source).resolve(); base = media_root(source).resolve()
     current = {shot['id']: shot for shot in read(source).get('shots', [])}
     count = 0
@@ -130,7 +130,7 @@ def seedream_cost_preview(project, source, shots, options):
 def run_seedream(source, shots, options, log, stop=None, *, project=None):
     """Generate first frames through the user's Volcengine Seedream API, one shot at a time."""
     from infra.seedream_api import UNSETTLED, load_profile, request_image
-    from pet_llm import RequestLedger, BudgetRejected
+    from infra.pet_llm import RequestLedger, BudgetRejected
     from uuid import uuid4
     from infra.native_asset_codec import seedream_payload as _seedream_payload, to_png as _to_png, seedream_provenance as _seedream_provenance
     from importlib import import_module

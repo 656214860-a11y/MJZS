@@ -16,7 +16,7 @@ from unittest.mock import patch
 
 import workflow_settings
 
-import model_pool
+import infra.model_pool as model_pool
 import infra.model_router as model_router
 import model_secrets
 

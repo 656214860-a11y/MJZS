@@ -14,7 +14,7 @@ from pathlib import Path
 import infra.comfy_runtime as comfy_runtime
 import infra.client_profiles as client_profiles
 import file_cache
-import model_pool
+import infra.model_pool as model_pool
 import contract.platform_tools as platform_tools
 import domain.white_model_service as white_model_service
 import orchestrator.workflow_settings as workflow_settings

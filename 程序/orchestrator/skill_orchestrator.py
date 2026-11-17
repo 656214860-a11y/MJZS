@@ -21,7 +21,7 @@ import time
 from pathlib import Path
 
 import contract.pet_bus as pet_bus
-import pet_llm
+import infra.pet_llm as pet_llm
 import orchestrator.skill_budget as skill_budget
 import orchestrator.skill_registry as skill_registry
 import orchestrator.skill_templates as skill_templates

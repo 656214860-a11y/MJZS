@@ -9,7 +9,7 @@ from email.message import Message
 from pathlib import Path
 from unittest.mock import patch
 
-import model_pool
+import infra.model_pool as model_pool
 import infra.model_router as model_router
 from infra.request_ledger import RequestLedger, record_request_attempt
 

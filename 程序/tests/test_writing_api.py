@@ -15,7 +15,7 @@ import stage_config
 import writing_api
 import writing_stream
 import writing_tools
-import model_pool
+import infra.model_pool as model_pool
 import script_contract
 from contract import project_stages
 from stage_execution_service import publish_stage_text

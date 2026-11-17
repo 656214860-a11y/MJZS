@@ -3,7 +3,7 @@
 import unittest
 
 import infra.model_router as model_router
-import pet_llm
+import infra.pet_llm as pet_llm
 from model_metering import metered, replayable_retry, submission_retryable
 
 

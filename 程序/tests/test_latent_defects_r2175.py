@@ -20,7 +20,7 @@ from unittest.mock import patch
 import urllib.request
 import urllib.response
 
-import model_pool
+import infra.model_pool as model_pool
 import infra.model_router as model_router
 import storage_maintenance
 

@@ -18,7 +18,7 @@ PROGRAM = Path(__file__).resolve().parents[1]
 if str(PROGRAM) not in sys.path:
     sys.path.insert(0, str(PROGRAM))
 
-import model_pool
+import infra.model_pool as model_pool
 import skill_panel
 import stage_execution_service
 import workflow_engines

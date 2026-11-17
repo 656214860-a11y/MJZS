@@ -613,7 +613,7 @@ def stage_state(project, stage):
     if project is None or not str(stage or ''):
         return ''
     try:
-        import pet_state
+        import infra.pet_state as pet_state
         machine = pet_state.Machine(project, persist=False).load()
         entry = machine.stages.get(str(stage)) or {}
         return str(entry.get('state') or '')

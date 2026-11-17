@@ -1239,13 +1239,13 @@
         "reason": "R833：程序日志清理后台进程改经 platform_tools.launch_background。"
       },
       {
-        "file": "model_pool.py",
+        "file": "infra/model_pool.py",
         "point": "retired:0b470daedacbfbfb",
         "disposition": "exempt",
         "reason": "R797: model_pool is the approved model-routing authority (audit 26 whitelist), not a process-adapter pending item."
       },
       {
-        "file": "model_pool.py",
+        "file": "infra/model_pool.py",
         "point": "retired:5dcb85888c69e53c",
         "disposition": "exempt",
         "reason": "R797: model_pool is the approved model-routing authority (audit 26 whitelist), not a process-adapter pending item."

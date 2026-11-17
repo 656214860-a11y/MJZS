@@ -21,7 +21,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-import pet_state
+import infra.pet_state as pet_state
 import stage_flow
 import stage_layout
 import stage_parallel
