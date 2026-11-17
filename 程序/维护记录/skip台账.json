@@ -2772,6 +2772,24 @@
    "reason_constant": "PLATFORM_TKINTER",
    "reference": "",
    "test": "MediaThumbTests.setUp"
+  },
+  {
+   "file": "tests/test_l1_p2_semantics.py",
+   "test": "JobObjectTests.test_registered_child_dies_with_parent_crash",
+   "ordinal": 1,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_WINDOWS_ONLY",
+   "reason": "受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+   "reference": ""
+  },
+  {
+   "file": "tests/test_l1_p2_semantics.py",
+   "test": "JobObjectTests.test_registered_child_dies_with_parent_crash",
+   "ordinal": 2,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_WINDOWS_ONLY",
+   "reason": "受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+   "reference": ""
   }
  ]
 }

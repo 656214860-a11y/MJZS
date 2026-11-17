@@ -17,6 +17,7 @@ import infra.workflow_process_registry as registry
 import orchestrator.workflow_engines as workflow_engines
 from infra.broadcaster import Broadcaster
 from infra.cloud_assets import graph as cloud_graph
+from skip_reasons import PLATFORM_WINDOWS_ONLY
 
 PROGRAM = Path(__file__).resolve().parents[1]
 
@@ -129,7 +130,7 @@ class SlotReleaseOnErrorTests(unittest.TestCase):
 
 
 class JobObjectTests(unittest.TestCase):
-    @unittest.skipUnless(os.name == 'nt', 'Job Object 仅 Windows')
+    @unittest.skipUnless(os.name == 'nt', PLATFORM_WINDOWS_ONLY)
     def test_registered_child_dies_with_parent_crash(self):
         """登记进子进程后父进程被强杀（os._exit），Job Object 的 KILL_ON_JOB_CLOSE 应带走子进程。"""
         import time
