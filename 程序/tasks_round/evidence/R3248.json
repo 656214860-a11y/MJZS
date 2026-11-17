@@ -1,0 +1,15 @@
+{
+  "round": 3248,
+  "commit_base": "9a07b29f",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k l1_reliability request_ledger model_metering api_endpoints pet_llm model_pool writing_api",
+    "exit": 0,
+    "passed": 281,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T02:36:19"
+}
