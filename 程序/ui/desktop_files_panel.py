@@ -24,6 +24,9 @@ from ui_tokens import ICON_CHEVRON_RIGHT, SCRIPT_FILE_FONT, SCRIPT_FILE_MAX_ROWS
 from ui_widgets import DataTable, SecondaryButton, Tooltip, ask_string
 from ui.writing_page_controller import ScriptListLoadController
 
+# R3131：图标钮右缘留白再收半档（xs→xs//2），图标再右移半步、停靠列同步变窄让聊天框右移。
+RAIL_BUTTON_PAD_RIGHT = SPACING['xs'] // 2
+
 # R2998：文件名列宽不再写死——面板宽度由 0 高 sizer 驱动，按最长文件名量宽。
 SCRIPT_LIST_MIN_WIDTH = SPACING['sm'] * 23      # 沿用原固定列宽下限（184）
 SCRIPT_PANEL_MAX_SHARE = 0.5                     # 面板最多占内容区一半宽
@@ -134,7 +137,7 @@ class ProjectFilesPanel(WritingSnapshotsMixin):
         if self.button.winfo_manager():
             return
         self.button.pack(side='top', fill='x',
-                         padx=(SPACING['xs'], SPACING['xs']),
+                         padx=(SPACING['xs'], RAIL_BUTTON_PAD_RIGHT),
                          pady=(SPACING['sm'], SPACING['xs']))
 
     def sync_entry(self):
