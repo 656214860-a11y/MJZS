@@ -37,7 +37,7 @@ import uuid
 from pathlib import Path
 from typing import NamedTuple
 
-import skill_project_layer
+import orchestrator.skill_project_layer as skill_project_layer
 import orchestrator.skill_registry as skill_registry
 from agent.core import replace, save
 from contract.pet_bus import read_json

@@ -19,7 +19,7 @@ from tkinter import ttk
 import pet_bus
 import skill_import_service
 import skill_lifecycle_service
-import skill_project_layer
+import orchestrator.skill_project_layer as skill_project_layer
 import skill_registry
 import workflow_settings
 from contract import platform_tools

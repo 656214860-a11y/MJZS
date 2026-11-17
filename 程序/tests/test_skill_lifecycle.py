@@ -17,7 +17,7 @@ from unittest import mock
 
 import skill_import_service
 import skill_lifecycle_service
-import skill_project_layer
+import orchestrator.skill_project_layer as skill_project_layer
 import skill_registry
 import workflow_settings
 from orchestrator import agent_skill_sync

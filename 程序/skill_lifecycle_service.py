@@ -9,7 +9,7 @@ import re
 from pathlib import Path
 
 import skill_import_service
-import skill_project_layer
+import orchestrator.skill_project_layer as skill_project_layer
 import skill_registry
 from agent.core import save, save_text
 from contract.pet_bus import read_json

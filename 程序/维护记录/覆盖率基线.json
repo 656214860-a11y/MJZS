@@ -2125,6 +2125,12 @@
    "percent": 0.0
   },
   {
+   "module": "skill_package_meta.py",
+   "covered": 0,
+   "total": 4,
+   "percent": 0.0
+  },
+  {
    "module": "skill_panel.py",
    "covered": 0,
    "total": 4,
@@ -2144,6 +2150,12 @@
   },
   {
    "module": "skill_panel_workflow.py",
+   "covered": 0,
+   "total": 4,
+   "percent": 0.0
+  },
+  {
+   "module": "skill_project_layer.py",
    "covered": 0,
    "total": 4,
    "percent": 0.0
@@ -2200,6 +2212,12 @@
    "module": "stage_flow.py",
    "covered": 0,
    "total": 3,
+   "percent": 0.0
+  },
+  {
+   "module": "stage_layout.py",
+   "covered": 0,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -3475,13 +3493,13 @@
    "percent": 16.9
   },
   {
-   "module": "skill_project_layer.py",
+   "module": "orchestrator/skill_project_layer.py",
    "covered": 29,
    "total": 157,
    "percent": 18.5
   },
   {
-   "module": "skill_package_meta.py",
+   "module": "orchestrator/skill_package_meta.py",
    "covered": 8,
    "total": 43,
    "percent": 18.6
@@ -3823,18 +3841,12 @@
    "percent": 100.0
   },
   {
-   "module": "stage_layout.py",
-   "covered": 2,
-   "total": 2,
-   "percent": 100.0
-  },
-  {
    "module": "usage_overview.py",
    "covered": 4,
    "total": 4,
    "percent": 100.0
   }
  ],
- "modules_covered": 72,
- "modules_total": 637
+ "modules_covered": 71,
+ "modules_total": 639
 }
