@@ -81,11 +81,12 @@
   "tests.test_stage_file_index_publication",
   "tests.test_file_naming_producers",
   "tests.test_file_origin_provenance",
-  "tests.test_context"
+  "tests.test_context",
+  "tests.test_l1_reliability_r3248"
  ],
  "tests_ok": true,
- "points_total": 2331,
- "points_covered": 1222,
+ "points_total": 2357,
+ "points_covered": 1253,
  "modules": [
   {
    "module": "aigc_lint.py",
@@ -166,12 +167,6 @@
    "percent": 12.5
   },
   {
-   "module": "api_endpoints.py",
-   "points": 78,
-   "covered": 11,
-   "percent": 14.1
-  },
-  {
    "module": "prop_assets.py",
    "points": 21,
    "covered": 3,
@@ -206,6 +201,12 @@
    "points": 4,
    "covered": 1,
    "percent": 25.0
+  },
+  {
+   "module": "api_endpoints.py",
+   "points": 87,
+   "covered": 24,
+   "percent": 27.6
   },
   {
    "module": "script_contract.py",
@@ -244,22 +245,22 @@
    "percent": 36.0
   },
   {
+   "module": "platform_tools.py",
+   "points": 109,
+   "covered": 40,
+   "percent": 36.7
+  },
+  {
    "module": "pet_bus.py",
    "points": 27,
    "covered": 10,
    "percent": 37.0
   },
   {
-   "module": "platform_tools.py",
-   "points": 109,
-   "covered": 41,
-   "percent": 37.6
-  },
-  {
    "module": "model_pool.py",
    "points": 129,
-   "covered": 53,
-   "percent": 41.1
+   "covered": 52,
+   "percent": 40.3
   },
   {
    "module": "workflow_process_registry.py",
@@ -364,15 +365,15 @@
    "percent": 67.6
   },
   {
-   "module": "pet_llm.py",
-   "points": 35,
-   "covered": 24,
-   "percent": 68.6
-  },
-  {
    "module": "engine_probe.py",
    "points": 49,
    "covered": 34,
+   "percent": 69.4
+  },
+  {
+   "module": "pet_llm.py",
+   "points": 36,
+   "covered": 25,
    "percent": 69.4
   },
   {
@@ -380,18 +381,6 @@
    "points": 34,
    "covered": 24,
    "percent": 70.6
-  },
-  {
-   "module": "model_metering.py",
-   "points": 7,
-   "covered": 5,
-   "percent": 71.4
-  },
-  {
-   "module": "request_ledger.py",
-   "points": 140,
-   "covered": 100,
-   "percent": 71.4
   },
   {
    "module": "app_icon.py",
@@ -410,6 +399,12 @@
    "points": 4,
    "covered": 3,
    "percent": 75.0
+  },
+  {
+   "module": "request_ledger.py",
+   "points": 152,
+   "covered": 115,
+   "percent": 75.7
   },
   {
    "module": "artifact_schema.py",
@@ -452,6 +447,12 @@
    "points": 52,
    "covered": 42,
    "percent": 80.8
+  },
+  {
+   "module": "model_metering.py",
+   "points": 11,
+   "covered": 9,
+   "percent": 81.8
   },
   {
    "module": "asset_contract.py",

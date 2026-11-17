@@ -23,7 +23,7 @@ from pathlib import Path
 # requests 链为 R3199 批准的首个运行时依赖（R3200 起替换自实现 HTTP 客户端）；
 # 其余为随包环境内的维护/开发工具，仅脚本使用，不进入产品运行路径。
 WHITELIST = {
-    "requests": "2.32.3",
+    "requests": "2.34.2",
     "urllib3": "2.8.0",
     "certifi": "2026.10.23",
     "charset-normalizer": "3.5.2",
