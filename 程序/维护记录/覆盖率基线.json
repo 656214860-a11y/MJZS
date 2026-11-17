@@ -3233,8 +3233,26 @@
    "covered": 0,
    "total": 41,
    "percent": 0.0
+  },
+  {
+   "module": "ui/ui_diff.py",
+   "covered": 0,
+   "total": 43,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/ui_code_block.py",
+   "covered": 0,
+   "total": 53,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/ui_media.py",
+   "covered": 0,
+   "total": 59,
+   "percent": 0.0
   }
  ],
  "modules_covered": 71,
- "modules_total": 537
+ "modules_total": 540
 }
