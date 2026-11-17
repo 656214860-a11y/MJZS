@@ -3209,8 +3209,14 @@
    "covered": 4,
    "total": 4,
    "percent": 100.0
+  },
+  {
+   "module": "domain/message_parts.py",
+   "covered": 0,
+   "total": 141,
+   "percent": 0.0
   }
  ],
  "modules_covered": 71,
- "modules_total": 533
+ "modules_total": 534
 }

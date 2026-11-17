@@ -19,6 +19,7 @@ from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
 
+from domain import message_parts
 from contract.project_context import ProjectContext
 from domain.idea_document_paths import ChatModel
 
@@ -106,7 +107,8 @@ def _read_rows(path, gateway):
     rows = data.get('messages') if isinstance(data, dict) else data
     if not isinstance(rows, list):
         return []
-    rows = [dict(row) for row in rows if isinstance(row, dict) and str(row.get('text') or '').strip()]
+    rows = [message_parts.ensure_parts(dict(row)) for row in rows if isinstance(row, dict)]
+    rows = [row for row in rows if message_parts.has_content(row)]
     _history_cache[path] = (fingerprint, tuple(rows))
     _history_cache.move_to_end(path)
     while len(_history_cache) > _HISTORY_CACHE_LIMIT:
@@ -249,8 +251,7 @@ def repair_internal_replies(root, model=None, *, gateway=None):
             continue
         changed = True
         if text:
-            item['text'] = text
-            repaired.append(item)
+            repaired.append(message_parts.set_text(item, text))
         elif latest_user:
             # 只有思考块时不能伪造正文：移除乱码，再由界面按用户明确点击“刷新”补发一次。
             retry_creative = latest_user
@@ -268,11 +269,12 @@ def save_rows(root, rows, model=None, provider='', *, gateway=None):
         rows = [dict(row, model_id=identity.model_id)
                 if not row.get('model_id') and str(row.get('model') or '') in (str(identity), identity.model_id)
                 else dict(row) for row in rows]
+    rows = [message_parts.ensure_parts(row) for row in rows]
     path = model_history_path(root, model, provider=provider) if str(model or '').strip() else history_path(root)
-    gateway['publish_json'](path, {'version': 1, 'messages': rows})
+    gateway['publish_json'](path, {'version': 1, message_parts.VERSION_KEY: message_parts.SCHEMA_VERSION, 'messages': rows})
     try:
         stat = path.stat()
-        clean = tuple(dict(row) for row in rows if isinstance(row, dict) and str(row.get('text') or '').strip())
+        clean = tuple(dict(row) for row in rows if isinstance(row, dict) and message_parts.has_content(row))
         _history_cache[path] = ((stat.st_mtime_ns, stat.st_size), clean)
         _history_cache.move_to_end(path)
         while len(_history_cache) > _HISTORY_CACHE_LIMIT:
@@ -306,7 +308,7 @@ def replace(root, index, text, model=None, *, gateway=None):
     value = str(text or '').strip()
     if not value:
         raise ValueError('对话内容不能为空')
-    rows[indexes[index]]['text'] = value
+    rows[indexes[index]] = message_parts.set_text(rows[indexes[index]], value)
     rows[indexes[index]].pop('context_compacted', None)
     return save_rows(root, rows, model=model, gateway=gateway)
 
@@ -380,10 +382,22 @@ def remove_message(root, row, *, gateway=None):
     return removed
 
 
+def _message_key(row):
+    """跨副本去重键：忽略派生的 ``parts`` 与落盘补写的 ``model_id``。
+
+    ``parts`` 由 ``text``／``thinking`` 派生（R3102），旧版残留文件里的行还没有
+    ``parts``；按完整 JSON 比较会把同一条消息误判成两条。身份仍以 role/text/at 等
+    原始字段为准。
+    """
+    if not isinstance(row, dict):
+        return json.dumps(row, ensure_ascii=False, sort_keys=True)
+    return json.dumps({key: value for key, value in row.items() if key not in ('model_id', 'parts')},
+                      ensure_ascii=False, sort_keys=True)
+
+
 def _same_message(left, right):
-    """同一条消息的不同副本：忽略落盘时补写的 ``model_id``。"""
-    return ({k: v for k, v in left.items() if k != 'model_id'}
-            == {k: v for k, v in right.items() if k != 'model_id'})
+    """同一条消息的不同副本：忽略落盘时补写的 ``model_id`` 与派生 ``parts``。"""
+    return _message_key(left) == _message_key(right)
 
 
 def same_message(left, right):
@@ -460,7 +474,7 @@ def remove_all(root, model, *, gateway=None):
 
     # 单一创意对话目录落地后，旧目录残留下多是已迁移进统一文件的同一批消息：
     # 只有统一文件里没有的残留才算额外删除，否则同一条消息会被数两遍。
-    seen = {json.dumps(row, ensure_ascii=False, sort_keys=True) for row in rows}
+    seen = {_message_key(row) for row in rows}
     extra = 0
     for path in _chat_files(root):
         if path == own_path:
@@ -472,8 +486,7 @@ def remove_all(root, model, *, gateway=None):
         items = data.get('messages') if isinstance(data, dict) else data
         if not isinstance(items, list):
             continue
-        extra += sum(1 for item in items if _mine(item)
-                     and json.dumps(item, ensure_ascii=False, sort_keys=True) not in seen)
+        extra += sum(1 for item in items if _mine(item) and _message_key(item) not in seen)
     _drop_rows(root, _mine, gateway=gateway, skip=(own_path,), backup=recycle)
     legacy = _read_rows(legacy_path, gateway)
     selected = set(_row_indexes(legacy, model))
