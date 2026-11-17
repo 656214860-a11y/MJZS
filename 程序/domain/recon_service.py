@@ -15,6 +15,7 @@ import hashlib
 import json
 import re
 import time
+import uuid
 from collections import abc
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -24,6 +25,7 @@ import infra.model_pool as model_pool
 import contract.stage_layout as stage_layout
 import infra.app_logging as app_logging
 import infra.idempotency as idempotency
+import domain.domain_events as domain_events
 from agent import core
 from infra.file_cache import read_json
 from contract.service_contract import UserError, success
@@ -443,6 +445,8 @@ def _search_all(queries, budget, limits, notes, ports, started):
         if budget['search_used'] >= limits['search'] or ports.clock() - started >= limits['seconds']:
             notes.append('预算用完，还有没查到的：%s' % query)
             break
+        domain_events.emit(domain_events.PAID_INVOKED, stage=STAGE, op='search',
+                           nonce=uuid.uuid4().hex)
         result = _attempt(lambda: ports.sender('search', query, limits['count']), ports.pause)
         budget['search_used'] += 1
         if not result.get('ok'):
@@ -474,6 +478,8 @@ def _fetch_all(sources, budget, limits, notes, ports, started):
             notes.append('抓取预算用完，仍只有摘要：%s' % url)
             break
         seen.add(url)
+        domain_events.emit(domain_events.PAID_INVOKED, stage=STAGE, op='fetch',
+                           nonce=uuid.uuid4().hex)
         result = _attempt(lambda: ports.sender('fetch', url), ports.pause)
         budget['fetch_used'] += 1
         if not result.get('ok'):

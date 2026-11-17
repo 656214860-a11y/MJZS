@@ -36,7 +36,7 @@ class ContractTests(unittest.TestCase):
         payload = {"stage": "assets", "error": "超时", "attempt": 1, "delay": 30, "shot": "SH001",
                    "character": "CHAR_001", "candidates": 3, "path": "exports/MASTER.mp4",
                    "budget": "video", "used": 5, "limit": 10, "text": "继续",
-                   "project": "demo"}
+                   "project": "demo", "op": "search", "nonce": "n1"}
         for kind, fields in pet_bus.CONTRACT.items():
             with self.subTest(kind=kind):
                 item = pet_bus.event(kind, **{name: payload[name] for name in fields})
