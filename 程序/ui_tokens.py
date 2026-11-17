@@ -355,6 +355,9 @@ SPLASH_FINISH_MS = 160
 SPLASH_CREEP = 0.12
 SPLASH_MAX_SECONDS = 2.5   # 画面最长盖这么久，超时强制揭开（页面接着在原位建完）
 
+# 侧栏 Fluent PNG 使用固定 24px 方形画布（design_tokens.md: icon.nav.size）。
+NAV_ICON_SIZE = 24
+
 # 小图标按钮：用系统自带的线框图标字体，不用彩色表情——首次绘制表情要加载
 # Segoe UI Emoji，实测单颗按钮卡住主线程约 0.4 秒（R1415）。
 ICON_FONT = ("Segoe MDL2 Assets", 11)
