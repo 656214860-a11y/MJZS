@@ -14,6 +14,7 @@ import tkinter as tk
 from tkinter import ttk
 from ui_tokens import COLORS, FONTS, SPACING
 from ui_widgets import EllipsisLabel, SecondaryButton, TextArea, ask_string
+from ui.ui_theme import box_frame
 
 PAGE = pet_state.PAGE_OF
 
@@ -239,7 +240,7 @@ class _WritingPage:
         brief=idea_chat.default_brief_document(self.page.idea_chat_context())
         self.page.idea_template=self.page.idea_example()
         # 聊天记录与发送框分离：记录可滚动，共享输入框固定停在窗口底部。
-        self.talk=ttk.Frame(self.page.content,style='Box.TFrame',padding=(SPACING['xs'],SPACING['none']))
+        self.talk=box_frame(self.page.content,padding=(SPACING['xs'],SPACING['none']))
         # 标题、聊天框与左侧内容起点同高；不在标题下额外留出一档空白。
         self.talk.pack(fill='both',expand=True,pady=SPACING['none'])
         # R2989 P1：页内「用量摘要 · 会话说明」单行状态栏并入统一底栏左区（set_status_segment）；

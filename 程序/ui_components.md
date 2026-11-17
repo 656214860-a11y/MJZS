@@ -177,7 +177,7 @@
 ## 框体（Card 与 Box 的分工）
 
 - **Card**（`ui_widgets.Card`，圆角 `radius.lg`、描边 `color.border.default`）：表单类卡片容器，21 页在用，外观不动。
-- **Box**（`ui_theme` 的 `Box.TFrame` 样式升格：直角、1px `color.border.strong`，样式名、边框色、内边距取 token，并提供创建入口函数）：聊天框、内容框、列表框的正式外框组件。
+- **Box**（`ui_theme.box_frame()` 创建入口：直角、1px `color.border.strong`，样式名、边框色、内边距取 token）：聊天框、内容框、列表框的正式外框组件。
 - **禁止**：新代码不得直接写 `style='Box.TFrame'`，不得自拼 1px 边框替代 `Box`。
 - **门禁**：`test_box_boundary.py`（U5）。
 

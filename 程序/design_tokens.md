@@ -219,7 +219,7 @@ Tooltip 仅由 `ui_widgets.Tooltip` 建立；页面不得自行创建无边框 `
 
 ## 框体（Box）
 
-聊天框、内容框、列表框的统一外框组件 `Box`（`ui_theme`，`Box.TFrame` 样式升格）：
+聊天框、内容框、列表框的统一外框组件 `Box`（创建入口 `ui_theme.box_frame()`，`Box.TFrame` 样式升格）：
 
 | 属性 | Token / 规则 |
 | --- | --- |
