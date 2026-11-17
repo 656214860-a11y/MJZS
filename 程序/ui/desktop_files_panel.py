@@ -424,8 +424,10 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
             return
         path = Path(row)
         if not path.is_absolute():
-            # R3137：阶段筛选视图的行是项目相对 posix 路径。
-            path = Path(self.page.root) / path
+            # R3137：阶段筛选视图的行是项目相对 posix 路径；无项目（测试替身）时按原样处理。
+            root = getattr(self.page, 'root', None)
+            if root is not None:
+                path = Path(root) / path
         if path.is_file():
             self.page.writing_page_services.open_path(path)
 
