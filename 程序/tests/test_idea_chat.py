@@ -1199,7 +1199,8 @@ class SendMessageTests(_Harness):
             item = self.assert_script_file_row(tree, proj, path)
             tree.selection_set(item)
             header_x = tree.bbox(item)[0] + 4
-            row_x, row_y, row_w, row_h = tree.bbox(item)
+            row_x, row_y, row_w, row_h = tree.bbox(item, 'name')
+            click_x = min(tree.winfo_width() - 4, row_x + min(row_w // 2, 20))
             heading_y = max(2, row_y // 2)
             self.assertEqual(tree.identify_region(header_x, heading_y), 'heading')
             with patch('desktop.open_path') as opened:
@@ -1208,7 +1209,7 @@ class SendMessageTests(_Harness):
             opened.assert_not_called()
             with patch('desktop.open_path') as opened:
                 d.open_script_file(SimpleNamespace(type='ButtonPress', widget=tree,
-                                                   x=row_x + row_w // 2, y=row_y + row_h // 2))
+                                                   x=click_x, y=row_y + row_h // 2))
             opened.assert_called_once_with(path)
             with patch('desktop.open_path') as opened:
                 d.open_script_file(SimpleNamespace(type='KeyPress'))
