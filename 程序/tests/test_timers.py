@@ -124,7 +124,12 @@ class WindowTimerTests(unittest.TestCase):
             self.assertTrue(intervals, "资产批量窗口没有登记刷新循环")
             self.assertEqual(set(intervals), {250})
             popup.destroy(); win.update()
-            self.assertEqual(set(win.tk.call("after", "info")), set())
+            remaining = set(win.tk.call("after", "info"))
+            # R2989 P1：主窗口统一状态栏的 100ms 消息心跳是常驻 after，不属于批量窗口定时器。
+            bar = getattr(d, 'status_bar', None)
+            if bar is not None:
+                remaining -= set(str(after_id) for after_id in bar._pending_afters)
+            self.assertEqual(remaining, set())
 
     def test_window_placement_idle_job_is_cancelled_on_close(self):
         """install_window_placement 在主窗口排了一次 after_idle(place)；窗口在 idle 到期前被销毁时

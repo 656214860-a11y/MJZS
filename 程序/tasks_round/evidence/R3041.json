@@ -1,0 +1,15 @@
+{
+  "round": 3041,
+  "commit_base": "08e5c10d",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k hidden_desktop_gate taskbook_closure rule_guard_map round_baselines auto_full_safe selftests selftests_gui_token hover_card_states notice_dialog",
+    "exit": 0,
+    "passed": 136,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T21:42:02"
+}

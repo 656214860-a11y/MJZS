@@ -533,7 +533,7 @@ def gate_args(full, safe=False, affected=(), filters=None):
     return ['--serial']
 
 
-def check_the_gate(full, safe=False, affected=()):
+def check_the_gate(full, safe=False, affected=(), visible=False):
     """跑显式请求的门禁：定向、增量或全量均使用串行模式。
 
     命令按本文件的位置拼、工作目录也切到这一层：套件是按自己的位置找用例与基础文件的。
@@ -548,6 +548,7 @@ def check_the_gate(full, safe=False, affected=()):
     # 同时用 -u 和下面的增量读取把进度实时还给用户，不能再出现数分钟「像卡死」的空白。
     filters, selected = _affected_test_plan(affected) if affected else ((), ())
     cmd = [sys.executable, '-u', str(suite)] + gate_args(full, safe, affected, filters)
+    cmd += ['--visible'] if visible else []
     print('\n--- 门禁：run_selftests.py（%s）---' % mode)
     print('    ' + ' '.join(cmd))
     print('    工作目录：%s' % HERE)
@@ -623,6 +624,43 @@ USAGE = """用法：python smoke_test.py [--all | --safe | --affected 模块... 
 """
 
 
+def _probe_hidden_desktop():
+    """秒级自检：隐藏桌面能否创建（scripts/gui_hidden.py --probe）。"""
+    helper = HERE / 'scripts' / 'gui_hidden.py'
+    if not helper.is_file():
+        return False
+    try:
+        result = subprocess.run([sys.executable, '-B', str(helper), '--probe'],
+                                cwd=str(HERE), stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return result.returncode == 0
+
+
+def _smoke_hidden(args):
+    """把冒烟自身重新拉起在隐藏桌面上运行；隐藏桌面不可用即中止（退出码 3），绝不直跑。"""
+    helper = HERE / 'scripts' / 'gui_hidden.py'
+    if not helper.is_file():
+        print('[隐藏桌面] scripts/gui_hidden.py 缺失：拒绝在可见桌面运行含 Tk 的冒烟检查。')
+        return 3
+    log = HERE / 'logs' / 'hidden_smoke.log'
+    try:
+        log.parent.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        pass
+    env = dict(os.environ, DRAMA_HIDDEN_DESKTOP='1')
+    print('[隐藏桌面] 本轮冒烟含 Tk 检查，整轮迁到隐藏桌面运行（日志 %s）' % log, flush=True)
+    result = subprocess.run([sys.executable, '-B', str(helper), str(log), str(HERE), '--',
+                             sys.executable, '-B', 'smoke_test.py'] + args, env=env)
+    if log.is_file():
+        try:
+            sys.stdout.write(log.read_text(encoding='utf-8', errors='replace'))
+        except OSError:
+            pass
+    return result.returncode
+
+
 def main(argv=None):
     # 自检子进程继承：通知分发器不弹系统模态框，避免无人值守时卡住（见 ui_widgets.SUPPRESS_MODAL_ENV）。
     os.environ.setdefault("DRAMA_SUPPRESS_MODAL", "1")
@@ -631,12 +669,14 @@ def main(argv=None):
     os.environ.setdefault("DRAMA_SUPPRESS_DIAGNOSTICS", "1")  # 测试报错不写程序自己的诊断记录
     os.environ.setdefault("DRAMA_REDUCE_MOTION", "0")  # 自检固定保留动效，不随本机系统设置漂移
     args = list(sys.argv[1:] if argv is None else argv)
-    round_no, full, safe, skip_gate, listing, architecture, affected = ROUND, False, False, True, False, False, []
+    round_no, full, safe, skip_gate, listing, architecture, affected, visible = ROUND, False, False, True, False, False, [], False
     index = 0
     while index < len(args):
         arg = args[index]
         if arg == '--all':
             full, skip_gate = True, False
+        elif arg == '--visible':
+            visible = True
         elif arg == '--safe':
             full, safe, skip_gate = True, True, False
         elif arg == '--gate':
@@ -700,13 +740,23 @@ def main(argv=None):
         check(result.wasSuccessful(), '架构治理测试：tests/architecture')
         return 0 if result.wasSuccessful() else 1
 
+    # 秒级自检：隐藏桌面可用性（--visible 逃生舱与已在隐藏桌面内时跳过）。
+    if not visible and os.environ.get('DRAMA_HIDDEN_DESKTOP') != '1':
+        check(_probe_hidden_desktop(), '隐藏桌面可用（scripts/gui_hidden.py --probe）')
+    if visible:
+        print('[--visible] 在可见桌面运行冒烟：Tk 检查窗口会弹到用户屏幕，仅限人工调试。')
+
     print('=' * 50)
     print('冒烟测试 · 第 %d 轮' % round_no)
     print('程序根：%s' % HERE)
     print('=' * 50)
 
-    print('\n--- 本轮检查项 ---')
     entries = ROUND_CHECKS.get(round_no)
+    # 硬闸：本轮检查项含 Tk 且未显式 --visible 时，整轮强制迁到隐藏桌面。
+    if not visible and os.environ.get('DRAMA_HIDDEN_DESKTOP') != '1' and entries and any(
+            e.get('kind') == 'widget' for e in entries):
+        return _smoke_hidden(args)
+    print('\n--- 本轮检查项 ---')
     if not entries:
         check(False, '第 %d 轮还没登记检查项（照 ROUND_CHECKS 里第 2 轮的样子补几条）' % round_no)
     else:
@@ -716,7 +766,7 @@ def main(argv=None):
     if skip_gate:
         print('\n--- 门禁：默认快速检查，未启动 ---')
     else:
-        check_the_gate(full, safe, affected)
+        check_the_gate(full, safe, affected, visible)
 
     print('\n' + '=' * 50)
     print('通过：%d 项' % PASS)

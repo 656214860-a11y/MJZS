@@ -75,6 +75,18 @@ def red_cooldown(result: dict, head: str, now: float) -> str:
     return "time" if 0 <= now - finished < RED_COOLDOWN_SECONDS else ""
 
 
+def current_cooling() -> str:
+    """门禁视角的红后冷却：对当前 HEAD 取 ``red_cooldown`` 的原始判定（'head'／'time'／''）。
+
+    ``status()`` 会在 required 时把 'time' 抹掉，那是给补跑决策用的；合并门禁要看未加工的冷却，
+    因为「同 HEAD 已红」是唯一无法靠等时间消除、必须靠新提交推进 HEAD 才能解锁的状态。"""
+    try:
+        head = _git("rev-parse", "HEAD")
+    except (OSError, subprocess.SubprocessError):
+        head = ""
+    return red_cooldown(last_result(), head, time.time())
+
+
 def status() -> dict:
     document = run_selftests.load_layer_document()
     last_full = int(document.get("last_full_safe_all_round", 0))
@@ -408,7 +420,8 @@ def _run_locked() -> int:
         return 0
     program = _sync_clean_worktree(root, head)
     # 主干检出才能产凭据；本检出是分离的，用这个变量告诉执行器「此 HEAD 取自 master」。
-    env = dict(os.environ, DRAMA_SUPPRESS_MODAL="1", DRAMA_SUPPRESS_NETWORK="1", PYTHONIOENCODING="utf-8", AUTO_FULL_SAFE_HEAD=head,
+    env = dict(os.environ, DRAMA_SUPPRESS_MODAL="1", DRAMA_SUPPRESS_NETWORK="1", PYTHONIOENCODING="utf-8",
+               AUTO_FULL_SAFE_HEAD=head, DRAMA_HIDDEN_DESKTOP="1",
                GIT_CONFIG_COUNT="1", GIT_CONFIG_KEY_0="safe.directory", GIT_CONFIG_VALUE_0="*")
     with LOG.open("w", encoding="utf-8") as log:
         log.write("[自动全量] 开始 %s HEAD=%s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), head[:10]))
@@ -418,18 +431,29 @@ def _run_locked() -> int:
         # 任务栏上多出一个 Python 图标（看着像助手图标变了）。
         quiet = {"creationflags": 0x08000000} if os.name == "nt" else {}   # CREATE_NO_WINDOW
         cmd = [sys.executable, "-B", "run_selftests.py", "--all", "--safe"]
-        hidden = PROGRAM.parent / "工作流任务" / "gui_hidden.py"
-        if hidden.is_file():
-            # 全量会建大量 Tk 窗口；放进隐藏桌面跑，不弹到用户屏幕上抢焦点。
-            run_log = LOG.with_name("auto_full_safe.run.log")
-            log.write("[自动全量] 在隐藏桌面运行\n")
+        # 隐藏桌面包装随干净检出走（入库模块 scripts/gui_hidden.py）；缺失/不可用即记环境阻塞，
+        # 绝不降级为可见桌面直跑（R3039 起；旧行为是 fallback 直跑，全量 Tk 窗口弹满用户屏幕）。
+        hidden = program / "scripts" / "gui_hidden.py"
+        if not hidden.is_file():
+            log.write("[自动全量] 隐藏桌面包装缺失：%s——环境阻塞，未跑（不弹窗）\n" % hidden)
             log.flush()
-            result = subprocess.run([sys.executable, "-B", str(hidden), str(run_log), str(program), "--", *cmd],
-                                    env=env, stdout=log, stderr=subprocess.STDOUT, check=False, **quiet)
-            if run_log.is_file():
-                log.write(run_log.read_text(encoding="utf-8", errors="replace"))
-        else:
-            result = subprocess.run(cmd, cwd=program, env=env, stdout=log, stderr=subprocess.STDOUT, check=False, **quiet)
+            write_result(head, BLOCKED_CODE, 0.0, blocked="隐藏桌面包装缺失：%s" % hidden)
+            return 0
+        # 全量会建大量 Tk 窗口；放进隐藏桌面跑，不弹到用户屏幕上抢焦点。
+        run_log = LOG.with_name("auto_full_safe.run.log")
+        log.write("[自动全量] 在隐藏桌面运行\n")
+        log.flush()
+        result = subprocess.run([sys.executable, "-B", str(hidden), str(run_log), str(program), "--", *cmd],
+                                env=env, stdout=log, stderr=subprocess.STDOUT, check=False, **quiet)
+        if run_log.is_file():
+            log.write(run_log.read_text(encoding="utf-8", errors="replace"))
+        if result.returncode in (2, 3, 4):
+            log.write("\n[自动全量] 隐藏桌面不可用（退出码 %d）：环境阻塞，未在可见桌面直跑。\n"
+                      % result.returncode)
+            log.flush()
+            write_result(head, BLOCKED_CODE, 0.0,
+                         blocked="隐藏桌面不可用（gui_hidden 退出码 %d）" % result.returncode)
+            return 0
         elapsed = time.perf_counter() - started
         log.write("\n[自动全量] 退出码 %d，用时 %.0f 秒（0＝绿且凭据已写入）\n"
                   % (result.returncode, elapsed))

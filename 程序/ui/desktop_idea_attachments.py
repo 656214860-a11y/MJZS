@@ -13,7 +13,7 @@ from ui_tokens import CHAR_WIDTH, SPACING
 
 
 class IdeaAttachmentsMixin:
-    """剧本准备页的创意附件：展示、入库、插入引用。"""
+    """剧本准备页的创意附件：展示与入库（``@`` 引用插入已由共享输入框接管，R2980）。"""
     def update_idea_attachment_status(self):
         """仅展示用户已选择的文件名；路径和正文不出现在界面或聊天记录。"""
         label=getattr(self,'idea_attachment_status',None)
@@ -110,11 +110,3 @@ class IdeaAttachmentsMixin:
         prepared=result['value']
         self.update_idea_attachment_status()
         self.status.set('已入库 %d 份创意文件；发送时读取附档，下方发送框可补充创作信息。' % len(prepared['names']))
-    def insert_idea_reference(self, path):
-        """把已入库创意插入编辑框，并标记为本轮显式引用。"""
-        box=getattr(self,'idea_input',None)
-        if box is None or not box.winfo_exists():return
-        value=str(Path(path))
-        self.idea_chat_controller.add_attachment(value)
-        box.insert('insert','@'+Path(path).name)
-        self.update_idea_attachment_status()

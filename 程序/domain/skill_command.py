@@ -15,6 +15,9 @@ from contract import pet_bus
 KINDS = ('skill', 'stage', 'engine')
 _SUB_ENGINE_PARENT = Path('00全流程SKILL') / 'AIGC创作全流程'
 _ENGINE_MARKERS = ('SKILL.md', 'README.md', 'readme.md')
+# token 右界：空白之外的中英文句读也截断，避免光标在 ``/name，后文`` 中间时
+# 选中候选把标点和后文一起吃掉（R2980）。
+_TOKEN_END_BREAKS = frozenset('，。、；：？！…—·,.;:!?()[]{}"\'“”‘’《》')
 
 
 def _norm(text):
@@ -63,6 +66,8 @@ def sub_engine_names(skills_root=None):
 
 
 def _skill_name(item):
+    if isinstance(item, dict):
+        return str(item.get('name') or '').strip()
     return str(getattr(item, 'name', item) or '').strip()
 
 
@@ -119,34 +124,64 @@ def _prefix_hit(name, prefix):
     return text in str(name).lower()
 
 
-def completions(text, *, stage=None, skills=(), engines=None):
-    """``/`` 补全候选：当前阶段已装 skill → 其余 skill → 阶段别名 → 子引擎，去重保序。"""
+def trigger_token(text, offset):
+    """光标处的 ``/``／``@`` 触发 token（R2980）：返回 ``{'kind','query','start','end'}`` 或 ``None``。
+
+    ``offset`` 是 ``text`` 的字符偏移（0 基）。向左扫到行首找最近的 ``/`` 或 ``@``；
+    触发符前一个字符必须是行首或空白（``str.isspace()``，含全角空格），因此
+    ``a/b``、``https://``、``a@b.com`` 都不触发。``query`` 是触发符到光标之间的
+    原文（去前导空白、保留尾部与中间空格——阶段别名 ``03 初步分镜`` 需要）；
+    ``end`` 从光标向右扫到下一个空白／换行，光标落在 token 中间也能整体替换。
+    同一行上离光标最近的触发符生效（``/a @b`` 解析为 mention）。
+    """
     raw = str(text or '')
-    if not raw.startswith('/'):
-        return ()
-    prefix = raw[1:].strip()
-    current = [item for item in (skills or ()) if getattr(item, 'stage', stage) in (None, stage)]
-    others = [item for item in (skills or ()) if item not in current]
+    try:
+        offset = max(0, min(int(offset), len(raw)))
+    except (TypeError, ValueError):
+        offset = len(raw)
+    line_start = raw.rfind('\n', 0, offset) + 1
+    trigger = -1
+    for i in range(offset - 1, line_start - 1, -1):
+        if raw[i] in '/@':
+            trigger = i
+            break
+    if trigger < 0:
+        return None
+    if trigger > line_start and not raw[trigger - 1].isspace():
+        return None
+    end = offset
+    while end < len(raw) and not raw[end].isspace() and raw[end] not in _TOKEN_END_BREAKS:
+        end += 1
+    return {'kind': 'command' if raw[trigger] == '/' else 'mention',
+            'query': raw[trigger + 1:offset].lstrip(),
+            'start': trigger, 'end': end}
+
+
+def _item_stage(item, default):
+    """技能条目的阶段归属：Skill 对象读 ``.stage``、字典读 ``stage`` 键、字符串视为当前阶段。"""
+    if isinstance(item, dict):
+        return item.get('stage') or default
+    return getattr(item, 'stage', None) or default
+
+
+def completion_entries(query, *, stage=None, skills=(), engines=None):
+    """``/`` 候选结构化条目（R2980）：当前阶段 skill → 其余 skill → 阶段别名 → 子引擎，
+    子串过滤、去重保序。条目 ``{'kind','name','label','insert'}``；
+    ``insert`` 是含触发符与末尾空格的完整替换文本。"""
+    current, others = [], []
+    for item in skills or ():
+        (current if _item_stage(item, stage) == stage else others).append(item)
     names = engines if engines is not None else sub_engine_names()
-    groups = (current, others,
-              [alias for alias, target in stage_aliases().items()],
-              list(names))
+    groups = (('skill', current), ('skill', others),
+              ('stage', [alias for alias, _target in stage_aliases().items()]),
+              ('engine', list(names)))
     seen, out = set(), []
-    for group in groups:
+    for kind, group in groups:
         for item in group:
             name = _skill_name(item)
-            if not name or name in seen or not _prefix_hit(name, prefix):
+            if not name or name in seen or not _prefix_hit(name, query):
                 continue
             seen.add(name)
-            out.append('/' + name)
+            out.append({'kind': kind, 'name': name,
+                        'label': '/' + name, 'insert': '/' + name + ' '})
     return tuple(out)
-
-
-def command_token(text):
-    """输入框当前 ``/`` token（补全用）：非 ``/`` 开头返回空串。"""
-    raw = str(text or '')
-    if not raw.startswith('/'):
-        return ''
-    body = raw[1:]
-    token = body.split(' ', 1)[0]
-    return '/' + token if token else '/'

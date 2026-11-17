@@ -243,18 +243,10 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, I
         self._clear_bubble_view(box)
         def finish():
             if not alive():return
-            usage_label = getattr(self, 'idea_usage_label', None)
-            if usage_label is not None and usage_label.winfo_exists():
-                usage_label.set_text(idea_chat.usage_compact(rows))
-                tip = getattr(self, 'idea_usage_tip', None)
-                if tip is not None:tip.text = idea_chat.usage_summary(rows)
-            session_label = getattr(self, 'idea_session_label', None)
-            if session_label is not None and session_label.winfo_exists():
-                from writing_api import chat_session_lines
-                visible, detail = chat_session_lines(self.root, model) if self.root else ('', '')
-                session_label.set_text(visible)
-                tip = getattr(self, 'idea_session_tip', None)
-                if tip is not None:tip.text = detail
+            # R2989 P1：用量摘要入统一底栏左区常驻段（截断+悬停全文）；会话说明已删除。
+            if hasattr(self,'set_status_segment'):
+                self.set_status_segment('usage', idea_chat.usage_compact(rows),
+                                        tooltip=idea_chat.usage_summary(rows))
             self.drop_thinking_spinner()
             thinking=getattr(self,'_thinking_model','')
             if thinking and self.bubble_view_key(thinking) == self.bubble_view_key(self.displayed_chat_model()):

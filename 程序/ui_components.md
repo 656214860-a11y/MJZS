@@ -76,9 +76,23 @@
 
 ## 通知
 
-`ui_widgets.NotificationDispatcher` 是错误、警告、成功与一般提示的唯一分发入口。调用方只提供业务文案、级别和是否需要模态提示；分发器先更新既有状态栏，模态提示仍复用 Tk 的 `messagebox`，不另建第二套窗口。新建页面不得直接组合 `status.set()` 与 `messagebox.show*()` 表达同一结果；历史页面按独立轮次迁移。
+`ui_widgets.NotificationDispatcher` 是错误、警告、成功与一般提示的唯一分发入口。调用方只提供业务文案、级别和是否需要模态提示；分发器先更新既有状态栏，模态提示仍复用 Tk 的 `messagebox`，不另建第二套窗口。R2989 起支持注入统一状态栏总线（`bus=`）：有总线时通知走四级消息生命周期（error/warning 常驻、info/success 自动消失、进历史），旧 StringVar 由总线镜像回写；无总线宿主（独立设置窗）沿用原状态栏路径。新建页面不得直接组合 `status.set()` 与 `messagebox.show*()` 表达同一结果；历史页面按独立轮次迁移。
 
 **错误策略（R1689 裁决，UI 批次 2 落地）**：可恢复的错误（网络、模型、校验）默认非模态——`NotificationDispatcher.error()` 默认 `modal=False`，只把完整文案落到状态栏，不弹系统框、不锁界面；需要“查看详情／重试”的页面自行在动作附近提供。只有删除、覆盖等破坏性确认保留模态，但它们走 `ConfirmDialog`／`ask_confirmation`，不在本函数内。仅当后续代码确实必须等用户关掉提示才能继续时，调用方才显式传 `modal=True` 并写明理由。状态栏颜色按级别区分（就绪中性、成功绿、警告、错误红），不再一律绿色。
+
+## 统一状态栏（文字提示模块，R2984 起）
+
+应用只保留一条全局底部状态栏 `ui/ui_status_bar.py:StatusBar`，散落的文字提示统一为一个模块：
+
+| 区段 | 内容 | 规则 |
+| --- | --- | --- |
+| 左区（常驻） | 页标题「NN 名称」、项目路径、Token/¥/余额（点击开用量详情）、模型用量摘要 | 每段独立 `EllipsisLabel`：放不下截断、悬停 Tooltip 全文；点击展开详情；无数据时段隐藏，不显示假 0 |
+| 右区（消息） | 四级消息 info/success/warning/error | error/warning 常驻直到被处理或下一条替换；info/success 约 8 秒自动消失；错误仍写日志 |
+| 历史 | 点击右区展开最近 N 条 | 含时间、级别、全文；不另开窗口 |
+
+- 消息唯一入口 `ui/ui_status_bus.py:StatusBus.publish(Message(level, text, ttl, source))`；业务模块只发消息，不得直接写状态栏（`status.set`）或组合 `messagebox`；`NotificationDispatcher` 保留为分级渲染的既有入口，内部转交 StatusBus。
+- 视觉取值一律引用 `design_tokens.md`：就绪 `color.text.primary`、成功 `color.success`／`color.success.subtle`、警告与错误沿用 `color.danger.text`／`color.danger.subtle` 及既有 `status_kind` 样式；圆角、间距、字体只取 token。
+- 顶部标题行自 R3016 起已删除：原页头状态／模型名信息等价迁移（视频页模型/状态进左区段 `video_model`/`video`、剧本页流程说明进 `script_note`、分镜页「当前 JSON」进 `storyboard`），功能不丢；页标题进左区 `page` 段，侧栏图标轨上移填空。
 
 ## 右键菜单
 
@@ -94,7 +108,7 @@
 
 ## Tooltip
 
-`ui_widgets.Tooltip` 是截断名称或图标含义等短说明的唯一浮层入口。页面传入目标控件和完整说明即可；组件统一 400ms 延迟、鼠标悬停与键盘焦点触发，以及离开、失焦、销毁时的取消与清理。Tooltip 不取得焦点或 grab，不能承载操作按钮、表单或长篇说明；后两类分别使用既有弹窗或 `DescriptionBlock`。
+`ui_widgets.Tooltip` 是截断名称或图标含义等短说明的唯一浮层入口。页面传入目标控件和完整说明即可；组件统一 300ms 出现延迟、150ms reshow 窗口、鼠标悬停与键盘焦点触发，以及离开、失焦、销毁时的取消与清理（R2997 起为完整状态机：排程先取消旧计时器、卡片模式 300ms closeDelay 移出隐藏并复核指针、点击控件执行原动作并抑制重弹直到指针离开再进入；`mode='card'`＋`pin_on_click=True` 可点击钉住，点空白/Escape/再点解除，钉住期间悬停不触发）。Tooltip 不取得焦点或 grab，不能承载操作按钮、表单或长篇说明；后两类分别使用既有弹窗或 `DescriptionBlock`。
 
 `ui_icons.IconLoader` 是页面图标位图的唯一构建入口。页面按语义名称请求图标，图标尺寸由入口参数统一，并按 Tk 宿主缓存；不得在业务页直接建立 `PhotoImage`。图标不能表达完整文字说明时，配合 `Tooltip`，不以图标替代可访问标签。
 
