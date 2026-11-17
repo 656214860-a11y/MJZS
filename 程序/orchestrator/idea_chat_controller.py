@@ -297,3 +297,10 @@ class IdeaChatController:
             raise OSError('附档未能移入回收站，请刷新后重试。')
         self.attachment_paths = tuple(value for value in self.attachment_paths if Path(value) not in pair)
         self.attachment_details = tuple(item for item in self.attachment_details if item[0] not in {p.name for p in pair})
+
+    def unreference_attachment(self, path):
+        """只取消本轮引用：不动项目里的入库副本（输入框 @ 行右键「取消引用」用，R3060）。"""
+        from domain.idea_attachments import archive_pair
+        pair = tuple(dict.fromkeys(archive_pair(Path(path))))
+        self.attachment_paths = tuple(value for value in self.attachment_paths if Path(value) not in pair)
+        self.attachment_details = tuple(item for item in self.attachment_details if item[0] not in {p.name for p in pair})

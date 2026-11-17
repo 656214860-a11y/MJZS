@@ -63,12 +63,13 @@ class FilesPanelTests(unittest.TestCase):
         self.assertTrue(button.cget('image'), '入口要用 project_files PNG 图标')
         self.assertEqual(button.cget('text'), '', '入口是纯图标钮，不显示文字')
         self.assertTrue(button.winfo_ismapped(), '有项目时入口可见')
-        # R2998：入口在右侧图标列（canvas.master 内最右竖条）顶端，不再在标题行。
+        # R2998：入口在右侧图标列顶端，不再在标题行；R3060 起列挂 panel_area——
+        # 面板停靠列的父级，打开时图标恒为内容区最右竖条。
         rail = d.files_panel.rail
         self.assertEqual(str(button.winfo_parent()), str(rail))
-        self.assertEqual(str(rail.winfo_parent()), str(d.canvas.master))
+        self.assertEqual(str(rail.winfo_parent()), str(d.panel_area))
         # 独立成列：列贴内容区右缘、与画布同高；图标在列顶，下方留白给后续图标。
-        area = d.canvas.master
+        area = d.panel_area
         self.assertLessEqual(abs(rail.winfo_rootx() + rail.winfo_width()
                                  - (area.winfo_rootx() + area.winfo_width())), 2,
                              '图标列右缘贴内容区右缘')
@@ -109,7 +110,8 @@ class FilesPanelTests(unittest.TestCase):
         d.show(PAGE['script']); self.pump(.2)
         self.assertFalse(d.files_panel._open, '默认隐藏文件列表')
         self.assertNotEqual(str(d.script_box.winfo_manager()), 'pack')
-        area = d.canvas.master
+        # R3060：画布列与停靠列同在 panel_area 内；面板右缘贴停靠列（＝内容区）右缘。
+        area = d.panel_area
         width_before = d.canvas.winfo_width()
         d.files_button.invoke(); self.pump(.1)
         self.assertTrue(d.files_panel._open, '点击后打开面板')

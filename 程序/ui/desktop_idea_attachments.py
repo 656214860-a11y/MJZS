@@ -7,9 +7,8 @@
 """
 import tkinter as tk
 from pathlib import Path
-from tkinter import ttk
 
-from ui_tokens import CHAR_WIDTH, SPACING
+import app_logging
 
 
 class IdeaAttachmentsMixin:
@@ -36,52 +35,100 @@ class IdeaAttachmentsMixin:
                 note(Path(value).name,key,'%d 字' % count)
         self._idea_attachment_tips=tips
         if label is not None:label.set(('已引用：'+'、'.join(details)) if details else '')
-        self.refresh_uploaded_idea_attachments()
-    def refresh_uploaded_idea_attachments(self):
-        """输入框内的附件卡片：上传库全部列出，本轮会带上的卡片用主色边框高亮。"""
-        panel=getattr(self,'idea_uploaded_panel',None)
-        if panel is None or not panel.winfo_exists():return
+        if not getattr(self,'idea_attachment_paths',()):self._idea_cursor_ref_names=set()
+        self._sync_idea_ref_block()
+    # ── R3060：附件以「@原名」行内文本落在输入框顶部引用区（与手动 @ 引用同一显示效果），
+    #    不再有卡片行；引用区行打 idea_ref 标签由本方法集统一重建，右键 @ 行可打开／删除副本／取消引用。 ──
+    def _idea_ref_block_names(self):
+        """顶部引用区应显示的显示名：本轮引用全量，@ 手动插入的除外（它们已在光标处）。"""
+        from domain.idea_attachments import display_name
+        cursor=getattr(self,'_idea_cursor_ref_names',set()) or set()
+        names=[]
+        for path in getattr(self,'idea_attachment_paths',()):
+            shown=display_name(path)
+            if shown in cursor or Path(path).name in cursor:continue
+            if shown not in names:names.append(shown)
+        return names
+    def _sync_idea_ref_block(self):
+        """按本轮引用重建顶部「@原名」引用区：先删带 idea_ref 标签的旧行，再从 1.0 写入新块。"""
+        box=getattr(self,'idea_input',None)
+        if box is None or not box.winfo_exists():return
+        try:
+            marked=set()
+            if 'idea_ref' in box.tag_names():
+                ranges=box.tag_ranges('idea_ref')
+                for i in range(0,len(ranges)-1,2):
+                    try:
+                        a=int(str(ranges[i]).split('.')[0]);b=int(str(ranges[i+1]).split('.')[0])
+                    except (ValueError,IndexError):continue
+                    marked.update(range(a,max(a,b)))
+            for line in sorted(marked,reverse=True):
+                try:box.delete('%d.0'%line,'%d.0'%(line+1))
+                except tk.TclError:app_logging.swallowed()
+            names=self._idea_ref_block_names()
+            if not names:
+                if 'idea_ref' in box.tag_names():box.tag_remove('idea_ref','1.0','end')
+                return
+            box.mark_set('_idea_ref_sync',box.index('insert'))
+            box.insert('1.0',''.join('@%s\n'%n for n in names))
+            box.tag_add('idea_ref','1.0','%d.0'%(len(names)+1))
+            box.mark_set('insert','_idea_ref_sync')
+            # 草稿恢复等途径带回的未标记同名 @ 行紧跟引用区，去重避免双份。
+            keep=set(names);scan=len(names)+1
+            for _ in range(12):
+                try:text=box.get('%d.0'%scan,'%d.end'%scan)
+                except tk.TclError:break
+                if text.startswith('@') and text[1:] in keep:
+                    try:box.delete('%d.0'%scan,'%d.0'%(scan+1))
+                    except tk.TclError:app_logging.swallowed()
+                    continue
+                if not text.startswith('@'):break
+                scan+=1
+        except tk.TclError:app_logging.swallowed()
+    def remove_idea_ref_line(self,path):
+        """删掉输入框里对应「@原名／@文件名」的那一行（取消引用或删除副本时调用）。"""
+        box=getattr(self,'idea_input',None)
+        if box is None or not box.winfo_exists():return
+        from domain.idea_attachments import display_name
+        names={Path(path).name,display_name(path)}
+        try:last=int(str(box.index('end-1c')).split('.')[0])
+        except (tk.TclError,ValueError):return
+        for line in range(1,last+1):
+            try:text=box.get('%d.0'%line,'%d.end'%line)
+            except tk.TclError:return
+            if text.startswith('@') and text[1:] in names:
+                try:box.delete('%d.0'%line,'%d.0'%(line+1))
+                except tk.TclError:app_logging.swallowed()
+                return
+    def _idea_attachment_at(self,event):
+        """右键落点是否命中「@名」行；命中返回对应已入库路径，否则 None。"""
+        box=getattr(self,'idea_input',None)
+        if box is None or getattr(event,'widget',None) is not box:return None
+        try:
+            index=box.index('@%d,%d'%(int(event.x),int(event.y)))
+            line=int(str(index).split('.')[0])
+            text=box.get('%d.0'%line,'%d.end'%line)
+        except (tk.TclError,ValueError,TypeError,AttributeError):return None
+        if not text.startswith('@') or not text[1:]:return None
+        name=text[1:]
         from stage_execution_service import stage_idea_attachment_paths
-        from domain.idea_attachments import archive_pair, display_name
-        from ui_tokens import ICON_CLOSE, ICON_DOCUMENT
-        from ui_widgets import Tooltip
-        def upload_order(path):
-            original,_converted=archive_pair(path)
-            archived=original if original.is_file() else path
-            return archived.stat().st_ctime_ns,path.name
-        def key(path):
-            try:return str(Path(path).resolve())
-            except OSError:return str(path)
-        paths=sorted(stage_idea_attachment_paths(self.root),key=upload_order)
-        referenced={key(path) for path in getattr(self,'idea_attachment_paths',())}
-        known={key(path) for path in paths}
-        paths+=[Path(path) for path in getattr(self,'idea_attachment_paths',()) if key(path) not in known]
-        for child in panel.winfo_children():child.destroy()
-        tips=getattr(self,'_idea_attachment_tips',{})
-        for path in paths:
-            name=display_name(path)
-            selected=key(path) in referenced
-            chip=ttk.Frame(panel,style='Tokens.Chip.Selected.TFrame' if selected else 'Tokens.Chip.TFrame',
-                           padding=(SPACING['sm'],SPACING['xs']))
-            icon=ttk.Label(chip,text=ICON_DOCUMENT,style='Composer.Chip.Icon.TLabel')
-            icon.pack(side='left')
-            limit=CHAR_WIDTH['3xl']
-            title=ttk.Label(chip,text=name if len(name)<=limit else name[:limit-1]+'…',style='Composer.TLabel')
-            close=ttk.Label(chip,text=ICON_CLOSE,style='Composer.Chip.Close.TLabel',cursor='hand2')
-            title.pack(side='left',padx=(SPACING['xs'],close.winfo_reqwidth()+SPACING['xs']))
-            close.place(relx=1.0,x=SPACING['sm'],y=-SPACING['xs'],anchor='ne')
-            chip.attachment_path,chip.close_button=path,close
-            tip=name+('（%s）' % tips[name] if name in tips else '')
-            tip+='\n本轮会一起发送' if selected else '\n单击打开；点 × 删除'
-            for widget in (chip,icon,title):
-                widget.bind('<Button-1>',lambda event,item=path:self.safe(lambda:self.open_uploaded_idea_attachment(item)) or 'break')
-                Tooltip(widget,tip)
-            close.bind('<Button-1>',lambda event,item=path:self.safe(lambda:self.delete_uploaded_idea_attachment(item)) or 'break')
-            for sequence,flag in (('<Enter>','active'),('<Leave>','!active')):close.bind(sequence,lambda event,flag=flag:event.widget.state([flag]),add='+')
-            Tooltip(close,'删除附件')
-        if not paths:return panel.pack_forget()
-        if not panel.winfo_manager():panel.pack(side='top',fill='x',expand=False,padx=(SPACING['xs'],SPACING['xs']))
-        panel.schedule()
+        from domain.idea_attachments import display_name
+        seen=set()
+        candidates=list(stage_idea_attachment_paths(self.root))+[Path(p) for p in getattr(self,'idea_attachment_paths',())]
+        for path in candidates:
+            key=str(path)
+            if key in seen:continue
+            seen.add(key)
+            if name in (display_name(path),Path(path).name):return path
+        return None
+    def unreference_idea_attachment(self,path):
+        """右键「取消引用」：移出本轮发送名单，项目副本保留，并删掉输入框里的 @ 行。"""
+        from domain.idea_attachments import display_name
+        name=display_name(path)
+        self.idea_chat_controller.unreference_attachment(path)
+        self.remove_idea_ref_line(path)
+        self.update_idea_attachment_status()
+        self.status.set('已取消引用：'+name+'；文件仍保留在项目已上传列表。')
     def choose_idea_attachments(self):
         """选择创意附档；分模式准入、归档和解析均在后台进行。"""
         paths=self.file_dialog.open_files(

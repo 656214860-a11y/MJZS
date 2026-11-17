@@ -247,9 +247,13 @@ class ScriptPagesMixin:
             return
         if self.script_task_active():
             button.configure(text=ICON_STOP, command=lambda: self.safe(self.interrupt_script_agent))
+            icon=getattr(button,'_icon_stop',None)
+            if icon is not None:button.configure(image=icon)
             button.state(['!disabled'])
             return
         button.configure(text=ICON_SEND, command=lambda: self.safe(shared.send))
+        icon=getattr(button,'_icon_send',None)
+        if icon is not None:button.configure(image=icon)
         try:
             missing = self._idea_live_missing()
         except Exception:

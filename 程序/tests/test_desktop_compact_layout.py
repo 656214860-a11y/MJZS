@@ -95,10 +95,19 @@ class CompactDesktopGeometryTests(unittest.TestCase):
                     self.assertLessEqual(widget.winfo_rooty()+widget.winfo_height(),
                                          canvas.winfo_rooty()+canvas.winfo_height()+1)
                     self.assertGreaterEqual(widget.winfo_height(), widget.winfo_reqheight())
-                # R2962：文件栏改右侧停靠面板（默认收起）；打开后底边仍不得越出内容区。
+                # R2962：文件栏改右侧停靠面板（默认收起）；R3060 起面板停靠列与输入框同列，
+                # 全高覆盖画布＋共享输入区，底边不越出停靠列、且延伸到画布底边以下。
                 d.files_panel.open_panel();self.pump(.05)
                 self.assertTrue(d.files_panel._open,'有项目时入口允许打开文件面板')
-                self.assertLessEqual(d.script_box.winfo_rooty()+d.script_box.winfo_height(), d.canvas.winfo_rooty()+d.canvas.winfo_height()+2)
+                self.assertLessEqual(d.script_box.winfo_rooty()+d.script_box.winfo_height(),
+                                     d.panel_area.winfo_rooty()+d.panel_area.winfo_height()+2)
+                self.assertGreater(d.script_box.winfo_rooty()+d.script_box.winfo_height(),
+                                   d.canvas.winfo_rooty()+d.canvas.winfo_height(),
+                                   'R3060：面板全高停靠，底边延伸到共享输入框一侧')
+                # 共享输入框与聊天框同宽：面板打开时两者右缘一致。
+                self.assertAlmostEqual(d.shared_input.winfo_rootx()+d.shared_input.winfo_width(),
+                                       d.canvas.winfo_rootx()+d.canvas.winfo_width(), delta=2,
+                                       msg='输入框宽度须与聊天框一致')
                 d.files_panel.collapse();self.pump(.05)
                 self.assertLessEqual(d.content.winfo_height(), d.canvas.winfo_height()+2)
 

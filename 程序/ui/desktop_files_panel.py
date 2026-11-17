@@ -46,7 +46,9 @@ class ProjectFilesPanel(WritingSnapshotsMixin):
         """建入口图标列与停靠面板；初始收起，文件列表默认隐藏（REQ-S01-90）。"""
         page = self.page
         image = IconLoader.nav_icon(page.win, 'project_files')
-        area = page.canvas.master
+        # R3060：图标列挂 panel_area（panel_dock 的父级）而非画布列——面板打开时
+        # 停靠列从图标列左侧让位，图标恒为内容区最右竖条。
+        area = getattr(page, 'panel_area', None) or page.canvas.master
         # R2998：入口从标题行迁到内容区右缘独立图标列——先于任何停靠面板 pack，
         # 恒为该容器最右竖条（与画布同高，图标在列顶、下方留白给后续图标）。
         self.rail = ttk.Frame(area)
@@ -61,6 +63,12 @@ class ProjectFilesPanel(WritingSnapshotsMixin):
         self._pack_button()
         Tooltip(self.button, '项目文件')
         page.files_button = self.button
+
+        # R3060：面板停靠列独立于画布列（canvas.master 已是 stage_area），输入框与聊天框同宽收窄；
+        # 停靠框/分隔线都进 panel_dock，面板宽度不再与 stage_area 竞争需求宽度。
+        dock = getattr(page, 'panel_dock', None)
+        area = dock or getattr(page, 'panel_area', None) or page.canvas.master
+        self._dock = dock if dock is area else None
         self.script_box = ttk.Frame(area, padding=(SPACING['xs'], SPACING['xs']))
         self.sep = ttk.Separator(area, orient='vertical')
         self.script_header = ttk.Frame(self.script_box)
@@ -162,8 +170,18 @@ class ProjectFilesPanel(WritingSnapshotsMixin):
         if self._open or not self._entry_allowed():
             return
         self._open = True
-        self.script_box.pack(side='right', fill='y')
-        self.sep.pack(side='right', fill='y')
+        # R3060：分隔线贴停靠列左缘、文件框吃满列宽；停靠列此刻才打包进 panel_area
+        # （常驻空包会让 Tk 卡住需求宽度，画布被永久挤窄）。
+        if self._dock is not None:
+            # 先把子件装进未映射的停靠列（需求宽度先算好），再把整列打包进 panel_area，
+            # 避免空列先占位、内容装入后需求宽度在小窗下传不进来。
+            self.sep.pack(side='left', fill='y')
+            self.script_box.pack(side='left', fill='both', expand=True)
+            if not self._dock.winfo_manager():
+                self._dock.pack(side='right', fill='y')
+        else:
+            self.script_box.pack(side='right', fill='both', expand=True)
+            self.sep.pack(side='right', fill='y')
         self._bind_outside()
         self.fill_script_list()
         fit = getattr(self.page, 'fit_content', None)
@@ -179,6 +197,9 @@ class ProjectFilesPanel(WritingSnapshotsMixin):
         self._unbind_outside()
         self.script_box.pack_forget()
         self.sep.pack_forget()
+        # 连停靠列一起撤：只 forget 子件会让空列需求宽度卡住、画布无法收回。
+        if self._dock is not None and self._dock.winfo_manager():
+            self._dock.pack_forget()
         fit = getattr(self.page, 'fit_content', None)
         if callable(fit):
             fit()
@@ -332,7 +353,10 @@ class ProjectFilesPanel(WritingSnapshotsMixin):
         else:
             needed = SCRIPT_LIST_MIN_WIDTH
         try:
-            share = int(self.script_box.master.winfo_width() * SCRIPT_PANEL_MAX_SHARE)
+            # R3060：script_box.master 已是自适应宽度的 panel_dock，拿它当分母会形成
+            # 「面板宽→停靠列宽→上限」的循环；内容区宽度应量 panel_area（画布列同级外框）。
+            host = getattr(self.page, 'panel_area', None) or self.script_box.master
+            share = int(host.winfo_width() * SCRIPT_PANEL_MAX_SHARE)
         except tk.TclError:
             share = SCRIPT_PANEL_MAX_WIDTH
         cap = max(SCRIPT_LIST_MIN_WIDTH, min(share, SCRIPT_PANEL_MAX_WIDTH))

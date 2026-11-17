@@ -288,5 +288,5 @@ def make_shared_input(desktop):
     """桌面宿主唯一一份共享输入框实例（任务书轮 4：跨页同实例，只换 ``set_stage``）。"""
     import desktop_shared_input
     return desktop_shared_input.SharedStageInput(
-        desktop.body, desktop=desktop, stage='script',
+        getattr(desktop, 'input_dock', None) or desktop.body, desktop=desktop, stage='script',
         shortcuts=desktop.shortcuts, options=host_options(desktop))

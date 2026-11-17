@@ -55,8 +55,17 @@ class IdeaMenusMixin:
         self._bubble_menu=menu
         return menu.popup(event)
     def open_idea_paste_menu(self,event):
-        """输入框右键时，仅在剪贴板有文字时给出粘贴入口。"""
+        """输入框右键：落在「@附件名」行上时给附件操作（R3060），否则仅剪贴板有文字时给粘贴。"""
         box=event.widget
+        from pet_state import PAGE_OF
+        ref=self._idea_attachment_at(event) if getattr(self,'page_index',None)==PAGE_OF['script'] else None
+        if ref is not None:
+            menu=self.project_page_services.context_menu(box, menu_factory=tk.Menu)
+            menu.command('打开附件',lambda:self.open_uploaded_idea_attachment(ref))
+            menu.command('删除附件（移入回收站）',lambda:self.delete_uploaded_idea_attachment(ref))
+            menu.command('取消引用',lambda:self.unreference_idea_attachment(ref))
+            self._idea_paste_menu=menu
+            return menu.popup(event)
         try:text=str(box.clipboard_get() or '')
         except tk.TclError:return 'break'
         if not text:return 'break'
@@ -80,5 +89,6 @@ class IdeaMenusMixin:
                        dangerous=True):return
         try:self.idea_chat_controller.delete_attachment(self.root,path)
         finally:
+            self.remove_idea_ref_line(path)
             self.update_idea_attachment_status()
         self.status.set('已移入回收站：'+name+'；原始文件未删除。')
