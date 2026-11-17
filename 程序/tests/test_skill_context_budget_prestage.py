@@ -118,8 +118,18 @@ class SkillContextBudgetPrestageTests(unittest.TestCase):
 
     def test_huge_body_refuses_with_real_breakdown(self):
         path = self.skill('huge', '巨大正文' * 5000)
-        with self.assertRaisesRegex(ValueError, '正文合计.*huge.*包装'):
+        with self.assertRaisesRegex(ValueError, '正文合计.*huge.*包装') as raised:
             self.freeze(self.config(path), {'context_length': 9000})
+        message = str(raised.exception)
+        self.assertLessEqual(len(message.splitlines()), 3)
+        self.assertIn('预算', message)
+        self.assertIn('已阻止发送', message)
+        detail = raised.exception.detail
+        self.assertEqual(detail['body_tokens'], estimate_tokens('巨大正文' * 5000))
+        self.assertEqual(detail['fixed_tokens'], detail['body_tokens'] + detail['wrapper_tokens'])
+        self.assertGreater(detail['wrapper_tokens'], 0)
+        self.assertEqual(detail['hint_tokens'], 0)
+        self.assertEqual(detail['budget_tokens'], skill_inline_token_budget(9000))
 
     def test_wrappers_locks_and_long_skipped_hints_stay_within_budget(self):
         path = self.skill('wrapper', '正文\n' + '\n'.join(f'[引用{i}]({"x" * 100}{i}.md)' for i in range(12)))
@@ -201,7 +211,7 @@ class SkillContextBudgetPrestageTests(unittest.TestCase):
 
     def test_already_sent_resource_does_not_reserve_again_in_later_child(self):
         """REQ-S01-31：后出现的父引用不为已发送资源制造幽灵预留。"""
-        from orchestrator.skill_inline import _append_hint, _charge_reference
+        from orchestrator.skill_inline import _append_hint, _charge_reference, _ReferenceContext
         resource = self.root / 'LICENSE'
         source = self.root / 'child.md'
         hint = f'\n\n<!-- 本请求不发送该资源，本地路径：{resource} -->'
@@ -211,9 +221,8 @@ class SkillContextBudgetPrestageTests(unittest.TestCase):
                   'pending': {('resource', str(resource)): estimate_tokens(hint)}}
         blocks = []
         _append_hint(blocks, resource, hint, budget)
-        self.assertTrue(_charge_reference(budget, source, '', block, body,
-                                         roots=[self.root], locks={}, seen=set(), sections=set(),
-                                         reader=lambda path: 'unused'))
+        context = _ReferenceContext([self.root], {}, set(), set(), lambda path: 'unused')
+        self.assertTrue(_charge_reference(budget, source, '', block, body, context))
         self.assertEqual(budget['remaining'], 0)
         self.assertEqual(budget['pending'], {})
 

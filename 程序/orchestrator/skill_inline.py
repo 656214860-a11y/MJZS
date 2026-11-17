@@ -5,6 +5,7 @@
 R2540 给递归补上按模型窗口推导的估算 token 预算（``_charge_inline``），装不下的引用记
 ``skipped`` 并留本地路径提示——CLI／桌面引擎有目录白名单可按需读取，API 直发则保持不超窗。
 """
+from dataclasses import dataclass
 from pathlib import Path
 
 import orchestrator.skill_registry as skill_registry
@@ -12,6 +13,15 @@ from orchestrator.skill_registry import reference_row as _reference_row
 from contract.workflow_context_budget import estimate_tokens, skill_inline_token_budget, preset_context_length
 
 _TEXT_SCRIPT_SUFFIXES = ('.py', '.sh', '.ps1', '.bat', '.cmd', '.json', '.yaml', '.yml', '.toml', '.ini', '.cfg')
+
+
+@dataclass(frozen=True)
+class _ReferenceContext:
+    roots: object
+    locks: object
+    seen: set
+    sections: set
+    reader: object
 
 
 def _skill_envelope(name, blocks):
@@ -28,9 +38,12 @@ def _reserve_frozen_text(budget, fixed_text, body_cost, names, hint_reserves):
     hint_cost = sum(hint_reserves.values())
     limit = budget['remaining']
     if fixed_cost + hint_cost > limit:
-        raise ValueError(f'SKILL/阶段指令超出预算：正文合计 {body_cost:,} token（{"、".join(names)}）；'
-                         f'包装/制作锁/质量提示 {fixed_cost - body_cost:,} token，'
-                         f'未发送引用提示 {hint_cost:,} token；预算 {limit:,} token，已阻止发送。')
+        error = ValueError(f'正文合计 {body_cost:,} token（{"、".join(names)}）；包装 {fixed_cost - body_cost:,} token\n'
+                           f'引用提示 {hint_cost:,} token；预算 {limit:,} token\n已阻止发送。')
+        error.detail = {'body_tokens': body_cost, 'fixed_tokens': fixed_cost,
+                        'wrapper_tokens': fixed_cost - body_cost, 'hint_tokens': hint_cost,
+                        'budget_tokens': limit}
+        raise error
     budget['remaining'] = limit - fixed_cost - hint_cost
     budget['pending'] = hint_reserves
 
@@ -94,8 +107,10 @@ def _skill_inline_budget(config, record=None, program=None):
     return {'remaining': skill_inline_token_budget(limit), 'context_length': limit, 'source': source, 'model': model}
 
 
-def _reference_frontier(source, text, *, roots, locks, seen, sections, reader, allow_folder=False):
+def _reference_frontier(source, text, context, *, allow_folder=False):
     """只读当前层候选，预留发送块/未发送提示中的较小值；不展开后代。"""
+    roots, locks = context.roots, context.locks
+    seen, sections, reader = context.seen, context.sections, context.reader
     frontier = {}
     for entry in skill_registry.reference_targets(text):
         relative = entry['path']
@@ -128,7 +143,7 @@ def _reference_frontier(source, text, *, roots, locks, seen, sections, reader, a
     return frontier
 
 
-def _charge_reference(budget, reference, fragment, block, body, *, roots, locks, seen, sections, reader):
+def _charge_reference(budget, reference, fragment, block, body, context):
     """父块和新增子 frontier 原子分配；失败只发送父提示，绝不读取孙辈。"""
     if budget is None or 'pending' not in budget:
         return _charge_inline(budget, block)
@@ -138,8 +153,9 @@ def _charge_reference(budget, reference, fragment, block, body, *, roots, locks,
     cost = estimate_tokens(block) + quality_cost
     if cost > budget['remaining']:
         return False
-    children = _reference_frontier(reference, body, roots=roots, locks=locks,
-                                   seen=seen | {reference}, sections=sections, reader=reader)
+    child_context = _ReferenceContext(context.roots, context.locks, context.seen | {reference},
+                                      context.sections, context.reader)
+    children = _reference_frontier(reference, body, child_context)
     sent_resources = budget.get('sent_resources', set())
     children = {key: value for key, value in children.items()
                 if key not in budget['pending'] and key not in sent_resources}
@@ -208,6 +224,7 @@ def _recurse_references(reference, body, context, *, reader=None, roots=None):
     next_depth = depth - 1 if depth > 0 else depth
     roots = skill_registry.skill_roots() if roots is None else roots
     reader = reader or (lambda path: path.read_text(encoding='utf-8-sig'))
+    reference_context = _ReferenceContext(roots, locks, seen, sections, reader)
     out = []
     for entry in skill_registry.reference_targets(body):
         relative = entry['path']
@@ -244,8 +261,7 @@ def _recurse_references(reference, body, context, *, reader=None, roots=None):
             continue
         if text_script:
             block = f'\n\n## 脚本: {target.name}\n```{target.suffix.lstrip(".")}\n{nested_body}\n```'
-            if _charge_reference(budget, target, fragment, block, '', roots=roots, locks=locks,
-                                 seen=seen, sections=sections, reader=reader):
+            if _charge_reference(budget, target, fragment, block, '', context=reference_context):
                 seen.add(target)
                 blocks.append((target, block))
                 out.append(_reference_row(entry, target, 'inlined', 2))
@@ -256,8 +272,7 @@ def _recurse_references(reference, body, context, *, reader=None, roots=None):
         part = skill_registry.section(nested_body, fragment)
         if part is not None:
             block = f'\n\n## 引用: {target.name}#{fragment}（节选）\n{part}'
-            if not _charge_reference(budget, target, fragment, block, part, roots=roots, locks=locks,
-                                     seen=seen, sections=sections, reader=reader):
+            if not _charge_reference(budget, target, fragment, block, part, reference_context):
                 sections.add((target, fragment))
                 _append_hint(blocks, target, _skipped_inline_hint(target), budget)
                 out.append(_reference_row(entry, target, 'skipped', 2))
@@ -269,8 +284,7 @@ def _recurse_references(reference, body, context, *, reader=None, roots=None):
                 out.extend(_recurse_references(target, part, (strict, locks, next_depth, blocks, seen, sections, budget), reader=reader, roots=roots))
             continue
         block = f'\n\n## 引用: {target.name}\n{nested_body}'
-        if not _charge_reference(budget, target, fragment, block, nested_body, roots=roots, locks=locks,
-                                 seen=seen, sections=sections, reader=reader):
+        if not _charge_reference(budget, target, fragment, block, nested_body, context=reference_context):
             seen.add(target)
             _append_hint(blocks, target, _skipped_inline_hint(target), budget)
             out.append(_reference_row(entry, target, 'skipped', 2))

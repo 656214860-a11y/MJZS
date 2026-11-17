@@ -11,7 +11,7 @@ from orchestrator.skill_registry import nested_references as _nested_references,
 from orchestrator.skill_inline import (_charge_inline, _is_text_script, _recurse_references,
                           _skill_inline_budget, _skipped_inline_hint, _append_hint,
                           _skill_envelope, _reserve_frozen_text, _reference_frontier, _charge_reference,
-                          _skill_roots_for_path, _skill_snapshot_reader)
+                          _skill_roots_for_path, _skill_snapshot_reader, _ReferenceContext)
 import infra.client_profiles as client_profiles, orchestrator.edit_habits as edit_habits, stage_layout
 from contract.script_contract import PRODUCTION_LOCK_DEFINITIONS, STAGE_LOCK_REQUIREMENTS, lock_stage
 from contract.workflow_context_budget import REQUEST_CONTEXT_MAX_CHARS, estimate_tokens, skill_inline_token_budget
@@ -662,6 +662,7 @@ def _skill_blocks(path, *, strict, locks=None, depth=0, budget=None, reader=None
     seen, sections = ({path}, set()) if shared is None else shared
     seen.add(path)
     roots = _skill_roots_for_path(path)
+    reference_context = _ReferenceContext(roots, locks, seen, sections, reader)
     for entry in skill_registry.reference_targets(text):
         relative = entry['path']
         if relative is None:
@@ -701,8 +702,7 @@ def _skill_blocks(path, *, strict, locks=None, depth=0, budget=None, reader=None
                                    closure) from exc
         if text_script:
             block = f'\n\n## 脚本: {reference.name}\n```{reference.suffix.lstrip(".")}\n{body}\n```'
-            if _charge_reference(budget, reference, fragment, block, '', roots=roots, locks=locks,
-                                 seen=seen, sections=sections, reader=reader):
+            if _charge_reference(budget, reference, fragment, block, '', context=reference_context):
                 seen.add(reference)
                 blocks.append((reference, block))
                 closure.append(_reference_row(entry, reference, 'inlined'))
@@ -714,8 +714,7 @@ def _skill_blocks(path, *, strict, locks=None, depth=0, budget=None, reader=None
         part = skill_registry.section(body, fragment)
         if part is not None:
             block = f'\n\n## 引用: {reference.name}#{fragment}（节选）\n{part}'
-            if not _charge_reference(budget, reference, fragment, block, part, roots=roots, locks=locks,
-                                     seen=seen, sections=sections, reader=reader):
+            if not _charge_reference(budget, reference, fragment, block, part, context=reference_context):
                 sections.add((reference, fragment))
                 _append_hint(blocks, reference, _skipped_inline_hint(reference), budget)
                 closure.append(_reference_row(entry, reference, 'skipped'))
@@ -730,8 +729,7 @@ def _skill_blocks(path, *, strict, locks=None, depth=0, budget=None, reader=None
                 closure.extend(_nested_references(reference, part, seen | {reference}, roots))
             continue
         block = f'\n\n## 引用: {reference.name}\n{body}'
-        if not _charge_reference(budget, reference, fragment, block, body, roots=roots, locks=locks,
-                                 seen=seen, sections=sections, reader=reader):
+        if not _charge_reference(budget, reference, fragment, block, body, context=reference_context):
             seen.add(reference)
             _append_hint(blocks, reference, _skipped_inline_hint(reference), budget)
             closure.append(_reference_row(entry, reference, 'skipped'))
@@ -795,8 +793,8 @@ def freeze_skills(config, *, model_snapshot=None):
         mandatory.append(_skill_envelope(name, [(path, f'<!-- 来源: {path} -->\n{content}')]))
         body_cost += estimate_tokens(content)
         roots = _skill_roots_for_path(path)
-        frontier.update(_reference_frontier(path, text, roots=roots, locks=locks,
-                                            seen=selected_paths, sections=set(), reader=read, allow_folder=True))
+        context = _ReferenceContext(roots, locks, selected_paths, set(), read)
+        frontier.update(_reference_frontier(path, text, context, allow_folder=True))
     quality = quality_prompt()
     fixed = header + ''.join(mandatory)
     quality_enabled = enabled(fixed)

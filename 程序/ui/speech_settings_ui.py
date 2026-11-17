@@ -10,6 +10,7 @@ from tkinter import ttk
 import domain.speech_api as speech_api
 import domain.voice_ai as voice_ai
 from agent.core import save as save_json
+from responsive_ui import ScrollForm
 from ui_tokens import BUTTON_GAP, DIALOG_CONTENT_PADDING, DIALOG_MIN_HEIGHT, FONTS, SPACING, TEXT_DESC, TEXT_ROWS
 from ui_widgets import (BaseDialog, Card, LineInput, PrimaryButton, SecondaryButton,
                         SelectBox, TextArea)
@@ -107,18 +108,27 @@ def _offline_package_row(card, win, row, variables, hint):
     return setup_row, (runner, setup_state, setup_progress, setup_button)
 
 
+def _scrolling_form(win):
+    """长表单独立滚动，底部动作始终可达。"""
+    actions = ttk.Frame(win)
+    actions.pack(side='bottom', fill='x', padx=SPACING['md'], pady=SPACING['md'])
+    view = ScrollForm(win)
+    card = Card(view.form)
+    card.pack(fill='both', expand=True, padx=SPACING['md'], pady=SPACING['md'])
+    return actions, card, view
+
+
 def open_speech_settings(pet, parent=None):
     """``parent`` 是模型管理窗；外壳与模型管理的小窗同款：非模态、Escape 关闭、内容放进 Card。
 
-    只给宽度下限、不写死尺寸：高度随内容（高 DPI、保存失败时多出的提示行）撑开。
+    只给宽度下限、不写死尺寸：长表单可滚动，保存动作固定在底部可见。
     """
     win = BaseDialog(parent, '', modal=False, chrome=False)
     win.title(SPEECH_TITLE)
     win.minsize(TEXT_DESC['wraplength'] + 2 * DIALOG_CONTENT_PADDING, DIALOG_MIN_HEIGHT)
     win.transient(parent or None)
     win.bind('<Escape>', lambda event: win.destroy())
-    card = Card(win)
-    card.pack(fill='both', expand=True, padx=SPACING['md'], pady=SPACING['md'])
+    actions, card, view = _scrolling_form(win)
     card.columnconfigure(1, weight=1)
     ttk.Label(card, text=SPEECH_TITLE, font=FONTS['title']).grid(row=0, column=0, columnspan=2, sticky='w')
     ttk.Label(card, text=SPEECH_NOTE, style='Muted.TLabel', wraplength=TEXT_DESC['wraplength']).grid(
@@ -179,7 +189,6 @@ def open_speech_settings(pet, parent=None):
     replace_area = TextArea(card, height=TEXT_ROWS['sm'], wrap='none')
     replace_area.grid(row=r, column=1, sticky='ew', pady=SPACING['xs'])
     dict_widgets['replace'] = replace_area
-    bar_row = r + 1
 
     def field_value(settings, key):
         if key.startswith('offline.'):
@@ -247,8 +256,8 @@ def open_speech_settings(pet, parent=None):
     fill(speech_api.read_settings())
     fill_dictionary(speech_api.read_dictionary())
     variables['key_env'].trace_add('write', show_key_state)
-    bar = ttk.Frame(card)
-    bar.grid(row=bar_row, column=0, columnspan=2, sticky='ew', pady=(SPACING['md'], SPACING['none']))
+    view.bind_wheel()
+    bar = actions
     SecondaryButton(bar, text='恢复默认', command=reset).pack(side='left')
     PrimaryButton(bar, text='保存', command=save).pack(side='right')
     SecondaryButton(bar, text='取消', command=win.destroy).pack(side='right', padx=(SPACING['none'], BUTTON_GAP))
