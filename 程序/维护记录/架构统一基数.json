@@ -38,7 +38,9 @@
       "asset_reference_prompts",
       "writing_stream"
     ],
-    "historical_name_audit_pending": [],
+    "historical_name_audit_pending": [
+      "idea_script_heuristic"
+    ],
     "historical_name_audited": [
       "asset_gating",
       "keyframe",
