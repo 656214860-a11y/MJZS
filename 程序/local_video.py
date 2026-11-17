@@ -366,7 +366,8 @@ def open_studio(root,episode_file=None):
         raise ValueError('项目配置文件 config.json 无法读取：'+str(exc)) from None
     if not isinstance(cfg,dict):
         raise ValueError('项目配置文件 config.json 顶层必须为对象')
-    if cfg.get('video_backend','comfy')=='comfy':return LocalStudio(root,episode_file=episode_file)
+    # R3162 M2：缺省后端为云端；配置里显式写 'comfy' 的项目仍走本地（用户选择不动）。
+    if cfg.get('video_backend','cloud')=='comfy':return LocalStudio(root,episode_file=episode_file)
     if cfg.get('cloud_provider')=='openai':
         raise ValueError('此视频服务商已移除，请在视频生成设置中选择万相或Seedance')
     if cfg.get('cloud_provider')=='volcengine':

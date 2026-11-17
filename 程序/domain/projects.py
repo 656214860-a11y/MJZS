@@ -405,7 +405,8 @@ class Projects:
         # ffmpeg/ffprobe 不再复制进项目配置：读取时经 tool_path 解析（显式有效配置>随包>PATH，R3154）。
         cfg.pop('ffmpeg',None);cfg.pop('ffprobe',None)
         # 项目稳定身份：新建项目当场定下 UUID，白模等对外目录按身份隔离，不受重名或改名影响。
-        cfg.update(project_id=uuid.uuid4().hex,episode_dir=str(story),episode_file=str(story/'episode.json'),asset_library_dir='05资产管理',live_enabled=False,budget_seconds=0,reserve_seconds=0,video_backend='comfy')
+        # R3162 M2：新建项目默认云端；本地 ComfyUI 由用户在视频页/设置里显式选择（local_video_settings 写回 comfy）。
+        cfg.update(project_id=uuid.uuid4().hex,episode_dir=str(story),episode_file=str(story/'episode.json'),asset_library_dir='05资产管理',live_enabled=False,budget_seconds=0,reserve_seconds=0,video_backend='cloud')
         self._publish_json(dst/'config.json',cfg);self.organize(dst)
         self.info['projects'].append({'name':name,'path':str(dst),'created_at':datetime.now().timestamp()});self.info['active']=str(dst);self._publish_json(self.registry,self.info)
         return dst

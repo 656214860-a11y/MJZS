@@ -143,14 +143,14 @@ def check_comfy(settings):
     if exe is not None:
         return row('comfyui', 'ComfyUI 桌面程序', OK, str(exe))
     return row('comfyui', 'ComfyUI 桌面程序', WARN, '未找到',
-               '使用本地出图／视频时，在助手点击「桌面打开 ComfyUI」选择程序；只用云端模型可忽略')
+               '可选依赖：使用本地出图／视频／分镜预演时，在助手点击「桌面打开 ComfyUI」选择程序；只用云端模型可忽略')
 
 
 def check_blender(find=white_model_service.find_blender):
     exe = find()
     if exe:
         return row('blender', 'Blender', OK, str(exe))
-    return row('blender', 'Blender', WARN, '未找到', '需要白模预演时安装 Blender，或在白模设置里指定；不做白模可忽略')
+    return row('blender', 'Blender', WARN, '未找到', '可选依赖：需要白模预演时安装 Blender，或在白模设置里指定；不做白模可忽略')
 
 
 def check_desktop_programs(find=workflow_settings.find_program):

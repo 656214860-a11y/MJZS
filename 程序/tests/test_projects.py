@@ -31,6 +31,10 @@ class ProjectsGatewayTests(unittest.TestCase):
             imported = json.loads(Path(cfg['episode_file']).read_text(encoding='utf-8'))
             self.assertEqual(imported, episode)
             self.assertFalse(cfg['live_enabled'])
+            # R3162 M2：新建项目默认云端后端；已有项目的显式取值不受影响。
+            self.assertEqual(cfg['video_backend'], 'cloud')
+            self.assertNotIn('ffmpeg', cfg)
+            self.assertNotIn('ffprobe', cfg)
             from project_stages import assets as asset_dir
             first = Path(result.data)
             imported_assets = asset_dir(first) / 'assets.json'
