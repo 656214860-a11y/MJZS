@@ -15,6 +15,7 @@
 """
 import ast
 import json
+import threading
 from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
@@ -28,6 +29,10 @@ FOLDER = '创意对话'
 CHAT_NAME = '对话.json'
 _HISTORY_CACHE_LIMIT = 16
 _history_cache = OrderedDict()
+# ``_history_cache`` 的 get→move_to_end、set→move_to_end→popitem(last=False)、
+# pop 与全部清空路径必须在这把锁内原子完成，否则并发命中/写入/淘汰交错会抛
+# KeyError；淘汰上限判断也在锁内。JSON 读写等 IO 一律放在锁外。
+_HISTORY_CACHE_LOCK = threading.RLock()
 
 
 def _context(value):
@@ -93,13 +98,15 @@ def _read_rows(path, gateway):
     try:
         stat = path.stat()
     except OSError:
-        _history_cache.pop(path, None)
+        with _HISTORY_CACHE_LOCK:
+            _history_cache.pop(path, None)
         return []
     fingerprint = (stat.st_mtime_ns, stat.st_size)
-    cached = _history_cache.get(path)
-    if cached and cached[0] == fingerprint:
-        _history_cache.move_to_end(path)
-        return [dict(row) for row in cached[1]]
+    with _HISTORY_CACHE_LOCK:
+        cached = _history_cache.get(path)
+        if cached and cached[0] == fingerprint:
+            _history_cache.move_to_end(path)
+            return [dict(row) for row in cached[1]]
     try:
         data = gateway['read_json'](path)
     except (OSError, ValueError):
@@ -109,10 +116,11 @@ def _read_rows(path, gateway):
         return []
     rows = [message_parts.ensure_parts(dict(row)) for row in rows if isinstance(row, dict)]
     rows = [row for row in rows if message_parts.has_content(row)]
-    _history_cache[path] = (fingerprint, tuple(rows))
-    _history_cache.move_to_end(path)
-    while len(_history_cache) > _HISTORY_CACHE_LIMIT:
-        _history_cache.popitem(last=False)
+    with _HISTORY_CACHE_LOCK:
+        _history_cache[path] = (fingerprint, tuple(rows))
+        _history_cache.move_to_end(path)
+        while len(_history_cache) > _HISTORY_CACHE_LIMIT:
+            _history_cache.popitem(last=False)
     return [dict(row) for row in rows]
 
 
@@ -275,12 +283,14 @@ def save_rows(root, rows, model=None, provider='', *, gateway=None):
     try:
         stat = path.stat()
         clean = tuple(dict(row) for row in rows if isinstance(row, dict) and message_parts.has_content(row))
-        _history_cache[path] = ((stat.st_mtime_ns, stat.st_size), clean)
-        _history_cache.move_to_end(path)
-        while len(_history_cache) > _HISTORY_CACHE_LIMIT:
-            _history_cache.popitem(last=False)
+        with _HISTORY_CACHE_LOCK:
+            _history_cache[path] = ((stat.st_mtime_ns, stat.st_size), clean)
+            _history_cache.move_to_end(path)
+            while len(_history_cache) > _HISTORY_CACHE_LIMIT:
+                _history_cache.popitem(last=False)
     except OSError:
-        _history_cache.pop(path, None)
+        with _HISTORY_CACHE_LOCK:
+            _history_cache.pop(path, None)
     return rows
 
 
@@ -444,7 +454,8 @@ def _drop_rows(root, matches, *, gateway, skip=(), backup=None, unbacked=()):
         removed += len(rows) - len(left)
         payload = dict(data, messages=left) if isinstance(data, dict) else {'version': 1, 'messages': left}
         gateway['publish_json'](path, payload)
-        _history_cache.pop(path, None)
+        with _HISTORY_CACHE_LOCK:
+            _history_cache.pop(path, None)
     return removed
 
 

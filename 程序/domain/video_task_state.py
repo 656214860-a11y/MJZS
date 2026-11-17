@@ -1,4 +1,5 @@
 """Read task activity without starting, cancelling, or resubmitting a job."""
+import threading
 from pathlib import Path
 from agent.core import read
 from infra.file_cache import read_json_shared as read_cached
@@ -28,6 +29,10 @@ def provider_failure_reason(version):
 
 
 _OTHER_ACTIVE={}
+# ``_OTHER_ACTIVE`` 的 get/clear/set 复合序列必须在锁内原子完成：
+# 并发「set→按键回读」与「超限 clear」交错会抛 KeyError。签名计算与状态文件
+# 读取等 IO 一律放在锁外。
+_OTHER_ACTIVE_LOCK=threading.RLock()
 def _other_active_ids(project,own_root,source):
     """其他云端工作集里（同一分镜）仍在生成的镜头 id 集合。
 
@@ -37,8 +42,9 @@ def _other_active_ids(project,own_root,source):
     configs=config_listing(project/'cloud_video')
     signature=tuple((str(path),file_signature(path),file_signature(path.parent/'data/state.json')) for path in configs)
     key=(str(project),str(own_root),str(source))
-    hit=_OTHER_ACTIVE.get(key)
-    if hit and hit[0]==signature:return hit[1]
+    with _OTHER_ACTIVE_LOCK:
+        hit=_OTHER_ACTIVE.get(key)
+        if hit and hit[0]==signature:return hit[1]
     active=set()
     for config_path in configs:
         if resolved_path(config_path.parent)==own_root:continue
@@ -56,9 +62,10 @@ def _other_active_ids(project,own_root,source):
             if not isinstance(state,dict):continue
             for shot_id,versions in (state.get('shots') or {}).items():
                 if isinstance(versions,list) and versions and versions[-1].get('state') in ACTIVE:active.add(shot_id)
-    if len(_OTHER_ACTIVE)>64:_OTHER_ACTIVE.clear()
-    _OTHER_ACTIVE[key]=(signature,frozenset(active))
-    return _OTHER_ACTIVE[key][1]
+    with _OTHER_ACTIVE_LOCK:
+        if len(_OTHER_ACTIVE)>64:_OTHER_ACTIVE.clear()
+        _OTHER_ACTIVE[key]=(signature,frozenset(active))
+        return _OTHER_ACTIVE[key][1]
 
 
 def generation_active(studio,sid):

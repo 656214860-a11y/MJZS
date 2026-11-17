@@ -1,0 +1,15 @@
+{
+  "round": 3284,
+  "commit_base": "8f5a1414",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k domain_cache_locks white_model idea video_task_state",
+    "exit": 0,
+    "passed": 371,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T05:32:00"
+}

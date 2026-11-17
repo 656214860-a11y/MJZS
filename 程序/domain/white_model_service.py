@@ -5,6 +5,7 @@ import os
 import re
 import shutil
 import subprocess
+import threading
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -21,6 +22,10 @@ _BASE_CACHE = {}
 _DIR_CACHE = {}
 _SETTINGS_CACHE = {}
 _VERSION_CACHE = {}
+# 六个模块级缓存共用一把可重入锁：缓存都很小，get/set/clear 复合序列必须在锁内
+# 原子完成，否则并发「判定命中→取值」与「清空/淘汰」交错会抛 KeyError/IndexError。
+# 计算（读 JSON、解析路径、探测 Blender）一律放在锁外，避免把 IO 拖进临界区。
+_CACHE_LOCK = threading.RLock()
 SETTINGS_NAME = 'white_model_settings.json'
 SETTINGS_ENV = 'MANJU_WHITE_MODEL_SETTINGS'
 WORKSPACE_ENV = 'MANJU_WHITE_MODEL_WORKSPACE'
@@ -118,12 +123,14 @@ def _base(context, space):
     """(项目身份, 基目录)：有身份用项目 UUID，没有身份退回旧目录名。"""
     project = _context(context).root
     key = (str(space), str(project))
-    cached = _BASE_CACHE.get(key)
+    with _CACHE_LOCK:
+        cached = _BASE_CACHE.get(key)
     if cached is None:
         identity = project_identity(project)
         cached = (identity, (space / (identity or project.name)).resolve())
-        if len(_BASE_CACHE) >= 1024: _BASE_CACHE.clear()
-        _BASE_CACHE[key] = cached
+        with _CACHE_LOCK:
+            if len(_BASE_CACHE) >= 1024: _BASE_CACHE.clear()
+            _BASE_CACHE[key] = cached
     return project, cached
 
 
@@ -368,11 +375,13 @@ def settings_path():
 def read_settings(refresh=False):
     """读白模设置；不存在或损坏都当没有，绝不让它挡住页面。"""
     path = settings_path(); key = str(path)
-    if not refresh and key in _SETTINGS_CACHE: return _SETTINGS_CACHE[key]
+    with _CACHE_LOCK:
+        if not refresh and key in _SETTINGS_CACHE: return _SETTINGS_CACHE[key]
     data = _json_quiet(path)
     result = data if isinstance(data, dict) else {}
-    if len(_SETTINGS_CACHE) >= 256: _SETTINGS_CACHE.clear()
-    _SETTINGS_CACHE[key] = result
+    with _CACHE_LOCK:
+        if len(_SETTINGS_CACHE) >= 256: _SETTINGS_CACHE.clear()
+        _SETTINGS_CACHE[key] = result
     return result
 
 def default_workspace():
@@ -396,10 +405,12 @@ def workspace():
     """成果目录：配置优先，否则用户数据目录；按目录缓存，绝不指向 Blender 安装目录。"""
     target = configured_workspace() or default_workspace()
     key = str(target)
-    cached = _WORKSPACE_CACHE.get(key)
+    with _CACHE_LOCK:
+        cached = _WORKSPACE_CACHE.get(key)
     if cached is None:
         cached = target.resolve()
-        _WORKSPACE_CACHE.clear(); _WORKSPACE_CACHE[key] = cached
+        with _CACHE_LOCK:
+            _WORKSPACE_CACHE.clear(); _WORKSPACE_CACHE[key] = cached
     return cached
 
 def blender_candidates():
@@ -421,9 +432,11 @@ def blender_candidates():
     return choices
 
 def find_blender(refresh=False):
-    if _BLENDER_CACHE and not refresh: return _BLENDER_CACHE[0]
+    with _CACHE_LOCK:
+        if _BLENDER_CACHE and not refresh: return _BLENDER_CACHE[0]
     result = next((path for path in blender_candidates() if path.is_file()), None)
-    _BLENDER_CACHE[:] = [result]
+    with _CACHE_LOCK:
+        _BLENDER_CACHE[:] = [result]
     return result
 
 def _os_hint(exc):
@@ -451,7 +464,8 @@ def blender_version(exe, *, run=None):
     """读 blender.exe 的版本号；读不出来返回空串（版本不是可用性的前提）。"""
     if not exe: return ''
     key = str(exe)
-    if key in _VERSION_CACHE: return _VERSION_CACHE[key]
+    with _CACHE_LOCK:
+        if key in _VERSION_CACHE: return _VERSION_CACHE[key]
     text = ''
     try:
         result = run_process([key, '--version'], capture_output=True, timeout=15, run=run)
@@ -461,8 +475,9 @@ def blender_version(exe, *, run=None):
         text = ''
     match = re.search(r'Blender\s+([0-9][0-9.]*)', text)
     version = match.group(1) if match else ''
-    if len(_VERSION_CACHE) >= 64: _VERSION_CACHE.clear()
-    _VERSION_CACHE[key] = version
+    with _CACHE_LOCK:
+        if len(_VERSION_CACHE) >= 64: _VERSION_CACHE.clear()
+        _VERSION_CACHE[key] = version
     return version
 
 def legacy_workspaces(workspace_path=None):
@@ -534,12 +549,15 @@ def shot_directory(context, sid, workspace_path=None, source=None):
     parent = base if identity is None else base / episode_identity(project, sid, source)
     root = parent / sid
     if not root.is_relative_to(base): raise ValueError('镜头编号不正确')
-    key = (str(parent), str(sid)); cached = _DIR_CACHE.get(key)
+    key = (str(parent), str(sid))
+    with _CACHE_LOCK:
+        cached = _DIR_CACHE.get(key)
     if cached is not None: return cached
     resolved = root.resolve()
     if resolved == root:
-        if len(_DIR_CACHE) >= 1024: _DIR_CACHE.clear()
-        _DIR_CACHE[key] = resolved
+        with _CACHE_LOCK:
+            if len(_DIR_CACHE) >= 1024: _DIR_CACHE.clear()
+            _DIR_CACHE[key] = resolved
     return resolved
 
 
@@ -628,8 +646,24 @@ def migrate_legacy_directories(context, *, publish, workspace_path=None):
             try: publish(manifest, dict(record, status='rolled_back', moved=[item['sid'] for item in done]))
             except OSError: pass
         raise
-    _BASE_CACHE.clear(); _DIR_CACHE.clear()
+    with _CACHE_LOCK:
+        _BASE_CACHE.clear(); _DIR_CACHE.clear()
     if plan or skipped:
         publish(manifest, dict(record, status='completed', moved=[item['sid'] for item in plan]))
     return {'project_id': identity, 'moved': [item['sid'] for item in plan], 'skipped': skipped,
             'manifest': str(manifest) if (plan or skipped) else None}
+
+
+def _reset_caches():
+    """测试重置入口：在 ``_CACHE_LOCK`` 内清空全部六个模块级缓存。
+
+    并发回归与单测隔离需要一个「清空」动作与读写路径走同一把锁，
+    裸 ``.clear()`` 会绕过锁、在复合序列中间插入，正是本锁要消除的竞态。
+    """
+    with _CACHE_LOCK:
+        _BLENDER_CACHE.clear()
+        _WORKSPACE_CACHE.clear()
+        _BASE_CACHE.clear()
+        _DIR_CACHE.clear()
+        _SETTINGS_CACHE.clear()
+        _VERSION_CACHE.clear()
