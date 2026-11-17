@@ -315,5 +315,169 @@ class GlobalLibraryViewTests(StageRailTests):
         self.assertEqual(rows, ['library:角色/CHAR_001.png'])
 
 
+class FileActionsTests(StageRailTests):
+    """任务书 M5（REQ-S01-95/96）：预览列、时长／分辨率列、打开／在文件夹显示／另存为。"""
+
+    def _index_row(self, iid, stage='视频生成', category=STAGE_FILTER_ROW_CATEGORY):
+        """手工插一行并标成索引行（不依赖 file_index 内容）。"""
+        panel = self.desktop.files_panel
+        tree = panel.script_tree
+        if iid not in tree.get_children():
+            tree.insert('', 'end', iid=iid, text='', values=(iid.split('/')[-1], ''))
+        panel.script_row_category[iid] = category
+        panel.script_row_stage[iid] = stage
+        tree.selection_set(iid)
+        return iid
+
+    def test_index_view_shows_preview_and_meta_columns(self):
+        """REQ-S01-95：索引视图开 #0 预览列与「时长／分辨率」列；回剧本视图收回 #0。"""
+        panel = self.desktop.files_panel
+        panel.show_stage('assets')
+        self.pump(.3)
+        self.assertIn('tree', str(panel.script_tree.cget('show')))
+        self.assertEqual(panel.script_tree.heading('meta')['text'], '时长／分辨率')
+        panel.show_stage(None)
+        self.pump(.3)
+        shown = str(panel.script_tree.cget('show'))
+        self.assertIn('headings', shown)
+        self.assertNotIn('tree', shown.replace('headings', ''))
+
+    def test_row_preview_media_returns_placeholder_box(self):
+        """REQ-S01-95：视频行先拿到同画幅占位盒（后台封面落地后原位替换）。"""
+        import asset_thumbs
+        panel = self.desktop.files_panel
+        clip = self.project / 'clip.mp4'
+        clip.write_bytes(b'0')                      # 内容不重要，只走后缀分流
+        image = panel._row_preview(clip)
+        self.assertIsNotNone(image, '视频行应给占位盒')
+        width, height = asset_thumbs.media_geometry('video', 40)
+        self.assertEqual((image.width(), image.height()), (width, height))
+
+    def test_row_preview_text_file_returns_none(self):
+        """非媒体非图片（.md）不产预览图。"""
+        panel = self.desktop.files_panel
+        doc = self.project / '笔记.md'
+        doc.write_text('x', encoding='utf8')
+        self.assertIsNone(panel._row_preview(doc))
+
+    def test_row_meta_reads_info_sidecar(self):
+        """REQ-S01-95：「时长／分辨率」列读 M4 旁路记录；文件签名变化后重读。"""
+        import json
+        import asset_thumbs
+        panel = self.desktop.files_panel
+        clip = self.project / 'meta.mp4'
+        clip.write_bytes(b'abc')
+        stamp = asset_thumbs.file_stamp(clip)
+        info = asset_thumbs.info_file(asset_thumbs.cache_key(clip, stamp, 40))
+        info.parent.mkdir(parents=True, exist_ok=True)
+        info.write_text(json.dumps({'duration': 2.5, 'width': 320, 'height': 180}),
+                        encoding='utf-8')
+        self.assertEqual(panel._row_meta_text(clip), '2.5s · 320×180')
+        doc = self.project / 'meta.md'
+        doc.write_text('x', encoding='utf8')
+        self.assertEqual(panel._row_meta_text(doc), '')
+
+    def test_index_row_menu_lists_three_actions(self):
+        """REQ-S01-96：索引行右键给「打开／在文件夹中显示／另存为…」。"""
+        from unittest.mock import patch
+        panel = self.desktop.files_panel
+        iid = self._index_row('视频/clip.mp4')
+        tree = panel.script_tree
+        bbox = tree.bbox(iid)
+        labels = []
+        event = type('E', (), {'y': bbox[1] + 2, 'x_root': 0, 'y_root': 0})()
+
+        def capture(menu, _event):
+            last = menu.menu.index('end')
+            labels.extend(menu.menu.entrycget(i, 'label')
+                          for i in range(last + 1) if last is not None)
+            return 'break'
+
+        import ui_widgets
+        with patch.object(ui_widgets.ContextMenu, 'popup', capture):
+            panel.script_menu(tree, event)
+        for label in ('打开', '在文件夹中显示', '另存为…'):
+            self.assertIn(label, labels)
+
+    def test_save_as_cancel_writes_nothing(self):
+        """REQ-S01-96：另存为取消＝零写入。"""
+        from unittest.mock import patch
+        panel = self.desktop.files_panel
+        src = self.project / '素材' / 'a.png'
+        src.parent.mkdir(parents=True, exist_ok=True)
+        src.write_bytes(b'png')
+        self._index_row('素材/a.png', stage='资产管理')
+        with patch.object(self.desktop.file_dialog, 'save_file', return_value='') as ask:
+            panel.save_as_file()
+        self.assertTrue(ask.called)
+
+    def test_save_as_prefills_project_stage_filename(self):
+        """REQ-S01-96：预填 ``项目名_阶段名_原文件名``。"""
+        from unittest.mock import patch
+        panel = self.desktop.files_panel
+        src = self.project / '素材' / 'a.png'
+        src.parent.mkdir(parents=True, exist_ok=True)
+        src.write_bytes(b'png')
+        self._index_row('素材/a.png', stage='资产管理')
+        seen = {}
+        with tempfile.TemporaryDirectory() as tmp:
+            target = str(Path(tmp) / 'out.png')
+            def fake(parent=None, title=None, initialfile=None, defaultextension=None, **kw):
+                seen['name'] = initialfile
+                return target
+            with patch.object(self.desktop.file_dialog, 'save_file', side_effect=fake):
+                panel.save_as_file()
+            self.assertEqual(seen['name'],
+                             '%s_资产管理_a.png' % Path(self.project).name)
+            self.assertEqual(Path(target).read_bytes(), b'png', '另存为应复制原文件')
+            self.assertEqual(src.read_bytes(), b'png', '原件不应被移动或修改')
+
+    def test_save_as_existing_target_asks_before_overwrite(self):
+        """REQ-S01-96：目标已存在先询问；不同意不写。"""
+        from unittest.mock import patch
+        panel = self.desktop.files_panel
+        src = self.project / '素材' / 'a.png'
+        src.parent.mkdir(parents=True, exist_ok=True)
+        src.write_bytes(b'new')
+        self._index_row('素材/a.png', stage='资产管理')
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / 'out.png'
+            target.write_bytes(b'old')
+            with patch.object(self.desktop.file_dialog, 'save_file', return_value=str(target)),                  patch('desktop.confirm', return_value=False):
+                panel.save_as_file()
+            self.assertEqual(target.read_bytes(), b'old', '不同意覆盖时目标不应改动')
+            with patch.object(self.desktop.file_dialog, 'save_file', return_value=str(target)),                  patch('desktop.confirm', return_value=True):
+                panel.save_as_file()
+            self.assertEqual(target.read_bytes(), b'new', '同意覆盖后应写入新内容')
+
+    def test_save_as_failure_reports_reason(self):
+        """REQ-S01-96：复制失败抛出带原因的错误，不静默。"""
+        from unittest.mock import patch
+        panel = self.desktop.files_panel
+        src = self.project / '素材' / 'a.png'
+        src.parent.mkdir(parents=True, exist_ok=True)
+        src.write_bytes(b'png')
+        self._index_row('素材/a.png', stage='资产管理')
+        with patch.object(self.desktop.file_dialog, 'save_file',
+                          return_value=str(src.parent / 'no_dir' / 'x' / 'a.png')):
+            with self.assertRaises(OSError):
+                panel.save_as_file()
+
+    def test_show_in_folder_reveals_the_file(self):
+        """REQ-S01-96：「在文件夹中显示」走 platform_tools.reveal_in_folder 定位文件本身。"""
+        from unittest.mock import patch
+        panel = self.desktop.files_panel
+        src = self.project / '素材' / 'a.png'
+        src.parent.mkdir(parents=True, exist_ok=True)
+        src.write_bytes(b'png')
+        self._index_row('素材/a.png')
+        seen = {}
+        import contract.platform_tools as platform_tools
+        with patch.object(platform_tools, 'reveal_in_folder',
+                          lambda path: seen.setdefault('path', Path(path))):
+            panel.show_in_folder()
+        self.assertEqual(seen['path'], src)
+
+
 if __name__ == '__main__':
     unittest.main()

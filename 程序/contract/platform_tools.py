@@ -301,6 +301,31 @@ def tool_path(name, fallback='', configured=''):
     return _TOOL_CACHE[name] or fallback or None
 
 
+def reveal_in_folder(path):
+    """在系统文件管理器里定位这个文件（Windows 在资源管理器里选中它）。
+
+    ``explorer /select`` 的退出码恒为 1，不是失败信号——拉起即返回，不读返回码。
+    """
+    target = Path(path)
+    if not target.exists():
+        raise ValueError('要定位的文件或目录不存在：' + str(target))
+    if os.name == 'nt':
+        subprocess.Popen(['explorer', '/select,', str(target.resolve())],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return str(target)
+    if sys.platform == 'darwin':
+        command = ['open', '-R', str(target)]
+    else:
+        command = ['xdg-open', str(target.parent if target.is_file() else target)]
+    if shutil.which(command[0]) is None:
+        raise ValueError('当前系统没有可用的文件管理器，请手动打开：' + str(target))
+    try:
+        subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except OSError as exc:
+        raise ValueError('无法调用文件管理器：' + str(exc)) from exc
+    return str(target)
+
+
 def open_path(path):
     """用宿主系统默认程序打开一个已存在的文件或目录。
 

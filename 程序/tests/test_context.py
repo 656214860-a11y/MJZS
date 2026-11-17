@@ -233,6 +233,31 @@ class SkillFileTests(unittest.TestCase):
             with self.assertRaises(ValueError): skill_file("drama-skills", skill_home=Path(td))
 
 
+class RevealInFolderTests(unittest.TestCase):
+    """任务书 M5（REQ-S01-96）：platform_tools.reveal_in_folder 的平台边界语义。"""
+
+    def test_missing_path_raises(self):
+        import contract.platform_tools as platform_tools
+        with tempfile.TemporaryDirectory() as td:
+            with self.assertRaises(ValueError):
+                platform_tools.reveal_in_folder(Path(td) / 'none.png')
+
+    def test_windows_uses_explorer_select(self):
+        """Windows 分支用 ``explorer /select,`` 定位文件本身，拉起即返回不读退出码。"""
+        import os
+        import subprocess
+        from unittest.mock import patch
+        import contract.platform_tools as platform_tools
+        with tempfile.TemporaryDirectory() as td:
+            target = Path(td) / 'a.png'
+            target.write_bytes(b'x')
+            calls = []
+            with patch.object(platform_tools.os, 'name', 'nt'),                     patch.object(platform_tools.subprocess, 'Popen',
+                                 lambda cmd, **kw: calls.append(cmd) or object()):
+                platform_tools.reveal_in_folder(target)
+        self.assertEqual(calls, [['explorer', '/select,', str(target.resolve())]])
+
+
 class ToolPathTests(unittest.TestCase):
     def _patches(self, which=None, bundled=None):
         """隔离 tool_path 的三个来源：which 与随包目录都可注入，避免依赖本机环境。"""
