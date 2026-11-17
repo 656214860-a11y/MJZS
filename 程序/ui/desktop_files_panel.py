@@ -5,10 +5,9 @@
 标题行迁到内容区右缘独立图标列（``rail``，聊天区滑块右侧、与画布同高，
 图标在列顶、下方留白给后续图标功能），点击后右侧停靠面板向左展开、主内容
 区收窄；默认隐藏，切页／切项目自动收起，面板外按下或 Esc 关闭。文件名列宽
-按最长文件名动态调整（``script_width_sizer`` 驱动面板宽）。文件发现仍走
-``script_workspace_service`` 渐进批次；本模块只做 Tk 装配与既有文件操作的
-搬运，方法体与原实现一致，``self.page`` 语义不变（``page`` 即 ``Desktop``
-实例）。
+按最长文件名动态调整（``script_width_sizer`` 驱动面板宽）。默认通过后台项目
+索引按阶段分组；索引加载与批次渲染在 ``desktop_files_panel_index``，剧本四类
+沿用采用、确认和历史操作。``self.page`` 即 ``Desktop`` 实例。
 """
 import time
 import tkinter as tk
@@ -90,7 +89,7 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
         self.script_toggle.pack(side='right')
         Tooltip(self.script_toggle, '收起项目文件面板')
         # R3137（任务书 P1，Q25）：筛选条（阶段／类型／状态／关键字）与阶段快捷图标列
-        # 由 FilesPanelFilterMixin 提供；空条件时仍走 R2962 的剧本准备四类视图。
+        # 由 FilesPanelFilterMixin 提供；空条件即全项目索引分组视图。
         self._build_filter_bar()
         self.script_row_details = {}
         self.script_row_category = {}
@@ -174,11 +173,13 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
         self.sync_entry()
 
     def _reload_current_view(self):
-        """按当前筛选条件重填表；四条件全空时回到剧本准备四类视图（R2962 行为）。"""
-        if self._filters_active():
-            self._fill_index_list()
+        """默认全部、筛选与全局库统一采用后台索引视图。"""
+        self._sync_view_filters()
+        if getattr(self, 'library_view', False):
+            from infra import file_index
+            self._fill_global_list(file_index.read_global_dir())
         else:
-            self.fill_script_list()
+            self._fill_index_list()
 
     def toggle(self):
         if self._open:
@@ -263,6 +264,7 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
         if event is not None and getattr(event, 'widget', None) is not self.script_box:
             return None
         self.script_loader.invalidate()
+        self._invalidate_index_load()
         if self.script_load_job is not None:
             try:
                 self.page.win.after_cancel(self.script_load_job)
@@ -272,76 +274,9 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
         return None
 
     def fill_script_list(self):
-        """渐进加载剧本文件表；面板收起或无项目时跳过目录扫描，下次打开重扫。"""
-        if not self._open:
-            return
-        from domain.script_workspace_service import iter_script_document_rows
-        from writing_api import preparation_file_labels
-        if getattr(self.page, 'root', None) is None:
-            self.script_tree.delete(*self.script_tree.get_children())
-            self.script_row_details.clear()
-            self.script_row_category.clear()
-            return
-        file_labels = preparation_file_labels(self.page.root)
-        generation = self.script_loader.start(iter_script_document_rows(self.page.root))
-        if self.script_load_job is not None:
-            try:
-                self.page.win.after_cancel(self.script_load_job)
-            except tk.TclError:
-                pass
-            self.script_load_job = None
-        self.script_tree.delete(*self.script_tree.get_children())
-        self.script_row_details.clear()
-        self.script_row_category.clear()
-
-        def alive():
-            return (self._open and self.script_loader.is_current(generation)
-                    and self.script_tree.winfo_exists())
-
-        def finish():
-            """按修改时间恢复既有排序；每个空闲批次只调整有限条目。"""
-            order = [(category, iter(rows)) for category, rows in self.script_loader.ordered_rows().items()]
-
-            def place():
-                if not alive():
-                    return
-                moved = 0
-                while order and moved < 24:
-                    category, rows = order[0]
-                    try:
-                        row = next(rows)
-                    except StopIteration:
-                        order.pop(0)
-                        continue
-                    self.script_tree.move(row.item_id, '', 'end')
-                    moved += 1
-                if order:
-                    self.script_load_job = self.page.win.after_idle(place)
-                    return
-                self.script_tree.configure(height=max(1, min(SCRIPT_FILE_MAX_ROWS, len(self.script_tree.get_children()))))
-                self._fit_script_width()
-                self.script_load_job = None
-            place()
-
-        def load_batch():
-            if not alive():
-                return
-            rows, finished = self.script_loader.take_batch(24)
-            for row in rows:
-                modified = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(row.modified_at))
-                label = file_labels.get(str(Path(row.item_id).resolve()), file_labels.get(row.category, ''))
-                self.script_row_details[row.item_id] = script_row_card(row, label, modified, self.page.root)
-                self.script_row_category[row.item_id] = row.category
-                self.script_tree.insert('', 'end', iid=row.item_id, text='',
-                                        values=(('[' + label + '] ' if label else '') + row.name,))
-            if finished:
-                finish()
-                return
-            self.script_load_job = self.page.win.after_idle(load_batch)
-
-        # 初次目录扫描必须越过首帧的 event loop；after_idle 会在同一次
-        # update() 内被追着执行，等同又把 rglob 塞回启动回调。
-        self.script_load_job = self.page.win.after(250, load_batch)
+        """刷新当前项目/素材库索引；全部视图同样后台加载。"""
+        if self._open:
+            self._reload_current_view()
 
     # ── 文件名列宽自适应（R2998）───────────────────────────────────────────
     def _script_list_font(self):
@@ -362,7 +297,8 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
         sizer = getattr(self, 'script_width_sizer', None)
         if tree is None or sizer is None or not tree.winfo_exists():
             return
-        rows = tree.get_children()
+        groups = tree.get_children()
+        rows = tuple(groups) + tuple(item for group in groups for item in tree.get_children(group))
         if rows:
             font = self._script_list_font()
             widest = 0
@@ -422,9 +358,18 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
             tree = self.current_script_tree()
             selected = tree.selection() if tree else ()
             row = selected[0] if selected else ''
-        if not row:
+        if not row or str(row).startswith('stage-group:'):
             return
-        path = Path(row)
+        if str(row).startswith('library:'):
+            from infra import file_index
+            library = file_index.read_global_dir()
+            if library is None:
+                raise ValueError('尚未设置全局素材库目录')
+            path = (Path(library) / str(row).split(':', 1)[1]).resolve()
+            if not path.is_relative_to(Path(library).resolve()):
+                raise ValueError('素材路径超出全局素材库')
+        else:
+            path = Path(row)
         if not path.is_absolute():
             # R3137：阶段筛选视图的行是项目相对 posix 路径；无项目（测试替身）时按原样处理。
             root = getattr(self.page, 'root', None)
@@ -439,7 +384,9 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
         if not selected:
             raise ValueError('请先选择剧本文件')
         from domain.script_workspace_service import selected_script_paths
-        return selected_script_paths(self.page.root, [selected[0]])[0]
+        item = selected[0]
+        path = self.index_file_path(item) if item in getattr(self, '_index_rows', {}) else item
+        return selected_script_paths(self.page.root, [path])[0]
 
     def selected_scripts(self):
         """当前表里选中的各行（Ctrl／Shift 多选），并标出是否选中了列表里的全部文件。"""
@@ -472,17 +419,11 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
         return '\n\n注意：以下是剧本准备已确认的阶段文件，删除后该阶段确认失效，需要恢复或重新确认才能继续：\n' + '\n'.join(hits)
 
     def delete_script(self):
-        """右键「删除」：把选中的各行移入项目回收站；选中的是列表里全部文件时按删项目确认。"""
+        """删除仅作用于选中文件，列表全选绝不升级为删除整个项目。"""
+        if getattr(self, '_index_rows', None) is not None:
+            return self.delete_index_files()
         selection = self.selected_scripts()
         paths = list(selection.paths)
-        if selection.deletes_all:
-            if not self.page.writing_page_services.confirm_project_removal(self.page.win, [path.name for path in paths]):
-                return
-            item = next((dict(p) for p in self.page.projects.info['projects'] if p['path'] == str(self.page.root)), None)
-            if item is None:
-                raise ValueError('当前项目未登记，无法安全删除')
-            self.page.delete_project(item, confirmed=True)
-            return
         one = len(paths) == 1
         if one:
             prompt = f'确定将 {paths[0].name} 移入项目回收站吗？\n\n可在对应页面恢复最近删除。' + self.confirmed_note(paths)
@@ -541,21 +482,25 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
 
     def script_menu(self, tree, event):
         row = tree.identify_row(event.y)
-        if not row:
+        if not row or str(row).startswith('stage-group:'):
             return
         # 右键落在已选中的行上时保留 Ctrl／Shift 多选；落在别的行上改选这一行。
         if row not in tree.selection():
             tree.selection_set(row)
         self.keep_one_selection(tree)
         menu = self.page.writing_page_services.context_menu(self.page.win)
-        # R3137：阶段筛选视图的行来自项目文件索引，不承载剧本采用／定稿语义；
-        # 只给「查看」，删除留到接 storage_maintenance 唯一回收权威的那一轮。
+        # 普通索引行与剧本四类动作分开；项目文件删除统一走回收服务。
         if self.script_row_category.get(row) == STAGE_FILTER_ROW_CATEGORY:
             menu.command('查看', lambda: self.page.safe(self.open_script_file))
             # R3165（任务书 P3）：全局素材库视图的行可「引用到当前项目」。
             if str(row).startswith('library:'):
                 menu.command('引用到当前项目',
                              lambda: self.page.safe(lambda: self.reference_from_library(row)))
+            else:
+                if len(tree.selection()) == 1:
+                    menu.command('重命名', lambda: self.page.safe(lambda: self.rename_index_file(row)))
+                menu.command('添加到全局素材库', lambda: self.page.safe(lambda: self.add_to_library(row)))
+                menu.command('删除', lambda: self.page.safe(self.delete_index_files))
             return menu.popup(event)
         if len(tree.selection()) > 1:
             # 多选时只给「删除」：查看、改名、定稿都只针对一份文件。
@@ -563,6 +508,7 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
             return menu.popup(event)
         # 第 46 期第 1 条：内容框的右键一律是「查看／…／删除」这一套，剧本表原来只有改名与删除。
         menu.command('查看', lambda: self.page.safe(self.open_script_file))
+        menu.command('添加到全局素材库', lambda: self.page.safe(lambda: self.add_to_library(row)))
         menu.command('重命名', lambda: self.page.safe(self.rename_script))
         category = self.script_row_category.get(row, 'script')
         if category == 'script':

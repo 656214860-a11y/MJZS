@@ -77,8 +77,9 @@ def register(source,item,image):
     folder=base/'frames'
     if not folder.resolve().is_relative_to(base):raise ValueError('首帧目录越出素材目录')
     folder.mkdir(exist_ok=True)
-    ep=re.sub(r'[^A-Za-z0-9_-]','',str(episode.get('episode_id',''))) or 'EP'
-    dest=folder/(ep+'_'+sid+'_'+uuid.uuid4().hex[:8]+'.png')
+    from contract.file_naming import generate_existing
+    dest=folder/generate_existing('keyframe', episode_id=episode.get('episode_id', ''),
+                                  shot_id=sid, token=uuid.uuid4().hex[:8], suffix='.png')
     # Unique filenames also isolate episodes that reuse SH001 etc.; the final
     # publish remains exclusive so a collision can never overwrite a frame.
     save_bytes_new(dest,raw)

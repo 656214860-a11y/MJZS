@@ -7,6 +7,7 @@
 import json
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 import infra.file_index as file_index
@@ -82,7 +83,39 @@ class GlobalLibraryIndexTests(unittest.TestCase):
 
     def test_missing_library_yields_empty_rows(self):
         with tempfile.TemporaryDirectory() as tmp:
-            self.assertEqual(file_index.global_rows(Path(tmp) / '不存在'), [])
+            missing = Path(tmp) / '不存在'
+            self.assertEqual(file_index.global_rows(missing), [])
+            self.assertFalse(missing.exists())
+
+    def test_existing_global_cache_refreshes_without_walking(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            library = _library(tmp)
+            file_index.rebuild_global(library)
+            with mock.patch.object(file_index, '_walk', side_effect=AssertionError('full scan')):
+                self.assertTrue(file_index.global_rows(library))
+
+    def test_global_build_keeps_nested_index_and_excludes_credentials(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            library = _library(tmp)
+            (library / '角色/index.json').write_text('{}', encoding='utf-8')
+            (library / 'api_key.txt').write_text('dummy', encoding='utf-8')
+            paths = {r['path'] for r in file_index.build_global(library)['files']}
+            self.assertIn('角色/index.json', paths)
+            self.assertNotIn('api_key.txt', paths)
+            self.assertNotIn('index.json', paths)
+
+    def test_malformed_rows_are_rejected_and_stat_refreshes_existing_cache(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            library = _library(tmp)
+            target = library / '角色/CHAR_001.png'
+            file_index.rebuild_global(library)
+            target.write_bytes(b'updated image')
+            self.assertEqual({r.path: r for r in file_index.global_rows(library)}['角色/CHAR_001.png'].size, 13)
+            target.unlink()
+            self.assertTrue({r.path: r for r in file_index.global_rows(library)}['角色/CHAR_001.png'].missing)
+            file_index.global_index_path(library).write_text(json.dumps(
+                {'schema_version': 1, 'files': [{'path': '../escape', 'size': []}]}), encoding='utf-8')
+            self.assertIsNone(file_index.read_global(library))
 
 
 if __name__ == '__main__':

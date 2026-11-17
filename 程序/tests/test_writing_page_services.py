@@ -52,14 +52,22 @@ class WritingPageServicesTests(unittest.TestCase):
         page.script_menu(tree, SimpleNamespace(y=0))
         services.context_menu.assert_called_once_with(page.page.win)
 
-    def test_last_script_removal_asks_injected_gate(self):
+    def test_last_script_removal_recycles_selected_file_without_project_removal(self):
         from script_workspace_service import ScriptDeletionSelection
         services = self.services()
         services.confirm_project_removal.return_value = False
-        page = _page(services, root=Path('p'))
+        page = _page(services, root=Path('p'), status=Mock())
         page.selected_scripts = Mock(return_value=ScriptDeletionSelection(paths=(Path('only.md'),), deletes_all=True))
-        page.delete_script()
-        services.confirm_project_removal.assert_called_once_with(page.page.win, ['only.md'])
+        page.confirmed_note = Mock(return_value='')
+        page.fill_script_list = Mock()
+        with patch('storage_maintenance.recycle_paths', return_value=[{}]) as recycle:
+            page.delete_script()
+        services.confirm_project_removal.assert_not_called()
+        services.confirm.assert_called_once()
+        self.assertIn('确定将 only.md 移入项目回收站吗？', services.confirm.call_args.args[2])
+        recycle.assert_called_once_with(Path('p'), [Path('only.md')], '删除项目剧本')
+        page.fill_script_list.assert_called_once()
+        page.page.status.set.assert_called_once_with('已移入回收站：only.md')
 
     def test_multi_selected_rows_offer_only_delete_and_recycle_together(self):
         """REQ-S01-76：Ctrl／Shift 多选后右键只给「删除」，确认一次把选中的几份一起移入回收站；右键别的行改选那一行。"""
@@ -99,7 +107,7 @@ class WritingPageServicesTests(unittest.TestCase):
             page.script_menu(tree, SimpleNamespace(y=0))
             tree.selection_set.assert_called_once_with(str(files[1]))
             self.assertEqual([call.args[0] for call in menu.command.call_args_list],
-                             ['查看', '重命名', '采用此剧本', '删除'])
+                             ['查看', '添加到全局素材库', '重命名', '采用此剧本', '删除'])
 
 
 if __name__ == '__main__':

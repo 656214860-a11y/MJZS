@@ -83,7 +83,7 @@ _register(1, "file_index")
 _register(3, "legacy_migration")
 # R3137（任务书 P1）：项目文件面板的阶段图标列与筛选条自 ui.desktop_files_panel 拆出，
 # 纯 Tk 装配（只消费 ui_widgets／ui_tokens），落 L4。
-_register(4, "desktop_files_panel_filters")
+_register(4, "desktop_files_panel_filters", "desktop_files_panel_index")
 
 # R2191（R2178 J3）：按真实静态依赖重登记，纠正按名字后缀落在 L3／L4 的旧账，不改任何生产代码。
 # artifact_lineage 无依赖且被 L0 契约引用 → L0；pet_state／ui_plugin_registry／integrations 只依赖 L0／L1 → L1；

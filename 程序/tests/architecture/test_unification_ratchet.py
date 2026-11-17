@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import ast
+import copy
 import hashlib
 import json
 import unittest
@@ -62,7 +63,13 @@ def _enclosing_scope(scopes, node):
 def _bare_json_load_anchor(scopes, node, duplicates):
     """返回可随无关行平移的 json.loads 登记锚点。"""
     scope = _enclosing_scope(scopes, node)
-    digest = hashlib.sha256(ast.dump(node, include_attributes=False).encode('utf-8')).hexdigest()[:16]
+    # Python 3.15 省略默认 Load，3.14 的 dump 保留；固定为既有3.15锚点口径。
+    # 仅省略语义默认 Load，Store等真实不同上下文保留，不降低调用语义的哈希强度。
+    stable = copy.deepcopy(node)
+    for member in ast.walk(stable):
+        if isinstance(getattr(member, 'ctx', None), ast.Load):
+            del member.ctx
+    digest = hashlib.sha256(ast.dump(stable, include_attributes=False).encode('utf-8')).hexdigest()[:16]
     base = f'{scope}:json.loads:{digest}'
     duplicates[base] += 1
     return f'{base}:{duplicates[base]}'
@@ -201,6 +208,18 @@ def _point_exists(item, actual=None):
 
 
 class UnificationRatchetTests(unittest.TestCase):
+    def test_json_anchor_is_stable_across_default_load_serialization(self):
+        normal = ast.parse('json.loads(value)').body[0].value
+        without = copy.deepcopy(normal)
+        for member in ast.walk(without):
+            if isinstance(getattr(member, 'ctx', None), ast.Load):
+                del member.ctx
+        left = _bare_json_load_anchor([], normal, defaultdict(int))
+        right = _bare_json_load_anchor([], without, defaultdict(int))
+        self.assertEqual(left, right)
+        changed = ast.parse('json.loads(other)').body[0].value
+        self.assertNotEqual(left, _bare_json_load_anchor([], changed, defaultdict(int)))
+
     def _assert_ratchet(self, section, actual):
         record = _ledger()[section]
         items = record['items']

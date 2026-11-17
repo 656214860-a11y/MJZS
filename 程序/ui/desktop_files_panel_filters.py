@@ -11,6 +11,7 @@ from tkinter import ttk
 
 from ui_tokens import SPACING
 from ui_widgets import LineInput, SecondaryButton, SelectBox, Tooltip
+from ui.desktop_files_panel_index import FilesPanelIndexMixin
 
 # R3094（任务书 P1，Q8 补充需求）：停靠面板右缘的阶段快捷图标列，顺序＝pet_bus.STAGES。
 # P1 用 Unicode 符号兜底（用户已确认先符号、后换 PNG 图标）；每个图标都带 Tooltip 中文名。
@@ -19,7 +20,7 @@ STAGE_RAIL_ICONS = {
     'assets': '🎨', 'continuity': '🧩', 'final': '✅', 'keyframe': '🖼',
     'previs': '🧊', 'video': '📹', 'audio': '🎙', 'edit': '✂', 'delivery': '📦',
 }
-STAGE_RAIL_ALL = '📁'          # 「全部」：回到剧本准备四类视图
+STAGE_RAIL_ALL = '📁'          # 「全部」：全项目索引，按阶段分组
 STAGE_FILTER_ROW_CATEGORY = 'index'   # 索引行在右键菜单里与剧本行区分
 
 # 下拉框与输入框的宽度以「字符」计，从 token 派生，避免新增数字字面量（test_token_boundary）。
@@ -34,7 +35,7 @@ def _retention_days():
     return RECYCLE_RETENTION_DAYS
 
 
-class FilesPanelFilterMixin:
+class FilesPanelFilterMixin(FilesPanelIndexMixin):
     """阶段图标列＋筛选条＋按索引填表。"""
 
     # ── 筛选条（R3106，任务书 P1，Q25）────────────────────────────────────
@@ -52,6 +53,8 @@ class FilesPanelFilterMixin:
         row_one.pack(side='top', fill='x')
         row_two = ttk.Frame(bar)
         row_two.pack(side='top', fill='x')
+        row_three = ttk.Frame(bar)
+        row_three.pack(side='top', fill='x')
         self.stage_labels = {'全部阶段': None}
         for stage in STAGES:
             self.stage_labels[stage_name(stage)] = stage
@@ -75,10 +78,18 @@ class FilesPanelFilterMixin:
         Tooltip(self.status_box, '按状态筛选：草稿／已发布／已归档')
         self.keyword_var = tk.StringVar(value='')
         # 业务 UI 不得直接建 ttk.Entry（test_input_boundary）：统一走 LineInput。
-        self.keyword_entry = LineInput(row_two, textvariable=self.keyword_var, width=FILTER_KEYWORD_WIDTH)
+        self.keyword_entry = LineInput(row_three, textvariable=self.keyword_var, width=FILTER_KEYWORD_WIDTH)
         self.keyword_entry.pack(side='left', fill='x', expand=True, padx=(SPACING['xs'], SPACING['none']))
         self.keyword_entry.bind('<KeyRelease>', self._keyword_changed)
         Tooltip(self.keyword_entry, '按文件名关键字筛选（回车立即生效）')
+        self.sort_box = SelectBox(row_three, values=('类型', '修改时间'), width=FILTER_STAGE_WIDTH)
+        self.sort_box.pack(side='left', padx=(SPACING['xs'], SPACING['none']))
+        self.sort_box.set('类型')
+        self.sort_box.bind('<<ComboboxSelected>>', lambda _event: self._apply_filters())
+        Tooltip(self.sort_box, '阶段内按类型或修改时间排序（最新在前）')
+        self.index_refresh_button = SecondaryButton(row_three, text='刷新', command=self.refresh_file_index)
+        self.index_refresh_button.pack(side='left', padx=(SPACING['xs'], SPACING['none']))
+        Tooltip(self.index_refresh_button, '后台重建索引，发现外部新增或修改的文件')
         self._reset_filter_boxes()
 
     def _reset_filter_boxes(self):
@@ -96,12 +107,22 @@ class FilesPanelFilterMixin:
         self.kind_filter = None
         self.status_filter = None
         self.keyword_filter = ''
+        self.library_view = False
         self._reset_filter_boxes()
         self._sync_stage_buttons()
 
+    def _sync_view_filters(self):
+        """全局库只支持类型/名称，避免展示无效的阶段和发布状态条件。"""
+        state = 'disabled' if self.library_view else 'readonly'
+        self.stage_box.configure(state=state)
+        self.status_box.configure(state=state)
+
     def _keyword_changed(self, event=None):
         """关键字输入去抖 250ms：避免每个按键都全表筛一遍。"""
-        if getattr(event, 'keysym', None) not in (None, 'Return') and self._filter_job is not None:
+        if getattr(event, 'keysym', None) == 'Return':
+            if self._filter_job is not None:
+                self.page.win.after_cancel(self._filter_job)
+            self._apply_filters()
             return
         self._schedule_filters()
 
@@ -123,7 +144,13 @@ class FilesPanelFilterMixin:
         self.stage_filter = self.stage_labels.get(str(self.stage_box.get()))
         self.kind_filter = self.kind_labels.get(str(self.kind_box.get()))
         self.status_filter = self.status_labels.get(str(self.status_box.get()))
+        if self.library_view:
+            self.stage_filter = None
+            self.status_filter = None
+            self.stage_box.set('全部阶段')
+            self.status_box.set('全部状态')
         self.keyword_filter = str(self.keyword_var.get()).strip()
+        self.sort_mode = self.sort_box.get()
         self._sync_stage_buttons()
         self._reload_current_view()
 
@@ -147,6 +174,35 @@ class FilesPanelFilterMixin:
             return
         self.page.status.set('已引用到当前项目：' + target.name)
 
+    def configure_library(self):
+        """选择用户素材库目录，登记后刷新当前库视图。"""
+        from pathlib import Path
+        from infra import file_index
+        from ui_dialogs import FileDialog
+        current = file_index.read_global_dir() or (Path.home() / 'Documents' / '漫剧助手素材库')
+        selected = FileDialog(self.page.win).directory(title='选择全局素材库目录', initialdir=str(current))
+        if not selected:
+            return
+        file_index.save_global_dir(selected)
+        self.show_library()
+
+    def add_to_library(self, row):
+        """把选中的项目文件复制进共享库；配置未设时先完成目录选择。"""
+        from pathlib import Path
+        from domain import global_library_service
+        from infra import file_index
+        library = file_index.read_global_dir()
+        if library is None:
+            self.configure_library()
+            library = file_index.read_global_dir()
+        if library is None:
+            return
+        root = Path(self.page.root).resolve()
+        source = Path(row)
+        relative = source.resolve().relative_to(root).as_posix() if source.is_absolute() else str(row)
+        target = global_library_service.copy_to_library(root, relative, library)
+        self.page.status.set('已添加到全局素材库：' + target.name)
+
     def _filters_active(self):
         return any((self.stage_filter, self.kind_filter, self.status_filter, self.keyword_filter))
 
@@ -155,8 +211,13 @@ class FilesPanelFilterMixin:
         from infra import file_index
         self._ensure_filter_state()
         self.library_view = True
+        self._sync_view_filters()
         self.stage_filter = None
+        self.status_filter = None
         self.keyword_filter = ''
+        self._reset_filter_boxes()
+        self.kind_box.set(next(text for text, value in self.kind_labels.items() if value == self.kind_filter))
+        self._sync_stage_buttons()
         library = file_index.read_global_dir()
         if library is None:
             self.page.status.set('尚未设置全局素材库目录：请先指定一个跨项目共用的素材文件夹。')
@@ -165,24 +226,8 @@ class FilesPanelFilterMixin:
         self._fill_global_list(library)
 
     def _fill_global_list(self, library):
-        """按全局库索引填表；行 id 用 ``库相对`` 路径，路径前带库根标记便于查看。"""
-        from infra import file_index
-        self.cancel_script_load()
-        self.script_tree.delete(*self.script_tree.get_children())
-        self.script_row_details.clear()
-        self.script_row_category.clear()
-        if library is None:
-            return
-        try:
-            found = file_index.search_global(library, kind=self.kind_filter)
-        except (OSError, ValueError):
-            found = []
-        for row in found:
-            item_id = 'library:' + row.path
-            self.script_row_details[item_id] = '%s · %s · %s' % (row.title or row.path, row.kind, str(library))
-            self.script_row_category[item_id] = STAGE_FILTER_ROW_CATEGORY
-            self.script_tree.insert('', 'end', iid=item_id, text='',
-                                    values=('[素材库] ' + row.path.split('/')[-1],))
+        """全局库首次索引扫描同样在 Desktop 生命周期后台执行。"""
+        self._request_index(library, library=True)
 
     # ── 阶段快捷图标列（R3094，任务书 P1）──────────────────────────────────
     def _ensure_filter_state(self):
@@ -194,6 +239,7 @@ class FilesPanelFilterMixin:
             self.keyword_filter = ''
             self._filter_job = None
             self.library_view = False
+            self.sort_mode = '类型'
 
     def _build_stage_rail(self):
         """建右缘阶段图标列：「全部」＋ 13 个阶段，顺序＝``pet_bus.STAGES``。"""
@@ -219,6 +265,11 @@ class FilesPanelFilterMixin:
         library.pack(side='top', pady=(SPACING['none'], SPACING['xs']))
         Tooltip(library, '全局素材库：跨项目的共享素材（可在设置里指定目录）')
         self.library_button = library
+        settings = SecondaryButton(self.stage_rail, text='⚙', width=0, style='RailIcon.TButton',
+                                   command=self.configure_library)
+        settings.pack(side='top', pady=(SPACING['none'], SPACING['xs']))
+        Tooltip(settings, '设置全局素材库目录')
+        self.library_settings_button = settings
 
     def _add_rail_action(self, glyph, tip, method_name):
         """在图标列末尾追加一个动作钮；宿主没有该动作时只留按钮不绑回调。"""
@@ -252,24 +303,5 @@ class FilesPanelFilterMixin:
         self._reload_current_view()
 
     def _fill_index_list(self):
-        """用项目文件索引填表：只读索引缓存，不扫盘；条件取自筛选条四项。"""
-        from infra import file_index
-        self.cancel_script_load()
-        self.script_tree.delete(*self.script_tree.get_children())
-        self.script_row_details.clear()
-        self.script_row_category.clear()
-        root = getattr(self.page, 'root', None)
-        if root is None:
-            return
-        try:
-            found = file_index.search(root, stage=self.stage_filter, kind=self.kind_filter,
-                                      status=self.status_filter, name=self.keyword_filter)
-        except (OSError, ValueError):
-            found = []
-        for row in found:
-            name = row.path.split('/')[-1]
-            label = '[缺失] ' if row.missing else ''
-            self.script_row_details[row.path] = '%s · %s · %s' % (
-                row.title or name, row.kind, row.path)
-            self.script_row_category[row.path] = STAGE_FILTER_ROW_CATEGORY
-            self.script_tree.insert('', 'end', iid=row.path, text='', values=(label + name,))
+        """默认全部与筛选视图共用全项目索引，首次重建不阻塞主线程。"""
+        self._request_index(getattr(self.page, 'root', None))

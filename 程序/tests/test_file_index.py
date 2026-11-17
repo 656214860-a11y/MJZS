@@ -6,8 +6,12 @@
 损坏时自动重建；筛选四条件可组合。
 """
 import json
+import os
+import subprocess
 import tempfile
+import threading
 import unittest
+from unittest import mock
 from pathlib import Path
 
 import infra.file_index as file_index
@@ -73,16 +77,19 @@ class FileIndexTests(unittest.TestCase):
         file_index.rebuild(self.root)
         self.assertTrue(all(row.status == STATUS_DRAFT for row in file_index.rows(self.root)))
 
+    # 有意更新 status 契约：清单必须 complete 且 reviewed=True，原发布断言保持。
     def test_manifest_marks_file_published(self) -> None:
         _write(self.root / '05资产管理' / '成果确认' / 'abc.json',
-               json.dumps({'outputs': [{'path': '05资产管理/assets/CHAR_001.png'}]}, ensure_ascii=False))
+               json.dumps({'status': 'complete', 'reviewed': True,
+                           'outputs': [{'path': '05资产管理/assets/CHAR_001.png'}]}, ensure_ascii=False))
         file_index.rebuild(self.root)
         row = {item.path: item for item in file_index.rows(self.root)}['05资产管理/assets/CHAR_001.png']
         self.assertEqual(row.status, STATUS_PUBLISHED)
 
     def test_manifest_path_absent_on_disk_is_marked_missing(self) -> None:
         _write(self.root / '05资产管理' / '成果确认' / 'abc.json',
-               json.dumps({'outputs': [{'path': '05资产管理/assets/不存在.png'}]}, ensure_ascii=False))
+               json.dumps({'status': 'complete', 'reviewed': True,
+                           'outputs': [{'path': '05资产管理/assets/不存在.png'}]}, ensure_ascii=False))
         file_index.rebuild(self.root)
         found = {item.path: item for item in file_index.rows(self.root)}
         missing = found['05资产管理/assets/不存在.png']
@@ -92,7 +99,8 @@ class FileIndexTests(unittest.TestCase):
 
     def test_delivery_manifest_counts_as_published(self) -> None:
         _write(self.root / '13质检交付' / '导出成片' / 'delivery_manifest.json',
-               json.dumps({'files': [{'path': '10视频生成/assets/EP001_SH001.mp4'}]}, ensure_ascii=False))
+               json.dumps({'status': 'complete', 'reviewed': True,
+                           'files': [{'path': '10视频生成/assets/EP001_SH001.mp4'}]}, ensure_ascii=False))
         file_index.rebuild(self.root)
         row = {item.path: item for item in file_index.rows(self.root)}['10视频生成/assets/EP001_SH001.mp4']
         self.assertEqual(row.status, STATUS_PUBLISHED)
@@ -170,6 +178,161 @@ class FileIndexTests(unittest.TestCase):
         file_index.rebuild(self.root)
         with self.assertRaises(ValueError):
             file_index.update(self.root, [Path(self.temp.name) / '外面.txt'])
+
+
+class FileIndexIntegrityTests(unittest.TestCase):
+    def test_root_and_custom_files_are_included_but_secrets_and_runtime_are_not(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            wanted = ['用户笔记.md', '自建素材/封面.png', 'writing/结构剧本/剧本.md',
+                      'writing/初稿.md', '09视频生成/assets/旧片.mp4']
+            excluded = ['skill_config.json', 'config.json', 'projects.json', '.env', '.env.local',
+                        '用户密钥.pem', 'api_key.txt', '配置/用户资料.json', 'private/token.txt',
+                        'logs/task.txt', 'data/cache.json', '.cache/a.png',
+                        '01剧本准备/logs/run.txt', '工作流任务/文件索引/index.json']
+            for name in wanted + excluded:
+                _write(root / name)
+            table = {row['path']: row for row in file_index.build(root)['files']}
+            self.assertEqual(set(table), set(wanted))
+            self.assertEqual(table['writing/结构剧本/剧本.md']['stage'], 'script_structure')
+            self.assertEqual(table['writing/初稿.md']['stage'], 'script')
+            self.assertEqual(table['09视频生成/assets/旧片.mp4']['stage'], 'video')
+            self.assertEqual(table['writing/初稿.md']['kind'], '剧本')
+
+    def test_invalid_update_is_rejected_before_missing_index_can_write(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / 'project'
+            root.mkdir()
+            with self.assertRaises(ValueError):
+                file_index.update(root, [Path(tmp) / 'outside.txt'])
+            self.assertFalse(file_index.index_path(root).exists())
+
+    def test_malformed_cached_rows_are_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for bad in [None, {'path': '../secret'}, {'path': 'a', 'size': 'big'},
+                        {'path': 'a', 'order': []}, {'path': 'a', 'missing': 'yes'},
+                        {'path': 'a', 'mtime': float('nan')}, {'path': 'a', 'kind': []}]:
+                payload = {'schema_version': INDEX_VERSION, 'files': [bad]}
+                _write(file_index.index_path(root), json.dumps(payload))
+                self.assertIsNone(file_index.read(root), repr(bad))
+
+    def test_cached_reads_refresh_stat_without_walk_or_hash(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            path = _write(root / '01剧本准备/docs/a.md', 'a')
+            file_index.rebuild(root)
+            _write(path, 'changed')
+            with mock.patch.object(file_index, '_walk', side_effect=AssertionError('full scan')):
+                self.assertEqual(file_index.rows(root)[0].size, 7)
+                path.unlink()
+                self.assertTrue(file_index.rows(root)[0].missing)
+                self.assertEqual(file_index.summary(root)['missing'], 1)
+
+    def test_only_reviewed_complete_safe_manifest_paths_are_published(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            confirm = root / '01剧本准备/成果确认'
+            _write(confirm / 'unsafe.json', json.dumps({'status': 'complete', 'reviewed': True,
+                   'outputs': [{'path': '../escape.mp4'}, {'path': str(root / 'absolute.mp4')},
+                               {'path': 'private/key.txt'}, {'path': '01剧本准备/docs/missing.md'}]}))
+            _write(confirm / 'unreviewed.json', json.dumps({'status': 'complete',
+                   'outputs': [{'path': '01剧本准备/docs/unreviewed.md'}]}))
+            _write(confirm / 'draft.json', json.dumps({'status': 'draft', 'reviewed': True,
+                   'outputs': [{'path': '01剧本准备/docs/draft.md'}]}))
+            self.assertEqual(file_index.published_paths(root), {'01剧本准备/docs/missing.md'})
+            rows = file_index.build(root)['files']
+            self.assertEqual([r['path'] for r in rows if r['missing']], ['01剧本准备/docs/missing.md'])
+
+    def test_concurrent_updates_do_not_overwrite_each_other(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            file_index.rebuild(root)
+            a = _write(root / 'a.md')
+            b = _write(root / 'b.md')
+            original = file_index.read
+            first_read, second_started, release = threading.Event(), threading.Event(), threading.Event()
+            errors = []
+            def delayed_read(project):
+                data = original(project)
+                if threading.current_thread().name == 'first':
+                    first_read.set()
+                    release.wait(3)
+                return data
+            def run(path):
+                try:
+                    if path == b:
+                        second_started.set()
+                    file_index.update(root, [path])
+                except Exception as exc:
+                    errors.append(exc)
+            with mock.patch.object(file_index, 'read', side_effect=delayed_read):
+                first = threading.Thread(target=run, args=(a,), name='first')
+                second = threading.Thread(target=run, args=(b,), name='second')
+                first.start()
+                self.assertTrue(first_read.wait(3))
+                second.start()
+                self.assertTrue(second_started.wait(3))
+                second.join(.1)
+                release.set()
+                first.join(3)
+                second.join(3)
+            self.assertFalse(first.is_alive() or second.is_alive())
+            self.assertEqual(errors, [])
+            self.assertEqual({r.path for r in file_index.rows(root)}, {'a.md', 'b.md'})
+
+    def test_large_file_metadata_remains_valid_without_32bit_truncation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            payload = {'schema_version': INDEX_VERSION,
+                       'files': [FileRow(path='large.mp4', size=2 ** 33, mtime=1).to_dict()]}
+            _write(file_index.index_path(root), json.dumps(payload))
+            self.assertEqual(file_index.read(root)['files'][0]['size'], 2 ** 33)
+
+    def test_index_destination_cannot_escape_through_workflow_junction(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / 'project'
+            outside = Path(tmp) / 'outside'
+            root.mkdir()
+            outside.mkdir()
+            destination = file_index.index_path(root)
+            original = Path.resolve
+            def redirected(path, *args, **kwargs):
+                return outside / 'index.json' if path == destination else original(path, *args, **kwargs)
+            with mock.patch.object(Path, 'resolve', redirected):
+                with self.assertRaises(ValueError):
+                    file_index.rebuild(root)
+            self.assertEqual(list(outside.iterdir()), [])
+
+    def test_junction_and_file_links_cannot_escape_project(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / 'project'
+            outside = Path(tmp) / 'outside'
+            root.mkdir()
+            _write(outside / 'secret.txt')
+            junction = root / 'linked'
+            if os.name == 'nt':
+                result = subprocess.run(['cmd', '/c', 'mklink', '/J', str(junction), str(outside)],
+                                        capture_output=True, check=False)
+                self.assertEqual(result.returncode, 0, result.stderr)
+            else:
+                junction.symlink_to(outside, target_is_directory=True)
+            try:
+                self.assertEqual(file_index.build(root)['files'], [])
+                with self.assertRaises(ValueError):
+                    file_index.update(root, [junction / 'secret.txt'])
+            finally:
+                if os.name == 'nt':
+                    junction.rmdir()
+                else:
+                    junction.unlink()
+            # Exercise a file link independently of Windows symlink privileges.
+            linked = _write(root / 'linked.txt')
+            original = Path.resolve
+            def redirected(path, *args, **kwargs):
+                return outside / 'secret.txt' if path == linked else original(path, *args, **kwargs)
+            with mock.patch.object(Path, 'resolve', redirected):
+                self.assertEqual(file_index.build(root)['files'], [])
 
 
 class FileRowTests(unittest.TestCase):
