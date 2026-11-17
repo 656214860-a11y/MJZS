@@ -181,7 +181,7 @@ def make_populated_project(td):
 class UiEdgeCase(unittest.TestCase):
     def enable_sanhu_auto(self, desktop, *enabled_variables):
         """通过三虎的公开模式接口启动无人值守，避免测试绕过实际门禁。"""
-        import pet_ui
+        import ui.pet_ui as pet_ui
         desktop.pet.arm_auto = lambda: None
         desktop.pet.set_mode("auto")
         for variable_name in pet_ui.AUTO_VARIABLE_NAMES:

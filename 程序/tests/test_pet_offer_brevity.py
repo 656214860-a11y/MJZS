@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pet_agent
 from ui import pet_cloud_text
 import pet_ui_voice
-from pet_ui_support import OFFER_MAX_CHARS
+from ui.pet_ui_support import OFFER_MAX_CHARS
 
 
 class OfferTextTests(unittest.TestCase):

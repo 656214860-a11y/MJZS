@@ -8,7 +8,7 @@ import infra.model_router as model_router
 import pet_agent
 import infra.token_saver as token_saver
 from contract.app_metadata import APP_NAME
-from pet_ui_support import Autostart, GearButton, PROGRAM, autostart_command
+from ui.pet_ui_support import Autostart, GearButton, PROGRAM, autostart_command
 from ui_tokens import SPACING
 
 

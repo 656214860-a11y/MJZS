@@ -179,7 +179,7 @@ class DispatchOnceTests(unittest.TestCase):
         return SimpleNamespace(desktop=SimpleNamespace(**{name: batch}), errors=[])
 
     def test_batches_are_not_redispatched_as_manual(self):
-        import pet_ui_stages
+        import ui.pet_ui_stages as pet_ui_stages
         stages = pet_ui_stages.PetStagesMixin
         cases = (('pet_storyboard_batch', '分镜批次未派发', 'storyboard', stages.storyboard_batch),
                  ('pet_frame_batch', '首帧批次未派发', 'firstframe',
@@ -198,7 +198,7 @@ class DispatchOnceTests(unittest.TestCase):
                 self.assertEqual([item[0] for item in host.errors], [key])
 
     def test_batches_still_serve_a_host_without_the_trigger(self):
-        import pet_ui_stages
+        import ui.pet_ui_stages as pet_ui_stages
         stages = pet_ui_stages.PetStagesMixin
         host = self.host('pet_storyboard_batch', lambda: '已经在准备分镜任务')
         self.assertEqual(stages.storyboard_batch(host), '已经在准备分镜任务')
@@ -206,7 +206,7 @@ class DispatchOnceTests(unittest.TestCase):
         self.assertEqual(stages.firstframe_batch(host, trigger='auto'), '已按分镜顺序派发 1 镜首帧')
 
     def test_the_signature_check(self):
-        from pet_ui_support import accepts_keyword
+        from ui.pet_ui_support import accepts_keyword
         self.assertTrue(accepts_keyword(lambda text, confirmed=False: None, 'confirmed'))
         self.assertTrue(accepts_keyword(lambda text, *, confirmed: None, 'confirmed'))
         self.assertTrue(accepts_keyword(lambda text, **options: None, 'confirmed'))

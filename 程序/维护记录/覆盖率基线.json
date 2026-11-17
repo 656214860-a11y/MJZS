@@ -1869,7 +1869,7 @@
   {
    "module": "pet_ui.py",
    "covered": 0,
-   "total": 455,
+   "total": 3,
    "percent": 0.0
   },
   {
@@ -1887,13 +1887,13 @@
   {
    "module": "pet_ui_stages.py",
    "covered": 0,
-   "total": 854,
+   "total": 3,
    "percent": 0.0
   },
   {
    "module": "pet_ui_support.py",
    "covered": 0,
-   "total": 408,
+   "total": 3,
    "percent": 0.0
   },
   {
@@ -2773,6 +2773,12 @@
    "percent": 0.0
   },
   {
+   "module": "ui/pet_ui.py",
+   "covered": 0,
+   "total": 455,
+   "percent": 0.0
+  },
+  {
    "module": "ui/pet_ui_popup.py",
    "covered": 0,
    "total": 93,
@@ -2782,6 +2788,18 @@
    "module": "ui/pet_ui_settings.py",
    "covered": 0,
    "total": 332,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/pet_ui_stages.py",
+   "covered": 0,
+   "total": 854,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/pet_ui_support.py",
+   "covered": 0,
+   "total": 408,
    "percent": 0.0
   },
   {
@@ -3800,9 +3818,9 @@
   },
   {
    "module": "agent/publication.py",
-   "covered": 143,
+   "covered": 145,
    "total": 159,
-   "percent": 89.9
+   "percent": 91.2
   },
   {
    "module": "domain/video_lifecycle_service.py",
@@ -3872,5 +3890,5 @@
   }
  ],
  "modules_covered": 71,
- "modules_total": 643
+ "modules_total": 646
 }

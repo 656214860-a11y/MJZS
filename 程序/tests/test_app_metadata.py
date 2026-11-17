@@ -12,7 +12,7 @@ import asset_thumbs
 import cloud_assets
 import infra.pet_llm as pet_llm
 import pet_settings_ui
-import pet_ui
+import ui.pet_ui as pet_ui
 import qwen_setup
 import seedream_api
 from domain import tts_api
@@ -61,7 +61,7 @@ class AppMetadataTests(unittest.TestCase):
             'app_shortcut.py': {LEGACY_NAME + '.ico', '启动' + LEGACY_NAME + '.pyw'},
             'pet_ui_support.py': {LEGACY_NAME + '·宠物助手', '启动' + LEGACY_NAME + '.pyw'},  # R1506：这两个标识符常量随 pet_ui 模块级迁到 support
         }
-        for path in DISPLAY_SOURCES + (PROGRAM / 'pet_ui_support.py',):
+        for path in DISPLAY_SOURCES + (PROGRAM / 'ui' / 'pet_ui_support.py',):
             with self.subTest(path=path.name):
                 tree = ast.parse(path.read_text(encoding='utf-8-sig'))
                 docstrings = set()

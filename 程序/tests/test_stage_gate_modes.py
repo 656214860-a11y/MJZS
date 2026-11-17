@@ -146,7 +146,7 @@ class PetGateModeTests(unittest.TestCase):
         self.root = Path(self.tmp.name).resolve()
 
     def pet(self, armed, answer=None):
-        import pet_ui
+        import ui.pet_ui as pet_ui
         pet = object.__new__(type("Stub", (pet_ui.Pet,), {"agent": None}))
         pet.errors = []
         pet.desktop = type("D", (), {"root": self.root})()

@@ -880,7 +880,7 @@ class _KeyframeComfyWindow(_KeyframeComfyRows):
             last = getattr(self.poll, 'last', '')
             self.poll.last = ''
             from importlib import import_module
-            import_module('pet_ui').report_done(self.app, 'keyframe', last)
+            import_module('ui.pet_ui').report_done(self.app, 'keyframe', last)
             try:
                 if self.app.win.winfo_exists() and Path(self.app.current_frame_json()).resolve() == self.source:
                     self.app.show_stage('keyframe')

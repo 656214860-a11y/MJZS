@@ -1,0 +1,15 @@
+{
+  "round": 3211,
+  "commit_base": "d0376705",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k pet_ui sanhu pet_settings pet_skills skills broadcaster app_metadata stage_gate stage_flow stage_parallel token_saver latent flatten pet_offer desktop_shortcuts ui_batch9",
+    "exit": 0,
+    "passed": 1094,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T20:26:41"
+}

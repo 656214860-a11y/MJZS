@@ -392,7 +392,7 @@ ROUND_CHECKS = {
          'msg': '剧本任务带 SKILL 开工门禁'},
         {'kind': 'absent', 'path': r'程序\desktop.py', 'keyword': "client.ask('chat'",
          'msg': '剧本页没有绕过工作流的聊天 API 调用'},
-        {'kind': 'keyword', 'path': r'程序\pet_ui.py', 'keyword': 'def open_claude_desktop(',
+        {'kind': 'keyword', 'path': r'程序\ui\pet_ui.py', 'keyword': 'def open_claude_desktop(',
          'msg': 'Claude 桌面启动入口在'},
         {'kind': 'keyword', 'path': r'程序\ui\pet_models_ui.py', 'keyword': '打开 Claude 桌面',
          'msg': 'API 统一配置展示 Claude 桌面入口'},

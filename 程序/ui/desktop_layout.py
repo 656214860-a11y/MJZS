@@ -8,7 +8,7 @@ import logging
 import tkinter as tk
 from tkinter import ttk
 
-import pet_ui
+import ui.pet_ui as pet_ui
 from ui.desktop_layout_resize import PaintFreeze, ResizeCoalescer, repaint_area
 from ui.desktop_page_registry import PAGE
 from responsive_ui import growable_extra

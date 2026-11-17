@@ -34,7 +34,7 @@ from domain.project_naming import dated_path
 import ui.asset_thumbs as asset_thumbs
 import domain.asset_resume as asset_resume
 import contract.frame_checks as frame_checks
-import pet_ui
+import ui.pet_ui as pet_ui
 import ui.ui_usage_indicator as ui_usage_indicator
 import contract.project_stages as project_stages
 import tkinter as tk

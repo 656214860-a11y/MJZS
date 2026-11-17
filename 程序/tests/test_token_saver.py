@@ -38,7 +38,7 @@ import infra.model_router as model_router
 import pet_agent
 import infra.pet_llm as pet_llm
 import pet_settings_ui
-import pet_ui
+import ui.pet_ui as pet_ui
 import token_saver
 
 import selftest_sandbox

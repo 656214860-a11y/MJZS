@@ -35,7 +35,7 @@ import infra.model_pool as model_pool
 import infra.model_router as model_router
 import pet_agent
 import pet_bus
-import pet_ui
+import ui.pet_ui as pet_ui
 from orchestrator import skill_budget
 from orchestrator import skill_orchestrator
 import skill_note_render

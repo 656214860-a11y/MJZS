@@ -5,8 +5,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 import desktop_asset_pages
-import pet_ui_support
-
+import ui.pet_ui_support as pet_ui_support
 LEGACY_FLOURISH = r'''def _legacy_flourish(canvas, pose, step, ox, oy, body, outline, accent, blush):
     """这一帧的猫在做什么：爪子／舌头／张开的嘴／甩起来的尾巴／腮红。
 
