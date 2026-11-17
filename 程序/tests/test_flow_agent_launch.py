@@ -63,7 +63,7 @@ class FlowAgentLaunchTests(unittest.TestCase):
             'agent_dispatch.signature': Mock(return_value='sig'),
             'workflow_context.snapshot': Mock(return_value={}),
             'workflow_context.continuation_instruction': Mock(return_value=''),
-            'workflow_context_controller.request_stage_instruction': Mock(return_value=('', 'stage')),
+            'orchestrator.workflow_context_controller.request_stage_instruction': Mock(return_value=('', 'stage')),
             'contract.workflow_context_budget.prepare_request_context': lambda text, *a, **k: (text, {}),
             'workflow_engines.prompt_with_settings': lambda prompt, config, stage: prompt,
             'orchestrator.agent_skill_sync.sync_agent_skills': Mock(

@@ -24,6 +24,25 @@
 - 定向测试：迁移相关批 ~800 用例绿（test_assets/workflow/api/account_page/writing_api、test_core/pet_settings/storyboard_source_service/ui_edges_*/idea_chat）。
 - 合并树验证：R3095 合入 master 时出口档 CI（静态+架构+冒烟）全绿。
 
+## 主干同步（合入 master 前四跳）
+
+分支先后合入 master@804e11cb（96625d35）、master@5b82c2b8（e72d0a41）、master@a6b4b83f（99f87135，含 R3127 SKILL 生命周期十轮大合并）、master@0add6877（40ed4192，含 R3172 全量间隔 5→8 治理＋R3175 合并轮修复），冲突均按「门面维持删除、生产实现取主干、测试/台账手工对账」处理：
+
+- 第四跳（40ed4192）冲突仅 `project_status.md` 留分支侧；补迁移 5 处第三跳遗漏的扁平 patch 目标（`test_desktop_send_ledger.py`/`test_flow_agent_launch.py`/`test_script_agent_delivery_assembly.py` 的 `workflow_context_controller.`→`orchestrator.`、`workflow_context_budget.`→`contract.`、`desktop_send_ledger.`→`orchestrator.`）＋`维护记录/基准脚本/recovery_to_delivery_baseline.py` 的 `api_models.`→`contract.api_models.`；合并树冒烟 9/9、架构 483/483、受影响定向 52/52。
+
+- `架构统一基数.json` 取主干版 scope 组，`historical_name_audit_pending` 补 23 个失去扁平实体的 L2 名（合计 24）；`第四项` json.loads 台账随主干包路径版。
+- 覆盖率基线两次重测：合并树 583 模块/70 覆盖 → R3127 合入后 592 模块/72 覆盖（9 定向用例全过）；分支覆盖率基线 37 个 L0/L1 顶层存活模块重测（436/1052 决策点），下限棘轮全部保留主干值、零回退。
+- 语义冲突修复：`tests/test_edit_service.py` patch 目标 `edit_service.`→`domain.edit_service.`；`tests/test_seedream_direct.py` 恢复 CRLF 钉值（codemod 误写 LF）；`codex_skill_sync`→`agent_skill_sync` 改名取主干；`test_codex_skill_sync.py` 随主干删除。
+- `project_status.md` 三跳均留分支侧（仅 master 可提交，合并轮 `bump_status` 重写抬头）；验收期间工作树暂取主干版使轮次连续性断言按真实口径判定。
+
+## 验证（合并树最终态）
+
+- 编译：改动 .py `py_compile` 通过。
+- 冒烟：`smoke_test.py` 9/9。
+- 架构门禁：`smoke_test.py --architecture` 483/483（基线对账后全绿）。
+- 定向测试：迁移相关批 ~800 用例绿（test_assets/workflow/api/account_page/writing_api、test_core/pet_settings/storyboard_source_service/ui_edges_*/idea_chat）。
+- 全量：`run_selftests.py --all --safe` 见下方收尾记录。
+
 ## 移交（范围外，任务书已注明）
 
 - E1b def/class 死代码专项（需 vulture 级调用图）；E3 UI 回调/`auto_*_var` 残留专项。
