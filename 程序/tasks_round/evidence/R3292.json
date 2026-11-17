@@ -1,15 +1,15 @@
 {
   "round": 3292,
-  "commit_base": "c253f8cd",
+  "commit_base": "ed34a129",
   "credential_scan": {
     "ran": true,
     "hits": []
   },
   "targeted": {
-    "cmd": "run_selftests.py -k l1_p2 broadcaster aigc_lint comfy assets native_apps workflow_process workflow_engines",
+    "cmd": "run_selftests.py -k coverage_baseline branch_coverage_floor",
     "exit": 0,
-    "passed": 156,
+    "passed": 10,
     "failed": 0
   },
-  "generated_at": "2026-11-18T06:13:13"
+  "generated_at": "2026-11-18T07:55:59"
 }
