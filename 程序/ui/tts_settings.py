@@ -4,7 +4,7 @@ import webbrowser
 from tkinter import ttk, messagebox
 
 import domain.tts_api as api
-import tk_timers
+import infra.tk_timers as tk_timers
 from ui_tokens import WRAPLENGTH, SPACING
 from account_inputs import PasswordInput
 from ui_widgets import (Card, DescriptionBlock, FormDialog, LineInput, PrimaryButton,

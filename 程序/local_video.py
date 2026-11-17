@@ -67,7 +67,7 @@ class LocalAPI:
 
     def locate_prompt(self,client_id='',workflow=None,attempts=3,wait=1.0):
         """提交响应中断后，按本次 client_id（或完全相同的图）找回已进入 ComfyUI 的任务编号。"""
-        from comfy_service import locate_prompt
+        from infra.comfy_service import locate_prompt
         return locate_prompt(lambda path:self.call(path),client_id,workflow=workflow,attempts=attempts,wait=wait)
 
 def prepare_graph(root,cfg,shot):

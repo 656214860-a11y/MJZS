@@ -6,7 +6,7 @@
 import model_pool
 import model_router
 import pet_agent
-import token_saver
+import infra.token_saver as token_saver
 from contract.app_metadata import APP_NAME
 from pet_ui_support import Autostart, GearButton, PROGRAM, autostart_command
 from ui_tokens import SPACING

@@ -817,13 +817,13 @@
         "reason": "外部进程／网络响应解析，非文件读"
       },
       {
-        "file": "comfy_service.py",
+        "file": "infra/comfy_service.py",
         "point": "validate_safetensors:json.loads:1fd9fbd8107f3504:1",
         "disposition": "exempt",
         "reason": "外部进程／网络响应解析，非文件读"
       },
       {
-        "file": "comfy_service.py",
+        "file": "infra/comfy_service.py",
         "point": "Comfy.request:json.loads:5b6b10da4146427f:1",
         "disposition": "exempt",
         "reason": "外部进程／网络响应解析，非文件读"
@@ -919,7 +919,7 @@
         "reason": "外部进程／网络响应解析"
       },
       {
-        "file": "qwen_setup.py",
+        "file": "infra/qwen_setup.py",
         "point": "load:json.loads:ac18a8a332712bed:1",
         "disposition": "exempt",
         "reason": "本机 Qwen API 设置（LOCALAPPDATA/漫剧制作助手/qwen-api.json），坏文件按默认值处理，非项目正式 JSON；R1854 随 R1853 改 utf-8-sig 更新锚点"
@@ -931,13 +931,13 @@
         "reason": "R830：L0 契约为保持单向层级，经 agent.core.read 统一读取；不直接解析 JSON 或依赖 L1 file_cache。"
       },
       {
-        "file": "seedream_api.py",
+        "file": "infra/seedream_api.py",
         "point": "request_image:json.loads:b09d5b6e43efd9c0:1",
         "disposition": "exempt",
         "reason": "外部进程／网络响应解析，非文件读"
       },
       {
-        "file": "seedream_api.py",
+        "file": "infra/seedream_api.py",
         "point": "request_image:json.loads:a142745c58a77a7c:1",
         "disposition": "exempt",
         "reason": "外部进程／网络响应解析，非文件读"
@@ -1383,7 +1383,7 @@
         "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
       },
       {
-        "file": "qwen_setup.py",
+        "file": "infra/qwen_setup.py",
         "point": "retired:6472f9577f53829c",
         "disposition": "exempt",
         "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."

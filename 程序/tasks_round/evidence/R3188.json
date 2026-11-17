@@ -1,0 +1,15 @@
+{
+  "round": 3188,
+  "commit_base": "eb4d5e2a",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k client_profiles model_secrets qwen_setup token_saver comfy_service seedream_api cloud_assets tk_timers",
+    "exit": 0,
+    "passed": 111,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T17:38:18"
+}

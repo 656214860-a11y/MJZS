@@ -35,7 +35,7 @@ from orchestrator.storyboard_recycle_service import (
     restore_latest_recycled_files as _restore_latest_recycled_files,
 )
 from contract.platform_tools import open_path
-import tk_timers
+import infra.tk_timers as tk_timers
 from file_cache import read_json, read_text
 import project_settings
 import ui_plugin_registry

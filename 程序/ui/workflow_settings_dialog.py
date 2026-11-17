@@ -106,7 +106,7 @@ def show_settings(desktop,project,on_saved=None,stage='previs',function=None):
             win.destroy()
         except Exception as exc:notify(win, str(exc), level='error', title='调用设置', status=feedback)
     def api_saved():
-        model=__import__('qwen_setup').load()['model']
+        model=__import__('infra.qwen_setup').load()['model']
         sync_qwen_model(project,model)
         draft['profiles']['qwen']['model']=model
         if active[0]=='qwen':values['model'].set(model)

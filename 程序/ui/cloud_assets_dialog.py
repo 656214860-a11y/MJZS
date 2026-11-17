@@ -1,5 +1,5 @@
 """云图片模型「Comfy 账户」设置窗口（L4）；密钥读写与校验在 ``cloud_assets``。"""
-from cloud_assets import get_key, redact, save_key
+from infra.cloud_assets import get_key, redact, save_key
 from ui_tokens import CHAR_WIDTH, WRAPLENGTH, SPACING
 
 

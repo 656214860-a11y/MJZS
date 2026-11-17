@@ -2,8 +2,8 @@
 import tkinter as tk
 import webbrowser
 from tkinter import ttk
-import seedream_api as api
-import tk_timers
+import infra.seedream_api as api
+import infra.tk_timers as tk_timers
 from ui_widgets import (SelectBox, Card, DescriptionBlock, LineInput, PrimaryButton, ProgressLabel,
                         SecondaryButton, ask_confirmation, notify)
 from ui_widgets import BaseDialog

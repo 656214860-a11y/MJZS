@@ -66,7 +66,7 @@ import model_pool
 import model_router
 import ui.skill_note_render as skill_note_render
 import orchestrator.skill_notes as skill_notes
-from tk_timers import repeat
+from infra.tk_timers import repeat
 import orchestrator.skill_budget as skill_budget
 import orchestrator.skill_orchestrator as skill_orchestrator
 import orchestrator.skill_registry as skill_registry

@@ -21,7 +21,7 @@ import pet_skills_manage
 import environment_check
 import orchestrator.skill_budget as skill_budget
 import domain.usage_overview as usage_overview
-import token_saver
+import infra.token_saver as token_saver
 from contract.app_metadata import APP_NAME
 from contract.pet_settings_contract import TABS, LEVEL_NOTES
 from ui_tokens import FONTS, SPACING, TEXT_DESC, TEXT_HINT

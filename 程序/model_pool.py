@@ -18,7 +18,7 @@ import time
 from pathlib import Path
 
 import infra.config_snapshot as config_snapshot, model_secrets, token_saver
-import client_profiles
+import infra.client_profiles as client_profiles
 from model_metering import REPLAYABLE_RETRY_STATUS
 from agent.core import save
 from api_endpoints import configured_key, normalize_url, _http_error_kind, _request_headers, _retry_after_seconds, _decode_response_body, wait_for_rpm, elapsed_ms, _RateBucket, _http_opener, HTTP_USER_AGENT

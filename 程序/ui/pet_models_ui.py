@@ -388,7 +388,7 @@ def settings_page(parent, pet, close=None, with_manager=True, label_width=None, 
 
 def _derive_client_profile(path, display, mode, entries, *, probe):
     '''Adapt one executable and fill the model id when only a path was given.'''
-    from client_profiles import adapt_executable
+    from infra.client_profiles import adapt_executable
     adapted = adapt_executable(path, display=display, probe=probe)
     profile = adapted.get('profile') or {}
     kind = profile.get('kind')
