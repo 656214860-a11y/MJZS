@@ -7,7 +7,7 @@ import queue
 import threading
 
 import app_logging
-from desktop_page_registry import page_title
+from ui.desktop_page_registry import page_title
 
 
 class AsyncTasksMixin:

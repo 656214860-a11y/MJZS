@@ -7,7 +7,7 @@ import pet_ui
 from pathlib import Path
 from orchestrator.desktop_automation_service import PersistentBackgroundTaskQueue
 from agent.core import read
-from desktop_page_registry import PAGE
+from ui.desktop_page_registry import PAGE
 from ui.desktop_tk_gc import drain_tk_gc
 from ui.desktop_account_page import RENEW_DELAY_MS
 

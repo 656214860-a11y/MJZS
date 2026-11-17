@@ -463,7 +463,7 @@ class StageModelPicker(ttk.Frame):
         pet = pet_of(self.desktop)
         if pet is None:
             return ''
-        import pet_models_ui
+        import ui.pet_models_ui as pet_models_ui
         try:
             return pet_models_ui.open_manager(pet)
         except Exception:

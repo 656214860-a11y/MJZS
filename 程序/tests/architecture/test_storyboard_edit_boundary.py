@@ -2,12 +2,12 @@
 import ast
 import unittest
 
-from tests.architecture._scan import ROOT
+from tests.architecture._scan import entity_file
 
 
 class StoryboardEditBoundaryTests(unittest.TestCase):
     def test_final_editor_delegates_document_persistence(self):
-        tree = ast.parse((ROOT / 'storyboard_files.py').read_text(encoding='utf-8'))
+        tree = ast.parse(entity_file('storyboard_files').read_text(encoding='utf-8'))
         imported = {name.name for node in tree.body if isinstance(node, ast.ImportFrom)
                     and node.module in {'storyboard_final_controller',
                                         'orchestrator.storyboard_final_controller'}

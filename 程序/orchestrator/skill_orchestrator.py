@@ -26,7 +26,7 @@ import contract.script_contract as script_contract
 import orchestrator.skill_budget as skill_budget
 import orchestrator.skill_registry as skill_registry
 import orchestrator.skill_templates as skill_templates
-import skill_tools
+import ui.skill_tools as skill_tools
 import orchestrator.stage_parallel as stage_parallel
 from file_cache import read_json
 from model_router import spend_kind

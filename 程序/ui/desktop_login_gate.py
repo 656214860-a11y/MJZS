@@ -10,7 +10,7 @@ from tkinter import ttk
 
 import domain.entitlement_service as entitlement_service
 from contract.app_metadata import APP_NAME
-from desktop_page_registry import PAGE_ACCOUNT
+from ui.desktop_page_registry import PAGE_ACCOUNT
 from ui_tokens import DESKTOP_LAYOUT, FONTS, SPACING
 
 LOGIN_GATE_NOTE = '请先登录账号；没有账号请点「注册」。新账号免费试用 3 天；项目和素材始终留在本机，不上传。'

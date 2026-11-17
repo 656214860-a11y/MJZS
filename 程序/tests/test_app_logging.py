@@ -10,6 +10,7 @@ from unittest import mock
 
 import app_logging
 import diagnostic_capture
+from tests.architecture._scan import entity_file
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -150,7 +151,7 @@ class AppLoggingTests(unittest.TestCase):
 
     def test_page_switch_and_model_http_are_instrumented(self):
         program = Path(__file__).resolve().parents[1]
-        self.assertIn("@app_logging.timed('page.show'", (program / 'desktop_page_nav.py').read_text(encoding='utf-8'))
+        self.assertIn("@app_logging.timed('page.show'", entity_file('desktop_page_nav').read_text(encoding='utf-8'))
         self.assertIn("@app_logging.timed('model.http'", (program / 'model_pool.py').read_text(encoding='utf-8'))
 
     def test_model_http_outcomes_are_counted_without_changing_result(self):

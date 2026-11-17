@@ -11,6 +11,7 @@ import stage_layout
 import stage_config
 import stage_parallel
 import workflow_settings
+from tests.architecture._scan import entity_file
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILL_DIR = ROOT / 'skills' / '06连贯性SKILL'
@@ -118,11 +119,11 @@ class ContinuityScopeTests(unittest.TestCase):
         self.assertIn('不调用模型', text)
 
     def test_req_s06_33_auto_chain_has_one_entry_through_the_registry(self):
-        source = (ROOT / 'desktop_pet_bridge.py').read_text(encoding='utf-8')  # SPLITD：pet_start/_start_unattended_stage 迁到 PetBridgeMixin
+        source = entity_file('desktop_pet_bridge').read_text(encoding='utf-8')  # SPLITD：pet_start/_start_unattended_stage 迁到 PetBridgeMixin
         self.assertIn("if stage=='continuity':return self.pet_continuity_ledger()", source)
         self.assertIn("stage_handler_registry.start(self,stage,trigger='auto',fallback=self._start_unattended_stage)",
                       source)
-        pages = (ROOT / 'desktop_media_pages.py').read_text(encoding='utf-8')
+        pages = entity_file('desktop_media_pages').read_text(encoding='utf-8')
         self.assertEqual(pages.count('self.write_continuity_ledger('), 1)
         self.assertGreaterEqual(pages.count('self.generate_continuity_ledger('), 2)
 

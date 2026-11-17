@@ -2,13 +2,13 @@
 import app_logging
 import orchestrator.page_navigation_controller as page_nav
 from ui.desktop_idea_menus import IdeaMenusMixin
-from desktop_asset_pages import AssetPagesMixin, AssetPageServices
-from desktop_script_pages import ScriptPagesMixin, ScriptPageServices
-from desktop_media_pages import MediaPagesMixin, MediaPageServices
-from desktop_project_pages import ProjectPagesMixin, ProjectPageServices
-from desktop_storyboard_page import StoryboardPageMixin, StoryboardPageServices
-from desktop_writing_page import WritingPageMixin, WritingPageServices, TALK_MIN_LINES, TALK_MAX_LINES
-from desktop_files_panel import ProjectFilesPanel
+from ui.desktop_asset_pages import AssetPagesMixin, AssetPageServices
+from ui.desktop_script_pages import ScriptPagesMixin, ScriptPageServices
+from ui.desktop_media_pages import MediaPagesMixin, MediaPageServices
+from ui.desktop_project_pages import ProjectPagesMixin, ProjectPageServices
+from ui.desktop_storyboard_page import StoryboardPageMixin, StoryboardPageServices
+from ui.desktop_writing_page import WritingPageMixin, WritingPageServices, TALK_MIN_LINES, TALK_MAX_LINES
+from ui.desktop_files_panel import ProjectFilesPanel
 from ui.desktop_page_support import ASSET_FIRST_ROWS, ASSET_ROWS_PER_FRAME, ASSET_ROW_LABEL, STAGE_ACTION_WIDTH, _prefs, THUMB_SIZE, ASSET_ROW_HEIGHT
 from desktop_idea_chat import IdeaChatMixin, IDEA_FIELDS, BUBBLE_FLOOR, BUBBLE_LINE, BUBBLE_MAX_RATIO, script_raw_saved_notice, model_error_display
 import desktop_shared_send
@@ -44,7 +44,7 @@ from contract.platform_tools import find_editor_shortcut, launch_windows_app, op
 from orchestrator.desktop_startup_service import DesktopStartupController
 from ui.desktop_account_page import AccountPageMixin
 from ui.desktop_login_gate import LoginGateMixin
-from desktop_page_nav import PageNavMixin
+from ui.desktop_page_nav import PageNavMixin
 from ui.desktop_lifecycle import LifecycleMixin
 from orchestrator.desktop_automation_service import BackgroundTaskLifecycle, DesktopAutomationScheduler, BackgroundTaskQueue, PersistentBackgroundTaskQueue, inspect_project_storage, RetryRegistry
 from orchestrator.idea_chat_controller import IdeaChatController, speaker_name
@@ -107,7 +107,7 @@ import pet_state
 
 # 第 44 期：版本号只写这一份——系统标题栏与左上角那一行（齿轮就挨着它）都用它。
 from contract.app_metadata import APP_NAME, VERSION
-from desktop_page_registry import (CACHED_PAGES, PAGE, PAGE_ACCOUNT, PAGE_NAV_ICONS,
+from ui.desktop_page_registry import (CACHED_PAGES, PAGE, PAGE_ACCOUNT, PAGE_NAV_ICONS,
                                    PAGE_SITES, PAGES, nav_label, page_title)
 
 # 「页面第一次画完」按页指标名：用 PAGE 稳定键区分 14 页，不用会变的中文标题。
@@ -141,8 +141,8 @@ def _page_services(given):
 from ui.desktop_tk_gc import (protect_readonly_combobox, protect_tk_gc, drain_tk_gc, _pin_tk_app,
                         _PENDING_TK_GC, _KEEP_APPS)
 from ui.desktop_automation_tick import AutomationTickMixin
-from desktop_layout import LayoutMixin
-from desktop_pet_bridge import PetBridgeMixin, PET_STAGE_POLL, UNATTENDED_SWITCH
+from ui.desktop_layout import LayoutMixin
+from ui.desktop_pet_bridge import PetBridgeMixin, PET_STAGE_POLL, UNATTENDED_SWITCH
 from ui.desktop_async_tasks import AsyncTasksMixin
 from desktop_tray import TrayMixin
 
@@ -820,7 +820,7 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         self.status.set(text)
         return self.status_label
     def storyboard_creation(self):
-        from storyboard_files import show
+        from ui.storyboard_files import show
         show(self)
     # 第 29 期第 1 条：页面上那几处重复的「Model ＋ SKILL」控制行整个拿掉。R2942 起页面级
     # 「阶段配置」按钮＋模型下拉框也全部删除：模型选择走共享输入框的下拉框按钮，
@@ -872,7 +872,7 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
 
 
     def final_storyboard(self):
-        from storyboard_files import show_final
+        from ui.storyboard_files import show_final
         # 第 68 期任务 6：这一页补上了主动作「手动同步资产」，阶段配置就跟着挪到那一行
         # （原来挂在页标题右边，两处会重复），见 storyboard_files.show_final。
         show_final(self)

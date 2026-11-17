@@ -243,7 +243,7 @@ class GateCoverageTests(_Base):
 
     def test_delivery_export_goes_through_gate(self):
         """「质检与交付」的成片导出（后期剪辑页按平台导出）不经 start()，单独过 account_blocked。"""
-        source = (Path(__file__).resolve().parents[1] / 'desktop_media_pages.py').read_text(encoding='utf-8')
+        source = entity_file('desktop_media_pages').read_text(encoding='utf-8')
         line = next(text for text in source.splitlines() if 'controller.export_platform(' in text)
         self.assertIn("self.account_blocked('delivery') or", line)
         host = _Host(self.controller())

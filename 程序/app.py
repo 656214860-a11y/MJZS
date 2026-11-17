@@ -18,7 +18,7 @@ from local_video import open_studio,LocalStudio,settings_window
 from orchestrator.engine import review_label
 from domain.project_naming import dated_path
 from domain.video_task_state import assert_prompt_editable,prompt_locked,poll_delay,elapsed_text,submission_block_reason
-from video_progress import snapshot as shared_video_snapshot,display as progress_display,summary as progress_summary,LABELS,status_detail
+from ui.video_progress import snapshot as shared_video_snapshot,display as progress_display,summary as progress_summary,LABELS,status_detail
 import project_settings
 import asset_thumbs
 import ui_plugin_registry

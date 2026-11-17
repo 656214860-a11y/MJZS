@@ -94,7 +94,7 @@ class StageDialogButtonTests(unittest.TestCase):
         self.assertNotIn("padx=(6, 0)", text)
 
     def test_fit_sidebar_uses_tokens_and_covers_selected_compact(self):
-        text = (ROOT / "desktop_layout.py").read_text(encoding="utf-8")
+        text = entity_file('desktop_layout').read_text(encoding="utf-8")
         body = text[text.index("def fit_sidebar"):text.index("def align_header")]
         self.assertIn("'Selected.Compact.TButton'", body)
         self.assertIn("'RailIcon.TButton'", body)   # R2897：纯图标小按钮与导航行同受紧凑内边距约束

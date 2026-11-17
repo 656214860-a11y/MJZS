@@ -648,7 +648,7 @@ class AutoFlowsMixin:
         threading.Thread(target=worker,daemon=True).start()
         self._schedule_auto_handoff_result_poll()
     def poll_unwatched_cloud(self):
-        from video_progress import unwatched_pending
+        from ui.video_progress import unwatched_pending
         source=self.current_frame_json()
         watched=[app.root for app in self.video_sessions.values() if app.studio.episode_path.resolve()==source.resolve()]
         pending=unwatched_pending(self.root,source,watched)

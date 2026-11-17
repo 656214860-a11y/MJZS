@@ -17,7 +17,7 @@ import domain.account_client as account_client
 import domain.entitlement_service as entitlement_service
 from orchestrator.account_controller import RENEW_VIEW_INTERVAL, AccountController
 import contract.pet_bus as pet_bus
-from desktop_page_registry import (NAV_LOCK_ICON, PAGE_ACCOUNT, PAGE_NAV_ICONS, PAGES,
+from ui.desktop_page_registry import (NAV_LOCK_ICON, PAGE_ACCOUNT, PAGE_NAV_ICONS, PAGES,
                                    nav_label, page_title)
 from ui_icons import IconLoader
 from ui_tokens import DIALOG_CONTENT_PADDING, DIALOG_MIN_HEIGHT, FONTS, SPACING, TEXT_DESC
