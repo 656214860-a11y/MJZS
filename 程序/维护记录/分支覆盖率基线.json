@@ -68,7 +68,8 @@
   "tests.test_model_router_parse",
   "tests.test_model_router_diagnostics",
   "tests.test_file_naming",
-  "tests.test_file_index"
+  "tests.test_file_index",
+  "tests.test_global_library_service"
  ],
  "tests_ok": true,
  "points_total": 1055,
@@ -345,6 +346,12 @@
    "percent": 100.0
   },
   {
+   "module": "global_library_service.py",
+   "points": 0,
+   "covered": 0,
+   "percent": 100.0
+  },
+  {
    "module": "h3_reference_adapter.py",
    "points": 0,
    "covered": 0,
@@ -543,5 +550,5 @@
    "percent": 100.0
   }
  ],
- "modules_total": 78
+ "modules_total": 79
 }

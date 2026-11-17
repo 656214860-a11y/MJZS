@@ -127,6 +127,26 @@ class FilesPanelFilterMixin:
         self._sync_stage_buttons()
         self._reload_current_view()
 
+    def reference_from_library(self, row):
+        """把全局素材库里的文件复制进当前项目（R3165，任务书 P3）。"""
+        from domain import global_library_service
+        from infra import file_index
+        relative = str(row).split(':', 1)[1]
+        library = file_index.read_global_dir()
+        if library is None:
+            self.page.status.set('尚未设置全局素材库目录，无法引用。')
+            return
+        root = getattr(self.page, 'root', None)
+        if root is None:
+            self.page.status.set('当前没有打开的项目，无法引用素材。')
+            return
+        try:
+            target = global_library_service.copy_to_project(library, relative, root)
+        except (OSError, ValueError) as exc:
+            self.page.status.set('引用素材失败：' + str(exc))
+            return
+        self.page.status.set('已引用到当前项目：' + target.name)
+
     def _filters_active(self):
         return any((self.stage_filter, self.kind_filter, self.status_filter, self.keyword_filter))
 

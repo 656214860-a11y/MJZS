@@ -552,6 +552,10 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
         # 只给「查看」，删除留到接 storage_maintenance 唯一回收权威的那一轮。
         if self.script_row_category.get(row) == STAGE_FILTER_ROW_CATEGORY:
             menu.command('查看', lambda: self.page.safe(self.open_script_file))
+            # R3165（任务书 P3）：全局素材库视图的行可「引用到当前项目」。
+            if str(row).startswith('library:'):
+                menu.command('引用到当前项目',
+                             lambda: self.page.safe(lambda: self.reference_from_library(row)))
             return menu.popup(event)
         if len(tree.selection()) > 1:
             # 多选时只给「删除」：查看、改名、定稿都只针对一份文件。
