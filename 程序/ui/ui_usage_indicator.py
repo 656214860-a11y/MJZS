@@ -65,7 +65,7 @@ class UsageIndicator(tk.Frame):
         bamount = money_amount(balance.get('amount')
                                if isinstance(balance, dict) else None)
         bcurrency = balance.get('currency') if isinstance(balance, dict) else ''
-        ordered = [('token', 'Token:' + abbr_number(tokens), self._token_color(tokens))]
+        ordered = [('token', 'Token: ' + abbr_number(tokens), self._token_color(tokens))]
         if cost is not None:
             ordered.append(('money', money_text(cost, data.get('currency')), COLORS['text_primary']))
         if bamount is not None:

@@ -2200,7 +2200,7 @@ class BubbleLayoutTests(_Harness):
             idea_chat.append(proj, 'assistant', '另一模型正文', model='另一模型')
             d.show(0)
             self.settle_script_page(win)
-            self.assertIn('输入估算 123', d.idea_usage_tip.text)
+            self.assertIn('输入估算 123', d.status_bar._segments['usage'][1].tooltip.text)
             with patch.object(d, 'idea_chat_model', return_value='另一模型'):
                 with patch('prompt_window.copy_text', return_value='') as copied:
                     self.assertEqual(d.copy_bubble_message(0), '当前气泡正文')
@@ -2214,7 +2214,7 @@ class BubbleLayoutTests(_Harness):
                 self.settle_script_page(win)
                 self.assertIn('另一模型正文', self.log_text(d))
                 self.assertNotIn('当前气泡正文', self.log_text(d))
-                self.assertEqual(d.idea_usage_label.cget('text'), '本模型暂无用量记录')
+                self.assertEqual(d.status_bar._segments['usage'][1].full_text, '本模型暂无用量记录')
 
     def test_delete_all_removes_legacy_duplicates_and_protects_other_files(self):
         with tempfile.TemporaryDirectory() as td:
@@ -2542,21 +2542,17 @@ class ComposerLayoutTests(_Harness):
             # R2923：发送键并入共享输入框（发送图标），页面不再有独立「发送」按钮。
             self.assertFalse(hasattr(d, 'idea_send'), '页面「发送」按钮已随 R2923 删除')
 
-    def test_session_label_explains_dimensions_and_follows_model_switch(self):
-        """O14：界面要说明会话模型/调用方式、请求身份、上下文与项目共享成果。"""
+    def test_session_line_removed_from_script_page(self):
+        """R2989 P1：会话说明行按用户裁定删除；会话信息只经 writing_api 纯函数保留（见 test_writing_status_line）。"""
         with tempfile.TemporaryDirectory() as td:
             d, win = self.desktop(make_minimal_project(td))
             self.sync_async(d)
             d.show(0)
             self.settle_script_page(win)
-            text = d.idea_session_tip.text
-            self.assertIn('当前会话：', text)
-            self.assertIn('按模型隔离', text)
-            self.assertIn('不隐藏也不复制项目成果', text)
-            with patch.object(d, 'idea_chat_model', return_value='另一模型'):
-                d.refresh_script_chat_for_selected_model()
-                self.settle_script_page(win)
-                self.assertIn('另一模型', d.idea_session_tip.text)
+            self.assertIsNone(getattr(d, 'idea_session_label', None))
+            self.assertIsNone(getattr(d, 'idea_session_tip', None))
+            # 用量摘要仍在统一底栏左区。
+            self.assertIn('usage', d.status_bar._segments)
 
 
 class ModelBarUITests(_Harness):

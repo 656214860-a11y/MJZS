@@ -205,7 +205,12 @@ DIALOG_MIN_HEIGHT = 160
 
 # Tooltip 的出现节奏和视觉只由 ui_widgets.Tooltip 消费；页面只提供说明文本，
 # 不得各自创建无边框窗口或复制 Enter/Leave 的延迟与销毁逻辑。
-TOOLTIP_DELAY_MS = 400
+# R2997 悬停状态机（数值按用户确认取 300/150/300，参考 Windows 原生 tooltip initial 500
+# reshow 100 与 Radix 700/300 折中）：出现延迟 DELAY；关闭后 RESHOW 窗口内再进入跳过延迟；
+# 卡片模式移出后 CLOSE_DELAY 才隐藏（期间指针进入卡片或回到控件即保留）。
+TOOLTIP_DELAY_MS = 300
+TOOLTIP_RESHOW_MS = 150
+TOOLTIP_CLOSE_DELAY_MS = 300
 # 语音输入：界面每隔这么久取一次后台听写结果。
 VOICE_POLL_MS = 150
 # 剧本结构页编辑：停止输入这么久后自动保存一次（REQ-S02-35，R2724 恢复自动保存）。

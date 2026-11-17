@@ -219,7 +219,19 @@ def handle(message, *, session_factory=None, settings=None):
     return _result(request_id, error='未知方法：%s' % method)
 
 
+def _configure_stdio():
+    """stdio 固定 UTF-8：MCP 规范按 UTF-8 读写，中文 Windows 默认 GBK 会让中文结果乱码。"""
+    for stream in (sys.stdin, sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, 'reconfigure', None)
+        if reconfigure is not None:
+            try:
+                reconfigure(encoding='utf-8', errors='replace')
+            except (OSError, ValueError, LookupError):
+                pass
+
+
 def main():
+    _configure_stdio()
     for line in sys.stdin:
         line = line.strip()
         if not line:

@@ -113,6 +113,14 @@ class RouteTests(unittest.TestCase):
         # 「项目做到哪了」问的是进度：进度那条规则排在前面，照旧归它（第 37 期第 1 条）。
         self.assertEqual(pet_agent.route("项目做到哪了")["intent"], "progress")
 
+    def test_hotspot_performance_check_stays_in_rules(self):
+        """R3002：热点路径优化检查与另两条性能检查同列规则表，命中不花 Token。"""
+        spy = SpyClient(content='{"intent": "未知"}')
+        plan = pet_agent.route("运行热点路径优化检查", client=spy)
+        self.assertEqual((plan["intent"], plan["source"]), ("performance_hotspot", "rule"))
+        self.assertEqual(spy.calls, [])
+        self.assertEqual(pet_agent.action_for(plan), "stage.inspect")
+
     def test_reading_the_projects_is_a_free_action(self):
         """看一眼的事：报项目清单与查进度同一类，哪一档都立刻放行。"""
         action = pet_agent.action_for({"intent": "projects"})

@@ -11,7 +11,7 @@ from tests.architecture._scan import ROOT, parse
 # PrimaryButton／SecondaryButton 等语义组件（ui_widgets）。
 BUTTON_OWNERS = {'ui_widgets.py'}
 # 与 test_dialog_boundary 一致：测试、轮次记录与维护记录不参与生产门禁。
-EXCLUDED_PARTS = {'tests', 'tasks_round', '维护记录', '.git', '__pycache__'}
+EXCLUDED_PARTS = {'tests', 'tasks_round', '维护记录', '.git', '__pycache__', 'voice_asr_venv'}
 
 
 def raw_button_calls(tree):

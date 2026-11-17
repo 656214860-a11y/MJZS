@@ -4,6 +4,7 @@ import json
 import os
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -69,8 +70,29 @@ class PagePaintMetricTests(unittest.TestCase):
             window.update_idletasks()
             window.update()
         snap = app_logging.metrics_snapshot()
-        self.assertIn('page.paint.script_structure', snap)
-        self.assertGreaterEqual(snap['page.paint.script_structure']['count'], 1)
+        # R3008：每实例首个画完的页记 .boot 相位名。
+        self.assertIn('page.paint.script_structure.boot', snap)
+        self.assertGreaterEqual(snap['page.paint.script_structure.boot']['count'], 1)
+        self._cleanup(window, desktop)
+
+    def test_page_switch_records_fit_breakdown_counters(self):
+        """R2990：首帧计时窗内的布局等待 polls 与布局轮次记入 counters，供首帧分解。"""
+        from desktop import PAGE
+        app_logging._metrics.clear()
+        app_logging._counters.clear()
+        window = desktop = None
+        with tempfile.TemporaryDirectory(prefix='page-paint-fit-') as td:
+            window, desktop = self._make_desktop(td)
+            desktop.show(PAGE['script_structure'])
+            window.update_idletasks()
+            window.update()
+            for _ in range(30):
+                window.update()
+        snap = app_logging.metrics_snapshot()
+        counters = snap.get('counters') or {}
+        self.assertIn('page.paint.script_structure.boot.fitwaits', counters)
+        self.assertIn('page.paint.script_structure.boot.fitpasses', counters)
+        self.assertGreaterEqual(counters['page.paint.script_structure.boot.fitpasses'], 0)
         self._cleanup(window, desktop)
 
     def test_rapid_switch_records_only_last_page(self):
@@ -84,8 +106,9 @@ class PagePaintMetricTests(unittest.TestCase):
             window.update_idletasks()
             window.update()
         snap = app_logging.metrics_snapshot()
-        self.assertIn('page.paint.script_structure', snap)
+        self.assertIn('page.paint.script_structure.boot', snap)
         self.assertNotIn('page.paint.script', snap)
+        self.assertNotIn('page.paint.script.boot', snap)
         self._cleanup(window, desktop)
 
     def test_destroyed_window_measurement_is_silent(self):
@@ -154,7 +177,34 @@ class PagePaintMetricTests(unittest.TestCase):
             window.update_idletasks()
             window.update()
         snap = app_logging.metrics_snapshot()
-        self.assertEqual(snap.get('page.paint.script', {}).get('count'), 1)
+        self.assertEqual(snap.get('page.paint.script.boot', {}).get('count'), 1)
+        self._cleanup(window, desktop)
+
+    def test_second_paint_uses_steady_metric_name(self):
+        """R3008：只有首个画完的页带 .boot；之后的翻页回到稳态指标名。"""
+        from desktop import PAGE
+        app_logging._metrics.clear()
+        window = desktop = None
+        with tempfile.TemporaryDirectory(prefix='page-paint-steady-') as td:
+            window, desktop = self._make_desktop(td)
+            desktop.show(PAGE['script'])
+            deadline = time.perf_counter() + 8
+            while time.perf_counter() < deadline:
+                window.update()
+                if 'page.paint.script.boot' in app_logging.metrics_snapshot():
+                    break
+                time.sleep(0.005)
+            desktop.show(PAGE['script_structure'])
+            deadline = time.perf_counter() + 8
+            while time.perf_counter() < deadline:
+                window.update()
+                if 'page.paint.script_structure' in app_logging.metrics_snapshot():
+                    break
+                time.sleep(0.005)
+        snap = app_logging.metrics_snapshot()
+        self.assertIn('page.paint.script.boot', snap)
+        self.assertIn('page.paint.script_structure', snap)
+        self.assertNotIn('page.paint.script_structure.boot', snap)
         self._cleanup(window, desktop)
 
 

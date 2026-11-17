@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 """主界面「项目文件」全局入口与右侧停靠面板（R2962，自 ``_WritingPage`` 迁入，REQ-S01-90）。
 
-原「剧本准备」页内 ``script_box`` 文件栏改为全局固定目录：标题行右上角
-纯图标钮（``project_files``，与侧栏 ``project_open`` 同套 Fluent Filled
-图标），点击后右侧停靠面板向左展开、主内容区收窄；默认隐藏，切页／切项目
-自动收起，面板外按下或 Esc 关闭。文件发现仍走 ``script_workspace_service``
-渐进批次；本模块只做 Tk 装配与既有文件操作的搬运，方法体与原实现一致，
-``self.page`` 语义不变（``page`` 即 ``Desktop`` 实例）。
+原「剧本准备」页内 ``script_box`` 文件栏改为全局固定目录：R2998 起入口从
+标题行迁到内容区右缘独立图标列（``rail``，聊天区滑块右侧、与画布同高，
+图标在列顶、下方留白给后续图标功能），点击后右侧停靠面板向左展开、主内容
+区收窄；默认隐藏，切页／切项目自动收起，面板外按下或 Esc 关闭。文件名列宽
+按最长文件名动态调整（``script_width_sizer`` 驱动面板宽）。文件发现仍走
+``script_workspace_service`` 渐进批次；本模块只做 Tk 装配与既有文件操作的
+搬运，方法体与原实现一致，``self.page`` 语义不变（``page`` 即 ``Desktop``
+实例）。
 """
 import time
 import tkinter as tk
@@ -16,15 +18,21 @@ from tkinter import ttk
 from desktop_file_card import TreeRowCard, script_row_card
 from desktop_page_registry import PAGE_ACCOUNT, PAGE_SITES
 from desktop_writing_snapshots import WritingSnapshotsMixin
-from responsive_ui import fit_row_height, row_toggle_target
+from responsive_ui import fit_row_height, measure, row_toggle_target
 from ui_icons import IconLoader
 from ui_tokens import ICON_CHEVRON_RIGHT, SCRIPT_FILE_FONT, SCRIPT_FILE_MAX_ROWS, SPACING
 from ui_widgets import DataTable, SecondaryButton, Tooltip, ask_string
 from writing_page_controller import ScriptListLoadController
 
+# R2998：文件名列宽不再写死——面板宽度由 0 高 sizer 驱动，按最长文件名量宽。
+SCRIPT_LIST_MIN_WIDTH = SPACING['sm'] * 23      # 沿用原固定列宽下限（184）
+SCRIPT_PANEL_MAX_SHARE = 0.5                     # 面板最多占内容区一半宽
+SCRIPT_PANEL_MAX_WIDTH = SPACING['sm'] * 60      # 480：更长的文件名靠悬停看全
+SCRIPT_CELL_OVERHEAD = SPACING['md'] * 4         # 48：格内边距＋滚动条＋面板留白
+
 
 class ProjectFilesPanel(WritingSnapshotsMixin):
-    """右上角「项目文件」图标钮＋右侧停靠文件列表；``page`` 是 ``Desktop`` 实例。"""
+    """内容区右缘图标列「项目文件」入口＋右侧停靠文件列表；``page`` 是 ``Desktop`` 实例。"""
 
     def __init__(self, page):
         self.page = page
@@ -32,16 +40,26 @@ class ProjectFilesPanel(WritingSnapshotsMixin):
         self._panel_root = None
         self._button_bind = None
         self._escape_bind = None
-        self._button_before = None
+        self._fit_width_job = None
 
     def build(self):
-        """建入口钮与停靠面板；初始收起，文件列表默认隐藏（REQ-S01-90）。"""
+        """建入口图标列与停靠面板；初始收起，文件列表默认隐藏（REQ-S01-90）。"""
         page = self.page
         image = IconLoader.nav_icon(page.win, 'project_files')
-        self.button = SecondaryButton(page.title_row, text='', image=image,
+        # R3060：图标列挂 panel_area（panel_dock 的父级）而非画布列——面板打开时
+        # 停靠列从图标列左侧让位，图标恒为内容区最右竖条。
+        area = getattr(page, 'panel_area', None) or page.canvas.master
+        # R2998：入口从标题行迁到内容区右缘独立图标列——先于任何停靠面板 pack，
+        # 恒为该容器最右竖条（与画布同高，图标在列顶、下方留白给后续图标）。
+        self.rail = ttk.Frame(area)
+        self.rail.pack(side='right', fill='y')
+        # Tk 空 frame 的请求宽度只增不收：常驻一个 0 尺寸占位子件，让列在
+        # 按钮隐藏时塌回约 1px，而不是卡住上次的宽度。
+        self.rail_sizer = tk.Frame(self.rail, width=0, height=0)
+        self.rail_sizer.pack(side='bottom')
+        self.button = SecondaryButton(self.rail, text='', image=image,
                                       compound='image' if image is not None else 'text',
                                       command=self.toggle, style='RailIcon.TButton')
-        self._button_before = getattr(page, 'header_info', None)
         self._pack_button()
         Tooltip(self.button, '项目文件')
         page.files_button = self.button
@@ -51,7 +69,6 @@ class ProjectFilesPanel(WritingSnapshotsMixin):
         dock = getattr(page, 'panel_dock', None)
         area = dock or getattr(page, 'panel_area', None) or page.canvas.master
         self._dock = dock if dock is area else None
-        self._panel_side = 'left' if self._dock is not None else 'right'
         self.script_box = ttk.Frame(area, padding=(SPACING['xs'], SPACING['xs']))
         self.sep = ttk.Separator(area, orient='vertical')
         self.script_header = ttk.Frame(self.script_box)
@@ -74,9 +91,19 @@ class ProjectFilesPanel(WritingSnapshotsMixin):
         self.script_tree.column('name', width=SPACING['sm'] * 23, minwidth=100, stretch=True)
         self.page.script_file_tips = TreeRowCard(self.script_tree, tips)
         self.script_list.pack(fill='both', expand=True, pady=(SPACING['none'], SPACING['xs']))
+        # R2998：文件名列宽不再写死——0 高 sizer 驱动 script_box 请求宽，
+        # _fit_script_width 按最长文件名量宽后 configure；列 stretch 铺满。
+        # 必须关 grid 传播：Treeview 删行重填后会把 stretch 列的 reqwidth 锁成
+        # 当时分配宽（delete+insert 实测 reqw=alloc 且不再回落），不关掉面板
+        # 就永远缩不回来；关掉后面板宽只由 sizer 决定，列 stretch 仍管视觉铺满。
+        self.script_list.grid_propagate(False)
+        self.script_width_sizer = tk.Frame(self.script_box, width=SCRIPT_LIST_MIN_WIDTH, height=0)
+        self.script_width_sizer.pack()
         # 状态标记放在文件名前面：列窄时被截掉的是文件名尾巴，不是[已确认]/[待确认]。
         ttk.Style(self.script_tree).configure('Script.Treeview', font=SCRIPT_FILE_FONT)
         fit_row_height(self.script_tree, style='Script.Treeview')
+        # 窗口缩放改变内容区宽度上限时重算面板宽（去抖到 idle，且只在面板开着时跑）。
+        area.bind('<Configure>', self._on_files_area_resize, add='+')
         self.script_loader = ScriptListLoadController(('setting', 'outline', 'character', 'script'))
         self.script_load_job = None
         self.script_box.bind('<Destroy>', self.cancel_script_load, add='+')
@@ -103,13 +130,15 @@ class ProjectFilesPanel(WritingSnapshotsMixin):
         return getattr(self.page, 'page_index', None) not in (PAGE_SITES, PAGE_ACCOUNT)
 
     def _pack_button(self):
-        options = {'side': 'right', 'padx': (SPACING['none'], SPACING['xs'])}
-        if self._button_before is not None:
-            options['before'] = self._button_before
-        self.button.pack(**options)
+        """图标钮挂进右侧图标列顶；已在管时不重复 pack。"""
+        if self.button.winfo_manager():
+            return
+        self.button.pack(side='top', fill='x',
+                         padx=(SPACING['xs'], SPACING['xs']),
+                         pady=(SPACING['sm'], SPACING['xs']))
 
     def sync_entry(self):
-        """按当前项目与页码显隐右上角图标钮；不满足时收起面板。"""
+        """按当前项目与页码显隐图标列里的入口钮；不满足时收起面板（列随钮塌缩）。"""
         if not self._entry_allowed():
             self.collapse()
             if self.button.winfo_manager():
@@ -200,7 +229,7 @@ class ProjectFilesPanel(WritingSnapshotsMixin):
             for _ in range(32):
                 if node is None or node is self.page.win:
                     break
-                if node is self.script_box or node is self.sep or node is self.button:
+                if node is self.script_box or node is self.sep or node is self.button or node is self.rail:
                     return
                 node = getattr(node, 'master', None)
         except tk.TclError:
@@ -269,6 +298,7 @@ class ProjectFilesPanel(WritingSnapshotsMixin):
                     self.script_load_job = self.page.win.after_idle(place)
                     return
                 self.script_tree.configure(height=max(1, min(SCRIPT_FILE_MAX_ROWS, len(self.script_tree.get_children()))))
+                self._fit_script_width()
                 self.script_load_job = None
             place()
 
@@ -291,6 +321,58 @@ class ProjectFilesPanel(WritingSnapshotsMixin):
         # 初次目录扫描必须越过首帧的 event loop；after_idle 会在同一次
         # update() 内被追着执行，等同又把 rglob 塞回启动回调。
         self.script_load_job = self.page.win.after(250, load_batch)
+
+    # ── 文件名列宽自适应（R2998）───────────────────────────────────────────
+    def _script_list_font(self):
+        """列表实际渲染字体：与 ``Script.Treeview`` 样式同一份 ``SCRIPT_FILE_FONT``。"""
+        font = getattr(self, '_script_list_font_obj', None)
+        if font is None:
+            from tkinter import font as tkfont
+            font = self._script_list_font_obj = tkfont.Font(root=self.script_tree, font=SCRIPT_FILE_FONT)
+        return font
+
+    def _fit_script_width(self):
+        """按最长文件名量出停靠面板宽度：sizer 驱动 script_box 请求宽，列 stretch 铺满。
+
+        上限取「内容区宽一半」与 ``SCRIPT_PANEL_MAX_WIDTH`` 的较小者，保证主内容区
+        不被超长文件名挤没；更长的名字仍可经行悬停卡片看全文。
+        """
+        tree = getattr(self, 'script_tree', None)
+        sizer = getattr(self, 'script_width_sizer', None)
+        if tree is None or sizer is None or not tree.winfo_exists():
+            return
+        rows = tree.get_children()
+        if rows:
+            font = self._script_list_font()
+            widest = 0
+            for item in rows:
+                values = tree.item(item, 'values')
+                if values:
+                    widest = max(widest, measure(font, str(values[0])))
+            needed = widest + SCRIPT_CELL_OVERHEAD
+        else:
+            needed = SCRIPT_LIST_MIN_WIDTH
+        try:
+            share = int(self.script_box.master.winfo_width() * SCRIPT_PANEL_MAX_SHARE)
+        except tk.TclError:
+            share = SCRIPT_PANEL_MAX_WIDTH
+        cap = max(SCRIPT_LIST_MIN_WIDTH, min(share, SCRIPT_PANEL_MAX_WIDTH))
+        sizer.configure(width=max(SCRIPT_LIST_MIN_WIDTH, min(needed, cap)))
+
+    def _on_files_area_resize(self, event=None):
+        """内容区宽度变化（窗口缩放）时去抖重算面板宽；只在面板开着时跑。"""
+        if not self._open or self._fit_width_job is not None:
+            return
+        if event is not None and getattr(event, 'widget', None) is not self.script_box.master:
+            return
+        try:
+            self._fit_width_job = self.page.win.after_idle(self._fit_script_width_debounced)
+        except tk.TclError:
+            self._fit_width_job = None
+
+    def _fit_script_width_debounced(self):
+        self._fit_width_job = None
+        self._fit_script_width()
 
     def all_script_items(self):
         return list(self.script_tree.get_children())

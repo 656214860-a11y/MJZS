@@ -113,8 +113,8 @@ def confirm_rows(desktop,project=None):
 def show_back(desktop):
     from ui_icons import IconLoader
     box=getattr(desktop,'video_back',None)
-    if box is None:
-        box=ttk.Frame(desktop.title_row,width=SPACING['sm'] * 10,height=SPACING['sm'] * 7)
+    if box is None or not box.winfo_exists():
+        box=ttk.Frame(desktop.content,width=SPACING['sm'] * 10,height=SPACING['sm'] * 7)
         box.pack_propagate(False)
         # R3060：返回箭头换 Fluent PNG（assets/nav/back.png），缺失时退回手绘 return_arrow。
         icon=IconLoader.nav_icon(desktop.win,'back') or IconLoader.return_arrow(box,color=COLORS['primary'])
@@ -125,9 +125,8 @@ def show_back(desktop):
         button.image=icon
         button.pack(fill='both',expand=True)
         desktop.video_back=box
-    # R2946/R2950 期页标题搬进侧栏顶行，title_row 里只剩用量块（左）与状态/模型（右）；
-    # 返回钮仍占标题行最左，before 锚到同 master 的 usage_indicator（原 before=desktop.title 跨父级报 TclError）。
-    box.pack(side='left',before=desktop.usage_indicator,padx=(SPACING['none'],SPACING['md']),anchor='center')
+    # R3016 P2：顶部标题行已删；返回钮进视频页内容区左上角，随页面重建自动销毁。
+    box.pack(side='top',anchor='w',padx=(SPACING['none'],SPACING['md']),pady=(SPACING['xs'],SPACING['none']))
 
 
 def hide_back(desktop):

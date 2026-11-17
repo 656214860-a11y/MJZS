@@ -655,10 +655,9 @@ class UiEdgePagesTests(UiEdgeCase):
                 d.script_structure_output_box.winfo_children()[0].winfo_class(),
                 "TFrame",
             )
-            self.assertIs(d.script_structure_info_label, d.header_status, "说明文字放在页头右上角（R1862）")
-            # R2950 页头改单行：状态居左可伸展、模型名贴右（原两行右对齐时代的 justify='right' 断言同步为 left）。
-            self.assertEqual(str(d.script_structure_info_label.cget("justify")), "left")
-            self.assertIn("本地规则整理，不调用模型", str(d.script_structure_info_label.cget("text")))
+            self.assertIs(d.script_structure_info_label, d.status_bar._segments['script_note'][1],
+                          "说明文字放在统一底栏左区段（R1862 需求，R3016 换位）")
+            self.assertIn("本地规则整理，不调用模型", str(d.script_structure_info_label.full_text))
             # R2942：页面级「阶段配置」按钮已删，模型选择收进共享输入框下拉框。
             self.assertIsNone(d.stage_button, "剧本结构页「阶段配置」按钮已删")
             output_position = d.script_structure_output_preview.yview()[0]
@@ -1123,10 +1122,10 @@ class StageConfigEntryTests(unittest.TestCase):
             for index in range(len(PAGE)):
                 with self.subTest(page=index):
                     d.show(index); win.update_idletasks()
-                    buttons = self.buttons_named(d.content) + self.buttons_named(d.title_row)
+                    buttons = self.buttons_named(d.content)
                     self.assertEqual(len(buttons), 0,
                                      "第 %d 页「阶段配置」入口已删：%s"
-                                     % (index, d.title.cget("text")))
+                                     % (index, d.status_bar._segments['page'][1].full_text))
                     self.assertIsNone(d.stage_button, "第 %d 页 stage_button 不再挂按钮" % index)
                     self.assertIsNone(d.header_stage_button,
                                       "第 %d 页标题旁没有阶段配置" % index)
@@ -1405,7 +1404,9 @@ class PageHintTests(unittest.TestCase):
             d = Desktop(win, root=PROGRAM); d.root=proj; d.studio=open_studio(proj); d.show(0)
             first=d.note('这是一条动态提示'); second=d.note('这是一条动态提示')
             self.assertIs(first,second)
-            self.assertEqual(first.cget('style'),'PaleGreenHint.TLabel')
+            # R3016 P2：note 落在统一状态栏右区消息（同一实例），不再返回旧状态条标签。
+            self.assertIs(first, d.status_bar.message)
+            self.assertEqual(first.full_text, '这是一条动态提示')
 
     def test_asset_sync_failure_stays_silent_outside_assets(self):
         if self.tk is None:

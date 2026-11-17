@@ -251,9 +251,8 @@ class ReasoningPickerTests(unittest.TestCase):
         self.assertEqual([row['label'] for row in reasoning], ['推理等级'])
         self.assertEqual([value for value, _label, _cur in reasoning[0]['levels']],
                          ['auto', 'low', 'medium', 'high'])
-        self.assertEqual(spec[-1]['kind'], 'add')
-        self.assertEqual(spec[-1]['label'], stage_model_picker.ADD_MODEL_LABEL,
-                         '「+ 添加模型…」仍是浮层尾项')
+        self.assertFalse(any(row['kind'] == 'add' for row in spec),
+                         'REQ-S01-91：「+ 添加模型…」移到共享输入框「＋」下拉，模型浮层不再保留')
 
         picker.choose_reasoning('high')
         self.assertEqual(stage_config.get(self.desktop.root, 'keyframe')['reasoning'], 'high')

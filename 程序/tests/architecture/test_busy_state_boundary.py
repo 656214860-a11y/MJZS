@@ -7,7 +7,7 @@ import unittest
 from tests.architecture._scan import ROOT, parse, parse_desktop
 
 
-PRODUCTION_SKIP = {"tests", "tasks_round", "维护记录", "skills", ".git", "__pycache__"}
+PRODUCTION_SKIP = {"tests", "tasks_round", "维护记录", "skills", ".git", "__pycache__", "voice_asr_venv"}
 
 
 def _production_files():

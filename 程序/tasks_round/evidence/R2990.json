@@ -1,0 +1,15 @@
+{
+  "round": 2990,
+  "commit_base": "60e76dfe",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k boundary coverage static_hygiene",
+    "exit": 0,
+    "passed": 306,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T18:26:22"
+}

@@ -527,10 +527,9 @@ class _ScriptStructurePage:
         manual.pack(side='left', padx=(SPACING["none"], SPACING["xs"])); self.page.script_structure_manual_button = manual
         ui_plugin_registry.module('stage_flow').follow(manual, 'script_structure')
         # R2942：「阶段配置」按钮＋模型下拉框删除。
-        # 流程说明放到页头右上角（header_status 随宽度自动换行，换页时清空），
-        # 不再在内容框下方单占一行，把高度让给两块剧本内容（用户 R1862 要求）。
-        info = self.page.header_status
-        info.configure(text=structure_note)
+        # R3016 P2：流程说明改放统一底栏左区段（截断+悬停全文），不再占页头一行，
+        # 把高度让给两块剧本内容（用户 R1862 要求）。
+        info = self.page.set_status_segment('script_note', structure_note, tooltip=structure_note)
         self.page.script_structure_info_label = info
         self.page.script_structure_source_directory = source_directory
         self.page.script_structure_output_directory = structure_directory

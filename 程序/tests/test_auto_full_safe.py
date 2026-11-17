@@ -136,6 +136,23 @@ class RedCooldownTests(unittest.TestCase):
         self.assertEqual(same['cooling'], 'head')
         self.assertFalse(same['auto_due'])
 
+    def test_current_cooling_uses_the_live_head(self):
+        with mock.patch.object(auto, '_git', return_value='aaa'), \
+             mock.patch.object(auto, 'last_result', return_value=self.result('aaa', age=60)), \
+             mock.patch.object(auto.time, 'time', return_value=self.NOW):
+            self.assertEqual(auto.current_cooling(), 'head')
+        with mock.patch.object(auto, '_git', return_value='bbb'), \
+             mock.patch.object(auto, 'last_result', return_value=self.result('aaa', age=60)), \
+             mock.patch.object(auto.time, 'time', return_value=self.NOW):
+            self.assertEqual(auto.current_cooling(), 'time')
+
+    def test_current_cooling_degrades_to_the_time_check_without_git(self):
+        # 读不到 HEAD 时退化为 'time' 判定：仍非空，门禁保持保守（不放行），不会误判成「无冷却」。
+        with mock.patch.object(auto, '_git', side_effect=OSError('no git')), \
+             mock.patch.object(auto, 'last_result', return_value=self.result('aaa', age=60)), \
+             mock.patch.object(auto.time, 'time', return_value=self.NOW):
+            self.assertEqual(auto.current_cooling(), 'time')
+
 
 class EmbeddedRepoAlignTests(unittest.TestCase):
     def test_a_stale_embedded_copy_is_realigned_to_the_registered_commit(self):
@@ -235,10 +252,13 @@ class EnvironmentBlockedTests(unittest.TestCase):
             log = Path(folder) / 'auto.log'
             log.write_text(BROKEN, encoding='utf-8')
             result = Path(folder) / 'result.json'
+            history = Path(folder) / 'history.jsonl'
             with mock.patch.object(auto, 'LOG', log), \
-                 mock.patch.object(auto, '_result_path', return_value=result):
+                 mock.patch.object(auto, '_result_path', return_value=result), \
+                 mock.patch.object(auto, '_history_path', return_value=history):
                 auto.write_result('abcdef1234', 1, 78.0)
                 text = auto.failure_notice()
+            self.assertTrue(history.exists(), '历史追加必须落在测试临时目录，不能污染真实 full-safe-history.jsonl')
         self.assertIn('不是测试失败', text)
 
     def test_a_real_red_still_names_the_modules(self):
@@ -246,10 +266,13 @@ class EnvironmentBlockedTests(unittest.TestCase):
             log = Path(folder) / 'auto.log'
             log.write_text('### test_alpha（1 条红）\n', encoding='utf-8')
             result = Path(folder) / 'result.json'
+            history = Path(folder) / 'history.jsonl'
             with mock.patch.object(auto, 'LOG', log), \
-                 mock.patch.object(auto, '_result_path', return_value=result):
+                 mock.patch.object(auto, '_result_path', return_value=result), \
+                 mock.patch.object(auto, '_history_path', return_value=history):
                 auto.write_result('abcdef1234', 1, 700.0)
                 text = auto.failure_notice()
+            self.assertTrue(history.exists(), '历史追加必须落在测试临时目录，不能污染真实 full-safe-history.jsonl')
         self.assertIn('未通过', text)
         self.assertIn('test_alpha', text)
 

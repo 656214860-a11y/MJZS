@@ -1,0 +1,15 @@
+{
+  "round": 3049,
+  "commit_base": "c5e2233f",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k tooltip",
+    "exit": 0,
+    "passed": 6,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T21:29:47"
+}

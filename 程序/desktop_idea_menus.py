@@ -92,17 +92,3 @@ class IdeaMenusMixin:
             self.remove_idea_ref_line(path)
             self.update_idea_attachment_status()
         self.status.set('已移入回收站：'+name+'；原始文件未删除。')
-    def show_idea_reference_menu(self, event):
-        """用户输入 @ 时仅展示当前项目已入库的创意，不访问任意本地文件。"""
-        # 共享输入框跨页常驻：@ 引用是剧本准备专属，其他阶段页不弹这个菜单（任务书轮 4）。
-        from pet_state import PAGE_OF
-        if getattr(self,'page_index',None)!=PAGE_OF['script']:return None
-        if str(getattr(event,'char',''))!='@':return None
-        from stage_execution_service import stage_idea_attachment_paths
-        paths=stage_idea_attachment_paths(self.root)
-        if not paths:return None
-        menu=self.project_page_services.context_menu(event.widget, menu_factory=tk.Menu)
-        for path in paths:
-            menu.command(path.name,lambda item=path:self.insert_idea_reference(item))
-        self._idea_reference_menu=menu
-        return menu.popup(event)

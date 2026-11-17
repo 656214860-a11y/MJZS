@@ -26,7 +26,8 @@ librosa / soundfile）。
 ## 首次使用
 
 ```powershell
-# 在 程序/ 目录下，用系统 Python（建议 3.10+ 完整版）创建独立环境并装依赖
+# 在 程序/ 目录下，用系统 Python 3.10–3.12 完整版创建独立环境并装依赖
+# （3.13+ 没有 numpy<=1.26.4 预编译轮子，bootstrap 会直接拒绝）
 python voice_engine/bootstrap.py --python <python.exe路径>
 # 产物：程序/data/voice_asr_venv/  与  程序/data/voice_models/
 # 两者都在 data/ 用户数据区，升级安装不会覆盖。

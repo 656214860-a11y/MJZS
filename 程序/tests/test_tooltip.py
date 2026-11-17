@@ -39,6 +39,7 @@ class _Tip:
     def destroy(self): self.destroyed = True
     def unbind(self, *_args): pass
     def attributes(self, *_args): pass
+    def winfo_exists(self): return True
 
 
 class _Label:
@@ -51,7 +52,7 @@ class TooltipTests(unittest.TestCase):
         widget = _Widget()
         Tooltip(widget, "完整说明")
         self.assertEqual([item[0] for item in widget.bindings],
-                         ["<Enter>", "<Leave>", "<FocusIn>", "<FocusOut>", "<Destroy>"])
+                         ["<Enter>", "<Leave>", "<FocusIn>", "<FocusOut>", "<Button-1>", "<Destroy>"])
         self.assertTrue(all(item[2] == "+" for item in widget.bindings))
 
     def test_reenter_cancels_old_delayed_show_and_leave_cleans_up(self):

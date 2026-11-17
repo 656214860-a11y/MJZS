@@ -7,7 +7,7 @@ import unittest
 from tests.architecture._scan import ROOT, parse, parse_desktop
 
 
-EXCLUDED_PARTS = {"tests", "tasks_round", "维护记录", ".git", "__pycache__"}
+EXCLUDED_PARTS = {"tests", "tasks_round", "维护记录", ".git", "__pycache__", "voice_asr_venv"}
 
 
 class DataTableBoundaryTests(unittest.TestCase):

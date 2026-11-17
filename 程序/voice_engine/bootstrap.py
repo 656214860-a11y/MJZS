@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 """离线 ASR 运行环境引导：创建独立 venv 并安装依赖（仅标准库，零第三方依赖）。
 
-用法（任意 Python 3.10+，建议系统 Python 而非随附裁剪运行时）：
+用法（Python 3.10–3.12，建议系统 Python 而非随附裁剪运行时；
+依赖 numpy<=1.26.4 在 3.13+ 没有预编译轮子，更高版本会直接拒绝）：
   python bootstrap.py [--venv DIR] [--python EXE] [--requirements FILE]
 
 stdout 输出 JSON Lines：{"type":"progress"|"done"|"error", ...}；
@@ -22,6 +23,7 @@ PROGRAM_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_VENV = PROGRAM_ROOT / "data" / "voice_asr_venv"
 DEFAULT_REQ = Path(__file__).resolve().parent / "requirements.txt"
 MIN_PYTHON = (3, 10)
+MAX_PYTHON = (3, 12)   # funasr_onnx 依赖 numpy<=1.26.4，无 cp313+ 预编译轮子
 
 EXIT_OK = 0
 EXIT_ENV_ERROR = 2
@@ -171,6 +173,11 @@ def main(argv=None):
     if _version_tuple(version) < MIN_PYTHON:
         progress("警告：基座 Python %s 低于建议的 %s，可能缺少依赖轮子"
                  % (version, ".".join(map(str, MIN_PYTHON))))
+    if _version_tuple(version) > MAX_PYTHON:
+        return fail("基座 Python %s 超出支持范围：离线识别依赖 numpy<=1.26.4 "
+                    "仅提供 Python %s–%s 预编译轮子，请用 --python 指定更低版本"
+                    % (version, ".".join(map(str, MIN_PYTHON)),
+                       ".".join(map(str, MAX_PYTHON))))
     progress("基座 Python %s，正在准备独立环境…" % version)
 
     err = create_venv(args.python, args.venv)

@@ -506,6 +506,8 @@ class PetStagesMixin:
                 return self.run_performance_mode(at=at)
             if intent == 'performance_list':
                 return self.run_performance_mode(kind='long_list', at=at)
+            if intent == 'performance_hotspot':
+                return self.run_performance_mode(kind='hotspot', at=at)
             return ''                         # 没登记的意图不动手
         except Exception as exc:
             self.errors.append(('run_plan', str(exc)))
@@ -633,7 +635,8 @@ class PetStagesMixin:
         try:
             self._performance_session = stage_handler_registry.start(
                 self.desktop, 'pet_performance', trigger='manual', kind=kind)
-            label = '长列表优化检查' if kind == 'long_list' else '优化检查'
+            labels = {'long_list': '长列表优化检查', 'hotspot': '热点路径优化检查'}
+            label = labels.get(kind, '优化检查')
             self.notice = label + '已启动，完成后只汇报超过阈值的耗时退化。'
         except Exception as exc:
             self.errors.append(('performance.start', str(exc)))
