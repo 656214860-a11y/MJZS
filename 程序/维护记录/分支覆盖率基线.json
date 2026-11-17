@@ -86,8 +86,8 @@
   "tests.test_startup_selfcheck"
  ],
  "tests_ok": true,
- "points_total": 2494,
- "points_covered": 1305,
+ "points_total": 2523,
+ "points_covered": 1330,
  "modules": [
   {
    "module": "aigc_lint.py",
@@ -252,12 +252,6 @@
    "percent": 36.0
   },
   {
-   "module": "pet_bus.py",
-   "points": 27,
-   "covered": 10,
-   "percent": 37.0
-  },
-  {
    "module": "model_pool.py",
    "points": 129,
    "covered": 52,
@@ -316,6 +310,12 @@
    "points": 33,
    "covered": 17,
    "percent": 51.5
+  },
+  {
+   "module": "pet_bus.py",
+   "points": 29,
+   "covered": 15,
+   "percent": 51.7
   },
   {
    "module": "global_library_service.py",
@@ -433,9 +433,9 @@
   },
   {
    "module": "artifact_schema.py",
-   "points": 13,
-   "covered": 10,
-   "percent": 76.9
+   "points": 40,
+   "covered": 31,
+   "percent": 77.5
   },
   {
    "module": "stage_model_value.py",
@@ -448,6 +448,12 @@
    "points": 24,
    "covered": 19,
    "percent": 79.2
+  },
+  {
+   "module": "file_index.py",
+   "points": 89,
+   "covered": 71,
+   "percent": 79.8
   },
   {
    "module": "prompt_templates.py",
@@ -466,12 +472,6 @@
    "points": 52,
    "covered": 42,
    "percent": 80.8
-  },
-  {
-   "module": "file_index.py",
-   "points": 89,
-   "covered": 72,
-   "percent": 80.9
   },
   {
    "module": "asset_contract.py",

@@ -19,6 +19,7 @@ from contract.pet_bus import (
     STAGE_EVENTS,
     STAGE_NAMED,
     STAGE_NAMES,
+    TERMINAL_EVENTS,
     emit_safe,
     event,
     hashlib,

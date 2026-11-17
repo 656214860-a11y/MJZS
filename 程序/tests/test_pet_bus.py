@@ -159,5 +159,160 @@ class BusTests(unittest.TestCase):
             self.assertEqual(list(Path(td).iterdir()), [])
 
 
+class RunKeyedIdentityTests(unittest.TestCase):
+    """D5-a/G7：终态事件的幂等键可带调用方运行序号 run=；at 永不进键。"""
+
+    def test_terminal_event_run_seq_changes_id(self):
+        first = pet_bus.event("stage.failed", stage="video", error="503", run=1)
+        second = pet_bus.event("stage.failed", stage="video", error="503", run=2)
+        self.assertNotEqual(first["id"], second["id"])
+        self.assertEqual(first["run"], 1)
+        self.assertEqual(second["run"], 2)
+
+    def test_same_run_duplicate_still_shares_id(self):
+        first = pet_bus.event("stage.failed", stage="video", error="503", run=7)
+        second = pet_bus.event("stage.failed", stage="video", error="503", run=7)
+        self.assertEqual(first["id"], second["id"])
+
+    def test_without_run_behaviour_is_unchanged(self):
+        first = pet_bus.event("stage.failed", stage="video", error="503")
+        second = pet_bus.event("stage.failed", stage="video", error="503")
+        self.assertEqual(first["id"], second["id"])
+        self.assertNotIn("run", first)
+        self.assertNotIn("run", second)
+
+    def test_progress_events_ignore_run(self):
+        """进度类事件不在 TERMINAL_EVENTS：run 不进负载也不进键，去重口径不变。"""
+        for kind, payload in (("stage.executing", {"stage": "video"}),
+                              ("notify.aggregate", {"text": "汇总"}),
+                              ("stage.paused", {"stage": "video", "reason": "等待"})):
+            with self.subTest(kind=kind):
+                first = pet_bus.event(kind, run=1, **payload)
+                second = pet_bus.event(kind, run=2, **payload)
+                self.assertEqual(first["id"], second["id"])
+                self.assertNotIn("run", first)
+
+    def test_terminal_kinds_are_declared(self):
+        for kind in ("stage.started", "stage.completed", "stage.failed", "stage.retrying",
+                     "script.completed", "delivery.ready",
+                     "firstframe.task.failed", "video.task.failed", "voice.task.failed"):
+            self.assertIn(kind, pet_bus.TERMINAL_EVENTS)
+        for kind in pet_bus.SHEDDABLE_EVENTS + ("stage.paused", "usage_updated", "intent.command"):
+            self.assertNotIn(kind, pet_bus.TERMINAL_EVENTS)
+
+
+class RunKeyedDeliveryTests(unittest.TestCase):
+    """D5-a 复现：同一阶段相同错误文本二次失败、带不同 run → 两条都送达。"""
+
+    def test_second_run_same_failure_both_delivered(self):
+        bus = pet_bus.Bus()
+        seen = []
+        bus.subscribe("*", seen.append)
+        bus.emit("stage.failed", stage="video", error="503", run=1)
+        bus.emit("stage.failed", stage="video", error="503", run=2)
+        bus.pump()
+        self.assertEqual(len(seen), 2)
+        self.assertEqual([item["run"] for item in seen], [1, 2])
+
+    def test_repeat_without_run_still_deduped(self):
+        bus = pet_bus.Bus()
+        seen = []
+        bus.subscribe("*", seen.append)
+        bus.emit("stage.failed", stage="video", error="503")
+        bus.emit("stage.failed", stage="video", error="503")
+        bus.pump()
+        self.assertEqual(len(seen), 1)
+        self.assertEqual(bus.dropped, 1)
+
+    def test_run_key_does_not_weaken_queued_backpressure(self):
+        """_queued 合并仍按幂等键工作：同 run 的重复上报在队列里只留一条。"""
+        bus = pet_bus.Bus()
+        item = pet_bus.event("stage.failed", stage="video", error="503", run=1)
+        for _ in range(200):
+            bus.publish(item)
+        self.assertEqual(bus.queue.qsize(), 1)
+        self.assertEqual(bus.pending, 1)
+        self.assertEqual(bus.dropped, 199)
+
+    def test_publish_and_emit_return_values_unchanged(self):
+        bus = pet_bus.Bus()
+        item = pet_bus.event("stage.completed", stage="edit", run=3)
+        self.assertIs(bus.publish(item), item)
+        emitted = bus.emit("stage.completed", stage="edit", run=3)
+        self.assertEqual(emitted["id"], item["id"])
+
+
+class JournalFailureTests(unittest.TestCase):
+    """D5-b：journal 写盘抛 OSError 时订阅者仍收到事件，错误记入有界 errors。"""
+
+    def test_journal_write_oserror_still_delivers_and_records(self):
+        with tempfile.TemporaryDirectory() as td:
+            journal = Path(td) / "事件日志.jsonl"
+            journal.mkdir()                                   # 目录当文件用 → open 抛 IsADirectoryError
+            bus = pet_bus.Bus(journal=journal)
+            seen = []
+            bus.subscribe("*", seen.append)
+            bus.emit("stage.completed", stage="edit")
+            count = bus.pump()
+            self.assertEqual(count, 1)
+            self.assertEqual(len(seen), 1)                     # 事件照常送达
+            self.assertEqual(bus.delivered, 1)
+            self.assertTrue(any(kind == "journal.write" for kind, _ in bus.errors), bus.errors)
+
+    def test_journal_write_oserror_is_bounded(self):
+        with tempfile.TemporaryDirectory() as td:
+            journal = Path(td) / "事件日志.jsonl"
+            journal.mkdir()
+            bus = pet_bus.Bus(journal=journal, error_limit=3)
+            bus.subscribe("*", lambda item: None)
+            for index in range(10):
+                bus.emit("stage.completed", stage="edit", detail=str(index))
+            bus.pump(limit=1000)
+            self.assertEqual(len(bus.errors), 3)               # 有界环形，不无限涨
+            self.assertTrue(all(kind == "journal.write" for kind, _ in bus.errors))
+
+
+class EmitStatusTests(unittest.TestCase):
+    """D5-c/H3：Bus.emit_status 返回 (status, item)，status ∈ delivered/suppressed/failed。"""
+
+    def test_delivered_when_accepted_into_queue(self):
+        bus = pet_bus.Bus()
+        status, item = bus.emit_status("stage.completed", stage="edit")
+        self.assertEqual(status, "delivered")
+        self.assertEqual(item["kind"], "stage.completed")
+        self.assertEqual(bus.pending, 1)
+
+    def test_suppressed_when_deduped_while_queued(self):
+        bus = pet_bus.Bus()
+        bus.emit_status("stage.completed", stage="edit")
+        status, item = bus.emit_status("stage.completed", stage="edit")
+        self.assertEqual(status, "suppressed")
+        self.assertIsNotNone(item)
+        self.assertEqual(item["kind"], "stage.completed")
+
+    def test_suppressed_when_shed_at_the_water(self):
+        bus = pet_bus.Bus(pending_limit=1)
+        bus.emit("stage.executing", stage="video", detail="a")
+        status, item = bus.emit_status("stage.executing", stage="video", detail="b")
+        self.assertEqual(status, "suppressed")
+        self.assertEqual(bus.shed, 1)
+
+    def test_failed_on_contract_violation_without_raising(self):
+        bus = pet_bus.Bus()
+        status, item = bus.emit_status("stage.done", stage="x")       # 未登记事件
+        self.assertEqual(status, "failed")
+        self.assertIsNone(item)
+        status, item = bus.emit_status("stage.failed", stage="video")  # 缺 error 字段
+        self.assertEqual(status, "failed")
+        self.assertIsNone(item)
+        self.assertEqual(bus.pending, 0)
+
+    def test_emit_safe_and_publish_still_return_item(self):
+        bus = pet_bus.Bus()
+        errors = pet_bus.ErrorLog()
+        self.assertIsNotNone(pet_bus.emit_safe(bus, errors, "stage.completed", stage="edit"))
+        self.assertEqual(errors, [])
+
+
 if __name__ == "__main__":
     unittest.main()
