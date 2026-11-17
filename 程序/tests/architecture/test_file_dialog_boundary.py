@@ -5,7 +5,7 @@ import ast
 from pathlib import Path
 import unittest
 
-from tests.architecture._scan import parse_desktop
+from tests.architecture._scan import entity_file, parse_desktop
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -27,7 +27,7 @@ class FileDialogBoundaryTests(unittest.TestCase):
     def test_business_pages_have_no_direct_file_chooser_calls(self):
         actual = {}
         for filename, maximum in LEGACY_FILE_DIALOG_MAX.items():
-            count = len(_direct_file_dialog_calls(ast.parse((ROOT / filename).read_text(encoding='utf-8'))))
+            count = len(_direct_file_dialog_calls(ast.parse(entity_file(Path(filename).stem).read_text(encoding='utf-8'))))
             if count > maximum:
                 actual[filename] = f'{count}>{maximum}'
         self.assertEqual(actual, {}, '业务页历史直调 filedialog 数量只能下降：' + str(actual))
@@ -49,7 +49,7 @@ class FileDialogBoundaryTests(unittest.TestCase):
             relative = path.relative_to(ROOT)
             if (path.name == 'ui_dialogs.py' or path.name.startswith('test')
                     or 'tests' in relative.parts or 'tasks_round' in relative.parts
-                    or '维护记录' in relative.parts):
+                    or '维护记录' in relative.parts or 'voice_asr_venv' in relative.parts):
                 continue
             calls = _direct_file_dialog_calls(ast.parse(path.read_text(encoding='utf-8')))
             if calls:

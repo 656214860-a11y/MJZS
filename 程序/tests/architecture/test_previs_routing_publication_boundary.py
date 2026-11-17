@@ -2,14 +2,14 @@
 import ast
 from pathlib import Path
 import unittest
-from tests.architecture._scan import stage_execution_source
+from tests.architecture._scan import entity_file, stage_execution_source
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 class PrevisRoutingPublicationBoundaryTests(unittest.TestCase):
     def test_l2_write_points_require_an_injected_publisher(self):
-        source = (ROOT / 'previs_routing.py').read_text(encoding='utf-8')
+        source = entity_file('previs_routing').read_text(encoding='utf-8')
         tree = ast.parse(source)
         methods = {node.name: node for node in tree.body if isinstance(node, ast.FunctionDef)}
         self.assertNotIn('from agent.core import read,save', source)
@@ -19,7 +19,7 @@ class PrevisRoutingPublicationBoundaryTests(unittest.TestCase):
             self.assertTrue(any(isinstance(node.func, ast.Name) and node.func.id == 'publish' for node in calls))
 
     def test_previs_page_delegates_publication_to_l3(self):
-        page = (ROOT / 'local_previs.py').read_text(encoding='utf-8')
+        page = entity_file('local_previs').read_text(encoding='utf-8')
         self.assertIn('from stage_execution_service import save_stage_previs_override', page)
         self.assertIn('from stage_execution_service import dispatch_stage_previs', page)
         self.assertNotIn('previs_routing.set_override(', page)

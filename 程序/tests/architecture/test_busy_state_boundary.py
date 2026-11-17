@@ -4,10 +4,10 @@ from __future__ import annotations
 import ast
 import unittest
 
-from tests.architecture._scan import ROOT, parse, parse_desktop
+from tests.architecture._scan import ROOT, entity_file, parse, parse_desktop
 
 
-PRODUCTION_SKIP = {"tests", "tasks_round", "维护记录", "skills", ".git", "__pycache__"}
+PRODUCTION_SKIP = {"tests", "tasks_round", "维护记录", "skills", ".git", "__pycache__", "voice_asr_venv"}
 
 
 def _production_files():
@@ -86,7 +86,7 @@ class BusyStateBoundaryTests(unittest.TestCase):
     def test_pages_with_progress_route_through_the_shared_busy_entry(self):
         """app.py／native_assets.py 的加载态必须由同一个 BusyState 成对恢复。"""
         for filename in ('app.py', 'native_assets.py'):
-            tree = parse(ROOT / filename)
+            tree = parse(entity_file(filename[:-3]))
             imported = {
                 alias.name for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
                 and node.module == 'ui_widgets' for alias in node.names

@@ -1,4 +1,4 @@
-"""NoticeDialog（R2005）：多行告知窗保留换行、只有一个“知道了”。含 Tk，须经 gui_hidden.py 运行。"""
+"""NoticeDialog（R2005）：多行告知窗保留换行、只有一个“知道了”。含 Tk，由运行器自动隐藏桌面执行。"""
 from __future__ import annotations
 
 import tkinter as tk

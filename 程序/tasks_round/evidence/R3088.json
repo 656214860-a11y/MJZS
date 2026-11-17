@@ -1,0 +1,15 @@
+{
+  "round": 3088,
+  "commit_base": "2395874c",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k desktop_asset_pages desktop_files_panel desktop_idea_attachments desktop_idea_bubbles desktop_layout desktop_media_pages desktop_page_nav desktop_page_registry desktop_pet_bridge desktop_project_pages desktop_script_pages desktop_storyboard_page desktop_writing_page pet_models_ui pet_report pet_settings_ui pet_ui_settings pet_ui_view pet_ui_voice skill_tools storyboard_files video_progress desktop_auto_flows desktop_idea_chat pet_ui data_table_boundary handoff_publication_boundary stage_command_contract stage_display_boundary storyboard_edit_boundary storyboard_final_selection_boundary subtitle_export_publication_boundary account_security app_logging app_metadata button_consistency continuity_scope delivery_scope editing_scope line_endings req_s13_anchors script_workspace_results",
+    "exit": 0,
+    "passed": 887,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T09:59:41"
+}

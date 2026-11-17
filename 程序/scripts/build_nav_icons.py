@@ -47,25 +47,39 @@ ICONS = {
     # 固定底栏与授权态
     'settings':       0xF6B2,  # settings       设置（齿轮入口，与导航同套 Filled 图标）
     'lock':           0xE79D,  # lock-closed    未授权页的锁标（替换原文字 🔒）
+    # R3060 输入框发送/终止与页头返回钮统一 Fluent 图标
+    'send':           0xF6A3,  # send           发送（主色底，墨水用卡片色）
+    'stop':           0xF743,  # stop           终止（同上）
+    'back':           0xF178,  # arrow_reply    返回（卡片底，墨水用主题色——沿用原手绘箭头的品牌色）
 }
+
+# 墨水分三档：画在主色块上的用卡片色（send/stop），返回等强调动作用主题色（back），其余用正文色。
+LIGHT_INK_KEYS = {'send', 'stop'}
+ACCENT_INK_KEYS = {'back'}
 
 RENDER_PX = 48      # 2 倍渲染后 LANCZOS 缩到 24px，边缘更顺（R2946 图标放大一档）
 TARGET_PX = 24
 
 
-def render_icons(ink: tuple[int, int, int, int]):
+def render_icons(ink: tuple[int, int, int, int], light_ink=None, accent_ink=None):
     from PIL import Image, ImageDraw, ImageFont
     font = ImageFont.truetype(str(FONT_PATH), RENDER_PX)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     written = []
     for key, codepoint in ICONS.items():
+        if key in LIGHT_INK_KEYS and light_ink is not None:
+            use_ink = light_ink
+        elif key in ACCENT_INK_KEYS and accent_ink is not None:
+            use_ink = accent_ink
+        else:
+            use_ink = ink
         char = chr(codepoint)
         bbox = font.getbbox(char)
         w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
         pad = RENDER_PX // 2
         image = Image.new('RGBA', (w + pad * 2, h + pad * 2), (0, 0, 0, 0))
         ImageDraw.Draw(image).text((pad - bbox[0], pad - bbox[1]), char,
-                                   font=font, fill=ink)
+                                   font=font, fill=use_ink)
         image = image.resize((image.width // 2, image.height // 2), Image.LANCZOS)
         box = image.getchannel('A').getbbox()
         if box:
@@ -85,8 +99,12 @@ def main():
         raise SystemExit(f'缺少图标字体：{FONT_PATH}')
     hex_color = COLORS['text_primary'].lstrip('#')
     ink = tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4)) + (255,)
+    card_hex = COLORS['background_card'].lstrip('#')
+    light_ink = tuple(int(card_hex[i:i + 2], 16) for i in (0, 2, 4)) + (255,)
+    primary_hex = COLORS['primary'].lstrip('#')
+    accent_ink = tuple(int(primary_hex[i:i + 2], 16) for i in (0, 2, 4)) + (255,)
     try:
-        written = render_icons(ink)
+        written = render_icons(ink, light_ink, accent_ink)
     except ImportError:
         raise SystemExit('需要 Pillow：pip install pillow（仅开发环境，不进运行环境）')
     for name, width, height in written:

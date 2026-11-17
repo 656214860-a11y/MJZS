@@ -113,7 +113,8 @@ class FrameSourceTests(unittest.TestCase):
                          "两份已采用分镜的 3 个镜头都要列在这一屏里")
         self.assertEqual(list(self.combos()[1].cget("values")),
                          ["SH001", "EP002_SH001", "EP002_SH002"], "「选中镜头」也要跟着列全")
-        self.assertEqual(self.desktop.header_status.cget("text"), "当前 JSON：全部 2 份已采用分镜")
+        self.assertEqual(self.desktop.status_bar._segments['storyboard'][1].full_text,
+                         "当前 JSON：全部 2 份已采用分镜")
 
     def test_the_one_file_scope_still_shows_only_that_file(self):
         self.open_page(scope="current")

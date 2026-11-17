@@ -5,6 +5,8 @@ import ast
 import unittest
 from pathlib import Path
 
+from tests.architecture._scan import entity_file
+
 
 ROOT = Path(__file__).resolve().parents[2]
 FORBIDDEN_DIRECTORY_CALLS = frozenset({'rglob', 'glob', 'walk'})
@@ -48,7 +50,7 @@ class StartupBudgetTests(unittest.TestCase):
         """R538：自动打开项目之前必须把主线程还给 Tk，而非同步扫描目录。"""
         violations = []
         for filename, (class_name, names) in STARTUP_CHAIN.items():
-            nodes = _function_nodes(ROOT / filename, class_name, names)
+            nodes = _function_nodes(entity_file(Path(filename).stem), class_name, names)
             self.assertEqual(len(nodes), len(names), '启动函数缺失，需更新本门禁：' + filename)
             violations.extend(_directory_calls(nodes))
         self.assertEqual(violations, [], '启动调用链禁止 rglob/glob/walk：' + '; '.join(violations))

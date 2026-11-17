@@ -15,6 +15,7 @@ import sys
 import tempfile
 import unittest
 from unittest import mock
+import workflow_engines
 from pathlib import Path
 
 HERE = str(Path(__file__).resolve().parents[1])
@@ -83,7 +84,7 @@ class ContractTests(unittest.TestCase):
     """防漂：验的开关与字段必须是程序真正用的那一套。"""
 
     def body(self):
-        return (Path(HERE) / 'workflow_engines.py').read_text(encoding='utf-8')
+        return Path(workflow_engines.__file__).read_text(encoding='utf-8')
 
     def test_the_switches_come_from_the_real_builder(self):
         argv, _config = engine_probe.app_argv('claude', 'CLI.exe', '项目', '输出', '报告')

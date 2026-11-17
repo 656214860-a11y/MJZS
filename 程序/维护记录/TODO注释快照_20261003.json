@@ -11,20 +11,20 @@
       "reason": "描述缩略图暂不可用时保留既有绑定的防误导语义，不是待实现功能或失败吞没。"
     },
     {
-      "file": "desktop_async_tasks.py",
-      "scope": "_tick_async_result",
-      "comment": "暂时占用误判成永久失败。只保留一个待派发标记；当前队列清空后",
-      "classification": "C",
-      "disposition": "explanatory",
-      "reason": "记录异步队列占用的既有恢复策略，不表示未处理的启动或发布缺陷。"
-    },
-    {
       "file": "pet_ui_stages.py",
       "scope": "firstframe_batch",
       "comment": "「无分镜／没有缺口／暂时无法派发」收成明确阶段事件；无参数接缝仍兼容。",
       "classification": "C",
       "disposition": "explanatory",
       "reason": "描述已实现的阶段事件归一化和兼容接缝，不是后续开发待办。"
+    },
+    {
+      "file": "desktop_async_tasks.py",
+      "scope": "_tick_async_result",
+      "comment": "暂时占用误判成永久失败。只保留一个待派发标记；当前队列清空后",
+      "classification": "C",
+      "disposition": "explanatory",
+      "reason": "记录异步队列占用的既有恢复策略，不表示未处理的启动或发布缺陷。"
     }
   ]
 }

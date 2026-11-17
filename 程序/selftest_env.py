@@ -92,7 +92,7 @@ GUI_QUEUE_NAME = 'gui-selftest.queue'
 GUI_QUEUE_SUFFIX = '.ticket'
 
 
-GUI_WAIT_SECONDS = 900
+GUI_WAIT_SECONDS = 1800   # R-B2：20 车道下 GUI 串行排队，15min 超时会把整队饿死成 DEFERRED；30min 内仍标 DEFERRED 不计通过
 
 
 GUI_WAIT_NOTICE_SECONDS = 30.0

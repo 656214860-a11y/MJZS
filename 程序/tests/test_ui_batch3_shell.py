@@ -87,7 +87,11 @@ class ShellScrollAndStatusTests(unittest.TestCase):
         d.sidebar_canvas.yview_moveto(0);self.pump(.1)
         top=d.sidebar_canvas.yview()[0]
         dock_y=d.sidebar_dock.winfo_rooty();pet_y=d.pet.canvas.winfo_rooty()
-        d.nav[0].event_generate('<MouseWheel>',delta=-120);self.pump(.3)
+        d.nav[0].event_generate('<MouseWheel>',delta=-120)
+        # R3016：并行分片下缓动滚动不能靠固定 0.3 秒；等 yview 真正离开顶部（上限 2 秒）。
+        deadline=time.monotonic()+2.0
+        while d.sidebar_canvas.yview()[0]<=top and time.monotonic()<deadline:
+            self.pump(.05)
         self.assertGreater(d.sidebar_canvas.yview()[0],top)
         self.assertEqual(d.sidebar_dock.winfo_rooty(),dock_y,'滚动侧栏时底栏固定不动')
         self.assertEqual(d.pet.canvas.winfo_rooty(),pet_y,'滚动侧栏时三虎簇固定不动')
@@ -102,7 +106,10 @@ class ShellScrollAndStatusTests(unittest.TestCase):
     def test_main_content_page_keys_change_scroll_and_text_keeps_its_keys(self):
         self.resize(800,600);d=self.desktop
         d.show(0);self.pump()
-        self.assertLess(d.canvas.yview()[1],1.0,'项目首页在 800x600 应高于主内容视口')
+        # R3016：顶部标题行删除后首页内容不再天然溢出；显式加高文本框保证可滚动契约。
+        text=tk.Text(d.content,height=40);text.pack();text.insert('1.0','\n'.join(str(i) for i in range(400)))
+        d.fit_content();self.pump(.3)
+        self.assertLess(d.canvas.yview()[1],1.0,'内容应高于主内容视口')
         d.canvas.yview_moveto(0);self.pump(.05)
         start=d.canvas.yview()[0]
         self.press(d.canvas,'Next');self.pump(.1)
@@ -114,8 +121,7 @@ class ShellScrollAndStatusTests(unittest.TestCase):
         self.assertAlmostEqual(d.canvas.yview()[1],1.0,places=3)
         self.press(d.canvas,'Home');self.pump(.1)
         self.assertAlmostEqual(d.canvas.yview()[0],0.0,places=3)
-        text=tk.Text(d.content,height=8);text.pack();text.insert('1.0','\n'.join(str(i) for i in range(120)))
-        self.pump(.1);d.canvas.yview_moveto(0);self.pump(.05)
+        d.canvas.yview_moveto(0);self.pump(.05)
         before=d.canvas.yview()[0]
         self.assertIsNone(self.press(text,'Next'))
         self.pump(.1)
@@ -124,32 +130,29 @@ class ShellScrollAndStatusTests(unittest.TestCase):
 
     def test_three_status_messages_use_three_distinct_styles(self):
         d=self.desktop
-        expected={'就绪 · 所有项目共用一份程序':'PaleGreenHint.TLabel',
-                  '已保存 3 张参考图':'PaleGreenHint.TLabel',
-                  '正在生成首帧…':'Tokens.Status.Running.TLabel',
-                  '生成失败：模型未配置':'Tokens.Status.Error.TLabel'}
-        seen={}
-        for message,style in expected.items():
+        # R3016 P2：旧状态条已删；三类状态经 StringVar 桥进统一状态栏右区消息并三档着色。
+        expected={'就绪 · 所有项目共用一份程序':COLORS['background_primary'],
+                  '已保存 3 张参考图':COLORS['background_primary'],
+                  '正在生成首帧…':COLORS['primary_subtle'],
+                  '生成失败：模型未配置':COLORS['danger_subtle']}
+        for message,bg in expected.items():
             with self.subTest(message=message):
-                d.status.set(message);self.pump(.03)
-                self.assertEqual(d.status_label.cget('style'),style)
-                seen[status_kind(message)]=style
-        self.assertEqual(len(set(seen.values())),3)
-        ttk_style=ttk.Style(self.win)
-        self.assertNotEqual(ttk_style.lookup(seen['running'],'background'),
-                            ttk_style.lookup(seen['error'],'background'))
-        self.assertEqual(ttk_style.lookup(seen['running'],'background'),COLORS['primary_subtle'])
-        self.assertEqual(ttk_style.lookup(seen['error'],'background'),COLORS['danger_subtle'])
+                d.status.set(message);self.pump(.15)
+                self.assertEqual(str(d.status_bar.message.cget('background')),bg)
+        self.assertEqual(len(set(expected.values())),3)
+        seen=set()
+        for bg in expected.values():seen.add(bg)
+        self.assertEqual(seen,{COLORS['background_primary'],COLORS['primary_subtle'],COLORS['danger_subtle']})
 
     def test_shell_fonts_come_from_tokens(self):
         d=self.desktop
         def actual(widget):return font.Font(root=self.win,font=widget.cget('font')).actual()
-        # 第 R2946 期：页标题收进 96px 图标轨顶行，字号降到 body_bold（10pt 加粗），最长页名不截断。
-        heading=actual(d.title);self.assertEqual((heading['family'],heading['size'],heading['weight']),
-                                                       (FONTS['body_bold'][0],FONTS['body_bold'][1],'bold'))
+        # R3016 P2：顶部标题行与侧栏页标题已删；用量指示器收进统一底栏左区，字体仍取 token。
+        label=d.usage_indicator._labels['token']
+        self.assertEqual(actual(label)['size'],FONTS['pet_hint'][1])
         self.assertFalse(hasattr(d,'app_title'),'R2933：侧栏顶部浮层已删')
-        for widget in (d.header_model,d.header_status):
-            self.assertEqual(actual(widget)['size'],FONTS['pet_hint'][1])
+        self.assertIn('page',d.status_bar._segments)
+        self.assertIn('path',d.status_bar._segments)
 
     def test_project_home_last_action_is_fully_visible_at_1280(self):
         self.resize(1280,800);d=self.desktop

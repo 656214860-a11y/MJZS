@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import time
 
-from asset_batch_selection_service import initial_excluded, pending_rows, selectable_rows, select_category
+from domain.asset_batch_selection_service import initial_excluded, pending_rows, selectable_rows, select_category
 
 
 WORKFLOW_MODEL = '使用 API 工作流内模型'

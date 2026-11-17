@@ -1,0 +1,15 @@
+{
+  "round": 3018,
+  "commit_base": "a565d4ee",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k page_paint layout resize script_composer writing_page column_fit root_layout compact_layout",
+    "exit": 0,
+    "passed": 104,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T19:29:46"
+}

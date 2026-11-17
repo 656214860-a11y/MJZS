@@ -7270,5 +7270,37 @@ class FailureVoiceTests(PetTestCase):
         self.assertIn("建议：", text)
 
 
+class ClickCancelTests(PetTestCase):
+    """R3012：点击宠物后的待决单击随指针挪开取消——「点击后鼠标一动，云朵照样弹出」不再发生。"""
+
+    def test_move_beyond_tolerance_cancels_pending_single_click(self):
+        pet = self.pet
+        pet._click_xy = (100, 100)
+        pet._chat_interaction._pending = 'job-1'
+        pet._pet_move(SimpleNamespace(x_root=130, y_root=100))
+        self.assertIsNone(pet._chat_interaction._pending)
+
+    def test_small_move_keeps_pending(self):
+        pet = self.pet
+        pet._click_xy = (100, 100)
+        pet._chat_interaction._pending = 'job-1'
+        pet._pet_move(SimpleNamespace(x_root=102, y_root=102))
+        self.assertEqual(pet._chat_interaction._pending, 'job-1')
+        pet._chat_interaction.cancel_pending()          # 清场
+
+    def test_leave_cancels_pending_single_click(self):
+        pet = self.pet
+        pet._click_xy = (100, 100)
+        pet._chat_interaction._pending = 'job-1'
+        pet._pet_away()
+        self.assertIsNone(pet._chat_interaction._pending)
+
+    def test_pet_click_records_pointer_origin(self):
+        pet = self.pet
+        pet.pet_click(SimpleNamespace(x_root=45, y_root=60))
+        self.assertEqual(pet._click_xy, (45, 60))
+        pet._chat_interaction.cancel_pending()          # 清场
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

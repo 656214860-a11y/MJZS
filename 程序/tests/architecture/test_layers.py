@@ -2,7 +2,7 @@ from __future__ import annotations
 import json
 import unittest
 from tests.architecture._layers import LAYERS, LAYER_NAMES, TOOLS
-from tests.architecture._scan import (ROOT, dynamic_import_rows, import_rows, module_dynamic_import_rows,
+from tests.architecture._scan import (ROOT, dynamic_import_rows, entity_file, import_rows, module_dynamic_import_rows,
                                       module_import_rows, module_name, module_scan_files, production_files)
 
 
@@ -102,7 +102,7 @@ class LayerDirectionTests(unittest.TestCase):
         historical = set(ledger["historical_name_audit"]["entrypoints"])
         unresolved = sorted(
             name for name in LAYERS
-            if not (ROOT / f"{name}.py").is_file()
+            if not entity_file(name).is_file()
             and not (ROOT / name / "__init__.py").is_file()
             and name not in TOOLS
             and name not in historical

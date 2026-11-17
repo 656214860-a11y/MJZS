@@ -86,6 +86,13 @@ def write_skill(root, name, stage='剧本准备', display='', tool='', depends='
     return path
 
 
+def _walk_widgets(widget):
+    """深度优先产出 widget 及其全部后代（面板行是 Frame 套 Label）。"""
+    yield widget
+    for child in widget.winfo_children():
+        yield from _walk_widgets(child)
+
+
 class FakeSkill(object):
     """SKILL 的属性是只读的（注册表里读出来的那一份谁都不许改），替身只用来看路由怎么挑。"""
 
@@ -976,9 +983,52 @@ class PanelTests(unittest.TestCase):
         self.assertNotIn(' · ', picker.model.get(),
                          'REQ-S01-82：选择器当前项只显示模型名称，不带供应商前缀')
 
-    def test_picker_add_model_entry_opens_the_manager_and_reverts(self):
-        """挑了「+ 添加模型…」：开模型管理，当前那一格退回刚才选的。"""
-        import pet_models_ui, stage_model_picker
+    def test_model_picker_popup_renders_rows_and_stays_on_screen(self):
+        """R3111 回归：徽标行 padx 误用元组曾让 ``_fill_popup`` 抛 TclError——
+        浮层残留在默认位置（屏幕顶）且内容空白。开层必须建出模型行、几何落在屏内。"""
+        import stage_model_picker
+        picker = stage_model_picker.StageModelPicker(self.win, self.desktop, 'script')
+        self.addCleanup(picker.destroy)
+        self.addCleanup(picker._close_popup)
+        picker.pack(side='left')
+        # 注入带推理徽标的假条目：徽标 Label 的 padx 是本次崩溃点，真实空池没有徽标行。
+        picker._items = [('m1', '模型甲'), ('m2', '模型乙')]
+        picker._by_display = {'模型甲': 'm1', '模型乙': 'm2'}
+        picker._capable = {'m1'}
+        picker.model.set('模型甲')
+        self.win.deiconify()
+        self.win.update_idletasks()
+        self.win.update()
+        picker.toggle_popup()
+        self.win.update_idletasks()
+        self.win.update()
+        top = picker._popup
+        self.assertIsNotNone(top)
+        self.assertTrue(top.winfo_exists())
+
+        def labels(widget):
+            out = []
+            for child in widget.winfo_children():
+                if child.winfo_class() == 'Label':
+                    out.append(child)
+                out.extend(labels(child))
+            return out
+
+        texts = {str(label.cget('text')) for label in labels(top)}
+        self.assertIn('模型甲', texts)
+        self.assertIn('模型乙', texts)
+        self.assertTrue(any(text.startswith('推理·') for text in texts),
+                        '推理徽标行必须渲染出来')
+        screen_h = self.win.winfo_screenheight()
+        self.assertGreater(top.winfo_reqheight(), 0)
+        self.assertLess(top.winfo_reqheight(), screen_h)
+        self.assertGreaterEqual(top.winfo_rooty(), 0)
+        self.assertLessEqual(top.winfo_rooty() + top.winfo_height(), screen_h + 2)
+
+    def test_add_menu_model_entry_opens_the_manager_and_reverts(self):
+        """REQ-S01-91：「添加模型…」移到共享输入框「＋」下拉；模型池仍只有模型管理
+        这一扇门，模型选择器浮层不再保留添加尾项。"""
+        import desktop_shared_input, pet_models_ui, stage_model_picker
         opened = []
         pet = object()
         self.desktop.pet = pet
@@ -988,14 +1038,33 @@ class PanelTests(unittest.TestCase):
         picker = stage_model_picker.StageModelPicker(self.win, self.desktop, 'keyframe')
         self.addCleanup(picker.destroy)
         spec = picker._popup_spec()
-        self.assertEqual(spec[-1]['kind'], 'add')
-        self.assertEqual(spec[-1]['label'], stage_model_picker.ADD_MODEL_LABEL,
-                         '「+ 添加模型…」仍是浮层尾项')
+        self.assertFalse(any(row['kind'] == 'add' for row in spec),
+                         '模型浮层不再保留「+ 添加模型…」尾项')
+        box = desktop_shared_input.SharedStageInput(
+            self.win, desktop=self.desktop, stage='keyframe',
+            options={'on_send': None})
+        self.addCleanup(box.destroy)
+        box.pack()
+        self.win.update_idletasks()
         picker.set_model('qwen-max')
         picker.choose_model()
         self.assertEqual(stage_config.get(self.desktop.root, 'keyframe')['model'], 'qwen-max')
-        picker.model.set(stage_model_picker.ADD_MODEL_LABEL)
-        picker.choose_model()
+        # 「＋」下拉的「添加模型…」走同一扇门，当前选择不被重置。
+        box.open_add_menu()
+        self.win.update_idletasks()
+        rows = [w for w in _walk_widgets(box.add_panel)
+                if isinstance(w, self.tk.Label)]
+        labels = {str(w.cget('text')): w for w in rows}
+        self.assertIn('添加模型…', labels)
+        target = labels['添加模型…']
+        # 合成真实单击（映射窗口＋控件中心坐标），与 test_cell_menu 同法。
+        self.win.deiconify()
+        self.win.update()
+        x, y = target.winfo_width() // 2, target.winfo_height() // 2
+        target.event_generate('<Button-1>', x=x, y=y,
+                              rootx=target.winfo_rootx() + x,
+                              rooty=target.winfo_rooty() + y)
+        self.win.update()
         self.assertEqual(opened, [pet], '模型池只有模型管理这一扇门')
         self.assertEqual(picker.model_id(), 'qwen-max')
 

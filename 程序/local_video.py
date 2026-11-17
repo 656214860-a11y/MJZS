@@ -1,12 +1,12 @@
 """Persistent ComfyUI video jobs, local loopback only; no cloud key or quota."""
-import copy,json,time,uuid,math
+import copy, json, time, uuid, math
 from pathlib import Path
 from api_endpoints import no_redirect
 from file_cache import remove_temporary_file
 # 第 34 期第 9 条：`urllib.request`／`urllib.error` 连 ssl 一起加载（约 4.4 MB 常驻），
 # 本模块只在真要发本机 HTTP 时用得到——都改成函数内 import。
 from urllib.parse import urlparse,urlencode,quote
-from engine import Studio, REVIEW_PASS, AUTO_REVIEW_NOTE, auto_review_ready
+from orchestrator.engine import Studio, REVIEW_PASS, AUTO_REVIEW_NOTE, auto_review_ready
 from agent.core import read,save,file_hash,command,fingerprint,temporary_path,replace
 from agent.media import check, png_size
 import project_settings
@@ -119,7 +119,7 @@ class LocalStudio(Studio):
         validate_video_submission(self,sid)
         with self.lock():
             st=self.state();versions=st['shots'][sid];shot=self.shot(sid)
-            from video_task_state import submission_block_reason
+            from domain.video_task_state import submission_block_reason
             blocked=submission_block_reason(versions)
             if blocked:raise ValueError(blocked)
             graph,options=prepare_graph(self.root,self.cfg,shot);api=LocalAPI(options.get('url','http://127.0.0.1:8189'))
@@ -285,7 +285,7 @@ def auto_plan(project,source,studio=None):
     只认本地 ComfyUI：线上视频按秒计费，无人值守绝不静默提交。已取回的镜头不重做；
     上次生成失败、被拒绝或没有任务编号的镜头只跳过并写明原因，等用户查看 ComfyUI 后手动处理。
     """
-    from video_task_state import ACTIVE
+    from domain.video_task_state import ACTIVE
     project=Path(project);source=Path(source)
     studio=studio or open_studio(project,episode_file=source)
     if not isinstance(studio,LocalStudio):raise ValueError('无人值守自动补视频只支持本地 ComfyUI 后端；线上生成按次计费，请在视频页手动提交')

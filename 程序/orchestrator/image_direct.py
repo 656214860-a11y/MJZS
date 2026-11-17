@@ -23,7 +23,7 @@ class Job(_base.Job):
         except Exception as error:
             stopped = stop.is_set()
             message = '已强制停止制作，未出图的项可重新提交' if stopped else str(error)
-            from asset_batch_lifecycle import fail
+            from domain.asset_batch_lifecycle import fail
             from stage_execution_service import asset_batch_gateway
             fail(manifest, message, gateway=asset_batch_gateway())
             return [{'ok': False, 'stopped': stopped, 'error': message}]

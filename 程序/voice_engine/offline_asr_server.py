@@ -60,6 +60,18 @@ def emit_message(obj):
     sys.stdout.flush()
 
 
+def _configure_stdio():
+    """stdio 固定 UTF-8：主程序按 UTF-8 解码 JSON-Lines，中文 Windows 默认 GBK 会乱码。"""
+    for stream in (sys.stdin, sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(encoding="utf-8", errors="replace")
+        except (OSError, ValueError, LookupError):
+            pass
+
+
 def _emit_log(message):
     emit_message({"type": "log", "message": str(message)})
 
@@ -536,6 +548,7 @@ def _parse_line(raw):
 
 def main(argv=None):
     """引擎入口：加载模型 -> ready -> 命令循环 -> shutdown。"""
+    _configure_stdio()
     backend = FunAsrBackend(cache_root=download_models.default_cache_root())
     engine = OfflineAsrEngine(backend)
     try:

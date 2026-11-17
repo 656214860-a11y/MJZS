@@ -1,15 +1,15 @@
 """Shared, lazy project workspace. Standard-library-only desktop UI."""
 import app_logging
 import orchestrator.page_navigation_controller as page_nav
-from desktop_idea_menus import IdeaMenusMixin
-from desktop_asset_pages import AssetPagesMixin, AssetPageServices
-from desktop_script_pages import ScriptPagesMixin, ScriptPageServices
-from desktop_media_pages import MediaPagesMixin, MediaPageServices
-from desktop_project_pages import ProjectPagesMixin, ProjectPageServices
-from desktop_storyboard_page import StoryboardPageMixin, StoryboardPageServices
-from desktop_writing_page import WritingPageMixin, WritingPageServices, TALK_MIN_LINES, TALK_MAX_LINES
-from desktop_files_panel import ProjectFilesPanel
-from desktop_page_support import ASSET_FIRST_ROWS, ASSET_ROWS_PER_FRAME, ASSET_ROW_LABEL, STAGE_ACTION_WIDTH, _prefs, THUMB_SIZE, ASSET_ROW_HEIGHT
+from ui.desktop_idea_menus import IdeaMenusMixin
+from ui.desktop_asset_pages import AssetPagesMixin, AssetPageServices
+from ui.desktop_script_pages import ScriptPagesMixin, ScriptPageServices
+from ui.desktop_media_pages import MediaPagesMixin, MediaPageServices
+from ui.desktop_project_pages import ProjectPagesMixin, ProjectPageServices
+from ui.desktop_storyboard_page import StoryboardPageMixin, StoryboardPageServices
+from ui.desktop_writing_page import WritingPageMixin, WritingPageServices, TALK_MIN_LINES, TALK_MAX_LINES
+from ui.desktop_files_panel import ProjectFilesPanel
+from ui.desktop_page_support import ASSET_FIRST_ROWS, ASSET_ROWS_PER_FRAME, ASSET_ROW_LABEL, STAGE_ACTION_WIDTH, _prefs, THUMB_SIZE, ASSET_ROW_HEIGHT
 from desktop_idea_chat import IdeaChatMixin, IDEA_FIELDS, BUBBLE_FLOOR, BUBBLE_LINE, BUBBLE_MAX_RATIO, script_raw_saved_notice, model_error_display
 import desktop_shared_send
 from orchestrator.desktop_auto_state import AutoStateHolderMixin, create_auto_state
@@ -23,16 +23,16 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from agent.core import read,save,save_text,save_bytes
 import project_settings
-from projects import Projects, needs_cleanup_after_open_error, is_missing_storyboard_open_error
+from domain.projects import Projects, needs_cleanup_after_open_error, is_missing_storyboard_open_error
 from responsive_ui import FlowBar,ScrollForm,growable_extra,configure_check_column,refresh_check_heading,CheckboxColumn,fit_columns_by_content,auto_columns,bind_row_toggle,fit_row_height,row_height_for,bind_show_all
-from engine import approved_versions, review_label, adoption_summary
+from orchestrator.engine import approved_versions, review_label, adoption_summary
 from local_video import open_studio,skip_summary
 from app import App
 from integrations import comfy_executable
 from ui_theme import apply as apply_theme, install_window_placement
-from project_naming import dated_path
+from domain.project_naming import dated_path
 import asset_thumbs
-import asset_resume
+import domain.asset_resume as asset_resume
 import contract.frame_checks as frame_checks
 import pet_ui
 import ui.ui_usage_indicator as ui_usage_indicator
@@ -42,10 +42,10 @@ import ui_plugin_registry
 import orchestrator.stage_handler_registry as stage_handler_registry
 from contract.platform_tools import find_editor_shortcut, launch_windows_app, open_directory, open_path, open_target, tcp_listener
 from orchestrator.desktop_startup_service import DesktopStartupController
-from desktop_account_page import AccountPageMixin
-from desktop_login_gate import LoginGateMixin
-from desktop_page_nav import PageNavMixin
-from desktop_lifecycle import LifecycleMixin
+from ui.desktop_account_page import AccountPageMixin
+from ui.desktop_login_gate import LoginGateMixin
+from ui.desktop_page_nav import PageNavMixin
+from ui.desktop_lifecycle import LifecycleMixin
 from orchestrator.desktop_automation_service import BackgroundTaskLifecycle, DesktopAutomationScheduler, BackgroundTaskQueue, PersistentBackgroundTaskQueue, inspect_project_storage, RetryRegistry
 from orchestrator.idea_chat_controller import IdeaChatController, speaker_name
 from ui_tokens import BUTTON_GAP, BUTTON_WIDTH_DIALOG, CHAR_WIDTH, WRAPLENGTH, COLORS, FONTS, SPACING, DESKTOP_LAYOUT, SCRIPT_ACTION_WIDTH, SCRIPT_ACTION_PADDING, SCRIPT_FILE_FONT, ICON_FOLDER, ICON_DELETE
@@ -54,7 +54,9 @@ from ui_motion import Spinner
 from ui_shortcuts import ShortcutRegistry
 import ui.ui_stage_popups as ui_stage_popups# noqa: F401  导入即向 stage_exec 登记阶段弹窗呈现器
 from ui_widgets import (BaseDialog, BusyState, ContextMenu, Card, DataTable, NotificationDispatcher,
-                        PrimaryButton, SecondaryButton, TextArea, HintLabel, Tooltip, EllipsisLabel, ask_confirmation, ask_string, setup_styles)
+                        PrimaryButton, SecondaryButton, TextArea, HintLabel, Tooltip, ask_confirmation, ask_string, setup_styles)
+from ui.ui_status_bus import StatusBus  # R2989 P1：统一状态栏消息总线
+from ui.ui_status_bar import StatusBar
 from ui_icons import IconLoader
 
 ROOT=Path(__file__).resolve().parent
@@ -107,7 +109,7 @@ import pet_state
 
 # 第 44 期：版本号只写这一份——系统标题栏与左上角那一行（齿轮就挨着它）都用它。
 from contract.app_metadata import APP_NAME, VERSION
-from desktop_page_registry import (CACHED_PAGES, PAGE, PAGE_ACCOUNT, PAGE_NAV_ICONS,
+from ui.desktop_page_registry import (CACHED_PAGES, PAGE, PAGE_ACCOUNT, PAGE_NAV_ICONS,
                                    PAGE_SITES, PAGES, nav_label, page_title)
 
 # 「页面第一次画完」按页指标名：用 PAGE 稳定键区分 14 页，不用会变的中文标题。
@@ -138,30 +140,17 @@ def _page_services(given):
 
 
 
-from desktop_tk_gc import (protect_readonly_combobox, protect_tk_gc, drain_tk_gc, _pin_tk_app,
+from ui.desktop_tk_gc import (protect_readonly_combobox, protect_tk_gc, drain_tk_gc, _pin_tk_app,
                         _PENDING_TK_GC, _KEEP_APPS)
-from desktop_automation_tick import AutomationTickMixin
-from desktop_layout import LayoutMixin
-from desktop_pet_bridge import PetBridgeMixin, PET_STAGE_POLL, UNATTENDED_SWITCH
-from desktop_async_tasks import AsyncTasksMixin
+from ui.desktop_automation_tick import AutomationTickMixin
+from ui.desktop_layout import LayoutMixin
+from ui.desktop_pet_bridge import PetBridgeMixin, PET_STAGE_POLL, UNATTENDED_SWITCH
+from ui.desktop_async_tasks import AsyncTasksMixin
 from desktop_tray import TrayMixin
+# R3056 收尾：桥接与左区段方法拆入 StatusBridgeMixin；status_kind/STATUS_* 一并迁出，别名保留给既有导入。
+from desktop_status_bridge import STATUS_ERROR_MARKERS, STATUS_RUNNING_MARKERS, StatusBridgeMixin, status_kind  # noqa: F401
 
-
-
-STATUS_ERROR_MARKERS=('失败','错误','异常','无法','未能','未完成','未启动','出错','中断','超时','暂缓')
-STATUS_RUNNING_MARKERS=('正在','处理中','执行中','生成中','加载中','检测中','排队','请稍候','等待')
-# 数量为零的写法（「失败 0 个」「0 个失败」「失败：0」）只报计数，不算错误；分色前先把这些片段抹掉。
-_STATUS_ZERO_COUNT=re.compile(r'(?:'+('|'.join(STATUS_ERROR_MARKERS))+r')\s*[:：]?\s*0(?![\d.])|(?<![\d.])0\s*个?\s*(?:'+('|'.join(STATUS_ERROR_MARKERS))+r')')
-
-
-def status_kind(message):
-    """把状态栏文本归为就绪／执行中／失败三类；失败优先于执行中，零计数的失败不算错误。"""
-    text='' if message is None else str(message)
-    if any(marker in _STATUS_ZERO_COUNT.sub('', text) for marker in STATUS_ERROR_MARKERS):return 'error'
-    if any(marker in text for marker in STATUS_RUNNING_MARKERS):return 'running'
-    return 'ready'
-
-class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMixin, LoginGateMixin, IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin, ProjectPagesMixin, StoryboardPageMixin, WritingPageMixin, IdeaChatMixin, AutoFlowsMixin, AutomationTickMixin, LayoutMixin, PetBridgeMixin, AsyncTasksMixin, TrayMixin):
+class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMixin, LoginGateMixin, IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin, ProjectPagesMixin, StoryboardPageMixin, WritingPageMixin, IdeaChatMixin, AutoFlowsMixin, AutomationTickMixin, LayoutMixin, PetBridgeMixin, AsyncTasksMixin, TrayMixin):
     def __init__(self,win,root=ROOT,*,require_login=False,**page_services):
         self._init_window_and_sidebar(win, root, page_services)
         self._init_body_and_status(win)
@@ -228,7 +217,7 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         win._desktop_loading_project=False
         win._desktop_startup_settled=False   # 启动页建完、tick 恢复后置真；三虎开机招呼等它
         self.video_sessions={};self.cloud_monitor_busy=False;self.cloud_monitor_due=0;self.cloud_monitor_cursor=0;self._cloud_monitor_ticket=0;self.cloud_monitor_tasks=BackgroundTaskLifecycle(self.app/'outputs'/'desktop-task-history.json');self.cloud_monitor_result=queue.Queue()
-        self.settings_file=self.app/'desktop_settings.json';from desktop_settings_service import load_desktop_settings;self.settings=load_desktop_settings(self.settings_file,{'comfy_url':'http://127.0.0.1:8189','jianying':''},read=read,preserve=lambda path:shutil.copy2(path,path.with_name(path.name+'.corrupt')))
+        self.settings_file=self.app/'desktop_settings.json';from domain.desktop_settings_service import load_desktop_settings;self.settings=load_desktop_settings(self.settings_file,{'comfy_url':'http://127.0.0.1:8189','jianying':''},read=read,preserve=lambda path:shutil.copy2(path,path.with_name(path.name+'.corrupt')))
         win.title(APP_NAME+' · '+VERSION);win.state('normal')
         win.geometry('%dx%d'%(min(DESKTOP_LAYOUT['default_width'],win.winfo_screenwidth()-DESKTOP_LAYOUT['window_margin_x']),min(DESKTOP_LAYOUT['default_height'],win.winfo_screenheight()-DESKTOP_LAYOUT['window_margin_y'])))
         # 第 19 期：安装后的图标（三虎）——主窗口标题栏／任务栏都用它，拿不到就照旧用 Tk 默认图标。
@@ -274,37 +263,34 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         self.sidebar_canvas.bind('<Configure>',self.schedule_sidebar_fit,add='+')
 
     def _init_body_and_status(self, win):
-        """主体区：标题行右侧信息、页面画布、进度条、状态栏与尺寸把手，从 __init__ 原样切出，R1808。"""
+        """主体区：页面画布、统一状态栏与尺寸把手，从 __init__ 原样切出，R1808。"""
         self.body=ttk.Frame(win,padding=DESKTOP_LAYOUT['body_padding']);self.body.pack(side='left',fill='both',expand=True)
-        self.title_row=ttk.Frame(self.body);self.title_row.pack(fill='x');self.title_row.pack_propagate(False)
-        # 第 R2946/R2950 期：页标题入侧栏顶行；标题行收单行（Token 左、状态/模型右）与侧栏标题同带。
+        # R3016 P2：顶部标题行整体删除——页标题、项目路径、用量指示器全部收入底部统一状态栏左区；
+        # 页头状态/模型名信息等价迁移（视频页模型/状态、剧本页流程说明、分镜页 JSON 提示），内容区上移填空。
         self.project_block.bind('<Configure>',self.schedule_sidebar_fit,add='+')
-        self.title_row.bind('<Configure>',self.align_header,add='+')
-        self.header_info=ttk.Frame(self.title_row);self.header_info.pack(side='right',fill='x',expand=True,padx=(SPACING['md'],SPACING['none']))
-        # 第 R2950 期：页头单行——状态居左可伸展、模型名贴右（原两行堆叠把聊天区顶低）。
-        self.header_model=ttk.Label(self.header_info,style='Muted.TLabel',font=FONTS['pet_hint'],anchor='e');self.header_model.pack(side='right',anchor='e')
-        self.header_status=ttk.Label(self.header_info,style='Muted.TLabel',font=FONTS['pet_hint'],anchor='w',justify='left');self.header_status.pack(side='left',fill='x',expand=True)
         # 第 30 期第 6／8 条：阶段配置那颗按钮从标题栏挪到「剧本准备」页的「创作入口」那一行，
         # 紧挨着「手动制作剧本」（按钮那时才建得出来，见 brief_editor）；这里先留个占位，别的页没有它。
         self.stage_button=None
         # 第 33 期第 4 条：07 分镜定稿那一页没有「手动XX」，它的「阶段配置」挂在页标题右边。
         self.header_stage_button=None
-        self.header_status.bind('<Configure>',lambda e:self.header_status.configure(wraplength=max(120,e.width)))
-        self.header_model.bind('<Configure>',lambda e:self.header_model.configure(wraplength=max(120,e.width)))
         # 宠物贴片（方案 A）：第 R2933 期改挂侧栏左下角底栏，不再浮在标题行。
         # 第 30 期第 3 条：把「前台窗口是不是本进程」交上去——用户切到别的应用时，三虎的自动
         # 播报（心跳、进度气泡、主动询问、失败提醒）一律不冒；自己点开的对话框照旧一条都不拦。
         # 宠物簇（第 R2933 期）：挂进侧栏底栏 pet_dock（pet_layer 在 _build_sidebar 已指好），
         # 头像上／小字下／猫爪列右居中；前台窗口判定照旧交给三虎管自动播报。
         self.pet=pet_ui.attach(self,front=pet_ui.our_process_in_front)
-        # 用量指示器（费用统计模块）：第 R2933 期挪到页标题右侧同一行；总线绑定由每拍 sync_bus 负责。
-        self.usage_indicator=ui_usage_indicator.UsageIndicator(self.title_row,self)
-        self.usage_indicator.pack(side='left',padx=(SPACING['md'],SPACING['none']))
         # 页面仍由画布和鼠标滚轮滚动，但不显示贴在窗口最右侧的整页长滑块。
         # 各页面共用这一层，因而无需在 11 个页面里分别隐藏；表格、对话框等局部滚动条照常保留。
         area=ttk.Frame(self.body);area.pack(fill='both',expand=True)
-        self.canvas=tk.Canvas(area,bg=COLORS['background_primary'],highlightthickness=0)
-        self.canvas.pack(side='left',fill='both',expand=True)  # R2962：side='left' 供右侧停靠面板拿全高竖条
+        self.panel_area=area   # R3060：项目文件面板停靠在这一列右侧；输入框并入画布列后宽度与聊天框一致
+        # R3060：停靠列只在面板打开时由 files_panel 打包进 panel_area——Tk 在空包最后一个
+        # slave 被 forget 后不回缩需求宽度，常驻空列会把画布永久挤窄；打开时再占位，
+        # stage_area（画布＋输入框）整体让位，宽度与聊天框保持一致。
+        self.panel_dock=ttk.Frame(area)
+        self.stage_area=ttk.Frame(area);self.stage_area.pack(side='left',fill='both',expand=True)
+        self.input_dock=ttk.Frame(self.stage_area);self.input_dock.pack(side='bottom',fill='x')
+        self.canvas=tk.Canvas(self.stage_area,bg=COLORS['background_primary'],highlightthickness=0)
+        self.canvas.pack(side='top',fill='both',expand=True)
         self.page_scrollbar=None
         self.content=ttk.Frame(self.canvas);self.content_id=self.canvas.create_window(0,0,window=self.content,anchor='nw')
         self.content.bind('<Configure>',self.align_header,add='+');self.files_panel=ProjectFilesPanel(self);self.files_panel.build()  # R2962 项目文件全局面板（REQ-S01-90）
@@ -319,7 +305,12 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         win.bind('<FocusIn>',self.refresh_membership_view,add='+')    # R2064：回到前台时静默续签
         # 全部阶段只保留一条绿色信息栏：操作说明与动态状态汇总在这里。
         self.status=tk.StringVar(value='就绪 · 所有项目共用一份程序')
-        self.notifier=NotificationDispatcher(self.status, parent=win)
+        # R2989 P1：统一状态栏——右区消息走 StatusBus；旧状态条暂隐藏、StringVar 作桥（P2 收编）。
+        self.status_bus=StatusBus()
+        self._init_status_bridge()
+        self.notifier=NotificationDispatcher(self.status, parent=win, bus=self.status_bus)
+        self.status_bus.subscribe(self._bus_to_status)
+        self.status.trace_add('write',self._status_to_bus)
         self.file_dialog=FileDialog(win, notifier=self.notifier)
         self.shortcuts=ShortcutRegistry()
         # 不再用进度条：忙碌只由状态栏右端的转圈表示（spinner 在状态栏建好后挂上）。
@@ -327,23 +318,23 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         # ui_theme 的窗口定位失败只做恢复，不另建反馈链；状态栏建好后把
         # 既有可见提示入口交给根窗口。
         win._drama_place_notice=self.status.set
-        self.banner_status=tk.StringVar(value='')
-        def refresh_banner(*_unused):
-            self.banner_status.set(self.status.get().strip())
-        self.status.trace_add('write',refresh_banner);refresh_banner()
         pet_ui.watch_status(self,self.pet)
-        self.status_label=ttk.Label(self.body,textvariable=self.banner_status,
-                                    style='PaleGreenHint.TLabel',wraplength=WRAPLENGTH['lg'])
-        self.status_label.pack(fill='x',pady=DESKTOP_LAYOUT['status_gap'])
-        # 共享底部输入框（任务书轮 4）：13 个阶段页共用同一实例，位于画布与状态栏之间；
+        # R3016 P2：统一状态栏组件钉在窗口最底部；旧状态条与顶部标题行一并删除。
+        # 左区常驻段：页标题、项目路径、用量指示器（Token/¥/余额，点击开详情）；各页专用段按需清空。
+        self.status_bar=StatusBar(self.body,self.status_bus)
+        self.status_bar.pack(side='top',fill='x',pady=DESKTOP_LAYOUT['status_gap'])
+        self.status_bar.set_segment('page','')
+        self.status_bar.set_segment('path','')
+        self.usage_indicator=ui_usage_indicator.UsageIndicator(self.status_bar.left_zone,self)
+        self.usage_indicator.pack(side='left',padx=(SPACING['xs'],SPACING['none']))
+        # 共享底部输入框（任务书轮 4）：13 个阶段页共用同一实例；
+        # R3060：宿主改为画布列的 input_dock，宽度与聊天框一致（项目文件面板开合时同步收窄）。
         # 页面切换只调 set_stage 换上下文（desktop_page_nav._sync_shared_input），
-        # 非阶段页与锁定／首页路由由 pack_forget 隐藏。``before`` 把它的包裹位次插到
-        # 状态栏之上，重 pack 也不会掉到状态栏下面。
+        # 非阶段页与锁定／首页路由由 pack_forget 隐藏。
         self.shared_input=desktop_shared_send.make_shared_input(self)
-        self.shared_input.pack(side='top',fill='x',before=self.status_label)
+        self.shared_input.pack(side='top',fill='x')
         # 忙碌时在状态栏右端转一个小圆圈（BusyState 起停）；平时不占位。
-        self.busy_state.spinner=Spinner(self.body,host=self.status_label)
-        self._install_status_styles();self.status.trace_add('write',self.sync_status_style);self.sync_status_style()
+        self.busy_state.spinner=Spinner(self.body,host=self.status_bar)
         # 不放 ttk.Sizegrip：它由 Tk 逐像素实时改窗口大小、内容跟着重排，和另三个角（系统边框缩放）表现不一致；右下角也走系统边框。
 
     def _build_sidebar(self,win):
@@ -363,27 +354,13 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         scroll=ScrollForm(sidebar_area,bg=COLORS['background_primary'],scrollbar=False)
         self.sidebar_viewport=sidebar_area;self.sidebar_scroll=scroll;self.sidebar_canvas=scroll.canvas
         scroll.canvas.configure(takefocus=True)
-        # 「我的项目」标签 R2946 删、页标题顶到侧栏上沿；内边距上沿收到 xs，与页头 token 同带。
+        # 「我的项目」标签 R2946 删、页标题 R3016 起收入底部统一状态栏左区；侧栏图标轨顶到上沿。
         side=ttk.Frame(scroll.form,padding=(DESKTOP_LAYOUT['sidebar_padding'],SPACING['xs'],DESKTOP_LAYOUT['sidebar_padding'],DESKTOP_LAYOUT['sidebar_padding']));self.sidebar=side
-        # 页标题放滚动内容顶端、内边距之外：96px 轨宽下最长页名也放得下；
-        # EllipsisLabel 窄窗才省略号、Tooltip 留全文；各页用 set_text(…) 写入。
-        self.title=EllipsisLabel(scroll.form,text='',font=FONTS['body_bold'],anchor='w')
-        self.title.pack(side='top',fill='x',anchor='w',pady=(SPACING['xs'],SPACING['xs']))
         side.pack(fill='both',expand=True)
 
-
-    def _install_status_styles(self):
-        """状态栏三类语义色；就绪沿用既有 PaleGreenHint，执行中／失败只在本页登记。"""
-        style=ttk.Style(self.win)
-        style.configure('Tokens.Status.Running.TLabel',background=COLORS['primary_subtle'],foreground=COLORS['primary_pressed'],padding=(SPACING['sm'],SPACING['xs']))
-        style.configure('Tokens.Status.Error.TLabel',background=COLORS['danger_subtle'],foreground=COLORS['danger_text'],padding=(SPACING['sm'],SPACING['xs']))
-
-
-    def sync_status_style(self,*_unused):
-        kind=status_kind(self.status.get())
-        name={'ready':'PaleGreenHint.TLabel','running':'Tokens.Status.Running.TLabel','error':'Tokens.Status.Error.TLabel'}[kind]
-        self.status_label.configure(style=name)
-
+    # R3056 收尾：_bus_to_status／_status_to_bus／set_status_segment／bind_status_segment／
+    # _unbind_status_segment／clear_page_segments／_set_status_quiet 已拆入 StatusBridgeMixin
+    # （desktop_status_bridge），Desktop 类行数退回棘轮上限内。
 
     def _initialize_automation_state(self):
         """建立各阶段自动队列的完整初始契约，避免 UI 构造中遗漏状态（状态本体见 desktop_auto_state）。"""
@@ -406,7 +383,7 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
             if read_text(path,encoding='utf-8')==value:
                 self.status.set('文字未改动，未创建新版本')
                 return path
-        import idea_chat
+        import domain.idea_chat as idea_chat
         from stage_execution_service import publish_idea_creative
         dest=idea_chat.save_manual_creative(self.idea_chat_context(),value,publish=publish_idea_creative)
         editor=getattr(self,'brief_editor',None)
@@ -494,8 +471,8 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         """
         sessions=getattr(self,'flow_processes',{})
         if not sessions:return
-        from workflow_engines import forget_process
-        from workflow_settings import STAGE_CONFIG_STAGES
+        from orchestrator.workflow_engines import forget_process
+        from orchestrator.workflow_settings import STAGE_CONFIG_STAGES
         remaining={}
         for key,process in list(sessions.items()):
             try:code=process.poll()
@@ -600,7 +577,7 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         # 这只是首帧后的只读发现，不能占用 ``worker``：后者是用户提交操作的
         # 全局门禁，若复用它，输入框刚出现就会被误报为“当前操作尚未结束”。
         def discover():
-            import idea_chat
+            import domain.idea_chat as idea_chat
             from stage_execution_service import project_context
             try:
                 path=idea_chat.initial_brief_document(project_context(root));error=None
@@ -814,28 +791,31 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
     def text(self,value,height=10):
         t=TextArea(self.content,bg=COLORS['background_card'],fg=COLORS['text_primary'],insertbackground=COLORS['primary'],height=height,wrap='word',font=('Microsoft YaHei UI',11),relief='flat',padx=SPACING['md'],pady=SPACING['md']);t.insert('1.0',value);t.pack(fill='both',expand=True,pady=SPACING['sm']);bind_show_all(t,after=self.fit_content);return t
     def note(self,value):
-        """把页面操作说明写入共享绿色信息栏，不再额外占一行。"""
+        """把页面操作说明写入统一状态栏（R3016 起经 StringVar 桥进右区消息），不再额外占一行。"""
         text=' '.join(str(value or '').split())
         if not text:return None
         self.status.set(text)
-        return self.status_label
+        # 立即泵一次：右区消息当帧可见（调用方通常马上断言/展示）。
+        self.status_bus.pump()
+        return self.status_bar.message
+
     def storyboard_creation(self):
-        from storyboard_files import show
+        from ui.storyboard_files import show
         show(self)
     # 第 29 期第 1 条：页面上那几处重复的「Model ＋ SKILL」控制行整个拿掉。R2942 起页面级
     # 「阶段配置」按钮＋模型下拉框也全部删除：模型选择走共享输入框的下拉框按钮，
     # SKILL 走 ✦ 图标；skill_panel.show 面板仍由手动制作预检「修改配置」等入口打开。
     # flow_settings 留着：首帧页的「Skill 调用设置」在模型接口窗口里还要用它（第 26 期那处）。
     def flow_settings(self,stage,function=None):
-        from workflow_settings_dialog import show_settings
+        from ui.workflow_settings_dialog import show_settings
         if self.root is None:raise ValueError('请先选择项目')
-        from workflow_agents import refresh
+        from ui.workflow_agents import refresh
         show_settings(self,self.root,stage=stage,on_saved=lambda:refresh(self),function=function)
     def open_storyboard_skill(self,key=None):
         batch={}
         def work():
             from stage_execution_service import storyboard_produced_scripts as produced_scripts
-            from storyboard_selection import selected_many
+            from orchestrator.storyboard_selection import selected_many
             from orchestrator.workflow_tasks import storyboard_batch_prompt
             scripts=selected_many(self.root,'script');existing=selected_many(self.root,'storyboard')
             made=produced_scripts(self.root);already=[p for p in scripts if p in made]
@@ -865,14 +845,14 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
 
         第 61 期 v0.8：全程序只有 prompt_window.copy_text 写剪贴板（既有规矩），这里只转调一次。
         """
-        from prompt_window import copy_preview,copy_text as write_clipboard
+        from ui.prompt_window import copy_preview,copy_text as write_clipboard
         reason=write_clipboard(self.win,str(text))
         self.status.set('复制失败：'+reason if reason else '已复制：'+copy_preview(text))
         return reason
 
 
     def final_storyboard(self):
-        from storyboard_files import show_final
+        from ui.storyboard_files import show_final
         # 第 68 期任务 6：这一页补上了主动作「手动同步资产」，阶段配置就跟着挪到那一行
         # （原来挂在页标题右边，两处会重复），见 storyboard_files.show_final。
         show_final(self)
@@ -898,14 +878,14 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
             refresh_storyboard_studios(self, project)
             final_source = folder / 'episode.json'
             self.remember_frame_json(final_source)
-            from storyboard_selection import remember_final_view
+            from orchestrator.storyboard_selection import remember_final_view
             remember_final_view(project, final_source)
             # 只在用户本来就在分镜定稿页时重建页面：无人值守不该把人从别的页面拽走（手动按钮本来就在这一页）。
             if getattr(self,'page_index',None)==PAGE['final']:self.show(PAGE['final'])
         return 'JSON已刷新：'+str(folder)+f'；另有 {missing} 项资产待补齐。'
     def sync_working_episode(self):
         """采用分镜后，若项目还没有视频任务，把工作集指针切到最新采用的分镜。"""
-        from storyboard_selection import sync_working_episode
+        from orchestrator.storyboard_selection import sync_working_episode
         target=sync_working_episode(self.root)
         if target is None:return None
         if Path(self.studio.episode_path).resolve()!=target:self.studio=open_studio(self.root)
@@ -922,7 +902,7 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
 
     def open_folder(self,p):open_directory(p)
     def open_version_picker(self):
-        from version_picker import open_picker
+        from ui.version_picker import open_picker
         return open_picker(self)
     def final_import(self):
         from domain.stage_workspace_service import ensure_delivery_workspace
@@ -941,7 +921,7 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         self.async_(work)
 
     def commercial_delivery_review(self,create=False):
-        from stage_completion_service import create_commercial_template, confirm_commercial_evidence
+        from orchestrator.stage_completion_service import create_commercial_template, confirm_commercial_evidence
         root=Path(self.root).resolve()
         if create:
             target=create_commercial_template(root)
@@ -956,7 +936,7 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         self.async_(work)
 
     def confirm_stage_media(self,stage):
-        from stage_completion_service import (media_output_folders, media_scope,
+        from orchestrator.stage_completion_service import (media_output_folders, media_scope,
                                               prepare_media_completion, confirm_media_completion)
         root=Path(self.root).resolve()
         scope=media_scope(root)

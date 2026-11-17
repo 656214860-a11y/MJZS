@@ -24,10 +24,10 @@ import contract.pet_bus as pet_bus
 import pet_llm
 import contract.script_contract as script_contract
 import orchestrator.skill_budget as skill_budget
-import skill_registry
+import orchestrator.skill_registry as skill_registry
 import orchestrator.skill_templates as skill_templates
-import skill_tools
-import stage_parallel
+import ui.skill_tools as skill_tools
+import orchestrator.stage_parallel as stage_parallel
 from file_cache import read_json
 from model_router import spend_kind
 
@@ -58,7 +58,7 @@ def verified_stage_output(project, stage):
     if stage not in ('script', 'script_structure'):
         return False
     try:
-        import stage_completion_service  # 判据只在完成服务一处（R2178 J16）
+        import orchestrator.stage_completion_service as stage_completion_service  # 判据只在完成服务一处（R2178 J16）
         return bool(stage_completion_service.completion_evidence(root, stage)[0])
     except (OSError, TypeError, ValueError):
         return False

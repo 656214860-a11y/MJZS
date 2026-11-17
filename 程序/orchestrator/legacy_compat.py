@@ -34,7 +34,7 @@ def resolved_storyboard_alias(project, path):
     """将历史分镜别名解析为当前文件；映射组件不可用时保留原路径只读尝试。"""
     candidate = Path(path)
     try:
-        from storyboard_storage import resolved_alias
+        from domain.storyboard_storage import resolved_alias
     except ImportError:
         return candidate
     return Path(resolved_alias(Path(project), candidate))
@@ -58,7 +58,7 @@ def optional_workflow_model_name(project, stage):
     模块自行猜默认模型或打印导入异常。
     """
     try:
-        from workflow_settings import model_name
+        from orchestrator.workflow_settings import model_name
     except ImportError:
         return ''
     try:
@@ -89,7 +89,7 @@ def optional_model_identity(label, program):
 def optional_asset_counts(base, read_json):
     """返回资产登记数和就绪图片数；历史安装缺少资产状态服务时安全降级。"""
     try:
-        from asset_batch_state_service import ready_asset_ids
+        from domain.asset_batch_state_service import ready_asset_ids
         root = Path(base)
         ready = len(ready_asset_ids(root))
         registry = read_json(root / 'assets.json')

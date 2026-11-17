@@ -1,0 +1,15 @@
+{
+  "round": 3043,
+  "commit_base": "73a17024",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k writing asset_context asset_batch_service asset_batch_state_service white_model_service idea_chat storyboard_catalog_service",
+    "exit": 0,
+    "passed": 370,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T22:02:47"
+}

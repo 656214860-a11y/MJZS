@@ -5,10 +5,10 @@ import ast
 from pathlib import Path
 import unittest
 
-from tests.architecture._scan import desktop_text
+from tests.architecture._scan import desktop_text, entity_file
 
 ROOT = Path(__file__).resolve().parents[2]
-EXCLUDED_PARTS = {"tests", "tasks_round", "维护记录", ".git", "__pycache__"}
+EXCLUDED_PARTS = {"tests", "tasks_round", "维护记录", ".git", "__pycache__", "voice_asr_venv"}
 
 
 def _raw_accelerator_bindings(path: Path) -> list[str]:
@@ -50,5 +50,5 @@ class ShortcutRegistryBoundaryTests(unittest.TestCase):
             "desktop.py": "self.page.shortcuts.bind(self.box,",  # R1817：writing 改写成 _WritingPage 类
             "storyboard_table_ui.py": "ShortcutRegistry().bind(tree,",
         }.items():
-            source = desktop_text() if filename == "desktop.py" else (ROOT / filename).read_text(encoding="utf-8")
+            source = desktop_text() if filename == "desktop.py" else entity_file(filename[:-3]).read_text(encoding="utf-8")
             self.assertIn(marker, source, filename)

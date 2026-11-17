@@ -1,0 +1,15 @@
+{
+  "round": 3117,
+  "commit_base": "d1854eb8",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k merge_round commit_round full_safe_merge_gate",
+    "exit": 0,
+    "passed": 22,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T12:28:29"
+}

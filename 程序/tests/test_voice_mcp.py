@@ -3,8 +3,10 @@
 import base64
 import io
 import json
+import os
 import queue
 import struct
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -175,6 +177,27 @@ class ProtocolTests(unittest.TestCase):
         self.assertEqual([r.get('id') for r in responses], [1, 2, None],
                          '通知不回包；坏 JSON 回 id=null 错误')
         self.assertEqual(responses[2]['error']['code'], -32603)
+
+
+class StdioEncodingTests(unittest.TestCase):
+    """MCP stdio 契约：必须输出 UTF-8——中文 Windows 默认 GBK 会把中文打成乱码。"""
+
+    def test_server_stdout_emits_utf8_chinese(self):
+        script = Path(mcp.__file__).resolve()
+        # PYTHONIOENCODING=gbk 强制子进程复现中文 Windows 默认编码，验证服务自行固定 UTF-8。
+        env = dict(os.environ, PYTHONUTF8='0', PYTHONIOENCODING='gbk')
+        proc = subprocess.Popen(
+            [sys.executable, str(script)],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+        try:
+            out, _err = proc.communicate(input=b'not json\n', timeout=30)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.communicate()
+            self.fail('MCP 服务进程 30 秒未退出')
+        text = out.decode('utf-8', errors='replace')
+        payload = json.loads(text.strip().splitlines()[-1])
+        self.assertIn('请求不是有效 JSON', payload['error']['message'])
 
 
 if __name__ == '__main__':

@@ -5,8 +5,8 @@
 
 ## 0. 任务开始时必读
 
-- **范围明确的小任务**：读本文件和任务点名的文件；`architecture.md`、`PROJECT_MAP.md`、`project_status.md` 用标题或 grep 定位相关节。
-- **自主开工的会话**：读本文件；`project_status.md` 只读轮次头、新对话接续协议、检查点、验证基线、已知阻塞与待办；`architecture.md` 读 §3 分层表和与本轮模块相关的节；`PROJECT_MAP.md` 读相关节。历史条目只在涉及本轮或追溯凭据时读，旧记录不作当前验收。
+- **范围明确的小任务**：读本文件和任务点名的文件；其余权威文档用标题或 grep 定位相关节。
+- **自主开工的会话**：读本文件；`project_status.md` 只读轮次头、新对话接续协议、检查点、验证基线、已知阻塞与待办；`architecture.md` 读 §3 分层表和相关节；`PROJECT_MAP.md` 读相关节。历史条目只在涉及本轮或追溯凭据时读，旧记录不作当前验收。
 
 读完前只定位和读取，修改、测试、认领放到读完后；接续依据文件系统。
 
@@ -16,7 +16,7 @@
 - 解释器：`运行环境\Python\python.exe`（仓库根下，不用全局 Python）
 - 工作流：13 个制作阶段（初步分镜之后为 Animatic 分镜预演）
 - 执行链路：`skill_orchestrator`
-- 三虎：进度界面、阶段日志、自动化等级、暂停恢复、资产跨重启续跑台账
+- 三虎：进度界面、阶段日志、自动化等级、暂停恢复、资产续跑台账
 
 ## 2. 硬约束
 
@@ -37,7 +37,7 @@
 | 阶段顺序 | `pet_bus.STAGES` / `STAGE_NAMES` |
 | 并行与重试 | `stage_parallel.CONFIG` |
 | 模型池 | 模型管理保存的模型池 |
-| SKILL 注册表与制作锁 | `skills/01—13 阶段目录/*.skill.md`（内置）＋ `data/skills/`＋`<项目>/skills/`（三层 同名 项目＞用户＞内置，R3054）与 `skill_registry.py`；制作锁存 `skill_config.json` 顶层 `production_locks`；体检 `skill_health_report` |
+| SKILL 注册表与制作锁 | `skills/01—13 阶段目录/*.skill.md`（内置）＋ `data/skills/`＋`<项目>/skills/`（三层 同名 项目＞用户＞内置，R3054）与 `orchestrator/skill_registry.py`；制作锁存 `skill_config.json` 顶层 `production_locks`；体检 `workflow_settings.skill_health_report` |
 | 分层依赖 | `architecture.md` 第 3 节分层表 |
 | 路径 | `stage_layout` / `storyboard_paths` / `script_contract` / `asset_contract` / `model_pool.env_file` |
 | 事件与前缀 | `pet_bus` 事件表 / `broadcaster` 前缀表 |
@@ -47,19 +47,19 @@
 | 动态导入 | `ui_plugin_registry.module()` |
 | 阶段路径 | `stage_path_service.write_dir()` / `read_dirs()` |
 | 阶段完成核验 | `stage_completion_service`；剧本准备顺序确认用其 `preparation_progress()` |
-| UI 组件与弹窗 | `ui_widgets`（组件与全局 Style）／`ui_tokens`（视觉 token）／`ui_shortcuts`（快捷键登记） |
-| L2 写服务结果 / 项目上下文 / 阶段成果发布器 | `service_contract` 四字段结果、L3 注入的 `project_context.ProjectContext`、`stage_execution_service.publish_stage_*()`；每轮最多迁 3 个，细则见 `architecture.md` |
+| UI 组件与弹窗 | `ui_widgets`／`ui_tokens`／`ui_shortcuts` |
+| L2 写服务结果 / 项目上下文 / 阶段成果发布器 | `service_contract` 四字段结果、L3 注入的 `project_context.ProjectContext`、`stage_execution_service.publish_stage_*()`；细则见 `architecture.md` |
 | 正式 JSON 读写 | 读 `file_cache.read_json()`；写 `agent.core.save()`／`save_text()` 或 L3 发布器；L2 写服务只接收注入的发布器 |
 | 持久化产物版本 | `artifact_schema`：新写入写 `schema_version`，读取侧容忍缺版本 |
-| 语音识别后端路由 | `domain.speech_api.create_session()`：按 `backend` 设置分流 `offline`（`domain.offline_asr_client` 子进程）／`cloud`（`RealtimeSession`），离线不可用且已配云端密钥时自动降级 |
-| 离线 ASR 引擎 | `voice_engine/offline_asr_server.py`：独立子进程常驻，stdio JSON-Lines；模型缓存 `data/voice_models/`、运行时 `data/voice_asr_venv/`，引擎脚本不 import 主运行时模块 |
-| 语音词典与 AI 优化 | `data/语音词典.json` 读写校验在 `speech_api`，热词随会话下发、替换表定稿后处理；模板化优化在 `voice_ai`（`chat` 注入式） |
+| 语音识别后端路由 | `domain.speech_api.create_session()`：按 `backend` 分流 `offline`／`cloud`（离线不可用且已配云端密钥时自动降级） |
+| 离线 ASR 引擎 | `voice_engine/offline_asr_server.py`：独立子进程常驻 stdio JSON-Lines；缓存 `data/voice_models/`、`data/voice_asr_venv/`，不 import 主运行时模块 |
+| 语音词典与 AI 优化 | `data/语音词典.json` 校验在 `speech_api`（热词随会话下发、替换表定稿后处理）；优化在 `voice_ai`（`chat` 注入） |
 
-`stage_layout.validate_stage_contract()` 守卫目录阶段契约；变更 `pet_bus.STAGES` 或 `stage_layout.STAGES` 的轮次必须使它通过。
+`stage_layout.validate_stage_contract()` 守卫目录阶段契约；变更 `pet_bus.STAGES`／`stage_layout.STAGES` 的轮次必须使它通过。
 
 ### 2.3 新增结构硬约束（第 118 期起）
 
-编号保留原值，缺号为已删除条款，不复用。
+编号保留原值，缺号已删除、不复用。
 
 11. **分层依赖唯一权威**：`architecture.md` 第 3 节。只允许 `L5 入口 → L4 UI → L3 编排 → L2 业务 → L1 模型/存储 → L0 契约`；反向 import 一律禁止。
 12. **路径唯一权威**：文件路径由 2.2 表中“路径”那一行的模块产出；其他模块不字符串拼接路径。
@@ -71,26 +71,27 @@
 18. **动态导入唯一入口**：L4 走 `ui_plugin_registry.module()`，L3 走 `stage_handler_registry`；动态 `import` 先登记。
 19. **阶段路径新写旧读**：新写入走 `stage_path_service`；旧目录只读兼容。
 20. **完成事件以产物核验为准**：由 `stage_completion_service` 核验产物；模型文字和 UI 提示不算完成证据。
-22. **事件发送边界**：跨模块状态只经 `pet_bus.emit_safe()`；仅 `pet_agent._emit()` 与 `pet_ui._emit()` 可作受控转发，不直调 `Bus.emit()`。`broadcaster` 只记录用户可见文本日志。
+22. **事件发送边界**：跨模块状态只经 `pet_bus.emit_safe()`；仅 `pet_agent._emit()` 与 `pet_ui._emit()` 可作受控转发，不直调 `Bus.emit()`。`broadcaster` 只记用户可见文本。
 42. **出站请求唯一入口**：新 JSON API 走 `http_client.request_json()`（超时必填、错误码、有界重试、响应上限、脱敏）；存量直连逐步迁入；`urlopen`／`build_opener` 只许 `http_client` 与登记白名单，`test_http_boundary` 守卫。
 
 ### 2.4 测试契约变更
 
-接口、模块、路径或用户明确要求的 UI 契约发生有意变更时，可同步测试定位和预期；未变行为的断言保持原样，不得弱化、删除断言或跳过测试来制造通过。结果报告说明契约变化与回归证据。
+接口、模块、路径或用户明确要求的 UI 契约发生有意变更时，可同步测试定位和预期；未变行为的断言保持原样，不得弱化、删除或跳过测试来制造通过。结果报告说明契约变化与回归证据。
 
 ## 2.5 轮次与执行纪律
 
-25. **任务范围优先**：治理和审计由实际风险或用户任务触发，不为凑固定轮次插入无关改动。
-26. **新规则必须配测试**：2.3 节每新增一条硬约束，同一轮或下一轮补一个自动化测试；没有测试的约束降级为「建议」，不列入 2.3 节。
-27. **轮次与队列跨树唯一**：开工先 `维护记录/基准脚本/round_claim.py next` 领轮次，有匹配队列任务时再 `claim <队列ID> --owner <署名>`；有效租约属于他人时不覆盖。每轮结束检查 `N == M + 1`（N 状态页轮次，M 最新结果轮次）。一轮＝一个可独立回滚的完整变更集。并行车道、租约、检查点细则见 `runbook.md` §12。
-28. **一个动作一个入口**：新增功能前先搜已有入口能否复用；本轮范围内存在重复入口时，先核验消费者与兼容要求再统一；范围外重复项只记录。
+25. **任务范围优先**：治理和审计由实际风险或用户任务触发，不为凑轮次插入无关改动。
+26. **新规则必须配测试**：2.3 节每新增一条硬约束，同轮或下轮补一个自动化测试；没有测试的约束降级为「建议」，不列入 2.3 节。
+27. **轮次与队列跨树唯一**：开工先 `维护记录/基准脚本/round_claim.py next` 领轮次；有效租约属于他人时不覆盖。每轮结束检查 `N == M + 1`（N 状态页轮次，M 最新结果轮次）。一轮＝一个可独立回滚的完整变更集。细则见 `runbook.md` §12。
+28. **一个动作一个入口**：新增功能前先搜已有入口；本轮范围内存在重复入口时，先核验消费者与兼容要求再统一；范围外重复项只记录。
 29. **三个基线数**：每轮结束报告：默认冒烟基线 8/8；架构门禁当轮实际总数、失败集合与改前后比较（历史绿色结果不等于当前树通过）；全量回归与欠账以 `full-safe-receipts.json` 真实凭据为唯一权威（口径见 `runbook.md` §4）。
-30. **桌面主动后台任务**：`Desktop.async_()` 的提交、取消、成败收尾与迟到结果拒绝经 `BackgroundTaskLifecycle`；已取消或被新代次替换的结果不触发 UI 回调。
+30. **桌面主动后台任务**：`Desktop.async_()` 全生命周期经 `BackgroundTaskLifecycle`；迟到/被替换/已取消的结果不触发 UI 回调。
 30a. **欠账如实记录**：本轮产生的欠账在授权范围内闭环；历史欠账先核验影响，保留记录不扩大任务。
-32. 连续两次修复未解决同一问题时，先补充复现、堆栈或测量证据并重新诊断，再继续修复。
-33. **启动路径零递归扫描**：窗口出现到可交互之间不 rglob / walk 任何目录；文件列表来自缓存、后台线程加载后更新，或用户点按钮时懒加载。
-34. **UI 设计唯一权威**：`design_tokens.md` 与 `ui_components.md`。`padx` / `pady`、颜色、字号、圆角从 token 取值，不写魔法数字与内联 hex。
-34a. **功能工作树开发**：新功能与 Bug 修复在专用 `codex/<任务>` 工作树进行，主工作区只做同步、合并、提交。动手改 `程序/` 源码前先 `dev.py claim` 或确认已在功能工作树分支；`pre-commit`、`round_claim`、`commit-msg` 三道闸兜底。流程见 `runbook.md` §12。
+32. 连续两次修复未解决同一问题时，先补复现、堆栈或测量证据并重新诊断，再继续修复。
+33. **启动路径零递归扫描**：窗口出现到可交互之间不 rglob/walk 任何目录；文件列表来自缓存、后台线程加载后更新，或用户点按钮时懒加载。
+34. **UI 设计唯一权威**：`design_tokens.md` 与 `ui_components.md`。`padx`/`pady`、颜色、字号、圆角从 token 取值，不写魔法数字与内联 hex。
+34a. **功能工作树开发**：新功能与 Bug 修复在专用 `codex/<任务>` 工作树进行，主工作区只做同步、合并、提交；动手改 `程序/` 源码前先 `dev.py claim` 或确认已在功能工作树分支。三道闸兜底，流程见 `runbook.md` §12。
+35. **任务书闭环**：任务书列出的任务必须全部执行完成；收尾在 `程序/tasks_round/任务完成/` 输出同名《任务完成文件》（逐条给完成证据，未完成项如实标注并给处置），无完成文件不得宣称完成。细则见 `runbook.md` §16。
 
 ## 2.6 Git 提交门禁
 
@@ -103,7 +104,7 @@
 
 ## 2.7 文档先行：需求 → 设计 → 实现
 
-适用 `docs/stages/` 已建阶段：功能轮与契约轮改变阶段行为时，先改需求（`REQ-`）、再改设计（`DES-`）、最后改代码与测试；需求与代码冲突时标 🟡 或 ❓，由用户拍板。测试锚定 `REQ-xx` 由门禁强制。细则见 `runbook.md` §14。
+适用 `docs/stages/` 已建阶段：功能轮与契约轮先改需求（`REQ-`）、再改设计（`DES-`）、最后改代码与测试；需求与代码冲突标 🟡/❓ 由用户拍板。测试锚定 `REQ-xx` 由门禁强制。细则见 `runbook.md` §14。
 
 ## 3. 轮次类型
 
@@ -113,7 +114,7 @@
 | --- | --- | --- |
 | 3.1 | 功能轮（默认） | 先改文档再写码；跑 `--affected` |
 | 3.2 | 修复轮 | 先定位根因；只改根因所在模块 |
-| 3.3 | 结构治理轮 | 每次最多 3 个模块；子场景（只读诊断／按报告执行）由用户指定，未指定先反问 |
+| 3.3 | 结构治理轮 | 每次最多 3 个模块；子场景由用户指定，未指定先反问 |
 | 3.4 | 契约轮 | 见下 |
 | 3.5 | 只读诊断轮 | 见下 |
 | 3.6–3.11 | 测试搬家／性能／可靠性／兼容／验证基线／状态接续 | runbook §15 |
@@ -131,7 +132,7 @@
 
 ## 4. 执行方
 
-当前执行 agent 自己完成改代码、跑测试、领号、提交。用满足验收的最简改动，不多加模块、抽象、配置项或文件。含 Tk 的测试经 `工作流任务/gui_hidden.py` 在隐藏桌面运行。提交前自检验收标准、改动范围与 §5 适用验证；未运行的写「未运行」。
+当前执行 agent 自己完成改代码、跑测试、领号、提交。用满足验收的最简改动，不多加模块、抽象、配置项或文件。含 Tk 的测试由运行器强制经 `scripts/gui_hidden.py` 在隐藏桌面运行（不可用即中止；`--visible` 仅人工调试）。提交前自检验收标准、改动范围与 §5 适用验证；未运行的写「未运行」。
 
 ## 5. 自检规则
 
@@ -145,23 +146,24 @@
 | 改动活跃逻辑 | `python smoke_test.py --affected <模块名>` | 只跑受影响测试模块；被其它模块 import 的模块必须覆盖全部消费者 |
 | 增量回归 | `python smoke_test.py --gate` | 按台账串行执行改动过的测试文件 |
 | 结构治理／跨层 | `python smoke_test.py --architecture` | 全部架构门禁；跑了 `--all --safe` 则不重复 |
-| master 提交点：上次全量后累计 ≥ 5 个改过源码的轮次 | `run_selftests.py --all --safe` | 分支不累计欠账；后台会自动补跑 |
+| master 提交点：上次全量后累计 ≥ 5 个改过源码的轮次 | `run_selftests.py --all --safe` | 分支不累计；后台自动补跑 |
 | 发布前／用户要求 | `run_selftests.py --all --safe` | 不通过先修复 |
 
 - 定向用 `run_selftests.py -k <改动模块>`；失败先 `--affected`／`-k` 修到绿，再复验全量。
 - 合入 master 前，启动路径、Tk 生命周期、删除语义、层级登记表改动触发当次全量。
 - 全量欠账口径、后台补跑、凭据复用见 `runbook.md` §4；唯一实现是 `run_selftests.full_safe_required()`／`risk_overdue()`，凭据须为真实绿凭据。
 - 架构门禁清单在 `architecture.md` §“当前架构门禁清单”；增删架构测试时同轮更新清单、基线和结果报告。
+- 含 Tk 的测试强制隐藏桌面执行（`run_selftests.py`／`smoke_test.py` 自包装，不可用即中止）；`--visible` 仅人工调试；每轮 smoke 带 `--probe` 自检。细则见 `runbook.md` §3。
 
 ## 6. 进度播报前缀
 
-前缀来源 `broadcaster.PREFIX_PATTERNS`（阶段分母由 `Broadcaster.stage()` 自 `pet_bus.STAGES` 生成）：`【阶段 X/13】`、`【步骤 Y/Z】`、`【门禁】`、`【警告】`、`【阻塞】`、`【完成】`、`【恢复】`、`【下一阶段】`、`【模式】`；无前缀消息会被拒绝。
+前缀来源 `broadcaster.PREFIX_PATTERNS`（分母由 `Broadcaster.stage()` 自 `pet_bus.STAGES` 生成）：`【阶段 X/13】`、`【步骤 Y/Z】`、`【门禁】`、`【警告】`、`【阻塞】`、`【完成】`、`【恢复】`、`【下一阶段】`、`【模式】`；无前缀消息会被拒绝。
 
 ## 7. 每轮结束时
 
 1. 按规则 27 领号并新增结果文件，状态页轮次头同步为最新结果轮次加一；只读诊断保留既有编号。
-2. 结果文件位于 `程序/tasks_round/tasks_round_N_result.md`，开头回答三问：本轮属于 §3 哪种类型？测试跑了吗、三个基线过了吗？`project_status.md` 的欠账少了吗？
-3. 按 §2.6 收尾提交；`升级备份/`、`.bak_*` 是历史证据，回滚靠 Git。
+2. 结果文件位于 `程序/tasks_round/tasks_round_N_result.md`，开头回答三问：本轮属于 §3 哪种类型？测试跑了吗、三个基线过了吗？欠账少了吗？
+3. 按 §2.6 收尾提交；`升级备份/`、`.bak_*` 是历史证据，回滚靠 Git。涉及任务书的按规则 35 输出《任务完成文件》。
 
 ## 8. 任务执行协议
 

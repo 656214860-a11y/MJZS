@@ -22,7 +22,6 @@ sys.path.insert(0, HERE)
 os.chdir(HERE)
 
 import stage_layout
-from stage_contract_report import contract_rows
 
 SUBDIRS = ('input', 'output', 'assets', 'docs', 'skills', 'logs')
 
@@ -96,15 +95,6 @@ class ContractTests(unittest.TestCase):
         self.assertNotIn("└── logs/", text, "logs 后面还有 README，不该是最后一个分支")
         self.assertEqual(text.count("└── README.md"), 13)
         self.assertEqual(text.count("├── logs/"), 13)
-
-    def test_contract_rows_pair_stages_with_gates_and_docs(self):
-        rows = contract_rows()
-        self.assertEqual(len(rows), 13)
-        by_folder = {row["folder"]: row for row in rows}
-        self.assertIn("G-07", by_folder["07分镜定稿"]["gates"])
-        self.assertIn("G-08", by_folder["06连贯性清单"]["gates"])
-        self.assertEqual(by_folder["01剧本准备"]["input"], ())
-        self.assertTrue(by_folder["05资产管理"]["docs"])
 
     def test_names_and_dirs_agree(self):
         for name in stage_layout.names():

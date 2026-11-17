@@ -12,6 +12,7 @@ import io
 import json
 import os
 import struct
+import subprocess
 import sys
 import tempfile
 import types
@@ -455,6 +456,17 @@ class BootstrapTests(unittest.TestCase):
         self.assertEqual(code, bootstrap.EXIT_ENV_ERROR)
         self.assertEqual(json.loads(buf.getvalue().strip())["type"], "error")
 
+    def test_main_rejects_python_above_max(self):
+        with mock.patch.object(bootstrap, "probe_python",
+                               return_value=(True, "3.14.7", "")):
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                code = bootstrap.main(["--python", "too-new-python"])
+        self.assertEqual(code, bootstrap.EXIT_ENV_ERROR)
+        payload = json.loads(buf.getvalue().strip().splitlines()[-1])
+        self.assertEqual(payload["type"], "error")
+        self.assertIn("3.10", payload["message"])
+
     def test_ensure_pip_runs_ensurepip_when_missing(self):
         responses = iter([
             types.SimpleNamespace(returncode=1, stdout="", stderr=""),   # pip --version 失败
@@ -474,6 +486,38 @@ class BootstrapTests(unittest.TestCase):
                                side_effect=lambda *a, **k: next(responses)):
             err = bootstrap.ensure_pip("py")
         self.assertIn("pip", err)
+
+
+class StdioEncodingTests(unittest.TestCase):
+    """子进程 stdio 契约：必须输出 UTF-8——中文 Windows 默认 GBK 会把中文打成乱码。"""
+
+    _DRIVER = (
+        "import sys; sys.path.insert(0, sys.argv[1]);"
+        "from voice_engine import offline_asr_server as srv;"
+        "srv.FunAsrBackend.load = lambda self, progress=None: None;"
+        "srv.main()"
+    )
+
+    def test_engine_stdout_emits_utf8_chinese(self):
+        commands = ('{"cmd":"start","sample_rate":16000}\n'
+                    '{"cmd":"stop"}\n{"cmd":"shutdown"}\n').encode('utf-8')
+        # PYTHONIOENCODING=gbk 强制子进程复现中文 Windows 默认编码，验证引擎自行固定 UTF-8。
+        env = dict(os.environ, PYTHONUTF8='0', PYTHONIOENCODING='gbk')
+        proc = subprocess.Popen(
+            [sys.executable, '-c', self._DRIVER, str(PROGRAM)],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+        try:
+            out, _err = proc.communicate(input=commands, timeout=60)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.communicate()
+            self.fail('引擎桩进程 60 秒未退出')
+        text = out.decode('utf-8', errors='replace')
+        payloads = [json.loads(line) for line in text.splitlines() if line.strip()]
+        self.assertIn('done', [p.get('type') for p in payloads])
+        logs = [p.get('message', '') for p in payloads if p.get('type') == 'log']
+        self.assertTrue(any('识别会话已开始' in m for m in logs),
+                        '中文日志应以 UTF-8 透传，实际：%r' % logs)
 
 
 if __name__ == "__main__":

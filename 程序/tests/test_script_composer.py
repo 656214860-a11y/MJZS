@@ -1,7 +1,7 @@
 """剧本准备页输入框与对话区（仿 Claude Code 桌面版）：REQ-S01-62/63/64/65/66/67/71。
 
 - 62：发送／终止合一按钮随运行状态切换图标和命令；附件准备期间不可点。
-- 63：本轮引用的附件卡片用主色边框；× 贴在卡片右上角。
+- 63（R3060 改版）：本轮引用的附件以「@原名」行显示在输入框顶部引用区；右键 @ 行可删除副本。
 - 64：运行中在输入框按 Esc 等同终止；空闲时不拦截。
 - 65／66：消息不铺底色；悬停才显出左下角复制／删除图标，点图标转调整条复制／删除。
 - 67／71：麦克风是听写开关，打开后边说边把文字写进输入框光标处，再点关闭；失败只在状态栏说明。
@@ -82,8 +82,10 @@ class ScriptComposerTests(unittest.TestCase):
                 stopped.assert_called_once()
             d._idea_requesting = False
 
-    def test_referenced_chip_is_highlighted_and_close_sits_top_right(self):
+    def test_referenced_attachments_show_as_at_lines_at_top(self):
+        """REQ-S01-63（R3060）：本轮引用的附件以「@原名」逐行显示在输入框顶部。"""
         from stage_execution_service import archive_idea_attachments
+        from domain.idea_attachments import display_name
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             sources = [Path(td) / name for name in ('设定.txt', '大纲.txt')]
@@ -91,43 +93,43 @@ class ScriptComposerTests(unittest.TestCase):
                 source.write_text(source.stem, encoding='utf-8')
             archived = archive_idea_attachments(proj, sources)
             d, win = self.desktop(proj)
-            d.idea_attachment_paths = (archived[1],)
+            d.idea_input.insert('1.0', '先写一句创意')
+            d.idea_attachment_paths = (archived[1], archived[0])
             d.update_idea_attachment_status(); win.update_idletasks(); win.update()
-            chips = {chip.attachment_path: chip for chip in d.shared_input.attachment_panel.winfo_children()
-                     if hasattr(chip, 'attachment_path')}
-            self.assertEqual(str(chips[archived[0]].cget('style')), 'Tokens.Chip.TFrame')
-            self.assertEqual(str(chips[archived[1]].cget('style')), 'Tokens.Chip.Selected.TFrame')
-            for chip in chips.values():
-                close = chip.close_button
-                self.assertEqual(close.place_info().get('anchor'), 'ne')
-                self.assertLessEqual(abs(close.winfo_rootx() + close.winfo_width()
-                                         - chip.winfo_rootx() - chip.winfo_width()), 2)
-                self.assertLessEqual(abs(close.winfo_rooty() - chip.winfo_rooty()), 2)
+            box = d.idea_input
+            self.assertEqual(box.get('1.0', 'end-1c').splitlines(),
+                             ['@' + display_name(archived[1]), '@' + display_name(archived[0]),
+                              '先写一句创意'],
+                             '引用区在文本最顶、每附件一行、已有内容整体下移')
+            # 附件不再占卡片独立行：图标行仍在输入区下方。
             shared = d.shared_input
-            for widget in (shared.attachment_panel, shared.attachment_button, shared.send_button):
-                self.assertGreaterEqual(widget.winfo_rooty(), shared.input.winfo_rooty())
-                self.assertLessEqual(widget.winfo_rooty() + widget.winfo_height(),
-                                     shared.winfo_rooty() + shared.winfo_height())
+            for widget in (shared.attachment_button, shared.send_button):
+                self.assertGreaterEqual(widget.winfo_rooty(),
+                                        box.winfo_rooty() + box.winfo_height() - 2)
 
-    def test_chip_content_keeps_off_the_border(self):
-        """图标和文件名不贴卡片外沿，否则白底会盖断圆角边框（选中时主色框断成几截）。"""
-        from stage_execution_service import archive_idea_attachments
-        from ui_tokens import SPACING
+    def test_composer_shows_single_outer_border(self):
+        """R3060：输入区与图标行共用一条外框——TextArea 无内边框、图标行同卡片底色、聚焦外框变色。"""
         with tempfile.TemporaryDirectory() as td:
-            proj = make_minimal_project(td)
-            source = Path(td) / '人物.txt'
-            source.write_text('人物', encoding='utf-8')
-            archived = archive_idea_attachments(proj, [source])
-            d, win = self.desktop(proj)
-            d.idea_attachment_paths = (archived[0],)
-            d.update_idea_attachment_status(); win.update_idletasks(); win.update()
-            chip = next(chip for chip in d.shared_input.attachment_panel.winfo_children()
-                        if hasattr(chip, 'attachment_path'))
-            for widget in chip.pack_slaves():
-                self.assertGreaterEqual(widget.winfo_x(), SPACING['sm'])
-                self.assertGreaterEqual(widget.winfo_y(), SPACING['xs'])
-                self.assertLessEqual(widget.winfo_y() + widget.winfo_height(),
-                                     chip.winfo_height() - SPACING['xs'])
+            d, win = self.desktop(make_minimal_project(td))
+            shared = d.shared_input
+            self.assertEqual(int(shared.input.cget('highlightthickness')), 0,
+                             '输入区不再画内框线')
+            row = shared.send_button.master
+            self.assertEqual(str(row.cget('style')), 'Composer.TFrame',
+                             '图标行与卡片同底色，不再形成内部分隔带')
+            # 外框=包裹层 input_ring 的 1px 底色边（ttk 主题不支持 -highlight*，用底色边保证可见）。
+            ring = shared.input_ring
+            self.assertEqual(str(ring.cget('bg')), COLORS['border_default'])
+            shared.input.focus_force(); win.update()
+            self.assertEqual(str(ring.cget('bg')), COLORS['border_input_hover'],
+                             '聚焦时外框描边变主题色')
+            win.focus_set()
+            try:
+                d.canvas.focus_set()   # R3016 起 title_row 已删，改用画布移走焦点
+            except tk.TclError:
+                pass
+            win.update()
+            self.assertEqual(str(ring.cget('bg')), COLORS['border_default'], '失焦外框恢复')
 
     def wait_for_tag(self, win, box, tag):
         for _ in range(100):

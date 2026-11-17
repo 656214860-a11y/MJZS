@@ -63,15 +63,15 @@ class CompactDesktopGeometryTests(unittest.TestCase):
                 self.resize(width, height)
                 # 上一档可能把侧栏留在底部；每档从顶部量起，后续断言才不受滚动位置影响。
                 d.sidebar_canvas.yview_moveto(0);d.align_header();self.pump(.05)
-                # R2946：页标题在侧栏滚动内容顶端（self.title 直接挂 scroll.form，避开 side 内边距）。
+                # R3016：页标题进统一底栏左区段；侧栏图标轨顶到滚动区上沿。
                 self.assertIn('当前项目：', d.win.title())
-                self.assertEqual(str(d.title.winfo_parent()), str(d.sidebar_scroll.form))
-                # R2950：页头单行化后聊天框顶与侧栏项目区顶不再逐像素对齐（两列内容各自上移）；
-                # 新契约＝聊天框位于页头下沿 40px 内的内容区上部。
-                header_bottom=d.title_row.winfo_rooty()+d.title_row.winfo_height()
-                self.assertGreaterEqual(d.idea_log.winfo_rooty(),header_bottom-1)
-                self.assertLessEqual(d.idea_log.winfo_rooty()-header_bottom,40,
-                                     '聊天框应紧贴单行页头下沿')
+                self.assertEqual(str(d.status_bar._segments['page'][1].winfo_parent()),
+                                 str(d.status_bar.left_zone))
+                # R3016：顶部标题行已删，聊天框紧贴内容区顶部。
+                content_top=d.canvas.winfo_rooty()
+                self.assertGreaterEqual(d.idea_log.winfo_rooty(),content_top-1)
+                self.assertLessEqual(d.idea_log.winfo_rooty()-content_top,40,
+                                     '聊天框应紧贴内容区顶部')
                 # R2946：设置入口是图标轨末尾的轨钮，三虎簇在 pet_dock，都钉在侧栏左下角、不参与滚动。
                 self.assertIsNone(d.pet.gear, '真桌面不再建底栏齿轮')
                 gear, dock = d.settings_rail_button, d.pet_dock
@@ -95,10 +95,19 @@ class CompactDesktopGeometryTests(unittest.TestCase):
                     self.assertLessEqual(widget.winfo_rooty()+widget.winfo_height(),
                                          canvas.winfo_rooty()+canvas.winfo_height()+1)
                     self.assertGreaterEqual(widget.winfo_height(), widget.winfo_reqheight())
-                # R2962：文件栏改右侧停靠面板（默认收起）；打开后底边仍不得越出内容区。
+                # R2962：文件栏改右侧停靠面板（默认收起）；R3060 起面板停靠列与输入框同列，
+                # 全高覆盖画布＋共享输入区，底边不越出停靠列、且延伸到画布底边以下。
                 d.files_panel.open_panel();self.pump(.05)
                 self.assertTrue(d.files_panel._open,'有项目时入口允许打开文件面板')
-                self.assertLessEqual(d.script_box.winfo_rooty()+d.script_box.winfo_height(), d.canvas.winfo_rooty()+d.canvas.winfo_height()+2)
+                self.assertLessEqual(d.script_box.winfo_rooty()+d.script_box.winfo_height(),
+                                     d.panel_area.winfo_rooty()+d.panel_area.winfo_height()+2)
+                self.assertGreater(d.script_box.winfo_rooty()+d.script_box.winfo_height(),
+                                   d.canvas.winfo_rooty()+d.canvas.winfo_height(),
+                                   'R3060：面板全高停靠，底边延伸到共享输入框一侧')
+                # 共享输入框与聊天框同宽：面板打开时两者右缘一致。
+                self.assertAlmostEqual(d.shared_input.winfo_rootx()+d.shared_input.winfo_width(),
+                                       d.canvas.winfo_rootx()+d.canvas.winfo_width(), delta=2,
+                                       msg='输入框宽度须与聊天框一致')
                 d.files_panel.collapse();self.pump(.05)
                 self.assertLessEqual(d.content.winfo_height(), d.canvas.winfo_height()+2)
 
@@ -118,17 +127,14 @@ class CompactDesktopGeometryTests(unittest.TestCase):
                     with self.subTest(size=(width,height), stage=stage):
                         d.show(PAGE[stage]); self.pump()
                         anchor = d.idea_log if stage == 'script' else d.content
-                        # R2946：页标题在侧栏滚动内容顶端（self.title 直接挂 scroll.form，避开 side 内边距）。
-                        self.assertEqual(str(d.title.winfo_parent()), str(d.sidebar_scroll.form))
-                        self.assertTrue(d.title.winfo_ismapped())
-                        # R2946：页头标语删除；Token 指示器 pack 在标题行左侧。
+                        # R3016：页标题进统一底栏左区；侧栏图标轨顶到上沿。
+                        self.assertTrue(d.status_bar._segments['page'][1].winfo_ismapped())
+                        # R3016：页头标语删除；Token 指示器 pack 在统一底栏左区。
                         self.assertFalse(hasattr(d, 'header_slogan'), '页头不再有标语')
-                        self.assertEqual(d.usage_indicator.master, d.title_row)
+                        self.assertEqual(str(d.usage_indicator.master), str(d.status_bar.left_zone))
                         self.assertAlmostEqual(d.usage_indicator.winfo_rooty() + d.usage_indicator.winfo_height() / 2,
-                                               d.title_row.winfo_rooty() + d.title_row.winfo_height() / 2, delta=max(2, d.title_row.winfo_height()))
-                        # 页标题顶到侧栏滚动区上沿（「我的项目」标签已删）。
-                        self.assertGreaterEqual(d.title.winfo_rooty(),
-                                                d.sidebar_canvas.winfo_rooty() - 1)
+                                               d.status_bar.winfo_rooty() + d.status_bar.winfo_height() / 2,
+                                               delta=max(2, d.status_bar.winfo_height()))
                         # 三虎簇钉在侧栏底栏：头像在 pet_dock 内、不碰标题行与正文。
                         pets = (d.pet.canvas, d.pet.paws, d.pet.caption)
                         for pet in pets:
@@ -140,11 +146,11 @@ class CompactDesktopGeometryTests(unittest.TestCase):
                             self.assertLessEqual(rect(pet)[3], rect(d.sidebar_area)[3] + 1)
                             self.assertLessEqual(rect(pet)[3], rect(d.sidebar_dock)[3] + 1)
                         if stage == 'script':
-                            # R2950：同上——聊天框贴页头下沿，不再与侧栏项目区顶逐像素对齐。
-                            header_bottom=d.title_row.winfo_rooty()+d.title_row.winfo_height()
-                            self.assertGreaterEqual(d.idea_log.winfo_rooty(),header_bottom-1)
-                            self.assertLessEqual(d.idea_log.winfo_rooty()-header_bottom,40,
-                                                 '聊天框应紧贴单行页头下沿')
+                            # R3016：顶部标题行已删——聊天框贴内容区顶部，不再与侧栏项目区顶逐像素对齐。
+                            content_top=d.canvas.winfo_rooty()
+                            self.assertGreaterEqual(d.idea_log.winfo_rooty(),content_top-1)
+                            self.assertLessEqual(d.idea_log.winfo_rooty()-content_top,40,
+                                                 '聊天框应紧贴内容区顶部')
                             for pet in pets:separate(d.idea_log, pet)
         finally:
             d.show(PAGE['script']); self.pump()

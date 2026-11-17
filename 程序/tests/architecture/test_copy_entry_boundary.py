@@ -5,8 +5,10 @@ import unittest
 from pathlib import Path
 
 
+from tests.architecture._scan import entity_file
+
 ROOT = Path(__file__).resolve().parents[2]
-EXCLUDED_PARTS = {"tests", "tasks_round", "维护记录", "skills", ".git", "__pycache__"}
+EXCLUDED_PARTS = {"tests", "tasks_round", "维护记录", "skills", ".git", "__pycache__", "voice_asr_venv"}
 
 
 class CopyEntryBoundaryTests(unittest.TestCase):
@@ -24,7 +26,7 @@ class CopyEntryBoundaryTests(unittest.TestCase):
         self.assertEqual(offenders, [])
 
     def test_shared_entry_locks_writes_and_masks_status_preview(self):
-        source = (ROOT / 'prompt_window.py').read_text(encoding='utf-8')
+        source = entity_file('prompt_window').read_text(encoding='utf-8')
         self.assertIn('with hold_clipboard()', source)
         self.assertIn('def copy_preview(', source)
         self.assertIn('_SECRET_VALUE', source)

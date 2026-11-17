@@ -7,9 +7,9 @@ import file_cache
 import model_pool
 import model_router
 import orchestrator.skill_budget as skill_budget
-import stage_config
-import stage_models
-from project_context_factory import project_context
+import orchestrator.stage_config as stage_config
+import orchestrator.stage_models as stage_models
+from orchestrator.project_context_factory import project_context
 from contract.stage_path_service import write_dir
 from orchestrator.stage_asset_gateways import (  # noqa: F401  re-export
     _json_gateway,
@@ -135,7 +135,7 @@ def program_of(desktop):
 
 def keyframe_image_prompt(project, source, shot_id=None, outputs=None, shot_ids=None):
     """L3 为首帧批次任务书注入唯一的项目上下文。"""
-    from keyframe_batch import image_prompt
+    from domain.keyframe_batch import image_prompt
     return image_prompt(source, project_context(project), shot_id, outputs, shot_ids=shot_ids)
 
 
@@ -161,7 +161,7 @@ def local_video_settings_gateway():
 
 def publish_local_video_settings(project, current_config, options):
     """L3 编排本地视频工作流与项目设置的成对发布。"""
-    from local_video_settings_service import save_local_video_settings
+    from domain.local_video_settings_service import save_local_video_settings
     return save_local_video_settings(project_context(project), current_config, options,
                                      gateway=local_video_settings_gateway())
 
@@ -173,7 +173,7 @@ def pet_performance_gateway():
 
 def start_pet_performance_check(program, project, kind='startup'):
     """L3 编排宠物离线基准启动；L4 不直接调用 L2 服务。"""
-    from pet_performance_service import (start_hotspot_check, start_long_list_check,
+    from domain.pet_performance_service import (start_hotspot_check, start_long_list_check,
                                          start_startup_check)
     starters = {'long_list': start_long_list_check, 'hotspot': start_hotspot_check}
     return starters.get(kind, start_startup_check)(program, project)
@@ -181,7 +181,7 @@ def start_pet_performance_check(program, project, kind='startup'):
 
 def poll_pet_performance_check(session, at=None):
     """L3 轮询宠物离线基准，并向 L2 注入正式账本发布器。"""
-    from pet_performance_service import poll_startup_check
+    from domain.pet_performance_service import poll_startup_check
     return poll_startup_check(session, project_context(session['project']), at=at,
                               publish=pet_performance_gateway()['publish_json'])
 
@@ -193,13 +193,13 @@ def pet_test_gateway():
 
 def start_pet_test_check(program, text=''):
     """L3 编排宠物增量自检启动；L4 不直接调用 L2 服务。"""
-    from pet_test_service import start_incremental
+    from domain.pet_test_service import start_incremental
     return start_incremental(program, text)
 
 
 def poll_pet_test_check(session, project, at=None):
     """L3 轮询宠物增量自检，并向 L2 注入正式账本发布器。"""
-    from pet_test_service import poll_incremental
+    from domain.pet_test_service import poll_incremental
     return poll_incremental(session, project_context(project), at=at,
                             publish=pet_test_gateway()['publish_json'])
 
@@ -242,7 +242,7 @@ def video_prompt_gateway():
 
 
 def publish_video_prompt(studio, sid, text):
-    from video_prompt_publication import publish
+    from domain.video_prompt_publication import publish
     result = publish(studio, sid, text, publish_bundle=video_prompt_gateway()['publish_bundle'])
     if not result.ok:
         raise ValueError(result.reason)
@@ -250,7 +250,7 @@ def publish_video_prompt(studio, sid, text):
 
 
 def import_video_prompt(studio, sid, text):
-    from video_prompt_publication import stage_import
+    from domain.video_prompt_publication import stage_import
     result = stage_import(studio, sid, text, gateway=video_prompt_gateway())
     if not result.ok:
         raise ValueError(result.reason)
@@ -268,7 +268,7 @@ def export_stage_dialogue_script(project, episode, assets):
 
 def adopt_natural_script(project, source_path):
     """为显式采用的自然剧本版本注入统一发布器。"""
-    from script_workspace_service import adopt_natural_script as adopt
+    from domain.script_workspace_service import adopt_natural_script as adopt
     return adopt(project, source_path, publish=publish_stage_text)
 
 
@@ -310,7 +310,7 @@ def reply_to_writing(project, creative, cancelled=None, *, user_message=None, re
 
 def collect_writing_quality(project, script_path):
     """Recover a desktop delivery through the same report publisher as API/CLI."""
-    from writing_quality import split_response, publish_reports
+    from domain.writing_quality import split_response, publish_reports
     from contract.stage_path_service import write_dir
     target = Path(script_path)
     folder = write_dir(project, 'script').resolve()
@@ -338,7 +338,7 @@ def desktop_settings_gateway():
 
 def publish_desktop_preferences(settings_path, current, updates):
     """桌面设置持久化只经 L3 装配的发布器。"""
-    from desktop_settings_service import publish_desktop_settings
+    from domain.desktop_settings_service import publish_desktop_settings
     return publish_desktop_settings(settings_path, current, updates,
                                     publish=desktop_settings_gateway()['publish_json'])
 
@@ -361,7 +361,7 @@ def record_stage_legacy_adoption(project, linked_paths, now=None):
 def idea_attachment_local_mode(project):
     """显式 API 选择优先；其余按 writing 实际目标识别本地 Agent。"""
     import model_pool
-    from workflow_engines import current_config
+    from orchestrator.workflow_engines import current_config
     import writing_api
     if writing_api.model_label(project):
         return False
@@ -399,7 +399,7 @@ def stage_idea_attachment_paths(project, limit=None):
 def stage_idea_attachment_reference(project, message='', selected_paths=()):
     """为剧本准备对话解析已入库附档，不向 L2 暴露裸项目路径。"""
     from domain.idea_attachments import referenced, brief_sources
-    from workflow_engines import current_config
+    from orchestrator.workflow_engines import current_config
     context = project_context(project)
     local_mode = idea_attachment_local_mode(project)
     result = referenced(context, message, selected_paths,
@@ -475,13 +475,13 @@ def asset_batch_settings_gateway():
 
 
 def save_asset_batch_settings(project, options, categories=None, restored_model_id=None):
-    from asset_batch_settings_service import save_settings
+    from domain.asset_batch_settings_service import save_settings
     return save_settings(project, options, categories, restored_model_id,
                          publish=asset_batch_settings_gateway()['publish_json'])
 
 
 def remove_asset_batch_model(project, url, model, model_id):
-    from asset_batch_settings_service import remove_model
+    from domain.asset_batch_settings_service import remove_model
     return remove_model(project, url, model, model_id,
                         publish=asset_batch_settings_gateway()['publish_json'])
 
@@ -496,32 +496,32 @@ def remove_asset_batch_model(project, url, model, model_id):
 
 def storyboard_working_source(project, source):
     """L3 为分镜生命周期的工作稿判定注入项目上下文。"""
-    from storyboard_lifecycle import is_working_source
+    from domain.storyboard_lifecycle import is_working_source
     return is_working_source(project_context(project), source)
 
 
 def retire_storyboard(project, source, target, expected, publish):
     """L3 为已发布定稿退役工作分镜注入项目上下文。"""
-    from storyboard_lifecycle import retire
+    from domain.storyboard_lifecycle import retire
     return retire(project_context(project), source, target, expected, publish=publish)
 
 
 def refresh_storyboard_studios(desktop, project):
     """L3 为定稿后的已开分镜工作集刷新注入项目上下文。"""
-    from storyboard_lifecycle import refresh_open_studios
+    from domain.storyboard_lifecycle import refresh_open_studios
     return refresh_open_studios(desktop, project_context(project))
 
 
 def white_model_shot_directory(project, sid, workspace_path=None, source=None):
     """L3 为白模镜头工作目录解析注入项目上下文；source 明确本次是哪一集。"""
-    from white_model_service import shot_directory
+    from domain.white_model_service import shot_directory
     return shot_directory(project_context(project), sid, workspace_path, source)
 
 
 def migrate_white_model_directories(project):
     """L3 为白模旧目录迁移注入项目上下文与正式发布器。"""
     from agent.core import save
-    from white_model_service import migrate_legacy_directories
+    from domain.white_model_service import migrate_legacy_directories
     return migrate_legacy_directories(project_context(project), publish=save)
 
 
@@ -610,7 +610,7 @@ def run_stage_confirmation_gate(project, gate_id, *, shots=None, assets=None, le
 def record_previs_evidence(project, sid, source, media=None):
     """L3 为白模就绪登记注入项目上下文与正式发布器。"""
     from agent.core import save
-    from white_model_service import record_evidence
+    from domain.white_model_service import record_evidence
     root = white_model_shot_directory(project, sid, source=source)
     return _with_previs_copy(record_evidence(root, sid, source, publish=save, media=media), project, sid, source)
 
@@ -652,7 +652,7 @@ def storyboard_edit_gateway():
 
 def save_edited_stage_storyboard(path, data):
     """保存已校验的定稿分镜；L3 保持正式发布器唯一装配点。"""
-    from storyboard_edit_service import save_edited_json
+    from domain.storyboard_edit_service import save_edited_json
     return save_edited_json(prepare_legacy_stage_path(path), data,
                             publish=storyboard_edit_gateway()['publish_json'])
 
@@ -668,13 +668,13 @@ def storyboard_gateway():
 
 
 def publish_final_storyboard_bundle(episodefile, assetfile, episode, assets, validate):
-    from storyboard_storage import publish_final_bundle
+    from domain.storyboard_storage import publish_final_bundle
     return unwrap_service_result(publish_final_bundle(episodefile, assetfile, episode, assets, validate,
                                                        gateway=storyboard_gateway()))
 
 
 def normalize_storyboard_for_desktop(desktop):
-    from storyboard_storage import normalize_for_desktop
+    from domain.storyboard_storage import normalize_for_desktop
     return unwrap_service_result(normalize_for_desktop(desktop, gateway=storyboard_gateway()))
 
 
@@ -701,19 +701,19 @@ def publish_keyframe_episode(target, episode):
 
 def delete_stage_keyframe(base, source, episode, shot):
     """首帧删除编排：L3 注入索引发布器。"""
-    from keyframe_lifecycle_service import delete_keyframe
+    from domain.keyframe_lifecycle_service import delete_keyframe
     return delete_keyframe(prepare_legacy_stage_path(base), prepare_legacy_stage_path(source), episode, shot, publish=publish_keyframe_episode)
 
 
 def restore_stage_keyframe(base, source, episode, shot):
     """首帧恢复编排：L3 注入索引发布器。"""
-    from keyframe_lifecycle_service import restore_keyframe
+    from domain.keyframe_lifecycle_service import restore_keyframe
     return restore_keyframe(prepare_legacy_stage_path(base), prepare_legacy_stage_path(source), episode, shot, publish=publish_keyframe_episode)
 
 
 def replace_stage_keyframe(base, source, episode, shot, data):
     """首帧替换编排：L3 注入图片与索引两个原子发布器。"""
-    from keyframe_lifecycle_service import replace_keyframe
+    from domain.keyframe_lifecycle_service import replace_keyframe
     return replace_keyframe(
         prepare_legacy_stage_path(base), prepare_legacy_stage_path(source), episode, shot, data, publish=publish_stage_bytes,
         publish_episode=publish_keyframe_episode)
@@ -771,7 +771,7 @@ def stage_context(desktop, stage, function=None, extra=None):
 
 def import_writing_project(root, json_file):
     """L3 编排剧本 JSON 导入与其校验报告发布。"""
-    from writing import import_project
+    from domain.writing import import_project
     from orchestrator.workflow_context_controller import workflow_context_gateway
     result = import_project(root, json_file, gateway=project_registry_gateway(),
                             publish_report=workflow_context_gateway()['publish_json'])
@@ -782,7 +782,7 @@ def import_writing_project(root, json_file):
 
 def prepare_writing_project(root, brief, stage, target):
     """L3 编排剧本任务书发布并只向界面交付成功数据。"""
-    from writing import prepare
+    from domain.writing import prepare
     result = prepare(root, brief, stage, target, publish=publish_writing_preparation)
     if not result.ok:
         raise ValueError(result.reason)
@@ -794,7 +794,7 @@ unwrap_project_result = unwrap_service_result
 
 def require_formal_asset_generation(project, *, online_model):
     """生成正式资产前核验 SG-B 与线上模型；纯计划和浏览不受影响。"""
-    import stage_parallel
+    import orchestrator.stage_parallel as stage_parallel
     gate = stage_parallel.evaluate(project, 'assets')
     if not gate['ok']:
         raise ValueError(stage_parallel.blocked_text(gate))
@@ -805,7 +805,7 @@ def require_formal_asset_generation(project, *, online_model):
 def save_writing_production_locks(project, values, *, attachment_signature=None):
     """制作锁与已存在的简报作为一包发布，失败不留下两份不同值。"""
     from copy import deepcopy
-    from idea_chat import brief_complete_path
+    from domain.idea_chat import brief_complete_path
     from contract.script_contract import PRODUCTION_LOCK_DEFINITIONS
     allowed = {item['key'] for item in PRODUCTION_LOCK_DEFINITIONS}
     if set(values) - allowed:
@@ -881,7 +881,7 @@ def sync_writing_attachment_locks(project, *, reference=None):
 def sync_previs_copy(project, sid, source):
     """已校验的预演在项目内留副本并登记 previs.json；副本失败不否定已通过的校验。"""
     from agent.core import save
-    from white_model_service import sync_project_copy
+    from domain.white_model_service import sync_project_copy
     try:
         return sync_project_copy(project_context(project), sid, source, publish=save)
     except (OSError, ValueError):

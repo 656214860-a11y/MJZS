@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import app_logging
-import skill_command
+import domain.skill_command as skill_command
 from contract import pet_bus
 from ui_tokens import SPACING
 
@@ -151,7 +151,7 @@ def _skill_items(desktop):
         except Exception:
             app_logging.swallowed()
     try:
-        import skill_registry
+        import orchestrator.skill_registry as skill_registry
         return list(skill_registry.default_registry(
             project=getattr(desktop, 'root', None)).getAll())
     except Exception:
@@ -247,7 +247,7 @@ def _attachments(desktop):
 def _voice(desktop, box, button):
     """共享输入框的麦克风听写：VoiceInput 绑定共享 Text，按钮按原样式接线。"""
     try:
-        from desktop_voice_input import VoiceInput
+        from ui.desktop_voice_input import VoiceInput
     except Exception:
         return None
     voice = getattr(desktop, 'shared_voice', None)
@@ -289,5 +289,5 @@ def make_shared_input(desktop):
     """桌面宿主唯一一份共享输入框实例（任务书轮 4：跨页同实例，只换 ``set_stage``）。"""
     import desktop_shared_input
     return desktop_shared_input.SharedStageInput(
-        desktop.body, desktop=desktop, stage='script',
+        getattr(desktop, 'input_dock', None) or desktop.body, desktop=desktop, stage='script',
         shortcuts=desktop.shortcuts, options=host_options(desktop))

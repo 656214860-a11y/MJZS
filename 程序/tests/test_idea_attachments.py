@@ -73,6 +73,25 @@ class IdeaAttachmentsTests(unittest.TestCase):
                             self.assertIn(path.read_text(encoding='utf-8').strip(), prepared['context'])
             self.assertEqual(len(idea_attachments.referenced(context)['names']), 3)
 
+    def test_mentioned_display_name_resolves_archive(self):
+        """R2980：``@`` 候选插入显示名；``referenced`` 同时认显示名与归档名。"""
+        from agent.core import save_bytes, save_text
+        with tempfile.TemporaryDirectory() as td:
+            context = project_context(td)
+            source = Path(td) / '人物设定.txt'
+            source.write_text('人物设定正文', encoding='utf-8')
+            def publish(path, value):
+                (save_bytes if isinstance(value, bytes) else save_text)(path, value)
+            archived = idea_attachments.store(context, [source], publish=publish).data
+            shown = idea_attachments.display_name(archived[0])
+            self.assertNotEqual(shown, archived[0].name, '新归档显示名≠归档文件名')
+            mentioned = idea_attachments.referenced(context, '请参考 @%s 重写' % shown)
+            self.assertEqual(len(mentioned['names']), 1)
+            self.assertIn('人物设定正文', mentioned['context'])
+            # 归档名匹配保留兼容（旧插入形态与手写 @归档名）。
+            legacy = idea_attachments.referenced(context, '请参考 @%s 重写' % archived[0].name)
+            self.assertEqual(len(legacy['names']), 1)
+
     def test_four_part_archive_names_preserve_pairs_and_same_day_uploads(self):
         from datetime import datetime
         from agent.core import save_bytes, save_text

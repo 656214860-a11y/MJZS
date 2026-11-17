@@ -11,7 +11,7 @@ import threading
 import time
 from pathlib import Path
 
-import asset_resume
+import domain.asset_resume as asset_resume
 import pet_state
 from agent.core import read
 from orchestrator.desktop_auto_state import UNATTENDED_NEXT, flow_get, flow_set
@@ -68,8 +68,8 @@ class AutoFlowsMixin:
             on_error=on_error, handled_exceptions=errors)
     def final_missing_assets(self,source):
         """当前分镜引用的资产里还没有图片的编号集合；空集表示可以定稿。"""
-        from asset_context import references
-        from asset_batch_state_service import ready_asset_ids
+        from domain.asset_context import references
+        from domain.asset_batch_state_service import ready_asset_ids
         episode=read(source)
         shots=episode.get('shots',[]) if isinstance(episode,dict) else []
         available=ready_asset_ids(self.asset_base())
@@ -367,7 +367,7 @@ class AutoFlowsMixin:
             self.reconcile_storyboards()
         if not self.pet.should_auto_run('auto_adopt'):
             self.auto.adopt_signature=None;self.auto.adopt_pending=False;return
-        from storyboard_selection import tree_signature
+        from orchestrator.storyboard_selection import tree_signature
         from stage_execution_service import poll_asset_storyboard_adoption
         # 目录里没有新增或改写的分镜时不必反复解析全部 JSON；只有等写入完成的文件才继续轮询。
         signature=tree_signature(self.root)
@@ -448,7 +448,7 @@ class AutoFlowsMixin:
             return
         # 先判重再派发：批次跑着的时候这一批的指纹已经记下，不会在生成过程中重复下单。
         sent,message,signature=self.start_keyframe_batch('无人值守自动补首帧',unless_signature=self.auto.keyframe_signature)
-        from keyframe_batch import automatic_poll_decision
+        from domain.keyframe_batch import automatic_poll_decision
         decision=automatic_poll_decision(sent,message,signature,self.auto.keyframe_signature)
         if decision['action'] in ('quiet','skip'):return
         # 这一批补不了（缺参考资产／缺提示词／资产清单还没同步）：记住它，别每 30 秒重复同一句话；
@@ -476,7 +476,7 @@ class AutoFlowsMixin:
         if source is None:return
         episode=read(source)
         shots=episode.get('shots',[]) if isinstance(episode,dict) else []
-        from previs_routing import automatic_notice, automatic_signature
+        from domain.previs_routing import automatic_notice, automatic_signature
         from stage_execution_service import previs_automatic_candidates, previs_automatic_engine
         try:
             frame_pending = None
@@ -501,7 +501,7 @@ class AutoFlowsMixin:
         if signature==self.auto.previs_signature:return
         self.auto.previs_signature=signature;self.auto.previs_notice=notice
         try:
-            from workflow_settings import current,ENGINES
+            from orchestrator.workflow_settings import current,ENGINES
             engine=previs_automatic_engine(self.root,current,ENGINES)
         except Exception as exc:
             self.auto.previs_signature=None;self.auto.previs_due=time.monotonic()+300
@@ -530,9 +530,9 @@ class AutoFlowsMixin:
             if self.auto.asset_tasks.cancel():self.auto.asset_busy=False
             return
         if self.auto.asset_busy or self.worker or self.auto.final_busy:return
-        from asset_batch_service import current_model, unattended_signature, unattended_retry_decision
+        from domain.asset_batch_service import current_model, unattended_signature, unattended_retry_decision
         from stage_execution_service import plan_unattended_assets as auto_plan
-        from asset_context import scope_sources
+        from domain.asset_context import scope_sources
         project=self.root;base=self.asset_base();sources=scope_sources(project,'adopted')
         missing,skipped,saved=auto_plan(project,base,sources,'adopted')
         if not missing:
@@ -561,7 +561,7 @@ class AutoFlowsMixin:
         # 不自动重提，以免重复扣费——但必须说给用户听，否则这一项会永远卡在「待导入」，
         # 看起来就是「三虎没有自动继续完成制图任务」。
         try:
-            from asset_batch_state_service import uncertain_assets
+            from domain.asset_batch_state_service import uncertain_assets
             blocked=[aid for aid in uncertain_assets(project) if aid in {a for a,_ in missing}]
         except Exception:
             blocked=[]
@@ -648,7 +648,7 @@ class AutoFlowsMixin:
         threading.Thread(target=worker,daemon=True).start()
         self._schedule_auto_handoff_result_poll()
     def poll_unwatched_cloud(self):
-        from video_progress import unwatched_pending
+        from ui.video_progress import unwatched_pending
         source=self.current_frame_json()
         watched=[app.root for app in self.video_sessions.values() if app.studio.episode_path.resolve()==source.resolve()]
         pending=unwatched_pending(self.root,source,watched)

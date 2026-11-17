@@ -20,7 +20,6 @@ OVERSIZE_CAPS = {
     'pet_ui_voice.py': 1201,
     'pet_agent.py': 1182,
     'model_pool.py': 1117,
-    'cell_hover.py': 1016,
 }
 
 

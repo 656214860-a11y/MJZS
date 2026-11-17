@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import ast
 import unittest
+from pathlib import Path
 
-from tests.architecture._scan import ROOT, parse, module_scan_files
+from tests.architecture._scan import ROOT, entity_file, parse, module_scan_files
 
 
 class NotificationBoundaryTests(unittest.TestCase):
@@ -33,7 +34,7 @@ class NotificationBoundaryTests(unittest.TestCase):
     def test_business_pages_have_no_direct_display_messagebox_calls(self):
         actual = {}
         for filename, maximum in LEGACY_MESSAGEBOX_MAX.items():
-            count = len(_display_messageboxes(parse(ROOT / filename)))
+            count = len(_display_messageboxes(parse(entity_file(Path(filename).stem) if '/' not in filename else ROOT / filename)))
             if count > maximum:
                 actual[filename] = f'{count}>{maximum}'
         self.assertEqual(actual, {}, '业务页不得绕过统一通知入口：' + str(actual))
@@ -52,6 +53,7 @@ class NotificationBoundaryTests(unittest.TestCase):
             relative = path.relative_to(ROOT)
             if (path.name.startswith('test') or 'tests' in relative.parts
                     or 'tasks_round' in relative.parts or '维护记录' in relative.parts
+                    or 'voice_asr_venv' in relative.parts
                     or path.name == 'ui_widgets.py'):
                 continue
             count = len(_display_messageboxes(parse(path)))

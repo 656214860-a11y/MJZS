@@ -5,7 +5,7 @@ from tests.architecture._scan import desktop_text  # R1505：Desktop 方法分�
 import ast
 import os
 import unittest
-from tests.architecture._scan import stage_execution_source
+from tests.architecture._scan import stage_execution_source, entity_file
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -24,7 +24,7 @@ def _calls(node):
 class EditPublicationBoundaryTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        with open(os.path.join(ROOT, 'engine.py'), encoding='utf-8') as handle:
+        with open(str(entity_file('engine')), encoding='utf-8') as handle:
             cls.tree = ast.parse(handle.read())
 
     def test_encode_uses_temporary_master_and_delegates_bundle_publication(self):

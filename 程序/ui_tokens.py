@@ -205,7 +205,12 @@ DIALOG_MIN_HEIGHT = 160
 
 # Tooltip 的出现节奏和视觉只由 ui_widgets.Tooltip 消费；页面只提供说明文本，
 # 不得各自创建无边框窗口或复制 Enter/Leave 的延迟与销毁逻辑。
-TOOLTIP_DELAY_MS = 400
+# R2997 悬停状态机（数值按用户确认取 300/150/300，参考 Windows 原生 tooltip initial 500
+# reshow 100 与 Radix 700/300 折中）：出现延迟 DELAY；关闭后 RESHOW 窗口内再进入跳过延迟；
+# 卡片模式移出后 CLOSE_DELAY 才隐藏（期间指针进入卡片或回到控件即保留）。
+TOOLTIP_DELAY_MS = 300
+TOOLTIP_RESHOW_MS = 150
+TOOLTIP_CLOSE_DELAY_MS = 300
 # 语音输入：界面每隔这么久取一次后台听写结果。
 VOICE_POLL_MS = 150
 # 剧本结构页编辑：停止输入这么久后自动保存一次（REQ-S02-35，R2724 恢复自动保存）。
@@ -237,9 +242,9 @@ TABLE_EMPTY_PADDING = SPACING["lg"]
 TABLE_COMPACT_HEADER_PADDING = (SPACING["sm"], SPACING["xs"] // 4)
 SCRIPT_ACTION_WIDTH = 0  # 依文字请求宽度，长中文按钮不得裁字。
 DESKTOP_LAYOUT = {
-    # 产品裁决：主窗口默认 1280×800、最小 800×600；屏幕可用区更小时按下面
-    # 的边距收缩（ui_theme.main_window_size），不改变最小值。
-    'default_width': 1280, 'default_height': 800,
+    # 产品裁决：主窗口默认 1280×900（R3060：侧栏图标轨在 800 高下放不下，默认加高一档）、
+    # 最小 800×600；屏幕可用区更小时按下面的边距收缩（ui_theme.main_window_size），不改变最小值。
+    'default_width': 1280, 'default_height': 900,
     'window_margin_x': SPACING['xl'], 'window_margin_y': SPACING['xl'] * 2,
     'min_width': 800, 'min_height': 600,
     # 第 R2946 期：侧栏顶行要完整放下「0X  连贯性清单」这类最长页名（10pt 实测 89px），
@@ -252,7 +257,8 @@ DESKTOP_LAYOUT = {
     # 页面边距加大一档：内容与窗口边缘、进度条与状态栏之间都留出呼吸感。
     # 第 R2946 期：左边距收到 sm——侧栏图标轨与右侧功能区之间不再留 xl 宽的空档。
     # 第 R2950 期：顶距 lg→xs，让页头「token」行与侧栏「01 XXX」标题同一水平带。
-    'body_padding': (SPACING['sm'], SPACING['xs'], SPACING['xl'], SPACING['md']),
+    # R3060：右边距 xl→md，标题行图标与聊天框/输入框右缘统一后右侧留白缩短一档。
+    'body_padding': (SPACING['sm'], SPACING['xs'], SPACING['md'], SPACING['md']),
     'status_gap': (SPACING['sm'], SPACING['md']),
     'title_inset': SPACING['xs'],
     # 主窗口拖动：停止拖动后等这么久没有新尺寸才整页重排一次（约 8 帧，远长于

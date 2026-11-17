@@ -20,9 +20,10 @@ from pathlib import Path
 
 import pet_llm
 import pet_state, stage_layout
-import stage_parallel
+import orchestrator.stage_parallel as stage_parallel
 from agent.core import save
 from contract.pet_bus import SEEN_LIMIT, STAGE_NAMES, STAGES, ErrorLog, emit_safe, read_json
+from ui.pet_agent_rules import PATTERNS, REPLIES, RULES, UNKNOWN_REPLY, VERDICTS
 
 LEVELS = ('hint', 'semi', 'auto')
 # 第 23 期：三档的名字只有这一份（原来 pet_ui 另写了一份「只提醒」，同一档两个说法）。
@@ -58,96 +59,6 @@ OUTCOME_ORDER = ('success', 'retry_success', 'need_confirm', 'failed', 'skipped'
 OUTCOME_WORDS = {'success': '完成', 'retry_success': '重试成功', 'need_confirm': '需确认',
                  'failed': '失败', 'skipped': '已跳过'}
 
-# 规则表：先规则后模型。命中任何一条都不花 Token（策略：确定性优先）。
-RULES = (
-    (r'^\s*/(?:help|帮助)', 'help', None),
-    (r'^\s*/(?:clear|compact)', 'context', None),
-    # 第 23 期扩容：会话里最常说的几句都进了规则表——命中即答，不再花 Token 问一次模型，
-    # 也少了「等模型回话」那一段延迟。顺序即优先级，越具体的越靠前。
-    (r'(进度面板|面板|明细|详细进度)', 'panel', None),
-    (r'(一键执行|一键收尾|全部做完|都做完|都干了|收个尾)', 'oneclick', None),
-    (r'(周报|本周报表)', 'weekly', None),
-    (r'(日报|今日报表|今天的报表)', 'report', None),
-    (r'(?:运行|执行|开始|跑)(?:长列表|资产列表)(?:优化|性能)(?:检查|基准|测试)?', 'performance_list', None),
-    (r'(?:运行|执行|开始|跑)(?:优化|性能)(?:检查|基准|测试)?', 'performance', None),
-    (r'(?:运行|执行|开始|跑)(?:增量)?(?:自检|测试)(?:\s*\d+\s*次)?', 'test', None),
-    (r'(换模型|切换模型|换个模型|模型档位)', 'model', None),
-    (r'(详情|待确认|卡住的|要我确认)', 'details', None),
-    (r'(进度|到哪|还要多久|要多久|还剩|百分比)', 'progress', None),
-    (r'(暂停|停下|先停|别跑|停一下|停止自动)', 'pause', None),
-    (r'(继续|接着跑|往下跑|恢复运行|接着做)', 'resume', None),
-    (r'(重试|再试|重跑|再来一次)', 'retry', None),
-    (r'(跳过|略过|不要这张|下一张)', 'skip', None),
-    (r'(免打扰|勿扰|静音|别提醒)', 'silence', None),
-    (r'(全自动|半自动|只提示|自动化等级)', 'level', None),
-    (r'(用量|花费|成本|命中率|token)', 'usage', None),
-    # 第 37 期第 1 条：三虎要「记住所有项目」。说法写成整词，免得把「剧本／分镜这些阶段词」
-    # 抢过来（规则表按顺序比，越靠前越优先）。
-    (r'(有哪些项目|项目列表|几个项目|别的项目|所有项目|项目都怎么样)', 'projects', None),
-    (r'(导出|交付|打包|出片)', 'export', 'delivery'),
-    (r'(生成|做|出)(?:所有|全部)?(?:首帧|关键帧)', 'generate', 'keyframe'),
-    (r'(生成|做|出)(?:所有|全部)?(?:视频|镜头视频)', 'generate', 'video'),
-    # 第 62 期任务 2：三虎要能自己把分镜做起来——「生成／做／出一版分镜」走 generate，
-    # 排在下面那条 (分镜|镜头表) → goto 前面，免得又被当成「切到那一页」。
-    (r'(生成|做|出|制作|来一版|跑一下)(?:所有|全部|批量)?(?:分镜|镜头表)', 'generate', 'storyboard'),
-    (r'(配音|字幕)', 'goto', 'audio'),
-    (r'(粗剪|剪辑|时间线)', 'goto', 'edit'),
-    (r'(白模|预演|粗模)', 'goto', 'previs'),
-    (r'(质检|检查成片)', 'goto', 'delivery'),
-    (r'(资产|参考图|角色图|素材)', 'goto', 'assets'),
-    (r'(定稿)', 'goto', 'final'),
-    (r'(分镜|镜头表)', 'goto', 'storyboard'),
-    (r'(剧本|大纲|人设)', 'goto', 'script'),
-    (r'(首帧)', 'goto', 'keyframe'),
-)
-REPLIES = {
-    'help': '我能做：查进度 / 继续 / 暂停 / 重试失败项 / 跳过 / 导出交付 / 切页 / 批量生成首帧 / 运行增量自检 / 运行优化检查。',
-    'context': '本轮上下文本来就是一次性的：每次调用只带固定前缀＋当前快照，没有历史需要清理。',
-    'progress': '好，把进度面板打开。',
-    'pause': '已暂停自动执行，等您发话。',
-    'resume': '继续往下跑。',
-    'retry': '这就重试失败项。',
-    'skip': '跳过这一项。',
-    'silence': '好，这段时间不打扰您。',
-    'level': '切换自动化等级。',
-    'usage': '报一下用量与缓存命中率。',
-    'export': '准备交付导出的清单。',
-    'generate': '开始批量生成。',
-    'goto': '切到对应页面。',
-    # 第 23 期：新增的几条规则各自说话，别都回一句笼统的「好的」。
-    'panel': '好，把进度面板打开。',
-    'oneclick': '这就一键收尾：重试失败项 → 本地补首帧 → 出今日日报。',
-    'report': '这就把今天的日报整出来。',
-    'test': '开始运行增量自检，完成后汇报成功率与失败用例。',
-    'performance': '开始运行离线优化检查，完成后只汇报超过阈值的耗时退化。',
-    'performance_list': '开始运行长列表优化检查，完成后只汇报超过阈值的耗时退化。',
-    'weekly': '这就把本周周报整出来。',
-    'model': '换一档编排模型，下一次调用生效。',
-    'details': '把待确认的几项列出来。',
-    'projects': '把手上的项目报一遍。',
-}
-UNKNOWN_REPLY = '没听明白。可以直接说「继续」「暂停」「查进度」「重试失败项」，或者点页面上的按钮。'
-
-# 错误分级表：错误文本或 HTTP 码命中即归类；顺序即优先级（余额/鉴权在参数之前）。
-PATTERNS = (
-    ('auth', ('401', '403', 'unauthorized', 'forbidden', '密钥', 'api key')),
-    ('quota', ('402', '余额', '欠费', 'quota', 'insufficient', 'balance')),
-    ('content', ('content', '审核', '敏感', '违规', 'policy', 'blocked', 'safety')),
-    ('params', ('400', '参数', 'invalid', 'not valid', 'unsupported', '尺寸')),
-    ('rate_limit', ('429', 'rate limit', '限流', 'too many', '太频繁')),
-    ('timeout', ('timeout', 'timed out', '超时', '逾时')),
-    ('server', ('500', '501', '502', '503', '504', 'server error', '服务不可用')),
-)
-VERDICTS = {
-    'timeout': (True, 'backoff', '超时：按 30/60/120 秒退避重试'),
-    'rate_limit': (True, 'backoff', '被限流：退避后重试，Pro 自动降级 Flash'),
-    'server': (True, 'backoff', '服务端故障：退避后重试'),
-    'params': (True, 'fix_params', '参数不合法：先归一尺寸/时长/模型名，再立即重试一次'),
-    'content': (False, 'prompt_fix', '命中内容审核：改写提示词后再提，别原样重试'),
-    'quota': (False, 'pause', '余额或配额不足：暂停该阶段并通知，不再消耗'),
-    'auth': (False, 'notify', '接口密钥无效或没配：检查 .env 里的 Key'),
-    'unknown': (False, 'notify', '没认出来：先按「重试失败项」，要细节看「查看待确认详情」'),
-}
 # 类目 → 中文名：日报／周报与气泡都要说人话，名字只有这一份。
 CATEGORY_NAMES = {'timeout': '超时', 'rate_limit': '被限流', 'server': '服务端故障',
                   'params': '参数不合法', 'content': '内容审核', 'quota': '余额／配额不足',
@@ -275,7 +186,7 @@ def match_skill(text, registry=None, current=None, project=None):
     lowered = body.lower()
     if 'skill' not in lowered and not any(word in body for word in SKILL_VERBS):
         return None
-    import skill_registry
+    import orchestrator.skill_registry as skill_registry
     reg = registry or skill_registry.default_registry(project=project)
     hits, stages, labels = [], [], []
     for item in reg.getAll():
@@ -401,7 +312,7 @@ def action_for(plan):
     if intent == 'goto':
         return 'stage.goto'
     # 第 37 期第 1 条：报项目清单也是「看一眼」的事（读登记表），哪一档都该立刻答出来。
-    if intent in ('progress', 'panel', 'usage', 'details', 'help', 'context', 'projects', 'test', 'performance', 'performance_list'):
+    if intent in ('progress', 'panel', 'usage', 'details', 'help', 'context', 'projects', 'test', 'performance', 'performance_list', 'performance_hotspot'):
         return 'stage.inspect'
     if intent in ('level', 'silence', 'chat', 'pause', 'resume'):
         return 'stage.control'

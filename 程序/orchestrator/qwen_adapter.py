@@ -1,5 +1,5 @@
 """Qwen Code adapter: official CLI, explicit session IDs and JSONL input."""
-import hashlib,json,os,subprocess,time,uuid,re,threading
+import hashlib, json, os, subprocess, time, uuid, re, threading
 from pathlib import Path
 import contract.stage_layout as stage_layout
 import client_profiles
@@ -90,7 +90,7 @@ def launch_interactive(project,stage,title,prompt,config,followup=None):
     incoming=folder/'输入.jsonl';incoming.touch();events=folder/'事件.jsonl'
     args=command(config)+['--auth-type','openai','--model',config.get('model') or env['OPENAI_MODEL'],'--approval-mode','auto',
         '--input-file',str(incoming),'--json-file',str(events),'--chat-recording']
-    from workflow_settings import skill_roots_for_config
+    from orchestrator.workflow_settings import skill_roots_for_config
     for directory in skill_roots_for_config(config):
         args+=['--include-directories',str(directory)]
     if session:args+=['--resume',session]
@@ -121,7 +121,7 @@ def run_background(config,project,output,report,logfile,prompt):
     args=command(config)+['--auth-type','openai','--model',config.get('model') or env['OPENAI_MODEL'],
         '--prompt','执行标准输入中的制作任务。','--output-format','json','--approval-mode','auto',
         '--include-directories',str(output),'--max-session-turns','120','--max-wall-time','2h']
-    from workflow_settings import skill_roots_for_config
+    from orchestrator.workflow_settings import skill_roots_for_config
     for directory in skill_roots_for_config(config):
         args+=['--include-directories',str(directory)]
     response=Path(report).with_suffix('.response.json')

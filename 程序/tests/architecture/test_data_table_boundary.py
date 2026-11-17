@@ -4,10 +4,10 @@ from __future__ import annotations
 import ast
 import unittest
 
-from tests.architecture._scan import ROOT, parse, parse_desktop
+from tests.architecture._scan import ROOT, entity_file, parse, parse_desktop
 
 
-EXCLUDED_PARTS = {"tests", "tasks_round", "维护记录", ".git", "__pycache__"}
+EXCLUDED_PARTS = {"tests", "tasks_round", "维护记录", ".git", "__pycache__", "voice_asr_venv"}
 
 
 class DataTableBoundaryTests(unittest.TestCase):
@@ -21,8 +21,8 @@ class DataTableBoundaryTests(unittest.TestCase):
             calls = [node for node in ast.walk(parse(path)) if isinstance(node, ast.Call)
                      and isinstance(node.func, ast.Attribute) and node.func.attr == 'Treeview']
             if calls:
-                actual[str(path.relative_to(ROOT))] = len(calls)
-        self.assertEqual(actual, {'desktop_project_pages.py': 2},  # R2897：侧栏项目树改分组筛选＋选择器，desktop.py 不再有树；项目选择弹窗与首页仍各一处
+                actual[path.relative_to(ROOT).as_posix()] = len(calls)
+        self.assertEqual(actual, {'ui/desktop_project_pages.py': 2},  # R2897：侧栏项目树改分组筛选＋选择器，desktop.py 不再有树；项目选择弹窗与首页仍各一处
                          
                          '业务数据表必须通过 DataTable；项目树是唯一语义导航例外')
 
@@ -38,7 +38,7 @@ class DataTableBoundaryTests(unittest.TestCase):
                    for alias in node.names if node.module == 'ui_widgets']
         self.assertIn('DataTable', imports)
     def test_storyboard_file_table_uses_data_table_not_a_page_treeview(self):
-        tree = parse(ROOT / 'storyboard_table_ui.py')
+        tree = parse(entity_file('storyboard_table_ui'))
         direct_treeviews = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
                             and isinstance(node.func, ast.Attribute)
                             and node.func.attr == 'Treeview']
@@ -98,7 +98,7 @@ class DataTableBoundaryTests(unittest.TestCase):
         self.assertEqual(direct, [], '首帧管理页必须通过 DataTable 构造表格')
 
     def test_asset_batch_uses_data_table_not_a_page_treeview(self):
-        tree = parse(ROOT / 'asset_batch.py')
+        tree = parse(entity_file('asset_batch'))
         method = next(node for node in tree.body if isinstance(node, ast.FunctionDef)
                       and node.name == 'show')
         direct = [node for node in ast.walk(method) if isinstance(node, ast.Call)
@@ -123,7 +123,7 @@ class DataTableBoundaryTests(unittest.TestCase):
         self.assertEqual(direct, [], '首帧批量制作弹窗必须通过 DataTable 构造表格')
 
     def test_local_previs_uses_data_table_not_a_page_treeview(self):
-        tree = parse(ROOT / 'local_previs.py')
+        tree = parse(entity_file('local_previs'))
         method = next(node for node in tree.body if isinstance(node, ast.FunctionDef)
                       and node.name == 'show')
         direct = [node for node in ast.walk(method) if isinstance(node, ast.Call)
@@ -148,7 +148,7 @@ class DataTableBoundaryTests(unittest.TestCase):
         self.assertEqual(direct, [], '资产选择弹窗必须通过 DataTable 构造表格')
 
     def test_model_manager_uses_data_table_not_a_page_treeview(self):
-        tree = parse(ROOT / 'pet_models_ui.py')
+        tree = parse(entity_file('pet_models_ui'))
         method = next(node for node in tree.body if isinstance(node, ast.FunctionDef)
                       and node.name == 'open_manager')
         direct = [node for node in ast.walk(method) if isinstance(node, ast.Call)
@@ -156,7 +156,7 @@ class DataTableBoundaryTests(unittest.TestCase):
         self.assertEqual(direct, [], '模型管理页不得退回业务层直接构造 ttk.Treeview')
 
     def test_reference_wall_uses_data_table_not_a_page_treeview(self):
-        tree = parse(ROOT / 'reference_wall.py')
+        tree = parse(entity_file('reference_wall'))
         method = next(node for node in tree.body if isinstance(node, ast.FunctionDef)
                       and node.name == 'show')
         direct = [node for node in ast.walk(method) if isinstance(node, ast.Call)
@@ -164,7 +164,7 @@ class DataTableBoundaryTests(unittest.TestCase):
         self.assertEqual(direct, [], '参考图候选墙必须通过 DataTable 构造表格')
 
     def test_final_storyboard_files_use_data_table_not_a_page_treeview(self):
-        tree = parse(ROOT / 'storyboard_files.py')
+        tree = parse(entity_file('storyboard_files'))
         # R1813：show_final 的闭包改写成了 _FinalStoryboardPage 类，页面构造代码现在在类里；两处都扫
         methods = [node for node in tree.body
                    if (isinstance(node, ast.FunctionDef) and node.name == 'show_final')

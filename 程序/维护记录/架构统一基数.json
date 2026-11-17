@@ -38,7 +38,9 @@
       "asset_reference_prompts",
       "writing_stream"
     ],
-    "historical_name_audit_pending": [],
+    "historical_name_audit_pending": [
+      "idea_script_heuristic"
+    ],
     "historical_name_audited": [
       "asset_gating",
       "keyframe",
@@ -702,13 +704,13 @@
         "reason": "R1599：底层写前日志恢复需直接读取事务日志，不能调用会重新进入恢复的core/read或缓存。"
       },
       {
-        "file": "writing_quality.py",
+        "file": "domain/writing_quality.py",
         "point": "split_response:json.loads:d6f7ef1d1bfdb126:1",
         "disposition": "exempt",
         "reason": "R1302：解析模型返回的内存质检 JSON；拒绝重复键与非有限数，不读取配置文件，不能改用文件缓存。"
       },
       {
-        "file": "script_workspace_service.py",
+        "file": "domain/script_workspace_service.py",
         "point": "adopt_natural_script:json.loads:e447f3b9a080d917:1",
         "disposition": "exempt",
         "reason": "R1247：采用记录发布前校验内存 JSON 文本，不读取文件。"
@@ -978,7 +980,7 @@
         "reason": "R1335 合入：阶段④分集增量接入使该 json.loads 行号由 512 平移至 548，HOLLMWOOD 框架移除后再平移至 468（R1442 又上移）；仍是简报语义提取的模型响应内存 JSON 解码，非文件读取；结果文件仍走 file_cache.read_json。"
       },
       {
-        "file": "stage_parallel.py",
+        "file": "orchestrator/stage_parallel.py",
         "point": "log_read:json.loads:e0385179e22b5760:1",
         "disposition": "exempt",
         "reason": "R830：经 file_cache.read_text 读取后的 JSONL 单行日志解码，不是正式 JSON 文件读取。（R1383：文件顶部加 import pet_bus 使该行由 454 平移至 455，语义不变。）"
@@ -1038,31 +1040,31 @@
         "reason": "R831：并发稳定快照读取收口至 file_cache.read_stable_json_snapshot。"
       },
       {
-        "file": "video_prompt_results.py",
+        "file": "ui/video_prompt_results.py",
         "point": "parse_result:json.loads:a142745c58a77a7c:1",
         "disposition": "exempt",
         "reason": "R829：外部 Agent 结果文本的 JSON 解析，不是正式项目文件读取。"
       },
       {
-        "file": "video_prompt_results.py",
+        "file": "ui/video_prompt_results.py",
         "point": "parse_result:json.loads:924fad0814c25a41:1",
         "disposition": "exempt",
         "reason": "R829：格式修复分支对外部 Agent 结果片段的 JSON 解析，不是正式项目文件读取。"
       },
       {
-        "file": "video_prompt_results.py",
+        "file": "ui/video_prompt_results.py",
         "point": "parse_result:json.loads:ad3dc98d9e794255:1",
         "disposition": "exempt",
         "reason": "R829：格式修复后的提示词字面量 JSON 解码，不是文件读取。"
       },
       {
-        "file": "workflow_engines.py",
+        "file": "orchestrator/workflow_engines.py",
         "point": "_opencode_report_text:json.loads:e0385179e22b5760:1",
         "disposition": "exempt",
         "reason": "网络响应解析（R1706 行号平移 143→167：OpenCode 事件流逐行 JSON 解码，不是文件读取）"
       },
       {
-        "file": "workflow_engines.py",
+        "file": "orchestrator/workflow_engines.py",
         "point": "_run_claude_json:json.loads:6118d7cb6e968167:1",
         "disposition": "exempt",
         "reason": "R1691 登记：读取 OpenCode CLI 自己写出的 .response.json 临时响应文件，外部进程产物不是正式项目数据，不走 file_cache。（R1706 行号平移 196→241）"
@@ -1140,7 +1142,7 @@
         "reason": "R1895：解析已验签租约的内存 payload 字节，不读取文件。"
       },
       {
-        "file": "account_client.py",
+        "file": "domain/account_client.py",
         "point": "_read_json:json.loads:ba5f15a4e6a1061d:1",
         "disposition": "exempt",
         "reason": "R1895：解析账号服务 HTTP 响应体，不读取文件。"
@@ -1152,13 +1154,13 @@
         "reason": "直连分镜（REQ-S03-53）：解析模型回复的内存文本，不读取正式文件；文件读取沿用core.read。"
       },
       {
-        "file": "workflow_engines.py",
+        "file": "orchestrator/workflow_engines.py",
         "point": "extract_codex_thread_id:json.loads:e447f3b9a080d917:1",
         "disposition": "exempt",
         "reason": "R2491：解析 codex exec --json 的 thread.started 事件行取 thread_id（进程 stdout 内存文本，不读文件）。"
       },
       {
-        "file": "workflow_engines.py",
+        "file": "orchestrator/workflow_engines.py",
         "point": "extract_codex_message_text:json.loads:e447f3b9a080d917:1",
         "disposition": "exempt",
         "reason": "R2491：解析 codex exec --json 的 agent_message 事件行取正文（进程 stdout 内存文本，不读文件）。"

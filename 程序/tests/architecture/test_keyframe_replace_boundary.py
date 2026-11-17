@@ -1,12 +1,12 @@
 import ast
 import unittest
 
-from tests.architecture._scan import ROOT, parse_desktop
+from tests.architecture._scan import entity_file, parse_desktop
 
 
 class KeyframeReplaceBoundaryTests(unittest.TestCase):
     def test_l2_lifecycle_service_only_accepts_l3_publishers(self):
-        tree = ast.parse((ROOT / 'keyframe_lifecycle_service.py').read_text(encoding='utf-8'))
+        tree = ast.parse(entity_file('keyframe_lifecycle_service').read_text(encoding='utf-8'))
         names = {'delete_keyframe', 'restore_keyframe', 'replace_keyframe'}
         methods = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name in names]
         self.assertEqual(names, {node.name for node in methods})

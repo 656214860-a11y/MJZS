@@ -6,7 +6,7 @@ from tkinter import messagebox, ttk
 from contract.platform_tools import open_path
 from file_cache import read_json
 from contract.storyboard_paths import project_root
-import white_model_service as _service
+import domain.white_model_service as _service
 from ui_dialogs import FileDialog
 import ui_plugin_registry
 from ui_widgets import SelectBox, BaseDialog, Card, PrimaryButton, SecondaryButton, TextArea, Tooltip, notify
@@ -26,7 +26,7 @@ _BLENDER_CACHE = _service._BLENDER_CACHE
 def _brief_block(stage):
     """Load orchestration guidance only when composing a white-model task."""
     from importlib import import_module
-    return import_module('stage_parallel').brief_block(stage)
+    return import_module('orchestrator.stage_parallel').brief_block(stage)
 
 
 def choose_previs(desktop):
@@ -72,7 +72,7 @@ def project_for_app(app):
 _BASE_CACHE = _service._BASE_CACHE
 _DIR_CACHE = _service._DIR_CACHE
 def shot_directory(project,sid,source=None):
-    from project_context_factory import project_context
+    from orchestrator.project_context_factory import project_context
     return _service.shot_directory(project_context(project),sid,workspace(),source)
 
 def find_blender(refresh=False):
@@ -187,5 +187,5 @@ def validate_video_submission(studio,sid):
     # 参考视频是可选提交适配器：在真正提交时才加载，避免白模目录/记录服务
     # 与适配器在模块初始化阶段相互加载。
     from importlib import import_module
-    reference_adapter=import_module('white_model_ref')
+    reference_adapter=import_module('ui.white_model_ref')
     return reference_adapter.descriptor(project_root(studio.root),sid,studio.cfg)

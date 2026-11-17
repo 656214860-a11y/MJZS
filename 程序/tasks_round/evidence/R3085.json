@@ -1,0 +1,15 @@
+{
+  "round": 3085,
+  "commit_base": "aea2955a",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k asset_reference_search asset_skill_batch cloud_assets_dialog desktop_account_page desktop_async_tasks desktop_automation_tick desktop_layout_resize desktop_lifecycle desktop_page_support desktop_script_edit_session desktop_send_choice desktop_tk_gc desktop_voice_input desktop_writing_snapshots pet_agent_rules skill_note_render skill_panel_workflow speech_settings_ui stage_model_picker ui_scroll video_navigation video_prompt_results white_model_ref workflow_agents keyframe_comfy white_model desktop_idea_chat account_security task_center button_consistency dialog_boundary ui_icons_boundary video_prompt_publication confirm_gates_json read_json_definitions button_boundary card_boundary complexity_ratchet",
+    "exit": 0,
+    "passed": 238,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T09:26:11"
+}

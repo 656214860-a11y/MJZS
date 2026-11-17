@@ -4,7 +4,7 @@ from __future__ import annotations
 import ast
 import unittest
 
-from tests.architecture._scan import ROOT, parse
+from tests.architecture._scan import ROOT, entity_file, parse
 
 
 TEXT_PAGE_COMPONENTS = {
@@ -81,7 +81,7 @@ class TextComponentBoundaryTests(unittest.TestCase):
     def test_migrated_pages_import_their_text_components(self):
         """已迁移页面必须继续经 ui_widgets 的文字语义组件。"""
         for filename, expected in TEXT_PAGE_COMPONENTS.items():
-            tree = parse(ROOT / filename)
+            tree = parse(entity_file(filename[:-3]))
             imported = {
                 alias.name
                 for node in ast.walk(tree)
@@ -96,7 +96,7 @@ class TextComponentBoundaryTests(unittest.TestCase):
         """迁移页面的提示/说明/进度不得退回局部文字样式。"""
         violations = []
         for filename in TEXT_PAGE_COMPONENTS:
-            tree = parse(ROOT / filename)
+            tree = parse(entity_file(filename[:-3]))
             for node, resolved in _resolved_calls(tree):
                 if resolved not in {'tkinter.Label', 'tkinter.ttk.Label'}:
                     continue

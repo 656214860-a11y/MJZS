@@ -76,11 +76,16 @@ def summarize():
             'p50_ms': ordered[len(ordered) // 2],
         }
     session = {}
-    for name, row in (metrics_file().get('metrics') or {}).items():
+    counters = {}
+    data = metrics_file()
+    for name, row in (data.get('metrics') or {}).items():
         if not isinstance(row, dict):
             continue
         session[name] = {k: row.get(k) for k in ('count', 'total_ms', 'max_ms', 'slow')}
-    return {'slow_operations': per_page, 'session_metrics': session}
+    for name, value in (data.get('counters') or {}).items():
+        if isinstance(value, (int, float)):
+            counters[name] = value
+    return {'slow_operations': per_page, 'session_metrics': session, 'counters': counters}
 
 
 def main():
@@ -118,6 +123,23 @@ def main():
             print('  %-28s 次数=%s 总耗时=%sms 最大=%sms 超阈=%s' % (
                 name, row.get('count'),
                 round(row.get('total_ms') or 0, 1), row.get('max_ms'), row.get('slow')))
+    # R2990：首帧分解——fitwaits 是「等 _fit_pending 的 16ms 轮询数」，fitpasses 是窗内
+    # 实际跑完的整页布局轮次；两者除以 paint 样本数得每次首帧均值，定性布局收敛成本。
+    counters = report.get('counters') or {}
+    if counters:
+        pages = sorted({k.rsplit('.', 1)[0] for k in counters
+                        if k.startswith('page.paint.') and k.rsplit('.', 1)[1] in ('fitwaits', 'fitpasses')})
+        if pages:
+            print('\n首帧分解（本会话均值/次；R2990 起记录）：')
+            print('  %-28s %12s %14s' % ('页', '布局等待ms', '布局轮次'))
+            for base in pages:
+                count_row = session.get(base) or {}
+                n = count_row.get('count') or 0
+                if not n:
+                    continue
+                waits_ms = (counters.get(base + '.fitwaits') or 0) * 16 / n
+                passes = (counters.get(base + '.fitpasses') or 0) / n
+                print('  %-28s %12.0f %14.1f' % (base, waits_ms, passes))
     return 0
 
 

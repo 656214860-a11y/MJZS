@@ -337,7 +337,7 @@ stage_config.apply_preset(project, 'video', '稳一点出片')
   目录名见 `stage_layout.STAGES`。
 - 阶段配置、SKILL 勾选、模型池与三虎的驱动方式见本文第一～五节；各阶段的需求与设计在 `docs/stages/`，
   模块分层见 `architecture.md`，交付清单见 `distribution_manifest.md`，环境与自检命令见 `runbook.md`。
-- 运行期零第三方依赖；含 Tk 的测试经 `工作流任务/gui_hidden.py` 在隐藏桌面运行，不弹到用户屏幕。
+- 运行期零第三方依赖；含 Tk 的测试由运行器强制经 `scripts/gui_hidden.py` 在隐藏桌面运行，不弹到用户屏幕。
 - 账号／会员订阅与云端后端为显式推迟项，本版不实现、不预留接口。
 
 ## 界面变更日志（第 45～71 期）

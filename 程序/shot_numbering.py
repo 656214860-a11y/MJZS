@@ -96,7 +96,7 @@ def renumber_text(text, mapping):
 
 
 def adopted_storyboards(project):
-    from storyboard_selection import adopted
+    from orchestrator.storyboard_selection import adopted
     return adopted(project)
 
 

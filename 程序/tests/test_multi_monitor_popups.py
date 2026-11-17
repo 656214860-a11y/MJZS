@@ -20,6 +20,9 @@ class _Tip:
     def winfo_reqheight(self): return 100
     def winfo_screenwidth(self): return 1920      # 主屏尺寸：副屏上绝不能拿它当边界
     def winfo_screenheight(self): return 1080
+    def winfo_exists(self): return True
+    def withdraw(self): pass
+    def destroy(self): pass
 
 
 class _Label:

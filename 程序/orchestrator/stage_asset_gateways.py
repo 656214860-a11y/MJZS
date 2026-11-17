@@ -5,7 +5,7 @@
 from pathlib import Path
 
 import file_cache
-from project_context_factory import project_context
+from orchestrator.project_context_factory import project_context
 from orchestrator.stage_write_preparation_service import prepare_asset_write
 
 
@@ -29,34 +29,34 @@ def asset_plan_gateway():
 
 def sync_asset_plan(project, episode_dir, storyboard=None, *, scope='current', _adopting=False):
     """L3 同步资产计划，避免 L2 自行选择发布器。"""
-    from asset_plan import sync_plan
+    from domain.asset_plan import sync_plan
     episode_dir = prepare_asset_write(project, episode_dir)
     return unwrap_service_result(sync_plan(project, episode_dir, storyboard, scope=scope, _adopting=_adopting,
                                             gateway=asset_plan_gateway(), context=project_context(project)))
 
 
 def update_asset_plan_fields(project, episode_dir, aid, values):
-    from asset_plan import update_fields
+    from domain.asset_plan import update_fields
     episode_dir = prepare_asset_write(project, episode_dir)
     return unwrap_service_result(update_fields(project, episode_dir, aid, values, gateway=asset_plan_gateway()))
 
 
 def apply_asset_plan_gate_choice(project, key, choice, episode_dir=''):
-    from asset_plan import apply_gate_choice
+    from domain.asset_plan import apply_gate_choice
     episode_dir = prepare_asset_write(project, episode_dir)
     return unwrap_service_result(apply_gate_choice(project, key, choice, episode_dir, gateway=asset_plan_gateway()))
 
 
 def plan_unattended_assets(project, base, sources, scope='adopted'):
     """L3 为无人值守资产计划装配唯一的发布网关。"""
-    from asset_batch_service import unattended_plan
+    from domain.asset_batch_service import unattended_plan
     base = prepare_asset_write(project, base)
     return unattended_plan(project, base, sources, scope, gateway=asset_plan_gateway(),
                            context=project_context(project))
 
 
 def note_asset_resume_round(project, ids, limit=None, now=None):
-    from asset_resume import note_round
+    from domain.asset_resume import note_round
     result = note_round(project, ids, limit=limit, now=now,
                         publish=asset_plan_gateway()['publish_json'])
     if not result.ok:
@@ -65,23 +65,23 @@ def note_asset_resume_round(project, ids, limit=None, now=None):
 
 
 def adopt_asset_storyboards(project, values):
-    from storyboard_selection import adopt
+    from orchestrator.storyboard_selection import adopt
     return adopt(project, values, gateway=asset_plan_gateway())
 
 
 def remove_asset_storyboards(project, values):
-    from storyboard_selection import remove
+    from orchestrator.storyboard_selection import remove
     return remove(project, values, gateway=asset_plan_gateway())
 
 
 def poll_asset_storyboard_adoption(project, minimum_age=10):
-    from storyboard_selection import adopt_pending
+    from orchestrator.storyboard_selection import adopt_pending
     return adopt_pending(project, minimum_age=minimum_age, gateway=asset_plan_gateway())
 
 
 def release_uncertain_asset_batch(project, ids):
     """L3 为确认后的资产批次未知提交记录提供唯一放开入口。"""
-    from asset_batch_state_service import release_uncertain
+    from domain.asset_batch_state_service import release_uncertain
     return release_uncertain(None, ids, context=project_context(project),
                              publish=asset_batch_gateway()['publish_json'])
 
@@ -93,7 +93,7 @@ def asset_detail_gateway():
 
 def bind_asset_canonical_view(project, episode_dir, aid, view, source):
     """L3 编排资产详情正典板绑定。"""
-    from asset_detail_service import bind_canonical_view
+    from domain.asset_detail_service import bind_canonical_view
     episode_dir = prepare_asset_write(project, episode_dir)
     result = bind_canonical_view(project, episode_dir, aid, view, source,
                                 gateway=asset_detail_gateway(), context=project_context(project))
@@ -104,7 +104,7 @@ def bind_asset_canonical_view(project, episode_dir, aid, view, source):
 
 def bind_asset_variant_thumbnail(project, episode_dir, aid, state_id, source):
     """L3 编排资产详情状态变体缩略图绑定。"""
-    from asset_detail_service import bind_variant_thumbnail
+    from domain.asset_detail_service import bind_variant_thumbnail
     episode_dir = prepare_asset_write(project, episode_dir)
     result = bind_variant_thumbnail(project, episode_dir, aid, state_id, source,
                                    gateway=asset_detail_gateway(), context=project_context(project))
@@ -115,13 +115,13 @@ def bind_asset_variant_thumbnail(project, episode_dir, aid, state_id, source):
 
 def pending_generated_assets(project, base):
     """L3 统一装配自动导入生成资产时的项目上下文。"""
-    from asset_generated_import_service import pending_generated
+    from domain.asset_generated_import_service import pending_generated
     return pending_generated(project, base, context=project_context(project))
 
 
 def import_pending_generated_assets(project, base, report=None):
     """L3 装配生成资产导入所需的上下文与发布网关。"""
-    from asset_generated_import_service import import_pending_generated
+    from domain.asset_generated_import_service import import_pending_generated
     base = prepare_asset_write(project, base)
     return import_pending_generated(project, base, report, gateway=asset_batch_gateway(),
                                     context=project_context(project))
