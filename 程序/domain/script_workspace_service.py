@@ -13,7 +13,9 @@ from contract.service_contract import SystemError, UserError, success
 import contract.project_stages as project_stages
 from contract.script_contract import RAW_SCRIPT_NAME
 
-LOGGER = logging.getLogger(__name__)
+# R3153：日志器名保持包化前的稳定标识——失败路径的可追溯契约（用例与运维日志）按这个名字
+# 断言，包化后 __name__ 会变成 domain.*，不能让它悄悄改名。
+LOGGER = logging.getLogger('script_workspace_service')
 
 
 SCRIPT_CATEGORIES = {
@@ -367,10 +369,16 @@ def _rename_file(source, target):
 
     R3110（任务书 P2，Q24-2）：原实现是裸 ``Path.rename``——绕过原子替换、不通知
     ``file_cache``。索引更新另行处理（索引是缓存，失败不回滚改名）。
+    R3153：物理改名失败必须留下 ERROR 日志（既有契约：失败路径可追溯），再交给上层
+    统一转成 SystemError 文案。
     """
     from agent.core import replace as replace_file
     from file_cache import invalidate
-    replace_file(source, target)
+    try:
+        replace_file(source, target)
+    except OSError:
+        LOGGER.exception('剧本文档重命名失败：%s -> %s', source, target)
+        raise
     invalidate(source)
 
 
@@ -383,6 +391,8 @@ def rename_script_document(project, source_path, requested_name):
         except ValueError as exc:
             if isinstance(exc.__cause__, OSError):
                 raise exc.__cause__
+            # R3153：被拒绝的改名也要留 ERROR 记录（既有契约：失败路径可追溯）。
+            LOGGER.error('剧本文档重命名被拒绝：%s', exc)
             return UserError(str(exc))
         if target != source:
             _rename_file(source, target)
