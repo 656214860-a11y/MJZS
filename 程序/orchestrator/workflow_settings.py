@@ -764,7 +764,7 @@ def freeze_skills(config, *, model_snapshot=None):
     frozen = deepcopy(config)
     if 'frozen_skill_prompt' in frozen:
         return frozen
-    from contract.workflow_context_budget import estimate_tokens, prepare_request_context
+    from contract.workflow_context_budget import budget_sections, estimate_tokens, prepare_request_context
     from domain.writing_quality import enabled, prompt as quality_prompt
     paths = {}
     for item in [*(frozen.get('stage_skills') or ()), *skills_of(frozen)]:
@@ -823,7 +823,7 @@ def freeze_skills(config, *, model_snapshot=None):
     if limit is not None and estimate_tokens(complete) > limit:
         raise ValueError(f'SKILL/阶段指令超出预算：完整正文及包装 {estimate_tokens(complete):,} token，'
                          f'预算 {limit:,} token，已阻止发送。')
-    prepare_request_context(complete, 'SKILL')  # 保留原字符硬闸。
+    prepare_request_context(complete, 'SKILL', sections=budget_sections(skills=complete))  # 保留原字符硬闸。
     frozen['frozen_skill_prompt'] = complete
     skipped = [row for row in references if row['status'] == 'skipped']
     frozen['skill_injection'] = {'mode': frozen.get('invocation_mode') or frozen.get('engine', ''),

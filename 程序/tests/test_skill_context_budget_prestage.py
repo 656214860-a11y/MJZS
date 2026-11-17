@@ -187,6 +187,36 @@ class SkillContextBudgetPrestageTests(unittest.TestCase):
         self.assertEqual(frozen['skill_budget']['context_length'], 128000)
         self.assertIn('当前快照正文', frozen['frozen_skill_prompt'])
 
+    def test_shared_resource_hint_is_sent_once_and_closure_preserved(self):
+        """REQ-S01-31：多技能共享资源不重复挤占已预留预算。"""
+        resource = self.root / 'LICENSE'
+        one = self.skill('resource-a', '第一份正文 [许可](../LICENSE)')
+        two = self.skill('resource-b', '第二份正文 [许可](../LICENSE)')
+        frozen = self.freeze(self.config(one, two), {'context_length': 128000})
+        text = frozen['frozen_skill_prompt']
+        self.assertEqual(text.count(f'本请求不发送该资源，本地路径：{resource}'), 1)
+        rows = frozen['skill_injection']['references']
+        self.assertEqual(sum(row['status'] == 'resource' for row in rows), 2)
+        self.assertLessEqual(estimate_tokens(text), frozen['skill_injection']['inline_budget'])
+
+    def test_already_sent_resource_does_not_reserve_again_in_later_child(self):
+        """REQ-S01-31：后出现的父引用不为已发送资源制造幽灵预留。"""
+        from orchestrator.skill_inline import _append_hint, _charge_reference
+        resource = self.root / 'LICENSE'
+        source = self.root / 'child.md'
+        hint = f'\n\n<!-- 本请求不发送该资源，本地路径：{resource} -->'
+        body = '[许可](LICENSE)'
+        block = f'\n\n## 引用: child.md\n{body}'
+        budget = {'remaining': estimate_tokens(block),
+                  'pending': {('resource', str(resource)): estimate_tokens(hint)}}
+        blocks = []
+        _append_hint(blocks, resource, hint, budget)
+        self.assertTrue(_charge_reference(budget, source, '', block, body,
+                                         roots=[self.root], locks={}, seen=set(), sections=set(),
+                                         reader=lambda path: 'unused'))
+        self.assertEqual(budget['remaining'], 0)
+        self.assertEqual(budget['pending'], {})
+
     def test_one_skill_unknown_window_is_valueerror_not_typeerror(self):
         path = self.skill('one', '正文 [引用](ref.md)')
         (path.parent / 'ref.md').write_text('引用正文', encoding='utf-8')

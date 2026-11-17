@@ -140,7 +140,9 @@ def _charge_reference(budget, reference, fragment, block, body, *, roots, locks,
         return False
     children = _reference_frontier(reference, body, roots=roots, locks=locks,
                                    seen=seen | {reference}, sections=sections, reader=reader)
-    children = {key: value for key, value in children.items() if key not in budget['pending']}
+    sent_resources = budget.get('sent_resources', set())
+    children = {key: value for key, value in children.items()
+                if key not in budget['pending'] and key not in sent_resources}
     total = cost + sum(children.values())
     if total > budget['remaining']:
         return False
@@ -178,11 +180,17 @@ def _charge_inline(budget, block_text):
 
 def _append_hint(blocks, reference, text, budget):
     """提示也是实际发送文本；不能以 skipped/resource 绕过预算。"""
+    resource_key = None
     if budget is not None and 'pending' in budget and text.startswith('\n\n<!-- 本请求不发送该资源'):
-        budget['remaining'] += budget['pending'].pop(('resource', str(reference)), 0)
+        resource_key = ('resource', str(reference))
+        if resource_key in budget.get('sent_resources', set()):
+            return
+        budget['remaining'] += budget['pending'].pop(resource_key, 0)
     if not _charge_inline(budget, text):
         raise ValueError(f'SKILL/阶段指令预算不足：包装/未发送引用提示超限（{reference}），已阻止发送。')
     blocks.append((reference, text))
+    if resource_key is not None:
+        budget.setdefault('sent_resources', set()).add(resource_key)
 
 
 def _skipped_inline_hint(reference):
