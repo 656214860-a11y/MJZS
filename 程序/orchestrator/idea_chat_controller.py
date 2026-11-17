@@ -2,6 +2,7 @@
 import queue
 import threading
 import time
+from enum import Enum
 from pathlib import Path
 
 
@@ -10,6 +11,20 @@ BUBBLE_COLLAPSE_LINES = 8
 # 首绘后回填：``fit_pending`` 连续这么多拍为假才算布局稳定；最长等这么多秒，超时直接回填。
 IDEA_UPDATE_STABLE_TICKS = 3
 IDEA_UPDATE_TIMEOUT_SECONDS = 2.0
+
+
+class ChatStatus(str, Enum):
+    """会话级状态机（借鉴 AI SDK ``submitted/streaming/ready/error``）。
+
+    与 part 级子状态（``domain.message_parts.PartState``）解耦：本状态只说「整轮
+    对话进行到哪」，part 状态说「单个 part 的子阶段」。停止走取消令牌；``max_tokens``
+    或用户停止后置 ``can_continue``，供「继续生成」复用。
+    """
+
+    SUBMITTED = 'submitted'
+    STREAMING = 'streaming'
+    READY = 'ready'
+    ERROR = 'error'
 
 
 class DeferredFill:
@@ -151,6 +166,12 @@ class IdeaChatController:
         self._last_sent_at = float('-inf')
         self._active_token = None
         self._request_cleanup = None
+        self.status = ChatStatus.READY
+        self.stop_reason = ''
+        self.can_continue = False
+        self._pending_sends = []
+        self._last_request = None
+        self._side_effects_done = False
 
     def prepare_submission(self, project, value, *, is_example):
         """按既有附档规则拼装模型输入和用户可见的引用标记。"""
@@ -179,7 +200,7 @@ class IdeaChatController:
         """仅在尚未真正提交工作流时撤销本次发送占位。"""
         self._last_sent_at = float('-inf')
 
-    def begin_request(self, *, cancellable):
+    def begin_request(self, *, cancellable, request=None):
         if self.requesting:
             raise ValueError('模型正在回复，请不要重复发送。')
         token = object()
@@ -187,15 +208,31 @@ class IdeaChatController:
         self.script_agent_launching = False
         self._active_token = token
         self.cancel_event = threading.Event() if cancellable else None
+        self.status = ChatStatus.SUBMITTED
+        self.stop_reason = ''
+        self.can_continue = False
+        self._side_effects_done = False
+        if request is not None:
+            self._last_request = dict(request)
         return token, self.cancel_event
 
-    def finish_request(self, token):
+    def mark_streaming(self, token=None):
+        """首个增量到达：SUBMITTED → STREAMING。过期 token 不推进状态。"""
+        if self.requesting and (token is None or token is self._active_token):
+            self.status = ChatStatus.STREAMING
+            return True
+        return False
+
+    def finish_request(self, token, *, error=False, stop_reason=''):
         if token is not self._active_token:
             return False
         self.requesting = False
         self._active_token = None
         self.cancel_event = None
         self._cleanup_request()
+        self.stop_reason = str(stop_reason or ('error' if error else ''))
+        self.status = ChatStatus.ERROR if error else ChatStatus.READY
+        self.can_continue = self.stop_reason == 'max_tokens'
         return True
 
     def request_is_current(self, token):
@@ -223,15 +260,61 @@ class IdeaChatController:
         self.script_agent_launching = False
         self.cancel_event = None
         self._active_token = None
-
+        self.status = ChatStatus.READY
+        self.stop_reason = 'cancelled'
+        self.can_continue = True
         self._cleanup_request()
 
     def progress_callback(self, token, ticket, emit):
         """工作线程只经注入队列投递；取消后的旧流式进度直接丢弃。"""
         def report(role, step):
             if token is self._active_token:
+                self.mark_streaming(token)
                 emit(ticket, str(role), int(step))
         return report
+
+    # ---- 发送排队：生成中发送自动排队、可撤销、turn 结束 flush（A7）----
+    def enqueue_send(self, text, *, attachments=None):
+        self._pending_sends.append({'text': str(text), 'attachments': tuple(attachments or ())})
+        return len(self._pending_sends)
+
+    def pending_sends(self):
+        return [dict(item) for item in self._pending_sends]
+
+    def pop_pending_send(self):
+        """取出队首待发消息（turn 结束 flush 时逐条消费）。"""
+        return self._pending_sends.pop(0) if self._pending_sends else None
+
+    def undo_pending_send(self):
+        """撤销最后一条排队消息。"""
+        return self._pending_sends.pop() if self._pending_sends else None
+
+    def clear_pending_sends(self):
+        self._pending_sends.clear()
+
+    # ---- 继续 / 重新生成（基于最近一次请求的复用计划）----
+    def last_request(self):
+        return dict(self._last_request) if isinstance(self._last_request, dict) else None
+
+    def regenerate_plan(self):
+        """重新生成：复用最近一次请求（同一消息重发）；没有可复用请求时返回 None。"""
+        return self.last_request()
+
+    def continue_plan(self, *, partial_text=''):
+        """继续生成：复用最近一次请求，并把已产出的部分文本作为续写前缀。"""
+        plan = self.last_request()
+        if plan is None or not self.can_continue:
+            return None
+        plan = dict(plan)
+        plan['partial'] = str(partial_text or '')
+        return plan
+
+    # ---- 副作用幂等：中断恢复时不重复执行（A5）----
+    def mark_side_effects_done(self):
+        self._side_effects_done = True
+
+    def side_effects_done(self):
+        return self._side_effects_done
 
     def replace_attachments(self, paths, details=()):
         self.attachment_paths = tuple(str(path) for path in paths)
