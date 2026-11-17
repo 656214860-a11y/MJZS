@@ -3,6 +3,7 @@
 只保存「助手行为」类开关，不保存分镜采用列表等业务数据；沿用同一份 ui_settings.json，
 写入前先读回已有内容，避免覆盖其他模块的键。
 """
+import shutil
 from pathlib import Path
 from agent.core import read,save,read_json
 from agent.publication import access
@@ -47,7 +48,7 @@ def _read_for_write(path):
     try:data=read(target)
     except FileNotFoundError:return {}
     except (OSError,ValueError,UnicodeError):
-        try:target.replace(target.with_name(target.name+'.corrupt'))
+        try:shutil.copy2(target,target.with_name(target.name+'.corrupt'))
         except OSError:pass
         return {}
     return data if isinstance(data,dict) else {}

@@ -96,7 +96,7 @@ def _write_temp(text):
         handle.write(text)
     except BaseException:
         handle.close()
-        Path(handle.name).unlink(missing_ok=True)
+        remove_temporary_file(handle.name)
         raise
     handle.close()
     return Path(handle.name)

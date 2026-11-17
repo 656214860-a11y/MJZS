@@ -50,7 +50,10 @@ class Broadcaster:
         try:
             self.close()
         except Exception:
-            pass
+            import contextlib
+            with contextlib.suppress(Exception):
+                import infra.app_logging as app_logging
+                app_logging.swallowed('Broadcaster.__del__')
 
     @staticmethod
     def stage(current, title):

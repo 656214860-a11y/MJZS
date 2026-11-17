@@ -107,7 +107,8 @@ def _assign_to_job(process):
                 if close_handle:
                     kernel32.CloseHandle(handle)
     except Exception:
-        pass
+        import infra.app_logging as app_logging
+        app_logging.swallowed('workflow_process_registry._assign_to_job')
 
 
 def _key(project):
