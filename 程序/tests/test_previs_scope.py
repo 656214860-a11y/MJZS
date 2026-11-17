@@ -8,6 +8,7 @@ import previs_routing
 import project_stages
 import script_contract
 import stage_flow
+import stage_layout
 import stage_parallel
 import stage_path_service
 import white_model_ref
@@ -72,7 +73,8 @@ class PrevisContractTests(unittest.TestCase):
             self.assertIn(lock, text)
 
     def test_req_s09_stage_directory_is_09_and_legacy_08_is_read_only(self):
-        self.assertEqual(project_stages.STAGES['previs'], '09白模预演')
+        # R3131（Q15）：重复登记的阶段映射已删除，本条改读唯一权威 stage_layout。
+        self.assertEqual(stage_layout.dirname_of('previs'), '09白模预演')
         self.assertEqual(stage_path_service.LEGACY_NUMBERED['previs'], '08白模预演')
         with tempfile.TemporaryDirectory() as tmp:
             self.assertEqual(stage_path_service.write_dir(tmp, 'previs').name, '09白模预演')

@@ -10,7 +10,7 @@ from storage_maintenance import remove_project_link_node
 from file_cache import file_digest, read_json as cached_read_json
 from contract.service_contract import SystemError, success
 
-_LOG = logging.getLogger('projects')
+_LOG = logging.getLogger(__name__)
 
 
 def _project_write_result(operation):
@@ -36,7 +36,7 @@ def _episode_project_root(value):
     """从旧 ``episode_*`` 指针取项目根；不碰磁盘，也不递归。"""
     if not isinstance(value,str) or not value:return None
     path=Path(value)
-    stage_names=set(project_stages.STAGES.values())
+    stage_names=set(project_stages.stage_dirs())
     for ancestor in (path,*path.parents):
         if ancestor.name in stage_names:
             return ancestor.parent
@@ -57,7 +57,7 @@ def _discover_candidates(base):
         # ``工作流任务`` 是项目库内回收站；历史回收站绝不回流到下一轮扫描。
         if not p.is_dir() or p.name==stage_layout.WORKFLOW_DIR or stage_layout.WORKFLOW_DIR in p.parts:continue
         cfg=p/'config.json'
-        if not cfg.is_file() and not any((p/name).is_dir() for name in project_stages.STAGES.values()):continue
+        if not cfg.is_file() and not any((p/name).is_dir() for name in project_stages.stage_dirs()):continue
         try:data=cached_read_json(cfg) if cfg.is_file() else {}
         except (OSError,ValueError):continue
         candidates.append((p,data if isinstance(data,dict) else {}))
@@ -75,7 +75,7 @@ def reconcile_missing(projects_info, base):
         for p,cfg in candidates:
             refs=(cfg.get('episode_dir',''),cfg.get('episode_file',''))
             high=any(_episode_project_root(r)==old for r in refs)
-            mid=(all((p/name).is_dir() for name in project_stages.STAGES.values())
+            mid=(all((p/name).is_dir() for name in project_stages.stage_dirs())
                  and _same_renamed_prefix(p,old))
             if high or mid:found.append(str(p))
         matches[item['path']]=found
@@ -181,14 +181,14 @@ class Projects:
             if p!=dest.resolve():self._copy_file(p,dest)
             a['image']=dest.relative_to(base).as_posix()
         self._publish_json(base/'assets.json',assets)
-        for name in project_stages.STAGES.values(): (root/name).mkdir(exist_ok=True)
+        for name in project_stages.stage_dirs(): (root/name).mkdir(exist_ok=True)
         project_stages.audio(root).mkdir(parents=True,exist_ok=True)
         project_stages.subtitles(root).mkdir(parents=True,exist_ok=True)
 
     def ensure_stage_dirs(self,root):
         """认领后只补目录骨架；不得重写或搬动既有项目文件。"""
         root=Path(root)
-        for name in project_stages.STAGES.values():
+        for name in project_stages.stage_dirs():
             (root/name).mkdir(exist_ok=True)
         project_stages.audio(root).mkdir(parents=True,exist_ok=True)
         project_stages.subtitles(root).mkdir(parents=True,exist_ok=True)
