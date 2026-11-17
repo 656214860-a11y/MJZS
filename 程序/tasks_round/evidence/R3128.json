@@ -1,0 +1,15 @@
+{
+  "round": 3128,
+  "commit_base": "ffe95c14",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k media_render code_highlight diff_view",
+    "exit": 0,
+    "passed": 6,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T13:06:50"
+}

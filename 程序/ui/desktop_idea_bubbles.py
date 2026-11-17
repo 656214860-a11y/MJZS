@@ -206,6 +206,26 @@ class IdeaBubblesMixin:
         box.delete('1.0','end');box.insert('1.0',text);box.focus_set()
         self.status.set('已把这条消息放回输入框，修改后可重新发送')
         return text
+    def quote_bubble_message(self,index):
+        """引用：把该条正文以「> 引用」前缀带进输入框，不直接发送。"""
+        rows=self._idea_display_rows()
+        if not 0<=index<len(rows):return None
+        text=str(rows[index].get('text') or '')
+        box=getattr(self,'idea_input',None)
+        if not text or box is None or not box.winfo_exists():return None
+        quoted='\n'.join('> '+line for line in text.splitlines())
+        current=box.get('1.0','end-1c')
+        box.delete('1.0','end')
+        box.insert('1.0',quoted+'\n\n'+(current if current else ''))
+        box.focus_set()
+        self.status.set('已引用该条到输入框，可在下方继续提问')
+        return text
+    def regenerate_bubble_message(self,index):
+        """重新生成：把该条放回输入框并立即重发（沿用既有发送链路）。"""
+        text=self.rewind_bubble_message(index)
+        if not text:return None
+        self.safe(self.send_message)
+        return text
     def delete_bubble_message(self,index):
         """消息左下角「删除」图标：移出当前对话，并保留最近删除恢复记录。"""
         import domain.idea_chat as idea_chat
@@ -326,6 +346,13 @@ class IdeaBubblesMixin:
         # 保证「选了哪段」始终可见、光标/选区不闪跳。
         try:box.tag_raise('sel')
         except tk.TclError:pass
+        # R3115：非 TEXT 的 part（reasoning/tool/artifact 等）用注册表追加渲染；
+        # 正常文本行只有 TEXT，不改变现有排版。
+        from domain import message_parts as _message_parts
+        from ui import ui_part_renderers as _part_renderers
+        part_list = _message_parts.parts_of(row)
+        if any(str(item.get('type') or '') != _message_parts.PartType.TEXT.value for item in part_list):
+            _part_renderers.render_parts(box, name, part_list, self, skip_text=True)
     def add_bubble_actions(self,box,name,index,left,right,rewindable=False):
         """REQ-S01-66：正文左下角的复制／删除／回退图标；平时与框底同色占位，悬停这条消息才显出来。"""
         actions=name+'_actions'
