@@ -12,6 +12,7 @@ from datetime import datetime
 from pathlib import Path
 
 from agent.core import file_hash, read_json, save
+import contract.artifact_schema as artifact_schema
 
 
 FILE_NAME = '产物来源关系.json'
@@ -58,8 +59,15 @@ def record(root, artifact, source=None, artifact_type='', *, sources=None):
     pairs = _source_pairs(source, sources)
     if not pairs:
         raise ValueError('来源账本至少需要一个来源。')
-    rows = read_json(_path(artifact), default={})
-    rows = rows if isinstance(rows, dict) else {}
+    raw = read_json(_path(artifact), default={})
+    # D4-c/D4-d：属主读取点分类计数；future 账本拒写——保留新格式文件不覆盖，
+    # 本次登记跳过（该成果退回「无账本」兼容口径，不影响阶段完成）。
+    # L0 不能 import 播报层，【警告】由诊断计数承接（见结果文件欠账说明）。
+    state = artifact_schema.classify('artifact_lineage', raw)
+    artifact_schema.note_read_state('artifact_lineage', state)
+    if state == 'future':
+        return _path(artifact)
+    rows = raw if isinstance(raw, dict) else {}
     entries = rows.get('entries') if isinstance(rows.get('entries'), list) else []
     artifact_rel = _relative(root, artifact)
     recorded = []
@@ -76,7 +84,8 @@ def record(root, artifact, source=None, artifact_type='', *, sources=None):
     entries = [entry for entry in entries if not isinstance(entry, dict)
                or entry.get('artifact') != artifact_rel]
     entries.append(item)
-    save(_path(artifact), {'version': 1, 'entries': entries})
+    # D4-e/G8：正常写入双写 schema_version 与旧键 version，旧版程序仍能读。
+    save(_path(artifact), artifact_schema.stamp('artifact_lineage', {'version': 1, 'entries': entries}))
     return _path(artifact)
 
 
@@ -131,6 +140,8 @@ def _report(root, entry):
 
 def _entry(root, artifact):
     rows = read_json(_path(artifact), default={})
+    state = artifact_schema.classify('artifact_lineage', rows)
+    artifact_schema.note_read_state('artifact_lineage', state)
     entries = rows.get('entries') if isinstance(rows, dict) else None
     if not isinstance(entries, list):
         return None
@@ -179,6 +190,8 @@ def affected(root, source=None):
     found = []
     for ledger in sorted(root.rglob(FILE_NAME)):
         rows = read_json(ledger, default={})
+        state = artifact_schema.classify('artifact_lineage', rows)
+        artifact_schema.note_read_state('artifact_lineage', state)
         entries = rows.get('entries') if isinstance(rows, dict) else None
         if not isinstance(entries, list):
             continue

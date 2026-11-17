@@ -22,7 +22,7 @@ import infra.pet_llm as pet_llm
 import infra.pet_state as pet_state, stage_layout
 import orchestrator.stage_parallel as stage_parallel
 from agent.core import save
-from contract.pet_bus import SEEN_LIMIT, STAGE_NAMES, STAGES, ErrorLog, emit_safe, read_json
+from contract.pet_bus import SEEN_LIMIT, STAGE_NAMES, STAGES, ErrorLog, emit_safe, read_json, with_current_run
 from ui.pet_agent_rules import PATTERNS, REPLIES, RULES, UNKNOWN_REPLY, VERDICTS
 
 LEVELS = ('hint', 'semi', 'auto')
@@ -768,7 +768,8 @@ class Agent:
         return self
 
     def _emit(self, kind, **payload):
-        return emit_safe(self.bus, self.errors, kind, **payload)
+        # D5-d/G7：终态事件自动带当前运行序号，跨 run 的同文失败/完成不再互吞。
+        return emit_safe(self.bus, self.errors, kind, **with_current_run(self.bus, kind, payload))
 
     # ── 审批与暂停 ──────────────────────────────────────────────────────────
     def approve(self, action, level=None, paid=None, confirmed=False):

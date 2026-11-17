@@ -17,10 +17,13 @@ PROGRAM = Path(__file__).resolve().parents[2]
 # 不引 app_logging，且错误路径随后仍 raise）。
 # platform_tools（R2669）：底层平台适配引 app_logging 构成越层（test_layers 实证），
 # 流式回调失败按注释语义降噪豁免一处。T10 包化后实体在 contract/ 下。
+# artifact_schema（R3298 轮 4B）：L0 契约不能 import L1 app_logging；读取分类计数是
+# 尽力而为的内存记账，契约承诺不抛异常、不影响读取主路径，豁免一处。
 ALLOWED = {
     'infra/app_logging.py': 10,
     'agent/volcengine.py': 1,
     'contract/platform_tools.py': 1,
+    'contract/artifact_schema.py': 1,
 }
 
 

@@ -1,9 +1,15 @@
 """三虎的统一进度播报与文本日志。"""
 import os
 import re
+import threading
 from datetime import datetime
+from pathlib import Path
 
 from contract.pet_bus import STAGES
+
+_PROGRAM_LOGS = Path(__file__).resolve().parents[1] / 'logs' / 'sanhu_progress.log'
+_WARNED = set()
+_WARN_LOCK = threading.Lock()
 
 
 PREFIX_PATTERNS = (
@@ -46,3 +52,25 @@ class Broadcaster:
         if not 1 <= int(current) <= int(total):
             raise ValueError("步骤序号必须在有效范围内")
         return f"【步骤 {int(current)}/{int(total)}】{title}"
+
+
+def warn_once(key, text):
+    """同 ``key`` 进程内只发一次 ``【警告】``（产物拒写等需提醒但不弹窗的场景）。
+
+    直接向 ``logs/sanhu_progress.log`` 追加一行（绝对路径，不依赖调用方工作目录），
+    不走 ``Broadcaster`` 类——事件总线边界只允许 desktop/pet_ui 实例化它做用户可见
+    播报；本函数是属主写路径的内部告警通道，前缀仍取自本模块 ``PREFIX_PATTERNS``。
+    任何一步失败都静默返回 False，绝不把写路径带崩。返回是否实际发出。
+    """
+    try:
+        with _WARN_LOCK:
+            if key in _WARNED:
+                return False
+            _WARNED.add(key)
+        message = '【警告】' + str(text)
+        _PROGRAM_LOGS.parent.mkdir(parents=True, exist_ok=True)
+        with open(_PROGRAM_LOGS, 'a', encoding='utf-8') as handle:
+            handle.write('%s %s\n' % (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), message))
+        return True
+    except Exception:
+        return False

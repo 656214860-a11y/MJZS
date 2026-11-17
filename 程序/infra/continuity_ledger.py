@@ -20,6 +20,8 @@ from contract.asset_contract import merged_anchor
 from agent.core import restore_bytes, save, save_text
 from infra.file_cache import read_json
 from contract.shot_batches import batches, normalize, triplet
+import contract.artifact_schema as artifact_schema
+import infra.broadcaster as broadcaster
 
 # 附件里给的 Agent Prompt 模板（逐字照抄，程序直接复用这一句）。
 PROMPT = (
@@ -40,6 +42,24 @@ SCENE_WORDS = ('场景', '背景', '空间', '环境')
 MOTION_WORDS = ('动作', '运镜', '镜头', '走位', '姿势')
 LEDGER_NAME = 'continuity_ledger.json'
 LEDGER_DOC = 'continuity_ledger.md'
+
+
+def _future_blocked(kind, path):
+    """写入口守卫（G8/D4-d）：盘上已有产物为 ``future`` 时发一次【警告】并返回 True（拒写）。
+
+    读取侧不调用本函数——``future`` 产物照常可读；这里只拦属主的写入口，
+    防止旧版程序把新格式台账／问题表覆盖回旧格式。
+    """
+    try:
+        existing = read_json(path)
+    except (OSError, ValueError):
+        existing = None
+    if artifact_schema.classify(kind, existing) != 'future':
+        return False
+    broadcaster.warn_once('artifact_future:' + kind,
+                          '%s 是更新版本写的产物，本版程序拒绝覆盖；请升级程序或移走该文件'
+                          % kind)
+    return True
 
 
 def _words(text):
@@ -310,6 +330,10 @@ def publish_bundle(project, ledger):
     import contract.stage_layout as stage_layout
     paths = stage_layout.paths(project, '06连贯性清单')
     file = paths['output'] / LEDGER_NAME
+    if _future_blocked('continuity_ledger', file):
+        raise ValueError('连贯性清单是更新版本写的产物，本版程序拒绝覆盖；请升级程序或移走该文件')
+    # D4-e/G8：正常写入双写 schema_version 与旧键 version，旧版程序仍能读。
+    ledger = artifact_schema.stamp('continuity_ledger', ledger)
     targets = (
         (file, save, ledger),
         (paths['docs'] / LEDGER_DOC, save_text, markdown(ledger)),
@@ -346,6 +370,9 @@ def read(project):
         data = read_json(file)
     except (OSError, ValueError):
         return {}
+    # D4-c/D4-d：属主读取点分类计数；legacy/missing/future 照常使用，不写盘不提示。
+    state = artifact_schema.classify('continuity_ledger', data)
+    artifact_schema.note_read_state('continuity_ledger', state)
     return data if isinstance(data, dict) else {}
 
 
@@ -501,6 +528,8 @@ def read_issues(project):
         data = read_json(path)
     except (OSError, ValueError):
         return {}
+    state = artifact_schema.classify('continuity_issues', data)
+    artifact_schema.note_read_state('continuity_issues', state)
     rows = data.get('issues') if isinstance(data, dict) else None
     return dict(rows) if isinstance(rows, dict) else {}
 
@@ -582,7 +611,10 @@ def sync_issues(project, ledger, *, publish=None, now=''):
     """读台账 → 算问题 → 并入登记表；只有 L3 注入 publish 才落盘，不注入就只读预览。"""
     register, rows = merge_issues(read_issues(project), issues(ledger), now=now)
     if publish is not None:
-        publish(issues_path(project), {'version': 1, 'issues': register})
+        path = issues_path(project)
+        if _future_blocked('continuity_issues', path):
+            raise ValueError('连贯性问题表是更新版本写的产物，本版程序拒绝覆盖；请升级程序或移走该文件')
+        publish(path, artifact_schema.stamp('continuity_issues', {'version': 1, 'issues': register}))
     return rows
 
 
@@ -607,7 +639,10 @@ def decide_issue(project, issue_id, decision, reason='', by=HUMAN, *, publish, n
                     'note': reason or ('人工重新打开' if decision == OPEN else '人工关闭')})
     row['history'] = history[-20:]
     register[str(issue_id)] = row
-    publish(issues_path(project), {'version': 1, 'issues': register})
+    path = issues_path(project)
+    if _future_blocked('continuity_issues', path):
+        raise ValueError('连贯性问题表是更新版本写的产物，本版程序拒绝覆盖；请升级程序或移走该文件')
+    publish(path, artifact_schema.stamp('continuity_issues', {'version': 1, 'issues': register}))
     return _report_rows(register)
 
 

@@ -328,5 +328,31 @@ class MigrateFileTests(unittest.TestCase):
         self.assertEqual(path.read_text(encoding='utf-8'), 'not json')
 
 
+class ReadStateCounterTests(unittest.TestCase):
+    """R3298 轮 4B：读取分类计数只进内存、绝不影响读取主路径（含降级分支）。"""
+
+    def setUp(self):
+        self._saved = schema._READ_STATES
+        self.addCleanup(setattr, schema, '_READ_STATES', self._saved)
+
+    def test_counts_accumulate_per_kind_and_state(self):
+        schema._READ_STATES = {}
+        schema.note_read_state('desktop_queue', 'legacy')
+        schema.note_read_state('desktop_queue', 'legacy')
+        schema.note_read_state('desktop_queue', 'current')
+        schema.note_read_state('animatic_manifest', 'future')
+        counts = schema.read_state_counts()
+        self.assertEqual(counts['desktop_queue'], {'legacy': 2, 'current': 1})
+        self.assertEqual(counts['animatic_manifest'], {'future': 1})
+        # 快照是副本：改返回值不影响内部计数
+        counts['desktop_queue']['legacy'] = 99
+        self.assertEqual(schema.read_state_counts()['desktop_queue']['legacy'], 2)
+
+    def test_counters_degrade_silently_when_store_breaks(self):
+        schema._READ_STATES = None                     # 破坏内存计数结构
+        schema.note_read_state('desktop_queue', 'legacy')   # 不抛异常
+        self.assertEqual(schema.read_state_counts(), {})
+
+
 if __name__ == '__main__':
     unittest.main()

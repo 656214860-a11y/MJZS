@@ -22,6 +22,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import infra.app_logging as app_logging
+import contract.artifact_schema as artifact_schema
 from agent.core import read_json, save_bytes, save_text
 from infra.log_maintenance import RETENTION_DAYS
 
@@ -51,10 +52,42 @@ def _state() -> dict:
     return value if isinstance(value, dict) else {}
 
 
+def _artifact_state_rows() -> dict:
+    """产物版本分类计数快照（``artifact_schema`` 内存计数 → 诊断账本，G8/D4-d）。"""
+    try:
+        return artifact_schema.read_state_counts() or {}
+    except Exception:
+        return {}
+
+
 def _save_state(value: dict) -> None:
     if os.environ.get(SUPPRESS_DIAGNOSTICS_ENV) == "1" and STATE_FILE == _PROGRAM_STATE_FILE:
         return
+    rows = _artifact_state_rows()
+    if rows:
+        value = dict(value)
+        value["artifact_versions"] = rows
     save_text(STATE_FILE, json.dumps(value, ensure_ascii=False, indent=2))
+
+
+def flush_artifact_states() -> None:
+    """把 ``artifact_schema`` 的读取分类计数并入 ``latest.json``（导出前调用）。
+
+    计数由各属主读取点记入 ``artifact_schema`` 内存；这里只负责落盘收走，
+    任何一步失败都静默，不影响诊断主流程。
+    """
+    rows = _artifact_state_rows()
+    if not rows:
+        return
+    with _LOCK:
+        try:
+            state = _state()
+            if state.get("artifact_versions") == rows:
+                return
+            state["artifact_versions"] = rows
+            _save_state(state)
+        except Exception:
+            app_logging.swallowed()
 
 
 def _clean(value: object) -> str:
@@ -141,6 +174,7 @@ def _safe_member(path: Path) -> str:
 
 def export(destination: str | Path) -> Path:
     """把脱敏后的白名单日志写成单个 ZIP；任一受保护项立即拒绝。"""
+    flush_artifact_states()      # 先把产物版本分类计数并进 latest.json 再打包
     bundle = io.BytesIO()
     with zipfile.ZipFile(bundle, "w", zipfile.ZIP_DEFLATED) as archive:
         manifest = []

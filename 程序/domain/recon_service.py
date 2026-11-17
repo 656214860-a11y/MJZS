@@ -20,6 +20,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 import contract.artifact_schema as artifact_schema
+import infra.broadcaster as broadcaster
 import infra.model_pool as model_pool
 import contract.stage_layout as stage_layout
 from agent import core
@@ -129,6 +130,9 @@ def load_card(project):
         value = read_json(path)
     except (OSError, ValueError):
         return {}
+    # D4-c/D4-d：属主读取点分类计数；future 卡照常可读，不写盘不提示。
+    state = artifact_schema.classify(KIND, value)
+    artifact_schema.note_read_state(KIND, state)
     return value if isinstance(value, dict) else {}
 
 
@@ -145,6 +149,15 @@ def save_card(project, card, save=None, save_text=None):
     issues = evidence(payload)
     payload['evidence_report'] = list(issues)
     target = card_path(project)
+    # D4-d/G8：future 情报卡可读但拒写，发一次【警告】；按本模块错误契约返回 UserError。
+    try:
+        existing = read_json(target)
+    except (OSError, ValueError):
+        existing = None
+    if artifact_schema.classify(KIND, existing) == 'future':
+        broadcaster.warn_once('artifact_future:' + KIND,
+                              '情报卡是更新版本写的产物，本版程序拒绝覆盖；请升级程序或移走该文件')
+        return UserError('情报卡是更新版本写的产物，本版程序拒绝覆盖；请升级程序或移走该文件')
     writer = save or core.save
     writer(target, payload)
     (save_text or core.save_text)(doc_path(project), render(payload))

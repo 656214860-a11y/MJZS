@@ -200,6 +200,32 @@ def migrate(kind, payload):
     return out, actions
 
 
+# ── 读取侧分类计数（G8/D4-d）───────────────────────────────────────────────
+# 属主在自己的读取点 ``classify`` 之后调 ``note_read_state`` 记一笔；计数只进
+# 内存，``diagnostic_capture`` 落盘 ``latest.json`` 时并入 ``artifact_versions``
+# 段。读取路径不写盘、不提示用户；L0 不能 import L1，所以计数先落在本模块，
+# 由诊断层统一收走——这样 artifact_lineage 这类 L0 属主也走同一计数口径。
+_READ_STATES: dict = {}
+
+
+def note_read_state(kind, state):
+    """记一次产物读取分类（内存计数；不抛异常、不写盘）。"""
+    try:
+        per = _READ_STATES.setdefault(str(kind), {})
+        key = str(state)
+        per[key] = per.get(key, 0) + 1
+    except Exception:
+        pass
+
+
+def read_state_counts():
+    """``{kind: {state: 次数}}`` 快照，供 ``diagnostic_capture`` 并入诊断账本。"""
+    try:
+        return {kind: dict(states) for kind, states in _READ_STATES.items()}
+    except Exception:
+        return {}
+
+
 def _restore_backup(backup, path):
     """尽力把 ``.bak`` 拷回原路径；回滚本身失败返回 False（.bak 仍在盘上可人工恢复）。"""
     try:

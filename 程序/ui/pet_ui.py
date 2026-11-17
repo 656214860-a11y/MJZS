@@ -534,7 +534,9 @@ class Pet(PetBroadcastAliasesMixin, PetStagesMixin, PetSettingsMixin, PetVoiceMi
             return {}
 
     def _emit(self, kind, **payload):
-        return pet_bus.emit_safe(self.bus, self.errors, kind, **payload)
+        # D5-d/G7：终态事件自动带当前运行序号（与 Agent._emit 同一注入口径）。
+        return pet_bus.emit_safe(self.bus, self.errors, kind,
+                                 **pet_bus.with_current_run(self.bus, kind, payload))
 
 
 

@@ -149,6 +149,25 @@ def emit_safe(bus, errors, kind, **payload):
         return None
 
 
+def with_current_run(bus, kind, payload):
+    """终态事件自动补当前运行序号（D5-d/G7）：返回可直接展开给 ``emit`` 的负载。
+
+    只对 ``TERMINAL_EVENTS`` 且带 ``stage``、且调用方未显式传 ``run`` 的负载生效；
+    ``current_run`` 为 0（该阶段还没有登记过运行）时不注入，保持旧去重口径。
+    非终态事件与缺 ``stage`` 的终态事件（如 ``delivery.ready``）原样返回。
+    """
+    if bus is None or kind not in TERMINAL_EVENTS or 'run' in payload:
+        return payload
+    stage = payload.get('stage')
+    if not stage:
+        return payload
+    current = getattr(bus, 'current_run', None)
+    run = current(stage) if callable(current) else 0
+    if not run:
+        return payload
+    return dict(payload, run=run)
+
+
 def is_sheddable(kind):
     """这一条是不是「队列到水位时可以让路」的进度／汇总事件（见 SHEDDABLE_EVENTS）。"""
     return str(kind or '') in SHEDDABLE_EVENTS
@@ -176,7 +195,25 @@ class Bus:
         self._lock = threading.Lock()
         self._known = set()
         self._seen = []
+        self._run_seq = {}        # stage → 运行序号（D5-d：终态事件跨 run 不再互吞）
         self._subs = {}           # kind 或 '*' → [回调]
+
+    def begin_run(self, stage):
+        """登记某阶段新一轮运行，返回本轮序号（1 起，逐阶段独立递增）。
+
+        终态事件把它作为 ``run`` 进幂等键：同一 run 内重复上报仍去重，
+        用户再次点运行（序号 +1）后同文的完成／失败各自送达（G7/D5-d）。
+        """
+        key = str(stage or '')
+        with self._lock:
+            seq = self._run_seq.get(key, 0) + 1
+            self._run_seq[key] = seq
+        return seq
+
+    def current_run(self, stage):
+        """该阶段最近一次 ``begin_run`` 的序号；还没有登记过运行返回 0。"""
+        with self._lock:
+            return self._run_seq.get(str(stage or ''), 0)
 
     def subscribe(self, kind, callback):
         """订阅某类事件（'*' 表示全部）。返回回调，便于测试里直接引用。"""

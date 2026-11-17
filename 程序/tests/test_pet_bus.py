@@ -314,5 +314,127 @@ class EmitStatusTests(unittest.TestCase):
         self.assertEqual(errors, [])
 
 
+class RunSequencerTests(unittest.TestCase):
+    """D5-d/G7：Bus.begin_run/current_run 按阶段发运行序号；
+    with_current_run 只给终态事件注入当前 run，不碰进度类。"""
+
+    def test_begin_run_increments_per_stage(self):
+        bus = pet_bus.Bus()
+        self.assertEqual(bus.begin_run("video"), 1)
+        self.assertEqual(bus.begin_run("video"), 2)
+        self.assertEqual(bus.current_run("video"), 2)
+        self.assertEqual(bus.current_run("script"), 0)          # 未开跑的阶段为 0
+        self.assertEqual(bus.begin_run("script"), 1)            # 各阶段独立计数
+        self.assertEqual(bus.current_run("video"), 2)
+
+    def test_current_run_unknown_stage_is_zero(self):
+        bus = pet_bus.Bus()
+        self.assertEqual(bus.current_run("不存在"), 0)
+
+    def test_with_current_run_injects_terminal_only(self):
+        bus = pet_bus.Bus()
+        bus.begin_run("video")
+        payload = {"stage": "video", "error": "503"}
+        out = pet_bus.with_current_run(bus, "stage.failed", payload)
+        self.assertEqual(out["run"], 1)
+        self.assertNotIn("run", payload)                        # 原负载不被改写
+        live = {"stage": "video"}
+        self.assertIs(pet_bus.with_current_run(bus, "stage.executing", live), live)
+        self.assertNotIn("run", live)
+        no_stage = {"text": "你好"}
+        self.assertIs(pet_bus.with_current_run(bus, "notify.aggregate", no_stage), no_stage)
+
+    def test_with_current_run_keeps_explicit_run(self):
+        bus = pet_bus.Bus()
+        bus.begin_run("video")
+        out = pet_bus.with_current_run(bus, "stage.failed",
+                                       {"stage": "video", "error": "x", "run": 9})
+        self.assertEqual(out["run"], 9)
+
+    def test_with_current_run_no_run_started_leaves_payload(self):
+        bus = pet_bus.Bus()
+        payload = {"stage": "video", "error": "x"}
+        out = pet_bus.with_current_run(bus, "stage.failed", payload)
+        self.assertNotIn("run", out)                            # 没有当前运行则不造号
+
+
+class RunSequencerDeliveryTests(unittest.TestCase):
+    """D5-d：第二个失败运行让状态机离开旧结算；同 run 重复仍被压制。"""
+
+    def test_second_failed_run_delivers_again(self):
+        bus = pet_bus.Bus()
+        seen = []
+        bus.subscribe("*", seen.append)
+        bus.begin_run("video")
+        bus.emit("stage.failed", stage="video", error="503", run=bus.current_run("video"))
+        bus.begin_run("video")                                  # 第二次运行开始
+        bus.emit("stage.failed", stage="video", error="503", run=bus.current_run("video"))
+        bus.pump()
+        self.assertEqual(len(seen), 2)
+        self.assertEqual([item["run"] for item in seen], [1, 2])
+
+    def test_same_run_repeat_still_suppressed(self):
+        bus = pet_bus.Bus()
+        seen = []
+        bus.subscribe("*", seen.append)
+        bus.begin_run("video")
+        run = bus.current_run("video")
+        bus.emit("stage.failed", stage="video", error="503", run=run)
+        bus.emit("stage.failed", stage="video", error="503", run=run)
+        bus.pump()
+        self.assertEqual(len(seen), 1)
+        self.assertEqual(bus.dropped, 1)
+
+
+class AgentEmitRunTests(unittest.TestCase):
+    """D5-d：Agent._emit 自动注入当前运行号，UI/编排层不用各自记 run。"""
+
+    def test_agent_emit_terminal_carries_current_run(self):
+        import tempfile
+        bus = pet_bus.Bus()
+        with tempfile.TemporaryDirectory() as td:
+            import pet_agent
+            import pet_state
+            machine = pet_state.Machine(td, persist=False)
+            agent = pet_agent.Agent(project=td, bus=bus, machine=machine, persist=False)
+            bus.begin_run("video")
+            agent._emit("stage.failed", stage="video", error="503")
+            bus.pump()
+            item = bus.history[-1]
+            self.assertEqual(item["run"], 1)
+            self.assertEqual(item["kind"], "stage.failed")
+
+    def test_agent_emit_progress_has_no_run(self):
+        import tempfile
+        bus = pet_bus.Bus()
+        with tempfile.TemporaryDirectory() as td:
+            import pet_agent
+            import pet_state
+            machine = pet_state.Machine(td, persist=False)
+            agent = pet_agent.Agent(project=td, bus=bus, machine=machine, persist=False)
+            bus.begin_run("video")
+            agent._emit("stage.executing", stage="video")
+            bus.pump()
+            self.assertNotIn("run", bus.history[-1])
+
+    def test_second_run_failure_reaches_machine_again(self):
+        """同错文本第二个 run 的 stage.failed 必须再次送达订阅者（状态机可重走）。"""
+        import tempfile
+        import pet_agent
+        import pet_state
+        bus = pet_bus.Bus()
+        with tempfile.TemporaryDirectory() as td:
+            machine = pet_state.Machine(td, persist=False)
+            agent = pet_agent.Agent(project=td, bus=bus, machine=machine, persist=False)
+            delivered = []
+            bus.subscribe("stage.failed", delivered.append)
+            for _ in range(2):
+                bus.begin_run("video")
+                agent._emit("stage.failed", stage="video", error="503")
+                bus.pump()
+            self.assertEqual(len(delivered), 2)
+            self.assertEqual([item["run"] for item in delivered], [1, 2])
+
+
 if __name__ == "__main__":
     unittest.main()
