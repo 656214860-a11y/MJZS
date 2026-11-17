@@ -1,11 +1,6 @@
 {
  "说明": "外部技能包的来源、固定提交与内容树哈希；升级外部包时运行 scripts/skill_package_pins.py --update",
  "packages": {
-  "skills/00全流程SKILL/AIGC创作全流程": {
-   "source": "https://github.com/lixiaoxiao9888-create/manju-laoli-skill.git",
-   "commit": "1a43ae5a019d157eb3d45ad73e800081cb127763",
-   "tree": "d9a208042147179768f0a24dc54bdfbd5374a9e9"
-  },
   "skills/01 剧本准备SKILL/剧本锻造": {
    "source": "https://github.com/zhlmi/script-forging.git",
    "commit": "6c3d73994f456b696de536c86602b4022824a535",
