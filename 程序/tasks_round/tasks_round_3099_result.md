@@ -39,7 +39,7 @@
 - `allowed-tools` 映射词表取自内置层 `tools` 字段并集（L3 不反向依赖 L4 `skill_tools`）；外部包声明的未知工具名只进 `constraints` 提示。
 - 内置 SKILL 信任模型不变：`package_alerts`/`untrusted_source_notice` 只在外部导入路径触发，内置层不受影响。
 - `skill_package_meta` 无顶层 `skill_registry` 引用（`stage_from_path` 走 `skill_project_layer`），`skill_registry` re-export 保持 `skill_registry.imported_package_meta`/`IMPORTED_PACKAGE_FLAG`/`markdown_heading`/`markdown_summary` 调用面不变。
-- 提交状态：待 `dev.py commit`（本文件随提交入库）；commit hash 提交后回填。
+- 提交状态：已提交 `8a01b2da`；hash 回填随 R3127 文档批入库。
 - 未运行：`--all --safe` 全量（合入 master 前按 §5 触发补跑）。
 - 变更文件清单：`skill_security_service.py`（新）、`skill_package_meta.py`（新）、`skill_import_service.py`、`skill_registry.py`、`workflow_settings.py`、`skill_panel.py`、`skill_panel_import.py`、`skill_panel_support.py`、`pet_skills_manage.py`、`tests/test_skill_security.py`（新）、`tests/architecture/_layers.py`、`architecture.md`、`PROJECT_MAP.md`、`runbook.md`、`维护记录/覆盖率基线.json`、`tasks_round/tasks_round_3099_result.md`。
 - 遗留：无。
@@ -53,10 +53,10 @@
 - 测试缺口：恶意内容语义判定不在本轮范围（任务书排除）；项目层 `local-modified` 未纳入（项目文件归用户所有）。
 - 文档：`architecture.md`/`PROJECT_MAP.md`/`runbook.md` 已同步；用户向文档归 T10。
 - 结论：T9 验收项全部落地，待提交。
-- commit：PENDING
+- commit：8a01b2da（codex/wip-R3127 分支；领号切分支在先、提交落地在后）
 - 结果文件提交状态：已随本批提交（见 commit 行）。
 - 时间：2026-11-17。
 - 备注：堆叠分支 `test_round_number_continuous` 差值在 master 集成时随状态页更新消解。
-- commit hash：PENDING
+- commit hash：8a01b2da
 - 状态：待提交。
 - 结束。
