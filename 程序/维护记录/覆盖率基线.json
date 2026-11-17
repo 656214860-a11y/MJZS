@@ -61,6 +61,12 @@
    "percent": 0.0
   },
   {
+   "module": "api_endpoints.py",
+   "covered": 0,
+   "total": 4,
+   "percent": 0.0
+  },
+  {
    "module": "app.py",
    "covered": 0,
    "total": 1164,
@@ -285,7 +291,7 @@
   {
    "module": "continuity_ledger.py",
    "covered": 0,
-   "total": 488,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -1219,6 +1225,12 @@
    "percent": 0.0
   },
   {
+   "module": "infra/continuity_ledger.py",
+   "covered": 0,
+   "total": 488,
+   "percent": 0.0
+  },
+  {
    "module": "infra/diagnostic_capture.py",
    "covered": 0,
    "total": 107,
@@ -1327,6 +1339,12 @@
    "percent": 0.0
   },
   {
+   "module": "infra/ui_plugin_registry.py",
+   "covered": 0,
+   "total": 9,
+   "percent": 0.0
+  },
+  {
    "module": "infra/update_notice.py",
    "covered": 0,
    "total": 29,
@@ -1412,6 +1430,12 @@
   },
   {
    "module": "model_metering.py",
+   "covered": 0,
+   "total": 4,
+   "percent": 0.0
+  },
+  {
+   "module": "model_router.py",
    "covered": 0,
    "total": 4,
    "percent": 0.0
@@ -1904,6 +1928,12 @@
   },
   {
    "module": "project_naming.py",
+   "covered": 0,
+   "total": 4,
+   "percent": 0.0
+  },
+  {
+   "module": "project_settings.py",
    "covered": 0,
    "total": 4,
    "percent": 0.0
@@ -3129,7 +3159,7 @@
   {
    "module": "ui_plugin_registry.py",
    "covered": 0,
-   "total": 9,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -3367,7 +3397,7 @@
    "percent": 14.0
   },
   {
-   "module": "api_endpoints.py",
+   "module": "infra/api_endpoints.py",
    "covered": 52,
    "total": 366,
    "percent": 14.2
@@ -3475,7 +3505,7 @@
    "percent": 20.9
   },
   {
-   "module": "model_router.py",
+   "module": "infra/model_router.py",
    "covered": 137,
    "total": 646,
    "percent": 21.2
@@ -3601,7 +3631,7 @@
    "percent": 36.8
   },
   {
-   "module": "project_settings.py",
+   "module": "infra/project_settings.py",
    "covered": 30,
    "total": 77,
    "percent": 39.0
@@ -3788,5 +3818,5 @@
   }
  ],
  "modules_covered": 74,
- "modules_total": 629
+ "modules_total": 634
 }

@@ -16,7 +16,7 @@ import copy
 from agent.core import save
 from contract.pet_bus import STAGES, STAGE_NAMES, read_json
 
-import model_router
+import infra.model_router as model_router
 import contract.stage_layout as stage_layout
 import orchestrator.skill_registry as skill_registry
 

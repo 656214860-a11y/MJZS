@@ -5,7 +5,7 @@ from pathlib import Path
 
 import file_cache
 import model_pool
-import model_router
+import infra.model_router as model_router
 import orchestrator.skill_budget as skill_budget
 import orchestrator.stage_config as stage_config
 import orchestrator.stage_models as stage_models

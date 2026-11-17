@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 import writing_api
-from model_router import PoolAdapter
+from infra.model_router import PoolAdapter
 from test_writing_api import make_project
 
 

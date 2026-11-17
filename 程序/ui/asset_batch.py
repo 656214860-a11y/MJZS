@@ -7,7 +7,7 @@ from agent.core import read
 from infra.comfy_service import Comfy
 from stage_execution_service import remove_asset_batch_model as remove_model, save_asset_batch_settings as save_settings
 import infra.tk_timers as tk_timers
-import ui_plugin_registry
+import infra.ui_plugin_registry as ui_plugin_registry
 import orchestrator.stage_models as stage_models
 from responsive_ui import FlowBar, scroll_form
 from contract.platform_tools import open_target
@@ -58,7 +58,7 @@ def _prefs(path):
     这里故意用不缓存的读法：调用方会就地改这份字典再写回，共享缓存对象一旦被就地改，
     同一轮里其他读者就会看到还没保存的值。
     """
-    from project_settings import read_prefs
+    from infra.project_settings import read_prefs
     return read_prefs(path)
 
 

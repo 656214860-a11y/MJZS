@@ -12,7 +12,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import model_pool
-import model_router
+import infra.model_router as model_router
 import pet_llm
 
 

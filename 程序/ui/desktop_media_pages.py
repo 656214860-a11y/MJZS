@@ -9,7 +9,7 @@ import json
 import threading
 import contract.pet_bus as pet_bus
 import tkinter as tk
-import ui_plugin_registry
+import infra.ui_plugin_registry as ui_plugin_registry
 from agent.core import read
 from app import App
 import orchestrator.media_page_controller as media_logic
@@ -174,7 +174,7 @@ class MediaPagesMixin:
         return media_logic.continuity_folder(self.root)
     def write_continuity_ledger(self,ledger=None):
         """把台账落到 03_continuity（第 62 期任务 11：这一步成了独立的一页，清单由「手动生成」写）。"""
-        from continuity_ledger import write
+        from infra.continuity_ledger import write
         return write(self.root,self.continuity_ledger_data() if ledger is None else ledger)
     def generate_continuity_ledger(self,ledger=None):
         """生成连贯性清单：手动按钮与三虎自动链共用的唯一实现（落盘＋同步问题登记＋播报）。"""
@@ -817,7 +817,7 @@ class MediaPagesMixin:
             message=controller.assembled_message(path)
             if message:self.status.set(message)
         edit_buttons.append(edit_button('自动粗剪整集（跳过未验收镜头）',lambda:self.async_(assemble_all,assembled),primary=True))
-        import project_settings
+        import infra.project_settings as project_settings
         self.pet.auto_variable('auto_edit_var')
         self.pet.auto_variable('auto_handoff_var')
         edit_buttons.append(edit_button('整理剪映素材交接包',lambda:self.async_(self.handoff,self.media_page_services.open_path)))

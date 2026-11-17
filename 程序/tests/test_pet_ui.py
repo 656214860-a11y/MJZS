@@ -1616,7 +1616,7 @@ class FrameBatchSeamTests(unittest.TestCase):
         用户按下的按钮不受这份记忆影响，显式操作永远照做。
         """
         self.project_with_a_gap()
-        import project_settings
+        import infra.project_settings as project_settings
         project_settings.set_auto_keyframe(self.base, True)
         self.d.keyframe_settings = lambda: []
         self.d.batch_blockers = lambda source, pending: []
@@ -4562,7 +4562,7 @@ class DesktopPetSeamTests(unittest.TestCase):
 
     # ── 自动开始某一步（第 67 期任务 5）─────────────────────────────────────
     def test_it_opens_the_unattended_switch_then_starts_the_step(self):
-        import project_settings
+        import infra.project_settings as project_settings
         self.d.root = self.base
         self.d.auto.asset_due = 0
         self.assertIn("资产管理", self.d.pet_start("assets"))
@@ -4714,7 +4714,7 @@ class DesktopPetSeamTests(unittest.TestCase):
 
     def test_the_switch_table_covers_exactly_the_steps_with_a_poll(self):
         from desktop import PET_STAGE_POLL, UNATTENDED_SWITCH
-        import project_settings
+        import infra.project_settings as project_settings
         self.assertEqual(sorted(UNATTENDED_SWITCH), sorted(PET_STAGE_POLL.values()),
                          "每一个无人值守轮询都要配一把能打开它的开关")
         for name in UNATTENDED_SWITCH.values():

@@ -17,7 +17,7 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import ttk
 import pet_state
-import ui_plugin_registry
+import infra.ui_plugin_registry as ui_plugin_registry
 from ui.desktop_idea_attachments import IdeaAttachmentsMixin
 from ui.desktop_idea_deferred import IdeaDeferredMixin
 from ui.desktop_idea_send_gate import IdeaSendGateMixin

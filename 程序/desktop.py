@@ -22,7 +22,7 @@ from contract.storyboard_paths import media_root
 import tkinter as tk
 from tkinter import ttk, messagebox
 from agent.core import read,save,save_text,save_bytes
-import project_settings
+import infra.project_settings as project_settings
 from domain.projects import Projects, needs_cleanup_after_open_error, is_missing_storyboard_open_error
 from responsive_ui import FlowBar,ScrollForm,growable_extra,configure_check_column,refresh_check_heading,CheckboxColumn,fit_columns_by_content,auto_columns,bind_row_toggle,fit_row_height,row_height_for,bind_show_all
 from orchestrator.engine import approved_versions, review_label, adoption_summary
@@ -38,7 +38,7 @@ import pet_ui
 import ui.ui_usage_indicator as ui_usage_indicator
 import contract.project_stages as project_stages
 import tkinter as tk
-import ui_plugin_registry
+import infra.ui_plugin_registry as ui_plugin_registry
 import orchestrator.stage_handler_registry as stage_handler_registry
 from contract.platform_tools import find_editor_shortcut, launch_windows_app, open_directory, open_path, open_target, tcp_listener
 from orchestrator.desktop_startup_service import DesktopStartupController

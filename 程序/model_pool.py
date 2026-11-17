@@ -21,7 +21,7 @@ import infra.config_snapshot as config_snapshot, model_secrets, token_saver
 import infra.client_profiles as client_profiles
 from infra.model_metering import REPLAYABLE_RETRY_STATUS
 from agent.core import save
-from api_endpoints import configured_key, normalize_url, _http_error_kind, _request_headers, _retry_after_seconds, _decode_response_body, wait_for_rpm, elapsed_ms, _RateBucket, _http_opener, HTTP_USER_AGENT
+from infra.api_endpoints import configured_key, normalize_url, _http_error_kind, _request_headers, _retry_after_seconds, _decode_response_body, wait_for_rpm, elapsed_ms, _RateBucket, _http_opener, HTTP_USER_AGENT
 from contract.pet_bus import read_json
 
 PROGRAM = Path(__file__).resolve().parent
@@ -919,12 +919,12 @@ def http_transport(url, payload, headers, timeout):
 
 
 def _http_transport(url, payload, headers, timeout):
-    import api_endpoints as endpoints
+    import infra.api_endpoints as endpoints
     return endpoints._http_transport(url, payload, headers, timeout, opener=_http_opener)
 
 
 def http_stream(url, payload, headers, timeout, on_chunk, cancelled=None):
-    import api_endpoints as endpoints
+    import infra.api_endpoints as endpoints
     return endpoints.http_stream(url, payload, headers, timeout, on_chunk,
                                  cancelled=cancelled, opener=_http_opener)
 

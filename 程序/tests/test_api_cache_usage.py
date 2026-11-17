@@ -19,7 +19,7 @@ import urllib.response
 
 from infra import model_diagnostics
 import model_pool
-import model_router
+import infra.model_router as model_router
 import pet_llm
 import token_saver
 

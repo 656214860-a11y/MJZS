@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 import pet_ui
-import project_settings
+import infra.project_settings as project_settings
 import stage_flow
 
 

@@ -4,7 +4,7 @@
 ``PetSettingsMixin`` 获得；用到的模块级名字来自 ``pet_ui_support``。
 """
 import model_pool
-import model_router
+import infra.model_router as model_router
 import pet_agent
 import infra.token_saver as token_saver
 from contract.app_metadata import APP_NAME

@@ -16,7 +16,7 @@ import model_pool
 import infra.stage_model_value as stage_model_value
 import infra.token_saver as token_saver
 from file_cache import read_json
-from model_router import ModelAdapter, PoolAdapter
+from infra.model_router import ModelAdapter, PoolAdapter
 import domain.writing_tools as writing_tools
 import orchestrator.edit_habits as edit_habits, domain.workflow_context as workflow_context
 from orchestrator.writing_preparation_ledger import (PREPARATION_STAGES, _PREPARATION_STAGE_WORDS,

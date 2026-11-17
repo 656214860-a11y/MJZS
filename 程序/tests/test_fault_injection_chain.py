@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 
 import model_metering
-import model_router
+import infra.model_router as model_router
 from infra import request_ledger
 import stage_completion_service
 

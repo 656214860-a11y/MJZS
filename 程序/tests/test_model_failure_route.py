@@ -1,7 +1,7 @@
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
-import model_router as m
+import infra.model_router as m
 import contract.platform_tools as platform_tools
 
 class FailureRouteTests(unittest.TestCase):

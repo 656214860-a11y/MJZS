@@ -2,7 +2,7 @@
 """R2178 J10：授权 → 发送 → 结算的唯一序列，无 Tk、无网络。"""
 import unittest
 
-import model_router
+import infra.model_router as model_router
 import pet_llm
 from model_metering import metered, replayable_retry, submission_retryable
 

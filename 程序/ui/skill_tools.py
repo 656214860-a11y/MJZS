@@ -450,7 +450,7 @@ def _delivery_package(context):
 
 def _continuity_ledger(context):
     """连贯性台账：按当前分镜与资产清单现场算一份，落 03_continuity/output（本机跑得完）。"""
-    import continuity_ledger
+    import infra.continuity_ledger as continuity_ledger
     ctx = context or {}
     project = project_of(ctx)
     episode = episode_of(ctx)

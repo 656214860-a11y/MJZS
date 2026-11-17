@@ -32,5 +32,5 @@ def _prefs(path):
     if not path:return {}
     # 这里故意用不缓存的 agent.core.read：调用方（当前分镜、资产范围、视频模式）会就地改这份
     # 字典再写回，共享缓存对象一旦被就地改，同一轮里其他读者就会看到没保存的值。
-    from project_settings import read_prefs
+    from infra.project_settings import read_prefs
     return read_prefs(path)

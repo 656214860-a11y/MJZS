@@ -11,7 +11,7 @@ from typing import Callable
 import ui.asset_thumbs as asset_thumbs
 import contract.frame_checks as frame_checks
 import tkinter as tk
-import ui_plugin_registry
+import infra.ui_plugin_registry as ui_plugin_registry
 from agent.core import read
 from pathlib import Path
 from responsive_ui import CheckboxColumn, FlowBar, MIN_COL, bind_row_toggle, bind_space_toggle, configure_check_column, fit_columns_by_content, fit_row_height, refresh_request_width

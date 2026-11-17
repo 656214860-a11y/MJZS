@@ -17,7 +17,7 @@ from pathlib import Path
 
 import contract.artifact_schema as artifact_schema
 import model_pool
-import model_router
+import infra.model_router as model_router
 from infra.model_metering import chat_metered
 from pet_llm import RequestLedger
 from agent.core import save

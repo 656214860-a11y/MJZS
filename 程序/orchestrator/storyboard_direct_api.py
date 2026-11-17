@@ -108,7 +108,7 @@ class _Stopped(Exception):
 def _ask(batch, messages):
     """发一次请求；返回回复文本。取消、失败、被截断都抛出带原因的异常。"""
     import model_pool
-    from model_router import failure_policy, record_circuit_failure, record_circuit_success
+    from infra.model_router import failure_policy, record_circuit_failure, record_circuit_success
     from contract.workflow_context_budget import ensure_request_context
     ensure_request_context(batch.system + '\n'.join(str(m['content']) for m in messages), STAGE_LABEL,
                            context_limit=model_pool.context_length_of((batch.record or {}).get('context_length')) or None,

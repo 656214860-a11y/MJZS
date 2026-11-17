@@ -34,7 +34,7 @@ os.chdir(HERE)
 
 import codex_tasks
 import model_pool
-import model_router
+import infra.model_router as model_router
 import pet_agent
 import pet_llm
 import pet_settings_ui

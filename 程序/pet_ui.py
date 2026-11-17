@@ -39,7 +39,7 @@ from pathlib import Path
 from tkinter import TclError
 
 import model_pool
-import model_router
+import infra.model_router as model_router
 from contract.app_metadata import APP_NAME
 from infra.broadcaster import Broadcaster, PREFIX_PATTERNS
 import pet_agent

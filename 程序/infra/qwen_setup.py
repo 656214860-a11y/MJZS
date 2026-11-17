@@ -50,7 +50,7 @@ def load():
 
 def validate(value):
     value={k:str(value.get(k,'')).strip() for k in ('base_url','model','api_key')}
-    from api_endpoints import normalize_url
+    from infra.api_endpoints import normalize_url
     value['base_url']=normalize_url(value['base_url'])
     url=urlparse(value['base_url'])
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._:/-]{0,159}',value['model']):raise ValueError('请填写有效的模型 ID')

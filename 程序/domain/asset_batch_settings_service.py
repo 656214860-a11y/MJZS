@@ -2,7 +2,7 @@
 import logging
 from pathlib import Path
 
-from project_settings import read_prefs
+from infra.project_settings import read_prefs
 from contract.service_contract import SystemError, UserError, success
 
 LOGGER = logging.getLogger('asset_batch_settings_service')

@@ -8,7 +8,7 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.dirname(HERE))
 os.chdir(HERE)
 
-import continuity_ledger as cl
+import infra.continuity_ledger as cl
 import pet_agent
 import pet_state
 import stage_parallel as sp

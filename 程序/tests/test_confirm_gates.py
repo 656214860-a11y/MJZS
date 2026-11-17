@@ -13,7 +13,7 @@ sys.path.insert(0, HERE)
 os.chdir(HERE)
 
 from domain import confirm_gates as cg
-import continuity_ledger as cl
+import infra.continuity_ledger as cl
 from contract import shot_batches as sb
 import stage_layout
 

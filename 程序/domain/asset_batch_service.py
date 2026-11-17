@@ -331,7 +331,7 @@ def automatic_plan(project, base, sources, settings, scope='adopted', *, gateway
 
 def auto_settings(project=None, *, context=None):
     """Return persisted unattended asset-batch settings without constructing UI."""
-    from project_settings import read_prefs
+    from infra.project_settings import read_prefs
     prefs = read_prefs(_project_root(project, context=context) / 'ui_settings.json')
     saved = prefs.get('asset_batch', {})
     return dict(saved) if isinstance(saved, dict) else {}

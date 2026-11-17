@@ -11,7 +11,7 @@ import time
 import domain.asset_resume as asset_resume
 import ui.asset_thumbs as asset_thumbs
 import tkinter as tk
-import ui_plugin_registry
+import infra.ui_plugin_registry as ui_plugin_registry
 from agent.core import read
 from ui.desktop_auto_flows import ASSET_RETRY_LIMIT
 from pathlib import Path

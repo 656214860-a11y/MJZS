@@ -737,7 +737,7 @@ class PetStagesMixin:
         project = getattr(self.desktop, 'root', None)
         if project is None:
             return ()
-        import project_settings
+        import infra.project_settings as project_settings
         failures = []
         for key in project_settings.DEFAULTS:
             setter = getattr(project_settings, 'set_' + key, None)

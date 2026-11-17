@@ -19,9 +19,9 @@ from orchestrator.engine import review_label
 from domain.project_naming import dated_path
 from domain.video_task_state import assert_prompt_editable,prompt_locked,poll_delay,elapsed_text,submission_block_reason
 from ui.video_progress import snapshot as shared_video_snapshot,display as progress_display,summary as progress_summary,LABELS,status_detail
-import project_settings
+import infra.project_settings as project_settings
 import ui.asset_thumbs as asset_thumbs
-import ui_plugin_registry
+import infra.ui_plugin_registry as ui_plugin_registry
 from contract.platform_tools import open_path
 from ui_tokens import CHAR_WIDTH, TEXT_ROWS, WRAPLENGTH, COLORS, FONTS, SPACING
 from ui_widgets import (SelectBox, BaseDialog, Card, BusyState, ContextMenu, DataTable, LineInput, NotificationDispatcher,

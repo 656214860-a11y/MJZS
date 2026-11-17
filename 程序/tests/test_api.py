@@ -8,7 +8,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 os.chdir(HERE)
 
-import api_endpoints
+import infra.api_endpoints as api_endpoints
 from contract import api_models
 from agent.wan import WanAdapter
 from agent.volcengine import VolcengineAdapter
@@ -341,7 +341,7 @@ class IdentityTests(unittest.TestCase):
 class ProbeEndpointTests(unittest.TestCase):
     def test_http_success(self):
         from unittest.mock import patch
-        import api_endpoints
+        import infra.api_endpoints as api_endpoints
         class Resp:
             status = 200
             def __enter__(self): return self
@@ -352,7 +352,7 @@ class ProbeEndpointTests(unittest.TestCase):
 
     def test_http_auth_error_still_reachable(self):
         from unittest.mock import patch
-        import api_endpoints, urllib.error
+        import infra.api_endpoints as api_endpoints, urllib.error
         with patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError("https://x.com", 401, "Unauthorized", {}, None)):
             result = api_endpoints.probe_endpoint("https://x.com")
             self.assertTrue(result["reachable"])
@@ -360,7 +360,7 @@ class ProbeEndpointTests(unittest.TestCase):
 
     def test_connection_error_not_reachable(self):
         from unittest.mock import patch
-        import api_endpoints
+        import infra.api_endpoints as api_endpoints
         with patch("urllib.request.urlopen", side_effect=OSError("down")):
             self.assertFalse(api_endpoints.probe_endpoint("https://x.com")["reachable"])
 

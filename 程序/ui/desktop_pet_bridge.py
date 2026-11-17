@@ -66,7 +66,7 @@ class PetBridgeMixin:
         if stage=='keyframe':return self.pet_frame_batch(trigger=trigger)
         name=PET_STAGE_POLL.get(stage)
         if name is None:return ''
-        import project_settings, pet_bus
+        import infra.project_settings as project_settings, pet_bus
         turn_on=getattr(project_settings,UNATTENDED_SWITCH.get(name,''),None)
         if callable(turn_on):
             try:turn_on(self.root,True)

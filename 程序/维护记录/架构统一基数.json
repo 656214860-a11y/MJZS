@@ -841,13 +841,13 @@
         "reason": "网络响应解析"
       },
       {
-        "file": "continuity_ledger.py",
+        "file": "infra/continuity_ledger.py",
         "point": "retired:57949ef69504298e",
         "disposition": "migrated",
         "reason": "R826：发布后复核的 JSON 往返复制改用标准深拷贝。"
       },
       {
-        "file": "continuity_ledger.py",
+        "file": "infra/continuity_ledger.py",
         "point": "retired:15beceb9c5117f36",
         "disposition": "migrated",
         "reason": "R826：连贯性台账读取收口至 file_cache.read_json。"
@@ -889,13 +889,13 @@
         "reason": "R790：恢复记录读取改由 L3 idea_chat_gateway 注入 file_cache。"
       },
       {
-        "file": "api_endpoints.py",
+        "file": "infra/api_endpoints.py",
         "point": "_http_transport:json.loads:f891f1f7e56f5efa:1",
         "disposition": "exempt",
         "reason": "R828：HTTP 响应体 JSON 解析，不是文件读取；模型路由网络出口的响应解码。（R1706 行号平移 863→873，客户端档案路由插在其前）（R2470 代码迁移 model_pool→api_endpoints）"
       },
       {
-        "file": "api_endpoints.py",
+        "file": "infra/api_endpoints.py",
         "point": "http_stream:json.loads:5d808f6486f0d822:1",
         "disposition": "exempt",
         "reason": "R828：SSE data 事件 JSON 解析，不是文件读取；模型流式响应的事件解码。（R1706 行号平移 909→919，客户端档案路由插在其前）（R2470 代码迁移 model_pool→api_endpoints）"
@@ -1221,7 +1221,7 @@
         "reason": "R1394：MCP 桥子进程已收口到 platform_tools.run_process（模块级 import），TimeoutExpired／SubprocessError 异常类型不变。"
       },
       {
-        "file": "api_endpoints.py",
+        "file": "infra/api_endpoints.py",
         "point": "retired:92fa5842b1871567",
         "disposition": "exempt",
         "reason": "R797: network call is owned only by audit 26; it is not a process-adapter pending item."
@@ -1503,7 +1503,7 @@
         "reason": "R1395：download() 出站调用收口至 platform_tools.open_https；HTTPS 强制、重定向校验、1GB 上限与原子发布不变。"
       },
       {
-        "file": "api_endpoints.py",
+        "file": "infra/api_endpoints.py",
         "point": "retired:e83dcf351b1ff228",
         "disposition": "migrated",
         "reason": "R832：无凭据 HTTP 根地址探测收口至 platform_tools.probe_http_endpoint。"

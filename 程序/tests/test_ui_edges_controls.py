@@ -791,7 +791,7 @@ class UiEdgeControlsTests(UiEdgeCase):
         """工作集跟随当前选择的分镜：切换分镜或自动采用后，08 剪辑、自动粗剪和交付不能还按旧分镜执行。"""
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
-        import project_settings
+        import infra.project_settings as project_settings
         import desktop as desktop_module
         original = desktop_module.Desktop.choose_project
         desktop_module.Desktop.choose_project = lambda self: None

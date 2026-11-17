@@ -114,7 +114,7 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(self.opened, ['video'])
 
     def test_a_broken_config_panel_explains_the_failure(self):
-        import ui_plugin_registry
+        import infra.ui_plugin_registry as ui_plugin_registry
         original = ui_plugin_registry.module
         ui_plugin_registry.module = lambda *a, **k: (_ for _ in ()).throw(RuntimeError('面板不可用'))
         self.addCleanup(setattr, ui_plugin_registry, 'module', original)

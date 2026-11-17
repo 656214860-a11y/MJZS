@@ -214,8 +214,8 @@ def asset_impact(project, aid, *, episode_dir=''):
 
 def continuity_issue_report(project, ledger=None):
     """L3 门面：连贯性问题闭环视图（只读，不落盘）。"""
-    from continuity_ledger import issues, merge_issues, read_issues
-    from continuity_ledger import read as read_ledger
+    from infra.continuity_ledger import issues, merge_issues, read_issues
+    from infra.continuity_ledger import read as read_ledger
     data = ledger if isinstance(ledger, dict) and ledger else read_ledger(project)
     _register, rows = merge_issues(read_issues(project), issues(data))
     return rows
@@ -224,8 +224,8 @@ def continuity_issue_report(project, ledger=None):
 def sync_continuity_issues(project, ledger=None):
     """L3 门面：算一遍问题并落盘 03_continuity/output/continuity_issues.json。"""
     from agent.core import save
-    from continuity_ledger import read as read_ledger
-    from continuity_ledger import sync_issues
+    from infra.continuity_ledger import read as read_ledger
+    from infra.continuity_ledger import sync_issues
     data = ledger if isinstance(ledger, dict) and ledger else read_ledger(project)
     return sync_issues(project, data, publish=save)
 
@@ -233,7 +233,7 @@ def sync_continuity_issues(project, ledger=None):
 def decide_continuity_issue(project, issue_id, decision, reason='', by='人工'):
     """L3 门面：记一条问题的处理决定（忽略必须写理由）。"""
     from agent.core import save
-    from continuity_ledger import decide_issue
+    from infra.continuity_ledger import decide_issue
     return decide_issue(project, issue_id, decision, reason, by=by, publish=save)
 
 

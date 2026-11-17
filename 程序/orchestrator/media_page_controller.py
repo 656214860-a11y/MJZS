@@ -62,7 +62,7 @@ def ledger_shots(episode):
 
 def build_ledger(read_episode, read_assets):
     """现场算一份连贯性台账（只读，不落盘）：读不出分镜或资产清单时按空处理。"""
-    from continuity_ledger import build
+    from infra.continuity_ledger import build
     try:
         shots = ledger_shots(read_episode())
     except (ValueError, OSError):

@@ -205,7 +205,7 @@ class AdoptPendingTests(unittest.TestCase):
     def test_auto_adopt_switch_defaults_off(self):
         with tempfile.TemporaryDirectory() as td:
             proj = self.project(td)
-            import project_settings
+            import infra.project_settings as project_settings
             self.assertFalse(project_settings.auto_adopt(proj))
             self.assertTrue(project_settings.set_auto_adopt(proj, True))
             self.assertTrue(project_settings.auto_adopt(proj))
@@ -215,7 +215,7 @@ class AdoptPendingTests(unittest.TestCase):
     def test_auto_previs_switch_defaults_off(self):
         with tempfile.TemporaryDirectory() as td:
             proj = self.project(td)
-            import project_settings
+            import infra.project_settings as project_settings
             self.assertFalse(project_settings.auto_previs(proj))
             self.assertTrue(project_settings.set_auto_previs(proj, True))
             self.assertTrue(project_settings.auto_previs(proj))
@@ -226,7 +226,7 @@ class AdoptPendingTests(unittest.TestCase):
         """分镜定稿页自动生成定稿默认关闭：它会把工作稿移入回收站，必须由人显式勾选。"""
         with tempfile.TemporaryDirectory() as td:
             proj = self.project(td)
-            import project_settings
+            import infra.project_settings as project_settings
             self.assertFalse(project_settings.auto_final(proj))
             self.assertTrue(project_settings.set_auto_final(proj, True))
             self.assertTrue(project_settings.auto_final(proj))
@@ -236,7 +236,7 @@ class AdoptPendingTests(unittest.TestCase):
     def test_auto_handoff_switch_defaults_off(self):
         with tempfile.TemporaryDirectory() as td:
             proj = self.project(td)
-            import project_settings
+            import infra.project_settings as project_settings
             self.assertFalse(project_settings.auto_handoff(proj))
             self.assertTrue(project_settings.set_auto_handoff(proj, True))
             self.assertTrue(project_settings.auto_handoff(proj))

@@ -752,16 +752,16 @@ def assets_locked(project):
 def ledger_ready(project):
     """SG-02：连贯性台账已生成、没有未裁决的待办（被人工忽略的问题不再拦）。"""
     row = gate_for('final')
-    from continuity_ledger import ledger_path
-    from continuity_ledger import open_problems
-    from continuity_ledger import read as read_ledger
+    from infra.continuity_ledger import ledger_path
+    from infra.continuity_ledger import open_problems
+    from infra.continuity_ledger import read as read_ledger
     try:
         ledger = read_ledger(project)
     except Exception as exc:
         return _result(row, True, False, '连贯性台账读不出来，先不拦：%s' % exc)
     if not isinstance(ledger, dict) or not ledger:
         return _result(row, True, False, '连贯性台账还没生成（这一步还没做），先不拦')
-    from continuity_ledger import stale_reason
+    from infra.continuity_ledger import stale_reason
     artifact = ledger_path(project)
     stale = stale_reason(ledger, _current_shots(project))
     if stale:

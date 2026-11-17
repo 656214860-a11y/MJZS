@@ -188,7 +188,7 @@ class _CloudSettingsWindow:
             if self.desktop.root!=self.project:raise ValueError('当前项目已切换，请关闭设置后在对应项目重新打开')
             if self.desktop.worker or (self.desktop.video and self.desktop.video.busy):raise ValueError('当前任务尚未结束，请稍后保存')
             kind,expected,_,key_env=PROVIDERS[self.provider.get()]
-            from api_endpoints import normalize_url
+            from infra.api_endpoints import normalize_url
             base=normalize_url(self.entries['base'].get());model=self.entries['model'].get().strip()
             if not model:raise ValueError('请填写已开通的模型ID')
             limit=int(self.entries['budget'].get());key=self.entries['key'].get().strip() or saved_provider_key(self.project,kind,self.remembered,base)
@@ -239,7 +239,7 @@ class _CloudSettingsWindow:
         except (ValueError,OSError) as e:notify(self.win, str(e), level='error', title='云端设置', status=self.desktop.status)
 
     def probe_endpoint_now(self):
-        from api_endpoints import normalize_url, probe_endpoint
+        from infra.api_endpoints import normalize_url, probe_endpoint
         try:base=normalize_url(self.entries['base'].get())
         except ValueError as exc:self.probe_status.set(str(exc));return
         self.probe_status.set('检测中…')

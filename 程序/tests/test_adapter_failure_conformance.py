@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import unittest
 
-import model_router as m
+import infra.model_router as m
 
 
 def _transport(payload):

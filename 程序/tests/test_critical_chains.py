@@ -163,7 +163,7 @@ class ModelRequestChainTests(unittest.TestCase):
                          'message': {'content': '正文结果', 'reasoning_content': '思考'}}]}}
 
     def adapter(self):
-        from model_router import GPTAdapter
+        from infra.model_router import GPTAdapter
         return GPTAdapter(program=self.root, transport=self.transport, key='sk-test')
 
     def test_chat_sends_frozen_snapshot_without_leaking_key(self):

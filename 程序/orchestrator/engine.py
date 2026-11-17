@@ -10,7 +10,7 @@ from contract.storyboard_paths import media_root, is_cloud_workspace, project_ro
 from agent.core import read, save, save_text, fingerprint, file_hash, download, command, replace, temporary_path
 from agent.wan import WanAdapter, ArkRejected
 from agent.media import check, probe
-import project_settings
+import infra.project_settings as project_settings
 from domain.project_naming import dated_path
 from orchestrator.legacy_compat import resolved_storyboard_alias
 import contract.pet_bus as pet_bus
@@ -400,7 +400,7 @@ class Studio:
         return max(0,self.cfg.get('budget_seconds',0)-self.cfg.get('reserve_seconds',0)-self.used())
 
     def client(self):
-        from api_endpoints import configured_key
+        from infra.api_endpoints import configured_key
         configured_key(self.cfg)
         return self.factory(self.cfg)
 

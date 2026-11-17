@@ -24,7 +24,7 @@ sys.path.insert(0, PROGRAM)
 sys.path.insert(1, HERE)
 os.chdir(PROGRAM)
 
-import model_router
+import infra.model_router as model_router
 import stage_config
 import stage_model_value
 

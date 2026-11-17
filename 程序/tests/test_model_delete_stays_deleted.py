@@ -6,7 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import model_pool
-import model_router
+import infra.model_router as model_router
 import skill_panel_support
 import stage_config
 from pet_ui_settings import PetSettingsMixin
