@@ -1,0 +1,15 @@
+{
+  "round": 3220,
+  "commit_base": "89987d28",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k http_client platform_tools open_https_redirect http_boundary outbound_http_authority module_size_ratchet",
+    "exit": 0,
+    "passed": 63,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T22:12:52"
+}

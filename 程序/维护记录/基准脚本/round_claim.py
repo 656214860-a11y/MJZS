@@ -311,7 +311,7 @@ def require_branch(root: Path = ROOT) -> None:
         common = git_common_dir(root)
         number = max(read_counter(common / COUNTER_NAME),
                      latest_result_round(root / "程序" / "tasks_round")) + 1
-        raise RuntimeError("拒绝领取轮次：detached HEAD。先执行 git switch -c codex/R%s-main，再领取轮次；"
+        raise RuntimeError("拒绝领取轮次：detached HEAD。先执行 git switch -c codex/r%s-main，再领取轮次；"
                            "main 可替换为车道名。" % number)
 
 
@@ -324,7 +324,7 @@ def require_clean_checkout(root: Path = ROOT) -> None:
     dirty = [line for line in result.stdout.splitlines() if line.strip()]
     if dirty:
         raise RuntimeError("拒绝领取轮次：当前工作树有未提交改动，可能与本轮文件重叠。"
-                           "先执行 git switch -c codex/wip-R<轮次> 保存 WIP，再领取轮次；"
+                           "先执行 git switch -c codex/wip-r<轮次> 保存 WIP，再领取轮次；"
                            "脏文件：%s" % ", ".join(dirty))
 
 
@@ -342,16 +342,26 @@ def require_master_not_dirty(root: Path = ROOT) -> None:
                            "脏文件：%s" % (head.stdout.strip(), ", ".join(dirty)))
 
 
-def park_dirty_checkout(number: int, root: Path = ROOT) -> str | None:
-    """脏树领号：领到号后立刻 ``git switch -c codex/wip-R<号>``，改动随切换原样带走。
+def validate_new_branch(branch: str) -> str:
+    """只校验将要新建的分支；已检出的历史工作树不追溯、不重命名。"""
+    if re.fullmatch(r"codex/[a-z0-9]+(?:-[a-z0-9]+)*", branch) is None:
+        raise RuntimeError("新建分支名必须为 codex/<lowercase-kebab-task>：%r" % branch)
+    return branch
 
-    以前直接拒绝，而轮次号要领到才知道分支名，调用方只能手工备份再还原。
-    返回新分支名；工作树干净或切换失败（分支已存在等）返回 None。
+
+def park_dirty_checkout(number: int, root: Path = ROOT) -> str | None:
+    """旧非 codex 脏树领号后停泊到 ``codex/wip-r<号>``；已有 codex 车道保持原样。
+
+    返回新分支名；已有 codex 分支、工作树干净或切换失败时返回 None。
     """
+    head = subprocess.run(["git", "-C", str(root), "symbolic-ref", "--quiet", "--short", "HEAD"],
+                          capture_output=True, text=True)
+    if head.stdout.strip().startswith("codex/"):
+        return None
     status = subprocess.run(["git", "-C", str(root), "status", "--porcelain"], capture_output=True, text=True)
     if status.returncode or not status.stdout.strip():
         return None
-    branch = "codex/wip-R%s" % number
+    branch = validate_new_branch("codex/wip-r%s" % number)
     switched = subprocess.run(["git", "-C", str(root), "switch", "-c", branch], capture_output=True, text=True)
     if switched.returncode:
         print("未能自动切到 %s：%s" % (branch, switched.stderr.strip()), file=sys.stderr)
@@ -516,7 +526,8 @@ def ensure_hooks(common_dir: Path) -> list[str]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=False)
-    subparsers.add_parser("next", help="领取下一个轮次号")
+    next_parser = subparsers.add_parser("next", help="领取下一个轮次号")
+    next_parser.add_argument("--branch", help="领号前新建并切换到 codex/<lowercase-kebab-task> 分支")
     subparsers.add_parser("lanes", help="车道注册表 lanes.json：owner/role/last_seen")
     for command in ("show", "validate"):
         sub = subparsers.add_parser(command)
@@ -539,16 +550,31 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--queue 必须指向 Git common-dir/maintenance-queue.json；禁止编辑工作树快照")
     if args.command in (None, "next"):
         try:
+            # 校验新名先于领号、切分支及登记；现存分支无须迁移名称。
+            branch = getattr(args, "branch", None)
+            if branch is not None:
+                validate_new_branch(branch)
             # 主树脚本从其他工作树调用时，也必须检查实际 cwd 所在树。
             require_branch(Path.cwd())
             require_master_not_dirty(Path.cwd())
             require_worktree_fresh(Path.cwd())
+            if branch is not None:
+                switched = subprocess.run(["git", "-C", str(Path.cwd()), "switch", "-c", branch],
+                                          capture_output=True, text=True)
+                if switched.returncode:
+                    raise RuntimeError("无法新建分支 %s：%s" % (branch, switched.stderr.strip()))
         except (RuntimeError, subprocess.CalledProcessError) as error:
             print(str(error), file=sys.stderr)
             return 2
         number = claim_next(common_dir=common_dir, tasks_round=PROGRAM / "tasks_round",
                             root=ROOT, claimant_dir=Path.cwd())
-        park_dirty_checkout(number, Path.cwd())
+        if park_dirty_checkout(number, Path.cwd()):
+            entry = record_claim(common_dir=common_dir, number=number, claimant_dir=Path.cwd())
+            try:
+                import lane_registry
+                lane_registry.register(Path.cwd(), common_dir, owner=str(entry.get("worktree", "")))
+            except Exception:
+                pass  # 与 claim_next 一致：车道观测失败不阻断已完成的领号
         ensure_hooks(common_dir)
         print(number)
     elif args.command in ("show", "validate"):
