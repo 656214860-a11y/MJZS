@@ -955,12 +955,6 @@
    "percent": 0.0
   },
   {
-   "module": "edit_habits_dialog.py",
-   "covered": 0,
-   "total": 112,
-   "percent": 0.0
-  },
-  {
    "module": "edit_service.py",
    "covered": 0,
    "total": 4,
@@ -1070,12 +1064,6 @@
   },
   {
    "module": "idea_document_paths.py",
-   "covered": 0,
-   "total": 4,
-   "percent": 0.0
-  },
-  {
-   "module": "idea_script_heuristic.py",
    "covered": 0,
    "total": 4,
    "percent": 0.0
@@ -1315,12 +1303,6 @@
    "percent": 0.0
   },
   {
-   "module": "model_protocol.py",
-   "covered": 0,
-   "total": 2,
-   "percent": 0.0
-  },
-  {
    "module": "native_apps.py",
    "covered": 0,
    "total": 83,
@@ -1531,12 +1513,6 @@
    "percent": 0.0
   },
   {
-   "module": "orchestrator/stage_contract_report.py",
-   "covered": 0,
-   "total": 10,
-   "percent": 0.0
-  },
-  {
    "module": "orchestrator/stage_exec.py",
    "covered": 0,
    "total": 117,
@@ -1546,12 +1522,6 @@
    "module": "orchestrator/stage_handler_registry.py",
    "covered": 0,
    "total": 120,
-   "percent": 0.0
-  },
-  {
-   "module": "orchestrator/storyboard_catalog.py",
-   "covered": 0,
-   "total": 6,
    "percent": 0.0
   },
   {
@@ -1747,12 +1717,6 @@
    "percent": 0.0
   },
   {
-   "module": "pet_settings_contract.py",
-   "covered": 0,
-   "total": 2,
-   "percent": 0.0
-  },
-  {
    "module": "pet_settings_ui.py",
    "covered": 0,
    "total": 507,
@@ -1873,12 +1837,6 @@
    "percent": 0.0
   },
   {
-   "module": "project_settings_dialog.py",
-   "covered": 0,
-   "total": 5,
-   "percent": 0.0
-  },
-  {
    "module": "project_stages.py",
    "covered": 0,
    "total": 2,
@@ -1960,12 +1918,6 @@
    "module": "responsive_ui.py",
    "covered": 0,
    "total": 543,
-   "percent": 0.0
-  },
-  {
-   "module": "script_brief.py",
-   "covered": 0,
-   "total": 2,
    "percent": 0.0
   },
   {
@@ -2083,12 +2035,6 @@
    "percent": 0.0
   },
   {
-   "module": "shot_selection.py",
-   "covered": 0,
-   "total": 2,
-   "percent": 0.0
-  },
-  {
    "module": "skill_budget.py",
    "covered": 0,
    "total": 4,
@@ -2179,27 +2125,9 @@
    "percent": 0.0
   },
   {
-   "module": "stage_animatic_gateways.py",
-   "covered": 0,
-   "total": 4,
-   "percent": 0.0
-  },
-  {
-   "module": "stage_asset_gateways.py",
-   "covered": 0,
-   "total": 4,
-   "percent": 0.0
-  },
-  {
    "module": "stage_completion_service.py",
    "covered": 0,
    "total": 664,
-   "percent": 0.0
-  },
-  {
-   "module": "stage_contract_report.py",
-   "covered": 0,
-   "total": 4,
    "percent": 0.0
   },
   {
@@ -2215,19 +2143,7 @@
    "percent": 0.0
   },
   {
-   "module": "stage_gate_gateways.py",
-   "covered": 0,
-   "total": 4,
-   "percent": 0.0
-  },
-  {
    "module": "stage_handler_registry.py",
-   "covered": 0,
-   "total": 4,
-   "percent": 0.0
-  },
-  {
-   "module": "stage_handoff_gateways.py",
    "covered": 0,
    "total": 4,
    "percent": 0.0
@@ -2251,31 +2167,7 @@
    "percent": 0.0
   },
   {
-   "module": "stage_previs_gateways.py",
-   "covered": 0,
-   "total": 4,
-   "percent": 0.0
-  },
-  {
-   "module": "stage_publication.py",
-   "covered": 0,
-   "total": 4,
-   "percent": 0.0
-  },
-  {
    "module": "stage_workspace_service.py",
-   "covered": 0,
-   "total": 4,
-   "percent": 0.0
-  },
-  {
-   "module": "stage_write_preparation_service.py",
-   "covered": 0,
-   "total": 4,
-   "percent": 0.0
-  },
-  {
-   "module": "store_program_locator.py",
    "covered": 0,
    "total": 4,
    "percent": 0.0
@@ -2288,12 +2180,6 @@
   },
   {
    "module": "storyboard_adoption_service.py",
-   "covered": 0,
-   "total": 4,
-   "percent": 0.0
-  },
-  {
-   "module": "storyboard_catalog.py",
    "covered": 0,
    "total": 4,
    "percent": 0.0
@@ -2785,12 +2671,6 @@
    "percent": 0.0
   },
   {
-   "module": "white_model_persistence_controller.py",
-   "covered": 0,
-   "total": 4,
-   "percent": 0.0
-  },
-  {
    "module": "white_model_ref.py",
    "covered": 0,
    "total": 89,
@@ -2878,12 +2758,6 @@
    "module": "writing_page_controller.py",
    "covered": 0,
    "total": 32,
-   "percent": 0.0
-  },
-  {
-   "module": "writing_preparation_ledger.py",
-   "covered": 0,
-   "total": 4,
    "percent": 0.0
   },
   {
@@ -3338,5 +3212,5 @@
   }
  ],
  "modules_covered": 71,
- "modules_total": 554
+ "modules_total": 533
 }
