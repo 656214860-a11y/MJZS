@@ -3221,8 +3221,20 @@
    "covered": 0,
    "total": 127,
    "percent": 0.0
+  },
+  {
+   "module": "domain/hitl.py",
+   "covered": 0,
+   "total": 79,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/ui_hitl.py",
+   "covered": 0,
+   "total": 41,
+   "percent": 0.0
   }
  ],
  "modules_covered": 71,
- "modules_total": 535
+ "modules_total": 537
 }
