@@ -172,18 +172,29 @@ class FilesPanelTests(unittest.TestCase):
         d.files_panel.project_changed(); self.pump(.05)
         self.assertEqual(d.files_panel._panel_root, root)
 
+    def file_items(self):
+        tree = self.desktop.script_tree
+        def leaves(parent=''):
+            for item in tree.get_children(parent):
+                children = tree.get_children(item)
+                if children:
+                    yield from leaves(item)
+                elif not str(item).startswith('stage-group:'):
+                    yield item
+        return list(leaves())
+
     def test_open_panel_lists_project_files(self):
         """打开面板后四类准备文件经渐进批次进入同一条列表。"""
         d = self.desktop
         d.show(PAGE['script']); self.pump(.2)
         d.files_panel.open_panel()
         deadline = time.monotonic() + 5
-        while time.monotonic() < deadline and len(d.script_tree.get_children()) < 4:
+        while time.monotonic() < deadline and len(self.file_items()) < 4:
             self.pump(.05)
-        self.assertGreaterEqual(len(d.script_tree.get_children()), 4, '四类文件都进列表')
+        self.assertGreaterEqual(len(self.file_items()), 4, '分组视图中四类文件都进列表')
         self.assertTrue(d.script_box.winfo_ismapped())
         self.assertEqual(str(d.script_title.cget('text')), '项目文件')
-        names = [d.script_tree.item(item, 'values')[0] for item in d.script_tree.get_children()]
+        names = [d.script_tree.item(item, 'values')[0] for item in self.file_items()]
         for expected in ('项目设定_样例.md', '项目大纲_样例.md', '角色卡_样例.md', '项目剧本_样例.md'):
             self.assertTrue(any(expected in name for name in names), expected + ' 应出现在列表')
 
@@ -214,11 +225,13 @@ class FilesPanelTests(unittest.TestCase):
             deadline = time.monotonic() + 5
             while time.monotonic() < deadline and not any(
                     long_name in d.script_tree.item(i, 'values')[0]
-                    for i in d.script_tree.get_children()):
+                    for i in self.file_items()):
                 self.pump(.05)
             self.pump(.3)   # 等 finish() 里的 _fit_script_width 落定
-            children = d.script_tree.get_children()
-            self.assertTrue(children, '列表应有行')
+            children = self.file_items()
+            self.assertTrue(children, '列表应有文件行')
+            self.assertTrue(any(long_name in d.script_tree.item(i, 'values')[0] for i in children),
+                            '最长文件须实际加载后才能检查宽度')
             values = [str(d.script_tree.item(i, 'values')[0]) for i in children]
             font = tkfont.Font(root=d.win, font=('Microsoft YaHei UI', 9))
             needed = max(font.measure(v) for v in values) + SCRIPT_CELL_OVERHEAD
@@ -232,17 +245,18 @@ class FilesPanelTests(unittest.TestCase):
             # reqwidth 会锁成当时分配宽，靠 script_list.grid_propagate(False) 隔离。
             from infra.storage_maintenance import recycle_paths
             recycle_paths(d.root, [target / long_name], '删除项目剧本')
-            d.files_panel.fill_script_list()
+            d.files_panel.refresh_file_index()
             deadline = time.monotonic() + 5
             while time.monotonic() < deadline and any(
                     long_name in d.script_tree.item(i, 'values')[0]
-                    for i in d.script_tree.get_children()):
+                    for i in self.file_items()):
                 self.pump(.05)
             self.pump(.5)   # 等 finish() 里的 _fit_script_width 与几何重排落定
             self.assertNotIn(long_name, [d.script_tree.item(i, 'values')[0]
-                                         for i in d.script_tree.get_children()])
+                                         for i in self.file_items()])
             self.assertLess(d.script_box.winfo_width(), wide_w - 40,
-                            '删除最长名后面板宽应回落')
+                            '删除最长名后面板宽应回落：' + repr([
+                                d.script_tree.item(i, 'values') for i in self.file_items()]))
         finally:
             (target / long_name).unlink(missing_ok=True)
             d.files_panel.collapse(); self.pump(.1)

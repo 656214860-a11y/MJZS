@@ -7,7 +7,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 import logging
+import os
 import re
+import stat
 from contract.service_contract import SystemError, UserError, success
 
 import contract.project_stages as project_stages
@@ -354,9 +356,13 @@ def renamed_script_path(project, source_path, requested_name):
     这里不再另写一套简化校验。
     """
     from contract.file_naming import validate as validate_file_name
+    _plain_project_path(project, source_path)
     source = selected_script_paths(project, [source_path], require_files=True)[0]
     name = validate_file_name(requested_name)
     target = source.with_name(name)
+    _plain_project_path(project, target)
+    if source.suffix.lower() != target.suffix.lower():
+        raise ValueError('改名不能更改扩展名，请保留原文件格式：' + source.suffix)
     if target == source:
         return source
     if target.exists():
@@ -364,22 +370,111 @@ def renamed_script_path(project, source_path, requested_name):
     return target
 
 
-def _rename_file(source, target):
-    """原子改名：走 ``agent.core.replace`` 并同步失效源路径缓存。
+def _plain_project_path(project, path):
+    """保留词法路径检查每个祖先，拒绝包括内部跳转在内的 reparse point。"""
+    root, path = Path(os.path.abspath(project)), Path(os.path.abspath(path))
+    if not path.is_relative_to(root):
+        raise ValueError('只能操作当前项目内的文件')
+    for part in (path, *path.parents):
+        try:
+            info = part.lstat()
+        except FileNotFoundError:
+            continue
+        if stat.S_ISLNK(info.st_mode) or getattr(info, 'st_file_attributes', 0) & 0x400:
+            raise ValueError('路径包含符号链接或目录联接，无法安全改名：' + str(part))
+    return path
 
-    R3110（任务书 P2，Q24-2）：原实现是裸 ``Path.rename``——绕过原子替换、不通知
-    ``file_cache``。索引更新另行处理（索引是缓存，失败不回滚改名）。
-    R3153：物理改名失败必须留下 ERROR 日志（既有契约：失败路径可追溯），再交给上层
-    统一转成 SystemError 文案。
-    """
-    from agent.core import replace as replace_file
-    from infra.file_cache import invalidate
+
+def _rename_file(source, target):
+    """排他发布完整正文；不能使用会覆盖竞争目标的 replace/rename。"""
     try:
-        replace_file(source, target)
+        os.link(source, target)
     except OSError:
         LOGGER.exception('剧本文档重命名失败：%s -> %s', source, target)
         raise
-    invalidate(source)
+
+
+def _rename_references(project, source, target):
+    """只更正已知路径字段；其他 JSON 中命中源路径则停止，不猜测其语义。"""
+    from contract.stage_path_service import read_dirs
+    from contract.script_contract import natural_script_selection_path
+    from infra.file_cache import read_json
+    root = Path(project).absolute()
+    selection = natural_script_selection_path(root)
+    stages = tuple(read_dirs(root, 'script'))
+    known = {folder / 'preparation_state.json': folder for folder in stages}
+    known[selection] = root
+    paths = set(known) | set(root.glob('*.json'))
+    for folder in stages:
+        _plain_project_path(root, folder)
+        for directory, children, files in os.walk(folder, followlinks=False):
+            children[:] = [name for name in children
+                           if not Path(directory, name).is_symlink()
+                           and not getattr(Path(directory, name), 'is_junction', lambda: False)()]
+            paths.update(Path(directory, name) for name in files if name.endswith('.json'))
+    updates = []
+    for path in sorted(paths):
+        if not path.exists():
+            continue
+        _plain_project_path(root, path)
+        try:
+            payload = read_json(path)
+        except (ValueError, UnicodeError) as exc:
+            raise ValueError('引用记录无法读取，请修复后再改名：' + path.name) from exc
+        if not isinstance(payload, (dict, list)) or (path in known and not isinstance(payload, dict)):
+            raise ValueError('引用记录无法读取，请修复后再改名：' + path.name)
+        base = known.get(path, root)
+        changed = _rewrite_source_refs(payload, path, base, source, target, selection, (root, *stages))
+        if changed:
+            updates.append((path, payload))
+    return updates
+
+
+def _rewrite_source_refs(payload, record, base, source, target, selection, reference_bases):
+    supported = {('path',)} if record == selection else set()
+    if record.name == 'preparation_state.json' and record.parent in reference_bases[1:]:
+        for prefix, box in (((), payload), (('revision',), payload.get('revision', {}))):
+            if isinstance(box, dict):
+                for index, _ in enumerate(box.get('documents') or ()):
+                    supported.add(prefix + ('documents', index, 'path'))
+        supported.add(('revision', 'source_path'))
+        for index, _ in enumerate(payload.get('snapshots') or ()):
+            supported.add(('snapshots', index, 'path'))
+    changed = False
+    def visit(value, trail=()):
+        nonlocal changed
+        if isinstance(value, (dict, list)):
+            for key, item in (value.items() if isinstance(value, dict) else enumerate(value)):
+                if isinstance(item, (dict, list)):
+                    visit(item, trail + (key,))
+                elif isinstance(item, str) and item:
+                    candidate = Path(item.replace('\\', '/'))
+                    bases = (base,) if trail + (key,) in supported else (*reference_bases, source.parent)
+                    if not any(Path(os.path.abspath(parent / candidate)) == source for parent in bases):
+                        continue
+                    if trail + (key,) not in supported:
+                        raise ValueError('发现无法安全更正的引用，请先解除引用：' + record.name
+                                         + ' / ' + '.'.join(map(str, trail + (key,))))
+                    value[key] = (str(target) if candidate.is_absolute()
+                                  else target.relative_to(base).as_posix())
+                    changed = True
+    visit(payload)
+    return changed
+
+
+def _rename_transaction(project, source, target):
+    from agent.core import rename_with_references
+
+    def prepare():
+        _plain_project_path(project, source)
+        _plain_project_path(project, target)
+        return _rename_references(project, source, target)
+
+    try:
+        rename_with_references(source, target, prepare)
+    except BaseException:
+        LOGGER.exception('剧本文档重命名失败：%s -> %s', source, target)
+        raise
 
 
 def rename_script_document(project, source_path, requested_name):
@@ -387,6 +482,7 @@ def rename_script_document(project, source_path, requested_name):
     try:
         try:
             source = selected_script_paths(project, [source_path], require_files=True)[0]
+            _plain_project_path(project, source_path)
             target = renamed_script_path(project, source, requested_name)
         except ValueError as exc:
             if isinstance(exc.__cause__, OSError):
@@ -395,12 +491,44 @@ def rename_script_document(project, source_path, requested_name):
             LOGGER.error('剧本文档重命名被拒绝：%s', exc)
             return UserError(str(exc))
         if target != source:
-            _rename_file(source, target)
+            _rename_transaction(project, source, target)
             _update_index_after_rename(project, source, target)
-    except OSError:
+    except ValueError as exc:
+        LOGGER.warning('剧本文档重命名被拒绝：%s', exc)
+        return UserError(str(exc))
+    except FileExistsError:
+        return UserError('目标文件名已存在：' + target.name)
+    except (OSError, RuntimeError):
         LOGGER.exception('剧本文档重命名失败')
         return SystemError('剧本文档重命名失败：目标文件可能正被其他程序占用，或当前账号没有权限。')
     return success(target)
+
+
+def rename_project_file(project, source_path, requested_name):
+    """任意项目文件的安全改名；未知引用明确阻止，不静默破坏采用状态。"""
+    from contract.file_naming import validate as validate_file_name
+    try:
+        source = _plain_project_path(project, source_path)
+        if not source.is_file():
+            return UserError('所选文件缺失或已移动，请刷新后重试')
+        target = source.with_name(validate_file_name(requested_name))
+        _plain_project_path(project, target)
+        if target.suffix.lower() != source.suffix.lower():
+            return UserError('改名不能更改扩展名，请保留原文件格式：' + source.suffix)
+        if target == source:
+            return success(source)
+        if target.exists():
+            return UserError('目标文件名已存在：' + target.name)
+        _rename_transaction(project, source, target)
+        _update_index_after_rename(project, source, target)
+        return success(target)
+    except FileExistsError:
+        return UserError('目标文件名已存在，请刷新后重试')
+    except ValueError as exc:
+        return UserError(str(exc))
+    except (OSError, RuntimeError):
+        LOGGER.exception('项目文件重命名失败')
+        return SystemError('项目文件重命名失败，请关闭占用该文件的程序后重试。')
 
 
 def _update_index_after_rename(project, source, target):
@@ -408,5 +536,5 @@ def _update_index_after_rename(project, source, target):
     try:
         from infra import file_index
         file_index.update(project, [source, target])
-    except (OSError, ValueError):
+    except Exception:
         LOGGER.debug('改名后索引未更新，等待下次重建', exc_info=True)

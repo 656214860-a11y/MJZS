@@ -48,7 +48,7 @@
 ## 4. 全量欠账与绿色凭据
 
 - 规则：主干提交序列里累计 **8 个改过源码的轮次**（R2538 起曾为 5、R3169 起回 8：高并发期全量实测 600–1100 秒，用户拍板降频；批次 3 基线显示 7 天内被修复的轮次比例约 69%，欠账越长返工越难定位）要求一次完整安全全量；启动入口、
-  `infra/storage_maintenance.py`（实体）、`tests/architecture/_layers.py` 属风险路径，另有宽限计数（权威阈值在 `run_selftests`）。
+  `storage_maintenance.py`、`tests/architecture/_layers.py` 属风险路径，另有宽限计数（权威阈值在 `run_selftests`）。
 - 凭据：`.git/full-safe-receipts.json`（同一 `HEAD:程序` 内容树 7 日内可复用）。补跑由 post-commit 触发，
   日志 `程序\logs\auto_full_safe.log`，结果 `.git/auto-full-safe-result.json`。
 - 门禁报「欠一次完整安全全量」时**不要手动全量**，等后台；只有后台确实没起来（锁丢了）才手动 `--all --safe`。
@@ -161,7 +161,7 @@ R2979 起探针侧已按 `performance_contract.py` 末尾对照表补齐同口�
 
 ## 11. 覆盖率口径
 
-`维护记录\覆盖率基线.json` 是**定向测量**，不是整仓覆盖率。当前基线：生产运行时模块 650 个，其中 71 个有行覆盖（其余 579 个在这 9 组定向用例里没被碰到），测量使用 9 组定向用例，测量时刻这些用例全通过。
+`维护记录\覆盖率基线.json` 是**定向测量**，不是整仓覆盖率。当前基线：生产运行时模块 653 个，其中 74 个有行覆盖（其余 579 个在这 9 组定向用例里没被碰到），测量使用 9 组定向用例，测量时刻这些用例全通过。
 
 - 字段口径：`modules_total` ＝ 生产运行时模块总数；`modules_covered` ＝ 其中被覆盖到的模块数；`targets` ＝ 本次测量使用的定向用例组；`tests_ok` ＝ 测量时刻目标用例是否全绿。
 - 因此「579 个模块覆盖率 0」**不等于**「整仓覆盖率 12%」，也不能据此列出「未覆盖模块」清单——它只说明这 9 组定向用例碰过哪些模块。
@@ -170,7 +170,7 @@ R2979 起探针侧已按 `performance_contract.py` 末尾对照表补齐同口�
 
 要一份真实的「未覆盖模块」清单，须另立一次全量 `sys.settrace` 测量（成本高，须用户同意）。
 
-分支覆盖率（SWE-2 T8.4，L0/L1 棘轮）：`维护记录\分支覆盖率基线.json` 同样是**定向测量**，不是全量套件分支覆盖率。口径：对 `_layers.LAYERS` 登记层 0/1 且顶层仍有 .py 实体的 37 个模块统计「决策点双结果覆盖」——`if`／`while`／`for`／`try`（含 `except*`）／`match` 每个决策点要求两个方向都被真实执行过；单行复合语句（`if x: y`）、表达式短路（`and`／`or`／三元／推导式 if）、`try/finally`（无 handler）不计入分母；`while` 退出＝条件判假、`for` 耗尽＝迭代器走完（`break` 离开不算）；`match` 末位 `case _` 时只要求 case 被进入。动态证据按 `(文件, co_qualname)` 归属代码对象作用域。测量工具 `scripts\branch_coverage_report.py`（同 `sys.settrace`、零第三方依赖），棘轮下限在 `维护记录\分支覆盖率下限.json`（只许人工上调，工具重测不改写），门禁 `tests\architecture\test_branch_coverage_floor.py` 只做结构自洽、模块集合相等、下限不回退与工具可用性四件事，不重跑测量。刷新基线必须显式重跑工具并同步上调下限表，目标用例失败时工具拒绝写基线。
+分支覆盖率（SWE-2 T8.4，L0/L1 棘轮）：`维护记录\分支覆盖率基线.json` 同样是**定向测量**，不是全量套件分支覆盖率。口径：对 `_layers.LAYERS` 登记层 0/1 的 84 个实体模块（含迁包与无顶层门面的实体）统计「决策点双结果覆盖」——`if`／`while`／`for`／`try`（含 `except*`）／`match` 每个决策点要求两个方向都被真实执行过；单行复合语句（`if x: y`）、表达式短路（`and`／`or`／三元／推导式 if）、`try/finally`（无 handler）不计入分母；`while` 退出＝条件判假、`for` 耗尽＝迭代器走完（`break` 离开不算）；`match` 末位 `case _` 时只要求 case 被进入。动态证据按 `(文件, co_qualname)` 归属代码对象作用域。测量工具 `scripts\branch_coverage_report.py`（同 `sys.settrace`、零第三方依赖），棘轮下限在 `维护记录\分支覆盖率下限.json`（只许人工上调，工具重测不改写），门禁 `tests\architecture\test_branch_coverage_floor.py` 只做结构自洽、模块集合相等、下限不回退与工具可用性四件事，不重跑测量。刷新基线必须显式重跑工具并同步上调下限表，目标用例失败时工具拒绝写基线。
 
 ## 12. 领号、并行车道与工作树流程（自 AGENTS §2.5 规则 27／34a 迁入）
 

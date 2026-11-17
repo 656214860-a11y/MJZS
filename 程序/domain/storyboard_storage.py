@@ -73,8 +73,8 @@ def snapshot(path):
     return data,digest,raw,after
 
 def canonical_name(data):
-    title=re.sub(r'[<>:"/\\|?*\x00-\x1f]','_',str(data.get('title') or '未命名')).strip(' .')[:70]
-    return data['episode_id']+'_'+title+'_分镜.json'
+    from contract.file_naming import generate_existing
+    return generate_existing('storyboard_working', episode_id=data['episode_id'], title=data.get('title'))
 
 def resolved_alias(project,path):
     project=Path(project).resolve();path=(project/Path(path)).resolve()

@@ -17,7 +17,8 @@ def import_audio(project, source, *, publish, stage='audio', kind='dialogue'):
     完成核验据此判断「导入 BGM 不能算作对白已完成」。
     """
     from contract.stage_path_service import write_dir
-    from domain.tts_api import AUDIO_KINDS, marked_audio_name
+    from domain.tts_api import AUDIO_KINDS, AUDIO_KIND_PREFIXES
+    from contract.file_naming import generate_existing
     if stage not in ('audio', 'animatic'):
         raise ValueError('不支持的音频导入阶段')
     if kind not in AUDIO_KINDS:
@@ -37,8 +38,11 @@ def import_audio(project, source, *, publish, stage='audio', kind='dialogue'):
             from contract.project_stages import audio
             folder = audio(project)
         folder.mkdir(parents=True, exist_ok=True)
-        destination = folder / (marked_audio_name(source.stem, kind) + '_' + uuid.uuid4().hex[:6] + suffix)
+        destination = folder / generate_existing('audio_import', prefix=AUDIO_KIND_PREFIXES.get(kind, ''),
+                                                  stem=source.stem, token=uuid.uuid4().hex[:6], suffix=suffix)
         publish(destination, source)
+        from infra.file_index import record_origin
+        record_origin(project, [destination], '用户上传')
     except MediaValidationError as exc:
         return UserError(str(exc))
     except OSError:

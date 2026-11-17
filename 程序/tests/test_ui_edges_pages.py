@@ -586,20 +586,25 @@ class UiEdgePagesTests(UiEdgeCase):
             # R2942：四类文件合成一条「项目文件」列表；表头「文件名」，去掉勾选列，
             # Ctrl／Shift 多选；每行只显示文件名，类别经行提示展示。
             tree = d.script_tree
+            from ui_tokens import SCRIPT_FILE_MAX_ROWS
             self.assertEqual(str(tree.heading("name", "text")), "文件名")
-            self.assertEqual(tuple(tree["columns"]), ("name",))
-            self.assertNotIn("time", tuple(tree["columns"]), "剧本准备文件表不显示修改日期列")
-            self.assertEqual(int(tree.cget("height")), len(tree.get_children()), "表高按行数收紧")
-            self.assertEqual(tuple(map(str, win.tk.splitlist(tree.cget("show")))), ("headings",),
-                             "剧本文件表不再显示勾选列，只有文件名一列")
+            self.assertEqual(tuple(tree["columns"]), ("name", "kind", "size", "mtime", "meta"))
+            files = d.files_panel.all_script_items()
+            self.assertEqual(int(tree.cget("height")),
+                             min(SCRIPT_FILE_MAX_ROWS, len(files) + len(tree.get_children())),
+                             "表高按分组与文件行数收紧")
+            self.assertEqual(tuple(map(str, win.tk.splitlist(tree.cget("show")))), ("tree", "headings"),
+                             "分组树与文件属性列同时可见")
             self.assertEqual(str(tree.cget("selectmode")), "extended", "剧本文件表支持 Ctrl／Shift 多选")
-            names = [tree.item(item, "values")[0] for item in tree.get_children()]
-            for item in tree.get_children():
-                self.assertIn(d.script_row_category[item], ("setting", "outline", "character", "script"))
-                self.assertEqual(len(tree.item(item, "values")), 1, "剧本准备文件表每行只显示文件名")
+            names = [tree.item(item, "values")[0] for item in files]
+            for item in files:
+                self.assertIn(d.script_row_category[item], ("setting", "outline", "character", "script", "index"))
+                self.assertEqual(len(tree.item(item, "values")), 5, "每行展示名称、类型、大小、修改时间及媒体信息")
             for expected in ("项目设定_测试.md", "项目大纲_测试.md", "角色卡_测试.md", "项目剧本_测试.md"):
                 self.assertTrue(any(expected in name for name in names), expected + " 应出现在项目文件列表")
-            self.assertFalse(any("script.md" == name for name in names), "剧本结构阶段产物不应出现在剧本准备页")
+            structured = [item for item in files if item.startswith('02剧本结构/')]
+            self.assertTrue(all(d.script_row_category[item] == 'index' for item in structured),
+                            "其他阶段文件可见，但不得冒用剧本准备的采用/确认动作")
 
     def test_script_structure_page_shows_source_and_output_in_separate_boxes(self):
         """剧本结构页上看剧本准备来源、下看结构化输出，手动制作按钮夹在中间（R2942：阶段配置已删）。"""

@@ -24,15 +24,15 @@ class ScriptWorkspaceResultTests(unittest.TestCase):
             source = project_stages.writing(temp) / '原名.md'
             source.parent.mkdir(parents=True)
             source.write_text('original', encoding='utf-8')
-            # R3110 起改名走 agent.core.replace（原子替换＋缓存失效），不再直调 Path.rename；
-            # 用例的替身点随之同步，断言原意不变（非法名与同名改都不落盘、失败不泄露系统细节）。
-            with patch('agent.core.replace') as rename:
+            # 目标以原子排他硬链接发布，禁止并发覆盖已存在文件；替身跟随实际发布点。
+            # 保留原断言：非法名与同名改不落盘，失败不泄露系统细节。
+            with patch('os.link') as rename:
                 self.assertIsInstance(rename_script_document(temp, source, '../bad'), UserError)
                 unchanged = rename_script_document(temp, source, source.name)
                 self.assertTrue(unchanged.ok)
                 self.assertEqual(source.resolve(), unchanged.data)
                 rename.assert_not_called()
-            with patch('agent.core.replace', side_effect=OSError('private detail')):
+            with patch('os.link', side_effect=OSError('private detail')):
                 with self.assertLogs('script_workspace_service', level='ERROR'):
                     result = rename_script_document(temp, source, 'new.md')
             self.assertIsInstance(result, SystemError)

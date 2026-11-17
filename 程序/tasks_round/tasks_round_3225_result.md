@@ -1,5 +1,5 @@
 # R3225 结果：T10 包化 infra/L1 第五批——file_cache/storage_maintenance/app_logging 迁入 infra/
-<!-- round-evidence: {"commit_base": "01792e15", "credential_hits": 0, "evidence_sha256": "a5c5869127d78282", "exit": 0, "failed": 0, "passed": 185, "round": 3225, "tests": "run_selftests.py -k file_cache storage app_logging version_record selftests silent_exception read_json recycle deletion_gateway platform_process"} -->
+<!-- round-evidence: {"commit_base": "918ae57c", "credential_hits": 0, "evidence_sha256": "5db0e4f4be33c2e5", "exit": 0, "failed": 0, "passed": 0, "round": 3225, "tests": "merge-ci-exit"} -->
 
 ## 三问
 
@@ -33,6 +33,19 @@
 - `tests/architecture/test_gate_selfaudit.py:54` 的 `storage_maintenance.py` 为临时目录夹具文件名，非模块路径语义，未动。
 - `skills/01 剧本准备SKILL/编剧技能集` 为嵌套技能仓的既有未跟踪内容，与本轮无关。
 
+## 主干同步合并（merge master @ R3233）
+
+首次 `merge_round.py` 报 7 处冲突，本分支先合 master 解算后重试：
+
+- `程序/storage_maintenance.py`（门面）：master 在基线后把 `purge_expired_batches` 重构为 `purge_recycle_batches`/`expired_recycle_batches`/`recycle_retention_days` 等新 API（+72 行）。解算＝门面取本分支，实体取 master 新版并补两处本批改动（`from infra.file_cache import`、`PROGRAM` 锚 `.parents[1]`）；`launch_cleanup` 仍按扁平文件名拉起 `storage_maintenance.py --cleanup`，门面 `__main__` 转发契约保持。
+- `domain/script_workspace_service.py`/`orchestrator/legacy_migration.py`/`orchestrator/storyboard_direct_api.py`：master 侧语义重构（`_rename_file` 改 `os.link` 排他发布、`_rename_references`/`_rename_transaction`、legacy_migration 扩至 544 行、`generate_existing` 史板历史命名收口）。解算＝实体取 master 内容＋本批三模块导入改包路径（`infra.file_cache`/`infra.storage_maintenance`）。
+- `infra/file_index.py`：master 新增 `_paths_in(root=)` 越界防护与 `_read_origins`；解算＝master 签名/逻辑＋`infra.file_cache` 导入。
+- 全树复扫发现 master 新增代码带入 **8 处**三模块扁平导入（agent/core、global_library_service、desktop_files_panel_index、desktop_project_pages 及 4 个测试），已全部改包路径，复扫残留 **0**。
+- `runbook.md`/`覆盖率基线.json`：合并树重测覆盖率 **653 模块／74 覆盖**（97 用例全过），runbook §11 同步。
+- 附带清理：`_stage_r3225.py` 暂存脚本误入 R3225 提交，本合并轮删除。
+
+合并树验证：编译全过；冒烟 **9/9**；定向（script_workspace/legacy_migration/storyboard_direct/files_panel/migrate_legacy/recycle/storage/file_cache/app_logging）**17 文件 292 条 0 红**；架构门禁复跑结果见下。
+
 ## 提交
 
-- 本轮提交 hash 以 `git log` 为准（R3225）。
+- R3225 提交 `918ae57c`；主干同步合并提交 hash 以 `git log` 为准。

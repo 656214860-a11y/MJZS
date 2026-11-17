@@ -397,15 +397,8 @@ def resolve_script_source(project):
 
 def project_name(project):
     """从项目目录取得稳定项目名，剥离创建目录附带的日期／序号。"""
-    name = Path(project).name.strip()
-    name = re.sub(r'_\d{8}(?:_\d+)?$', '', name)
-    # 文件名片段必须能直接落在 Windows；项目目录名允许的字符范围更宽，不能原样
-    # 拼进用户文件名。
-    name = re.sub(r'[<>:"/\\|?*\x00-\x1f]+', '_', name)
-    # 下划线是 Windows 合法文件名字符，也可能是项目目录名的有效末尾；
-    # 不可在拼接四段式文件名时静默删掉，否则项目名与用户可见产物前缀不一致。
-    name = re.sub(r'\s+', ' ', name).strip(' .')
-    return name[:80] or '项目'
+    from contract.file_naming import existing_project_name
+    return existing_project_name(project)
 
 
 def _file_name_part(value, fallback):
@@ -421,9 +414,8 @@ def _file_name_part(value, fallback):
 def stage_file_name(project, file_type, content, at=None):
     """用户可见剧本文件名：项目名_文件类型_文件内容_年月日.md。"""
     day = (datetime.fromtimestamp(at) if at is not None else datetime.now()).strftime('%Y%m%d')
-    return '%s_%s_%s_%s.md' % (project_name(project),
-                               _file_name_part(file_type, '文件'),
-                               _file_name_part(content, '内容'), day)
+    from contract.file_naming import generate_existing
+    return generate_existing('stage_script', project=project, file_type=file_type, content=content, date=day)
 
 
 _STAGE_FILE_TYPES = ('自然剧本', '项目大纲', '项目设定', '角色卡', '结构剧本')

@@ -1,15 +1,16 @@
 {
   "round": 3225,
-  "commit_base": "01792e15",
+  "commit_base": "918ae57c",
   "credential_scan": {
     "ran": true,
     "hits": []
   },
   "targeted": {
-    "cmd": "run_selftests.py -k file_cache storage app_logging version_record selftests silent_exception read_json recycle deletion_gateway platform_process",
+    "cmd": "",
     "exit": 0,
-    "passed": 185,
-    "failed": 0
+    "passed": 0,
+    "failed": 0,
+    "skipped": "merge-ci-exit"
   },
-  "generated_at": "2026-11-17T23:17:26"
+  "generated_at": "2026-11-17T23:33:17"
 }

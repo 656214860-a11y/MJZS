@@ -231,12 +231,13 @@ class StoryboardCatalogScanCountTests(unittest.TestCase):
                                     cwd=HERE, capture_output=True, text=True, check=True).stdout
             (baseline / 'storyboard_selection.py').write_text(source, encoding='utf-8')
             code = (
-                "import sys; from pathlib import Path\n"
+                "import sys; from pathlib import Path; from unittest.mock import patch\n"
                 "sys.path[:0]=[sys.argv[1], sys.argv[2], sys.argv[3]]\n"
-                "import storyboard_selection as s\n"
-                "from pathlib import Path\n"
-                "removed = s.prune_invalid_adoptions(sys.argv[4])\n"
-                "import json; print(json.dumps(list(removed), ensure_ascii=False))\n"
+                "from contract import script_manifest_schema\n"
+                "with patch.dict(sys.modules, {'script_manifest_schema': script_manifest_schema}):\n"
+                "    import storyboard_selection as s\n"
+                "    removed = s.prune_invalid_adoptions(sys.argv[4])\n"
+                "    import json; print(json.dumps(list(removed), ensure_ascii=False))\n"
             )
             output = subprocess.run([sys.executable, '-B', '-X', 'utf8', '-c', code,
                                      str(baseline), os.path.dirname(HERE),
@@ -263,11 +264,13 @@ class StoryboardCatalogScanCountTests(unittest.TestCase):
             code = (
                 "import sys; from pathlib import Path; from unittest.mock import patch\n"
                 "sys.path[:0]=[sys.argv[1], sys.argv[2], sys.argv[3]]\n"
-                "import storyboard_selection as s, storyboard_catalog_service as c\n"
-                "with patch.object(c,'_catalog',wraps=c._catalog) as cm, \\\n"
-                "     patch.object(c,'discover_files',wraps=c.discover_files) as dm:\n"
-                "    s.prune_invalid_adoptions(sys.argv[4])\n"
-                "    print('COUNT', cm.call_count, dm.call_count)\n"
+                "from contract import script_manifest_schema\n"
+                "with patch.dict(sys.modules, {'script_manifest_schema': script_manifest_schema}):\n"
+                "    import storyboard_selection as s, storyboard_catalog_service as c\n"
+                "    with patch.object(c,'_catalog',wraps=c._catalog) as cm, \\\n"
+                "         patch.object(c,'discover_files',wraps=c.discover_files) as dm:\n"
+                "        s.prune_invalid_adoptions(sys.argv[4])\n"
+                "        print('COUNT', cm.call_count, dm.call_count)\n"
             )
             output = subprocess.run([sys.executable, '-B', '-c', code,
                                      str(baseline), os.path.dirname(HERE),

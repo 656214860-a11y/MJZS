@@ -14,6 +14,84 @@ from __future__ import annotations
 
 import re
 import time
+from pathlib import Path
+
+
+# 存量生产角色只集中模板；随机数、占用检测与原子发布仍由调用方负责。
+EXISTING_TEMPLATES = {
+    'stage_script': '{project}_{file_type}_{content}_{date}.md',
+    'storyboard_working': '{episode_id}_{title}_分镜.json',
+    'keyframe': '{episode_id}_{shot_id}_{token}{suffix}',
+    'audio_import': '{prefix}{stem}_{token}{suffix}',
+    'handoff_media': '{index:03d}_{shot_id}{suffix}',
+    'handoff_bundle': '剪映交接_{token}',
+    'animatic_shot': '{shot_id}{suffix}',
+    'animatic_audio': 'temporary_audio{suffix}',
+    'storyboard_final': '{episode_id}_分镜定稿',
+    'storyboard_hint': 'EP{number:03d}_分镜.json',
+    'storyboard_history': '{stem}_{stamp}.json',
+    'collision': '{stem}_{token}{suffix}',
+}
+
+
+def _existing_part(value, fallback='文件', limit=None, *, ascii_mode=None, trim=False, reserved=False):
+    """存量片段保留合法空白、下划线；模型标题额外排除设备保留名。"""
+    text = str(value or '')
+    if ascii_mode:
+        text = re.sub(r'[^A-Za-z0-9_-]', '' if ascii_mode == 'drop' else '_', text)
+    else:
+        text = re.sub(r'[<>:"/\\\\|?*\x00-\x1f]', '_', text)
+    if trim:
+        text = text.strip(' .')
+    if limit is not None:
+        text = text[:limit]
+    if not text:
+        text = fallback
+    if reserved and text.split('.')[0].strip().upper() in RESERVED_NAMES:
+        text = '_' + text
+    return text
+
+
+def existing_project_name(project):
+    """四段式项目片段沿用目录名去日期与保留下划线的旧规则。"""
+    name = re.sub(r'_\d{8}(?:_\d+)?$', '', Path(project).name.strip())
+    name = _ILLEGAL_RUN.sub('_', name)
+    name = _SPACE_RUN.sub(' ', name).strip(' .')[:80] or '项目'
+    return _existing_part(name, '项目')
+
+
+def _suffix(value):
+    """后缀只允许一个扩展名，禁止后缀字段携带路径或额外文件名。"""
+    text = str(value or '')
+    if text and not text.startswith('.'):
+        text = '.' + text
+    if text and (len(text) == 1 or '.' in text[1:] or _ILLEGAL_RUN.search(text)
+                 or text.endswith(' ')):
+        raise ValueError('无效文件后缀：' + text)
+    return text
+
+
+def _existing_value(role, key, value):
+    if key in _INT_FIELDS:
+        return int(value or 0)
+    if key == 'suffix':
+        return _suffix(value)
+    if role == 'stage_script':
+        return (existing_project_name(value) if key == 'project'
+                else sanitize_part(value, _FALLBACKS.get(key, '文件')))
+    if key == 'title':
+        return _existing_part(value or '未命名', '', 70, trim=True, reserved=True)
+    if key == 'episode_id' and role in ('keyframe', 'storyboard_final'):
+        return _existing_part(value, 'EP', ascii_mode='drop' if role == 'keyframe' else 'replace')
+    return _existing_part(value, '') if key == 'prefix' else _existing_part(value)
+
+
+def generate_existing(role, **fields):
+    """按角色生成既有格式；不迁移、不分配唯一名、不访问文件系统。"""
+    template = EXISTING_TEMPLATES[role]
+    values = {key: _existing_value(role, key, fields.get(key))
+              for key in set(_PLACEHOLDER.findall(template))}
+    return validate(template.format(**values), allow_leading=True)
 
 # DES §3.1 的文件类型集合。索引里原样存这些中文标签，侧栏筛选直接用。
 KINDS = ('剧本', '设定', '分镜', '资产', '音频', '视频', '清单', '报告', '日志', '其他')
@@ -71,10 +149,10 @@ def sanitize_part(value, fallback='文件', limit=80):
     return text[:limit] or fallback
 
 
-def validate(name):
-    """校验单段文件名；合法时返回去空格后的名字，不合法抛 ``ValueError`` 并说明原因。"""
+def validate(name, *, allow_leading=False):
+    """校验单段文件名；存量生产名可显式保留 Windows 合法的开头空格。"""
     raw = str(name or '')
-    text = raw.strip()
+    text = raw.rstrip() if allow_leading else raw.strip()
     if not text:
         raise ValueError('文件名不能为空')
     if text != raw:
@@ -114,8 +192,7 @@ def generate_name(kind=DEFAULT_KIND, **fields):
             except (TypeError, ValueError):
                 values[placeholder] = 0
         elif placeholder == 'suffix':
-            text = str(value if value is not None else _SUFFIX_DEFAULT)
-            values[placeholder] = text if not text or text.startswith('.') else '.' + text
+            values[placeholder] = _suffix(value if value is not None else _SUFFIX_DEFAULT)
         else:
             values[placeholder] = sanitize_part(value, _FALLBACKS.get(placeholder, '文件'))
     return validate(template.format(**values))

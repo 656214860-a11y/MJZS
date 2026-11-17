@@ -147,8 +147,9 @@ class ClaudeWritingSessionTests(unittest.TestCase):
         config = {'display_model': 'Claude Code', 'engine': 'claude'}
         keys = []
         with patch('orchestrator.workflow_tasks._agent_delivery_contract', return_value='保存约定'), \
-                patch('desktop.time.time', side_effect=[100.0, 101.0]):
-            for _ in range(2):
+                patch('desktop.time.time', return_value=100.0) as clock:
+            for timestamp in (100.0, 101.0):
+                clock.return_value = timestamp
                 Desktop.start_script_workflow(desktop, '确认', config=config)
                 _, _, prompt, followup = desktop.open_flow_agent.call_args.args
                 keys.append(signature('writing', prompt, followup, config, {}))

@@ -12,6 +12,7 @@ import infra.file_cache as file_cache
 from contract.project_context import ProjectContext
 from contract.service_contract import success
 from contract.stage_path_service import write_dir
+from contract.file_naming import generate_existing
 
 MANIFEST = 'animatic_manifest.json'
 CONFIRMATIONS = ('rhythm', 'duration', 'dialogue_sync')
@@ -160,18 +161,18 @@ def build_bundle(context, source, references, audio, settings, *, publish, write
                          ffmpeg=tool_path('ffmpeg', configured=settings.get('ffmpeg')),
                          ffprobe=tool_path('ffprobe', configured=settings.get('ffprobe')),
                          write_temporary=write_temporary, spec=spec)
-        artifacts = {'assets/animatic.mp4': Path(video).read_bytes(),
-                     'assets/temporary_audio' + audio.suffix.lower(): audio.read_bytes()}
+        audio_name = 'assets/' + generate_existing('animatic_audio', suffix=audio.suffix.lower())
+        artifacts = {'assets/animatic.mp4': Path(video).read_bytes(), audio_name: audio.read_bytes()}
         for shot in shots:
             image = Path(images[shot['id']])
-            name = 'assets/shots/' + shot['id'] + image.suffix.lower()
+            name = 'assets/shots/' + generate_existing('animatic_shot', shot_id=shot['id'], suffix=image.suffix.lower())
             artifacts[name] = image.read_bytes()
             shot['image'] = name
         if source.read_bytes() != raw_source:
             raise ValueError('生成期间分镜已变化，请重新生成；本次不发布')
         manifest = {'version': 1, 'kind': 'animatic', 'source': source.relative_to(root).as_posix(),
                     'source_sha256': digest(raw_source), 'shots': shots, 'video': 'assets/animatic.mp4',
-                    'audio': 'assets/temporary_audio' + audio.suffix.lower(),
+                    'audio': audio_name,
                     'files': {name: digest(data) for name, data in artifacts.items()},
                     'confirmed': {key: False for key in CONFIRMATIONS}}
         artifacts[MANIFEST] = json.dumps(manifest, ensure_ascii=False, indent=2).encode('utf-8')
