@@ -192,6 +192,8 @@ AGENTS 只保留触发条件；本节是细则全文。开工领号、建工作�
 
 **主工作区＝镜像 + 功能工作树开发（规则 34a）**：每个独立任务（新功能、Bug 修复）在专用功能工作树中进行；主工作区只做「同步 → 合并 → 提交」三个动作，不直接开发。开工顺序：① 进主工作区跑 `scripts/dev.py sync`（`fetch <远端>` 后仅 `--ff-only` 快进，**只拉不推**），确保基于最新干净基线；② 用 `git worktree add -b codex/<任务>` 从最新主干创建并进入功能工作树——Git 的分支唯一检出限制保证主工作区占用 master、功能工作树检出各自独立分支，互不干扰；③ 在工作树内完成全部开发；④ 交付前在该工作树内 `git rebase master`（或最新主干）解决冲突，再回合主工作区。这套纪律靠「保持主工作区干净」维持：主工作区有未提交改动时不切换分支、不同步，`sync` 与 `round_claim.py next` 都会因脏树拒绝。工作树命名、并行车道上限与回收见本节及 `worktree_ledger.py`。
 
+**统一命名（R3218）**：agent 新建功能分支统一为 `codex/<小写kebab-case任务名>`，如 `codex/whitelist-framework`；仅允许 ASCII 小写字母、数字与单个连字符分段，不接受大写、下划线、空段或多层路径。`dev.py claim --branch codex/<任务>` 转交 `round_claim.py next --branch`，显式新名在领号和状态写入前校验；自动停泊生成 `codex/wip-r<N>`。已检出的 `codex/*`（含 legacy `wip-R<N>`）保留原名，不追溯改名。Git 手工建树不会调用此入口，agent 必须使用合规名；本规则不授权改名/清理他人的活跃树。工作树目录可沿用现有管理位置，不把目录名当作分支名；Git 元数据 `.git/worktrees/` 不是 checkout 目录。
+
 **第一步硬性动作**：任何功能轮／修复轮，动手改 `程序/` 源码之前，第一件事是 `dev.py claim`（领取轮次）或先确认自己已在功能工作树分支上；在 master 主工作区上直接编辑 `程序/` 源码即违反规则 34a。`pre-commit` 钩子已强制：master/main 上非合并提交任何功能 `程序/` 文件都会被拒绝（合并提交与 tasks_round／project_status.md／任务队列.json 除外）；`round_claim.py next` 与 `commit-msg` 钩子也在领号／提交时分别拦截脏 master 与轮次号未领或不属于本工作树。三道闸（pre-commit、round_claim、commit-msg）共同兜底，纪律起点仍是「先领号、再动码」。
 
 ## 13. Git 提交与合并（自 AGENTS §2.6 迁入）
