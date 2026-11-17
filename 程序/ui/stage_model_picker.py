@@ -18,7 +18,7 @@ import model_pool
 import model_router
 import orchestrator.stage_config as stage_config
 from responsive_ui import ScrollForm
-from skill_panel_support import (
+from ui.skill_panel_support import (
     desktop_project, grouped_model_choices, pet_of, pool_records, register_live,
                                  stage_for, unregister_live)
 from ui_popup import Flyout, monitor_bounds

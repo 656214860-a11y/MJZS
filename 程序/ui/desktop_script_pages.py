@@ -14,7 +14,7 @@ import contract.project_stages as project_stages
 import ui.script_view_style as script_view_style
 import tkinter as tk
 import ui_plugin_registry
-from desktop_idea_chat import model_error_display
+from ui.desktop_idea_chat import model_error_display
 from pathlib import Path
 from responsive_ui import FlowBar
 from tkinter import ttk

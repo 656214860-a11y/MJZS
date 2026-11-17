@@ -28,7 +28,7 @@ def engine_name(project):
 
 def online_window(desktop, source, ids):
     """中等复杂度镜头的线上白模操作窗口（Tk 视图职责）。"""
-    import white_model as wm
+    import ui.white_model as wm
     from agent.core import read
     ep = read(source)
     shots = {shot['id']: shot for shot in ep['shots']

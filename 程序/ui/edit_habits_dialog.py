@@ -11,7 +11,7 @@ import tkinter as tk
 from tkinter import ttk
 
 import orchestrator.edit_habits as edit_habits
-from skill_panel_support import desktop_project
+from ui.skill_panel_support import desktop_project
 from ui_tokens import CHAR_WIDTH, SPACING, TEXT_ROWS
 from ui_widgets import (BaseDialog, DataTable, DescriptionBlock, PrimaryButton, SecondaryButton,
                         ask_confirmation, ask_string, notify)

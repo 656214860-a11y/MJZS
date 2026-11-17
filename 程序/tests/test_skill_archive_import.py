@@ -248,7 +248,7 @@ class PanelImportSourceTests(unittest.TestCase):
             'pack/references/rules.md': '规则',
         })
         # 面板按 __file__ 定位程序目录；测试里把它指到临时程序目录，导入落在隔离区。
-        fake_module = str(self.desktop.app / 'skill_import_service.py')
+        fake_module = str(self.desktop.app / 'ui' / 'skill_import_service.py')
         with mock.patch('ui_dialogs.filedialog.askopenfilename', return_value=str(zip_path)), \
                 mock.patch.object(skill_import_service, '__file__', fake_module):
             report = panel.add_skill_from_archive()

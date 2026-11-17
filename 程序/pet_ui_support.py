@@ -322,7 +322,7 @@ class GearButton:
     def _gear_image(self):
         """Fluent settings 图标（assets/nav/settings.png），与侧栏导航同一套字形；缺资源返回 None。"""
         try:
-            from ui_icons import IconLoader
+            from ui.ui_icons import IconLoader
             return IconLoader.nav_icon(self.canvas, 'settings')
         except Exception:
             return None

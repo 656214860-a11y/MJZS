@@ -1353,7 +1353,7 @@ class PanelTests(unittest.TestCase):
                              'temporary-delete', stage='keyframe')
         registry = skill_registry.Registry(root=program / 'skills')
         registry.scan(force=True)
-        with mock.patch.object(skill_panel, '__file__', str(program / 'skill_panel.py')):
+        with mock.patch.object(skill_panel, '__file__', str(program / 'ui' / 'skill_panel.py')):
             with mock.patch.object(skill_panel.skill_registry, 'default_registry', return_value=registry):
                 with mock.patch.object(skill_panel, 'confirm', return_value=True):
                     panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
@@ -1380,7 +1380,7 @@ class PanelTests(unittest.TestCase):
         registry.scan(force=True)
         (self.desktop.root / 'skill_config.json').write_text(
             json.dumps({'script': {'skills': ['referenced-delete']}}, ensure_ascii=False), encoding='utf-8')
-        with mock.patch.object(skill_panel, '__file__', str(program / 'skill_panel.py')):
+        with mock.patch.object(skill_panel, '__file__', str(program / 'ui' / 'skill_panel.py')):
             with mock.patch.object(skill_panel.skill_registry, 'default_registry', return_value=registry):
                 with mock.patch.object(skill_panel, 'confirm', return_value=False) as confirm:
                     panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
@@ -1390,7 +1390,7 @@ class PanelTests(unittest.TestCase):
                     self.assertIn('仍被当前项目 skill_config.json 引用', confirm.call_args.args[2])
 
         self.assertTrue(target.exists(), '用户取消时不得删除')
-        with mock.patch.object(skill_panel, '__file__', str(program / 'skill_panel.py')):
+        with mock.patch.object(skill_panel, '__file__', str(program / 'ui' / 'skill_panel.py')):
             with mock.patch.object(skill_panel.skill_registry, 'default_registry', return_value=registry):
                 with mock.patch.object(skill_panel, 'confirm', return_value=True):
                     records = panel.delete_checked_skills()

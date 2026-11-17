@@ -357,7 +357,7 @@ class PanelDeleteLedgerTests(unittest.TestCase):
         skill_import_service.perform_import(plan, program)
         ledger = skill_import_service.ledger_path(program)
         self.assertEqual(len(skill_import_service._read_items(ledger)), 1)
-        with mock.patch.object(skill_panel, '__file__', str(program / 'skill_panel.py')):
+        with mock.patch.object(skill_panel, '__file__', str(program / 'ui' / 'skill_panel.py')):
             with mock.patch.object(skill_panel.skill_registry, 'default_registry',
                                    return_value=registry):
                 with mock.patch.object(skill_panel, 'confirm', return_value=True):
@@ -386,8 +386,8 @@ class PanelUpdateCheckTests(unittest.TestCase):
         (builtin / '01剧本准备SKILL').mkdir(parents=True, exist_ok=True)
         registry = skill_registry.Registry(builtin, user_root=program / 'data' / 'skills')
         for module, value in (
-                (skill_panel, str(program / 'skill_panel.py')),
-                (skill_import_service, str(program / 'skill_import_service.py'))):
+                (skill_panel, str(program / 'ui' / 'skill_panel.py')),
+                (skill_import_service, str(program / 'ui' / 'skill_import_service.py'))):
             patcher = mock.patch.object(module, '__file__', value)
             patcher.start()
             self.addCleanup(patcher.stop)

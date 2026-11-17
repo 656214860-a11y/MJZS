@@ -15,7 +15,7 @@ from responsive_ui import growable_extra
 from ui.ui_scroll import eased_scroll
 from ui_tokens import (CONTROL_PADDING_Y, DESKTOP_LAYOUT, FONTS, NAV_PADDING_X, NAV_PADDING_Y,
                        NAV_PADDING_Y_COMPACT, NAV_ROW_HEIGHT, NAV_ROW_HEIGHT_COMPACT, NAV_SUB_PADDING_X, SPACING)
-from ui_rounded import set_button_padding
+from ui.ui_rounded import set_button_padding
 
 LOGGER=logging.getLogger('desktop_layout')
 
