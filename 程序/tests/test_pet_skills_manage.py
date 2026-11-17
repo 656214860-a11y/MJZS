@@ -111,6 +111,15 @@ class SkillsManageCase(unittest.TestCase):
             time.sleep(0.02)
         return False
 
+    def wait_tree(self, win, predicate):
+        """等后台刷新真正回填：旧行在 fill 前不会被换掉，按内容谓词等待。"""
+        for _ in range(400):
+            self.win.update()
+            if predicate(self.tree(win)):
+                return True
+            time.sleep(0.02)
+        return False
+
     def add_skills(self):
         self.builtin = write_skill(self.program / 'skills' / STAGE_DIR,
                                    'pipeline-script-preparation')
@@ -248,6 +257,106 @@ class SkillsManagePageTests(SkillsManageCase):
         self.assertTrue(refreshed)
         messages = [str(call.args[1]) for call in notify.call_args_list if len(call.args) > 1]
         self.assertTrue(any('manage-imported' in text for text in messages))
+
+    def test_disable_shows_greyed_row_and_enable_restores(self):
+        # T8：禁用后行灰显「已禁用」，文件保留；再点「禁用/启用」恢复。
+        self.add_skills()
+        win = self.hub()
+        self.assertTrue(self.wait_rows(win, 3))
+        self.select(win, 'user-layer-skill')
+        seams = win._pet_seams['skills']
+        with mock.patch('pet_skills_manage.ask_confirmation', return_value=True):
+            self.assertTrue(pet_skills_manage.toggle_disabled(
+                self.pet, self.tree(win), seams['state'], seams['refresh'], seams['hint']))
+        tree = self.tree(win)
+        self.assertTrue(self.wait_tree(
+            win, lambda t: 'disabled|user-layer-skill' in t.get_children()))
+        values = tree.item('disabled|user-layer-skill', 'values')
+        self.assertEqual('已禁用', values[4])
+        # 文件仍在盘上。
+        self.assertTrue((self.program / 'data' / 'skills' / STAGE_DIR
+                         / 'user-layer-skill.skill.md').is_file())
+        # 重新选中禁用行再启用。
+        tree.selection_set('disabled|user-layer-skill')
+        with mock.patch('pet_skills_manage.ask_confirmation', return_value=True):
+            self.assertTrue(pet_skills_manage.toggle_disabled(
+                self.pet, tree, seams['state'], seams['refresh'], seams['hint']))
+        self.assertTrue(self.wait_tree(
+            win, lambda t: 'user-layer-skill' in t.get_children()
+            and 'disabled|user-layer-skill' not in t.get_children()))
+
+    def test_builtin_disable_is_refused(self):
+        self.add_skills()
+        win = self.hub()
+        self.assertTrue(self.wait_rows(win, 3))
+        self.select(win, 'pipeline-script-preparation')
+        seams = win._pet_seams['skills']
+        with mock.patch('pet_skills_manage.ask_confirmation', return_value=True) as confirm:
+            result = pet_skills_manage.toggle_disabled(
+                self.pet, self.tree(win), seams['state'], seams['refresh'], seams['hint'])
+        self.assertIsNone(result)
+        confirm.assert_not_called()
+        self.assertIn('只读', seams['hint'].get())
+
+    def test_rename_flows_through_plan_and_apply(self):
+        self.add_skills()
+        win = self.hub()
+        self.assertTrue(self.wait_rows(win, 3))
+        self.select(win, 'user-layer-skill')
+        seams = win._pet_seams['skills']
+        old_file = self.program / 'data' / 'skills' / STAGE_DIR / 'user-layer-skill.skill.md'
+        with mock.patch('pet_skills_manage.ask_string', return_value='user-layer-v2'), \
+                mock.patch('pet_skills_manage.ask_confirmation', return_value=True), \
+                mock.patch('pet_skills_manage._sync_agents_background') as sync_bg, \
+                mock.patch('pet_skills_manage.notify') as notify:
+            result = pet_skills_manage.rename_skill(
+                self.pet, self.tree(win), seams['state'], seams['refresh'], seams['hint'])
+        sync_bg.assert_called_once()
+        messages = [str(call.args[1]) for call in notify.call_args_list if len(call.args) > 1]
+        self.assertTrue(any('user-layer-v2' in text for text in messages))
+        self.assertIsNotNone(result)
+        self.assertFalse(old_file.exists())
+        self.assertTrue((self.program / 'data' / 'skills' / STAGE_DIR
+                         / 'user-layer-v2.skill.md').is_file())
+        tree = self.tree(win)
+        self.assertTrue(self.wait_tree(
+            win, lambda t: 'user-layer-v2' in t.get_children()))
+        names = [tree.item(iid, 'values')[0] for iid in tree.get_children()]
+        self.assertIn('user-layer-v2', names)
+        self.assertNotIn('user-layer-skill', names)
+
+    def test_edit_opens_system_handler(self):
+        self.add_skills()
+        win = self.hub()
+        self.assertTrue(self.wait_rows(win, 3))
+        self.select(win, 'user-layer-skill')
+        seams = win._pet_seams['skills']
+        with mock.patch('pet_skills_manage.platform_tools.open_path') as opener:
+            result = pet_skills_manage.edit_skill(
+                self.pet, self.tree(win), seams['state'], seams['hint'])
+        self.assertIsNotNone(result)
+        opener.assert_called_once()
+        self.assertTrue(str(opener.call_args.args[0]).endswith('user-layer-skill.skill.md'))
+
+    def test_disabled_skill_deletes_via_entry_point(self):
+        self.add_skills()
+        win = self.hub()
+        self.assertTrue(self.wait_rows(win, 3))
+        self.select(win, 'user-layer-skill')
+        seams = win._pet_seams['skills']
+        with mock.patch('pet_skills_manage.ask_confirmation', return_value=True):
+            pet_skills_manage.toggle_disabled(
+                self.pet, self.tree(win), seams['state'], seams['refresh'], seams['hint'])
+        tree = self.tree(win)
+        self.assertTrue(self.wait_tree(
+            win, lambda t: 'disabled|user-layer-skill' in t.get_children()))
+        tree.selection_set('disabled|user-layer-skill')
+        with mock.patch('pet_skills_manage.ask_confirmation', return_value=True):
+            result = pet_skills_manage.remove_skill(
+                self.pet, self.tree(win), seams['state'], seams['refresh'], seams['hint'])
+        self.assertTrue(result)
+        self.assertFalse((self.program / 'data' / 'skills' / STAGE_DIR
+                          / 'user-layer-skill.skill.md').exists())
 
 
 if __name__ == '__main__':

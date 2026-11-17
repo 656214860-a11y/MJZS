@@ -37,6 +37,7 @@ import uuid
 from pathlib import Path
 from typing import NamedTuple
 
+import skill_project_layer
 import skill_registry
 from agent.core import replace, save
 from contract.pet_bus import read_json
@@ -731,9 +732,9 @@ def _candidate_ledger_key(candidate, root, registry, layer='user'):
     return Path(stage_dir).name + '/' + entry
 
 
-def _entry_digests(root, registry, layer='user'):
-    """候选树 → ``{台账键: 内容摘要}``；与安装时 ``_tree_digest`` 同口径。"""
-    digests = {}
+def _entry_signatures(root, registry, layer='user'):
+    """候选树 → ``({台账键: 内容摘要}, {台账键: frontmatter version})``；与安装同口径。"""
+    digests, versions = {}, {}
     for candidate in _repo_candidates(Path(root)):
         key = _candidate_ledger_key(candidate, root, registry, layer)
         if not key:
@@ -742,23 +743,62 @@ def _entry_digests(root, registry, layer='user'):
                    else candidate['source'])
         try:
             digests[key] = _tree_digest(content)
+            versions[key] = _frontmatter_version(candidate['source'])
         except OSError:
             continue
-    return digests
+    return digests, versions
 
 
-def _entry_status(key, row, digests):
-    """候选摘要表 → 行状态：候选消失→``source-missing``，摘要异→``source-newer``。"""
+def _entry_digests(root, registry, layer='user'):
+    """兼容包装：``skill_archive``／``skill_remote_service`` 探针只取摘要半边。"""
+    return _entry_signatures(root, registry, layer)[0]
+
+
+def _version_key(text):
+    """版本串 → 可比较元组：数字段按数值、其余按字符串（``1.10`` 大于 ``1.9``）。"""
+    key = []
+    for part in re.split(r'[.\-+_]', str(text or '').strip()):
+        if part:
+            key.append((0, int(part)) if part.isdigit() else (1, part))
+    return tuple(key)
+
+
+def _version_compare(candidate, current):
+    """候选版本 vs 台账版本 → -1/0/1；任一侧缺版本返回 ``None`` 交摘要判定。"""
+    if not candidate or not current:
+        return None
+    left, right = _version_key(candidate), _version_key(current)
+    return (left > right) - (left < right)
+
+
+def _source_version(row):
+    """file/dir 来源的入口 ``version``：文件取自身，目录取包根 ``SKILL.md``。"""
+    source = Path(str(row.get('source') or ''))
+    if not source.exists():
+        return ''
+    entry = source if source.is_file() else source / skill_registry.PACKAGE_SKILL_FILENAME
+    return _frontmatter_version(entry) if entry.is_file() else ''
+
+
+def _entry_status(key, row, digests, versions=None):
+    """候选签名表 → 行状态：候选消失→``source-missing``；版本可比时先比版本再比摘要。"""
     if not digests:
         return 'source-missing'
     digest = digests.get(key)
     if digest is None:
         return 'source-missing'
+    verdict = _version_compare((versions or {}).get(key, ''),
+                               str(row.get('version') or ''))
+    if verdict is not None:
+        if verdict > 0:
+            return 'source-newer'
+        if verdict < 0:
+            return 'unchanged'
     return 'unchanged' if digest == str(row.get('sha256') or '') else 'source-newer'
 
 
-def _clone_entry_digests(url, ref, program, registry, layer='user'):
-    """远程仓库行：重新 ``git clone --depth 1`` 到暂存（用后回收）取候选摘要。"""
+def _clone_entry_signatures(url, ref, program, registry, layer='user'):
+    """远程仓库行：重新 ``git clone --depth 1`` 到暂存（用后回收）取候选签名。"""
     program = Path(program)
     staging = (skill_registry.default_user_root(program)
                / (REPO_CLONE_PREFIX + uuid.uuid4().hex[:8]))
@@ -766,7 +806,7 @@ def _clone_entry_digests(url, ref, program, registry, layer='user'):
     try:
         _git_clone(url, ref, staging)
         try:
-            return _entry_digests(staging, registry, layer)
+            return _entry_signatures(staging, registry, layer)
         except ImportBlocked:
             return None
     except ImportBlocked:
@@ -784,6 +824,12 @@ def _default_source_status(key, row, program, registry, cache, layer='user'):
         source = Path(str(row.get('source') or ''))
         if not source.exists():
             return 'source-missing'
+        verdict = _version_compare(_source_version(row), str(row.get('version') or ''))
+        if verdict is not None:
+            if verdict > 0:
+                return 'source-newer'
+            if verdict < 0:
+                return 'unchanged'
         return ('unchanged' if _tree_digest(source) == str(row.get('sha256') or '')
                 else 'source-newer')
     if kind != 'repo':
@@ -792,17 +838,18 @@ def _default_source_status(key, row, program, registry, cache, layer='user'):
         signature = (str(row['source_url']), str(row.get('source_ref') or ''), layer,
                      str(row.get('project') or ''))
         if signature not in cache:
-            cache[signature] = _clone_entry_digests(
+            cache[signature] = _clone_entry_signatures(
                 signature[0], signature[1], program, registry, layer)
-        digests = cache[signature]
+        pair = cache[signature]
+        digests, versions = pair if pair else ({}, {})
     else:
         source = Path(str(row.get('source') or ''))
         try:
-            digests = (_entry_digests(source, registry, layer)
-                       if source.is_dir() else None)
+            digests, versions = (_entry_signatures(source, registry, layer)
+                                 if source.is_dir() else ({}, {}))
         except ImportBlocked:
-            digests = None
-    return _entry_status(key, row, digests)
+            digests, versions = {}, {}
+    return _entry_status(key, row, digests, versions)
 
 
 def check_updates(program, *, probe=None, project=None):
@@ -878,3 +925,4 @@ def check_updates(program, *, probe=None, project=None):
             status = _default_source_status(key, row, program, registry, cache, layer)
         statuses[key] = status or 'source-missing'
     return statuses
+

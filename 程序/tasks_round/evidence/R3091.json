@@ -1,0 +1,15 @@
+{
+  "round": 3091,
+  "commit_base": "73b5eacc",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_skill_lifecycle test_pet_skills_manage test_workflow test_skill_project_layer test_skill_registry_parse test_skill_update_check test_workflow_settings_cache pet_settings pet_skills_manage skill_lifecycle_service skill_import_service skill_project_layer skill_registry workflow_settings",
+    "exit": 0,
+    "passed": 249,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T10:55:07"
+}

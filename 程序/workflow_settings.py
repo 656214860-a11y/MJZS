@@ -619,9 +619,13 @@ def validate_selected_skills(project, stage):
     if not isinstance(entry, dict) or not isinstance(entry.get('skills', []), (list, tuple)):
         raise ValueError('阶段 SKILL 配置格式无效，已阻止发送，请重新确认阶段配置。')
     registry = skill_registry.default_registry(project=project)
+    disabled = registry.disabled_names()
     for name in entry.get('skills') or ():
-        if registry.getById(name) is None:
-            raise ValueError(f'已勾选的 SKILL 未加载：{name}；已阻止发送，请重新确认阶段配置。')
+        if registry.getById(name) is not None:
+            continue
+        if name in disabled:
+            raise ValueError(f'已勾选的 SKILL 已禁用：{name}；已阻止发送，请在「设置 → SKILL 管理」启用后重试。')
+        raise ValueError(f'已勾选的 SKILL 未加载：{name}；已阻止发送，请重新确认阶段配置。')
 def _closure_blocked(message, closure):
     """发送阻断异常附带已走到的引用闭包，供 SKILL 体检展示「断在哪、之前加载了什么」。"""
     error = ValueError(message)

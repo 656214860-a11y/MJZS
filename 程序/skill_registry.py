@@ -30,7 +30,8 @@ from urllib.parse import unquote, urlsplit
 
 from contract.pet_bus import STAGES, STAGE_NAMES
 from skill_project_layer import (LAYER_LABELS, LAYER_ORDER, STAGE_DIRECTORY_IDS,
-                                 ProjectLayerMixin, project_skill_root,
+                                 ProjectLayerMixin, disabled_pairs, disabled_stamp,
+                                 disabled_view_entries, project_skill_root,
                                  project_skill_root_for, stage_from_path)
 
 SKILL_SUFFIX = '.skill.md'
@@ -523,6 +524,10 @@ class Registry(ProjectLayerMixin):
         self._fingerprint_cache = None
         self._fingerprint_checked_at = 0.0
         self._fresh_checked_at = 0.0
+        # 禁用登记视图：scan() 时按 (layer, name) 过滤；供管理页与发送校验展示。
+        self._disabled_pairs = frozenset()
+        self._disabled_entries = ()
+        self._disabled_stamp_seen = None
 
     # ── 扫描 ────────────────────────────────────────────────────────────────
     def _layers(self):
@@ -744,12 +749,18 @@ class Registry(ProjectLayerMixin):
     def fingerprint(self, force=False):
         """返回文件指纹；热查询时间片内绝不重新枚举目录或拼接元组。"""
         now = time.monotonic()
+        d_stamp = disabled_stamp(self.user_root)
         if (not force and self._fingerprint_cache is not None and
-                now - self._fingerprint_checked_at < FRESH_TTL_SECONDS):
+                now - self._fingerprint_checked_at < FRESH_TTL_SECONDS and
+                d_stamp == self._disabled_stamp_seen):
             return self._fingerprint_cache
         self._refresh_file_cache(force=force)
         stamp = tuple((str(path), mtime, size, source, str(package or ''), layer)
                       for path, mtime, size, source, package, layer in self._file_records)
+        # 禁用登记在 data/skills/ 根下，目录 mtime/stat 键覆盖不到内容改写，单独进指纹。
+        if d_stamp is not None:
+            stamp += (('__disabled__', d_stamp[0], d_stamp[1]),)
+        self._disabled_stamp_seen = d_stamp
         self._fingerprint_cache = stamp
         self._fingerprint_checked_at = now
         return stamp
@@ -759,6 +770,8 @@ class Registry(ProjectLayerMixin):
         stamp = self.fingerprint(force=force)
         if not force and stamp == self._fingerprint:
             return self
+        disabled = disabled_pairs(self.user_root, self.project_root)
+        disabled_view = disabled_view_entries(self.user_root, self.project_root)
         skills, problems, warnings = {}, list(self._root_migration_problems), []
         records = sorted(self._file_records,
                          key=lambda item: (LAYER_ORDER.get(item[5], 9),
@@ -771,7 +784,11 @@ class Registry(ProjectLayerMixin):
                 continue
             if source_kind == 'package':
                 meta = imported_package_meta(meta, body, package, path)
-            shadow = skills.get(str(meta.get('name') or ''))
+            meta_name = str(meta.get('name') or '')
+            # 禁用条目按登记名过滤；包改名（package-x-N）由下方 skill.name 复查兜底。
+            if (layer, meta_name) in disabled:
+                continue
+            shadow = skills.get(meta_name)
             if (shadow is not None and
                     LAYER_ORDER.get(layer, 9) > LAYER_ORDER.get(shadow.layer, 9)):
                 warnings.append('%s：%s %s 覆盖%s（删除%s后恢复%s）' % (
@@ -789,6 +806,8 @@ class Registry(ProjectLayerMixin):
             if not skill.name:
                 problems.append('%s：frontmatter 里没有 name' % path.name)
                 continue
+            if (layer, skill.name) in disabled:
+                continue
             if skill.name in skills:
                 problems.append('%s：与 %s 重名' % (path.name, skills[skill.name].path.name))
                 continue
@@ -800,11 +819,15 @@ class Registry(ProjectLayerMixin):
                             for other in external_references(skills[name], known))
         self._skills, self._problems, self._fingerprint = skills, problems, stamp
         self._warnings = warnings
+        self._disabled_pairs = frozenset(disabled)
+        self._disabled_entries = disabled_view
         return self
 
     def _fresh(self):
         now = time.monotonic()
-        if now - self._fresh_checked_at < FRESH_TTL_SECONDS:
+        # 禁用登记改写不进目录组合键：TTL 早退前单独比对它的 stat，保证即时生效。
+        if (now - self._fresh_checked_at < FRESH_TTL_SECONDS
+                and disabled_stamp(self.user_root) == self._disabled_stamp_seen):
             return self
         self._fresh_checked_at = now
         if self.fingerprint() != self._fingerprint:

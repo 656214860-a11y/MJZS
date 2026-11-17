@@ -18,11 +18,13 @@ from tkinter import ttk
 
 import pet_bus
 import skill_import_service
+import skill_lifecycle_service
 import skill_project_layer
 import skill_registry
 import workflow_settings
+from contract import platform_tools
 from ui_dialogs import FileDialog
-from ui_tokens import FONTS, SPACING, TEXT_DESC, TEXT_ROWS
+from ui_tokens import COLORS, FONTS, SPACING, TEXT_DESC, TEXT_ROWS
 from ui_widgets import (BaseDialog, DataTable, SecondaryButton, SelectBox, TextArea,
                         ask_confirmation, ask_string, notify)
 
@@ -67,8 +69,8 @@ def skills_page(frame, pet, width=None):
     hint = tk.StringVar(value='列表在后台加载，打开项目后项目层 SKILL 也会列出。')
     project = _project_of(pet)
     registry = skill_registry.default_registry(_program_of(pet), project=project)
-    state = {'skills': [], 'health': {}, 'registry': registry, 'project': project,
-             'tk': frame, 'problems': 0, 'error': '', 'load_gen': 0}
+    state = {'skills': [], 'disabled': [], 'health': {}, 'registry': registry,
+             'project': project, 'tk': frame, 'problems': 0, 'error': '', 'load_gen': 0}
 
     bar = ttk.Frame(frame)
     bar.pack(fill='x', pady=(SPACING['sm'], SPACING['none']))
@@ -89,6 +91,15 @@ def skills_page(frame, pet, width=None):
     actions.pack(fill='x', pady=(SPACING['sm'], SPACING['none']))
     SecondaryButton(actions, text='查看说明',
                     command=lambda: show_note(pet, tree, state)).pack(side='left')
+    SecondaryButton(actions, text='重命名…',
+                    command=lambda: rename_skill(pet, tree, state, refresh, hint)).pack(
+        side='left', padx=(SPACING['sm'], SPACING['none']))
+    SecondaryButton(actions, text='编辑',
+                    command=lambda: edit_skill(pet, tree, state, hint)).pack(
+        side='left', padx=(SPACING['sm'], SPACING['none']))
+    SecondaryButton(actions, text='禁用/启用',
+                    command=lambda: toggle_disabled(pet, tree, state, refresh, hint)).pack(
+        side='left', padx=(SPACING['sm'], SPACING['none']))
     SecondaryButton(actions, text='删除',
                     command=lambda: remove_skill(pet, tree, state, refresh, hint)).pack(
         side='left', padx=(SPACING['sm'], SPACING['none']))
@@ -110,6 +121,15 @@ def skills_page(frame, pet, width=None):
                 pet_bus.stage_label(getattr(skill, 'stage', '') or ''),
                 skill_project_layer.LAYER_LABELS.get(getattr(skill, 'layer', ''), '—'),
                 _STATUS_LABELS.get(status, status or '—')))
+        for skill in state.get('disabled', []):
+            name = getattr(skill, 'name', '') or ''
+            iid = 'disabled|' + name
+            tree.insert('', 'end', iid=iid, tags=('disabled',), values=(
+                name, getattr(skill, 'displayName', '') or '—',
+                pet_bus.stage_label(getattr(skill, 'stage', '') or ''),
+                skill_project_layer.LAYER_LABELS.get(getattr(skill, 'layer', ''), '—'),
+                '已禁用'))
+        tree.tag_configure('disabled', foreground=COLORS['text_muted'])
         table.refresh_empty_state()
         if state.get('error'):
             hint.set('SKILL 列表加载失败：%s' % state['error'])
@@ -147,12 +167,13 @@ def load(state, done):
         try:
             registry.scan(force=True)
             skills = list(registry.getAll())
+            disabled = _disabled_skill_objects(registry)
             report = workflow_settings.skill_health_report(registry, project=project)
             health = {row.get('name'): row.get('status') for row in report.get('skills', [])}
             problems = len(report.get('problems', ())) + len(report.get('warnings', ()))
-            result_q.put((skills, health, problems, ''))
+            result_q.put((skills, disabled, health, problems, ''))
         except Exception as exc:
-            result_q.put(([], {}, 0, str(exc)))
+            result_q.put(([], [], {}, 0, str(exc)))
 
     def poll():
         widget = state['tk']
@@ -163,11 +184,12 @@ def load(state, done):
         if not alive or state['load_gen'] != generation:
             return
         try:
-            skills, health, problems, error = result_q.get_nowait()
+            skills, disabled, health, problems, error = result_q.get_nowait()
         except queue.Empty:
             widget.after(50, poll)
             return
-        state['skills'], state['health'], state['problems'] = skills, health, problems
+        state['skills'], state['disabled'] = skills, disabled
+        state['health'], state['problems'] = health, problems
         state['error'] = error
         done()
 
@@ -175,12 +197,39 @@ def load(state, done):
     state['tk'].after(50, poll)
 
 
+def _disabled_skill_objects(registry):
+    """禁用登记 → 可展示的 Skill 对象：尽量解析盘上文件取显示名/阶段/正文。"""
+    out = []
+    for entry in registry.disabled_entries():
+        name = str(entry.get('name') or '')
+        if not name:
+            continue
+        path = Path(str(entry.get('path') or '')) if entry.get('path') else None
+        meta, body = {}, ''
+        if path is not None and path.is_file():
+            try:
+                meta, body = skill_registry.parse(
+                    path.read_text(encoding='utf-8-sig'), source=str(path))
+            except (OSError, UnicodeError, ValueError):
+                meta, body = {}, ''
+        if not str(meta.get('name') or ''):
+            meta = dict(meta)
+            meta['name'] = name
+        skill = skill_registry.Skill(meta, body, path,
+                                     layer=str(entry.get('layer') or ''))
+        out.append(skill)
+    return out
+
+
 def _selected(tree, state):
     pick = tree.selection()
     if not pick:
         return None
-    name = pick[0]
-    return next((s for s in state['skills'] if getattr(s, 'name', '') == name), None)
+    iid = pick[0]
+    disabled = iid.startswith('disabled|')
+    name = iid.split('|', 1)[-1] if disabled else iid
+    pool = state.get('disabled', []) if disabled else state['skills']
+    return next((s for s in pool if getattr(s, 'name', '') == name), None)
 
 
 def show_note(pet, tree, state):
@@ -214,8 +263,13 @@ def health_dialog(pet, state):
         refresh=lambda: health_dialog(pet, state))
 
 
+def _is_disabled_row(tree, state):
+    pick = tree.selection()
+    return bool(pick) and pick[0].startswith('disabled|')
+
+
 def remove_skill(pet, tree, state, refresh, hint):
-    """删除：仅用户层／项目层；内置层只读，回收站语义由 uninstall_skill 把关。"""
+    """删除：仅用户层／项目层；内置层只读，已禁用项按登记路径回收，回收站语义由服务把关。"""
     skill = _selected(tree, state)
     if skill is None:
         hint.set('先在列表里选中一个 SKILL。')
@@ -225,18 +279,128 @@ def remove_skill(pet, tree, state, refresh, hint):
         return None
     program = _program_of(pet)
     layer_label = skill_project_layer.LAYER_LABELS.get(getattr(skill, 'layer', ''), '')
-    names = 'SKILL「%s」（%s版）' % (getattr(skill, 'name', ''), layer_label)
+    disabled = _is_disabled_row(tree, state)
+    names = 'SKILL「%s」（%s版%s）' % (getattr(skill, 'name', ''), layer_label,
+                                    '，已禁用' if disabled else '')
     if not ask_confirmation(getattr(pet, 'win', None), '删除 SKILL',
                             '将把%s移入程序回收站（可恢复），是否继续？' % names, dangerous=True):
         return None
     try:
-        skill_import_service.uninstall_skill(program, state['registry'], getattr(skill, 'name', ''))
+        skill_lifecycle_service.uninstall_skill_entry(
+            program, state['registry'], getattr(skill, 'name', ''))
     except skill_import_service.ImportBlocked as exc:
         hint.set('删除失败：%s' % exc)
         return None
     hint.set('%s 已移入回收站。' % names)
     refresh()
     return True
+
+
+def rename_skill(pet, tree, state, refresh, hint):
+    """重命名：先干跑统计受影响项目，确认后落盘改名并迁引用／台账／禁用登记。"""
+    skill = _selected(tree, state)
+    if skill is None:
+        hint.set('先在列表里选中一个 SKILL。')
+        return None
+    old = getattr(skill, 'name', '') or ''
+    new = ask_string(getattr(pet, 'win', None), '重命名 SKILL',
+                     '新名称（字母、数字与 . _ -，以字母或数字开头）：', initialvalue=old)
+    if new is None:
+        return None
+    program = _program_of(pet)
+    try:
+        plan = skill_lifecycle_service.rename_plan(
+            program, state['registry'], old, str(new).strip(), project=state['project'])
+    except skill_import_service.ImportBlocked as exc:
+        hint.set('重命名失败：%s' % exc)
+        return None
+    affected = plan['affected_count']
+    message = ('将把 SKILL「%s」改名为「%s」（%s）。\n\n'
+               '· 影响 %d 个项目的阶段配置引用\n'
+               '· 导入台账同步改键并重算摘要\n'
+               '· 已禁用登记同步改名\n'
+               '· 旧文件进回收站（可恢复）\n\n是否继续？'
+               % (old, plan['new'], '包' if plan['kind'] == 'package' else '清单', affected))
+    if not ask_confirmation(getattr(pet, 'win', None), '重命名 SKILL', message,
+                            dangerous=True):
+        return None
+    try:
+        result = skill_lifecycle_service.apply_rename(program, plan)
+    except (skill_import_service.ImportBlocked, OSError, ValueError) as exc:
+        hint.set('重命名失败：%s' % exc)
+        return None
+    _sync_agents_background(program)
+    notify(getattr(pet, 'win', None),
+           '已重命名为「%s」；%d 个项目的引用已同步。' % (plan['new'], affected),
+           title='重命名 SKILL', modal=False)
+    refresh()
+    return result
+
+
+def edit_skill(pet, tree, state, hint):
+    """编辑：系统默认程序打开条目（清单开文件、包开目录）；保存后靠指纹热加载生效。"""
+    skill = _selected(tree, state)
+    if skill is None:
+        hint.set('先在列表里选中一个 SKILL。')
+        return None
+    name = getattr(skill, 'name', '') or ''
+    try:
+        entry = skill_lifecycle_service.find_skill_entry(_program_of(pet), state['registry'], name)
+    except Exception as exc:
+        hint.set('定位失败：%s' % exc)
+        return None
+    if entry is None:
+        hint.set('找不到 SKILL「%s」的文件。' % name)
+        return None
+    target = entry['path'].parent if entry['kind'] == 'package' else entry['path']
+    try:
+        platform_tools.open_path(target)
+    except (OSError, ValueError) as exc:
+        hint.set('打开失败：%s' % exc)
+        return None
+    hint.set('已交给系统默认程序打开；保存后回到本页点「刷新」即可看到改动。')
+    return target
+
+
+def toggle_disabled(pet, tree, state, refresh, hint):
+    """启停用：禁用登记进 ``data/skills/disabled_skills.json``，文件保留、列表灰显。"""
+    skill = _selected(tree, state)
+    if skill is None:
+        hint.set('先在列表里选中一个 SKILL。')
+        return None
+    name = getattr(skill, 'name', '') or ''
+    disabling = not _is_disabled_row(tree, state)
+    verb = '禁用' if disabling else '启用'
+    if disabling and getattr(skill, 'layer', '') == 'builtin':
+        hint.set('内置 SKILL 只读，不能禁用；要换行为请用用户层同名覆盖。')
+        return None
+    if not ask_confirmation(getattr(pet, 'win', None), verb + ' SKILL',
+                            '将%s SKILL「%s」（文件保留在磁盘，随时可恢复），是否继续？'
+                            % (verb, name), dangerous=disabling):
+        return None
+    try:
+        skill_lifecycle_service.set_skill_disabled(_program_of(pet), state['registry'],
+                                                 name, disabled=disabling)
+    except skill_import_service.ImportBlocked as exc:
+        hint.set('%s失败：%s' % (verb, exc))
+        return None
+    hint.set('已%s「%s」。%s' % (verb, name,
+                               '禁用后不再参与发送与 Agent 同步，可随时启用。'
+                               if disabling else '已恢复正常。'))
+    refresh()
+    return True
+
+
+def _sync_agents_background(program):
+    """改名后后台重算 Codex／Claude／共享 agents 同步标记；失败不阻断页面。"""
+    def run():
+        try:
+            from orchestrator import agent_skill_sync
+            agent_skill_sync.sync_all_agent_skills(program=program)
+        except Exception:
+            import app_logging
+            app_logging.swallowed('SKILL 管理页改名后 agent 同步失败')
+    threading.Thread(target=run, name='skills-manage-agent-sync', daemon=True).start()
 
 
 class _ImportFlow:

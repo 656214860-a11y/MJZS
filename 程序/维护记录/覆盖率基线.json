@@ -1749,7 +1749,7 @@
   {
    "module": "pet_skills_manage.py",
    "covered": 0,
-   "total": 307,
+   "total": 423,
    "percent": 0.0
   },
   {
@@ -2103,13 +2103,19 @@
   {
    "module": "skill_import_service.py",
    "covered": 0,
-   "total": 604,
+   "total": 642,
    "percent": 0.0
   },
   {
    "module": "skill_inline.py",
    "covered": 0,
    "total": 105,
+   "percent": 0.0
+  },
+  {
+   "module": "skill_lifecycle_service.py",
+   "covered": 0,
+   "total": 241,
    "percent": 0.0
   },
   {
@@ -2823,7 +2829,7 @@
   {
    "module": "workflow_settings.py",
    "covered": 0,
-   "total": 756,
+   "total": 760,
    "percent": 0.0
   },
   {
@@ -2917,15 +2923,15 @@
    "percent": 14.2
   },
   {
+   "module": "skill_registry.py",
+   "covered": 97,
+   "total": 683,
+   "percent": 14.2
+  },
+  {
    "module": "client_profiles.py",
    "covered": 55,
    "total": 379,
-   "percent": 14.5
-  },
-  {
-   "module": "skill_registry.py",
-   "covered": 97,
-   "total": 667,
    "percent": 14.5
   },
   {
@@ -2963,6 +2969,12 @@
    "covered": 13,
    "total": 77,
    "percent": 16.9
+  },
+  {
+   "module": "skill_project_layer.py",
+   "covered": 29,
+   "total": 157,
+   "percent": 18.5
   },
   {
    "module": "orchestrator/legacy_compat.py",
@@ -3089,12 +3101,6 @@
    "covered": 4,
    "total": 14,
    "percent": 28.6
-  },
-  {
-   "module": "skill_project_layer.py",
-   "covered": 15,
-   "total": 50,
-   "percent": 30.0
   },
   {
    "module": "contract/prop_assets.py",
@@ -3326,5 +3332,5 @@
   }
  ],
  "modules_covered": 72,
- "modules_total": 552
+ "modules_total": 553
 }
