@@ -2,7 +2,7 @@
 import tkinter as tk
 from tkinter import ttk
 
-import app_logging
+import infra.app_logging as app_logging
 from ui_tokens import BUTTON_GAP, SPACING, TEXT_ROWS, WRAPLENGTH
 from ui_widgets import BaseDialog, PrimaryButton, SecondaryButton, TextArea, ask_confirmation
 

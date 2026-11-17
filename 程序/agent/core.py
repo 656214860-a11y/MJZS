@@ -53,7 +53,7 @@ def _replace_locked(source, target):
         try:
             os.replace(source, target)
             # 所有原子成果发布都在这里收口；页面无需靠刷新或 mtime 轮询猜测新内容。
-            from file_cache import published
+            from infra.file_cache import published
             published(target)
             return
         except PermissionError:
@@ -156,7 +156,7 @@ def restore_bytes(path, previous):
     if previous is not None:
         save_bytes(path, previous)
         return
-    from file_cache import remove_temporary_file
+    from infra.file_cache import remove_temporary_file
     remove_temporary_file(path)
 
 
@@ -173,7 +173,7 @@ def save_bytes_new(path, data):
     try:
         temp.write_bytes(bytes(data))
         os.link(temp, path)  # 同目录同卷；目标存在时以 FileExistsError 安全失败。
-        from file_cache import published
+        from infra.file_cache import published
         published(path)
     finally:
         if temp.exists():
@@ -209,7 +209,7 @@ def copy_file_new(path, source, validate):
         if file_hash(temp) != digest.hexdigest():
             raise OSError('校验期间临时文件发生变化，未发布成果')
         os.link(temp, path)
-        from file_cache import published
+        from infra.file_cache import published
         published(path)
         return path
     finally:

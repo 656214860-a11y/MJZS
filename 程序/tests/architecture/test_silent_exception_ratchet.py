@@ -18,7 +18,7 @@ PROGRAM = Path(__file__).resolve().parents[2]
 # platform_tools（R2669）：底层平台适配引 app_logging 构成越层（test_layers 实证），
 # 流式回调失败按注释语义降噪豁免一处。T10 包化后实体在 contract/ 下。
 ALLOWED = {
-    'app_logging.py': 10,
+    'infra/app_logging.py': 10,
     'agent/volcengine.py': 1,
     'contract/platform_tools.py': 1,
 }

@@ -21,7 +21,7 @@ import infra.model_router as model_router
 from infra.model_metering import chat_metered
 from infra.pet_llm import RequestLedger
 from agent.core import save
-from file_cache import read_json
+from infra.file_cache import read_json
 
 PROGRAM = Path(__file__).resolve().parents[1]
 # 制作阶段 id（pet_bus.STAGES）。第一期只学剧本准备产出的自然剧本。
@@ -46,7 +46,7 @@ def _store(program=None):
 
 
 def records_path(root, program=None):
-    from file_cache import path_key
+    from infra.file_cache import path_key
     return _store(program) / '修改记录' / (path_key(root) + '.json')
 
 

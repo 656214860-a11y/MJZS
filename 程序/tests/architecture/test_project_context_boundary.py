@@ -38,7 +38,7 @@ class ProjectContextBoundaryTests(unittest.TestCase):
     def test_context_factory_is_shared_without_orchestrator_back_dependency(self):
         from project_context_factory import project_context
         from stage_execution_service import project_context as compatibility_entry
-        import file_cache
+        import infra.file_cache as file_cache
         self.assertIs(project_context, compatibility_entry)
         settings = {'model': 'fixture'}
         context = project_context(Path('fixture'), settings_snapshot=settings)

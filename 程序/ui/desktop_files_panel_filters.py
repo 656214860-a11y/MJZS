@@ -38,7 +38,7 @@ PANEL_META_WIDTH = SPACING['xl'] * 5                            # 120：时长�
 
 def _retention_days():
     """回收站保留期（天）：唯一定义在 ``storage_maintenance``，这里只读不复制数字。"""
-    from storage_maintenance import RECYCLE_RETENTION_DAYS
+    from infra.storage_maintenance import RECYCLE_RETENTION_DAYS
     return RECYCLE_RETENTION_DAYS
 
 
@@ -190,7 +190,7 @@ class FilesPanelFilterMixin:
         if root is None:
             return None
         try:
-            from file_cache import read_json
+            from infra.file_cache import read_json
             cfg = read_json(Path(root) / 'config.json')
         except Exception:
             return None

@@ -6,8 +6,8 @@ from pathlib import Path
 from contract.storyboard_paths import media_root
 from contract.episode_contract import validate_episode, relative
 import contract.project_stages as project_stages, stage_layout
-from storage_maintenance import remove_project_link_node
-from file_cache import file_digest, read_json as cached_read_json
+from infra.storage_maintenance import remove_project_link_node
+from infra.file_cache import file_digest, read_json as cached_read_json
 from contract.service_contract import SystemError, success
 
 # R3153：日志器名保持包化前的稳定标识（用例与运维日志按 'projects' 断言失败路径）。
@@ -345,7 +345,7 @@ class Projects:
         if not target.exists():
             raise ValueError('项目目录已不存在；可选择“只清除登记，不动磁盘”。')
         # target 是已登记的完整用户项目；移动至项目库回收站而非递归永久删除。
-        from storage_maintenance import recycle_paths
+        from infra.storage_maintenance import recycle_paths
         try:records=recycle_paths(self.base,[target],'删除项目')
         except FileNotFoundError as exc:
             raise ValueError('项目目录已不存在；可选择“只清除登记，不动磁盘”。') from exc

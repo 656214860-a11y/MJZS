@@ -10,7 +10,7 @@ import logging
 from agent.core import replace, temporary_path
 from domain.asset_context import library_dir
 from domain.asset_plan import plan_file, _update_fields as update_fields
-from file_cache import remove_temporary_file
+from infra.file_cache import remove_temporary_file
 from contract.project_context import ProjectContext
 from contract.service_contract import SystemError, UserError, success
 

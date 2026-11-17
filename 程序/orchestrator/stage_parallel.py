@@ -17,7 +17,7 @@
 """
 import json
 import contract.pet_bus as pet_bus
-from file_cache import read_text
+from infra.file_cache import read_text
 import time
 import threading
 from datetime import datetime
@@ -832,7 +832,7 @@ def frames_ready(project):
     row = gate_for('previs')
     from contract.storyboard_paths import media_root
     from domain.keyframe_evidence import frame_problem
-    from file_cache import read_json
+    from infra.file_cache import read_json
     from orchestrator.stage_config import workflow_lock
     aspect = workflow_lock(project).get('aspect_ratio')
     entries = _adopted(project)

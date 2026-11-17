@@ -79,6 +79,12 @@
    "percent": 0.0
   },
   {
+   "module": "app_logging.py",
+   "covered": 0,
+   "total": 4,
+   "percent": 0.0
+  },
+  {
    "module": "app_shortcut.py",
    "covered": 0,
    "total": 170,
@@ -1138,6 +1144,12 @@
    "module": "environment_check.py",
    "covered": 0,
    "total": 157,
+   "percent": 0.0
+  },
+  {
+   "module": "file_cache.py",
+   "covered": 0,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -2248,6 +2260,12 @@
    "module": "stage_parallel.py",
    "covered": 0,
    "total": 3,
+   "percent": 0.0
+  },
+  {
+   "module": "storage_maintenance.py",
+   "covered": 0,
+   "total": 6,
    "percent": 0.0
   },
   {
@@ -3613,7 +3631,7 @@
    "percent": 21.8
   },
   {
-   "module": "app_logging.py",
+   "module": "infra/app_logging.py",
    "covered": 59,
    "total": 265,
    "percent": 22.3
@@ -3709,7 +3727,7 @@
    "percent": 33.5
   },
   {
-   "module": "storage_maintenance.py",
+   "module": "infra/storage_maintenance.py",
    "covered": 231,
    "total": 685,
    "percent": 33.7
@@ -3745,7 +3763,7 @@
    "percent": 44.2
   },
   {
-   "module": "file_cache.py",
+   "module": "infra/file_cache.py",
    "covered": 78,
    "total": 158,
    "percent": 49.4
@@ -3896,5 +3914,5 @@
   }
  ],
  "modules_covered": 71,
- "modules_total": 647
+ "modules_total": 650
 }

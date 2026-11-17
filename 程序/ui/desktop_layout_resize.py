@@ -22,7 +22,7 @@ import sys
 
 import tkinter as tk
 
-import app_logging
+import infra.app_logging as app_logging
 from ui_tokens import DESKTOP_LAYOUT, PAGE_FREEZE_MAX_MS
 
 #: 拿不到系统边框宽时的命中圈宽度（token，不写死像素）。

@@ -12,7 +12,7 @@
 import ctypes
 import re
 from pathlib import Path
-from storage_maintenance import remove_private_file
+from infra.storage_maintenance import remove_private_file
 from contract.model_protocol import BytesProtector
 from agent.core import read_json, replace, save as save_json, temporary_path
 
@@ -215,7 +215,7 @@ def import_env_keys(env_path, program=None, root=None):
         marker.parent.mkdir(parents=True, exist_ok=True)
         save_json(marker, done, durable=False)
     except Exception:
-        import app_logging
+        import infra.app_logging as app_logging
         app_logging.swallowed('import_env_keys')    # 不含密钥；记下失败原因，下次读取仍会重试
         return 0
     return added

@@ -8,7 +8,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 os.chdir(HERE)
 
-import file_cache, storyboard_files, storyboard_selection
+import infra.file_cache as file_cache, storyboard_files, storyboard_selection
 
 
 def write_episode(path, episode_id, shots):

@@ -1,7 +1,7 @@
 """Read-only adopted-storyboard facts, independent of selection mutations."""
 from pathlib import Path
 from agent.core import read
-from file_cache import read_json
+from infra.file_cache import read_json
 from infra.project_settings import read_prefs
 
 

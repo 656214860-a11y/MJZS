@@ -174,7 +174,7 @@ def source_rounds_since(last_full_round, latest_round):
 
 def risk_paths(prefix):
     """AGENTS §5 里能按路径静态判定的升级条件；Tk 控件生命周期无法静态判定，仍由人工把关。"""
-    return frozenset(('启动漫剧制作助手.pyw', '开发者工具/启动助手.cmd', prefix + 'storage_maintenance.py',
+    return frozenset(('启动漫剧制作助手.pyw', '开发者工具/启动助手.cmd', prefix + 'storage_maintenance.py', prefix + 'infra/storage_maintenance.py',
                       prefix + 'tests/architecture/_layers.py'))
 
 

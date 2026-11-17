@@ -18,7 +18,7 @@ from json import loads as _loads
 from pathlib import Path
 
 import contract.platform_tools as platform_tools
-import storage_maintenance
+import infra.storage_maintenance as storage_maintenance
 from domain.offline_asr_client import VENV_DIR, venv_python
 
 PROGRAM = Path(__file__).resolve().parents[1]
@@ -162,7 +162,7 @@ class OfflineSetupRunner:
         try:
             self._on_event(event)
         except Exception:  # noqa: BLE001 —— 界面回调失败不拖垮下载线程
-            import app_logging
+            import infra.app_logging as app_logging
             app_logging.swallowed()
 
     def _is_cancelled(self):

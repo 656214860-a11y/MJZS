@@ -373,7 +373,7 @@ def _rename_file(source, target):
     统一转成 SystemError 文案。
     """
     from agent.core import replace as replace_file
-    from file_cache import invalidate
+    from infra.file_cache import invalidate
     try:
         replace_file(source, target)
     except OSError:

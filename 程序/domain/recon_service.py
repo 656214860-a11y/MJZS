@@ -23,7 +23,7 @@ import contract.artifact_schema as artifact_schema
 import infra.model_pool as model_pool
 import contract.stage_layout as stage_layout
 from agent import core
-from file_cache import read_json
+from infra.file_cache import read_json
 from contract.service_contract import UserError, success
 from contract.stage_path_service import write_dir
 

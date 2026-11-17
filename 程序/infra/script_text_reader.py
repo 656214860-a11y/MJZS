@@ -1,6 +1,6 @@
 """Read user-provided Markdown, text, or Word screenplay documents."""
 from pathlib import Path
-from file_cache import read_bytes
+from infra.file_cache import read_bytes
 
 # Word 正文 XML 解压后的上限：正常剧本远小于此，恶意压缩包（解压炸弹）会被拦在读取阶段。
 MAX_DOCX_XML_BYTES = 20_000_000

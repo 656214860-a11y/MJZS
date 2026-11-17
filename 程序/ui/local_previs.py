@@ -5,7 +5,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import domain.white_model_service as wm
 from agent.core import save_text
-from file_cache import read_json
+from infra.file_cache import read_json
 from orchestrator.previs_batch_service import prepare_batch
 import domain.previs_routing as previs_routing
 from stage_execution_service import previs_entries, previs_ready, previs_records_directory, white_model_shot_directory, record_previs_evidence

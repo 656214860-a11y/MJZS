@@ -3,7 +3,7 @@
 方法体未改、self 语义不变；Desktop 通过继承 LayoutMixin 获得。仍与 Tk 控件紧耦合，
 故与 desktop 同属 L4。
 """
-import app_logging
+import infra.app_logging as app_logging
 import logging
 import tkinter as tk
 from tkinter import ttk

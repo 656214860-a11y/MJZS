@@ -2,7 +2,7 @@
 from pathlib import Path
 
 from agent.core import file_hash, temporary_path
-from file_cache import remove_temporary_file
+from infra.file_cache import remove_temporary_file
 from contract.project_context import ProjectContext
 
 

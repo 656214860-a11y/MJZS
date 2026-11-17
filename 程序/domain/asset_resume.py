@@ -122,7 +122,7 @@ def delay(project, now=None):
 @_ledger_result
 def clear(project):
     """受控清除台账；底层拒绝或删除失败必须返回失败，不再静默丢弃。"""
-    from storage_maintenance import clear_generated_workflow_state
+    from infra.storage_maintenance import clear_generated_workflow_state
 
     if not clear_generated_workflow_state(project, path(project), FILE_NAME):
         logging.getLogger('asset_resume').error('资产续跑台账清除被拒绝或失败')

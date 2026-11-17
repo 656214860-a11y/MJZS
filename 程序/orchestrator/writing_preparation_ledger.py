@@ -9,7 +9,7 @@ writing_unconfirm 等既有 ``from writing_api import _…`` 调用点不受影�
 import json
 from datetime import datetime
 
-from file_cache import read_json
+from infra.file_cache import read_json
 
 PREPARATION_STAGES = ('项目设定', '剧本大纲', '角色卡')
 

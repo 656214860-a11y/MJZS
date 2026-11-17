@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import file_cache
+import infra.file_cache as file_cache
 
 
 def recover_stage_publications():

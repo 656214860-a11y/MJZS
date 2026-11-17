@@ -6,7 +6,7 @@ import threading
 import time
 import uuid
 from pathlib import Path
-from file_cache import remove_temporary_file
+from infra.file_cache import remove_temporary_file
 from datetime import datetime
 from agent.core import save,save_text,read,temporary_path,replace
 import orchestrator.edit_habits as edit_habits, stage_layout
@@ -392,7 +392,7 @@ def save_background_session(project, stage, engine, session_id):
         data[stage] = entry
         save(path, data)
     except (OSError, ValueError, TypeError):
-        import app_logging
+        import infra.app_logging as app_logging
         app_logging.swallowed('后台引擎会话绑定落盘')
 
 

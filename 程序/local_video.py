@@ -2,7 +2,7 @@
 import copy, json, time, uuid, math
 from pathlib import Path
 from infra.api_endpoints import no_redirect
-from file_cache import remove_temporary_file
+from infra.file_cache import remove_temporary_file
 # 第 34 期第 9 条：`urllib.request`／`urllib.error` 连 ssl 一起加载（约 4.4 MB 常驻），
 # 本模块只在真要发本机 HTTP 时用得到——都改成函数内 import。
 from urllib.parse import urlparse,urlencode,quote

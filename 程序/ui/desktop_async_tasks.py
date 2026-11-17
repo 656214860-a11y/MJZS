@@ -6,7 +6,7 @@
 import queue
 import threading
 
-import app_logging
+import infra.app_logging as app_logging
 from ui.desktop_page_registry import page_title
 
 

@@ -1,5 +1,5 @@
 """OpenAI 兼容文本转语音（TTS）：支持 tts-1 及任何 OpenAI 兼容 /audio/speech 端点。"""
-import app_logging
+import infra.app_logging as app_logging
 import base64
 import hashlib
 import json

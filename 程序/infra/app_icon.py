@@ -17,7 +17,7 @@
   sanhu_chibi_avatar.png 缩成的多尺寸 ICO（成品入库）；--force 会改回算出来的简笔图，别随手跑。
 运行：python app_icon.py --force 会把 ico 与一张 png 预览重写进程序目录下的 assets。
 """
-import app_logging
+import infra.app_logging as app_logging
 import hashlib
 import os
 import math

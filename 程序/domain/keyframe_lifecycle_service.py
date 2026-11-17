@@ -38,7 +38,7 @@ def delete_keyframe(base, source, episode, shot, *, publish=None):
         raise ValueError('其他镜头也在使用此图片，请先替换它们的首帧')
     if not callable(publish):
         raise TypeError('首帧状态需要由 L3 注入发布器。')
-    from storage_maintenance import recycle_paths, restore_latest_recycled_path
+    from infra.storage_maintenance import recycle_paths, restore_latest_recycled_path
     if not recycle_paths(base, (path,), '删除首帧'):
         raise OSError('首帧未能安全移入项目回收站')
     previous = dict(shot)
@@ -79,7 +79,7 @@ def restore_keyframe(base, source, episode, shot, *, publish=None):
         raise ValueError('其他镜头已关联同名图片')
     if not callable(publish):
         raise TypeError('首帧状态需要由 L3 注入发布器。')
-    from storage_maintenance import recycle_paths, restore_latest_recycled_child
+    from infra.storage_maintenance import recycle_paths, restore_latest_recycled_child
     restored = restore_latest_recycled_child(base, frames, sid, ('.png',))
     if restored != [dest] or not dest.is_file():
         raise OSError('首帧未能安全从回收站恢复')
@@ -119,8 +119,8 @@ def replace_keyframe(base, source, episode, shot, data, *, publish=None, publish
         raise TypeError('首帧成果需要由 L3 注入图片与索引发布器。')
     from domain.keyframe_evidence import make_evidence
     evidence = make_evidence(source, episode, shot, raw)
-    from file_cache import remove_temporary_file
-    from storage_maintenance import recycle_paths, restore_latest_recycled_path
+    from infra.file_cache import remove_temporary_file
+    from infra.storage_maintenance import recycle_paths, restore_latest_recycled_path
     previous = dict(shot)
     replaced = dest.is_file()
     if replaced and not recycle_paths(base, (dest,), '替换首帧'):

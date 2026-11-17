@@ -5,7 +5,7 @@ from pathlib import Path
 import contract.stage_layout as stage_layout
 import orchestrator.stage_parallel as stage_parallel
 import domain.white_model_service as white_model_service
-from file_cache import read_json
+from infra.file_cache import read_json
 
 
 def prepare_batch(project, source, ids, call_config=None):

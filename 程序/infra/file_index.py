@@ -113,7 +113,7 @@ def published_paths(project):
 
 def _paths_in(manifest, keys):
     """从清单里取出 ``keys`` 列表中每项的 ``path`` 字段；坏文件按空集处理。"""
-    from file_cache import read_json
+    from infra.file_cache import read_json
     try:
         data = read_json(manifest)
     except (OSError, ValueError):
@@ -227,7 +227,7 @@ def global_config_path(program=None):
 
 def read_global_dir(program=None):
     """读全局素材库目录；未设置、文件缺失或内容非法时返回 ``None``。"""
-    from file_cache import read_json
+    from infra.file_cache import read_json
     try:
         data = read_json(global_config_path(program))
     except (OSError, ValueError):
@@ -287,7 +287,7 @@ def rebuild_global(library, now=None):
 
 def read_global(library):
     """读取全局素材库索引；缺失／损坏／版本不符返回 ``None``。"""
-    from file_cache import read_json
+    from infra.file_cache import read_json
     try:
         data = read_json(global_index_path(library))
     except (OSError, ValueError):
@@ -322,7 +322,7 @@ def search_global(library, kind=None, name=None, now=None):
 
 def read(project):
     """读取索引；不存在、损坏或版本不符时返回 ``None``（调用方据此重建）。"""
-    from file_cache import read_json
+    from infra.file_cache import read_json
     try:
         data = read_json(index_path(project))
     except (OSError, ValueError):

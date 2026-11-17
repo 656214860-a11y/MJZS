@@ -16,7 +16,7 @@ from unittest.mock import patch
 import engine
 from domain import handoff_service
 import stage_flow
-import storage_maintenance
+import infra.storage_maintenance as storage_maintenance
 from agent.core import file_hash
 from edit_export import normalize_edits
 

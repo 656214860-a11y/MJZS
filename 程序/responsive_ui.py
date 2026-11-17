@@ -1,5 +1,5 @@
 """Wrapping action rows and proportionate table columns for Tkinter."""
-import app_logging
+import infra.app_logging as app_logging
 import tkinter as tk
 from tkinter import ttk, TclError
 from ui.ui_scroll import eased_scroll

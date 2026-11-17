@@ -14,7 +14,7 @@ import unittest
 from tests.architecture._scan import ROOT, parse, production_runtime_files
 
 NAME = 'read_json'
-REGISTERED = frozenset({'agent/core.py', 'file_cache.py', 'ui/video_navigation.py'})
+REGISTERED = frozenset({'agent/core.py', 'infra/file_cache.py', 'ui/video_navigation.py'})
 
 
 def _definitions() -> dict[str, list[int]]:

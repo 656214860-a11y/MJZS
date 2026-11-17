@@ -1,7 +1,7 @@
 """Shared, read-only progress for local and cloud tasks of one storyboard."""
 import time
 from pathlib import Path
-from file_cache import read_json_shared as read_cached
+from infra.file_cache import read_json_shared as read_cached
 from domain.video_task_state import ACTIVE,elapsed_text,provider_failure_reason
 from contract.storyboard_paths import config_listing,resolved_path
 

@@ -5,7 +5,7 @@
 """
 from dataclasses import dataclass
 
-import app_logging
+import infra.app_logging as app_logging
 from ui_tokens import SPACING
 
 

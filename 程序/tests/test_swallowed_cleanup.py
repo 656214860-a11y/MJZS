@@ -2,7 +2,7 @@
 """T5 静默异常核销：清理路径的故障必须经 app_logging.swallowed 留痕。"""
 import unittest
 
-import app_logging
+import infra.app_logging as app_logging
 import smoke_test
 
 

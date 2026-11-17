@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-import file_cache
+import infra.file_cache as file_cache
 import storyboard_catalog_service as service
 import stage_execution_service as stages
 from orchestrator.storyboard_page_controller import StoryboardPageController

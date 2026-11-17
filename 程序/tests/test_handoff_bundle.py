@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import file_cache
+import infra.file_cache as file_cache
 from domain.handoff_service import BUNDLE_MANIFEST_NAME, verify_manifest
 from stage_execution_service import publish_handoff_bundle, verify_handoff_bundle
 from domain.handoff_service import publish_bundle

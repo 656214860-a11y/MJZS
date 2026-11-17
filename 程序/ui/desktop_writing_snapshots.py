@@ -18,7 +18,7 @@ class WritingSnapshotsMixin:
 
     def preparation_snapshots(self, stage):
         """REQ-S01-87：该阶段已登记的确认快照（台账倒序，新→旧）。"""
-        from file_cache import read_json
+        from infra.file_cache import read_json
         from contract.stage_path_service import write_dir
         folder = write_dir(self.page.root, 'script')
         try:

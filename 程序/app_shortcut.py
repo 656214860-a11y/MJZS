@@ -9,14 +9,14 @@
 - 桌面与程序目录各放一份：前者给用户点，后者是重建/备份用（重装后照样能把桌面那份补回来）。
 运行：python app_shortcut.py  会（重新）建好这两份快捷方式并打印路径。
 """
-import app_logging
+import infra.app_logging as app_logging
 import hashlib
 import os
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from file_cache import remove_temporary_file
+from infra.file_cache import remove_temporary_file
 
 import infra.app_icon as app_icon
 from contract.app_metadata import APP_NAME
@@ -120,7 +120,7 @@ def make_shortcut(link, target, arguments='', workdir=None, icon=None, descripti
         return None
     finally:
         if script_path:
-            from file_cache import remove_temporary_file
+            from infra.file_cache import remove_temporary_file
             remove_temporary_file(script_path)
 
 

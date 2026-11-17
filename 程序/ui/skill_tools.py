@@ -125,7 +125,7 @@ def _write_structured_script(context):
     root = project_of(context)
 
     def supersede(paths):
-        from storage_maintenance import recycle_paths
+        from infra.storage_maintenance import recycle_paths
         recycle_paths(root, list(paths), '重新生成同源结构剧本，回收旧份')
     try:
         target = write_structured_script(root, supersede=supersede)

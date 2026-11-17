@@ -4,7 +4,7 @@
 删除：制作锁是项目级事实（skill_config.json 的 production_locks），本模块只提供
 面板入口行与弹窗编辑，读写仍走 stage_config／stage_execution_service 权威。
 """
-import app_logging
+import infra.app_logging as app_logging
 import tkinter as tk
 from tkinter import ttk
 

@@ -31,7 +31,7 @@ from contextlib import contextmanager
 from json import loads
 from pathlib import Path
 
-from file_cache import remove_temporary_file
+from infra.file_cache import remove_temporary_file
 
 # 相对「程序」根目录的总控包路径；子模块未初始化时这些文件不存在，桥返回友好错误。
 _PACKAGE = Path(__file__).resolve().parents[1] / 'skills' / '00全流程SKILL' / 'AIGC创作全流程'

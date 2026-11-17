@@ -31,7 +31,7 @@ Round 1（2026-09-23）：缩略图不再在界面线程里整张解 PNG（95 �
 界面线程同步解一次并把结果写进缓存——最坏也不过是和从前一样慢，图不会不见。JOB_DEADLINE
 兜住「进程还活着、这一张却一直不回来」那种情况。
 """
-import app_logging
+import infra.app_logging as app_logging
 import atexit
 import hashlib
 import json
@@ -44,7 +44,7 @@ import time
 from contract.platform_tools import launch_background, run_process, tool_path
 import tkinter as tk
 from pathlib import Path
-from file_cache import read_json, remove_temporary_file
+from infra.file_cache import read_json, remove_temporary_file
 from agent.core import save, save_bytes
 
 DEFAULT_SIZE = 36

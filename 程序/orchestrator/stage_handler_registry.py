@@ -3,7 +3,7 @@
 三虎只经 ``start`` 发出阶段指令；界面层提供未拆分阶段的回调，分镜阶段的
 选择与去重决策则由文件服务产出工作计划。
 """
-import app_logging
+import infra.app_logging as app_logging
 import orchestrator.stage_flow as stage_flow
 from orchestrator.storyboard_plan_service import storyboard_work_plan
 

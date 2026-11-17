@@ -151,7 +151,7 @@ def repoint_manifests(project, moves):
     不做这一步，已完成的媒体阶段会因「清单文件名＝源路径指纹」失配而退回未完成。
     """
     from agent.core import save
-    from file_cache import read_json
+    from infra.file_cache import read_json
     from stage_completion_service import media_manifest_path
     root = Path(project).resolve()
     saved = []
@@ -181,7 +181,7 @@ def repoint_manifests(project, moves):
             save(target, data)
             if target.resolve() != manifest.resolve():
                 # 物理删除只经回收权威：旧指纹清单移入项目回收站，可追溯。
-                from storage_maintenance import recycle_paths
+                from infra.storage_maintenance import recycle_paths
                 try:
                     recycle_paths(root, [manifest], '迁移：旧指纹成果确认清单')
                 except (OSError, ValueError):
@@ -193,7 +193,7 @@ def repoint_manifests(project, moves):
 def rewrite_absolute_manifests(project, moves):
     """E2：把清单里的绝对路径改写为项目相对 posix，并按迁移映射改指向新位置。"""
     from agent.core import save
-    from file_cache import read_json
+    from infra.file_cache import read_json
     root = Path(project).resolve()
     rewritten = []
     for path in sorted(root.rglob(ASSETS_MANIFEST_NAME)):

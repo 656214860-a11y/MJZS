@@ -22,7 +22,7 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.dirname(HERE))
 os.chdir(HERE)
 
-import file_cache
+import infra.file_cache as file_cache
 import storyboard_catalog_service
 import storyboard_selection
 from agent.core import save

@@ -2,7 +2,7 @@
 import os, time
 from pathlib import Path
 from agent.core import read,save
-from file_cache import read_json
+from infra.file_cache import read_json
 from infra.project_settings import read_prefs
 from orchestrator.project_context_factory import project_context
 from domain.storyboard_adoption_contract import adopted as _adopted, paths, problem_text, resolve_source
@@ -14,7 +14,7 @@ def _asset_plan_gateway(gateway):
     if isinstance(gateway, dict):
         return gateway
     from agent.core import save_bytes, save_text
-    from file_cache import remove_temporary_file
+    from infra.file_cache import remove_temporary_file
     return {'publish_json': save, 'publish_bytes': save_bytes,
             'publish_text': save_text, 'remove_file': remove_temporary_file}
 

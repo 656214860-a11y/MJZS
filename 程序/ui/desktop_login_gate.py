@@ -92,7 +92,7 @@ class LoginGateMixin:
         try:
             opener()
         except Exception:  # noqa: BLE001 —— 引导失败不影响已通过的登录
-            import app_logging
+            import infra.app_logging as app_logging
             app_logging.swallowed()
 
     def _refresh_nav_locks(self):
