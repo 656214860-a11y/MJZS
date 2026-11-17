@@ -64,8 +64,8 @@ def project_identity(root):
 
 def _reroot(root, path):
     """绝对路径失效（项目改名／移动）时，按阶段目录名在项目内重新定位同一份分镜。"""
-    from contract.project_stages import STAGES
-    names = set(STAGES.values())
+    from contract.project_stages import stage_dirs
+    names = set(stage_dirs())
     parts = Path(path).parts
     for index, part in enumerate(parts):
         if part in names:
