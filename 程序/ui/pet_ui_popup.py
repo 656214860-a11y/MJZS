@@ -7,7 +7,7 @@
 R2909 起本模块同时收纳阶段执行中的用户询问助手（``template_choice``／``recovery_choice``）：
 两者都是「向用户弹窗要一个决定」的同类入口，从 ``pet_ui_stages.py`` 下沉以归还行数上限。
 """
-from pet_ui_support import STAGE_TODO_STATES
+from ui.pet_ui_support import STAGE_TODO_STATES
 from ui_widgets import ask_string
 from ui_tokens import (PET_ACTIVITY_BUSY_COUNT, PET_ACTIVITY_WINDOW_SECONDS, PET_CLOUD_AUTO_CLOSE_MS,
                        PET_CLOUD_BUSY_CLOSE_MS, PET_CLOUD_IDLE_CLOSE_MS, PET_DISMISS_MUTE_SECONDS,

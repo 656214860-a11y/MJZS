@@ -7,7 +7,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 os.chdir(HERE)
 
-import pet_llm, pet_report, pet_state
+import infra.pet_llm as pet_llm, pet_report, infra.pet_state as pet_state
 from unittest.mock import patch
 from pet_bus import STAGES
 

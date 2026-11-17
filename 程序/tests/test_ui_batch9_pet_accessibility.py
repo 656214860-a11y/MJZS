@@ -2,7 +2,7 @@
 """UI 批次 9：宠物层图标命中区与键盘可达。"""
 from tkinter import ttk
 
-import pet_ui_support
+import ui.pet_ui_support as pet_ui_support
 import ui_widgets
 from tests.test_pet_ui import PetTestCase
 from ui_tokens import COLORS, CONTROL_HIT_MIN

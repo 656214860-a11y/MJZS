@@ -10,7 +10,7 @@ from .volcengine import ArkRejected
 class WanAdapter(VideoAdapter):
     def __init__(self, cfg):
         self.cfg = cfg
-        from api_endpoints import normalize_url
+        from infra.api_endpoints import normalize_url
         self.base = normalize_url(cfg['base_url'])
 
     def payload(self, shot, frame):
@@ -34,7 +34,7 @@ class WanAdapter(VideoAdapter):
     def call(self, task_id=None, payload=None):
         import urllib.error, urllib.parse          # 第 34 期第 9 条：HTTP 栈按需加载
         import infra.http_client as http_client
-        from api_endpoints import configured_key
+        from infra.api_endpoints import configured_key
         from contract.platform_tools import current_execution
         control = current_execution()
         timeout = 90

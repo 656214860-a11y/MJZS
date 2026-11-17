@@ -37,7 +37,7 @@ def project_snapshot(project, *, stage_records=None, gates=None, task_id=None) -
     project_id = str(config.get('project_id') or 'legacy-path:' + fingerprint(str(root))[:24])
     result['project_id'] = project_id
 
-    from pet_llm import request_ledger_path
+    from infra.pet_llm import request_ledger_path
     cost_rows = source(request_ledger_path(root)).get('entries', [])
     if not isinstance(cost_rows, list) or any(not isinstance(row, dict) for row in cost_rows):
         result['errors'].append('费用台账格式错误')
@@ -121,7 +121,7 @@ def attempt_timings(record):
 
 def attempt_cost(row):
     from decimal import Decimal, InvalidOperation
-    from pet_llm import RequestLedger
+    from infra.pet_llm import RequestLedger
     state = RequestLedger.effective_money_state(row)
     estimate = row.get('budget_cost') if state in ('estimated', 'reserved') else None
     actual = row.get('budget_cost') if state == 'reconciled' else None

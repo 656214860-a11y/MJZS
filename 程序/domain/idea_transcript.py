@@ -57,7 +57,7 @@ def history_path(root):
 def chat_model(model):
     if isinstance(model, ChatModel):
         return model
-    import model_pool
+    import infra.model_pool as model_pool
     shown = str(model or '').strip()
     records = model_pool.pool(program=Path(__file__).resolve().parents[1])
     matches = [key for key, record in records.items() if record.get('label') == shown]

@@ -33,12 +33,12 @@ sys.path.insert(0, HERE)
 os.chdir(HERE)
 
 import codex_tasks
-import model_pool
-import model_router
+import infra.model_pool as model_pool
+import infra.model_router as model_router
 import pet_agent
-import pet_llm
+import infra.pet_llm as pet_llm
 import pet_settings_ui
-import pet_ui
+import ui.pet_ui as pet_ui
 import token_saver
 
 import selftest_sandbox

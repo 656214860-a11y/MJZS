@@ -12,7 +12,7 @@ import json, os, sys, tempfile, unittest
 from pathlib import Path
 from types import SimpleNamespace
 
-from pet_state import PAGE_OF as PAGE
+from infra.pet_state import PAGE_OF as PAGE
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROGRAM = os.path.dirname(HERE)
@@ -271,7 +271,7 @@ class AutoSubmitTests(unittest.TestCase):
 
     def test_batch_money_preflight_stops_before_first_submission(self):
         from agent.core import save
-        from pet_llm import request_ledger_path
+        from infra.pet_llm import request_ledger_path
         for auto in (False, True):
             with self.subTest(auto=auto), tempfile.TemporaryDirectory() as td:
                 app, proj = self.make_app(td, auto=auto)

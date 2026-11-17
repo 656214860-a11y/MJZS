@@ -53,7 +53,7 @@ def sender(results=None, page='# 正文\n真的', search_status=None, fetch_stat
 
 
 def model_kind(status):
-    import model_pool
+    import infra.model_pool as model_pool
     return model_pool.tools_error_kind(status)
 
 

@@ -82,7 +82,7 @@ class FrameSourceTests(unittest.TestCase):
         self.desktop = Desktop(self.win, root=PROGRAM)
         self.desktop.root = self.proj
         self.desktop.studio = open_studio(self.proj)
-        from pet_state import PAGE_OF
+        from infra.pet_state import PAGE_OF
         self.desktop.show(PAGE_OF['keyframe'])     # 08 首帧管理
         self.win.update_idletasks()
         return self.desktop
@@ -127,7 +127,7 @@ class FrameSourceTests(unittest.TestCase):
         folder = self.proj / "storyboard" / "frames"
         folder.mkdir(parents=True, exist_ok=True)
         (folder / "EP002_SH001.png").write_bytes(real_png())
-        from pet_state import PAGE_OF
+        from infra.pet_state import PAGE_OF
         self.desktop.show(PAGE_OF['keyframe'])
         self.win.update_idletasks()
         table = self.table()
@@ -143,7 +143,7 @@ class FrameSourceTests(unittest.TestCase):
         other = json.loads((folder / "ep002.json").read_text(encoding="utf-8"))
         other["shots"] = [shot("SH001", "同号"), shot("EP002_SH002", "丙")]
         (folder / "ep002.json").write_text(json.dumps(other, ensure_ascii=False), encoding="utf-8")
-        from pet_state import PAGE_OF
+        from infra.pet_state import PAGE_OF
         self.desktop.show(PAGE_OF['keyframe'])
         self.win.update_idletasks()
         rows = list(self.table().get_children())

@@ -21,7 +21,7 @@ from pathlib import Path
 
 import app_logging
 import domain.skill_command as skill_command
-import ui_plugin_registry
+import infra.ui_plugin_registry as ui_plugin_registry
 from contract import pet_bus
 from ui.desktop_shared_menus import AddMenuPanel, CandidatePopup, SkillPickPanel
 from ui_popup import make_passive_popup, monitor_bounds

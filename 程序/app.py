@@ -19,9 +19,9 @@ from orchestrator.engine import review_label
 from domain.project_naming import dated_path
 from domain.video_task_state import assert_prompt_editable,prompt_locked,poll_delay,elapsed_text,submission_block_reason
 from ui.video_progress import snapshot as shared_video_snapshot,display as progress_display,summary as progress_summary,LABELS,status_detail
-import project_settings
+import infra.project_settings as project_settings
 import ui.asset_thumbs as asset_thumbs
-import ui_plugin_registry
+import infra.ui_plugin_registry as ui_plugin_registry
 from contract.platform_tools import open_path
 from ui_tokens import CHAR_WIDTH, TEXT_ROWS, WRAPLENGTH, COLORS, FONTS, SPACING
 from ui_widgets import (SelectBox, BaseDialog, Card, BusyState, ContextMenu, DataTable, LineInput, NotificationDispatcher,
@@ -1228,7 +1228,7 @@ class App:
 
         无人值守时不弹窗也不超预算扣费：超出预算直接报错，由用户调整预算或减少勾选。
         """
-        from pet_llm import RequestLedger
+        from infra.pet_llm import RequestLedger
         estimate = RequestLedger(project_root(self.studio.root)).preview_text(
             self.studio.cfg.get('model', ''), 'videos', {'seconds': seconds})
         message += '\n\n' + estimate
@@ -1381,7 +1381,7 @@ class App:
         if now<getattr(self,'_result_render_report_due',0):return
         self._result_render_report_due=now+30
         try:
-            import diagnostic_capture
+            import infra.diagnostic_capture as diagnostic_capture
             diagnostic_capture.record_degradation(
                 RuntimeError('视频结果渲染失败：'+type(exc).__name__),
                 page='视频生成',stage='app.tick.'+phase)

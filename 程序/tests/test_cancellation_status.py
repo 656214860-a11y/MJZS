@@ -8,7 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-import model_pool
+import infra.model_pool as model_pool
 import script_contract
 import stage_config
 import writing_api

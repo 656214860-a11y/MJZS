@@ -6,7 +6,7 @@ import unittest
 from unittest import mock
 from urllib.request import HTTPRedirectHandler
 
-import api_endpoints
+import infra.api_endpoints as api_endpoints
 import local_video
 import seedream_api
 from domain import tts_api

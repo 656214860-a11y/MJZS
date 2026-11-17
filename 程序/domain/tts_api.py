@@ -8,7 +8,7 @@ import os
 import re
 from pathlib import Path
 from agent.core import read_json
-from api_endpoints import no_redirect
+from infra.api_endpoints import no_redirect
 from contract.project_context import ProjectContext
 from urllib.parse import urlparse
 # 第 34 期第 9 条：`urllib.request`／`urllib.error` 连 ssl 一起加载（约 4.4 MB 常驻），
@@ -99,7 +99,7 @@ def save_key(base_url, model, voice, key, voices=None, speeds=None, *, gateway=N
         if not isinstance(speeds, dict):
             raise ValueError("角色语速映射必须为 JSON 对象，例如 {'CHAR_001': 1.2}")
         data["speeds"] = {k: coerce_speed(v) for k, v in speeds.items()}
-    import model_pool
+    import infra.model_pool as model_pool
     model_pool.save_named_key(KEY_ENV, secret)
     write_settings(data, gateway=gateway)
 
@@ -107,7 +107,7 @@ def save_key(base_url, model, voice, key, voices=None, speeds=None, *, gateway=N
 def unified_key():
     """统一那份 .env（程序目录/private/.env）里的密钥；没有就是空串（第 65 期任务 1）。"""
     try:
-        import model_pool
+        import infra.model_pool as model_pool
         return model_pool.named_key(KEY_ENV)
     except Exception:
         return ""
@@ -396,7 +396,7 @@ def pending_lines(lines, folder):
 
 def batch_cost_preview(project, lines, folder, settings=None):
     """只读报价：已完成与结果未知的句子不计入新增请求。"""
-    from pet_llm import RequestLedger, BudgetRejected
+    from infra.pet_llm import RequestLedger, BudgetRejected
     folder = Path(folder)
     manifest = read_json(folder / '时间轴.json')
     manifest = manifest if isinstance(manifest, list) else []
@@ -431,7 +431,7 @@ def run_lines(lines, folder, generate=None, report=None, stop=None, *, gateway=N
     """
     from contextlib import nullcontext
     from uuid import uuid4
-    from pet_llm import RequestLedger, BudgetRejected
+    from infra.pet_llm import RequestLedger, BudgetRejected
     publish = _require_gateway(gateway, "publish_json", "publish_bytes")
     folder = Path(folder)
     # 批次一开始就把配置冻结下来：长批次中途改设置，这一批仍按开批时那一套跑，不混用两套（O12）。
@@ -528,7 +528,7 @@ def synthesize(text, speed=1.0, voice=None, *, settings=None, project=None, requ
     )
     from contextlib import nullcontext
     from uuid import uuid4
-    from pet_llm import RequestLedger
+    from infra.pet_llm import RequestLedger
     meter = (RequestLedger(project).metered_units(request_id or 'tts:' + uuid4().hex,
              settings['model'], 'audio', 'requests', 1, quantities={'characters': len(text)})
              if project is not None else nullcontext())

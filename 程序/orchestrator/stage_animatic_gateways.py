@@ -71,7 +71,7 @@ def run_animatic(project, source, references, audio=None, settings=None):
     from orchestrator.storyboard_selection import adopted
     if Path(source).resolve() not in {Path(path).resolve() for path in adopted(project)}:
         raise ValueError('请选择已采用的本项目分镜初稿')
-    from comfy_runtime import open_comfy, wait_comfy
+    from infra.comfy_runtime import open_comfy, wait_comfy
     url = settings.get('url', 'http://127.0.0.1:8188')
     try:
         wait_comfy(url, timeout=settings.get('probe_timeout', 5))
@@ -143,7 +143,7 @@ def generate_animatic_reference(project, prompt, model, settings=None):
     """本地草图准备与发布，复用 ComfyUI，不进入正式资产登记。"""
     import tempfile
     from domain.animatic_service import prepare_reference
-    from comfy_runtime import open_comfy, wait_comfy
+    from infra.comfy_runtime import open_comfy, wait_comfy
     settings = dict(settings or {})
     url = settings.get('url', 'http://127.0.0.1:8188')
     try:

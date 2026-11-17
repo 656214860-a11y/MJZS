@@ -79,7 +79,7 @@ def show(parent,on_saved=None):
             status.set('填写格式正确；实际模型权限和余额将在正式制图时验证。')
         except ValueError as exc:status.set(str(exc))
     def probe():
-        from api_endpoints import normalize_url, probe_message
+        from infra.api_endpoints import normalize_url, probe_message
         try:url=normalize_url(values['base_url'].get())
         except ValueError as exc:status.set(str(exc));return
         status.set('正在测试连接…')

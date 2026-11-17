@@ -81,7 +81,7 @@ def _execute(project,manifest,stop=None):
         if todo:
             options=data.get('comfy_config') or read(project/'ui_settings.json').get('asset_batch',{})
             if not options.get('url'):raise ValueError('请先在资产图片制作窗口保存 ComfyUI 设置')
-            from comfy_runtime import open_comfy
+            from infra.comfy_runtime import open_comfy
             open_comfy()
             result=run_batch(project,base,[(i['id'],i['asset']) for i in todo],options,Events(manifest),stop)
             print(result,flush=True)
@@ -108,7 +108,7 @@ def _execute(project,manifest,stop=None):
             save(snapshot,{**ep,'duration':sum(s['duration'] for s in selected),'shots':selected})
         config=data.get('comfy_config') or read(Path(__file__).parent/'batch_frames_tool/config.json')
         config={**config,'shot_id':''}
-        from comfy_runtime import open_comfy,wait_comfy
+        from infra.comfy_runtime import open_comfy,wait_comfy
         open_comfy();wait_comfy(config['url'],Events(manifest).put)
         run(snapshot,config,lambda text:print(text,flush=True),stop)
         updated={s['id']:s for s in read(snapshot)['shots']};missing=[]

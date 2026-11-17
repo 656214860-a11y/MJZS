@@ -87,7 +87,7 @@ class FakeClient:
 class SavingTests(unittest.TestCase):
     def test_model_rename_keeps_history_and_deleted_message_identity(self):
         """REQ-S01-04：每个模型的对话独立归档，模型显示名变化不影响已有记录。"""
-        import model_pool
+        import infra.model_pool as model_pool
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             records = model_pool.default_pool()
@@ -104,7 +104,7 @@ class SavingTests(unittest.TestCase):
                 self.assertEqual(len(idea_chat.load(proj, model='gpt-4o')), 2)
 
     def test_legacy_display_folder_migrates_history_and_recycle_bin_once(self):
-        import model_pool
+        import infra.model_pool as model_pool
         with tempfile.TemporaryDirectory() as td, patch('model_pool.pool', return_value=model_pool.default_pool()):
             identity = idea_chat.chat_model('gpt-4o')
             old = idea_chat.model_history_path(td, str(identity), provider=identity.provider)
@@ -124,7 +124,7 @@ class SavingTests(unittest.TestCase):
 
     def test_rename_before_first_read_preserves_rows_in_single_thread(self):
         """契约变更（R2898）：单一创意对话目录下，改名前写入的旧署名记录仍在同一线程。"""
-        import model_pool
+        import infra.model_pool as model_pool
         with tempfile.TemporaryDirectory() as td:
             records = model_pool.default_pool()
             old = records['gpt-4o']
@@ -137,7 +137,7 @@ class SavingTests(unittest.TestCase):
 
     def test_same_label_rows_stay_in_single_thread_without_owner_assignment(self):
         """契约变更（R2898）：不再做旧目录归属判定——单一线程里同名署名的记录都可见，旧文件保留。"""
-        import model_pool
+        import infra.model_pool as model_pool
         with tempfile.TemporaryDirectory() as td:
             records = {'first': dict(model='first', label='同名', provider='GPT'),
                        'second': dict(model='second', label='同名', provider='GPT')}
@@ -487,7 +487,7 @@ class SavingTests(unittest.TestCase):
             self.assertEqual(reply.name, root.name + '_自然剧本_模型输出_19700101.md')
 
     def test_saved_reply_uses_provider_and_model_subdirectories(self):
-        import model_pool
+        import infra.model_pool as model_pool
         # 隔离本机模型池：本用例断言的是内建 DeepSeek V4 Flash 的归属目录，不能被
         # 用户自定义的「配置/宠物/配置.json」影响（与同文件其它用例同口径）。
         self.enterContext(patch('model_pool.pool', return_value=model_pool.default_pool()))
@@ -697,7 +697,7 @@ class SavingTests(unittest.TestCase):
 
     def test_model_history_shares_one_file_and_keeps_row_labels(self):
         """契约变更（R2898）：所有模型共用 ``创意对话/对话.json``，模型名只是行内署名。"""
-        import model_pool
+        import infra.model_pool as model_pool
         self.enterContext(patch('model_pool.pool', return_value=model_pool.default_pool()))
         with tempfile.TemporaryDirectory() as td:
             idea_chat.append(td, 'user', 'DeepSeek 的创意', model='DeepSeek V4 Flash')
@@ -1579,7 +1579,7 @@ class SendMessageTests(_Harness):
                              '启动失败也不能留下未获模型回复的剧本文档')
 
     def queued_api_request(self, proj):
-        import model_pool
+        import infra.model_pool as model_pool
         # 隔离本机模型池：deepseek-v4-flash 必须解析成「直接 API 模型」才会走排队路径；
         # 用户自定义模型池里没有这条内建模型时会被误判成本机 Agent 路由。
         self.enterContext(patch('model_pool.pool', return_value=model_pool.default_pool()))
@@ -1665,7 +1665,7 @@ class SendMessageTests(_Harness):
 
     def test_enter_after_model_change_displays_the_submitted_conversation(self):
         import stage_config
-        import model_pool
+        import infra.model_pool as model_pool
         self.enterContext(patch('model_pool.pool', return_value=model_pool.default_pool()))
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
@@ -1698,7 +1698,7 @@ class SendMessageTests(_Harness):
             self.assertEqual(idea_chat.load(proj, model=old_model)[-1]['text'], '旧模型历史')
 
     def test_direct_reply_failure_shows_the_error_and_next_request_is_accepted(self):
-        import model_pool
+        import infra.model_pool as model_pool
         import stage_config
         # 隔离本机模型池：本用例走「直接 API 回复」路径，需要内建 deepseek-v4-flash 可解析。
         self.enterContext(patch('model_pool.pool', return_value=model_pool.default_pool()))
@@ -1723,7 +1723,7 @@ class SendMessageTests(_Harness):
 
     def test_direct_model_failure_ends_an_active_script_stage(self):
         """直接 API 调用失败不能只留在状态栏，自动链必须收到 script 失败事件。"""
-        import model_pool
+        import infra.model_pool as model_pool
         import stage_config
         # 隔离本机模型池：本用例瞄准直接 API 失败事件，需要内建 deepseek-v4-flash 可解析。
         self.enterContext(patch('model_pool.pool', return_value=model_pool.default_pool()))

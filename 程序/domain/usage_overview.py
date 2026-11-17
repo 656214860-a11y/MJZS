@@ -11,7 +11,7 @@ from pathlib import Path
 import hashlib
 import json
 
-import pet_llm
+import infra.pet_llm as pet_llm
 from file_cache import read_json
 
 _KEYS = ('prompt_tokens', 'completion_tokens', 'cached_tokens', 'total_tokens')

@@ -13,7 +13,7 @@ import local_video
 import ui_edges_support as T
 from contract.project_stages import storyboard as storyboard_stage
 from test_perf_baseline import big_project as performance_big_project
-from pet_state import PAGE_OF
+from infra.pet_state import PAGE_OF
 
 
 def output_path(args, default):

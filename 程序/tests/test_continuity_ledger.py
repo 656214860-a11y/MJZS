@@ -12,7 +12,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 os.chdir(HERE)
 
-import continuity_ledger as cl
+import infra.continuity_ledger as cl
 from contract import shot_batches
 import stage_layout
 

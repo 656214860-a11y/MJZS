@@ -3,7 +3,7 @@
 page 常量被 Desktop 的多处方法共用；放在单独模块由 desktop 按原名转回，避免与某个 Mixin 绑死。
 """
 import contract.pet_bus as pet_bus
-import pet_state
+import infra.pet_state as pet_state
 
 
 # 制作页名称只从 pet_bus.STAGES／STAGE_NAMES 生成；「参考网站」是唯一非阶段工具页。

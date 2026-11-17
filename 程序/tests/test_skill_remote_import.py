@@ -22,7 +22,7 @@ from unittest import mock
 import skill_import_service
 import skill_panel
 import skill_registry
-import skill_remote_service
+import ui.skill_remote_service as skill_remote_service
 from test_skill_repo_import import make_program, write_package
 from test_skills import PanelTests
 
@@ -340,7 +340,7 @@ class PanelUrlImportTests(unittest.TestCase):
     def test_url_entry_failure_shows_status(self):
         panel = self._panel()
         with mock.patch('skill_panel_import.ask_string', return_value='https://x.com/a.zip'), \
-                mock.patch('skill_remote_service.import_from_url',
+                mock.patch('ui.skill_remote_service.import_from_url',
                            side_effect=skill_import_service.ImportBlocked('下载失败：HTTP 404')):
             self.assertIsNone(panel.add_skill_from_url())
         self.assertIn('链接导入失败', panel.state.cget('text'))

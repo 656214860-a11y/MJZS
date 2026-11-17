@@ -12,11 +12,11 @@ from collections import namedtuple
 from datetime import datetime
 from uuid import uuid4
 
-import model_pool
-import stage_model_value
+import infra.model_pool as model_pool
+import infra.stage_model_value as stage_model_value
 import infra.token_saver as token_saver
 from file_cache import read_json
-from model_router import ModelAdapter, PoolAdapter
+from infra.model_router import ModelAdapter, PoolAdapter
 import domain.writing_tools as writing_tools
 import orchestrator.edit_habits as edit_habits, domain.workflow_context as workflow_context
 from orchestrator.writing_preparation_ledger import (PREPARATION_STAGES, _PREPARATION_STAGE_WORDS,
@@ -233,7 +233,7 @@ class WritingRequestAdapter(ModelAdapter):
         return getattr(self.adapter, name)
 
     def _call(self, method, messages, options=None, model='', system='', **kwargs):
-        import model_pool
+        import infra.model_pool as model_pool
         options = dict(options or {})
         for key, value in stage_model_value.reasoning_options(self.project, self.stage).items():
             options.setdefault(key, value)
@@ -294,8 +294,8 @@ class WritingRequestAdapter(ModelAdapter):
         def send():
             return getattr(self.adapter, method)(messages, options=options, model=model, system=system, **kwargs)
         if self.project is not None:
-            from model_metering import metered
-            from pet_llm import RequestLedger
+            from infra.model_metering import metered
+            from infra.pet_llm import RequestLedger
             from uuid import uuid4
             estimate = body_bytes
             result, _usage, refused = metered(

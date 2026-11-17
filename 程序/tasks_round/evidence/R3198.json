@@ -1,0 +1,15 @@
+{
+  "round": 3198,
+  "commit_base": "014aa52f",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k integrations comfy_runtime native_apps stage_model_value model_metering asset_prompt_rules diagnostic_capture golden_outputs writing_api_stage_config",
+    "exit": 0,
+    "passed": 32,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T18:04:14"
+}

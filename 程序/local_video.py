@@ -1,7 +1,7 @@
 """Persistent ComfyUI video jobs, local loopback only; no cloud key or quota."""
 import copy, json, time, uuid, math
 from pathlib import Path
-from api_endpoints import no_redirect
+from infra.api_endpoints import no_redirect
 from file_cache import remove_temporary_file
 # 第 34 期第 9 条：`urllib.request`／`urllib.error` 连 ssl 一起加载（约 4.4 MB 常驻），
 # 本模块只在真要发本机 HTTP 时用得到——都改成函数内 import。
@@ -9,7 +9,7 @@ from urllib.parse import urlparse,urlencode,quote
 from orchestrator.engine import Studio, REVIEW_PASS, AUTO_REVIEW_NOTE, auto_review_ready, _media_tool
 from agent.core import read,save,file_hash,command,fingerprint,temporary_path,replace
 from agent.media import check, png_size
-import project_settings
+import infra.project_settings as project_settings
 from ui_tokens import CHAR_WIDTH, WRAPLENGTH, SPACING
 from ui_widgets import BaseDialog, Card, LineInput, PrimaryButton, SecondaryButton
 import contract.pet_bus as pet_bus
@@ -143,7 +143,7 @@ class LocalStudio(Studio):
             from infra.h3_reference_adapter import attach
             references=attach(graph,options,self.episode_path,shot)
             if references:report('已接入 '+str(len(references))+' 张资产参考图；需要 Ref2VA 模型')
-            from native_apps import open_comfy,wait_comfy
+            from infra.native_apps import open_comfy,wait_comfy
             open_comfy();wait_comfy(api.url,report)
             report('正在连接 ComfyUI 并检查节点：'+api.url);preflight(api,graph)
             report('正在检查视频处理工具…')
@@ -320,7 +320,7 @@ def auto_batch(project,source,log=None,stop=None,studio=None):
     if not submit and not poll:
         return '无人值守本地视频：没有需要提交或取回的镜头'+('；'+str(len(skipped))+' 镜跳过：'+skip_summary(skipped) if skipped else '')
     url=(studio.cfg.get('local_video') or {}).get('url','http://127.0.0.1:8189')
-    from native_apps import open_comfy,wait_comfy
+    from infra.native_apps import open_comfy,wait_comfy
     try:wait_comfy(url,log,timeout=5,cancelled=stop.is_set if stop is not None else None)
     except ValueError:
         log('本地 ComfyUI 未运行，正在启动…');open_comfy()

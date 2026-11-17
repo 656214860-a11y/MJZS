@@ -9,7 +9,7 @@ from file_cache import read_json
 from orchestrator.previs_batch_service import prepare_batch
 import domain.previs_routing as previs_routing
 from stage_execution_service import previs_entries, previs_ready, previs_records_directory, white_model_shot_directory, record_previs_evidence
-import ui_plugin_registry
+import infra.ui_plugin_registry as ui_plugin_registry
 from contract.platform_tools import open_path
 from responsive_ui import (FlowBar, auto_height, auto_columns, configure_check_column, CheckboxColumn,
                            work_rows, work_hint, view_row)
@@ -178,7 +178,7 @@ class _LocalPrevisWindow:
                                    command=manual_command(self.desktop,'previs',self.start,self.desktop.win))
         self.start_button.pack(side='left',padx=(SPACING['none'],SPACING['xs']),pady=SPACING['xs']);ui_plugin_registry.module('stage_flow').follow(self.start_button,'previs')
         # R2942：「阶段配置」按钮＋模型下拉框删除。
-        import project_settings
+        import infra.project_settings as project_settings
         previs_engine=engine_name(self.project)
         SecondaryButton(buttons,text='强制停止制作',command=self.stop).pack(side='left',padx=SPACING['xs'])
         self.desktop.pet.auto_variable('auto_previs_var')
@@ -307,7 +307,7 @@ class _LocalPrevisWindow:
         self.state['summary']='正在强制停止制作进程…'
         def work():
             try:
-                from ui_plugin_registry import module
+                from infra.ui_plugin_registry import module
                 module('previs_automation').force_stop(self.project,self.state)
             except Exception as exc:self.state['summary']='强制停止未完成：'+str(exc)
         import threading
@@ -331,7 +331,7 @@ class _LocalPrevisWindow:
             sid=self.current();record=wm.read_record(white_model_shot_directory(self.project,sid,source=self.source));path=Path(record.get(field,''))
             if not path.is_file():raise ValueError('请先创建相应工程或视频')
             if field=='project_file':
-                from native_apps import open_blender
+                from infra.native_apps import open_blender
                 open_blender(path)
             else:open_path(path)
         except Exception as exc:notify(self.desktop.win, str(exc), level='error', title='白模预演', status=self.desktop.status)

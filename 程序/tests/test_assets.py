@@ -633,7 +633,7 @@ class ComfyMoneyBudgetTests(unittest.TestCase):
 
     def test_restart_collection_settles_before_download_and_never_double_charges(self):
         from comfy_service import Comfy
-        from pet_llm import RequestLedger
+        from infra.pet_llm import RequestLedger
         from unittest.mock import Mock
         with tempfile.TemporaryDirectory() as td:
             root = Path(td); self.policy(root)
@@ -658,7 +658,7 @@ class ComfyMoneyBudgetTests(unittest.TestCase):
         import queue, threading
         from unittest.mock import Mock
         from orchestrator.asset_batch_execution import run_batch
-        from pet_llm import RequestLedger
+        from infra.pet_llm import RequestLedger
         with tempfile.TemporaryDirectory() as td:
             root = Path(td); self.policy(root)
             asset = {'name': '角色', 'image_prompt': '一只猫坐在窗边', 'negative_prompt': '', 'reference_images': []}
@@ -673,7 +673,7 @@ class ComfyMoneyBudgetTests(unittest.TestCase):
 
     def test_timeout_keeps_cost_unknown_across_restart(self):
         from comfy_service import Comfy, ComfySubmissionUncertain
-        from pet_llm import RequestLedger
+        from infra.pet_llm import RequestLedger
         from unittest.mock import Mock
         with tempfile.TemporaryDirectory() as td:
             root = Path(td); self.policy(root)

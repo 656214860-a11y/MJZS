@@ -20,7 +20,7 @@ sys.path.insert(0, PROGRAM)
 os.chdir(PROGRAM)
 
 import pet_skills_manage
-import pet_ui
+import ui.pet_ui as pet_ui
 import skill_registry
 from test_skills import write_skill
 

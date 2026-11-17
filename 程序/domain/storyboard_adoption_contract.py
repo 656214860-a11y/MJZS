@@ -2,7 +2,7 @@
 from pathlib import Path
 from agent.core import read
 from file_cache import read_json
-from project_settings import read_prefs
+from infra.project_settings import read_prefs
 
 
 def prefs(project):

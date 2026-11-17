@@ -45,7 +45,7 @@ class PageShortcutTests(unittest.TestCase):
 class GearTooltipTests(unittest.TestCase):
     def test_icon_only_gear_has_a_tooltip(self):
         import tkinter as tk
-        from pet_ui_support import GearButton, GEAR_TIP
+        from ui.pet_ui_support import GearButton, GEAR_TIP
         root = tk.Tk(); root.withdraw()
         try:
             gear = GearButton(root)

@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 from contract import artifact_schema
-import continuity_ledger
+import infra.continuity_ledger as continuity_ledger
 from agent.core import save
 from desktop_media_pages import MediaPagesMixin
 

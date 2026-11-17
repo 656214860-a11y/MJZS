@@ -6,7 +6,7 @@ from unittest.mock import patch
 import urllib.request
 import urllib.response
 
-import model_pool
+import infra.model_pool as model_pool
 
 
 class ModelRedirectTests(unittest.TestCase):

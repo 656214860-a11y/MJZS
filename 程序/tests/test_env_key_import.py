@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import api_endpoints
+import infra.api_endpoints as api_endpoints
 import model_secrets
 
 

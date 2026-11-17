@@ -547,7 +547,7 @@ def receive_brief(root, text, workflow=None, lock_definitions=(), *, gateway=Non
     name = str(workflow.get('name') or '').strip()
     # 已同步附档与手动配置优先于历史简报；本轮明确填写仍可覆盖。
     # R2862：配置锁直接读项目 production_locks（含旧 workflow.lock 命名空间回退），不再由调用方透传。
-    import stage_model_value
+    import infra.stage_model_value as stage_model_value
     project_root = root if isinstance(root, (str, Path)) else getattr(root, 'root', None)
     configured = (stage_model_value.production_locks(project_root) if project_root
                   else {}) or (workflow.get('lock') or {}).get(name, {})

@@ -5,9 +5,7 @@ from pathlib import Path
 
 from infra.broadcaster import Broadcaster
 import pet_bus
-import pet_ui
-
-
+import ui.pet_ui as pet_ui
 class BroadcasterTests(unittest.TestCase):
     def test_broadcast_creates_utf8_timestamped_log(self):
         with tempfile.TemporaryDirectory() as directory:

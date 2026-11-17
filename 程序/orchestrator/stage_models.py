@@ -248,7 +248,7 @@ def plan_window(desktop, stage, parent=None):
 def open_config(desktop, stage):
     """「修改配置」：打开这一阶段的 SKILL／制作锁面板（R2942：面板不再含模型选择）。"""
     try:
-        from ui_plugin_registry import module
+        from infra.ui_plugin_registry import module
         return module('skill_panel').show(desktop, stage)
     except Exception:
         # 面板加载失败不能静默吞掉，否则用户只会看到按钮没有反应。
@@ -306,7 +306,7 @@ def before_manual(desktop, stage, parent=None):
     """
     if ASKER is None and tests_active():
         return True                                   # 第 65 期任务 11：测试阶段免弹窗，也不拦
-    import model_router
+    import infra.model_router as model_router
     project = getattr(desktop, 'root', None)
     if not project:
         return True                                   # 还没选项目：交给原来的流程去提示

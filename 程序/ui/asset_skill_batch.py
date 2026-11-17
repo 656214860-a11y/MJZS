@@ -23,7 +23,7 @@ def launch(app,project,base,items):
         app.status.set('已有资产任务：'+('Qwen 正在调用 ComfyUI，完成后自动导入。' if any(status(p,gateway=gateway)['state']=='running' for p in set(pending.values())) else '等待 Agent 执行，请查看对应 Agent 窗口。'));return False
     from orchestrator.workflow_settings import current
     from asset_reference_images import snapshot,resolve
-    from asset_prompt_rules import issues
+    from infra.asset_prompt_rules import issues
     prepared=[]
     for aid,asset in items:
         errors=issues(aid,asset)

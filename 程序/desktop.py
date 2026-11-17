@@ -22,23 +22,23 @@ from contract.storyboard_paths import media_root
 import tkinter as tk
 from tkinter import ttk, messagebox
 from agent.core import read,save,save_text,save_bytes
-import project_settings
+import infra.project_settings as project_settings
 from domain.projects import Projects, needs_cleanup_after_open_error, is_missing_storyboard_open_error
 from responsive_ui import FlowBar,ScrollForm,growable_extra,configure_check_column,refresh_check_heading,CheckboxColumn,fit_columns_by_content,auto_columns,bind_row_toggle,fit_row_height,row_height_for,bind_show_all
 from orchestrator.engine import approved_versions, review_label, adoption_summary
 from local_video import open_studio,skip_summary
 from app import App
-from integrations import comfy_executable
+from infra.integrations import comfy_executable
 from ui.ui_theme import apply as apply_theme, install_window_placement
 from domain.project_naming import dated_path
 import ui.asset_thumbs as asset_thumbs
 import domain.asset_resume as asset_resume
 import contract.frame_checks as frame_checks
-import pet_ui
+import ui.pet_ui as pet_ui
 import ui.ui_usage_indicator as ui_usage_indicator
 import contract.project_stages as project_stages
 import tkinter as tk
-import ui_plugin_registry
+import infra.ui_plugin_registry as ui_plugin_registry
 import orchestrator.stage_handler_registry as stage_handler_registry
 from contract.platform_tools import find_editor_shortcut, launch_windows_app, open_directory, open_path, open_target, tcp_listener
 from orchestrator.desktop_startup_service import DesktopStartupController
@@ -104,7 +104,7 @@ def confirm_project_removal_from_last_script(parent, files):
 import contract.pet_bus as pet_bus
 # 页面序号一律由阶段表推出来（PAGES 与 pet_bus.STAGES 一一对应），
 # 再加一个阶段时只改 pet_bus.STAGES／STAGE_NAMES。
-import pet_state
+import infra.pet_state as pet_state
 
 
 # 第 44 期：版本号只写这一份——系统标题栏与左上角那一行（齿轮就挨着它）都用它。
@@ -166,7 +166,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         self.reload()
         self.show(0)
         # 只记录启动壳完成耗时；采集不遍历项目目录，也不参与启动决策。
-        import diagnostic_capture
+        import infra.diagnostic_capture as diagnostic_capture
         diagnostic_capture.record_startup_timing('desktop_shell_ready', (time.perf_counter()-self._diagnostic_start)*1000)
         self.shutting_down=False
         self._tick_id=None
@@ -540,7 +540,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
             if self.worker:raise ValueError('当前操作尚未结束，请稍后')
             return fn()
         except Exception as e:
-            import diagnostic_capture
+            import infra.diagnostic_capture as diagnostic_capture
             diagnostic_capture.record_degradation(
                 e, page=PAGES[getattr(self,'page_index',0)],
                 project=str(getattr(self,'root', '') or ''),
@@ -549,7 +549,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
 
     def export_diagnostics_package(self):
         """唯一的用户诊断包动作：先透明说明白名单，再让用户选择保存位置。"""
-        import diagnostic_capture
+        import infra.diagnostic_capture as diagnostic_capture
         entries=diagnostic_capture.preview()
         detail='\n'.join(entries) if entries else '当前没有可导出的诊断记录（仍会导出清单）。'
         if not confirm(self.win, '导出诊断包', '将仅包含以下脱敏程序日志（不会包含项目文件、private、.env 或凭据）：\n\n'+detail):

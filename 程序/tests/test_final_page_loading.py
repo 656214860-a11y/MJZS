@@ -11,7 +11,7 @@ from unittest import mock
 
 import test_final_viewer
 import test_page_cache
-from pet_state import PAGE_OF
+from infra.pet_state import PAGE_OF
 from skip_reasons import PLATFORM_TKINTER
 
 

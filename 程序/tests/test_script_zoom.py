@@ -18,7 +18,7 @@ from pathlib import Path
 PROGRAM = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROGRAM))
 
-import pet_state
+import infra.pet_state as pet_state
 import ui_tokens
 
 

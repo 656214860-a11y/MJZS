@@ -57,7 +57,7 @@ class StageCopyOnWriteTests(unittest.TestCase):
 
     def test_old_continuity_read_new_confirmation_write(self):
         from domain import confirm_gates
-        import continuity_ledger
+        import infra.continuity_ledger as continuity_ledger
         from agent.core import save
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary).resolve()

@@ -34,12 +34,11 @@ os.chdir(PROGRAM)
 
 import desktop
 import model_secrets
-import model_pool
+import infra.model_pool as model_pool
 import pet_agent
 import pet_models_ui
 import pet_settings_ui
-import pet_ui
-
+import ui.pet_ui as pet_ui
 # 第 45 期：这些用例读的（并会写的）是全局配置目录里那一份三虎设置。原来 program 指向本机真
 # 安装目录，于是「出厂默认档是半自动」这类断言会被用户机上那份配置左右（那里存过 hint 就红）。
 # 指到沙盒目录：读不到真配置，也写不脏真安装目录（见 selftest_sandbox 的说明）。
@@ -680,7 +679,7 @@ class LevelPageTests(SettingsCase):
 
 class BudgetPageTests(SettingsCase):
     def test_cost_reconciliation_dialog_saves_receipt_and_reports_validation(self):
-        from pet_llm import RequestLedger
+        from infra.pet_llm import RequestLedger
         with tempfile.TemporaryDirectory() as folder:
             ledger = RequestLedger(folder)
             ledger.reserve('unknown-api', 'images', 1)

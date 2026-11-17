@@ -104,7 +104,7 @@ def run_batch(project, base, items, options, events, stop, client_factory=Comfy)
     items = eligible_items(base, items, requires_asset)
     if not items:
         return '没有需要独立生成的资产；普通道具随镜头画面生成。'
-    from asset_prompt_rules import issues
+    from infra.asset_prompt_rules import issues
     from asset_reference_images import snapshot, resolve
     missing = validation_errors(items, issues)
     if missing:
@@ -115,7 +115,7 @@ def run_batch(project, base, items, options, events, stop, client_factory=Comfy)
     state = read_ledger(project)
     if cloud:
         from infra.comfy_service import cloud_price_model
-        from pet_llm import RequestLedger
+        from infra.pet_llm import RequestLedger
         count = 0
         for aid, asset in items:
             try:

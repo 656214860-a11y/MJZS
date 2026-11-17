@@ -23,10 +23,10 @@ R1041（J5 分轮 2）：app 日志视图清空、desktop 最后剧本回收确�
 ├─ data/                  程序内置数据、示例数据
 ├─ domain/                 L2 业务服务包（共 74 个低扇出模块；顶层同名 .py 为历史门面）
 ├─ episode/               默认/演示剧集输出
-├─ infra/                 L1 基础设施包（共 32 个低扇出模块；顶层同名 .py 为历史门面）
+├─ infra/                 L1 基础设施包（共 47 个低扇出模块；顶层同名 .py 为历史门面）
 ├─ logs/                  运行、模型与三虎日志
-├─ orchestrator/           L3 编排包（七批共 72 个低扇出模块；顶层同名 .py 为历史门面）
-├─ ui/                     L4 界面组件包（六批共 125 个低扇出模块；顶层同名 .py 为历史门面）
+├─ orchestrator/           L3 编排包（八批共 74 个低扇出模块；顶层同名 .py 为历史门面）
+├─ ui/                     L4 界面组件包（八批共 132 个低扇出模块；顶层同名 .py 为历史门面）
 ├─ private/               本机私有配置和加密密钥副本
 ├─ scripts/               Python 维护/迁移工具
 ├─ skills/                可注册 SKILL 与阶段模板
@@ -283,7 +283,7 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 - 任务书闭环（规则 35，R3039）：`test_taskbook_closure.py`（五项机器检查的坏/好样本自审＋真实仓库状态；与提交闸共用 `scripts/taskbook_closure.py`）。
 - 剧本重命名边界：`test_script_rename_boundary.py`。
 - 阶段/UI 契约：`test_dynamic_import_registry.py`、`test_stage_command_contract.py`、`test_completion_gate.py`、`test_event_bus_boundary.py`、`test_skill_dependency_dag.py`、`test_pipeline_stage_io_contract.py`、`test_skill_reference_injection.py`、`test_project_entry_boundary.py`。
-- 依赖与平台边界：`test_import_error_boundaries.py`、`test_model_provider_boundary.py`、`test_platform_opening.py`、`test_platform_process_boundary.py`、`test_migrated_ui_boundaries.py`。
+- 依赖与平台边界：`test_import_error_boundaries.py`、`test_model_provider_boundary.py`、`test_platform_opening.py`、`test_platform_process_boundary.py`、`test_migrated_ui_boundaries.py`、`test_dependency_whitelist.py`（R3199 新增：白名单库版本、完整性、传递依赖检查）。
 - 体验与布局：`test_responsive_layout_contract.py`、`test_combobox_boundary.py`。
 - 出站与文档预算：`test_outbound_http_authority.py`（直接建连只许在 `platform_tools`）、`test_http_boundary.py`（`urlopen`／`build_opener` 只许在 `http_client` 与存量白名单，白名单只减不增）、`test_agent_doc_budget.py`（规则文件体积与链接）、`test_rule_guard_map.py`（规则→守卫登记，暂无守卫的规则只许减少）、`test_gate_selfaudit.py`（5 个关键门禁的坏／好样本自审）、`test_type_check_baseline.py`（开发期类型检查基线只许减少）、`test_skill_package_pins.py`（外部技能包固定提交与内容树哈希）、`test_test_move_guard.py`（测试搬家轮只许移动文件与修 import）。
 - 启动预算：`test_startup_budget.py`。

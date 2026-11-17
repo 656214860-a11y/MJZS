@@ -116,7 +116,7 @@ class BoundedErrorLogTests(unittest.TestCase):
         self.assertEqual(pet_bus.ErrorLog(), [])
 
     def test_stage_queue_and_agent_errors_are_bounded(self):
-        import pet_bus, pet_agent, pet_ui
+        import pet_bus, pet_agent, ui.pet_ui as pet_ui
         holders = (pet_ui.StageQueue('script'), pet_agent.Agent(persist=False))
         for holder in holders:
             for number in range(pet_bus.ERROR_LIMIT + 10):

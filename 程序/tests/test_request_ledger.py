@@ -6,8 +6,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-import model_pool
-from pet_llm import RequestLedger, request_ledger_path
+import infra.model_pool as model_pool
+from infra.pet_llm import RequestLedger, request_ledger_path
 
 
 class RequestLedgerTests(unittest.TestCase):
@@ -468,7 +468,7 @@ class ModelMoneyBudgetTests(unittest.TestCase):
             self.assertEqual(report['model_costs']['CNY']['held'], '0')
 
     def test_image_and_text_share_budget_and_keep_unknown_cost(self):
-        from pet_llm import BudgetRejected
+        from infra.pet_llm import BudgetRejected
         with tempfile.TemporaryDirectory() as td:
             path = self.policy(td, '0.8')
             data = json.loads(path.read_text(encoding='utf-8'))
@@ -579,7 +579,7 @@ class ModelMoneyBudgetTests(unittest.TestCase):
 
     def test_concurrent_legacy_recording_keeps_all_entries(self):
         from concurrent.futures import ThreadPoolExecutor
-        from pet_llm import record_request
+        from infra.pet_llm import record_request
         with tempfile.TemporaryDirectory() as td:
             with ThreadPoolExecutor(max_workers=4) as pool:
                 results = list(pool.map(lambda n: record_request(td, str(n), 'images', 1), range(12)))
@@ -589,7 +589,7 @@ class ModelMoneyBudgetTests(unittest.TestCase):
     def test_other_process_cannot_enter_locked_ledger(self):
         import subprocess
         import sys
-        import pet_llm
+        import infra.pet_llm as pet_llm
         with tempfile.TemporaryDirectory() as td:
             self.policy(td)
             script = ("import sys; sys.path.insert(0, sys.argv[1]); from pet_llm import RequestLedger\n"

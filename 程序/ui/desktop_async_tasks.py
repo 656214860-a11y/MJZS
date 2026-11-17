@@ -21,7 +21,7 @@ class AsyncTasksMixin:
                 # 先交付失败结果：诊断记录自己抛错时，worker／忙碌态仍要靠这条结果复位。
                 self.q.put((ticket,False,str(e),None))
                 try:
-                    import diagnostic_capture
+                    import infra.diagnostic_capture as diagnostic_capture
                     diagnostic_capture.record_degradation(
                         e, page=page_title(getattr(self,'page_index',0)),
                         project=str(getattr(self,'root', '') or ''),

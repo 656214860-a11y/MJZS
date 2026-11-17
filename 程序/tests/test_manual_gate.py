@@ -19,7 +19,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE); os.chdir(HERE)
 
 from test_row_targets import PageHelpers, make_project
-from pet_state import PAGE_OF
+from infra.pet_state import PAGE_OF
 
 
 class Status:

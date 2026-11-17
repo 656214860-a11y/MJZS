@@ -344,7 +344,7 @@ class PetWiringTests(unittest.TestCase):
     """pet_ui 那一头的接缝：自动链优先、暂停把正在跑的那一步放回按钮。"""
 
     def setUp(self):
-        import pet_bus, pet_ui
+        import pet_bus, ui.pet_ui as pet_ui
         stage_flow.reset()
         self.addCleanup(stage_flow.reset)
         self.pet_bus, self.pet_ui = pet_bus, pet_ui

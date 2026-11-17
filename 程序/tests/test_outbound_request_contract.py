@@ -17,7 +17,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import model_router as m
+import infra.model_router as m
 
 
 MESSAGES = ({'role': 'user', 'content': '写一句台词'},)

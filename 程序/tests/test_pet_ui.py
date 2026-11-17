@@ -19,13 +19,12 @@ PROGRAM = os.path.dirname(HERE)
 sys.path.insert(0, PROGRAM)
 os.chdir(PROGRAM)
 
-import model_pool
+import infra.model_pool as model_pool
 import model_secrets
 import pet_models_ui
-import pet_agent, pet_bus, pet_report, pet_ui, stage_flow
+import pet_agent, pet_bus, pet_report, ui.pet_ui as pet_ui, stage_flow
 from ui import pet_cloud
-import pet_ui_support
-
+import ui.pet_ui_support as pet_ui_support
 # 第 45 期：这些用例读的（并会写的）是全局配置目录里那一份三虎设置。原来 program 指向本机真
 # 安装目录，于是「出厂默认档是半自动」这类断言会被用户机上那份配置左右（那里存过 hint 就红）。
 # 指到沙盒目录：读不到真配置，也写不脏真安装目录（见 selftest_sandbox 的说明）。
@@ -1616,7 +1615,7 @@ class FrameBatchSeamTests(unittest.TestCase):
         用户按下的按钮不受这份记忆影响，显式操作永远照做。
         """
         self.project_with_a_gap()
-        import project_settings
+        import infra.project_settings as project_settings
         project_settings.set_auto_keyframe(self.base, True)
         self.d.keyframe_settings = lambda: []
         self.d.batch_blockers = lambda source, pending: []
@@ -4499,7 +4498,7 @@ class DesktopPetSeamTests(unittest.TestCase):
     def test_it_hands_the_page_index_to_show(self):
         """页序号只认 pet_state.PAGE_OF 那一份，且真的落到 show() 上。"""
         from desktop import PAGES
-        import pet_state
+        import infra.pet_state as pet_state
         self.d.root = self.base
         seen = []
         self.d.show = lambda index, video_mode=None: seen.append(index) or PAGES[index]
@@ -4562,7 +4561,7 @@ class DesktopPetSeamTests(unittest.TestCase):
 
     # ── 自动开始某一步（第 67 期任务 5）─────────────────────────────────────
     def test_it_opens_the_unattended_switch_then_starts_the_step(self):
-        import project_settings
+        import infra.project_settings as project_settings
         self.d.root = self.base
         self.d.auto.asset_due = 0
         self.assertIn("资产管理", self.d.pet_start("assets"))
@@ -4714,7 +4713,7 @@ class DesktopPetSeamTests(unittest.TestCase):
 
     def test_the_switch_table_covers_exactly_the_steps_with_a_poll(self):
         from desktop import PET_STAGE_POLL, UNATTENDED_SWITCH
-        import project_settings
+        import infra.project_settings as project_settings
         self.assertEqual(sorted(UNATTENDED_SWITCH), sorted(PET_STAGE_POLL.values()),
                          "每一个无人值守轮询都要配一把能打开它的开关")
         for name in UNATTENDED_SWITCH.values():

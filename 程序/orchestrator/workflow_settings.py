@@ -279,7 +279,7 @@ def stage_model(project,stage):
     try:
         import orchestrator.stage_config as stage_config
         import orchestrator.stage_models as stage_models
-        import model_pool
+        import infra.model_pool as model_pool
         chosen=str(stage_config.get(project,STAGE_CONFIG_STAGES.get(stage,stage)).get('model') or '').strip()
     except Exception:
         return '',''
@@ -315,7 +315,7 @@ def effective_model(project,stage='previs'):
         return cfg['display_model']
     try:
         import orchestrator.stage_config as stage_config
-        import model_pool
+        import infra.model_pool as model_pool
         selected = str(stage_config.get(project, STAGE_CONFIG_STAGES.get(stage, stage)).get('model') or '').strip()
         if model_pool.desktop_engine(selected):
             return model_pool.label_of(selected, model_pool.pool(program=Path(__file__).resolve().parents[1]))
@@ -327,7 +327,7 @@ def effective_model(project,stage='previs'):
     return str(cfg.get('model') or '').strip() or ENGINES[engine]
 def _local_engine_for_selected_model(value, selected, item, stage):
     """已选 OpenAI/Anthropic 模型有本机 Agent 时，优先回到对应本机客户端。"""
-    import model_pool
+    import infra.model_pool as model_pool
     engine = model_pool.desktop_engine(selected)
     if not engine:
         engine = {'GPT': 'codex', 'Anthropic': 'claude'}.get(
@@ -341,7 +341,7 @@ def _local_engine_for_selected_model(value, selected, item, stage):
         return '', ''
 def desktop_route_notice(project, stage, selected, item=None):
     """用户刚选模型时按需说明是否会优先交给可用本机程序；只读且不写盘。"""
-    import model_pool
+    import infra.model_pool as model_pool
     selected = str(selected or '').strip()
     if not selected or model_pool.desktop_engine(selected):
         return ''
@@ -363,7 +363,7 @@ def current(project,stage='previs', *, direct_api=False, model_snapshot=None):
     value=load(project,stage);engine=value['engine']
     selected='';item={};local_program=''
     import orchestrator.stage_config as stage_config
-    import model_pool
+    import infra.model_pool as model_pool
     if model_snapshot is None:
         selected = str(stage_config.get(project, STAGE_CONFIG_STAGES.get(stage, stage)).get('model') or '').strip()
         item = model_pool.pool(program=Path(__file__).resolve().parents[1]).get(selected, {})
@@ -595,7 +595,7 @@ def clear_desktop_installation_cache():
     _DESKTOP_INSTALLATION_CACHE.clear()
 def desktop_model_label(model_id, label):
     """桌面模型的展示标注：复用 find_program，失败和异常一律按未安装显示。"""
-    import model_pool
+    import infra.model_pool as model_pool
     engine=model_pool.desktop_engine(model_id)
     if not engine:return str(label or '')
     configured=model_pool.pool(program=Path(__file__).resolve().parents[1]).get(model_id, {}).get('program', '')

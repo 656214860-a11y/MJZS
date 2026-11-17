@@ -15,7 +15,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from infra import model_diagnostics
-import pet_llm
+import infra.pet_llm as pet_llm
 import stage_completion_service
 import usage_overview as uo
 from agent.core import file_hash, read, save

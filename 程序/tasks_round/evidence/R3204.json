@@ -1,0 +1,15 @@
+{
+  "round": 3204,
+  "commit_base": "1ac36844",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k continuity_ledger api_endpoints project_settings ui_plugin_registry model_router api model_pool manual_plan continuity env_key dynamic_import http_boundary secret_sink asset_batch_settings project_settings",
+    "exit": 0,
+    "passed": 373,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T18:35:21"
+}

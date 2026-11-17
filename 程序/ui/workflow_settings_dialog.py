@@ -12,7 +12,7 @@ from orchestrator.workflow_settings import (ENGINES, FLOWS, FLOW_SKILLS, SKILL_D
                                find_program, load, preset_folder, preset_skill, save_flow, set_skills,
                                skills_of, sync_qwen_model, validate_stage_profile)
 from ui.ui_dialogs import FileDialog
-import ui_plugin_registry
+import infra.ui_plugin_registry as ui_plugin_registry
 from ui_widgets import BaseDialog, Card, PrimaryButton, SecondaryButton, Tooltip, notify
 from ui_widgets import LineInput, TextArea
 from ui_tokens import TEXT_ROWS, WRAPLENGTH, SPACING, ICON_MICROPHONE

@@ -24,7 +24,7 @@ class StoryboardPageLoadingTests(unittest.TestCase):
 
     def test_initial_catalog_scan_never_runs_on_ui_thread(self):
         from orchestrator.storyboard_page_controller import StoryboardPageController
-        from pet_state import PAGE_OF
+        from infra.pet_state import PAGE_OF
         original = StoryboardPageController.refresh_catalogs
         calls = []
         def scan(controller):
@@ -41,7 +41,7 @@ class StoryboardPageLoadingTests(unittest.TestCase):
             self.assertNotIn(threading.get_ident(), calls)
 
     def test_manual_refresh_rejects_an_older_initial_result(self):
-        from pet_state import PAGE_OF
+        from infra.pet_state import PAGE_OF
         import tk_timers
         captured = {}
         real_repeat = tk_timers.repeat
@@ -115,7 +115,7 @@ class StoryboardPageLoadingTests(unittest.TestCase):
             cancel.assert_called_once()
 
     def test_late_result_cannot_apply_after_destroy_or_project_switch(self):
-        from pet_state import PAGE_OF
+        from infra.pet_state import PAGE_OF
         from orchestrator.storyboard_page_controller import StoryboardPageController
         import tk_timers
         for change in ('destroy', 'project'):
@@ -143,7 +143,7 @@ class StoryboardPageLoadingTests(unittest.TestCase):
                     self.assertEqual(d.status.get(), '当前页面状态')
 
     def test_initial_error_is_visible_and_manual_refresh_recovers(self):
-        from pet_state import PAGE_OF
+        from infra.pet_state import PAGE_OF
         from orchestrator.storyboard_page_controller import StoryboardPageController
         import tk_timers
         captured = {}
