@@ -240,7 +240,8 @@ class WritingRequestAdapter(ModelAdapter):
         rpm = int((self.record or {}).get('rpm') or 0)
         if rpm > 0:
             from contract.platform_tools import current_execution
-            model_pool.wait_for_rpm((self.record or {}).get('base_url'), rpm, current_execution())
+            model_pool.wait_for_rpm((self.record or {}).get('base_url'), rpm, current_execution(),
+                                    credential=(self.record or {}).get('key_env'))
         limit = model_pool.context_length_of(self.record.get('context_length')) or None
         reserved = max(0, int(options.get('max_tokens') or 0))
         sections = budget_sections(
