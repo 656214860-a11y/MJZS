@@ -67,6 +67,12 @@
    "percent": 0.0
   },
   {
+   "module": "agent_skill_sync.py",
+   "covered": 0,
+   "total": 4,
+   "percent": 0.0
+  },
+  {
    "module": "aigc_lint.py",
    "covered": 0,
    "total": 4,
@@ -609,7 +615,7 @@
   {
    "module": "desktop_idea_chat.py",
    "covered": 0,
-   "total": 875,
+   "total": 878,
    "percent": 0.0
   },
   {
@@ -735,7 +741,7 @@
   {
    "module": "desktop_shared_input.py",
    "covered": 0,
-   "total": 701,
+   "total": 702,
    "percent": 0.0
   },
   {
@@ -1663,6 +1669,12 @@
    "percent": 0.0
   },
   {
+   "module": "orchestrator/agent_skill_sync.py",
+   "covered": 0,
+   "total": 151,
+   "percent": 0.0
+  },
+  {
    "module": "orchestrator/asset_auto_batch_service.py",
    "covered": 0,
    "total": 38,
@@ -1695,7 +1707,7 @@
   {
    "module": "orchestrator/codex_skill_sync.py",
    "covered": 0,
-   "total": 126,
+   "total": 18,
    "percent": 0.0
   },
   {
@@ -1947,7 +1959,7 @@
   {
    "module": "orchestrator/workflow_settings.py",
    "covered": 0,
-   "total": 703,
+   "total": 767,
    "percent": 0.0
   },
   {
@@ -2086,6 +2098,12 @@
    "module": "pet_settings_ui.py",
    "covered": 0,
    "total": 4,
+   "percent": 0.0
+  },
+  {
+   "module": "pet_skills_manage.py",
+   "covered": 0,
+   "total": 432,
    "percent": 0.0
   },
   {
@@ -2413,6 +2431,12 @@
    "percent": 0.0
   },
   {
+   "module": "skill_archive.py",
+   "covered": 0,
+   "total": 138,
+   "percent": 0.0
+  },
+  {
    "module": "skill_budget.py",
    "covered": 0,
    "total": 4,
@@ -2427,13 +2451,19 @@
   {
    "module": "skill_import_service.py",
    "covered": 0,
-   "total": 391,
+   "total": 675,
    "percent": 0.0
   },
   {
    "module": "skill_inline.py",
    "covered": 0,
    "total": 3,
+   "percent": 0.0
+  },
+  {
+   "module": "skill_lifecycle_service.py",
+   "covered": 0,
+   "total": 241,
    "percent": 0.0
   },
   {
@@ -2457,19 +2487,19 @@
   {
    "module": "skill_panel.py",
    "covered": 0,
-   "total": 571,
+   "total": 686,
    "percent": 0.0
   },
   {
    "module": "skill_panel_import.py",
    "covered": 0,
-   "total": 69,
+   "total": 284,
    "percent": 0.0
   },
   {
    "module": "skill_panel_support.py",
    "covered": 0,
-   "total": 441,
+   "total": 459,
    "percent": 0.0
   },
   {
@@ -2482,6 +2512,18 @@
    "module": "skill_registry.py",
    "covered": 0,
    "total": 3,
+   "percent": 0.0
+  },
+  {
+   "module": "skill_remote_service.py",
+   "covered": 0,
+   "total": 203,
+   "percent": 0.0
+  },
+  {
+   "module": "skill_security_service.py",
+   "covered": 0,
+   "total": 45,
    "percent": 0.0
   },
   {
@@ -3105,7 +3147,7 @@
   {
    "module": "ui/pet_settings_ui.py",
    "covered": 0,
-   "total": 507,
+   "total": 508,
    "percent": 0.0
   },
   {
@@ -3727,6 +3769,12 @@
    "percent": 12.2
   },
   {
+   "module": "orchestrator/skill_registry.py",
+   "covered": 95,
+   "total": 679,
+   "percent": 14.0
+  },
+  {
    "module": "api_endpoints.py",
    "covered": 52,
    "total": 366,
@@ -3751,12 +3799,6 @@
    "percent": 14.8
   },
   {
-   "module": "orchestrator/skill_registry.py",
-   "covered": 98,
-   "total": 652,
-   "percent": 15.0
-  },
-  {
    "module": "orchestrator/stage_config.py",
    "covered": 54,
    "total": 352,
@@ -3779,6 +3821,18 @@
    "covered": 13,
    "total": 77,
    "percent": 16.9
+  },
+  {
+   "module": "skill_project_layer.py",
+   "covered": 29,
+   "total": 157,
+   "percent": 18.5
+  },
+  {
+   "module": "skill_package_meta.py",
+   "covered": 8,
+   "total": 43,
+   "percent": 18.6
   },
   {
    "module": "orchestrator/legacy_compat.py",
@@ -4153,6 +4207,6 @@
    "percent": 100.0
   }
  ],
- "modules_covered": 74,
- "modules_total": 690
+ "modules_covered": 76,
+ "modules_total": 699
 }

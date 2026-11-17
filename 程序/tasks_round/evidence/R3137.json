@@ -1,6 +1,6 @@
 {
   "round": 3137,
-  "commit_base": "da9de042",
+  "commit_base": "27ce89a9",
   "credential_scan": {
     "ran": true,
     "hits": []
@@ -10,7 +10,7 @@
     "exit": 0,
     "passed": 0,
     "failed": 0,
-    "skipped": "merge-ci-exit"
+    "skipped": "docs-only"
   },
-  "generated_at": "2026-11-17T13:27:33"
+  "generated_at": "2026-11-17T13:28:29"
 }
