@@ -34,13 +34,14 @@ Round 1（2026-09-23）：缩略图不再在界面线程里整张解 PNG（95 �
 import app_logging
 import atexit
 import hashlib
+import json
 import logging
 import os
 import struct
 import subprocess
 import sys
 import time
-from contract.platform_tools import launch_background
+from contract.platform_tools import launch_background, run_process, tool_path
 import tkinter as tk
 from pathlib import Path
 from file_cache import read_json, remove_temporary_file
@@ -170,6 +171,212 @@ def blank_mark(token):
 def _jobs_dir():
     """等后台进程来接的任务落在哪。"""
     return Path(CACHE_ROOT) / 'jobs'
+
+
+def info_file(token):
+    """媒体封面的旁路记录（时长／分辨率）落在哪——与封面同键不同后缀（任务书 M4）。"""
+    return Path(CACHE_ROOT) / (token + '.info.json')
+
+
+# ── 视频／音频封面（任务书 M4）───────────────────────────────────────────
+def media_kind(path):
+    """按后缀判媒体类型：视频 'video'、音频 'audio'，其他 None。
+
+    任务书 M4：按后缀不按 ``file_index.kind_of``——后者把图片归入「资产」，
+    没有独立图片类型；后缀表只引 ``infra.file_index`` 已有的一份，不重复定义。
+    """
+    from infra import file_index
+    suffix = Path(path).suffix.lower()
+    if suffix in file_index.VIDEO_SUFFIXES:
+        return 'video'
+    if suffix in file_index.AUDIO_SUFFIXES:
+        return 'audio'
+    return None
+
+
+def file_stamp(path):
+    """媒体缓存键的文件签名：mtime ＋ 大小；文件换过（任一变化）键就换一个。"""
+    try:
+        stat = Path(path).stat()
+    except OSError:
+        return None
+    return '%d:%d' % (stat.st_mtime_ns, stat.st_size)
+
+
+def media_geometry(kind, size=DEFAULT_SIZE):
+    """媒体封面的固定画幅（宽，高）：视频 16:9、音频波形约 3:1。
+
+    ffmpeg 按同一画幅出图（scale＋pad 补黑边／showwavespic 固定 s=宽x高），
+    空盒尺寸与成品严丝合缝，落地时才能就地贴上不露边。
+    """
+    width = max(1, int(size))
+    if kind == 'audio':
+        return width, max(1, width // 3)
+    return width, max(1, round(width * 9 / 16))
+
+
+def media_info(path, size=DEFAULT_SIZE):
+    """与封面同键的旁路记录：{'duration', 'width', 'height'}（有什么给什么）；没有返回 None。"""
+    stamp = file_stamp(path)
+    if stamp is None:
+        return None
+    try:
+        data = read_json(info_file(cache_key(path, stamp, size)))
+    except Exception:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+_MEDIA_PH = {}            # 占位图：占位本身不随文件走，按（解释器, 类型, 画幅）留一份
+
+
+def _media_empty(master, key, kind, size):
+    """媒体任务排进队列：先摆同画幅的空盒，封面到了就地贴上（同 _placeholder 语义）。"""
+    if _BLIT_BAD:
+        return None
+    width, height = media_geometry(kind, size)
+    try:
+        image = tk.PhotoImage(master=master, width=width, height=height)
+    except Exception:
+        return None
+    _remember(key, image)
+    return image
+
+
+def _media_placeholder(master, kind, size):
+    """ffmpeg 不可用或文件损坏时的占位图：灰底卡片＋播放（视频）／波形（音频）记号。
+
+    占位图按（解释器, 类型, 画幅）缓存，不把每张坏文件各画一遍。
+    """
+    from ui_tokens import COLORS
+    width, height = media_geometry(kind, size)
+    key = ('media-placeholder', _root_key(master), kind, width, height)
+    image = _MEDIA_PH.get(key)
+    if image is not None:
+        try:
+            image.width()
+            return image
+        except Exception:
+            _MEDIA_PH.pop(key, None)
+    try:
+        image = tk.PhotoImage(master=master, width=width, height=height)
+        image.put(COLORS['surface_pressed'], to=(0, 0, width, height))
+        border = COLORS['border_default']
+        image.put(border, to=(0, 0, width, 1))
+        image.put(border, to=(0, height - 1, width, height))
+        image.put(border, to=(0, 0, 1, height))
+        image.put(border, to=(width - 1, 0, width, height))
+        ink = COLORS['text_muted']
+        if kind == 'audio':
+            _draw_bars(image, width, height, ink)
+        else:
+            _draw_play(image, width, height, ink)
+    except Exception:
+        return None
+    _MEDIA_PH[key] = image
+    return image
+
+
+def _draw_play(image, width, height, color):
+    """居中右向三角：上尖下尖、左底右顶点。"""
+    reach = max(2, min(width, height) // 3)
+    cx, cy = width // 2 - reach // 3, height // 2
+    for dy in range(-reach, reach + 1):
+        half = (reach - abs(dy)) // 2
+        y = cy + dy
+        x0, x1 = max(0, cx), min(width, cx + half + 1)
+        if 0 <= y < height and x0 < x1:
+            image.put(color, to=(x0, y, x1, y + 1))
+
+
+def _draw_bars(image, width, height, color):
+    """居中几根高低不一的竖条，示意音频波形。"""
+    bar = max(1, width // 18)
+    for index, frac in enumerate((0.45, 0.85, 0.6, 0.95, 0.35)):
+        x0 = width // 5 + index * max(2, width // 8)
+        bh = max(1, int(height * frac))
+        image.put(color, to=(x0, (height - bh) // 2, x0 + bar, (height - bh) // 2 + bh))
+
+
+def media_thumbnail(master, path, size=DEFAULT_SIZE, configured=None):
+    """视频封面帧／音频波形的缩略图；非媒体文件返回 None。
+
+    与 thumbnail() 同一条机制：内存 → 磁盘缓存 → 后台任务（界面线程绝不做 ffmpeg）。
+    ffmpeg 缺失、文件损坏或后台不可用时给固定占位图，不阻断列表（任务书 M4）。
+    ``configured`` 是项目级 {'ffmpeg','ffprobe'} 显式配置，透传给后台解析。
+    """
+    kind = media_kind(path)
+    if kind is None:
+        return None
+    path = Path(path)
+    stamp = file_stamp(path)
+    if stamp is None:
+        return None
+    key = (_root_key(master), str(path), stamp, int(size), kind)
+    if key in _CACHE:
+        image = _CACHE[key]
+        try:
+            if image is not None:
+                image.width()
+            _CACHE[key] = _CACHE.pop(key)
+            return image
+        except Exception:
+            _CACHE.pop(key, None)
+    token = cache_key(path, stamp, size)
+    state, image = _load_cached(master, token)
+    if state == 'hit':
+        _remember(key, image)
+        return image
+    if state == 'blank':
+        image = _media_placeholder(master, kind, size)
+        _remember(key, image)
+        return image
+    queued = request_media(master, key, path, size, stamp, token, configured)
+    if queued:
+        return _media_empty(master, key, kind, size)     # 交给后台：先摆同画幅空盒
+    return _media_placeholder(master, kind, size)         # 队列／后台不可用：直接占位图
+
+
+def request_media(master, key, path, size, stamp, token, configured=None):
+    """登记一条媒体封面任务给后台进程；返回 False 后台不可用、None 队列饱和。"""
+    if token in _PENDING:
+        return True                    # 已经在队列里，不重复登记
+    if len(_PENDING) >= QUEUE_LIMIT:
+        return None
+    if not _ensure_worker():
+        return False
+    kind = media_kind(path)
+    cfg = configured or {}
+    spec = {'src': str(path), 'size': int(size), 'stamp': stamp, 'kind': kind,
+            'ffmpeg': str(cfg.get('ffmpeg') or ''), 'ffprobe': str(cfg.get('ffprobe') or '')}
+    try:
+        jobs = _jobs_dir()
+        jobs.mkdir(parents=True, exist_ok=True)
+        save(jobs / (token + '.json'), spec)  # 原子落盘：后台进程读不到半截
+    except OSError:
+        return False
+    _PENDING[token] = {'key': key, 'path': Path(path), 'size': int(size), 'stamp': stamp,
+                       'kind': kind, 'master': master, 'at': time.monotonic()}
+    _arm(master)
+    return True
+
+
+def prefetch_media(master, paths, size=DEFAULT_SIZE, configured=None):
+    """一批文件里的视频／音频后台预生成封面（面板打开、发布或导入完成时补齐）。"""
+    count = 0
+    for path in paths:
+        if media_kind(path) is None:
+            continue
+        media_thumbnail(master, path, size=size, configured=configured)
+        count += 1
+    return count
+
+
+def _blank_fallback(job):
+    """「解不开」落地时给什么：媒体给占位图（ffmpeg 不进界面线程），图片照旧 None。"""
+    if job.get('kind'):
+        return _media_placeholder(job['master'], job['kind'], job['size'])
+    return None
 
 
 def _load_cached(master, token):
@@ -403,18 +610,28 @@ def update(master=None):
             continue
         state, image = _load_cached(job['master'], token)
         if state == 'miss' and time.monotonic() - job['at'] > JOB_DEADLINE:
-            image = _build_here(job['master'], job['path'], job['size'], job['stamp'], token)
-            state = 'hit' if image is not None else 'blank'
+            if job.get('kind'):
+                # 媒体封面绝不进界面线程做 ffmpeg：先落占位图，任务继续等——
+                # 封面真到了还会就地贴进同一个盒子（任务书 M4）。
+                if not job.get('fallback'):
+                    job['fallback'] = True
+                    _landed(job, _media_placeholder(job['master'], job['kind'], job['size']))
+            else:
+                image = _build_here(job['master'], job['path'], job['size'], job['stamp'], token)
+                state = 'hit' if image is not None else 'blank'
         if state == 'miss':
             continue
         _PENDING.pop(token, None)
-        _landed(job, image if state == 'hit' else None)
+        _landed(job, image if state == 'hit' else _blank_fallback(job))
         landed.append(token)
     _PENDING_CURSOR = (start + checked) % max(1, len(_PENDING))
     if _PENDING and _worker_gone():
         # worker 不可用时也分批回退，不能把数百张图的同步解码塞进一次 UI tick。
         for token, job in list(_PENDING.items())[:RESULTS_PER_TICK]:
-            image = _build_here(job['master'], job['path'], job['size'], job['stamp'], token)
+            if job.get('kind'):
+                image = _media_placeholder(job['master'], job['kind'], job['size'])
+            else:
+                image = _build_here(job['master'], job['path'], job['size'], job['stamp'], token)
             _PENDING.pop(token, None)
             _landed(job, image)
             landed.append(token)
@@ -470,6 +687,7 @@ def forget():
             app_logging.swallowed()
     _CACHE.clear()
     _PENDING.clear()
+    _MEDIA_PH.clear()
     _PENDING_CURSOR = 0
 
 
@@ -597,13 +815,101 @@ def worker_main(cache_root, idle=WORKER_IDLE):
                 spec = read_json(spec_file)
                 src = Path(spec['src'])
                 token = cache_key(src, spec['stamp'], spec['size'])
-                write_cache(build(root, src, int(spec['size'])), token)
+                if spec.get('kind') in ('video', 'audio'):
+                    _media_job(src, int(spec['size']), token, spec['kind'], spec)
+                else:
+                    write_cache(build(root, src, int(spec['size'])), token)
             except Exception:
                 app_logging.swallowed()                    # 单张图出事不许把这一批带停
             try:
                 remove_temporary_file(spec_file)
             except OSError:
                 pass
+
+
+def _media_job(src, size, token, kind, spec):
+    """后台媒体封面：ffprobe 记旁路（时长／分辨率），ffmpeg 出固定画幅 PNG。
+
+    ffmpeg／ffprobe 一律经 M1 统一后的 ``tool_path`` 解析（任务书 M4）；两者都拿不到、
+    或文件损坏出不了图时落 ``.none`` 记号，界面那一侧给占位图，不反复重试。
+    单进程顺序执行＝同一时刻只跑一个 ffmpeg，天然满足并发生成上限。
+    """
+    ffmpeg = tool_path('ffmpeg', configured=spec.get('ffmpeg') or '')
+    ffprobe = tool_path('ffprobe', configured=spec.get('ffprobe') or '')
+    info = _probe_media(ffprobe, src) if ffprobe else {}
+    if info:
+        try:
+            save(info_file(token), info)
+        except Exception:
+            app_logging.swallowed()
+    image = _render_media(ffmpeg, src, kind, *media_geometry(kind, size), info) if ffmpeg else None
+    try:
+        if image is None:
+            save_bytes(blank_mark(token), b'')
+        else:
+            save_bytes(cache_file(token), image)
+    except Exception:
+        app_logging.swallowed()
+
+
+def _probe_media(ffprobe, src):
+    """ffprobe 取时长与分辨率；探不出来返回 {}（不挡封面生成）。"""
+    try:
+        result = run_process(
+            [ffprobe, '-v', 'error', '-show_entries',
+             'stream=width,height:format=duration', '-of', 'json', str(src)],
+            capture_output=True, timeout=15)
+    except Exception:
+        return {}
+    if result.returncode != 0:
+        return {}
+    try:
+        data = json.loads(result.stdout.decode('utf-8', 'replace'))
+    except (AttributeError, ValueError):
+        return {}
+    info = {}
+    for stream in data.get('streams') or ():
+        if stream.get('width'):
+            info['width'] = int(stream['width'])
+            info['height'] = int(stream['height'])
+            break
+    try:
+        duration = float((data.get('format') or {}).get('duration'))
+        if duration > 0:
+            info['duration'] = round(duration, 3)
+    except (TypeError, ValueError):
+        pass
+    return info
+
+
+def _cover_seek(info):
+    """抽帧时间点：时长的 5%（上限 3 秒）；探测不到时长从 0 抽。"""
+    try:
+        duration = float((info or {}).get('duration') or 0)
+    except (TypeError, ValueError):
+        duration = 0
+    return '%.3f' % max(0.0, min(duration * 0.05, 3.0))
+
+
+def _render_media(ffmpeg, src, kind, width, height, info):
+    """ffmpeg 出一张固定画幅 PNG（stdout 管道）：视频抽帧补黑边、音频画波形；失败 None。"""
+    if kind == 'audio':
+        args = [ffmpeg, '-nostdin', '-v', 'error', '-i', str(src),
+                '-filter_complex', 'showwavespic=s=%dx%d:split_channels=0' % (width, height),
+                '-frames:v', '1', '-f', 'image2pipe', '-c:v', 'png', '-']
+    else:
+        args = [ffmpeg, '-nostdin', '-v', 'error', '-ss', _cover_seek(info), '-i', str(src),
+                '-frames:v', '1',
+                '-vf', 'scale=%d:%d:force_original_aspect_ratio=decrease,'
+                       'pad=%d:%d:(ow-iw)/2:(oh-ih)/2:color=black' % (width, height, width, height),
+                '-f', 'image2pipe', '-c:v', 'png', '-']
+    try:
+        result = run_process(args, capture_output=True, timeout=30)
+    except Exception:
+        return None
+    if result.returncode != 0 or not result.stdout.startswith(PNG_MAGIC):
+        return None
+    return result.stdout
 
 
 def main(argv=None):

@@ -43,8 +43,17 @@ def png_size(path):
     return width, height
 
 
+def _media_tool(cfg, name):
+    """ffmpeg/ffprobe 读取时统一解析：显式有效配置 > 随包 > PATH（R3154）。"""
+    from contract.platform_tools import tool_path
+    return tool_path(name, configured=(cfg or {}).get(name))
+
+
 def probe(path, cfg):
-    return json.loads(command([cfg["ffprobe"], "-v", "error", "-show_streams", "-show_format", "-of", "json", path]))
+    ffprobe = _media_tool(cfg, 'ffprobe')
+    if not ffprobe:
+        raise ValueError('未找到 FFprobe：请安装 FFmpeg 或在配置中指定路径')
+    return json.loads(command([ffprobe, "-v", "error", "-show_streams", "-show_format", "-of", "json", path]))
 
 
 class MediaValidationError(ValueError):
@@ -71,16 +80,18 @@ def media_facts(kind, data):
 
 def validate_import(path, cfg, kind):
     """导入时探测并完整解码一次；不将截断文件发布为正式成果。"""
-    if not cfg.get('ffprobe') or not cfg.get('ffmpeg'):
+    ffmpeg = _media_tool(cfg, 'ffmpeg')
+    ffprobe = _media_tool(cfg, 'ffprobe')
+    if not ffprobe or not ffmpeg:
         raise MediaValidationError('请先配置 FFmpeg 和 FFprobe，再导入媒体文件')
     try:
-        data = probe(path, cfg)
+        data = probe(path, {'ffprobe': ffprobe})
         facts = media_facts(kind, data)
         if kind == 'video' and cfg.get('require_audio', True) and not any(
                 item.get('codec_type') == 'audio' for item in data['streams'] if isinstance(item, dict)):
             raise MediaValidationError('成片缺少必要音轨；无声项目请先将 require_audio 配置为 false')
         maps = ['-map', '0:a'] if kind == 'audio' else ['-map', '0:v', '-map', '0:a?']
-        command([cfg['ffmpeg'], '-nostdin', '-v', 'error', '-xerror', '-err_detect', 'explode',
+        command([ffmpeg, '-nostdin', '-v', 'error', '-xerror', '-err_detect', 'explode',
                  '-i', path, *maps, '-f', 'null', '-'])
         return dict(facts, decoded=True)
     except MediaValidationError:

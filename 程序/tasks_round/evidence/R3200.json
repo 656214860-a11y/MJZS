@@ -1,0 +1,15 @@
+{
+  "round": 3200,
+  "commit_base": "dde3408d",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_files_panel test_files_panel_stages test_asset_thumbs test_context",
+    "exit": 0,
+    "passed": 145,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T17:54:56"
+}

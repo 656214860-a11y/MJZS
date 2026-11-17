@@ -43,9 +43,10 @@ def make_minimal_project(td):
     (proj / "episode" / "episode.json").write_text(json.dumps({"episode_id": "EP001", "title": "T", "shots": [
         {"id": "SH001", "title": "镜头", "duration": 5, "characters": ["CHAR_001"], "location": "LOC_001",
          "frame": "frames/SH001.png", "video_prompt": "画面", "frame_prompt": "窗边的猫", "dialogue": []}]}, ensure_ascii=False), encoding="utf-8")
+    # R3205：本套件测的是本地视频链；M2 起缺省后端是云端，夹具显式钉 'comfy'。
     (proj / "config.json").write_text(json.dumps({
         "episode_dir": str(proj / "episode"), "episode_file": str(proj / "episode" / "episode.json"),
-        "budget_seconds": 0, "reserve_seconds": 0, "live_enabled": False,
+        "budget_seconds": 0, "reserve_seconds": 0, "live_enabled": False, "video_backend": "comfy",
         "ffmpeg": FFMPEG, "ffprobe": FFPROBE}), encoding="utf-8")
     return proj
 

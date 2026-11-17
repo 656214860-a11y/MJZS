@@ -1,0 +1,15 @@
+{
+  "round": 3196,
+  "commit_base": "3320c83b",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_asset_thumbs test_files_panel test_download_inbox",
+    "exit": 0,
+    "passed": 95,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T17:40:47"
+}

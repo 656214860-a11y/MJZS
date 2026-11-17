@@ -7,13 +7,15 @@
 ``script_row_category``／``_open`` 等已有成员。
 """
 import tkinter as tk
+from pathlib import Path
 from tkinter import ttk
 
 from ui_tokens import SPACING
 from ui_widgets import LineInput, SecondaryButton, SelectBox, Tooltip
 
 # R3094（任务书 P1，Q8 补充需求）：停靠面板右缘的阶段快捷图标列，顺序＝pet_bus.STAGES。
-# P1 用 Unicode 符号兜底（用户已确认先符号、后换 PNG 图标）；每个图标都带 Tooltip 中文名。
+# R3191（任务书 M3，REQ-S01-93）：图标优先用 assets/nav/<stage>_files.png（IconLoader.nav_icon），
+# PNG 缺失退回本表 Unicode 符号；每个图标都带 Tooltip 中文名。
 STAGE_RAIL_ICONS = {
     'script': '📝', 'script_structure': '🧾', 'storyboard': '🎬', 'animatic': '🎞',
     'assets': '🎨', 'continuity': '🧩', 'final': '✅', 'keyframe': '🖼',
@@ -26,6 +28,12 @@ STAGE_FILTER_ROW_CATEGORY = 'index'   # 索引行在右键菜单里与剧本行�
 FILTER_STAGE_WIDTH = max(6, SPACING['sm'])
 FILTER_BOX_WIDTH = max(4, SPACING['xs'])
 FILTER_KEYWORD_WIDTH = max(4, SPACING['xs'])
+
+# 任务书 M5（REQ-S01-95/96）：预览列图元长边与列宽、时长／分辨率列宽全部 token 派生；
+# 视频封面 16:9（40×22）与音频波形（40×13）落在字高行内，行高仍由字体 token 量。
+PANEL_PREVIEW_SIZE = SPACING['2xl'] + SPACING['sm']            # 40：预览图长边上限
+PANEL_PREVIEW_COL_WIDTH = PANEL_PREVIEW_SIZE + SPACING['sm']   # 48：预览列宽
+PANEL_META_WIDTH = SPACING['xl'] * 5                            # 120：时长／分辨率列宽
 
 
 def _retention_days():
@@ -151,18 +159,182 @@ class FilesPanelFilterMixin:
         self.script_tree.delete(*self.script_tree.get_children())
         self.script_row_details.clear()
         self.script_row_category.clear()
+        self.script_row_stage.clear()
         if library is None:
             return
         try:
             found = file_index.search_global(library, kind=self.kind_filter)
         except (OSError, ValueError):
             found = []
+        self._library_root = library
+        # 任务书 M5（REQ-S01-95）：素材库视图同样开预览列（封面／波形走 #0）。
+        self._apply_columns(True)
+        self.script_tree.configure(show='tree headings')
         for row in found:
             item_id = 'library:' + row.path
             self.script_row_details[item_id] = '%s · %s · %s' % (row.title or row.path, row.kind, str(library))
             self.script_row_category[item_id] = STAGE_FILTER_ROW_CATEGORY
+            self.script_row_stage[item_id] = '素材库'
+            path = Path(library) / row.path
             self.script_tree.insert('', 'end', iid=item_id, text='',
-                                    values=('[素材库] ' + row.path.split('/')[-1],))
+                                    image=self._row_preview(path) or '',
+                                    values=('[素材库] ' + row.path.split('/')[-1],
+                                            self._row_meta_text(path)))
+        self._schedule_meta_refresh()
+        # 任务书 M4：库里的视频／音频同样后台补封面，缺项下次打开自动重试。
+        self._prefetch_media_thumbs([Path(library) / row.path for row in found])
+
+    def _media_config(self):
+        """项目 config.json 里的 ffmpeg/ffprobe 显式配置；没有读给 None（随包／PATH 兜底）。"""
+        root = getattr(self.page, 'root', None)
+        if root is None:
+            return None
+        try:
+            from file_cache import read_json
+            cfg = read_json(Path(root) / 'config.json')
+        except Exception:
+            return None
+        if not isinstance(cfg, dict):
+            return None
+        return {'ffmpeg': cfg.get('ffmpeg'), 'ffprobe': cfg.get('ffprobe')}
+
+    def _prefetch_media_thumbs(self, paths):
+        """列表里的视频／音频后台预生成封面（任务书 M4）；项目显式 ffmpeg 配置透传给后台。"""
+        import asset_thumbs
+        asset_thumbs.prefetch_media(self.page.win, paths, configured=self._media_config())
+
+    # ── 预览列与文件动作（任务书 M5，REQ-S01-95/96）────────────────────────
+    def _row_preview(self, path):
+        """行预览图：视频／音频走 M4 媒体通道，图片走原缩略图；拿不到图返回 None。
+
+        先返回空盒／占位图（PhotoImage 常驻内存缓存），后台封面落地后像素原位替换，
+        列表一行代码都不用改。
+        """
+        import asset_thumbs
+        from infra import file_index
+        size = PANEL_PREVIEW_SIZE
+        if asset_thumbs.media_kind(path) is not None:
+            return asset_thumbs.media_thumbnail(self.page.win, path, size=size,
+                                                configured=self._media_config())
+        if Path(path).suffix.lower() in file_index.IMAGE_SUFFIXES:
+            return asset_thumbs.thumbnail(self.page.win, path, size)
+        return None
+
+    def _row_meta_text(self, path):
+        """时长／分辨率列：读 M4 的封面同键旁路记录，不读 FileRow。"""
+        import asset_thumbs
+        if asset_thumbs.media_kind(path) is None:
+            return ''
+        info = asset_thumbs.media_info(path, PANEL_PREVIEW_SIZE)
+        if not info:
+            return ''
+        parts = []
+        if info.get('duration'):
+            parts.append('%.1fs' % info['duration'])
+        if info.get('width') and info.get('height'):
+            parts.append('%d×%d' % (info['width'], info['height']))
+        return ' · '.join(parts)
+
+    def _schedule_meta_refresh(self):
+        """旁路记录通常跟封面同到：延迟一拍把空着的时长／分辨率格补齐。"""
+        if getattr(self, '_meta_refresh_job', None) is not None:
+            try:
+                self.page.win.after_cancel(self._meta_refresh_job)
+            except tk.TclError:
+                pass
+        try:
+            self._meta_refresh_job = self.page.win.after(1500, self._refresh_media_meta)
+        except tk.TclError:
+            self._meta_refresh_job = None
+
+    def _refresh_media_meta(self):
+        """旁路记录补齐：把仍空着的时长／分辨率格重写一遍（一次，不递归排期）。"""
+        self._meta_refresh_job = None
+        import asset_thumbs
+        tree = getattr(self, 'script_tree', None)
+        if tree is None or not tree.winfo_exists() or not self._open:
+            return
+        base = getattr(self, '_library_root', None) or getattr(self.page, 'root', None)
+        if base is None:
+            return
+        changed = False
+        for item in tree.get_children():
+            values = tree.item(item, 'values')
+            if len(values) > 1 and values[1]:
+                continue
+            path = self._row_abs_path(item)
+            if path is None or asset_thumbs.media_kind(path) is None:
+                continue
+            text = self._row_meta_text(path)
+            if not text:
+                continue
+            tree.item(item, values=(values[0] if values else '', text))
+            changed = True
+        if changed:
+            fit = getattr(self, '_fit_script_width', None)
+            if callable(fit):
+                fit()
+
+    def _row_abs_path(self, row):
+        """行 iid 对应的绝对路径：index 行项目相对、library: 前缀行素材库相对。"""
+        if row.startswith('library:'):
+            library = getattr(self, '_library_root', None)
+            return (Path(library) / row[len('library:'):]) if library else None
+        path = Path(row)
+        if not path.is_absolute():
+            root = getattr(self.page, 'root', None)
+            if root is None:
+                return None
+            path = Path(root) / path
+        return path
+
+    _SAVE_AS_STAGES = {
+        'setting': '项目设定', 'outline': '剧本大纲', 'character': '角色卡', 'script': '剧本',
+    }
+
+    def _save_as_name(self, path, row):
+        """另存为预填名：``项目名_阶段名_原文件名``（任务书 M5，REQ-S01-96）。"""
+        root = getattr(self.page, 'root', None)
+        project = Path(root).name if root else '导出文件'
+        stage = (self.script_row_stage.get(row)
+                 or self._SAVE_AS_STAGES.get(self.script_row_category.get(row), ''))
+        return '_'.join(part for part in (project, stage, path.name) if part)
+
+    def save_as_file(self):
+        """另存为：复制到用户选定位置（不移动原件）；目标已存在先询问，取消零写入。"""
+        selected = self.script_tree.selection()
+        if not selected:
+            raise ValueError('请先选择文件')
+        path = self._row_abs_path(selected[0])
+        if path is None or not path.is_file():
+            raise ValueError('文件不存在或已缺失：' + selected[0])
+        target = self.page.file_dialog.save_file(
+            parent=self.page.win, title='另存为',
+            initialfile=self._save_as_name(path, selected[0]), defaultextension=path.suffix)
+        if not target:
+            return                                       # 用户取消：零写入
+        target = Path(target)
+        if target.exists() and not self.page.writing_page_services.confirm(
+                self.page.win, '目标已存在',
+                '目标文件已存在，要覆盖吗？\n\n' + str(target), dangerous=True):
+            return                                       # 覆盖前询问：不同意不写
+        try:
+            import shutil
+            shutil.copy2(path, target)
+        except OSError as exc:
+            raise OSError('另存为失败：' + str(exc))      # 复制失败给出原因
+        self.page.status.set('已另存为：' + str(target))
+
+    def show_in_folder(self):
+        """在系统文件管理器中定位选中文件（Windows 选中它本身）。"""
+        selected = self.script_tree.selection()
+        if not selected:
+            raise ValueError('请先选择文件')
+        path = self._row_abs_path(selected[0])
+        if path is None:
+            raise ValueError('文件不存在或已缺失：' + selected[0])
+        from contract.platform_tools import reveal_in_folder
+        reveal_in_folder(path)
 
     # ── 阶段快捷图标列（R3094，任务书 P1）──────────────────────────────────
     def _ensure_filter_state(self):
@@ -174,17 +346,40 @@ class FilesPanelFilterMixin:
             self.keyword_filter = ''
             self._filter_job = None
             self.library_view = False
+            self._meta_refresh_job = None
+            self._library_root = None
+            self.script_row_stage = {}      # iid → 阶段显示名（另存为预填名用）
 
     def _build_stage_rail(self):
-        """建右缘阶段图标列：「全部」＋ 13 个阶段，顺序＝``pet_bus.STAGES``。"""
+        """建右缘阶段图标列：「全部」＋ 13 个阶段，顺序＝``pet_bus.STAGES``。
+
+        R3191（任务书 M3，D10）：图标用 ``assets/nav/<stage>_files.png``（阶段字形＋右下角
+        文件角标），PNG 缺失时退回 ``STAGE_RAIL_ICONS`` 的 emoji；高度不够时整列可滚轮滚动。
+        """
         from contract.pet_bus import STAGES, stage_name
+        from responsive_ui import ScrollForm
+        from ui_icons import IconLoader
+        from ui_tokens import COLORS
         self._ensure_filter_state()
+        # 图标列自身仍是 script_box 右缘的固定竖条；内部换成可滚动画布，矮窗口不再裁掉底部图标。
+        self.stage_rail_scroller = ScrollForm(self.stage_rail, bg=COLORS['background_primary'])
+        self.stage_rail_form = self.stage_rail_scroller.form
         self.stage_buttons = {}
-        entries = [(None, STAGE_RAIL_ALL, '全部文件（剧本准备四类）')]
-        entries += [(stage, STAGE_RAIL_ICONS.get(stage, '•'), stage_name(stage)) for stage in STAGES]
-        for stage, glyph, tip in entries:
-            button = SecondaryButton(self.stage_rail, text=glyph, width=0, style='RailIcon.TButton',
-                                     command=lambda value=stage: self.show_stage(value))
+        entries = [(None, 'project_files', STAGE_RAIL_ALL, '全部文件（剧本准备四类）')]
+        entries += [(stage, stage + '_files', STAGE_RAIL_ICONS.get(stage, '•'), stage_name(stage))
+                    for stage in STAGES]
+        for stage, icon_name, glyph, tip in entries:
+            image = IconLoader.nav_icon(self.page.win, icon_name)
+            # 有 PNG 时 compound='image' 只显示图，text 仍留 emoji 作语义标签与缺图兜底。
+            if image is not None:
+                button = SecondaryButton(self.stage_rail_form, text=glyph, image=image,
+                                         compound='image', width=0, style='RailIcon.TButton',
+                                         command=lambda value=stage: self.show_stage(value))
+            else:
+                button = SecondaryButton(self.stage_rail_form, text=glyph, width=0,
+                                         style='RailIcon.TButton',
+                                         command=lambda value=stage: self.show_stage(value))
+            button._rail_icon_name = icon_name
             button.pack(side='top', pady=(SPACING['none'], SPACING['xs']))
             Tooltip(button, tip)
             self.stage_buttons[stage] = button
@@ -194,17 +389,26 @@ class FilesPanelFilterMixin:
         self._add_rail_action('♻', '回收站：浏览与恢复已删除的文件', 'open_recycle_recovery')
         self._add_rail_action('🗑', '清空过期回收站（保留 %d 天）' % _retention_days(), 'purge_expired_recycle')
         # R3143（任务书 P3，Q11）：全局素材库视图——跨项目的共享素材，按库相对路径列出。
-        library = SecondaryButton(self.stage_rail, text='🗂', width=0, style='RailIcon.TButton',
+        library = SecondaryButton(self.stage_rail_form, text='🗂', width=0, style='RailIcon.TButton',
                                   command=self.show_library)
         library.pack(side='top', pady=(SPACING['none'], SPACING['xs']))
         Tooltip(library, '全局素材库：跨项目的共享素材（可在设置里指定目录）')
         self.library_button = library
+        # 滚轮绑定要等全部子件建完再递归挂一次（见 ScrollForm.bind_wheel 说明）。
+        self.stage_rail_scroller.bind_wheel()
+        # tk.Canvas 默认请求宽约 378px，会把整条图标列撑成宽面板；钉成内容实际宽度。
+        # 不许在这里 update_idletasks——构建期泵事件会让已挂的 after_idle 作业提前执行，
+        # 与正在构建中的窗口状态形成再入（实测 Desktop.__init__ 在 _register 挂死）。
+        content_w = max((child.winfo_reqwidth() for child in self.stage_rail_form.winfo_children()),
+                        default=0)
+        if content_w:
+            self.stage_rail_scroller.canvas.configure(width=content_w)
 
     def _add_rail_action(self, glyph, tip, method_name):
         """在图标列末尾追加一个动作钮；宿主没有该动作时只留按钮不绑回调。"""
         action = getattr(self.page, method_name, None)
         command = (lambda: self.page.safe(action)) if callable(action) else None
-        button = SecondaryButton(self.stage_rail, text=glyph, width=0, style='RailIcon.TButton',
+        button = SecondaryButton(self.stage_rail_form, text=glyph, width=0, style='RailIcon.TButton',
                                  command=command)
         button.pack(side='top', pady=(SPACING['none'], SPACING['xs']))
         Tooltip(button, tip)
@@ -234,10 +438,16 @@ class FilesPanelFilterMixin:
     def _fill_index_list(self):
         """用项目文件索引填表：只读索引缓存，不扫盘；条件取自筛选条四项。"""
         from infra import file_index
+        from contract.pet_bus import stage_name
         self.cancel_script_load()
+        # 任务书 M5（REQ-S01-95）：索引视图开预览列（#0 挂封面／波形图元）。
+        self._apply_columns(True)
+        self.script_tree.configure(show='tree headings')
         self.script_tree.delete(*self.script_tree.get_children())
         self.script_row_details.clear()
         self.script_row_category.clear()
+        self.script_row_stage.clear()
+        self._library_root = None
         root = getattr(self.page, 'root', None)
         if root is None:
             return
@@ -252,4 +462,12 @@ class FilesPanelFilterMixin:
             self.script_row_details[row.path] = '%s · %s · %s' % (
                 row.title or name, row.kind, row.path)
             self.script_row_category[row.path] = STAGE_FILTER_ROW_CATEGORY
-            self.script_tree.insert('', 'end', iid=row.path, text='', values=(label + name,))
+            self.script_row_stage[row.path] = stage_name(row.stage)
+            path = Path(root) / row.path
+            image = self._row_preview(path) if not row.missing else None
+            self.script_tree.insert('', 'end', iid=row.path, text='', image=image or '',
+                                    values=(label + name, self._row_meta_text(path)))
+        self._schedule_meta_refresh()
+        # 任务书 M4：索引视图里的视频／音频后台预生成封面与波形（缺失文件跳过，
+        # stat 不到本就不该排队）；启动路径不扫描，这里只在面板已打开、索引已填表时跑。
+        self._prefetch_media_thumbs([Path(root) / row.path for row in found if not row.missing])

@@ -18,7 +18,7 @@ def verify(project,sid,seconds,source=None):
     if not all(p.is_file() and p.stat().st_size for p in paths):return False
     if wm.evidence_state(data,paths[0],source,sid)=='changed':return False
     from infra.integrations import tool_path
-    probe=tool_path('ffprobe','D:/Tools/ffmpeg/bin/ffprobe.exe')
+    probe=tool_path('ffprobe')
     result=subprocess.run([probe,'-v','error','-show_streams','-show_format','-of','json',str(paths[0])],capture_output=True,text=True,encoding='utf-8',timeout=30,creationflags=hidden_console_flags())
     if result.returncode:return False
     media=json.loads(result.stdout)
@@ -104,7 +104,10 @@ def start(project,source,ids,state,monitor=False,ticket=None,is_current=None,exe
         from infra.qwen_setup import environment
         environment(call_config.get('model',''),call_config.get('api'))
     engine_name=ENGINES[call_config['engine']]
-    if not wm.find_blender(refresh=True):raise ValueError('未找到本地 Blender')
+    if not wm.find_blender(refresh=True):
+        # R3162 M2：本地 Blender 是可选高级项——缺失时给可操作的下一步，而不是裸报错。
+        raise ValueError('需要 Blender：未找到本地 Blender。请安装 Blender，或在白模设置里指定路径'
+                         '（%s）；只准备脚本不受影响' % wm.diagnose().get('settings', 'white_model_settings.json'))
     from orchestrator.previs_batch_service import prepare_batch
     # Capture source before dispatch: later selection/source edits cannot change this batch.
     episode=read_json(source)

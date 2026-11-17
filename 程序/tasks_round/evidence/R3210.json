@@ -1,0 +1,15 @@
+{
+  "round": 3210,
+  "commit_base": "262cf888",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k offline_asr asset_thumbs files_panel ui_edges writing_page_services distribution speech static",
+    "exit": 0,
+    "passed": 326,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T19:48:32"
+}

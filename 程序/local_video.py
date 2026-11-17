@@ -6,7 +6,7 @@ from file_cache import remove_temporary_file
 # 第 34 期第 9 条：`urllib.request`／`urllib.error` 连 ssl 一起加载（约 4.4 MB 常驻），
 # 本模块只在真要发本机 HTTP 时用得到——都改成函数内 import。
 from urllib.parse import urlparse,urlencode,quote
-from orchestrator.engine import Studio, REVIEW_PASS, AUTO_REVIEW_NOTE, auto_review_ready
+from orchestrator.engine import Studio, REVIEW_PASS, AUTO_REVIEW_NOTE, auto_review_ready, _media_tool
 from agent.core import read,save,file_hash,command,fingerprint,temporary_path,replace
 from agent.media import check, png_size
 import infra.project_settings as project_settings
@@ -147,7 +147,7 @@ class LocalStudio(Studio):
             open_comfy();wait_comfy(api.url,report)
             report('正在连接 ComfyUI 并检查节点：'+api.url);preflight(api,graph)
             report('正在检查视频处理工具…')
-            command([self.cfg['ffmpeg'],'-version']);command([self.cfg['ffprobe'],'-version'])
+            command([_media_tool(self.cfg,'ffmpeg'),'-version']);command([_media_tool(self.cfg,'ffprobe'),'-version'])
             report('正在上传本镜首帧…')
             first_frame = {'category': 'image'}
             image=api.upload(frame, evidence=first_frame);node,field=options.get('image','114.image').split('.',1);graph[node]['inputs'][field]=image
@@ -226,7 +226,7 @@ class LocalStudio(Studio):
                 streams=probe(dest,self.cfg).get('streams',[])
                 picture=next((x for x in streams if x.get('codec_type')=='video'),None)
                 if picture and v.get('source_aspect') and abs((picture['width']/picture['height'])/v['source_aspect']-1)>0.04:report['errors'].append('视频比例与首帧不一致')
-                command([self.cfg['ffmpeg'],'-v','error','-xerror','-i',dest,'-f','null','-'])
+                command([_media_tool(self.cfg,'ffmpeg'),'-v','error','-xerror','-i',dest,'-f','null','-'])
                 if auto_review_ready(self.root,report):
                     v.update(review=REVIEW_PASS,review_by='auto',review_note=AUTO_REVIEW_NOTE)
             except Exception as exc:
@@ -366,7 +366,8 @@ def open_studio(root,episode_file=None):
         raise ValueError('项目配置文件 config.json 无法读取：'+str(exc)) from None
     if not isinstance(cfg,dict):
         raise ValueError('项目配置文件 config.json 顶层必须为对象')
-    if cfg.get('video_backend','comfy')=='comfy':return LocalStudio(root,episode_file=episode_file)
+    # R3162 M2：缺省后端为云端；配置里显式写 'comfy' 的项目仍走本地（用户选择不动）。
+    if cfg.get('video_backend','cloud')=='comfy':return LocalStudio(root,episode_file=episode_file)
     if cfg.get('cloud_provider')=='openai':
         raise ValueError('此视频服务商已移除，请在视频生成设置中选择万相或Seedance')
     if cfg.get('cloud_provider')=='volcengine':

@@ -12,6 +12,7 @@
 | --- | --- |
 | `启动漫剧制作助手.pyw`、`开发者工具/启动助手.cmd` | 正式启动入口。 |
 | `运行环境/Python/` | 随应用交付的解释器与依赖。 |
+| `运行环境/ffmpeg/` | 随应用交付的 LGPL 构建 FFmpeg（`ffmpeg.exe`/`ffprobe.exe`，`bin/` 下）；须含 `LICENSE`/`NOTICE` 与构建来源、版本号说明（R3154，零依赖边界任务书 M1）。运行时经 `contract.platform_tools.tool_path` 按「显式有效配置 > 随包 > PATH」定位，用户可在配置中改用自备 FFmpeg 满足 LGPL 可替换义务。 |
 | `程序/app.py`、`程序/desktop.py` 及其生产 Python 模块 | 主界面与业务实现。 |
 | `程序/assets/`、`程序/skills/`、`程序/workflows/`、`程序/data/` | 内置资源、SKILL、流程和内置数据。 |
 | `程序/配置/` 与程序随附说明 | 默认配置和面向用户的资料。 |
@@ -40,7 +41,7 @@
 | `.wt/**`、`.gitattributes`、`.gitignore`、`.claudeignore`、`AGENTS.md`、`CLAUDE.md`、`开发者工具/BLOCKED_ISSUES.md`、`reorganize_install.py`、`开发者工具/handoff-full-safe.md` | 开发/代理资料 | 不是运行时内容。 |
 | `程序/.*.err`、`程序/.*.out`、`程序/.*.log`、`维护记录/**` | 自检与维护产物 | 可再生成的诊断输出。 |
 | `程序/outputs/**`、`程序/工作流任务/**`、`工作流任务/**`、`程序/episode/**`、`程序/tasks/**`、`程序/_supervisor/**` | 本地运行产物 | 可再生产物与根目录开发任务现场，不随分发副本携带。 |
-| `运行环境/Python_alpha_a2_backup/**`、`运行环境/Python315_pruned_backup/**` | 本机备份 | 解释器旧版与裁剪备份，正式交付只保留 `运行环境/Python/`。 |
+| `运行环境/Python_alpha_a2_backup/**`、`运行环境/Python315_pruned_backup/**`、`运行环境/Python.bak*/**` | 本机备份 | 解释器旧版、裁剪与换版前的 `.bak_*` 快照备份，正式交付只保留 `运行环境/Python/`。 |
 | `程序/Tencent/**` | 本机垃圾 | 腾讯输入法 WeType 误写日志/缓存，非项目内容。 |
 | `漫剧制作助手_图标_*.ico`、`漫剧助手.lnk` | 本机产物 | 除 `漫剧制作助手_图标_629c80fc.ico`（已列保留）外的本地图标副本与快捷方式，由目标机器生成。 |
 | `升级备份/**` | 本机维护产物 | 不属于正式运行所需内容。 |

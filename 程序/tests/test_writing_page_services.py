@@ -98,8 +98,9 @@ class WritingPageServicesTests(unittest.TestCase):
             tree.selection_set.side_effect = lambda row: setattr(tree.selection, 'return_value', (row,))
             page.script_menu(tree, SimpleNamespace(y=0))
             tree.selection_set.assert_called_once_with(str(files[1]))
+            # R3200 M5：剧本行右键新增「在文件夹中显示」「另存为…」，其余动作与顺序不变。
             self.assertEqual([call.args[0] for call in menu.command.call_args_list],
-                             ['查看', '重命名', '采用此剧本', '删除'])
+                             ['查看', '重命名', '采用此剧本', '在文件夹中显示', '另存为…', '删除'])
 
 
 if __name__ == '__main__':

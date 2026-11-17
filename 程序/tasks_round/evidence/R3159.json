@@ -1,0 +1,15 @@
+{
+  "round": 3159,
+  "commit_base": "61d433b2",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k context environment_check req_s04 req_s10 output_spec editing_scope video_revision animatic_service edit_export",
+    "exit": 0,
+    "passed": 166,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T14:32:51"
+}
