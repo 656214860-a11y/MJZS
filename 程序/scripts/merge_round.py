@@ -50,6 +50,20 @@ def foreign_changes(porcelain: str) -> list[str]:
     return [line for line in porcelain.splitlines() if line.strip() and not line[3:].strip('"').endswith(LOCAL_ONLY)]
 
 
+RESULT_RE = re.compile(r"tasks_round_(\d+)_result\.md$")
+
+
+def continuity_gap() -> int | None:
+    """「当前轮次 == 最新结果轮次+1」的差值；0/None 为通过。合并候选 CI 期间本检查被跳过，
+    领号写页后由这里复核——分支带更高结果号时在提交前拦下，不产生断档提交。"""
+    nums = [int(m.group(1)) for path in (PROGRAM / "tasks_round").rglob("tasks_round_*_result.md")
+            if (m := RESULT_RE.search(path.name))]
+    if not nums:
+        return None
+    head = re.search(r"当前轮次：(\d+)", STATUS.read_text(encoding="utf-8"))
+    return -1 if not head else int(head.group(1)) - (max(nums) + 1)
+
+
 def result_text(number: int, branch: str, summary: str) -> str:
     return ("# R%d 合并轮结果\n\n- 轮次类型：合并轮。\n- 合入：`%s` 到 master。\n- 说明：%s\n"
             "- 冲突：无（有冲突时本命令中止，不领号）。断言未动。未跑全量。\n" % (number, branch, summary))
@@ -154,6 +168,13 @@ def main(argv=None) -> int:
                       encoding="utf-8", newline="")
     result = PROGRAM / "tasks_round" / ("tasks_round_%d_result.md" % number)
     result.write_text(result_text(number, args.branch, args.summary), encoding="utf-8", newline="\n")
+    gap = continuity_gap()
+    if gap:
+        result.unlink(missing_ok=True)   # untracked 结果文件 merge --abort 不会带走，须显式删
+        cleanup_failed_merge(args.branch)
+        print("状态页轮次连续性自检失败（差 %d），已中止本分支合并还原；轮次号 R%d 已被占用。"
+              % (gap, number), file=sys.stderr)
+        return 4
     code = commit_round.main(["-m", "R%d: 合入 %s 到 master（合并轮）：%s\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
                               % (number, args.branch, args.summary),
                               "project_status.md", str(result.relative_to(PROGRAM))])

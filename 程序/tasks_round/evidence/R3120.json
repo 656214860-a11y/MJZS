@@ -1,0 +1,15 @@
+{
+  "round": 3120,
+  "commit_base": "df68b9f2",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k lane_merge_queue round_claim merge_queue",
+    "exit": 0,
+    "passed": 27,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T12:35:20"
+}

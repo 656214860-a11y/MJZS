@@ -266,7 +266,13 @@ def claim_next(*, common_dir: Path, tasks_round: Path, root: Path = ROOT,
         claims = _read_claims_doc(claims_path)
         claims[str(next_round)] = _claim_owner(Path(claimant_dir) if claimant_dir else Path(root))
         _write_claims_doc(claims_path, claims)
-        return next_round
+    try:
+        import lane_registry
+        lane_registry.register(Path(claimant_dir) if claimant_dir else Path(root),
+                               common_dir, owner=str(claims[str(next_round)].get("worktree", "")))
+    except Exception:
+        pass  # 车道登记是观测面，绝不阻断领号
+    return next_round
 
 
 def record_claim(*, common_dir: Path, number: int, claimant_dir: Path) -> dict:
@@ -371,13 +377,18 @@ def require_worktree_fresh(root: Path = ROOT, limit: int = 10) -> None:
         if verify.returncode == 0:
             main_branch = candidate
             break
+    # B3 源码口径：只数触碰 *.py/*.pyw 的提交；纯文档/结果文件/台账提交 rebase 零成本不计入。
     result = subprocess.run(["git", "-C", str(root), "rev-list", "--count",
-                             "%s..%s" % (main_branch, branch)], capture_output=True, text=True)
+                             "%s..%s" % (main_branch, branch), "--",
+                             ":(top,glob)**/*.py", ":(top,glob)**/*.pyw"], capture_output=True, text=True)
     if result.returncode:
-        return  # 无法计算 ahead（主干缺失等）时放行，由 require_branch 兜底
+        result = subprocess.run(["git", "-C", str(root), "rev-list", "--count",
+                                 "%s..%s" % (main_branch, branch)], capture_output=True, text=True)
+        if result.returncode:
+            return  # 无法计算 ahead（主干缺失等）时放行，由 require_branch 兜底
     ahead = int(result.stdout.strip() or 0)
     if ahead > limit:
-        raise RuntimeError("拒绝领取轮次：分支 %s 领先 %s %d 个提交（>%d）。"
+        raise RuntimeError("拒绝领取轮次：分支 %s 领先 %s %d 个源码提交（>%d，文档/结果提交不计）。"
                            "先 rebase 到最新主干或回合，再领取轮次。" % (branch, main_branch, ahead, limit))
 
 
@@ -430,6 +441,24 @@ def claim_task(*, common_dir: Path, queue_path: Path, task_id: str, owner: str,
         item["lease_until"] = (now + timedelta(minutes=lease_minutes)).isoformat(timespec="seconds")
         if takeover:
             _note(item, "%s 过期后由 %s 抢占" % (prior_owner or "未署名认领", owner))
+        _write_authority(common_dir, queue_path, payload, root)
+        return dict(item)
+
+
+def renew_task(*, common_dir: Path, queue_path: Path, task_id: str, owner: str,
+               lease_minutes: int = 60, now: datetime | None = None, root: Path = ROOT) -> dict:
+    """租约心跳：owner 续约 lease_until；他人任务或已释放任务拒绝。"""
+    if lease_minutes <= 0:
+        raise ValueError("lease_minutes 必须为正数")
+    now = now or datetime.now().astimezone()
+    with shared_lock(common_dir):
+        payload = _load_authority(common_dir, queue_path, root)
+        item = _queue_item(payload, task_id)
+        if item.get("status") != "claimed" or item.get("owner") != owner:
+            raise RuntimeError("任务 %s 不属于 %s 或未处于认领态，拒绝续约" % (task_id, owner))
+        item["lease_minutes"] = lease_minutes
+        item["lease_until"] = (now + timedelta(minutes=lease_minutes)).isoformat(timespec="seconds")
+        _note(item, "%s 心跳续约至 %s" % (owner, item["lease_until"]))
         _write_authority(common_dir, queue_path, payload, root)
         return dict(item)
 
@@ -488,17 +517,19 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=False)
     subparsers.add_parser("next", help="领取下一个轮次号")
+    subparsers.add_parser("lanes", help="车道注册表 lanes.json：owner/role/last_seen")
     for command in ("show", "validate"):
         sub = subparsers.add_parser(command)
         sub.add_argument("--queue", type=Path, default=DEFAULT_QUEUE)
     record_parser = subparsers.add_parser("record", help="为已分配轮次补登当前工作树归属")
     record_parser.add_argument("number", type=int)
-    for command, help_text in (("claim", "认领队列任务"), ("release", "释放队列任务"), ("complete", "收口队列任务")):
+    for command, help_text in (("claim", "认领队列任务"), ("release", "释放队列任务"),
+                               ("complete", "收口队列任务"), ("renew", "队列租约心跳续约")):
         sub = subparsers.add_parser(command, help=help_text)
         sub.add_argument("task_id")
         sub.add_argument("--owner", required=True)
         sub.add_argument("--queue", type=Path, default=DEFAULT_QUEUE)
-        if command == "claim":
+        if command in ("claim", "renew"):
             sub.add_argument("--lease-minutes", type=int, default=60)
         if command == "complete":
             sub.add_argument("--note", required=True)
@@ -540,6 +571,18 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         entry = record_claim(common_dir=common_dir, number=args.number, claimant_dir=Path.cwd())
         print(json.dumps(entry, ensure_ascii=False))
+    elif args.command == "renew":
+        item = renew_task(common_dir=common_dir, queue_path=args.queue, task_id=args.task_id,
+                          owner=args.owner, lease_minutes=args.lease_minutes)
+        print(json.dumps(item, ensure_ascii=False))
+    elif args.command == "lanes":
+        import lane_registry
+        for row in lane_registry.list_lanes(common_dir):
+            flag = " [STALE]" if row["stale"] else ""
+            print("%-24s role=%-5s owner=%-16s idle=%sh last_seen=%s%s" % (
+                row["lane"], row["role"], row["owner"] or "-", row["idle_hours"],
+                time.strftime("%m-%d %H:%M", time.localtime(row["last_seen"])), flag))
+        return 0
     elif args.command == "claim":
         item = claim_task(common_dir=common_dir, queue_path=args.queue, task_id=args.task_id,
                           owner=args.owner, lease_minutes=args.lease_minutes)

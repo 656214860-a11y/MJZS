@@ -250,7 +250,7 @@ class SharedWorktreeQueueTests(unittest.TestCase):
         script = tree / "程序/维护记录/基准脚本/round_claim.py"
         self.git("-C", str(tree), "switch", "-c", "codex/far-ahead")
         for index in range(11):
-            (tree / ("commit-%d.txt" % index)).write_text(str(index), encoding="utf-8")
+            (tree / ("commit-%d.py" % index)).write_text("x = %d" % index, encoding="utf-8")
             self.git("-C", str(tree), "add", ".")
             self.git("-C", str(tree), "-c", "user.name=Queue Test", "-c",
                      "user.email=queue@example.invalid", "commit", "-m", "far %d" % index)
@@ -264,7 +264,7 @@ class SharedWorktreeQueueTests(unittest.TestCase):
         tree = self.trees[0]
         script = tree / "程序/维护记录/基准脚本/round_claim.py"
         self.git("-C", str(tree), "switch", "-c", "codex/near-ahead")
-        (tree / "one.txt").write_text("1", encoding="utf-8")
+        (tree / "one.py").write_text("x = 1", encoding="utf-8")
         self.git("-C", str(tree), "add", ".")
         self.git("-C", str(tree), "-c", "user.name=Queue Test", "-c",
                  "user.email=queue@example.invalid", "commit", "-m", "near 1")
