@@ -61,14 +61,14 @@ class UsageIndicatorTests(unittest.TestCase):
         self.snapshot.record_call('script', 'gpt-x', 1200, cost='0.82', currency='CNY')
         self.indicator.refresh()
         texts = self._texts()
-        self.assertEqual(texts['token'], 'Token:1.2K')
+        self.assertEqual(texts['token'], 'Token: 1.2K')
         self.assertEqual(texts['money'], '¥0.82')
         self.assertFalse(self._packed('balance'))
 
     def test_small_numbers_stay_raw(self):
         self.snapshot.record_call('a', 'm', 999)
         self.indicator.refresh()
-        self.assertEqual(self._texts()['token'], 'Token:999')
+        self.assertEqual(self._texts()['token'], 'Token: 999')
 
     def test_no_price_table_and_no_balance_hide_items_without_fake_zero(self):
         self.snapshot.record_call('a', 'm', 500)
@@ -127,7 +127,7 @@ class UsageIndicatorTests(unittest.TestCase):
         self.assertIn('已导出', self.desktop.status.get())
 
     def test_indicator_labels_pack_horizontally_for_the_title_row(self):
-        """R2933：指示器 pack 进标题行、Token/费用/余额同一行从左到右排开。"""
+        """R2933 建、R3016 改：指示器 pack 进统一底栏左区、Token/费用/余额同一行从左到右排开。"""
         self.snapshot.record_call('a', 'm', 1200, cost='0.82', currency='CNY')
         self.indicator.refresh()
         self.root.update()

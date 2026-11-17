@@ -1105,8 +1105,8 @@ class VideoEntryTests(unittest.TestCase):
             d, win, proj = self.page(td)
             d.show(PAGE['video'], video_mode="cloud"); win.update()
             self.assertEqual(d.video_mode, "cloud")
-            # 保留文字契约，并通过实际语义按钮验证返回回调。
-            self.assertIn("返回生成方式", widget_texts(d.title_row, (self.tk.Button, ttk.Button)),
+            # 保留文字契约，并通过实际语义按钮验证返回回调（R3016 P2：返回钮进视频页内容区左上角）。
+            self.assertIn("返回生成方式", widget_texts(d.content, (self.tk.Button, ttk.Button)),
                           "想换一侧：页里那颗还是摆着")
             from ui_widgets import SecondaryButton
             from ui_tokens import COLORS

@@ -272,7 +272,7 @@ class DesktopStartupPerfTests(unittest.TestCase):
                 selected_at = time.perf_counter()
                 self.assertTrue(desktop.open_project_or_cleanup(project))
                 self.assertEqual(desktop.page_index, 0)
-                self.assertEqual(desktop.title.cget('text'), PAGES[0])
+                self.assertEqual(desktop.status_bar._segments['page'][1].full_text, PAGES[0])
                 self.assertLessEqual(time.perf_counter() - selected_at, FIRST_DAY_SELECTOR_SECONDS)
                 popup.destroy()
         finally:
@@ -298,7 +298,7 @@ class DesktopStartupPerfTests(unittest.TestCase):
                 self.assertTrue(self._pump_until(
                     window,
                     lambda: (desktop.page_index == 0
-                             and desktop.title.cget('text') == PAGES[0]),
+                             and desktop.status_bar._segments['page'][1].full_text == PAGES[0]),
                     started + AUTO_RESUME_TO_SCRIPT_SECONDS),
                     '同日自动续开不得在“我的项目”停留超过 1 秒')
                 benchmark_trend.record_startup_perf(time.perf_counter() - started, 'same_day')
@@ -339,7 +339,7 @@ class DesktopStartupPerfTests(unittest.TestCase):
                     self.assertTrue(self._pump_until(
                         window,
                         lambda: (desktop.page_index == 0
-                                 and desktop.title.cget('text') == PAGES[0]),
+                                 and desktop.status_bar._segments['page'][1].full_text == PAGES[0]),
                         time.perf_counter() + 1.5))
                 self.assertEqual(len(recursive_glob), STARTUP_RECURSIVE_SCAN_COUNT)
                 self.assertEqual(len(recursive_walk), STARTUP_RECURSIVE_SCAN_COUNT, repr(recursive_walk[:3]))

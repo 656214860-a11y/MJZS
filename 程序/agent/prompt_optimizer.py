@@ -19,7 +19,21 @@ CONFIG=ROOT/'private'/'prompt_optimizer.json'
 # 第 45 期：服务商下拉里最后那一档原叫「自定义接口」，用户要求改成「新增接口」——它的意思就是
 # 「这条是我新加的」，填完点保存就进「已保存模型」；已经保存过的自定义接口下次直接能在下拉里选到。
 NEW_INTERFACE='新增接口'
-HOME=Path('D:/漫剧下载/PromptOptimizer')
+
+def _optimizer_home():
+    """提示词优化器工具链根目录：跟随全局配置的下载根（R3016 起不再写死 D: 盘）。"""
+    root='D:/漫剧下载'
+    cfg_path=ROOT/'config.json'
+    if cfg_path.is_file():
+        try:
+            cfg=read(cfg_path)
+            if isinstance(cfg,dict) and cfg.get('downloads_root'):
+                root=str(cfg['downloads_root'])
+        except (OSError,ValueError):
+            pass
+    return Path(root)/'PromptOptimizer'
+
+HOME=_optimizer_home()
 
 def settings(app):
     old=getattr(app,'optimizer_settings',None)

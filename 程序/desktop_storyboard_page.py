@@ -128,12 +128,13 @@ class _FirstFramePage:
         if not hasattr(self.page,'frame_checks'):self.page.frame_checks={}
         self.checked=self.page.frame_checks.get(self.page._frame_checks_key)
         if self.checked is None:self.checked=self.page.frame_checks[self.page._frame_checks_key]=frame_checks.FrameChecks()
-        if hasattr(self.page,'header_status'):
+        if hasattr(self.page,'set_status_segment'):
             # 「全部分镜」不是一份文件：这一栏写清这一屏列的是哪几份（第 68 期任务 12）。
+            # R3016 P2：改挂统一底栏左区段；操作提示进悬停全文。
             total=len({str(item.resolve()) for _i,_s,item,_b,_e in self.rows})
             label=('全部 %d 份已采用分镜'%total) if total>1 else self.source.relative_to(self.page.root).as_posix()
-            self.page.header_status.configure(text='当前 JSON：'+label)
-            self.page.header_model.configure(text='镜头编号保留；点表头勾选框切换全部，单击镜头行勾选单个。')
+            self.page.set_status_segment('storyboard','当前 JSON：'+label,
+                                         tooltip='镜头编号保留；点表头勾选框切换全部，单击镜头行勾选单个。')
         # 底部两行先贴底占位、内容框最后占满剩余高度，主界面缩放时按钮与下拉框始终可见。
         table_box=ttk.Frame(self.page.content)
         self.target_row=FlowBar(self.page.content)

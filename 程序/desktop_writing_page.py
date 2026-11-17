@@ -242,17 +242,8 @@ class _WritingPage:
         self.talk=ttk.Frame(self.page.content,style='Box.TFrame',padding=(SPACING['xs'],SPACING['none']))
         # 标题、聊天框与左侧内容起点同高；不在标题下额外留出一档空白。
         self.talk.pack(fill='both',expand=True,pady=SPACING['none'])
-        # 用量与会话说明合成页面最底部的单行状态栏：不换行、放不下就截断，悬停看全文。
-        status_row=ttk.Frame(self.talk);status_row.pack(side='bottom',fill='x',pady=SPACING['none'])
-        status_row.columnconfigure(0,weight=1,uniform='status-summary')
-        status_row.columnconfigure(2,weight=2,uniform='status-summary')
-        self.page.idea_usage_label = EllipsisLabel(status_row, text='本模型暂无用量记录', style='Muted.TLabel')
-        self.page.idea_usage_label.grid(row=0,column=0,sticky='ew')
-        self.page.idea_usage_tip = self.page.idea_usage_label.tooltip
-        ttk.Label(status_row, text=' · ', style='Muted.TLabel').grid(row=0,column=1)
-        self.page.idea_session_label = EllipsisLabel(status_row, text='', style='Muted.TLabel')
-        self.page.idea_session_label.grid(row=0,column=2,sticky='ew')
-        self.page.idea_session_tip = self.page.idea_session_label.tooltip
+        # R2989 P1：页内「用量摘要 · 会话说明」单行状态栏并入统一底栏左区（set_status_segment）；
+        # 会话说明按用户裁定删除；用量摘要由 show_conversation 收尾回调写入。
         # R2923：输入框=底部共享框里的同一个 Text；无共享实例时页内兜底一张。
         shared_input=getattr(self.page,'shared_input',None)
         shared_box=getattr(shared_input,'input',None)
