@@ -65,8 +65,82 @@ def open_speech_settings(pet, parent=None):
     ttk.Label(card, textvariable=hint, style='PaleGreenHint.TLabel', wraplength=TEXT_DESC['wraplength']).grid(
         row=row + 1, column=0, columnspan=2, sticky='w', pady=(SPACING['sm'], SPACING['none']))
 
+    # ── 离线语音包（任务书 M6）：下载独立 venv＋模型，带进度、可取消、不阻塞界面 ──
+    from domain import offline_asr_setup
+    setup_row = row + 2
+    setup_state = tk.StringVar(value='')
+    setup_progress = tk.StringVar(value='')
+    runner = {'obj': None}
+
+    def _form_settings():
+        """下载探测用表单上的 offline 段（未保存值优先），其余回读文件设置。"""
+        settings = dict(speech_api.read_settings())
+        offline = dict(settings.get('offline') or {})
+        for key, variable in variables.items():
+            if key.startswith('offline.'):
+                offline[key.split('.', 1)[1]] = variable.get()
+        settings['offline'] = offline
+        return settings
+
+    def refresh_setup_state():
+        if offline_asr_setup.environment_ready(_form_settings()):
+            setup_state.set('已安装')
+        elif offline_asr_setup.venv_python(offline_asr_setup.VENV_DIR).is_file():
+            setup_state.set('环境已建，模型未下载完')
+        else:
+            setup_state.set('未安装')
+
+    def _apply_setup_event(event):
+        kind = event.get('type')
+        if kind == 'progress':
+            setup_progress.set(event.get('message') or '')
+            return
+        setup_progress.set('')
+        runner['obj'] = None
+        setup_button.configure(text='下载离线语音包…')
+        refresh_setup_state()
+        if kind == 'done':
+            hint.set(event.get('message') or '离线语音包安装完成')
+        elif kind == 'cancelled':
+            hint.set(event.get('message') or '已取消下载；已下载部分保留，下次继续')
+        else:
+            hint.set(event.get('message') or '离线语音包安装失败')
+
+    def toggle_download():
+        current = runner['obj']
+        if current is not None and current.running:
+            current.cancel()
+            setup_progress.set('正在取消…')
+            return
+
+        def on_event(event):
+            try:
+                win.after(0, lambda e=event: _apply_setup_event(e))
+            except tk.TclError:
+                pass                         # 弹窗已关：下载线程后台跑完即可
+
+        current = offline_asr_setup.OfflineSetupRunner(_form_settings(), on_event)
+        if current.start():
+            runner['obj'] = current
+            setup_button.configure(text='取消下载')
+            setup_progress.set('正在准备…')
+        else:
+            hint.set('离线语音包下载已在进行中')
+
+    ttk.Label(card, text='离线语音包').grid(row=setup_row, column=0, sticky='w', pady=SPACING['xs'])
+    setup_box = ttk.Frame(card)
+    setup_box.grid(row=setup_row, column=1, sticky='ew', pady=SPACING['xs'])
+    setup_button = SecondaryButton(setup_box, text='下载离线语音包…', command=toggle_download)
+    setup_button.pack(side='left')
+    ttk.Label(setup_box, textvariable=setup_state, style='Muted.TLabel').pack(
+        side='left', padx=(SPACING['sm'], SPACING['none']))
+    ttk.Label(card, textvariable=setup_progress, style='Muted.TLabel',
+              wraplength=TEXT_DESC['wraplength']).grid(
+        row=setup_row + 1, column=0, columnspan=2, sticky='w')
+    refresh_setup_state()
+
     # ── 语音词典与 AI 优化（可选，存 data/语音词典.json）──
-    dict_row = row + 2
+    dict_row = setup_row + 2
     ttk.Label(card, text='语音词典与 AI 优化（可选）', font=FONTS['body_bold']).grid(
         row=dict_row, column=0, columnspan=2, sticky='w', pady=(SPACING['md'], SPACING['xs']))
     ttk.Label(card, text=('热词：引擎支持时提高领域词命中；替换词表：每行「错词=正词」，'
@@ -175,4 +249,5 @@ def open_speech_settings(pet, parent=None):
     win._pet_speech_vars, win._pet_speech_save, win._pet_speech_reset = variables, save, reset
     win._pet_speech_dict_vars, win._pet_speech_dict_fill = dict_vars, fill_dictionary
     win._pet_speech_hint, win._pet_speech_key_state = hint, key_state
+    win._pet_speech_setup = (runner, setup_state, setup_progress, setup_button)
     return win

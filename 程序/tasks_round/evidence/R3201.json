@@ -1,0 +1,15 @@
+{
+  "round": 3201,
+  "commit_base": "4be88550",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_offline_asr_setup test_offline_asr_client test_speech_api test_offline_asr_engine test_shared_input_voice",
+    "exit": 0,
+    "passed": 82,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T18:04:38"
+}
