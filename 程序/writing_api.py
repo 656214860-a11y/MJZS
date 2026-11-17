@@ -31,7 +31,7 @@ from orchestrator.writing_preparation_ledger import (PREPARATION_STAGES, _PREPAR
 from domain.writing_quality import enabled as quality_enabled
 from domain.writing_stream import chat_streaming
 from contract.workflow_context_budget import (REQUEST_CONTEXT_MAX_CHARS, budget_advice, budget_sections,
-                                     context_budget_report, text_fingerprint)
+                                     context_budget_report, preset_context_length, text_fingerprint)
 
 
 def selected_model(project):
@@ -221,8 +221,13 @@ def _context_budget_error(chosen, system, messages):
 
 class WritingRequestAdapter(ModelAdapter):
     """按本次冻结配置检查每次请求，并累计本次调用的已报告用量。"""
-    def __init__(self, adapter, record, chosen, project=None, stage='script'):
-        self.adapter, self.record, self.chosen = adapter, record, chosen
+    def __init__(self, adapter, record, chosen, project=None, stage='script', settings=None):
+        self.adapter, self.record, self.chosen = adapter, dict(record or {}), chosen
+        saved = (settings or {}).get('skill_budget') or {}
+        self.context_limit = (model_pool.context_length_of(self.record.get('context_length'))
+                              or (model_pool.context_length_of(saved.get('context_length'))
+                                  if saved.get('model') == chosen else 0)
+                              or preset_context_length(chosen) or None)
         self.stage = stage
         self.project = project
         self.wire_api = adapter.wire_api
@@ -234,16 +239,17 @@ class WritingRequestAdapter(ModelAdapter):
 
     def _call(self, method, messages, options=None, model='', system='', **kwargs):
         import infra.model_pool as model_pool
+        if model and model != self.chosen:
+            return {'ok': False, 'status': 0, 'model': model, 'text': '', 'usage': {},
+                    'reason': 'model_snapshot_mismatch',
+                    'error': f'请求模型 {model} 与冻结模型 {self.chosen} 不一致，已阻止发送；请重新发送以捕获模型配置。',
+                    'context_budget': dict(self.context_budget), 'request_usage': dict(self.request_usage)}
+        model = model or self.chosen
         options = dict(options or {})
         for key, value in stage_model_value.reasoning_options(self.project, self.stage).items():
             options.setdefault(key, value)
-        rpm = int((self.record or {}).get('rpm') or 0)
-        if rpm > 0:
-            from contract.platform_tools import current_execution
-            model_pool.wait_for_rpm((self.record or {}).get('base_url'), rpm, current_execution(),
-                                    credential=(self.record or {}).get('key_env'))
-        limit = model_pool.context_length_of(self.record.get('context_length')) or None
-        reserved = max(0, int(options.get('max_tokens') or 0))
+        limit = self.context_limit
+        reserved = max(0, int(options.get('max_tokens') or 1024))
         sections = budget_sections(
             system=system,
             tools=json.dumps(options.get('tools'), ensure_ascii=False) if options.get('tools') else '',
@@ -265,6 +271,10 @@ class WritingRequestAdapter(ModelAdapter):
             'fingerprint': text_fingerprint(str(system or '') + _messages_text(messages)),
         }
         rejected = _context_budget_error(model or self.chosen, system, messages)
+        if not limit:
+            rejected = {'ok': False, 'status': 0, 'model': model or self.chosen, 'text': '', 'usage': {},
+                        'reason': 'context_window_unknown',
+                        'error': f'未填写上下文窗口，已阻止发送：{self.chosen or "未选择模型"}；请在模型管理中补填。'}
         if not rejected and report['exceeded']:
             rejected = {'ok': False, 'status': 0, 'model': model or self.chosen, 'text': '', 'usage': {},
                         'reason': 'context_budget_exceeded',
@@ -291,6 +301,12 @@ class WritingRequestAdapter(ModelAdapter):
                     'error': ('本次请求体约 %d 字节，超过 %d 字节上限；请缩短附档、历史或规则后重试。'
                               % (body_bytes, DIRECT_REQUEST_MAX_BODY_BYTES)),
                     'context_budget': dict(self.context_budget), 'request_usage': dict(self.request_usage)}
+
+        rpm = int((self.record or {}).get('rpm') or 0)
+        if rpm > 0:
+            from contract.platform_tools import current_execution
+            model_pool.wait_for_rpm((self.record or {}).get('base_url'), rpm, current_execution(),
+                                    credential=(self.record or {}).get('key_env'))
 
         def send():
             return getattr(self.adapter, method)(messages, options=options, model=model, system=system, **kwargs)
@@ -324,7 +340,7 @@ class WritingRequestAdapter(ModelAdapter):
 
 def _writing_adapter(record, chosen, *, project, settings=None, cancelled=None):
     return WritingRequestAdapter(PoolAdapter(record, chosen, program=Path(__file__).resolve().parent,
-                                            timeout=WRITING_REQUEST_TIMEOUT), record, chosen, project=project)
+                                            timeout=WRITING_REQUEST_TIMEOUT), record, chosen, project=project, settings=settings)
 
 
 def _complete_brief(project):

@@ -53,7 +53,7 @@ class SemanticBriefTests(unittest.TestCase):
         import writing_api
         request = {'request_id': 'test', 'source': SOURCE, 'prompt': '只做提取'}
         with tempfile.TemporaryDirectory() as td, \
-                patch('writing_api.selected_model', return_value=('chosen', {})), \
+                patch('writing_api.selected_model', return_value=('chosen', {'context_length': 128000})),  \
                 patch('writing_api.PoolAdapter') as adapter, \
                 patch('writing_api._auto_save_script_raw') as publish:
             adapter.return_value.chat.return_value = {'ok': True, 'text': json.dumps(response(request))}

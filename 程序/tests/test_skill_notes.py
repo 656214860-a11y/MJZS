@@ -207,7 +207,9 @@ class SkillNotesTests(unittest.TestCase):
                  for name in ('old', 'new')]
         panel = SimpleNamespace(note_list=Mock(), current_note=lambda: items[0],
                                 note_entries=lambda: items, show_note=Mock())
-        skill_panel.Panel.refresh_notes(panel, 'new')
+        # This unit fixture has no Tk interpreter; text measuring is a visual boundary.
+        with patch.object(skill_panel, '_display_width', side_effect=len):
+            skill_panel.Panel.refresh_notes(panel, 'new')
         panel.note_list.selection_set.assert_called_once_with(1)
         panel.show_note.assert_called_once()
 
