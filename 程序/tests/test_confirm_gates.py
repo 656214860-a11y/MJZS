@@ -12,9 +12,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 os.chdir(HERE)
 
-import confirm_gates as cg
+from domain import confirm_gates as cg
 import continuity_ledger as cl
-import shot_batches as sb
+from contract import shot_batches as sb
 import stage_layout
 
 GOOD_ASSETS = {

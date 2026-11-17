@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import idea_chat
-import idea_semantic_brief_service
+from orchestrator import idea_semantic_brief_service
 from stage_execution_service import project_context
 from tests.test_idea_chat import _Harness
 from tests.ui_edges_support import make_minimal_project

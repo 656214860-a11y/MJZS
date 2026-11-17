@@ -11,7 +11,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 os.chdir(HERE)
 
-import asset_contract as ac
+from contract import asset_contract as ac
 import script_contract
 
 

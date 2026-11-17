@@ -19,7 +19,7 @@ class ScriptPageServicesTests(unittest.TestCase):
 
     def test_reports_use_instance_services_without_desktop_or_global_host(self):
         """REQ-S01-76：「质检报告」合并原「查看质检报告」与「质检目录」：有报告开报告，没有开质检目录。"""
-        import project_stages
+        from contract import project_stages
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             report = root / 'report.md'
@@ -52,7 +52,7 @@ class ScriptPageServicesTests(unittest.TestCase):
         """REQ-S01-76：内存无记录（重启后）时，按剧本路径从质检目录定位历史报告，而非只开 hash 目录。"""
         import writing_quality
         from test_writing_quality import publisher, envelope
-        import project_stages
+        from contract import project_stages
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             quality = project_stages.writing(root) / 'quality'

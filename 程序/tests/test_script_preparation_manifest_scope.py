@@ -2,7 +2,7 @@
 import unittest
 from pathlib import Path
 
-from script_manifest_schema import PRODUCERS
+from contract.script_manifest_schema import PRODUCERS
 
 ROOT = Path(__file__).resolve().parents[1]
 

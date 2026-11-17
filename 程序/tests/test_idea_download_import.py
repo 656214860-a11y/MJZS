@@ -270,7 +270,7 @@ class DownloadsDirectoryTests(unittest.TestCase):
 
 class DeliveryPathTests(unittest.TestCase):
     def test_existing_edited_file_is_the_delivery_target_across_days(self):
-        from idea_document_paths import delivery_document_path
+        from domain.idea_document_paths import delivery_document_path
         with tempfile.TemporaryDirectory() as td:
             project = Path(td) / '摄影侠_20260930'
             project.mkdir()

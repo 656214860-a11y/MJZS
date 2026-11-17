@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 import desktop
 from desktop_project_pages import ProjectPageServices
 
-import project_stages
+from contract import project_stages
 import projects as projects_mod
 from projects import Projects, reconcile_missing
 from stage_execution_service import project_registry_gateway

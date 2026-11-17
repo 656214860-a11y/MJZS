@@ -13,14 +13,13 @@ Agent 的定位（附件）：只做检查与裁决，不做内容生成；锚�
 第 62 期任务 11：它已是独立的一步（侧栏「06 连贯性清单」，资产管理之后、分镜定稿之前），
 不再折在资产页底部；产物写现行阶段目录，历史内部阶段标识由路径服务只读兼容。
 """
-import re
 from copy import deepcopy
 from pathlib import Path
 
-from contract.asset_contract import KIND_OF, merged_anchor, state_variants
+from contract.asset_contract import merged_anchor
 from agent.core import restore_bytes, save, save_text
 from file_cache import read_json
-from contract.shot_batches import TRIPLET, batches, normalize, triplet
+from contract.shot_batches import batches, normalize, triplet
 
 # 附件里给的 Agent Prompt 模板（逐字照抄，程序直接复用这一句）。
 PROMPT = (

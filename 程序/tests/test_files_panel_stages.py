@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 
 import tk_test_support
-import project_stages
+from contract import project_stages
 
 from contract.pet_bus import STAGES, stage_name
 from desktop import Desktop, PAGE

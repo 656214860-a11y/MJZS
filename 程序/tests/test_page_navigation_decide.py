@@ -1,7 +1,7 @@
 """J20：换页决策一次吃状态快照、吐完整计划，Tk 侧只按 route 摆控件。"""
 import unittest
 
-import page_navigation_controller as nav
+from orchestrator import page_navigation_controller as nav
 
 PAGE = {'script': 0, 'script_structure': 1, 'assets': 4, 'keyframe': 7, 'previs': 8, 'video': 9,
         'audio': 10, 'edit': 11, 'delivery': 12}

@@ -36,7 +36,7 @@ class DeliveryImportTests(unittest.TestCase):
                 self.assertIn('请选择' if source == other else '为空', result.reason)
 
     def test_accepts_injected_publisher_for_formal_release(self):
-        from delivery_import_service import import_final_master
+        from domain.delivery_import_service import import_final_master
         from stage_execution_service import project_context
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder) / 'project'; root.mkdir()
@@ -56,7 +56,7 @@ class DeliveryImportTests(unittest.TestCase):
             self.assertEqual(calls[0][1:], (source,))
 
     def test_filesystem_failure_is_a_non_displayable_system_result(self):
-        from service_contract import SystemError
+        from contract.service_contract import SystemError
         from stage_execution_service import import_delivery_master
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder) / 'project'; root.mkdir()
@@ -68,7 +68,7 @@ class DeliveryImportTests(unittest.TestCase):
         self.assertTrue(result.recoverable)
 
     def test_rejects_missing_l3_publisher(self):
-        from delivery_import_service import import_final_master
+        from domain.delivery_import_service import import_final_master
         from stage_execution_service import project_context
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder) / 'project'; root.mkdir()

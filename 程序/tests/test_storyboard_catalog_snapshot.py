@@ -8,7 +8,7 @@ from unittest.mock import patch
 import file_cache
 import storyboard_catalog_service as service
 import stage_execution_service as stages
-from storyboard_page_controller import StoryboardPageController
+from orchestrator.storyboard_page_controller import StoryboardPageController
 
 
 class StoryboardCatalogSnapshotTests(unittest.TestCase):
@@ -61,10 +61,10 @@ class StoryboardCatalogSnapshotTests(unittest.TestCase):
             catalogs = {'script': [{'path': script, 'title': 'script', 'done': False}],
                         'storyboard': [{'path': board, 'title': 'board', 'done': False}],
                         'completed_scripts': {project / 'EP002.md'}}
-            with patch('storyboard_page_controller.produced_scripts',
+            with patch('orchestrator.storyboard_page_controller.produced_scripts',
                        side_effect=AssertionError('Snapshot already contains completed scripts')), \
-                 patch('storyboard_page_controller.remember_many'), \
-                 patch('storyboard_page_controller.adopted', return_value=set()), \
+                 patch('orchestrator.storyboard_page_controller.remember_many'), \
+                 patch('orchestrator.storyboard_page_controller.adopted', return_value=set()), \
                  patch.object(Path, 'resolve', side_effect=AssertionError('Paths are already resolved')):
                 result = controller.apply_catalogs(catalogs)
             self.assertEqual(result['script'], catalogs['script'])
@@ -96,8 +96,8 @@ class StoryboardCatalogSnapshotTests(unittest.TestCase):
                 comparisons.append(None)
                 return original_eq(left, right)
 
-            with patch('storyboard_page_controller.remember_many'), \
-                 patch('storyboard_page_controller.adopted', return_value=set()), \
+            with patch('orchestrator.storyboard_page_controller.remember_many'), \
+                 patch('orchestrator.storyboard_page_controller.adopted', return_value=set()), \
                  patch.object(Path, '__eq__', compare):
                 controller.apply_catalogs(catalogs)
             self.assertLessEqual(len(comparisons), len(paths) * 3)

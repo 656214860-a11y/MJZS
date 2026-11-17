@@ -4,7 +4,7 @@ from unittest import mock
 
 import model_pool
 import pet_models_ui
-import speech_api
+from domain import speech_api
 import speech_settings_ui
 from tests.test_ui_batch7_settings_models import Batch7Case, _button, _buttons
 

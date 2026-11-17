@@ -7,12 +7,12 @@ from unittest.mock import patch
 
 from asset_context import library_dir
 from stage_execution_service import prepare_asset_write, prepare_stage_write
-from stage_path_service import write_dir
+from contract.stage_path_service import write_dir
 
 
 class StageCopyOnWriteTests(unittest.TestCase):
     def test_new_readme_scaffold_does_not_hide_old_assets(self):
-        from stage_path_service import existing_dir
+        from contract.stage_path_service import existing_dir
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary).resolve()
             current = write_dir(root, 'assets')
@@ -25,7 +25,7 @@ class StageCopyOnWriteTests(unittest.TestCase):
 
     def test_legacy_numbered_mutation_paths_are_rebased(self):
         from stage_execution_service import prepare_legacy_stage_path
-        from stage_path_service import LEGACY_NUMBERED
+        from contract.stage_path_service import LEGACY_NUMBERED
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary).resolve()
             for stage, name in LEGACY_NUMBERED.items():
@@ -56,7 +56,7 @@ class StageCopyOnWriteTests(unittest.TestCase):
             self.assertEqual(plan.read_bytes(), original)
 
     def test_old_continuity_read_new_confirmation_write(self):
-        import confirm_gates
+        from domain import confirm_gates
         import continuity_ledger
         from agent.core import save
         with tempfile.TemporaryDirectory() as temporary:

@@ -2,7 +2,7 @@
 import unittest
 
 import desktop_auto_flows
-import desktop_auto_state
+from orchestrator import desktop_auto_state
 import desktop_pet_bridge
 
 

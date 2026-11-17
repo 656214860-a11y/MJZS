@@ -60,7 +60,7 @@ class ScriptStructureTests(unittest.TestCase):
             source.parent.mkdir(parents=True)
             source.write_text(RAW, encoding='utf-8')
             with patch('agent.core.save_text', side_effect=OSError('disk full')):
-                with patch('artifact_lineage.record') as record:
+                with patch('contract.artifact_lineage.record') as record:
                     with self.assertRaisesRegex(OSError, 'disk full'):
                         contract.write_structured_script(root)
             record.assert_not_called()

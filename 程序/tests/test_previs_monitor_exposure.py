@@ -23,7 +23,7 @@ for folder in (str(HERE.parent), str(HERE)):
     if folder not in sys.path:
         sys.path.insert(0, folder)
 
-import previs_monitor
+from orchestrator import previs_monitor
 
 PROJECT = 'P监视'
 PAGE_MARK = '页哨兵-9f2c'

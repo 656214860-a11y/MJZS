@@ -83,7 +83,7 @@ class AgentsMdConsistencyTests(unittest.TestCase):
         }
         mentioned = set(re.findall(r'`([a-z_]+)(?:\.[A-Za-z_()]+)?`', section))
         self.assertTrue(expected <= mentioned, expected - mentioned)
-        missing = sorted(name for name in expected if not (ROOT / f'{name}.py').is_file())
+        missing = sorted(name for name in expected if not entity_file(name).is_file())
         self.assertEqual(missing, [], 'AGENTS 2.2 引用的模块不存在：' + ', '.join(missing))
 
     def test_delete_authority_contract_matches_remove_guard(self) -> None:

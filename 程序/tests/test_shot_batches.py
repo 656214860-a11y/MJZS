@@ -11,7 +11,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 os.chdir(HERE)
 
-import shot_batches as sb
+from contract import shot_batches as sb
 
 
 def shot(index, seconds=3, chars=("CHAR_001",), location="LOC_001", costume=""):

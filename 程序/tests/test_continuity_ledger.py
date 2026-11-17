@@ -13,7 +13,7 @@ sys.path.insert(0, HERE)
 os.chdir(HERE)
 
 import continuity_ledger as cl
-import shot_batches
+from contract import shot_batches
 import stage_layout
 
 ASSETS = {

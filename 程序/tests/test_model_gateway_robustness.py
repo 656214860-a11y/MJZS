@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 import model_pool
 import model_router
-from request_ledger import RequestLedger, record_request_attempt
+from infra.request_ledger import RequestLedger, record_request_attempt
 
 
 class AdmissionTests(unittest.TestCase):

@@ -18,7 +18,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from agent.core import read, save
-from project_stages import exports
+from contract.project_stages import exports
 import storage_maintenance as sm
 
 
@@ -203,7 +203,7 @@ class ModelRequestChainTests(unittest.TestCase):
         self.assertEqual(ledger.flash_share(), 0.5)
 
     def test_diagnostics_record_metadata_without_any_body(self):
-        import model_diagnostics
+        from infra import model_diagnostics
         result = self.adapter().chat([{'role': 'user', 'content': '机密提示词'}], model='gpt-4o')
         path = model_diagnostics.record(self.root, result, context={'task': '写作'})
         self.assertEqual(path.parent, self.root / 'model_diagnostics')
@@ -245,12 +245,12 @@ class ImportToCompletionChainTests(unittest.TestCase):
              {'frame_json': str(story), 'adopted_storyboards': [str(story)]})
 
     def import_dialogue(self):
-        import audio_import_service
+        from domain import audio_import_service
 
         def publish(target, source):
             target.write_bytes(source.read_bytes())
 
-        with patch('audio_import_service.uuid.uuid4') as created:
+        with patch('domain.audio_import_service.uuid.uuid4') as created:
             created.return_value.hex = 'abcdef123456'
             return audio_import_service.import_audio(self.root, self.source, publish=publish)
 
@@ -273,12 +273,12 @@ class ImportToCompletionChainTests(unittest.TestCase):
 
     def test_non_dialogue_audio_cannot_complete_dialogue(self):
         from stage_completion_service import prepare_media_completion
-        import audio_import_service
+        from domain import audio_import_service
 
         def publish(target, source):
             target.write_bytes(source.read_bytes())
 
-        with patch('audio_import_service.uuid.uuid4') as created:
+        with patch('domain.audio_import_service.uuid.uuid4') as created:
             created.return_value.hex = 'abcdef123456'
             result = audio_import_service.import_audio(self.root, self.source, publish=publish, kind='bgm')
         probe = {'format': {'duration': '2.5'}, 'streams': [{'codec_type': 'audio'}]}
@@ -307,8 +307,8 @@ class ScriptToStoryboardChainTests(unittest.TestCase):
         self.root = Path(temp.name).resolve()
 
     def test_natural_script_becomes_a_verifiable_structured_stage(self):
-        from stage_path_service import write_dir
-        from skill_orchestrator import verified_stage_output
+        from contract.stage_path_service import write_dir
+        from orchestrator.skill_orchestrator import verified_stage_output
         from stage_completion_service import completion_evidence
         import script_contract
         writing = write_dir(self.root, 'script')
@@ -326,7 +326,7 @@ class ScriptToStoryboardChainTests(unittest.TestCase):
         self.assertEqual(raw.read_text(encoding='utf-8'), NATURAL_SCRIPT)
 
     def test_storyboard_stage_requires_adopted_shots(self):
-        from stage_path_service import write_dir
+        from contract.stage_path_service import write_dir
         from stage_completion_service import completion_evidence
         storyboard_dir = write_dir(self.root, 'storyboard')
         storyboard_dir.mkdir(parents=True)
@@ -366,7 +366,7 @@ class KeyframeGateTests(unittest.TestCase):
         temp = tempfile.TemporaryDirectory()
         self.addCleanup(temp.cleanup)
         self.root = Path(temp.name).resolve()
-        from stage_path_service import write_dir
+        from contract.stage_path_service import write_dir
         self.base = write_dir(self.root, 'storyboard')
         (self.base / 'media').mkdir(parents=True)
         (self.base / 'media' / 'empty.png').write_bytes(b'')

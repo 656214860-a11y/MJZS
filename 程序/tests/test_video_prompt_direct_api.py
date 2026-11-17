@@ -49,7 +49,7 @@ class VideoPromptDirectTests(unittest.TestCase):
         return {'context': self.context, 'output': self.output, 'draft': draft}
 
     def run_batch(self, adapter, draft=''):
-        import video_prompt_direct_api as api
+        from orchestrator import video_prompt_direct_api as api
         return api.run_batch(self.project, self.config, 'SKILL正文', direct=self.direct(draft), adapter=adapter, record={'name': 'deepseek-v4-pro'},
                              report=self.messages.append)
 
@@ -102,8 +102,8 @@ class VideoPromptDirectTests(unittest.TestCase):
 
     def test_req_s10_50_stop_interrupts_request_and_writes_nothing(self):
         """REQ-S10-50：强制停止中断请求，不落盘。"""
-        import video_prompt_direct_api as api
-        from workflow_process_registry import cancel_project_requests
+        from orchestrator import video_prompt_direct_api as api
+        from infra.workflow_process_registry import cancel_project_requests
         started = threading.Event()
         job = api.launch(self.project, self.config, 'SKILL正文', direct=self.direct(),
                          adapter=FakeAdapter(block=started), record={'name': 'x'}, report=self.messages.append)
@@ -116,8 +116,8 @@ class VideoPromptDirectTests(unittest.TestCase):
 
     def test_req_s10_50_shares_executor_skeleton_with_storyboard(self):
         """REQ-S10-50：模型判定与作业骨架与初步分镜是同一份，不另立第二套。"""
-        import storyboard_direct_api as sb
-        import video_prompt_direct_api as api
+        from orchestrator import storyboard_direct_api as sb
+        from orchestrator import video_prompt_direct_api as api
         self.assertIs(api.direct_model, sb.direct_model)
         self.assertTrue(issubclass(api.Job, sb.Job))
 

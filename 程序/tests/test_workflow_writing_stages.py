@@ -7,13 +7,13 @@ from pathlib import Path
 from unittest.mock import patch
 
 from workflow_settings import stage_output_contract
-from workflow_tasks import script_followup, script_prompt
+from orchestrator.workflow_tasks import script_followup, script_prompt
 
 
 class WritingStageInstructionsTests(unittest.TestCase):
     def test_all_routes_require_confirmation_and_keep_reference_boundary(self):
         with tempfile.TemporaryDirectory() as directory:
-            with patch('workflow_tasks._agent_delivery_contract', return_value='规范路径清单'):
+            with patch('orchestrator.workflow_tasks._agent_delivery_contract', return_value='规范路径清单'):
                 texts = [stage_output_contract('writing')]
                 for agent in (False, True):
                     texts.extend((
@@ -75,7 +75,7 @@ class WritingStageInstructionsTests(unittest.TestCase):
         self.assertNotIn('beat_sheet.json', text)
         clause = '每集在正文前附本集节拍表'
         with tempfile.TemporaryDirectory() as directory:
-            with patch('workflow_tasks._agent_delivery_contract', return_value='规范路径清单'):
+            with patch('orchestrator.workflow_tasks._agent_delivery_contract', return_value='规范路径清单'):
                 prompts = [stage_output_contract('writing'),
                            script_prompt(directory, None, 'writing', creative_text='素材'),
                            script_followup(None, 'writing', project=directory, creative_text='修改人物')]
@@ -95,7 +95,7 @@ class WritingStageInstructionsTests(unittest.TestCase):
         return root, skill
 
     def test_installed_api_skill_loads_without_jingju_and_keeps_aigc(self):
-        import codex_skill_sync
+        from orchestrator import codex_skill_sync
         from workflow_settings import skill_prompt
         with tempfile.TemporaryDirectory() as directory:
             root, skill = self._installed_skill(directory)
@@ -114,7 +114,7 @@ class WritingStageInstructionsTests(unittest.TestCase):
             self.assertNotIn('jingju-skills', body)
 
     def test_jingju_edits_do_not_change_api_or_synced_skill(self):
-        import codex_skill_sync
+        from orchestrator import codex_skill_sync
         from workflow_settings import _inline_skill
         with tempfile.TemporaryDirectory() as directory:
             root, skill = self._installed_skill(directory)

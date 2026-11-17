@@ -152,7 +152,7 @@ class DownloadInboxTests(unittest.TestCase):
                 / '项目大纲' / ('摄影侠_项目大纲_Google_' + day + '.md'))
 
     def _pending(self):
-        from stage_download_inbox_service import _download_inbox_path
+        from orchestrator.stage_download_inbox_service import _download_inbox_path
         return json.loads(_download_inbox_path(self.project).read_text(encoding='utf-8'))['pending']
 
     def test_req_s01_74_one_download_goes_only_to_latest_dispatch(self):

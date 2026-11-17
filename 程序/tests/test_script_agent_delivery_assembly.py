@@ -9,7 +9,7 @@ import workflow_settings
 import writing_api
 from stage_execution_service import publish_stage_text
 from workflow_engines import prompt_with_settings
-from workflow_tasks import script_followup, script_prompt
+from orchestrator.workflow_tasks import script_followup, script_prompt
 
 
 class ScriptPromptAssemblyTests(unittest.TestCase):
@@ -21,7 +21,7 @@ class ScriptPromptAssemblyTests(unittest.TestCase):
         self.assertTrue(self.contract)
 
     def test_agent_initial_and_followup_have_one_contract(self):
-        with patch('workflow_tasks._agent_delivery_contract', return_value='正式交付路径'):
+        with patch('orchestrator.workflow_tasks._agent_delivery_contract', return_value='正式交付路径'):
             initial = script_prompt(self.root, None, 'writing', creative_text='首发素材', agent_delivery=True)
             followup = script_followup(None, 'writing', project=self.root,
                                        creative_text='续发素材', agent_delivery=True)
@@ -37,13 +37,13 @@ class ScriptPromptAssemblyTests(unittest.TestCase):
                         self.assertIn('正式交付路径', prompt)
 
     def test_agent_prompt_only_lists_changed_episode_numbers(self):
-        from stage_path_service import write_dir
+        from contract.stage_path_service import write_dir
         original = '# 第1集：起风\n第一集正文\n\n# 第2集：雨后\n第二集正文\n'
         folder = write_dir(self.root, 'script')
         folder.mkdir(parents=True, exist_ok=True)
         target = folder / '项目_自然剧本_正稿_20261012.md'
         target.write_text(original, encoding='utf-8')
-        with patch('workflow_tasks._agent_delivery_contract', return_value='正式交付路径'):
+        with patch('orchestrator.workflow_tasks._agent_delivery_contract', return_value='正式交付路径'):
             first = script_prompt(self.root, None, 'writing', creative_text='素材', agent_delivery=True)
             script_contract.record_episode_ledger(self.root, original, previous_text='')
             target.write_text(original.replace('第二集正文', '第二集改过的正文'), encoding='utf-8')

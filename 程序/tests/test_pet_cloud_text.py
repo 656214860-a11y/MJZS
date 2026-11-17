@@ -2,7 +2,7 @@
 """云朵框文本职责不依赖 Tk。"""
 import unittest
 
-import pet_cloud_text
+from ui import pet_cloud_text
 
 
 class PetCloudTextTests(unittest.TestCase):

@@ -7,7 +7,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 os.chdir(HERE)
 
-from prop_assets import requires_asset, normalize_shot, inline_text
+from contract.prop_assets import requires_asset, normalize_shot, inline_text
 from background_characters import scan
 from asset_batch_service import automatic_plan, auto_settings
 from stage_execution_service import asset_plan_gateway
@@ -60,7 +60,7 @@ class AssetBatchSelectionTests(unittest.TestCase):
 
 class NormalizeShotTests(unittest.TestCase):
     def test_props_none_or_scalar_coerced(self):
-        from prop_assets import normalize_shot
+        from contract.prop_assets import normalize_shot
         self.assertEqual(normalize_shot({"props": None}, {}).get("props"), [])
         self.assertEqual(normalize_shot({"props": "PROP_001"}, {}).get("props"), ["PROP_001"])
         self.assertEqual(normalize_shot({"props": 123}, {}).get("props"), [])
@@ -266,16 +266,16 @@ class SafetensorsTests(unittest.TestCase):
 
 class ReferencePromptTests(unittest.TestCase):
     def test_key_normalizes(self):
-        from asset_reference_prompts import key
+        from domain.asset_reference_prompts import key
         self.assertEqual(key("《卡梅隆》"), "卡梅隆")
         self.assertEqual(key("卡 梅 隆"), "卡梅隆")
 
     def test_fingerprint_deterministic(self):
-        from asset_reference_prompts import fingerprint
+        from domain.asset_reference_prompts import fingerprint
         self.assertEqual(fingerprint("p", "n"), fingerprint("p", "n"))
 
     def test_cards_parses(self):
-        from asset_reference_prompts import cards
+        from domain.asset_reference_prompts import cards
         text = "# 角色卡：卡梅隆\n角色 ID：CHAR_001\n\n## 参考图提示词\n正向提示词：一个男孩，灰卫衣\n负向提示词：模糊\n"
         found = cards(text)
         self.assertEqual(len(found), 1)
@@ -285,16 +285,16 @@ class ReferencePromptTests(unittest.TestCase):
         self.assertEqual(found[0]["negative"], "模糊")
 
     def test_display_prompt(self):
-        from asset_reference_prompts import display_prompt
+        from domain.asset_reference_prompts import display_prompt
         self.assertEqual(display_prompt({"image_prompt": "正向", "negative_prompt": "负向"}), "正向\n\n负向提示词：负向")
         self.assertEqual(display_prompt({}), "")
 
     def test_display_prompt_non_string_negative(self):
-        from asset_reference_prompts import display_prompt
+        from domain.asset_reference_prompts import display_prompt
         self.assertEqual(display_prompt({"image_prompt": "正向", "negative_prompt": 123}), "正向")
 
     def test_display_prompt_non_dict_empty(self):
-        from asset_reference_prompts import display_prompt
+        from domain.asset_reference_prompts import display_prompt
         self.assertEqual(display_prompt(None), "")
         self.assertEqual(display_prompt("不是对象"), "")
 
@@ -508,7 +508,7 @@ class AssetBatchStopTests(unittest.TestCase):
     def test_stop_after_current_asset_then_resume_preserves_imported_image(self):
         import queue, threading
         from agent.core import save
-        from asset_batch_execution import run_batch
+        from orchestrator.asset_batch_execution import run_batch
         from asset_batch_state_service import read_ledger
         from stage_execution_service import prepare_asset_write
         stop = threading.Event()
@@ -657,7 +657,7 @@ class ComfyMoneyBudgetTests(unittest.TestCase):
     def test_cloud_batch_over_budget_stops_before_connecting(self):
         import queue, threading
         from unittest.mock import Mock
-        from asset_batch_execution import run_batch
+        from orchestrator.asset_batch_execution import run_batch
         from pet_llm import RequestLedger
         with tempfile.TemporaryDirectory() as td:
             root = Path(td); self.policy(root)
@@ -872,25 +872,25 @@ class AutoAssetTests(unittest.TestCase):
         self.assertEqual(unattended_retry_decision(('batch',), None, 2, 3)['action'], 'dispatch')
 
     def test_eligible_items_excludes_not_required_and_ready_assets(self):
-        from asset_batch_execution import eligible_items
+        from orchestrator.asset_batch_execution import eligible_items
         items = [("CHAR_001", {"name": "角色"}), ("PROP_001", {"name": "道具"})]
         self.assertEqual(eligible_items("base", items,
                          lambda aid, asset: aid.startswith("CHAR"),
                          lambda base, aid: aid == "CHAR_001"), [])
 
     def test_validation_errors_keeps_asset_id_and_all_reasons(self):
-        from asset_batch_execution import validation_errors
+        from orchestrator.asset_batch_execution import validation_errors
         self.assertEqual(validation_errors([("CHAR_001", {}), ("LOC_001", {})],
                                            lambda aid, asset: ["名称", "提示词"] if aid == "CHAR_001" else []),
                          ["CHAR_001：名称、提示词"])
 
     def test_generation_settings_keeps_only_resume_identity_fields(self):
-        from asset_batch_execution import generation_settings
+        from orchestrator.asset_batch_execution import generation_settings
         self.assertEqual(generation_settings({"backend": "local", "model": "flux", "ignored": "x"}),
                          {"backend": "local", "aspect_ratio": "", "quality": "", "workflow": "", "model": "flux", "node": "", "field": ""})
 
     def test_wait_for_comfy_stops_after_failed_probe(self):
-        from asset_batch_execution import wait_for_comfy
+        from orchestrator.asset_batch_execution import wait_for_comfy
         class OfflineClient:
             def request(self, path):
                 raise OSError("offline")
@@ -900,7 +900,7 @@ class AutoAssetTests(unittest.TestCase):
         self.assertFalse(wait_for_comfy(OfflineClient(), Stopped()))
 
     def test_wait_for_comfy_reports_timeout(self):
-        from asset_batch_execution import wait_for_comfy
+        from orchestrator.asset_batch_execution import wait_for_comfy
         class OfflineClient:
             def request(self, path):
                 raise OSError("offline")
@@ -912,14 +912,14 @@ class AutoAssetTests(unittest.TestCase):
             wait_for_comfy(OfflineClient(), Waiting(), clock=clock)
 
     def test_collect_result_returns_completed_files_without_waiting(self):
-        from asset_batch_execution import collect_result
+        from orchestrator.asset_batch_execution import collect_result
         class CompletedClient:
             def collect(self, project, record):
                 return ["image.png"]
         self.assertEqual(collect_result(CompletedClient(), "project", "record"), ["image.png"])
 
     def test_collect_result_reports_timeout_and_keeps_record_for_resume(self):
-        from asset_batch_execution import collect_result
+        from orchestrator.asset_batch_execution import collect_result
         class WaitingClient:
             def collect(self, project, record):
                 return "排队中"
@@ -928,7 +928,7 @@ class AutoAssetTests(unittest.TestCase):
             collect_result(WaitingClient(), "project", "record", clock=clock)
 
     def test_resume_record_returns_verified_matching_job(self):
-        from asset_batch_execution import resume_record
+        from orchestrator.asset_batch_execution import resume_record
         job = {"state": "queued", "record": "record.json", "prompt": "提示词", "url": "url",
                "references": ["ref"], "generation": {"model": "flux"}}
         record = resume_record("CHAR_001", job, "提示词", "url", ["ref"], {"model": "flux"}, False,
@@ -936,7 +936,7 @@ class AutoAssetTests(unittest.TestCase):
         self.assertEqual(record, Path("record.json"))
 
     def test_resume_record_rejects_changed_resume_identity(self):
-        from asset_batch_execution import resume_record
+        from orchestrator.asset_batch_execution import resume_record
         job = {"state": "queued", "record": "record.json", "prompt": "旧提示词", "url": "url",
                "references": [], "generation": {"model": "flux"}}
         with self.assertRaisesRegex(ValueError, "不同提示词"):
@@ -948,7 +948,7 @@ class AutoAssetTests(unittest.TestCase):
                           resumable=lambda value: True)
 
     def test_resume_record_never_retries_unconfirmed_submission(self):
-        from asset_batch_execution import AssetSubmissionUncertain, resume_record
+        from orchestrator.asset_batch_execution import AssetSubmissionUncertain, resume_record
         with self.assertRaisesRegex(AssetSubmissionUncertain, "CHAR_001.*未重复提交"):
             resume_record("CHAR_001", {"state": "submitting"}, "提示词", "url", [], {}, False)
 
@@ -1051,7 +1051,7 @@ class AutoAssetTests(unittest.TestCase):
     def test_auto_batch_starts_comfy_and_imports_image(self):
         from unittest.mock import patch
         import native_apps
-        from asset_auto_batch_service import auto_batch
+        from orchestrator.asset_auto_batch_service import auto_batch
         from asset_batch import image_ready
         with tempfile.TemporaryDirectory() as td:
             proj = self.make_project(td, settings=dict(self.SETTINGS))

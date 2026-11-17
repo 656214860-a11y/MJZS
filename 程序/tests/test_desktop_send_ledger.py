@@ -12,7 +12,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-import desktop_send_ledger as ledger
+from orchestrator import desktop_send_ledger as ledger
 
 PROGRAM = 'C:/Gemini/Gemini.exe'
 DISPLAY = 'Google Gemini 4 Argon'

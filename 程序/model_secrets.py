@@ -10,7 +10,6 @@
 日志与界面里一律走 `redacted()`（前 4 位 ＋ ****）。
 """
 import ctypes
-import os
 import re
 from pathlib import Path
 from storage_maintenance import remove_private_file

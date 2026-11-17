@@ -4,8 +4,8 @@ import unittest
 import urllib.error
 import urllib.request
 
-import http_client
-from error_codes import code_of
+from infra import http_client
+from contract.error_codes import code_of
 
 
 class _Resp:

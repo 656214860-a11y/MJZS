@@ -6,7 +6,7 @@ from unittest.mock import patch
 class WorkflowProcessCapacityTests(unittest.TestCase):
     def test_exited_process_releases_slot_for_queued_request(self):
         from unittest.mock import Mock
-        import workflow_process_registry as registry
+        from infra import workflow_process_registry as registry
         slot = registry.reserve_process_slot('old-project', 'script')
         process = Mock(workflow_process_slot=slot)
         process.poll.return_value = None
@@ -19,14 +19,14 @@ class WorkflowProcessCapacityTests(unittest.TestCase):
         self.assertEqual(registry.processes('old-project'), [])
 
     def tearDown(self):
-        import workflow_process_registry as registry
+        from infra import workflow_process_registry as registry
         for items in list(registry._slots.values()):
             for token in list(items):
                 registry.release_process_slot(token)
         registry._queued[:] = []
 
     def test_stage_limit_rejects_second_request_and_release_allows_retry(self):
-        import workflow_process_registry as registry
+        from infra import workflow_process_registry as registry
         first = registry.reserve_process_slot('project-a', 'script', stage_name='剧本准备')
         with self.assertRaisesRegex(ValueError, '剧本准备已有 1 个模型请求'):
             registry.reserve_process_slot('project-b', 'script', stage_name='剧本准备')
@@ -35,19 +35,19 @@ class WorkflowProcessCapacityTests(unittest.TestCase):
         self.assertIsNotNone(second)
 
     def test_chinese_stage_name_uses_same_stage_limit(self):
-        import workflow_process_registry as registry
+        from infra import workflow_process_registry as registry
         registry.reserve_process_slot('project-a', 'script', stage_name='剧本准备')
         with self.assertRaisesRegex(ValueError, '剧本准备已有 1 个模型请求'):
             registry.reserve_process_slot('project-b', 'script', stage_name='剧本准备')
 
     def test_global_limit_blocks_other_stage(self):
-        import workflow_process_registry as registry
+        from infra import workflow_process_registry as registry
         registry.reserve_process_slot('project-a', 'script', global_limit=1)
         with self.assertRaisesRegex(ValueError, '全局并发上限 1'):
             registry.reserve_process_slot('project-b', 'keyframe', global_limit=1)
 
     def test_queued_request_claims_slot_after_running_request_releases(self):
-        import workflow_process_registry as registry
+        from infra import workflow_process_registry as registry
         running = registry.reserve_process_slot('project-a', 'script', stage_limit=1)
         waiting = registry.request_process_slot('project-b', 'script', stage_limit=1,
                                                 stage_name='剧本准备')
@@ -59,7 +59,7 @@ class WorkflowProcessCapacityTests(unittest.TestCase):
         registry.release_process_slot(claimed['slot'])
 
     def test_cancelled_project_request_cannot_claim_a_slot(self):
-        import workflow_process_registry as registry
+        from infra import workflow_process_registry as registry
         registry.reserve_process_slot('project-a', 'script', stage_limit=1)
         waiting = registry.request_process_slot('project-b', 'script', stage_limit=1)
         self.assertEqual(registry.cancel_project_slot_requests('project-b'), 1)

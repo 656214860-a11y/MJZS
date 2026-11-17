@@ -16,10 +16,10 @@ import unittest
 from pathlib import Path
 
 import asset_prompt_rules
-import prompt_templates as pt
-import shot_batches
-import storyboard_contract
-import subtitle_timing
+from contract import prompt_templates as pt
+from contract import shot_batches
+from contract import storyboard_contract
+from domain import subtitle_timing
 
 GOLDEN_DIR = Path(__file__).resolve().parent / 'fixtures' / 'golden'
 UPDATE = os.environ.get('GOLDEN_UPDATE') == '1'
@@ -160,12 +160,12 @@ class StoryboardPromptGoldenTests(unittest.TestCase):
                 storyboard_contract.prompt_lines() + '\n')
 
     def test_batch_plan_markdown(self):
-        import storyboard_final
+        from orchestrator import storyboard_final
         _golden('storyboard_batch_plan.md',
                 storyboard_final._batch_plan_markdown(FINAL_EPISODE))
 
     def test_shot_table_markdown(self):
-        import storyboard_final
+        from orchestrator import storyboard_final
         _golden('storyboard_shot_table.md',
                 storyboard_final._shot_table_markdown(FINAL_EPISODE))
 

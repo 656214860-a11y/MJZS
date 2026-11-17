@@ -27,8 +27,8 @@ from unittest.mock import patch
 
 import contract.platform_tools as platform_tools
 import previs_automation
-import previs_batch_service
-import previs_monitor
+from orchestrator import previs_batch_service
+from orchestrator import previs_monitor
 import previs_routing
 import stage_completion_service as completion
 import stage_execution_service
@@ -38,7 +38,7 @@ import workflow_engines
 import workflow_settings
 from agent.core import save
 from contract.platform_tools import ExecutionStopped
-from project_context import ProjectContext
+from contract.project_context import ProjectContext
 
 
 def _context(root):

@@ -14,9 +14,9 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import account_controller
+from orchestrator import account_controller
 import entitlement_service
-from service_contract import UserError, success
+from contract.service_contract import UserError, success
 
 
 class _Store:

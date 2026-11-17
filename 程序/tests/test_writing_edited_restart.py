@@ -8,10 +8,10 @@ from pathlib import Path
 from unittest.mock import patch
 
 import model_pool
-import project_stages
+from contract import project_stages
 import stage_config
 import writing_api
-import writing_unconfirm
+from orchestrator import writing_unconfirm
 from agent.core import save
 from stage_execution_service import publish_stage_text, restart_writing_preparation
 from test_workflow import make_project

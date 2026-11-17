@@ -5,8 +5,8 @@ import unittest
 from pathlib import Path
 
 import pet_bus
-import skill_templates
-from skill_orchestrator import Orchestrator
+from orchestrator import skill_templates
+from orchestrator.skill_orchestrator import Orchestrator
 
 
 class StageTemplateExecutionTests(unittest.TestCase):

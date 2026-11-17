@@ -4,9 +4,9 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-import idea_attachments
+from domain import idea_attachments
 import idea_chat
-from idea_chat_controller import IdeaChatController
+from orchestrator.idea_chat_controller import IdeaChatController
 from stage_execution_service import (archive_idea_attachments, idea_chat_gateway,
     project_context, stage_idea_attachment_reference, stage_idea_brief_defaults)
 
@@ -45,7 +45,7 @@ class AttachmentBriefTests(unittest.TestCase):
                 source = Path(td) / ('创意%d.txt' % index)
                 source.write_text('故事梗概：第%d份素材。' % index, encoding='utf-8')
                 paths.extend(archive_idea_attachments(td, (source,)))
-            with patch('idea_attachments.uploaded', wraps=idea_attachments.uploaded) as scan:
+            with patch('domain.idea_attachments.uploaded', wraps=idea_attachments.uploaded) as scan:
                 reference = stage_idea_attachment_reference(td, '@' + paths[0].name)
                 with patch('stage_execution_service.stage_idea_attachment_reference',
                            side_effect=AssertionError('must reuse reference')):

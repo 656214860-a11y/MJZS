@@ -1,7 +1,7 @@
 """J18：首绘后「布局稳定」判定在无 Tk 的 DeferredFill 里，时钟注入，不必真等。"""
 import unittest
 
-from idea_chat_controller import DeferredFill
+from orchestrator.idea_chat_controller import DeferredFill
 
 
 class Clock:

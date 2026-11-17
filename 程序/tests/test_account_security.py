@@ -17,15 +17,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import account_client
-import account_controller
-import account_store
+from orchestrator import account_controller
+from infra import account_store
 import desktop_account_page
 import entitlement_service as ent
-import lease_verifier
-import stage_handler_registry
+from infra import lease_verifier
+from orchestrator import stage_handler_registry
 from pet_bus import STAGES
 from tests.architecture._scan import entity_file
-from service_contract import SystemError, UserError, success
+from contract.service_contract import SystemError, UserError, success
 from test_account_client import D, DID, KEYS, NOW, _Client, _Store, _b64, payload, sign
 
 PAID = [stage for stage in STAGES if ent.is_paid_stage(stage)]

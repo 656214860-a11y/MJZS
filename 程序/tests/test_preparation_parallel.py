@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import model_pool
-import project_stages
+from contract import project_stages
 import stage_config
 import writing_api
 from agent.core import save
@@ -28,7 +28,7 @@ class PreparationParallelTests(unittest.TestCase):
         pool = patch('writing_api.model_pool.pool', return_value=model_pool.default_pool())
         pool.start()
         self.addCleanup(pool.stop)
-        from stage_path_service import write_dir
+        from contract.stage_path_service import write_dir
         self.target = write_dir(self.project, 'script') / 'preparation_state.json'
 
     def state(self):
@@ -106,7 +106,7 @@ class PreparationParallelTests(unittest.TestCase):
 
     def test_confirm_later_stage_requires_confirmed_prefix_and_keeps_later_drafts(self):
         """REQ-S01-89：「设为定稿」依赖检查照旧；确认前阶段保留下游未确认草稿。"""
-        import writing_unconfirm
+        from orchestrator import writing_unconfirm
         self.draft_all_three()
         card = self.target.parent / self.state()['documents'][2]['path']
         with self.assertRaises(ValueError) as ctx:

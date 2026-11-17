@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import unittest
 
-import pet_cloud_geometry
+from ui import pet_cloud_geometry
 
 
 class PetCloudGeometryTests(unittest.TestCase):

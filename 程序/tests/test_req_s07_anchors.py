@@ -28,10 +28,10 @@ import stage_parallel
 from agent.core import file_hash, read, save
 from desktop import Desktop
 from desktop_auto_flows import AutoFlowsMixin
-from desktop_auto_state import AutoState, AutoStateHolderMixin
+from orchestrator.desktop_auto_state import AutoState, AutoStateHolderMixin
 from desktop_automation_tick import AutomationTickMixin
 from stage_execution_service import asset_plan_gateway, publish_final_storyboard_bundle
-from storyboard_final import finalize
+from orchestrator.storyboard_final import finalize
 from storyboard_storage import ALIAS_FILE
 from tests.image_fixtures import png
 

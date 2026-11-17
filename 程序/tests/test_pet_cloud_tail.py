@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import unittest
 
-import pet_cloud_tail
+from ui import pet_cloud_tail
 
 
 class PetCloudTailTests(unittest.TestCase):

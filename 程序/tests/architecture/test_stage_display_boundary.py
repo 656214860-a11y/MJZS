@@ -32,7 +32,9 @@ class StageDisplayBoundaryTests(unittest.TestCase):
         'pet_ui_voice.py': "pet_bus.stage_label('storyboard')",  # R1506：该播报已迁到 PetVoiceMixin
         'desktop_media_pages.py': "pet_bus.stage_label('video')",  # R1505：视频页构建已迁到 MediaPagesMixin
         'skill_tools.py': "stage_label('edit')",
-        'skill_panel.py': '_bus_stage_label',
+        # 面板拆分后阶段展示的权威推导在 support 模块（stage_label() → _bus_stage_label）；
+        # 组合文件 skill_panel.py 只做 mixin 装配，不再重复持有该绑定。
+        'skill_panel_support.py': '_bus_stage_label',
     }
 
     def test_desktop_pages_are_generated_from_canonical_stage_table(self):

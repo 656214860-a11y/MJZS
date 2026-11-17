@@ -355,7 +355,7 @@ class ExecPageTests(unittest.TestCase):
             cls.tk = None
 
     def test_the_summary_counts_the_three_buckets(self):
-        import skill_orchestrator as so
+        from orchestrator import skill_orchestrator as so
         import stage_exec
         run = {'results': [{'skill': 'a', 'status': so.DONE},
                            {'skill': 'b', 'status': so.PAGE},
@@ -372,7 +372,7 @@ class ExecPageTests(unittest.TestCase):
     def test_the_page_shows_the_failures_and_can_retry_them(self):
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
-        import skill_orchestrator as so
+        from orchestrator import skill_orchestrator as so
         import stage_exec
         calls = []
 

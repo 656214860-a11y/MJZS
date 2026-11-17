@@ -3,10 +3,10 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-from service_contract import SystemError
+from contract.service_contract import SystemError
 
-import project_stages
-from stage_workspace_service import (ensure_audio_workspace, ensure_delivery_workspace,
+from contract import project_stages
+from domain.stage_workspace_service import (ensure_audio_workspace, ensure_delivery_workspace,
                                      ensure_editing_workspace, ensure_storyboard_workspace)
 
 

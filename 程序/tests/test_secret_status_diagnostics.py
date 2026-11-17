@@ -12,8 +12,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 import diagnostic_capture
-import log_maintenance
-import model_diagnostics
+from infra import log_maintenance
+from infra import model_diagnostics
 import model_secrets
 
 BLOB_HEADER = bytes.fromhex('01000000d08c9ddf0115d1118c7a00c04fc297eb')

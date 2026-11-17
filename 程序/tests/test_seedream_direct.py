@@ -193,7 +193,7 @@ class SeedreamUnsettledTests(unittest.TestCase):
             data = json.loads(source.read_text(encoding='utf-8'))
             data['shots'].extend([{'id': 'SH002'}, {'id': 'SH003', 'frame': 'ready.png'}])
             source.write_text(json.dumps(data), encoding='utf-8')
-            from storyboard_paths import media_root
+            from contract.storyboard_paths import media_root
             (media_root(source) / 'ready.png').write_bytes(_png_bytes())
             records = source.parent / '首帧任务'; records.mkdir()
             for sid, state in [('SH002', 'uncertain'), ('SH003', 'completed')]:
@@ -314,7 +314,7 @@ class SeedreamProvenanceTests(unittest.TestCase):
 
     def test_payload_provenance_records_digests_only(self):
         import hashlib
-        from native_asset_codec import seedream_provenance
+        from infra.native_asset_codec import seedream_provenance
         record = seedream_provenance(_seedream_payload("m", "画一只猫", "9:16", []))
         self.assertEqual(record["prompt_sha256"], hashlib.sha256("画一只猫".encode("utf-8")).hexdigest())
         self.assertEqual(record["payload_schema"], "seedream_payload/v1")
@@ -325,7 +325,7 @@ class SeedreamProvenanceTests(unittest.TestCase):
 
     def test_reference_digest_matches_source_file(self):
         import hashlib
-        from native_asset_codec import seedream_provenance
+        from infra.native_asset_codec import seedream_provenance
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / "r.png"; data = _png_bytes(); path.write_bytes(data)
             record = seedream_provenance(_seedream_payload("m", "p", "1:1", [path]))

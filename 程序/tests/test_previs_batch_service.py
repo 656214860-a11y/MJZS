@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-import previs_batch_service
+from orchestrator import previs_batch_service
 
 
 class PrevisBatchServiceTests(unittest.TestCase):

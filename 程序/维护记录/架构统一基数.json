@@ -39,7 +39,30 @@
       "writing_stream"
     ],
     "historical_name_audit_pending": [
-      "idea_script_heuristic"
+      "idea_script_heuristic",
+      "animatic_service",
+      "asset_reference_prompts",
+      "audio_import_service",
+      "confirm_gates",
+      "delivery_import_service",
+      "edit_service",
+      "final_service",
+      "handoff_service",
+      "idea_attachments",
+      "idea_brief_form",
+      "idea_document_paths",
+      "idea_transcript",
+      "legacy_adoption_service",
+      "offline_asr_client",
+      "recycle_recovery_service",
+      "speech_api",
+      "stage_workspace_service",
+      "storyboard_adoption_service",
+      "subtitle_export_service",
+      "subtitle_timing",
+      "tts_api",
+      "video_lifecycle_service",
+      "voice_ai"
     ],
     "historical_name_audited": [
       "asset_gating",

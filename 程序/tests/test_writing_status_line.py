@@ -14,7 +14,7 @@ os.chdir(HERE)
 import idea_chat
 import writing_api
 from agent.core import save
-from project_stages import writing as writing_dir
+from contract.project_stages import writing as writing_dir
 from script_contract import natural_script_selection_path
 from tests.test_idea_chat import _Harness
 from tests.ui_edges_support import make_minimal_project

@@ -2,9 +2,9 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch, Mock
-from service_contract import SystemError, UserError, success
+from contract.service_contract import SystemError, UserError, success
 
-import video_lifecycle_service
+from domain import video_lifecycle_service
 from agent.core import read, save
 
 

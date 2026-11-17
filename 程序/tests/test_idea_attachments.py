@@ -12,8 +12,8 @@ HERE = str(Path(__file__).resolve().parents[1])
 sys.path.insert(0, HERE)
 os.chdir(HERE)
 
-import idea_attachments
-from service_contract import SystemError, UserError
+from domain import idea_attachments
+from contract.service_contract import SystemError, UserError
 from stage_execution_service import project_context
 
 
@@ -198,7 +198,7 @@ class IdeaAttachmentsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             source = Path(td) / '过大.xlsx'
             source.write_bytes(b'x' * (idea_attachments.MAX_FILE_BYTES + 1))
-            with patch('idea_attachments.zipfile.ZipFile') as archive:
+            with patch('domain.idea_attachments.zipfile.ZipFile') as archive:
                 with self.assertRaisesRegex(ValueError, '附档过大'):
                     idea_attachments.prepare((source,))
                 archive.assert_not_called()
@@ -304,7 +304,7 @@ class IdeaAttachmentsTests(unittest.TestCase):
                 with self.subTest(point=point), self.assertLogs('idea_attachments', level='ERROR'):
                     publisher = Mock(side_effect=OSError('private-location'))
                     if point == 'read_source':
-                        with patch('idea_attachments.read_source', side_effect=OSError('private-location')):
+                        with patch('domain.idea_attachments.read_source', side_effect=OSError('private-location')):
                             result = idea_attachments.store(project_context(root), [source], publish=publisher)
                         publisher.assert_not_called()
                     else:
@@ -317,7 +317,7 @@ class IdeaAttachmentsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             source = root / 'input.docx'; source.write_bytes(b'docx')
-            with patch('idea_attachments.zipfile.ZipFile', side_effect=OSError('private-location')):
+            with patch('domain.idea_attachments.zipfile.ZipFile', side_effect=OSError('private-location')):
                 with self.assertLogs('idea_attachments', level='ERROR'):
                     result = idea_attachments.store(project_context(root), [source], publish=Mock())
             self.assertIsInstance(result, SystemError)
@@ -334,7 +334,7 @@ class IdeaAttachmentsTests(unittest.TestCase):
 
     def test_l3_checks_failed_store_result(self):
         from stage_execution_service import archive_idea_attachments
-        with patch('idea_attachments.store', return_value=SystemError('失败')):
+        with patch('domain.idea_attachments.store', return_value=SystemError('失败')):
             with self.assertRaisesRegex(ValueError, '失败'):
                 archive_idea_attachments('.', [])
 
@@ -356,7 +356,7 @@ class IdeaAttachmentsTests(unittest.TestCase):
             for source, archived in zip(files, result.data):
                 self.assertEqual(source.read_bytes(), archived.read_bytes())
                 self.assertEqual(source.suffix, archived.suffix)
-            with patch('idea_attachments.read_source', side_effect=AssertionError('must not parse')):
+            with patch('domain.idea_attachments.read_source', side_effect=AssertionError('must not parse')):
                 prepared = idea_attachments.referenced(project_context(root), selected_paths=result.data,
                                                        local_mode=True)
             self.assertIn('请先读取并解析该文件', prepared['context'])
@@ -431,7 +431,7 @@ class IdeaAttachmentsTests(unittest.TestCase):
             source.write_bytes(b'encrypted-or-unsupported-zip')
             for failure in (ValueError('bad xml'), RuntimeError('password required'), OSError('parser read')):
                 with self.subTest(failure=type(failure).__name__), \
-                     patch('idea_attachments.read_source', side_effect=failure):
+                     patch('domain.idea_attachments.read_source', side_effect=failure):
                     result = self.archive_for_mode(root, (source,), True)
                 self.assertTrue(result.ok)
                 self.assertEqual(result.data[0].read_bytes(), source.read_bytes())

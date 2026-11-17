@@ -16,7 +16,7 @@ sys.path.insert(0, str(PROGRAM))
 
 import pet_state
 import skill_note_render
-import skill_notes
+from orchestrator import skill_notes
 import ui_tokens
 
 

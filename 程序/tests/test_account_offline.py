@@ -9,8 +9,8 @@ from pathlib import Path
 from unittest import mock
 
 import account_client
-import account_controller
-import account_store
+from orchestrator import account_controller
+from infra import account_store
 import entitlement_service
 
 ROOT = Path(__file__).resolve().parents[1]

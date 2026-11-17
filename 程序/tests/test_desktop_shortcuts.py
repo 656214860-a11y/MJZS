@@ -77,7 +77,8 @@ class ReduceMotionTests(unittest.TestCase):
         self.assertFalse(self.motion.reduce_motion())
 
     def test_cloud_fade_out_skips_steps_when_reduced(self):
-        import os, pet_cloud_timing
+        import os
+        from ui import pet_cloud_timing
 
         class Cloud(pet_cloud_timing.CloudTimingMixin):
             def __init__(self):

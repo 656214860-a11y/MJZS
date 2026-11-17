@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import artifact_lineage as lineage
+from contract import artifact_lineage as lineage
 
 
 class LineageStatusTests(unittest.TestCase):

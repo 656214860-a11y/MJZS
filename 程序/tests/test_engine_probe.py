@@ -22,7 +22,7 @@ HERE = str(Path(__file__).resolve().parents[1])
 sys.path.insert(0, HERE)
 os.chdir(HERE)
 
-import engine_probe
+from infra import engine_probe
 
 
 def fake_cli(version='1.2.3 (Claude Code)', help_text=None, one_shot=None):

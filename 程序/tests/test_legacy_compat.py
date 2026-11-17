@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-import legacy_compat
+from orchestrator import legacy_compat
 
 
 class LegacyCompatTests(unittest.TestCase):

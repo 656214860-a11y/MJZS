@@ -25,7 +25,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 os.chdir(HERE)
 
-import api_models
+from contract import api_models
 from agent import prompt_optimizer as optimizer
 
 PRESET_NAMES = ["智谱 GLM-4.7-Flash", "OpenAI GPT", "DeepSeek"]

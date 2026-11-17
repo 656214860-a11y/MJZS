@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-import workflow_tasks
+from orchestrator import workflow_tasks
 
 SCRIPT = '# 第1集：测试\n\n## 正文\n### 场景 1：街道\n阿明：我要找到真相。\n动作：阿明推开门。\n'
 

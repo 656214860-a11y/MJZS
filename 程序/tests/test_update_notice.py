@@ -7,10 +7,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import account_controller
-import account_store
-import update_notice as un
-from service_contract import success
+from orchestrator import account_controller
+from infra import account_store
+from infra import update_notice as un
+from contract.service_contract import success
 
 
 class FakeClient:

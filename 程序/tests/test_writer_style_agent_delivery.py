@@ -10,7 +10,7 @@ from agent.core import save
 import stage_config
 import workflow_settings
 from workflow_engines import prompt_with_settings
-from workflow_tasks import script_prompt, script_followup
+from orchestrator.workflow_tasks import script_prompt, script_followup
 
 
 class WriterStyleAgentDeliveryTests(unittest.TestCase):
@@ -24,7 +24,7 @@ class WriterStyleAgentDeliveryTests(unittest.TestCase):
         return workflow_settings.current(self.project, 'writing')
 
     def prompts(self, config):
-        with patch('workflow_tasks._agent_delivery_contract', return_value='正式交付路径'):
+        with patch('orchestrator.workflow_tasks._agent_delivery_contract', return_value='正式交付路径'):
             initial = script_prompt(self.project, None, 'writing', creative_text='虚构素材', agent_delivery=True)
             followup = script_followup(None, 'writing', project=self.project, creative_text='追加素材', agent_delivery=True)
         return tuple(prompt_with_settings(p, config, stage='writing') for p in (initial, followup))

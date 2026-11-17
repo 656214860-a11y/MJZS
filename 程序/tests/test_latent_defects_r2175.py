@@ -156,7 +156,7 @@ class DispatchOnceTests(unittest.TestCase):
     """3／4 先认签名再决定带不带关键字参数：实现内部抛 TypeError 时，同一件事只派发一次。"""
 
     def test_the_cloud_does_not_send_the_same_sentence_twice(self):
-        import pet_cloud
+        from ui import pet_cloud
         calls = []
 
         def dispatch(text, at=None, confirmed=False):
@@ -169,7 +169,7 @@ class DispatchOnceTests(unittest.TestCase):
         self.assertEqual(calls, [('执行选中', True)])
 
     def test_the_cloud_still_serves_an_older_dispatch(self):
-        import pet_cloud
+        from ui import pet_cloud
         calls = []
         agent = SimpleNamespace(dispatch=lambda text: calls.append(text) or 'ok')
         self.assertEqual(pet_cloud.Cloud.dispatch(SimpleNamespace(pet=SimpleNamespace(agent=agent)), '查一下进度'), 'ok')

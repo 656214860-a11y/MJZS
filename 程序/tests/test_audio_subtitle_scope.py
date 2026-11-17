@@ -6,9 +6,9 @@ import pet_bus
 import stage_flow
 import stage_layout
 import stage_parallel
-import subtitle_export_service
-import subtitle_timing
-import tts_api
+from domain import subtitle_export_service
+from domain import subtitle_timing
+from domain import tts_api
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILL_DIR = ROOT / 'skills' / '11配音字幕SKILL'
@@ -55,7 +55,7 @@ class AudioSubtitleScopeTests(unittest.TestCase):
         self.assertEqual(tts_api.marked_audio_name('x', 'dialogue'), 'x')
 
     def test_req_s11_11_import_rejects_unknown_stage_or_kind(self):
-        import audio_import_service
+        from domain import audio_import_service
         with self.assertRaises(ValueError):
             audio_import_service.import_audio('.', 'a.wav', publish=lambda *a: None, stage='video')
         with self.assertRaises(ValueError):
@@ -119,7 +119,7 @@ class AudioSubtitleScopeTests(unittest.TestCase):
         self.assertIn('已合并到「TTS 配音合成」', text)
 
     def test_req_s11_40_declared_outputs_have_a_code_producer(self):
-        import audio_import_service
+        from domain import audio_import_service
         self.assertEqual(_audio_row()[5], ('voice.json', 'subtitles.json'))
         for name in _audio_row()[5] + ('audio_manifest.json',):
             self.assertIn(name, audio_import_service.MANIFEST_NAMES)

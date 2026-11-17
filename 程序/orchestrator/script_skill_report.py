@@ -5,9 +5,7 @@ so core script facts remain usable without loading the stage Skill registry.
 """
 from pathlib import Path
 
-from contract.script_contract import (AUDIT, CATEGORIES, MERGED, MERGE_LANDING, MERGE_OWNER,
-                             MERGE_PART, PRODUCER_SKILLS, SCRIPT_SKILL_STAGES, STAGE,
-                             program_root)
+from contract.script_contract import AUDIT, CATEGORIES, MERGED, MERGE_OWNER, PRODUCER_SKILLS, SCRIPT_SKILL_STAGES, STAGE, program_root
 
 
 def manifest_rows(program=None):

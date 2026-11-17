@@ -177,7 +177,7 @@ class EndToEndWiringTests(unittest.TestCase):
         self.assertIsNotNone(fake_run.call_args.kwargs.get('on_output'))
 
     def test_previs_monitor_renders_engine_log(self):
-        from previs_monitor import render
+        from orchestrator.previs_monitor import render
 
         state = {'engine_log': ['stdout 第一行', '[err] 警告行'], 'busy': True, 'summary': '制作中'}
         html_out = render(state, 'proj')
@@ -186,7 +186,7 @@ class EndToEndWiringTests(unittest.TestCase):
         self.assertIn('[err] 警告行', html_out)
 
     def test_previs_monitor_without_log_omits_block(self):
-        from previs_monitor import render
+        from orchestrator.previs_monitor import render
 
         html_out = render({'busy': False}, 'proj')
         self.assertNotIn('<pre class="engine-log">', html_out)

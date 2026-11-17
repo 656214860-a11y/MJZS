@@ -5,8 +5,8 @@ import ast
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-import audio_import_service
-from service_contract import UserError, SystemError, success
+from domain import audio_import_service
+from contract.service_contract import UserError, SystemError, success
 
 
 class AudioImportServiceTests(unittest.TestCase):
@@ -21,7 +21,7 @@ class AudioImportServiceTests(unittest.TestCase):
         def publish(target, source):
             self.assertEqual(source, self.source)
             target.write_bytes(source.read_bytes())
-        with patch('audio_import_service.uuid.uuid4') as created:
+        with patch('domain.audio_import_service.uuid.uuid4') as created:
             created.return_value.hex = 'abcdef123456'
             result = audio_import_service.import_audio(self.root, self.source, publish=publish)
         self.assertTrue(result.ok)
@@ -52,7 +52,7 @@ class AudioImportServiceTests(unittest.TestCase):
             calls.append((target, source))
             target.write_bytes(source.read_bytes())
 
-        with patch('audio_import_service.uuid.uuid4') as created:
+        with patch('domain.audio_import_service.uuid.uuid4') as created:
             created.return_value.hex = 'abcdef123456'
             result = audio_import_service.import_audio(self.root, self.source, publish=publish)
         self.assertTrue(result.ok)
@@ -92,7 +92,7 @@ class AudioImportServiceTests(unittest.TestCase):
         dialog = Mock()
         namespace = {'FileDialog': dialog}
         exec(compile(ast.Module(body=methods, type_ignores=[]), str(source), 'exec'), namespace)
-        with patch('stage_workspace_service.ensure_audio_workspace', return_value=success((self.root, self.root))):
+        with patch('domain.stage_workspace_service.ensure_audio_workspace', return_value=success((self.root, self.root))):
             for result in [SystemError('导入失败'), success(self.source)]:
                 app = Mock()
                 app.async_.side_effect = lambda work, done: done(work())

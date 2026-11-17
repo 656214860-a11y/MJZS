@@ -254,7 +254,7 @@ class ContinuityWiringTests(_Harness):
             proj = adopt_storyboard_fixture(make_minimal_project(td))
             d, _win = self.desktop(proj)
             d.pick_gate("conflict:B01", "候选一")
-            import confirm_gates
+            from domain import confirm_gates
             self.assertEqual(confirm_gates.confirmations(proj)["conflict:B01"]["choice"], "候选一")
 
 
@@ -267,7 +267,7 @@ class FinalizeWiringTests(unittest.TestCase):
         self.assertIn("episode['shots']=list(assign(episode['shots']))", source)
 
     def test_the_batch_step_puts_ids_in_and_keeps_validate_episode_happy(self):
-        import shot_batches
+        from contract import shot_batches
         from writing import validate_episode
         episode = {"episode_id": "EP001", "title": "T", "duration": 3,
                    "shots": [{"id": "SH001", "title": "镜头", "duration": 3,

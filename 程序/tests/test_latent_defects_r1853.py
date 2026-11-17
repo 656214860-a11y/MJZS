@@ -33,7 +33,7 @@ class SharedCacheCopyTests(unittest.TestCase):
             self.assertEqual(file_cache.read_json(path), {'engines': {'codex': {'ok': True}}, 'shots': [1]})
 
     def test_failed_ledger_write_leaves_cache_matching_disk(self):
-        import engine_probe
+        from infra import engine_probe
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / 'ledger.json'
             path.write_text(json.dumps({'schema': 1, 'engines': {}}), encoding='utf-8')
@@ -48,7 +48,7 @@ class SharedCacheCopyTests(unittest.TestCase):
 class EngineTimeoutTests(unittest.TestCase):
     def test_hung_engine_is_killed_and_unregistered_after_timeout(self):
         import workflow_engines
-        from workflow_process_registry import processes
+        from infra.workflow_process_registry import processes
         with tempfile.TemporaryDirectory() as td:
             args = [sys.executable, '-I', '-c', 'import time; time.sleep(60)']
             start = time.monotonic()
@@ -93,7 +93,7 @@ class CodexDecodeTests(unittest.TestCase):
 
 class ProcessRegistryKeyTests(unittest.TestCase):
     def test_same_folder_spelled_differently_finds_the_process(self):
-        from workflow_process_registry import register_process, forget_process, processes
+        from infra.workflow_process_registry import register_process, forget_process, processes
         with tempfile.TemporaryDirectory() as td:
             marker = object()
             register_process(Path(td), marker)
