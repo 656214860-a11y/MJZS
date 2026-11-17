@@ -510,13 +510,13 @@ def open_https(url, *, timeout=60, data=None, headers=None, method=None, context
 
 
 def _requests_failure(error):
-    """Keep requests/urllib3 transport exceptions behind the urllib protocol."""
+    """Expose only safe transport messages; callers retain the original cause."""
     import requests
     import urllib.error
     from urllib3.exceptions import TimeoutError as ReadTimeout
     if isinstance(error, (requests.exceptions.Timeout, ReadTimeout, TimeoutError)):
-        return TimeoutError(str(error))
-    return urllib.error.URLError(str(error))
+        return TimeoutError('network request timed out')
+    return urllib.error.URLError('network request failed')
 
 
 class _RequestsJsonResponse:
@@ -549,6 +549,38 @@ class _RequestsJsonResponse:
         self.close()
 
 
+def _requests_tls_adapter(verify):
+    """Default trust is system + certifi; an explicit CA path replaces both."""
+    import certifi
+    import ssl
+    from requests.adapters import HTTPAdapter
+
+    if verify is True:
+        context = ssl.create_default_context()
+        context.load_verify_locations(certifi.where())
+    else:
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        locations = {'capath' if os.path.isdir(verify) else 'cafile': verify}
+        context.load_verify_locations(**locations)
+
+    class VerifiedAdapter(HTTPAdapter):
+        def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
+            pool_kwargs['ssl_context'] = context
+            return super().init_poolmanager(connections, maxsize, block=block, **pool_kwargs)
+
+        def proxy_manager_for(self, proxy, **proxy_kwargs):
+            proxy_kwargs.update(ssl_context=context, proxy_ssl_context=context)
+            return super().proxy_manager_for(proxy, **proxy_kwargs)
+
+        def build_connection_pool_key_attributes(self, request, verify, cert=None):
+            # requests >= 2.32 otherwise replaces the manager's context with certifi-only trust.
+            host, pool = super().build_connection_pool_key_attributes(request, verify, cert)
+            pool['ssl_context'] = context
+            return host, pool
+
+    return VerifiedAdapter(max_retries=0)
+
+
 class RequestsJsonOpener:
     """urllib Request/.open adapter; retries and redirects stay in the caller."""
     def open(self, request, timeout=None):
@@ -560,11 +592,12 @@ class RequestsJsonOpener:
         try:
             # Empty auth tuples are falsy and still permit netrc to replace Authorization.
             session.auth = lambda prepared: prepared
-            for scheme in ('http://', 'https://'):
-                session.mount(scheme, requests.adapters.HTTPAdapter(max_retries=0))
             prepared = session.prepare_request(requests.Request(
                 request.get_method(), request.full_url, data=request.data, headers=dict(request.header_items())))
             settings = session.merge_environment_settings(prepared.url, {}, True, True, None)
+            adapter = _requests_tls_adapter(settings['verify'])
+            for scheme in ('http://', 'https://'):
+                session.mount(scheme, adapter)
             # Session.send builds _next even with redirects disabled, consuming redirect bodies.
             response = session.get_adapter(prepared.url).send(prepared, timeout=timeout, **settings)
         except BaseException as error:

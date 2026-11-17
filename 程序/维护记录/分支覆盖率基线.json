@@ -84,8 +84,8 @@
   "tests.test_context"
  ],
  "tests_ok": true,
- "points_total": 2340,
- "points_covered": 1226,
+ "points_total": 2341,
+ "points_covered": 1227,
  "modules": [
   {
    "module": "aigc_lint.py",
@@ -251,9 +251,9 @@
   },
   {
    "module": "platform_tools.py",
-   "points": 118,
-   "covered": 45,
-   "percent": 38.1
+   "points": 119,
+   "covered": 46,
+   "percent": 38.7
   },
   {
    "module": "model_pool.py",
@@ -606,16 +606,34 @@
    ],
    "targets_source": "tests.test_http_client、tests.test_platform_tools、tests.test_cli_streaming 从本文件原 targets 读取；追加父批准的既有 tests.test_open_https_redirect、tests.architecture.test_platform_opening 平台消费者测试定位。",
    "tests_ok": true,
-   "report": "Git common-dir/requests-migration-evidence/R3227-platform-platform-with-cli.json",
-   "log": "Git common-dir/requests-migration-evidence/R3227-platform-platform-with-cli.log",
-   "command": "Git common-dir/requests-migration-evidence/R3227-platform-platform-with-cli-command.json",
-   "source_head": "72afa1e82db11cd542b2fc5925eb5a835ce939f6",
+   "report": "Git common-dir/requests-migration-evidence/r3250/platform-coverage.json",
+   "log": "Git common-dir/requests-migration-evidence/r3250/platform-coverage.log",
+   "command": "Git common-dir/requests-migration-evidence/r3250/platform-coverage-command.json",
+   "source_head": "565e83893538d8cd97621099d3c0ebfc919498c4",
    "original_targets_attempt": "完整原 targets 已直接从旧 JSON 读取启动；日志出现无关失败后按父指令停止，未产生 tests_ok=true 报告，不作为本次合入证据。日志：Git common-dir/requests-migration-evidence/R3227-platform-full.log。",
    "measurement": {
     "module": "platform_tools.py",
-    "points": 118,
-    "covered": 45,
-    "percent": 38.1
+    "points": 119,
+    "covered": 46,
+    "percent": 38.7
+   },
+   "provenance": {
+    "round": "R3250",
+    "measured_at": "2026-11-18T00:45:24.1237111+08:00",
+    "source_entity": "contract/platform_tools.py",
+    "source_lines": 915,
+    "source_sha256": "bfe57bcd158b36b9b90e8dc634fb6fa14adb4ab125c947687ac9a2016e3b4d59",
+    "runtime_executable": "D:\\漫剧制作助手\\运行环境\\Python\\python.exe",
+    "requests_version": "2.34.2",
+    "tests_run": 81,
+    "tests_ok": true,
+    "prior_measurement": {
+     "module": "platform_tools.py",
+     "points": 118,
+     "covered": 45,
+     "percent": 38.1
+    },
+    "note": "沿用上次 module_measurements 平台五目标实测；TLS 新测试已包含在 tests.test_platform_tools。新 TLS helper 增加决策点后刷新 platform 行，其余模块沿用既有测量并重算总计；本次未重跑完整原 targets。"
    }
   }
  }
