@@ -19,7 +19,7 @@ from contract.storyboard_paths import media_root
 from tkinter import ttk
 from ui_tokens import TEXT_ROWS, COLORS, SPACING, TABLE_HEADER_FONT, TABLE_ROW_FONT
 from ui_widgets import DataTable, SelectBox
-from desktop_page_support import ASSET_ROW_HEIGHT, THUMB_SIZE
+from ui.desktop_page_support import ASSET_ROW_HEIGHT, THUMB_SIZE
 
 PAGE = pet_state.PAGE_OF
 

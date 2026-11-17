@@ -418,7 +418,7 @@ class _AssetControls:
             from ui.seedream_settings import show
             show(self.win,on_saved=self.update_hint)
         else:
-            from cloud_assets_dialog import settings
+            from ui.cloud_assets_dialog import settings
             settings(self.win)
 
     def cancel(self):

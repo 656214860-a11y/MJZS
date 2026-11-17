@@ -25,7 +25,7 @@ from ui_tokens import CHAR_WIDTH, COLORS, SPACING, TABLE_HEADER_FONT, TABLE_ROW_
 from ui_widgets import Card, DataTable, DescriptionBlock, PrimaryButton, SecondaryButton, ask_string
 from dataclasses import dataclass
 from typing import Callable
-from desktop_page_support import ASSET_ROW_LABEL, STAGE_ACTION_WIDTH, _prefs
+from ui.desktop_page_support import ASSET_ROW_LABEL, STAGE_ACTION_WIDTH, _prefs
 
 PAGE = pet_state.PAGE_OF
 VIDEO_PROMPT_FLOW = 'video_prompt'  # workflow_settings.FLOWS 里的键；原写 'final' 会抛“未知的工作流入口”
@@ -551,7 +551,7 @@ class MediaPagesMixin:
         两种方式各用哪个模型、要不要无人值守补视频」这些本来要进了工作台才知道的事——
         进去之后就不用再翻回来问，两个入口也改成主色按钮，一眼能看见。
         """
-        from video_navigation import confirm_rows,local_model
+        from ui.video_navigation import confirm_rows,local_model
         self.title.set_text(pet_bus.stage_label('video')+' · 选择生成方式')
         # 第 48 期第 2 条：这一屏不再挂「阶段配置」；R2942 起页面级阶段配置按钮与
         # 标题旁入口全部删除，模型/技能走共享输入框。
@@ -596,7 +596,7 @@ class MediaPagesMixin:
             self.video_home()
             return
         self.title.set_text(pet_bus.stage_label('video')+' · '+('线上生成' if mode=='cloud' else '本地生成'))
-        from video_navigation import show_back
+        from ui.video_navigation import show_back
         show_back(self)
         top=ttk.Frame(self.content);top.pack(fill='x',pady=(SPACING['none'],SPACING['xs']))
         heading=ttk.Frame(top);heading.pack(side='left',fill='both',expand=True)

@@ -29,8 +29,8 @@ from ui_tokens import (
     SPACING,
 )
 from ui_widgets import PrimaryButton, SecondaryButton, TextArea
-from desktop_page_support import STAGE_ACTION_WIDTH
-from desktop_script_edit_session import (
+from ui.desktop_page_support import STAGE_ACTION_WIDTH
+from ui.desktop_script_edit_session import (
     SCRIPT_EDIT_BUTTON_WIDTH,
     _install_script_edit_controls,
     _reset_preview_text,

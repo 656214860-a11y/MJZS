@@ -249,7 +249,7 @@
   {
    "module": "asset_reference_search.py",
    "covered": 0,
-   "total": 321,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -261,7 +261,7 @@
   {
    "module": "asset_skill_batch.py",
    "covered": 0,
-   "total": 97,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -327,7 +327,7 @@
   {
    "module": "cloud_assets_dialog.py",
    "covered": 0,
-   "total": 32,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -519,7 +519,7 @@
   {
    "module": "desktop_account_page.py",
    "covered": 0,
-   "total": 567,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -531,7 +531,7 @@
   {
    "module": "desktop_async_tasks.py",
    "covered": 0,
-   "total": 114,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -555,7 +555,7 @@
   {
    "module": "desktop_automation_tick.py",
    "covered": 0,
-   "total": 205,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -633,13 +633,13 @@
   {
    "module": "desktop_layout_resize.py",
    "covered": 0,
-   "total": 268,
+   "total": 2,
    "percent": 0.0
   },
   {
    "module": "desktop_lifecycle.py",
    "covered": 0,
-   "total": 103,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -669,7 +669,7 @@
   {
    "module": "desktop_page_support.py",
    "covered": 0,
-   "total": 13,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -687,7 +687,7 @@
   {
    "module": "desktop_script_edit_session.py",
    "covered": 0,
-   "total": 241,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -699,7 +699,7 @@
   {
    "module": "desktop_send_choice.py",
    "covered": 0,
-   "total": 134,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -747,7 +747,7 @@
   {
    "module": "desktop_tk_gc.py",
    "covered": 0,
-   "total": 59,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -765,7 +765,7 @@
   {
    "module": "desktop_voice_input.py",
    "covered": 0,
-   "total": 240,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -777,7 +777,7 @@
   {
    "module": "desktop_writing_snapshots.py",
    "covered": 0,
-   "total": 113,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -1947,7 +1947,7 @@
   {
    "module": "pet_agent_rules.py",
    "covered": 0,
-   "total": 6,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -2427,7 +2427,7 @@
   {
    "module": "skill_note_render.py",
    "covered": 0,
-   "total": 165,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -2463,7 +2463,7 @@
   {
    "module": "skill_panel_workflow.py",
    "covered": 0,
-   "total": 90,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -2493,7 +2493,7 @@
   {
    "module": "speech_settings_ui.py",
    "covered": 0,
-   "total": 125,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -2565,7 +2565,7 @@
   {
    "module": "stage_model_picker.py",
    "covered": 0,
-   "total": 347,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -2821,9 +2821,27 @@
    "percent": 0.0
   },
   {
+   "module": "ui/asset_reference_search.py",
+   "covered": 0,
+   "total": 321,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/asset_skill_batch.py",
+   "covered": 0,
+   "total": 97,
+   "percent": 0.0
+  },
+  {
    "module": "ui/background_characters.py",
    "covered": 0,
    "total": 138,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/cloud_assets_dialog.py",
+   "covered": 0,
+   "total": 32,
    "percent": 0.0
   },
   {
@@ -2833,9 +2851,27 @@
    "percent": 0.0
   },
   {
+   "module": "ui/desktop_account_page.py",
+   "covered": 0,
+   "total": 567,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/desktop_async_tasks.py",
+   "covered": 0,
+   "total": 114,
+   "percent": 0.0
+  },
+  {
    "module": "ui/desktop_audio_direct.py",
    "covered": 0,
    "total": 34,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/desktop_automation_tick.py",
+   "covered": 0,
+   "total": 205,
    "percent": 0.0
   },
   {
@@ -2875,9 +2911,39 @@
    "percent": 0.0
   },
   {
+   "module": "ui/desktop_layout_resize.py",
+   "covered": 0,
+   "total": 268,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/desktop_lifecycle.py",
+   "covered": 0,
+   "total": 103,
+   "percent": 0.0
+  },
+  {
    "module": "ui/desktop_login_gate.py",
    "covered": 0,
    "total": 60,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/desktop_page_support.py",
+   "covered": 0,
+   "total": 13,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/desktop_script_edit_session.py",
+   "covered": 0,
+   "total": 241,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/desktop_send_choice.py",
+   "covered": 0,
+   "total": 134,
    "percent": 0.0
   },
   {
@@ -2887,9 +2953,27 @@
    "percent": 0.0
   },
   {
+   "module": "ui/desktop_tk_gc.py",
+   "covered": 0,
+   "total": 59,
+   "percent": 0.0
+  },
+  {
    "module": "ui/desktop_video_prompt_direct.py",
    "covered": 0,
    "total": 31,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/desktop_voice_input.py",
+   "covered": 0,
+   "total": 240,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/desktop_writing_snapshots.py",
+   "covered": 0,
+   "total": 113,
    "percent": 0.0
   },
   {
@@ -2908,6 +2992,12 @@
    "module": "ui/native_assets.py",
    "covered": 0,
    "total": 438,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/pet_agent_rules.py",
+   "covered": 0,
+   "total": 6,
    "percent": 0.0
   },
   {
@@ -3049,6 +3139,30 @@
    "percent": 0.0
   },
   {
+   "module": "ui/skill_note_render.py",
+   "covered": 0,
+   "total": 165,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/skill_panel_workflow.py",
+   "covered": 0,
+   "total": 90,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/speech_settings_ui.py",
+   "covered": 0,
+   "total": 125,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/stage_model_picker.py",
+   "covered": 0,
+   "total": 347,
+   "percent": 0.0
+  },
+  {
    "module": "ui/storyboard_source_selector.py",
    "covered": 0,
    "total": 61,
@@ -3091,6 +3205,12 @@
    "percent": 0.0
   },
   {
+   "module": "ui/ui_scroll.py",
+   "covered": 0,
+   "total": 98,
+   "percent": 0.0
+  },
+  {
    "module": "ui/ui_splash.py",
    "covered": 0,
    "total": 132,
@@ -3124,6 +3244,30 @@
    "module": "ui/version_picker.py",
    "covered": 0,
    "total": 54,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/video_navigation.py",
+   "covered": 0,
+   "total": 94,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/video_prompt_results.py",
+   "covered": 0,
+   "total": 113,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/white_model_ref.py",
+   "covered": 0,
+   "total": 89,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/workflow_agents.py",
+   "covered": 0,
+   "total": 85,
    "percent": 0.0
   },
   {
@@ -3189,7 +3333,7 @@
   {
    "module": "ui_scroll.py",
    "covered": 0,
-   "total": 98,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -3261,7 +3405,7 @@
   {
    "module": "video_navigation.py",
    "covered": 0,
-   "total": 94,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -3285,7 +3429,7 @@
   {
    "module": "video_prompt_results.py",
    "covered": 0,
-   "total": 113,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -3351,7 +3495,7 @@
   {
    "module": "white_model_ref.py",
    "covered": 0,
-   "total": 89,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -3363,7 +3507,7 @@
   {
    "module": "workflow_agents.py",
    "covered": 0,
-   "total": 85,
+   "total": 2,
    "percent": 0.0
   },
   {
@@ -3914,5 +4058,5 @@
   }
  ],
  "modules_covered": 74,
- "modules_total": 650
+ "modules_total": 674
 }

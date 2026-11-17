@@ -990,5 +990,5 @@ class _ModelManager(ModelManagerModeTabsMixin):
 
 
 def open_speech_settings(pet, parent=None):
-    import speech_settings_ui
+    import ui.speech_settings_ui as speech_settings_ui
     return speech_settings_ui.open_speech_settings(pet, parent)

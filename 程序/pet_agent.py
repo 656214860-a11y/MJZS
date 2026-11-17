@@ -23,7 +23,7 @@ import pet_state, stage_layout
 import orchestrator.stage_parallel as stage_parallel
 from agent.core import save
 from contract.pet_bus import SEEN_LIMIT, STAGE_NAMES, STAGES, ErrorLog, emit_safe, read_json
-from pet_agent_rules import PATTERNS, REPLIES, RULES, UNKNOWN_REPLY, VERDICTS
+from ui.pet_agent_rules import PATTERNS, REPLIES, RULES, UNKNOWN_REPLY, VERDICTS
 
 LEVELS = ('hint', 'semi', 'auto')
 # 第 23 期：三档的名字只有这一份（原来 pet_ui 另写了一份「只提醒」，同一档两个说法）。

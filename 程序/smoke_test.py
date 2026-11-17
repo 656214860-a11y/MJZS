@@ -339,10 +339,10 @@ ROUND_CHECKS = {
         {'kind': 'json', 'path': r'程序\维护记录\引擎真机验证.json', 'field': 'engines.codex.verdict',
          'msg': '台账里 codex 那一行的结论在（本机实测 verified）'},
         # 专项②：白模视频上传接口
-        {'kind': 'file', 'path': r'程序\white_model_ref.py', 'msg': '白模参考视频的接口口径在'},
-        {'kind': 'keyword', 'path': r'程序\white_model_ref.py', 'keyword': 'def descriptor(',
+        {'kind': 'file', 'path': r'程序\ui\white_model_ref.py', 'msg': '白模参考视频的接口口径在'},
+        {'kind': 'keyword', 'path': r'程序\ui\white_model_ref.py', 'keyword': 'def descriptor(',
          'msg': '「验过再给描述」在（存在／后缀／空文件／上限四道）'},
-        {'kind': 'keyword', 'path': r'程序\white_model_ref.py', 'keyword': 'def prompt_line(',
+        {'kind': 'keyword', 'path': r'程序\ui\white_model_ref.py', 'keyword': 'def prompt_line(',
          'msg': '「这份视频是干什么用的」那句话在'},
         {'kind': 'keyword', 'path': r'程序\agent\shot_assets.py', 'keyword': '_white_model_reference',
          'msg': '分镜那一份副本上挂着白模参考那一条'},

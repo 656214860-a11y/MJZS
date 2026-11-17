@@ -9,7 +9,7 @@ from desktop_project_pages import ProjectPagesMixin, ProjectPageServices
 from desktop_storyboard_page import StoryboardPageMixin, StoryboardPageServices
 from desktop_writing_page import WritingPageMixin, WritingPageServices, TALK_MIN_LINES, TALK_MAX_LINES
 from desktop_files_panel import ProjectFilesPanel
-from desktop_page_support import ASSET_FIRST_ROWS, ASSET_ROWS_PER_FRAME, ASSET_ROW_LABEL, STAGE_ACTION_WIDTH, _prefs, THUMB_SIZE, ASSET_ROW_HEIGHT
+from ui.desktop_page_support import ASSET_FIRST_ROWS, ASSET_ROWS_PER_FRAME, ASSET_ROW_LABEL, STAGE_ACTION_WIDTH, _prefs, THUMB_SIZE, ASSET_ROW_HEIGHT
 from desktop_idea_chat import IdeaChatMixin, IDEA_FIELDS, BUBBLE_FLOOR, BUBBLE_LINE, BUBBLE_MAX_RATIO, script_raw_saved_notice, model_error_display
 import desktop_shared_send
 from orchestrator.desktop_auto_state import AutoStateHolderMixin, create_auto_state
@@ -42,10 +42,10 @@ import ui_plugin_registry
 import orchestrator.stage_handler_registry as stage_handler_registry
 from contract.platform_tools import find_editor_shortcut, launch_windows_app, open_directory, open_path, open_target, tcp_listener
 from orchestrator.desktop_startup_service import DesktopStartupController
-from desktop_account_page import AccountPageMixin
+from ui.desktop_account_page import AccountPageMixin
 from ui.desktop_login_gate import LoginGateMixin
 from desktop_page_nav import PageNavMixin
-from desktop_lifecycle import LifecycleMixin
+from ui.desktop_lifecycle import LifecycleMixin
 from orchestrator.desktop_automation_service import BackgroundTaskLifecycle, DesktopAutomationScheduler, BackgroundTaskQueue, PersistentBackgroundTaskQueue, inspect_project_storage, RetryRegistry
 from orchestrator.idea_chat_controller import IdeaChatController, speaker_name
 from ui_tokens import BUTTON_GAP, BUTTON_WIDTH_DIALOG, CHAR_WIDTH, WRAPLENGTH, COLORS, FONTS, SPACING, DESKTOP_LAYOUT, SCRIPT_ACTION_WIDTH, SCRIPT_ACTION_PADDING, SCRIPT_FILE_FONT, ICON_FOLDER, ICON_DELETE
@@ -138,12 +138,12 @@ def _page_services(given):
 
 
 
-from desktop_tk_gc import (protect_readonly_combobox, protect_tk_gc, drain_tk_gc, _pin_tk_app,
+from ui.desktop_tk_gc import (protect_readonly_combobox, protect_tk_gc, drain_tk_gc, _pin_tk_app,
                         _PENDING_TK_GC, _KEEP_APPS)
-from desktop_automation_tick import AutomationTickMixin
+from ui.desktop_automation_tick import AutomationTickMixin
 from desktop_layout import LayoutMixin
 from desktop_pet_bridge import PetBridgeMixin, PET_STAGE_POLL, UNATTENDED_SWITCH
-from desktop_async_tasks import AsyncTasksMixin
+from ui.desktop_async_tasks import AsyncTasksMixin
 from desktop_tray import TrayMixin
 
 
@@ -829,7 +829,7 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
     def flow_settings(self,stage,function=None):
         from ui.workflow_settings_dialog import show_settings
         if self.root is None:raise ValueError('请先选择项目')
-        from workflow_agents import refresh
+        from ui.workflow_agents import refresh
         show_settings(self,self.root,stage=stage,on_saved=lambda:refresh(self),function=function)
     def open_storyboard_skill(self,key=None):
         batch={}

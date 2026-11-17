@@ -178,7 +178,7 @@ class _AssetBatchWindow:
             self.win.geometry(f'+{self.app.win.winfo_rootx()+40}+{self.app.win.winfo_rooty()+40}');self.win.deiconify()
             return
         from cloud_assets import LOCAL,MODELS
-        from cloud_assets_dialog import settings as cloud_settings
+        from ui.cloud_assets_dialog import settings as cloud_settings
         self.LOCAL = LOCAL; self.MODELS = MODELS; self.cloud_settings = cloud_settings
         self.chooser=FlowBar(form);self.chooser.pack(fill='x',padx=SPACING['lg'],pady=SPACING['sm'])
         # 第 46 期第 8 条：这一格原来是一个「生图模型」下拉框（与统一模型下拉框重复）。

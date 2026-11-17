@@ -187,5 +187,5 @@ def validate_video_submission(studio,sid):
     # 参考视频是可选提交适配器：在真正提交时才加载，避免白模目录/记录服务
     # 与适配器在模块初始化阶段相互加载。
     from importlib import import_module
-    reference_adapter=import_module('white_model_ref')
+    reference_adapter=import_module('ui.white_model_ref')
     return reference_adapter.descriptor(project_root(studio.root),sid,studio.cfg)

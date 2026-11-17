@@ -229,7 +229,7 @@ def _recon_card(context):
 
 def _copyright_filter(context):
     """版权过滤与来源记录：复用参考图搜索那份许可表（CC0／CC-BY 优先，不明就拦掉）。"""
-    from asset_reference_search import normalize, copyright_decision
+    from ui.asset_reference_search import normalize, copyright_decision
     ctx = context or {}
     allow_cc0 = ctx.get('allowCC0', True)
     allow_ccby = ctx.get('allowCCBY', True)

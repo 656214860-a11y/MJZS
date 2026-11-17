@@ -246,7 +246,7 @@ def _attachments(desktop):
 def _voice(desktop, box, button):
     """共享输入框的麦克风听写：VoiceInput 绑定共享 Text，按钮按原样式接线。"""
     try:
-        from desktop_voice_input import VoiceInput
+        from ui.desktop_voice_input import VoiceInput
     except Exception:
         return None
     voice = getattr(desktop, 'shared_voice', None)

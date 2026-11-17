@@ -9,7 +9,7 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import ttk, messagebox
 
-import asset_reference_search as search
+import ui.asset_reference_search as search
 from asset_reference_images import ROLE_GROUPS
 from cell_hover import bind_row_menu
 from responsive_ui import CheckboxColumn, auto_columns, configure_check_column, bind_row_toggle

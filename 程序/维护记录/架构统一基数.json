@@ -1038,19 +1038,19 @@
         "reason": "R831：并发稳定快照读取收口至 file_cache.read_stable_json_snapshot。"
       },
       {
-        "file": "video_prompt_results.py",
+        "file": "ui/video_prompt_results.py",
         "point": "parse_result:json.loads:a142745c58a77a7c:1",
         "disposition": "exempt",
         "reason": "R829：外部 Agent 结果文本的 JSON 解析，不是正式项目文件读取。"
       },
       {
-        "file": "video_prompt_results.py",
+        "file": "ui/video_prompt_results.py",
         "point": "parse_result:json.loads:924fad0814c25a41:1",
         "disposition": "exempt",
         "reason": "R829：格式修复分支对外部 Agent 结果片段的 JSON 解析，不是正式项目文件读取。"
       },
       {
-        "file": "video_prompt_results.py",
+        "file": "ui/video_prompt_results.py",
         "point": "parse_result:json.loads:ad3dc98d9e794255:1",
         "disposition": "exempt",
         "reason": "R829：格式修复后的提示词字面量 JSON 解码，不是文件读取。"

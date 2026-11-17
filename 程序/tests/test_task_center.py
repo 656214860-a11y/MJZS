@@ -145,7 +145,7 @@ class TaskCenterServiceTests(unittest.TestCase):
         self.assertEqual(ran[-1], '探测2(无进度条)')
 
     def test_result_tick_starts_next_queued(self):
-        source = (PROGRAM / 'desktop_async_tasks.py').read_text(encoding='utf-8')  # SPLITD：_tick_async_result 迁到 AsyncTasksMixin
+        source = entity_file('desktop_async_tasks').read_text(encoding='utf-8')  # SPLITD：_tick_async_result 迁到 AsyncTasksMixin
         tick = source.split('def _tick_async_result', 1)[1].split(chr(10) + '    def ', 1)[0]  # R1505：到下一个 def 为止
         self.assertIn('self._start_next_queued()', tick)
 

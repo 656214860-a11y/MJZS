@@ -138,7 +138,7 @@ class App:
         self._build_white_model_cells(table_shell)
         self._build_video_actions()
         self._build_progress_and_log()
-        from video_prompt_results import PromptResults
+        from ui.video_prompt_results import PromptResults
         self.prompt_results=PromptResults()
         # R2942：视频工作台的「阶段配置」按钮＋模型下拉框已删，stage_button 属性只留 None 占位。
         self.closed=False;self.window.bind('<Destroy>',self.cancel_timers,add='+')
@@ -1212,7 +1212,7 @@ class App:
         sid=self.sid();self.save_options()
         initial=self.prompt.get('1.0','end').strip()
         self.prompt_callback(sid)
-        from video_prompt_results import PromptResults
+        from ui.video_prompt_results import PromptResults
         if not hasattr(self,'prompt_results'):self.prompt_results=PromptResults()
         self.prompt_results.begin(sid,initial)
         self.write(sid+' Agent 已调用；生成完成后会自动导入并保存，可切换其他镜头。')

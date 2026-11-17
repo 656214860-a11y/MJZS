@@ -812,7 +812,7 @@ class _FlowAgentLaunch:
             self.finish(receipt,'preparing','',skill_injection=self.config.get('skill_injection'),context_budget={
                 'initial':budget,'continuation':continuation_budget})
             if self.native_claude:
-                from desktop_send_choice import prepare_native  # 交付方式、任务文件、续发计划（REQ-S01-69）
+                from ui.desktop_send_choice import prepare_native  # 交付方式、任务文件、续发计划（REQ-S01-69）
                 return prepare_native(self, receipt, full)
             if self.use_cli:return {'receipt':receipt,'prompt':full,'followup':continuation,
                                'context_budget':{'initial':budget,'continuation':continuation_budget}}
@@ -944,14 +944,14 @@ class _FlowAgentLaunch:
             self.host.status.set(claimed['reason'])
         pending['timer'] = self.host.win.after(200,poll_slot)
     def done(self, result):
-        if result.get('send_plan'):from desktop_send_choice import choose;return choose(self, result, self.done)
+        if result.get('send_plan'):from ui.desktop_send_choice import choose;return choose(self, result, self.done)
         receipt=result['receipt']
         clipboard_text=result['prompt']
         task_file=result.get('task_file')
         if task_file and Path(task_file).is_file():
             try:clipboard_text=Path(task_file).read_text(encoding='utf-8')
             except OSError:clipboard_text=result['prompt']
-        from desktop_send_choice import attachment_payload, deliver_desktop_app  # 长任务改附件＋短指令（REQ-S01-70）
+        from ui.desktop_send_choice import attachment_payload, deliver_desktop_app  # 长任务改附件＋短指令（REQ-S01-70）
         clipboard_text,attachment=attachment_payload(self.config.get('engine'),task_file,clipboard_text)
         from ui.prompt_window import copy_text
         copy_text(self.host.win,clipboard_text)

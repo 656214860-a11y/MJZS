@@ -20,7 +20,7 @@ from responsive_ui import CheckboxColumn, FlowBar, MIN_COL, auto_columns, bind_r
 from tkinter import ttk
 from ui_tokens import TEXT_ROWS, COLORS, SPACING, TABLE_HEADER_FONT, TABLE_ROW_FONT, TEXT_HINT
 from ui_widgets import BaseDialog, Card, DataTable, PrimaryButton, SecondaryButton, TextArea, ask_string
-from desktop_page_support import ASSET_FIRST_ROWS, ASSET_ROWS_PER_FRAME, ASSET_ROW_HEIGHT, ASSET_ROW_LABEL, STAGE_ACTION_WIDTH, THUMB_SIZE
+from ui.desktop_page_support import ASSET_FIRST_ROWS, ASSET_ROWS_PER_FRAME, ASSET_ROW_HEIGHT, ASSET_ROW_LABEL, STAGE_ACTION_WIDTH, THUMB_SIZE
 
 PAGE = pet_state.PAGE_OF
 
@@ -226,7 +226,7 @@ class AssetPagesMixin:
         self.show(PAGE['assets'])
         return True
     def asset_page(self):
-        from asset_skill_batch import resume
+        from ui.asset_skill_batch import resume
         from asset_reference_images import prepare_folders
         from contract.stage_path_service import write_dir
         resume(self)

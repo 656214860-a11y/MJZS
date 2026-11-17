@@ -293,7 +293,7 @@ class SharedStageInput(ttk.Frame):
         # R2942：模型选择器=下拉框按钮（点击弹出模型列表），与各页原「模型下拉框」同款，
         # 不再弹模态选择窗。StageModelPicker 自带按钮＋弹出卡片（含推理档位区）。
         # R2964：与发送键拉开一档间距（右侧 padx），避免模型钮贴着发送图标误触。
-        from stage_model_picker import StageModelPicker
+        from ui.stage_model_picker import StageModelPicker
         self.model_picker = StageModelPicker(row, self.desktop, self.stage)
         self.model_picker.pack(side='right', padx=(SPACING['sm'], SPACING['md']))
         # R2942 定版：五个图标都有悬停提示卡（Tooltip，不进 grab 不抢焦点）。

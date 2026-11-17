@@ -15,7 +15,7 @@ from tkinter import ttk
 
 from ui.desktop_file_card import TreeRowCard, script_row_card
 from desktop_page_registry import PAGE_ACCOUNT, PAGE_SITES
-from desktop_writing_snapshots import WritingSnapshotsMixin
+from ui.desktop_writing_snapshots import WritingSnapshotsMixin
 from responsive_ui import fit_row_height, row_toggle_target
 from ui_icons import IconLoader
 from ui_tokens import ICON_CHEVRON_RIGHT, SCRIPT_FILE_FONT, SCRIPT_FILE_MAX_ROWS, SPACING

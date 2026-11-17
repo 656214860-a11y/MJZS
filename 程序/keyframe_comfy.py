@@ -591,7 +591,7 @@ class _KeyframeComfyWindow(_KeyframeComfyRows):
             if current == 'agent':
                 from importlib import import_module
                 cfg = import_module('orchestrator.workflow_settings').load(self.project, STAGE)
-                agent_label = import_module('workflow_agents').label
+                agent_label = import_module('ui.workflow_agents').label
                 self.hint.set('交给首帧 Agent 逐镜生成，Skill 用“Skill 调用设置”切换；当前：'
                          + agent_label(cfg['profiles'][self.engine_of()], STAGE, self.engine_of(), '首帧制作'))
             else:
@@ -625,7 +625,7 @@ class _KeyframeComfyWindow(_KeyframeComfyRows):
             return
         from importlib import import_module
         engine = self.engine_of(); cfg = import_module('orchestrator.workflow_settings').load(self.project, STAGE)
-        choose_agent = import_module('workflow_agents').choose
+        choose_agent = import_module('ui.workflow_agents').choose
         if engine and engine != cfg['engine']:
             choose_agent(self.project, STAGE, (engine, cfg['profiles'][engine]['skill']))
             self.app.status.set('已切换首帧 Agent 模型：' + self.model.get())

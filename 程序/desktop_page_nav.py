@@ -10,7 +10,7 @@ import tkinter as tk
 from agent.core import read, save
 from desktop_page_registry import (ASSET_ROSTER_ICON, CACHED_PAGES, PAGE, PAGE_ACCOUNT, PAGE_NAV_ICONS,
                                    PAGE_SITES, page_title)
-from desktop_page_support import _prefs
+from ui.desktop_page_support import _prefs
 from pathlib import Path
 from tkinter import ttk
 from ui_icons import IconLoader
@@ -243,7 +243,7 @@ class PageNavMixin:
         # 换页先收掉侧栏选择浮层（项目选择层／资产清单层），避免旧列表浮在新页面上。
         close_popup=getattr(self,'_close_sidebar_popup',None)
         if callable(close_popup):close_popup()
-        from video_navigation import hide_back
+        from ui.video_navigation import hide_back
         hide_back(self)
         # 同一页重建（切换分镜、刷新列表、自动流程刷新）保留原来的滚动位置：
         # 旧行为每次都把整页拉回顶部，换文件时看起来就是「内容抖动」。换页仍回到顶部。

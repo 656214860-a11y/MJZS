@@ -24,6 +24,7 @@ import entitlement_service as ent
 import lease_verifier
 import stage_handler_registry
 from pet_bus import STAGES
+from tests.architecture._scan import entity_file
 from service_contract import SystemError, UserError, success
 from test_account_client import D, DID, KEYS, NOW, _Client, _Store, _b64, payload, sign
 
@@ -381,7 +382,7 @@ class RenewalScheduleTests(_Base):
         self.assertEqual(ctl.entitlement().state, ent.VALID)
         self.assertEqual(ctl.stage_gate(PAID[0]), '')
         self.assertEqual(client.calls, [])
-        tick = (Path(__file__).resolve().parents[1] / 'desktop_automation_tick.py').read_text(encoding='utf-8')
+        tick = entity_file('desktop_automation_tick').read_text(encoding='utf-8')
         self.assertIn('self.win.after(RENEW_DELAY_MS,self.start_account_renewal)', tick)
 
     def test_renews_at_startup_then_every_twelve_hours_in_background(self):

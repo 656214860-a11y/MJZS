@@ -1,4 +1,4 @@
-from skill_panel_workflow import PanelWorkflowMixin
+from ui.skill_panel_workflow import PanelWorkflowMixin
 from skill_panel_import import PanelImportMixin
 from skill_panel_support import (
     FLOW_STAGE,
@@ -63,7 +63,7 @@ from production_lock_fields import CompactLabel, FlowFields, label_pixel_width
 
 import model_pool
 import model_router
-import skill_note_render
+import ui.skill_note_render as skill_note_render
 import orchestrator.skill_notes as skill_notes
 from tk_timers import repeat
 import orchestrator.skill_budget as skill_budget

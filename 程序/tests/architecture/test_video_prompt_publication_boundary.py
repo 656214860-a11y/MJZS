@@ -30,7 +30,7 @@ class VideoPromptPublicationBoundaryTests(unittest.TestCase):
         self.assertNotIn("'video_prompts'", source[source.index('import_video_prompt'):])
 
     def test_agent_result_delegates_visible_publication_to_service(self):
-        source = open(os.path.join(ROOT, 'video_prompt_results.py'), encoding='utf-8').read()
+        source = entity_file('video_prompt_results').read_text(encoding='utf-8')
         self.assertIn('stage_execution_service import publish_video_prompt', source)
         self.assertIn('publish_video_prompt(studio, sid, text)', source)
         self.assertNotIn('save_text(path.with_suffix', source)
