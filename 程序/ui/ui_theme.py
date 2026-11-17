@@ -130,6 +130,17 @@ def install_tick_indicators(win,style):
 
 
 
+def box_frame(master,padding=(SPACING['xs'],SPACING['none']),**kwargs):
+
+    """Box 框体唯一创建入口（U5）：聊天框／内容框／列表框的直角 1px 描边外框。
+
+    样式 ``Box.TFrame`` 由 ``apply()`` 定义（直角、1px ``color.border.strong``）；
+    页面不得再直接写 ``style='Box.TFrame'``，由 ``test_box_boundary`` 门禁守住。
+    """
+
+    return ttk.Frame(master,style='Box.TFrame',padding=padding,**kwargs)
+
+
 # ── 第 8 轮（收口）：弹窗右上角那两颗「最小化／最大化」撤掉 ─────────────────────
 # 第 65 期任务 5 在 install_window_placement 的 hidden_init 里给每个弹窗长出那两颗键，
 # 第 67 期任务 1 又把三虎的云朵框单独摘掉。用户这次定的口径就是删：全程序不再画那两颗键，

@@ -1,0 +1,15 @@
+{
+  "round": 3241,
+  "commit_base": "cc998ada",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k shared_input_ui script_composer idea_chat ui_icons nav_icon icon_source",
+    "exit": 0,
+    "passed": 222,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T00:40:04"
+}
