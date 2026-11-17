@@ -73,9 +73,7 @@ def _ledger_file_transaction(ledger):
     path.parent.mkdir(parents=True, exist_ok=True)
     import msvcrt
     with path.open('a+b') as stream:
-        if not path.stat().st_size:
-            stream.write(b'0')
-            stream.flush()
+        # Windows 可锁定 EOF 之外的范围；锁前写入会与另一持锁者冲突。
         stream.seek(0)
         from contract.platform_tools import current_execution
         control = current_execution()

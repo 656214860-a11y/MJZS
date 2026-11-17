@@ -10,6 +10,102 @@ import infra.model_pool as model_pool
 from infra.pet_llm import RequestLedger, request_ledger_path
 
 
+class LedgerFileLockInitializationTests(unittest.TestCase):
+    def hold_empty_lock(self, root):
+        """真实子进程先锁空文件首字节，ready 只在锁成功后发布。"""
+        import subprocess
+        import sys
+        import threading
+        import time
+        from contextlib import contextmanager
+
+        @contextmanager
+        def held():
+            path = request_ledger_path(root).with_suffix('.lock')
+            path.parent.mkdir(parents=True, exist_ok=True)
+            ready = Path(root) / 'holder.ready'
+            script = (
+                "import msvcrt, pathlib, sys, time\n"
+                "path, ready = map(pathlib.Path, sys.argv[1:])\n"
+                "with path.open('a+b') as stream:\n"
+                " msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)\n"
+                " ready.write_text('locked', encoding='utf-8')\n"
+                " time.sleep(10)\n"
+            )
+            process = subprocess.Popen([sys.executable, '-B', '-c', script,
+                                        str(path), str(ready)])
+            try:
+                deadline = time.monotonic() + 5
+                while not ready.exists() and process.poll() is None and time.monotonic() < deadline:
+                    threading.Event().wait(0.01)
+                self.assertTrue(ready.exists(), '子进程须先取得真实文件锁')
+                self.assertEqual(path.stat().st_size, 0, 'Windows 支持锁定 EOF 之外的首字节')
+                yield path
+            finally:
+                if process.poll() is None:
+                    process.terminate()
+                process.wait(timeout=5)
+        return held()
+
+    def test_empty_lock_contention_times_out_without_initialization_write(self):
+        import infra.request_ledger as module
+        with tempfile.TemporaryDirectory() as td:
+            with self.hold_empty_lock(td) as path:
+                with mock.patch.object(module, 'REQUEST_LOCK_WAIT_SECONDS', 0.1):
+                    with self.assertRaises(module.LedgerLockTimeout):
+                        with RequestLedger(td).transaction():
+                            self.fail('持锁期间不得进入事务')
+                self.assertEqual(path.stat().st_size, 0)
+            with RequestLedger(td).transaction():
+                pass
+
+    def test_empty_lock_contention_observes_checkpoint_cancellation(self):
+        class Cancelled(Exception):
+            pass
+        control = mock.Mock()
+        control.checkpoint.side_effect = Cancelled('cancel empty lock wait')
+        with tempfile.TemporaryDirectory() as td:
+            with self.hold_empty_lock(td):
+                with mock.patch('contract.platform_tools.current_execution', return_value=control):
+                    with self.assertRaises(Cancelled):
+                        with RequestLedger(td).transaction():
+                            self.fail('取消后不得进入事务')
+                control.checkpoint.assert_called_once()
+            with RequestLedger(td).transaction():
+                pass
+
+    def test_empty_lock_wait_releases_without_blocking_other_ledger(self):
+        import threading
+        from concurrent.futures import ThreadPoolExecutor
+        waiting = threading.Event()
+        control = mock.Mock()
+        control.checkpoint.side_effect = waiting.set
+        with tempfile.TemporaryDirectory() as td:
+            with mock.patch('contract.platform_tools.current_execution', return_value=control):
+                with ThreadPoolExecutor(max_workers=1) as pool:
+                    with self.hold_empty_lock(td):
+                        def transact():
+                            with RequestLedger(td).transaction():
+                                return True
+                        future = pool.submit(transact)
+                        self.assertTrue(waiting.wait(2), '真实锁竞争须进入 checkpoint 轮询')
+                        self.assertFalse(future.done())
+                        with RequestLedger(Path(td) / 'other').transaction():
+                            pass
+                    self.assertTrue(future.result(timeout=2))
+
+    def test_empty_lock_transaction_exception_releases_range(self):
+        class FailedTransaction(Exception):
+            pass
+        with tempfile.TemporaryDirectory() as td:
+            ledger = RequestLedger(td)
+            with self.assertRaises(FailedTransaction):
+                with ledger.transaction():
+                    raise FailedTransaction('fixture')
+            with RequestLedger(td).transaction():
+                pass
+
+
 class RequestLedgerTests(unittest.TestCase):
     def test_invalid_usage_and_rates_do_not_produce_money(self):
         for value in (-1, float('nan'), float('inf'), True):
