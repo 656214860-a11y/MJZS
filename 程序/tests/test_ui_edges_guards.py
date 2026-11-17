@@ -63,6 +63,7 @@ class ApprovedVersionSourceGuardTests(unittest.TestCase):
         self.assertRegex(sources["desktop.py"], r"from (?:orchestrator\.)?engine import [^\n]*\bapproved_versions\b")
         self.assertRegex(sources["desktop.py"], r"from (?:orchestrator\.)?engine import [^\n]*\badoption_summary\b")
         # 交付界面消费者已迁至 orchestrator/media_page_controller（不在顶层 glob 内），直接读实体文件。
+        from tests.architecture._scan import entity_file
         consumer = entity_file('media_page_controller').read_text(encoding='utf-8')
         self.assertRegex(consumer, r"from (?:orchestrator\.)?engine import [^\n]*\badopted_edit_version\b")
         self.assertRegex(consumer, r"from (?:orchestrator\.)?engine import [^\n]*\badoption_summary\b")

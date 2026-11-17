@@ -1106,7 +1106,8 @@ class SendMessageTests(_Harness):
             self.assertTrue(d.idea_log.winfo_ismapped(), '聊天记录仍保留可用空间')
 
     def test_project_files_panel_toggle_and_page_switch(self):
-        """REQ-S01-90：面板默认隐藏；点图标钮向左展开，收起钮／再点／切页均收起。"""
+        """REQ-S01-90／REQ-S01-94：面板默认隐藏；点图标钮向左展开，收起钮／再点收起；
+        R3191 起切工作页保持打开（D11），仅切到入口隐藏页（会员账户）或换项目才收起。"""
         from ui_tokens import ICON_CHEVRON_RIGHT
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
@@ -1125,9 +1126,14 @@ class SendMessageTests(_Harness):
             self.settle_script_page(win, .4)
             self.assertTrue(d.script_box.winfo_ismapped(), '再点图标钮恢复面板')
             self.assertEqual(d.script_toggle.cget('text'), ICON_CHEVRON_RIGHT)
+            # REQ-S01-94（R3191，D11）：切到工作页面板保持打开；会员账户页入口隐藏仍收起。
+            d.show(PAGE['video']); win.update()
+            self.assertTrue(d.script_box.winfo_ismapped(), '切工作页保持面板打开')
+            self.assertTrue(d.files_button.winfo_ismapped(), '工作页入口仍显示')
             from desktop_page_registry import PAGE_ACCOUNT
             d.show(PAGE_ACCOUNT); win.update()
-            self.assertFalse(d.script_box.winfo_ismapped(), '切换页面自动收起面板')
+            self.assertFalse(d.script_box.winfo_ismapped(), '入口隐藏页自动收起面板')
+            self.assertFalse(d.files_button.winfo_ismapped(), '会员账户页入口隐藏')
 
     def test_delayed_script_rows_are_not_covered_by_empty_state(self):
         with tempfile.TemporaryDirectory() as td:

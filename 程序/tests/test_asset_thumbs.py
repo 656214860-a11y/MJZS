@@ -17,7 +17,7 @@ from skip_reasons import (
     PLATFORM_WORKING_SET,
     REQUIRES_BUNDLED_SKILL,
 )
-import os, struct, subprocess, sys, tempfile, time, unittest, zlib
+import json, os, struct, subprocess, sys, tempfile, time, unittest, zlib
 from unittest import mock
 from pathlib import Path
 
@@ -392,6 +392,202 @@ class ThumbnailTests(unittest.TestCase):
         asset_thumbs.reset_worker()
         self.assertTrue(asset_thumbs._ensure_worker())
         self.assertNotIn('DEEPSEEK_API_KEY', captured)
+
+
+class MediaThumbTests(unittest.TestCase):
+    """任务书 M4：视频封面帧／音频波形——缓存命中、失效、ffmpeg 缺失、旁路记录、真 Tk 几何。"""
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            import tkinter as tk
+            cls.tk = tk
+        except Exception:
+            cls.tk = None
+
+    def setUp(self):
+        if self.tk is None:
+            self.skipTest(PLATFORM_TKINTER)
+        self.win = self.tk.Tk(); self.win.withdraw()
+        self.addCleanup(self.win.destroy)
+        self.tmp = tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
+        self.cache = Path(self.tmp.name) / "cache"; self.cache.mkdir()
+        self.root = Path(self.tmp.name) / "media"; self.root.mkdir()
+        original = asset_thumbs.CACHE_ROOT
+        asset_thumbs.CACHE_ROOT = self.cache
+        asset_thumbs.forget()
+        asset_thumbs.reset_worker()
+        self.addCleanup(setattr, asset_thumbs, "CACHE_ROOT", original)
+        self.addCleanup(asset_thumbs.reset_worker)
+        self.addCleanup(asset_thumbs.forget)
+
+    def media(self, name):
+        path = self.root / name; path.write_bytes(b'fake-media-bytes')
+        return path
+
+    def token(self, path, size=72):
+        return asset_thumbs.cache_key(path, asset_thumbs.file_stamp(path), size)
+
+    def no_real_worker(self):
+        """本组用例手工扮演后台进程：不让真 worker 抢跑 jobs 目录。"""
+        original = asset_thumbs._ensure_worker
+        asset_thumbs._ensure_worker = lambda: True
+        self.addCleanup(setattr, asset_thumbs, "_ensure_worker", original)
+
+    def test_media_kind_uses_file_index_suffixes(self):
+        self.assertEqual(asset_thumbs.media_kind(self.media('clip.mp4')), 'video')
+        self.assertEqual(asset_thumbs.media_kind(self.media('voice.mp3')), 'audio')
+        self.assertIsNone(asset_thumbs.media_kind(self.media('cover.png')))
+        self.assertIsNone(asset_thumbs.media_kind(self.media('notes.md')))
+
+    def test_media_geometry_is_the_fixed_canvas_ffmpeg_produces(self):
+        self.assertEqual(asset_thumbs.media_geometry('video', 72), (72, round(72 * 9 / 16)))
+        self.assertEqual(asset_thumbs.media_geometry('audio', 72), (72, 72 // 3))
+        width, height = asset_thumbs.media_geometry('video', 36)
+        self.assertEqual((width, height), (36, round(36 * 9 / 16)))
+
+    def test_file_stamp_changes_on_size_or_mtime(self):
+        path = self.media('clip.mp4')
+        first = asset_thumbs.file_stamp(path)
+        path.write_bytes(b'fake-media-bytes-more')
+        self.assertNotEqual(first, asset_thumbs.file_stamp(path), '大小变了签名要变')
+        second = asset_thumbs.file_stamp(path)
+        os.utime(path, (0, 0))
+        self.assertNotEqual(second, asset_thumbs.file_stamp(path), 'mtime 变了签名也要变')
+
+    def test_media_thumbnail_miss_queues_job_and_puts_an_empty_box(self):
+        self.no_real_worker()
+        clip = self.media('clip.mp4')
+        box = asset_thumbs.media_thumbnail(self.win, clip, 72)
+        self.assertIsNotNone(box)
+        self.assertEqual(asset_thumbs.pending(), 1, '媒体任务登记进后台队列')
+        self.assertEqual((box.width(), box.height()), asset_thumbs.media_geometry('video', 72))
+        token = self.token(clip)
+        spec = asset_thumbs.read_json(self.cache / 'jobs' / (token + '.json'))
+        self.assertEqual(spec['kind'], 'video', '任务要带媒体类型给后台分流')
+        self.assertIn('ffmpeg', spec, '显式配置透传字段要在任务里（可为空串）')
+        self.assertIn('ffprobe', spec)
+
+    def test_media_cover_lands_in_the_box_in_place(self):
+        """后台把封面写进磁盘缓存后，界面上那个空盒就地贴上真图。"""
+        self.no_real_worker()
+        clip = self.media('clip.mp4')
+        box = asset_thumbs.media_thumbnail(self.win, clip, 72)
+        self.assertNotEqual(colors(box), PICTURE, '还没造好时是空盒')
+        asset_thumbs.save_bytes(asset_thumbs.cache_file(self.token(clip)),
+                                png(*asset_thumbs.media_geometry('video', 72)))
+        asset_thumbs.update(self.win)
+        self.assertEqual(asset_thumbs.pending(), 0)
+        self.assertEqual(colors(box), PICTURE, '封面到了就贴进同一个盒子')
+
+    def test_second_read_hits_cache_without_ffmpeg(self):
+        """二次读取命中磁盘缓存、不排队不调用 ffmpeg（任务书 M4 验收）。"""
+        clip = self.media('clip.mp4')
+        asset_thumbs.save_bytes(asset_thumbs.cache_file(self.token(clip)), png(72, 40))
+        image = asset_thumbs.media_thumbnail(self.win, clip, 72)
+        self.assertIsNotNone(image)
+        self.assertEqual(asset_thumbs.pending(), 0, '缓存命中不该再排任务')
+        asset_thumbs.forget()
+        again = asset_thumbs.media_thumbnail(self.win, clip, 72)
+        self.assertIsNotNone(again, '内存清掉后磁盘缓存当拍出图')
+        self.assertEqual(asset_thumbs.pending(), 0)
+
+    def test_replaced_file_requests_a_fresh_cover(self):
+        """文件被替换（mtime 或大小变化）后重新排队生成（任务书 M4 验收）。"""
+        self.no_real_worker()
+        clip = self.media('clip.mp4')
+        asset_thumbs.media_thumbnail(self.win, clip, 72)
+        old = self.token(clip)
+        clip.write_bytes(b'replaced-media')
+        asset_thumbs.media_thumbnail(self.win, clip, 72)
+        self.assertNotEqual(old, self.token(clip), '内容变了要换一个缓存键')
+        self.assertEqual(asset_thumbs.pending(), 2, '新旧键各排一条')
+
+    def test_missing_ffmpeg_writes_blank_and_shows_placeholder(self):
+        """ffmpeg 缺失：后台落 .none 记号，界面给占位图不阻断（任务书 M4 验收）。"""
+        clip = self.media('clip.mp4')
+        token = self.token(clip)
+        real = asset_thumbs.tool_path
+        asset_thumbs.tool_path = lambda *args, **kwargs: None
+        self.addCleanup(setattr, asset_thumbs, "tool_path", real)
+        asset_thumbs._media_job(clip, 72, token, 'video', {})
+        self.assertTrue(asset_thumbs.blank_mark(token).is_file(), 'ffmpeg 缺失落 .none 记号')
+        image = asset_thumbs.media_thumbnail(self.win, clip, 72)
+        self.assertIsNotNone(image, '损坏／缺 ffmpeg 也要给占位图，不让列表留白')
+        self.assertEqual((image.width(), image.height()), asset_thumbs.media_geometry('video', 72))
+
+    def test_worker_media_writes_cover_and_info_sidecar(self):
+        """后台媒体任务：封面 PNG 与时长／分辨率旁路记录同键落盘（任务书 M4）。"""
+        clip = self.media('clip.mp4')
+        token = self.token(clip)
+        info_json = json.dumps({'streams': [{'width': 1920, 'height': 1080}],
+                                'format': {'duration': '12.345'}}).encode()
+        cover = png(*asset_thumbs.media_geometry('video', 72))
+
+        def fake_run(args, **_kwargs):
+            if 'ffprobe' in str(args[0]):
+                return subprocess.CompletedProcess(args, 0, stdout=info_json, stderr=b'')
+            return subprocess.CompletedProcess(args, 0, stdout=cover, stderr=b'')
+
+        self.addCleanup(setattr, asset_thumbs, "tool_path",
+                        asset_thumbs.tool_path)
+        asset_thumbs.tool_path = lambda name, **kw: 'D:/fake/' + name
+        self.addCleanup(setattr, asset_thumbs, "run_process", asset_thumbs.run_process)
+        asset_thumbs.run_process = fake_run
+        asset_thumbs._media_job(clip, 72, token, 'video', {})
+        self.assertTrue(asset_thumbs.cache_file(token).is_file(), '封面落进磁盘缓存')
+        self.assertEqual(asset_thumbs.media_info(clip, 72),
+                         {'width': 1920, 'height': 1080, 'duration': 12.345},
+                         '时长与分辨率由旁路记录提供')
+
+    def test_damaged_media_writes_blank_and_placeholder_shows(self):
+        """文件损坏：ffmpeg 出不了图时落 .none，界面给占位图（任务书 M4 验收）。"""
+        clip = self.media('clip.mp4')
+        token = self.token(clip)
+
+        def failing_run(args, **_kwargs):
+            return subprocess.CompletedProcess(args, 1, stdout=b'', stderr=b'error')
+
+        self.addCleanup(setattr, asset_thumbs, "tool_path", asset_thumbs.tool_path)
+        asset_thumbs.tool_path = lambda name, **kw: 'D:/fake/' + name
+        self.addCleanup(setattr, asset_thumbs, "run_process", asset_thumbs.run_process)
+        asset_thumbs.run_process = failing_run
+        asset_thumbs._media_job(clip, 72, token, 'video', {})
+        self.assertTrue(asset_thumbs.blank_mark(token).is_file())
+        image = asset_thumbs.media_thumbnail(self.win, clip, 72)
+        self.assertIsNotNone(image, '损坏文件也要给占位图')
+
+    def test_deadline_lands_placeholder_and_late_cover_still_replaces(self):
+        """后台超时：先落占位图、任务继续等；封面迟到仍原位贴上真图。"""
+        self.no_real_worker()
+
+        class LiveWorker:
+            def poll(self):
+                return None
+
+        old_worker = asset_thumbs._WORKER
+        asset_thumbs._WORKER = LiveWorker()             # worker 活着只是慢：任务继续等
+        self.addCleanup(setattr, asset_thumbs, "_WORKER", old_worker)
+        clip = self.media('clip.mp4')
+        box = asset_thumbs.media_thumbnail(self.win, clip, 72)
+        token = self.token(clip)
+        asset_thumbs._PENDING[token]['at'] = time.monotonic() - asset_thumbs.JOB_DEADLINE - 1
+        asset_thumbs.update(self.win)
+        self.assertEqual(asset_thumbs.pending(), 1, '媒体任务不在界面线程做 ffmpeg，继续等后台')
+        self.assertNotEqual(colors(box), PICTURE, '占位图不是封面内容')
+        asset_thumbs.save_bytes(asset_thumbs.cache_file(token),
+                                png(*asset_thumbs.media_geometry('video', 72)))
+        asset_thumbs.update(self.win)
+        self.assertEqual(asset_thumbs.pending(), 0)
+        self.assertEqual(colors(box), PICTURE, '迟到的封面仍就地贴上')
+
+    def test_prefetch_media_only_queues_media_files(self):
+        self.no_real_worker()
+        clip = self.media('clip.mp4'); voice = self.media('voice.mp3')
+        self.media('notes.md'); self.media('cover.png')
+        count = asset_thumbs.prefetch_media(self.win, sorted(self.root.iterdir()))
+        self.assertEqual(count, 2, '只有视频／音频进队列')
+        self.assertEqual(asset_thumbs.pending(), 2)
 
 
 if __name__ == "__main__":

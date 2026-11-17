@@ -64,8 +64,16 @@ def environment_problem(settings):
         return '离线识别引擎文件缺失：%s' % SERVER_SCRIPT
     python = resolve_python(settings)
     if not Path(python).is_file():
-        return ('离线识别环境未安装（缺少 %s）：请在「模型管理 › 语音识别…」'
-                '安装离线识别环境后重试' % python)
+        offline = (settings or {}).get('offline') or {}
+        explicit = str(offline.get('python') or '').strip()
+        if explicit:
+            # 用户显式指定的解释器失效：点名设置值本身，便于对照修正。
+            return ('离线识别环境未安装（设置的解释器不存在：%s）：请在「模型管理 › '
+                    '语音识别…」修正或清空该路径后重试' % python)
+        # 任务书 M6：默认 venv 缺失给可执行引导——不贴内部路径、不说「缺少
+        # python.exe」；没有云端密钥的新用户按指引任选一条路走通。
+        return ('离线语音包未安装：请在「模型管理 › 语音识别…」下载离线语音包，'
+                '或为语音识别配置云端密钥')
     return ''
 
 

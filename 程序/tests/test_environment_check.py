@@ -9,16 +9,32 @@ import environment_check as env
 
 class EnvironmentCheckTests(unittest.TestCase):
     def test_ffmpeg_prefers_configured_path_then_path_then_missing(self):
+        no_bundled = lambda name: None
         with tempfile.TemporaryDirectory() as folder:
             exe = Path(folder) / 'ffmpeg.exe'
             exe.write_bytes(b'x')
-            ok = env.check_ffmpeg({'ffmpeg': str(exe), 'ffprobe': str(exe)}, which=lambda name: None)
+            ok = env.check_ffmpeg({'ffmpeg': str(exe), 'ffprobe': str(exe)}, which=lambda name: None,
+                                  bundled=no_bundled)
             self.assertEqual([item['status'] for item in ok], [env.OK, env.OK])
-            fallback = env.check_ffmpeg({'ffmpeg': r'Z:\none\ffmpeg.exe'}, which=lambda name: '/usr/bin/' + name)
+            fallback = env.check_ffmpeg({'ffmpeg': r'Z:\none\ffmpeg.exe'}, which=lambda name: '/usr/bin/' + name,
+                                        bundled=no_bundled)
             self.assertEqual(fallback[0]['status'], env.WARN)
             self.assertEqual(fallback[1]['status'], env.OK)
-            missing = env.check_ffmpeg({}, which=lambda name: None)
+            missing = env.check_ffmpeg({}, which=lambda name: None, bundled=no_bundled)
             self.assertTrue(all(item['status'] == env.MISSING and item['next'] for item in missing))
+
+    def test_ffmpeg_uses_bundled_build_between_configured_and_path(self):
+        """REQ-M1：随包版本在显式有效配置之后、系统 PATH 之前。"""
+        ship = {'ffmpeg': r'R:\运行环境\ffmpeg\bin\ffmpeg.exe',
+                'ffprobe': r'R:\运行环境\ffmpeg\bin\ffprobe.exe'}
+        bundled = lambda name: ship.get(name)
+        rows = env.check_ffmpeg({}, which=lambda name: '/usr/bin/' + name, bundled=bundled)
+        self.assertTrue(all(item['status'] == env.OK and '随包版本' in item['detail'] for item in rows))
+        self.assertIn(ship['ffmpeg'], rows[0]['detail'].split('；')[0])
+        broken = env.check_ffmpeg({'ffmpeg': r'Z:\none\ffmpeg.exe'}, which=lambda name: None,
+                                  bundled=bundled)
+        self.assertEqual(broken[0]['status'], env.WARN)
+        self.assertIn('随包版本', broken[0]['detail'])
 
     def test_optional_tools_are_hints_not_failures(self):
         with tempfile.TemporaryDirectory() as folder:

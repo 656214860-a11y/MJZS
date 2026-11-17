@@ -30,7 +30,7 @@ def media_import_publisher(project, kind):
         config_path = Path(project) / 'config.json'
         config = dict(read(config_path)) if config_path.is_file() else {}
         for name in ('ffmpeg', 'ffprobe'):
-            config[name] = config.get(name) or tool_path(name)
+            config[name] = tool_path(name, configured=config.get(name))
         return publish_imported_media(target, source, lambda temporary: validate_import(temporary, config, kind), kind)
     return publish
 

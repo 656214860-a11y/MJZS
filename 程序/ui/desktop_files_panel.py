@@ -15,7 +15,10 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import ttk
 
-from ui.desktop_files_panel_filters import FilesPanelFilterMixin, STAGE_FILTER_ROW_CATEGORY
+from ui.desktop_files_panel_filters import (
+    FilesPanelFilterMixin, STAGE_FILTER_ROW_CATEGORY,
+    PANEL_META_WIDTH, PANEL_PREVIEW_COL_WIDTH,
+)
 
 from ui.desktop_file_card import TreeRowCard, script_row_card
 from ui.desktop_page_registry import PAGE_ACCOUNT, PAGE_SITES
@@ -34,6 +37,9 @@ SCRIPT_LIST_MIN_WIDTH = SPACING['sm'] * 23      # 沿用原固定列宽下限（
 SCRIPT_PANEL_MAX_SHARE = 0.5                     # 面板最多占内容区一半宽
 SCRIPT_PANEL_MAX_WIDTH = SPACING['sm'] * 60      # 480：更长的文件名靠悬停看全
 SCRIPT_CELL_OVERHEAD = SPACING['md'] * 4         # 48：格内边距＋滚动条＋面板留白
+# R3196 后续（任务书 M5，REQ-S01-95/96）：预览列图元长边与列宽、时长／分辨率列宽都从 token 派生；
+# 定义在 desktop_files_panel_filters（本模块自它导入），视频封面 16:9（40×22）与音频波形
+# （40×13）落在字高行内，行高仍由字体 token 量。
 
 
 class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
@@ -95,13 +101,20 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
         self.script_row_details = {}
         self.script_row_category = {}
         tips = lambda item: self.script_row_details.get(item, '')
-        table = DataTable(self.script_box, columns=[('name', '文件名', 180)], show='headings', height=1,
+        table = DataTable(self.script_box, columns=[('name', '文件名', 180), ('meta', '时长／分辨率', 120)],
+                          show='headings', height=1,
                           selectmode='extended', style='Script.Treeview', auto_hide_scrollbars=True,
                           empty_text='', horizontal=False)
         self.script_list = table
         self.script_tree = table.tree
-        self.script_tree.heading('name', text='文件名', anchor='center')
-        self.script_tree.column('name', width=SPACING['sm'] * 23, minwidth=100, stretch=True)
+        # 预览列走 #0（Treeview 唯一可挂图元的列）：索引／素材库视图显示封面与波形，
+        # 剧本四类视图收回 headings——都是文档行，预览列与元数据列都没有内容；
+        # meta 列只挂进索引／素材库视图（切回剧本视图时 columns 收回 ('name',)）。
+        # configure(columns) 会清掉各列的 heading/column 设置，统一走 _apply_columns 重挂。
+        self._apply_columns(False)
+        self.script_tree.heading('#0', text='预览')
+        self.script_tree.column('#0', width=PANEL_PREVIEW_COL_WIDTH,
+                                minwidth=PANEL_PREVIEW_COL_WIDTH, stretch=False)
         self.page.script_file_tips = TreeRowCard(self.script_tree, tips)
         self.script_list.pack(fill='both', expand=True, pady=(SPACING['none'], SPACING['xs']))
         # R2998：文件名列宽不再写死——0 高 sizer 驱动 script_box 请求宽，
@@ -135,6 +148,20 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
         self.sync_entry()
 
     # ── 入口显隐与开合（REQ-S01-90）────────────────────────────────────────
+    def _apply_columns(self, media):
+        """按视图重挂列头：剧本四类只留文件名；索引／素材库带「时长／分辨率」列。
+
+        ``configure(columns)`` 会把各列的 heading/column 设置一并清掉，
+        所以换列后必须把两份配置都重挂一遍。
+        """
+        tree = self.script_tree
+        tree.configure(columns=('name', 'meta') if media else ('name',))
+        tree.heading('name', text='文件名', anchor='center')
+        tree.column('name', width=SPACING['sm'] * 23, minwidth=100, stretch=True)
+        if media:
+            tree.heading('meta', text='时长／分辨率', anchor='center')
+            tree.column('meta', width=PANEL_META_WIDTH, minwidth=PANEL_META_WIDTH, stretch=False)
+
     def _entry_allowed(self):
         """有项目且当前页不是会员账户／参考网站时才显示入口。"""
         # build() 早于 Desktop.__init__ 给 self.root 赋值，缺属性时按无项目处理。
@@ -281,6 +308,8 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
             self.script_tree.delete(*self.script_tree.get_children())
             self.script_row_details.clear()
             self.script_row_category.clear()
+            if hasattr(self, 'script_row_stage'):
+                self.script_row_stage.clear()
             return
         file_labels = preparation_file_labels(self.page.root)
         generation = self.script_loader.start(iter_script_document_rows(self.page.root))
@@ -290,9 +319,14 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
             except tk.TclError:
                 pass
             self.script_load_job = None
+        # 剧本四类视图都是文档行：收回预览列与 meta 列，回到纯文件名表。
+        self._apply_columns(False)
+        self.script_tree.configure(show='headings')
         self.script_tree.delete(*self.script_tree.get_children())
         self.script_row_details.clear()
         self.script_row_category.clear()
+        if hasattr(self, 'script_row_stage'):
+            self.script_row_stage.clear()
 
         def alive():
             return (self._open and self.script_loader.is_current(generation)
@@ -424,13 +458,17 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
             row = selected[0] if selected else ''
         if not row:
             return
-        path = Path(row)
-        if not path.is_absolute():
-            # R3137：阶段筛选视图的行是项目相对 posix 路径；无项目（测试替身）时按原样处理。
-            root = getattr(self.page, 'root', None)
-            if root is not None:
-                path = Path(root) / path
-        if path.is_file():
+        if row.startswith('library:'):
+            # 素材库行是库相对路径（M5）：经 _row_abs_path 解析，拼到项目根会打错文件。
+            path = self._row_abs_path(row)
+        else:
+            path = Path(row)
+            if not path.is_absolute():
+                # R3137：阶段筛选视图的行是项目相对 posix 路径；无项目（测试替身）时按原样处理。
+                root = getattr(self.page, 'root', None)
+                if root is not None:
+                    path = Path(root) / path
+        if path is not None and path.is_file():
             self.page.writing_page_services.open_path(path)
 
     def selected_script(self):
@@ -551,7 +589,10 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
         # R3137：阶段筛选视图的行来自项目文件索引，不承载剧本采用／定稿语义；
         # 只给「查看」，删除留到接 storage_maintenance 唯一回收权威的那一轮。
         if self.script_row_category.get(row) == STAGE_FILTER_ROW_CATEGORY:
-            menu.command('查看', lambda: self.page.safe(self.open_script_file))
+            # 任务书 M5（REQ-S01-96）：索引／素材库行给「打开／在文件夹中显示／另存为…」。
+            menu.command('打开', lambda: self.page.safe(self.open_script_file))
+            menu.command('在文件夹中显示', lambda: self.page.safe(self.show_in_folder))
+            menu.command('另存为…', lambda: self.page.safe(self.save_as_file))
             return menu.popup(event)
         if len(tree.selection()) > 1:
             # 多选时只给「删除」：查看、改名、定稿都只针对一份文件。
@@ -572,5 +613,8 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
             menu.command('设为' + stage + '定稿', lambda: self.page.safe(lambda: self.confirm_document(stage)))
             menu.command('按段落采用…', lambda: self.page.safe(lambda: self.show_partial_adoption(stage)))
             menu.command('历史快照／对比', lambda: self.page.safe(lambda: self.show_preparation_snapshots(stage)))
+        # 任务书 M5（REQ-S01-96）：剧本四类行也提供文件级「在文件夹中显示／另存为…」。
+        menu.command('在文件夹中显示', lambda: self.page.safe(self.show_in_folder))
+        menu.command('另存为…', lambda: self.page.safe(self.save_as_file))
         menu.command('删除', lambda: self.page.safe(self.delete_script))
         return menu.popup(event)

@@ -216,6 +216,60 @@ class LoginGateTests(unittest.TestCase):
         self.assertEqual(d.account_email_input.get(),'me@example.com')
 
 
+class ModelGuideTests(LoginGateTests):
+    """任务书 M7：登录通过且模型池存储为空 → 自动开模型管理并给一行说明。"""
+
+    def _login_through_gate(self, client):
+        self.use(client)
+        d = self.desktop
+        d.begin_startup_or_login(True, lambda: None)
+        self.pump()
+        d.account_email_input.insert(0, 'a@b.cn')
+        d.account_use_code_button.invoke(); self.pump()
+        d.account_code_input.insert(0, '123456')
+
+    def test_empty_pool_after_login_opens_model_manager(self):
+        """全新账号：模型池存储区空 → 闸通过后打开模型管理并给一行说明。"""
+        client = _Client(send_code=success({'ok': True}),
+                         verify_code=success({'refresh_token': 'r1',
+                                              'lease': sign(payload()), 'server_time': NOW}))
+        self._login_through_gate(client)
+        d = self.desktop
+        opened = []
+        import model_pool
+        with unittest.mock.patch.object(model_pool, 'raw', return_value={}),                 unittest.mock.patch.object(d.pet, 'open_model_manager',
+                                           lambda: opened.append(1)):
+            d.account_login_button.invoke(); self.pump()
+        self.assertEqual(opened, [1])
+        self.assertIn('模型', str(d.status.get()))
+
+    def test_configured_pool_does_not_open_manager(self):
+        """模型池已有模型：登录后不出现引导。"""
+        client = _Client(send_code=success({'ok': True}),
+                         verify_code=success({'refresh_token': 'r1',
+                                              'lease': sign(payload()), 'server_time': NOW}))
+        self._login_through_gate(client)
+        d = self.desktop
+        opened = []
+        import model_pool
+        with unittest.mock.patch.object(model_pool, 'raw',
+                                        return_value={'models': {'m1': {'model': 'x'}}}),                 unittest.mock.patch.object(d.pet, 'open_model_manager',
+                                           lambda: opened.append(1)):
+            d.account_login_button.invoke(); self.pump()
+        self.assertEqual(opened, [])
+
+    def test_guide_only_runs_after_gate_passes(self):
+        """未走登录闸（持有效授权直入）不触发引导。"""
+        self.use(_Client(), lease=sign(payload()))
+        d = self.desktop
+        opened = []
+        with unittest.mock.patch.object(d.pet, 'open_model_manager',
+                                        lambda: opened.append(1)):
+            d.begin_startup_or_login(True, lambda: None)
+            self.pump()
+        self.assertEqual(opened, [])
+
+
 def _walk(widget):
     for child in widget.winfo_children():
         yield child

@@ -154,8 +154,11 @@ def build_bundle(context, source, references, audio, settings, *, publish, write
         groups = list(batches.values())
         generated = run_batches(groups, one_batch) if run_batches else map(one_batch, groups)
         images = dict(pair for group in generated for pair in group)
+        from contract.platform_tools import tool_path
         video = assemble([images[row['id']] for row in shots], [row['seconds'] for row in shots],
-                         audio, scratch / 'animatic.mp4', ffmpeg=settings['ffmpeg'], ffprobe=settings['ffprobe'],
+                         audio, scratch / 'animatic.mp4',
+                         ffmpeg=tool_path('ffmpeg', configured=settings.get('ffmpeg')),
+                         ffprobe=tool_path('ffprobe', configured=settings.get('ffprobe')),
                          write_temporary=write_temporary, spec=spec)
         artifacts = {'assets/animatic.mp4': Path(video).read_bytes(),
                      'assets/temporary_audio' + audio.suffix.lower(): audio.read_bytes()}

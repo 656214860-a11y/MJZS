@@ -260,11 +260,10 @@ class PageNavMixin:
         scroll_offset=self.canvas.canvasy(0) if previous_index==index else 0
         self.page_index=index
         self._sync_shared_input()
-        # R2962：项目文件面板——project_changed 识别项目根变化（含 load(None)）并收起，
-        # 页序号变化同样收起（同页重建不算切换）；入口显隐随 root/page_index 同步。
+        # R3191（任务书 M3，D11）：页面切换不再收起文件面板，只有项目根变化时才收起；
+        # 与 REQ-S01-94「页切换保持、项目切换收起」对齐，入口显隐仍随 root/page_index 同步。
         files_panel=getattr(self,'files_panel',None)
         if files_panel is not None:
-            if index!=previous_index:files_panel.collapse()
             files_panel.project_changed()
         # 第 71 期任务 2：资产详情页与资产清单页都是「05 资产管理」的子路由；翻到别的页就回主页面。
         if index!=PAGE['assets']:self.asset_detail_id=None;self.asset_roster=False
