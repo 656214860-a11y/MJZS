@@ -82,7 +82,7 @@ def scope(root):
     stack = ExitStack()
     api = OfflineSupplier(root)
     stack.enter_context(patch.object(Studio, 'client', lambda self: api))
-    stack.enter_context(patch('api_models.ensure_cloud_model'))
+    stack.enter_context(patch('contract.api_models.ensure_cloud_model'))
     stack.enter_context(patch('white_model.validate_video_submission', return_value=None))
     stack.enter_context(patch('agent.shot_assets.prepare', side_effect=lambda path, shot, cfg, **kw:
                               dict(shot, _reference_mode='first_frame', _asset_references=[])))

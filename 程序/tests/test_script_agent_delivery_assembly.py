@@ -65,7 +65,7 @@ class ScriptPromptAssemblyTests(unittest.TestCase):
             ('writing_api.selected_model', ('test-model', {})),
             ('writing_api._complete_brief', brief),
             ('workflow_context.snapshot', {}),
-            ('workflow_context_controller.publish_writing_context', '项目接续'),
+            ('orchestrator.workflow_context_controller.publish_writing_context', '项目接续'),
             ('idea_chat.load', []),
             ('writing_api.model_label', '测试 API'),
             ('writing_api._context_budget_error', None),
