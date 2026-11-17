@@ -1,5 +1,5 @@
 # R3284 结果：L2领域服务层优化任务书轮3（修复轮：三模块并发缓存 RLock 加锁）
-<!-- round-evidence: {"commit_base": "8f5a1414", "credential_hits": 0, "evidence_sha256": "8112162b332a73b8", "exit": 0, "failed": 0, "passed": 371, "round": 3284, "tests": "run_selftests.py -k domain_cache_locks white_model idea video_task_state"} -->
+<!-- round-evidence: {"commit_base": "cdb4a807", "credential_hits": 0, "evidence_sha256": "bec4b19a09220d91", "exit": 0, "failed": 0, "passed": 0, "round": 3284, "tests": "docs-only"} -->
 
 ## 三问
 
@@ -120,5 +120,5 @@ Ran 3 tests in 63.716s — FAILED (failures=3)
 ## 提交
 
 - 分支 `codex/wip-r3282`（领号 R3284，工作树 `dsh-864fd932-4054`；`round_claim.py` 因 GBK 解码环境问题不可用，经 `.git/round-claims.json` 核实 3284 已登记本工作树，3285–3287 为其他车道）。
-- commit：见 `git log`（代码＋测试＋结果文件＋轮次证据主提交）；本补记行由后续提交写入，不另占轮次。轮次证据以 `tasks_round/evidence/R3284.json` 为准。
+- commit：`cdb4a807`（代码＋测试＋结果文件＋轮次证据主提交，6 文件）；本补记行由后续提交写入，不另占轮次。轮次证据以 `tasks_round/evidence/R3284.json` 中 `run_selftests.py -k domain_cache_locks white_model idea video_task_state` exit 0 / 371 通过 / 0 失败为准。
 - 全量回归：未运行（见三问）；合入 master 前按 §5 触发 `--all --safe`。

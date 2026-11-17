@@ -1,15 +1,16 @@
 {
   "round": 3284,
-  "commit_base": "8f5a1414",
+  "commit_base": "cdb4a807",
   "credential_scan": {
     "ran": true,
     "hits": []
   },
   "targeted": {
-    "cmd": "run_selftests.py -k domain_cache_locks white_model idea video_task_state",
+    "cmd": "",
     "exit": 0,
-    "passed": 371,
-    "failed": 0
+    "passed": 0,
+    "failed": 0,
+    "skipped": "docs-only"
   },
-  "generated_at": "2026-11-18T05:32:00"
+  "generated_at": "2026-11-18T05:32:21"
 }
