@@ -207,6 +207,24 @@ class FileIndexIntegrityTests(unittest.TestCase):
                 file_index.update(root, [Path(tmp) / 'outside.txt'])
             self.assertFalse(file_index.index_path(root).exists())
 
+    def test_search_applies_status_and_path_keyword_without_changing_cache(self):
+        from agent.core import save
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            path = root / '05资产管理/assets/CHAR_008.png'
+            path.parent.mkdir(parents=True)
+            path.write_bytes(b'image')
+            receipt = root / '05资产管理/成果确认/check.json'
+            save(receipt, {'status': 'complete', 'reviewed': True,
+                           'outputs': [{'path': path.relative_to(root).as_posix()}]})
+            file_index.rebuild(root)
+            self.assertEqual([row.path for row in file_index.search(root, status='已发布', name='CHAR_008')],
+                             [path.relative_to(root).as_posix()])
+            self.assertEqual(file_index.search(root, status='已归档'), [])
+            self.assertEqual(file_index.search(root, name='不存在的关键字'), [])
+            self.assertEqual(file_index.search(root, stage='video'), [])
+            self.assertTrue(file_index.read(root))
+
     def test_untrusted_cache_rejects_duplicate_and_invalid_metadata(self):
         from agent.core import save
         with tempfile.TemporaryDirectory() as tmp:

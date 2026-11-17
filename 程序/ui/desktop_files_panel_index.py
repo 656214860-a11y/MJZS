@@ -118,7 +118,7 @@ class FilesPanelIndexMixin:
 
     def is_file_group(self, item):
         """所有分组共享非文件标记，不以阶段前缀猜测文件身份。"""
-        return self.script_row_category.get(item) == '__file_group__'
+        return getattr(self, 'script_row_category', {}).get(item) == '__file_group__'
 
     def _invalidate_index_load(self):
         self._index_generation = getattr(self, '_index_generation', 0) + 1
@@ -177,6 +177,8 @@ class FilesPanelIndexMixin:
             self._index_loading = False
             found, categories, self._index_file_labels = result
             self._start_index_render(found, categories, root, library, generation, context)
+            if hasattr(self, '_prefetch_media_thumbs'):
+                self._prefetch_media_thumbs([Path(root) / row.path for row in found if not row.missing])
 
         submit = getattr(self.page, 'async_queued', self.page.async_)
         submit(work, done, show_progress=False, label='加载全局素材库' if library else '加载项目文件索引')
@@ -243,13 +245,18 @@ class FilesPanelIndexMixin:
             document = SimpleNamespace(item_id=str(path), name=name)
             self.script_row_details[item] = script_row_card(document, state, modified, Path(root)) + '\n' + metadata
         image = None
-        if not row.missing and Path(row.path).suffix.lower() in ('.png', '.gif', '.jpg', '.jpeg', '.webp'):
-            import asset_thumbs
-            image = asset_thumbs.thumbnail(self.script_tree, Path(root) / row.path, THUMB_SIZE)
+        if not row.missing:
+            if hasattr(self, '_row_preview'):
+                image = self._row_preview(Path(root) / row.path)
+            elif Path(row.path).suffix.lower() in ('.png', '.gif', '.jpg', '.jpeg', '.webp'):
+                import asset_thumbs
+                image = asset_thumbs.thumbnail(self.script_tree, Path(root) / row.path, THUMB_SIZE)
         options = {'image': image} if image is not None else {}
         if image is not None:
             self._index_images[item] = image
-        self.script_tree.insert(group, 'end', iid=item, values=(label, row.kind, size_text, modified),
+        metadata = self._row_meta_text(Path(root) / row.path) if hasattr(self, '_row_meta_text') else ''
+        self.script_row_stage[item] = stage_name(row.stage) if row.stage in STAGES else ''
+        self.script_tree.insert(group, 'end', iid=item, values=(label, row.kind, size_text, modified, metadata),
                                 tags=('missing',) if row.missing else (), **options)
 
     def _finish_index_render(self):

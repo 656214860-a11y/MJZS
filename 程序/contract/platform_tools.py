@@ -12,6 +12,9 @@ from contextlib import contextmanager
 from urllib.parse import urlparse
 
 _TOOL_CACHE = {}
+# 随包二进制目录相对应用根（本文件在 程序/contract/ 下，上两级即分发根）。
+# 运行环境/ 不入库，由分发构建从部署机复制；不存在时 _bundled_tool 返回 None。
+_BUNDLED_BIN_DIR = Path(__file__).resolve().parents[2] / '运行环境' / 'ffmpeg' / 'bin'
 _EXECUTION = threading.local()
 
 
@@ -254,15 +257,73 @@ def duration_text(seconds):
     return '%d 分钟' % (seconds // 60) if seconds >= 60 else '%d 秒' % seconds
 
 
-def tool_path(name, fallback=''):
+def _bundled_tool(name):
+    """随包版本（``运行环境/ffmpeg/bin/<name>.exe``）；不存在返回 None。
+
+    只在文件真实存在时返回——失效的随包路径不能压过系统 PATH。
+    """
+    for candidate in (_BUNDLED_BIN_DIR / (name + '.exe'), _BUNDLED_BIN_DIR / name):
+        try:
+            if candidate.is_file():
+                return str(candidate)
+        except OSError:
+            continue
+    return None
+
+
+def tool_path(name, fallback='', configured=''):
     """Return a cached executable path, falling back to an explicit setting.
+
+    解析优先级（R3154，零依赖边界任务书 M1）：调用方传入的**显式且有效**
+    的配置（``configured``）> 随包版本 > 系统 PATH > 调用方 ``fallback`` 原文。
+    显式**路径**失效（文件不存在）时继续向下回退，不会压住随包/PATH；
+    裸命令名（无路径分隔符，如 ``ffmpeg``／测试替身 ``stub``）无法按文件校验，
+    原样下传、由 exec 时的 PATH 解析决定；``fallback`` 不查存在性，
+    保持「兜底原文」语义。
 
     只缓存 `which` 的结果：未命中时不把 None 写进缓存，否则先发生的无兜底查询会让
     后续带兜底的调用拿不到明确路径（首帧解码就会把 None 交给 subprocess）。
     """
+    configured = str(configured or '').strip()
+    if configured:
+        if '/' not in configured and '\\' not in configured:
+            return configured
+        try:
+            if Path(configured).is_file():
+                return configured
+        except OSError:
+            pass
+    bundled = _bundled_tool(name)
+    if bundled:
+        return bundled
     if name not in _TOOL_CACHE:
         _TOOL_CACHE[name] = shutil.which(name) or None
     return _TOOL_CACHE[name] or fallback or None
+
+
+def reveal_in_folder(path):
+    """在系统文件管理器里定位这个文件（Windows 在资源管理器里选中它）。
+
+    ``explorer /select`` 的退出码恒为 1，不是失败信号——拉起即返回，不读返回码。
+    """
+    target = Path(path)
+    if not target.exists():
+        raise ValueError('要定位的文件或目录不存在：' + str(target))
+    if os.name == 'nt':
+        subprocess.Popen(['explorer', '/select,', str(target.resolve())],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return str(target)
+    if sys.platform == 'darwin':
+        command = ['open', '-R', str(target)]
+    else:
+        command = ['xdg-open', str(target.parent if target.is_file() else target)]
+    if shutil.which(command[0]) is None:
+        raise ValueError('当前系统没有可用的文件管理器，请手动打开：' + str(target))
+    try:
+        subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except OSError as exc:
+        raise ValueError('无法调用文件管理器：' + str(exc)) from exc
+    return str(target)
 
 
 def open_path(path):

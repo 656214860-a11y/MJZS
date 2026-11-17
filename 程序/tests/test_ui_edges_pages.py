@@ -588,7 +588,7 @@ class UiEdgePagesTests(UiEdgeCase):
             tree = d.script_tree
             from ui_tokens import SCRIPT_FILE_MAX_ROWS
             self.assertEqual(str(tree.heading("name", "text")), "文件名")
-            self.assertEqual(tuple(tree["columns"]), ("name", "kind", "size", "mtime"))
+            self.assertEqual(tuple(tree["columns"]), ("name", "kind", "size", "mtime", "meta"))
             files = d.files_panel.all_script_items()
             self.assertEqual(int(tree.cget("height")),
                              min(SCRIPT_FILE_MAX_ROWS, len(files) + len(tree.get_children())),
@@ -599,7 +599,7 @@ class UiEdgePagesTests(UiEdgeCase):
             names = [tree.item(item, "values")[0] for item in files]
             for item in files:
                 self.assertIn(d.script_row_category[item], ("setting", "outline", "character", "script", "index"))
-                self.assertEqual(len(tree.item(item, "values")), 4, "每行展示名称、类型、大小、修改时间")
+                self.assertEqual(len(tree.item(item, "values")), 5, "每行展示名称、类型、大小、修改时间及媒体信息")
             for expected in ("项目设定_测试.md", "项目大纲_测试.md", "角色卡_测试.md", "项目剧本_测试.md"):
                 self.assertTrue(any(expected in name for name in names), expected + " 应出现在项目文件列表")
             structured = [item for item in files if item.startswith('02剧本结构/')]

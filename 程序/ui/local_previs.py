@@ -4,6 +4,7 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, messagebox
 import domain.white_model_service as wm
+from agent.core import save_text
 from file_cache import read_json
 from orchestrator.previs_batch_service import prepare_batch
 import domain.previs_routing as previs_routing
@@ -111,8 +112,12 @@ class _LocalPrevisWindow:
         # 「白模环境检查」按需跑一次完整检查（版本＋写权限），打开页面的每次刷新只做轻量判断。
         self.env_line=tk.StringVar(value='')
         env_row=ttk.Frame(self.body);env_row.pack(fill='x',pady=SPACING['xs'])
+        # R3162 M2：Blender 是可选高级项——未安装时标注「需要 Blender · 未安装 · 去设置」，
+        # 不报错；「去设置」直接打开白模设置文件（不存在则先建一个带 blender 键的模板）。
+        self.blender_settings_button=SecondaryButton(env_row,text='去设置',command=self.open_blender_settings)
         SecondaryButton(env_row,text='白模环境检查',command=lambda:self.desktop.safe(self.check_environment)).pack(side='left')
-        ProgressLabel(env_row,textvariable=self.env_line,wraplength=WRAPLENGTH['xl']).pack(side='left',padx=SPACING['sm'])
+        self.env_label=ProgressLabel(env_row,textvariable=self.env_line,wraplength=WRAPLENGTH['xl'])
+        self.env_label.pack(side='left',padx=SPACING['sm'])
         self.refresh_environment()
         tablebox=ttk.Frame(self.body);tablebox.pack(fill='both',expand=True,pady=SPACING['sm'])
         # 第 47 期第 5 条：用户点名删掉「制作进度」那一栏——进度条整列撤掉，状态那一栏照旧说事。
@@ -193,8 +198,32 @@ class _LocalPrevisWindow:
         self.refresh()
 
     def refresh_environment(self):
-        try:self.env_line.set(wm.environment_summary())
-        except Exception:self.env_line.set('白模环境检查暂不可用')
+        try:
+            text=wm.environment_summary()
+            self.env_line.set(text)
+            missing=wm.find_blender() is None
+        except Exception:
+            self.env_line.set('白模环境检查暂不可用');missing=False
+        # 只在缺 Blender 时露出「去设置」；装好后按钮收起，状态行照旧显示成果目录摘要。
+        if missing:
+            self.env_line.set('需要 Blender · 未安装 · 去设置')
+            self.blender_settings_button.pack(side='left',padx=SPACING['xs'],before=self.env_label)
+        else:
+            self.blender_settings_button.pack_forget()
+
+    def open_blender_settings(self):
+        """打开白模设置文件；没有就先写一个带 ``blender`` 键的模板再打开。"""
+        try:
+            path=Path(wm.diagnose().get('settings') or '')
+            if not path:
+                raise ValueError('白模设置文件位置未知')
+            if not path.is_file():
+                path.parent.mkdir(parents=True,exist_ok=True)
+                save_text(path,'{"blender": ""}')
+            open_path(path)
+            self.desktop.status.set('已打开白模设置：'+str(path)+'；把 blender 填成 blender.exe 的完整路径后重进本页')
+        except Exception as exc:
+            notify(self.desktop.win,str(exc),level='error',title='白模预演',status=self.desktop.status)
 
     def check_environment(self):
         notify(self.desktop.win,wm.diagnose_text(),title='白模环境检查')

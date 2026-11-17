@@ -80,11 +80,12 @@
   "tests.test_recycle_panel_actions",
   "tests.test_stage_file_index_publication",
   "tests.test_file_naming_producers",
-  "tests.test_file_origin_provenance"
+  "tests.test_file_origin_provenance",
+  "tests.test_context"
  ],
  "tests_ok": true,
- "points_total": 2318,
- "points_covered": 1212,
+ "points_total": 2331,
+ "points_covered": 1222,
  "modules": [
   {
    "module": "aigc_lint.py",
@@ -243,16 +244,16 @@
    "percent": 36.0
   },
   {
-   "module": "platform_tools.py",
-   "points": 96,
-   "covered": 35,
-   "percent": 36.5
-  },
-  {
    "module": "pet_bus.py",
    "points": 27,
    "covered": 10,
    "percent": 37.0
+  },
+  {
+   "module": "platform_tools.py",
+   "points": 109,
+   "covered": 41,
+   "percent": 37.6
   },
   {
    "module": "model_pool.py",
@@ -271,12 +272,6 @@
    "points": 112,
    "covered": 47,
    "percent": 42.0
-  },
-  {
-   "module": "script_text_reader.py",
-   "points": 7,
-   "covered": 3,
-   "percent": 42.9
   },
   {
    "module": "model_router.py",
@@ -429,16 +424,16 @@
    "percent": 77.8
   },
   {
-   "module": "file_index.py",
-   "points": 89,
-   "covered": 70,
-   "percent": 78.7
-  },
-  {
    "module": "log_maintenance.py",
    "points": 24,
    "covered": 19,
    "percent": 79.2
+  },
+  {
+   "module": "file_index.py",
+   "points": 89,
+   "covered": 71,
+   "percent": 79.8
   },
   {
    "module": "prompt_templates.py",
@@ -466,6 +461,12 @@
   },
   {
    "module": "api_models.py",
+   "points": 7,
+   "covered": 6,
+   "percent": 85.7
+  },
+  {
+   "module": "script_text_reader.py",
    "points": 7,
    "covered": 6,
    "percent": 85.7

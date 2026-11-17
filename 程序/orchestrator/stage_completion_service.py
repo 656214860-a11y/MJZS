@@ -98,7 +98,7 @@ def prepare_media_completion(root, stage, paths, *, scope=None):
     scope = current
     media_manifest_path(root, stage, scope)
     config = read(root / 'config.json') if (root / 'config.json').is_file() else {}
-    executable = config.get('ffprobe') or tool_path('ffprobe')
+    executable = tool_path('ffprobe', configured=config.get('ffprobe'))
     if not executable:
         raise ValueError('请先配置 FFprobe，再校验媒体成果')
     outputs = []

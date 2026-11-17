@@ -1,0 +1,15 @@
+{
+  "round": 3162,
+  "commit_base": "8733f0f4",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k video white_model local_video projects animatic previs",
+    "exit": 0,
+    "passed": 495,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T14:57:20"
+}

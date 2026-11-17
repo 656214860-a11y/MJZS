@@ -69,6 +69,31 @@ class LoginGateMixin:
         # R2046：闸门下面那页是登录前画的；停在「会员账户」页就重画，否则露出过期的「未登录」画面。
         if getattr(self, 'page_index', None) == PAGE_ACCOUNT:
             self.show(PAGE_ACCOUNT)
+        self._guide_first_model_setup()
+
+    def _guide_first_model_setup(self):
+        """任务书 M7：登录通过后模型池存储区仍为空（从未配过模型）时，
+        打开既有模型管理并给一行说明——不另建向导窗口。
+
+        密钥只经模型管理 → ``model_pool.env_file``/本机加密通道保存；本函数
+        只判空与开门，不读不写密钥，不写配置。
+        """
+        try:
+            import model_pool
+            stored = model_pool.raw().get('models')
+            if isinstance(stored, dict) and stored:
+                return                              # 已有模型：不打扰
+        except Exception:  # noqa: BLE001 —— 配置读不出来按已有处理，不拦登录后续
+            return
+        opener = getattr(self.pet, 'open_model_manager', None)
+        if opener is None:
+            return
+        self.status.set('模型池为空：在模型管理里「+ 新增模型…」并保存 API Key 后即可开始制作')
+        try:
+            opener()
+        except Exception:  # noqa: BLE001 —— 引导失败不影响已通过的登录
+            import app_logging
+            app_logging.swallowed()
 
     def _refresh_nav_locks(self):
         hook = getattr(self, 'refresh_nav_locks', None)
