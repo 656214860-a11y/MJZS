@@ -5,6 +5,10 @@
 ``程序/data/skills/``（「新增 SKILL」的导入目标，升级保留）。两层阶段目录同构；
 同名时用户版优先，内置版只记一条软提示，删除用户版后内置版自动恢复。
 
+T5 起加第三层项目级 ``<项目>/skills/``（项目目录归用户所有、随项目走）：优先级
+**项目 > 用户 > 内置**，同名遮蔽同样只记软警告；项目层只在打开该项目的阶段配置
+时由 ``default_registry(project=…)`` 挂载，跨项目互不可见。
+
 用户附件（第 28 期）规定的规范：每个 SKILL 一个 Markdown 文件，YAML frontmatter 字段固定为
 name／displayName／description／stage／capabilities／preferredModels／fallbackModels／tools／
 dependsOn／conflictsWith／parallelizable／paid／input／output／constraints／feedback／examples。
@@ -25,11 +29,16 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 from contract.pet_bus import STAGES, STAGE_NAMES
+from skill_package_meta import (  # re-export：调用方经 skill_registry.<名>
+    IMPORTED_PACKAGE_FLAG, imported_package_meta, markdown_heading, markdown_summary)
+from skill_project_layer import (LAYER_LABELS, LAYER_ORDER, STAGE_DIRECTORY_IDS,
+                                 ProjectLayerMixin, disabled_pairs, disabled_stamp,
+                                 disabled_view_entries, project_skill_root,
+                                 project_skill_root_for, stage_from_path)
 
 SKILL_SUFFIX = '.skill.md'
 PACKAGE_SKILL_FILENAME = 'SKILL.md'
 PACKAGE_README_FILENAMES = ('README_ZH.md', 'README.md', 'README.MD')
-IMPORTED_PACKAGE_FLAG = '_imported_package'
 CAPABILITIES = ('long-context', 'structured-output', 'creative-writing', 'reasoning', 'vision')
 FEEDBACK_KEYS = ('onProgress', 'onError', 'onComplete')
 REQUIRED = ('name', 'displayName', 'description', 'stage', 'capabilities', 'preferredModels',
@@ -43,16 +52,6 @@ BOOL_FIELDS = ('parallelizable', 'paid')
 # 反复 stat；保留这个极短时间片可消除启动查询风暴，手动强制扫描仍立即生效。
 FRESH_TTL_SECONDS = 2.0
 
-# 阶段文件夹是 SKILL 的物理归档口径。前置零的编号必须与 12 阶段顺序保持一致；
-# 新放入 01—12 文件夹但尚未补 frontmatter 的 SKILL 可据此立即出现在正确阶段。
-STAGE_DIRECTORY_IDS = {
-    '01': 'script', '02': 'script_structure', '03': 'storyboard',
-    '04': 'animatic', '05': 'assets', '06': 'continuity', '07': 'final',
-    '08': 'keyframe', '09': 'previs', '10': 'video',
-    '11': 'audio', '12': 'edit', '13': 'delivery',
-}
-
-
 def default_root(program=None):
     """SKILL 目录：默认与程序同一个盘位下的 skills/（可用参数或参数覆盖，方便自检）。"""
     return Path(program or Path(__file__).resolve().parents[1]) / 'skills'
@@ -63,23 +62,42 @@ def default_user_root(program=None):
     return Path(program or Path(__file__).resolve().parents[1]) / 'data' / 'skills'
 
 
-def skill_roots(program=None):
-    """引用允许落在的 SKILL 根目录（内置层、用户层），均为 resolve 后的绝对路径。"""
-    return (default_root(program).resolve(), default_user_root(program).resolve())
+def skill_roots(program=None, project=None):
+    """引用允许落在的 SKILL 根目录（内置层、用户层，给了项目再加项目层）。
+
+    返回低→高优先级序：``(内置, 用户[, 项目])``；``resolve_reference`` 的层间
+    回退与 ``_skill_blocks`` 的白名单都按这份清单走。
+    """
+    roots = [default_root(program).resolve(), default_user_root(program).resolve()]
+    project_root = project_skill_root(project)
+    if project_root is not None:
+        roots.append(project_root.resolve())
+    return tuple(roots)
 
 
 def resolve_reference(source, relative, program=None):
     """解析 SKILL 正文里的相对引用。
 
-    用户层与内置层同构：用户层 SKILL 引用 ``../00全流程SKILL/…`` 这类内置共享资料时，
-    用户层没有该文件就退回内置层同一相对位置；两层都没有时返回原解析结果，由调用方报缺失。
+    同名层互为影子：目标落在某一层而该层没有此文件时，向**更低优先级**层的同一
+    相对位置回退（项目→用户→内置，用户→内置），最近的低层优先；两层都没有时返回
+    原解析结果，由调用方报缺失。项目层根由 ``source`` 路径反推（``project_skill_root_for``），
+    调用方不必显式传项目。
     """
     target = (Path(source).parent / relative).resolve()
-    builtin, user = skill_roots(program)
-    if not target.exists() and target.is_relative_to(user):
-        fallback = builtin / target.relative_to(user)
-        if fallback.exists():
-            return fallback
+    if target.exists():
+        return target
+    # 高→低优先级序：项目 → 用户 → 内置（skill_roots 返回低→高，反转后接项目层）。
+    ordered = [root for root in (project_skill_root_for(source),
+                                 *reversed(skill_roots(program))) if root is not None]
+    # 找到目标所属层，只回退到它后面的（更低优先级）各层，最近层优先。
+    for index, root in enumerate(ordered):
+        if not target.is_relative_to(root):
+            continue
+        for lower in ordered[index + 1:]:
+            fallback = lower / target.relative_to(root)
+            if fallback.exists():
+                return fallback
+        return target
     return target
 
 
@@ -92,67 +110,6 @@ def stage_id(value):
         if STAGE_NAMES.get(sid) == text:
             return sid
     return ''
-
-
-def stage_from_path(path):
-    """从 ``01…12`` 阶段目录推断阶段；非阶段资料目录不作猜测。"""
-    candidate = Path(path) if path else None
-    if candidate is None:
-        return ''
-    for parent in candidate.parents:
-        match = re.match(r'^(\d{2})(?:\s|\D|$)', parent.name)
-        if match:
-            return STAGE_DIRECTORY_IDS.get(match.group(1), '')
-    return ''
-
-
-def markdown_heading(body):
-    """取 Markdown 首个一级标题，供无 frontmatter 的外部包显示。"""
-    match = re.search(r'^\s*#\s+(.+?)\s*$', str(body or ''), flags=re.MULTILINE)
-    return match.group(1).strip() if match else ''
-
-
-def markdown_summary(body):
-    """取 Markdown 的首句说明；外部资料没有简介时也能在面板里说明来源。"""
-    for line in str(body or '').splitlines():
-        text = line.strip()
-        if text and not text.startswith(('#', '---', '```', '-', '*')):
-            return text[:160]
-    return ''
-
-
-def imported_package_meta(source_meta, body, package, source):
-    """为阶段目录下的外部 SKILL 包建立一个受控总入口元数据。
-
-    外部 ``SKILL.md`` 多为 Codex/Claude 的轻量格式，不满足本程序的完整 frontmatter
-    契约；这里不信任其执行字段，仅复用可读名称/简介和正文，其余字段采用稳定默认值。
-    """
-    source_meta = source_meta or {}
-    title = (str(source_meta.get('displayName', '') or '').strip() or
-             markdown_heading(body) or package.name)
-    description = (str(source_meta.get('description', '') or '').strip() or
-                   markdown_summary(body) or
-                   '外部 SKILL 包总入口：%s' % title)
-    return {
-        'name': str(source_meta.get('name', '') or '').strip() or package.name,
-        'displayName': title,
-        'description': description,
-        'stage': stage_from_path(source),
-        'capabilities': ['creative-writing'],
-        'preferredModels': [],
-        'fallbackModels': [],
-        'tools': [],
-        'dependsOn': [],
-        'conflictsWith': [],
-        'parallelizable': False,
-        'paid': False,
-        'input': [],
-        'output': [],
-        'constraints': ['这是外部 SKILL 包的总入口，不自动展开其内部子 SKILL。'],
-        'feedback': [],
-        'examples': [],
-        IMPORTED_PACKAGE_FLAG: True,
-    }
 
 
 def scalar(text):
@@ -285,7 +242,8 @@ class Skill:
         self.meta = dict(meta)
         self.body = body
         self.path = Path(path) if path else None
-        # 'builtin'＝程序 skills/，'user'＝data/skills/；注册表外直接构造的为空串。
+        # 'project'＝<项目>/skills/，'user'＝data/skills/，'builtin'＝程序 skills/；
+        # 注册表外直接构造的为空串。
         self.layer = layer
 
     def get(self, key, default=None):
@@ -491,14 +449,17 @@ def external_references(skill, known=()):
     return classify_dependencies(skill, known)['external']
 
 
-class Registry:
+class Registry(ProjectLayerMixin):
     """SKILL 注册表：扫目录 → 解析 → 校验 → 建索引；查询前自动热加载。"""
 
-    def __init__(self, root=None, clock=time.time, user_root=None):
+    def __init__(self, root=None, clock=time.time, user_root=None, project_root=None):
         self.root = Path(root) if root else default_root()
         # 不给 root 时用户层跟随程序目录；显式给 root（自检临时目录）时只有给了 user_root 才有用户层。
         self.user_root = (Path(user_root) if user_root else
                           (default_user_root() if root is None else None))
+        # 项目层：project_root 收项目目录（含 skill_config.json 那一层），扫描根是其下 skills/。
+        self.project_root = Path(project_root) if project_root else None
+        self.project_skills = project_skill_root(self.project_root)
         self.clock = clock
         self._skills = {}
         self._problems = []
@@ -515,13 +476,19 @@ class Registry:
         self._fingerprint_cache = None
         self._fingerprint_checked_at = 0.0
         self._fresh_checked_at = 0.0
+        # 禁用登记视图：scan() 时按 (layer, name) 过滤；供管理页与发送校验展示。
+        self._disabled_pairs = frozenset()
+        self._disabled_entries = ()
+        self._disabled_stamp_seen = None
 
     # ── 扫描 ────────────────────────────────────────────────────────────────
     def _layers(self):
-        """``(根目录, 层名)``，用户层在前；用户层目录不存在时照常跳过。"""
+        """``(根目录, 层名)``，高优先级在前：项目 → 用户 → 内置；缺的层照常跳过。"""
         layers = [(self.root, 'builtin')]
         if self.user_root is not None:
             layers.insert(0, (self.user_root, 'user'))
+        if self.project_skills is not None:
+            layers.insert(0, (self.project_skills, 'project'))
         return tuple(layers)
 
     def _stage_directories(self, root=None):
@@ -544,48 +511,56 @@ class Registry:
 
         目录名沿用内置阶段目录，保证两层同构；没有用户层的注册表（自检临时目录）退回内置目录。
         """
-        builtin = self._stage_directory_for(sid)
-        if builtin is None or self.user_root is None:
-            return builtin
-        existing = next((path for path in self._stage_directories(self.user_root)
-                         if stage_from_path(path / '__stage_probe__') == sid), None)
-        return existing or self.user_root / builtin.name
+        return self._layer_stage_directory_for(sid, 'user')
 
     def _migrate_root_manifests(self):
-        """把 skills 根目录的旧 .skill.md 移入其 frontmatter 指定的阶段目录。
+        """把 skills 根目录的旧 .skill.md 移入其 frontmatter 指定的阶段目录（内置层与用户层同口径）。
 
         这是打开阶段配置后的懒迁移：只枚举根目录的一层文件，绝不触碰 00 全流程包、
         其他资料包或用户项目。没有合法 stage、目标目录或同名目标时保留原文件并报明原因。
+        用户层根目录文件同样迁移：目标是用户层同名阶段目录（不存在时按内置目录名补建，
+        与「新增 SKILL」写入目录同一口径）；此前用户层根目录文件静默不可见。
         """
         problems = []
-        try:
-            paths = sorted(self.root.glob('*' + SKILL_SUFFIX), key=lambda path: str(path))
-        except OSError:
-            self._root_migration_problems = ()
-            return
-        for path in paths:
+        for root, layer in self._layers():
             try:
-                meta, _ = parse(path.read_text(encoding='utf-8-sig'), source=str(path))
-            except (OSError, UnicodeError) as exc:
-                problems.append('%s：根目录遗留 SKILL 读不出来（%s）' % (path.name, exc))
+                paths = sorted(root.glob('*' + SKILL_SUFFIX), key=lambda path: str(path))
+            except OSError:
                 continue
-            sid = stage_id(meta.get('stage', ''))
-            if not sid:
-                problems.append('%s：根目录遗留 SKILL 没有可识别的阶段 stage，未自动归档' % path.name)
-                continue
-            target_dir = self._stage_directory_for(sid)
-            if target_dir is None:
-                problems.append('%s：阶段 %s 没有对应目录，未自动归档' % (path.name, sid))
-                continue
-            target = target_dir / path.name
-            if target.exists():
-                problems.append('%s：目标 %s 已存在，未覆盖也未自动归档' %
-                                (path.name, target.name))
-                continue
-            try:
-                path.replace(target)
-            except OSError as exc:
-                problems.append('%s：自动归档失败（%s）' % (path.name, exc))
+            for path in paths:
+                try:
+                    meta, _ = parse(path.read_text(encoding='utf-8-sig'), source=str(path))
+                except (OSError, UnicodeError) as exc:
+                    problems.append('%s：根目录遗留 SKILL 读不出来（%s）' % (path.name, exc))
+                    continue
+                sid = stage_id(meta.get('stage', ''))
+                if not sid:
+                    problems.append('%s：根目录遗留 SKILL 没有可识别的阶段 stage，未自动归档'
+                                    % path.name)
+                    continue
+                if layer in ('user', 'project'):
+                    target_dir = self._layer_stage_directory_for(sid, layer)
+                    if target_dir is not None and not target_dir.exists():
+                        try:
+                            target_dir.mkdir(parents=True, exist_ok=True)
+                        except OSError as exc:
+                            problems.append('%s：%s层阶段目录建不出来（%s），未自动归档'
+                                            % (path.name, LAYER_LABELS[layer], exc))
+                            continue
+                else:
+                    target_dir = self._stage_directory_for(sid)
+                if target_dir is None:
+                    problems.append('%s：阶段 %s 没有对应目录，未自动归档' % (path.name, sid))
+                    continue
+                target = target_dir / path.name
+                if target.exists():
+                    problems.append('%s：目标 %s 已存在，未覆盖也未自动归档' %
+                                    (path.name, target.name))
+                    continue
+                try:
+                    path.replace(target)
+                except OSError as exc:
+                    problems.append('%s：自动归档失败（%s）' % (path.name, exc))
         self._root_migration_problems = tuple(problems)
 
     @staticmethod
@@ -655,13 +630,22 @@ class Registry:
 
         children = []
         user_directories = ()
+        extra_roots = []
         if self.user_root is not None:
             try:
                 children.append((str(self.user_root), self.user_root.stat().st_mtime_ns))
                 user_directories = self._stage_directories(self.user_root)
             except OSError:
                 pass
-        for path in (*user_directories, *self._stage_directories()):
+        if self.project_skills is not None:
+            try:
+                children.append((str(self.project_skills), self.project_skills.stat().st_mtime_ns))
+                extra_roots.append(self.project_skills)
+            except OSError:
+                pass
+        project_directories = tuple(
+            path for root in extra_roots for path in self._stage_directories(root))
+        for path in (*user_directories, *project_directories, *self._stage_directories()):
             try:
                 children.append((str(path), path.stat().st_mtime_ns))
                 for package in sorted(path.iterdir(), key=lambda item: str(item)):
@@ -717,24 +701,52 @@ class Registry:
     def fingerprint(self, force=False):
         """返回文件指纹；热查询时间片内绝不重新枚举目录或拼接元组。"""
         now = time.monotonic()
+        d_stamp = disabled_stamp(self.user_root)
         if (not force and self._fingerprint_cache is not None and
-                now - self._fingerprint_checked_at < FRESH_TTL_SECONDS):
+                now - self._fingerprint_checked_at < FRESH_TTL_SECONDS and
+                d_stamp == self._disabled_stamp_seen):
             return self._fingerprint_cache
         self._refresh_file_cache(force=force)
         stamp = tuple((str(path), mtime, size, source, str(package or ''), layer)
                       for path, mtime, size, source, package, layer in self._file_records)
+        # 禁用登记在 data/skills/ 根下，目录 mtime/stat 键覆盖不到内容改写，单独进指纹。
+        if d_stamp is not None:
+            stamp += (('__disabled__', d_stamp[0], d_stamp[1]),)
+        self._disabled_stamp_seen = d_stamp
         self._fingerprint_cache = stamp
         self._fingerprint_checked_at = now
         return stamp
+
+    def _builtin_tool_names(self, records):
+        """内置层清单声明的 ``tools`` 并集：外部包 ``allowed-tools`` 映射的受控词表。
+
+        L3 不反向依赖 L4 ``skill_tools``；内置 SKILL 的 tools 字段即本应用工具名
+        的事实来源，映射不上的一律进 constraints 提示（不硬猜）。
+        """
+        names = set()
+        for path, _, _, source_kind, _package, layer in records:
+            if layer != 'builtin' or source_kind != 'manifest':
+                continue
+            try:
+                meta, _body = parse(path.read_text(encoding='utf-8-sig'), source=str(path))
+            except (OSError, UnicodeError, ValueError):
+                continue
+            for tool in meta.get('tools') or ():
+                names.add(str(tool))
+        return names
 
     def scan(self, force=False):
         """重新读一遍目录。没变化（指纹相同）且不是 force 时直接返回缓存。"""
         stamp = self.fingerprint(force=force)
         if not force and stamp == self._fingerprint:
             return self
+        disabled = disabled_pairs(self.user_root, self.project_root)
+        disabled_view = disabled_view_entries(self.user_root, self.project_root)
         skills, problems, warnings = {}, list(self._root_migration_problems), []
         records = sorted(self._file_records,
-                         key=lambda item: (item[5] != 'user', item[3] != 'manifest', str(item[0])))
+                         key=lambda item: (LAYER_ORDER.get(item[5], 9),
+                                           item[3] != 'manifest', str(item[0])))
+        known_tools = self._builtin_tool_names(records)
         for path, _, _, source_kind, package, layer in records:
             try:
                 meta, body = parse(path.read_text(encoding='utf-8-sig'), source=str(path))
@@ -742,11 +754,19 @@ class Registry:
                 problems.append('%s：读不出来（%s）' % (path.name, exc))
                 continue
             if source_kind == 'package':
-                meta = imported_package_meta(meta, body, package, path)
-            shadow = skills.get(str(meta.get('name') or ''))
-            if layer == 'builtin' and shadow is not None and shadow.layer == 'user':
-                warnings.append('%s：用户版 %s 覆盖内置版（删除用户版后恢复内置版）' %
-                                (shadow.name, shadow.path))
+                meta = imported_package_meta(meta, body, package, path,
+                                             known_tools=known_tools)
+            meta_name = str(meta.get('name') or '')
+            # 禁用条目按登记名过滤；包改名（package-x-N）由下方 skill.name 复查兜底。
+            if (layer, meta_name) in disabled:
+                continue
+            shadow = skills.get(meta_name)
+            if (shadow is not None and
+                    LAYER_ORDER.get(layer, 9) > LAYER_ORDER.get(shadow.layer, 9)):
+                warnings.append('%s：%s %s 覆盖%s（删除%s后恢复%s）' % (
+                    shadow.name, LAYER_LABELS.get(shadow.layer, shadow.layer), shadow.path,
+                    LAYER_LABELS.get(layer, layer), LAYER_LABELS.get(shadow.layer, shadow.layer),
+                    LAYER_LABELS.get(layer, layer)))
                 continue
             if source_kind == 'package':
                 base_name = meta['name']
@@ -757,6 +777,8 @@ class Registry:
             skill = Skill(meta, body, path, layer=layer)
             if not skill.name:
                 problems.append('%s：frontmatter 里没有 name' % path.name)
+                continue
+            if (layer, skill.name) in disabled:
                 continue
             if skill.name in skills:
                 problems.append('%s：与 %s 重名' % (path.name, skills[skill.name].path.name))
@@ -769,11 +791,15 @@ class Registry:
                             for other in external_references(skills[name], known))
         self._skills, self._problems, self._fingerprint = skills, problems, stamp
         self._warnings = warnings
+        self._disabled_pairs = frozenset(disabled)
+        self._disabled_entries = disabled_view
         return self
 
     def _fresh(self):
         now = time.monotonic()
-        if now - self._fresh_checked_at < FRESH_TTL_SECONDS:
+        # 禁用登记改写不进目录组合键：TTL 早退前单独比对它的 stat，保证即时生效。
+        if (now - self._fresh_checked_at < FRESH_TTL_SECONDS
+                and disabled_stamp(self.user_root) == self._disabled_stamp_seen):
             return self
         self._fresh_checked_at = now
         if self.fingerprint() != self._fingerprint:
@@ -839,18 +865,23 @@ class Registry:
 _DEFAULTS = {}
 
 
-def default_registry(program=None):
+def default_registry(program=None, project=None):
     """进程内默认注册表（界面与编排器共用一份，免得各扫一遍目录）。
 
     第 44 期：缓存**按目录分开**。原先只留「最后用到的那一份」——谁先拿一个别处的
     目录（自检里喂的临时 program，或换过安装位置的老进程）调一次，之后所有不带参数
     的 default_registry()（＝程序目录）都会拿到那一份空的：界面勾选框、阶段默认值、
     编排器找 SKILL 全跟着一起空。分开缓存之后，喂临时目录只影响那个临时目录。
+
+    T5：``project``（项目目录）参与缓存键——不同项目各持一份含项目层的注册表，
+    项目 A 的 SKILL 绝不漏进项目 B 的查询；不传 project 保持全局两层视图。
     """
     root = default_root(program)
-    key = str(root)
+    project_root = Path(project) if project else None
+    key = (str(root), str(project_root) if project_root else '')
     if key not in _DEFAULTS:
-        _DEFAULTS[key] = Registry(root, user_root=default_user_root(program))
+        _DEFAULTS[key] = Registry(root, user_root=default_user_root(program),
+                                  project_root=project_root)
     return _DEFAULTS[key]
 
 

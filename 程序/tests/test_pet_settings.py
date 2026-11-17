@@ -319,17 +319,17 @@ class GearTests(SettingsCase):
 
 
 class SettingsWindowTests(SettingsCase):
-    """「设置」窗口：四格、名字、以及每一格真的接在宠物身上。"""
+    """「设置」窗口：七格、名字、以及每一格真的接在宠物身上。"""
 
-    def test_the_window_offers_the_five_pages(self):
+    def test_the_window_offers_the_settings_pages(self):
         win = self.hub()
         labels = [str(win._pet_tabs[key].cget('text')) for key, _title in pet_settings_ui.TABS]
         self.assertEqual(labels, [title for _key, title in pet_settings_ui.TABS])
         self.assertEqual(labels[:2], ['基础功能', '三虎模型配置'])
         self.assertIn('预算', labels)
-        # 第 47 期第 8 条：开发信息紧挨在预算右边，是分页里的最后一格。
-        self.assertEqual(labels[-2:], ['预算', pet_settings_ui.DEV_TITLE])
-        self.assertNotIn('SKILL 管理', labels, '用户这一轮说 SKILL 管理不用做')
+        # R3089（生命周期任务书 T7）：「SKILL 管理」格落地，排在预算与开发信息之间；
+        # 开发信息仍是分页里的最后一格。
+        self.assertEqual(labels[-3:], ['预算', 'SKILL 管理', pet_settings_ui.DEV_TITLE])
 
     def test_a_page_can_be_picked_when_opening(self):
         win = self.hub('budget')

@@ -1,0 +1,15 @@
+{
+  "round": 3089,
+  "commit_base": "39ea00fc",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k pet_skills_manage pet_settings pet_ui skill_panel pet_settings_contract",
+    "exit": 0,
+    "passed": 692,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T10:04:44"
+}

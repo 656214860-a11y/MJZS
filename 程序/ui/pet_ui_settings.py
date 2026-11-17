@@ -158,10 +158,10 @@ class PetSettingsMixin:
         return pet_models_ui.open_manager(self)
     # ── 设置（第 44 期：左上角那颗齿轮 → 基础功能／模型配置／自动化等级／预算） ──────
     def open_settings(self, tab=None):
-        """齿轮与右键「设置」都走这里：一扇窗四格；tab 给了就直接落在那一格。
+        """齿轮与右键「设置」都走这里：一扇窗七格；tab 给了就直接落在那一格。
 
-        规格（用户附件第二节 ＋ 本轮要求）：三虎设置改名「设置」，四格＝基础功能、模型配置、
-        自动化等级、预算；附件里的 SKILL 管理这一轮不做。
+        规格（用户附件第二节 ＋ 本轮要求）：三虎设置改名「设置」；R3089（生命周期
+        任务书 T7）把「SKILL 管理」格落地为安装级增删查页，阶段勾选仍归阶段面板。
         """
         import ui.pet_settings_ui as pet_settings_ui
         return pet_settings_ui.open_hub(self, tab)

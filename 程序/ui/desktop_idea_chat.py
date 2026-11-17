@@ -771,12 +771,15 @@ class _FlowAgentLaunch:
         from stage_execution_service import project_context
         from orchestrator.workflow_context_controller import request_stage_instruction
         from contract.workflow_context_budget import prepare_request_context
-        if self.config['engine']=='codex':
-            from orchestrator.codex_skill_sync import sync_codex_skills
-            sync_result=sync_codex_skills()
-            if sync_result['errors'] or sync_result['conflicts']:
-                raise ValueError('Codex 技能同步未完成：'+ '; '.join(
-                    sync_result['errors']+sync_result['conflicts']))
+        from orchestrator import agent_skill_sync
+        sync_problems=[]
+        for sync_target in agent_skill_sync.ENGINE_TARGETS.get(self.config['engine'],()):
+            sync_result=agent_skill_sync.sync_agent_skills(target=sync_target)
+            sync_label=agent_skill_sync.TARGETS[sync_target]['label']
+            sync_problems.extend(sync_label+'：'+problem
+                                 for problem in sync_result['errors']+sync_result['conflicts'])
+        if sync_problems:
+            raise ValueError('Agent 技能同步未完成：'+ '; '.join(sync_problems))
         data={} if self.intake_only or self.bounded_writing else snapshot(project_context(self.project))
         receipt=self.claim(self.project,self.signature(self.stage,self.prompt,self.followup,self.config,data),self.title)
         if self.on_receipt is not None:self.on_receipt(receipt)
