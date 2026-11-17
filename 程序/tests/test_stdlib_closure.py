@@ -296,9 +296,20 @@ class ResolverTests(unittest.TestCase):
         self.assertIsNotNone(_resolve("os.path"), "`import os.path` 是合法的属性导入，不能误报")
 
     def test_a_package_submodule_must_really_exist(self):
-        self.assertIsNotNone(_resolve("tkinter"), "包本身还在")
-        self.assertIsNone(_locate("tkinter.colorchooser")[0], "被裁掉的子模块不许被父包救活")
-        self.assertIsNone(_resolve("multiprocessing.pool"), "同上")
+        import tempfile
+        from unittest.mock import patch
+        # 用真实最小包检验解析器，不再假定完整随包Python仍裁掉某个标准库。
+        with tempfile.TemporaryDirectory() as temporary:
+            package = os.path.join(temporary, 'fixture_package')
+            os.mkdir(package)
+            with open(os.path.join(package, '__init__.py'), 'w', encoding='utf-8') as stream:
+                stream.write('value = 1\n')
+            module = sys.modules[__name__]
+            with patch.object(module, 'HERE', temporary), patch.object(module, 'LIB', temporary), \
+                    patch.object(module, 'DLLS', temporary):
+                self.assertIsNotNone(_resolve('fixture_package'))
+                self.assertIsNone(_locate('fixture_package.missing')[0])
+                self.assertIsNone(_resolve('fixture_package.missing'))
 
     def test_namespace_package_without_init_is_recognised(self):
         self.assertIsNotNone(_resolve("batch_frames_tool"), "`keyframe_comfy.py` 就是这么引它的")
@@ -312,11 +323,13 @@ class PruneTests(unittest.TestCase):
         self.assertEqual(len(PRUNED), 58)
         self.assertEqual(len(set(PRUNED)), 58, "清单里有重复项")
 
-    def test_pruned_modules_are_still_absent_from_disk(self):
-        back = [name for name in PRUNED if _locate(name)[0] is not None]
-        self.assertEqual(back, [], "这些模块又回到盘上了：从 `模块裁剪备份_20260921_0310.zip`（第 11 条的 56 个）"
-                                   "或 `xml_dom_sax裁剪备份_20260921_0328.zip`（第 14 条的 2 个）恢复"
-                                   "（或升级运行环境）之后，请同步改这张清单与报告 §18.3／§21")
+    def test_bundled_runtime_provides_required_standard_library(self):
+        # R3199/R3211已批准完整3.14随包运行时与白名单依赖；旧58项仅保留历史清单，
+        # 不能再要求升级后的标准库从磁盘消失。依赖闭包可解析仍由上面两道强断言守卫。
+        required = ('tkinter', 'json', 'ssl', 'urllib.request', 'zipfile', 'sqlite3',
+                    'multiprocessing.pool', 'tkinter.colorchooser')
+        missing = [name for name in required if _locate(name)[0] is None]
+        self.assertEqual(missing, [], '当前完整随包运行时缺少必需标准库：' + repr(missing))
 
     def test_no_source_file_imports_a_pruned_module(self):
         heads = {}
