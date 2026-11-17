@@ -1,2 +1,8 @@
-# No pip dependencies. Python 3.10+ with Tkinter (Windows official installer).
-# FFmpeg / FFprobe are configured separately in config.json.
+# Production dependency lock. Versions are authoritative for the bundled runtime.
+# Python with Tkinter; FFmpeg / FFprobe are configured separately.
+requests==2.34.2
+urllib3==2.8.0
+certifi==2026.10.23
+charset-normalizer==3.5.2
+idna==3.20
+Pillow==13.0.0

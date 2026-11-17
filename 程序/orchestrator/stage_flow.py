@@ -13,7 +13,7 @@
 纯标准库、不 import Tk：界面层只调 button_text／button_state／apply_text／follow，
 自检里可以直接喂假控件。
 """
-import app_logging
+import infra.app_logging as app_logging
 from pathlib import Path
 
 import orchestrator.stage_parallel as stage_parallel

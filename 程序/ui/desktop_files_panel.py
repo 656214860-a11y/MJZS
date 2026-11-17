@@ -472,7 +472,7 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
             prompt = '确定将选中的 ' + str(len(paths)) + ' 份剧本文件移入项目回收站吗？\n\n' + names + '\n\n可在对应页面恢复最近删除。' + self.confirmed_note(paths)
         if not self.page.writing_page_services.confirm(self.page.win, '移入回收站', prompt, dangerous=True):
             return
-        from storage_maintenance import recycle_paths
+        from infra.storage_maintenance import recycle_paths
         recycled = recycle_paths(self.page.root, paths, '删除项目剧本' if one else '批量删除项目剧本')
         self.fill_script_list()                  # 部分成功时已进回收站的那些也要从列表消失：先刷新再报错
         if len(recycled) != len(paths):

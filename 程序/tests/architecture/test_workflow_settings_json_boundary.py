@@ -12,7 +12,7 @@ class WorkflowSettingsJsonBoundaryTests(unittest.TestCase):
         path = str(entity_file('workflow_settings'))
         with open(path, encoding='utf-8') as handle:
             source = handle.read()
-        self.assertIn('from file_cache import read_json', source)
+        self.assertIn('from infra.file_cache import read_json', source)
         self.assertIn('loaded=read_json(target)', source)
         self.assertIn('data=read_json(path)', source)
         self.assertIn('all_settings=read_json(path)', source)

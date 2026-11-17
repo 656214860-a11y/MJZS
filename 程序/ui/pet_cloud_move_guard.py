@@ -7,7 +7,7 @@ lift、置顶）会让系统换了活动窗，拖动当场中断——用户看�
 """
 import sys
 
-import app_logging
+import infra.app_logging as app_logging
 
 GUI_INMOVESIZE = 0x2        # GUITHREADINFO.flags：前台线程正处在移动／缩放的模态循环里
 MOVE_RETRY_MS = 120         # 等松手的轮询间隔

@@ -186,7 +186,13 @@ class SharedWorktreeQueueTests(unittest.TestCase):
         script = self.repo / "程序/维护记录/基准脚本/round_claim.py"
         script.parent.mkdir(parents=True)
         script.write_bytes(SCRIPT.read_bytes())
-        self.git("-C", str(self.repo), "add", "--", "程序/维护记录/基准脚本/round_claim.py")
+        lanes = script.with_name("lane_registry.py")
+        lanes.write_bytes(SCRIPT.with_name("lane_registry.py").read_bytes())
+        entry = self.repo / "程序/scripts/dev.py"
+        entry.parent.mkdir(parents=True)
+        entry.write_bytes((PROGRAM / "scripts/dev.py").read_bytes())
+        self.git("-C", str(self.repo), "add", "--", "程序/维护记录/基准脚本/round_claim.py",
+                 "程序/维护记录/基准脚本/lane_registry.py", "程序/scripts/dev.py")
         self.git("-C", str(self.repo), "-c", "user.name=Queue Test", "-c",
                  "user.email=queue@example.invalid", "commit", "-m", "script fixture")
         self.trees = [self.root / name for name in ("A", "B")]
@@ -212,7 +218,7 @@ class SharedWorktreeQueueTests(unittest.TestCase):
                                 capture_output=True, timeout=20)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn(b"detached HEAD", result.stderr)
-        self.assertIn(b"git switch -c codex/R1-main", result.stderr)
+        self.assertIn(b"git switch -c codex/r1-main", result.stderr)
         self.assertFalse((self.common / round_claim.COUNTER_NAME).exists())
         self.git("-C", str(tree), "switch", "-c", "codex/test-lane")
         result = subprocess.run([sys.executable, str(script), "next"], cwd=script.parent,
@@ -232,18 +238,71 @@ class SharedWorktreeQueueTests(unittest.TestCase):
         self.assertFalse((self.common / round_claim.COUNTER_NAME).exists())
         self.assertEqual(self.git("-C", str(self.repo), "branch", "--show-current").strip(), b"master")
 
-    def test_dirty_next_cli_claims_then_parks_changes_on_wip_branch(self):
-        # 契约有意变更：脏树不再拒绝领号，而是领号后把改动原样带到 codex/wip-R<号>。
+    def test_dirty_next_cli_claims_then_parks_changes_on_lowercase_wip_branch(self):
+        # 非 codex 的旧工作分支仍自动停泊，新建名称使用小写 kebab。
         tree = self.trees[0]
         script = tree / "程序/维护记录/基准脚本/round_claim.py"
-        self.git("-C", str(tree), "switch", "-c", "codex/test-lane")
+        self.git("-C", str(tree), "switch", "-c", "old-task")
         (tree / "draft.txt").write_text("unfinished", encoding="utf-8")
         result = subprocess.run([sys.executable, str(script), "next"], cwd=script.parent,
                                 capture_output=True, timeout=20)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.strip(), b"1")
-        self.assertEqual(self.git("-C", str(tree), "branch", "--show-current").strip(), b"codex/wip-R1")
+        self.assertEqual(self.git("-C", str(tree), "branch", "--show-current").strip(), b"codex/wip-r1")
         self.assertEqual((tree / "draft.txt").read_text(encoding="utf-8"), "unfinished")
+        claims = json.loads((self.common / round_claim.CLAIMS_NAME).read_text(encoding="utf-8"))
+        self.assertEqual(claims["claims"]["1"]["branch"], "codex/wip-r1")
+        lanes = json.loads((self.common / "lanes.json").read_text(encoding="utf-8"))["lanes"]
+        self.assertEqual(lanes[tree.name]["branch"], "codex/wip-r1")
+
+    def test_claim_new_branch_rejects_bad_names_before_any_state_write(self):
+        tree = self.trees[0]
+        self.git("-C", str(tree), "switch", "-c", "codex/existing-task")
+        entry = tree / "程序/scripts/dev.py"
+        for name in ("", "codex/", "codex/Whitelist-framework", "codex/white_list",
+                     "codex/task/nested", "codex/-task", "codex/task-", "codex/task--name",
+                     "task-name", "codex/task name"):
+            with self.subTest(branch=name):
+                before = sorted(path.name for path in self.common.iterdir())
+                result = subprocess.run([sys.executable, "-B", str(entry), "claim", "--branch", name],
+                                        cwd=entry.parent, capture_output=True, timeout=20)
+                self.assertEqual(result.returncode, 2, result.stderr)
+                self.assertIn(b"codex/<lowercase-kebab-task>", result.stderr)
+                self.assertEqual(sorted(path.name for path in self.common.iterdir()), before)
+                self.assertFalse((self.common / round_claim.COUNTER_NAME).exists())
+                self.assertEqual(self.git("-C", str(tree), "branch", "--show-current").strip(),
+                                 b"codex/existing-task")
+
+    def test_dev_claim_forwards_valid_new_branch_and_preserves_claim_registration(self):
+        tree = self.trees[0]
+        self.git("-C", str(tree), "switch", "-c", "codex/existing-task")
+        entry = tree / "程序/scripts/dev.py"
+        result = subprocess.run([sys.executable, "-B", str(entry), "claim", "--branch",
+                                 "codex/whitelist-framework"], cwd=entry.parent,
+                                capture_output=True, timeout=20)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), b"1")
+        self.assertEqual(self.git("-C", str(tree), "branch", "--show-current").strip(),
+                         b"codex/whitelist-framework")
+        claims = json.loads((self.common / round_claim.CLAIMS_NAME).read_text(encoding="utf-8"))
+        self.assertEqual(claims["claims"]["1"]["branch"], "codex/whitelist-framework")
+        self.assertEqual(Path(claims["claims"]["1"]["worktree"]), tree)
+        lanes = json.loads((self.common / "lanes.json").read_text(encoding="utf-8"))["lanes"]
+        self.assertEqual(lanes[tree.name]["branch"], "codex/whitelist-framework")
+        self.assertEqual(Path(lanes[tree.name]["worktree"]), tree)
+
+    def test_existing_dirty_codex_branches_are_not_renamed(self):
+        for tree, branch in zip(self.trees, ("codex/whitelist-framework", "codex/wip-R987")):
+            with self.subTest(branch=branch):
+                self.git("-C", str(tree), "switch", "-c", branch)
+                draft = tree / "draft.txt"
+                draft.write_text("unfinished", encoding="utf-8")
+                script = tree / "程序/维护记录/基准脚本/round_claim.py"
+                result = subprocess.run([sys.executable, "-B", str(script), "next"], cwd=script.parent,
+                                        capture_output=True, timeout=20)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(self.git("-C", str(tree), "branch", "--show-current").strip().decode(), branch)
+                self.assertEqual(draft.read_text(encoding="utf-8"), "unfinished")
 
     def test_ahead_over_limit_refuses_next_without_allocating(self):
         tree = self.trees[0]

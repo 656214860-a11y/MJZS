@@ -20,7 +20,7 @@
 第 60 期第 3 条：单击（点亮这一行）不打开；第 64 期任务 12 起改成**双击打开**——
 要看这一格的文件双击缩略图，或者走右键菜单里的「查看」。
 """
-import app_logging
+import infra.app_logging as app_logging
 from ui.cell_menu import (ROW_MENU_DELETE, ROW_MENU_VIEW, bind_row_menu, call_delete,
                        popup_row_menu, wants_column)
 from ui_tokens import COLORS, SPACING

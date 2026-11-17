@@ -11,7 +11,7 @@ from pathlib import Path
 
 import contract.artifact_schema as artifact_schema
 from agent.core import save
-from file_cache import path_key, read_json
+from infra.file_cache import path_key, read_json
 
 PROGRAM = Path(__file__).resolve().parents[1]
 MATERIAL_TYPES = ('项目设定', '项目大纲', '角色卡', '自然剧本')

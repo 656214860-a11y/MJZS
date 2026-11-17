@@ -10,7 +10,7 @@ from unittest.mock import MagicMock
 import desktop
 from projects import Projects
 from stage_execution_service import project_registry_gateway
-from storage_maintenance import recycle_base, restore_recycle_batch
+from infra.storage_maintenance import recycle_base, restore_recycle_batch
 
 
 def dump(path, data):

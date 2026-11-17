@@ -6,7 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock, patch
 
-import storage_maintenance as storage
+import infra.storage_maintenance as storage
 from agent.core import save
 from ui.desktop_project_pages import ProjectPagesMixin
 

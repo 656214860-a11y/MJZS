@@ -849,7 +849,7 @@ class MediaPagesMixin:
         edit_button('校验交接包',self.verify_handoff)
         edit_button('校验并确认本阶段成果',lambda:self.confirm_stage_media('edit'))
         f=edit_dir/'剪辑优化清单.md'
-        from file_cache import read_text
+        from infra.file_cache import read_text
         box=self.text(read_text(f,encoding='utf-8') if f.exists() else '□ 删除多余停顿\n□ 检查对白口型\n□ 校对字幕\n□ 统一人声与环境音量\n□ 检查角色、镜头衔接\n□ 检查片头片尾和导出比例',8)
         from stage_execution_service import save_stage_editing_checklist
         edit_button('保存剪辑优化清单',lambda:save_stage_editing_checklist(self.root,box.get('1.0','end-1c')),primary=True)

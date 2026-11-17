@@ -435,7 +435,7 @@ def _sync_agents_background(program):
             from orchestrator import agent_skill_sync
             agent_skill_sync.sync_all_agent_skills(program=program)
         except Exception:
-            import app_logging
+            import infra.app_logging as app_logging
             app_logging.swallowed('SKILL 管理页改名后 agent 同步失败')
     threading.Thread(target=run, name='skills-manage-agent-sync', daemon=True).start()
 

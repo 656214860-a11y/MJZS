@@ -1,5 +1,5 @@
 """Send asset data to the installed ComfyUI; import completed results by ID."""
-import app_logging
+import infra.app_logging as app_logging
 import base64
 import hashlib
 import json
@@ -10,7 +10,7 @@ import threading
 import time
 import uuid
 from pathlib import Path
-from file_cache import remove_temporary_file
+from infra.file_cache import remove_temporary_file
 from urllib.parse import urlencode
 # 第 34 期第 9 条：`urllib.error` 连 http.client／ssl 一起加载（约 4.4 MB 常驻），
 # 本模块只在真要连 ComfyUI 时用得到——改成函数内 import。

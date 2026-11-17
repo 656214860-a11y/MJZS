@@ -127,7 +127,7 @@ def origin_path(root):
 
 
 def _read_origins(root):
-    from file_cache import read_json
+    from infra.file_cache import read_json
     target = origin_path(root)
     try:
         _relative(root, target.absolute())
@@ -270,7 +270,7 @@ def published_paths(project):
 
 def _paths_in(manifest, keys, root=None):
     """只取已审核完成清单中的安全相对路径；不读取越界清单。"""
-    from file_cache import read_json
+    from infra.file_cache import read_json
     try:
         _relative(root, manifest)
         data = read_json(manifest)
@@ -382,7 +382,7 @@ def global_config_path(program=None):
 
 def read_global_dir(program=None):
     """读全局素材库目录；未设置、文件缺失或内容非法时返回 ``None``。"""
-    from file_cache import read_json
+    from infra.file_cache import read_json
     try:
         data = read_json(global_config_path(program))
     except (OSError, ValueError):
@@ -497,7 +497,7 @@ def _refresh(root, data, global_library=False):
 
 def read_global(library):
     """读取全局素材库索引；缺失／损坏／版本不符返回 ``None``。"""
-    from file_cache import read_json
+    from infra.file_cache import read_json
     try:
         _relative(library, global_index_path(library).absolute())
         data = read_json(global_index_path(library))
@@ -532,7 +532,7 @@ def search_global(library, kind=None, name=None, now=None):
 
 def read(project):
     """读取索引；不存在、损坏或版本不符时返回 ``None``（调用方据此重建）。"""
-    from file_cache import read_json
+    from infra.file_cache import read_json
     try:
         _relative(project, index_path(project).absolute())
         data = read_json(index_path(project))

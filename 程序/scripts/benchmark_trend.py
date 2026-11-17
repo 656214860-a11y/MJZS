@@ -172,7 +172,7 @@ def startup_trend_report(rows):
 
 def main(argv=None):
     try:
-        import file_cache
+        import infra.file_cache as file_cache
         common = _git_common_dir()
         receipts = Path(common) / 'full-safe-receipts.json' if common else None
         document = file_cache.read_json(receipts) if receipts and receipts.exists() else None

@@ -25,7 +25,7 @@ import tkinter as tk
 from ctypes import wintypes
 from pathlib import Path
 
-import app_logging
+import infra.app_logging as app_logging
 import contract.platform_tools as platform_tools
 
 REPO_ROOT = Path(__file__).resolve().parents[2]

@@ -1,0 +1,15 @@
+{
+  "round": 3242,
+  "commit_base": "2930fbd1",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k stdlib_closure http_client execution_deadline dependency_whitelist",
+    "exit": 0,
+    "passed": 62,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T23:56:36"
+}

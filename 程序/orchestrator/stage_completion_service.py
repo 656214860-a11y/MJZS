@@ -611,7 +611,7 @@ def preparation_progress(project):
                 指向重新生成或修订后重新采用；
       next_actions —— 按现状推导的下一步动作建议元组。
     """
-    from file_cache import read_json
+    from infra.file_cache import read_json
     from contract.stage_path_service import write_dir
     from writing_api import PREPARATION_STAGES
     folder = write_dir(project, 'script').resolve()
@@ -678,7 +678,7 @@ def _script_adoption_state(project):
 
     只读 selection 记录与文件存在性；sha 等完整核验由 resolve_script_source
     在完成核验时执行，这里不重复。"""
-    from file_cache import read_json
+    from infra.file_cache import read_json
     from contract.script_contract import natural_script_selection_path
     selection = natural_script_selection_path(project)
     record = read_json(selection) if selection.is_file() else None
@@ -828,7 +828,7 @@ def publish_stage_manifest(root, stage):
                 try:
                     wm.sync_project_copy(context, sid, source, publish=save)
                 except (OSError, ValueError):
-                    import app_logging
+                    import infra.app_logging as app_logging
                     app_logging.swallowed('预演项目内副本未写入')
     index = wm.read_project_index(context)
     index.update(stage='previs', generated_at=stamp, required=required)

@@ -72,7 +72,7 @@ class StatusBridgeMixin:
         var,trace_id=pair
         try:var.trace_remove('write',trace_id)
         except Exception:
-            import app_logging
+            import infra.app_logging as app_logging
             app_logging.swallowed('解除状态段绑定')
 
     def clear_page_segments(self):

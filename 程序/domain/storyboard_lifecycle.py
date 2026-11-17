@@ -70,7 +70,7 @@ def retire(context,source,target,expected,publish=None):
     aliases[old]=new;publish(file,aliases)
     if hashlib.sha256(source.read_bytes()).hexdigest()!=expected:raise ValueError('原稿正在写入，已保留')
     # 定稿已验证、别名也已更新；工作原稿必须走统一回收站，失败时保留原稿。
-    from storage_maintenance import recycle_paths
+    from infra.storage_maintenance import recycle_paths
     if not recycle_paths(project,[source],'定稿替换原始分镜'):
         raise ValueError('原稿未能安全移入回收站，已保留')
 

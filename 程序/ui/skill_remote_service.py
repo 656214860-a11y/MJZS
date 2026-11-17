@@ -28,9 +28,9 @@ import urllib.error
 import urllib.parse
 from pathlib import Path
 
-import app_logging
+import infra.app_logging as app_logging
 from contract import platform_tools
-from storage_maintenance import recycle_paths
+from infra.storage_maintenance import recycle_paths
 import ui.skill_archive as skill_archive
 import ui.skill_import_service as skill_import_service
 import orchestrator.skill_registry as skill_registry

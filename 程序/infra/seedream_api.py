@@ -1,5 +1,5 @@
 """Volcengine Seedream profiles and direct Images API, shared with the assistant."""
-import app_logging
+import infra.app_logging as app_logging
 import base64
 import json
 import os

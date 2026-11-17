@@ -1,7 +1,7 @@
 """L3 项目上下文装配：供编排模块共享，不依赖具体阶段执行器。"""
 from pathlib import Path
 
-import file_cache
+import infra.file_cache as file_cache
 from contract.project_context import ProjectContext
 from contract.stage_path_service import write_dir
 

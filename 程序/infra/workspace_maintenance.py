@@ -25,7 +25,7 @@ import sys
 import time
 
 from contract.platform_tools import launch_background, run_process, tool_path
-from storage_maintenance import remove_regenerable_tree
+from infra.storage_maintenance import remove_regenerable_tree
 
 
 PROGRAM = Path(__file__).resolve().parents[1]

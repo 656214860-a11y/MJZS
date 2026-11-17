@@ -1,0 +1,19 @@
+{
+ "kind": "actual-full-safe-receipt-summary",
+ "source": "git-common-dir/full-safe-receipts.json and auto-full-safe-result.json",
+ "round": 3233,
+ "head": "3a2d169c84e707d9c58e710a8cabc2a4e5a6136e",
+ "program_tree": "f0bd6ea5ccb17f12c63f5c8ac5082c10a6c98195",
+ "command": "run_selftests.py --all --safe",
+ "runtime": "bundled Python 3.14.7",
+ "hidden_desktop": true,
+ "clean_worktree": true,
+ "test_count": 8450,
+ "failed_modules": [],
+ "returncode": 0,
+ "test_seconds": 977.706,
+ "process_seconds": 990,
+ "finished_at_local": "2026-11-17T23:15:52+08:00",
+ "last_full_safe_all_round": 3233,
+ "generated_by": "summary of observed runner receipts; not a replacement for runner-owned receipts"
+}

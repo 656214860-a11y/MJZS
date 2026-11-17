@@ -4,9 +4,9 @@ from pathlib import Path
 import logging
 from functools import wraps
 from agent.core import read
-from file_cache import read_stable_json_snapshot
+from infra.file_cache import read_stable_json_snapshot
 from contract.project_stages import storyboard
-from storage_maintenance import recycle_paths
+from infra.storage_maintenance import recycle_paths
 
 ALIAS_FILE='文件路径映射.json'
 
@@ -45,7 +45,7 @@ def _publish_final_bundle(episodefile, assetfile, episode, assets, validate, *, 
         publish_json(episodefile, episode)
         validate(read(episodefile), read(assetfile))
     except Exception:
-        from file_cache import remove_temporary_file
+        from infra.file_cache import remove_temporary_file
         for file, raw in ((episodefile, old_episode), (assetfile, old_assets)):
             if raw is not None:
                 publish_bytes(file, raw)

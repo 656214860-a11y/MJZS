@@ -19,7 +19,7 @@
 （实测全量约 318 秒，原来写 300 秒会误报超时）；输出落临时文件、不走管道，超时也不会卡住
 （走上管道时，进程池里那些子进程会攥着管道不放，`communicate()` 一直等 EOF，实测挂 15 分钟不返回）。
 """
-import app_logging
+import infra.app_logging as app_logging
 import ast
 import importlib
 import json

@@ -1,5 +1,5 @@
 """启动画面 Splash（L4，自 ui_widgets 拆出；``ui_widgets`` 仍转出同名符号）。"""
-import app_logging
+import infra.app_logging as app_logging
 import time as _time
 import tkinter as tk
 import ui_tokens as T

@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from agent.core import save
-import file_cache
+import infra.file_cache as file_cache
 import stage_config
 import stage_execution_service as service
 from contract.script_contract import PRODUCTION_LOCK_DEFINITIONS

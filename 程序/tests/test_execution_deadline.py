@@ -40,11 +40,13 @@ class ExecutionDeadlineTests(unittest.TestCase):
             adapter = adapter_type.__new__(adapter_type)
             adapter.cfg = {}
             adapter.endpoint = adapter.base = 'https://example.invalid'
-            with mock.patch('urllib.request.build_opener') as opener:
+            with mock.patch('infra.http_client._default_opener') as opener:
                 with platform_tools.execution_scope(control), self.assertRaises(platform_tools.ExecutionStopped):
                     adapter.call(payload={})
                 opener.assert_not_called()
                 response = opener.return_value.open.return_value.__enter__.return_value
+                response.status = 200
+                response.headers = {}
                 import json
                 body = json.dumps(receipt).encode()
                 response.read.side_effect = [body, b'']

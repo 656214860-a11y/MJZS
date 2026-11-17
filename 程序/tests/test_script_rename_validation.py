@@ -15,7 +15,7 @@ from pathlib import Path
 
 from contract import project_stages
 import script_workspace_service as service
-from file_cache import read_text
+from infra.file_cache import read_text
 from infra import file_index
 
 

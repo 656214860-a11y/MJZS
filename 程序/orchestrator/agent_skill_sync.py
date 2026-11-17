@@ -17,7 +17,7 @@ import threading
 
 from agent.core import read_json, save, save_text
 from orchestrator.skill_registry import default_registry, parse, stage_from_path
-from storage_maintenance import recycle_paths
+from infra.storage_maintenance import recycle_paths
 
 _LOCK = threading.RLock()
 _MARKER = '.assistant-skill-sync.json'
@@ -111,7 +111,7 @@ def sync_all_agent_skills(program=None, homes=None, targets=None):
             report = sync_agent_skills(program=program, target=target,
                                        skill_home=homes.get(target))
         except Exception as exc:  # noqa: BLE001 - 单目标失败不拖垮其他目标
-            import app_logging
+            import infra.app_logging as app_logging
             app_logging.swallowed('agent 技能同步 %s 失败' % target)
             report['errors'].append(str(exc))
         reports[target] = report
@@ -206,7 +206,7 @@ def start_agent_skill_sync(program=None, before=None, targets=None):
         try:
             before()
         except Exception:  # noqa: BLE001 - 维护前置步骤失败不能拖垮同步
-            import app_logging
+            import infra.app_logging as app_logging
             app_logging.swallowed('Agent 技能同步前置维护失败')
         sync_all_agent_skills(program=program, targets=targets)
 

@@ -21,7 +21,7 @@ from pathlib import Path
 
 PROGRAM = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROGRAM))
-import file_cache  # noqa: E402
+import infra.file_cache as file_cache  # noqa: E402
 
 REGISTRY = PROGRAM / '维护记录' / '外部技能包哈希.json'
 

@@ -34,10 +34,10 @@
 | `程序/.selftmp/**`、`.selftmp/**` | 临时产物 | 可再生的自检或维护临时文件。 |
 | `程序/**/__pycache__/**`、`程序/**/*.pyc` | 字节码缓存 | 可由解释器重新生成。 |
 | `程序/**/.git/**` | 源控制元数据 | 不属于运行时。 |
-| `程序/logs/**`、`启动错误.log`、`程序/.*.out`、`程序/log.txt` | 历史运行日志与自检输出 | 正式副本不携带既有日志；运行期仍按现有行为创建日志。 |
+| `程序/logs/**`、`启动错误.log`、`_wm.log`、`程序/.*.out`、`程序/log.txt` | 历史运行日志与自检输出 | 正式副本不携带既有日志；运行期仍按现有行为创建日志。 |
 | `程序/private/**` | 本机私有数据 | 不得随分发副本携带私有配置或密钥副本。 |
 | `程序/data/skills/**` | 用户导入的 SKILL | R2073：用户层 SKILL 与导入台账，由目标机器生成；升级只保留不覆盖。 |
-| `.claude/**`、`.codex/**`、`.agents/**`、`.tools/**`、`outputs/**`（本机 Agent 草稿目录与第三方下载工具，已被 .git/info/exclude 忽略） | 代理/开发产物 | 不是运行时内容，不进正式副本。 |
+| `.claude/**`、`.codex/**`、`.agents/**`、`.agent-handoff/**`、`.tools/**`、`outputs/**`（本机 Agent 草稿目录与第三方下载工具，已被 .git/info/exclude 忽略） | 代理/开发产物 | 不是运行时内容，不进正式副本。 |
 | `.wt/**`、`.gitattributes`、`.gitignore`、`.claudeignore`、`AGENTS.md`、`CLAUDE.md`、`开发者工具/BLOCKED_ISSUES.md`、`reorganize_install.py`、`开发者工具/handoff-full-safe.md` | 开发/代理资料 | 不是运行时内容。 |
 | `程序/.*.err`、`程序/.*.out`、`程序/.*.log`、`维护记录/**` | 自检与维护产物 | 可再生成的诊断输出。 |
 | `程序/outputs/**`、`程序/工作流任务/**`、`工作流任务/**`、`程序/episode/**`、`程序/tasks/**`、`程序/_supervisor/**` | 本地运行产物 | 可再生产物与根目录开发任务现场，不随分发副本携带。 |
@@ -50,7 +50,7 @@
 | `安装信息.json`、`程序/config.json`、`程序/desktop_settings.json`、`程序/projects.json`、`程序/task-execution.log`、`程序/漫剧制作助手.lnk` | 本机状态 | 安装记录、用户配置、项目索引与本机快捷方式，由目标机器生成；升级也只保留不覆盖。 |
 | `程序/h3_launcher.pyw` | 个人开发工具 | 写死本机 ComfyUI 路径的临时启动器，不随分发。 |
 | `程序/reference/**` | 参考资料 | 外部参考仓库快照，非运行时内容。 |
-| `程序/pyproject.toml`、`程序/dev-requirements.txt`、`程序/.ruff_cache/**`、`程序/.mypy_cache/**`、`程序/.gitleaks.toml`、`程序/external_tools.lock.json`、`程序/SECURITY.md`、`程序/CHANGELOG.md`、`程序/GLOSSARY.md`、`程序/docs/adr/**` | 开发期工具与治理文档 | 静态分析、密钥扫描配置与治理文档；运行时仍零第三方依赖，不进分发副本。 |
+| `程序/pyproject.toml`、`程序/dev-requirements.txt`、`程序/.ruff_cache/**`、`程序/.mypy_cache/**`、`程序/.gitleaks.toml`、`程序/external_tools.lock.json`、`程序/SECURITY.md`、`程序/CHANGELOG.md`、`程序/GLOSSARY.md`、`程序/docs/adr/**` | 开发期工具与治理文档 | 静态分析、密钥扫描配置与治理文档；运行时仅包含requirements.txt锁定的白名单依赖，开发工具不进分发副本。 |
 
 ## 运行期维护与分发的区别
 

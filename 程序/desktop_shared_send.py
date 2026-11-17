@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import app_logging
+import infra.app_logging as app_logging
 import domain.skill_command as skill_command
 from contract import pet_bus
 

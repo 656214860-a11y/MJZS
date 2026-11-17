@@ -19,7 +19,7 @@ import time
 from json import loads as _json_loads
 from pathlib import Path
 
-import app_logging
+import infra.app_logging as app_logging
 import contract.platform_tools as platform_tools
 
 PROGRAM = Path(__file__).resolve().parents[1]

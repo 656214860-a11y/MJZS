@@ -15,7 +15,7 @@ import zipfile
 from datetime import datetime, timedelta
 from pathlib import Path
 
-import app_logging
+import infra.app_logging as app_logging
 from agent.core import read_json, save_bytes, save_text
 from infra.log_maintenance import RETENTION_DAYS
 

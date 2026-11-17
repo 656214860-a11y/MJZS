@@ -3,7 +3,7 @@
 方法体未改、self 语义不变，Cloud 通过继承 CloudTimingMixin 获得；自停／渐隐／读秒参数随方法迁出，
 由 pet_cloud 按原名转回。仍与 Tk 控件紧耦合，故与 pet_cloud 同属 L4。
 """
-import app_logging
+import infra.app_logging as app_logging
 from ui.pet_cloud_shape import SHAPE_ROUND
 from ui_tokens import PET_CLOUD_AUTO_CLOSE_MS
 

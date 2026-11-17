@@ -42,7 +42,7 @@ class _TkCase(unittest.TestCase):
             self.skipTest(PLATFORM_TK_DISPLAY)
         self.win.withdraw()
         self.addCleanup(self._destroy_root)
-        import app_logging
+        import infra.app_logging as app_logging
         self.app_logging = app_logging
 
     def _destroy_root(self):

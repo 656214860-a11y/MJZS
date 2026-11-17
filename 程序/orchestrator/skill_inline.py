@@ -28,7 +28,7 @@ def _skill_inline_budget(config):
         import infra.model_pool as model_pool
         record = model_pool.pool(program=Path(__file__).resolve().parents[1]).get(model) or {}
     except Exception:
-        import app_logging
+        import infra.app_logging as app_logging
         app_logging.swallowed()
         return None
     budget = skill_inline_token_budget(model_pool.context_length_of(record.get('context_length')))

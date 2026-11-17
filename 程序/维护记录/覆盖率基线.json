@@ -79,6 +79,12 @@
    "percent": 0.0
   },
   {
+   "module": "app_logging.py",
+   "covered": 0,
+   "total": 4,
+   "percent": 0.0
+  },
+  {
    "module": "app_shortcut.py",
    "covered": 0,
    "total": 170,
@@ -393,7 +399,7 @@
   {
    "module": "contract/storyboard_contract.py",
    "covered": 0,
-   "total": 10,
+   "total": 9,
    "percent": 0.0
   },
   {
@@ -1132,6 +1138,12 @@
    "module": "environment_check.py",
    "covered": 0,
    "total": 157,
+   "percent": 0.0
+  },
+  {
+   "module": "file_cache.py",
+   "covered": 0,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -2242,6 +2254,12 @@
    "module": "stage_parallel.py",
    "covered": 0,
    "total": 3,
+   "percent": 0.0
+  },
+  {
+   "module": "storage_maintenance.py",
+   "covered": 0,
+   "total": 6,
    "percent": 0.0
   },
   {
@@ -3548,9 +3566,9 @@
   },
   {
    "module": "agent/media.py",
-   "covered": 16,
-   "total": 89,
-   "percent": 18.0
+   "covered": 17,
+   "total": 93,
+   "percent": 18.3
   },
   {
    "module": "orchestrator/skill_project_layer.py",
@@ -3619,7 +3637,7 @@
    "percent": 21.8
   },
   {
-   "module": "app_logging.py",
+   "module": "infra/app_logging.py",
    "covered": 59,
    "total": 265,
    "percent": 22.3
@@ -3709,7 +3727,7 @@
    "percent": 30.8
   },
   {
-   "module": "storage_maintenance.py",
+   "module": "infra/storage_maintenance.py",
    "covered": 244,
    "total": 747,
    "percent": 32.7
@@ -3757,16 +3775,10 @@
    "percent": 44.2
   },
   {
-   "module": "file_cache.py",
+   "module": "infra/file_cache.py",
    "covered": 78,
    "total": 158,
    "percent": 49.4
-  },
-  {
-   "module": "contract/media_signature.py",
-   "covered": 3,
-   "total": 6,
-   "percent": 50.0
   },
   {
    "module": "orchestrator/stage_publication.py",
@@ -3848,9 +3860,9 @@
   },
   {
    "module": "agent/publication.py",
-   "covered": 143,
+   "covered": 145,
    "total": 159,
-   "percent": 89.9
+   "percent": 91.2
   },
   {
    "module": "domain/video_lifecycle_service.py",
@@ -3917,8 +3929,14 @@
    "covered": 4,
    "total": 4,
    "percent": 100.0
+  },
+  {
+   "module": "contract/media_signature.py",
+   "covered": 3,
+   "total": 6,
+   "percent": 50.0
   }
  ],
  "modules_covered": 75,
- "modules_total": 651
+ "modules_total": 654
 }

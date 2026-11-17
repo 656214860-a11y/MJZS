@@ -38,7 +38,7 @@
 一句话交给 pet_agent.Agent.dispatch：规则命中不花 Token，未命中才问一次 Flash；请求放后台线程，
 结果只进 queue.Queue，由宠物既有的 150ms 心跳（Pet.cloud_drain）贴回来——worker 里一行 Tk 都不碰。
 """
-import app_logging
+import infra.app_logging as app_logging
 import queue
 import re
 import threading

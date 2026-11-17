@@ -32,7 +32,7 @@ def _copy_stage_for_write(project, stage, *, source=None):
     import os
     import shutil
     import tempfile
-    from file_cache import remove_temporary_tree
+    from infra.file_cache import remove_temporary_tree
     from contract.stage_path_service import existing_dir
     root = Path(project).resolve()
     target = write_dir(root, stage)

@@ -1,9 +1,9 @@
 """阶段执行所需的编排器与上下文，不依赖配置面板。"""
-import app_logging
+import infra.app_logging as app_logging
 import json
 from pathlib import Path
 
-import file_cache
+import infra.file_cache as file_cache
 import infra.model_pool as model_pool
 import infra.model_router as model_router
 import orchestrator.skill_budget as skill_budget
@@ -406,7 +406,7 @@ def read_idea_semantic_brief(request):
 def idea_chat_gateway():
     """为 ``idea_chat`` 注入缓存读取与原子发布；L2 不可自行落盘。"""
     from agent.core import save, save_text
-    from storage_maintenance import recycle_paths
+    from infra.storage_maintenance import recycle_paths
     return {
         'read_json': file_cache.read_json,
         'publish_json': save,
@@ -605,9 +605,9 @@ def save_edited_stage_storyboard(path, data):
 
 def storyboard_gateway():
     from agent.core import save, save_bytes
-    from file_cache import remove_temporary_file
+    from infra.file_cache import remove_temporary_file
     from agent.core import save_bytes_new
-    from storage_maintenance import recycle_paths
+    from infra.storage_maintenance import recycle_paths
     return {'publish_json': save, 'publish_bytes': save_bytes, 'publish_bytes_new': save_bytes_new,
             'recycle_paths': recycle_paths,
             'remove_temporary_file': remove_temporary_file}

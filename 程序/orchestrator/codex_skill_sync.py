@@ -22,7 +22,7 @@ def start_codex_skill_sync(program=None, before=None):
         try:
             before()
         except Exception:  # noqa: BLE001 - 维护前置步骤失败不能拖垮同步
-            import app_logging
+            import infra.app_logging as app_logging
             app_logging.swallowed('Codex 同步前置维护失败')
         sync_codex_skills(program=program)
 

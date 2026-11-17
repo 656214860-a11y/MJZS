@@ -13,7 +13,7 @@ def launch_cleanup(program, *, forced=False):
     if forced:
         result.update(logs='skipped-force', workspace='skipped-force')
     try:
-        from storage_maintenance import launch_cleanup as storage
+        from infra.storage_maintenance import launch_cleanup as storage
         result['storage'] = 'launch-failed'
         storage(program)
         result['storage'] = 'scheduled'

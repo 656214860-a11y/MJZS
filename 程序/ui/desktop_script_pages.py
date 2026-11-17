@@ -739,7 +739,7 @@ class _ContentBox:
         selected = self.file_list.selection()
         from domain.script_workspace_service import selected_workspace_document
         destination = selected_workspace_document(self.available, selected[0] if selected else None)
-        from storage_maintenance import recycle_paths
+        from infra.storage_maintenance import recycle_paths
         records = recycle_paths(self.owner.page.root, [destination], '删除' + self.title)
         if not records:
             raise ValueError('未能安全移入项目回收站，原文件未删除。')

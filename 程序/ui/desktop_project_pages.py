@@ -22,7 +22,7 @@ from ui.ui_icons import IconLoader
 from ui_widgets import (BaseDialog, Card, DataTable, NotificationDispatcher, PrimaryButton, SecondaryButton,
                         Tooltip, ask_string)
 from orchestrator.recycle_recovery_controller import RecycleRecoveryController
-import storage_maintenance as recycle_storage
+import infra.storage_maintenance as recycle_storage
 from dataclasses import dataclass
 from typing import Callable
 

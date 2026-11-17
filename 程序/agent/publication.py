@@ -63,7 +63,7 @@ def _discard(folder):
     if folder.parent != ROOT.resolve() or len(folder.name) != 32:
         raise RuntimeError('非法发布事务目录，已停止清理')
     int(folder.name, 16)
-    from file_cache import remove_temporary_tree
+    from infra.file_cache import remove_temporary_tree
     remove_temporary_tree(folder)
     if folder.exists():
         raise OSError('发布事务临时目录清理未完成：' + str(folder))
@@ -101,7 +101,7 @@ def _recover(folder):
                     temp.unlink(missing_ok=True)
             else:
                 target.unlink(missing_ok=True)
-            from file_cache import published
+            from infra.file_cache import published
             published(target)
         record['state'] = 'rolled_back'
         _write(folder, record)

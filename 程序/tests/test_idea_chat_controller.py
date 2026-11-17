@@ -35,7 +35,7 @@ class IdeaChatControllerTests(unittest.TestCase):
     def test_cancelled_request_can_delete_upload_after_mode_switch(self):
         from domain.idea_attachments import archive_pair
         from stage_execution_service import archive_idea_attachments, stage_idea_attachment_paths
-        from storage_maintenance import restore_latest_recycled_path
+        from infra.storage_maintenance import restore_latest_recycled_path
         for local_mode in (True, False):
             with self.subTest(local_mode=local_mode), tempfile.TemporaryDirectory() as td, \
                  patch('stage_execution_service.idea_attachment_local_mode', return_value=local_mode) as mode:
@@ -66,7 +66,7 @@ class IdeaChatControllerTests(unittest.TestCase):
 
     def test_deleted_upload_is_recoverable_and_no_longer_referenced(self):
         from stage_execution_service import archive_idea_attachments, stage_idea_attachment_reference
-        from storage_maintenance import restore_latest_recycled_path
+        from infra.storage_maintenance import restore_latest_recycled_path
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             source = root / '角色.xlsx.txt'

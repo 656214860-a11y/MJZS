@@ -10,7 +10,7 @@
 
 存储沿用宠物那份全局配置（配置/宠物/配置.json）——pet_llm 认的就是它，多存两把键互不打扰。
 """
-import app_logging
+import infra.app_logging as app_logging
 import json
 import os
 import re

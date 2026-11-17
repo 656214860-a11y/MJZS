@@ -11,7 +11,7 @@ class WhiteModelServiceJsonBoundaryTests(unittest.TestCase):
         source = entity_file('white_model_service')
         tree = ast.parse(source.read_text(encoding='utf-8'))
         imports = [node for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
-                   and node.module == 'file_cache']
+                   and node.module in {'file_cache', 'infra.file_cache'}]
         self.assertTrue(any(any(alias.name == 'read_json' for alias in node.names) for node in imports))
         method = next(node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)
                       and node.name == 'read_record')

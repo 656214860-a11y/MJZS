@@ -9,7 +9,7 @@ class SkillOrchestratorJsonBoundaryTests(unittest.TestCase):
         path = entity_file('skill_orchestrator')
         with open(path, encoding='utf-8') as handle:
             source = handle.read()
-        self.assertIn('from file_cache import read_json', source)
+        self.assertIn('from infra.file_cache import read_json', source)
         self.assertIn('data = read_json(path)', source)
         self.assertIn('from agent.core import save_text', source)
         self.assertIn('save_text(path, json.dumps(', source)

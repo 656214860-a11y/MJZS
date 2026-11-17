@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-import app_logging
+import infra.app_logging as app_logging
 import diagnostic_capture
 from tests.architecture._scan import entity_file
 
