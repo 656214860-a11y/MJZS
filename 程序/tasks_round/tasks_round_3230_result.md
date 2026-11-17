@@ -404,3 +404,86 @@ contract/script_manifest_contract.py:9   KINDS = ('character', 'scene', 'prop', 
 | D7 增补 | §2.3 阶段别名重复（原 D7 列了但 v1 任务书漏排） | 轮 6D |
 
 其余未承接项见任务书 v2 §9「明确不做」。
+
+---
+
+## 10. 框架复用与「不重复造轮子」评估（2026-11-18 追加，只读调研）
+
+> **追加说明**：本节纯新增，不改动上文任何结论与行号。对应任务书 §3b（通用库与跨领域框架思想）＋ §3c（同域应用对标）。
+> **工具风险如实记录**：本次评估期间 `web_search` 工具持续返回 HTTP 401（凭据无效），全部证据改用 `web_fetch` 直连 `raw.githubusercontent.com` 抓取；两条最关键结论另用 PowerShell 逐字复核。
+
+### 10.1 结论先行：没有可直接复用的「L0 契约层框架」
+
+「L0 契约层」是分层架构（Clean / Hexagonal）里各家自行约定的概念，**不存在对应的发行包**。可复用的只有**局部方案**与**设计思想**。
+
+评估分两档：
+- **§3b 通用档**：21 个 Python 库（逐个查版本／stars／传递依赖／3.14 实测）＋ 3 个跨领域框架思想（Spring Boot / Chromium / Flyway）。
+- **§3c 同域档**：3 个做同一件事的应用（ComfyUI / InvokeAI / A1111），逐字读取源码。
+
+### 10.2 强烈建议复用（全部零新增依赖）
+
+| # | 来源 | 复用内容 | 落到本项目 |
+| --- | --- | --- | --- |
+| 1 | **ComfyUI** `main.py` | 失败分级三段式：固定 `kind` 闭集 + `what`（发生了什么）+ `fix`（怎么办）+ **每条附逃生开关** | `contract/diagnostics.py` 的 `Diagnostic` 增 **`escape_hint`** 字段；`contract/error_codes.py` 的 `kind` 用固定闭集 |
+| 2 | **InvokeAI** `config_default.py` | 配置版本阶梯：`CONFIG_SCHEMA_VERSION` + 逐级 `migrate_*` 纯函数 + `.bak` 备份 + 失败回滚 + **落盘后 `assert` 版本号** | 改造 `contract/artifact_schema.py` 的 `migrate()` |
+| 3 | **Spring Boot** `diagnostics` 包 | `FailureAnalyzer` 派发链：按序遍历、首个非 null 胜出、**诊断器自身异常不掩盖原错** | `error_codes.analyze()` 派发链（复活当前近乎死码的错误码表） |
+| 4 | **Chromium** `gpu_process_host.cc` | 崩溃预算：`FORGIVE_MINUTES=5` 时间窗赦免、`CRASH_LIMIT=3`、正常退出清零 | `diagnostic_capture` 的降级判定（安全模式） |
+| 5 | **A1111** `modules/scripts.py` | 扩展隔离：每个挂载点各自 `try`，插件坏一个只丢一个功能区 | 13 阶段各自的失败边界 |
+| 6 | **A1111** `modules/cmd_args.py` | 开关**按族命名**：`--skip-*`（跳检查）／`--disable-*`（关功能） | 安全模式的 GUI 等价物 |
+
+### 10.3 明确不复用（每条踩到具体约束）
+
+| 候选 | 否决理由 |
+| --- | --- |
+| `blinker` | **实测不能替代 `pet_bus`**：`connect` 同一函数三次只留 2 个 receiver（按函数身份去重），但无队列、无背压、无 `SHEDDABLE_EVENTS` 的「终态永不丢、只丢中间态」、无异常落审计；`send` 异常直接上抛、接收者顺序未定义。250 行是有效复杂度 |
+| `pydantic-settings` | 6 个传递依赖 + `pydantic_core` 二进制，与 `requirements.txt` 的 `# No pip dependencies` 正面冲突 |
+| `dependency-injector` | C 扩展、4920 stars 卡在白名单 5000 门槛线下；桌面单进程无多实现替换需求 |
+| `lagom` / `punq` | 解决「运行时动态绑定」，而真问题是启动顺序 + 失败分级，20 行常量元组就够 |
+| `import-linter` | 依赖 Rust 的 `grimp`；且现有 AST 门禁（138 文件 / 489 测试）表达力更强 |
+| `tach` | 14 个传递依赖 + Rust 扩展 |
+| `pytest-archon` | 需 pytest（本项目是 unittest），classifier 止于 3.11 |
+| `returns` / `result` | `returns` 收益在 mypy 类型流（本项目不用）；`result` 已 archived |
+| `alembic` | 强绑 SQLAlchemy + DB 前提 |
+| `dynaconf` / `hydra-core` | 解决「多环境多格式合并」，桌面只有一个 `config.json` |
+| `healthcheck` / `py-healthcheck` | 前者 GitHub 已 404 且只有 sdist；后者 115 stars 无 classifier。桌面无 orchestrator 轮询探针 |
+| `structlog` / `loguru` | 本身不内置脱敏，要自己写 processor；Tk 桌面日志是给人看的滚动文本 |
+| `jsonschema` | 引入 `rpds-py` 二进制 + 4 个依赖；且 JSON Schema 表达不了分阶段的业务规则 |
+
+### 10.4 必须如实标注：两项无行业对标，须自研
+
+| 检查项 | ComfyUI | InvokeAI | A1111 | 结论 |
+| --- | --- | --- | --- | --- |
+| **磁盘空间前置检查** | 零命中 | 零命中 | 零命中 | **行业空白** |
+| **L0 契约层自检** | 无独立入口 | 无（仅配置 `assert`） | 无（仅依赖版本检查） | **须自研** |
+
+这两项**不得声称有对标实现**。可借 ComfyUI 的「what + fix + 逃生」**信息格式外壳**，检查逻辑本身是原创。
+
+### 10.5 明确不能照搬的四处
+
+1. **ComfyUI 模型池为空静默返回空列表**（`recursive_search` → `return [], {}`）。那是 Web 假设：前端能渲染空下拉框。Tkinter 流水线跑到第 7 阶段才失败，用户已等几十分钟。本项目按既有决策：**模型缺失 = 乙类 fail-open + 启动即显性横幅**。
+2. **ComfyUI 的 `sys.exit(1)` + 启动器匹配日志行**。本项目是 `.pyw` 双击直启，**没有中间启动器**。抄信息结构，不抄「打日志然后死」。
+3. **A1111 用 `str(e)` 子串匹配**已崩形态给处方（`errors.py:75` 匹配 `torch.Size([640, 1024])`）。升级即失效。分类要在**抛错侧**定 `kind`，不在收错侧猜字符串。
+4. **InvokeAI 的 `scan_models_on_startup`** 默认 `False` 且只「登记孤儿模型」，服务于 `use_memory_db` 测试场景。抄它会得到一个「看着有检查其实没检查」的开关。
+
+### 10.6 核实未果项（不掩盖）
+
+- **ComfyUI 的 ffmpeg 解析**：`cli_args.py`／`main.py`／`folder_paths.py`／`nodes.py`／`model_management.py`／`server.py`／`requirements.txt` 全部**零命中** `ffmpeg|ffprobe|shutil.which`。推断其走 PyAV 内嵌（`nodes.py:1774` 有 pyav 注释、依赖清单无 ffmpeg），**属推断，无直接证据**。本项目随包 ffmpeg 解析仍需自研。
+- **InvokeAI 的 `--skip-*` 容错开关**：`config_default.py` 内未找到，不排除其他模块存在。
+- **InvokeAI `invokeai_configure` 路径**：原提示路径 404，实际实现位于 `invokeai/app/services/config/config_default.py`。
+- **三家 PyPI 月下载量**：未取（`web_search` 不可用）。
+
+### 10.7 对任务书轮次的影响（已并入任务书 §3c-5 与 §8）
+
+| 轮次 | 变化 |
+| --- | --- |
+| 轮 3A（D3） | `Diagnostic` 增 `escape_hint`；`kind` 用固定闭集 → **接口变更，测试须覆盖** |
+| 轮 3B（D3-j） | 无变化（Chromium 崩溃预算三家都没有，确实更完整） |
+| 轮 4A（D4） | 方案由 Flyway 换成 **InvokeAI**：新增 `.bak` 备份、失败回滚、落盘后断言三项验收 |
+| 轮 7B | 新增「降级开关按族命名」（A1111 的 `skip`/`disable` GUI 等价物） |
+| 验收清单 | 新增「调研完整性」一条，含「未能对标的两项已如实标注为自研」 |
+
+### 10.8 本轮（本节）的边界声明
+
+- 本节**只读调研 + 文档追加**，未修改任何 `.py`。
+- 未改动本文件第 1–406 行任何内容（§9 复核更正为其他会话所写，保持原样）。
+- 未新建源码模块；对任务书的对应改动见任务书 §3b／§3c／§8，与本节互为引用。
