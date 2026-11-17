@@ -1,5 +1,5 @@
 # R3275 结果：L2领域服务层优化任务书轮1（结构治理轮：基线刷新＋空壳落地）
-<!-- round-evidence: {"commit_base": "5e7eb227", "credential_hits": 0, "evidence_sha256": "fd40c4a8c3fbc192", "exit": 0, "failed": 0, "passed": 16, "round": 3275, "tests": "run_selftests.py -k coverage_baseline branch_coverage_floor test_layers"} -->
+<!-- round-evidence: {"commit_base": "3eba4e3d", "credential_hits": 0, "evidence_sha256": "df4c171fa57bfe7f", "exit": 0, "failed": 0, "passed": 0, "round": 3275, "tests": "docs-only"} -->
 
 ## 三问
 
@@ -74,7 +74,7 @@
 ## 提交
 
 - 分支 `dsh-864fd932-4054`（领号 R3275，工作树共享，注意排除外来 R3276 未跟踪文件）。
-- commit：待补记。
+- commit：`3eba4e3d`（代码＋文档＋证据主提交，14 文件）；本补记行由后续 docs-only 提交写入，不另占轮次。
 - 全量回归：未运行（见三问）；合入 master 前按 §5 触发 `--all --safe`。
 </content>
 </invoke>
