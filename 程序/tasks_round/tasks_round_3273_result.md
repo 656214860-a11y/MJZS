@@ -33,7 +33,7 @@
 ## 三基线实测
 
 - 默认冒烟：9/9（文档历史基线 8 不冒充当前实测）。
-- 架构：`python -B smoke_test.py --architecture`，502 条，2 failures + 1 error，161.579 秒。失败集合：`test_round_number_continuous`（当前分支历史状态页头3264但已有3269草稿）；`test_status_does_not_claim_unverified_full_green`（历史状态页声明）；`test_performance_history_is_declared_as_historical_only`（工作树缺未跟踪运行基准历史文件）。本轮未改相应实现/测试，后续合入前修状态及受控补齐测试输入，不降门禁。
+- 架构：`python -B smoke_test.py --architecture`，502 条，2 failures + 1 error，161.579 秒。失败集合：`test_round_number_continuous`（当前分支历史状态页头3264但已有3269草稿）；`test_script_stages_name_only_their_approved_00_references`（工作树缺固定版本技能包；按原始 traceback 更正最初口述误名）；`test_performance_history_is_declared_as_historical_only`（工作树缺未跟踪运行基准历史文件）。本轮未改相应实现/测试，后续合入前修状态及受控补齐测试输入，不降门禁。
 - 全量：本轮未跑，最终集成将按用户要求跑安全全量，凭据以 common-dir 正式 receipt 为准。
 
 ## 提交与接续
