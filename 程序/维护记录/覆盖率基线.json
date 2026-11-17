@@ -2847,7 +2847,13 @@
   {
    "module": "ui/desktop_files_panel.py",
    "covered": 0,
-   "total": 426,
+   "total": 442,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/desktop_files_panel_filters.py",
+   "covered": 0,
+   "total": 163,
    "percent": 0.0
   },
   {
@@ -4154,5 +4160,5 @@
   }
  ],
  "modules_covered": 74,
- "modules_total": 690
+ "modules_total": 691
 }
