@@ -56,8 +56,8 @@ REQUEST_CONTEXT_MAX_CHARS = 16000
 REQUEST_DIRECTIVE_MAX_CHARS = 16000
 RETRY_DELAYS = (30, 60, 120)
 RETRYABLE_STATUS = REPLAYABLE_RETRY_STATUS  # 对话可重放口径；提交口径见 model_metering.submission_retryable
-MAX_PAID_ATTEMPTS = 3
-CALLS_LIMIT = 256  # 传输层重放与降级链共用的总发送上限：pro→flash→兜底 三步叠加不超过 3 次真实 POST
+MAX_PAID_ATTEMPTS = 3  # 传输层重放与降级链共用的总发送上限：pro→flash→兜底 三步叠加不超过 3 次真实 POST
+CALLS_LIMIT = 256     # Client.calls 有界：三虎常驻进程内存不随调用数无限增长
 
 # 固定前缀：改动它等于让所有历史缓存失效，所以只放长期稳定的内容。
 # 第 15 期把人设写进这里（名字＝pet_agent.PET_NAME，改一处要改两处，自检有用例盯着）：

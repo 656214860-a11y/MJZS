@@ -1,16 +1,15 @@
 {
   "round": 3269,
-  "commit_base": "00fd2112",
+  "commit_base": "ba5226ee",
   "credential_scan": {
     "ran": true,
     "hits": []
   },
   "targeted": {
-    "cmd": "",
+    "cmd": "run_selftests.py -k pet_llm",
     "exit": 0,
-    "passed": 0,
-    "failed": 0,
-    "skipped": "merge-ci-exit"
+    "passed": 58,
+    "failed": 0
   },
-  "generated_at": "2026-11-18T04:49:54"
+  "generated_at": "2026-11-18T05:20:39"
 }
