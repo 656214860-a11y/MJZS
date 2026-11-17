@@ -8,7 +8,7 @@ from file_cache import read_json
 from contract.storyboard_paths import project_root
 import domain.white_model_service as _service
 from ui.ui_dialogs import FileDialog
-import ui_plugin_registry
+import infra.ui_plugin_registry as ui_plugin_registry
 from ui_widgets import SelectBox, BaseDialog, Card, PrimaryButton, SecondaryButton, TextArea, Tooltip, notify
 import contract.pet_bus as pet_bus
 from ui_tokens import TEXT_ROWS, WRAPLENGTH, FONTS, SPACING, ICON_MICROPHONE

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import ast
+import copy
 import hashlib
 import json
 import unittest
@@ -59,10 +60,29 @@ def _enclosing_scope(scopes, node):
     return '.'.join(name for start, end, name in scopes if start <= line <= end) or '<module>'
 
 
+def _stable_ast_dump(node):
+    """固定主线3.14锚点格式：保留Load，忽略默认空列表/None，不随ast.dump版本漂移。"""
+    if isinstance(node, ast.AST):
+        fields = []
+        for name in node._fields:
+            if not hasattr(node, name):
+                if name == 'ctx':
+                    fields.append('ctx=Load()')
+                continue
+            value = getattr(node, name)
+            if value == [] or value is None:
+                continue
+            fields.append(name + '=' + _stable_ast_dump(value))
+        return type(node).__name__ + '(' + ', '.join(fields) + ')'
+    if isinstance(node, list):
+        return '[' + ', '.join(_stable_ast_dump(item) for item in node) + ']'
+    return repr(node)
+
+
 def _bare_json_load_anchor(scopes, node, duplicates):
     """返回可随无关行平移的 json.loads 登记锚点。"""
     scope = _enclosing_scope(scopes, node)
-    digest = hashlib.sha256(ast.dump(node, include_attributes=False).encode('utf-8')).hexdigest()[:16]
+    digest = hashlib.sha256(_stable_ast_dump(node).encode('utf-8')).hexdigest()[:16]
     base = f'{scope}:json.loads:{digest}'
     duplicates[base] += 1
     return f'{base}:{duplicates[base]}'
@@ -201,6 +221,18 @@ def _point_exists(item, actual=None):
 
 
 class UnificationRatchetTests(unittest.TestCase):
+    def test_json_anchor_is_stable_across_default_load_serialization(self):
+        normal = ast.parse('json.loads(value)').body[0].value
+        without = copy.deepcopy(normal)
+        for member in ast.walk(without):
+            if isinstance(getattr(member, 'ctx', None), ast.Load):
+                del member.ctx
+        left = _bare_json_load_anchor([], normal, defaultdict(int))
+        right = _bare_json_load_anchor([], without, defaultdict(int))
+        self.assertEqual(left, right)
+        changed = ast.parse('json.loads(other)').body[0].value
+        self.assertNotEqual(left, _bare_json_load_anchor([], changed, defaultdict(int)))
+
     def _assert_ratchet(self, section, actual):
         record = _ledger()[section]
         items = record['items']

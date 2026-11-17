@@ -134,7 +134,7 @@ class StoryboardFinalScopeTests(unittest.TestCase):
         source = (ROOT / 'orchestrator/storyboard_final.py').read_text(encoding='utf-8')
         call = source.index('require_final_ready(project,episode')
         self.assertLess(call, source.index("for shot in episode['shots']:\n        refs=[]"))
-        import continuity_ledger
+        import infra.continuity_ledger as continuity_ledger
         with self.assertRaises(ValueError):
             import tempfile
             with tempfile.TemporaryDirectory() as raw:
@@ -145,7 +145,7 @@ class StoryboardFinalScopeTests(unittest.TestCase):
 
     def test_req_s07_52_ledger_check_follows_the_sg02_convention(self):
         import tempfile
-        import continuity_ledger
+        import infra.continuity_ledger as continuity_ledger
         shots = [shot_batches.normalize(_shot(1, 'B01'), 0), shot_batches.normalize(_shot(2, 'B01'), 1)]
         with tempfile.TemporaryDirectory() as raw:
             project = Path(raw)

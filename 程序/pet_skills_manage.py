@@ -18,8 +18,8 @@ from tkinter import ttk
 
 import pet_bus
 import skill_import_service
-import skill_lifecycle_service
-import skill_project_layer
+import ui.skill_lifecycle_service as skill_lifecycle_service
+import orchestrator.skill_project_layer as skill_project_layer
 import skill_registry
 import workflow_settings
 from contract import platform_tools
@@ -549,7 +549,7 @@ class _ImportFlow:
         return self.install_plan(plan, '文件夹导入完成') if plan else None
 
     def pick_archive(self):
-        import skill_archive
+        import ui.skill_archive as skill_archive
         path = FileDialog(self.win).open_file(title='导入 SKILL（ZIP）',
                                              filetypes=[('ZIP 压缩包', '*.zip'), ('全部文件', '*.*')])
         if not path:
@@ -579,7 +579,7 @@ class _ImportFlow:
         return self.batch(report, '仓库导入完成')
 
     def pick_url(self):
-        import skill_remote_service
+        import ui.skill_remote_service as skill_remote_service
         text = ask_string(self.win, IMPORT_TITLE, 'SKILL 链接（GitHub 仓库地址或 .zip 直链）：')
         if not text or not str(text).strip():
             return None

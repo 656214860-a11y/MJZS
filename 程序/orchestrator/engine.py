@@ -10,7 +10,7 @@ from contract.storyboard_paths import media_root, is_cloud_workspace, project_ro
 from agent.core import read, save, save_text, fingerprint, file_hash, download, command, replace, temporary_path
 from agent.wan import WanAdapter, ArkRejected
 from agent.media import check, probe
-import project_settings
+import infra.project_settings as project_settings
 from domain.project_naming import dated_path
 from orchestrator.legacy_compat import resolved_storyboard_alias
 import contract.pet_bus as pet_bus
@@ -384,7 +384,7 @@ class Studio:
     def record_video_usage(self,sid,version):
         """视频成功落盘后记一笔请求台账：条数按实际下载、秒数按本镜声明时长（估算，非服务商上报）。"""
         if version.get('money_request_id'):return  # 云端成功时已结算，下载不再重复记费。
-        from pet_llm import record_request
+        from infra.pet_llm import record_request
         try:seconds=float(self.shot(sid).get('duration') or 0)
         except (ValueError,TypeError):seconds=0
         base='video:%s:v%s'%(sid,version.get('version'))
@@ -410,7 +410,7 @@ class Studio:
         return max(0,self.cfg.get('budget_seconds',0)-self.cfg.get('reserve_seconds',0)-self.used())
 
     def client(self):
-        from api_endpoints import configured_key
+        from infra.api_endpoints import configured_key
         configured_key(self.cfg)
         return self.factory(self.cfg)
 
@@ -459,7 +459,7 @@ class Studio:
             save(folder/'request.json',preview)
             save(folder/'assets_manifest.json',{'mode':shot['_reference_mode'], **media_sources})
             save_text(folder/'实际提交提示词.txt', shot['video_prompt'])
-            from pet_llm import RequestLedger
+            from infra.pet_llm import RequestLedger
             ledger = RequestLedger(project_root(self.root))
             money_id = 'video:' + v['local_request']
             try:
@@ -515,7 +515,7 @@ class Studio:
                      provider_status=result.get('provider_status', result['status']))
             save(self.db,st)
             if v.get('money_request_id') and v['state'] in ('succeeded', 'failed'):
-                from pet_llm import RequestLedger
+                from infra.pet_llm import RequestLedger
                 # 供应商原始usage已留在任务；金额按冻结的每秒单价估算，不把未知账单当零。
                 remote = fingerprint({'endpoint': self.cfg.get('base_url'), 'task_id': v['task_id']})
                 RequestLedger(project_root(self.root)).settle_units(v['money_request_id'],

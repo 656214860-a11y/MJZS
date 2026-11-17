@@ -219,17 +219,21 @@ class CompactDesktopGeometryTests(unittest.TestCase):
         self.assertIsNone(getattr(d, '_sidebar_popup_win', None), '点外部后选择层收起')
         # R2962：文件栏迁为右侧停靠面板，默认隐藏；断言列表内容前先打开并等渐进批次。
         d.files_panel.open_panel();self.pump(.4)
-        self.assertEqual(set(d.script_row_category.values()), {'setting', 'outline', 'character', 'script'},
+        self.assertEqual({d.script_row_category[item] for item in d.files_panel.all_script_items()},
+                         {'setting', 'outline', 'character', 'script'},
                          '四类文件都出现在同一条列表里')
         tree = d.script_tree
         self.assertTrue(tree.get_children())
         self.assertEqual(str(tree.heading('#0', 'anchor')), 'center')
         self.assertEqual(str(tree.heading('name', 'anchor')), 'center')
-        for item in tree.get_children():
+        files = d.files_panel.all_script_items()
+        self.assertTrue(files)
+        for item in files:
             with self.subTest(item=item):
                 details = d.script_file_tips.text_for(item)
-                self.assertIn(Path(item).name, details)
-                expected = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(Path(item).stat().st_mtime))
+                path = Path(item) if Path(item).is_absolute() else Path(d.root) / item
+                self.assertIn(path.name, details)
+                expected = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(path.stat().st_mtime))
                 self.assertIn(expected, details)
 
     def test_sidebar_popup_clamps_to_anchor_monitor(self):

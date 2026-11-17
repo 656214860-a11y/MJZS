@@ -163,7 +163,7 @@ class ModelRequestChainTests(unittest.TestCase):
                          'message': {'content': '正文结果', 'reasoning_content': '思考'}}]}}
 
     def adapter(self):
-        from model_router import GPTAdapter
+        from infra.model_router import GPTAdapter
         return GPTAdapter(program=self.root, transport=self.transport, key='sk-test')
 
     def test_chat_sends_frozen_snapshot_without_leaking_key(self):
@@ -192,7 +192,7 @@ class ModelRequestChainTests(unittest.TestCase):
         self.assertEqual(meta['content_length'], len('正文结果'))
 
     def test_usage_maps_cache_hit_and_ledger_ratios(self):
-        from pet_llm import Ledger, usage_of
+        from infra.pet_llm import Ledger, usage_of
         usage = usage_of({'data': {'usage': {'prompt_tokens': 10, 'completion_tokens': 4,
                                               'prompt_cache_hit_tokens': 3}}})
         self.assertEqual(usage, {'prompt_tokens': 10, 'completion_tokens': 4, 'cached_tokens': 3})

@@ -8,7 +8,7 @@ from __future__ import annotations
 import unittest
 from decimal import Decimal
 
-import pet_llm
+import infra.pet_llm as pet_llm
 import usage_overview as usage
 
 

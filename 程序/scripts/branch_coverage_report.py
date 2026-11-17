@@ -45,12 +45,13 @@ EXIT_LINE = -1  # 伪行号：return 事件代表的「走出当前代码对象�
 
 
 def l01_modules():
-    """L0/L1 顶层生产模块：_layers.LAYERS 登记层 0/1 且磁盘存在 .py。"""
+    """L0/L1 登记模块：实体存在即可，兼容门面不作为计量对象。"""
     if str(PROGRAM) not in sys.path:
         sys.path.insert(0, str(PROGRAM))
     from tests.architecture._layers import LAYERS
+    from tests.architecture._scan import entity_file
     return tuple(sorted(name for name, layer in LAYERS.items()
-                        if layer in (0, 1) and (PROGRAM / (name + '.py')).is_file()))
+                        if layer in (0, 1) and entity_file(name).is_file()))
 
 
 # ---------- 静态侧：决策点与行区间 ----------
@@ -289,10 +290,11 @@ def _covered(point, scoped_arcs, scoped_lines):
 
 def measure(targets):
     names = l01_modules()
+    from tests.architecture._scan import entity_file
     tracked = {}
     points_by_module = {}
     for name in names:
-        path = PROGRAM / (name + '.py')
+        path = entity_file(name)
         tracked[path.resolve()] = name + '.py'
         try:
             tree = ast.parse(path.read_text(encoding='utf-8', errors='replace'))
@@ -340,7 +342,7 @@ def measure(targets):
             rows.append({'module': filename, 'points': 0, 'covered': 0, 'percent': 100.0})
     rows.sort(key=lambda row: (row['percent'], row['module']))
     return {'tool': 'scripts/branch_coverage_report.py',
-            'scope': 'L0/L1 顶层模块定向测量（tests/architecture/_layers.py 登记层 0/1；'
+            'scope': 'L0/L1 登记模块实体定向测量（tests/architecture/_layers.py 登记层 0/1；'
                      '不是全量套件分支覆盖率）',
             'metric': '决策点双结果覆盖：if/loop 体进入且条件走完；try handler 进入且干净路径走完；'
                       'match case 进入且（无 case _ 时）落空路径走完。单行复合语句与表达式短路不计。',

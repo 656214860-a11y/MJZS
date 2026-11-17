@@ -10,6 +10,7 @@ import re
 import threading
 import time
 from pathlib import Path
+from contract.file_naming import generate_existing
 
 MAX_TOKENS = 32768
 REQUEST_TIMEOUT = 600
@@ -21,7 +22,7 @@ FORMAT_RETRY_BASE_SECONDS = 0.25
 
 def direct_model(config):
     """引擎为 qwen、所选模型在模型池里且调用方式不是桌面程序时返回 (模型名, 记录)，否则 None。"""
-    import model_pool
+    import infra.model_pool as model_pool
     config = config or {}
     chosen = str(config.get('model') or '').strip()
     if config.get('engine') != 'qwen' or not chosen or chosen == model_pool.AUTO:
@@ -107,15 +108,15 @@ class _Stopped(Exception):
 
 def _ask(batch, messages):
     """发一次请求；返回回复文本。取消、失败、被截断都抛出带原因的异常。"""
-    import model_pool
-    from model_router import failure_policy, record_circuit_failure, record_circuit_success
+    import infra.model_pool as model_pool
+    from infra.model_router import failure_policy, record_circuit_failure, record_circuit_success
     from contract.workflow_context_budget import ensure_request_context
     ensure_request_context(batch.system + '\n'.join(str(m['content']) for m in messages), STAGE_LABEL,
                            context_limit=model_pool.context_length_of((batch.record or {}).get('context_length')) or None,
                            output_reserved=MAX_TOKENS, report=True)
     if batch.cancelled():
         raise _Stopped()
-    import stage_model_value
+    import infra.stage_model_value as stage_model_value
     options = {'max_tokens': MAX_TOKENS}
     options.update(stage_model_value.reasoning_options(batch.project, batch.stage))
     result = batch.adapter.stream(messages, options=options, model=batch.chosen, system=batch.system,
@@ -129,9 +130,9 @@ def _ask(batch, messages):
     if not result.get('ok'):
         policy = failure_policy(result)
         if policy.get('retryable'):
-            from model_metering import chat_metered
-            from model_pool import PoolAdapter
-            from pet_llm import RequestLedger
+            from infra.model_metering import chat_metered
+            from infra.model_pool import PoolAdapter
+            from infra.pet_llm import RequestLedger
             records = model_pool.pool(program=Path(__file__).resolve().parents[1])
             for candidate in batch.group_candidates:
                 if candidate == batch.chosen:
@@ -183,7 +184,7 @@ def _validated(text, project, number, start, target_hint, source):
 
 def _episode(batch, script, existing_board):
     from agent.core import read
-    from integrations import script_text
+    from infra.integrations import script_text
     from orchestrator.project_context_factory import project_context
     from domain.storyboard_catalog_service import document_dir, file_order, working_dir
     from domain.storyboard_storage import canonical_name
@@ -194,7 +195,7 @@ def _episode(batch, script, existing_board):
         raise ValueError('无法从文件名识别集号（需要 EPxxx 或 第N集）：' + Path(script).name)
     old = read(existing_board) if existing_board else None
     start = _first_shot_number(project, number, exclude=existing_board)
-    hint = Path(existing_board) if existing_board else working_dir(context) / ('EP%03d_分镜.json' % number)
+    hint = Path(existing_board) if existing_board else working_dir(context) / generate_existing('storyboard_hint', number=number)
     text = script_text(script)
     prior, data = None, None
     for attempt in range(1, MAX_FORMAT_RETRIES + 1):
@@ -217,13 +218,14 @@ def _episode(batch, script, existing_board):
     history = target.parent / '历史版本' / ('EP%03d' % number)
     if existing_board:
         stamp = time.strftime('%Y%m%d_%H%M%S')
-        artifacts[history / ('%s_%s.json' % (target.stem, stamp))] = Path(existing_board).read_bytes()
+        artifacts[history / generate_existing('storyboard_history', stem=target.stem, stamp=stamp)] = Path(existing_board).read_bytes()
     import file_cache
     from orchestrator.stage_publication import publish_stage_bundle
 
     def allowed(_items):
         return not batch.cancelled() and (bool(existing_board) or not target.exists())
-    publish_stage_bundle(artifacts, allowed, lambda: [file_cache.published(path) for path in artifacts])
+    publish_stage_bundle(artifacts, allowed, lambda: [file_cache.published(path) for path in artifacts],
+                         origin='模型产出')
     if existing_board and history.is_dir():
         older = sorted(history.glob('*.json'), key=lambda p: p.name, reverse=True)[HISTORY_KEEP:]
         if older:
@@ -245,9 +247,9 @@ class _Batch:
         self.cancelled = cancelled or (lambda: False)
         self.system = str(skill_text or '') + '\n\n' + rules
         if adapter is None:
-            import model_pool
-            from model_pool import PoolAdapter
-            from model_pool import model_admission_error, health_is_blocked
+            import infra.model_pool as model_pool
+            from infra.model_pool import PoolAdapter
+            from infra.model_pool import model_admission_error, health_is_blocked
             from writing_api import WritingRequestAdapter
             self.record = record or direct_model(config)[1]
             problem = model_admission_error(
@@ -261,7 +263,7 @@ class _Batch:
                                                         timeout=REQUEST_TIMEOUT), self.record, self.chosen,
                                             project=self.project, stage=stage)
         self.adapter = adapter
-        import model_pool
+        import infra.model_pool as model_pool
         self.group_candidates = model_pool.group_candidates(
             (self.record or {}).get('group'), self.chosen, program=Path(__file__).resolve().parents[1])
 

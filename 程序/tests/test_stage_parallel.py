@@ -628,7 +628,7 @@ class PetUiWiringTests(unittest.TestCase):
     """pet_ui：门禁那一句与并发现状都从父 Agent 转出来。"""
 
     def pet(self):
-        import pet_ui
+        import ui.pet_ui as pet_ui
         class Stub(pet_ui.Pet):
             agent = None
         pet = object.__new__(Stub)

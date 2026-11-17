@@ -4,14 +4,14 @@
 ``AssetPagesMixin`` 获得。测试按 ``desktop.<名字>`` 打补丁的名字（confirm／open_path 等）经
 ``Desktop`` 注入的 ``AssetPageServices`` 在调用时取 ``desktop`` 的当前值，补丁照常生效（R1983 J2）。
 """
-import pet_state
+import infra.pet_state as pet_state
 from dataclasses import dataclass
 from typing import Callable
 import time
 import domain.asset_resume as asset_resume
 import ui.asset_thumbs as asset_thumbs
 import tkinter as tk
-import ui_plugin_registry
+import infra.ui_plugin_registry as ui_plugin_registry
 from agent.core import read
 from ui.desktop_auto_flows import ASSET_RETRY_LIMIT
 from pathlib import Path
@@ -319,7 +319,7 @@ class AssetPagesMixin:
         # 第 65 期任务 1：这两颗从「资产图片制作」弹窗搬到「阶段配置」右边（原话：移到主界面阶段配置旁）。
         def kill_comfy_here():
             # taskkill 逐个镜像、每个最长 10 秒，按下时 ComfyUI 通常正卡着——不能在界面线程上等。
-            from native_apps import force_close_comfy
+            from infra.native_apps import force_close_comfy
             def work():
                 try:return force_close_comfy(self.settings)
                 except Exception as exc:return '强制关闭失败：'+str(exc)

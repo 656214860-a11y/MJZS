@@ -7,7 +7,7 @@
 import queue
 import threading
 import tkinter as tk
-import ui_plugin_registry
+import infra.ui_plugin_registry as ui_plugin_registry
 from contract.app_metadata import APP_NAME, VERSION
 from datetime import date
 from pathlib import Path
@@ -20,7 +20,9 @@ from ui.desktop_page_registry import (ACCOUNT_TITLE, PAGE_ACCOUNT, PAGE_NAV_ICON
                                    PROJECT_ACTION_ICONS, PROJECT_GROUP_ICONS, nav_label)
 from ui.ui_icons import IconLoader
 from ui_widgets import (BaseDialog, Card, DataTable, NotificationDispatcher, PrimaryButton, SecondaryButton,
-                        Tooltip)
+                        Tooltip, ask_string)
+from orchestrator.recycle_recovery_controller import RecycleRecoveryController
+import storage_maintenance as recycle_storage
 from dataclasses import dataclass
 from typing import Callable
 
@@ -41,7 +43,157 @@ class ProjectPageServices:
     confirm: Callable
 
 
-class ProjectPagesMixin:
+class RecyclePanelMixin:
+    """复用恢复控制器和恢复窗；所有永久删除只委托 storage 网关。"""
+    def recycle_recovery_roots(self):
+        roots = (getattr(self, 'root', None), getattr(self.projects, 'base', None))
+        return tuple(dict.fromkeys(Path(root).resolve() for root in roots if root is not None))
+
+    def _recycle_controller(self):
+        return RecycleRecoveryController(getattr(self, 'root', None),
+            getattr(self.projects, 'base', None),
+            register_restored=getattr(self.projects, 'register_restored_projects', None))
+
+    def recycle_batches(self, roots=None):
+        return self._recycle_controller().list_batches()
+
+    def _check_recycle_record(self, record):
+        root = Path(record['root']).resolve()
+        if root not in self.recycle_recovery_roots():
+            raise ValueError('回收批次不属于当前项目或项目库')
+        if record.get('unavailable'):
+            raise ValueError('回收清单损坏，禁止操作：' + str(record.get('reason', '')))
+        return root
+
+    def load_recycle_batch(self, record):
+        root = self._check_recycle_record(record)
+        return recycle_storage.read_recycle_batch(root, record['batch'])
+
+    def restore_recycled(self, record, source=None):
+        self.load_recycle_batch(record)
+        controller = self._recycle_controller()
+        return controller.restore_batch(record) if source is None else controller.restore_item(record, source)
+
+    def purge_recycled(self, records):
+        if not records:
+            self.status.set('回收站没有可清空的批次')
+            return []
+        for record in records:
+            self.load_recycle_batch(record)
+        count = len(records)
+        confirm = self.project_page_services.confirm
+        if not confirm(self.win, '永久清空回收站',
+                '将永久删除 %d 个回收批次的全部文件，删除后不可恢复。是否继续？' % count, dangerous=True):
+            return []
+        if not confirm(self.win, '再次确认永久删除',
+                '最后确认：永久清空这 %d 个批次？此操作不可撤销、不可恢复。' % count, dangerous=True):
+            return []
+        groups = {}
+        for record in records:
+            groups.setdefault(Path(record['root']), []).append(record['batch'])
+        removed = []
+        try:
+            for root, batches in groups.items():
+                removed.extend(recycle_storage.purge_recycle_batches(root, batches))
+        except (OSError, ValueError) as exc:
+            self.status.set('清空未全部完成，已清空 %d 批：%s' % (len(removed), exc))
+            raise
+        self.status.set('已永久清空 %d 个回收批次' % len(removed))
+        return removed
+
+    def purge_expired_recycle(self):
+        records = []
+        project = getattr(self, 'root', None)
+        days = recycle_storage.recycle_retention_days(project) if project is not None else None
+        for root in self.recycle_recovery_roots():
+            for batch in recycle_storage.expired_recycle_batches(root, days=days):
+                records.append({'root': root, 'batch': batch})
+        return self.purge_recycled(records)
+
+    def configure_recycle_retention(self):
+        root = getattr(self, 'root', None)
+        if root is None:
+            raise ValueError('请先打开项目，再设置该项目的回收站保留期')
+        days = recycle_storage.recycle_retention_days(root)
+        value = ask_string(self.win, '回收站保留期',
+            '请输入保留天数（默认30；0表示不自动清空）。仅点击清空过期回收站时执行，不会静默删除文件：',
+            initialvalue=str(days))
+        if value is None:
+            return None
+        saved = recycle_storage.save_recycle_retention_days(root, value.strip())
+        self.status.set('已保存回收站保留期：%d 天（仅显式清空时生效）' % saved)
+        return saved
+
+    def open_recycle_recovery(self):
+        """打开已承诺的回收站恢复入口；恢复决策与磁盘操作均留在 L2/L3。"""
+        dialog=BaseDialog(self.win,'恢复回收站内容',geometry='920x580',minsize=(720,420))
+        controller=self._recycle_controller()
+        batches=[]
+        ttk.Label(dialog.content,text='可恢复整批或选中条目；永久清空不可撤销、不可恢复，需要二次确认。').pack(anchor='w',pady=(SPACING['none'],SPACING['xs']))
+        batch_table=DataTable(dialog.content,columns=[('scope','位置',110),('created','创建时间',155),('reason','原因',390)],show='tree headings',height=TEXT_ROWS['lg'],auto_hide_scrollbars=True)
+        batch_tree=batch_table.tree
+        batch_tree.heading('#0',text='批次');batch_tree.column('#0',width=SPACING['sm'] * 23,stretch=False)
+        batch_table.pack(fill='x',expand=False)
+        ttk.Label(dialog.content,text='批次条目（原位置）').pack(anchor='w',pady=(SPACING['sm'],SPACING['xs']))
+        item_table=DataTable(dialog.content,columns=[('recycled','回收位置',420)],show='tree headings',height=TEXT_ROWS['xl'],auto_hide_scrollbars=True)
+        item_tree=item_table.tree
+        item_tree.heading('#0',text='原位置');item_tree.column('#0',width=SPACING['sm'] * 53)
+        item_table.pack(fill='both',expand=True)
+        # 批次条目可多可少：随窗口缩放、随条目数收缩，不留空白（第 R2411 期）。
+        fit_items = auto_height(item_tree, item_table)
+        def selected_batch():
+            selected=batch_tree.selection()
+            return batches[int(selected[0])] if selected else None
+        def show_items(_event=None):
+            item_tree.delete(*item_tree.get_children())
+            record=selected_batch()
+            if record:
+                if record.get('unavailable'):
+                    item_tree.insert('', 'end', text='清单损坏：已禁止恢复和永久清空', values=(record['reason'],))
+                else:
+                    for item in record['items']:
+                        item_tree.insert('', 'end', values=(item['recycle_path'],), text=item['source'])
+            fit_items()
+        def refresh():
+            nonlocal batches
+            batches=controller.list_batches()
+            batch_tree.delete(*batch_tree.get_children());item_tree.delete(*item_tree.get_children())
+            for index,record in enumerate(batches):
+                batch_tree.insert('', 'end',iid=str(index),text=record['batch'].name,
+                                  values=(record['scope'],record['created_at'] or '—',record['reason'] or '—'))
+            if batches:batch_tree.selection_set('0');show_items()
+        def restore_all():
+            record=selected_batch()
+            if record is None:raise ValueError('请先选择一个回收批次')
+            restored=self.restore_recycled(record)
+            refresh();self.reload();self.status.set('已恢复 '+str(len(restored))+' 项回收内容。')
+        def restore_selected():
+            record=selected_batch();selected=item_tree.selection()
+            if record is None or not selected:raise ValueError('请先选择一个待恢复条目')
+            source=item_tree.item(selected[0],'text')
+            restored=self.restore_recycled(record,source)
+            refresh();self.reload();self.status.set('已恢复：'+str(restored[0].name))
+        batch_tree.bind('<<TreeviewSelect>>',show_items)
+        def purge_selected():
+            record=selected_batch()
+            if record is None:raise ValueError('请先选中一个回收批次')
+            self.purge_recycled([record]);refresh()
+        def purge_all():
+            self.purge_recycled(batches);refresh()
+        # 统一动作区：关闭在最右，主操作紧挨其左，刷新降为最左的次操作。
+        dialog.add_action('关闭',dialog.close)
+        dialog.add_action('恢复选中条目',lambda:self.safe(restore_selected),primary=True)
+        dialog.add_action('恢复整批',lambda:self.safe(restore_all),primary=True)
+        dialog.add_action('刷新',lambda:self.safe(refresh))
+        maintenance=FlowBar(dialog.content);maintenance.pack(fill='x',pady=SPACING['xs'])
+        for text,action in (('永久清空选中批次',purge_selected),('永久清空全部批次',purge_all),
+                            ('设置保留期',self.configure_recycle_retention)):
+            SecondaryButton(maintenance,text=text,command=lambda fn=action:self.safe(fn)).pack(side='left')
+        refresh()
+        return dialog
+
+
+class ProjectPagesMixin(RecyclePanelMixin):
     """Desktop 的项目管理方法集（见模块说明）。"""
     def _start_legacy_project_migration(self):
         """首帧后才在 worker 迁移旧目录；Tk 线程只轮询结果。"""
@@ -484,62 +636,6 @@ class ProjectPagesMixin:
     def open_current_project(self):
         if self.root is None:raise ValueError('请先创建项目')
         self.project_page_services.open_path(self.root)
-    def open_recycle_recovery(self):
-        """打开已承诺的回收站恢复入口；恢复决策与磁盘操作均留在 L2/L3。"""
-        from orchestrator.recycle_recovery_controller import RecycleRecoveryController
-        dialog=BaseDialog(self.win,'恢复回收站内容',geometry='920x580',minsize=(720,420))
-        controller=RecycleRecoveryController(self.root,self.projects.base,
-            register_restored=self.projects.register_restored_projects)
-        batches=[]
-        ttk.Label(dialog.content,text='选择回收批次后可恢复整批，或选择下方原位置只恢复一项；目标已存在时不会覆盖。').pack(anchor='w',pady=(SPACING['none'],SPACING['xs']))
-        batch_table=DataTable(dialog.content,columns=[('scope','位置',110),('created','创建时间',155),('reason','原因',390)],show='tree headings',height=TEXT_ROWS['lg'],auto_hide_scrollbars=True)
-        batch_tree=batch_table.tree
-        batch_tree.heading('#0',text='批次');batch_tree.column('#0',width=SPACING['sm'] * 23,stretch=False)
-        batch_table.pack(fill='x',expand=False)
-        ttk.Label(dialog.content,text='批次条目（原位置）').pack(anchor='w',pady=(SPACING['sm'],SPACING['xs']))
-        item_table=DataTable(dialog.content,columns=[('recycled','回收位置',420)],show='tree headings',height=TEXT_ROWS['xl'],auto_hide_scrollbars=True)
-        item_tree=item_table.tree
-        item_tree.heading('#0',text='原位置');item_tree.column('#0',width=SPACING['sm'] * 53)
-        item_table.pack(fill='both',expand=True)
-        # 批次条目可多可少：随窗口缩放、随条目数收缩，不留空白（第 R2411 期）。
-        fit_items = auto_height(item_tree, item_table)
-        def selected_batch():
-            selected=batch_tree.selection()
-            return batches[int(selected[0])] if selected else None
-        def show_items(_event=None):
-            item_tree.delete(*item_tree.get_children())
-            record=selected_batch()
-            if record:
-                for item in record['items']:
-                    item_tree.insert('', 'end', values=(item['recycle_path'],), text=item['source'])
-            fit_items()
-        def refresh():
-            nonlocal batches
-            batches=controller.list_batches()
-            batch_tree.delete(*batch_tree.get_children());item_tree.delete(*item_tree.get_children())
-            for index,record in enumerate(batches):
-                batch_tree.insert('', 'end',iid=str(index),text=record['batch'].name,
-                                  values=(record['scope'],record['created_at'] or '—',record['reason'] or '—'))
-            if batches:batch_tree.selection_set('0');show_items()
-        def restore_all():
-            record=selected_batch()
-            if record is None:raise ValueError('请先选择一个回收批次')
-            restored=controller.restore_batch(record)
-            refresh();self.reload();self.status.set('已恢复 '+str(len(restored))+' 项回收内容。')
-        def restore_selected():
-            record=selected_batch();selected=item_tree.selection()
-            if record is None or not selected:raise ValueError('请先选择一个待恢复条目')
-            source=item_tree.item(selected[0],'text')
-            restored=controller.restore_item(record,source)
-            refresh();self.reload();self.status.set('已恢复：'+str(restored[0].name))
-        batch_tree.bind('<<TreeviewSelect>>',show_items)
-        # 统一动作区：关闭在最右，主操作紧挨其左，刷新降为最左的次操作。
-        dialog.add_action('关闭',dialog.close)
-        dialog.add_action('恢复选中条目',lambda:self.safe(restore_selected),primary=True)
-        dialog.add_action('恢复整批',lambda:self.safe(restore_all),primary=True)
-        dialog.add_action('刷新',lambda:self.safe(refresh))
-        refresh()
-        return dialog
     def project_menu(self,event,tree=None):
         if self.worker:return
         tree=tree if tree is not None else getattr(self,'_project_home_tree',None)

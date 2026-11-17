@@ -6,7 +6,7 @@
 
 模型记录读写仍在 model_pool，这里只负责页签联动与列表的按调用方式过滤／模态分组。
 """
-import model_pool
+import infra.model_pool as model_pool
 
 MODES = ('API', 'Desktop', 'CLI')  # 左上角页签顺序，与 ttk.Notebook tabs() 索引一一对应
 

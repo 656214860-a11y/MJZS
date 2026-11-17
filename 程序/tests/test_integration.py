@@ -8,7 +8,7 @@ sys.path.insert(0, HERE)
 os.chdir(HERE)
 
 import engine
-import project_settings
+import infra.project_settings as project_settings
 from agent.core import save
 from agent.wan import ArkRejected
 

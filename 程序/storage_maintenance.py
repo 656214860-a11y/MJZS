@@ -72,42 +72,113 @@ def recycle_base(root):
 RECYCLE_RETENTION_DAYS = 30
 
 
-def purge_expired_batches(root, days=None, now=None):
-    """物理删除超过保留期的回收批次，返回被删除的批次名。
+def _recycle_settings_path(root):
+    return stage_layout.workflow_dir(root, 'recycle_settings.json')
 
-    只处理回收站下的**整批目录**，且只认 ``恢复位置.json`` 里可解析的创建时间；
-    清单损坏或时间不可读的批次一律跳过（宁可留证据，不猜内容）。调用方必须是
-    用户的显式动作（面板里的「清空过期回收站」），不得挂到启动或退出路径。
-    """
-    root = Path(root).resolve()
-    now = time.time() if now is None else now
-    span = (RECYCLE_RETENTION_DAYS if days is None else int(days)) * 86400
-    if span <= 0:
-        return []
-    base = _recycle_base(root)
-    if not base.is_dir():
-        return []
+
+def recycle_retention_days(root):
+    """读取项目保留期；不触发任何清空，0 表示停用过期清空。"""
+    path = _reject_recycle_links(_recycle_settings_path(root))
+    if not path.exists():
+        return RECYCLE_RETENTION_DAYS
+    data = read_json(path)
+    if not isinstance(data, dict):
+        raise ValueError('回收站设置格式无效')
+    return _retention_number(data.get('retention_days', RECYCLE_RETENTION_DAYS))
+
+
+def _retention_number(days):
+    if isinstance(days, bool) or not str(days).isascii() or not str(days).isdigit():
+        raise ValueError('保留期必须是非负整数天数（0 表示不自动清空）')
+    return int(days)
+
+
+def save_recycle_retention_days(root, days):
+    days = _retention_number(days)
+    path = _recycle_settings_path(root)
+    _reject_recycle_links(path)
+    data = read_json(path) if path.exists() else {}
+    if not isinstance(data, dict):
+        raise ValueError('回收站设置格式无效')
+    save(path, {**data, 'schema_version': 1, 'retention_days': days})
+    return days
+
+
+def _reject_recycle_links(path):
+    path = Path(path).absolute()
+    for candidate in (path, *path.parents):
+        if candidate.is_symlink() or candidate.is_junction():
+            raise ValueError('回收站操作拒绝链接或目录联接：' + str(candidate))
+    return path
+
+
+def _purge_batch_record(root, batch):
+    root = _reject_recycle_links(root).resolve()
+    base = _reject_recycle_links(_recycle_base(root)).resolve()
+    candidate = Path(batch)
+    if not candidate.is_absolute():
+        candidate = base / candidate
+    candidate = _reject_recycle_links(candidate)
+    if not base.is_relative_to(root) or candidate.parent.resolve() != base:
+        raise ValueError('只允许清空对应项目回收站下的直属批次：' + str(candidate))
+    record = read_recycle_batch(root, candidate)
+    for item in record['items']:
+        source = _restore_location(root, item['source'])
+        stored = _restore_location(root, item['recycle_path'])
+        if source.is_relative_to(base) or not stored.is_relative_to(candidate):
+            raise ValueError('恢复清单路径越界，禁止永久清空：' + str(candidate))
+    def report_walk_error(exc):
+        raise OSError('无法核验回收批次内容：' + str(candidate)) from exc
+    for directory, folders, files in os.walk(candidate, followlinks=False, onerror=report_walk_error):
+        for name in folders + files:
+            entry = Path(directory) / name
+            if entry.is_symlink() or entry.is_junction():
+                raise ValueError('回收批次包含链接，禁止永久清空：' + str(entry))
+    return record
+
+
+def purge_recycle_batches(root, batches):
+    """永久清空唯一网关：整组预检，拒绝坏清单、链接和跨根；失败不虚报成功。"""
+    records = [_purge_batch_record(root, batch) for batch in dict.fromkeys(map(Path, batches))]
     removed = []
-    for batch in sorted(base.iterdir()):
-        if not batch.is_dir() or batch.is_symlink():
-            continue
-        try:
-            record = read_recycle_batch(root, batch)
-        except (OSError, ValueError):
-            continue
-        created = str((record or {}).get('created_at') or '')
-        try:
-            moment = time.mktime(time.strptime(created, '%Y-%m-%d %H:%M:%S'))
-        except (TypeError, ValueError):
-            continue
-        if now - moment < span:
-            continue
+    for record in records:
+        batch = record['batch']
+        _purge_batch_record(root, batch)
         try:
             shutil.rmtree(batch)
-        except OSError:
-            continue
+        except OSError as exc:
+            raise OSError('永久清空失败：%s；已清空 %d 批；%s' % (batch.name, len(removed), exc)) from exc
         removed.append(batch.name)
     return removed
+
+
+def expired_recycle_batches(root, days=None, now=None):
+    """只列候选，不删除；损坏清单必须明确报告。"""
+    days = recycle_retention_days(root) if days is None else _retention_number(days)
+    if not days:
+        return []
+    root = _reject_recycle_links(root).resolve()
+    base = _reject_recycle_links(_recycle_base(root))
+    if not base.is_dir():
+        return []
+    now = time.time() if now is None else now
+    expired = []
+    for batch in base.iterdir():
+        if not batch.is_dir() and not batch.is_symlink() and not batch.is_junction():
+            continue
+        record = _purge_batch_record(root, batch)
+        try:
+            moment = time.mktime(time.strptime(record['created_at'], '%Y-%m-%d %H:%M:%S'))
+        except (TypeError, ValueError) as exc:
+            raise ValueError('回收批次创建时间无效：' + str(batch)) from exc
+        if now - moment >= days * 86400:
+            expired.append(batch)
+    return expired
+
+
+def purge_expired_batches(root, days=None, now=None):
+    """仅供显式调用；启动、浏览和保存设置均不触发删除。"""
+    return purge_recycle_batches(root, expired_recycle_batches(root, days, now))
 
 
 OVERWRITE_BACKUP_DIR='覆盖前备份'   # 与回收站同在项目「工作流任务」下
@@ -138,12 +209,12 @@ def read_recycle_batch(root, batch):
     可恢复批次。条目保留原始相对路径供展示；真正移动仍只由
     :func:`restore_recycle_batch` 完成并再次完整校验。
     """
-    root = Path(root).resolve()
-    batch = Path(batch).resolve()
-    base = _recycle_base(root).resolve()
-    if not batch.is_relative_to(base):
+    root = _reject_recycle_links(root).resolve()
+    batch = _reject_recycle_links(batch).resolve()
+    base = _reject_recycle_links(_recycle_base(root)).resolve()
+    if batch.parent != base:
         raise ValueError('恢复批次不在当前项目回收站中')
-    manifest = batch / '恢复位置.json'
+    manifest = _reject_recycle_links(batch / '恢复位置.json')
     try:
         data = read_json(manifest)
     except (OSError, ValueError) as exc:
@@ -284,12 +355,13 @@ def restore_recycle_batch(root, batch, sources=None):
     兼容自动维护的 ``items`` 清单和分镜页早期的 ``files`` 清单。批次必须位于当前
     项目回收站内，不能借由手工编辑清单越界移动任意文件。
     """
-    root = Path(root).resolve()
+    root = _reject_recycle_links(root).resolve()
+    _reject_recycle_links(batch)
     batch = _restore_location(root, batch, '恢复批次不在当前项目回收站中')
-    recycle_base = _recycle_base(root).resolve()
-    if not batch.is_relative_to(recycle_base):
+    recycle_base = _reject_recycle_links(_recycle_base(root)).resolve()
+    if batch.parent != recycle_base:
         raise ValueError('恢复批次不在当前项目回收站中')
-    manifest = batch / '恢复位置.json'
+    manifest = _reject_recycle_links(batch / '恢复位置.json')
     try:
         data = read_json(manifest)
     except (OSError, ValueError) as exc:

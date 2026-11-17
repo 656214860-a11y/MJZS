@@ -10,7 +10,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import model_pool
+import infra.model_pool as model_pool
 
 ABSENT_KEY = 'CODEX_TEST_KEY_ABSENT'
 

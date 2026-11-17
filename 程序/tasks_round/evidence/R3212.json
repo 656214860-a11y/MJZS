@@ -1,0 +1,15 @@
+{
+  "round": 3212,
+  "commit_base": "593cf4bc",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_file_origin_provenance test_stage_file_index_publication test_file_index test_global_library_service test_file_naming_producers test_aigc_package_diff test_exit_maintenance test_stage_gateway_base test_storyboard_catalog_scan_count test_ui_edges_guards test_claude_writing_session",
+    "exit": 0,
+    "passed": 125,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T20:31:40"
+}

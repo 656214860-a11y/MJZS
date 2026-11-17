@@ -77,11 +77,17 @@ def register(source,item,image):
     folder=base/'frames'
     if not folder.resolve().is_relative_to(base):raise ValueError('首帧目录越出素材目录')
     folder.mkdir(exist_ok=True)
-    ep=re.sub(r'[^A-Za-z0-9_-]','',str(episode.get('episode_id',''))) or 'EP'
-    dest=folder/(ep+'_'+sid+'_'+uuid.uuid4().hex[:8]+'.png')
+    from contract.file_naming import generate_existing
+    dest=folder/generate_existing('keyframe', episode_id=episode.get('episode_id', ''),
+                                  shot_id=sid, token=uuid.uuid4().hex[:8], suffix='.png')
     # Unique filenames also isolate episodes that reuse SH001 etc.; the final
     # publish remains exclusive so a collision can never overwrite a frame.
     save_bytes_new(dest,raw)
+    from infra import file_index
+    from contract import stage_layout
+    root=next((folder.parent for folder in (base,*base.parents)
+               if stage_layout.stage_dir(folder.name) is not None),base)
+    file_index.record_origin(root,[dest],'用户上传')
     return publish_frame_reference(source,base,item,dest)
 
 def stale_tasks(project,source,agent_running=False,limit=300):

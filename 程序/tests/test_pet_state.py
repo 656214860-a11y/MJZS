@@ -8,7 +8,7 @@ sys.path.insert(0, HERE)
 os.chdir(HERE)
 
 import pet_bus
-from pet_state import (FAILED, PENDING, RETRYING, RUNNING, SKIPPED, SUCCESS, Machine, state_path)
+from infra.pet_state import (FAILED, PENDING, RETRYING, RUNNING, SKIPPED, SUCCESS, Machine, state_path)
 
 
 class Clock:

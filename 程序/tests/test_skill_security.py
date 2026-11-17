@@ -82,7 +82,7 @@ class ConfirmWarningTests(SecurityCase):
             'pack/evil.ps1': 'Get-Process',
         })
         seen = []
-        import skill_archive
+        import ui.skill_archive as skill_archive
         report = skill_archive.import_archive(
             zip_path, self.program, self.registry,
             confirm=lambda m: seen.append(m) or True)
@@ -108,7 +108,7 @@ class ConfirmWarningTests(SecurityCase):
             'pack/SKILL.md': PKG_MD,
             'pack/evil.dll': 'MZ',
         })
-        import skill_archive
+        import ui.skill_archive as skill_archive
         with self.assertRaises(skill_import_service.ImportBlocked):
             skill_archive.import_archive(
                 zip_path, self.program, self.registry, confirm=lambda m: False)
@@ -134,7 +134,7 @@ class ConfirmWarningTests(SecurityCase):
 
 class IntegrityTests(SecurityCase):
     def _install_package(self):
-        import skill_archive
+        import ui.skill_archive as skill_archive
         folder = self.package_dir(extra={'references/rules.md': '规则'})
         zip_path = make_zip(self.root / 'pkg.zip', {
             'pack/SKILL.md': PKG_MD,

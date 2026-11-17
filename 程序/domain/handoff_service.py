@@ -8,6 +8,7 @@ from functools import wraps
 import logging
 from contract.service_contract import SystemError, UserError, success
 from contract.project_context import ProjectContext
+from contract.file_naming import generate_existing
 
 
 def _project_root(project=None, *, context=None):
@@ -75,7 +76,7 @@ def publish_bundle(root, shots, rows, subtitle=None, auto=False, *, publish=None
         source = (root / version['file']).resolve()
         if not source.is_relative_to(root):
             return UserError('视频路径越界')
-        name = f'{index:03}_{shot["id"]}{source.suffix}'
+        name = generate_existing('handoff_media', index=index, shot_id=shot['id'], suffix=source.suffix)
         artifacts.append({'name': name, 'source': source})
         manifest.append({'shot': shot['id'], 'file': name, 'review': version.get('review'), 'seconds': shot['duration']})
         sources.append({'shot': shot['id'], 'file': name, 'version': version.get('version'),
@@ -104,7 +105,7 @@ def publish_bundle(root, shots, rows, subtitle=None, auto=False, *, publish=None
         'subtitle': subtitle is not None,
         'sources': sources,
     }
-    name = '自动交接包' if auto else '剪映交接_' + uuid.uuid4().hex[:8]
+    name = '自动交接包' if auto else generate_existing('handoff_bundle', token=uuid.uuid4().hex[:8])
     return success(publish(root, name, artifacts, auto=auto, summary=summary))
 
 

@@ -37,9 +37,9 @@ from orchestrator.storyboard_recycle_service import (
 from contract.platform_tools import open_path
 import infra.tk_timers as tk_timers
 from file_cache import read_json, read_text
-import project_settings
-import ui_plugin_registry
-from pet_state import PAGE_OF
+import infra.project_settings as project_settings
+import infra.ui_plugin_registry as ui_plugin_registry
+from infra.pet_state import PAGE_OF
 from responsive_ui import FlowBar, refresh_check_heading, bind_row_toggle
 from ui.storyboard_table_ui import file_table, fit_file_columns, fit_final_columns, insert_entries, tree_columns
 from ui_tokens import WRAPLENGTH, COLORS, FONTS, SPACING
@@ -71,7 +71,7 @@ def default_source(project):
 def _prefs(path):
     # ui_settings.json 在一次页面重排里会被多个入口重复读取；按文件签名缓存解析结果。
     # 返回的是共享对象：只读可以，要改必须先 _writable_prefs() 取副本。
-    from project_settings import read_prefs
+    from infra.project_settings import read_prefs
     return read_prefs(path,read_json)
 
 

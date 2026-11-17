@@ -24,7 +24,7 @@ sys.path.insert(0, PROGRAM)
 sys.path.insert(1, HERE)
 os.chdir(PROGRAM)
 
-import model_router
+import infra.model_router as model_router
 import stage_config
 import stage_model_value
 
@@ -224,7 +224,7 @@ class ReasoningPickerTests(unittest.TestCase):
         return picker._popup_spec()
 
     def test_popup_shows_names_level_badge_and_persists_choice(self):
-        import model_pool
+        import infra.model_pool as model_pool
         import stage_model_picker
         data = model_pool.upsert(model_pool.raw(self.desktop.app),
                                  {'label': '会推理', 'model': 'reasoner-1',

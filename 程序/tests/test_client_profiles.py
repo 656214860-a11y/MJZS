@@ -12,7 +12,7 @@ from unittest.mock import Mock, patch
 import client_profiles
 import desktop_send_choice
 import environment_check
-import model_pool
+import infra.model_pool as model_pool
 import workflow_engines
 import workflow_settings
 

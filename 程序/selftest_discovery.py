@@ -135,7 +135,7 @@ def test_path(name):
 def gui_test_module(name):
     """按测试文件的直接依赖识别 GUI 测试，避免服务层偷偷拉起 Tk。"""
     imports = imports_of(test_path(name))
-    return bool({'tkinter', 'desktop', 'pet_ui', 'ui_theme'} & imports)
+    return bool({'tkinter', 'desktop', 'pet_ui', 'ui_theme', 'ui.pet_ui', 'ui.pet_ui_stages', 'ui.pet_ui_support', 'ui.pet_ui_settings', 'ui.pet_ui_voice', 'ui.pet_ui_view', 'ui.pet_ui_popup'} & imports)
 
 
 def modules_for_layer(names, layer):

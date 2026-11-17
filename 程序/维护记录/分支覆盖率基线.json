@@ -1,6 +1,6 @@
 {
  "tool": "scripts/branch_coverage_report.py",
- "scope": "L0/L1 顶层模块定向测量（tests/architecture/_layers.py 登记层 0/1；不是全量套件分支覆盖率）",
+ "scope": "L0/L1 登记模块实体定向测量（tests/architecture/_layers.py 登记层 0/1；不是全量套件分支覆盖率）",
  "metric": "决策点双结果覆盖：if/loop 体进入且条件走完；try handler 进入且干净路径走完；match case 进入且（无 case _ 时）落空路径走完。单行复合语句与表达式短路不计。",
  "targets": [
   "tests.test_aigc_lint",
@@ -68,15 +68,28 @@
   "tests.test_model_router_parse",
   "tests.test_model_router_diagnostics",
   "tests.test_file_naming",
-  "tests.test_file_index"
+  "tests.test_file_index",
+  "tests.test_global_library_service",
+  "tests.test_global_library_index",
+  "tests.test_global_library_config",
+  "tests.test_recycle_retention",
+  "tests.test_stage_reasoning",
+  "tests.test_page_paint_metric",
+  "tests.test_recycle_write_ahead",
+  "tests.test_claude_program_detection",
+  "tests.test_recycle_panel_actions",
+  "tests.test_stage_file_index_publication",
+  "tests.test_file_naming_producers",
+  "tests.test_file_origin_provenance",
+  "tests.test_context"
  ],
  "tests_ok": true,
- "points_total": 1052,
- "points_covered": 436,
+ "points_total": 2331,
+ "points_covered": 1222,
  "modules": [
   {
-   "module": "app_icon.py",
-   "points": 1,
+   "module": "aigc_lint.py",
+   "points": 18,
    "covered": 0,
    "percent": 0.0
   },
@@ -87,8 +100,38 @@
    "percent": 0.0
   },
   {
+   "module": "h3_reference_adapter.py",
+   "points": 5,
+   "covered": 0,
+   "percent": 0.0
+  },
+  {
+   "module": "hash_backend.py",
+   "points": 6,
+   "covered": 0,
+   "percent": 0.0
+  },
+  {
+   "module": "lease_verifier.py",
+   "points": 6,
+   "covered": 0,
+   "percent": 0.0
+  },
+  {
    "module": "project_settings.py",
    "points": 2,
+   "covered": 0,
+   "percent": 0.0
+  },
+  {
+   "module": "script_output_spec.py",
+   "points": 7,
+   "covered": 0,
+   "percent": 0.0
+  },
+  {
+   "module": "shot_selection.py",
+   "points": 5,
    "covered": 0,
    "percent": 0.0
   },
@@ -129,10 +172,22 @@
    "percent": 14.1
   },
   {
-   "module": "app_logging.py",
-   "points": 50,
-   "covered": 9,
-   "percent": 18.0
+   "module": "prop_assets.py",
+   "points": 21,
+   "covered": 3,
+   "percent": 14.3
+  },
+  {
+   "module": "episode_contract.py",
+   "points": 21,
+   "covered": 4,
+   "percent": 19.0
+  },
+  {
+   "module": "account_store.py",
+   "points": 10,
+   "covered": 2,
+   "percent": 20.0
   },
   {
    "module": "cloud_assets.py",
@@ -141,9 +196,39 @@
    "percent": 20.0
   },
   {
+   "module": "clipboard_lock.py",
+   "points": 13,
+   "covered": 3,
+   "percent": 23.1
+  },
+  {
+   "module": "broadcaster.py",
+   "points": 4,
+   "covered": 1,
+   "percent": 25.0
+  },
+  {
+   "module": "script_contract.py",
+   "points": 134,
+   "covered": 40,
+   "percent": 29.9
+  },
+  {
    "module": "qwen_setup.py",
    "points": 10,
    "covered": 3,
+   "percent": 30.0
+  },
+  {
+   "module": "usage_history.py",
+   "points": 10,
+   "covered": 3,
+   "percent": 30.0
+  },
+  {
+   "module": "usage_snapshot.py",
+   "points": 30,
+   "covered": 9,
    "percent": 30.0
   },
   {
@@ -153,16 +238,34 @@
    "percent": 35.0
   },
   {
-   "module": "model_router.py",
-   "points": 112,
-   "covered": 45,
-   "percent": 40.2
+   "module": "app_logging.py",
+   "points": 50,
+   "covered": 18,
+   "percent": 36.0
+  },
+  {
+   "module": "pet_bus.py",
+   "points": 27,
+   "covered": 10,
+   "percent": 37.0
+  },
+  {
+   "module": "platform_tools.py",
+   "points": 109,
+   "covered": 41,
+   "percent": 37.6
   },
   {
    "module": "model_pool.py",
    "points": 129,
-   "covered": 52,
-   "percent": 40.3
+   "covered": 53,
+   "percent": 41.1
+  },
+  {
+   "module": "workflow_process_registry.py",
+   "points": 24,
+   "covered": 10,
+   "percent": 41.7
   },
   {
    "module": "continuity_ledger.py",
@@ -171,16 +274,28 @@
    "percent": 42.0
   },
   {
-   "module": "storage_maintenance.py",
-   "points": 158,
-   "covered": 69,
-   "percent": 43.7
+   "module": "model_router.py",
+   "points": 112,
+   "covered": 50,
+   "percent": 44.6
   },
   {
-   "module": "stage_model_value.py",
-   "points": 9,
-   "covered": 4,
-   "percent": 44.4
+   "module": "config_snapshot.py",
+   "points": 2,
+   "covered": 1,
+   "percent": 50.0
+  },
+  {
+   "module": "line_endings.py",
+   "points": 14,
+   "covered": 7,
+   "percent": 50.0
+  },
+  {
+   "module": "storyboard_paths.py",
+   "points": 4,
+   "covered": 2,
+   "percent": 50.0
   },
   {
    "module": "model_secrets.py",
@@ -189,10 +304,16 @@
    "percent": 51.5
   },
   {
-   "module": "client_profiles.py",
-   "points": 88,
-   "covered": 46,
-   "percent": 52.3
+   "module": "global_library_service.py",
+   "points": 13,
+   "covered": 7,
+   "percent": 53.8
+  },
+  {
+   "module": "storage_maintenance.py",
+   "points": 171,
+   "covered": 93,
+   "percent": 54.4
   },
   {
    "module": "file_cache.py",
@@ -201,10 +322,64 @@
    "percent": 54.5
   },
   {
+   "module": "workflow_context_budget.py",
+   "points": 22,
+   "covered": 12,
+   "percent": 54.5
+  },
+  {
+   "module": "client_profiles.py",
+   "points": 88,
+   "covered": 49,
+   "percent": 55.7
+  },
+  {
+   "module": "http_client.py",
+   "points": 17,
+   "covered": 10,
+   "percent": 58.8
+  },
+  {
+   "module": "artifact_lineage.py",
+   "points": 21,
+   "covered": 14,
+   "percent": 66.7
+  },
+  {
+   "module": "native_asset_codec.py",
+   "points": 9,
+   "covered": 6,
+   "percent": 66.7
+  },
+  {
+   "module": "stage_path_service.py",
+   "points": 9,
+   "covered": 6,
+   "percent": 66.7
+  },
+  {
+   "module": "workspace_maintenance.py",
+   "points": 68,
+   "covered": 46,
+   "percent": 67.6
+  },
+  {
    "module": "pet_llm.py",
    "points": 35,
    "covered": 24,
    "percent": 68.6
+  },
+  {
+   "module": "engine_probe.py",
+   "points": 49,
+   "covered": 34,
+   "percent": 69.4
+  },
+  {
+   "module": "stage_layout.py",
+   "points": 34,
+   "covered": 24,
+   "percent": 70.6
   },
   {
    "module": "model_metering.py",
@@ -213,10 +388,94 @@
    "percent": 71.4
   },
   {
+   "module": "request_ledger.py",
+   "points": 140,
+   "covered": 100,
+   "percent": 71.4
+  },
+  {
+   "module": "app_icon.py",
+   "points": 52,
+   "covered": 38,
+   "percent": 73.1
+  },
+  {
+   "module": "frame_checks.py",
+   "points": 12,
+   "covered": 9,
+   "percent": 75.0
+  },
+  {
+   "module": "script_brief.py",
+   "points": 4,
+   "covered": 3,
+   "percent": 75.0
+  },
+  {
+   "module": "artifact_schema.py",
+   "points": 13,
+   "covered": 10,
+   "percent": 76.9
+  },
+  {
+   "module": "stage_model_value.py",
+   "points": 9,
+   "covered": 7,
+   "percent": 77.8
+  },
+  {
+   "module": "log_maintenance.py",
+   "points": 24,
+   "covered": 19,
+   "percent": 79.2
+  },
+  {
+   "module": "file_index.py",
+   "points": 89,
+   "covered": 71,
+   "percent": 79.8
+  },
+  {
+   "module": "prompt_templates.py",
+   "points": 10,
+   "covered": 8,
+   "percent": 80.0
+  },
+  {
+   "module": "store_program_locator.py",
+   "points": 10,
+   "covered": 8,
+   "percent": 80.0
+  },
+  {
    "module": "token_saver.py",
    "points": 52,
    "covered": 42,
    "percent": 80.8
+  },
+  {
+   "module": "asset_contract.py",
+   "points": 53,
+   "covered": 44,
+   "percent": 83.0
+  },
+  {
+   "module": "api_models.py",
+   "points": 7,
+   "covered": 6,
+   "percent": 85.7
+  },
+  {
+   "module": "script_text_reader.py",
+   "points": 7,
+   "covered": 6,
+   "percent": 85.7
+  },
+  {
+   "module": "file_naming.py",
+   "points": 29,
+   "covered": 26,
+   "percent": 89.7
   },
   {
    "module": "pet_state.py",
@@ -225,31 +484,37 @@
    "percent": 92.1
   },
   {
+   "module": "shot_batches.py",
+   "points": 40,
+   "covered": 37,
+   "percent": 92.5
+  },
+  {
+   "module": "script_manifest_schema.py",
+   "points": 57,
+   "covered": 53,
+   "percent": 93.0
+  },
+  {
+   "module": "app_metadata.py",
+   "points": 0,
+   "covered": 0,
+   "percent": 100.0
+  },
+  {
    "module": "asset_prompt_rules.py",
    "points": 2,
    "covered": 2,
    "percent": 100.0
   },
   {
-   "module": "file_index.py",
-   "points": 0,
-   "covered": 0,
+   "module": "error_codes.py",
+   "points": 3,
+   "covered": 3,
    "percent": 100.0
   },
   {
    "module": "file_index_contract.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
-   "module": "file_naming.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
-   "module": "hash_backend.py",
    "points": 0,
    "covered": 0,
    "percent": 100.0
@@ -261,31 +526,55 @@
    "percent": 100.0
   },
   {
-   "module": "line_endings.py",
+   "module": "model_diagnostics.py",
+   "points": 2,
+   "covered": 2,
+   "percent": 100.0
+  },
+  {
+   "module": "model_protocol.py",
    "points": 0,
    "covered": 0,
    "percent": 100.0
   },
   {
-   "module": "pet_bus.py",
+   "module": "pet_settings_contract.py",
    "points": 0,
    "covered": 0,
    "percent": 100.0
   },
   {
-   "module": "platform_tools.py",
+   "module": "production_model_contract.py",
    "points": 0,
    "covered": 0,
    "percent": 100.0
   },
   {
-   "module": "script_contract.py",
+   "module": "project_context.py",
    "points": 0,
    "covered": 0,
    "percent": 100.0
   },
   {
-   "module": "stage_layout.py",
+   "module": "project_stages.py",
+   "points": 0,
+   "covered": 0,
+   "percent": 100.0
+  },
+  {
+   "module": "script_manifest_contract.py",
+   "points": 0,
+   "covered": 0,
+   "percent": 100.0
+  },
+  {
+   "module": "service_contract.py",
+   "points": 0,
+   "covered": 0,
+   "percent": 100.0
+  },
+  {
+   "module": "storyboard_contract.py",
    "points": 0,
    "covered": 0,
    "percent": 100.0
@@ -295,7 +584,13 @@
    "points": 0,
    "covered": 0,
    "percent": 100.0
+  },
+  {
+   "module": "update_notice.py",
+   "points": 3,
+   "covered": 3,
+   "percent": 100.0
   }
  ],
- "modules_total": 37
+ "modules_total": 84
 }

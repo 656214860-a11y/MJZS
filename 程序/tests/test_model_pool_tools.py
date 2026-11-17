@@ -14,7 +14,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 os.chdir(HERE)
 
-import model_pool
+import infra.model_pool as model_pool
 
 HEADERS = {'Authorization': 'Bearer test', 'Content-Type': 'application/json'}
 

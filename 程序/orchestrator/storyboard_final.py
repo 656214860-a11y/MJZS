@@ -6,6 +6,7 @@ import copy, shutil, re, uuid, hashlib, json
 from agent.core import read
 from domain.asset_plan import _sync_plan
 from domain.project_naming import dated_path
+from contract.file_naming import generate_existing
 from orchestrator.project_context_factory import project_context
 
 
@@ -112,7 +113,7 @@ def finalize(project,episode_dir,source,retire_working=None,*,gateway=None):
     from contract.prop_assets import normalize_shot
     planned=read(base/'assets/资产清单/assets.json')
     if not isinstance(planned,dict):planned={}
-    episode['shots']=[normalize_shot(shot,planned) for shot in episode['shots']];from continuity_ledger import require_final_ready;require_final_ready(project,episode['shots'])
+    episode['shots']=[normalize_shot(shot,planned) for shot in episode['shots']];from infra.continuity_ledger import require_final_ready;require_final_ready(project,episode['shots'])
     for shot in episode['shots']:
         refs=[];bindings={}
         for prefix,key,many in [('CHAR','characters',True),('LOC','location',False),('PROP','props',True)]:
@@ -175,7 +176,7 @@ def finalize(project,episode_dir,source,retire_working=None,*,gateway=None):
                 if not callable(retire_working):raise TypeError('定稿退役需要 L3 编排入口。')
                 retire_working(project,source,existing,original_hash)
             return existing.parent
-    dest=dated_path(stage(project,'final')/'分镜',re.sub(r'[^A-Za-z0-9_-]','_',episode['episode_id'])+'_分镜定稿')
+    dest=dated_path(stage(project,'final')/'分镜',generate_existing('storyboard_final', episode_id=episode['episode_id']))
     # A final is a single maintained document, including later asset updates.
     if source.name=='episode.json' and is_final_dir(source.parent.name) and source.is_relative_to(finals_root):
         dest=source.parent
@@ -195,7 +196,8 @@ def finalize(project,episode_dir,source,retire_working=None,*,gateway=None):
             asset.pop('image',None);continue
         rel=Path(asset['image']);target=dest/rel;target.parent.mkdir(parents=True,exist_ok=True)
         if target.is_file() and target.read_bytes()!=(base/rel).read_bytes():
-            target=target.with_name(target.stem+'_'+hashlib.sha256((base/rel).read_bytes()).hexdigest()[:12]+target.suffix)
+            target=target.with_name(generate_existing('collision', stem=target.stem,
+                                    token=hashlib.sha256((base/rel).read_bytes()).hexdigest()[:12], suffix=target.suffix))
             image_rewrites[rel.as_posix()]=target.relative_to(dest).as_posix()
             asset['image']=target.relative_to(dest).as_posix()
         if (base/rel).resolve()!=target.resolve():shutil.copy2(base/rel,target)
@@ -211,7 +213,8 @@ def finalize(project,episode_dir,source,retire_working=None,*,gateway=None):
             target=output_base/shot['frame'];target.parent.mkdir(parents=True,exist_ok=True)
             if frame.resolve()!=target.resolve():
                 if target.exists() and frame.read_bytes()!=target.read_bytes():
-                    target=target.with_name(target.stem+'_'+uuid.uuid4().hex[:8]+target.suffix)
+                    target=target.with_name(generate_existing('collision', stem=target.stem,
+                                            token=uuid.uuid4().hex[:8], suffix=target.suffix))
                     shot['frame']=target.relative_to(output_base).as_posix()
                 if not target.exists():shutil.copy2(frame,target)
     if hashlib.sha256(source.read_bytes()).hexdigest()!=original_hash:

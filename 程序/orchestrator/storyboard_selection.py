@@ -3,7 +3,7 @@ import os, time
 from pathlib import Path
 from agent.core import read,save
 from file_cache import read_json
-from project_settings import read_prefs
+from infra.project_settings import read_prefs
 from orchestrator.project_context_factory import project_context
 from domain.storyboard_adoption_contract import adopted as _adopted, paths, problem_text, resolve_source
 import contract.pet_bus as pet_bus

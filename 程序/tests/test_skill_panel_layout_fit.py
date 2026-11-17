@@ -74,7 +74,7 @@ class LockFitTests(unittest.TestCase):
 
 class ProviderLabelTests(unittest.TestCase):
     def test_openai_compatible_label_and_id_round_trip(self):
-        import model_pool
+        import infra.model_pool as model_pool
         self.assertEqual(model_pool.PROVIDER_LABELS['openai-compatible'], 'OpenAI 兼容接口')
         self.assertIn('openai-compatible', model_pool.PROVIDER_IDS)
         # 显示名 → id：写盘的是 id，不是中文 label。

@@ -77,7 +77,7 @@ class NaturalScriptEditTests(unittest.TestCase):
             self.assertIsNone(script_contract.resolve_script_source(project), "前提：改后采用记录失效")
 
             # 重新进入本页（内容变了，页面按签名重建）后再点编辑，仍应可编辑（修复前此处报错）。
-            import pet_state
+            import infra.pet_state as pet_state
             before = desktop.script_structure_source_preview_edit_button
             desktop.show(pet_state.PAGE_OF["script_structure"])
             win.update()

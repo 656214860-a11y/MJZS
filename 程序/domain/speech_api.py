@@ -125,7 +125,7 @@ def save_settings(values, *, publish, path=None):
 
 
 def api_key(settings=None):
-    import model_pool
+    import infra.model_pool as model_pool
     return model_pool.named_key((settings or read_settings())['key_env'])
 
 

@@ -15,11 +15,11 @@ import stage_config
 import writing_api
 import writing_stream
 import writing_tools
-import model_pool
+import infra.model_pool as model_pool
 import script_contract
 from contract import project_stages
 from stage_execution_service import publish_stage_text
-from model_router import PoolAdapter
+from infra.model_router import PoolAdapter
 import token_saver
 from test_workflow import make_project as _make_project
 

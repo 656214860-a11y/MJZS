@@ -62,6 +62,30 @@ def _replace_locked(source, target):
             time.sleep(0.05)
 
 
+def rename_with_references(source, target, prepare):
+    """排他改名及已验证引用更新共用事务；竞争目标绝不覆盖。"""
+    from agent import publication
+    from file_cache import published
+    source, target = Path(source), Path(target)
+    linked = False
+    try:
+        with publication.transaction():
+            updates = prepare()
+            os.link(source, target)
+            linked = True
+            publication.before_replace(source)
+            for path, payload in updates:
+                save(path, payload)
+            source.unlink()
+            published(source)
+            published(target)
+    except BaseException:
+        if linked:
+            target.unlink(missing_ok=True)
+            published(target)
+        raise
+
+
 def save(path, obj, *, durable=True):
     save_text(path, json.dumps(obj, ensure_ascii=False, indent=2), durable=durable)
 

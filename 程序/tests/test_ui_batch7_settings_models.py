@@ -11,7 +11,7 @@ from tkinter import ttk
 from types import SimpleNamespace
 from unittest import mock
 
-import model_pool
+import infra.model_pool as model_pool
 import pet_models_ui
 import pet_settings_ui
 from skip_reasons import PLATFORM_TKINTER

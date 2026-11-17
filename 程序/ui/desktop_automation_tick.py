@@ -3,7 +3,7 @@
 方法体未改、self 语义不变；Desktop 通过继承 AutomationTickMixin 获得。Tk 回收护栏与页登记表
 分别来自 desktop_tk_gc 与 desktop_page_registry。仍与 Tk 控件紧耦合，故与 desktop 同属 L4。
 """
-import pet_ui
+import ui.pet_ui as pet_ui
 from pathlib import Path
 from orchestrator.desktop_automation_service import PersistentBackgroundTaskQueue
 from agent.core import read

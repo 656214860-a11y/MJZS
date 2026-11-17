@@ -75,7 +75,7 @@ def optional_model_identity(label, program):
     """
     shown = str(label or '').strip()
     try:
-        import model_pool
+        import infra.model_pool as model_pool
         records = model_pool.pool(program=Path(program))
         model_id = model_pool.id_of_label(shown, model_pool.options(records, with_auto=False))
         record = records.get(model_id, {})

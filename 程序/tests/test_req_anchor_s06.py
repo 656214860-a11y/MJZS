@@ -11,7 +11,7 @@ from copy import deepcopy
 from pathlib import Path
 from unittest.mock import patch
 
-import continuity_ledger
+import infra.continuity_ledger as continuity_ledger
 import skill_tools
 from agent.core import save
 

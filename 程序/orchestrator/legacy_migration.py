@@ -1,24 +1,20 @@
 # -*- coding: utf-8 -*-
-"""旧英文目录 → 当前阶段目录的存量迁移（R3125，任务书 P4，Q7=B／Q18／Q19）。
+"""Legacy migration: read-only planning, whole-batch validation and recoverable journal.
 
-分工（任务书 §4 P4）：
-- 迁移前整包备份被搬动的文件到 ``工作流任务/迁移备份/<时间戳>/``（保留原相对路径）；
-- 逐项移动，冲突不覆盖，重复执行幂等（目标已存在且内容一致即跳过）；
-- **E1**：把「成果确认」清单里的 ``scope.source`` 重指向新路径并按新指纹改名，
-  否则已完成阶段会因指纹失配退回「未完成」；
-- **E2**：把 ``assets_manifest.json`` 里的绝对路径改写为项目相对 posix；
-- 产出 ``迁移报告.md``，逐项记录结果、跳过项与人工待办。
-
-安全边界：只搬 ``stage_layout.LEGACY`` 登记过的旧目录下的文件；``_archive`` 只读不动；
-本模块不删除任何未备份的内容。
+Ambiguous ownership requires explicit source->target mappings or an identical existing
+canonical target. No filename/stage guessing. All destructive operations use recycle_paths.
 """
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
-import shutil
+import os
+import stat
 import time
-from pathlib import Path
+import uuid
+from functools import wraps
+from pathlib import Path, PureWindowsPath
 
 import contract.stage_layout as stage_layout
 from contract.stage_path_service import write_dir
@@ -29,12 +25,20 @@ CONFIRM_DIR_NAME = '成果确认'
 ASSETS_MANIFEST_NAME = 'assets_manifest.json'
 DOC_SUFFIXES = frozenset({'.md', '.txt', '.docx', '.rtf'})
 MEDIA_SUFFIXES = frozenset({'.png', '.jpg', '.jpeg', '.webp', '.bmp', '.gif', '.tga', '.psd',
-                            '.mp3', '.wav', '.m4a', '.aac', '.flac',
-                            '.mp4', '.mov', '.mkv', '.avi', '.webm'})
+                            '.mp3', '.wav', '.ogg', '.m4a', '.flac', '.mp4', '.mov', '.webm', '.srt', '.ass'})
+PATH_KEYS = frozenset({'path', 'source', 'file', 'filepath', 'file_path', 'source_path',
+    'output_path', 'target_path', 'manifest_path', 'frame_json', 'storyboard_file', 'script_json',
+    'image', 'image_path', 'audio', 'audio_path', 'video', 'video_path', 'subtitle_path',
+    'thumbnail', 'canonical_board', 'reference_image', 'local_path'})
+PATH_LISTS = frozenset({'adopted_storyboards', 'reference_images', 'files', 'paths', 'outputs'})
+EXCLUDED = frozenset({'回收站', '迁移备份', '覆盖前备份'})
+
+
+class MigrationError(ValueError):
+    """A batch could not be safely planned/applied/recovered."""
 
 
 def _digest(path):
-    """流式 sha256（与 file_cache.file_digest 同口径，但只在本轮搬运里自用）。"""
     hasher = hashlib.sha256()
     with open(path, 'rb') as stream:
         for block in iter(lambda: stream.read(1024 * 1024), b''):
@@ -42,228 +46,499 @@ def _digest(path):
     return hasher.hexdigest()
 
 
+def _root(project):
+    path = Path(os.path.abspath(project))
+    _no_links(path)
+    if not path.is_dir():
+        raise MigrationError('项目目录不存在')
+    return path
+
+
+def _no_links(path):
+    for item in (path, *path.parents):
+        if item.exists() or item.is_symlink():
+            info = item.lstat()
+            if stat.S_ISLNK(info.st_mode) or getattr(info, 'st_file_attributes', 0) & 0x400:
+                raise MigrationError('拒绝 symlink/junction/reparse point: ' + str(item))
+
+
+def _path(root, relative):
+    text = str(relative).replace('\\', '/')
+    parts = text.split('/')
+    if not text or PureWindowsPath(text).drive or text.startswith('/') or any(
+            part in ('', '.', '..') or ':' in part or part.rstrip(' .') != part
+            or part.split('.')[0].upper() in {'CON', 'PRN', 'AUX', 'NUL',
+                *(f'COM{i}' for i in range(1, 10)), *(f'LPT{i}' for i in range(1, 10))}
+            for part in parts):
+        raise MigrationError('非法项目相对路径: ' + text)
+    path = root.joinpath(*parts)
+    _no_links(path)
+    if not path.resolve().is_relative_to(root):
+        raise MigrationError('路径越界: ' + text)
+    return path
+
+
+def _files(root, folder=None):
+    start = folder or root
+    for base, dirs, files in os.walk(start, followlinks=False):
+        here = Path(base)
+        _no_links(here)
+        kept = []
+        for name in sorted(dirs):
+            child = here / name
+            _no_links(child)
+            if name not in EXCLUDED:
+                kept.append(name)
+        dirs[:] = kept
+        for name in sorted(files):
+            path = here / name
+            _no_links(path)
+            if not path.is_file():
+                raise MigrationError('不支持的文件类型: ' + str(path))
+            yield path
+
+
+def _directories(root):
+    result = []
+    for base, dirs, _files_here in os.walk(root, followlinks=False):
+        dirs[:] = sorted(name for name in dirs if name not in EXCLUDED)
+        for name in dirs:
+            path = Path(base) / name
+            _no_links(path)
+            result.append(path.relative_to(root).as_posix())
+    return result
+
+
 def _slot(suffix):
-    """按后缀决定落到阶段的哪个子目录：文档→docs，媒体→assets，其余→output。"""
-    suffix = str(suffix).lower()
-    if suffix in DOC_SUFFIXES:
-        return 'docs'
-    if suffix in MEDIA_SUFFIXES:
-        return 'assets'
-    return 'output'
+    return 'docs' if suffix.lower() in DOC_SUFFIXES else (
+        'assets' if suffix.lower() in MEDIA_SUFFIXES else 'output')
 
 
 def target_relpath(project, alias, old_relative, name):
-    """旧目录里的一个文件名 → 新阶段目录下的项目相对 posix 路径。"""
-    folder = stage_layout.LEGACY_STAGE_ALIASES.get(alias)
-    if folder is None:
-        return ''
-    row = stage_layout.stage_dir(folder)
-    if row is None:
-        return ''
-    slot = _slot(Path(name).suffix)
-    return (Path(row[0]) / slot / name).as_posix()
+    """Preserve the complete subtree below each registered legacy root."""
+    row = stage_layout.stage_dir(alias)
+    if row is None or not row[1]:
+        raise MigrationError('未知阶段: ' + alias)
+    root = _root(project)
+    source = _path(root, old_relative)
+    child = _path(source, name)
+    tail = child.relative_to(source)
+    return (write_dir(root, row[1]) / _slot(child.suffix) / tail).relative_to(root).as_posix()
 
 
-def plan(project):
-    """列出全部待迁移项：``{'source','target','action','reason'}``（纯读，不写盘）。"""
-    root = Path(project).resolve()
-    ops = []
-    for alias, old_relative, _description in stage_layout.LEGACY:
-        base = root / Path(*old_relative.split('/'))
-        if not base.exists():
+def _choose(root, source, candidates, explicit):
+    if source in explicit:
+        chosen = str(explicit[source]).replace('\\', '/')
+        _path(root, chosen)
+        if chosen not in candidates:
+            raise MigrationError('明确映射不是登记目标: ' + source)
+        return chosen
+    if len(candidates) == 1:
+        return next(iter(candidates))
+    digest = _digest(_path(root, source))
+    authoritative = [value for value in candidates if _path(root, value).is_file()
+                     and _digest(_path(root, value)) == digest]
+    if len(authoritative) == 1:
+        return authoritative[0]
+    raise MigrationError('重叠来源归属不明，请提供明确映射: ' + source)
+
+
+def plan(project, explicit=None):
+    """Plan once per physical source; any unknown/ambiguous/colliding item blocks all."""
+    root, sources = _root(project), {}
+    explicit = explicit or {}
+    for alias, relative, _note in stage_layout.LEGACY:
+        folder = _path(root, relative)
+        if alias == '_archive' or not folder.exists():
             continue
-        for path in sorted(base.rglob('*')):
-            if not path.is_file() or path.is_symlink():
-                continue
+        if stage_layout.stage_dir(alias) is None:
+            raise MigrationError('未知阶段: ' + alias)
+        if not folder.is_dir():
+            raise MigrationError('旧目录不是目录: ' + relative)
+        for path in _files(root, folder):
             source = path.relative_to(root).as_posix()
-            target = target_relpath(root, alias, old_relative, path.name)
-            if not target:
-                ops.append({'source': source, 'target': '', 'action': 'skip',
-                            'reason': '旧阶段名没有对应的当前阶段目录'})
-                continue
-            destination = root / Path(*target.split('/'))
-            if destination.is_file():
-                same = _digest(path) == _digest(destination)
-                ops.append({'source': source, 'target': target,
-                            'action': 'skip' if same else 'conflict',
-                            'reason': '目标已存在且内容一致' if same else '目标已存在且内容不同，未覆盖'})
-                continue
-            ops.append({'source': source, 'target': target, 'action': 'move', 'reason': ''})
+            target = target_relpath(root, alias, relative, path.relative_to(folder).as_posix())
+            sources.setdefault(source, set()).add(target)
+    unknown = set(explicit) - set(sources)
+    if unknown:
+        raise MigrationError('明确映射包含未知来源: ' + ', '.join(sorted(unknown)))
+    ops = []
+    for source, candidates in sorted(sources.items()):
+        target = _choose(root, source, candidates, explicit)
+        ops.append({'source': source, 'target': target, 'action': 'move', 'reason': '',
+                    'sha256': _digest(_path(root, source))})
+    _validate(root, ops)
     return ops
 
 
-def _backup_path(root, stamp, relative):
-    return stage_layout.workflow_dir(root, BACKUP_DIR_NAME, stamp, *relative.split('/'))
-
-
-def apply(project, ops, now=None):
-    """执行迁移：先备份被搬动的文件，再逐项移动；返回逐项结果的 ops 副本。"""
-    root = Path(project).resolve()
-    stamp = time.strftime('%Y%m%d_%H%M%S', time.localtime(now or time.time()))
-    done = []
+def _validate(root, ops):
+    sources, targets = set(), set()
     for op in ops:
-        item = dict(op)
-        if item['action'] != 'move':
-            done.append(item)
-            continue
-        source = root / Path(*item['source'].split('/'))
-        target = root / Path(*item['target'].split('/'))
-        backup = _backup_path(root, stamp, item['source'])
-        try:
-            backup.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source, backup)
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(str(source), str(target))
-        except OSError as exc:
-            item['action'] = 'failed'
-            item['reason'] = '移动失败：' + str(exc)
-            done.append(item)
-            continue
-        if not source.exists():
-            _prune_empty(source.parent, root)
-        item['action'] = 'moved'
-        item['backup'] = backup.relative_to(root).as_posix()
-        done.append(item)
-    return done, stamp
-
-
-def _prune_empty(folder, root):
-    """搬空之后删除空目录；不越过项目根、不递归删除非空目录。"""
-    try:
-        current = Path(folder)
-        while current.resolve().is_relative_to(root) and current.resolve() != root:
-            if any(current.iterdir()):
-                return
-            current.rmdir()
-            current = current.parent
-    except OSError:
-        return
+        source, target = _path(root, op['source']), _path(root, op['target'])
+        source_key, target_key = str(source).casefold(), str(target).casefold()
+        if source_key in sources or target_key in targets or source_key == target_key:
+            raise MigrationError('批内重复来源/目标碰撞: ' + op['source'])
+        sources.add(source_key)
+        targets.add(target_key)
+        if not source.is_file() or _digest(source) != op.get('sha256'):
+            raise MigrationError('来源已变化或缺失: ' + op['source'])
+        if target.exists():
+            if not target.is_file() or _digest(target) != op['sha256']:
+                raise MigrationError('目标冲突: ' + op['target'])
+            op['action'] = 'skip'
+        for parent in target.parents:
+            if parent == root:
+                break
+            if parent.exists() and not parent.is_dir():
+                raise MigrationError('目标父路径冲突: ' + str(parent))
+    if sources & targets:
+        raise MigrationError('来源与目标重叠')
+    for target in targets:
+        if any(target.startswith(other + os.sep) for other in targets if target != other):
+            raise MigrationError('目标文件与目录碰撞')
 
 
 def mapping_of(ops):
-    """搬动项的原路径 → 新路径映射（E1／E2 用）。"""
-    return {op['source']: op['target'] for op in ops if op.get('action') in ('move', 'moved')}
+    return {op['source']: op['target'] for op in ops
+            if op.get('action') in ('move', 'moved', 'skip')}
 
 
-def repoint_manifests(project, moves):
-    """E1：把成果确认清单的 scope.source 重指向新路径，并按新指纹改名落盘。
-
-    不做这一步，已完成的媒体阶段会因「清单文件名＝源路径指纹」失配而退回未完成。
-    """
-    from agent.core import save
-    from file_cache import read_json
-    from stage_completion_service import media_manifest_path
-    root = Path(project).resolve()
-    saved = []
-    for row in stage_layout.STAGES:
-        stage, folder_name = row[1], row[0]
-        confirm = root / folder_name / CONFIRM_DIR_NAME
-        if not confirm.is_dir():
-            continue
-        for manifest in sorted(confirm.glob('*.json')):
-            try:
-                data = read_json(manifest)
-            except (OSError, ValueError):
-                continue
-            scope = data.get('scope') if isinstance(data, dict) else None
-            if not isinstance(scope, dict):
-                continue
-            source = str(scope.get('source') or '')
-            if source not in moves:
-                continue
-            new_scope = dict(scope, source=moves[source], source_sha256=_digest(root / Path(*moves[source].split('/'))))
-            data['scope'] = new_scope
-            try:
-                target = media_manifest_path(root, stage, new_scope)
-            except ValueError:
-                # 该阶段不支持媒体成果确认清单（只有音频／后期／交付有）；跳过即可。
-                continue
-            save(target, data)
-            if target.resolve() != manifest.resolve():
-                # 物理删除只经回收权威：旧指纹清单移入项目回收站，可追溯。
-                from storage_maintenance import recycle_paths
-                try:
-                    recycle_paths(root, [manifest], '迁移：旧指纹成果确认清单')
-                except (OSError, ValueError):
-                    pass
-            saved.append(target.relative_to(root).as_posix())
-    return saved
-
-
-def rewrite_absolute_manifests(project, moves):
-    """E2：把清单里的绝对路径改写为项目相对 posix，并按迁移映射改指向新位置。"""
-    from agent.core import save
-    from file_cache import read_json
-    root = Path(project).resolve()
-    rewritten = []
-    for path in sorted(root.rglob(ASSETS_MANIFEST_NAME)):
-        if stage_layout.WORKFLOW_DIR in path.parts:
-            continue
-        try:
-            data = read_json(path)
-        except (OSError, ValueError):
-            continue
-        changed = _rewrite_tree(data, root, moves)
-        if changed:
-            save(path, data)
-            rewritten.append(path.relative_to(root).as_posix())
-    return rewritten
-
-
-def _rewrite_tree(node, root, moves):
-    """递归改写 dict/list 里形如路径的字符串；返回是否有改动。"""
-    changed = False
-    if isinstance(node, dict):
-        for key in list(node):
-            value = node[key]
-            if isinstance(value, str):
-                new = _rewrite_one(value, root, moves)
-                if new != value:
-                    node[key] = new
-                    changed = True
-            elif isinstance(value, (dict, list)):
-                changed = _rewrite_tree(value, root, moves) or changed
-        return changed
-    if isinstance(node, list):
-        for index, value in enumerate(node):
-            if isinstance(value, str):
-                new = _rewrite_one(value, root, moves)
-                if new != value:
-                    node[index] = new
-                    changed = True
-            elif isinstance(value, (dict, list)):
-                changed = _rewrite_tree(value, root, moves) or changed
-    return changed
-
-
-def _rewrite_one(text, root, moves):
-    """把绝对路径收成项目相对 posix，并按迁移映射换到新位置。"""
+def _reference(value, root, moves):
+    text = value.replace('\\', '/')
     candidate = Path(text)
-    if not candidate.is_absolute():
-        return moves.get(text.replace('\\', '/'), text)
+    if candidate.is_absolute():
+        _no_links(candidate)
+        try:
+            text = candidate.relative_to(root).as_posix()
+        except ValueError:
+            raise MigrationError('引用在项目外: ' + value) from None
+    path = _path(root, text)
+    text, seen = path.relative_to(root).as_posix(), set()
+    while text in moves and moves[text] != text:
+        if text in seen:
+            raise MigrationError('引用映射循环: ' + text)
+        seen.add(text)
+        text = moves[text]
+        _path(root, text)
+    return text
+
+
+def _affected(value, root, moves):
+    text = value.replace('\\', '/')
+    return any(source in text for source in moves)
+
+
+def _rewrite_tree(node, root, moves, key='', hashes=None):
+    """Rewrite typed path fields only; unknown affected fields fail closed."""
+    if isinstance(node, list):
+        return [_rewrite_tree(value, root, moves, key, hashes) for value in node]
+    if isinstance(node, str):
+        if key in PATH_KEYS or key in PATH_LISTS:
+            return _reference(node, root, moves) if node else node
+        if _affected(node, root, moves):
+            raise MigrationError('未知引用字段: ' + key)
+        return node
+    if not isinstance(node, dict):
+        return node
+    for name in node:
+        if _affected(name, root, moves):
+            raise MigrationError('未知路径字典键: ' + name)
+    result = {name: _rewrite_tree(value, root, moves, name, hashes) for name, value in node.items()}
+    for name, hash_name in (('source', 'source_sha256'), ('path', 'sha256'), ('file', 'sha256')):
+        if isinstance(node.get(name), str) and hash_name in node and hashes is not None:
+            target = _reference(node[name], root, moves)
+            if target not in hashes:
+                raise MigrationError('指纹引用缺失: ' + node[name])
+            original = _reference(node[name], root, {})
+            old_path = _path(root, original)
+            if not old_path.is_file() or node[hash_name] != _digest(old_path):
+                # Migration must never repair stale evidence into a valid confirmation.
+                raise MigrationError('已有指纹不匹配: ' + node[name])
+            result[hash_name] = hashes[target]
+    return result
+
+
+def _json_bytes(data):
+    return json.dumps(data, ensure_ascii=False, indent=2).replace('\n', os.linesep).encode('utf-8')
+
+
+def _documents(root, inventory, *, readonly=False):
+    from file_cache import read_json
+    docs = {}
+    for relative in inventory:
+        if Path(relative).suffix.lower() != '.json':
+            continue
+        path = _path(root, relative)
+        try:
+            # dry-run 必须无写副作用；解析只读快照，避免正式读取器创建事务锁。
+            data = json.JSONDecoder().decode(path.read_text(encoding='utf-8-sig')) if readonly else read_json(path)
+        except (OSError, ValueError, UnicodeError) as exc:
+            raise MigrationError('JSON 无法解析: ' + relative) from exc
+        docs[relative] = data
+    return docs
+
+
+def _prepare(root, ops, inventory, *, readonly=False):
+    """Compute all final JSON bytes and names before creating the backup directory."""
+    from stage_completion_service import media_manifest_path
+    moves = mapping_of(ops)
+    docs = _documents(root, inventory, readonly=readonly)
+    for relative, data in docs.items():
+        if CONFIRM_DIR_NAME not in Path(relative).parts:
+            continue
+        if not isinstance(data, dict) or not isinstance(data.get('scope'), dict):
+            raise MigrationError('成果确认缺少 scope: ' + relative)
+        scope = data['scope']
+        if data.get('stage') not in ('audio', 'edit', 'delivery') or not scope.get('source'):
+            raise MigrationError('未知成果确认类型或来源: ' + relative)
+        new_scope = dict(scope, source=_reference(scope['source'], root, moves))
+        target = media_manifest_path(root, data['stage'], new_scope).relative_to(root).as_posix()
+        if target != relative and target in inventory:
+            raise MigrationError('成果确认目标已存在: ' + target)
+        if target != relative:
+            moves[relative] = target
+    hashes = {_reference(rel, root, moves): digest for rel, digest in inventory.items()}
+    writes, changed_content = {}, set()
+    for _iteration in range(len(docs) + 2):
+        next_writes, next_hashes, renames = {}, dict(hashes), {}
+        for relative, data in docs.items():
+            updated = _rewrite_tree(data, root, moves, hashes=hashes)
+            target = moves.get(relative, relative)
+            scope = updated.get('scope') if isinstance(updated, dict) else None
+            if isinstance(scope, dict) and isinstance(data.get('scope'), dict):
+                bound = [data['scope'].get('source')] + [item.get('path') for item in
+                        data.get('outputs', []) if isinstance(item, dict)]
+                if any(value and _reference(value, root, {}) in changed_content for value in bound):
+                    updated['reviewed'] = False
+                    if updated.get('status') == 'complete':
+                        updated['status'] = 'pending_review'
+                if CONFIRM_DIR_NAME in Path(relative).parts:
+                    stage = updated.get('stage')
+                    if stage not in ('audio', 'edit', 'delivery'):
+                        raise MigrationError('未知成果确认类型: ' + relative)
+                    target = media_manifest_path(root, stage, scope).relative_to(root).as_posix()
+                    renames[relative] = target
+                if isinstance(updated.get('qc'), dict) and 'bound' in updated['qc']:
+                    updated['qc']['bound'] = [item['sha256'] for item in updated.get('outputs', [])]
+            if updated != data or target != relative:
+                payload = _json_bytes(updated) if updated != data else _path(root, relative).read_bytes()
+                if target in next_writes and next_writes[target] != payload:
+                    raise MigrationError('清单重命名碰撞: ' + target)
+                next_writes[target] = payload
+                next_hashes[target] = hashlib.sha256(payload).hexdigest()
+                if updated != data:
+                    changed_content.add(relative)
+        if next_writes == writes:
+            break
+        writes, hashes = next_writes, next_hashes
+    else:
+        raise MigrationError('引用指纹循环，无法稳定重写')
+    for old, new in renames.items():
+        if old != new:
+            moves[old] = new
+    deleted = set(mapping_of(ops)) | {old for old, new in renames.items() if old != new}
+    for target in writes:
+        _path(root, target)
+        if target in inventory and target not in docs and target not in deleted:
+            raise MigrationError('重写目标冲突: ' + target)
+    # A renamed confirmation must not overwrite another existing confirmation, even identical.
+    for old, new in renames.items():
+        if old != new and new in inventory and new != old:
+            raise MigrationError('成果确认目标已存在: ' + new)
+    return writes, deleted, moves
+
+
+def _validate_writes(root, writes):
+    targets = set()
+    for relative in writes:
+        path = _path(root, relative)
+        key = str(path).casefold()
+        if key in targets:
+            raise MigrationError('重写目标大小写碰撞: ' + relative)
+        targets.add(key)
+        if path.exists() and not path.is_file():
+            raise MigrationError('重写目标不是文件: ' + relative)
+        for parent in path.parents:
+            if parent == root:
+                break
+            if parent.exists() and not parent.is_dir():
+                raise MigrationError('重写目标父目录冲突: ' + relative)
+
+
+def _save_journal(batch, journal):
+    from agent.core import save
+    save(batch / 'journal.json', journal)
+
+
+def _snapshot(root):
+    return {path.relative_to(root).as_posix(): _digest(path) for path in _files(root)}
+
+
+def _backup(root, batch, inventory, directories):
+    from agent.core import save_file
+    for relative in directories:
+        _path(batch / 'files', relative).mkdir(parents=True, exist_ok=True)
+    for relative, digest in inventory.items():
+        save_file(batch / 'files' / relative, _path(root, relative), digest=digest)
+
+
+def _check_snapshot(root, inventory):
+    if _snapshot(root) != inventory:
+        raise MigrationError('项目在预检/备份期间发生变化，已阻止写入')
+
+
+def _pending(root, *, readonly=False):
+    from file_cache import read_json
+    base = stage_layout.workflow_dir(root, BACKUP_DIR_NAME)
+    if base.exists():
+        _no_links(base)
+        for batch in base.iterdir():
+            _no_links(batch)
+            path = batch / 'journal.json'
+            _no_links(path)
+            if path.is_file():
+                # dry-run 必须无写副作用；解析只读快照，避免正式读取器创建事务锁。
+                data = json.JSONDecoder().decode(path.read_text(encoding='utf-8-sig')) if readonly else read_json(path)
+                if data.get('state') not in ('committed', 'rolled_back', 'backup_failed'):
+                    raise MigrationError('存在未完成事务，请先回滚: ' + batch.name)
+
+
+def _publish(root, batch, journal, ops, writes, deleted):
+    from agent.core import save_file, save_text
+    from storage_maintenance import recycle_paths
+    for op in ops:
+        target = _reference(op['source'], root, journal['moves'])
+        if op['action'] != 'skip' and target not in writes:
+            save_file(_path(root, target), batch / 'files' / op['source'], digest=op['sha256'])
+        op['target'] = target
+    originals = {digest: relative for relative, digest in journal['inventory'].items()}
+    for relative, payload in writes.items():
+        digest = hashlib.sha256(payload).hexdigest()
+        if digest in originals:
+            save_file(_path(root, relative), batch / 'files' / originals[digest], digest=digest)
+        else:
+            save_text(_path(root, relative), payload.decode('utf-8').replace('\r\n', '\n'))
+    _save_journal(batch, dict(journal, state='recycling'))
+    paths = [_path(root, rel) for rel in sorted(deleted) if _path(root, rel).exists()
+             and rel not in journal['final']]
+    if paths:
+        recycle_paths(root, paths, '旧布局迁移 ' + batch.name)
+    for op in ops:
+        op['action'] = 'moved' if op['action'] != 'skip' else 'skip'
+
+
+def _serialized(function):
+    @wraps(function)
+    def guarded(*args, **kwargs):
+        if kwargs.get('dry_run'):
+            return function(*args, **kwargs)
+        from agent.publication import access
+        with access():
+            return function(*args, **kwargs)
+    return guarded
+
+
+@_serialized
+def apply(project, ops, *, dry_run=False):
+    """Apply migrations and references in one transaction; exceptions trigger rollback."""
+    root, ops = _root(project), copy.deepcopy(ops)
+    _pending(root, readonly=dry_run)
+    approved = plan(root, {op['source']: op['target'] for op in ops})
+    if sorted((op['source'], op['target'], op['sha256']) for op in approved) != sorted(
+            (op['source'], op['target'], op.get('sha256')) for op in ops):
+        raise MigrationError('计划不完整或已变化')
+    _validate(root, ops)
+    inventory, directories = _snapshot(root), _directories(root)
+    writes, deleted, moves = _prepare(root, ops, inventory, readonly=dry_run)
+    _validate_writes(root, writes)
+    owners = {}
+    for relative in inventory:
+        target = _reference(relative, root, moves)
+        if target in owners and inventory[owners[target]] != inventory[relative]:
+            raise MigrationError('最终路径碰撞: ' + target)
+        owners[target] = relative
+    if dry_run or (not ops and not writes):
+        return ops, ''
+    stamp = time.strftime('%Y%m%d_%H%M%S') + '_' + uuid.uuid4().hex
+    batch = stage_layout.workflow_dir(root, BACKUP_DIR_NAME, stamp)
+    _no_links(batch)
+    final = {_reference(op['source'], root, moves): op['sha256'] for op in ops}
+    final.update({rel: hashlib.sha256(data).hexdigest() for rel, data in writes.items()})
+    journal = {'schema_version': 1, 'batch': stamp, 'project': str(root), 'state': 'backing_up',
+               'inventory': inventory, 'directories': directories, 'final': final,
+               'deleted': sorted(deleted), 'moves': moves}
+    _save_journal(batch, journal)
     try:
-        relative = candidate.resolve().relative_to(root).as_posix()
-    except (OSError, ValueError):
-        return text
-    return moves.get(relative, relative)
+        _backup(root, batch, inventory, directories)
+        _check_snapshot(root, inventory)
+    except Exception:
+        _save_journal(batch, dict(journal, state='backup_failed'))
+        raise
+    journal['state'] = 'prepared'
+    _save_journal(batch, journal)
+    try:
+        _publish(root, batch, journal, ops, writes, deleted)
+        for relative, digest in final.items():
+            if _digest(_path(root, relative)) != digest:
+                raise MigrationError('发布后指纹不匹配: ' + relative)
+        report(root, ops, stamp)
+        journal['state'] = 'committed'
+        _save_journal(batch, journal)
+    except Exception as exc:
+        try:
+            rollback(root, stamp)
+        except Exception as recovery:
+            raise MigrationError('迁移失败且回滚未完成，请保留备份并重试 --rollback %s: %s / %s'
+                                 % (stamp, exc, recovery)) from recovery
+        raise MigrationError('迁移失败，已回滚: ' + str(exc)) from exc
+    return ops, stamp
+
+
+@_serialized
+def rollback(project, stamp):
+    """Recover an interrupted/committed batch from its immutable complete backup."""
+    from agent.core import save_file
+    from file_cache import read_json
+    from storage_maintenance import recycle_paths
+    root = _root(project)
+    batch = _path(root, stage_layout.workflow_dir(root, BACKUP_DIR_NAME, stamp).relative_to(root).as_posix())
+    _no_links(batch / 'journal.json')
+    journal = read_json(batch / 'journal.json')
+    if (journal.get('batch') != stamp or journal.get('schema_version') != 1
+            or journal.get('project') != str(root)):
+        raise MigrationError('无效事务 journal 或项目不匹配')
+    if journal.get('state') == 'rolled_back':
+        return stamp
+    if journal.get('state') in ('backing_up', 'backup_failed'):
+        raise MigrationError('备份未完成，未修改项目，无需回滚')
+    inventory, final = journal['inventory'], journal['final']
+    affected = set(final) | set(journal['deleted'])
+    # Validate every restore and removal before making even one recovery write.
+    for relative in affected:
+        path = _path(root, relative)
+        old = inventory.get(relative)
+        if old and _digest(_path(batch / 'files', relative)) != old:
+            raise MigrationError('备份损坏: ' + relative)
+        if path.exists() and (not path.is_file() or _digest(path) not in (old, final.get(relative))):
+            raise MigrationError('回滚冲突，保留当前文件: ' + relative)
+    journal['state'] = 'rolling_back'
+    _save_journal(batch, journal)
+    for relative in sorted(affected):
+        if relative in inventory:
+            save_file(_path(root, relative), batch / 'files' / relative, digest=inventory[relative])
+    extras = [_path(root, rel) for rel in final if rel not in inventory and _path(root, rel).exists()]
+    if extras:
+        recycle_paths(root, extras, '撤回旧布局迁移 ' + stamp)
+    journal['state'] = 'rolled_back'
+    _save_journal(batch, journal)
+    return stamp
 
 
 def report(project, ops, stamp):
-    """写迁移报告（Markdown），返回报告路径。"""
     from agent.core import save_text
-    root = Path(project).resolve()
-    lines = ['# 迁移报告', '', '- 时间：' + stamp, '- 项目：' + str(root), '']
-    counts = {}
-    for op in ops:
-        counts[op['action']] = counts.get(op['action'], 0) + 1
-    lines.append('- 统计：' + '；'.join('%s %d' % (key, value) for key, value in sorted(counts.items())))
-    lines.append('')
-    lines.append('| 原路径 | 新路径 | 结果 | 说明 |')
-    lines.append('| --- | --- | --- | --- |')
-    for op in ops:
-        lines.append('| %s | %s | %s | %s |' % (op['source'], op.get('target', ''), op['action'],
-                                                op.get('reason', '') or op.get('backup', '')))
-    lines.append('')
-    target = stage_layout.workflow_dir(root, BACKUP_DIR_NAME, stamp, REPORT_NAME)
+    root = _root(project)
+    target = _path(root, stage_layout.workflow_dir(root, BACKUP_DIR_NAME, stamp, REPORT_NAME).relative_to(root).as_posix())
+    lines = ['# 迁移报告', '', '- 批次：' + stamp, '', '| 原路径 | 新路径 | 结果 |', '| --- | --- | --- |']
+    lines += ['| %s | %s | %s |' % (op['source'], op['target'], op['action']) for op in ops]
     save_text(target, '\n'.join(lines) + '\n')
     return target

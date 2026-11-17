@@ -5,7 +5,7 @@
 （R1988 J2）改由实例的 ``writing_page_services`` 提供，默认服务在 ``Desktop`` 组合入口按调用时取 ``desktop`` 模块的
 当前值，测试按 ``desktop.<名字>`` 打补丁照常生效；本模块不再读取 ``desktop_page_support`` 的全局宿主。
 """
-import pet_state
+import infra.pet_state as pet_state
 from dataclasses import dataclass
 from typing import Callable
 import time

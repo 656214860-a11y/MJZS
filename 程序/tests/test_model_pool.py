@@ -16,8 +16,8 @@ from unittest.mock import patch
 
 import workflow_settings
 
-import model_pool
-import model_router
+import infra.model_pool as model_pool
+import infra.model_router as model_router
 import model_secrets
 
 ABSENT_KEY = 'CODEX_TEST_KEY_ABSENT'          # 一定不在环境变量里的名字

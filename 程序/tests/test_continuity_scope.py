@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import continuity_ledger
+import infra.continuity_ledger as continuity_ledger
 import script_contract
 import stage_flow
 import stage_completion_service

@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 os.chdir(HERE)
 
 from skip_reasons import PLATFORM_TKINTER
-from pet_state import PAGE_OF as PAGE
+from infra.pet_state import PAGE_OF as PAGE
 
 
 class PageCacheTests(unittest.TestCase):

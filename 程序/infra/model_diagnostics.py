@@ -8,7 +8,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from agent.core import save
-from diagnostic_capture import redact
+from infra.diagnostic_capture import redact
 
 
 _USAGE_KEYS = ('prompt_tokens', 'completion_tokens', 'cached_tokens', 'cache_creation_tokens', 'total_tokens')

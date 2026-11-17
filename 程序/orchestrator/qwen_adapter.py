@@ -23,7 +23,7 @@ def window_title(project_name,stage,page_index=None):
     page_index 是用户点下去的那一页——同一个阶段在别页上跑时（首帧管理页里跑资产复核、
     视频生成页里跑分镜提示词），标题跟着那一页走。
     """
-    import pet_state
+    import infra.pet_state as pet_state
     sid={'writing':'script','frames':'keyframe','video_prompt':'video'}.get(stage,stage)
     index=pet_state.PAGE_OF.get(sid)
     if page_index is not None:

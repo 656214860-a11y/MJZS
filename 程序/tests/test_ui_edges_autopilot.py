@@ -63,7 +63,7 @@ class UiEdgeAutoTests(UiEdgeCase):
         """全自动模式由三虎写入开关，主循环再把新分镜推进后续流程。"""
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
-        import project_settings, storyboard_selection
+        import infra.project_settings as project_settings, storyboard_selection
         import desktop as desktop_module
         original = desktop_module.Desktop.choose_project
         desktop_module.Desktop.choose_project = lambda self: None
@@ -130,7 +130,7 @@ class UiEdgeAutoTests(UiEdgeCase):
         """第 62 期任务 7：强制关闭后重开，第一拍把已完成的分镜同步回工作集。"""
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
-        import project_settings
+        import infra.project_settings as project_settings
         import storyboard_selection
         import desktop as desktop_module
         original = desktop_module.Desktop.choose_project
@@ -172,7 +172,7 @@ class UiEdgeAutoTests(UiEdgeCase):
             self.skipTest(PLATFORM_TKINTER)
         from agent.core import file_hash, save
         import engine as engine_module
-        import project_settings
+        import infra.project_settings as project_settings
         import desktop as desktop_module
         original = desktop_module.Desktop.choose_project
         desktop_module.Desktop.choose_project = lambda self: None
@@ -234,7 +234,7 @@ class UiEdgeAutoTests(UiEdgeCase):
             self.skipTest(PLATFORM_TKINTER)
         import time
         from agent.core import file_hash, save
-        import project_settings
+        import infra.project_settings as project_settings
         import desktop as desktop_module
         original = desktop_module.Desktop.choose_project
         desktop_module.Desktop.choose_project = lambda self: None
@@ -371,7 +371,7 @@ class UiEdgeAutoTests(UiEdgeCase):
             self.skipTest(PLATFORM_TKINTER)
         from agent.core import file_hash, save
         import engine as engine_module
-        import project_settings
+        import infra.project_settings as project_settings
         import desktop as desktop_module
         original = desktop_module.Desktop.choose_project
         desktop_module.Desktop.choose_project = lambda self: None
@@ -635,7 +635,7 @@ class UiEdgeAutoTests(UiEdgeCase):
 
     def test_unattended_labels_show_the_current_model(self):
         """四个页面的勾选框共用一句文案（第 35 期第 3 条起按钮上不写「无人值守」）：括号里写当前模型／引擎，不再写死「本地 ComfyUI」。"""
-        import project_settings, asset_batch, keyframe_comfy, workflow_settings, local_video
+        import infra.project_settings as project_settings, asset_batch, keyframe_comfy, workflow_settings, local_video
         from cloud_assets import MODELS
         with tempfile.TemporaryDirectory() as td:
             proj = make_adopted_project(td)
@@ -1071,7 +1071,7 @@ class UiEdgeAutoTests(UiEdgeCase):
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
         import time
-        import project_settings
+        import infra.project_settings as project_settings
         import desktop as desktop_module
         original_choose = desktop_module.Desktop.choose_project
         desktop_module.Desktop.choose_project = lambda self: None
@@ -1231,7 +1231,7 @@ class UiEdgeAutoTests(UiEdgeCase):
             self.skipTest(PLATFORM_TKINTER)
         import time
         from unittest.mock import patch
-        import keyframe_comfy, project_settings
+        import keyframe_comfy, infra.project_settings as project_settings
         from orchestrator import asset_auto_batch_service
         import desktop as desktop_module
         original_choose = desktop_module.Desktop.choose_project
@@ -1330,7 +1330,7 @@ class UiEdgeAutoTests(UiEdgeCase):
             self.skipTest(PLATFORM_TKINTER)
         import time, threading
         from unittest.mock import patch
-        import keyframe_comfy, project_settings
+        import keyframe_comfy, infra.project_settings as project_settings
         from orchestrator import asset_auto_batch_service
         import desktop as desktop_module
         original_choose = desktop_module.Desktop.choose_project
@@ -1432,7 +1432,7 @@ class UiEdgeAutoTests(UiEdgeCase):
         import time
         from unittest.mock import patch
         from agent.core import file_hash, save
-        import engine as engine_module, local_video, project_settings
+        import engine as engine_module, local_video, infra.project_settings as project_settings
         import desktop as desktop_module
         original_choose = desktop_module.Desktop.choose_project
         desktop_module.Desktop.choose_project = lambda self: None
@@ -1512,7 +1512,7 @@ class UiEdgeAutoTests(UiEdgeCase):
         import time
         from unittest.mock import patch
         from agent.core import file_hash, save
-        import engine as engine_module, project_settings
+        import engine as engine_module, infra.project_settings as project_settings
         from orchestrator import asset_auto_batch_service
         import desktop as desktop_module
         original_choose = desktop_module.Desktop.choose_project
@@ -1586,7 +1586,7 @@ class UiEdgeAutoTests(UiEdgeCase):
         import time
         from unittest.mock import patch
         from agent.core import file_hash, save
-        import engine as engine_module, keyframe_comfy, local_video, project_settings
+        import engine as engine_module, keyframe_comfy, local_video, infra.project_settings as project_settings
         from orchestrator import asset_auto_batch_service
         import desktop as desktop_module
         original_choose = desktop_module.Desktop.choose_project
@@ -1729,7 +1729,7 @@ class UiEdgeAutoTests(UiEdgeCase):
             self.skipTest(PLATFORM_TKINTER)
         import threading, time
         from unittest.mock import patch
-        import keyframe_comfy, project_settings
+        import keyframe_comfy, infra.project_settings as project_settings
         import desktop as desktop_module
         original_choose = desktop_module.Desktop.choose_project
         desktop_module.Desktop.choose_project = lambda self: None
@@ -2050,7 +2050,7 @@ class WorkerThreadSafetyTests(unittest.TestCase):
 
     def probe_status(self, module, results):
         import time
-        import api_endpoints
+        import infra.api_endpoints as api_endpoints
         original = api_endpoints.probe_endpoint
         api_endpoints.probe_endpoint = lambda url: dict(results)
         self.addCleanup(setattr, api_endpoints, "probe_endpoint", original)

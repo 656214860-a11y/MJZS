@@ -16,8 +16,8 @@ import time
 import tkinter as tk
 from pathlib import Path
 from tkinter import ttk
-import pet_state
-import ui_plugin_registry
+import infra.pet_state as pet_state
+import infra.ui_plugin_registry as ui_plugin_registry
 from ui.desktop_idea_attachments import IdeaAttachmentsMixin
 from ui.desktop_idea_deferred import IdeaDeferredMixin
 from ui.desktop_idea_send_gate import IdeaSendGateMixin
@@ -787,7 +787,7 @@ class _FlowAgentLaunch:
         if not self.use_cli:receipt['duplicate']=False
         try:
             if self.stage=='previs':
-                from native_apps import open_blender
+                from infra.native_apps import open_blender
                 open_blender()
             if self.intake_only:
                 full,budget=prepare_request_context(self.prompt,self.stage,'brief_intake',report=True)

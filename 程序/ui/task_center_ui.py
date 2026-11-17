@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import tkinter as tk
 
-import diagnostic_capture
+import infra.diagnostic_capture as diagnostic_capture
 import domain.task_center_service as task_center_service
 from ui_widgets import BaseDialog, TextArea, LineInput
 from ui_tokens import TEXT_ROWS
@@ -21,7 +21,7 @@ def show(desktop):
     project = getattr(desktop, 'root', None)
     if project is not None:
         from agent.core import read
-        from pet_state import state_path
+        from infra.pet_state import state_path
         import orchestrator.stage_parallel as stage_parallel
         from contract.pet_bus import STAGES
         path = state_path(project)

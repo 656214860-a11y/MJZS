@@ -9,9 +9,56 @@
 """
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import file_cache
+
+
+logger = logging.getLogger(__name__)
+
+
+def _check_publication_context(context, paths):
+    """显式上下文只允许项目内目标；在发布事务开始前拒绝越界。"""
+    if context is None:
+        return
+    from contract.project_context import ProjectContext
+    if not isinstance(context, ProjectContext):
+        raise TypeError('阶段成果发布需要 ProjectContext。')
+    root = Path(context.root).resolve()
+    if any(not Path(path).resolve().is_relative_to(root) for path in paths):
+        raise ValueError('阶段成果目标不在项目目录内，未发布成果。')
+
+
+def _update_file_index(paths, context=None, origin='系统生成'):
+    """只增量同步已有有效缓存；首次全量创建留给后台，不影响真实发布。"""
+    try:
+        from infra import file_index
+    except Exception:
+        logger.warning('阶段成果已发布，文件索引不可用；等待后台重建。')
+        return
+    grouped = {}
+    for path in paths:
+        try:
+            target = Path(path).resolve()
+            roots = (Path(context.root).resolve(),) if context is not None else target.parents
+            for root in roots:
+                index = file_index.index_path(root).resolve()
+                if context is None and not index.is_file():
+                    continue
+                if target != index:
+                    grouped.setdefault(root, []).append(target)
+                break
+        except Exception:
+            logger.warning('阶段成果已发布，文件索引定位失败；等待后台重建。')
+    for root, targets in grouped.items():
+        try:
+            # 来源是独立事实；context 已知时即使缓存未创建也登记，绝不首次全扫。
+            file_index.record_origin(root, targets, origin)
+            if file_index.read(root) is not None:
+                file_index.update(root, targets)
+        except Exception:
+            logger.warning('阶段成果已发布，文件索引增量同步失败；等待后台重建。')
 
 
 def recover_stage_publications():
@@ -20,20 +67,29 @@ def recover_stage_publications():
     recover_pending()
 
 
-def publish_stage_text(target, text, validate, update_index, encoding='utf-8', *, allow_empty=False):
+def publish_stage_text(target, text, validate, update_index, encoding='utf-8', *, allow_empty=False,
+                       **publication_options):
     """按“校验 → 原子发布 → 索引更新”发布单份阶段文本成果。
 
     ``validate`` 和 ``update_index`` 都是调用方所属阶段的既有契约：前者必须在正式
     文件出现前拒绝不合格内容，后者只会在发布成功后执行。默认拒绝空正文；仅明确允许
     用户清空维护清单的 L3 编排入口可传 ``allow_empty=True``，L2 不得自行放宽。索引
     更新失败时恢复本次发布前的成果，并抛出异常；调用方因此不会取得成功返回值，也不得
-    据此标记阶段完成。
+    据此标记阶段完成。事务成功后另行尽力更新可再生文件索引；该缓存故障只记日志，
+    不回滚已发布成果。``context`` 可提供项目根；旧调用按最近的已有有效索引定位项目。
+    ``publication_options`` 只接受 context/origin，保持既有关键字调用兼容。
     """
+    unknown = set(publication_options) - {'context', 'origin'}
+    if unknown:
+        raise TypeError('未知的阶段发布选项：' + ', '.join(sorted(unknown)))
+    context = publication_options.get('context')
+    origin = publication_options.get('origin', '系统生成')
     if not callable(validate):
         raise TypeError('阶段成果发布需要内容校验器。')
     if not callable(update_index):
         raise TypeError('阶段成果发布需要索引更新器。')
     target = Path(target)
+    _check_publication_context(context, (target,))
     value = str(text)
     if not value.strip() and not allow_empty:
         raise ValueError('阶段成果正文不能为空，未发布成果。')
@@ -49,10 +105,11 @@ def publish_stage_text(target, text, validate, update_index, encoding='utf-8', *
         save_text(target, value, encoding=encoding)
         update_index(target)
         execution_checkpoint()
+    _update_file_index((target,), context, origin)
     return target
 
 
-def publish_stage_bytes(target, data, validate, update_index):
+def publish_stage_bytes(target, data, validate, update_index, *, context=None, origin='系统生成'):
     """按文本成果同一编排契约发布二进制阶段成果。"""
     if not callable(validate):
         raise TypeError('阶段成果发布需要内容校验器。')
@@ -61,6 +118,7 @@ def publish_stage_bytes(target, data, validate, update_index):
     if not isinstance(data, (bytes, bytearray, memoryview)):
         raise TypeError('二进制阶段成果必须是 bytes、bytearray 或 memoryview。')
     target = Path(target)
+    _check_publication_context(context, (target,))
     value = bytes(data)
     if not value:
         raise ValueError('阶段成果二进制内容不能为空，未发布成果。')
@@ -76,16 +134,18 @@ def publish_stage_bytes(target, data, validate, update_index):
         save_bytes(target, value)
         update_index(target)
         execution_checkpoint()
+    _update_file_index((target,), context, origin)
     return target
 
 
-def publish_stage_bundle(artifacts, validate, update_index):
+def publish_stage_bundle(artifacts, validate, update_index, *, context=None, origin='系统生成'):
     """原子发布多份关联成果；任一写入或索引失败均恢复整包旧版本。"""
     if not callable(validate):
         raise TypeError('阶段成果发布需要内容校验器。')
     if not callable(update_index):
         raise TypeError('阶段成果发布需要索引更新器。')
     items = tuple((Path(path), bytes(data)) for path, data in artifacts.items())
+    _check_publication_context(context, (path for path, _data in items))
     if not items:
         raise ValueError('阶段成果包不能为空，未发布成果。')
     if len({path for path, _data in items}) != len(items):
@@ -105,6 +165,7 @@ def publish_stage_bundle(artifacts, validate, update_index):
             save_bytes(path, data)
         update_index()
         execution_checkpoint()
+    _update_file_index((path for path, _data in items), context, origin)
     return tuple(path for path, _data in items)
 
 

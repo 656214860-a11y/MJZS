@@ -10,9 +10,9 @@ from contract import app_metadata
 import app_shortcut
 import asset_thumbs
 import cloud_assets
-import pet_llm
+import infra.pet_llm as pet_llm
 import pet_settings_ui
-import pet_ui
+import ui.pet_ui as pet_ui
 import qwen_setup
 import seedream_api
 from domain import tts_api
@@ -25,7 +25,7 @@ LEGACY_NAME = '漫剧制作助手'
 DISPLAY_SOURCES = (
     PROGRAM / 'desktop.py', PROGRAM / 'ui/ui_splash.py', entity_file('pet_ui_settings'),  # 启动画面随 Splash 自 ui_widgets 拆到 ui_splash；R1506：APP_NAME 的用法随设置方法迁到 pet_ui_settings；R1793：启动画面（ui_widgets 的 APP_NAME 用法）被 .pyw 引用，R1788 误删后恢复
     entity_file('pet_settings_ui'), PROGRAM / 'app_shortcut.py',
-    PROGRAM / 'pet_llm.py', PROGRAM / 'scripts' / 'clean_dev.py',
+    entity_file('pet_llm'), PROGRAM / 'scripts' / 'clean_dev.py',
     ROOT / '启动漫剧制作助手.pyw',
 )
 
@@ -61,7 +61,7 @@ class AppMetadataTests(unittest.TestCase):
             'app_shortcut.py': {LEGACY_NAME + '.ico', '启动' + LEGACY_NAME + '.pyw'},
             'pet_ui_support.py': {LEGACY_NAME + '·宠物助手', '启动' + LEGACY_NAME + '.pyw'},  # R1506：这两个标识符常量随 pet_ui 模块级迁到 support
         }
-        for path in DISPLAY_SOURCES + (PROGRAM / 'pet_ui_support.py',):
+        for path in DISPLAY_SOURCES + (PROGRAM / 'ui' / 'pet_ui_support.py',):
             with self.subTest(path=path.name):
                 tree = ast.parse(path.read_text(encoding='utf-8-sig'))
                 docstrings = set()

@@ -21,7 +21,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 os.chdir(HERE)
 
-from pet_state import PAGE_OF
+from infra.pet_state import PAGE_OF
 from ui_widgets import DataTable
 
 import integrations

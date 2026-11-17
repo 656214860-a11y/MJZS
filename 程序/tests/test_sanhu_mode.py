@@ -3,8 +3,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import pet_ui
-import project_settings
+import ui.pet_ui as pet_ui
+import infra.project_settings as project_settings
 import stage_flow
 
 

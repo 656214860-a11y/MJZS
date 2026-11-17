@@ -4,12 +4,12 @@
 ``MediaPagesMixin`` 获得。测试按 ``desktop.<名字>`` 打补丁的名字（confirm／open_path 等）经
 ``Desktop`` 注入的 ``MediaPageServices`` 在调用时取 ``desktop`` 的当前值，补丁照常生效（R1983 J2）。
 """
-import pet_state
+import infra.pet_state as pet_state
 import json
 import threading
 import contract.pet_bus as pet_bus
 import tkinter as tk
-import ui_plugin_registry
+import infra.ui_plugin_registry as ui_plugin_registry
 from agent.core import read
 from app import App
 import orchestrator.media_page_controller as media_logic
@@ -174,7 +174,7 @@ class MediaPagesMixin:
         return media_logic.continuity_folder(self.root)
     def write_continuity_ledger(self,ledger=None):
         """把台账落到 03_continuity（第 62 期任务 11：这一步成了独立的一页，清单由「手动生成」写）。"""
-        from continuity_ledger import write
+        from infra.continuity_ledger import write
         return write(self.root,self.continuity_ledger_data() if ledger is None else ledger)
     def generate_continuity_ledger(self,ledger=None):
         """生成连贯性清单：手动按钮与三虎自动链共用的唯一实现（落盘＋同步问题登记＋播报）。"""
@@ -355,7 +355,7 @@ class MediaPagesMixin:
             result=publish_desktop_preferences(self.settings_file,self.settings,{'comfy_exe':str(exe)})
             if not result.ok:raise ValueError(result.reason)
             self.settings=result.data
-        from native_apps import open_comfy
+        from infra.native_apps import open_comfy
         open_comfy({**self.settings,'comfy_exe':str(exe)})
         self.status.set('已打开本地 ComfyUI；可在桌面窗口查看工作流和调整参数。')
         return True
@@ -817,7 +817,7 @@ class MediaPagesMixin:
             message=controller.assembled_message(path)
             if message:self.status.set(message)
         edit_buttons.append(edit_button('自动粗剪整集（跳过未验收镜头）',lambda:self.async_(assemble_all,assembled),primary=True))
-        import project_settings
+        import infra.project_settings as project_settings
         self.pet.auto_variable('auto_edit_var')
         self.pet.auto_variable('auto_handoff_var')
         edit_buttons.append(edit_button('整理剪映素材交接包',lambda:self.async_(self.handoff,self.media_page_services.open_path)))

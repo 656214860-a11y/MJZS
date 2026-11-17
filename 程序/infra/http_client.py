@@ -67,7 +67,7 @@ def _read_limited(response, limit):
 
 def _default_opener():
     import urllib.request
-    from api_endpoints import no_redirect
+    from infra.api_endpoints import no_redirect
     return urllib.request.build_opener(no_redirect())
 
 

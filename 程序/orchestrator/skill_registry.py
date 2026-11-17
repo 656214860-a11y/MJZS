@@ -29,9 +29,9 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 from contract.pet_bus import STAGES, STAGE_NAMES
-from skill_package_meta import (  # re-export：调用方经 skill_registry.<名>
+from orchestrator.skill_package_meta import (  # re-export：调用方经 skill_registry.<名>
     IMPORTED_PACKAGE_FLAG, imported_package_meta, markdown_heading, markdown_summary)
-from skill_project_layer import (LAYER_LABELS, LAYER_ORDER, STAGE_DIRECTORY_IDS,
+from orchestrator.skill_project_layer import (LAYER_LABELS, LAYER_ORDER, STAGE_DIRECTORY_IDS,
                                  ProjectLayerMixin, disabled_pairs, disabled_stamp,
                                  disabled_view_entries, project_skill_root,
                                  project_skill_root_for, stage_from_path)

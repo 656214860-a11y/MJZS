@@ -2,7 +2,7 @@
 """模型响应诊断必须只暴露协议元数据，不丢失空正文定位信息。"""
 import unittest
 
-from model_router import ModelAdapter
+from infra.model_router import ModelAdapter
 
 
 class _Adapter(ModelAdapter):
@@ -77,7 +77,7 @@ class ModelRouterDiagnosticsTests(unittest.TestCase):
         self.assertEqual(result['error_class'], 'protocol')
 
     def test_error_classes_keep_configuration_and_protocol_distinct(self):
-        from model_router import error_class
+        from infra.model_router import error_class
         self.assertEqual(error_class('ValueError：DeepSeek 缺少 API Key'), 'authentication')
         self.assertEqual(error_class('HTTP 404 /chat/completions'), 'protocol')
         self.assertEqual(error_class('连接超时'), 'timeout')
@@ -101,7 +101,7 @@ class ModelRouterDiagnosticsTests(unittest.TestCase):
         self.assertNotIn('private reasoning', str(result['response_meta']))
 
     def test_chat_stream_returns_chunks_and_a_normalized_final_result(self):
-        import model_router
+        import infra.model_router as model_router
         seen = []
         original = model_router.model_pool.http_stream
         def stream(_url, payload, _headers, _timeout, on_chunk, cancelled=None):
@@ -119,7 +119,7 @@ class ModelRouterDiagnosticsTests(unittest.TestCase):
         self.assertEqual(result['text'], '第一段')
 
     def test_cancelled_stream_does_not_fall_back_to_a_second_request(self):
-        import model_router
+        import infra.model_router as model_router
         original = model_router.model_pool.http_stream
         model_router.model_pool.http_stream = lambda *_args, **_kwargs: {'ok': False, 'status': 0, 'error': '请求已取消'}
         try:

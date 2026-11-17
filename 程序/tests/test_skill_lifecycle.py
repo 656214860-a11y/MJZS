@@ -16,8 +16,8 @@ from pathlib import Path
 from unittest import mock
 
 import skill_import_service
-import skill_lifecycle_service
-import skill_project_layer
+import ui.skill_lifecycle_service as skill_lifecycle_service
+import orchestrator.skill_project_layer as skill_project_layer
 import skill_registry
 import workflow_settings
 from orchestrator import agent_skill_sync

@@ -5,7 +5,7 @@ from datetime import datetime
 from pathlib import Path
 
 from infra import model_diagnostics
-import pet_llm
+import infra.pet_llm as pet_llm
 import usage_overview as uo
 
 

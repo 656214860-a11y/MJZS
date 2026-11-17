@@ -23,5 +23,5 @@ class AssetBatchSettingsBoundaryTests(unittest.TestCase):
         tree = ast.parse(entity_file('asset_batch_settings_service').read_text(encoding='utf-8'))
         imported = {(node.module, name.name) for node in tree.body if isinstance(node, ast.ImportFrom)
                     for name in node.names}
-        self.assertIn(('project_settings', 'read_prefs'), imported)
+        self.assertIn(('infra.project_settings', 'read_prefs'), imported)
         self.assertNotIn(('agent.core', 'save'), imported)

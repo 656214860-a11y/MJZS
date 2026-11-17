@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest import mock
 
 from infra import config_snapshot
-import model_pool
+import infra.model_pool as model_pool
 
 
 class ModelPoolSnapshotTests(unittest.TestCase):
