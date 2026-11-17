@@ -1,105 +1,182 @@
+"""依赖门禁：生产六包必装且精确锁版，开发工具只允许、不要求安装。
+
+生产版本唯一来源为 requirements.txt；仅发现当前解释器 purelib 内的
+第三方 distribution，不扫描用户 site-packages，也不导入待核验的库。
 """
-架构门禁：依赖白名单检查
-
-守卫：
-1. 随包环境（``sysconfig`` purelib，即 ``运行环境\\Python\\Lib\\site-packages``）
-   下的所有第三方分发包都在白名单内；
-2. 白名单库的版本与记录一致；
-3. 白名单中的库都已安装（随包环境完整）。
-
-取径说明：只统计随包环境内的分发包，不扫描用户级 site-packages
-（开发机上的 mypy 等不属于随包交付物）。
-
-R3199 新增；R3211 修复核验缺陷（原实现按 sys.path 首个 site-packages
-取径会命中用户目录、urllib3 被 urllib 前缀误吞、模块级函数无法被
-unittest 发现）。
-"""
+import re
 import sysconfig
 import unittest
 from importlib.metadata import distributions
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
-# 白名单：随包环境允许的第三方分发包 → 期望版本。
-# requests 链为 R3199 批准的首个运行时依赖（R3200 起替换自实现 HTTP 客户端）；
-# 其余为随包环境内的维护/开发工具，仅脚本使用，不进入产品运行路径。
-WHITELIST = {
-    "requests": "2.34.2",
-    "urllib3": "2.8.0",
-    "certifi": "2026.10.23",
-    "charset-normalizer": "3.5.2",
-    "idna": "3.20",
-    "gallery_dl": "1.32.19",
-    "pillow": "13.0.0",
+
+REQUIREMENTS = Path(__file__).resolve().parents[2] / "requirements.txt"
+
+# R3215 已允许的维护工具：存在时检查版本，不要求产品运行环境安装。
+# 包管理器保留历史允许策略，但不属于产品依赖锁，也不要求随包安装。
+DEVELOPMENT_OPTIONAL = {
+    "gallery-dl": "1.32.19",
     "playwright": "1.65.1",
     "greenlet": "3.5.6",
     "apted": "1.0.3",
     "ruff": "0.15.20",
     "tree-sitter": "0.26.0",
     "tree-sitter-python": "0.25.0",
+    "pip": None,
+    "setuptools": None,
+    "wheel": None,
 }
-
-# 包管理器自身不计入白名单。
-EXEMPT = {"pip", "setuptools", "wheel"}
 
 
 def _canon(name):
-    return name.strip().lower()
+    """遵循 distribution 名称的大小写及连字符、下划线、点号等价规则。"""
+    return re.sub(r"[-_.]+", "-", name.strip()).lower()
+
+
+def parse_production_lock(text):
+    """读取简单的精确版本锁；拒绝范围、重复包和其他安装指令。"""
+    locked = {}
+    for number, raw in enumerate(text.splitlines(), 1):
+        line = raw.partition("#")[0].strip()
+        if not line:
+            continue
+        match = re.fullmatch(r"([A-Za-z0-9][A-Za-z0-9._-]*)==([A-Za-z0-9][A-Za-z0-9.!+_-]*)", line)
+        if not match:
+            raise ValueError(f"requirements.txt 第 {number} 行必须为 包名==精确版本")
+        name, version = match.groups()
+        name = _canon(name)
+        if name in locked:
+            raise ValueError(f"requirements.txt 重复包: {name}")
+        locked[name] = version
+    return locked
+
+
+def production_requirements():
+    return parse_production_lock(REQUIREMENTS.read_text(encoding="utf-8"))
 
 
 def bundled_distributions():
-    """随包环境（purelib）内的 {规范化包名: 版本}。"""
+    """只枚举 purelib 自身，避免默认 sys.path 发现用户级 distribution。"""
     root = Path(sysconfig.get_paths()["purelib"]).resolve()
-    found = {}
-    for dist in distributions():
-        try:
-            loc = Path(dist.locate_file("")).resolve()
-        except Exception:
-            continue
-        if loc != root and root not in loc.parents:
-            continue
-        name = dist.metadata.get("Name")
-        if name:
-            found[_canon(name)] = dist.version
-    return found
+    return {
+        _canon(dist.metadata["Name"]): dist.version
+        for dist in distributions(path=[str(root)])
+        if dist.metadata.get("Name")
+    }
+
+
+def validate_distributions(installed, production, optional=DEVELOPMENT_OPTIONAL):
+    """纯验证函数；映射可注入，不安装、扫描或清理任何环境。"""
+    installed = {_canon(name): version for name, version in installed.items()}
+    production = {_canon(name): version for name, version in production.items()}
+    optional = {_canon(name): version for name, version in optional.items()}
+    expected = {**optional, **production}
+    return {
+        "unknown": sorted(set(installed) - set(expected)),
+        "missing": sorted(set(production) - set(installed)),
+        "version_mismatches": [
+            f"{name}: {installed[name]}（预期 {version}）"
+            for name, version in sorted(expected.items())
+            if name in installed and version is not None and installed[name] != version
+        ],
+    }
 
 
 class DependencyWhitelistTests(unittest.TestCase):
-    """检查 site-packages 下的所有包都在白名单内"""
+    def setUp(self):
+        self.validation = validate_distributions(bundled_distributions(), production_requirements())
 
     def test_site_packages_whitelist(self):
-        installed = bundled_distributions()
-
-        # 检查是否有未在白名单中的包
-        unknown = set(installed) - set(WHITELIST) - EXEMPT
-
-        self.assertFalse(unknown,
-                         f"发现未在白名单中的第三方包: {sorted(unknown)}\n"
-                         f"如需添加新依赖，请先更新 维护记录/依赖白名单.md 和本测试的 WHITELIST")
+        self.assertFalse(self.validation["unknown"],
+                         f"purelib 发现未允许的第三方包: {self.validation['unknown']}")
 
     def test_whitelist_versions(self):
-        """检查白名单库的版本与记录一致"""
-        installed = bundled_distributions()
-
-        version_mismatches = []
-        for pkg, expected_version in WHITELIST.items():
-            actual_version = installed.get(pkg)
-            if actual_version is None:
-                version_mismatches.append(f"{pkg}: 未安装（预期 {expected_version}）")
-            elif actual_version != expected_version:
-                version_mismatches.append(f"{pkg}: {actual_version}（预期 {expected_version}）")
-
-        self.assertFalse(version_mismatches,
-                         "白名单库版本不一致:\n" + "\n".join(f"  - {m}" for m in version_mismatches))
+        self.assertFalse(self.validation["version_mismatches"],
+                         "依赖版本不一致:\n" + "\n".join(self.validation["version_mismatches"]))
 
     def test_whitelist_completeness(self):
-        """检查白名单中的库都已安装"""
-        installed = bundled_distributions()
+        self.assertFalse(self.validation["missing"],
+                         f"purelib 缺少生产依赖: {self.validation['missing']}")
 
-        missing = [pkg for pkg in WHITELIST if pkg not in installed]
 
-        self.assertFalse(missing,
-                         f"白名单中的包未安装: {missing}\n"
-                         f"请检查 运行环境\\Python\\Lib\\site-packages 是否完整")
+class DependencyValidationTests(unittest.TestCase):
+    def setUp(self):
+        self.production = production_requirements()
+
+    def test_production_lock_has_exactly_six_packages(self):
+        self.assertEqual(set(self.production), {
+            "requests", "urllib3", "certifi", "charset-normalizer", "idna", "pillow",
+        })
+        self.assertTrue(all(self.production.values()))
+        self.assertFalse(set(self.production) & set(DEVELOPMENT_OPTIONAL))
+
+    def test_production_only_is_complete(self):
+        self.assertEqual(validate_distributions(self.production, self.production), {
+            "unknown": [], "missing": [], "version_mismatches": [],
+        })
+
+    def test_missing_production_dependency_is_reported(self):
+        installed = dict(self.production)
+        del installed["requests"]
+        self.assertEqual(validate_distributions(installed, self.production)["missing"], ["requests"])
+
+    def test_old_requests_version_is_rejected(self):
+        installed = {**self.production, "requests": "2.32.3"}
+        self.assertEqual(validate_distributions(installed, self.production)["version_mismatches"],
+                         [f"requests: 2.32.3（预期 {self.production['requests']}）"])
+
+    def test_unknown_distribution_is_reported(self):
+        installed = {**self.production, "unapproved-package": "1.0"}
+        self.assertEqual(validate_distributions(installed, self.production)["unknown"],
+                         ["unapproved-package"])
+
+    def test_optional_development_packages_are_allowed(self):
+        installed = {**self.production, **{
+            name: version or "sample-version" for name, version in DEVELOPMENT_OPTIONAL.items()
+        }}
+        self.assertEqual(validate_distributions(installed, self.production), {
+            "unknown": [], "missing": [], "version_mismatches": [],
+        })
+
+    def test_installed_development_package_version_is_checked(self):
+        installed = {**self.production, "ruff": "wrong-version"}
+        self.assertEqual(validate_distributions(installed, self.production)["version_mismatches"],
+                         [f"ruff: wrong-version（预期 {DEVELOPMENT_OPTIONAL['ruff']}）"])
+
+    def test_distribution_names_are_normalized(self):
+        installed = {**self.production, "Pillow": self.production["pillow"],
+                     "gallery_dl": DEVELOPMENT_OPTIONAL["gallery-dl"]}
+        del installed["pillow"]
+        self.assertEqual(validate_distributions(installed, self.production), {
+            "unknown": [], "missing": [], "version_mismatches": [],
+        })
+        self.assertEqual(_canon("Tree_Sitter.Python"), "tree-sitter-python")
+
+    def test_production_version_comes_from_lock_mapping(self):
+        changed_lock = {**self.production, "requests": "sample-new-lock"}
+        result = validate_distributions(self.production, changed_lock)
+        self.assertEqual(result["version_mismatches"],
+                         [f"requests: {self.production['requests']}（预期 sample-new-lock）"])
+
+    def test_lock_rejects_unpinned_duplicate_or_install_options(self):
+        for text in ("requests>=2", "requests", "-r other.txt", "requests==2.*",
+                     "Pillow==1\npillow==2"):
+            with self.subTest(text=text), self.assertRaises(ValueError):
+                parse_production_lock(text)
+
+    def test_lock_accepts_comments_and_normalizes_names(self):
+        self.assertEqual(parse_production_lock("# note\nPillow==1.0 # pinned\ngallery_dl==2.0\n"),
+                         {"pillow": "1.0", "gallery-dl": "2.0"})
+
+    def test_discovery_passes_only_purelib_to_metadata(self):
+        root = (REQUIREMENTS.parent / "purelib-test-only").resolve()
+        fake = SimpleNamespace(metadata={"Name": "Pillow"}, version="sample")
+        with patch(__name__ + ".sysconfig.get_paths", return_value={"purelib": str(root)}), \
+                patch(__name__ + ".distributions", return_value=[fake]) as discover:
+            self.assertEqual(bundled_distributions(), {"pillow": "sample"})
+        discover.assert_called_once_with(path=[str(root)])
 
 
 if __name__ == "__main__":

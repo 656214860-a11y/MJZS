@@ -243,6 +243,97 @@ class MicrophoneRecorderTests(unittest.TestCase):
         self.assertEqual(peak, 1200)
 
 
+class RequestsJsonTlsTests(unittest.TestCase):
+    def capture_transport(self, environment=None, proxy=None):
+        import requests
+        from types import SimpleNamespace
+        from urllib.request import Request
+        seen = {}
+
+        def send(adapter, prepared, **settings):
+            pool = adapter.get_connection_with_tls_context(
+                prepared, settings['verify'], proxies=settings['proxies'], cert=settings['cert'])
+            seen.update(adapter=adapter, settings=settings, pool=pool)
+            if proxy:
+                seen['proxy_manager'] = adapter.proxy_manager_for(proxy)
+            return SimpleNamespace(status_code=200, headers={}, close=lambda: None)
+
+        with patch.dict(os.environ, environment or {}, clear=True), patch.object(requests.adapters.HTTPAdapter, 'send', send):
+            response = platform_tools.RequestsJsonOpener().open(Request('https://example.test/api'), timeout=3)
+            self.addCleanup(response.close)
+        return seen
+
+    def assert_verified_context(self, context):
+        import ssl
+        self.assertIsInstance(context, ssl.SSLContext)
+        self.assertEqual(context.verify_mode, ssl.CERT_REQUIRED)
+        self.assertTrue(context.check_hostname)
+
+    def test_default_context_retains_system_and_certifi_trust_in_actual_pool(self):
+        import certifi
+        import ssl
+        system = ssl.create_default_context()
+        public = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        public.load_verify_locations(certifi.where())
+        seen = self.capture_transport()
+        context = seen['pool'].conn_kw.get('ssl_context')
+        self.assert_verified_context(context)
+        trusted = set(context.get_ca_certs(binary_form=True))
+        self.assertTrue(set(system.get_ca_certs(binary_form=True)) <= trusted, 'system trust must remain included')
+        self.assertTrue(set(public.get_ca_certs(binary_form=True)) <= trusted, 'certifi trust must remain included')
+        self.assertIs(seen['adapter'].poolmanager.connection_pool_kw.get('ssl_context'), context)
+        self.assertEqual(seen['adapter'].max_retries.total, 0)
+        self.assertIs(seen['settings']['verify'], True)
+
+    def test_default_context_loads_certifi_after_system_defaults(self):
+        import certifi
+        import ssl
+        from unittest.mock import Mock
+        context = Mock()
+        with patch.object(ssl, 'create_default_context', return_value=context) as create:
+            seen = self.capture_transport()
+        create.assert_called_once_with()
+        context.load_verify_locations.assert_called_once_with(certifi.where())
+        self.assertIs(seen['pool'].conn_kw.get('ssl_context'), context)
+
+    def test_http_and_https_environment_proxies_preserve_verified_contexts(self):
+        for proxy in ('http://proxy.test:8080', 'https://proxy.test:8443'):
+            with self.subTest(scheme=proxy.split(':')[0]):
+                seen = self.capture_transport({'HTTPS_PROXY': proxy}, proxy)
+                manager = seen['proxy_manager']
+                context = manager.connection_pool_kw.get('ssl_context')
+                self.assert_verified_context(context)
+                self.assertIs(seen['pool'].conn_kw.get('ssl_context'), context)
+                self.assertIs(manager.proxy_ssl_context, context)
+                self.assertEqual(seen['settings']['proxies']['https'], proxy)
+
+    def test_explicit_ca_environment_selects_only_that_bundle_and_requests_wins(self):
+        import certifi
+        import ssl
+        public = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        public.load_verify_locations(certifi.where())
+        public_ca = public.get_ca_certs(binary_form=True)[0]
+        with tempfile.TemporaryDirectory() as folder:
+            bundle = Path(folder) / 'public-test-ca.pem'
+            bundle.write_text(ssl.DER_cert_to_PEM_cert(public_ca), encoding='ascii')
+            for variable in ('REQUESTS_CA_BUNDLE', 'CURL_CA_BUNDLE'):
+                environment = {variable: str(bundle)}
+                if variable == 'REQUESTS_CA_BUNDLE':
+                    environment['CURL_CA_BUNDLE'] = str(Path(folder) / 'must-not-load.pem')
+                with self.subTest(variable=variable), patch.object(ssl, 'create_default_context', wraps=ssl.create_default_context) as create:
+                    seen = self.capture_transport(environment)
+                    create.assert_not_called()
+                    context = seen['pool'].conn_kw.get('ssl_context')
+                    self.assert_verified_context(context)
+                    self.assertTrue(set(context.get_ca_certs(binary_form=True)) == {public_ca}, 'explicit bundle must not gain system trust')
+                    self.assertEqual(seen['settings']['verify'], str(bundle))
+
+    def test_empty_ca_environment_uses_default_trust(self):
+        seen = self.capture_transport({'REQUESTS_CA_BUNDLE': '', 'CURL_CA_BUNDLE': ''})
+        self.assert_verified_context(seen['pool'].conn_kw.get('ssl_context'))
+        self.assertIs(seen['settings']['verify'], True)
+
+
 class WebSocketTests(unittest.TestCase):
     """REQ-S01-71：标准库 WebSocket 客户端：握手校验、带掩码文本帧、分片、ping/pong、关闭与拒绝。"""
     def serve(self, handler):

@@ -138,7 +138,7 @@ GUI_E2E_MODULES = frozenset({'test_pet_ui', 'test_ui_edges_autopilot', 'test_ui_
                              'test_ui_edges_tables', 'test_ui_edges_controls'})
 
 
-PERFORMANCE_MODULES = frozenset({'test_desktop_startup_perf'})
+PERFORMANCE_MODULES = frozenset({'test_desktop_startup_perf', 'test_soak_light'})
 
 
 def _digest(path):

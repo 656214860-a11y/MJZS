@@ -1,16 +1,15 @@
 # -*- coding: utf-8 -*-
-"""标准库裁剪的静态守卫：启动 import 闭包必须都能在盘上解析，已裁模块不许回来。
+"""完整运行环境的静态守卫：启动 import 闭包必须在当前 runtime／源码中解析。
 
-第 34 期第 11 条从 `运行环境\\Python\\Lib` 剪掉 56 个「三重过滤都判定没人用」的标准库模块（第 14 条又补裁 `xml.dom`／`xml.sax` 两个）。
-当场跑得绿，但当时的自检只抓得住**模块级**的 import（`run_selftests.py` 会把程序目录下每个 .py
-都 import 一遍）；写在**函数体里**的 import 要等用户点到那条分支才会炸。所以补两道静态闸：
+第 34 期裁掉的 58 个标准库模块现已随完整 Python 恢复，历史清单保留作回归覆盖，
+不再要求物理缺失；平台专属或已废弃的私有模块不作为跨版本必需项。
 
-1. 从 `启动漫剧制作助手.pyw` 出发，把 import 闭包（含函数体里写的，也含被引模块自己的 import）逐层
-   解析到盘上的文件；解析不到就是红。唯一放行的是「只在外宿主里存在」的模块——白模预演的脚本是在
-   Blender 里跑的，`bpy` 本机 Python 当然没有。
-2. 已裁的 58 个模块：源码里不许再 import，盘上也不许悄悄出现（要恢复得走归档，见报告 §18.4／§21）。
+1. 从 app.py 与 Blender 脚本出发，解析源码 import 闭包（包括函数体 import）。
+   缺失只允许明确登记的 Blender 宿主模块，不忽略可选分支中的 ImportError。
+2. 第三方模块必须列入 requirements.txt，并实际存在于当前 runtime 的 site-packages；
+   不搜索 sys.path 或用户 site，不以白名单代替文件存在性检查。
 
-解析口径（两道闸都按这个走，宁可严一点）：
+解析口径：
 
 * `import a.b`：`a` 是**单文件模块**时允许按属性算（`import os.path` 就是这个道理）；
   `a` 是**包**时 `a.b` 必须真有 `b.py`／`b/`——否则「重新 import 一个被裁掉的子模块」会被父包悄悄救活。
@@ -22,8 +21,10 @@ import io
 import os
 import re
 import sys
+import tempfile
 import tokenize
 import unittest
+from unittest import mock
 
 TESTS = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(TESTS)
@@ -33,7 +34,24 @@ HERE = ROOT
 PYTHON = sys.prefix
 LIB = os.path.join(PYTHON, "Lib")
 DLLS = os.path.join(PYTHON, "DLLs")
+SITE_PACKAGES = os.path.join(LIB, "site-packages")
 ENTRY = os.path.join(ROOT, "app.py")
+
+
+def _requirements_imports(path):
+    """只认显式 requirements 项；发行包名与导入名的例外也须明确登记。"""
+    aliases = {"pillow": "PIL"}
+    with open(path, encoding="utf-8") as handle:
+        names = []
+        for line in handle:
+            match = re.match(r"^([A-Za-z0-9][A-Za-z0-9_.-]*)\s*(?:\[|[<>=!~;]|$)", line.strip())
+            if match:
+                distribution = match.group(1).lower().replace("-", "_")
+                names.append(aliases.get(distribution, distribution))
+    return set(names)
+
+
+THIRD_PARTY = _requirements_imports(os.path.join(ROOT, "requirements.txt"))
 
 # 只在外宿主里存在的模块：本机 Python 解析不到是**正常**的，不算裁剪事故。
 HOST_ONLY = {"bpy", "bpy_extras", "bmesh", "mathutils"}
@@ -44,9 +62,7 @@ HOST_ONLY = {"bpy", "bpy_extras", "bmesh", "mathutils"}
 # mathutils）本来就解析不到：HOST_ONLY 这份放行名单就是为它们留的，别让它退化成空名单。
 HOST_SCRIPTS = ("previs_progress.py", "blender_previs_template.py")
 
-# 第 34 期第 11 条裁掉的 56 个模块，加上第 14 条补裁的 2 个（xml.dom／xml.sax），共 58 个，
-# 写死在这里当回归闸：谁再去 import 它们，
-# 这条用例先红，而不是等到用户那台机器上炸 ImportError。
+# 第 34 期的 58 项历史清单；完整 runtime 已恢复，不再作为禁入名单。
 PRUNED = (
     "multiprocessing.managers asyncio.unix_events multiprocessing.pool trace modulefinder dbm wave "
     "compileall curses concurrent.interpreters multiprocessing.shared_memory fileinput "
@@ -61,6 +77,15 @@ PRUNED = (
     # 第 34 期第 14 条：xml 包里只有 etree 与 parsers.expat 在用，dom／sax 整个包没人 import。
     "xml.dom xml.sax"
 ).split()
+
+# 这些条目属于平台实现或旧版私有 API，不能因历史清单而强制其他平台／版本提供。
+PLATFORM_OR_PRIVATE = {
+    "asyncio.unix_events", "curses", "curses.textpad", "curses.has_key", "pty", "tty",
+    "dbm.gnu", "dbm.ndbm", "_android_support", "_apple_support",
+    "multiprocessing.forkserver", "multiprocessing.popen_fork",
+    "multiprocessing.popen_forkserver", "multiprocessing.popen_spawn_posix",
+    "concurrent.interpreters._queues", "concurrent.interpreters._crossinterp",
+}
 
 BUILTIN = set(sys.builtin_module_names)
 _SOURCES = {}
@@ -93,7 +118,10 @@ def _locate(name):
     """
     parts = name.split(".")
     rel = os.path.join(*parts)
-    for root in (HERE, LIB):
+    roots = [HERE, LIB]
+    if parts[0] in THIRD_PARTY:
+        roots.append(SITE_PACKAGES)
+    for root in roots:
         init = os.path.join(root, rel, "__init__.py")
         if os.path.isfile(init):
             return init, True
@@ -296,20 +324,52 @@ class ResolverTests(unittest.TestCase):
         self.assertIsNotNone(_resolve("os.path"), "`import os.path` 是合法的属性导入，不能误报")
 
     def test_a_package_submodule_must_really_exist(self):
-        import tempfile
-        from unittest.mock import patch
-        # 用真实最小包检验解析器，不再假定完整随包Python仍裁掉某个标准库。
-        with tempfile.TemporaryDirectory() as temporary:
-            package = os.path.join(temporary, 'fixture_package')
+        with tempfile.TemporaryDirectory() as root:
+            package = os.path.join(root, "closure_fixture_package")
             os.mkdir(package)
-            with open(os.path.join(package, '__init__.py'), 'w', encoding='utf-8') as stream:
-                stream.write('value = 1\n')
-            module = sys.modules[__name__]
-            with patch.object(module, 'HERE', temporary), patch.object(module, 'LIB', temporary), \
-                    patch.object(module, 'DLLS', temporary):
-                self.assertIsNotNone(_resolve('fixture_package'))
-                self.assertIsNone(_locate('fixture_package.missing')[0])
-                self.assertIsNone(_resolve('fixture_package.missing'))
+            with open(os.path.join(package, "__init__.py"), "w", encoding="utf-8") as handle:
+                handle.write("attribute = 1\n")
+            with open(os.path.join(package, "present.py"), "w", encoding="utf-8") as handle:
+                handle.write("value = 1\n")
+            with mock.patch(__name__ + ".HERE", root):
+                self.assertIsNotNone(_resolve("closure_fixture_package"), "包本身存在")
+                self.assertIsNotNone(_resolve("closure_fixture_package.present"))
+                self.assertIsNone(_locate("closure_fixture_package.absent")[0])
+                self.assertIsNone(_resolve("closure_fixture_package.absent"), "缺失子模块不能被父包救活")
+                self.assertIsNone(_resolve("closure_fixture_package.attribute"), "包属性不能冒充 import 子模块")
+
+    def test_requirements_whitelist_requires_real_runtime_files(self):
+        with tempfile.TemporaryDirectory() as root:
+            site = os.path.join(root, "site-packages")
+            os.mkdir(site)
+            for name in ("allowed_fixture", "unlisted_fixture"):
+                with open(os.path.join(site, name + ".py"), "w", encoding="utf-8") as handle:
+                    handle.write("value = 1\n")
+            requirements = os.path.join(root, "requirements.txt")
+            with open(requirements, "w", encoding="utf-8") as handle:
+                handle.write("allowed-fixture==1.0\nmissing-fixture==1.0\nPillow==13.0.0\n# ignored\n")
+            whitelist = _requirements_imports(requirements)
+            self.assertEqual(whitelist, {"allowed_fixture", "missing_fixture", "PIL"})
+            with mock.patch.multiple(__name__, THIRD_PARTY=whitelist, SITE_PACKAGES=site):
+                self.assertIsNotNone(_locate("allowed_fixture")[0])
+                self.assertIsNone(_locate("missing_fixture")[0], "登记白名单不等于依赖存在")
+                self.assertIsNone(_locate("unlisted_fixture")[0], "不能放行整个 site-packages")
+
+    def test_closure_does_not_use_user_site_or_ignore_importerror(self):
+        with tempfile.TemporaryDirectory() as root, tempfile.TemporaryDirectory() as user_site:
+            entry = os.path.join(root, "closure_fixture_entry.py")
+            name = "closure_user_site_only_fixture"
+            with open(entry, "w", encoding="utf-8") as handle:
+                handle.write("try:\n    import %s\nexcept ImportError:\n    pass\n" % name)
+            with open(os.path.join(user_site, name + ".py"), "w", encoding="utf-8") as handle:
+                handle.write("value = 1\n")
+            with mock.patch.multiple(__name__, ROOT=root, HERE=root, ENTRY=entry, HOST_SCRIPTS=(),
+                                     THIRD_PARTY={name}), mock.patch.object(sys, "path", [user_site] + sys.path):
+                self.assertIsNone(_resolve(name), "用户 site 不能兜底当前 runtime")
+                walked, missing = walk_closure()
+                self.assertIn(entry, walked)
+                self.assertEqual(missing, [(os.path.relpath(entry, ROOT), name)],
+                                 "捕获 ImportError 也不能放行缺失 import")
 
     def test_namespace_package_without_init_is_recognised(self):
         self.assertIsNotNone(_resolve("batch_frames_tool"), "`keyframe_comfy.py` 就是这么引它的")
@@ -331,13 +391,12 @@ class PruneTests(unittest.TestCase):
         missing = [name for name in required if _locate(name)[0] is None]
         self.assertEqual(missing, [], '当前完整随包运行时缺少必需标准库：' + repr(missing))
 
-    def test_no_source_file_imports_a_pruned_module(self):
-        heads = {}
-        for module in PRUNED:
-            head, _dot, tail = module.partition(".")
-            if tail:
-                heads.setdefault(head, set()).add(tail)
-        pruned = set(PRUNED)
+    def test_restored_portable_modules_are_resolvable_on_disk(self):
+        missing = [name for name in PRUNED if name not in PLATFORM_OR_PRIVATE and _locate(name)[0] is None]
+        self.assertEqual(missing, [], "完整 runtime 缺少已恢复的标准库模块：" + repr(missing))
+
+    def test_source_imports_of_restored_modules_are_resolvable(self):
+        restored = tuple(PRUNED)
         hits = []
         for base, dirs, files in os.walk(HERE):
             dirs[:] = [d for d in dirs if d != "__pycache__"]
@@ -346,15 +405,16 @@ class PruneTests(unittest.TestCase):
                     continue
                 path = os.path.join(base, name)
                 for module in sorted(_imported_names(path)):
-                    if module in pruned:
-                        hits.append("%s → %s" % (os.path.relpath(path, ROOT), module))
+                    if not any(module == name or module.startswith(name + ".") for name in restored):
                         continue
-                    head, _dot, tail = module.partition(".")
-                    # 第 34 期第 14 条：`xml.dom.minidom` 这种「钻进被裁包更深处」的引用也要认出来，
-                    # 所以只比尾巴的第一段（`dom`／`sax`），不比整条尾巴。
-                    if tail and tail.split(".")[0] in heads.get(head, ()):
-                        hits.append("%s → %s" % (os.path.relpath(path, ROOT), module))
-        self.assertEqual(sorted(set(hits)), [], "有别的地方又引用了已裁模块：" + repr(sorted(set(hits))))
+                    if _resolve(module) is not None:
+                        continue
+                    owner, _, symbol = module.rpartition(".")
+                    holder = _resolve(owner) if owner else None
+                    if holder is not None and _defines(holder, symbol):
+                        continue
+                    hits.append("%s → %s" % (os.path.relpath(path, ROOT), module))
+        self.assertEqual(sorted(set(hits)), [], "源码引用的已恢复模块仍必须可解析：" + repr(sorted(set(hits))))
 
     def test_the_xml_prune_kept_etree_and_parsers(self):
         """第 34 期第 14 条裁的是 `xml.dom`／`xml.sax`；etree 与 parsers.expat 是**在用**的，不许跟着丢。"""

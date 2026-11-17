@@ -85,8 +85,8 @@
   "tests.test_l1_reliability_r3248"
  ],
  "tests_ok": true,
- "points_total": 2357,
- "points_covered": 1253,
+ "points_total": 2367,
+ "points_covered": 1264,
  "modules": [
   {
    "module": "aigc_lint.py",
@@ -245,12 +245,6 @@
    "percent": 36.0
   },
   {
-   "module": "platform_tools.py",
-   "points": 109,
-   "covered": 40,
-   "percent": 36.7
-  },
-  {
    "module": "pet_bus.py",
    "points": 27,
    "covered": 10,
@@ -260,6 +254,12 @@
    "module": "model_pool.py",
    "points": 129,
    "covered": 52,
+   "percent": 40.3
+  },
+  {
+   "module": "platform_tools.py",
+   "points": 119,
+   "covered": 48,
    "percent": 40.3
   },
   {
@@ -335,12 +335,6 @@
    "percent": 55.7
   },
   {
-   "module": "http_client.py",
-   "points": 17,
-   "covered": 10,
-   "percent": 58.8
-  },
-  {
    "module": "artifact_lineage.py",
    "points": 21,
    "covered": 14,
@@ -405,6 +399,12 @@
    "points": 152,
    "covered": 115,
    "percent": 75.7
+  },
+  {
+   "module": "http_client.py",
+   "points": 17,
+   "covered": 13,
+   "percent": 76.5
   },
   {
    "module": "artifact_schema.py",
