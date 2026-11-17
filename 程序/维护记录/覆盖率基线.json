@@ -67,6 +67,12 @@
    "percent": 0.0
   },
   {
+   "module": "agent_skill_sync.py",
+   "covered": 0,
+   "total": 4,
+   "percent": 0.0
+  },
+  {
    "module": "aigc_lint.py",
    "covered": 0,
    "total": 4,
@@ -585,7 +591,7 @@
   {
    "module": "desktop_idea_chat.py",
    "covered": 0,
-   "total": 885,
+   "total": 888,
    "percent": 0.0
   },
   {
@@ -1339,6 +1345,12 @@
    "percent": 0.0
   },
   {
+   "module": "orchestrator/agent_skill_sync.py",
+   "covered": 0,
+   "total": 151,
+   "percent": 0.0
+  },
+  {
    "module": "orchestrator/asset_auto_batch_service.py",
    "covered": 0,
    "total": 38,
@@ -1371,7 +1383,7 @@
   {
    "module": "orchestrator/codex_skill_sync.py",
    "covered": 0,
-   "total": 126,
+   "total": 18,
    "percent": 0.0
   },
   {
@@ -3224,9 +3236,9 @@
   },
   {
    "module": "agent/publication.py",
-   "covered": 145,
+   "covered": 143,
    "total": 159,
-   "percent": 91.2
+   "percent": 89.9
   },
   {
    "module": "domain/video_lifecycle_service.py",
@@ -3308,5 +3320,5 @@
   }
  ],
  "modules_covered": 72,
- "modules_total": 549
+ "modules_total": 551
 }
