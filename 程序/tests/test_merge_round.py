@@ -88,6 +88,21 @@ class MergeInProgressTests(unittest.TestCase):
         self.assertTrue(merge_round.merge_head_is('feature', self.root))
         self.assertFalse(merge_round.merge_head_is('master', self.root))
 
+    def test_merge_head_age_seconds_reports_age(self):
+        age = merge_round.merge_head_age_seconds(self.root)
+        self.assertIsNotNone(age)
+        self.assertGreaterEqual(age, 0)
+        self.assertLess(age, 120)
+
+    def test_merge_head_age_none_without_merge(self):
+        repo = Path(self.tmp.name) / 'clean2'
+        repo.mkdir()
+        _git(repo, 'init', '-q', '-b', 'master')
+        (repo / 'x').write_text('x', encoding='utf-8')
+        _git(repo, 'add', '-A')
+        _git(repo, 'commit', '-q', '-m', 'x')
+        self.assertIsNone(merge_round.merge_head_age_seconds(repo))
+
     def test_cleanup_keeps_foreign_merge_and_aborts_own(self):
         # MERGE_HEAD 属于 feature：以 master 身份清理 → 不动现场
         self.assertEqual(merge_round.cleanup_failed_merge('master', self.root), 'foreign')
