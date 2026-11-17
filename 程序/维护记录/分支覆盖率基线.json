@@ -82,11 +82,12 @@
   "tests.test_file_naming_producers",
   "tests.test_file_origin_provenance",
   "tests.test_context",
-  "tests.test_l1_reliability_r3248"
+  "tests.test_l1_reliability_r3248",
+  "tests.test_l1_bounded_growth_r3269"
  ],
  "tests_ok": true,
- "points_total": 2367,
- "points_covered": 1264,
+ "points_total": 2390,
+ "points_covered": 1288,
  "modules": [
   {
    "module": "aigc_lint.py",
@@ -228,9 +229,9 @@
   },
   {
    "module": "usage_snapshot.py",
-   "points": 30,
-   "covered": 9,
-   "percent": 30.0
+   "points": 31,
+   "covered": 10,
+   "percent": 32.3
   },
   {
    "module": "seedream_api.py",
@@ -277,8 +278,8 @@
   {
    "module": "model_router.py",
    "points": 112,
-   "covered": 50,
-   "percent": 44.6
+   "covered": 52,
+   "percent": 46.4
   },
   {
    "module": "config_snapshot.py",
@@ -317,12 +318,6 @@
    "percent": 54.4
   },
   {
-   "module": "file_cache.py",
-   "points": 22,
-   "covered": 12,
-   "percent": 54.5
-  },
-  {
    "module": "workflow_context_budget.py",
    "points": 22,
    "covered": 12,
@@ -333,6 +328,18 @@
    "points": 88,
    "covered": 49,
    "percent": 55.7
+  },
+  {
+   "module": "temporary_sweep.py",
+   "points": 7,
+   "covered": 4,
+   "percent": 57.1
+  },
+  {
+   "module": "file_cache.py",
+   "points": 24,
+   "covered": 14,
+   "percent": 58.3
   },
   {
    "module": "artifact_lineage.py",
@@ -395,12 +402,6 @@
    "percent": 75.0
   },
   {
-   "module": "request_ledger.py",
-   "points": 152,
-   "covered": 115,
-   "percent": 75.7
-  },
-  {
    "module": "http_client.py",
    "points": 17,
    "covered": 13,
@@ -413,6 +414,12 @@
    "percent": 76.9
   },
   {
+   "module": "request_ledger.py",
+   "points": 157,
+   "covered": 121,
+   "percent": 77.1
+  },
+  {
    "module": "stage_model_value.py",
    "points": 9,
    "covered": 7,
@@ -423,12 +430,6 @@
    "points": 24,
    "covered": 19,
    "percent": 79.2
-  },
-  {
-   "module": "file_index.py",
-   "points": 89,
-   "covered": 71,
-   "percent": 79.8
   },
   {
    "module": "prompt_templates.py",
@@ -447,6 +448,12 @@
    "points": 52,
    "covered": 42,
    "percent": 80.8
+  },
+  {
+   "module": "file_index.py",
+   "points": 89,
+   "covered": 72,
+   "percent": 80.9
   },
   {
    "module": "model_metering.py",
@@ -528,8 +535,8 @@
   },
   {
    "module": "model_diagnostics.py",
-   "points": 2,
-   "covered": 2,
+   "points": 10,
+   "covered": 10,
    "percent": 100.0
   },
   {
@@ -593,5 +600,5 @@
    "percent": 100.0
   }
  ],
- "modules_total": 84
+ "modules_total": 85
 }
