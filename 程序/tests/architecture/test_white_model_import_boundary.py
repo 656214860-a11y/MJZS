@@ -3,12 +3,14 @@ import os
 import unittest
 from pathlib import Path
 
+from tests.architecture._scan import entity_file
+
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 class WhiteModelImportBoundaryTests(unittest.TestCase):
     def test_picker_delegates_media_publication_to_service(self):
-        source = Path(ROOT, 'white_model.py').read_text(encoding='utf-8')
+        source = entity_file('white_model').read_text(encoding='utf-8')
         tree = ast.parse(source)
         method = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'import_media')
         text = ast.get_source_segment(source, method)

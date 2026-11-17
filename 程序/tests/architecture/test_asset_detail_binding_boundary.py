@@ -10,7 +10,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 
 class AssetDetailBindingBoundaryTests(unittest.TestCase):
     def test_detail_ui_delegates_all_image_publication_to_service(self):
-        path = os.path.join(ROOT, 'asset_detail.py')
+        path = os.path.join(ROOT, 'ui', 'asset_detail.py')
         source = Path(path).read_text(encoding='utf-8')
         tree = ast.parse(source)
         methods = {node.name: node for node in tree.body if isinstance(node, ast.FunctionDef)}

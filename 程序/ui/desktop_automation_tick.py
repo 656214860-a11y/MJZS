@@ -13,7 +13,7 @@ from ui.desktop_account_page import RENEW_DELAY_MS
 
 
 def _migrate_imported_skills():
-    import skill_import_service
+    import ui.skill_import_service as skill_import_service
     return skill_import_service.migrate_legacy_imports()
 
 

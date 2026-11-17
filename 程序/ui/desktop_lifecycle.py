@@ -4,7 +4,7 @@
 """
 import logging
 import app_logging
-import asset_thumbs
+import ui.asset_thumbs as asset_thumbs
 import orchestrator.page_navigation_controller as page_nav
 import tkinter as tk
 
@@ -107,7 +107,7 @@ class LifecycleMixin:
                 stop_monitor(state)
             except Exception:app_logging.swallowed()
         try:
-            import asset_thumbs
+            import ui.asset_thumbs as asset_thumbs
             asset_thumbs.forget()
             asset_thumbs.reset_worker()
         except tk.TclError:

@@ -410,7 +410,7 @@ ROUND_CHECKS = {
          'msg': 'Claude Desktop 是模型池中的 Claude 调用目标'},
         {'kind': 'absent', 'path': r'程序\ui\pet_models_ui.py', 'keyword': '打开 Claude 桌面',
          'msg': 'API 统一配置不再放 Claude 桌面启动按钮'},
-        {'kind': 'keyword', 'path': r'程序\skill_panel_support.py', 'keyword': 'def grouped_model_choices(',
+        {'kind': 'keyword', 'path': r'程序\ui\skill_panel_support.py', 'keyword': 'def grouped_model_choices(',
          'msg': '阶段配置具备供应商到模型的两级下拉数据'},
         {'kind': 'keyword', 'path': r'程序\orchestrator\workflow_settings.py', 'keyword': 'STAGE_CONFIG_STAGES',
          'msg': '工作流阶段正确映射到阶段配置'},

@@ -5,7 +5,7 @@ import tkinter as tk
 from tkinter import ttk
 from agent.core import read
 from asset_reference_images import CATEGORIES,EXTENSIONS,ROLE_GROUPS,classified_target,image_bytes,save_copy,attach,unbind
-from ui_dialogs import FileDialog
+from ui.ui_dialogs import FileDialog
 from ui_widgets import (SelectBox, BaseDialog, Card, LineInput, PrimaryButton, ProgressLabel,
                         SecondaryButton, ask_confirmation, notify)
 from ui_tokens import BUTTON_GAP, TEXT_ROWS, WRAPLENGTH, SPACING

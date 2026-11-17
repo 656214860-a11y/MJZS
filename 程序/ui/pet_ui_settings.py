@@ -132,7 +132,7 @@ class PetSettingsMixin:
     def _refresh_model_choices(self):
         """池子变了：把还开着的「阶段配置」下拉框也刷一遍（规格：改完不用重启）。"""
         try:
-            import skill_panel
+            import ui.skill_panel as skill_panel
             return skill_panel.refresh_all()
         except Exception as exc:
             self.errors.append(('model.refresh', str(exc)))

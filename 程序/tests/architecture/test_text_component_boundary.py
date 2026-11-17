@@ -90,7 +90,7 @@ class TextComponentBoundaryTests(unittest.TestCase):
             }
             self.assertTrue(set(expected) <= imported,
                             f"{filename} 应导入：{', '.join(expected)}")
-        self.assertEqual(_asset_description_violations(parse(ROOT / 'asset_detail.py')), [])
+        self.assertEqual(_asset_description_violations(parse(entity_file('asset_detail'))), [])
 
     def test_migrated_pages_do_not_hand_style_raw_labels(self):
         """迁移页面的提示/说明/进度不得退回局部文字样式。"""
@@ -118,7 +118,7 @@ class TextComponentBoundaryTests(unittest.TestCase):
                 self.assertEqual(sum(name in {'tkinter.Label', 'tkinter.ttk.Label'}
                                      and bool({k.arg for k in node.keywords} & FORBIDDEN_OPTIONS)
                                      for node, name in _resolved_calls(ast.parse(source))), 1)
-        source = (ROOT / 'asset_detail.py').read_text(encoding='utf-8')
+        source = entity_file('asset_detail').read_text(encoding='utf-8')
         for replacement in ('RawLabel', 'DescriptionBlock'):
             mutated = 'from tkinter.ttk import Label as RawLabel\n' + source.replace(
                 "DescriptionBlock(foot, text=note)", f'{replacement}(foot, text=note, foreground="red")')

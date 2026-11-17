@@ -76,7 +76,7 @@ def shot_folder(project, sid):
     """这一镜的白模目录：与白模预演阶段同一套口径（这一份不自己发明路径）。"""
     # 白模页面会把当前 Blender 工作区传给服务；这里必须经同一层，
     # 否则在自定义工作区（以及测试替换工作区）中会读到另一套目录。
-    from white_model import shot_directory
+    from ui.white_model import shot_directory
     return shot_directory(project, sid)
 
 

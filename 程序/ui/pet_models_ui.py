@@ -7,7 +7,7 @@ from ui.pet_models_tabs import MODES, ModelManagerModeTabsMixin
 from responsive_ui import auto_height
 from ui_tokens import (BUTTON_GAP, COMBOBOX_PADDING, TEXT_ROWS, FONTS, FORM_LABEL_WIDTH, INPUT_PADDING_X,
                        SPACING, TEXT_DESC, TEXT_HINT, OVERLAY_RATIO)
-from ui_dialogs import FileDialog
+from ui.ui_dialogs import FileDialog
 from account_inputs import PasswordInput
 from ui_widgets import (BusyState, NotificationDispatcher, SelectBox, BaseDialog, Card, DataTable,
                         LineInput, PrimaryButton, SecondaryButton)

@@ -18,7 +18,7 @@ from agent.core import read, save, save_bytes
 from comfy_service import Comfy
 from cloud_assets import MODELS as CLOUD_MODELS
 import tk_timers
-from ui_motion import Spinner
+from ui.ui_motion import Spinner
 from ui_tokens import BUTTON_GAP_TIGHT, WRAPLENGTH, SPACING
 
 

@@ -1,0 +1,15 @@
+{
+  "round": 3165,
+  "commit_base": "5b82c2b8",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k asset_detail asset_thumbs white_model keyframe_comfy keyframe_import shot_numbering cell_menu desktop_tray desktop_auto_flows desktop_idea_chat desktop_shared_menus desktop_status_bridge skill_panel ui_dialogs ui_icons ui_motion ui_rounded ui_shortcuts ui_theme skills line_endings ui_style_engine frame_checks shared_input card_boundary data_table_boundary edit_publication_boundary handoff_publication_boundary keyframe_reference_publication_boundary scrollbar_theme_boundary text_component_boundary tooltip_boundary white_model asset_detail_binding_boundary tasks_round/tasks_round_3165_result.md",
+    "exit": 0,
+    "passed": 585,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T15:13:22"
+}

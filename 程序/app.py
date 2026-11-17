@@ -20,16 +20,16 @@ from domain.project_naming import dated_path
 from domain.video_task_state import assert_prompt_editable,prompt_locked,poll_delay,elapsed_text,submission_block_reason
 from ui.video_progress import snapshot as shared_video_snapshot,display as progress_display,summary as progress_summary,LABELS,status_detail
 import project_settings
-import asset_thumbs
+import ui.asset_thumbs as asset_thumbs
 import ui_plugin_registry
 from contract.platform_tools import open_path
 from ui_tokens import CHAR_WIDTH, TEXT_ROWS, WRAPLENGTH, COLORS, FONTS, SPACING
 from ui_widgets import (SelectBox, BaseDialog, Card, BusyState, ContextMenu, DataTable, LineInput, NotificationDispatcher,
                         ask_confirmation, ask_string,
                         PrimaryButton, SecondaryButton, TextArea)
-from ui_dialogs import FileDialog
-from ui_motion import Spinner
-from ui_shortcuts import ShortcutRegistry
+from ui.ui_dialogs import FileDialog
+from ui.ui_motion import Spinner
+from ui.ui_shortcuts import ShortcutRegistry
 
 ROOT=Path(__file__).resolve().parent
 # 第 30 期第 2 条：「勾选要上传的镜头资产」改名「选择镜头资产」——线上／本地一个说法。
@@ -584,7 +584,7 @@ class App:
         except Exception as e:self.notifier.error(str(e), title='提示')
     def white_model_path(self,sid):
         """这一镜的白模视频（第 54 期第 3 条：「白模 · 上传」那一列右键查看的就是它）。"""
-        from white_model import shot_directory,project_for_app,read_record
+        from ui.white_model import shot_directory,project_for_app,read_record
         try:
             value=read_record(shot_directory(project_for_app(self),sid)).get('preview')
             path=Path(value) if value else None
