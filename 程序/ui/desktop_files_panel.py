@@ -107,12 +107,11 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
                           empty_text='', horizontal=False)
         self.script_list = table
         self.script_tree = table.tree
-        self.script_tree.heading('name', text='文件名', anchor='center')
-        self.script_tree.heading('meta', text='时长／分辨率', anchor='center')
-        self.script_tree.column('name', width=SPACING['sm'] * 23, minwidth=100, stretch=True)
-        self.script_tree.column('meta', width=PANEL_META_WIDTH, minwidth=PANEL_META_WIDTH, stretch=False)
         # 预览列走 #0（Treeview 唯一可挂图元的列）：索引／素材库视图显示封面与波形，
-        # 剧本四类视图收回 headings——都是文档行，预览列没有内容。
+        # 剧本四类视图收回 headings——都是文档行，预览列与元数据列都没有内容；
+        # meta 列只挂进索引／素材库视图（切回剧本视图时 columns 收回 ('name',)）。
+        # configure(columns) 会清掉各列的 heading/column 设置，统一走 _apply_columns 重挂。
+        self._apply_columns(False)
         self.script_tree.heading('#0', text='预览')
         self.script_tree.column('#0', width=PANEL_PREVIEW_COL_WIDTH,
                                 minwidth=PANEL_PREVIEW_COL_WIDTH, stretch=False)
@@ -149,6 +148,20 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
         self.sync_entry()
 
     # ── 入口显隐与开合（REQ-S01-90）────────────────────────────────────────
+    def _apply_columns(self, media):
+        """按视图重挂列头：剧本四类只留文件名；索引／素材库带「时长／分辨率」列。
+
+        ``configure(columns)`` 会把各列的 heading/column 设置一并清掉，
+        所以换列后必须把两份配置都重挂一遍。
+        """
+        tree = self.script_tree
+        tree.configure(columns=('name', 'meta') if media else ('name',))
+        tree.heading('name', text='文件名', anchor='center')
+        tree.column('name', width=SPACING['sm'] * 23, minwidth=100, stretch=True)
+        if media:
+            tree.heading('meta', text='时长／分辨率', anchor='center')
+            tree.column('meta', width=PANEL_META_WIDTH, minwidth=PANEL_META_WIDTH, stretch=False)
+
     def _entry_allowed(self):
         """有项目且当前页不是会员账户／参考网站时才显示入口。"""
         # build() 早于 Desktop.__init__ 给 self.root 赋值，缺属性时按无项目处理。
@@ -306,7 +319,8 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
             except tk.TclError:
                 pass
             self.script_load_job = None
-        # 剧本四类视图都是文档行：收回预览列，回到纯文件名表。
+        # 剧本四类视图都是文档行：收回预览列与 meta 列，回到纯文件名表。
+        self._apply_columns(False)
         self.script_tree.configure(show='headings')
         self.script_tree.delete(*self.script_tree.get_children())
         self.script_row_details.clear()
@@ -353,7 +367,7 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
                 self.script_row_details[row.item_id] = script_row_card(row, label, modified, self.page.root)
                 self.script_row_category[row.item_id] = row.category
                 self.script_tree.insert('', 'end', iid=row.item_id, text='',
-                                        values=(('[' + label + '] ' if label else '') + row.name, ''))
+                                        values=(('[' + label + '] ' if label else '') + row.name,))
             if finished:
                 finish()
                 return

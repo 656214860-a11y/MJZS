@@ -331,13 +331,13 @@ def media_thumbnail(master, path, size=DEFAULT_SIZE, configured=None):
         image = _media_placeholder(master, kind, size)
         _remember(key, image)
         return image
-    queued = request_media(master, key, path, size, stamp, token, kind, configured)
+    queued = request_media(master, key, path, size, stamp, token, configured)
     if queued:
         return _media_empty(master, key, kind, size)     # 交给后台：先摆同画幅空盒
     return _media_placeholder(master, kind, size)         # 队列／后台不可用：直接占位图
 
 
-def request_media(master, key, path, size, stamp, token, kind, configured=None):
+def request_media(master, key, path, size, stamp, token, configured=None):
     """登记一条媒体封面任务给后台进程；返回 False 后台不可用、None 队列饱和。"""
     if token in _PENDING:
         return True                    # 已经在队列里，不重复登记
@@ -345,6 +345,7 @@ def request_media(master, key, path, size, stamp, token, kind, configured=None):
         return None
     if not _ensure_worker():
         return False
+    kind = media_kind(path)
     cfg = configured or {}
     spec = {'src': str(path), 'size': int(size), 'stamp': stamp, 'kind': kind,
             'ffmpeg': str(cfg.get('ffmpeg') or ''), 'ffprobe': str(cfg.get('ffprobe') or '')}

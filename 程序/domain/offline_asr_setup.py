@@ -11,7 +11,6 @@ venv 侧只在「连解释器都没生成」时整目录清掉，已建好的 ve
 ——下次点「下载」从断点继续。
 """
 import os
-import shutil
 import subprocess
 import sys
 import threading
@@ -19,6 +18,7 @@ from json import loads as _loads
 from pathlib import Path
 
 import contract.platform_tools as platform_tools
+import storage_maintenance
 from domain.offline_asr_client import VENV_DIR, venv_python
 
 PROGRAM = Path(__file__).resolve().parents[1]
@@ -50,9 +50,8 @@ def _probe(argv_prefix):
     command = list(argv_prefix) + [
         '-c', 'import sys;print(sys.executable);print("%d.%d" % sys.version_info[:2])']
     try:
-        proc = subprocess.run(command, capture_output=True, timeout=PROBE_TIMEOUT,
-                              encoding='utf-8', errors='replace',
-                              creationflags=platform_tools.hidden_console_flags())
+        proc = platform_tools.run_process(command, capture_output=True, timeout=PROBE_TIMEOUT,
+                                          encoding='utf-8', errors='replace')
     except Exception:  # noqa: BLE001 —— 候选不存在属预期
         return None
     if proc.returncode != 0:
@@ -109,10 +108,10 @@ def _cache_root(settings=None):
 
 
 def cleanup_incomplete_venv(venv_dir=VENV_DIR):
-    """清「没建完整」的半成品：目录在但解释器缺失才删；已建好的 venv 留下续跑。"""
+    """清「没建完整」的半成品：目录在但解释器缺失才收进回收站；已建好的 venv 留下续跑。"""
     venv_dir = Path(venv_dir)
     if venv_dir.is_dir() and not venv_python(venv_dir).is_file():
-        shutil.rmtree(venv_dir, ignore_errors=True)
+        storage_maintenance.recycle_paths(venv_dir.parent, [venv_dir], '离线语音包半成品清理')
         return True
     return False
 
@@ -159,7 +158,7 @@ class OfflineSetupRunner:
     def running(self):
         return self._thread is not None and self._thread.is_alive()
 
-    def _emit(self, event):
+    def _notify(self, event):
         try:
             self._on_event(event)
         except Exception:  # noqa: BLE001 —— 界面回调失败不拖垮下载线程
@@ -174,7 +173,7 @@ class OfflineSetupRunner:
         try:
             base = resolve_base_python(self._settings, probe=self._probe)
             if base is None:
-                self._emit({'type': 'error', 'message':
+                self._notify({'type': 'error', 'message':
                             '需要 Python %s–%s 才能安装离线语音包：请安装后重试，'
                             '或改用云端识别（模型管理里配置语音密钥）'
                             % ('.'.join(map(str, MIN_PYTHON)), '.'.join(map(str, MAX_PYTHON)))})
@@ -195,31 +194,31 @@ class OfflineSetupRunner:
                     break
             if self._is_cancelled():
                 cleanup_incomplete_venv(VENV_DIR)
-                self._emit({'type': 'cancelled', 'message': '已取消下载；已下载部分保留，下次继续'})
+                self._notify({'type': 'cancelled', 'message': '已取消下载；已下载部分保留，下次继续'})
                 return
             if not completed:
                 return                      # 失败原因已由 _phase 给出
             if not models_ready(self._settings):
-                self._emit({'type': 'error', 'message':
+                self._notify({'type': 'error', 'message':
                             '模型下载未完整（校验未通过或被中断），请重试；已下载部分会自动续传'})
                 return
-            self._emit({'type': 'done', 'message': '离线语音包安装完成'})
+            self._notify({'type': 'done', 'message': '离线语音包安装完成'})
         except Exception as exc:  # noqa: BLE001 —— 绝不把异常穿透到界面线程
             cleanup_incomplete_venv(VENV_DIR)
-            self._emit({'type': 'error', 'message': '离线语音包安装失败：%s' % exc})
+            self._notify({'type': 'error', 'message': '离线语音包安装失败：%s' % exc})
 
     def _phase(self, stage, label, command):
         """跑一个阶段子进程并转发 JSON Lines 进度；返回是否进入下一阶段。"""
         env = dict(os.environ)
         cache = _cache_root(self._settings)
         env['VOICE_ASR_MODEL_CACHE'] = cache
-        self._emit({'type': 'progress', 'stage': stage,
+        self._notify({'type': 'progress', 'stage': stage,
                     'message': '正在安装%s…' % label})
         try:
             proc = self._launcher(command, cwd=str(PROGRAM),
                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env)
         except OSError as exc:
-            self._emit({'type': 'error', 'message': '无法启动安装进程：%s' % exc})
+            self._notify({'type': 'error', 'message': '无法启动安装进程：%s' % exc})
             return False
         with self._lock:
             self._proc = proc
@@ -230,16 +229,20 @@ class OfflineSetupRunner:
                     return False
                 message = self._translate(stage, line, label)
                 if message is not None:
-                    self._emit(message)
+                    self._notify(message)
                     if message['type'] == 'error':
                         failure = message['message']
-            proc.wait()
+            try:
+                proc.wait(timeout=30)
+            except subprocess.TimeoutExpired:
+                platform_tools.terminate_process_tree(proc)
+                proc.wait(timeout=3)
         finally:
             with self._lock:
                 self._proc = None
         if failure or proc.returncode not in (0, None):
             if not failure:
-                self._emit({'type': 'error', 'message':
+                self._notify({'type': 'error', 'message':
                             '%s安装中断（退出码 %s），请重试；已完成部分会自动续传'
                             % (label, proc.returncode)})
             if stage == 'venv':

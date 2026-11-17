@@ -4,6 +4,7 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, messagebox
 import domain.white_model_service as wm
+from agent.core import save_text
 from file_cache import read_json
 from orchestrator.previs_batch_service import prepare_batch
 import domain.previs_routing as previs_routing
@@ -218,7 +219,7 @@ class _LocalPrevisWindow:
                 raise ValueError('白模设置文件位置未知')
             if not path.is_file():
                 path.parent.mkdir(parents=True,exist_ok=True)
-                path.write_text('{"blender": ""}',encoding='utf-8')
+                save_text(path,'{"blender": ""}')
             open_path(path)
             self.desktop.status.set('已打开白模设置：'+str(path)+'；把 blender 填成 blender.exe 的完整路径后重进本页')
         except Exception as exc:

@@ -28,46 +28,11 @@ SPEECH_FIELDS = (('backend', '识别后端', ('offline', 'cloud')),
                  ('offline.vad_trailing_ms', '离线断句静音（毫秒）', ()))
 
 
-def open_speech_settings(pet, parent=None):
-    """``parent`` 是模型管理窗；外壳与模型管理的小窗同款：非模态、Escape 关闭、内容放进 Card。
-
-    只给宽度下限、不写死尺寸：高度随内容（高 DPI、保存失败时多出的提示行）撑开。
-    """
-    win = BaseDialog(parent, '', modal=False, chrome=False)
-    win.title(SPEECH_TITLE)
-    win.minsize(TEXT_DESC['wraplength'] + 2 * DIALOG_CONTENT_PADDING, DIALOG_MIN_HEIGHT)
-    win.transient(parent or None)
-    win.bind('<Escape>', lambda event: win.destroy())
-    card = Card(win)
-    card.pack(fill='both', expand=True, padx=SPACING['md'], pady=SPACING['md'])
-    card.columnconfigure(1, weight=1)
-    ttk.Label(card, text=SPEECH_TITLE, font=FONTS['title']).grid(row=0, column=0, columnspan=2, sticky='w')
-    ttk.Label(card, text=SPEECH_NOTE, style='Muted.TLabel', wraplength=TEXT_DESC['wraplength']).grid(
-        row=1, column=0, columnspan=2, sticky='w', pady=(SPACING['none'], SPACING['sm']))
-    start = 2
-    measure = tkfont.Font(font=FONTS['body']).measure
-    card.columnconfigure(0, minsize=max(measure(label) for _key, label, _values in SPEECH_FIELDS) + SPACING['md'])
-    variables, hint, key_state = {}, tk.StringVar(value=''), tk.StringVar(value='')
-
-    def show_key_state(*_args):
-        settings = {**speech_api.DEFAULTS, 'key_env': variables['key_env'].get().strip()}
-        configured = bool(settings['key_env']) and bool(speech_api.api_key(settings))
-        key_state.set('密钥已配置' if configured else '没找到这个密钥：请在模型管理里为它保存密钥')
-
-    for row, (key, label, values) in enumerate(SPEECH_FIELDS, start=start):
-        ttk.Label(card, text=label).grid(row=row, column=0, sticky='w', pady=SPACING['xs'])
-        variables[key] = tk.StringVar()
-        field = (SelectBox(card, textvariable=variables[key], values=values, state='normal') if values
-                 else LineInput(card, textvariable=variables[key]))
-        field.grid(row=row, column=1, sticky='ew', pady=SPACING['xs'])
-    row = start + len(SPEECH_FIELDS)
-    ttk.Label(card, textvariable=key_state, style='Muted.TLabel').grid(row=row, column=1, sticky='w')
-    ttk.Label(card, textvariable=hint, style='PaleGreenHint.TLabel', wraplength=TEXT_DESC['wraplength']).grid(
-        row=row + 1, column=0, columnspan=2, sticky='w', pady=(SPACING['sm'], SPACING['none']))
-
-    # ── 离线语音包（任务书 M6）：下载独立 venv＋模型，带进度、可取消、不阻塞界面 ──
+def _offline_package_row(card, win, row, variables, hint):
+    """离线语音包（任务书 M6）：下载独立 venv＋模型，带进度、可取消、不阻塞界面；
+    返回 ``(占用行号, (runner, setup_state, setup_progress, setup_button))`` 供宿主窗挂引用。"""
     from domain import offline_asr_setup
-    setup_row = row + 2
+    setup_row = row
     setup_state = tk.StringVar(value='')
     setup_progress = tk.StringVar(value='')
     runner = {'obj': None}
@@ -138,6 +103,47 @@ def open_speech_settings(pet, parent=None):
               wraplength=TEXT_DESC['wraplength']).grid(
         row=setup_row + 1, column=0, columnspan=2, sticky='w')
     refresh_setup_state()
+
+    return setup_row, (runner, setup_state, setup_progress, setup_button)
+
+
+def open_speech_settings(pet, parent=None):
+    """``parent`` 是模型管理窗；外壳与模型管理的小窗同款：非模态、Escape 关闭、内容放进 Card。
+
+    只给宽度下限、不写死尺寸：高度随内容（高 DPI、保存失败时多出的提示行）撑开。
+    """
+    win = BaseDialog(parent, '', modal=False, chrome=False)
+    win.title(SPEECH_TITLE)
+    win.minsize(TEXT_DESC['wraplength'] + 2 * DIALOG_CONTENT_PADDING, DIALOG_MIN_HEIGHT)
+    win.transient(parent or None)
+    win.bind('<Escape>', lambda event: win.destroy())
+    card = Card(win)
+    card.pack(fill='both', expand=True, padx=SPACING['md'], pady=SPACING['md'])
+    card.columnconfigure(1, weight=1)
+    ttk.Label(card, text=SPEECH_TITLE, font=FONTS['title']).grid(row=0, column=0, columnspan=2, sticky='w')
+    ttk.Label(card, text=SPEECH_NOTE, style='Muted.TLabel', wraplength=TEXT_DESC['wraplength']).grid(
+        row=1, column=0, columnspan=2, sticky='w', pady=(SPACING['none'], SPACING['sm']))
+    start = 2
+    measure = tkfont.Font(font=FONTS['body']).measure
+    card.columnconfigure(0, minsize=max(measure(label) for _key, label, _values in SPEECH_FIELDS) + SPACING['md'])
+    variables, hint, key_state = {}, tk.StringVar(value=''), tk.StringVar(value='')
+
+    def show_key_state(*_args):
+        settings = {**speech_api.DEFAULTS, 'key_env': variables['key_env'].get().strip()}
+        configured = bool(settings['key_env']) and bool(speech_api.api_key(settings))
+        key_state.set('密钥已配置' if configured else '没找到这个密钥：请在模型管理里为它保存密钥')
+
+    for row, (key, label, values) in enumerate(SPEECH_FIELDS, start=start):
+        ttk.Label(card, text=label).grid(row=row, column=0, sticky='w', pady=SPACING['xs'])
+        variables[key] = tk.StringVar()
+        field = (SelectBox(card, textvariable=variables[key], values=values, state='normal') if values
+                 else LineInput(card, textvariable=variables[key]))
+        field.grid(row=row, column=1, sticky='ew', pady=SPACING['xs'])
+    row = start + len(SPEECH_FIELDS)
+    ttk.Label(card, textvariable=key_state, style='Muted.TLabel').grid(row=row, column=1, sticky='w')
+    ttk.Label(card, textvariable=hint, style='PaleGreenHint.TLabel', wraplength=TEXT_DESC['wraplength']).grid(
+        row=row + 1, column=0, columnspan=2, sticky='w', pady=(SPACING['sm'], SPACING['none']))
+    setup_row, setup_refs = _offline_package_row(card, win, row + 2, variables, hint)
 
     # ── 语音词典与 AI 优化（可选，存 data/语音词典.json）──
     dict_row = setup_row + 2
@@ -249,5 +255,5 @@ def open_speech_settings(pet, parent=None):
     win._pet_speech_vars, win._pet_speech_save, win._pet_speech_reset = variables, save, reset
     win._pet_speech_dict_vars, win._pet_speech_dict_fill = dict_vars, fill_dictionary
     win._pet_speech_hint, win._pet_speech_key_state = hint, key_state
-    win._pet_speech_setup = (runner, setup_state, setup_progress, setup_button)
+    win._pet_speech_setup = setup_refs
     return win

@@ -41,7 +41,8 @@ class FakeProc:
         self._wait = threading.Event()
         self._wait.set()                    # stdout 迭代完 wait 立即返回；Hang 子类用 stdout 阻塞
 
-    def wait(self):
+    def wait(self, timeout=None):
+        # R3205：生产侧收敛为带超时的 wait（Popen.wait 同名签名），替身对齐。
         self._wait.wait(5)
         return self.returncode
 

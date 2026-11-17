@@ -168,6 +168,7 @@ class FilesPanelFilterMixin:
             found = []
         self._library_root = library
         # 任务书 M5（REQ-S01-95）：素材库视图同样开预览列（封面／波形走 #0）。
+        self._apply_columns(True)
         self.script_tree.configure(show='tree headings')
         for row in found:
             item_id = 'library:' + row.path
@@ -440,6 +441,7 @@ class FilesPanelFilterMixin:
         from contract.pet_bus import stage_name
         self.cancel_script_load()
         # 任务书 M5（REQ-S01-95）：索引视图开预览列（#0 挂封面／波形图元）。
+        self._apply_columns(True)
         self.script_tree.configure(show='tree headings')
         self.script_tree.delete(*self.script_tree.get_children())
         self.script_row_details.clear()
