@@ -895,6 +895,12 @@
    "percent": 0.0
   },
   {
+   "module": "domain/checkpoint_tree.py",
+   "covered": 0,
+   "total": 67,
+   "percent": 0.0
+  },
+  {
    "module": "domain/cloud_video_service.py",
    "covered": 0,
    "total": 76,
@@ -955,6 +961,12 @@
    "percent": 0.0
   },
   {
+   "module": "domain/hitl.py",
+   "covered": 0,
+   "total": 79,
+   "percent": 0.0
+  },
+  {
    "module": "domain/idea_attachments.py",
    "covered": 0,
    "total": 323,
@@ -987,7 +999,7 @@
   {
    "module": "domain/idea_transcript.py",
    "covered": 0,
-   "total": 406,
+   "total": 413,
    "percent": 0.0
   },
   {
@@ -1006,6 +1018,12 @@
    "module": "domain/local_video_settings_service.py",
    "covered": 0,
    "total": 49,
+   "percent": 0.0
+  },
+  {
+   "module": "domain/message_parts.py",
+   "covered": 0,
+   "total": 141,
    "percent": 0.0
   },
   {
@@ -1749,7 +1767,7 @@
   {
    "module": "orchestrator/idea_chat_controller.py",
    "covered": 0,
-   "total": 235,
+   "total": 297,
    "percent": 0.0
   },
   {
@@ -2889,7 +2907,7 @@
   {
    "module": "ui/desktop_files_panel.py",
    "covered": 0,
-   "total": 443,
+   "total": 445,
    "percent": 0.0
   },
   {
@@ -2907,7 +2925,7 @@
   {
    "module": "ui/desktop_idea_bubbles.py",
    "covered": 0,
-   "total": 459,
+   "total": 484,
    "percent": 0.0
   },
   {
@@ -2919,7 +2937,7 @@
   {
    "module": "ui/desktop_idea_menus.py",
    "covered": 0,
-   "total": 81,
+   "total": 87,
    "percent": 0.0
   },
   {
@@ -3313,15 +3331,81 @@
    "percent": 0.0
   },
   {
+   "module": "ui/ui_asset_card.py",
+   "covered": 0,
+   "total": 65,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/ui_branch_tree.py",
+   "covered": 0,
+   "total": 46,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/ui_citation.py",
+   "covered": 0,
+   "total": 37,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/ui_code_block.py",
+   "covered": 0,
+   "total": 52,
+   "percent": 0.0
+  },
+  {
    "module": "ui/ui_composer_style.py",
    "covered": 0,
    "total": 27,
    "percent": 0.0
   },
   {
+   "module": "ui/ui_diff.py",
+   "covered": 0,
+   "total": 42,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/ui_hitl.py",
+   "covered": 0,
+   "total": 43,
+   "percent": 0.0
+  },
+  {
    "module": "ui/ui_hover_fade.py",
    "covered": 0,
    "total": 115,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/ui_media.py",
+   "covered": 0,
+   "total": 53,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/ui_media_player.py",
+   "covered": 0,
+   "total": 62,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/ui_multimodal.py",
+   "covered": 0,
+   "total": 28,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/ui_param_panel.py",
+   "covered": 0,
+   "total": 38,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/ui_part_renderers.py",
+   "covered": 0,
+   "total": 127,
    "percent": 0.0
   },
   {
@@ -3358,6 +3442,12 @@
    "module": "ui/ui_status_bus.py",
    "covered": 0,
    "total": 115,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/ui_task_progress.py",
+   "covered": 0,
+   "total": 39,
    "percent": 0.0
   },
   {
@@ -4214,5 +4304,5 @@
   }
  ],
  "modules_covered": 76,
- "modules_total": 700
+ "modules_total": 715
 }
