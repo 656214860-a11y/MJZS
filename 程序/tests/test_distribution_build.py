@@ -66,6 +66,19 @@ class DistributionBuildTests(unittest.TestCase):
         path.write_text('stray', encoding='utf-8')
         return path
 
+    def test_actual_manifest_excludes_agent_archive_and_window_probe_log(self):
+        manifest = subject.parse_manifest()
+        relatives = ('.agent-handoff/archive/snapshot-before-o06-pause-20261012.md', '_wm.log')
+        for relative in relatives:
+            path = self.source / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b'diagnostic-history')
+        planned = subject.plan(self.source, manifest)
+        for relative in relatives:
+            self.assertIn(relative, planned['excluded'])
+            self.assertNotIn(relative, planned['keep'])
+            self.assertEqual((self.source / relative).read_bytes(), b'diagnostic-history')
+
     def test_parse_manifest_reads_both_tables_of_the_real_document(self):
         parsed = subject.parse_manifest()
         self.assertIn('启动漫剧制作助手.pyw', parsed['keep'])
