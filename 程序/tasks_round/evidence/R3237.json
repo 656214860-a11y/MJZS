@@ -1,0 +1,15 @@
+{
+  "round": 3237,
+  "commit_base": "c264804e",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k text_measure select_placeholder ui_widgets_inputs ui_widgets_dialogs ui_widgets_table column_fit storyboard_page_loading ui_edges data_table_boundary dynamic_import_registry shortcut_registry_boundary skill_panel_layout_fit files_panel",
+    "exit": 0,
+    "passed": 302,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T23:27:29"
+}

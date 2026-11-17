@@ -3,6 +3,35 @@
 ``pet_llm`` 与 ``writing_api`` 原先各抄一份「估算 → authorize_model → 发送 → settle_model」，
 现在都走这里；两处各自的诊断目录与 reason 文案不在此处，仍由调用方决定。
 """
+import logging
+
+import infra.app_logging as app_logging
+
+LOGGER = logging.getLogger(__name__)
+
+
+def _settle(ledger, request_id, usage, *, stage=''):
+    """结算是兜底动作：等锁超时／保存失败时不丢已付费结果，降级记入诊断。"""
+    try:
+        ledger.settle_model(request_id, usage)
+    except Exception as exc:
+        LOGGER.warning('请求结算失败（%s），调用结果照常返回', type(exc).__name__)
+        try:
+            from infra import diagnostic_capture
+            diagnostic_capture.record_degradation(exc, stage=stage)
+        except Exception:
+            app_logging.swallowed()
+
+
+def _record_attempt(ledger, request_id, **fields):
+    """尝试诊断是旁路记录：写盘失败只记日志，不影响已付费结果的返回。"""
+    if not hasattr(ledger, '_find'):
+        return
+    try:
+        from infra.request_ledger import record_request_attempt
+        record_request_attempt(ledger, request_id, **fields)
+    except Exception:
+        LOGGER.exception('请求尝试记录失败')
 
 
 def metered(ledger, request, send, usage_of, on_result=None):
@@ -10,7 +39,8 @@ def metered(ledger, request, send, usage_of, on_result=None):
 
     ``request`` 是 ``(request_id, model, stage, estimate, reserved)``。授权被拒（ValueError／OSError）时
     ``rejected`` 为该错误、不发送、``result`` 为 None；发送抛错时按未知用量结算后原样抛出，
-    所以发送里的 ValueError 不会被误当预算错误；``on_result(result, usage)`` 在结算前调用，供调用方记诊断。
+    所以发送里的 ValueError 不会被误当预算错误；``on_result(result, usage)`` 在结算前调用，供调用方记诊断，
+    其异常只记录不外抛。发送成功后结算必达（try/finally），结算自身失败不丢结果。
     """
     request_id, model, stage, estimate, reserved = request
     try:
@@ -20,26 +50,31 @@ def metered(ledger, request, send, usage_of, on_result=None):
     try:
         result = send()
     except Exception:
-        ledger.settle_model(request_id, {})
-        if hasattr(ledger, '_find'):
-            from infra.request_ledger import record_request_attempt
-            record_request_attempt(ledger, request_id, error_class='exception')
+        _settle(ledger, request_id, {}, stage=stage)
+        _record_attempt(ledger, request_id, error_class='exception')
         raise
-    usage = usage_of(result)
-    if on_result is not None:
-        on_result(result, usage)
-    if hasattr(ledger, '_find'):
-        from infra.request_ledger import record_request_attempt
-        meta = result.get('response_meta') if isinstance(result, dict) else None
-        record_request_attempt(
-            ledger,
-            request_id,
-            status=result.get('status') if isinstance(result, dict) else None,
-            error_class=result.get('error_class') if isinstance(result, dict) else 'exception',
-            retry_after=result.get('retry_after') if isinstance(result, dict) else None,
-            wire_api=(meta or {}).get('wire_api', ''),
-            retry_count=result.get('retry_count') if isinstance(result, dict) else 0)
-    ledger.settle_model(request_id, usage)
+    usage = {}
+    try:
+        usage = usage_of(result)
+        if on_result is not None:
+            try:
+                on_result(result, usage)
+            except Exception:
+                LOGGER.exception('计量结果回调失败')
+        if isinstance(result, dict):
+            meta = result.get('response_meta')
+            _record_attempt(
+                ledger,
+                request_id,
+                status=result.get('status'),
+                error_class=result.get('error_class'),
+                retry_after=result.get('retry_after'),
+                wire_api=(meta or {}).get('wire_api', '') if isinstance(meta, dict) else '',
+                retry_count=result.get('retry_count') or 0)
+        else:
+            _record_attempt(ledger, request_id, error_class='exception')
+    finally:
+        _settle(ledger, request_id, usage, stage=stage)
     return result, usage, None
 
 
@@ -74,7 +109,8 @@ def chat_metered(adapter, ledger, stage, messages, options, model, system):
 
 # ── 重试口径：两种请求性质，两种口径，各自显式命名（R2178 J12，不单方裁决）──────────────
 # 对话可重放：同一段对话再发一次不会多收费或多做事，所以 5xx／429／超时／本地网络异常都可以重发。
-REPLAYABLE_RETRY_STATUS = (0, 408, 409, 425, 429, 500, 502, 503, 504)
+# 状态 0（无 HTTP 响应）不在重放名单：它可能是本地构造的失败，重放口径交给调用方的降级链决定。
+REPLAYABLE_RETRY_STATUS = (408, 409, 425, 429, 500, 502, 503, 504)
 
 
 def replayable_retry(status):

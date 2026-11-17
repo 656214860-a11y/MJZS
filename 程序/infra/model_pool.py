@@ -911,16 +911,17 @@ def model_admission_error(item, *, require_context_length=False, require_certifi
 
 
 @app_logging.timed('model.http', 30000)
-def http_transport(url, payload, headers, timeout):
+def http_transport(url, payload, headers, timeout, attempt_budget=None):
     """兼容入口：保留 model_pool 的补丁点，实际传输在 api_endpoints。"""
-    result = _http_transport(url, payload, headers, timeout)
+    result = _http_transport(url, payload, headers, timeout, attempt_budget=attempt_budget)
     app_logging.count('model.http.' + ('ok' if result.get('ok') else str(result.get('kind') or result.get('status'))))
     return result
 
 
-def _http_transport(url, payload, headers, timeout):
+def _http_transport(url, payload, headers, timeout, attempt_budget=None):
     import infra.api_endpoints as endpoints
-    return endpoints._http_transport(url, payload, headers, timeout, opener=_http_opener)
+    return endpoints._http_transport(url, payload, headers, timeout, opener=_http_opener,
+                                     attempt_budget=attempt_budget)
 
 
 def http_stream(url, payload, headers, timeout, on_chunk, cancelled=None):

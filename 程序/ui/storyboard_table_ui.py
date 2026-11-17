@@ -1,7 +1,7 @@
 """Tk table adapters shared by storyboard picker pages."""
 import infra.app_logging as app_logging
 from datetime import datetime
-from ui_tokens import COLORS
+from ui_tokens import COLORS, SPACING
 from ui_widgets import DataTable
 from ui.ui_shortcuts import ShortcutRegistry
 
@@ -50,9 +50,9 @@ def fit_file_columns(tree, cap=220):
     configure_column(tree,'#0',CHECK_COLUMN_WIDTH,minwidth=CHECK_COLUMN_WIDTH,stretch=False,anchor='center')
     meta={'status','sync','time'};columns=list(tree['columns']);widths=[];floors=[]
     for index,column in enumerate(columns):
-        header_w=measure(heading,tree.heading(column,'text'))+14
+        header_w=measure(heading,tree.heading(column,'text'))+SPACING['lg']
         cells=[measure(body,row[index]) for row in rows if index < len(row)]
-        content_w=(max(cells) if cells else 0)+14
+        content_w=(max(cells) if cells else 0)+SPACING['lg']
         widths.append(int(max(header_w,content_w) if column in meta else min(cap,max(header_w,content_w))))
         floors.append(int(header_w))
     remember_columns(tree,zip(columns,widths))

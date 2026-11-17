@@ -305,7 +305,8 @@ class WritingRequestAdapter(ModelAdapter):
         rpm = int((self.record or {}).get('rpm') or 0)
         if rpm > 0:
             from contract.platform_tools import current_execution
-            model_pool.wait_for_rpm((self.record or {}).get('base_url'), rpm, current_execution())
+            model_pool.wait_for_rpm((self.record or {}).get('base_url'), rpm, current_execution(),
+                                    credential=(self.record or {}).get('key_env'))
 
         def send():
             return getattr(self.adapter, method)(messages, options=options, model=model, system=system, **kwargs)
