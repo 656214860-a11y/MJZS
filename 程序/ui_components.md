@@ -160,6 +160,66 @@
 
 需要空列表仍展示列头时传入 `empty_text=''`，由组件禁用覆盖标签；默认空态文案和其他页面行为不变。剧本准备的三个分类标题始终保留，文件行仍按内容压缩高度。
 
+## 浮层与文字测宽
+
+浮层有五种机制（`ui_popup.Flyout` 无边框 Toplevel、`desktop_shared_menus.AnchoredPanel`／`CandidatePopup` 的 `place` 浮层、`ui_tooltip.Tooltip`、`ui_widgets.ContextMenu` 的 `tk.Menu`），因机制不同不合并为同一基类；统一的是三件事：**文字测宽**、**定位钳位**（`ui_popup.monitor_bounds`，按锚点所在显示器取边界）与**卡片样式 token**（描边 `color.border.default`、圆角 `radius.md`、留白 `space.*`）。
+
+- **入口**：文字测宽只走 `ui_popup` 的共享测宽函数——输入 `FONTS`／token 字体与文本集合，返回像素宽度，含上限钳位参数；用真实字体 `measure`，不做全角 2／ASCII 1 近似。定位钳位只走 `ui_popup.monitor_bounds`。
+- **禁止**：新代码不得直接调用 `font.measure`／`tkfont.Font.measure`，不得手写字符宽度近似（全角×2＋ASCII×1），不得为撑开宽度写魔法数字（如 `+14`）。
+- **门禁**：`test_text_measure_boundary.py`（U1）。
+
+## 图标（MDL2 与 Fluent PNG 的边界）
+
+- **入口**：输入框图标行（✦、🎤 及其下拉面板行）取 `ui_tokens.ICON_FONT` 的 MDL2 字形（`ICON_*` 常量）；输入框以外的桌面图标取侧栏 Fluent Filled PNG，一律经 `IconLoader.nav_icon`。全部 `assets/nav/*.png` 固定 24×24 画布居中（`icon.nav.size`，见 `design_tokens.md`）。
+- **禁止**：新代码不得用 emoji 当图标；输入框图标行之外不得新增 MDL2 `ICON_*` 字形引用；不得绕过 `IconLoader.nav_icon` 直接读 PNG 或自配字形。存量 MDL2 字形引用与 emoji 占位（`ui/desktop_files_panel_filters.py` 的 `STAGE_RAIL_ICONS`）按门禁文件冻结。
+- **门禁**：`test_icon_source_boundary.py`（U3）、`test_nav_icon_size_boundary.py`（U2）。
+
+## 框体（Card 与 Box 的分工）
+
+- **Card**（`ui_widgets.Card`，圆角 `radius.lg`、描边 `color.border.default`）：表单类卡片容器，21 页在用，外观不动。
+- **Box**（`ui_theme` 的 `Box.TFrame` 样式升格：直角、1px `color.border.strong`，样式名、边框色、内边距取 token，并提供创建入口函数）：聊天框、内容框、列表框的正式外框组件。
+- **禁止**：新代码不得直接写 `style='Box.TFrame'`，不得自拼 1px 边框替代 `Box`。
+- **门禁**：`test_box_boundary.py`（U5）。
+
+## 发送键
+
+圆形外框，中间 ↑；运行中换 ■。边框色 `color.border.input.hover`、无填充；悬停边框与图标变 `color.primary`；不可点用 `color.disabled.text`；尺寸与 ✦＋🎤 同档（`ICON_FONT`）。样式与圆形底图放 `ui/ui_composer_style.py`；运行中↔空闲的状态切换唯一入口保持 `desktop_script_pages.update_script_interrupt_button()`（REQ-S01-62／DES-S01-62）。不再使用 `assets/nav/send.png`／`stop.png`。
+
+- **门禁**：行为由 `test_script_composer`／`test_shared_input_ui` 锚定（U4），无独立边界门禁。
+
+## 字体
+
+- **入口**：新代码只取 `ui_tokens.FONTS[...]`。
+- **禁止**：不得写内联字体元组（`("微软雅黑 UI", 10)` 这类）。
+- **门禁**：`test_font_boundary.py`（U6），存量按文件冻结。
+
+## 原生控件
+
+- **入口**：浮层与卡片内的新代码优先用 `ui_widgets` 语义组件（`PrimaryButton`／`SecondaryButton`／`Card`／`SelectBox` 等）与已登记 ttk 样式。
+- **禁止**：浮层与卡片内新代码不得新增自配颜色的 `tk.Label`／`tk.Frame`；存量（集中在 `desktop_shared_menus.py`、`ui/stage_model_picker.py`）按门禁文件冻结。
+- **门禁**：`test_native_control_boundary.py`（U6）。
+
+## 表单控件
+
+- **入口**：`Checkbutton`／`Radiobutton`／`Scale`／`Spinbox`／`Notebook` 新代码只用 `ui_theme` 已登记的样式名（`TCheckbutton`、`TNotebook.Tab` 等），不得内联配置外观。
+- **禁止**：不得为表单控件自配颜色、字体、内边距或新建局部 Style。
+- **门禁**：`test_form_control_boundary.py`（U6），存量按门禁文件冻结。
+
+## 消息卡片与 HITL（文件卡片任务，R3102–R3138）
+
+文件卡片任务新增的交互组件，已并入本契约的同一套 token 与组件规则：
+
+| 组件 | 入口 | 说明 |
+| --- | --- | --- |
+| 消息 part 分派渲染 | `ui_part_renderers.render_parts(box, name, parts, host)` | REASONING／ARTIFACT／TOOL_CALL／TOOL_RESULT／SOURCE／FILE／DATA 逐类渲染进 Text 气泡；只消费 `ui_tokens`，动作经 `host` 回调注入 |
+| HITL 审批卡／选择卡 | `ui_hitl` 的审批门三按钮与选择卡 | 按钮走 `PrimaryButton`／`SecondaryButton`；决策经 `on_decision` 回调 |
+| 参数微调面板 | `ui_param_panel` | 温度／步数滑条走 `ttk.Scale`、画面比例走 `SelectBox` |
+| 图片／缩略图卡与 Lightbox | `ui_media`（`open_lightbox` 等） | 缩略图卡、Lightbox、多候选对比、收藏 |
+| 引用溯源 | `ui_citation.insert_citations(box, name, text, …)` | 正文 `[n]` 着色并绑定点击定位 |
+| 树表行预览卡 | `desktop_file_card.TreeRowCard`（继承 `TreeRowTooltip`） | 悬停读完整文件名 |
+
+这些组件的存量违规项按对应门禁登记冻结：`ui_hitl` 的 `ttk.Radiobutton` 与 `ui_param_panel` 的 `ttk.Scale` 归表单控件门禁存量；其余 token 取用与语义组件复用已符合标准。
+
 ## 复用规则
 
 每个组件只能有以上一种写法。新增页面必须复用既有组件实现或先扩展本契约；不得在页面内复制、修改样式参数形成第二种写法。
