@@ -7,6 +7,7 @@
 """
 import tempfile
 import unittest
+from pathlib import Path
 
 import tk_test_support
 import project_stages
@@ -217,6 +218,44 @@ class FilterBarTests(StageRailTests):
         self.assertFalse(panel._filters_active())
         for row in self.rows():
             self.assertTrue(row.startswith(str(self.desktop.root)), row)
+
+
+class GlobalLibraryViewTests(StageRailTests):
+    """R3143（任务书 P3，Q11）：面板里的全局素材库视图。"""
+
+    def test_library_view_without_configured_dir_guides_the_user(self):
+        panel = self.desktop.files_panel
+        import infra.file_index as file_index
+        with tempfile.TemporaryDirectory() as tmp:
+            original = file_index.read_global_dir
+
+            def _unset(program=None):
+                return None
+            file_index.read_global_dir = _unset
+            try:
+                panel.show_library()
+            finally:
+                file_index.read_global_dir = original
+        self.assertTrue(panel.library_view)
+        self.assertIn('尚未设置全局素材库目录', str(self.desktop.status.get()))
+        self.assertEqual(list(panel.script_tree.get_children()), [])
+
+    def test_library_view_lists_library_relative_rows(self):
+        panel = self.desktop.files_panel
+        import infra.file_index as file_index
+        with tempfile.TemporaryDirectory() as tmp:
+            library = Path(tmp) / '素材库'
+            (library / '角色').mkdir(parents=True)
+            (library / '角色' / 'CHAR_001.png').write_bytes(b'\x89PNG')
+            file_index.rebuild_global(library)
+            original = file_index.read_global_dir
+            file_index.read_global_dir = lambda program=None: library
+            try:
+                panel.show_library()
+            finally:
+                file_index.read_global_dir = original
+        rows = list(panel.script_tree.get_children())
+        self.assertEqual(rows, ['library:角色/CHAR_001.png'])
 
 
 if __name__ == '__main__':

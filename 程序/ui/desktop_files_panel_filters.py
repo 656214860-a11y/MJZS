@@ -130,6 +130,40 @@ class FilesPanelFilterMixin:
     def _filters_active(self):
         return any((self.stage_filter, self.kind_filter, self.status_filter, self.keyword_filter))
 
+    def show_library(self):
+        """切到全局素材库视图：只读库索引，不扫盘；未设置目录时提示用户先设置。"""
+        from infra import file_index
+        self._ensure_filter_state()
+        self.library_view = True
+        self.stage_filter = None
+        self.keyword_filter = ''
+        library = file_index.read_global_dir()
+        if library is None:
+            self.page.status.set('尚未设置全局素材库目录：请先指定一个跨项目共用的素材文件夹。')
+            self._fill_global_list(None)
+            return
+        self._fill_global_list(library)
+
+    def _fill_global_list(self, library):
+        """按全局库索引填表；行 id 用 ``库相对`` 路径，路径前带库根标记便于查看。"""
+        from infra import file_index
+        self.cancel_script_load()
+        self.script_tree.delete(*self.script_tree.get_children())
+        self.script_row_details.clear()
+        self.script_row_category.clear()
+        if library is None:
+            return
+        try:
+            found = file_index.search_global(library, kind=self.kind_filter)
+        except (OSError, ValueError):
+            found = []
+        for row in found:
+            item_id = 'library:' + row.path
+            self.script_row_details[item_id] = '%s · %s · %s' % (row.title or row.path, row.kind, str(library))
+            self.script_row_category[item_id] = STAGE_FILTER_ROW_CATEGORY
+            self.script_tree.insert('', 'end', iid=item_id, text='',
+                                    values=('[素材库] ' + row.path.split('/')[-1],))
+
     # ── 阶段快捷图标列（R3094，任务书 P1）──────────────────────────────────
     def _ensure_filter_state(self):
         """首次装配前补齐筛选状态（宿主 ``__init__`` 不感知这些字段）。"""
@@ -139,6 +173,7 @@ class FilesPanelFilterMixin:
             self.status_filter = None
             self.keyword_filter = ''
             self._filter_job = None
+            self.library_view = False
 
     def _build_stage_rail(self):
         """建右缘阶段图标列：「全部」＋ 13 个阶段，顺序＝``pet_bus.STAGES``。"""
@@ -158,6 +193,12 @@ class FilesPanelFilterMixin:
         # 清空只删超过保留期的批次，物理删除仍只经 storage_maintenance。
         self._add_rail_action('♻', '回收站：浏览与恢复已删除的文件', 'open_recycle_recovery')
         self._add_rail_action('🗑', '清空过期回收站（保留 %d 天）' % _retention_days(), 'purge_expired_recycle')
+        # R3143（任务书 P3，Q11）：全局素材库视图——跨项目的共享素材，按库相对路径列出。
+        library = SecondaryButton(self.stage_rail, text='🗂', width=0, style='RailIcon.TButton',
+                                  command=self.show_library)
+        library.pack(side='top', pady=(SPACING['none'], SPACING['xs']))
+        Tooltip(library, '全局素材库：跨项目的共享素材（可在设置里指定目录）')
+        self.library_button = library
 
     def _add_rail_action(self, glyph, tip, method_name):
         """在图标列末尾追加一个动作钮；宿主没有该动作时只留按钮不绑回调。"""
@@ -180,6 +221,8 @@ class FilesPanelFilterMixin:
 
     def show_stage(self, stage=None):
         """点阶段图标：同步下拉框，再按筛选条件重填（``None``＝不限阶段）。"""
+        self._ensure_filter_state()
+        self.library_view = False
         self.stage_filter = stage
         label = next((text for text, value in self.stage_labels.items() if value == stage), '全部阶段')
         box = getattr(self, 'stage_box', None)
