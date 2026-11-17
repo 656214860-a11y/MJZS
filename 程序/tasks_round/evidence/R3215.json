@@ -1,0 +1,15 @@
+{
+  "round": 3215,
+  "commit_base": "d29e1e83",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k dependency_whitelist",
+    "exit": 0,
+    "passed": 3,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T21:23:26"
+}
