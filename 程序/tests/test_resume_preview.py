@@ -13,7 +13,7 @@ sys.path.insert(0, PROGRAM)
 sys.path.insert(0, HERE)
 os.chdir(PROGRAM)
 
-import skill_orchestrator
+from orchestrator import skill_orchestrator
 
 
 def orchestrator(case):
@@ -116,7 +116,7 @@ class ResumePreviewTests(unittest.TestCase):
     def test_verified_artifact_skips_the_rest_without_repaying(self):
         orch = orchestrator(self)
         seed(self, orch, 'assets', 3)
-        with mock.patch('skill_orchestrator.verified_stage_output', return_value=True):
+        with mock.patch('orchestrator.skill_orchestrator.verified_stage_output', return_value=True):
             preview = orch.resume_preview()
         self.assertTrue(preview['artifact_verified'])
         self.assertEqual(preview['steps'][2]['verdict'], 'skip')
@@ -149,7 +149,7 @@ class ResumePreviewTests(unittest.TestCase):
         spent = []
         with mock.patch.object(orch.budget, 'check', return_value=(True, '')), \
              mock.patch.object(orch.budget, 'spend', side_effect=lambda *a, **k: spent.append(a)), \
-             mock.patch('skill_orchestrator.save_project_status', side_effect=OSError('磁盘满')):
+             mock.patch('orchestrator.skill_orchestrator.save_project_status', side_effect=OSError('磁盘满')):
             row = orch.execute(paid.name, {'project': orch.project, 'confirm': True})
         self.assertEqual(row['status'], 'failed')
         self.assertIn('检查点写入失败', row['detail'])

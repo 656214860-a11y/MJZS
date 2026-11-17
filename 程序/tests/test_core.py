@@ -76,7 +76,7 @@ class ResidualProjectTests(unittest.TestCase):
             (project/'config.json').write_text('{}',encoding='utf-8')
             desk=Desktop.__new__(Desktop)
             desk.root=None
-            desk.idea_chat_controller=__import__('idea_chat_controller').IdeaChatController()
+            desk.idea_chat_controller=__import__('orchestrator.idea_chat_controller', fromlist=['IdeaChatController']).IdeaChatController()
             desk.flush_brief=lambda:None
             desk.projects=type('Projects',(),{'activate':lambda self,path:None})()
             desk.list=type('ProjectList',(),{'selection_set':lambda self,path:None,
@@ -398,13 +398,13 @@ class StoryboardStorageTests(unittest.TestCase):
 
 class StoryboardPathsTests(unittest.TestCase):
     def test_is_final_dir(self):
-        from storyboard_paths import is_final_dir
+        from contract.storyboard_paths import is_final_dir
         self.assertTrue(is_final_dir("定稿_EP001"))
         self.assertTrue(is_final_dir("EP001_分镜定稿_2020"))
         self.assertFalse(is_final_dir("EP001_分镜"))
 
     def test_media_root_split(self):
-        from storyboard_paths import media_root
+        from contract.storyboard_paths import media_root
         self.assertEqual(media_root(Path("D:/p/storyboard/分镜拆分/EP001/episode.json")), Path("D:/p/storyboard"))
         self.assertEqual(media_root(Path("D:/p/03初步分镜/分镜拆分/EP001/episode.json")), Path("D:/p/03初步分镜"))
 
@@ -415,7 +415,7 @@ class StoryboardPathsTests(unittest.TestCase):
         self.assertEqual(working_dir(project), Path('D:/p/03初步分镜/分镜拆分'))
 
     def test_media_root_fallback(self):
-        from storyboard_paths import media_root
+        from contract.storyboard_paths import media_root
         self.assertEqual(media_root(Path("D:/p/episode/episode.json")), Path("D:/p/episode"))
 
 
@@ -484,7 +484,7 @@ class ProjectsEngineTests(unittest.TestCase):
             self.assertTrue(result.ok)
             out = result.data
             txt = (out / "编剧任务书.md").read_text(encoding="utf-8")
-            from project_stages import writing as script_stage
+            from contract.project_stages import writing as script_stage
             self.assertEqual(out.parent, script_stage(proj))
             self.assertFalse((proj / 'writing' / out.name).exists())
             self.assertIn("《测试集》", txt)

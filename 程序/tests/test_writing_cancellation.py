@@ -8,12 +8,12 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import model_pool
-import project_stages
+from contract import project_stages
 import script_contract
 import stage_config
 import writing_api
 from writing_api import WritingCancelledError
-from idea_chat_controller import IdeaChatController
+from orchestrator.idea_chat_controller import IdeaChatController
 from stage_execution_service import publish_stage_text
 from tests.test_workflow import make_project
 
@@ -39,7 +39,7 @@ class WritingCancellationTests(unittest.TestCase):
     def test_cancelled_before_request_does_not_call_model_or_publish_context(self):
         self.cancelled.set()
         with patch('writing_api.PoolAdapter.chat') as chat, \
-                patch('workflow_context_controller.publish_writing_context') as context:
+                patch('orchestrator.workflow_context_controller.publish_writing_context') as context:
             with self.assertRaises(WritingCancelledError):
                 writing_api.reply(self.project, '创作', cancelled=self.cancelled.is_set)
         chat.assert_not_called(); context.assert_not_called()

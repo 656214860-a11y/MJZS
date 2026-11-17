@@ -19,7 +19,7 @@ from orchestrator.account_controller import RENEW_VIEW_INTERVAL, AccountControll
 import contract.pet_bus as pet_bus
 from ui.desktop_page_registry import (NAV_LOCK_ICON, PAGE_ACCOUNT, PAGE_NAV_ICONS, PAGES,
                                    nav_label, page_title)
-from ui_icons import IconLoader
+from ui.ui_icons import IconLoader
 from ui_tokens import DIALOG_CONTENT_PADDING, DIALOG_MIN_HEIGHT, FONTS, SPACING, TEXT_DESC
 from account_inputs import EmailInput, PASSWORD_MASK, PasswordInput
 from ui_widgets import BaseDialog, Card, LineInput, PrimaryButton, SecondaryButton, ask_confirmation

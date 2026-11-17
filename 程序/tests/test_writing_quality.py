@@ -116,7 +116,7 @@ class QualityTests(unittest.TestCase):
     def test_api_and_desktop_save_identical_reports_and_clean_prose(self):
         import writing_api
         from stage_execution_service import collect_writing_quality, publish_stage_text
-        from stage_path_service import write_dir
+        from contract.stage_path_service import write_dir
         from test_workflow import make_project
         body = '# 自然剧本\n场景：雨夜照相馆\n' + ('主角推开门，握紧相机，说：“你先走吧”。\n' * 40)
         with tempfile.TemporaryDirectory() as td:
@@ -221,7 +221,7 @@ class QualityTests(unittest.TestCase):
         from desktop import Desktop
         from types import SimpleNamespace
         from stage_execution_service import collect_writing_quality
-        from stage_path_service import write_dir
+        from contract.stage_path_service import write_dir
         from test_workflow import make_project
         with tempfile.TemporaryDirectory() as td:
             project = make_project(td)
@@ -251,7 +251,7 @@ class QualityTests(unittest.TestCase):
 
     def test_desktop_concurrent_write_is_never_marked_collected(self):
         from stage_execution_service import collect_writing_quality
-        from stage_path_service import write_dir
+        from contract.stage_path_service import write_dir
         from test_workflow import make_project
         with tempfile.TemporaryDirectory() as td:
             project = make_project(td)

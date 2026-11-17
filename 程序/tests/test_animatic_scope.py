@@ -7,7 +7,7 @@ from unittest.mock import Mock
 import pet_bus
 import script_contract
 import stage_flow
-import stage_handler_registry
+from orchestrator import stage_handler_registry
 import stage_layout
 import stage_parallel
 
@@ -56,7 +56,7 @@ class AnimaticScopeTests(unittest.TestCase):
         self.assertEqual(config['retry']['on_exhaust'], stage_parallel.ON_MANUAL)
 
     def test_req_s04_41_unconfirmed_empty_project_is_not_complete(self):
-        import animatic_service
+        from domain import animatic_service
         with tempfile.TemporaryDirectory() as folder:
             ok, _reason = animatic_service.evidence(folder)
         self.assertFalse(ok)
@@ -99,7 +99,7 @@ class AnimaticScopeTests(unittest.TestCase):
 
     def test_req_s04_61_without_batch_id_defaults_to_one_default_batch(self):
         """REQ-S04-61：03 不写 batch_id，预演缺省只有 default 一批；批间并行只是保留能力。"""
-        import animatic_service
+        from domain import animatic_service
         shots = animatic_service.shots_of({'shots': [
             {'id': 'SH001', 'image_prompt': '提示一', 'duration': 1},
             {'id': 'SH002', 'image_prompt': '提示二', 'duration': 1},

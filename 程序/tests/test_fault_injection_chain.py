@@ -11,7 +11,7 @@ from pathlib import Path
 
 import model_metering
 import model_router
-import request_ledger
+from infra import request_ledger
 import stage_completion_service
 
 GOOD = {'ok': True, 'status': 200, 'data': {'choices': [{'message': {'content': '写好了'}}],
@@ -103,7 +103,7 @@ class FaultChain(unittest.TestCase):
         self.assertEqual(emitted, [])
 
     def test_stage_completes_only_when_a_real_output_file_exists(self):
-        from project_stages import stage as stage_dir
+        from contract.project_stages import stage as stage_dir
         emitted = []
         folder = Path(stage_dir(self.root, 'video'))
         folder.mkdir(parents=True, exist_ok=True)

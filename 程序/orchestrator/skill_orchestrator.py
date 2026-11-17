@@ -22,7 +22,6 @@ from pathlib import Path
 
 import contract.pet_bus as pet_bus
 import pet_llm
-import contract.script_contract as script_contract
 import orchestrator.skill_budget as skill_budget
 import orchestrator.skill_registry as skill_registry
 import orchestrator.skill_templates as skill_templates
@@ -150,7 +149,7 @@ class Orchestrator:
 
     def __init__(self, registry=None, budget=None, router=None, bus=None, errors=None, clock=time.time,
                  trigger='manual', governor=None, project=None, status=None):
-        self.registry = registry or skill_registry.default_registry()
+        self.registry = registry or skill_registry.default_registry(project=project)
         self.budget = budget if budget is not None else skill_budget.Budget(clock=clock)
         self.router = router
         self.bus = bus
@@ -858,5 +857,6 @@ def default_orchestrator(program=None, bus=None, errors=None, project=None, rout
     """进程里共用的一套编排器（注册表是单例，预算挂在本项目上）。"""
     # 第 44 期：额度取「设置 → 预算」那一份（配置/宠物/配置.json），不写死模块默认值。
     budget = skill_budget.for_project(project, program=program, clock=clock)
-    return Orchestrator(registry=skill_registry.default_registry(program), budget=budget,
-                        router=router, bus=bus, errors=errors, clock=clock, project=project)
+    return Orchestrator(registry=skill_registry.default_registry(program, project=project),
+                        budget=budget, router=router, bus=bus, errors=errors, clock=clock,
+                        project=project)

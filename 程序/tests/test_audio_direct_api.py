@@ -50,7 +50,7 @@ class AudioDirectTests(unittest.TestCase):
         self.messages = []
 
     def run_batch(self, adapter):
-        import audio_direct_api as api
+        from orchestrator import audio_direct_api as api
         return api.run_batch(self.project, self.config, 'SKILL正文', source=self.source, adapter=adapter,
                              record={'name': 'deepseek-v4-pro'}, report=self.messages.append)
 
@@ -93,7 +93,7 @@ class AudioDirectTests(unittest.TestCase):
 
     def test_req_s11_50_numbering_and_overrun_and_missing_sections(self):
         """REQ-S11-50：编号不连续、越过总时长、缺少分隔段都不合格。"""
-        import audio_direct_api as api
+        from orchestrator import audio_direct_api as api
         episode = json.loads(self.source.read_text(encoding='utf-8'))
         skip = GOOD_SRT.replace('2\n00:00:03', '3\n00:00:03')
         over = GOOD_SRT.replace('00:00:05,000', '00:00:09,000')
@@ -112,8 +112,8 @@ class AudioDirectTests(unittest.TestCase):
 
     def test_req_s11_50_stop_interrupts_request_and_writes_nothing(self):
         """REQ-S11-50：强制停止中断请求，不落盘。"""
-        import audio_direct_api as api
-        from workflow_process_registry import cancel_project_requests
+        from orchestrator import audio_direct_api as api
+        from infra.workflow_process_registry import cancel_project_requests
         started = threading.Event()
         adapter = FakeAdapter(block=started)
         job = api.launch(self.project, self.config, 'SKILL正文', source=self.source, adapter=adapter,
@@ -127,8 +127,8 @@ class AudioDirectTests(unittest.TestCase):
 
     def test_req_s11_50_shares_executor_skeleton_with_storyboard(self):
         """REQ-S11-50：直连判定与作业骨架与初步分镜是同一份，不另立第二套。"""
-        import audio_direct_api as api
-        import storyboard_direct_api as sb
+        from orchestrator import audio_direct_api as api
+        from orchestrator import storyboard_direct_api as sb
         self.assertIs(api.direct_model, sb.direct_model)
         self.assertTrue(issubclass(api.Job, sb.Job))
         pool = {'deepseek-v4-pro': {'name': 'deepseek-v4-pro', 'call_mode': 'API'}}

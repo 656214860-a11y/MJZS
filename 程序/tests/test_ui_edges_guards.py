@@ -62,6 +62,10 @@ class ApprovedVersionSourceGuardTests(unittest.TestCase):
         sources = self.program_sources()
         self.assertRegex(sources["desktop.py"], r"from (?:orchestrator\.)?engine import [^\n]*\bapproved_versions\b")
         self.assertRegex(sources["desktop.py"], r"from (?:orchestrator\.)?engine import [^\n]*\badoption_summary\b")
+        # 交付界面消费者已迁至 orchestrator/media_page_controller（不在顶层 glob 内），直接读实体文件。
+        consumer = entity_file('media_page_controller').read_text(encoding='utf-8')
+        self.assertRegex(consumer, r"from (?:orchestrator\.)?engine import [^\n]*\badopted_edit_version\b")
+        self.assertRegex(consumer, r"from (?:orchestrator\.)?engine import [^\n]*\badoption_summary\b")
         # 自动粗剪与手动拼装都收敛到 adopted_edit_version；approved_versions 只留一处实现。
         self.assertEqual(sources["engine.py"].count("adopted_edit_version(st['shots'].get(shot['id'])"), 2)
         self.assertEqual(sources["engine.py"].count("approved_versions(st['shots'].get(shot['id']))"), 0)

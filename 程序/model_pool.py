@@ -14,20 +14,14 @@ import app_logging
 import json
 import os
 import re
-import threading
 import time
-from datetime import datetime, timezone
 from pathlib import Path
 
 import infra.config_snapshot as config_snapshot, model_secrets, token_saver
-import client_profiles
+import infra.client_profiles as client_profiles
 from model_metering import REPLAYABLE_RETRY_STATUS
-from agent.core import save, replace, temporary_path
-from api_endpoints import (configured_key, no_redirect, normalize_url,
-    _http_error_kind, _request_headers, _scrub_error_detail, _retry_after_seconds,
-    _retry_delay, _wait_before_retry, _decode_response_body, _content_length_exceeded,
-    _limited_read, _wait_for_rate_limit, set_host_rate_limit, wait_for_rpm,
-    elapsed_ms, _RateBucket, _http_opener, HTTP_USER_AGENT)
+from agent.core import save
+from api_endpoints import configured_key, normalize_url, _http_error_kind, _request_headers, _retry_after_seconds, _decode_response_body, wait_for_rpm, elapsed_ms, _RateBucket, _http_opener, HTTP_USER_AGENT
 from contract.pet_bus import read_json
 
 PROGRAM = Path(__file__).resolve().parent

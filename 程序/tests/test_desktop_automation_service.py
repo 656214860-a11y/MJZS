@@ -8,7 +8,7 @@ from types import SimpleNamespace
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 
-from desktop_auto_state import AutoState, AutoStateHolderMixin
+from orchestrator.desktop_auto_state import AutoState, AutoStateHolderMixin
 from desktop_automation_service import (BACKGROUND_TASK_MIGRATION,
                                         BackgroundTaskLifecycle, DesktopAutomationScheduler)
 

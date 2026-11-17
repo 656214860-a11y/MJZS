@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-import hashlib,os,re
+import hashlib, re
 
 from agent.core import read,save,save_bytes
 from contract.platform_tools import open_path
@@ -10,7 +10,7 @@ from contract.platform_tools import open_path
 # 第 46 期第 1 条：内容框的右键菜单（查看／删除）与其它页共用同一份实现。
 from cell_hover import bind_row_menu
 # 第 57 期第 4 条：「参考图」那一窗的「分类」右边加一列缩略图（悬停放大也在这层图里）。
-import asset_thumbs
+import ui.asset_thumbs as asset_thumbs
 from cell_hover import CellHover,CellImages,ZOOM_SIZE
 from responsive_ui import row_height_for
 from ui_widgets import (SelectBox, BaseDialog, DataTable, DescriptionBlock, PrimaryButton,

@@ -82,7 +82,7 @@ class StyleSourceTests(unittest.TestCase):
 
     def test_button_and_input_styles_are_defined_only_in_ui_widgets(self):
         widgets = _configured_style_names(ROOT / "ui_widgets.py")
-        theme = _configured_style_names(ROOT / "ui_theme.py")
+        theme = _configured_style_names(ROOT / "ui" / "ui_theme.py")
         canonical = CONTROL_STYLE_NAMES | set(BUTTON_STYLES)
 
         self.assertEqual(sorted(canonical - widgets), [],
@@ -95,7 +95,7 @@ class StyleSourceTests(unittest.TestCase):
                          "ui_theme.apply() 不得再定义按钮／输入样式：" + ", ".join(duplicates))
 
     def test_ui_theme_apply_delegates_to_setup_styles(self):
-        tree = ast.parse((ROOT / "ui_theme.py").read_text(encoding="utf-8"))
+        tree = ast.parse((ROOT / "ui" / "ui_theme.py").read_text(encoding="utf-8"))
         apply_node = next(node for node in ast.walk(tree)
                           if isinstance(node, ast.FunctionDef) and node.name == "apply")
         called = {node.func.id for node in ast.walk(apply_node)

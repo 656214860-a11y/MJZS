@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from agent.core import read, save
 from desktop_settings_service import publish_desktop_settings
-from service_contract import SystemError, UserError
+from contract.service_contract import SystemError, UserError
 
 
 class DesktopSettingsServiceTests(unittest.TestCase):

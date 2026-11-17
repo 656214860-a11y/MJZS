@@ -7,8 +7,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-import edit_habits
-import skill_notes
+from orchestrator import edit_habits
+from orchestrator import skill_notes
 from pet_llm import request_ledger_path
 
 

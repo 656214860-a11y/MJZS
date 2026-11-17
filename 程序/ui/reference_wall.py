@@ -13,7 +13,7 @@ import ui.asset_reference_search as search
 from asset_reference_images import ROLE_GROUPS
 from cell_hover import bind_row_menu
 from responsive_ui import CheckboxColumn, auto_columns, configure_check_column, bind_row_toggle
-from ui_dialogs import FileDialog
+from ui.ui_dialogs import FileDialog
 from ui_tokens import BUTTON_GAP, CHAR_WIDTH, TEXT_ROWS, WRAPLENGTH, SPACING
 from ui_widgets import SelectBox, BaseDialog, Card, DataTable, PrimaryButton, SecondaryButton, notify
 

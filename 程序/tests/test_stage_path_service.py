@@ -3,7 +3,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-import stage_path_service as paths
+from contract import stage_path_service as paths
 
 
 class StagePathServiceTests(unittest.TestCase):

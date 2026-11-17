@@ -24,10 +24,10 @@ import desktop_idea_chat
 import script_contract
 import stage_completion_service
 import stage_config
-import workflow_context_budget
+from contract import workflow_context_budget
 import workflow_settings
 from agent.core import save
-from stage_path_service import write_dir
+from contract.stage_path_service import write_dir
 from tests.test_idea_chat import _Harness, idea_chat
 from tests.ui_edges_support import make_minimal_project
 

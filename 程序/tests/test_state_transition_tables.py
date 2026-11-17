@@ -25,7 +25,7 @@ import unittest
 from pathlib import Path
 
 import pet_agent
-import video_lifecycle_service as video_service
+from domain import video_lifecycle_service as video_service
 from agent.core import read, save
 from desktop_automation_service import PersistentBackgroundTaskQueue
 

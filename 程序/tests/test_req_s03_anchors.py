@@ -13,10 +13,10 @@ from unittest.mock import patch
 
 import file_cache
 import stage_config
-import stage_handler_registry
+from orchestrator import stage_handler_registry
 import stage_parallel
 import storyboard_catalog_service
-import storyboard_contract
+from contract import storyboard_contract
 import storyboard_selection
 import workflow_settings
 from agent.core import read, save

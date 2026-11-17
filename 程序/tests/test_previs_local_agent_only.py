@@ -26,7 +26,7 @@ class PrevisLocalAgentOnlyTests(unittest.TestCase):
                                async_=lambda *a, **k: calls.append('async'))
         request = chat._FlowAgentRequest('previs', '白模预演', 'p', None, None, None, False, False, False)
         with patch('workflow_settings.current', return_value=config(engine)), \
-                patch('qwen_adapter.window_title', side_effect=lambda *a, **k: calls.append('qwen')) as title:
+                patch('orchestrator.qwen_adapter.window_title', side_effect=lambda *a, **k: calls.append('qwen')) as title:
             chat._FlowAgentLaunch(host, request).build()
         return calls, title
 

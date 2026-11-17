@@ -522,7 +522,7 @@ class PetStagesMixin:
         规格要的四件事都在这里接上：按 project.skillConfig[stage] 挑 SKILL、多个 SKILL 交给
         skill_orchestrator 分层执行、付费的并成一个气泡问一次、结果统一汇报给三虎说出去。
         """
-        import skill_panel
+        import ui.skill_panel as skill_panel
         import orchestrator.skill_registry as skill_registry
         import orchestrator.skill_templates as skill_templates
         params = plan.get('params') or {}
@@ -532,7 +532,7 @@ class PetStagesMixin:
             self.notice = '还没打开项目——先建一个项目，我才好按 SKILL 动手。'
             self.show_progress(self.notice)
             return self.notice
-        registry = skill_registry.default_registry()
+        registry = skill_registry.default_registry(project=project)
         names = [str(item) for item in (params.get('skills') or [])]
         if not names and stage:
             names = [item.name for item in registry.getByStage(stage)]
@@ -665,7 +665,7 @@ class PetStagesMixin:
         if project is None:
             return False
         try:
-            import skill_panel
+            import ui.skill_panel as skill_panel
             orch = skill_panel.build_orchestrator(self.desktop, project)
             stage = (orch.status.get('checkpoint') or {}).get('stage')
             step = orch.recover_from_checkpoint(

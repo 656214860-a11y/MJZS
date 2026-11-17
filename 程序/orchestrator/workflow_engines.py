@@ -17,9 +17,7 @@ from infra.workflow_process_registry import (register_process, forget_process, p
                                        cancel_project_slot_requests, cancel_project_requests, cancel_slot_request)
 from contract.platform_tools import launch_windows_app, terminate_process_tree
 from contract.workflow_context_budget import ensure_request_context
-import client_profiles
-
-
+import infra.client_profiles as client_profiles
 def _stage_slot_arguments(stage):
     """阶段名（英文键或中文名）→ 槽位注册表要的 (键, 阶段并发上限, 全局上限, 显示名)。"""
     from contract.pet_bus import STAGE_NAMES

@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import model_pool
-import project_stages
+from contract import project_stages
 import script_contract
 import stage_config
 import writing_api

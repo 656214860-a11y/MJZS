@@ -12,10 +12,10 @@ from unittest.mock import patch
 import cloud_video_service
 import engine
 import stage_parallel
-import storyboard_contract
+from contract import storyboard_contract
 import video_task_state
 from pet_llm import RequestLedger
-from project_context import ProjectContext
+from contract.project_context import ProjectContext
 
 
 def _shot(index, **extra):
@@ -226,7 +226,7 @@ class VideoGenerationRequirementAnchorTests(unittest.TestCase):
 
     def test_req_s10_33_video_prompt_is_action_and_camera_only(self):
         """REQ-S10-33：视频提示词只写动作与运镜，不重复场景、人物和风格。"""
-        from prompt_templates import contract_lines
+        from contract.prompt_templates import contract_lines
         first = contract_lines()[0]
         self.assertIn('视频提示词只写动作', first)
         self.assertIn('不重复长相和服装', first)

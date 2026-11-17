@@ -11,7 +11,7 @@ import tkinter as tk
 from orchestrator.workflow_settings import (ENGINES, FLOWS, FLOW_SKILLS, SKILL_DETAILS, SKILL_PRESETS, agent_label,
                                find_program, load, preset_folder, preset_skill, save_flow, set_skills,
                                skills_of, sync_qwen_model, validate_stage_profile)
-from ui_dialogs import FileDialog
+from ui.ui_dialogs import FileDialog
 import ui_plugin_registry
 from ui_widgets import BaseDialog, Card, PrimaryButton, SecondaryButton, Tooltip, notify
 from ui_widgets import LineInput, TextArea
@@ -106,7 +106,7 @@ def show_settings(desktop,project,on_saved=None,stage='previs',function=None):
             win.destroy()
         except Exception as exc:notify(win, str(exc), level='error', title='调用设置', status=feedback)
     def api_saved():
-        model=__import__('qwen_setup').load()['model']
+        model=__import__('infra.qwen_setup').load()['model']
         sync_qwen_model(project,model)
         draft['profiles']['qwen']['model']=model
         if active[0]=='qwen':values['model'].set(model)

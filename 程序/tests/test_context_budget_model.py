@@ -3,7 +3,7 @@
 import unittest
 from unittest.mock import Mock
 
-import workflow_context_budget as budget
+from contract import workflow_context_budget as budget
 import writing_api
 
 

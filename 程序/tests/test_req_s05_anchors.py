@@ -11,14 +11,14 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-import animatic_service
+from domain import animatic_service
 import asset_batch_service
-import asset_contract
+from contract import asset_contract
 import asset_plan
 import cloud_assets
-import confirm_gates
+from domain import confirm_gates
 import pet_bus
-import production_model_contract
+from contract import production_model_contract
 from asset_context import active_source, library_dir
 from project_context_factory import project_context
 from stage_execution_service import (
@@ -28,7 +28,7 @@ from stage_execution_service import (
     import_animatic_references,
     require_formal_asset_generation,
 )
-from stage_path_service import shared_reference_dir, write_dir
+from contract.stage_path_service import shared_reference_dir, write_dir
 
 ROOT = Path(__file__).resolve().parents[1]
 

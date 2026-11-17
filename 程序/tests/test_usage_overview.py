@@ -4,7 +4,7 @@ import unittest
 from datetime import datetime
 from pathlib import Path
 
-import model_diagnostics
+from infra import model_diagnostics
 import pet_llm
 import usage_overview as uo
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import unittest
 
-import artifact_schema as schema
+from contract import artifact_schema as schema
 
 
 class RegistryTests(unittest.TestCase):

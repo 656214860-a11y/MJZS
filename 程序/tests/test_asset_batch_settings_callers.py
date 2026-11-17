@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, Mock
 
 from tests.architecture._scan import entity_file
 
-from service_contract import SystemError, success
+from contract.service_contract import SystemError, success
 
 
 class AssetBatchSettingsCallerTests(unittest.TestCase):

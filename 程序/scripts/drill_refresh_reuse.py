@@ -16,8 +16,8 @@ sys.dont_write_bytecode = True
 PROGRAM = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROGRAM))
 
-import account_store  # noqa: E402
-from account_controller import AccountController  # noqa: E402
+from infra import account_store
+from orchestrator.account_controller import AccountController  # noqa: E402
 
 
 def main():

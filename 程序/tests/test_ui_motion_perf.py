@@ -8,7 +8,7 @@ import unittest
 from tkinter import ttk
 from types import SimpleNamespace
 
-import ui_hover_fade
+from ui import ui_hover_fade
 import ui_scroll
 from skip_reasons import PLATFORM_TK_DISPLAY
 from desktop_layout import LayoutMixin

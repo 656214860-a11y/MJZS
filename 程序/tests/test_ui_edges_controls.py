@@ -398,7 +398,7 @@ class UiEdgeControlsTests(UiEdgeCase):
             self.assertEqual(len(popups), 1)
             popup = popups[0]
             expected = [w for w in popup.content.winfo_children() if isinstance(w, self.tk.Text)][0].get("1.0", "end-1c")
-            import clipboard_lock
+            from infra import clipboard_lock
             with clipboard_lock.hold():                             # 第 65 期第 12 条：剪贴板是全机器共用的一块，几路并行要排队用
                 [w for w in popup.actions.winfo_children() if isinstance(w, ttk.Button) and str(w.cget("text")) == "复制提示词"][0].invoke()
                 win.update()
@@ -449,7 +449,7 @@ class UiEdgeControlsTests(UiEdgeCase):
             popups = popup_windows(win, self.tk)
             self.assertEqual(len(popups), 1)
             popup = popups[0]
-            import clipboard_lock                                     # # 第 65 期第 12 条：剪贴板是全机器共用的一块，几路并行要排队用
+            from infra import clipboard_lock
             guard = clipboard_lock.hold(); guard.__enter__()
             self.addCleanup(lambda: guard.__exit__(None, None, None))
             win.clipboard_clear(); win.clipboard_append("哨兵"); win.update()
@@ -482,7 +482,7 @@ class UiEdgeControlsTests(UiEdgeCase):
             self.addCleanup(quiet_destroy)
             from desktop import Desktop
             from local_video import open_studio
-            from asset_reference_prompts import display_prompt
+            from domain.asset_reference_prompts import display_prompt
             from asset_reference_prompts_dialog import show_prompt
             d = Desktop(win, root=PROGRAM)
             d.root = proj
@@ -493,7 +493,7 @@ class UiEdgeControlsTests(UiEdgeCase):
             popups = popup_windows(win, self.tk)
             self.assertEqual(len(popups), 1)
             popup = popups[0]
-            import clipboard_lock
+            from infra import clipboard_lock
             with clipboard_lock.hold():                             # 第 65 期第 12 条：剪贴板是全机器共用的一块，几路并行要排队用
                 [w for w in popup.actions.winfo_children() if isinstance(w, ttk.Button) and str(w.cget("text")) == "复制提示词"][0].invoke()
                 win.update()

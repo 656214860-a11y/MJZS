@@ -5,10 +5,10 @@ import unittest
 from unittest.mock import Mock, patch
 from pathlib import Path
 
-import animatic_service as service
+from domain import animatic_service as service
 import stage_layout
 from pet_bus import STAGES
-from stage_path_service import read_dirs, write_dir
+from contract.stage_path_service import read_dirs, write_dir
 from stage_execution_service import publish_animatic_bundle
 from project_context_factory import project_context
 
@@ -85,7 +85,7 @@ class AnimaticTests(unittest.TestCase):
             reference = root / 'reference.png'; reference.write_bytes(b'image')
             scratch = root / 'scratch'; scratch.mkdir()
             settings = {'model': 'm', 'voice': 'v', 'base_url': 'https://example.invalid'}
-            with patch('tts_api.read_settings', return_value=settings), patch('tts_api.synthesize', return_value=b'audio') as synth:
+            with patch('domain.tts_api.read_settings', return_value=settings), patch('domain.tts_api.synthesize', return_value=b'audio') as synth:
                 for _ in range(2):
                     with self.assertRaisesRegex(RuntimeError, 'render failed'):
                         service.build_bundle(project_context(root), source, [reference], None,

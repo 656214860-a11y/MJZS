@@ -34,7 +34,7 @@ class ImageDirectJobTests(unittest.TestCase):
         return json.loads((self.folder / '执行状态.json').read_text(encoding='utf-8'))
 
     def run_job(self, fake):
-        import image_direct
+        from orchestrator import image_direct
         with patch('image_agent_runner._execute', side_effect=fake):
             job = image_direct.launch(self.project, self.config, manifest=self.manifest)
             job.join(5)
@@ -45,7 +45,7 @@ class ImageDirectJobTests(unittest.TestCase):
         """REQ-S05-50：直连成功写 complete，不触碰 qwen_adapter／open_flow_agent。"""
         def fake(project, manifest, stop=None):
             (self.folder / 'CHAR001.png').write_bytes(b'png')
-        with patch('qwen_adapter.window_title', side_effect=AssertionError('不应走 Qwen')):
+        with patch('orchestrator.qwen_adapter.window_title', side_effect=AssertionError('不应走 Qwen')):
             job = self.run_job(fake)
         self.assertTrue(job.results[0]['ok'])
         self.assertEqual('complete', self.state()['state'])
@@ -65,8 +65,8 @@ class ImageDirectJobTests(unittest.TestCase):
 
     def test_req_s05_50_stop_interrupts_runner(self):
         """REQ-S05-50／S08-52：强制停止置位 stop，执行体退出，状态为 failed 并说明已停止。"""
-        import image_direct
-        from workflow_process_registry import cancel_project_requests
+        from orchestrator import image_direct
+        from infra.workflow_process_registry import cancel_project_requests
         started = threading.Event()
 
         def fake(project, manifest, stop=None):
@@ -93,7 +93,7 @@ class ImageDirectJobTests(unittest.TestCase):
 
     def test_req_s05_50_busy_project_rejects_second_job(self):
         """REQ-S05-50：同一项目已有直连作业时拒绝第二个。"""
-        import image_direct
+        from orchestrator import image_direct
         release = threading.Event()
 
         def fake(project, manifest, stop=None):
@@ -152,7 +152,7 @@ class ImageDirectRoutingTests(unittest.TestCase):
             base.mkdir(exist_ok=True)
             asset = {'name': '林夏', 'image_prompt': 'x', 'reference_images': []}
             config = {'engine': engine, 'skill': 's', 'model': 'm', 'program': ''}
-            with patch('prop_assets.requires_asset', return_value=True), \
+            with patch('contract.prop_assets.requires_asset', return_value=True), \
                     patch('asset_skill_batch.image_ready', return_value=False), \
                     patch('asset_batch_lifecycle.reconcile', return_value={}), \
                     patch('asset_reference_images.snapshot', side_effect=lambda _b, a: a), \

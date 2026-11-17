@@ -23,9 +23,9 @@ import app_logging
 import domain.skill_command as skill_command
 import ui_plugin_registry
 from contract import pet_bus
-from desktop_shared_menus import AddMenuPanel, CandidatePopup, SkillPickPanel
+from ui.desktop_shared_menus import AddMenuPanel, CandidatePopup, SkillPickPanel
 from ui_popup import make_passive_popup, monitor_bounds
-from ui_shortcuts import ShortcutRegistry
+from ui.ui_shortcuts import ShortcutRegistry
 from ui_tokens import (COLORS, FONTS, ICON_ADD, ICON_MICROPHONE, ICON_SEND, ICON_SKILL,
                        SPACING, TEXT_ROWS)
 from ui_widgets import BaseDialog, Card, SecondaryButton, TextArea, PrimaryButton, Tooltip
@@ -493,7 +493,7 @@ class SharedStageInput(_CandidateFlow, ttk.Frame):
         picker = getattr(self, 'model_picker', None)
         if picker is not None:
             try:
-                from skill_panel_support import stage_for
+                from ui.skill_panel_support import stage_for
                 picker.stage = stage_for(self.stage)
             except Exception:
                 app_logging.swallowed()
@@ -509,7 +509,7 @@ class SharedStageInput(_CandidateFlow, ttk.Frame):
             return self._skills_cache
         try:
             import orchestrator.skill_registry as skill_registry
-            self._skills_cache = list(skill_registry.default_registry().getAll())
+            self._skills_cache = list(skill_registry.default_registry(project=self.project).getAll())
             return self._skills_cache
         except Exception:
             return []
@@ -668,7 +668,7 @@ class SharedStageInput(_CandidateFlow, ttk.Frame):
         """当前阶段技能在前、其余在后；去重、限量。"""
         try:
             import orchestrator.skill_registry as skill_registry
-            registry = skill_registry.default_registry()
+            registry = skill_registry.default_registry(project=self.project)
             current = list(registry.getByStage(self.stage))
             seen = {self._skill_name(item) for item in current if self._skill_name(item)}
             others = [item for item in registry.getAll()
@@ -789,8 +789,7 @@ class SharedStageInput(_CandidateFlow, ttk.Frame):
         except Exception:
             app_logging.swallowed()
 
-    @staticmethod
-    def _skill_description(item):
+    def _skill_description(self, item):
         """悬停说明：字典取 ``description``；``Skill`` 对象直接读属性（``str(item)``
         是 ``Skill(name @ stage)`` repr，不能拿去 ``getById`` 查——R2971 修正）。"""
         if isinstance(item, dict):
@@ -800,7 +799,7 @@ class SharedStageInput(_CandidateFlow, ttk.Frame):
             return str(desc)
         try:
             import orchestrator.skill_registry as skill_registry
-            registry = skill_registry.default_registry()
+            registry = skill_registry.default_registry(project=self.project)
             found = registry.getById(SharedStageInput._skill_name(item))
             if found is not None:
                 return str(getattr(found, 'description', '') or '')
@@ -829,12 +828,13 @@ class SharedStageInput(_CandidateFlow, ttk.Frame):
         if not ref:
             return
         try:
-            import skill_import_service, orchestrator.skill_registry as skill_registry
+            import ui.skill_import_service as skill_import_service, orchestrator.skill_registry as skill_registry
             from pathlib import Path
-            registry = skill_registry.default_registry()
+            registry = skill_registry.default_registry(project=self.project)
             program = Path(skill_import_service.__file__).resolve().parent
             report = skill_import_service.import_from_repo(
                 str(ref).strip(), program, registry, stage_hint=self.stage,
+                layer='project' if self.project else 'user',
                 confirm=lambda message: ask_confirmation(
                     self.winfo_toplevel(), '从仓库导入', message, dangerous=True))
         except (skill_import_service.ImportBlocked, OSError, ValueError) as exc:
@@ -846,7 +846,7 @@ class SharedStageInput(_CandidateFlow, ttk.Frame):
 
     def _import_skill_local(self):
         """本地安装（＋ 菜单「添加技能…」下钻）：选 SKILL.md/包 → plan_import → perform_import。"""
-        from ui_dialogs import FileDialog
+        from ui.ui_dialogs import FileDialog
         from ui_widgets import ask_confirmation
         self._hide_panels()
         source = FileDialog(self.winfo_toplevel()).open_file(
@@ -855,10 +855,11 @@ class SharedStageInput(_CandidateFlow, ttk.Frame):
         if not source:
             return
         try:
-            import skill_import_service, orchestrator.skill_registry as skill_registry
-            registry = skill_registry.default_registry()
+            import ui.skill_import_service as skill_import_service, orchestrator.skill_registry as skill_registry
+            registry = skill_registry.default_registry(project=self.project)
+            layer = 'project' if self.project else 'user'
             plan = skill_import_service.plan_import(
-                source, registry.user_stage_directory_for(self.stage), self.stage, registry)
+                source, registry.stage_directory_for(self.stage, layer), self.stage, registry)
         except skill_import_service.ImportBlocked as exc:
             _say(self.status, '本地安装失败：%s' % exc)
             return

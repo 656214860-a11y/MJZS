@@ -14,7 +14,7 @@ from urllib.parse import urlparse
 # 第 34 期第 9 条：`urllib.request`／`urllib.error` 连 ssl 一起加载（约 4.4 MB 常驻），
 # 本模块只在真要请求语音接口时用得到——都改成函数内 import。
 
-from seedream_api import protect
+from infra.seedream_api import protect
 
 DEFAULT_URL = "https://api.openai.com/v1"
 DEFAULT_MODEL = "tts-1"

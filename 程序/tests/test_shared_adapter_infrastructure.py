@@ -9,9 +9,9 @@ from urllib.request import HTTPRedirectHandler
 import api_endpoints
 import local_video
 import seedream_api
-import tts_api
+from domain import tts_api
 import workflow_engines
-import workflow_process_registry
+from infra import workflow_process_registry
 from agent.video import VideoAdapter
 from agent.wan import WanAdapter
 

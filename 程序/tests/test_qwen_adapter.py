@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 class InteractiveLaunchTests(unittest.TestCase):
     def test_interactive_launch_checks_budget_before_creating_task_files(self):
-        import qwen_adapter
+        from orchestrator import qwen_adapter
         with tempfile.TemporaryDirectory() as td, \
              patch.object(qwen_adapter, 'ensure_request_context', side_effect=ValueError('提示词过长')):
             with self.assertRaisesRegex(ValueError, '提示词过长'):
@@ -16,7 +16,7 @@ class InteractiveLaunchTests(unittest.TestCase):
             self.assertFalse((Path(td) / '工作流任务').exists())
 
     def test_interactive_launch_uses_platform_process_boundary(self):
-        import qwen_adapter
+        from orchestrator import qwen_adapter
 
         class Process:
             pass
@@ -37,7 +37,7 @@ class InteractiveLaunchTests(unittest.TestCase):
             self.assertEqual(launch.call_args.args, (str(executable), 'Qwen Code'))
             self.assertEqual(launch.call_args.kwargs['cwd'], root)
             thread.return_value.start.assert_called_once_with()
-            from workflow_process_registry import forget_process
+            from infra.workflow_process_registry import forget_process
             forget_process(root, process)
 
     def test_qwen_readiness_waits_stay_off_the_desktop_callback(self):

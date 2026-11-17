@@ -5,7 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-import skill_notes
+from orchestrator import skill_notes
 import skill_panel
 import skill_panel_import
 import skill_panel_support

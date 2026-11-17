@@ -21,7 +21,7 @@ PROGRAM = Path(__file__).resolve().parents[1]
 DIST_ROOT = PROGRAM.parent
 sys.path.insert(0, str(PROGRAM))
 
-import workspace_maintenance as wm  # noqa: E402
+from infra import workspace_maintenance as wm
 
 
 def git(args):

@@ -117,12 +117,12 @@ class MediaImportValidationTests(unittest.TestCase):
             media_facts('video', data)
 
     def test_existing_target_survives_collision_and_validation_failure(self):
-        from project_stages import audio
+        from contract.project_stages import audio
         folder = audio(self.root)
         folder.mkdir(parents=True)
         existing = folder / 'input_abcdef.wav'
         existing.write_bytes(b'previous-adopted-audio')
-        with patch('audio_import_service.uuid.uuid4') as uuid:
+        with patch('domain.audio_import_service.uuid.uuid4') as uuid:
             uuid.return_value.hex = 'abcdef123456'
             with self.assertLogs('audio_import_service', level='ERROR'):
                 result = import_stage_audio(self.root, self.audio)

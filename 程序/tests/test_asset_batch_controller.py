@@ -8,7 +8,7 @@ ROOT = HERE.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from asset_batch_controller import AssetBatchController, WORKFLOW_MODEL
+from orchestrator.asset_batch_controller import AssetBatchController, WORKFLOW_MODEL
 
 
 def _rows(*args, **kwargs):

@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from pathlib import Path
 from unittest.mock import patch
 
-import idea_chat_controller as icc
+from orchestrator import idea_chat_controller as icc
 from desktop import Desktop
 
 

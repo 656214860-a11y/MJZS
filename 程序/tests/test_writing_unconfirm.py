@@ -10,7 +10,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 import model_pool
-import project_stages
+from contract import project_stages
 import script_contract
 import stage_config
 import writing_api
@@ -127,7 +127,7 @@ class WritingUnconfirmTests(unittest.TestCase):
 
     def test_unconfirm_then_reconfirm_different_file_keeps_adoption_revoked(self):
         """REQ-S01-14 口径扩展：取消后改文件重确认，采用基线仍不同，采用维持撤销。"""
-        import writing_unconfirm
+        from orchestrator import writing_unconfirm
         from stage_execution_service import publish_stage_text
         self.adopt_script()
         unconfirm_writing_preparation(self.project, '角色卡')
@@ -184,7 +184,7 @@ class WritingUnconfirmTests(unittest.TestCase):
 
     def test_adoption_sections_splits_headings_then_paragraphs(self):
         """REQ-S01-88：markdown 标题分段；无标题按空行分段。"""
-        import writing_unconfirm
+        from orchestrator import writing_unconfirm
         sections = writing_unconfirm.adoption_sections('## 一\n甲\n\n## 二\n乙')
         self.assertEqual(len(sections), 2)
         self.assertEqual(sections[0]['title'], '## 一')

@@ -13,7 +13,7 @@ from ui.desktop_account_page import RENEW_DELAY_MS
 
 
 def _migrate_imported_skills():
-    import skill_import_service
+    import ui.skill_import_service as skill_import_service
     return skill_import_service.migrate_legacy_imports()
 
 
@@ -25,11 +25,11 @@ class AutomationTickMixin:
     def _after_first_paint(self):
         """首帧已交给 Tk 后，才恢复会触发轮询／回填的周期 tick。"""
         self.win._desktop_first_paint_complete=True
-        if not getattr(self,'_codex_skill_sync_started',False):
-            from orchestrator.codex_skill_sync import start_codex_skill_sync
-            self._codex_skill_sync_started=True
-            # R2073：旧版导进 skills/ 的用户 SKILL 先迁到 data/skills/，再同步给 Codex；同一后台线程。
-            start_codex_skill_sync(before=_migrate_imported_skills)
+        if not getattr(self,'_agent_skill_sync_started',False):
+            from orchestrator.agent_skill_sync import start_agent_skill_sync
+            self._agent_skill_sync_started=True
+            # R2073：旧版导进 skills/ 的用户 SKILL 先迁到 data/skills/，再同步给各 Agent 客户端；同一后台线程。
+            start_agent_skill_sync(before=_migrate_imported_skills)
         self._start_legacy_project_migration()
         # 会员授权续签在首帧之后才排程，启动路径不等网络（设计文档 §5.4）。
         if hasattr(self,'start_account_renewal'):self.win.after(RENEW_DELAY_MS,self.start_account_renewal)

@@ -143,7 +143,7 @@ class DeepInlineTests(unittest.TestCase):
         self.assertEqual(statuses['./c.md'], 'skipped')
 
     def test_skill_inline_token_budget_scales_with_window(self):
-        from workflow_context_budget import skill_inline_token_budget
+        from contract.workflow_context_budget import skill_inline_token_budget
         self.assertIsNone(skill_inline_token_budget(0))                       # 查不到窗口不设限
         small = skill_inline_token_budget(128_000)
         large = skill_inline_token_budget(1_000_000)

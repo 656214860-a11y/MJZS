@@ -11,7 +11,7 @@ import idea_chat
 from catalog_page_test_support import show_catalog_page_ready
 from widget_test_support import widget_texts as _widget_texts
 from pet_state import PAGE_OF as PAGE
-from project_stages import storyboard as storyboard_stage, stage as stage_dir, editing as editing_stage, exports as export_stage
+from contract.project_stages import storyboard as storyboard_stage, stage as stage_dir, editing as editing_stage, exports as export_stage
 import desktop as desktop_doc
 
 PROGRAM = HERE

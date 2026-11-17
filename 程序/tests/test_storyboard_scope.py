@@ -8,13 +8,13 @@ import stage_completion_service
 import stage_flow
 import stage_parallel
 import storyboard_catalog_service
-import storyboard_contract
-import storyboard_plan_service
+from contract import storyboard_contract
+from orchestrator import storyboard_plan_service
 import storyboard_selection
 from agent.core import read, save
 import workflow_settings
-from script_manifest_schema import PRODUCERS
-from storyboard_paths import media_root
+from contract.script_manifest_schema import PRODUCERS
+from contract.storyboard_paths import media_root
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILL_DIR = ROOT / 'skills' / '03初步分镜SKILL'

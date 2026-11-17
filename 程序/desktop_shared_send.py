@@ -12,7 +12,6 @@ from pathlib import Path
 import app_logging
 import domain.skill_command as skill_command
 from contract import pet_bus
-from ui_tokens import SPACING
 
 # pet 阶段 → open_flow_agent 流程名；键集合必须始终是 pet_bus.STAGES 的子集。
 FLOW_FOR_STAGE = {'script': 'writing', 'storyboard': 'storyboard', 'assets': 'assets',
@@ -152,7 +151,8 @@ def _skill_items(desktop):
             app_logging.swallowed()
     try:
         import orchestrator.skill_registry as skill_registry
-        return list(skill_registry.default_registry().getAll())
+        return list(skill_registry.default_registry(
+            project=getattr(desktop, 'root', None)).getAll())
     except Exception:
         return []
 

@@ -11,7 +11,7 @@ from tkinter import ttk
 from desktop import Desktop
 import local_video
 import ui_edges_support as T
-from project_stages import storyboard as storyboard_stage
+from contract.project_stages import storyboard as storyboard_stage
 from test_perf_baseline import big_project as performance_big_project
 from pet_state import PAGE_OF
 

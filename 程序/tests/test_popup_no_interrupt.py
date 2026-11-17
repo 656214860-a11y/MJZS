@@ -7,8 +7,8 @@ from unittest.mock import Mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import pet_cloud as pc
-import pet_cloud_move_guard as guard
+from ui import pet_cloud as pc
+from ui import pet_cloud_move_guard as guard
 import tk_test_support
 import ui_theme
 from ui_widgets import Tooltip

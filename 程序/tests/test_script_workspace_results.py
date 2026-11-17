@@ -5,10 +5,10 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-import project_stages
+from contract import project_stages
 from script_workspace_service import ensure_script_workspace, rename_script_document
-from service_contract import SystemError, UserError, success
 from tests.architecture._scan import entity_file
+from contract.service_contract import SystemError, UserError, success
 
 
 class ScriptWorkspaceResultTests(unittest.TestCase):

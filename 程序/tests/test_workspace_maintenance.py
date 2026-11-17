@@ -9,7 +9,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-import workspace_maintenance as wm
+from infra import workspace_maintenance as wm
 from skip_reasons import PLATFORM_DIRECTORY_LINK
 
 

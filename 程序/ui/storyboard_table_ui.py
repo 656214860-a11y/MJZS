@@ -3,7 +3,7 @@ import app_logging
 from datetime import datetime
 from ui_tokens import COLORS
 from ui_widgets import DataTable
-from ui_shortcuts import ShortcutRegistry
+from ui.ui_shortcuts import ShortcutRegistry
 
 from responsive_ui import (
     CHECK_COLUMN_WIDTH, VIEW_PAD, auto_columns, auto_height, cached_fonts,

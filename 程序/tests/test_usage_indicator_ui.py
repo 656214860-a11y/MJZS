@@ -11,9 +11,9 @@ from pathlib import Path
 import tkinter as tk
 
 from ui_tokens import COLORS
-from usage_snapshot import get_snapshot
-from ui_usage_detail import TodayDetailsDialog, UsageDetailDialog
-from ui_usage_indicator import UsageIndicator
+from infra.usage_snapshot import get_snapshot
+from ui.ui_usage_detail import TodayDetailsDialog, UsageDetailDialog
+from ui.ui_usage_indicator import UsageIndicator
 
 
 class _Status:

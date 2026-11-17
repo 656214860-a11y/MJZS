@@ -3,8 +3,8 @@
 import unittest
 
 import asset_prompt_rules
-import prompt_templates as pt
-import storyboard_contract
+from contract import prompt_templates as pt
+from contract import storyboard_contract
 
 CHARACTER = {"name": "林小满", "character_anchor": "黑短发、杏眼、米色针织衫",
              "state_variants": [{"state_id": "CST-01", "name": "日常装",

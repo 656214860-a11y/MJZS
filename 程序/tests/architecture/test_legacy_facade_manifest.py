@@ -6,7 +6,7 @@ from datetime import date
 from types import FunctionType
 import unittest
 
-import legacy_compat
+from orchestrator import legacy_compat
 from tests.architecture._scan import module_name, parse, module_scan_files
 
 

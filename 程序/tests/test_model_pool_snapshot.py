@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-import config_snapshot
+from infra import config_snapshot
 import model_pool
 
 

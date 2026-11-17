@@ -34,7 +34,7 @@ def open_comfy(settings=None):
 
 def wait_comfy(url, report=None, timeout=90, cancelled=None):
     """Wait for ComfyUI outside Tk; an unattended worker may stop the wait."""
-    from comfy_service import Comfy
+    from infra.comfy_service import Comfy
     client = Comfy(url)
     deadline = time.monotonic() + timeout
     if report:

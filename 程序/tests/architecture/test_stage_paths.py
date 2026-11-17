@@ -6,7 +6,7 @@ import tempfile
 import unittest
 
 import stage_layout
-import stage_path_service
+from contract import stage_path_service
 
 
 class StagePathServiceTests(unittest.TestCase):

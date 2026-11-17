@@ -5,9 +5,9 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 from agent.core import read, save
-from legacy_adoption_service import record_legacy_adoption
+from domain.legacy_adoption_service import record_legacy_adoption
 from stage_layout import ARCHIVE
-from service_contract import SystemError, success
+from contract.service_contract import SystemError, success
 
 
 class LegacyAdoptionServiceTests(unittest.TestCase):
@@ -48,8 +48,8 @@ class LegacyAdoptionServiceTests(unittest.TestCase):
     def test_l3_preserves_path_and_rejects_failed_result(self):
         from stage_execution_service import record_stage_legacy_adoption
         target = Path('archive/log.json')
-        with patch('legacy_adoption_service.record_legacy_adoption', return_value=success(target)):
+        with patch('domain.legacy_adoption_service.record_legacy_adoption', return_value=success(target)):
             self.assertIs(target, record_stage_legacy_adoption(Path('project'), []))
-        with patch('legacy_adoption_service.record_legacy_adoption', return_value=SystemError('保存失败')):
+        with patch('domain.legacy_adoption_service.record_legacy_adoption', return_value=SystemError('保存失败')):
             with self.assertRaisesRegex(ValueError, '保存失败'):
                 record_stage_legacy_adoption(Path('project'), [])

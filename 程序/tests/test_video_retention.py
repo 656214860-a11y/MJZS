@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import engine
-import project_stages
+from contract import project_stages
 import storage_maintenance
 from agent.core import save as save_json
 from storage_maintenance import (RETAIN_APPROVED, RETAIN_EDIT_SOURCE, RETAIN_FRESH, RETAIN_LATEST,

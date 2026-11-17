@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-import asset_contract
+from contract import asset_contract
 
 
 class AspectRatioPriorityTests(unittest.TestCase):

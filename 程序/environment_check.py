@@ -12,7 +12,7 @@ import shutil
 from pathlib import Path
 
 import comfy_runtime
-import client_profiles
+import infra.client_profiles as client_profiles
 import file_cache
 import model_pool
 import contract.platform_tools as platform_tools

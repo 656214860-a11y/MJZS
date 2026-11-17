@@ -7,8 +7,8 @@ import time
 import unittest
 from pathlib import Path
 
-import usage_history
-from usage_snapshot import DETAIL_LIMIT, UsageSnapshot
+from infra import usage_history
+from infra.usage_snapshot import DETAIL_LIMIT, UsageSnapshot
 
 
 def _at(day_stamp):

@@ -19,10 +19,10 @@ def run_probe():
     from asset_context import library_dir
     from continuity_ledger import build as build_ledger
     from continuity_ledger import write as write_ledger
-    from shot_batches import assign
+    from contract.shot_batches import assign
     from stage_completion_service import completion_evidence
     from project_context_factory import project_context
-    from storyboard_paths import media_root
+    from contract.storyboard_paths import media_root
     import stage_parallel
     import stage_layout
     import storage_maintenance
@@ -77,7 +77,7 @@ def run_probe():
         # SG-A 只要已采用分镜且镜头字段齐全；SG-B 要 Animatic 清单＋源版本一致＋三项人工确认。
         verify_gate("SG-A", "storyboard", "animatic")
         from file_cache import file_digest
-        from stage_path_service import write_dir
+        from contract.stage_path_service import write_dir
         animatic_folder = write_dir(project, "animatic")
         animatic_folder.mkdir(parents=True, exist_ok=True)
         animatic_files = {}

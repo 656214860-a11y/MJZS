@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import artifact_schema
+from contract import artifact_schema
 import continuity_ledger
 from agent.core import save
 from desktop_media_pages import MediaPagesMixin

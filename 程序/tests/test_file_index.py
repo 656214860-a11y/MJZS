@@ -207,6 +207,24 @@ class FileIndexIntegrityTests(unittest.TestCase):
                 file_index.update(root, [Path(tmp) / 'outside.txt'])
             self.assertFalse(file_index.index_path(root).exists())
 
+    def test_untrusted_cache_rejects_duplicate_and_invalid_metadata(self):
+        from agent.core import save
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            path = root / '01剧本准备/docs/样例.md'
+            path.parent.mkdir(parents=True)
+            path.write_text('内容', encoding='utf-8')
+            payload = file_index.rebuild(root)
+            original = payload['files'][0]
+            for field, value in (('size', -1), ('mtime', float('inf')), ('missing', 'yes'),
+                                 ('status', '伪造确认'), ('origin', '未经登记'), ('order', True)):
+                with self.subTest(field=field):
+                    row = dict(original, **{field: value})
+                    save(file_index.index_path(root), dict(payload, files=[row]))
+                    self.assertIsNone(file_index.read(root))
+            save(file_index.index_path(root), dict(payload, files=[original, original]))
+            self.assertIsNone(file_index.read(root))
+
     def test_malformed_cached_rows_are_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

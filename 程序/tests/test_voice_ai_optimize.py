@@ -3,7 +3,7 @@
 import unittest
 
 import domain.voice_ai as voice_ai
-import voice_ai as voice_ai_flat
+from domain import voice_ai as voice_ai_flat
 
 
 class FakeChat:

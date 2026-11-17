@@ -17,7 +17,7 @@ import json
 import urllib.request
 import urllib.response
 
-import model_diagnostics
+from infra import model_diagnostics
 import model_pool
 import model_router
 import pet_llm

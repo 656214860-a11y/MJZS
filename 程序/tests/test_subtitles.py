@@ -6,7 +6,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 os.chdir(HERE)
 
-from subtitle_timing import srt_rows, timed_entries, stamp, _split_string
+from domain.subtitle_timing import srt_rows, timed_entries, stamp, _split_string
 
 
 def shot(sid, dialogue, duration=10):

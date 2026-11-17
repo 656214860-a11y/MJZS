@@ -12,7 +12,7 @@ sys.dont_write_bytecode = True
 PROGRAM = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROGRAM))
 
-from log_maintenance import main
+from infra.log_maintenance import main
 
 
 if __name__ == "__main__":

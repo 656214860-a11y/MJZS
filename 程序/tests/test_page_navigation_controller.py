@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import unittest
 
-import page_navigation_controller as nav
+from orchestrator import page_navigation_controller as nav
 
 PAGE = {'script_structure': 1, 'assets': 4, 'keyframe': 7, 'previs': 8, 'video': 9, 'audio': 10}
 

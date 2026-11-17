@@ -175,7 +175,7 @@ PROJECT_OPEN = '在制作'
 # 第 44 期照用户附件重排功能栏：面板那一项后来又叫过「三虎面板」（第 68 期任务 4 改回「进度面板」），
 # 「三虎设置」改名「设置」，
 # 各格收进子菜单（第 59 期第 10 条：子菜单就是齿轮那扇窗的分页表，两边同步；
-# 附件里的 SKILL 管理这一轮不做）。
+# R3089 起「SKILL 管理」格随 TABS 一并进子菜单）。
 PANEL_MENU_LABEL = '进度面板'                      # 第 68 期任务 4：右键与功能栏都叫这个
 DETAIL_MENU_LABEL = '待确认项'                    # 右键入口简短明确，内容在三虎提示框里展开
 SETTINGS_LABEL = '设置'
@@ -188,7 +188,8 @@ def _settings_entries():
         return tuple(TABS)
     except Exception:
         return (('basic', '基础功能'), ('model', '三虎模型配置'), ('level', '自动化等级'),
-                ('token', 'Token 节省'), ('budget', '预算'), ('dev', '开发信息'))
+                ('token', 'Token 节省'), ('budget', '预算'), ('skills', 'SKILL 管理'),
+                ('dev', '开发信息'))
 SETTINGS_ENTRIES = _settings_entries()
 QUIT_LABEL = '退出程序'
 PANEL_HEAD = '当前进度：'                          # 第 36 期第 10 条：面板正文开头那一行
@@ -321,7 +322,7 @@ class GearButton:
     def _gear_image(self):
         """Fluent settings 图标（assets/nav/settings.png），与侧栏导航同一套字形；缺资源返回 None。"""
         try:
-            from ui_icons import IconLoader
+            from ui.ui_icons import IconLoader
             return IconLoader.nav_icon(self.canvas, 'settings')
         except Exception:
             return None

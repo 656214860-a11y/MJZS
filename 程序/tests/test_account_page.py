@@ -12,11 +12,11 @@ from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 
-import lease_verifier
-from account_controller import AccountController
+from infra import lease_verifier
+from orchestrator.account_controller import AccountController
 from desktop import Desktop
 from desktop_page_registry import PAGE_ACCOUNT, nav_label
-from service_contract import success
+from contract.service_contract import success
 from skip_reasons import PLATFORM_TK_DISPLAY
 import test_desktop_startup_perf as startup_fixtures
 from test_account_client import KEYS, NOW, _Client, _Store, payload, sign
@@ -84,7 +84,7 @@ class AccountPageTests(unittest.TestCase):
     def test_redeem_from_signed_in_view(self):
         d=self.desktop
         store=self.use(_Client(redeem=success({'lease':sign(payload(state='active',plan='quarterly',nonce='q')),'added_days':90})))
-        import account_store
+        from infra import account_store
         account_store.save_session({'email':'a@b.c','refresh_token':'r','lease':sign(payload()),'server_time':NOW},store.path)
         d.go_page(PAGE_ACCOUNT);self.pump()
         self.assertIn('套餐：免费试用',_texts(d.content))
@@ -100,7 +100,7 @@ class AccountPageTests(unittest.TestCase):
         d.go_page(PAGE_ACCOUNT);self.pump()
         self.assertTrue(any('永久免费' in t for t in _texts(d.content)))
         self.assertEqual(d.account_button.cget('text'),nav_label(PAGE_ACCOUNT),'侧栏入口只显示编号，不带状态后缀')
-        import account_store
+        from infra import account_store
         account_store.save_session({'email':'a@b.c','refresh_token':'r','server_time':NOW,
             'lease':sign(payload(state='expired',trial_ends_at=NOW-86400))},store.path)
         d.go_page(PAGE_ACCOUNT);self.pump()
@@ -119,7 +119,7 @@ class AccountPageTests(unittest.TestCase):
 
     def test_failed_login_shows_reason_and_stays_on_form(self):
         d=self.desktop
-        from service_contract import UserError
+        from contract.service_contract import UserError
         self.use(_Client(send_code=success({'ok':True}),verify_code=UserError('验证码不正确或已过期',data={'code':'code_invalid'})))
         d.go_page(PAGE_ACCOUNT);self.pump()
         d.account_email_input.insert(0,'a@b.cn');d.account_use_code_button.invoke();self.pump()      # 点「用验证码登录」直接发码并切到验证码视图
@@ -129,7 +129,8 @@ class AccountPageTests(unittest.TestCase):
 
     def test_login_reply_ok_but_still_signed_out_stays_on_form(self):
         """R2046：服务端回了成功，但本机验签后仍是未登录：留在表单报错，不跳转、不报「登录成功」。"""
-        import account_store, entitlement_service
+        import entitlement_service
+        from infra import account_store
         d=self.desktop
         store=self.use(_Client(send_code=success({'ok':True}),
                                verify_code=success({'refresh_token':'r1','lease':sign(payload()),'server_time':NOW})))
@@ -146,7 +147,7 @@ class AccountPageTests(unittest.TestCase):
     # ---- P2：设备、注销、导出 ----
     def signed_in(self,client):
         store=self.use(client)
-        import account_store
+        from infra import account_store
         account_store.save_session({'email':'a@b.c','refresh_token':'r','lease':sign(payload()),'server_time':NOW},store.path)
         self.addCleanup(account_store.clear_session,store.path)   # 会话文件各用例共用，留着会污染未登录用例
         d=self.desktop
@@ -258,7 +259,7 @@ class AccountPageTests(unittest.TestCase):
 
     def test_pending_deletion_login_offers_cancel(self):
         d=self.desktop
-        from service_contract import UserError
+        from contract.service_contract import UserError
         client=_Client(send_code=success({'ok':True}),
                        verify_code=UserError('账号正在注销冷静期，登录前需要先撤销注销',data={'code':'account_pending_deletion'}),
                        delete_cancel=success({'ok':True}))
@@ -315,7 +316,7 @@ class AccountPageTests(unittest.TestCase):
         self.assertEqual(client.calls,[],'格式不对不发请求')
 
     def test_login_failures_show_wait_and_fall_back_when_server_is_old(self):
-        from service_contract import UserError
+        from contract.service_contract import UserError
         client=_Client(password_login=[UserError('请求太频繁，请稍后再试',data={'code':'too_many_requests','retry_after':120}),
                                        UserError('账号服务返回错误（404）',data={'code':'http_404'})])
         d=self.signed_out_page(client)
@@ -328,7 +329,7 @@ class AccountPageTests(unittest.TestCase):
         self.assertIn('验证码登录',d.account_message.cget('text'))
 
     def test_register_flow_checks_inputs_and_reports_duplicate(self):
-        from service_contract import UserError
+        from contract.service_contract import UserError
         client=_Client(send_code=[UserError('该邮箱已注册，请直接登录',data={'code':'email_registered'}),success({'ok':True})],
                        register=self.signed_in_reply())
         d=self.signed_out_page(client)
@@ -381,7 +382,7 @@ class AccountPageTests(unittest.TestCase):
     def test_signed_in_password_card_sets_then_asks_old_password(self):
         client=_Client(change_password=success({'ok':True,'has_password':True}))
         store=self.use(client)
-        import account_store
+        from infra import account_store
         lease=sign(payload())
         account_store.save_session({'email':'a@b.cn','refresh_token':'r','lease':lease,'server_time':NOW},store.path)
         d=self.desktop

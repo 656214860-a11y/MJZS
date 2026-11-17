@@ -37,7 +37,7 @@ def set_confirmation_presenter(presenter):
 
 def assets_choices():
     """资产管理这一阶段的生产模型：(值, 文案)——与生图窗口原来那份清单同源（第 46 期第 8 条）。"""
-    from cloud_assets import LOCAL, MODELS
+    from infra.cloud_assets import LOCAL, MODELS
     return tuple([(LOCAL, LOCAL)] + [(name, name) for name in MODELS])
 
 
@@ -368,7 +368,7 @@ def production_choices(stage, project=None):
 def default_model(stage):
     """没挑过（「自动」）时按哪一个生产模型走：都是本地免费的那一个。"""
     if stage == 'assets':
-        from cloud_assets import LOCAL
+        from infra.cloud_assets import LOCAL
         return LOCAL
     from contract.production_model_contract import LOCAL_KEYFRAME_MODEL
     return LOCAL_KEYFRAME_MODEL

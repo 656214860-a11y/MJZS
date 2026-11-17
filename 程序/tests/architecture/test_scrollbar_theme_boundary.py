@@ -19,7 +19,7 @@ class ScrollbarThemeBoundaryTests(unittest.TestCase):
         self.assertIn("('active', SCROLLBAR_THUMB_ACTIVE)", source)
 
     def test_scrollbar_style_definition_was_migrated_out_of_ui_theme(self):
-        source = ast.unparse(ast.parse((PROGRAM / 'ui_theme.py').read_text(encoding='utf-8')))
+        source = ast.unparse(ast.parse((PROGRAM / 'ui' / 'ui_theme.py').read_text(encoding='utf-8')))
         self.assertNotIn('TScrollbar', source,
                          '滚动条样式定义已迁到 ui_widgets.setup_styles()，ui_theme 只调用它')
 

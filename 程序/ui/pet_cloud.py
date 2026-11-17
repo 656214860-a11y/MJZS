@@ -51,20 +51,16 @@ from contract.pet_bus import ErrorLog
 from pet_ui_support import accepts_keyword
 from pet_agent import PET_NAME as SPEAKER     # 猫咪的名字（三虎）：云朵里每句话都挂在它名下
 from ui.pet_cloud_text import reply_lines as _reply_lines, tight
-from ui.pet_cloud_geometry import inflate, inside_parts as _inside_parts, rounded_parts, shape_root as _shape_root, shift_part, square_parts as _square_parts
+from ui.pet_cloud_geometry import inflate, inside_parts as _inside_parts, rounded_parts, shift_part, square_parts as _square_parts
 from ui.pet_cloud_shape import (SHAPE_CLOUD, SHAPE_PUFF, SHAPE_ROUND, SHAPE_TAG, SHAPES,
                              configured_value as _configured_value,
                              normalized as _normalized_shape, text_box as _shape_text_box)
-from ui.pet_cloud_tail import TAIL_BULGE, TAIL_CURVE_MAX, TAIL_STEPS, _side_curve, tail_points
-from ui_tokens import COLORS, FONTS, SPACING, PET_LAYOUT, PET_CLOUD_AUTO_CLOSE_MS
-from ui.pet_cloud_timing import (ALPHA, FADE_MS, FADE_OUT_MS, FADE_OUT_STEPS, FADE_STEPS, GROW_ROOM, GROW_STEPS,
-                              HOLD_MS, READ_MAX_MS, READ_MS_PER_CHAR, WATCH_RECHECK_MS, CloudTimingMixin)
+from ui.pet_cloud_tail import tail_points
+from ui_tokens import COLORS, FONTS, PET_CLOUD_AUTO_CLOSE_MS
+from ui.pet_cloud_timing import ALPHA, FADE_OUT_STEPS, GROW_STEPS, HOLD_MS, READ_MAX_MS, WATCH_RECHECK_MS, CloudTimingMixin
 from ui.pet_cloud_move_guard import CloudMoveGuardMixin
 from ui.pet_cloud_hint import (HINT_MS, HINT_STEP_PX, HINT_X, REPLY_HINTS, CloudHintMixin, CloudHintState)
-from ui.pet_cloud_place import (ANCHOR_DROP, ANCHOR_RATIO, CHEEK_X, CHEEK_Y, DOCK_TOP, EAR_RATIO, MARGIN, MAX_BODY,
-                             MAX_BODY_DOWN, MAX_GAP, MIN_BODY, PET_GAP, PET_SIZE, POSITION_RETRY_MAX,
-                             POSITION_RETRY_MS, SHAPE_MIN_BODY, TAIL, TAIL_BASE, TAIL_SPAN_X, TAIL_SPAN_Y, TIP_IN,
-                             shape_min_body, shape_root, CloudPlaceMixin)
+from ui.pet_cloud_place import ANCHOR_DROP, CHEEK_X, CHEEK_Y, MARGIN, MAX_BODY, MAX_BODY_DOWN, MAX_GAP, MIN_BODY, PET_GAP, PET_SIZE, POSITION_RETRY_MAX, SHAPE_MIN_BODY, TAIL, TIP_IN, shape_min_body, shape_root, CloudPlaceMixin
 
 WIDTH = 344                       # 方框对话框的宽度（第 21 期收窄；第 28 期随字号放大一档；第 30 期第 4 条再收窄）
 PAD = 16                          # 云身内边距

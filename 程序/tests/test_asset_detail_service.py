@@ -6,7 +6,7 @@ from unittest.mock import patch
 from agent.core import read, save
 from asset_detail_service import bind_canonical_view, bind_variant_thumbnail
 from stage_execution_service import bind_asset_canonical_view, bind_asset_variant_thumbnail
-from service_contract import SystemError, UserError
+from contract.service_contract import SystemError, UserError
 
 
 class AssetDetailServiceTests(unittest.TestCase):

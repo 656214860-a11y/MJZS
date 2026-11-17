@@ -45,7 +45,7 @@ import pet_ui
 # 指到沙盒目录：读不到真配置，也写不脏真安装目录（见 selftest_sandbox 的说明）。
 import selftest_sandbox
 selftest_sandbox.isolate(pet_ui)
-import skill_budget
+from orchestrator import skill_budget
 
 
 def make_project(td):
@@ -319,17 +319,17 @@ class GearTests(SettingsCase):
 
 
 class SettingsWindowTests(SettingsCase):
-    """「设置」窗口：四格、名字、以及每一格真的接在宠物身上。"""
+    """「设置」窗口：七格、名字、以及每一格真的接在宠物身上。"""
 
-    def test_the_window_offers_the_five_pages(self):
+    def test_the_window_offers_the_settings_pages(self):
         win = self.hub()
         labels = [str(win._pet_tabs[key].cget('text')) for key, _title in pet_settings_ui.TABS]
         self.assertEqual(labels, [title for _key, title in pet_settings_ui.TABS])
         self.assertEqual(labels[:2], ['基础功能', '三虎模型配置'])
         self.assertIn('预算', labels)
-        # 第 47 期第 8 条：开发信息紧挨在预算右边，是分页里的最后一格。
-        self.assertEqual(labels[-2:], ['预算', pet_settings_ui.DEV_TITLE])
-        self.assertNotIn('SKILL 管理', labels, '用户这一轮说 SKILL 管理不用做')
+        # R3089（生命周期任务书 T7）：「SKILL 管理」格落地，排在预算与开发信息之间；
+        # 开发信息仍是分页里的最后一格。
+        self.assertEqual(labels[-3:], ['预算', 'SKILL 管理', pet_settings_ui.DEV_TITLE])
 
     def test_a_page_can_be_picked_when_opening(self):
         win = self.hub('budget')
@@ -847,7 +847,7 @@ class BudgetWiringTests(unittest.TestCase):
             self.assertEqual(budget.limit('videos'), 100, '没写的那几档照旧用出厂值')
 
     def test_the_orchestrator_takes_the_same_numbers(self):
-        import skill_orchestrator
+        from orchestrator import skill_orchestrator
         with tempfile.TemporaryDirectory() as td:
             pet_agent.save_settings({'budget_limits': {'image': 4}}, program=td)
             orchestrator = skill_orchestrator.default_orchestrator(program=td, project=td)
@@ -914,7 +914,7 @@ class DesktopGearSeamTests(unittest.TestCase):
     def test_the_gear_sits_in_the_sidebar_dock_without_a_sidebar_version_label(self):
         win, desktop = self.build()
         try:
-            self.assertEqual(win.title(), __import__('app_metadata').APP_NAME + ' · V0.7')
+            self.assertEqual(win.title(), __import__('contract.app_metadata', fromlist=['APP_NAME']).APP_NAME + ' · V0.7')
             # 第 R2933 期：侧栏顶部浮层（应用名）与标题行标语都删了；项目名只留窗口标题。
             self.assertFalse(hasattr(desktop, 'app_title'), '侧栏不再有应用名浮层')
             self.assertFalse(hasattr(desktop, 'sidebar_head'), '侧栏不再有顶部浮层行')

@@ -27,7 +27,7 @@ os.chdir(HERE)
 
 from skip_reasons import PLATFORM_TK_DISPLAY
 
-import asset_reference_prompts
+from domain import asset_reference_prompts
 import pet_state
 import stage_execution_service
 from desktop_idea_chat import IdeaChatMixin

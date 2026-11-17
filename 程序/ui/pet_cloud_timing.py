@@ -23,7 +23,7 @@ GROW_STEPS = (0.45, 0.70, 0.88, 1.0)   # 气泡「长出来」的几档：从耳
 GROW_ROOM = 0.42                  # 起步时气泡偏向耳朵这么多比例
 
 
-from ui_motion import reduce_motion
+from ui.ui_motion import reduce_motion
 
 class CloudTimingMixin:
     def _fade_out(self):

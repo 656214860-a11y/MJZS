@@ -8,7 +8,7 @@ import idea_chat
 import script_contract as contract
 import workflow_engines
 import workflow_settings
-from workflow_tasks import script_prompt
+from orchestrator.workflow_tasks import script_prompt
 from tests.test_idea_chat import idea_chat as injected_chat
 from tests.ui_edges_support import make_minimal_project
 

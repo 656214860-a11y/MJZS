@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import project_stages
+from contract import project_stages
 from skip_reasons import PLATFORM_DIRECTORY_LINK
 from script_workspace_service import (batch_selected_script_paths, discover_script_documents,
                                       ensure_script_workspace,

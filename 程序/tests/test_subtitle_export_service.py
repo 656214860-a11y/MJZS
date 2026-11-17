@@ -8,9 +8,9 @@ from unittest.mock import Mock, patch
 
 import skill_tools
 from stage_execution_service import export_stage_dialogue_script, export_stage_srt
-from subtitle_export_controller import publish_stage_srt_text
-from subtitle_export_service import export_dialogue_script, export_srt, publish_srt_text
-from service_contract import SystemError, UserError, success
+from orchestrator.subtitle_export_controller import publish_stage_srt_text
+from domain.subtitle_export_service import export_dialogue_script, export_srt, publish_srt_text
+from contract.service_contract import SystemError, UserError, success
 
 
 EPISODE = {'shots': [{'id': 'SH001', 'title': '初见', 'duration': 3,
@@ -34,7 +34,7 @@ class SubtitleExportServiceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             target = Path(temp_dir) / 'delegated.srt'
             publisher = Mock(return_value=success(target))
-            with patch('subtitle_export_controller.publish_stage_srt_text', publisher):
+            with patch('orchestrator.subtitle_export_controller.publish_stage_srt_text', publisher):
                 result = skill_tools._subtitle_generate({'subtitle_file': str(target), 'episode': EPISODE})
             # 发布只经 service 一次，且 skill 工具自己不落盘（publisher 被替身时目标文件不该出现）。
             publisher.assert_called_once()
@@ -126,12 +126,12 @@ class SubtitleExportServiceTests(unittest.TestCase):
         publisher.assert_not_called()
 
     def test_skill_failure_cannot_report_success_or_path(self):
-        with patch('subtitle_export_controller.publish_stage_srt_text', return_value=SystemError('保存失败')):
+        with patch('orchestrator.subtitle_export_controller.publish_stage_srt_text', return_value=SystemError('保存失败')):
             with self.assertRaisesRegex(ValueError, '保存失败'):
                 skill_tools._subtitle_generate({'subtitle_file': 'target.srt', 'episode': EPISODE})
 
     def test_skill_success_uses_result_data(self):
-        with patch('subtitle_export_controller.publish_stage_srt_text', return_value=success(Path('target.srt'))):
+        with patch('orchestrator.subtitle_export_controller.publish_stage_srt_text', return_value=success(Path('target.srt'))):
             result = skill_tools._subtitle_generate({'subtitle_file': 'target.srt', 'episode': EPISODE})
         self.assertTrue(result['ok'])
         self.assertEqual(result['subtitle_file'], 'target.srt')
@@ -143,7 +143,7 @@ class SubtitleExportServiceTests(unittest.TestCase):
                    and node.name in {'subtitles', 'dialogue_script'}}
         self.assertEqual(set(methods), {'subtitles', 'dialogue_script'})
         for name, node in methods.items():
-            import media_page_controller
+            from orchestrator import media_page_controller
             namespace = {'media_logic': media_page_controller}  # R2058：方法迁到 desktop_media_pages 后用模块级别名 media_logic
             exec(compile(ast.Module(body=[node], type_ignores=[]), str(source), 'exec'), namespace)
             app = Mock()
