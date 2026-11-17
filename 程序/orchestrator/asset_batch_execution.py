@@ -10,7 +10,7 @@ from pathlib import Path
 from agent.core import read
 from domain.asset_batch_service import KINDS, asset_prompt, image_ready, register_image
 from domain.asset_batch_state_service import read_ledger, save_ledger
-from comfy_service import Comfy, ComfyGenerationFailed, ComfySubmissionUncertain
+from infra.comfy_service import Comfy, ComfyGenerationFailed, ComfySubmissionUncertain
 
 
 class AssetSubmissionUncertain(ValueError):
@@ -95,7 +95,7 @@ def _record_failure(project, state, aid, exc, publish_ledger):
 
 def run_batch(project, base, items, options, events, stop, client_factory=Comfy):
     """Generate and register one image per eligible asset without UI access."""
-    from cloud_assets import LOCAL, MODELS, validate as validate_cloud, graph as cloud_graph, get_key
+    from infra.cloud_assets import LOCAL, MODELS, validate as validate_cloud, graph as cloud_graph, get_key
     from contract.prop_assets import requires_asset
     from stage_execution_service import asset_batch_gateway, prepare_asset_write
     base = prepare_asset_write(project, base)
@@ -114,7 +114,7 @@ def run_batch(project, base, items, options, events, stop, client_factory=Comfy)
     generation = generation_settings(options)
     state = read_ledger(project)
     if cloud:
-        from comfy_service import cloud_price_model
+        from infra.comfy_service import cloud_price_model
         from pet_llm import RequestLedger
         count = 0
         for aid, asset in items:

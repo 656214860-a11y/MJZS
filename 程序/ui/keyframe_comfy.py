@@ -108,7 +108,7 @@ def check_shot(source, shot):
 
 def seedream_cost_preview(project, source, shots, options):
     """报价只覆盖尚需发送的镜头；不释放未知请求，不把恢复算作新增。"""
-    from seedream_api import UNSETTLED, load_profile
+    from infra.seedream_api import UNSETTLED, load_profile
     from pet_llm import RequestLedger
     source = Path(source).resolve(); base = media_root(source).resolve()
     current = {shot['id']: shot for shot in read(source).get('shots', [])}
@@ -129,7 +129,7 @@ def seedream_cost_preview(project, source, shots, options):
 
 def run_seedream(source, shots, options, log, stop=None, *, project=None):
     """Generate first frames through the user's Volcengine Seedream API, one shot at a time."""
-    from seedream_api import UNSETTLED, load_profile, request_image
+    from infra.seedream_api import UNSETTLED, load_profile, request_image
     from pet_llm import RequestLedger, BudgetRejected
     from uuid import uuid4
     from infra.native_asset_codec import seedream_payload as _seedream_payload, to_png as _to_png, seedream_provenance as _seedream_provenance
@@ -582,7 +582,7 @@ class _KeyframeComfyWindow(_KeyframeComfyRows):
         if current == 'cloud':
             self.account.grid()
             try:
-                from seedream_api import public_profile
+                from infra.seedream_api import public_profile
                 self.hint.set('使用您自己的火山方舟 API Key，费用计入火山账户；当前模型：' + public_profile()['model'])
             except ValueError:
                 self.hint.set('使用您自己的火山方舟 API Key，费用计入火山账户；请先在“火山 API 设置”保存模型 ID 和 API Key。')
@@ -676,7 +676,7 @@ class _KeyframeComfyWindow(_KeyframeComfyRows):
         if current == 'agent':
             return {'shots': shots, 'model': self.model.get(), 'engine': self.engine_of(), 'plan': plan}
         if current == 'cloud':
-            from seedream_api import load_profile
+            from infra.seedream_api import load_profile
             profile = load_profile()
             return {'shots': shots, 'model': SEEDREAM, 'aspect_ratio': self.aspect.get(),
                     'workflow_lock': self.locked, 'seedream_profile': profile['profile_id'],

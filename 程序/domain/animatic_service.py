@@ -59,7 +59,7 @@ def shots_of(storyboard):
 
 def local_sketch(workspace, shot, references, settings, *, client=None):
     """复用 Comfy 参考图图谱与提交回执；结果不确定时绝不盲目重投。"""
-    from comfy_service import Comfy
+    from infra.comfy_service import Comfy
     client = client or Comfy(settings.get('url', 'http://127.0.0.1:8188'))
     cfg = settings.get('reference_config') or client.reference_config()
     graph = client.reference_graph('只生成分镜预演草图，不是正式资产或首帧。\n' + shot['prompt'], references, cfg)
@@ -85,7 +85,7 @@ def _collect_sketch(client, workspace, record, settings):
 
 def prepare_reference(workspace, prompt, model, settings, *, publish, client=None):
     """本地文字草图复用既有 Comfy 提交器；只由 L3 发布到共享参考图目录。"""
-    from comfy_service import Comfy
+    from infra.comfy_service import Comfy
     if not str(prompt).strip() or not str(model).strip():
         raise ValueError('请填写参考图描述与本地已安装模型名称')
     client = client or Comfy(settings.get('url', 'http://127.0.0.1:8188'))
@@ -134,7 +134,7 @@ def build_bundle(context, source, references, audio, settings, *, publish, write
             batches.setdefault(shot['batch'], []).append(shot)
 
         def one_batch(rows):
-            from comfy_service import ComfyGenerationFailed
+            from infra.comfy_service import ComfyGenerationFailed
             outputs = []
             for shot in rows:
                 workspace = scratch / shot['id']

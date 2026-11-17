@@ -7,8 +7,8 @@ import tkinter as tk
 from tkinter import ttk
 from contract.api_models import records,remember,remove,label,identity
 from agent.core import save
-from qwen_setup import load,probe,save_key,settings_path,unified_key,validate
-import tk_timers
+from infra.qwen_setup import load,probe,save_key,settings_path,unified_key,validate
+import infra.tk_timers as tk_timers
 from ui_tokens import WRAPLENGTH, SPACING
 from ui_widgets import (SelectBox, Card, DescriptionBlock, FormDialog, LineInput, PrimaryButton,
                         ProgressLabel, SecondaryButton, ask_confirmation, notify)

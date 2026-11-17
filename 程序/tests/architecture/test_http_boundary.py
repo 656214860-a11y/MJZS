@@ -16,7 +16,7 @@ ALLOWED = frozenset({
     'batch_frames_tool/batch_frames.py',
     'local_video.py',
     'contract/platform_tools.py',
-    'seedream_api.py',
+    'infra/seedream_api.py',
     'domain/tts_api.py',
 })
 

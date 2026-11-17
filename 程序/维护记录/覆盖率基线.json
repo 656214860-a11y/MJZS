@@ -223,9 +223,15 @@
    "percent": 0.0
   },
   {
+   "module": "client_profiles.py",
+   "covered": 0,
+   "total": 4,
+   "percent": 0.0
+  },
+  {
    "module": "cloud_assets.py",
    "covered": 0,
-   "total": 80,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -267,7 +273,7 @@
   {
    "module": "comfy_service.py",
    "covered": 0,
-   "total": 201,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -1189,6 +1195,18 @@
    "percent": 0.0
   },
   {
+   "module": "infra/cloud_assets.py",
+   "covered": 0,
+   "total": 80,
+   "percent": 0.0
+  },
+  {
+   "module": "infra/comfy_service.py",
+   "covered": 0,
+   "total": 201,
+   "percent": 0.0
+  },
+  {
    "module": "infra/engine_probe.py",
    "covered": 0,
    "total": 254,
@@ -1249,9 +1267,21 @@
    "percent": 0.0
   },
   {
+   "module": "infra/qwen_setup.py",
+   "covered": 0,
+   "total": 73,
+   "percent": 0.0
+  },
+  {
    "module": "infra/script_text_reader.py",
    "covered": 0,
    "total": 30,
+   "percent": 0.0
+  },
+  {
+   "module": "infra/seedream_api.py",
+   "covered": 0,
+   "total": 139,
    "percent": 0.0
   },
   {
@@ -1851,7 +1881,7 @@
   {
    "module": "qwen_setup.py",
    "covered": 0,
-   "total": 73,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -1941,7 +1971,7 @@
   {
    "module": "seedream_api.py",
    "covered": 0,
-   "total": 139,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -2176,6 +2206,12 @@
    "module": "task_center_ui.py",
    "covered": 0,
    "total": 3,
+   "percent": 0.0
+  },
+  {
+   "module": "tk_timers.py",
+   "covered": 0,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -3265,7 +3301,7 @@
    "percent": 0.0
   },
   {
-   "module": "tk_timers.py",
+   "module": "infra/tk_timers.py",
    "covered": 9,
    "total": 82,
    "percent": 11.0
@@ -3295,7 +3331,7 @@
    "percent": 14.2
   },
   {
-   "module": "client_profiles.py",
+   "module": "infra/client_profiles.py",
    "covered": 55,
    "total": 379,
    "percent": 14.5
@@ -3379,7 +3415,7 @@
    "percent": 19.7
   },
   {
-   "module": "model_secrets.py",
+   "module": "infra/model_secrets.py",
    "covered": 39,
    "total": 195,
    "percent": 20.0
@@ -3451,7 +3487,7 @@
    "percent": 25.6
   },
   {
-   "module": "token_saver.py",
+   "module": "infra/token_saver.py",
    "covered": 99,
    "total": 384,
    "percent": 25.8
@@ -3620,9 +3656,9 @@
   },
   {
    "module": "agent/publication.py",
-   "covered": 141,
+   "covered": 143,
    "total": 159,
-   "percent": 88.7
+   "percent": 89.9
   },
   {
    "module": "domain/video_lifecycle_service.py",
@@ -3679,6 +3715,12 @@
    "percent": 100.0
   },
   {
+   "module": "model_secrets.py",
+   "covered": 4,
+   "total": 4,
+   "percent": 100.0
+  },
+  {
    "module": "orchestrator/__init__.py",
    "covered": 1,
    "total": 1,
@@ -3691,12 +3733,18 @@
    "percent": 100.0
   },
   {
+   "module": "token_saver.py",
+   "covered": 4,
+   "total": 4,
+   "percent": 100.0
+  },
+  {
    "module": "usage_overview.py",
    "covered": 4,
    "total": 4,
    "percent": 100.0
   }
  ],
- "modules_covered": 72,
- "modules_total": 614
+ "modules_covered": 74,
+ "modules_total": 622
 }

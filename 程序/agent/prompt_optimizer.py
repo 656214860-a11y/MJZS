@@ -9,7 +9,7 @@ from tkinter import ttk
 from .core import read,save,fingerprint
 from contract.api_models import records,remember,remove,label as model_label,identity
 from .shot_assets import assets
-import tk_timers
+import infra.tk_timers as tk_timers
 from ui_tokens import WRAPLENGTH, SPACING
 from ui_widgets import (SelectBox, BaseDialog, Card, DescriptionBlock, LineInput, PrimaryButton,
                         SecondaryButton, ask_confirmation, notify)

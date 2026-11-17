@@ -97,7 +97,7 @@ def saved_provider_key(context,kind,providers,remembered=None,base_url=None,modu
     # 旧项目会话尚未迁移时保留只读兼容；新会话不再写 project_dir/.env。
     paths=[Path(c['project_dir'])/'.env' for c in configs if c.get('project_dir') and c.get('base_url','').rstrip('/')==expected]
     if module_file and expected in [spec[1] for spec in providers.values() if spec[0]==kind and spec[1]]:paths.append(Path(module_file).resolve().parent/'private/.env')
-    import model_secrets
+    import infra.model_secrets as model_secrets
     for path in paths:
         # 按主机绑定：只有与这个主机匹配的 .env 迁过，才认加密存储里同名那把。
         model_secrets.import_env_keys(path)

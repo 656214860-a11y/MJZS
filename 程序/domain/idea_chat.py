@@ -784,7 +784,7 @@ def reply_text(result):
     data = (result or {}).get('data')
     if isinstance(data, dict) and isinstance(data.get('content'), (list, tuple)):
         # Messages 的 thinking／signature 从不属于聊天正文。
-        from token_saver import anthropic_text
+        from infra.token_saver import anthropic_text
         return anthropic_text(data)
     value = ''
     try:

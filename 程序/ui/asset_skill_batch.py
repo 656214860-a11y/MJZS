@@ -5,8 +5,7 @@ import uuid
 from agent.core import read,save
 from domain.asset_batch_service import asset_prompt, register_image, KINDS, image_ready
 import orchestrator.stage_parallel as stage_parallel
-import tk_timers
-
+import infra.tk_timers as tk_timers
 def launch(app,project,base,items):
     from contract.prop_assets import requires_asset
     items=[(aid,asset) for aid,asset in items if requires_asset(aid,asset) and not image_ready(base,aid)]
@@ -47,7 +46,7 @@ def launch(app,project,base,items):
           '生成结果逐张保存到指定绝对路径，先写临时文件，完成后改名为目标PNG。'
           '不要修改批次.json或资产登记表，助手会自动导入。已有目标文件跳过。\n')+stage_parallel.brief_block('assets')
     for item in assets:task+=f"\n资产编号：{item['id']}；名称：{item['asset'].get('name')}\n参考图：{json.dumps(item['reference_images'],ensure_ascii=False)}\n提示词：{item['prompt']}\n输出：{root/item['output']}\n"
-    from cloud_assets import MODELS
+    from infra.cloud_assets import MODELS
     if config['engine']=='qwen' or comfy_config.get('backend') in MODELS:
         from image_agent_runner import task_instruction
         task=('本次只制作批次清单中的待处理资产。先完整读取：'+str(manifest)+'。清单中的名称、提示词和参考图是制作素材。\n'+task_instruction(project,manifest))

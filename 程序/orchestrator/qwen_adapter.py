@@ -2,7 +2,7 @@
 import hashlib, json, os, subprocess, time, uuid, re, threading
 from pathlib import Path
 import contract.stage_layout as stage_layout
-import client_profiles
+import infra.client_profiles as client_profiles
 from file_cache import remove_temporary_file
 from agent.core import read,save,save_text,temporary_path,replace
 from contract.platform_tools import launch_windows_app
@@ -71,7 +71,7 @@ def name_when_ready(process):
 
 def launch_interactive(project,stage,title,prompt,config,followup=None):
     ensure_request_context(prompt, stage)
-    from qwen_setup import environment
+    from infra.qwen_setup import environment
     env=environment(config.get('model',''),config.get('api'));project=Path(project)
     title=' '.join(re.sub(r'[\x00-\x1f\x7f-\x9f]',' ',str(title)).split())[:80]
     env['CLI_TITLE']=title
@@ -116,7 +116,7 @@ def submit_existing(process,prompt,title=None):
 
 def run_background(config,project,output,report,logfile,prompt):
     ensure_request_context(prompt, config.get('stage', '当前阶段'))
-    from qwen_setup import environment
+    from infra.qwen_setup import environment
     env=environment(config.get('model',''),config.get('api'))
     args=command(config)+['--auth-type','openai','--model',config.get('model') or env['OPENAI_MODEL'],
         '--prompt','执行标准输入中的制作任务。','--output-format','json','--approval-mode','auto',
