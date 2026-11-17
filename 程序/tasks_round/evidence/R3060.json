@@ -1,15 +1,15 @@
 {
   "round": 3060,
-  "commit_base": "09ee3e67",
+  "commit_base": "9e6f49c2",
   "credential_scan": {
     "ran": true,
     "hits": []
   },
   "targeted": {
-    "cmd": "run_selftests.py -k files_panel idea_chat shared_input compact_layout script_composer ui_edges",
+    "cmd": "run_selftests.py -k desktop files_panel idea_chat desktop_shared_input.py",
     "exit": 0,
-    "passed": 348,
+    "passed": 276,
     "failed": 0
   },
-  "generated_at": "2026-11-17T09:08:19"
+  "generated_at": "2026-11-17T11:26:27"
 }

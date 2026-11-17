@@ -122,6 +122,28 @@ def upstream_send_error(project, stage):
     return '请先完成/确认「%s」阶段（%s）' % (pet_bus.stage_name(upstream), detail or '上游成果未完成')
 
 
+RING_INSET = SPACING['xs'] // 4  # 输入框外环露边宽度（1px）
+
+
+def _composer_shell(parent):
+    """R3060：输入区与工具行共用一条外框——外框由包裹层 1px 底色边承担
+    （ttk 主题不支持 -highlight*），Card 内缩 RING_INSET 露出环色。"""
+    ring = tk.Frame(parent, bg=COLORS['border_default'])
+    ring.pack(side='left', fill='both', expand=True,
+             padx=(SPACING['sm'], SPACING['none']))
+    box = Card(ring, padding=(SPACING['sm'], SPACING['xs']))
+    box.pack(fill='both', expand=True, padx=RING_INSET, pady=RING_INSET)
+    return ring, box
+
+
+def _row_icon(row, glyph, command):
+    """工具行左侧图标钮（✦／＋／麦克风同款）：无边框字形钮，左对齐排布。"""
+    button = SecondaryButton(row, text=glyph, width=0,
+                             style='Tokens.Composer.Icon.TButton', command=command)
+    button.pack(side='left', padx=(SPACING['xs'], SPACING['none']))
+    return button
+
+
 class _CandidateFlow:
     """``/`` 与 ``@`` 光标级候选流（R2980）：触发 token 扫描 → 候选条目 →
     光标锚定自绘浮层的采纳与文本替换。
@@ -373,43 +395,28 @@ class SharedStageInput(_CandidateFlow, ttk.Frame):
         # R2923 定版：全部收进一个圆角输入盒——上输入、下一行图标（✦ 技能／＋ 附件／
         # 麦克风语音在左，模型下拉框与发送图标在右，仿 DeepSeek／Devin 桌面）。
         # R2942：模型名不再是无框文字，改为下拉框按钮（点击弹模型列表），位于发送按钮左侧。
-        # R3060：输入区与工具行共用一条外框。ttk 在部分主题不支持 -highlight*，
-        # 外框改由包裹层 input_ring 的 1px 底色边承担（Card 内缩 1px 露出环色），聚焦切换环色。
-        ring = tk.Frame(self, bg=COLORS['border_default'])
-        ring.pack(side='left', fill='both', expand=True,
-                 padx=(SPACING['sm'], SPACING['none']))
+        # R3060：输入区与工具行共用一条外框（ttk 主题不支持 -highlight*，外框由
+        # 包裹层 input_ring 的 1px 底色边承担，聚焦切换环色）。
+        ring, box = _composer_shell(self)
         self.input_ring = ring
-        box = Card(ring, padding=(SPACING['sm'], SPACING['xs']))
-        box.pack(fill='both', expand=True, padx=1, pady=1)
         self.input_card = box
         # 附件不再独占卡片行——上传/引用以「@原名」行内文本落在输入框顶部引用区。
-        # 输入区去内框线（highlightthickness=0）。
-        # width=1：Text 默认按 80 字符报需求宽度（≈672px），会把 stage_area 需求宽顶过
-        # 800×600 可用宽，项目文件面板在最小窗下被 pack 挤成 1px；实际宽度由 fill='x' 决定。
+        # 输入区去内框线（highlightthickness=0）；width=1：Text 默认按 80 字符报需求宽
+        # （≈672px）会顶爆 stage_area 需求宽、面板在最小窗被挤成 1px，实际宽由 fill 决定。
         self.input = TextArea(box, height=TEXT_ROWS['sm'], wrap='word',
                               highlightthickness=0, width=1)
         self.input.pack(fill='x')
-        self.input.bind('<FocusIn>', lambda _e: ring.configure(
-            bg=COLORS['border_input_hover']), add='+')
-        self.input.bind('<FocusOut>', lambda _e: ring.configure(
-            bg=COLORS['border_default']), add='+')
+        for seq, color in (('<FocusIn>', COLORS['border_input_hover']),
+                           ('<FocusOut>', COLORS['border_default'])):
+            self.input.bind(seq, lambda _e, c=color: ring.configure(bg=c), add='+')
 
         row = ttk.Frame(box, style='Composer.TFrame')
         row.pack(fill='x')
         # 图标行是 ✦／＋ 面板的锚点（R3031：面板底边贴本行上沿，不再隔整个输入框）。
         self.icon_row = row
-        self.skill_button = SecondaryButton(row, text=ICON_SKILL, width=0,
-                                            style='Tokens.Composer.Icon.TButton',
-                                            command=self.open_skill_list)
-        self.skill_button.pack(side='left', padx=(SPACING['xs'], SPACING['none']))
-        self.attachment_button = SecondaryButton(row, text=ICON_ADD, width=0,
-                                                 style='Tokens.Composer.Icon.TButton',
-                                                 command=self.open_add_menu)
-        self.attachment_button.pack(side='left', padx=(SPACING['xs'], SPACING['none']))
-        self.voice_button = SecondaryButton(row, text=ICON_MICROPHONE, width=0,
-                                            style='Tokens.Composer.Icon.TButton',
-                                            command=self._toggle_voice)
-        self.voice_button.pack(side='left', padx=(SPACING['xs'], SPACING['none']))
+        self.skill_button = _row_icon(row, ICON_SKILL, self.open_skill_list)
+        self.attachment_button = _row_icon(row, ICON_ADD, self.open_add_menu)
+        self.voice_button = _row_icon(row, ICON_MICROPHONE, self._toggle_voice)
         # R3060：发送/终止键统一 Fluent PNG 图标（assets/nav/send.png、stop.png，主色底配卡片色墨水）；
         # PNG 缺失时退回 MDL2 字形。text 仍照常配置，供既有断言与兜底显示读取。
         from ui_icons import IconLoader
