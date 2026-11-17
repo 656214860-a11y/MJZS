@@ -3215,8 +3215,14 @@
    "covered": 0,
    "total": 141,
    "percent": 0.0
+  },
+  {
+   "module": "ui/ui_part_renderers.py",
+   "covered": 0,
+   "total": 127,
+   "percent": 0.0
   }
  ],
  "modules_covered": 71,
- "modules_total": 534
+ "modules_total": 535
 }

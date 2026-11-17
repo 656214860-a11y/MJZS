@@ -1,0 +1,15 @@
+{
+  "round": 3118,
+  "commit_base": "bebd897a",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k part_renderers message_toolbar idea_chat",
+    "exit": 0,
+    "passed": 180,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T12:42:20"
+}

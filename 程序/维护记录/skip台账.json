@@ -2646,6 +2646,24 @@
       "reason_constant": "PLATFORM_WINDOWS_ONLY",
       "reason": "受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
       "reference": ""
+    },
+    {
+      "file": "tests/test_part_renderers.py",
+      "test": "PartRendererTests.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_message_toolbar.py",
+      "test": "_Harness.desktop",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
     }
   ]
 }

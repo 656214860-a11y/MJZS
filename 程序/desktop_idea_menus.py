@@ -44,6 +44,13 @@ class IdeaMenusMixin:
                 else:
                     menu.command('展开全文',lambda:self.toggle_bubble(event.widget,name))
                 menu.separator()
+                # R3115：单条消息工具栏（复制／删除／编辑重发／引用／重新生成）。
+                menu.command('复制这条',lambda:self.copy_bubble_message(index))
+                menu.command('删除这条',lambda:self.safe(lambda:self.delete_bubble_message(index)))
+                menu.command('编辑并重发',lambda:self.rewind_bubble_message(index))
+                menu.command('引用到输入框',lambda:self.quote_bubble_message(index))
+                menu.command('重新生成',lambda:self.regenerate_bubble_message(index))
+                menu.separator()
             if index == 'example':
                 menu.command('复制软件示例',lambda:self.copy_bubble_message('example'))
             else:
