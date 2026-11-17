@@ -331,7 +331,8 @@ class InlineBriefDesktopTests(_Harness):
             token = object(); controller._attachment_token = token
             controller._attachment_results.put((token, True, {'paths': paths, 'names': ['材料.txt']}))
             d.poll_idea_attachment_preparation()
-            self.assertEqual(d.draft_text(), '保留这条追问\n故事题材：手填题材')
+            # R3060：上传完成的附件以「@原名」行落在输入框顶部，原有文本整体下移保留。
+            self.assertEqual(d.draft_text(), '@材料.txt\n保留这条追问\n故事题材：手填题材')
             self.assertEqual(tuple(d.idea_attachment_paths), tuple(str(p) for p in paths))
             self.assertEqual(d.idea_log.get('1.0', 'end-1c'), before)
             self.assertFalse(injected_chat.brief_raw_path(root).exists())

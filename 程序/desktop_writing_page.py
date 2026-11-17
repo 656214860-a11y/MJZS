@@ -259,8 +259,7 @@ class _WritingPage:
         shared_box=getattr(shared_input,'input',None)
         if shared_box is not None:
             self.input_box=shared_box
-            # 附件卡片行改挂共享输入盒内部（＋ 图标也在共享框里）。
-            self.page.idea_uploaded_panel=shared_input.attachment_panel
+            # R3060：附件卡片行已撤——附件以「@原名」行内文本落在输入框顶部。
         else:
             self.input_box=TextArea(self.talk,bg=COLORS['background_card'],fg=COLORS['text_primary'],
                               insertbackground=COLORS['primary'],height=COMPOSER_MIN_LINES,wrap='word',

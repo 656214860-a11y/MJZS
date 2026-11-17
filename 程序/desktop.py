@@ -303,8 +303,15 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         # 页面仍由画布和鼠标滚轮滚动，但不显示贴在窗口最右侧的整页长滑块。
         # 各页面共用这一层，因而无需在 11 个页面里分别隐藏；表格、对话框等局部滚动条照常保留。
         area=ttk.Frame(self.body);area.pack(fill='both',expand=True)
-        self.canvas=tk.Canvas(area,bg=COLORS['background_primary'],highlightthickness=0)
-        self.canvas.pack(side='left',fill='both',expand=True)  # R2962：side='left' 供右侧停靠面板拿全高竖条
+        self.panel_area=area   # R3060：项目文件面板停靠在这一列右侧；输入框并入画布列后宽度与聊天框一致
+        # R3060：停靠列只在面板打开时由 files_panel 打包进 panel_area——Tk 在空包最后一个
+        # slave 被 forget 后不回缩需求宽度，常驻空列会把画布永久挤窄；打开时再占位，
+        # stage_area（画布＋输入框）整体让位，宽度与聊天框保持一致。
+        self.panel_dock=ttk.Frame(area)
+        self.stage_area=ttk.Frame(area);self.stage_area.pack(side='left',fill='both',expand=True)
+        self.input_dock=ttk.Frame(self.stage_area);self.input_dock.pack(side='bottom',fill='x')
+        self.canvas=tk.Canvas(self.stage_area,bg=COLORS['background_primary'],highlightthickness=0)
+        self.canvas.pack(side='top',fill='both',expand=True)
         self.page_scrollbar=None
         self.content=ttk.Frame(self.canvas);self.content_id=self.canvas.create_window(0,0,window=self.content,anchor='nw')
         self.content.bind('<Configure>',self.align_header,add='+');self.files_panel=ProjectFilesPanel(self);self.files_panel.build()  # R2962 项目文件全局面板（REQ-S01-90）
@@ -335,12 +342,12 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         self.status_label=ttk.Label(self.body,textvariable=self.banner_status,
                                     style='PaleGreenHint.TLabel',wraplength=WRAPLENGTH['lg'])
         self.status_label.pack(fill='x',pady=DESKTOP_LAYOUT['status_gap'])
-        # 共享底部输入框（任务书轮 4）：13 个阶段页共用同一实例，位于画布与状态栏之间；
+        # 共享底部输入框（任务书轮 4）：13 个阶段页共用同一实例，位于画布列底部、状态栏之上；
+        # R3060：宿主改为画布列的 input_dock，宽度与聊天框一致（项目文件面板开合时同步收窄）。
         # 页面切换只调 set_stage 换上下文（desktop_page_nav._sync_shared_input），
-        # 非阶段页与锁定／首页路由由 pack_forget 隐藏。``before`` 把它的包裹位次插到
-        # 状态栏之上，重 pack 也不会掉到状态栏下面。
+        # 非阶段页与锁定／首页路由由 pack_forget 隐藏。
         self.shared_input=desktop_shared_send.make_shared_input(self)
-        self.shared_input.pack(side='top',fill='x',before=self.status_label)
+        self.shared_input.pack(side='top',fill='x')
         # 忙碌时在状态栏右端转一个小圆圈（BusyState 起停）；平时不占位。
         self.busy_state.spinner=Spinner(self.body,host=self.status_label)
         self._install_status_styles();self.status.trace_add('write',self.sync_status_style);self.sync_status_style()

@@ -93,7 +93,8 @@ class FilesPanelTests(unittest.TestCase):
         d.show(PAGE['script']); self.pump(.2)
         self.assertFalse(d.files_panel._open, '默认隐藏文件列表')
         self.assertNotEqual(str(d.script_box.winfo_manager()), 'pack')
-        area = d.canvas.master
+        # R3060：画布列与停靠列同在 panel_area 内；面板右缘贴停靠列（＝内容区）右缘。
+        area = d.panel_area
         width_before = d.canvas.winfo_width()
         d.files_button.invoke(); self.pump(.1)
         self.assertTrue(d.files_panel._open, '点击后打开面板')

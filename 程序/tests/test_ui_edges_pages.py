@@ -532,10 +532,9 @@ class UiEdgePagesTests(UiEdgeCase):
                 self.assertLessEqual(widget.winfo_rooty()+widget.winfo_height(),
                                      shared.winfo_rooty()+shared.winfo_height())
             self.assertGreater(shared.send_button.winfo_rootx(), shared.attachment_button.winfo_rootx())
-            self.assertFalse(shared.attachment_panel.winfo_ismapped(),
-                             "未附档时不应留下空白附件行")
-            self.assertFalse(shared.attachment_panel.winfo_manager(),
-                             "未附档时附件卡片行不占位")
+            # R3060：附件卡片行已撤——附件以「@原名」行内文本落在输入框顶部，不再有独立面板。
+            self.assertFalse(hasattr(shared, 'attachment_panel'),
+                             '共享输入框不再保留附件卡片行')
 
     def test_the_writing_page_wraps_the_box_with_buttons(self):
         """第 69 期任务 2／3：创作入口在内容框上方，「发送」在它左下角，文件操作在右下角。"""
@@ -573,10 +572,12 @@ class UiEdgePagesTests(UiEdgeCase):
             box = d.idea_log
             talk = box.master.master
             self.assertEqual(str(talk.winfo_class()), "TFrame", "聊天内容框摆在对话区容器内")
-            # R2923：输入框与全部图标收进底部共享输入框（挂 d.body，剧本页也显示）。
+            # R2923：输入框与全部图标收进底部共享输入框；R3060 起宿主为画布列底部的 input_dock，
+            # 宽度与聊天框一致（项目文件面板开合时同步收窄）。
             self.assertIs(d.idea_input, d.shared_input.input, "剧本页输入框就是共享实例")
             self.assertTrue(d.shared_input.winfo_ismapped(), "剧本准备页显示共享输入框")
-            self.assertEqual(str(d.shared_input.master), str(d.body), "共享输入条挂在主内容体底部")
+            self.assertEqual(str(d.shared_input.master), str(d.input_dock),
+                             "共享输入条挂在画布列底部、与聊天框同宽")
             self.assertFalse(hasattr(d, "idea_row"), "动作栏容器已随 R2923 删除")
             self.assertFalse(hasattr(d, "recon_button"), "「采风」按钮已随 R2923 删除")
             self.assertEqual(str(d.script_box.winfo_class()), "TFrame")

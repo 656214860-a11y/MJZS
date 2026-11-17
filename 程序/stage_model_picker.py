@@ -232,7 +232,7 @@ class StageModelPicker(ttk.Frame):
 
         holder = tk.Frame(body, bg=COLORS['background_primary'])
         holder.pack(fill='x')
-        scroll = ScrollForm(holder, bg=COLORS['background_primary'], scrollbar=False)
+        scroll = ScrollForm(holder, bg=COLORS['background_primary'], scrollbar=True)
         first_row = [None]
         row_widgets = []
         if models:
@@ -313,15 +313,17 @@ class StageModelPicker(ttk.Frame):
                  bg=COLORS['background_primary'],
                  fg=COLORS['primary'] if spec['current'] else COLORS['background_primary'],
                  font=FONTS['hint'], pady=SPACING['xs']).pack(side='left')
+        # R3060：模型名不再 expand，徽标紧跟其后——「模型名 推理·档位」视觉上一体，
+        # 卡片宽度由最宽行自然决定，不再把左右两端拉开。
         tk.Label(row, text=spec['label'], anchor='w',
                  bg=COLORS['background_primary'], fg=COLORS['text_primary'],
                  font=FONTS['hint'], padx=SPACING['sm'],
-                 pady=SPACING['xs']).pack(side='left', fill='x', expand=True)
+                 pady=SPACING['xs']).pack(side='left')
         if spec['badge']:
-            tk.Label(row, text=spec['badge'], anchor='e',
+            tk.Label(row, text=spec['badge'], anchor='w',
                      bg=COLORS['background_primary'], fg=COLORS['text_muted'],
-                     font=FONTS['hint'], padx=SPACING['sm'], pady=SPACING['xs']
-                     ).pack(side='right')
+                     font=FONTS['hint'], padx=(SPACING['xs'], SPACING['sm']),
+                     pady=SPACING['xs']).pack(side='left')
         self._bind_row_events(row, lambda mid=spec['id']: self._choose_model(mid))
         return row
 

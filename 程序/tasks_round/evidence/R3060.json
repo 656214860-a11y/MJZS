@@ -1,0 +1,15 @@
+{
+  "round": 3060,
+  "commit_base": "09ee3e67",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k files_panel idea_chat shared_input compact_layout script_composer ui_edges",
+    "exit": 0,
+    "passed": 348,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T09:08:19"
+}

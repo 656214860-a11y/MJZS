@@ -116,7 +116,8 @@ def show_back(desktop):
     if box is None:
         box=ttk.Frame(desktop.title_row,width=SPACING['sm'] * 10,height=SPACING['sm'] * 7)
         box.pack_propagate(False)
-        icon=IconLoader.return_arrow(box,color=COLORS['primary'])
+        # R3060：返回箭头换 Fluent PNG（assets/nav/back.png），缺失时退回手绘 return_arrow。
+        icon=IconLoader.nav_icon(desktop.win,'back') or IconLoader.return_arrow(box,color=COLORS['primary'])
         # 返回属于次要动作；主题色箭头在正常和浅色悬停背景上均可读。
         button=SecondaryButton(box,text='返回生成方式',image=icon,
             padding=(SPACING['sm'],SPACING['xs']),cursor='hand2',takefocus=True,

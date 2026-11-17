@@ -328,11 +328,8 @@ class PageNavMixin:
             if callable(sync):
                 try:sync()
                 except Exception:app_logging.swallowed()
-        options={'side':'top','fill':'x'}
-        label=getattr(self,'status_label',None)
-        # 视频页会把状态栏 pack_forget：锚点不在管理中时不能用 before，否则 Tcl 报错。
-        if label is not None and label.winfo_manager()=='pack':options['before']=label
-        shared.pack(**options)
+        # R3060：宿主是画布列底部的 input_dock（与聊天框同宽），状态栏在 body 另一层，不再用 before。
+        shared.pack(side='top',fill='x')
 
     def shot_numbering_hint(self):
         """编号与剧本顺序不一致时返回一句提示。只提示不自动改名：重排会改写项目里的文件名与

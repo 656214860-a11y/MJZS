@@ -237,9 +237,9 @@ TABLE_EMPTY_PADDING = SPACING["lg"]
 TABLE_COMPACT_HEADER_PADDING = (SPACING["sm"], SPACING["xs"] // 4)
 SCRIPT_ACTION_WIDTH = 0  # 依文字请求宽度，长中文按钮不得裁字。
 DESKTOP_LAYOUT = {
-    # 产品裁决：主窗口默认 1280×800、最小 800×600；屏幕可用区更小时按下面
-    # 的边距收缩（ui_theme.main_window_size），不改变最小值。
-    'default_width': 1280, 'default_height': 800,
+    # 产品裁决：主窗口默认 1280×900（R3060：侧栏图标轨在 800 高下放不下，默认加高一档）、
+    # 最小 800×600；屏幕可用区更小时按下面的边距收缩（ui_theme.main_window_size），不改变最小值。
+    'default_width': 1280, 'default_height': 900,
     'window_margin_x': SPACING['xl'], 'window_margin_y': SPACING['xl'] * 2,
     'min_width': 800, 'min_height': 600,
     # 第 R2946 期：侧栏顶行要完整放下「0X  连贯性清单」这类最长页名（10pt 实测 89px），
@@ -252,7 +252,8 @@ DESKTOP_LAYOUT = {
     # 页面边距加大一档：内容与窗口边缘、进度条与状态栏之间都留出呼吸感。
     # 第 R2946 期：左边距收到 sm——侧栏图标轨与右侧功能区之间不再留 xl 宽的空档。
     # 第 R2950 期：顶距 lg→xs，让页头「token」行与侧栏「01 XXX」标题同一水平带。
-    'body_padding': (SPACING['sm'], SPACING['xs'], SPACING['xl'], SPACING['md']),
+    # R3060：右边距 xl→md，标题行图标与聊天框/输入框右缘统一后右侧留白缩短一档。
+    'body_padding': (SPACING['sm'], SPACING['xs'], SPACING['md'], SPACING['md']),
     'status_gap': (SPACING['sm'], SPACING['md']),
     'title_inset': SPACING['xs'],
     # 主窗口拖动：停止拖动后等这么久没有新尺寸才整页重排一次（约 8 帧，远长于

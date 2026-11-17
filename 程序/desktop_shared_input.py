@@ -262,17 +262,28 @@ class SharedStageInput(ttk.Frame):
         # R2923 定版：全部收进一个圆角输入盒——上输入、下一行图标（✦ 技能／＋ 附件／
         # 麦克风语音在左，模型下拉框与发送图标在右，仿 DeepSeek／Devin 桌面）。
         # R2942：模型名不再是无框文字，改为下拉框按钮（点击弹模型列表），位于发送按钮左侧。
-        box = Card(self, padding=(SPACING['sm'], SPACING['xs']))
-        box.pack(side='left', fill='both', expand=True,
+        # R3060：输入区与工具行共用一条外框。ttk 在部分主题不支持 -highlight*，
+        # 外框改由包裹层 input_ring 的 1px 底色边承担（Card 内缩 1px 露出环色），聚焦切换环色。
+        ring = tk.Frame(self, bg=COLORS['border_default'])
+        ring.pack(side='left', fill='both', expand=True,
                  padx=(SPACING['sm'], SPACING['none']))
+        self.input_ring = ring
+        box = Card(ring, padding=(SPACING['sm'], SPACING['xs']))
+        box.pack(fill='both', expand=True, padx=1, pady=1)
         self.input_card = box
-        # 附件卡片行：无附件时不占位（由桌面侧 refresh_uploaded_idea_attachments 管理显隐）。
-        from responsive_ui import FlowBar
-        self.attachment_panel = FlowBar(box, style='Composer.TFrame')
-        self.input = TextArea(box, height=TEXT_ROWS['sm'], wrap='word')
+        # 附件不再独占卡片行——上传/引用以「@原名」行内文本落在输入框顶部引用区。
+        # 输入区去内框线（highlightthickness=0）。
+        # width=1：Text 默认按 80 字符报需求宽度（≈672px），会把 stage_area 需求宽顶过
+        # 800×600 可用宽，项目文件面板在最小窗下被 pack 挤成 1px；实际宽度由 fill='x' 决定。
+        self.input = TextArea(box, height=TEXT_ROWS['sm'], wrap='word',
+                              highlightthickness=0, width=1)
         self.input.pack(fill='x')
+        self.input.bind('<FocusIn>', lambda _e: ring.configure(
+            bg=COLORS['border_input_hover']), add='+')
+        self.input.bind('<FocusOut>', lambda _e: ring.configure(
+            bg=COLORS['border_default']), add='+')
 
-        row = ttk.Frame(box)
+        row = ttk.Frame(box, style='Composer.TFrame')
         row.pack(fill='x')
         self.skill_button = SecondaryButton(row, text=ICON_SKILL, width=0,
                                             style='Tokens.Composer.Icon.TButton',
@@ -286,9 +297,18 @@ class SharedStageInput(ttk.Frame):
                                             style='Tokens.Composer.Icon.TButton',
                                             command=self._toggle_voice)
         self.voice_button.pack(side='left', padx=(SPACING['xs'], SPACING['none']))
-        self.send_button = PrimaryButton(row, text=ICON_SEND, width=0,
-                                         style='Tokens.Composer.Send.TButton',
-                                         command=self.send)
+        # R3060：发送/终止键统一 Fluent PNG 图标（assets/nav/send.png、stop.png，主色底配卡片色墨水）；
+        # PNG 缺失时退回 MDL2 字形。text 仍照常配置，供既有断言与兜底显示读取。
+        from ui_icons import IconLoader
+        icon_win = self.winfo_toplevel()
+        send_icon = IconLoader.nav_icon(icon_win, 'send')
+        stop_icon = IconLoader.nav_icon(icon_win, 'stop')
+        self.send_button = PrimaryButton(
+            row, text=ICON_SEND, image=send_icon,
+            compound='image' if send_icon is not None else 'text', width=0,
+            style='Tokens.Composer.Send.TButton', command=self.send)
+        self.send_button._icon_send, self.send_button._icon_stop = send_icon, stop_icon
+        self.send_button.image = send_icon
         self.send_button.pack(side='right', padx=(SPACING['xs'], SPACING['xs']))
         # R2942：模型选择器=下拉框按钮（点击弹出模型列表），与各页原「模型下拉框」同款，
         # 不再弹模态选择窗。StageModelPicker 自带按钮＋弹出卡片（含推理档位区）。
