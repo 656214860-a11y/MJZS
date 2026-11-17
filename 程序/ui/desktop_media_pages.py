@@ -355,7 +355,7 @@ class MediaPagesMixin:
             result=publish_desktop_preferences(self.settings_file,self.settings,{'comfy_exe':str(exe)})
             if not result.ok:raise ValueError(result.reason)
             self.settings=result.data
-        from native_apps import open_comfy
+        from infra.native_apps import open_comfy
         open_comfy({**self.settings,'comfy_exe':str(exe)})
         self.status.set('已打开本地 ComfyUI；可在桌面窗口查看工作流和调整参数。')
         return True

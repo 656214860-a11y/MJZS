@@ -255,7 +255,7 @@ class _AssetBatchWindow:
         self.table.yview_moveto(position)
         self.table.configure(height=max(2,min(8,len(self.available()))))
         self.fit_columns()
-        from asset_prompt_rules import issues
+        from infra.asset_prompt_rules import issues
         missing=sum(bool(issues(aid,asset)) for aid,asset in self.pending())
         self.status.set(f'已勾选 {len(self.pending())} / {len(self.available())} 项；其中 {missing} 项需补齐名称或提示词。取消勾选的不生成，已导入自动跳过。')
 
@@ -340,7 +340,7 @@ class _AssetBatchWindow:
         except queue.Empty:pass
 
     def start(self):
-        from asset_prompt_rules import issues
+        from infra.asset_prompt_rules import issues
         from stage_execution_service import require_formal_asset_generation
         options=self.work_options()
         require_formal_asset_generation(self.project, online_model=self.backend.get() in self.MODELS)

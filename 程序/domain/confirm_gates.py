@@ -399,7 +399,7 @@ def run(gate_id, project='', shots=None, assets=None, ledger=None, *, context=No
         result['ask'] = pending(project, items, context=context) if project or context is not None else items
         result['passed'] = not result['ask']
     # 诊断只保留最后一次结果，不写项目目录，也不参与门禁判定。
-    import diagnostic_capture
+    import infra.diagnostic_capture as diagnostic_capture
     diagnostic_capture.record_gate_result(row['id'], 'passed' if result['passed'] else 'blocked')
     return result
 

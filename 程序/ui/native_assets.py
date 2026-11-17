@@ -221,11 +221,11 @@ def _submit_job(client, state, options, key, health):
 
 def run(project, base, items, url, report, timeout=7200, options=None, stop=None):
     from domain.asset_batch_service import image_ready, register_image
-    from asset_prompt_rules import issues
+    from infra.asset_prompt_rules import issues
     from asset_reference_images import snapshot, resolve
     from domain.asset_reference_prompts import display_prompt
     from batch_frames_tool.batch_frames import Client
-    from native_apps import wait_comfy
+    from infra.native_apps import wait_comfy
     gateway=_asset_batch_gateway()
     project, base = Path(project), Path(base).resolve()
     items = [(aid, snapshot(base,asset)) for aid,asset in items if not image_ready(base,aid)]

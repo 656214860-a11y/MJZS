@@ -115,7 +115,7 @@ def _ask(batch, messages):
                            output_reserved=MAX_TOKENS, report=True)
     if batch.cancelled():
         raise _Stopped()
-    import stage_model_value
+    import infra.stage_model_value as stage_model_value
     options = {'max_tokens': MAX_TOKENS}
     options.update(stage_model_value.reasoning_options(batch.project, batch.stage))
     result = batch.adapter.stream(messages, options=options, model=batch.chosen, system=batch.system,
@@ -129,7 +129,7 @@ def _ask(batch, messages):
     if not result.get('ok'):
         policy = failure_policy(result)
         if policy.get('retryable'):
-            from model_metering import chat_metered
+            from infra.model_metering import chat_metered
             from model_pool import PoolAdapter
             from pet_llm import RequestLedger
             records = model_pool.pool(program=Path(__file__).resolve().parents[1])
@@ -183,7 +183,7 @@ def _validated(text, project, number, start, target_hint, source):
 
 def _episode(batch, script, existing_board):
     from agent.core import read
-    from integrations import script_text
+    from infra.integrations import script_text
     from orchestrator.project_context_factory import project_context
     from domain.storyboard_catalog_service import document_dir, file_order, working_dir
     from domain.storyboard_storage import canonical_name

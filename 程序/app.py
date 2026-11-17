@@ -1381,7 +1381,7 @@ class App:
         if now<getattr(self,'_result_render_report_due',0):return
         self._result_render_report_due=now+30
         try:
-            import diagnostic_capture
+            import infra.diagnostic_capture as diagnostic_capture
             diagnostic_capture.record_degradation(
                 RuntimeError('视频结果渲染失败：'+type(exc).__name__),
                 page='视频生成',stage='app.tick.'+phase)

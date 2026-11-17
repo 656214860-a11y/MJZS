@@ -302,7 +302,7 @@ class _LocalPrevisWindow:
             sid=self.current();record=wm.read_record(white_model_shot_directory(self.project,sid,source=self.source));path=Path(record.get(field,''))
             if not path.is_file():raise ValueError('请先创建相应工程或视频')
             if field=='project_file':
-                from native_apps import open_blender
+                from infra.native_apps import open_blender
                 open_blender(path)
             else:open_path(path)
         except Exception as exc:notify(self.desktop.win, str(exc), level='error', title='白模预演', status=self.desktop.status)

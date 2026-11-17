@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import tkinter as tk
 
-import diagnostic_capture
+import infra.diagnostic_capture as diagnostic_capture
 import domain.task_center_service as task_center_service
 from ui_widgets import BaseDialog, TextArea, LineInput
 from ui_tokens import TEXT_ROWS

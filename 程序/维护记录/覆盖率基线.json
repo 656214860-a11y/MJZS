@@ -147,7 +147,7 @@
   {
    "module": "asset_prompt_rules.py",
    "covered": 0,
-   "total": 26,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -267,7 +267,7 @@
   {
    "module": "comfy_runtime.py",
    "covered": 0,
-   "total": 40,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -675,7 +675,7 @@
   {
    "module": "diagnostic_capture.py",
    "covered": 0,
-   "total": 107,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -1183,6 +1183,12 @@
    "percent": 0.0
   },
   {
+   "module": "infra/asset_prompt_rules.py",
+   "covered": 0,
+   "total": 26,
+   "percent": 0.0
+  },
+  {
    "module": "infra/broadcaster.py",
    "covered": 0,
    "total": 33,
@@ -1201,9 +1207,21 @@
    "percent": 0.0
   },
   {
+   "module": "infra/comfy_runtime.py",
+   "covered": 0,
+   "total": 40,
+   "percent": 0.0
+  },
+  {
    "module": "infra/comfy_service.py",
    "covered": 0,
    "total": 201,
+   "percent": 0.0
+  },
+  {
+   "module": "infra/diagnostic_capture.py",
+   "covered": 0,
+   "total": 107,
    "percent": 0.0
   },
   {
@@ -1237,6 +1255,12 @@
    "percent": 0.0
   },
   {
+   "module": "infra/integrations.py",
+   "covered": 0,
+   "total": 15,
+   "percent": 0.0
+  },
+  {
    "module": "infra/lease_verifier.py",
    "covered": 0,
    "total": 37,
@@ -1261,6 +1285,12 @@
    "percent": 0.0
   },
   {
+   "module": "infra/native_apps.py",
+   "covered": 0,
+   "total": 81,
+   "percent": 0.0
+  },
+  {
    "module": "infra/native_asset_codec.py",
    "covered": 0,
    "total": 41,
@@ -1282,6 +1312,12 @@
    "module": "infra/seedream_api.py",
    "covered": 0,
    "total": 139,
+   "percent": 0.0
+  },
+  {
+   "module": "infra/stage_model_value.py",
+   "covered": 0,
+   "total": 48,
    "percent": 0.0
   },
   {
@@ -1311,7 +1347,7 @@
   {
    "module": "integrations.py",
    "covered": 0,
-   "total": 15,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -1375,9 +1411,15 @@
    "percent": 0.0
   },
   {
+   "module": "model_metering.py",
+   "covered": 0,
+   "total": 4,
+   "percent": 0.0
+  },
+  {
    "module": "native_apps.py",
    "covered": 0,
-   "total": 81,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -1761,7 +1803,7 @@
   {
    "module": "pet_skills_manage.py",
    "covered": 0,
-   "total": 432,
+   "total": 455,
    "percent": 0.0
   },
   {
@@ -2019,7 +2061,7 @@
   {
    "module": "skill_lifecycle_service.py",
    "covered": 0,
-   "total": 241,
+   "total": 261,
    "percent": 0.0
   },
   {
@@ -2115,7 +2157,7 @@
   {
    "module": "stage_model_value.py",
    "covered": 0,
-   "total": 48,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -3313,7 +3355,7 @@
    "percent": 11.5
   },
   {
-   "module": "model_metering.py",
+   "module": "infra/model_metering.py",
    "covered": 6,
    "total": 49,
    "percent": 12.2
@@ -3746,5 +3788,5 @@
   }
  ],
  "modules_covered": 74,
- "modules_total": 622
+ "modules_total": 629
 }

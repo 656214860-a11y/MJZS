@@ -32,7 +32,7 @@ def _require_gateway(gateway):
 
 
 def asset_prompt(asset, kind):
-    from asset_prompt_rules import positive
+    from infra.asset_prompt_rules import positive
     from domain.asset_reference_prompts import display_prompt
     if not positive(asset):
         raise ValueError('资产提示词不全，请回第1步（固定角色）或第2步（场景、道具）补齐。')
@@ -303,7 +303,7 @@ def batch_complete(base, aids):
 def automatic_plan(project, base, sources, settings, scope='adopted', *, gateway=None, context=None):
     """Return independently generatable assets without constructing any Tk UI."""
     from domain.asset_plan import _sync_plan
-    from asset_prompt_rules import issues
+    from infra.asset_prompt_rules import issues
     from contract.prop_assets import requires_asset
 
     project = _project_root(project, context=context)
@@ -340,7 +340,7 @@ def auto_settings(project=None, *, context=None):
 def current_model(project=None, *, context=None):
     """Resolve the asset model from the same stage configuration as execution."""
     from contract.production_model_contract import ASSET_CLOUD_MODELS, ASSET_LOCAL_MODEL
-    from stage_model_value import value as configured_value
+    from infra.stage_model_value import value as configured_value
     try:
         value = configured_value(_project_root(project, context=context), 'assets')
     except (OSError, ValueError, TypeError, KeyError):

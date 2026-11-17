@@ -25,7 +25,7 @@ GOLDEN_DIR = Path(__file__).resolve().parent / 'fixtures' / 'golden'
 UPDATE = os.environ.get('GOLDEN_UPDATE') == '1'
 # asset_prompt_rules.COMMON 内嵌本机绝对路径（asset_manifest.schema.json 位置），
 # 跨机器黄金对照前归一成占位符。
-_PROGRAM_DIR = str(Path(asset_prompt_rules.__file__).resolve().parent)
+_PROGRAM_DIR = str(Path(__file__).resolve().parents[1])
 
 CHARACTER = {"name": "林小满", "character_anchor": "黑短发、杏眼、米色针织衫",
              "state_variants": [{"state_id": "CST-01", "name": "日常装",

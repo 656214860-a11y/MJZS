@@ -716,49 +716,49 @@
     "items": [
       {
         "file": "orchestrator/desktop_automation_service.py",
-        "point": "PersistentBackgroundTaskQueue.enqueue_descriptor:json.loads:47a6f8acff753622:1",
+        "point": "PersistentBackgroundTaskQueue.enqueue_descriptor:json.loads:da2afb105a030558:1",
         "disposition": "exempt",
         "reason": "R1600：内存任务参数JSON序列化复制校验，不读取正式文件；文件读取沿用core.read。"
       },
       {
         "file": "agent/publication.py",
-        "point": "_recover:json.loads:5cb700bdeee2cc61:1",
+        "point": "_recover:json.loads:24f2e6c4b558ebf7:1",
         "disposition": "exempt",
         "reason": "R1599：底层写前日志恢复需直接读取事务日志，不能调用会重新进入恢复的core/read或缓存。"
       },
       {
         "file": "domain/writing_quality.py",
-        "point": "split_response:json.loads:d6f7ef1d1bfdb126:1",
+        "point": "split_response:json.loads:fa9eccd3d0db886d:1",
         "disposition": "exempt",
         "reason": "R1302：解析模型返回的内存质检 JSON；拒绝重复键与非有限数，不读取配置文件，不能改用文件缓存。"
       },
       {
         "file": "domain/script_workspace_service.py",
-        "point": "adopt_natural_script:json.loads:e447f3b9a080d917:1",
+        "point": "adopt_natural_script:json.loads:800acba6f5d49284:1",
         "disposition": "exempt",
         "reason": "R1247：采用记录发布前校验内存 JSON 文本，不读取文件。"
       },
       {
         "file": "agent/core.py",
-        "point": "read:json.loads:147aa04421ff03cc:1",
+        "point": "read:json.loads:ce3ee7d9792e2f7b:1",
         "disposition": "exempt",
         "reason": "写入权威自身"
       },
       {
         "file": "agent/core.py",
-        "point": "request:json.loads:92653333211a5c9b:1",
+        "point": "request:json.loads:5f497435521120fd:1",
         "disposition": "exempt",
         "reason": "写入权威自身"
       },
       {
         "file": "agent/media.py",
-        "point": "probe:json.loads:eb2638fa946cdd2e:1",
+        "point": "probe:json.loads:6cfc642ee18a7c1d:1",
         "disposition": "exempt",
         "reason": "外部进程／网络响应解析，非文件读"
       },
       {
         "file": "agent/prompt_optimizer.py",
-        "point": "start.work:json.loads:dc8382fdc56d856c:1",
+        "point": "start.work:json.loads:64d23865855ea4b8:1",
         "disposition": "exempt",
         "reason": "外部进程／网络响应解析，非文件读"
       },
@@ -782,61 +782,61 @@
       },
       {
         "file": "batch_frames_tool/batch_frames.py",
-        "point": "read:json.loads:0e45f0b2be5f0aa5:1",
+        "point": "read:json.loads:500648c8c87e599c:1",
         "disposition": "exempt",
         "reason": "独立批帧工具的本地配置读写，非运行期 L2"
       },
       {
         "file": "batch_frames_tool/batch_frames.py",
-        "point": "Client.request:json.loads:92653333211a5c9b:1",
+        "point": "Client.request:json.loads:5f497435521120fd:1",
         "disposition": "exempt",
         "reason": "独立批帧工具的本地配置读写，非运行期 L2"
       },
       {
         "file": "blender_previs_template.py",
-        "point": "<module>:json.loads:8cf026a46d6ce331:1",
+        "point": "<module>:json.loads:a12be2db0d631017:1",
         "disposition": "exempt",
         "reason": "Blender 模板生成脚本，非运行期 L2"
       },
       {
         "file": "codex_paste.py",
-        "point": "_run:json.loads:f6ad03d8d214f995:1",
+        "point": "_run:json.loads:55bd0ecae0a3db27:1",
         "disposition": "exempt",
         "reason": "外部进程／网络响应解析，非文件读"
       },
       {
         "file": "codex_tasks.py",
-        "point": "RPC.__enter__.pump:json.loads:e0385179e22b5760:1",
+        "point": "RPC.__enter__.pump:json.loads:cb57ae7929daaf0d:1",
         "disposition": "exempt",
         "reason": "外部进程／网络响应解析，非文件读"
       },
       {
-        "file": "comfy_runtime.py",
-        "point": "open_comfy:json.loads:22adc767539a2f8a:1",
-        "disposition": "exempt",
-        "reason": "外部进程／网络响应解析，非文件读"
-      },
-      {
-        "file": "infra/comfy_service.py",
-        "point": "validate_safetensors:json.loads:1fd9fbd8107f3504:1",
+        "file": "infra/comfy_runtime.py",
+        "point": "open_comfy:json.loads:0a4ef63eea100e3d:1",
         "disposition": "exempt",
         "reason": "外部进程／网络响应解析，非文件读"
       },
       {
         "file": "infra/comfy_service.py",
-        "point": "Comfy.request:json.loads:5b6b10da4146427f:1",
+        "point": "validate_safetensors:json.loads:765b253cdc014793:1",
+        "disposition": "exempt",
+        "reason": "外部进程／网络响应解析，非文件读"
+      },
+      {
+        "file": "infra/comfy_service.py",
+        "point": "Comfy.request:json.loads:c5bd409c8d20f3c0:1",
         "disposition": "exempt",
         "reason": "外部进程／网络响应解析，非文件读"
       },
       {
         "file": "console_submit.py",
-        "point": "send:json.loads:f6ad03d8d214f995:1",
+        "point": "send:json.loads:55bd0ecae0a3db27:1",
         "disposition": "exempt",
         "reason": "网络响应解析"
       },
       {
         "file": "console_submit.py",
-        "point": "<module>:json.loads:40f93432badbdc24:1",
+        "point": "<module>:json.loads:83aafa43e81ec1b4:1",
         "disposition": "exempt",
         "reason": "网络响应解析"
       },
@@ -854,7 +854,7 @@
       },
       {
         "file": "infra/engine_probe.py",
-        "point": "one_shot:json.loads:92653333211a5c9b:1",
+        "point": "one_shot:json.loads:5f497435521120fd:1",
         "disposition": "exempt",
         "reason": "R827：外部 CLI 标准输出 JSON 解析，非文件读取。"
       },
@@ -866,7 +866,7 @@
       },
       {
         "file": "file_cache.py",
-        "point": "read_stable_json_snapshot:json.loads:7fedb55b216dfc4e:1",
+        "point": "read_stable_json_snapshot:json.loads:8602c6ae639554ae:1",
         "disposition": "exempt",
         "reason": "R831：缓存权威集中执行带前后签名校验的稳定工作 JSON 快照读取。"
       },
@@ -890,37 +890,37 @@
       },
       {
         "file": "api_endpoints.py",
-        "point": "_http_transport:json.loads:0084ee081b23442e:1",
+        "point": "_http_transport:json.loads:f891f1f7e56f5efa:1",
         "disposition": "exempt",
         "reason": "R828：HTTP 响应体 JSON 解析，不是文件读取；模型路由网络出口的响应解码。（R1706 行号平移 863→873，客户端档案路由插在其前）（R2470 代码迁移 model_pool→api_endpoints）"
       },
       {
         "file": "api_endpoints.py",
-        "point": "http_stream:json.loads:b3b008eb30efa635:1",
+        "point": "http_stream:json.loads:5d808f6486f0d822:1",
         "disposition": "exempt",
         "reason": "R828：SSE data 事件 JSON 解析，不是文件读取；模型流式响应的事件解码。（R1706 行号平移 909→919，客户端档案路由插在其前）（R2470 代码迁移 model_pool→api_endpoints）"
       },
       {
         "file": "pet_agent.py",
-        "point": "parse_intent:json.loads:e796cc667c4bb3ab:1",
+        "point": "parse_intent:json.loads:54cb60c80cf7bad5:1",
         "disposition": "exempt",
         "reason": "网络响应解析"
       },
       {
         "file": "orchestrator/previs_automation.py",
-        "point": "verify:json.loads:61e9d77f3efbd50b:1",
+        "point": "verify:json.loads:43380d64825738a4:1",
         "disposition": "exempt",
         "reason": "网络响应解析"
       },
       {
         "file": "orchestrator/qwen_adapter.py",
-        "point": "run_background:json.loads:6118d7cb6e968167:1",
+        "point": "run_background:json.loads:3dadaec7c3a3a363:1",
         "disposition": "exempt",
         "reason": "外部进程／网络响应解析"
       },
       {
         "file": "infra/qwen_setup.py",
-        "point": "load:json.loads:ac18a8a332712bed:1",
+        "point": "load:json.loads:1f220d303a131b40:1",
         "disposition": "exempt",
         "reason": "本机 Qwen API 设置（LOCALAPPDATA/漫剧制作助手/qwen-api.json），坏文件按默认值处理，非项目正式 JSON；R1854 随 R1853 改 utf-8-sig 更新锚点"
       },
@@ -932,13 +932,13 @@
       },
       {
         "file": "infra/seedream_api.py",
-        "point": "request_image:json.loads:b09d5b6e43efd9c0:1",
+        "point": "request_image:json.loads:5f0df07e5b8c4062:1",
         "disposition": "exempt",
         "reason": "外部进程／网络响应解析，非文件读"
       },
       {
         "file": "infra/seedream_api.py",
-        "point": "request_image:json.loads:a142745c58a77a7c:1",
+        "point": "request_image:json.loads:3d89c902bc01348c:1",
         "disposition": "exempt",
         "reason": "外部进程／网络响应解析，非文件读"
       },
@@ -950,61 +950,61 @@
       },
       {
         "file": "domain/speech_api.py",
-        "point": "RealtimeSession._handle:json.loads:66e0763f09fb6123:1",
+        "point": "RealtimeSession._handle:json.loads:551b5e797188fca6:1",
         "disposition": "exempt",
         "reason": "实时语音识别 WebSocket 服务端事件的 JSON 解析，非文件读"
       },
       {
         "file": "smoke_test.py",
-        "point": "check_json_field:json.loads:a428a6961304f795:1",
+        "point": "check_json_field:json.loads:b6dd6f4c6896a5a4:1",
         "disposition": "exempt",
         "reason": "测试基建"
       },
       {
         "file": "stage_execution_service.py",
-        "point": "publish_keyframe_episode:json.loads:48da4dd596fff0b4:1",
+        "point": "publish_keyframe_episode:json.loads:355d94d4b6aea4e5:1",
         "disposition": "exempt",
         "reason": "R830：原子发布前对内存 JSON 文本的校验，不读取文件。"
       },
       {
         "file": "orchestrator/stage_animatic_gateways.py",
-        "point": "confirm_animatic:json.loads:e447f3b9a080d917:1",
+        "point": "confirm_animatic:json.loads:800acba6f5d49284:1",
         "disposition": "exempt",
         "reason": "R1124：发布器对内存确认文本的 JSON 校验，不读取文件。"
       },
       {
         "file": "domain/animatic_service.py",
-        "point": "validate_bundle:json.loads:77391186c5df0f0d:1",
+        "point": "validate_bundle:json.loads:e7a19e636e7b2a0c:1",
         "disposition": "exempt",
         "reason": "R1124：解析待发布包内的清单字节协议，不读取文件。"
       },
       {
         "file": "domain/edit_service.py",
-        "point": "assemble_image_timeline:json.loads:d6b836044cd065ca:1",
+        "point": "assemble_image_timeline:json.loads:25bf3c192b891718:1",
         "disposition": "exempt",
         "reason": "R1124：解析 ffprobe 子进程标准输出协议，不读取 JSON 文件。"
       },
       {
         "file": "orchestrator/stage_handoff_gateways.py",
-        "point": "save_automatic_assemble_marker.publish_marker:json.loads:e447f3b9a080d917:1",
+        "point": "save_automatic_assemble_marker.publish_marker:json.loads:800acba6f5d49284:1",
         "disposition": "exempt",
         "reason": "R830：原子发布前对内存标记文本的校验，不读取文件。"
       },
       {
         "file": "orchestrator/stage_handoff_gateways.py",
-        "point": "save_automatic_handoff_marker.publish_marker:json.loads:e447f3b9a080d917:1",
+        "point": "save_automatic_handoff_marker.publish_marker:json.loads:800acba6f5d49284:1",
         "disposition": "exempt",
         "reason": "R830：原子发布前对内存标记文本的校验，不读取文件。"
       },
       {
         "file": "writing_api.py",
-        "point": "extract_idea_brief:json.loads:e447f3b9a080d917:1",
+        "point": "extract_idea_brief:json.loads:800acba6f5d49284:1",
         "disposition": "exempt",
         "reason": "R1335 合入：阶段④分集增量接入使该 json.loads 行号由 512 平移至 548，HOLLMWOOD 框架移除后再平移至 468（R1442 又上移）；仍是简报语义提取的模型响应内存 JSON 解码，非文件读取；结果文件仍走 file_cache.read_json。"
       },
       {
         "file": "orchestrator/stage_parallel.py",
-        "point": "log_read:json.loads:e0385179e22b5760:1",
+        "point": "log_read:json.loads:cb57ae7929daaf0d:1",
         "disposition": "exempt",
         "reason": "R830：经 file_cache.read_text 读取后的 JSONL 单行日志解码，不是正式 JSON 文件读取。（R1383：文件顶部加 import pet_bus 使该行由 454 平移至 455，语义不变。）"
       },
@@ -1046,13 +1046,13 @@
       },
       {
         "file": "orchestrator/storyboard_final_controller.py",
-        "point": "FinalStoryboardController.save_edited:json.loads:e447f3b9a080d917:1",
+        "point": "FinalStoryboardController.save_edited:json.loads:800acba6f5d49284:1",
         "disposition": "exempt",
         "reason": "R830：编辑器输入框内存文本的 JSON 解析，不读取文件。"
       },
       {
         "file": "orchestrator/storyboard_final.py",
-        "point": "finalize.validate_episode_text:json.loads:48da4dd596fff0b4:1",
+        "point": "finalize.validate_episode_text:json.loads:355d94d4b6aea4e5:1",
         "disposition": "exempt",
         "reason": "R830：发布前内存 JSON 文本校验，不读取文件。"
       },
@@ -1064,139 +1064,139 @@
       },
       {
         "file": "ui/video_prompt_results.py",
-        "point": "parse_result:json.loads:a142745c58a77a7c:1",
+        "point": "parse_result:json.loads:3d89c902bc01348c:1",
         "disposition": "exempt",
         "reason": "R829：外部 Agent 结果文本的 JSON 解析，不是正式项目文件读取。"
       },
       {
         "file": "ui/video_prompt_results.py",
-        "point": "parse_result:json.loads:924fad0814c25a41:1",
+        "point": "parse_result:json.loads:9ab2d464d20223ce:1",
         "disposition": "exempt",
         "reason": "R829：格式修复分支对外部 Agent 结果片段的 JSON 解析，不是正式项目文件读取。"
       },
       {
         "file": "ui/video_prompt_results.py",
-        "point": "parse_result:json.loads:ad3dc98d9e794255:1",
+        "point": "parse_result:json.loads:2a61bf736957ea50:1",
         "disposition": "exempt",
         "reason": "R829：格式修复后的提示词字面量 JSON 解码，不是文件读取。"
       },
       {
         "file": "orchestrator/workflow_engines.py",
-        "point": "_opencode_report_text:json.loads:e0385179e22b5760:1",
+        "point": "_opencode_report_text:json.loads:cb57ae7929daaf0d:1",
         "disposition": "exempt",
         "reason": "网络响应解析（R1706 行号平移 143→167：OpenCode 事件流逐行 JSON 解码，不是文件读取）"
       },
       {
         "file": "orchestrator/workflow_engines.py",
-        "point": "_run_claude_json:json.loads:6118d7cb6e968167:1",
+        "point": "_run_claude_json:json.loads:3dadaec7c3a3a363:1",
         "disposition": "exempt",
         "reason": "R1691 登记：读取 OpenCode CLI 自己写出的 .response.json 临时响应文件，外部进程产物不是正式项目数据，不走 file_cache。（R1706 行号平移 196→241）"
       },
       {
         "file": "skills/09白模预演SKILL/create-blender-story-video/assets/render-monitor-dashboard/server.py",
-        "point": "read_json:json.loads:d8914783a47c6a77:1",
+        "point": "read_json:json.loads:78de6374442893c8:1",
         "disposition": "exempt",
         "reason": "SKILL 自带脚本"
       },
       {
         "file": "skills/09白模预演SKILL/create-blender-story-video/assets/render-monitor-dashboard/server.py",
-        "point": "Monitor._probe_media:json.loads:d3ab9c6132702340:1",
+        "point": "Monitor._probe_media:json.loads:531ee141eef64f92:1",
         "disposition": "exempt",
         "reason": "SKILL 自带脚本"
       },
       {
         "file": "skills/imagegen/scripts/image_gen.py",
-        "point": "_read_jobs_jsonl:json.loads:e0385179e22b5760:1",
+        "point": "_read_jobs_jsonl:json.loads:cb57ae7929daaf0d:1",
         "disposition": "exempt",
         "reason": "SKILL 自带脚本"
       },
       {
         "file": "skills/short-drama-storyboard/scripts/storyboard_check.py",
-        "point": "_load_json:json.loads:d8914783a47c6a77:1",
+        "point": "_load_json:json.loads:78de6374442893c8:1",
         "disposition": "exempt",
         "reason": "SKILL 自带脚本"
       },
       {
         "file": "skills/short-drama-storyboard/scripts/storyboard_check.py",
-        "point": "_load_jsonl:json.loads:e0385179e22b5760:1",
+        "point": "_load_jsonl:json.loads:cb57ae7929daaf0d:1",
         "disposition": "exempt",
         "reason": "SKILL 自带脚本"
       },
       {
         "file": "skills/video-storyboard-gen/scripts/validate_repo.py",
-        "point": "validate_repository:json.loads:d8914783a47c6a77:1",
+        "point": "validate_repository:json.loads:78de6374442893c8:1",
         "disposition": "exempt",
         "reason": "SKILL 自带脚本"
       },
       {
         "file": "skills/video-storyboard-gen/scripts/validate_repo.py",
-        "point": "validate_repository:json.loads:0582556804ad8235:1",
+        "point": "validate_repository:json.loads:e9e4fd7867cccce9:1",
         "disposition": "exempt",
         "reason": "SKILL 自带脚本"
       },
       {
         "file": "skills/video-storyboard-gen/scripts/validate_repo.py",
-        "point": "validate_repository:json.loads:79ac35a543a43435:1",
+        "point": "validate_repository:json.loads:34fb0474a2163765:1",
         "disposition": "exempt",
         "reason": "SKILL 自带脚本"
       },
       {
         "file": "skills/video-storyboard-gen/scripts/validate_repo.py",
-        "point": "validate_repository:json.loads:05f7a192412f0dc6:1",
+        "point": "validate_repository:json.loads:ce06739a12169662:1",
         "disposition": "exempt",
         "reason": "SKILL 自带脚本"
       },
       {
         "file": "orchestrator/skill_notes.py",
-        "point": "_api_translator.translate:json.loads:bda0f3d830f7ed12:1",
+        "point": "_api_translator.translate:json.loads:c9ed4ae3e9ae937e:1",
         "disposition": "exempt",
         "reason": "R1125：解析模型返回的译文 JSON 字符串数组，不是文件读取；说明缓存与词表仍复用 file_cache.read_json。"
       },
       {
         "file": "orchestrator/edit_habits.py",
-        "point": "parse_rules:json.loads:e796cc667c4bb3ab:1",
+        "point": "parse_rules:json.loads:54cb60c80cf7bad5:1",
         "disposition": "exempt",
         "reason": "R2074：解析模型返回的修改习惯 JSON 数组，不是文件读取；记录与规则文件仍经 file_cache.read_json。"
       },
       {
         "file": "infra/lease_verifier.py",
-        "point": "verify:json.loads:001fd68b45942bb5:1",
+        "point": "verify:json.loads:2743584eb8f133af:1",
         "disposition": "exempt",
         "reason": "R1895：解析已验签租约的内存 payload 字节，不读取文件。"
       },
       {
         "file": "domain/account_client.py",
-        "point": "_read_json:json.loads:ba5f15a4e6a1061d:1",
+        "point": "_read_json:json.loads:f29dc5e7efbf117e:1",
         "disposition": "exempt",
         "reason": "R1895：解析账号服务 HTTP 响应体，不读取文件。"
       },
       {
         "file": "orchestrator/storyboard_direct_api.py",
-        "point": "_extract_json:json.loads:da95b1449dbe88d3:1",
+        "point": "_extract_json:json.loads:4aaeda8f3169471f:1",
         "disposition": "exempt",
         "reason": "直连分镜（REQ-S03-53）：解析模型回复的内存文本，不读取正式文件；文件读取沿用core.read。"
       },
       {
         "file": "orchestrator/workflow_engines.py",
-        "point": "extract_codex_thread_id:json.loads:e447f3b9a080d917:1",
+        "point": "extract_codex_thread_id:json.loads:800acba6f5d49284:1",
         "disposition": "exempt",
         "reason": "R2491：解析 codex exec --json 的 thread.started 事件行取 thread_id（进程 stdout 内存文本，不读文件）。"
       },
       {
         "file": "orchestrator/workflow_engines.py",
-        "point": "extract_codex_message_text:json.loads:e447f3b9a080d917:1",
+        "point": "extract_codex_message_text:json.loads:800acba6f5d49284:1",
         "disposition": "exempt",
         "reason": "R2491：解析 codex exec --json 的 agent_message 事件行取正文（进程 stdout 内存文本，不读文件）。"
       },
       {
         "file": "scripts/tools_lock.py",
-        "point": "main:json.loads:746e1517d527c929:1",
+        "point": "main:json.loads:17afbd0aa15e669e:1",
         "disposition": "exempt",
         "reason": "R2572/R2587 合并：tools_lock 是开发期锁定清单工具，main 直接读 lock 文件属脚本内直读豁免，与同类 scripts/* 登记一致"
       },
       {
         "file": "scripts/benchmark_trend.py",
-        "point": "load_startup_rows:json.loads:e0385179e22b5760:1",
+        "point": "load_startup_rows:json.loads:cb57ae7929daaf0d:1",
         "disposition": "exempt",
         "reason": "R2733：benchmark_trend 是 CI 基准脚本，load_startup_rows 逐行解析 common-dir 启动耗时 JSONL（追加式日志，file_cache 只读整文档 JSON），与 skills _load_jsonl 同类豁免。"
       }

@@ -299,7 +299,7 @@ def apply_rename(program, plan):
 
 def skill_delete_block_reason(project, name):
     """当前项目有非空制作锁且精确引用技能时返回禁删原因；只读，不扫描项目库。"""
-    from stage_model_value import production_locks
+    from infra.stage_model_value import production_locks
     if not project or not str(name or '').strip():
         return ''
     if not any(str(value or '').strip() for value in production_locks(project).values()):

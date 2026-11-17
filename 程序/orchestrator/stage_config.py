@@ -231,7 +231,7 @@ def project_created_at(project):
 def workflow_lock(project):
     """项目制作锁读入口；读取实现在 L1 ``stage_model_value.production_locks``，
     写入口仍是本模块 ``put_production_locks``。"""
-    import stage_model_value
+    import infra.stage_model_value as stage_model_value
     return stage_model_value.production_locks(project)
 
 

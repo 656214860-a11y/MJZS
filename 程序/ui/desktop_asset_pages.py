@@ -319,7 +319,7 @@ class AssetPagesMixin:
         # 第 65 期任务 1：这两颗从「资产图片制作」弹窗搬到「阶段配置」右边（原话：移到主界面阶段配置旁）。
         def kill_comfy_here():
             # taskkill 逐个镜像、每个最长 10 秒，按下时 ComfyUI 通常正卡着——不能在界面线程上等。
-            from native_apps import force_close_comfy
+            from infra.native_apps import force_close_comfy
             def work():
                 try:return force_close_comfy(self.settings)
                 except Exception as exc:return '强制关闭失败：'+str(exc)

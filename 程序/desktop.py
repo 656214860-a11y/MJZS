@@ -28,7 +28,7 @@ from responsive_ui import FlowBar,ScrollForm,growable_extra,configure_check_colu
 from orchestrator.engine import approved_versions, review_label, adoption_summary
 from local_video import open_studio,skip_summary
 from app import App
-from integrations import comfy_executable
+from infra.integrations import comfy_executable
 from ui.ui_theme import apply as apply_theme, install_window_placement
 from domain.project_naming import dated_path
 import ui.asset_thumbs as asset_thumbs
@@ -166,7 +166,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         self.reload()
         self.show(0)
         # 只记录启动壳完成耗时；采集不遍历项目目录，也不参与启动决策。
-        import diagnostic_capture
+        import infra.diagnostic_capture as diagnostic_capture
         diagnostic_capture.record_startup_timing('desktop_shell_ready', (time.perf_counter()-self._diagnostic_start)*1000)
         self.shutting_down=False
         self._tick_id=None
@@ -540,7 +540,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
             if self.worker:raise ValueError('当前操作尚未结束，请稍后')
             return fn()
         except Exception as e:
-            import diagnostic_capture
+            import infra.diagnostic_capture as diagnostic_capture
             diagnostic_capture.record_degradation(
                 e, page=PAGES[getattr(self,'page_index',0)],
                 project=str(getattr(self,'root', '') or ''),
@@ -549,7 +549,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
 
     def export_diagnostics_package(self):
         """唯一的用户诊断包动作：先透明说明白名单，再让用户选择保存位置。"""
-        import diagnostic_capture
+        import infra.diagnostic_capture as diagnostic_capture
         entries=diagnostic_capture.preview()
         detail='\n'.join(entries) if entries else '当前没有可导出的诊断记录（仍会导出清单）。'
         if not confirm(self.win, '导出诊断包', '将仅包含以下脱敏程序日志（不会包含项目文件、private、.env 或凭据）：\n\n'+detail):

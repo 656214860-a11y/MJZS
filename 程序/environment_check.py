@@ -11,7 +11,7 @@ import re
 import shutil
 from pathlib import Path
 
-import comfy_runtime
+import infra.comfy_runtime as comfy_runtime
 import infra.client_profiles as client_profiles
 import file_cache
 import model_pool

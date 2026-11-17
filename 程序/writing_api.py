@@ -13,7 +13,7 @@ from datetime import datetime
 from uuid import uuid4
 
 import model_pool
-import stage_model_value
+import infra.stage_model_value as stage_model_value
 import infra.token_saver as token_saver
 from file_cache import read_json
 from model_router import ModelAdapter, PoolAdapter
@@ -294,7 +294,7 @@ class WritingRequestAdapter(ModelAdapter):
         def send():
             return getattr(self.adapter, method)(messages, options=options, model=model, system=system, **kwargs)
         if self.project is not None:
-            from model_metering import metered
+            from infra.model_metering import metered
             from pet_llm import RequestLedger
             from uuid import uuid4
             estimate = body_bytes

@@ -8,7 +8,7 @@ from agent.core import save
 from file_cache import read_json
 import model_pool
 import model_router
-from model_metering import chat_metered
+from infra.model_metering import chat_metered
 from pet_llm import RequestLedger
 
 PROGRAM = Path(__file__).resolve().parents[1]

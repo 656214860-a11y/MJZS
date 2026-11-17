@@ -4,7 +4,7 @@ import threading
 import json
 import app_logging
 from datetime import datetime, timezone
-from model_metering import REPLAYABLE_RETRY_STATUS
+from infra.model_metering import REPLAYABLE_RETRY_STATUS
 # 第 34 期第 9 条：`urllib.request` 连 ssl 一起加载（约 4.4 MB 常驻），探测函数里再 import。
 from urllib.parse import urlparse
 
