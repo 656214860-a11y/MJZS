@@ -9,7 +9,7 @@ def _register(layer: int, *names: str) -> None:
     for name in names:
         LAYERS[name] = layer
 
-_register(2, "video_source_evidence")
+_register(2, "video_source_evidence", "skill_residue_service")
 _register(0, "pet_bus", "script_contract", "script_brief", "script_manifest_contract", "script_manifest_schema", "script_output_spec", "asset_contract", "episode_contract", "service_contract", "error_codes", "project_context", "stage_layout", "stage_path_service", "storyboard_paths", "project_stages", "platform_tools",
           "prompt_templates", "shot_batches", "production_model_contract", "app_metadata")
 # R1647：stage_model_value 只依赖 file_cache／pet_bus（无 Tk、无编排状态），按实际依赖登记为 L1，

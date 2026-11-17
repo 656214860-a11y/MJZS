@@ -61,7 +61,7 @@ AssertionError: ImportBlocked not raised
 
 ## 提交与接续
 
-提交进行中；统一入口证据测试的非 GUI 37 条已通过，GUI 用例因另一工作树全量进程 PID 50900 持有跨树 GUI 令牌而排队（队列第 1 位），不绕过锁。提交完成后自动新建子会话执行轮 2。功能分支按 runbook §13 不提交 `project_status.md`，状态页轮次及 N=M+1 在 master 合并轮同步。
+已由统一入口独立提交 `9b620f1c`（由轮 2 接续补记）。统一入口证据测试 52/52 通过；GUI 用例曾因另一工作树全量持有跨树 GUI 令牌而排队，未绕过锁。功能分支按 runbook §13 不提交 `project_status.md`，状态页轮次及 N=M+1 在 master 合并轮同步。
 
 轮 4 明确由用户本人删除／重装；可先完成自动化与隔离 fixture 的同路径验证、提供操作清单，不得捏造用户操作已通过。全部任务未完成，不标记 TASK_COMPLETE。
 

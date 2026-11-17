@@ -246,3 +246,19 @@ class ProjectLayerMixin:
         existing = next((path for path in self._stage_directories(root)
                          if stage_from_path(path / '__stage_probe__') == sid), None)
         return existing or root / builtin.name
+
+
+def scan_residue(program, *, package_source):
+    """管理通道：注入唯一阶段判定与调用方已有的包定位器，避免注册表环依赖。"""
+    from domain import skill_residue_service
+    return skill_residue_service.scan_residue(
+        program, stage_from_path=stage_from_path, package_source=package_source)
+
+
+def dispose_residue(program, names, *, package_source):
+    """L3 组装回收发布器；L2 不反向依赖注册表或自行写回收凭据。"""
+    from domain import skill_residue_service
+    from infra.storage_maintenance import recycle_paths
+    return skill_residue_service.dispose_residue(
+        program, names, stage_from_path=stage_from_path,
+        package_source=package_source, publisher=recycle_paths)
