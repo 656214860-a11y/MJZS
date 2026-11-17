@@ -7,6 +7,33 @@ from contract import workflow_context_budget as budget
 import writing_api
 
 
+class PresetContextLengthTests(unittest.TestCase):
+    def test_user_selected_application_defaults(self):
+        cases = {
+            'deepseek-v4.1-flash-1017': 128_000,
+            'gemini-3.5-flash': 128_000,
+            'qwen3': 32_000,
+            'claude-sonnet-4': 200_000,
+            'gpt-4o': 128_000,
+        }
+        for model_id, expected in cases.items():
+            with self.subTest(model_id=model_id):
+                self.assertEqual(budget.preset_context_length(model_id), expected)
+
+    def test_prefix_matching_is_casefolded_and_accepts_family_boundaries(self):
+        for model_id in ('deepseek', 'DeEpSeEk-V4', 'DEEPSEEK4',
+                         'deepseek_v4', 'deepseek.v4', 'deepseek:latest'):
+            with self.subTest(model_id=model_id):
+                self.assertEqual(budget.preset_context_length(model_id), 128_000)
+
+    def test_empty_unknown_and_similar_words_have_no_preset(self):
+        for model_id in (None, '', ' ', 'unknown-model', 'OpenAI 兼容',
+                         'deepseeker', 'geminist', 'qwenish', 'claudette',
+                         'gptastic', 'vendor/deepseek-v4'):
+            with self.subTest(model_id=model_id):
+                self.assertEqual(budget.preset_context_length(model_id), '')
+
+
 class TokenEstimateTests(unittest.TestCase):
     def test_estimate_covers_chinese_english_code_and_image_payloads(self):
         self.assertEqual(budget.estimate_tokens(''), 0)
