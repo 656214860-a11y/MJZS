@@ -81,11 +81,12 @@
   "tests.test_stage_file_index_publication",
   "tests.test_file_naming_producers",
   "tests.test_file_origin_provenance",
-  "tests.test_context"
+  "tests.test_context",
+  "tests.test_selfcheck"
  ],
  "tests_ok": true,
- "points_total": 2423,
- "points_covered": 1253,
+ "points_total": 2440,
+ "points_covered": 1275,
  "modules": [
   {
    "module": "aigc_lint.py",
@@ -114,6 +115,12 @@
   {
    "module": "lease_verifier.py",
    "points": 6,
+   "covered": 0,
+   "percent": 0.0
+  },
+  {
+   "module": "media.py",
+   "points": 18,
    "covered": 0,
    "percent": 0.0
   },
@@ -196,6 +203,12 @@
    "percent": 20.0
   },
   {
+   "module": "core.py",
+   "points": 33,
+   "covered": 7,
+   "percent": 21.2
+  },
+  {
    "module": "clipboard_lock.py",
    "points": 13,
    "covered": 3,
@@ -250,16 +263,16 @@
    "percent": 37.0
   },
   {
-   "module": "platform_tools.py",
-   "points": 119,
-   "covered": 46,
-   "percent": 38.7
-  },
-  {
    "module": "model_pool.py",
    "points": 129,
-   "covered": 53,
-   "percent": 41.1
+   "covered": 52,
+   "percent": 40.3
+  },
+  {
+   "module": "platform_tools.py",
+   "points": 119,
+   "covered": 48,
+   "percent": 40.3
   },
   {
    "module": "workflow_process_registry.py",
@@ -334,10 +347,10 @@
    "percent": 55.7
   },
   {
-   "module": "http_client.py",
-   "points": 17,
-   "covered": 10,
-   "percent": 58.8
+   "module": "publication.py",
+   "points": 31,
+   "covered": 19,
+   "percent": 61.3
   },
   {
    "module": "artifact_lineage.py",
@@ -412,6 +425,12 @@
    "percent": 75.0
   },
   {
+   "module": "http_client.py",
+   "points": 17,
+   "covered": 13,
+   "percent": 76.5
+  },
+  {
    "module": "artifact_schema.py",
    "points": 13,
    "covered": 10,
@@ -430,12 +449,6 @@
    "percent": 79.2
   },
   {
-   "module": "file_index.py",
-   "points": 89,
-   "covered": 71,
-   "percent": 79.8
-  },
-  {
    "module": "prompt_templates.py",
    "points": 10,
    "covered": 8,
@@ -452,6 +465,12 @@
    "points": 52,
    "covered": 42,
    "percent": 80.8
+  },
+  {
+   "module": "file_index.py",
+   "points": 89,
+   "covered": 72,
+   "percent": 80.9
   },
   {
    "module": "asset_contract.py",
@@ -508,9 +527,15 @@
    "percent": 100.0
   },
   {
+   "module": "diagnostics.py",
+   "points": 0,
+   "covered": 0,
+   "percent": 100.0
+  },
+  {
    "module": "error_codes.py",
-   "points": 3,
-   "covered": 3,
+   "points": 7,
+   "covered": 7,
    "percent": 100.0
   },
   {
@@ -521,6 +546,12 @@
   },
   {
    "module": "integrations.py",
+   "points": 0,
+   "covered": 0,
+   "percent": 100.0
+  },
+  {
+   "module": "media_signature.py",
    "points": 0,
    "covered": 0,
    "percent": 100.0
@@ -568,6 +599,12 @@
    "percent": 100.0
   },
   {
+   "module": "selfcheck.py",
+   "points": 13,
+   "covered": 13,
+   "percent": 100.0
+  },
+  {
    "module": "service_contract.py",
    "points": 0,
    "covered": 0,
@@ -590,75 +627,7 @@
    "points": 3,
    "covered": 3,
    "percent": 100.0
-  },
-  {
-   "module": "media.py",
-   "points": 18,
-   "covered": 0,
-   "percent": 0.0
-  },
-  {
-   "module": "core.py",
-   "points": 33,
-   "covered": 7,
-   "percent": 21.2
-  },
-  {
-   "module": "publication.py",
-   "points": 31,
-   "covered": 19,
-   "percent": 61.3
-  },
-  {
-   "module": "media_signature.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
   }
  ],
- "modules_total": 88,
- "module_measurements": {
-  "note": "合成定向快照：顶层 targets/tests_ok 保留原既有测量来源，仅 platform_tools.py 采用下列本轮全通过的定向报告；其余模块行未改，不表示本轮完整原 targets 或全量套件复测全绿。总计按现有模块行重新求和。",
-  "platform_tools.py": {
-   "tool": "scripts/branch_coverage_report.py",
-   "targets": [
-    "tests.test_http_client",
-    "tests.test_platform_tools",
-    "tests.test_cli_streaming",
-    "tests.test_open_https_redirect",
-    "tests.architecture.test_platform_opening"
-   ],
-   "targets_source": "tests.test_http_client、tests.test_platform_tools、tests.test_cli_streaming 从本文件原 targets 读取；追加父批准的既有 tests.test_open_https_redirect、tests.architecture.test_platform_opening 平台消费者测试定位。",
-   "tests_ok": true,
-   "report": "Git common-dir/requests-migration-evidence/r3250/platform-coverage.json",
-   "log": "Git common-dir/requests-migration-evidence/r3250/platform-coverage.log",
-   "command": "Git common-dir/requests-migration-evidence/r3250/platform-coverage-command.json",
-   "source_head": "565e83893538d8cd97621099d3c0ebfc919498c4",
-   "original_targets_attempt": "完整原 targets 已直接从旧 JSON 读取启动；日志出现无关失败后按父指令停止，未产生 tests_ok=true 报告，不作为本次合入证据。日志：Git common-dir/requests-migration-evidence/R3227-platform-full.log。",
-   "measurement": {
-    "module": "platform_tools.py",
-    "points": 119,
-    "covered": 46,
-    "percent": 38.7
-   },
-   "provenance": {
-    "round": "R3250",
-    "measured_at": "2026-11-18T00:45:24.1237111+08:00",
-    "source_entity": "contract/platform_tools.py",
-    "source_lines": 915,
-    "source_sha256": "bfe57bcd158b36b9b90e8dc634fb6fa14adb4ab125c947687ac9a2016e3b4d59",
-    "runtime_executable": "D:\\漫剧制作助手\\运行环境\\Python\\python.exe",
-    "requests_version": "2.34.2",
-    "tests_run": 81,
-    "tests_ok": true,
-    "prior_measurement": {
-     "module": "platform_tools.py",
-     "points": 118,
-     "covered": 45,
-     "percent": 38.1
-    },
-    "note": "沿用上次 module_measurements 平台五目标实测；TLS 新测试已包含在 tests.test_platform_tools。新 TLS helper 增加决策点后刷新 platform 行，其余模块沿用既有测量并重算总计；本次未重跑完整原 targets。"
-   }
-  }
- }
+ "modules_total": 90
 }

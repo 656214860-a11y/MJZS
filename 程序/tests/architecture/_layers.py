@@ -88,6 +88,10 @@ _register(2, "shot_assets", "volcengine", "wan", "video")
 _register(3, "voice_mcp_server", "optimizer_mcp_bridge")
 _register(4, "prompt_optimizer")
 
+# R3267（L0 任务书轮 3A，D3-a/b）：启动诊断类型与注入式自检运行器，纯 L0 契约；
+# 具体检查函数由 L1 提供、L5 组装注入（G3），本模块不新增任何向上 import。
+_register(0, "diagnostics", "selfcheck")
+
 # R3131（任务书 P0/P1/P3/P4）：统一项目文件生命周期管理引入的模块。
 # 命名中心与索引字段契约是纯字符串／dataclass 运算 → L0；索引扫描与写盘只依赖 L0／L1 → L1；
 # 一次性迁移工具编排阶段服务与清单重指向 → L3；面板筛选条是纯 Tk 装配 → L4。
