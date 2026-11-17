@@ -15,15 +15,14 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import ttk
 
-from desktop_file_card import TreeRowCard, script_row_card
-from ui.desktop_files_panel_filters import FilesPanelFilterMixin, STAGE_FILTER_ROW_CATEGORY
-from desktop_page_registry import PAGE_ACCOUNT, PAGE_SITES
-from desktop_writing_snapshots import WritingSnapshotsMixin
+from ui.desktop_file_card import TreeRowCard, script_row_card
+from ui.desktop_page_registry import PAGE_ACCOUNT, PAGE_SITES
+from ui.desktop_writing_snapshots import WritingSnapshotsMixin
 from responsive_ui import fit_row_height, measure, row_toggle_target
 from ui_icons import IconLoader
 from ui_tokens import ICON_CHEVRON_RIGHT, SCRIPT_FILE_FONT, SCRIPT_FILE_MAX_ROWS, SPACING
-from ui_widgets import DataTable, SecondaryButton, SelectBox, Tooltip, ask_string
-from writing_page_controller import ScriptListLoadController
+from ui_widgets import DataTable, SecondaryButton, Tooltip, ask_string
+from ui.writing_page_controller import ScriptListLoadController
 
 # R2998：文件名列宽不再写死——面板宽度由 0 高 sizer 驱动，按最长文件名量宽。
 SCRIPT_LIST_MIN_WIDTH = SPACING['sm'] * 23      # 沿用原固定列宽下限（184）
@@ -32,8 +31,7 @@ SCRIPT_PANEL_MAX_WIDTH = SPACING['sm'] * 60      # 480：更长的文件名靠�
 SCRIPT_CELL_OVERHEAD = SPACING['md'] * 4         # 48：格内边距＋滚动条＋面板留白
 
 
-
-class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
+class ProjectFilesPanel(WritingSnapshotsMixin):
     """内容区右缘图标列「项目文件」入口＋右侧停靠文件列表；``page`` 是 ``Desktop`` 实例。"""
 
     def __init__(self, page):
@@ -43,20 +41,14 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
         self._button_bind = None
         self._escape_bind = None
         self._fit_width_job = None
-        # R3094：当前阶段筛选（None＝剧本准备四类视图，与 R2962 行为一致）。
-        self.stage_filter = None
-        self.stage_buttons = {}
-        # R3106（任务书 P1，Q25）：筛选条的三项条件与关键字（空值＝不限）。
-        self.kind_filter = None
-        self.status_filter = None
-        self.keyword_filter = ''
-        self._filter_job = None
 
     def build(self):
         """建入口图标列与停靠面板；初始收起，文件列表默认隐藏（REQ-S01-90）。"""
         page = self.page
         image = IconLoader.nav_icon(page.win, 'project_files')
-        area = page.canvas.master
+        # R3060：图标列挂 panel_area（panel_dock 的父级）而非画布列——面板打开时
+        # 停靠列从图标列左侧让位，图标恒为内容区最右竖条。
+        area = getattr(page, 'panel_area', None) or page.canvas.master
         # R2998：入口从标题行迁到内容区右缘独立图标列——先于任何停靠面板 pack，
         # 恒为该容器最右竖条（与画布同高，图标在列顶、下方留白给后续图标）。
         self.rail = ttk.Frame(area)
@@ -71,13 +63,14 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
         self._pack_button()
         Tooltip(self.button, '项目文件')
         page.files_button = self.button
+
+        # R3060：面板停靠列独立于画布列（canvas.master 已是 stage_area），输入框与聊天框同宽收窄；
+        # 停靠框/分隔线都进 panel_dock，面板宽度不再与 stage_area 竞争需求宽度。
+        dock = getattr(page, 'panel_dock', None)
+        area = dock or getattr(page, 'panel_area', None) or page.canvas.master
+        self._dock = dock if dock is area else None
         self.script_box = ttk.Frame(area, padding=(SPACING['xs'], SPACING['xs']))
         self.sep = ttk.Separator(area, orient='vertical')
-        # R3094（任务书 P1）：阶段快捷图标列在停靠面板**右缘**、按 pet_bus.STAGES 顺序垂直排列。
-        # 先于列表 pack，右缘竖条优先占到整列高；列表随后 fill 剩余区域。
-        self.stage_rail = ttk.Frame(self.script_box)
-        self.stage_rail.pack(side='right', fill='y', padx=(SPACING['xs'], SPACING['none']))
-        self._build_stage_rail()
         self.script_header = ttk.Frame(self.script_box)
         self.script_header.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
         self.script_title = ttk.Label(self.script_header, text='项目文件', style='Muted.TLabel')
@@ -86,8 +79,6 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
                                              style='Tokens.Composer.Icon.TButton', command=self.collapse)
         self.script_toggle.pack(side='right')
         Tooltip(self.script_toggle, '收起项目文件面板')
-        # R3106（任务书 P1，Q25）：筛选条——阶段／类型／状态／关键字，四条件可组合。
-        self._build_filter_bar()
         self.script_row_details = {}
         self.script_row_category = {}
         tips = lambda item: self.script_row_details.get(item, '')
@@ -162,25 +153,11 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
         if root == self._panel_root:
             self.sync_entry()
             if self._open:
-                self._reload_current_view()
+                self.fill_script_list()
             return
         self._panel_root = root
-        # R3094：换项目时阶段筛选回到「全部」，避免沿用上一个项目的选中阶段。
-        self.stage_filter = None
-        self.kind_filter = None
-        self.status_filter = None
-        self.keyword_filter = ''
-        self._reset_filter_boxes()
-        self._sync_stage_buttons()
         self.collapse()
         self.sync_entry()
-
-    def _reload_current_view(self):
-        """按当前筛选条件重新填表；四条件全空时回到剧本准备四类视图（R2962 行为）。"""
-        if self._filters_active():
-            self._fill_index_list()
-        else:
-            self.fill_script_list()
 
     def toggle(self):
         if self._open:
@@ -193,10 +170,20 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
         if self._open or not self._entry_allowed():
             return
         self._open = True
-        self.script_box.pack(side='right', fill='y')
-        self.sep.pack(side='right', fill='y')
+        # R3060：分隔线贴停靠列左缘、文件框吃满列宽；停靠列此刻才打包进 panel_area
+        # （常驻空包会让 Tk 卡住需求宽度，画布被永久挤窄）。
+        if self._dock is not None:
+            # 先把子件装进未映射的停靠列（需求宽度先算好），再把整列打包进 panel_area，
+            # 避免空列先占位、内容装入后需求宽度在小窗下传不进来。
+            self.sep.pack(side='left', fill='y')
+            self.script_box.pack(side='left', fill='both', expand=True)
+            if not self._dock.winfo_manager():
+                self._dock.pack(side='right', fill='y')
+        else:
+            self.script_box.pack(side='right', fill='both', expand=True)
+            self.sep.pack(side='right', fill='y')
         self._bind_outside()
-        self._reload_current_view()
+        self.fill_script_list()
         fit = getattr(self.page, 'fit_content', None)
         if callable(fit):
             fit()
@@ -210,6 +197,9 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
         self._unbind_outside()
         self.script_box.pack_forget()
         self.sep.pack_forget()
+        # 连停靠列一起撤：只 forget 子件会让空列需求宽度卡住、画布无法收回。
+        if self._dock is not None and self._dock.winfo_manager():
+            self._dock.pack_forget()
         fit = getattr(self.page, 'fit_content', None)
         if callable(fit):
             fit()
@@ -264,7 +254,7 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
         """渐进加载剧本文件表；面板收起或无项目时跳过目录扫描，下次打开重扫。"""
         if not self._open:
             return
-        from script_workspace_service import iter_script_document_rows
+        from domain.script_workspace_service import iter_script_document_rows
         from writing_api import preparation_file_labels
         if getattr(self.page, 'root', None) is None:
             self.script_tree.delete(*self.script_tree.get_children())
@@ -363,7 +353,10 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
         else:
             needed = SCRIPT_LIST_MIN_WIDTH
         try:
-            share = int(self.script_box.master.winfo_width() * SCRIPT_PANEL_MAX_SHARE)
+            # R3060：script_box.master 已是自适应宽度的 panel_dock，拿它当分母会形成
+            # 「面板宽→停靠列宽→上限」的循环；内容区宽度应量 panel_area（画布列同级外框）。
+            host = getattr(self.page, 'panel_area', None) or self.script_box.master
+            share = int(host.winfo_width() * SCRIPT_PANEL_MAX_SHARE)
         except tk.TclError:
             share = SCRIPT_PANEL_MAX_WIDTH
         cap = max(SCRIPT_LIST_MIN_WIDTH, min(share, SCRIPT_PANEL_MAX_WIDTH))
@@ -411,9 +404,6 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
         if not row:
             return
         path = Path(row)
-        if not path.is_absolute():
-            # R3094：阶段筛选视图的行是项目相对 posix 路径。
-            path = Path(self.page.root) / path
         if path.is_file():
             self.page.writing_page_services.open_path(path)
 
@@ -422,13 +412,13 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
         selected = tree.selection() if tree else ()
         if not selected:
             raise ValueError('请先选择剧本文件')
-        from script_workspace_service import selected_script_paths
+        from domain.script_workspace_service import selected_script_paths
         return selected_script_paths(self.page.root, [selected[0]])[0]
 
     def selected_scripts(self):
         """当前表里选中的各行（Ctrl／Shift 多选），并标出是否选中了列表里的全部文件。"""
         tree = self.current_script_tree()
-        from script_workspace_service import script_deletion_selection
+        from domain.script_workspace_service import script_deletion_selection
         return script_deletion_selection(self.page.root, self.all_script_items(), tree.selection() if tree else ())
 
     def rename_script(self):
@@ -436,7 +426,7 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
         new = ask_string(self.page.win, '重命名文件', '新文件名：', initialvalue=path.name)
         if not new:
             return
-        from script_workspace_service import rename_script_document
+        from domain.script_workspace_service import rename_script_document
         result = rename_script_document(self.page.root, path, new)
         if not result.ok:
             raise ValueError(result.reason)
@@ -532,13 +522,6 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
             tree.selection_set(row)
         self.keep_one_selection(tree)
         menu = self.page.writing_page_services.context_menu(self.page.win)
-        # R3094：阶段筛选视图里的行来自项目文件索引，不承载剧本采用／定稿语义；
-        # 只给「查看」与「删除」（删除仍走 storage_maintenance 唯一回收权威）。
-        if self.script_row_category.get(row) == STAGE_FILTER_ROW_CATEGORY:
-            # R3094：阶段筛选行只承载「查看」；改名／采用／定稿／删除属 P2 轮（删除要接
-            # storage_maintenance 的唯一回收权威，不在本轮回填半成品入口）。
-            menu.command('查看', lambda: self.page.safe(self.open_script_file))
-            return menu.popup(event)
         if len(tree.selection()) > 1:
             # 多选时只给「删除」：查看、改名、定稿都只针对一份文件。
             menu.command('删除', lambda: self.page.safe(self.delete_script))

@@ -81,7 +81,6 @@ _register(4, "script_line_numbers", "script_find_bar", "script_outline", "script
 _register(0, "file_naming", "file_index_contract")
 _register(1, "file_index")
 _register(3, "legacy_migration")
-_register(4, "desktop_files_panel_filters")
 
 # R2191（R2178 J3）：按真实静态依赖重登记，纠正按名字后缀落在 L3／L4 的旧账，不改任何生产代码。
 # artifact_lineage 无依赖且被 L0 契约引用 → L0；pet_state／ui_plugin_registry／integrations 只依赖 L0／L1 → L1；
