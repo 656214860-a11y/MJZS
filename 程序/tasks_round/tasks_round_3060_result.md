@@ -38,7 +38,15 @@
 
 ## 合入状态（如实）
 
-- 分支 `codex/wip-R3060`（基线 R2962 快照 09ee3e67）已提交；受影响回归 2541 用例全绿。
-- **master 已前进至 R3081（+69 提交）**，同区文件 16 个重叠（desktop.py 重构为 `_init_body_and_status`、标题行删除改底部状态栏 R3016、文件入口迁右缘 rail 列 R2998、`@` 引用插入已由共享输入框 `_CandidateFlow` 接管 R2980、`desktop_shared_input.py` +154 行演进）。直接 merge 必冲突，按「功能工作树」流程改在 master 基线上移植（merge --squash 三方合并＋逐处语义核对），移植分支测试通过后走 `dev.py merge`。
-- 主工作区（D:\漫剧制作助手）当时有他人在途未提交改动（R3082/3083 租约），合并动作需等其收尾。
-- `--all --safe` 全量：合入 master 前按 §5（Tk 生命周期改动）在移植分支补跑。
+- 分支 `codex/wip-R3060` 已提交：`4f5d32d8`（R3060 实现）→ `adcd01a5`（同步主干合并 master beea4e6b）→ `84be85ec`（合并修正）。
+- master 自分支点前进至 R3081（R3016 统一状态栏、R2971–R2980 共享输入升级、R2998 图标列等），直接 merge 有 5 文件 11 处冲突，已在分支上完成同步合并并逐处核对：
+  - `desktop.py`：取主干 StatusBar/UsageIndicator，共享输入框仍宿主 `input_dock`（不用 `before=status_bar`，非同级）。
+  - `desktop_files_panel.py`：入口图标列 `rail` 改挂 `panel_area`（panel_dock 父级），面板打开时图标恒为内容区最右竖条；`_pack_button` 取主干 rail 列版；`_fit_script_width` 分母由 `script_box.master`（自适应 panel_dock，循环）改 `panel_area`。
+  - `desktop_idea_attachments.py`：删除旧 `insert_idea_reference`（主干 `_CandidateFlow._apply_mention` 已接管 @ 插入）。
+  - `desktop_shared_input.py`：`_apply_mention` 补记 `_idea_cursor_ref_names`，光标处 @引用不进顶部引用区。
+  - `desktop_page_nav.py`：共享输入框 pack 取本分支版（宿主已在 input_dock）。
+  - `S01_剧本准备.md`：REQ-S01-82/62/63/71/90 与 DES-S01-82/90 双侧并集（保留主干 R2971/R2998/REQ-S01-91/92 新条目＋本分支 R3060 描述）。
+  - 测试契约同步：`test_files_panel` 图标列父级断言 `canvas.master→panel_area`（§2.4 有意变更）；`test_script_composer` 失焦改用 `canvas`（`title_row` 已被 R3016 删除）。
+- 合并后验证：默认冒烟 9/9 ✅；定向 17 文件 365 用例初跑 2 红（面板宽分母循环、title_row 残留）→ 修复后 `files_panel`+`script_composer` 15/15 ✅。
+- **合入 master 受阻**：主工作区存在他车道在途合并（MERGE_HEAD=33de0a84／R3073，oak-cogwheel 车道，已 staged 未提交、占用轮次号 R3083），`dev.py merge` 依规则拒绝在 MERGE_HEAD 未清时运行；待其提交或中止后执行。
+- `--all --safe` 全量：合入 master 前按 §5（Tk 生命周期改动）补跑。
