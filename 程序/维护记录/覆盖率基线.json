@@ -2091,7 +2091,7 @@
   {
    "module": "skill_archive.py",
    "covered": 0,
-   "total": 138,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -2115,7 +2115,7 @@
   {
    "module": "skill_lifecycle_service.py",
    "covered": 0,
-   "total": 261,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -2169,13 +2169,13 @@
   {
    "module": "skill_remote_service.py",
    "covered": 0,
-   "total": 203,
+   "total": 4,
    "percent": 0.0
   },
   {
    "module": "skill_security_service.py",
    "covered": 0,
-   "total": 45,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -2875,9 +2875,21 @@
    "percent": 0.0
   },
   {
+   "module": "ui/skill_archive.py",
+   "covered": 0,
+   "total": 138,
+   "percent": 0.0
+  },
+  {
    "module": "ui/skill_import_service.py",
    "covered": 0,
    "total": 675,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/skill_lifecycle_service.py",
+   "covered": 0,
+   "total": 261,
    "percent": 0.0
   },
   {
@@ -2908,6 +2920,18 @@
    "module": "ui/skill_panel_workflow.py",
    "covered": 0,
    "total": 90,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/skill_remote_service.py",
+   "covered": 0,
+   "total": 203,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/skill_security_service.py",
+   "covered": 0,
+   "total": 45,
    "percent": 0.0
   },
   {
@@ -3848,5 +3872,5 @@
   }
  ],
  "modules_covered": 71,
- "modules_total": 639
+ "modules_total": 643
 }

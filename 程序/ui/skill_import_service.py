@@ -42,7 +42,7 @@ import orchestrator.skill_registry as skill_registry
 from agent.core import replace, save
 from contract.pet_bus import read_json
 from contract import platform_tools
-from skill_security_service import (  # T9 安全提示助手；re-export 供调用方走本模块名
+from ui.skill_security_service import (  # T9 安全提示助手；re-export 供调用方走本模块名
     ALERT_DIR_NAMES, EXECUTABLE_ALERT_SUFFIXES, import_alerts, package_alerts,
     untrusted_source_notice)
 from storage_maintenance import recycle_paths, restore_recycle_batch

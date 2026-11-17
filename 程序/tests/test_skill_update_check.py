@@ -20,11 +20,11 @@ import zipfile
 from pathlib import Path
 from unittest import mock
 
-import skill_archive
+import ui.skill_archive as skill_archive
 import skill_import_service
 import skill_panel
 import skill_registry
-import skill_remote_service
+import ui.skill_remote_service as skill_remote_service
 from test_skill_repo_import import make_program, write_manifest, write_package
 
 

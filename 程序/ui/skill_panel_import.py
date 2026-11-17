@@ -147,7 +147,7 @@ class PanelImportMixin:
     def add_skill_from_archive(self):
         """ZIP 压缩包导入：``skill_archive`` 安全解包后按包／清单候选走与仓库导入
         相同的预检→换入→试冻结→登记管线。"""
-        import skill_archive
+        import ui.skill_archive as skill_archive
         import skill_import_service
         path = FileDialog(self.winfo_toplevel()).open_file(
             title='新增 SKILL（ZIP）',
@@ -195,7 +195,7 @@ class PanelImportMixin:
         或 ``.zip`` 直链；下载进 ``data/skills/下载缓存/`` 后走与本地 ZIP 相同的
         解包→预检→换入→试冻结→登记管线（``skill_remote_service``）。"""
         import skill_import_service
-        import skill_remote_service
+        import ui.skill_remote_service as skill_remote_service
         text = ask_string(self.winfo_toplevel(), TITLE,
                           'SKILL 链接（GitHub 仓库地址或 .zip 直链）：')
         if not text or not str(text).strip():
@@ -223,8 +223,8 @@ class PanelImportMixin:
         cache = {}
 
         def _probe(key, row):
-            import skill_archive
-            import skill_remote_service
+            import ui.skill_archive as skill_archive
+            import ui.skill_remote_service as skill_remote_service
             status = skill_remote_service.probe_row(
                 key, row, program, self.registry, cache=cache)
             if status is None:
@@ -258,10 +258,10 @@ def _update_detail_text(key, row, status):
 
 def _reimport_ledger_row(panel, key, row):
     """按台账行重走对应来源的导入管线（旧版自动进回收站）；返回是否完成换入。"""
-    import skill_archive
+    import ui.skill_archive as skill_archive
     import skill_import_service
     import skill_registry
-    import skill_remote_service
+    import ui.skill_remote_service as skill_remote_service
     program = Path(skill_import_service.__file__).resolve().parent
     kind = str(row.get('source_kind') or
                ('dir' if row.get('kind') == 'package' else 'file'))

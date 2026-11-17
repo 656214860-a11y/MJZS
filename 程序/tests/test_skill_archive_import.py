@@ -13,7 +13,7 @@ import zipfile
 from pathlib import Path
 from unittest import mock
 
-import skill_archive
+import ui.skill_archive as skill_archive
 import skill_import_service
 import skill_panel
 import skill_registry
