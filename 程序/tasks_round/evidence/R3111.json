@@ -1,0 +1,15 @@
+{
+  "round": 3111,
+  "commit_base": "070cb446",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k worktree_ledger",
+    "exit": 0,
+    "passed": 7,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T12:13:48"
+}

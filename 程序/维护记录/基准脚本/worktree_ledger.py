@@ -5,6 +5,7 @@ import argparse
 import json
 import stat
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -93,7 +94,48 @@ def is_link(path):
     return stat.S_ISLNK(info.st_mode) or bool(getattr(info, "st_file_attributes", 0) & 0x400)
 
 
-def collect(root=ROOT, *, scan_roots=(), now=None):
+def branch_snapshot(root, base="master"):
+    """一次 for-each-ref 取全部本地分支的 ahead/behind/提交时间/工作树归属。"""
+    fmt = "%(refname:short)\t%(ahead-behind:" + base + ")\t%(committerdate:unix)\t%(worktreepath)"
+    snapshot = {}
+    for line in git(root, "for-each-ref", "--format=" + fmt, "refs/heads").splitlines():
+        fields = line.split("\t")
+        if len(fields) < 4:
+            continue
+        name, counts, stamp, worktree = fields[0], fields[1].split(), fields[2], fields[3]
+        try:
+            ahead, behind = int(counts[0]), int(counts[1])
+        except (IndexError, ValueError):
+            continue
+        snapshot[name] = {"ahead": ahead, "behind": behind,
+                          "committed": float(stamp) if stamp.isdigit() else 0.0,
+                          "worktree": worktree or ""}
+    return snapshot
+
+
+def classify_branch(name, info, now):
+    ahead = info["ahead"]
+    if ahead == 0:
+        return "MERGED", "ahead=0 已合入主干；无工作树时可 git branch -d"
+    if info["worktree"]:
+        return "ACTIVE-WT", "有独有提交且挂在工作树"
+    idle_hours = round(max(0.0, now - info["committed"]) / 3600, 1) if info["committed"] else 0.0
+    if idle_hours >= 168:
+        return "STALE", "无工作树、独有提交且超过 7 天无活动；先核验补丁等价再删"
+    return "PARKED", "无工作树的在途分支；合并或归档前保留"
+
+
+def collect_branches(root, *, now=None):
+    now = datetime.now().timestamp() if now is None else now
+    rows = []
+    for name, info in sorted(branch_snapshot(root).items()):
+        action, reason = classify_branch(name, info, now)
+        rows.append({"branch": name, "ahead": info["ahead"], "behind": info["behind"],
+                     "worktree": info["worktree"], "action": action, "reason": reason})
+    return rows
+
+
+def collect(root=ROOT, *, scan_roots=(), now=None, workers=8):
     root = Path(root).resolve()
     now = datetime.now().timestamp() if now is None else now
     common = Path(git(root, "rev-parse", "--git-common-dir"))
@@ -103,10 +145,12 @@ def collect(root=ROOT, *, scan_roots=(), now=None):
         leases = active_leases(common, now)
     except (OSError, ValueError, KeyError, TypeError) as error:
         leases, lease_error = [], str(error)
-    rows, known = [], set()
-    for record in worktrees(root):
+    snapshot = branch_snapshot(root)
+    records = worktrees(root)
+    known = {Path(record["path"]).resolve() for record in records}
+
+    def probe(record):
         path = Path(record["path"])
-        known.add(path.resolve())
         row = {"path": str(path), "head": record.get("HEAD", ""),
                "branch": str(record.get("branch", "")).removeprefix("refs/heads/"),
                "detached": bool(record.get("detached")), "locked": bool(record.get("locked")),
@@ -124,10 +168,18 @@ def collect(root=ROOT, *, scan_roots=(), now=None):
                                              "--format=%(refname:short)").splitlines()
             row["orphan"] = not row["containing_branches"]
             ref = row["branch"] or head
-            row["behind"] = int(git(root, "rev-list", "--count", ref + "..master"))
-            row["ahead"] = int(git(root, "rev-list", "--count", "master.." + ref))
+            info = snapshot.get(row["branch"])
+            if info is not None:
+                row["behind"], row["ahead"] = info["behind"], info["ahead"]
+            else:
+                row["behind"] = int(git(root, "rev-list", "--count", ref + "..master"))
+                row["ahead"] = int(git(root, "rev-list", "--count", "master.." + ref))
             gitdir = Path(git(path, "rev-parse", "--absolute-git-dir"))
-            activity = [float(git(path, "show", "-s", "--format=%ct", "HEAD"))]
+            activity = []
+            if info is not None and info["committed"]:
+                activity.append(info["committed"])
+            else:
+                activity.append(float(git(path, "show", "-s", "--format=%ct", "HEAD")))
             for candidate in (path, gitdir / "index", gitdir / "logs" / "HEAD"):
                 if candidate.exists():
                     activity.append(candidate.stat().st_mtime)
@@ -146,7 +198,13 @@ def collect(root=ROOT, *, scan_roots=(), now=None):
         except (OSError, RuntimeError, ValueError) as error:
             row["error"] = str(error)
         row["action"], row["reason"] = classify(row)
-        rows.append(row)
+        return row
+
+    if workers and workers > 1:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            rows = list(pool.map(probe, records))
+    else:
+        rows = [probe(record) for record in records]
     residuals = []
     management = common / "worktrees"
     if management.is_dir():
@@ -167,7 +225,8 @@ def collect(root=ROOT, *, scan_roots=(), now=None):
         residuals.extend(scan_residuals(Path(scan_root).absolute(), known))
     return {"at": datetime.fromtimestamp(now, timezone.utc).isoformat(), "common_dir": str(common),
             "activity_basis": "HEAD提交时间、工作树目录、index与HEAD reflog mtime；不探查用户数据",
-            "worktrees": rows, "residuals": residuals}
+            "worktrees": rows, "residuals": residuals,
+            "branches": collect_branches(root, now=now)}
 
 
 def quote(value):
@@ -175,7 +234,7 @@ def quote(value):
 
 
 def plan(data, root):
-    commands = ["# 仅计划：逐条确认后才执行；不使用 --force，不删除分支引用。"]
+    commands = ["# 仅计划：逐条确认后才执行；不使用 --force；分支删除只用 git branch -d（拒绝未合并项）。"]
     for row in data["worktrees"]:
         if row["action"] == "RECYCLE":
             commands.append("git -C %s worktree remove %s" % (quote(root), quote(row["path"])))
@@ -185,6 +244,11 @@ def plan(data, root):
     for row in data["residuals"]:
         if row["kind"] == "unregistered-directory":
             commands.append("# 未登记目录仅人工处置，禁止对链接目标递归删除：" + row["path"])
+    merged = [row["branch"] for row in data.get("branches", [])
+              if row["action"] == "MERGED" and not row["worktree"]]
+    if merged:
+        commands.append("# 以下分支 ahead=0 已合入主干且无工作树；git branch -d 自身会拒绝未合并项：")
+        commands.extend("git -C %s branch -d %s" % (quote(root), quote(name)) for name in merged)
     return commands
 
 
@@ -195,6 +259,7 @@ def main(argv=None):
                         help="显式工作树容器，可重复；只列一层残差，不扫描普通用户目录")
     parser.add_argument("--format", choices=("table", "json", "both"), default="both")
     parser.add_argument("--plan", action="store_true")
+    parser.add_argument("--branches", action="store_true", help="附带分支维度盘点表")
     args = parser.parse_args(argv)
     data = collect(args.root, scan_roots=args.scan_root)
     if args.plan:
@@ -211,6 +276,16 @@ def main(argv=None):
                   (row["path"], row["kind"], row["action"], row["reason"]))
         for command in data.get("plan", []):
             print(command)
+        if args.branches:
+            counts = {}
+            for row in data["branches"]:
+                counts[row["action"]] = counts.get(row["action"], 0) + 1
+            print("\n分支盘点：" + "，".join("%s %d" % (key, counts[key]) for key in sorted(counts)))
+            print("| 分支 | ahead | behind | 建议 | 原因 |")
+            print("|---|---:|---:|---|---|")
+            for row in data["branches"]:
+                print("| %s | %d | %d | %s | %s |" %
+                      (row["branch"], row["ahead"], row["behind"], row["action"], row["reason"]))
     if args.format in ("json", "both"):
         print(json.dumps(data, ensure_ascii=False, indent=2))
     return 0
