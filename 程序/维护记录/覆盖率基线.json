@@ -3275,8 +3275,32 @@
    "covered": 0,
    "total": 65,
    "percent": 0.0
+  },
+  {
+   "module": "ui/ui_media_player.py",
+   "covered": 0,
+   "total": 57,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/ui_param_panel.py",
+   "covered": 0,
+   "total": 37,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/ui_multimodal.py",
+   "covered": 0,
+   "total": 28,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/ui_task_progress.py",
+   "covered": 0,
+   "total": 27,
+   "percent": 0.0
   }
  ],
  "modules_covered": 71,
- "modules_total": 544
+ "modules_total": 548
 }

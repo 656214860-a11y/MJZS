@@ -2727,6 +2727,33 @@
       "reason_constant": "PLATFORM_TKINTER",
       "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
       "reference": ""
+    },
+    {
+      "file": "tests/test_video_audio_card.py",
+      "test": "MediaPlayerCardTests.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_param_panel.py",
+      "test": "ParamPanelTests.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_background_task.py",
+      "test": "BackgroundTaskTests.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
     }
   ]
 }
