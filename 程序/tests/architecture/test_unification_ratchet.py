@@ -9,7 +9,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from tests.architecture._layers import LAYERS
-from tests.architecture._scan import PACKAGE_NAMES, module_name, module_scan_files
+from tests.architecture._scan import PACKAGE_NAMES, entity_file, module_name, module_scan_files
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -167,7 +167,7 @@ def _formal_path_json_reads():
 
 def _projects_direct_storage_calls():
     """已迁移的 projects 不能退回 L2 自行读写、回滚或复制。"""
-    path = ROOT / 'projects.py'
+    path = entity_file('projects')
     tree = ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
     forbidden_names = {'read', 'save', 'save_bytes', 'restore_bytes'}
     forbidden_attrs = {'read_bytes', 'read_text', 'write_bytes', 'write_text', 'copy2', 'copytree'}

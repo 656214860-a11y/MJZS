@@ -322,9 +322,13 @@ class ScriptWorkspaceServiceTests(unittest.TestCase):
             source.write_text('x', encoding='utf-8')
             occupied.write_text('x', encoding='utf-8')
 
-            self.assertEqual(source.with_name('新名.md'), renamed_script_path(temp, source, ' 新名.md '))
+            # R3131（Q3）：命名校验改用 L0 命名中心——首尾空格不再被静默裁掉，
+            # 而是明确拒绝（Windows 会静默去尾空格，静默裁剪会让用户以为名字没变）。
+            self.assertEqual(source.with_name('新名.md'), renamed_script_path(temp, source, '新名.md'))
             self.assertEqual(source, renamed_script_path(temp, source, source.name))
-            with self.assertRaisesRegex(ValueError, '文件名不能为空'):
+            with self.assertRaisesRegex(ValueError, '首尾不能有空格'):
+                renamed_script_path(temp, source, ' 新名.md ')
+            with self.assertRaisesRegex(ValueError, '不能包含'):
                 renamed_script_path(temp, source, 'bad/name.md')
             with self.assertRaisesRegex(ValueError, '已存在'):
                 renamed_script_path(temp, source, occupied.name)

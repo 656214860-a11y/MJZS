@@ -1,45 +1,60 @@
 """Shared, lazy project workspace. Standard-library-only desktop UI."""
 import app_logging
-from desktop_idea_menus import IdeaMenusMixin
-from desktop_asset_pages import AssetPagesMixin, AssetPageServices
-from desktop_script_pages import ScriptPagesMixin, ScriptPageServices
-from desktop_media_pages import MediaPagesMixin, MediaPageServices
-from desktop_project_pages import ProjectPagesMixin, ProjectPageServices
-from desktop_storyboard_page import StoryboardPageMixin, StoryboardPageServices
-from desktop_writing_page import WritingPageMixin, WritingPageServices, TALK_MIN_LINES, TALK_MAX_LINES
-from desktop_files_panel import ProjectFilesPanel
-from desktop_page_support import ASSET_FIRST_ROWS, STAGE_ACTION_WIDTH, _prefs, THUMB_SIZE, ASSET_ROW_HEIGHT
-from desktop_idea_chat import IdeaChatMixin, IDEA_FIELDS, BUBBLE_FLOOR, BUBBLE_LINE, BUBBLE_MAX_RATIO, script_raw_saved_notice
+import orchestrator.page_navigation_controller as page_nav
+from ui.desktop_idea_menus import IdeaMenusMixin
+from ui.desktop_asset_pages import AssetPagesMixin, AssetPageServices
+from ui.desktop_script_pages import ScriptPagesMixin, ScriptPageServices
+from ui.desktop_media_pages import MediaPagesMixin, MediaPageServices
+from ui.desktop_project_pages import ProjectPagesMixin, ProjectPageServices
+from ui.desktop_storyboard_page import StoryboardPageMixin, StoryboardPageServices
+from ui.desktop_writing_page import WritingPageMixin, WritingPageServices, TALK_MIN_LINES, TALK_MAX_LINES
+from ui.desktop_files_panel import ProjectFilesPanel
+from ui.desktop_page_support import ASSET_FIRST_ROWS, ASSET_ROWS_PER_FRAME, ASSET_ROW_LABEL, STAGE_ACTION_WIDTH, _prefs, THUMB_SIZE, ASSET_ROW_HEIGHT
+from desktop_idea_chat import IdeaChatMixin, IDEA_FIELDS, BUBBLE_FLOOR, BUBBLE_LINE, BUBBLE_MAX_RATIO, script_raw_saved_notice, model_error_display
 import desktop_shared_send
 from orchestrator.desktop_auto_state import AutoStateHolderMixin, create_auto_state
-from desktop_auto_flows import AutoFlowsMixin, UNATTENDED_BACKOFF_FLOOR, ASSET_RETRY_LIMIT
-import shutil, queue, threading, time, hashlib, json, logging
+from desktop_auto_flows import AutoFlowsMixin, UNATTENDED_NEXT, UNATTENDED_BACKOFF_FLOOR, ASSET_RETRY_LIMIT
+import os, shutil, queue, threading, subprocess, sys, time, uuid, hashlib, re, json, logging
+from datetime import date
 from pathlib import Path
+from file_cache import remove_temporary_file
+from contract.storyboard_paths import media_root
 import tkinter as tk
 from tkinter import ttk, messagebox
-from agent.core import read
-from projects import Projects, is_missing_storyboard_open_error
-from responsive_ui import FlowBar, ScrollForm, bind_show_all
-from local_video import open_studio
+from agent.core import read,save,save_text,save_bytes
+import project_settings
+from domain.projects import Projects, needs_cleanup_after_open_error, is_missing_storyboard_open_error
+from responsive_ui import FlowBar,ScrollForm,growable_extra,configure_check_column,refresh_check_heading,CheckboxColumn,fit_columns_by_content,auto_columns,bind_row_toggle,fit_row_height,row_height_for,bind_show_all
+from orchestrator.engine import approved_versions, review_label, adoption_summary
+from local_video import open_studio,skip_summary
+from app import App
 from integrations import comfy_executable
 from ui_theme import apply as apply_theme, install_window_placement
-import asset_resume
+from domain.project_naming import dated_path
+import asset_thumbs
+import domain.asset_resume as asset_resume
+import contract.frame_checks as frame_checks
 import pet_ui
 import ui.ui_usage_indicator as ui_usage_indicator
+import contract.project_stages as project_stages
 import tkinter as tk
-from contract.platform_tools import find_editor_shortcut, open_directory, open_path
+import ui_plugin_registry
+import orchestrator.stage_handler_registry as stage_handler_registry
+from contract.platform_tools import find_editor_shortcut, launch_windows_app, open_directory, open_path, open_target, tcp_listener
 from orchestrator.desktop_startup_service import DesktopStartupController
-from desktop_account_page import AccountPageMixin
-from desktop_login_gate import LoginGateMixin
-from desktop_page_nav import PageNavMixin
-from desktop_lifecycle import LifecycleMixin
-from orchestrator.desktop_automation_service import BackgroundTaskLifecycle, DesktopAutomationScheduler, PersistentBackgroundTaskQueue, inspect_project_storage, RetryRegistry
+from ui.desktop_account_page import AccountPageMixin
+from ui.desktop_login_gate import LoginGateMixin
+from ui.desktop_page_nav import PageNavMixin
+from ui.desktop_lifecycle import LifecycleMixin
+from orchestrator.desktop_automation_service import BackgroundTaskLifecycle, DesktopAutomationScheduler, BackgroundTaskQueue, PersistentBackgroundTaskQueue, inspect_project_storage, RetryRegistry
 from orchestrator.idea_chat_controller import IdeaChatController, speaker_name
-from ui_tokens import BUTTON_GAP, BUTTON_WIDTH_DIALOG, WRAPLENGTH, COLORS, FONTS, SPACING, DESKTOP_LAYOUT
+from ui_tokens import BUTTON_GAP, BUTTON_WIDTH_DIALOG, CHAR_WIDTH, WRAPLENGTH, COLORS, FONTS, SPACING, DESKTOP_LAYOUT, SCRIPT_ACTION_WIDTH, SCRIPT_ACTION_PADDING, SCRIPT_FILE_FONT, ICON_FOLDER, ICON_DELETE
 from ui_dialogs import FileDialog
 from ui_motion import Spinner
 from ui_shortcuts import ShortcutRegistry
-from ui_widgets import BaseDialog, BusyState, ContextMenu, NotificationDispatcher, PrimaryButton, SecondaryButton, TextArea, Tooltip, ask_confirmation, ask_string, setup_styles
+import ui.ui_stage_popups as ui_stage_popups# noqa: F401  导入即向 stage_exec 登记阶段弹窗呈现器
+from ui_widgets import (BaseDialog, BusyState, ContextMenu, Card, DataTable, NotificationDispatcher,
+                        PrimaryButton, SecondaryButton, TextArea, HintLabel, Tooltip, ask_confirmation, ask_string, setup_styles)
 from ui.ui_status_bus import StatusBus  # R2989 P1：统一状态栏消息总线
 from ui.ui_status_bar import StatusBar
 from ui_icons import IconLoader
@@ -89,11 +104,13 @@ def confirm_project_removal_from_last_script(parent, files):
 import contract.pet_bus as pet_bus
 # 页面序号一律由阶段表推出来（PAGES 与 pet_bus.STAGES 一一对应），
 # 再加一个阶段时只改 pet_bus.STAGES／STAGE_NAMES。
+import pet_state
 
 
 # 第 44 期：版本号只写这一份——系统标题栏与左上角那一行（齿轮就挨着它）都用它。
 from contract.app_metadata import APP_NAME, VERSION
-from desktop_page_registry import PAGE, PAGE_NAV_ICONS, PAGES, nav_label, page_title
+from ui.desktop_page_registry import (CACHED_PAGES, PAGE, PAGE_ACCOUNT, PAGE_NAV_ICONS,
+                                   PAGE_SITES, PAGES, nav_label, page_title)
 
 # 「页面第一次画完」按页指标名：用 PAGE 稳定键区分 14 页，不用会变的中文标题。
 
@@ -123,14 +140,15 @@ def _page_services(given):
 
 
 
-from desktop_tk_gc import protect_readonly_combobox, protect_tk_gc, drain_tk_gc, _PENDING_TK_GC
-from desktop_automation_tick import AutomationTickMixin
-from desktop_layout import LayoutMixin
-from desktop_pet_bridge import PetBridgeMixin, PET_STAGE_POLL, UNATTENDED_SWITCH
-from desktop_async_tasks import AsyncTasksMixin
+from ui.desktop_tk_gc import (protect_readonly_combobox, protect_tk_gc, drain_tk_gc, _pin_tk_app,
+                        _PENDING_TK_GC, _KEEP_APPS)
+from ui.desktop_automation_tick import AutomationTickMixin
+from ui.desktop_layout import LayoutMixin
+from ui.desktop_pet_bridge import PetBridgeMixin, PET_STAGE_POLL, UNATTENDED_SWITCH
+from ui.desktop_async_tasks import AsyncTasksMixin
 from desktop_tray import TrayMixin
 # R3056 收尾：桥接与左区段方法拆入 StatusBridgeMixin；status_kind/STATUS_* 一并迁出，别名保留给既有导入。
-from desktop_status_bridge import StatusBridgeMixin, status_kind  # noqa: F401
+from desktop_status_bridge import STATUS_ERROR_MARKERS, STATUS_RUNNING_MARKERS, StatusBridgeMixin, status_kind  # noqa: F401
 
 class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMixin, LoginGateMixin, IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin, ProjectPagesMixin, StoryboardPageMixin, WritingPageMixin, IdeaChatMixin, AutoFlowsMixin, AutomationTickMixin, LayoutMixin, PetBridgeMixin, AsyncTasksMixin, TrayMixin):
     def __init__(self,win,root=ROOT,*,require_login=False,**page_services):
@@ -199,7 +217,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         win._desktop_loading_project=False
         win._desktop_startup_settled=False   # 启动页建完、tick 恢复后置真；三虎开机招呼等它
         self.video_sessions={};self.cloud_monitor_busy=False;self.cloud_monitor_due=0;self.cloud_monitor_cursor=0;self._cloud_monitor_ticket=0;self.cloud_monitor_tasks=BackgroundTaskLifecycle(self.app/'outputs'/'desktop-task-history.json');self.cloud_monitor_result=queue.Queue()
-        self.settings_file=self.app/'desktop_settings.json';from desktop_settings_service import load_desktop_settings;self.settings=load_desktop_settings(self.settings_file,{'comfy_url':'http://127.0.0.1:8189','jianying':''},read=read,preserve=lambda path:shutil.copy2(path,path.with_name(path.name+'.corrupt')))
+        self.settings_file=self.app/'desktop_settings.json';from domain.desktop_settings_service import load_desktop_settings;self.settings=load_desktop_settings(self.settings_file,{'comfy_url':'http://127.0.0.1:8189','jianying':''},read=read,preserve=lambda path:shutil.copy2(path,path.with_name(path.name+'.corrupt')))
         win.title(APP_NAME+' · '+VERSION);win.state('normal')
         win.geometry('%dx%d'%(min(DESKTOP_LAYOUT['default_width'],win.winfo_screenwidth()-DESKTOP_LAYOUT['window_margin_x']),min(DESKTOP_LAYOUT['default_height'],win.winfo_screenheight()-DESKTOP_LAYOUT['window_margin_y'])))
         # 第 19 期：安装后的图标（三虎）——主窗口标题栏／任务栏都用它，拿不到就照旧用 Tk 默认图标。
@@ -264,8 +282,15 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         # 页面仍由画布和鼠标滚轮滚动，但不显示贴在窗口最右侧的整页长滑块。
         # 各页面共用这一层，因而无需在 11 个页面里分别隐藏；表格、对话框等局部滚动条照常保留。
         area=ttk.Frame(self.body);area.pack(fill='both',expand=True)
-        self.canvas=tk.Canvas(area,bg=COLORS['background_primary'],highlightthickness=0)
-        self.canvas.pack(side='left',fill='both',expand=True)  # R2962：side='left' 供右侧停靠面板拿全高竖条
+        self.panel_area=area   # R3060：项目文件面板停靠在这一列右侧；输入框并入画布列后宽度与聊天框一致
+        # R3060：停靠列只在面板打开时由 files_panel 打包进 panel_area——Tk 在空包最后一个
+        # slave 被 forget 后不回缩需求宽度，常驻空列会把画布永久挤窄；打开时再占位，
+        # stage_area（画布＋输入框）整体让位，宽度与聊天框保持一致。
+        self.panel_dock=ttk.Frame(area)
+        self.stage_area=ttk.Frame(area);self.stage_area.pack(side='left',fill='both',expand=True)
+        self.input_dock=ttk.Frame(self.stage_area);self.input_dock.pack(side='bottom',fill='x')
+        self.canvas=tk.Canvas(self.stage_area,bg=COLORS['background_primary'],highlightthickness=0)
+        self.canvas.pack(side='top',fill='both',expand=True)
         self.page_scrollbar=None
         self.content=ttk.Frame(self.canvas);self.content_id=self.canvas.create_window(0,0,window=self.content,anchor='nw')
         self.content.bind('<Configure>',self.align_header,add='+');self.files_panel=ProjectFilesPanel(self);self.files_panel.build()  # R2962 项目文件全局面板（REQ-S01-90）
@@ -302,12 +327,12 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         self.status_bar.set_segment('path','')
         self.usage_indicator=ui_usage_indicator.UsageIndicator(self.status_bar.left_zone,self)
         self.usage_indicator.pack(side='left',padx=(SPACING['xs'],SPACING['none']))
-        # 共享底部输入框（任务书轮 4）：13 个阶段页共用同一实例，位于画布与状态栏之间；
+        # 共享底部输入框（任务书轮 4）：13 个阶段页共用同一实例；
+        # R3060：宿主改为画布列的 input_dock，宽度与聊天框一致（项目文件面板开合时同步收窄）。
         # 页面切换只调 set_stage 换上下文（desktop_page_nav._sync_shared_input），
-        # 非阶段页与锁定／首页路由由 pack_forget 隐藏。``before`` 把它的包裹位次插到
-        # 状态栏之上，重 pack 也不会掉到状态栏下面。
+        # 非阶段页与锁定／首页路由由 pack_forget 隐藏。
         self.shared_input=desktop_shared_send.make_shared_input(self)
-        self.shared_input.pack(side='top',fill='x',before=self.status_bar)
+        self.shared_input.pack(side='top',fill='x')
         # 忙碌时在状态栏右端转一个小圆圈（BusyState 起停）；平时不占位。
         self.busy_state.spinner=Spinner(self.body,host=self.status_bar)
         # 不放 ttk.Sizegrip：它由 Tk 逐像素实时改窗口大小、内容跟着重排，和另三个角（系统边框缩放）表现不一致；右下角也走系统边框。
@@ -358,7 +383,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
             if read_text(path,encoding='utf-8')==value:
                 self.status.set('文字未改动，未创建新版本')
                 return path
-        import idea_chat
+        import domain.idea_chat as idea_chat
         from stage_execution_service import publish_idea_creative
         dest=idea_chat.save_manual_creative(self.idea_chat_context(),value,publish=publish_idea_creative)
         editor=getattr(self,'brief_editor',None)
@@ -446,8 +471,8 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         """
         sessions=getattr(self,'flow_processes',{})
         if not sessions:return
-        from workflow_engines import forget_process
-        from workflow_settings import STAGE_CONFIG_STAGES
+        from orchestrator.workflow_engines import forget_process
+        from orchestrator.workflow_settings import STAGE_CONFIG_STAGES
         remaining={}
         for key,process in list(sessions.items()):
             try:code=process.poll()
@@ -552,7 +577,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         # 这只是首帧后的只读发现，不能占用 ``worker``：后者是用户提交操作的
         # 全局门禁，若复用它，输入框刚出现就会被误报为“当前操作尚未结束”。
         def discover():
-            import idea_chat
+            import domain.idea_chat as idea_chat
             from stage_execution_service import project_context
             try:
                 path=idea_chat.initial_brief_document(project_context(root));error=None
@@ -775,22 +800,22 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         return self.status_bar.message
 
     def storyboard_creation(self):
-        from storyboard_files import show
+        from ui.storyboard_files import show
         show(self)
     # 第 29 期第 1 条：页面上那几处重复的「Model ＋ SKILL」控制行整个拿掉。R2942 起页面级
     # 「阶段配置」按钮＋模型下拉框也全部删除：模型选择走共享输入框的下拉框按钮，
     # SKILL 走 ✦ 图标；skill_panel.show 面板仍由手动制作预检「修改配置」等入口打开。
     # flow_settings 留着：首帧页的「Skill 调用设置」在模型接口窗口里还要用它（第 26 期那处）。
     def flow_settings(self,stage,function=None):
-        from workflow_settings_dialog import show_settings
+        from ui.workflow_settings_dialog import show_settings
         if self.root is None:raise ValueError('请先选择项目')
-        from workflow_agents import refresh
+        from ui.workflow_agents import refresh
         show_settings(self,self.root,stage=stage,on_saved=lambda:refresh(self),function=function)
     def open_storyboard_skill(self,key=None):
         batch={}
         def work():
             from stage_execution_service import storyboard_produced_scripts as produced_scripts
-            from storyboard_selection import selected_many
+            from orchestrator.storyboard_selection import selected_many
             from orchestrator.workflow_tasks import storyboard_batch_prompt
             scripts=selected_many(self.root,'script');existing=selected_many(self.root,'storyboard')
             made=produced_scripts(self.root);already=[p for p in scripts if p in made]
@@ -820,14 +845,14 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
 
         第 61 期 v0.8：全程序只有 prompt_window.copy_text 写剪贴板（既有规矩），这里只转调一次。
         """
-        from prompt_window import copy_preview,copy_text as write_clipboard
+        from ui.prompt_window import copy_preview,copy_text as write_clipboard
         reason=write_clipboard(self.win,str(text))
         self.status.set('复制失败：'+reason if reason else '已复制：'+copy_preview(text))
         return reason
 
 
     def final_storyboard(self):
-        from storyboard_files import show_final
+        from ui.storyboard_files import show_final
         # 第 68 期任务 6：这一页补上了主动作「手动同步资产」，阶段配置就跟着挪到那一行
         # （原来挂在页标题右边，两处会重复），见 storyboard_files.show_final。
         show_final(self)
@@ -853,14 +878,14 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
             refresh_storyboard_studios(self, project)
             final_source = folder / 'episode.json'
             self.remember_frame_json(final_source)
-            from storyboard_selection import remember_final_view
+            from orchestrator.storyboard_selection import remember_final_view
             remember_final_view(project, final_source)
             # 只在用户本来就在分镜定稿页时重建页面：无人值守不该把人从别的页面拽走（手动按钮本来就在这一页）。
             if getattr(self,'page_index',None)==PAGE['final']:self.show(PAGE['final'])
         return 'JSON已刷新：'+str(folder)+f'；另有 {missing} 项资产待补齐。'
     def sync_working_episode(self):
         """采用分镜后，若项目还没有视频任务，把工作集指针切到最新采用的分镜。"""
-        from storyboard_selection import sync_working_episode
+        from orchestrator.storyboard_selection import sync_working_episode
         target=sync_working_episode(self.root)
         if target is None:return None
         if Path(self.studio.episode_path).resolve()!=target:self.studio=open_studio(self.root)
@@ -877,7 +902,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
 
     def open_folder(self,p):open_directory(p)
     def open_version_picker(self):
-        from version_picker import open_picker
+        from ui.version_picker import open_picker
         return open_picker(self)
     def final_import(self):
         from domain.stage_workspace_service import ensure_delivery_workspace
@@ -896,7 +921,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         self.async_(work)
 
     def commercial_delivery_review(self,create=False):
-        from stage_completion_service import create_commercial_template, confirm_commercial_evidence
+        from orchestrator.stage_completion_service import create_commercial_template, confirm_commercial_evidence
         root=Path(self.root).resolve()
         if create:
             target=create_commercial_template(root)
@@ -911,7 +936,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         self.async_(work)
 
     def confirm_stage_media(self,stage):
-        from stage_completion_service import (media_output_folders, media_scope,
+        from orchestrator.stage_completion_service import (media_output_folders, media_scope,
                                               prepare_media_completion, confirm_media_completion)
         root=Path(self.root).resolve()
         scope=media_scope(root)

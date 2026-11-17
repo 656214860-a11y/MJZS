@@ -6,12 +6,14 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock
 
+from tests.architecture._scan import entity_file
+
 from contract.service_contract import SystemError, success
 
 
 class AssetBatchSettingsCallerTests(unittest.TestCase):
     def branches(self):
-        source = Path(__file__).resolve().parents[1] / 'asset_batch.py'
+        source = entity_file('asset_batch')
         tree = ast.parse(source.read_text(encoding='utf-8'))
         branches = []
         for node in ast.walk(tree):

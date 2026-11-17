@@ -1,0 +1,15 @@
+{
+  "round": 3021,
+  "commit_base": "5efaee2e",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k skill_command account_client recon_service writing_stream writing_tools download_inbox desktop_settings_service asset_detail_service keyframe_lifecycle_service local_video_settings_service pet_performance_service pet_test_service previs_progress_service script_preview_service script_structure_edit_controller storyboard_edit_service storyboard_lifecycle storyboard_rows_service storyboard_source_service video_prompt_publication video_source_evidence asset_batch_lifecycle asset_batch_selection_service asset_batch_settings_service",
+    "exit": 0,
+    "passed": 215,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T19:29:22"
+}

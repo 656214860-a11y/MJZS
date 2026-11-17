@@ -574,7 +574,7 @@ def shot_stats(paths):
     标了 frame_deleted 的一律不算。首帧文件名带哈希后缀（EP001_SH001_8a7043f5.png），
     只能按 JSON 里记的路径去找，按文件名猜必然数错。
     """
-    from storyboard_rows_service import shot_stats as _shot_stats
+    from domain.storyboard_rows_service import shot_stats as _shot_stats
     return _shot_stats(paths)
 def asset_counts(base):
     """资产库：登记的资产数，以及其中已经有图片的个数（与无人值守同一口径）。"""

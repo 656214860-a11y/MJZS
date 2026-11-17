@@ -579,7 +579,7 @@ def inspect_project_storage(payload):
     """可恢复的只读盘点：只保存项目路径，不捕获窗口或当前项目。"""
     from pathlib import Path
     from storage_maintenance import storage_summary
-    from engine import adopted_edit_version
+    from orchestrator.engine import adopted_edit_version
     if set(payload) != {'root'} or not isinstance(payload['root'], str):
         raise ValueError('存储盘点参数无效')
     root = Path(payload['root'])

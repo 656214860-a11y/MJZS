@@ -1,0 +1,15 @@
+{
+  "round": 3055,
+  "commit_base": "dd02e337",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k engine stage_flow stage_completion skill_inline keyframe_model workflow continuity delivery storyboard_final",
+    "exit": 0,
+    "passed": 437,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T22:33:31"
+}

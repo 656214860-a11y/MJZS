@@ -4,7 +4,7 @@ from __future__ import annotations
 import ast
 import unittest
 
-from tests.architecture._scan import ROOT, parse
+from tests.architecture._scan import ROOT, entity_file, parse
 
 
 # 统一控件基类自身允许构造 tk/ttk.Button；其余生产模块一律经
@@ -54,7 +54,7 @@ def raw_button_calls(tree):
 
 class ButtonBoundaryTests(unittest.TestCase):
     def _assert_semantic_buttons(self, filename, required=('PrimaryButton', 'SecondaryButton')):
-        tree = parse(ROOT / filename)
+        tree = parse(entity_file(filename[:-3]))
         raw = [node.lineno for node in raw_button_calls(tree)]
         imports = {alias.name for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
                    and node.module == 'ui_widgets' for alias in node.names}

@@ -161,16 +161,16 @@ R2979 起探针侧已按 `performance_contract.py` 末尾对照表补齐同口�
 
 ## 11. 覆盖率口径
 
-`维护记录\覆盖率基线.json` 是**定向测量**，不是整仓覆盖率。当前基线：生产运行时模块 410 个，其中 67 个有行覆盖（其余 343 个在这 9 组定向用例里没被碰到），测量使用 9 组定向用例，测量时刻这些用例全通过。
+维护记录\覆盖率基线.json 是**定向测量**，不是整仓覆盖率。当前基线：生产运行时模块 583 个，其中 70 个有行覆盖（其余 513 个在这 9 组定向用例里没被碰到），测量使用 9 组定向用例，测量时刻这些用例全通过。
 
 - 字段口径：`modules_total` ＝ 生产运行时模块总数；`modules_covered` ＝ 其中被覆盖到的模块数；`targets` ＝ 本次测量使用的定向用例组；`tests_ok` ＝ 测量时刻目标用例是否全绿。
-- 因此「240 个模块覆盖率 0」**不等于**「整仓覆盖率 7%」，也不能据此列出「未覆盖模块」清单——它只说明这 9 组定向用例碰过哪些模块。
+- 因此「513 个模块覆盖率 0」**不等于**「整仓覆盖率 12%」，也不能据此列出「未覆盖模块」清单——它只说明这 9 组定向用例碰过哪些模块。
 - 测量工具 `scripts\coverage_report.py`（`sys.settrace`，零第三方依赖）。本仓随附解释器没有标准库 `trace`，也不引入 `coverage.py`；**不重跑测量**，刷新基线必须显式重跑工具，工具在目标用例失败时拒绝写基线。
 - 诚实边界：阈值只对「基线里记录的那次测量」成立。门禁 `tests\architecture\test_coverage_baseline.py` 只做结构自洽、磁盘存在性、口径相等与核心路径下限四件事。
 
 要一份真实的「未覆盖模块」清单，须另立一次全量 `sys.settrace` 测量（成本高，须用户同意）。
 
-分支覆盖率（SWE-2 T8.4，L0/L1 棘轮）：`维护记录\分支覆盖率基线.json` 同样是**定向测量**，不是全量套件分支覆盖率。口径：对 `_layers.LAYERS` 登记层 0/1 且磁盘存在顶层 `.py` 的模块（当前 34 个；包实体不在本口径内）统计「决策点双结果覆盖」——`if`／`while`／`for`／`try`（含 `except*`）／`match` 每个决策点要求两个方向都被真实执行过；单行复合语句（`if x: y`）、表达式短路（`and`／`or`／三元／推导式 if）、`try/finally`（无 handler）不计入分母；`while` 退出＝条件判假、`for` 耗尽＝迭代器走完（`break` 离开不算）；`match` 末位 `case _` 时只要求 case 被进入。动态证据按 `(文件, co_qualname)` 归属代码对象作用域。测量工具 `scripts\branch_coverage_report.py`（同 `sys.settrace`、零第三方依赖），棘轮下限在 `维护记录\分支覆盖率下限.json`（只许人工上调，工具重测不改写），门禁 `tests\architecture\test_branch_coverage_floor.py` 只做结构自洽、模块集合相等、下限不回退与工具可用性四件事，不重跑测量。刷新基线必须显式重跑工具并同步上调下限表，目标用例失败时工具拒绝写基线。
+分支覆盖率（SWE-2 T8.4，L0/L1 棘轮）：`维护记录\分支覆盖率基线.json` 同样是**定向测量**，不是全量套件分支覆盖率。口径：对 `_layers.LAYERS` 登记层 0/1 且顶层仍有 .py 实体的 37 个模块统计「决策点双结果覆盖」——`if`／`while`／`for`／`try`（含 `except*`）／`match` 每个决策点要求两个方向都被真实执行过；单行复合语句（`if x: y`）、表达式短路（`and`／`or`／三元／推导式 if）、`try/finally`（无 handler）不计入分母；`while` 退出＝条件判假、`for` 耗尽＝迭代器走完（`break` 离开不算）；`match` 末位 `case _` 时只要求 case 被进入。动态证据按 `(文件, co_qualname)` 归属代码对象作用域。测量工具 `scripts\branch_coverage_report.py`（同 `sys.settrace`、零第三方依赖），棘轮下限在 `维护记录\分支覆盖率下限.json`（只许人工上调，工具重测不改写），门禁 `tests\architecture\test_branch_coverage_floor.py` 只做结构自洽、模块集合相等、下限不回退与工具可用性四件事，不重跑测量。刷新基线必须显式重跑工具并同步上调下限表，目标用例失败时工具拒绝写基线。
 
 ## 12. 领号、并行车道与工作树流程（自 AGENTS §2.5 规则 27／34a 迁入）
 
@@ -182,7 +182,11 @@ AGENTS 只保留触发条件；本节是细则全文。开工领号、建工作�
 
 **全量触发条件**：统一见 AGENTS §5；计数行为以 `run_selftests.full_safe_required()` 与 `tests/architecture/test_round_baselines.py` 为核对依据，不在此另设周期。
 
-**并行硬规则**：同一时刻活跃 `codex/*` 车道默认 1 条，经用户同意可升到 2 条（上限 2；冻结期内只有主树可提交）；一个队列 id 全局只允许一条线持有；分支 ahead>10 必须先回合或 rebase，否则 `round_claim.py next` 拒绝领号；detached HEAD 工作树不得开工；分支 behind>20 或 ahead=0 且 48 小时无活动即列入待回收。回收前保存未提交内容、核验活跃租约；用 `维护记录/基准脚本/worktree_ledger.py --plan` 生成计划，删除须用户逐条确认，台账不自动删除。
+**并行硬规则**：同一时刻活跃 `codex/*` 车道上限 20 条（冻结期内只有主树可提交）；一个队列 id 全局只允许一条线持有；分支 ahead>10 必须先回合或 rebase，否则 `round_claim.py next` 拒绝领号（ahead 口径按源码提交计，纯文档／结果文件提交不计，B3 落地）；detached HEAD 工作树不得开工；分支 behind>20 或 ahead=0 且 48 小时无活动即列入待回收。回收前保存未提交内容、核验活跃租约；用 `维护记录/基准脚本/worktree_ledger.py --plan` 生成计划，删除须用户逐条确认，台账不自动删除。
+
+**高并发治理（R3108 起，机制随 B 轮逐项落地）**：车道活跃状态以 `<git common-dir>/lanes.json` 登记为准（lane→分支→工作树→owner→role→last_seen，B3 落地，落地前以 `worktree_ledger.py --plan` 为准）；合并走合并请求队列＋专职合并车道，会话不再各自阻塞 `dev.py merge`（B1 落地）；GUI 密集改动优先走 `role: gui` 车道，其余车道 GUI 测试排队优先级降低（B2 落地）；队列租约支持心跳续约，失联车道警告不阻断、MERGE_HEAD 超龄只提示人工处置不自动 abort（B1/B3 落地）。
+
+**脏树处置协议（并行吞吐治理任务书 A2 起）**：台账把脏树一律 KEEP，删除前按三类裁定——① 仅未跟踪草稿（截图、_snapshot、nul、preview_* 等）：复制到 <git common-dir>/rescue/<lane>/ 留档后可删；② 含已跟踪改动：先 git -C <树> add -N . && git -C <树> diff HEAD > <common-dir>/rescue/<lane>.patch 保存补丁（rescue 目录在 .git 内、不入库、不随工作树删除），再由用户逐条确认；③ 百级以上文件的大改动活树视为在途工作，不动。分支删除只走 git branch -d（拒绝未合并项），前缀提交等价已由 ledger 的 MERGED／PARKED／ACTIVE-WT 分类给出，patch 等价核验用 git cherry master <分支>（全 '-' 即内容已在主干）。
 
 **检查点**：认领因脏树拒绝时，先区分本轮改动与用户既有改动；只对授权文件建立可恢复检查点。创建分支本身不保存未提交内容，不得把用户改动混入 WIP 提交。大规模跨文件修改应分阶段建立检查点，检查点不等于任务完成。
 
@@ -209,7 +213,7 @@ AGENTS 只保留触发条件；本节是细则全文。开工领号、建工作�
 - `git diff <合并前master>..HEAD -- 程序/project_status.md | grep '^-' | grep -v '^---' | grep -v '当前轮次：'`（表头「当前轮次」行每轮都会改，故排除）
 - `git show HEAD:程序/project_status.md | grep -oE '^R[0-9]+' | sort -u`
 
-**轮次证据与合入门禁（R2527 起）**：`dev.py commit` 对 R2527 及以后的提交生成 `tasks_round/evidence/R<N>.json`（`维护记录/基准脚本/round_evidence.py`）：凭据扫描由脚本对已暂存的新增行执行，只记「文件:行:规则名」；定向测试由 `--tests <模块关键词>` 触发 `run_selftests.py -k`。改了 `程序/` 下 `.py` 而没带 `--tests`、凭据命中或测试有红，一律拒绝提交；纯文档提交记为 `docs-only`，合并提交记为 `merge-ci-exit`。`round_gate.py` 读这份证据，不再匹配结果文件里的文字，阈值取自 `维护记录/测试分层基线.json` 的 `architecture_gate_files_min`／`skill_registry_count`／`smoke_checks_expected`（只增不减）。`dev.py merge` 在提交合并前跑 `local_ci.py exit`，非 0 则中止并还原，没有跳过开关。pre-commit 在暂存了 `程序/*.py` 时先跑 `tests.test_static_names` 与 `tests.architecture.test_static_hygiene`（约 6 秒），红则拒绝提交。
+**轮次证据与合入门禁（R2527 起）**：`dev.py commit` 对 R2527 及以后的提交生成 `tasks_round/evidence/R<N>.json`（`维护记录/基准脚本/round_evidence.py`）：凭据扫描由脚本对已暂存的新增行执行，只记「文件:行:规则名」；定向测试由 `--tests <模块关键词>` 触发 `run_selftests.py -k`。改了 `程序/` 下 `.py` 而没带 `--tests`、凭据命中或测试有红，一律拒绝提交；纯文档提交记为 `docs-only`，合并提交记为 `merge-ci-exit`。`round_gate.py` 读这份证据，不再匹配结果文件里的文字，阈值取自 `维护记录/测试分层基线.json` 的 `architecture_gate_files_min`／`skill_registry_count`／`smoke_checks_expected`（只增不减）。`dev.py merge` 流程（R3117 起）：merge --no-commit → `local_ci.py exit` → 等全量验收锁 → 领号 → 提交；CI 失败与等锁超时都中止还原且不领号（不烧轮次），提交失败且 MERGE_HEAD 确属本分支时自动还原防僵死；MERGE_HEAD 超 45 分钟未结会报警提示人工处置，绝不自动 abort。pre-commit 在暂存了 `程序/*.py` 时先跑 `tests.test_static_names` 与 `tests.architecture.test_static_hygiene`（约 6 秒），红则拒绝提交。
 
 **车道范围门禁（R2611 起）**：两条并行车道各自实现同一需求时会「新增」同名文件，合入时变 add/add 冲突（R2542 对 R2538 工程闸门批次4 的重复实现）。防线有两层：① 开工前 `dev.py scope <路径>...`（`维护记录/基准脚本/branch_scope.py`）把计划触及的路径与各活跃工作树分支相对 master 的改动求交，重叠即提示；`--added` 只看新增文件口径，`--json` 机器可读。② `dev.py commit` 时暂存区新增文件与其他活跃分支新增文件同名即拒绝提交（`commit_round.check_scope_overlap`，exit 5）；合并提交（MERGE_HEAD）与 master/main 不触发。「活跃分支」＝`git worktree list` 中带分支引用的工作树，排除主干与当前分支；无工作树的未合并分支视为停放或遗留，不阻断，其风险由合并轮 CI 兜底。
 

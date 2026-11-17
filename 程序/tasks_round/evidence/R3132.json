@@ -1,0 +1,15 @@
+{
+  "round": 3132,
+  "commit_base": "8a0fdf72",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k checkpoint_tree branch_tree",
+    "exit": 0,
+    "passed": 7,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T13:17:07"
+}

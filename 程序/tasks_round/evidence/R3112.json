@@ -1,0 +1,15 @@
+{
+  "round": 3112,
+  "commit_base": "28146e32",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k multi_monitor_popups ui_edges_guards",
+    "exit": 0,
+    "passed": 14,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T12:27:30"
+}

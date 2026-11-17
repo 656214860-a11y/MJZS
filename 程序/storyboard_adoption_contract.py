@@ -1,54 +1,10 @@
-"""Read-only adopted-storyboard facts, independent of selection mutations."""
-from pathlib import Path
-from agent.core import read
-from file_cache import read_json
-from project_settings import read_prefs
+"""历史入口：实体已迁至 ``domain.storyboard_adoption_contract``（T10 包化）。
 
+``import storyboard_adoption_contract`` 返回 ``domain.storyboard_adoption_contract`` 本体：私有名、模块级状态与
+按扁平名打的 ``mock.patch`` 补丁面和包内路径完全一致；生产侧一律用包路径。
+门面清除轮统一改写测试导入后删除本文件。
+"""
+import sys as _sys
+from domain import storyboard_adoption_contract as _entity
 
-def prefs(project):
-    return read_prefs(Path(project) / 'ui_settings.json', read_json)
-
-
-def paths(project, values):
-    project = Path(project).resolve()
-    result = []
-    for value in values:
-        path = resolve_source(project, value)
-        if not path.is_relative_to(project) or not path.is_file():
-            raise ValueError('已采用的分镜不存在或不在当前项目内：' + str(path))
-        if path not in result:
-            result.append(path)
-    return result
-
-
-def resolve_source(project, value):
-    """Resolve an adopted storyboard without depending on the UI file catalog."""
-    project = Path(project).resolve()
-    path = Path(value)
-    path = (project / path).resolve() if not path.is_absolute() else path.resolve()
-    # Alias maps are optional migration data.  Their storage implementation is
-    # loaded only for an actual lookup, keeping this read-only contract below
-    # the catalog/selection command layers.
-    from importlib import import_module
-    path = import_module('storyboard_storage').resolved_alias(project, path)
-    from contract.project_stages import storyboard
-    legacy_episode = project / 'storyboard' / 'episode.json'
-    if not path.exists() and path in (storyboard(project) / 'episode.json', legacy_episode):
-        current = storyboard(project) / 'episode.json'
-        return current.resolve()
-    return path
-
-
-def adopted(project):
-    data = prefs(project)
-    values = data.get('adopted_storyboards')
-    if values is None:
-        values = [data['frame_json']] if data.get('frame_json') else []
-    if not isinstance(values, list):
-        raise ValueError('已采用分镜列表格式错误')
-    return paths(project, values)
-
-
-def problem_text(error):
-    """Format validation errors for both file scanning and adoption commands."""
-    return '；'.join(line.strip() for line in str(error).splitlines() if line.strip())
+_sys.modules[__name__] = _entity

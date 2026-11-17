@@ -14,6 +14,7 @@ import stage_layout
 import stage_parallel
 import workflow_settings
 from agent.core import file_hash, read, save
+from tests.architecture._scan import entity_file
 from domain.delivery_import_service import ALLOWED_SUFFIXES
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -38,7 +39,7 @@ class DeliveryScopeTests(unittest.TestCase):
         self.assertEqual(row[0], '13质检交付')
         self.assertEqual(row[4], ('edits.json',))
         self.assertEqual(row[5], ('qc_report.json', 'delivery.json'))
-        source = (ROOT / 'stage_completion_service.py').read_text(encoding='utf-8')
+        source = Path(stage_completion_service.__file__).read_text(encoding='utf-8')
         for name in ('qc_report', 'delivery.json', 'delivery_manifest'):
             with self.subTest(name=name):
                 self.assertIn(name, source)
@@ -49,7 +50,7 @@ class DeliveryScopeTests(unittest.TestCase):
         self.assertEqual(set(ALLOWED_SUFFIXES), suffixes)
 
     def test_req_s13_28_commercial_status_is_shown_on_delivery_page(self):
-        source = (ROOT / 'desktop_media_pages.py').read_text(encoding='utf-8')
+        source = entity_file('desktop_media_pages').read_text(encoding='utf-8')
         self.assertIn('commercial_status', source)
 
     def test_req_s13_32_commercial_categories_are_the_seven_kinds(self):

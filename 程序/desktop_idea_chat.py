@@ -17,14 +17,17 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import ttk
 import pet_state
-from desktop_idea_attachments import IdeaAttachmentsMixin
-from desktop_idea_deferred import IdeaDeferredMixin
-from desktop_idea_send_gate import IdeaSendGateMixin
-from orchestrator.idea_chat_controller import has_interruptible, interrupt_notice, queue_notice, slot_decision
+import ui_plugin_registry
+from ui.desktop_idea_attachments import IdeaAttachmentsMixin
+from ui.desktop_idea_deferred import IdeaDeferredMixin
+from ui.desktop_idea_send_gate import IdeaSendGateMixin
+from orchestrator.idea_chat_controller import (bubble_timestamp, collapse_preview, has_interruptible, interrupt_notice,
+                                  queue_notice, slot_decision)
 from contract.platform_tools import open_target
-from ui_tokens import CHAR_WIDTH, SPACING, STAGE_PANEL_LAYOUT
+from ui_tokens import CHAR_WIDTH, COLORS, FONTS, SPACING, STAGE_PANEL_LAYOUT
 from ui_widgets import FormDialog, SelectBox, TextArea
-from desktop_idea_bubbles import BUBBLE_FILL, BUBBLE_FLOOR, BUBBLE_GAP, BUBBLE_LINE, BUBBLE_MAX_RATIO, BUBBLE_PAD, IdeaBubblesMixin
+from ui.desktop_idea_bubbles import (BUBBLE_BACK, BUBBLE_FILL, BUBBLE_FLOOR, BUBBLE_FONT, BUBBLE_GAP, BUBBLE_LINE, BUBBLE_MAX_RATIO,
+                                  BUBBLE_PAD, BUBBLE_SLACK, IdeaBubblesMixin)
 ROOT = Path(__file__).resolve().parent
 LOGGER = logging.getLogger(__name__)
 PAGE = pet_state.PAGE_OF
@@ -171,11 +174,11 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, I
         direct = writing_api.model_label(self.root)
         if direct:
             return direct
-        from workflow_settings import model_name
+        from orchestrator.workflow_settings import model_name
         return model_name(self.root, 'writing')
     def show_conversation(self):
         """重绘只读聊天记录；长记录按空闲批次插入，不阻塞剧本页首帧。"""
-        import idea_chat
+        import domain.idea_chat as idea_chat
         box=getattr(self,'idea_log',None)
         if box is None or not box.winfo_exists():return
         self._idea_view_generation=getattr(self,'_idea_view_generation',0)+1
@@ -338,7 +341,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, I
         except ValueError as exc:
             self.notifier.info(str(exc), modal=True)
             return
-        import idea_chat
+        import domain.idea_chat as idea_chat
         fields = idea_chat.extract_brief_creation(current, extra_labels=idea_chat.INLINE_REQUIRED_LABELS,
                                                   include_extra=True)
         additions = [label + '：' + value for label, value in values.items() if not fields.get(label)]
@@ -348,7 +351,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, I
         self.status.set('已智能识别并回填创作信息，正在核验必填项。')
         self.send_message()
     def fill_idea_brief(self, values):
-        import idea_chat
+        import domain.idea_chat as idea_chat
         box = getattr(self, 'idea_input', None)
         if box is None or not box.winfo_exists():return
         current = self.draft_text()
@@ -363,7 +366,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, I
         if existing is not None and existing.winfo_exists():
             existing.lift()
             return existing
-        import idea_chat
+        import domain.idea_chat as idea_chat
         project, box = self.root, self.idea_input
         fields = dict(attachment_fields)
         fields.update(idea_chat.extract_brief_creation(self.draft_text(),
@@ -373,7 +376,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, I
         ttk.Label(dialog.content, text=notice + '以下信息尚未填写。保存后请再次点击发送。').pack(anchor='w', pady=SPACING['sm'])
         from contract.script_contract import PRODUCTION_LOCK_DEFINITIONS, validate_production_locks
         from production_lock_fields import ProductionLockFields
-        import stage_config
+        import orchestrator.stage_config as stage_config
         lock_labels = {label for item in PRODUCTION_LOCK_DEFINITIONS[5:]
                        for label in (item['label'], *item.get('aliases', ()), item['key'])}
         dialog.brief_fields = {}
@@ -447,15 +450,15 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, I
         if box is None or not box.winfo_exists():raise ValueError('这一页还没建好，请重新打开这一页')
         value=self.draft_text()
         prepared=self.idea_chat_controller.prepare_submission(self.root, value, is_example=False)
-        import idea_chat
+        import domain.idea_chat as idea_chat
         import writing_api
-        import workflow_settings
+        import orchestrator.workflow_settings as workflow_settings
         workflow_settings.validate_selected_skills(self.root, 'writing')
         request_model = writing_api.capture_request_model(self.root)
         direct_model = request_model['label']
         continuing = bool(direct_model and prepared and
                           writing_api.preparation_continuation(self.root, value))
-        import stage_config
+        import orchestrator.stage_config as stage_config
         from contract.script_contract import PRODUCTION_LOCK_DEFINITIONS
         lock_definitions = PRODUCTION_LOCK_DEFINITIONS
         attachment_fields = {}
@@ -542,7 +545,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, I
             self.status.set(prefix+'已提交创意并启动剧本 Agent。')
     def _idea_api_received(self, token, model, request_model, result):
         """直连 API 模型的回复落地：聊天记录、状态栏、失败提示与三虎终态。"""
-        import idea_chat
+        import domain.idea_chat as idea_chat
         from writing_api import preparation_reply_message
         if not self.idea_chat_controller.finish_request(token):return
         if getattr(self,'idea_send',None) is not None and self.idea_send.winfo_exists():self.idea_send.state(['!disabled'])
@@ -599,7 +602,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, I
             self.status.set(self.auto_save_script_reply(model,result) or '已收到 '+model+' 的回复。')
     def submit_idea_api_request(self, project, token, cancelled, ask, received, label, async_ticket=None):
         """发送与恢复共用票据生命周期；项目切换和取消均撤销本次排队。"""
-        from workflow_engines import (request_stage_process_slot, claim_stage_process_slot,
+        from orchestrator.workflow_engines import (request_stage_process_slot, claim_stage_process_slot,
                                       release_stage_process_slot, cancel_stage_slot_request)
         controller = self.idea_chat_controller
         request = request_stage_process_slot(project, 'writing')
@@ -681,7 +684,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, I
         if getattr(self,'idea_send',None) is not None and self.idea_send.winfo_exists():self.idea_send.state(['!disabled'])
         self.clear_thinking()
         stopped=[]
-        from workflow_engines import forget_process
+        from orchestrator.workflow_engines import forget_process
         sessions=getattr(self,'flow_processes',{})
         for key,process in processes:
             try:
@@ -733,23 +736,23 @@ class _FlowAgentLaunch:
         for name in _FlowAgentRequest.__slots__:
             setattr(self, name, getattr(request, name))
     def build(self):
-        from workflow_settings import writer_style_summary
+        from orchestrator.workflow_settings import writer_style_summary
         self.writer_style_summary = writer_style_summary
-        from workflow_engines import prompt_with_settings,launch_interactive
+        from orchestrator.workflow_engines import prompt_with_settings,launch_interactive
         self.prompt_with_settings = prompt_with_settings; self.launch_interactive = launch_interactive
         from orchestrator.agent_dispatch import signature,claim,finish,outcome,retryable
         self.signature = signature; self.claim = claim; self.finish = finish; self.outcome = outcome; self.retryable = retryable
         if self.host.worker:raise ValueError('正在打开或发送 Agent 任务，请稍候；未重复发送。')
         if self.stage == 'writing' and getattr(self.host, '_script_agent_queue', None):
             raise ValueError('剧本模型请求正在排队，请等待或先点击中断；未重复发送。')
-        from workflow_settings import resolve_for_send
+        from orchestrator.workflow_settings import resolve_for_send
         self.config=resolve_for_send(self.host.root,self.stage,config=self._config,intake_only=self.intake_only);self.followup=self.followup if self.followup is not None else self.prompt
-        from desktop_direct_dispatch import dispatch
+        from ui.desktop_direct_dispatch import dispatch
         if dispatch(self.host,self.stage,self.config,self.direct,self.intake_only):return
         self.native_claude = self.config['engine'] in ('claude-desktop-app', 'desktop-app')
         self.bounded_writing = self.stage == 'writing' and self.config['engine'] == 'claude'
         if self.stage == 'writing' and self.config['engine'] == 'claude' and not self.intake_only and not self.new_session:
-            from workflow_engines import claude_session_stale
+            from orchestrator.workflow_engines import claude_session_stale
             self.new_session = claude_session_stale(self.host.root, self.stage)
         self.new_session = bool(self.new_session and self.stage == 'writing' and self.config['engine'] == 'claude' and not self.intake_only)
         self.use_cli = not self.native_claude and (self.config['engine']!='codex' or self.config['program'] or self.config['model'])
@@ -764,7 +767,7 @@ class _FlowAgentLaunch:
             self.title=window_title(name,self.stage,getattr(self.host,'page_index',None))
         self.host.async_(self.prepare,self.dispatch)
     def prepare(self):
-        from workflow_context import continuation_instruction,snapshot
+        from domain.workflow_context import continuation_instruction,snapshot
         from stage_execution_service import project_context
         from orchestrator.workflow_context_controller import request_stage_instruction
         from contract.workflow_context_budget import prepare_request_context
@@ -801,7 +804,7 @@ class _FlowAgentLaunch:
             self.finish(receipt,'preparing','',skill_injection=self.config.get('skill_injection'),context_budget={
                 'initial':budget,'continuation':continuation_budget})
             if self.native_claude:
-                from desktop_send_choice import prepare_native  # 交付方式、任务文件、续发计划（REQ-S01-69）
+                from ui.desktop_send_choice import prepare_native  # 交付方式、任务文件、续发计划（REQ-S01-69）
                 return prepare_native(self, receipt, full)
             if self.use_cli:return {'receipt':receipt,'prompt':full,'followup':continuation,
                                'context_budget':{'initial':budget,'continuation':continuation_budget}}
@@ -844,7 +847,7 @@ class _FlowAgentLaunch:
         if key in sessions and sessions[key].poll() is None:
             if self.new_session:
                 def close_old():
-                    from workflow_engines import close_for_restart
+                    from orchestrator.workflow_engines import close_for_restart
                     try:close_for_restart(self.project,sessions[key])
                     except Exception as exc:self.finish(receipt,'failed',str(exc));raise
                 def closed(_):
@@ -858,7 +861,7 @@ class _FlowAgentLaunch:
                         from orchestrator.qwen_adapter import submit_existing
                         text=submit_existing(sessions[key],continuation,title=self.title)
                         return {'ok':True,'reason':text,'send_dispatched':True}
-                    from workflow_engines import submit_existing
+                    from orchestrator.workflow_engines import submit_existing
                     return submit_existing(sessions[key],continuation,title=self.title)
                 except Exception as exc:
                     self.finish(receipt,'uncertain',str(exc));raise
@@ -877,14 +880,14 @@ class _FlowAgentLaunch:
             try:return self.launch_interactive(self.project,self.stage,self.title,full,self.config,followup=continuation,slot=slot,
                                           **({'new_session':True} if self.new_session else {}))
             except Exception as exc:
-                from workflow_engines import release_stage_process_slot
+                from orchestrator.workflow_engines import release_stage_process_slot
                 release_stage_process_slot(slot)
                 self.finish(receipt,'failed',str(exc));raise
-        from workflow_engines import request_stage_process_slot, claim_stage_process_slot
+        from orchestrator.workflow_engines import request_stage_process_slot, claim_stage_process_slot
         request=request_stage_process_slot(self.project,self.stage)
         if request['state']=='granted':
             self.host.async_(lambda:launch(request['slot']),launched);return
-        from workflow_engines import cancel_stage_slot_request
+        from orchestrator.workflow_engines import cancel_stage_slot_request
         pending = {'timer': None, 'cancelled': False, 'started': time.monotonic()}
         def cleanup():
             pending['cancelled'] = True
@@ -933,19 +936,19 @@ class _FlowAgentLaunch:
             self.host.status.set(claimed['reason'])
         pending['timer'] = self.host.win.after(200,poll_slot)
     def done(self, result):
-        if result.get('send_plan'):from desktop_send_choice import choose;return choose(self, result, self.done)
+        if result.get('send_plan'):from ui.desktop_send_choice import choose;return choose(self, result, self.done)
         receipt=result['receipt']
         clipboard_text=result['prompt']
         task_file=result.get('task_file')
         if task_file and Path(task_file).is_file():
             try:clipboard_text=Path(task_file).read_text(encoding='utf-8')
             except OSError:clipboard_text=result['prompt']
-        from desktop_send_choice import attachment_payload, deliver_desktop_app  # 长任务改附件＋短指令（REQ-S01-70）
+        from ui.desktop_send_choice import attachment_payload, deliver_desktop_app  # 长任务改附件＋短指令（REQ-S01-70）
         clipboard_text,attachment=attachment_payload(self.config.get('engine'),task_file,clipboard_text)
-        from prompt_window import copy_text
+        from ui.prompt_window import copy_text
         copy_text(self.host.win,clipboard_text)
         if self.native_claude:
-            from workflow_settings import find_program
+            from orchestrator.workflow_settings import find_program
             from contract.platform_tools import launch_windows_app
             program = find_program(self.config)
             if self.config['engine'] == 'desktop-app':

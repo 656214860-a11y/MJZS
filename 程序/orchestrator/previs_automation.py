@@ -6,7 +6,7 @@ from agent.core import save
 from file_cache import read_json
 from contract.storyboard_paths import media_root
 import contract.stage_layout as stage_layout
-import white_model_service as wm
+import domain.white_model_service as wm
 from contract.platform_tools import hidden_console_flags
 
 def verify(project,sid,seconds,source=None):
@@ -35,7 +35,7 @@ def verify(project,sid,seconds,source=None):
 
 def select_agent_shots(project,source,ids,state):
     """只把复杂动作交给 Agent：简单镜头无需白模、中等镜头走线上入口，都只跳过、不中断整批。"""
-    from previs_routing import partition
+    from domain.previs_routing import partition
     from stage_execution_service import project_context
     groups,_=partition(project_context(project),source,ids)
     for level,note in (('simple','无需白模，已跳过'),('medium','待线上制作／导入')):
@@ -73,7 +73,7 @@ def force_stop(project,state):
     界面线程不等待。
     """
     state['stop']=True
-    from workflow_engines import terminate
+    from orchestrator.workflow_engines import terminate
     killed=terminate(project)
     for key,value in state.get('progress',{}).items():
         if value in ('queued','running','validating'):state['status'][key]='已强制停止'
@@ -86,10 +86,10 @@ def force_stop(project,state):
 
 def start(project,source,ids,state,monitor=False,ticket=None,is_current=None,execute=None):
     if state.get('busy'):raise ValueError('已有白模任务进行中')
-    from workflow_settings import current,find_program,ENGINES
+    from orchestrator.workflow_settings import current,find_program,ENGINES
     call_config=current(project,'previs')
     require_local_agent(call_config)
-    from previs_routing import ready
+    from domain.previs_routing import ready
     from stage_execution_service import project_context
     context=project_context(project)
     ids=[sid for sid in select_agent_shots(project,source,ids,state) if not ready(context,sid,source)]
@@ -160,7 +160,7 @@ def start(project,source,ids,state,monitor=False,ticket=None,is_current=None,exe
                              '不要模拟百分比。分段渲染时应汇总已完成帧数和总帧数，写入相同JSON的shot_id、stage=render、completed、total字段。')
                     from stage_execution_service import white_model_shot_directory
                     output=white_model_shot_directory(project,sid,source=source);output.mkdir(parents=True,exist_ok=True)
-                    from workflow_engines import run_background
+                    from orchestrator.workflow_engines import run_background
                     # 引擎实时输出尾随最后 N 行写进 state，监视页边跑边显示；不落额外文件。
                     ENGINE_LOG_TAIL = 200
                     def engine_output(line, stream):

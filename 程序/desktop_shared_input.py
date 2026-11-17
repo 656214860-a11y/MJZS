@@ -20,7 +20,7 @@ from tkinter import ttk
 from pathlib import Path
 
 import app_logging
-import skill_command
+import domain.skill_command as skill_command
 import ui_plugin_registry
 from contract import pet_bus
 from desktop_shared_menus import AddMenuPanel, CandidatePopup, SkillPickPanel
@@ -88,7 +88,7 @@ def upstream_send_error(project, stage):
     if not stage or stage == 'script' or stage not in pet_bus.STAGES:
         return ''
     try:
-        import stage_parallel
+        import orchestrator.stage_parallel as stage_parallel
         row = stage_parallel.gate_for(stage)
     except Exception:
         return ''
@@ -107,19 +107,41 @@ def upstream_send_error(project, stage):
         return ''
     upstream = pet_bus.STAGES[index - 1]
     try:
-        import stage_parallel as _sp
+        import orchestrator.stage_parallel as _sp
         if _sp.stage_state(project, upstream) in _sp.EXEMPT_STATES:
             return ''
     except Exception:
         app_logging.swallowed()
     try:
-        from stage_completion_service import completion_evidence
+        from orchestrator.stage_completion_service import completion_evidence
         ok, detail = completion_evidence(project, upstream)
     except Exception:
         return ''
     if ok:
         return ''
     return '请先完成/确认「%s」阶段（%s）' % (pet_bus.stage_name(upstream), detail or '上游成果未完成')
+
+
+RING_INSET = SPACING['xs'] // 4  # 输入框外环露边宽度（1px）
+
+
+def _composer_shell(parent):
+    """R3060：输入区与工具行共用一条外框——外框由包裹层 1px 底色边承担
+    （ttk 主题不支持 -highlight*），Card 内缩 RING_INSET 露出环色。"""
+    ring = tk.Frame(parent, bg=COLORS['border_default'])
+    ring.pack(side='left', fill='both', expand=True,
+             padx=(SPACING['sm'], SPACING['none']))
+    box = Card(ring, padding=(SPACING['sm'], SPACING['xs']))
+    box.pack(fill='both', expand=True, padx=RING_INSET, pady=RING_INSET)
+    return ring, box
+
+
+def _row_icon(row, glyph, command):
+    """工具行左侧图标钮（✦／＋／麦克风同款）：无边框字形钮，左对齐排布。"""
+    button = SecondaryButton(row, text=glyph, width=0,
+                             style='Tokens.Composer.Icon.TButton', command=command)
+    button.pack(side='left', padx=(SPACING['xs'], SPACING['none']))
+    return button
 
 
 class _CandidateFlow:
@@ -292,6 +314,13 @@ class _CandidateFlow:
         path = entry.get('path')
         if path is not None:
             self._register_attachment(path)
+        # R3060：光标处插入的 @引用不进输入框顶部引用区（显示名与引用区一致才排除）。
+        desktop = getattr(self, 'desktop', None)
+        if desktop is not None:
+            cursor = getattr(desktop, '_idea_cursor_ref_names', None)
+            if cursor is None:
+                cursor = desktop._idea_cursor_ref_names = set()
+            cursor.add(name)
         self._replace_token(token, '@' + name + ' ')
         self.close_completion()
         try:
@@ -366,40 +395,45 @@ class SharedStageInput(_CandidateFlow, ttk.Frame):
         # R2923 定版：全部收进一个圆角输入盒——上输入、下一行图标（✦ 技能／＋ 附件／
         # 麦克风语音在左，模型下拉框与发送图标在右，仿 DeepSeek／Devin 桌面）。
         # R2942：模型名不再是无框文字，改为下拉框按钮（点击弹模型列表），位于发送按钮左侧。
-        box = Card(self, padding=(SPACING['sm'], SPACING['xs']))
-        box.pack(side='left', fill='both', expand=True,
-                 padx=(SPACING['sm'], SPACING['none']))
+        # R3060：输入区与工具行共用一条外框（ttk 主题不支持 -highlight*，外框由
+        # 包裹层 input_ring 的 1px 底色边承担，聚焦切换环色）。
+        ring, box = _composer_shell(self)
+        self.input_ring = ring
         self.input_card = box
-        # 附件卡片行：无附件时不占位（由桌面侧 refresh_uploaded_idea_attachments 管理显隐）。
-        from responsive_ui import FlowBar
-        self.attachment_panel = FlowBar(box, style='Composer.TFrame')
-        self.input = TextArea(box, height=TEXT_ROWS['sm'], wrap='word')
+        # 附件不再独占卡片行——上传/引用以「@原名」行内文本落在输入框顶部引用区。
+        # 输入区去内框线（highlightthickness=0）；width=1：Text 默认按 80 字符报需求宽
+        # （≈672px）会顶爆 stage_area 需求宽、面板在最小窗被挤成 1px，实际宽由 fill 决定。
+        self.input = TextArea(box, height=TEXT_ROWS['sm'], wrap='word',
+                              highlightthickness=0, width=1)
         self.input.pack(fill='x')
+        for seq, color in (('<FocusIn>', COLORS['border_input_hover']),
+                           ('<FocusOut>', COLORS['border_default'])):
+            self.input.bind(seq, lambda _e, c=color: ring.configure(bg=c), add='+')
 
-        row = ttk.Frame(box)
+        row = ttk.Frame(box, style='Composer.TFrame')
         row.pack(fill='x')
         # 图标行是 ✦／＋ 面板的锚点（R3031：面板底边贴本行上沿，不再隔整个输入框）。
         self.icon_row = row
-        self.skill_button = SecondaryButton(row, text=ICON_SKILL, width=0,
-                                            style='Tokens.Composer.Icon.TButton',
-                                            command=self.open_skill_list)
-        self.skill_button.pack(side='left', padx=(SPACING['xs'], SPACING['none']))
-        self.attachment_button = SecondaryButton(row, text=ICON_ADD, width=0,
-                                                 style='Tokens.Composer.Icon.TButton',
-                                                 command=self.open_add_menu)
-        self.attachment_button.pack(side='left', padx=(SPACING['xs'], SPACING['none']))
-        self.voice_button = SecondaryButton(row, text=ICON_MICROPHONE, width=0,
-                                            style='Tokens.Composer.Icon.TButton',
-                                            command=self._toggle_voice)
-        self.voice_button.pack(side='left', padx=(SPACING['xs'], SPACING['none']))
-        self.send_button = PrimaryButton(row, text=ICON_SEND, width=0,
-                                         style='Tokens.Composer.Send.TButton',
-                                         command=self.send)
+        self.skill_button = _row_icon(row, ICON_SKILL, self.open_skill_list)
+        self.attachment_button = _row_icon(row, ICON_ADD, self.open_add_menu)
+        self.voice_button = _row_icon(row, ICON_MICROPHONE, self._toggle_voice)
+        # R3060：发送/终止键统一 Fluent PNG 图标（assets/nav/send.png、stop.png，主色底配卡片色墨水）；
+        # PNG 缺失时退回 MDL2 字形。text 仍照常配置，供既有断言与兜底显示读取。
+        from ui_icons import IconLoader
+        icon_win = self.winfo_toplevel()
+        send_icon = IconLoader.nav_icon(icon_win, 'send')
+        stop_icon = IconLoader.nav_icon(icon_win, 'stop')
+        self.send_button = PrimaryButton(
+            row, text=ICON_SEND, image=send_icon,
+            compound='image' if send_icon is not None else 'text', width=0,
+            style='Tokens.Composer.Send.TButton', command=self.send)
+        self.send_button._icon_send, self.send_button._icon_stop = send_icon, stop_icon
+        self.send_button.image = send_icon
         self.send_button.pack(side='right', padx=(SPACING['xs'], SPACING['xs']))
         # R2942：模型选择器=下拉框按钮（点击弹出模型列表），与各页原「模型下拉框」同款，
         # 不再弹模态选择窗。StageModelPicker 自带按钮＋弹出卡片（含推理档位区）。
         # R2964：与发送键拉开一档间距（右侧 padx），避免模型钮贴着发送图标误触。
-        from stage_model_picker import StageModelPicker
+        from ui.stage_model_picker import StageModelPicker
         self.model_picker = StageModelPicker(row, self.desktop, self.stage)
         self.model_picker.pack(side='right', padx=(SPACING['sm'], SPACING['md']))
         # R2942 定版：五个图标都有悬停提示卡（Tooltip，不进 grab 不抢焦点）。
@@ -474,7 +508,7 @@ class SharedStageInput(_CandidateFlow, ttk.Frame):
         if self._skills_cache is not None:
             return self._skills_cache
         try:
-            import skill_registry
+            import orchestrator.skill_registry as skill_registry
             self._skills_cache = list(skill_registry.default_registry().getAll())
             return self._skills_cache
         except Exception:
@@ -633,7 +667,7 @@ class SharedStageInput(_CandidateFlow, ttk.Frame):
     def _skill_list_items(self):
         """当前阶段技能在前、其余在后；去重、限量。"""
         try:
-            import skill_registry
+            import orchestrator.skill_registry as skill_registry
             registry = skill_registry.default_registry()
             current = list(registry.getByStage(self.stage))
             seen = {self._skill_name(item) for item in current if self._skill_name(item)}
@@ -647,7 +681,7 @@ class SharedStageInput(_CandidateFlow, ttk.Frame):
     def _default_skills(self):
         """当前阶段在三虎默认里的 skill 名单（stage_config 条目的 skills 字段）。"""
         try:
-            import stage_config
+            import orchestrator.stage_config as stage_config
             project = self.project
             if project is None:
                 return []
@@ -659,7 +693,7 @@ class SharedStageInput(_CandidateFlow, ttk.Frame):
 
     def _toggle_skill_default(self, name):
         """勾选/取消本阶段默认 skill：写回 stage_config（三虎自动流程按此执行）。"""
-        import stage_config
+        import orchestrator.stage_config as stage_config
         project = self.project
         if project is None:
             _say(self.status, '请先打开一个项目，再设置本阶段默认技能')
@@ -765,7 +799,7 @@ class SharedStageInput(_CandidateFlow, ttk.Frame):
         if desc is not None:
             return str(desc)
         try:
-            import skill_registry
+            import orchestrator.skill_registry as skill_registry
             registry = skill_registry.default_registry()
             found = registry.getById(SharedStageInput._skill_name(item))
             if found is not None:
@@ -795,7 +829,7 @@ class SharedStageInput(_CandidateFlow, ttk.Frame):
         if not ref:
             return
         try:
-            import skill_import_service, skill_registry
+            import skill_import_service, orchestrator.skill_registry as skill_registry
             from pathlib import Path
             registry = skill_registry.default_registry()
             program = Path(skill_import_service.__file__).resolve().parent
@@ -821,7 +855,7 @@ class SharedStageInput(_CandidateFlow, ttk.Frame):
         if not source:
             return
         try:
-            import skill_import_service, skill_registry
+            import skill_import_service, orchestrator.skill_registry as skill_registry
             registry = skill_registry.default_registry()
             plan = skill_import_service.plan_import(
                 source, registry.user_stage_directory_for(self.stage), self.stage, registry)

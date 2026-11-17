@@ -1,5 +1,5 @@
 """运行状况汇总：只读已有来源、格式可读；弹窗能建出来且不可编辑；设置页有入口。"""
-from tests.architecture._scan import desktop_text  # R1505：Desktop 方法分布在 desktop.py 与迁出的 Mixin 模块
+from tests.architecture._scan import desktop_text, entity_file  # R1505：Desktop 方法分布在 desktop.py 与迁出的 Mixin 模块
 import tkinter as tk
 import unittest
 from pathlib import Path
@@ -145,7 +145,7 @@ class TaskCenterServiceTests(unittest.TestCase):
         self.assertEqual(ran[-1], '探测2(无进度条)')
 
     def test_result_tick_starts_next_queued(self):
-        source = (PROGRAM / 'desktop_async_tasks.py').read_text(encoding='utf-8')  # SPLITD：_tick_async_result 迁到 AsyncTasksMixin
+        source = entity_file('desktop_async_tasks').read_text(encoding='utf-8')  # SPLITD：_tick_async_result 迁到 AsyncTasksMixin
         tick = source.split('def _tick_async_result', 1)[1].split(chr(10) + '    def ', 1)[0]  # R1505：到下一个 def 为止
         self.assertIn('self._start_next_queued()', tick)
 
@@ -202,10 +202,10 @@ class TaskCenterServiceTests(unittest.TestCase):
         self.assertFalse(call('retry_failed_task'))
 
     def test_dialog_offers_retry_button_only_when_retryable(self):
-        source = (PROGRAM / 'task_center_ui.py').read_text(encoding='utf-8')
+        source = entity_file('task_center_ui').read_text(encoding='utf-8')
         self.assertIn("data.get('retry_ticket') is not None", source)
         self.assertIn('retry_failed_task', source)
-        self.assertIn('retryable=True', (PROGRAM / 'cloud_video.py').read_text(encoding='utf-8'))
+        self.assertIn('retryable=True', entity_file('cloud_video').read_text(encoding='utf-8'))
 
 
 class TaskCenterUiTests(unittest.TestCase):
@@ -270,7 +270,7 @@ class TaskCenterUiTests(unittest.TestCase):
         self.assertIn('最近一次主动任务', text.get('1.0', 'end'))
 
     def test_cloud_connection_probe_uses_the_queue(self):
-        source = (PROGRAM / 'cloud_video.py').read_text(encoding='utf-8')
+        source = entity_file('cloud_video').read_text(encoding='utf-8')
         self.assertIn("desktop.async_queued(work,", source)
         self.assertNotIn("desktop.async_(work,lambda text:probe_status", source)
 

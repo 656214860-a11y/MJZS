@@ -983,6 +983,48 @@ class PanelTests(unittest.TestCase):
         self.assertNotIn(' · ', picker.model.get(),
                          'REQ-S01-82：选择器当前项只显示模型名称，不带供应商前缀')
 
+    def test_model_picker_popup_renders_rows_and_stays_on_screen(self):
+        """R3111 回归：徽标行 padx 误用元组曾让 ``_fill_popup`` 抛 TclError——
+        浮层残留在默认位置（屏幕顶）且内容空白。开层必须建出模型行、几何落在屏内。"""
+        import stage_model_picker
+        picker = stage_model_picker.StageModelPicker(self.win, self.desktop, 'script')
+        self.addCleanup(picker.destroy)
+        self.addCleanup(picker._close_popup)
+        picker.pack(side='left')
+        # 注入带推理徽标的假条目：徽标 Label 的 padx 是本次崩溃点，真实空池没有徽标行。
+        picker._items = [('m1', '模型甲'), ('m2', '模型乙')]
+        picker._by_display = {'模型甲': 'm1', '模型乙': 'm2'}
+        picker._capable = {'m1'}
+        picker.model.set('模型甲')
+        self.win.deiconify()
+        self.win.update_idletasks()
+        self.win.update()
+        picker.toggle_popup()
+        self.win.update_idletasks()
+        self.win.update()
+        top = picker._popup
+        self.assertIsNotNone(top)
+        self.assertTrue(top.winfo_exists())
+
+        def labels(widget):
+            out = []
+            for child in widget.winfo_children():
+                if child.winfo_class() == 'Label':
+                    out.append(child)
+                out.extend(labels(child))
+            return out
+
+        texts = {str(label.cget('text')) for label in labels(top)}
+        self.assertIn('模型甲', texts)
+        self.assertIn('模型乙', texts)
+        self.assertTrue(any(text.startswith('推理·') for text in texts),
+                        '推理徽标行必须渲染出来')
+        screen_h = self.win.winfo_screenheight()
+        self.assertGreater(top.winfo_reqheight(), 0)
+        self.assertLess(top.winfo_reqheight(), screen_h)
+        self.assertGreaterEqual(top.winfo_rooty(), 0)
+        self.assertLessEqual(top.winfo_rooty() + top.winfo_height(), screen_h + 2)
+
     def test_add_menu_model_entry_opens_the_manager_and_reverts(self):
         """REQ-S01-91：「添加模型…」移到共享输入框「＋」下拉；模型池仍只有模型管理
         这一扇门，模型选择器浮层不再保留添加尾项。"""

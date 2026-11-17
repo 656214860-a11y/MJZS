@@ -24,6 +24,7 @@ from pathlib import Path
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROGRAM = Path(HERE).parent
+from tests.architecture._scan import entity_file
 sys.path.insert(0, str(PROGRAM))
 os.chdir(PROGRAM)
 
@@ -80,7 +81,7 @@ class ProgramTreeTests(unittest.TestCase):
     def test_the_writers_go_through_the_helper(self):
         """程序自己的文本写入面必须走 line_endings.write_text（不许再各写一套）。"""
         for name in WRITERS:
-            source = (PROGRAM / name).read_text(encoding='utf-8')
+            source = entity_file(name[:-3]).read_text(encoding='utf-8')
             with self.subTest(file=name):
                 self.assertIn('import line_endings', source, '%s 没导入 line_endings' % name)
                 self.assertIn('line_endings.write_text', source,

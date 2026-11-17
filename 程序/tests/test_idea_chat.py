@@ -1453,13 +1453,21 @@ class SendMessageTests(_Harness):
             self.assertNotIn(str(source), seen[0][2])
 
     @staticmethod
-    def attachment_chips(d):
-        return [chip for chip in d.shared_input.attachment_panel.winfo_children()
-                if hasattr(chip, 'attachment_path')]
+    def attachment_ref_lines(d):
+        """输入框顶部引用区的「@名」行（R3060：附件不再用卡片行，按引用顺序自上而下）。"""
+        box = d.idea_input
+        lines = []
+        for index in range(1, 40):
+            text = box.get('%d.0' % index, '%d.end' % index)
+            if not text.startswith('@'):
+                break
+            lines.append(text)
+        return lines
 
     def test_uploaded_file_list_survives_send_clear_and_deletes_only_confirmed_copy(self):
-        # REQ-S01-63：卡片右上角 × 删单个，先确认，只把项目副本移入回收站。
+        # REQ-S01-63（R3060 改版）：引用以「@原名」行显示在输入框顶部；删除先确认、只移项目副本。
         from stage_execution_service import archive_idea_attachments
+        from domain.idea_attachments import display_name
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             source = Path(td) / '角色设定.txt'
@@ -1467,28 +1475,31 @@ class SendMessageTests(_Harness):
             archived = archive_idea_attachments(proj, (source,))[0]
             d, win = self.desktop(proj)
             d.show(0); self.settle_script_page(win)
-            chips = self.attachment_chips(d)
-            self.assertEqual([chip.attachment_path for chip in chips], [archived])
+            d.idea_attachment_paths = (archived,)
+            d.update_idea_attachment_status(); win.update()
+            self.assertEqual(self.attachment_ref_lines(d), ['@' + display_name(archived)])
+            # 取消引用后 @ 行消失，但项目副本仍在已上传列表（@ 菜单可再选）。
             d.idea_attachment_paths = ()
             d.update_idea_attachment_status(); win.update()
-            self.assertTrue(d.shared_input.attachment_panel.winfo_manager())
+            self.assertEqual(self.attachment_ref_lines(d), [])
+            self.assertTrue(archived.is_file())
             with patch('desktop.confirm', return_value=False):
                 d.delete_uploaded_idea_attachment(archived)
             self.assertTrue(archived.is_file())
-            self.assertEqual(len(self.attachment_chips(d)), 1)
             with patch('desktop.confirm', return_value=True) as confirm_delete:
-                self.attachment_chips(d)[0].close_button.event_generate('<Button-1>')
+                d.delete_uploaded_idea_attachment(archived)
             win.update()
             self.assertIn(source.name, confirm_delete.call_args.args[2])
             self.assertNotIn(str(source), confirm_delete.call_args.args[2])
             self.assertTrue(source.is_file())
             self.assertFalse(archived.exists())
-            self.assertEqual(self.attachment_chips(d), [])
-            self.assertFalse(d.shared_input.attachment_panel.winfo_manager())
+            self.assertEqual(self.attachment_ref_lines(d), [])
             self.assertIn('原始文件未删除', d.status.get())
 
-    def test_uploaded_attachments_are_horizontal_ordered_and_openable(self):
+    def test_uploaded_attachments_are_ordered_and_openable(self):
+        # REQ-S01-71（R3060 改版）：引用区按引用顺序每附件一行；右键 @ 行可打开原件、删项目副本。
         from stage_execution_service import archive_idea_attachments
+        from domain.idea_attachments import archive_pair, display_name
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             sources = [Path(td) / name for name in ('先传.txt', '后传.txt', '最后.txt')]
@@ -1498,24 +1509,21 @@ class SendMessageTests(_Harness):
             d, win = self.desktop(proj)
             d.show(0); win.deiconify(); win.update()
             self.settle_script_page(win)
-            chips = self.attachment_chips(d)
-            self.assertEqual([chip.attachment_path for chip in chips], list(archived))
+            d.idea_attachment_paths = tuple(archived)
+            d.update_idea_attachment_status(); win.update()
+            self.assertEqual(self.attachment_ref_lines(d),
+                             ['@' + display_name(path) for path in archived])
             self.assertFalse(hasattr(d, 'idea_uploaded_heading'))
             self.assertFalse(hasattr(d, 'idea_composer_label'))
-            self.assertLessEqual(abs(chips[0].winfo_rooty() - chips[2].winfo_rooty()), 2, '卡片横向排在同一行')
-            self.assertLess(chips[0].winfo_rootx(), chips[1].winfo_rootx())
-            self.assertLess(chips[1].winfo_rootx(), chips[2].winfo_rootx())
-            # REQ-S01-71：卡片按上传顺序从左往右，放不下自动换行；没有附件不占位。
-            # R2923：附件卡片挂在共享输入框内，独占输入行下方的一整行。
-            self.assertGreaterEqual(chips[0].winfo_rooty(),
-                                    d.idea_input.winfo_rooty() + d.idea_input.winfo_height(),
-                                    '附件卡片排在共享输入框的输入行下方')
-            shared = d.shared_input
-            self.assertLessEqual(chips[0].winfo_rootx(), shared.attachment_button.winfo_rootx(),
-                                 '附件卡片行与共享输入框左缘对齐')
-            from domain.idea_attachments import archive_pair
+            # 「@名」行位于输入框文本最顶。
+            self.assertTrue(d.idea_input.get('1.0', '1.end').startswith('@'))
+            # 右键命中：_idea_attachment_at 按落点行返回对应已入库路径。
+            x0, y0, _w, h = d.idea_input.bbox('2.0')
+            hit = d._idea_attachment_at(SimpleNamespace(
+                widget=d.idea_input, x=x0 + 2, y=y0 + h // 2))
+            self.assertEqual(Path(hit), Path(archived[1]))
             with patch('desktop.open_path') as opened:
-                chips[1].event_generate('<Button-1>')
+                d.open_uploaded_idea_attachment(archived[1])
             opened.assert_called_once_with(archive_pair(archived[1])[0])
             with patch('desktop.confirm', return_value=True):
                 d.delete_uploaded_idea_attachment(archived[0])
@@ -1524,10 +1532,12 @@ class SendMessageTests(_Harness):
             self.assertTrue(archived[1].exists())
             self.assertFalse(archived[2].exists())
             self.assertTrue(all(source.exists() for source in sources))
-            self.assertEqual([chip.attachment_path for chip in self.attachment_chips(d)], [archived[1]])
+            d.update_idea_attachment_status(); win.update()
+            self.assertEqual(self.attachment_ref_lines(d), ['@' + display_name(archived[1])])
 
     def test_uploaded_legacy_text_without_original_remains_openable(self):
         from stage_execution_service import archive_idea_attachments
+        from domain.idea_attachments import display_name
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             source = Path(td) / '素材.txt'
@@ -1538,9 +1548,15 @@ class SendMessageTests(_Harness):
             d, win = self.desktop(proj)
             d.show(0); win.deiconify(); win.update()
             self.settle_script_page(win)
-            chip = next(chip for chip in self.attachment_chips(d) if chip.attachment_path == legacy)
+            d.idea_attachment_paths = (legacy,)
+            d.update_idea_attachment_status(); win.update()
+            self.assertEqual(self.attachment_ref_lines(d), ['@' + display_name(legacy)])
+            x0, y0, _w, h = d.idea_input.bbox('1.0')
+            hit = d._idea_attachment_at(SimpleNamespace(
+                widget=d.idea_input, x=x0 + 2, y=y0 + h // 2))
+            self.assertEqual(Path(hit), Path(legacy))
             with patch('desktop.open_path') as opened:
-                chip.event_generate('<Button-1>')
+                d.open_uploaded_idea_attachment(hit)
             opened.assert_called_once_with(legacy)
 
     def test_a_failed_workflow_keeps_the_draft_without_creating_a_submission(self):

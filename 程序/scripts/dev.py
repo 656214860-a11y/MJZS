@@ -42,6 +42,8 @@ COMMANDS = {
     'sync': (['scripts/sync_master.py'], '主工作区同步：fetch 远端 + 仅 fast-forward（只拉不推）'),
     'scope': (['维护记录/基准脚本/branch_scope.py'], '活跃车道范围冲突扫描：计划路径 vs 各分支改动（--added 只看新增）'),
     'merge': (['scripts/merge_round.py'], '合并轮一条命令：合入分支+领号+状态页抬头+结果文件+提交（在 master 检出运行）'),
+    'lanes': (['维护记录/基准脚本/round_claim.py', 'lanes'], '车道注册表 lanes.json：owner/role/last_seen/失联标记'),
+    'merge-queue': (['scripts/merge_queue.py'], '合并请求队列：enqueue/list/serve（FIFO 合并道）'),
     'archive': (['scripts/archive_results.py'], '旧轮次结果文件按月归档（默认预览，--apply 执行）'),
     'commit': (['scripts/commit_round.py'], '暂存+白名单+等验收锁+提交（-m "R<N>: 说明" [文件...]）'),
 }

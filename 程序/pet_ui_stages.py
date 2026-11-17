@@ -6,9 +6,9 @@
 import pet_agent
 import contract.pet_bus as pet_bus
 import ui.pet_cloud as pet_cloud
-import stage_flow
+import orchestrator.stage_flow as stage_flow
 import orchestrator.stage_handler_registry as stage_handler_registry
-import stage_parallel
+import orchestrator.stage_parallel as stage_parallel
 from tkinter import TclError
 from ui_widgets import ask_confirmation
 from pet_ui_support import ADVANCE_SECONDS, AUTO_STAGE_VARIABLES, AUTO_VARIABLE_NAMES, CONFIRM_NEED, CONFIRM_TITLE, FALLBACK_ASK, LEVEL_SWITCH_NOTES, ONE_CLICK_ASK, ONE_CLICK_TITLE, PAGE_ASKS, PAW_LEVELS, SANHU_MODES, STAGE_ASK_SECONDS, _BooleanFlag, accepts_keyword
@@ -23,14 +23,14 @@ class PetStagesMixin:
         一段提示词，或者页面仍在等待用户采用。三虎只能把可复核的项目产物标成完成。
         没有项目的轻量宿主（旧插件和自检替身）不持久化阶段状态，保留其原有行为。
         """
-        import stage_completion_service
+        import orchestrator.stage_completion_service as stage_completion_service
         studio = getattr(self.desktop, 'studio', None)
         return stage_completion_service.completion_evidence(
             getattr(self.desktop, 'root', None), stage,
             getattr(studio, 'auto_edit_ready', None))
     def _complete_if_verified(self, stage, text):
         """唯一的自动完成出口；缺少产物时只停止运行态，绝不推进自动链。"""
-        import stage_completion_service
+        import orchestrator.stage_completion_service as stage_completion_service
         studio = getattr(self.desktop, 'studio', None)
         ok, detail, emitted = stage_completion_service.emit_verified_completion(
             getattr(self.desktop, 'root', None), stage, text, self._emit,
@@ -92,7 +92,7 @@ class PetStagesMixin:
         if not text:
             return ''
         try:
-            import stage_completion_service
+            import orchestrator.stage_completion_service as stage_completion_service
             # 自动链先由 script.completed 武装，再消费同一次的 stage.completed。
             # 反过来发会让队长尚未 armed 就吞掉完成事件，停在剧本阶段。
             studio = getattr(self.desktop, 'studio', None)
@@ -240,7 +240,7 @@ class PetStagesMixin:
                 if str(states.get(stage) or '') in ('', 'pending'):
                     states[stage] = 'success'
             try:
-                from storyboard_selection import sync_structured_script
+                from orchestrator.storyboard_selection import sync_structured_script
                 sync_structured_script(project)
             except (OSError, ValueError, TypeError) as exc:
                 self.errors.append(('structured_script.sync', str(exc)))
@@ -523,7 +523,7 @@ class PetStagesMixin:
         skill_orchestrator 分层执行、付费的并成一个气泡问一次、结果统一汇报给三虎说出去。
         """
         import skill_panel
-        import skill_registry
+        import orchestrator.skill_registry as skill_registry
         import orchestrator.skill_templates as skill_templates
         params = plan.get('params') or {}
         stage = plan.get('stage')

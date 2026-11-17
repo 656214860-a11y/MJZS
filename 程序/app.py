@@ -15,9 +15,11 @@ from pathlib import Path
 from contract.storyboard_paths import media_root, project_root
 from responsive_ui import FlowBar,QuietVar,configure_check_column,CheckboxColumn,fit_columns_by_content,fit_row_height,row_height_for
 from local_video import open_studio,LocalStudio,settings_window
-from engine import review_label
-from video_task_state import assert_prompt_editable,prompt_locked,poll_delay,elapsed_text,submission_block_reason
-from video_progress import snapshot as shared_video_snapshot,display as progress_display,summary as progress_summary,LABELS,status_detail
+from orchestrator.engine import review_label
+from domain.project_naming import dated_path
+from domain.video_task_state import assert_prompt_editable,prompt_locked,poll_delay,elapsed_text,submission_block_reason
+from ui.video_progress import snapshot as shared_video_snapshot,display as progress_display,summary as progress_summary,LABELS,status_detail
+import project_settings
 import asset_thumbs
 import ui_plugin_registry
 from contract.platform_tools import open_path
@@ -136,7 +138,7 @@ class App:
         self._build_white_model_cells(table_shell)
         self._build_video_actions()
         self._build_progress_and_log()
-        from video_prompt_results import PromptResults
+        from ui.video_prompt_results import PromptResults
         self.prompt_results=PromptResults()
         # R2942：视频工作台的「阶段配置」按钮＋模型下拉框已删，stage_button 属性只留 None 占位。
         self.closed=False;self.window.bind('<Destroy>',self.cancel_timers,add='+')
@@ -631,7 +633,7 @@ class App:
             check.state(['!disabled'] if self.white_ready.get(sid) or var.get() else ['disabled'])
             x,y,w,h=bbox;check.place(x=x+2,y=y+1,width=w-4,height=h-2)
     def writing_setup(self):
-        from writing import STAGES
+        from domain.writing import STAGES
         from stage_execution_service import prepare_writing_project
         win=BaseDialog(self.window,'剧本准备 · 五阶段编剧技能',geometry='780x540',modal=False,chrome=False);win.attributes('-alpha',0)
         ttk.Label(win,text='填写创意或粘贴已有剧本：').pack(anchor='w',padx=SPACING['md'],pady=SPACING['xs'])
@@ -673,7 +675,7 @@ class App:
             except Exception as e:self.notifier.error(str(e), title='无法准备')
         PrimaryButton(win,text='生成编剧任务书（离线）',command=generate).pack(pady=SPACING['md'])
     def import_json(self):
-        from writing import validate_episode
+        from domain.writing import validate_episode
         from agent.core import read
         from stage_execution_service import import_writing_project
         file=FileDialog(self.window).open_file(title='选择编剧输出的镜头JSON',filetypes=[('镜头JSON','*.json')])
@@ -1210,7 +1212,7 @@ class App:
         sid=self.sid();self.save_options()
         initial=self.prompt.get('1.0','end').strip()
         self.prompt_callback(sid)
-        from video_prompt_results import PromptResults
+        from ui.video_prompt_results import PromptResults
         if not hasattr(self,'prompt_results'):self.prompt_results=PromptResults()
         self.prompt_results.begin(sid,initial)
         self.write(sid+' Agent 已调用；生成完成后会自动导入并保存，可切换其他镜头。')

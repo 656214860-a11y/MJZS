@@ -4,6 +4,8 @@ import ast
 import os
 import unittest
 
+from tests.architecture._scan import entity_file
+
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
@@ -18,7 +20,7 @@ def _calls(node):
 
 class VideoPublicationBoundaryTests(unittest.TestCase):
     def test_cloud_and_local_poll_delegate_downloaded_state_publication(self):
-        with open(os.path.join(ROOT, 'engine.py'), encoding='utf-8') as handle: cloud = ast.parse(handle.read())
+        with open(str(entity_file('engine')), encoding='utf-8') as handle: cloud = ast.parse(handle.read())
         with open(os.path.join(ROOT, 'local_video.py'), encoding='utf-8') as handle: local = ast.parse(handle.read())
         self.assertIn('publish_downloaded_video', _calls(_method(cloud, 'Studio', 'poll')))
         self.assertIn('publish_downloaded_video', _calls(_method(local, 'LocalStudio', 'poll')))

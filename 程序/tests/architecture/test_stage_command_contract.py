@@ -5,7 +5,7 @@ import ast
 import unittest
 
 from tests.architecture._layers import LAYERS
-from tests.architecture._scan import ROOT, module_name, parse
+from tests.architecture._scan import ROOT, entity_file, module_name, parse
 
 
 _L4_COMMAND_MODULES = frozenset({'desktop', 'desktop_pet_bridge', 'app', 'pet_ui'})  # SPLITD：pet_start/pet_storyboard_batch 迁到 PetBridgeMixin
@@ -30,7 +30,7 @@ class StageCommandContractTests(unittest.TestCase):
         violations = []
         registry_calls = []
         for name in sorted(_L4_COMMAND_MODULES):
-            path = ROOT / f'{name}.py'
+            path = entity_file(name)
             if not path.is_file():
                 continue
             self.assertEqual(LAYERS.get(module_name(path)), 4, path.name)

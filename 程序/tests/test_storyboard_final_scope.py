@@ -8,6 +8,7 @@ from unittest import mock
 import pet_bus
 from contract import shot_batches
 import stage_config
+import stage_completion_service
 import stage_flow
 import stage_layout
 import stage_parallel
@@ -126,7 +127,7 @@ class StoryboardFinalScopeTests(unittest.TestCase):
         self.assertTrue(result['ok'] and result['started'])
 
     def test_req_s07_41_completion_service_maps_final_to_batches_ready(self):
-        text = (ROOT / 'stage_completion_service.py').read_text(encoding='utf-8')
+        text = Path(stage_completion_service.__file__).read_text(encoding='utf-8')
         self.assertIn("'final': 'batches_ready'", text)
 
     def test_req_s07_52_finalize_reads_the_continuity_ledger_before_syncing(self):

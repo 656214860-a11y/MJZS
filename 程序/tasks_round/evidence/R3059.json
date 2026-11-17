@@ -1,0 +1,15 @@
+{
+  "round": 3059,
+  "commit_base": "029c133d",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k script_find script_line script_outline script_reading script_view project_settings_dialog prompt_window qwen_setup edit_habits tts_settings seedream version_picker workflow_settings_dialog writing_page shared_video storyboard_table storyboard_source pet_models_tabs pet_ui_popup previs_progress ui_edges",
+    "exit": 0,
+    "passed": 188,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T08:27:49"
+}

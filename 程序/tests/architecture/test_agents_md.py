@@ -145,7 +145,7 @@ class AgentsMdConsistencyTests(unittest.TestCase):
     def test_desktop_route_documentation_matches_current_contract(self) -> None:
         architecture = _read(ARCHITECTURE)
         project_map = _read(PROJECT_MAP)
-        source = _read(ROOT / 'workflow_settings.py')
+        source = _read(entity_file('workflow_settings'))
         self.assertNotIn('不参与 API 自动抢占', architecture)
         self.assertIn('GPT/Anthropic API', architecture)
         self.assertIn('本机程序可启动', architecture)

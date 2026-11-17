@@ -1,6 +1,6 @@
 """Content requirements independent of the selected engine or skill."""
 from pathlib import Path
-import stage_parallel
+import orchestrator.stage_parallel as stage_parallel
 from integrations import script_text
 from asset_prompt_rules import rules as asset_rules
 from contract.storyboard_contract import rules as storyboard_rules
@@ -8,17 +8,17 @@ from contract.storyboard_contract import rules as storyboard_rules
 def natural_script_delivery_path(project, at):
     """Exact desktop output target, shared by the task and its receipt watcher."""
     from domain.idea_document_paths import reply_path_parts, storage_identity
-    from project_context_factory import project_context
+    from orchestrator.project_context_factory import project_context
     from contract.project_stages import writing
-    from workflow_settings import model_name
+    from orchestrator.workflow_settings import model_name
     provider, model = storage_identity(model_name(project, 'writing'))
     return writing(project).joinpath(*reply_path_parts(
         project_context(project), at=at, provider=provider, model=model, file_type='自然剧本'))
 
 def _agent_delivery_contract(project, at=None):
     from domain.idea_document_paths import PROJECT_DOCUMENT_DIRS, delivery_document_path, storage_identity
-    from project_context_factory import project_context
-    from workflow_settings import model_name
+    from orchestrator.project_context_factory import project_context
+    from orchestrator.workflow_settings import model_name
     from datetime import datetime
     at = datetime.now().timestamp() if at is None else at
     context = project_context(project)
@@ -129,7 +129,7 @@ def script_prompt(project,script,stage,existing=None,creative_text=None,*,agent_
               + ('内部工作稿 `script_raw.md` 可继续更新，正式交付以规范路径为准，不得写入后续阶段目录。'
                  if agent_delivery else '内部工作稿 `script_raw.md` 可继续更新；回复由应用按既有分类保存规则落盘，不得写入 02剧本结构或任何后续阶段目录。') +
               '暂不调用图片、视频或分镜制作。')
-        from workflow_context import preparation_priority_rule
+        from domain.workflow_context import preparation_priority_rule
         task += '\n' + preparation_priority_rule()
         # 项目级编剧风格由 prompt_with_settings 统一注入；这里不重复携带。
         if agent_delivery:
@@ -233,10 +233,10 @@ STORYBOARD_SAVE_RULE = ('分镜保存规则更新：每集只保存一份工作J
 
 def storyboard_batch_plan(project,scripts,existing):
     """所选输入去掉已做完与同集重复项，返回 (待制作剧本, 待修订分镜, 跳过清单)；任务书与直连执行器共用。"""
-    from storyboard_catalog_service import file_order
-    from storyboard_catalog_service import catalog, produced_episodes, produced_scripts, resolve_source
-    from project_context_factory import project_context
-    from storyboard_selection import adopted
+    from domain.storyboard_catalog_service import file_order
+    from domain.storyboard_catalog_service import catalog, produced_episodes, produced_scripts, resolve_source
+    from orchestrator.project_context_factory import project_context
+    from orchestrator.storyboard_selection import adopted
     project=Path(project).resolve()
     context=project_context(project)
     scripts=list(dict.fromkeys(Path(path).resolve() for path in scripts))
@@ -272,7 +272,7 @@ def storyboard_batch_prompt(project,scripts,existing):
     """One task for the selected files, with completed work excluded by provenance."""
     import json
     from agent.core import read
-    from storyboard_catalog_service import file_order
+    from domain.storyboard_catalog_service import file_order
     project=Path(project).resolve()
     scripts,existing,skipped=storyboard_batch_plan(project,scripts,existing)
     tasks=[]

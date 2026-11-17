@@ -7,6 +7,7 @@ from unittest.mock import Mock, patch
 
 from contract import project_stages
 from script_workspace_service import ensure_script_workspace, rename_script_document
+from tests.architecture._scan import entity_file
 from contract.service_contract import SystemError, UserError, success
 
 
@@ -51,7 +52,7 @@ class ScriptWorkspaceResultTests(unittest.TestCase):
                 ensure_script_workspace('project')
 
     def test_desktop_rename_success_failure_and_cancel(self):
-        source = Path(__file__).resolve().parents[1] / 'desktop_files_panel.py'  # R2962：文件列表迁到 ProjectFilesPanel
+        source = entity_file('desktop_files_panel')  # R2962：文件列表迁到 ProjectFilesPanel
         tree = ast.parse(source.read_text(encoding='utf-8'))
         methods = [node for node in ast.walk(tree)
                    if isinstance(node, ast.FunctionDef) and node.name == 'rename_script']
@@ -81,7 +82,7 @@ class ScriptWorkspaceResultTests(unittest.TestCase):
                 service.assert_not_called()
 
     def test_desktop_initialization_failure_stops_before_page_construction(self):
-        source = Path(__file__).resolve().parents[1] / 'desktop_writing_page.py'  # R1499：writing 已原样迁到 WritingPageMixin
+        source = entity_file('desktop_writing_page')  # R1499：writing 已原样迁到 WritingPageMixin
         tree = ast.parse(source.read_text(encoding='utf-8'))
         desktop = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == 'WritingPageMixin')
         method = next(node for node in desktop.body if isinstance(node, ast.FunctionDef) and node.name == 'writing')

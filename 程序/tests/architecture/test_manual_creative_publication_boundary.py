@@ -5,7 +5,7 @@ from tests.architecture._scan import parse_desktop  # R1505：Desktop 方法分�
 import ast
 import unittest
 
-from tests.architecture._scan import ROOT, parse
+from tests.architecture._scan import ROOT, entity_file, parse
 from tests.architecture._scan import stage_execution_source
 
 
@@ -34,7 +34,7 @@ class ManualCreativePublicationBoundaryTests(unittest.TestCase):
             self.assertTrue(any(item.arg == 'publish' for item in call.keywords),
                             '桌面必须向创意服务注入 L3 发布器')
 
-        service = parse(ROOT / 'idea_chat.py')
+        service = parse(entity_file('idea_chat'))
         target = next(node for node in service.body
                       if isinstance(node, ast.FunctionDef) and node.name == 'save_manual_creative')
         names = {node.id for node in ast.walk(target) if isinstance(node, ast.Name)}

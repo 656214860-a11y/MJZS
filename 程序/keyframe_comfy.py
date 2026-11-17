@@ -12,7 +12,7 @@ from contract.platform_tools import open_path
 from responsive_ui import FlowBar, CHECK_COLUMN_WIDTH, configure_check_column, refresh_check_heading, scroll_form
 from contract.storyboard_paths import media_root
 from ui_tokens import CHAR_WIDTH, TEXT_ROWS, WRAPLENGTH, COLORS, FONTS, SPACING
-from keyframe_batch import (MODE_LABELS, MODE_MISSING, MODE_RETRY, STATE_MISSING,
+from domain.keyframe_batch import (MODE_LABELS, MODE_MISSING, MODE_RETRY, STATE_MISSING,
                             batch_plan, frame_prompt, frame_state, plan_summary)
 from contract.production_model_contract import (LOCAL_KEYFRAME_MODEL,
                                        SEEDREAM_KEYFRAME_MODEL,
@@ -71,7 +71,7 @@ def current_model(project):
     升级上来的老项目里 ui_settings.json 存过的那一档仍然兜底：模型下拉框还没挑过生产模型时按它
     显示，看到的还是原来那个模型（换过 Agent 引擎的人不会突然回到本地）；挑过就以统一配置为准。
     """
-    from keyframe_model_service import current_model as resolve
+    from orchestrator.keyframe_model_service import current_model as resolve
     return resolve(project)
 
 
@@ -93,7 +93,7 @@ def pending_shots(shots, base):
 
 def reference_count(shot):
     try:
-        from asset_context import references
+        from domain.asset_context import references
         return len({value for _, value in references(shot)})
     except Exception:
         return 0
@@ -174,7 +174,7 @@ def run_seedream(source, shots, options, log, stop=None, *, project=None):
             failed.append(sid + '：参考图超过 10 张'); log(sid + '：参考图超过 10 张，Seedream 每项最多 10 张'); continue
         payload = _seedream_payload(profile['model'], prompt, aspect, images)
         trace = {'model': profile['model'], 'shot_id': sid, 'provenance': _seedream_provenance(payload)}
-        from keyframe_evidence import source_evidence
+        from domain.keyframe_evidence import source_evidence
         frozen_source = source_evidence(source, episode, current)
         request_id = 'image:' + uuid4().hex
         save(record_file, {'request_id': request_id, 'state': 'sending', **trace})
@@ -352,7 +352,7 @@ class _KeyframeComfyRows:
         用的模型池条目）时按本地 ComfyUI 走。
         """
         from importlib import import_module
-        settings = import_module('workflow_settings')
+        settings = import_module('orchestrator.workflow_settings')
         cfg = settings.load(self.project, STAGE)
         items = {LOCAL_MODEL: ('local', None), SEEDREAM: ('cloud', None)}
         for engine_name, display in settings.ENGINES.items():
@@ -440,7 +440,7 @@ class _KeyframeComfyWindow(_KeyframeComfyRows):
         # 统筹制作锁只给默认初值；用户已保存的首帧偏好仍是第二优先级。
         from contract.asset_contract import resolve_aspect_ratio
         try:
-            import stage_config
+            import orchestrator.stage_config as stage_config
             self.locked = stage_config.workflow_lock(self.project)
         except Exception:
             self.locked = {}
@@ -589,8 +589,8 @@ class _KeyframeComfyWindow(_KeyframeComfyRows):
             self.account.grid_remove()
             if current == 'agent':
                 from importlib import import_module
-                cfg = import_module('workflow_settings').load(self.project, STAGE)
-                agent_label = import_module('workflow_agents').label
+                cfg = import_module('orchestrator.workflow_settings').load(self.project, STAGE)
+                agent_label = import_module('ui.workflow_agents').label
                 self.hint.set('交给首帧 Agent 逐镜生成，Skill 用“Skill 调用设置”切换；当前：'
                          + agent_label(cfg['profiles'][self.engine_of()], STAGE, self.engine_of(), '首帧制作'))
             else:
@@ -601,12 +601,12 @@ class _KeyframeComfyWindow(_KeyframeComfyRows):
             self.skill_button.grid_remove()
 
     def choose_account(self):
-        from seedream_settings import show as seedream_show
+        from ui.seedream_settings import show as seedream_show
         seedream_show(self.win, on_saved=self.update_model_ui)
 
     def open_stage_config(self):
         """R2942：去底部共享输入框的模型下拉框挑首帧模型（唯一入口）。"""
-        import stage_models
+        import orchestrator.stage_models as stage_models
         stage_models.open_model_dropdown(self.app)
 
     def open_agent_settings(self):
@@ -623,8 +623,8 @@ class _KeyframeComfyWindow(_KeyframeComfyRows):
         if self.kind() != 'agent':
             return
         from importlib import import_module
-        engine = self.engine_of(); cfg = import_module('workflow_settings').load(self.project, STAGE)
-        choose_agent = import_module('workflow_agents').choose
+        engine = self.engine_of(); cfg = import_module('orchestrator.workflow_settings').load(self.project, STAGE)
+        choose_agent = import_module('ui.workflow_agents').choose
         if engine and engine != cfg['engine']:
             choose_agent(self.project, STAGE, (engine, cfg['profiles'][engine]['skill']))
             self.app.status.set('已切换首帧 Agent 模型：' + self.model.get())
@@ -809,7 +809,7 @@ class _KeyframeComfyWindow(_KeyframeComfyRows):
             self.log_clear()
             self.log_lines('Seedream 5.0 Pro · 共 ' + str(len(checked['shots'])) + ' 镜')
             self.log_plan(checked.get('plan'))
-            from seedream_settings import confirm_unsettled
+            from ui.seedream_settings import confirm_unsettled
             confirmed = confirm_unsettled(self.win, self.source.parent / '首帧任务', [shot['id'] for shot in checked['shots']], '镜头')
             if confirmed:
                 self.log_lines('已在火山控制台核实，重新生成：' + '、'.join(confirmed))
@@ -864,7 +864,7 @@ class _KeyframeComfyWindow(_KeyframeComfyRows):
             self.poll.last = str(value)
         try:
             from importlib import import_module
-            stamp = import_module('workflow_settings').settings_path(self.project).stat().st_mtime_ns
+            stamp = import_module('orchestrator.workflow_settings').settings_path(self.project).stat().st_mtime_ns
         except OSError:
             stamp = 0
         if stamp != self.agent_stamp[0]:

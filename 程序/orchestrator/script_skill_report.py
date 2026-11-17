@@ -10,7 +10,7 @@ from contract.script_contract import AUDIT, CATEGORIES, MERGED, MERGE_OWNER, PRO
 
 def manifest_rows(program=None):
     """Return the live script-Skill registry as report rows."""
-    from skill_registry import default_registry
+    from orchestrator.skill_registry import default_registry
     root = program_root(program)
     registry = default_registry(str(root))
     rows = []
@@ -52,7 +52,7 @@ def audit_rows(program=None):
 def merge_problems(program=None):
     """验证合并后的 SKILL 归属；这是报告层，不让 L0 契约层依赖注册表。"""
     root = program_root(program)
-    from skill_registry import default_registry
+    from orchestrator.skill_registry import default_registry
     owner_skill = default_registry(root).getById(MERGE_OWNER)
     if owner_skill is None:
         return ('归属者的 SKILL 文件读不到：%s' % MERGE_OWNER,)

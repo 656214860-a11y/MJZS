@@ -10,9 +10,13 @@ from tests.architecture._scan import entity_file, stage_execution_source
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
+def _source(name):
+    """模块源码：T10 包实体优先，顶层门面与未迁移文件兜底。"""
+    return entity_file(Path(name).stem).read_text(encoding='utf-8')
+
+
 def _tree(name):
-    with open(os.path.join(ROOT, name), encoding='utf-8') as handle:
-        return ast.parse(handle.read())
+    return ast.parse(_source(name))
 
 
 class ProjectContextBoundaryTests(unittest.TestCase):
@@ -50,7 +54,7 @@ class ProjectContextBoundaryTests(unittest.TestCase):
 
     def test_l2_uses_injected_stage_resolver_without_project_path_join(self):
         delivery = _tree('domain/delivery_import_service.py')
-        source = Path(ROOT, 'domain/delivery_import_service.py').read_text(encoding='utf-8')
+        source = _source('domain/delivery_import_service.py')
         self.assertIn("context.stage_resolver('delivery')", source)
         self.assertNotIn('project_stages', source)
         self.assertNotIn('os.path.join', source)
@@ -78,11 +82,11 @@ class ProjectContextBoundaryTests(unittest.TestCase):
             constructors = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
                             and getattr(node.func, 'id', '') == 'ProjectContext']
             self.assertEqual(constructors, [], name + ' 不得自行构造 ProjectContext')
-            source = Path(ROOT, name).read_text(encoding='utf-8')
+            source = _source(name)
             self.assertIn('ProjectContext', source)
 
     def test_confirmation_service_consumes_context_and_l3_injects_it(self):
-        source = Path(ROOT, 'domain/confirm_gates.py').read_text(encoding='utf-8')
+        source = _source('domain/confirm_gates.py')
         self.assertIn('ProjectContext', source)
         self.assertIn("context.stage_resolver('continuity')", source)
         tree = _tree('domain/confirm_gates.py')
@@ -94,7 +98,7 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         self.assertIn('context=project_context(project)', orchestrator)
 
     def test_local_video_settings_consumes_context_and_l3_injects_it(self):
-        source = Path(ROOT, 'local_video_settings_service.py').read_text(encoding='utf-8')
+        source = _source('local_video_settings_service.py')
         self.assertIn('ProjectContext', source)
         tree = _tree('local_video_settings_service.py')
         constructors = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
@@ -104,7 +108,7 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         self.assertIn('save_local_video_settings(project_context(project)', orchestrator)
 
     def test_idea_attachments_consume_context_and_l3_injects_it(self):
-        source = Path(ROOT, 'domain/idea_attachments.py').read_text(encoding='utf-8')
+        source = _source('domain/idea_attachments.py')
         self.assertIn('ProjectContext', source)
         self.assertIn("context.stage_resolver('script')", source)
         tree = _tree('domain/idea_attachments.py')
@@ -116,7 +120,7 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         self.assertIn('def stage_idea_attachment_reference(', orchestrator)
 
     def test_pet_performance_consumes_context_and_l3_injects_it(self):
-        source = Path(ROOT, 'pet_performance_service.py').read_text(encoding='utf-8')
+        source = _source('pet_performance_service.py')
         self.assertIn('ProjectContext', source)
         self.assertIn('context.root.joinpath', source)
         self.assertNotIn('ProjectContext(', source)
@@ -124,7 +128,7 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         self.assertIn("poll_startup_check(session, project_context(session['project'])", orchestrator)
 
     def test_pet_test_consumes_context_and_l3_injects_it(self):
-        source = Path(ROOT, 'pet_test_service.py').read_text(encoding='utf-8')
+        source = _source('pet_test_service.py')
         self.assertIn('ProjectContext', source)
         self.assertIn('context.root.joinpath', source)
         self.assertNotIn('ProjectContext(', source)
@@ -132,7 +136,7 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         self.assertIn('poll_incremental(session, project_context(project)', orchestrator)
 
     def test_cloud_video_consumes_context_and_l3_injects_it(self):
-        source = Path(ROOT, 'cloud_video_service.py').read_text(encoding='utf-8')
+        source = _source('cloud_video_service.py')
         self.assertIn('ProjectContext', source)
         self.assertIn("context.root/'cloud_video'", source)
         self.assertNotIn('ProjectContext(', source)
@@ -141,7 +145,7 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         self.assertIn('saved_provider_key(project_context(project)', orchestrator)
 
     def test_idea_chat_consumes_context_and_l3_injects_it(self):
-        source = Path(ROOT, 'idea_chat.py').read_text(encoding='utf-8')
+        source = _source('idea_chat.py')
         self.assertIn('ProjectContext', source)
         self.assertIn('def _context(value)', source)
         self.assertIn('writing(_context(context).root)', source)
@@ -152,7 +156,7 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         self.assertIn('idea_chat.load(self.idea_chat_context()', desktop)
 
     def test_keyframe_batch_consumes_context_and_l3_injects_it(self):
-        source = Path(ROOT, 'keyframe_batch.py').read_text(encoding='utf-8')
+        source = _source('keyframe_batch.py')
         self.assertIn('ProjectContext', source)
         self.assertIn('isinstance(context, ProjectContext)', source)
         self.assertNotIn('ProjectContext(', source)
@@ -161,7 +165,7 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         self.assertIn('image_prompt(source, project_context(project)', orchestrator)
 
     def test_previs_routing_consumes_context_and_l3_injects_it(self):
-        source = Path(ROOT, 'previs_routing.py').read_text(encoding='utf-8')
+        source = _source('previs_routing.py')
         self.assertIn('ProjectContext', source)
         self.assertIn('def _context(value)', source)
         self.assertIn('isinstance(value, ProjectContext)', source)
@@ -172,7 +176,7 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         self.assertIn('def previs_entries(', orchestrator)
 
     def test_storyboard_catalog_consumes_context_and_l3_injects_it(self):
-        source = Path(ROOT, 'storyboard_catalog_service.py').read_text(encoding='utf-8')
+        source = _source('storyboard_catalog_service.py')
         self.assertIn('ProjectContext', source)
         self.assertIn('def _context(value)', source)
         self.assertIn('isinstance(value, ProjectContext)', source)
@@ -182,7 +186,7 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         self.assertIn('catalog(project_context(project)', orchestrator)
 
     def test_tts_consumes_context_and_l3_injects_it(self):
-        source = Path(ROOT, 'domain/tts_api.py').read_text(encoding='utf-8')
+        source = _source('domain/tts_api.py')
         self.assertIn('ProjectContext', source)
         self.assertIn('def _context(value)', source)
         self.assertIn('audio(_context(context).root)', source)
@@ -193,7 +197,7 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         self.assertIn('reusable_full_track(project_context(project)', orchestrator)
 
     def test_storyboard_lifecycle_consumes_context_and_l3_injects_it(self):
-        source = Path(ROOT, 'storyboard_lifecycle.py').read_text(encoding='utf-8')
+        source = _source('storyboard_lifecycle.py')
         self.assertIn('ProjectContext', source)
         self.assertIn('def _context(value)', source)
         self.assertIn('_context(context).root', source)
@@ -204,7 +208,7 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         self.assertIn('def refresh_storyboard_studios(', orchestrator)
 
     def test_white_model_service_consumes_context_and_l3_injects_it(self):
-        source = Path(ROOT, 'white_model_service.py').read_text(encoding='utf-8')
+        source = _source('white_model_service.py')
         self.assertIn('ProjectContext', source)
         self.assertIn('def _context(value)', source)
         self.assertIn('_context(context).root', source)
@@ -216,7 +220,7 @@ class ProjectContextBoundaryTests(unittest.TestCase):
     def test_storyboard_path_only_services_are_explicit_context_exemptions(self):
         for name in ('keyframe_lifecycle_service.py', 'previs_progress_service.py', 'storyboard_edit_service.py',
                      'storyboard_source_service.py'):
-            source = Path(ROOT, name).read_text(encoding='utf-8')
+            source = _source(name)
             self.assertNotIn('ProjectContext', source)
         ledger = json.loads(Path(ROOT, '维护记录', '架构统一基数.json').read_text(encoding='utf-8'))
         reasons = ledger['第二项']['exempt_reasons']
@@ -245,7 +249,7 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         self.assertEqual(set(reasons), exempt)
         for name, reason in reasons.items():
             self.assertRegex(reason, r'^R\d+：')
-            source = entity_file(name).read_text(encoding='utf-8')
+            source = _source(name + '.py')
             self.assertNotIn('ProjectContext', source,
                              name + ' 是经审计的纯计算服务，不应伪造上下文消费')
         missing = {name for name in historical

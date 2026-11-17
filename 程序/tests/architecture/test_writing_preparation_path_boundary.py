@@ -2,7 +2,7 @@
 import ast
 from pathlib import Path
 import unittest
-from tests.architecture._scan import stage_execution_source
+from tests.architecture._scan import entity_file, stage_execution_source
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 class WritingPreparationPathBoundaryTests(unittest.TestCase):
     def test_prepare_delegates_numbered_script_stage_to_l3(self):
-        tree = ast.parse((ROOT / 'writing.py').read_text(encoding='utf-8'))
+        tree = ast.parse(entity_file('writing').read_text(encoding='utf-8'))
         prepare = next(node for node in tree.body
                        if isinstance(node, ast.FunctionDef) and node.name == 'prepare')
         names = {node.id for node in ast.walk(prepare) if isinstance(node, ast.Name)}

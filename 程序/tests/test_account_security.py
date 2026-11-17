@@ -24,6 +24,7 @@ import entitlement_service as ent
 from infra import lease_verifier
 from orchestrator import stage_handler_registry
 from pet_bus import STAGES
+from tests.architecture._scan import entity_file
 from contract.service_contract import SystemError, UserError, success
 from test_account_client import D, DID, KEYS, NOW, _Client, _Store, _b64, payload, sign
 
@@ -242,7 +243,7 @@ class GateCoverageTests(_Base):
 
     def test_delivery_export_goes_through_gate(self):
         """「质检与交付」的成片导出（后期剪辑页按平台导出）不经 start()，单独过 account_blocked。"""
-        source = (Path(__file__).resolve().parents[1] / 'desktop_media_pages.py').read_text(encoding='utf-8')
+        source = entity_file('desktop_media_pages').read_text(encoding='utf-8')
         line = next(text for text in source.splitlines() if 'controller.export_platform(' in text)
         self.assertIn("self.account_blocked('delivery') or", line)
         host = _Host(self.controller())
@@ -381,7 +382,7 @@ class RenewalScheduleTests(_Base):
         self.assertEqual(ctl.entitlement().state, ent.VALID)
         self.assertEqual(ctl.stage_gate(PAID[0]), '')
         self.assertEqual(client.calls, [])
-        tick = (Path(__file__).resolve().parents[1] / 'desktop_automation_tick.py').read_text(encoding='utf-8')
+        tick = entity_file('desktop_automation_tick').read_text(encoding='utf-8')
         self.assertIn('self.win.after(RENEW_DELAY_MS,self.start_account_renewal)', tick)
 
     def test_renews_at_startup_then_every_twelve_hours_in_background(self):

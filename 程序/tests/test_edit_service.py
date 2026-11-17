@@ -27,7 +27,7 @@ class EditingResultTests(unittest.TestCase):
         for name, function, args in [
                 ('save_editing_checklist', save_stage_editing_checklist, ('project', 'text')),
                 ('save_automatic_assemble_marker', save_automatic_assemble_marker, ('project', 'digest', 'master', 1))]:
-            with self.subTest(name=name), patch('edit_service.' + name, return_value=SystemError('保存失败')):
+            with self.subTest(name=name), patch('domain.edit_service.' + name, return_value=SystemError('保存失败')):
                 with self.assertRaisesRegex(ValueError, '保存失败'):
                     function(*args)
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from engine import adopted_edit_version, adoption_summary, review_label
+from orchestrator.engine import adopted_edit_version, adoption_summary, review_label
 
 
 def summary_text(summary):
