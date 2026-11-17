@@ -17,6 +17,7 @@ from datetime import datetime
 from pathlib import Path
 
 PROGRAM = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROGRAM))  # agent 包位于 程序/agent
 QUEUE_NAME = "merge-queue.json"
 SERVING_STALE_SECONDS = 45 * 60  # serving 超龄视为执行者失联，可重新拾取
 
@@ -37,11 +38,12 @@ def queue_path(common: Path) -> Path:
 
 def _read(path: Path) -> dict:
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-        if isinstance(data, dict) and isinstance(data.get("items"), list):
-            return data
-    except (OSError, ValueError):
-        pass
+        from agent.core import read_json
+        data = read_json(path)
+    except Exception:
+        data = None
+    if isinstance(data, dict) and isinstance(data.get("items"), list):
+        return data
     return {"items": []}
 
 
