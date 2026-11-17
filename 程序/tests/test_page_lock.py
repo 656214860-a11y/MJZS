@@ -7,7 +7,7 @@ from tkinter import ttk
 
 import entitlement_service as ent
 import pet_bus
-from account_controller import AccountController
+from orchestrator.account_controller import AccountController
 from desktop_account_page import AccountPageMixin, NAV_LOCK_MARK
 from desktop_page_registry import (NAV_LOCK_ICON, PAGE_NAV_ICONS, PAGES,
                                    PAGE_SITES)

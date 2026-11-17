@@ -5,7 +5,6 @@
 `IdeaChatMixin` 通过继承 ``IdeaAttachmentsMixin`` 获得这些方法；仍与 Tk 控件和 ``self``
 状态紧耦合，故与 ``desktop_idea_chat`` 同属 L4。
 """
-import tkinter as tk
 from pathlib import Path
 from tkinter import ttk
 

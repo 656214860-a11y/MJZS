@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-import hashlib,os,re
+import hashlib, re
 
 from agent.core import read,save,save_bytes
 from contract.platform_tools import open_path

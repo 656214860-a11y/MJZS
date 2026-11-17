@@ -5,11 +5,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-import tts_api
+from domain import tts_api
 from agent.core import save
-from audio_import_service import import_audio
+from domain.audio_import_service import import_audio
 from stage_completion_service import media_output_folders, prepare_media_completion
-from service_contract import UserError
+from contract.service_contract import UserError
 
 
 def _gateway():
@@ -124,7 +124,7 @@ class AudioImportKindTests(unittest.TestCase):
         target.write_bytes(source.read_bytes())
 
     def test_bgm_import_is_marked(self):
-        with patch("audio_import_service.uuid.uuid4") as created:
+        with patch("domain.audio_import_service.uuid.uuid4") as created:
             created.return_value.hex = "abcdef123456"
             result = import_audio(self.root, self.source, publish=self.publish, kind="bgm")
         self.assertTrue(result.ok)
@@ -132,7 +132,7 @@ class AudioImportKindTests(unittest.TestCase):
         self.assertEqual(tts_api.audio_kind(result.data.name), "bgm")
 
     def test_dialogue_import_keeps_plain_name(self):
-        with patch("audio_import_service.uuid.uuid4") as created:
+        with patch("domain.audio_import_service.uuid.uuid4") as created:
             created.return_value.hex = "abcdef123456"
             result = import_audio(self.root, self.source, publish=self.publish)
         self.assertEqual(result.data.name, "song_abcdef.mp3")

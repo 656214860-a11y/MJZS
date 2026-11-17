@@ -14,9 +14,7 @@
 import json
 import logging
 import hashlib
-import os
 import time
-from contextlib import contextmanager
 from pathlib import Path
 import model_pool, stage_layout
 import token_saver
@@ -24,7 +22,7 @@ from model_metering import REPLAYABLE_RETRY_STATUS, metered, replayable_retry
 from contract.app_metadata import APP_NAME
 from agent.core import save
 from contract.pet_bus import read_json
-from api_endpoints import configured_key, normalize_url
+from api_endpoints import normalize_url
 
 LOGGER = logging.getLogger(__name__)
 
@@ -514,5 +512,4 @@ class Client:
                     'degraded': False, 'budget': False, 'usage': usage_of(None), 'request': None}
 
 
-from infra.request_ledger import (REQUEST_KINDS, REQUEST_LEDGER_PATH, REQUEST_MODES, REQUEST_STATES,
-                             BudgetRejected, RequestLedger, record_request, request_ledger_path)
+from infra.request_ledger import REQUEST_KINDS, BudgetRejected, RequestLedger, record_request, request_ledger_path

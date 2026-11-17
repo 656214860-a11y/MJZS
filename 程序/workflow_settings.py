@@ -12,7 +12,7 @@ from skill_inline import (_charge_inline, _is_text_script, _recurse_references,
                           _skill_inline_budget, _skipped_inline_hint)
 import client_profiles, orchestrator.edit_habits as edit_habits, stage_layout
 from contract.script_contract import PRODUCTION_LOCK_DEFINITIONS, STAGE_LOCK_REQUIREMENTS, lock_stage
-from contract.workflow_context_budget import REQUEST_CONTEXT_MAX_CHARS, estimate_tokens, skill_inline_token_budget
+from contract.workflow_context_budget import REQUEST_CONTEXT_MAX_CHARS
 from infra.store_program_locator import current_store_program, store_package_program, gui_claude_program, GUI_CLAUDE_CLI_HINT
 ENGINES={'codex':'ChatGPT / Codex','qwen':'Qwen Code（阿里云）','claude':'Claude Code','claude-desktop-app':'Claude Desktop','desktop-app':'自定义桌面应用','client-cli':'自定义命令行客户端','opencode':'opencode CLI（自动放行权限）'}
 FLOWS={'writing':'剧本创作','storyboard':'初步分镜','assets':'资产图片制作','frames':'批量首帧','previs':'白模预演','video_prompt':'视频提示词','audio':'配音与字幕'}

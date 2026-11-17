@@ -21,7 +21,7 @@ PROGRAM = os.path.dirname(HERE)
 sys.path.insert(0, PROGRAM)
 sys.path.insert(1, HERE)
 
-import aigc_lint
+from infra import aigc_lint
 import skill_tools
 from skip_reasons import REQUIRES_BUNDLED_SKILL
 

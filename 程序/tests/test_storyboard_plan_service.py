@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from storyboard_plan_service import build_work_plan
+from orchestrator.storyboard_plan_service import build_work_plan
 from storyboard_catalog_service import discover_files, document_dir, file_snapshot, has_synced_assets, working_dir
 from stage_execution_service import project_context
 
@@ -39,7 +39,7 @@ class StoryboardPlanServiceTests(unittest.TestCase):
     def test_file_snapshot_ignores_empty_and_internal_documents(self):
         with tempfile.TemporaryDirectory() as temp:
             project = Path(temp)
-            from project_stages import storyboard
+            from contract.project_stages import storyboard
             board = storyboard(project) / 'EP001.json'; board.parent.mkdir(parents=True)
             board.write_text('{}', encoding='utf-8')
             (board.parent / 'empty.json').write_text('', encoding='utf-8')

@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 
 from agent.core import read, save
 from asset_batch_settings_service import remove_model, save_settings
-from service_contract import ServiceResult, SystemError, UserError, success
+from contract.service_contract import ServiceResult, SystemError, UserError, success
 
 
 class AssetBatchSettingsServiceTests(unittest.TestCase):

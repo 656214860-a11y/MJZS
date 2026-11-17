@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import workflow_engines
-import workflow_tasks
+from orchestrator import workflow_tasks
 from agent.core import save, read
 
 
@@ -107,7 +107,7 @@ class ClaudeWritingSessionTests(unittest.TestCase):
                     patch('agent_dispatch.claim', return_value={'duplicate': False}), \
                     patch('agent_dispatch.finish'), \
                     patch('workflow_context.snapshot', return_value={'scripts': [], 'storyboards': [], 'assets': [], 'read_errors': []}) as snapshot, \
-                    patch('workflow_context_controller.request_stage_instruction', return_value=('', 'script_full_index')) as instruction, \
+                    patch('orchestrator.workflow_context_controller.request_stage_instruction', return_value=('', 'script_full_index')) as instruction, \
                     patch('workflow_engines.prompt_with_settings', side_effect=lambda text, *a, **kw: text), \
                     patch('workflow_engines.close_for_restart', side_effect=lambda *a: events.append('close')) as close, \
                     patch('workflow_engines.request_stage_process_slot', side_effect=lambda *a: (events.append('slot') or {'state': 'granted', 'slot': 'slot'})), \
@@ -124,7 +124,7 @@ class ClaudeWritingSessionTests(unittest.TestCase):
 
     def test_bounded_first_stage_has_no_implicit_brief_read(self):
         with tempfile.TemporaryDirectory() as td, \
-                patch('workflow_tasks._agent_delivery_contract', return_value='保存约定'):
+                patch('orchestrator.workflow_tasks._agent_delivery_contract', return_value='保存约定'):
             prompt = workflow_tasks.script_prompt(td, None, 'writing', creative_text='重新输出项目设定',
                 agent_delivery=True, bounded_input=True)
             self.assertNotIn('brief_complete.json', prompt)
@@ -133,7 +133,7 @@ class ClaudeWritingSessionTests(unittest.TestCase):
     def test_desktop_forwards_explicit_restart_only(self):
         from desktop import Desktop
         desktop = SimpleNamespace(root=Path('project'), open_flow_agent=Mock())
-        with patch('workflow_tasks._agent_delivery_contract', return_value='保存约定'):
+        with patch('orchestrator.workflow_tasks._agent_delivery_contract', return_value='保存约定'):
             for text, expected in (('重新输出项目设定', True), ('确认', False)):
                 Desktop.start_script_workflow(desktop, text, config={'display_model': 'Claude Code'})
                 self.assertEqual(desktop.open_flow_agent.call_args.kwargs['new_session'], expected)
@@ -144,7 +144,7 @@ class ClaudeWritingSessionTests(unittest.TestCase):
         desktop = SimpleNamespace(root=Path('project'), open_flow_agent=Mock())
         config = {'display_model': 'Claude Code', 'engine': 'claude'}
         keys = []
-        with patch('workflow_tasks._agent_delivery_contract', return_value='保存约定'), \
+        with patch('orchestrator.workflow_tasks._agent_delivery_contract', return_value='保存约定'), \
                 patch('desktop.time.time', side_effect=[100.0, 101.0]):
             for _ in range(2):
                 Desktop.start_script_workflow(desktop, '确认', config=config)
@@ -154,7 +154,7 @@ class ClaudeWritingSessionTests(unittest.TestCase):
 
     def test_agent_tasks_limit_history_reads_but_api_prompt_unchanged(self):
         with tempfile.TemporaryDirectory() as td, \
-                patch('workflow_tasks._agent_delivery_contract', return_value='保存约定'):
+                patch('orchestrator.workflow_tasks._agent_delivery_contract', return_value='保存约定'):
             for prompt in (workflow_tasks.script_prompt(td, None, 'writing', creative_text='重新输出角色卡', agent_delivery=True),
                            workflow_tasks.script_followup(None, 'writing', project=td, creative_text='确认', agent_delivery=True)):
                 self.assertIn('不要遍历或批量读取', prompt)

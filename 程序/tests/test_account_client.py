@@ -16,13 +16,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import account_client
-import account_controller
-import account_store
+from orchestrator import account_controller
+from infra import account_store
 import entitlement_service as ent
-import lease_verifier
-import stage_handler_registry
+from infra import lease_verifier
+from orchestrator import stage_handler_registry
 from pet_bus import STAGES
-from service_contract import SystemError, UserError, success
+from contract.service_contract import SystemError, UserError, success
 
 NOW = 1_800_000_000
 DID = 'a' * 64

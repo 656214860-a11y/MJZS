@@ -16,7 +16,7 @@ import tk_test_support
 from desktop import Desktop, PAGE
 from desktop_page_registry import PAGE_ACCOUNT, PAGE_SITES
 from ui_tokens import SPACING
-import project_stages
+from contract import project_stages
 import test_desktop_startup_perf as startup_fixtures
 from tests.ui_edges_support import make_minimal_project
 

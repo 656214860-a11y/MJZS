@@ -18,15 +18,7 @@ import token_saver
 from file_cache import read_json
 from model_router import ModelAdapter, PoolAdapter
 import orchestrator.edit_habits as edit_habits, workflow_context, writing_tools
-from orchestrator.writing_preparation_ledger import (PREPARATION_STAGES, _PREPARATION_STAGE_WORDS,
-                                        _confirmed_basis, _confirmed_prefix,
-                                        _preparation_draft_is_parallel,
-                                        _preparation_stage_alias,
-                                        _preparation_work_index, _promote_revision,
-                                        _revoke_natural_script_adoption,
-                                        _save_preparation_state,
-                                        _save_preparation_state_guarded,
-                                        _working_documents)
+from orchestrator.writing_preparation_ledger import PREPARATION_STAGES, _PREPARATION_STAGE_WORDS, _confirmed_prefix, _preparation_draft_is_parallel, _preparation_stage_alias, _preparation_work_index, _promote_revision, _save_preparation_state, _save_preparation_state_guarded, _working_documents
 from writing_quality import enabled as quality_enabled
 from writing_stream import chat_streaming
 from contract.workflow_context_budget import (REQUEST_CONTEXT_MAX_CHARS, budget_advice, budget_sections,

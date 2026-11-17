@@ -7,7 +7,7 @@ asset_reference_search.normalize）。这里只做图墙：按打分阈值过滤
 """
 import tkinter as tk
 from pathlib import Path
-from tkinter import ttk, messagebox
+from tkinter import ttk
 
 import asset_reference_search as search
 from asset_reference_images import ROLE_GROUPS

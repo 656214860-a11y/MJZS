@@ -245,7 +245,7 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         self.assertEqual(set(reasons), exempt)
         for name, reason in reasons.items():
             self.assertRegex(reason, r'^R\d+：')
-            source = Path(ROOT, name + '.py').read_text(encoding='utf-8')
+            source = entity_file(name).read_text(encoding='utf-8')
             self.assertNotIn('ProjectContext', source,
                              name + ' 是经审计的纯计算服务，不应伪造上下文消费')
         missing = {name for name in historical

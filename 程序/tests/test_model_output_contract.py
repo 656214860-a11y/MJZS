@@ -15,8 +15,8 @@ import unittest
 from pathlib import Path
 
 import script_contract as contract
-import script_manifest_schema as schema
-import stage_path_service
+from contract import script_manifest_schema as schema
+from contract import stage_path_service
 from agent.core import read, read_json
 
 

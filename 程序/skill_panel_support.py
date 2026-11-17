@@ -15,7 +15,7 @@ import stage_config
 import stage_models
 import ui_plugin_registry
 from contract.pet_bus import STAGE_NAMES, read_json, stage_label as _bus_stage_label
-from ui_tokens import CHAR_WIDTH, COLORS, SPACING, OVERLAY_RATIO, STAGE_PANEL_LAYOUT
+from ui_tokens import COLORS, SPACING, OVERLAY_RATIO, STAGE_PANEL_LAYOUT
 
 
 FLOW_STAGE = {'writing': 'script', 'storyboard': 'storyboard', 'assets': 'assets',

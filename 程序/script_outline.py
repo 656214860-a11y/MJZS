@@ -11,7 +11,7 @@ import tkinter as tk
 from tkinter import ttk
 
 import script_view_style
-from ui_tokens import COLORS, SPACING, SCRIPT_VIEW_FONT, TEXT_ROWS
+from ui_tokens import COLORS, SCRIPT_VIEW_FONT, TEXT_ROWS
 
 _TITLE_MAX = 40       # 大纲条目标题截断长度（字符）
 _LIST_WIDTH = 30      # Listbox 宽度（字符）：容下一条截断标题

@@ -11,11 +11,11 @@ from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 
-import account_store
-import lease_verifier
-from account_controller import AccountController
+from infra import account_store
+from infra import lease_verifier
+from orchestrator.account_controller import AccountController
 from desktop import Desktop
-from service_contract import success
+from contract.service_contract import success
 import test_desktop_startup_perf as startup_fixtures
 from test_account_client import KEYS, NOW, _Client, _Store, payload, sign
 

@@ -6,7 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock
 
-from service_contract import SystemError, success
+from contract.service_contract import SystemError, success
 
 
 class AssetBatchSettingsCallerTests(unittest.TestCase):

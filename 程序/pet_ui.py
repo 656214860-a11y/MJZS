@@ -31,17 +31,13 @@
 from ui_tokens import PET_PALETTE
 import os
 import queue
-import datetime
 import random
-import sys
 import time
 from pathlib import Path
 from tkinter import TclError
 
 import model_pool
-import model_router
-from contract.app_metadata import APP_NAME
-from infra.broadcaster import Broadcaster, PREFIX_PATTERNS
+from infra.broadcaster import Broadcaster
 import pet_agent
 import ui.pet_cloud as pet_cloud
 from orchestrator.pet_chat_coordinator import ChatCoordinator
@@ -49,12 +45,8 @@ import contract.pet_bus as pet_bus
 import pet_llm
 import pet_report
 import pet_state
-import orchestrator.stage_handler_registry as stage_handler_registry
 import stage_flow
-import stage_parallel
-import token_saver
 from contract.pet_settings_contract import LEVEL_NOTES
-from ui_widgets import ContextMenu, ask_confirmation
 from ui_tokens import PET_LAYOUT
 from orchestrator.pet_broadcast_state import PetBroadcastAliasesMixin, PetBroadcastState, PetOfferState
 from pet_ui_stages import PetStagesMixin
@@ -62,7 +54,7 @@ from pet_ui_settings import PetSettingsMixin
 from pet_ui_voice import PetVoiceMixin
 from pet_ui_view import PetViewMixin
 from pet_ui_popup import PetPopupMixin
-from pet_ui_support import ACTIVE_MS, ADVANCE_SECONDS, AUTOSTART_KEY, AUTOSTART_NAME, AUTO_STAGE_VARIABLES, AUTO_VARIABLE_NAMES, AWAY_PAUSE_SECONDS, Autostart, BANNER_HOUR, BROADCAST_BUSY, BROADCAST_IDLE, BUSY_TAPS, BUSY_WINDOW, CANVAS_BG, CAPTION_INK, CAPTION_Y, CHAT_HINT, CHAT_MUTE_SECONDS, CONFIRM_NEED, CONFIRM_TITLE, DETAIL_MENU_LABEL, DOCK_CAPTION_GAP, DOCK_CAPTION_ROOM, DOCK_CLUSTER_W, DOCK_PAD_BOTTOM, DOCK_PAD_TOP, DOCK_PAD_X, DOCK_PAW_RIGHT, DOCK_ROOM, FALLBACK_ASK, GAP_SECONDS, GEAR_COLOR, GEAR_HOVER, GEAR_SIZE, GEAR_TIP, GREET_DELAY_MS, GREET_QUIET_SECONDS, GearButton, ICE, IDLE_MS, INK_SOFT, LEVEL_CAPTIONS, LEVEL_COLORS, LEVEL_SWITCH_NOTES, MOODS, OFFER_NO, OFFER_REPEAT, OFFER_SECONDS, OFFER_YES, ONE_CLICK_ASK, ONE_CLICK_TITLE, PAGE_ASKS, PANEL_DIVIDER, PANEL_HEAD, PANEL_MENU_LABEL, PANEL_SECTIONS, PATCH_X, PAUSED_CAPTION, PAW_ARC, PAW_COL_HEIGHT, PAW_COL_WIDTH, PAW_COL_X, PAW_COLORS, PAW_GAP, PAW_GAP_Y, PAW_HOVER, PAW_HIT_X, PAW_IDLE, PAW_LEVELS, PAW_SIZE, PAW_STEP, PROGRAM, PROGRESS_GAPS, PROGRESS_SECONDS, PROJECT_CACHE_SECONDS, PROJECT_CLOSED, PROJECT_LIMIT, PROJECT_OPEN, QUIT_LABEL, REPORT_QUIET_SECONDS, SANHU_BLUSH, SANHU_EAR, SANHU_FUR, SANHU_INK, SANHU_MODES, SANHU_MUZZLE, SANHU_STAR, SETTINGS_ENTRIES, SETTINGS_LABEL, SIZE, SNOOZE_SECONDS, SPEAK_GAP_SECONDS, SPOKEN_KEEP, STAGE_ASK_SECONDS, TONGUE, WEEKLY_FROM, _BooleanFlag, _UNSET, _settings_entries, asset_counts, autostart_command, duration, flourish, gear_parts, paint, palette, paw_dy, paw_parts, shot_stats, startup_api
+from pet_ui_support import ACTIVE_MS, ADVANCE_SECONDS, AUTOSTART_NAME, AUTO_VARIABLE_NAMES, AWAY_PAUSE_SECONDS, Autostart, BROADCAST_BUSY, BROADCAST_IDLE, BUSY_TAPS, BUSY_WINDOW, CAPTION_INK, CHAT_HINT, CHAT_MUTE_SECONDS, DETAIL_MENU_LABEL, DOCK_CAPTION_GAP, DOCK_CAPTION_ROOM, DOCK_CLUSTER_W, DOCK_PAW_RIGHT, DOCK_ROOM, FALLBACK_ASK, GAP_SECONDS, GEAR_COLOR, GEAR_HOVER, GEAR_SIZE, GEAR_TIP, GREET_DELAY_MS, GREET_QUIET_SECONDS, IDLE_MS, LEVEL_CAPTIONS, LEVEL_COLORS, LEVEL_SWITCH_NOTES, MOODS, OFFER_REPEAT, OFFER_SECONDS, ONE_CLICK_TITLE, PAGE_ASKS, PANEL_DIVIDER, PANEL_HEAD, PANEL_MENU_LABEL, PAUSED_CAPTION, PAW_ARC, PAW_COL_HEIGHT, PAW_COL_WIDTH, PAW_COLORS, PAW_GAP, PAW_HOVER, PAW_IDLE, PAW_LEVELS, PAW_SIZE, PAW_STEP, PROGRAM, PROGRESS_GAPS, PROGRESS_SECONDS, QUIT_LABEL, REPORT_QUIET_SECONDS, SANHU_BLUSH, SANHU_FUR, SETTINGS_ENTRIES, SETTINGS_LABEL, SIZE, SNOOZE_SECONDS, SPEAK_GAP_SECONDS, STAGE_ASK_SECONDS, asset_counts, autostart_command, gear_parts, paint, palette, paw_dy, paw_parts, shot_stats
 
 
 

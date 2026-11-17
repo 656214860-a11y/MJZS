@@ -17,7 +17,7 @@ import writing_stream
 import writing_tools
 import model_pool
 import script_contract
-import project_stages
+from contract import project_stages
 from stage_execution_service import publish_stage_text
 from model_router import PoolAdapter
 import token_saver
@@ -40,8 +40,8 @@ def script_documents(chat):
 
 def script_stage_probe():
     '''观察是否真正进入阶段④自然剧本请求（放行后仍执行原函数）。'''
-    import workflow_tasks
-    return patch('workflow_tasks.script_prompt', wraps=workflow_tasks.script_prompt)
+    from orchestrator import workflow_tasks
+    return patch('orchestrator.workflow_tasks.script_prompt', wraps=workflow_tasks.script_prompt)
 
 
 class WritingApiTests(unittest.TestCase):
@@ -189,7 +189,7 @@ class WritingApiTests(unittest.TestCase):
             save(project_stages.writing(project) / 'brief_complete.json', self.complete_brief())
             self.assertTrue(writing_api.preparation_continuation(project, '重试'))
             with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
-                 patch('workflow_tasks.script_prompt') as roles, \
+                 patch('orchestrator.workflow_tasks.script_prompt') as roles, \
                  patch('writing_api.PoolAdapter.chat', return_value={
                      'ok': True, 'text': '# 项目设定\n都市雨夜，少年追查底片。\n待确认'}) as chat:
                 result = writing_api.reply(project, '开始创作', publish=publish_stage_text)
@@ -343,7 +343,7 @@ class WritingApiTests(unittest.TestCase):
                 folder = project_stages.writing(project)
                 save(folder / 'brief_complete.json', self.complete_brief())
                 with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
-                     patch('workflow_tasks.script_prompt') as roles, \
+                     patch('orchestrator.workflow_tasks.script_prompt') as roles, \
                      patch('writing_api.PoolAdapter.chat', side_effect=[
                          {'ok': True, 'text': '# 项目设定\n雨夜照相馆。\n待确认'},
                          {'ok': True, 'text': '# 剧本大纲\n追查底片。\n待确认'}]) as chat:
@@ -459,7 +459,7 @@ class WritingApiTests(unittest.TestCase):
             stage_config.put(project, 'script', model='gpt-4o')
             save(project_stages.writing(project) / 'brief_complete.json', self.complete_brief())
             with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
-                 patch('workflow_tasks.script_prompt') as roles, \
+                 patch('orchestrator.workflow_tasks.script_prompt') as roles, \
                  patch('writing_api.PoolAdapter.chat', side_effect=[
                      {'ok': True, 'text': '# 项目设定\n雨夜。\n待确认'},
                      {'ok': False, 'error': 'network'},
@@ -483,7 +483,7 @@ class WritingApiTests(unittest.TestCase):
                 save(project_stages.writing(project) / 'brief_complete.json', self.complete_brief())
                 with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
                      patch('writing_api.PoolAdapter.chat', return_value=response), \
-                     patch('workflow_tasks.script_prompt') as roles:
+                     patch('orchestrator.workflow_tasks.script_prompt') as roles:
                     result = writing_api.reply(project, '开始', publish=publish_stage_text)
                 self.assertFalse(result['ok'])
                 self.assertFalse((project_stages.writing(project) / 'preparation_state.json').exists())
@@ -541,7 +541,7 @@ class WritingApiTests(unittest.TestCase):
                 else:
                     path.write_text('未经确认的改动', encoding='utf-8')
                 with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
-                     patch('writing_api.PoolAdapter.chat') as chat, patch('workflow_tasks.script_prompt') as roles:
+                     patch('writing_api.PoolAdapter.chat') as chat, patch('orchestrator.workflow_tasks.script_prompt') as roles:
                     with self.assertRaisesRegex(ValueError, '原确认失效'):
                         writing_api.reply(project, '开始', publish=publish_stage_text)
                 chat.assert_not_called()
@@ -558,7 +558,7 @@ class WritingApiTests(unittest.TestCase):
             path = project_stages.writing(project) / '角色卡.md'
             path.write_text(path.read_text(encoding='utf-8').rstrip('\n'), encoding='utf-8')
             with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
-                 patch('writing_api.PoolAdapter.chat') as chat, patch('workflow_tasks.script_prompt') as roles:
+                 patch('writing_api.PoolAdapter.chat') as chat, patch('orchestrator.workflow_tasks.script_prompt') as roles:
                 self.assertTrue(writing_api.preparation_continuation(project, '确认'))
             chat.assert_not_called()
             roles.assert_not_called()
@@ -575,7 +575,7 @@ class WritingApiTests(unittest.TestCase):
             save(project_stages.writing(project) / 'brief_complete.json', brief)
             with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
                  patch('writing_api.PoolAdapter.chat', return_value={'ok': True, 'text': '# 项目设定\n新世界。\n待确认'}), \
-                 patch('workflow_tasks.script_prompt') as roles:
+                 patch('orchestrator.workflow_tasks.script_prompt') as roles:
                 result = writing_api.reply(project, '确认', publish=publish_stage_text)
             self.assertEqual(result['preparation_stage'], '项目设定')
             roles.assert_not_called()
@@ -617,7 +617,7 @@ class WritingApiTests(unittest.TestCase):
                             raise OSError('模拟阶段记录发布失败')
                         return publish_stage_text(target, *args, **kwargs)
                     with patch('writing_api.PoolAdapter.chat', return_value={'ok': True, 'text': '# 项目设定\n新设定。\n待确认'}), \
-                         patch('workflow_tasks.script_prompt') as roles:
+                         patch('orchestrator.workflow_tasks.script_prompt') as roles:
                         with self.assertRaisesRegex(OSError, '阶段记录发布失败'):
                             writing_api.reply(project, message, publish=fail_state)
                     roles.assert_not_called()
@@ -1081,7 +1081,7 @@ class WritingApiTests(unittest.TestCase):
             stage_config.put(project, 'script', model='gpt-4o')
             huge_context = 'x' * (writing_api.DIRECT_REQUEST_CONTEXT_MAX_CHARS + 1)
             with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
-                 patch('workflow_context.instruction', return_value=__import__('service_contract').success(huge_context)), \
+                 patch('workflow_context.instruction', return_value=__import__('contract.service_contract', fromlist=['success']).success(huge_context)), \
                  patch('writing_api.PoolAdapter.chat') as chat:
                 result = writing_api.reply(project, '一个简短创意')
         self.assertFalse(result['ok'])

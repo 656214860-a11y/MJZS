@@ -3,12 +3,12 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
-from service_contract import SystemError
+from contract.service_contract import SystemError
 
 
 class EditingResultTests(unittest.TestCase):
     def test_write_results_classify_io_without_hiding_programming_errors(self):
-        from edit_service import save_editing_checklist, save_automatic_assemble_marker
+        from domain.edit_service import save_editing_checklist, save_automatic_assemble_marker
         calls = [(save_editing_checklist, (Path('project'), 'text')),
                  (save_automatic_assemble_marker, (Path('marker.json'), 'digest', 'master', 1))]
         for function, args in calls:
@@ -36,7 +36,7 @@ class AutomaticAssembleDecisionTests(unittest.TestCase):
     """REQ-S12-12：同一批验收结果只拼一次（skip／complete），指纹未就绪则等待，重做后重新派发。"""
 
     def test_decision_distinguishes_repeat_wait_complete_and_dispatch(self):
-        from edit_service import automatic_assemble_decision
+        from domain.edit_service import automatic_assemble_decision
         self.assertEqual(automatic_assemble_decision(('state',), 'digest', ('state',), {})['action'], 'skip')
         self.assertEqual(automatic_assemble_decision(('state',), None, None, {})['action'], 'wait')
         self.assertEqual(automatic_assemble_decision(('state',), 'digest', None, {'digest': 'digest'})['action'], 'complete')
@@ -49,8 +49,8 @@ class EditingChecklistPublicationTests(unittest.TestCase):
     """REQ-S12-16：剪辑优化清单由用户维护，可保存、可清空，位于 12后期剪辑/。"""
 
     def test_checklist_is_published_under_the_editing_stage(self):
-        from edit_service import CHECKLIST_NAME
-        from project_stages import editing
+        from domain.edit_service import CHECKLIST_NAME
+        from contract.project_stages import editing
         from stage_execution_service import save_stage_editing_checklist
         with tempfile.TemporaryDirectory() as folder:
             target = save_stage_editing_checklist(folder, '□ 校对字幕')
@@ -68,9 +68,9 @@ class AutomaticAssembleMarkerPublicationTests(unittest.TestCase):
     """REQ-S12-12：自动粗剪完成标记写到 12后期剪辑/自动粗剪.json（同一指纹只拼一次）。"""
 
     def test_marker_is_published_under_the_editing_stage(self):
-        from edit_service import AUTOMATIC_ASSEMBLE_MARKER_NAME
+        from domain.edit_service import AUTOMATIC_ASSEMBLE_MARKER_NAME
         from stage_execution_service import save_automatic_assemble_marker
-        from project_stages import editing
+        from contract.project_stages import editing
         with tempfile.TemporaryDirectory() as folder:
             target = save_automatic_assemble_marker(folder, 'digest', 'MASTER.mp4', 123.0)
             self.assertEqual(target, editing(Path(folder)) / AUTOMATIC_ASSEMBLE_MARKER_NAME)

@@ -9,9 +9,9 @@ import unittest
 from pathlib import Path
 
 import file_cache
-from handoff_service import BUNDLE_MANIFEST_NAME, verify_manifest
+from domain.handoff_service import BUNDLE_MANIFEST_NAME, verify_manifest
 from stage_execution_service import publish_handoff_bundle, verify_handoff_bundle
-from handoff_service import publish_bundle
+from domain.handoff_service import publish_bundle
 
 SUBTITLE = '1\n00:00:00,000 --> 00:00:03,000\n你好\n'.encode('utf-8')
 

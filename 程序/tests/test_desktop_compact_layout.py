@@ -8,11 +8,11 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, font
 
-from app_metadata import APP_NAME
+from contract.app_metadata import APP_NAME
 from desktop import Desktop, PAGE
 from skip_reasons import PLATFORM_TK_DISPLAY
 import test_desktop_startup_perf as startup_fixtures
-import project_stages
+from contract import project_stages
 from ui_tokens import DESKTOP_LAYOUT
 
 

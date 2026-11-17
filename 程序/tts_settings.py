@@ -1,7 +1,7 @@
 """TTS 配音设置窗口：OpenAI 兼容 /audio/speech 端点。"""
 import tkinter as tk
 import webbrowser
-from tkinter import ttk, messagebox
+from tkinter import ttk
 
 import domain.tts_api as api
 import tk_timers

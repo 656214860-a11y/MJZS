@@ -31,7 +31,7 @@ import desktop_idea_chat
 from ui_tokens import ICON_ADD
 from stage_execution_service import idea_chat_gateway, publish_idea_creative, project_context
 from desktop import Desktop, PAGE
-from project_stages import writing as writing_dir
+from contract.project_stages import writing as writing_dir
 from tests.ui_edges_support import make_minimal_project
 
 
@@ -1513,7 +1513,7 @@ class SendMessageTests(_Harness):
             shared = d.shared_input
             self.assertLessEqual(chips[0].winfo_rootx(), shared.attachment_button.winfo_rootx(),
                                  '附件卡片行与共享输入框左缘对齐')
-            from idea_attachments import archive_pair
+            from domain.idea_attachments import archive_pair
             with patch('desktop.open_path') as opened:
                 chips[1].event_generate('<Button-1>')
             opened.assert_called_once_with(archive_pair(archived[1])[0])
@@ -1562,7 +1562,7 @@ class SendMessageTests(_Harness):
         # 用户自定义模型池里没有这条内建模型时会被误判成本机 Agent 路由。
         self.enterContext(patch('model_pool.pool', return_value=model_pool.default_pool()))
         import stage_config
-        import workflow_process_registry as registry
+        from infra import workflow_process_registry as registry
         stage_config.put(proj, 'script', model='deepseek-v4-flash',
                              skills=['pipeline-script-preparation'])
         d, win = self.desktop(proj)

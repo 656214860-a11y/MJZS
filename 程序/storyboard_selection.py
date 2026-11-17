@@ -1,5 +1,5 @@
 """Keep the adopted collection separate from the episode currently on screen."""
-import os, time
+import time
 from pathlib import Path
 from agent.core import read,save
 from file_cache import read_json

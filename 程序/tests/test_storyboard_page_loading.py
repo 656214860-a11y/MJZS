@@ -23,7 +23,7 @@ class StoryboardPageLoadingTests(unittest.TestCase):
         self.assertTrue(predicate(), '后台结果应完成回填')
 
     def test_initial_catalog_scan_never_runs_on_ui_thread(self):
-        from storyboard_page_controller import StoryboardPageController
+        from orchestrator.storyboard_page_controller import StoryboardPageController
         from pet_state import PAGE_OF
         original = StoryboardPageController.refresh_catalogs
         calls = []
@@ -116,7 +116,7 @@ class StoryboardPageLoadingTests(unittest.TestCase):
 
     def test_late_result_cannot_apply_after_destroy_or_project_switch(self):
         from pet_state import PAGE_OF
-        from storyboard_page_controller import StoryboardPageController
+        from orchestrator.storyboard_page_controller import StoryboardPageController
         import tk_timers
         for change in ('destroy', 'project'):
             with self.subTest(change=change), tempfile.TemporaryDirectory() as td:
@@ -144,7 +144,7 @@ class StoryboardPageLoadingTests(unittest.TestCase):
 
     def test_initial_error_is_visible_and_manual_refresh_recovers(self):
         from pet_state import PAGE_OF
-        from storyboard_page_controller import StoryboardPageController
+        from orchestrator.storyboard_page_controller import StoryboardPageController
         import tk_timers
         captured = {}
         real_repeat = tk_timers.repeat

@@ -4,7 +4,7 @@ import unittest
 from types import SimpleNamespace
 
 import pet_agent
-import pet_cloud_text
+from ui import pet_cloud_text
 import pet_ui_voice
 from pet_ui_support import OFFER_MAX_CHARS
 

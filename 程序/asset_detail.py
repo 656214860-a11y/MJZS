@@ -183,7 +183,7 @@ def toggle_lock(desktop, aid):
 
 def add_variant(desktop, aid):
     """新增状态变体（附件任务 2.2 区域 5 的「新增状态变体」）。"""
-    from contract.asset_contract import STATE_PREFIX, normalize_variant, state_variants
+    from contract.asset_contract import normalize_variant, state_variants
     asset = desktop.asset_requirements().get(aid) or {}
     rows = [dict(item) for item in state_variants(asset)]
     name = ask_string(desktop.win, '新增状态变体', '状态名称（例如「日常装」）：')

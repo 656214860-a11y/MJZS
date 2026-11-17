@@ -22,7 +22,7 @@ import usage_overview
 import token_saver
 from contract.app_metadata import APP_NAME
 from contract.pet_settings_contract import TABS, LEVEL_NOTES
-from ui_tokens import FONTS, SPACING, TEXT_DESC, TEXT_HINT
+from ui_tokens import FONTS, SPACING, TEXT_DESC
 from ui_widgets import BaseDialog, Card, LineInput, PrimaryButton, SecondaryButton, TextArea, SelectBox
 
 HUB_TITLE = '设置'

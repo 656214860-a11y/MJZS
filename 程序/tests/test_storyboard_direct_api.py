@@ -52,7 +52,7 @@ class DirectApiTests(unittest.TestCase):
         self.messages = []
 
     def run_batch(self, adapter, **extra):
-        import storyboard_direct_api as api
+        from orchestrator import storyboard_direct_api as api
         return api.run_batch(self.project, self.config, 'SKILL正文', scripts=[self.script], adapter=adapter,
                              record={'name': 'deepseek-v4-pro'}, report=self.messages.append, **extra)
 
@@ -61,7 +61,7 @@ class DirectApiTests(unittest.TestCase):
 
     def test_req_s03_53_direct_model_only_for_pool_models(self):
         """REQ-S03-53：引擎为 qwen 且所选模型在模型池里才直连；桌面程序和本机 Codex／Claude 不直连。"""
-        import storyboard_direct_api as api
+        from orchestrator import storyboard_direct_api as api
         pool = {'deepseek-v4-pro': {'name': 'deepseek-v4-pro', 'call_mode': 'API'},
                 'desk': {'name': 'desk', 'call_mode': 'Desktop'}}
         with patch('model_pool.pool', return_value=pool):
@@ -73,7 +73,7 @@ class DirectApiTests(unittest.TestCase):
     def test_req_s03_53_valid_json_is_published_without_qwen(self):
         """REQ-S03-53：合格 JSON 发布分镜与同名文档，全程不碰 qwen_adapter，请求里带完整剧本不截断。"""
         adapter = FakeAdapter(json.dumps(good_episode(), ensure_ascii=False))
-        with patch('qwen_adapter.window_title') as qwen, patch('qwen_adapter.submit_existing') as submit:
+        with patch('orchestrator.qwen_adapter.window_title') as qwen, patch('orchestrator.qwen_adapter.submit_existing') as submit:
             results = self.run_batch(adapter)
         qwen.assert_not_called()
         submit.assert_not_called()
@@ -113,24 +113,24 @@ class DirectApiTests(unittest.TestCase):
         request = chat._FlowAgentRequest('storyboard', '手动制作分镜', '任务', None, None, self.config,
                                          False, False, False)
         with patch('workflow_settings.current', return_value=self.config), \
-                patch('storyboard_direct_api.direct_model', return_value=('deepseek-v4-pro', {'name': 'x'})), \
+                patch('orchestrator.storyboard_direct_api.direct_model', return_value=('deepseek-v4-pro', {'name': 'x'})), \
                 patch('desktop_storyboard_direct.run_storyboard_direct') as direct, \
-                patch('qwen_adapter.window_title') as qwen:
+                patch('orchestrator.qwen_adapter.window_title') as qwen:
             chat._FlowAgentLaunch(host, request).build()
         direct.assert_called_once()
         qwen.assert_not_called()
         request = chat._FlowAgentRequest('video_prompt', '视频提示词', '任务', None, None, self.config, False, False, False)
         with patch('workflow_settings.current', return_value=self.config), \
-                patch('storyboard_direct_api.direct_model', return_value=('m', {})) as model, \
+                patch('orchestrator.storyboard_direct_api.direct_model', return_value=('m', {})) as model, \
                 patch('desktop_storyboard_direct.run_storyboard_direct') as direct, \
-                patch('qwen_adapter.window_title', return_value='Q'):
+                patch('orchestrator.qwen_adapter.window_title', return_value='Q'):
             chat._FlowAgentLaunch(host, request).build()
         direct.assert_not_called()
         model.assert_not_called()
 
     def test_req_s03_53_stop_interrupts_request_and_writes_nothing(self):
         """REQ-S03-53：workflow_engines.terminate 能中断进行中的直连请求，停止后不落盘；重复启动被拒。"""
-        import storyboard_direct_api as api
+        from orchestrator import storyboard_direct_api as api
         import workflow_engines
         started = threading.Event()
         adapter = FakeAdapter(block=started)

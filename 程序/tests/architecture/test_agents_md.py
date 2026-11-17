@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 
 import pet_bus
-from tests.architecture._scan import ROOT, module_scan_files
+from tests.architecture._scan import ROOT, entity_file, module_scan_files
 from tests.architecture._layers import LAYERS
 from tests.architecture.test_path_authority import _WHITELIST as PATH_AUTHORITIES
 from tests.architecture.test_remove_authority import _WHITELIST as REMOVE_AUTHORITIES
@@ -83,7 +83,7 @@ class AgentsMdConsistencyTests(unittest.TestCase):
         }
         mentioned = set(re.findall(r'`([a-z_]+)(?:\.[A-Za-z_()]+)?`', section))
         self.assertTrue(expected <= mentioned, expected - mentioned)
-        missing = sorted(name for name in expected if not (ROOT / f'{name}.py').is_file())
+        missing = sorted(name for name in expected if not entity_file(name).is_file())
         self.assertEqual(missing, [], 'AGENTS 2.2 引用的模块不存在：' + ', '.join(missing))
 
     def test_delete_authority_contract_matches_remove_guard(self) -> None:

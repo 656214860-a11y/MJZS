@@ -1044,53 +1044,7 @@ def stage_lock_definitions(stage, definitions):
                                if item['key'] in required and item['key'] not in known)
 
 
-from contract.script_manifest_schema import (
-          AUDIT,
-          CATEGORIES,
-          HINTS,
-          ID_FIELD,
-          MERGED,
-          MERGED_SKILLS,
-          MERGE_LANDING,
-          MERGE_OWNER,
-          MERGE_PART,
-          PATTERN,
-          PHYSICAL_KEYS,
-          PHYSICAL_LABELS,
-          PREFIX,
-          PREFIX_OF,
-          PRODUCERS,
-          PRODUCER_SKILLS,
-          SAMPLE,
-          SPLIT,
-          STAGE,
-          STORYBOARD_STAGE,
-          STRUCTURE_STAGE,
-          _box,
-          _copy,
-          _features_box,
-          _hit,
-          _item_box,
-          _pieces,
-          _spare,
-          completeness,
-          defaults,
-          duplicate_ids,
-          field_features,
-          id_field,
-          id_of,
-          items_of,
-          kind_of_id,
-          manifest,
-          manifest_name,
-          new_id,
-          normalize,
-          reassign_ids,
-          sample_character_manifest,
-          schema,
-          split_features,
-          unique_ids,
-          validate)
+from contract.script_manifest_schema import AUDIT, CATEGORIES, HINTS, ID_FIELD, MERGED, MERGED_SKILLS, MERGE_LANDING, MERGE_OWNER, MERGE_PART, PATTERN, PHYSICAL_KEYS, PHYSICAL_LABELS, PREFIX, PREFIX_OF, PRODUCERS, PRODUCER_SKILLS, SAMPLE, SPLIT, STAGE, STORYBOARD_STAGE, STRUCTURE_STAGE, completeness, defaults, duplicate_ids, field_features, id_field, id_of, items_of, kind_of_id, manifest, manifest_name, new_id, normalize, reassign_ids, sample_character_manifest, schema, split_features, unique_ids, validate
 
 # ── 任务 1～4 的表（从真注册表读，报告与代码同源）──────────────────────────
 def program_root(program=None):
@@ -1150,20 +1104,5 @@ def merge_problems(program=None):
 
 
 
-from contract.script_output_spec import (
-          LOUDNESS_DEFAULTS,
-          OUTPUT_SPEC_DEFAULTS,
-          PREVIEW_FPS,
-          PREVIEW_SHORT_EDGE,
-          _even,
-          _fit_ratio,
-          _fps,
-          describe_output_spec,
-          loudness_filter,
-          output_filter,
-          overlay_metrics,
-          parse_ratio,
-          parse_resolution,
-          preview_spec,
-          resolve_output_spec)
+from contract.script_output_spec import LOUDNESS_DEFAULTS, OUTPUT_SPEC_DEFAULTS, PREVIEW_FPS, PREVIEW_SHORT_EDGE, describe_output_spec, loudness_filter, output_filter, overlay_metrics, parse_ratio, parse_resolution, preview_spec, resolve_output_spec
 

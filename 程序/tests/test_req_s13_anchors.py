@@ -14,7 +14,7 @@ from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
 
-import model_diagnostics
+from infra import model_diagnostics
 import pet_llm
 import stage_completion_service
 import usage_overview as uo

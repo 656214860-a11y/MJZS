@@ -1,17 +1,11 @@
 """Project script/storyboard discovery and the shared in-page file picker."""
 import app_logging
 from pathlib import Path
-import json, os, queue, threading
+import json, queue, threading
 import tkinter as tk
 from tkinter import ttk, messagebox
-from agent.core import read
 import contract.pet_bus as pet_bus
-from contract.storyboard_paths import is_final_dir
-from storyboard_catalog_service import (
-    IGNORED, discover_files, linked_path as _linked_path, content_preview as _content_preview, is_deliverable as _is_deliverable,
-    file_order as _file_order,
-    check_adoptable as _check_adoptable, has_synced_assets as _has_synced_assets,
-)
+from storyboard_catalog_service import IGNORED, content_preview as _content_preview, is_deliverable as _is_deliverable, file_order as _file_order, check_adoptable as _check_adoptable, has_synced_assets as _has_synced_assets
 from stage_execution_service import (
     storyboard_board_source_script as _board_source_script, storyboard_catalog as _catalog,
     storyboard_default_source as _default_source, storyboard_document_dir as _document_dir,
@@ -20,12 +14,7 @@ from stage_execution_service import (
     storyboard_working_dir as _working_dir,
     storyboard_adoption_impact as _adoption_impact,
 )
-from storyboard_selection import (
-    remember_many as _remember_many, selected_many as _selected_many,
-    sync_structured_script as _sync_structured_script, remember_final_view as _remember_final_view,
-    adopted as _adopted, summary as _summary,
-    prune_invalid_adoptions as _prune_invalid_adoptions,
-)
+from storyboard_selection import remember_many as _remember_many, selected_many as _selected_many, sync_structured_script as _sync_structured_script, remember_final_view as _remember_final_view
 from orchestrator.storyboard_final_controller import FinalStoryboardController
 from script_preview_service import should_load_async, preview_chunks, LOADING_PREVIEW
 from orchestrator.storyboard_page_controller import StoryboardPageController
@@ -36,12 +25,11 @@ from orchestrator.storyboard_recycle_service import (
 )
 from contract.platform_tools import open_path
 import tk_timers
-from file_cache import read_json, read_text
-import project_settings
+from file_cache import read_json
 import ui_plugin_registry
 from pet_state import PAGE_OF
 from responsive_ui import FlowBar, refresh_check_heading, bind_row_toggle
-from storyboard_table_ui import file_table, fit_file_columns, fit_final_columns, insert_entries, tree_columns
+from storyboard_table_ui import file_table, fit_final_columns, insert_entries
 from ui_tokens import WRAPLENGTH, COLORS, FONTS, SPACING
 from ui_widgets import Card, DataTable, PrimaryButton, SecondaryButton, TextArea, ask_confirmation, notify
 from ui_dialogs import FileDialog

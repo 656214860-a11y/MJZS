@@ -21,7 +21,7 @@ from desktop_page_registry import (NAV_LOCK_ICON, PAGE_ACCOUNT, PAGE_NAV_ICONS, 
                                    nav_label, page_title)
 from ui_icons import IconLoader
 from ui_tokens import DIALOG_CONTENT_PADDING, DIALOG_MIN_HEIGHT, FONTS, SPACING, TEXT_DESC
-from account_inputs import EmailInput, PASSWORD_MASK, PasswordInput
+from account_inputs import EmailInput, PasswordInput
 from ui_widgets import BaseDialog, Card, LineInput, PrimaryButton, SecondaryButton, ask_confirmation
 
 RENEW_DELAY_MS = 3000

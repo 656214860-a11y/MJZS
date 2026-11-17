@@ -2,7 +2,7 @@
 import tempfile
 import unittest
 
-import confirm_gates
+from domain import confirm_gates
 import stage_layout
 from stage_execution_service import record_stage_confirmation
 

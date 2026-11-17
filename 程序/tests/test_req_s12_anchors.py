@@ -14,7 +14,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import engine
-import handoff_service
+from domain import handoff_service
 import stage_flow
 import storage_maintenance
 from agent.core import file_hash

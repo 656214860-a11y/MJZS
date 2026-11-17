@@ -16,20 +16,13 @@ from collections import namedtuple
 from pathlib import Path
 from domain.idea_script_heuristic import looks_like_script
 from contract.project_context import ProjectContext
-from contract.script_contract import INLINE_REQUIRED_LABELS, PRODUCTION_LOCK_DEFINITIONS, stage_lock_requirements, stage_lock_definitions
+from contract.script_contract import INLINE_REQUIRED_LABELS, stage_lock_requirements, stage_lock_definitions
 from domain.idea_brief_form import (
     BRIEF_CREATION_FIELDS, brief_creation_values, extract_brief_creation, format_brief_creation,
     inline_required_missing, inline_template_labels, merge_brief_creation,
     strip_inline_required_markers, _brief_plain_text)
-from domain.idea_document_paths import (
-    PROJECT_DOCUMENT_DIRS, ChatModel, brief_complete_path, brief_raw_path, legacy_brief_raw_path,
-    project_document_directory, project_script_filename, reply_document_path, reply_path_parts,
-    storage_identity, _file_day, _file_part, _project_file_type, _storage_name)
-from domain.idea_transcript import (
-    CHAT_NAME, FOLDER, _HISTORY_CACHE_LIMIT, _all_rows, _history_cache, _read_rows, _row_indexes,
-    _stamp, _visible_claude_text, append, chat_model, compact_context, deleted_history_path,
-    history_path, load, model_history_path, remove, remove_all, remove_message, repair_internal_replies, replace, same_message,
-    restore_latest_removed, save_rows)
+from domain.idea_document_paths import PROJECT_DOCUMENT_DIRS, brief_complete_path, brief_raw_path, legacy_brief_raw_path, project_document_directory, project_script_filename, reply_document_path, reply_path_parts, storage_identity, _file_day, _file_part, _project_file_type, _storage_name
+from domain.idea_transcript import CHAT_NAME, FOLDER, _all_rows, _history_cache, append, chat_model, compact_context, history_path, load, model_history_path, remove, remove_all, remove_message, repair_internal_replies, replace, same_message, restore_latest_removed, save_rows
 
 RAW_SCRIPT_NAME = 'script_raw.md'
 REPLY_LIMIT = 20000          # 一次回复最多留这么多字：模型跑飞时不至于把文件写爆

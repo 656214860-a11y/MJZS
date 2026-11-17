@@ -11,7 +11,7 @@ ROOT = HERE.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from idea_chat_controller import IdeaChatController
+from orchestrator.idea_chat_controller import IdeaChatController
 
 
 class IdeaChatControllerTests(unittest.TestCase):
@@ -33,7 +33,7 @@ class IdeaChatControllerTests(unittest.TestCase):
         self.assertEqual(cleaned, ['old', 'new'])
 
     def test_cancelled_request_can_delete_upload_after_mode_switch(self):
-        from idea_attachments import archive_pair
+        from domain.idea_attachments import archive_pair
         from stage_execution_service import archive_idea_attachments, stage_idea_attachment_paths
         from storage_maintenance import restore_latest_recycled_path
         for local_mode in (True, False):
@@ -117,7 +117,7 @@ class IdeaChatControllerTests(unittest.TestCase):
         controller = IdeaChatController()
         controller.replace_attachments(('D:/idea.md',))
         referenced = {'context': '[附件]\n创意内容', 'names': ('idea.md',)}
-        with patch('idea_attachments.referenced', return_value=referenced):
+        with patch('domain.idea_attachments.referenced', return_value=referenced):
             result = controller.prepare_submission(Path('D:/project'), '请参考 @idea.md', is_example=False)
         self.assertEqual(result['submission'], '请参考 @idea.md\n\n[附件]\n创意内容')
         self.assertEqual(result['visible_value'], '请参考 @idea.md\n【已引用：idea.md】')
@@ -152,7 +152,7 @@ class IdeaChatControllerTests(unittest.TestCase):
             'context': '[附档：故事创意_1.md]\n内容',
         }
         with patch('stage_execution_service.archive_idea_attachments', return_value=prepared['paths']), \
-             patch('idea_attachments.prepare', return_value=prepared):
+             patch('domain.idea_attachments.prepare', return_value=prepared):
             controller.start_attachment_preparation(Path('D:/project'), ('D:/source.md',))
             with self.assertRaisesRegex(ValueError, '附档正在入库和校验'):
                 controller.prepare_submission(Path('D:/project'), '请参考附档', is_example=False)

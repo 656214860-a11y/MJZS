@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-import log_maintenance as logs
+from infra import log_maintenance as logs
 
 
 class LogMaintenanceTests(unittest.TestCase):

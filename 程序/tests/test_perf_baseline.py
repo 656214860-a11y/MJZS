@@ -48,7 +48,7 @@ if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 os.chdir(PROGRAM)
 
-from project_stages import storyboard as storyboard_stage
+from contract.project_stages import storyboard as storyboard_stage
 from performance_contract import (LONG_LIST_SCROLL_MEDIAN_MS, MEMORY_DELTA_MB,
                                   STARTUP_FIRST_FRAME_MS)
 

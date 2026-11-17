@@ -3,7 +3,7 @@ import unittest
 
 import stage_config
 from keyframe_model_service import current_model, production_choices
-from production_model_contract import SEEDREAM_KEYFRAME_MODEL
+from contract.production_model_contract import SEEDREAM_KEYFRAME_MODEL
 
 
 class KeyframeModelServiceTests(unittest.TestCase):

@@ -5,9 +5,9 @@ import unittest
 from pathlib import Path
 
 import script_contract
-import skill_orchestrator
+from orchestrator import skill_orchestrator
 import workflow_settings
-from script_manifest_schema import MERGED, PRODUCERS
+from contract.script_manifest_schema import MERGED, PRODUCERS
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILL_DIR = ROOT / 'skills' / '02 剧本整理SKILL'

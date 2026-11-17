@@ -16,7 +16,7 @@ from tkinter import ttk
 from ui_icons import IconLoader
 from ui_popup import Flyout, monitor_bounds
 from ui_tokens import COLORS, DESKTOP_LAYOUT, FONTS, SPACING
-from ui_widgets import SecondaryButton, SelectBox, Tooltip
+from ui_widgets import SecondaryButton, SelectBox
 
 
 # 「页面第一次画完」按页指标名：用 PAGE 稳定键区分 14 页，不用会变的中文标题。

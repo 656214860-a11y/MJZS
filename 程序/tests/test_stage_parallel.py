@@ -274,7 +274,7 @@ class SkillLayerTests(unittest.TestCase):
     """任务 4.2：SKILL 的同层并行也走三虎那份全局控制器，不再自己无条件开线程。"""
 
     def orch(self, execute, limit=2):
-        import skill_orchestrator
+        from orchestrator import skill_orchestrator
 
         class Stub(skill_orchestrator.Orchestrator):
             pass

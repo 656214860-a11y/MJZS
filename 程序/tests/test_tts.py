@@ -12,8 +12,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 os.chdir(HERE)
 
-import tts_api
-from project_context import ProjectContext
+from domain import tts_api
+from contract.project_context import ProjectContext
 
 
 def _gateway():
@@ -131,7 +131,7 @@ class TtsFullTrackPublicationTests(unittest.TestCase):
     def test_publishes_audio_then_idempotence_marker_and_reuses_it(self):
         with tempfile.TemporaryDirectory() as td:
             project = Path(td)
-            with patch('tts_api.os.urandom', return_value=b'abc'):
+            with patch('domain.tts_api.os.urandom', return_value=b'abc'):
                 path = tts_api.publish_full_track(self._context(project), 'same-script', b'audio bytes', gateway=_gateway())
             self.assertEqual(path.read_bytes(), b'audio bytes')
             self.assertEqual(tts_api.reusable_full_track(self._context(project), 'same-script'), path)
@@ -142,7 +142,7 @@ class TtsFullTrackPublicationTests(unittest.TestCase):
             project = Path(td)
             gateway = _gateway()
             gateway['publish_json'] = lambda *_args: (_ for _ in ()).throw(OSError('磁盘已满'))
-            with patch('tts_api.os.urandom', return_value=b'abc'):
+            with patch('domain.tts_api.os.urandom', return_value=b'abc'):
                 with self.assertRaisesRegex(OSError, '磁盘已满'):
                     tts_api.publish_full_track(self._context(project), 'same-script', b'audio bytes', gateway=gateway)
             audio_dir = project / '11配音与字幕' / '音频'

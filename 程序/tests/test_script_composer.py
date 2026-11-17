@@ -43,7 +43,7 @@ class ScriptComposerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             # REQ-S01-86：简报必填未齐时发送置灰；本测关注发送/终止切换，先落一份完整简报。
-            import project_stages
+            from contract import project_stages
             from agent.core import save
             from test_writing_api import WritingApiTests
             save(project_stages.writing(proj) / 'brief_complete.json', WritingApiTests.complete_brief())
@@ -169,7 +169,7 @@ class ScriptComposerTests(unittest.TestCase):
     def test_microphone_dictates_live_into_input(self):
         import queue
         import contract.platform_tools as platform_tools
-        import speech_api
+        from domain import speech_api
 
         class FakeRecorder:
             instances = []
@@ -275,7 +275,7 @@ class ScriptComposerTests(unittest.TestCase):
 
     def test_microphone_without_key_explains_in_status(self):
         import contract.platform_tools as platform_tools
-        import speech_api
+        from domain import speech_api
         with tempfile.TemporaryDirectory() as td, \
                 patch.object(speech_api, 'missing_reason', return_value='没有配置语音识别密钥 DASHSCOPE_API_KEY'), \
                 patch.object(platform_tools, 'MicrophoneRecorder', side_effect=AssertionError('不应开麦')):

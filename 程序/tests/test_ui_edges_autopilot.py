@@ -202,7 +202,7 @@ class UiEdgeAutoTests(UiEdgeCase):
             self.assertTrue(d.pet.should_auto_run('edit'))
             started = []
             real_assemble = engine_module.Studio.assemble
-            from project_stages import editing, exports
+            from contract.project_stages import editing, exports
             engine_module.Studio.assemble = lambda self, **kw: (started.append(1), str(exports(proj) / "MASTER.mp4"))[1]
             self.addCleanup(setattr, engine_module.Studio, "assemble", real_assemble)
             d.poll_auto_edit()
@@ -268,7 +268,7 @@ class UiEdgeAutoTests(UiEdgeCase):
                     if not d.auto.handoff_busy:
                         break
                     time.sleep(0.05)
-            from project_stages import editing
+            from contract.project_stages import editing
             folder = editing(proj) / "自动交接包"
             d.poll_auto_handoff()
             settle()
@@ -598,7 +598,7 @@ class UiEdgeAutoTests(UiEdgeCase):
             self.addCleanup(quiet_destroy)
             from desktop import Desktop
             from local_video import open_studio
-            from storyboard_paths import media_root
+            from contract.storyboard_paths import media_root
             d = Desktop(win, root=PROGRAM)
             d.root = proj
             d.studio = open_studio(proj)
@@ -713,7 +713,7 @@ class UiEdgeAutoTests(UiEdgeCase):
             def fake_batch(project, base, sources, scope="adopted", log=None, stop=None):
                 started.append(scope); log("批量资产日志")
                 return "无人值守批量资产结束：成功 1，未完成 0"
-            import asset_auto_batch_service
+            from orchestrator import asset_auto_batch_service
             with patch.object(asset_auto_batch_service, "auto_batch", fake_batch):
                 d.poll_auto_asset()
                 self.assertTrue(d.auto.asset_busy)
@@ -737,7 +737,7 @@ class UiEdgeAutoTests(UiEdgeCase):
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
         from unittest.mock import patch
-        import asset_auto_batch_service
+        from orchestrator import asset_auto_batch_service
         import desktop as desktop_module
         original = desktop_module.Desktop.choose_project
         desktop_module.Desktop.choose_project = lambda self: None
@@ -881,7 +881,7 @@ class UiEdgeAutoTests(UiEdgeCase):
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
         from unittest.mock import patch
-        import tts_api
+        from domain import tts_api
         import desktop as desktop_module
         original_choose = desktop_module.Desktop.choose_project
         desktop_module.Desktop.choose_project = lambda self: None
@@ -945,7 +945,7 @@ class UiEdgeAutoTests(UiEdgeCase):
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
         from unittest.mock import patch
-        import tts_api
+        from domain import tts_api
         import desktop as desktop_module
         original_choose = desktop_module.Desktop.choose_project
         desktop_module.Desktop.choose_project = lambda self: None
@@ -981,7 +981,7 @@ class UiEdgeAutoTests(UiEdgeCase):
                 d.generate_tts()
             self.assertEqual(len(calls), 1)
             self.assertIn("配音已生成", d.status.get())
-            from project_stages import audio
+            from contract.project_stages import audio
             made = audio(proj) / "整段配音.json"
             self.assertTrue(made.is_file())
             with patch.object(tts_api, "synthesize", fake_synthesize):
@@ -1004,7 +1004,7 @@ class UiEdgeAutoTests(UiEdgeCase):
         self.addCleanup(setattr, desktop_module.Desktop, "choose_project", original_choose)
         with tempfile.TemporaryDirectory() as td:
             proj = make_adopted_project(td)
-            from project_stages import storyboard, stage
+            from contract.project_stages import storyboard, stage
             storyboard_dir = storyboard(proj) / "分镜文档"
             final_dir = stage(proj, 'final') / '分镜'
             source = storyboard_dir / "episode.json"
@@ -1153,7 +1153,8 @@ class UiEdgeAutoTests(UiEdgeCase):
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
         from unittest.mock import patch
-        import asset_auto_batch_service, asset_resume
+        import asset_resume
+        from orchestrator import asset_auto_batch_service
         import desktop as desktop_module
         original = desktop_module.Desktop.choose_project
         desktop_module.Desktop.choose_project = lambda self: None
@@ -1230,7 +1231,8 @@ class UiEdgeAutoTests(UiEdgeCase):
             self.skipTest(PLATFORM_TKINTER)
         import time
         from unittest.mock import patch
-        import asset_auto_batch_service, keyframe_comfy, project_settings
+        import keyframe_comfy, project_settings
+        from orchestrator import asset_auto_batch_service
         import desktop as desktop_module
         original_choose = desktop_module.Desktop.choose_project
         desktop_module.Desktop.choose_project = lambda self: None
@@ -1257,7 +1259,7 @@ class UiEdgeAutoTests(UiEdgeCase):
             self.addCleanup(quiet_destroy)
             from desktop import Desktop
             from local_video import open_studio
-            from storyboard_paths import media_root
+            from contract.storyboard_paths import media_root
             d = Desktop(win, root=PROGRAM)
             d.root = proj
             d.studio = open_studio(proj)
@@ -1328,7 +1330,8 @@ class UiEdgeAutoTests(UiEdgeCase):
             self.skipTest(PLATFORM_TKINTER)
         import time, threading
         from unittest.mock import patch
-        import asset_auto_batch_service, keyframe_comfy, project_settings
+        import keyframe_comfy, project_settings
+        from orchestrator import asset_auto_batch_service
         import desktop as desktop_module
         original_choose = desktop_module.Desktop.choose_project
         desktop_module.Desktop.choose_project = lambda self: None
@@ -1509,7 +1512,8 @@ class UiEdgeAutoTests(UiEdgeCase):
         import time
         from unittest.mock import patch
         from agent.core import file_hash, save
-        import asset_auto_batch_service, engine as engine_module, project_settings
+        import engine as engine_module, project_settings
+        from orchestrator import asset_auto_batch_service
         import desktop as desktop_module
         original_choose = desktop_module.Desktop.choose_project
         desktop_module.Desktop.choose_project = lambda self: None
@@ -1582,7 +1586,8 @@ class UiEdgeAutoTests(UiEdgeCase):
         import time
         from unittest.mock import patch
         from agent.core import file_hash, save
-        import asset_auto_batch_service, engine as engine_module, keyframe_comfy, local_video, project_settings
+        import engine as engine_module, keyframe_comfy, local_video, project_settings
+        from orchestrator import asset_auto_batch_service
         import desktop as desktop_module
         original_choose = desktop_module.Desktop.choose_project
         desktop_module.Desktop.choose_project = lambda self: None
@@ -1609,7 +1614,7 @@ class UiEdgeAutoTests(UiEdgeCase):
             self.addCleanup(quiet_destroy)
             from desktop import Desktop
             from local_video import open_studio
-            from storyboard_paths import media_root
+            from contract.storyboard_paths import media_root
             d = Desktop(win, root=PROGRAM)
             d.root = proj
             d.studio = open_studio(proj)
@@ -1841,7 +1846,8 @@ class BatchContinuationTests(unittest.TestCase):
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
         import time
-        import storyboard_catalog_service, storyboard_selection, workflow_tasks
+        import storyboard_catalog_service, storyboard_selection
+        from orchestrator import workflow_tasks
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             script = proj / "writing" / "第01集.md"

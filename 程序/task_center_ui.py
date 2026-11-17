@@ -1,7 +1,6 @@
 """「运行状况」弹窗（L4）：只读展示 task_center_service 的快照。"""
 from __future__ import annotations
 
-import tkinter as tk
 
 import diagnostic_capture
 import task_center_service

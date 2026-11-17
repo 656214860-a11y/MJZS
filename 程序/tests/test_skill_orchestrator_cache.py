@@ -6,7 +6,7 @@ from pathlib import Path
 
 class ProjectStatusCacheTests(unittest.TestCase):
     def test_status_read_uses_cache_and_atomic_save_invalidates_it(self):
-        import skill_orchestrator as subject
+        from orchestrator import skill_orchestrator as subject
         with tempfile.TemporaryDirectory() as folder:
             project = Path(folder)
             subject.save_project_status({'step': 1}, project)

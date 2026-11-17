@@ -17,17 +17,14 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import ttk
 import pet_state
-import ui_plugin_registry
 from desktop_idea_attachments import IdeaAttachmentsMixin
 from desktop_idea_deferred import IdeaDeferredMixin
 from desktop_idea_send_gate import IdeaSendGateMixin
-from orchestrator.idea_chat_controller import (bubble_timestamp, collapse_preview, has_interruptible, interrupt_notice,
-                                  queue_notice, slot_decision)
+from orchestrator.idea_chat_controller import has_interruptible, interrupt_notice, queue_notice, slot_decision
 from contract.platform_tools import open_target
-from ui_tokens import CHAR_WIDTH, COLORS, FONTS, SPACING, STAGE_PANEL_LAYOUT
+from ui_tokens import CHAR_WIDTH, SPACING, STAGE_PANEL_LAYOUT
 from ui_widgets import FormDialog, SelectBox, TextArea
-from desktop_idea_bubbles import (BUBBLE_BACK, BUBBLE_FILL, BUBBLE_FLOOR, BUBBLE_FONT, BUBBLE_GAP, BUBBLE_LINE, BUBBLE_MAX_RATIO,
-                                  BUBBLE_PAD, BUBBLE_SLACK, IdeaBubblesMixin)
+from desktop_idea_bubbles import BUBBLE_FILL, BUBBLE_FLOOR, BUBBLE_GAP, BUBBLE_LINE, BUBBLE_MAX_RATIO, BUBBLE_PAD, IdeaBubblesMixin
 ROOT = Path(__file__).resolve().parent
 LOGGER = logging.getLogger(__name__)
 PAGE = pet_state.PAGE_OF

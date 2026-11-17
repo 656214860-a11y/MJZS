@@ -1,11 +1,9 @@
 """Open the user's installed media apps; never replace them with browser tabs."""
 import csv
 import io
-import json
 import os
 import subprocess
 import threading
-import time
 from pathlib import Path
 from contract.platform_tools import hidden_console_flags, launch_windows_app, require_windows
 

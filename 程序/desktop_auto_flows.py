@@ -329,7 +329,6 @@ class AutoFlowsMixin:
         上说清缺什么（提示条上还有一颗「立即重试」，见 auto_final_state／retry_auto_final），
         失败退避 5 分钟后重试，定稿接管后当前分镜变成定稿目录，轮询自然停下。
         """
-        import project_settings
         if self.root is None or self.studio is None or not self.pet.should_auto_run('final'):
             self.auto.final_signature=None;self.auto.final_notice=None;self.auto.final_blocked=False;return
         source=self.auto_final_target()
@@ -359,7 +358,6 @@ class AutoFlowsMixin:
         第 62 期任务 7：打开项目后的第一拍先做一次「启动对账」（reconcile_storyboards），
         把强制关闭时没来得及同步的工作集补上；这一拍不看节流，也不受别的阶段在忙影响。
         """
-        import project_settings
         if self.root is None:
             self.auto.adopt_signature=None;self.auto.adopt_pending=False;return
         if self.auto.adopt_startup:
@@ -404,7 +402,6 @@ class AutoFlowsMixin:
 
         成片指纹记在 editing／自动粗剪.json：同一批验收结果只拼接一次，镜头重做并重新验收后才会再拼一版。
         """
-        import project_settings
         if self.root is None or self.studio is None or not self.pet.should_auto_run('edit'):
             self.auto.edit_signature=None;return
         # 自动粗剪必须按当前选择的分镜：工作集没跟上时先对齐，正在跑任务、正在定稿或新分镜不合规就等下一轮。
@@ -578,7 +575,6 @@ class AutoFlowsMixin:
 
         已提交的镜头只查询取回，不重复提交；同一批「待提交镜头」只排一次，仍在生成的镜头每轮查询。
         """
-        import project_settings
         if self.root is None or self.studio is None or not self.pet.should_auto_run('video'):
             self.auto.video_signature=None
             if self.auto.video_tasks.cancel():self.auto.video_busy=False
@@ -617,7 +613,6 @@ class AutoFlowsMixin:
         交接包指纹记在 editing／自动交接.json：同一批验收结果只整理一次，镜头重做并重新验收后才会再出一版；
         自动模式固定复用 editing／自动交接包 这一个目录，不会像手动整理那样每次多出一个目录。
         """
-        import project_settings
         if self.root is None or self.studio is None or not self.pet.should_auto_run('delivery'):
             self.auto.handoff_signature=None;return
         # 交接包必须按当前选择的分镜：工作集没跟上时先对齐，正在跑任务、正在定稿或新分镜不合规就等下一轮。

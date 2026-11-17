@@ -36,8 +36,8 @@ import model_router
 import pet_agent
 import pet_bus
 import pet_ui
-import skill_budget
-import skill_orchestrator
+from orchestrator import skill_budget
+from orchestrator import skill_orchestrator
 import skill_note_render
 import skill_panel
 import skill_registry

@@ -5,10 +5,10 @@ from pathlib import Path
 from unittest.mock import patch
 import script_contract as contract
 import stage_config
-import stage_handler_registry
+from orchestrator import stage_handler_registry
 import workflow_settings
 import idea_chat
-from idea_brief_form import extract_brief_creation, inline_required_missing
+from domain.idea_brief_form import extract_brief_creation, inline_required_missing
 from stage_execution_service import save_writing_production_locks
 
 

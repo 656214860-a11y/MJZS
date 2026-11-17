@@ -19,8 +19,7 @@ from ui_tokens import TEXT_ROWS, COLORS, FONTS, SPACING, TEXT_DESC, DESKTOP_LAYO
 from desktop_page_registry import (ACCOUNT_TITLE, PAGE_ACCOUNT, PAGE_NAV_ICONS,
                                    PROJECT_ACTION_ICONS, PROJECT_GROUP_ICONS, nav_label)
 from ui_icons import IconLoader
-from ui_widgets import (BaseDialog, Card, DataTable, NotificationDispatcher, PrimaryButton, SecondaryButton,
-                        Tooltip)
+from ui_widgets import BaseDialog, DataTable, NotificationDispatcher, PrimaryButton, SecondaryButton, Tooltip
 from dataclasses import dataclass
 from typing import Callable
 

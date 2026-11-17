@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import edit_habits
+from orchestrator import edit_habits
 from workflow_engines import prompt_with_settings
 
 

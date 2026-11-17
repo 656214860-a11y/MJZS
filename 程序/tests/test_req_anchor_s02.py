@@ -15,8 +15,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 import script_contract
-import skill_orchestrator
-import skill_templates
+from orchestrator import skill_orchestrator
+from orchestrator import skill_templates
 import stage_completion_service
 import stage_exec
 import stage_execution_service
@@ -45,7 +45,7 @@ STEP_ACTIONS = ('read_script_raw', 'writer_extract_structure', 'editor_review_st
 
 
 def _script_dir(root):
-    from stage_path_service import write_dir
+    from contract.stage_path_service import write_dir
     return write_dir(root, 'script')
 
 

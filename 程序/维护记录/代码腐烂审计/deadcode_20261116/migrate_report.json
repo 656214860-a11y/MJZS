@@ -1,0 +1,2814 @@
+{
+ "files": {
+  "desktop.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "desktop_account_page.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "desktop_idea_chat.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "desktop_shared_input.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "desktop_storyboard_page.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "usage_overview.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "contract/artifact_schema.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "domain/audio_import_service.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "domain/delivery_import_service.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "domain/edit_service.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "domain/handoff_service.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "domain/idea_attachments.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "domain/legacy_adoption_service.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "domain/recycle_recovery_service.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "domain/stage_workspace_service.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "domain/subtitle_export_service.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "domain/video_lifecycle_service.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "infra/model_diagnostics.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "infra/usage_history.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "orchestrator/desktop_send_ledger.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "orchestrator/edit_habits.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "orchestrator/legacy_compat.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "orchestrator/skill_notes.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "scripts/distribution_build.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "scripts/drill_refresh_reuse.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "scripts/maintain_logs.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "scripts/repo_health.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_account_background_checks.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_account_client.py": {
+   "blocks": 5,
+   "strs": 0
+  },
+  "tests/test_account_entry.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_account_offline.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_account_page.py": {
+   "blocks": 12,
+   "strs": 0
+  },
+  "tests/test_account_security.py": {
+   "blocks": 5,
+   "strs": 0
+  },
+  "tests/test_agent_current_script_notice.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_aigc_lint.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_animatic_scope.py": {
+   "blocks": 3,
+   "strs": 0
+  },
+  "tests/test_animatic_service.py": {
+   "blocks": 2,
+   "strs": 2
+  },
+  "tests/test_animatic_timeline.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_api.py": {
+   "blocks": 11,
+   "strs": 0
+  },
+  "tests/test_api_cache_usage.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_app_metadata.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_artifact_lineage.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_artifact_schema.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_aspect_ratio_priority.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_assets.py": {
+   "blocks": 21,
+   "strs": 0
+  },
+  "tests/test_assets_scope.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_asset_batch_controller.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_asset_batch_settings_callers.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_asset_batch_settings_service.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_asset_contract.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_asset_detail.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_asset_detail_service.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_asset_page_controller.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_asset_resume.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_audio_direct_api.py": {
+   "blocks": 6,
+   "strs": 0
+  },
+  "tests/test_audio_import_service.py": {
+   "blocks": 2,
+   "strs": 3
+  },
+  "tests/test_audio_manifest_scope.py": {
+   "blocks": 5,
+   "strs": 0
+  },
+  "tests/test_audio_role_binding.py": {
+   "blocks": 3,
+   "strs": 2
+  },
+  "tests/test_audio_subtitle_scope.py": {
+   "blocks": 5,
+   "strs": 0
+  },
+  "tests/test_broadcaster.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_claude_writing_session.py": {
+   "blocks": 1,
+   "strs": 5
+  },
+  "tests/test_clipboard_lock.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_cli_streaming.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_cloud_video.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_codex_skill_sync.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_confirm_gates.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_confirm_gates_cache.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_context.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_context_budget_model.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_continuity_ledger.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_continuity_scope.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_core.py": {
+   "blocks": 4,
+   "strs": 1
+  },
+  "tests/test_critical_chains.py": {
+   "blocks": 8,
+   "strs": 2
+  },
+  "tests/test_delivery_import_service.py": {
+   "blocks": 3,
+   "strs": 0
+  },
+  "tests/test_delivery_scope.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_desktop_automation_service.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_desktop_auto_state.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_desktop_compact_layout.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_desktop_idea_chat_desktop_paste.py": {
+   "blocks": 0,
+   "strs": 3
+  },
+  "tests/test_desktop_send_ledger.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_desktop_send_steps.py": {
+   "blocks": 3,
+   "strs": 0
+  },
+  "tests/test_desktop_settings_callers.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_desktop_settings_service.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_desktop_shortcuts.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_direct_chat_metering.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_download_inbox.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_editing_page_controller.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_editing_scope.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_edit_habits.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_edit_service.py": {
+   "blocks": 7,
+   "strs": 0
+  },
+  "tests/test_engine_probe.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_error_codes.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_exit_maintenance.py": {
+   "blocks": 1,
+   "strs": 1
+  },
+  "tests/test_fault_injection_chain.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_files_panel.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_file_cache.py": {
+   "blocks": 4,
+   "strs": 0
+  },
+  "tests/test_final_service.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_final_viewer.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_flow_agent_launch.py": {
+   "blocks": 0,
+   "strs": 5
+  },
+  "tests/test_force_quit.py": {
+   "blocks": 4,
+   "strs": 0
+  },
+  "tests/test_frame_checks.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_golden_outputs.py": {
+   "blocks": 6,
+   "strs": 0
+  },
+  "tests/test_handoff_bundle.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_handoff_service.py": {
+   "blocks": 8,
+   "strs": 3
+  },
+  "tests/test_http_client.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_idea_attachments.py": {
+   "blocks": 2,
+   "strs": 6
+  },
+  "tests/test_idea_attachment_brief.py": {
+   "blocks": 2,
+   "strs": 1
+  },
+  "tests/test_idea_attachment_budgets.py": {
+   "blocks": 2,
+   "strs": 1
+  },
+  "tests/test_idea_chat.py": {
+   "blocks": 3,
+   "strs": 0
+  },
+  "tests/test_idea_chat_controller.py": {
+   "blocks": 2,
+   "strs": 2
+  },
+  "tests/test_idea_chat_presentation.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_idea_chat_remove_restore.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_idea_deferred_fill.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_idea_download_import.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_idea_request_lifecycle.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_idea_semantic_brief.py": {
+   "blocks": 1,
+   "strs": 2
+  },
+  "tests/test_idea_send_gate.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_image_direct.py": {
+   "blocks": 4,
+   "strs": 2
+  },
+  "tests/test_keyframe_model_service.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_keyframe_page_controller.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_latent_defects_r1853.py": {
+   "blocks": 3,
+   "strs": 0
+  },
+  "tests/test_latent_defects_r2175.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_leak_teardown.py": {
+   "blocks": 3,
+   "strs": 0
+  },
+  "tests/test_legacy_adoption_service.py": {
+   "blocks": 2,
+   "strs": 2
+  },
+  "tests/test_legacy_compat.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_login_gate.py": {
+   "blocks": 4,
+   "strs": 0
+  },
+  "tests/test_log_maintenance.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_manual_plan.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_mcp_settings.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_media_import_validation.py": {
+   "blocks": 1,
+   "strs": 1
+  },
+  "tests/test_media_page_controller.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_membership_refresh_on_view.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_model_diagnostics.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_model_gateway_robustness.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_model_manager_actions.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_model_output_contract.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_model_pool_snapshot.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_multi_monitor_popups.py": {
+   "blocks": 1,
+   "strs": 4
+  },
+  "tests/test_output_spec.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_page_lock.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_page_navigation_controller.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_page_navigation_decide.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_paths.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_perf_baseline.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_pet_broadcast_state.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_pet_chat_coordinator.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_pet_cloud_contract.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_pet_cloud_geometry.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_pet_cloud_position_state.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_pet_cloud_r1449.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_pet_cloud_shape.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_pet_cloud_tail.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_pet_cloud_text.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_pet_llm.py": {
+   "blocks": 0,
+   "strs": 1
+  },
+  "tests/test_pet_offer_brevity.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_pet_popup_policy.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_pet_settings.py": {
+   "blocks": 2,
+   "strs": 1
+  },
+  "tests/test_pet_ui.py": {
+   "blocks": 3,
+   "strs": 0
+  },
+  "tests/test_popup_no_interrupt.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_preparation_confirmation.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_preparation_monitor.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_preparation_parallel.py": {
+   "blocks": 3,
+   "strs": 0
+  },
+  "tests/test_preparation_source_priority.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_previs.py": {
+   "blocks": 0,
+   "strs": 1
+  },
+  "tests/test_previs_batch_service.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_previs_local_agent_only.py": {
+   "blocks": 0,
+   "strs": 1
+  },
+  "tests/test_previs_monitor.py": {
+   "blocks": 4,
+   "strs": 0
+  },
+  "tests/test_previs_monitor_exposure.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_previs_scope.py": {
+   "blocks": 3,
+   "strs": 0
+  },
+  "tests/test_projects.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_project_context.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_project_page_services.py": {
+   "blocks": 0,
+   "strs": 1
+  },
+  "tests/test_project_rename_reconcile.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_project_stages.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_prompt_templates.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_qwen_adapter.py": {
+   "blocks": 3,
+   "strs": 0
+  },
+  "tests/test_recon_service.py": {
+   "blocks": 3,
+   "strs": 0
+  },
+  "tests/test_recycle.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_recycle_directories.py": {
+   "blocks": 3,
+   "strs": 0
+  },
+  "tests/test_recycle_recovery_service.py": {
+   "blocks": 4,
+   "strs": 0
+  },
+  "tests/test_release_bindings.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_renew_concurrency.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_request_recording.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_req_anchor_s02.py": {
+   "blocks": 3,
+   "strs": 0
+  },
+  "tests/test_req_anchor_s10.py": {
+   "blocks": 3,
+   "strs": 0
+  },
+  "tests/test_req_s01_anchors.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_req_s03_anchors.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_req_s04_anchors.py": {
+   "blocks": 4,
+   "strs": 1
+  },
+  "tests/test_req_s05_anchors.py": {
+   "blocks": 5,
+   "strs": 0
+  },
+  "tests/test_req_s06_anchors.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_req_s07_anchors.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_req_s08_anchors.py": {
+   "blocks": 3,
+   "strs": 4
+  },
+  "tests/test_req_s09_anchors.py": {
+   "blocks": 3,
+   "strs": 0
+  },
+  "tests/test_req_s11_anchors.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_req_s12_anchors.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_req_s13_anchors.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_resume_preview.py": {
+   "blocks": 1,
+   "strs": 2
+  },
+  "tests/test_script_agent_delivery_assembly.py": {
+   "blocks": 2,
+   "strs": 2
+  },
+  "tests/test_script_agent_delivery_paths.py": {
+   "blocks": 1,
+   "strs": 2
+  },
+  "tests/test_script_composer.py": {
+   "blocks": 3,
+   "strs": 0
+  },
+  "tests/test_script_contract_production_locks.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_script_page_services.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_script_preparation_manifest_scope.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_script_structure.py": {
+   "blocks": 0,
+   "strs": 1
+  },
+  "tests/test_script_structure_dedup.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_script_structure_scope.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_script_text_reader.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_script_workspace_results.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_script_workspace_service.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_secret_status_diagnostics.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_seedream_direct.py": {
+   "blocks": 3,
+   "strs": 0
+  },
+  "tests/test_service_contract.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_shared_adapter_infrastructure.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_shot_batches.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_sidebar_project_title.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_skills.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_skill_deep_inline.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_skill_notes.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_skill_orchestrator_cache.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_skill_templates.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_skill_user_layer.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_slowpage_first_paint.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_speech_api.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_stage_command_contract.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_stage_completion_service.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_stage_copy_on_write.py": {
+   "blocks": 4,
+   "strs": 0
+  },
+  "tests/test_stage_flow.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_stage_model_value.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_stage_parallel.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_stage_path_service.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_stage_prompt_governance.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_stage_wiring.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_stage_workspace_callers.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_stage_workspace_service.py": {
+   "blocks": 3,
+   "strs": 0
+  },
+  "tests/test_state_transition_tables.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_storyboard_adoption_service.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_storyboard_catalog_scan_count.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_storyboard_catalog_snapshot.py": {
+   "blocks": 1,
+   "strs": 5
+  },
+  "tests/test_storyboard_direct_api.py": {
+   "blocks": 3,
+   "strs": 6
+  },
+  "tests/test_storyboard_edit_service.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_storyboard_final_controller.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_storyboard_final_scope.py": {
+   "blocks": 3,
+   "strs": 0
+  },
+  "tests/test_storyboard_page_controller.py": {
+   "blocks": 1,
+   "strs": 13
+  },
+  "tests/test_storyboard_page_loading.py": {
+   "blocks": 3,
+   "strs": 0
+  },
+  "tests/test_storyboard_plan_service.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_storyboard_scope.py": {
+   "blocks": 4,
+   "strs": 0
+  },
+  "tests/test_subtitles.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_subtitle_calibration.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_subtitle_export_service.py": {
+   "blocks": 4,
+   "strs": 3
+  },
+  "tests/test_tts.py": {
+   "blocks": 2,
+   "strs": 2
+  },
+  "tests/test_ui_edges_autopilot.py": {
+   "blocks": 17,
+   "strs": 0
+  },
+  "tests/test_ui_edges_controls.py": {
+   "blocks": 4,
+   "strs": 0
+  },
+  "tests/test_ui_edges_pages.py": {
+   "blocks": 4,
+   "strs": 0
+  },
+  "tests/test_ui_motion_perf.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_ui_reading_density.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_unattended_chain_tables.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_update_notice.py": {
+   "blocks": 4,
+   "strs": 0
+  },
+  "tests/test_usage_indicator_ui.py": {
+   "blocks": 3,
+   "strs": 0
+  },
+  "tests/test_usage_overview.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_usage_snapshot.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_version_record.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_video_generation_scope.py": {
+   "blocks": 3,
+   "strs": 0
+  },
+  "tests/test_video_lifecycle_service.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_video_manifest_scope.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_video_prompt_direct_api.py": {
+   "blocks": 5,
+   "strs": 0
+  },
+  "tests/test_video_prompt_publication.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_video_retention.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_video_revision.py": {
+   "blocks": 0,
+   "strs": 3
+  },
+  "tests/test_voice_ai_optimize.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_voice_dict.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_workflow.py": {
+   "blocks": 18,
+   "strs": 1
+  },
+  "tests/test_workflow_engines_run.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_workflow_process_registry.py": {
+   "blocks": 7,
+   "strs": 0
+  },
+  "tests/test_workflow_writing_stages.py": {
+   "blocks": 3,
+   "strs": 2
+  },
+  "tests/test_workspace_maintenance.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_writer_style_agent_delivery.py": {
+   "blocks": 1,
+   "strs": 1
+  },
+  "tests/test_writing_api.py": {
+   "blocks": 2,
+   "strs": 10
+  },
+  "tests/test_writing_cancellation.py": {
+   "blocks": 2,
+   "strs": 1
+  },
+  "tests/test_writing_edited_restart.py": {
+   "blocks": 2,
+   "strs": 0
+  },
+  "tests/test_writing_page_services.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_writing_quality.py": {
+   "blocks": 3,
+   "strs": 0
+  },
+  "tests/test_writing_restart.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_writing_restart_intent.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_writing_status_line.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/test_writing_unconfirm.py": {
+   "blocks": 3,
+   "strs": 0
+  },
+  "tests/ui_edges_support.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/architecture/test_agents_md.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "tests/architecture/test_asset_batch_ledger_boundary.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "tests/architecture/test_atomic_write_boundary.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "tests/architecture/test_coverage_audit_ratchet.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "tests/architecture/test_dynamic_import_registry.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "tests/architecture/test_import_error_boundaries.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "tests/architecture/test_layers.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "tests/architecture/test_legacy_facade_manifest.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/architecture/test_migrated_ui_boundaries.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "tests/architecture/test_model_provider_boundary.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "tests/architecture/test_no_circular_import.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "tests/architecture/test_path_authority.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "tests/architecture/test_platform_process_boundary.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "tests/architecture/test_previs_batch_json_boundary.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "tests/architecture/test_previs_monitor_json_boundary.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "tests/architecture/test_project_context_boundary.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "tests/architecture/test_project_entry_boundary.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "tests/architecture/test_recycle_service.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "tests/architecture/test_secret_sink_audit.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "tests/architecture/test_service_return_contract.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "tests/architecture/test_skill_orchestrator_json_boundary.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "tests/architecture/test_stage_command_contract.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "tests/architecture/test_stage_paths.py": {
+   "blocks": 1,
+   "strs": 0
+  },
+  "tests/architecture/test_storyboard_edit_boundary.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "tests/architecture/test_storyboard_final_selection_boundary.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "tests/architecture/test_writing_api_stage_config_boundary.py": {
+   "blocks": 0,
+   "strs": 0
+  },
+  "tests/architecture/_layers.py": {
+   "blocks": 0,
+   "strs": 0
+  }
+ },
+ "review": [
+  [
+   "desktop.py",
+   "bare-str",
+   195,
+   "idea_attachments"
+  ],
+  [
+   "desktop_account_page.py",
+   "bare-str",
+   171,
+   "update_notice"
+  ],
+  [
+   "desktop_idea_chat.py",
+   "bare-str",
+   107,
+   "idea_chat_controller"
+  ],
+  [
+   "desktop_idea_chat.py",
+   "bare-str",
+   113,
+   "idea_chat_controller"
+  ],
+  [
+   "desktop_shared_input.py",
+   "bare-str",
+   304,
+   "idea_chat_controller"
+  ],
+  [
+   "desktop_storyboard_page.py",
+   "bare-str",
+   128,
+   "frame_checks"
+  ],
+  [
+   "usage_overview.py",
+   "bare-str",
+   22,
+   "model_diagnostics"
+  ],
+  [
+   "usage_overview.py",
+   "bare-str",
+   25,
+   "model_diagnostics"
+  ],
+  [
+   "usage_overview.py",
+   "bare-str",
+   26,
+   "model_diagnostics"
+  ],
+  [
+   "usage_overview.py",
+   "bare-str",
+   27,
+   "model_diagnostics"
+  ],
+  [
+   "contract/artifact_schema.py",
+   "bare-str",
+   27,
+   "artifact_lineage"
+  ],
+  [
+   "contract/artifact_schema.py",
+   "bare-str",
+   35,
+   "desktop_send_ledger"
+  ],
+  [
+   "contract/artifact_schema.py",
+   "bare-str",
+   25,
+   "animatic_service"
+  ],
+  [
+   "contract/artifact_schema.py",
+   "bare-str",
+   27,
+   "artifact_lineage"
+  ],
+  [
+   "contract/artifact_schema.py",
+   "bare-str",
+   32,
+   "edit_habits"
+  ],
+  [
+   "contract/artifact_schema.py",
+   "bare-str",
+   33,
+   "edit_habits"
+  ],
+  [
+   "contract/artifact_schema.py",
+   "bare-str",
+   35,
+   "desktop_send_ledger"
+  ],
+  [
+   "domain/audio_import_service.py",
+   "bare-str",
+   10,
+   "audio_import_service"
+  ],
+  [
+   "domain/delivery_import_service.py",
+   "bare-str",
+   12,
+   "delivery_import_service"
+  ],
+  [
+   "domain/edit_service.py",
+   "bare-str",
+   26,
+   "edit_service"
+  ],
+  [
+   "domain/handoff_service.py",
+   "bare-str",
+   30,
+   "handoff_service"
+  ],
+  [
+   "domain/idea_attachments.py",
+   "bare-str",
+   36,
+   "idea_attachments"
+  ],
+  [
+   "domain/legacy_adoption_service.py",
+   "bare-str",
+   10,
+   "legacy_adoption_service"
+  ],
+  [
+   "domain/recycle_recovery_service.py",
+   "bare-str",
+   8,
+   "recycle_recovery_service"
+  ],
+  [
+   "domain/stage_workspace_service.py",
+   "bare-str",
+   9,
+   "stage_workspace_service"
+  ],
+  [
+   "domain/subtitle_export_service.py",
+   "bare-str",
+   11,
+   "subtitle_export_service"
+  ],
+  [
+   "domain/video_lifecycle_service.py",
+   "bare-str",
+   11,
+   "video_lifecycle_service"
+  ],
+  [
+   "infra/model_diagnostics.py",
+   "bare-str",
+   74,
+   "model_diagnostics"
+  ],
+  [
+   "infra/usage_history.py",
+   "bare-str",
+   14,
+   "usage_history"
+  ],
+  [
+   "orchestrator/desktop_send_ledger.py",
+   "bare-str",
+   41,
+   "desktop_send_ledger"
+  ],
+  [
+   "orchestrator/desktop_send_ledger.py",
+   "bare-str",
+   193,
+   "desktop_send_ledger"
+  ],
+  [
+   "orchestrator/edit_habits.py",
+   "bare-str",
+   207,
+   "edit_habits"
+  ],
+  [
+   "orchestrator/edit_habits.py",
+   "bare-str",
+   214,
+   "edit_habits"
+  ],
+  [
+   "orchestrator/edit_habits.py",
+   "bare-str",
+   263,
+   "edit_habits"
+  ],
+  [
+   "orchestrator/legacy_compat.py",
+   "bare-str",
+   16,
+   "legacy_compat"
+  ],
+  [
+   "orchestrator/legacy_compat.py",
+   "bare-str",
+   19,
+   "legacy_compat"
+  ],
+  [
+   "orchestrator/legacy_compat.py",
+   "bare-str",
+   19,
+   "confirm_gates"
+  ],
+  [
+   "orchestrator/legacy_compat.py",
+   "bare-str",
+   22,
+   "legacy_compat"
+  ],
+  [
+   "orchestrator/legacy_compat.py",
+   "bare-str",
+   25,
+   "legacy_compat"
+  ],
+  [
+   "orchestrator/legacy_compat.py",
+   "bare-str",
+   25,
+   "idea_document_paths"
+  ],
+  [
+   "orchestrator/legacy_compat.py",
+   "bare-str",
+   28,
+   "legacy_compat"
+  ],
+  [
+   "orchestrator/skill_notes.py",
+   "bare-str",
+   159,
+   "skill_notes"
+  ],
+  [
+   "tests/test_audio_import_service.py",
+   "bare-str",
+   67,
+   "audio_import_service"
+  ],
+  [
+   "tests/test_audio_import_service.py",
+   "bare-str",
+   75,
+   "audio_import_service"
+  ],
+  [
+   "tests/test_audio_manifest_scope.py",
+   "bare-str",
+   47,
+   "subtitle_export_service"
+  ],
+  [
+   "tests/test_core.py",
+   "bare-str",
+   79,
+   "idea_chat_controller"
+  ],
+  [
+   "tests/test_critical_chains.py",
+   "bare-str",
+   209,
+   "model_diagnostics"
+  ],
+  [
+   "tests/test_edit_service.py",
+   "bare-str",
+   17,
+   "edit_service"
+  ],
+  [
+   "tests/test_exit_maintenance.py",
+   "bare-str",
+   24,
+   "log_maintenance"
+  ],
+  [
+   "tests/test_exit_maintenance.py",
+   "bare-str",
+   25,
+   "workspace_maintenance"
+  ],
+  [
+   "tests/test_handoff_service.py",
+   "bare-str",
+   80,
+   "handoff_service"
+  ],
+  [
+   "tests/test_idea_attachments.py",
+   "bare-str",
+   304,
+   "idea_attachments"
+  ],
+  [
+   "tests/test_idea_attachments.py",
+   "bare-str",
+   321,
+   "idea_attachments"
+  ],
+  [
+   "tests/test_legacy_adoption_service.py",
+   "bare-str",
+   31,
+   "legacy_adoption_service"
+  ],
+  [
+   "tests/test_media_import_validation.py",
+   "bare-str",
+   127,
+   "audio_import_service"
+  ],
+  [
+   "tests/test_model_diagnostics.py",
+   "bare-str",
+   32,
+   "model_diagnostics"
+  ],
+  [
+   "tests/test_pet_llm.py",
+   "bare-str",
+   506,
+   "model_diagnostics"
+  ],
+  [
+   "tests/test_pet_llm.py",
+   "bare-str",
+   541,
+   "model_diagnostics"
+  ],
+  [
+   "tests/test_pet_llm.py",
+   "bare-str",
+   553,
+   "model_diagnostics"
+  ],
+  [
+   "tests/test_pet_llm.py",
+   "bare-str",
+   560,
+   "model_diagnostics"
+  ],
+  [
+   "tests/test_pet_settings.py",
+   "bare-str",
+   917,
+   "app_metadata"
+  ],
+  [
+   "tests/test_qwen_adapter.py",
+   "bare-str",
+   45,
+   "qwen_adapter"
+  ],
+  [
+   "tests/test_stage_workspace_service.py",
+   "bare-str",
+   19,
+   "stage_workspace_service"
+  ],
+  [
+   "tests/test_subtitle_export_service.py",
+   "bare-str",
+   106,
+   "subtitle_export_service"
+  ],
+  [
+   "tests/test_usage_overview.py",
+   "bare-str",
+   142,
+   "model_diagnostics"
+  ],
+  [
+   "tests/test_usage_snapshot.py",
+   "bare-str",
+   57,
+   "usage_history"
+  ],
+  [
+   "tests/test_usage_snapshot.py",
+   "bare-str",
+   114,
+   "usage_history"
+  ],
+  [
+   "tests/test_writing_api.py",
+   "bare-str",
+   685,
+   "model_diagnostics"
+  ],
+  [
+   "tests/test_writing_api.py",
+   "bare-str",
+   1084,
+   "service_contract"
+  ],
+  [
+   "tests/architecture/test_agents_md.py",
+   "bare-str",
+   57,
+   "asset_contract"
+  ],
+  [
+   "tests/architecture/test_agents_md.py",
+   "bare-str",
+   58,
+   "storyboard_paths"
+  ],
+  [
+   "tests/architecture/test_agents_md.py",
+   "bare-str",
+   79,
+   "storyboard_paths"
+  ],
+  [
+   "tests/architecture/test_agents_md.py",
+   "bare-str",
+   79,
+   "asset_contract"
+  ],
+  [
+   "tests/architecture/test_agents_md.py",
+   "bare-str",
+   80,
+   "stage_handler_registry"
+  ],
+  [
+   "tests/architecture/test_agents_md.py",
+   "bare-str",
+   81,
+   "stage_path_service"
+  ],
+  [
+   "tests/architecture/test_asset_batch_ledger_boundary.py",
+   "bare-str",
+   14,
+   "asset_batch_execution"
+  ],
+  [
+   "tests/architecture/test_atomic_write_boundary.py",
+   "bare-str",
+   12,
+   "qwen_adapter"
+  ],
+  [
+   "tests/architecture/test_atomic_write_boundary.py",
+   "bare-str",
+   117,
+   "qwen_adapter"
+  ],
+  [
+   "tests/architecture/test_coverage_audit_ratchet.py",
+   "bare-str",
+   19,
+   "engine_probe"
+  ],
+  [
+   "tests/architecture/test_coverage_audit_ratchet.py",
+   "bare-str",
+   19,
+   "qwen_adapter"
+  ],
+  [
+   "tests/architecture/test_coverage_audit_ratchet.py",
+   "bare-str",
+   19,
+   "aigc_lint"
+  ],
+  [
+   "tests/architecture/test_coverage_audit_ratchet.py",
+   "bare-str",
+   25,
+   "qwen_adapter"
+  ],
+  [
+   "tests/architecture/test_coverage_audit_ratchet.py",
+   "bare-str",
+   28,
+   "stage_handler_registry"
+  ],
+  [
+   "tests/architecture/test_coverage_audit_ratchet.py",
+   "bare-str",
+   28,
+   "clipboard_lock"
+  ],
+  [
+   "tests/architecture/test_dynamic_import_registry.py",
+   "bare-str",
+   13,
+   "pet_cloud"
+  ],
+  [
+   "tests/architecture/test_import_error_boundaries.py",
+   "bare-str",
+   11,
+   "legacy_compat"
+  ],
+  [
+   "tests/architecture/test_import_error_boundaries.py",
+   "bare-str",
+   40,
+   "legacy_compat"
+  ],
+  [
+   "tests/architecture/test_layers.py",
+   "bare-str",
+   62,
+   "idea_attachments"
+  ],
+  [
+   "tests/architecture/test_legacy_facade_manifest.py",
+   "bare-str",
+   15,
+   "legacy_compat"
+  ],
+  [
+   "tests/architecture/test_legacy_facade_manifest.py",
+   "bare-str",
+   43,
+   "legacy_compat"
+  ],
+  [
+   "tests/architecture/test_migrated_ui_boundaries.py",
+   "bare-str",
+   14,
+   "desktop_startup_service"
+  ],
+  [
+   "tests/architecture/test_migrated_ui_boundaries.py",
+   "bare-str",
+   15,
+   "storyboard_final_controller"
+  ],
+  [
+   "tests/architecture/test_migrated_ui_boundaries.py",
+   "bare-str",
+   15,
+   "storyboard_page_controller"
+  ],
+  [
+   "tests/architecture/test_migrated_ui_boundaries.py",
+   "bare-str",
+   15,
+   "keyframe_page_controller"
+  ],
+  [
+   "tests/architecture/test_migrated_ui_boundaries.py",
+   "bare-str",
+   16,
+   "asset_batch_controller"
+  ],
+  [
+   "tests/architecture/test_migrated_ui_boundaries.py",
+   "bare-str",
+   16,
+   "asset_page_controller"
+  ],
+  [
+   "tests/architecture/test_migrated_ui_boundaries.py",
+   "bare-str",
+   16,
+   "editing_page_controller"
+  ],
+  [
+   "tests/architecture/test_migrated_ui_boundaries.py",
+   "bare-str",
+   16,
+   "media_page_controller"
+  ],
+  [
+   "tests/architecture/test_migrated_ui_boundaries.py",
+   "bare-str",
+   16,
+   "page_navigation_controller"
+  ],
+  [
+   "tests/architecture/test_model_provider_boundary.py",
+   "bare-str",
+   8,
+   "qwen_adapter"
+  ],
+  [
+   "tests/architecture/test_model_provider_boundary.py",
+   "bare-str",
+   30,
+   "qwen_adapter"
+  ],
+  [
+   "tests/architecture/test_no_circular_import.py",
+   "bare-str",
+   51,
+   "skill_orchestrator"
+  ],
+  [
+   "tests/architecture/test_path_authority.py",
+   "bare-str",
+   11,
+   "storyboard_paths"
+  ],
+  [
+   "tests/architecture/test_path_authority.py",
+   "bare-str",
+   11,
+   "asset_contract"
+  ],
+  [
+   "tests/architecture/test_platform_process_boundary.py",
+   "bare-str",
+   12,
+   "log_maintenance"
+  ],
+  [
+   "tests/architecture/test_previs_batch_json_boundary.py",
+   "bare-str",
+   10,
+   "previs_batch_service"
+  ],
+  [
+   "tests/architecture/test_previs_monitor_json_boundary.py",
+   "bare-str",
+   10,
+   "previs_monitor"
+  ],
+  [
+   "tests/architecture/test_project_context_boundary.py",
+   "bare-str",
+   20,
+   "project_context"
+  ],
+  [
+   "tests/architecture/test_project_context_boundary.py",
+   "bare-str",
+   55,
+   "project_stages"
+  ],
+  [
+   "tests/architecture/test_project_context_boundary.py",
+   "bare-str",
+   71,
+   "project_context"
+  ],
+  [
+   "tests/architecture/test_project_entry_boundary.py",
+   "bare-str",
+   17,
+   "desktop_startup_service"
+  ],
+  [
+   "tests/architecture/test_recycle_service.py",
+   "bare-str",
+   13,
+   "log_maintenance"
+  ],
+  [
+   "tests/architecture/test_recycle_service.py",
+   "bare-str",
+   13,
+   "workspace_maintenance"
+  ],
+  [
+   "tests/architecture/test_secret_sink_audit.py",
+   "bare-str",
+   51,
+   "broadcaster"
+  ],
+  [
+   "tests/architecture/test_service_return_contract.py",
+   "bare-str",
+   141,
+   "service_contract"
+  ],
+  [
+   "tests/architecture/test_service_return_contract.py",
+   "bare-str",
+   144,
+   "animatic_service"
+  ],
+  [
+   "tests/architecture/test_service_return_contract.py",
+   "bare-str",
+   144,
+   "idea_attachments"
+  ],
+  [
+   "tests/architecture/test_service_return_contract.py",
+   "bare-str",
+   144,
+   "audio_import_service"
+  ],
+  [
+   "tests/architecture/test_service_return_contract.py",
+   "bare-str",
+   144,
+   "delivery_import_service"
+  ],
+  [
+   "tests/architecture/test_service_return_contract.py",
+   "bare-str",
+   145,
+   "edit_service"
+  ],
+  [
+   "tests/architecture/test_service_return_contract.py",
+   "bare-str",
+   145,
+   "handoff_service"
+  ],
+  [
+   "tests/architecture/test_service_return_contract.py",
+   "bare-str",
+   145,
+   "legacy_adoption_service"
+  ],
+  [
+   "tests/architecture/test_service_return_contract.py",
+   "bare-str",
+   145,
+   "recycle_recovery_service"
+  ],
+  [
+   "tests/architecture/test_service_return_contract.py",
+   "bare-str",
+   145,
+   "stage_workspace_service"
+  ],
+  [
+   "tests/architecture/test_service_return_contract.py",
+   "bare-str",
+   145,
+   "subtitle_export_service"
+  ],
+  [
+   "tests/architecture/test_service_return_contract.py",
+   "bare-str",
+   145,
+   "video_lifecycle_service"
+  ],
+  [
+   "tests/architecture/test_service_return_contract.py",
+   "bare-str",
+   153,
+   "delivery_import_service"
+  ],
+  [
+   "tests/architecture/test_service_return_contract.py",
+   "bare-str",
+   156,
+   "service_contract"
+  ],
+  [
+   "tests/architecture/test_service_return_contract.py",
+   "bare-str",
+   164,
+   "service_contract"
+  ],
+  [
+   "tests/architecture/test_service_return_contract.py",
+   "bare-str",
+   176,
+   "service_contract"
+  ],
+  [
+   "tests/architecture/test_skill_orchestrator_json_boundary.py",
+   "bare-str",
+   9,
+   "skill_orchestrator"
+  ],
+  [
+   "tests/architecture/test_stage_command_contract.py",
+   "bare-str",
+   13,
+   "skill_orchestrator"
+  ],
+  [
+   "tests/architecture/test_stage_command_contract.py",
+   "bare-str",
+   14,
+   "workflow_tasks"
+  ],
+  [
+   "tests/architecture/test_storyboard_edit_boundary.py",
+   "bare-str",
+   12,
+   "storyboard_final_controller"
+  ],
+  [
+   "tests/architecture/test_storyboard_final_selection_boundary.py",
+   "bare-str",
+   14,
+   "storyboard_final_controller"
+  ],
+  [
+   "tests/architecture/test_writing_api_stage_config_boundary.py",
+   "bare-str",
+   34,
+   "workflow_tasks"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   13,
+   "script_manifest_contract"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   13,
+   "script_manifest_schema"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   13,
+   "script_output_spec"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   13,
+   "asset_contract"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   13,
+   "episode_contract"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   13,
+   "service_contract"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   13,
+   "error_codes"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   13,
+   "project_context"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   13,
+   "stage_path_service"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   13,
+   "storyboard_paths"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   13,
+   "project_stages"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   14,
+   "prompt_templates"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   14,
+   "shot_batches"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   14,
+   "production_model_contract"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   14,
+   "app_metadata"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   17,
+   "config_snapshot"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   17,
+   "request_ledger"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   18,
+   "usage_snapshot"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   18,
+   "usage_history"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   19,
+   "log_maintenance"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   19,
+   "workspace_maintenance"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   19,
+   "workflow_process_registry"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   19,
+   "script_text_reader"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   19,
+   "native_asset_codec"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   20,
+   "aigc_lint"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   21,
+   "animatic_service"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   21,
+   "idea_brief_form"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   21,
+   "idea_attachments"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   21,
+   "idea_document_paths"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   21,
+   "idea_transcript"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   26,
+   "tts_api"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   26,
+   "speech_api"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   26,
+   "voice_ai"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   26,
+   "subtitle_timing"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   27,
+   "handoff_service"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   27,
+   "edit_service"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   27,
+   "final_service"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   27,
+   "storyboard_adoption_service"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   27,
+   "delivery_import_service"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   27,
+   "confirm_gates"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   27,
+   "recycle_recovery_service"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   31,
+   "exit_maintenance"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   31,
+   "pet_chat_coordinator"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   32,
+   "skill_notes"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   32,
+   "skill_orchestrator"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   32,
+   "codex_skill_sync"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   32,
+   "workflow_tasks"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   33,
+   "stage_download_inbox_service"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   33,
+   "desktop_startup_service"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   33,
+   "desktop_auto_state"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   33,
+   "pet_broadcast_state"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   33,
+   "idea_chat_controller"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   33,
+   "idea_semantic_brief_service"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   34,
+   "writing_unconfirm"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   34,
+   "storyboard_plan_service"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   34,
+   "storyboard_final"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   34,
+   "storyboard_final_controller"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   34,
+   "storyboard_page_controller"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   34,
+   "keyframe_page_controller"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   34,
+   "storyboard_direct_api"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   34,
+   "audio_direct_api"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   34,
+   "video_prompt_direct_api"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   34,
+   "image_direct"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   34,
+   "asset_batch_controller"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   34,
+   "asset_page_controller"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   34,
+   "editing_page_controller"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   34,
+   "page_navigation_controller"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   34,
+   "media_page_controller"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   35,
+   "previs_batch_service"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   35,
+   "previs_monitor"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   35,
+   "asset_auto_batch_service"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   35,
+   "asset_batch_execution"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   36,
+   "pet_cloud"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   36,
+   "pet_cloud_text"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   36,
+   "pet_cloud_geometry"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   36,
+   "pet_cloud_shape"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   36,
+   "pet_cloud_tail"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   36,
+   "pet_cloud_timing"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   36,
+   "pet_cloud_hint"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   36,
+   "pet_cloud_place"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   36,
+   "pet_cloud_move_guard"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   36,
+   "ui_composer_style"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   36,
+   "ui_splash"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   36,
+   "ui_tooltip"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   36,
+   "ui_stage_popups"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   36,
+   "ui_hover_fade"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   36,
+   "ui_usage_indicator"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   36,
+   "ui_usage_detail"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   40,
+   "artifact_schema"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   40,
+   "api_models"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   40,
+   "frame_checks"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   41,
+   "prop_assets"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   41,
+   "storyboard_contract"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   41,
+   "workflow_context_budget"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   42,
+   "broadcaster"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   42,
+   "clipboard_lock"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   43,
+   "engine_probe"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   43,
+   "h3_reference_adapter"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   43,
+   "http_client"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   43,
+   "model_diagnostics"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   45,
+   "audio_import_service"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   46,
+   "legacy_adoption_service"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   46,
+   "offline_asr_client"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   47,
+   "stage_workspace_service"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   49,
+   "subtitle_export_service"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   49,
+   "video_lifecycle_service"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   51,
+   "skill_budget"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   51,
+   "skill_templates"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   51,
+   "subtitle_export_controller"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   52,
+   "stage_handler_registry"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   52,
+   "storyboard_recycle_service"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   52,
+   "workflow_context_controller"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   52,
+   "recycle_recovery_controller"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   62,
+   "lease_verifier"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   62,
+   "account_store"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   62,
+   "update_notice"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   64,
+   "account_controller"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   66,
+   "edit_habits"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   82,
+   "artifact_lineage"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   84,
+   "legacy_compat"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   84,
+   "qwen_adapter"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   89,
+   "asset_reference_prompts"
+  ],
+  [
+   "tests/architecture/_layers.py",
+   "bare-str",
+   93,
+   "desktop_send_ledger"
+  ]
+ ],
+ "errors": [],
+ "nfiles": 313
+}

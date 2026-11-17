@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import unittest
 
-import pet_cloud_shape
+from ui import pet_cloud_shape
 
 
 class PetCloudShapeTests(unittest.TestCase):

@@ -7,7 +7,7 @@ from datetime import date
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from service_contract import SystemError, success
+from contract.service_contract import SystemError, success
 
 
 class DesktopSettingsCallerTests(unittest.TestCase):

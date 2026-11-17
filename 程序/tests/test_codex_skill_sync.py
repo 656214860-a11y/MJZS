@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-import codex_skill_sync as sync
+from orchestrator import codex_skill_sync as sync
 from test_skills import write_skill
 
 

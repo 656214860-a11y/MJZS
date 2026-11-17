@@ -1,6 +1,5 @@
 """Read task activity without starting, cancelling, or resubmitting a job."""
 from pathlib import Path
-from agent.core import read
 from file_cache import read_json_shared as read_cached
 from contract.storyboard_paths import project_root,resolved_path,config_listing,file_signature
 

@@ -15,7 +15,7 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
-from service_contract import SystemError
+from contract.service_contract import SystemError
 
 from cloud_video import PROVIDERS, provider_label, saved_provider_key, session_folder, settings_window
 

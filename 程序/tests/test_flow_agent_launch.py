@@ -96,7 +96,7 @@ class FlowAgentLaunchTests(unittest.TestCase):
 
     def test_qwen_uses_its_own_window_title(self):
         host = self.host(sync=False, page_index=3)
-        with self.stubs(), patch('qwen_adapter.window_title', return_value='Qwen·样片') as title:
+        with self.stubs(), patch('orchestrator.qwen_adapter.window_title', return_value='Qwen·样片') as title:
             self.open(host, 'storyboard', {'engine': 'qwen', 'program': '', 'model': ''})
         title.assert_called_once_with('样片', 'storyboard', 3)
         self.assertEqual('Qwen·样片', host.async_.call_args.args[0].__self__.title)
@@ -104,7 +104,7 @@ class FlowAgentLaunchTests(unittest.TestCase):
     def test_codex_skill_sync_problems_stop_before_claiming(self):
         host = self.host()
         sync = {'errors': ['缺技能'], 'conflicts': ['重名']}
-        with self.stubs(), patch('codex_skill_sync.sync_codex_skills', return_value=sync), \
+        with self.stubs(), patch('orchestrator.codex_skill_sync.sync_codex_skills', return_value=sync), \
                 self.assertRaisesRegex(ValueError, '^Codex 技能同步未完成：缺技能; 重名$'):
             self.open(host, 'storyboard', {'engine': 'codex', 'program': '', 'model': ''})
         self.finish.assert_not_called()
@@ -113,7 +113,7 @@ class FlowAgentLaunchTests(unittest.TestCase):
         host = self.host()
         config = {'engine': 'codex', 'program': '', 'model': '', 'desktop_program': 'Codex.exe'}
         task = {'url': 'codex://new', 'title': '样片 任务', 'mode': 'new', 'prompt': '全文'}
-        with self.stubs(), patch('codex_skill_sync.sync_codex_skills', return_value={'errors': [], 'conflicts': []}), \
+        with self.stubs(), patch('orchestrator.codex_skill_sync.sync_codex_skills', return_value={'errors': [], 'conflicts': []}), \
                 patch('native_apps.open_blender') as blender, \
                 patch('codex_tasks.prepare_task', return_value=task) as prepare, \
                 patch('desktop_idea_chat.open_target') as target, \
@@ -145,8 +145,8 @@ class FlowAgentLaunchTests(unittest.TestCase):
 
     def test_live_qwen_session_gets_the_followup(self):
         host = self.host(flow_processes=_AnyLiveSession())
-        with self.stubs(), patch('qwen_adapter.window_title', return_value='Q'), \
-                patch('qwen_adapter.submit_existing', return_value='已续发') as submit:
+        with self.stubs(), patch('orchestrator.qwen_adapter.window_title', return_value='Q'), \
+                patch('orchestrator.qwen_adapter.submit_existing', return_value='已续发') as submit:
             self.open(host, 'storyboard', {'engine': 'qwen', 'program': '', 'model': ''})
         self.assertEqual(('请执行',), submit.call_args.args[1:])
         self.assertEqual({'ok': True, 'reason': '已续发', 'send_dispatched': True}, self.outcome.call_args.args[1])

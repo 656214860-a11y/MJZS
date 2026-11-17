@@ -3,7 +3,7 @@ import unittest
 from types import SimpleNamespace
 
 import entitlement_service as ent
-from account_controller import RENEW_INTERVAL, RENEW_VIEW_INTERVAL, AccountController
+from orchestrator.account_controller import RENEW_INTERVAL, RENEW_VIEW_INTERVAL, AccountController
 from desktop_account_page import AccountPageMixin
 from desktop_page_registry import PAGE_ACCOUNT
 

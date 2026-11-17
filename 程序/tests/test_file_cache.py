@@ -128,7 +128,7 @@ class ReadJsonTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / 'script.md'
             path.write_text('第一版自然剧本', encoding='utf-8')
-            from script_text_reader import script_text
+            from infra.script_text_reader import script_text
             first = script_text(path)
             second = script_text(path)
             self.assertEqual(first, second)
@@ -257,7 +257,7 @@ class RepeatReadTests(unittest.TestCase):
             source.write_text('# 结构剧本', encoding='utf-8')
             final = write_episode(project / '06分镜定稿' / '分镜' /
                                   'EP001_分镜定稿_20260927' / 'episode.json', 'EP001', ['SH001'])
-            from artifact_lineage import record
+            from contract.artifact_lineage import record
             record(project, final, source, 'final_storyboard')
             self.assertEqual([entry['path'] for entry in storyboard_files.catalog(project, 'storyboard')],
                              [final.resolve()])
@@ -273,7 +273,7 @@ class RepeatReadTests(unittest.TestCase):
             source.write_text('# 结构剧本', encoding='utf-8')
             final = write_episode(project / '06分镜定稿' / '分镜' /
                                   'EP001_分镜定稿_20260927' / 'episode.json', 'EP001', ['SH001'])
-            from artifact_lineage import record
+            from contract.artifact_lineage import record
             record(project, final, source, 'final_storyboard')
             source.write_text('# 结构剧本（用户改过）', encoding='utf-8')
             file_cache.clear()
@@ -293,7 +293,7 @@ class RepeatReadTests(unittest.TestCase):
             payload = file_cache.read_json(draft)
             payload['source_script'] = source.relative_to(project).as_posix()
             draft.write_text(json.dumps(payload, ensure_ascii=False), encoding='utf-8')
-            import storyboard_final
+            from orchestrator import storyboard_final
             self.assertEqual(storyboard_final._lineage_source(project, draft), source.resolve())
 
 

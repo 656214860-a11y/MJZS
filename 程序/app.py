@@ -16,10 +16,8 @@ from contract.storyboard_paths import media_root, project_root
 from responsive_ui import FlowBar,QuietVar,configure_check_column,CheckboxColumn,fit_columns_by_content,fit_row_height,row_height_for
 from local_video import open_studio,LocalStudio,settings_window
 from engine import review_label
-from project_naming import dated_path
 from video_task_state import assert_prompt_editable,prompt_locked,poll_delay,elapsed_text,submission_block_reason
 from video_progress import snapshot as shared_video_snapshot,display as progress_display,summary as progress_summary,LABELS,status_detail
-import project_settings
 import asset_thumbs
 import ui_plugin_registry
 from contract.platform_tools import open_path

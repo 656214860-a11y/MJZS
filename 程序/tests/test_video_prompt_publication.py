@@ -92,7 +92,7 @@ class VideoPromptPublicationTests(unittest.TestCase):
 
     def test_invalid_inputs_have_no_writes(self):
         from unittest.mock import Mock
-        from service_contract import UserError
+        from contract.service_contract import UserError
         with tempfile.TemporaryDirectory() as raw:
             studio = self._studio(Path(raw))
             for operation in (video_prompt_publication.publish, video_prompt_publication.stage_import):
@@ -115,7 +115,7 @@ class VideoPromptPublicationTests(unittest.TestCase):
 
     def test_l3_callers_check_failure_and_preserve_success_payload(self):
         import stage_execution_service
-        from service_contract import SystemError, success
+        from contract.service_contract import SystemError, success
         for caller, service in [(stage_execution_service.publish_video_prompt, 'publish'),
                                 (stage_execution_service.import_video_prompt, 'stage_import')]:
             payload = {'video_prompt': 'text'}

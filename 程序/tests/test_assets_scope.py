@@ -4,10 +4,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import asset_contract
+from contract import asset_contract
 import stage_flow
 import stage_parallel
-import stage_path_service
+from contract import stage_path_service
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILL_DIR = ROOT / 'skills' / '05资产管理SKILL'

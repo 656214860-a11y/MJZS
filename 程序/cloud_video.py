@@ -1,7 +1,6 @@
 """Configure isolated cloud video task sessions without submitting on open."""
-import time
 import tkinter as tk
-from tkinter import ttk,messagebox
+from tkinter import ttk
 import webbrowser
 from pathlib import Path
 from ui_tokens import WRAPLENGTH, SPACING

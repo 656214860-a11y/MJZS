@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from asset_page_controller import AssetPageController
+from orchestrator.asset_page_controller import AssetPageController
 
 
 class AssetPageControllerTests(unittest.TestCase):

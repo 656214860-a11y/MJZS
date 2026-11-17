@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 import domain.offline_asr_client as offline_asr_client
 import domain.speech_api as speech_api
-import speech_api as speech_api_flat
+from domain import speech_api as speech_api_flat
 from agent.core import save
 
 

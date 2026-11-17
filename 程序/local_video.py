@@ -7,9 +7,8 @@ from file_cache import remove_temporary_file
 # 本模块只在真要发本机 HTTP 时用得到——都改成函数内 import。
 from urllib.parse import urlparse,urlencode,quote
 from engine import Studio, REVIEW_PASS, AUTO_REVIEW_NOTE, auto_review_ready
-from agent.core import read,save,file_hash,command,fingerprint,temporary_path,replace
+from agent.core import read, save, command, fingerprint, temporary_path, replace
 from agent.media import check, png_size
-import project_settings
 from ui_tokens import CHAR_WIDTH, WRAPLENGTH, SPACING
 from ui_widgets import BaseDialog, Card, LineInput, PrimaryButton, SecondaryButton
 import contract.pet_bus as pet_bus
@@ -375,7 +374,6 @@ def open_studio(root,episode_file=None):
     return Studio(root,episode_file=episode_file)
 
 def settings_window(app):
-    import tkinter as tk
     from tkinter import ttk
     from ui_dialogs import FileDialog
     win=BaseDialog(app.window,'',modal=False,chrome=False);win.attributes('-alpha',0);win.title('本地ComfyUI视频设置 · MiniMax H3');win.geometry('850x610')

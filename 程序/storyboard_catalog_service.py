@@ -450,7 +450,7 @@ def catalog_snapshot(context, ignored=IGNORED):
 def _catalog(context, kind, ignored, *, completed=None, sources=None, previews=False):
     from contract.artifact_lineage import MISSING, STALE, check
     from file_cache import read_json
-    from contract.project_stages import writing, structure, storyboard, stage
+    from contract.project_stages import writing, structure, storyboard
     from contract.storyboard_paths import is_final_dir
     from writing import duration_gap
     project = _context(context).root.resolve()

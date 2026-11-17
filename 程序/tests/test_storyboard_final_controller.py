@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 from agent.core import read, save
-from storyboard_final_controller import FinalStoryboardController
+from orchestrator.storyboard_final_controller import FinalStoryboardController
 
 
 class FinalStoryboardControllerTests(unittest.TestCase):

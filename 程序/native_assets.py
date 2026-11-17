@@ -1,10 +1,8 @@
 """Send asset data to the installed ComfyUI; import completed results by ID."""
 import app_logging
-import base64
 import hashlib
 import json
 import logging
-import os
 import queue
 import threading
 import time
@@ -359,7 +357,7 @@ class _AssetControls:
 
     def build(self):
         import tkinter as tk
-        from tkinter import ttk, messagebox
+        from tkinter import ttk
         from ui_widgets import BusyState, Card, SelectBox, PrimaryButton, ProgressLabel, SecondaryButton, notify
         self.notify = notify
         from responsive_ui import FlowBar

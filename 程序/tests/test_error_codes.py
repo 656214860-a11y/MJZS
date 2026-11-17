@@ -1,7 +1,7 @@
 import unittest
 
-from error_codes import CODES, code_data, code_of, describe, from_http_result, lookup
-from service_contract import ServiceResult, SystemError, UserError, success
+from contract.error_codes import CODES, code_data, code_of, describe, from_http_result, lookup
+from contract.service_contract import ServiceResult, SystemError, UserError, success
 
 
 class ErrorCodesTests(unittest.TestCase):

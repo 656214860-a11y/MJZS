@@ -1,0 +1,1667 @@
+{
+ "app.py": [
+  {
+   "line": 19,
+   "name": "dated_path",
+   "raw": "dated_path"
+  },
+  {
+   "line": 22,
+   "name": "project_settings",
+   "raw": "project_settings"
+  }
+ ],
+ "asset_batch.py": [
+  {
+   "line": 2,
+   "name": "os",
+   "raw": "os"
+  },
+  {
+   "line": 2,
+   "name": "re",
+   "raw": "re"
+  },
+  {
+   "line": 2,
+   "name": "uuid",
+   "raw": "uuid"
+  },
+  {
+   "line": 5,
+   "name": "messagebox",
+   "raw": "messagebox"
+  },
+  {
+   "line": 17,
+   "name": "_automatic_plan",
+   "raw": "automatic_plan as _automatic_plan"
+  },
+  {
+   "line": 17,
+   "name": "_unattended_plan",
+   "raw": "unattended_plan as _unattended_plan"
+  },
+  {
+   "line": 24,
+   "name": "ledger_path",
+   "raw": "ledger_path"
+  },
+  {
+   "line": 24,
+   "name": "prune_raw_outputs",
+   "raw": "prune_raw_outputs"
+  },
+  {
+   "line": 24,
+   "name": "ready_asset_ids",
+   "raw": "ready_asset_ids"
+  }
+ ],
+ "asset_batch_service.py": [
+  {
+   "line": 3,
+   "name": "threading",
+   "raw": "threading"
+  }
+ ],
+ "asset_detail.py": [
+  {
+   "line": 186,
+   "name": "STATE_PREFIX",
+   "raw": "STATE_PREFIX"
+  }
+ ],
+ "asset_reference_images.py": [
+  {
+   "line": 5,
+   "name": "os",
+   "raw": "os"
+  }
+ ],
+ "cell_hover.py": [
+  {
+   "line": 24,
+   "name": "ROW_MENU_DELETE",
+   "raw": "ROW_MENU_DELETE"
+  },
+  {
+   "line": 24,
+   "name": "ROW_MENU_VIEW",
+   "raw": "ROW_MENU_VIEW"
+  },
+  {
+   "line": 24,
+   "name": "call_delete",
+   "raw": "call_delete"
+  },
+  {
+   "line": 24,
+   "name": "wants_column",
+   "raw": "wants_column"
+  }
+ ],
+ "cloud_video.py": [
+  {
+   "line": 2,
+   "name": "time",
+   "raw": "time"
+  },
+  {
+   "line": 4,
+   "name": "messagebox",
+   "raw": "messagebox"
+  }
+ ],
+ "continuity_ledger.py": [
+  {
+   "line": 16,
+   "name": "re",
+   "raw": "re"
+  },
+  {
+   "line": 20,
+   "name": "KIND_OF",
+   "raw": "KIND_OF"
+  },
+  {
+   "line": 20,
+   "name": "state_variants",
+   "raw": "state_variants"
+  },
+  {
+   "line": 23,
+   "name": "TRIPLET",
+   "raw": "TRIPLET"
+  }
+ ],
+ "contract/script_contract.py": [
+  {
+   "line": 1047,
+   "name": "_box",
+   "raw": "_box"
+  },
+  {
+   "line": 1047,
+   "name": "_copy",
+   "raw": "_copy"
+  },
+  {
+   "line": 1047,
+   "name": "_features_box",
+   "raw": "_features_box"
+  },
+  {
+   "line": 1047,
+   "name": "_hit",
+   "raw": "_hit"
+  },
+  {
+   "line": 1047,
+   "name": "_item_box",
+   "raw": "_item_box"
+  },
+  {
+   "line": 1047,
+   "name": "_pieces",
+   "raw": "_pieces"
+  },
+  {
+   "line": 1047,
+   "name": "_spare",
+   "raw": "_spare"
+  },
+  {
+   "line": 1153,
+   "name": "_even",
+   "raw": "_even"
+  },
+  {
+   "line": 1153,
+   "name": "_fit_ratio",
+   "raw": "_fit_ratio"
+  },
+  {
+   "line": 1153,
+   "name": "_fps",
+   "raw": "_fps"
+  }
+ ],
+ "desktop.py": [
+  {
+   "line": 3,
+   "name": "page_nav",
+   "raw": "orchestrator.page_navigation_controller as page_nav"
+  },
+  {
+   "line": 12,
+   "name": "ASSET_ROWS_PER_FRAME",
+   "raw": "ASSET_ROWS_PER_FRAME"
+  },
+  {
+   "line": 12,
+   "name": "ASSET_ROW_LABEL",
+   "raw": "ASSET_ROW_LABEL"
+  },
+  {
+   "line": 13,
+   "name": "model_error_display",
+   "raw": "model_error_display"
+  },
+  {
+   "line": 16,
+   "name": "UNATTENDED_NEXT",
+   "raw": "UNATTENDED_NEXT"
+  },
+  {
+   "line": 17,
+   "name": "os",
+   "raw": "os"
+  },
+  {
+   "line": 17,
+   "name": "subprocess",
+   "raw": "subprocess"
+  },
+  {
+   "line": 17,
+   "name": "sys",
+   "raw": "sys"
+  },
+  {
+   "line": 17,
+   "name": "uuid",
+   "raw": "uuid"
+  },
+  {
+   "line": 17,
+   "name": "re",
+   "raw": "re"
+  },
+  {
+   "line": 18,
+   "name": "date",
+   "raw": "date"
+  },
+  {
+   "line": 20,
+   "name": "remove_temporary_file",
+   "raw": "remove_temporary_file"
+  },
+  {
+   "line": 21,
+   "name": "media_root",
+   "raw": "media_root"
+  },
+  {
+   "line": 24,
+   "name": "save",
+   "raw": "save"
+  },
+  {
+   "line": 24,
+   "name": "save_text",
+   "raw": "save_text"
+  },
+  {
+   "line": 24,
+   "name": "save_bytes",
+   "raw": "save_bytes"
+  },
+  {
+   "line": 25,
+   "name": "project_settings",
+   "raw": "project_settings"
+  },
+  {
+   "line": 26,
+   "name": "needs_cleanup_after_open_error",
+   "raw": "needs_cleanup_after_open_error"
+  },
+  {
+   "line": 27,
+   "name": "growable_extra",
+   "raw": "growable_extra"
+  },
+  {
+   "line": 27,
+   "name": "configure_check_column",
+   "raw": "configure_check_column"
+  },
+  {
+   "line": 27,
+   "name": "refresh_check_heading",
+   "raw": "refresh_check_heading"
+  },
+  {
+   "line": 27,
+   "name": "CheckboxColumn",
+   "raw": "CheckboxColumn"
+  },
+  {
+   "line": 27,
+   "name": "fit_columns_by_content",
+   "raw": "fit_columns_by_content"
+  },
+  {
+   "line": 27,
+   "name": "auto_columns",
+   "raw": "auto_columns"
+  },
+  {
+   "line": 27,
+   "name": "bind_row_toggle",
+   "raw": "bind_row_toggle"
+  },
+  {
+   "line": 27,
+   "name": "fit_row_height",
+   "raw": "fit_row_height"
+  },
+  {
+   "line": 27,
+   "name": "row_height_for",
+   "raw": "row_height_for"
+  },
+  {
+   "line": 28,
+   "name": "approved_versions",
+   "raw": "approved_versions"
+  },
+  {
+   "line": 28,
+   "name": "review_label",
+   "raw": "review_label"
+  },
+  {
+   "line": 28,
+   "name": "adoption_summary",
+   "raw": "adoption_summary"
+  },
+  {
+   "line": 29,
+   "name": "skip_summary",
+   "raw": "skip_summary"
+  },
+  {
+   "line": 30,
+   "name": "App",
+   "raw": "App"
+  },
+  {
+   "line": 33,
+   "name": "dated_path",
+   "raw": "dated_path"
+  },
+  {
+   "line": 34,
+   "name": "asset_thumbs",
+   "raw": "asset_thumbs"
+  },
+  {
+   "line": 36,
+   "name": "frame_checks",
+   "raw": "contract.frame_checks as frame_checks"
+  },
+  {
+   "line": 39,
+   "name": "project_stages",
+   "raw": "contract.project_stages as project_stages"
+  },
+  {
+   "line": 41,
+   "name": "ui_plugin_registry",
+   "raw": "ui_plugin_registry"
+  },
+  {
+   "line": 42,
+   "name": "stage_handler_registry",
+   "raw": "orchestrator.stage_handler_registry as stage_handler_registry"
+  },
+  {
+   "line": 43,
+   "name": "launch_windows_app",
+   "raw": "launch_windows_app"
+  },
+  {
+   "line": 43,
+   "name": "open_target",
+   "raw": "open_target"
+  },
+  {
+   "line": 43,
+   "name": "tcp_listener",
+   "raw": "tcp_listener"
+  },
+  {
+   "line": 49,
+   "name": "BackgroundTaskQueue",
+   "raw": "BackgroundTaskQueue"
+  },
+  {
+   "line": 51,
+   "name": "CHAR_WIDTH",
+   "raw": "CHAR_WIDTH"
+  },
+  {
+   "line": 51,
+   "name": "SCRIPT_ACTION_WIDTH",
+   "raw": "SCRIPT_ACTION_WIDTH"
+  },
+  {
+   "line": 51,
+   "name": "SCRIPT_ACTION_PADDING",
+   "raw": "SCRIPT_ACTION_PADDING"
+  },
+  {
+   "line": 51,
+   "name": "SCRIPT_FILE_FONT",
+   "raw": "SCRIPT_FILE_FONT"
+  },
+  {
+   "line": 51,
+   "name": "ICON_FOLDER",
+   "raw": "ICON_FOLDER"
+  },
+  {
+   "line": 51,
+   "name": "ICON_DELETE",
+   "raw": "ICON_DELETE"
+  },
+  {
+   "line": 55,
+   "name": "ui_stage_popups",
+   "raw": "ui.ui_stage_popups as ui_stage_popups"
+  },
+  {
+   "line": 56,
+   "name": "Card",
+   "raw": "Card"
+  },
+  {
+   "line": 56,
+   "name": "DataTable",
+   "raw": "DataTable"
+  },
+  {
+   "line": 56,
+   "name": "HintLabel",
+   "raw": "HintLabel"
+  },
+  {
+   "line": 107,
+   "name": "pet_state",
+   "raw": "pet_state"
+  },
+  {
+   "line": 112,
+   "name": "CACHED_PAGES",
+   "raw": "CACHED_PAGES"
+  },
+  {
+   "line": 112,
+   "name": "PAGE_ACCOUNT",
+   "raw": "PAGE_ACCOUNT"
+  },
+  {
+   "line": 112,
+   "name": "PAGE_SITES",
+   "raw": "PAGE_SITES"
+  },
+  {
+   "line": 143,
+   "name": "_pin_tk_app",
+   "raw": "_pin_tk_app"
+  },
+  {
+   "line": 143,
+   "name": "_KEEP_APPS",
+   "raw": "_KEEP_APPS"
+  },
+  {
+   "line": 151,
+   "name": "STATUS_ERROR_MARKERS",
+   "raw": "STATUS_ERROR_MARKERS"
+  },
+  {
+   "line": 151,
+   "name": "STATUS_RUNNING_MARKERS",
+   "raw": "STATUS_RUNNING_MARKERS"
+  }
+ ],
+ "desktop_account_page.py": [
+  {
+   "line": 24,
+   "name": "PASSWORD_MASK",
+   "raw": "PASSWORD_MASK"
+  }
+ ],
+ "desktop_asset_pages.py": [
+  {
+   "line": 599,
+   "name": "summary",
+   "raw": "summary"
+  }
+ ],
+ "desktop_auto_flows.py": [
+  {
+   "line": 332,
+   "name": "project_settings",
+   "raw": "project_settings"
+  },
+  {
+   "line": 362,
+   "name": "project_settings",
+   "raw": "project_settings"
+  },
+  {
+   "line": 407,
+   "name": "project_settings",
+   "raw": "project_settings"
+  },
+  {
+   "line": 581,
+   "name": "project_settings",
+   "raw": "project_settings"
+  },
+  {
+   "line": 620,
+   "name": "project_settings",
+   "raw": "project_settings"
+  }
+ ],
+ "desktop_idea_attachments.py": [
+  {
+   "line": 8,
+   "name": "tk",
+   "raw": "tkinter as tk"
+  }
+ ],
+ "desktop_idea_chat.py": [
+  {
+   "line": 20,
+   "name": "ui_plugin_registry",
+   "raw": "ui_plugin_registry"
+  },
+  {
+   "line": 24,
+   "name": "bubble_timestamp",
+   "raw": "bubble_timestamp"
+  },
+  {
+   "line": 24,
+   "name": "collapse_preview",
+   "raw": "collapse_preview"
+  },
+  {
+   "line": 27,
+   "name": "COLORS",
+   "raw": "COLORS"
+  },
+  {
+   "line": 27,
+   "name": "FONTS",
+   "raw": "FONTS"
+  },
+  {
+   "line": 29,
+   "name": "BUBBLE_BACK",
+   "raw": "BUBBLE_BACK"
+  },
+  {
+   "line": 29,
+   "name": "BUBBLE_FONT",
+   "raw": "BUBBLE_FONT"
+  },
+  {
+   "line": 29,
+   "name": "BUBBLE_SLACK",
+   "raw": "BUBBLE_SLACK"
+  }
+ ],
+ "desktop_idea_deferred.py": [
+  {
+   "line": 10,
+   "name": "IDEA_UPDATE_STABLE_TICKS",
+   "raw": "IDEA_UPDATE_STABLE_TICKS"
+  }
+ ],
+ "desktop_media_pages.py": [
+  {
+   "line": 554,
+   "name": "local_model",
+   "raw": "local_model"
+  },
+  {
+   "line": 820,
+   "name": "project_settings",
+   "raw": "project_settings"
+  }
+ ],
+ "desktop_page_nav.py": [
+  {
+   "line": 19,
+   "name": "Tooltip",
+   "raw": "Tooltip"
+  }
+ ],
+ "desktop_project_pages.py": [
+  {
+   "line": 22,
+   "name": "Card",
+   "raw": "Card"
+  }
+ ],
+ "desktop_shared_send.py": [
+  {
+   "line": 15,
+   "name": "SPACING",
+   "raw": "SPACING"
+  }
+ ],
+ "desktop_writing_page.py": [
+  {
+   "line": 11,
+   "name": "time",
+   "raw": "time"
+  },
+  {
+   "line": 16,
+   "name": "EllipsisLabel",
+   "raw": "EllipsisLabel"
+  }
+ ],
+ "file_cache.py": [
+  {
+   "line": 14,
+   "name": "time",
+   "raw": "time"
+  },
+  {
+   "line": 15,
+   "name": "save_file",
+   "raw": "save_file"
+  }
+ ],
+ "idea_chat.py": [
+  {
+   "line": 19,
+   "name": "PRODUCTION_LOCK_DEFINITIONS",
+   "raw": "PRODUCTION_LOCK_DEFINITIONS"
+  },
+  {
+   "line": 24,
+   "name": "ChatModel",
+   "raw": "ChatModel"
+  },
+  {
+   "line": 28,
+   "name": "_HISTORY_CACHE_LIMIT",
+   "raw": "_HISTORY_CACHE_LIMIT"
+  },
+  {
+   "line": 28,
+   "name": "_read_rows",
+   "raw": "_read_rows"
+  },
+  {
+   "line": 28,
+   "name": "_row_indexes",
+   "raw": "_row_indexes"
+  },
+  {
+   "line": 28,
+   "name": "_stamp",
+   "raw": "_stamp"
+  },
+  {
+   "line": 28,
+   "name": "_visible_claude_text",
+   "raw": "_visible_claude_text"
+  },
+  {
+   "line": 28,
+   "name": "deleted_history_path",
+   "raw": "deleted_history_path"
+  }
+ ],
+ "keyframe_comfy.py": [
+  {
+   "line": 8,
+   "name": "messagebox",
+   "raw": "messagebox"
+  },
+  {
+   "line": 12,
+   "name": "ui_plugin_registry",
+   "raw": "ui_plugin_registry"
+  }
+ ],
+ "local_previs.py": [
+  {
+   "line": 2,
+   "name": "os",
+   "raw": "os"
+  },
+  {
+   "line": 5,
+   "name": "messagebox",
+   "raw": "messagebox"
+  },
+  {
+   "line": 8,
+   "name": "prepare_batch",
+   "raw": "prepare_batch"
+  },
+  {
+   "line": 176,
+   "name": "project_settings",
+   "raw": "project_settings"
+  }
+ ],
+ "local_video.py": [
+  {
+   "line": 10,
+   "name": "file_hash",
+   "raw": "file_hash"
+  },
+  {
+   "line": 12,
+   "name": "project_settings",
+   "raw": "project_settings"
+  },
+  {
+   "line": 378,
+   "name": "tk",
+   "raw": "tkinter as tk"
+  }
+ ],
+ "model_pool.py": [
+  {
+   "line": 17,
+   "name": "threading",
+   "raw": "threading"
+  },
+  {
+   "line": 19,
+   "name": "datetime",
+   "raw": "datetime"
+  },
+  {
+   "line": 19,
+   "name": "timezone",
+   "raw": "timezone"
+  },
+  {
+   "line": 25,
+   "name": "replace",
+   "raw": "replace"
+  },
+  {
+   "line": 25,
+   "name": "temporary_path",
+   "raw": "temporary_path"
+  },
+  {
+   "line": 26,
+   "name": "no_redirect",
+   "raw": "no_redirect"
+  },
+  {
+   "line": 26,
+   "name": "_scrub_error_detail",
+   "raw": "_scrub_error_detail"
+  },
+  {
+   "line": 26,
+   "name": "_retry_delay",
+   "raw": "_retry_delay"
+  },
+  {
+   "line": 26,
+   "name": "_wait_before_retry",
+   "raw": "_wait_before_retry"
+  },
+  {
+   "line": 26,
+   "name": "_content_length_exceeded",
+   "raw": "_content_length_exceeded"
+  },
+  {
+   "line": 26,
+   "name": "_limited_read",
+   "raw": "_limited_read"
+  },
+  {
+   "line": 26,
+   "name": "_wait_for_rate_limit",
+   "raw": "_wait_for_rate_limit"
+  },
+  {
+   "line": 26,
+   "name": "set_host_rate_limit",
+   "raw": "set_host_rate_limit"
+  }
+ ],
+ "model_secrets.py": [
+  {
+   "line": 13,
+   "name": "os",
+   "raw": "os"
+  }
+ ],
+ "native_apps.py": [
+  {
+   "line": 4,
+   "name": "json",
+   "raw": "json"
+  },
+  {
+   "line": 8,
+   "name": "time",
+   "raw": "time"
+  }
+ ],
+ "native_assets.py": [
+  {
+   "line": 3,
+   "name": "base64",
+   "raw": "base64"
+  },
+  {
+   "line": 7,
+   "name": "os",
+   "raw": "os"
+  },
+  {
+   "line": 362,
+   "name": "messagebox",
+   "raw": "messagebox"
+  }
+ ],
+ "orchestrator/script_skill_report.py": [
+  {
+   "line": 8,
+   "name": "MERGE_LANDING",
+   "raw": "MERGE_LANDING"
+  },
+  {
+   "line": 8,
+   "name": "MERGE_PART",
+   "raw": "MERGE_PART"
+  }
+ ],
+ "orchestrator/skill_orchestrator.py": [
+  {
+   "line": 25,
+   "name": "script_contract",
+   "raw": "contract.script_contract as script_contract"
+  }
+ ],
+ "orchestrator/storyboard_final.py": [
+  {
+   "line": 5,
+   "name": "datetime",
+   "raw": "datetime"
+  }
+ ],
+ "pet_llm.py": [
+  {
+   "line": 17,
+   "name": "os",
+   "raw": "os"
+  },
+  {
+   "line": 19,
+   "name": "contextmanager",
+   "raw": "contextmanager"
+  },
+  {
+   "line": 27,
+   "name": "configured_key",
+   "raw": "configured_key"
+  },
+  {
+   "line": 517,
+   "name": "REQUEST_LEDGER_PATH",
+   "raw": "REQUEST_LEDGER_PATH"
+  },
+  {
+   "line": 517,
+   "name": "REQUEST_MODES",
+   "raw": "REQUEST_MODES"
+  },
+  {
+   "line": 517,
+   "name": "REQUEST_STATES",
+   "raw": "REQUEST_STATES"
+  }
+ ],
+ "pet_settings_ui.py": [
+  {
+   "line": 25,
+   "name": "TEXT_HINT",
+   "raw": "TEXT_HINT"
+  }
+ ],
+ "pet_ui.py": [
+  {
+   "line": 34,
+   "name": "datetime",
+   "raw": "datetime"
+  },
+  {
+   "line": 36,
+   "name": "sys",
+   "raw": "sys"
+  },
+  {
+   "line": 42,
+   "name": "model_router",
+   "raw": "model_router"
+  },
+  {
+   "line": 43,
+   "name": "APP_NAME",
+   "raw": "APP_NAME"
+  },
+  {
+   "line": 44,
+   "name": "PREFIX_PATTERNS",
+   "raw": "PREFIX_PATTERNS"
+  },
+  {
+   "line": 52,
+   "name": "stage_handler_registry",
+   "raw": "orchestrator.stage_handler_registry as stage_handler_registry"
+  },
+  {
+   "line": 54,
+   "name": "stage_parallel",
+   "raw": "stage_parallel"
+  },
+  {
+   "line": 55,
+   "name": "token_saver",
+   "raw": "token_saver"
+  },
+  {
+   "line": 57,
+   "name": "ContextMenu",
+   "raw": "ContextMenu"
+  },
+  {
+   "line": 57,
+   "name": "ask_confirmation",
+   "raw": "ask_confirmation"
+  },
+  {
+   "line": 65,
+   "name": "AUTOSTART_KEY",
+   "raw": "AUTOSTART_KEY"
+  },
+  {
+   "line": 65,
+   "name": "AUTO_STAGE_VARIABLES",
+   "raw": "AUTO_STAGE_VARIABLES"
+  },
+  {
+   "line": 65,
+   "name": "BANNER_HOUR",
+   "raw": "BANNER_HOUR"
+  },
+  {
+   "line": 65,
+   "name": "CANVAS_BG",
+   "raw": "CANVAS_BG"
+  },
+  {
+   "line": 65,
+   "name": "CAPTION_Y",
+   "raw": "CAPTION_Y"
+  },
+  {
+   "line": 65,
+   "name": "CONFIRM_NEED",
+   "raw": "CONFIRM_NEED"
+  },
+  {
+   "line": 65,
+   "name": "CONFIRM_TITLE",
+   "raw": "CONFIRM_TITLE"
+  },
+  {
+   "line": 65,
+   "name": "DOCK_PAD_BOTTOM",
+   "raw": "DOCK_PAD_BOTTOM"
+  },
+  {
+   "line": 65,
+   "name": "DOCK_PAD_TOP",
+   "raw": "DOCK_PAD_TOP"
+  },
+  {
+   "line": 65,
+   "name": "DOCK_PAD_X",
+   "raw": "DOCK_PAD_X"
+  },
+  {
+   "line": 65,
+   "name": "GearButton",
+   "raw": "GearButton"
+  },
+  {
+   "line": 65,
+   "name": "ICE",
+   "raw": "ICE"
+  },
+  {
+   "line": 65,
+   "name": "INK_SOFT",
+   "raw": "INK_SOFT"
+  },
+  {
+   "line": 65,
+   "name": "OFFER_NO",
+   "raw": "OFFER_NO"
+  },
+  {
+   "line": 65,
+   "name": "OFFER_YES",
+   "raw": "OFFER_YES"
+  },
+  {
+   "line": 65,
+   "name": "ONE_CLICK_ASK",
+   "raw": "ONE_CLICK_ASK"
+  },
+  {
+   "line": 65,
+   "name": "PANEL_SECTIONS",
+   "raw": "PANEL_SECTIONS"
+  },
+  {
+   "line": 65,
+   "name": "PATCH_X",
+   "raw": "PATCH_X"
+  },
+  {
+   "line": 65,
+   "name": "PAW_COL_X",
+   "raw": "PAW_COL_X"
+  },
+  {
+   "line": 65,
+   "name": "PAW_GAP_Y",
+   "raw": "PAW_GAP_Y"
+  },
+  {
+   "line": 65,
+   "name": "PAW_HIT_X",
+   "raw": "PAW_HIT_X"
+  },
+  {
+   "line": 65,
+   "name": "PROJECT_CACHE_SECONDS",
+   "raw": "PROJECT_CACHE_SECONDS"
+  },
+  {
+   "line": 65,
+   "name": "PROJECT_CLOSED",
+   "raw": "PROJECT_CLOSED"
+  },
+  {
+   "line": 65,
+   "name": "PROJECT_LIMIT",
+   "raw": "PROJECT_LIMIT"
+  },
+  {
+   "line": 65,
+   "name": "PROJECT_OPEN",
+   "raw": "PROJECT_OPEN"
+  },
+  {
+   "line": 65,
+   "name": "SANHU_EAR",
+   "raw": "SANHU_EAR"
+  },
+  {
+   "line": 65,
+   "name": "SANHU_INK",
+   "raw": "SANHU_INK"
+  },
+  {
+   "line": 65,
+   "name": "SANHU_MODES",
+   "raw": "SANHU_MODES"
+  },
+  {
+   "line": 65,
+   "name": "SANHU_MUZZLE",
+   "raw": "SANHU_MUZZLE"
+  },
+  {
+   "line": 65,
+   "name": "SANHU_STAR",
+   "raw": "SANHU_STAR"
+  },
+  {
+   "line": 65,
+   "name": "SPOKEN_KEEP",
+   "raw": "SPOKEN_KEEP"
+  },
+  {
+   "line": 65,
+   "name": "TONGUE",
+   "raw": "TONGUE"
+  },
+  {
+   "line": 65,
+   "name": "WEEKLY_FROM",
+   "raw": "WEEKLY_FROM"
+  },
+  {
+   "line": 65,
+   "name": "_BooleanFlag",
+   "raw": "_BooleanFlag"
+  },
+  {
+   "line": 65,
+   "name": "_UNSET",
+   "raw": "_UNSET"
+  },
+  {
+   "line": 65,
+   "name": "_settings_entries",
+   "raw": "_settings_entries"
+  },
+  {
+   "line": 65,
+   "name": "duration",
+   "raw": "duration"
+  },
+  {
+   "line": 65,
+   "name": "flourish",
+   "raw": "flourish"
+  },
+  {
+   "line": 65,
+   "name": "startup_api",
+   "raw": "startup_api"
+  }
+ ],
+ "pet_ui_view.py": [
+  {
+   "line": 12,
+   "name": "PAW_COL_X",
+   "raw": "PAW_COL_X"
+  },
+  {
+   "line": 12,
+   "name": "PAW_GAP",
+   "raw": "PAW_GAP"
+  },
+  {
+   "line": 12,
+   "name": "PAW_HIT_X",
+   "raw": "PAW_HIT_X"
+  }
+ ],
+ "projects.py": [
+  {
+   "line": 2,
+   "name": "os",
+   "raw": "os"
+  }
+ ],
+ "reference_wall.py": [
+  {
+   "line": 10,
+   "name": "messagebox",
+   "raw": "messagebox"
+  }
+ ],
+ "script_find_bar.py": [
+  {
+   "line": 16,
+   "name": "COLORS",
+   "raw": "COLORS"
+  }
+ ],
+ "script_outline.py": [
+  {
+   "line": 14,
+   "name": "SPACING",
+   "raw": "SPACING"
+  }
+ ],
+ "shared_video_controls.py": [
+  {
+   "line": 15,
+   "name": "tk",
+   "raw": "tkinter as tk"
+  },
+  {
+   "line": 16,
+   "name": "project_settings",
+   "raw": "project_settings"
+  },
+  {
+   "line": 17,
+   "name": "model_name",
+   "raw": "model_name"
+  }
+ ],
+ "skill_command.py": [
+  {
+   "line": 10,
+   "name": "os",
+   "raw": "os"
+  }
+ ],
+ "skill_panel.py": [
+  {
+   "line": 3,
+   "name": "SKILL_FLOW_ORDER",
+   "raw": "SKILL_FLOW_ORDER"
+  },
+  {
+   "line": 3,
+   "name": "MANUAL_NAME",
+   "raw": "MANUAL_NAME"
+  },
+  {
+   "line": 3,
+   "name": "skill_order",
+   "raw": "skill_order"
+  },
+  {
+   "line": 3,
+   "name": "flow_skill_display",
+   "raw": "flow_skill_display"
+  },
+  {
+   "line": 3,
+   "name": "flow_skill_match",
+   "raw": "flow_skill_match"
+  },
+  {
+   "line": 3,
+   "name": "manual_path",
+   "raw": "manual_path"
+  },
+  {
+   "line": 3,
+   "name": "pet_of",
+   "raw": "pet_of"
+  },
+  {
+   "line": 3,
+   "name": "stage_capabilities",
+   "raw": "stage_capabilities"
+  },
+  {
+   "line": 3,
+   "name": "model_fits_stage",
+   "raw": "model_fits_stage"
+  },
+  {
+   "line": 3,
+   "name": "WrappingActionRow",
+   "raw": "WrappingActionRow"
+  },
+  {
+   "line": 58,
+   "name": "re",
+   "raw": "re"
+  },
+  {
+   "line": 61,
+   "name": "messagebox",
+   "raw": "messagebox"
+  },
+  {
+   "line": 69,
+   "name": "skill_budget",
+   "raw": "orchestrator.skill_budget as skill_budget"
+  },
+  {
+   "line": 74,
+   "name": "ui_plugin_registry",
+   "raw": "ui_plugin_registry"
+  },
+  {
+   "line": 75,
+   "name": "STAGE_NAMES",
+   "raw": "STAGE_NAMES"
+  },
+  {
+   "line": 75,
+   "name": "_bus_stage_label",
+   "raw": "stage_label as _bus_stage_label"
+  },
+  {
+   "line": 77,
+   "name": "FONTS",
+   "raw": "FONTS"
+  },
+  {
+   "line": 77,
+   "name": "NOTE_HEIGHT_COMPACT",
+   "raw": "NOTE_HEIGHT_COMPACT"
+  },
+  {
+   "line": 77,
+   "name": "NOTE_HEIGHT_REGULAR",
+   "raw": "NOTE_HEIGHT_REGULAR"
+  },
+  {
+   "line": 77,
+   "name": "NOTE_PADDING_X",
+   "raw": "NOTE_PADDING_X"
+  },
+  {
+   "line": 77,
+   "name": "NOTE_PADDING_Y",
+   "raw": "NOTE_PADDING_Y"
+  },
+  {
+   "line": 77,
+   "name": "DIALOG_MIN_HEIGHT",
+   "raw": "DIALOG_MIN_HEIGHT"
+  },
+  {
+   "line": 77,
+   "name": "DIALOG_MIN_WIDTH",
+   "raw": "DIALOG_MIN_WIDTH"
+  },
+  {
+   "line": 81,
+   "name": "TextArea",
+   "raw": "TextArea"
+  },
+  {
+   "line": 81,
+   "name": "SecondaryButton",
+   "raw": "SecondaryButton"
+  }
+ ],
+ "skill_panel_support.py": [
+  {
+   "line": 18,
+   "name": "CHAR_WIDTH",
+   "raw": "CHAR_WIDTH"
+  }
+ ],
+ "stage_execution_service.py": [
+  {
+   "line": 33,
+   "name": "animatic_preview_spec",
+   "raw": "animatic_preview_spec"
+  },
+  {
+   "line": 43,
+   "name": "previs_progress_gateway",
+   "raw": "previs_progress_gateway"
+  },
+  {
+   "line": 43,
+   "name": "previs_routing_gateway",
+   "raw": "previs_routing_gateway"
+  },
+  {
+   "line": 65,
+   "name": "cloud_video_gateway",
+   "raw": "cloud_video_gateway"
+  },
+  {
+   "line": 65,
+   "name": "video_lifecycle_gateway",
+   "raw": "video_lifecycle_gateway"
+  },
+  {
+   "line": 104,
+   "name": "_STAGE_COPY_LOCK",
+   "raw": "_STAGE_COPY_LOCK"
+  },
+  {
+   "line": 104,
+   "name": "_copy_stage_for_write",
+   "raw": "_copy_stage_for_write"
+  },
+  {
+   "line": 111,
+   "name": "DOWNLOAD_INBOX_LEDGER",
+   "raw": "DOWNLOAD_INBOX_LEDGER"
+  },
+  {
+   "line": 111,
+   "name": "_download_inbox_path",
+   "raw": "_download_inbox_path"
+  }
+ ],
+ "storyboard_catalog_service.py": [
+  {
+   "line": 453,
+   "name": "stage",
+   "raw": "stage"
+  }
+ ],
+ "storyboard_files.py": [
+  {
+   "line": 4,
+   "name": "os",
+   "raw": "os"
+  },
+  {
+   "line": 7,
+   "name": "read",
+   "raw": "read"
+  },
+  {
+   "line": 9,
+   "name": "is_final_dir",
+   "raw": "is_final_dir"
+  },
+  {
+   "line": 10,
+   "name": "discover_files",
+   "raw": "discover_files"
+  },
+  {
+   "line": 10,
+   "name": "_linked_path",
+   "raw": "linked_path as _linked_path"
+  },
+  {
+   "line": 23,
+   "name": "_adopted",
+   "raw": "adopted as _adopted"
+  },
+  {
+   "line": 23,
+   "name": "_summary",
+   "raw": "summary as _summary"
+  },
+  {
+   "line": 23,
+   "name": "_prune_invalid_adoptions",
+   "raw": "prune_invalid_adoptions as _prune_invalid_adoptions"
+  },
+  {
+   "line": 39,
+   "name": "read_text",
+   "raw": "read_text"
+  },
+  {
+   "line": 40,
+   "name": "project_settings",
+   "raw": "project_settings"
+  },
+  {
+   "line": 44,
+   "name": "fit_file_columns",
+   "raw": "fit_file_columns"
+  },
+  {
+   "line": 44,
+   "name": "tree_columns",
+   "raw": "tree_columns"
+  }
+ ],
+ "storyboard_selection.py": [
+  {
+   "line": 2,
+   "name": "os",
+   "raw": "os"
+  }
+ ],
+ "task_center_ui.py": [
+  {
+   "line": 4,
+   "name": "tk",
+   "raw": "tkinter as tk"
+  }
+ ],
+ "tts_settings.py": [
+  {
+   "line": 4,
+   "name": "messagebox",
+   "raw": "messagebox"
+  }
+ ],
+ "ui/pet_cloud.py": [
+  {
+   "line": 54,
+   "name": "_shape_root",
+   "raw": "shape_root as _shape_root"
+  },
+  {
+   "line": 58,
+   "name": "TAIL_BULGE",
+   "raw": "TAIL_BULGE"
+  },
+  {
+   "line": 58,
+   "name": "TAIL_CURVE_MAX",
+   "raw": "TAIL_CURVE_MAX"
+  },
+  {
+   "line": 58,
+   "name": "TAIL_STEPS",
+   "raw": "TAIL_STEPS"
+  },
+  {
+   "line": 58,
+   "name": "_side_curve",
+   "raw": "_side_curve"
+  },
+  {
+   "line": 59,
+   "name": "SPACING",
+   "raw": "SPACING"
+  },
+  {
+   "line": 59,
+   "name": "PET_LAYOUT",
+   "raw": "PET_LAYOUT"
+  },
+  {
+   "line": 60,
+   "name": "FADE_MS",
+   "raw": "FADE_MS"
+  },
+  {
+   "line": 60,
+   "name": "FADE_OUT_MS",
+   "raw": "FADE_OUT_MS"
+  },
+  {
+   "line": 60,
+   "name": "FADE_STEPS",
+   "raw": "FADE_STEPS"
+  },
+  {
+   "line": 60,
+   "name": "GROW_ROOM",
+   "raw": "GROW_ROOM"
+  },
+  {
+   "line": 60,
+   "name": "READ_MS_PER_CHAR",
+   "raw": "READ_MS_PER_CHAR"
+  },
+  {
+   "line": 64,
+   "name": "ANCHOR_RATIO",
+   "raw": "ANCHOR_RATIO"
+  },
+  {
+   "line": 64,
+   "name": "DOCK_TOP",
+   "raw": "DOCK_TOP"
+  },
+  {
+   "line": 64,
+   "name": "EAR_RATIO",
+   "raw": "EAR_RATIO"
+  },
+  {
+   "line": 64,
+   "name": "POSITION_RETRY_MS",
+   "raw": "POSITION_RETRY_MS"
+  },
+  {
+   "line": 64,
+   "name": "TAIL_BASE",
+   "raw": "TAIL_BASE"
+  },
+  {
+   "line": 64,
+   "name": "TAIL_SPAN_X",
+   "raw": "TAIL_SPAN_X"
+  },
+  {
+   "line": 64,
+   "name": "TAIL_SPAN_Y",
+   "raw": "TAIL_SPAN_Y"
+  }
+ ],
+ "ui_widgets.py": [
+  {
+   "line": 28,
+   "name": "SPLASH_STAGES",
+   "raw": "SPLASH_STAGES"
+  }
+ ],
+ "video_task_state.py": [
+  {
+   "line": 3,
+   "name": "read",
+   "raw": "read"
+  }
+ ],
+ "white_model.py": [
+  {
+   "line": 5,
+   "name": "messagebox",
+   "raw": "messagebox"
+  }
+ ],
+ "workflow_agents.py": [
+  {
+   "line": 5,
+   "name": "FLOWS",
+   "raw": "FLOWS"
+  },
+  {
+   "line": 5,
+   "name": "skills_of",
+   "raw": "skills_of"
+  }
+ ],
+ "workflow_engines.py": [
+  {
+   "line": 5,
+   "name": "threading",
+   "raw": "threading"
+  }
+ ],
+ "workflow_settings.py": [
+  {
+   "line": 15,
+   "name": "estimate_tokens",
+   "raw": "estimate_tokens"
+  },
+  {
+   "line": 15,
+   "name": "skill_inline_token_budget",
+   "raw": "skill_inline_token_budget"
+  }
+ ],
+ "writing.py": [
+  {
+   "line": 9,
+   "name": "edited_total",
+   "raw": "edited_total"
+  },
+  {
+   "line": 9,
+   "name": "number",
+   "raw": "number"
+  }
+ ],
+ "writing_api.py": [
+  {
+   "line": 21,
+   "name": "_confirmed_basis",
+   "raw": "_confirmed_basis"
+  },
+  {
+   "line": 21,
+   "name": "_revoke_natural_script_adoption",
+   "raw": "_revoke_natural_script_adoption"
+  }
+ ]
+}

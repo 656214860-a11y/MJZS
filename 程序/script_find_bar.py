@@ -13,7 +13,7 @@ import re
 import tkinter as tk
 from tkinter import ttk
 
-from ui_tokens import CHAR_WIDTH, COLORS, SPACING
+from ui_tokens import CHAR_WIDTH, SPACING
 from ui_widgets import LineInput, SecondaryButton
 
 # 计数标签样式与正文区一致的弱化色。

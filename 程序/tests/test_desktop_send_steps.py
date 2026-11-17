@@ -5,8 +5,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-import desktop_send_ledger as ledger
-from workflow_tasks import creative_source
+from orchestrator import desktop_send_ledger as ledger
+from orchestrator.workflow_tasks import creative_source
 
 DISPLAY = 'Google Gemini 4 Argon'
 OUTLINE_REQUEST = '查看附件项目大纲: 分析分集大纲的逻辑矛盾\n【附档：剧本.md】\n第一集 自然剧本正文'
@@ -61,7 +61,7 @@ class StepMaterialTests(unittest.TestCase):
         self.assertEqual(items['项目设定'], self.confirmed)
 
     def test_req_s01_72_falls_back_to_latest_outline_from_other_model_folder(self):
-        from stage_path_service import write_dir
+        from contract.stage_path_service import write_dir
         outline = write_dir(self.project, 'script') / 'Google' / DISPLAY / '创意_20261018' / '项目大纲' / '大纲.md'
         outline.parent.mkdir(parents=True)
         outline.write_text('# 项目大纲\n分集大纲正文', encoding='utf-8')

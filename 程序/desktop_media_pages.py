@@ -551,7 +551,7 @@ class MediaPagesMixin:
         两种方式各用哪个模型、要不要无人值守补视频」这些本来要进了工作台才知道的事——
         进去之后就不用再翻回来问，两个入口也改成主色按钮，一眼能看见。
         """
-        from video_navigation import confirm_rows,local_model
+        from video_navigation import confirm_rows
         self.set_status_segment('page',pet_bus.stage_label('video')+' · 选择生成方式')
         # 第 48 期第 2 条：这一屏不再挂「阶段配置」；R2942 起页面级阶段配置按钮与
         # 标题旁入口全部删除，模型/技能走共享输入框。
@@ -817,7 +817,6 @@ class MediaPagesMixin:
             message=controller.assembled_message(path)
             if message:self.status.set(message)
         edit_buttons.append(edit_button('自动粗剪整集（跳过未验收镜头）',lambda:self.async_(assemble_all,assembled),primary=True))
-        import project_settings
         self.pet.auto_variable('auto_edit_var')
         self.pet.auto_variable('auto_handoff_var')
         edit_buttons.append(edit_button('整理剪映素材交接包',lambda:self.async_(self.handoff,self.media_page_services.open_path)))

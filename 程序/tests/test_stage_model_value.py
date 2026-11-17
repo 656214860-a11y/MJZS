@@ -2,7 +2,7 @@ import tempfile
 import unittest
 
 import stage_config
-from production_model_contract import SEEDREAM_KEYFRAME_MODEL
+from contract.production_model_contract import SEEDREAM_KEYFRAME_MODEL
 from stage_model_value import value
 
 

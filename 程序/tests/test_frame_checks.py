@@ -8,7 +8,7 @@ PROGRAM = os.path.dirname(HERE)
 sys.path.insert(0, PROGRAM)
 os.chdir(PROGRAM)
 
-from frame_checks import FrameChecks
+from contract.frame_checks import FrameChecks
 
 ROWS = [('SH001', True, False), ('SH002', False, False), ('SH003', False, True)]
 

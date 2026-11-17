@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 import app_logging
-import app_metadata
+from contract import app_metadata
 
 PROGRAM = Path(__file__).resolve().parents[1]
 

@@ -5,14 +5,14 @@ import unittest
 from pathlib import Path
 
 import previs_routing
-import project_stages
+from contract import project_stages
 import script_contract
 import stage_flow
 import stage_parallel
-import stage_path_service
+from contract import stage_path_service
 import white_model_ref
 import white_model_service as wm
-from project_context import ProjectContext
+from contract.project_context import ProjectContext
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILL = ROOT / 'skills' / '09白模预演SKILL' / 'pipeline-previs.skill.md'

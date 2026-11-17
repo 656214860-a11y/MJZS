@@ -5,11 +5,10 @@ import threading
 from pathlib import Path
 from file_cache import remove_temporary_file
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk
 
 from agent.core import read, save, save_bytes
 from contract.platform_tools import open_path
-import ui_plugin_registry
 from responsive_ui import FlowBar, CHECK_COLUMN_WIDTH, configure_check_column, refresh_check_heading, scroll_form
 from contract.storyboard_paths import media_root
 from ui_tokens import CHAR_WIDTH, TEXT_ROWS, WRAPLENGTH, COLORS, FONTS, SPACING

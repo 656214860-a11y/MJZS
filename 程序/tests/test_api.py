@@ -9,7 +9,7 @@ sys.path.insert(0, HERE)
 os.chdir(HERE)
 
 import api_endpoints
-import api_models
+from contract import api_models
 from agent.wan import WanAdapter
 from agent.volcengine import VolcengineAdapter
 from pet_state import PAGE_OF as PAGE
@@ -249,7 +249,7 @@ class ShotAssetsPrepareTests(unittest.TestCase):
 
 class QwenWindowTitleTests(unittest.TestCase):
     def title(self, name, stage, page=None):
-        from qwen_adapter import window_title
+        from orchestrator.qwen_adapter import window_title
         return window_title(name, stage, page)
 
     def test_basic(self):
@@ -267,7 +267,7 @@ class QwenWindowTitleTests(unittest.TestCase):
 
 class QwenSetupKeyTests(unittest.TestCase):
     def test_setup_key_deterministic(self):
-        from qwen_adapter import setup_key
+        from orchestrator.qwen_adapter import setup_key
         cfg = {"model": "qwen3.7-plus", "program": ""}
         self.assertEqual(setup_key(cfg), setup_key(dict(cfg)))
         self.assertNotEqual(setup_key(cfg), setup_key({**cfg, "model": "other"}))
@@ -275,13 +275,13 @@ class QwenSetupKeyTests(unittest.TestCase):
 
 class EnsureCloudModelTests(unittest.TestCase):
     def test_non_cloud_root_noop(self):
-        from api_models import ensure_cloud_model
+        from contract.api_models import ensure_cloud_model
         with tempfile.TemporaryDirectory() as td:
             root = Path(td) / "p"; root.mkdir()
             self.assertIsNone(ensure_cloud_model(root, {"base_url": "u", "model": "m", "cloud_provider": "wan"}))
 
     def test_deleted_cloud_model_raises(self):
-        from api_models import ensure_cloud_model, identity
+        from contract.api_models import ensure_cloud_model, identity
         with tempfile.TemporaryDirectory() as td:
             proj = Path(td); (proj / "cloud_video" / "s1").mkdir(parents=True)
             root = proj / "cloud_video" / "s1"
@@ -299,26 +299,26 @@ class CloudRemovedTests(unittest.TestCase):
         return proj
 
     def test_deleted_model_true(self):
-        from api_models import cloud_removed, identity
+        from contract.api_models import cloud_removed, identity
         with tempfile.TemporaryDirectory() as td:
             key = identity("https://x.com", "m1", "wan")
             proj = self.make(td, [key])
             self.assertTrue(cloud_removed(proj, {"base_url": "https://x.com", "model": "m1", "cloud_provider": "wan"}))
 
     def test_not_deleted_false(self):
-        from api_models import cloud_removed
+        from contract.api_models import cloud_removed
         with tempfile.TemporaryDirectory() as td:
             proj = self.make(td, [])
             self.assertFalse(cloud_removed(proj, {"base_url": "https://x.com", "model": "m1", "cloud_provider": "wan"}))
 
     def test_non_dict_config_false(self):
-        from api_models import cloud_removed
+        from contract.api_models import cloud_removed
         with tempfile.TemporaryDirectory() as td:
             proj = self.make(td, [])
             self.assertFalse(cloud_removed(proj, None))
 
     def test_corrupt_prefs_false(self):
-        from api_models import cloud_removed
+        from contract.api_models import cloud_removed
         from pathlib import Path
         with tempfile.TemporaryDirectory() as td:
             proj = Path(td) / "p"; proj.mkdir()
@@ -328,13 +328,13 @@ class CloudRemovedTests(unittest.TestCase):
 
 class IdentityTests(unittest.TestCase):
     def test_identity_distinguishes_provider(self):
-        from api_models import identity
+        from contract.api_models import identity
         a = identity("https://x.com", "m1", "wan")
         b = identity("https://x.com", "m1", "volcengine")
         self.assertNotEqual(a, b)
 
     def test_identity_normalizes_trailing_slash(self):
-        from api_models import identity
+        from contract.api_models import identity
         self.assertEqual(identity("https://x.com/", "m1"), identity("https://x.com", "m1"))
 
 

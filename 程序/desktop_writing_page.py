@@ -8,12 +8,11 @@
 import pet_state
 from dataclasses import dataclass
 from typing import Callable
-import time
 import app_logging
 import tkinter as tk
 from tkinter import ttk
 from ui_tokens import COLORS, FONTS, SPACING
-from ui_widgets import EllipsisLabel, SecondaryButton, TextArea, ask_string
+from ui_widgets import SecondaryButton, TextArea, ask_string
 
 PAGE = pet_state.PAGE_OF
 

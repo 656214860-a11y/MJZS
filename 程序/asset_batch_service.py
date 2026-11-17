@@ -1,6 +1,5 @@
 """Asset-batch domain operations shared by local and Skill-backed production."""
 import re
-import threading
 import uuid
 from pathlib import Path
 

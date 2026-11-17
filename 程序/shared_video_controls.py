@@ -12,9 +12,7 @@ def build(desktop,parent,is_cloud):
     if not is_cloud:
         SecondaryButton(row,text='启动 H3 / ComfyUI',
                         command=lambda:desktop.safe(lambda:open_path(desktop.app/'h3_launcher.pyw'))).pack(side='left')
-        import tkinter as tk
-        import project_settings
-        from local_video import LocalStudio,model_name
+        from local_video import LocalStudio
         if isinstance(desktop.studio,LocalStudio):
             desktop.pet.auto_variable('auto_video_var')
     return row

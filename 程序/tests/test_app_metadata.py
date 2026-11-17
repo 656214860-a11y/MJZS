@@ -5,7 +5,7 @@ from pathlib import Path
 import unittest
 from unittest import mock
 
-import app_metadata
+from contract import app_metadata
 import app_shortcut
 import asset_thumbs
 import cloud_assets
@@ -14,7 +14,7 @@ import pet_settings_ui
 import pet_ui
 import qwen_setup
 import seedream_api
-import tts_api
+from domain import tts_api
 import white_model_service
 
 

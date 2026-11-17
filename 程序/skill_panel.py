@@ -1,50 +1,6 @@
 from skill_panel_workflow import PanelWorkflowMixin
 from skill_panel_import import PanelImportMixin
-from skill_panel_support import (
-    FLOW_STAGE,
-    EXTERNAL_PACKAGE_API_HINT,
-    SKILL_FLOW_ORDER,
-    MANUAL_NAME,
-    skill_order,
-    markdown_document,
-    note_text,
-    external_package_api_hint,
-    flow_skill_choices,
-    flow_skill_display,
-    chinese_skill_display,
-    skill_checkbox_label,
-    registered_skill_checkbox_label,
-    flow_skill_match,
-    flow_skill_paths,
-    flow_skill_value,
-    set_flow_skills,
-    manual_path,
-    manual_entry,
-    stage_for,
-    stage_label,
-    panel_title,
-    stage_of_page,
-    desktop_project,
-    pet_of,
-    status_of,
-    run_report,
-    waiting_reason,
-    pool_records,
-    stage_capabilities,
-    model_fits_stage,
-    model_choices,
-    grouped_model_choices,
-    sync_models,
-    build_orchestrator,
-    program_of,
-    stage_context,
-    panel_window_size,
-    WrappingActionRow,
-    FormScrollMixin,
-    refresh_all,
-    register_live,
-    unregister_live,
-)
+from skill_panel_support import FLOW_STAGE, EXTERNAL_PACKAGE_API_HINT, markdown_document, note_text, external_package_api_hint, flow_skill_choices, chinese_skill_display, skill_checkbox_label, registered_skill_checkbox_label, flow_skill_paths, flow_skill_value, set_flow_skills, manual_entry, stage_for, stage_label, panel_title, stage_of_page, desktop_project, status_of, run_report, waiting_reason, pool_records, model_choices, grouped_model_choices, sync_models, build_orchestrator, program_of, stage_context, panel_window_size, FormScrollMixin, refresh_all, register_live, unregister_live
 # -*- coding: utf-8 -*-
 """统一阶段配置面板（R2862）：SKILL 勾选 ＋ 技能说明 ＋ 制作锁弹窗预选。
 
@@ -55,10 +11,9 @@ from skill_panel_support import (
 SKILL 不绑定模型：面板只管把选择记下来、把选中的跑起来，不替模型说话。
 """
 from pathlib import Path
-import re
 
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import ttk
 from production_lock_fields import CompactLabel, FlowFields, label_pixel_width
 
 import model_pool
@@ -66,21 +21,14 @@ import model_router
 import skill_note_render
 import orchestrator.skill_notes as skill_notes
 from tk_timers import repeat
-import orchestrator.skill_budget as skill_budget
 import orchestrator.skill_orchestrator as skill_orchestrator
 import skill_registry
 import stage_config
 import stage_models
-import ui_plugin_registry
-from contract.pet_bus import STAGE_NAMES, read_json, stage_label as _bus_stage_label
+from contract.pet_bus import read_json
 from storage_maintenance import recycle_paths
-from ui_tokens import (COLORS, FONTS, SPACING, NOTE_HEIGHT_COMPACT,
-                       NOTE_HEIGHT_REGULAR, NOTE_LIST_MAX_WIDTH, NOTE_LIST_MIN_WIDTH,
-                       NOTE_PADDING_X, NOTE_PADDING_Y, STAGE_PANEL_LAYOUT,
-                       DIALOG_MIN_HEIGHT, DIALOG_MIN_WIDTH)
-from ui_widgets import (SelectBox, BaseDialog, DescriptionBlock, HintLabel, PrimaryButton, ProgressLabel,
-                        TextArea,
-                        SecondaryButton, Tooltip, ask_confirmation, notify, _display_width)
+from ui_tokens import COLORS, SPACING, NOTE_LIST_MAX_WIDTH, NOTE_LIST_MIN_WIDTH, STAGE_PANEL_LAYOUT
+from ui_widgets import SelectBox, BaseDialog, DescriptionBlock, HintLabel, PrimaryButton, ProgressLabel, SecondaryButton, Tooltip, ask_confirmation, notify, _display_width
 from ui_tokens import CHAR_WIDTH
 
 TITLE = '阶段配置'

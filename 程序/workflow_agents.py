@@ -2,8 +2,7 @@
 from pathlib import Path
 from weakref import WeakSet
 from agent.core import read, save
-from workflow_settings import (load, ENGINES, FLOWS, FLOW_SKILLS, SKILL_PRESETS, preset_skill, preset_label,
-                                settings_path, set_skills, skills_of, agent_label)
+from workflow_settings import load, ENGINES, FLOW_SKILLS, SKILL_PRESETS, preset_skill, preset_label, settings_path, set_skills, agent_label
 from ui_tokens import SPACING
 
 

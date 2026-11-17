@@ -12,7 +12,7 @@ import unittest
 from pathlib import Path
 from tkinter import ttk
 
-from app_metadata import APP_NAME
+from contract.app_metadata import APP_NAME
 from desktop_project_pages import ProjectPagesMixin
 
 

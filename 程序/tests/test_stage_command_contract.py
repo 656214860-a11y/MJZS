@@ -6,7 +6,7 @@ from pathlib import Path
 
 import desktop
 import stage_config
-import stage_handler_registry
+from orchestrator import stage_handler_registry
 import workflow_settings
 
 

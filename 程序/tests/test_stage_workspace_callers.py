@@ -5,7 +5,7 @@ import copy
 import unittest
 from pathlib import Path
 from unittest.mock import Mock
-from service_contract import SystemError, success
+from contract.service_contract import SystemError, success
 
 
 class StageWorkspaceCallerTests(unittest.TestCase):

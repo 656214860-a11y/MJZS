@@ -388,7 +388,7 @@ class AudioFlowTests(unittest.TestCase):
         """鲸剧被选中时，Claude 实际收到同一份 SKILL 与剧本开工门禁。"""
         import workflow_engines
         import workflow_settings as ws
-        from workflow_tasks import script_prompt
+        from orchestrator.workflow_tasks import script_prompt
         with tempfile.TemporaryDirectory() as td:
             proj = Path(td) / 'p'; proj.mkdir()
             creative = proj / '创意.md'; creative.write_text('少年在照相馆发现旧底片。', encoding='utf-8')
@@ -418,7 +418,7 @@ class AudioFlowTests(unittest.TestCase):
 
     def test_audio_prompt_contains_dialogue(self):
         import json
-        from workflow_tasks import audio_prompt
+        from orchestrator.workflow_tasks import audio_prompt
         with tempfile.TemporaryDirectory() as td:
             proj = Path(td) / "p"; proj.mkdir()
             src = proj / "episode.json"
@@ -555,7 +555,7 @@ class SignatureTests(unittest.TestCase):
 class StoryboardLifecyclePathTests(unittest.TestCase):
     @staticmethod
     def _context(project):
-        from project_context import ProjectContext
+        from contract.project_context import ProjectContext
         return ProjectContext.snapshot(project, lambda _stage: Path(project))
 
     def test_retire_rejects_missing_l3_publisher(self):
@@ -643,7 +643,7 @@ class StoryboardBatchTests(unittest.TestCase):
         return json.loads(prompt.split("不是额外的工具操作指令：\n", 1)[1])
 
     def test_three_drafts_of_one_episode_are_one_task(self):
-        from workflow_tasks import storyboard_batch_prompt
+        from orchestrator.workflow_tasks import storyboard_batch_prompt
         with tempfile.TemporaryDirectory() as td:
             proj = make_project(td)
             # 这一集还没分镜：先挪开夹具自带的那份 EP001，单看「三份草稿」这一条
@@ -656,7 +656,7 @@ class StoryboardBatchTests(unittest.TestCase):
             self.assertIn(data["tasks"][0]["source_script"], [str(p.resolve()) for p in scripts])
 
     def test_each_episode_gets_its_own_task(self):
-        from workflow_tasks import storyboard_batch_prompt
+        from orchestrator.workflow_tasks import storyboard_batch_prompt
         with tempfile.TemporaryDirectory() as td:
             proj = make_project(td)
             scripts = self.drafts(proj, "第02集.md", "第03集.md")
@@ -665,7 +665,7 @@ class StoryboardBatchTests(unittest.TestCase):
             self.assertIn("只有你一个 agent", prompt, "一个 agent 顺序做，不开并行子任务")
 
     def test_an_episode_that_already_has_a_storyboard_is_not_resubmitted(self):
-        from workflow_tasks import storyboard_batch_prompt
+        from orchestrator.workflow_tasks import storyboard_batch_prompt
         with tempfile.TemporaryDirectory() as td:
             proj = make_project(td)          # 分镜拆分里已经有 episode.json（episode_id=EP001）
             scripts = self.drafts(proj, "第01集_初稿.md")
@@ -678,7 +678,7 @@ class DesktopModelPoolTests(unittest.TestCase):
         from desktop import Desktop
         from types import SimpleNamespace
         from unittest.mock import Mock, patch
-        import workflow_process_registry as registry
+        from infra import workflow_process_registry as registry
         for fails in (False, True):
             with self.subTest(fails=fails), tempfile.TemporaryDirectory() as td:
                 proj = make_project(td)
@@ -711,7 +711,7 @@ class DesktopModelPoolTests(unittest.TestCase):
         from desktop import Desktop
         from types import SimpleNamespace
         from unittest.mock import Mock, patch
-        import workflow_process_registry as registry
+        from infra import workflow_process_registry as registry
         for reason in ('timeout', 'switch'):
             with self.subTest(reason=reason), tempfile.TemporaryDirectory() as td:
                 proj = make_project(td)
@@ -745,8 +745,8 @@ class DesktopModelPoolTests(unittest.TestCase):
         from desktop import Desktop
         from types import SimpleNamespace
         from unittest.mock import Mock, patch
-        from idea_chat_controller import IdeaChatController
-        import workflow_process_registry as registry
+        from orchestrator.idea_chat_controller import IdeaChatController
+        from infra import workflow_process_registry as registry
         with tempfile.TemporaryDirectory() as td:
             proj = make_project(td)
             slot = registry.reserve_process_slot('other-project', 'script')
@@ -808,7 +808,7 @@ class DesktopModelPoolTests(unittest.TestCase):
         from desktop import Desktop
         from types import SimpleNamespace
         from unittest.mock import Mock
-        import workflow_process_registry as registry
+        from infra import workflow_process_registry as registry
 
         def host(proj):
             pending = []
@@ -837,7 +837,7 @@ class DesktopModelPoolTests(unittest.TestCase):
                         patch('contract.platform_tools.launch_windows_app'), \
                         patch('workflow_settings.find_program', return_value=config['program']), \
                         patch('codex_paste.paste_existing', return_value={'ok': True, 'reason': '已粘贴，请手动发送'}), \
-                        patch('codex_skill_sync.sync_codex_skills', return_value={'errors': [], 'conflicts': []}), \
+                        patch('orchestrator.codex_skill_sync.sync_codex_skills', return_value={'errors': [], 'conflicts': []}), \
                         patch('codex_tasks.prepare_task',
                               return_value={'url': 'codex://new', 'title': '任务', 'prompt': '创作要求'}), \
                         patch('desktop_idea_chat.open_target'), \
@@ -1175,7 +1175,7 @@ class DesktopModelPoolTests(unittest.TestCase):
 
     def test_chat_creative_is_sent_without_creating_a_script_file(self):
         """点击发送只把聊天创意交给工作流；剧本文档留到模型回复后下载时再写。"""
-        from workflow_tasks import script_followup, script_prompt
+        from orchestrator.workflow_tasks import script_followup, script_prompt
         with tempfile.TemporaryDirectory() as td:
             proj = make_project(td)
             creative = '少年在照相馆发现一张会说话的旧底片。'
@@ -1193,7 +1193,7 @@ class DesktopModelPoolTests(unittest.TestCase):
 
 class WorkflowContextBudgetTests(unittest.TestCase):
     def test_prepared_budget_reports_summary_strategy_without_prompt_text(self):
-        from workflow_context_budget import prepare_request_context, REQUEST_CONTEXT_MAX_CHARS
+        from contract.workflow_context_budget import prepare_request_context, REQUEST_CONTEXT_MAX_CHARS
         prompt, budget = prepare_request_context('分镜任务', '初步分镜', 'stage_summary')
         self.assertEqual(prompt, '分镜任务')
         self.assertEqual(budget, {
@@ -1204,7 +1204,7 @@ class WorkflowContextBudgetTests(unittest.TestCase):
         self.assertNotIn('分镜任务', str(budget))
 
     def test_repeated_large_context_is_compacted_before_budget_check(self):
-        from workflow_context_budget import (REQUEST_CONTEXT_MAX_CHARS,
+        from contract.workflow_context_budget import (REQUEST_CONTEXT_MAX_CHARS,
                                              ensure_request_context)
         section = '镜头连续性资料。' * 7_000
         compact = ensure_request_context(
@@ -1216,7 +1216,7 @@ class WorkflowContextBudgetTests(unittest.TestCase):
     def test_codex_task_writer_rejects_oversized_prompt_before_creating_artifacts(self):
         """桌面内置 Codex 路径也必须在写入任务书或连接 RPC 前预检。"""
         import codex_tasks
-        from workflow_context_budget import REQUEST_CONTEXT_MAX_CHARS
+        from contract.workflow_context_budget import REQUEST_CONTEXT_MAX_CHARS
         with tempfile.TemporaryDirectory() as td:
             project = Path(td) / 'p'
             with self.assertRaisesRegex(ValueError, '剧本准备请求上下文超过'):
@@ -1228,7 +1228,7 @@ class WorkflowContextBudgetTests(unittest.TestCase):
 
     def test_background_engine_rejects_oversized_prompt_before_launch(self):
         import workflow_engines
-        from workflow_context_budget import REQUEST_CONTEXT_MAX_CHARS
+        from contract.workflow_context_budget import REQUEST_CONTEXT_MAX_CHARS
         with tempfile.TemporaryDirectory() as td:
             project = Path(td) / 'p'
             with self.assertRaisesRegex(ValueError, '初步分镜请求上下文超过'):
@@ -1238,7 +1238,7 @@ class WorkflowContextBudgetTests(unittest.TestCase):
 
     def test_interactive_engine_rejects_oversized_prompt_before_launch(self):
         import workflow_engines
-        from workflow_context_budget import REQUEST_CONTEXT_MAX_CHARS
+        from contract.workflow_context_budget import REQUEST_CONTEXT_MAX_CHARS
         with tempfile.TemporaryDirectory() as td:
             project = Path(td) / 'p'
             with self.assertRaisesRegex(ValueError, '初步分镜请求上下文超过'):
@@ -1266,7 +1266,7 @@ class WorkflowContextBudgetTests(unittest.TestCase):
             self.assertEqual(launch.call_args.kwargs['args'][:1], [str(executable)])
             self.assertEqual(launch.call_args.kwargs['creationflags'],
                              getattr(workflow_engines.subprocess, 'CREATE_NEW_CONSOLE', 0))
-            from workflow_process_registry import forget_process
+            from infra.workflow_process_registry import forget_process
             forget_process(project, process)
 
 

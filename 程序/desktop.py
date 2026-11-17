@@ -1,6 +1,5 @@
 """Shared, lazy project workspace. Standard-library-only desktop UI."""
 import app_logging
-import orchestrator.page_navigation_controller as page_nav
 from desktop_idea_menus import IdeaMenusMixin
 from desktop_asset_pages import AssetPagesMixin, AssetPageServices
 from desktop_script_pages import ScriptPagesMixin, ScriptPageServices
@@ -9,52 +8,38 @@ from desktop_project_pages import ProjectPagesMixin, ProjectPageServices
 from desktop_storyboard_page import StoryboardPageMixin, StoryboardPageServices
 from desktop_writing_page import WritingPageMixin, WritingPageServices, TALK_MIN_LINES, TALK_MAX_LINES
 from desktop_files_panel import ProjectFilesPanel
-from desktop_page_support import ASSET_FIRST_ROWS, ASSET_ROWS_PER_FRAME, ASSET_ROW_LABEL, STAGE_ACTION_WIDTH, _prefs, THUMB_SIZE, ASSET_ROW_HEIGHT
-from desktop_idea_chat import IdeaChatMixin, IDEA_FIELDS, BUBBLE_FLOOR, BUBBLE_LINE, BUBBLE_MAX_RATIO, script_raw_saved_notice, model_error_display
+from desktop_page_support import ASSET_FIRST_ROWS, STAGE_ACTION_WIDTH, _prefs, THUMB_SIZE, ASSET_ROW_HEIGHT
+from desktop_idea_chat import IdeaChatMixin, IDEA_FIELDS, BUBBLE_FLOOR, BUBBLE_LINE, BUBBLE_MAX_RATIO, script_raw_saved_notice
 import desktop_shared_send
 from orchestrator.desktop_auto_state import AutoStateHolderMixin, create_auto_state
-from desktop_auto_flows import AutoFlowsMixin, UNATTENDED_NEXT, UNATTENDED_BACKOFF_FLOOR, ASSET_RETRY_LIMIT
-import os, shutil, queue, threading, subprocess, sys, time, uuid, hashlib, re, json, logging
-from datetime import date
+from desktop_auto_flows import AutoFlowsMixin, UNATTENDED_BACKOFF_FLOOR, ASSET_RETRY_LIMIT
+import shutil, queue, threading, time, hashlib, json, logging
 from pathlib import Path
-from file_cache import remove_temporary_file
-from contract.storyboard_paths import media_root
 import tkinter as tk
 from tkinter import ttk, messagebox
-from agent.core import read,save,save_text,save_bytes
-import project_settings
-from projects import Projects, needs_cleanup_after_open_error, is_missing_storyboard_open_error
-from responsive_ui import FlowBar,ScrollForm,growable_extra,configure_check_column,refresh_check_heading,CheckboxColumn,fit_columns_by_content,auto_columns,bind_row_toggle,fit_row_height,row_height_for,bind_show_all
-from engine import approved_versions, review_label, adoption_summary
-from local_video import open_studio,skip_summary
-from app import App
+from agent.core import read
+from projects import Projects, is_missing_storyboard_open_error
+from responsive_ui import FlowBar, ScrollForm, bind_show_all
+from local_video import open_studio
 from integrations import comfy_executable
 from ui_theme import apply as apply_theme, install_window_placement
-from project_naming import dated_path
-import asset_thumbs
 import asset_resume
-import contract.frame_checks as frame_checks
 import pet_ui
 import ui.ui_usage_indicator as ui_usage_indicator
-import contract.project_stages as project_stages
 import tkinter as tk
-import ui_plugin_registry
-import orchestrator.stage_handler_registry as stage_handler_registry
-from contract.platform_tools import find_editor_shortcut, launch_windows_app, open_directory, open_path, open_target, tcp_listener
+from contract.platform_tools import find_editor_shortcut, open_directory, open_path
 from orchestrator.desktop_startup_service import DesktopStartupController
 from desktop_account_page import AccountPageMixin
 from desktop_login_gate import LoginGateMixin
 from desktop_page_nav import PageNavMixin
 from desktop_lifecycle import LifecycleMixin
-from orchestrator.desktop_automation_service import BackgroundTaskLifecycle, DesktopAutomationScheduler, BackgroundTaskQueue, PersistentBackgroundTaskQueue, inspect_project_storage, RetryRegistry
+from orchestrator.desktop_automation_service import BackgroundTaskLifecycle, DesktopAutomationScheduler, PersistentBackgroundTaskQueue, inspect_project_storage, RetryRegistry
 from orchestrator.idea_chat_controller import IdeaChatController, speaker_name
-from ui_tokens import BUTTON_GAP, BUTTON_WIDTH_DIALOG, CHAR_WIDTH, WRAPLENGTH, COLORS, FONTS, SPACING, DESKTOP_LAYOUT, SCRIPT_ACTION_WIDTH, SCRIPT_ACTION_PADDING, SCRIPT_FILE_FONT, ICON_FOLDER, ICON_DELETE
+from ui_tokens import BUTTON_GAP, BUTTON_WIDTH_DIALOG, WRAPLENGTH, COLORS, FONTS, SPACING, DESKTOP_LAYOUT
 from ui_dialogs import FileDialog
 from ui_motion import Spinner
 from ui_shortcuts import ShortcutRegistry
-import ui.ui_stage_popups as ui_stage_popups# noqa: F401  导入即向 stage_exec 登记阶段弹窗呈现器
-from ui_widgets import (BaseDialog, BusyState, ContextMenu, Card, DataTable, NotificationDispatcher,
-                        PrimaryButton, SecondaryButton, TextArea, HintLabel, Tooltip, ask_confirmation, ask_string, setup_styles)
+from ui_widgets import BaseDialog, BusyState, ContextMenu, NotificationDispatcher, PrimaryButton, SecondaryButton, TextArea, Tooltip, ask_confirmation, ask_string, setup_styles
 from ui.ui_status_bus import StatusBus  # R2989 P1：统一状态栏消息总线
 from ui.ui_status_bar import StatusBar
 from ui_icons import IconLoader
@@ -104,13 +89,11 @@ def confirm_project_removal_from_last_script(parent, files):
 import contract.pet_bus as pet_bus
 # 页面序号一律由阶段表推出来（PAGES 与 pet_bus.STAGES 一一对应），
 # 再加一个阶段时只改 pet_bus.STAGES／STAGE_NAMES。
-import pet_state
 
 
 # 第 44 期：版本号只写这一份——系统标题栏与左上角那一行（齿轮就挨着它）都用它。
 from contract.app_metadata import APP_NAME, VERSION
-from desktop_page_registry import (CACHED_PAGES, PAGE, PAGE_ACCOUNT, PAGE_NAV_ICONS,
-                                   PAGE_SITES, PAGES, nav_label, page_title)
+from desktop_page_registry import PAGE, PAGE_NAV_ICONS, PAGES, nav_label, page_title
 
 # 「页面第一次画完」按页指标名：用 PAGE 稳定键区分 14 页，不用会变的中文标题。
 
@@ -140,15 +123,14 @@ def _page_services(given):
 
 
 
-from desktop_tk_gc import (protect_readonly_combobox, protect_tk_gc, drain_tk_gc, _pin_tk_app,
-                        _PENDING_TK_GC, _KEEP_APPS)
+from desktop_tk_gc import protect_readonly_combobox, protect_tk_gc, drain_tk_gc, _PENDING_TK_GC
 from desktop_automation_tick import AutomationTickMixin
 from desktop_layout import LayoutMixin
 from desktop_pet_bridge import PetBridgeMixin, PET_STAGE_POLL, UNATTENDED_SWITCH
 from desktop_async_tasks import AsyncTasksMixin
 from desktop_tray import TrayMixin
 # R3056 收尾：桥接与左区段方法拆入 StatusBridgeMixin；status_kind/STATUS_* 一并迁出，别名保留给既有导入。
-from desktop_status_bridge import STATUS_ERROR_MARKERS, STATUS_RUNNING_MARKERS, StatusBridgeMixin, status_kind  # noqa: F401
+from desktop_status_bridge import StatusBridgeMixin, status_kind  # noqa: F401
 
 class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMixin, LoginGateMixin, IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin, ProjectPagesMixin, StoryboardPageMixin, WritingPageMixin, IdeaChatMixin, AutoFlowsMixin, AutomationTickMixin, LayoutMixin, PetBridgeMixin, AsyncTasksMixin, TrayMixin):
     def __init__(self,win,root=ROOT,*,require_login=False,**page_services):

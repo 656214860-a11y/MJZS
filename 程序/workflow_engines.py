@@ -2,7 +2,6 @@
 import functools
 import json
 import subprocess
-import threading
 import time
 import uuid
 from pathlib import Path

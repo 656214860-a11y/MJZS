@@ -26,7 +26,7 @@ os.chdir(HERE)
 import contract.asset_contract as ac
 import asset_detail
 import asset_plan
-import confirm_gates
+from domain import confirm_gates
 from stage_execution_service import apply_asset_plan_gate_choice as apply_gate_choice
 from test_asset_thumbs import png
 from widget_test_support import widget_list, widget_texts

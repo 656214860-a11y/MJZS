@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from keyframe_page_controller import KeyframePageController
+from orchestrator.keyframe_page_controller import KeyframePageController
 
 
 class KeyframePageControllerTests(unittest.TestCase):

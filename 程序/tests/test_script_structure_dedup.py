@@ -13,7 +13,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import contract.script_contract as contract
-from stage_path_service import write_dir
+from contract.stage_path_service import write_dir
 
 
 def _natural_script(root, name='自然剧本_测试_20260101.md',

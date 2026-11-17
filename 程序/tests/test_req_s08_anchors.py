@@ -31,14 +31,14 @@ import keyframe_evidence as evidence
 import local_video
 import pet_bus
 import skill_registry
-import skill_templates
+from orchestrator import skill_templates
 import stage_completion_service
 import stage_config
 import stage_parallel
-import stage_path_service
+from contract import stage_path_service
 from agent.core import read, save
 from keyframe_import import fingerprint, register
-from production_model_contract import (
+from contract.production_model_contract import (
     LOCAL_KEYFRAME_MODEL, SEEDREAM_KEYFRAME_MODEL,
 )
 from stage_execution_service import (
@@ -126,7 +126,7 @@ class KeyframeRequirementAnchorTests(unittest.TestCase):
                 with patch.object(stage_parallel, '_adopted',
                                   return_value=[(source, [shot])]), \
                         patch.object(stage_parallel, 'has_run', return_value=True), \
-                        patch('storyboard_paths.media_root', return_value=root):
+                        patch('contract.storyboard_paths.media_root', return_value=root):
                     return stage_parallel.frames_ready(root)
 
             # 16:9 的图对不上 9:16 的项目画幅锁 → 门禁不通过，并说明是画幅问题。
@@ -508,7 +508,7 @@ class KeyframeRequirementAnchorTests(unittest.TestCase):
             with patch.object(stage_parallel, '_adopted',
                               return_value=[(source, [blank])]), \
                     patch.object(stage_parallel, 'has_run', return_value=False), \
-                    patch('storyboard_paths.media_root', return_value=root):
+                    patch('contract.storyboard_paths.media_root', return_value=root):
                 result = stage_parallel.frames_ready(root)
                 self.assertTrue(result['ok'])
                 self.assertFalse(result['started'])
@@ -522,7 +522,7 @@ class KeyframeRequirementAnchorTests(unittest.TestCase):
                 with patch.object(stage_parallel, '_adopted',
                                   return_value=[(source, [shot])]), \
                         patch.object(stage_parallel, 'has_run', return_value=started), \
-                        patch('storyboard_paths.media_root', return_value=root):
+                        patch('contract.storyboard_paths.media_root', return_value=root):
                     return (stage_parallel.frames_ready(root),
                             stage_completion_service.completion_evidence(root, 'keyframe')[0])
 
@@ -544,7 +544,7 @@ class KeyframeRequirementAnchorTests(unittest.TestCase):
             shot = {'id': 'SH001'}
             with patch.object(stage_parallel, '_adopted', return_value=[(source, [shot])]), \
                     patch.object(stage_parallel, 'has_run', return_value=True), \
-                    patch('storyboard_paths.media_root', return_value=root):
+                    patch('contract.storyboard_paths.media_root', return_value=root):
                 result = stage_parallel.evaluate(root, 'previs')
                 self.assertEqual(result['id'], 'SG-04')
                 self.assertFalse(result['ok'])

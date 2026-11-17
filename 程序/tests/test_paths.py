@@ -3,7 +3,7 @@
 import unittest
 from pathlib import Path
 
-from storyboard_paths import is_cloud_workspace, project_root
+from contract.storyboard_paths import is_cloud_workspace, project_root
 
 
 class CloudWorkspacePathTests(unittest.TestCase):

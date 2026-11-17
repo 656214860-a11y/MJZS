@@ -11,11 +11,11 @@ import stage_completion_service
 import stage_flow
 import stage_layout
 import stage_parallel
-import stage_path_service
-import video_lifecycle_service
+from contract import stage_path_service
+from domain import video_lifecycle_service
 import video_source_evidence
 import video_task_state
-from service_contract import UserError
+from contract.service_contract import UserError
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILL_DIR = ROOT / 'skills' / '10视频生成SKILL'

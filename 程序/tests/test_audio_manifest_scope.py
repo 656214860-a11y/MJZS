@@ -4,12 +4,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import audio_import_service
+from domain import audio_import_service
 import stage_execution_service
-import stage_path_service
-import subtitle_export_service
-import subtitle_timing
-from project_stages import audio
+from contract import stage_path_service
+from domain import subtitle_export_service
+from domain import subtitle_timing
+from contract.project_stages import audio
 
 EPISODE = {'shots': [{'id': 'SH001', 'title': '初见', 'duration': 4, 'dialogue': [
     {'speaker': 'A', 'text': '你好{x}', 'start': 0, 'end': 2.5},

@@ -543,7 +543,7 @@ class UiEdgePagesTests(UiEdgeCase):
             self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             proj = make_adopted_project(td)
-            from project_stages import writing
+            from contract.project_stages import writing
             writing = writing(proj)
             writing.mkdir(exist_ok=True)
             creative = writing / "测试Provider" / "测试模型" / "创意_20260926"
@@ -679,7 +679,7 @@ class UiEdgePagesTests(UiEdgeCase):
             self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
         import desktop as desktop_module
-        import frame_checks as checks_module
+        from contract import frame_checks as checks_module
         original = desktop_module.Desktop.choose_project
         desktop_module.Desktop.choose_project = lambda self: None
         self.addCleanup(setattr, desktop_module.Desktop, "choose_project", original)
@@ -996,7 +996,7 @@ class UiEdgePagesTests(UiEdgeCase):
 class StartupFirstPaintTests(unittest.TestCase):
     """启动控制器必须让 Tk 先完成首窗绘制。"""
     def test_project_choice_is_deferred_to_idle_after_startup_delay(self):
-        from desktop_startup_service import DesktopStartupController
+        from orchestrator.desktop_startup_service import DesktopStartupController
 
         class Window:
             def __init__(self):
@@ -1033,7 +1033,7 @@ class StartupFirstPaintTests(unittest.TestCase):
         self.assertEqual(chosen,[True])
 
     def test_stopping_window_skips_idle_project_choice(self):
-        from desktop_startup_service import DesktopStartupController
+        from orchestrator.desktop_startup_service import DesktopStartupController
 
         class Window:
             def after(self, delay, callback):

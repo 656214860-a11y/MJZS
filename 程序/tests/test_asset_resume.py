@@ -8,7 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import asset_resume
-from service_contract import SystemError
+from contract.service_contract import SystemError
 
 
 def note(*args, **kwargs):
