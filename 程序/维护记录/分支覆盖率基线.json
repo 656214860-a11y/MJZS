@@ -84,8 +84,8 @@
   "tests.test_context"
  ],
  "tests_ok": true,
- "points_total": 2331,
- "points_covered": 1222,
+ "points_total": 2340,
+ "points_covered": 1226,
  "modules": [
   {
    "module": "aigc_lint.py",
@@ -251,9 +251,9 @@
   },
   {
    "module": "platform_tools.py",
-   "points": 109,
-   "covered": 41,
-   "percent": 37.6
+   "points": 118,
+   "covered": 45,
+   "percent": 38.1
   },
   {
    "module": "model_pool.py",
@@ -592,5 +592,31 @@
    "percent": 100.0
   }
  ],
- "modules_total": 84
+ "modules_total": 84,
+ "module_measurements": {
+  "note": "合成定向快照：顶层 targets/tests_ok 保留原既有测量来源，仅 platform_tools.py 采用下列本轮全通过的定向报告；其余模块行未改，不表示本轮完整原 targets 或全量套件复测全绿。总计按现有模块行重新求和。",
+  "platform_tools.py": {
+   "tool": "scripts/branch_coverage_report.py",
+   "targets": [
+    "tests.test_http_client",
+    "tests.test_platform_tools",
+    "tests.test_cli_streaming",
+    "tests.test_open_https_redirect",
+    "tests.architecture.test_platform_opening"
+   ],
+   "targets_source": "tests.test_http_client、tests.test_platform_tools、tests.test_cli_streaming 从本文件原 targets 读取；追加父批准的既有 tests.test_open_https_redirect、tests.architecture.test_platform_opening 平台消费者测试定位。",
+   "tests_ok": true,
+   "report": "Git common-dir/requests-migration-evidence/R3227-platform-platform-with-cli.json",
+   "log": "Git common-dir/requests-migration-evidence/R3227-platform-platform-with-cli.log",
+   "command": "Git common-dir/requests-migration-evidence/R3227-platform-platform-with-cli-command.json",
+   "source_head": "72afa1e82db11cd542b2fc5925eb5a835ce939f6",
+   "original_targets_attempt": "完整原 targets 已直接从旧 JSON 读取启动；日志出现无关失败后按父指令停止，未产生 tests_ok=true 报告，不作为本次合入证据。日志：Git common-dir/requests-migration-evidence/R3227-platform-full.log。",
+   "measurement": {
+    "module": "platform_tools.py",
+    "points": 118,
+    "covered": 45,
+    "percent": 38.1
+   }
+  }
+ }
 }
