@@ -134,7 +134,7 @@ class WindowResizeCoalescingTests(unittest.TestCase):
                 d.canvas.cget('scrollregion'),
                 str(d.sidebar_canvas.cget('scrollregion')),
                 len(getattr(d, '_picker_items', ())),
-                int(d.title_row.cget('height')))
+                int(d.status_bar.winfo_height()))
 
     def test_continuous_drag_coalesces_until_quiet(self):
         """拖动期间完整重排 ≤2 次；松手静默后补做，最终布局与直接设同尺寸一致。"""

@@ -1,0 +1,15 @@
+{
+  "round": 3029,
+  "commit_base": "ed5ee1b9",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k usage_indicator mcp_settings writing_status ui_status ui_widgets",
+    "exit": 0,
+    "passed": 66,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T22:19:12"
+}

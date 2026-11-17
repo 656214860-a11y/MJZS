@@ -72,7 +72,7 @@ class AccountEntryTests(unittest.TestCase):
         d=self.desktop
         d.go_page(PAGE_ACCOUNT);self.pump()
         self.assertEqual(d.page_index,PAGE_ACCOUNT)
-        self.assertEqual(d.title.cget('text'),ACCOUNT_TITLE)
+        self.assertEqual(d.status_bar._segments['page'][1].full_text,ACCOUNT_TITLE)
         # R2933：导航纯图标轨，选中态走 RailIcon 样式（原 Nav.TButton 胶囊样式退役）。
         self.assertEqual(d.account_button.cget('style'),'Selected.RailIcon.TButton')
         self.assertTrue(all(b.cget('style')=='RailIcon.TButton' for b in d.nav))

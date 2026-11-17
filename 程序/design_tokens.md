@@ -31,7 +31,7 @@
 | `color.danger.subtle` | `#FEF2F2` | 错误提示底色 |
 | `color.success` | `#15803D` | 成功状态（由 #16A34A 加深一档，白字 5.0:1） |
 | `color.success.text` | `#15803D` | 成功文字 |
-| `color.success.subtle` | `#DCFCE7` | 成功提示底色 |
+| `color.success.subtle` | `#DCFCE7` | 成功提示底色（统一状态栏 success 级消息，R2984 起） |
 | `color.warning` | `#D97706` | 警告状态（只作状态与文字，不作按钮底色） |
 | `color.warning.text` | `#B45309` | 警告文字（白底 5.0:1） |
 | `color.secondary.bg` | `#DBEAFE` | 默认 TButton 族浅蓝底 |
