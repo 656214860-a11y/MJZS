@@ -168,7 +168,11 @@ def load(state, done):
             registry.scan(force=True)
             skills = list(registry.getAll())
             disabled = _disabled_skill_objects(registry)
-            report = workflow_settings.skill_health_report(registry, project=project)
+            program = skill_import_service.program_of_registry(registry)
+            modified = (skill_import_service.local_modifications(program)
+                        if program is not None else {})
+            report = workflow_settings.skill_health_report(
+                registry, project=project, local_modified=modified)
             health = {row.get('name'): row.get('status') for row in report.get('skills', [])}
             problems = len(report.get('problems', ())) + len(report.get('warnings', ()))
             result_q.put((skills, disabled, health, problems, ''))
@@ -254,7 +258,11 @@ def health_dialog(pet, state):
     import skill_panel
     registry = state['registry']
     try:
-        report = workflow_settings.skill_health_report(registry, project=state['project'])
+        program = skill_import_service.program_of_registry(registry)
+        modified = (skill_import_service.local_modifications(program)
+                    if program is not None else {})
+        report = workflow_settings.skill_health_report(
+            registry, project=state['project'], local_modified=modified)
     except Exception as exc:
         notify(getattr(pet, 'win', None), 'SKILL 体检失败：%s' % exc, title='SKILL 体检', modal=False)
         return None
@@ -461,10 +469,16 @@ class _ImportFlow:
             return None
 
     def install_plan(self, plan, lead):
-        if plan['problems']:
-            message = ('导入前发现以下问题：\n\n'
-                       + '\n'.join('· ' + p for p in plan['problems']) + '\n\n仍要导入吗？')
-            if not self.confirm(message):
+        alerts = skill_import_service.import_alerts([plan])
+        if plan['problems'] or alerts:
+            label = (str(plan['source'].parent) if plan['kind'] == 'package'
+                     else str(plan['source']))
+            parts = [skill_import_service.untrusted_source_notice(label, plans=[plan])]
+            if plan['problems']:
+                parts.append('导入前发现以下问题：\n\n'
+                             + '\n'.join('· ' + p for p in plan['problems']))
+            parts.append('仍要导入吗？')
+            if not self.confirm('\n\n'.join(parts)):
                 return None
         try:
             skill_import_service.perform_import(

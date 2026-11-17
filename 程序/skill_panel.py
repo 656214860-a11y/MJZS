@@ -829,8 +829,12 @@ def show_skill_health(panel):
     except Exception:
         locks = {}
     try:
+        import skill_import_service
+        program = skill_import_service.program_of_registry(panel.registry)
+        modified = (skill_import_service.local_modifications(program)
+                    if program is not None else {})
         report = workflow_settings.skill_health_report(panel.registry, stage=panel.stage,
-                                                      locks=locks)
+                                                      locks=locks, local_modified=modified)
     except Exception as exc:
         notify(panel.winfo_toplevel(), 'SKILL 体检失败：%s' % exc, title=TITLE,
                status=getattr(panel.desktop, 'status', None), modal=False)

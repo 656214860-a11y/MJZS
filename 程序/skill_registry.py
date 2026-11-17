@@ -29,6 +29,8 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 from contract.pet_bus import STAGES, STAGE_NAMES
+from skill_package_meta import (  # re-export：调用方经 skill_registry.<名>
+    IMPORTED_PACKAGE_FLAG, imported_package_meta, markdown_heading, markdown_summary)
 from skill_project_layer import (LAYER_LABELS, LAYER_ORDER, STAGE_DIRECTORY_IDS,
                                  ProjectLayerMixin, disabled_pairs, disabled_stamp,
                                  disabled_view_entries, project_skill_root,
@@ -37,7 +39,6 @@ from skill_project_layer import (LAYER_LABELS, LAYER_ORDER, STAGE_DIRECTORY_IDS,
 SKILL_SUFFIX = '.skill.md'
 PACKAGE_SKILL_FILENAME = 'SKILL.md'
 PACKAGE_README_FILENAMES = ('README_ZH.md', 'README.md', 'README.MD')
-IMPORTED_PACKAGE_FLAG = '_imported_package'
 CAPABILITIES = ('long-context', 'structured-output', 'creative-writing', 'reasoning', 'vision')
 FEEDBACK_KEYS = ('onProgress', 'onError', 'onComplete')
 REQUIRED = ('name', 'displayName', 'description', 'stage', 'capabilities', 'preferredModels',
@@ -109,55 +110,6 @@ def stage_id(value):
         if STAGE_NAMES.get(sid) == text:
             return sid
     return ''
-
-
-def markdown_heading(body):
-    """取 Markdown 首个一级标题，供无 frontmatter 的外部包显示。"""
-    match = re.search(r'^\s*#\s+(.+?)\s*$', str(body or ''), flags=re.MULTILINE)
-    return match.group(1).strip() if match else ''
-
-
-def markdown_summary(body):
-    """取 Markdown 的首句说明；外部资料没有简介时也能在面板里说明来源。"""
-    for line in str(body or '').splitlines():
-        text = line.strip()
-        if text and not text.startswith(('#', '---', '```', '-', '*')):
-            return text[:160]
-    return ''
-
-
-def imported_package_meta(source_meta, body, package, source):
-    """为阶段目录下的外部 SKILL 包建立一个受控总入口元数据。
-
-    外部 ``SKILL.md`` 多为 Codex/Claude 的轻量格式，不满足本程序的完整 frontmatter
-    契约；这里不信任其执行字段，仅复用可读名称/简介和正文，其余字段采用稳定默认值。
-    """
-    source_meta = source_meta or {}
-    title = (str(source_meta.get('displayName', '') or '').strip() or
-             markdown_heading(body) or package.name)
-    description = (str(source_meta.get('description', '') or '').strip() or
-                   markdown_summary(body) or
-                   '外部 SKILL 包总入口：%s' % title)
-    return {
-        'name': str(source_meta.get('name', '') or '').strip() or package.name,
-        'displayName': title,
-        'description': description,
-        'stage': stage_from_path(source),
-        'capabilities': ['creative-writing'],
-        'preferredModels': [],
-        'fallbackModels': [],
-        'tools': [],
-        'dependsOn': [],
-        'conflictsWith': [],
-        'parallelizable': False,
-        'paid': False,
-        'input': [],
-        'output': [],
-        'constraints': ['这是外部 SKILL 包的总入口，不自动展开其内部子 SKILL。'],
-        'feedback': [],
-        'examples': [],
-        IMPORTED_PACKAGE_FLAG: True,
-    }
 
 
 def scalar(text):
@@ -765,6 +717,24 @@ class Registry(ProjectLayerMixin):
         self._fingerprint_checked_at = now
         return stamp
 
+    def _builtin_tool_names(self, records):
+        """内置层清单声明的 ``tools`` 并集：外部包 ``allowed-tools`` 映射的受控词表。
+
+        L3 不反向依赖 L4 ``skill_tools``；内置 SKILL 的 tools 字段即本应用工具名
+        的事实来源，映射不上的一律进 constraints 提示（不硬猜）。
+        """
+        names = set()
+        for path, _, _, source_kind, _package, layer in records:
+            if layer != 'builtin' or source_kind != 'manifest':
+                continue
+            try:
+                meta, _body = parse(path.read_text(encoding='utf-8-sig'), source=str(path))
+            except (OSError, UnicodeError, ValueError):
+                continue
+            for tool in meta.get('tools') or ():
+                names.add(str(tool))
+        return names
+
     def scan(self, force=False):
         """重新读一遍目录。没变化（指纹相同）且不是 force 时直接返回缓存。"""
         stamp = self.fingerprint(force=force)
@@ -776,6 +746,7 @@ class Registry(ProjectLayerMixin):
         records = sorted(self._file_records,
                          key=lambda item: (LAYER_ORDER.get(item[5], 9),
                                            item[3] != 'manifest', str(item[0])))
+        known_tools = self._builtin_tool_names(records)
         for path, _, _, source_kind, package, layer in records:
             try:
                 meta, body = parse(path.read_text(encoding='utf-8-sig'), source=str(path))
@@ -783,7 +754,8 @@ class Registry(ProjectLayerMixin):
                 problems.append('%s：读不出来（%s）' % (path.name, exc))
                 continue
             if source_kind == 'package':
-                meta = imported_package_meta(meta, body, package, path)
+                meta = imported_package_meta(meta, body, package, path,
+                                             known_tools=known_tools)
             meta_name = str(meta.get('name') or '')
             # 禁用条目按登记名过滤；包改名（package-x-N）由下方 skill.name 复查兜底。
             if (layer, meta_name) in disabled:

@@ -42,6 +42,9 @@ import skill_registry
 from agent.core import replace, save
 from contract.pet_bus import read_json
 from contract import platform_tools
+from skill_security_service import (  # T9 安全提示助手；re-export 供调用方走本模块名
+    ALERT_DIR_NAMES, EXECUTABLE_ALERT_SUFFIXES, import_alerts, package_alerts,
+    untrusted_source_notice)
 from storage_maintenance import recycle_paths, restore_recycle_batch
 
 LEDGER_NAME = '导入台账.json'
@@ -529,15 +532,19 @@ def _install_candidate_plans(plans, problems, errors, program, confirm, source):
 
     ``source`` 是 :class:`_InstallSource`：``origin`` 是来源称谓（仓库／压缩包），
     只进提示文案；``ledger_source`` 与 ``source_kind`` 写进每行台账（T4 更新检测
-    按它分辨本地目录／压缩包／仓库源）。
+    按它分辨本地目录／压缩包／仓库源）。T9：确认框统一带 ``untrusted_source_notice``
+    来源与注入警示；包内可执行内容（``import_alerts``）在无字段问题时同样触发确认。
     """
-    if problems:
-        message = ('%s导入前发现以下问题：\n\n' % source.origin
-                   + '\n'.join('· ' + item for item in problems))
+    alerts = import_alerts(plans)
+    if problems or (confirm is not None and alerts):
+        parts = [untrusted_source_notice(source.label or source.origin, plans=plans)]
+        if problems:
+            parts.append('%s导入前发现以下问题：\n\n' % source.origin
+                         + '\n'.join('· ' + item for item in problems))
         if errors:
-            message += '\n\n以下条目将跳过：\n' + '\n'.join('· ' + item for item in errors)
-        message += '\n\n仍要导入吗？'
-        if confirm is None or not confirm(message):
+            parts.append('以下条目将跳过：\n' + '\n'.join('· ' + item for item in errors))
+        parts.append('仍要导入吗？')
+        if confirm is None or not confirm('\n\n'.join(parts)):
             raise ImportBlocked('已取消%s导入' % source.origin)
     elif errors and not plans:
         raise ImportBlocked('没有可导入的 SKILL：\n' + '\n'.join('· ' + e for e in errors))
@@ -852,6 +859,52 @@ def _default_source_status(key, row, program, registry, cache, layer='user'):
     return _entry_status(key, row, digests, versions)
 
 
+def _installed_status(target, row):
+    """已安装目标完整性 → ``'local-modified'``／``'missing'``／``None``（与台账一致）。
+
+    ``check_updates`` 与 ``local_modifications`` 共用同一判定：目标 ``_tree_digest``
+    与台账 ``sha256`` 不一致即 ``local-modified``（用户手改），读不出按缺失处理。
+    """
+    try:
+        installed = _tree_digest(target)
+    except OSError:
+        return 'missing'
+    return 'local-modified' if installed != str(row.get('sha256') or '') else None
+
+
+def local_modifications(program):
+    """用户层台账行的本地完整性体检 → ``{SKILL 名: 台账键}``；只含被手改过的行。
+
+    与 ``check_updates`` 同一判定函数（``_installed_status``），不重算来源状态、
+    不碰项目层行；目标缺失／不可读不算手改（归 ``source-missing`` 口径）。
+    """
+    modified = {}
+    for key, row in ledger_items(Path(program)).items():
+        if not isinstance(row, dict) or _row_layer(row) != 'user':
+            continue
+        target = _resolve_ledger_target(program, key)
+        if target is None or _installed_status(target, row) != 'local-modified':
+            continue
+        leaf = Path(str(key).replace('\\', '/')).name
+        name = str(row.get('name') or '') or (
+            leaf[:-len(skill_registry.SKILL_SUFFIX)]
+            if leaf.endswith(skill_registry.SKILL_SUFFIX) else leaf)
+        if name:
+            modified[name] = key
+    return modified
+
+
+def program_of_registry(registry):
+    """注册表 → 程序根：``user_root``（``<程序>/data/skills``）上溯两级；形状不符返回 ``None``。"""
+    root = getattr(registry, 'user_root', None)
+    if not root:
+        return None
+    root = Path(root).resolve()
+    if root.parent.name != 'data' or root.name != 'skills':
+        return None
+    return root.parent.parent
+
+
 def check_updates(program, *, probe=None, project=None):
     """遍历导入台账做更新体检 → ``{台账键: UPDATE_STATES 之一}``。
 
@@ -903,12 +956,11 @@ def check_updates(program, *, probe=None, project=None):
         if target is None:
             statuses[key] = 'source-missing'
             continue
-        try:
-            installed = _tree_digest(target)
-        except OSError:
+        installed = _installed_status(target, row)
+        if installed == 'missing':
             statuses[key] = 'source-missing'
             continue
-        if installed != str(row.get('sha256') or ''):
+        if installed == 'local-modified':
             statuses[key] = 'local-modified'
             continue
         kind = str(row.get('source_kind') or

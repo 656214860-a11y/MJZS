@@ -223,13 +223,28 @@ def markdown_document(path):
 
 
 def note_text(skill, *, localize=True):
-    """读取注册 SKILL 的说明；默认返回阅读副本，缺失时使用注册表摘要。"""
+    """读取注册 SKILL 的说明；默认返回阅读副本，缺失时使用注册表摘要。
+
+    外部包（T9）的 ``license``／``compatibility`` frontmatter 追加在说明末尾展示；
+    内置 SKILL 没有这两个字段，输出不变。
+    """
     if skill is None:
         return ''
     content = markdown_document(getattr(skill, 'path', None))
     if not content:
         content = '\n'.join(line for line in (str(skill.displayName or skill.name or ''),
                                             str(skill.description or '')) if line)
+    meta = getattr(skill, 'meta', None) or {}
+    extras = []
+    for key, label in (('license', '许可证'), ('compatibility', '兼容性')):
+        value = meta.get(key)
+        if value in (None, ''):
+            continue
+        if isinstance(value, (list, tuple)):
+            value = '、'.join(str(item) for item in value)
+        extras.append('%s：%s' % (label, value))
+    if extras:
+        content = (content + '\n\n' if content else '') + '\n'.join(extras)
     return skill_notes.preview(content)[0] if localize else content
 
 

@@ -907,12 +907,15 @@ def _health_row(skill, problems, warnings, *, locks=None):
     return row
 
 
-def skill_health_report(registry=None, *, program=None, project=None, stage=None, locks=None):
+def skill_health_report(registry=None, *, program=None, project=None, stage=None, locks=None,
+                        local_modified=None):
     """SKILL 体检报告：注册表 problems/warnings 按名归位＋每个 SKILL 的发送前引用闭包干跑。
 
     只读不发送、不落盘；``stage`` 给阶段 id 或中文名时只出该阶段的行，全局问题照常列出。
     闭包行沿用 ``reference_row`` 字段（kind/status/target/depth/path）；干跑失败的行带
-    ``error`` 与异常附带的部分闭包（``skill_closure``）。
+    ``error`` 与异常附带的部分闭包（``skill_closure``）。``local_modified`` 给
+    ``skill_import_service.local_modifications`` 的名字集：命中行追加
+    ``local-modified`` 警告（T9 安装完整性校验，与更新检测同一判定）。
     """
     registry = registry or skill_registry.default_registry(program, project=project)
     registry.scan(force=True)
@@ -924,4 +927,12 @@ def skill_health_report(registry=None, *, program=None, project=None, stage=None
     rows = [_health_row(skill, problems_per.get(skill.name, ()),
                         warnings_per.get(skill.name, ()), locks=locks)
             for skill in all_skills if not sid or skill.stage == sid]
+    modified = set(local_modified or ())
+    if modified:
+        for row in rows:
+            if row['name'] in modified and not any('local-modified' in w for w in row['warnings']):
+                row['warnings'].append('本地已修改：已安装内容与导入台账摘要不一致'
+                                       '（local-modified），更新检测不会覆盖')
+                if row['status'] == 'ok':
+                    row['status'] = 'warning'
     return {'skills': rows, 'problems': global_problems, 'warnings': global_warnings}

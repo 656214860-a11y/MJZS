@@ -47,10 +47,16 @@ def _import_plan(panel, plan):
     方法内再调 self._import_plan 会落到 Mock 自动属性上空转（同 ``_reload_panel_skills``）。
     """
     import skill_import_service
-    if plan['problems']:
-        message = ('导入前发现以下问题：\n\n' + '\n'.join('· ' + p for p in plan['problems'])
-                   + '\n\n仍要导入吗？')
-        if not confirm(panel.winfo_toplevel(), TITLE, message, dangerous=True):
+    alerts = skill_import_service.import_alerts([plan])
+    if plan['problems'] or alerts:
+        label = (str(plan['source'].parent) if plan['kind'] == 'package'
+                 else str(plan['source']))
+        parts = [skill_import_service.untrusted_source_notice(label, plans=[plan])]
+        if plan['problems']:
+            parts.append('导入前发现以下问题：\n\n'
+                         + '\n'.join('· ' + p for p in plan['problems']))
+        parts.append('仍要导入吗？')
+        if not confirm(panel.winfo_toplevel(), TITLE, '\n\n'.join(parts), dangerous=True):
             return None
     try:
         # 回收站跟随程序目录（R2073：用户层在 程序/data/skills/<阶段>/）。
