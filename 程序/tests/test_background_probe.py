@@ -7,7 +7,7 @@ import time
 import unittest
 from unittest import mock
 
-import api_endpoints
+import infra.api_endpoints as api_endpoints
 import tk_timers
 
 

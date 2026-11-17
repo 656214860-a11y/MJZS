@@ -9,7 +9,7 @@ from unittest import mock
 
 from orchestrator import edit_habits
 from orchestrator import skill_notes
-from pet_llm import request_ledger_path
+from infra.pet_llm import request_ledger_path
 
 
 def _budget_zero(root):

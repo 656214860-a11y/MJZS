@@ -38,7 +38,7 @@ import unittest
 import zlib
 from pathlib import Path
 
-from pet_state import PAGE_OF as PAGE
+from infra.pet_state import PAGE_OF as PAGE
 
 HERE = Path(__file__).resolve().parent
 PROGRAM = HERE.parent

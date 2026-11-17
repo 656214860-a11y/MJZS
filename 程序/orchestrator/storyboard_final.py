@@ -113,7 +113,7 @@ def finalize(project,episode_dir,source,retire_working=None,*,gateway=None):
     from contract.prop_assets import normalize_shot
     planned=read(base/'assets/资产清单/assets.json')
     if not isinstance(planned,dict):planned={}
-    episode['shots']=[normalize_shot(shot,planned) for shot in episode['shots']];from continuity_ledger import require_final_ready;require_final_ready(project,episode['shots'])
+    episode['shots']=[normalize_shot(shot,planned) for shot in episode['shots']];from infra.continuity_ledger import require_final_ready;require_final_ready(project,episode['shots'])
     for shot in episode['shots']:
         refs=[];bindings={}
         for prefix,key,many in [('CHAR','characters',True),('LOC','location',False),('PROP','props',True)]:

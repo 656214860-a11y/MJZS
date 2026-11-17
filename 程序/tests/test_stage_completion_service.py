@@ -62,7 +62,7 @@ class MediaCompletionTests(unittest.TestCase):
 
     def test_cost_uses_confirmed_delivery_duration_and_rejects_stale_evidence(self):
         from usage_overview import summarize, report_text
-        from pet_llm import RequestLedger
+        from infra.pet_llm import RequestLedger
         path = self.artifact('delivery')
         ledger = RequestLedger(self.root)
         ledger.settle('fixture', kind='seconds', amount=10); ledger.save()

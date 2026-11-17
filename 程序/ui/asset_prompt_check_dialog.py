@@ -1,5 +1,5 @@
 """资产页「检查提示词」按钮：把缺项以弹窗列出（L4）；判定规则在 ``asset_prompt_rules``。"""
-from asset_prompt_rules import issues
+from infra.asset_prompt_rules import issues
 from ui_widgets import notify
 
 

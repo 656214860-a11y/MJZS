@@ -4,8 +4,8 @@ import json
 from pathlib import Path
 
 import file_cache
-import model_pool
-import model_router
+import infra.model_pool as model_pool
+import infra.model_router as model_router
 import orchestrator.skill_budget as skill_budget
 import orchestrator.stage_config as stage_config
 import orchestrator.stage_models as stage_models
@@ -306,7 +306,7 @@ def record_stage_legacy_adoption(project, linked_paths, now=None):
 
 def idea_attachment_local_mode(project):
     """显式 API 选择优先；其余按 writing 实际目标识别本地 Agent。"""
-    import model_pool
+    import infra.model_pool as model_pool
     from orchestrator.workflow_engines import current_config
     import writing_api
     if writing_api.model_label(project):

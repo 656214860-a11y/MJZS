@@ -51,7 +51,7 @@ def show(parent, on_saved=None):
             status.set(str(exc))
 
     def probe():
-        from api_endpoints import normalize_url, probe_message
+        from infra.api_endpoints import normalize_url, probe_message
         try:
             url = normalize_url(values["base_url"].get())
         except ValueError as exc:

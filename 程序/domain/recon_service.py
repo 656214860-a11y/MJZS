@@ -20,7 +20,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 import contract.artifact_schema as artifact_schema
-import model_pool
+import infra.model_pool as model_pool
 import contract.stage_layout as stage_layout
 from agent import core
 from file_cache import read_json

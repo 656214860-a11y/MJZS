@@ -1,0 +1,15 @@
+{
+  "round": 3206,
+  "commit_base": "a5f90320",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k pet_llm pet_state model_pool pet_agent pet_ui pet_settings pet_cloud pet_report workflow writing_api stage_execution stage_gateway exit_maintenance api model_ money request_ledger",
+    "exit": 0,
+    "passed": 1566,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T19:07:16"
+}

@@ -7,7 +7,7 @@ from agent.core import read
 from infra.comfy_service import Comfy
 from stage_execution_service import remove_asset_batch_model as remove_model, save_asset_batch_settings as save_settings
 import infra.tk_timers as tk_timers
-import ui_plugin_registry
+import infra.ui_plugin_registry as ui_plugin_registry
 import orchestrator.stage_models as stage_models
 from responsive_ui import FlowBar, scroll_form
 from contract.platform_tools import open_target
@@ -58,7 +58,7 @@ def _prefs(path):
     这里故意用不缓存的读法：调用方会就地改这份字典再写回，共享缓存对象一旦被就地改，
     同一轮里其他读者就会看到还没保存的值。
     """
-    from project_settings import read_prefs
+    from infra.project_settings import read_prefs
     return read_prefs(path)
 
 
@@ -255,7 +255,7 @@ class _AssetBatchWindow:
         self.table.yview_moveto(position)
         self.table.configure(height=max(2,min(8,len(self.available()))))
         self.fit_columns()
-        from asset_prompt_rules import issues
+        from infra.asset_prompt_rules import issues
         missing=sum(bool(issues(aid,asset)) for aid,asset in self.pending())
         self.status.set(f'已勾选 {len(self.pending())} / {len(self.available())} 项；其中 {missing} 项需补齐名称或提示词。取消勾选的不生成，已导入自动跳过。')
 
@@ -340,7 +340,7 @@ class _AssetBatchWindow:
         except queue.Empty:pass
 
     def start(self):
-        from asset_prompt_rules import issues
+        from infra.asset_prompt_rules import issues
         from stage_execution_service import require_formal_asset_generation
         options=self.work_options()
         require_formal_asset_generation(self.project, online_model=self.backend.get() in self.MODELS)

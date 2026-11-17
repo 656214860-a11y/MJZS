@@ -17,8 +17,8 @@ def run_probe():
     """只在自身创建的系统临时目录中操作；没有外部项目路径参数。"""
     from agent.core import read, save
     from asset_context import library_dir
-    from continuity_ledger import build as build_ledger
-    from continuity_ledger import write as write_ledger
+    from infra.continuity_ledger import build as build_ledger
+    from infra.continuity_ledger import write as write_ledger
     from contract.shot_batches import assign
     from stage_completion_service import completion_evidence
     from project_context_factory import project_context

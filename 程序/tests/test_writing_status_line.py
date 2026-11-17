@@ -74,7 +74,7 @@ class SessionSummaryTests(unittest.TestCase):
 class DesktopStatusLineTests(_Harness):
     def test_usage_summary_lands_in_unified_bar_and_session_line_is_gone(self):
         """R2989 P1：页内状态行删除；用量摘要入统一底栏左区段（截断+悬停全文）。"""
-        import model_pool
+        import infra.model_pool as model_pool
         import stage_config
         # 不依赖本机全局模型配置：全量里其他用例留下的缓存会让默认模型解析为空。
         self.enterContext(patch('model_pool.pool', return_value=model_pool.default_pool()))
@@ -96,7 +96,7 @@ class DesktopStatusLineTests(_Harness):
 
     def test_notifier_and_legacy_status_bridge_into_unified_bar(self):
         """R2989 P1：错误经总线进右区消息并镜像回 StringVar；旧 StringVar 写入也进右区。"""
-        import model_pool
+        import infra.model_pool as model_pool
         import stage_config
         self.enterContext(patch('model_pool.pool', return_value=model_pool.default_pool()))
         with tempfile.TemporaryDirectory() as td:
@@ -127,7 +127,7 @@ class DesktopStatusLineTests(_Harness):
 
     def test_notifier_error_is_logged(self):
         """R3029 P3：错误必落盘——通知错误写入应用日志（含脱敏过滤的轮转日志）。"""
-        import model_pool
+        import infra.model_pool as model_pool
         import stage_config
         self.enterContext(patch('model_pool.pool', return_value=model_pool.default_pool()))
         with tempfile.TemporaryDirectory() as td:

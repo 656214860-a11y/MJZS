@@ -6,14 +6,14 @@ import re
 from pathlib import Path
 import tkinter as tk
 from tkinter import ttk
-import model_pool
-import model_router
+import infra.model_pool as model_pool
+import infra.model_router as model_router
 import orchestrator.skill_notes as skill_notes
 import orchestrator.skill_orchestrator as skill_orchestrator
 import orchestrator.skill_registry as skill_registry
 import orchestrator.stage_config as stage_config
 import orchestrator.stage_models as stage_models
-import ui_plugin_registry
+import infra.ui_plugin_registry as ui_plugin_registry
 from contract.pet_bus import STAGE_NAMES, read_json, stage_label as _bus_stage_label
 from ui_tokens import CHAR_WIDTH, COLORS, SPACING, OVERLAY_RATIO, STAGE_PANEL_LAYOUT
 from ui_widgets import SelectBox

@@ -285,7 +285,7 @@ class DailyProjectChoiceTests(unittest.TestCase):
 
     def test_pet_ui_report_done_failure_is_not_silently_swallowed(self):
         """异步首帧接缝使用的适配器也不能吞掉报告器故障。"""
-        import pet_ui
+        import ui.pet_ui as pet_ui
         host=type('Host',(),{'pet_report':mock.Mock(side_effect=RuntimeError('总线不可用'))})()
         with self.assertRaisesRegex(RuntimeError,'总线不可用'):
             pet_ui.report_done(host,'keyframe','首帧完成')

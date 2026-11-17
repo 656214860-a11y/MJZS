@@ -28,7 +28,7 @@ os.chdir(HERE)
 from skip_reasons import PLATFORM_TK_DISPLAY
 
 from domain import asset_reference_prompts
-import pet_state
+import infra.pet_state as pet_state
 import stage_execution_service
 from desktop_idea_chat import IdeaChatMixin
 from desktop_idea_deferred import IDEA_UPDATE_TIMEOUT_SECONDS

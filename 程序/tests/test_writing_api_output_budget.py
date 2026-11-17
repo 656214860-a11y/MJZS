@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 import writing_api
-from model_router import PoolAdapter
+from infra.model_router import PoolAdapter
 from test_writing_api import make_project
 
 
@@ -28,7 +28,7 @@ class WritingOutputBudgetTests(unittest.TestCase):
         raw.chat.side_effect = RuntimeError('断线')
         with tempfile.TemporaryDirectory() as td:
             # J10：计量序列在真实 RequestLedger.metered 里，只把授权／结算两端换成 Mock。
-            from pet_llm import RequestLedger
+            from infra.pet_llm import RequestLedger
             ledger = RequestLedger(td)
             ledger.authorize_model, ledger.settle_model = Mock(), Mock()
         with tempfile.TemporaryDirectory() as td, patch('pet_llm.RequestLedger', return_value=ledger):

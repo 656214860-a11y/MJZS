@@ -62,8 +62,8 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 from production_lock_fields import CompactLabel, FlowFields, label_pixel_width
 
-import model_pool
-import model_router
+import infra.model_pool as model_pool
+import infra.model_router as model_router
 import ui.skill_note_render as skill_note_render
 import orchestrator.skill_notes as skill_notes
 from infra.tk_timers import repeat
@@ -72,7 +72,7 @@ import orchestrator.skill_orchestrator as skill_orchestrator
 import orchestrator.skill_registry as skill_registry
 import orchestrator.stage_config as stage_config
 import orchestrator.stage_models as stage_models
-import ui_plugin_registry
+import infra.ui_plugin_registry as ui_plugin_registry
 from contract.pet_bus import STAGE_NAMES, read_json, stage_label as _bus_stage_label
 from storage_maintenance import recycle_paths
 from ui_tokens import (COLORS, FONTS, SPACING, NOTE_HEIGHT_COMPACT,

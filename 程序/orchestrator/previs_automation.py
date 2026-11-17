@@ -17,7 +17,7 @@ def verify(project,sid,seconds,source=None):
     paths=[Path(data.get(k,'')) for k in ('preview','project_file')]
     if not all(p.is_file() and p.stat().st_size for p in paths):return False
     if wm.evidence_state(data,paths[0],source,sid)=='changed':return False
-    from integrations import tool_path
+    from infra.integrations import tool_path
     probe=tool_path('ffprobe')
     result=subprocess.run([probe,'-v','error','-show_streams','-show_format','-of','json',str(paths[0])],capture_output=True,text=True,encoding='utf-8',timeout=30,creationflags=hidden_console_flags())
     if result.returncode:return False

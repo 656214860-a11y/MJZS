@@ -154,7 +154,7 @@ def _show_manual_plan(host, title, lines, blocked):
 
 def install_stage_presenters():
     """在 L4 组合根登记阶段 UI 呈现器；依赖方向始终是 UI → 阶段。"""
-    from ui_plugin_registry import module
+    from infra.ui_plugin_registry import module
     module('stage_exec').install_ui_presenters(_show_stage_execution, _show_manual_plan, ask_confirmation)
 
 

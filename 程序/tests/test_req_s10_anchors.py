@@ -8,7 +8,7 @@ from unittest.mock import patch
 import engine
 import local_video
 import pet_bus
-import project_settings
+import infra.project_settings as project_settings
 import skill_tools
 import stage_flow
 import stage_parallel

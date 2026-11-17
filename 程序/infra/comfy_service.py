@@ -33,7 +33,7 @@ def cloud_price_model(graph):
 
 def settle_cloud_cost(root, job, *, completed=False):
     if job.get('cost_request_id'):
-        from pet_llm import RequestLedger
+        from infra.pet_llm import RequestLedger
         RequestLedger(root).settle_units(job['cost_request_id'], amount=1 if completed else None)
 
 def validate_safetensors(path):
@@ -156,7 +156,7 @@ class Comfy:
                 raise ValueError('无法预估费用，预算已阻止提交；请换已计价工作流，或明确关闭金额预算后核对实际费用')
         cost_id = 'comfy:' + uuid.uuid4().hex if model else None
         if model:
-            from pet_llm import RequestLedger
+            from infra.pet_llm import RequestLedger
             RequestLedger(root).authorize_units(cost_id, model, 'assets', 'images', {'images': 1}, amount=1)
         folder=Path(root)/'workflows';folder.mkdir(exist_ok=True)
         rec=folder/('comfy_'+uuid.uuid4().hex[:10]+'.json')

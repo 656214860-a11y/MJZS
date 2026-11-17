@@ -152,10 +152,10 @@ class AppLoggingTests(unittest.TestCase):
     def test_page_switch_and_model_http_are_instrumented(self):
         program = Path(__file__).resolve().parents[1]
         self.assertIn("@app_logging.timed('page.show'", entity_file('desktop_page_nav').read_text(encoding='utf-8'))
-        self.assertIn("@app_logging.timed('model.http'", (program / 'model_pool.py').read_text(encoding='utf-8'))
+        self.assertIn("@app_logging.timed('model.http'", entity_file('model_pool').read_text(encoding='utf-8'))
 
     def test_model_http_outcomes_are_counted_without_changing_result(self):
-        import model_pool
+        import infra.model_pool as model_pool
         app_logging._counters.clear()
         results = [{'ok': True, 'status': 200, 'data': {}},
                    {'ok': False, 'status': 0, 'kind': 'network', 'error': 'x'},

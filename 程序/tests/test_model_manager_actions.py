@@ -2,7 +2,7 @@
 import unittest
 from unittest import mock
 
-import model_pool
+import infra.model_pool as model_pool
 import pet_models_ui
 from domain import speech_api
 import speech_settings_ui

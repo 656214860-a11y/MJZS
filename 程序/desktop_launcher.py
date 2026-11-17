@@ -15,7 +15,7 @@ def launch():
     from desktop import Desktop
     window = tk.Tk()
     def report_callback_exception(kind, value, trace):
-        import diagnostic_capture
+        import infra.diagnostic_capture as diagnostic_capture
         try:
             diagnostic_capture.record_crash(value, trace)
         finally:

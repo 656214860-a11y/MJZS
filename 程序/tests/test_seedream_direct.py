@@ -93,7 +93,7 @@ class SeedreamUnsettledTests(unittest.TestCase):
         from unittest.mock import patch
         import native_assets, seedream_api
         from asset_context import generated_dir
-        from pet_llm import RequestLedger
+        from infra.pet_llm import RequestLedger
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             profile_path = root / 'cost_profile.json'
@@ -123,7 +123,7 @@ class SeedreamUnsettledTests(unittest.TestCase):
     def test_project_budget_blocks_first_frame_before_transport(self):
         from unittest.mock import patch
         import keyframe_comfy
-        from pet_llm import RequestLedger
+        from infra.pet_llm import RequestLedger
         calls = self.patch_seedream(_png_bytes())
         with tempfile.TemporaryDirectory() as td:
             source = self.make_project(td)
@@ -159,7 +159,7 @@ class SeedreamUnsettledTests(unittest.TestCase):
 
     def test_asset_batch_preflight_prices_whole_batch_before_first_send(self):
         import native_assets
-        from pet_llm import request_ledger_path
+        from infra.pet_llm import request_ledger_path
         calls = self.patch_seedream(_png_bytes())
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
@@ -175,7 +175,7 @@ class SeedreamUnsettledTests(unittest.TestCase):
     def test_previews_exclude_completed_unknown_and_recoverable_images(self):
         import native_assets, keyframe_comfy
         from asset_context import generated_dir
-        from pet_llm import request_ledger_path
+        from infra.pet_llm import request_ledger_path
         calls = self.patch_seedream(_png_bytes())
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)

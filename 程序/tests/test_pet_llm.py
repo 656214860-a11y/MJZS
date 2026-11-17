@@ -11,8 +11,8 @@ os.chdir(HERE)
 
 import model_secrets
 import pet_agent
-import pet_llm
-from pet_llm import Client, Ledger, Queue, choose, compress, load_config, model_for
+import infra.pet_llm as pet_llm
+from infra.pet_llm import Client, Ledger, Queue, choose, compress, load_config, model_for
 
 
 class Fake:

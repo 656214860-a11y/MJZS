@@ -1,7 +1,7 @@
 """model_router._parse_response 的正文提取：各协议外壳下取到的正文与兜底顺序。"""
 import unittest
 
-import model_router
+import infra.model_router as model_router
 
 
 def text(wire, data):

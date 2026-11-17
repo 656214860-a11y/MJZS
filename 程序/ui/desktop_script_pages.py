@@ -3,7 +3,7 @@
 ``ScriptPagesMixin`` 通过实例的 ``script_page_services`` 使用文件打开与菜单服务。
 Desktop 在组合入口注入服务；独立页面测试不需要初始化 Desktop 或登记全局宿主。
 """
-import pet_state
+import infra.pet_state as pet_state
 import logging
 import queue
 import threading
@@ -13,7 +13,7 @@ from typing import Callable
 import contract.project_stages as project_stages
 import ui.script_view_style as script_view_style
 import tkinter as tk
-import ui_plugin_registry
+import infra.ui_plugin_registry as ui_plugin_registry
 from ui.desktop_idea_chat import model_error_display
 from pathlib import Path
 from responsive_ui import FlowBar

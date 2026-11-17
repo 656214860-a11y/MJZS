@@ -61,6 +61,12 @@
    "percent": 0.0
   },
   {
+   "module": "api_endpoints.py",
+   "covered": 0,
+   "total": 4,
+   "percent": 0.0
+  },
+  {
    "module": "app.py",
    "covered": 0,
    "total": 1164,
@@ -147,7 +153,7 @@
   {
    "module": "asset_prompt_rules.py",
    "covered": 0,
-   "total": 26,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -267,7 +273,7 @@
   {
    "module": "comfy_runtime.py",
    "covered": 0,
-   "total": 40,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -285,7 +291,7 @@
   {
    "module": "continuity_ledger.py",
    "covered": 0,
-   "total": 488,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -663,7 +669,7 @@
   {
    "module": "diagnostic_capture.py",
    "covered": 0,
-   "total": 107,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -1189,6 +1195,12 @@
    "percent": 0.0
   },
   {
+   "module": "infra/asset_prompt_rules.py",
+   "covered": 0,
+   "total": 26,
+   "percent": 0.0
+  },
+  {
    "module": "infra/broadcaster.py",
    "covered": 0,
    "total": 33,
@@ -1207,9 +1219,27 @@
    "percent": 0.0
   },
   {
+   "module": "infra/comfy_runtime.py",
+   "covered": 0,
+   "total": 40,
+   "percent": 0.0
+  },
+  {
    "module": "infra/comfy_service.py",
    "covered": 0,
    "total": 201,
+   "percent": 0.0
+  },
+  {
+   "module": "infra/continuity_ledger.py",
+   "covered": 0,
+   "total": 488,
+   "percent": 0.0
+  },
+  {
+   "module": "infra/diagnostic_capture.py",
+   "covered": 0,
+   "total": 107,
    "percent": 0.0
   },
   {
@@ -1237,6 +1267,12 @@
    "percent": 0.0
   },
   {
+   "module": "infra/integrations.py",
+   "covered": 0,
+   "total": 15,
+   "percent": 0.0
+  },
+  {
    "module": "infra/lease_verifier.py",
    "covered": 0,
    "total": 37,
@@ -1261,9 +1297,21 @@
    "percent": 0.0
   },
   {
+   "module": "infra/native_apps.py",
+   "covered": 0,
+   "total": 81,
+   "percent": 0.0
+  },
+  {
    "module": "infra/native_asset_codec.py",
    "covered": 0,
    "total": 41,
+   "percent": 0.0
+  },
+  {
+   "module": "infra/pet_state.py",
+   "covered": 0,
+   "total": 218,
    "percent": 0.0
   },
   {
@@ -1285,9 +1333,21 @@
    "percent": 0.0
   },
   {
+   "module": "infra/stage_model_value.py",
+   "covered": 0,
+   "total": 48,
+   "percent": 0.0
+  },
+  {
    "module": "infra/store_program_locator.py",
    "covered": 0,
    "total": 63,
+   "percent": 0.0
+  },
+  {
+   "module": "infra/ui_plugin_registry.py",
+   "covered": 0,
+   "total": 9,
    "percent": 0.0
   },
   {
@@ -1311,7 +1371,7 @@
   {
    "module": "integrations.py",
    "covered": 0,
-   "total": 15,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -1375,9 +1435,33 @@
    "percent": 0.0
   },
   {
+   "module": "model_metering.py",
+   "covered": 0,
+   "total": 4,
+   "percent": 0.0
+  },
+  {
+   "module": "model_pool.py",
+   "covered": 0,
+   "total": 4,
+   "percent": 0.0
+  },
+  {
+   "module": "model_router.py",
+   "covered": 0,
+   "total": 4,
+   "percent": 0.0
+  },
+  {
+   "module": "model_secrets.py",
+   "covered": 0,
+   "total": 4,
+   "percent": 0.0
+  },
+  {
    "module": "native_apps.py",
    "covered": 0,
-   "total": 81,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -1729,6 +1813,12 @@
    "percent": 0.0
   },
   {
+   "module": "pet_llm.py",
+   "covered": 0,
+   "total": 4,
+   "percent": 0.0
+  },
+  {
    "module": "pet_models_tabs.py",
    "covered": 0,
    "total": 3,
@@ -1767,7 +1857,7 @@
   {
    "module": "pet_state.py",
    "covered": 0,
-   "total": 218,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -1779,7 +1869,7 @@
   {
    "module": "pet_ui.py",
    "covered": 0,
-   "total": 455,
+   "total": 3,
    "percent": 0.0
   },
   {
@@ -1797,13 +1887,13 @@
   {
    "module": "pet_ui_stages.py",
    "covered": 0,
-   "total": 854,
+   "total": 3,
    "percent": 0.0
   },
   {
    "module": "pet_ui_support.py",
    "covered": 0,
-   "total": 408,
+   "total": 3,
    "percent": 0.0
   },
   {
@@ -1862,6 +1952,12 @@
   },
   {
    "module": "project_naming.py",
+   "covered": 0,
+   "total": 4,
+   "percent": 0.0
+  },
+  {
+   "module": "project_settings.py",
    "covered": 0,
    "total": 4,
    "percent": 0.0
@@ -1995,7 +2091,7 @@
   {
    "module": "skill_archive.py",
    "covered": 0,
-   "total": 138,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -2019,11 +2115,17 @@
   {
    "module": "skill_lifecycle_service.py",
    "covered": 0,
-   "total": 261,
+   "total": 4,
    "percent": 0.0
   },
   {
    "module": "skill_note_render.py",
+   "covered": 0,
+   "total": 4,
+   "percent": 0.0
+  },
+  {
+   "module": "skill_package_meta.py",
    "covered": 0,
    "total": 4,
    "percent": 0.0
@@ -2053,6 +2155,12 @@
    "percent": 0.0
   },
   {
+   "module": "skill_project_layer.py",
+   "covered": 0,
+   "total": 4,
+   "percent": 0.0
+  },
+  {
    "module": "skill_registry.py",
    "covered": 0,
    "total": 3,
@@ -2061,13 +2169,13 @@
   {
    "module": "skill_remote_service.py",
    "covered": 0,
-   "total": 203,
+   "total": 4,
    "percent": 0.0
   },
   {
    "module": "skill_security_service.py",
    "covered": 0,
-   "total": 45,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -2107,6 +2215,12 @@
    "percent": 0.0
   },
   {
+   "module": "stage_layout.py",
+   "covered": 0,
+   "total": 2,
+   "percent": 0.0
+  },
+  {
    "module": "stage_model_picker.py",
    "covered": 0,
    "total": 4,
@@ -2115,7 +2229,7 @@
   {
    "module": "stage_model_value.py",
    "covered": 0,
-   "total": 48,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -2210,6 +2324,12 @@
   },
   {
    "module": "tk_timers.py",
+   "covered": 0,
+   "total": 4,
+   "percent": 0.0
+  },
+  {
+   "module": "token_saver.py",
    "covered": 0,
    "total": 4,
    "percent": 0.0
@@ -2349,7 +2469,7 @@
   {
    "module": "ui/desktop_files_panel.py",
    "covered": 0,
-   "total": 424,
+   "total": 428,
    "percent": 0.0
   },
   {
@@ -2659,6 +2779,12 @@
    "percent": 0.0
   },
   {
+   "module": "ui/pet_ui.py",
+   "covered": 0,
+   "total": 455,
+   "percent": 0.0
+  },
+  {
    "module": "ui/pet_ui_popup.py",
    "covered": 0,
    "total": 93,
@@ -2668,6 +2794,18 @@
    "module": "ui/pet_ui_settings.py",
    "covered": 0,
    "total": 332,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/pet_ui_stages.py",
+   "covered": 0,
+   "total": 854,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/pet_ui_support.py",
+   "covered": 0,
+   "total": 408,
    "percent": 0.0
   },
   {
@@ -2761,9 +2899,21 @@
    "percent": 0.0
   },
   {
+   "module": "ui/skill_archive.py",
+   "covered": 0,
+   "total": 138,
+   "percent": 0.0
+  },
+  {
    "module": "ui/skill_import_service.py",
    "covered": 0,
    "total": 675,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/skill_lifecycle_service.py",
+   "covered": 0,
+   "total": 261,
    "percent": 0.0
   },
   {
@@ -2794,6 +2944,18 @@
    "module": "ui/skill_panel_workflow.py",
    "covered": 0,
    "total": 90,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/skill_remote_service.py",
+   "covered": 0,
+   "total": 203,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/skill_security_service.py",
+   "covered": 0,
+   "total": 45,
    "percent": 0.0
   },
   {
@@ -3093,7 +3255,7 @@
   {
    "module": "ui_plugin_registry.py",
    "covered": 0,
-   "total": 9,
+   "total": 4,
    "percent": 0.0
   },
   {
@@ -3319,7 +3481,7 @@
    "percent": 11.6
   },
   {
-   "module": "model_metering.py",
+   "module": "infra/model_metering.py",
    "covered": 6,
    "total": 49,
    "percent": 12.2
@@ -3331,7 +3493,7 @@
    "percent": 14.0
   },
   {
-   "module": "api_endpoints.py",
+   "module": "infra/api_endpoints.py",
    "covered": 52,
    "total": 366,
    "percent": 14.2
@@ -3391,13 +3553,13 @@
    "percent": 18.3
   },
   {
-   "module": "skill_project_layer.py",
+   "module": "orchestrator/skill_project_layer.py",
    "covered": 29,
    "total": 157,
    "percent": 18.5
   },
   {
-   "module": "skill_package_meta.py",
+   "module": "orchestrator/skill_package_meta.py",
    "covered": 8,
    "total": 43,
    "percent": 18.6
@@ -3445,7 +3607,7 @@
    "percent": 20.9
   },
   {
-   "module": "model_router.py",
+   "module": "infra/model_router.py",
    "covered": 137,
    "total": 646,
    "percent": 21.2
@@ -3481,7 +3643,7 @@
    "percent": 23.8
   },
   {
-   "module": "pet_llm.py",
+   "module": "infra/pet_llm.py",
    "covered": 78,
    "total": 321,
    "percent": 24.3
@@ -3553,7 +3715,7 @@
    "percent": 32.7
   },
   {
-   "module": "model_pool.py",
+   "module": "infra/model_pool.py",
    "covered": 238,
    "total": 726,
    "percent": 32.8
@@ -3577,7 +3739,7 @@
    "percent": 36.8
   },
   {
-   "module": "project_settings.py",
+   "module": "infra/project_settings.py",
    "covered": 30,
    "total": 77,
    "percent": 39.0
@@ -3739,27 +3901,9 @@
    "percent": 100.0
   },
   {
-   "module": "model_secrets.py",
-   "covered": 4,
-   "total": 4,
-   "percent": 100.0
-  },
-  {
    "module": "orchestrator/__init__.py",
    "covered": 1,
    "total": 1,
-   "percent": 100.0
-  },
-  {
-   "module": "stage_layout.py",
-   "covered": 2,
-   "total": 2,
-   "percent": 100.0
-  },
-  {
-   "module": "token_saver.py",
-   "covered": 4,
-   "total": 4,
    "percent": 100.0
   },
   {
@@ -3769,6 +3913,6 @@
    "percent": 100.0
   }
  ],
- "modules_covered": 77,
- "modules_total": 626
+ "modules_covered": 74,
+ "modules_total": 650
 }

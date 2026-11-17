@@ -12,7 +12,7 @@ class WritingApiStageConfigBoundaryTests(unittest.TestCase):
     def test_writing_api_reads_stage_model_via_l1_protocol_not_l3_config(self):
         """P0-2：writing_api 读阶段模型须走 L1 stage_model_value，不得反向依赖 L3 stage_config。"""
         source = (ROOT / 'writing_api.py').read_text(encoding='utf-8')
-        self.assertIn('import stage_model_value', source)
+        self.assertIn('import infra.stage_model_value as stage_model_value', source)
         self.assertNotIn('import stage_config', source)
         self.assertNotIn('stage_config.get', source)
 

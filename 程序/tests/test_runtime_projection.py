@@ -73,7 +73,7 @@ class RuntimeProjectionTests(unittest.TestCase):
 
     def test_shot_query_links_attempt_timing_reason_and_verified_cost(self):
         import hashlib
-        from pet_llm import request_ledger_path
+        from infra.pet_llm import request_ledger_path
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp); bill=root/'bill.txt';bill.write_text('receipt')
             save(root/'data/state.json', {'shots': {'S1': [

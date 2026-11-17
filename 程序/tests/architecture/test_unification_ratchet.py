@@ -60,16 +60,29 @@ def _enclosing_scope(scopes, node):
     return '.'.join(name for start, end, name in scopes if start <= line <= end) or '<module>'
 
 
+def _stable_ast_dump(node):
+    """固定主线3.14锚点格式：保留Load，忽略默认空列表/None，不随ast.dump版本漂移。"""
+    if isinstance(node, ast.AST):
+        fields = []
+        for name in node._fields:
+            if not hasattr(node, name):
+                if name == 'ctx':
+                    fields.append('ctx=Load()')
+                continue
+            value = getattr(node, name)
+            if value == [] or value is None:
+                continue
+            fields.append(name + '=' + _stable_ast_dump(value))
+        return type(node).__name__ + '(' + ', '.join(fields) + ')'
+    if isinstance(node, list):
+        return '[' + ', '.join(_stable_ast_dump(item) for item in node) + ']'
+    return repr(node)
+
+
 def _bare_json_load_anchor(scopes, node, duplicates):
     """返回可随无关行平移的 json.loads 登记锚点。"""
     scope = _enclosing_scope(scopes, node)
-    # Python 3.15 省略默认 Load，3.14 的 dump 保留；固定为既有3.15锚点口径。
-    # 仅省略语义默认 Load，Store等真实不同上下文保留，不降低调用语义的哈希强度。
-    stable = copy.deepcopy(node)
-    for member in ast.walk(stable):
-        if isinstance(getattr(member, 'ctx', None), ast.Load):
-            del member.ctx
-    digest = hashlib.sha256(ast.dump(stable, include_attributes=False).encode('utf-8')).hexdigest()[:16]
+    digest = hashlib.sha256(_stable_ast_dump(node).encode('utf-8')).hexdigest()[:16]
     base = f'{scope}:json.loads:{digest}'
     duplicates[base] += 1
     return f'{base}:{duplicates[base]}'

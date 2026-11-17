@@ -7,7 +7,7 @@
 import queue
 import threading
 import tkinter as tk
-import ui_plugin_registry
+import infra.ui_plugin_registry as ui_plugin_registry
 from contract.app_metadata import APP_NAME, VERSION
 from datetime import date
 from pathlib import Path

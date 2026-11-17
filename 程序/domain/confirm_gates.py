@@ -152,7 +152,7 @@ def check_triplets(shots=None, assets=None, ledger=None):
     """G-02：同一批次内三元组一致（读连贯性台账，没有台账就现切一次）。"""
     rows = (ledger or {}).get('triplets')
     if rows is None:
-        from continuity_ledger import triplets
+        from infra.continuity_ledger import triplets
         rows = triplets(shots or [])
     return ['%s：%s' % (row.get('batch_id'), row.get('detail'))
             for row in rows if not row.get('ok')]
@@ -162,7 +162,7 @@ def check_roles(shots=None, assets=None, ledger=None):
     """G-03：参考图职责不自相矛盾（一张图不能既管身份又管运镜）。"""
     rows = (ledger or {}).get('conflicts')
     if rows is None:
-        from continuity_ledger import conflicts
+        from infra.continuity_ledger import conflicts
         rows = conflicts(shots or [], assets)
     return ['%s：%s' % (row.get('shot_id'), row.get('detail'))
             for row in rows if row.get('kind') == '职责自相矛盾']
@@ -185,7 +185,7 @@ def check_drift(shots=None, assets=None, ledger=None):
     blocks = {'batches': data.get('batches') or []}
     if blocks['batches'] and isinstance(assets, dict) and assets:
         # 台账冻结的那一份与现在的资产比：资产被人改过、或哪一批偷偷重写了锚点，就是漂移。
-        from continuity_ledger import drift
+        from infra.continuity_ledger import drift
         rows = list(drift(blocks, assets))
     else:
         rows = list(data.get('drift') or [])
@@ -263,7 +263,7 @@ def conflict_candidates(shots=None, assets=None, ledger=None):
     if isinstance(ledger, dict):
         rows = ledger.get('conflicts') or []
     elif shots:
-        from continuity_ledger import adjudicate, conflicts
+        from infra.continuity_ledger import adjudicate, conflicts
         rows = list(adjudicate(conflicts(shots, assets)))
     out = []
     for index, row in enumerate(rows, 1):
@@ -399,7 +399,7 @@ def run(gate_id, project='', shots=None, assets=None, ledger=None, *, context=No
         result['ask'] = pending(project, items, context=context) if project or context is not None else items
         result['passed'] = not result['ask']
     # 诊断只保留最后一次结果，不写项目目录，也不参与门禁判定。
-    import diagnostic_capture
+    import infra.diagnostic_capture as diagnostic_capture
     diagnostic_capture.record_gate_result(row['id'], 'passed' if result['passed'] else 'blocked')
     return result
 

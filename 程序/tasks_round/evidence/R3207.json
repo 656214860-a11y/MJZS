@@ -1,0 +1,15 @@
+{
+  "round": 3207,
+  "commit_base": "be7b0d36",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k skill_package_meta skill_project_layer skill_registry skill_lifecycle skill_import pet_skills skill_panel",
+    "exit": 0,
+    "passed": 86,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T19:16:58"
+}

@@ -4,7 +4,7 @@ from __future__ import annotations
 import ast
 import unittest
 
-import ui_plugin_registry
+import infra.ui_plugin_registry as ui_plugin_registry
 from tests.architecture._layers import LAYERS
 from tests.architecture._scan import ROOT, module_name, parse
 

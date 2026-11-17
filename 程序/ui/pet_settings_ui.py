@@ -338,7 +338,7 @@ def pet_ui_note(level):
 
 def cost_reconciliation_dialog(parent, project):
     """让用户核对已有请求，费用变更独立于制作任务状态。"""
-    from pet_llm import RequestLedger
+    from infra.pet_llm import RequestLedger
     from ui.ui_dialogs import FileDialog
     ledger = RequestLedger(project).load()
     def eligible():

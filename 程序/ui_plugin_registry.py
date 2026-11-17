@@ -1,24 +1,10 @@
-"""L4 UI 延迟加载登记表。
+"""历史入口：实体已迁至 ``infra.ui_plugin_registry``（T10 包化）。
 
-桌面界面仅能通过 :func:`module` 延迟加载此处登记的插件，避免各页面散落
-``__import__``，同时保留“打开页面时才加载”的启动行为。
+``import ui_plugin_registry`` 返回 ``infra.ui_plugin_registry`` 本体：私有名、模块级状态与
+按扁平名打的 ``mock.patch`` 补丁面和包内路径完全一致；生产侧一律用包路径。
+门面清除轮统一改写测试导入后删除本文件。
 """
-from importlib import import_module
+import sys as _sys
+from infra import ui_plugin_registry as _entity
 
-
-UI_PLUGINS = frozenset({
-    'agent.shot_assets', 'agent_dispatch', 'asset_batch', 'asset_skill_batch', 'asset_prompt_check_dialog',
-    'asset_reference_images', 'asset_reference_import', 'background_characters',
-    'cloud_video', 'desktop_voice_input', 'keyframe_comfy', 'local_previs', 'native_assets', 'reference_wall',
-    'skill_panel', 'stage_exec', 'stage_flow', 'pet_ui', 'previs_automation',
-    'desktop_launcher', 'workflow_settings', 'task_center_ui',
-    'agent.prompt_optimizer',
-})
-
-
-def module(name):
-    """返回一个已登记的 UI 延迟加载模块；未知名称必须显式登记。"""
-    text = str(name or '').strip()
-    if text not in UI_PLUGINS:
-        raise ValueError('未登记的 UI 延迟加载插件：' + text)
-    return import_module(text)
+_sys.modules[__name__] = _entity

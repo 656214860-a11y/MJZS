@@ -1,8 +1,8 @@
 """Content requirements independent of the selected engine or skill."""
 from pathlib import Path
 import orchestrator.stage_parallel as stage_parallel
-from integrations import script_text
-from asset_prompt_rules import rules as asset_rules
+from infra.integrations import script_text
+from infra.asset_prompt_rules import rules as asset_rules
 from contract.storyboard_contract import rules as storyboard_rules
 
 def natural_script_delivery_path(project, at):

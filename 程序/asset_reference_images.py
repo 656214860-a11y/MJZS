@@ -428,7 +428,7 @@ def show(app,aid):
     def add():
         guard()
         # 导入窗口是延迟加载的 UI 插件；参考图服务不能反向静态导入它。
-        from ui_plugin_registry import module
+        from infra.ui_plugin_registry import module
         import_images=module('asset_reference_import').show
         import_images(app,aid,role=rolevar.get(),parent=win,on_saved=changed)
     def selected_values():return selected_column(table,0,'请先选择参考图')
@@ -563,7 +563,7 @@ def view_references(app, aid):
         prepare_folders(base);open_path(base/'assets/参考图'/category)
     def add():
         """顺手补一张：导入用的还是「导入参考图」那一扇窗（分类／目录都摆在里头）。"""
-        from ui_plugin_registry import module
+        from infra.ui_plugin_registry import module
         import_images=module('asset_reference_import').show
         import_images(app,aid,role=filtervar.get() if filtervar.get() in roles else roles[0],
                       parent=win,on_saved=lambda:(refresh(),app.safe(lambda:app.show(2))))

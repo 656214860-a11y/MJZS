@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from unittest.mock import Mock
 
-from model_router import ModelAdapter
+from infra.model_router import ModelAdapter
 import writing_api
 
 

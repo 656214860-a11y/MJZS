@@ -41,7 +41,7 @@ class WritingReconButtonTests(unittest.TestCase):
         self.addCleanup(lambda: win.winfo_exists() and win.destroy())
         win.geometry('1100x760+40+40')
         import desktop as desktop_module
-        import pet_state
+        import infra.pet_state as pet_state
         from desktop import Desktop
         original = desktop_module.Desktop.choose_project
         desktop_module.Desktop.choose_project = lambda self: None

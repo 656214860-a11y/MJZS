@@ -143,7 +143,7 @@ def settings(app):
     def commit():
         try:
             updated={k:e.get().strip() for k,e in entries.items()}
-            from api_endpoints import normalize_url
+            from infra.api_endpoints import normalize_url
             updated['base_url']=normalize_url(updated['base_url']);address=urlparse(updated['base_url'])
             if address.username or address.password or address.query or address.fragment:raise ValueError('请填写不含密钥或查询参数的API根地址')
             if address.scheme!='https' and not(address.scheme=='http' and address.hostname in ('localhost','127.0.0.1','::1')):raise ValueError('使用HTTPS或本机HTTP地址')
