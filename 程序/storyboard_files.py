@@ -41,7 +41,7 @@ import project_settings
 import ui_plugin_registry
 from pet_state import PAGE_OF
 from responsive_ui import FlowBar, refresh_check_heading, bind_row_toggle
-from storyboard_table_ui import file_table, fit_file_columns, fit_final_columns, insert_entries, tree_columns
+from ui.storyboard_table_ui import file_table, fit_file_columns, fit_final_columns, insert_entries, tree_columns
 from ui_tokens import WRAPLENGTH, COLORS, FONTS, SPACING
 from ui_widgets import Card, DataTable, PrimaryButton, SecondaryButton, TextArea, ask_confirmation, notify
 from ui_dialogs import FileDialog

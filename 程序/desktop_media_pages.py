@@ -253,7 +253,7 @@ class MediaPagesMixin:
                     if tree.column(column,'id')!=column_name:return
                     text=str(tree.set(row,column_name) or '')
                     if not text:return
-                    from prompt_window import show as show_text
+                    from ui.prompt_window import show as show_text
                     show_text(self.win,heading+' · 说明',text,status=self.status,
                               receipt='说明已复制',button='复制说明',scrollbar=True)
                 tree.bind('<Button-1>',open_detail,add='+')
@@ -618,7 +618,7 @@ class MediaPagesMixin:
         if is_cloud:
             video_root=ui_plugin_registry.module('cloud_video').align_source(self,video_root)
             self.header_model.configure(text='当前模型：'+read(video_root/'config.json')['model'])
-        from shared_video_controls import build
+        from ui.shared_video_controls import build
         build(self,heading,is_cloud)
         def prepare_video_prompt(sid):
             from agent.shot_assets import prompt_direct,prompt_task
@@ -655,7 +655,7 @@ class MediaPagesMixin:
         # The shared workspace owns script/project actions.
         self.video.writing_setup=lambda:self.show(PAGE['script']);self.video.import_json=self.import_json
     def open_tts_settings(self):
-        from tts_settings import show
+        from ui.tts_settings import show
         show(self.win)
     def generate_tts(self):
         import domain.tts_api as tts_api

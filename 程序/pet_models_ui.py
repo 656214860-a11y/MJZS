@@ -3,7 +3,7 @@ import tkinter as tk
 from tkinter import font as tkfont
 from tkinter import ttk
 import model_pool
-from pet_models_tabs import MODES, ModelManagerModeTabsMixin
+from ui.pet_models_tabs import MODES, ModelManagerModeTabsMixin
 from responsive_ui import auto_height
 from ui_tokens import (BUTTON_GAP, COMBOBOX_PADDING, TEXT_ROWS, FONTS, FORM_LABEL_WIDTH, INPUT_PADDING_X,
                        SPACING, TEXT_DESC, TEXT_HINT, OVERLAY_RATIO)

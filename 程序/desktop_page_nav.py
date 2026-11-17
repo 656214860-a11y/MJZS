@@ -169,7 +169,7 @@ class PageNavMixin:
             self.fit_content()
             return
         if plan.selector:
-            from storyboard_source_selector import source_selector
+            from ui.storyboard_source_selector import source_selector
             source_selector(self,index,select_box=SelectBox)
         # 08／09 步直接读工作集：切换分镜或自动采用后必须先让工作集跟上，否则会按旧分镜拼接和交付。
         if plan.align:self.align_studio()

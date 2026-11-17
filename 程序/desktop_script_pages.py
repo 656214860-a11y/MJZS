@@ -11,17 +11,17 @@ import time
 from dataclasses import dataclass
 from typing import Callable
 import contract.project_stages as project_stages
-import script_view_style
+import ui.script_view_style as script_view_style
 import tkinter as tk
 import ui_plugin_registry
 from desktop_idea_chat import model_error_display
 from pathlib import Path
 from responsive_ui import FlowBar
 from tkinter import ttk
-from script_find_bar import FindBar
-from script_line_numbers import LineNumberGutter
-from script_outline import OutlinePanel
-from script_reading import ReadingAids
+from ui.script_find_bar import FindBar
+from ui.script_line_numbers import LineNumberGutter
+from ui.script_outline import OutlinePanel
+from ui.script_reading import ReadingAids
 from ui_tokens import (
     COLORS,
     SCRIPT_VIEW_FONT,

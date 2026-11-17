@@ -9,8 +9,8 @@ class PromptWindowSourceGuardTests(unittest.TestCase):
     """源码守卫：「复制提示词」只保留一份实现，两个入口都必须委托 prompt_window。"""
 
     def program_sources(self):
-        sources = {p.name: p.read_text(encoding="utf-8") for p in sorted(Path(PROGRAM).glob("*.py")) if not p.name.startswith("test_")}
-        from tests.architecture._scan import desktop_text
+        from tests.architecture._scan import desktop_text, entity_file
+        sources = {p.name: entity_file(p.stem).read_text(encoding="utf-8") for p in sorted(Path(PROGRAM).glob("*.py")) if not p.name.startswith("test_")}
         sources["desktop.py"] = desktop_text()  # R1505：Desktop 方法分布在 desktop.py 与迁出的 Mixin 模块
         return sources
 
@@ -23,7 +23,7 @@ class PromptWindowSourceGuardTests(unittest.TestCase):
         """「查看首帧提示词」与资产提示词两处入口必须共用 prompt_window，不再各写一份弹窗。"""
         sources = self.program_sources()
         for name in ("desktop.py", "asset_reference_prompts_dialog.py"):
-            self.assertIn("from prompt_window import show", sources[name])
+            self.assertIn("prompt_window import show", sources[name])
 
     def test_clipboard_writes_go_through_one_helper(self):
         """全程序只有 prompt_window.copy_text 写剪贴板：提示词窗口与 Codex 任务文本都走它。
@@ -45,8 +45,8 @@ class ApprovedVersionSourceGuardTests(unittest.TestCase):
     PREDICATE = "v.get('review')=='pass' and v.get('state')=='downloaded' and v.get('qc_pass')"
 
     def program_sources(self):
-        sources = {p.name: p.read_text(encoding="utf-8") for p in sorted(Path(PROGRAM).glob("*.py")) if not p.name.startswith("test_")}
-        from tests.architecture._scan import desktop_text
+        from tests.architecture._scan import desktop_text, entity_file
+        sources = {p.name: entity_file(p.stem).read_text(encoding="utf-8") for p in sorted(Path(PROGRAM).glob("*.py")) if not p.name.startswith("test_")}
         sources["desktop.py"] = desktop_text()  # R1505：Desktop 方法分布在 desktop.py 与迁出的 Mixin 模块
         return sources
 
@@ -60,8 +60,8 @@ class ApprovedVersionSourceGuardTests(unittest.TestCase):
     def test_approval_consumers_use_the_shared_helper(self):
         """engine 的两处筛选、进度与交付界面都必须走同一个「采用版」助手，别再各挑各的版本。"""
         sources = self.program_sources()
-        self.assertRegex(sources["desktop.py"], r"from engine import [^\n]*\bapproved_versions\b")
-        self.assertRegex(sources["desktop.py"], r"from engine import [^\n]*\badoption_summary\b")
+        self.assertRegex(sources["desktop.py"], r"from (?:orchestrator\.)?engine import [^\n]*\bapproved_versions\b")
+        self.assertRegex(sources["desktop.py"], r"from (?:orchestrator\.)?engine import [^\n]*\badoption_summary\b")
         # 自动粗剪与手动拼装都收敛到 adopted_edit_version；approved_versions 只留一处实现。
         self.assertEqual(sources["engine.py"].count("adopted_edit_version(st['shots'].get(shot['id'])"), 2)
         self.assertEqual(sources["engine.py"].count("approved_versions(st['shots'].get(shot['id']))"), 0)
@@ -82,14 +82,14 @@ class EngineNameFallbackTests(unittest.TestCase):
     def test_a_settings_module_without_the_name_falls_back_to_empty(self):
         import contextlib, io, types
         import local_previs
-        saved = sys.modules.get("workflow_settings")
-        sys.modules["workflow_settings"] = types.ModuleType("workflow_settings")   # 有包、没函数
+        saved = sys.modules.get("orchestrator.workflow_settings")
+        sys.modules["orchestrator.workflow_settings"] = types.ModuleType("orchestrator.workflow_settings")   # 有包、没函数
 
         def restore():
             if saved is None:
-                sys.modules.pop("workflow_settings", None)
+                sys.modules.pop("orchestrator.workflow_settings", None)
             else:
-                sys.modules["workflow_settings"] = saved
+                sys.modules["orchestrator.workflow_settings"] = saved
         self.addCleanup(restore)
         with tempfile.TemporaryDirectory() as td, contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(local_previs.engine_name(make_adopted_project(td)), "",

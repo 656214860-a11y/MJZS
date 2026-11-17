@@ -661,7 +661,7 @@ def dev_page(frame, pet, width=None):
 
     def copy_mail():
         """复制邮箱：剪贴板全程序只有 prompt_window.copy_text 一处出口，这里不另写一份。"""
-        from prompt_window import copy_text
+        from ui.prompt_window import copy_text
         reason = copy_text(pet.win, DEVELOPER_MAIL)
         if reason:
             _error(hint, '复制失败：%s（%s）；请手动选中复制' % (DEVELOPER_MAIL, reason))

@@ -4,7 +4,7 @@ from __future__ import annotations
 import ast
 import unittest
 
-from tests.architecture._scan import ROOT, parse, parse_desktop
+from tests.architecture._scan import ROOT, entity_file, parse, parse_desktop
 
 
 EXCLUDED_PARTS = {"tests", "tasks_round", "维护记录", ".git", "__pycache__", "voice_asr_venv"}
@@ -38,7 +38,7 @@ class DataTableBoundaryTests(unittest.TestCase):
                    for alias in node.names if node.module == 'ui_widgets']
         self.assertIn('DataTable', imports)
     def test_storyboard_file_table_uses_data_table_not_a_page_treeview(self):
-        tree = parse(ROOT / 'storyboard_table_ui.py')
+        tree = parse(entity_file('storyboard_table_ui'))
         direct_treeviews = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
                             and isinstance(node.func, ast.Attribute)
                             and node.func.attr == 'Treeview']

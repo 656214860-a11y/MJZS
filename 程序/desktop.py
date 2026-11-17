@@ -827,7 +827,7 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
     # SKILL 走 ✦ 图标；skill_panel.show 面板仍由手动制作预检「修改配置」等入口打开。
     # flow_settings 留着：首帧页的「Skill 调用设置」在模型接口窗口里还要用它（第 26 期那处）。
     def flow_settings(self,stage,function=None):
-        from workflow_settings_dialog import show_settings
+        from ui.workflow_settings_dialog import show_settings
         if self.root is None:raise ValueError('请先选择项目')
         from workflow_agents import refresh
         show_settings(self,self.root,stage=stage,on_saved=lambda:refresh(self),function=function)
@@ -865,7 +865,7 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
 
         第 61 期 v0.8：全程序只有 prompt_window.copy_text 写剪贴板（既有规矩），这里只转调一次。
         """
-        from prompt_window import copy_preview,copy_text as write_clipboard
+        from ui.prompt_window import copy_preview,copy_text as write_clipboard
         reason=write_clipboard(self.win,str(text))
         self.status.set('复制失败：'+reason if reason else '已复制：'+copy_preview(text))
         return reason
@@ -922,7 +922,7 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
 
     def open_folder(self,p):open_directory(p)
     def open_version_picker(self):
-        from version_picker import open_picker
+        from ui.version_picker import open_picker
         return open_picker(self)
     def final_import(self):
         from domain.stage_workspace_service import ensure_delivery_workspace

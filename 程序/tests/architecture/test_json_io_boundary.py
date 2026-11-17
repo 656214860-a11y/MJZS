@@ -25,7 +25,7 @@ class JsonIoBoundaryTests(unittest.TestCase):
         self.assertNotIn('json.dump(', source)
 
         stage = stage_execution_source()
-        facade = (ROOT / 'previs_progress.py').read_text(encoding='utf-8')
+        facade = entity_file('previs_progress').read_text(encoding='utf-8')
         self.assertIn('def previs_progress_gateway()', stage)
         self.assertIn('def publish_stage_previs_progress(', stage)
         self.assertIn('publish_text=previs_progress_gateway()', stage)

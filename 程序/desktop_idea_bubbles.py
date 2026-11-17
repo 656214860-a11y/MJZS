@@ -157,7 +157,7 @@ class IdeaBubblesMixin:
         # 悬停图标是 Text 里的占位字符，拖选复制时去掉，不把私用区字形混进正文。
         text=''.join(char for char in text if char not in (ICON_COPY,ICON_DELETE,ICON_REWIND))
         if not text:return 'break'
-        from prompt_window import copy_text
+        from ui.prompt_window import copy_text
         reason=copy_text(box,text)
         self.status.set('复制失败：'+reason if reason else '已复制选中文字')
         return 'break'
@@ -182,7 +182,7 @@ class IdeaBubblesMixin:
         if index == 'example':
             text=self.idea_example()
             if not text:return None
-            from prompt_window import copy_text
+            from ui.prompt_window import copy_text
             reason=copy_text(self.idea_log,text)
             self.status.set('复制失败：'+reason if reason else '已复制软件示例')
             if reason:return None
@@ -191,7 +191,7 @@ class IdeaBubblesMixin:
         if not 0<=index<len(rows):return None
         text=str(rows[index].get('text') or '')
         if not text:return None
-        from prompt_window import copy_text
+        from ui.prompt_window import copy_text
         reason=copy_text(self.idea_log,text)
         self.status.set('复制失败：'+reason if reason else '已复制整条信息')
         if reason:return None

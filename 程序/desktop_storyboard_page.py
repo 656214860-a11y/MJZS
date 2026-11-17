@@ -301,7 +301,7 @@ class _FirstFramePage:
         return button
 
     def prompt_details(self):
-        from prompt_window import show as show_prompt_window
+        from ui.prompt_window import show as show_prompt_window
         shot=self.selected();prompt=self.frame_prompt(shot)
         if not prompt:self.page.status.set(shot['id']+' 还没有首帧图片提示词，请先补齐后再复制')
         show_prompt_window(self.page.win,shot['id']+' · 首帧图片提示词',prompt,status=self.page.status,

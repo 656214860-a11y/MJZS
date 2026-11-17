@@ -57,7 +57,7 @@ def online_window(desktop, source, ids):
     def open_online():
         if previs_ready(desktop.root, selected.get()):
             desktop.status.set(selected.get() + ' 白模已就绪，本次跳过'); return
-        from prompt_window import copy_text
+        from ui.prompt_window import copy_text
         reason = copy_text(desktop.win, text.get('1.0', 'end-1c'))
         wm.webbrowser.open(wm.TOOLS[0][1])
         desktop.status.set(selected.get() + (('白模制作说明已复制；在线上工作台制作后导入。') if not reason

@@ -255,7 +255,7 @@ def open_cloud_video(desktop):
 
 def open_tts(window):
     """配音接口（TTS）的设置窗口。"""
-    import tts_settings
+    import ui.tts_settings as tts_settings
     return tts_settings.show(window)
 
 

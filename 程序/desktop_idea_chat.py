@@ -953,7 +953,7 @@ class _FlowAgentLaunch:
             except OSError:clipboard_text=result['prompt']
         from desktop_send_choice import attachment_payload, deliver_desktop_app  # 长任务改附件＋短指令（REQ-S01-70）
         clipboard_text,attachment=attachment_payload(self.config.get('engine'),task_file,clipboard_text)
-        from prompt_window import copy_text
+        from ui.prompt_window import copy_text
         copy_text(self.host.win,clipboard_text)
         if self.native_claude:
             from orchestrator.workflow_settings import find_program

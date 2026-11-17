@@ -10,7 +10,7 @@ import tkinter as tk
 from pathlib import Path
 
 import orchestrator.edit_habits as edit_habits
-import script_view_style
+import ui.script_view_style as script_view_style
 from ui_tokens import (
     BUTTON_WIDTH_EDIT,
     SCRIPT_EDIT_SAVE_DEBOUNCE_MS,

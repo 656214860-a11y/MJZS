@@ -602,7 +602,7 @@ class _KeyframeComfyWindow(_KeyframeComfyRows):
             self.skill_button.grid_remove()
 
     def choose_account(self):
-        from seedream_settings import show as seedream_show
+        from ui.seedream_settings import show as seedream_show
         seedream_show(self.win, on_saved=self.update_model_ui)
 
     def open_stage_config(self):
@@ -810,7 +810,7 @@ class _KeyframeComfyWindow(_KeyframeComfyRows):
             self.log_clear()
             self.log_lines('Seedream 5.0 Pro · 共 ' + str(len(checked['shots'])) + ' 镜')
             self.log_plan(checked.get('plan'))
-            from seedream_settings import confirm_unsettled
+            from ui.seedream_settings import confirm_unsettled
             confirmed = confirm_unsettled(self.win, self.source.parent / '首帧任务', [shot['id'] for shot in checked['shots']], '镜头')
             if confirmed:
                 self.log_lines('已在火山控制台核实，重新生成：' + '、'.join(confirmed))

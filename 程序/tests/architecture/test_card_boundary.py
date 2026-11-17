@@ -4,7 +4,7 @@ from __future__ import annotations
 import ast
 import unittest
 
-from tests.architecture._scan import ROOT, parse, parse_desktop
+from tests.architecture._scan import ROOT, entity_file, parse, parse_desktop
 
 
 class CardBoundaryTests(unittest.TestCase):
@@ -76,7 +76,7 @@ class CardBoundaryTests(unittest.TestCase):
     def test_native_assets_and_asset_batch_forms_use_card(self):
         """原生资产窗与批量资产表单的配置区统一用 Card（标题行改为卡内标签）。"""
         for filename in ("native_assets.py", "asset_batch.py"):
-            tree = parse(ROOT / filename)
+            tree = parse(entity_file(filename[:-3]))
             calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
                      and isinstance(node.func, ast.Name) and node.func.id == "Card"]
             self.assertTrue(calls, f"{filename} 的配置承载区必须使用统一 Card")
@@ -99,7 +99,7 @@ class CardBoundaryTests(unittest.TestCase):
         self.assertGreaterEqual(len(calls), 6, "桌面页的信息块必须使用统一 Card")
 
     def _assert_settings_card(self, filename, function_name="show"):
-        tree = parse(ROOT / filename)
+        tree = parse(entity_file(filename[:-3]))
         imported = {
             alias.name for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
             and node.module == "ui_widgets" for alias in node.names

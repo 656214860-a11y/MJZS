@@ -415,7 +415,7 @@ class _AssetControls:
 
     def account(self):
         if self.model.get()=='Seedream 5.0 Pro':
-            from seedream_settings import show
+            from ui.seedream_settings import show
             show(self.win,on_saved=self.update_hint)
         else:
             from cloud_assets_dialog import settings
@@ -481,7 +481,7 @@ class _AssetControls:
             try:options['seedream_profile']=load_profile()['profile_id']
             except ValueError as exc:
                 self.progress_text.set(str(exc));self.account();return
-            from seedream_settings import confirm_unsettled
+            from ui.seedream_settings import confirm_unsettled
             from domain.asset_context import generated_dir
             confirm_unsettled(self.win,generated_dir(self.base),[aid for aid,_ in items],'资产')
             self.progress_text.set(seedream_cost_preview(self.project, self.base, items, options))

@@ -15,7 +15,7 @@ import orchestrator.stage_handler_registry as stage_handler_registry
 class PetBridgeMixin:
     def pet_show_text(self,title,text,receipt=''):
         """宠物「查看详情」的只读文本：复用全程序唯一的只读文本窗口（prompt_window），不另造一个。"""
-        from prompt_window import show
+        from ui.prompt_window import show
         return show(self.win,title,text,status=self.status,receipt=receipt,button='复制详情')
     def pet_goto(self,stage):
         """宠物说「切到某一页」时真的把那页翻开（第 23 期）。
@@ -66,7 +66,7 @@ class PetBridgeMixin:
         if stage=='keyframe':return self.pet_frame_batch(trigger=trigger)
         name=PET_STAGE_POLL.get(stage)
         if name is None:return ''
-        import project_settings,pet_bus
+        import project_settings, pet_bus
         turn_on=getattr(project_settings,UNATTENDED_SWITCH.get(name,''),None)
         if callable(turn_on):
             try:turn_on(self.root,True)
