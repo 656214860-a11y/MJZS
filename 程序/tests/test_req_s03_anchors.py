@@ -11,7 +11,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-import file_cache
+import infra.file_cache as file_cache
 import stage_config
 from orchestrator import stage_handler_registry
 import stage_parallel

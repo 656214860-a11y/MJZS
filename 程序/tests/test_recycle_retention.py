@@ -13,10 +13,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-import storage_maintenance as storage
-
+import infra.storage_maintenance as storage
 from agent.core import save
-from storage_maintenance import (RECYCLE_RETENTION_DAYS, purge_expired_batches, recycle_base,
+from infra.storage_maintenance import (RECYCLE_RETENTION_DAYS, purge_expired_batches, recycle_base,
                                  recycle_paths)
 
 

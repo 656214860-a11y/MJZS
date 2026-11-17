@@ -5,7 +5,7 @@ from pathlib import Path
 import re
 import time
 from contextlib import ExitStack
-from file_cache import read_json_shared as read_cached
+from infra.file_cache import read_json_shared as read_cached
 from agent.core import read, restore_bytes, save_bytes, fingerprint
 
 def parse_result(raw):

@@ -10,7 +10,7 @@ from pathlib import Path
 
 from agent.core import read_json, save
 from contract.platform_tools import windows_registry
-from storage_maintenance import remove_private_file
+from infra.storage_maintenance import remove_private_file
 
 PROGRAM = Path(__file__).resolve().parents[1]
 SESSION_FILE = ('private', '账户', 'session.json')

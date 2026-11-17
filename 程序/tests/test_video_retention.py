@@ -8,9 +8,9 @@ from unittest.mock import patch
 
 import engine
 from contract import project_stages
-import storage_maintenance
+import infra.storage_maintenance as storage_maintenance
 from agent.core import save as save_json
-from storage_maintenance import (RETAIN_APPROVED, RETAIN_EDIT_SOURCE, RETAIN_FRESH, RETAIN_LATEST,
+from infra.storage_maintenance import (RETAIN_APPROVED, RETAIN_EDIT_SOURCE, RETAIN_FRESH, RETAIN_LATEST,
                                  RETAIN_LOCKED, RETAIN_UNSETTLED, VERSION_CLEAN_REASON,
                                  edit_source_versions, version_retention)
 

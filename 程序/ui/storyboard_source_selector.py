@@ -4,7 +4,7 @@
 从 storyboard_selection 拆出（R2311，J 路线 #20）：采用清单与偏好的读写留在 L3 的
 storyboard_selection，Tk 控件只在这里。
 """
-import app_logging
+import infra.app_logging as app_logging
 from pathlib import Path
 from agent.core import save
 from orchestrator.storyboard_selection import adopted, focus, writable_prefs

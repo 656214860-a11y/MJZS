@@ -12,7 +12,7 @@ from pathlib import Path
 
 from tkinter import ttk
 
-import app_logging
+import infra.app_logging as app_logging
 from agent.core import save_text
 from ui_tokens import FONTS, SPACING, TEXT_ROWS
 from ui_widgets import BaseDialog, DataTable, notify

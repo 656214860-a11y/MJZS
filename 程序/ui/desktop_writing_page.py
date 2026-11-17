@@ -9,7 +9,7 @@ import infra.pet_state as pet_state
 from dataclasses import dataclass
 from typing import Callable
 import time
-import app_logging
+import infra.app_logging as app_logging
 import tkinter as tk
 from tkinter import ttk
 from ui_tokens import COLORS, FONTS, SPACING

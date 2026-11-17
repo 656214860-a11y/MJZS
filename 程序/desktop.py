@@ -1,5 +1,5 @@
 """Shared, lazy project workspace. Standard-library-only desktop UI."""
-import app_logging
+import infra.app_logging as app_logging
 import orchestrator.page_navigation_controller as page_nav
 from ui.desktop_idea_menus import IdeaMenusMixin
 from ui.desktop_asset_pages import AssetPagesMixin, AssetPageServices
@@ -17,7 +17,7 @@ from ui.desktop_auto_flows import AutoFlowsMixin, UNATTENDED_NEXT, UNATTENDED_BA
 import os, shutil, queue, threading, subprocess, sys, time, uuid, hashlib, re, json, logging
 from datetime import date
 from pathlib import Path
-from file_cache import remove_temporary_file
+from infra.file_cache import remove_temporary_file
 from contract.storyboard_paths import media_root
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -379,7 +379,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         if not value:
             raise ValueError('请先填写自己的创意；灰色文字只是软件示例，不会保存到项目。')
         if path.is_file():
-            from file_cache import read_text
+            from infra.file_cache import read_text
             if read_text(path,encoding='utf-8')==value:
                 self.status.set('文字未改动，未创建新版本')
                 return path
@@ -397,7 +397,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         path=editor[0] if editor else None
         try:
             if not path or not Path(path).is_file():return ''
-            from file_cache import read_text
+            from infra.file_cache import read_text
             return read_text(path,encoding='utf-8').strip()
         except OSError:
             return ''

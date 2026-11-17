@@ -1,5 +1,5 @@
 """遵循 ui_components.md 的 Tk 组件入口。"""
-import app_logging
+import infra.app_logging as app_logging
 import os
 import tkinter as tk
 from tkinter import messagebox, ttk

@@ -4,7 +4,7 @@
 """
 from pathlib import Path
 
-import file_cache
+import infra.file_cache as file_cache
 from orchestrator.project_context_factory import project_context
 from orchestrator.stage_write_preparation_service import prepare_asset_write
 
@@ -22,7 +22,7 @@ def asset_batch_gateway():
 def asset_plan_gateway():
     """L3 为资产计划与续跑台账装配唯一的正式发布能力。"""
     from agent.core import save, save_bytes, save_text
-    from file_cache import remove_temporary_file
+    from infra.file_cache import remove_temporary_file
     return {'publish_json': save, 'publish_bytes': save_bytes,
             'publish_text': save_text, 'remove_file': remove_temporary_file}
 

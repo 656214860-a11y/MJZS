@@ -27,8 +27,8 @@ from pathlib import Path
 
 PROGRAM = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROGRAM))
-import app_logging  # noqa: E402
-import file_cache  # noqa: E402
+import infra.app_logging as app_logging  # noqa: E402
+import infra.file_cache as file_cache  # noqa: E402
 import run_selftests  # noqa: E402
 
 LOG = PROGRAM / "logs" / "auto_full_safe.log"

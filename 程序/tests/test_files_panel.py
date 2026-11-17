@@ -243,7 +243,7 @@ class FilesPanelTests(unittest.TestCase):
             self.assertGreater(wide_w, 200, '长文件名把面板撑宽')
             # 回归：删掉最长名文件并重扫后，面板宽必须回落——Treeview stretch 列
             # reqwidth 会锁成当时分配宽，靠 script_list.grid_propagate(False) 隔离。
-            from storage_maintenance import recycle_paths
+            from infra.storage_maintenance import recycle_paths
             recycle_paths(d.root, [target / long_name], '删除项目剧本')
             d.files_panel.refresh_file_index()
             deadline = time.monotonic() + 5

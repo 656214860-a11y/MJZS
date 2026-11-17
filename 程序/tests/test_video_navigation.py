@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 from agent.core import save
-from file_cache import clear
+from infra.file_cache import clear
 import video_navigation
 
 

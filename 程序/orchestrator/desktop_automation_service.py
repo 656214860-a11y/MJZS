@@ -6,7 +6,7 @@
 import time
 from collections import deque
 
-import app_logging
+import infra.app_logging as app_logging
 
 
 # 后台任务生命周期的唯一迁移清单。每一项都必须证明同一代次覆盖提交、替换、
@@ -578,7 +578,7 @@ class BackgroundTaskLifecycle:
 def inspect_project_storage(payload):
     """可恢复的只读盘点：只保存项目路径，不捕获窗口或当前项目。"""
     from pathlib import Path
-    from storage_maintenance import storage_summary
+    from infra.storage_maintenance import storage_summary
     from orchestrator.engine import adopted_edit_version
     if set(payload) != {'root'} or not isinstance(payload['root'], str):
         raise ValueError('存储盘点参数无效')

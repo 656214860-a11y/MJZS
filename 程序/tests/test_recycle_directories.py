@@ -10,7 +10,7 @@ from orchestrator.recycle_recovery_controller import RecycleRecoveryController
 from domain.recycle_recovery_service import list_batches, restore_batch
 from contract.service_contract import SystemError
 from stage_execution_service import project_registry_gateway
-from storage_maintenance import recycle_paths, restore_recycle_batch
+from infra.storage_maintenance import recycle_paths, restore_recycle_batch
 
 
 class RecycleDirectoryTests(unittest.TestCase):

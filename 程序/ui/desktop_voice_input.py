@@ -17,7 +17,7 @@ from __future__ import annotations
 import time
 import tkinter as tk
 
-import app_logging
+import infra.app_logging as app_logging
 from ui_tokens import COLORS, VOICE_POLL_MS
 
 

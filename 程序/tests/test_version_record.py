@@ -3,7 +3,7 @@ import re
 import unittest
 from pathlib import Path
 
-import app_logging
+import infra.app_logging as app_logging
 from contract import app_metadata
 
 PROGRAM = Path(__file__).resolve().parents[1]
@@ -19,7 +19,7 @@ class VersionRecordTests(unittest.TestCase):
         self.assertRegex(value, r'^(?:[0-9a-f]{10})?$')
 
     def test_startup_line_carries_version_and_commit(self):
-        source = (PROGRAM / 'app_logging.py').read_text(encoding='utf-8')
+        source = Path(app_logging.__file__).read_text(encoding='utf-8')
         self.assertIn('VERSION', source)
         self.assertIn('build_commit()', source)
 

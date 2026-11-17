@@ -19,7 +19,7 @@ import tkinter as tk
 from tkinter import ttk
 from pathlib import Path
 
-import app_logging
+import infra.app_logging as app_logging
 import domain.skill_command as skill_command
 import infra.ui_plugin_registry as ui_plugin_registry
 from contract import pet_bus

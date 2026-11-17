@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from agent import core, publication
-import file_cache
+import infra.file_cache as file_cache
 
 
 SCRIPT = r'''

@@ -13,7 +13,7 @@
     with clipboard_lock.hold():
         ...写／读剪贴板...
 """
-import app_logging
+import infra.app_logging as app_logging
 import os
 import time
 import threading

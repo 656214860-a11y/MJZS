@@ -1,0 +1,15 @@
+{
+  "round": 3227,
+  "commit_base": "72afa1e8",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k stdlib_closure copy_rules branch_coverage_floor",
+    "exit": 0,
+    "passed": 31,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T23:01:59"
+}

@@ -311,7 +311,7 @@ class FilesPanelIndexMixin:
             len(paths), '\n'.join(path.name for path in paths))
         if not self.page.writing_page_services.confirm(self.page.win, '移入回收站', prompt, dangerous=True):
             return
-        from storage_maintenance import recycle_paths
+        from infra.storage_maintenance import recycle_paths
         recycled = recycle_paths(self.page.root, paths, '删除选中的项目文件')
         from infra import file_index
         succeeded = [record['source'] for record in recycled if isinstance(record, dict) and record.get('source')]

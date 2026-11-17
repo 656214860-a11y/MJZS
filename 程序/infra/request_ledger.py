@@ -14,7 +14,7 @@ import threading
 from contextlib import contextmanager
 from pathlib import Path
 
-import app_logging
+import infra.app_logging as app_logging
 import contract.stage_layout as stage_layout
 from agent.core import save, read
 

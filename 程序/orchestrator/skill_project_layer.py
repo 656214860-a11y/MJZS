@@ -11,7 +11,7 @@ import re
 import time
 from pathlib import Path
 
-from file_cache import read_json
+from infra.file_cache import read_json
 from contract.stage_layout import SKILL_CONFIG_NAME
 
 # 阶段文件夹是 SKILL 的物理归档口径。前置零的编号必须与 12 阶段顺序保持一致；

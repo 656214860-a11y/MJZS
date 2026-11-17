@@ -66,9 +66,8 @@ def _read_limited(response, limit):
 
 
 def _default_opener():
-    import urllib.request
-    from infra.api_endpoints import no_redirect
-    return urllib.request.build_opener(no_redirect())
+    from contract.platform_tools import RequestsJsonOpener
+    return RequestsJsonOpener()
 
 
 _OPTION_KEYS = frozenset({'retries', 'retry_statuses', 'max_bytes',
@@ -146,6 +145,8 @@ def request_json(method, url, *, headers=None, payload=None, timeout, **opts):
                 error_json = _json.loads(error_body)
             except Exception:
                 error_body = error_body or ''
+            finally:
+                exc.close()
             last = (code, status, error_body)
             retryable = lookup(code).retryable and status in retry_statuses
             if not retryable or attempt >= attempts:

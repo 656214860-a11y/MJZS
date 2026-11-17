@@ -3,7 +3,7 @@
 组合框只读保护、Tcl async handler 的解释器句柄保留、worker 线程里被回收的 Tk 对象排队到主线程释放。
 模块级状态 _PENDING_TK_GC／_KEEP_APPS 随迁，desktop 按原名转回（同一对象，不复制）。
 """
-import app_logging
+import infra.app_logging as app_logging
 import threading
 import tkinter as tk
 

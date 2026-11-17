@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-import storage_maintenance as sm
+import infra.storage_maintenance as sm
 
 
 class StorageSafetyTests(unittest.TestCase):
@@ -205,7 +205,7 @@ class StorageSafetyTests(unittest.TestCase):
             self.assertEqual(json.loads(manifest.read_text(encoding='utf-8'))['reason'],'删除项目剧本')
 
     def test_recycle_and_restore_invalidate_both_file_locations(self):
-        import file_cache
+        import infra.file_cache as file_cache
         with tempfile.TemporaryDirectory() as td:
             root = Path(td); source = root / '01剧本准备' / '剧本.json'
             source.parent.mkdir(parents=True); source.write_text('{"version": 1}', encoding='utf-8')

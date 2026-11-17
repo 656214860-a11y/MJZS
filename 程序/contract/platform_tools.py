@@ -509,6 +509,112 @@ def open_https(url, *, timeout=60, data=None, headers=None, method=None, context
     return opener.open(request, timeout=timeout)
 
 
+def _requests_failure(error):
+    """Expose only safe transport messages; callers retain the original cause."""
+    import requests
+    import urllib.error
+    from urllib3.exceptions import TimeoutError as ReadTimeout
+    if isinstance(error, (requests.exceptions.Timeout, ReadTimeout, TimeoutError)):
+        return TimeoutError('network request timed out')
+    return urllib.error.URLError('network request failed')
+
+
+class _RequestsJsonResponse:
+    """Bounded decoded reads and one owner for the response/session lifetime."""
+    def __init__(self, response, session):
+        self.response, self.session = response, session
+        self.status, self.headers = response.status_code, response.headers
+
+    def read(self, size=-1):
+        import requests
+        from urllib3.exceptions import HTTPError
+        try:
+            return self.response.raw.read(size, decode_content=True)
+        except (requests.exceptions.RequestException, HTTPError, OSError) as error:
+            self.close()
+            raise _requests_failure(error) from error
+
+    def close(self):
+        session, self.session = self.session, None
+        if session is not None:
+            try:
+                self.response.close()
+            finally:
+                session.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_exc):
+        self.close()
+
+
+def _requests_tls_adapter(verify):
+    """Default trust is system + certifi; an explicit CA path replaces both."""
+    import certifi
+    import ssl
+    from requests.adapters import HTTPAdapter
+
+    if verify is True:
+        context = ssl.create_default_context()
+        context.load_verify_locations(certifi.where())
+    else:
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        locations = {'capath' if os.path.isdir(verify) else 'cafile': verify}
+        context.load_verify_locations(**locations)
+
+    class VerifiedAdapter(HTTPAdapter):
+        def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
+            pool_kwargs['ssl_context'] = context
+            return super().init_poolmanager(connections, maxsize, block=block, **pool_kwargs)
+
+        def proxy_manager_for(self, proxy, **proxy_kwargs):
+            proxy_kwargs.update(ssl_context=context, proxy_ssl_context=context)
+            return super().proxy_manager_for(proxy, **proxy_kwargs)
+
+        def build_connection_pool_key_attributes(self, request, verify, cert=None):
+            # requests >= 2.32 otherwise replaces the manager's context with certifi-only trust.
+            host, pool = super().build_connection_pool_key_attributes(request, verify, cert)
+            pool['ssl_context'] = context
+            return host, pool
+
+    return VerifiedAdapter(max_retries=0)
+
+
+class RequestsJsonOpener:
+    """urllib Request/.open adapter; retries and redirects stay in the caller."""
+    def open(self, request, timeout=None):
+        import urllib.error
+        if os.environ.get('DRAMA_SUPPRESS_NETWORK') == '1':
+            raise urllib.error.URLError('network suppressed')
+        import requests
+        session, response = requests.Session(), None
+        try:
+            # Empty auth tuples are falsy and still permit netrc to replace Authorization.
+            session.auth = lambda prepared: prepared
+            prepared = session.prepare_request(requests.Request(
+                request.get_method(), request.full_url, data=request.data, headers=dict(request.header_items())))
+            settings = session.merge_environment_settings(prepared.url, {}, True, True, None)
+            adapter = _requests_tls_adapter(settings['verify'])
+            for scheme in ('http://', 'https://'):
+                session.mount(scheme, adapter)
+            # Session.send builds _next even with redirects disabled, consuming redirect bodies.
+            response = session.get_adapter(prepared.url).send(prepared, timeout=timeout, **settings)
+        except BaseException as error:
+            try:
+                if response is not None:
+                    response.close()
+            finally:
+                session.close()
+            if isinstance(error, (requests.exceptions.RequestException, OSError)):
+                raise _requests_failure(error) from error
+            raise
+        result = _RequestsJsonResponse(response, session)
+        if not 200 <= response.status_code < 300:
+            raise urllib.error.HTTPError(request.full_url, response.status_code, response.reason, response.headers, result)
+        return result
+
+
 class WebSocketRefused(OSError):
     """握手没拿到 101：``status`` 是服务端返回的 HTTP 状态码。"""
     def __init__(self, status):

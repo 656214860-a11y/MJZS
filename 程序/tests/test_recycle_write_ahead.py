@@ -7,8 +7,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-import storage_maintenance
-from storage_maintenance import (BATCH_COMMITTED, BATCH_PLANNED, BATCH_ROLLED_BACK,
+import infra.storage_maintenance as storage_maintenance
+from infra.storage_maintenance import (BATCH_COMMITTED, BATCH_PLANNED, BATCH_ROLLED_BACK,
                                  ITEM_FAILED, ITEM_MOVED, ITEM_PLANNED, ITEM_UNDONE,
                                  read_recycle_batch, recycle_paths,
                                  restore_latest_recycled_path, restore_recycle_batch,

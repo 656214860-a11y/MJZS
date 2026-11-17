@@ -29,7 +29,7 @@ class LocalVideoSettingsServiceTests(unittest.TestCase):
         self.assertEqual(updated['video_backend'], 'comfy')
 
     def test_publication_invalidates_workflow_and_config_cache_entries(self):
-        import file_cache
+        import infra.file_cache as file_cache
         file_cache.read_json(self.config)
         updated = publish_local_video_settings(self.project, read(self.config),
                                                {'workflow': str(self.source)})

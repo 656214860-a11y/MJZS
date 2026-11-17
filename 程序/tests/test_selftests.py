@@ -110,6 +110,24 @@ assert len(tk._drama_wanted_topmost) == 0
         self.assertEqual(units, original)
         self.assertEqual(run_selftests.split_performance_units([]), ([], []))
 
+    def test_soak_light_moves_to_performance_without_changing_other_units_or_order(self):
+        units = [('service#1', 'test_stage_parallel', ['first']),
+                 ('soak#1', 'test_soak_light', ['thread_budget']),
+                 ('startup', 'test_desktop_startup_perf', ['first_paint']),
+                 ('service#2', 'test_stage_parallel', ['second']),
+                 ('baseline', 'test_perf_baseline', None),
+                 ('soak#2', 'test_soak_light', ['memory_budget'])]
+        original = list(units)
+        remaining = [unit for unit in units if unit[1] != 'test_soak_light']
+        previous_normal, previous_perf = run_selftests.split_performance_units(remaining)
+        normal, perf = run_selftests.split_performance_units(units)
+        self.assertEqual(normal, [units[0], units[3]])
+        self.assertEqual(perf, [units[1], units[2], units[4], units[5]])
+        self.assertEqual(normal, previous_normal)
+        self.assertEqual([unit for unit in perf if unit[1] != 'test_soak_light'], previous_perf)
+        self.assertEqual(sorted(map(id, normal + perf)), sorted(map(id, units)))
+        self.assertEqual(units, original)
+
     def test_safe_split_identifies_tk_units(self):
         units = [('service', 'test_service', None), ('window', 'test_window', None)]
         with mock.patch.object(selftest_discovery, 'gui_test_module', side_effect=lambda name: name == 'test_window'):
@@ -176,7 +194,7 @@ class WorkerCleanupTests(unittest.TestCase):
 
     def test_cleanup_failure_leaves_swallowed_trace(self):
         """缩略图工作单元清理失败必须经 app_logging.swallowed 留痕，不能无声吞掉。"""
-        import app_logging
+        import infra.app_logging as app_logging
         import asset_thumbs
         app_logging._recent_swallowed.clear()
         before = len(app_logging._recent_swallowed)

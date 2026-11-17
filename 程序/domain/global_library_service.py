@@ -99,7 +99,7 @@ def _rollback(root, target, identity):
     """不处理旧文件、源文件或已被用户替换/编辑的副本。"""
     _checked(target, root)
     if target.exists() and _identity(target) == identity:
-        from storage_maintenance import recycle_paths
+        from infra.storage_maintenance import recycle_paths
         recycle_paths(root, [target], '复制失败：全局素材库回收本次新建副本')
 
 
@@ -144,7 +144,7 @@ def copy_to_library(project, relative_path, library):
 
 def _record_source(project, relative_path, library, target_path, *, saver=None):
     """登记库来源及重名后的实际副本路径，同一来源仍只保留一条登记。"""
-    from file_cache import read_json
+    from infra.file_cache import read_json
     manifest = stage_layout.shared_paths(project)['root'] / SHARED_SUB / SOURCE_MANIFEST
     _checked(manifest, project)
     data = read_json(manifest) if manifest.is_file() else {}

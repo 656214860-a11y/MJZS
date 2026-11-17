@@ -33,7 +33,7 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 
-from file_cache import read_json
+from infra.file_cache import read_json
 
 ENGINES = {'codex': 'ChatGPT / Codex', 'qwen': 'Qwen Code（阿里云）', 'claude': 'Claude Code'}
 # -p 那一次的判据按引擎分（见 workflow_engines.run_background 的两支）：
@@ -356,7 +356,7 @@ def main(argv=None):
     try:
         row = probe(engine, program=program, model=model, offline=dry, workdir=folder)
     finally:
-        from file_cache import remove_temporary_tree
+        from infra.file_cache import remove_temporary_tree
         remove_temporary_tree(folder)
     print('  ' + summary(row))
     for flag, known in sorted(row.get('flags', {}).items()):

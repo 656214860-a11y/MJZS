@@ -18,7 +18,7 @@
 import hashlib
 from pathlib import Path
 
-from file_cache import read_json
+from infra.file_cache import read_json
 from contract.asset_contract import missing_ids
 from contract.asset_contract import normalize as normalize_asset
 from contract.shot_batches import check_batches, validate as validate_shot

@@ -274,7 +274,7 @@ def update_planned(episode_dir,aid,values,*,gateway=None):
 
 def _adopted_storyboard_shots(project):
     """采用分镜里的 (episode_id, 分镜路径, 镜头)，读不动或没有采用就跳过。"""
-    from file_cache import read_json
+    from infra.file_cache import read_json
     from domain.storyboard_adoption_contract import adopted
     rows = []
     for path in adopted(project):

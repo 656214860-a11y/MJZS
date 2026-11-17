@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from storage_maintenance import (recycle_paths, restore_recycle_batch,
+from infra.storage_maintenance import (recycle_paths, restore_recycle_batch,
                                  restore_latest_recycled_child, restore_latest_recycled_path)
 from storyboard_files import latest_recycle_batch, restore_latest_recycled_files
 

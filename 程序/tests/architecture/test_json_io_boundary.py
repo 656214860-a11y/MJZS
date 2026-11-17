@@ -16,7 +16,7 @@ class JsonIoBoundaryTests(unittest.TestCase):
         """L2 进度轮询不得退回裸读写，正式发布器必须由 L3 注入。"""
         self.assertEqual(LAYERS['previs_progress_service'], 2)
         source = entity_file('previs_progress_service').read_text(encoding='utf-8')
-        self.assertIn('from file_cache import read_json', source)
+        self.assertIn('from infra.file_cache import read_json', source)
         self.assertIn('data = read_json(path)', source)
         self.assertIn("if not callable(publish_text):", source)
         self.assertIn('publish_text(path, json.dumps(data, ensure_ascii=False))', source)

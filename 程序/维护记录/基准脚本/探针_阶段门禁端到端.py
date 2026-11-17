@@ -25,7 +25,7 @@ def run_probe():
     from contract.storyboard_paths import media_root
     import stage_parallel
     import stage_layout
-    import storage_maintenance
+    import infra.storage_maintenance as storage_maintenance
     import white_model_service
 
     with tempfile.TemporaryDirectory(prefix="stage-gate-e2e-") as temporary:
@@ -76,7 +76,7 @@ def run_probe():
         # SG-A／SG-B 此前不在探针覆盖内，这里补上真实证据：
         # SG-A 只要已采用分镜且镜头字段齐全；SG-B 要 Animatic 清单＋源版本一致＋三项人工确认。
         verify_gate("SG-A", "storyboard", "animatic")
-        from file_cache import file_digest
+        from infra.file_cache import file_digest
         from contract.stage_path_service import write_dir
         animatic_folder = write_dir(project, "animatic")
         animatic_folder.mkdir(parents=True, exist_ok=True)

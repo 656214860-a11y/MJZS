@@ -5,7 +5,7 @@
 import os
 from pathlib import Path
 
-import app_logging
+import infra.app_logging as app_logging
 from agent.core import save_bytes
 
 SLOTS = 20

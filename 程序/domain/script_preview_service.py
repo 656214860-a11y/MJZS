@@ -27,7 +27,7 @@ def read_preview(path, empty=''):
         source = Path(path) if path else None
         if source is None or not source.is_file():
             return empty
-        from file_cache import read_text
+        from infra.file_cache import read_text
         return read_text(source, encoding='utf-8-sig')
     except (OSError, UnicodeError):
         return READ_ERROR

@@ -543,7 +543,7 @@ class IndexLifecycleTests(StageRailTests):
 
     def test_selected_filtered_file_recycles_without_deleting_project(self):
         from unittest.mock import patch
-        from storage_maintenance import recycle_base
+        from infra.storage_maintenance import recycle_base
         panel = self.desktop.files_panel
         root = Path(self.desktop.root)
         target = root / '05资产管理/assets/仅删此文件.md'

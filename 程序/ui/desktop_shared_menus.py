@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import tkinter as tk
 
-import app_logging
+import infra.app_logging as app_logging
 from ui.ui_icons import IconLoader
 from ui_popup import monitor_bounds
 from ui_tokens import COLORS, FONTS, ICON_DOCUMENT, ICON_FONT, SPACING

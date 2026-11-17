@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """自检的调度：跨树 PID/GUI 令牌与等待队列、Tk 沉底保护、并行/串行工作池与单元超时回收。"""
 
-import app_logging
+import infra.app_logging as app_logging
 import importlib
 import io
 import json

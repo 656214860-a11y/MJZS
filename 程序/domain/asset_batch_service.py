@@ -4,7 +4,7 @@ import threading
 import uuid
 from pathlib import Path
 
-from file_cache import read_json
+from infra.file_cache import read_json
 from contract.project_context import ProjectContext
 
 KINDS = {'CHAR': ('characters', '角色'), 'LOC': ('scenes', '场景'),
@@ -138,7 +138,7 @@ def import_asset_image(base, project_root, aid, source, requirements, *, gateway
     except Exception:
         if old_dest is None:
             if dest.is_file():
-                from storage_maintenance import recycle_paths
+                from infra.storage_maintenance import recycle_paths
                 if not recycle_paths(project_root, (dest,), '资产导入索引失败回收'):
                     raise OSError('资产索引发布失败，且新导入图片未能安全回收')
         else:
@@ -148,7 +148,7 @@ def import_asset_image(base, project_root, aid, source, requirements, *, gateway
         raise
     finally:
         if temporary.exists():
-            from file_cache import remove_temporary_file
+            from infra.file_cache import remove_temporary_file
             remove_temporary_file(temporary)
     result = '已登记 ' + aid + ' · 图片已按资产编号命名'
     if source != renamed:
@@ -156,7 +156,7 @@ def import_asset_image(base, project_root, aid, source, requirements, *, gateway
             if gateway['file_hash'](source) != original_hash:
                 raise ValueError('原图在导入时被修改')
             if renamed == dest:
-                from storage_maintenance import recycle_paths
+                from infra.storage_maintenance import recycle_paths
                 if recycle_paths(project_root, [source], '导入资产后的原始副本'):
                     result += '；原始副本已移入回收站'
                 else:
@@ -227,7 +227,7 @@ def remove_asset_image(base, aid, *, gateway=None):
         raise ValueError('资产路径越界')
     if not path.is_file():
         raise ValueError('图片文件已不存在，请刷新列表')
-    from storage_maintenance import recycle_paths, restore_latest_recycled_path
+    from infra.storage_maintenance import recycle_paths, restore_latest_recycled_path
     if not recycle_paths(base, (path,), '删除资产图片'):
         raise OSError('图片未能安全移入项目回收站')
     updated = dict(assets)
@@ -261,7 +261,7 @@ def restore_asset_image(base, aid, *, gateway=None):
     folder = (base / 'assets' / kind[0]).resolve()
     if not folder.is_relative_to(base):
         raise ValueError('资产恢复目录越界')
-    from storage_maintenance import recycle_paths, restore_latest_recycled_child
+    from infra.storage_maintenance import recycle_paths, restore_latest_recycled_child
     restored = []
     try:
         restored = restore_latest_recycled_child(

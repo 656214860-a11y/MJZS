@@ -98,7 +98,7 @@ class AnimaticTests(unittest.TestCase):
 
     def test_evidence_streams_large_media_without_reading_bytes(self):
         """REQ-S04-43：大媒体校验走流式摘要（file_cache.file_digest），mp4／临时音频／镜头图都不整份读进内存。"""
-        import file_cache
+        import infra.file_cache as file_cache
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             source = root / 'storyboard_draft.json'

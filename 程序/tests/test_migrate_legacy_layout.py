@@ -235,7 +235,7 @@ class TransactionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = project(tmp)
             before = active_snapshot(root)
-            from storage_maintenance import recycle_paths
+            from infra.storage_maintenance import recycle_paths
             calls = []
             def fail_once(*args, **kwargs):
                 calls.append(True)

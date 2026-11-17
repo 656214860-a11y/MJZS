@@ -7,11 +7,11 @@ HTTP 服务，按这一批的 state（状态、Blender 脚本写出来的进度 
 
 工作线程只写 state（status／progress／progress JSON），这一页只读；两边不共享 Tk 上下文。
 """
-import app_logging
+import infra.app_logging as app_logging
 import html,threading,time,webbrowser
 from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 from pathlib import Path
-from file_cache import read_json
+from infra.file_cache import read_json
 
 TITLE = '白模预演 · 制作监视页'
 NOTE = ('这一页由助手在本机生成：只看不改，每 %d 秒自己刷一次。关掉浏览器不影响制作；'

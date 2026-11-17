@@ -1,7 +1,7 @@
 """已采用分镜的下游选择数据，不依赖 Tk 控件。"""
 from pathlib import Path
 
-from file_cache import read_json
+from infra.file_cache import read_json
 from domain.storyboard_catalog_service import file_order
 
 

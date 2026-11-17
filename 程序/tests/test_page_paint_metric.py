@@ -15,7 +15,7 @@ os.chdir(HERE)
 
 from skip_reasons import PLATFORM_TKINTER, PLATFORM_TK_DISPLAY
 
-import app_logging
+import infra.app_logging as app_logging
 
 
 class PagePaintMetricTests(unittest.TestCase):

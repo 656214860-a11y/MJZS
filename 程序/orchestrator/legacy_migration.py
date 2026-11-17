@@ -263,7 +263,7 @@ def _json_bytes(data):
 
 
 def _documents(root, inventory, *, readonly=False):
-    from file_cache import read_json
+    from infra.file_cache import read_json
     docs = {}
     for relative in inventory:
         if Path(relative).suffix.lower() != '.json':
@@ -388,7 +388,7 @@ def _check_snapshot(root, inventory):
 
 
 def _pending(root, *, readonly=False):
-    from file_cache import read_json
+    from infra.file_cache import read_json
     base = stage_layout.workflow_dir(root, BACKUP_DIR_NAME)
     if base.exists():
         _no_links(base)
@@ -405,7 +405,7 @@ def _pending(root, *, readonly=False):
 
 def _publish(root, batch, journal, ops, writes, deleted):
     from agent.core import save_file, save_text
-    from storage_maintenance import recycle_paths
+    from infra.storage_maintenance import recycle_paths
     for op in ops:
         target = _reference(op['source'], root, journal['moves'])
         if op['action'] != 'skip' and target not in writes:
@@ -498,8 +498,8 @@ def apply(project, ops, *, dry_run=False):
 def rollback(project, stamp):
     """Recover an interrupted/committed batch from its immutable complete backup."""
     from agent.core import save_file
-    from file_cache import read_json
-    from storage_maintenance import recycle_paths
+    from infra.file_cache import read_json
+    from infra.storage_maintenance import recycle_paths
     root = _root(project)
     batch = _path(root, stage_layout.workflow_dir(root, BACKUP_DIR_NAME, stamp).relative_to(root).as_posix())
     _no_links(batch / 'journal.json')

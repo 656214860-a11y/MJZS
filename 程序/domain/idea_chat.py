@@ -205,7 +205,7 @@ def import_downloaded_documents(root, folder, provider='', model='', *, publish=
     if not callable(publish):
         raise TypeError('收回下载文件需要由 L3 注入发布器。')
     import time
-    import storage_maintenance
+    import infra.storage_maintenance as storage_maintenance
     from contract.script_contract import project_name, stage_file_info
     from contract.stage_path_service import write_dir
     source = Path(folder)

@@ -26,7 +26,7 @@
 """
 from __future__ import annotations
 
-import app_logging
+import infra.app_logging as app_logging
 import hashlib
 import os
 import re
@@ -45,7 +45,7 @@ from contract import platform_tools
 from ui.skill_security_service import (  # T9 安全提示助手；re-export 供调用方走本模块名
     ALERT_DIR_NAMES, EXECUTABLE_ALERT_SUFFIXES, import_alerts, package_alerts,
     untrusted_source_notice)
-from storage_maintenance import recycle_paths, restore_recycle_batch
+from infra.storage_maintenance import recycle_paths, restore_recycle_batch
 
 LEDGER_NAME = '导入台账.json'
 STAGING_PREFIX = '.导入中-'

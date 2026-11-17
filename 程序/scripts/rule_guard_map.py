@@ -18,7 +18,7 @@ from pathlib import Path
 
 PROGRAM = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROGRAM))
-import file_cache  # noqa: E402
+import infra.file_cache as file_cache  # noqa: E402
 
 AGENTS = PROGRAM / 'AGENTS.md'
 BASELINE = PROGRAM / '维护记录' / '规则守卫基线.json'

@@ -68,7 +68,7 @@ def content_preview(path):
     path = Path(path)
     try:
         if path.suffix.lower() == '.json':
-            from file_cache import read_json
+            from infra.file_cache import read_json
             data = read_json(path)
             if isinstance(data, dict):
                 return _board_preview(path, data)
@@ -158,7 +158,7 @@ def resolve_source(context, path):
 
 def check_adoptable(paths):
     """Validate every selected storyboard before an adoption command mutates preferences."""
-    from file_cache import read_json
+    from infra.file_cache import read_json
     from domain.storyboard_adoption_contract import problem_text
     from contract.storyboard_paths import media_root
     from domain.writing import validate_episode
@@ -220,7 +220,7 @@ def _shot_rows(data):
 
 def _generated_video_shots(project):
     """已生成过视频的镜头编号：项目本地与云端工作集的任务状态文件（只读）。"""
-    from file_cache import read_json
+    from infra.file_cache import read_json
     project = Path(project)
     roots = [project]
     try:
@@ -271,7 +271,7 @@ def adoption_impact(context, paths):
     ``{'episodes': [...], 'frames': [...], 'videos': [...], 'summary': str}``。
     只读：不改采用清单、不改资产、不删文件、不改镜头编号。
     """
-    from file_cache import read_json
+    from infra.file_cache import read_json
     from domain.storyboard_adoption_contract import adopted as adopted_paths
     from contract.storyboard_paths import media_root
     project = _context(context).root.resolve()
@@ -392,7 +392,7 @@ def linked_path(context, value):
 
 def board_source_script(context, board):
     """Return a board's real source script, including the legacy generic-name bridge."""
-    from file_cache import read_json
+    from infra.file_cache import read_json
     context = _context(context)
     try:
         data = read_json(Path(board))
@@ -449,7 +449,7 @@ def catalog_snapshot(context, ignored=IGNORED):
 
 def _catalog(context, kind, ignored, *, completed=None, sources=None, previews=False):
     from contract.artifact_lineage import MISSING, STALE, check
-    from file_cache import read_json
+    from infra.file_cache import read_json
     from contract.project_stages import writing, structure, storyboard, stage
     from contract.storyboard_paths import is_final_dir
     from domain.writing import duration_gap

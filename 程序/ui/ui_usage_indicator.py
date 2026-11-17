@@ -10,7 +10,7 @@
 """
 import tkinter as tk
 
-import app_logging
+import infra.app_logging as app_logging
 from ui_tokens import COLORS, FONTS, SPACING
 from infra.usage_snapshot import abbr_number, get_snapshot, money_amount, money_text
 

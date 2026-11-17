@@ -1,11 +1,11 @@
 """Project-scoped engine profiles for the white-model production entry."""
-import app_logging
+import infra.app_logging as app_logging
 import os
 import re
 import shutil
 from pathlib import Path
 from agent.core import save
-from file_cache import read_json
+from infra.file_cache import read_json
 import orchestrator.skill_registry as skill_registry
 from orchestrator.skill_registry import nested_references as _nested_references, reference_row as _reference_row
 from orchestrator.skill_inline import (_charge_inline, _is_text_script, _recurse_references,
@@ -610,7 +610,7 @@ def validate_selected_skills(project, stage):
     """在解析前检查保留的选择，禁止把失效选择静默变成未勾选。"""
     import orchestrator.stage_config as stage_config
     import orchestrator.skill_registry as skill_registry
-    from file_cache import read_json
+    from infra.file_cache import read_json
     target = stage_config.path(project)
     data = read_json(target)
     if target.exists() and not isinstance(data, dict):

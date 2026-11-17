@@ -398,7 +398,7 @@ def _rename_references(project, source, target):
     """只更正已知路径字段；其他 JSON 中命中源路径则停止，不猜测其语义。"""
     from contract.stage_path_service import read_dirs
     from contract.script_contract import natural_script_selection_path
-    from file_cache import read_json
+    from infra.file_cache import read_json
     root = Path(project).absolute()
     selection = natural_script_selection_path(root)
     stages = tuple(read_dirs(root, 'script'))

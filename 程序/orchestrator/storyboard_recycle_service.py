@@ -2,7 +2,7 @@
 from pathlib import Path
 
 import contract.stage_layout as stage_layout
-from storage_maintenance import recycle_paths
+from infra.storage_maintenance import recycle_paths
 
 RECYCLE_REASON = '分镜页删除'    # 写进批次清单，「恢复最近删除」据此认出本页自己的批次
 
@@ -142,5 +142,5 @@ def restore_latest_recycled_files(project):
     if candidate is None:
         raise ValueError('没有可恢复的剧本或分镜删除记录')
     folder, names = candidate
-    from storage_maintenance import restore_recycle_batch
+    from infra.storage_maintenance import restore_recycle_batch
     return names, restore_recycle_batch(project, folder)

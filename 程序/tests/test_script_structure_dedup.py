@@ -33,7 +33,7 @@ def _patch_now(stamp):
 
 def _recycle(root):
     def supersede(paths):
-        from storage_maintenance import recycle_paths
+        from infra.storage_maintenance import recycle_paths
         recycle_paths(root, list(paths), '重新生成同源结构剧本，回收旧份')
     return supersede
 
@@ -63,7 +63,7 @@ class SameSourceDedupTests(unittest.TestCase):
                 latest = contract.write_structured_script(root, source=source, supersede=_recycle(root))
             self.assertEqual(contract.structured_script_paths(root), (latest,))
             self.assertFalse(old.exists(), '旧同源份应已移入回收站')
-            from storage_maintenance import recycle_base
+            from infra.storage_maintenance import recycle_base
             recycle = recycle_base(root)
             self.assertTrue(any(p.name == old.name for p in recycle.rglob('*.md')),
                             '回收站里应能找到旧同源份')
