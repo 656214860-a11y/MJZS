@@ -3,10 +3,12 @@ import ast
 import unittest
 from pathlib import Path
 
+from tests.architecture._scan import entity_file
+
 
 class WhiteModelServiceJsonBoundaryTests(unittest.TestCase):
     def test_read_record_uses_cache_for_formal_record(self):
-        source = Path(__file__).resolve().parents[2] / 'white_model_service.py'
+        source = entity_file('white_model_service')
         tree = ast.parse(source.read_text(encoding='utf-8'))
         imports = [node for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
                    and node.module == 'file_cache']
@@ -19,7 +21,7 @@ class WhiteModelServiceJsonBoundaryTests(unittest.TestCase):
         self.assertFalse(any(node.func.id == 'loads' for node in calls))
 
     def test_record_publication_is_injected_not_imported(self):
-        source = Path(__file__).resolve().parents[2] / 'white_model_service.py'
+        source = entity_file('white_model_service')
         tree = ast.parse(source.read_text(encoding='utf-8'))
         imports = [node for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)]
         self.assertFalse(any(node.module == 'agent.core' for node in imports))

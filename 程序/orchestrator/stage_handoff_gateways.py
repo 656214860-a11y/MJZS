@@ -3,7 +3,7 @@
 自 stage_execution_service 拆出；那边按原名重新导出，旧调用点与测试补丁点不变。
 """
 from pathlib import Path
-from project_context_factory import project_context
+from orchestrator.project_context_factory import project_context
 from contract.stage_path_service import write_dir
 from orchestrator.stage_publication import publish_stage_bundle
 from orchestrator.stage_publication import publish_stage_text
@@ -202,13 +202,13 @@ def verify_handoff_bundle(folder):
 
 def storyboard_adoption_impact(project, paths):
     """L3 注入项目上下文：候选分镜相对已采用分镜的只读影响预览。"""
-    from storyboard_catalog_service import adoption_impact
+    from domain.storyboard_catalog_service import adoption_impact
     return adoption_impact(project_context(project), paths)
 
 
 def asset_impact(project, aid, *, episode_dir=''):
     """L3 门面：资产变更影响视图（只读）。"""
-    from asset_plan import asset_impact as _impact
+    from domain.asset_plan import asset_impact as _impact
     return _impact(project, aid, episode_dir=episode_dir)
 
 
@@ -257,7 +257,7 @@ def publish_response_archive(project, text):
 
 def import_downloaded_creatives(context, provider='', model='', backups=None):
     """L3 编排：从本机「下载」文件夹收回桌面 Agent 窗口给出的同项目创作文件并发布。"""
-    from idea_chat import import_downloaded_documents
+    from domain.idea_chat import import_downloaded_documents
     from contract.platform_tools import downloads_directory
     return import_downloaded_documents(context, downloads_directory(), provider=provider, model=model,
                                        publish=publish_idea_creative, backups=backups)

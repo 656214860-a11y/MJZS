@@ -2,7 +2,7 @@
 import app_logging
 import tkinter as tk
 from tkinter import ttk, TclError
-from ui_scroll import eased_scroll
+from ui.ui_scroll import eased_scroll
 from ui_tokens import SPACING
 
 # 第 47 期第 1 条：内容框的「选中」统一口径（勾选／高亮）见下面 work_rows 那一组。

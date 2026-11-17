@@ -3,7 +3,7 @@ import ast
 import unittest
 from pathlib import Path
 
-from tests.architecture._scan import desktop_text
+from tests.architecture._scan import desktop_text, entity_file
 from tests.architecture._scan import stage_execution_source
 
 
@@ -16,7 +16,7 @@ class WritingPublicationBoundaryTests(unittest.TestCase):
             'writing_tools.py': {'write_file'},
             'writing_api.py': {'_write_script_raw'},
         }.items():
-            tree = ast.parse((ROOT / name).read_text(encoding='utf-8'))
+            tree = ast.parse(entity_file(Path(name).stem).read_text(encoding='utf-8'))
             rows = {node.name: node for node in tree.body if isinstance(node, ast.FunctionDef)}
             for function in functions:
                 node = rows[function]
@@ -32,7 +32,7 @@ class WritingPublicationBoundaryTests(unittest.TestCase):
         self.assertIn('from stage_execution_service import reply_to_writing', desktop_source)
 
     def test_preparation_bundle_requires_l3_publisher(self):
-        tree = ast.parse((ROOT / 'writing.py').read_text(encoding='utf-8'))
+        tree = ast.parse(entity_file('writing').read_text(encoding='utf-8'))
         prepare = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'prepare')
         names = {child.id for child in ast.walk(prepare) if isinstance(child, ast.Name)}
         self.assertIn('publish', names)
@@ -45,8 +45,8 @@ class WritingPublicationBoundaryTests(unittest.TestCase):
         self.assertIn('prepare_writing_project(self.root,text,stage.get(),duration.get())', app_source)
 
     def test_context_and_import_reports_require_l3_publishers(self):
-        context = (ROOT / 'workflow_context.py').read_text(encoding='utf-8')
-        writing = (ROOT / 'writing.py').read_text(encoding='utf-8')
+        context = entity_file('workflow_context').read_text(encoding='utf-8')
+        writing = entity_file('writing').read_text(encoding='utf-8')
         controller = (ROOT / 'orchestrator/workflow_context_controller.py').read_text(encoding='utf-8')
         stage = stage_execution_source()
         app = (ROOT / 'app.py').read_text(encoding='utf-8')

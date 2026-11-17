@@ -509,7 +509,7 @@ def _raw_block(desktop, aid):
         button.configure(text='资产 JSON 原文' + ('（收起）' if state['open'] else '（展开）'))
     button = SecondaryButton(holder, text='资产 JSON 原文（展开）', command=toggle)
     button.pack(anchor='w')
-    from asset_plan import plan_file
+    from domain.asset_plan import plan_file
     text = '{}'
     try:
         data = read(plan_file(desktop.root, _base(desktop)))

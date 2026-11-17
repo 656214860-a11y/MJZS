@@ -1,13 +1,13 @@
 """视频生成入口的正式项目 JSON 必须经统一缓存入口读取。"""
 import ast
 import unittest
-from pathlib import Path
+
+from tests.architecture._scan import entity_file
 
 
 class VideoNavigationJsonBoundaryTests(unittest.TestCase):
     def test_display_reader_wraps_file_cache(self):
-        source = Path(__file__).resolve().parents[2] / 'video_navigation.py'
-        text = source.read_text(encoding='utf-8')
+        text = entity_file('video_navigation').read_text(encoding='utf-8')
         tree = ast.parse(text)
         reader = next(node for node in tree.body
                       if isinstance(node, ast.FunctionDef) and node.name == 'read_json')

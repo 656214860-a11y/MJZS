@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import app_logging
-import skill_command
+import domain.skill_command as skill_command
 from contract import pet_bus
 from ui_tokens import SPACING
 
@@ -151,7 +151,7 @@ def _skill_items(desktop):
         except Exception:
             app_logging.swallowed()
     try:
-        import skill_registry
+        import orchestrator.skill_registry as skill_registry
         return list(skill_registry.default_registry().getAll())
     except Exception:
         return []
@@ -246,7 +246,7 @@ def _attachments(desktop):
 def _voice(desktop, box, button):
     """共享输入框的麦克风听写：VoiceInput 绑定共享 Text，按钮按原样式接线。"""
     try:
-        from desktop_voice_input import VoiceInput
+        from ui.desktop_voice_input import VoiceInput
     except Exception:
         return None
     voice = getattr(desktop, 'shared_voice', None)

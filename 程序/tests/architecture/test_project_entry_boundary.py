@@ -121,7 +121,7 @@ class ProjectEntryBoundaryTests(unittest.TestCase):
         self.assertNotIn('save(self.settings_file', remember)
         self.assertIn('project_choice_day', daily)
         self.assertIn('project_choice_path', daily)
-        service = (ROOT / 'desktop_settings_service.py').read_text(encoding='utf-8')
+        service = entity_file('desktop_settings_service').read_text(encoding='utf-8')
         self.assertIn('def publish_desktop_settings(', service)
 
     def test_startup_controller_module_stays_tk_free(self):

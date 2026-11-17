@@ -73,7 +73,7 @@ class SilentExceptionRatchet(unittest.TestCase):
 
     def test_swallowed_helper_is_used_widely(self):
         hits = sum(p.read_text(encoding='utf-8', errors='replace').count('app_logging.swallowed()')
-                   for p in PROGRAM.glob('*.py'))
+                   for p in _scanned_files())
         self.assertGreaterEqual(hits, 100)
 
 

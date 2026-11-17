@@ -5,6 +5,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from tests.architecture._scan import entity_file
+
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -30,7 +32,7 @@ class ServiceReturnContractBoundaryTests(unittest.TestCase):
         self.assertTrue(set(audit) <= set(ledger['exempt_items']))
         for module, names in expected.items():
             self.assertRegex(audit[module], r'^R\d+：')
-            tree = ast.parse((root / f'{module}.py').read_text(encoding='utf-8'))
+            tree = ast.parse(entity_file(module).read_text(encoding='utf-8'))
             self.assertEqual(names, {node.name for node in tree.body
                                     if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
                                     and not node.name.startswith('_')}, module)
@@ -118,7 +120,7 @@ class ServiceReturnContractBoundaryTests(unittest.TestCase):
             self.assertTrue(entries, name)
             for module, symbols in entries.items():
                 self.assertNotIn(module, missing)
-                source = ast.parse((root / (module + '.py')).read_text(encoding='utf-8-sig'))
+                source = ast.parse(entity_file(module).read_text(encoding='utf-8-sig'))
                 actual = {node.name for node in source.body
                           if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))}
                 self.assertTrue(symbols, module)
@@ -159,7 +161,7 @@ class ServiceReturnContractBoundaryTests(unittest.TestCase):
     def test_keyframe_lifecycle_is_registered_l2_and_uses_result_contract(self):
         from tests.architecture._layers import LAYERS
         self.assertEqual(LAYERS['keyframe_lifecycle_service'], 2)
-        tree = ast.parse((Path(ROOT) / 'keyframe_lifecycle_service.py').read_text(encoding='utf-8'))
+        tree = ast.parse(entity_file('keyframe_lifecycle_service').read_text(encoding='utf-8'))
         imports = {name.name for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
                    and node.module in {'service_contract', 'contract.service_contract'} for name in node.names}
         self.assertEqual(imports, {'SystemError', 'UserError', 'success'})

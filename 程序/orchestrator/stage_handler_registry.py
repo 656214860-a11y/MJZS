@@ -4,7 +4,7 @@
 选择与去重决策则由文件服务产出工作计划。
 """
 import app_logging
-import stage_flow
+import orchestrator.stage_flow as stage_flow
 from orchestrator.storyboard_plan_service import storyboard_work_plan
 
 
@@ -20,7 +20,7 @@ def _workflow_lock_error(project, stage, trigger):
         return ''
     if lock_stage(stage) not in STAGE_LOCK_REQUIREMENTS:
         return ''
-    import stage_config
+    import orchestrator.stage_config as stage_config
     required_keys = stage_lock_requirements(stage, stage_config.project_created_at(project))
     if not required_keys:
         return ''

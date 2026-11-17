@@ -1,16 +1,10 @@
-"""用户可见项目文件名：只展示日期，同日重复用序号避免覆盖。"""
-from datetime import datetime
-from pathlib import Path
+"""历史入口：实体已迁至 ``domain.project_naming``（T10 包化）。
 
+``import project_naming`` 返回 ``domain.project_naming`` 本体：私有名、模块级状态与
+按扁平名打的 ``mock.patch`` 补丁面和包内路径完全一致；生产侧一律用包路径。
+门面清除轮统一改写测试导入后删除本文件。
+"""
+import sys as _sys
+from domain import project_naming as _entity
 
-def dated_path(parent, prefix, suffix='', at=None):
-    """返回 ``前缀_YYYYMMDD[_序号]`` 的未占用路径，不暴露时分秒。"""
-    moment = datetime.fromtimestamp(at) if at is not None else datetime.now()
-    base = str(prefix) + '_' + moment.strftime('%Y%m%d')
-    parent = Path(parent)
-    candidate = parent / (base + suffix)
-    serial = 2
-    while candidate.exists():
-        candidate = parent / (base + '_' + str(serial) + suffix)
-        serial += 1
-    return candidate
+_sys.modules[__name__] = _entity

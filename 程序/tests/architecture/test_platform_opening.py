@@ -3,6 +3,8 @@ import ast
 import unittest
 from pathlib import Path
 
+from tests.architecture._scan import entity_file
+
 
 ROOT = Path(__file__).resolve().parents[2]
 MIGRATED = (
@@ -16,7 +18,7 @@ class PlatformOpeningTests(unittest.TestCase):
     def test_migrated_ui_modules_do_not_call_windows_startfile(self):
         offenders = []
         for name in MIGRATED:
-            tree = ast.parse((ROOT / name).read_text(encoding='utf-8'))
+            tree = ast.parse(entity_file(Path(name).stem).read_text(encoding='utf-8'))
             for node in ast.walk(tree):
                 func = node.func if isinstance(node, ast.Call) else None
                 if (isinstance(func, ast.Attribute) and func.attr == 'startfile'

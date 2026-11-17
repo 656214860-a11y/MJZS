@@ -3,21 +3,21 @@ import ast
 import os
 import unittest
 from pathlib import Path
-from tests.architecture._scan import stage_execution_source
+from tests.architecture._scan import entity_file, stage_execution_source
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 class CloudVideoSettingsBoundaryTests(unittest.TestCase):
     def test_l2_requires_l3_gateway_for_all_configuration_publication(self):
-        source = Path(ROOT, 'cloud_video_service.py').read_text(encoding='utf-8')
+        source = entity_file('cloud_video_service').read_text(encoding='utf-8')
         self.assertIn('def _require_gateway(gateway)', source)
         self.assertNotIn('from agent.core import read, save', source)
         service = stage_execution_source()
         self.assertIn('def cloud_video_gateway()', service)
 
     def test_settings_publication_delegates_to_service(self):
-        source = Path(ROOT, 'cloud_video.py').read_text(encoding='utf-8')
+        source = entity_file('cloud_video').read_text(encoding='utf-8')
         tree = ast.parse(source)
         methods = [node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)
                    and node.name in ('open_session', 'align_source', 'delete_model')]

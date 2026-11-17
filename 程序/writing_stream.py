@@ -1,32 +1,10 @@
-"""剧本对话的流式取回：线程内订阅文字片段，chat 协议走流式，其余协议和失败场景退回普通请求。"""
-from contextlib import contextmanager
-from contextvars import ContextVar
+"""历史入口：实体已迁至 ``domain.writing_stream``（T10 包化）。
 
-_STREAM_SINK = ContextVar('writing_stream_sink', default=None)
+``import writing_stream`` 返回 ``domain.writing_stream`` 本体：私有名、模块级状态与
+按扁平名打的 ``mock.patch`` 补丁面和包内路径完全一致；生产侧一律用包路径。
+门面清除轮统一改写测试导入后删除本文件。
+"""
+import sys as _sys
+from domain import writing_stream as _entity
 
-
-@contextmanager
-def stream_to(sink):
-    """本线程内的剧本对话改走流式：每个新增文字片段交给 ``sink``（在调用线程里被调用）。"""
-    token = _STREAM_SINK.set(sink)
-    try:
-        yield
-    finally:
-        _STREAM_SINK.reset(token)
-
-
-def chat_streaming(adapter, messages, options, model, system, cancelled=None):
-    """有人订阅且是 chat 协议就流式取回；还没收到任何文字就失败时退回普通请求，已出字的失败不再重发。"""
-    sink = _STREAM_SINK.get()
-    if sink is None or getattr(adapter, 'wire_api', '') != 'chat':
-        return adapter.chat(messages, options=options, model=model, system=system)
-    seen = []
-
-    def forward(chunk):
-        seen.append(chunk)
-        sink(chunk)
-    result = adapter.stream(messages, options=options, model=model, system=system,
-                            on_chunk=forward, cancelled=cancelled)
-    if not result.get('ok') and not seen and result.get('error_class') != 'cancelled':
-        return adapter.chat(messages, options=options, model=model, system=system)
-    return result
+_sys.modules[__name__] = _entity

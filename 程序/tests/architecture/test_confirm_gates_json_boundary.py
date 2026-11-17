@@ -3,7 +3,7 @@ import ast
 import os
 import unittest
 from pathlib import Path
-from tests.architecture._scan import stage_execution_source
+from tests.architecture._scan import entity_file, stage_execution_source
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -26,7 +26,7 @@ class ConfirmGatesJsonBoundaryTests(unittest.TestCase):
 
     def test_l4_confirmation_writes_delegate_to_l3(self):
         # R1622：门禁方法迁到 desktop_automation_tick（AutomationTickMixin），委托关系随之迁址。
-        l4 = '\n'.join((Path(ROOT) / name).read_text(encoding='utf-8')
+        l4 = '\n'.join(entity_file(Path(name).stem).read_text(encoding='utf-8')
                        for name in ('desktop.py', 'desktop_automation_tick.py'))
         self.assertIn('from stage_execution_service import record_stage_confirmation', l4)
         self.assertNotIn('from confirm_gates import record', l4)

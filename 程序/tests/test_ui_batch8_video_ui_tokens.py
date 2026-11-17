@@ -15,7 +15,7 @@ from __future__ import annotations
 import unittest
 
 from skip_reasons import PLATFORM_TKINTER
-from tests.architecture._scan import ROOT, parse
+from tests.architecture._scan import ROOT, entity_file, parse
 from tests.architecture.test_token_boundary import hex_color_count, numeric_padding_count
 
 # 本批开工前的实测基数（`tests/architecture/test_token_boundary.py` 同口径）：
@@ -29,14 +29,14 @@ class Batch8TokenTests(unittest.TestCase):
     def test_inline_hex_does_not_increase(self):
         for name in TARGETS:
             with self.subTest(file=name):
-                actual = hex_color_count(parse(ROOT / name))
+                actual = hex_color_count(parse(entity_file(name[:-3])))
                 self.assertLessEqual(actual, HEX_BEFORE[name],
                                      '{0} 内联 hex 颜色只能减少，实际 {1}'.format(name, actual))
 
     def test_numeric_padding_falls_to_zero(self):
         for name in TARGETS:
             with self.subTest(file=name):
-                actual = numeric_padding_count(parse(ROOT / name))
+                actual = numeric_padding_count(parse(entity_file(name[:-3])))
                 self.assertLessEqual(actual, PADDING_BEFORE[name],
                                      '{0} 数字 padding 只许减少'.format(name))
                 self.assertEqual(actual, 0,

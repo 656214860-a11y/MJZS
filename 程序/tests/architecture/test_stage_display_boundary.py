@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 import pet_bus
-from tests.architecture._scan import module_scan_files
+from tests.architecture._scan import entity_file, module_scan_files
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -36,7 +36,7 @@ class StageDisplayBoundaryTests(unittest.TestCase):
     }
 
     def test_desktop_pages_are_generated_from_canonical_stage_table(self):
-        source = (ROOT / 'desktop_page_registry.py').read_text(encoding='utf-8')
+        source = entity_file('desktop_page_registry').read_text(encoding='utf-8')
         self.assertIn('for index, stage in enumerate(pet_bus.STAGES, start=1)', source)
         self.assertIn('pet_bus.stage_name(stage)', source)
 
@@ -85,7 +85,7 @@ class StageDisplayBoundaryTests(unittest.TestCase):
     def test_display_sites_derive_stage_labels_from_authority(self):
         """已迁移的展示位点必须继续由权威标签现算，不得退回写死。"""
         for name, token in sorted(self.STAGE_LABEL_SITES.items()):
-            source = (ROOT / name).read_text(encoding='utf-8')
+            source = entity_file(Path(name).stem).read_text(encoding='utf-8')
             self.assertIn(token, source, '阶段展示必须由权威表现算：' + name)
 
 

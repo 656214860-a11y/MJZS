@@ -11,6 +11,7 @@
 运行：python test_static_names.py
 """
 import ast
+from tests.architecture._scan import PACKAGE_NAMES
 import builtins
 import os
 import sys
@@ -180,7 +181,12 @@ class ProjectTests(unittest.TestCase):
     """本项目所有模块都不许有这一类名字。"""
 
     def modules(self):
-        return sorted(Path(PROGRAM).glob('*.py'))
+        files = list(Path(PROGRAM).glob('*.py'))
+        for package in PACKAGE_NAMES:
+            directory = Path(PROGRAM) / package
+            if directory.is_dir():
+                files += [p for p in directory.rglob('*.py') if p.name != '__init__.py']
+        return sorted(files)
 
     def test_every_module_defines_the_names_it_uses(self):
         broken = []

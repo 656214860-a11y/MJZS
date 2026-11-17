@@ -1,0 +1,15 @@
+{
+  "round": 3024,
+  "commit_base": "cdb4a355",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k task_center_service usage_overview asset_generated_import_service projects cloud_video_service entitlement_service asset_resume edit_export keyframe_evidence storyboard_adoption_contract workflow_context script_workspace_service video_task_state writing_quality asset_plan keyframe_batch previs_routing project_naming storyboard_storage",
+    "exit": 0,
+    "passed": 122,
+    "failed": 0
+  },
+  "generated_at": "2026-11-16T20:48:51"
+}

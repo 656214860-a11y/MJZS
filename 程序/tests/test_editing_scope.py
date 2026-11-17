@@ -17,6 +17,7 @@ import stage_layout
 import stage_parallel
 import workflow_settings
 from skip_reasons import MISSING_FFMPEG
+from tests.architecture._scan import entity_file
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILL_DIR = ROOT / 'skills' / '12后期剪辑SKILL'
@@ -175,7 +176,7 @@ class EditingScopeTests(unittest.TestCase):
         self.assertEqual(result['spec']['width'], edit_export.PLATFORMS['douyin']['width'])
         self.assertNotIn('path', result)
         self.assertTrue(callable(engine.Studio.export_platform))
-        source = (ROOT / 'desktop_media_pages.py').read_text(encoding='utf-8')
+        source = entity_file('desktop_media_pages').read_text(encoding='utf-8')
         self.assertIn('export_platform', source)
 
 

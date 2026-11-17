@@ -7,7 +7,7 @@ from stage_execution_service import storyboard_catalog_snapshot as catalog_snaps
 from orchestrator.storyboard_recycle_service import (
     latest_recycle_batch, recycle_files, recycle_plan, restore_latest_recycled_files,
 )
-from storyboard_selection import adopted, prune_invalid_adoptions, remember_many, selected_many, summary
+from orchestrator.storyboard_selection import adopted, prune_invalid_adoptions, remember_many, selected_many, summary
 
 
 class StoryboardPageController:
