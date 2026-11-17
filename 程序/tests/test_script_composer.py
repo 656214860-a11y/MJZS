@@ -125,7 +125,7 @@ class ScriptComposerTests(unittest.TestCase):
                              '聚焦时外框描边变主题色')
             win.focus_set()
             try:
-                d.title_row.focus_set()
+                d.canvas.focus_set()   # R3016 起 title_row 已删，改用画布移走焦点
             except tk.TclError:
                 pass
             win.update()

@@ -353,7 +353,10 @@ class ProjectFilesPanel(WritingSnapshotsMixin):
         else:
             needed = SCRIPT_LIST_MIN_WIDTH
         try:
-            share = int(self.script_box.master.winfo_width() * SCRIPT_PANEL_MAX_SHARE)
+            # R3060：script_box.master 已是自适应宽度的 panel_dock，拿它当分母会形成
+            # 「面板宽→停靠列宽→上限」的循环；内容区宽度应量 panel_area（画布列同级外框）。
+            host = getattr(self.page, 'panel_area', None) or self.script_box.master
+            share = int(host.winfo_width() * SCRIPT_PANEL_MAX_SHARE)
         except tk.TclError:
             share = SCRIPT_PANEL_MAX_WIDTH
         cap = max(SCRIPT_LIST_MIN_WIDTH, min(share, SCRIPT_PANEL_MAX_WIDTH))
