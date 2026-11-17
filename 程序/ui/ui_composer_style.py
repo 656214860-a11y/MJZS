@@ -1,5 +1,5 @@
 """剧本准备页输入框样式（仿 Claude Code 桌面版），由 ui_widgets.setup_styles 调用。"""
-from ui.ui_rounded import rounded_photo
+from ui.ui_rounded import element_photo, rounded_photo
 from ui_tokens import COLORS, FONTS, ICON_FONT, ICON_FONT_SMALL, RADIUS, ROUND_TILE_BUTTON, SPACING
 
 
@@ -46,7 +46,9 @@ def install_composer_styles(style, root, configure_button):
                       active_background=COLORS["primary_hover"], active_foreground=card,
                       pressed_background=COLORS["primary_pressed"],
                       padding=(SPACING["sm"], SPACING["xs"]))
-    # 方形图元不做九宫格拉伸：圆角半径等于边长的一半。
+    # 方形图元不做九宫格拉伸：圆角半径等于边长的一半。发送键圆环是定长图元而非平铺底图，
+    # 走 element_photo 的独立缓存，不进 _drama_rounded_cache（该缓存被 test_ui_modern_system
+    # 断言为可平铺大图）。
     size = SPACING["2xl"]
     radius = size // 2
     ring = {}
@@ -54,7 +56,7 @@ def install_composer_styles(style, root, configure_button):
                           ("active", COLORS["primary"]),
                           ("disabled", COLORS["disabled_text"]),
                           ("focus", COLORS["focus"])):
-        ring[state], _ = rounded_photo(root, card, radius, size, size,
+        ring[state], _ = element_photo(root, card, radius, size, size,
                                        border=border, border_width=1)
     element = "Drama.Composer.SendRing"
     if element not in style.element_names():

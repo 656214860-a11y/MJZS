@@ -38,7 +38,7 @@
 - [x] 与 ✦＋🎤 同一档尺寸，在输入框图标行里垂直居中、间距一致（真 Tk 量几何）。 → `test_send_outline_is_circular_and_matches_icon_row` 断言宽≈高（圆）、与 `voice_button` 垂直中心 Δ≤3px、style map 四态映射，R3241。
 - [x] 点击发送、Enter 发送、运行中点终止、Esc 终止的行为不变。 → 行为类断言全部保持原样；`update_script_interrupt_button()` 只换字形与 command 映射；定向复测 222/222，R3241。
 - [x] 输入框其余图标的外观未变。 → 仅 `send`/`stop` 两 PNG 全仓零引用后删除，✦＋🎤 仍走 `ICON_FONT`/`Icon.TButton`；`test_shared_input_ui` 其余断言未动，R3241。
-- [x] `test_script_composer`、`test_shared_input_ui`、`test_idea_chat` 全绿；结果文件逐条列出被改写的断言及原因。 → 222/222 全绿；契约变化逐条列于 R3241 结果文件「测试契约变化」节（新增圆形几何断言 1 条、听写样式 `Send→Listening.TButton` 同步 1 处、icon_source 基线 3→4 注明样式拆分）。
+- [x] `test_script_composer`、`test_shared_input_ui`、`test_idea_chat` 全绿；结果文件逐条列出被改写的断言及原因。 → 222/222 全绿；契约变化逐条列于 R3241 结果文件「测试契约变化」节（新增圆形几何断言 1 条、听写样式 `Send→Listening.TButton` 同步 1 处、icon_source 基线 3→4 注明样式拆分）。**补记 R3271**：合入前全量预审发现圆环图误入 `_drama_rounded_cache` 共享平铺缓存（`test_ui_modern_system` 平铺下限断言红），已修复为私有缓存并定向复绿 82/82＋冒烟 9/9（`tasks_round_3271_result.md`），外观与交互契约不变。
 
 ## U5 Box 框体组件与聊天框迁移（R3252 `3b53e005`，`tasks_round_3252_result.md`）
 
