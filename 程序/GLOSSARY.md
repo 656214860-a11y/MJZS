@@ -9,4 +9,4 @@
 - **验收锁／全量欠账**：`full-safe-selftest.lock` 与「每 8 个源码轮次须一次全量」的欠账机制，见 runbook §4。
 - **SKILL**：阶段技能包（`*.skill.md` 清单 + references/assets/scripts），内置层 `skills/`、用户层 `data/skills/`。
 - **总控 SKILL**：`skills/00全流程SKILL/总控.json` 清单，约束全流程执行。
-- **分发副本**：按 `distribution_manifest.md` 白名单生成的可发布目录，零第三方依赖。
+- **分发副本**：按 `distribution_manifest.md` 白名单生成的可发布目录，只含白名单锁定的第三方包。

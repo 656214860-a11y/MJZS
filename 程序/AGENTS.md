@@ -12,7 +12,7 @@
 
 ## 1. 项目速览
 
-- 产品：Windows 桌面应用「漫剧助手」；Python + Tkinter，白名单依赖
+- 产品：Windows 桌面应用「漫剧助手」；Python + Tkinter，白名单依赖（准入规则见 `维护记录/依赖白名单.md`）
 - 解释器：`运行环境\Python\python.exe`（仓库根下，不用全局 Python）
 - 工作流：13 个制作阶段（初步分镜之后为 Animatic 分镜预演）
 - 执行链路：`skill_orchestrator`
