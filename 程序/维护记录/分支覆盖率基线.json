@@ -82,11 +82,12 @@
   "tests.test_file_naming_producers",
   "tests.test_file_origin_provenance",
   "tests.test_context",
-  "tests.test_selfcheck"
+  "tests.test_selfcheck",
+  "tests.test_startup_selfcheck"
  ],
  "tests_ok": true,
- "points_total": 2440,
- "points_covered": 1275,
+ "points_total": 2494,
+ "points_covered": 1305,
  "modules": [
   {
    "module": "aigc_lint.py",
@@ -165,12 +166,6 @@
    "points": 9,
    "covered": 1,
    "percent": 11.1
-  },
-  {
-   "module": "diagnostic_capture.py",
-   "points": 8,
-   "covered": 1,
-   "percent": 12.5
   },
   {
    "module": "api_endpoints.py",
@@ -296,6 +291,12 @@
    "module": "config_snapshot.py",
    "points": 2,
    "covered": 1,
+   "percent": 50.0
+  },
+  {
+   "module": "diagnostic_capture.py",
+   "points": 62,
+   "covered": 31,
    "percent": 50.0
   },
   {

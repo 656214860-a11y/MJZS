@@ -589,3 +589,14 @@ class DesktopStartupPerfTests(unittest.TestCase):
                 window.destroy()
             except tk.TclError:
                 pass
+
+    def test_startup_selfcheck_incremental_cost_is_bounded(self):
+        """轮 3B D3-n③：建 Tk 前自检的新增耗时 ≤50ms（依赖在本文件已被预热）。"""
+        import infra.diagnostic_capture as diagnostic_capture
+        started = time.perf_counter()
+        items = diagnostic_capture.run_startup_selfcheck(HERE)
+        elapsed_ms = (time.perf_counter() - started) * 1000
+        self.assertLessEqual(elapsed_ms, 50.0,
+                             '启动自检耗时 %.1fms 超过 50ms 预算' % elapsed_ms)
+        from contract.diagnostics import Diagnostic
+        self.assertTrue(all(isinstance(item, Diagnostic) for item in items))

@@ -15,7 +15,7 @@
 """
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+from collections import abc
 
 from contract.diagnostics import Diagnostic, Severity, StartupPhase
 
@@ -48,7 +48,7 @@ def _normalize(check, result) -> tuple[Diagnostic, ...]:
         return ()
     if isinstance(result, Diagnostic):
         return (result,)
-    if isinstance(result, str) or not isinstance(result, Iterable):
+    if isinstance(result, str) or not isinstance(result, abc.Iterable):
         raise TypeError('自检项返回值须为 None／Diagnostic／Diagnostic 序列，'
                         '实得 %s' % type(result).__name__)
     items = tuple(result)
@@ -59,7 +59,7 @@ def _normalize(check, result) -> tuple[Diagnostic, ...]:
     return items
 
 
-def run(checks: Iterable[Callable[[], object]]) -> list[Diagnostic]:
+def run(checks: abc.Iterable[abc.Callable[[], object]]) -> list[Diagnostic]:
     """逐项执行 ``checks`` 中的可调用对象，按序返回 ``Diagnostic`` 列表（空＝全绿）。
 
     ``checks`` 是调用方传入的可调用对象序列（G3：L1 提供、L5 组装注入），
@@ -114,6 +114,6 @@ def _artifact_registry_check() -> list[Diagnostic]:
                    problem, remedy) for problem in problems]
 
 
-def default_checks() -> tuple[Callable[[], list[Diagnostic]], ...]:
+def default_checks() -> tuple[abc.Callable[[], list[Diagnostic]], ...]:
     """L0 自带检查项（甲类两项）；L5 组装启动自检时与 L1 检查一并注入 ``run()``。"""
     return (_stage_contract_check, _artifact_registry_check)

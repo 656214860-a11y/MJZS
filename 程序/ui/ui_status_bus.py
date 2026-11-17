@@ -15,6 +15,8 @@ import threading
 import time
 from dataclasses import dataclass, field
 
+import infra.app_logging as app_logging
+
 LEVELS = ('info', 'success', 'warning', 'error')
 PERSISTENT_LEVELS = ('warning', 'error')
 AUTO_DISMISS_MS = 8000.0
@@ -163,3 +165,35 @@ class StatusBus:
         if limit is not None:
             items = items[-limit:]
         return items
+
+
+def publish_startup_warnings(bus, items):
+    """轮 3B H2：启动自检暂存的非 FATAL 项在主窗口状态栏发一次【警告】。
+
+    同一 ``code`` 每次启动至多一条（去重后取前 4 条，其余折叠计数）；
+    ``items`` 为空／None 静默返回；任何内部失败不影响启动。
+    """
+    items = [item for item in (items or []) if item is not None]
+    if not items or bus is None:
+        return
+    try:
+        seen = set()
+        unique = []
+        for item in items:
+            code = str(getattr(item, 'code', '') or id(item))
+            if code in seen:
+                continue
+            seen.add(code)
+            unique.append(item)
+        shown = []
+        for item in unique[:4]:
+            code = str(getattr(item, 'code', '') or '')
+            message = str(getattr(item, 'message', '') or '')
+            shown.append((code + '：' if code else '') + message)
+        text = '【警告】启动自检：' + '；'.join(shown)
+        if len(unique) > 4:
+            text += ' 等 %d 项' % len(unique)
+        text += '；处理建议见诊断导出'
+        bus.publish(Message.make('warning', text, source='selfcheck', auto=False))
+    except Exception:
+        app_logging.swallowed()
