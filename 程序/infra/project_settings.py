@@ -5,6 +5,7 @@
 """
 from pathlib import Path
 from agent.core import read,save,read_json
+from agent.publication import access
 
 DEFAULTS={'auto_review':False,'auto_adopt':False,'auto_edit':False,'auto_submit':False,'auto_keyframe':False,'auto_asset':False,'auto_video':False,'auto_previs':False,'auto_final':False,'auto_handoff':False}
 
@@ -35,10 +36,28 @@ def get(project,key,default=None):
     if key in data:return data[key]
     return DEFAULTS.get(key,default)
 
+def _read_for_write(path):
+    """put 的严格读取：文件不存在→空；读失败→原文件改名 ``.corrupt`` 保留，再按空处理。
+
+    与 ``load()`` 的分工同 ``account_store._load_write``：读路径读不出就当开关全关；
+    写路径读不出却整份覆盖，会把用户刚改的其它开关全部抹掉。坏文件先留证再写。
+    """
+    target=Path(path)
+    if not target.is_file():return {}
+    try:data=read(target)
+    except FileNotFoundError:return {}
+    except (OSError,ValueError,UnicodeError):
+        try:target.replace(target.with_name(target.name+'.corrupt'))
+        except OSError:pass
+        return {}
+    return data if isinstance(data,dict) else {}
+
 def put(project,key,value):
-    data=load(project)
-    if data.get(key)!=value:
-        data[key]=value;save(file(project),data)
+    path=file(project)
+    with access():
+        data=_read_for_write(path)
+        if data.get(key)!=value:
+            data[key]=value;save(path,data)
     return data.get(key)
 
 def unattended_label(text,model):
