@@ -20,7 +20,7 @@ R1247 数据边界（R2898 更新）：剧本聊天及回收站统一位于 `01�
 | Codex 技能同步 | `orchestrator/codex_skill_sync.py` | L3：阶段单文件技能物化、来源 hash、所有权保护与孤儿回收；首帧后台和发送前校验 |
 | Agent 工作流 | `workflow_settings.py`、`workflow_engines.py`、`orchestrator/workflow_tasks.py` | GPT/Anthropic API 在对应本机程序可启动时优先本机执行、启动失败兼容 API 回退；桌面模型显式选择、任务文件与进程台账 |
 | 模型与安全 | `model_pool.py`、`model_router.py`、`pet_llm.py`、`model_secrets.py`、`infra/http_client.py`、`contract/error_codes.py` | 厂商/模型池、协议路由、唯一密钥判据、DPAPI；`http_client` 是 L1 统一 JSON HTTP 传输（超时必填、错误码分类、有界重试、响应上限、凭据脱敏），直连 `urlopen`／`build_opener` 由 `test_http_boundary` 白名单棘轮守卫；L0 错误码注册表实体在 `contract/error_codes.py`，顶层 `error_codes.py` 为历史门面；共享输入发送瞬间锁定模型快照（`desktop_shared_input.request_snapshot`，R2893），在途请求不受中途切模影响 |
-| 剧本与契约 | `idea_chat.py`、`domain/idea_attachments.py`、`orchestrator/idea_chat_controller.py`、`domain/message_parts.py`、`script_contract.py`、`prompt_templates.py` | 聊天、受控文本附档、无 Tk 对话请求/节流/流式进度编排、创意工作流、消息 typed parts 契约（schema v2：一条消息 = 有序 text/reasoning/tool_call/artifact 等 part）、五类 manifest、提示词模板 |
+| 剧本与契约 | `idea_chat.py`、`domain/idea_attachments.py`、`orchestrator/idea_chat_controller.py`（`ChatStatus` 会话状态机＋取消令牌＋发送排队＋继续/重新生成计划）、`domain/message_parts.py`、`script_contract.py`、`prompt_templates.py` | 聊天、受控文本附档、无 Tk 对话请求/节流/流式进度编排、会话级状态机、创意工作流、消息 typed parts 契约（schema v2：一条消息 = 有序 text/reasoning/tool_call/artifact 等 part）、五类 manifest、提示词模板 |
 | 离线语音识别 | `voice_engine/`（独立 ASR 运行时：`offline_asr_server` 常驻引擎、`funasr_config` 模型配置、`download_models` ModelScope 缓存解析、`bootstrap` venv 引导）、`domain/speech_api.py`（后端路由：`create_session` 按 `backend` 分流 offline/cloud，设置合并 `data/语音识别.json`；`data/语音词典.json` 热词/同音替换表/AI 配置读写校验并注入会话）、`domain/offline_asr_client.py`（离线子进程会话：宿主常驻、JSON-Lines 喂 PCM/收逐句、超时强杀、崩溃降级云端）、`domain/voice_ai.py`（听写文本模板化 AI 优化，`chat` 注入式）、`desktop_voice_input.py`（跨页听写组件：`MicrophoneRecorder` PCM → 会话事件 → 输入框光标处 partial/final 浅色渲染，`BackgroundTaskLifecycle` 代次、输入框销毁即停；会话关闭后按词典运行 AI 优化并复核区域再回写）、`desktop_shared_input.py`（麦克风按钮＋唯一听写实例，13 页共用）、`agent/voice_mcp_server.py`（MCP stdio `voice_transcribe`：WAV/PCM→离线转写，供 agent 客户端调用）、`speech_settings_ui.py`（后端/离线运行时/词典/AI/MCP 设置弹窗） | 离线为主的语音输入后端：主程序零第三方依赖，经 stdio JSON Lines 与独立子进程通信；FSMN-VAD 逐句断句 → Paraformer ASR → CT-punc 逐句出字；模型首次自动下载至 `data/voice_models/`（`local_files_only` 优先），依赖只装独立 venv `data/voice_asr_venv/`；麦克风入口统一在共享底部输入框（按钮全平台常驻，非 Windows 由录音机层报原因），剧本页 composer 工具行重复入口已收敛；热词随 `start.hotword` 下发（仅支持热词的上下文模型生效，否则忽略并记诊断），同音纠错由替换表确定性完成 |
 | 资产与连续性 | `asset_contract.py`、`orchestrator/asset_batch_controller.py`、`asset_thumbs.py`、`continuity_ledger.py` | 资产契约；无 Tk 批量页表单、模型检测与启动前门禁编排；受控缩略图 worker、连续性台账 |
 | 分镜与批次 | `shot_batches.py`、`storyboard_selection.py` | 已采用分镜、批次/三元组约束、定稿输入 |
@@ -84,6 +84,7 @@ R1124 插入 Animatic 后，旧中文编号目录由 `stage_path_service.read_di
 | `test_script_contract.py` | 五类 manifest 与剧本契约 |
 | `test_idea_chat.py` | 聊天布局、草稿、发送工作流 |
 | `test_idea_chat_controller.py` | 无 Tk 对话状态、发送节流、附件注入与取消后进度丢弃 |
+| `test_chat_status.py` | 对话状态机（ChatStatus）、取消令牌、继续/重新生成计划、发送排队、副作用幂等 |
 | `test_workflow.py` | 模型选择、本机客户端、API 回退 |
 | `test_asset_thumbs.py` | 缩略图缓存、worker 回收、环境隔离 |
 | `test_video_ui.py`、`test_integration.py` | 视频链路、页面接力与交付 |
