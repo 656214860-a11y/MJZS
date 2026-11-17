@@ -21,6 +21,7 @@ import shutil
 import uuid
 import zipfile
 from pathlib import Path, PurePosixPath
+from typing import NamedTuple
 
 import skill_import_service
 import skill_registry
@@ -131,35 +132,44 @@ def _scope_root(root, scope):
     return resolved
 
 
+class ArchiveOptions(NamedTuple):
+    """``import_archive`` 的可选参数包：``install_source`` 覆盖台账来源，
+    ``scope`` 限定包内子目录（如 GitHub ``/tree/<ref>/<子目录>``），
+    ``layer`` 是安装目标层（``'user'``／``'project'``）。"""
+    install_source: object = None
+    scope: str = ''
+    layer: str = 'user'
+
+
 def import_archive(zip_path, program, registry, stage_hint='', confirm=None, *,
-                   install_source=None, scope=''):
+                   options=None):
     """ZIP 导入主入口：安全解包 → 候选扫描 → 与仓库导入同一条安装管线。
 
     返回 ``{'label', 'installed', 'failed', 'skipped', 'candidates'}``，
     结构与 ``skill_import_service.import_from_repo`` 一致；台账 ``source``
     记压缩包绝对路径、``source_kind`` 记 ``archive``。
 
-    ``install_source``：远程链接导入（``skill_remote_service``）传入的
+    ``options.install_source``：远程链接导入（``skill_remote_service``）传入的
     :class:`skill_import_service._InstallSource`，覆盖台账来源与 ``source_url``／
-    ``source_ref``；``scope`` 是包内子目录（如 GitHub ``/tree/<ref>/<子目录>``），
-    只在该目录下找 SKILL 候选。
+    ``source_ref``。
     """
     program = Path(program)
     zip_path = Path(zip_path)
+    options = options or ArchiveOptions()
     staging = (skill_registry.default_user_root(program)
                / (ARCHIVE_STAGING_PREFIX + uuid.uuid4().hex[:8]))
     root = staging / _staging_name(zip_path)
     try:
         _extract(zip_path, root)
-        if scope:
-            root = _scope_root(root, scope)
+        if options.scope:
+            root = _scope_root(root, options.scope)
         candidates = skill_import_service._repo_candidates(root)
         if not candidates:
             raise skill_import_service.ImportBlocked(
                 '压缩包中没有找到 SKILL.md 或 *.skill.md')
         plans, problems, errors = skill_import_service._candidate_plans(
-            candidates, root, registry, stage_hint)
-        source = install_source or skill_import_service._InstallSource(
+            candidates, root, registry, stage_hint, layer=options.layer)
+        source = options.install_source or skill_import_service._InstallSource(
             ledger_source=str(zip_path.resolve()), label=zip_path.name,
             source_kind='archive', origin='压缩包')
         return skill_import_service._install_candidate_plans(
@@ -169,10 +179,11 @@ def import_archive(zip_path, program, registry, stage_hint='', confirm=None, *,
             recycle_paths(program, [staging], 'SKILL 压缩包解压暂存收尾')
 
 
-def archive_entry_digests(zip_path, program, registry, scope=''):
+def archive_entry_digests(zip_path, program, registry, scope='', layer='user'):
     """ZIP → ``{台账键: 内容摘要}``：安全解包到暂存（用后回收）→ 候选扫描 → 逐候选摘要。
 
-    更新检测专用：只读不安装；``scope`` 与 ``import_archive`` 同义（包内子目录）。
+    更新检测专用：只读不安装；``scope`` 与 ``import_archive`` 同义（包内子目录），
+    ``layer`` 是台账行所在层（``'user'``／``'project'``），决定候选键的口径。
     """
     program = Path(program)
     zip_path = Path(zip_path)
@@ -183,7 +194,7 @@ def archive_entry_digests(zip_path, program, registry, scope=''):
         _extract(zip_path, root)
         if scope:
             root = _scope_root(root, scope)
-        return skill_import_service._entry_digests(root, registry)
+        return skill_import_service._entry_digests(root, registry, layer)
     finally:
         if staging.exists():
             recycle_paths(program, [staging], 'SKILL 更新检测解包暂存收尾')
@@ -201,7 +212,10 @@ def probe_row(key, row, program, registry):
     if not source or not Path(source).is_file():
         return 'source-missing'
     try:
-        digests = archive_entry_digests(source, program, registry)
+        digests = archive_entry_digests(
+            source, program,
+            skill_import_service.registry_for_ledger_row(program, row, registry),
+            layer=skill_import_service._row_layer(row))
     except (skill_import_service.ImportBlocked, OSError):
         return 'source-missing'
     return skill_import_service._entry_status(key, row, digests)

@@ -110,6 +110,10 @@ def plan_import(source, target_dir, stage, registry):
     if target_dir is None:
         raise ImportBlocked('未找到本阶段注册目录')
     target_dir = Path(target_dir)
+    project_skills = getattr(registry, 'project_skills', None)
+    scope = ('project' if isinstance(project_skills, (str, Path)) and
+             target_dir.resolve().is_relative_to(Path(project_skills).resolve())
+             else 'user')
     kind = _kind(source)
     target = (target_dir / source.parent.name / source.name
               if kind == 'package' else target_dir / source.name)
@@ -137,13 +141,21 @@ def plan_import(source, target_dir, stage, registry):
     replaced = Path(os.path.normcase(str(target.resolve())))
     user_root = getattr(registry, 'user_root', None)
     into_user = isinstance(user_root, (str, Path)) and target.resolve().is_relative_to(Path(user_root).resolve())
+    into_project = scope == 'project'
+    layer_labels = skill_registry.LAYER_LABELS
     for item in registry.getAll():
         other = getattr(item, 'path', None)
         if not name or item.name != name or other is None:
             continue
         if Path(os.path.normcase(str(Path(other).resolve()))) == replaced:
             continue                     # 重新导入同一位置＝更新，不算重名
-        if into_user and getattr(item, 'layer', '') == 'builtin':
+        item_layer = getattr(item, 'layer', '')
+        if into_project and item_layer in ('user', 'builtin'):
+            higher = layer_labels.get(item_layer, item_layer)
+            problems.append('将覆盖%s SKILL「%s」（%s版保留，删除项目版后恢复）'
+                            % (higher, name, higher))
+            continue
+        if into_user and item_layer == 'builtin':
             problems.append('将覆盖内置 SKILL「%s」（内置版保留，删除用户版后恢复）' % name)
             continue
         raise ImportBlocked('与已有 SKILL「%s」重名（%s）；同名 SKILL 扫描时会被丢弃。'
@@ -151,7 +163,11 @@ def plan_import(source, target_dir, stage, registry):
     if target.exists():
         problems.append('目标 %s 已存在，继续将覆盖（旧版移入程序回收站，可恢复）' % target.name)
     return {'source': source, 'kind': kind, 'target': target, 'target_dir': target_dir,
-            'name': name, 'problems': problems}
+            'name': name, 'problems': problems, 'scope': scope,
+            'project': (str(getattr(registry, 'project_root', '') or '')
+                        if scope == 'project' and
+                        isinstance(getattr(registry, 'project_root', None), (str, Path))
+                        else '')}
 
 
 def _verify(target):
@@ -218,6 +234,8 @@ def record(program, plan, digest, now=None):
                   'source_url': str(plan.get('source_url') or ''),
                   'source_ref': str(plan.get('source_ref') or ''),
                   'version': _frontmatter_version(plan['target']),
+                  'scope': str(plan.get('scope') or 'user'),
+                  'project': str(plan.get('project') or ''),
                   'imported_at': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(now or time.time()))}
     save(path, {'version': 1, 'items': items})
     return path
@@ -452,10 +470,19 @@ def _candidate_stage(source, clone_root, stage_hint):
     return sid or str(stage_hint or '')
 
 
-def _candidate_plans(candidates, root, registry, stage_hint):
+def _stage_dir_for(registry, stage, layer='user'):
+    """按层取阶段写入目录；轻量 registry 替身没有 ``stage_directory_for`` 时退回用户层口径。"""
+    fn = getattr(registry, 'stage_directory_for', None)
+    if fn is not None:
+        return fn(stage, layer)
+    return registry.user_stage_directory_for(stage) if layer == 'user' else None
+
+
+def _candidate_plans(candidates, root, registry, stage_hint, layer='user'):
     """候选 → ``(plans, problems, errors)``：阶段判定与 ``plan_import`` 只读预检；同目标去重。
 
-    仓库导入与压缩包导入共用：``root`` 是候选所在的本地树（克隆目录或解压目录）。
+    仓库导入与压缩包导入共用：``root`` 是候选所在的本地树（克隆目录或解压目录）；
+    ``layer`` 是导入目标层（``'user'`` 全局／``'project'`` 项目级）。
     """
     plans, problems, errors = [], [], []
     seen_targets = set()
@@ -467,7 +494,7 @@ def _candidate_plans(candidates, root, registry, stage_hint):
                           % source.name)
             continue
         try:
-            plan = plan_import(source, registry.user_stage_directory_for(stage),
+            plan = plan_import(source, _stage_dir_for(registry, stage, layer),
                                stage, registry)
         except ImportBlocked as exc:
             errors.append('%s：%s' % (source.name, exc))
@@ -534,7 +561,7 @@ def _install_candidate_plans(plans, problems, errors, program, confirm, source):
             'skipped': errors, 'candidates': len(plans) + len(errors)}
 
 
-def import_from_repo(text, program, registry, stage_hint='', confirm=None):
+def import_from_repo(text, program, registry, stage_hint='', confirm=None, layer='user'):
     """仓库导入主入口（install／update 同一实现）：解析 → 取源码 → 扫描 → 逐候选预检
     → 确认 → 逐候选换入。任一候选失败只影响该候选，已成功的不回滚。
 
@@ -562,7 +589,8 @@ def import_from_repo(text, program, registry, stage_hint='', confirm=None):
         candidates = _repo_candidates(root)
         if not candidates:
             raise ImportBlocked('仓库中没有找到 SKILL.md 或 *.skill.md')
-        plans, problems, errors = _candidate_plans(candidates, root, registry, stage_hint)
+        plans, problems, errors = _candidate_plans(candidates, root, registry, stage_hint,
+                                                 layer=layer)
         remote = spec['kind'] == 'url'
         return _install_candidate_plans(
             plans, problems, errors, program, confirm,
@@ -575,9 +603,10 @@ def import_from_repo(text, program, registry, stage_hint='', confirm=None):
             recycle_paths(program, [staging], 'SKILL 仓库克隆暂存收尾')
 
 
-def update_from_repo(text, program, registry, stage_hint='', confirm=None):
+def update_from_repo(text, program, registry, stage_hint='', confirm=None, layer='user'):
     """skill-mgr ``update``：同来源刷新＝重新取最新内容走同一导入管线，旧版进回收站。"""
-    return import_from_repo(text, program, registry, stage_hint=stage_hint, confirm=confirm)
+    return import_from_repo(text, program, registry, stage_hint=stage_hint, confirm=confirm,
+                            layer=layer)
 
 
 def uninstall_skill(program, registry, name):
@@ -591,7 +620,10 @@ def uninstall_skill(program, registry, name):
     if path is None:
         raise ImportBlocked('SKILL「%s」没有可定位的文件' % name)
     path = Path(path)
-    roots = skill_registry.skill_roots(program)
+    roots = list(skill_registry.skill_roots(program))
+    project_skills = getattr(registry, 'project_skills', None)
+    if isinstance(project_skills, (str, Path)):
+        roots.append(Path(project_skills).resolve())
     if not path.is_file() or not any(path.resolve().is_relative_to(root) for root in roots):
         raise ImportBlocked('SKILL「%s」不在可卸载目录' % name)
     target = path.parent if skill.get(skill_registry.IMPORTED_PACKAGE_FLAG, False) else path
@@ -636,6 +668,7 @@ def forget_ledger_targets(program, targets):
     doomed = set()
     for target in targets:
         path = Path(target).resolve()
+        doomed.add(str(path))          # 项目层台账键是绝对路径，直接命中
         for root in roots:
             if path.is_relative_to(root):
                 doomed.add(path.relative_to(root).as_posix())
@@ -649,7 +682,10 @@ def forget_ledger_targets(program, targets):
 
 
 def _resolve_ledger_target(program, key):
-    """台账键 → 已安装目标：先用户层后内置层（同名用户版优先，与注册表口径一致）。"""
+    """台账键 → 已安装目标：绝对键（项目层）直用；相对键先用户层后内置层。"""
+    candidate = Path(str(key))
+    if candidate.is_absolute() and candidate.exists():
+        return candidate
     for root in (skill_registry.default_user_root(program).resolve(),
                  skill_registry.default_root(program).resolve()):
         candidate = root / str(key)
@@ -658,24 +694,48 @@ def _resolve_ledger_target(program, key):
     return None
 
 
-def _candidate_ledger_key(candidate, root, registry):
-    """候选 → 台账键 ``<阶段目录名>/<条目名>``；阶段判不出返回 None（不猜）。"""
+def registry_for_ledger_row(program, row, base=None):
+    """台账行 → 对应层的注册表：``scope=='project'`` 的行用行内 ``project`` 建项目层注册表，
+    其余返回 ``base``（调用方给的全局注册表）。更新检测与探针共用同一口径。"""
+    if isinstance(row, dict) and str(row.get('scope') or '') == 'project':
+        project = str(row.get('project') or '') or None
+        return skill_registry.Registry(
+            skill_registry.default_root(program),
+            user_root=skill_registry.default_user_root(program),
+            project_root=project)
+    return base
+
+
+def _row_layer(row):
+    return 'project' if isinstance(row, dict) and str(row.get('scope') or '') == 'project' else 'user'
+
+
+def _candidate_ledger_key(candidate, root, registry, layer='user'):
+    """候选 → 台账键：用户层 ``<阶段目录名>/<条目名>``；项目层为安装目标绝对路径。
+    阶段判不出返回 None（不猜）。"""
     stage = _candidate_stage(candidate['source'], root, '')
     if not stage:
         return None
-    stage_dir = registry.user_stage_directory_for(stage)
-    if stage_dir is None:
-        return None
     entry = (candidate['source'].parent.name if candidate['kind'] == 'package'
              else candidate['source'].name)
+    if layer == 'project':
+        stage_dir = getattr(registry, 'project_stage_directory_for', lambda sid: None)(stage)
+        if stage_dir is None:
+            return None
+        target = (stage_dir / candidate['source'].parent.name / entry
+                  if candidate['kind'] == 'package' else stage_dir / entry)
+        return str(target.resolve())
+    stage_dir = getattr(registry, 'user_stage_directory_for', lambda sid: None)(stage)
+    if stage_dir is None:
+        return None
     return Path(stage_dir).name + '/' + entry
 
 
-def _entry_digests(root, registry):
+def _entry_digests(root, registry, layer='user'):
     """候选树 → ``{台账键: 内容摘要}``；与安装时 ``_tree_digest`` 同口径。"""
     digests = {}
     for candidate in _repo_candidates(Path(root)):
-        key = _candidate_ledger_key(candidate, root, registry)
+        key = _candidate_ledger_key(candidate, root, registry, layer)
         if not key:
             continue
         content = (candidate['source'].parent if candidate['kind'] == 'package'
@@ -697,7 +757,7 @@ def _entry_status(key, row, digests):
     return 'unchanged' if digest == str(row.get('sha256') or '') else 'source-newer'
 
 
-def _clone_entry_digests(url, ref, program, registry):
+def _clone_entry_digests(url, ref, program, registry, layer='user'):
     """远程仓库行：重新 ``git clone --depth 1`` 到暂存（用后回收）取候选摘要。"""
     program = Path(program)
     staging = (skill_registry.default_user_root(program)
@@ -706,7 +766,7 @@ def _clone_entry_digests(url, ref, program, registry):
     try:
         _git_clone(url, ref, staging)
         try:
-            return _entry_digests(staging, registry)
+            return _entry_digests(staging, registry, layer)
         except ImportBlocked:
             return None
     except ImportBlocked:
@@ -716,7 +776,7 @@ def _clone_entry_digests(url, ref, program, registry):
             recycle_paths(program, [staging], 'SKILL 更新检测克隆暂存收尾')
 
 
-def _default_source_status(key, row, program, registry, cache):
+def _default_source_status(key, row, program, registry, cache, layer='user'):
     """默认来源判定：file/dir 本地路径、repo 本地目录与远程克隆；其余返回 None 交探针。"""
     kind = str(row.get('source_kind') or
                ('dir' if row.get('kind') == 'package' else 'file'))
@@ -729,22 +789,23 @@ def _default_source_status(key, row, program, registry, cache):
     if kind != 'repo':
         return None
     if row.get('source_url'):
-        signature = (str(row['source_url']), str(row.get('source_ref') or ''))
+        signature = (str(row['source_url']), str(row.get('source_ref') or ''), layer,
+                     str(row.get('project') or ''))
         if signature not in cache:
             cache[signature] = _clone_entry_digests(
-                signature[0], signature[1], program, registry)
+                signature[0], signature[1], program, registry, layer)
         digests = cache[signature]
     else:
         source = Path(str(row.get('source') or ''))
         try:
-            digests = (_entry_digests(source, registry)
+            digests = (_entry_digests(source, registry, layer)
                        if source.is_dir() else None)
         except ImportBlocked:
             digests = None
     return _entry_status(key, row, digests)
 
 
-def check_updates(program, *, probe=None):
+def check_updates(program, *, probe=None, project=None):
     """遍历导入台账做更新体检 → ``{台账键: UPDATE_STATES 之一}``。
 
     判定顺序：已安装目标缺失→``source-missing``；已安装内容摘要与台账 ``sha256``
@@ -753,17 +814,44 @@ def check_updates(program, *, probe=None):
     重新克隆；``archive`` 与 T3 远程链接行交给 ``probe(key, row)``（返回同组
     状态或 ``None`` 表示不接管）；探针缺省、拒绝、出错或来源不可用→
     ``source-missing``。只读不写：不改台账、不动已安装内容。
+
+    T5：``scope=='project'`` 的台账行按行内 ``project`` 各自建项目层注册表求
+    候选摘要（跨项目互不串扰）；给了 ``project`` 时只评估该项目的行与用户层行，
+    其他项目的行不出现在结果里。
     """
     program = Path(program)
-    registry = skill_registry.Registry(
+    wanted = Path(project).resolve() if project else None
+    base_registry = skill_registry.Registry(
         skill_registry.default_root(program),
         user_root=skill_registry.default_user_root(program))
+    project_registries = {}
+
+    def _registry_for(row):
+        layer = _row_layer(row)
+        if layer != 'project':
+            return base_registry
+        owner = str(row.get('project') or '')
+        if owner not in project_registries:
+            project_registries[owner] = skill_registry.Registry(
+                skill_registry.default_root(program),
+                user_root=skill_registry.default_user_root(program),
+                project_root=owner or None)
+        return project_registries[owner]
+
     statuses = {}
     cache = {}
     for key, row in ledger_items(program).items():
         if not isinstance(row, dict):
             statuses[key] = 'source-missing'
             continue
+        layer = _row_layer(row)
+        if wanted is not None:
+            if layer == 'project':
+                owner = str(row.get('project') or '')
+                if not owner or Path(owner).resolve() != wanted:
+                    continue
+            # 用户层行任何项目视图都评估
+        registry = _registry_for(row)
         target = _resolve_ledger_target(program, key)
         if target is None:
             statuses[key] = 'source-missing'
@@ -787,6 +875,6 @@ def check_updates(program, *, probe=None):
                 app_logging.swallowed('skill_import_service 更新探针失败')
                 status = None
         if status is None:
-            status = _default_source_status(key, row, program, registry, cache)
+            status = _default_source_status(key, row, program, registry, cache, layer)
         statuses[key] = status or 'source-missing'
     return statuses

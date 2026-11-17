@@ -250,7 +250,8 @@ def cache_dir(program):
     return skill_registry.default_user_root(Path(program)) / DOWNLOAD_DIR_NAME
 
 
-def import_from_url(text, program, registry, stage_hint='', confirm=None, *, opener=None):
+def import_from_url(text, program, registry, stage_hint='', confirm=None, *,
+                    opener=None, layer='user'):
     """链接导入主入口：解析 → 下载到缓存 → ``skill_archive`` 解包管线 → 台账登记。
 
     返回结构与 ``skill_import_service.import_from_repo`` 一致；台账行带
@@ -266,19 +267,22 @@ def import_from_url(text, program, registry, stage_hint='', confirm=None, *, ope
         source_url=spec['source_url'], source_ref=spec['source_ref'])
     return skill_archive.import_archive(
         zip_path, program, registry, stage_hint=stage_hint, confirm=confirm,
-        install_source=source, scope=spec.get('scope', ''))
+        options=skill_archive.ArchiveOptions(
+            install_source=source, scope=spec.get('scope', ''), layer=layer))
 
 
-def _remote_entry_digests(spec, program, registry, *, opener=None, cache=None):
+def _remote_entry_digests(spec, program, registry, *, opener=None, cache=None,
+                          layer='user'):
     """下载 → ``skill_archive`` 解包 → ``{台账键: 摘要}``；``cache`` 按下载地址复用。"""
     cache = cache if cache is not None else {}
-    if spec['url'] in cache:
-        return cache[spec['url']]
+    signature = (spec['url'], layer, str(getattr(registry, 'project_root', '') or ''))
+    if signature in cache:
+        return cache[signature]
     zip_path = download(spec['url'], cache_dir(program) / spec['cache_name'],
                         opener=opener, recycle_root=program)
     digests = skill_archive.archive_entry_digests(
-        zip_path, program, registry, scope=spec.get('scope', ''))
-    cache[spec['url']] = digests
+        zip_path, program, registry, scope=spec.get('scope', ''), layer=layer)
+    cache[signature] = digests
     return digests
 
 
@@ -300,8 +304,11 @@ def probe_row(key, row, program, registry, *, opener=None, cache=None):
     except skill_import_service.ImportBlocked:
         return None
     try:
-        digests = _remote_entry_digests(spec, program, registry,
-                                        opener=opener, cache=cache)
+        layer = skill_import_service._row_layer(row)
+        digests = _remote_entry_digests(
+            spec, program,
+            skill_import_service.registry_for_ledger_row(program, row, registry),
+            opener=opener, cache=cache, layer=layer)
     except (skill_import_service.ImportBlocked, OSError):
         return 'source-missing'
     return skill_import_service._entry_status(key, row, digests)

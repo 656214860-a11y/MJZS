@@ -16,6 +16,7 @@ import stage_models
 import ui_plugin_registry
 from contract.pet_bus import STAGE_NAMES, read_json, stage_label as _bus_stage_label
 from ui_tokens import CHAR_WIDTH, COLORS, SPACING, OVERLAY_RATIO, STAGE_PANEL_LAYOUT
+from ui_widgets import SelectBox
 
 
 FLOW_STAGE = {'writing': 'script', 'storyboard': 'storyboard', 'assets': 'assets',
@@ -442,6 +443,16 @@ def stage_of_page(index, stages=None):
 
 def desktop_project(desktop):
     return getattr(desktop, 'root', None)
+
+
+def add_import_scope(panel, row):
+    """T5：「导入到」项目／全局二选一挂进 SKILL 管理行；默认项目级，无项目只有全局。"""
+    project = desktop_project(panel.desktop)
+    panel.import_scope_var = tk.StringVar(value='项目' if project else '全局')
+    panel.import_scope_box = SelectBox(row, textvariable=panel.import_scope_var,
+                                       width=STAGE_PANEL_LAYOUT['select_width'],
+                                       values=('项目', '全局'))
+    row.add(panel.import_scope_box)
 
 
 def pet_of(desktop):

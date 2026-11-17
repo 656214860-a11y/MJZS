@@ -138,7 +138,14 @@ def skill_roots_for_config(config):
             seen.add(identity)
             dirs.append(parent)
     if dirs:
-        for root in skill_registry.skill_roots():
+        roots = list(skill_registry.skill_roots())
+        # 项目层 SKILL 的 ``../`` 跨层引用需要项目 skills 根一并授权；config 不带
+        # 项目字段，从已勾选路径反推（祖先 skills/ 且父级有 skill_config.json）。
+        for directory in dirs:
+            project_root = skill_registry.project_skill_root_for(directory)
+            if project_root is not None and project_root not in roots:
+                roots.append(project_root)
+        for root in roots:
             identity = os.path.normcase(str(root))
             if identity not in seen:
                 seen.add(identity)
@@ -423,7 +430,7 @@ def current(project,stage='previs', *, direct_api=False, model_snapshot=None):
     if stage == 'writing': profile['writer_style'] = stage_config.writer_style(project, 'script')
     try:
         import skill_registry
-        reg = skill_registry.default_registry()
+        reg = skill_registry.default_registry(project=project)
         profile['stage_skills'] = [str(reg.getById(item).path) for item in
                                   stage_config.get(project, STAGE_CONFIG_STAGES.get(stage, stage)).get('skills', ())
                                   if reg.getById(item) is not None]
@@ -611,7 +618,7 @@ def validate_selected_skills(project, stage):
     entry = (data or {}).get(STAGE_CONFIG_STAGES.get(stage, stage), {})
     if not isinstance(entry, dict) or not isinstance(entry.get('skills', []), (list, tuple)):
         raise ValueError('阶段 SKILL 配置格式无效，已阻止发送，请重新确认阶段配置。')
-    registry = skill_registry.default_registry()
+    registry = skill_registry.default_registry(project=project)
     for name in entry.get('skills') or ():
         if registry.getById(name) is None:
             raise ValueError(f'已勾选的 SKILL 未加载：{name}；已阻止发送，请重新确认阶段配置。')
@@ -641,7 +648,10 @@ def _skill_blocks(path, *, strict, locks=None, depth=0, budget=None):
         raise ValueError(f'已勾选的 SKILL 内容为空，已阻止发送：{path}')
     blocks = [(path, f'<!-- 来源: {path} -->\n{content}')]
     closure, seen, sections = [], {path}, set()
-    roots = skill_registry.skill_roots()
+    roots = list(skill_registry.skill_roots())
+    project_root = skill_registry.project_skill_root_for(path)
+    if project_root is not None and project_root not in roots:
+        roots.append(project_root)
     for entry in skill_registry.reference_targets(text):
         relative = entry['path']
         if relative is None:
@@ -893,14 +903,14 @@ def _health_row(skill, problems, warnings, *, locks=None):
     return row
 
 
-def skill_health_report(registry=None, *, program=None, stage=None, locks=None):
+def skill_health_report(registry=None, *, program=None, project=None, stage=None, locks=None):
     """SKILL 体检报告：注册表 problems/warnings 按名归位＋每个 SKILL 的发送前引用闭包干跑。
 
     只读不发送、不落盘；``stage`` 给阶段 id 或中文名时只出该阶段的行，全局问题照常列出。
     闭包行沿用 ``reference_row`` 字段（kind/status/target/depth/path）；干跑失败的行带
     ``error`` 与异常附带的部分闭包（``skill_closure``）。
     """
-    registry = registry or skill_registry.default_registry(program)
+    registry = registry or skill_registry.default_registry(program, project=project)
     registry.scan(force=True)
     sid = skill_registry.stage_id(stage) if stage else ''
     all_skills = registry.getAll()

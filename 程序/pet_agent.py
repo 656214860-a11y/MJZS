@@ -259,10 +259,10 @@ def skill_names(item):
     return [text for text in (name, display, name.replace('-', '')) if text]
 
 
-def match_skill(text, registry=None, current=None):
+def match_skill(text, registry=None, current=None, project=None):
     """自然语言 → SKILL 计划：命中返回 {intent: skill, stage, params, reply}，没命中返回 None。
 
-    current＝当前所在阶段（「执行选中」要知道是哪一页的勾选）；registry 可注入，自检里不碰真表。
+    current＝当前所在阶段（「执行选中」要知道是哪一页的勾选）；registry 可注入，自检里不碰真表；project＝项目目录时注册表带项目层（T5），缺省为全局两层视图。
     """
     body = strip_space(text)
     if not body or any(word in body for word in SKILL_STOP):
@@ -276,7 +276,7 @@ def match_skill(text, registry=None, current=None):
     if 'skill' not in lowered and not any(word in body for word in SKILL_VERBS):
         return None
     import skill_registry
-    reg = registry or skill_registry.default_registry()
+    reg = registry or skill_registry.default_registry(project=project)
     hits, stages, labels = [], [], []
     for item in reg.getAll():
         if any(name and name in body for name in skill_names(item)):
@@ -346,13 +346,13 @@ def parse_intent(text):
             'reply': str(data.get('reply') or ''), 'source': 'llm'}
 
 
-def route(text, client=None, context=None):
+def route(text, client=None, context=None, project=None):
     """先规则后模型：规则命中就不花 Token；未命中且给了客户端时才问一次 Flash 抽意图。
 
     第 28 期第 7 条：SKILL 点名放在规则前头——「把首帧批量生成跑一下」里的「首帧」会先把
     切页那条规则勾走，可用户要的是跑 SKILL 而不是翻页；能对上注册表的点名更具体，先问它。
     """
-    hit = match_skill(text, current=(context or {}).get('stage'))
+    hit = match_skill(text, current=(context or {}).get('stage'), project=project)  # project 传目录；context['project'] 只是名字
     if hit:
         return hit
     hit = match_rule(text)
@@ -1169,7 +1169,7 @@ class Agent:
         Pet.run_plan 在界面线程按 action 落地——「听懂了」与「真的做了」就此接上。
         第 31 期第 6 条：confirmed=True＝用户自己按的「确认」，等级不再挡（见 approve）。
         """
-        plan = route(text, client=self.client, context=self.context())
+        plan = route(text, client=self.client, context=self.context(), project=self.project)
         action = action_for(plan)
         decision = self.approve(action, confirmed=confirmed)
         self.decisions.append({'at': float(self.clock() if at is None else at), 'text': str(text),

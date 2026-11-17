@@ -152,7 +152,8 @@ def _skill_items(desktop):
             app_logging.swallowed()
     try:
         import skill_registry
-        return list(skill_registry.default_registry().getAll())
+        return list(skill_registry.default_registry(
+            project=getattr(desktop, 'root', None)).getAll())
     except Exception:
         return []
 

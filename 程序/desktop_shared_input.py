@@ -350,7 +350,7 @@ class SharedStageInput(ttk.Frame):
             return self._skills_cache
         try:
             import skill_registry
-            self._skills_cache = list(skill_registry.default_registry().getAll())
+            self._skills_cache = list(skill_registry.default_registry(project=self.project).getAll())
             return self._skills_cache
         except Exception:
             return []
@@ -479,7 +479,7 @@ class SharedStageInput(ttk.Frame):
         """当前阶段技能在前、其余在后；去重、限量。"""
         try:
             import skill_registry
-            registry = skill_registry.default_registry()
+            registry = skill_registry.default_registry(project=self.project)
             current = list(registry.getByStage(self.stage))
             seen = {self._skill_name(item) for item in current if self._skill_name(item)}
             others = [item for item in registry.getAll()
@@ -542,13 +542,12 @@ class SharedStageInput(ttk.Frame):
         except Exception:
             app_logging.swallowed()
 
-    @staticmethod
-    def _skill_description(item):
+    def _skill_description(self, item):
         if isinstance(item, dict):
             return str(item.get('description') or '')
         try:
             import skill_registry
-            registry = skill_registry.default_registry()
+            registry = skill_registry.default_registry(project=self.project)
             found = registry.getById(str(item))
             return str(found.get('description') or '') if isinstance(found, dict) else ''
         except Exception:
@@ -577,10 +576,11 @@ class SharedStageInput(ttk.Frame):
         try:
             import skill_import_service, skill_registry
             from pathlib import Path
-            registry = skill_registry.default_registry()
+            registry = skill_registry.default_registry(project=self.project)
             program = Path(skill_import_service.__file__).resolve().parent
             report = skill_import_service.import_from_repo(
                 str(ref).strip(), program, registry, stage_hint=self.stage,
+                layer='project' if self.project else 'user',
                 confirm=lambda message: ask_confirmation(
                     self.winfo_toplevel(), '从仓库导入', message, dangerous=True))
         except (skill_import_service.ImportBlocked, OSError, ValueError) as exc:
@@ -602,9 +602,10 @@ class SharedStageInput(ttk.Frame):
             return
         try:
             import skill_import_service, skill_registry
-            registry = skill_registry.default_registry()
+            registry = skill_registry.default_registry(project=self.project)
+            layer = 'project' if self.project else 'user'
             plan = skill_import_service.plan_import(
-                source, registry.user_stage_directory_for(self.stage), self.stage, registry)
+                source, registry.stage_directory_for(self.stage, layer), self.stage, registry)
         except skill_import_service.ImportBlocked as exc:
             _say(self.status, '本地安装失败：%s' % exc)
             return

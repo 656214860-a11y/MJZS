@@ -25,6 +25,7 @@ from skill_panel_support import (
     panel_title,
     stage_of_page,
     desktop_project,
+    add_import_scope,
     pet_of,
     status_of,
     run_report,
@@ -153,7 +154,7 @@ class Panel(PanelWorkflowMixin, PanelImportMixin, FormScrollMixin, ttk.Frame):
         self.form_canvas = None
         self.form_scroll = None
         self.form_body = self
-        self.registry = skill_registry.default_registry()
+        self.registry = skill_registry.default_registry(project=desktop_project(self.desktop))
         # SKILL 是用户可随时导入／移除的文件。阶段配置是用户主动打开的懒加载入口，
         # 此处强制刷新而非等启动缓存失效，保证新文件立刻出现、已删文件不再有勾选框。
         self.registry.scan(force=True)
@@ -277,6 +278,7 @@ class Panel(PanelWorkflowMixin, PanelImportMixin, FormScrollMixin, ttk.Frame):
         self.skill_action_box.gap_after = STAGE_PANEL_LAYOUT['item_gap']  # 下拉框与首个勾选框拉开
         self.skill_action_row.add(self.skill_action_box)
         self.skill_action_box.bind('<<ComboboxSelected>>', lambda event: self.choose_skill_action())
+        add_import_scope(self, self.skill_action_row)
         self.external_package_hint = HintLabel(self.skill_action_row, text='')
         self.external_package_hint.configure(wraplength=0)
         count = len(self.skills)
@@ -433,7 +435,7 @@ class Panel(PanelWorkflowMixin, PanelImportMixin, FormScrollMixin, ttk.Frame):
     def delete_checked_skills(self):
         """仅回收程序 skills/ 与用户层 data/skills/ 下已勾选的 .skill.md，绝不改项目配置。"""
         program = Path(__file__).resolve().parent
-        roots = skill_registry.skill_roots(program)
+        roots = skill_registry.skill_roots(program, project=desktop_project(self.desktop))
         selected = [item for item in self.skills if self.vars.get(item.name) and self.vars[item.name].get()]
         paths = []
         for item in selected:

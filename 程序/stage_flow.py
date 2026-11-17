@@ -232,11 +232,12 @@ def model_label(desktop, project, stage):
         return chosen
 
 
-def paid_count(stage, names=None):
+def paid_count(stage, names=None, project=None):
     """这一步会花钱的 SKILL 有几个（表读不出来就按 0）。"""
     try:
         import skill_registry
-        known = {skill.name: skill for skill in skill_registry.default_registry().getByStage(stage)}
+        known = {skill.name: skill for skill in
+                 skill_registry.default_registry(project=project).getByStage(stage)}
     except Exception:
         return 0
     if names is None:
@@ -285,7 +286,7 @@ def blockers(project, stage):
 def _summary_data(desktop, stage, project):
     """弹窗摘要要的那几个数，只算一遍：blockers 每调一次就要按门禁读一遍资产索引、台账与批次。"""
     names = selected_skills(project, stage)
-    paid = paid_count(stage, names)
+    paid = paid_count(stage, names, project=project)
     seconds = max(SECONDS_PER_SKILL, SECONDS_PER_SKILL * max(1, len(names))) if names else 0
     blocked = blockers(project, stage)
     return {'model': model_label(desktop, project, stage), 'skills': len(names),

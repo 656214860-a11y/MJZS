@@ -80,6 +80,23 @@ def _report_batch(panel, report, lead):
     return report
 
 
+def _import_layer(panel):
+    """「导入到」选择：``'project'``／``'user'``；没显式选「项目」、无项目或注册表无项目层回落用户层。"""
+    var = getattr(panel, 'import_scope_var', None)
+    wants_project = var is not None and str(var.get() or '') == '项目'
+    project = getattr(getattr(panel, 'desktop', None), 'root', None)
+    has_layer = isinstance(getattr(panel.registry, 'project_skills', None), (str, Path))
+    return 'project' if (wants_project and project and has_layer) else 'user'
+
+
+def _import_target_dir(panel, stage):
+    """按「导入到」选择取阶段写入目录；轻量 registry 替身退回用户层口径。"""
+    if _import_layer(panel) == 'user':
+        return panel.registry.user_stage_directory_for(stage)
+    fn = getattr(panel.registry, 'stage_directory_for', None)
+    return fn(stage, 'project') if fn is not None else None
+
+
 class PanelImportMixin:
     """Panel 的 SKILL 导入方法集（面板本体在 skill_panel.Panel）。"""
 
@@ -92,7 +109,7 @@ class PanelImportMixin:
             return None
         try:
             plan = skill_import_service.plan_import(
-                source, self.registry.user_stage_directory_for(self.stage), self.stage, self.registry)
+                source, _import_target_dir(self, self.stage), self.stage, self.registry)
         except skill_import_service.ImportBlocked as exc:
             self.state.configure(text='新增 SKILL 失败：' + str(exc))
             return None
@@ -115,7 +132,7 @@ class PanelImportMixin:
             return None
         try:
             plan = skill_import_service.plan_import(
-                entry, self.registry.user_stage_directory_for(self.stage), self.stage, self.registry)
+                entry, _import_target_dir(self, self.stage), self.stage, self.registry)
         except skill_import_service.ImportBlocked as exc:
             self.state.configure(text='新增 SKILL 失败：' + str(exc))
             return None
@@ -138,7 +155,8 @@ class PanelImportMixin:
 
         try:
             report = skill_archive.import_archive(
-                path, program, self.registry, stage_hint=self.stage, confirm=_confirm)
+                path, program, self.registry, stage_hint=self.stage, confirm=_confirm,
+                options=skill_archive.ArchiveOptions(layer=_import_layer(self)))
         except (skill_import_service.ImportBlocked, OSError, ValueError) as exc:
             self.state.configure(text='ZIP 导入失败：' + str(exc))
             return None
@@ -160,7 +178,7 @@ class PanelImportMixin:
         try:
             report = skill_import_service.import_from_repo(
                 str(text).strip(), program, self.registry,
-                stage_hint=self.stage, confirm=_confirm)
+                stage_hint=self.stage, confirm=_confirm, layer=_import_layer(self))
         except (skill_import_service.ImportBlocked, OSError, ValueError) as exc:
             self.state.configure(text='仓库导入失败：' + str(exc))
             return None
@@ -184,7 +202,7 @@ class PanelImportMixin:
         try:
             report = skill_remote_service.import_from_url(
                 str(text).strip(), program, self.registry,
-                stage_hint=self.stage, confirm=_confirm)
+                stage_hint=self.stage, confirm=_confirm, layer=_import_layer(self))
         except (skill_import_service.ImportBlocked, OSError, ValueError) as exc:
             self.state.configure(text='链接导入失败：' + str(exc))
             return None
@@ -208,7 +226,9 @@ class PanelImportMixin:
             return status
 
         try:
-            statuses = skill_import_service.check_updates(program, probe=_probe)
+            project = getattr(getattr(self, 'desktop', None), 'root', None)
+            statuses = skill_import_service.check_updates(
+                program, probe=_probe, project=project)
             items = skill_import_service.ledger_items(program)
         except Exception as exc:
             self.state.configure(text='SKILL 更新检查失败：' + str(exc))
@@ -239,6 +259,8 @@ def _reimport_ledger_row(panel, key, row):
     program = Path(skill_import_service.__file__).resolve().parent
     kind = str(row.get('source_kind') or
                ('dir' if row.get('kind') == 'package' else 'file'))
+    layer = str(row.get('scope') or 'user')
+    registry = skill_import_service.registry_for_ledger_row(program, row, panel.registry)
     stage = skill_registry.stage_from_path(Path(key).parent / 'stage_probe') \
         or str(getattr(panel, 'stage', '') or '')
     stage = skill_registry.stage_id(stage) or stage
@@ -256,19 +278,20 @@ def _reimport_ledger_row(panel, key, row):
                         '来源文件夹已不是 SKILL 包：' + str(source))
                 source = entry
             plan = skill_import_service.plan_import(
-                source, panel.registry.user_stage_directory_for(stage),
-                stage, panel.registry)
+                source, skill_import_service._stage_dir_for(registry, stage, layer),
+                stage, registry)
             return _import_plan(panel, plan) is not None
         report = None
         if kind == 'archive':
             if row.get('source_url'):
                 report = skill_remote_service.import_from_url(
-                    str(row['source_url']), program, panel.registry,
-                    stage_hint=stage, confirm=_confirm)
+                    str(row['source_url']), program, registry,
+                    stage_hint=stage, confirm=_confirm, layer=layer)
             else:
                 report = skill_archive.import_archive(
-                    str(row.get('source') or ''), program, panel.registry,
-                    stage_hint=stage, confirm=_confirm)
+                    str(row.get('source') or ''), program, registry,
+                    stage_hint=stage, confirm=_confirm,
+                    options=skill_archive.ArchiveOptions(layer=layer))
         elif kind == 'repo':
             url = str(row.get('source_url') or '')
             ref = str(row.get('source_ref') or '')
@@ -280,14 +303,14 @@ def _reimport_ledger_row(panel, key, row):
                     text = ''
                 if text:
                     report = skill_remote_service.import_from_url(
-                        text, program, panel.registry, stage_hint=stage,
-                        confirm=_confirm)
+                        text, program, registry, stage_hint=stage,
+                        confirm=_confirm, layer=layer)
             if report is None:
                 text = (url + ('@' + ref if ref else '')) if url \
                     else str(row.get('source') or '')
                 report = skill_import_service.import_from_repo(
-                    text, program, panel.registry, stage_hint=stage,
-                    confirm=_confirm)
+                    text, program, registry, stage_hint=stage,
+                    confirm=_confirm, layer=layer)
         else:
             raise skill_import_service.ImportBlocked('台账来源类型无法识别：' + kind)
         _report_batch(panel, report, '重新导入完成')

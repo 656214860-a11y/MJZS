@@ -711,7 +711,7 @@
   {
    "module": "desktop_shared_input.py",
    "covered": 0,
-   "total": 572,
+   "total": 573,
    "percent": 0.0
   },
   {
@@ -2067,7 +2067,7 @@
   {
    "module": "skill_archive.py",
    "covered": 0,
-   "total": 131,
+   "total": 138,
    "percent": 0.0
   },
   {
@@ -2085,7 +2085,7 @@
   {
    "module": "skill_import_service.py",
    "covered": 0,
-   "total": 551,
+   "total": 604,
    "percent": 0.0
   },
   {
@@ -2115,19 +2115,19 @@
   {
    "module": "skill_panel.py",
    "covered": 0,
-   "total": 679,
+   "total": 680,
    "percent": 0.0
   },
   {
    "module": "skill_panel_import.py",
    "covered": 0,
-   "total": 263,
+   "total": 279,
    "percent": 0.0
   },
   {
    "module": "skill_panel_support.py",
    "covered": 0,
-   "total": 441,
+   "total": 448,
    "percent": 0.0
   },
   {
@@ -2139,7 +2139,7 @@
   {
    "module": "skill_remote_service.py",
    "covered": 0,
-   "total": 201,
+   "total": 203,
    "percent": 0.0
   },
   {
@@ -2805,7 +2805,7 @@
   {
    "module": "workflow_settings.py",
    "covered": 0,
-   "total": 748,
+   "total": 756,
    "percent": 0.0
   },
   {
@@ -2905,6 +2905,12 @@
    "percent": 14.5
   },
   {
+   "module": "skill_registry.py",
+   "covered": 97,
+   "total": 667,
+   "percent": 14.5
+  },
+  {
    "module": "orchestrator/stage_download_inbox_service.py",
    "covered": 12,
    "total": 81,
@@ -2915,12 +2921,6 @@
    "covered": 36,
    "total": 244,
    "percent": 14.8
-  },
-  {
-   "module": "skill_registry.py",
-   "covered": 98,
-   "total": 659,
-   "percent": 14.9
   },
   {
    "module": "stage_config.py",
@@ -3071,6 +3071,12 @@
    "covered": 4,
    "total": 14,
    "percent": 28.6
+  },
+  {
+   "module": "skill_project_layer.py",
+   "covered": 15,
+   "total": 50,
+   "percent": 30.0
   },
   {
    "module": "contract/prop_assets.py",
@@ -3301,6 +3307,6 @@
    "percent": 100.0
   }
  ],
- "modules_covered": 71,
- "modules_total": 548
+ "modules_covered": 72,
+ "modules_total": 549
 }
