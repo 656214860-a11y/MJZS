@@ -119,10 +119,11 @@ def copy_to_project(library, relative_path, project, *, saver=None):
             _checked(manifest, project)
             _record_source(project, relative.as_posix(), library,
                            target.relative_to(root).as_posix(), saver=saver)
+            file_index.update(project, [target])
+            file_index.record_origin(project, [target], '用户上传')
         except Exception:
             _rollback(project, target, identity)
             raise
-    file_index.update(project, [target])
     return target
 
 

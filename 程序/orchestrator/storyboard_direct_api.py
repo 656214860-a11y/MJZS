@@ -224,7 +224,8 @@ def _episode(batch, script, existing_board):
 
     def allowed(_items):
         return not batch.cancelled() and (bool(existing_board) or not target.exists())
-    publish_stage_bundle(artifacts, allowed, lambda: [file_cache.published(path) for path in artifacts])
+    publish_stage_bundle(artifacts, allowed, lambda: [file_cache.published(path) for path in artifacts],
+                         origin='模型产出')
     if existing_board and history.is_dir():
         older = sorted(history.glob('*.json'), key=lambda p: p.name, reverse=True)[HISTORY_KEEP:]
         if older:

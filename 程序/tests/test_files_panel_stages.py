@@ -170,6 +170,8 @@ class FilterBarTests(StageRailTests):
     def setUp(self):
         d = self.desktop
         d.files_panel.collapse()
+        d.files_panel.group_box.set('阶段')
+        d.files_panel.group_mode = '阶段'
         d.files_panel.show_stage(None)
         if getattr(d, 'page_index', None) != PAGE['script']:
             d.show(PAGE['script'])
@@ -248,6 +250,115 @@ class FilterBarTests(StageRailTests):
 
 
 class IndexLifecycleTests(StageRailTests):
+    def render_rows(self, rows, library=False):
+        panel = self.desktop.files_panel
+        panel.cancel_script_load()
+        panel._clear_index_tree()
+        panel.library_view = library
+        root = Path(self.desktop.root)
+        panel._start_index_render(rows, {}, root, library, panel._index_generation,
+                                  panel._index_context(root, library))
+        self.win.update()
+
+    def test_metadata_columns_use_index_fields_and_keep_filename_id(self):
+        from datetime import datetime
+        from contract.file_index_contract import FileRow
+        panel = self.desktop.files_panel
+        stamp = datetime(2026, 11, 16, 12, 34, 56).timestamp()
+        row = FileRow(path='05资产管理/assets/原文件名.png', stage='assets', kind='资产',
+                      size=1536, mtime=stamp, title='用户标题')
+        self.render_rows([row])
+        tree = panel.script_tree
+        self.assertEqual(tuple(tree['columns']), ('name', 'kind', 'size', 'mtime'))
+        self.assertEqual([tree.heading(column, 'text') for column in tree['columns']],
+                         ['文件名', '类型', '大小', '修改时间'])
+        self.assertEqual(tree.item(row.path, 'values'),
+                         ('原文件名.png', '资产', '1.5 KB', '2026-11-16 12:34:56'))
+        self.assertEqual(tree.parent(row.path), 'stage-group:assets')
+        self.assertIn('原文件名.png', panel.script_row_details[row.path])
+        self.assertIn('1536', panel.script_row_details[row.path])
+        self.assertIn('2026-11-16 12:34:56', panel.script_row_details[row.path])
+        self.assertLessEqual(panel.script_box.winfo_width(),
+                             self.desktop.panel_area.winfo_width() * .5)
+        self.assertTrue(panel.script_list.horizontal_scrollbar.winfo_ismapped())
+        tree.xview_moveto(1)
+        self.win.update()
+        self.assertGreater(tree.xview()[0], 0, '字段列须可横向滚动访问')
+
+    def test_three_group_modes_reparent_rows_across_stages(self):
+        from datetime import datetime
+        from unittest.mock import patch
+        from contract.file_index_contract import FileRow
+        panel = self.desktop.files_panel
+        day = datetime(2026, 11, 16, 12).timestamp()
+        rows = [FileRow(path='05资产管理/assets/跨阶段A.png', stage='assets', kind='资产', mtime=day),
+                FileRow(path='08首帧生成/跨阶段B.png', stage='keyframe', kind='资产', mtime=day),
+                FileRow(path='05资产管理/assets/跨阶段C.md', stage='assets', kind='设定',
+                        mtime=day - 86400)]
+        self.assertEqual(tuple(panel.group_box.cget('values')), ('阶段', '类型', '日期'))
+        self.assertEqual(panel.group_box.get(), '阶段')
+        for mode, groups, parents in (
+                ('阶段', ('stage-group:assets', 'stage-group:keyframe'),
+                 ('stage-group:assets', 'stage-group:keyframe', 'stage-group:assets')),
+                ('类型', ('kind-group:设定', 'kind-group:资产'),
+                 ('kind-group:资产', 'kind-group:资产', 'kind-group:设定')),
+                ('日期', ('date-group:2026-11-16', 'date-group:2026-11-15'),
+                 ('date-group:2026-11-16', 'date-group:2026-11-16', 'date-group:2026-11-15'))):
+            with self.subTest(mode=mode):
+                panel.group_box.set(mode)
+                with patch.object(panel, '_reload_current_view'):
+                    panel._apply_filters()
+                self.render_rows(rows)
+                self.assertEqual(panel.script_tree.get_children(), groups)
+                self.assertEqual(tuple(panel.script_tree.parent(row.path) for row in rows), parents)
+                for group in groups:
+                    self.assertEqual(panel.script_row_category[group], '__file_group__')
+                    self.assertNotIn(group, panel._index_rows)
+                    panel.script_tree.selection_set(group)
+                    from dataclasses import replace
+                    from unittest.mock import Mock
+                    opened = Mock()
+                    services = replace(panel.page.writing_page_services, open_path=opened)
+                    with patch.object(panel.page, 'writing_page_services', services):
+                        panel.open_script_file()
+                    opened.assert_not_called()
+                    with self.assertRaises(ValueError):
+                        panel.index_file_path(group)
+                    with self.assertRaises(ValueError):
+                        panel.delete_script()
+
+    def test_group_modes_keep_status_keyword_and_global_library_filters(self):
+        from datetime import datetime
+        from unittest.mock import patch
+        from contract.file_index_contract import FileRow
+        from ui.desktop_files_panel_index import filtered_rows
+        panel = self.desktop.files_panel
+        stamp = datetime(2026, 11, 16, 12).timestamp()
+        rows = [FileRow(path='05资产管理/assets/保留.png', stage='assets', kind='资产',
+                        status='已发布', mtime=stamp),
+                FileRow(path='08首帧生成/保留.png', stage='keyframe', kind='资产',
+                        status='草稿', mtime=stamp),
+                FileRow(path='08首帧生成/忽略.png', stage='keyframe', kind='资产',
+                        status='已发布', mtime=stamp)]
+        with patch('ui.desktop_files_panel_index.load_index', return_value=(rows, {}, {})):
+            for mode in ('阶段', '类型', '日期'):
+                panel.group_box.set(mode)
+                panel.status_box.set('已发布')
+                panel.keyword_entry.delete(0, 'end')
+                panel.keyword_entry.insert(0, '保留')
+                panel._apply_filters()
+                self.pump(.2)
+                self.assertEqual(self.rows(), [rows[0].path], mode)
+                self.assertEqual(panel.script_tree.set(rows[0].path, 'kind'), '资产')
+        for mode, group in (('阶段', 'stage-group:library'), ('类型', 'kind-group:资产'),
+                            ('日期', 'date-group:2026-11-16')):
+            panel.group_mode = mode
+            selected = filtered_rows(rows, ('assets', '资产', '已发布', '保留', '类型'), True)
+            self.render_rows(selected, library=True)
+            self.assertEqual(panel.script_tree.get_children(), (group,))
+            self.assertEqual(set(self.rows()), {'library:' + row.path for row in rows[:2]})
+            self.assertTrue(all(panel.script_tree.parent(item) == group for item in self.rows()))
+
     def test_missing_cache_rebuild_runs_off_tk_thread(self):
         import threading
         from unittest.mock import patch

@@ -94,13 +94,21 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
         self.script_row_details = {}
         self.script_row_category = {}
         tips = lambda item: self.script_row_details.get(item, '')
-        table = DataTable(self.script_box, columns=[('name', '文件名', 180)], show='headings', height=1,
-                          selectmode='extended', style='Script.Treeview', auto_hide_scrollbars=True,
-                          empty_text='', horizontal=False)
+        table = DataTable(
+            self.script_box,
+            columns=[('name', '文件名', SCRIPT_LIST_MIN_WIDTH),
+                     ('kind', '类型', SPACING['sm'] * 9),
+                     ('size', '大小', SPACING['sm'] * 10),
+                     ('mtime', '修改时间', SPACING['sm'] * 21)],
+            show='headings', height=1, selectmode='extended', style='Script.Treeview',
+            auto_hide_scrollbars=True, empty_text='', horizontal=True)
         self.script_list = table
         self.script_tree = table.tree
         self.script_tree.heading('name', text='文件名', anchor='center')
-        self.script_tree.column('name', width=SPACING['sm'] * 23, minwidth=100, stretch=True)
+        self.script_tree.column('name', width=SCRIPT_LIST_MIN_WIDTH,
+                                minwidth=SPACING['sm'] * 12, stretch=True)
+        for column in ('kind', 'size', 'mtime'):
+            self.script_tree.column(column, stretch=False)
         self.page.script_file_tips = TreeRowCard(self.script_tree, tips)
         self.script_list.pack(fill='both', expand=True, pady=(SPACING['none'], SPACING['xs']))
         # R2998：文件名列宽不再写死——0 高 sizer 驱动 script_box 请求宽，
@@ -299,9 +307,9 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
             return
         groups = tree.get_children()
         rows = tuple(groups) + tuple(item for group in groups for item in tree.get_children(group))
+        widest = 0
         if rows:
             font = self._script_list_font()
-            widest = 0
             for item in rows:
                 values = tree.item(item, 'values')
                 if values:
@@ -309,6 +317,8 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
             needed = widest + SCRIPT_CELL_OVERHEAD
         else:
             needed = SCRIPT_LIST_MIN_WIDTH
+        # 名字保留实测宽度，metadata 列超出面板时由横向滚动访问；面板本身仍按名字收窄。
+        tree.column('name', width=max(SCRIPT_LIST_MIN_WIDTH, widest + SPACING['lg']))
         try:
             # R3060：script_box.master 已是自适应宽度的 panel_dock，拿它当分母会形成
             # 「面板宽→停靠列宽→上限」的循环；内容区宽度应量 panel_area（画布列同级外框）。
@@ -335,6 +345,9 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
         self._fit_script_width()
 
     def all_script_items(self):
+        """返回文件叶子，不把阶段/类型/日期组当成可操作文件。"""
+        if hasattr(self, '_index_rows'):
+            return [item for item in self._index_rows if self.script_tree.exists(item)]
         return list(self.script_tree.get_children())
 
     def current_script_tree(self):
@@ -358,7 +371,7 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
             tree = self.current_script_tree()
             selected = tree.selection() if tree else ()
             row = selected[0] if selected else ''
-        if not row or str(row).startswith('stage-group:'):
+        if not row or self.is_file_group(row):
             return
         if str(row).startswith('library:'):
             from infra import file_index
@@ -482,7 +495,7 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
 
     def script_menu(self, tree, event):
         row = tree.identify_row(event.y)
-        if not row or str(row).startswith('stage-group:'):
+        if not row or self.is_file_group(row):
             return
         # 右键落在已选中的行上时保留 Ctrl／Shift 多选；落在别的行上改选这一行。
         if row not in tree.selection():

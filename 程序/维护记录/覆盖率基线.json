@@ -735,7 +735,7 @@
   {
    "module": "domain/audio_import_service.py",
    "covered": 0,
-   "total": 65,
+   "total": 67,
    "percent": 0.0
   },
   {
@@ -801,7 +801,7 @@
   {
    "module": "domain/global_library_service.py",
    "covered": 0,
-   "total": 114,
+   "total": 115,
    "percent": 0.0
   },
   {
@@ -1120,6 +1120,12 @@
    "module": "environment_check.py",
    "covered": 0,
    "total": 146,
+   "percent": 0.0
+  },
+  {
+   "module": "file_index.py",
+   "covered": 0,
+   "total": 3,
    "percent": 0.0
   },
   {
@@ -2337,19 +2343,19 @@
   {
    "module": "ui/desktop_files_panel.py",
    "covered": 0,
-   "total": 403,
+   "total": 409,
    "percent": 0.0
   },
   {
    "module": "ui/desktop_files_panel_filters.py",
    "covered": 0,
-   "total": 251,
+   "total": 262,
    "percent": 0.0
   },
   {
    "module": "ui/desktop_files_panel_index.py",
    "covered": 0,
-   "total": 229,
+   "total": 260,
    "percent": 0.0
   },
   {
@@ -2547,7 +2553,7 @@
   {
    "module": "ui/keyframe_import.py",
    "covered": 0,
-   "total": 185,
+   "total": 189,
    "percent": 0.0
   },
   {
@@ -3331,6 +3337,12 @@
    "percent": 14.5
   },
   {
+   "module": "infra/file_index.py",
+   "covered": 68,
+   "total": 462,
+   "percent": 14.7
+  },
+  {
    "module": "orchestrator/stage_download_inbox_service.py",
    "covered": 12,
    "total": 81,
@@ -3353,12 +3365,6 @@
    "covered": 103,
    "total": 667,
    "percent": 15.4
-  },
-  {
-   "module": "infra/file_index.py",
-   "covered": 62,
-   "total": 395,
-   "percent": 15.7
   },
   {
    "module": "orchestrator/stage_animatic_gateways.py",
@@ -3590,9 +3596,9 @@
   },
   {
    "module": "orchestrator/stage_publication.py",
-   "covered": 64,
-   "total": 129,
-   "percent": 49.6
+   "covered": 68,
+   "total": 133,
+   "percent": 51.1
   },
   {
    "module": "contract/project_stages.py",
@@ -3668,9 +3674,9 @@
   },
   {
    "module": "agent/publication.py",
-   "covered": 143,
+   "covered": 145,
    "total": 159,
-   "percent": 89.9
+   "percent": 91.2
   },
   {
    "module": "domain/video_lifecycle_service.py",
@@ -3712,12 +3718,6 @@
    "module": "domain/__init__.py",
    "covered": 1,
    "total": 1,
-   "percent": 100.0
-  },
-  {
-   "module": "file_index.py",
-   "covered": 3,
-   "total": 3,
    "percent": 100.0
   },
   {
@@ -3763,6 +3763,6 @@
    "percent": 100.0
   }
  ],
- "modules_covered": 78,
+ "modules_covered": 77,
  "modules_total": 625
 }

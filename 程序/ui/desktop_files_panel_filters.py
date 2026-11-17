@@ -82,11 +82,18 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
         self.keyword_entry.pack(side='left', fill='x', expand=True, padx=(SPACING['xs'], SPACING['none']))
         self.keyword_entry.bind('<KeyRelease>', self._keyword_changed)
         Tooltip(self.keyword_entry, '按文件名关键字筛选（回车立即生效）')
-        self.sort_box = SelectBox(row_three, values=('类型', '修改时间'), width=FILTER_STAGE_WIDTH)
+        row_four = ttk.Frame(bar)
+        row_four.pack(side='top', fill='x')
+        self.group_box = SelectBox(row_four, values=('阶段', '类型', '日期'), width=FILTER_BOX_WIDTH)
+        self.group_box.pack(side='left')
+        self.group_box.set('阶段')
+        self.group_box.bind('<<ComboboxSelected>>', lambda _event: self._apply_filters())
+        Tooltip(self.group_box, '分组方式：阶段／类型／日期（跨阶段归组）')
+        self.sort_box = SelectBox(row_four, values=('类型', '修改时间'), width=FILTER_STAGE_WIDTH)
         self.sort_box.pack(side='left', padx=(SPACING['xs'], SPACING['none']))
         self.sort_box.set('类型')
         self.sort_box.bind('<<ComboboxSelected>>', lambda _event: self._apply_filters())
-        Tooltip(self.sort_box, '阶段内按类型或修改时间排序（最新在前）')
+        Tooltip(self.sort_box, '组内按类型或修改时间排序（最新在前）')
         self.index_refresh_button = SecondaryButton(row_three, text='刷新', command=self.refresh_file_index)
         self.index_refresh_button.pack(side='left', padx=(SPACING['xs'], SPACING['none']))
         Tooltip(self.index_refresh_button, '后台重建索引，发现外部新增或修改的文件')
@@ -108,6 +115,8 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
         self.status_filter = None
         self.keyword_filter = ''
         self.library_view = False
+        self.group_mode = '阶段'
+        self.group_box.set('阶段')
         self._reset_filter_boxes()
         self._sync_stage_buttons()
 
@@ -151,6 +160,7 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
             self.status_box.set('全部状态')
         self.keyword_filter = str(self.keyword_var.get()).strip()
         self.sort_mode = self.sort_box.get()
+        self.group_mode = self.group_box.get()
         self._sync_stage_buttons()
         self._reload_current_view()
 
@@ -240,6 +250,7 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
             self._filter_job = None
             self.library_view = False
             self.sort_mode = '类型'
+            self.group_mode = '阶段'
 
     def _build_stage_rail(self):
         """建右缘阶段图标列：「全部」＋ 13 个阶段，顺序＝``pet_bus.STAGES``。"""

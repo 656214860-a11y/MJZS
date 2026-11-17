@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch
 
 from agent import core, publication
 from contract.project_context import ProjectContext
-import file_index
+from infra import file_index
 from orchestrator import stage_publication
 
 

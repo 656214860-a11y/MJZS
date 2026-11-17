@@ -77,8 +77,48 @@ def filtered_rows(rows, filters, library=False):
     return selected
 
 
+def row_metadata(row):
+    """只格式化已缓存的索引字段，不为列表读取/解析媒体。"""
+    size = max(0, row.size)
+    amount = float(size)
+    unit = 'B'
+    for unit in ('B', 'KB', 'MB', 'GB', 'TB'):
+        if amount < 1024 or unit == 'TB':
+            break
+        amount /= 1024
+    size_text = ('%d B' % size) if unit == 'B' else ('%.1f %s' % (amount, unit))
+    modified = datetime.fromtimestamp(row.mtime).strftime('%Y-%m-%d %H:%M:%S') if row.mtime else '未知'
+    return size_text, modified
+
+
+def grouped_rows(rows, mode='阶段', library=False):
+    """阶段按流程顺序，类型与日期在整个结果集归组。"""
+    groups = {}
+    for row in rows:
+        if mode == '类型':
+            key = row.kind or '其他'
+        elif mode == '日期':
+            key = row_metadata(row)[1].split(' ')[0]
+        else:
+            key = 'library' if library else (row.stage if row.stage in STAGES else '')
+        groups.setdefault(key, []).append(row)
+    if mode == '类型':
+        return [('kind-group:' + key, key, groups[key]) for key in sorted(groups)]
+    if mode == '日期':
+        keys = sorted((key for key in groups if key != '未知'), reverse=True)
+        keys += ['未知'] if '未知' in groups else []
+        return [('date-group:' + key, key, groups[key]) for key in keys]
+    keys = ['library'] if library else [*STAGES, '']
+    return [(GROUP_PREFIX + key, '全局素材库' if library else (stage_name(key) if key else '其他文件'),
+             groups[key]) for key in keys if key in groups]
+
+
 class FilesPanelIndexMixin:
     """宿主仅维护 UI 状态；文件发现与首次索引重建都通过 Desktop.async_。"""
+
+    def is_file_group(self, item):
+        """所有分组共享非文件标记，不以阶段前缀猜测文件身份。"""
+        return self.script_row_category.get(item) == '__file_group__'
 
     def _invalidate_index_load(self):
         self._index_generation = getattr(self, '_index_generation', 0) + 1
@@ -159,32 +199,29 @@ class FilesPanelIndexMixin:
         self.script_tree.heading('#0', text='')
         self.script_tree.column('#0', width=THUMB_SIZE + SPACING['xl'] * 2, stretch=False)
         self.script_tree.tag_configure('missing', foreground=COLORS['text_muted'])
-        stages = [stage for stage in STAGES if any(row.stage == stage for row in rows)]
-        stages += sorted({row.stage for row in rows if row.stage not in STAGES})
-        if library:
-            stages = ['library'] if rows else []
-        for stage in stages:
-            label = '全局素材库' if library else stage_name(stage) if stage in STAGES else '其他文件'
-            self.script_tree.insert('', 'end', iid=GROUP_PREFIX + stage, open=True, values=(label,))
-        pending = iter(rows)
+        groups = grouped_rows(rows, getattr(self, 'group_mode', '阶段'), library)
+        for group, label, _members in groups:
+            self.script_tree.insert('', 'end', iid=group, open=True, values=(label, '', '', ''))
+            self.script_row_category[group] = '__file_group__'
+        pending = iter((group, row) for group, _label, members in groups for row in members)
 
         def batch():
             self._index_render_job = None
             if not self._index_current(generation, context):
                 return
             for _ in range(RENDER_BATCH):
-                row = next(pending, None)
-                if row is None:
+                entry = next(pending, None)
+                if entry is None:
                     self._finish_index_render()
                     return
-                self._insert_index_row(row, categories, root, library)
+                group, row = entry
+                self._insert_index_row(row, categories, root, library, group)
             self._index_render_job = self.page.win.after(1, batch)
 
         batch()
 
-    def _insert_index_row(self, row, categories, root, library):
+    def _insert_index_row(self, row, categories, root, library, group):
         item = ('library:' if library else '') + row.path
-        group = GROUP_PREFIX + ('library' if library else row.stage)
         name = Path(row.path).name
         from contract.script_contract import RAW_SCRIPT_NAME
         if not library and name == RAW_SCRIPT_NAME:
@@ -192,7 +229,10 @@ class FilesPanelIndexMixin:
         category = 'index' if library else categories.get(row.path, script_category(row))
         self._index_rows[item] = row
         self.script_row_category[item] = category
-        self.script_row_details[item] = '%s · %s · %s' % (row.title or name, row.kind, row.path)
+        size_text, modified = row_metadata(row)
+        metadata = '%s · %s · %s（%d 字节）· %s\n%s' % (
+            name, row.kind, size_text, row.size, modified, row.path)
+        self.script_row_details[item] = (row.title + '\n' if row.title else '') + metadata
         label = ('[缺失] ' if row.missing else '') + name
         if category != 'index' and not row.missing:
             path = Path(root) / row.path
@@ -200,9 +240,8 @@ class FilesPanelIndexMixin:
             state = labels.get(str(path.resolve()), labels.get(category, ''))
             if state:
                 label = '[' + state + '] ' + name
-            modified = datetime.fromtimestamp(row.mtime).strftime('%m-%d')
             document = SimpleNamespace(item_id=str(path), name=name)
-            self.script_row_details[item] = script_row_card(document, state, modified, Path(root))
+            self.script_row_details[item] = script_row_card(document, state, modified, Path(root)) + '\n' + metadata
         image = None
         if not row.missing and Path(row.path).suffix.lower() in ('.png', '.gif', '.jpg', '.jpeg', '.webp'):
             import asset_thumbs
@@ -210,7 +249,7 @@ class FilesPanelIndexMixin:
         options = {'image': image} if image is not None else {}
         if image is not None:
             self._index_images[item] = image
-        self.script_tree.insert(group, 'end', iid=item, values=(label,),
+        self.script_tree.insert(group, 'end', iid=item, values=(label, row.kind, size_text, modified),
                                 tags=('missing',) if row.missing else (), **options)
 
     def _finish_index_render(self):

@@ -41,6 +41,8 @@ def import_audio(project, source, *, publish, stage='audio', kind='dialogue'):
         destination = folder / generate_existing('audio_import', prefix=AUDIO_KIND_PREFIXES.get(kind, ''),
                                                   stem=source.stem, token=uuid.uuid4().hex[:6], suffix=suffix)
         publish(destination, source)
+        from infra.file_index import record_origin
+        record_origin(project, [destination], '用户上传')
     except MediaValidationError as exc:
         return UserError(str(exc))
     except OSError:

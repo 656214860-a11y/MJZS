@@ -59,6 +59,7 @@ class ApprovedVersionSourceGuardTests(unittest.TestCase):
 
     def test_approval_consumers_use_the_shared_helper(self):
         """engine 的两处筛选、进度与交付界面都必须走同一个「采用版」助手，别再各挑各的版本。"""
+        from tests.architecture._scan import entity_file
         sources = self.program_sources()
         self.assertRegex(sources["desktop.py"], r"from (?:orchestrator\.)?engine import [^\n]*\bapproved_versions\b")
         self.assertRegex(sources["desktop.py"], r"from (?:orchestrator\.)?engine import [^\n]*\badoption_summary\b")

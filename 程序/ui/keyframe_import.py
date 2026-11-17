@@ -83,6 +83,11 @@ def register(source,item,image):
     # Unique filenames also isolate episodes that reuse SH001 etc.; the final
     # publish remains exclusive so a collision can never overwrite a frame.
     save_bytes_new(dest,raw)
+    from infra import file_index
+    from contract import stage_layout
+    root=next((folder.parent for folder in (base,*base.parents)
+               if stage_layout.stage_dir(folder.name) is not None),base)
+    file_index.record_origin(root,[dest],'用户上传')
     return publish_frame_reference(source,base,item,dest)
 
 def stale_tasks(project,source,agent_running=False,limit=300):

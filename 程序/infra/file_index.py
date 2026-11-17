@@ -22,7 +22,8 @@ from pathlib import Path, PurePosixPath, PureWindowsPath
 
 import contract.stage_layout as stage_layout
 from contract import file_naming
-from contract.file_index_contract import (FileRow, INDEX_VERSION, ORIGINS, STATUSES, STATUS_ARCHIVED,
+from contract.file_index_contract import (FileRow, INDEX_VERSION, ORIGINS, ORIGIN_SYSTEM, ORIGIN_USER,
+                                          STATUSES, STATUS_ARCHIVED,
                                           STATUS_DRAFT, STATUS_PUBLISHED)
 from contract.stage_path_service import read_dirs, write_dir
 from contract.pet_bus import STAGES as STAGE_ORDER
@@ -73,11 +74,13 @@ def _index_lock(target, root):
     """串行读改写；线程锁覆盖同进程，文件锁覆盖多个后台进程。"""
     target = Path(target).absolute()
     _relative(root, target)
-    _relative(root, target.with_suffix('.lock'))
     key = os.path.normcase(str(Path(target).resolve()))
     with _LOCKS_GUARD:
         lock = _LOCKS.setdefault(key, threading.RLock())
     with lock:
+        # Windows 上锁文件被其它线程持有时 resolve 可能返回非最终路径；
+        # 校验与打开都在同一线程互斥区，避免把合法路径误判为越界。
+        _relative(root, target.with_suffix('.lock'))
         path = Path(target).with_suffix('.lock')
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open('a+b') as stream:
@@ -86,20 +89,14 @@ def _index_lock(target, root):
                 stream.write(b'0')
                 stream.flush()
             stream.seek(0)
-            if os.name == 'nt':
-                import msvcrt
-                msvcrt.locking(stream.fileno(), msvcrt.LK_LOCK, 1)
-            else:
-                import fcntl
-                fcntl.flock(stream, fcntl.LOCK_EX)
+            # 产品只支持 Windows，使用随附运行时的原生锁，不引入未分发的 Unix 模块。
+            import msvcrt
+            msvcrt.locking(stream.fileno(), msvcrt.LK_LOCK, 1)
             try:
                 yield
             finally:
                 stream.seek(0)
-                if os.name == 'nt':
-                    msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
-                else:
-                    fcntl.flock(stream, fcntl.LOCK_UN)
+                msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
 
 
 
@@ -118,6 +115,91 @@ def _relative(project, path):
     if not resolved.is_relative_to(root):
         raise ValueError('索引只收项目内文件：' + str(path))
     return resolved.relative_to(root).as_posix()
+
+
+ORIGIN_VERSION = 1
+ORIGIN_NAME = '来源记录.json'
+
+
+def origin_path(root):
+    """独立来源事实；不是 index.json 的一部分，清缓存时必须保留。"""
+    return stage_layout.workflow_dir(root, INDEX_DIR_NAME, ORIGIN_NAME)
+
+
+def _read_origins(root):
+    from file_cache import read_json
+    target = origin_path(root)
+    try:
+        _relative(root, target.absolute())
+        data = read_json(target)
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(data, dict) or data.get('schema_version') != ORIGIN_VERSION:
+        return {}
+    entries = data.get('origins')
+    if not isinstance(entries, dict):
+        return {}
+    result = {}
+    for path, origin in entries.items():
+        try:
+            _safe_relative(root, path)
+        except (OSError, ValueError):
+            continue
+        if isinstance(origin, str) and origin in ORIGINS:
+            result[path] = origin
+    return result
+
+
+def record_origin(root, paths, origin):
+    """由成功写入入口登记来源；不读缓存、不扫描、不为不存在的文件留事实。
+
+    一批先做严格路径校验，越界或非规范路径整批拒绝。系统／模型发布保留用户上传
+    事实，避免包发布／清单刷新把导入产物重标；无历史事实仍按系统生成读取。
+    """
+    from agent.core import save
+    if not isinstance(origin, str) or origin not in ORIGINS:
+        raise ValueError('未知文件来源：' + str(origin))
+    root = Path(root).resolve()
+    relatives = []
+    for raw in paths:
+        text = str(raw)
+        path = Path(raw)
+        if ('\x00' in text or '..' in path.parts
+                or any(':' in part for part in path.parts[1:] if path.is_absolute())):
+            raise ValueError('来源路径不允许父级跳转或特殊路径')
+        if not path.is_absolute():
+            _safe_relative(root, text)
+            if any(':' in part for part in path.parts):
+                raise ValueError('来源路径不允许特殊路径')
+        relative = _relative(root, path)
+        _safe_relative(root, relative)
+        relatives.append(relative)
+    target = origin_path(root)
+    with _index_lock(index_path(root), root):
+        origins = _read_origins(root)
+        changed = False
+        for relative in relatives:
+            try:
+                info = (root / relative).stat()
+            except OSError:
+                continue
+            if not stat.S_ISREG(info.st_mode):
+                continue
+            if origin != ORIGIN_USER and origins.get(relative) == ORIGIN_USER:
+                continue
+            if origins.get(relative) != origin:
+                origins[relative] = origin
+                changed = True
+        if changed:
+            _relative(root, target.absolute())
+            save(target, {'schema_version': ORIGIN_VERSION, 'origins': origins})
+    return origins
+
+
+def _apply_origins(root, data, origins=None):
+    origins = _read_origins(root) if origins is None else origins
+    return dict(data, files=[dict(item, origin=origins.get(item['path'], ORIGIN_SYSTEM))
+                             for item in data['files']])
 
 
 def _stage_match(relative_path):
@@ -209,7 +291,7 @@ def _paths_in(manifest, keys, root=None):
     return out
 
 
-def _row_for(project, relative_path, published, now=None):
+def _row_for(project, relative_path, published, now=None, origins=None):
     """按磁盘现状造一行；文件已不存在则返回 ``None``。"""
     root = Path(project).resolve()
     try:
@@ -226,7 +308,9 @@ def _row_for(project, relative_path, published, now=None):
         status = STATUS_ARCHIVED
     elif relative_path in published:
         status = STATUS_PUBLISHED
+    origins = _read_origins(root) if origins is None else origins
     return FileRow(path=relative_path, stage=stage_of(relative_path), kind=kind_of(relative_path),
+                   origin=origins.get(relative_path, ORIGIN_SYSTEM),
                    status=status, size=info.st_size, mtime=info.st_mtime, order=parsed['order'],
                    title=parsed['title'], missing=False)
 
@@ -256,15 +340,17 @@ def build(project, now=None):
     """全量扫描并返回索引负载（不写盘）。"""
     root = Path(project).resolve()
     published = published_paths(root)
+    origins = _read_origins(root)
     rows = {}
     for path in _walk(root):
         relative = path.relative_to(root).as_posix()
-        item = _row_for(root, relative, published, now=now)
+        item = _row_for(root, relative, published, now=now, origins=origins)
         if item is not None:
             rows[relative] = item
     files = [item.to_dict() for item in rows.values()]
     for missing in sorted(published - set(rows)):
         files.append(FileRow(path=missing, stage=stage_of(missing), kind=kind_of(missing),
+                             origin=origins.get(missing, ORIGIN_SYSTEM),
                              status=STATUS_PUBLISHED, missing=True).to_dict())
     return {'schema_version': INDEX_VERSION, 'project': root.name,
             'generated_at': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(now or time.time())),
@@ -327,6 +413,7 @@ def global_index_path(library):
 def build_global(library, now=None):
     """全量扫描全局素材库并返回索引负载（不写盘）。"""
     root = Path(library).resolve()
+    origins = _read_origins(root)
     files = []
     if root.is_dir():
         for path in _walk(root):
@@ -339,6 +426,7 @@ def build_global(library, now=None):
                 continue
             parsed = file_naming.parse(path.name)
             files.append(FileRow(path=relative, stage='', kind=file_naming.kind_from_suffix(relative), status=STATUS_DRAFT,
+                                 origin=origins.get(relative, ORIGIN_SYSTEM),
                                  size=stat.st_size, mtime=stat.st_mtime, order=parsed['order'],
                                  title=parsed['title']).to_dict())
     return {'schema_version': INDEX_VERSION, 'project': root.name,
@@ -351,7 +439,7 @@ def rebuild_global(library, now=None):
     from agent.core import save
     if not Path(library).is_dir():
         return build_global(library, now=now)
-    with _index_lock(global_index_path(library), library):
+    with _index_lock(index_path(library), library), _index_lock(global_index_path(library), library):
         payload = build_global(library, now=now)
         save(global_index_path(library), payload)
         return payload
@@ -388,8 +476,10 @@ def _valid_payload(data, root):
 def _refresh(root, data, global_library=False):
     """只 stat 已有行，不发现新增文件、不递归、不哈希，也不写缓存。"""
     files = []
+    origins = _read_origins(root)
     for raw in data['files']:
         row = FileRow.from_dict(raw)
+        row.origin = origins.get(row.path, ORIGIN_SYSTEM)
         try:
             _safe_relative(root, row.path)
             info = (Path(root) / row.path).stat()
@@ -413,7 +503,7 @@ def read_global(library):
         data = read_json(global_index_path(library))
     except (OSError, ValueError):
         return None
-    return data if _valid_payload(data, library) else None
+    return _apply_origins(library, data) if _valid_payload(data, library) else None
 
 
 def global_rows(library, now=None):
@@ -448,7 +538,7 @@ def read(project):
         data = read_json(index_path(project))
     except (OSError, ValueError):
         return None
-    return data if _valid_payload(data, project) else None
+    return _apply_origins(project, data) if _valid_payload(data, project) else None
 
 
 def ensure(project, now=None):
@@ -485,11 +575,12 @@ def update(project, paths=(), removed=False, now=None):
             data = build(project, now=now)
         table = {item['path']: item for item in data['files']}
         published = published_paths(project)
+        origins = _read_origins(project)
         for relative in relatives:
             if removed:
                 table.pop(relative, None)
                 continue
-            item = _row_for(project, relative, published, now=now)
+            item = _row_for(project, relative, published, now=now, origins=origins)
             if item is None:
                 table.pop(relative, None)
             else:

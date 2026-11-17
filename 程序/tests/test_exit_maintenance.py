@@ -21,8 +21,8 @@ class ExitMaintenanceTests(unittest.TestCase):
         self.program = object()
         with contextlib.ExitStack() as stack:
             for module, name in [('storage_maintenance', 'storage'),
-                                 ('log_maintenance', 'logs'),
-                                 ('workspace_maintenance', 'workspace')]:
+                                 ('infra.log_maintenance', 'logs'),
+                                 ('infra.workspace_maintenance', 'workspace')]:
                 stack.enter_context(patch(module + '.launch_cleanup', launcher(name)))
             stack.enter_context(contextlib.redirect_stdout(output))
             result = exit_maintenance.launch_cleanup(self.program, forced=forced)

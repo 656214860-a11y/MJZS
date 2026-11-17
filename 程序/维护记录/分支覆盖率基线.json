@@ -79,11 +79,12 @@
   "tests.test_claude_program_detection",
   "tests.test_recycle_panel_actions",
   "tests.test_stage_file_index_publication",
-  "tests.test_file_naming_producers"
+  "tests.test_file_naming_producers",
+  "tests.test_file_origin_provenance"
  ],
  "tests_ok": true,
- "points_total": 2303,
- "points_covered": 1200,
+ "points_total": 2318,
+ "points_covered": 1212,
  "modules": [
   {
    "module": "aigc_lint.py",
@@ -429,9 +430,9 @@
   },
   {
    "module": "file_index.py",
-   "points": 74,
-   "covered": 58,
-   "percent": 78.4
+   "points": 89,
+   "covered": 70,
+   "percent": 78.7
   },
   {
    "module": "log_maintenance.py",
