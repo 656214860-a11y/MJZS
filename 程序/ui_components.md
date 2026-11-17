@@ -218,7 +218,7 @@
 | 引用溯源 | `ui_citation.insert_citations(box, name, text, …)` | 正文 `[n]` 着色并绑定点击定位 |
 | 树表行预览卡 | `desktop_file_card.TreeRowCard`（继承 `TreeRowTooltip`） | 悬停读完整文件名 |
 
-这些组件的存量违规项按对应门禁登记冻结：`ui_hitl` 的 `ttk.Radiobutton` 与 `ui_param_panel` 的 `ttk.Scale` 归表单控件门禁存量；其余 token 取用与语义组件复用已符合标准。
+这些组件的存量违规项按对应门禁登记冻结：表单控件门禁冻结的是 5 处 `tk.Listbox` 原生控件（`ui/asset_reference_import.py`、`ui/desktop_writing_snapshots.py`、`ui/script_outline.py`、`ui/skill_panel.py`、`ui/skill_panel_import.py`）；`ui_hitl` 的 `ttk.Radiobutton` 与 `ui_param_panel` 的 `ttk.Scale` 无外观选项、样式经主题继承，属合规使用、不在冻结清单。其余 token 取用与语义组件复用已符合标准。
 
 ## 复用规则
 
