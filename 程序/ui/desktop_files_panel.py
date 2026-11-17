@@ -22,8 +22,9 @@ from ui.desktop_files_panel_filters import (
 from ui.desktop_file_card import TreeRowCard, script_row_card
 from ui.desktop_page_registry import PAGE_ACCOUNT, PAGE_SITES
 from ui.desktop_writing_snapshots import WritingSnapshotsMixin
-from responsive_ui import fit_row_height, measure, row_toggle_target
+from responsive_ui import fit_row_height, row_toggle_target
 from ui.ui_icons import IconLoader
+from ui.ui_popup import measure_text_width
 from ui_tokens import ICON_CHEVRON_RIGHT, SCRIPT_FILE_FONT, SCRIPT_FILE_MAX_ROWS, SPACING
 from ui_widgets import DataTable, SecondaryButton, Tooltip, ask_string
 from ui.writing_page_controller import ScriptListLoadController
@@ -333,10 +334,12 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
         widest = 0
         if rows:
             font = self._script_list_font()
+            texts = []
             for item in rows:
                 values = tree.item(item, 'values')
                 if values:
-                    widest = max(widest, measure(font, str(values[0])))
+                    texts.append(str(values[0]))
+            widest = measure_text_width(font, texts)
             needed = widest + SCRIPT_CELL_OVERHEAD
         else:
             needed = SCRIPT_LIST_MIN_WIDTH
