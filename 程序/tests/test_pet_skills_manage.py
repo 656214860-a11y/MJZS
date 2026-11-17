@@ -332,18 +332,26 @@ class SkillsManagePageTests(SkillsManageCase):
             win, lambda t: 'user-layer-skill' in t.get_children()
             and 'disabled|user-layer-skill' not in t.get_children()))
 
-    def test_builtin_disable_is_refused(self):
+    def test_builtin_disable_and_enable_are_available(self):
         self.add_skills()
         win = self.hub()
         self.assertTrue(self.wait_rows(win, 3))
-        self.select(win, 'pipeline-script-preparation')
+        name = 'pipeline-script-preparation'
+        self.select(win, name)
         seams = win._pet_seams['skills']
         with mock.patch('pet_skills_manage.ask_confirmation', return_value=True) as confirm:
             result = pet_skills_manage.toggle_disabled(
                 self.pet, self.tree(win), seams['state'], seams['refresh'], seams['hint'])
-        self.assertIsNone(result)
-        confirm.assert_not_called()
-        self.assertIn('只读', seams['hint'].get())
+        self.assertTrue(result)
+        confirm.assert_called_once()
+        self.assertIn('已禁用', seams['hint'].get())
+        self.assertTrue(self.wait_tree(win, lambda t: 'disabled|' + name in t.get_children()))
+        self.select(win, 'disabled|' + name)
+        with mock.patch('pet_skills_manage.ask_confirmation', return_value=True):
+            self.assertTrue(pet_skills_manage.toggle_disabled(
+                self.pet, self.tree(win), seams['state'], seams['refresh'], seams['hint']))
+        self.assertTrue(self.wait_tree(win, lambda t: name in t.get_children()
+                                     and 'disabled|' + name not in t.get_children()))
 
     def test_rename_flows_through_plan_and_apply(self):
         self.add_skills()

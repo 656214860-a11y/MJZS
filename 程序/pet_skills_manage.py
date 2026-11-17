@@ -408,9 +408,6 @@ def toggle_disabled(pet, tree, state, refresh, hint):
     name = getattr(skill, 'name', '') or ''
     disabling = not _is_disabled_row(tree, state)
     verb = '禁用' if disabling else '启用'
-    if disabling and getattr(skill, 'layer', '') == 'builtin':
-        hint.set('内置 SKILL 只读，不能禁用；要换行为请用用户层同名覆盖。')
-        return None
     if not ask_confirmation(getattr(pet, 'win', None), verb + ' SKILL',
                             '将%s SKILL「%s」（文件保留在磁盘，随时可恢复），是否继续？'
                             % (verb, name), dangerous=disabling):
