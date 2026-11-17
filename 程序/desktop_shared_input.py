@@ -417,18 +417,10 @@ class SharedStageInput(_CandidateFlow, ttk.Frame):
         self.skill_button = _row_icon(row, ICON_SKILL, self.open_skill_list)
         self.attachment_button = _row_icon(row, ICON_ADD, self.open_add_menu)
         self.voice_button = _row_icon(row, ICON_MICROPHONE, self._toggle_voice)
-        # R3060：发送/终止键统一 Fluent PNG 图标（assets/nav/send.png、stop.png，主色底配卡片色墨水）；
-        # PNG 缺失时退回 MDL2 字形。text 仍照常配置，供既有断言与兜底显示读取。
-        from ui_icons import IconLoader
-        icon_win = self.winfo_toplevel()
-        send_icon = IconLoader.nav_icon(icon_win, 'send')
-        stop_icon = IconLoader.nav_icon(icon_win, 'stop')
+        # 圆形描边由命名样式绘制；MDL2 上箭头／方块随运行态切换，不加载 PNG。
         self.send_button = PrimaryButton(
-            row, text=ICON_SEND, image=send_icon,
-            compound='image' if send_icon is not None else 'text', width=0,
+            row, text=ICON_SEND, width=0,
             style='Tokens.Composer.Send.TButton', command=self.send)
-        self.send_button._icon_send, self.send_button._icon_stop = send_icon, stop_icon
-        self.send_button.image = send_icon
         self.send_button.pack(side='right', padx=(SPACING['xs'], SPACING['xs']))
         # R2942：模型选择器=下拉框按钮（点击弹出模型列表），与各页原「模型下拉框」同款，
         # 不再弹模态选择窗。StageModelPicker 自带按钮＋弹出卡片（含推理档位区）。

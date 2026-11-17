@@ -20,7 +20,7 @@ GLYPH_BASELINE = {
     'ui/desktop_files_panel.py': {'ICON_CHEVRON_RIGHT': 1},
     'ui/desktop_idea_bubbles.py': {'ICON_FONT': 1, 'ICON_COPY': 2, 'ICON_DELETE': 2, 'ICON_REWIND': 2},
     'ui/desktop_script_pages.py': {'ICON_SEND': 1, 'ICON_STOP': 1},
-    'ui/ui_composer_style.py': {'ICON_FONT': 3, 'ICON_FONT_SMALL': 1},
+    'ui/ui_composer_style.py': {'ICON_FONT': 4, 'ICON_FONT_SMALL': 1},  # U4：Listening.TButton 麦克风态自 Send 拆出，同属输入图标行 MDL2 域
     'ui/workflow_settings_dialog.py': {'ICON_MICROPHONE': 1},
     'ui_widgets.py': {'ICON_FONT': 1},
     'ui/white_model.py': {'ICON_MICROPHONE': 1},

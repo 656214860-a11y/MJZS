@@ -216,7 +216,7 @@ class ScriptComposerTests(unittest.TestCase):
             recorder, session = FakeRecorder.instances[-1], FakeSession.instances[-1]
             self.assertTrue(session.started)
             self.assertEqual(recorder.on_chunk, session.send, '录音块直接推给实时会话')
-            self.assertEqual(str(button.cget('style')), 'Tokens.Composer.Send.TButton', '听写中按钮高亮')
+            self.assertEqual(str(button.cget('style')), 'Tokens.Composer.Listening.TButton', '听写中按钮高亮')
             self.assertIs(win.focus_get(), box)
             self.assertIn('正在听写', d.status.get())
             # 中间结果浅色写在光标处并随结果替换，定稿后变正常文字；下一句接在后面。
