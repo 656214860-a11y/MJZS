@@ -92,7 +92,12 @@ def _run_script(script, argv):
 def _write_temp(text):
     """把投喂稿正文写成临时 md；调用方负责 finally 删除。"""
     handle = tempfile.NamedTemporaryFile('w', suffix='.md', encoding='utf-8', delete=False)
-    handle.write(text)
+    try:
+        handle.write(text)
+    except BaseException:
+        handle.close()
+        Path(handle.name).unlink(missing_ok=True)
+        raise
     handle.close()
     return Path(handle.name)
 

@@ -41,31 +41,35 @@ def comfy_server_pids():
 
 
 def force_close_comfy(settings=None):
+    """强制关闭 ComfyUI：只按登记过的进程号与 comfy_server_pids() 认人，不按映像名杀。
+
+    用户自己启动的 Comfy Desktop 窗口、以及 os.startfile 打开的程序都不在登记表里，
+    一律不碰；找不到登记进程时提示手动关闭，不猜测映像名批量结束。
+    """
     require_windows('强制关闭 ComfyUI')
-    from infra.integrations import comfy_executable
-    exe = comfy_executable(settings or {})
-    images = []
-    if exe is not None:
-        images.append(exe.name)
-    for name in ('Comfy Desktop.exe', 'ComfyUI.exe'):
-        if name not in images:
-            images.append(name)
-    killed = []
-    for image in images:
-        result = subprocess.run(
-            ['taskkill', '/IM', image, '/F', '/T'],
-            capture_output=True, timeout=10, creationflags=hidden_console_flags())
-        if result.returncode == 0:
-            killed.append(image)
+    from infra import workflow_process_registry
+    pids = []
     for pid in comfy_server_pids():
+        if pid not in pids:
+            pids.append(pid)
+    for process in workflow_process_registry.all_processes():
+        pid = getattr(process, 'pid', None)
+        try:
+            pid = int(pid)
+        except (TypeError, ValueError):
+            continue
+        if pid > 0 and pid != os.getpid() and pid not in pids:
+            pids.append(pid)
+    killed = []
+    for pid in pids:
         result = subprocess.run(
             ['taskkill', '/PID', str(pid), '/F', '/T'],
             capture_output=True, timeout=10, creationflags=hidden_console_flags())
         if result.returncode == 0:
-            killed.append('ComfyUI 服务进程 '+str(pid))
+            killed.append('进程 ' + str(pid))
     if not killed:
-        raise ValueError('未发现正在运行的 ComfyUI 进程（'+'、'.join(images)+'）。请先点击“桌面打开 ComfyUI”启动程序。')
-    return '已强制关闭 ComfyUI：'+'、'.join(killed)
+        return '未发现登记在册的 ComfyUI 相关进程；若 Comfy Desktop 窗口仍在，请手动关闭它。'
+    return '已强制关闭 ComfyUI：' + '、'.join(killed)
 
 
 def _blender_window_running():

@@ -1,0 +1,15 @@
+{
+  "round": 3292,
+  "commit_base": "c253f8cd",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k l1_p2 broadcaster aigc_lint comfy assets native_apps workflow_process workflow_engines",
+    "exit": 0,
+    "passed": 156,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T06:13:13"
+}

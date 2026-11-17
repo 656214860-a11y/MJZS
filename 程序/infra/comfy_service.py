@@ -84,7 +84,16 @@ class Comfy:
         from contract.platform_tools import current_execution, open_https      # 唯一出站入口（含截止时间与重定向凭据保护）
         control = current_execution()
         body=None if data is None else json.dumps(data).encode()
-        with open_https(self.url+path,data=body,headers={'Content-Type':'application/json'},timeout=timeout) as r:b=r.read()
+        with open_https(self.url+path,data=body,headers={'Content-Type':'application/json'},timeout=timeout) as r:
+            chunks=[];size=0
+            while True:
+                chunk=r.read(1024*1024)
+                if not chunk:break
+                size+=len(chunk)
+                if size>64*1024*1024:raise ValueError('ComfyUI 返回超过 64MB，已中止读取')
+                chunks.append(chunk)
+                if control is not None:control.checkpoint()
+            b=b''.join(chunks)
         if raw and control is not None:control.checkpoint()
         return b if raw else json.loads(b)
     def models(self):

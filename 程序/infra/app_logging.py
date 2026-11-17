@@ -384,6 +384,8 @@ def install(root=None, crash_sink=None) -> bool:
             _crash("thread:" + (args.thread.name if args.thread else "?"), args.exc_value, args.exc_traceback)
     threading.excepthook = thread_hook
     try:
+        if FAULT_LOG.is_file() and FAULT_LOG.stat().st_size > 5 * 1024 * 1024:
+            FAULT_LOG.replace(FAULT_LOG.with_name(FAULT_LOG.name + '.1'))
         _fault_stream = open(FAULT_LOG, "a", encoding="utf-8")
         faulthandler.enable(_fault_stream)
     except Exception:

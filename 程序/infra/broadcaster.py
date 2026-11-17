@@ -1,7 +1,7 @@
 """三虎的统一进度播报与文本日志。"""
+import logging
 import os
 import re
-from datetime import datetime
 
 from contract.pet_bus import STAGES
 
@@ -21,6 +21,15 @@ class Broadcaster:
         directory = os.path.dirname(log_path)
         if directory:
             os.makedirs(directory, exist_ok=True)
+        # 日志写盘走标准库 logging 的文件处理器：自带线程锁，8 路并行播报不会交错；
+        # 同一日志路径的多个 Broadcaster 共享同一个 logger，不会重复挂处理器。
+        self._logger = logging.getLogger("broadcaster.%s" % os.path.abspath(log_path))
+        self._logger.setLevel(logging.INFO)
+        self._logger.propagate = False
+        if not self._logger.handlers:
+            handler = logging.FileHandler(log_path, encoding="utf-8")
+            handler.setFormatter(logging.Formatter("%(asctime)s %(message)s", "%Y-%m-%d %H:%M:%S"))
+            self._logger.addHandler(handler)
 
     def broadcast(self, msg):
         """验证三虎前缀后，输出到调用端并写入日志。"""
@@ -28,10 +37,20 @@ class Broadcaster:
         if not any(pattern.match(message) for pattern in PREFIX_PATTERNS):
             raise ValueError("三虎播报必须使用规定前缀")
         print(message)
-        with open(self.log_path, "a", encoding="utf-8") as handle:
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            handle.write(f"{timestamp} {message}\n")
+        self._logger.info(message)
         return message
+
+    def close(self):
+        """释放日志文件句柄（测试与退出路径用）；调用后再次 broadcast 会静默只打印。"""
+        for handler in list(self._logger.handlers):
+            self._logger.removeHandler(handler)
+            handler.close()
+
+    def __del__(self):
+        try:
+            self.close()
+        except Exception:
+            pass
 
     @staticmethod
     def stage(current, title):
