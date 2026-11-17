@@ -26,7 +26,7 @@ from contract import platform_tools
 from ui_dialogs import FileDialog
 from ui_tokens import COLORS, FONTS, SPACING, TEXT_DESC, TEXT_ROWS
 from ui_widgets import (BaseDialog, DataTable, SecondaryButton, SelectBox, TextArea,
-                        ask_confirmation, ask_string, notify)
+                        Tooltip, ask_confirmation, ask_string, notify)
 
 PAGE_TITLE = 'SKILL 管理'
 NOTE_MANAGE = ('这里管「装了哪些 SKILL」：导入、看说明、体检、删除。'
@@ -100,9 +100,25 @@ def skills_page(frame, pet, width=None):
     SecondaryButton(actions, text='禁用/启用',
                     command=lambda: toggle_disabled(pet, tree, state, refresh, hint)).pack(
         side='left', padx=(SPACING['sm'], SPACING['none']))
-    SecondaryButton(actions, text='删除',
-                    command=lambda: remove_skill(pet, tree, state, refresh, hint)).pack(
-        side='left', padx=(SPACING['sm'], SPACING['none']))
+    delete = SecondaryButton(actions, text='删除',
+                             command=lambda: remove_skill(pet, tree, state, refresh, hint))
+    delete.pack(side='left', padx=(SPACING['sm'], SPACING['none']))
+    delete_tip = Tooltip(delete, '先在列表里选中一个 SKILL。')
+
+    def update_delete_state(_event=None):
+        selected = _selected(tree, state)
+        reason = '先在列表里选中一个 SKILL。'
+        if selected is not None:
+            reason = ('内置 SKILL 只读，不能删除。'
+                      if getattr(selected, 'layer', '') == 'builtin' else
+                      skill_lifecycle_service.skill_delete_block_reason(
+                          state['project'], selected.name))
+        delete.state(['disabled'] if reason else ['!disabled'])
+        delete_tip.text = reason or '将所选 SKILL 移入回收站。'
+
+    state['update_delete_state'] = update_delete_state
+    tree.bind('<<TreeviewSelect>>', update_delete_state, add='+')
+    update_delete_state()
     ttk.Label(frame, textvariable=hint, style='Muted.TLabel',
               wraplength=TEXT_DESC['wraplength']).pack(anchor='w', pady=(SPACING['xs'], SPACING['none']))
 
@@ -131,6 +147,7 @@ def skills_page(frame, pet, width=None):
                 '已禁用'))
         tree.tag_configure('disabled', foreground=COLORS['text_muted'])
         table.refresh_empty_state()
+        update_delete_state()
         if state.get('error'):
             hint.set('SKILL 列表加载失败：%s' % state['error'])
             return
@@ -146,7 +163,8 @@ def skills_page(frame, pet, width=None):
         hint.set(summary + '。内置层只读；删除只影响用户层与项目层（进回收站可恢复）。')
 
     load(state, fill)
-    return {'hint': hint, 'tree': tree, 'state': state, 'refresh': refresh}
+    return {'hint': hint, 'tree': tree, 'state': state, 'refresh': refresh,
+            'delete': delete, 'delete_tip': delete_tip}
 
 
 def load(state, done):
@@ -285,6 +303,14 @@ def remove_skill(pet, tree, state, refresh, hint):
     if getattr(skill, 'layer', '') == 'builtin':
         hint.set('内置 SKILL 只读，不能删除；要换行为请用用户层同名覆盖。')
         return None
+    reason = skill_lifecycle_service.skill_delete_block_reason(
+        state['project'], skill.name)
+    if reason:
+        hint.set(reason)
+        update_delete_state = state.get('update_delete_state')
+        if callable(update_delete_state):
+            update_delete_state()
+        return None
     program = _program_of(pet)
     layer_label = skill_project_layer.LAYER_LABELS.get(getattr(skill, 'layer', ''), '')
     disabled = _is_disabled_row(tree, state)
@@ -295,9 +321,12 @@ def remove_skill(pet, tree, state, refresh, hint):
         return None
     try:
         skill_lifecycle_service.uninstall_skill_entry(
-            program, state['registry'], getattr(skill, 'name', ''))
+            program, state['registry'], getattr(skill, 'name', ''), project=state['project'])
     except skill_import_service.ImportBlocked as exc:
         hint.set('删除失败：%s' % exc)
+        update_delete_state = state.get('update_delete_state')
+        if callable(update_delete_state):
+            update_delete_state()
         return None
     hint.set('%s 已移入回收站。' % names)
     refresh()

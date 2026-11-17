@@ -297,8 +297,30 @@ def apply_rename(program, plan):
             'ledger_rows': moved, 'affected_count': len(affected)}
 
 
-def uninstall_skill_entry(program, registry, name):
-    """删除入口：启用项走 ``uninstall_skill``；已禁用项按登记路径回收并摘禁用登记。"""
+def skill_delete_block_reason(project, name):
+    """当前项目有非空制作锁且精确引用技能时返回禁删原因；只读，不扫描项目库。"""
+    from stage_model_value import production_locks
+    if not project or not str(name or '').strip():
+        return ''
+    if not any(str(value or '').strip() for value in production_locks(project).values()):
+        return ''
+    data = read_json(skill_config_path(project))
+    for entry in (data.values() if isinstance(data, dict) else ()):
+        if not isinstance(entry, dict):
+            continue
+        for key in ('skills', 'stage_skills'):
+            selected = entry.get(key)
+            if isinstance(selected, (list, tuple)) and name in selected:
+                return '当前项目制作锁未释放，配置仍引用该 SKILL，不能删除。'
+    return ''
+
+
+def uninstall_skill_entry(program, registry, name, *, project=None):
+    """删除入口：先检查当前项目占用；启用项和禁用项均遵循同一回收语义。"""
+    project = project if project is not None else getattr(registry, 'project_root', None)
+    reason = skill_delete_block_reason(project, name)
+    if reason:
+        raise skill_import_service.ImportBlocked(reason)
     program = Path(program)
     entry = find_skill_entry(program, registry, name)
     if entry is None:
