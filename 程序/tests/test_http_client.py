@@ -322,6 +322,69 @@ class RequestsTransportTests(unittest.TestCase):
                 self.assertEqual(code_of(result), expected)
         self.assert_closed()
 
+    def test_default_connection_failure_does_not_expose_url_query(self):
+        url = 'http://127.0.0.1:1?api_key=SYNTHETIC_SECRET'
+        result = http_client.request_json('GET', url, timeout=3)
+        self.assertFalse(result.ok)
+        self.assertEqual(code_of(result), 'E-NET-UNREACHABLE')
+        for exposed in (repr(result), result.data['error_body']):
+            self.assertNotIn('SYNTHETIC_SECRET', exposed)
+            self.assertNotIn('api_key=', exposed)
+            self.assertNotIn(url, exposed)
+        self.assert_closed()
+
+    def test_default_invalid_header_does_not_expose_header_value(self):
+        value = '\nBearer SYNTHETIC_HEADER_TOKEN'
+        result = self.call('/ok', headers={'Authorization': value})
+        self.assertFalse(result.ok)
+        self.assertEqual(code_of(result), 'E-NET-UNREACHABLE')
+        for exposed in (repr(result), result.data['error_body']):
+            self.assertNotIn('SYNTHETIC_HEADER_TOKEN', exposed)
+            self.assertNotIn('Bearer', exposed)
+            self.assertNotIn('Authorization', exposed)
+        self.assertEqual(self.server.calls, [])
+        self.assert_closed()
+
+    def test_default_timeout_does_not_expose_transport_exception_details(self):
+        detail = ('https://example.invalid/?api_key=SYNTHETIC_SECRET '
+                  'Authorization: Bearer SYNTHETIC_HEADER_TOKEN '
+                  'http://SYNTHETIC_PROXY_USER:SYNTHETIC_PROXY_PASSWORD@proxy.invalid')
+        for error_type in (requests.exceptions.Timeout, TimeoutError):
+            with self.subTest(error_type=error_type):
+                http_client._HOST_FAILURES.clear()
+                error = error_type(detail)
+                with mock.patch.object(requests.adapters.HTTPAdapter, 'send', side_effect=error):
+                    result = self.call('/ok')
+                self.assertFalse(result.ok)
+                self.assertEqual(code_of(result), 'E-NET-TIMEOUT')
+                for exposed in (repr(result), result.data['error_body']):
+                    for credential in ('SYNTHETIC_SECRET', 'api_key=', 'example.invalid',
+                                       'SYNTHETIC_HEADER_TOKEN', 'Authorization',
+                                       'SYNTHETIC_PROXY_USER', 'SYNTHETIC_PROXY_PASSWORD',
+                                       'proxy.invalid'):
+                        self.assertNotIn(credential, exposed)
+        self.assertEqual(self.server.calls, [])
+        self.assert_closed()
+
+    def test_default_read_timeout_keeps_cause_private(self):
+        from urllib3.exceptions import TimeoutError as ReadTimeout
+        error = ReadTimeout('https://example.invalid/?api_key=SYNTHETIC_SECRET')
+        response = mock.Mock(status_code=200, headers={})
+        response.raw.read.side_effect = error
+        with mock.patch.object(requests.adapters.HTTPAdapter, 'send', return_value=response):
+            result = self.call('/ok')
+            with platform_tools.RequestsJsonOpener().open(
+                    urllib.request.Request(self.base + '/ok'), timeout=1) as opened:
+                with self.assertRaises(TimeoutError) as caught:
+                    opened.read(1)
+        self.assertIs(caught.exception.__cause__, error)
+        self.assertEqual(code_of(result), 'E-NET-TIMEOUT')
+        for exposed in (repr(result), result.data['error_body'], str(caught.exception)):
+            self.assertNotIn('SYNTHETIC_SECRET', exposed)
+            self.assertNotIn('api_key=', exposed)
+            self.assertNotIn('example.invalid', exposed)
+        self.assert_closed()
+
     def test_network_suppression_prevents_default_connection(self):
         with mock.patch.dict(os.environ, {'DRAMA_SUPPRESS_NETWORK': '1'}):
             result = self.call('/ok')
