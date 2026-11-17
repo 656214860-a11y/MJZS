@@ -1,0 +1,15 @@
+{
+  "round": 3173,
+  "commit_base": "2cab1882",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k skill_lifecycle_service claude_writing_session copy_rules agent_skill_sync",
+    "exit": 0,
+    "passed": 43,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T15:49:11"
+}

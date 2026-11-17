@@ -275,7 +275,7 @@ def apply_rename(program, plan):
         records = recycle_paths(program, [old_path],
                                 '重命名 SKILL：%s → %s' % (plan['old'], plan['new']))
         if not records:
-            raise skill_import_service.ImportBlocked('旧文件 %s 未能移入回收站；新文件已写入，请人工处理'
+            raise skill_import_service.ImportBlocked('旧文件 %s 未能移入回收站；新文件已写入，请您处理'
                                                      % old_path.name)
     else:
         entry_path = Path(plan['entry_path'])
