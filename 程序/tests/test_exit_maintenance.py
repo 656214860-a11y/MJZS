@@ -4,7 +4,7 @@ import io
 import unittest
 from unittest.mock import patch
 
-import exit_maintenance
+from orchestrator import exit_maintenance
 
 
 class ExitMaintenanceTests(unittest.TestCase):
@@ -55,7 +55,7 @@ class ExitMaintenanceTests(unittest.TestCase):
         error = OSError('SECRET')
         output = io.StringIO()
         with patch('storage_maintenance.launch_cleanup', side_effect=error), \
-             patch('log_maintenance.launch_cleanup') as logs, \
+             patch('infra.log_maintenance.launch_cleanup') as logs, \
              contextlib.redirect_stdout(output), self.assertRaises(OSError) as caught:
             exit_maintenance.launch_cleanup(object())
         self.assertIs(caught.exception, error)

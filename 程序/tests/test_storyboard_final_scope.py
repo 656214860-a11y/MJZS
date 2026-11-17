@@ -6,15 +6,15 @@ from pathlib import Path
 from unittest import mock
 
 import pet_bus
-import shot_batches
+from contract import shot_batches
 import stage_config
 import stage_completion_service
 import stage_flow
 import stage_layout
 import stage_parallel
-import stage_path_service
+from contract import stage_path_service
 import workflow_settings
-from storyboard_paths import is_final_dir
+from contract.storyboard_paths import is_final_dir
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILL_DIR = ROOT / 'skills' / '07分镜定稿SKILL'

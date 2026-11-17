@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 import pet_bus
-import pet_cloud as pc
+from ui import pet_cloud as pc
 from test_pet_ui import PetTestCase
 from ui_tokens import (PET_ACTIVITY_BUSY_COUNT, PET_ACTIVITY_WINDOW_SECONDS, PET_CLOUD_AUTO_CLOSE_MS,
                        PET_CLOUD_BUSY_CLOSE_MS, PET_CLOUD_IDLE_CLOSE_MS, PET_DISMISS_MUTE_SECONDS,

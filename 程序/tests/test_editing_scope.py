@@ -8,7 +8,7 @@ from pathlib import Path
 import edit_export
 import engine
 import pet_bus
-import project_stages
+from contract import project_stages
 import skill_tools
 import stage_completion_service
 import stage_config

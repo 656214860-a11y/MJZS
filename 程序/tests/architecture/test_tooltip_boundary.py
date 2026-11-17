@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 class TooltipBoundaryTests(unittest.TestCase):
     def test_skill_name_tip_uses_the_unified_component(self):
-        tree = ast.parse((ROOT / "skill_panel.py").read_text(encoding="utf-8"))
+        tree = ast.parse((ROOT / "ui" / "skill_panel.py").read_text(encoding="utf-8"))
         panel = next(node for node in tree.body if isinstance(node, ast.ClassDef)
                      and node.name == "Panel")
         method = next(node for node in panel.body if isinstance(node, ast.FunctionDef)

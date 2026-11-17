@@ -3,7 +3,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-import pet_cloud as pc
+from ui import pet_cloud as pc
 from ui_tokens import FONTS, PET_CLOUD_AUTO_CLOSE_MS
 
 

@@ -454,7 +454,7 @@ class ForceStopTests(unittest.TestCase):
                  patch("workflow_settings.find_program", lambda config: sys.executable), \
                  patch("workflow_engines.run_background", fake_run), \
                  patch.object(previs_automation, "verify", lambda *a, **k: False), \
-                 patch("previs_batch_service.prepare_batch", lambda *a, **k: "测试提示词"), \
+                 patch("orchestrator.previs_batch_service.prepare_batch", lambda *a, **k: "测试提示词"), \
                  patch("native_apps.open_blender", lambda *a, **k: None):
                 previs_automation.start(proj, source, ["SH001", "SH002"], state)
                 deadline = time.monotonic() + 30

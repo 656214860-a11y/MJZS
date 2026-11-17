@@ -111,7 +111,7 @@ def confirm_rows(desktop,project=None):
 
 
 def show_back(desktop):
-    from ui_icons import IconLoader
+    from ui.ui_icons import IconLoader
     box=getattr(desktop,'video_back',None)
     if box is None or not box.winfo_exists():
         box=ttk.Frame(desktop.content,width=SPACING['sm'] * 10,height=SPACING['sm'] * 7)

@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from editing_page_controller import EditingPageController
+from orchestrator.editing_page_controller import EditingPageController
 
 
 class _Studio:

@@ -110,9 +110,9 @@ class ScriptSendPathOptInTests(unittest.TestCase):
             host = SimpleNamespace(root=project, open_flow_agent=Mock())
             config = {"engine": "desktop-app", "program": PROGRAM, "model": "",
                       "display_model": DISPLAY}
-            with patch("workflow_tasks.script_prompt", return_value="任务"), \
-                    patch("workflow_tasks.script_followup", return_value="追问"), \
-                    patch("workflow_tasks.writing_restart_requested", return_value=False), \
+            with patch("orchestrator.workflow_tasks.script_prompt", return_value="任务"), \
+                    patch("orchestrator.workflow_tasks.script_followup", return_value="追问"), \
+                    patch("orchestrator.workflow_tasks.writing_restart_requested", return_value=False), \
                     patch("workflow_settings.skill_prompt", return_value=""):
                 Desktop.start_script_workflow(host, "创作", config=config)
             self.assertTrue(host.open_flow_agent.call_args.kwargs["desktop_paste"])

@@ -101,7 +101,7 @@ def start(project,source,ids,state,monitor=False,ticket=None,is_current=None,exe
         raise ValueError('白模自动制作需后台模型：请改用 Claude Code、Codex 或 API')
     call_config['program']=find_program(call_config)
     if call_config['engine']=='qwen':
-        from qwen_setup import environment
+        from infra.qwen_setup import environment
         environment(call_config.get('model',''),call_config.get('api'))
     engine_name=ENGINES[call_config['engine']]
     if not wm.find_blender(refresh=True):

@@ -107,7 +107,7 @@ LAYER_BASELINE_NAME = os.path.join('维护记录', '测试分层基线.json')
 FULL_SAFE_TREE_TTL = timedelta(days=7)
 
 
-FULL_SAFE_ROUND_INTERVAL = 5
+FULL_SAFE_ROUND_INTERVAL = 8
 
 
 FULL_SAFE_AUTO_LEAD = 2

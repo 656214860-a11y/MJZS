@@ -18,7 +18,7 @@ class ProjectContextTests(unittest.TestCase):
             self.assertEqual(context.cache, 'cache')
 
     def test_delivery_service_consumes_context_not_project_root(self):
-        from delivery_import_service import import_final_master
+        from domain.delivery_import_service import import_final_master
         from stage_execution_service import project_context, media_import_publisher
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder) / 'project'; root.mkdir()

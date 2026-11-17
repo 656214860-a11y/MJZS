@@ -3,11 +3,11 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-from service_contract import UserError, SystemError, success
-import recycle_recovery_service
+from contract.service_contract import UserError, SystemError, success
+from domain import recycle_recovery_service
 
-from recycle_recovery_controller import RecycleRecoveryController
-from recycle_recovery_service import list_batches, restore_batch, restore_item
+from orchestrator.recycle_recovery_controller import RecycleRecoveryController
+from domain.recycle_recovery_service import list_batches, restore_batch, restore_item
 from storage_maintenance import recycle_paths, restore_recycle_batch
 
 

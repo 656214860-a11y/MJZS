@@ -14,7 +14,7 @@ import stage_completion_service
 import stage_config
 import writing_api
 from agent.core import save
-from stage_path_service import write_dir
+from contract.stage_path_service import write_dir
 from test_preparation_confirmation import confirmed, preparation_folder
 from test_writing_api import make_project
 

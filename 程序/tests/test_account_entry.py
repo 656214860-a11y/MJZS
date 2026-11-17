@@ -13,7 +13,7 @@ sys.path.insert(0,HERE)
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 
 import pet_bus
-from account_controller import AccountController
+from orchestrator.account_controller import AccountController
 from desktop import Desktop, PAGES
 from desktop_page_registry import ACCOUNT_TITLE, PAGE, PAGE_ACCOUNT, PAGE_SITES, nav_label, page_title
 from skip_reasons import PLATFORM_TK_DISPLAY

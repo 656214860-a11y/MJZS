@@ -1,7 +1,7 @@
 """无 Tk 的内存调度／视图 adapter，验证同一协调 interface。"""
 import unittest
 
-from pet_chat_coordinator import ChatCoordinator
+from orchestrator.pet_chat_coordinator import ChatCoordinator
 
 
 class CoordinatorTests(unittest.TestCase):

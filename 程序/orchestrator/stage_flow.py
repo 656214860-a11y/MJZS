@@ -17,7 +17,7 @@ import app_logging
 from pathlib import Path
 
 import orchestrator.stage_parallel as stage_parallel
-import tk_timers
+import infra.tk_timers as tk_timers
 from contract.pet_bus import STAGES, STAGE_NAMES
 
 # 「自动」那一档在模型池里的 id（挑不出来时弹窗就写「自动」）。

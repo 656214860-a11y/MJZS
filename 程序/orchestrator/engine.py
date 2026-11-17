@@ -419,7 +419,7 @@ class Studio:
         ensure_cloud_model(self.root,self.cfg)
         from importlib import import_module
         # 第 8 轮：勾了「白模 · 上传」时它返回那份参考视频的描述（接不上就当场抛）；不勾返回 None。
-        white=import_module('white_model').validate_video_submission(self,sid)
+        white=import_module('ui.white_model').validate_video_submission(self,sid)
         with self.lock():
             if not self.cfg['live_enabled']: raise ValueError('当前为离线模式；请在设置中开启联网操作')
             st=self.state(); versions=st['shots'][sid]; shot=self.shot(sid)

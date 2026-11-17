@@ -17,7 +17,7 @@ from pathlib import Path
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE); os.chdir(HERE)
 
-import previs_monitor
+from orchestrator import previs_monitor
 from agent.core import save
 from file_cache import clear
 
@@ -255,7 +255,8 @@ class DispatchTests(unittest.TestCase):
     """REQ-S09-23：派发那一条线：手动派发开监视页；无人值守不弹浏览器。"""
 
     def setUp(self):
-        import native_apps, previs_automation, previs_batch_service, previs_routing
+        import native_apps, previs_automation, previs_routing
+        from orchestrator import previs_batch_service
         import white_model_service, workflow_engines, workflow_settings
         self.automation = previs_automation
         self.stub(previs_routing, 'partition',
@@ -294,7 +295,7 @@ class DispatchTests(unittest.TestCase):
         return not state.get('busy')
 
     def test_a_manual_dispatch_opens_the_monitor_page(self):
-        import previs_monitor as monitor
+        from orchestrator import previs_monitor as monitor
         calls = []
         def start(state, project, title=None, opener=None):
             calls.append(str(project))
@@ -311,7 +312,7 @@ class DispatchTests(unittest.TestCase):
             self.assertTrue(any('65535' in text for text in state.summaries), state.summaries)
 
     def test_an_unattended_batch_does_not_open_the_browser(self):
-        import previs_monitor as monitor
+        from orchestrator import previs_monitor as monitor
         calls = []
         self.stub(monitor, 'start', lambda *a, **k: calls.append(a))
         with tempfile.TemporaryDirectory() as td:

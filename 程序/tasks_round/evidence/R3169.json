@@ -1,0 +1,15 @@
+{
+  "round": 3169,
+  "commit_base": "a6b4b83f",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k selftests auto_full_safe full_safe_merge_gate agents_md agent_doc_budget skill_reference_injection",
+    "exit": 0,
+    "passed": 137,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T15:29:00"
+}

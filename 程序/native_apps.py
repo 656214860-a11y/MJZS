@@ -1,11 +1,9 @@
 """Open the user's installed media apps; never replace them with browser tabs."""
 import csv
 import io
-import json
 import os
 import subprocess
 import threading
-import time
 from pathlib import Path
 from contract.platform_tools import hidden_console_flags, launch_windows_app, require_windows
 
@@ -86,7 +84,7 @@ def _blender_window_running():
 
 
 def open_blender(project_file=None):
-    from white_model import find_blender
+    from ui.white_model import find_blender
     # 每次点击都重新检测：用户可能在程序启动后才安装 Blender（扫描一次约 12 毫秒）。
     exe = find_blender(refresh=True)
     if exe is None:

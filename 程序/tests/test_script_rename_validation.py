@@ -9,7 +9,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import project_stages
+from contract import project_stages
 import script_workspace_service as service
 from file_cache import read_text
 from infra import file_index

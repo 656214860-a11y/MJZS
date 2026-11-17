@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-import codex_skill_sync
+from orchestrator import codex_skill_sync
 import skill_import_service
 import skill_panel
 import skill_panel_import

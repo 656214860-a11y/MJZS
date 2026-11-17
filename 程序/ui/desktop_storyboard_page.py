@@ -8,7 +8,7 @@
 import pet_state
 from dataclasses import dataclass
 from typing import Callable
-import asset_thumbs
+import ui.asset_thumbs as asset_thumbs
 import contract.frame_checks as frame_checks
 import tkinter as tk
 import ui_plugin_registry
@@ -110,7 +110,7 @@ class _FirstFramePage:
 
     def _build_state_and_table(self):
         """读取分镜与勾选状态，建出首帧表格及其列样式（从 build 原样切出，R1814）。"""
-        from keyframe_import import resume,watch_list
+        from ui.keyframe_import import resume,watch_list
         from domain.keyframe_batch import frame_prompt
         self.frame_prompt = frame_prompt
         from orchestrator.keyframe_page_controller import KeyframePageController

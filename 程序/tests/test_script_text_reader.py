@@ -5,7 +5,7 @@ import zipfile
 from pathlib import Path
 from unittest import mock
 
-import script_text_reader
+from infra import script_text_reader
 
 _BODY = ('<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
          '<w:body><w:p><w:r><w:t>{}</w:t></w:r></w:p></w:body></w:document>')

@@ -3,9 +3,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from subtitle_timing import (calibrate_entries, line_weight, rows_from_entries,
+from domain.subtitle_timing import (calibrate_entries, line_weight, rows_from_entries,
                              srt_rows, validate_entries)
-from subtitle_export_service import (export_calibration, export_srt,
+from domain.subtitle_export_service import (export_calibration, export_srt,
                                      pending_calibration)
 
 

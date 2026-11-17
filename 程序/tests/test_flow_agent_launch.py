@@ -63,7 +63,7 @@ class FlowAgentLaunchTests(unittest.TestCase):
             'agent_dispatch.signature': Mock(return_value='sig'),
             'workflow_context.snapshot': Mock(return_value={}),
             'workflow_context.continuation_instruction': Mock(return_value=''),
-            'workflow_context_controller.request_stage_instruction': Mock(return_value=('', 'stage')),
+            'orchestrator.workflow_context_controller.request_stage_instruction': Mock(return_value=('', 'stage')),
             'contract.workflow_context_budget.prepare_request_context': lambda text, *a, **k: (text, {}),
             'workflow_engines.prompt_with_settings': lambda prompt, config, stage: prompt,
             'orchestrator.agent_skill_sync.sync_agent_skills': Mock(
@@ -98,7 +98,7 @@ class FlowAgentLaunchTests(unittest.TestCase):
 
     def test_qwen_uses_its_own_window_title(self):
         host = self.host(sync=False, page_index=3)
-        with self.stubs(), patch('qwen_adapter.window_title', return_value='Qwen·样片') as title:
+        with self.stubs(), patch('orchestrator.qwen_adapter.window_title', return_value='Qwen·样片') as title:
             self.open(host, 'storyboard', {'engine': 'qwen', 'program': '', 'model': ''})
         title.assert_called_once_with('样片', 'storyboard', 3)
         self.assertEqual('Qwen·样片', host.async_.call_args.args[0].__self__.title)
@@ -151,8 +151,8 @@ class FlowAgentLaunchTests(unittest.TestCase):
 
     def test_live_qwen_session_gets_the_followup(self):
         host = self.host(flow_processes=_AnyLiveSession())
-        with self.stubs(), patch('qwen_adapter.window_title', return_value='Q'), \
-                patch('qwen_adapter.submit_existing', return_value='已续发') as submit:
+        with self.stubs(), patch('orchestrator.qwen_adapter.window_title', return_value='Q'), \
+                patch('orchestrator.qwen_adapter.submit_existing', return_value='已续发') as submit:
             self.open(host, 'storyboard', {'engine': 'qwen', 'program': '', 'model': ''})
         self.assertEqual(('请执行',), submit.call_args.args[1:])
         self.assertEqual({'ok': True, 'reason': '已续发', 'send_dispatched': True}, self.outcome.call_args.args[1])

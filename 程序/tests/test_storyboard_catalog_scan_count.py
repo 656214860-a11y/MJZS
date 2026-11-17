@@ -27,7 +27,7 @@ import storyboard_catalog_service
 import storyboard_selection
 from agent.core import save
 from project_context_factory import project_context
-from stage_path_service import write_dir
+from contract.stage_path_service import write_dir
 
 
 def _shot(sid='SH001', duration=5):

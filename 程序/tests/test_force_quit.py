@@ -46,7 +46,9 @@ class BackgroundProcessTests(unittest.TestCase):
     """run_background：这一趟也进台账，成不成都要销号。"""
 
     def setUp(self):
-        import qwen_adapter, qwen_setup, workflow_process_registry
+        import qwen_setup
+        from orchestrator import qwen_adapter
+        from infra import workflow_process_registry
         self.adapter = qwen_adapter
         FakeQwen.made = []; FakeQwen.events = []; FakeQwen.returncode = 0
         FakeQwen.response = [{'type': 'result', 'subtype': 'success', 'result': '白模做好啦'}]
@@ -197,7 +199,9 @@ class QuitTests(unittest.TestCase):
         self.assertEqual(self.closed, ['收摊'])
 
     def maintenance_subject(self, failure=None, forcing=False):
-        import log_maintenance, storage_maintenance, workspace_maintenance
+        import storage_maintenance
+        from infra import log_maintenance
+        from infra import workspace_maintenance
         events = []
         for name, module in [('storage', storage_maintenance), ('logs', log_maintenance),
                              ('workspace', workspace_maintenance)]:
@@ -246,7 +250,10 @@ class QuitTests(unittest.TestCase):
         self.assertEqual(self.closed, ['收摊'])
 
     def test_finish_close_takes_the_monitor_page_down(self):
-        import log_maintenance, previs_monitor, storage_maintenance, workspace_maintenance
+        import storage_maintenance
+        from infra import log_maintenance
+        from orchestrator import previs_monitor
+        from infra import workspace_maintenance
         monitors = []; destroyed = []
         launched_logs = []
         launched_workspaces = []
@@ -264,7 +271,9 @@ class QuitTests(unittest.TestCase):
         self.assertEqual(launched_workspaces, [subject.app], '正常退出后才异步做仓库卫生')
 
     def test_force_quit_does_not_schedule_log_maintenance(self):
-        import log_maintenance, storage_maintenance, workspace_maintenance
+        import storage_maintenance
+        from infra import log_maintenance
+        from infra import workspace_maintenance
         launched_logs = []
         launched_workspaces = []
         self.stub(storage_maintenance, 'launch_cleanup', lambda app: None)

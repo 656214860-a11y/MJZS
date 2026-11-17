@@ -19,7 +19,7 @@ os.chdir(HERE)
 
 import recon_service as recon
 import skill_tools
-from script_manifest_contract import STAGE_MANIFESTS
+from contract.script_manifest_contract import STAGE_MANIFESTS
 
 HEADERS = {'Authorization': 'Bearer test', 'Content-Type': 'application/json'}
 
@@ -370,7 +370,7 @@ class SavingTests(unittest.TestCase):
 
     def test_invalid_card_returns_user_error_instead_of_raising(self):
         """契约：校验失败是用户可修正的错误，不抛裸 ValueError，也不落任何文件。"""
-        from service_contract import UserError
+        from contract.service_contract import UserError
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             result = recon.save_card(root, {'sources': []})
@@ -438,7 +438,7 @@ class ToolTests(unittest.TestCase):
         """REQ-S01-45：只发题材方向，用户梗概不外传。"""
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
-            from idea_brief_form import brief_raw_path
+            from domain.idea_brief_form import brief_raw_path
             from project_context_factory import project_context
             path = brief_raw_path(project_context(root))
             path.parent.mkdir(parents=True, exist_ok=True)

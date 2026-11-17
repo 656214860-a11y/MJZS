@@ -24,7 +24,7 @@ from ui.desktop_file_card import TreeRowCard, script_row_card
 from ui.desktop_page_registry import PAGE_ACCOUNT, PAGE_SITES
 from ui.desktop_writing_snapshots import WritingSnapshotsMixin
 from responsive_ui import fit_row_height, measure, row_toggle_target
-from ui_icons import IconLoader
+from ui.ui_icons import IconLoader
 from ui_tokens import ICON_CHEVRON_RIGHT, SCRIPT_FILE_FONT, SCRIPT_FILE_MAX_ROWS, SPACING
 from ui_widgets import DataTable, SecondaryButton, Tooltip, ask_string
 from ui.writing_page_controller import ScriptListLoadController

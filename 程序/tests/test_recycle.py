@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 from storyboard_files import recycle_plan
-from storyboard_recycle_service import recycle_plan as service_recycle_plan, recycle_files
+from orchestrator.storyboard_recycle_service import recycle_plan as service_recycle_plan, recycle_files
 
 
 def make_project(td):
@@ -56,7 +56,7 @@ class RecyclePlanTests(unittest.TestCase):
                 recycle_plan(proj, "badkind", file_path)
 
     def test_recycle_goes_through_shared_recycler_and_restores(self):
-        from storyboard_recycle_service import latest_recycle_batch, restore_latest_recycled_files
+        from orchestrator.storyboard_recycle_service import latest_recycle_batch, restore_latest_recycled_files
         with tempfile.TemporaryDirectory() as td:
             proj = make_project(td)
             source = proj / "writing" / "第1集_剧本.md"

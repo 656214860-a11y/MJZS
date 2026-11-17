@@ -4,8 +4,8 @@ from pathlib import Path
 
 from orchestrator.asset_batch_execution import run_batch
 from domain.asset_batch_service import KINDS, asset_prompt, current_model, unattended_plan
-from cloud_assets import LOCAL, MODELS
-from comfy_service import Comfy
+from infra.cloud_assets import LOCAL, MODELS
+from infra.comfy_service import Comfy
 from orchestrator.project_context_factory import project_context
 
 

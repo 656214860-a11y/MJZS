@@ -10,11 +10,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-import animatic_service as service
+from domain import animatic_service as service
 import script_contract
-import script_output_spec
+from contract import script_output_spec
 import stage_parallel
-from animatic_service import CONFIRMATIONS, MANIFEST, build_bundle, local_sketch, prepare_reference, validate_bundle
+from domain.animatic_service import CONFIRMATIONS, MANIFEST, build_bundle, local_sketch, prepare_reference, validate_bundle
 from project_context_factory import project_context
 from stage_completion_service import completion_evidence
 from stage_execution_service import (
@@ -25,7 +25,7 @@ from stage_execution_service import (
     publish_animatic_bundle,
     run_animatic,
 )
-from stage_path_service import shared_reference_dir, write_dir
+from contract.stage_path_service import shared_reference_dir, write_dir
 
 
 def _source(root, shots=None):
@@ -337,7 +337,7 @@ class ReqS04AnchorTests(unittest.TestCase):
         """REQ-S04-42：SG-B 与阶段完成核验共用 animatic_service.evidence，不另立判定。"""
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            with patch('animatic_service.evidence', return_value=(False, '同一核验')) as shared:
+            with patch('domain.animatic_service.evidence', return_value=(False, '同一核验')) as shared:
                 self.assertFalse(stage_parallel.animatic_ready(root)['ok'])
                 self.assertEqual(stage_parallel.animatic_ready(root)['detail'], '同一核验')
                 self.assertEqual(completion_evidence(root, 'animatic'), (False, '同一核验'))

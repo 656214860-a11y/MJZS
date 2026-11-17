@@ -12,7 +12,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-import desktop_send_ledger as ledger
+from orchestrator import desktop_send_ledger as ledger
 
 PROGRAM = 'C:/Gemini/Gemini.exe'
 DISPLAY = 'Google Gemini 4 Argon'
@@ -60,8 +60,8 @@ class DesktopResendTests(unittest.TestCase):
             'agent_dispatch.signature': Mock(return_value='sig'),
             'workflow_context.snapshot': Mock(return_value={}),
             'workflow_context.continuation_instruction': Mock(return_value='【只给路径的接续】'),
-            'workflow_context_controller.request_stage_instruction': Mock(return_value=('', 'stage')),
-            'workflow_context_budget.prepare_request_context': lambda text, *a, **k: (text, {}),
+            'orchestrator.workflow_context_controller.request_stage_instruction': Mock(return_value=('', 'stage')),
+            'contract.workflow_context_budget.prepare_request_context': lambda text, *a, **k: (text, {}),
             'workflow_engines.prompt_with_settings': lambda prompt, config, stage=None: config['skill'] + prompt,
             'workflow_settings.freeze_skills': lambda value: value,
             'workflow_settings.find_program': Mock(return_value=PROGRAM),
@@ -70,7 +70,7 @@ class DesktopResendTests(unittest.TestCase):
             'prompt_window.copy_text': self.copy,
             'codex_paste.paste_existing': self.paste,
             'contract.platform_tools.launch_windows_app': Mock(),
-            'desktop_send_ledger.PROGRAM': self.program,
+            'orchestrator.desktop_send_ledger.PROGRAM': self.program,
             'desktop_send_choice.ask_send_mode': self.ask,
         }
         with contextlib.ExitStack() as stack:

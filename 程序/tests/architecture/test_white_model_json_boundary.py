@@ -6,7 +6,7 @@ from pathlib import Path
 
 class WhiteModelJsonBoundaryTests(unittest.TestCase):
     def test_choose_previs_uses_cache_for_current_episode(self):
-        source = Path(__file__).resolve().parents[2] / 'white_model.py'
+        source = Path(__file__).resolve().parents[2] / 'ui' / 'white_model.py'
         tree = ast.parse(source.read_text(encoding='utf-8'))
         self.assertIn('from file_cache import read_json', source.read_text(encoding='utf-8'))
         method = next(node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)

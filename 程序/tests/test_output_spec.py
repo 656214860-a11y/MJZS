@@ -100,7 +100,7 @@ class EngineOutputSpecTests(unittest.TestCase):
 
 class PreviewAssemblySpecTests(unittest.TestCase):
     def commands_for(self, root, spec):
-        from edit_service import assemble_image_timeline
+        from domain.edit_service import assemble_image_timeline
         commands = []
         def execute(command, **options):
             commands.append(command)
@@ -128,7 +128,7 @@ class PreviewAssemblySpecTests(unittest.TestCase):
 
 class AnimaticForwardingTests(unittest.TestCase):
     def test_build_bundle_forwards_spec_to_assembly(self):
-        import animatic_service
+        from domain import animatic_service
         from project_context_factory import project_context
         from stage_execution_service import publish_animatic_bundle
         captured = {}

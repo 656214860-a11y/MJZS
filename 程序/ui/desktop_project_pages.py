@@ -14,11 +14,11 @@ from pathlib import Path
 from domain.projects import needs_cleanup_after_open_error
 from tkinter import ttk
 from responsive_ui import FlowBar, auto_height
-from ui_motion import EmptyState, bind_row_hover
+from ui.ui_motion import EmptyState, bind_row_hover
 from ui_tokens import TEXT_ROWS, COLORS, FONTS, SPACING, TEXT_DESC, DESKTOP_LAYOUT
 from ui.desktop_page_registry import (ACCOUNT_TITLE, PAGE_ACCOUNT, PAGE_NAV_ICONS,
                                    PROJECT_ACTION_ICONS, PROJECT_GROUP_ICONS, nav_label)
-from ui_icons import IconLoader
+from ui.ui_icons import IconLoader
 from ui_widgets import (BaseDialog, Card, DataTable, NotificationDispatcher, PrimaryButton, SecondaryButton,
                         Tooltip)
 from dataclasses import dataclass

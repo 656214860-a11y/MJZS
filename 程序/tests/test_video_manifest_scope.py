@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import engine
-import stage_path_service
+from contract import stage_path_service
 import video_task_state
 
 

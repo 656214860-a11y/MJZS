@@ -71,8 +71,8 @@
   "tests.test_file_index"
  ],
  "tests_ok": true,
- "points_total": 1055,
- "points_covered": 437,
+ "points_total": 1052,
+ "points_covered": 436,
  "modules": [
   {
    "module": "app_icon.py",
@@ -83,18 +83,6 @@
   {
    "module": "comfy_service.py",
    "points": 29,
-   "covered": 0,
-   "percent": 0.0
-  },
-  {
-   "module": "engine_probe.py",
-   "points": 1,
-   "covered": 0,
-   "percent": 0.0
-  },
-  {
-   "module": "log_maintenance.py",
-   "points": 1,
    "covered": 0,
    "percent": 0.0
   },
@@ -112,12 +100,6 @@
   },
   {
    "module": "ui_plugin_registry.py",
-   "points": 1,
-   "covered": 0,
-   "percent": 0.0
-  },
-  {
-   "module": "workspace_maintenance.py",
    "points": 1,
    "covered": 0,
    "percent": 0.0
@@ -179,8 +161,8 @@
   {
    "module": "model_pool.py",
    "points": 129,
-   "covered": 53,
-   "percent": 41.1
+   "covered": 52,
+   "percent": 40.3
   },
   {
    "module": "continuity_ledger.py",
@@ -243,81 +225,9 @@
    "percent": 92.1
   },
   {
-   "module": "account_store.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
-   "module": "aigc_lint.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
-   "module": "api_models.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
-   "module": "app_metadata.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
-   "module": "artifact_lineage.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
-   "module": "artifact_schema.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
-   "module": "asset_contract.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
    "module": "asset_prompt_rules.py",
    "points": 2,
    "covered": 2,
-   "percent": 100.0
-  },
-  {
-   "module": "broadcaster.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
-   "module": "clipboard_lock.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
-   "module": "config_snapshot.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
-   "module": "episode_contract.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
-   "module": "error_codes.py",
-   "points": 0,
-   "covered": 0,
    "percent": 100.0
   },
   {
@@ -339,25 +249,7 @@
    "percent": 100.0
   },
   {
-   "module": "frame_checks.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
-   "module": "h3_reference_adapter.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
    "module": "hash_backend.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
-   "module": "http_client.py",
    "points": 0,
    "covered": 0,
    "percent": 100.0
@@ -369,25 +261,7 @@
    "percent": 100.0
   },
   {
-   "module": "lease_verifier.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
    "module": "line_endings.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
-   "module": "model_diagnostics.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
-   "module": "native_asset_codec.py",
    "points": 0,
    "covered": 0,
    "percent": 100.0
@@ -405,79 +279,7 @@
    "percent": 100.0
   },
   {
-   "module": "production_model_contract.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
-   "module": "project_context.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
-   "module": "project_stages.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
-   "module": "prompt_templates.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
-   "module": "prop_assets.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
-   "module": "request_ledger.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
    "module": "script_contract.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
-   "module": "script_manifest_contract.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
-   "module": "script_manifest_schema.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
-   "module": "script_output_spec.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
-   "module": "script_text_reader.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
-   "module": "service_contract.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
-   "module": "shot_batches.py",
    "points": 0,
    "covered": 0,
    "percent": 100.0
@@ -489,59 +291,11 @@
    "percent": 100.0
   },
   {
-   "module": "stage_path_service.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
-   "module": "storyboard_contract.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
-   "module": "storyboard_paths.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
    "module": "ui_tokens.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
-   "module": "update_notice.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
-   "module": "usage_history.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
-   "module": "usage_snapshot.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
-   "module": "workflow_context_budget.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
-   "module": "workflow_process_registry.py",
    "points": 0,
    "covered": 0,
    "percent": 100.0
   }
  ],
- "modules_total": 78
+ "modules_total": 37
 }

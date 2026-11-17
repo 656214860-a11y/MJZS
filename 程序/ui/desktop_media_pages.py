@@ -79,7 +79,7 @@ class MediaPagesMixin:
         return batch_signature(source,pending,ready_asset_ids(self.asset_base()),references)
     def keyframe_settings(self):
         """「首帧制作」窗口保存的本地 ComfyUI 设置里还缺哪几项；空列表表示已就绪。"""
-        from keyframe_comfy import missing_settings, saved_settings
+        from ui.keyframe_comfy import missing_settings, saved_settings
         values={key:value for key,value in saved_settings().items() if key not in ('shot_ids','shot_id')}
         return missing_settings(values)
     def keyframe_batch_state(self,check_settings=False):
@@ -98,7 +98,7 @@ class MediaPagesMixin:
             return None,[],'',True
         if source is None or not Path(source).is_file():
             return None,[],'',True
-        from keyframe_comfy import pending_shots
+        from ui.keyframe_comfy import pending_shots
         pending=pending_shots(read(source).get('shots'),media_root(source))
         if not pending:
             return source,[],'',True
@@ -125,7 +125,7 @@ class MediaPagesMixin:
         ticket=self.auto.keyframe_tasks.submit(self.auto.keyframe_ticket,project=getattr(self,'root',None))
         self.status.set(label+'：准备用本地 ComfyUI 按分镜顺序补 '+str(len(pending))+' 镜首帧…')
         def worker():
-            from keyframe_comfy import auto_batch
+            from ui.keyframe_comfy import auto_batch
             try:self.auto.keyframe_queue.put((ticket,True,self.auto.keyframe_tasks.run(ticket,lambda:auto_batch(source,lambda text:self.auto_keyframe_log(ticket,text))),signature))
             except Exception as exc:self.auto.keyframe_queue.put((ticket,False,label+'未完成：'+str(exc),signature))
         threading.Thread(target=worker,daemon=True).start()

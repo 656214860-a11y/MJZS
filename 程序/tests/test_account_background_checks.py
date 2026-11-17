@@ -12,9 +12,9 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import account_controller
+from orchestrator import account_controller
 from desktop_account_page import AccountPageMixin
-from service_contract import success
+from contract.service_contract import success
 import tk_test_support
 
 

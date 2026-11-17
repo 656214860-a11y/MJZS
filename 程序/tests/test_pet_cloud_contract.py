@@ -2,7 +2,7 @@
 """pet_cloud 保留的无界面公共几何入口契约。"""
 import unittest
 
-import pet_cloud
+from ui import pet_cloud
 
 
 class PetCloudContractTests(unittest.TestCase):

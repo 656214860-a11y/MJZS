@@ -35,7 +35,7 @@ from orchestrator.storyboard_recycle_service import (
     restore_latest_recycled_files as _restore_latest_recycled_files,
 )
 from contract.platform_tools import open_path
-import tk_timers
+import infra.tk_timers as tk_timers
 from file_cache import read_json, read_text
 import project_settings
 import ui_plugin_registry
@@ -44,7 +44,7 @@ from responsive_ui import FlowBar, refresh_check_heading, bind_row_toggle
 from ui.storyboard_table_ui import file_table, fit_file_columns, fit_final_columns, insert_entries, tree_columns
 from ui_tokens import WRAPLENGTH, COLORS, FONTS, SPACING
 from ui_widgets import Card, DataTable, PrimaryButton, SecondaryButton, TextArea, ask_confirmation, notify
-from ui_dialogs import FileDialog
+from ui.ui_dialogs import FileDialog
 confirm = ask_confirmation
 # 第 46 期第 1 条：内容框的右键菜单（查看／删除）用的是 cell_hover 那一份实现，两页都要用，
 # 所以提到模块头上（原先只在 show() 里 import，show_final 拿不到这个名字）。
@@ -713,7 +713,7 @@ class _StoryboardFilesPage:
                     """按集号顺序重排镜头编号。批量分镜容易按完成顺序编号（EP002 拿到 SH032-SH050，
                 EP003 反而占了 SH017-SH031），这里交给 shot_numbering 统一重排：先预览，确认后
                 备份再改，编号之外的内容一律不动。"""
-                    import shot_numbering
+                    import ui.shot_numbering as shot_numbering
                     targets=[entry['path'] for entry in catalog(self.project,'storyboard')]
                     if not targets:
                         raise ValueError('还没有分镜 JSON，无需重排编号')

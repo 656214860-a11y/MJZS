@@ -17,7 +17,7 @@ def _calls(node):
 
 class KeyframeReferencePublicationBoundaryTests(unittest.TestCase):
     def test_register_delegates_reference_write_after_media_publish(self):
-        path = os.path.join(ROOT, 'keyframe_import.py')
+        path = os.path.join(ROOT, 'ui', 'keyframe_import.py')
         with open(path, encoding='utf-8') as handle: tree = ast.parse(handle.read(), path)
         register = _function(tree, 'register')
         reference = _function(tree, 'publish_frame_reference')

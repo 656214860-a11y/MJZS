@@ -11,7 +11,7 @@ from pathlib import Path
 
 import script_contract
 import workflow_context
-import workflow_tasks
+from orchestrator import workflow_tasks
 import writing_api
 
 

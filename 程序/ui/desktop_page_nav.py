@@ -13,7 +13,7 @@ from ui.desktop_page_registry import (ASSET_ROSTER_ICON, CACHED_PAGES, PAGE, PAG
 from ui.desktop_page_support import _prefs
 from pathlib import Path
 from tkinter import ttk
-from ui_icons import IconLoader
+from ui.ui_icons import IconLoader
 from ui_popup import Flyout, monitor_bounds
 from ui_tokens import COLORS, DESKTOP_LAYOUT, FONTS, SPACING
 from ui_widgets import SecondaryButton, SelectBox, Tooltip
@@ -210,11 +210,11 @@ class PageNavMixin:
             return
         if plan.route=='roster':
             # 第 71 期任务 2：侧栏「资产清单」那一格摆的是清单页（每个角色的正典板与状态变体）。
-            from asset_detail import show_roster
+            from ui.asset_detail import show_roster
             show_roster(self)
         elif plan.route=='detail':
             # 第 64 期任务 13：资产详情页是资产管理页的子路由（附件 v3.0 任务 2.1／2.3）。
-            from asset_detail import show as asset_detail_page
+            from ui.asset_detail import show as asset_detail_page
             asset_detail_page(self,self.asset_detail_id)
         else:
             builder=[self.writing,self.script_structure,self.storyboard_creation,self.animatic_page,self.asset_page,self.continuity_page,self.final_storyboard,self.storyboard,self.previs,self.videos,self.audio,self.editing,self.delivery][index]
@@ -345,7 +345,7 @@ class PageNavMixin:
     def shot_numbering_hint(self):
         """编号与剧本顺序不一致时返回一句提示。只提示不自动改名：重排会改写项目里的文件名与
         文本引用，属于用户可见的改动，必须由人在 03 初步分镜 点「重排镜头编号」确认后执行。"""
-        import shot_numbering
+        import ui.shot_numbering as shot_numbering
         try:
             # 看的是目录里全部分镜 JSON，而不是只看已采用的：编号错了要在 03 初步分镜 就发现，
             # 不必等采用之后才在下游暴露。

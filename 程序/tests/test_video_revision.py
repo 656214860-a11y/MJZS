@@ -135,7 +135,7 @@ class VideoRevisionTests(unittest.TestCase):
             stack.enter_context(patch('local_video.LocalAPI', return_value=api))
             stack.enter_context(patch('local_video.prepare_graph', return_value=({'114': {'inputs': {}}}, {})))
             stack.enter_context(patch('local_video.png_size', return_value=(32, 32)))
-            stack.enter_context(patch('h3_reference_adapter.attach', return_value=[]))
+            stack.enter_context(patch('infra.h3_reference_adapter.attach', return_value=[]))
             stack.enter_context(patch('native_apps.open_comfy'))
             stack.enter_context(patch('native_apps.wait_comfy'))
             stack.enter_context(patch('local_video.preflight'))
@@ -146,7 +146,7 @@ class VideoRevisionTests(unittest.TestCase):
             api.submit.return_value = 'cloud-new-task'
             studio.client = Mock(return_value=api)
             prepared = dict(studio.shot('SH001'), _reference_mode='first_frame', _asset_references=[])
-            stack.enter_context(patch('api_models.ensure_cloud_model'))
+            stack.enter_context(patch('contract.api_models.ensure_cloud_model'))
             stack.enter_context(patch('agent.shot_assets.prepare', return_value=prepared))
             stack.enter_context(patch('engine.command'))
         return api
@@ -168,7 +168,7 @@ class VideoRevisionTests(unittest.TestCase):
         api.call.side_effect = submit
         asset = {'id': 'CHAR_001', 'name': '角色', 'path': str(self.root / 'asset.png'),
                  'picture': 1, 'node_id': 'ref'}
-        with patch('h3_reference_adapter.attach', return_value=[asset]), patch('local_video.prepare_graph',
+        with patch('infra.h3_reference_adapter.attach', return_value=[asset]), patch('local_video.prepare_graph',
                 return_value=({'114': {'inputs': {}}, 'ref': {'inputs': {}}}, {})):
             studio.submit('SH001')
 

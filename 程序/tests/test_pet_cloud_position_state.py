@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import unittest
 
-import pet_cloud
+from ui import pet_cloud
 
 
 class _Parent:

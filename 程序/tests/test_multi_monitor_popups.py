@@ -3,7 +3,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
-import pet_cloud as pc
+from ui import pet_cloud as pc
 from ui_widgets import Tooltip
 
 SECOND = (1920, 0, 3840, 1080)      # 副屏在主屏右侧
@@ -44,7 +44,7 @@ class TooltipSecondMonitorTests(unittest.TestCase):
         tooltip._position = (x, y)
         tip = _Tip()
         with patch("ui_widgets.tk.Toplevel", return_value=tip), patch("ui_widgets.tk.Label", _Label), \
-             patch("ui_tooltip.monitor_bounds", return_value=SECOND):
+             patch("ui.ui_tooltip.monitor_bounds", return_value=SECOND):
             tooltip.show()
         return tip.geometry_value
 
@@ -78,7 +78,7 @@ class CloudSecondMonitorTests(unittest.TestCase):
 
     def test_cloud_origin_stays_on_second_monitor(self):
         c = self.cloud((3600, 700, 64, 64))
-        with patch("pet_cloud_place.monitor_bounds", return_value=SECOND):
+        with patch("ui.pet_cloud_place.monitor_bounds", return_value=SECOND):
             left, _top = c._origin()
         self.assertGreaterEqual(left, SECOND[0])
         self.assertLessEqual(left + c.total_width(), SECOND[2])
@@ -86,13 +86,13 @@ class CloudSecondMonitorTests(unittest.TestCase):
 
     def test_cloud_not_clamped_to_primary_width(self):
         c = self.cloud((3000, 700, 64, 64))
-        with patch("pet_cloud_place.monitor_bounds", return_value=SECOND):
+        with patch("ui.pet_cloud_place.monitor_bounds", return_value=SECOND):
             left, _top = c._origin()
         self.assertGreater(left, 1920)        # 旧行为：按主屏宽度钳到 ≤1920
 
     def test_cloud_respects_second_monitor_left_edge(self):
         c = self.cloud((2100, 700, 64, 64))
-        with patch("pet_cloud_place.monitor_bounds", return_value=SECOND):
+        with patch("ui.pet_cloud_place.monitor_bounds", return_value=SECOND):
             left, _top = c._origin()
         self.assertGreaterEqual(left, SECOND[0] + pc.MARGIN)
 

@@ -573,7 +573,7 @@ class AttemptAccountingTests(unittest.TestCase):
             self.assertTrue(client.ask('intent.route', '继续')['ok'])
             self.assertEqual(summarize(td)['total']['unknown_usage'], 1)
             self.assertEqual(client.ledger.entries, [])
-            with mock.patch('model_diagnostics.record', side_effect=OSError('disk full')):
+            with mock.patch('infra.model_diagnostics.record', side_effect=OSError('disk full')):
                 with self.assertLogs('pet_llm', level='ERROR'):
                     self.assertFalse(client.ask('intent.route', '继续')['ok'])
             self.assertEqual(len(fake.calls), 1)

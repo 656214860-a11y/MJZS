@@ -10,7 +10,7 @@ import orchestrator.skill_registry as skill_registry
 from orchestrator.skill_registry import nested_references as _nested_references, reference_row as _reference_row
 from orchestrator.skill_inline import (_charge_inline, _is_text_script, _recurse_references,
                           _skill_inline_budget, _skipped_inline_hint)
-import client_profiles, orchestrator.edit_habits as edit_habits, stage_layout
+import infra.client_profiles as client_profiles, orchestrator.edit_habits as edit_habits, stage_layout
 from contract.script_contract import PRODUCTION_LOCK_DEFINITIONS, STAGE_LOCK_REQUIREMENTS, lock_stage
 from contract.workflow_context_budget import REQUEST_CONTEXT_MAX_CHARS, estimate_tokens, skill_inline_token_budget
 from infra.store_program_locator import current_store_program, store_package_program, gui_claude_program, GUI_CLAUDE_CLI_HINT
@@ -176,7 +176,7 @@ def shared_qwen_model(data):
     for stage in ('storyboard',*FLOWS):
         candidate=flows.get(stage,{}).get('profiles',{}).get('qwen',{}).get('model','')
         if candidate:return candidate
-    from qwen_setup import load as qwen_api
+    from infra.qwen_setup import load as qwen_api
     return qwen_api().get('model','')
 def sync_qwen_model(project,model):
     model=str(model).strip()
@@ -564,7 +564,7 @@ def find_program(config):
         if store:return store
         raise ValueError('未找到 Claude Desktop，请在模型管理选择其 .exe')
     if config['engine']=='qwen':
-        from client_profiles import qwen_command
+        from infra.client_profiles import qwen_command
         return qwen_command(config)[0]
     if config['engine']=='opencode':
         found=shutil.which('opencode-cli.exe')

@@ -8,7 +8,7 @@ PROGRAM = os.path.dirname(HERE)
 sys.path.insert(0, PROGRAM)
 os.chdir(PROGRAM)
 
-from frame_checks import FrameChecks
+from contract.frame_checks import FrameChecks
 
 ROWS = [('SH001', True, False), ('SH002', False, False), ('SH003', False, True)]
 
@@ -149,7 +149,7 @@ class WiringTests(unittest.TestCase):
         self.assertIn('checked.sync(', desktop)
 
     def test_dialog_publishes_the_submitted_batch(self):
-        dialog = (Path(PROGRAM) / 'keyframe_comfy.py').read_text(encoding='utf-8')
+        dialog = (Path(PROGRAM) / 'ui' / 'keyframe_comfy.py').read_text(encoding='utf-8')
         self.assertIn("publish(checked['shots'])", dialog)
         self.assertIn('frame_checks_apply', dialog)
 

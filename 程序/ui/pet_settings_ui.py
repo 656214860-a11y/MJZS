@@ -21,7 +21,7 @@ import pet_skills_manage
 import environment_check
 import orchestrator.skill_budget as skill_budget
 import domain.usage_overview as usage_overview
-import token_saver
+import infra.token_saver as token_saver
 from contract.app_metadata import APP_NAME
 from contract.pet_settings_contract import TABS, LEVEL_NOTES
 from ui_tokens import FONTS, SPACING, TEXT_DESC, TEXT_HINT
@@ -339,7 +339,7 @@ def pet_ui_note(level):
 def cost_reconciliation_dialog(parent, project):
     """让用户核对已有请求，费用变更独立于制作任务状态。"""
     from pet_llm import RequestLedger
-    from ui_dialogs import FileDialog
+    from ui.ui_dialogs import FileDialog
     ledger = RequestLedger(project).load()
     def eligible():
         return [row for row in ledger.entries if row.get('state') in ('unknown', 'settled', 'cancelled') and not row.get('cost_group')]

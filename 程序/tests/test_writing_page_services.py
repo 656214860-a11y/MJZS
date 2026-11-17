@@ -64,7 +64,7 @@ class WritingPageServicesTests(unittest.TestCase):
     def test_multi_selected_rows_offer_only_delete_and_recycle_together(self):
         """REQ-S01-76：Ctrl／Shift 多选后右键只给「删除」，确认一次把选中的几份一起移入回收站；右键别的行改选那一行。"""
         import tempfile
-        import project_stages
+        from contract import project_stages
         services = self.services()
         with tempfile.TemporaryDirectory() as td:
             folder = project_stages.writing(Path(td)) / '创意_20261101' / '项目剧本'

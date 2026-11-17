@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import media_page_controller as media
+from orchestrator import media_page_controller as media
 import video_progress
 from local_video import skip_summary
 

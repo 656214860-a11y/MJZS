@@ -5,14 +5,14 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
-from service_contract import SystemError, UserError, success
+from contract.service_contract import SystemError, UserError, success
 
 
 class AutomaticDecisionTests(unittest.TestCase):
     """REQ-S12-14：无人值守交接按同一指纹只整理一次（skip／complete），未就绪则等待。"""
 
     def test_decision_distinguishes_repeat_wait_complete_and_dispatch(self):
-        from handoff_service import automatic_decision
+        from domain.handoff_service import automatic_decision
         self.assertEqual(automatic_decision(('state',), 'digest', ('state',), {})['action'], 'skip')
         self.assertEqual(automatic_decision(('state',), None, None, {})['action'], 'wait')
         self.assertEqual(automatic_decision(('state',), 'digest', None, {'digest': 'digest'})['action'], 'complete')
@@ -24,8 +24,8 @@ class AutomaticMarkerPublicationTests(unittest.TestCase):
     """REQ-S12-14：自动交接完成标记写到 12后期剪辑/自动交接.json。"""
 
     def test_marker_is_published_in_editing_stage(self):
-        from handoff_service import AUTOMATIC_HANDOFF_MARKER_NAME
-        from project_stages import editing
+        from domain.handoff_service import AUTOMATIC_HANDOFF_MARKER_NAME
+        from contract.project_stages import editing
         from stage_execution_service import save_automatic_handoff_marker
         with tempfile.TemporaryDirectory() as folder:
             target = save_automatic_handoff_marker(Path(folder), 'digest', Path(folder) / 'bundle', 3)
@@ -35,7 +35,7 @@ class AutomaticMarkerPublicationTests(unittest.TestCase):
 
 class BundlePublicationTests(unittest.TestCase):
     def test_bundle_requires_l3_publisher(self):
-        from handoff_service import publish_bundle
+        from domain.handoff_service import publish_bundle
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             clip = root / 'clip.mp4'; clip.write_bytes(b'clip')
@@ -44,7 +44,7 @@ class BundlePublicationTests(unittest.TestCase):
                                [({'id': 'SH001', 'duration': 3}, {'file': 'clip.mp4'})])
 
     def test_l3_publishes_complete_bundle_and_keeps_auto_marker(self):
-        from handoff_service import publish_bundle
+        from domain.handoff_service import publish_bundle
         from stage_execution_service import publish_handoff_bundle
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
@@ -63,7 +63,7 @@ class BundlePublicationTests(unittest.TestCase):
 
 class HandoffResultTests(unittest.TestCase):
     def test_validation_rejects_before_publishing(self):
-        from handoff_service import publish_bundle
+        from domain.handoff_service import publish_bundle
         publisher = Mock()
         for rows in ([], [({'id': 'SH001'}, {'file': '../outside.mp4'})]):
             result = publish_bundle(Path('project'), [], rows, publish=publisher)
@@ -71,7 +71,7 @@ class HandoffResultTests(unittest.TestCase):
         publisher.assert_not_called()
 
     def test_write_errors_are_classified(self):
-        from handoff_service import publish_bundle, save_automatic_handoff_marker
+        from domain.handoff_service import publish_bundle, save_automatic_handoff_marker
         shot = {'id': 'SH001', 'duration': 1}
         calls = [(save_automatic_handoff_marker, ('marker.json', 'digest', 'folder', 1)),
                  (publish_bundle, ('project', [shot], [(shot, {'file': 'clip.mp4'})]))]
@@ -91,12 +91,12 @@ class HandoffResultTests(unittest.TestCase):
         desk = SimpleNamespace(root=Path('project'), studio=SimpleNamespace(
             state=lambda: {'shots': {'SH001': []}}, episode={'shots': [{'id': 'SH001'}]}))
         target = Path('bundle')
-        with patch('handoff_service.publish_bundle', return_value=success(target)):
+        with patch('domain.handoff_service.publish_bundle', return_value=success(target)):
             self.assertIs(target, Desktop.handoff(desk))
-        with patch('handoff_service.publish_bundle', return_value=SystemError('保存失败')):
+        with patch('domain.handoff_service.publish_bundle', return_value=SystemError('保存失败')):
             with self.assertRaisesRegex(ValueError, '保存失败'):
                 Desktop.handoff(desk)
-        with patch('handoff_service.save_automatic_handoff_marker', return_value=SystemError('保存失败')):
+        with patch('domain.handoff_service.save_automatic_handoff_marker', return_value=SystemError('保存失败')):
             with self.assertRaisesRegex(ValueError, '保存失败'):
                 save_automatic_handoff_marker('project', 'digest', 'bundle', 1)
 

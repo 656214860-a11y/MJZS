@@ -1,0 +1,15 @@
+{
+  "round": 3187,
+  "commit_base": "bfc68f34",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k flow_agent_launch send_ledger delivery",
+    "exit": 0,
+    "passed": 64,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T16:48:26"
+}

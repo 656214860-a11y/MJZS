@@ -1,7 +1,7 @@
 """J19：请求生命周期的判定在无 Tk 的 idea_chat_controller 里，直接断言。"""
 import unittest
 
-from idea_chat_controller import (IdeaChatController, has_interruptible, interrupt_notice,
+from orchestrator.idea_chat_controller import (IdeaChatController, has_interruptible, interrupt_notice,
                                   queue_notice, slot_decision)
 
 

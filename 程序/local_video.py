@@ -67,7 +67,7 @@ class LocalAPI:
 
     def locate_prompt(self,client_id='',workflow=None,attempts=3,wait=1.0):
         """提交响应中断后，按本次 client_id（或完全相同的图）找回已进入 ComfyUI 的任务编号。"""
-        from comfy_service import locate_prompt
+        from infra.comfy_service import locate_prompt
         return locate_prompt(lambda path:self.call(path),client_id,workflow=workflow,attempts=attempts,wait=wait)
 
 def prepare_graph(root,cfg,shot):
@@ -115,7 +115,7 @@ class LocalStudio(Studio):
         from urllib.error import HTTPError                     # 第 34 期第 9 条：HTTP 栈按需加载
         report=progress or (lambda text:None)
         report("正在准备本地工作流…")
-        from white_model import validate_video_submission
+        from ui.white_model import validate_video_submission
         validate_video_submission(self,sid)
         with self.lock():
             st=self.state();versions=st['shots'][sid];shot=self.shot(sid)
@@ -378,7 +378,7 @@ def open_studio(root,episode_file=None):
 def settings_window(app):
     import tkinter as tk
     from tkinter import ttk
-    from ui_dialogs import FileDialog
+    from ui.ui_dialogs import FileDialog
     win=BaseDialog(app.window,'',modal=False,chrome=False);win.attributes('-alpha',0);win.title('本地ComfyUI视频设置 · MiniMax H3');win.geometry('850x610')
     body=Card(win,padding=SPACING['lg']);body.pack(fill='both',expand=True);body.columnconfigure(1,weight=1)
     defaults={'url':'http://127.0.0.1:8189','workflow':str(Path(__file__).parent/'workflows/h3_i2v_api.json'),'prompt':'104.prompt','image':'114.image','duration':'104.length','duration_mode':'h3_frames','seed':'15.noise_seed','output':'92'}

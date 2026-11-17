@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest import mock
 
 import workflow_engines
-import workflow_process_registry
+from infra import workflow_process_registry
 
 
 class _Process:

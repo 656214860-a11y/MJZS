@@ -71,7 +71,7 @@ class _HintHost:
     def __init__(self, tk, parent):
         self.parent = parent
         self.hint = tk.Label(parent, text='')
-        from pet_cloud_hint import CloudHintState
+        from ui.pet_cloud_hint import CloudHintState
         self.hint_state = CloudHintState(on=True, x=0)
         self.reply = None
         self.chat_row = None
@@ -84,7 +84,7 @@ class _HintHost:
 
 class HintTeardownTests(_TkCase):
     def _cloud(self):
-        from pet_cloud import Cloud
+        from ui.pet_cloud import Cloud
         cloud = Cloud(_FakePet(self.tk, self.win))
         self.addCleanup(self._destroy_cloud, cloud)
         return cloud
@@ -124,7 +124,7 @@ class HintTeardownTests(_TkCase):
         self.win.update()
         before = len(self.app_logging.recent_swallowed())
 
-        import pet_cloud_hint
+        from ui import pet_cloud_hint
         pet_cloud_hint.CloudHintMixin._hint_stop(host)
         pet_cloud_hint.CloudHintMixin._hint_tick(host)
 

@@ -30,11 +30,11 @@ def configured_key(config):
     if config.get('key_provider') == 'model_pool':
         # 新会话只保存变量名，不再把程序目录的明文 .env 路径写进项目配置。
         # 这里直接读 DPAPI 存储，避免 model_pool（它兼容读取旧配置时会调用本函数）形成导入环。
-        import model_secrets
+        import infra.model_secrets as model_secrets
         key=model_secrets.load(name)
     elif config.get('project_dir'):
         # 项目目录的 .env 只在第一次迁进本机加密存储（文件不删），之后一律读加密存储。
-        import model_secrets
+        import infra.model_secrets as model_secrets
         root=config.get('secret_root')
         model_secrets.import_env_keys(Path(config['project_dir'])/'.env',root=root)
         key=model_secrets.load(name,root=root)

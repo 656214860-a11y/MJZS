@@ -6,7 +6,7 @@ import unittest
 from datetime import datetime
 from pathlib import Path
 
-import model_diagnostics
+from infra import model_diagnostics
 
 
 class ModelDiagnosticsTests(unittest.TestCase):

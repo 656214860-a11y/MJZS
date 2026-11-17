@@ -1,5 +1,5 @@
 """剧本准备页输入框样式（仿 Claude Code 桌面版），由 ui_widgets.setup_styles 调用。"""
-from ui_rounded import rounded_photo
+from ui.ui_rounded import rounded_photo
 from ui_tokens import COLORS, FONTS, ICON_FONT, ICON_FONT_SMALL, RADIUS, ROUND_TILE_BUTTON, SPACING
 
 

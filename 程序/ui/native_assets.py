@@ -15,10 +15,10 @@ from urllib.parse import urlencode
 # 第 34 期第 9 条：`urllib.error` 连 http.client／ssl 一起加载（约 4.4 MB 常驻），
 # 本模块只在真要连 ComfyUI 时用得到——改成函数内 import。
 from agent.core import read, save, save_bytes
-from comfy_service import Comfy
-from cloud_assets import MODELS as CLOUD_MODELS
-import tk_timers
-from ui_motion import Spinner
+from infra.comfy_service import Comfy
+from infra.cloud_assets import MODELS as CLOUD_MODELS
+import infra.tk_timers as tk_timers
+from ui.ui_motion import Spinner
 from ui_tokens import BUTTON_GAP_TIGHT, WRAPLENGTH, SPACING
 
 
@@ -77,7 +77,7 @@ def _to_png(raw):
 
 def seedream_cost_preview(project, base, items, options):
     """按当前资产与恢复记录预估新增请求，不把取回已有图片算作新生成。"""
-    from seedream_api import UNSETTLED, load_profile
+    from infra.seedream_api import UNSETTLED, load_profile
     from domain.asset_context import generated_dir
     from domain.asset_batch_service import image_ready
     from pet_llm import RequestLedger
@@ -101,7 +101,7 @@ def seedream_cost_preview(project, base, items, options):
 
 
 def _run_seedream_direct(project, base, items, options, report, stop=None):
-    from seedream_api import UNSETTLED, load_profile, request_image
+    from infra.seedream_api import UNSETTLED, load_profile, request_image
     from pet_llm import RequestLedger, BudgetRejected
     from uuid import uuid4
     from asset_reference_images import resolve, reference_instruction
@@ -282,12 +282,12 @@ def run(project, base, items, url, report, timeout=7200, options=None, stop=None
     key=''
     if state['state'] in ('preparing','submitting','pending'):
         if options['model']=='Seedream 5.0 Pro':
-            from seedream_api import load_profile
+            from infra.seedream_api import load_profile
             profile=load_profile(options.get('seedream_profile',''))
             options={**options,'seedream_profile':profile['profile_id']}
             state['request']['options']=options;save(record,state)
         elif options['model']!=LOCAL:
-            from cloud_assets import get_key
+            from infra.cloud_assets import get_key
             key=get_key()
             if not key:raise ValueError('请先点击“云模型账号 / 密钥”，登录 Comfy 账户并保存 API Key。本地 FLUX 无需登录。')
     if state['state']=='preparing':
@@ -402,7 +402,7 @@ class _AssetControls:
     def update_hint(self):
         self.account_text.set('火山 API 设置' if self.model.get()=='Seedream 5.0 Pro' else '云模型账号 / 密钥')
         if self.model.get()=='Seedream 5.0 Pro':
-            from seedream_api import public_profile
+            from infra.seedream_api import public_profile
             try:detail='当前模型：'+public_profile()['model']
             except ValueError:detail='请保存实际模型 ID 和 API Key。'
             self.hint.set('使用自己的火山 API，费用计入火山账户。'+detail)
@@ -431,7 +431,7 @@ class _AssetControls:
         url=self.app.settings.get('comfy_url','http://127.0.0.1:8188')
         self.check_stop.clear();self.busy.set_busy(True);self.cancel_button.configure(text='取消检测');self.cancel_button.state(['!disabled'])
         def probe():
-            from comfy_service import Comfy
+            from infra.comfy_service import Comfy
             from urllib.error import HTTPError                  # 第 34 期第 9 条：HTTP 栈按需加载
             try:
                 client=Comfy(url)
@@ -477,7 +477,7 @@ class _AssetControls:
         if not items:raise ValueError('请至少勾选一项待生成资产。')
         options={'model':self.model.get(),'aspect_ratio':self.aspect.get(),'quality':'medium','seed':42};self.selected()
         if options['model']=='Seedream 5.0 Pro':
-            from seedream_api import load_profile
+            from infra.seedream_api import load_profile
             try:options['seedream_profile']=load_profile()['profile_id']
             except ValueError as exc:
                 self.progress_text.set(str(exc));self.account();return
@@ -486,7 +486,7 @@ class _AssetControls:
             confirm_unsettled(self.win,generated_dir(self.base),[aid for aid,_ in items],'资产')
             self.progress_text.set(seedream_cost_preview(self.project, self.base, items, options))
         elif options['model']!=LOCAL:
-            from cloud_assets import get_key
+            from infra.cloud_assets import get_key
             if not get_key():
                 self.progress_text.set('请先保存 Comfy API Key，或切换到 Seedream 5.0 Pro（使用火山方舟 Seedream Key）。');self.account();return
         if options['model']!='Seedream 5.0 Pro':

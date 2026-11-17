@@ -7,7 +7,7 @@ from unittest.mock import patch
 import stage_config
 import workflow_settings
 from agent.core import file_hash, read, save
-from project_stages import audio
+from contract.project_stages import audio
 from stage_completion_service import (completion_evidence, confirm_media_completion,
                                      media_manifest_path, media_scope, prepare_media_completion)
 
@@ -118,7 +118,7 @@ class ReqS11MediaCompletionAnchorTests(unittest.TestCase):
     def test_req_s11_04_non_dialogue_only_is_rejected_before_confirmation(self):
         """REQ-S11-04：所选音频没有一条对白音轨（只有 BGM／音效／旁白）时，
         ``prepare_media_completion`` 当场拒绝且不生成待审清单；对白文件才可进入待审。"""
-        from tts_api import audio_kind
+        from domain.tts_api import audio_kind
         with tempfile.TemporaryDirectory() as temporary:
             project = _MediaProject(temporary)
             bgm = project.media_file('BGM_theme.wav')

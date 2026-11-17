@@ -150,7 +150,7 @@ def _version() -> str:
     try:
         if str(PROGRAM) not in sys.path:
             sys.path.insert(0, str(PROGRAM))
-        from app_metadata import VERSION
+        from contract.app_metadata import VERSION
         return str(VERSION)
     except Exception:
         return ''

@@ -38,7 +38,7 @@ class ReleaseBindingTests(unittest.TestCase):
 
     def test_config_snapshot_ring_keeps_project_config_copy(self):
         """U10 的快照语义由 config_snapshot 承接：写前把现有配置复制进环形槽位。"""
-        import config_snapshot
+        from infra import config_snapshot
         with tempfile.TemporaryDirectory() as tmp:
             project, program = Path(tmp, '项目'), Path(tmp, 'prog')
             project.mkdir()

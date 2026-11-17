@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from broadcaster import Broadcaster
+from infra.broadcaster import Broadcaster
 import pet_bus
 import pet_ui
 

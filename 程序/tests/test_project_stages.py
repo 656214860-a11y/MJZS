@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import project_stages as stages
+from contract import project_stages as stages
 
 
 class ProjectStagePathTests(unittest.TestCase):

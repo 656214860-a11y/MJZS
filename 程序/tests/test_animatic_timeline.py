@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
-from edit_service import assemble_image_timeline
+from domain.edit_service import assemble_image_timeline
 
 
 class AnimaticTimelineTests(unittest.TestCase):

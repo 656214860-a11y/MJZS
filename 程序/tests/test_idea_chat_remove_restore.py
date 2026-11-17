@@ -8,8 +8,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import idea_chat
-import idea_transcript
-from project_stages import writing
+from domain import idea_transcript
+from contract.project_stages import writing
 from stage_execution_service import idea_chat_gateway, project_context
 
 

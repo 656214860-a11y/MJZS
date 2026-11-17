@@ -7,8 +7,8 @@ import unittest
 from unittest.mock import Mock, patch
 import zipfile
 
-import idea_attachments
-from service_contract import UserError
+from domain import idea_attachments
+from contract.service_contract import UserError
 from stage_execution_service import project_context
 from tests import test_idea_attachments as fixtures
 
@@ -57,7 +57,7 @@ class OfficeBudgetTests(unittest.TestCase):
         archive.open.return_value = stream
         archive.read.return_value = raw
         with patch.object(idea_attachments, 'MAX_XML_MEMBER_BYTES', 256, create=True):
-            with patch('idea_attachments.zipfile.ZipFile', return_value=archive):
+            with patch('domain.idea_attachments.zipfile.ZipFile', return_value=archive):
                 with self.assertRaisesRegex(ValueError, '解压.*上限'):
                     idea_attachments.read_source(path)
         read.assert_called_once_with(257)

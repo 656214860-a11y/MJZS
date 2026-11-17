@@ -5,12 +5,12 @@ import unittest
 from unittest.mock import Mock
 
 import model_pool
-import project_stages
+from contract import project_stages
 import stage_config
 import writing_api
 from agent.core import save
 from desktop_idea_chat import IdeaChatMixin
-from idea_chat_controller import IdeaChatController
+from orchestrator.idea_chat_controller import IdeaChatController
 from test_workflow import make_project
 import test_writing_api
 

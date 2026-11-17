@@ -34,7 +34,7 @@ class SnapshotTests(unittest.TestCase):
     def test_new_project_placeholder_is_not_a_storyboard_after_script_removal(self):
         from projects import Projects
         from stage_execution_service import project_registry_gateway
-        from project_stages import writing, storyboard
+        from contract.project_stages import writing, storyboard
         with tempfile.TemporaryDirectory() as td:
             app = Path(td) / 'app'
             app.mkdir()
@@ -106,7 +106,7 @@ class SnapshotTests(unittest.TestCase):
 
 class InstructionTests(unittest.TestCase):
     def test_l3_entry_points_can_build_snapshot_from_injected_context(self):
-        from workflow_context_controller import request_stage_instruction, publish_writing_context
+        from orchestrator.workflow_context_controller import request_stage_instruction, publish_writing_context
         with tempfile.TemporaryDirectory() as td:
             context = project_context(make_project(td))
             text, strategy = request_stage_instruction(context, 'storyboard')

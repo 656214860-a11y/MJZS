@@ -142,7 +142,7 @@ class ContinuityScopeTests(unittest.TestCase):
 
     def test_req_s06_26_g08_is_optional_and_sg02_does_not_depend_on_it(self):
         """REQ-S06-26：G-08 人工裁决可选、建议，不是 SG-02 的放行条件。"""
-        import confirm_gates
+        from domain import confirm_gates
         gate = confirm_gates.by_id('G-08')
         self.assertEqual(gate['type'], confirm_gates.SUBJECTIVE)
         self.assertEqual(gate['ask'], 'conflicts')

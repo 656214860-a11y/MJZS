@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import patch
 from pathlib import Path
 
-from project_stages import audio
+from contract.project_stages import audio
 from stage_completion_service import (completion_evidence, media_output_folders, media_scope,
     prepare_media_completion, confirm_media_completion, media_manifest_path)
 from agent.core import save, read

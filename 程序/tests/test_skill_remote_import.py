@@ -323,7 +323,7 @@ class PanelUrlImportTests(unittest.TestCase):
         payload = zip_bytes({'pack/SKILL.md': REMOTE_MD,
                              'pack/references/rules.md': '规则'})
         opener = Opener({'https://cdn.example.com/p.zip': FakeResponse(payload)})
-        fake_module = str(self.desktop.app / 'skill_import_service.py')
+        fake_module = str(self.desktop.app / 'ui' / 'skill_import_service.py')
         with mock.patch('skill_panel_import.ask_string', return_value='https://cdn.example.com/p.zip'), \
                 mock.patch.object(skill_import_service, '__file__', fake_module), \
                 mock.patch.dict(os.environ):

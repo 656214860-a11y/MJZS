@@ -2,7 +2,7 @@
 """跨进程剪贴板锁的无 GUI 回归。"""
 import unittest
 
-import clipboard_lock
+from infra import clipboard_lock
 
 
 class ClipboardLockTests(unittest.TestCase):

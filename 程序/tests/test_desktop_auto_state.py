@@ -8,7 +8,7 @@ from dataclasses import fields
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 
-from desktop_auto_state import AutoState, AutoStateHolderMixin, create_auto_state
+from orchestrator.desktop_auto_state import AutoState, AutoStateHolderMixin, create_auto_state
 from desktop_automation_service import BackgroundTaskLifecycle
 
 # 原 Desktop._initialize_automation_state 中非 0／None／False／'' 的默认值。

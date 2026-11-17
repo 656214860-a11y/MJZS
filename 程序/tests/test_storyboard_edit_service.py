@@ -5,7 +5,7 @@ from unittest.mock import Mock
 
 from agent.core import read, save
 from storyboard_edit_service import save_edited_json
-from service_contract import ServiceResult, SystemError, UserError
+from contract.service_contract import ServiceResult, SystemError, UserError
 
 
 class StoryboardEditServiceTests(unittest.TestCase):

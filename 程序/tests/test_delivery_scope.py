@@ -14,8 +14,8 @@ import stage_layout
 import stage_parallel
 import workflow_settings
 from agent.core import file_hash, read, save
-from delivery_import_service import ALLOWED_SUFFIXES
 from tests.architecture._scan import entity_file
+from domain.delivery_import_service import ALLOWED_SUFFIXES
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILL_DIR = ROOT / 'skills' / '13质检交付SKILL'
@@ -137,7 +137,7 @@ class DeliveryQcTests(unittest.TestCase):
     def test_req_s13_24_confirmation_writes_declared_artifacts(self):
         prepared = self.prepare(self.master({'qc': {'errors': []}}))
         stage_completion_service.confirm_media_completion(self.root, 'delivery', prepared)
-        from stage_path_service import write_dir
+        from contract.stage_path_service import write_dir
         folder = write_dir(self.root, 'delivery')
         for name in ('qc_report.json', 'delivery.json', 'delivery_manifest.json'):
             with self.subTest(name=name):

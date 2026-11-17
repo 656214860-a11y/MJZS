@@ -424,7 +424,8 @@ class OrchestratorTriggerTests(unittest.TestCase):
     """附件二第 6 条：手动与自动共用同一台编排器，只有 trigger 不同（事件里看得见）。"""
 
     def setUp(self):
-        import pet_bus, skill_orchestrator
+        import pet_bus
+        from orchestrator import skill_orchestrator
         stage_flow.reset()
         self.addCleanup(stage_flow.reset)
         self.bus_module, self.orchestrator = pet_bus, skill_orchestrator

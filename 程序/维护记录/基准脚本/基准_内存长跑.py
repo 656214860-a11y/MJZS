@@ -100,7 +100,7 @@ def big_project(td, count):
     proj = T.make_populated_project(str(td))
     base = proj / 'episode'
     episode_file = base / 'episode.json'
-    from project_stages import storyboard as storyboard_stage
+    from contract.project_stages import storyboard as storyboard_stage
     source_file = storyboard_stage(proj) / '分镜文档' / 'episode.json'
     source_file.parent.mkdir(parents=True, exist_ok=True)
     episode = json.loads(episode_file.read_text(encoding='utf-8'))

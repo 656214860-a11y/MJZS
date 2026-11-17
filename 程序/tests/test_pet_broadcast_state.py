@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import unittest
 
-from pet_broadcast_state import PetBroadcastAliasesMixin, PetBroadcastState, PetOfferState
+from orchestrator.pet_broadcast_state import PetBroadcastAliasesMixin, PetBroadcastState, PetOfferState
 
 
 class StateTests(unittest.TestCase):
@@ -81,7 +81,7 @@ class AliasTests(unittest.TestCase):
         self.assertIs(holder.offer, holder.offer)
 
     def test_cloud_hint_state_defaults_match_the_old_attributes(self):
-        import pet_cloud_hint
+        from ui import pet_cloud_hint
         state = pet_cloud_hint.CloudHintState()
         self.assertEqual((state.job, state.on, state.x, state.user_focus),
                          (None, False, pet_cloud_hint.HINT_X, False))

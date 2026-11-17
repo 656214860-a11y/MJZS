@@ -14,7 +14,7 @@ from stage_execution_service import project_registry_gateway
 
 class ProjectsGatewayTests(unittest.TestCase):
     def test_practice_sample_creates_isolated_ten_shot_project_without_generation(self):
-        from episode_contract import validate_episode
+        from contract.episode_contract import validate_episode
         sample = Path(__file__).resolve().parents[1] / '说明' / '示例' / '雨夜修伞'
         episode = json.loads((sample / 'episode.json').read_text(encoding='utf-8'))
         assets = json.loads((sample / 'assets.json').read_text(encoding='utf-8'))
@@ -35,7 +35,7 @@ class ProjectsGatewayTests(unittest.TestCase):
             self.assertEqual(cfg['video_backend'], 'cloud')
             self.assertNotIn('ffmpeg', cfg)
             self.assertNotIn('ffprobe', cfg)
-            from project_stages import assets as asset_dir
+            from contract.project_stages import assets as asset_dir
             first = Path(result.data)
             imported_assets = asset_dir(first) / 'assets.json'
             self.assertEqual(json.loads(imported_assets.read_text(encoding='utf-8')), assets)

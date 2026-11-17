@@ -5,11 +5,11 @@ import tempfile
 import unittest
 
 from agent.core import save
-import project_stages
+from contract import project_stages
 import script_contract
 import stage_config
 import writing_api
-import writing_unconfirm
+from orchestrator import writing_unconfirm
 from stage_execution_service import publish_stage_text, restart_writing_preparation
 from test_writing_api import make_project
 

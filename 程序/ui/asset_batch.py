@@ -4,15 +4,15 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import ttk,messagebox
 from agent.core import read
-from comfy_service import Comfy
+from infra.comfy_service import Comfy
 from stage_execution_service import remove_asset_batch_model as remove_model, save_asset_batch_settings as save_settings
-import tk_timers
+import infra.tk_timers as tk_timers
 import ui_plugin_registry
 import orchestrator.stage_models as stage_models
 from responsive_ui import FlowBar, scroll_form
 from contract.platform_tools import open_target
 from ui_tokens import TEXT_ROWS, WRAPLENGTH, COLORS, SPACING
-from ui_dialogs import FileDialog
+from ui.ui_dialogs import FileDialog
 from ui_widgets import SelectBox, BaseDialog, Card, DataTable, DescriptionBlock, LineInput, PrimaryButton, ProgressLabel, SecondaryButton, ask_confirmation
 from domain.asset_batch_service import (
     KINDS, asset_prompt as _asset_prompt, register_image as _register_image,
@@ -177,7 +177,7 @@ class _AssetBatchWindow:
             self.refresh();view.bind_wheel();self.win.update_idletasks()
             self.win.geometry(f'+{self.app.win.winfo_rootx()+40}+{self.app.win.winfo_rooty()+40}');self.win.deiconify()
             return
-        from cloud_assets import LOCAL,MODELS
+        from infra.cloud_assets import LOCAL,MODELS
         from ui.cloud_assets_dialog import settings as cloud_settings
         self.LOCAL = LOCAL; self.MODELS = MODELS; self.cloud_settings = cloud_settings
         self.chooser=FlowBar(form);self.chooser.pack(fill='x',padx=SPACING['lg'],pady=SPACING['sm'])
@@ -363,7 +363,7 @@ class _AssetBatchWindow:
                 Comfy(options['url'])
                 if self.backend.get()==self.LOCAL and any(not a.get('reference_images') for _,a in items) and not options['workflow'] and not options['model']:raise ValueError('请先选择图像模型或 ComfyUI API 工作流')
                 if self.backend.get() in self.MODELS:
-                    from cloud_assets import get_key
+                    from infra.cloud_assets import get_key
                     if not get_key():raise ValueError('请先在“云模型设置”保存 Comfy API Key，再启动 Qwen 批量生图')
                 result=save_settings(self.project, options)
                 if not result.ok:

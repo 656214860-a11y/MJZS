@@ -4,7 +4,7 @@
 import json
 import tkinter as tk
 from tkinter import ttk
-from ui_motion import Spinner
+from ui.ui_motion import Spinner
 from ui_tokens import COLORS, FONTS, ICON_COPY, ICON_DELETE, ICON_FONT, ICON_REWIND, SPACING
 from pathlib import Path
 from orchestrator.idea_chat_controller import ALL_MODELS, bubble_timestamp, collapse_preview, model_bar_items, model_bar_selection

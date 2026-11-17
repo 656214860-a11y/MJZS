@@ -40,7 +40,7 @@ def make_project(td, shots=40):
         "episode_dir": str(proj / "episode"), "episode_file": str(proj / "episode" / "episode.json"),
         "budget_seconds": 0, "reserve_seconds": 0, "live_enabled": False}, ensure_ascii=False), encoding="utf-8")
     # 工作分镜属于 03 初步分镜阶段；旧 storyboard/ 仅允许兼容读取。
-    from project_stages import storyboard
+    from contract.project_stages import storyboard
     sb_dir = storyboard(proj) / "分镜拆分"
     sb_dir.mkdir(parents=True, exist_ok=True)
     target = sb_dir / "episode.json"
