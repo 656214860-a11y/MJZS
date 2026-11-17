@@ -2,7 +2,8 @@
 """生成侧栏导航 PNG 图标（开发期工具；产物 ``assets/nav/*.png`` 随程序分发）。
 
 图标字形来自 Microsoft Fluent System Icons（Filled 实心版，MIT，
-字体与许可证在 ``assets/fonts/``），经 Pillow 按 2 倍率渲染后缩到 20px 网格并自动裁边。
+字体与许可证在 ``assets/fonts/``）。主导航图标经 Pillow 倍率渲染后放入固定 24px 画布；
+阶段文件复合图标按 M3 的设计裁边，不适用主导航尺寸规则。
 运行时只加载 PNG，不依赖 Pillow 或字体文件；本脚本仅在新增/替换图标时重跑：
 
     python scripts/build_nav_icons.py
@@ -77,12 +78,12 @@ STAGE_FILE_BASES = {
 }
 FILE_BADGE_CODEPOINT = ICONS['project_files']  # folder-list：与「项目文件」入口同字形
 
-RENDER_PX = 48      # 2 倍渲染后 LANCZOS 缩到 24px，边缘更顺（R2946 图标放大一档）
-TARGET_PX = 24
+RENDER_PX = 48      # 2 倍渲染后 LANCZOS 缩小，边缘更顺
 
 
 def render_icons(ink: tuple[int, int, int, int], light_ink=None, accent_ink=None):
     from PIL import Image, ImageDraw, ImageFont
+    from ui_tokens import NAV_ICON_SIZE
     font = ImageFont.truetype(str(FONT_PATH), RENDER_PX)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     written = []
@@ -102,13 +103,22 @@ def render_icons(ink: tuple[int, int, int, int], light_ink=None, accent_ink=None
                                    font=font, fill=use_ink)
         image = image.resize((image.width // 2, image.height // 2), Image.LANCZOS)
         box = image.getchannel('A').getbbox()
+        canvas = Image.new('RGBA', (NAV_ICON_SIZE, NAV_ICON_SIZE), (0, 0, 0, 0))
         if box:
-            left, top, right, bottom = box
-            image = image.crop((max(0, left - 1), max(0, top - 1),
-                                min(image.width, right + 1), min(image.height, bottom + 1)))
+            image = image.crop(box)
+            max_ink = NAV_ICON_SIZE - 2  # leave one transparent pixel on each edge
+            if image.width > max_ink or image.height > max_ink:
+                scale = min(max_ink / image.width, max_ink / image.height)
+                image = image.resize((max(1, round(image.width * scale)),
+                                      max(1, round(image.height * scale))), Image.LANCZOS)
+            alpha = image.getchannel('A')
+            image = Image.new('RGBA', image.size, use_ink)
+            image.putalpha(alpha)
+            canvas.paste(image, ((NAV_ICON_SIZE - image.width) // 2,
+                                 (NAV_ICON_SIZE - image.height) // 2))
         path = OUT_DIR / f'{key}.png'
-        image.save(path)
-        written.append((path.name, image.width, image.height))
+        canvas.save(path)
+        written.append((path.name, canvas.width, canvas.height))
     return written
 
 

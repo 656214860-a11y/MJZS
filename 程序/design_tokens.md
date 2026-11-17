@@ -209,6 +209,27 @@ Tooltip 仅由 `ui_widgets.Tooltip` 建立；页面不得自行创建无边框 `
 | `table.row.height` | `space.xl` | 默认行高 |
 | `table.empty.padding` | `space.lg` | 空态留白 |
 
+## 图标
+
+| Token | 值 | 用途 |
+| --- | --- | --- |
+| `icon.nav.size` | 24px | `scripts/build_nav_icons.py` 的 `render_icons()` 生成的主导航 PNG 固定画布边长（含 `project_files.png`）；M3 `render_stage_file_icons()` 生成的 13 个 `<stage>_files.png` 复合图标按内容裁边，不适用此尺寸门禁。运行时只读 PNG。 |
+
+图标取用边界（MDL2 字形 vs Fluent PNG）见 `ui_components.md`「图标」节。
+
+## 框体（Box）
+
+聊天框、内容框、列表框的统一外框组件 `Box`（`ui_theme`，`Box.TFrame` 样式升格）：
+
+| 属性 | Token / 规则 |
+| --- | --- |
+| 边框色 | `color.border.strong` |
+| 边框 | 直角、1px（`relief='solid'`、`borderwidth=1`） |
+| 背景 | `color.background.primary` |
+| 内边距 | `space.sm`（内容区与 1px 边框之间的呼吸距） |
+
+`Box` 与 `Card` 的分工见 `ui_components.md`「框体」节。
+
 ## 强制规则
 
 1. 所有 `padx` / `pady` 必须取自 `space.*`；禁止魔法数字。
