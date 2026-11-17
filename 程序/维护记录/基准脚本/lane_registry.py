@@ -45,9 +45,11 @@ def _worktree_info(root: Path):
     return lane, branch, top
 
 
-def register(root: Path, common_dir: Path, *, owner: str = "", role: str = "dev",
+def register(root: Path, common_dir: Path, *, owner: str = "", role: str | None = None,
              now: float | None = None) -> dict:
-    """登记/刷新当前工作树车道；返回该车道条目。"""
+    """登记/刷新当前工作树车道；返回该车道条目。role 未指定时保留既有指定。"""
+    if role is None:
+        role = ""
     now = time.time() if now is None else now
     lane, branch, top = _worktree_info(root)
     if not lane:
