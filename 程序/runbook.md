@@ -186,6 +186,8 @@ AGENTS 只保留触发条件；本节是细则全文。开工领号、建工作�
 
 **高并发治理（R3108 起，机制随 B 轮逐项落地）**：车道活跃状态以 `<git common-dir>/lanes.json` 登记为准（lane→分支→工作树→owner→role→last_seen，B3 落地，落地前以 `worktree_ledger.py --plan` 为准）；合并走合并请求队列＋专职合并车道，会话不再各自阻塞 `dev.py merge`（B1 落地）；GUI 密集改动优先走 `role: gui` 车道，其余车道 GUI 测试排队优先级降低（B2 落地）；队列租约支持心跳续约，失联车道警告不阻断、MERGE_HEAD 超龄只提示人工处置不自动 abort（B1/B3 落地）。
 
+**脏树处置协议（并行吞吐治理任务书 A2 起）**：台账把脏树一律 KEEP，删除前按三类裁定——① 仅未跟踪草稿（截图、_snapshot、nul、preview_* 等）：复制到 <git common-dir>/rescue/<lane>/ 留档后可删；② 含已跟踪改动：先 git -C <树> add -N . && git -C <树> diff HEAD > <common-dir>/rescue/<lane>.patch 保存补丁（rescue 目录在 .git 内、不入库、不随工作树删除），再由用户逐条确认；③ 百级以上文件的大改动活树视为在途工作，不动。分支删除只走 git branch -d（拒绝未合并项），前缀提交等价已由 ledger 的 MERGED／PARKED／ACTIVE-WT 分类给出，patch 等价核验用 git cherry master <分支>（全 '-' 即内容已在主干）。
+
 **检查点**：认领因脏树拒绝时，先区分本轮改动与用户既有改动；只对授权文件建立可恢复检查点。创建分支本身不保存未提交内容，不得把用户改动混入 WIP 提交。大规模跨文件修改应分阶段建立检查点，检查点不等于任务完成。
 
 **主工作区＝镜像 + 功能工作树开发（规则 34a）**：每个独立任务（新功能、Bug 修复）在专用功能工作树中进行；主工作区只做「同步 → 合并 → 提交」三个动作，不直接开发。开工顺序：① 进主工作区跑 `scripts/dev.py sync`（`fetch <远端>` 后仅 `--ff-only` 快进，**只拉不推**），确保基于最新干净基线；② 用 `git worktree add -b codex/<任务>` 从最新主干创建并进入功能工作树——Git 的分支唯一检出限制保证主工作区占用 master、功能工作树检出各自独立分支，互不干扰；③ 在工作树内完成全部开发；④ 交付前在该工作树内 `git rebase master`（或最新主干）解决冲突，再回合主工作区。这套纪律靠「保持主工作区干净」维持：主工作区有未提交改动时不切换分支、不同步，`sync` 与 `round_claim.py next` 都会因脏树拒绝。工作树命名、并行车道上限与回收见本节及 `worktree_ledger.py`。
