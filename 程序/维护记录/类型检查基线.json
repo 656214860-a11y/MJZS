@@ -1,6 +1,6 @@
 {
  "tool": "pyright 1.1.414 basic python3.13",
- "total": 2950,
+ "total": 2948,
  "modules": {
   "agent/optimizer_mcp_bridge.py": 4,
   "agent/wan.py": 1,
@@ -71,8 +71,7 @@
   "local_previs.py": 23,
   "model_diagnostics.py": 3,
   "model_pool.py": 17,
-  "model_protocol.py": 1,
-  "model_router.py": 12,
+  "model_router": 12,
   "native_assets.py": 53,
   "pet_agent.py": 10,
   "pet_cloud.py": 22,
@@ -101,8 +100,7 @@
   "request_ledger.py": 3,
   "responsive_ui.py": 21,
   "run_selftests.py": 13,
-  "script_brief.py": 1,
-  "script_contract.py": 4,
+  "script_contract": 4,
   "script_manifest_schema.py": 6,
   "script_output_spec.py": 2,
   "shot_numbering.py": 1,
