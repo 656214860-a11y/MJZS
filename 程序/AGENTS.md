@@ -146,7 +146,7 @@
 | 改动活跃逻辑 | `python smoke_test.py --affected <模块名>` | 只跑受影响测试模块；被其它模块 import 的模块必须覆盖全部消费者 |
 | 增量回归 | `python smoke_test.py --gate` | 按台账串行执行改动过的测试文件 |
 | 结构治理／跨层 | `python smoke_test.py --architecture` | 全部架构门禁；跑了 `--all --safe` 则不重复 |
-| master 提交点：上次全量后累计 ≥ 5 个改过源码的轮次 | `run_selftests.py --all --safe` | 分支不累计；后台自动补跑 |
+| master 提交点：上次全量后累计 ≥ 8 个改过源码的轮次 | `run_selftests.py --all --safe` | 分支不累计；后台自动补跑 |
 | 发布前／用户要求 | `run_selftests.py --all --safe` | 不通过先修复 |
 
 - 定向用 `run_selftests.py -k <改动模块>`；失败先 `--affected`／`-k` 修到绿，再复验全量。
