@@ -110,8 +110,108 @@ class SpeechSettingsTests(Batch7Case):
         self.assertEqual(win._pet_speech_vars['silence_ms'].get(), '400')
         self.assertIn('没找到这个密钥', win._pet_speech_key_state.get())
         win.update_idletasks()
-        self.assertGreaterEqual(win.winfo_height(), win.winfo_reqheight(), '不写死高度，表单不被裁掉')
+        scroll = win._pet_speech_scroll
         self.assertGreaterEqual(win.winfo_width(), win.winfo_reqwidth())
+        self.assertGreater(scroll.canvas.winfo_height(), 0)
+        self.assertLessEqual(win.winfo_height(), win.winfo_screenheight())
+        self.assertGreater(scroll.form.winfo_reqheight(), scroll.canvas.winfo_height())
+        self.assertTrue(scroll.scroll.winfo_ismapped(), '长表单必须提供可见滚动条')
+        region = tuple(float(value) for value in scroll.canvas.cget('scrollregion').split())
+        self.assertGreaterEqual(region[3], scroll.form.winfo_reqheight())
+        self.assertGreaterEqual(scroll.canvas.winfo_width(), scroll.form.winfo_reqwidth())
+        self._assert_actions_visible(win)
+
+    def _assert_actions_visible(self, win):
+        canvas = win._pet_speech_scroll.canvas
+        for label in ('恢复默认', '保存', '取消'):
+            button = _button(win, label)
+            self.assertTrue(button.winfo_ismapped())
+            self.assertGreaterEqual(button.winfo_rooty(), canvas.winfo_rooty() + canvas.winfo_height())
+            self.assertLessEqual(button.winfo_rooty() + button.winfo_height(),
+                                 win.winfo_rooty() + win.winfo_height())
+
+    def test_scrollbar_and_keyboard_reach_last_field_in_short_window(self):
+        """REQ-S01-71：600 高窗口的视口、末尾替换框与固定动作都可用。"""
+        win = self._dialog()
+        win.geometry('%dx%d' % (win.winfo_width(), 600))
+        win.update()
+        scroll = win._pet_speech_scroll
+        # 实际末尾文本框通过原生控件树找到，不以源码位置代替几何。
+        fields = [child for child in scroll.form.winfo_children()[0].winfo_children()
+                  if child.winfo_class() == 'Text']
+        self.assertEqual(len(fields), 1)
+        last = fields[0]
+        scroll.canvas.yview_moveto(1.0)
+        win.update()
+        self.assertGreater(scroll.canvas.yview()[0], 0)
+        self.assertGreaterEqual(last.winfo_rooty(), scroll.canvas.winfo_rooty())
+        self.assertLessEqual(last.winfo_rooty() + last.winfo_height(),
+                             scroll.canvas.winfo_rooty() + scroll.canvas.winfo_height())
+        self._assert_actions_visible(win)
+        scroll.canvas.yview_moveto(0)
+        previous = last.tk.call('tk_focusPrev', str(last))
+        win.nametowidget(str(previous)).focus_force()
+        win.update()
+        win.nametowidget(str(previous)).event_generate('<Tab>')
+        win.update()
+        self.assertEqual(win.focus_get(), last)
+        self.assertGreater(scroll.canvas.yview()[0], 0, 'Tab 到底部字段时应自动滚入视口')
+        self.assertGreaterEqual(last.winfo_rooty(), scroll.canvas.winfo_rooty())
+        self.assertLessEqual(last.winfo_rooty() + last.winfo_height(),
+                             scroll.canvas.winfo_rooty() + scroll.canvas.winfo_height())
+        self._assert_actions_visible(win)
+        # 每个原有输入项（含离线／词典／AI）聚焦后都完整进入视口。
+        controls = [child for child in scroll.form.winfo_children()[0].winfo_children()
+                    if child.winfo_class() in ('TEntry', 'TCombobox', 'Text')]
+        self.assertGreaterEqual(len(controls), len(speech_settings_ui.SPEECH_FIELDS))
+        for field in reversed(controls):
+            field.focus_force()
+            win.update()
+            self.assertGreaterEqual(field.winfo_rooty(), scroll.canvas.winfo_rooty())
+            self.assertLessEqual(field.winfo_rooty() + field.winfo_height(),
+                                 scroll.canvas.winfo_rooty() + scroll.canvas.winfo_height())
+        scroll.canvas.yview_moveto(0)
+        controls[0].event_generate('<MouseWheel>', delta=-120)
+        win.update()
+        self.assertGreater(scroll.canvas.yview()[0], 0, '字段上的滚轮也必须滚动表单')
+        self._assert_actions_visible(win)
+
+    def test_cancel_does_not_save_form_or_dictionary(self):
+        win = self._dialog()
+        win._pet_speech_vars['language'].set('en')
+        with mock.patch.object(speech_settings_ui.speech_api, 'save_settings') as save_settings, \
+                mock.patch.object(speech_settings_ui.speech_api, 'save_dictionary') as save_dict:
+            _button(win, '取消').invoke()
+        save_settings.assert_not_called()
+        save_dict.assert_not_called()
+        self.assertFalse(win.winfo_exists())
+
+    def test_download_start_cancel_and_completion_survive_scrolling(self):
+        """REQ-S01-71：复用原下载器，滚动不影响开始、取消和完成回调。"""
+        from domain import offline_asr_setup
+        win = self._dialog()
+        runner, _state, progress, button = win._pet_speech_setup
+        with mock.patch.object(offline_asr_setup, 'OfflineSetupRunner') as factory, \
+                mock.patch.object(offline_asr_setup, 'environment_ready', return_value=False):
+            factory.return_value.start.return_value = True
+            factory.return_value.running = True
+            button.invoke()
+            self.assertIs(runner['obj'], factory.return_value)
+            self.assertEqual(button.cget('text'), '取消下载')
+            callback = factory.call_args.args[1]
+            callback({'type': 'progress', 'message': '下载进度 50%'})
+            win.update()
+            self.assertEqual(progress.get(), '下载进度 50%')
+            win._pet_speech_scroll.canvas.yview_moveto(1)
+            button.invoke()
+            factory.return_value.cancel.assert_called_once_with()
+            self.assertIn('正在取消', progress.get())
+            callback({'type': 'done'})
+            win.update()
+            self.assertIsNone(runner['obj'])
+            self.assertEqual(button.cget('text'), '下载离线语音包…')
+            self.assertEqual(win._pet_speech_hint.get(), '离线语音包安装完成')
+            self._assert_actions_visible(win)
 
     def test_invalid_value_keeps_dialog_open_with_reason(self):
         win = self._dialog()
