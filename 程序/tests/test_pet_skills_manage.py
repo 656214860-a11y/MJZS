@@ -219,6 +219,53 @@ class SkillsManagePageTests(SkillsManageCase):
             found.extend(self.walk(child, kind))
         return found
 
+    def lock_selected_skill(self, name):
+        from agent.core import save
+        from stage_layout import skill_config_path
+        save(skill_config_path(self.project), {
+            'production_locks': {'aspect_ratio': '9:16'},
+            'script': {'skills': [name]}})
+
+    def test_occupied_selection_disables_delete_and_explains_reason(self):
+        self.add_skills()
+        self.lock_selected_skill('user-layer-skill')
+        win = self.hub()
+        self.assertTrue(self.wait_rows(win, 3))
+        seams = win._pet_seams['skills']
+        tree = self.select(win, 'user-layer-skill')
+        tree.event_generate('<<TreeviewSelect>>')
+        win.update()
+        self.assertIn('disabled', seams['delete'].state())
+        self.assertIn('制作锁', seams['delete_tip'].text)
+        with mock.patch('pet_skills_manage.ask_confirmation') as confirm:
+            self.assertIsNone(pet_skills_manage.remove_skill(
+                self.pet, tree, seams['state'], seams['refresh'], seams['hint']))
+        confirm.assert_not_called()
+        self.assertTrue(self.user.is_file())
+        tree.selection_set('project-layer-skill')
+        tree.event_generate('<<TreeviewSelect>>')
+        win.update()
+        self.assertNotIn('disabled', seams['delete'].state())
+
+    def test_occupancy_created_during_confirmation_blocks_delete(self):
+        self.add_skills()
+        win = self.hub()
+        self.assertTrue(self.wait_rows(win, 3))
+        tree = self.select(win, 'user-layer-skill')
+        seams = win._pet_seams['skills']
+
+        def confirm_and_lock(*args, **kwargs):
+            self.lock_selected_skill('user-layer-skill')
+            return True
+
+        with mock.patch('pet_skills_manage.ask_confirmation', side_effect=confirm_and_lock):
+            self.assertIsNone(pet_skills_manage.remove_skill(
+                self.pet, tree, seams['state'], seams['refresh'], seams['hint']))
+        self.assertTrue(self.user.is_file())
+        self.assertIn('制作锁', seams['hint'].get())
+        self.assertIn('disabled', seams['delete'].state())
+        self.assertIn('制作锁', seams['delete_tip'].text)
+
     def test_import_dialog_offers_five_sources(self):
         win = self.hub()
         state = win._pet_seams['skills']['state']

@@ -330,5 +330,77 @@ class UninstallDisabledTests(unittest.TestCase):
         self.assertEqual([], self.registry.disabled_entries())
 
 
+class DeleteOccupancyTests(unittest.TestCase):
+    """R3170：制作锁项目里被引用的技能不能经生命周期入口删除。"""
+
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.root = Path(temp.name)
+        self.program, self.registry = make_program(self.root)
+
+    def configure_project(self, locks=None, selected=None):
+        from stage_layout import skill_config_path
+        from agent.core import save
+        project = self.root / 'project'
+        project.mkdir(exist_ok=True)
+        save(skill_config_path(project), {
+            'production_locks': locks or {},
+            'script': {'skills': selected or []}})
+        return project
+
+    def test_locked_reference_returns_reason_without_mutating_config(self):
+        from stage_layout import skill_config_path
+        project = self.configure_project({'aspect_ratio': '9:16'}, ['alpha'])
+        before = skill_config_path(project).read_bytes()
+        reason = skill_lifecycle_service.skill_delete_block_reason(project, 'alpha')
+        self.assertIn('制作锁', reason)
+        self.assertIn('引用', reason)
+        self.assertEqual(before, skill_config_path(project).read_bytes())
+        self.assertEqual('', skill_lifecycle_service.skill_delete_block_reason(project, 'alp'))
+
+    def test_unlocked_or_unreferenced_skill_is_not_blocked(self):
+        project = self.configure_project(selected=['alpha'])
+        self.assertEqual('', skill_lifecycle_service.skill_delete_block_reason(project, 'alpha'))
+        project = self.configure_project({'aspect_ratio': '9:16'}, ['other'])
+        self.assertEqual('', skill_lifecycle_service.skill_delete_block_reason(project, 'alpha'))
+        self.assertEqual('', skill_lifecycle_service.skill_delete_block_reason(None, 'alpha'))
+
+    def test_locked_stage_skill_reference_is_also_blocked(self):
+        from agent.core import save
+        from stage_layout import skill_config_path
+        project = self.configure_project({'aspect_ratio': '9:16'})
+        save(skill_config_path(project), {
+            'production_locks': {'aspect_ratio': '9:16'},
+            'script': {'stage_skills': ['alpha']}})
+        self.assertIn('制作锁', skill_lifecycle_service.skill_delete_block_reason(project, 'alpha'))
+
+    def test_locked_enabled_and_disabled_entries_are_preserved(self):
+        source = _write(self.root / 'src' / 'alpha.skill.md', 'alpha')
+        import_file(self.program, self.registry, source)
+        project = self.configure_project({'aspect_ratio': '9:16'}, ['alpha'])
+        target = self.program / 'data' / 'skills' / STAGE_DIR / 'alpha.skill.md'
+        ledger_before = ledger_rows(self.program)
+        for disabled in (False, True):
+            with self.subTest(disabled=disabled):
+                if disabled:
+                    skill_lifecycle_service.set_skill_disabled(
+                        self.program, self.registry, 'alpha', True)
+                    self.registry.scan(force=True)
+                with self.assertRaisesRegex(skill_import_service.ImportBlocked, '制作锁'):
+                    skill_lifecycle_service.uninstall_skill_entry(
+                        self.program, self.registry, 'alpha', project=project)
+                self.assertTrue(target.is_file())
+                self.assertEqual(ledger_before, ledger_rows(self.program))
+
+    def test_registry_project_is_used_when_project_argument_is_omitted(self):
+        project = self.configure_project({'aspect_ratio': '9:16'}, ['alpha'])
+        self.registry.project_root = project
+        with mock.patch.object(skill_import_service, 'uninstall_skill') as remove:
+            with self.assertRaisesRegex(skill_import_service.ImportBlocked, '制作锁'):
+                skill_lifecycle_service.uninstall_skill_entry(self.program, self.registry, 'alpha')
+        remove.assert_not_called()
+
+
 if __name__ == '__main__':
     unittest.main()
