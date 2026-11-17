@@ -7,6 +7,7 @@
 ``script_row_category``／``_open`` 等已有成员。
 """
 import tkinter as tk
+from pathlib import Path
 from tkinter import ttk
 
 from ui_tokens import SPACING
@@ -164,6 +165,23 @@ class FilesPanelFilterMixin:
             self.script_row_category[item_id] = STAGE_FILTER_ROW_CATEGORY
             self.script_tree.insert('', 'end', iid=item_id, text='',
                                     values=('[素材库] ' + row.path.split('/')[-1],))
+        # 任务书 M4：库里的视频／音频同样后台补封面，缺项下次打开自动重试。
+        self._prefetch_media_thumbs([Path(library) / row.path for row in found])
+
+    def _prefetch_media_thumbs(self, paths):
+        """列表里的视频／音频后台预生成封面（任务书 M4）；项目显式 ffmpeg 配置透传给后台。"""
+        import asset_thumbs
+        configured = None
+        root = getattr(self.page, 'root', None)
+        if root is not None:
+            try:
+                from file_cache import read_json
+                cfg = read_json(Path(root) / 'config.json')
+            except Exception:
+                cfg = None
+            if isinstance(cfg, dict):
+                configured = {'ffmpeg': cfg.get('ffmpeg'), 'ffprobe': cfg.get('ffprobe')}
+        asset_thumbs.prefetch_media(self.page.win, paths, configured=configured)
 
     # ── 阶段快捷图标列（R3094，任务书 P1）──────────────────────────────────
     def _ensure_filter_state(self):
@@ -283,3 +301,6 @@ class FilesPanelFilterMixin:
                 row.title or name, row.kind, row.path)
             self.script_row_category[row.path] = STAGE_FILTER_ROW_CATEGORY
             self.script_tree.insert('', 'end', iid=row.path, text='', values=(label + name,))
+        # 任务书 M4：索引视图里的视频／音频后台预生成封面与波形（缺失文件跳过，
+        # stat 不到本就不该排队）；启动路径不扫描，这里只在面板已打开、索引已填表时跑。
+        self._prefetch_media_thumbs([Path(root) / row.path for row in found if not row.missing])

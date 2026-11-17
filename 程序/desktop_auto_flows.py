@@ -54,6 +54,9 @@ class AutoFlowsMixin:
             LOGGER.warning('下载收件箱收回失败：%s', exc);return []
         if done:
             self.status.set('已从下载文件夹放回 '+str(len(done))+' 个文件：'+'、'.join(path.name for path in done[:3])+('…' if len(done)>3 else '')+('；'+overwrite_backup_notice(backups).rstrip('；') if backups else ''))
+            # 任务书 M4：导入收回的视频／音频后台预生成封面，面板打开时不必等 ffmpeg。
+            import asset_thumbs
+            asset_thumbs.prefetch_media(self.win, done)
             if self.page_index==PAGE['script']:
                 refresh=getattr(self,'refresh_script_list',None)
                 if callable(refresh):refresh()
