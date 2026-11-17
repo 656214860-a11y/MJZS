@@ -41,7 +41,8 @@ CORE_FLOORS = {
     "agent/publication.py": 70.0,  # 发布：原子发布
     "orchestrator/desktop_automation_service.py": 30.0,  # 队列：PersistentBackgroundTaskQueue
     # R3275（L2 任务书轮 1）：四个预设空壳，实现在后续轮次；下限 0 只保证模块在册。
-    "infra/unit_of_work.py": 0.0,     # 事务原语（任务书轮 5 实现）
+    # R3297（L2 任务书轮 5）：unit_of_work 落地，定向实测 78.4%，下限取 65。
+    "infra/unit_of_work.py": 65.0,    # 事务原语（任务书轮 5 实现）
     "infra/business_log.py": 0.0,     # 结构化业务日志（任务书轮 7 实现）
     "infra/idempotency.py": 0.0,      # 幂等键（任务书轮 2 实现）
     "domain/domain_events.py": 0.0,   # 领域事件旁路（任务书轮 4 实现）

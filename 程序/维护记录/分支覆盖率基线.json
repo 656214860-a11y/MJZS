@@ -82,11 +82,12 @@
   "tests.test_file_naming_producers",
   "tests.test_file_origin_provenance",
   "tests.test_context",
-  "tests.test_l1_reliability_r3248"
+  "tests.test_l1_reliability_r3248",
+  "tests.test_unit_of_work"
  ],
  "tests_ok": true,
- "points_total": 2367,
- "points_covered": 1264,
+ "points_total": 2416,
+ "points_covered": 1280,
  "modules": [
   {
    "module": "aigc_lint.py",
@@ -231,6 +232,12 @@
    "points": 30,
    "covered": 9,
    "percent": 30.0
+  },
+  {
+   "module": "unit_of_work.py",
+   "points": 49,
+   "covered": 16,
+   "percent": 32.7
   },
   {
    "module": "seedream_api.py",
@@ -594,12 +601,6 @@
   },
   {
    "module": "ui_tokens.py",
-   "points": 0,
-   "covered": 0,
-   "percent": 100.0
-  },
-  {
-   "module": "unit_of_work.py",
    "points": 0,
    "covered": 0,
    "percent": 100.0

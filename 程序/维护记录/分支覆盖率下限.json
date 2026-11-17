@@ -81,7 +81,7 @@
   "token_saver.py": 80.0,
   "ui_plugin_registry.py": 0.0,
   "ui_tokens.py": 100.0,
-  "unit_of_work.py": 0.0,
+  "unit_of_work.py": 32.0,
   "update_notice.py": 100.0,
   "usage_history.py": 30.0,
   "usage_snapshot.py": 30.0,

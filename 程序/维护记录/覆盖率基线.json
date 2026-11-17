@@ -8,7 +8,8 @@
   "tests.test_lifecycle",
   "tests.test_publication_recovery",
   "tests.test_claim_queue_gateway",
-  "tests.test_usage_snapshot"
+  "tests.test_usage_snapshot",
+  "tests.test_unit_of_work"
  ],
  "tests_ok": true,
  "modules": [
@@ -781,12 +782,6 @@
    "percent": 0.0
   },
   {
-   "module": "domain/domain_events.py",
-   "covered": 0,
-   "total": 13,
-   "percent": 0.0
-  },
-  {
    "module": "domain/download_inbox.py",
    "covered": 0,
    "total": 124,
@@ -867,7 +862,7 @@
   {
    "module": "domain/idea_transcript.py",
    "covered": 0,
-   "total": 413,
+   "total": 421,
    "percent": 0.0
   },
   {
@@ -939,7 +934,7 @@
   {
    "module": "domain/recon_service.py",
    "covered": 0,
-   "total": 425,
+   "total": 462,
    "percent": 0.0
   },
   {
@@ -1071,7 +1066,7 @@
   {
    "module": "domain/video_task_state.py",
    "covered": 0,
-   "total": 71,
+   "total": 75,
    "percent": 0.0
   },
   {
@@ -1083,7 +1078,7 @@
   {
    "module": "domain/white_model_service.py",
    "covered": 0,
-   "total": 488,
+   "total": 513,
    "percent": 0.0
   },
   {
@@ -1293,7 +1288,7 @@
   {
    "module": "infra/idempotency.py",
    "covered": 0,
-   "total": 5,
+   "total": 8,
    "percent": 0.0
   },
   {
@@ -1378,12 +1373,6 @@
    "module": "infra/ui_plugin_registry.py",
    "covered": 0,
    "total": 9,
-   "percent": 0.0
-  },
-  {
-   "module": "infra/unit_of_work.py",
-   "covered": 0,
-   "total": 13,
    "percent": 0.0
   },
   {
@@ -3518,9 +3507,9 @@
   },
   {
    "module": "orchestrator/engine.py",
-   "covered": 86,
-   "total": 744,
-   "percent": 11.6
+   "covered": 87,
+   "total": 745,
+   "percent": 11.7
   },
   {
    "module": "orchestrator/skill_registry.py",
@@ -3739,12 +3728,6 @@
    "percent": 30.2
   },
   {
-   "module": "agent/core.py",
-   "covered": 66,
-   "total": 215,
-   "percent": 30.7
-  },
-  {
    "module": "orchestrator/stage_asset_gateways.py",
    "covered": 28,
    "total": 91,
@@ -3793,16 +3776,16 @@
    "percent": 41.6
   },
   {
+   "module": "agent/core.py",
+   "covered": 93,
+   "total": 215,
+   "percent": 43.3
+  },
+  {
    "module": "orchestrator/desktop_automation_service.py",
    "covered": 202,
    "total": 457,
    "percent": 44.2
-  },
-  {
-   "module": "infra/file_cache.py",
-   "covered": 78,
-   "total": 158,
-   "percent": 49.4
   },
   {
    "module": "orchestrator/stage_publication.py",
@@ -3811,10 +3794,22 @@
    "percent": 51.1
   },
   {
+   "module": "infra/file_cache.py",
+   "covered": 81,
+   "total": 158,
+   "percent": 51.3
+  },
+  {
    "module": "contract/project_stages.py",
    "covered": 16,
    "total": 30,
    "percent": 53.3
+  },
+  {
+   "module": "domain/domain_events.py",
+   "covered": 12,
+   "total": 22,
+   "percent": 54.5
   },
   {
    "module": "domain/keyframe_evidence.py",
@@ -3847,6 +3842,12 @@
    "percent": 77.8
   },
   {
+   "module": "infra/unit_of_work.py",
+   "covered": 218,
+   "total": 278,
+   "percent": 78.4
+  },
+  {
    "module": "infra/usage_history.py",
    "covered": 44,
    "total": 54,
@@ -3854,9 +3855,9 @@
   },
   {
    "module": "domain/keyframe_lifecycle_service.py",
-   "covered": 97,
-   "total": 118,
-   "percent": 82.2
+   "covered": 100,
+   "total": 121,
+   "percent": 82.6
   },
   {
    "module": "contract/model_protocol.py",
@@ -3955,6 +3956,6 @@
    "percent": 100.0
   }
  ],
- "modules_covered": 74,
+ "modules_covered": 76,
  "modules_total": 657
 }
