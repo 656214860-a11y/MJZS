@@ -315,9 +315,10 @@ class StageModelPicker(ttk.Frame):
                  font=FONTS['hint'], padx=SPACING['sm'],
                  pady=SPACING['xs']).pack(side='left')
         if spec['badge']:
+            # tk 控件的 padx 不收元组（只有 pack/grid 收）：用标量 xs，右侧外边距交给行内自然排布。
             tk.Label(row, text=spec['badge'], anchor='w',
                      bg=COLORS['background_primary'], fg=COLORS['text_muted'],
-                     font=FONTS['hint'], padx=(SPACING['xs'], SPACING['sm']),
+                     font=FONTS['hint'], padx=SPACING['xs'],
                      pady=SPACING['xs']).pack(side='left')
         self._bind_row_events(row, lambda mid=spec['id']: self._choose_model(mid))
         return row

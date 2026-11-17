@@ -1,0 +1,15 @@
+{
+  "round": 3113,
+  "commit_base": "0ad17386",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k skills pet_ui stage_reasoning",
+    "exit": 0,
+    "passed": 758,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T12:25:52"
+}
