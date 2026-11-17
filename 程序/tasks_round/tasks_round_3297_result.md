@@ -1,5 +1,5 @@
 # R3297 结果：L2领域服务层优化任务书轮5（功能轮：infra/unit_of_work 事务原语实现）
-<!-- round-evidence: {"commit_base": "a3580c0a", "credential_hits": 0, "evidence_sha256": "965a03cb2cee6e3e", "exit": 0, "failed": 0, "passed": 15, "round": 3297, "tests": "run_selftests.py -k unit_of_work"} -->
+<!-- round-evidence: {"commit_base": "39c7170f", "credential_hits": 0, "evidence_sha256": "aaf53cf93e9d303c", "exit": 0, "failed": 0, "passed": 15, "round": 3297, "tests": "run_selftests.py -k unit_of_work"} -->
 
 ## 三问
 
@@ -116,6 +116,6 @@ FAILED (errors=15)
 ## 提交
 
 - 分支 `codex/wip-r3282`（领号 R3297，工作树 `dsh-864fd932-4054`；领号记录见 `<git common-dir>/round-claims.json`）。
-- 主提交：`<待回填>`（文件：infra/unit_of_work.py、tests/test_unit_of_work.py、tests/architecture/test_coverage_baseline.py、维护记录/覆盖率基线.json、维护记录/分支覆盖率基线.json、维护记录/分支覆盖率下限.json、runbook.md、本结果文件、tasks_round/evidence/R3297.json）。
-- 结果文件补记提交：见本文件 git 历史（`R3297: 补记结果文件commit哈希<待回填>`）；docs-only 补记同样带 `--tests unit_of_work` 重跑定向测试刷新证据（R3284 已踩过的坑）。
+- 主提交：`39c7170f`（9 文件：infra/unit_of_work.py、tests/test_unit_of_work.py、tests/architecture/test_coverage_baseline.py、维护记录/覆盖率基线.json、维护记录/分支覆盖率基线.json、维护记录/分支覆盖率下限.json、runbook.md、本结果文件、tasks_round/evidence/R3297.json）。
+- 结果文件补记提交：见本文件 git 历史（`R3297: 补记结果文件commit哈希39c7170f`）；docs-only 补记同样带 `--tests unit_of_work` 重跑定向测试刷新证据（R3284 已踩过的坑）。
 - 轮次证据以 `tasks_round/evidence/R3297.json` 中 `run_selftests.py -k unit_of_work` exit 0 / 15 通过 / 0 失败为准。
