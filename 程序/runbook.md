@@ -182,7 +182,9 @@ AGENTS 只保留触发条件；本节是细则全文。开工领号、建工作�
 
 **全量触发条件**：统一见 AGENTS §5；计数行为以 `run_selftests.full_safe_required()` 与 `tests/architecture/test_round_baselines.py` 为核对依据，不在此另设周期。
 
-**并行硬规则**：同一时刻活跃 `codex/*` 车道默认 1 条，经用户同意可升到 2 条（上限 2；冻结期内只有主树可提交）；一个队列 id 全局只允许一条线持有；分支 ahead>10 必须先回合或 rebase，否则 `round_claim.py next` 拒绝领号；detached HEAD 工作树不得开工；分支 behind>20 或 ahead=0 且 48 小时无活动即列入待回收。回收前保存未提交内容、核验活跃租约；用 `维护记录/基准脚本/worktree_ledger.py --plan` 生成计划，删除须用户逐条确认，台账不自动删除。
+**并行硬规则**：同一时刻活跃 `codex/*` 车道上限 20 条（冻结期内只有主树可提交）；一个队列 id 全局只允许一条线持有；分支 ahead>10 必须先回合或 rebase，否则 `round_claim.py next` 拒绝领号（ahead 口径按源码提交计，纯文档／结果文件提交不计，B3 落地）；detached HEAD 工作树不得开工；分支 behind>20 或 ahead=0 且 48 小时无活动即列入待回收。回收前保存未提交内容、核验活跃租约；用 `维护记录/基准脚本/worktree_ledger.py --plan` 生成计划，删除须用户逐条确认，台账不自动删除。
+
+**高并发治理（R3108 起，机制随 B 轮逐项落地）**：车道活跃状态以 `<git common-dir>/lanes.json` 登记为准（lane→分支→工作树→owner→role→last_seen，B3 落地，落地前以 `worktree_ledger.py --plan` 为准）；合并走合并请求队列＋专职合并车道，会话不再各自阻塞 `dev.py merge`（B1 落地）；GUI 密集改动优先走 `role: gui` 车道，其余车道 GUI 测试排队优先级降低（B2 落地）；队列租约支持心跳续约，失联车道警告不阻断、MERGE_HEAD 超龄只提示人工处置不自动 abort（B1/B3 落地）。
 
 **检查点**：认领因脏树拒绝时，先区分本轮改动与用户既有改动；只对授权文件建立可恢复检查点。创建分支本身不保存未提交内容，不得把用户改动混入 WIP 提交。大规模跨文件修改应分阶段建立检查点，检查点不等于任务完成。
 
