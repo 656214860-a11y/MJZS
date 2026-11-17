@@ -1743,7 +1743,13 @@
   {
    "module": "pet_settings_ui.py",
    "covered": 0,
-   "total": 507,
+   "total": 508,
+   "percent": 0.0
+  },
+  {
+   "module": "pet_skills_manage.py",
+   "covered": 0,
+   "total": 307,
    "percent": 0.0
   },
   {
@@ -2127,7 +2133,7 @@
   {
    "module": "skill_panel.py",
    "covered": 0,
-   "total": 680,
+   "total": 683,
    "percent": 0.0
   },
   {
@@ -3320,5 +3326,5 @@
   }
  ],
  "modules_covered": 72,
- "modules_total": 551
+ "modules_total": 552
 }

@@ -835,7 +835,13 @@ def show_skill_health(panel):
         notify(panel.winfo_toplevel(), 'SKILL 体检失败：%s' % exc, title=TITLE,
                status=getattr(panel.desktop, 'status', None), modal=False)
         return None
-    window = BaseDialog(panel.winfo_toplevel(), 'SKILL 体检', modal=False, chrome=False)
+    return show_skill_health_report(panel.winfo_toplevel(), report, lead='本阶段',
+                                    refresh=lambda: show_skill_health(panel))
+
+
+def show_skill_health_report(parent, report, lead='本阶段', refresh=None):
+    """体检报告窗：阶段面板与设置·SKILL 管理页共用（``lead`` 是范围措辞）。"""
+    window = BaseDialog(parent, 'SKILL 体检', modal=False, chrome=False)
     window.resizable(True, True)
     window.minsize(DIALOG_MIN_WIDTH, DIALOG_MIN_HEIGHT)
     body = ttk.Frame(window, padding=SPACING['md'])
@@ -844,8 +850,8 @@ def show_skill_health(panel):
     counts = {}
     for row in report['skills']:
         counts[row['status']] = counts.get(row['status'], 0) + 1
-    summary = ('本阶段 %d 个 SKILL：正常 %d · 有警告 %d · 有问题 %d · 预演失败 %d'
-               % (len(report['skills']), counts.get('ok', 0), counts.get('warning', 0),
+    summary = ('%s %d 个 SKILL：正常 %d · 有警告 %d · 有问题 %d · 预演失败 %d'
+               % (lead, len(report['skills']), counts.get('ok', 0), counts.get('warning', 0),
                   counts.get('problem', 0), counts.get('error', 0)))
     if report['problems'] or report['warnings']:
         summary += '；另有全局问题 %d 条、警告 %d 条' % (len(report['problems']),
@@ -892,7 +898,7 @@ def show_skill_health(panel):
         box.selection_set(0)
         show_detail()
     else:
-        HintLabel(content, text='本阶段没有已登记的 SKILL。').grid(row=0, column=0,
+        HintLabel(content, text='%s没有已登记的 SKILL。' % lead).grid(row=0, column=0,
                                                                columnspan=3, sticky='w')
         if globals_:
             detail = TextArea(content)
@@ -905,7 +911,7 @@ def show_skill_health(panel):
     SecondaryButton(actions, text='关闭', width=CHAR_WIDTH['xl'],
                     command=window.destroy).pack(side='right')
     PrimaryButton(actions, text='刷新', width=CHAR_WIDTH['xl'],
-                  command=lambda: (window.destroy(), show_skill_health(panel))).pack(side='left')
+                  command=lambda: (window.destroy(), refresh() if refresh else None)).pack(side='left')
     return window
 
 
