@@ -187,10 +187,9 @@ class LayoutMixin:
                 app_logging.count('layout.fit_again.suppressed',1)
             # Canvas 固定内容高度后，子控件请求高度变化不再触发内容框 Configure。
             # 沿现有空闲队列等请求尺寸逐层传播；最多补八轮，避免异常布局反复排队。
-            # R3018：收敛判据改用画布结果三元组（宽/请求高/目标高）——控件级请求分布
-            # 变化但总高不变时画布配置完全一致，补排是纯浪费；真正影响画布的变化
-            # 必然反映在 req/target 上。
-            signature=layout_key if layout_key is not None else getattr(self,'_fit_request_signature',None)
+            # 子控件请求尺寸会逐层传播；总高相同也不代表后代请求已稳定。
+            # 用完整请求签名判断收敛，避免自身 Configure 被抑制后留下旧滚动边界。
+            signature=getattr(self,'_fit_request_signature',layout_key)
             changed=signature!=getattr(self,'_last_fit_request_signature',None)
             self._last_fit_request_signature=signature
             passes=getattr(self,'_fit_stability_passes',0)
@@ -231,8 +230,6 @@ class LayoutMixin:
         # 记录滚动区域，窗口缩小时会残留旧高度，底部按钮可能被滚出可视区。
         self.canvas.configure(scrollregion=(0,0,width,target))
         if hasattr(self,'status_label'):self.status_label.configure(wraplength=max(200,width-12))
-        resized=getattr(self,'_last_fit_width',None)!=width
-        if resized:self._last_fit_width=width
         # 页面重建（切换分镜、刷新列表）会产生新控件，必须每次重新补挂滚轮标签：
         # 漏挂标签时滚轮会落到控件自身的绑定上，只读下拉框会直接换选项并重建整页，
         # 表现出来就是「滚轮滑过下拉框，文件被切换，内容抖动」。
@@ -241,8 +238,9 @@ class LayoutMixin:
             for child in widget.winfo_children():
                 tags=child.bindtags()
                 if 'DramaPageWheel' not in tags:child.bindtags(('DramaPageWheel',)+tags)
-                if resized and isinstance(child,ttk.Label) and not getattr(child,'local_wrap',False) and int(child.cget('wraplength') or 0)>0:
-                    child.configure(wraplength=max(200,width-28))
+                if isinstance(child,ttk.Label) and not getattr(child,'local_wrap',False):
+                    wrap=int(child.cget('wraplength') or 0)
+                    if wrap>0 and wrap!=max(200,width-28):child.configure(wraplength=max(200,width-28))
                 measured_requests.append((str(child),child.winfo_reqwidth(),child.winfo_reqheight()))
                 resize(child)
         resize(self.content)
