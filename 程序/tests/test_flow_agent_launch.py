@@ -66,6 +66,8 @@ class FlowAgentLaunchTests(unittest.TestCase):
             'workflow_context_controller.request_stage_instruction': Mock(return_value=('', 'stage')),
             'contract.workflow_context_budget.prepare_request_context': lambda text, *a, **k: (text, {}),
             'workflow_engines.prompt_with_settings': lambda prompt, config, stage: prompt,
+            'orchestrator.agent_skill_sync.sync_agent_skills': Mock(
+                return_value={'errors': [], 'conflicts': []}),
             'prompt_window.copy_text': Mock(),
             'codex_paste.paste_existing': self.paste,
             'contract.platform_tools.launch_windows_app': Mock(),
@@ -104,8 +106,10 @@ class FlowAgentLaunchTests(unittest.TestCase):
     def test_codex_skill_sync_problems_stop_before_claiming(self):
         host = self.host()
         sync = {'errors': ['缺技能'], 'conflicts': ['重名']}
-        with self.stubs(), patch('codex_skill_sync.sync_codex_skills', return_value=sync), \
-                self.assertRaisesRegex(ValueError, '^Codex 技能同步未完成：缺技能; 重名$'):
+        with self.stubs(), \
+                patch('orchestrator.agent_skill_sync.sync_agent_skills', return_value=sync), \
+                self.assertRaisesRegex(ValueError,
+                    '^Agent 技能同步未完成：Codex：缺技能; Codex：重名; Agents：缺技能; Agents：重名$'):
             self.open(host, 'storyboard', {'engine': 'codex', 'program': '', 'model': ''})
         self.finish.assert_not_called()
 
@@ -113,7 +117,9 @@ class FlowAgentLaunchTests(unittest.TestCase):
         host = self.host()
         config = {'engine': 'codex', 'program': '', 'model': '', 'desktop_program': 'Codex.exe'}
         task = {'url': 'codex://new', 'title': '样片 任务', 'mode': 'new', 'prompt': '全文'}
-        with self.stubs(), patch('codex_skill_sync.sync_codex_skills', return_value={'errors': [], 'conflicts': []}), \
+        with self.stubs(), \
+                patch('orchestrator.agent_skill_sync.sync_agent_skills',
+                      return_value={'errors': [], 'conflicts': []}), \
                 patch('native_apps.open_blender') as blender, \
                 patch('codex_tasks.prepare_task', return_value=task) as prepare, \
                 patch('desktop_idea_chat.open_target') as target, \

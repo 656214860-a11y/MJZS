@@ -1,0 +1,15 @@
+{
+  "round": 3084,
+  "commit_base": "2a72ded2",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k agent_skill_sync skill_user_layer flow_agent_launch idea_semantic_brief idea_chat desktop_send_ledger",
+    "exit": 0,
+    "passed": 229,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T09:10:58"
+}

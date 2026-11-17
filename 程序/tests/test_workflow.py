@@ -674,6 +674,15 @@ class StoryboardBatchTests(unittest.TestCase):
 
 
 class DesktopModelPoolTests(unittest.TestCase):
+    def setUp(self):
+        # prepare() 发送前会做 agent 技能同步；测试环境没有真实 agent 家目录，
+        # 工作树里 owner_root 与既有标记不一致会全部判冲突——统一打桩为空报告。
+        patcher = patch('orchestrator.agent_skill_sync.sync_agent_skills',
+                        return_value={'written': [], 'unchanged': [], 'recycled': [],
+                                      'conflicts': [], 'errors': []})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_cli_queue_grant_launches_once_and_startup_failure_releases_slot(self):
         from desktop import Desktop
         from types import SimpleNamespace

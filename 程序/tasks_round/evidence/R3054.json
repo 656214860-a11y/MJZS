@@ -1,0 +1,15 @@
+{
+  "round": 3054,
+  "commit_base": "77a15692",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k skill_project_layer skill_user_layer skill_registry_parse skill_import_validation skill_update_check skill_reference_closure skill_health_service skill_remote_import skill_repo_import skill_archive_import skill_panel_imported pet_agent stage_flow workflow_settings_cache stage_config_empty_project_cache skill_orchestrator_cache test_skills",
+    "exit": 0,
+    "passed": 551,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T08:40:34"
+}

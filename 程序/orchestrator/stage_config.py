@@ -133,7 +133,7 @@ def synchronize(project, registry=None):
     """
     if not project:
         return False
-    reg = registry or skill_registry.default_registry()
+    reg = registry or skill_registry.default_registry(project=project)
     key = _cache_key(project, reg)
     if key in _SYNCHRONIZE_CACHE:
         return _SYNCHRONIZE_CACHE[key]
@@ -189,7 +189,7 @@ def synchronize(project, registry=None):
 
 def load(project, registry=None):
     """读一份项目级配置：坏文件／缺项都按默认补齐，不让面板白屏。"""
-    reg = registry or skill_registry.default_registry()
+    reg = registry or skill_registry.default_registry(project=project)
     data = read_json(path(project)) if project else {}
     data = data if isinstance(data, dict) else {}
     out = {}
@@ -313,7 +313,7 @@ def save_all(project, data, workflow=None):
 
 def get(project, stage, registry=None):
     """一个阶段的配置（读不到就是默认值）。"""
-    reg = registry or skill_registry.default_registry()
+    reg = registry or skill_registry.default_registry(project=project)
     if stage not in STAGES:
         raise ValueError('没登记的阶段：' + str(stage))
     synchronize(project, reg)
@@ -340,7 +340,7 @@ def get(project, stage, registry=None):
 
 def put(project, stage, model=None, skills=None, registry=None, writer_style=None, reasoning=None):
     """写一个阶段的配置：只改传进来的那几项，其余保持原样。"""
-    reg = registry or skill_registry.default_registry()
+    reg = registry or skill_registry.default_registry(project=project)
     if stage not in STAGES:
         raise ValueError('没登记的阶段：' + str(stage))
     data = load(project, reg)
@@ -365,7 +365,7 @@ def writer_style(project, stage='script', registry=None):
 
 def reset(project, stage, registry=None):
     """恢复默认：模型「自动」＋勾上这一阶段的全部 SKILL。"""
-    reg = registry or skill_registry.default_registry()
+    reg = registry or skill_registry.default_registry(project=project)
     entry = default_entry(stage, reg)
     return put(project, stage, entry['model'], entry['skills'], reg)
 
@@ -376,7 +376,7 @@ def problems(project, registry=None):
     第 28 期：原来只报「认不识的 SKILL／阶段」，配置文件被写坏（或写成一个不是对象的 JSON）时
     read_json 只回 None，面板就惄惄退回默认值——用户以为自己勾的 SKILL 丢了。现在把这种情况也报出来。
     """
-    reg = registry or skill_registry.default_registry()
+    reg = registry or skill_registry.default_registry(project=project)
     target = path(project) if project else None
     data = read_json(target) if target else {}
     out = []
