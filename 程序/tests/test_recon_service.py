@@ -577,5 +577,120 @@ def _transport(url, payload, headers, timeout):
     return {'ok': True, 'status': 200, 'data': {'title': '抓到的', 'content': '# 正文'}}
 
 
+class IdempotencyTests(unittest.TestCase):
+    """L2 任务书轮 2：同一 project＋target＋material_source 第二次 run() 零付费请求。
+
+    幂等判定必须在 ``collect()`` 之前——命中落盘标记且卡片仍在时，
+    直接由卡片字段重建 ``success`` 返回，不再发检索／抓取、不再写盘。
+    """
+
+    def _run(self, root, send, target=None, source='对标爆款', **port_options):
+        ports = recon.ReconPorts(sender=send, pause=lambda _s: None, **port_options)
+        return recon.run(root, target or {'name': '某剧'}, source, ports=ports)
+
+    def _marker(self, root):
+        return recon.stage_paths(root)['input'] / 'recon_idempotency.json'
+
+    def test_second_run_with_same_params_sends_no_requests(self):
+        """同一镜头同一参数连跑两次：第二次完全不发任何请求，返回形状与数据一致。"""
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            send = sender(results=[row('https://a.com/x', content='正文')])
+            first = self._run(root, send)
+            self.assertTrue(first.ok, getattr(first, 'reason', ''))
+            self.assertGreater(len(send.calls), 0, '首次采风应真实发出请求')
+            baseline = len(send.calls)
+            second = self._run(root, send)
+            self.assertTrue(second.ok, getattr(second, 'reason', ''))
+            self.assertEqual(len(send.calls), baseline,
+                             '幂等命中时第二次 run() 不得再发任何检索／抓取请求')
+            self.assertEqual(second.data, first.data,
+                             '命中返回由卡片字段重建，success 数据与首次完全一致')
+            self.assertTrue(self._marker(root).is_file(), '成功采风后应落幂等标记')
+
+    def test_marker_without_card_reclects(self):
+        """标记还在但卡片丢了：按未命中重新采集，不拿空结果冒充幂等。"""
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            send = sender(results=[row('https://a.com/x', content='正文')])
+            first = self._run(root, send)
+            self.assertTrue(first.ok, getattr(first, 'reason', ''))
+            baseline = len(send.calls)
+            recon.card_path(root).unlink()
+            second = self._run(root, send)
+            self.assertTrue(second.ok, getattr(second, 'reason', ''))
+            self.assertGreater(len(send.calls), baseline,
+                               '卡片缺失时必须重新发起付费采集')
+            self.assertTrue(recon.card_path(root).is_file())
+
+    def test_different_target_reclects(self):
+        """换一个对标对象就是另一件事：幂等键不同，必须重新付费采集。"""
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            send = sender(results=[row('https://a.com/x', content='正文')])
+            first = self._run(root, send, target={'name': '某剧'})
+            self.assertTrue(first.ok, getattr(first, 'reason', ''))
+            baseline = len(send.calls)
+            second = self._run(root, send, target={'name': '另一剧'})
+            self.assertTrue(second.ok, getattr(second, 'reason', ''))
+            self.assertGreater(len(send.calls), baseline,
+                               '不同 target 不得命中幂等')
+
+    def test_different_material_source_reclects(self):
+        """素材来源不同同样是另一件事：对标爆款与热点速成各自独立幂等。"""
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            send = sender(results=[row('https://a.com/x', content='正文')])
+            first = self._run(root, send, source='对标爆款')
+            self.assertTrue(first.ok, getattr(first, 'reason', ''))
+            baseline = len(send.calls)
+            second = self._run(root, send, source='热点速成')
+            self.assertTrue(second.ok, getattr(second, 'reason', ''))
+            self.assertGreater(len(send.calls), baseline,
+                               '不同 material_source 不得命中幂等')
+
+    def test_corrupt_marker_is_treated_as_miss(self):
+        """幂等标记损坏按未命中处理：宁可重采，不拿坏标记挡路。"""
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            send = sender(results=[row('https://a.com/x', content='正文')])
+            first = self._run(root, send)
+            self.assertTrue(first.ok, getattr(first, 'reason', ''))
+            baseline = len(send.calls)
+            self._marker(root).write_text('{broken json', encoding='utf-8')
+            second = self._run(root, send)
+            self.assertTrue(second.ok, getattr(second, 'reason', ''))
+            self.assertGreater(len(send.calls), baseline,
+                               '标记损坏时必须重新采集')
+
+    def test_tool_path_second_call_sends_no_requests(self):
+        """生产入口 ``skill_tools.call('recon.card')`` 同样幂等：第二次零传输请求。"""
+        calls = []
+
+        def counting_transport(url, payload, headers, timeout):
+            calls.append(url)
+            if url.endswith('/v1/tools/search'):
+                return {'ok': True, 'status': 200,
+                        'data': {'results': [row('https://a.com/x', content='')]}}
+            return {'ok': True, 'status': 200,
+                    'data': {'title': '抓到的', 'content': '# 正文'}}
+
+        with tempfile.TemporaryDirectory() as td:
+            context = {'project': td, 'material_source': '对标爆款',
+                       'recon_target': {'name': '某剧'},
+                       'transport': counting_transport, 'headers': HEADERS,
+                       'pause': lambda _s: None}
+            first = skill_tools.call('recon.card', context)
+            self.assertTrue(first['ok'], first)
+            baseline = len(calls)
+            self.assertGreater(baseline, 0, '首次工具调用应真实发出请求')
+            second = skill_tools.call('recon.card', context)
+            self.assertTrue(second['ok'], second)
+            self.assertEqual(len(calls), baseline,
+                             '工具路径幂等命中时第二次不得再发任何请求')
+            self.assertEqual(second['sources'], first['sources'])
+            self.assertEqual(second['not_found'], first['not_found'])
+
+
 if __name__ == '__main__':
     unittest.main()

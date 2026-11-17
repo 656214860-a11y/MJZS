@@ -199,7 +199,8 @@ def _recon_target(context, project, material_source):
 
 def _recon_card(context):
     """素材采风：③④ 才激活；把对标对象的公开情报抓回来装成《对标情报卡》。"""
-    from domain.recon_service import MATERIAL_SOURCES, ReconPorts, collect, save_card, summary
+    from domain.recon_service import (MATERIAL_SOURCES, ReconPorts, load_card,
+                                      run as recon_run, summary)
     import orchestrator.stage_config as stage_config
     ctx = context or {}
     project = project_of(ctx)
@@ -212,19 +213,22 @@ def _recon_card(context):
     if not target:
         raise ToolNeedsInput('采风需要先给出对标对象：在阶段配置选对标爆款并写明剧名，'
                              '或在阶段 input/recon_request.json 里写下 name／topic')
-    card = collect(target, material_source, ports=ReconPorts(
+    # 幂等收口在 L2 run()：同一 project＋target＋material_source 第二次进入
+    # 直接由已落盘卡片重建结果，不再发付费检索／抓取、不再重复写盘。
+    result = recon_run(project, target, material_source, ports=ReconPorts(
         transport=ctx.get('transport'), headers=ctx.get('headers'),
-        pause=ctx.get('pause'), program=ctx.get('program')))
-    saved = save_card(project, card, save=ctx.get('save'), save_text=ctx.get('save_text'))
-    if not saved.ok:
+        pause=ctx.get('pause'), program=ctx.get('program'),
+        save=ctx.get('save'), save_text=ctx.get('save_text')))
+    if not result.ok:
         # 原来 save_card 抛 ValueError，本工具不拦，交给编排器记失败／页面报错；
         # 现在契约把错误放进结果，这里仍抛工具错误，用户看到的原因与原来一致。
-        raise ToolError(saved.reason)
-    data = saved.data or {}
+        raise ToolError(result.reason)
+    data = result.data or {}
+    card = load_card(project)
     return {'ok': True, 'card': data['card'], 'doc': data['doc'],
-            'sources': len(card.get('sources') or ()), 'problems': data['problems'],
-            'summary': summary(card), 'not_found': card.get('not_found'),
-            'budget': card.get('budget')}
+            'sources': data['sources'], 'problems': data['problems'],
+            'summary': summary(card), 'not_found': data['not_found'],
+            'budget': data['budget']}
 
 
 def _copyright_filter(context):
