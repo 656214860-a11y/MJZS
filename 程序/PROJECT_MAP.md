@@ -14,7 +14,7 @@ R1247 数据边界（R2898 更新）：剧本聊天及回收站统一位于 `01�
 | 区域 | 入口 | 职责 |
 | --- | --- | --- |
 | 桌面与页面 | `app.py`、`desktop.py`、`orchestrator/desktop_startup_service.py`、`storyboard_files.py` | `desktop` 创建窗口和绑定事件；无 Tk 启动控制器编排首帧延迟、项目选择与取消；其余负责项目选择、13 阶段页面、文件表及关闭清理 |
-| UI 设计系统 | `ui_tokens.py`、`ui_widgets.py`（`Tooltip`／`Splash` 已拆到 `ui/ui_tooltip.py`／`ui/ui_splash.py`，原路径仍可导入）、`ui/ui_stage_popups.py`（阶段执行窗／手动制作窗呈现器）、`ui_rounded.py`（圆角底图生成）、`ui_motion.py`（行悬停淡入、加载转圈、空态提示）、`ui_scroll.py`（滚轮缓动）、`ui/ui_hover_fade.py`（按钮悬停渐变）、`ui/ui_part_renderers.py`（消息 part 分派渲染：思考卡/产物行/工具行）、`ui/ui_media.py`（缩略图卡/Lightbox/多候选/收藏）、`ui/ui_code_block.py`（JSON/提示词高亮块）、`ui/ui_diff.py`（红绿 Diff）、`design_tokens.md`、`ui_components.md` | 设计 token 的代码化事实来源，以及主/次按钮、卡片的 Tk 组件唯一入口 |
+| UI 设计系统 | `ui_tokens.py`、`ui_widgets.py`（`Tooltip`／`Splash` 已拆到 `ui/ui_tooltip.py`／`ui/ui_splash.py`，原路径仍可导入）、`ui/ui_stage_popups.py`（阶段执行窗／手动制作窗呈现器）、`ui_rounded.py`（圆角底图生成）、`ui_motion.py`（行悬停淡入、加载转圈、空态提示）、`ui_scroll.py`（滚轮缓动）、`ui/ui_hover_fade.py`（按钮悬停渐变）、`ui/ui_part_renderers.py`（消息 part 分派渲染：思考卡/产物行/工具行）、`ui/ui_media.py`（缩略图卡/Lightbox/多候选/收藏）、`ui/ui_code_block.py`（JSON/提示词高亮块）、`ui/ui_diff.py`（红绿 Diff）、`ui/ui_citation.py`（引用溯源）、`ui/ui_asset_card.py`（资产悬浮卡）、`design_tokens.md`、`ui_components.md` | 设计 token 的代码化事实来源，以及主/次按钮、卡片的 Tk 组件唯一入口 |
 | 三虎与自动化 | `pet_ui.py`（含 `pet_ui_stages／settings／voice／view／support`）、`ui/pet_cloud.py`、`stage_flow.py`、`orchestrator/stage_handler_registry.py`、`orchestrator/stage_exec.py`、`orchestrator/desktop_automation_service.py`、`desktop_auto_flows.py`、`desktop_idea_chat.py`、`desktop_writing_page.py`、`desktop_files_panel.py`（主界面右上角「项目文件」入口与右侧停靠文件面板，REQ-S01-90）、`desktop_storyboard_page.py`、`desktop_page_support.py`、`desktop_asset_pages.py`、`desktop_script_pages.py`（含 `desktop_script_edit_session.py` 剧本框编辑会话：自动保存／右键菜单／撤销快捷键；剧本结构页双阅读框的装配点，经 `script_line_numbers.py` 行号槽、`script_find_bar.py` 查找替换条、`script_outline.py` 大纲面板、`script_reading.py` 阅读辅助编排四个 L4 模块实现，REQ-S02-36）、`desktop_media_pages.py`、`desktop_project_pages.py`、`desktop_idea_menus.py` | 前缀播报、手动/全自动、检查点、暂停和强制停止；桌面自动流程的周期调度、取消、受控异常与到期轮询由无 Tk 服务统一编排；阶段启动唯一入口 `stage_handler_registry.start()`，全自动档按阶段配置已勾选 SKILL（面板顺序）派发（R2905），无勾选阶段标 skipped 跳过并提示，成果仍经 `stage_completion_service` 核验 |
 | 阶段配置 | `stage_config.py`、`stage_models.py`、`skill_panel.py`（＋`skill_panel_workflow.py` 制作锁弹窗、`skill_panel_import.py` SKILL 导入、`skill_panel_support.py`）、`skill_registry.py`、`skill_command.py`（`/` 命令解析与触发 token 扫描）、`desktop_shared_input.py`（共享底部输入框）、`desktop_shared_send.py`（13 页发送分流）、`desktop_shared_menus.py`（✦／＋ 图标下拉面板 R2971＋`/`/`@` 光标候选浮层 R2980） | 单次 > 项目模型优先级、SKILL 勾选与说明、`production_locks` 制作锁（R2862 起无总控预设）、`/` 命令与上游发送门禁（R2893）、13 页共用输入框与按模型隔离取消（R2898） |
 | Codex 技能同步 | `orchestrator/codex_skill_sync.py` | L3：阶段单文件技能物化、来源 hash、所有权保护与孤儿回收；首帧后台和发送前校验 |
@@ -96,6 +96,8 @@ R1124 插入 Animatic 后，旧中文编号目录由 `stage_path_service.read_di
 | `test_diff_view.py` | 行级红绿 Diff 与接受/拒绝 |
 | `test_checkpoint_tree.py` | append-only checkpoint 树、fork 不覆盖、剪枝 |
 | `test_branch_tree_ui.py` | 分支节点树渲染、切换、延续/独立提问 |
+| `test_citation.py` | `[n]` 引用标记、tag 绑定、source 序号映射 |
+| `test_asset_hovercard.py` | 资产名高亮、悬浮卡弹出/关闭 |
 | `test_workflow.py` | 模型选择、本机客户端、API 回退 |
 | `test_asset_thumbs.py` | 缩略图缓存、worker 回收、环境隔离 |
 | `test_video_ui.py`、`test_integration.py` | 视频链路、页面接力与交付 |

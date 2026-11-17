@@ -2709,6 +2709,24 @@
       "reason_constant": "PLATFORM_TKINTER",
       "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
       "reference": ""
+    },
+    {
+      "file": "tests/test_citation.py",
+      "test": "CitationTests.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_asset_hovercard.py",
+      "test": "AssetHovercardTests.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
     }
   ]
 }
