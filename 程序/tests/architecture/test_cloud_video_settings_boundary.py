@@ -17,7 +17,7 @@ class CloudVideoSettingsBoundaryTests(unittest.TestCase):
         self.assertIn('def cloud_video_gateway()', service)
 
     def test_settings_publication_delegates_to_service(self):
-        source = Path(ROOT, 'cloud_video.py').read_text(encoding='utf-8')
+        source = entity_file('cloud_video').read_text(encoding='utf-8')
         tree = ast.parse(source)
         methods = [node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)
                    and node.name in ('open_session', 'align_source', 'delete_model')]

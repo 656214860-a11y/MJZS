@@ -129,7 +129,7 @@
   {
    "module": "asset_batch.py",
    "covered": 0,
-   "total": 305,
+   "total": 3,
    "percent": 0.0
   },
   {
@@ -213,7 +213,7 @@
   {
    "module": "asset_prompt_check_dialog.py",
    "covered": 0,
-   "total": 10,
+   "total": 3,
    "percent": 0.0
   },
   {
@@ -231,7 +231,7 @@
   {
    "module": "asset_reference_import.py",
    "covered": 0,
-   "total": 107,
+   "total": 3,
    "percent": 0.0
   },
   {
@@ -243,7 +243,7 @@
   {
    "module": "asset_reference_prompts_dialog.py",
    "covered": 0,
-   "total": 8,
+   "total": 3,
    "percent": 0.0
   },
   {
@@ -285,7 +285,7 @@
   {
    "module": "background_characters.py",
    "covered": 0,
-   "total": 138,
+   "total": 3,
    "percent": 0.0
   },
   {
@@ -333,7 +333,7 @@
   {
    "module": "cloud_video.py",
    "covered": 0,
-   "total": 221,
+   "total": 3,
    "percent": 0.0
   },
   {
@@ -537,7 +537,7 @@
   {
    "module": "desktop_audio_direct.py",
    "covered": 0,
-   "total": 34,
+   "total": 3,
    "percent": 0.0
   },
   {
@@ -561,13 +561,13 @@
   {
    "module": "desktop_direct_dispatch.py",
    "covered": 0,
-   "total": 29,
+   "total": 3,
    "percent": 0.0
   },
   {
    "module": "desktop_file_card.py",
    "covered": 0,
-   "total": 27,
+   "total": 3,
    "percent": 0.0
   },
   {
@@ -597,25 +597,25 @@
   {
    "module": "desktop_idea_deferred.py",
    "covered": 0,
-   "total": 56,
+   "total": 3,
    "percent": 0.0
   },
   {
    "module": "desktop_idea_menus.py",
    "covered": 0,
-   "total": 84,
+   "total": 3,
    "percent": 0.0
   },
   {
    "module": "desktop_idea_send_gate.py",
    "covered": 0,
-   "total": 61,
+   "total": 3,
    "percent": 0.0
   },
   {
    "module": "desktop_image_direct.py",
    "covered": 0,
-   "total": 22,
+   "total": 3,
    "percent": 0.0
   },
   {
@@ -645,7 +645,7 @@
   {
    "module": "desktop_login_gate.py",
    "covered": 0,
-   "total": 60,
+   "total": 3,
    "percent": 0.0
   },
   {
@@ -735,7 +735,7 @@
   {
    "module": "desktop_storyboard_direct.py",
    "covered": 0,
-   "total": 31,
+   "total": 3,
    "percent": 0.0
   },
   {
@@ -759,7 +759,7 @@
   {
    "module": "desktop_video_prompt_direct.py",
    "covered": 0,
-   "total": 31,
+   "total": 3,
    "percent": 0.0
   },
   {
@@ -1545,7 +1545,7 @@
   {
    "module": "local_previs.py",
    "covered": 0,
-   "total": 268,
+   "total": 3,
    "percent": 0.0
   },
   {
@@ -1599,7 +1599,7 @@
   {
    "module": "native_assets.py",
    "covered": 0,
-   "total": 438,
+   "total": 3,
    "percent": 0.0
   },
   {
@@ -2259,7 +2259,7 @@
   {
    "module": "reference_wall.py",
    "covered": 0,
-   "total": 168,
+   "total": 3,
    "percent": 0.0
   },
   {
@@ -2775,7 +2775,7 @@
   {
    "module": "task_center_ui.py",
    "covered": 0,
-   "total": 64,
+   "total": 3,
    "percent": 0.0
   },
   {
@@ -2797,9 +2797,117 @@
    "percent": 0.0
   },
   {
+   "module": "ui/asset_batch.py",
+   "covered": 0,
+   "total": 305,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/asset_prompt_check_dialog.py",
+   "covered": 0,
+   "total": 10,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/asset_reference_import.py",
+   "covered": 0,
+   "total": 107,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/asset_reference_prompts_dialog.py",
+   "covered": 0,
+   "total": 8,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/background_characters.py",
+   "covered": 0,
+   "total": 138,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/cloud_video.py",
+   "covered": 0,
+   "total": 221,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/desktop_audio_direct.py",
+   "covered": 0,
+   "total": 34,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/desktop_direct_dispatch.py",
+   "covered": 0,
+   "total": 29,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/desktop_file_card.py",
+   "covered": 0,
+   "total": 27,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/desktop_idea_deferred.py",
+   "covered": 0,
+   "total": 56,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/desktop_idea_menus.py",
+   "covered": 0,
+   "total": 84,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/desktop_idea_send_gate.py",
+   "covered": 0,
+   "total": 61,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/desktop_image_direct.py",
+   "covered": 0,
+   "total": 22,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/desktop_login_gate.py",
+   "covered": 0,
+   "total": 60,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/desktop_storyboard_direct.py",
+   "covered": 0,
+   "total": 31,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/desktop_video_prompt_direct.py",
+   "covered": 0,
+   "total": 31,
+   "percent": 0.0
+  },
+  {
    "module": "ui/edit_habits_dialog.py",
    "covered": 0,
    "total": 112,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/local_previs.py",
+   "covered": 0,
+   "total": 268,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/native_assets.py",
+   "covered": 0,
+   "total": 438,
    "percent": 0.0
   },
   {
@@ -2893,6 +3001,12 @@
    "percent": 0.0
   },
   {
+   "module": "ui/reference_wall.py",
+   "covered": 0,
+   "total": 168,
+   "percent": 0.0
+  },
+  {
    "module": "ui/script_find_bar.py",
    "covered": 0,
    "total": 165,
@@ -2944,6 +3058,12 @@
    "module": "ui/storyboard_table_ui.py",
    "covered": 0,
    "total": 105,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/task_center_ui.py",
+   "covered": 0,
+   "total": 64,
    "percent": 0.0
   },
   {
@@ -3692,9 +3812,9 @@
   },
   {
    "module": "agent/publication.py",
-   "covered": 145,
+   "covered": 143,
    "total": 159,
-   "percent": 91.2
+   "percent": 89.9
   },
   {
    "module": "domain/video_lifecycle_service.py",
@@ -3794,5 +3914,5 @@
   }
  ],
  "modules_covered": 74,
- "modules_total": 630
+ "modules_total": 650
 }

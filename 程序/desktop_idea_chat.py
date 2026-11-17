@@ -19,8 +19,8 @@ from tkinter import ttk
 import pet_state
 import ui_plugin_registry
 from desktop_idea_attachments import IdeaAttachmentsMixin
-from desktop_idea_deferred import IdeaDeferredMixin
-from desktop_idea_send_gate import IdeaSendGateMixin
+from ui.desktop_idea_deferred import IdeaDeferredMixin
+from ui.desktop_idea_send_gate import IdeaSendGateMixin
 from orchestrator.idea_chat_controller import (bubble_timestamp, collapse_preview, has_interruptible, interrupt_notice,
                                   queue_notice, slot_decision)
 from contract.platform_tools import open_target
@@ -755,7 +755,7 @@ class _FlowAgentLaunch:
             raise ValueError('剧本模型请求正在排队，请等待或先点击中断；未重复发送。')
         from orchestrator.workflow_settings import resolve_for_send
         self.config=resolve_for_send(self.host.root,self.stage,config=self._config,intake_only=self.intake_only);self.followup=self.followup if self.followup is not None else self.prompt
-        from desktop_direct_dispatch import dispatch
+        from ui.desktop_direct_dispatch import dispatch
         if dispatch(self.host,self.stage,self.config,self.direct,self.intake_only):return
         self.native_claude = self.config['engine'] in ('claude-desktop-app', 'desktop-app')
         self.bounded_writing = self.stage == 'writing' and self.config['engine'] == 'claude'

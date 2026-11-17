@@ -1,7 +1,7 @@
 """Shared, lazy project workspace. Standard-library-only desktop UI."""
 import app_logging
 import orchestrator.page_navigation_controller as page_nav
-from desktop_idea_menus import IdeaMenusMixin
+from ui.desktop_idea_menus import IdeaMenusMixin
 from desktop_asset_pages import AssetPagesMixin, AssetPageServices
 from desktop_script_pages import ScriptPagesMixin, ScriptPageServices
 from desktop_media_pages import MediaPagesMixin, MediaPageServices
@@ -43,7 +43,7 @@ import orchestrator.stage_handler_registry as stage_handler_registry
 from contract.platform_tools import find_editor_shortcut, launch_windows_app, open_directory, open_path, open_target, tcp_listener
 from orchestrator.desktop_startup_service import DesktopStartupController
 from desktop_account_page import AccountPageMixin
-from desktop_login_gate import LoginGateMixin
+from ui.desktop_login_gate import LoginGateMixin
 from desktop_page_nav import PageNavMixin
 from desktop_lifecycle import LifecycleMixin
 from orchestrator.desktop_automation_service import BackgroundTaskLifecycle, DesktopAutomationScheduler, BackgroundTaskQueue, PersistentBackgroundTaskQueue, inspect_project_storage, RetryRegistry

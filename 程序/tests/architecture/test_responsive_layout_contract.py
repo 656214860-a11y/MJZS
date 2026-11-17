@@ -5,6 +5,8 @@ import ast
 import unittest
 from pathlib import Path
 
+from tests.architecture._scan import entity_file
+
 
 ROOT = Path(__file__).resolve().parents[2]
 PAGES = frozenset({'desktop.py', 'app.py', 'storyboard_files.py', 'asset_batch.py'})
@@ -22,7 +24,7 @@ def _imports_flow_bar(path: Path) -> bool:
 
 class ResponsiveLayoutContractTests(unittest.TestCase):
     def test_primary_desktop_pages_use_the_shared_wrapping_action_bar(self) -> None:
-        missing = sorted(name for name in PAGES if not _imports_flow_bar(ROOT / name))
+        missing = sorted(name for name in PAGES if not _imports_flow_bar(entity_file(name[:-3])))
         self.assertEqual(
             missing, [],
             '主页面的操作栏请复用 responsive_ui.FlowBar：' + ', '.join(missing),

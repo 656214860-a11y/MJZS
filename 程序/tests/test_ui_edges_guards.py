@@ -96,6 +96,6 @@ class EngineNameFallbackTests(unittest.TestCase):
                              "读不到名字只该退回空串，不该把异常甩到页面上")
 
     def test_the_page_asks_the_module_level_helper(self):
-        source = (Path(PROGRAM) / "local_previs.py").read_text(encoding="utf-8")
+        source = entity_file("local_previs").read_text(encoding="utf-8")
         self.assertIn("def engine_name(project):", source, "取名字的容错逻辑要在模块级，自检才喂得进坏模块")
         self.assertIn("previs_engine=engine_name(self.project)", source)  # R1836：show 改写成类

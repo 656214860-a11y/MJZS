@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 class AssetBatchSettingsBoundaryTests(unittest.TestCase):
     def test_ui_delegates_settings_persistence_to_service(self):
-        tree = ast.parse((ROOT / 'asset_batch.py').read_text(encoding='utf-8'))
+        tree = ast.parse(entity_file('asset_batch').read_text(encoding='utf-8'))
         imported = {name.name for node in tree.body if isinstance(node, ast.ImportFrom)
                     and node.module == 'stage_execution_service' for name in node.names}
         self.assertEqual(imported, {'remove_asset_batch_model', 'save_asset_batch_settings'})

@@ -599,7 +599,7 @@ class _AssetPage:
         from orchestrator.storyboard_selection import summary
         self.page.note(f'{label} {count} 项 · {scope_label}')
         from domain.asset_reference_prompts import display_prompt
-        from asset_reference_prompts_dialog import show_prompt
+        from ui.asset_reference_prompts_dialog import show_prompt
         self.display_prompt = display_prompt; self.show_prompt = show_prompt
         from asset_reference_images import role_summary
         self.role_summary = role_summary

@@ -19,7 +19,7 @@ class PrevisRoutingPublicationBoundaryTests(unittest.TestCase):
             self.assertTrue(any(isinstance(node.func, ast.Name) and node.func.id == 'publish' for node in calls))
 
     def test_previs_page_delegates_publication_to_l3(self):
-        page = (ROOT / 'local_previs.py').read_text(encoding='utf-8')
+        page = entity_file('local_previs').read_text(encoding='utf-8')
         self.assertIn('from stage_execution_service import save_stage_previs_override', page)
         self.assertIn('from stage_execution_service import dispatch_stage_previs', page)
         self.assertNotIn('previs_routing.set_override(', page)

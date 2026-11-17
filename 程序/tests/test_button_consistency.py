@@ -19,6 +19,7 @@ from ui_tokens import (BUTTON_GAP, BUTTON_GAP_TIGHT, BUTTON_MIN_WIDTH, NAV_PADDI
                        NAV_PADDING_Y, NAV_PADDING_Y_COMPACT, SPACING)
 
 ROOT = Path(__file__).resolve().parents[1]
+from tests.architecture._scan import entity_file
 DIALOG_FILES = ("asset_reference_import.py", "seedream_settings.py", "reference_wall.py",
                 "background_characters.py", "skill_panel_workflow.py",
                 "pet_models_ui.py")
@@ -70,7 +71,7 @@ class ButtonRuleContractTests(unittest.TestCase):
     def test_dialog_cancel_buttons_are_right_packed_with_the_gap_token(self):
         pattern = re.compile(r"text='(取消|关闭)'.*pack\(")
         for name in DIALOG_FILES:
-            text = (ROOT / name).read_text(encoding="utf-8")
+            text = entity_file(name[:-3]).read_text(encoding="utf-8")
             lines = text.splitlines()
             for index, line in enumerate(lines):
                 if not pattern.search(line):

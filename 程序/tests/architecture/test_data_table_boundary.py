@@ -98,7 +98,7 @@ class DataTableBoundaryTests(unittest.TestCase):
         self.assertEqual(direct, [], '首帧管理页必须通过 DataTable 构造表格')
 
     def test_asset_batch_uses_data_table_not_a_page_treeview(self):
-        tree = parse(ROOT / 'asset_batch.py')
+        tree = parse(entity_file('asset_batch'))
         method = next(node for node in tree.body if isinstance(node, ast.FunctionDef)
                       and node.name == 'show')
         direct = [node for node in ast.walk(method) if isinstance(node, ast.Call)
@@ -123,7 +123,7 @@ class DataTableBoundaryTests(unittest.TestCase):
         self.assertEqual(direct, [], '首帧批量制作弹窗必须通过 DataTable 构造表格')
 
     def test_local_previs_uses_data_table_not_a_page_treeview(self):
-        tree = parse(ROOT / 'local_previs.py')
+        tree = parse(entity_file('local_previs'))
         method = next(node for node in tree.body if isinstance(node, ast.FunctionDef)
                       and node.name == 'show')
         direct = [node for node in ast.walk(method) if isinstance(node, ast.Call)
@@ -156,7 +156,7 @@ class DataTableBoundaryTests(unittest.TestCase):
         self.assertEqual(direct, [], '模型管理页不得退回业务层直接构造 ttk.Treeview')
 
     def test_reference_wall_uses_data_table_not_a_page_treeview(self):
-        tree = parse(ROOT / 'reference_wall.py')
+        tree = parse(entity_file('reference_wall'))
         method = next(node for node in tree.body if isinstance(node, ast.FunctionDef)
                       and node.name == 'show')
         direct = [node for node in ast.walk(method) if isinstance(node, ast.Call)

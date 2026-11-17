@@ -13,7 +13,7 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import ttk
 
-from desktop_file_card import TreeRowCard, script_row_card
+from ui.desktop_file_card import TreeRowCard, script_row_card
 from desktop_page_registry import PAGE_ACCOUNT, PAGE_SITES
 from desktop_writing_snapshots import WritingSnapshotsMixin
 from responsive_ui import fit_row_height, row_toggle_target
