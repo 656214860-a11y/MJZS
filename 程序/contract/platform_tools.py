@@ -509,6 +509,79 @@ def open_https(url, *, timeout=60, data=None, headers=None, method=None, context
     return opener.open(request, timeout=timeout)
 
 
+def _requests_failure(error):
+    """Keep requests/urllib3 transport exceptions behind the urllib protocol."""
+    import requests
+    import urllib.error
+    from urllib3.exceptions import TimeoutError as ReadTimeout
+    if isinstance(error, (requests.exceptions.Timeout, ReadTimeout, TimeoutError)):
+        return TimeoutError(str(error))
+    return urllib.error.URLError(str(error))
+
+
+class _RequestsJsonResponse:
+    """Bounded decoded reads and one owner for the response/session lifetime."""
+    def __init__(self, response, session):
+        self.response, self.session = response, session
+        self.status, self.headers = response.status_code, response.headers
+
+    def read(self, size=-1):
+        import requests
+        from urllib3.exceptions import HTTPError
+        try:
+            return self.response.raw.read(size, decode_content=True)
+        except (requests.exceptions.RequestException, HTTPError, OSError) as error:
+            self.close()
+            raise _requests_failure(error) from error
+
+    def close(self):
+        session, self.session = self.session, None
+        if session is not None:
+            try:
+                self.response.close()
+            finally:
+                session.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_exc):
+        self.close()
+
+
+class RequestsJsonOpener:
+    """urllib Request/.open adapter; retries and redirects stay in the caller."""
+    def open(self, request, timeout=None):
+        import urllib.error
+        if os.environ.get('DRAMA_SUPPRESS_NETWORK') == '1':
+            raise urllib.error.URLError('network suppressed')
+        import requests
+        session, response = requests.Session(), None
+        try:
+            # Empty auth tuples are falsy and still permit netrc to replace Authorization.
+            session.auth = lambda prepared: prepared
+            for scheme in ('http://', 'https://'):
+                session.mount(scheme, requests.adapters.HTTPAdapter(max_retries=0))
+            prepared = session.prepare_request(requests.Request(
+                request.get_method(), request.full_url, data=request.data, headers=dict(request.header_items())))
+            settings = session.merge_environment_settings(prepared.url, {}, True, True, None)
+            # Session.send builds _next even with redirects disabled, consuming redirect bodies.
+            response = session.get_adapter(prepared.url).send(prepared, timeout=timeout, **settings)
+        except BaseException as error:
+            try:
+                if response is not None:
+                    response.close()
+            finally:
+                session.close()
+            if isinstance(error, (requests.exceptions.RequestException, OSError)):
+                raise _requests_failure(error) from error
+            raise
+        result = _RequestsJsonResponse(response, session)
+        if not 200 <= response.status_code < 300:
+            raise urllib.error.HTTPError(request.full_url, response.status_code, response.reason, response.headers, result)
+        return result
+
+
 class WebSocketRefused(OSError):
     """握手没拿到 101：``status`` 是服务端返回的 HTTP 状态码。"""
     def __init__(self, status):
