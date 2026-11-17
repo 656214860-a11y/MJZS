@@ -23,6 +23,7 @@ from ui_tokens import (COLORS, COMBOBOX_ARROW_COLOR, COMBOBOX_CONTROL_PADDING,
 from ui.ui_motion import bind_row_hover, empty_icon
 from ui.ui_hover_fade import install_hover_fade
 from ui.ui_composer_style import install_composer_styles
+from ui.ui_popup import text_units_width
 from ui.ui_rounded import (button_specs, pressed_padding, rounded_layout, set_button_padding, rounded_photo as _rounded_photo,
                         rounded_png_bytes as _rounded_png_bytes)
 from ui.ui_splash import Splash  # noqa: F401  转出，旧导入路径不变
@@ -377,8 +378,8 @@ class DataTable(ttk.Frame):
 
 
 def _display_width(value):
-    """全角按 2 计、ASCII 按 1 计，近似下拉框可视宽度。"""
-    return sum(2 if ord(ch) > 0x2E80 else 1 for ch in str(value))
+    """选项显示宽度（ttk 字符单位）：真实字体测宽换算，不再用全角×2/ASCII×1 近似。"""
+    return text_units_width(COMBOBOX_FONT, (value,))
 
 
 class SelectBox(ttk.Combobox):
@@ -469,13 +470,11 @@ class SelectBox(ttk.Combobox):
 
     @staticmethod
     def _fit_width(values, current=''):
-        """全部选项＋当前值的最长显示宽度（CJK 按 2 计），封顶 COMBOBOX_MAX_WIDTH。"""
-        widths = [_display_width(v) for v in values]
+        """全部选项＋当前值的最长显示宽度（真实字体测宽），封顶 COMBOBOX_MAX_WIDTH。"""
+        texts = [str(v) for v in values]
         if current:
-            widths.append(_display_width(current))
-        if not widths:
-            return COMBOBOX_WIDTH
-        return min(COMBOBOX_MAX_WIDTH, max(widths))
+            texts.append(str(current))
+        return min(COMBOBOX_MAX_WIDTH, text_units_width(COMBOBOX_FONT, texts) or COMBOBOX_WIDTH)
 
     def refit(self):
         """按当前选项与当前值重算宽度；可编辑框在用户输入长文本后调用。"""

@@ -1,0 +1,15 @@
+{
+  "round": 3271,
+  "commit_base": "eaaf6cd5",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k ui_modern_system shared_input_ui script_composer hover_card_states ui_widgets_inputs",
+    "exit": 0,
+    "passed": 82,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T03:24:03"
+}
