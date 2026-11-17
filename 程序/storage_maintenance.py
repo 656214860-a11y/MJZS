@@ -67,6 +67,49 @@ def recycle_base(root):
     return _recycle_base(Path(root))
 
 
+# R3117（任务书 P2，Q5）：回收站保留期。到期批次不会自动消失——只有用户在面板里
+# 显式「清空过期回收站」时才会物理删除，删除动作仍只经本模块。
+RECYCLE_RETENTION_DAYS = 30
+
+
+def purge_expired_batches(root, days=None, now=None):
+    """物理删除超过保留期的回收批次，返回被删除的批次名。
+
+    只处理回收站下的**整批目录**，且只认 ``恢复位置.json`` 里可解析的创建时间；
+    清单损坏或时间不可读的批次一律跳过（宁可留证据，不猜内容）。调用方必须是
+    用户的显式动作（面板里的「清空过期回收站」），不得挂到启动或退出路径。
+    """
+    root = Path(root).resolve()
+    now = time.time() if now is None else now
+    span = (RECYCLE_RETENTION_DAYS if days is None else int(days)) * 86400
+    if span <= 0:
+        return []
+    base = _recycle_base(root)
+    if not base.is_dir():
+        return []
+    removed = []
+    for batch in sorted(base.iterdir()):
+        if not batch.is_dir() or batch.is_symlink():
+            continue
+        try:
+            record = read_recycle_batch(root, batch)
+        except (OSError, ValueError):
+            continue
+        created = str((record or {}).get('created_at') or '')
+        try:
+            moment = time.mktime(time.strptime(created, '%Y-%m-%d %H:%M:%S'))
+        except (TypeError, ValueError):
+            continue
+        if now - moment < span:
+            continue
+        try:
+            shutil.rmtree(batch)
+        except OSError:
+            continue
+        removed.append(batch.name)
+    return removed
+
+
 OVERWRITE_BACKUP_DIR='覆盖前备份'   # 与回收站同在项目「工作流任务」下
 
 

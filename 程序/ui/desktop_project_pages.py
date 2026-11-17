@@ -11,12 +11,12 @@ import ui_plugin_registry
 from contract.app_metadata import APP_NAME, VERSION
 from datetime import date
 from pathlib import Path
-from domain.projects import needs_cleanup_after_open_error
+from projects import needs_cleanup_after_open_error
 from tkinter import ttk
 from responsive_ui import FlowBar, auto_height
 from ui_motion import EmptyState, bind_row_hover
 from ui_tokens import TEXT_ROWS, COLORS, FONTS, SPACING, TEXT_DESC, DESKTOP_LAYOUT
-from ui.desktop_page_registry import (ACCOUNT_TITLE, PAGE_ACCOUNT, PAGE_NAV_ICONS,
+from desktop_page_registry import (ACCOUNT_TITLE, PAGE_ACCOUNT, PAGE_NAV_ICONS,
                                    PROJECT_ACTION_ICONS, PROJECT_GROUP_ICONS, nav_label)
 from ui_icons import IconLoader
 from ui_widgets import (BaseDialog, Card, DataTable, NotificationDispatcher, PrimaryButton, SecondaryButton,
@@ -449,7 +449,7 @@ class ProjectPagesMixin:
         self._project_action(actions,'运行状况…',lambda:ui_plugin_registry.module('task_center_ui').show(self))
     def create_practice_project(self):
         """复用项目创建器隔离练习数据；不调用模型、不伪造阶段完成。"""
-        sample = Path(__file__).resolve().parents[1] / '说明' / '示例' / '雨夜修伞'
+        sample = Path(__file__).resolve().parent / '说明' / '示例' / '雨夜修伞'
         project = self._project_result_data(self.projects.create('练习－雨夜修伞', sample / 'episode.json'))
         self.reload()
         self.load(project)
@@ -484,6 +484,24 @@ class ProjectPagesMixin:
     def open_current_project(self):
         if self.root is None:raise ValueError('请先创建项目')
         self.project_page_services.open_path(self.root)
+    def purge_expired_recycle(self):
+        """清空过期回收站：只跑用户的显式动作，物理删除唯一经 storage_maintenance。"""
+        import storage_maintenance
+        days = storage_maintenance.RECYCLE_RETENTION_DAYS
+        if not self.writing_page_services.confirm(
+                self.win, '清空过期回收站',
+                '将永久删除回收站中超过 %d 天的批次，删除后无法恢复。\n\n确定继续吗？' % days):
+            return
+        try:
+            removed = storage_maintenance.purge_expired_batches(self.root)
+        except OSError:
+            self.status.set('清空过期回收站失败，请检查文件权限和磁盘空间。')
+            return
+        if removed:
+            self.status.set('已清空 %d 个过期回收批次' % len(removed))
+        else:
+            self.status.set('没有超过 %d 天的回收批次' % days)
+
     def open_recycle_recovery(self):
         """打开已承诺的回收站恢复入口；恢复决策与磁盘操作均留在 L2/L3。"""
         from orchestrator.recycle_recovery_controller import RecycleRecoveryController

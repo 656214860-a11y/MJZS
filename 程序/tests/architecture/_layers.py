@@ -75,6 +75,14 @@ _register(4, "qwen_setup_dialog")
 # R2641（REQ-S02-36）：剧本阅读框的行号槽／查找替换条／大纲面板，均消费 tk 与 ui_widgets/ui_tokens。
 _register(4, "script_line_numbers", "script_find_bar", "script_outline", "script_reading")
 
+# R3131（任务书 P0/P1/P3/P4）：统一项目文件生命周期管理引入的模块。
+# 命名中心与索引字段契约是纯字符串／dataclass 运算 → L0；索引扫描与写盘只依赖 L0／L1 → L1；
+# 一次性迁移工具编排阶段服务与清单重指向 → L3；面板筛选条是纯 Tk 装配 → L4。
+_register(0, "file_naming", "file_index_contract")
+_register(1, "file_index")
+_register(3, "legacy_migration")
+_register(4, "desktop_files_panel_filters")
+
 # R2191（R2178 J3）：按真实静态依赖重登记，纠正按名字后缀落在 L3／L4 的旧账，不改任何生产代码。
 # artifact_lineage 无依赖且被 L0 契约引用 → L0；pet_state／ui_plugin_registry／integrations 只依赖 L0／L1 → L1；
 # qwen_setup 只依赖 L1（连接设置与密钥读写，与 model_secrets 同类）→ L1；qwen_adapter 是引擎适配器，与 workflow_engines 同层 → L3；
