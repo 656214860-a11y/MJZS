@@ -38,7 +38,7 @@ class SemanticBriefTests(unittest.TestCase):
             desktop = SimpleNamespace(root=root, worker=False, status=Mock(), notifier=Mock(),
                 projects=SimpleNamespace(info={'projects': []}), flow_processes={key: process},
                 async_=lambda fn, done: done(fn()))
-            with patch('orchestrator.codex_skill_sync.sync_codex_skills',
+            with patch('orchestrator.agent_skill_sync.sync_agent_skills',
                        return_value={'errors': [], 'conflicts': []}), \
                     patch('agent_dispatch.claim', return_value={'duplicate': False}), \
                     patch('agent_dispatch.finish'), patch('agent_dispatch.outcome'), \
@@ -69,7 +69,7 @@ class SemanticBriefTests(unittest.TestCase):
             desktop = SimpleNamespace(root=root, worker=False, projects=SimpleNamespace(info={'projects': []}),
                                       async_=lambda fn, done: built.append(fn()))
             config = {'engine': 'codex', 'program': 'codex', 'model': ''}
-            with patch('orchestrator.codex_skill_sync.sync_codex_skills',
+            with patch('orchestrator.agent_skill_sync.sync_agent_skills',
                        return_value={'errors': [], 'conflicts': []}), \
                     patch('agent_dispatch.claim', return_value={'duplicate': False}), \
                     patch('agent_dispatch.finish'), \

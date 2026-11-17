@@ -3720,10 +3720,11 @@ class ModelPoolTests(PetTestCase):
         self.assertEqual(self.pet.menu.type(index), 'cascade')
 
     def test_the_settings_cascade_offers_the_same_pages_as_the_gear(self):
-        """第 44 期：附件那几格（SKILL 管理不做）；
+        """第 44 期：附件那几格；
 
         第 59 期第 10 条：与齿轮那扇窗的分页**同步**——名字一模一样（原来这里自己
         写了一份「模型配置…」，齿轮那边早改名「三虎模型配置」了）。
+        R3089（生命周期任务书 T7）：「SKILL 管理」格随 TABS 同步进子菜单。
         """
         import pet_settings_ui
         index = self.pet.menu_index['settings']
@@ -3733,7 +3734,7 @@ class ModelPoolTests(PetTestCase):
         self.assertEqual(labels, [title for _key, title in pet_settings_ui.TABS])
         self.assertEqual(pet_ui.SETTINGS_ENTRIES, tuple(pet_settings_ui.TABS),
                          '两边只认同一份表，以后改名不会再各改各的')
-        self.assertNotIn('SKILL 管理', labels, '用户这一轮说 SKILL 管理不用做')
+        self.assertIn('SKILL 管理', labels)
 
     def test_switching_a_model_persists_and_ticks_it(self):
         self.assertEqual(self.pet.set_tier('deepseek-v4-pro'), 'deepseek-v4-pro')
