@@ -84,8 +84,8 @@
   "tests.test_context"
  ],
  "tests_ok": true,
- "points_total": 2331,
- "points_covered": 1222,
+ "points_total": 2413,
+ "points_covered": 1246,
  "modules": [
   {
    "module": "aigc_lint.py",
@@ -114,6 +114,12 @@
   {
    "module": "lease_verifier.py",
    "points": 6,
+   "covered": 0,
+   "percent": 0.0
+  },
+  {
+   "module": "media.py",
+   "points": 18,
    "covered": 0,
    "percent": 0.0
   },
@@ -196,6 +202,12 @@
    "percent": 20.0
   },
   {
+   "module": "core.py",
+   "points": 33,
+   "covered": 7,
+   "percent": 21.2
+  },
+  {
    "module": "clipboard_lock.py",
    "points": 13,
    "covered": 3,
@@ -244,22 +256,22 @@
    "percent": 36.0
   },
   {
+   "module": "platform_tools.py",
+   "points": 109,
+   "covered": 40,
+   "percent": 36.7
+  },
+  {
    "module": "pet_bus.py",
    "points": 27,
    "covered": 10,
    "percent": 37.0
   },
   {
-   "module": "platform_tools.py",
-   "points": 109,
-   "covered": 41,
-   "percent": 37.6
-  },
-  {
    "module": "model_pool.py",
    "points": 129,
-   "covered": 53,
-   "percent": 41.1
+   "covered": 52,
+   "percent": 40.3
   },
   {
    "module": "workflow_process_registry.py",
@@ -338,6 +350,12 @@
    "points": 17,
    "covered": 10,
    "percent": 58.8
+  },
+  {
+   "module": "publication.py",
+   "points": 31,
+   "covered": 19,
+   "percent": 61.3
   },
   {
    "module": "artifact_lineage.py",
@@ -526,6 +544,12 @@
    "percent": 100.0
   },
   {
+   "module": "media_signature.py",
+   "points": 0,
+   "covered": 0,
+   "percent": 100.0
+  },
+  {
    "module": "model_diagnostics.py",
    "points": 2,
    "covered": 2,
@@ -592,5 +616,5 @@
    "percent": 100.0
   }
  ],
- "modules_total": 84
+ "modules_total": 88
 }

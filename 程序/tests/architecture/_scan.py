@@ -42,11 +42,13 @@ def production_files() -> tuple[Path, ...]:
 
 # T10 包化：contract/infra/domain/orchestrator/ui 五个分层包的实体模块以扁平名
 # 参与分层／环／规模棘轮；顶层同名门面只做再导出，不产生依赖边，扫描时排除。
-PACKAGE_NAMES = ("contract", "infra", "domain", "orchestrator", "ui")
+# R3246+：agent/ 是第六个分层包（core/media/publication 等子模块按 _layers 实际
+# 依赖登记 L1–L4），同样以扁平名入扫描集；agent/__init__.py 为空，不产生依赖边。
+PACKAGE_NAMES = ("contract", "infra", "domain", "orchestrator", "ui", "agent")
 
 
 def package_entity_files() -> tuple[Path, ...]:
-    """五个 T10 包的实体 .py（不含 __init__）；包内暂按单层目录放置。"""
+    """分层包的实体 .py（不含 __init__）；包内暂按单层目录放置。"""
     files: list[Path] = []
     for package in PACKAGE_NAMES:
         directory = ROOT / package
@@ -139,8 +141,8 @@ def module_scan_files() -> tuple[Path, ...]:
 
 
 def registry_key(path: Path) -> str:
-    """棘轮登记键：T10 包实体归一为 ``<模块名>.py``（与搬家前顶层路径一致），
-    其余文件保持相对 ``程序/`` 的 posix 路径（如 ``agent/core.py``）。"""
+    """棘轮登记键：分层包实体归一为 ``<模块名>.py``（与搬家前顶层路径一致），
+    其余文件保持相对 ``程序/`` 的 posix 路径（如 ``scripts/dev.py``）。"""
     parts = path.relative_to(ROOT).parts
     if len(parts) > 1 and parts[0] in PACKAGE_NAMES:
         return parts[-1]
@@ -148,7 +150,7 @@ def registry_key(path: Path) -> str:
 
 
 def _package_target(dotted: str) -> str:
-    """``contract.x`` 归一化为扁平登记名 ``x``；非 T10 包名取首段（同 import_rows）。"""
+    """``contract.x``／``agent.x`` 归一化为扁平登记名 ``x``；非分层包名取首段（同 import_rows）。"""
     parts = dotted.split(".")
     if len(parts) > 1 and parts[0] in PACKAGE_NAMES:
         return parts[1]
@@ -156,7 +158,7 @@ def _package_target(dotted: str) -> str:
 
 
 def module_import_rows(path: Path) -> Iterator[tuple[int, str]]:
-    """package-aware 版 import_rows：T10 包路径还原为扁平登记名。"""
+    """package-aware 版 import_rows：分层包路径还原为扁平登记名。"""
     for node in ast.walk(parse(path)):
         if isinstance(node, ast.Import):
             for alias in node.names:
@@ -199,7 +201,7 @@ def production_runtime_files() -> tuple[Path, ...]:
                  if not NON_PRODUCT_PARTS.intersection(path.relative_to(ROOT).parts))
 
 def entity_file(module: str) -> Path:
-    """扁平登记名对应的实体源文件：T10 包实体优先，顶层文件（门面或未迁移）兜底。
+    """扁平登记名对应的实体源文件：分层包实体优先，顶层文件（门面或未迁移）兜底。
 
     读「模块源码行为」的门禁必须经本函数取径，否则搬家后读到的是同名薄门面，
     门禁对象被静默换成 9 行转发壳。

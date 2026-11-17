@@ -393,7 +393,7 @@
   {
    "module": "contract/storyboard_contract.py",
    "covered": 0,
-   "total": 9,
+   "total": 10,
    "percent": 0.0
   },
   {
@@ -3548,9 +3548,9 @@
   },
   {
    "module": "agent/media.py",
-   "covered": 17,
-   "total": 93,
-   "percent": 18.3
+   "covered": 16,
+   "total": 89,
+   "percent": 18.0
   },
   {
    "module": "orchestrator/skill_project_layer.py",
@@ -3578,9 +3578,9 @@
   },
   {
    "module": "contract/platform_tools.py",
-   "covered": 109,
+   "covered": 107,
    "total": 554,
-   "percent": 19.7
+   "percent": 19.3
   },
   {
    "module": "domain/asset_context.py",
@@ -3763,6 +3763,12 @@
    "percent": 49.4
   },
   {
+   "module": "contract/media_signature.py",
+   "covered": 3,
+   "total": 6,
+   "percent": 50.0
+  },
+  {
    "module": "orchestrator/stage_publication.py",
    "covered": 68,
    "total": 133,
@@ -3913,6 +3919,6 @@
    "percent": 100.0
   }
  ],
- "modules_covered": 74,
- "modules_total": 650
+ "modules_covered": 75,
+ "modules_total": 651
 }

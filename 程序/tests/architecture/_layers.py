@@ -78,6 +78,16 @@ _register(4, "qwen_setup_dialog")
 # R2641（REQ-S02-36）：剧本阅读框的行号槽／查找替换条／大纲面板，均消费 tk 与 ui_widgets/ui_tokens。
 _register(4, "script_line_numbers", "script_find_bar", "script_outline", "script_reading")
 
+# R3246 轮 2（任务书 D2-b，G9）：agent/ 第六分层包入册，层级按实际静态 import 核实——
+# core 仍惰性 import agent.publication（:13,:36,:67），与 publication 同 L1；
+# shot_assets(:118)／volcengine(:23)／wan(:19) 对 ui.white_model_ref(L4) 的懒加载
+# 记入「层级」棘轮豁免，不为它们抬层；prompt_optimizer 消费 ui_widgets(L4) → L4。
+_register(0, "media_signature")
+_register(1, "core", "media", "publication")
+_register(2, "shot_assets", "volcengine", "wan", "video")
+_register(3, "voice_mcp_server", "optimizer_mcp_bridge")
+_register(4, "prompt_optimizer")
+
 # R3131（任务书 P0/P1/P3/P4）：统一项目文件生命周期管理引入的模块。
 # 命名中心与索引字段契约是纯字符串／dataclass 运算 → L0；索引扫描与写盘只依赖 L0／L1 → L1；
 # 一次性迁移工具编排阶段服务与清单重指向 → L3；面板筛选条是纯 Tk 装配 → L4。
