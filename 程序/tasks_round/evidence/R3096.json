@@ -1,15 +1,16 @@
 {
   "round": 3096,
-  "commit_base": "ca3bc131",
+  "commit_base": "99f87135",
   "credential_scan": {
     "ran": true,
     "hits": []
   },
   "targeted": {
-    "cmd": "run_selftests.py -k assets workflow api account writing core pet_settings storyboard_source ui_edges idea_chat",
+    "cmd": "",
     "exit": 0,
-    "passed": 1112,
-    "failed": 0
+    "passed": 0,
+    "failed": 0,
+    "skipped": "merge-ci-exit"
   },
-  "generated_at": "2026-11-17T11:15:23"
+  "generated_at": "2026-11-17T16:02:27"
 }

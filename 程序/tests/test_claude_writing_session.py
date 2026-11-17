@@ -104,6 +104,8 @@ class ClaudeWritingSessionTests(unittest.TestCase):
                 async_=lambda fn, done: done(fn()), update_script_interrupt_button=Mock())
             events = []
             with patch('workflow_settings.freeze_skills', side_effect=lambda c: c), \
+                    patch('orchestrator.agent_skill_sync.sync_agent_skills',
+                          return_value={'errors': [], 'conflicts': []}), \
                     patch('agent_dispatch.claim', return_value={'duplicate': False}), \
                     patch('agent_dispatch.finish'), \
                     patch('workflow_context.snapshot', return_value={'scripts': [], 'storyboards': [], 'assets': [], 'read_errors': []}) as snapshot, \
