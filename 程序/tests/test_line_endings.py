@@ -37,7 +37,7 @@ VICTIMS = (
     ('desktop.py', line_endings.CRLF),
     ('pet_ui.py', line_endings.CRLF),
     ('README.md', line_endings.CRLF),
-    ('skill_panel.py', line_endings.CRLF),
+    ('ui/skill_panel.py', line_endings.CRLF),
     ('tests/test_model_pool.py', line_endings.CRLF),
     ('tests/test_seedream_direct.py', line_endings.CRLF),
     ('维护记录/体积分析_20260921.md', line_endings.CRLF),

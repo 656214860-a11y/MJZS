@@ -10,10 +10,10 @@ from ui.desktop_storyboard_page import StoryboardPageMixin, StoryboardPageServic
 from ui.desktop_writing_page import WritingPageMixin, WritingPageServices, TALK_MIN_LINES, TALK_MAX_LINES
 from ui.desktop_files_panel import ProjectFilesPanel
 from ui.desktop_page_support import ASSET_FIRST_ROWS, ASSET_ROWS_PER_FRAME, ASSET_ROW_LABEL, STAGE_ACTION_WIDTH, _prefs, THUMB_SIZE, ASSET_ROW_HEIGHT
-from desktop_idea_chat import IdeaChatMixin, IDEA_FIELDS, BUBBLE_FLOOR, BUBBLE_LINE, BUBBLE_MAX_RATIO, script_raw_saved_notice, model_error_display
+from ui.desktop_idea_chat import IdeaChatMixin, IDEA_FIELDS, BUBBLE_FLOOR, BUBBLE_LINE, BUBBLE_MAX_RATIO, script_raw_saved_notice, model_error_display
 import desktop_shared_send
 from orchestrator.desktop_auto_state import AutoStateHolderMixin, create_auto_state
-from desktop_auto_flows import AutoFlowsMixin, UNATTENDED_NEXT, UNATTENDED_BACKOFF_FLOOR, ASSET_RETRY_LIMIT
+from ui.desktop_auto_flows import AutoFlowsMixin, UNATTENDED_NEXT, UNATTENDED_BACKOFF_FLOOR, ASSET_RETRY_LIMIT
 import os, shutil, queue, threading, subprocess, sys, time, uuid, hashlib, re, json, logging
 from datetime import date
 from pathlib import Path
@@ -29,9 +29,9 @@ from orchestrator.engine import approved_versions, review_label, adoption_summar
 from local_video import open_studio,skip_summary
 from app import App
 from integrations import comfy_executable
-from ui_theme import apply as apply_theme, install_window_placement
+from ui.ui_theme import apply as apply_theme, install_window_placement
 from domain.project_naming import dated_path
-import asset_thumbs
+import ui.asset_thumbs as asset_thumbs
 import domain.asset_resume as asset_resume
 import contract.frame_checks as frame_checks
 import pet_ui
@@ -49,15 +49,15 @@ from ui.desktop_lifecycle import LifecycleMixin
 from orchestrator.desktop_automation_service import BackgroundTaskLifecycle, DesktopAutomationScheduler, BackgroundTaskQueue, PersistentBackgroundTaskQueue, inspect_project_storage, RetryRegistry
 from orchestrator.idea_chat_controller import IdeaChatController, speaker_name
 from ui_tokens import BUTTON_GAP, BUTTON_WIDTH_DIALOG, CHAR_WIDTH, WRAPLENGTH, COLORS, FONTS, SPACING, DESKTOP_LAYOUT, SCRIPT_ACTION_WIDTH, SCRIPT_ACTION_PADDING, SCRIPT_FILE_FONT, ICON_FOLDER, ICON_DELETE
-from ui_dialogs import FileDialog
-from ui_motion import Spinner
-from ui_shortcuts import ShortcutRegistry
+from ui.ui_dialogs import FileDialog
+from ui.ui_motion import Spinner
+from ui.ui_shortcuts import ShortcutRegistry
 import ui.ui_stage_popups as ui_stage_popups# noqa: F401  导入即向 stage_exec 登记阶段弹窗呈现器
 from ui_widgets import (BaseDialog, BusyState, ContextMenu, Card, DataTable, NotificationDispatcher,
                         PrimaryButton, SecondaryButton, TextArea, HintLabel, Tooltip, ask_confirmation, ask_string, setup_styles)
 from ui.ui_status_bus import StatusBus  # R2989 P1：统一状态栏消息总线
 from ui.ui_status_bar import StatusBar
-from ui_icons import IconLoader
+from ui.ui_icons import IconLoader
 
 ROOT=Path(__file__).resolve().parent
 LOGGER=logging.getLogger(__name__)
@@ -146,9 +146,9 @@ from ui.desktop_automation_tick import AutomationTickMixin
 from ui.desktop_layout import LayoutMixin
 from ui.desktop_pet_bridge import PetBridgeMixin, PET_STAGE_POLL, UNATTENDED_SWITCH
 from ui.desktop_async_tasks import AsyncTasksMixin
-from desktop_tray import TrayMixin
+from ui.desktop_tray import TrayMixin
 # R3056 收尾：桥接与左区段方法拆入 StatusBridgeMixin；status_kind/STATUS_* 一并迁出，别名保留给既有导入。
-from desktop_status_bridge import STATUS_ERROR_MARKERS, STATUS_RUNNING_MARKERS, StatusBridgeMixin, status_kind  # noqa: F401
+from ui.desktop_status_bridge import STATUS_ERROR_MARKERS, STATUS_RUNNING_MARKERS, StatusBridgeMixin, status_kind  # noqa: F401
 
 class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMixin, LoginGateMixin, IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin, ProjectPagesMixin, StoryboardPageMixin, WritingPageMixin, IdeaChatMixin, AutoFlowsMixin, AutomationTickMixin, LayoutMixin, PetBridgeMixin, AsyncTasksMixin, TrayMixin):
     def __init__(self,win,root=ROOT,*,require_login=False,**page_services):
@@ -717,7 +717,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
             return []
     def sync_stage_models(self, project=None):
         """第 59 期第 12 条：这个项目里各页面挑过的模型补进模型池（设置 → 模型配置 里也跟着有）。"""
-        from skill_panel import program_of, sync_models
+        from ui.skill_panel import program_of, sync_models
         return sync_models(project if project is not None else self.root, program_of(self))
     def _schedule_stage_model_sync(self, project):
         """模型对账不占用启动 UI 线程；结果按项目代次回填。"""

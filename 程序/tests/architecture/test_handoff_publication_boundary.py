@@ -45,7 +45,7 @@ class HandoffPublicationBoundaryTests(unittest.TestCase):
 
     def test_desktop_delegates_automatic_handoff_marker_to_l3_publisher(self):
         # R1480：无人值守轮询方法已原样迁到 desktop_auto_flows.AutoFlowsMixin（断言未动，只改被检文件）。
-        with open(os.path.join(ROOT, 'desktop_auto_flows.py'), encoding='utf-8') as handle:
+        with open(str(entity_file('desktop_auto_flows')), encoding='utf-8') as handle:
             method = _method(ast.parse(handle.read()), 'AutoFlowsMixin', 'poll_auto_handoff')
         calls = [node for node in ast.walk(method) if isinstance(node, ast.Call) and getattr(node.func, 'id', '') == 'save_automatic_handoff_marker']
         self.assertEqual(len(calls), 1)

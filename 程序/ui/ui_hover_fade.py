@@ -15,8 +15,8 @@ ttk 的 hover 是状态映射，一进 ``active`` 就瞬间换成悬停图。这
 import tkinter as tk
 
 
-from ui_motion import blend, reduce_motion
-from ui_rounded import button_specs, rounded_layout, rounded_photo
+from ui.ui_motion import blend, reduce_motion
+from ui.ui_rounded import button_specs, rounded_layout, rounded_photo
 from ui_tokens import BUTTON_RADIUS, HOVER_FADE_MS, HOVER_FADE_STEPS
 
 

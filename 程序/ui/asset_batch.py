@@ -12,7 +12,7 @@ import orchestrator.stage_models as stage_models
 from responsive_ui import FlowBar, scroll_form
 from contract.platform_tools import open_target
 from ui_tokens import TEXT_ROWS, WRAPLENGTH, COLORS, SPACING
-from ui_dialogs import FileDialog
+from ui.ui_dialogs import FileDialog
 from ui_widgets import SelectBox, BaseDialog, Card, DataTable, DescriptionBlock, LineInput, PrimaryButton, ProgressLabel, SecondaryButton, ask_confirmation
 from domain.asset_batch_service import (
     KINDS, asset_prompt as _asset_prompt, register_image as _register_image,

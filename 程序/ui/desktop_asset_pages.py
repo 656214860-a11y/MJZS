@@ -9,11 +9,11 @@ from dataclasses import dataclass
 from typing import Callable
 import time
 import domain.asset_resume as asset_resume
-import asset_thumbs
+import ui.asset_thumbs as asset_thumbs
 import tkinter as tk
 import ui_plugin_registry
 from agent.core import read
-from desktop_auto_flows import ASSET_RETRY_LIMIT
+from ui.desktop_auto_flows import ASSET_RETRY_LIMIT
 from pathlib import Path
 from contract.platform_tools import open_target
 from responsive_ui import CheckboxColumn, FlowBar, MIN_COL, auto_columns, bind_row_toggle, bind_space_toggle, bind_show_all, configure_check_column, fit_row_height, refresh_check_heading, refresh_request_width, remember_columns

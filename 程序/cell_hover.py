@@ -21,7 +21,8 @@
 要看这一格的文件双击缩略图，或者走右键菜单里的「查看」。
 """
 import app_logging
-from cell_menu import bind_row_menu, popup_row_menu
+from ui.cell_menu import (ROW_MENU_DELETE, ROW_MENU_VIEW, bind_row_menu, call_delete,
+                       popup_row_menu, wants_column)
 from ui_tokens import COLORS, SPACING
 import tkinter as tk
 from tkinter import ttk

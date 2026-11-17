@@ -115,7 +115,7 @@ class DataTableBoundaryTests(unittest.TestCase):
         self.assertEqual(direct, [], '资产参考图弹窗不得退回业务层直接构造 ttk.Treeview')
 
     def test_keyframe_comfy_uses_data_table_not_a_page_treeview(self):
-        tree = parse(ROOT / 'keyframe_comfy.py')
+        tree = parse(entity_file('keyframe_comfy'))
         method = next(node for node in tree.body if isinstance(node, ast.FunctionDef)
                       and node.name == 'show')
         direct = [node for node in ast.walk(method) if isinstance(node, ast.Call)
