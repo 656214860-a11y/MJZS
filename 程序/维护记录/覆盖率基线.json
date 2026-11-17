@@ -439,6 +439,18 @@
    "percent": 0.0
   },
   {
+   "module": "contract/file_index_contract.py",
+   "covered": 0,
+   "total": 36,
+   "percent": 0.0
+  },
+  {
+   "module": "contract/file_naming.py",
+   "covered": 0,
+   "total": 90,
+   "percent": 0.0
+  },
+  {
    "module": "contract/frame_checks.py",
    "covered": 0,
    "total": 67,
@@ -471,7 +483,7 @@
   {
    "module": "contract/script_contract.py",
    "covered": 0,
-   "total": 699,
+   "total": 698,
    "percent": 0.0
   },
   {
@@ -519,7 +531,7 @@
   {
    "module": "desktop.py",
    "covered": 0,
-   "total": 704,
+   "total": 708,
    "percent": 0.0
   },
   {
@@ -723,7 +735,7 @@
   {
    "module": "desktop_shared_input.py",
    "covered": 0,
-   "total": 679,
+   "total": 701,
    "percent": 0.0
   },
   {
@@ -1053,7 +1065,7 @@
   {
    "module": "domain/script_workspace_service.py",
    "covered": 0,
-   "total": 252,
+   "total": 264,
    "percent": 0.0
   },
   {
@@ -1279,6 +1291,24 @@
    "percent": 0.0
   },
   {
+   "module": "file_index.py",
+   "covered": 0,
+   "total": 3,
+   "percent": 0.0
+  },
+  {
+   "module": "file_index_contract.py",
+   "covered": 0,
+   "total": 3,
+   "percent": 0.0
+  },
+  {
+   "module": "file_naming.py",
+   "covered": 0,
+   "total": 3,
+   "percent": 0.0
+  },
+  {
    "module": "final_service.py",
    "covered": 0,
    "total": 4,
@@ -1402,6 +1432,12 @@
    "module": "infra/engine_probe.py",
    "covered": 0,
    "total": 254,
+   "percent": 0.0
+  },
+  {
+   "module": "infra/file_index.py",
+   "covered": 0,
+   "total": 314,
    "percent": 0.0
   },
   {
@@ -1540,6 +1576,12 @@
    "module": "legacy_compat.py",
    "covered": 0,
    "total": 4,
+   "percent": 0.0
+  },
+  {
+   "module": "legacy_migration.py",
+   "covered": 0,
+   "total": 3,
    "percent": 0.0
   },
   {
@@ -1695,7 +1737,7 @@
   {
    "module": "orchestrator/idea_chat_controller.py",
    "covered": 0,
-   "total": 229,
+   "total": 235,
    "percent": 0.0
   },
   {
@@ -1720,6 +1762,12 @@
    "module": "orchestrator/keyframe_page_controller.py",
    "covered": 0,
    "total": 64,
+   "percent": 0.0
+  },
+  {
+   "module": "orchestrator/legacy_migration.py",
+   "covered": 0,
+   "total": 209,
    "percent": 0.0
   },
   {
@@ -2169,7 +2217,7 @@
   {
    "module": "project_stages.py",
    "covered": 0,
-   "total": 2,
+   "total": 3,
    "percent": 0.0
   },
   {
@@ -2799,13 +2847,13 @@
   {
    "module": "ui/desktop_files_panel.py",
    "covered": 0,
-   "total": 415,
+   "total": 426,
    "percent": 0.0
   },
   {
    "module": "ui/desktop_idea_attachments.py",
    "covered": 0,
-   "total": 98,
+   "total": 143,
    "percent": 0.0
   },
   {
@@ -2823,7 +2871,7 @@
   {
    "module": "ui/desktop_idea_menus.py",
    "covered": 0,
-   "total": 71,
+   "total": 81,
    "percent": 0.0
   },
   {
@@ -2871,7 +2919,7 @@
   {
    "module": "ui/desktop_page_nav.py",
    "covered": 0,
-   "total": 403,
+   "total": 400,
    "percent": 0.0
   },
   {
@@ -2907,7 +2955,7 @@
   {
    "module": "ui/desktop_script_pages.py",
    "covered": 0,
-   "total": 592,
+   "total": 596,
    "percent": 0.0
   },
   {
@@ -2949,7 +2997,7 @@
   {
    "module": "ui/desktop_writing_page.py",
    "covered": 0,
-   "total": 314,
+   "total": 313,
    "percent": 0.0
   },
   {
@@ -3890,9 +3938,9 @@
   },
   {
    "module": "storage_maintenance.py",
-   "covered": 229,
-   "total": 656,
-   "percent": 34.9
+   "covered": 231,
+   "total": 685,
+   "percent": 33.7
   },
   {
    "module": "contract/stage_path_service.py",
@@ -3937,16 +3985,16 @@
    "percent": 49.7
   },
   {
+   "module": "contract/project_stages.py",
+   "covered": 16,
+   "total": 30,
+   "percent": 53.3
+  },
+  {
    "module": "domain/keyframe_evidence.py",
    "covered": 76,
    "total": 130,
    "percent": 58.5
-  },
-  {
-   "module": "contract/project_stages.py",
-   "covered": 17,
-   "total": 28,
-   "percent": 60.7
   },
   {
    "module": "orchestrator/project_context_factory.py",
@@ -4106,5 +4154,5 @@
   }
  ],
  "modules_covered": 74,
- "modules_total": 682
+ "modules_total": 690
 }

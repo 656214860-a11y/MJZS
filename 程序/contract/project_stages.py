@@ -1,22 +1,18 @@
 # -*- coding: utf-8 -*-
-"""项目工作阶段的唯一目录口径。用户可见文件只写入这里，禁止回写旧英文目录。"""
-from pathlib import Path
+"""项目工作阶段的唯一目录口径。用户可见文件只写入这里，禁止回写旧英文目录。
 
-STAGES = {
-    'script': '01剧本准备',
-    'structure': '02剧本结构',
-    'storyboard': '03初步分镜',
-    'animatic': '04分镜预演',
-    'assets': '05资产管理',
-    'continuity': '06连贯性清单',
-    'final': '07分镜定稿',
-    'frames': '08首帧管理',
-    'previs': '09白模预演',
-    'video': '10视频生成',
-    'audio': '11配音与字幕',
-    'editing': '12后期剪辑',
-    'delivery': '13质检交付',
-}
+R3093（任务书 P0，Q15）：本模块原先另存一份 ``STAGES`` 字典，键拼写与权威
+``pet_bus.STAGES`` 不同（``structure``／``frames``／``editing``），是规则 28
+「一个动作一个入口」的正面对象——已删除。目录名现在一律从 L0 权威
+``contract.stage_layout.STAGES`` 派生（``stage_dirs()``），本模块只保留便捷函数，
+所有路径仍经 ``stage_path_service`` 产出。
+"""
+
+
+def stage_dirs():
+    """全部阶段目录名，顺序＝``pet_bus.STAGES``；替代原 ``STAGES.values()``。"""
+    from contract import stage_layout
+    return tuple(row[0] for row in stage_layout.STAGES)
 
 
 def stage(project, key):

@@ -409,10 +409,13 @@ def project_name(project):
 
 
 def _file_name_part(value, fallback):
-    """把文件类型／内容收成稳定、安全的用户可见文件名片段。"""
-    value = re.sub(r'[<>:"/\\|?*\x00-\x1f]+', '_', str(value or '').strip())
-    value = re.sub(r'\s+', ' ', value).strip(' ._')
-    return value[:80] or fallback
+    """把文件类型／内容收成稳定、安全的用户可见文件名片段。
+
+    R3093（任务书 P0，Q14）：清洗规则的实体已收到 L0 ``contract.file_naming.sanitize_part``，
+    这里只做等价委托——输出逐字不变，命名规则从此只有一处实现。
+    """
+    from contract.file_naming import sanitize_part
+    return sanitize_part(value, fallback)
 
 
 def stage_file_name(project, file_type, content, at=None):

@@ -13,7 +13,7 @@ from contract.service_contract import SystemError, UserError, success
 import contract.project_stages as project_stages
 from contract.script_contract import RAW_SCRIPT_NAME
 
-LOGGER = logging.getLogger('script_workspace_service')
+LOGGER = logging.getLogger(__name__)
 
 
 SCRIPT_CATEGORIES = {
@@ -345,17 +345,33 @@ def script_deletion_selection(project, item_paths, checked_paths, active_paths=(
 
 
 def renamed_script_path(project, source_path, requested_name):
-    """校验剧本重命名请求，并返回尚未占用的同目录目标路径。"""
+    """校验剧本重命名请求，并返回尚未占用的同目录目标路径。
+
+    R3110（任务书 P2，Q3／Q24-1）：非法字符、Windows 保留名（CON/PRN/…）、末尾点空格、
+    超长名一律由 L0 命名中心 ``contract.file_naming.validate`` 拦下并给出可读原因；
+    这里不再另写一套简化校验。
+    """
+    from contract.file_naming import validate as validate_file_name
     source = selected_script_paths(project, [source_path], require_files=True)[0]
-    name = str(requested_name or '').strip()
-    if not name or '/' in name or '\\' in name or ':' in name:
-        raise ValueError('文件名不能为空或包含 / \\ :')
+    name = validate_file_name(requested_name)
     target = source.with_name(name)
     if target == source:
         return source
     if target.exists():
         raise ValueError('目标文件名已存在：' + name)
     return target
+
+
+def _rename_file(source, target):
+    """原子改名：走 ``agent.core.replace`` 并同步失效源路径缓存。
+
+    R3110（任务书 P2，Q24-2）：原实现是裸 ``Path.rename``——绕过原子替换、不通知
+    ``file_cache``。索引更新另行处理（索引是缓存，失败不回滚改名）。
+    """
+    from agent.core import replace as replace_file
+    from file_cache import invalidate
+    replace_file(source, target)
+    invalidate(source)
 
 
 def rename_script_document(project, source_path, requested_name):
@@ -369,8 +385,18 @@ def rename_script_document(project, source_path, requested_name):
                 raise exc.__cause__
             return UserError(str(exc))
         if target != source:
-            source.rename(target)
+            _rename_file(source, target)
+            _update_index_after_rename(project, source, target)
     except OSError:
         LOGGER.exception('剧本文档重命名失败')
-        return SystemError('剧本文档重命名失败，请检查文件权限后重试。')
+        return SystemError('剧本文档重命名失败：目标文件可能正被其他程序占用，或当前账号没有权限。')
     return success(target)
+
+
+def _update_index_after_rename(project, source, target):
+    """改名后增量更新项目文件索引；索引只是缓存，失败只记日志。"""
+    try:
+        from infra import file_index
+        file_index.update(project, [source, target])
+    except (OSError, ValueError):
+        LOGGER.debug('改名后索引未更新，等待下次重建', exc_info=True)
