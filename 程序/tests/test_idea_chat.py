@@ -432,10 +432,17 @@ class SavingTests(unittest.TestCase):
                     self.status=SimpleNamespace(value='',set=lambda value:setattr(self.status,'value',value))
 
             view=View()
-            with patch('idea_chat.initial_brief_document',side_effect=OSError('创意目录不可读')):
+            with patch('domain.idea_chat.initial_brief_document',
+                       side_effect=OSError('创意目录不可读')) as discover:
                 Desktop.queue_initial_brief_document(view,view.brief_editor[1],view.brief_editor[0])
+                # 等真实发现线程投递结果，再交给主线程消费，避免立即 tick 的竞争。
+                result = view._brief_load_results.get(timeout=5)
+                view._brief_load_results.put(result)
                 Desktop._tick_async_result(view)
+            discover.assert_called_once()
             self.assertIn('创意历史未加载',view.status.value)
+            self.assertFalse(view.worker, '发现失败不能占用用户输入的后台操作门禁')
+            self.assertTrue(view.brief_editor[1].winfo_exists())
 
     def test_only_the_model_output_lands_in_the_creative_file(self):
         with tempfile.TemporaryDirectory() as td:
@@ -885,11 +892,29 @@ class _Harness(unittest.TestCase):
                 pump(.05)
             pump(seconds)
 
+    def wait_file_index(self, d, win, seconds=.4):
+        """等待真实后台结果回到 Tk，并完成全部渐进渲染批次。"""
+        self.settle_script_page(win, seconds)
+        deadline = time.monotonic() + 10
+        while (d.worker or d.task_queue.labels()
+               or getattr(d.files_panel, '_index_render_job', None) is not None):
+            self.assertLess(time.monotonic(), deadline, '项目文件索引后台加载／渲染未完成')
+            self.settle_script_page(win, .05)
+        win.update()
+
     def open_files_panel(self, d, win, seconds=.4):
         """REQ-S01-90：项目文件面板默认隐藏；打开后等渐进批次填表。"""
         d.files_panel.open_panel()
         win.update()
-        self.settle_script_page(win, seconds)
+        self.wait_file_index(d, win, seconds)
+
+    def assert_script_file_row(self, tree, proj, path):
+        """项目相对路径叶子必须位于剧本阶段分组内。"""
+        item = path.relative_to(proj).as_posix()
+        self.assertIn('stage-group:script', tree.get_children())
+        self.assertIn(item, tree.get_children('stage-group:script'))
+        self.assertEqual(tree.parent(item), 'stage-group:script')
+        return item
 
     def log_text(self, d):
         return str(d.idea_log.get('1.0', 'end-1c'))
@@ -1090,6 +1115,7 @@ class SendMessageTests(_Harness):
     def test_empty_script_list_keeps_category_headers_and_chat_visible(self):
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
+            (proj / '项目说明.md').write_text('没有剧本文件时仍可聊天', encoding='utf-8')
             d, win = self.desktop(proj)
             d.show(0); win.update()
             win.deiconify()
@@ -1102,8 +1128,18 @@ class SendMessageTests(_Harness):
             self.assertEqual(tree.heading('name')['text'], '文件名')
             self.assertTrue(tree.winfo_ismapped())
             self.assertFalse(tree._data_table.empty_label.winfo_ismapped(), '空态不能遮住标题栏')
-            self.assertEqual(tree.get_children(), ())
+            # 默认「全部」索引项目内可见文件；没有剧本不等于索引没有任何行。
+            groups = tree.get_children()
+            self.assertTrue(groups, '根文件也应进入阶段分组')
+            self.assertTrue(all(str(group).startswith('stage-group:') for group in groups))
+            leaves = [item for group in groups for item in tree.get_children(group)]
+            self.assertIn('项目说明.md', leaves, '根用户文件也应索引')
+            for item in leaves:
+                self.assertFalse(Path(item).is_absolute(), '文件叶子使用项目相对路径')
+                self.assertTrue((proj / item).is_file())
             self.assertTrue(d.idea_log.winfo_ismapped(), '聊天记录仍保留可用空间')
+            self.assertGreater(d.idea_log.winfo_height(), 1)
+            self.assertTrue(d.idea_input.winfo_ismapped(), '没有剧本文件仍可输入聊天')
 
     def test_project_files_panel_toggle_and_page_switch(self):
         """REQ-S01-90／REQ-S01-94：面板默认隐藏；点图标钮向左展开，收起钮／再点收起；
@@ -1146,7 +1182,7 @@ class SendMessageTests(_Harness):
             self.settle_script_page(win, .4)
             self.open_files_panel(d, win)
             tree = d.script_tree
-            self.assertIn(str(path), tree.get_children())
+            self.assert_script_file_row(tree, proj, path)
             self.assertFalse(tree._data_table.empty_label.winfo_ismapped(), '延迟填表后不能仍显示暂无数据')
 
     def test_double_click_on_script_header_does_not_open_selected_file(self):
@@ -1160,11 +1196,11 @@ class SendMessageTests(_Harness):
             self.settle_script_page(win, .4)
             self.open_files_panel(d, win)
             tree = d.script_tree
-            item = str(path)
-            self.assertIn(item, tree.get_children())
+            item = self.assert_script_file_row(tree, proj, path)
             tree.selection_set(item)
             header_x = tree.bbox(item)[0] + 4
-            row_x, row_y, row_w, row_h = tree.bbox(item)
+            row_x, row_y, row_w, row_h = tree.bbox(item, 'name')
+            click_x = min(tree.winfo_width() - 4, row_x + min(row_w // 2, 20))
             heading_y = max(2, row_y // 2)
             self.assertEqual(tree.identify_region(header_x, heading_y), 'heading')
             with patch('desktop.open_path') as opened:
@@ -1173,7 +1209,7 @@ class SendMessageTests(_Harness):
             opened.assert_not_called()
             with patch('desktop.open_path') as opened:
                 d.open_script_file(SimpleNamespace(type='ButtonPress', widget=tree,
-                                                   x=row_x + row_w // 2, y=row_y + row_h // 2))
+                                                   x=click_x, y=row_y + row_h // 2))
             opened.assert_called_once_with(path)
             with patch('desktop.open_path') as opened:
                 d.open_script_file(SimpleNamespace(type='KeyPress'))
@@ -1189,10 +1225,11 @@ class SendMessageTests(_Harness):
             path = writing_dir(proj) / script_contract.RAW_SCRIPT_NAME
             path.write_text('\n'.join('## 第%d集\n场景 1：室内\n小明：开始。' % n for n in range(1, 11)), encoding='utf-8')
             self.assertTrue(d.refresh_script_workspace())
-            self.settle_script_page(win, .4)
+            d.files_panel.refresh_file_index()
+            self.wait_file_index(d, win)
             tree = d.script_tree
-            self.assertIn(str(path), tree.get_children())
-            self.assertIn('内部工作稿', tree.item(str(path), 'values')[0])
+            item = self.assert_script_file_row(tree, proj, path)
+            self.assertIn('内部工作稿', tree.item(item, 'values')[0])
             self.assertFalse(tree._data_table.empty_label.winfo_ismapped())
 
     def test_stage_settings_is_immediately_to_the_right_of_send(self):

@@ -41,7 +41,7 @@ _register(0, "artifact_schema", "api_models", "frame_checks", "model_protocol", 
           "prop_assets", "shot_selection", "storyboard_contract", "workflow_context_budget")
 _register(1, "api_endpoints", "broadcaster", "clipboard_lock",
           "comfy_service", "engine_probe", "h3_reference_adapter", "http_client", "model_diagnostics", "model_router",
-          "native_apps", "seedream_api", "token_saver", "tk_timers")
+          "native_apps", "seedream_api", "token_saver", "tk_timers", "global_library_service")
 _register(2, "asset_batch_settings_service", "asset_plan", "asset_resume", "audio_import_service", "edit_export", "usage_overview",
           "desktop_settings_service", "legacy_adoption_service", "offline_asr_client", "offline_asr_setup", "project_naming",
           "projects", "script_preview_service", "script_structure_edit_controller", "script_workspace_service", "stage_workspace_service",
@@ -83,7 +83,7 @@ _register(1, "file_index")
 _register(3, "legacy_migration")
 # R3137（任务书 P1）：项目文件面板的阶段图标列与筛选条自 ui.desktop_files_panel 拆出，
 # 纯 Tk 装配（只消费 ui_widgets／ui_tokens），落 L4。
-_register(4, "desktop_files_panel_filters")
+_register(4, "desktop_files_panel_filters", "desktop_files_panel_index")
 
 # R2191（R2178 J3）：按真实静态依赖重登记，纠正按名字后缀落在 L3／L4 的旧账，不改任何生产代码。
 # artifact_lineage 无依赖且被 L0 契约引用 → L0；pet_state／ui_plugin_registry／integrations 只依赖 L0／L1 → L1；

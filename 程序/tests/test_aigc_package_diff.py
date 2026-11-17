@@ -85,7 +85,7 @@ class AigcPackageDiffTests(unittest.TestCase):
         self.temp.cleanup()
 
     def command(self, *args):
-        return [sys.executable, '-I', '-B', str(SCRIPT),
+        return [sys.executable, '-I', '-B', '-X', 'utf8', str(SCRIPT),
                 '--package', str(self.package),
                 '--ownership', str(self.ownership),
                 '--skills-root', str(self.skills), *args]
@@ -170,7 +170,7 @@ class AigcPackageDiffTests(unittest.TestCase):
 
     def test_missing_package_still_exits_zero(self):
         result = subprocess.run(
-            [sys.executable, '-I', '-B', str(SCRIPT),
+            [sys.executable, '-I', '-B', '-X', 'utf8', str(SCRIPT),
              '--package', str(self.root / 'missing'),
              '--ownership', str(self.ownership),
              '--skills-root', str(self.skills)],

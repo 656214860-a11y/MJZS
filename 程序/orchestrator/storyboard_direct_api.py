@@ -10,6 +10,7 @@ import re
 import threading
 import time
 from pathlib import Path
+from contract.file_naming import generate_existing
 
 MAX_TOKENS = 32768
 REQUEST_TIMEOUT = 600
@@ -194,7 +195,7 @@ def _episode(batch, script, existing_board):
         raise ValueError('无法从文件名识别集号（需要 EPxxx 或 第N集）：' + Path(script).name)
     old = read(existing_board) if existing_board else None
     start = _first_shot_number(project, number, exclude=existing_board)
-    hint = Path(existing_board) if existing_board else working_dir(context) / ('EP%03d_分镜.json' % number)
+    hint = Path(existing_board) if existing_board else working_dir(context) / generate_existing('storyboard_hint', number=number)
     text = script_text(script)
     prior, data = None, None
     for attempt in range(1, MAX_FORMAT_RETRIES + 1):
@@ -217,13 +218,14 @@ def _episode(batch, script, existing_board):
     history = target.parent / '历史版本' / ('EP%03d' % number)
     if existing_board:
         stamp = time.strftime('%Y%m%d_%H%M%S')
-        artifacts[history / ('%s_%s.json' % (target.stem, stamp))] = Path(existing_board).read_bytes()
+        artifacts[history / generate_existing('storyboard_history', stem=target.stem, stamp=stamp)] = Path(existing_board).read_bytes()
     import file_cache
     from orchestrator.stage_publication import publish_stage_bundle
 
     def allowed(_items):
         return not batch.cancelled() and (bool(existing_board) or not target.exists())
-    publish_stage_bundle(artifacts, allowed, lambda: [file_cache.published(path) for path in artifacts])
+    publish_stage_bundle(artifacts, allowed, lambda: [file_cache.published(path) for path in artifacts],
+                         origin='模型产出')
     if existing_board and history.is_dir():
         older = sorted(history.glob('*.json'), key=lambda p: p.name, reverse=True)[HISTORY_KEEP:]
         if older:

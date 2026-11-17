@@ -1,14 +1,15 @@
 """L0/L1 分支覆盖率棘轮门禁（SWE-2 T8.4）。
 
 与 ``test_coverage_baseline.py`` 同一纪律：基线是**定向测量的快照**，本门禁
-不重跑测量，只做四件事——
+不重跑测量，只做五件事——
 
 1. 基线结构自洽（百分比＝covered/points、计数与列表一致、来源必须是用例全通过的那次测量）。
-2. 基线模块集合与 ``_layers.LAYERS`` 登记的 L0/L1 顶层模块相等（防口径漂移：
+2. 基线模块集合与 ``_layers.LAYERS`` 登记的 L0/L1 实体模块相等（防口径漂移：
    新 L0/L1 模块或改名必须重跑 ``scripts/branch_coverage_report.py`` 刷新基线与下限表）。
 3. 每个模块的实测分支覆盖不低于 ``维护记录/分支覆盖率下限.json`` 登记的棘轮下限；
    下限文件只许人工上调，工具重测不改写它，因此测量退化会在这里现形。
-4. 子进程真跑一次工具（小目标），证明 tracer 在随附解释器上可用且确实采到决策点。
+4. 基线决策点数与当前实体 AST 相等，防止兼容门面或陈旧快照遮蔽真实分支。
+5. 子进程真跑一次工具（小目标），证明 tracer 在随附解释器上可用且确实采到决策点。
 
 诚实边界：口径、排除项与「定向测量不是全量套件覆盖率」的声明见工具 docstring、
 基线 JSON 的 ``metric``/``scope`` 字段与 runbook §11；单行复合语句、表达式短路、
@@ -16,6 +17,7 @@
 """
 from __future__ import annotations
 
+import ast
 import json
 import os
 import re
@@ -26,7 +28,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from tests.architecture._layers import LAYERS
-from tests.architecture._scan import ROOT
+from tests.architecture._scan import ROOT, entity_file
 
 BASELINE = ROOT / "维护记录" / "分支覆盖率基线.json"
 FLOORS = ROOT / "维护记录" / "分支覆盖率下限.json"
@@ -45,7 +47,7 @@ def _l01_files() -> set[str]:
     for name, layer in LAYERS.items():
         if layer not in (0, 1):
             continue
-        path = ROOT / (name + ".py")
+        path = entity_file(name)
         if path.is_file():
             expected.add(name + ".py")
     return expected
@@ -90,10 +92,18 @@ class BranchCoverageFloorTests(unittest.TestCase):
         data = self._baseline()
         registered = {row["module"] for row in data["modules"]}
         for name in sorted(registered):
-            self.assertTrue((ROOT / name).is_file(), f"基线登记了不存在的模块 {name}")
+            self.assertTrue(entity_file(Path(name).stem).is_file(), f"基线登记了不存在的模块实体 {name}")
         self.assertEqual(registered, _l01_files(),
                          "基线模块集合与 _layers L0/L1 口径不一致；"
                          "新增／删除／改层 L0/L1 模块后须重跑工具刷新基线与下限表")
+
+    def test_baseline_decision_points_match_current_entities(self):
+        from scripts.branch_coverage_report import _decision_points
+        for row in self._baseline()["modules"]:
+            path = entity_file(Path(row["module"]).stem)
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+            self.assertEqual(row["points"], len(_decision_points(tree)),
+                             f"{row['module']} 基线决策点与当前实体不一致；须真实重测，不能计量兼容门面")
 
     def test_floors_cover_every_module_and_ratchet_holds(self):
         data = self._baseline()
