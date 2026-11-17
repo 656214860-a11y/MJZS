@@ -13,7 +13,8 @@ from ui_tokens import SPACING
 from ui_widgets import LineInput, SecondaryButton, SelectBox, Tooltip
 
 # R3094（任务书 P1，Q8 补充需求）：停靠面板右缘的阶段快捷图标列，顺序＝pet_bus.STAGES。
-# P1 用 Unicode 符号兜底（用户已确认先符号、后换 PNG 图标）；每个图标都带 Tooltip 中文名。
+# R3191（任务书 M3，REQ-S01-93）：图标优先用 assets/nav/<stage>_files.png（IconLoader.nav_icon），
+# PNG 缺失退回本表 Unicode 符号；每个图标都带 Tooltip 中文名。
 STAGE_RAIL_ICONS = {
     'script': '📝', 'script_structure': '🧾', 'storyboard': '🎬', 'animatic': '🎞',
     'assets': '🎨', 'continuity': '🧩', 'final': '✅', 'keyframe': '🖼',
@@ -176,15 +177,35 @@ class FilesPanelFilterMixin:
             self.library_view = False
 
     def _build_stage_rail(self):
-        """建右缘阶段图标列：「全部」＋ 13 个阶段，顺序＝``pet_bus.STAGES``。"""
+        """建右缘阶段图标列：「全部」＋ 13 个阶段，顺序＝``pet_bus.STAGES``。
+
+        R3191（任务书 M3，D10）：图标用 ``assets/nav/<stage>_files.png``（阶段字形＋右下角
+        文件角标），PNG 缺失时退回 ``STAGE_RAIL_ICONS`` 的 emoji；高度不够时整列可滚轮滚动。
+        """
         from contract.pet_bus import STAGES, stage_name
+        from responsive_ui import ScrollForm
+        from ui_icons import IconLoader
+        from ui_tokens import COLORS
         self._ensure_filter_state()
+        # 图标列自身仍是 script_box 右缘的固定竖条；内部换成可滚动画布，矮窗口不再裁掉底部图标。
+        self.stage_rail_scroller = ScrollForm(self.stage_rail, bg=COLORS['background_primary'])
+        self.stage_rail_form = self.stage_rail_scroller.form
         self.stage_buttons = {}
-        entries = [(None, STAGE_RAIL_ALL, '全部文件（剧本准备四类）')]
-        entries += [(stage, STAGE_RAIL_ICONS.get(stage, '•'), stage_name(stage)) for stage in STAGES]
-        for stage, glyph, tip in entries:
-            button = SecondaryButton(self.stage_rail, text=glyph, width=0, style='RailIcon.TButton',
-                                     command=lambda value=stage: self.show_stage(value))
+        entries = [(None, 'project_files', STAGE_RAIL_ALL, '全部文件（剧本准备四类）')]
+        entries += [(stage, stage + '_files', STAGE_RAIL_ICONS.get(stage, '•'), stage_name(stage))
+                    for stage in STAGES]
+        for stage, icon_name, glyph, tip in entries:
+            image = IconLoader.nav_icon(self.page.win, icon_name)
+            # 有 PNG 时 compound='image' 只显示图，text 仍留 emoji 作语义标签与缺图兜底。
+            if image is not None:
+                button = SecondaryButton(self.stage_rail_form, text=glyph, image=image,
+                                         compound='image', width=0, style='RailIcon.TButton',
+                                         command=lambda value=stage: self.show_stage(value))
+            else:
+                button = SecondaryButton(self.stage_rail_form, text=glyph, width=0,
+                                         style='RailIcon.TButton',
+                                         command=lambda value=stage: self.show_stage(value))
+            button._rail_icon_name = icon_name
             button.pack(side='top', pady=(SPACING['none'], SPACING['xs']))
             Tooltip(button, tip)
             self.stage_buttons[stage] = button
@@ -194,17 +215,26 @@ class FilesPanelFilterMixin:
         self._add_rail_action('♻', '回收站：浏览与恢复已删除的文件', 'open_recycle_recovery')
         self._add_rail_action('🗑', '清空过期回收站（保留 %d 天）' % _retention_days(), 'purge_expired_recycle')
         # R3143（任务书 P3，Q11）：全局素材库视图——跨项目的共享素材，按库相对路径列出。
-        library = SecondaryButton(self.stage_rail, text='🗂', width=0, style='RailIcon.TButton',
+        library = SecondaryButton(self.stage_rail_form, text='🗂', width=0, style='RailIcon.TButton',
                                   command=self.show_library)
         library.pack(side='top', pady=(SPACING['none'], SPACING['xs']))
         Tooltip(library, '全局素材库：跨项目的共享素材（可在设置里指定目录）')
         self.library_button = library
+        # 滚轮绑定要等全部子件建完再递归挂一次（见 ScrollForm.bind_wheel 说明）。
+        self.stage_rail_scroller.bind_wheel()
+        # tk.Canvas 默认请求宽约 378px，会把整条图标列撑成宽面板；钉成内容实际宽度。
+        # 不许在这里 update_idletasks——构建期泵事件会让已挂的 after_idle 作业提前执行，
+        # 与正在构建中的窗口状态形成再入（实测 Desktop.__init__ 在 _register 挂死）。
+        content_w = max((child.winfo_reqwidth() for child in self.stage_rail_form.winfo_children()),
+                        default=0)
+        if content_w:
+            self.stage_rail_scroller.canvas.configure(width=content_w)
 
     def _add_rail_action(self, glyph, tip, method_name):
         """在图标列末尾追加一个动作钮；宿主没有该动作时只留按钮不绑回调。"""
         action = getattr(self.page, method_name, None)
         command = (lambda: self.page.safe(action)) if callable(action) else None
-        button = SecondaryButton(self.stage_rail, text=glyph, width=0, style='RailIcon.TButton',
+        button = SecondaryButton(self.stage_rail_form, text=glyph, width=0, style='RailIcon.TButton',
                                  command=command)
         button.pack(side='top', pady=(SPACING['none'], SPACING['xs']))
         Tooltip(button, tip)

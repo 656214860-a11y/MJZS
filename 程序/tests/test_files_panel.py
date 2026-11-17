@@ -152,13 +152,13 @@ class FilesPanelTests(unittest.TestCase):
         self.assertFalse(d.files_panel._open, 'Esc 收起')
 
     def test_page_and_project_switch_reset_panel(self):
-        """切页自动收起；项目根变化收起并允许下次打开重扫。"""
+        """REQ-S01-94（R3191，D11）：切工作页保持打开；项目根变化收起并允许下次打开重扫。"""
         d = self.desktop
         d.show(PAGE['script']); self.pump(.2)
         d.files_panel.open_panel(); self.pump(.1)
         self.assertTrue(d.files_panel._open)
         d.show(PAGE['storyboard']); self.pump(.2)
-        self.assertFalse(d.files_panel._open, '切页自动收起')
+        self.assertTrue(d.files_panel._open, '切工作页保持面板打开（REQ-S01-94）')
         d.show(PAGE['script']); self.pump(.2)
         d.files_panel.open_panel(); self.pump(.1)
         root = d.root

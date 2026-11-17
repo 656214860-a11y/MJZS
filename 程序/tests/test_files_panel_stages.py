@@ -81,6 +81,63 @@ class StageRailTests(unittest.TestCase):
             expected = STAGE_RAIL_ALL if stage is None else stage
             self.assertTrue(str(button.cget('text')), expected)
 
+    def test_stage_icons_load_files_png(self):
+        """REQ-S01-93（R3191）：13 个阶段钮挂 ``<stage>_files.png``，「全部」挂 ``project_files.png``。"""
+        panel = self.desktop.files_panel
+        for stage in STAGES:
+            button = panel.stage_buttons[stage]
+            self.assertTrue(button.cget('image'), f'{stage} 缺 PNG 图标')
+            self.assertEqual(button._rail_icon_name, f'{stage}_files')
+        all_button = panel.stage_buttons[None]
+        self.assertTrue(all_button.cget('image'), '「全部」缺 project_files.png')
+        self.assertEqual(all_button._rail_icon_name, 'project_files')
+
+    def test_missing_png_falls_back_to_emoji(self):
+        """REQ-S01-93：PNG 缺失时图标钮退回 STAGE_RAIL_ICONS emoji 文本。"""
+        from unittest import mock
+        from ui_icons import IconLoader
+        panel = self.desktop.files_panel
+
+        def rebuild():
+            for child in panel.stage_rail.winfo_children():
+                child.destroy()
+            panel._build_stage_rail()
+
+        try:
+            with mock.patch.object(IconLoader, 'nav_icon', return_value=None):
+                rebuild()
+            for stage, button in panel.stage_buttons.items():
+                self.assertFalse(button.cget('image'), f'{stage} 应退回文本钮')
+                self.assertTrue(str(button.cget('text')), stage)
+        finally:
+            rebuild()  # 恢复 PNG 版供后续用例。
+
+    def test_stage_rail_scrolls_vertically_when_window_is_short(self):
+        """REQ-S01-93：窗口矮于图标列需求高时图标列可竖向滚动，末尾入口仍可达。"""
+        panel = self.desktop.files_panel
+        panel.open_panel()
+        self.pump(.3)
+        win = self.win
+        old_geo = win.geometry()
+        try:
+            win.geometry('560x380')
+            self.pump(.4)
+            canvas = panel.stage_rail_scroller.canvas
+            self.assertTrue(canvas.winfo_ismapped())
+            scrollregion = canvas.cget('scrollregion').split()
+            self.assertGreater(float(scrollregion[3]), canvas.winfo_height(),
+                               '矮窗口下图标列内容应超出可视区')
+            canvas.yview_moveto(1.0)
+            self.pump(.1)
+            top, bottom = canvas.winfo_rooty(), canvas.winfo_rooty() + canvas.winfo_height()
+            lib = panel.library_button
+            self.assertGreaterEqual(lib.winfo_rooty(), top - 2,
+                                    '滚到底后素材库钮应进入可视区')
+            self.assertLessEqual(lib.winfo_rooty() + lib.winfo_height(), bottom + 2)
+        finally:
+            win.geometry(old_geo)
+            self.pump(.3)
+
     def test_clicking_a_stage_fills_the_list_from_the_index(self):
         """点「资产管理」→ 列表只出该阶段文件，行 id 是项目相对 posix 路径。"""
         panel = self.desktop.files_panel
@@ -117,7 +174,7 @@ class StageRailTests(unittest.TestCase):
         """R3117：图标列末尾依次是「回收站（浏览/恢复）」与「清空过期回收站」。"""
         panel = self.desktop.files_panel
         texts = []
-        for child in panel.stage_rail.winfo_children():
+        for child in panel.stage_rail_form.winfo_children():
             try:
                 texts.append(str(child.cget('text')))
             except Exception:
