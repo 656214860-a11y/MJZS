@@ -754,9 +754,9 @@
    },
    {
     "file": "agent/media.py",
-    "point": "probe:json.loads:6cfc642ee18a7c1d:1",
+    "point": "probe:json.loads:0c4dea56d7890453:1",
     "disposition": "exempt",
-    "reason": "外部进程／网络响应解析，非文件读"
+    "reason": "外部进程／网络响应解析，非文件读（R3216 合入 master@d29e1e83 后锚点随合并内容更新）"
    },
    {
     "file": "agent/prompt_optimizer.py",
@@ -1201,6 +1201,12 @@
     "point": "load_startup_rows:json.loads:cb57ae7929daaf0d:1",
     "disposition": "exempt",
     "reason": "R2733：benchmark_trend 是 CI 基准脚本，load_startup_rows 逐行解析 common-dir 启动耗时 JSONL（追加式日志，file_cache 只读整文档 JSON），与 skills _load_jsonl 同类豁免。"
+   },
+   {
+    "file": "ui/asset_thumbs.py",
+    "point": "_probe_media:json.loads:a2bd43747d745de3:1",
+    "disposition": "exempt",
+    "reason": "R3196 M4：ffprobe 子进程 stdout JSON 解析，不是文件读取（R3217 合入 codex/wip-R3215 后锚点随合并内容更新）"
    }
   ]
  },
