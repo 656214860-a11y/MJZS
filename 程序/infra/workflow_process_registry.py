@@ -97,9 +97,13 @@ def _assign_to_job(process):
         kernel32.AssignProcessToJobObject.restype = wintypes.BOOL
         handle = getattr(process, '_handle', None)
         close_handle = False
+        if not isinstance(handle, int) or handle <= 0:
+            handle = None
         if not handle:
-            handle = kernel32.OpenProcess(_PROCESS_SET_QUOTA_TERMINATE, False, int(process.pid))
-            close_handle = bool(handle)
+            pid = getattr(process, 'pid', None)
+            if isinstance(pid, int) and pid > 0:
+                handle = kernel32.OpenProcess(_PROCESS_SET_QUOTA_TERMINATE, False, pid)
+                close_handle = bool(handle)
         if handle:
             try:
                 kernel32.AssignProcessToJobObject(job, handle)

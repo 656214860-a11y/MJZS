@@ -2790,6 +2790,114 @@
    "reason_constant": "PLATFORM_WINDOWS_ONLY",
    "reason": "受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
    "reference": ""
+  },
+  {
+   "file": "tests/test_l1_p2_semantics.py",
+   "test": "JobObjectTests.test_job_object_create_and_setinfo_failures_return_none",
+   "ordinal": 1,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_WINDOWS_ONLY",
+   "reason": "平台限制：受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+   "reference": ""
+  },
+  {
+   "file": "tests/test_l1_p2_semantics.py",
+   "test": "JobObjectTests.test_job_object_create_and_setinfo_failures_return_none",
+   "ordinal": 2,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_WINDOWS_ONLY",
+   "reason": "平台限制：受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+   "reference": ""
+  },
+  {
+   "file": "tests/test_l1_p2_semantics.py",
+   "test": "JobObjectTests.test_assign_to_job_returns_when_job_unavailable",
+   "ordinal": 1,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_WINDOWS_ONLY",
+   "reason": "平台限制：受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+   "reference": ""
+  },
+  {
+   "file": "tests/test_l1_p2_semantics.py",
+   "test": "JobObjectTests.test_assign_to_job_returns_when_job_unavailable",
+   "ordinal": 2,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_WINDOWS_ONLY",
+   "reason": "平台限制：受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+   "reference": ""
+  },
+  {
+   "file": "tests/test_l1_p2_semantics.py",
+   "test": "JobObjectTests.test_assign_to_job_validates_handle_and_pid_types",
+   "ordinal": 1,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_WINDOWS_ONLY",
+   "reason": "平台限制：受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+   "reference": ""
+  },
+  {
+   "file": "tests/test_l1_p2_semantics.py",
+   "test": "JobObjectTests.test_assign_to_job_validates_handle_and_pid_types",
+   "ordinal": 2,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_WINDOWS_ONLY",
+   "reason": "平台限制：受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+   "reference": ""
+  },
+  {
+   "file": "tests/test_l1_p2_semantics.py",
+   "test": "JobObjectTests.test_assign_to_job_uses_existing_int_handle",
+   "ordinal": 1,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_WINDOWS_ONLY",
+   "reason": "平台限制：受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+   "reference": ""
+  },
+  {
+   "file": "tests/test_l1_p2_semantics.py",
+   "test": "JobObjectTests.test_assign_to_job_uses_existing_int_handle",
+   "ordinal": 2,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_WINDOWS_ONLY",
+   "reason": "平台限制：受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+   "reference": ""
+  },
+  {
+   "file": "tests/test_l1_p2_semantics.py",
+   "test": "JobObjectTests.test_assign_to_job_opens_and_closes_handle_for_pid_only_process",
+   "ordinal": 1,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_WINDOWS_ONLY",
+   "reason": "平台限制：受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+   "reference": ""
+  },
+  {
+   "file": "tests/test_l1_p2_semantics.py",
+   "test": "JobObjectTests.test_assign_to_job_opens_and_closes_handle_for_pid_only_process",
+   "ordinal": 2,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_WINDOWS_ONLY",
+   "reason": "平台限制：受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+   "reference": ""
+  },
+  {
+   "file": "tests/test_l1_p2_semantics.py",
+   "test": "JobObjectTests.test_assign_to_job_swallows_kernel_errors",
+   "ordinal": 1,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_WINDOWS_ONLY",
+   "reason": "平台限制：受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+   "reference": ""
+  },
+  {
+   "file": "tests/test_l1_p2_semantics.py",
+   "test": "JobObjectTests.test_assign_to_job_swallows_kernel_errors",
+   "ordinal": 2,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_WINDOWS_ONLY",
+   "reason": "平台限制：受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+   "reference": ""
   }
  ]
 }

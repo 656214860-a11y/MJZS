@@ -129,6 +129,82 @@ class SlotReleaseOnErrorTests(unittest.TestCase):
         registry.release_process_slot(token2)
 
 
+class RegistryRequestCoverageTests(unittest.TestCase):
+    """登记表请求/槽位 API 的双向分支（分支覆盖棘轮补齐，不改变既有断言）。"""
+
+    def tearDown(self):
+        for items in list(registry._slots.values()):
+            for token in list(items):
+                registry.release_process_slot(token)
+        registry._slots.clear()
+        registry._queued[:] = []
+        registry._requests.clear()
+
+    def test_register_request_rejects_second_handle_for_same_project(self):
+        class Handle:
+            def cancel(self):
+                pass
+        first, second = Handle(), Handle()
+        self.assertTrue(registry.register_request('proj-a', first))
+        self.assertFalse(registry.register_request('proj-a', second))
+        self.assertTrue(registry.register_request('proj-b', second))
+
+    def test_forget_request_only_removes_matching_handle(self):
+        class Handle:
+            def __init__(self):
+                self.cancelled = 0
+            def cancel(self):
+                self.cancelled += 1
+        kept, other = Handle(), Handle()
+        registry.register_request('proj-c', kept)
+        registry.forget_request('proj-c', other)          # 错误 handle：不摘除
+        self.assertEqual(registry.cancel_project_requests('proj-c'), 1)
+        self.assertEqual(kept.cancelled, 1)
+        registry.register_request('proj-c', kept)
+        registry.forget_request('proj-c', kept)           # 正确 handle：摘除
+        self.assertEqual(registry.cancel_project_requests('proj-c'), 0)
+
+    def test_cancel_project_requests_without_handle_returns_zero(self):
+        self.assertEqual(registry.cancel_project_requests('proj-missing'), 0)
+
+    def test_cancel_slot_request_scans_queue_for_ticket(self):
+        registry.reserve_process_slot('pa', 'script', stage_limit=1)
+        first = registry.request_process_slot('pb', 'script', stage_limit=1)['ticket']
+        second = registry.request_process_slot('pc', 'script', stage_limit=1)['ticket']
+        self.assertTrue(registry.cancel_slot_request(second))   # 跳过 first 命中 second
+        self.assertFalse(registry.cancel_slot_request({'id': 'ghost'}))  # 扫完全队列未命中
+        registry.cancel_slot_request(first)
+
+    def test_release_process_slot_pops_stage_key_when_set_empties(self):
+        registry.release_process_slot(None)             # 空 token 直接返回
+        first = registry.reserve_process_slot('pd', 'script', stage_limit=2)
+        second = registry.reserve_process_slot('pd', 'script', stage_limit=2)
+        registry.release_process_slot(object())          # 未知 token：遍历不命中
+        registry.release_process_slot(first)             # 集合仍剩 second
+        registry.release_process_slot(second)            # 集合清空 → 摘除 stage 键
+        self.assertNotIn('script', registry._slots)
+
+    def test_claim_process_slot_rejects_non_dict_ticket(self):
+        self.assertEqual(registry.claim_process_slot('ticket-ish')['state'], 'cancelled')
+        self.assertEqual(registry.claim_process_slot(None)['state'], 'cancelled')
+
+    def test_request_process_slot_grants_when_capacity_free(self):
+        result = registry.request_process_slot('pe', 'script', stage_limit=1)
+        self.assertEqual(result['state'], 'granted')
+        registry.release_process_slot(result['slot'])
+
+    def test_reap_exited_processes_tolerates_poll_errors(self):
+        bad = mock.Mock()
+        bad.poll.side_effect = OSError('gone')
+        good = mock.Mock()
+        good.poll.return_value = None
+        registry.register_process('pf', bad)
+        registry.register_process('pg', good)
+        self.addCleanup(registry.forget_process, 'pf', bad)
+        self.addCleanup(registry.forget_process, 'pg', good)
+        registry.reserve_process_slot('ph', 'script')    # 触发 _reap_exited_processes
+
+
 class JobObjectTests(unittest.TestCase):
     @unittest.skipUnless(os.name == 'nt', PLATFORM_WINDOWS_ONLY)
     def test_registered_child_dies_with_parent_crash(self):
@@ -164,6 +240,69 @@ class JobObjectTests(unittest.TestCase):
                 break
             time.sleep(0.5)
         self.assertFalse(alive, '登记子进程在父进程强杀后仍存活')
+
+    def test_job_object_short_circuits_off_windows(self):
+        with mock.patch.object(os, 'name', 'posix'):
+            self.assertIsNone(registry._job_object())
+            registry._assign_to_job(mock.Mock())       # 非 Windows：直接返回，不建 Job
+
+    @unittest.skipUnless(os.name == 'nt', PLATFORM_WINDOWS_ONLY)
+    def test_job_object_create_and_setinfo_failures_return_none(self):
+        import ctypes
+        kernel32 = ctypes.windll.kernel32
+        saved = registry._JOB
+        try:
+            registry._JOB = None
+            with mock.patch.object(kernel32, 'CreateJobObjectW', return_value=0):
+                self.assertIsNone(registry._job_object())
+            registry._JOB = None
+            with mock.patch.object(kernel32, 'SetInformationJobObject', return_value=0):
+                self.assertIsNone(registry._job_object())
+            registry._JOB = None
+            with mock.patch.object(kernel32, 'CreateJobObjectW', side_effect=OSError('no')):
+                self.assertIsNone(registry._job_object())
+        finally:
+            registry._JOB = saved
+
+    @unittest.skipUnless(os.name == 'nt', PLATFORM_WINDOWS_ONLY)
+    def test_assign_to_job_returns_when_job_unavailable(self):
+        with mock.patch.object(registry, '_job_object', return_value=None):
+            registry._assign_to_job(mock.Mock())
+
+    @unittest.skipUnless(os.name == 'nt', PLATFORM_WINDOWS_ONLY)
+    def test_assign_to_job_validates_handle_and_pid_types(self):
+        proc = mock.Mock()
+        proc._handle = 'not-an-int'
+        proc.pid = 'not-an-int'
+        registry._assign_to_job(proc)                   # 全部非 int：不触碰 ctypes
+        proc2 = mock.Mock()
+        proc2._handle = None
+        proc2.pid = 'still-not-int'
+        registry._assign_to_job(proc2)                  # pid 非 int：跳过 OpenProcess
+
+    @unittest.skipUnless(os.name == 'nt', PLATFORM_WINDOWS_ONLY)
+    def test_assign_to_job_uses_existing_int_handle(self):
+        proc = mock.Mock()
+        proc._handle = 12345                        # 任意正整数：无效句柄由 AssignProcessToJobObject 静默拒绝
+        proc.pid = os.getpid()
+        registry._assign_to_job(proc)
+
+    @unittest.skipUnless(os.name == 'nt', PLATFORM_WINDOWS_ONLY)
+    def test_assign_to_job_opens_and_closes_handle_for_pid_only_process(self):
+        proc = mock.Mock()
+        proc._handle = None
+        proc.pid = os.getpid()                         # OpenProcess 自身 → 真实句柄 → 用后即关
+        registry._assign_to_job(proc)
+
+    @unittest.skipUnless(os.name == 'nt', PLATFORM_WINDOWS_ONLY)
+    def test_assign_to_job_swallows_kernel_errors(self):
+        import ctypes
+        kernel32 = ctypes.windll.kernel32
+        proc = mock.Mock()
+        proc._handle = None
+        proc.pid = 12345
+        with mock.patch.object(kernel32, 'OpenProcess', side_effect=OSError('denied')):
+            registry._assign_to_job(proc)               # OpenProcess 抛错 → swallowed，不外抛
 
 
 class NativeAppsCloseTests(unittest.TestCase):
