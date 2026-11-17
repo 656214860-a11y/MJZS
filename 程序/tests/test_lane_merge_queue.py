@@ -49,6 +49,13 @@ class LaneRegistryTests(unittest.TestCase):
         e = self._register(role="bogus")
         self.assertEqual(e["role"], "gui")
 
+    def test_unspecified_role_preserves_existing_and_defaults_dev(self):
+        self._register(role="merge")
+        e = self._register()
+        self.assertEqual(e["role"], "merge")
+        e2 = self._register(lane="wt-b", top="D:/wt-b")
+        self.assertEqual(e2["role"], "dev")
+
 
 class MergeQueueTests(unittest.TestCase):
     def setUp(self):
