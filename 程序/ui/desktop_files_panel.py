@@ -15,6 +15,8 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import ttk
 
+from ui.desktop_files_panel_filters import FilesPanelFilterMixin, STAGE_FILTER_ROW_CATEGORY
+
 from ui.desktop_file_card import TreeRowCard, script_row_card
 from ui.desktop_page_registry import PAGE_ACCOUNT, PAGE_SITES
 from ui.desktop_writing_snapshots import WritingSnapshotsMixin
@@ -31,7 +33,7 @@ SCRIPT_PANEL_MAX_WIDTH = SPACING['sm'] * 60      # 480：更长的文件名靠�
 SCRIPT_CELL_OVERHEAD = SPACING['md'] * 4         # 48：格内边距＋滚动条＋面板留白
 
 
-class ProjectFilesPanel(WritingSnapshotsMixin):
+class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
     """内容区右缘图标列「项目文件」入口＋右侧停靠文件列表；``page`` 是 ``Desktop`` 实例。"""
 
     def __init__(self, page):
@@ -71,6 +73,11 @@ class ProjectFilesPanel(WritingSnapshotsMixin):
         self._dock = dock if dock is area else None
         self.script_box = ttk.Frame(area, padding=(SPACING['xs'], SPACING['xs']))
         self.sep = ttk.Separator(area, orient='vertical')
+        # R3137（任务书 P1）：阶段快捷图标列在停靠面板**右缘**、按 pet_bus.STAGES 垂直排列；
+        # 先于列表 pack，右缘竖条优先占整列高，列表随后吃剩余区域。
+        self.stage_rail = ttk.Frame(self.script_box)
+        self.stage_rail.pack(side='right', fill='y', padx=(SPACING['xs'], SPACING['none']))
+        self._build_stage_rail()
         self.script_header = ttk.Frame(self.script_box)
         self.script_header.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
         self.script_title = ttk.Label(self.script_header, text='项目文件', style='Muted.TLabel')
@@ -79,6 +86,9 @@ class ProjectFilesPanel(WritingSnapshotsMixin):
                                              style='Tokens.Composer.Icon.TButton', command=self.collapse)
         self.script_toggle.pack(side='right')
         Tooltip(self.script_toggle, '收起项目文件面板')
+        # R3137（任务书 P1，Q25）：筛选条（阶段／类型／状态／关键字）与阶段快捷图标列
+        # 由 FilesPanelFilterMixin 提供；空条件时仍走 R2962 的剧本准备四类视图。
+        self._build_filter_bar()
         self.script_row_details = {}
         self.script_row_category = {}
         tips = lambda item: self.script_row_details.get(item, '')
@@ -156,8 +166,17 @@ class ProjectFilesPanel(WritingSnapshotsMixin):
                 self.fill_script_list()
             return
         self._panel_root = root
+        # R3137（任务书 P1，Q25）：换项目时阶段／类型／状态／关键字筛选全部复位。
+        self._reset_filters()
         self.collapse()
         self.sync_entry()
+
+    def _reload_current_view(self):
+        """按当前筛选条件重填表；四条件全空时回到剧本准备四类视图（R2962 行为）。"""
+        if self._filters_active():
+            self._fill_index_list()
+        else:
+            self.fill_script_list()
 
     def toggle(self):
         if self._open:
@@ -183,7 +202,7 @@ class ProjectFilesPanel(WritingSnapshotsMixin):
             self.script_box.pack(side='right', fill='both', expand=True)
             self.sep.pack(side='right', fill='y')
         self._bind_outside()
-        self.fill_script_list()
+        self._reload_current_view()
         fit = getattr(self.page, 'fit_content', None)
         if callable(fit):
             fit()
@@ -404,6 +423,9 @@ class ProjectFilesPanel(WritingSnapshotsMixin):
         if not row:
             return
         path = Path(row)
+        if not path.is_absolute():
+            # R3137：阶段筛选视图的行是项目相对 posix 路径。
+            path = Path(self.page.root) / path
         if path.is_file():
             self.page.writing_page_services.open_path(path)
 
@@ -522,6 +544,11 @@ class ProjectFilesPanel(WritingSnapshotsMixin):
             tree.selection_set(row)
         self.keep_one_selection(tree)
         menu = self.page.writing_page_services.context_menu(self.page.win)
+        # R3137：阶段筛选视图的行来自项目文件索引，不承载剧本采用／定稿语义；
+        # 只给「查看」，删除留到接 storage_maintenance 唯一回收权威的那一轮。
+        if self.script_row_category.get(row) == STAGE_FILTER_ROW_CATEGORY:
+            menu.command('查看', lambda: self.page.safe(self.open_script_file))
+            return menu.popup(event)
         if len(tree.selection()) > 1:
             # 多选时只给「删除」：查看、改名、定稿都只针对一份文件。
             menu.command('删除', lambda: self.page.safe(self.delete_script))
