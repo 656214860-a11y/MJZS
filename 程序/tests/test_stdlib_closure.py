@@ -363,7 +363,7 @@ class ResolverTests(unittest.TestCase):
                 handle.write("try:\n    import %s\nexcept ImportError:\n    pass\n" % name)
             with open(os.path.join(user_site, name + ".py"), "w", encoding="utf-8") as handle:
                 handle.write("value = 1\n")
-            with mock.patch.multiple(__name__, HERE=root, ENTRY=entry, HOST_SCRIPTS=(),
+            with mock.patch.multiple(__name__, ROOT=root, HERE=root, ENTRY=entry, HOST_SCRIPTS=(),
                                      THIRD_PARTY={name}), mock.patch.object(sys, "path", [user_site] + sys.path):
                 self.assertIsNone(_resolve(name), "用户 site 不能兜底当前 runtime")
                 walked, missing = walk_closure()
