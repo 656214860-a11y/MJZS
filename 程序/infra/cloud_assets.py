@@ -9,8 +9,10 @@ KEY_LABEL = '本机 Comfy API Key'                      # 只用于出错提示�
 KEY_ENV = 'COMFY_API_KEY'                             # 第 65 期任务 1：统一那份 .env 里的变量名
 LOCAL = production_model_contract.ASSET_LOCAL_MODEL    # 第 1647 轮：后端名下沉 L0，这里按原名字保留
 MODELS = list(production_model_contract.ASSET_CLOUD_MODELS)
-NODE_TYPES = dict(zip(production_model_contract.ASSET_CLOUD_MODELS, ('ByteDanceSeedreamNode', 'GeminiImage2Node', 'OpenAIGPTImage1')))
-LIMITS = dict(zip(production_model_contract.ASSET_CLOUD_MODELS, (10, 14, 16)))
+# 轮 6B（D7）：节点类型与参考图上限按模型名寻址，事实收口在 L0 契约，
+# 不再用 zip 按 ASSET_CLOUD_MODELS 的位置对齐——元组中间插模型不会错位既有条目。
+NODE_TYPES = dict(production_model_contract.ASSET_CLOUD_NODE_TYPES)
+LIMITS = dict(production_model_contract.ASSET_CLOUD_REFERENCE_LIMITS)
 
 
 def _secret_file():

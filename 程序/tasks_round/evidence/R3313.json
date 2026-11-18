@@ -1,0 +1,15 @@
+{
+  "round": 3313,
+  "commit_base": "946d314c",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k production_model_contract cloud_assets",
+    "exit": 0,
+    "passed": 2,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T10:26:53"
+}
