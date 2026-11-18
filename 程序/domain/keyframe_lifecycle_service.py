@@ -1,5 +1,6 @@
 """Transactional persistence for user-visible keyframe lifecycle actions."""
 import re
+import uuid
 from functools import wraps
 from pathlib import Path
 
@@ -143,4 +144,7 @@ def replace_keyframe(base, source, episode, shot, data, *, publish=None, publish
         if replaced:
             restore_latest_recycled_path(base, dest)
         raise
+    from domain import domain_events
+    domain_events.emit(domain_events.KEYFRAME_REPLACED, stage='keyframe', shot=sid,
+                       nonce=uuid.uuid4().hex)
     return dest

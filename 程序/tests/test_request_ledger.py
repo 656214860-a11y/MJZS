@@ -592,10 +592,11 @@ class ModelMoneyBudgetTests(unittest.TestCase):
         import infra.pet_llm as pet_llm
         with tempfile.TemporaryDirectory() as td:
             self.policy(td)
-            script = ("import sys; sys.path.insert(0, sys.argv[1]); from pet_llm import RequestLedger\n"
+            script = ("import sys; sys.path.insert(0, sys.argv[1]); from infra.pet_llm import RequestLedger\n"
                       "with RequestLedger(sys.argv[2]).transaction():\n"
                       " print('locked', flush=True)\n input()\n")
-            child = subprocess.Popen([sys.executable, '-c', script, str(Path(pet_llm.__file__).parent), td],
+            root = Path(pet_llm.__file__).resolve().parent.parent
+            child = subprocess.Popen([sys.executable, '-c', script, str(root), td],
                                      stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                      text=True, creationflags=subprocess.CREATE_NO_WINDOW)
             try:

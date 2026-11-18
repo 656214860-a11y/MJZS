@@ -2,8 +2,6 @@
 
 自 stage_execution_service 拆出；那边重新导出全部名字，旧调用点与测试补丁点不变。
 """
-from pathlib import Path
-
 import infra.file_cache as file_cache
 from orchestrator.project_context_factory import project_context
 from orchestrator.stage_write_preparation_service import prepare_asset_write
@@ -12,11 +10,10 @@ from orchestrator.stage_write_preparation_service import prepare_asset_write
 def asset_batch_gateway():
     """L3 为资产批处理服务装配唯一的正式读写入口。"""
     import shutil
-    from agent.core import file_hash, save, save_bytes
+    from agent.core import file_hash, replace, save, save_bytes
     return {'read_json': file_cache.read_json, 'publish_json': save,
             'publish_bytes': save_bytes, 'file_hash': file_hash,
-            'copy_file': shutil.copy2,
-             'replace_file': lambda source, target: Path(source).replace(target)}
+            'copy_file': shutil.copy2, 'replace_file': replace}
 
 
 def asset_plan_gateway():

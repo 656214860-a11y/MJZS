@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 """TTS 配置与请求体自检。运行：python test_tts.py"""
+import io
 import json
 import os
 import sys
 import tempfile
 import unittest
+import urllib.error
 from pathlib import Path
 from unittest.mock import patch
 
@@ -19,6 +21,55 @@ from contract.project_context import ProjectContext
 def _gateway():
     from agent.core import save, save_bytes
     return {"publish_json": save, "publish_bytes": save_bytes}
+
+
+_AUDIO_SETTINGS = {"base_url": "https://api.openai.com/v1", "model": "tts-1", "voice": "alloy"}
+
+
+class _AudioResponse:
+    """http_client 视角的音频响应：有界 read、status/headers、上下文管理。"""
+
+    def __init__(self, body):
+        self._body = io.BytesIO(body)
+        self.status = 200
+        self.headers = {}
+
+    def read(self, n=-1):
+        return self._body.read(n)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
+class _AudioOpener:
+    """``infra.http_client._default_opener`` 的替身：记录 urllib Request 并回放固定结果。"""
+
+    def __init__(self, calls, body=b"FAKEAUDIO", error=None):
+        self._calls, self._body, self._error = calls, body, error
+
+    def open(self, request, timeout):
+        self._calls["url"] = request.full_url
+        self._calls["body"] = request.data
+        self._calls["headers"] = dict(request.header_items())
+        self._calls["timeout"] = timeout
+        if self._error is not None:
+            raise self._error
+        return _AudioResponse(self._body)
+
+
+def _synthesize_patches(calls, **opener_kwargs):
+    """synthesize 的出站补丁组：走 http_client 默认 opener；urllib 自建 opener 出现即红。"""
+    return (
+        patch.object(tts_api, "read_settings", return_value=dict(_AUDIO_SETTINGS)),
+        patch.object(tts_api, "load_key", return_value="sk-test"),
+        patch("infra.http_client._default_opener",
+              return_value=_AudioOpener(calls, **opener_kwargs)),
+        patch("urllib.request.build_opener",
+              side_effect=AssertionError("tts_api 不得自建 opener（规则 42）")),
+    )
 
 
 class TtsValidateTests(unittest.TestCase):
@@ -48,30 +99,51 @@ class TtsPayloadTests(unittest.TestCase):
 class TtsSynthesizeTests(unittest.TestCase):
     def test_synthesize_builds_correct_request(self):
         calls = {}
-
-        class FakeResponse:
-            def read(self):
-                return b"FAKEAUDIO"
-            def __enter__(self):
-                return self
-            def __exit__(self, *a):
-                return False
-
-        class FakeOpener:
-            def open(self, req, timeout):
-                calls["url"] = req.full_url
-                calls["body"] = req.data
-                return FakeResponse()
-
-        # 第 34 期第 9 条：build_opener 改成 synthesize 内 import，patch 目标跟着换成 urllib.request。
-        with patch.object(tts_api, "read_settings", return_value={"base_url": "https://api.openai.com/v1", "model": "tts-1", "voice": "alloy"}), \
-             patch.object(tts_api, "load_key", return_value="sk-test"), \
-             patch("urllib.request.build_opener", return_value=FakeOpener()):
+        # R3320：synthesize 改走 infra.http_client.request_bytes，patch 目标是其默认 opener；
+        # 断言（URL/body/返回 bytes）与直连时代一致，另加 urllib 自建 opener 守卫。
+        patches = _synthesize_patches(calls)
+        with patches[0], patches[1], patches[2], patches[3]:
             raw = tts_api.synthesize("你好")
         self.assertEqual(raw, b"FAKEAUDIO")
         self.assertEqual(calls["url"], "https://api.openai.com/v1/audio/speech")
+        self.assertEqual(calls["timeout"], 120)
         self.assertEqual(json.loads(calls["body"])["input"], "你好")
+        sent = {key.lower(): value for key, value in calls["headers"].items()}
+        self.assertEqual(sent.get("authorization"), "Bearer sk-test")
+        self.assertEqual(sent.get("content-type"), "application/json")
 
+    def test_synthesize_http_error_keeps_legacy_wording(self):
+        """HTTP 失败文案与直连时代一致：TTS 请求失败（HTTP <code>）：<detail≤400>。"""
+        calls = {}
+        error = urllib.error.HTTPError("https://api.openai.com/v1/audio/speech", 500, "err", {},
+                                       io.BytesIO(b'{"error": "upstream bad"}'))
+        patches = _synthesize_patches(calls, error=error)
+        with patches[0], patches[1], patches[2], patches[3]:
+            with self.assertRaises(ValueError) as caught:
+                tts_api.synthesize("你好")
+        self.assertEqual(str(caught.exception),
+                         'TTS 请求失败（HTTP 500）：{"error": "upstream bad"}')
+
+    def test_synthesize_empty_audio_rejected(self):
+        calls = {}
+        patches = _synthesize_patches(calls, body=b"")
+        with patches[0], patches[1], patches[2], patches[3]:
+            with self.assertRaises(ValueError) as caught:
+                tts_api.synthesize("你好")
+        self.assertEqual(str(caught.exception), "TTS 未返回音频")
+
+    def test_synthesize_timeout_and_unreachable_keep_transport_errors(self):
+        """超时/连不上与直连时代同类：TimeoutError／URLError 原样抛出，不包装成 ValueError。"""
+        calls = {}
+        patches = _synthesize_patches(calls, error=TimeoutError("timed out"))
+        with patches[0], patches[1], patches[2], patches[3]:
+            with self.assertRaises(TimeoutError):
+                tts_api.synthesize("你好")
+        calls = {}
+        patches = _synthesize_patches(calls, error=urllib.error.URLError("connection refused"))
+        with patches[0], patches[1], patches[2], patches[3]:
+            with self.assertRaises(urllib.error.URLError):
+                tts_api.synthesize("你好")
 
     def test_synthesize_empty_or_non_string_rejected(self):
         with patch.object(tts_api, "read_settings", return_value={"base_url": "https://api.openai.com/v1", "model": "tts-1", "voice": "alloy"}),              patch.object(tts_api, "load_key", return_value="sk-test"):
@@ -216,14 +288,8 @@ class TtsVoiceMappingTests(unittest.TestCase):
 
     def test_synthesize_voice_override(self):
         calls = {}
-        class FakeResponse:
-            def read(self): return b"X"
-            def __enter__(self): return self
-            def __exit__(self, *a): return False
-        class FakeOpener:
-            def open(self, req, timeout):
-                calls["body"] = req.data; return FakeResponse()
-        with patch.object(tts_api, "read_settings", return_value={"base_url": "https://api.openai.com/v1", "model": "tts-1", "voice": "alloy"}),              patch.object(tts_api, "load_key", return_value="sk"),              patch("urllib.request.build_opener", return_value=FakeOpener()):
+        patches = _synthesize_patches(calls)
+        with patches[0], patches[1], patches[2], patches[3]:
             tts_api.synthesize("你好", voice="voice_x")
         self.assertEqual(json.loads(calls["body"])["voice"], "voice_x")
 

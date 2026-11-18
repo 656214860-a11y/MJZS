@@ -120,6 +120,10 @@ _register(1, "model_metering")
 _register(3, "desktop_send_ledger")
 _register(4, "desktop_send_choice")
 
+# R3275（L2任务书轮1）：infra 三个新基础设施模块与 domain 事件旁路空壳。
+_register(1, "unit_of_work", "business_log", "idempotency")
+_register(2, "domain_events")
+
 # 非运行期外围脚本：它们不会作为产品层导入；显式留名可防止新增顶层脚本绕过审计。
 TOOLS: dict[str, str] = {
     "blender_previs_template": "Blender 独立模板脚本，依赖 bpy，不在桌面产品运行期。",

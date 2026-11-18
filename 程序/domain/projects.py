@@ -8,6 +8,8 @@ from contract.episode_contract import validate_episode, relative
 import contract.project_stages as project_stages, stage_layout
 from infra.storage_maintenance import remove_project_link_node
 from infra.file_cache import file_digest, read_json as cached_read_json
+import infra.app_logging as app_logging
+from infra import unit_of_work
 from contract.service_contract import SystemError, success
 
 # R3153：日志器名保持包化前的稳定标识（用例与运维日志按 'projects' 断言失败路径）。
@@ -233,18 +235,15 @@ class Projects:
         return writes
 
     def _write_transaction(self,writes):
-        """逐文件原子发布；任一失败以原字节回滚，留下的内容与开始前一致。"""
-        previous=[(path,self._read_bytes(path) if path.exists() else None) for path,_ in writes]
-        committed=[]
+        """逐文件原子发布；任一失败（含取消与中断）以原字节回滚，留下的内容与开始前一致。"""
+        token=unit_of_work.begin(path for path,_ in writes)
         try:
             for path,content in writes:
-                self._publish_bytes(path,content);committed.append(path)
-        except Exception:
-            rollback_error=None
-            for path,before in reversed(previous):
-                try:self._restore_bytes(path,before)
-                except Exception as exc:rollback_error=exc
-            if rollback_error:raise RuntimeError('项目登记同步失败，且回滚失败') from rollback_error
+                self._publish_bytes(path,content)
+            unit_of_work.commit(token)
+        except BaseException:
+            try:unit_of_work.rollback(token)
+            except Exception:app_logging.swallowed('projects._write_transaction.rollback')
             raise
 
     def _claim_reconciled(self,old_path,new_path):

@@ -208,6 +208,7 @@ class VoiceInput:
         import threading
         import domain.voice_ai as voice_ai
         import writing_api
+        from contract.service_contract import SystemError
         project = self.project
         try:
             chosen, record = writing_api.selected_model(project)
@@ -226,7 +227,7 @@ class VoiceInput:
                 results.put(voice_ai.optimize_text(
                     text, chat=adapter.chat, model=chosen, config=config))
             except Exception as exc:  # noqa: BLE001
-                results.put({'ok': False, 'text': text, 'reason': str(exc)[:160]})
+                results.put(SystemError(str(exc)[:160], data={'text': text}))
 
         threading.Thread(target=work, daemon=True).start()
 
@@ -241,14 +242,14 @@ class VoiceInput:
                     self._ai_after = self.box.after(120, poll)
                 return
             self._ai_ticket = None
-            finished = self.tasks.finish(ticket, succeeded=bool(result.get('ok')),
-                                         error=result.get('reason') or '')
+            finished = self.tasks.finish(ticket, succeeded=result.ok,
+                                         error=result.reason or '')
             if not finished:
                 return
-            if not result.get('ok'):
-                self._say(result.get('reason') or 'AI 优化未完成，已保留原文。')
+            if not result.ok:
+                self._say(result.reason or 'AI 优化未完成，已保留原文。')
                 return
-            optimized = result['text']
+            optimized = (result.data or {}).get('text', '')
             try:
                 current = self.box.get(start, end)
             except tk.TclError:

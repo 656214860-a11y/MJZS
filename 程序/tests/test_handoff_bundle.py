@@ -56,31 +56,31 @@ class OfflineVerifyTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             out = _build_bundle(Path(folder))
             report = verify_handoff_bundle(out)
-            self.assertTrue(report['ok'], report['problems'])
-            self.assertEqual(report['problems'], [])
-            self.assertEqual(report['missing'], ['SH002'])
-            self.assertEqual(report['label'], '素材交接包')
-            self.assertGreater(report['count'], 0)
+            self.assertTrue(report.ok, report.data['problems'])
+            self.assertEqual(report.data['problems'], [])
+            self.assertEqual(report.data['missing'], ['SH002'])
+            self.assertEqual(report.data['label'], '素材交接包')
+            self.assertGreater(report.data['count'], 0)
 
     def test_missing_changed_and_resized_files_all_fail(self):
         with tempfile.TemporaryDirectory() as folder:
             video = _build_bundle(Path(folder)) / '001_SH001.mp4'
             video.unlink()
             report = verify_handoff_bundle(video.parent)
-            self.assertFalse(report['ok'])
-            self.assertIn('文件缺失或读不动：001_SH001.mp4', report['problems'])
+            self.assertFalse(report.ok)
+            self.assertIn('文件缺失或读不动：001_SH001.mp4', report.data['problems'])
         with tempfile.TemporaryDirectory() as folder:
             video = _build_bundle(Path(folder)) / '001_SH001.mp4'
             video.write_bytes(b'CLIP-DATA')          # 同长度、不同内容
             report = verify_handoff_bundle(video.parent)
-            self.assertFalse(report['ok'])
-            self.assertIn('文件内容与清单不符：001_SH001.mp4', report['problems'])
+            self.assertFalse(report.ok)
+            self.assertIn('文件内容与清单不符：001_SH001.mp4', report.data['problems'])
         with tempfile.TemporaryDirectory() as folder:
             video = _build_bundle(Path(folder)) / '001_SH001.mp4'
             video.write_bytes(b'clip')               # 长度不同
             report = verify_handoff_bundle(video.parent)
-            self.assertFalse(report['ok'])
-            self.assertIn('文件大小不符：001_SH001.mp4', report['problems'])
+            self.assertFalse(report.ok)
+            self.assertIn('文件大小不符：001_SH001.mp4', report.data['problems'])
 
     def test_verification_refuses_entries_outside_the_bundle(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -91,23 +91,23 @@ class OfflineVerifyTests(unittest.TestCase):
                 {'label': '素材交接包', 'files': [{'name': '../evil.txt', 'size': 1, 'sha256': 'x'}]},
                 ensure_ascii=False), encoding='utf-8')
             report = verify_handoff_bundle(out)
-            self.assertFalse(report['ok'])
-            self.assertIn('文件缺失或读不动：../evil.txt', report['problems'])
+            self.assertFalse(report.ok)
+            self.assertIn('文件缺失或读不动：../evil.txt', report.data['problems'])
 
     def test_missing_or_broken_manifest_fails(self):
         with tempfile.TemporaryDirectory() as folder:
             empty = Path(folder) / '空包'
             empty.mkdir()
             report = verify_handoff_bundle(empty)
-            self.assertFalse(report['ok'])
-            self.assertIn('缺少交接包清单', report['problems'][0])
+            self.assertFalse(report.ok)
+            self.assertIn('缺少交接包清单', report.data['problems'][0])
         with tempfile.TemporaryDirectory() as folder:
             broken = Path(folder) / '坏包'
             broken.mkdir()
             (broken / BUNDLE_MANIFEST_NAME).write_bytes(b'{ broken')
             report = verify_handoff_bundle(broken)
-            self.assertFalse(report['ok'])
-            self.assertIn('读不出来或格式坏了', report['problems'][0])
+            self.assertFalse(report.ok)
+            self.assertIn('读不出来或格式坏了', report.data['problems'][0])
 
 
 class ManifestRuleTests(unittest.TestCase):
@@ -118,25 +118,45 @@ class ManifestRuleTests(unittest.TestCase):
         report = verify_manifest({'files': [{'name': 'a', 'size': 5, 'sha256': 'abc'}],
                                   'shots': {'included': ['SH001'], 'expected': 2, 'missing': []}},
                                  self._probe)
-        self.assertFalse(report['ok'])
-        self.assertIn('清单声明镜头齐全，却只记录了 1/2 镜', report['problems'])
+        self.assertFalse(report.ok)
+        self.assertIn('清单声明镜头齐全，却只记录了 1/2 镜', report.data['problems'])
 
     def test_declared_missing_is_not_a_failure(self):
         report = verify_manifest({'files': [{'name': 'a', 'size': 5, 'sha256': 'abc'}],
                                   'shots': {'included': ['SH001'], 'expected': 2, 'missing': ['SH002']}},
                                  self._probe)
-        self.assertTrue(report['ok'], report['problems'])
-        self.assertEqual(report['missing'], ['SH002'])
+        self.assertTrue(report.ok, report.data['problems'])
+        self.assertEqual(report.data['missing'], ['SH002'])
 
     def test_declared_subtitle_without_file_fails(self):
         report = verify_manifest({'files': [{'name': 'a', 'size': 5, 'sha256': 'abc'}],
                                   'subtitle': True}, self._probe)
-        self.assertFalse(report['ok'])
-        self.assertIn('清单声明含字幕，包里却没有对白.srt', report['problems'])
+        self.assertFalse(report.ok)
+        self.assertIn('清单声明含字幕，包里却没有对白.srt', report.data['problems'])
 
     def test_empty_and_malformed_manifests_fail(self):
-        self.assertFalse(verify_manifest(None, self._probe)['ok'])
-        self.assertIn('清单没有记录任何文件', verify_manifest({'files': []}, self._probe)['problems'])
+        self.assertFalse(verify_manifest(None, self._probe).ok)
+        self.assertIn('清单没有记录任何文件', verify_manifest({'files': []}, self._probe).data['problems'])
+
+    def test_verify_results_use_service_contract_types(self):
+        """R3316 轮 8：verify_manifest／verify_handoff_bundle 返回 ServiceResult，不再自造 {'ok':...}。"""
+        from contract.service_contract import ServiceResult, UserError, is_failure
+        good = verify_manifest({'files': [{'name': 'a', 'size': 5, 'sha256': 'abc'}]},
+                               self._probe)
+        self.assertIsInstance(good, ServiceResult)
+        self.assertTrue(good.ok)
+        self.assertFalse(is_failure(good))
+        self.assertEqual(good.data['problems'], [])
+        bad = verify_manifest(None, self._probe)
+        self.assertIsInstance(bad, UserError, '坏清单是用户可换包修正的输入问题')
+        self.assertTrue(is_failure(bad))
+        self.assertEqual(bad.data['problems'], ['交接包清单格式不正确'])
+        with tempfile.TemporaryDirectory() as folder:
+            empty = Path(folder) / '空包'
+            empty.mkdir()
+            report = verify_handoff_bundle(empty)
+        self.assertIsInstance(report, UserError)
+        self.assertIn('缺少交接包清单', report.data['problems'][0])
 
 
 if __name__ == '__main__':

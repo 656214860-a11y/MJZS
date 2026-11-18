@@ -14,6 +14,7 @@ import infra.project_settings as project_settings
 from domain.project_naming import dated_path
 from orchestrator.legacy_compat import resolved_storyboard_alias
 import contract.pet_bus as pet_bus
+import domain.domain_events as domain_events
 
 def approved_versions(versions):
     """已下载＋技术质检通过＋已验收的版本；自动粗剪、手动拼装与交接包共用同一口径。
@@ -356,8 +357,8 @@ class Studio:
         if qc_error is not None:version['qc_error']=str(qc_error)
         version['finished_at']=time.time()
         save(self.db,state)
-        self.record_video_usage(sid,version)
-        self.publish_manifest(state)
+        self.record_video_usage(sid,version);self.publish_manifest(state)
+        domain_events.emit(domain_events.VIDEO_GENERATED,stage='video',shot=sid,nonce=uuid.uuid4().hex)
         return version
     def video_manifest(self,state):
         """视频阶段机器可读清单：每镜实际采用版本（不哈希成片，哈希沿用版本记录里的 sha256）。"""

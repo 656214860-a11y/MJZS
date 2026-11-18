@@ -10,6 +10,8 @@ import logging
 from agent.core import replace, temporary_path
 from domain.asset_context import library_dir
 from domain.asset_plan import plan_file, _update_fields as update_fields
+import infra.app_logging as app_logging
+from infra import unit_of_work
 from infra.file_cache import remove_temporary_file
 from contract.project_context import ProjectContext
 from contract.service_contract import SystemError, UserError, success
@@ -62,7 +64,7 @@ def _safe_part(value, label):
 
 
 def _publish(project, episode_dir, aid, source, suffix, values, *, gateway=None, context=None):
-    """先原子替换图片，再发布索引；索引失败时恢复两侧旧状态。"""
+    """图片与资产清单索引作为一个事务发布；任一失败（含取消）恢复两侧旧状态。"""
     publish_bytes = gateway.get('publish_bytes') if isinstance(gateway, dict) else None
     if not callable(publish_bytes):
         raise RuntimeError('资产详情发布必须由 L3 注入')
@@ -75,26 +77,22 @@ def _publish(project, episode_dir, aid, source, suffix, values, *, gateway=None,
     if not dest.is_relative_to(base):
         raise _BindingInputError('正典板目录超出当前资产库')
     index = plan_file(project, episode_dir)
-    old_index = index.read_bytes() if index.is_file() else None
-    old_dest = dest.read_bytes() if dest.is_file() else None
     temporary = temporary_path(dest, '.binding')
     copied = source != dest
+    # 图片文件与索引同进退；取消与进程中断也由事务 journal 恢复（R3310 轮 6）。
+    token = unit_of_work.begin((dest, index))
     try:
         if copied:
             folder.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, temporary)
             replace(temporary, dest)
         update_fields(project, episode_dir, aid, values, gateway=gateway)
-    except Exception:
-        if copied:
-            if old_dest is None:
-                remove_temporary_file(dest)
-            else:
-                publish_bytes(dest, old_dest)
-        if old_index is None:
-            remove_temporary_file(index)
-        elif not index.is_file() or index.read_bytes() != old_index:
-            publish_bytes(index, old_index)
+        unit_of_work.commit(token)
+    except BaseException:
+        try:
+            unit_of_work.rollback(token)
+        except Exception:
+            app_logging.swallowed('asset_detail_service._publish.rollback')
         raise
     finally:
         remove_temporary_file(temporary)

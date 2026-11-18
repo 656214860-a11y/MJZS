@@ -176,19 +176,26 @@ def save_automatic_handoff_marker(project, digest, folder, shot_count):
 
 
 def verify_handoff_bundle(folder):
-    """离线校验一个已解包的交接包：读清单、按清单核对每个文件，只读不改。"""
+    """离线校验一个已解包的交接包：读清单、按清单核对每个文件，只读不改。
+
+    返回 `ServiceResult`（与 ``domain.handoff_service.verify_manifest`` 同一契约）：
+    缺清单或清单读不出时为 `UserError`，``data`` 带 ``{'problems','missing','count','label'}``
+    报告；核对结论由调用方按 ``result.ok`` 与 ``result.data['problems']`` 展示。
+    """
     from domain.handoff_service import BUNDLE_MANIFEST_NAME, verify_manifest
+    from contract.service_contract import UserError
     folder = Path(folder).resolve()
     manifest_path = folder / BUNDLE_MANIFEST_NAME
     if not manifest_path.is_file():
-        return {'ok': False, 'problems': ['缺少交接包清单，无法离线校验：' + BUNDLE_MANIFEST_NAME],
-                'missing': [], 'count': 0, 'label': ''}
+        problem = '缺少交接包清单，无法离线校验：' + BUNDLE_MANIFEST_NAME
+        return UserError(problem, data={'problems': [problem], 'missing': [], 'count': 0, 'label': ''})
     try:
         manifest = file_cache.read_json(manifest_path)
     except (OSError, ValueError):
         manifest = None
     if manifest is None:
-        return {'ok': False, 'problems': ['交接包清单读不出来或格式坏了'], 'missing': [], 'count': 0, 'label': ''}
+        problem = '交接包清单读不出来或格式坏了'
+        return UserError(problem, data={'problems': [problem], 'missing': [], 'count': 0, 'label': ''})
 
     def probe(name):
         path = (folder / str(name)).resolve()

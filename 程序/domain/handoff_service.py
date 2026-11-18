@@ -128,12 +128,16 @@ def build_bundle_manifest(summary, files, *, built_at=None):
 def verify_manifest(manifest, probe):
     """按清单离线核对一个已解包的交接包：文件在不在、有没有被改、声明齐全时有没有漏镜。
 
-    ``probe(name)`` 返回 ``(size, sha256)``，文件缺失或读不动时抛 ``OSError``。返回
-    ``{'ok', 'problems', 'missing', 'count', 'label'}``：``problems`` 都是真缺陷，
+    ``probe(name)`` 返回 ``(size, sha256)``，文件缺失或读不动时抛 ``OSError``。
+    返回 `ServiceResult`：核对通过为 ``success``；清单格式不正确或包内文件有缺陷
+    时返回 `UserError`（换一份有效交接包即可修正），``data`` 都携带同一份报告
+    ``{'problems', 'missing', 'count', 'label'}``——``problems`` 都是真缺陷，
     ``missing`` 是清单自己声明的缺项（素材包允许缺镜，如实列出，不算失败）。
     """
     if not isinstance(manifest, dict):
-        return {'ok': False, 'problems': ['交接包清单格式不正确'], 'missing': [], 'count': 0, 'label': ''}
+        return UserError('交接包清单格式不正确',
+                         data={'problems': ['交接包清单格式不正确'],
+                               'missing': [], 'count': 0, 'label': ''})
     problems = []
     files = manifest.get('files')
     if not isinstance(files, list) or not files:
@@ -170,5 +174,8 @@ def verify_manifest(manifest, probe):
         problems.append('清单声明镜头齐全，却只记录了 %d/%d 镜' % (len(included), expected))
     if manifest.get('subtitle') and '对白.srt' not in names:
         problems.append('清单声明含字幕，包里却没有对白.srt')
-    return {'ok': not problems, 'problems': problems, 'missing': missing,
-            'count': len(files), 'label': str(manifest.get('label') or '')}
+    report = {'problems': problems, 'missing': missing,
+              'count': len(files), 'label': str(manifest.get('label') or '')}
+    if problems:
+        return UserError('；'.join(problems), data=report)
+    return success(report)
