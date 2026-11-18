@@ -1,0 +1,15 @@
+{
+  "round": 3331,
+  "commit_base": "f0665b68",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k l1_l0_integration model_router_diagnostics diagnostic_capture request_ledger model_metering temporary_sweep selfcheck startup_selfcheck",
+    "exit": 0,
+    "passed": 134,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T12:30:04"
+}

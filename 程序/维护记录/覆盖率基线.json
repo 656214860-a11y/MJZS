@@ -1252,7 +1252,7 @@
   {
    "module": "infra/diagnostic_capture.py",
    "covered": 0,
-   "total": 425,
+   "total": 514,
    "percent": 0.0
   },
   {
@@ -1366,7 +1366,7 @@
   {
    "module": "infra/temporary_sweep.py",
    "covered": 0,
-   "total": 40,
+   "total": 52,
    "percent": 0.0
   },
   {
@@ -3645,9 +3645,9 @@
   },
   {
    "module": "infra/model_router.py",
-   "covered": 137,
-   "total": 646,
-   "percent": 21.2
+   "covered": 138,
+   "total": 640,
+   "percent": 21.6
   },
   {
    "module": "stage_execution_service.py",
@@ -3892,8 +3892,8 @@
   {
    "module": "infra/request_ledger.py",
    "covered": 566,
-   "total": 669,
-   "percent": 84.6
+   "total": 671,
+   "percent": 84.4
   },
   {
    "module": "contract/service_contract.py",
@@ -3909,9 +3909,9 @@
   },
   {
    "module": "agent/publication.py",
-   "covered": 145,
+   "covered": 143,
    "total": 159,
-   "percent": 91.2
+   "percent": 89.9
   },
   {
    "module": "domain/video_lifecycle_service.py",

@@ -18,7 +18,7 @@ def _settle(ledger, request_id, usage, *, stage=''):
         LOGGER.warning('请求结算失败（%s），调用结果照常返回', type(exc).__name__)
         try:
             from infra import diagnostic_capture
-            diagnostic_capture.record_degradation(exc, stage=stage)
+            diagnostic_capture.record_degradation(exc, stage=stage, error_code='E-IO-WRITE')
         except Exception:
             app_logging.swallowed()
 

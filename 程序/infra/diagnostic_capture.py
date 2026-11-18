@@ -95,15 +95,17 @@ def _clean(value: object) -> str:
 
 
 def record_degradation(exc: BaseException, *, page: str = "", stage: str = "",
-                       project: str = "", automatic_daily_open: bool = False) -> None:
-    """记录一次已降级异常；调用方仍保持原有容错/返回语义。"""
+                       project: str = "", automatic_daily_open: bool = False,
+                       error_code: str = "") -> None:
+    """记录一次已降级异常；调用方仍保持原有容错/返回语义。``error_code`` 用 L0 码表已有码（如 E-IO-WRITE）。"""
     with _LOCK:
         state = _state()
         rows = list(state.get("degradations") or [])[-49:]
         rows.append({"at": datetime.now().isoformat(timespec="seconds"),
                      "exception": type(exc).__name__, "message": _clean(exc),
                      "page": _clean(page), "stage": _clean(stage),
-                     "project": _clean(project), "automatic_daily_open": bool(automatic_daily_open)})
+                     "project": _clean(project), "automatic_daily_open": bool(automatic_daily_open),
+                     "code": _clean(error_code)})
         state["degradations"] = rows
         _save_state(state)
 
@@ -123,6 +125,15 @@ def record_gate_result(name: str, result: str) -> None:
         state = _state()
         state["last_gate"] = {"name": _clean(name), "result": _clean(result),
                               "at": datetime.now().isoformat(timespec="seconds")}
+        _save_state(state)
+
+
+def record_temporary_sweep(removed: int, remaining: int) -> None:
+    """轮 2 清扫线程写回最近一次结果；启动自检的遗留临时文件项只读这里，不现场扫目录。"""
+    with _LOCK:
+        state = _state()
+        state["temporary_sweep"] = {"removed": int(removed), "remaining": int(remaining),
+                                    "at": datetime.now().isoformat(timespec="seconds")}
         _save_state(state)
 
 
@@ -428,8 +439,128 @@ def _check_settings_corrupt(root):
     return None
 
 
+# ---------- L1 任务书轮 6（R6-a）：L1 自有四项检查，级别一律 DEGRADED ----------
+#
+# 口径纪律（任务书轮 6）：检查函数不得扫描目录（规则 33）——「遗留临时文件数」
+# 取自轮 2 清扫线程经 ``record_temporary_sweep`` 写回的最近一次结果，不现场统计；
+# 「当前项目」取 ``projects.json`` 的 ``active`` 登记，不递归找项目。
+
+_LEDGER_UNKNOWN_STALE_LIMIT = 3    # 挂起转 unknown 条目累计超过即报：结算系统性失效信号
+_TEMP_LEFTOVER_LIMIT = 10          # 清扫后仍残留的超期临时文件数上限
+
+
+def _active_project_root(program):
+    """``projects.json`` 登记的当前项目根；读不出／未登记返回 None（按「无法确认」放行）。"""
+    try:
+        data = read_json(Path(program) / 'projects.json', default={})
+    except Exception:
+        return None
+    active = data.get('active') if isinstance(data, dict) else None
+    return Path(active) if active else None
+
+
+def _check_request_ledger(program):
+    """台账损坏：当前项目 ``请求台账.json`` 存在但读不出／形状不符 → DEGRADED。
+
+    只读探测：用 ``agent.core.read`` 严格读＋形状核对，不走 ``RequestLedger.load()``
+    （load 会顺带清扫 reserved、写日备份，检查项不许有副作用）。
+    """
+    from agent.core import read as _strict_read
+    from contract.diagnostics import StartupPhase
+    project = _active_project_root(program)
+    if project is None:
+        return None
+    import infra.request_ledger as request_ledger
+    path = request_ledger.request_ledger_path(project)
+    try:
+        if not path.is_file():
+            return None
+    except OSError:
+        return None
+    try:
+        data = _strict_read(path)
+        ok = (isinstance(data, dict) and isinstance(data.get('entries'), list)
+              and all(isinstance(row, dict) for row in data['entries']))
+    except (OSError, ValueError):
+        ok = False
+    if ok:
+        return None
+    return _degraded(StartupPhase.RESOURCE, 'request-ledger-corrupt',
+                     '请求台账文件损坏：用量结算与预算核对可能不完整',
+                     '请保留原文件排查；程序按空台账继续，已产生的远端费用不受影响')
+
+
+def _check_ledger_unknown_stale(program):
+    """挂起转 ``unknown`` 的台账条目数超阈值 → DEGRADED。
+
+    只数 ``request_ledger`` 两处「reserved→unknown」转换打过 ``unknown_via``
+    标记的条目（陈旧预留清扫／结算等锁超时）；正常 ``mark_unknown`` 结算不计。
+    """
+    from agent.core import read as _strict_read
+    from contract.diagnostics import StartupPhase
+    project = _active_project_root(program)
+    if project is None:
+        return None
+    import infra.request_ledger as request_ledger
+    path = request_ledger.request_ledger_path(project)
+    try:
+        if not path.is_file():
+            return None
+        data = _strict_read(path)
+    except (OSError, ValueError):
+        return None                       # 损坏已由 request-ledger-corrupt 报，这里不重复
+    entries = data.get('entries') if isinstance(data, dict) else None
+    if not isinstance(entries, list):
+        return None
+    count = sum(1 for row in entries
+                if isinstance(row, dict) and row.get('state') == 'unknown' and row.get('unknown_via'))
+    if count <= _LEDGER_UNKNOWN_STALE_LIMIT:
+        return None
+    return _degraded(StartupPhase.RESOURCE, 'request-ledger-unknown-stale',
+                     '请求台账有 %d 笔挂起请求转为「待对账」unknown，超过阈值 %d'
+                     % (count, _LEDGER_UNKNOWN_STALE_LIMIT),
+                     '多为进程中途退出或结算等锁超时所致；请在用量页核对远端账单后重启')
+
+
+def _check_ui_settings_corrupt(program):
+    """当前项目存在 ``ui_settings.json.corrupt`` 侧车 → DEGRADED（``project_settings`` 的既有保留产物）。"""
+    from contract.diagnostics import StartupPhase
+    project = _active_project_root(program)
+    if project is None:
+        return None
+    try:
+        if not (project / 'ui_settings.json.corrupt').is_file():
+            return None
+    except OSError:
+        return None
+    return _degraded(StartupPhase.CONFIG, 'ui-settings-corrupt',
+                     '项目设置文件 ui_settings.json 曾损坏，原文件保留为 ui_settings.json.corrupt',
+                     '确认设置无误后可删除 .corrupt 副本；需要找回请手动合并')
+
+
+def _check_temporary_leftovers(program):
+    """遗留临时文件数超阈值 → DEGRADED；数据来自轮 2 清扫最近一次写回，不扫描目录。"""
+    from contract.diagnostics import StartupPhase
+    try:
+        record = _state().get('temporary_sweep')
+    except Exception:
+        return None
+    if not isinstance(record, dict):
+        return None                       # 还没跑过清扫：无从确认，放行
+    try:
+        remaining = int(record.get('remaining') or 0)
+    except (TypeError, ValueError):
+        return None
+    if remaining <= _TEMP_LEFTOVER_LIMIT:
+        return None
+    return _degraded(StartupPhase.RESOURCE, 'temporary-files-leftover',
+                     '项目内仍有 %d 个超期遗留临时文件（清扫后未删净），超过阈值 %d'
+                     % (remaining, _TEMP_LEFTOVER_LIMIT),
+                     '多为被占用或权限拒绝的文件；可手动清理项目目录下的 *.tmp/*.download 残留')
+
+
 def startup_checks(program=None):
-    """L1 环境检查项（D3-g，乙类六项）：返回零参数可调用对象元组，由启动器注入 ``selfcheck.run``。"""
+    """L1 环境检查项（D3-g 乙类六项＋L1 任务书轮 6 四项）：返回零参数可调用对象元组，由启动器注入 ``selfcheck.run``。"""
     root = Path(program or PROGRAM)
 
     def data_writable():
@@ -450,8 +581,22 @@ def startup_checks(program=None):
     def settings_corrupt():
         return _check_settings_corrupt(root)
 
+    def request_ledger_corrupt():
+        return _check_request_ledger(root)
+
+    def ledger_unknown_stale():
+        return _check_ledger_unknown_stale(root)
+
+    def ui_settings_corrupt():
+        return _check_ui_settings_corrupt(root)
+
+    def temporary_leftovers():
+        return _check_temporary_leftovers(root)
+
     return (data_writable, disk_space, model_pool_empty,
-            bundled_tools, dependency_lock, settings_corrupt)
+            bundled_tools, dependency_lock, settings_corrupt,
+            request_ledger_corrupt, ledger_unknown_stale,
+            ui_settings_corrupt, temporary_leftovers)
 
 
 # ---------- G12 关闭开关与自检入口 ----------
