@@ -59,7 +59,7 @@ class ProcessError(InfraError, RuntimeError):
     """外部进程族失败（拉起、退出码、超时）；兼容 ``except RuntimeError``。"""
 
     code = 'E-TOOL-FAILED'
-    _allowed = frozenset({'E-TOOL-MISSING', 'E-TOOL-FAILED'})
+    _allowed = frozenset({'E-TOOL-MISSING', 'E-TOOL-FAILED', 'E-TOOL-TIMEOUT'})
 
 
 class QuotaError(InfraError, RuntimeError):

@@ -14,6 +14,7 @@ MISSING_FFMPEG = "缺外部程序：当前机器没有可用的 FFmpeg／FFprobe
 PLATFORM_WINDOWS_ONLY = "平台限制：受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行"
 PLATFORM_NO_TRAY_HOST = "平台限制：当前进程不在有资源管理器任务栏的交互桌面（如隐藏测试桌面），Shell_NotifyIcon 无宿主；在默认交互桌面运行时应恢复执行"
 PLATFORM_SYMLINK = "平台限制：当前环境不支持创建符号链接；支持符号链接时应恢复执行"
+PLATFORM_JOB_OBJECT = "平台限制：当前 Windows 环境无法创建 Job Object；支持 Job Object 的 Windows 环境应恢复执行"
 
 ALL_SKIP_REASONS = {
     PLATFORM_TKINTER,
@@ -26,4 +27,5 @@ ALL_SKIP_REASONS = {
     PLATFORM_WINDOWS_ONLY,
     PLATFORM_NO_TRAY_HOST,
     PLATFORM_SYMLINK,
+    PLATFORM_JOB_OBJECT,
 }

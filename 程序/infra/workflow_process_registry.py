@@ -3,6 +3,7 @@ import os
 import threading
 
 _running = {}
+_supervised = {}
 _lock = threading.Lock()
 _slots = {}
 _queued = []
@@ -80,6 +81,54 @@ def _job_object():
             return None
 
 
+def _is_direct_child(pid):
+    """``pid`` 是否为本进程直接子进程（Toolhelp32 快照核对父进程号）。
+
+    Job Object 是「关闭即结束」的杀伤面：只允许本进程真实派生的子进程入列，
+    自身、父进程或任意 pid 绝不可挂入，否则宿主退出时会误杀无关进程。
+    """
+    if os.name != 'nt' or not isinstance(pid, int) or pid <= 0:
+        return False
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        class _ProcessEntry(ctypes.Structure):
+            _fields_ = [('dwSize', wintypes.DWORD), ('cntUsage', wintypes.DWORD),
+                        ('th32ProcessID', wintypes.DWORD),
+                        ('th32DefaultHeapID', ctypes.c_size_t),
+                        ('th32ModuleID', wintypes.DWORD),
+                        ('cntThreads', wintypes.DWORD),
+                        ('th32ParentProcessID', wintypes.DWORD),
+                        ('pcPriClassBase', ctypes.c_long),
+                        ('dwFlags', wintypes.DWORD),
+                        ('szExeFile', wintypes.WCHAR * 260)]
+
+        kernel32 = ctypes.windll.kernel32
+        kernel32.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+        kernel32.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
+        kernel32.Process32FirstW.argtypes = [wintypes.HANDLE, ctypes.POINTER(_ProcessEntry)]
+        kernel32.Process32NextW.argtypes = [wintypes.HANDLE, ctypes.POINTER(_ProcessEntry)]
+        kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+        snap = kernel32.CreateToolhelp32Snapshot(2, 0)  # TH32CS_SNAPPROCESS
+        if not snap or snap == ctypes.c_void_p(-1).value:
+            return False
+        try:
+            entry = _ProcessEntry()
+            entry.dwSize = ctypes.sizeof(entry)
+            ok = kernel32.Process32FirstW(snap, ctypes.byref(entry))
+            me = os.getpid()
+            while ok:
+                if entry.th32ProcessID == pid:
+                    return entry.th32ParentProcessID == me
+                ok = kernel32.Process32NextW(snap, ctypes.byref(entry))
+            return False
+        finally:
+            kernel32.CloseHandle(snap)
+    except Exception:
+        return False
+
+
 def _assign_to_job(process):
     """把登记过的子进程挂进本进程的 Job Object；失败只跳过，不影响启动结果。"""
     if os.name != 'nt':
@@ -93,23 +142,29 @@ def _assign_to_job(process):
         kernel32 = ctypes.windll.kernel32
         kernel32.OpenProcess.restype = wintypes.HANDLE
         kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+        kernel32.GetProcessId.argtypes = [wintypes.HANDLE]
+        kernel32.GetProcessId.restype = wintypes.DWORD
         kernel32.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
         kernel32.AssignProcessToJobObject.restype = wintypes.BOOL
         handle = getattr(process, '_handle', None)
         close_handle = False
+        pid = getattr(process, 'pid', None)
         if not isinstance(handle, int) or handle <= 0:
             handle = None
         if not handle:
-            pid = getattr(process, 'pid', None)
             if isinstance(pid, int) and pid > 0:
                 handle = kernel32.OpenProcess(_PROCESS_SET_QUOTA_TERMINATE, False, pid)
                 close_handle = bool(handle)
         if handle:
-            try:
-                kernel32.AssignProcessToJobObject(job, handle)
-            finally:
-                if close_handle:
-                    kernel32.CloseHandle(handle)
+            # 只允许本进程直接子进程入列：_handle 伪造或 pid 指向自身/他人时跳过。
+            if _is_direct_child(kernel32.GetProcessId(handle)):
+                try:
+                    kernel32.AssignProcessToJobObject(job, handle)
+                finally:
+                    if close_handle:
+                        kernel32.CloseHandle(handle)
+            elif close_handle:
+                kernel32.CloseHandle(handle)
     except Exception:
         import infra.app_logging as app_logging
         app_logging.swallowed('workflow_process_registry._assign_to_job')
@@ -258,10 +313,12 @@ def release_process_slot(token):
                     _slots.pop(key, None)
                 return
 
-def register_process(project, process):
+def register_process(project, process, *, job=True):
+    """登记子进程；``job=False`` 时只登记不挂 Job Object（``detached`` 种类专用）。"""
     with _lock:
         _running.setdefault(_key(project), []).append(process)
-    _assign_to_job(process)
+    if job:
+        _assign_to_job(process)
 
 
 def all_processes():
@@ -276,7 +333,22 @@ def forget_process(project, process):
             items.remove(process)
         if items is not None and not items:
             _running.pop(_key(project), None)
+        _supervised.pop(id(process), None)
     release_process_slot(getattr(process, 'workflow_process_slot', None))
+
+
+def register_supervised(process, *, kind, stage, project, in_job):
+    """登记监督器元数据（kind/stage/project/job 归属），供按项目或阶段取消与计量。"""
+    with _lock:
+        _supervised[id(process)] = {'kind': kind, 'stage': stage,
+                                    'project': str(project), 'in_job': bool(in_job)}
+
+
+def supervised_info(process):
+    """返回登记的监督器元数据；未登记返回空 dict。"""
+    with _lock:
+        info = _supervised.get(id(process))
+        return dict(info) if info else {}
 
 def processes(project):
     with _lock:
@@ -325,3 +397,161 @@ def run_registered(args, project, prompt, streams, timeout, *, timeout_label, op
     finally:
         forget_process(project, process)
     return process.returncode
+
+
+# ── I8 进程监督器：L1-H9 种类登记与 spawn ──────────────────────────────
+# 每个种类登记默认超时（沿用各调用方现值）与 Job Object 归属；
+# ``detached`` 是唯一不进 Job 的种类——需要在应用退出后继续运行的进程
+# （用户请求打开的外部应用、自重启 helper）登记此类，不被「关闭即结束」误杀。
+
+PROCESS_KINDS = {
+    'engine_cli':  {'timeout': 7200, 'job': True},
+    'comfy':       {'timeout': 90,   'job': True},
+    'ffmpeg':      {'timeout': 120,  'job': True},
+    'asr':         {'timeout': 15,   'job': True},
+    'blender':     {'timeout': 1800, 'job': True},
+    'optimizer':   {'timeout': 125,  'job': True},
+    'test_runner': {'timeout': 300,  'job': True},
+    'detached':    {'timeout': None, 'job': False},
+}
+
+_STDERR_TAIL_LINES = 200
+
+
+class SupervisedProcess:
+    """``spawn`` 返回的受监督进程句柄：登记、Job 归属、超时与错误分类集中于此。"""
+
+    def __init__(self, kind, project, stage, timeout, health, process, in_job):
+        self.kind = kind
+        self.project = project
+        self.stage = stage
+        self.timeout = timeout
+        self.health = health
+        self.process = process
+        self.in_job = in_job
+        from collections import deque
+        self._stderr_tail = deque(maxlen=_STDERR_TAIL_LINES)
+        self._stderr_lock = threading.Lock()
+        stream = getattr(process, 'stderr', None)
+        if stream is not None:
+            threading.Thread(target=self._pump_stderr, args=(stream,),
+                             daemon=True, name='supervised-stderr').start()
+
+    def _pump_stderr(self, stream):
+        try:
+            while True:
+                line = stream.readline()
+                if line in (b'', ''):
+                    break
+                with self._stderr_lock:
+                    self._stderr_tail.append(line)
+            try:
+                stream.close()
+            except (OSError, ValueError):
+                pass
+        except (OSError, ValueError):
+            pass
+
+    @property
+    def pid(self):
+        return self.process.pid
+
+    def poll(self):
+        return self.process.poll()
+
+    def wait(self, timeout=None):
+        """等待退出；缺省用登记超时，超时返回 ``None``（由调用方经 ``error_code`` 归类）。"""
+        import subprocess
+        try:
+            return self.process.wait(timeout=self.timeout if timeout is None else timeout)
+        except subprocess.TimeoutExpired:
+            return None
+
+    def terminate(self):
+        self.process.terminate()
+
+    def kill(self):
+        self.process.kill()
+
+    def stderr_tail(self):
+        """stderr 尾部若干行（UTF-8 尽力解码），供错误分类与日志取证。"""
+        with self._stderr_lock:
+            lines = list(self._stderr_tail)
+        return ''.join(line.decode('utf-8', errors='replace')
+                       if isinstance(line, bytes) else str(line)
+                       for line in lines)
+
+    def error_code(self, timed_out=False):
+        """当前退出状态归类为 ``error_codes`` 码；仍在运行返回空串。"""
+        return classify_exit(self.process.poll(), timed_out=timed_out,
+                             stderr_tail=self.stderr_tail())
+
+
+def classify_exit(returncode, *, timed_out=False, stderr_tail=''):
+    """把退出码与 stderr 尾部归类为 ``error_codes`` 码；成功返回空串。
+
+    - 超时 → ``E-TOOL-TIMEOUT``；
+    - 找不到可执行文件 → ``E-TOOL-MISSING``（stderr 命中系统「无此命令」措辞）；
+    - 其余非零退出 → ``E-TOOL-FAILED``；零退出 → 空串。
+    """
+    if timed_out:
+        return 'E-TOOL-TIMEOUT'
+    if returncode is None:
+        return ''
+    if returncode == 0:
+        return ''
+    text = (stderr_tail or '').lower()
+    if ('not recognized' in text or '不是内部或外部命令' in text
+            or 'no such file or directory' in text):
+        return 'E-TOOL-MISSING'
+    return 'E-TOOL-FAILED'
+
+
+def spawn(kind, command, *, project, stage, timeout=None, health=None,
+          **popen_kwargs):
+    """监督器启动入口（I8）：登记进程、挂 Job Object（``detached`` 除外）、留 stderr 尾部。
+
+    ``timeout`` 必须显式给出——各进程种类的默认值登记在 ``PROCESS_KINDS`` 供调用方
+    取值，``spawn`` 本身不带默认；缺省或非法值抛 ``ConfigError``，未登记 ``kind``
+    同样抛 ``ConfigError``。找不到可执行文件抛 ``ProcessError``（``E-TOOL-MISSING``）。
+    返回 ``SupervisedProcess``；``detached`` 种类登记但不进 Job Object。
+    其余关键字原样透传给 ``subprocess.Popen``（``env``/``cwd``/``stdin``/``stdout``/
+    ``stderr`` 等）；``stderr`` 缺省接管为 ``PIPE`` 供尾部留存，``cwd`` 缺省为项目目录。
+    """
+    import math
+    import subprocess
+    from contract.infra_errors import ConfigError, ProcessError
+    from contract.platform_tools import hidden_console_flags
+
+    spec = PROCESS_KINDS.get(kind)
+    if spec is None:
+        raise ConfigError('未登记的进程种类：%r（可选：%s）'
+                          % (kind, '、'.join(sorted(PROCESS_KINDS))))
+    if timeout is None:
+        raise ConfigError('spawn 必须显式给出 timeout；%s 的登记默认值为 %s'
+                          % (kind, spec['timeout']))
+    try:
+        seconds = float(timeout)
+    except (TypeError, ValueError):
+        raise ConfigError('timeout 必须是正数秒数') from None
+    if isinstance(timeout, bool) or not math.isfinite(seconds) or seconds <= 0:
+        raise ConfigError('timeout 必须是正数秒数')
+
+    popen_kwargs.setdefault('stderr', subprocess.PIPE)
+    if popen_kwargs.get('cwd') is None:
+        popen_kwargs['cwd'] = str(project)
+    popen_kwargs.setdefault('creationflags', hidden_console_flags())
+    try:
+        process = subprocess.Popen(command, **popen_kwargs)
+    except FileNotFoundError as exc:
+        raise ProcessError('找不到可执行文件：%s' % (command[0] if isinstance(command, (list, tuple)) else command),
+                           code='E-TOOL-MISSING', detail={'command': str(command)}) from exc
+    except OSError as exc:
+        raise ProcessError('无法启动进程：%s' % exc, code='E-TOOL-FAILED',
+                           detail={'command': str(command), 'errno': exc.errno}) from exc
+
+    register_process(project, process, job=bool(spec['job']))
+    register_supervised(process, kind=kind, stage=stage, project=project,
+                        in_job=bool(spec['job']))
+    return SupervisedProcess(kind, project, stage, seconds, health, process,
+                             in_job=bool(spec['job']))

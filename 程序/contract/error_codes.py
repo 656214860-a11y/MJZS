@@ -52,6 +52,7 @@ _ITEMS = (
     ErrorCode('E-IO-CORRUPT', 'degraded', False, '数据已损坏或不完整', '从备份恢复或重新生成'),
     ErrorCode('E-TOOL-MISSING', 'degraded', False, '缺少外部工具', '在配置中指定 ffmpeg 等工具路径'),
     ErrorCode('E-TOOL-FAILED', 'degraded', True, '外部工具执行失败', '查看工具输出后重试'),
+    ErrorCode('E-TOOL-TIMEOUT', 'degraded', True, '外部工具执行超时', '检查工具状态或调大超时后重试'),
     ErrorCode('E-CONFIG-INVALID', 'recoverable', False, '配置无效或缺失', '检查对应配置项后重试'),
 )
 

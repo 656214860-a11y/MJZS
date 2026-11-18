@@ -93,11 +93,12 @@
   "tests.test_video_lifecycle_service",
   "tests.test_workflow_process_registry",
   "tests.test_workspace_maintenance",
-  "tests.test_writing_api"
+  "tests.test_writing_api",
+  "tests.test_process_supervisor"
  ],
  "tests_ok": true,
- "points_total": 2742,
- "points_covered": 1529,
+ "points_total": 2766,
+ "points_covered": 1543,
  "modules": [
   {
    "module": "comfy_service.py",
@@ -348,8 +349,8 @@
   {
    "module": "publication.py",
    "points": 31,
-   "covered": 20,
-   "percent": 64.5
+   "covered": 19,
+   "percent": 61.3
   },
   {
    "module": "global_library_service.py",
@@ -442,6 +443,12 @@
    "percent": 78.6
   },
   {
+   "module": "workflow_process_registry.py",
+   "points": 61,
+   "covered": 48,
+   "percent": 78.7
+  },
+  {
    "module": "http_client.py",
    "points": 19,
    "covered": 15,
@@ -500,12 +507,6 @@
    "points": 15,
    "covered": 13,
    "percent": 86.7
-  },
-  {
-   "module": "workflow_process_registry.py",
-   "points": 37,
-   "covered": 33,
-   "percent": 89.2
   },
   {
    "module": "asset_contract.py",

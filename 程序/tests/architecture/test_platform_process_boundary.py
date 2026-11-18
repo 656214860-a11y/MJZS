@@ -28,7 +28,7 @@ class PlatformProcessBoundaryTests(unittest.TestCase):
         for path in module_scan_files():
             for node in ast.walk(parse(path)):
                 if isinstance(node, ast.Call) and _dotted_name(node.func) == 'subprocess.Popen':
-                    if path.stem not in _BACKGROUND_BOUNDARIES | {'platform_tools'}:
+                    if path.stem not in _BACKGROUND_BOUNDARIES | {'platform_tools', 'workflow_process_registry'}:
                         offenders.append(f'{path.name}:{node.lineno}')
         self.assertEqual(
             offenders, [],
@@ -47,3 +47,112 @@ class PlatformProcessBoundaryTests(unittest.TestCase):
                 if isinstance(first, ast.Constant) and first.value == 'taskkill' and path.stem not in {'platform_tools', 'native_apps'}:
                     offenders.append(f'{path.name}:{node.lineno}')
         self.assertEqual(offenders, [], 'taskkill 请收敛到平台或本地应用适配器：\n' + '\n'.join(offenders))
+
+
+# ── I8-4：进程启动点门禁 ──────────────────────────────────────────────
+# 识别四种绕过监督器的写法：``(x or subprocess.Popen)(``、``popen=subprocess.Popen``、
+# ``subprocess.run(...)``、``platform_tools.launch_*``（含 from-import 裸名）。
+# 存量按「文件:行」登记棘轮，只减不增；平台边界与监督器本体豁免。
+
+_LAUNCH_NAMES = frozenset({'launch_background', 'launch_text_process', 'launch_windows_app'})
+_PROCESS_EXEMPT_STEMS = frozenset({'platform_tools', 'workflow_process_registry'})
+
+SPAWN_SITE_BASELINE = frozenset({
+    'app_shortcut.py:114', 'app_shortcut.py:243', 'app_shortcut.py:50',
+    'codex_paste.py:34', 'codex_tasks.py:45', 'console_submit.py:14',
+    'domain/offline_asr_client.py:129', 'domain/pet_performance_service.py:98',
+    'domain/pet_test_service.py:100',
+    'infra/aigc_lint.py:85', 'infra/engine_probe.py:140', 'infra/log_maintenance.py:141',
+    'infra/native_apps.py:124', 'infra/native_apps.py:42', 'infra/native_apps.py:75',
+    'infra/native_apps.py:87', 'infra/storage_maintenance.py:54',
+    'infra/workspace_maintenance.py:384',
+    'orchestrator/previs_automation.py:22', 'orchestrator/qwen_adapter.py:99',
+    'orchestrator/workflow_engines.py:456', 'orchestrator/workflow_engines.py:518',
+    'ui/asset_thumbs.py:757', 'ui/desktop_idea_chat.py:964', 'ui/desktop_idea_chat.py:980',
+    'ui/desktop_media_pages.py:873', 'ui/desktop_send_choice.py:54', 'ui/desktop_tray.py:411',
+})
+
+
+def _is_popen_expr(node: ast.AST) -> bool:
+    """表达式是否解析到 ``subprocess.Popen``（含 ``(x or subprocess.Popen)`` 布尔组合）。"""
+    if isinstance(node, ast.Attribute) and node.attr == 'Popen' and _dotted_name(node.value) == 'subprocess':
+        return True
+    if isinstance(node, ast.Name) and node.id == 'Popen':
+        return True
+    if isinstance(node, ast.BoolOp):
+        return any(_is_popen_expr(value) for value in node.values)
+    return False
+
+
+def _spawn_sites_in_tree(tree: ast.AST) -> set:
+    """返回源码树中绕过监督器的进程启动调用行号集合（四种写法合一去重）。"""
+    hits = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        dotted = _dotted_name(node.func)
+        if _is_popen_expr(node.func):
+            hits.add(node.lineno)
+        for keyword in node.keywords:
+            if keyword.arg == 'popen' and _is_popen_expr(keyword.value):
+                hits.add(node.lineno)
+        if dotted == 'subprocess.run':
+            hits.add(node.lineno)
+        tail = dotted.rsplit('.', 1)[-1] if dotted else ''
+        if tail in _LAUNCH_NAMES:
+            hits.add(node.lineno)
+    return hits
+
+
+def _spawn_sites_in_path(path) -> set:
+    from tests.architecture._scan import ROOT
+    rel = path.resolve().relative_to(ROOT).as_posix()
+    return {'%s:%d' % (rel, line) for line in _spawn_sites_in_tree(parse(path))}
+
+
+class ProcessSpawnBoundaryTests(unittest.TestCase):
+    """I8-4：四种绕过写法按「文件:行」棘轮；坏样本自审全覆盖。"""
+
+    def test_spawn_sites_within_baseline(self):
+        offenders = set()
+        for path in module_scan_files():
+            if path.stem in _PROCESS_EXEMPT_STEMS:
+                continue
+            offenders |= _spawn_sites_in_path(path)
+        regressions = sorted(offenders - SPAWN_SITE_BASELINE)
+        self.assertEqual(regressions, [],
+                         '新增绕过监督器的进程启动点，请改经 workflow_process_registry.spawn：'
+                         + chr(10) + chr(10).join(regressions))
+        stale = sorted(SPAWN_SITE_BASELINE - offenders)
+        if stale:
+            print('[棘轮提示] 以下登记点已消失，请从 SPAWN_SITE_BASELINE 移除：'
+                  + chr(10) + chr(10).join(stale))
+
+    def test_baseline_sites_wellformed(self):
+        import re
+        for site in SPAWN_SITE_BASELINE:
+            self.assertRegex(site, r'^[\w./-]+\.py:\d+$', site)
+
+    def test_bad_samples_all_four_forms_flagged(self):
+        samples = {
+            'popen-call': 'import subprocess\np = (getattr(subprocess, "Popen") or subprocess.Popen)(["x"])\n',
+            'popen-kwarg': 'import subprocess\nlaunch(command, popen=subprocess.Popen)\n',
+            'subprocess.run': 'import subprocess\nsubprocess.run(["x"])\n',
+            'platform-launch': 'from contract import platform_tools\nplatform_tools.launch_background(["x"])\n',
+            'platform-launch-bare': 'from contract.platform_tools import launch_text_process\nlaunch_text_process(["x"])\n',
+        }
+        for name, source in samples.items():
+            with self.subTest(form=name):
+                tree = ast.parse(source)
+                self.assertTrue(_spawn_sites_in_tree(tree), '%s 写法未被识别' % name)
+
+    def test_good_samples_not_flagged(self):
+        samples = {
+            'sanctioned-run-process': 'from contract.platform_tools import run_process\nrun_process(["x"], timeout=5)\n',
+            'supervisor-spawn': 'from infra.workflow_process_registry import spawn\nspawn("ffmpeg", ["x"], project=p, stage=s, timeout=60)\n',
+            'plain-reference': 'import subprocess\nvalue = subprocess.PIPE\n',
+        }
+        for name, source in samples.items():
+            with self.subTest(form=name):
+                tree = ast.parse(source)
+                self.assertFalse(_spawn_sites_in_tree(tree), '%s 写法被误判' % name)
