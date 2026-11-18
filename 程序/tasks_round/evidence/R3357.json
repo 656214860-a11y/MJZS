@@ -1,0 +1,15 @@
+{
+  "round": 3357,
+  "commit_base": "9794ccaf",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k script_composer",
+    "exit": 0,
+    "passed": 7,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T15:39:56"
+}
