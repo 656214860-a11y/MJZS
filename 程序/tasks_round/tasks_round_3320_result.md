@@ -1,5 +1,5 @@
 # R3320 结果：L2领域服务层优化任务书轮9（修复轮：两处硬违规）
-<!-- round-evidence: {"commit_base": "3cfeaca4", "credential_hits": 0, "evidence_sha256": "e24aeace1a1dc1d6", "exit": 0, "failed": 0, "passed": 170, "round": 3320, "tests": "run_selftests.py -k tts http_client white_model blender request_recording http_boundary"} -->
+<!-- round-evidence: {"commit_base": "1f752e0b", "credential_hits": 0, "evidence_sha256": "c57e0972fcce2dbe", "exit": 0, "failed": 0, "passed": 170, "round": 3320, "tests": "run_selftests.py -k tts http_client white_model blender request_recording http_boundary"} -->
 
 ## 三问
 
@@ -130,6 +130,6 @@
 ## 提交
 
 - 分支 `codex/wip-r3282`（领号 R3320，工作树 `dsh-864fd932-4054`；领号记录见 `<git common-dir>/round-claims.json`，2026-11-18T11:09:21+08:00 认领）。
-- 主提交：待回填（10 个文件：3 个生产文件——domain/tts_api.py、domain/white_model_service.py、infra/http_client.py；5 个测试/架构文件——tests/test_http_client.py、tests/test_tts.py、tests/test_request_recording.py、tests/test_white_model_workspace.py、tests/architecture/test_http_boundary.py；维护记录/分支覆盖率基线.json；本结果文件；自动生成的 tasks_round/evidence/R3320.json）。
-- 结果文件补记提交：本提交（`R3320: 补记结果文件commit哈希<hash>`；docs-only 补记同样带 `--tests` 重跑定向测试刷新证据）。
-- 轮次证据以 `tasks_round/evidence/R3320.json` 为准（`run_selftests.py -k` 定向测试 exit 0，凭据扫描 0 命中）。
+- 主提交：`1f752e0b`（11 个文件：3 个生产文件——domain/tts_api.py、domain/white_model_service.py、infra/http_client.py；5 个测试/架构文件——tests/test_http_client.py、tests/test_tts.py、tests/test_request_recording.py、tests/test_white_model_workspace.py、tests/architecture/test_http_boundary.py；维护记录/分支覆盖率基线.json；本结果文件；自动生成的 tasks_round/evidence/R3320.json）。
+- 结果文件补记提交：本提交（`R3320: 补记结果文件commit哈希1f752e0b`；docs-only 补记同样带 `--tests` 重跑定向测试刷新证据）。
+- 轮次证据以 `tasks_round/evidence/R3320.json` 为准（`run_selftests.py -k tts http_client white_model blender request_recording http_boundary` exit 0 / **170 通过 / 0 失败**，凭据扫描 0 命中）。
