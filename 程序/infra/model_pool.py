@@ -577,17 +577,6 @@ def store(data, program=None):
         return path
 
 
-def store(data, program=None):
-    """保存调用方配置，保留后台管理的最新健康记录。"""
-    from agent.publication import access
-    path = config_file(program)
-    with access():
-        current = read_json(path, {})
-        if isinstance(current, dict) and HEALTH_KEY in current:
-            data = {**data, HEALTH_KEY: current[HEALTH_KEY]}
-        return _save_config(path, data, program)
-
-
 def _update(mutate, program=None):
     """跨进程发布锁内重读、mutate、原子写回；返回 None 放弃写入。
     读失败拒绝写入，不能把空表盖回用户模型池或回滚并发更新。"""
@@ -606,7 +595,7 @@ def _update(mutate, program=None):
         result = mutate(dict(data))
         if result is None:
             return None
-        _save_config(path, result, program)
+        store(result, program)
         return result
 
 

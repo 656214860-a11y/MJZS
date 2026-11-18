@@ -11,7 +11,8 @@
   "tests.test_skill_residue_service",
   "tests.test_unit_of_work",
   "tests.test_usage_snapshot",
-  "tests.test_video_lifecycle_service"
+  "tests.test_video_lifecycle_service",
+  "tests.test_account_client.AccountStoreTests"
  ],
  "tests_ok": true,
  "modules": [
@@ -2388,7 +2389,7 @@
   {
    "module": "ui/desktop_account_page.py",
    "covered": 0,
-   "total": 567,
+   "total": 576,
    "percent": 0.0
   },
   {
@@ -3544,6 +3545,12 @@
    "percent": 19.1
   },
   {
+   "module": "orchestrator/account_controller.py",
+   "covered": 54,
+   "total": 280,
+   "percent": 19.3
+  },
+  {
    "module": "domain/asset_context.py",
    "covered": 23,
    "total": 117,
@@ -3560,12 +3567,6 @@
    "covered": 19,
    "total": 92,
    "percent": 20.7
-  },
-  {
-   "module": "orchestrator/account_controller.py",
-   "covered": 47,
-   "total": 225,
-   "percent": 20.9
   },
   {
    "module": "infra/model_router.py",
@@ -3652,6 +3653,12 @@
    "percent": 28.6
   },
   {
+   "module": "infra/model_secrets.py",
+   "covered": 56,
+   "total": 195,
+   "percent": 28.7
+  },
+  {
    "module": "contract/stage_layout.py",
    "covered": 63,
    "total": 211,
@@ -3688,28 +3695,16 @@
    "percent": 32.1
   },
   {
-   "module": "domain/entitlement_service.py",
-   "covered": 30,
-   "total": 92,
-   "percent": 32.6
-  },
-  {
-   "module": "infra/storage_maintenance.py",
-   "covered": 245,
-   "total": 757,
-   "percent": 32.4
-  },
-  {
    "module": "orchestrator/skill_project_layer.py",
    "covered": 54,
    "total": 166,
    "percent": 32.5
   },
   {
-   "module": "domain/entitlement_service.py",
-   "covered": 30,
-   "total": 92,
-   "percent": 32.6
+   "module": "infra/storage_maintenance.py",
+   "covered": 248,
+   "total": 757,
+   "percent": 32.8
   },
   {
    "module": "orchestrator/stage_previs_gateways.py",
@@ -3725,21 +3720,21 @@
   },
   {
    "module": "infra/model_pool.py",
-   "covered": 283,
+   "covered": 286,
    "total": 754,
-   "percent": 37.5
+   "percent": 37.9
   },
   {
    "module": "domain/account_client.py",
-   "covered": 47,
-   "total": 117,
-   "percent": 40.2
+   "covered": 48,
+   "total": 119,
+   "percent": 40.3
   },
   {
-   "module": "domain/account_client.py",
-   "covered": 47,
-   "total": 117,
-   "percent": 40.2
+   "module": "domain/entitlement_service.py",
+   "covered": 38,
+   "total": 92,
+   "percent": 41.3
   },
   {
    "module": "domain/asset_batch_lifecycle.py",
@@ -3749,9 +3744,9 @@
   },
   {
    "module": "agent/core.py",
-   "covered": 95,
+   "covered": 96,
    "total": 215,
-   "percent": 44.2
+   "percent": 44.7
   },
   {
    "module": "orchestrator/desktop_automation_service.py",
@@ -3802,12 +3797,6 @@
    "percent": 54.5
   },
   {
-   "module": "infra/account_store.py",
-   "covered": 54,
-   "total": 95,
-   "percent": 56.8
-  },
-  {
    "module": "domain/keyframe_evidence.py",
    "covered": 77,
    "total": 132,
@@ -3818,12 +3807,6 @@
    "covered": 6,
    "total": 9,
    "percent": 66.7
-  },
-  {
-   "module": "infra/lease_verifier.py",
-   "covered": 25,
-   "total": 37,
-   "percent": 67.6
   },
   {
    "module": "agent/video.py",
@@ -3856,10 +3839,10 @@
    "percent": 78.4
   },
   {
-   "module": "infra/config_snapshot.py",
-   "covered": 15,
-   "total": 19,
-   "percent": 78.9
+   "module": "infra/account_store.py",
+   "covered": 130,
+   "total": 159,
+   "percent": 81.8
   },
   {
    "module": "infra/usage_history.py",
@@ -3880,6 +3863,12 @@
    "percent": 83.3
   },
   {
+   "module": "infra/config_snapshot.py",
+   "covered": 16,
+   "total": 19,
+   "percent": 84.2
+  },
+  {
    "module": "infra/request_ledger.py",
    "covered": 564,
    "total": 668,
@@ -3898,10 +3887,16 @@
    "percent": 85.7
   },
   {
+   "module": "infra/lease_verifier.py",
+   "covered": 32,
+   "total": 37,
+   "percent": 86.5
+  },
+  {
    "module": "agent/publication.py",
-   "covered": 143,
-   "total": 159,
-   "percent": 89.9
+   "covered": 148,
+   "total": 167,
+   "percent": 88.6
   },
   {
    "module": "domain/skill_residue_service.py",
@@ -3914,6 +3909,12 @@
    "covered": 78,
    "total": 83,
    "percent": 94.0
+  },
+  {
+   "module": "infra/session_integrity.py",
+   "covered": 48,
+   "total": 51,
+   "percent": 94.1
   },
   {
    "module": "infra/config_patch.py",
@@ -4000,6 +4001,6 @@
    "percent": 100.0
   }
  ],
- "modules_covered": 93,
- "modules_total": 663
+ "modules_covered": 94,
+ "modules_total": 664
 }

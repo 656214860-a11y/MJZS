@@ -6,6 +6,7 @@
 换项目时阶段筛选复位。
 """
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -442,6 +443,12 @@ class IndexLifecycleTests(StageRailTests):
         self.assertTrue(path.is_file())
         self.assertTrue(self.rows())
 
+    def wait_for_index(self, ready, message):
+        deadline = time.monotonic() + 5
+        while not ready() and time.monotonic() < deadline:
+            self.pump(.02)
+        self.assertTrue(ready(), message)
+
     def test_late_result_after_collapse_is_discarded(self):
         import threading
         from unittest.mock import patch
@@ -458,10 +465,11 @@ class IndexLifecycleTests(StageRailTests):
 
         with patch.object(module, 'load_index', side_effect=slow):
             panel.fill_script_list()
-            self.pump(.1)
-            self.assertTrue(entered.is_set())
-            panel.collapse()
-            release.set()
+            try:
+                self.wait_for_index(entered.is_set, '后台索引读取未进入等待点')
+                panel.collapse()
+            finally:
+                release.set()
             self.pump(.3)
         self.assertEqual(panel.script_tree.get_children(), ())
 
@@ -591,7 +599,8 @@ class IndexLifecycleTests(StageRailTests):
             target.write_text('真实剧本文档', encoding='utf8')
             paths[folder] = target.relative_to(root).as_posix()
         panel.refresh_file_index()
-        self.pump(.4)
+        self.wait_for_index(lambda: set(paths.values()) <= panel.script_row_category.keys(),
+                            '四类剧本文档未加载到文件面板')
         menu = Mock()
         services = replace(panel.page.writing_page_services, context_menu=lambda _win: menu)
         with patch.object(panel.page, 'writing_page_services', services):
