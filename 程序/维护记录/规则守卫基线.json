@@ -90,7 +90,9 @@
    "tests/architecture/test_layer_relations.py"
   ],
   "LR-07": [
-   "tests/architecture/test_layer_relations.py"
+   "tests/architecture/test_layer_relations.py",
+   "tests/architecture/test_infra_errors_boundary.py",
+   "tests/test_infra_errors.py"
   ],
   "LR-08": [
    "tests/architecture/test_layer_relations.py",

@@ -100,7 +100,8 @@ def _blender_window_running():
 def open_blender(project_file=None):
     finder = _blender_finder
     if finder is None:
-        raise ValueError('Blender 查找器未配置：需 L4/L5 组装点注入（ui.white_model.find_blender）')
+        # 注入点：ui.white_model.find_blender（L4/L5 组装）
+        raise ValueError('Blender 查找器未配置：需 L4/L5 组装点注入')
     # 每次点击都重新检测：用户可能在程序启动后才安装 Blender（扫描一次约 12 毫秒）。
     exe = finder(refresh=True)
     if exe is None:

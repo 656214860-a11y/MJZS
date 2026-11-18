@@ -37,7 +37,7 @@
    "metric": "未登记同层边数＋同层互依赖对数",
    "violations": 5,
    "baseline": 5,
-   "note": "763 条存量同层边已全部登记 SAME_LAYER_EDGES；互依赖 5 对：L1 {core↔file_cache, file_cache↔publication, diagnostic_capture↔request_ledger}、L3 {stage_models↔workflow_settings}、L4 {white_model↔white_model_ref}，随 I3/I4/I5 模块迁移收口。"
+   "note": "764 条同层边已全部登记 SAME_LAYER_EDGES（I1 基线 763，I6 新增 infra_errors→error_codes 1 条）；互依赖 5 对：L1 {core↔file_cache, file_cache↔publication, diagnostic_capture↔request_ledger}、L3 {stage_models↔workflow_settings}、L4 {white_model↔white_model_ref}，随 I3/I4/I5 模块迁移收口。"
   },
   {
    "id": "LR-04",
@@ -83,12 +83,13 @@
    "description": "L1 不持业务状态、不含业务语义；只抛 contract.infra_errors 技术异常（I6 建层级）。",
    "guard": [
     "tests/architecture/test_layer_relations.py",
-    "tests/architecture/test_infra_errors.py"
+    "tests/architecture/test_infra_errors_boundary.py",
+    "tests/test_infra_errors.py"
    ],
-   "metric": "L1 中 raise 节点异常表达式含 CJK 用户文案字符串的处数（test_infra_errors 建成后切换为非 InfraError 计数）",
+   "metric": "L1 中 raise 节点异常表达式含 CJK 字符串且异常类型非 contract.infra_errors 族（含其子类）的处数；I6 起生效",
    "violations": 257,
    "baseline": 257,
-   "note": "I3 后 257；I6 建 contract/infra_errors 后切非技术异常口径，I7–I11 迁移下调。"
+   "note": "I6（R3407）已建 contract/infra_errors 并切换为非 InfraError 口径，实测仍 257（尚无模块迁移）；I7–I11 迁移下调。"
   },
   {
    "id": "LR-08",

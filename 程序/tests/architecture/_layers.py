@@ -92,6 +92,9 @@ _register(4, "prompt_optimizer")
 # 具体检查函数由 L1 提供、L5 组装注入（G3），本模块不新增任何向上 import。
 _register(0, "diagnostics", "selfcheck")
 
+# R3407（L1任务书轮 I6，L1-H7）：L1 技术异常层级，纯 L0 契约；只依赖 error_codes 登记码。
+_register(0, "infra_errors")
+
 # R3131（任务书 P0/P1/P3/P4）：统一项目文件生命周期管理引入的模块。
 # 命名中心与索引字段契约是纯字符串／dataclass 运算 → L0；索引扫描与写盘只依赖 L0／L1 → L1；
 # 一次性迁移工具编排阶段服务与清单重指向 → L3；面板筛选条是纯 Tk 装配 → L4。
@@ -137,7 +140,7 @@ TOOLS: dict[str, str] = {
 # R3391（L1任务书轮 I1，LR-03）：同层依赖方向登记。凡 importer 与 imported 同层的静态
 # 与字面量动态 import 边都必须在此登记；未登记的同层边、同层互相依赖由
 # tests/architecture/test_layer_relations.py 判红。存量 763 条为 I1 首登记基线，
-# 只许随模块迁移减少；新增同层边必须先在本表登记方向。
+# 只许随模块迁移减少；新增同层边必须先在本表登记方向（I6 增至 764：infra_errors→error_codes）。
 SAME_LAYER_EDGES: frozenset[tuple[str, str]] = frozenset({
     ('account_inputs', 'ui_widgets'),
     ('account_store', 'core'),
@@ -453,6 +456,7 @@ SAME_LAYER_EDGES: frozenset[tuple[str, str]] = frozenset({
     ('image_direct', 'image_agent_runner'),
     ('image_direct', 'stage_execution_service'),
     ('image_direct', 'storyboard_direct_api'),
+    ('infra_errors', 'error_codes'),
     ('integrations', 'script_text_reader'),
     ('keyframe_batch', 'asset_context'),
     ('keyframe_batch', 'shot_assets'),

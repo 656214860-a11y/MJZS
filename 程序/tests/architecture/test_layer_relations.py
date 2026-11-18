@@ -71,6 +71,46 @@ def _dynamic_calls(tree: ast.AST):
             yield node.lineno, name, first
 
 
+def _raise_func_name(exc: ast.AST) -> str:
+    """raise 表达式的可调用名（Name.id／Attribute.attr），无法判定返回空串。"""
+    target = exc.func if isinstance(exc, ast.Call) else exc
+    if isinstance(target, ast.Name):
+        return target.id
+    if isinstance(target, ast.Attribute):
+        return target.attr
+    return ''
+
+
+def _infra_error_names(trees: dict) -> set[str]:
+    """I6 豁免集：contract/infra_errors.py 的异常类名＋所有模块里继承它们的类名。
+
+    LR-07 自 I6 起只数「非 InfraError」的中文文案 raise；迁移完成的模块
+    （含自定义子类如 RollbackFailedError→ProcessError）不再计入。
+    """
+    names: set[str] = set()
+    entry = trees.get('infra_errors')
+    if entry is None:
+        return names
+    for node in ast.walk(entry[2]):
+        if isinstance(node, ast.ClassDef):
+            names.add(node.name)
+    changed = True
+    while changed:
+        changed = False
+        for _path, _layer, tree in trees.values():
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.ClassDef) or node.name in names:
+                    continue
+                for base in node.bases:
+                    bname = (base.id if isinstance(base, ast.Name)
+                             else base.attr if isinstance(base, ast.Attribute) else '')
+                    if bname in names:
+                        names.add(node.name)
+                        changed = True
+                        break
+    return names
+
+
 def _scan():
     """单次全仓扫描，返回各规则实测明细。"""
     same_edges = set()
@@ -80,7 +120,7 @@ def _scan():
     dyn_same = set()
     l1_private = []
     callbacks = []
-    cjk_raises = 0
+    cjk_raise_sites = []
     l1_names = {n for n, l in LAYERS.items() if l == 1}
     l1_has_all = set()
     trees = {}
@@ -149,14 +189,17 @@ def _scan():
                     base = node.value.id
                     if base in aliases and not (node.attr.startswith('__') and node.attr.endswith('__')):
                         l1_private.append((name, aliases[base] + '.' + node.attr, node.lineno))
-        # LR-07：L1 中文文案 raise
+        # LR-07：L1 中文文案 raise（I6 起豁免 infra_errors 族，循环外统一过滤）
         if layer == 1:
             for node in ast.walk(tree):
                 if isinstance(node, ast.Raise) and node.exc is not None:
                     for sub in ast.walk(node.exc):
                         if isinstance(sub, ast.Constant) and isinstance(sub.value, str) and any('一' <= ch <= '鿿' for ch in sub.value):
-                            cjk_raises += 1
+                            cjk_raise_sites.append((name, _raise_func_name(node.exc)))
                             break
+    # LR-07 豁免过滤：infra_errors 族及其子类的 raise 不计（I6 技术异常层级）。
+    infra_names = _infra_error_names(trees)
+    cjk_raises = sum(1 for _mod, fname in cjk_raise_sites if fname not in infra_names)
     # LR-03：未登记同层边＋互依赖对
     unregistered = same_edges - set(SAME_LAYER_EDGES)
     mutual = {(a, b) for a, b in same_edges if (b, a) in same_edges and a < b}
@@ -205,6 +248,7 @@ def _scan():
                     'unregistered': sorted(unregistered), 'mutual': sorted(mutual),
                     'nonliteral': nonliteral_dyn, 'dyn_upward': sorted(dyn_upward),
                     'callbacks': callbacks, 'l1_private': l1_private,
+                    'cjk_sites': cjk_raise_sites,
                     'missing_guards': missing_guards},
     }
 

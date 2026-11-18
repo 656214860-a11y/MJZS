@@ -48,7 +48,11 @@ _ITEMS = (
     ErrorCode('E-STAGE-BLOCKED', 'recoverable', False, '前置阶段未完成，当前阶段被阻塞', '先完成并确认上一阶段'),
     ErrorCode('E-CANCELLED', 'info', False, '操作已取消', '无需处理，需要时重新发起'),
     ErrorCode('E-IO-WRITE', 'recoverable', True, '写入文件失败', '检查磁盘空间与目录权限'),
+    ErrorCode('E-IO-READ', 'recoverable', True, '读取文件失败', '检查文件是否被占用、权限或路径'),
+    ErrorCode('E-IO-CORRUPT', 'degraded', False, '数据已损坏或不完整', '从备份恢复或重新生成'),
     ErrorCode('E-TOOL-MISSING', 'degraded', False, '缺少外部工具', '在配置中指定 ffmpeg 等工具路径'),
+    ErrorCode('E-TOOL-FAILED', 'degraded', True, '外部工具执行失败', '查看工具输出后重试'),
+    ErrorCode('E-CONFIG-INVALID', 'recoverable', False, '配置无效或缺失', '检查对应配置项后重试'),
 )
 
 CODES: dict[str, ErrorCode] = {item.code: item for item in _ITEMS}

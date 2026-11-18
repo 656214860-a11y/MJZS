@@ -103,7 +103,8 @@ def app_argv(engine, exe, project, output, report, model='', command_builder=Non
     """
     builder = command_builder if command_builder is not None else _COMMAND_BUILDER
     if builder is None:
-        raise ValueError('引擎命令构造器未配置：需 L3/L5 组装点注入（workflow_engines.background_command）')
+        # 注入点：workflow_engines.background_command（L3/L5 组装）
+        raise ValueError('引擎命令构造器未配置：需 L3/L5 组装点注入')
     config = {'engine': engine, 'program': str(exe), 'model': model}
     argv = builder(config, Path(project), Path(output), Path(report))
     return [str(item) for item in argv], config

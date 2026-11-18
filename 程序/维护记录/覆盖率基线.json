@@ -344,6 +344,12 @@
    "percent": 0.0
   },
   {
+   "module": "contract/infra_errors.py",
+   "covered": 0,
+   "total": 44,
+   "percent": 0.0
+  },
+  {
    "module": "contract/pet_settings_contract.py",
    "covered": 0,
    "total": 3,
@@ -3909,9 +3915,9 @@
   },
   {
    "module": "agent/publication.py",
-   "covered": 143,
+   "covered": 145,
    "total": 159,
-   "percent": 89.9
+   "percent": 91.2
   },
   {
    "module": "domain/video_lifecycle_service.py",
@@ -3981,5 +3987,5 @@
   }
  ],
  "modules_covered": 80,
- "modules_total": 661
+ "modules_total": 662
 }

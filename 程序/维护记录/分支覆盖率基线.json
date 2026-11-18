@@ -36,6 +36,7 @@
   "tests.test_global_library_service",
   "tests.test_hash_backend",
   "tests.test_http_client",
+  "tests.test_infra_errors",
   "tests.test_keyframe_lifecycle_service",
   "tests.test_l1_bounded_growth_r3269",
   "tests.test_l1_l0_integration_r3331",
@@ -95,8 +96,8 @@
   "tests.test_writing_api"
  ],
  "tests_ok": true,
- "points_total": 2741,
- "points_covered": 1527,
+ "points_total": 2742,
+ "points_covered": 1529,
  "modules": [
   {
    "module": "comfy_service.py",
@@ -347,8 +348,8 @@
   {
    "module": "publication.py",
    "points": 31,
-   "covered": 19,
-   "percent": 61.3
+   "covered": 20,
+   "percent": 64.5
   },
   {
    "module": "global_library_service.py",
@@ -567,6 +568,12 @@
    "percent": 100.0
   },
   {
+   "module": "infra_errors.py",
+   "points": 1,
+   "covered": 1,
+   "percent": 100.0
+  },
+  {
    "module": "integrations.py",
    "points": 0,
    "covered": 0,
@@ -657,5 +664,5 @@
    "percent": 100.0
   }
  ],
- "modules_total": 93
+ "modules_total": 94
 }
