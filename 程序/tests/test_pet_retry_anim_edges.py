@@ -38,16 +38,18 @@ class RetryPlanEdges(unittest.TestCase):
         self.assertEqual(pet_agent.retry_plan(0, '请求超时', delays=(1, 2))['delay'], 1.0)
         self.assertEqual(pet_agent.retry_plan(5, '请求超时', max_attempts=10, delays=(1, 2))['delay'], 2.0)
 
-    def test_param_error_retries_immediately_with_fixed_params(self):
+    def test_param_error_no_longer_retries(self):
+        """轮 5B 对照表：params → E-NET-CLIENT（retryable=False），不再立即重试。"""
         plan = pet_agent.retry_plan(2, '参数不合法', status=400, params={'duration': 99})
-        self.assertTrue(plan['allow'])
-        self.assertEqual(plan['delay'], 0.0)
-        self.assertEqual(plan['next_attempt'], 3)
-        self.assertEqual(plan['params'], {'params': {'duration': 10}, 'fixed': ['时长']})
+        self.assertFalse(plan['allow'])
+        self.assertIsNone(plan['delay'])
+        self.assertEqual(plan['next_attempt'], 2)
+        self.assertEqual(plan['action'], 'fix_params')
 
-    def test_param_error_without_params_still_retries(self):
+    def test_param_error_without_params_still_stops(self):
         plan = pet_agent.retry_plan(0, '参数不合法', status=400)
-        self.assertEqual(plan['params'], {'params': {}, 'fixed': []})
+        self.assertFalse(plan['allow'])
+        self.assertNotIn('params', plan)
 
     def test_non_retryable_never_gets_a_delay(self):
         plan = pet_agent.retry_plan(0, '命中内容审核')

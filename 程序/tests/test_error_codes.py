@@ -92,9 +92,9 @@ class ErrorCodesTests(unittest.TestCase):
 class ClassifyTextTests(unittest.TestCase):
     """轮 5A D6：``classify(text)`` 错误文本 → ``ErrorCode`` 分类器。
 
-    关键词表自 ``ui.pet_agent_rules.PATTERNS`` 迁入（顺序即优先级）；
-    「是否重试」以码的 ``retryable`` 为唯一权威（G10），本类断言的正是
-    结果文件对照表里「改后 retry」那一列。
+    关键词表 ``TEXT_RULES`` 自 ``ui.pet_agent_rules.PATTERNS`` 迁入（顺序即优先级）；
+    轮 5B 起 PATTERNS 已删、「是否重试」以码的 ``retryable`` 为唯一权威（G10），
+    ``pet_agent.retry_plan`` 的接线断言见 ``test_pet_agent_error_wiring.py``。
     """
 
     # 对照表逐行：(探测文本, 期望码, 期望 retryable)。params→E-NET-CLIENT 是
@@ -119,13 +119,17 @@ class ClassifyTextTests(unittest.TestCase):
                 self.assertEqual(item.retryable, retryable, code)
                 self.assertIn(item.severity, SEVERITIES)
 
-    def test_text_rules_mirror_patterns_order_categories_and_marks(self):
-        """迁入保真：类目顺序、类目名与每条关键词表与 PATTERNS 逐一相等。"""
-        from ui.pet_agent_rules import PATTERNS
-        self.assertEqual([(category, marks) for category, _code, marks in TEXT_RULES],
-                         [(category, marks) for category, marks in PATTERNS])
+    def test_text_rules_categories_have_verdicts_and_registered_codes(self):
+        """轮 5B：PATTERNS 已删，TEXT_RULES 是唯一关键词表——每个类目都要有
+        VERDICTS 动作/文案兜底、每个码都在 CODES 登记、类目顺序与迁入时一致。"""
+        from ui.pet_agent_rules import VERDICTS
         self.assertEqual([category for category, _code, _marks in TEXT_RULES],
-                         [category for category, _marks in PATTERNS])
+                         ['auth', 'quota', 'content', 'params', 'rate_limit', 'timeout', 'server'])
+        for category, code, _marks in TEXT_RULES:
+            with self.subTest(category=category):
+                self.assertIn(code, CODES)
+                self.assertIn(category, VERDICTS)
+        self.assertIn('unknown', VERDICTS)
 
     def test_numeric_marks_require_standalone_digits(self):
         """与 pet_agent._mark_hit 同口径：长数字里的 429 不算被限流。"""
