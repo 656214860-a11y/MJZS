@@ -1190,7 +1190,9 @@ class DesktopSeamTests(unittest.TestCase):
             d.auto.handoff_queue.put((ticket, True, "自动交接包已整理：exports/MASTER.mp4", "sig"))
             d._tick_once()
             kinds = [(item["kind"], item.get("stage")) for item in d.pet.bus.history]
-            self.assertIn(("stage.completed", "delivery"), kinds)
+            # REQ-S13-54：完成事件须经 stage_completion_service 核验磁盘证据；本用例无交付产物，
+            # 正确结果是 stage.paused（待校验），不是 stage.completed。
+            self.assertIn(("stage.paused", "delivery"), kinds)
             self.assertIn("自动交接包已整理：exports/MASTER.mp4", d.pet.last_status)
         finally:
             win.destroy()

@@ -69,7 +69,10 @@ class ApprovedVersionSourceGuardTests(unittest.TestCase):
         self.assertRegex(consumer, r"from (?:orchestrator\.)?engine import [^\n]*\badopted_edit_version\b")
         self.assertRegex(consumer, r"from (?:orchestrator\.)?engine import [^\n]*\badoption_summary\b")
         # 自动粗剪与手动拼装都收敛到 adopted_edit_version；approved_versions 只留一处实现。
-        self.assertEqual(sources["engine.py"].count("adopted_edit_version(st['shots'].get(shot['id'])"), 2)
+        # R3364（REQ-S10-22）后自动粗剪经共用内核 edit_ready_rows（其内仍调 adopted_edit_version），
+        # 手动拼装 assemble() 保留直接调用，故字面模式各为 1 处＋内核入口 ≥2 处。
+        self.assertEqual(sources["engine.py"].count("adopted_edit_version(st['shots'].get(shot['id'])"), 1)
+        self.assertGreaterEqual(sources["engine.py"].count("edit_ready_rows("), 2)
         self.assertEqual(sources["engine.py"].count("approved_versions(st['shots'].get(shot['id']))"), 0)
 
 class EngineNameFallbackTests(unittest.TestCase):
