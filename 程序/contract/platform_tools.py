@@ -163,6 +163,11 @@ def run_process(command, *, run=None, **kwargs):
     if kwargs.get('cwd') is not None:
         kwargs['cwd'] = str(kwargs['cwd'])
     kwargs.setdefault('creationflags', hidden_console_flags())
+    # cp936 本地化下 text=True 缺省按 GBK 解码，工具/git 的 UTF-8 输出会让
+    # reader 线程崩溃、stdout/stderr 变 None；调用方显式给了编码或错误策略则尊重。
+    if (kwargs.get('text') or kwargs.get('universal_newlines')) and 'encoding' not in kwargs and 'errors' not in kwargs:
+        kwargs['encoding'] = 'utf-8'
+        kwargs['errors'] = 'replace'
     return runner(command, **kwargs)
 
 

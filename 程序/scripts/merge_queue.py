@@ -24,7 +24,8 @@ SERVING_STALE_SECONDS = 45 * 60  # serving 超龄视为执行者失联，可重�
 
 def common_dir(root: Path = PROGRAM.parent) -> Path:
     out = subprocess.run(["git", "-C", str(root), "rev-parse", "--git-common-dir"],
-                         capture_output=True, text=True, timeout=15)
+                         capture_output=True, text=True, timeout=15,
+                         encoding="utf-8", errors="replace")
     path = out.stdout.strip()
     if out.returncode or not path:
         raise RuntimeError("无法定位 git common-dir")
@@ -87,7 +88,7 @@ def _lane_name() -> str:
     try:
         top = subprocess.run(["git", "rev-parse", "--show-toplevel"],
                              capture_output=True, text=True, timeout=15,
-                             cwd=str(PROGRAM)).stdout.strip()
+                             cwd=str(PROGRAM), encoding="utf-8", errors="replace").stdout.strip()
         return Path(top).name if top else ""
     except (OSError, subprocess.SubprocessError):
         return ""
@@ -164,7 +165,8 @@ def serve(common: Path, once: bool = False) -> int:
 def _latest_round() -> int | None:
     try:
         out = subprocess.run([sys.executable, "-B", str(PROGRAM / "维护记录" / "基准脚本" / "round_claim.py"),
-                              "show"], cwd=str(PROGRAM), capture_output=True, text=True, timeout=30)
+                              "show"], cwd=str(PROGRAM), capture_output=True, text=True, timeout=30,
+                             encoding="utf-8", errors="replace")
         import re
         nums = [int(n) for n in re.findall(r"R(\d+)", out.stdout + out.stderr)]
         return max(nums) if nums else None

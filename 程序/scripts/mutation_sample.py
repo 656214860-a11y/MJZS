@@ -77,7 +77,8 @@ def run_sites(sites=SITES, timeout=120):
         }
         try:
             proc = subprocess.run([PYTHON, "-B", "-c", code], cwd=str(ROOT),
-                                  capture_output=True, text=True, timeout=timeout)
+                                  capture_output=True, text=True, timeout=timeout,
+                                  encoding='utf-8', errors='replace')
         except subprocess.TimeoutExpired:
             rows.append({"module": module, "test": test_file, "site": label,
                          "verdict": "错误", "stderr_tail": "运行超过 %d 秒被回收" % timeout})

@@ -29,7 +29,8 @@ def _bundled_interpreter() -> Path:
         return local
     try:
         out = subprocess.run(['git', 'rev-parse', '--git-common-dir'], cwd=str(ROOT),
-                             capture_output=True, text=True, timeout=15)
+                             capture_output=True, text=True, timeout=15,
+                             encoding='utf-8', errors='replace')
         common = Path(out.stdout.strip())
         if not common.is_absolute():
             common = (ROOT / common).resolve()
@@ -73,7 +74,8 @@ def _resolve(name: str) -> Path:
         return local
     try:
         out = subprocess.run(['git', 'rev-parse', '--git-common-dir'], cwd=str(ROOT),
-                             capture_output=True, text=True, timeout=15)
+                             capture_output=True, text=True, timeout=15,
+                             encoding='utf-8', errors='replace')
         common = Path(out.stdout.strip())
         if not common.is_absolute():
             common = (ROOT / common).resolve()
