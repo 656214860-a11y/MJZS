@@ -9,6 +9,7 @@
 import platform
 import threading
 import time
+from contextlib import nullcontext
 from pathlib import Path
 
 import domain.account_client as account_client
@@ -16,6 +17,7 @@ import infra.account_store as account_store
 import domain.entitlement_service as entitlement_service
 import infra.update_notice as update_notice
 from agent.core import save
+from agent.publication import access
 from contract.service_contract import SystemError, success
 
 RENEW_INTERVAL = 12 * 3600
@@ -152,24 +154,36 @@ class AccountController:
 
         def work():
             result = self._renew_once(token, device_id)
-            return success({'already_renewed': True}) if result is None else result
+            if result is None:
+                return success({'already_renewed': True, 'lease': self.session().get('lease')})
+            return result
         self._run(work, done, '续签会员授权', quiet=quiet)
         return True
 
     def _renew_once(self, token, device_id):
-        """持锁续签，返回结果；``None`` 表示别的续签已把令牌换新，本次不再用旧令牌请求。
-
-        会话失效只在本机令牌仍是本次所用令牌时才清：令牌已换新说明会话是活的。
-        """
-        with self._renew_lock:
-            if self.session().get('refresh_token') != token:
-                return None
+        """序列化同会话的续签，等待者重读。项目发布锁只覆盖最后的本机写入。"""
+        lock_path = getattr(self._store, 'renew_lock_path', None)
+        process_lock = access(lock_path=lock_path()) if lock_path else nullcontext()
+        with self._renew_lock, process_lock:
+            current = self.session().get('refresh_token')
+            if current != token:
+                return self._changed_renewal(current)
             result = self._client.renew(token, device_id)
-            if result.ok:
-                return self._accept(result.data)
-            if (result.data or {}).get('code') in SESSION_DEAD:
-                self._store.clear_session()
-            return result
+            with access():
+                current = self.session().get('refresh_token')
+                if current != token:
+                    return self._changed_renewal(current)
+                if result.ok:
+                    return self._accept(result.data)
+                if (result.data or {}).get('code') in SESSION_DEAD:
+                    self._store.clear_session()
+                return result
+
+    @staticmethod
+    def _changed_renewal(current):
+        if current:
+            return None
+        return SystemError('登录已失效，请重新登录', data={'code': 'session_invalid'})
 
     def check_update(self, done):
         """联网读 ``/v1/meta`` 判定是否有新版；结果 data 为 ``update_notice.evaluate`` 的字典，

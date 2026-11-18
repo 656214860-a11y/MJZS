@@ -109,8 +109,39 @@ def _recover(folder):
 
 
 @contextmanager
-def access():
-    """Block conflicting readers/writers; recover stale transactions once locked."""
+def _file_access(path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, 'a+b') as stream:
+        if stream.seek(0, 2) == 0:
+            stream.write(b'0')
+            stream.flush()
+        if os.name != 'nt':
+            raise RuntimeError('发布事务锁仅支持随附的 Windows 运行环境')
+        import msvcrt
+        deadline = time.monotonic() + 30
+        while True:
+            try:
+                stream.seek(0)
+                msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
+                break
+            except OSError as exc:
+                if time.monotonic() >= deadline:
+                    raise RuntimeError('发布事务忙，未读取或覆盖未提交成果') from exc
+                time.sleep(0.01)
+        try:
+            yield
+        finally:
+            stream.seek(0)
+            msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
+
+
+@contextmanager
+def access(*, lock_path=None):
+    """Serialize access and recover stale publication transactions for the default lock."""
+    if lock_path is not None:
+        with _file_access(Path(lock_path)):
+            yield
+        return
     with _LOCK:
         if getattr(_LOCAL, 'depth', 0):
             _LOCAL.depth += 1
@@ -119,24 +150,7 @@ def access():
             finally:
                 _LOCAL.depth -= 1
             return
-        ROOT.mkdir(parents=True, exist_ok=True)
-        with open(ROOT / 'writer.lock', 'a+b') as stream:
-            if stream.seek(0, 2) == 0:
-                stream.write(b'0')
-                stream.flush()
-            if os.name != 'nt':
-                raise RuntimeError('发布事务锁仅支持随附的 Windows 运行环境')
-            import msvcrt
-            deadline = time.monotonic() + 30
-            while True:
-                try:
-                    stream.seek(0)
-                    msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
-                    break
-                except OSError as exc:
-                    if time.monotonic() >= deadline:
-                        raise RuntimeError('发布事务忙，未读取或覆盖未提交成果') from exc
-                    time.sleep(0.01)
+        with _file_access(ROOT / 'writer.lock'):
             _LOCAL.depth = 1
             try:
                 for folder in ROOT.iterdir():
@@ -145,8 +159,6 @@ def access():
                 yield
             finally:
                 _LOCAL.depth = 0
-                stream.seek(0)
-                msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
 
 
 def before_replace(target):

@@ -27,6 +27,10 @@ def session_path(base=None):
     return Path(base or PROGRAM).joinpath(*SESSION_FILE)
 
 
+def renew_lock_path(path=None):
+    return Path(path or session_path()).with_name('renew.lock')
+
+
 def load(path=None):
     """完整性验证失败按未登录处理，由既有登录入口提示重新登录。"""
     target = Path(path or session_path())
