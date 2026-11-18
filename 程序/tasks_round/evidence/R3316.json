@@ -1,0 +1,15 @@
+{
+  "round": 3316,
+  "commit_base": "0e81bd57",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k voice_ai handoff_bundle handoff_service shared_input_voice dialog_voice_input media_page recon white_model",
+    "exit": 0,
+    "passed": 196,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T11:04:59"
+}

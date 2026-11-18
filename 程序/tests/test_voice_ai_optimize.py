@@ -55,8 +55,8 @@ class OptimizeTextTests(unittest.TestCase):
         chat = FakeChat({'ok': True, 'text': '```\n他说子进程好。\n```'})
         result = voice_ai.optimize_text('他说子进成好', chat=chat, model='m1',
                                         config={'template': 'fix'})
-        self.assertTrue(result['ok'])
-        self.assertEqual(result['text'], '他说子进程好。')
+        self.assertTrue(result.ok)
+        self.assertEqual(result.data['text'], '他说子进程好。')
         call = chat.calls[0]
         self.assertEqual(call['model'], 'm1')
         self.assertIn('语音识别文本校对', call['system'])
@@ -72,19 +72,37 @@ class OptimizeTextTests(unittest.TestCase):
         ]
         for chat, expected in cases:
             result = voice_ai.optimize_text('原文', chat=chat, config={'template': 'fix'})
-            self.assertFalse(result['ok'], expected)
-            self.assertEqual(result['text'], '原文', '失败保留原文')
+            self.assertFalse(result.ok, expected)
+            self.assertEqual(result.data['text'], '原文', '失败保留原文')
             if expected:
-                self.assertIn(expected, result['reason'])
+                self.assertIn(expected, result.reason)
 
     def test_empty_input_and_bad_template(self):
         chat = FakeChat({'ok': True, 'text': 'x'})
         result = voice_ai.optimize_text('  ', chat=chat)
-        self.assertFalse(result['ok'])
+        self.assertFalse(result.ok)
         self.assertEqual(chat.calls, [], '空文本不发请求')
         result = voice_ai.optimize_text('文本', chat=chat, config={'template': 'warp'})
-        self.assertFalse(result['ok'])
+        self.assertFalse(result.ok)
         self.assertEqual(chat.calls, [], '坏模板不发请求')
+
+    def test_result_uses_service_contract_types(self):
+        """R3316 轮 8：返回收口为 service_contract 四字段结果，不再自造 {'ok':...}。"""
+        from contract.service_contract import ServiceResult, SystemError, UserError, is_failure
+        chat = FakeChat({'ok': True, 'text': '改后的文本'})
+        ok_result = voice_ai.optimize_text('原文', chat=chat, config={'template': 'fix'})
+        self.assertIsInstance(ok_result, ServiceResult)
+        self.assertTrue(ok_result.ok)
+        self.assertFalse(is_failure(ok_result))
+        empty = voice_ai.optimize_text('  ', chat=chat)
+        self.assertIsInstance(empty, UserError, '空输入是用户可修正的前置条件')
+        self.assertTrue(is_failure(empty))
+        bad_template = voice_ai.optimize_text('文本', chat=chat, config={'template': 'warp'})
+        self.assertIsInstance(bad_template, UserError, '模板配置错误用户可修正')
+        boom = voice_ai.optimize_text('原文', chat=FakeChat(None, error=RuntimeError('x')),
+                                      config={'template': 'fix'})
+        self.assertIsInstance(boom, SystemError, '模型调用异常属运行环境错误')
+        self.assertTrue(is_failure(boom))
 
 
 class FacadeTests(unittest.TestCase):

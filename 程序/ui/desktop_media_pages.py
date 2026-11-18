@@ -903,15 +903,16 @@ class MediaPagesMixin:
         def work():
             from stage_execution_service import verify_handoff_bundle
             return verify_handoff_bundle(folder)
-        def done(report):
-            label=report.get('label') or '素材交接包'
-            if report.get('ok'):
-                missing=report.get('missing') or []
-                text='交接包校验通过：%s，共 %d 个文件'%(label,report.get('count',0))
+        def done(result):
+            data=result.data or {}
+            label=data.get('label') or '素材交接包'
+            if result.ok:
+                missing=data.get('missing') or []
+                text='交接包校验通过：%s，共 %d 个文件'%(label,data.get('count',0))
                 if missing:text+='；清单声明缺 '+'、'.join(str(item) for item in missing)+' 镜（素材交接包允许缺镜）'
                 self.status.set(text)
                 return
-            self.status.set('交接包校验未通过：'+'；'.join(report.get('problems') or ['未知问题']))
+            self.status.set('交接包校验未通过：'+'；'.join(data.get('problems') or [result.reason or '未知问题']))
         self.async_(work,done)
     def delivery(self):
         from domain.stage_workspace_service import ensure_delivery_workspace

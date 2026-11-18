@@ -6,7 +6,12 @@
 自带模型池路由、RPM 与计量），本模块只负责拼消息、调 chat、清洗结果。
 
 L2 纪律：不 import ``writing_api``（L3），不碰 Tk、不碰网络。
+结果契约：``optimize_text`` 返回 ``service_contract.ServiceResult``——成功数据
+``{'text': 清洗后文本}``；输入与模板问题为 ``UserError``，模型调用与结果异常为
+``SystemError``，失败数据保留 ``{'text': 原文}`` 供调用方回退。
 """
+
+from contract.service_contract import SystemError, UserError, success
 
 TEMPLATES = ('fix', 'polish', 'translate', 'custom')
 
@@ -60,28 +65,31 @@ def optimize_text(text, *, chat, model='', config=None):
 
     ``chat`` 是注入的模型调用，签名与 ``WritingRequestAdapter.chat`` 一致：
     ``chat(messages, options=..., model=..., system=...)`` 返回 ``{'ok','text',...}``。
-    返回 ``{'ok': bool, 'text': str, 'reason': str}``；任何失败都给中文原因、不抛错
-    （未配模型由调用方在进入本函数前提示，本函数只管模板与结果）。
+    返回 ``ServiceResult``：成功数据 ``{'text': str}``；失败为 ``UserError``
+    （空输入、模板／提示词不合法，用户可修正）或 ``SystemError``（模型调用异常、
+    结果为空／过长／格式不对，属运行环境），失败数据保留 ``{'text': 原文}``。
+    任何失败都给中文原因、不抛错（未配模型由调用方在进入本函数前提示，
+    本函数只管模板与结果）。
     """
     source = str(text or '').strip()
     if not source:
-        return {'ok': False, 'text': '', 'reason': '没有可优化的文本'}
+        return UserError('没有可优化的文本', data={'text': ''})
     messages, options, system, problem = build_request(source, config)
     if problem:
-        return {'ok': False, 'text': source, 'reason': problem}
+        return UserError(problem, data={'text': source})
     try:
         result = chat(messages, options=options, model=model, system=system)
     except Exception as exc:  # noqa: BLE001 —— 模型调用失败不阻断听写结果
-        return {'ok': False, 'text': source,
-                'reason': 'AI 优化调用失败（%s）' % str(exc)[:120]}
+        return SystemError('AI 优化调用失败（%s）' % str(exc)[:120],
+                           data={'text': source})
     if not isinstance(result, dict):
-        return {'ok': False, 'text': source, 'reason': 'AI 优化返回格式不正确'}
+        return SystemError('AI 优化返回格式不正确', data={'text': source})
     if not result.get('ok'):
         detail = str(result.get('reason') or result.get('error') or '模型未返回结果')
-        return {'ok': False, 'text': source, 'reason': 'AI 优化未完成：%s' % detail[:160]}
+        return SystemError('AI 优化未完成：%s' % detail[:160], data={'text': source})
     cleaned = clean_result(result.get('text'))
     if not cleaned:
-        return {'ok': False, 'text': source, 'reason': 'AI 优化返回为空，已保留原文'}
+        return SystemError('AI 优化返回为空，已保留原文', data={'text': source})
     if len(cleaned) > _MAX_RESULT_CHARS:
-        return {'ok': False, 'text': source, 'reason': 'AI 优化结果过长，已保留原文'}
-    return {'ok': True, 'text': cleaned, 'reason': ''}
+        return SystemError('AI 优化结果过长，已保留原文', data={'text': source})
+    return success({'text': cleaned})
