@@ -13,6 +13,10 @@ def _layer_ledger() -> dict:
     return json.loads(LEDGER.read_text(encoding="utf-8"))["层级"]
 
 
+def _dynamic_layer_ledger() -> dict:
+    return json.loads(LEDGER.read_text(encoding="utf-8"))["动态层级"]
+
+
 def _upward_pairs() -> set[tuple[str, str, str]]:
     pairs = set()
     for path in module_scan_files():
@@ -26,13 +30,9 @@ def _upward_pairs() -> set[tuple[str, str, str]]:
                 pairs.add((path.name, importer, imported))
     return pairs
 
-# R1777 审计：常量字符串的 import_module／__import__ 绕开了上面的静态越层扫描，也不在台账里。
-# 下面是并入动态导入后才暴露的存量越层，只许减少、不许新增；消除一条就删一行。
-KNOWN_DYNAMIC_UPWARD = frozenset({
-    ("engine.py", "engine", "white_model"),
-    ("keyframe_batch.py", "keyframe_batch", "stage_parallel"),
-    ("script_contract.py", "script_contract", "script_skill_report"),
-})
+# R1777 审计：常量字符串的 import_module／__import__ 绕开了上面的静态越层扫描。
+# 存量动态越层豁免已并入 维护记录/架构统一基数.json 的「动态层级」段（K2 单源化），
+# 只许减少、不许新增；消除一条就删台账行。
 
 
 def _dynamic_upward_pairs() -> set[tuple[str, str, str]]:
@@ -51,11 +51,18 @@ def _dynamic_upward_pairs() -> set[tuple[str, str, str]]:
 
 class LayerDirectionTests(unittest.TestCase):
     def test_dynamic_imports_do_not_add_upward_dependencies(self) -> None:
+        record = _dynamic_layer_ledger()
+        items = record["items"]
+        ledger_pairs = {(item["file"], item["importer"], item["imported"]) for item in items}
+        self.assertEqual(len(items), len(ledger_pairs), "动态层级豁免不得重复登记")
         found = _dynamic_upward_pairs() - _upward_pairs()  # 静态口径已登记的不重复算
-        self.assertEqual(sorted(found - KNOWN_DYNAMIC_UPWARD), [],
-                         "动态导入出现新的越层依赖，请改依赖方向而不是登记：")
-        self.assertEqual(sorted(KNOWN_DYNAMIC_UPWARD - found), [],
-                         "下列动态越层已消除，请从 KNOWN_DYNAMIC_UPWARD 删除（棘轮只降不升）：")
+        self.assertEqual(found, ledger_pairs,
+                         "动态越层台账必须与实测一致：新增请改依赖方向，消除请删台账行")
+        self.assertLessEqual(len(items), record["baseline_exempt"],
+                             "既存动态越层豁免数不得高于本轮定稿基数")
+        for item in items:
+            self.assertEqual(item["disposition"], "exempt")
+            self.assertEqual(item["reason"], "既存动态越层，待专项收口")
 
     def test_idea_attachments_is_registered_as_l2_and_has_no_upward_dependency(self) -> None:
         """附件文本编排是领域服务，必须受分层扫描保护。"""

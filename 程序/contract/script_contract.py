@@ -13,10 +13,10 @@
   认不出来的片段留在 raw 里（原文不丢）。
 - 任务 7：所有 manifest 里的 ID 必须唯一。`duplicate_ids()` 报重复、`reassign_ids()` 重发号、
   `unique_ids()` 是验收口径；`completeness()` 是产出完整性那一份报告（交付物 5）。
-- 任务 1～4 的审计表也做成数据：`manifest_rows()` 从真注册表读 SKILL 的名称／路径／输入／输出，
-  `audit_rows()` 给每个 SKILL 一个类别与处理动作。报告与代码同源，不会各说各的。
-- 任务 3 的收口（第 8 轮）：「重叠」的台词润色与「支撑」的世界观设定不删文件、并回正稿的
-  相应那一段，产物归属与落点由 `support_rows()` 发出、`merge_problems()` 体检。
+- 任务 1～4 的审计表也做成数据：`AUDIT` 等常量声明每个 SKILL 的类别与处理动作；
+  读真注册表的报告函数（`manifest_rows()`／`audit_rows()`／`support_rows()`／
+  `merge_problems()`／`unlisted_skills()`）权威实现在 L3 `orchestrator.script_skill_report`，
+  本层不反向依赖注册表（K2）。
 
 口径跟 `asset_contract` 一致——**只补不改**：normalize 只补缺的键与缺的编号，已有的值一个都不动，
 老 JSON 少这几个键照旧读得出来。
@@ -1043,60 +1043,8 @@ from contract.script_manifest_schema import AUDIT, CATEGORIES, HINTS, ID_FIELD, 
 
 # ── 任务 1～4 的表（从真注册表读，报告与代码同源）──────────────────────────
 def program_root(program=None):
-    """程序目录。"""
-    return Path(program or Path(__file__).resolve().parent)
-
-
-def manifest_rows(program=None):
-    """任务 1 的表：剧本准备及剧本结构 SKILL 的名称／文件路径／输入／输出／输出格式。
-
-    直接读真注册表（`skill_registry` 扫的就是本程序 skills/ 里的 SKILL 文件），
-    不在代码里再抄一份——表跟 SKILL 文件不会各说各的。
-    """
-    # Compatibility facade for callers of the former contract API.  The
-    # registry report belongs to L3 and is deliberately loaded only on demand.
-    from importlib import import_module
-    return import_module('script_skill_report').manifest_rows(program)
-
-
-def audit_rows(program=None):
-    """任务 2／3／4 的表：每个 SKILL 的类别、处理动作、改造后归属与理由。"""
-    from importlib import import_module
-    return import_module('script_skill_report').audit_rows(program)
-
-
-def unlisted_skills(program=None):
-    """剧本阶段有 SKILL、审计表里却没有它的（正常是空的）。"""
-    known = {skill for skill, _category, _owner, _reason in AUDIT}
-    return tuple(row['skill'] for row in manifest_rows(program) if row['skill'] not in known)
-
-
-
-def support_rows(program=None):
-    """任务 3 的收口表：那两个重叠／支撑的 SKILL 现在挂在哪、产物并到哪里去。
-
-    归属者只有 `MERGE_OWNER` 一处；类别与理由仍从 `AUDIT` 读（跟着 `audit_rows()` 走），
-    所以报告、面板与自检看的是同一份口径，不各写一遍。
-    """
-    rows = []
-    for row in audit_rows(program):
-        landing = MERGE_LANDING.get(row['skill'])
-        if landing is None:
-            continue
-        merged = dict(row)
-        merged['owner'] = MERGE_OWNER
-        merged['part'] = MERGE_PART[row['skill']]
-        merged['landing'] = landing
-        rows.append(merged)
-    return tuple(rows)
-
-
-def merge_problems(program=None):
-    """收口体检：归属者声明过这个子步骤、并回来的产物有真实落点（正常是空表）。"""
-    from importlib import import_module
-    return import_module('script_skill_report').merge_problems(program)
-
-
+    """程序目录；缺省取本文件上两级（contract/script_contract.py → 程序/）。"""
+    return Path(program or Path(__file__).resolve().parent.parent)
 
 
 from contract.script_output_spec import LOUDNESS_DEFAULTS, OUTPUT_SPEC_DEFAULTS, PREVIEW_FPS, PREVIEW_SHORT_EDGE, describe_output_spec, loudness_filter, output_filter, overlay_metrics, parse_ratio, parse_resolution, preview_spec, resolve_output_spec

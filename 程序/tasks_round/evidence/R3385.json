@@ -1,0 +1,15 @@
+{
+  "round": 3385,
+  "commit_base": "af2c08ea",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k script_contract layers",
+    "exit": 0,
+    "passed": 86,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T20:13:12"
+}

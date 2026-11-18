@@ -5,7 +5,28 @@ so core script facts remain usable without loading the stage Skill registry.
 """
 from pathlib import Path
 
-from contract.script_contract import AUDIT, CATEGORIES, MERGED, MERGE_OWNER, PRODUCER_SKILLS, SCRIPT_SKILL_STAGES, STAGE, program_root
+from contract.script_contract import AUDIT, CATEGORIES, MERGED, MERGE_LANDING, MERGE_OWNER, MERGE_PART, PRODUCER_SKILLS, SCRIPT_SKILL_STAGES, STAGE, program_root
+
+
+def unlisted_skills(program=None):
+    """剧本阶段有 SKILL、审计表里却没有它的（正常是空的）。"""
+    known = {skill for skill, _category, _owner, _reason in AUDIT}
+    return tuple(row['skill'] for row in manifest_rows(program) if row['skill'] not in known)
+
+
+def support_rows(program=None):
+    """任务 3 的收口表：那两个重叠／支撑的 SKILL 现在挂在哪、产物并到哪里去。"""
+    rows = []
+    for row in audit_rows(program):
+        landing = MERGE_LANDING.get(row['skill'])
+        if landing is None:
+            continue
+        merged = dict(row)
+        merged['owner'] = MERGE_OWNER
+        merged['part'] = MERGE_PART[row['skill']]
+        merged['landing'] = landing
+        rows.append(merged)
+    return tuple(rows)
 
 
 def manifest_rows(program=None):

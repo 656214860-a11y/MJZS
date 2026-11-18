@@ -95,8 +95,8 @@
   "tests.test_writing_api"
  ],
  "tests_ok": true,
- "points_total": 2741,
- "points_covered": 1522,
+ "points_total": 2739,
+ "points_covered": 1530,
  "modules": [
   {
    "module": "comfy_service.py",
@@ -207,12 +207,6 @@
    "percent": 27.6
   },
   {
-   "module": "script_contract.py",
-   "points": 134,
-   "covered": 40,
-   "percent": 29.9
-  },
-  {
    "module": "qwen_setup.py",
    "points": 10,
    "covered": 3,
@@ -235,6 +229,12 @@
    "points": 31,
    "covered": 10,
    "percent": 32.3
+  },
+  {
+   "module": "script_contract.py",
+   "points": 132,
+   "covered": 46,
+   "percent": 34.8
   },
   {
    "module": "seedream_api.py",
@@ -353,8 +353,8 @@
   {
    "module": "publication.py",
    "points": 31,
-   "covered": 19,
-   "percent": 61.3
+   "covered": 20,
+   "percent": 64.5
   },
   {
    "module": "global_library_service.py",
@@ -459,12 +459,6 @@
    "percent": 79.2
   },
   {
-   "module": "file_index.py",
-   "points": 93,
-   "covered": 74,
-   "percent": 79.6
-  },
-  {
    "module": "prompt_templates.py",
    "points": 10,
    "covered": 8,
@@ -475,6 +469,12 @@
    "points": 10,
    "covered": 8,
    "percent": 80.0
+  },
+  {
+   "module": "file_index.py",
+   "points": 93,
+   "covered": 75,
+   "percent": 80.6
   },
   {
    "module": "token_saver.py",

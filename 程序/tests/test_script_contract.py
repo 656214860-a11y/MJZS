@@ -17,6 +17,7 @@ sys.path.insert(0, HERE)
 os.chdir(HERE)
 
 import script_contract as sc
+import script_skill_report as report
 
 
 class NaturalScriptSaveTests(unittest.TestCase):
@@ -77,6 +78,15 @@ def character(**extra):
     return item
 
 
+class ProgramRootTests(unittest.TestCase):
+    """R3385 K2-1：program_root() 缺省必须指向程序目录（含 skills/），不是 contract/ 子目录。"""
+
+    def test_program_root_defaults_to_program_dir(self):
+        root = Path(sc.program_root())
+        self.assertTrue((root / 'skills').is_dir(),
+                        'program_root() 缺省应返回程序目录：%s' % root)
+
+
 class AuditTests(unittest.TestCase):
     """任务 1～4：审计表从真注册表读，剧本阶段的 SKILL 一个都不落。"""
 
@@ -134,16 +144,16 @@ class AuditTests(unittest.TestCase):
         self.assertIn("episode.json", outputs, "老的三份一个都不动")
 
     def test_the_audit_covers_every_script_skill(self):
-        rows = sc.manifest_rows(HERE)
+        rows = report.manifest_rows(HERE)
         self.assertEqual([row["skill"] for row in rows],
                          ["screenplay-production-line", "screenplay-writer",
                           "script-character-extraction", "script-dialogue-polish",
                           "script-forging", "script-structured-generation",
                           "script-worldbuilding", "短剧编剧搭子", "编剧技能集"])
-        self.assertEqual(sc.unlisted_skills(HERE), (), "剧本阶段的 SKILL 都要有审计行")
+        self.assertEqual(report.unlisted_skills(HERE), (), "剧本阶段的 SKILL 都要有审计行")
 
     def test_every_row_has_a_legal_category_and_action(self):
-        for row in sc.audit_rows(HERE):
+        for row in report.audit_rows(HERE):
             self.assertIn(row["category"], sc.CATEGORIES, row["skill"])
             self.assertEqual(row["action"], sc.CATEGORIES[row["category"]])
             self.assertTrue(row["reason"], row["skill"])
@@ -153,7 +163,7 @@ class AuditTests(unittest.TestCase):
     def test_the_categories_are_the_four_the_attachment_asked_for(self):
         self.assertEqual(sorted(sc.CATEGORIES),
                          sorted(["核心", "支撑", "重叠", "冗余"]))
-        by_skill = dict((row["skill"], row["category"]) for row in sc.audit_rows(HERE))
+        by_skill = dict((row["skill"], row["category"]) for row in report.audit_rows(HERE))
         for skill in ("script-structured-generation", "script-character-extraction"):
             self.assertEqual(by_skill[skill], "核心", skill)
         self.assertEqual(by_skill["script-dialogue-polish"], "重叠")
@@ -402,7 +412,7 @@ class MergeTests(unittest.TestCase):
     """任务 3 的收口（第 8 轮）：重叠／支撑的那两个并回正稿的哪一段、产物落在哪。"""
 
     def test_the_two_support_skills_share_one_owner(self):
-        rows = sc.support_rows(HERE)
+        rows = report.support_rows(HERE)
         self.assertEqual(sorted(row["skill"] for row in rows), sorted(sc.MERGED_SKILLS))
         for row in rows:
             self.assertEqual(row["owner"], sc.MERGE_OWNER, row["skill"])
@@ -413,7 +423,7 @@ class MergeTests(unittest.TestCase):
         self.assertEqual(by_skill["script-worldbuilding"], "支撑")
 
     def test_the_audit_row_names_the_same_owner(self):
-        for row in sc.audit_rows(HERE):
+        for row in report.audit_rows(HERE):
             if row["skill"] in sc.MERGED_SKILLS:
                 self.assertIn(sc.MERGE_OWNER, row["owner"], row["skill"])
 
@@ -440,7 +450,7 @@ class MergeTests(unittest.TestCase):
 
     def test_the_human_readable_landing_is_a_declared_doc(self):
         import stage_layout
-        landing = [row["landing"] for row in sc.support_rows(HERE)
+        landing = [row["landing"] for row in report.support_rows(HERE)
                    if row["skill"] == "script-worldbuilding"][0]
         self.assertEqual(landing, "docs/world_bible.md")
         stage_name = stage_layout.stage_dir(sc.STAGE)[0]
@@ -448,7 +458,39 @@ class MergeTests(unittest.TestCase):
         self.assertIn("world_bible.md", names, "落点要写进剧本准备/docs 的清单")
 
     def test_merge_problems_is_clean(self):
-        self.assertEqual(sc.merge_problems(HERE), ())
+        self.assertEqual(report.merge_problems(HERE), ())
+
+
+class StructureManifestProblemsTests(unittest.TestCase):
+    """R3385 K2：补结构 manifest 体检边界——缺件、坏 JSON、名单比对、路径读不到。"""
+
+    def test_missing_broken_and_stale_manifests_are_reported(self):
+        with tempfile.TemporaryDirectory() as td:
+            project = Path(td)
+            folder = sc.structure_manifest_dir(project)
+            folder.mkdir(parents=True, exist_ok=True)
+
+            empty = sc.structure_manifest_problems(project)
+            self.assertEqual(len(empty), 3, "三份 manifest 全缺时各报一条")
+            self.assertTrue(all('还没产出' in text for text in empty), empty)
+
+            (folder / 'character_manifest.json').write_text(json.dumps(
+                {'manifest': 'character_manifest.json', 'kind': 'character', 'items': []}),
+                encoding='utf-8')
+            (folder / 'scene_manifest.json').write_text(json.dumps(
+                {'manifest': 'scene_manifest.json', 'kind': 'scene',
+                 'items': [{'name': '幽灵场景'}]}), encoding='utf-8')
+            (folder / 'prop_manifest.json').write_text('{broken', encoding='utf-8')
+
+            problems = sc.structure_manifest_problems(project)
+            self.assertTrue(any('读不出来' in text for text in problems), problems)
+            self.assertEqual(sc.structure_manifest_problems(project, project / 'missing.md'),
+                             problems, '结构稿路径读不到时按无基准处理')
+
+            structured = project / '结构剧本.md'
+            structured.write_text('', encoding='utf-8')
+            stale = sc.structure_manifest_problems(project, structured)
+            self.assertTrue(any('不一致' in text for text in stale), stale)
 
 
 class EpisodeIncrementalTests(unittest.TestCase):
