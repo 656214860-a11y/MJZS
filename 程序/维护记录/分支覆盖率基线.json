@@ -97,8 +97,8 @@
   "tests.test_process_supervisor"
  ],
  "tests_ok": true,
- "points_total": 2766,
- "points_covered": 1543,
+ "points_total": 2775,
+ "points_covered": 1547,
  "modules": [
   {
    "module": "comfy_service.py",
@@ -155,12 +155,6 @@
    "percent": 5.3
   },
   {
-   "module": "comfy_runtime.py",
-   "points": 9,
-   "covered": 1,
-   "percent": 11.1
-  },
-  {
    "module": "prop_assets.py",
    "points": 21,
    "covered": 3,
@@ -197,6 +191,12 @@
    "percent": 27.6
   },
   {
+   "module": "core.py",
+   "points": 35,
+   "covered": 10,
+   "percent": 28.6
+  },
+  {
    "module": "native_apps.py",
    "points": 21,
    "covered": 6,
@@ -221,16 +221,16 @@
    "percent": 30.0
   },
   {
-   "module": "core.py",
-   "points": 33,
-   "covered": 10,
-   "percent": 30.3
-  },
-  {
    "module": "usage_snapshot.py",
    "points": 31,
    "covered": 10,
    "percent": 32.3
+  },
+  {
+   "module": "comfy_runtime.py",
+   "points": 9,
+   "covered": 3,
+   "percent": 33.3
   },
   {
    "module": "seedream_api.py",
@@ -413,6 +413,12 @@
    "percent": 73.1
   },
   {
+   "module": "workflow_process_registry.py",
+   "points": 68,
+   "covered": 50,
+   "percent": 73.5
+  },
+  {
    "module": "frame_checks.py",
    "points": 12,
    "covered": 9,
@@ -441,12 +447,6 @@
    "points": 42,
    "covered": 33,
    "percent": 78.6
-  },
-  {
-   "module": "workflow_process_registry.py",
-   "points": 61,
-   "covered": 48,
-   "percent": 78.7
   },
   {
    "module": "http_client.py",

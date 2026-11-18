@@ -229,9 +229,74 @@ class ExitClassificationTests(unittest.TestCase):
             subprocess.Popen([sys.executable, '-c',
                               'import sys; sys.stderr.write("tail-line\\n"); sys.stderr.flush()'],
                              stderr=subprocess.PIPE), in_job=False)
+        handle.start_pump()
         self.assertEqual(handle.wait(timeout=30), 0)
         self.assertIn('tail-line', handle.stderr_tail())
         self.assertEqual(handle.error_code(), '')
+
+
+class SupervisedLifecycleTests(unittest.TestCase):
+    """I9a：popen 注入缝、communicate 自动注销、按项目/阶段/种类统一取消。"""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.project = Path(self._tmp.name)
+
+    def tearDown(self):
+        for process in wpr.all_processes():
+            try:
+                if process.poll() is None:
+                    process.kill()
+            except Exception:
+                pass
+        key = wpr._key(self.project)
+        with wpr._lock:
+            wpr._running.pop(key, None)
+
+    def test_spawn_popen_injection_and_communicate_forgot(self):
+        class FakeProc:
+            pid = 0
+            returncode = 0
+            def __init__(self):
+                self.stderr = None
+            def poll(self):
+                return self.returncode
+            def communicate(self, input=None, timeout=None):
+                return ('out', 'err')
+            def wait(self, timeout=None):
+                return self.returncode
+        fake = FakeProc()
+        handle = wpr.spawn('ffmpeg', ['x'], project=self.project, stage='t',
+                           timeout=5, popen=lambda *a, **k: fake)
+        self.assertIs(handle.process, fake)
+        self.assertIn(fake, wpr.processes(self.project))
+        self.assertEqual(handle.communicate(timeout=5), ('out', 'err'))
+        self.assertNotIn(fake, wpr.processes(self.project))
+
+    def test_cancel_supervised_filters_by_stage_and_kind(self):
+        first = wpr.spawn('ffmpeg', _sleep_command(60),
+                          project=self.project, stage='cut', timeout=60)
+        second = wpr.spawn('ffmpeg', _sleep_command(60),
+                           project=self.project, stage='mix', timeout=60)
+        third = wpr.spawn('test_runner', _sleep_command(60),
+                          project=self.project, stage='cut', timeout=60)
+        try:
+            self.assertEqual(
+                wpr.cancel_supervised(self.project, stage='cut', kind='ffmpeg'), 1)
+            self.assertNotIn(first.process, wpr.processes(self.project))
+            self.assertIn(second.process, wpr.processes(self.project))
+            self.assertIn(third.process, wpr.processes(self.project))
+            self.assertEqual(wpr.cancel_supervised(self.project, kind='test_runner'), 1)
+            self.assertNotIn(third.process, wpr.processes(self.project))
+            self.assertIn(second.process, wpr.processes(self.project))
+        finally:
+            for handle in (first, second, third):
+                try:
+                    handle.process.kill()
+                    handle.process.wait(timeout=10)
+                except Exception:
+                    pass
 
 
 if __name__ == '__main__':

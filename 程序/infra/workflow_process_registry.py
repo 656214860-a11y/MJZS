@@ -1,6 +1,9 @@
 """Thread-safe registry of child workflow processes, independent of adapters."""
+import logging
 import os
 import threading
+
+_LOG = logging.getLogger('workflow_process_registry')
 
 _running = {}
 _supervised = {}
@@ -166,8 +169,7 @@ def _assign_to_job(process):
             elif close_handle:
                 kernel32.CloseHandle(handle)
     except Exception:
-        import infra.app_logging as app_logging
-        app_logging.swallowed('workflow_process_registry._assign_to_job')
+        _LOG.debug('Job Object 分配失败，进程仅登记不挂 Job', exc_info=True)
 
 
 def _key(project):
@@ -350,6 +352,33 @@ def supervised_info(process):
         info = _supervised.get(id(process))
         return dict(info) if info else {}
 
+def cancel_supervised(project, *, stage=None, kind=None):
+    """按项目结束登记过的受监督进程；给 ``stage``/``kind`` 时再收窄。
+
+    只动 ``spawn`` 登记的进程（``_supervised`` 有元数据）；返回结束数。
+    """
+    from contract.platform_tools import terminate_process_tree
+    key = _key(project)
+    with _lock:
+        items = [process for process in _running.get(key, ())
+                 if id(process) in _supervised
+                 and (stage is None or _supervised[id(process)].get('stage') == stage)
+                 and (kind is None or _supervised[id(process)].get('kind') == kind)]
+    killed = 0
+    for process in items:
+        try:
+            terminate_process_tree(process)
+            process.wait(timeout=3)
+        except Exception:
+            try:
+                process.kill()
+            except Exception:
+                _LOG.debug('cancel_supervised 兜底 kill 失败', exc_info=True)
+        forget_process(project, process)
+        killed += 1
+    return killed
+
+
 def processes(project):
     with _lock:
         return list(_running.get(_key(project), []))
@@ -432,7 +461,15 @@ class SupervisedProcess:
         from collections import deque
         self._stderr_tail = deque(maxlen=_STDERR_TAIL_LINES)
         self._stderr_lock = threading.Lock()
-        stream = getattr(process, 'stderr', None)
+        self._pump_started = False
+
+    def start_pump(self):
+        """启动 stderr 尾部泵线程（幂等）。``communicate`` 会自行排干 stderr，
+        调用方随后走 communicate 时由 ``spawn(pump_stderr=False)`` 关闭本泵。"""
+        if self._pump_started:
+            return
+        self._pump_started = True
+        stream = getattr(self.process, 'stderr', None)
         if stream is not None:
             threading.Thread(target=self._pump_stderr, args=(stream,),
                              daemon=True, name='supervised-stderr').start()
@@ -447,10 +484,10 @@ class SupervisedProcess:
                     self._stderr_tail.append(line)
             try:
                 stream.close()
-            except (OSError, ValueError):
-                pass
-        except (OSError, ValueError):
-            pass
+            except Exception:
+                _LOG.debug('stderr 泵关闭管道失败', exc_info=True)
+        except Exception:
+            _LOG.debug('stderr 泵读取中断', exc_info=True)
 
     @property
     def pid(self):
@@ -486,6 +523,28 @@ class SupervisedProcess:
         return classify_exit(self.process.poll(), timed_out=timed_out,
                              stderr_tail=self.stderr_tail())
 
+    def communicate(self, input=None, timeout=None):
+        """同步等待并回收输出；结束（含超时被杀）后自动从进程表注销。
+
+        与 ``subprocess.run(timeout=...)`` 同约定：超时或被打断先结束进程树，
+        再从登记表移除，避免活进程脱离「强制停止」可见范围。
+        """
+        try:
+            result = self.process.communicate(
+                input=input,
+                timeout=self.timeout if timeout is None else timeout)
+        except BaseException:
+            try:
+                from contract.platform_tools import terminate_process_tree
+                terminate_process_tree(self.process)
+                self.process.wait(timeout=3)
+            except Exception:
+                _LOG.debug('communicate 清理失败', exc_info=True)
+            forget_process(self.project, self.process)
+            raise
+        forget_process(self.project, self.process)
+        return result
+
 
 def classify_exit(returncode, *, timed_out=False, stderr_tail=''):
     """把退出码与 stderr 尾部归类为 ``error_codes`` 码；成功返回空串。
@@ -517,6 +576,10 @@ def spawn(kind, command, *, project, stage, timeout=None, health=None,
     返回 ``SupervisedProcess``；``detached`` 种类登记但不进 Job Object。
     其余关键字原样透传给 ``subprocess.Popen``（``env``/``cwd``/``stdin``/``stdout``/
     ``stderr`` 等）；``stderr`` 缺省接管为 ``PIPE`` 供尾部留存，``cwd`` 缺省为项目目录。
+    ``popen``（经 ``popen_kwargs`` 透传，不占签名参数位）是显式注入缝（与
+    ``platform_tools.launch_background`` 同约定），生产路径不传，测试用它约束
+    子进程替身。``pump_stderr=False`` 同理透传——用于调用方随后走 ``communicate``
+    的场景：stderr 交给 communicate 一次性排干，不再并发泵读。
     """
     import math
     import subprocess
@@ -537,12 +600,15 @@ def spawn(kind, command, *, project, stage, timeout=None, health=None,
     if isinstance(timeout, bool) or not math.isfinite(seconds) or seconds <= 0:
         raise ConfigError('timeout 必须是正数秒数')
 
+    popen = popen_kwargs.pop('popen', None)
+    pump_stderr = popen_kwargs.pop('pump_stderr', True)
     popen_kwargs.setdefault('stderr', subprocess.PIPE)
     if popen_kwargs.get('cwd') is None:
         popen_kwargs['cwd'] = str(project)
     popen_kwargs.setdefault('creationflags', hidden_console_flags())
+    runner = popen or subprocess.Popen
     try:
-        process = subprocess.Popen(command, **popen_kwargs)
+        process = runner(command, **popen_kwargs)
     except FileNotFoundError as exc:
         raise ProcessError('找不到可执行文件：%s' % (command[0] if isinstance(command, (list, tuple)) else command),
                            code='E-TOOL-MISSING', detail={'command': str(command)}) from exc
@@ -553,5 +619,8 @@ def spawn(kind, command, *, project, stage, timeout=None, health=None,
     register_process(project, process, job=bool(spec['job']))
     register_supervised(process, kind=kind, stage=stage, project=project,
                         in_job=bool(spec['job']))
-    return SupervisedProcess(kind, project, stage, seconds, health, process,
-                             in_job=bool(spec['job']))
+    sup = SupervisedProcess(kind, project, stage, seconds, health, process,
+                            in_job=bool(spec['job']))
+    if pump_stderr:
+        sup.start_pump()
+    return sup

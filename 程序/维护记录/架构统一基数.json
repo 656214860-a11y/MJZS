@@ -823,9 +823,9 @@
    },
    {
     "file": "agent/prompt_optimizer.py",
-    "point": "start.work:json.loads:64d23865855ea4b8:1",
+    "point": "start.work:json.loads:8a079eec04952597:1",
     "disposition": "exempt",
-    "reason": "外部进程／网络响应解析，非文件读"
+    "reason": "外部进程／网络响应解析，非文件读（I9 迁移 spawn＋communicate 后锚点随调用实参更新）"
    },
    {
     "file": "asset_reference_search.py",

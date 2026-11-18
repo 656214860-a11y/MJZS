@@ -305,6 +305,31 @@ class _Stdout:
         blocker.wait()
 
 
+class _FakeErr:
+    """带 ``readline`` 的假 stderr：监督器尾部泵按行取走后返回空串。"""
+
+    def __init__(self, lines):
+        self._lines = list(lines)
+
+    def readline(self):
+        return self._lines.pop(0) if self._lines else ''
+
+    def close(self):
+        pass
+
+
+def _spawn_with_fake(make_fake):
+    """I9：EngineHost 改走 ``proc_registry.spawn``——测试仍走真实 spawn
+    （参数校验、进程表登记、SupervisedProcess 包装都是真的），只把 Popen 换成假进程。"""
+    real_spawn = client.proc_registry.spawn
+
+    def fake_spawn(*args, **kwargs):
+        kwargs['popen'] = lambda *a, **k: make_fake()
+        return real_spawn(*args, **kwargs)
+
+    return mock.patch.object(client.proc_registry, 'spawn', side_effect=fake_spawn)
+
+
 class AcquireTests(unittest.TestCase):
     def setUp(self):
         client._HOST = None
@@ -314,14 +339,29 @@ class AcquireTests(unittest.TestCase):
 
     def test_acquire_spawns_and_waits_ready(self):
         fake = FakePopen(ready=True)
-        with mock.patch.object(client.platform_tools, 'launch_text_process',
-                               return_value=fake) as launch, \
+        spawn_calls = []
+        real_spawn = client.proc_registry.spawn
+
+        def fake_spawn(*args, **kwargs):
+            spawn_calls.append((args, kwargs))
+            kwargs['popen'] = lambda *a, **k: fake
+            return real_spawn(*args, **kwargs)
+
+        with mock.patch.object(client.proc_registry, 'spawn', side_effect=fake_spawn), \
              mock.patch.object(client.platform_tools, 'terminate_process_tree',
                                return_value=True):
             host = client.acquire(settings(offline={'python': sys.executable}),
                                   log_sink=lambda _m: None)
             self.assertEqual(host.state, 'ready')
-            command = launch.call_args[0][0]
+            # I9-1：真实 spawn 已登记——进程表可查、kind/stage 元数据正确
+            self.assertIn(host.process, client.proc_registry.processes(client.PROGRAM))
+            info = client.proc_registry.supervised_info(host.process)
+            self.assertEqual(info.get('kind'), 'asr')
+            self.assertEqual(info.get('stage'), 'voice-asr')
+            args, kwargs = spawn_calls[0]
+            self.assertEqual(args[0], 'asr')
+            self.assertEqual(kwargs.get('timeout'), client._READY_TIMEOUT)
+            command = args[1]
             self.assertEqual(command[0], sys.executable)
             self.assertTrue(str(command[1]).endswith('offline_asr_server.py'))
             host.shutdown()
@@ -334,10 +374,11 @@ class AcquireTests(unittest.TestCase):
         self.assertIn('离线识别环境未安装', str(ctx.exception))
 
     def test_acquire_dead_process_reports_reason(self):
-        fake = FakePopen(ready=False)
-        fake.stdout = iter([])   # 立即 EOF → _on_exit
-        with mock.patch.object(client.platform_tools, 'launch_text_process',
-                               return_value=fake):
+        def make_fake():
+            fake = FakePopen(ready=False)
+            fake.stdout = iter([])   # 立即 EOF → _on_exit
+            return fake
+        with _spawn_with_fake(make_fake):
             host = client._host()
             host.spawn(settings(offline={'python': sys.executable}))
             deadline = time.monotonic() + 5
@@ -347,6 +388,34 @@ class AcquireTests(unittest.TestCase):
             with self.assertRaises(client.EngineUnavailable) as ctx:
                 client.acquire(settings(offline={'python': sys.executable}))
             self.assertTrue(str(ctx.exception))
+
+    def test_acquire_handshake_timeout_is_tool_timeout_with_stderr_tail(self):
+        """I9-2：一直不发 ready 也不退出 → 握手超时归 E-TOOL-TIMEOUT 且保留 stderr 尾部。"""
+        def make_fake():
+            fake = FakePopen(ready=False)   # stdout 永不 ready 也不 EOF → 一直 starting
+            fake.stderr = _FakeErr(['engine stderr tail line'])
+            return fake
+        with _spawn_with_fake(make_fake), \
+             mock.patch.object(client, '_READY_TIMEOUT', 0.3):
+            with self.assertRaises(client.EngineUnavailable) as ctx:
+                client.acquire(settings(offline={'python': sys.executable}))
+        text = str(ctx.exception)
+        self.assertIn('E-TOOL-TIMEOUT', text)
+        self.assertIn('engine stderr tail line', text)
+
+    def test_spawned_engine_cancellable_by_kind(self):
+        """I9-1：迁移后的常驻进程能按种类从进程表统一取消。"""
+        fake = FakePopen(ready=True)
+        with _spawn_with_fake(lambda: fake), \
+             mock.patch.object(client.platform_tools, 'terminate_process_tree',
+                               return_value=True):
+            host = client.acquire(settings(offline={'python': sys.executable}))
+            self.assertEqual(host.state, 'ready')
+            self.assertIn(host.process, client.proc_registry.processes(client.PROGRAM))
+            killed = client.proc_registry.cancel_supervised(client.PROGRAM, kind='asr')
+            self.assertGreaterEqual(killed, 1)
+            self.assertNotIn(host.process,
+                             client.proc_registry.processes(client.PROGRAM))
 
 
 class SpeechApiRoutingTests(unittest.TestCase):

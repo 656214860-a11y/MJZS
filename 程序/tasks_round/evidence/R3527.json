@@ -1,0 +1,15 @@
+{
+  "round": 3527,
+  "commit_base": "5ec0783e",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k offline_asr media asset_thumbs pet_performance pet_test prompt_optimizer process_supervisor platform_process",
+    "exit": 0,
+    "passed": 210,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T02:49:44"
+}

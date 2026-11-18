@@ -49,28 +49,43 @@ class PlatformProcessBoundaryTests(unittest.TestCase):
         self.assertEqual(offenders, [], 'taskkill 请收敛到平台或本地应用适配器：\n' + '\n'.join(offenders))
 
 
-# ── I8-4：进程启动点门禁 ──────────────────────────────────────────────
+# ── I8-4／I9-3：进程启动点门禁 ─────────────────────────────────────────
 # 识别四种绕过监督器的写法：``(x or subprocess.Popen)(``、``popen=subprocess.Popen``、
 # ``subprocess.run(...)``、``platform_tools.launch_*``（含 from-import 裸名）。
-# 存量按「文件:行」登记棘轮，只减不增；平台边界与监督器本体豁免。
+# I9-3：长时/媒体启动点棘轮计数为 0——存量全部归入豁免清单并注明类别，只减不增；
+# 平台边界与监督器本体豁免。豁免类别：
+#   short_probe        短时探测：同步有界调用且带显式 timeout（I0 短探测口径）；
+#   os_operation       OS 操作：快捷方式/文件关联/进程表查询等系统级调用；
+#   detached           detached/可见应用：必须脱离宿主或用户可见的启动
+#                      （自重启、退出后清理、可见 CLI/桌面应用）；
+#   background_boundary 已登记的后台边界模块（自带生命周期管理）。
 
 _LAUNCH_NAMES = frozenset({'launch_background', 'launch_text_process', 'launch_windows_app'})
 _PROCESS_EXEMPT_STEMS = frozenset({'platform_tools', 'workflow_process_registry'})
 
-SPAWN_SITE_BASELINE = frozenset({
-    'app_shortcut.py:114', 'app_shortcut.py:243', 'app_shortcut.py:50',
-    'codex_paste.py:34', 'codex_tasks.py:45', 'console_submit.py:14',
-    'domain/offline_asr_client.py:129', 'domain/pet_performance_service.py:98',
-    'domain/pet_test_service.py:100',
-    'infra/aigc_lint.py:85', 'infra/engine_probe.py:140', 'infra/log_maintenance.py:141',
-    'infra/native_apps.py:124', 'infra/native_apps.py:42', 'infra/native_apps.py:75',
-    'infra/native_apps.py:87', 'infra/storage_maintenance.py:54',
-    'infra/workspace_maintenance.py:384',
-    'orchestrator/previs_automation.py:22', 'orchestrator/qwen_adapter.py:99',
-    'orchestrator/workflow_engines.py:456', 'orchestrator/workflow_engines.py:518',
-    'ui/asset_thumbs.py:757', 'ui/desktop_idea_chat.py:964', 'ui/desktop_idea_chat.py:980',
-    'ui/desktop_media_pages.py:873', 'ui/desktop_send_choice.py:54', 'ui/desktop_tray.py:411',
-})
+SPAWN_SITE_EXEMPT = {
+    'short_probe': frozenset({
+        'infra/aigc_lint.py:85', 'infra/engine_probe.py:140',
+        'infra/native_apps.py:42', 'codex_paste.py:34', 'console_submit.py:14',
+        'orchestrator/previs_automation.py:22',
+    }),
+    'os_operation': frozenset({
+        'app_shortcut.py:50', 'app_shortcut.py:114', 'app_shortcut.py:243',
+        'infra/native_apps.py:75', 'infra/native_apps.py:87',
+    }),
+    'detached': frozenset({
+        'infra/native_apps.py:124', 'orchestrator/qwen_adapter.py:99',
+        'orchestrator/workflow_engines.py:456', 'orchestrator/workflow_engines.py:518',
+        'ui/desktop_idea_chat.py:964', 'ui/desktop_idea_chat.py:980',
+        'ui/desktop_media_pages.py:873', 'ui/desktop_send_choice.py:54',
+        'ui/desktop_tray.py:411', 'infra/log_maintenance.py:141',
+        'infra/storage_maintenance.py:54', 'infra/workspace_maintenance.py:384',
+    }),
+    'background_boundary': frozenset({
+        'codex_tasks.py:45',
+    }),
+}
+SPAWN_SITE_BASELINE = frozenset().union(*SPAWN_SITE_EXEMPT.values())
 
 
 def _is_popen_expr(node: ast.AST) -> bool:
@@ -111,7 +126,7 @@ def _spawn_sites_in_path(path) -> set:
 
 
 class ProcessSpawnBoundaryTests(unittest.TestCase):
-    """I8-4：四种绕过写法按「文件:行」棘轮；坏样本自审全覆盖。"""
+    """I8-4／I9-3：四种绕过写法按「文件:行」棘轮；非豁免计数为 0，坏样本自审全覆盖。"""
 
     def test_spawn_sites_within_baseline(self):
         offenders = set()
@@ -125,8 +140,32 @@ class ProcessSpawnBoundaryTests(unittest.TestCase):
                          + chr(10) + chr(10).join(regressions))
         stale = sorted(SPAWN_SITE_BASELINE - offenders)
         if stale:
-            print('[棘轮提示] 以下登记点已消失，请从 SPAWN_SITE_BASELINE 移除：'
+            print('[棘轮提示] 以下登记点已消失，请从豁免清单移除：'
                   + chr(10) + chr(10).join(stale))
+
+    def test_exempt_registry_covers_baseline_exactly(self):
+        """I9-3：豁免清单与棘轮基线一一对应——每个登记点恰好归入一个类别。"""
+        categorized = [site for group in SPAWN_SITE_EXEMPT.values() for site in group]
+        self.assertEqual(len(categorized), len(set(categorized)),
+                         '同一启动点被登记进多个豁免类别')
+        self.assertEqual(set(categorized), set(SPAWN_SITE_BASELINE))
+        for category in ('short_probe', 'os_operation', 'detached', 'background_boundary'):
+            self.assertTrue(SPAWN_SITE_EXEMPT[category], '豁免类别为空：' + category)
+
+    def test_bounded_sites_declare_timeout(self):
+        """I9-3：短时探测与 OS 操作豁免要求调用显式带 ``timeout``（AST 复核）。"""
+        from tests.architecture._scan import ROOT
+        for category in ('short_probe', 'os_operation'):
+            for site in sorted(SPAWN_SITE_EXEMPT[category]):
+                rel, line = site.rsplit(':', 1)
+                tree = parse(ROOT / rel)
+                calls = [node for node in ast.walk(tree)
+                         if isinstance(node, ast.Call) and node.lineno == int(line)]
+                self.assertTrue(calls, '%s：找不到登记行的调用节点' % site)
+                call = calls[0]
+                self.assertTrue(
+                    any(keyword.arg == 'timeout' for keyword in call.keywords),
+                    '%s：%s 豁免点缺少显式 timeout' % (site, category))
 
     def test_baseline_sites_wellformed(self):
         import re
