@@ -282,7 +282,9 @@ class RequestsJsonTlsTests(unittest.TestCase):
         self.assertTrue(set(system.get_ca_certs(binary_form=True)) <= trusted, 'system trust must remain included')
         self.assertTrue(set(public.get_ca_certs(binary_form=True)) <= trusted, 'certifi trust must remain included')
         self.assertIs(seen['adapter'].poolmanager.connection_pool_kw.get('ssl_context'), context)
-        self.assertEqual(seen['adapter'].max_retries.total, 0)
+        retry = seen['adapter'].max_retries
+        self.assertEqual(retry.total, 2)
+        self.assertEqual(set(retry.allowed_methods), {'GET', 'HEAD'})
         self.assertIs(seen['settings']['verify'], True)
 
     def test_default_context_loads_certifi_after_system_defaults(self):

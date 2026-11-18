@@ -1,0 +1,15 @@
+{
+  "round": 3306,
+  "commit_base": "71393d99",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k l1_transport http_client platform_tools pet_llm l1_reliability http_boundary branch_coverage_floor",
+    "exit": 0,
+    "passed": 162,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T08:52:35"
+}

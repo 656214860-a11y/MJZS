@@ -89,12 +89,12 @@
   "tests.test_l1_p2_semantics"
  ],
  "tests_ok": true,
- "points_total": 2429,
- "points_covered": 1332,
+ "points_total": 2443,
+ "points_covered": 1340,
  "modules": [
   {
    "module": "comfy_service.py",
-   "points": 30,
+   "points": 31,
    "covered": 0,
    "percent": 0.0
   },
@@ -255,12 +255,6 @@
    "percent": 38.5
   },
   {
-   "module": "platform_tools.py",
-   "points": 119,
-   "covered": 48,
-   "percent": 40.3
-  },
-  {
    "module": "model_pool.py",
    "points": 134,
    "covered": 55,
@@ -271,6 +265,12 @@
    "points": 112,
    "covered": 47,
    "percent": 42.0
+  },
+  {
+   "module": "platform_tools.py",
+   "points": 132,
+   "covered": 56,
+   "percent": 42.4
   },
   {
    "module": "model_router.py",
