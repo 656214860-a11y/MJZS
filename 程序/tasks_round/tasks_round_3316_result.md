@@ -1,5 +1,5 @@
 # R3316 结果：L2领域服务层优化任务书轮8（结构治理轮：结果契约收口）
-<!-- round-evidence: {"commit_base": "0e81bd57", "credential_hits": 0, "evidence_sha256": "a2699a92e3e2fd34", "exit": 0, "failed": 0, "passed": 196, "round": 3316, "tests": "run_selftests.py -k voice_ai handoff_bundle handoff_service shared_input_voice dialog_voice_input media_page recon white_model"} -->
+<!-- round-evidence: {"commit_base": "e008d757", "credential_hits": 0, "evidence_sha256": "9ca8678a094d154e", "exit": 0, "failed": 0, "passed": 196, "round": 3316, "tests": "run_selftests.py -k voice_ai handoff_bundle handoff_service shared_input_voice dialog_voice_input media_page recon white_model"} -->
 
 ## 三问
 
@@ -132,5 +132,6 @@
 ## 提交
 
 - 分支 `codex/wip-r3282`（领号 R3316，工作树 `dsh-864fd932-4054`；领号记录见 `<git common-dir>/round-claims.json`）。
-- 主提交：待回填（10 个文件：5 个生产文件——domain/voice_ai.py、domain/handoff_service.py、orchestrator/stage_handoff_gateways.py、ui/desktop_voice_input.py、ui/desktop_media_pages.py；3 个测试/架构文件；维护记录/架构统一基数.json；本结果文件；自动生成的 tasks_round/evidence/R3316.json）。
-- 轮次证据以 `tasks_round/evidence/R3316.json` 为准（`run_selftests.py -k` 定向测试 exit 0）。
+- 主提交：`e008d757`（11 个文件：5 个生产文件——domain/voice_ai.py、domain/handoff_service.py、orchestrator/stage_handoff_gateways.py、ui/desktop_voice_input.py、ui/desktop_media_pages.py；3 个测试/架构文件——tests/test_voice_ai_optimize.py、tests/test_handoff_bundle.py、tests/architecture/test_service_return_contract.py；维护记录/架构统一基数.json；本结果文件；自动生成的 tasks_round/evidence/R3316.json）。
+- 结果文件补记提交：本提交（`R3316: 补记结果文件commit哈希e008d757`；docs-only 补记同样带 `--tests` 重跑定向测试刷新证据）。
+- 轮次证据以 `tasks_round/evidence/R3316.json` 为准（`run_selftests.py -k voice_ai handoff_bundle handoff_service shared_input_voice dialog_voice_input media_page recon white_model` exit 0 / **196 通过 / 0 失败**，凭据扫描 0 命中）。
