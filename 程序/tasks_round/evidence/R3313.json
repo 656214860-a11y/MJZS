@@ -1,16 +1,15 @@
 {
   "round": 3313,
-  "commit_base": "275fcc42",
+  "commit_base": "4828acab",
   "credential_scan": {
     "ran": true,
     "hits": []
   },
   "targeted": {
-    "cmd": "",
+    "cmd": "run_selftests.py -k architecture.test_complexity_ratchet",
     "exit": 0,
-    "passed": 0,
-    "failed": 0,
-    "skipped": "merge-ci-exit"
+    "passed": 4,
+    "failed": 0
   },
-  "generated_at": "2026-11-18T11:29:39"
+  "generated_at": "2026-11-18T11:39:16"
 }

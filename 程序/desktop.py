@@ -444,7 +444,6 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         return (cached[1] if isinstance(cached,tuple) and cached[0]==self.root and cached[1]
                 else self.idea_chat_model())
 
-
     def model_chat_colors(self, model):
         """为同一模型稳定分配一组浅色主题，切换回来仍保持原色。"""
         key = str(model or self.idea_chat_model() or 'AI 助手').encode('utf-8')
@@ -470,7 +469,6 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
     def close_dialog(self):
         """保存剧本也不隐藏发送框，用户仍可继续补充。"""
         self.open_dialog()
-
 
     def poll_flow_processes(self):
         """回收已退出的桌面 Agent；自动链只把异常退出标为失败。
@@ -522,7 +520,6 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
                     # 完成事件只经三虎的产物校验出口；Agent 正常退出本身不是成功证据。
                     self.pet.report_done('script', message)
         self.flow_processes=remaining
-
 
     def button(self,parent,text,fn):
         # 宠物接缝③：按钮薄封装——原逻辑照旧先跑，成功后再上报「用户点了什么」。
@@ -598,8 +595,6 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
             self._brief_load_results.put((generation,root,apply,path,error))
         threading.Thread(target=discover,daemon=True).start()
         return generation
-
-
 
     def close(self):
         if getattr(self,'_closing',False):return
@@ -717,7 +712,6 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         if not defer_page and getattr(self,'_startup_tick_paused',False):
             self._request_tick_resume_after_first_paint()
 
-
     def ensure_stage_layout(self):
         """按需补齐「阶段目录 ＋ 固定子目录」。
 
@@ -802,8 +796,6 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
             self.reload();self.load(result)
             self.remember_daily_project_choice(result)
 
-
-
     def text(self,value,height=10):
         t=TextArea(self.content,bg=COLORS['background_card'],fg=COLORS['text_primary'],insertbackground=COLORS['primary'],height=height,wrap='word',font=('Microsoft YaHei UI',11),relief='flat',padx=SPACING['md'],pady=SPACING['md']);t.insert('1.0',value);t.pack(fill='both',expand=True,pady=SPACING['sm']);bind_show_all(t,after=self.fit_content);return t
     def note(self,value):
@@ -866,7 +858,6 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         self.status.set('复制失败：'+reason if reason else '已复制：'+copy_preview(text))
         return reason
 
-
     def final_storyboard(self):
         from ui.storyboard_files import show_final
         # 第 68 期任务 6：这一页补上了主动作「手动同步资产」，阶段配置就跟着挪到那一行
@@ -914,7 +905,6 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         """对白行与「时间轴是草稿」标记；已经读过盘就把 episode 传进来，不重复读。"""
         from domain.subtitle_timing import timed_entries
         return timed_entries(self.current_episode() if episode is None else episode)
-
 
     def open_folder(self,p):open_directory(p)
     def open_version_picker(self):
