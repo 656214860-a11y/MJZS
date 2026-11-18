@@ -702,6 +702,31 @@ def _adopted_script_quality(project):
         return None
 
 
+def edit_ready_for_project(root):
+    """无界面／无 ``Studio`` 的成片就绪核验：返回 ``(成片指纹, 未就绪原因列表)``。
+
+    与 ``Studio.auto_edit_ready`` 同一选版口径（REQ-S10-22）：``episode_file_of``
+    解析当前镜头 JSON、只读 ``data/state.json``、逐镜走 ``adopted_edit_version``
+    （与 ``auto_edit_ready`` 共用的 ``engine.edit_ready_rows`` 内核）；不建
+    ``Studio``，不写 ``config.json``／``state.json``。找不到镜头 JSON、读不动
+    或没有任何已采用版本时返回 ``(None, 原因)``，由完成核验判未完成。
+    """
+    from agent.core import read_json
+    from orchestrator.engine import episode_file_of, edit_ready_rows
+    root = Path(root).resolve()
+    cfg = read_json(root / 'config.json', {})
+    if not isinstance(cfg, dict):
+        cfg = {}
+    episode_path = episode_file_of(root, cfg)
+    if not episode_path.is_file():
+        return None, ['找不到镜头 JSON（episode.json）']
+    episode = read_json(episode_path, {})
+    shots = (episode.get('shots') if isinstance(episode, dict) else None) or []
+    state = read_json(root / 'data' / 'state.json', {})
+    state_shots = state.get('shots') if isinstance(state, dict) else None
+    return edit_ready_rows(root, shots, state_shots or {})
+
+
 def completion_evidence(root, stage, video_ready=None):
     """返回阶段是否已有可复核成果及未通过原因。"""
     try:
@@ -709,7 +734,9 @@ def completion_evidence(root, stage, video_ready=None):
     except (TypeError, ValueError):
         return False, '项目路径无效，不能确认阶段完成'
     if root is None:
-        return True, ''
+        # REQ-S13-54：无项目＝空项目＝未完成。旧口径「root 为空直接通过」是为兼容
+        # 轻量宿主的完成判定开了后门，会让空项目被当成已完成、自动链空转推进。
+        return False, '未打开项目，无法核验阶段成果'
     if not root.is_dir():
         return False, '项目目录不存在，不能确认阶段完成'
     stage = str(stage or '')
@@ -759,9 +786,16 @@ def completion_evidence(root, stage, video_ready=None):
             import orchestrator.stage_parallel as stage_parallel
             result = getattr(stage_parallel, checks[stage])(root)
             return bool(result.get('ok') and result.get('started')), str(result.get('detail') or '阶段成果尚未通过校验')
-        if stage == 'video' and callable(video_ready):
-            digest, _waiting = video_ready()
-            return bool(digest), '没有全部下载、质检并验收的视频镜头'
+        if stage == 'video':
+            if callable(video_ready):
+                digest, _waiting = video_ready()
+                return bool(digest), '没有全部下载、质检并验收的视频镜头'
+            # REQ-S10-22／DES-S10-22：无回调（L3 无界面、轻量宿主）时按同一选版口径
+            # 只读核验，不再退化为「目录里有任意媒体文件即算完成」。
+            digest, waiting = edit_ready_for_project(root)
+            if digest:
+                return True, ''
+            return False, '；'.join(str(item) for item in (waiting or ['没有全部下载、质检并验收的视频镜头']))
         folders, suffixes = media_output_folders(root, stage)
         if not folders and stage in pet_bus.STAGES:
             from contract.project_stages import stage as stage_dir

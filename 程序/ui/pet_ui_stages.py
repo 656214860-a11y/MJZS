@@ -21,7 +21,8 @@ class PetStagesMixin:
 
         自动任务的 ``ok`` 只代表调用没有抛异常：它可能只是提交了远端任务、生成了
         一段提示词，或者页面仍在等待用户采用。三虎只能把可复核的项目产物标成完成。
-        没有项目的轻量宿主（旧插件和自检替身）不持久化阶段状态，保留其原有行为。
+        没有项目时一律判未完成（REQ-S13-54）：轻量宿主只是不发完成事件，
+        阶段状态本就不该由空项目推进。
         """
         import orchestrator.stage_completion_service as stage_completion_service
         studio = getattr(self.desktop, 'studio', None)
