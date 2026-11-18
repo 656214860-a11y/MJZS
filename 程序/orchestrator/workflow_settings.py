@@ -9,7 +9,9 @@ from infra.file_cache import read_json
 import orchestrator.skill_registry as skill_registry
 from orchestrator.skill_registry import nested_references as _nested_references, reference_row as _reference_row
 from orchestrator.skill_inline import (_charge_inline, _is_text_script, _recurse_references,
-                          _skill_inline_budget, _skipped_inline_hint)
+                          _skill_inline_budget, _skipped_inline_hint, _append_hint,
+                          _skill_envelope, _reserve_frozen_text, _reference_frontier, _charge_reference,
+                          _skill_roots_for_path, _skill_snapshot_reader, _ReferenceContext)
 import infra.client_profiles as client_profiles, orchestrator.edit_habits as edit_habits, stage_layout
 from contract.script_contract import PRODUCTION_LOCK_DEFINITIONS, STAGE_LOCK_REQUIREMENTS, lock_stage
 from contract.workflow_context_budget import REQUEST_CONTEXT_MAX_CHARS, estimate_tokens, skill_inline_token_budget
@@ -438,7 +440,11 @@ def current(project,stage='previs', *, direct_api=False, model_snapshot=None):
         raise ValueError('阶段 SKILL 无法加载，请修复技能配置后重试：' + str(exc)) from exc
     display_model = (model_pool.label_of(selected, {selected: item}) if explicit_engine
                      else str(profile.get('model') or '').strip() or ENGINES[engine])
-    return {'engine':engine, 'stage':stage, 'display_model':display_model, **profile}
+    result = {'engine':engine, 'stage':stage, 'display_model':display_model, **profile}
+    budget = _skill_inline_budget(result, record=item)
+    result['skill_budget'] = ({key: budget[key] for key in ('context_length', 'source', 'model')}
+                              if budget is not None else dict(context_length=0, source='unknown', model=result.get('model', '')))
+    return result
 def writer_style_summary(config, stage=None):
     """任务书可见摘要：只说明是否带了项目级编剧风格，不暴露风格正文。"""
     stage = stage if stage is not None else config.get('stage')
@@ -631,7 +637,7 @@ def _closure_blocked(message, closure):
     error = ValueError(message)
     error.skill_closure = list(closure)
     return error
-def _skill_blocks(path, *, strict, locks=None, depth=0, budget=None):
+def _skill_blocks(path, *, strict, locks=None, depth=0, budget=None, reader=None, shared=None):
     """走一遍技能正文与它的引用；返回 (正文, 元数据, 分块, 引用闭包)。
 
     闭包是「实际发生了什么」的唯一记录：inlined（已内联）、duplicate（重复）、
@@ -646,16 +652,17 @@ def _skill_blocks(path, *, strict, locks=None, depth=0, budget=None):
     「仅 `锁` 为…时追加」条件不满足的链接不加载（conditional）。
     """
     path = Path(path).resolve()
-    text = path.read_text(encoding='utf-8-sig')
+    reader = reader or (lambda item: item.read_text(encoding='utf-8-sig'))
+    text = reader(path)
     meta, content = skill_registry.parse(text, source=str(path))
     if strict and not content.strip():
         raise ValueError(f'已勾选的 SKILL 内容为空，已阻止发送：{path}')
     blocks = [(path, f'<!-- 来源: {path} -->\n{content}')]
-    closure, seen, sections = [], {path}, set()
-    roots = list(skill_registry.skill_roots())
-    project_root = skill_registry.project_skill_root_for(path)
-    if project_root is not None and project_root not in roots:
-        roots.append(project_root)
+    closure = []
+    seen, sections = ({path}, set()) if shared is None else shared
+    seen.add(path)
+    roots = _skill_roots_for_path(path)
+    reference_context = _ReferenceContext(roots, locks, seen, sections, reader)
     for entry in skill_registry.reference_targets(text):
         relative = entry['path']
         if relative is None:
@@ -675,7 +682,7 @@ def _skill_blocks(path, *, strict, locks=None, depth=0, budget=None):
         if not markdown and not text_script:
             closure.append(_reference_row(entry, reference, 'resource'))
             if depth == -1:
-                blocks.append((reference, f'\n\n<!-- 本请求不发送该资源，本地路径：{reference} -->'))
+                _append_hint(blocks, reference, f'\n\n<!-- 本请求不发送该资源，本地路径：{reference} -->', budget)
             continue
         if not (within_root or (strict and within_folder)):
             closure.append(_reference_row(entry, reference, 'outside'))
@@ -688,58 +695,58 @@ def _skill_blocks(path, *, strict, locks=None, depth=0, budget=None):
             closure.append(_reference_row(entry, reference, 'conditional'))
             continue
         try:
-            body = reference.read_text(encoding='utf-8-sig')
+            body = reader(reference)
         except OSError as exc:
             closure.append(_reference_row(entry, reference, 'missing'))
             raise _closure_blocked(f'SKILL 引用缺失，已阻止发送：{reference}（{exc}）',
                                    closure) from exc
         if text_script:
             block = f'\n\n## 脚本: {reference.name}\n```{reference.suffix.lstrip(".")}\n{body}\n```'
-            if _charge_inline(budget, block):
+            if _charge_reference(budget, reference, fragment, block, '', context=reference_context):
                 seen.add(reference)
                 blocks.append((reference, block))
                 closure.append(_reference_row(entry, reference, 'inlined'))
             else:
-                blocks.append((reference, _skipped_inline_hint(reference)))
+                seen.add(reference)
+                _append_hint(blocks, reference, _skipped_inline_hint(reference), budget)
                 closure.append(_reference_row(entry, reference, 'skipped'))
             continue
         part = skill_registry.section(body, fragment)
         if part is not None:
             block = f'\n\n## 引用: {reference.name}#{fragment}（节选）\n{part}'
-            if not _charge_inline(budget, block):
-                blocks.append((reference, _skipped_inline_hint(reference)))
+            if not _charge_reference(budget, reference, fragment, block, part, context=reference_context):
+                sections.add((reference, fragment))
+                _append_hint(blocks, reference, _skipped_inline_hint(reference), budget)
                 closure.append(_reference_row(entry, reference, 'skipped'))
                 continue
             sections.add((reference, fragment))
             blocks.append((reference, block))
             closure.append(_reference_row(entry, reference, 'section'))
             if depth != 0:
-                seen.add(reference)
-                closure.extend(_nested_references(reference, part, seen, roots))
-                closure.extend(_recurse_references(reference, part, (strict, locks, depth, blocks, seen, sections, budget)))
+                closure.extend(_nested_references(reference, part, seen | {reference}, roots))
+                closure.extend(_recurse_references(reference, part, (strict, locks, depth, blocks, seen, sections, budget), reader=reader, roots=roots))
             else:
                 closure.extend(_nested_references(reference, part, seen | {reference}, roots))
             continue
         block = f'\n\n## 引用: {reference.name}\n{body}'
-        if not _charge_inline(budget, block):
-            blocks.append((reference, _skipped_inline_hint(reference)))
+        if not _charge_reference(budget, reference, fragment, block, body, context=reference_context):
+            seen.add(reference)
+            _append_hint(blocks, reference, _skipped_inline_hint(reference), budget)
             closure.append(_reference_row(entry, reference, 'skipped'))
             continue
         seen.add(reference)
         blocks.append((reference, block))
         closure.append(_reference_row(entry, reference, 'inlined'))
         if depth != 0:
-            closure.extend(_recurse_references(reference, body, (strict, locks, depth, blocks, seen, sections, budget)))
+            closure.extend(_recurse_references(reference, body, (strict, locks, depth, blocks, seen, sections, budget), reader=reader, roots=roots))
         else:
             closure.extend(_nested_references(reference, body, seen, roots))
     return text, meta, blocks, closure
 def _inline_skill_report(path, *, cap=REQUEST_CONTEXT_MAX_CHARS, strict=False, locks=None, depth=0, budget=None):
     """内联技能正文，并给出「实际加载了什么」的引用闭包，供请求快照留凭据。"""
-    from html import escape
     _text, meta, blocks, closure = _skill_blocks(path, strict=strict, locks=locks, depth=depth, budget=budget)
     name = str(meta.get('name') or Path(path).resolve().parent.name)
-    complete = (f'<skill name="{escape(name, quote=True)}">\n'
-                + ''.join(body for _, body in blocks) + '\n</skill>')
+    complete = _skill_envelope(name, blocks)
     if len(complete) > cap:
         raise _closure_blocked(f'SKILL「{name}」内容 {len(complete):,} 字符，超过上限 {cap:,} 字符，'
                                f'已阻止发送：{Path(path).resolve()}；请减少所选技能或缩短内容。',
@@ -748,44 +755,82 @@ def _inline_skill_report(path, *, cap=REQUEST_CONTEXT_MAX_CHARS, strict=False, l
 def _inline_skill(path, *, cap=REQUEST_CONTEXT_MAX_CHARS, strict=False, locks=None, depth=0, budget=None):
     """API 发送快照：技能及目录边界内的引用；``depth=-1`` 递归加载引用。"""
     return _inline_skill_report(path, cap=cap, strict=strict, locks=locks, depth=depth, budget=budget)[0]
-def freeze_skills(config):
+def freeze_skills(config, *, model_snapshot=None):
     """冻结发送内容；桌面与 API、四角色复用同一份正文，不在工作线程重读。"""
     from copy import deepcopy
     import hashlib
-    from html import unescape
     frozen = deepcopy(config)
     if 'frozen_skill_prompt' in frozen:
         return frozen
-    selected, loaded, bodies, references, seen = [], [], [], [], set()
-    budget = _skill_inline_budget(frozen)
+    from contract.workflow_context_budget import budget_sections, estimate_tokens, prepare_request_context
+    from domain.writing_quality import enabled, prompt as quality_prompt
+    paths = {}
     for item in [*(frozen.get('stage_skills') or ()), *skills_of(frozen)]:
-        path = Path(item).resolve()
-        identity = os.path.normcase(str(path))
-        if identity in seen:
-            continue
-        seen.add(identity)
-        selected.append(str(path))
+        if item:
+            path = Path(item).resolve()
+            paths.setdefault(os.path.normcase(str(path)), path)
+    selected = [str(path) for path in paths.values()]
+    budget = _skill_inline_budget(frozen, record=model_snapshot)
+    limit = budget['remaining'] if budget is not None else None
+    if budget is not None:
+        frozen['skill_budget'] = {key: budget[key] for key in ('context_length', 'source', 'model')}
+    read = _skill_snapshot_reader()
+    locks = frozen.get('workflow_lock') or {}
+    header = skill_prompt(dict(frozen, skills=[], skill='', stage_skills=[]), inline=True)
+    plans, mandatory, frontier = [], [], {}
+    body_cost = 0
+    selected_paths = set(paths.values())
+    for path in paths.values():
         try:
-            body, closure = _inline_skill_report(path, strict=True, locks=frozen.get('workflow_lock') or {}, depth=-1, budget=budget)
+            text = read(path)
+            meta, content = skill_registry.parse(text, source=str(path))
+            if not content.strip():
+                raise ValueError(f'已勾选的 SKILL 内容为空，已阻止发送：{path}')
+        except (OSError, UnicodeError, ValueError) as exc:
+            raise ValueError(f'已勾选的 SKILL 或其引用未加载：{path}；已阻止发送。{exc}') from exc
+        name = str(meta.get('name') or path.parent.name)
+        plans.append((path, name))
+        mandatory.append(_skill_envelope(name, [(path, f'<!-- 来源: {path} -->\n{content}')]))
+        body_cost += estimate_tokens(content)
+        roots = _skill_roots_for_path(path)
+        context = _ReferenceContext(roots, locks, selected_paths, set(), read)
+        frontier.update(_reference_frontier(path, text, context, allow_folder=True))
+    quality = quality_prompt()
+    fixed = header + ''.join(mandatory)
+    quality_enabled = enabled(fixed)
+    _reserve_frozen_text(budget, fixed + (quality if quality_enabled else ''), body_cost,
+                         [name for _path, name in plans], frontier)
+    if budget is not None:
+        budget.update(quality_probe=fixed, quality_prompt=quality, quality_reserved=quality_enabled)
+    bodies, loaded, references = [], [], []
+    shared = (set(paths.values()), set())
+    for path, name in plans:
+        try:
+            _text, _meta, blocks, closure = _skill_blocks(
+                path, strict=True, locks=locks, depth=-1, budget=budget, reader=read, shared=shared)
+            body = _skill_envelope(name, blocks)
         except (OSError, UnicodeError, ValueError) as exc:
             raise ValueError(f'已勾选的 SKILL 或其引用未加载：{path}；已阻止发送。{exc}') from exc
         bodies.append(body)
-        loaded.append({'path': str(path), 'name': unescape(body.split('"', 2)[1]),
-                       'chars': len(body), 'sha256': hashlib.sha256(body.encode('utf-8')).hexdigest()})
+        loaded.append({'path': str(path), 'name': name, 'chars': len(body),
+                       'sha256': hashlib.sha256(body.encode('utf-8')).hexdigest()})
         references.extend(dict(row, skill=str(path)) for row in closure)
-    header_config = dict(frozen, skills=[], skill='', stage_skills=[])
-    frozen['frozen_skill_prompt'] = skill_prompt(header_config, inline=True) + ''.join(bodies)
-    from domain.writing_quality import enabled, prompt as quality_prompt
-    if enabled(frozen['frozen_skill_prompt']):
-        frozen['frozen_skill_prompt'] += quality_prompt()
-    from contract.workflow_context_budget import prepare_request_context
-    prepare_request_context(frozen['frozen_skill_prompt'], 'SKILL')
+    complete = header + ''.join(bodies)
+    if enabled(complete):
+        complete += quality
+    if limit is not None and estimate_tokens(complete) > limit:
+        raise ValueError(f'SKILL/阶段指令超出预算：完整正文及包装 {estimate_tokens(complete):,} token，'
+                         f'预算 {limit:,} token，已阻止发送。')
+    prepare_request_context(complete, 'SKILL', sections=budget_sections(skills=complete))  # 保留原字符硬闸。
+    frozen['frozen_skill_prompt'] = complete
+    skipped = [row for row in references if row['status'] == 'skipped']
     frozen['skill_injection'] = {'mode': frozen.get('invocation_mode') or frozen.get('engine', ''),
-                                'engine': frozen.get('engine', ''),
-                                'model': frozen.get('model', ''),
-                                'selected': selected, 'loaded': loaded,
-                                'references': references}
+                                'engine': frozen.get('engine', ''), 'model': frozen.get('model', ''),
+                                'selected': selected, 'loaded': loaded, 'references': references,
+                                'skipped': skipped, 'degraded': bool(skipped),
+                                'estimated_tokens': estimate_tokens(complete), 'inline_budget': limit}
     return frozen
+
 def resolve_for_send(project, stage, *, config=None, intake_only=False, direct_api=False,
                      model_snapshot=None, adjust=None):
     """发送边界唯一入口：校验 → 取当前设置 → adjust 改写 → 冻结 SKILL；config 给定则沿用。"""
@@ -796,7 +841,11 @@ def resolve_for_send(project, stage, *, config=None, intake_only=False, direct_a
         config = current(project, stage, direct_api=direct_api, model_snapshot=model_snapshot)
         if adjust is not None:
             adjust(config)
-    return freeze_skills(config) if freezing else config
+    if not freezing:
+        return config
+    record = model_snapshot[1] if isinstance(model_snapshot, tuple) else model_snapshot
+    return (freeze_skills(config, model_snapshot=record) if record is not None
+            else freeze_skills(config))
 def _lock_fallback(key, value):
     """下拉以外的手填值若契约登记了兜底说明，附在该制作锁行尾。"""
     for item in PRODUCTION_LOCK_DEFINITIONS:

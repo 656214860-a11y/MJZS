@@ -82,11 +82,12 @@
   "tests.test_file_naming_producers",
   "tests.test_file_origin_provenance",
   "tests.test_context",
-  "tests.test_l1_reliability_r3248"
+  "tests.test_l1_reliability_r3248",
+  "tests.test_skill_context_budget_prestage"
  ],
  "tests_ok": true,
- "points_total": 2366,
- "points_covered": 1264,
+ "points_total": 2373,
+ "points_covered": 1270,
  "modules": [
   {
    "module": "aigc_lint.py",
@@ -259,8 +260,8 @@
   {
    "module": "platform_tools.py",
    "points": 119,
-   "covered": 48,
-   "percent": 40.3
+   "covered": 49,
+   "percent": 41.2
   },
   {
    "module": "workflow_process_registry.py",
@@ -323,16 +324,16 @@
    "percent": 54.5
   },
   {
-   "module": "workflow_context_budget.py",
-   "points": 22,
-   "covered": 12,
-   "percent": 54.5
-  },
-  {
    "module": "client_profiles.py",
    "points": 88,
    "covered": 49,
    "percent": 55.7
+  },
+  {
+   "module": "workflow_context_budget.py",
+   "points": 25,
+   "covered": 15,
+   "percent": 60.0
   },
   {
    "module": "artifact_lineage.py",
@@ -397,8 +398,8 @@
   {
    "module": "request_ledger.py",
    "points": 151,
-   "covered": 115,
-   "percent": 76.2
+   "covered": 114,
+   "percent": 75.5
   },
   {
    "module": "http_client.py",
@@ -426,9 +427,9 @@
   },
   {
    "module": "file_index.py",
-   "points": 89,
-   "covered": 71,
-   "percent": 79.8
+   "points": 93,
+   "covered": 74,
+   "percent": 79.6
   },
   {
    "module": "prompt_templates.py",

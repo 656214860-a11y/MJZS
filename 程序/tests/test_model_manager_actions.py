@@ -110,6 +110,7 @@ class SpeechSettingsTests(Batch7Case):
         self.assertEqual(win._pet_speech_vars['silence_ms'].get(), '400')
         self.assertIn('没找到这个密钥', win._pet_speech_key_state.get())
         win.update_idletasks()
+        self.assertGreaterEqual(win.winfo_height(), win.winfo_reqheight(), '不写死高度，表单不被裁掉')
         scroll = win._pet_speech_scroll
         self.assertGreaterEqual(win.winfo_width(), win.winfo_reqwidth())
         self.assertGreater(scroll.canvas.winfo_height(), 0)

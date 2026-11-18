@@ -174,7 +174,9 @@ class QualityTests(unittest.TestCase):
         skill = Path(__file__).resolve().parents[1] / 'skills/01 剧本准备SKILL/pipeline-script-preparation.skill.md'
         for engine in ('api', 'claude', 'codex', 'claude-desktop'):
             with self.subTest(engine=engine):
-                frozen = workflow_settings.freeze_skills({'engine': engine, 'skills': [str(skill)]})
+                frozen = workflow_settings.freeze_skills(
+                    {'engine': engine, 'model': 'synthetic-quality', 'skills': [str(skill)]},
+                    model_snapshot={'context_length': 1_000_000})
                 instructions = workflow_settings.skill_prompt(frozen, inline=True)
                 self.assertTrue(quality.enabled(instructions))
                 self.assertEqual(instructions.count('【四项辅助质检交付】'), 1)

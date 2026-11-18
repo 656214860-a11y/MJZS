@@ -92,6 +92,9 @@ class LayoutMixin:
     def _own_content_configure(self,event):
         """布局刚把内容框设成这个尺寸：同尺寸 <Configure> 是自己写出的几何，不是外部变化。"""
         if event is None or getattr(event,'widget',None) is not getattr(self,'_content_applied_widget',None):return False
+        signature=getattr(self,'_fit_request_signature',None)
+        # 子控件换行收敛后，请求高度可能已变；这类 Configure 仍需补算滚动范围。
+        if signature is not None and event.widget.winfo_reqheight()!=signature[1]:return False
         return (event.width,event.height)==getattr(self,'_content_applied_size',None)
     def _on_resize_configure(self,event=None):
         """尺寸变了：拖动期间只登记一次整页补做，其余场景照旧立即重排。

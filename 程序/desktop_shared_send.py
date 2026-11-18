@@ -163,7 +163,7 @@ def _resolve_skill(desktop, parsed):
     name = str(parsed.get('name') or '')
     stage = str(parsed.get('stage') or '') or current_stage(desktop)
     if kind == 'engine':
-        folder = (Path(skill_command.__file__).resolve().parent / 'skills' /
+        folder = (Path(skill_command.__file__).resolve().parents[1] / 'skills' /
                   '00全流程SKILL' / 'AIGC创作全流程' / name)
         for marker in ('SKILL.md', 'README.md', 'readme.md'):
             path = folder / marker

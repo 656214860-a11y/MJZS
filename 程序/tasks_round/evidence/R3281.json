@@ -1,0 +1,15 @@
+{
+  "round": 3281,
+  "commit_base": "dec4239c",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k skill_budget_send_entries shared_input_stages skill_command writing_context_budget_guard",
+    "exit": 0,
+    "passed": 65,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T04:35:05"
+}
