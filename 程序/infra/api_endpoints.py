@@ -1,4 +1,6 @@
 """Shared endpoint validation; editing or saving never contacts a service."""
+import hashlib
+import random
 import time
 import threading
 import json
@@ -90,12 +92,30 @@ def _http_error_kind(status):
 MAX_REPLAY_ATTEMPTS = 3
 RETRY_BASE_SECONDS = 0.25
 RETRY_MAX_SECONDS = 3.0
+RETRY_AFTER_MAX_SECONDS = 60.0
+RATE_SLEEP_MAX_SECONDS = 300.0
+RATE_SLEEP_SLICE_SECONDS = 0.5
 RESPONSE_BODY_MAX_BYTES = 32 * 1024 * 1024
 STREAM_BUFFER_MAX_BYTES = 8 * 1024 * 1024
 REQUIRE_CERTIFIED_FOR_UNATTENDED = False
 
 _RATE_LIMIT_LOCK = threading.Lock()
 _HOST_RATE_LIMITS = {}
+_CLOCK = time.monotonic
+_SLEEP = time.sleep
+
+
+def _credential_digest(credential):
+    """凭据标识（key_env 名或 Authorization 头值）只以不可逆摘要进入桶键，明文不进内存表。"""
+    text = str(credential or '').strip()
+    if not text:
+        return ''
+    return hashlib.sha256(text.encode('utf-8')).hexdigest()[:16]
+
+
+def _bucket_key(host, credential=None):
+    digest = _credential_digest(credential)
+    return host + '#' + digest if digest else host
 
 
 class _RateBucket:
@@ -103,42 +123,57 @@ class _RateBucket:
         self.interval = 60.0 / max(1, int(requests_per_minute))
         self.next = 0.0
 
+    def set_interval(self, requests_per_minute):
+        """rpm 变更只更新间隔，保留已预约的 next，避免重置后突发放行。"""
+        self.interval = 60.0 / max(1, int(requests_per_minute))
+
     def wait(self, now):
         wait = max(0.0, self.next - now)
         self.next = now + wait + self.interval
         return wait
 
 
-def set_host_rate_limit(host, requests_per_minute):
-    """按主机名设置每分钟请求上限；0 表示清除限制。这是 LiteLLM RPM 的零依赖等价物。"""
-    key = str(host or '').strip().lower()
+def set_host_rate_limit(host, requests_per_minute, credential=None):
+    """按主机名（可叠加凭据摘要）设置每分钟请求上限；0 表示清除限制。这是 LiteLLM RPM 的零依赖等价物。"""
+    host_key = str(host or '').strip().lower()
+    if not host_key:
+        return
+    key = _bucket_key(host_key, credential)
     with _RATE_LIMIT_LOCK:
-        if not key or int(requests_per_minute) <= 0:
+        if int(requests_per_minute) <= 0:
             _HOST_RATE_LIMITS.pop(key, None)
             return
         _HOST_RATE_LIMITS[key] = _RateBucket(requests_per_minute)
 
 
-def _wait_for_rate_limit(url, control=None):
+def _sleep_rate_delay(delay, control=None):
+    """分片睡眠；分片在锁外，片间 checkpoint 保证可取消，等待不再被 RETRY_MAX_SECONDS 截断。"""
+    remaining = min(max(0.0, delay), RATE_SLEEP_MAX_SECONDS)
+    while remaining > 0:
+        if control is not None and hasattr(control, 'checkpoint'):
+            control.checkpoint()
+        slice_ = min(remaining, RATE_SLEEP_SLICE_SECONDS)
+        _SLEEP(slice_)
+        remaining -= slice_
+
+
+def _wait_for_rate_limit(url, control=None, credential=None):
     from urllib.parse import urlsplit
     try:
         host = (urlsplit(url).hostname or '').lower()
     except ValueError:
         return
+    if not host:
+        return
     with _RATE_LIMIT_LOCK:
-        bucket = _HOST_RATE_LIMITS.get(host)
-    if bucket is None:
-        return
-    delay = bucket.wait(time.time())
-    if delay <= 0:
-        return
-    if control is not None and hasattr(control, 'checkpoint'):
-        control.checkpoint()
-    time.sleep(min(delay, RETRY_MAX_SECONDS))
+        bucket = _HOST_RATE_LIMITS.get(_bucket_key(host, credential))
+        delay = bucket.wait(_CLOCK()) if bucket is not None else 0.0
+    if delay > 0:
+        _sleep_rate_delay(delay, control)
 
 
-def wait_for_rpm(base_url, rpm, control=None):
-    """按模型记录里的 rpm 做本地限流；0/空表示不限制。"""
+def wait_for_rpm(base_url, rpm, control=None, credential=None):
+    """按模型记录里的 rpm 做本地限流；0/空表示不限制。credential 区分同主机不同密钥的桶。"""
     from urllib.parse import urlsplit
     try:
         host = (urlsplit(base_url or '').hostname or '').lower()
@@ -147,18 +182,17 @@ def wait_for_rpm(base_url, rpm, control=None):
     rpm = int(rpm or 0)
     if not host or rpm <= 0:
         return
-    interval = 60.0 / rpm
+    key = _bucket_key(host, credential)
     with _RATE_LIMIT_LOCK:
-        bucket = _HOST_RATE_LIMITS.get(host)
-        if bucket is None or abs(bucket.interval - interval) > 1e-9:
+        bucket = _HOST_RATE_LIMITS.get(key)
+        if bucket is None:
             bucket = _RateBucket(rpm)
-            _HOST_RATE_LIMITS[host] = bucket
-    delay = bucket.wait(time.time())
-    if delay <= 0:
-        return
-    if control is not None and hasattr(control, 'checkpoint'):
-        control.checkpoint()
-    time.sleep(min(delay, RETRY_MAX_SECONDS))
+            _HOST_RATE_LIMITS[key] = bucket
+        else:
+            bucket.set_interval(rpm)
+        delay = bucket.wait(_CLOCK())
+    if delay > 0:
+        _sleep_rate_delay(delay, control)
 
 
 def _retry_after_seconds(headers):
@@ -189,11 +223,11 @@ def _retry_after_seconds(headers):
 
 
 def _retry_delay(attempt, retry_after=None, jitter=True):
-    """有 Retry-After 优先遵守，否则指数退避加抖动；封顶避免测试与交互卡死。"""
+    """有 Retry-After 优先遵守（单独上限 60 秒），否则指数退避加真随机抖动；封顶避免测试与交互卡死。"""
     if retry_after is not None:
-        return max(0, min(int(retry_after), RETRY_MAX_SECONDS))
+        return max(0, min(int(retry_after), RETRY_AFTER_MAX_SECONDS))
     base = RETRY_BASE_SECONDS * (2 ** max(0, attempt - 1))
-    spread = (hash(str(attempt)) % 100) / 100.0 * base if jitter else 0.0
+    spread = base * random.uniform(0.5, 1.5) if jitter else 0.0
     return min(RETRY_MAX_SECONDS, base + spread)
 
 
@@ -203,13 +237,13 @@ def _wait_before_retry(attempt, retry_after, control=None, jitter=True):
         return
     if control is not None and hasattr(control, 'checkpoint'):
         control.checkpoint()
-    time.sleep(delay)
+    _SLEEP(delay)
 
 
 @app_logging.timed('model.http', 30000)
-def http_transport(url, payload, headers, timeout, opener=None):
+def http_transport(url, payload, headers, timeout, opener=None, attempt_budget=None):
     """模型供应商通用 HTTP 传输（payload 为 None 时发只读 GET）；按结果种类计数（成功／network／bug／HTTP 状态），不改变返回。"""
-    result = _http_transport(url, payload, headers, timeout, opener=opener)
+    result = _http_transport(url, payload, headers, timeout, opener=opener, attempt_budget=attempt_budget)
     app_logging.count('model.http.' + ('ok' if result.get('ok') else str(result.get('kind') or result.get('status'))))
     return result
 
@@ -306,7 +340,23 @@ def _decode_response_body(raw, headers, limit):
     return data
 
 
-def _http_transport(url, payload, headers, timeout, opener=None):
+def _header_credential(headers):
+    """从请求头取 Authorization 值作为凭据标识；只进摘要，不落明文。"""
+    if not headers:
+        return None
+    get = getattr(headers, 'get', None)
+    if callable(get):
+        return get('Authorization') or get('authorization')
+    try:
+        for name, value in headers:
+            if str(name).lower() == 'authorization':
+                return value
+    except (TypeError, ValueError):
+        pass
+    return None
+
+
+def _http_transport(url, payload, headers, timeout, opener=None, attempt_budget=None):
     """模型供应商通用 HTTP 传输；仅在实际请求时加载网络栈。"""
     import http.client
     import ssl
@@ -320,8 +370,16 @@ def _http_transport(url, payload, headers, timeout, opener=None):
     error_detail_cache = {}
     retry_count = 0
     retry_after = None
-    for attempt in range(1, MAX_REPLAY_ATTEMPTS + 1):
-        _wait_for_rate_limit(url, control)
+    if attempt_budget is not None and attempt_budget[0] <= 0:
+        return {'ok': False, 'status': 0, 'kind': 'network',
+                'error': '请求总尝试次数已达上限', 'retry_count': retry_count,
+                'retry_after': retry_after, 'error_class': 'network'}
+    limit = MAX_REPLAY_ATTEMPTS if attempt_budget is None else min(MAX_REPLAY_ATTEMPTS, int(attempt_budget[0]))
+    credential = _header_credential(headers)
+    for attempt in range(1, limit + 1):
+        _wait_for_rate_limit(url, control, credential=credential)
+        if attempt_budget is not None:
+            attempt_budget[0] -= 1
         if control is not None:
             timeout = control.remaining(timeout)
         try:
@@ -338,7 +396,7 @@ def _http_transport(url, payload, headers, timeout, opener=None):
                             'retry_count': retry_count, 'retry_after': retry_after, 'error_class': 'protocol'}
                 declared = _declared_content_length(response.headers)
                 if declared is not None and len(raw) < declared:
-                    if attempt < MAX_REPLAY_ATTEMPTS:   # 声明长度没读满＝连接中途断开，按网络故障重放
+                    if attempt < limit:   # 声明长度没读满＝连接中途断开，按网络故障重放
                         retry_count += 1
                         _wait_before_retry(attempt, None, control)
                         continue
@@ -352,7 +410,7 @@ def _http_transport(url, payload, headers, timeout, opener=None):
                 except ValueError as exc:
                     return {'ok': False, 'status': status, 'kind': 'client', 'error': str(exc),
                             'retry_count': retry_count, 'retry_after': retry_after, 'error_class': 'protocol'}
-                if status in REPLAYABLE_RETRY_STATUS and attempt < MAX_REPLAY_ATTEMPTS:
+                if status in REPLAYABLE_RETRY_STATUS and attempt < limit:
                     retry_count += 1
                     retry_after = _retry_after_seconds(response.headers)
                     _wait_before_retry(attempt, retry_after, control)
@@ -361,7 +419,7 @@ def _http_transport(url, payload, headers, timeout, opener=None):
                     data = json.loads(raw or b'{}')
                 except ValueError as exc:
                     # 截断响应体：连接中途断开只读到半截 JSON，与断线同属传输失败，可重试。
-                    if attempt < MAX_REPLAY_ATTEMPTS:
+                    if attempt < limit:
                         retry_count += 1
                         _wait_before_retry(attempt, None, control)
                         continue
@@ -375,7 +433,7 @@ def _http_transport(url, payload, headers, timeout, opener=None):
             if detail is None:
                 detail = _scrub_error_detail(exc.read()[:400].decode('utf-8', 'replace'), headers)
                 error_detail_cache[id(exc)] = detail
-            if exc.code in REPLAYABLE_RETRY_STATUS and attempt < MAX_REPLAY_ATTEMPTS:
+            if exc.code in REPLAYABLE_RETRY_STATUS and attempt < limit:
                 retry_count += 1
                 retry_after = _retry_after_seconds(exc.headers)
                 _wait_before_retry(attempt, retry_after, control)
@@ -385,7 +443,7 @@ def _http_transport(url, payload, headers, timeout, opener=None):
                     'retry_count': retry_count, 'retry_after': retry_after,
                     'error_class': _http_error_kind(exc.code)}
         except (OSError, http.client.HTTPException) as exc:   # 含 URLError；读响应时的超时／断线不经它包装，同属网络问题
-            if attempt < MAX_REPLAY_ATTEMPTS:
+            if attempt < limit:
                 retry_count += 1
                 stable_tls = isinstance(getattr(exc, 'reason', None), ssl.SSLEOFError)
                 _wait_before_retry(attempt, None, control, jitter=not stable_tls)
@@ -410,8 +468,10 @@ def http_stream(url, payload, headers, timeout, on_chunk, cancelled=None, opener
         return {'ok': False, 'status': 0, 'error': '请求已取消'}
     body = dict(payload or {})
     body['stream'], body['stream_options'] = True, {'include_usage': True}
+    stream_headers = dict(_request_headers(headers))
+    stream_headers.setdefault('Accept-Encoding', 'identity')
     request = urllib.request.Request(url, data=json.dumps(body, ensure_ascii=False).encode('utf-8'),
-                                     headers=_request_headers(headers), method='POST')
+                                     headers=stream_headers, method='POST')
     parts, finish_reason, usage = [], '', None
     done = False
     saw_completion = False
@@ -468,8 +528,8 @@ def elapsed_ms(started):
 
 
 def _http_opener():
-    """Never forward model credentials or request bodies through redirects."""
-    import urllib.request
-    return urllib.request.build_opener(no_redirect())
+    """收敛到 RequestsJsonOpener：不跟随重定向，凭据与请求体不外泄；按需加载。"""
+    from contract.platform_tools import RequestsJsonOpener
+    return RequestsJsonOpener()
 
 

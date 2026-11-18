@@ -513,8 +513,28 @@ def _requests_failure(error):
     """Expose only safe transport messages; callers retain the original cause."""
     import requests
     import urllib.error
-    from urllib3.exceptions import TimeoutError as ReadTimeout
-    if isinstance(error, (requests.exceptions.Timeout, ReadTimeout, TimeoutError)):
+    from urllib3.exceptions import NewConnectionError
+    from urllib3.exceptions import TimeoutError as Urllib3Timeout
+
+    def _timeoutish(exc):
+        # NewConnectionError 继承 ConnectTimeoutError（urllib3 兼容历史），
+        # 拒连/ DNS 失败绝不能误报成超时。
+        if isinstance(exc, NewConnectionError):
+            return False
+        return isinstance(exc, (requests.exceptions.Timeout, Urllib3Timeout, TimeoutError))
+
+    stack, seen, timed_out = [error], set(), False
+    while stack and not timed_out:
+        item = stack.pop()
+        if id(item) in seen or not isinstance(item, BaseException):
+            continue
+        seen.add(id(item))
+        timed_out = _timeoutish(item)
+        stack.extend(a for a in item.args if isinstance(a, BaseException))
+        for link in (item.__cause__, item.__context__):
+            if isinstance(link, BaseException):
+                stack.append(link)
+    if timed_out:
         return TimeoutError('network request timed out')
     return urllib.error.URLError('network request failed')
 
@@ -523,7 +543,17 @@ class _RequestsJsonResponse:
     """Bounded decoded reads and one owner for the response/session lifetime."""
     def __init__(self, response, session):
         self.response, self.session = response, session
-        self.status, self.headers = response.status_code, response.headers
+        self.status = response.status_code
+        headers = response.headers
+        encoding = str((headers or {}).get('Content-Encoding') or '').strip().lower()
+        if encoding and encoding != 'identity':
+            # read() 经 decode_content=True 已解压：对调用方呈现解压后的视图，
+            # 去掉 Content-Encoding；Content-Length 同步移除，避免与解压字节数错配。
+            import requests
+            headers = requests.structures.CaseInsensitiveDict(headers or {})
+            for name in ('Content-Encoding', 'Content-Length'):
+                headers.pop(name, None)
+        self.headers = headers
 
     def read(self, size=-1):
         import requests
@@ -533,6 +563,22 @@ class _RequestsJsonResponse:
         except (requests.exceptions.RequestException, HTTPError, OSError) as error:
             self.close()
             raise _requests_failure(error) from error
+
+    def __iter__(self):
+        buffer = b''
+        while True:
+            chunk = self.read(65536)
+            if not chunk:
+                break
+            buffer += chunk
+            while b'\n' in buffer:
+                line, buffer = buffer.split(b'\n', 1)
+                yield line + b'\n'
+            if len(buffer) > 4 * 1024 * 1024:
+                yield buffer
+                buffer = b''
+        if buffer:
+            yield buffer
 
     def close(self):
         session, self.session = self.session, None
@@ -578,13 +624,24 @@ def _requests_tls_adapter(verify):
             pool['ssl_context'] = context
             return host, pool
 
-    return VerifiedAdapter(max_retries=0)
+    from urllib3.util import Retry
+    # GET/HEAD 轮询与下载的传输层退避：connect/read/status 有界重试，
+    # 遵守 Retry-After（封顶 backoff_max）、限定方法；付费 POST 不在
+    # allowed_methods 内，仍由调用方手写口径独占重试。
+    retry = Retry(total=2, connect=2, read=2, status=2, redirect=0,
+                  raise_on_status=False, backoff_max=30.0, backoff_factor=0.5,
+                  allowed_methods=frozenset({'GET', 'HEAD'}),
+                  status_forcelist=frozenset({408, 425, 429, 500, 502, 503, 504}),
+                  respect_retry_after_header=True)
+    return VerifiedAdapter(max_retries=retry)
 
 
 class RequestsJsonOpener:
-    """urllib Request/.open adapter; retries and redirects stay in the caller."""
+    """urllib Request/.open adapter；重定向与付费 POST 重试仍在调用方，
+    GET/HEAD 的传输层退避由适配器 Retry 提供（遵守 Retry-After、限定方法）。"""
     def open(self, request, timeout=None):
         import urllib.error
+        import urllib.parse
         if os.environ.get('DRAMA_SUPPRESS_NETWORK') == '1':
             raise urllib.error.URLError('network suppressed')
         import requests
@@ -595,6 +652,9 @@ class RequestsJsonOpener:
             prepared = session.prepare_request(requests.Request(
                 request.get_method(), request.full_url, data=request.data, headers=dict(request.header_items())))
             settings = session.merge_environment_settings(prepared.url, {}, True, True, None)
+            host = urllib.parse.urlparse(prepared.url).hostname or ''
+            if host in ('localhost', '127.0.0.1', '::1'):
+                settings['proxies'] = {}
             adapter = _requests_tls_adapter(settings['verify'])
             for scheme in ('http://', 'https://'):
                 session.mount(scheme, adapter)

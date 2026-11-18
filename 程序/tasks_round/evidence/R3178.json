@@ -1,0 +1,15 @@
+{
+  "round": 3178,
+  "commit_base": "72807cb0",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k nav_icon_size ui_icons test_video_ui",
+    "exit": 0,
+    "passed": 76,
+    "failed": 0
+  },
+  "generated_at": "2026-11-17T17:27:41"
+}

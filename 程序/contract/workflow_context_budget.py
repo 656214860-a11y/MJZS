@@ -8,6 +8,12 @@ import hashlib
 # R1434：用户要求提高上限（原 96,000）。四个总控阶段 SKILL 连同引用最大约 13.5 万字，
 # 字符上限只是最后一道硬保护；按模型真实上下文窗口的 token 判断另算，超窗口照样阻断。
 REQUEST_CONTEXT_MAX_CHARS = 300_000
+# 用户指定的应用保守默认：模型未填 context_length 时按 ID 前缀兜底，而非按 provider。
+# 这不是官方窗口或各版本真实保证；消费处须优先使用显式窗口，表外要求用户填写，不猜值。
+PRESET_CONTEXT_BY_PREFIX = (
+    ('deepseek', 128_000), ('gemini', 128_000), ('qwen', 32_000),
+    ('claude', 200_000), ('gpt', 128_000),
+)
 DEFAULT_OUTPUT_RESERVE_TOKENS = 4_096
 
 # 分项名称 → 展示用中文标签；错误信息、预览与历史记录都按这份口径命名。
@@ -21,6 +27,21 @@ SECTION_LABELS = {
 }
 USAGE_NOTE = '输入为本地估算；服务端实报用量见 request_usage。'
 CHAR_NOTE = '字符上限是硬保护，token 预估按模型窗口另算。'
+
+
+def preset_context_length(model_id):
+    """返回用户指定的应用默认窗口；无预设返回 ''，显式窗口应由消费处优先采用。
+
+    接受完整家族名、数字版本及常见分隔符后缀，不把 deepseeker 等相似词识别为该家族。
+    """
+    model = str(model_id or '').strip().casefold()
+    for prefix, context_length in PRESET_CONTEXT_BY_PREFIX:
+        if not model.startswith(prefix):
+            continue
+        suffix = model[len(prefix):]
+        if not suffix or suffix[0] in '-_.:0123456789':
+            return context_length
+    return ''
 
 
 def estimate_tokens(text):
@@ -37,12 +58,13 @@ def estimate_tokens(text):
 def skill_inline_token_budget(context_limit):
     """递归内联 SKILL 引用的体积预算（估算 token）。
 
-    预算＝窗口 − 输出预留 − 余量 − 任务/历史/固定规则份额；查不到窗口时返回 None 表示不设限。
+    预算＝窗口 − 输出预留 − 余量 − 任务/历史/固定规则份额。
+    0 表示窗口未知，调用方必须自行决定拒绝或取预设，不得据此放行。
     只约束 depth=-1 的递归展开：SKILL 正文与直接引用照常加载，超预算的嵌套引用记 skipped。
     """
     limit = int(context_limit or 0)
     if limit <= 0:
-        return None
+        return 0
     reserved = max(DEFAULT_OUTPUT_RESERVE_TOKENS, int(limit * 0.06))
     fixed_share = max(DEFAULT_OUTPUT_RESERVE_TOKENS, int(limit * 0.16))
     return max(0, limit - reserved - default_safety_margin(limit) - fixed_share)

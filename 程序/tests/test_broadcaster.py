@@ -34,6 +34,7 @@ class BroadcasterTests(unittest.TestCase):
                             "【恢复】检测到中断，从步骤 3 继续", "【下一阶段】连贯性清单",
                             "【模式】已切换到全自动模式"):
                 self.assertEqual(broadcaster.broadcast(message), message)
+            broadcaster.close()
 
     def test_pet_output_is_prefixed_and_recorded(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -48,6 +49,7 @@ class BroadcasterTests(unittest.TestCase):
             expected = Broadcaster.stage(pet_bus.STAGES.index('assets') + 1, '资产管理正在处理')
             self.assertEqual(message, expected)
             self.assertIn(message, log_path.read_text(encoding='utf-8'))
+            pet.broadcaster.close()
 
 
 class WarnOnceTests(unittest.TestCase):

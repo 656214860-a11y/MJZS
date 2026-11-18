@@ -1,15 +1,16 @@
 {
   "round": 3313,
-  "commit_base": "946d314c",
+  "commit_base": "d9bde2ff",
   "credential_scan": {
     "ran": true,
     "hits": []
   },
   "targeted": {
-    "cmd": "run_selftests.py -k production_model_contract cloud_assets",
+    "cmd": "",
     "exit": 0,
-    "passed": 2,
-    "failed": 0
+    "passed": 0,
+    "failed": 0,
+    "skipped": "merge-ci-exit"
   },
-  "generated_at": "2026-11-18T10:26:53"
+  "generated_at": "2026-11-18T11:19:32"
 }

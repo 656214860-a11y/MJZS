@@ -67,14 +67,16 @@ def rounded_png_bytes(fill, radius, width, height, border=None, border_width=0):
     return base64.encodebytes(raw).decode("ascii")
 
 
-def rounded_photo(root, fill, radius, width, height, border=None, border_width=0):
+def _rounded_image(root, cache_attr, spec):
+    fill, radius, width, height, border, border_width = spec
     factor = float(root.tk.call("tk", "scaling")) / (96.0 / 72.0)
     pr = max(1, round(radius * factor))
     w = max(2 * pr + 2, round(width * factor))
     h = max(2 * pr + 2, round(height * factor))
-    cache = getattr(root, "_drama_rounded_cache", None)
+    cache = getattr(root, cache_attr, None)
     if cache is None:
-        cache = root._drama_rounded_cache = {}
+        cache = {}
+        setattr(root, cache_attr, cache)
     key = (fill, radius, w, h, border, border_width)
     image = cache.get(key)
     if image is None:
@@ -82,6 +84,19 @@ def rounded_photo(root, fill, radius, width, height, border=None, border_width=0
             master=root, format="png",
             data=rounded_png_bytes(fill, pr, w, h, border=border, border_width=border_width))
     return image, pr
+
+
+def rounded_photo(root, fill, radius, width, height, border=None, border_width=0):
+    """平铺底图：进 ``_drama_rounded_cache``，调用方须保证中心区足够大（见模块 docstring）。"""
+    return _rounded_image(root, "_drama_rounded_cache",
+                          (fill, radius, width, height, border, border_width))
+
+
+def element_photo(root, fill, radius, width, height, border=None, border_width=0):
+    """定长图元（圆环、图标等不被平铺的图）：走 ``_drama_element_cache``，
+    不进 ``_drama_rounded_cache``——后者被 ``test_ui_modern_system`` 断言为可平铺大图。"""
+    return _rounded_image(root, "_drama_element_cache",
+                          (fill, radius, width, height, border, border_width))
 
 
 def empty_icon_photo(root, size, background, foreground, line, radius):

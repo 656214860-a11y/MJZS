@@ -9,6 +9,7 @@ RequestLedger 一条请求一行：预留 → 结算／未知／取消，同一�
 """
 import json
 import hashlib
+import shutil
 import time
 import threading
 from contextlib import contextmanager
@@ -19,6 +20,15 @@ import contract.stage_layout as stage_layout
 from agent.core import save, read
 
 _REQUEST_LOCK = threading.RLock()
+REQUEST_LOCK_WAIT_SECONDS = 10.0
+REQUEST_LOCK_POLL_SECONDS = 0.02
+REQUEST_RESERVED_STALE_SECONDS = 1800.0
+# 每个台账路径每天第一次成功加载时刷新一份 .bak；键为路径字符串，值为 clock()//86400 日序。
+_BACKUP_REFRESH = {}
+
+
+class LedgerLockTimeout(ValueError):
+    """台账文件锁在期限内未拿到；授权路径按 ValueError 语义抛出，结算路径降级记 unknown。"""
 
 # ── O29 请求级可对账台账 ─────────────────────────────────────────────────────
 # 与 Token 台账分工：Token 台账算「当天花了多少」，这里回答「这一笔请求怎么回事」——
@@ -34,8 +44,107 @@ def request_ledger_path(project):
     return Path(project).joinpath(*REQUEST_LEDGER_PATH)
 
 
+def ledger_backup_path(path):
+    return Path(path).with_suffix('.bak')
+
+
+def _corrupt_message(path, detail=''):
+    return ('请求台账损坏：%s%s；可用同目录备份 %s 恢复后重试'
+            '（备份为最近一次成功加载时的快照），或先移走坏文件再重建——'
+            '重建会清零预算与对账历史。'
+            % (path, ('（%s）' % detail) if detail else '', ledger_backup_path(path)))
+
+
+def _refresh_daily_backup(path, clock):
+    """每天第一次成功加载时把台账原样复制成 ``请求台账.bak``；备份失败不挡主流程。"""
+    try:
+        day = int(float(clock()) // 86400)
+        key = str(path)
+        if _BACKUP_REFRESH.get(key) == day or not Path(path).is_file():
+            return
+        shutil.copyfile(path, ledger_backup_path(path))
+        _BACKUP_REFRESH[key] = day
+    except (OSError, TypeError, ValueError):
+        app_logging.swallowed()
+
+
 class BudgetRejected(ValueError):
     """请求未发送：金额预留未通过。"""
+
+
+def _sweep_stale_reserved(entries, clock):
+    """本地预留超时未结算改记 unknown：进程中途退出会遗留 reserved 长期占用预算。
+
+    只扫没有 remote_task_id 的本地预留——远端任务有自己的轮询生命周期，不在此处裁决。
+    """
+    now = float(clock())
+    for entry in entries:
+        if (entry.get('state') == 'reserved' and not entry.get('remote_task_id')
+                and now - float(entry.get('at') or 0) > REQUEST_RESERVED_STALE_SECONDS):
+            entry['state'] = 'unknown'
+            entry['mode'] = 'unknown'
+            entry['amount'] = None
+            if 'money_state' in entry:
+                entry['money_state'] = 'unknown'
+            entry['settled_at'] = now
+
+
+@contextmanager
+def _ledger_file_transaction(ledger):
+    """文件锁等待在 ``_REQUEST_LOCK`` 之外轮询（有界、间隔见常量、片间 checkpoint），
+    拿到文件锁后再进进程内锁做读—改—写，避免等锁期间阻塞本进程其它台账操作。"""
+    if ledger.project is None:
+        yield
+        return
+    path = request_ledger_path(ledger.project).with_suffix('.lock')
+    path.parent.mkdir(parents=True, exist_ok=True)
+    import msvcrt
+    with path.open('a+b') as stream:
+        if not path.stat().st_size:
+            stream.write(b'0')
+            stream.flush()
+        stream.seek(0)
+        from contract.platform_tools import current_execution
+        control = current_execution()
+        deadline = time.monotonic() + REQUEST_LOCK_WAIT_SECONDS
+        while True:
+            try:
+                msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
+                break
+            except OSError:
+                if time.monotonic() >= deadline:
+                    raise LedgerLockTimeout('请求台账正在更新，请稍后重试') from None
+                if control is not None and hasattr(control, 'checkpoint'):
+                    control.checkpoint()
+                time.sleep(REQUEST_LOCK_POLL_SECONDS)
+        try:
+            with _REQUEST_LOCK:
+                ledger.load()
+                yield
+                ledger.save()
+        finally:
+            stream.seek(0)
+            msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
+
+
+def _settle_lock_timeout(ledger, request_id, exc):
+    """结算等锁超时不向上抛：付费结果已经产生。条目尽力记 unknown，落盘交给后续清扫对账。"""
+    try:
+        entry = ledger._find(request_id)
+        if entry is not None and entry.get('state') == 'reserved':
+            entry['state'] = 'unknown'
+            entry['mode'] = 'unknown'
+            entry['amount'] = None
+            if 'money_state' in entry:
+                entry['money_state'] = 'unknown'
+            entry['settled_at'] = ledger._stamp(None)
+    except Exception:
+        app_logging.swallowed()
+    try:
+        from infra import diagnostic_capture
+        diagnostic_capture.record_degradation(exc, stage='request-ledger')
+    except Exception:
+        app_logging.swallowed()
 
 
 class RequestLedger:
@@ -45,11 +154,21 @@ class RequestLedger:
         self.project = Path(project) if project else None
         self.clock = clock
         self.entries = []
+        self._index_marker, self._index = None, {}
+
+    def _entries_index(self):
+        """``{请求号: [条目…]}`` 懒索引：条目只增不改键，列表对象被替换或长度变化时重建。"""
+        marker = id(self.entries), len(self.entries)
+        if self._index_marker != marker:
+            self._index = {}
+            for entry in self.entries:
+                self._index.setdefault(entry.get('id'), []).append(entry)
+            self._index_marker = marker
+        return self._index
 
     def _find(self, request_id, kind=None):
-        rid = str(request_id)
-        for entry in self.entries:
-            if entry.get('id') == rid and (kind is None or entry.get('kind') == kind):
+        for entry in self._entries_index().get(str(request_id), ()):
+            if kind is None or entry.get('kind') == kind:
                 return entry
         return None
 
@@ -304,39 +423,22 @@ class RequestLedger:
             return self
         from agent.core import read
         path = request_ledger_path(self.project)
-        data = read(path) if path.exists() else {'entries': []}
+        try:
+            data = read(path) if path.exists() else {'entries': []}
+        except ValueError as exc:
+            # 只把「内容坏」翻成可操作错误；OSError 与锁忙 RuntimeError 原样上抛。
+            raise ValueError(_corrupt_message(path, exc)) from exc
         if (not isinstance(data, dict) or not isinstance(data.get('entries'), list)
                 or any(not isinstance(row, dict) for row in data['entries'])):
-            raise ValueError('请求台账损坏，请恢复后继续')
+            raise ValueError(_corrupt_message(path))
         self.entries = data['entries']
+        _sweep_stale_reserved(self.entries, self.clock)
+        _refresh_daily_backup(path, self.clock)
         return self
 
-    @contextmanager
     def transaction(self):
         """重新读盘、检查、保存共用同一把跨进程锁，防止并发覆盖与超支。"""
-        with _REQUEST_LOCK:
-            if self.project is None:
-                yield
-                return
-            path = request_ledger_path(self.project).with_suffix('.lock')
-            path.parent.mkdir(parents=True, exist_ok=True)
-            import msvcrt
-            with path.open('a+b') as stream:
-                if not path.stat().st_size:
-                    stream.write(b'0')
-                    stream.flush()
-                stream.seek(0)
-                try:
-                    msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
-                except OSError:
-                    raise ValueError('请求台账正在更新，请稍后重试') from None
-                try:
-                    self.load()
-                    yield
-                    self.save()
-                finally:
-                    stream.seek(0)
-                    msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
+        return _ledger_file_transaction(self)
 
     @staticmethod
     def decimal(value):
@@ -600,40 +702,47 @@ class RequestLedger:
 
     def settle_units(self, request_id, *, amount=None, remote_task_id=None):
         """异步生成与同步请求共享结算；未知不释放费用，重复回执不重复计费。"""
-        with self.transaction():
-            entry = self._find(request_id)
-            if entry is None:
-                raise ValueError('请求预留记录缺失')
-            if entry.get('money_state') == 'reconciled':
-                return
-            if remote_task_id:
-                self.link(request_id, remote_task_id)
-            if entry.get('state') == 'duplicate' or entry.get('money_state') in ('estimated', 'reconciled'):
-                return
-            if amount is None:
-                self.mark_unknown(request_id)
-                entry['money_state'] = 'unknown'
-            else:
-                self.settle(request_id, amount=amount, mode='estimated')
-                entry['money_state'] = 'estimated'
+        try:
+            with self.transaction():
+                entry = self._find(request_id)
+                if entry is None:
+                    raise ValueError('请求预留记录缺失')
+                if entry.get('money_state') == 'reconciled':
+                    return
+                if remote_task_id:
+                    self.link(request_id, remote_task_id)
+                if entry.get('state') == 'duplicate' or entry.get('money_state') in ('estimated', 'reconciled'):
+                    return
+                if amount is None:
+                    self.mark_unknown(request_id)
+                    entry['money_state'] = 'unknown'
+                else:
+                    self.settle(request_id, amount=amount, mode='estimated')
+                    entry['money_state'] = 'estimated'
+        except LedgerLockTimeout as exc:
+            _settle_lock_timeout(self, request_id, exc)
 
     def settle_model(self, request_id, usage):
         """费用按冻结费率估算；未报齐输入/输出用量时保留全部预留，不假装退款。"""
-        with self.transaction():
-            entry = self._find(request_id)
-            if entry is None:
-                raise ValueError('请求预留记录缺失')
-            if entry.get('money_state') == 'reconciled' or (entry.get('state') == 'settled' and entry.get('money_state') == 'estimated'):
-                return
-            keys = ('prompt_tokens', 'completion_tokens');known = all(type(usage.get(key)) is int and usage[key] >= 0 for key in keys)
-            if not known:
-                self.mark_unknown(request_id)
-                entry['money_state'] = 'unknown'
-                return
-            self.settle(request_id, usage=usage)
-            rates = entry.get('rates')
-            cost = sum((self.decimal(usage[key]) * self.decimal(rates[key]) for key in keys), self.decimal(0)) if rates else None
-            entry.update(budget_cost=str(cost) if cost is not None else None, money_state='estimated')
+        try:
+            with self.transaction():
+                entry = self._find(request_id)
+                if entry is None:
+                    raise ValueError('请求预留记录缺失')
+                if entry.get('money_state') == 'reconciled' or (entry.get('state') == 'settled' and entry.get('money_state') == 'estimated'):
+                    return
+                keys = ('prompt_tokens', 'completion_tokens');known = all(type(usage.get(key)) is int and usage[key] >= 0 for key in keys)
+                if not known:
+                    self.mark_unknown(request_id)
+                    entry['money_state'] = 'unknown'
+                    return
+                self.settle(request_id, usage=usage)
+                rates = entry.get('rates')
+                cost = sum((self.decimal(usage[key]) * self.decimal(rates[key]) for key in keys), self.decimal(0)) if rates else None
+                entry.update(budget_cost=str(cost) if cost is not None else None, money_state='estimated')
+        except LedgerLockTimeout as exc:
+            _settle_lock_timeout(self, request_id, exc)
+            return
         _record_model_usage(self.project, request_id, entry)  # 费用统计模块挂接：失败只记日志
 
     def reconcile_cost(self, request_id, kind, amount, currency, evidence, reviewer):

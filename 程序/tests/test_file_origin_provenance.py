@@ -1,7 +1,10 @@
 """P0/Q26: origin is durable provenance, independent from index caches."""
 import concurrent.futures
 import json
+import os
+import stat
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -51,6 +54,96 @@ class FileOriginProvenanceTests(unittest.TestCase):
             list(pool.map(lambda p: file_index.record_origin(self.root, [p], '用户上传'), paths))
         self.assertEqual(set(self.origins().values()), {'用户上传'})
         self.assertEqual(len(self.origins()), 16)
+
+    def test_index_replace_during_windows_resolve_keeps_project_path(self):
+        target = file_index.index_path(self.root)
+        target.parent.mkdir(parents=True)
+        target.write_text('{}', encoding='utf-8')
+        replacement = target.with_suffix('.pending')
+        replacement.write_text('{}', encoding='utf-8')
+        replacing = threading.Event()
+        replaced = threading.Event()
+        errors = []
+
+        def replace_index():
+            if not replacing.wait(3):
+                errors.append('index resolve did not reach replacement')
+                return
+            try:
+                os.replace(replacement, target)
+            except OSError as exc:
+                errors.append(exc)
+            finally:
+                replaced.set()
+
+        original = Path.resolve
+        observations = []
+
+        def resolve_during_replace(path, *args, **kwargs):
+            resolved = original(path, *args, **kwargs)
+            if path == target and not replacing.is_set():
+                replacing.set()
+                if not replaced.wait(3):
+                    raise AssertionError('concurrent index replacement did not finish')
+                # ntpath.realpath can retain this prefix if its second Win32
+                # open races with replace, while the stable project has none.
+                observations.append(resolved)
+                if os.name == 'nt':
+                    return Path('\\\\?\\' + str(resolved))
+            return resolved
+
+        worker = threading.Thread(target=replace_index)
+        worker.start()
+        try:
+            with mock.patch.object(Path, 'resolve', resolve_during_replace):
+                with file_index._index_lock(target, self.root):
+                    self.assertEqual(target.read_text(encoding='utf-8'), '{}')
+        finally:
+            worker.join(3)
+        self.assertFalse(worker.is_alive())
+        self.assertEqual(errors, [])
+        self.assertEqual(len(observations), 1)
+
+    def test_index_lock_rejects_redirected_leaf_and_parent(self):
+        target = file_index.index_path(self.root)
+        outside = self.root.parent / 'outside'
+        outside.mkdir()
+        original = Path.resolve
+        for redirected_path in (target, target.parent):
+            def redirected(path, *args, **kwargs):
+                if path == redirected_path:
+                    return outside / target.name if path == target else outside
+                resolved = original(path, *args, **kwargs)
+                if path == target and redirected_path == target.parent:
+                    return Path('\\\\?\\' + str(resolved))
+                return resolved
+
+            with self.subTest(path=redirected_path):
+                with mock.patch.object(Path, 'resolve', redirected):
+                    with self.assertRaises(ValueError):
+                        with file_index._index_lock(target, self.root):
+                            self.fail('escaped index was accepted')
+        self.assertEqual(list(outside.iterdir()), [])
+
+    def test_index_lock_does_not_rebase_reparse_leaf(self):
+        target = file_index.index_path(self.root)
+        target.parent.mkdir(parents=True)
+        target.write_text('{}', encoding='utf-8')
+        original = Path.resolve
+        leaf = target.lstat()
+
+        def extended(path, *args, **kwargs):
+            resolved = original(path, *args, **kwargs)
+            return Path('\\\\?\\' + str(resolved)) if path == target else resolved
+
+        # The extended-prefix retry must still reject leaf reparse points.
+        with mock.patch.object(Path, 'resolve', extended), mock.patch.object(
+                Path, 'lstat', return_value=mock.Mock(
+                    st_mode=leaf.st_mode,
+                    st_file_attributes=getattr(stat, 'FILE_ATTRIBUTE_REPARSE_POINT', 0x400))):
+            with self.assertRaises(ValueError):
+                with file_index._index_lock(target, self.root):
+                    self.fail('reparse leaf was accepted')
 
     def test_paths_and_origins_are_validated_before_any_write(self):
         self.make('ok.png')

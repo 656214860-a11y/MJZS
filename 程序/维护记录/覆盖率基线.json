@@ -423,7 +423,7 @@
   {
    "module": "desktop.py",
    "covered": 0,
-   "total": 708,
+   "total": 711,
    "percent": 0.0
   },
   {
@@ -615,7 +615,7 @@
   {
    "module": "desktop_shared_input.py",
    "covered": 0,
-   "total": 702,
+   "total": 696,
    "percent": 0.0
   },
   {
@@ -1317,7 +1317,7 @@
   {
    "module": "infra/model_diagnostics.py",
    "covered": 0,
-   "total": 41,
+   "total": 75,
    "percent": 0.0
   },
   {
@@ -1366,6 +1366,12 @@
    "module": "infra/store_program_locator.py",
    "covered": 0,
    "total": 63,
+   "percent": 0.0
+  },
+  {
+   "module": "infra/temporary_sweep.py",
+   "covered": 0,
+   "total": 39,
    "percent": 0.0
   },
   {
@@ -2499,7 +2505,7 @@
   {
    "module": "ui/desktop_files_panel.py",
    "covered": 0,
-   "total": 428,
+   "total": 431,
    "percent": 0.0
   },
   {
@@ -2625,7 +2631,7 @@
   {
    "module": "ui/desktop_script_pages.py",
    "covered": 0,
-   "total": 596,
+   "total": 592,
    "percent": 0.0
   },
   {
@@ -2685,7 +2691,7 @@
   {
    "module": "ui/desktop_writing_page.py",
    "covered": 0,
-   "total": 313,
+   "total": 314,
    "percent": 0.0
   },
   {
@@ -2811,7 +2817,7 @@
   {
    "module": "ui/pet_ui.py",
    "covered": 0,
-   "total": 455,
+   "total": 456,
    "percent": 0.0
   },
   {
@@ -3063,7 +3069,7 @@
   {
    "module": "ui/ui_composer_style.py",
    "covered": 0,
-   "total": 27,
+   "total": 39,
    "percent": 0.0
   },
   {
@@ -3135,13 +3141,13 @@
   {
    "module": "ui/ui_popup.py",
    "covered": 0,
-   "total": 43,
+   "total": 72,
    "percent": 0.0
   },
   {
    "module": "ui/ui_rounded.py",
    "covered": 0,
-   "total": 90,
+   "total": 98,
    "percent": 0.0
   },
   {
@@ -3189,7 +3195,7 @@
   {
    "module": "ui/ui_theme.py",
    "covered": 0,
-   "total": 185,
+   "total": 188,
    "percent": 0.0
   },
   {
@@ -3333,13 +3339,13 @@
   {
    "module": "ui_tokens.py",
    "covered": 0,
-   "total": 168,
+   "total": 169,
    "percent": 0.0
   },
   {
    "module": "ui_widgets.py",
    "covered": 0,
-   "total": 689,
+   "total": 688,
    "percent": 0.0
   },
   {
@@ -3511,22 +3517,10 @@
    "percent": 11.6
   },
   {
-   "module": "infra/model_metering.py",
-   "covered": 6,
-   "total": 49,
-   "percent": 12.2
-  },
-  {
    "module": "orchestrator/skill_registry.py",
    "covered": 95,
    "total": 679,
    "percent": 14.0
-  },
-  {
-   "module": "infra/api_endpoints.py",
-   "covered": 52,
-   "total": 366,
-   "percent": 14.2
   },
   {
    "module": "infra/client_profiles.py",
@@ -3569,6 +3563,18 @@
    "covered": 103,
    "total": 667,
    "percent": 15.4
+  },
+  {
+   "module": "infra/model_metering.py",
+   "covered": 11,
+   "total": 71,
+   "percent": 15.5
+  },
+  {
+   "module": "infra/api_endpoints.py",
+   "covered": 64,
+   "total": 411,
+   "percent": 15.6
   },
   {
    "module": "agent/volcengine.py",
@@ -3674,9 +3680,9 @@
   },
   {
    "module": "infra/pet_llm.py",
-   "covered": 78,
-   "total": 321,
-   "percent": 24.3
+   "covered": 81,
+   "total": 330,
+   "percent": 24.5
   },
   {
    "module": "contract/pet_bus.py",
@@ -3788,9 +3794,9 @@
   },
   {
    "module": "infra/file_cache.py",
-   "covered": 78,
-   "total": 158,
-   "percent": 49.4
+   "covered": 85,
+   "total": 169,
+   "percent": 50.3
   },
   {
    "module": "contract/media_signature.py",
@@ -3830,9 +3836,9 @@
   },
   {
    "module": "infra/usage_snapshot.py",
-   "covered": 126,
-   "total": 172,
-   "percent": 73.3
+   "covered": 130,
+   "total": 179,
+   "percent": 72.6
   },
   {
    "module": "contract/file_index_contract.py",
@@ -3859,6 +3865,12 @@
    "percent": 83.3
   },
   {
+   "module": "infra/request_ledger.py",
+   "covered": 566,
+   "total": 669,
+   "percent": 84.6
+  },
+  {
    "module": "contract/service_contract.py",
    "covered": 23,
    "total": 27,
@@ -3869,12 +3881,6 @@
    "covered": 12,
    "total": 14,
    "percent": 85.7
-  },
-  {
-   "module": "infra/request_ledger.py",
-   "covered": 518,
-   "total": 591,
-   "percent": 87.6
   },
   {
    "module": "agent/publication.py",
@@ -3950,5 +3956,5 @@
   }
  ],
  "modules_covered": 75,
- "modules_total": 656
+ "modules_total": 657
 }

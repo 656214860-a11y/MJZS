@@ -20,7 +20,7 @@ from pathlib import Path
 import infra.config_snapshot as config_snapshot, infra.model_secrets as model_secrets, infra.token_saver as token_saver
 import infra.client_profiles as client_profiles
 from infra.model_metering import REPLAYABLE_RETRY_STATUS
-from agent.core import save
+from agent.core import read, save
 from infra.api_endpoints import configured_key, normalize_url, _http_error_kind, _request_headers, _retry_after_seconds, _decode_response_body, wait_for_rpm, elapsed_ms, _RateBucket, _http_opener, HTTP_USER_AGENT
 from contract.pet_bus import read_json
 
@@ -571,6 +571,32 @@ def store(data, program=None):
     return path
 
 
+def _update(mutate, program=None):
+    """在发布锁内重新读盘、应用 ``mutate``、原子写回；``mutate`` 返回 None 表示放弃写入。
+
+    读—改—写必须整体持锁：锁外先读再写会让后台任务把用户刚保存的模型池回滚掉。
+    配置文件读不出来（被占用或已损坏）时拒绝写入——健康度这类元数据丢一次不可惜，
+    把空表盖回配置文件却会清掉用户整个模型池。
+    """
+    from agent.publication import access
+    path = config_file(program)
+    with access():
+        try:
+            data = read(path)
+        except FileNotFoundError:
+            data = {}
+        except (OSError, ValueError) as exc:
+            raise RuntimeError('模型池配置 %s 读取失败（%s）：可能被其他程序占用或文件已损坏，本次不写入。'
+                               % (path, exc)) from exc
+        if not isinstance(data, dict):
+            data = {}
+        result = mutate(dict(data))
+        if result is None:
+            return None
+        store(result, program)
+        return result
+
+
 def patch_for(model_id, records=None, config=None, program=None):
     """池里那一条 → pet_llm 客户端的配置覆盖：换服务商只换这几个键，其余设置照旧。"""
     text = str(model_id or '').strip()
@@ -759,11 +785,21 @@ def record_health(value, outcome, program=None):
     checks = source.get('checks')
     if isinstance(checks, list):
         entry['checks'] = [dict(check) for check in checks if isinstance(check, dict)]
-    data = raw(program)
-    table = health(program=program)
-    table[model_id] = entry
-    data[HEALTH_KEY] = table
-    store(data, program)
+
+    def mutate(data):
+        table = data.get(HEALTH_KEY)
+        if not isinstance(table, dict):
+            table = {}
+        else:
+            table = {str(key): dict(item) for key, item in table.items() if isinstance(item, dict)}
+        table[model_id] = entry
+        data[HEALTH_KEY] = table
+        return data
+
+    try:
+        _update(mutate, program)
+    except RuntimeError:
+        pass                                    # 配置读不出时健康度只留本次结果，不盖写坏文件
     return entry
 
 
@@ -911,16 +947,17 @@ def model_admission_error(item, *, require_context_length=False, require_certifi
 
 
 @app_logging.timed('model.http', 30000)
-def http_transport(url, payload, headers, timeout):
+def http_transport(url, payload, headers, timeout, attempt_budget=None):
     """兼容入口：保留 model_pool 的补丁点，实际传输在 api_endpoints。"""
-    result = _http_transport(url, payload, headers, timeout)
+    result = _http_transport(url, payload, headers, timeout, attempt_budget=attempt_budget)
     app_logging.count('model.http.' + ('ok' if result.get('ok') else str(result.get('kind') or result.get('status'))))
     return result
 
 
-def _http_transport(url, payload, headers, timeout):
+def _http_transport(url, payload, headers, timeout, attempt_budget=None):
     import infra.api_endpoints as endpoints
-    return endpoints._http_transport(url, payload, headers, timeout, opener=_http_opener)
+    return endpoints._http_transport(url, payload, headers, timeout, opener=_http_opener,
+                                     attempt_budget=attempt_budget)
 
 
 def http_stream(url, payload, headers, timeout, on_chunk, cancelled=None):

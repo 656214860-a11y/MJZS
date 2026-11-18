@@ -28,6 +28,8 @@ _REPLACE_AUTHORITY = "core.py"
 _REPLACE_REGISTERED = {
     "core.py": 1,
     "publication.py": 2,
+    # R3292：faulthandler.log 超 5MiB 时的日志轮转（FAULT_LOG → FAULT_LOG.1），与 log_maintenance 同类。
+    "app_logging.py": 1,
     "image_agent_runner.py": 1,
     "log_maintenance.py": 2,
     "skill_import_service.py": 2,

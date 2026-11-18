@@ -112,6 +112,11 @@ class SpeechSettingsTests(Batch7Case):
         win.update_idletasks()
         self.assertGreaterEqual(win.winfo_height(), win.winfo_reqheight(), '不写死高度，表单不被裁掉')
         self.assertGreaterEqual(win.winfo_width(), win.winfo_reqwidth())
+        for text in ('恢复默认', '保存', '取消'):
+            button = _button(win, text)
+            self.assertTrue(button.winfo_ismapped())
+            self.assertLessEqual(button.winfo_rooty() + button.winfo_height(),
+                                 win.winfo_rooty() + win.winfo_height())
 
     def test_invalid_value_keeps_dialog_open_with_reason(self):
         win = self._dialog()

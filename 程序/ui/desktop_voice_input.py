@@ -24,7 +24,7 @@ from ui_tokens import COLORS, VOICE_POLL_MS
 class VoiceInput:
     """麦克风听写开关：绑定一个 Text 输入框与一颗按钮，状态写到 ``status``。"""
 
-    LISTENING_STYLE, IDLE_STYLE = 'Tokens.Composer.Send.TButton', 'Tokens.Composer.Icon.TButton'
+    LISTENING_STYLE, IDLE_STYLE = 'Tokens.Composer.Listening.TButton', 'Tokens.Composer.Icon.TButton'
     SILENCE_PEAK, SILENCE_HINT_SECONDS, LEVEL_BARS = 300, 3, 5
     PARTIAL_TAG = 'voice_partial'
 

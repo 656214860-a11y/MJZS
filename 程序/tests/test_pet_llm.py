@@ -336,8 +336,9 @@ class HttpTransportTests(unittest.TestCase):
         response.read.return_value = b'{"id":"ok"}'
         response.__enter__.return_value = response
         eof = urllib.error.URLError(ssl.SSLEOFError(8, 'UNEXPECTED_EOF_WHILE_READING'))
-        with mock.patch('urllib.request.OpenerDirector.open', side_effect=[eof, response]) as urlopen, \
-             mock.patch('pet_llm.time.sleep') as sleep:
+        from contract.platform_tools import RequestsJsonOpener
+        with mock.patch.object(RequestsJsonOpener, 'open', side_effect=[eof, response]) as urlopen, \
+             mock.patch('infra.api_endpoints._SLEEP') as sleep:
             result = pet_llm.http_transport('https://gateway.test/v1/messages', {'model': 'claude'},
                                             {'x-api-key': 'test'}, 30)
         self.assertTrue(result['ok'])
@@ -351,8 +352,9 @@ class HttpTransportTests(unittest.TestCase):
         response.read.return_value = b'{"id":"ok"}'
         response.__enter__.return_value = response
         eof = urllib.error.URLError(ssl.SSLEOFError(8, 'UNEXPECTED_EOF_WHILE_READING'))
-        with mock.patch('urllib.request.OpenerDirector.open', side_effect=[eof, eof, response]) as urlopen, \
-             mock.patch('pet_llm.time.sleep') as sleep:
+        from contract.platform_tools import RequestsJsonOpener
+        with mock.patch.object(RequestsJsonOpener, 'open', side_effect=[eof, eof, response]) as urlopen, \
+             mock.patch('infra.api_endpoints._SLEEP') as sleep:
             result = pet_llm.http_transport('https://gateway.test/v1/messages', {'model': 'claude'},
                                             {'x-api-key': 'test'}, 30)
         self.assertTrue(result['ok'])

@@ -165,7 +165,7 @@ class WritingReasoningInjectionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             stage_config.put(td, 'script', reasoning='low')
             inner = self._FakeAdapter()
-            adapter = writing_api.WritingRequestAdapter(inner, {}, 'm1', project=td, stage='script')
+            adapter = writing_api.WritingRequestAdapter(inner, {'context_length': 128000}, 'm1', project=td, stage='script')
             result = adapter.chat([{'role': 'user', 'content': 'hi'}],
                                   options={'max_tokens': 100}, model='m1')
             self.assertTrue(result['ok'])
@@ -177,7 +177,7 @@ class WritingReasoningInjectionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             stage_config.put(td, 'script', reasoning='low')
             inner = self._FakeAdapter()
-            adapter = writing_api.WritingRequestAdapter(inner, {}, 'm1', project=td, stage='script')
+            adapter = writing_api.WritingRequestAdapter(inner, {'context_length': 128000}, 'm1', project=td, stage='script')
             adapter.chat([{'role': 'user', 'content': 'hi'}],
                          options={'max_tokens': 100, 'reasoning': 'high'}, model='m1')
             self.assertEqual(inner.seen.get('reasoning'), 'high')
@@ -186,7 +186,7 @@ class WritingReasoningInjectionTests(unittest.TestCase):
         import writing_api
         with tempfile.TemporaryDirectory() as td:
             inner = self._FakeAdapter()
-            adapter = writing_api.WritingRequestAdapter(inner, {}, 'm1', project=td, stage='script')
+            adapter = writing_api.WritingRequestAdapter(inner, {'context_length': 128000}, 'm1', project=td, stage='script')
             adapter.chat([{'role': 'user', 'content': 'hi'}],
                          options={'max_tokens': 100}, model='m1')
             self.assertNotIn('reasoning', inner.seen)

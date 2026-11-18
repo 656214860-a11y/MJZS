@@ -15,6 +15,7 @@ import json
 import logging
 import hashlib
 import time
+from collections import deque
 from pathlib import Path
 import infra.model_pool as model_pool, contract.stage_layout as stage_layout
 import infra.token_saver as token_saver
@@ -55,6 +56,8 @@ REQUEST_CONTEXT_MAX_CHARS = 16000
 REQUEST_DIRECTIVE_MAX_CHARS = 16000
 RETRY_DELAYS = (30, 60, 120)
 RETRYABLE_STATUS = REPLAYABLE_RETRY_STATUS  # 对话可重放口径；提交口径见 model_metering.submission_retryable
+MAX_PAID_ATTEMPTS = 3  # 传输层重放与降级链共用的总发送上限：pro→flash→兜底 三步叠加不超过 3 次真实 POST
+CALLS_LIMIT = 256     # Client.calls 有界：三虎常驻进程内存不随调用数无限增长
 
 # 固定前缀：改动它等于让所有历史缓存失效，所以只放长期稳定的内容。
 # 第 15 期把人设写进这里（名字＝pet_agent.PET_NAME，改一处要改两处，自检有用例盯着）：
@@ -279,9 +282,9 @@ def build_payload(task, text, context=None, config=None, model=None):
     return payload
 
 
-def http_transport(url, payload, headers, timeout):
-    """兼容入口：实际传输已下沉至 model_pool 的单向基础设施链。"""
-    return model_pool.http_transport(url, payload, headers, timeout)
+def http_transport(url, payload, headers, timeout, attempt_budget=None):
+    """兼容入口：实际传输已下沉至 model_pool 的单向基础设施链。attempt_budget 为可变计数列表时，全链共享发送次数上限。"""
+    return model_pool.http_transport(url, payload, headers, timeout, attempt_budget=attempt_budget)
 
 
 is_retryable = replayable_retry
@@ -392,7 +395,7 @@ class Client:
         self.clock = clock
         self.program = program
         self.ledger = Ledger(self.project, clock=clock)
-        self.calls = []
+        self.calls = deque(maxlen=CALLS_LIMIT)
 
     def payload(self, task, text, context=None, model=None, config=None):
         return build_payload(task, text, context, config or self.config, model)
@@ -459,6 +462,13 @@ class Client:
                         'degraded': False, 'budget': True, 'usage': usage_of(None), 'request': None}
             tier, _limit = choose(task, cfg)
             send = transport or self.transport
+            attempt_budget = None
+            if transport is None and self.transport is http_transport:
+                attempt_budget = [MAX_PAID_ATTEMPTS]
+                inner_send = send
+
+                def send(url, payload, head, timeout, _inner=inner_send, _budget=attempt_budget):
+                    return _inner(url, payload, head, timeout, attempt_budget=_budget)
             url = endpoint(cfg)
             head = headers(cfg, self.program)
             timeout = cfg.get('timeout', DEFAULTS['timeout'])

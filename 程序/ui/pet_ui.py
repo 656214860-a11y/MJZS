@@ -369,7 +369,7 @@ class Pet(PetBroadcastAliasesMixin, PetStagesMixin, PetSettingsMixin, PetVoiceMi
         self._core = None
         self._client = None
         self._client_project = object()
-        self._flushed = 0
+        self._flushed = None             # 最近一次触发 ledger 落盘的 calls 记录对象（deque 封顶后 len 不再增长）
         self._tick_texts = set()
         self.report_path = None
         self.weekly_path = None
@@ -644,8 +644,9 @@ class Pet(PetBroadcastAliasesMixin, PetStagesMixin, PetSettingsMixin, PetVoiceMi
             self.say_held()            # 弹窗关了：被它挡住的那一句补说
         self.watch_focus(at=at)        # 第 35 期第 1 条：切出去就暂停、回到界面再恢复
         self.tick_broadcast(at=at)     # 播报：按频率说进度，缺口一变化立刻说（第 14 期）
-        if agent.client is not None and agent.client.calls and len(agent.client.calls) != self._flushed:
-            self._flushed = len(agent.client.calls)
+        latest_call = agent.client.calls[-1] if agent.client is not None and agent.client.calls else None
+        if latest_call is not None and latest_call is not self._flushed:
+            self._flushed = latest_call
             try:
                 agent.client.flush()
             except Exception as exc:

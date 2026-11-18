@@ -1,0 +1,15 @@
+{
+  "round": 3273,
+  "commit_base": "5beeb194",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k context_budget_model skill_deep_inline",
+    "exit": 0,
+    "passed": 25,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T03:29:34"
+}

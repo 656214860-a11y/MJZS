@@ -4,6 +4,55 @@ import tkinter as tk
 
 from ui_tokens import COLORS, SPACING
 
+_MEASURE_FONTS = {}
+
+
+def text_measure_font(font, root=None):
+    """``FONTS``/token 字体规格（元组或字符串）或已建好的 ``tkfont.Font`` → 可测宽字体。
+
+    规格形态按 ``(root, 规格)`` 缓存 ``tkfont.Font``：自检里每个用例重建 ``tk.Tk``，
+    跨解释器复用 Font 会拿到已销毁的 Tcl 解释器；``root`` 缺省取默认根（主程序恒有，
+    测试在 setUp 建根之后调用）。须在 Tk 根存在之后调用。
+    """
+    if hasattr(font, 'measure'):
+        return font
+    import tkinter
+    from tkinter import font as tkfont
+    root = root or tkinter._get_default_root('text_measure_font')
+    key = (root, str(font))
+    cached = _MEASURE_FONTS.get(key)
+    if cached is None:
+        if len(_MEASURE_FONTS) > 512:
+            _MEASURE_FONTS.clear()
+        cached = _MEASURE_FONTS[key] = tkfont.Font(root=root, font=font)
+    return cached
+
+
+def measure_text_width(font, texts, max_width=None, root=None):
+    """共享测宽入口（U1）：返回 ``texts`` 中最长文本的真实字体像素宽度。
+
+    ``font`` 取 ``FONTS``/token 规格或 ``tkfont.Font``；``texts`` 逐项 ``str()``；
+    ``max_width`` 给出像素上限时把结果钳到该值；``root`` 缺省用默认根。
+    用 Tk 真实字体 ``measure``，不做全角×2／ASCII×1 的字符数近似；新代码一律走这里
+    （门禁 ``test_text_measure_boundary``），不直接调 ``font.measure``。
+    """
+    face = text_measure_font(font, root)
+    width = max([face.measure(str(text)) for text in texts] or [0])
+    if max_width is not None:
+        width = min(width, int(max_width))
+    return width
+
+
+def char_unit_px(font, root=None):
+    """ttk 控件 ``-width``「字符」单位折合的像素宽：以 '0' 实测宽作平均字符代理。"""
+    return max(1, text_measure_font(font, root).measure('0'))
+
+
+def text_units_width(font, texts, root=None):
+    """像素测宽折算成 ttk ``-width`` 字符单位数（向上取整，保证不截断）。"""
+    px = measure_text_width(font, texts, root=root)
+    return -(-px // char_unit_px(font, root)) if px else 0
+
 
 class Flyout(tk.Toplevel):
     """锚点控件下方的无边框选择浮层：1px 描边壳＋内容体（``self.body``）。
