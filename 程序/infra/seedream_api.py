@@ -121,13 +121,15 @@ def request_image(profile,payload):
     from urllib.request import Request, build_opener        # 第 34 期第 9 条：HTTP 栈按需加载
     from urllib.error import HTTPError
     # Redirects must never forward the user's Authorization header to another host.
+    from infra.api_endpoints import _scrub_error_detail
+    headers={'Authorization':'Bearer '+profile['api_key'],'Content-Type':'application/json'}
     request=Request(profile['base_url']+'/images/generations',data=json.dumps(payload,ensure_ascii=False).encode('utf-8'),
-                    headers={'Authorization':'Bearer '+profile['api_key'],'Content-Type':'application/json'})
+                    headers=headers)
     try:
         with build_opener(no_redirect()).open(request,timeout=300) as response:
             raw=response.read(64*1024*1024+1)
     except HTTPError as exc:
-        try:detail=exc.read().decode('utf-8','replace').strip()
+        try:detail=_scrub_error_detail(exc.read(64*1024).decode('utf-8','replace').strip(),headers)
         except Exception:detail=''
         messages={400:'参数或模型 ID 不匹配',401:'API Key 无效',403:'模型权限或账户余额不足',404:'接口或模型不存在',429:'请求限流或额度不足'}
         if detail:

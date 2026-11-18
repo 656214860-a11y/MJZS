@@ -3,15 +3,19 @@
 诊断用于定位空正文、协议与配置问题，绝不能变成另一份创作内容或密钥副本。每次调用写入
 独立事件文件，避免并发请求竞争 JSONL 追加；文件通过 ``agent.core.save`` 原子落盘。
 """
+import time
 from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
 
+import infra.app_logging as app_logging
+import infra.file_cache as file_cache
 from agent.core import save
 from infra.diagnostic_capture import redact
 
 
 _USAGE_KEYS = ('prompt_tokens', 'completion_tokens', 'cached_tokens', 'cache_creation_tokens', 'total_tokens')
+_PRUNE_LAST = {}
 
 
 def _scrub(meta):
@@ -68,10 +72,50 @@ def event(result, context=None, at=None):
     }
 
 
+def prune_events(directory, *, now=None, retention_days=None):
+    """删除 ``directory`` 下超过保留期的 ``*.json`` 诊断事件，返回删除数。
+
+    保留期口径取 ``log_maintenance.RETENTION_DAYS``（程序日志同一标准）；
+    只动普通文件，不跟随链接，单个失败跳过。写入格式不变。
+    """
+    if retention_days is None:
+        from infra.log_maintenance import RETENTION_DAYS
+        retention_days = RETENTION_DAYS
+    directory = Path(directory)
+    cutoff = (time.time() if now is None else float(now)) - float(retention_days) * 86400
+    removed = 0
+    try:
+        entries = list(directory.glob('*.json'))
+    except OSError:
+        return 0
+    for entry in entries:
+        try:
+            if entry.is_file() and not entry.is_symlink() and entry.stat().st_mtime < cutoff:
+                if file_cache.remove_temporary_file(entry):
+                    removed += 1
+        except OSError:
+            continue
+    return removed
+
+
+def _maybe_prune(directory):
+    """每个诊断目录每天最多清扫一次；清扫失败绝不影响诊断写入。"""
+    try:
+        day = int(time.time() // 86400)
+        key = str(directory)
+        if _PRUNE_LAST.get(key) == day:
+            return
+        _PRUNE_LAST[key] = day
+        prune_events(directory)
+    except Exception:
+        app_logging.swallowed()
+
+
 def record(folder, result, context=None, at=None):
     """原子保存一条安全事件并返回路径。"""
     stamp = at or datetime.now()
-    path = (Path(folder) / 'model_diagnostics'
-            / (stamp.strftime('%Y%m%d_%H%M%S_%f') + '_' + uuid4().hex[:8] + '.json'))
+    directory = Path(folder) / 'model_diagnostics'
+    path = directory / (stamp.strftime('%Y%m%d_%H%M%S_%f') + '_' + uuid4().hex[:8] + '.json')
     save(path, event(result, context=context, at=stamp))
+    _maybe_prune(directory)
     return path

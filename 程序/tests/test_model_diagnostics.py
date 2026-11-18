@@ -44,6 +44,20 @@ class ModelDiagnosticsTests(unittest.TestCase):
         self.assertEqual(saved['content_length'], 0)
         self.assertEqual(saved['reasoning_lengths'], {})
 
+    def test_event_reads_data_shape_without_copying_content(self):
+        base = {'ok': True, 'status': 200, 'model': 'm'}
+        full = dict(base, data={'id': 'chatcmpl-1', 'choices': [
+            {'finish_reason': 'stop',
+             'message': {'content': '绝不复制的正文', 'reasoning_content': 'r'}}]})
+        saved = model_diagnostics.event(full)
+        self.assertEqual(saved['response_id'], 'chatcmpl-1')
+        self.assertEqual(saved['finish_reason'], 'stop')
+        self.assertEqual(saved['reasoning_fields'], ['reasoning_content'])
+        self.assertNotIn('绝不复制的正文', json.dumps(saved, ensure_ascii=False))
+        bare = model_diagnostics.event(dict(base, data={'id': 'chatcmpl-2'}))
+        self.assertEqual(bare['response_id'], 'chatcmpl-2')
+        self.assertEqual(bare['finish_reason'], '')
+
 
 if __name__ == '__main__':
     unittest.main()

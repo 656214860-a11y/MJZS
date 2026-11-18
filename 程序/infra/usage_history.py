@@ -9,6 +9,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from agent.core import save
+from agent.publication import access
 from infra.file_cache import read_json
 
 HISTORY_DIR = 'usage_history'
@@ -42,24 +43,25 @@ def record_today(project, day, tokens, cost, calls, currency=''):
     if project is None or len(day) < 7:
         return False
     path = _path(project, day[:7])
-    try:
-        data = read_json(path)
-    except Exception:
-        data = None
-    if not isinstance(data, dict) or not isinstance(data.get('days'), dict):
-        data = {'version': 1, 'currency': str(currency or 'CNY'), 'days': {}}
-    days = data['days']
-    try:
-        tokens = max(0, int(tokens or 0))
-        calls = max(0, int(calls or 0))
-    except (TypeError, ValueError):
-        return False
-    days[day] = {'tokens': tokens, 'cost': format(_dec(cost), 'f'), 'calls': calls}
-    data['days'] = dict(sorted(days.items()))
-    if currency:
-        data['currency'] = str(currency)
-    # 月度用量归档同样是可重建运行记录：原子替换即可，不等落盘。
-    save(path, data, durable=False)
+    with access():
+        try:
+            data = read_json(path)
+        except Exception:
+            data = None
+        if not isinstance(data, dict) or not isinstance(data.get('days'), dict):
+            data = {'version': 1, 'currency': str(currency or 'CNY'), 'days': {}}
+        days = data['days']
+        try:
+            tokens = max(0, int(tokens or 0))
+            calls = max(0, int(calls or 0))
+        except (TypeError, ValueError):
+            return False
+        days[day] = {'tokens': tokens, 'cost': format(_dec(cost), 'f'), 'calls': calls}
+        data['days'] = dict(sorted(days.items()))
+        if currency:
+            data['currency'] = str(currency)
+        # 月度用量归档同样是可重建运行记录：原子替换即可，不等落盘。
+        save(path, data, durable=False)
     return True
 
 

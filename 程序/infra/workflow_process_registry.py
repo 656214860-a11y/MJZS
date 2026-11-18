@@ -8,6 +8,112 @@ _slots = {}
 _queued = []
 _queue_counter = 0
 
+_JOB = None
+_JOB_LOCK = threading.Lock()
+_JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x2000
+_JOB_OBJECT_EXTENDED_LIMIT_INFORMATION = 9
+_PROCESS_SET_QUOTA_TERMINATE = 0x0100 | 0x0001
+
+
+def _job_object():
+    """本进程私有的 Job Object（KILL_ON_JOB_CLOSE）：最后一个句柄关闭即结束全部登记子进程。
+
+    只在 Windows 上懒建；建不出来（权限、旧系统、嵌套 Job 限制）返回 None，
+    调用方照常登记进程、不影响启动——Job 只是兜底，不是前置条件。
+    """
+    global _JOB
+    if os.name != 'nt':
+        return None
+    with _JOB_LOCK:
+        if _JOB is not None:
+            return _JOB
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            class _BasicLimit(ctypes.Structure):
+                _fields_ = [('PerProcessUserTimeLimit', ctypes.c_int64),
+                            ('PerJobUserTimeLimit', ctypes.c_int64),
+                            ('LimitFlags', wintypes.DWORD),
+                            ('MinimumWorkingSetSize', ctypes.c_size_t),
+                            ('MaximumWorkingSetSize', ctypes.c_size_t),
+                            ('ActiveProcessLimit', wintypes.DWORD),
+                            ('Affinity', ctypes.c_size_t),
+                            ('PriorityClass', wintypes.DWORD),
+                            ('SchedulingClass', wintypes.DWORD)]
+
+            class _IoCounters(ctypes.Structure):
+                _fields_ = [(name, ctypes.c_uint64) for name in (
+                    'ReadOperationCount', 'WriteOperationCount', 'OtherOperationCount',
+                    'ReadTransferCount', 'WriteTransferCount', 'OtherTransferCount')]
+
+            class _ExtendedLimit(ctypes.Structure):
+                _fields_ = [('BasicLimitInformation', _BasicLimit),
+                            ('IoInfo', _IoCounters),
+                            ('ProcessMemoryLimit', ctypes.c_size_t),
+                            ('JobMemoryLimit', ctypes.c_size_t),
+                            ('PeakProcessMemoryUsed', ctypes.c_size_t),
+                            ('PeakJobMemoryUsed', ctypes.c_size_t)]
+
+            kernel32 = ctypes.windll.kernel32
+            kernel32.CreateJobObjectW.restype = wintypes.HANDLE
+            kernel32.CreateJobObjectW.argtypes = [wintypes.LPVOID, wintypes.LPCWSTR]
+            kernel32.SetInformationJobObject.argtypes = [
+                wintypes.HANDLE, ctypes.c_int, wintypes.LPVOID, wintypes.DWORD]
+            kernel32.SetInformationJobObject.restype = wintypes.BOOL
+            kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+            kernel32.CloseHandle.restype = wintypes.BOOL
+            job = kernel32.CreateJobObjectW(None, None)
+            if not job:
+                return None
+            info = _ExtendedLimit()
+            info.BasicLimitInformation.LimitFlags = _JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+            ok = kernel32.SetInformationJobObject(
+                job, _JOB_OBJECT_EXTENDED_LIMIT_INFORMATION,
+                ctypes.byref(info), ctypes.sizeof(info))
+            if not ok:
+                kernel32.CloseHandle(job)
+                return None
+            _JOB = job
+            return _JOB
+        except Exception:
+            return None
+
+
+def _assign_to_job(process):
+    """把登记过的子进程挂进本进程的 Job Object；失败只跳过，不影响启动结果。"""
+    if os.name != 'nt':
+        return
+    job = _job_object()
+    if not job:
+        return
+    try:
+        import ctypes
+        from ctypes import wintypes
+        kernel32 = ctypes.windll.kernel32
+        kernel32.OpenProcess.restype = wintypes.HANDLE
+        kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+        kernel32.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
+        kernel32.AssignProcessToJobObject.restype = wintypes.BOOL
+        handle = getattr(process, '_handle', None)
+        close_handle = False
+        if not isinstance(handle, int) or handle <= 0:
+            handle = None
+        if not handle:
+            pid = getattr(process, 'pid', None)
+            if isinstance(pid, int) and pid > 0:
+                handle = kernel32.OpenProcess(_PROCESS_SET_QUOTA_TERMINATE, False, pid)
+                close_handle = bool(handle)
+        if handle:
+            try:
+                kernel32.AssignProcessToJobObject(job, handle)
+            finally:
+                if close_handle:
+                    kernel32.CloseHandle(handle)
+    except Exception:
+        import infra.app_logging as app_logging
+        app_logging.swallowed('workflow_process_registry._assign_to_job')
+
 
 def _key(project):
     """同一个项目文件夹无论写成 Path、正斜杠还是大小写不同，都落到同一个登记键。"""
@@ -155,6 +261,13 @@ def release_process_slot(token):
 def register_process(project, process):
     with _lock:
         _running.setdefault(_key(project), []).append(process)
+    _assign_to_job(process)
+
+
+def all_processes():
+    """所有项目登记过的存活句柄快照（跨项目），供「按登记进程号结束」使用。"""
+    with _lock:
+        return [process for items in _running.values() for process in items]
 
 def forget_process(project, process):
     with _lock:

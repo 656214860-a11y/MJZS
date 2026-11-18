@@ -8,7 +8,8 @@ import hashlib
 import secrets
 from pathlib import Path
 
-from agent.core import read_json, save
+from agent.core import read, read_json, save
+from agent.publication import access
 from contract.platform_tools import windows_registry
 from infra.storage_maintenance import remove_private_file
 
@@ -29,6 +30,27 @@ def load(path=None):
     return data if isinstance(data, dict) else {}
 
 
+def _load_write(path=None):
+    """写路径的严格读取：只有文件不存在才当空；其余读失败抛可操作错误，绝不写回空值。
+
+    与 ``load()`` 的分工：``load()`` 服务于「读」，读不出就当没有；这里服务于
+    「读—改—写」，读不出却照写会把 ``refresh_token``／``lease`` 等字段整体清掉
+    （文件被占用或截断时丢登录态，比报错严重得多）。
+    """
+    target = Path(path or session_path())
+    try:
+        if not target.exists():
+            return {}
+        data = read(target)
+    except FileNotFoundError:
+        return {}
+    except (OSError, ValueError) as exc:
+        raise ValueError('账户会话文件 %s 读取失败（%s）：可能被其他程序占用或文件已损坏。'
+                         '请关闭占用该文件的程序后重试；反复出现请把该文件移走再重新登录。'
+                         % (target, exc)) from exc
+    return data if isinstance(data, dict) else {}
+
+
 def _write(data, path=None):
     target = Path(path or session_path())
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -37,15 +59,16 @@ def _write(data, path=None):
 
 def save_session(fields, path=None):
     """合并写入会话字段；``server_time`` 只增不减（防止旧响应把时钟基线拉回去）。"""
-    data = load(path)
-    known = int(data.get('server_time') or 0)
-    for key in SESSION_KEYS:
-        if key in fields:
-            data[key] = fields[key]
-    data['server_time'] = max(known, int(fields.get('server_time') or 0))
-    if fields.get('email'):
-        data['last_email'] = str(fields['email'])      # R2052：退出登录后登录框仍默认填上次的邮箱
-    _write(data, path)
+    with access():
+        data = _load_write(path)
+        known = int(data.get('server_time') or 0)
+        for key in SESSION_KEYS:
+            if key in fields:
+                data[key] = fields[key]
+        data['server_time'] = max(known, int(fields.get('server_time') or 0))
+        if fields.get('email'):
+            data['last_email'] = str(fields['email'])      # R2052：退出登录后登录框仍默认填上次的邮箱
+        _write(data, path)
     return data
 
 
@@ -55,10 +78,11 @@ def last_email(path=None):
 
 
 def note_server_time(server_time, path=None):
-    data = load(path)
-    if int(server_time or 0) > int(data.get('server_time') or 0):
-        data['server_time'] = int(server_time)
-        _write(data, path)
+    with access():
+        data = _load_write(path)
+        if int(server_time or 0) > int(data.get('server_time') or 0):
+            data['server_time'] = int(server_time)
+            _write(data, path)
 
 
 def update_seen(path=None):
@@ -67,21 +91,23 @@ def update_seen(path=None):
 
 def mark_update_seen(version, path=None):
     """记下已主动提示过的新版本号，同一版本不再重复弹提示。"""
-    data = load(path)
-    data['update_seen'] = str(version or '')
-    _write(data, path)
+    with access():
+        data = _load_write(path)
+        data['update_seen'] = str(version or '')
+        _write(data, path)
 
 
 def clear_session(path=None):
     """退出登录：删掉令牌与租约；保留设备种子和最近服务器时间（防回拨钟重放旧租约）。"""
-    data = load(path)
-    kept = {key: data[key] for key in ('device_seed', 'server_time', 'update_seen', 'last_email') if key in data}
-    if data.get('email') and 'last_email' not in kept:
-        kept['last_email'] = str(data['email'])
-    if kept:
-        _write(kept, path)
-        return True
-    return remove_private_file(path or session_path())
+    with access():
+        data = _load_write(path)
+        kept = {key: data[key] for key in ('device_seed', 'server_time', 'update_seen', 'last_email') if key in data}
+        if data.get('email') and 'last_email' not in kept:
+            kept['last_email'] = str(data['email'])
+        if kept:
+            _write(kept, path)
+            return True
+        return remove_private_file(path or session_path())
 
 
 def _machine_guid():
@@ -103,6 +129,10 @@ def device_fingerprint(path=None, machine_id=None):
         data = load(path)
         ident = data.get('device_seed') or ''
         if not ident:
-            ident = data['device_seed'] = secrets.token_hex(32)
-            _write(data, path)
+            with access():
+                data = _load_write(path)      # 锁内重读：别的进程可能刚补上种子
+                ident = data.get('device_seed') or ''
+                if not ident:
+                    ident = data['device_seed'] = secrets.token_hex(32)
+                    _write(data, path)
     return hashlib.sha256((_FINGERPRINT_SALT + ident).encode('utf-8')).hexdigest()

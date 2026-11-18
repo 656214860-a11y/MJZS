@@ -126,9 +126,10 @@ class BranchCoverageFloorTests(unittest.TestCase):
                        if (ROOT / Path(*name.split(".")).with_suffix(".py")).is_file()), None)
         self.assertIsNotNone(target, f"工具自检目标全部缺失：{SMOKE_TARGETS}")
         env = {key: value for key, value in os.environ.items() if key != "PYTHONPATH"}
+        env["PYTHONIOENCODING"] = "utf-8"
         completed = subprocess.run(
             [sys.executable, "-B", str(TOOL), target, "--quiet"],
-            cwd=str(ROOT), env=env, capture_output=True, text=True, timeout=600)
+            cwd=str(ROOT), env=env, capture_output=True, text=True, encoding="utf-8", timeout=600)
         self.assertEqual(completed.returncode, 0,
                          f"分支覆盖率工具退出码 {completed.returncode}：{completed.stderr.strip()[-400:]}")
         matched = _COVERED_LINE.search(completed.stdout)

@@ -10,7 +10,7 @@
 """
 import threading
 import time
-from collections import deque
+from collections import OrderedDict, deque
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
@@ -22,8 +22,9 @@ import infra.usage_history as usage_history
 
 SUMMARY_NAME = 'usage_summary.json'
 DETAIL_LIMIT = 10000
+SNAPSHOT_LIMIT = 32
 
-_snapshots = {}
+_snapshots = OrderedDict()
 _null_snapshot = None
 _bus = None
 _errors = None
@@ -238,6 +239,12 @@ def get_snapshot(project):
     except (OSError, RuntimeError):
         key = str(project)
     snapshot = _snapshots.get(key)
-    if snapshot is None:
-        snapshot = _snapshots[key] = UsageSnapshot(Path(project))
+    if snapshot is not None:
+        _snapshots.move_to_end(key)
+        return snapshot
+    snapshot = UsageSnapshot(Path(project))
+    _snapshots[key] = snapshot
+    _snapshots.move_to_end(key)
+    while len(_snapshots) > SNAPSHOT_LIMIT:
+        _snapshots.popitem(last=False)
     return snapshot

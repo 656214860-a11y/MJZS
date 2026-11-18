@@ -27,7 +27,7 @@ SNAPSHOT = Path("程序") / "维护记录" / "任务队列.json"
 def git_common_dir(root: Path = ROOT) -> Path:
     result = subprocess.run(
         ["git", "-C", str(root), "rev-parse", "--git-common-dir"],
-        text=True, capture_output=True, check=True,
+        text=True, encoding="utf-8", errors="replace", capture_output=True, check=True,
     )
     path = Path(result.stdout.strip())
     return path if path.is_absolute() else (root / path).resolve()
@@ -143,7 +143,7 @@ def latest_git_round(root: Path = ROOT) -> int:
     """返回所有可见引用中已使用的最高 R<轮次> 提交号。"""
     result = subprocess.run(
         ["git", "-C", str(root), "log", "--all", "--format=%s"],
-        text=True, capture_output=True, check=True,
+        text=True, encoding="utf-8", errors="replace", capture_output=True, check=True,
     )
     values = [int(match.group(1)) for line in result.stdout.splitlines()
               if (match := COMMIT_ROUND_RE.match(line))]
@@ -191,7 +191,7 @@ def _write_claims_doc(claims_path: Path, claims: dict) -> None:
 def worktree_root(cwd: Path) -> str:
     """``cwd`` 所在工作树的顶层路径；与 commit-msg 钩子核对归属用同一条 git 命令。"""
     result = subprocess.run(["git", "-C", str(cwd), "rev-parse", "--show-toplevel"],
-                            capture_output=True, text=True)
+                            capture_output=True, text=True, encoding="utf-8", errors="replace")
     if result.returncode:
         return str(Path(cwd).resolve())
     return result.stdout.strip()
@@ -199,7 +199,7 @@ def worktree_root(cwd: Path) -> str:
 
 def current_branch(cwd: Path) -> str:
     result = subprocess.run(["git", "-C", str(cwd), "symbolic-ref", "--quiet", "--short", "HEAD"],
-                            capture_output=True, text=True)
+                            capture_output=True, text=True, encoding="utf-8", errors="replace")
     return result.stdout.strip() if result.returncode == 0 else ""
 
 
@@ -305,7 +305,7 @@ def record_claim(*, common_dir: Path, number: int, claimant_dir: Path) -> dict:
 def require_branch(root: Path = ROOT) -> None:
     """领取轮次前验证调用位置；禁止把下一次提交继续留在游离 HEAD。"""
     result = subprocess.run(["git", "-C", str(root), "symbolic-ref", "--quiet", "HEAD"],
-                            capture_output=True, text=True)
+                            capture_output=True, text=True, encoding="utf-8", errors="replace")
     if result.returncode:
         root = Path(subprocess.check_output(["git", "-C", str(root), "rev-parse", "--show-toplevel"]).decode("utf-8").strip())
         common = git_common_dir(root)
@@ -318,7 +318,7 @@ def require_branch(root: Path = ROOT) -> None:
 def require_clean_checkout(root: Path = ROOT) -> None:
     """未落分支的改动不能作为下一轮的隐含起点，避免跨轮写同一文件。"""
     result = subprocess.run(["git", "-C", str(root), "status", "--porcelain"],
-                            capture_output=True, text=True)
+                            capture_output=True, text=True, encoding="utf-8", errors="replace")
     if result.returncode:
         raise RuntimeError("无法检查工作树状态：%s" % result.stderr.strip())
     dirty = [line for line in result.stdout.splitlines() if line.strip()]
@@ -331,10 +331,10 @@ def require_clean_checkout(root: Path = ROOT) -> None:
 def require_master_not_dirty(root: Path = ROOT) -> None:
     """master/main 上有未提交改动时拒绝领号：领号会自动切走分支，主目录就会离开 master。"""
     head = subprocess.run(["git", "-C", str(root), "symbolic-ref", "--quiet", "--short", "HEAD"],
-                          capture_output=True, text=True)
+                          capture_output=True, text=True, encoding="utf-8", errors="replace")
     if head.stdout.strip() not in ("master", "main"):
         return
-    status = subprocess.run(["git", "-C", str(root), "status", "--porcelain"], capture_output=True, text=True)
+    status = subprocess.run(["git", "-C", str(root), "status", "--porcelain"], capture_output=True, text=True, encoding="utf-8", errors="replace")
     dirty = [line for line in status.stdout.splitlines() if line.strip()]
     if dirty:
         raise RuntimeError("拒绝领取轮次：%s 分支上有未提交改动，领号会把它切走。"
@@ -355,14 +355,14 @@ def park_dirty_checkout(number: int, root: Path = ROOT) -> str | None:
     返回新分支名；已有 codex 分支、工作树干净或切换失败时返回 None。
     """
     head = subprocess.run(["git", "-C", str(root), "symbolic-ref", "--quiet", "--short", "HEAD"],
-                          capture_output=True, text=True)
+                          capture_output=True, text=True, encoding="utf-8", errors="replace")
     if head.stdout.strip().startswith("codex/"):
         return None
-    status = subprocess.run(["git", "-C", str(root), "status", "--porcelain"], capture_output=True, text=True)
+    status = subprocess.run(["git", "-C", str(root), "status", "--porcelain"], capture_output=True, text=True, encoding="utf-8", errors="replace")
     if status.returncode or not status.stdout.strip():
         return None
     branch = validate_new_branch("codex/wip-r%s" % number)
-    switched = subprocess.run(["git", "-C", str(root), "switch", "-c", branch], capture_output=True, text=True)
+    switched = subprocess.run(["git", "-C", str(root), "switch", "-c", branch], capture_output=True, text=True, encoding="utf-8", errors="replace")
     if switched.returncode:
         print("未能自动切到 %s：%s" % (branch, switched.stderr.strip()), file=sys.stderr)
         return None
@@ -376,24 +376,24 @@ def require_worktree_fresh(root: Path = ROOT, limit: int = 10) -> None:
     领先过深的 WIP 必须先 rebase 或回合主干再领号，避免并行车道长期分叉；
     master/main 自身不触发（其 ahead 表示未推送，属 push 门禁管辖，非本门禁）。"""
     branch = subprocess.run(["git", "-C", str(root), "symbolic-ref", "--quiet", "--short", "HEAD"],
-                            capture_output=True, text=True)
+                            capture_output=True, text=True, encoding="utf-8", errors="replace")
     branch = branch.stdout.strip()
     if not branch or branch in ("master", "main"):
         return
     main_branch = "master"
     for candidate in ("master", "main"):
         verify = subprocess.run(["git", "-C", str(root), "rev-parse", "--verify", "--quiet",
-                                 candidate], capture_output=True, text=True)
+                                 candidate], capture_output=True, text=True, encoding="utf-8", errors="replace")
         if verify.returncode == 0:
             main_branch = candidate
             break
     # B3 源码口径：只数触碰 *.py/*.pyw 的提交；纯文档/结果文件/台账提交 rebase 零成本不计入。
     result = subprocess.run(["git", "-C", str(root), "rev-list", "--count",
                              "%s..%s" % (main_branch, branch), "--",
-                             ":(top,glob)**/*.py", ":(top,glob)**/*.pyw"], capture_output=True, text=True)
+                             ":(top,glob)**/*.py", ":(top,glob)**/*.pyw"], capture_output=True, text=True, encoding="utf-8", errors="replace")
     if result.returncode:
         result = subprocess.run(["git", "-C", str(root), "rev-list", "--count",
-                                 "%s..%s" % (main_branch, branch)], capture_output=True, text=True)
+                                 "%s..%s" % (main_branch, branch)], capture_output=True, text=True, encoding="utf-8", errors="replace")
         if result.returncode:
             return  # 无法计算 ahead（主干缺失等）时放行，由 require_branch 兜底
     ahead = int(result.stdout.strip() or 0)
@@ -560,7 +560,7 @@ def main(argv: list[str] | None = None) -> int:
             require_worktree_fresh(Path.cwd())
             if branch is not None:
                 switched = subprocess.run(["git", "-C", str(Path.cwd()), "switch", "-c", branch],
-                                          capture_output=True, text=True)
+                                          capture_output=True, text=True, encoding="utf-8", errors="replace")
                 if switched.returncode:
                     raise RuntimeError("无法新建分支 %s：%s" % (branch, switched.stderr.strip()))
         except (RuntimeError, subprocess.CalledProcessError) as error:
