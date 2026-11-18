@@ -50,3 +50,24 @@ def publish_desktop_settings(settings_path, current, updates, *, publish=None):
         LOGGER.exception('桌面设置保存失败')
         return SystemError('桌面设置保存失败，请检查文件权限和磁盘空间后重试。')
     return success(merged)
+
+
+def startup_settings(app, *, safe_start, defaults, read, preserve=None):
+    """启动时取桌面设置（轮 3B D3-k 崩溃预算安全启动）。
+
+    ``safe_start`` 为真（启动器二选一的「是」）时：设置按 ``defaults`` 内存值运行，
+    ``settings_file`` 改指 ``程序/data/desktop_settings.json`` 影子文件——后续
+    ``publish_desktop_settings`` 的名字校验照常通过，写入落在影子文件，用户
+    ``desktop_settings.json`` 只读不覆盖。默认值里没有 ``project_choice_*``，
+    ``daily_project_choice`` 自然返回 None → 不恢复上次项目。
+    """
+    app = Path(app)
+    if safe_start:
+        shadow = app / 'data' / 'desktop_settings.json'
+        try:
+            shadow.parent.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            LOGGER.warning('安全启动影子目录创建失败，设置写入可能不可用')
+        return shadow, dict(defaults)
+    path = app / 'desktop_settings.json'
+    return path, load_desktop_settings(path, defaults, read=read, preserve=preserve)

@@ -113,6 +113,15 @@ def confirm_animatic(project, *, rhythm, duration, dialogue_sync):
     path = write_dir(project, 'animatic') / MANIFEST
     data = deepcopy(file_cache.read_json(path))
     data['confirmed'] = dict(rhythm=True, duration=True, dialogue_sync=True)
+    # D4-d/G8：future 清单可读但拒写（确认改写同样是写入口），发一次【警告】。
+    import contract.artifact_schema as artifact_schema
+    import infra.broadcaster as broadcaster
+    if artifact_schema.classify('animatic_manifest', data) == 'future':
+        broadcaster.warn_once('artifact_future:animatic_manifest',
+                              'Animatic 清单是更新版本写的产物，本版程序拒绝覆盖；请升级程序或移走该文件')
+        raise ValueError('Animatic 清单是更新版本写的产物，本版程序拒绝覆盖；请升级程序或移走该文件')
+    # G8：确认改写属正常写入，顺带补 schema_version（保留旧键 version）。
+    data = artifact_schema.stamp('animatic_manifest', data)
     publish_stage_text(path, json.dumps(data, ensure_ascii=False, indent=2),
                        lambda text: bool(json.loads(text)['shots']), file_cache.published)
     return path

@@ -1,8 +1,10 @@
-"""剧本阶段 manifest／物理特征／编号与校验的契约实现（L0）。
+"""剧本阶段 manifest／编号与校验的契约实现（L0）。
 
-从 `script_contract` 拆出（R1618／Q9）："五类 manifest 的编号规则、物理特征字段化、
-JSON Schema 与完整性检查"是同一件事，和自然剧本读写／阶段锁／交付规格互不相干；
-混在一个文件里超过 1500 行上限，改动时定位成本高。
+从 `script_contract` 拆出（R1618／Q9）："五类 manifest 的编号规则、JSON Schema 与
+完整性检查"是同一件事，和自然剧本读写／阶段锁／交付规格互不相干；
+混在一个文件里超过 1500 行上限，改动时定位成本高。物理特征字段化的实体在
+`contract.asset_contract`（轮 6A：asset_contract 须能被 script_manifest_contract
+反向引用 KINDS 而不成环），本模块按原名再导出，调用点不必改。
 
 `script_contract` 仍按原名转发本模块的公开名（兼容既有 `script_contract.X` 调用），
 所以新代码可以直接 import 本模块，老调用点不必改。
@@ -13,7 +15,9 @@ import re
 from pathlib import Path
 
 from agent.core import read
-from contract.script_manifest_contract import HEADER, KIND_OF_MANIFEST, KINDS, MANIFESTS, MANIFEST_OF_KIND
+from contract.asset_contract import HINTS, PHYSICAL_KEYS, SPLIT, field_features, split_features
+from contract.script_manifest_contract import (HEADER, KIND_OF_MANIFEST, MANIFEST_KINDS,
+                                               MANIFESTS, MANIFEST_OF_KIND)
 
 # 剧本准备阶段目录（原定义在 script_contract，随本模块一起搬来）；旧名 00_script 只在
 # stage_layout.LEGACY_STAGE_ALIASES 里作为只读别名，不再作为落盘目录。
@@ -41,23 +45,11 @@ ID_FIELD = {'character': 'character_id', 'scene': 'scene_id', 'prop': 'prop_id',
 PATTERN = dict((kind, '^%s_[0-9]{3,}$' % prefix) for kind, prefix in PREFIX.items())
 
 # ── 物理特征五件（任务 6）────────────────────────────────────────────────────
-PHYSICAL_KEYS = ('skin_tone', 'hair', 'eyes', 'distinctive_marks', 'body_type')
+# PHYSICAL_KEYS／HINTS／SPLIT 与字段化函数已迁往 contract.asset_contract（轮 6A：
+# asset_contract 要能被 script_manifest_contract 反向引用 KINDS 而不成环），
+# 这里按原名再导出，script_contract 与既有调用点不受影响。
 PHYSICAL_LABELS = {'skin_tone': '肤色', 'hair': '发型发色', 'eyes': '眼睛',
                    'distinctive_marks': '标志性特征', 'body_type': '体型'}
-# 拆字段用的关键词：一个片段命中哪个键就进哪个键；命中多个时取「命中的词最长」的那个
-# （先认长的，别让「短发」被「发」抢走），一样长就按这张表的先后。
-HINTS = (
-    ('skin_tone', ('肤色', '冷白', '白皙', '苍白', '小麦色', '小麦', '蜜色', '古铜', '黝黑', '偏黑')),
-    ('hair', ('发型', '发色', '刘海', '马尾', '丸子头', '长辫', '麻花辫', '短发', '长发', '卷发',
-              '直发', '银发', '黑发', '白发', '金发', '光头', '发')),
-    ('eyes', ('眼型', '杏眼', '丹凤眼', '桃花眼', '双眼皮', '单眼皮', '瞳色', '蓝瞳', '金瞳',
-              '琥珀瞳', '眼', '瞳', '眸')),
-    ('distinctive_marks', ('胎记', '疤痕', '伤疤', '伤痕', '记号', '纹身', '刺青', '义肢', '机械臂',
-                           '眼罩', '绷带', '耳钉', '耳饰', '断眉', '疤', '痣')),
-    ('body_type', ('身形', '体型', '身材', '高挑', '高大', '矮小', '娇小', '魁梧', '修长', '匀称',
-                   '结实', '瘦', '胖', '壮')))
-# 拆句子的标点：中文逗号顿号分号句号全角冒号，加半角斜杠竖线与空白。
-SPLIT = '\u3001\uff0c,\uff1b;\u3002\uff1a:/\uff5c \n\t'
 
 # ── 任务 2／3／4 的审计表 ────────────────────────────────────────────────────
 # 任务 3 的四种分类与对应的处理动作（唯一口径，报告照它写）。
@@ -164,68 +156,6 @@ def normalize(kind, item, index=1):
         out['physical_features'] = field_features(out.get('physical_features'))
     if kind in ('scene_breakdown', 'emotion_curve') and not out.get('order'):
         out['order'] = int(index)
-    return out
-
-
-# ── 任务 6：物理特征字段化 ──────────────────────────────────────────────────
-def _pieces(body):
-    """按中文标点把一句话切成片段（不用正则，省得当心转义）。"""
-    out, buf = [], []
-    for char in str(body or ''):
-        if char in SPLIT:
-            out.append(''.join(buf))
-            buf = []
-        else:
-            buf.append(char)
-    out.append(''.join(buf))
-    return [piece.strip() for piece in out if piece.strip()]
-
-
-def _hit(piece):
-    """这个片段该进哪个键：命中的词最长的那个；没命中返回空串。"""
-    best, size = '', 0
-    for key, words in HINTS:
-        for word in words:
-            if word in piece and len(word) > size:
-                best, size = key, len(word)
-    return best
-
-
-def split_features(text):
-    """一整句自然语言 → 五个字段（认不出来的片段留在 raw 里，原文不丢）。"""
-    out = dict((key, '') for key in PHYSICAL_KEYS)
-    body = str(text or '').strip()
-    if not body:
-        return out
-    rest = []
-    for piece in _pieces(body):
-        key = _hit(piece)
-        if not key:
-            rest.append(piece)
-            continue
-        out[key] = (out[key] + '\u3001' + piece) if out[key] else piece
-    if rest:
-        out['raw'] = '\u3001'.join(rest)
-    return out
-
-
-def field_features(value):
-    """把 physical_features 收成五个字段：字符串＝整句自然语言，按关键词拆；对象＝补齐缺的键。
-
-    老写法（一整句塞在其中一个字段里）也认：只有一个字段有值、而它拆得出两个以上字段时，
-    就地拆开——任务 6 要的就是「不许拿自然语言顶上」。
-    """
-    if not isinstance(value, dict):
-        return split_features(value)
-    out = dict(value)
-    for key in PHYSICAL_KEYS:
-        item = out.get(key)
-        out[key] = item if isinstance(item, str) else ('' if item is None else str(item))
-    filled = [key for key in PHYSICAL_KEYS if out[key].strip()]
-    if len(filled) == 1:
-        split = split_features(out[filled[0]])
-        if len([key for key in PHYSICAL_KEYS if split[key].strip()]) >= 2:
-            out.update(split)
     return out
 
 
@@ -407,7 +337,7 @@ def _item_box(kind):
 def schema():
     """五类 manifest 的 JSON Schema（交付物 2）：manifest 文件名 → 一份 draft 2020-12 Schema。"""
     out = {}
-    for kind in KINDS:
+    for kind in MANIFEST_KINDS:
         name = MANIFEST_OF_KIND[kind]
         out[name] = {'$schema': 'https://json-schema.org/draft/2020-12/schema',
                      'title': '漫剧助手 %s（第 70 期任务 5～7）' % name,

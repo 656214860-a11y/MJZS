@@ -590,6 +590,17 @@ class DesktopStartupPerfTests(unittest.TestCase):
             except tk.TclError:
                 pass
 
+    def test_startup_selfcheck_incremental_cost_is_bounded(self):
+        """轮 3B D3-n③：建 Tk 前自检的新增耗时 ≤50ms（依赖在本文件已被预热）。"""
+        import infra.diagnostic_capture as diagnostic_capture
+        started = time.perf_counter()
+        items = diagnostic_capture.run_startup_selfcheck(HERE)
+        elapsed_ms = (time.perf_counter() - started) * 1000
+        self.assertLessEqual(elapsed_ms, 50.0,
+                             '启动自检耗时 %.1fms 超过 50ms 预算' % elapsed_ms)
+        from contract.diagnostics import Diagnostic
+        self.assertTrue(all(isinstance(item, Diagnostic) for item in items))
+
     def test_project_open_defers_stale_temporary_sweep(self):
         """R3309：打开项目不得在启动窗口内同步起清扫线程——其 os.walk 会撞上
         「窗口出现到可交互之间零递归扫描」（规则 33），清扫须延到稳定后由

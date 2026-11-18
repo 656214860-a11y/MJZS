@@ -9,7 +9,7 @@ import math
 import re
 from pathlib import Path, PureWindowsPath
 
-from agent.media import is_png
+from contract.media_signature import is_png
 
 
 def relative(value):

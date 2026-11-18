@@ -9,7 +9,17 @@ def prompt_lines():
 
 
 def rules():
-    validator=Path(__file__).resolve().with_name('writing.py')
+    # 校验器实体在 程序/writing.py（顶层门面再导出 domain.writing）；写进提示词的
+    # sys.path 目录必须是它所在的 程序/ 根。文件缺失时不写校验指令，避免给模型
+    # 一条必然 import 失败的指令。
+    validator=Path(__file__).resolve().parents[1]/'writing.py'
+    validation=(
+        '使用 JSON 序列化器写文件，重新读取每份成果并调用助手校验函数：'
+        f'将 {validator.parent} 加入 Python 模块搜索路径，'
+        'from writing import validate_episode; from contract.storyboard_paths import media_root; '
+        'validate_episode(已读取的JSON对象, media_root(JSON文件路径))。'
+        '该校验仅检查本地数据，不调用模型；必须修复全部错误后才能报告完成，未生成参考图属于待制作警告。'
+    ) if validator.is_file() else ''
     return (
         '【制作 JSON 必须通过助手校验】沿用已完成剧本、已确认角色固定外观和资产编号；仅补齐当前剧本缺少的场景、临时角色及关键道具。'
         '任何分镜 Skill 的 Markdown 或通用 JSON 都是创作中间稿，还需交付以下可导入的 JSON。'
@@ -36,11 +46,7 @@ def rules():
         '每镜补充 action_complexity（simple/medium/complex）及 complexity_reason：'
         '固定站位、对白、简单姿态为simple，无需白模；少量走位或物件操作为medium，线上简单白模；'
         '快速或多角色交互、物件交接、多段连续动作、人物与摄像机协同运动为complex，由Agent制作白模。'
-        '使用 JSON 序列化器写文件，重新读取每份成果并调用助手校验函数：'
-        f'将 {validator.parent} 加入 Python 模块搜索路径，'
-        'from writing import validate_episode; from storyboard_paths import media_root; '
-        'validate_episode(已读取的JSON对象, media_root(JSON文件路径))。'
-        '该校验仅检查本地数据，不调用模型；必须修复全部错误后才能报告完成，未生成参考图属于待制作警告。'
-        '通过校验并采用后，该 JSON 的用户名称为“分镜初稿”（“分镜定稿”是第 07 阶段的批次划分与定稿产物，不在本阶段）：它记录来源剧本、角色／场景／道具编号、镜头编号、时长、动作起止、台词和连续性约束；修改必须走明确的修订流程。'
+        +validation
+        +'通过校验并采用后，该 JSON 的用户名称为“分镜初稿”（“分镜定稿”是第 07 阶段的批次划分与定稿产物，不在本阶段）：它记录来源剧本、角色／场景／道具编号、镜头编号、时长、动作起止、台词和连续性约束；修改必须走明确的修订流程。'
         +prompt_lines()          # 第 61 期 v0.8 任务 12：图片/视频提示词分开，锚点逐字复用
     )

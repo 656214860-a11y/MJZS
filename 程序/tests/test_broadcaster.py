@@ -2,7 +2,9 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
+import infra.broadcaster as broadcaster_module
 from infra.broadcaster import Broadcaster
 import pet_bus
 import ui.pet_ui as pet_ui
@@ -48,6 +50,39 @@ class BroadcasterTests(unittest.TestCase):
             self.assertEqual(message, expected)
             self.assertIn(message, log_path.read_text(encoding='utf-8'))
             pet.broadcaster.close()
+
+
+class WarnOnceTests(unittest.TestCase):
+    """R3298 轮 4B：属主写路径的「发一次【警告】」内部通道——同键去重、写日志、失败静默。"""
+
+    def setUp(self):
+        self._saved_log = broadcaster_module._PROGRAM_LOGS
+        self.addCleanup(setattr, broadcaster_module, '_PROGRAM_LOGS', self._saved_log)
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.log_path = Path(self._tmp.name) / 'logs' / 'sanhu_progress.log'
+        broadcaster_module._PROGRAM_LOGS = self.log_path
+        self._saved_warned = set(broadcaster_module._WARNED)
+        self.addCleanup(broadcaster_module._WARNED.clear)
+        self.addCleanup(broadcaster_module._WARNED.update, self._saved_warned)
+
+    def test_warn_once_writes_single_prefixed_line_per_key(self):
+        key = 'artifact_future:test_kind'
+        broadcaster_module._WARNED.discard(key)
+        self.assertTrue(broadcaster_module.warn_once(key, '产物是更新版本写的'))
+        self.assertFalse(broadcaster_module.warn_once(key, '产物是更新版本写的'))
+        lines = [line for line in self.log_path.read_text(encoding='utf-8').splitlines()
+                 if '【警告】产物是更新版本写的' in line]
+        self.assertEqual(len(lines), 1)                      # 同键只落一行
+        self.assertTrue(broadcaster_module.warn_once(key + ':other', '另一类产物'))
+        self.assertEqual(len(self.log_path.read_text(encoding='utf-8').splitlines()), 2)
+
+    def test_warn_once_swallows_write_failure(self):
+        broadcaster_module._WARNED.discard('artifact_future:fail_kind')
+        with mock.patch('builtins.open', side_effect=OSError('disk full')):
+            self.assertFalse(broadcaster_module.warn_once('artifact_future:fail_kind', 'x'))
+        # 失败也占位去重：同一 key 不会在故障期间反复重试刷日志
+        self.assertFalse(broadcaster_module.warn_once('artifact_future:fail_kind', 'x'))
 
 
 if __name__ == "__main__":

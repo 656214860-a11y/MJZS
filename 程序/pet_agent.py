@@ -3,7 +3,8 @@
 对应架构设计 §7/§8：
 - 确定性优先：进度、预算、重试、切页、暂停全部由 RULES 表算出来；只有规则未命中时才问一次
   pet_llm（Flash），且只接受一行严格 JSON。
-- 异常分级是纯函数：classify(错误文本, HTTP 码) 给出分类与该做什么；退避 30/60/120 秒，上限 4 次。
+- 异常分级是纯函数：classify(错误文本, HTTP 码) 给出分类与该做什么；是否可重试以
+  contract.error_codes 码表 retryable 为唯一权威（轮 5B）；退避 30/60/120 秒，上限 4 次。
 - 预算五类硬限制：生图/首帧/视频/配音/Token；越线即暂停该阶段并上报 budget.exceeded。
 - 通知先聚合后说话：同批事件合成一句（首帧完成，3 张重试成功，1 张需确认）。
 - 免打扰 23:00-07:00（北京时间）：窗口内只记账，出了窗口补一条汇总。
@@ -22,8 +23,9 @@ import infra.pet_llm as pet_llm
 import infra.pet_state as pet_state, stage_layout
 import orchestrator.stage_parallel as stage_parallel
 from agent.core import save
-from contract.pet_bus import SEEN_LIMIT, STAGE_NAMES, STAGES, ErrorLog, emit_safe, read_json
-from ui.pet_agent_rules import PATTERNS, REPLIES, RULES, UNKNOWN_REPLY, VERDICTS
+from contract import error_codes
+from contract.pet_bus import SEEN_LIMIT, STAGE_NAMES, STAGES, ErrorLog, emit_safe, read_json, with_current_run
+from ui.pet_agent_rules import REPLIES, RULES, UNKNOWN_REPLY, VERDICTS
 
 LEVELS = ('hint', 'semi', 'auto')
 # 第 23 期：三档的名字只有这一份（原来 pet_ui 另写了一份「只提醒」，同一档两个说法）。
@@ -327,34 +329,36 @@ FREE_ACTIONS = ('stage.goto', 'stage.inspect', 'stage.control', 'keyframe.local'
 
 
 # ── 异常分级与退避 ──────────────────────────────────────────────────────────
-def verdict(category, error='', status=None):
-    retry, action, hint = VERDICTS.get(category, VERDICTS['unknown'])
-    return {'category': category, 'retry': retry, 'action': action, 'hint': hint,
+# 「错误文本 → 类目」与「是否可重试」都以 contract.error_codes 为唯一权威（G10，轮 5B）：
+# TEXT_RULES 每行带原 PATTERNS 类目名，这里反查「码 → 类目」给 VERDICTS 配动作与文案；
+# 认不出的文本归 E-UNKNOWN → unknown。
+_CODE_TO_CATEGORY = {item_code: category for category, item_code, _marks in error_codes.TEXT_RULES}
+_CODE_TO_CATEGORY['E-UNKNOWN'] = 'unknown'
+
+
+def verdict(category, error='', status=None, retryable=None):
+    """单个类目的判定结果：动作与提示文案取 VERDICTS；「是否可重试」以 error_codes 码表为准。
+
+    ``retryable`` 由 classify() 传入（它已持有 ErrorCode）；独立调用时按
+    error_codes.classify(error, status) 现算——两条路同一权威，VERDICTS 里
+    不再留第二份可重试布尔。
+    """
+    action, hint = VERDICTS.get(category, VERDICTS['unknown'])
+    if retryable is None:
+        retryable = error_codes.classify(error, status).retryable
+    return {'category': category, 'retry': bool(retryable), 'action': action, 'hint': hint,
             'error': str(error or ''), 'status': status}
 
 
 def classify(error, status=None):
-    """错误分级（纯规则，不联网）：分类 + 是否可重试 + 该做什么 + 一句中文建议。"""
-    text = str(error or '')
-    code = ''
-    if status not in (None, ''):
-        number = _int(status)
-        code = str(number) if number is not None else str(status)
-    haystack = text.lower() + ' ' + ('http ' + code if code else '')
-    for category, marks in PATTERNS:
-        if any(_mark_hit(haystack, mark) for mark in marks):
-            return verdict(category, error, status)
-    return verdict('unknown', error, status)
+    """错误分级（纯规则，不联网）：分类 + 是否可重试 + 该做什么 + 一句中文建议。
 
-
-def _mark_hit(haystack, mark):
-    """这一条标记命中没命中。第 71 期任务 1：纯数字的标记（401／429…）只认
-    「独立的一串数字」——退出码 4294967295 里的 429 曾经把 ComfyUI 退出当成「被限流」，
-    于是真正的原因被误判而不报。"""
-    mark = str(mark).lower()
-    if mark.isdigit():
-        return re.search(r'(?<!\d)' + mark + r'(?!\d)', haystack) is not None
-    return mark in haystack
+    轮 5B D6：文本 → 错误码走 ``error_codes.classify``（TEXT_RULES 顺序即优先级），
+    「是否可重试」取码的 ``retryable``——唯一权威；码翻回 VERDICTS 类目只取动作与文案。
+    """
+    item = error_codes.classify(error, status)
+    return verdict(_CODE_TO_CATEGORY.get(item.code, 'unknown'), error, status,
+                   retryable=item.retryable)
 
 
 def backoff(attempt, delays=pet_llm.RETRY_DELAYS):
@@ -364,7 +368,13 @@ def backoff(attempt, delays=pet_llm.RETRY_DELAYS):
 
 
 def retry_plan(attempt, error, status=None, params=None, max_attempts=MAX_ATTEMPTS, delays=None):
-    """已失败 attempt 次之后怎么办：给退避与次数；参数类错误先修正再立即重试；超上限转人工。"""
+    """已失败 attempt 次之后怎么办：可重试类目给退避与次数；超上限或不可重试转人工。
+
+    轮 5B：是否重试由 ``classify`` → ``error_codes.retryable`` 决定——params 类
+    （E-NET-CLIENT）不再自动重试，对照表见 tasks_round_3300_result.md §D6-0。
+    ``fix_params`` 动作分支保留：当前码表下没有「可重试＋fix_params」的组合，
+    属于动作驱动的预留路径。
+    """
     delays = tuple(delays or pet_llm.RETRY_DELAYS)
     plan = classify(error, status)
     attempt = max(0, _int(attempt) or 0)
@@ -768,7 +778,8 @@ class Agent:
         return self
 
     def _emit(self, kind, **payload):
-        return emit_safe(self.bus, self.errors, kind, **payload)
+        # D5-d/G7：终态事件自动带当前运行序号，跨 run 的同文失败/完成不再互吞。
+        return emit_safe(self.bus, self.errors, kind, **with_current_run(self.bus, kind, payload))
 
     # ── 审批与暂停 ──────────────────────────────────────────────────────────
     def approve(self, action, level=None, paid=None, confirmed=False):

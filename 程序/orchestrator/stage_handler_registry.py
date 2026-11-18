@@ -144,6 +144,17 @@ def poll_pet_test(session, project, at=None):
 
 def start(desktop, stage, trigger='auto', fallback=None, **options):
     """三虎唯一的 L3 启动指令入口。"""
+    # D5-d/G7：每次启动指令（手动／自动同口径）给该阶段登记新一轮运行序号；
+    # 之后无论在门禁、适配器还是编排器里失败，终态事件都带本轮序号，不再被旧幂等键吞掉。
+    try:
+        from contract.pet_bus import STAGES as _STAGES
+        pet = getattr(desktop, 'pet', None)
+        bus = getattr(pet, 'bus', None) if pet is not None else None
+        begin = getattr(bus, 'begin_run', None)
+        if stage in _STAGES and callable(begin):
+            begin(stage)
+    except Exception:
+        app_logging.swallowed()
     error = _account_gate_error(desktop, stage) or _workflow_lock_error(getattr(desktop, 'root', None), stage, trigger)
     if error:
         # 手动路径也阻断：直接把原因交回调用方展示，不经三虎失败事件。

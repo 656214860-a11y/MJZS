@@ -1,0 +1,15 @@
+{
+  "round": 3246,
+  "commit_base": "fe13482e",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k storyboard_contract layers",
+    "exit": 0,
+    "passed": 25,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T00:20:22"
+}

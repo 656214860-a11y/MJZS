@@ -3,7 +3,10 @@
 
 ``pet_agent`` 顶到模块行数棘轮上限（1182 行），意图表/应答表/错误分级表是纯字面量
 数据、与路由逻辑无关，迁到本模块让 ``pet_agent`` 只留行为。``pet_agent`` 再导出同名，
-``pet_agent.RULES``／``REPLIES``／``PATTERNS``／``VERDICTS``／``UNKNOWN_REPLY`` 旧引用不变。
+``pet_agent.RULES``／``REPLIES``／``VERDICTS``／``UNKNOWN_REPLY`` 旧引用不变。
+轮 5B（R3304）：``PATTERNS`` 已删——错误文本 → 类目的关键词表唯一权威在 L0
+``contract.error_codes.TEXT_RULES``；``VERDICTS`` 只留 ``(action, hint)``，
+「是否可重试」以码表 ``retryable`` 为唯一权威（G10），不再有第二份布尔。
 """
 
 # 规则表：先规则后模型。命中任何一条都不花 Token（策略：确定性优先）。
@@ -79,23 +82,17 @@ REPLIES = {
 }
 UNKNOWN_REPLY = '没听明白。可以直接说「继续」「暂停」「查进度」「重试失败项」，或者点页面上的按钮。'
 
-# 错误分级表：错误文本或 HTTP 码命中即归类；顺序即优先级（余额/鉴权在参数之前）。
-PATTERNS = (
-    ('auth', ('401', '403', 'unauthorized', 'forbidden', '密钥', 'api key')),
-    ('quota', ('402', '余额', '欠费', 'quota', 'insufficient', 'balance')),
-    ('content', ('content', '审核', '敏感', '违规', 'policy', 'blocked', 'safety')),
-    ('params', ('400', '参数', 'invalid', 'not valid', 'unsupported', '尺寸')),
-    ('rate_limit', ('429', 'rate limit', '限流', 'too many', '太频繁')),
-    ('timeout', ('timeout', 'timed out', '超时', '逾时')),
-    ('server', ('500', '501', '502', '503', '504', 'server error', '服务不可用')),
-)
+# 错误动作与提示文案表（轮 5B 瘦身）：错误文本 → 类目的关键词表已迁 L0
+# ``contract.error_codes.TEXT_RULES``（顺序即优先级），「是否可重试」以码表
+# ``retryable`` 为唯一权威；这里只留每类目的动作名与用户可见建议。
+# 键集合＝TEXT_RULES 七个类目＋``unknown`` 兜底，与 ``pet_agent.classify`` 的产出一一对应。
 VERDICTS = {
-    'timeout': (True, 'backoff', '超时：按 30/60/120 秒退避重试'),
-    'rate_limit': (True, 'backoff', '被限流：退避后重试，Pro 自动降级 Flash'),
-    'server': (True, 'backoff', '服务端故障：退避后重试'),
-    'params': (True, 'fix_params', '参数不合法：先归一尺寸/时长/模型名，再立即重试一次'),
-    'content': (False, 'prompt_fix', '命中内容审核：改写提示词后再提，别原样重试'),
-    'quota': (False, 'pause', '余额或配额不足：暂停该阶段并通知，不再消耗'),
-    'auth': (False, 'notify', '接口密钥无效或没配：检查 .env 里的 Key'),
-    'unknown': (False, 'notify', '没认出来：先按「重试失败项」，要细节看「查看待确认详情」'),
+    'timeout': ('backoff', '超时：按 30/60/120 秒退避重试'),
+    'rate_limit': ('backoff', '被限流：退避后重试，Pro 自动降级 Flash'),
+    'server': ('backoff', '服务端故障：退避后重试'),
+    'params': ('fix_params', '参数不合法：先归一尺寸/时长/模型名，再立即重试一次'),
+    'content': ('prompt_fix', '命中内容审核：改写提示词后再提，别原样重试'),
+    'quota': ('pause', '余额或配额不足：暂停该阶段并通知，不再消耗'),
+    'auth': ('notify', '接口密钥无效或没配：检查 .env 里的 Key'),
+    'unknown': ('notify', '没认出来：先按「重试失败项」，要细节看「查看待确认详情」'),
 }

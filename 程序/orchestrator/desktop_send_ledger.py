@@ -10,6 +10,7 @@ from datetime import datetime
 from pathlib import Path
 
 import contract.artifact_schema as artifact_schema
+import infra.broadcaster as broadcaster
 from agent.core import save
 from infra.file_cache import path_key, read_json
 
@@ -38,6 +39,10 @@ def load(root, program=None):
         data = read_json(ledger_path(root, program))
     except (OSError, ValueError):
         return None
+    # D4-c/D4-d：属主读取点分类计数。future 台账仍按「没有记录」处理——
+    # 宁可整份重发也不拿旧格式去猜新格式的条目（本台账的安全方向就是多发）。
+    state = artifact_schema.classify('desktop_send_ledger', data)
+    artifact_schema.note_read_state('desktop_send_ledger', state)
     if not isinstance(data, dict) or artifact_schema.validate('desktop_send_ledger', data):
         return None
     return data if isinstance(data.get('entries'), dict) else None
@@ -184,10 +189,21 @@ def incremental_text(followup, changed, delivery):
 
 def record(root, stage, config, sent, program=None):
     """内容进了剪贴板就更新这一条；``sent`` 含 skill_hash、materials、mode、task_file。坏台账整份重建。"""
+    path = ledger_path(root, program)
+    # D4-d/G8：future 台账拒写——台账只是续发优化，跳过更新后下次按整份重发，
+    # 不拿旧格式覆盖新格式文件；发一次【警告】。
+    try:
+        existing = read_json(path)
+    except (OSError, ValueError):
+        existing = None
+    if artifact_schema.classify('desktop_send_ledger', existing) == 'future':
+        broadcaster.warn_once('artifact_future:desktop_send_ledger',
+                              '桌面续发台账是更新版本写的，本版程序不再更新它；请升级程序')
+        return
     data = load(root, program) or {'entries': {}}
     entries = dict(data['entries'])
     entries[entry_key(stage, config)] = {
         'skill_hash': sent['skill_hash'], 'materials': {item['path']: item['sha256'] for item in sent['materials']},
         'mode': sent['mode'], 'sent_at': datetime.now().isoformat(timespec='seconds'),
         'task_file': str(sent.get('task_file') or '')}
-    save(ledger_path(root, program), artifact_schema.stamp('desktop_send_ledger', {'entries': entries}))
+    save(path, artifact_schema.stamp('desktop_send_ledger', {'entries': entries}))

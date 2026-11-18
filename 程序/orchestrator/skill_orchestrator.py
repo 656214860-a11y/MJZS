@@ -565,10 +565,15 @@ class Orchestrator:
             enough, note = False, str(exc)
         if not enough:
             return self._result(item.name, BUDGET, False, detail=note, kind=kind, name=item.displayName)
+        run = 0
         if self.bus is not None:
+            # D5-d/G7：本轮运行登记序号；终态事件带它进幂等键，跨 run 同文不再互吞。
+            begin = getattr(self.bus, 'begin_run', None)
+            run = begin(item.stage) if callable(begin) else 0
             pet_bus.emit_safe(self.bus, self.errors, 'stage.executing', stage=item.stage,
                               skill=item.name, trigger=self.trigger)
-            pet_bus.emit_safe(self.bus, self.errors, 'stage.started', stage=item.stage, skill=item.name)
+            pet_bus.emit_safe(self.bus, self.errors, 'stage.started', stage=item.stage,
+                              skill=item.name, run=run or None)
         for tool in item.tools:
             try:
                 out = skill_tools.call(tool, context)
@@ -619,12 +624,13 @@ class Orchestrator:
                 if item.stage == 'script' and output_verified:
                     # 第 54 期附件四第 3 条：剧本做完就是自动推进那条链的起点。
                     pet_bus.emit_safe(self.bus, self.errors, 'script.completed', stage=item.stage,
-                                      skill=item.name)
+                                      skill=item.name, run=run or None)
                 # 只有当前模块能直接验证成果的两段剧本可以在此收场。初步分镜及
                 # 其他阶段的 SKILL “done”常只是派发或检查完成，必须由对应服务在
                 # 生成→校验→采用后发 stage.completed，不能让三虎产生假完成提示。
                 if output_verified:
-                    pet_bus.emit_safe(self.bus, self.errors, 'stage.completed', stage=item.stage, skill=item.name)
+                    pet_bus.emit_safe(self.bus, self.errors, 'stage.completed', stage=item.stage,
+                                      skill=item.name, run=run or None)
                 else:
                     # 释放按钮的“执行中”视觉状态，但不改变 pet_state 的成功状态，也
                     # 不触发自动链。用户仍可继续操作或等待后台产物校验完成。
@@ -632,7 +638,7 @@ class Orchestrator:
                                       reason='SKILL 已执行，等待已验证的阶段成果')
             elif status == FAILED:
                 pet_bus.emit_safe(self.bus, self.errors, 'stage.failed', stage=item.stage,
-                                  error=detail, skill=item.name)
+                                  error=detail, skill=item.name, run=run or None)
         return self._result(item.name, status, status in OK_STATUSES, detail=detail, name=item.displayName,
                             page=page, pageTitle=page_title, kind=kind,
                             model=model, reason=reason, paid=bool(item.paid),

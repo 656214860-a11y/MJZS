@@ -57,7 +57,7 @@ from ui.ui_shortcuts import ShortcutRegistry
 import ui.ui_stage_popups as ui_stage_popups# noqa: F401  导入即向 stage_exec 登记阶段弹窗呈现器
 from ui_widgets import (BaseDialog, BusyState, ContextMenu, Card, DataTable, NotificationDispatcher,
                         PrimaryButton, SecondaryButton, TextArea, HintLabel, Tooltip, ask_confirmation, ask_string, setup_styles)
-from ui.ui_status_bus import StatusBus  # R2989 P1：统一状态栏消息总线
+from ui.ui_status_bus import StatusBus, publish_startup_warnings  # R2989 P1：统一状态栏消息总线
 from ui.ui_status_bar import StatusBar
 from ui.ui_icons import IconLoader
 
@@ -204,6 +204,9 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         # 不让气泡的浮窗映射与页面回填争用同一轮 Tk 事件循环。
         pet_ui.start(self,delay_ms=5000)
         self.setup_tray()
+        # 轮 3B G6：主窗口壳与登录闸决策完成＝READY（登录闸出现也算），崩溃预算清零，
+        # 不等正常退出；此后运行期崩溃不再计入启动预算。
+        diagnostic_capture.record_startup_ready()
 
     def _init_window_and_sidebar(self, win, root, page_services):
         """服务、窗口外观与侧栏（项目列表、导航按钮、标题行），从 __init__ 原样切出，R1808。"""
@@ -219,7 +222,10 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         win._desktop_loading_project=False
         win._desktop_startup_settled=False   # 启动页建完、tick 恢复后置真；三虎开机招呼等它
         self.video_sessions={};self.cloud_monitor_busy=False;self.cloud_monitor_due=0;self.cloud_monitor_cursor=0;self._cloud_monitor_ticket=0;self.cloud_monitor_tasks=BackgroundTaskLifecycle(self.app/'outputs'/'desktop-task-history.json');self.cloud_monitor_result=queue.Queue()
-        self.settings_file=self.app/'desktop_settings.json';from domain.desktop_settings_service import load_desktop_settings;self.settings=load_desktop_settings(self.settings_file,{'comfy_url':'http://127.0.0.1:8189','jianying':''},read=read,preserve=lambda path:shutil.copy2(path,path.with_name(path.name+'.corrupt')))
+        # 轮 3B D3-k：安全启动（崩溃预算二选一的「是」）由服务内部分流——默认值内存运行、
+        # 写入落 data/ 影子文件不覆盖用户设置；默认值无 project_choice_* → 不恢复上次项目。
+        from domain.desktop_settings_service import startup_settings
+        self.settings_file,self.settings=startup_settings(self.app,safe_start=getattr(win,'_drama_safe_start',False) is True,defaults={'comfy_url':'http://127.0.0.1:8189','jianying':''},read=read,preserve=lambda path:shutil.copy2(path,path.with_name(path.name+'.corrupt')))
         win.title(APP_NAME+' · '+VERSION);win.state('normal')
         win.geometry('%dx%d'%(min(DESKTOP_LAYOUT['default_width'],win.winfo_screenwidth()-DESKTOP_LAYOUT['window_margin_x']),min(DESKTOP_LAYOUT['default_height'],win.winfo_screenheight()-DESKTOP_LAYOUT['window_margin_y'])))
         # 第 19 期：安装后的图标（三虎）——主窗口标题栏／任务栏都用它，拿不到就照旧用 Tk 默认图标。
@@ -338,6 +344,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         # 忙碌时在状态栏右端转一个小圆圈（BusyState 起停）；平时不占位。
         self.busy_state.spinner=Spinner(self.body,host=self.status_bar)
         # 不放 ttk.Sizegrip：它由 Tk 逐像素实时改窗口大小、内容跟着重排，和另三个角（系统边框缩放）表现不一致；右下角也走系统边框。
+        publish_startup_warnings(self.status_bus,getattr(win,'_selfcheck_degraded',None))  # 轮 3B H2：自检 DEGRADED 播报
 
     def _build_sidebar(self,win):
         """侧栏：顶部无浮层，项目区与导航在滚动区内；底部固定底栏放设置齿轮行与三虎簇。
@@ -437,7 +444,6 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         return (cached[1] if isinstance(cached,tuple) and cached[0]==self.root and cached[1]
                 else self.idea_chat_model())
 
-
     def model_chat_colors(self, model):
         """为同一模型稳定分配一组浅色主题，切换回来仍保持原色。"""
         key = str(model or self.idea_chat_model() or 'AI 助手').encode('utf-8')
@@ -463,7 +469,6 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
     def close_dialog(self):
         """保存剧本也不隐藏发送框，用户仍可继续补充。"""
         self.open_dialog()
-
 
     def poll_flow_processes(self):
         """回收已退出的桌面 Agent；自动链只把异常退出标为失败。
@@ -515,7 +520,6 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
                     # 完成事件只经三虎的产物校验出口；Agent 正常退出本身不是成功证据。
                     self.pet.report_done('script', message)
         self.flow_processes=remaining
-
 
     def button(self,parent,text,fn):
         # 宠物接缝③：按钮薄封装——原逻辑照旧先跑，成功后再上报「用户点了什么」。
@@ -591,8 +595,6 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
             self._brief_load_results.put((generation,root,apply,path,error))
         threading.Thread(target=discover,daemon=True).start()
         return generation
-
-
 
     def close(self):
         if getattr(self,'_closing',False):return
@@ -710,7 +712,6 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         if not defer_page and getattr(self,'_startup_tick_paused',False):
             self._request_tick_resume_after_first_paint()
 
-
     def ensure_stage_layout(self):
         """按需补齐「阶段目录 ＋ 固定子目录」。
 
@@ -795,8 +796,6 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
             self.reload();self.load(result)
             self.remember_daily_project_choice(result)
 
-
-
     def text(self,value,height=10):
         t=TextArea(self.content,bg=COLORS['background_card'],fg=COLORS['text_primary'],insertbackground=COLORS['primary'],height=height,wrap='word',font=('Microsoft YaHei UI',11),relief='flat',padx=SPACING['md'],pady=SPACING['md']);t.insert('1.0',value);t.pack(fill='both',expand=True,pady=SPACING['sm']);bind_show_all(t,after=self.fit_content);return t
     def note(self,value):
@@ -859,7 +858,6 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         self.status.set('复制失败：'+reason if reason else '已复制：'+copy_preview(text))
         return reason
 
-
     def final_storyboard(self):
         from ui.storyboard_files import show_final
         # 第 68 期任务 6：这一页补上了主动作「手动同步资产」，阶段配置就跟着挪到那一行
@@ -907,7 +905,6 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         """对白行与「时间轴是草稿」标记；已经读过盘就把 episode 传进来，不重复读。"""
         from domain.subtitle_timing import timed_entries
         return timed_entries(self.current_episode() if episode is None else episode)
-
 
     def open_folder(self,p):open_directory(p)
     def open_version_picker(self):

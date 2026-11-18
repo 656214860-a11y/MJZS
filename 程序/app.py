@@ -1483,4 +1483,5 @@ class App:
 
 if __name__=='__main__':
     # 启动适配器与可嵌入的 App 视图分离：避免 App 被 desktop 使用时形成反向导入。
-    ui_plugin_registry.module('desktop_launcher').launch()
+    # 调试入口不跑启动自检（任务书 G4）：与 启动漫剧制作助手.pyw 的正式启动区分开。
+    ui_plugin_registry.module('desktop_launcher').launch(selfcheck=False)

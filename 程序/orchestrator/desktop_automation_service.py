@@ -7,6 +7,8 @@ import time
 from collections import deque
 
 import infra.app_logging as app_logging
+import contract.artifact_schema as artifact_schema
+import infra.broadcaster as broadcaster
 
 
 # 后台任务生命周期的唯一迁移清单。每一项都必须证明同一代次覆盖提交、替换、
@@ -170,19 +172,34 @@ class PersistentBackgroundTaskQueue(BackgroundTaskQueue):
         self.handlers = dict(handlers)
         self.clock = clock
         self.aging_seconds = max(1, aging_seconds)
+        self._record_future = False   # _load 见到 future 版排队记录时置位，_save 据此拒写
 
     def _load(self):
         data = _read_runtime_record(self.path)
-        if data.get('version') != 1 or not isinstance(data.get('tasks'), list):
+        # D4-c/D4-d：盘上确有记录才分类计数（缺文件的默认空记录不算一次读取）。
+        state = artifact_schema.classify('desktop_queue', data) if self.path.exists() else None
+        if state is not None:
+            artifact_schema.note_read_state('desktop_queue', state)
+        self._record_future = state == 'future'
+        tasks = data.get('tasks') if isinstance(data, dict) else None
+        # future 允许读（tasks 形状可用即可）；missing/legacy/current 照常使用；
+        # invalid 或形状不可用仍按损坏报错，不覆盖。
+        if state == 'invalid' or not isinstance(tasks, list):
             raise ValueError('排队记录损坏，未重建或重提任务')
         return data
 
     def _save(self, data):
         from agent.core import save
+        if getattr(self, '_record_future', False):
+            broadcaster.warn_once('artifact_future:desktop_queue',
+                                  '桌面排队记录是更新版本写的，本版程序拒绝覆盖；请升级程序或移走该文件')
+            raise ValueError('排队记录损坏或版本过新，未重建或重提任务')
         active = [row for row in data['tasks'] if row['state'] in ('queued', 'claimed')]
         history = [row for row in data['tasks'] if row['state'] not in ('queued', 'claimed')]
         data['tasks'] = active + history[-HISTORY_LIMIT:]
-        save(self.path, data, durable=False)
+        # D4-e/G8：正常写入双写 schema_version 与旧键 version（缺失的旧键补回 1）。
+        data['version'] = 1
+        save(self.path, artifact_schema.stamp('desktop_queue', data), durable=False)
 
     def _expire(self, data):
         changed = False

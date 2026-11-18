@@ -16,6 +16,7 @@ from datetime import datetime
 from pathlib import Path
 
 import contract.artifact_schema as artifact_schema
+import infra.broadcaster as broadcaster
 import infra.model_pool as model_pool
 import infra.model_router as model_router
 from infra.model_metering import chat_metered
@@ -58,13 +59,30 @@ def _now():
     return datetime.now().isoformat(timespec='seconds')
 
 
-def _rows(path, key):
+def _rows(path, key, kind=None):
     try:
         data = read_json(path)
     except (OSError, ValueError):
         return []
+    if kind:
+        # D4-c/D4-d：属主读取点分类计数；legacy/missing/future 照常使用，不写盘不提示。
+        state = artifact_schema.classify(kind, data)
+        artifact_schema.note_read_state(kind, state)
     rows = data.get(key) if isinstance(data, dict) else None
     return [dict(row) for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
+
+
+def _future_blocked(kind, path):
+    """写入口守卫（G8/D4-d）：盘上产物为 ``future`` 时发一次【警告】并返回 True（拒写）。"""
+    try:
+        existing = read_json(path)
+    except (OSError, ValueError):
+        existing = None
+    if artifact_schema.classify(kind, existing) != 'future':
+        return False
+    broadcaster.warn_once('artifact_future:' + kind,
+                          '%s 是更新版本写的产物，本版程序拒绝覆盖；请升级程序或移走该文件' % kind)
+    return True
 
 
 def _clip(text):
@@ -95,11 +113,14 @@ def diff_hunks(before, after):
 
 
 def load_records(root, program=None):
-    return _rows(records_path(root, program), 'records')
+    return _rows(records_path(root, program), 'records', 'edit_records')
 
 
 def _save_records(root, records, program=None):
-    save(records_path(root, program), artifact_schema.stamp(
+    path = records_path(root, program)
+    if _future_blocked('edit_records', path):
+        raise ValueError('修改记录是更新版本写的产物，本版程序拒绝覆盖；请升级程序或移走该文件')
+    save(path, artifact_schema.stamp(
         'edit_records', {'project': str(Path(root)), 'records': records[-MAX_RECORDS:]}))
 
 
@@ -122,12 +143,15 @@ def pending(root, stage='script', program=None):
 
 # ── 规则（本机，跨项目）──────────────────────────────────────────────────
 def load_rules(program=None):
-    return [row for row in _rows(rules_path(program), 'rules')
+    return [row for row in _rows(rules_path(program), 'rules', 'edit_habit_rules')
             if row.get('status') in STATUS_LABELS and str(row.get('text') or '').strip()]
 
 
 def _save_rules(rules, program=None):
-    save(rules_path(program), artifact_schema.stamp('edit_habit_rules', {'rules': rules}))
+    path = rules_path(program)
+    if _future_blocked('edit_habit_rules', path):
+        raise ValueError('修改习惯规则是更新版本写的产物，本版程序拒绝覆盖；请升级程序或移走该文件')
+    save(path, artifact_schema.stamp('edit_habit_rules', {'rules': rules}))
 
 
 def add_candidates(stage, items, project='', program=None):

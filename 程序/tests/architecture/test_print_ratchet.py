@@ -32,6 +32,11 @@ CONSOLE_ENTRIES = {
     'log_maintenance.py': 1,
     'shot_numbering.py': 4,
     'workspace_maintenance.py': 4,
+    # R3246 轮 2：agent/ 入分层包扫描后登记。optimizer_mcp_bridge 的 stdout 是
+    # MCP stdio 协议通道（与 image_agent_runner 同类）；voice_mcp_server 只写
+    # stderr 会话清理诊断，MCP 子进程内 app_logging 未装配。
+    'optimizer_mcp_bridge.py': 2,
+    'voice_mcp_server.py': 1,
 }
 
 

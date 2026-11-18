@@ -82,7 +82,7 @@ class AuditTests(unittest.TestCase):
 
     def test_the_five_manifests_and_their_producers(self):
         self.assertEqual(len(sc.MANIFESTS), 5)
-        self.assertEqual(sorted(sc.KINDS), sorted(sc.KIND_OF_MANIFEST.values()))
+        self.assertEqual(sorted(sc.MANIFEST_KINDS), sorted(sc.KIND_OF_MANIFEST.values()))
         for name in sc.MANIFESTS:
             self.assertIn(name, sc.PRODUCERS, name)
         self.assertEqual(sc.PRODUCERS["character_manifest.json"][0], "script-character-extraction")
@@ -299,6 +299,30 @@ class ValidateTests(unittest.TestCase):
     def test_a_junk_item_is_reported_not_raised(self):
         self.assertEqual(sc.validate("character", "不是对象"), ["条目必须是对象"])
         self.assertIsNone(sc.normalize("character", "不是对象"))
+
+    def test_non_mapping_physical_features_are_reported(self):
+        item = {"character_id": "CHAR_001", "name": "林小满", "physical_features": ["肤色冷白"]}
+        problems = sc.validate("character", item)
+        self.assertTrue(any("必须是对象或字符串" in text for text in problems), problems)
+
+
+class DefaultsTests(unittest.TestCase):
+    """defaults() 五类各有空壳，认不出的类别返回空 dict（不抛异常）。"""
+
+    def test_every_kind_has_its_own_shell_and_unknown_kind_is_empty(self):
+        expected = {
+            "character": {"character_id", "name", "aliases", "description",
+                          "physical_features", "image_prompt"},
+            "scene": {"scene_id", "name", "description", "time_of_day", "weather", "image_prompt"},
+            "prop": {"prop_id", "name", "description", "holder", "image_prompt"},
+            "scene_breakdown": {"breakdown_id", "episode_id", "scene_id", "order",
+                                "time_place", "characters", "task", "boundary"},
+            "emotion_curve": {"beat_id", "episode_id", "scene_id", "order", "intensity",
+                              "reason", "hook", "turn"},
+        }
+        for kind, keys in expected.items():
+            self.assertEqual(set(sc.defaults(kind)), keys, kind)
+        self.assertEqual(sc.defaults("不存在的类别"), {})
 
 
 class SchemaTests(unittest.TestCase):

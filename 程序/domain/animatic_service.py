@@ -9,6 +9,8 @@ from contextlib import nullcontext
 from pathlib import Path
 
 import infra.file_cache as file_cache
+import contract.artifact_schema as artifact_schema
+import infra.broadcaster as broadcaster
 from contract.project_context import ProjectContext
 from contract.service_contract import success
 from contract.stage_path_service import write_dir
@@ -16,6 +18,23 @@ from contract.file_naming import generate_existing
 
 MANIFEST = 'animatic_manifest.json'
 CONFIRMATIONS = ('rhythm', 'duration', 'dialogue_sync')
+
+
+def _manifest_path(root):
+    return write_dir(Path(root), 'animatic') / MANIFEST
+
+
+def _future_blocked(root):
+    """写入口守卫（G8/D4-d）：盘上清单为 ``future`` 时发一次【警告】并返回 True（拒写）。"""
+    try:
+        existing = file_cache.read_json(_manifest_path(root))
+    except (OSError, ValueError):
+        existing = None
+    if artifact_schema.classify('animatic_manifest', existing) != 'future':
+        return False
+    broadcaster.warn_once('artifact_future:animatic_manifest',
+                          'Animatic 清单是更新版本写的产物，本版程序拒绝覆盖；请升级程序或移走该文件')
+    return True
 
 
 def digest(raw):
@@ -170,12 +189,16 @@ def build_bundle(context, source, references, audio, settings, *, publish, write
             shot['image'] = name
         if source.read_bytes() != raw_source:
             raise ValueError('生成期间分镜已变化，请重新生成；本次不发布')
-        manifest = {'version': 1, 'kind': 'animatic', 'source': source.relative_to(root).as_posix(),
-                    'source_sha256': digest(raw_source), 'shots': shots, 'video': 'assets/animatic.mp4',
-                    'audio': audio_name,
-                    'files': {name: digest(data) for name, data in artifacts.items()},
-                    'confirmed': {key: False for key in CONFIRMATIONS}}
+        # D4-e/G8：正常写入双写 schema_version 与旧键 version，旧版程序仍能读。
+        manifest = artifact_schema.stamp('animatic_manifest', {
+            'version': 1, 'kind': 'animatic', 'source': source.relative_to(root).as_posix(),
+            'source_sha256': digest(raw_source), 'shots': shots, 'video': 'assets/animatic.mp4',
+            'audio': audio_name,
+            'files': {name: digest(data) for name, data in artifacts.items()},
+            'confirmed': {key: False for key in CONFIRMATIONS}})
         artifacts[MANIFEST] = json.dumps(manifest, ensure_ascii=False, indent=2).encode('utf-8')
+        if _future_blocked(root):
+            raise ValueError('Animatic 清单是更新版本写的产物，本版程序拒绝覆盖；请升级程序或移走该文件')
         return success(publish(artifacts))
 
 
@@ -185,6 +208,9 @@ def evidence(project, *, require_confirmation=True):
     folder = write_dir(root, 'animatic').resolve()
     try:
         manifest = file_cache.read_json(folder / MANIFEST)
+        # D4-c/D4-d：属主读取点分类计数；future 清单照常参与核验（可读），不写盘不提示。
+        state = artifact_schema.classify('animatic_manifest', manifest)
+        artifact_schema.note_read_state('animatic_manifest', state)
         if not isinstance(manifest, dict) or manifest.get('kind') != 'animatic':
             raise ValueError('尚无 Animatic 成果')
         source = (root / manifest['source']).resolve()

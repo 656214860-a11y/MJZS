@@ -325,6 +325,12 @@
    "percent": 0.0
   },
   {
+   "module": "contract/diagnostics.py",
+   "covered": 0,
+   "total": 27,
+   "percent": 0.0
+  },
+  {
    "module": "contract/episode_contract.py",
    "covered": 0,
    "total": 109,
@@ -333,7 +339,7 @@
   {
    "module": "contract/error_codes.py",
    "covered": 0,
-   "total": 33,
+   "total": 48,
    "percent": 0.0
   },
   {
@@ -385,6 +391,12 @@
    "percent": 0.0
   },
   {
+   "module": "contract/selfcheck.py",
+   "covered": 0,
+   "total": 64,
+   "percent": 0.0
+  },
+  {
    "module": "contract/shot_batches.py",
    "covered": 0,
    "total": 185,
@@ -399,7 +411,7 @@
   {
    "module": "contract/storyboard_contract.py",
    "covered": 0,
-   "total": 9,
+   "total": 10,
    "percent": 0.0
   },
   {
@@ -3572,9 +3584,9 @@
   },
   {
    "module": "agent/media.py",
-   "covered": 17,
-   "total": 93,
-   "percent": 18.3
+   "covered": 16,
+   "total": 89,
+   "percent": 18.0
   },
   {
    "module": "orchestrator/skill_project_layer.py",
@@ -3787,6 +3799,12 @@
    "percent": 50.3
   },
   {
+   "module": "contract/media_signature.py",
+   "covered": 3,
+   "total": 6,
+   "percent": 50.0
+  },
+  {
    "module": "orchestrator/stage_publication.py",
    "covered": 68,
    "total": 133,
@@ -3937,6 +3955,6 @@
    "percent": 100.0
   }
  ],
- "modules_covered": 74,
- "modules_total": 654
+ "modules_covered": 75,
+ "modules_total": 657
 }

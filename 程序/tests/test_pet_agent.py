@@ -199,10 +199,14 @@ class ClassifyTests(unittest.TestCase):
         self.assertEqual(pet_agent.classify("被限流", status=429)["category"], "rate_limit")
 
     def test_only_three_categories_may_retry(self):
-        retryable = [name for name, (retry, _action, _hint) in pet_agent.VERDICTS.items() if retry]
-        self.assertEqual(sorted(retryable), ["params", "rate_limit", "server", "timeout"])
-        for category in ("content", "quota", "auth", "unknown"):
-            self.assertFalse(pet_agent.classify(category)["retry"])
+        """轮 5B：可重试唯一权威是 error_codes 码表——rate_limit/server/timeout 三码
+        retryable=True；params 由旧 VERDICTS 的 True 收敛为 False（对照表唯一行为变化）。"""
+        from contract import error_codes
+        retryable = {code for _category, code, _marks in error_codes.TEXT_RULES
+                     if error_codes.lookup(code).retryable}
+        self.assertEqual(retryable, {"E-NET-RATE-LIMIT", "E-NET-SERVER", "E-NET-TIMEOUT"})
+        self.assertFalse(pet_agent.classify("参数不合法", 400)["retry"])
+        self.assertFalse(pet_agent.classify("命中内容审核")["retry"])
 
     def test_backoff_sequence_and_ceiling(self):
         delays = [pet_agent.retry_plan(attempt, "请求超时")["delay"] for attempt in range(4)]
@@ -223,12 +227,14 @@ class ClassifyTests(unittest.TestCase):
     def test_quota_error_pauses(self):
         self.assertEqual(pet_agent.retry_plan(0, "余额不足", status=402)["action"], "pause")
 
-    def test_params_error_retries_at_once_with_fixed_params(self):
+    def test_params_error_no_longer_retries_automatically(self):
+        """轮 5B 对照表唯一行为变化：params → E-NET-CLIENT（retryable=False），
+        不再归一后立即重试，转入待确认清单由用户处理；动作名仍是 fix_params。"""
         plan = pet_agent.retry_plan(0, "参数不合法", status=400, params={"width": 3000, "height": 900})
-        self.assertTrue(plan["allow"])
-        self.assertEqual(plan["delay"], 0.0)
-        self.assertEqual(plan["params"]["fixed"], ["尺寸"])
-        self.assertEqual((plan["params"]["params"]["width"], plan["params"]["params"]["height"]), (1280, 720))
+        self.assertFalse(plan["allow"])
+        self.assertIsNone(plan["delay"])
+        self.assertEqual(plan["action"], "fix_params")
+        self.assertEqual(plan["next_attempt"], 0)
 
 
 class FixParamsTests(unittest.TestCase):

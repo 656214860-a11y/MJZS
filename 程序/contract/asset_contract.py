@@ -21,7 +21,9 @@ import re
 from pathlib import Path
 
 import contract.pet_bus as pet_bus
-import contract.script_contract as script_contract
+# script_contract／script_manifest_schema 都（直接或间接）依赖 script_manifest_contract，
+# 而 script_manifest_contract 要反向取本模块的 KINDS（H4）——本模块若再顶层导入它们就成环。
+# 物理特征五件的字段化助手因此定义在本模块，script_manifest_schema 按原名再导出（轮 6A）。
 
 # 正典板转盘图：上排 4 格全身，下排 3 格头部（任务 3）。
 TURNAROUND = (('front', '正面 0°', '全身'), ('right', '右侧 90°', '全身'),
@@ -65,13 +67,92 @@ def kind_of(aid):
     return KIND_OF.get(match[1], '') if match else ''
 
 
+# ── 物理特征五件（任务 6；自 script_manifest_schema 原样迁入，口径不变）─────────
+PHYSICAL_KEYS = ('skin_tone', 'hair', 'eyes', 'distinctive_marks', 'body_type')
+# 拆字段用的关键词：一个片段命中哪个键就进哪个键；命中多个时取「命中的词最长」的那个
+# （先认长的，别让「短发」被「发」抢走），一样长就按这张表的先后。
+HINTS = (
+    ('skin_tone', ('肤色', '冷白', '白皙', '苍白', '小麦色', '小麦', '蜜色', '古铜', '黝黑', '偏黑')),
+    ('hair', ('发型', '发色', '刘海', '马尾', '丸子头', '长辫', '麻花辫', '短发', '长发', '卷发',
+              '直发', '银发', '黑发', '白发', '金发', '光头', '发')),
+    ('eyes', ('眼型', '杏眼', '丹凤眼', '桃花眼', '双眼皮', '单眼皮', '瞳色', '蓝瞳', '金瞳',
+              '琥珀瞳', '眼', '瞳', '眸')),
+    ('distinctive_marks', ('胎记', '疤痕', '伤疤', '伤痕', '记号', '纹身', '刺青', '义肢', '机械臂',
+                           '眼罩', '绷带', '耳钉', '耳饰', '断眉', '疤', '痣')),
+    ('body_type', ('身形', '体型', '身材', '高挑', '高大', '矮小', '娇小', '魁梧', '修长', '匀称',
+                   '结实', '瘦', '胖', '壮')))
+# 拆句子的标点：中文逗号顿号分号句号全角冒号，加半角斜杠竖线与空白。
+SPLIT = '\u3001\uff0c,\uff1b;\u3002\uff1a:/\uff5c \n\t'
+
+
+def _pieces(body):
+    """按中文标点把一句话切成片段（不用正则，省得当心转义）。"""
+    out, buf = [], []
+    for char in str(body or ''):
+        if char in SPLIT:
+            out.append(''.join(buf))
+            buf = []
+        else:
+            buf.append(char)
+    out.append(''.join(buf))
+    return [piece.strip() for piece in out if piece.strip()]
+
+
+def _hit(piece):
+    """这个片段该进哪个键：命中的词最长的那个；没命中返回空串。"""
+    best, size = '', 0
+    for key, words in HINTS:
+        for word in words:
+            if word in piece and len(word) > size:
+                best, size = key, len(word)
+    return best
+
+
+def split_features(text):
+    """一整句自然语言 → 五个字段（认不出来的片段留在 raw 里，原文不丢）。"""
+    out = dict((key, '') for key in PHYSICAL_KEYS)
+    body = str(text or '').strip()
+    if not body:
+        return out
+    rest = []
+    for piece in _pieces(body):
+        key = _hit(piece)
+        if not key:
+            rest.append(piece)
+            continue
+        out[key] = (out[key] + '\u3001' + piece) if out[key] else piece
+    if rest:
+        out['raw'] = '\u3001'.join(rest)
+    return out
+
+
+def field_features(value):
+    """把 physical_features 收成五个字段：字符串＝整句自然语言，按关键词拆；对象＝补齐缺的键。
+
+    老写法（一整句塞在其中一个字段里）也认：只有一个字段有值、而它拆得出两个以上字段时，
+    就地拆开——任务 6 要的就是「不许拿自然语言顶上」。
+    """
+    if not isinstance(value, dict):
+        return split_features(value)
+    out = dict(value)
+    for key in PHYSICAL_KEYS:
+        item = out.get(key)
+        out[key] = item if isinstance(item, str) else ('' if item is None else str(item))
+    filled = [key for key in PHYSICAL_KEYS if out[key].strip()]
+    if len(filled) == 1:
+        split = split_features(out[filled[0]])
+        if len([key for key in PHYSICAL_KEYS if split[key].strip()]) >= 2:
+            out.update(split)
+    return out
+
+
 def defaults(kind, workflow_lock=None, saved_preference=None):
     """这一类资产的新增字段默认值（老资产缺键时补这些，不改动别的键）。"""
     if kind == 'character':
         return {'character_id': '', 'canonical_board': '', 'canon_board_views': {},
                 'character_anchor': '', 'base_anchor': '', 'reference_role': DEFAULT_RESPONSIBILITY,
                 'reference_exclude': DEFAULT_EXCLUDE, 'locked': False, 'state_variants': [],
-                'physical_features': dict((key, '') for key in script_contract.PHYSICAL_KEYS)}
+                'physical_features': dict((key, '') for key in PHYSICAL_KEYS)}
     if kind == 'scene':
         return {'scene_id': '', 'reference_image': '',
                 'aspect_ratio': resolve_aspect_ratio(workflow_lock, saved_preference, '16:9'),
@@ -101,7 +182,7 @@ def normalize(asset, aid=''):
                                  (normalize_variant(v, i) for i, v in
                                   enumerate(out.get('state_variants') or [], 1))
                                  if item]
-        out['physical_features'] = script_contract.field_features(out.get('physical_features'))
+        out['physical_features'] = field_features(out.get('physical_features'))
     return out
 
 
@@ -369,7 +450,7 @@ def schema():
                            'description': '换状态面板：基础锚点＋状态覆盖'},
         'physical_features': {'type': 'object', 'description': '物理特征（五件字段化，第 70 期任务 6）',
                               'properties': dict((key, {'type': 'string'})
-                                                 for key in script_contract.PHYSICAL_KEYS),
+                                                 for key in PHYSICAL_KEYS),
                               'additionalProperties': True}})
     scene = dict(common, **{
         'scene_id': {'type': 'string', 'pattern': '^LOC_[0-9]{3,}$'},

@@ -16,6 +16,12 @@ class LifecycleMixin:
         # 先停掉定时器再销毁窗口：残留的 after 回调会在 Tk 里报 invalid command name。
         if event is not None and event.widget is not self.win:return
         self.shutting_down=True;self.cancel_resize()
+        # 轮 3B G6：正常关闭（含系统关机／会话结束）结清「启动进行中」标记，
+        # 不计崩溃；到达 READY 后本调用本就是无操作。
+        try:
+            import infra.diagnostic_capture as diagnostic_capture
+            diagnostic_capture.record_startup_closed()
+        except Exception:app_logging.swallowed()
         cancel=lambda job:self.win.after_cancel(job)    # 惰性取 win：最小替身没有登记任务时不会碰它
         page_nav.cancel_jobs(self,page_nav.NAV_TIMER_JOBS,cancel,tk.TclError)
         # 计时器回归会构造最小 Desktop 替身；真实窗口在 __init__ 中必定拥有这些
