@@ -1,0 +1,15 @@
+{
+  "round": 3327,
+  "commit_base": "e4dc1e09",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k l1_lost_update model_pool model_delete_stays_deleted l1_transport_requests",
+    "exit": 0,
+    "passed": 115,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T13:40:10"
+}

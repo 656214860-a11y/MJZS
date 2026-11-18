@@ -1,5 +1,6 @@
 """中文说明副本、翻译完整性和异步回填回归。"""
 import tempfile
+import tkinter as tk
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -203,13 +204,14 @@ class SkillNotesTests(unittest.TestCase):
             panel.refresh_notes.assert_called_once_with(str(target))
 
     def test_refresh_selects_new_registered_entry(self):
+        root = tk.Tk()
+        root.withdraw()
+        self.addCleanup(root.destroy)
         items = [('registered', SimpleNamespace(name=name, displayName=name, path=name))
                  for name in ('old', 'new')]
         panel = SimpleNamespace(note_list=Mock(), current_note=lambda: items[0],
                                 note_entries=lambda: items, show_note=Mock())
-        # This unit fixture has no Tk interpreter; text measuring is a visual boundary.
-        with patch.object(skill_panel, '_display_width', side_effect=len):
-            skill_panel.Panel.refresh_notes(panel, 'new')
+        skill_panel.Panel.refresh_notes(panel, 'new')
         panel.note_list.selection_set.assert_called_once_with(1)
         panel.show_note.assert_called_once()
 

@@ -88,8 +88,6 @@ def set_skill_disabled(program, registry, name, disabled=True):
     entry = find_skill_entry(program, registry, name)
     if entry is None:
         raise skill_import_service.ImportBlocked('注册表中没有 SKILL「%s」' % name)
-    if entry['layer'] == 'builtin':
-        raise skill_import_service.ImportBlocked('内置 SKILL 只读，不能禁用')
     return skill_project_layer.set_disabled(
         skill_registry.default_user_root(program), entry['layer'], entry['name'],
         project=entry['project'] if entry['layer'] == 'project' else '',
@@ -325,10 +323,10 @@ def uninstall_skill_entry(program, registry, name, *, project=None):
     entry = find_skill_entry(program, registry, name)
     if entry is None:
         raise skill_import_service.ImportBlocked('注册表中没有 SKILL「%s」' % name)
-    if not entry['disabled']:
-        return skill_import_service.uninstall_skill(program, registry, name)
     if entry['layer'] == 'builtin':
         raise skill_import_service.ImportBlocked('内置 SKILL 只读，不能删除')
+    if not entry['disabled']:
+        return skill_import_service.uninstall_skill(program, registry, name)
     path = Path(entry['path'])
     roots = list(skill_registry.skill_roots(program))
     project_skills = getattr(registry, 'project_skills', None)

@@ -1,0 +1,831 @@
+{
+  "file_count": 159,
+  "bytes": 3660831,
+  "manifest_sha256": "09c6df97432e76547057e873277764920ccc689f406ef9946d4e8ea135562d54",
+  "files_unchanged": true,
+  "gitlinks_before": [
+    "160000 3ef9f995992edcbf514bed591a54b900b7502f11 0\t程序/reference/HoLLMwood",
+    "160000 1a43ae5a019d157eb3d45ad73e800081cb127763 0\t程序/skills/00全流程SKILL/AIGC创作全流程",
+    "160000 6c3d73994f456b696de536c86602b4022824a535 0\t程序/skills/01 剧本准备SKILL/剧本锻造",
+    "160000 357d1348ccaa1ab75f2f51ef7c90a7f00a686c76 0\t程序/skills/01 剧本准备SKILL/编剧技能集"
+  ],
+  "remaining_gitlinks": [
+    "160000 3ef9f995992edcbf514bed591a54b900b7502f11 0\t程序/reference/HoLLMwood",
+    "160000 6c3d73994f456b696de536c86602b4022824a535 0\t程序/skills/01 剧本准备SKILL/剧本锻造",
+    "160000 357d1348ccaa1ab75f2f51ef7c90a7f00a686c76 0\t程序/skills/01 剧本准备SKILL/编剧技能集"
+  ],
+  "package_index_count": 159,
+  "package_index_mode": "100644",
+  "index_bytes": "identical or CRLF-to-LF only",
+  "normalized_files": 157,
+  "other_pin_records_unchanged": true,
+  "original_pin": {
+    "source": "https://github.com/lixiaoxiao9888-create/manju-laoli-skill.git",
+    "commit": "1a43ae5a019d157eb3d45ad73e800081cb127763",
+    "tree": "d9a208042147179768f0a24dc54bdfbd5374a9e9"
+  },
+  "status_exit": 0,
+  "files": [
+    {
+      "path": ".gitignore",
+      "size": 220,
+      "sha256": "fc2c5462446a6489c1a7e77a23417e83b5b6202e3aa6b6af233debe8d6737ee4"
+    },
+    {
+      "path": "LICENSE",
+      "size": 1117,
+      "sha256": "d645a5c3662f73a90972a21ceda79a59eafc38543a506acd5240ce1f514d77c7"
+    },
+    {
+      "path": "README.md",
+      "size": 32742,
+      "sha256": "3e2e95daee552bef5af210b39a5ed309f8d56f050081edf8fd96afe8f8cab860"
+    },
+    {
+      "path": "assets/himadrama.jpg",
+      "size": 119966,
+      "sha256": "b34f84d27db58094ec674cbb6fca23ad07b288cef168ee5334f992cf50d30d1e"
+    },
+    {
+      "path": "assets/omniboard.jpg",
+      "size": 31905,
+      "sha256": "f0f61da178bbb94b8824cc0af9d6728eb9eeb8fffeb4570c23e80717d189ffd5"
+    },
+    {
+      "path": "sd-asset-engine/SKILL.md",
+      "size": 25063,
+      "sha256": "fc82450941d0d9d84ad035cf34bd2d109ef28c9290fb9ed4660f4558e6881cd5"
+    },
+    {
+      "path": "sd-asset-engine/references/character-portrait-templates.md",
+      "size": 53026,
+      "sha256": "95e514b0a727889b46562e32a6a903285af4f3b0ab91100719352a14c3fc991b"
+    },
+    {
+      "path": "sd-asset-engine/references/continuity-and-crowd.md",
+      "size": 7662,
+      "sha256": "242a22db4728068ee6c8467bbbddb5838f2797fe2c64a202152c2e608be5c7d3"
+    },
+    {
+      "path": "sd-asset-engine/references/prop-template.md",
+      "size": 5312,
+      "sha256": "8861155ed7bb613222c58ca23ec923e2aa9dd5f2ba3102f478d43de740c58760"
+    },
+    {
+      "path": "sd-asset-engine/references/scene-grid-template.md",
+      "size": 24789,
+      "sha256": "bec5e326bd812b6c56b0caa362cb2e6f95e70ef42d5d4b8fb14d4b0c9a5157bc"
+    },
+    {
+      "path": "sd-asset-engine/references/three-list-extraction.md",
+      "size": 29675,
+      "sha256": "9d125643ed4c213e040a848565d7bf6c74bfbe034bf36dfdc0a7f0613a926c5e"
+    },
+    {
+      "path": "sd-combat-engine/SKILL.md",
+      "size": 13208,
+      "sha256": "c2c0c6835f03b0078fd23ff14ca379a1aaa576e0f2df6b90ffcaeb6b966d5f08"
+    },
+    {
+      "path": "sd-combat-engine/references/combat-cheatsheet.md",
+      "size": 10906,
+      "sha256": "0220f42724beab3a073118743904b8a2faa6428cf483dec5da4e39efa373160d"
+    },
+    {
+      "path": "sd-combat-engine/references/combat-construction.md",
+      "size": 7763,
+      "sha256": "58c3aff9bb4391d2a792f8f99ea1a25fe62e42315bc794cdc6455a6c7f493bd2"
+    },
+    {
+      "path": "sd-combat-engine/references/combat-intensity-guardrails.md",
+      "size": 13216,
+      "sha256": "3afe2c7b94181cf79aba1a3744d26b25f3f1fcc0160239e3181f86b4e4b5c493"
+    },
+    {
+      "path": "sd-combat-engine/references/combat-iron-laws.md",
+      "size": 71104,
+      "sha256": "c17f5584b15859f7bcf530d16eb3b81d858bfd2aabdd73ad589b92fe1e870169"
+    },
+    {
+      "path": "sd-combat-engine/references/combat-rhythm-and-load-guardrails.md",
+      "size": 16756,
+      "sha256": "7c303726f25d34af8813fa0aee73169db805277c0f8af8e646c258b38056731f"
+    },
+    {
+      "path": "sd-combat-engine/references/eight-sentence-masters.md",
+      "size": 6270,
+      "sha256": "c00826f08f1bfdc03504ad1150350013a5afa08c150b6e33f6f5d3c2f0322738"
+    },
+    {
+      "path": "sd-combat-engine/references/impact-frame-and-banlist.md",
+      "size": 5300,
+      "sha256": "cf9b368a9e742bbc5f0e9724431c7052c4a891e2ee5ab605de96ad30855230a5"
+    },
+    {
+      "path": "sd-combat-engine/references/moves-library.md",
+      "size": 83244,
+      "sha256": "c04bbd5e5340b84d35c0043ad95979d5db311d2245f749f2bd29f2c3a5e62cbc"
+    },
+    {
+      "path": "sd-combat-engine/references/presets-library.md",
+      "size": 6024,
+      "sha256": "28d3d8069c47d456ff15049bb2876178279d347da35f4eddc25dda4798c838e2"
+    },
+    {
+      "path": "sd-combat-engine/references/seedance-dual-engine.md",
+      "size": 19549,
+      "sha256": "73448fe363df805b2abda92bd9ad28bd88e26944739ee3edc93c587cd7612667"
+    },
+    {
+      "path": "sd-combat-engine/references/spell-system.md",
+      "size": 47822,
+      "sha256": "d0f93b79730d465f974ab2e647a29c55cabdf6deb922a09cfe78b7828efd86c3"
+    },
+    {
+      "path": "sd-combat-engine/references/syntax-corpus.md",
+      "size": 47757,
+      "sha256": "77c9c6361a0fdcee9b5c554cf5d042f1e5c358129499609960a228cc87850928"
+    },
+    {
+      "path": "sd-combat-engine/references/tier-and-finisher-system.md",
+      "size": 14016,
+      "sha256": "126d7933310b3ab2475484af3b2d9ff23db33aae657fcbeadbd7965f6fa5e1f3"
+    },
+    {
+      "path": "sd-combat-engine/references/ultimate-array-library.md",
+      "size": 18453,
+      "sha256": "7c38342311a2d246b3233c0a0fd765446d39ba0bee32069d6af99e5f5947193b"
+    },
+    {
+      "path": "sd-combat-engine/references/vfx-rendering-mandate.md",
+      "size": 10984,
+      "sha256": "9009d22f5f9bc30b989b8d174a11e48f3ebd7102891a4b810d563c2e32a93222"
+    },
+    {
+      "path": "sd-decision-engine/SKILL.md",
+      "size": 7937,
+      "sha256": "3990c1259cd8b1848044f3903f3b623f5d6c207c3306b5a5af7b1df6ba9ff278"
+    },
+    {
+      "path": "sd-decision-engine/references/context-mapping.md",
+      "size": 8885,
+      "sha256": "7734ca04765537640ba0b228d93bf5f1fc95a0d2025b0ed8bbaac2db6e0145d3"
+    },
+    {
+      "path": "sd-decision-engine/references/emotion-anchor-table.md",
+      "size": 7045,
+      "sha256": "6f5b17fc6f93051e756696db321bd195f901126d49bda5ef558b0d915cc791a1"
+    },
+    {
+      "path": "sd-decision-engine/references/forbidden-zone-whitelist.md",
+      "size": 9411,
+      "sha256": "46996b6616d020dd808a32a361f80d4e3815bf18130bd6b5d40d18f40ca00a94"
+    },
+    {
+      "path": "sd-feed-engine/SKILL.md",
+      "size": 18422,
+      "sha256": "ccef88f83f1ec6e59bca18752e20ee3aa3698908352f945161f65943dac74d7f"
+    },
+    {
+      "path": "sd-feed-engine/references/asset-mapping-and-rules.md",
+      "size": 13214,
+      "sha256": "10177452fa964817e863054c0b2bc01b25be86d9d0dc1577d32016cb15ebaa0f"
+    },
+    {
+      "path": "sd-feed-engine/references/engineering-language-cleanup.md",
+      "size": 12890,
+      "sha256": "2810cfa1a957df067f7776c6648b2c04050913050fd05e93bafd4ff2b4d6d9c0"
+    },
+    {
+      "path": "sd-feed-engine/references/feed-mode-and-gates.md",
+      "size": 15704,
+      "sha256": "eff2eacf1d6416d1e5e9eed6581095d2089de7cf9bd7392ffbd0b02e076d84f7"
+    },
+    {
+      "path": "sd-feed-engine/references/segment-continuity-strategy.md",
+      "size": 904,
+      "sha256": "347449fddefeae9185f68d0af10392e14cb89121af089544e39d6221bc3460cd"
+    },
+    {
+      "path": "sd-feed-engine/scripts/gate_check.py",
+      "size": 21176,
+      "sha256": "cda0a6cfcbc6d31b90e3836d11b27a4d09ffc9a32501eeed0dbad363d0ce6b28"
+    },
+    {
+      "path": "sd-feed-engine/scripts/script_feed_diff.py",
+      "size": 7071,
+      "sha256": "b10896953111d4c34556058cff9cc6157574c3d3bd9161ab2258f234d222229c"
+    },
+    {
+      "path": "sd-jieshuo-engine/SKILL.md",
+      "size": 16232,
+      "sha256": "9ba2c0ef6b8a0f12b40dd54cef62e875ef6957ed870b8c0c59bbc1821d755072"
+    },
+    {
+      "path": "sd-jieshuo-engine/references/explainer-formulas.md",
+      "size": 5327,
+      "sha256": "4966d12e0650bc97f0606a334696c975b809bc3ab0676f8cbd871830ce8a4a41"
+    },
+    {
+      "path": "sd-jieshuo-engine/references/history-visual-style.md",
+      "size": 5343,
+      "sha256": "c51dacafaf9d3f619515fba6a0656174d552104199d08587840ef4e0af64015e"
+    },
+    {
+      "path": "sd-jieshuo-engine/references/narration-vo-script.md",
+      "size": 8394,
+      "sha256": "13469355baf7d8286aebb50f3ad5b49535bd9b05698534cb6736cefa4ce49a52"
+    },
+    {
+      "path": "sd-overseas-engine/SKILL.md",
+      "size": 13033,
+      "sha256": "f6998b5ef499ecce2ffc0acceedaee09d85cd65481ee261feb53d45716d509b1"
+    },
+    {
+      "path": "sd-overseas-engine/references/evidence-and-authority.md",
+      "size": 6044,
+      "sha256": "b245a690a760adc9bedd1dba7ac35b0444a8e5850a6fd4b65dbc867ce65ceb14"
+    },
+    {
+      "path": "sd-overseas-engine/references/language-contract.md",
+      "size": 6322,
+      "sha256": "f9bf2fd616bd5e65a615bbdc74df5b5820a69482e7694560f016ea40582a6f13"
+    },
+    {
+      "path": "sd-overseas-engine/references/north-american-english.md",
+      "size": 6969,
+      "sha256": "41a1b243c05957a8a18b23cc3d03aba1bbb9b1a57bae6d9c0aa6fe4f06477f6b"
+    },
+    {
+      "path": "sd-overseas-engine/references/overseas-platform-and-audience.md",
+      "size": 5824,
+      "sha256": "727667ca5f96345b3ec7f11fefdbee45b61eb7d224f73ea7c392f5f191e778fe"
+    },
+    {
+      "path": "sd-qc-engine/SKILL.md",
+      "size": 10455,
+      "sha256": "740c03e37d27485bd9650a0a009949d0e6f05370683b751499fc0e1a7c6303a2"
+    },
+    {
+      "path": "sd-qc-engine/references/continuity-ledger.md",
+      "size": 7068,
+      "sha256": "89e8154bddf4de1252bb378c8d58396df6bd9c4dbcb649cd60d2e9d77a37d442"
+    },
+    {
+      "path": "sd-qc-engine/references/editing-transition-gate.md",
+      "size": 12873,
+      "sha256": "622b5f67e0c1e2d4fd3ed39b682981fa774edd2ced057de1966b89fb35e7a863"
+    },
+    {
+      "path": "sd-qc-engine/references/machine-check-manual.md",
+      "size": 69406,
+      "sha256": "8d874c6aa06487e3e9cae09edde58fd4652ae3c157e961c022bb9bb7fe4838ee"
+    },
+    {
+      "path": "sd-qc-engine/references/post-music-sound-design.md",
+      "size": 13241,
+      "sha256": "49e06156fef778b984eccf6123f72c2a3ad8ec5d194797be3a5e1cbe9acf1904"
+    },
+    {
+      "path": "sd-qc-engine/references/rule-taxonomy-and-verdict.md",
+      "size": 6618,
+      "sha256": "37d5ee7408bf52bef1809f5ff04ed52775b078fa492aba0ecf7bfcbbc3fb7a99"
+    },
+    {
+      "path": "sd-qc-engine/references/sound-design-template.md",
+      "size": 6862,
+      "sha256": "272dd7b0cc8471152562cff0c55396367400b346406ee3a102f262ad247c846c"
+    },
+    {
+      "path": "sd-qc-engine/references/stage-acceptance-table.md",
+      "size": 4737,
+      "sha256": "598cd81e18adb7442ae7de67ef93b8c9b190d06141bee556020b0e21092f7e83"
+    },
+    {
+      "path": "sd-qc-engine/scripts/validate_seedance_segment_map.py",
+      "size": 12576,
+      "sha256": "86f1cca89adb0c99a2ce9c0012661b49a8046805b61f8cd8bbe2fd708450c383"
+    },
+    {
+      "path": "sd-real-engine/SKILL.md",
+      "size": 12107,
+      "sha256": "51f0f0ab23de48b26f6e44a96c992af20aadfc2c533db55602eb94e361779c08"
+    },
+    {
+      "path": "sd-real-engine/references/camera-action-specs.md",
+      "size": 7594,
+      "sha256": "851d12fc62e8d3b410f0e4329ca7d42c14fdbc62fb112ae7fbf45e62579a879a"
+    },
+    {
+      "path": "sd-real-engine/references/defense-evasion-rules.md",
+      "size": 3889,
+      "sha256": "74eee8c11f19cd6d595a2920d61698ba268ecd76d3441e01063dda9eef7c4a0e"
+    },
+    {
+      "path": "sd-real-engine/references/impact-physics.md",
+      "size": 6119,
+      "sha256": "7cedd9f97da78063e40219e7683b922720bd2848c0161a96a4f6cbec73f0f9d5"
+    },
+    {
+      "path": "sd-real-engine/references/kinetic-chain-11.md",
+      "size": 3988,
+      "sha256": "c9793add26572d39df2e26feb106b58ba6d98a55f7adb93f5f3666fdeab9e303"
+    },
+    {
+      "path": "sd-real-engine/references/martial-styles-extended.md",
+      "size": 122238,
+      "sha256": "ba243978b7baad846191f3cca5f291504dba5376c55ac2c0c62535928925b66f"
+    },
+    {
+      "path": "sd-real-engine/references/multi-opponent-rules.md",
+      "size": 10587,
+      "sha256": "eba19d8416787c092afb6003e6c63ca42c44f81f2246473dd4eb49fa5d6a1d6a"
+    },
+    {
+      "path": "sd-real-engine/references/r1-combat-core.md",
+      "size": 9523,
+      "sha256": "33de5753a6ea7ff85fa8f44a6bb61ad57f3c8e7a0b7012fb8b6e603c63aa4077"
+    },
+    {
+      "path": "sd-real-engine/references/real-fight-techniques.md",
+      "size": 9383,
+      "sha256": "6e99ef0cc75f63e8eb5e49d4a23691ff39ed1b1b99f0e616e275d3231c635eb0"
+    },
+    {
+      "path": "sd-real-engine/references/render-adapters.md",
+      "size": 12057,
+      "sha256": "c4b6d7e99b916903de880344bdd34a386c081ea3bd34ffeea2bf89f4681b7cb8"
+    },
+    {
+      "path": "sd-real-engine/references/storyboard-example.md",
+      "size": 8316,
+      "sha256": "653cfa886d158bd54ed0e61b36ede0fd1c9673b80e633c2e9ecd9a67e8c43dff"
+    },
+    {
+      "path": "sd-real-engine/references/technique-combo-library.md",
+      "size": 54016,
+      "sha256": "aa109dc9e809b8d25ef6e607429bc20899dc80ad8cd86a6ed34ce2dbdb5bbb93"
+    },
+    {
+      "path": "sd-recon-engine/SKILL.md",
+      "size": 12505,
+      "sha256": "0d316090513e86a886f0929452a0eb84e50eaf7e9906c11ab63593575b6f0cd0"
+    },
+    {
+      "path": "sd-recon-engine/references/intel-card.md",
+      "size": 13226,
+      "sha256": "5a28664a2045dda4c07795c8439f2cf38676e84a407cc707893e05a0057599c2"
+    },
+    {
+      "path": "sd-recon-engine/references/recon-evidence.md",
+      "size": 8097,
+      "sha256": "d458cabf29faf5c3f9cedd628a303994befa89a01cf185bef8a682f58c09fe56"
+    },
+    {
+      "path": "sd-recon-engine/references/source-ladder.md",
+      "size": 8909,
+      "sha256": "6e4792ec664bd78d94e3f36c15b69cc5c9f38ce1ea3749e83fc76bc4c191e980"
+    },
+    {
+      "path": "sd-script-engine/SKILL.md",
+      "size": 20319,
+      "sha256": "a374cef4ee85f2f3dbd52077558af2511bfd9af869df164f55eeda6f8ba804e6"
+    },
+    {
+      "path": "sd-script-engine/references/dialogue-naturalization.md",
+      "size": 19246,
+      "sha256": "a4841afcef0bfe7d81adb820139eb64fbd1628ec647849e02762375e9a4236ee"
+    },
+    {
+      "path": "sd-script-engine/references/episode-planning.md",
+      "size": 66120,
+      "sha256": "199c00103c1691155c7e292359828a0ccca8ba0d6d41d31acadf15d97ad6a131"
+    },
+    {
+      "path": "sd-script-engine/references/external-script-polish.md",
+      "size": 9815,
+      "sha256": "2c8b4c24c5d0876e2bdc4293878adf52fd4272642ef8b3f0b82748ce57c0d24a"
+    },
+    {
+      "path": "sd-script-engine/references/roundtable-review.md",
+      "size": 54032,
+      "sha256": "61cb475b41816ad7ac22b440937df52aaf5aa14cdcf575e00df48e30e26efcdc"
+    },
+    {
+      "path": "sd-script-engine/references/six-stage-pipeline.md",
+      "size": 60734,
+      "sha256": "75fa1584d7c8e1e332f88db0ff3f0a830288f0ac819043a059ed8b663f73fe06"
+    },
+    {
+      "path": "sd-script-engine/references/source-registration.md",
+      "size": 11307,
+      "sha256": "cf11e4e297ac8f0cc121113f42e78b75524382b39b21d3b3d5f930c0d723b723"
+    },
+    {
+      "path": "sd-script-engine/references/story-bible-and-ip.md",
+      "size": 68941,
+      "sha256": "2263e88d29534ae38f2db1654c7b79f0b1e24ffab2c4f2aa4fd1d2181f1c3b95"
+    },
+    {
+      "path": "sd-storyboard-engine/SKILL.md",
+      "size": 34520,
+      "sha256": "4d5b9a45b32457acef815ae12aae117c3e9b829aa61784865485f4c14cb69294"
+    },
+    {
+      "path": "sd-storyboard-engine/references/plot-deduction-grid.md",
+      "size": 10093,
+      "sha256": "ba5a99b1d9823b27cf3ae4d4b82df56910103fe4af2c5780fd8e3f7485adf901"
+    },
+    {
+      "path": "sd-storyboard-engine/references/scene-space-adaptation.md",
+      "size": 7289,
+      "sha256": "1d387e56d0decde76d388699baa35f478f1a877a00ceb8446643cfe114c2ee70"
+    },
+    {
+      "path": "sd-storyboard-engine/references/segment-linkage.md",
+      "size": 879,
+      "sha256": "b0f948e7a8d4a9233bd43094dd8e2a1e108f13e23b0e36a39086efe77aa1cd48"
+    },
+    {
+      "path": "sd-storyboard-engine/references/short-drama-camera-system.md",
+      "size": 42415,
+      "sha256": "25cde94c688a24ea159f777d5e264aede60a8cca48e2d09811c57d786e75e806"
+    },
+    {
+      "path": "sd-storyboard-engine/references/shot-economy-and-acting.md",
+      "size": 38706,
+      "sha256": "7582528a3d262339e563a301e8ffd82eeeb39bac6236da767bca6f5641dc61ff"
+    },
+    {
+      "path": "sd-storyboard-engine/references/storyboard-sheet-template.md",
+      "size": 22136,
+      "sha256": "2b105d4f6a22a868c3422178acb759fa37f0d863aaa087b9fcbcc51e8a5f0949"
+    },
+    {
+      "path": "sd-xuanhuan-engine/SKILL.md",
+      "size": 12990,
+      "sha256": "e9e1dc0834e195e0ed8b69d4a98e417e09623ddd3c2563c12bd6f96ded5a80d0"
+    },
+    {
+      "path": "sd-xuanhuan-engine/references/arsenal-moves-library.md",
+      "size": 8260,
+      "sha256": "194ba46a31b5d59dd57a8512b4e8d0be4759e49f1bb9ffaa6b5b0e956712350a"
+    },
+    {
+      "path": "sd-xuanhuan-engine/references/arsenal-parameter-library.md",
+      "size": 36925,
+      "sha256": "700d034a0dcb65805619c38c2dee7d0fed25f6a33b3f297f0b2518bdd949e77b"
+    },
+    {
+      "path": "sd-xuanhuan-engine/references/camera-specs-15modes.md",
+      "size": 7035,
+      "sha256": "dfe26b46c85f23da6a67d639a3ad85ef09306c915833aeb91a69e1875ee12937"
+    },
+    {
+      "path": "sd-xuanhuan-engine/references/character-scene-presets.md",
+      "size": 7389,
+      "sha256": "8a4d5d2e2914571d50bc19796d0994ac4f4f26d505b003a4c7cfe81735bf938d"
+    },
+    {
+      "path": "sd-xuanhuan-engine/references/close-quarters-engine.md",
+      "size": 4486,
+      "sha256": "3ef965d5359f8e3fcbe12a7d4a20e9b03225d7feae21ee8289d064ca29744ba1"
+    },
+    {
+      "path": "sd-xuanhuan-engine/references/core-combat-laws.md",
+      "size": 20236,
+      "sha256": "7b305a1add2bb6d6ae39adf15e80453d383858a8efd0e58da9975dd96b354dc1"
+    },
+    {
+      "path": "sd-xuanhuan-engine/references/epic-battlefield-protocols.md",
+      "size": 8574,
+      "sha256": "e7659b56f3989e111c9f874068ffb115da1da35b9e61d9284fcf03a3d7ff3586"
+    },
+    {
+      "path": "sd-xuanhuan-engine/references/grand-scale-domains.md",
+      "size": 4987,
+      "sha256": "2fe91fa2e282b3035543211d96563096d8aa61e2280129a2e4e7e3701b5bab0d"
+    },
+    {
+      "path": "sd-xuanhuan-engine/references/xuanhuan-elements-vfx.md",
+      "size": 6426,
+      "sha256": "6f71b1bd297abad9da3664fcd6801cb1c2e7b5243bbd9fdaaddbc27123e91d84"
+    },
+    {
+      "path": "short-drama-director/CHANGELOG.md",
+      "size": 58636,
+      "sha256": "feb2f62e8c149fe7940a184cfa910177ea5f810fd5a78ccda53addca4a808713"
+    },
+    {
+      "path": "short-drama-director/LICENSE",
+      "size": 1117,
+      "sha256": "d645a5c3662f73a90972a21ceda79a59eafc38543a506acd5240ce1f514d77c7"
+    },
+    {
+      "path": "short-drama-director/README.md",
+      "size": 29392,
+      "sha256": "f1ed27a5eb83b1ab51a55325858e9a5bb32ab0be93fab2f7dce5006c796ed300"
+    },
+    {
+      "path": "short-drama-director/SKILL.md",
+      "size": 170396,
+      "sha256": "aab29eaa5a655df7067d958cc6cb62dca0aec35a3a63e321e5b8e3c4bba5d4a6"
+    },
+    {
+      "path": "short-drama-director/references/acting-direction.md",
+      "size": 35408,
+      "sha256": "6a57c163fcf2c04b115b9e61e854a0c0fa3822980dab0038e2d48f3467d09f2e"
+    },
+    {
+      "path": "short-drama-director/references/agent-platform-adapters.md",
+      "size": 4651,
+      "sha256": "232bca31f9ca07e3feece183de7caebc38287c5e4b6d21b3eb3315de84129882"
+    },
+    {
+      "path": "short-drama-director/references/anime-ultimate-vfx-paradigm.md",
+      "size": 12880,
+      "sha256": "fc6f13074b5c8105955339cb464d67411eb60ee2ecd99825323ab68dd484eabe"
+    },
+    {
+      "path": "short-drama-director/references/aspect-ratio-adaptation.md",
+      "size": 5063,
+      "sha256": "3068c56a7d75d15163bbfba11d4eeb690eac98acca624ef3445049d835e320d8"
+    },
+    {
+      "path": "short-drama-director/references/asset-delivery-modes.md",
+      "size": 18418,
+      "sha256": "16fdcda05a71749159920a9d250f142367202634be3a39192bbdcc765273c2d7"
+    },
+    {
+      "path": "short-drama-director/references/asset-first-pipeline.md",
+      "size": 11621,
+      "sha256": "8f8e1ccdaf7fa0416a59ab22ef93ba7b551bf5d1bf8c130d89b2673824c3bb5c"
+    },
+    {
+      "path": "short-drama-director/references/asset-spatial-ledger.md",
+      "size": 38296,
+      "sha256": "8fea01365d5b321ecb15b7d10d999399169c9f30006ebd6fce589108d678d6bb"
+    },
+    {
+      "path": "short-drama-director/references/audiovisual-aesthetic-presets.md",
+      "size": 3346,
+      "sha256": "2eba404c8e10599361c1ca60b7be8ecf1a48513d8e8a4beea9630f7991623d42"
+    },
+    {
+      "path": "short-drama-director/references/blocking-direction.md",
+      "size": 13704,
+      "sha256": "19d1095d937044f24c52fccd924b26f1e1845156e98904eb072f3a0bb6e093d4"
+    },
+    {
+      "path": "short-drama-director/references/camera-specs-15rules.md",
+      "size": 6219,
+      "sha256": "b95d464234ce93bdab89e1bc55f5bf49cf5f3a603f56b813c276f2d41722acfe"
+    },
+    {
+      "path": "short-drama-director/references/camera-transitions-6types.md",
+      "size": 4427,
+      "sha256": "410ee024304aade7612caa0b7bacd5f0ac50e50a02b8e4457321f01ea0c3bd33"
+    },
+    {
+      "path": "short-drama-director/references/character-lineage-and-sheets.md",
+      "size": 4599,
+      "sha256": "6aa95adfb6f07f1146b86c99bc2f1382d92a7f4165bf80cca451025d0ea1090c"
+    },
+    {
+      "path": "short-drama-director/references/cinematic-dramaturgy-rules.md",
+      "size": 8380,
+      "sha256": "484c2afc1abff2cdf340b4c4d5281c9b2f40b32d22bdd3a090b21ec11fff5996"
+    },
+    {
+      "path": "short-drama-director/references/comfyui-canvas-automation.md",
+      "size": 2681,
+      "sha256": "7ed2123e31444597b30cbca2b6bad5ad56e985d58208f1b35748ab2cf62add3c"
+    },
+    {
+      "path": "short-drama-director/references/creative-transition-library.md",
+      "size": 20346,
+      "sha256": "685b811d6111acf3321579bf4434e931d9e4bfdf877aeed4ed254c119491faa6"
+    },
+    {
+      "path": "short-drama-director/references/dialect-voice-control-dictionary.md",
+      "size": 26313,
+      "sha256": "20be4f7e850a65c9a1b02c1a4d02955a3ac4cd61dd6fb838b7fbcbee8f90d87d"
+    },
+    {
+      "path": "short-drama-director/references/dialogue-doctor-7d.md",
+      "size": 2295,
+      "sha256": "b3d4976fa17c350f2cc6dc8f25c3f863ac6f8e459ace0f7d6e28beac09515662"
+    },
+    {
+      "path": "short-drama-director/references/dialogue-speed-check.md",
+      "size": 16149,
+      "sha256": "db390a3b7ee722a6965487f8a59c64d05b821fc71f379abc85d609d9c213dad5"
+    },
+    {
+      "path": "short-drama-director/references/emotion-beat-curve.md",
+      "size": 2655,
+      "sha256": "b142bc2deb1452030524d3754f3664200dbe897e634199bbc10d2b96e04965ca"
+    },
+    {
+      "path": "short-drama-director/references/facs-au-dictionary.md",
+      "size": 7473,
+      "sha256": "5270806596fe93fc53d050887bcb50b7a888e076e1fd9aa3ab913ddd75e30a39"
+    },
+    {
+      "path": "short-drama-director/references/facs-emotion-recipes.md",
+      "size": 13468,
+      "sha256": "ca78960e0ff3ad19914058b10ea8f62c0c9871236056b0acee610b246bf1ca2a"
+    },
+    {
+      "path": "short-drama-director/references/facs-micro-expression.md",
+      "size": 9273,
+      "sha256": "b92019158c37f81069a27a700d8f6493c22e55435950caa1d4ed579b783f7382"
+    },
+    {
+      "path": "short-drama-director/references/h3-adapter.md",
+      "size": 24893,
+      "sha256": "89a95031b725370be7c8344238a6dea67e6b5c31aa9732009e8c979fe528e038"
+    },
+    {
+      "path": "short-drama-director/references/lighting-and-antifake.md",
+      "size": 10790,
+      "sha256": "88f2b21108e8d92788a9edaedfc9edea0801d8a8c5ba13353cc2b7e9a2ca17fa"
+    },
+    {
+      "path": "short-drama-director/references/model-adapters.md",
+      "size": 79707,
+      "sha256": "c9def590257b3edbd7f2011061f24fd26561aab26ac2662348259040ced47d15"
+    },
+    {
+      "path": "short-drama-director/references/platform-safety-compliance-guide.md",
+      "size": 1302,
+      "sha256": "ff3ee544ee679edc83661bfe5e5ef77db8dadc3baa7ba8cd1c98884aeed7c4d5"
+    },
+    {
+      "path": "short-drama-director/references/production-ledger-handbook.md",
+      "size": 5990,
+      "sha256": "ca6957b90c333aeab90c5f79c5baca341faffcde24e6867463483869412c91b1"
+    },
+    {
+      "path": "short-drama-director/references/prompt-feeding-checklist.md",
+      "size": 42930,
+      "sha256": "861250bb5d1d37c7c9d674b72b7efe26b0ed45c31c22e2601b63c6a51c635ff5"
+    },
+    {
+      "path": "short-drama-director/references/quality-gate-review.md",
+      "size": 12097,
+      "sha256": "31189fe00c4c3bb2f194152a5c0607256f5f7ff5f540b05456c9845e2986c3b0"
+    },
+    {
+      "path": "short-drama-director/references/screenplay-gate-engine.md",
+      "size": 3629,
+      "sha256": "90adf6f3f355b6ab14bfffd62c1b817e88dcd25ea93eccdd7c8d7d4e0ca31d15"
+    },
+    {
+      "path": "short-drama-director/references/seedance-render-engine.md",
+      "size": 13277,
+      "sha256": "5e18976e79e528303e6189a5acfdf25ba1be5523b16e1cd79c30e05e787753a6"
+    },
+    {
+      "path": "short-drama-director/references/segment-splicing.md",
+      "size": 52935,
+      "sha256": "e7ee8ace2f310139b9788b6d0df15a722513d5dcf80af62fb672b753bf11852a"
+    },
+    {
+      "path": "short-drama-director/references/spatial-reference-system-V3.md",
+      "size": 2249,
+      "sha256": "24c72b8ec7e7b23d75200c55177ec0397e871e04a0387bafc782478e39079465"
+    },
+    {
+      "path": "short-drama-director/references/spatial-topview-camera.md",
+      "size": 3464,
+      "sha256": "1c9a2a5df47c96b75461cc91cfd81cf12ec490b9b3ca881a902fd7733c08b6f2"
+    },
+    {
+      "path": "short-drama-director/references/storyboard-board-lite.md",
+      "size": 8633,
+      "sha256": "b626d5335548f34eb23d1eba252b2b7f38b9bb9b63bb0805bfd9a34d76949a30"
+    },
+    {
+      "path": "short-drama-director/references/style-bible/director-param-library.md",
+      "size": 41275,
+      "sha256": "79af3623a6631f6cbf0ad7fcbfd67d3f4ee9287276101f3dfefb82bab61596ac"
+    },
+    {
+      "path": "short-drama-director/references/style-bible/director-style-catalog-74.md",
+      "size": 16743,
+      "sha256": "3681d556e2eb522c3b71e0cfdb264c8aa894a330c951f610fb25aafdb06f9dd3"
+    },
+    {
+      "path": "short-drama-director/references/style-bible/director-to-prompt-protocol.md",
+      "size": 15056,
+      "sha256": "852611fdfb4c1868251249d959cdc1e00b2bc181c773e83f803e203d7a27bc0c"
+    },
+    {
+      "path": "short-drama-director/references/style-bible/examples/demo-feed-wkw-15s.md",
+      "size": 6994,
+      "sha256": "5c7d7e0920bac4938e9c084e0138af031e5b2ac9be11d5762d2f96a75f1bfdaa"
+    },
+    {
+      "path": "short-drama-director/references/style-bible/examples/demo-feed-xuke-15s.md",
+      "size": 6661,
+      "sha256": "6a0dd44eae021b8050326f398543387364721106676520f6af8b81fd9db17381"
+    },
+    {
+      "path": "short-drama-director/references/style-bible/style-archetype-taxonomy.md",
+      "size": 7333,
+      "sha256": "e01cb46f2535032843718228c5095b1d7ab86c6eef2f0e1f995317b89472cf45"
+    },
+    {
+      "path": "short-drama-director/references/style-bible/style-bible-spec.md",
+      "size": 6080,
+      "sha256": "278bc615e3d3873afb467b049e5ba592f318456c215741ed5dab818df99c9cb3"
+    },
+    {
+      "path": "short-drama-director/references/style-bible/style-fit-and-combat-matrix.md",
+      "size": 10808,
+      "sha256": "d830b403dd422fd2adcb9bbd00bdc10855dc3cd0fd1a742b02a2959c613f87f4"
+    },
+    {
+      "path": "short-drama-director/references/style-bible/style-lock-protocol.md",
+      "size": 15146,
+      "sha256": "67cae27a834f5db14d77e585b4d1dbda30281251294669289a317950adb1b6ca"
+    },
+    {
+      "path": "short-drama-director/references/style-bible/style-prefix-blocks.md",
+      "size": 25085,
+      "sha256": "5eb1c35d71f3e082bbb04def11d5e776e4518138a663c3dbc1d1bbe5c2cff85f"
+    },
+    {
+      "path": "short-drama-director/references/track-routing.md",
+      "size": 13601,
+      "sha256": "2be27b83455a2c9f6b85cc761b0f862b86eba9c1956c000bcfae42dde64c8155"
+    },
+    {
+      "path": "short-drama-director/references/vo-os-weaving.md",
+      "size": 10605,
+      "sha256": "95bde4dff3913b4943fe09ac3092f035b027498680626bc9318fcee6f857236b"
+    },
+    {
+      "path": "short-drama-director/references/wenxi-micro-expression.md",
+      "size": 2786,
+      "sha256": "815b3bde5ce60fab921b1719fd0507ebced4ca01c9327717f7ffc50567f96941"
+    },
+    {
+      "path": "short-drama-director/scripts/audit_contract.py",
+      "size": 23865,
+      "sha256": "954077f025e52fb457060a8fdac3d38249e5ec3ca54fdc49298bdaa2c2d6b5e0"
+    },
+    {
+      "path": "short-drama-director/scripts/build_board_lite.py",
+      "size": 49988,
+      "sha256": "52b38c3373d3487ba1f675c8f284c92fa5ab343b4e6cdb8ab05cf3844007353e"
+    },
+    {
+      "path": "short-drama-director/scripts/check_package.py",
+      "size": 191740,
+      "sha256": "8b9246d3cb0f6c03399c777d96448b3ec47497278cfcc5f960de5b7aaef193dd"
+    },
+    {
+      "path": "short-drama-director/scripts/compile_feed.py",
+      "size": 10999,
+      "sha256": "a1d3a7a082d7f905e17d8db4060f61477f7321f743654453376706926d0d2be8"
+    },
+    {
+      "path": "short-drama-director/scripts/generate_emotion_curve.py",
+      "size": 5813,
+      "sha256": "03142986dd14b1f58ae89382b13932bbc2d3d15b8e5ac5eeb527afd7fe925263"
+    },
+    {
+      "path": "short-drama-director/scripts/sd_core.py",
+      "size": 17051,
+      "sha256": "8893db3da42cb6a15769e730cb074ce6325a7cd12bbca4cb379d883ec499986a"
+    },
+    {
+      "path": "short-drama-director/scripts/slice_context.py",
+      "size": 10032,
+      "sha256": "aa6464ea0b0d897ec29816a9e63ca5c1ccae03888010f51d70e94021d17d394c"
+    },
+    {
+      "path": "short-drama-director/scripts/style-lock-ladder.py",
+      "size": 25441,
+      "sha256": "0a2684d0269869392342366c14ff6f687ddb881b381d9684b9ce1b4cd0b857ee"
+    },
+    {
+      "path": "short-drama-director/scripts/style-lock-recommend.py",
+      "size": 13531,
+      "sha256": "fad3cc1628be4c0889854a030df8d60b3f7b25244c9ea6610bf8cfc309d58268"
+    },
+    {
+      "path": "short-drama-director/scripts/validate_prompt.py",
+      "size": 394850,
+      "sha256": "537a7ea40540e233c7157f8ef1e0858a74ab0f3479a385829dfa1bc6ec36f877"
+    }
+  ],
+  "main_worktree_manifest_equal": true,
+  "main_worktree_manifest_sha256": "09c6df97432e76547057e873277764920ccc689f406ef9946d4e8ea135562d54",
+  "local_links": [],
+  "main_links": [],
+  "suspicious_paths": [],
+  "credential_shape_hits": []
+}

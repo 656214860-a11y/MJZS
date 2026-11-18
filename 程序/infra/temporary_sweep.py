@@ -58,8 +58,28 @@ def sweep_stale_temporary_files(root, *, now=None, max_age_seconds=TEMP_SWEEP_MA
     return removed
 
 
+def sweep_opened_projects(projects):
+    """退出维护进程清扫显式项目；仅汇总成功项，诊断失败不挡其它维护。"""
+    removed = remaining = 0
+    for project in dict.fromkeys(projects):
+        target = Path(project)
+        if target.is_dir() and not target.is_symlink() and not target.is_junction():
+            stats = {}
+            try:
+                count = sweep_stale_temporary_files(target, stats=stats)
+            except (OSError, ValueError):
+                continue
+            removed += count
+            remaining += stats.get('remaining', 0)
+    try:
+        from infra import diagnostic_capture
+        diagnostic_capture.record_temporary_sweep(removed, remaining)
+    except Exception:
+        app_logging.swallowed()
+
+
 def schedule_stale_temporary_sweep(root):
-    """项目打开后的后台清扫入口：目录遍历只发生在线程里，不占启动／UI 路径（规则 33）。"""
+    """后台清扫兼容入口；调用方须在启动可交互边界之后调度，线程本身不豁免规则33。"""
     target = Path(root)
 
     def work():

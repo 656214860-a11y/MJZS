@@ -1188,12 +1188,42 @@ class DesktopSeamTests(unittest.TestCase):
             d.auto.handoff_ticket += 1
             ticket = d.auto.handoff_tasks.submit(d.auto.handoff_ticket)
             d.auto.handoff_queue.put((ticket, True, "自动交接包已整理：exports/MASTER.mp4", "sig"))
-            d._tick_once()
+            from unittest import mock
+            from orchestrator import stage_completion_service
+            with mock.patch.object(stage_completion_service, 'completion_evidence',
+                                   return_value=(True, '')) as evidence:
+                d._tick_once()
+            evidence.assert_called_once_with(d.root, 'delivery', getattr(d.studio, 'auto_edit_ready', None))
             kinds = [(item["kind"], item.get("stage")) for item in d.pet.bus.history]
             self.assertIn(("stage.completed", "delivery"), kinds)
             self.assertIn("自动交接包已整理：exports/MASTER.mp4", d.pet.last_status)
         finally:
             win.destroy()
+
+    def test_handoff_success_text_without_artifacts_never_completes(self):
+        """REQ/DES-S13-54：真实空项目入队成功文字仍须通过产物门禁。"""
+        if self.tk is None:
+            self.skipTest(PLATFORM_TKINTER)
+        from desktop import Desktop
+        with tempfile.TemporaryDirectory() as folder:
+            win = self.tk.Tk(); win.withdraw()
+            try:
+                d = Desktop(win, root=folder)
+                d.auto.handoff_ticket += 1
+                ticket = d.auto.handoff_tasks.submit(d.auto.handoff_ticket)
+                d.auto.handoff_queue.put((ticket, True, "自动交接包已整理：exports/MASTER.mp4", "sig"))
+                history_start = len(d.pet.bus.history)
+                d._tick_once()
+                events = d.pet.bus.history[history_start:]
+                kinds = [(item['kind'], item.get('stage')) for item in events]
+                self.assertIn(('stage.paused', 'delivery'), kinds)
+                self.assertNotIn(('stage.completed', 'delivery'), kinds)
+                paused = [item for item in events
+                          if item['kind'] == 'stage.paused' and item.get('stage') == 'delivery']
+                self.assertIn('待校验', paused[-1]['text'])
+                self.assertIn('自动交接包已整理：exports/MASTER.mp4', d.pet.last_status)
+            finally:
+                win.destroy()
 
     def test_button_seam_reports_the_label(self):
         if self.tk is None:
