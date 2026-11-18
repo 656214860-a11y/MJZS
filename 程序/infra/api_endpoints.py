@@ -468,8 +468,10 @@ def http_stream(url, payload, headers, timeout, on_chunk, cancelled=None, opener
         return {'ok': False, 'status': 0, 'error': '请求已取消'}
     body = dict(payload or {})
     body['stream'], body['stream_options'] = True, {'include_usage': True}
+    stream_headers = dict(_request_headers(headers))
+    stream_headers.setdefault('Accept-Encoding', 'identity')
     request = urllib.request.Request(url, data=json.dumps(body, ensure_ascii=False).encode('utf-8'),
-                                     headers=_request_headers(headers), method='POST')
+                                     headers=stream_headers, method='POST')
     parts, finish_reason, usage = [], '', None
     done = False
     saw_completion = False
@@ -526,8 +528,8 @@ def elapsed_ms(started):
 
 
 def _http_opener():
-    """Never forward model credentials or request bodies through redirects."""
-    import urllib.request
-    return urllib.request.build_opener(no_redirect())
+    """收敛到 RequestsJsonOpener：不跟随重定向，凭据与请求体不外泄；按需加载。"""
+    from contract.platform_tools import RequestsJsonOpener
+    return RequestsJsonOpener()
 
 

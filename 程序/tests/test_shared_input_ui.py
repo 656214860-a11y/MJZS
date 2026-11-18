@@ -61,6 +61,25 @@ class SharedInputLayoutTests(unittest.TestCase):
         row = box.input.master.winfo_children()[-1]
         self.assertEqual(row.winfo_class(), 'TFrame')
 
+    def test_send_outline_is_circular_and_matches_icon_row(self):
+        """REQ-S01-62: send/stop use an unfilled circle, not a solid PNG tile."""
+        from tkinter import ttk
+        from ui_tokens import COLORS
+        box = self._make()
+        self.win.deiconify()
+        self.win.update()
+        button = box.send_button
+        self.assertFalse(str(button.cget('image')), '发送键只绘制 MDL2 字形，不再加载导航 PNG')
+        style = ttk.Style(self.win)
+        name = str(button.cget('style'))
+        self.assertAlmostEqual(button.winfo_width(), button.winfo_height(), delta=2)
+        self.assertAlmostEqual(button.winfo_rooty() + button.winfo_height() / 2,
+                               box.voice_button.winfo_rooty() + box.voice_button.winfo_height() / 2,
+                               delta=3)
+        self.assertEqual(style.lookup(name, 'foreground', ('active',)), COLORS['primary'])
+        self.assertEqual(style.lookup(name, 'foreground', ('disabled',)), COLORS['disabled_text'])
+        self.assertEqual(str(box.voice_button.cget('style')), 'Tokens.Composer.Icon.TButton')
+
     def _caret_end(self, box):
         """``set_text`` 后光标停在开头；候选触发以光标为准，测试统一放到行尾。"""
         box.input.mark_set('insert', 'end-1c')

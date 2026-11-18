@@ -38,6 +38,7 @@ import time
 from pathlib import Path
 from tkinter import TclError
 
+import infra.app_logging as app_logging
 import infra.model_pool as model_pool
 import infra.model_router as model_router
 from contract.app_metadata import APP_NAME
@@ -62,6 +63,7 @@ from ui.pet_ui_settings import PetSettingsMixin
 from ui.pet_ui_voice import PetVoiceMixin
 from ui.pet_ui_view import PetViewMixin
 from ui.pet_ui_popup import PetPopupMixin
+from ui.ui_status_bus import Message
 from ui.pet_ui_support import ACTIVE_MS, ADVANCE_SECONDS, AUTOSTART_KEY, AUTOSTART_NAME, AUTO_STAGE_VARIABLES, AUTO_VARIABLE_NAMES, AWAY_PAUSE_SECONDS, Autostart, BANNER_HOUR, BROADCAST_BUSY, BROADCAST_IDLE, BUSY_TAPS, BUSY_WINDOW, CANVAS_BG, CAPTION_INK, CAPTION_Y, CHAT_HINT, CHAT_MUTE_SECONDS, CONFIRM_NEED, CONFIRM_TITLE, DETAIL_MENU_LABEL, DOCK_CAPTION_GAP, DOCK_CAPTION_ROOM, DOCK_CLUSTER_W, DOCK_PAD_BOTTOM, DOCK_PAD_TOP, DOCK_PAD_X, DOCK_PAW_RIGHT, DOCK_ROOM, FALLBACK_ASK, GAP_SECONDS, GEAR_COLOR, GEAR_HOVER, GEAR_SIZE, GEAR_TIP, GREET_DELAY_MS, GREET_QUIET_SECONDS, GearButton, ICE, IDLE_MS, INK_SOFT, LEVEL_CAPTIONS, LEVEL_COLORS, LEVEL_SWITCH_NOTES, MOODS, OFFER_NO, OFFER_REPEAT, OFFER_SECONDS, OFFER_YES, ONE_CLICK_ASK, ONE_CLICK_TITLE, PAGE_ASKS, PANEL_DIVIDER, PANEL_HEAD, PANEL_MENU_LABEL, PANEL_SECTIONS, PATCH_X, PAUSED_CAPTION, PAW_ARC, PAW_COL_HEIGHT, PAW_COL_WIDTH, PAW_COL_X, PAW_COLORS, PAW_GAP, PAW_GAP_Y, PAW_HOVER, PAW_HIT_X, PAW_IDLE, PAW_LEVELS, PAW_SIZE, PAW_STEP, PROGRAM, PROGRESS_GAPS, PROGRESS_SECONDS, PROJECT_CACHE_SECONDS, PROJECT_CLOSED, PROJECT_LIMIT, PROJECT_OPEN, QUIT_LABEL, REPORT_QUIET_SECONDS, SANHU_BLUSH, SANHU_EAR, SANHU_FUR, SANHU_INK, SANHU_MODES, SANHU_MUZZLE, SANHU_STAR, SETTINGS_ENTRIES, SETTINGS_LABEL, SIZE, SNOOZE_SECONDS, SPEAK_GAP_SECONDS, SPOKEN_KEEP, STAGE_ASK_SECONDS, TONGUE, WEEKLY_FROM, _BooleanFlag, _UNSET, _settings_entries, asset_counts, autostart_command, duration, flourish, gear_parts, paint, palette, paw_dy, paw_parts, shot_stats, startup_api
 
 
@@ -367,7 +369,7 @@ class Pet(PetBroadcastAliasesMixin, PetStagesMixin, PetSettingsMixin, PetVoiceMi
         self._core = None
         self._client = None
         self._client_project = object()
-        self._flushed = 0
+        self._flushed = None             # 最近一次触发 ledger 落盘的 calls 记录对象（deque 封顶后 len 不再增长）
         self._tick_texts = set()
         self.report_path = None
         self.weekly_path = None
@@ -452,6 +454,8 @@ class Pet(PetBroadcastAliasesMixin, PetStagesMixin, PetSettingsMixin, PetVoiceMi
         self._projects_at = 0.0           # 上一次读盘对表的钟点
         self._test_session = None         # P2 测试模式：既有心跳轮询的增量自检子进程
         self._performance_session = None  # P2 优化模式：既有心跳轮询的短基准子进程
+        self._errors_seen = {}            # 轮 5B D8-a：已播报过的 (名字, 原文) → None，FIFO 封顶
+        self._errors_badge = ''           # 轮 5B D8-a：上一次写进状态栏的角标文案（没变就不重写）
 
     # ── 项目级内核：总线＋状态机＋父 Agent ─────────────────────────────────
     def client(self, project=None):
@@ -534,10 +538,84 @@ class Pet(PetBroadcastAliasesMixin, PetStagesMixin, PetSettingsMixin, PetVoiceMi
             return {}
 
     def _emit(self, kind, **payload):
-        return pet_bus.emit_safe(self.bus, self.errors, kind, **payload)
+        # D5-d/G7：终态事件自动带当前运行序号（与 Agent._emit 同一注入口径）。
+        return pet_bus.emit_safe(self.bus, self.errors, kind,
+                                 **pet_bus.with_current_run(self.bus, kind, payload))
 
+    # ── 内部错误的可见出口（轮 5B D8-a） ────────────────────────────────────
+    def sync_errors(self, at=None):
+        """``self.errors`` 的可见出口：状态栏左区角标常驻计数＋每条新错误一次【警告】。
 
+        宠物自己与父 Agent 的两份 ErrorLog 都在扫——emit_safe 失败、界面动作异常、
+        日志写失败原先只进内存没人看得见（诊断 §4.5）。判重键是 ``(名字, 原文)``：
+        同一错误反复出现只播报第一次，``_errors_seen`` FIFO 封顶不无限涨；
+        宿主没有状态栏（假宿主、自检、单测）时静默降级——记账照旧，只是没有可见出口。
+        返回本拍新确认的错误条数。
+        """
+        logs = [self.errors]
+        try:
+            agent_errors = getattr(self.agent, 'errors', None)
+        except Exception:
+            agent_errors = None
+        if agent_errors is not None:
+            logs.append(agent_errors)
+        entries = []
+        for log in logs:
+            try:
+                for item in log or ():
+                    if isinstance(item, (tuple, list)) and len(item) >= 2:
+                        entries.append((str(item[0]), ' '.join(str(item[1]).split())))
+            except Exception:
+                continue
+        self._sync_error_badge(len(entries))
+        seen = self._errors_seen
+        fresh = []
+        for key in entries:
+            if key not in seen:
+                seen[key] = None
+                fresh.append(key)
+        while len(seen) > 512:
+            seen.pop(next(iter(seen)))
+        if not fresh:
+            return 0
+        bus = getattr(self.desktop, 'status_bus', None)
+        publish = getattr(bus, 'publish', None)
+        if not callable(publish):
+            return len(fresh)
+        try:
+            shown = ['%s：%s' % (name, text[:60]) for name, text in fresh[:4]]
+            message = '【警告】三虎内部错误：' + '；'.join(shown)
+            if len(fresh) > 4:
+                message += ' 等 %d 条' % len(fresh)
+            publish(Message.make('warning', message, source='pet', auto=False))
+        except Exception as exc:
+            self.errors.append(('errors.sync', str(exc)))
+        return len(fresh)
 
+    def _sync_error_badge(self, count):
+        """左区常驻段「异常 N」：有错就挂、清零就摘；宿主没接状态栏就静默。
+
+        150ms 心跳每拍都来一次：文案没变就不重写 Tk，免得白 configure。
+        """
+        badge = ('异常 %d' % count) if count else ''
+        if badge == self._errors_badge:
+            return
+        self._errors_badge = badge
+        if count:
+            set_segment = getattr(self.desktop, 'set_status_segment', None)
+            if callable(set_segment):
+                try:
+                    set_segment('pet_errors', badge,
+                                tooltip='三虎内部错误 %d 条，明细见日志与诊断导出' % count)
+                except Exception:
+                    app_logging.swallowed('错误角标更新')
+            return
+        clear = getattr(getattr(self.desktop, 'status_bar', None), 'clear_segment', None)
+        if callable(clear):
+            try:
+                clear('pet_errors')
+            except Exception:
+                app_logging.swallowed('错误角标清除')
 
 
 
@@ -566,8 +644,9 @@ class Pet(PetBroadcastAliasesMixin, PetStagesMixin, PetSettingsMixin, PetVoiceMi
             self.say_held()            # 弹窗关了：被它挡住的那一句补说
         self.watch_focus(at=at)        # 第 35 期第 1 条：切出去就暂停、回到界面再恢复
         self.tick_broadcast(at=at)     # 播报：按频率说进度，缺口一变化立刻说（第 14 期）
-        if agent.client is not None and agent.client.calls and len(agent.client.calls) != self._flushed:
-            self._flushed = len(agent.client.calls)
+        latest_call = agent.client.calls[-1] if agent.client is not None and agent.client.calls else None
+        if latest_call is not None and latest_call is not self._flushed:
+            self._flushed = latest_call
             try:
                 agent.client.flush()
             except Exception as exc:
@@ -575,6 +654,7 @@ class Pet(PetBroadcastAliasesMixin, PetStagesMixin, PetSettingsMixin, PetVoiceMi
         state = self.snapshot(at=at)
         self.refresh(at=at, state=state)
         self.announce_failures()
+        self.sync_errors(at=at)           # 轮 5B D8-a：self.errors 的可见出口（角标＋一次性警告）
         self.progress_voice(state=state, at=at)   # 进度：三虎自己挑时机冒圆气泡（第 19 期）
         self.report_hint(at=at)    # 第 36 期第 5 条：下午／夜里活儿慢下来，把日报周报递上来
         self.offer_oneclick(state=state, at=at)   # 收尾的时机到了就主动问一句（第 25 期第 3 条）

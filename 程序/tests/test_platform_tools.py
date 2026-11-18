@@ -282,7 +282,9 @@ class RequestsJsonTlsTests(unittest.TestCase):
         self.assertTrue(set(system.get_ca_certs(binary_form=True)) <= trusted, 'system trust must remain included')
         self.assertTrue(set(public.get_ca_certs(binary_form=True)) <= trusted, 'certifi trust must remain included')
         self.assertIs(seen['adapter'].poolmanager.connection_pool_kw.get('ssl_context'), context)
-        self.assertEqual(seen['adapter'].max_retries.total, 0)
+        retry = seen['adapter'].max_retries
+        self.assertEqual(retry.total, 2)
+        self.assertEqual(set(retry.allowed_methods), {'GET', 'HEAD'})
         self.assertIs(seen['settings']['verify'], True)
 
     def test_default_context_loads_certifi_after_system_defaults(self):
@@ -409,3 +411,35 @@ class WebSocketTests(unittest.TestCase):
         self.assertEqual(caught.exception.status, 401)
         with self.assertRaises(ValueError):
             platform_tools.open_websocket('https://example.test/')
+
+
+class RunProcessEncodingTests(unittest.TestCase):
+    """R3315：text=True 缺省必须钉 UTF-8——cp936 本地化下 GBK 解码会让
+    reader 线程崩溃、stdout 变 None；显式编码/错误策略的调用方不被覆盖。"""
+
+    def test_text_mode_defaults_to_utf8(self):
+        import subprocess as sp
+        import sys
+        code = "import sys;sys.stdout.write('漫剧助手')"
+        done = platform_tools.run_process([sys.executable, '-X', 'utf8', '-c', code],
+                                          capture_output=True, text=True)
+        self.assertEqual(done.stdout, '漫剧助手')
+
+    def test_explicit_encoding_is_respected(self):
+        import subprocess as sp
+        seen = {}
+        def fake_run(command, **kwargs):
+            seen.update(kwargs)
+            return sp.CompletedProcess(command, 0, '', '')
+        platform_tools.run_process(['x'], run=fake_run, text=True, encoding='gbk')
+        self.assertEqual(seen.get('encoding'), 'gbk')
+        self.assertNotIn('errors', seen)
+
+    def test_binary_mode_gets_no_encoding(self):
+        import subprocess as sp
+        seen = {}
+        def fake_run(command, **kwargs):
+            seen.update(kwargs)
+            return sp.CompletedProcess(command, 0, b'', b'')
+        platform_tools.run_process(['x'], run=fake_run, capture_output=True)
+        self.assertNotIn('encoding', seen)

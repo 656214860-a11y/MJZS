@@ -19,6 +19,7 @@ from contract.pet_bus import (
     STAGE_EVENTS,
     STAGE_NAMED,
     STAGE_NAMES,
+    TERMINAL_EVENTS,
     emit_safe,
     event,
     hashlib,
@@ -32,4 +33,5 @@ from contract.pet_bus import (
     stage_step,
     threading,
     time,
+    with_current_run,
 )

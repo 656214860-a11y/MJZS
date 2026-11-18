@@ -73,6 +73,11 @@ STAGE_EVENTS = ('stage.started', 'stage.completed', 'stage.failed', 'stage.retry
 LIVE_EVENTS = ('stage.executing', 'stage.paused')
 # 认「必须带一个登记过的阶段名」的那几类事件。
 STAGE_NAMED = STAGE_EVENTS + LIVE_EVENTS
+# 终态事件（D5-a/G7）：同一 run 内重复上报仍按幂等键去重；跨 run（用户再次点运行）
+# 由调用方传 ``run=`` 运行序号参与幂等键，第二次同文的完成／失败不再被吞。
+# ``at`` 永不进键；进度类（SHEDDABLE）与实时类（stage.paused）不在此列，保持现有去重。
+TERMINAL_EVENTS = STAGE_EVENTS + ('script.completed', 'delivery.ready',
+                                'firstframe.task.failed', 'video.task.failed', 'voice.task.failed')
 SEEN_LIMIT = 512
 HISTORY_LIMIT = 64
 # O42：待处理事件上限。工作线程只 publish、界面线程每 150ms 心跳 pump 一次（每轮上限 200），
@@ -94,8 +99,13 @@ def identify(kind, payload):
     return hashlib.sha256(body.encode('utf-8')).hexdigest()[:32]
 
 
-def event(kind, key=None, **payload):
-    """构造事件：校验契约与阶段名，带墙钟时间 at 与幂等键 id。"""
+def event(kind, key=None, run=None, **payload):
+    """构造事件：校验契约与阶段名，带墙钟时间 at 与幂等键 id。
+
+    ``run`` 是调用方的运行序号：只对 ``TERMINAL_EVENTS`` 生效——进入事件负载并
+    参与幂等键，同一 run 内重复上报仍去重、跨 run 同文事件各自送达；其余事件
+    忽略 ``run``（进度类保持现有去重，G7 不把 ``at`` 纳入键）。
+    """
     if kind not in CONTRACT:
         raise ValueError('未登记的事件：' + str(kind))
     stage = payload.get('stage')
@@ -104,6 +114,8 @@ def event(kind, key=None, **payload):
     missing = [name for name in CONTRACT[kind] if payload.get(name) in (None, '')]
     if missing:
         raise ValueError(str(kind) + ' 缺少字段：' + '、'.join(missing))
+    if run is not None and kind in TERMINAL_EVENTS:
+        payload = dict(payload, run=run)
     return {'kind': kind, 'at': time.time(), 'id': key or identify(kind, payload), **payload}
 
 
@@ -140,6 +152,25 @@ def emit_safe(bus, errors, kind, **payload):
         return None
 
 
+def with_current_run(bus, kind, payload):
+    """终态事件自动补当前运行序号（D5-d/G7）：返回可直接展开给 ``emit`` 的负载。
+
+    只对 ``TERMINAL_EVENTS`` 且带 ``stage``、且调用方未显式传 ``run`` 的负载生效；
+    ``current_run`` 为 0（该阶段还没有登记过运行）时不注入，保持旧去重口径。
+    非终态事件与缺 ``stage`` 的终态事件（如 ``delivery.ready``）原样返回。
+    """
+    if bus is None or kind not in TERMINAL_EVENTS or 'run' in payload:
+        return payload
+    stage = payload.get('stage')
+    if not stage:
+        return payload
+    current = getattr(bus, 'current_run', None)
+    run = current(stage) if callable(current) else 0
+    if not run:
+        return payload
+    return dict(payload, run=run)
+
+
 def is_sheddable(kind):
     """这一条是不是「队列到水位时可以让路」的进度／汇总事件（见 SHEDDABLE_EVENTS）。"""
     return str(kind or '') in SHEDDABLE_EVENTS
@@ -167,7 +198,25 @@ class Bus:
         self._lock = threading.Lock()
         self._known = set()
         self._seen = []
+        self._run_seq = {}        # stage → 运行序号（D5-d：终态事件跨 run 不再互吞）
         self._subs = {}           # kind 或 '*' → [回调]
+
+    def begin_run(self, stage):
+        """登记某阶段新一轮运行，返回本轮序号（1 起，逐阶段独立递增）。
+
+        终态事件把它作为 ``run`` 进幂等键：同一 run 内重复上报仍去重，
+        用户再次点运行（序号 +1）后同文的完成／失败各自送达（G7/D5-d）。
+        """
+        key = str(stage or '')
+        with self._lock:
+            seq = self._run_seq.get(key, 0) + 1
+            self._run_seq[key] = seq
+        return seq
+
+    def current_run(self, stage):
+        """该阶段最近一次 ``begin_run`` 的序号；还没有登记过运行返回 0。"""
+        with self._lock:
+            return self._run_seq.get(str(stage or ''), 0)
 
     def subscribe(self, kind, callback):
         """订阅某类事件（'*' 表示全部）。返回回调，便于测试里直接引用。"""
@@ -204,28 +253,50 @@ class Bus:
         入队前做两件背压的事，都不阻塞工作线程：同一件事（同一幂等键）已经在队列里就不再
         重复入队（pump 时本来也会去重，提到这里是不让它把内存撑大）；队列到水位时只让
         SHEDDABLE_EVENTS 里的进度／汇总事件让路并计数，终态与暂停一律照常入队。
+        返回值保持不变（恒为 item）；入队结论由 ``_publish`` 给出，``emit_status`` 使用。
         """
+        self._publish(item)
+        return item
+
+    def _publish(self, item):
+        """入队判定：返回 ``'queued'``（已入队）或 ``'suppressed'``（去重合并／让路丢弃）。"""
         kind = item.get('kind') if isinstance(item, dict) else None
         key = item.get('id') if isinstance(item, dict) else None
         with self._lock:
             if key is not None and key in self._queued:
                 self.dropped += 1
                 self.touched += 1
-                return item
+                return 'suppressed'
             if len(self._queued) >= self.pending_limit and is_sheddable(kind):
                 self.shed += 1
                 self.touched += 1
-                return item
+                return 'suppressed'
             if key is not None:
                 self._queued.add(key)
                 if len(self._queued) > self.water:
                     self.water = len(self._queued)
         self.queue.put(item)
         self.touched += 1
-        return item
+        return 'queued'
 
     def emit(self, kind, **payload):
         return self.publish(event(kind, **payload))
+
+    def emit_status(self, kind, **payload):
+        """发一条事件并返回 ``(status, item)``（H3）：只让确需区分的调用方改用。
+
+        ``status`` 闭集：``'delivered'`` 已入队等待 pump 送达订阅者；
+        ``'suppressed'`` 被幂等去重合并或到水位让路（事件本身已构造）；
+        ``'failed'`` 事件构造失败（未登记／缺字段／阶段名非法），``item`` 为 None。
+        构造与 ``emit`` 走同一契约校验，但不抛异常；``publish``／``emit``／
+        ``emit_safe`` 的返回值不变。
+        """
+        try:
+            item = event(kind, **payload)
+        except Exception:
+            return 'failed', None
+        outcome = self._publish(item)
+        return ('delivered' if outcome == 'queued' else 'suppressed'), item
 
     def pump(self, limit=200):
         """界面线程调用：分发队列里的新事件，返回本轮处理条数（每轮有上限，避免卡帧）。"""
@@ -273,12 +344,20 @@ class Bus:
     def _record_error(self, kind, message):
         """订阅者异常：内存留最近 error_limit 条，累计数另记，并落一份持久诊断。"""
         self.errors_total += 1
+        self._note_error(kind, message)
+        if self.errors_total <= ERROR_PERSIST_LIMIT:
+            self._diagnose(kind, message)
+
+    def _note_error(self, kind, message):
+        """异常进有界环形 ``errors`` 并裁剪（_record_error／_diagnose／_write 共用）。
+
+        ``errors_total`` 只计订阅者异常，由 ``_record_error`` 单独累加；日志写盘
+        失败这类基础设施异常只进环形、不占订阅者计数。
+        """
         self.errors.append((kind, message))
         extra = len(self.errors) - self.error_limit
         if extra > 0:
             del self.errors[:extra]
-        if self.errors_total <= ERROR_PERSIST_LIMIT:
-            self._diagnose(kind, message)
 
     def _diagnose(self, kind, message):
         """把订阅者异常写进审计日志：内存里的环形会被后来的覆盖，磁盘上留一份可追。
@@ -294,17 +373,23 @@ class Bus:
             with self.journal.open('a', encoding='utf-8') as handle:
                 handle.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + '\n')
         except OSError as exc:
-            self.errors.append(('journal.error', str(exc)))
-            extra = len(self.errors) - self.error_limit
-            if extra > 0:
-                del self.errors[:extra]
+            self._note_error('journal.error', str(exc))
 
     def _write(self, item):
+        """审计日志追加：写失败只记 ``errors`` 有界环形，绝不阻断 ``_deliver``（D5-b）。
+
+        事件在 ``_remember`` 之后、``_deliver`` 之前写盘；原来 ``open('a')`` 裸奔，
+        磁盘写满或日志被占用时异常会把已记入 ``_known`` 的事件永久丢掉。现在
+        ``OSError`` 只落一笔诊断，订阅者照常收到事件。
+        """
         if self.journal is None:
             return
-        self.journal.parent.mkdir(parents=True, exist_ok=True)
-        with self.journal.open('a', encoding='utf-8') as handle:
-            handle.write(json.dumps(item, ensure_ascii=False, sort_keys=True) + '\n')
+        try:
+            self.journal.parent.mkdir(parents=True, exist_ok=True)
+            with self.journal.open('a', encoding='utf-8') as handle:
+                handle.write(json.dumps(item, ensure_ascii=False, sort_keys=True) + '\n')
+        except OSError as exc:
+            self._note_error('journal.write', str(exc))
 
     @property
     def pending(self):

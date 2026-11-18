@@ -20,6 +20,15 @@ STARTUP_CHAIN = {
     'desktop_writing_page.py': ('WritingPageMixin', ('writing',)),
     'projects.py': ('Projects', ('__init__', 'refresh_registry')),
     'pet_ui.py': (None, ('attach', 'watch_status', 'start')),
+    # 轮 3B：建 Tk 前的启动自检同属启动链——乙类检查与崩溃预算入口一并受检，
+    # 自检期间禁止 rglob/glob/walk（任务书 D3-n②，运行期计数见 test_startup_selfcheck）。
+    'diagnostic_capture.py': (None, (
+        'run_startup_selfcheck', 'startup_checks', 'startup_guard', 'startup_gate',
+        'record_startup_ready', 'record_startup_closed',
+        '_check_data_writable', '_check_disk_space', '_check_model_pool',
+        '_check_bundled_tools', '_check_dependency_lock', '_check_settings_corrupt',
+        '_installed_distributions', '_parse_dependency_lock',
+    )),
 }
 
 

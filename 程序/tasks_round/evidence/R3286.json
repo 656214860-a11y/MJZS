@@ -1,0 +1,15 @@
+{
+  "round": 3286,
+  "commit_base": "e7796e68",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k artifact_schema pet_bus",
+    "exit": 0,
+    "passed": 85,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T05:57:11"
+}

@@ -19,7 +19,7 @@ SITES = [
     ("contract.artifact_schema", "test_artifact_schema.py",
      "validate 版本不一致翻转", "elif found != item['version']:", "elif found == item['version']:"),
     ("contract.artifact_schema", "test_artifact_schema.py",
-     "migrate 版本迁移条件翻转", "elif current != item['version']:", "elif current == item['version']:"),
+     "migrate 阶梯循环边界偏一", "while current < target:", "while current <= target:"),
     ("contract.artifact_schema", "test_artifact_schema.py",
      "stamp 默认版本归零", "int(version if version is not None else item['version'])",
      "int(version if version is not None else 0)"),
@@ -77,7 +77,8 @@ def run_sites(sites=SITES, timeout=120):
         }
         try:
             proc = subprocess.run([PYTHON, "-B", "-c", code], cwd=str(ROOT),
-                                  capture_output=True, text=True, timeout=timeout)
+                                  capture_output=True, text=True, timeout=timeout,
+                                  encoding='utf-8', errors='replace')
         except subprocess.TimeoutExpired:
             rows.append({"module": module, "test": test_file, "site": label,
                          "verdict": "错误", "stderr_tail": "运行超过 %d 秒被回收" % timeout})

@@ -1,0 +1,15 @@
+{
+  "round": 3259,
+  "commit_base": "132547af",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k layers episode_contract media_signature",
+    "exit": 0,
+    "passed": 22,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T02:04:36"
+}

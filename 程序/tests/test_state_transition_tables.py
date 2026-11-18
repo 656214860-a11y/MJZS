@@ -8,11 +8,11 @@ R1610 Q8 的事实：既有生命周期用例是场景式——挑几个状态�
    禁止"未领取直接完成""已领取被取消／被 clear 清掉"。
 2. 本地视频删除前置门 `video_lifecycle_service.mark_video_deleted`：`UNCERTAIN_STATES` 内
    任一在途／结果不确定状态禁止标记删除。
-3. 重试状态机 `pet_agent.classify` ＋ `retry_plan`：可重试类目退避、参数类立即重试、
-   达次数上限或不可重试类目进入终态。
+3. 重试状态机 `pet_agent.classify` ＋ `retry_plan`：可重试类目退避、
+   达次数上限或不可重试类目进入终态（轮 5B 起「是否重试」以 error_codes 码表为准）。
 
 三条都断言状态空间全覆盖（表里每个状态都被真实驱动过），并断言终态不再自行转出。
-第 2／3 条的表由模块公开常量（`UNCERTAIN_STATES`／`VERDICTS`／`PATTERNS`）派生，所以新增
+第 2／3 条的表由模块公开常量（`UNCERTAIN_STATES`／`VERDICTS`／`error_codes.TEXT_RULES`）派生，所以新增
 状态会自动进入用例；若新增状态与既有转移规则冲突，本用例会红。
 
 刻意不做：不重写既有场景用例（`test_persistent_task_queue`／`test_video_lifecycle_service`／
@@ -25,6 +25,7 @@ import unittest
 from pathlib import Path
 
 import pet_agent
+from contract import error_codes
 from domain import video_lifecycle_service as video_service
 from agent.core import read, save
 from desktop_automation_service import PersistentBackgroundTaskQueue
@@ -193,23 +194,32 @@ class VideoDeletionGateTableTests(unittest.TestCase):
 
 
 class RetryStateMachineTableTests(unittest.TestCase):
-    """重试状态机：判定表（VERDICTS）与转移结果（retry_plan）必须一致，终态不再转出。"""
+    """重试状态机：判定表（VERDICTS 动作/文案）与转移结果（retry_plan）必须一致，终态不再转出。
+
+    轮 5B：探测串与「是否可重试」都改从 L0 ``error_codes.TEXT_RULES``／码表 ``retryable``
+    派生——PATTERNS 已删、VERDICTS 不再带可重试布尔，重试判定唯一权威在码表。
+    """
 
     PROBES = {category: next(mark for mark in marks if not str(mark).isdigit())
-              for category, marks in pet_agent.PATTERNS}
+              for category, _code, marks in error_codes.TEXT_RULES}
     PROBES["unknown"] = "完全没认出来的错误"
+
+    @staticmethod
+    def _retryable(probe):
+        return error_codes.classify(probe).retryable
 
     def test_probes_land_in_their_own_category(self):
         self.assertEqual(set(self.PROBES), set(pet_agent.VERDICTS))
-        self.assertEqual({category for category, _marks in pet_agent.PATTERNS} | {"unknown"},
+        self.assertEqual({category for category, _code, _marks in error_codes.TEXT_RULES} | {"unknown"},
                          set(pet_agent.VERDICTS))
         for category, probe in self.PROBES.items():
             with self.subTest(category=category):
                 self.assertEqual(pet_agent.classify(probe)["category"], category)
 
     def test_transition_table_matches_declared_verdicts(self):
-        for category, (retry, action, _hint) in pet_agent.VERDICTS.items():
+        for category, (action, _hint) in pet_agent.VERDICTS.items():
             probe = self.PROBES[category]
+            retry = self._retryable(probe)
             for attempt in (0, 1, pet_agent.MAX_ATTEMPTS - 1, pet_agent.MAX_ATTEMPTS,
                             pet_agent.MAX_ATTEMPTS + 3):
                 with self.subTest(category=category, attempt=attempt):
@@ -226,8 +236,8 @@ class RetryStateMachineTableTests(unittest.TestCase):
                         self.assertIsNone(plan["delay"], "终态不得给出退避")
 
     def test_terminal_states_never_leave(self):
-        terminal_probes = [self.PROBES[category] for category, verdict in pet_agent.VERDICTS.items()
-                           if not verdict[0]]
+        terminal_probes = [self.PROBES[category] for category in pet_agent.VERDICTS
+                           if not self._retryable(self.PROBES[category])]
         self.assertTrue(terminal_probes, "判定表里应当存在不可重试类目")
         for probe in terminal_probes:
             for attempt in (0, 1, pet_agent.MAX_ATTEMPTS + 3):

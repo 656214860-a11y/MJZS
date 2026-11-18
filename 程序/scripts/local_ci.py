@@ -100,7 +100,8 @@ def main(argv=None) -> int:
         log.write("[CI] 通过\n")
         # T8.3：基准趋势只告警不阻断——在主步骤之后、with 块内写日志。
         trend = subprocess.run([sys.executable, "-B", "scripts/benchmark_trend.py"], cwd=PROGRAM,
-                               capture_output=True, text=True, check=False)
+                               capture_output=True, text=True, check=False,
+                               encoding="utf-8", errors="replace")
         for line in (trend.stdout or "").splitlines():
             print(line, flush=True)
             log.write("%s\n" % line)

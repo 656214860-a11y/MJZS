@@ -242,6 +242,8 @@ class RequestsTransportTests(unittest.TestCase):
                     headers['Location'] = self.server.target
                 elif path == '/retry' and sum(c[1] == path for c in self.server.calls) == 1:
                     status = 503
+                elif path == '/retry501' and sum(c[1] == path for c in self.server.calls) == 1:
+                    status = 501
                 elif path == '/error':
                     status, data = 500, b'x' * (http_client.ERROR_BODY_MAX_BYTES + 4096)
                 elif path == '/gzip':
@@ -334,7 +336,10 @@ class RequestsTransportTests(unittest.TestCase):
         self.assertEqual(result.data['headers']['Authorization'], '[REDACTED]')
         self.assertTrue(self.sessions[0].trust_env)
         for session in self.sessions:
-            self.assertTrue(all(adapter.max_retries.total == 0 for adapter in session.adapters.values()))
+            for adapter in session.adapters.values():
+                retry = adapter.max_retries
+                self.assertEqual(retry.total, 2)
+                self.assertEqual(set(retry.allowed_methods), {'GET', 'HEAD'})
         self.assert_closed()
 
     def test_effective_get_and_payload_force_post(self):
@@ -345,9 +350,19 @@ class RequestsTransportTests(unittest.TestCase):
         self.assertEqual(json.loads(self.server.calls[1][3]), {'中文': 2})
         self.assert_closed()
 
-    def test_get_retries_only_in_business_loop(self):
+    def test_get_forcelist_status_retries_at_transport(self):
+        # R5-g：forcelist 状态码的退避在 urllib3 Retry（传输层），业务循环不再重试。
         waits = []
         result = self.call('/retry', retries=1, sleep=waits.append)
+        self.assertTrue(result.ok)
+        self.assertEqual(len(self.server.calls), 2)
+        self.assertEqual(len(waits), 0)
+        self.assert_closed()
+
+    def test_get_non_forcelist_status_still_retries_in_business_loop(self):
+        # 501 不在传传输层 forcelist：业务循环仍是唯一重试方，退避走 sleep 注入。
+        waits = []
+        result = self.call('/retry501', retries=1, retry_statuses={501}, sleep=waits.append)
         self.assertTrue(result.ok)
         self.assertEqual(len(self.server.calls), 2)
         self.assertEqual(len(waits), 1)

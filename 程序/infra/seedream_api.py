@@ -9,7 +9,6 @@ from pathlib import Path
 from urllib.parse import urlparse
 from agent.core import read, read_json, save
 import infra.model_pool as model_pool
-from infra.api_endpoints import no_redirect
 # 第 34 期第 9 条：`urllib.request`／`urllib.error` 连 ssl 一起加载（约 4.4 MB 常驻），
 # 本模块只在真要请求生图接口时用得到——都改成函数内 import。
 
@@ -118,16 +117,19 @@ class Uncertain(RuntimeError):pass
 
 
 def request_image(profile,payload):
-    from urllib.request import Request, build_opener        # 第 34 期第 9 条：HTTP 栈按需加载
+    from urllib.request import Request                     # 第 34 期第 9 条：HTTP 栈按需加载
     from urllib.error import HTTPError
+    from contract.platform_tools import RequestsJsonOpener  # 收敛传输：不跟随重定向，凭据不外泄
     # Redirects must never forward the user's Authorization header to another host.
+    from infra.api_endpoints import _scrub_error_detail
+    headers={'Authorization':'Bearer '+profile['api_key'],'Content-Type':'application/json'}
     request=Request(profile['base_url']+'/images/generations',data=json.dumps(payload,ensure_ascii=False).encode('utf-8'),
-                    headers={'Authorization':'Bearer '+profile['api_key'],'Content-Type':'application/json'})
+                    headers=headers)
     try:
-        with build_opener(no_redirect()).open(request,timeout=300) as response:
+        with RequestsJsonOpener().open(request,timeout=300) as response:
             raw=response.read(64*1024*1024+1)
     except HTTPError as exc:
-        try:detail=exc.read().decode('utf-8','replace').strip()
+        try:detail=_scrub_error_detail(exc.read(64*1024).decode('utf-8','replace').strip(),headers)
         except Exception:detail=''
         messages={400:'参数或模型 ID 不匹配',401:'API Key 无效',403:'模型权限或账户余额不足',404:'接口或模型不存在',429:'请求限流或额度不足'}
         if detail:

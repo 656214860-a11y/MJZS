@@ -455,7 +455,8 @@ class AttemptBudgetTests(unittest.TestCase):
                 raise urllib.error.HTTPError(str(request.full_url), 500, 'err', {},
                                              io.BytesIO(b'{}'))
 
-            with mock.patch('urllib.request.OpenerDirector.open', fail_open), \
+            from contract.platform_tools import RequestsJsonOpener
+            with mock.patch.object(RequestsJsonOpener, 'open', fail_open), \
                     mock.patch.object(api_endpoints, '_SLEEP', lambda _s: None):
                 result = Client(program=program).ask('writing.breakdown', 'split')
         self.assertFalse(result['ok'])

@@ -56,7 +56,7 @@ def circuit_state(model_id):
         circuit = _CIRCUITS.get(key)
         if circuit is None or not circuit.opened_at:
             return {'state': 'closed', 'failures': circuit.failures if circuit else 0, 'opened_at': 0.0}
-        elapsed = time.time() - circuit.opened_at
+        elapsed = time.monotonic() - circuit.opened_at
         return {'state': 'half_open' if elapsed >= CIRCUIT_COOLDOWN_SECONDS else 'open',
                 'failures': circuit.failures, 'opened_at': circuit.opened_at}
 
@@ -73,7 +73,7 @@ def record_circuit_failure(model_id):
         circuit = _CIRCUITS.setdefault(key, _Circuit())
         circuit.failures += 1
         if circuit.failures >= CIRCUIT_FAILURE_THRESHOLD:
-            circuit.opened_at = time.time()
+            circuit.opened_at = time.monotonic()
         return {'state': 'open' if circuit.opened_at else 'closed',
                 'failures': circuit.failures, 'opened_at': circuit.opened_at}
 

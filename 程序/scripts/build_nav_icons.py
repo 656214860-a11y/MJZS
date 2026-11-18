@@ -2,7 +2,8 @@
 """生成侧栏导航 PNG 图标（开发期工具；产物 ``assets/nav/*.png`` 随程序分发）。
 
 图标字形来自 Microsoft Fluent System Icons（Filled 实心版，MIT，
-字体与许可证在 ``assets/fonts/``），经 Pillow 按 2 倍率渲染后缩到 20px 网格并自动裁边。
+字体与许可证在 ``assets/fonts/``）。主导航图标经 Pillow 倍率渲染后放入固定 24px 画布；
+阶段文件复合图标按 M3 的设计裁边，不适用主导航尺寸规则。
 运行时只加载 PNG，不依赖 Pillow 或字体文件；本脚本仅在新增/替换图标时重跑：
 
     python scripts/build_nav_icons.py
@@ -47,14 +48,11 @@ ICONS = {
     # 固定底栏与授权态
     'settings':       0xF6B2,  # settings       设置（齿轮入口，与导航同套 Filled 图标）
     'lock':           0xE79D,  # lock-closed    未授权页的锁标（替换原文字 🔒）
-    # R3060 输入框发送/终止与页头返回钮统一 Fluent 图标
-    'send':           0xF6A3,  # send           发送（主色底，墨水用卡片色）
-    'stop':           0xF743,  # stop           终止（同上）
+    # 页头返回钮（R3060 输入框发送/终止键已于 U4 改回 MDL2 字形＋圆形描边，不再用 PNG）
     'back':           0xF178,  # arrow_reply    返回（卡片底，墨水用主题色——沿用原手绘箭头的品牌色）
 }
 
-# 墨水分三档：画在主色块上的用卡片色（send/stop），返回等强调动作用主题色（back），其余用正文色。
-LIGHT_INK_KEYS = {'send', 'stop'}
+# 返回等强调动作用主题色墨水（back），其余用正文色。
 ACCENT_INK_KEYS = {'back'}
 
 # R3191（零依赖边界与媒体预览任务书 M3，D10）：阶段文件图标＝阶段字形＋右下角小「文件」角标。
@@ -77,19 +75,17 @@ STAGE_FILE_BASES = {
 }
 FILE_BADGE_CODEPOINT = ICONS['project_files']  # folder-list：与「项目文件」入口同字形
 
-RENDER_PX = 48      # 2 倍渲染后 LANCZOS 缩到 24px，边缘更顺（R2946 图标放大一档）
-TARGET_PX = 24
+RENDER_PX = 48      # 2 倍渲染后 LANCZOS 缩小，边缘更顺
 
 
-def render_icons(ink: tuple[int, int, int, int], light_ink=None, accent_ink=None):
+def render_icons(ink: tuple[int, int, int, int], accent_ink=None):
     from PIL import Image, ImageDraw, ImageFont
+    from ui_tokens import NAV_ICON_SIZE
     font = ImageFont.truetype(str(FONT_PATH), RENDER_PX)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     written = []
     for key, codepoint in ICONS.items():
-        if key in LIGHT_INK_KEYS and light_ink is not None:
-            use_ink = light_ink
-        elif key in ACCENT_INK_KEYS and accent_ink is not None:
+        if key in ACCENT_INK_KEYS and accent_ink is not None:
             use_ink = accent_ink
         else:
             use_ink = ink
@@ -102,13 +98,22 @@ def render_icons(ink: tuple[int, int, int, int], light_ink=None, accent_ink=None
                                    font=font, fill=use_ink)
         image = image.resize((image.width // 2, image.height // 2), Image.LANCZOS)
         box = image.getchannel('A').getbbox()
+        canvas = Image.new('RGBA', (NAV_ICON_SIZE, NAV_ICON_SIZE), (0, 0, 0, 0))
         if box:
-            left, top, right, bottom = box
-            image = image.crop((max(0, left - 1), max(0, top - 1),
-                                min(image.width, right + 1), min(image.height, bottom + 1)))
+            image = image.crop(box)
+            max_ink = NAV_ICON_SIZE - 2  # leave one transparent pixel on each edge
+            if image.width > max_ink or image.height > max_ink:
+                scale = min(max_ink / image.width, max_ink / image.height)
+                image = image.resize((max(1, round(image.width * scale)),
+                                      max(1, round(image.height * scale))), Image.LANCZOS)
+            alpha = image.getchannel('A')
+            image = Image.new('RGBA', image.size, use_ink)
+            image.putalpha(alpha)
+            canvas.paste(image, ((NAV_ICON_SIZE - image.width) // 2,
+                                 (NAV_ICON_SIZE - image.height) // 2))
         path = OUT_DIR / f'{key}.png'
-        image.save(path)
-        written.append((path.name, image.width, image.height))
+        canvas.save(path)
+        written.append((path.name, canvas.width, canvas.height))
     return written
 
 
@@ -168,12 +173,10 @@ def main():
         raise SystemExit(f'缺少图标字体：{FONT_PATH}')
     hex_color = COLORS['text_primary'].lstrip('#')
     ink = tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4)) + (255,)
-    card_hex = COLORS['background_card'].lstrip('#')
-    light_ink = tuple(int(card_hex[i:i + 2], 16) for i in (0, 2, 4)) + (255,)
     primary_hex = COLORS['primary'].lstrip('#')
     accent_ink = tuple(int(primary_hex[i:i + 2], 16) for i in (0, 2, 4)) + (255,)
     try:
-        written = render_icons(ink, light_ink, accent_ink)
+        written = render_icons(ink, accent_ink)
         written += render_stage_file_icons(ink)
     except ImportError:
         raise SystemExit('需要 Pillow：pip install pillow（仅开发环境，不进运行环境）')

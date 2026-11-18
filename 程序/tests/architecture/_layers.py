@@ -16,7 +16,7 @@ _register(0, "pet_bus", "script_contract", "script_brief", "script_manifest_cont
 # 纠正原先按名字后缀落在 L3 的旧账；L2 领域服务不该为读一个阶段模型名反向依赖编排层。
 _register(1, "client_profiles", "model_pool", "model_secrets", "config_snapshot", "pet_llm", "request_ledger", "file_cache", "hash_backend",
           "usage_snapshot", "usage_history",
-          "storage_maintenance", "log_maintenance", "workspace_maintenance", "diagnostic_capture", "app_logging", "line_endings", "app_icon", "workflow_process_registry", "script_text_reader", "stage_model_value", "native_asset_codec", "comfy_runtime", "ui_tokens", "continuity_ledger",
+          "storage_maintenance", "temporary_sweep", "log_maintenance", "workspace_maintenance", "diagnostic_capture", "app_logging", "line_endings", "app_icon", "workflow_process_registry", "script_text_reader", "stage_model_value", "native_asset_codec", "comfy_runtime", "ui_tokens", "continuity_ledger",
           "aigc_lint")
 _register(2, "task_center_service", "keyframe_evidence", "animatic_service", "writing_files", "writing_workflow", "idea_chat", "idea_brief_form", "idea_attachments", "idea_script_heuristic", "idea_document_paths", "idea_transcript", "download_inbox",
           "storyboard_lifecycle", "storyboard_catalog_service",
@@ -26,6 +26,9 @@ _register(2, "task_center_service", "keyframe_evidence", "animatic_service", "wr
           "keyframe", "keyframe_api", "keyframe_batch", "keyframe_lifecycle_service", "cloud_video_service", "white_model_service", "storyboard_source_service", "tts_api", "speech_api", "voice_ai", "subtitle_timing", "pet_test_service", "pet_performance_service", "local_video_settings_service",
           "previs", "previs_routing", "previs_progress_service", "handoff_service", "edit_service", "final_service", "storyboard_adoption_service", "delivery_import_service", "confirm_gates", "recycle_recovery_service",
           "recon_service", "skill_command")
+# domain/message_parts 是聊天消息 typed parts 的纯数据契约；architecture.md §3 L2 栏括注
+# 暂定 L2。它只 import 标准库，消费者 idea_transcript(L2)／idea_chat_controller(L3)／ui(L4) 均不低于 L2。
+_register(2, "message_parts")
 # R1649：删除 3 个既无实体文件、也无采用方的僵尸登记名（project_storage／asset_detail_ui／workflow）；
 # 登记表每一名须满足「有实体 .py ∨ 在 TOOLS ∨ 在 historical_name_audit.entrypoints」，由 test_layers 断言。
 _register(3, "exit_maintenance", "pet_chat_coordinator", "project_context_factory", "stage_flow", "stage_exec", "stage_parallel", "stage_config", "stage_models",
@@ -74,6 +77,20 @@ _register(1, "store_program_locator")
 _register(4, "qwen_setup_dialog")
 # R2641（REQ-S02-36）：剧本阅读框的行号槽／查找替换条／大纲面板，均消费 tk 与 ui_widgets/ui_tokens。
 _register(4, "script_line_numbers", "script_find_bar", "script_outline", "script_reading")
+
+# R3246 轮 2（任务书 D2-b，G9）：agent/ 第六分层包入册，层级按实际静态 import 核实——
+# core 仍惰性 import agent.publication（:13,:36,:67），与 publication 同 L1；
+# shot_assets(:118)／volcengine(:23)／wan(:19) 对 ui.white_model_ref(L4) 的懒加载
+# 记入「层级」棘轮豁免，不为它们抬层；prompt_optimizer 消费 ui_widgets(L4) → L4。
+_register(0, "media_signature")
+_register(1, "core", "media", "publication")
+_register(2, "shot_assets", "volcengine", "wan", "video")
+_register(3, "voice_mcp_server", "optimizer_mcp_bridge")
+_register(4, "prompt_optimizer")
+
+# R3267（L0 任务书轮 3A，D3-a/b）：启动诊断类型与注入式自检运行器，纯 L0 契约；
+# 具体检查函数由 L1 提供、L5 组装注入（G3），本模块不新增任何向上 import。
+_register(0, "diagnostics", "selfcheck")
 
 # R3131（任务书 P0/P1/P3/P4）：统一项目文件生命周期管理引入的模块。
 # 命名中心与索引字段契约是纯字符串／dataclass 运算 → L0；索引扫描与写盘只依赖 L0／L1 → L1；

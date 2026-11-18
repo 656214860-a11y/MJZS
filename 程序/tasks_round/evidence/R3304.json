@@ -1,0 +1,15 @@
+{
+  "round": 3304,
+  "commit_base": "85e32355",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k error_codes pet_agent pet_retry_anim_edges state_transition",
+    "exit": 0,
+    "passed": 144,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T09:06:50"
+}

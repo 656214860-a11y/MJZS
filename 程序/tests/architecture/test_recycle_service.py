@@ -11,6 +11,10 @@ from tests.architecture._scan import module_name, parse, module_scan_files
 _REMOVE_CALLS = frozenset({'os.remove', 'os.unlink', 'shutil.rmtree'})
 _AUTHORITIES = frozenset({
     'storage_maintenance', 'file_cache', 'log_maintenance', 'workspace_maintenance',
+    # R3246 轮 2：agent/ 入分层包扫描后登记。agent.core／agent.publication 是
+    # 原子写与发布事务权威（登记名 core／publication），其 unlink 只清理自身
+    # temporary_path 暂存与 journal 残件，与 file_cache 同级可信。
+    'core', 'publication',
 })
 
 

@@ -1,0 +1,15 @@
+{
+  "round": 3280,
+  "commit_base": "5926424e",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k selfcheck startup diagnostic app_metadata copy_rules stdlib_closure",
+    "exit": 0,
+    "passed": 145,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T05:08:13"
+}

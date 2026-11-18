@@ -4,14 +4,9 @@ import os
 import struct
 import math
 from .core import command
-
-PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
-
-
-def is_png(path):
-    """只读 8 字节文件头判断 PNG；不要用 read_bytes() 把整帧读进内存。"""
-    with open(path, "rb") as handle:
-        return handle.read(8) == PNG_SIGNATURE
+# R3246 轮 2 D2-a：PNG 签名事实下沉 L0 contract.media_signature；
+# 这里保留再导出，既有 ``agent.media.is_png``／``PNG_SIGNATURE`` 消费面不变。
+from contract.media_signature import PNG_SIGNATURE, is_png  # noqa: F401
 
 
 def png_complete(path):

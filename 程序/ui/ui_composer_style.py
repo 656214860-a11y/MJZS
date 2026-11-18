@@ -1,5 +1,5 @@
 """剧本准备页输入框样式（仿 Claude Code 桌面版），由 ui_widgets.setup_styles 调用。"""
-from ui.ui_rounded import rounded_photo
+from ui.ui_rounded import element_photo, rounded_photo
 from ui_tokens import COLORS, FONTS, ICON_FONT, ICON_FONT_SMALL, RADIUS, ROUND_TILE_BUTTON, SPACING
 
 
@@ -40,11 +40,38 @@ def install_composer_styles(style, root, configure_button):
                       active_foreground=COLORS["text_primary"],
                       pressed_background=COLORS["surface_pressed"],
                       padding=(SPACING["sm"], SPACING["xs"]))
-    configure_button(style, "Tokens.Composer.Send.TButton", font=ICON_FONT,
+    # 听写中的麦克风沿用主色高亮，不随发送键改成圆环。
+    configure_button(style, "Tokens.Composer.Listening.TButton", font=ICON_FONT,
                       background=COLORS["primary"], foreground=card,
                       active_background=COLORS["primary_hover"], active_foreground=card,
                       pressed_background=COLORS["primary_pressed"],
                       padding=(SPACING["sm"], SPACING["xs"]))
+    # 方形图元不做九宫格拉伸：圆角半径等于边长的一半。发送键圆环是定长图元而非平铺底图，
+    # 走 element_photo 的独立缓存，不进 _drama_rounded_cache（该缓存被 test_ui_modern_system
+    # 断言为可平铺大图）。
+    size = SPACING["2xl"]
+    radius = size // 2
+    ring = {}
+    for state, border in (("normal", COLORS["border_input_hover"]),
+                          ("active", COLORS["primary"]),
+                          ("disabled", COLORS["disabled_text"]),
+                          ("focus", COLORS["focus"])):
+        ring[state], _ = element_photo(root, card, radius, size, size,
+                                       border=border, border_width=1)
+    element = "Drama.Composer.SendRing"
+    if element not in style.element_names():
+        style.element_create(element, "image", ring["normal"],
+                             ("disabled", ring["disabled"]), ("active", ring["active"]),
+                             ("focus", ring["focus"]), sticky="")
+    name = "Tokens.Composer.Send.TButton"
+    style.layout(name, [(element, {"sticky": "", "children": [
+        ("Button.focus", {"sticky": "nswe", "children": [
+            ("Button.label", {"sticky": ""})]})]})])
+    style.configure(name, font=ICON_FONT, padding=0, width=0, background=card,
+                    foreground=COLORS["border_input_hover"], focuscolor=COLORS["focus"])
+    style.map(name, foreground=[("disabled", COLORS["disabled_text"]),
+                                ("active", COLORS["primary"]),
+                                ("focus", COLORS["focus"])])
     # 模型选择器触发钮（R2964）：卡片底同色＝无外框文字钮，悬停才透出圆角底。
     configure_button(style, "Tokens.Composer.Model.TButton", font=FONTS["body"],
                       background=card, foreground=COLORS["text_secondary"],

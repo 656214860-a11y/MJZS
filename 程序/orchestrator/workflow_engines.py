@@ -457,6 +457,9 @@ def launch_interactive(project,stage,title,prompt,config,followup=None,slot=None
         except ValueError as exc:
             release_process_slot(slot)
             raise ValueError('本机命令行客户端无法启动；任务已保存到 %s，请手动打开并粘贴。' % task) from exc
+        except BaseException:
+            release_process_slot(slot)
+            raise
         process.workflow_process_slot=slot
         register_process(project,process)
         process.agent_folder=folder;process.agent_engine='client-cli'
@@ -528,6 +531,9 @@ def launch_interactive(project,stage,title,prompt,config,followup=None,slot=None
         from orchestrator.qwen_adapter import launch_interactive as launch_qwen
         release_process_slot(slot)
         return launch_interactive(project,stage,title,prompt,fallback_config,followup)
+    except BaseException:
+        release_process_slot(slot)
+        raise
     # 交互窗口也是本应用派发的制作任务；登记后关闭应用能收掉它及其子进程。
     process.workflow_process_slot=slot
     register_process(project,process)

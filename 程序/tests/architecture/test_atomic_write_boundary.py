@@ -9,20 +9,27 @@ from tests.architecture._scan import (ROOT, module_name, module_scan_files, pars
 
 
 _DIRECT_WRITE_METHODS = frozenset({"write_text", "write_bytes"})
-_ATOMIC_BOUNDARIES = frozenset({"model_secrets", "qwen_adapter", "workflow_engines"})
+# R3246 轮 2：agent/ 并入分层包后 registry_key 归一为扁平名（core.py／publication.py），
+# 与 T10 包实体同一口径；agent.core 本身是原子写权威，登记为受控边界。
+_ATOMIC_BOUNDARIES = frozenset({"model_secrets", "qwen_adapter", "workflow_engines", "core"})
 # skill_archive 的 open(target,'wb') 只写 ZIP 解压暂存区（用后经回收站收走），
 # 包内文件是任意字节不是正式成果，不走 agent.core 文本保存口径；
 # skill_remote_service 的 open(dest,'wb') 只写下载缓存（data/skills/下载缓存/，
 # 同为暂存语义，失败即删半截文件），同理不算正式成果。
-_TEMPORARY_BOUNDARIES = frozenset({"app_shortcut", "skill_archive", "skill_remote_service"})
+# optimizer_mcp_bridge 的 open(os.devnull,'w') 只是给 MCP 子进程重定向 stderr，
+# 不产生任何文件（R3246 轮 2 agent/ 入包扫描后登记）。
+_TEMPORARY_BOUNDARIES = frozenset({"app_shortcut", "skill_archive", "skill_remote_service",
+                                   "optimizer_mcp_bridge"})
 
 # R1854：直接 os.replace／Path.replace 会绕过 agent.core.replace 的 Windows 共享冲突重试与发布记录
 # （R1853 的 asset_detail_service 就是这样一次“拒绝访问”整次失败）。agent/core.py 是权威实现；
 # 其余为登记时的现状（发布日志自身、日志轮转、导入暂存切换、注入的 replace_file 默认值等），只许减少。
-_REPLACE_AUTHORITY = "agent/core.py"
+_REPLACE_AUTHORITY = "core.py"
 _REPLACE_REGISTERED = {
-    "agent/core.py": 1,
-    "agent/publication.py": 2,
+    "core.py": 1,
+    "publication.py": 2,
+    # R3292：faulthandler.log 超 5MiB 时的日志轮转（FAULT_LOG → FAULT_LOG.1），与 log_maintenance 同类。
+    "app_logging.py": 1,
     "image_agent_runner.py": 1,
     "log_maintenance.py": 2,
     "skill_import_service.py": 2,

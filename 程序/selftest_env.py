@@ -25,6 +25,10 @@ os.environ.setdefault("DRAMA_SUPPRESS_MODAL", "1")
 os.environ.setdefault("DRAMA_SUPPRESS_TRAY", "1")
 # 同理：自检环境不真联网（账号、总控包更新等网络探测一律跳过，见 account_client.SUPPRESS_NETWORK_ENV）。
 os.environ.setdefault("DRAMA_SUPPRESS_NETWORK", "1")
+# 同理：自检派生的全部子进程（工作单元、隐藏桌面、用例自起的 git/python）一律 UTF-8 模式——
+# cp936 本地化下 text=True 的 subprocess 会把 git/工具的 UTF-8 输出按 GBK 解码，
+# reader 线程抛 UnicodeDecodeError 使 stdout/stderr 变 None（R3315）。
+os.environ.setdefault("PYTHONUTF8", "1")
 # 同理：测试里故意触发的报错不写进程序自己的诊断记录（见 diagnostic_capture.SUPPRESS_DIAGNOSTICS_ENV）。
 os.environ.setdefault("DRAMA_SUPPRESS_DIAGNOSTICS", "1")
 os.environ.setdefault("DRAMA_REDUCE_MOTION", "0")  # 自检固定保留动效，不随本机系统设置漂移

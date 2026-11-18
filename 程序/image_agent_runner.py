@@ -2,7 +2,7 @@
 import argparse,copy,json,shutil,sys,threading,time
 from pathlib import Path
 from agent.core import read,save,fingerprint
-from agent.media import is_png
+from contract.media_signature import is_png
 
 
 def task_instruction(project,manifest):
