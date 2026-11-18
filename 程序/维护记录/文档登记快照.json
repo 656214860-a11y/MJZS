@@ -1,12 +1,12 @@
 {
-  "generated_at": "2026-11-19T00:34:55+08:00",
+  "generated_at": "2026-11-19T00:40:23+08:00",
   "registry": "说明/工程文档登记表.md",
   "scopes": [
     "*.md",
     "docs/**/*.md",
     "说明/*.md"
   ],
-  "count": 63,
+  "count": 70,
   "docs": {
     "AGENTS.md": {
       "exists": true,
@@ -134,9 +134,86 @@
       "层级": "全局",
       "阶段": "全局",
       "性质": "权威",
-      "最后核验轮次": "R3490",
+      "最后核验轮次": "R3496",
       "消费者": "执行 agent",
-      "bytes": 614,
+      "bytes": 1844,
+      "req_count": 0,
+      "des_count": 0
+    },
+    "docs/adr/0002-whitelist-dependencies.md": {
+      "exists": true,
+      "层级": "全局",
+      "阶段": "全局",
+      "性质": "权威",
+      "最后核验轮次": "R3496",
+      "消费者": "执行 agent",
+      "bytes": 1953,
+      "req_count": 0,
+      "des_count": 0
+    },
+    "docs/adr/0003-fixed-13-stage-pipeline.md": {
+      "exists": true,
+      "层级": "L3",
+      "阶段": "全局",
+      "性质": "权威",
+      "最后核验轮次": "R3496",
+      "消费者": "执行 agent",
+      "bytes": 2153,
+      "req_count": 0,
+      "des_count": 0
+    },
+    "docs/adr/0004-single-authority-ratchet.md": {
+      "exists": true,
+      "层级": "全局",
+      "阶段": "全局",
+      "性质": "权威",
+      "最后核验轮次": "R3496",
+      "消费者": "执行 agent",
+      "bytes": 2128,
+      "req_count": 0,
+      "des_count": 0
+    },
+    "docs/adr/0005-hidden-desktop-tests.md": {
+      "exists": true,
+      "层级": "L1,L5",
+      "阶段": "全局",
+      "性质": "权威",
+      "最后核验轮次": "R3496",
+      "消费者": "执行 agent",
+      "bytes": 2339,
+      "req_count": 0,
+      "des_count": 0
+    },
+    "docs/adr/0006-round-system-no-external-spec-framework.md": {
+      "exists": true,
+      "层级": "全局",
+      "阶段": "全局",
+      "性质": "权威",
+      "最后核验轮次": "R3496",
+      "消费者": "执行 agent",
+      "bytes": 2190,
+      "req_count": 0,
+      "des_count": 0
+    },
+    "docs/adr/README.md": {
+      "exists": true,
+      "层级": "全局",
+      "阶段": "全局",
+      "性质": "权威",
+      "最后核验轮次": "R3496",
+      "消费者": "执行 agent",
+      "bytes": 1690,
+      "req_count": 0,
+      "des_count": 0
+    },
+    "docs/adr/TEMPLATE.md": {
+      "exists": true,
+      "层级": "全局",
+      "阶段": "全局",
+      "性质": "权威",
+      "最后核验轮次": "R3496",
+      "消费者": "执行 agent",
+      "bytes": 762,
       "req_count": 0,
       "des_count": 0
     },
@@ -466,7 +543,7 @@
       "性质": "权威",
       "最后核验轮次": "R3490",
       "消费者": "执行 agent、用户",
-      "bytes": 3759,
+      "bytes": 3908,
       "req_count": 0,
       "des_count": 0
     },
@@ -477,7 +554,7 @@
       "性质": "权威",
       "最后核验轮次": "R3492",
       "消费者": "用户、执行 agent",
-      "bytes": 14271,
+      "bytes": 14301,
       "req_count": 22,
       "des_count": 0
     },
@@ -532,7 +609,7 @@
       "性质": "权威",
       "最后核验轮次": "R3490",
       "消费者": "执行 agent",
-      "bytes": 6605,
+      "bytes": 7243,
       "req_count": 0,
       "des_count": 0
     },
