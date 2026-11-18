@@ -794,6 +794,26 @@
    }
   ]
  },
+ "动态层级": {
+  "count": 2,
+  "baseline_exempt": 2,
+  "items": [
+   {
+    "file": "engine.py",
+    "importer": "engine",
+    "imported": "white_model",
+    "disposition": "exempt",
+    "reason": "既存动态越层，待专项收口"
+   },
+   {
+    "file": "keyframe_batch.py",
+    "importer": "keyframe_batch",
+    "imported": "stage_parallel",
+    "disposition": "exempt",
+    "reason": "既存动态越层，待专项收口"
+   }
+  ]
+ },
  "第四项": {
   "count": 0,
   "baseline_pending": 35,

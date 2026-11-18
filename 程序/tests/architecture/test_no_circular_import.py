@@ -62,7 +62,6 @@ class CircularImportTests(unittest.TestCase):
 # 同时暴露出与静态环同源的 {core,file_cache,publication}；按实测重登。
 KNOWN_DYNAMIC_CYCLES = (
     ("local_video", "skill_orchestrator", "skill_tools", "stage_execution_service"),
-    ("script_contract", "script_skill_report"),
     ("stage_models", "workflow_settings"),
     ("core", "file_cache", "publication"),
     ("keyframe_evidence", "shot_assets", "stage_parallel", "white_model", "white_model_ref"),
