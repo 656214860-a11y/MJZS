@@ -491,5 +491,130 @@ class FatalManufactureTests(unittest.TestCase):
         self.assertEqual(self._fatal_codes(items), [])
 
 
+class FamilySwitchTests(unittest.TestCase):
+    """§3c-3 族开关（GUI 等价物＝旗标文件）：``data/selfcheck_skip_<族>.flag``
+    跳过该族检查并留一条 DEGRADED 诊断；``data/selfcheck_disable_<族>.flag``
+    关闭该族告警（检查照跑、产出被抑制、完全静默）。每个开关只管一族。"""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.program = Path(self.temp.name) / '程序'
+        self.program.mkdir()
+        self.state = Path(self.temp.name) / 'logs' / 'diagnostics' / 'latest.json'
+        patcher = mock.patch.multiple(subject, PROGRAM=self.program, LOGS=self.state.parent.parent,
+                                      ERROR_LOG=self.state.parent.parent / 'e.log', STATE_FILE=self.state)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        _write_models(self.program, {'m1': {'model': 'm', 'label': 'm'}})
+
+    def _run(self):
+        return subject.run_startup_selfcheck(self.program)
+
+    def _codes(self, items, severity=None):
+        rows = [item for item in items if severity is None or item.severity is severity]
+        return [item.code for item in rows]
+
+    def _flag(self, name):
+        data = self.program / 'data'
+        data.mkdir(exist_ok=True)
+        (data / name).write_text('', encoding='utf-8')
+
+    @staticmethod
+    def _low_disk():
+        return SimpleNamespace(free=100 * 1048576, total=1, used=0)
+
+    def _empty_pool_and_low_disk(self):
+        _write_models(self.program)                      # 不写 models 键 → 空池
+        return mock.patch('shutil.disk_usage', return_value=self._low_disk())
+
+    def test_skip_flag_skips_only_its_family_and_records_diagnostic(self):
+        with self._empty_pool_and_low_disk():
+            baseline = self._run()
+            self.assertIn('model-pool-empty', self._codes(baseline))
+            self.assertIn('disk-space-low', self._codes(baseline))
+            self._flag('selfcheck_skip_disk_space.flag')
+            items = self._run()
+        codes = self._codes(items)
+        self.assertNotIn('disk-space-low', codes)
+        self.assertIn('model-pool-empty', codes)
+        skip = [item for item in items if item.code == 'selfcheck-skip-disk-space']
+        self.assertEqual(len(skip), 1)
+        self.assertIs(skip[0].severity, Severity.DEGRADED)
+        self.assertIn('disk_space', skip[0].message)
+        self.assertIn('selfcheck_skip_disk_space.flag', skip[0].message)
+
+    def test_disable_flag_silences_only_its_family(self):
+        with self._empty_pool_and_low_disk():
+            self._flag('selfcheck_disable_model_pool.flag')
+            items = self._run()
+        codes = self._codes(items)
+        self.assertNotIn('model-pool-empty', codes)
+        self.assertIn('disk-space-low', codes)
+        self.assertFalse([item for item in items if 'selfcheck-skip' in str(item.code)])
+
+    def test_disable_still_runs_check_but_discards_output(self):
+        _write_models(self.program)
+        with mock.patch.object(subject, '_check_model_pool',
+                               wraps=subject._check_model_pool) as spy:
+            self._flag('selfcheck_disable_model_pool.flag')
+            items = self._run()
+            spy.assert_called()
+        self.assertNotIn('model-pool-empty', self._codes(items))
+
+    def test_skip_does_not_execute_the_check(self):
+        with mock.patch.object(subject, '_check_disk_space') as spy:
+            self._flag('selfcheck_skip_disk_space.flag')
+            items = self._run()
+            spy.assert_not_called()
+        self.assertIn('selfcheck-skip-disk-space', self._codes(items))
+
+    def test_disable_swallows_check_error_silently(self):
+        with mock.patch.object(subject, '_check_model_pool',
+                               side_effect=RuntimeError('boom')):
+            self._flag('selfcheck_disable_model_pool.flag')
+            items = self._run()
+        self.assertFalse([item for item in items
+                          if item.code in ('check-error', 'model-pool-empty')])
+
+    def test_no_flags_preserves_current_behavior(self):
+        with self._empty_pool_and_low_disk():
+            items = self._run()
+        codes = self._codes(items)
+        self.assertIn('model-pool-empty', codes)
+        self.assertIn('disk-space-low', codes)
+        self.assertFalse([item for item in items if 'selfcheck-skip' in str(item.code)])
+
+    def test_family_flags_do_not_affect_fatal_or_global_failopen(self):
+        with mock.patch('contract.stage_layout.stage_contract_errors',
+                        return_value=('阶段目录顺序与 pet_bus.STAGES 不一致',)):
+            self._flag('selfcheck_skip_stage_contract.flag')
+            self._flag('selfcheck_disable_contract.flag')
+            items = self._run()
+            self.assertIn('stage-contract', self._codes(items, Severity.FATAL))
+            self._flag('selfcheck_failopen.flag')
+            items = self._run()
+            self.assertNotIn('stage-contract', self._codes(items, Severity.FATAL))
+            downgraded = [item for item in items if item.code == 'stage-contract']
+            self.assertEqual(len(downgraded), 1)
+            self.assertIs(downgraded[0].severity, Severity.DEGRADED)
+            self.assertIn('selfcheck_failopen', downgraded[0].escape_hint)
+
+    def test_unknown_family_flag_is_inert(self):
+        self._flag('selfcheck_skip_nonexistent.flag')
+        self._flag('selfcheck_disable_nonexistent.flag')
+        items = self._run()
+        self.assertFalse([item for item in items if 'selfcheck-skip' in str(item.code)])
+        _write_models(self.program)
+        items = self._run()
+        self.assertIn('model-pool-empty', self._codes(items))
+
+    def test_flags_honored_on_safe_start_entry(self):
+        _write_models(self.program)
+        self._flag('selfcheck_disable_model_pool.flag')
+        items = subject.run_startup_selfcheck(self.program)
+        self.assertNotIn('model-pool-empty', self._codes(items))
+
+
 if __name__ == '__main__':
     unittest.main()
