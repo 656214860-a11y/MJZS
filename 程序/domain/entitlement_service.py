@@ -108,17 +108,19 @@ def is_paid_stage(stage):
 
 
 def stage_block_message(entitlement, stage):
-    """放行返回空串；拦截时返回给用户看的一句话。非阶段键（如三虎表演）一律放行。"""
-    if not is_paid_stage(stage) or entitlement.usable:
-        return ''
-    return _block_text(STAGE_NAMES.get(stage, stage), entitlement)
+    """阶段入口按收费阶段判断，返回供 UI 展示的拦截文案。"""
+    return _block_reason(entitlement, stage)
 
 
 def page_block_message(entitlement, stage, title):
-    """侧栏换页闸：免费阶段之外的页（含与项目无关的工具页，``stage`` 为 None）在授权不可用时返回原因。"""
-    if stage in FREE_STAGES or entitlement.usable:
+    """侧栏与阶段入口使用同一授权判据。"""
+    return _block_reason(entitlement, stage, title)
+
+
+def _block_reason(entitlement, stage, title=None):
+    if not is_paid_stage(stage) or entitlement.usable:
         return ''
-    return _block_text(title, entitlement)
+    return _block_text(STAGE_NAMES.get(stage, stage) if title is None else title, entitlement)
 
 
 def _block_text(title, entitlement):
