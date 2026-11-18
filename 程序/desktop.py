@@ -705,8 +705,13 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         self.auto.adopt_signature=None;self.auto.adopt_pending=False;self.auto.adopt_startup=True
         if path:
             self._schedule_stage_model_sync(self.root)
-            # 遗留临时文件清扫只在后台线程跑，不占启动与 UI 路径（规则 33／L-H1）。
-            temporary_sweep.schedule_stale_temporary_sweep(self.root)
+            # 遗留临时文件清扫延到启动稳定后再起线程：打开项目即 walk 会撞上
+            # 「窗口出现到可交互之间零递归扫描」（规则 33／R3309）。
+            sweep_target=self.root
+            def start_stale_temporary_sweep():
+                if getattr(self,'shutting_down',False) or self.root!=sweep_target:return
+                temporary_sweep.schedule_stale_temporary_sweep(sweep_target)
+            self.win.after(temporary_sweep.TEMP_SWEEP_START_DELAY_MS,start_stale_temporary_sweep)
             if not defer_page:
                 self._complete_project_recovery(self.root)
         if not defer_page and getattr(self,'_startup_tick_paused',False):

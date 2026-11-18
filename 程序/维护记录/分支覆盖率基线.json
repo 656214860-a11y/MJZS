@@ -92,8 +92,8 @@
   "tests.test_l1_p2_semantics"
  ],
  "tests_ok": true,
- "points_total": 2648,
- "points_covered": 1459,
+ "points_total": 2649,
+ "points_covered": 1461,
  "modules": [
   {
    "module": "comfy_service.py",
@@ -216,12 +216,6 @@
    "percent": 29.9
   },
   {
-   "module": "broadcaster.py",
-   "points": 10,
-   "covered": 3,
-   "percent": 30.0
-  },
-  {
    "module": "qwen_setup.py",
    "points": 10,
    "covered": 3,
@@ -265,9 +259,9 @@
   },
   {
    "module": "platform_tools.py",
-   "points": 132,
-   "covered": 56,
-   "percent": 42.4
+   "points": 133,
+   "covered": 57,
+   "percent": 42.9
   },
   {
    "module": "continuity_ledger.py",
@@ -286,6 +280,12 @@
    "points": 112,
    "covered": 52,
    "percent": 46.4
+  },
+  {
+   "module": "broadcaster.py",
+   "points": 10,
+   "covered": 5,
+   "percent": 50.0
   },
   {
    "module": "config_snapshot.py",
@@ -450,6 +450,12 @@
    "percent": 79.2
   },
   {
+   "module": "file_index.py",
+   "points": 93,
+   "covered": 74,
+   "percent": 79.6
+  },
+  {
    "module": "prompt_templates.py",
    "points": 10,
    "covered": 8,
@@ -460,12 +466,6 @@
    "points": 10,
    "covered": 8,
    "percent": 80.0
-  },
-  {
-   "module": "file_index.py",
-   "points": 93,
-   "covered": 75,
-   "percent": 80.6
   },
   {
    "module": "token_saver.py",
