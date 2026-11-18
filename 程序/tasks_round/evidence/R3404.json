@@ -1,0 +1,15 @@
+{
+  "round": 3404,
+  "commit_base": "3a97b184",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k contract_purity layers gate_selfaudit agents_md",
+    "exit": 0,
+    "passed": 53,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T20:42:32"
+}
