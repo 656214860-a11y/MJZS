@@ -1,0 +1,15 @@
+{
+  "round": 3503,
+  "commit_base": "44f234f8",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k agent_doc_budget requirement_traceability",
+    "exit": 0,
+    "passed": 13,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T01:00:34"
+}
