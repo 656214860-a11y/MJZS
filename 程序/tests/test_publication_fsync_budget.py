@@ -102,14 +102,17 @@ class PublicationFsyncBudgetTests(unittest.TestCase):
                                 ('index.json', ['result.json', 'index.json'])])
 
     def test_journals_left_by_earlier_versions_still_recover(self):
-        for state, expected in (('committed', 'new'), ('pending', 'old')):
+        for state, expected, marker in (('committed', 'new', 'b'), ('pending', 'old', 'c')):
             with self.subTest(state=state):
-                core.save_text(self.target, 'new')
-                folder = publication.ROOT / ('b' * 32)
-                folder.mkdir(parents=True)
-                (folder / '0').write_text('old', encoding='utf-8')
-                (folder / 'journal.json').write_text(json.dumps({'version': 1, 'state': state, 'entries': [
-                    {'target': str(self.target.resolve()), 'backup': '0', 'existed': True}]}), encoding='utf-8')
+                with publication.access():
+                    core.save_text(self.target, 'new')
+                    folder = publication.ROOT / (marker * 32)
+                    folder.mkdir(parents=True)
+                    (folder / '0').write_text('old', encoding='utf-8')
+                    (folder / 'journal.json').write_text(json.dumps({
+                        'version': 1, 'state': state, 'entries': [
+                            {'target': str(self.target.resolve()), 'backup': '0', 'existed': True}],
+                    }), encoding='utf-8')
                 publication.recover_pending()
                 self.assertEqual(self.target.read_text(encoding='utf-8'), expected)
                 self.assertEqual(self._leftovers(), [])
