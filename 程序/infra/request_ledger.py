@@ -18,6 +18,7 @@ from pathlib import Path
 import infra.app_logging as app_logging
 import contract.stage_layout as stage_layout
 from agent.core import save, read
+from contract.infra_errors import ConfigError, CorruptDataError
 
 _REQUEST_LOCK = threading.RLock()
 REQUEST_LOCK_WAIT_SECONDS = 10.0
@@ -27,8 +28,11 @@ REQUEST_RESERVED_STALE_SECONDS = 1800.0
 _BACKUP_REFRESH = {}
 
 
-class LedgerLockTimeout(ValueError):
+class LedgerLockTimeout(ConfigError):
     """台账文件锁在期限内未拿到；授权路径按 ValueError 语义抛出，结算路径降级记 unknown。"""
+
+    code = 'E-UNKNOWN'
+    _allowed = frozenset({'E-UNKNOWN', 'E-CONFIG-INVALID'})
 
 # ── O29 请求级可对账台账 ─────────────────────────────────────────────────────
 # 与 Token 台账分工：Token 台账算「当天花了多少」，这里回答「这一笔请求怎么回事」——
@@ -68,8 +72,11 @@ def _refresh_daily_backup(path, clock):
         app_logging.swallowed()
 
 
-class BudgetRejected(ValueError):
+class BudgetRejected(ConfigError):
     """请求未发送：金额预留未通过。"""
+
+    code = 'E-QUOTA-EXCEEDED'
+    _allowed = frozenset({'E-QUOTA-EXCEEDED', 'E-CONFIG-INVALID'})
 
 
 def _sweep_stale_reserved(entries, clock):
@@ -380,10 +387,10 @@ class RequestLedger:
     @staticmethod
     def _quantity(value):
         import math
-        if isinstance(value, bool):raise ValueError('用量或费率必须是有限非负数')
+        if isinstance(value, bool):raise ConfigError('用量或费率必须是有限非负数')
         try: number = float(value)
-        except (ValueError, TypeError):raise ValueError('用量或费率必须是有限非负数') from None
-        if not math.isfinite(number) or number < 0:raise ValueError('用量或费率必须是有限非负数')
+        except (ValueError, TypeError):raise ConfigError('用量或费率必须是有限非负数') from None
+        if not math.isfinite(number) or number < 0:raise ConfigError('用量或费率必须是有限非负数')
         return number
 
     @staticmethod
@@ -429,10 +436,10 @@ class RequestLedger:
             data = read(path) if path.exists() else {'entries': []}
         except ValueError as exc:
             # 只把「内容坏」翻成可操作错误；OSError 与锁忙 RuntimeError 原样上抛。
-            raise ValueError(_corrupt_message(path, exc)) from exc
+            raise CorruptDataError(_corrupt_message(path, exc), detail={'path': str(path), 'cause': str(exc)}) from exc
         if (not isinstance(data, dict) or not isinstance(data.get('entries'), list)
                 or any(not isinstance(row, dict) for row in data['entries'])):
-            raise ValueError(_corrupt_message(path))
+            raise CorruptDataError(_corrupt_message(path), detail={'path': str(path)})
         self.entries = data['entries']
         _sweep_stale_reserved(self.entries, self.clock)
         _refresh_daily_backup(path, self.clock)
@@ -448,15 +455,15 @@ class RequestLedger:
         try:
             result = Decimal(str(value))
         except (InvalidOperation, ValueError):
-            raise ValueError('金额和费率必须是有限非负数') from None
+            raise ConfigError('金额和费率必须是有限非负数') from None
         if isinstance(value, bool) or not result.is_finite() or result < 0:
-            raise ValueError('金额和费率必须是有限非负数')
+            raise ConfigError('金额和费率必须是有限非负数')
         return result
 
     def authorize_model(self, request_id, model, stage, input_estimate, output_limit):
         """冻结配置费率及估计用量；启用金额上限后，未知费用不能按零继续。"""
         if type(input_estimate) is not int or input_estimate < 0 or type(output_limit) is not int or output_limit < 0:
-            raise ValueError('请求用量预估必须是非负整数')
+            raise ConfigError('请求用量预估必须是非负整数')
         return self.authorize_units(request_id, model, stage, 'tokens',
                                     {'prompt_tokens': input_estimate, 'completion_tokens': output_limit})
 
@@ -464,7 +471,7 @@ class RequestLedger:
     def _model_price(cls, table, model, quantities):
         rate_map = table.get('model_rates') or {}
         if not isinstance(rate_map, dict):
-            raise ValueError('模型费率格式不正确')
+            raise ConfigError('模型费率格式不正确')
         rates = rate_map.get(model)
         known = isinstance(rates, dict) and all(key in rates for key in quantities)
         known = known and bool(table.get('version')) and bool(table.get('currency'))
@@ -476,13 +483,13 @@ class RequestLedger:
         """只读批次报价快照；不建账、不预留，执行时仍逐请求原子检查。"""
         from agent.core import read
         if not quantities or kind not in REQUEST_KINDS:
-            raise ValueError('请求用量单位不能为空或未知')
+            raise ConfigError('请求用量单位不能为空或未知')
         quantities = {key: self.decimal(value) for key, value in quantities.items()}
         self.load()
         path = self.project / 'cost_profile.json' if self.project else None
         profile = read(path) if path is not None and path.exists() else {}
         if not isinstance(profile, dict) or not isinstance(profile.get('price_table', {}), dict):
-            raise ValueError('成本配置格式不正确')
+            raise ConfigError('成本配置格式不正确')
         table = profile.get('price_table', {})
         _rates, cost = self._model_price(table, model, quantities)
         cap = self.decimal(profile['budget_amount']) if profile.get('budget_amount') is not None else None
@@ -517,7 +524,7 @@ class RequestLedger:
     def preview_text(self, model, kind, quantities):
         quote = self.preview_units(model, kind, quantities)
         if not quote['allowed']:
-            raise ValueError('本批次金额预检未通过：' + '；'.join(quote['notes']))
+            raise BudgetRejected('本批次金额预检未通过：' + '；'.join(quote['notes']))
         currency = quote['currency'] or '币种未配置'
         return ('模型：%s；价格版本：%s。\n本批预计：%s %s；项目已占用（含预留）：%s %s。\n'
                 '项目金额上限：%s；剩余金额：%s。\n%s\n预估不锁定额度；每次发送前重新核验，实际账单需核对。') % (
@@ -567,11 +574,11 @@ class RequestLedger:
             state = read(path)
             shots = state.get('shots') if isinstance(state, dict) else None
             if not isinstance(shots, dict) or any(not isinstance(vs, list) for vs in shots.values()):
-                raise ValueError('旧视频任务状态损坏，无法核对历史费用：' + workspace.name)
+                raise CorruptDataError('旧视频任务状态损坏，无法核对历史费用：' + workspace.name)
             for sid, versions in shots.items():
                 for index, version in enumerate(versions, 1):
                     if not isinstance(version, dict):
-                        raise ValueError('旧视频任务记录损坏，无法核对历史费用')
+                        raise CorruptDataError('旧视频任务记录损坏，无法核对历史费用')
                     if version.get('not_submitted') is True:
                         continue
                     rid = version.get('money_request_id') or 'video:' + str(version.get('local_request', ''))
@@ -584,10 +591,10 @@ class RequestLedger:
         for path in sorted((self.project / 'workflows').glob('comfy_*.json')):
             job = read(path)
             if not isinstance(job, dict):
-                raise ValueError('旧Comfy任务记录损坏，无法核对历史费用：' + path.name)
+                raise CorruptDataError('旧Comfy任务记录损坏，无法核对历史费用：' + path.name)
             graph = job.get('workflow', {})
             if not isinstance(graph, dict):
-                raise ValueError('旧Comfy工作流损坏，无法核对历史费用：' + path.name)
+                raise CorruptDataError('旧Comfy工作流损坏，无法核对历史费用：' + path.name)
             cloud_image = any(isinstance(node, dict) and node.get('class_type') == 'DramaCloudImage'
                               for node in graph.values())
             if not cloud_image and not include_unpriced:
@@ -614,7 +621,7 @@ class RequestLedger:
                 label = ('旧Comfy工作流费用' if group.get('unit') == 'requests'
                          else '旧Comfy云图片费用' if any(s['source'].startswith('comfy-task:') for s in group['sources'])
                          else '旧视频任务费用' if any(s['source'].startswith('task:') for s in group['sources']) else '旧视频会话费用')
-                raise ValueError(label + '尚未纳入项目总账或来源已变化，请导入后核对：' + group['label'])
+                raise CorruptDataError(label + '尚未纳入项目总账或来源已变化，请导入后核对：' + group['label'])
 
     def import_legacy_video_costs(self, *, include_unpriced=False):
         """显式导入未知费用；源会话不修改，来源变化使原金额失效并保留审计。"""
@@ -645,40 +652,40 @@ class RequestLedger:
         """所有模型共用金额上限；按明确计费单位冻结预留。"""
         from agent.core import read
         if not quantities or kind not in REQUEST_KINDS:
-            raise ValueError('请求用量单位不能为空或未知')
+            raise ConfigError('请求用量单位不能为空或未知')
         quantities = {key: self.decimal(value) for key, value in quantities.items()}
         with self.transaction():
             if self._find(request_id) is not None:
-                raise ValueError('该请求已有记录，请核对原任务，不能重复发送')
+                raise ConfigError('该请求已有记录，请核对原任务，不能重复发送')
             path = self.project / 'cost_profile.json' if self.project else None
             profile = read(path) if path is not None and path.exists() else {}
             if not isinstance(profile, dict):
-                raise ValueError('成本配置格式不正确')
+                raise ConfigError('成本配置格式不正确')
             table = profile.get('price_table') or {}
             if not isinstance(table, dict):
-                raise ValueError('价格表格式不正确')
+                raise ConfigError('价格表格式不正确')
             cap = profile.get('budget_amount')
             if cap is not None:
                 cap = self.decimal(cap)
                 self.check_legacy_video_costs(request_id)
                 if kind == 'tokens' and quantities.get('completion_tokens', 0) <= 0:
-                    raise ValueError('金额预算需要明确的输出Token上限')
+                    raise ConfigError('金额预算需要明确的输出Token上限')
             rates, cost = self._model_price(table, model, quantities)
             if cap is not None:
                 if not rates or not table.get('version') or not table.get('currency'):
-                    raise ValueError('金额预算需要模型费率、币种和价格表版本，请先配置')
+                    raise ConfigError('金额预算需要模型费率、币种和价格表版本，请先配置')
                 used = self.decimal(0)
                 for row in self.entries:
                     if row.get('state') == 'duplicate' or row.get('cost_group'):
                         continue
                     if row.get('money_state') == 'reconciled' and self.effective_money_state(row) != 'reconciled':
-                        raise ValueError('账单凭据缺失或已变化，请重新核对费用')
+                        raise CorruptDataError('账单凭据缺失或已变化，请重新核对费用')
                     money = row.get('budget_cost')
                     if money is None or row.get('currency') != table['currency']:
-                        raise ValueError('存在未计价费用或币种不一致，请核对后继续')
+                        raise CorruptDataError('存在未计价费用或币种不一致，请核对后继续')
                     used += self.decimal(money)
                 if used + cost > cap:
-                    raise ValueError('超过项目金额预算，请核对费用或明确提高预算后重试')
+                    raise BudgetRejected('超过项目金额预算，请核对费用或明确提高预算后重试')
             entry = self.reserve(request_id, kind, sum(quantities.values()) if amount is None else amount)
             entry.update(model=model, stage=stage, input_estimate=float(quantities.get('prompt_tokens', 0)),
                          output_limit=float(quantities.get('completion_tokens', 0)),
@@ -708,7 +715,7 @@ class RequestLedger:
             with self.transaction():
                 entry = self._find(request_id)
                 if entry is None:
-                    raise ValueError('请求预留记录缺失')
+                    raise CorruptDataError('请求预留记录缺失')
                 if entry.get('money_state') == 'reconciled':
                     return
                 if remote_task_id:
@@ -730,7 +737,7 @@ class RequestLedger:
             with self.transaction():
                 entry = self._find(request_id)
                 if entry is None:
-                    raise ValueError('请求预留记录缺失')
+                    raise CorruptDataError('请求预留记录缺失')
                 if entry.get('money_state') == 'reconciled' or (entry.get('state') == 'settled' and entry.get('money_state') == 'estimated'):
                     return
                 keys = ('prompt_tokens', 'completion_tokens');known = all(type(usage.get(key)) is int and usage[key] >= 0 for key in keys)
@@ -752,10 +759,10 @@ class RequestLedger:
         amount = self.decimal(amount)
         currency, reviewer = str(currency).strip().upper(), str(reviewer).strip()
         if len(currency) != 3 or not currency.isascii() or not currency.isalpha() or not reviewer:
-            raise ValueError('请填写三字母币种和核对人')
+            raise ConfigError('请填写三字母币种和核对人')
         path = Path(evidence)
         if not path.is_file() or path.stat().st_size == 0:
-            raise ValueError('请选择非空的本地账单凭据文件')
+            raise ConfigError('请选择非空的本地账单凭据文件')
         digest = hashlib.sha256()
         with path.open('rb') as stream:
             for chunk in iter(lambda: stream.read(65536), b''):
@@ -763,15 +770,15 @@ class RequestLedger:
         with self.transaction():
             entry = self._find(request_id, kind)
             if entry is None or entry.get('state') not in ('unknown', 'settled', 'cancelled'):
-                raise ValueError('只能核对已结算、未知或已取消请求，进行中请求请先查询最终结果')
+                raise ConfigError('只能核对已结算、未知或已取消请求，进行中请求请先查询最终结果')
             if entry.get('cost_group'):
-                raise ValueError('该用量已合并，请核对对应的旧视频费用组')
+                raise ConfigError('该用量已合并，请核对对应的旧视频费用组')
             if entry.get('cost_only'):
                 current = self.legacy_video_costs(include_unpriced=True).get(request_id)
                 if current is None or current['digest'] != entry.get('legacy_digest'):
-                    raise ValueError('旧生成记录来源已变化，请重新导入后核对')
+                    raise CorruptDataError('旧生成记录来源已变化，请重新导入后核对')
             if entry.get('currency') and str(entry['currency']).upper() != currency:
-                raise ValueError('币种与原请求不一致，不能直接覆盖或自动换汇')
+                raise CorruptDataError('币种与原请求不一致，不能直接覆盖或自动换汇')
             currency = entry.get('currency') or currency
             audit = {'amount': str(amount), 'currency': currency, 'reviewer': reviewer,
                      'evidence_path': str(path.resolve()), 'evidence_sha256': digest.hexdigest(),
@@ -780,7 +787,7 @@ class RequestLedger:
                 audit['legacy_digest'] = entry['legacy_digest']
             history = entry.setdefault('cost_reconciliations', [])
             if not isinstance(history, list) or any(not isinstance(item, dict) for item in history):
-                raise ValueError('费用核对记录损坏，请先恢复台账')
+                raise CorruptDataError('费用核对记录损坏，请先恢复台账')
             if entry.get('money_state') == 'reconciled' and history and all(history[-1].get(key) == audit[key] for key in
                                ('amount', 'currency', 'reviewer', 'evidence_path', 'evidence_sha256')):
                 return dict(entry)

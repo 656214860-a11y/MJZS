@@ -1,0 +1,15 @@
+{
+  "round": 3439,
+  "commit_base": "73ee249a",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k request_ledger comfy_service unit_of_work infra_errors",
+    "exit": 0,
+    "passed": 75,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T23:08:53"
+}
