@@ -1,15 +1,16 @@
 {
   "round": 3309,
-  "commit_base": "55254fb2",
+  "commit_base": "ee2f5fdb",
   "credential_scan": {
     "ran": true,
     "hits": []
   },
   "targeted": {
-    "cmd": "run_selftests.py -k startup_perf rename_reconcile bounded_growth",
+    "cmd": "",
     "exit": 0,
-    "passed": 49,
-    "failed": 0
+    "passed": 0,
+    "failed": 0,
+    "skipped": "docs-only"
   },
-  "generated_at": "2026-11-18T10:28:47"
+  "generated_at": "2026-11-18T11:06:25"
 }

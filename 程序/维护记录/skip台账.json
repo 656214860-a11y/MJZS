@@ -488,6 +488,15 @@
    "reference": ""
   },
   {
+   "file": "tests/test_desktop_startup_perf.py",
+   "test": "DesktopStartupPerfTests.test_project_open_defers_stale_temporary_sweep",
+   "ordinal": 1,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_TK_DISPLAY",
+   "reason": "当前环境没有可用 Tk display；可创建窗口时应恢复执行",
+   "reference": ""
+  },
+  {
    "file": "tests/test_desktop_tray.py",
    "test": "TrayMinimizeCycleTests.test_minimize_and_click_tray_cycles_without_crash",
    "ordinal": 1,
