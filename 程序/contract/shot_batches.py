@@ -18,8 +18,15 @@
 
 新增的九个字段一律「有默认值 ＋ 有校验规则」（硬约束 7）：老分镜 JSON 只有 id／characters／
 location／duration 也能跑——normalize() 从老字段推出新字段的默认值，一个键都不用先改。
+
+镜头字段的单一事实源在 ``contract.episode_contract``（轮 6C·D7）：本表的九个批次字段
+与 ``SHOT_FIELD_SPECS`` 的镜头字段一起构成 ``schema()`` 的镜头 properties；
+``validate()`` 的时长区间与 ``estimated_duration`` 的 schema 上下限同样取自那里。
 """
+import copy
 import re
+
+from contract.episode_contract import SHOT_DURATION_RANGE, SHOT_FIELD_SPECS
 
 SHOT_SECONDS = (2, 5)
 DEFAULT_SECONDS = 3
@@ -32,17 +39,31 @@ EPISODE_SHOTS = (18, 25)
 EPISODE_BATCHES = (5, 7)
 EPISODE_TOTAL_BATCHES = (500, 700)
 
-# 镜头对象的九个必填字段（任务 10）与它们的默认值来源。
+# 镜头对象的九个必填字段（任务 10）：(新字段名, 默认值来源, 说明, schema() properties 片段)。
+# schema() 的 required 与 properties 键集由本表派生，改字段只改这里。
+REF_ROLE_SCHEMA = {'type': 'object', 'required': ['responsibility', 'exclude'],
+                   'properties': {'responsibility': {'type': 'string', 'minLength': 1},
+                                  'exclude': {'type': 'string', 'minLength': 1}}}
 SHOT_FIELDS = (
-    ('shot_id', 'id', '镜头编号（S01／SH001）'),
-    ('scene_id', 'location', '场景编号（同 location）'),
-    ('character_ids', 'characters', '出场角色编号数组（同 characters）'),
-    ('costume_id', '', '状态变体编号（CST-##），指向资产 JSON 的 state_variants'),
-    ('batch_id', '', '批次编号（B01…），由 group() 切分后回填'),
-    ('character_refs', '', '参考图标签数组（@图片1…），与 character_ids 一一对应'),
-    ('reference_roles', '', '每个参考图标签的职责声明：responsibility ＋ exclude'),
-    ('continuity_flags', '', '跨镜必须保持的锚点（角色耳环、场景光源方向…）'),
-    ('estimated_duration', 'duration', '生成用的估计时长（秒），批次划分只看它'),
+    ('shot_id', 'id', '镜头编号（S01／SH001）',
+     {'type': 'string', 'pattern': '^(EP[0-9]{3,}_)?(S|SH)[0-9]{2,}$'}),
+    ('scene_id', 'location', '场景编号（同 location）',
+     {'type': 'string', 'minLength': 1}),
+    ('character_ids', 'characters', '出场角色编号数组（同 characters）',
+     {'type': 'array', 'items': {'type': 'string'}}),
+    ('costume_id', '', '状态变体编号（CST-##），指向资产 JSON 的 state_variants',
+     {'type': 'string', 'pattern': '^CST-[0-9]{2,}$|^$'}),
+    ('batch_id', '', '批次编号（B01…），由 group() 切分后回填',
+     {'type': 'string', 'pattern': '^B[0-9]{2,}$'}),
+    ('character_refs', '', '参考图标签数组（@图片1…），与 character_ids 一一对应',
+     {'type': 'array', 'items': {'type': 'string', 'pattern': '^@'}}),
+    ('reference_roles', '', '每个参考图标签的职责声明：responsibility ＋ exclude',
+     {'type': 'object', 'additionalProperties': REF_ROLE_SCHEMA}),
+    ('continuity_flags', '', '跨镜必须保持的锚点（角色耳环、场景光源方向…）',
+     {'type': 'array', 'items': {'type': 'string'}}),
+    ('estimated_duration', 'duration', '生成用的估计时长（秒），批次划分只看它',
+     {'type': 'integer', 'minimum': SHOT_DURATION_RANGE[0], 'maximum': SHOT_DURATION_RANGE[1],
+      'description': '批次划分只看它；设计区间 %d–%d 秒' % SHOT_SECONDS}),
 )
 TRIPLET = ('scene_id', 'character_ids', 'costume_id')
 BATCH_ID = 'B%02d'
@@ -191,8 +212,9 @@ def validate(shot, index=0):
                 or not str(item.get('exclude') or '').strip():
             problems.append(tag + '参考图缺少职责声明：' + str(ref))
     seconds = duration(data)
-    if not 2 <= seconds <= 15:
-        problems.append(tag + 'estimated_duration 必须是 2–15 的整数秒：%s' % seconds)
+    if not SHOT_DURATION_RANGE[0] <= seconds <= SHOT_DURATION_RANGE[1]:
+        problems.append(tag + 'estimated_duration 必须是 %d–%d 的整数秒：%s'
+                        % (SHOT_DURATION_RANGE[0], SHOT_DURATION_RANGE[1], seconds))
     return problems
 
 
@@ -274,35 +296,20 @@ def pseudocode():
     )
 
 
+def _shot_properties():
+    """镜头 properties：九个批次字段（本表 SHOT_FIELDS）＋ 契约字段表（episode_contract）同源生成。"""
+    props = {row[0]: copy.deepcopy(row[3]) for row in SHOT_FIELDS}
+    props.update({name: copy.deepcopy(fragment) for name, _note, fragment in SHOT_FIELD_SPECS
+                  if fragment is not None})
+    return props
+
+
 def schema():
-    """分镜 JSON 的 Schema 片段（交付物 6）：老三键 ＋ 任务 10 那九个必填字段。"""
-    ref_role = {'type': 'object', 'required': ['responsibility', 'exclude'],
-                'properties': {'responsibility': {'type': 'string', 'minLength': 1},
-                               'exclude': {'type': 'string', 'minLength': 1}}}
+    """分镜 JSON 的 Schema 片段（交付物 6）：字段集与契约事实表同源生成。"""
     shot = {
         'type': 'object',
-        'required': ['shot_id', 'scene_id', 'character_ids', 'costume_id', 'batch_id',
-                     'character_refs', 'reference_roles', 'continuity_flags', 'estimated_duration'],
-        'properties': {
-            'shot_id': {'type': 'string', 'pattern': '^(EP[0-9]{3,}_)?(S|SH)[0-9]{2,}$'},
-            'id': {'type': 'string', 'description': '兼容老字段：没有 shot_id 时由它推'},
-            'scene_id': {'type': 'string', 'minLength': 1},
-            'character_ids': {'type': 'array', 'items': {'type': 'string'}},
-            'costume_id': {'type': 'string', 'pattern': '^CST-[0-9]{2,}$|^$'},
-            'batch_id': {'type': 'string', 'pattern': '^B[0-9]{2,}$'},
-            'character_refs': {'type': 'array', 'items': {'type': 'string', 'pattern': '^@'}},
-            'reference_roles': {'type': 'object', 'additionalProperties': ref_role},
-            'continuity_flags': {'type': 'array', 'items': {'type': 'string'}},
-            'estimated_duration': {'type': 'integer', 'minimum': 2, 'maximum': 15,
-                                   'description': '批次划分只看它；设计区间 2–5 秒'},
-            'duration': {'type': 'integer', 'minimum': 2, 'maximum': 15},
-            'title': {'type': 'string'}, 'location': {'type': 'string'},
-            'characters': {'type': 'array', 'items': {'type': 'string'}},
-            'props': {'type': 'array', 'items': {'type': 'string'}},
-            'frame': {'type': 'string'}, 'frame_prompt': {'type': 'string'},
-            'video_prompt': {'type': 'string'}, 'dialogue': {'type': 'array'},
-            'action_complexity': {'enum': ['simple', 'medium', 'complex']},
-        },
+        'required': [row[0] for row in SHOT_FIELDS],
+        'properties': _shot_properties(),
         'additionalProperties': True,
     }
     return {'$schema': 'https://json-schema.org/draft/2020-12/schema',
