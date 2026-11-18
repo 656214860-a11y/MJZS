@@ -81,10 +81,15 @@ class Comfy:
         self.url=url.rstrip('/');p=urlparse(self.url)
         if p.scheme!='http' or p.hostname not in ('localhost','127.0.0.1','::1'):raise ValueError('请输入本机ComfyUI地址，例如 http://127.0.0.1:8189')
     def request(self,path,data=None,raw=False,timeout=20):
-        from contract.platform_tools import current_execution, open_https      # 唯一出站入口（含截止时间与重定向凭据保护）
+        import urllib.request
+        from contract.platform_tools import current_execution, RequestsJsonOpener  # 收敛传输：不跟随重定向
         control = current_execution()
+        if control is not None:
+            timeout = control.remaining(timeout)
         body=None if data is None else json.dumps(data).encode()
-        with open_https(self.url+path,data=body,headers={'Content-Type':'application/json'},timeout=timeout) as r:
+        request=urllib.request.Request(self.url+path,data=body,headers={'Content-Type':'application/json'},
+                                       method='GET' if body is None else 'POST')
+        with RequestsJsonOpener().open(request,timeout=timeout) as r:
             chunks=[];size=0
             while True:
                 chunk=r.read(1024*1024)
