@@ -78,6 +78,15 @@ LEGACY_STAGE_ALIASES = {
     '09_post_edit': '12后期剪辑',
     '10_qc_delivery': '13质检交付',
 }
+# 阶段键的历史拼写 → 规范阶段 id（STAGES 第 2 列，即 pet_bus.STAGES 成员）。
+# 与 LEGACY_STAGE_ALIASES 分域：那边归一「旧编号目录名 → 当前目录名」，
+# 这边归一「阶段键旧拼写 → 阶段 id」；阶段别名事实只在本模块维护一份，
+# stage_path_service 经 canonical_stage_id() 派生解析，不再另存阶段表。
+STAGE_ALIASES = {
+    'structure': 'script_structure',
+    'frames': 'keyframe',
+    'editing': 'edit',
+}
 SHARED = '_shared'
 ARCHIVE = '_archive'
 SUBDIRS = (
@@ -218,6 +227,13 @@ def dirname_of(stage):
         if row[1] == text:
             return row[0]
     return ''
+
+
+def canonical_stage_id(stage):
+    """阶段键（含 STAGE_ALIASES 历史拼写）→ 规范阶段 id；认不出返回 None。"""
+    key = str(stage)
+    resolved = STAGE_ALIASES.get(key, key)
+    return resolved if any(row[1] == resolved for row in STAGES) else None
 
 
 def names():
