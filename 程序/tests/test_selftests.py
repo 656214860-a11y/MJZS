@@ -133,6 +133,17 @@ assert len(tk._drama_wanted_topmost) == 0
         with mock.patch.object(selftest_discovery, 'gui_test_module', side_effect=lambda name: name == 'test_window'):
             self.assertEqual(run_selftests.split_safe_units(units), ([units[0]], [units[1]]))
 
+    def test_inherited_tk_fixture_runs_in_gui_layer_and_pool(self):
+        """继承真 Tk 夹具的模型管理测试也必须隐藏桌面运行。"""
+        name = 'test_model_manager_actions'
+        self.assertTrue(run_selftests.gui_test_module(name))
+        self.assertEqual(run_selftests.modules_for_layer([name], 'service'), [])
+        self.assertEqual(run_selftests.modules_for_layer([name], 'gui-short'), [name])
+        unit = (name, name, None)
+        normal, gui = run_selftests.split_safe_units([unit])
+        self.assertEqual(normal, [])
+        self.assertEqual(gui, [unit])
+
     def test_long_gui_units_start_first_without_dropping_or_reordering_each_group(self):
         units = [('short1', 'test_window', None), ('long1', 'test_ui_edges_autopilot', None),
                  ('short2', 'test_window', None), ('long2', 'test_pet_ui', None)]

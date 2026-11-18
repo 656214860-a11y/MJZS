@@ -1,7 +1,7 @@
 """Post-window-close dispatch policy; scheduled never means cleanup completed."""
 
 
-def launch_cleanup(program, *, forced=False):
+def launch_cleanup(program, *, forced=False, temporary_projects=()):
     """Preserve launch order and errors, without waiting, retrying or serializing workers.
 
     Storage is attempted even on forced exit and its errors propagate. Optional
@@ -15,7 +15,8 @@ def launch_cleanup(program, *, forced=False):
     try:
         from infra.storage_maintenance import launch_cleanup as storage
         result['storage'] = 'launch-failed'
-        storage(program)
+        options={'temporary_projects':temporary_projects} if temporary_projects else {}
+        storage(program, **options)
         result['storage'] = 'scheduled'
         if not forced:
             try:

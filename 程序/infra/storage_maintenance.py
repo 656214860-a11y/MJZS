@@ -1,4 +1,5 @@
 """Conservative project cleanup; run only after the UI has closed."""
+import argparse
 import math, os, shutil, subprocess, sys, time, uuid
 from pathlib import Path, PurePosixPath
 import contract.stage_layout as stage_layout
@@ -49,10 +50,12 @@ RETAIN_REASONS={RETAIN_UNSETTLED:'任务未结算，等结果取回或查询',
                 RETAIN_FRESH:'未到项目保留期或创建时间无效'}
 VERSION_CLEAN_REASON='超过保留期，且未被采用、未进成片来源、未锁定、任务已定局'
 
-def launch_cleanup(app_root=None):
+def launch_cleanup(app_root=None, *, temporary_projects=()):
     program=Path(app_root or PROGRAM)
-    launch_background([sys.executable,str(program/'storage_maintenance.py'),'--cleanup'],
-                      stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+    command=[sys.executable,str(program/'storage_maintenance.py'),'--cleanup']
+    for project in dict.fromkeys(str(Path(root)) for root in temporary_projects):
+        command.extend(('--temporary-project',project))
+    launch_background(command, stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
 
 def _within(child,parent):
     return child.resolve().is_relative_to(parent.resolve())
@@ -956,7 +959,14 @@ def clean_project(root,now=None):
     return removed
 
 def main():
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--cleanup',action='store_true')
+    parser.add_argument('--temporary-project',action='append',default=[])
+    args=parser.parse_args()
     time.sleep(3)
+    # 仅清扫本实例明确打开过的项目；窗口销毁后才进入已有维护进程。
+    from infra.temporary_sweep import sweep_opened_projects
+    sweep_opened_projects(args.temporary_project)
     root=downloads_root()
     if not root.is_dir():return
     summary=[]

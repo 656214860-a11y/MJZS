@@ -150,6 +150,87 @@ class StorageSafetyTests(unittest.TestCase):
         self.assertIs(commands[0][1]['stdout'], sm.subprocess.DEVNULL)
         self.assertIs(commands[0][1]['stderr'], sm.subprocess.DEVNULL)
 
+    def test_cleanup_passes_explicit_deduplicated_project_argv_without_shell(self):
+        with tempfile.TemporaryDirectory() as td:
+            program = Path(td) / 'program'
+            project = Path(td) / '外部 项目 & 原样'
+            with mock.patch.object(sm, 'launch_background') as launch:
+                sm.launch_cleanup(program, temporary_projects=(project, project))
+            command = launch.call_args.args[0]
+            self.assertEqual(command, [sys.executable, str(program / 'storage_maintenance.py'),
+                                       '--cleanup', '--temporary-project', str(project)])
+            self.assertNotIn('shell', launch.call_args.kwargs)
+
+    def test_exit_cleanup_sweeps_only_explicit_external_projects_without_library(self):
+        import os
+        import time
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            project = base / '外部项目'; project.mkdir()
+            unrelated = base / '未打开项目'; unrelated.mkdir()
+            name = 'draft.' + 'a' * 32 + '.tmp'
+            stale = project / name; stale.write_text('old', encoding='utf-8')
+            keep = unrelated / name; keep.write_text('old', encoding='utf-8')
+            fresh = project / ('fresh.' + 'b' * 32 + '.tmp')
+            fresh.write_text('fresh', encoding='utf-8')
+            old = time.time() - 25 * 3600
+            for path in (stale, keep):os.utime(path, (old, old))
+            with mock.patch.object(sm.time, 'sleep'), \
+                 mock.patch.object(sm, 'downloads_root', return_value=base / 'missing-library'), \
+                 mock.patch.object(sm, 'PROGRAM', base / 'program'), \
+                 mock.patch.object(sys, 'argv', ['storage_maintenance.py', '--cleanup',
+                                                 '--temporary-project', str(project)]):
+                sm.main()
+            self.assertFalse(stale.exists())
+            self.assertTrue(keep.exists())
+            self.assertTrue(fresh.exists())
+
+    def test_exit_cleanup_aggregates_successful_roots_once_before_missing_library(self):
+        import infra.temporary_sweep as sweep
+        import infra.diagnostic_capture as diagnostic
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            projects = [base / name for name in ('first', 'broken', 'last')]
+            for project in projects:project.mkdir()
+            calls = []
+            def controlled(root, *, stats=None):
+                calls.append(root)
+                if root == projects[1]:raise OSError('controlled root failure')
+                if stats is not None:stats['remaining'] = 2 if root == projects[0] else 4
+                return 1 if root == projects[0] else 3
+            argv = ['storage_maintenance.py', '--cleanup']
+            for project in [*projects, projects[0], base / 'missing']:
+                argv.extend(['--temporary-project', str(project)])
+            with mock.patch.object(sm.time, 'sleep'), \
+                 mock.patch.object(sm, 'downloads_root', return_value=base / 'missing-library'), \
+                 mock.patch.object(sweep, 'sweep_stale_temporary_files', side_effect=controlled), \
+                 mock.patch.object(diagnostic, 'record_temporary_sweep') as record, \
+                 mock.patch.object(sys, 'argv', argv):
+                sm.main()
+            self.assertEqual(calls, projects)
+            record.assert_called_once_with(4, 6)
+
+    def test_exit_cleanup_diagnostic_failure_does_not_block_library_maintenance(self):
+        import infra.temporary_sweep as sweep
+        import infra.diagnostic_capture as diagnostic
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td); project = base / 'opened'; project.mkdir()
+            library = base / 'library'; child = library / 'project'; child.mkdir(parents=True)
+            (base / 'program').mkdir()
+            with mock.patch.object(sm.time, 'sleep'), \
+                 mock.patch.object(sm, 'downloads_root', return_value=library), \
+                 mock.patch.object(sm, 'PROGRAM', base / 'program'), \
+                 mock.patch.object(sweep, 'sweep_stale_temporary_files', return_value=0) as clean, \
+                 mock.patch.object(diagnostic, 'record_temporary_sweep', side_effect=OSError('diagnostic')) as record, \
+                 mock.patch.object(sm, 'clean_project', return_value=[]) as maintain, \
+                 mock.patch.object(sm, 'save'), \
+                 mock.patch.object(sys, 'argv', ['storage_maintenance.py', '--cleanup',
+                                                 '--temporary-project', str(project)]):
+                sm.main()
+            clean.assert_called_once()
+            record.assert_called_once_with(0, 0)
+            maintain.assert_called_once_with(child)
+
     def test_within(self):
         root = Path(tempfile.mkdtemp())
         self.assertTrue(sm._within(root / "a", root))

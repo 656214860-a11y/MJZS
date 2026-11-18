@@ -119,9 +119,11 @@ class LifecycleMixin:
         except tk.TclError:
             # 关窗清理仅忽略 Tk 生命周期竞态。
             pass
+        temporary_projects=tuple(getattr(self,'_temporary_sweep_roots',()))
         self.win.destroy()
         from orchestrator.exit_maintenance import launch_cleanup
-        launch_cleanup(self.app, forced=getattr(self, '_forcing_quit', False))
+        options={'temporary_projects':temporary_projects} if temporary_projects else {}
+        launch_cleanup(self.app, forced=getattr(self, '_forcing_quit', False), **options)
     def reload(self):
         self._sync_project_picker()
         self.refresh_sidebar_title()

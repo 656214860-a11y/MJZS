@@ -12,13 +12,14 @@ import json
 import socket
 import tempfile
 import threading
+import time
 import unittest
-from email.message import Message
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 import urllib.request
-import urllib.response
+import requests
+from urllib3.response import HTTPResponse
 
 import infra.model_pool as model_pool
 import infra.model_router as model_router
@@ -53,27 +54,72 @@ class ResponseFailureKindTests(unittest.TestCase):
     def serve(self, behave):
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server.bind(('127.0.0.1', 0))
-        server.listen(1)
-        release = threading.Event()
+        server.listen(3)
+        server.settimeout(0.1)
+        endpoint = server.getsockname()
+        release, accepted = threading.Event(), threading.Event()
+        workers, errors = [], []
+
+        def respond(conn):
+            try:
+                with conn:
+                    conn.settimeout(2)
+                    _read_request(conn)
+                    accepted.set()
+                    behave(conn, release)
+            except BaseException as exc:
+                errors.append(exc)
 
         def run():
+            deadline = time.monotonic() + 10
             try:
-                conn, _ = server.accept()
-            except OSError:
-                return
-            with conn:
-                _read_request(conn)
-                behave(conn, release)
+                while not release.is_set() and time.monotonic() < deadline:
+                    try:
+                        conn, _ = server.accept()
+                    except socket.timeout:
+                        continue
+                    worker = threading.Thread(target=respond, args=(conn,), daemon=True)
+                    workers.append(worker)
+                    worker.start()
+            finally:
+                server.close()
+
+        def close():
+            release.set()
+            thread.join(2)
+            for worker in workers:
+                worker.join(2)
+            self.assertFalse(thread.is_alive(), 'loopback listener did not exit')
+            self.assertTrue(all(not worker.is_alive() for worker in workers), 'loopback response did not exit')
+            self.assertTrue(accepted.is_set(), 'test must reach the real loopback response')
+            self.assertEqual(errors, [])
+            self.assertEqual(server.fileno(), -1)
 
         thread = threading.Thread(target=run, daemon=True)
-        self.addCleanup(server.close)
-        self.addCleanup(thread.join, 5)
-        self.addCleanup(release.set)          # 后登记的清理先执行：先放行，再 join
         thread.start()
-        return 'http://127.0.0.1:%d/v1/chat/completions' % server.getsockname()[1]
+        connect, resolve = socket.socket.connect, socket.getaddrinfo
+
+        def connect_only_listener(sock, address):
+            self.assertEqual(address, endpoint, 'unexpected real network')
+            return connect(sock, address)
+
+        def resolve_only_listener(host, port, *args, **kwargs):
+            self.assertEqual((host, port), endpoint, 'unexpected real DNS')
+            return resolve(host, port, *args, **kwargs)
+
+        self.enterContext(patch('socket.socket.connect', connect_only_listener))
+        self.enterContext(patch('socket.getaddrinfo', resolve_only_listener))
+        with socket.socket() as connection:
+            with self.assertRaisesRegex(AssertionError, 'unexpected real network'):
+                connection.connect(('127.0.0.1', 0))
+        with self.assertRaisesRegex(AssertionError, 'unexpected real DNS'):
+            socket.getaddrinfo('provider.invalid', 443)
+        self.addCleanup(close)
+        self.enterContext(patch.dict('os.environ', {'DRAMA_SUPPRESS_NETWORK': '0'}))
+        return f'http://127.0.0.1:{endpoint[1]}/v1/chat/completions'
 
     def send(self, url, timeout=0.5):
-        # 系统代理不能把回环地址转走：只换掉代理表，其余仍是真实的 urllib 栈与真实套接字。
+        # 回环地址经真实 Requests 传输与套接字；仅允许本测试监听的精确端口。
         with patch('urllib.request.getproxies', dict):
             return model_pool.http_transport(url, {'model': 'synthetic', 'messages': []},
                                              {'Authorization': 'Bearer SYNTHETIC'}, timeout)
@@ -109,25 +155,39 @@ class QwenProbeTests(unittest.TestCase):
 
     def probe(self, status, location=None, body=b'{"data":[{"id":"qwen-x"}]}', model='qwen-x'):
         import qwen_setup
-        seen = []
+        seen, responses = [], []
 
-        def respond(handler, request):
+        def respond(adapter, prepared, **settings):
+            self.assertEqual(prepared.url, self.BASE + '/models', 'redirect target must never be sent')
+            request = urllib.request.Request(prepared.url, data=prepared.body,
+                                             headers=dict(prepared.headers), method=prepared.method)
             seen.append(request)
-            headers = Message()
-            first = len(seen) == 1
-            if first and location:
-                headers['Location'] = location
-            response = urllib.response.addinfourl(io.BytesIO(body), headers, request.full_url,
-                                                 status if first else 200)
-            response.msg = 'Synthetic response'
-            self.addCleanup(response.close)
+            response = requests.Response()
+            response.status_code = status if len(seen) == 1 else 200
+            response.url, response.reason, response.request = prepared.url, 'Synthetic response', prepared
+            if location:
+                response.headers['Location'] = location
+            response.raw = HTTPResponse(io.BytesIO(body), preload_content=False)
+            responses.append(response)
             return response
 
-        # 只换掉面向套接字的两个处理器，重定向走真实的 urllib 机制。
-        with patch('urllib.request._opener', None), patch('urllib.request.getproxies', dict), \
-                patch.object(urllib.request.HTTPHandler, 'http_open', respond), \
-                patch.object(urllib.request.HTTPSHandler, 'https_open', respond):
-            text = qwen_setup.probe({'base_url': self.BASE, 'api_key': 'SYNTHETIC-KEY', 'model': model})
+        # 替换 Requests 的实际发送边界；跳转拒绝、正文解析和认证头仍走生产路径。
+        with patch('socket.getaddrinfo', side_effect=AssertionError('unexpected real DNS')), \
+                patch('socket.socket.connect', side_effect=AssertionError('unexpected real network')), \
+                patch.object(requests.adapters.HTTPAdapter, 'send', respond):
+            with self.assertRaisesRegex(AssertionError, 'unexpected real DNS'):
+                socket.getaddrinfo('provider.invalid', 443)
+            with socket.socket() as connection:
+                with self.assertRaisesRegex(AssertionError, 'unexpected real network'):
+                    connection.connect(('127.0.0.1', 443))
+            try:
+                with patch.dict('os.environ', {'DRAMA_SUPPRESS_NETWORK': '0'}):
+                    text = qwen_setup.probe({'base_url': self.BASE, 'api_key': 'SYNTHETIC-KEY', 'model': model})
+            finally:
+                for response in responses:
+                    response.close()
+        self.assertTrue(seen, 'probe must reach the actual Requests send seam')
+        self.assertTrue(all(response.raw.closed for response in responses))
         return text, seen
 
     def test_a_redirect_is_not_followed_with_the_key(self):

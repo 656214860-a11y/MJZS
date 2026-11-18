@@ -1,0 +1,15 @@
+{
+  "round": 3360,
+  "commit_base": "9e3d1924",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k storage desktop_startup_perf exit_maintenance secret_status_diagnostics l1_lost_update",
+    "exit": 1,
+    "passed": 81,
+    "failed": 1
+  },
+  "generated_at": "2026-11-18T19:06:22"
+}

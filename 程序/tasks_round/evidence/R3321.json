@@ -1,0 +1,15 @@
+{
+  "round": 3321,
+  "commit_base": "72caf20b",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k platform_tools l1_transport_requests desktop_startup_perf force_quit exit_maintenance model_manager_actions ui_motion_perf ui_edges_tables",
+    "exit": 1,
+    "passed": 133,
+    "failed": 1
+  },
+  "generated_at": "2026-11-18T11:32:14"
+}

@@ -351,6 +351,31 @@ class DesktopStartupPerfTests(unittest.TestCase):
             except tk.TclError:
                 pass
 
+    def test_opened_project_roots_are_deduplicated_for_exit_without_starting_sweep(self):
+        """启动、重复打开与切项目只保留退出清扫快照，不派发后台遍历。"""
+        import infra.temporary_sweep as temporary_sweep
+        window = tk.Tk()
+        desktop = None
+        try:
+            with tempfile.TemporaryDirectory(prefix='desktop-sweep-exit-') as temporary:
+                app, project = self._startup_app(temporary, remembered=True)
+                with mock.patch.object(temporary_sweep, 'schedule_stale_temporary_sweep') as sweep:
+                    desktop = Desktop(window, root=app)
+                    self.assertTrue(self._pump_until(
+                        window, lambda: window._desktop_startup_settled,
+                        time.perf_counter() + 2))
+                    other = Path(temporary) / '外部项目'; other.mkdir()
+                    (other / 'config.json').write_text('{}', encoding='utf-8')
+                    desktop.load(other)
+                    desktop.load(other)
+                    desktop.load(None)
+                    self.assertEqual(desktop._temporary_sweep_roots, {project, other})
+                    sweep.assert_not_called()
+        finally:
+            if desktop is not None:
+                desktop.cancel_timers()
+            window.destroy()
+
     def test_real_project_page_callback_is_interactive(self):
         try:
             window = tk.Tk()
@@ -602,9 +627,7 @@ class DesktopStartupPerfTests(unittest.TestCase):
         self.assertTrue(all(isinstance(item, Diagnostic) for item in items))
 
     def test_project_open_defers_stale_temporary_sweep(self):
-        """R3309：打开项目不得在启动窗口内同步起清扫线程——其 os.walk 会撞上
-        「窗口出现到可交互之间零递归扫描」（规则 33），清扫须延到稳定后由
-        调度器回调触发，而不是 load() 内直接起线程。"""
+        """打开项目始终零清扫；退出销毁窗口后才维护明确打开过的项目。"""
         try:
             window = tk.Tk()
         except tk.TclError as exc:
@@ -629,14 +652,36 @@ class DesktopStartupPerfTests(unittest.TestCase):
                         pending.append((delay, callback))
                     return timer
                 window.after = recording_after
-                with mock.patch('infra.temporary_sweep.schedule_stale_temporary_sweep') as sweep:
+                import infra.storage_maintenance as storage
+                name = 'draft.' + 'a' * 32 + '.tmp'
+                stale = project / name
+                stale.write_text('old', encoding='utf-8')
+                old = time.time() - 25 * 3600
+                os.utime(stale, (old, old))
+                with mock.patch('infra.temporary_sweep.schedule_stale_temporary_sweep') as sweep, \
+                     mock.patch('infra.temporary_sweep.os.walk', side_effect=AssertionError('opening scanned')):
                     desktop.load(project)
                     sweep.assert_not_called()
                     jobs = [callback for _delay, callback in pending
                             if getattr(callback, '__name__', '') == 'start_stale_temporary_sweep']
-                    self.assertEqual(len(jobs), 1)
-                    jobs[0]()
-                    sweep.assert_called_once_with(project)
+                    self.assertEqual(jobs, [])
+                    self.assertTrue(stale.exists())
+                window.after = real_after
+                real_after = None
+                def exit_cleanup(_app, *, temporary_projects, **_options):
+                    with self.assertRaises(tk.TclError):window.winfo_exists()
+                    argv = ['storage_maintenance.py', '--cleanup']
+                    for root in temporary_projects:argv.extend(['--temporary-project', str(root)])
+                    with mock.patch.object(storage.time, 'sleep'), \
+                         mock.patch.object(storage, 'downloads_root', return_value=project / 'missing-library'), \
+                         mock.patch('infra.diagnostic_capture.record_temporary_sweep') as record, \
+                         mock.patch.object(sys, 'argv', argv):
+                        storage.main()
+                    record.assert_called_once_with(1, 0)
+                with mock.patch('orchestrator.exit_maintenance.launch_cleanup', side_effect=exit_cleanup) as cleanup:
+                    desktop.finish_close()
+                cleanup.assert_called_once()
+                self.assertFalse(stale.exists())
         finally:
             if real_after is not None:
                 window.after = real_after

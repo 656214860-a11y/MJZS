@@ -214,6 +214,22 @@ class QuitTests(unittest.TestCase):
         subject.win = SimpleNamespace(destroy=lambda: events.append('destroy'))
         return subject, events
 
+    def test_opened_project_snapshot_is_captured_before_destroy_and_forwarded(self):
+        from unittest.mock import patch
+        roots = {Path('external-first'), Path('external-second')}
+        for forcing in (False, True):
+            subject, events = self.maintenance_subject(forcing=forcing)
+            subject._temporary_sweep_roots = roots.copy()
+            def destroy():
+                events.append('destroy')
+                subject._temporary_sweep_roots.clear()
+            subject.win.destroy = destroy
+            with patch('orchestrator.exit_maintenance.launch_cleanup') as launch:
+                self.desktop.Desktop.finish_close(subject)
+            self.assertEqual(events, ['destroy'])
+            self.assertEqual(set(launch.call_args.kwargs['temporary_projects']), roots)
+            self.assertEqual(launch.call_args.kwargs['forced'], forcing)
+
     def test_maintenance_order_after_window_destroy(self):
         subject, events = self.maintenance_subject()
         self.desktop.Desktop.finish_close(subject)

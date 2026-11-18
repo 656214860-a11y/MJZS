@@ -152,13 +152,29 @@ class DiagnosticCapturePreviewTests(unittest.TestCase):
         outside.parent.mkdir(parents=True)
         outside.write_text('用户的剧本正文不算诊断', encoding='utf-8')
         self.error.write_text('boom', encoding='utf-8')
-        output = diagnostic_capture.export(Path(self.temp.name) / 'bundle.zip')
+        # 此例只验证程序日志白名单；产物读取计数由单独用例显式提供。
+        with patch.object(diagnostic_capture.artifact_schema, 'read_state_counts', return_value={}):
+            output = diagnostic_capture.export(Path(self.temp.name) / 'bundle.zip')
         with zipfile.ZipFile(output) as archive:
             names = archive.namelist()
             text = '\n'.join(archive.read(n).decode('utf-8') for n in names)
         self.assertEqual(sorted(n for n in names if n != 'manifest.json'),
                          ['logs/启动错误.log'])
         self.assertNotIn('用户的剧本正文', text)
+
+    def test_export_includes_only_explicit_artifact_state_diagnostic_and_logs(self):
+        self.error.write_text('boom', encoding='utf-8')
+        counts = {'script_manifest': {'legacy': 1}}
+        with patch.object(diagnostic_capture.artifact_schema, 'read_state_counts', return_value=counts):
+            output = diagnostic_capture.export(Path(self.temp.name) / 'bundle.zip')
+        with zipfile.ZipFile(output) as archive:
+            self.assertEqual(sorted(archive.namelist()),
+                             ['logs/diagnostics/latest.json', 'logs/启动错误.log', 'manifest.json'])
+            state = json.loads(archive.read('logs/diagnostics/latest.json'))
+            manifest = json.loads(archive.read('manifest.json'))
+        self.assertEqual(state['artifact_versions'], counts)
+        self.assertEqual(sorted(manifest['included']),
+                         ['logs/diagnostics/latest.json', 'logs/启动错误.log'])
 
 
 class ModelDiagnosticsScrubTests(unittest.TestCase):
