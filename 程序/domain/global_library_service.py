@@ -14,7 +14,8 @@ from pathlib import Path, PureWindowsPath
 
 import contract.stage_layout as stage_layout
 from agent.core import copy_file_new, save_text
-from infra import file_index
+import infra.app_logging as app_logging
+from infra import file_index, unit_of_work
 
 SHARED_SUB = '全局素材库'
 SOURCE_MANIFEST = '素材来源.json'
@@ -115,14 +116,26 @@ def copy_to_project(library, relative_path, project, *, saver=None):
     with _source_lock:
         target = _copy_file(source, root, relative)
         identity = _identity(target)
+        # 来源登记与两份索引同进退；取消与进程中断也由事务 journal 恢复（R3310 轮 6）。
+        # 副本本体不走事务删除：它是用户可见新文件，仍按身份核对后经回收站受控清理。
+        token = unit_of_work.begin((manifest, file_index.index_path(project),
+                                    file_index.origin_path(project)))
         try:
             _checked(manifest, project)
             _record_source(project, relative.as_posix(), library,
                            target.relative_to(root).as_posix(), saver=saver)
             file_index.update(project, [target])
             file_index.record_origin(project, [target], '用户上传')
-        except Exception:
-            _rollback(project, target, identity)
+            unit_of_work.commit(token)
+        except BaseException:
+            try:
+                unit_of_work.rollback(token)
+            except Exception:
+                app_logging.swallowed('global_library_service.copy_to_project.rollback')
+            try:
+                _rollback(project, target, identity)
+            except Exception:
+                app_logging.swallowed('global_library_service.copy_to_project.recycle')
             raise
     return target
 
@@ -134,10 +147,21 @@ def copy_to_library(project, relative_path, library):
     source = _source(project, relative)
     target = _copy_file(source, library, relative)
     identity = _identity(target)
+    # 全局索引与副本登记同进退；取消与进程中断也由事务 journal 恢复（R3310 轮 6）。
+    # 副本本体不走事务删除：它是用户可见新文件，仍按身份核对后经回收站受控清理。
+    token = unit_of_work.begin((file_index.global_index_path(library),))
     try:
         file_index.rebuild_global(library)
-    except Exception:
-        _rollback(library, target, identity)
+        unit_of_work.commit(token)
+    except BaseException:
+        try:
+            unit_of_work.rollback(token)
+        except Exception:
+            app_logging.swallowed('global_library_service.copy_to_library.rollback')
+        try:
+            _rollback(library, target, identity)
+        except Exception:
+            app_logging.swallowed('global_library_service.copy_to_library.recycle')
         raise
     return target
 

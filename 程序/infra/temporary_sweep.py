@@ -27,11 +27,17 @@ def is_stale_temporary_name(name):
     return bool(_TEMP_NAME_RE.search(name))
 
 
-def sweep_stale_temporary_files(root, *, now=None, max_age_seconds=TEMP_SWEEP_MAX_AGE_SECONDS):
-    """删除项目内超过时限的遗留临时文件，返回删除数；单个失败跳过不挡其余。"""
+def sweep_stale_temporary_files(root, *, now=None, max_age_seconds=TEMP_SWEEP_MAX_AGE_SECONDS,
+                                stats=None):
+    """删除项目内超过时限的遗留临时文件，返回删除数；单个失败跳过不挡其余。
+
+    ``stats`` 传入 dict 时回填 ``remaining``＝超期但未删净的文件数（供启动自检
+    读取，不在检查项里现场扫目录）。
+    """
     root = Path(root)
     cutoff = (time.time() if now is None else float(now)) - float(max_age_seconds)
     removed = 0
+    remaining = 0
     for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
         dirnames[:] = [d for d in dirnames if not os.path.islink(os.path.join(dirpath, d))]
         for name in filenames:
@@ -39,10 +45,16 @@ def sweep_stale_temporary_files(root, *, now=None, max_age_seconds=TEMP_SWEEP_MA
                 continue
             target = Path(dirpath) / name
             try:
-                if target.stat().st_mtime < cutoff and file_cache.remove_temporary_file(target):
+                if target.stat().st_mtime >= cutoff:
+                    continue
+                if file_cache.remove_temporary_file(target):
                     removed += 1
+                elif target.exists():
+                    remaining += 1
             except OSError:
                 continue
+    if stats is not None:
+        stats['remaining'] = remaining
     return removed
 
 
@@ -52,7 +64,13 @@ def schedule_stale_temporary_sweep(root):
 
     def work():
         try:
-            removed = sweep_stale_temporary_files(target)
+            stats = {}
+            removed = sweep_stale_temporary_files(target, stats=stats)
+            try:
+                from infra import diagnostic_capture
+                diagnostic_capture.record_temporary_sweep(removed, stats.get('remaining', 0))
+            except Exception:
+                app_logging.swallowed()
             if removed:
                 logging.getLogger(__name__).info('遗留临时文件清扫完成：%s 删除 %d 个', target, removed)
         except Exception:

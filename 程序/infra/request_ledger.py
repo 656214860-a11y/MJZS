@@ -87,6 +87,7 @@ def _sweep_stale_reserved(entries, clock):
             if 'money_state' in entry:
                 entry['money_state'] = 'unknown'
             entry['settled_at'] = now
+            entry['unknown_via'] = 'stale-reserved'
 
 
 @contextmanager
@@ -138,11 +139,12 @@ def _settle_lock_timeout(ledger, request_id, exc):
             if 'money_state' in entry:
                 entry['money_state'] = 'unknown'
             entry['settled_at'] = ledger._stamp(None)
+            entry['unknown_via'] = 'settle-lock-timeout'
     except Exception:
         app_logging.swallowed()
     try:
         from infra import diagnostic_capture
-        diagnostic_capture.record_degradation(exc, stage='request-ledger')
+        diagnostic_capture.record_degradation(exc, stage='request-ledger', error_code='E-IO-WRITE')
     except Exception:
         app_logging.swallowed()
 

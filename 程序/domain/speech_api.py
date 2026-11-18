@@ -15,9 +15,11 @@ import base64
 import json
 import queue
 import threading
+import time
 from pathlib import Path
 from urllib.parse import urlparse
 
+import infra.business_log as business_log
 import infra.file_cache as file_cache
 import contract.platform_tools as platform_tools
 
@@ -332,27 +334,35 @@ def create_session(settings, *, connect=None):
     但降级到云端时原样传递。离线引擎不可用且已配云端密钥时，``OfflineAsrSession``
     内部自动降级并先发一条 ``('log', ...)`` 通知。
     """
-    settings = settings or read_settings()
-    dictionary = read_dictionary()
-    if (settings.get('backend') or 'offline') != 'offline':
-        session = RealtimeSession(settings, connect=connect)
-    else:
-        import domain.offline_asr_client as offline_asr_client
-        hotwords = hotword_text(dictionary)
-        if hotwords:
-            settings = dict(settings)
-            offline = dict(settings.get('offline') or {})
-            existing = str(offline.get('hotword') or '').strip()
-            offline['hotword'] = ' '.join(part for part in (existing, hotwords) if part)
-            settings['offline'] = offline
-        fallback = None
-        if api_key(settings):
-            fallback = lambda merged: RealtimeSession(merged, connect=connect)
-        session = offline_asr_client.OfflineAsrSession(settings, fallback=fallback)
-    replace = dictionary.get('replace') or {}
-    if replace:
-        return _DictionarySession(session, replace)
-    return session
+    started = time.perf_counter()
+    outcome = 'error'
+    try:
+        settings = settings or read_settings()
+        dictionary = read_dictionary()
+        if (settings.get('backend') or 'offline') != 'offline':
+            session = RealtimeSession(settings, connect=connect)
+        else:
+            import domain.offline_asr_client as offline_asr_client
+            hotwords = hotword_text(dictionary)
+            if hotwords:
+                settings = dict(settings)
+                offline = dict(settings.get('offline') or {})
+                existing = str(offline.get('hotword') or '').strip()
+                offline['hotword'] = ' '.join(part for part in (existing, hotwords) if part)
+                settings['offline'] = offline
+            fallback = None
+            if api_key(settings):
+                fallback = lambda merged: RealtimeSession(merged, connect=connect)
+            session = offline_asr_client.OfflineAsrSession(settings, fallback=fallback)
+        replace = dictionary.get('replace') or {}
+        if replace:
+            session = _DictionarySession(session, replace)
+        outcome = 'ok'
+        return session
+    finally:
+        # 后端与密钥不进字段；只记成败与耗时。
+        business_log.log_event('speech_api.create_session', outcome=outcome,
+                               cost_ms=round((time.perf_counter() - started) * 1000.0, 1))
 
 
 def endpoint(settings):

@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
 """模型网关可靠性的零依赖单元测试：准入、Retry-After、流式生命周期与响应信封。"""
-import io
 import gzip
+import io
+import os
 import tempfile
 import unittest
-import urllib.request
 from email.message import Message
 from pathlib import Path
 from unittest.mock import patch
+
+import requests
+import urllib3
 
 import infra.model_pool as model_pool
 import infra.model_router as model_router
@@ -43,14 +46,19 @@ class StreamLifecycleTests(unittest.TestCase):
     def stream(self, body):
         seen = []
 
-        def respond(handler, request):
-            response = urllib.response.addinfourl(io.BytesIO(body), Message(), request.full_url, 200)
-            response.msg = 'OK'
-            self.addCleanup(response.close)
+        def send(self, request, **kwargs):
+            response = requests.Response()
+            response.status_code = 200
+            response.reason = 'OK'
+            response.url = request.url
+            response.headers = requests.structures.CaseInsensitiveDict({})
+            response.raw = urllib3.HTTPResponse(body=io.BytesIO(body),
+                                               preload_content=False, decode_content=False)
+            response.request = request
             return response
 
-        with patch('urllib.request._opener', None), \
-                patch.object(urllib.request.HTTPSHandler, 'https_open', respond):
+        # 出站已收敛 RequestsJsonOpener（requests 栈）：替换适配器 send，不再经 urllib Handler。
+        with patch.dict(os.environ, {'DRAMA_SUPPRESS_NETWORK': '0', 'NO_PROXY': '*'}),                 patch('requests.adapters.HTTPAdapter.send', send):
             result = model_pool.http_stream(
                 'https://provider.invalid/v1/chat/completions',
                 {'model': 'm', 'messages': []}, {}, 3, seen.append)

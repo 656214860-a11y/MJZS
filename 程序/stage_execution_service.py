@@ -98,10 +98,9 @@ def import_delivery_master(project, source, *, settings_snapshot=None, cache=Non
 def local_video_settings_gateway():
     """L3 为本地视频设置服务注入唯一的发布与回滚能力。"""
     import shutil
-    from agent.core import save, save_bytes
+    from agent.core import replace, save, save_bytes
     return {'publish_json': save, 'publish_bytes': save_bytes,
-            'copy_file': shutil.copy2,
-            'replace_file': lambda source, target: Path(source).replace(target),
+            'copy_file': shutil.copy2, 'replace_file': replace,
             'published': file_cache.published}
 
 

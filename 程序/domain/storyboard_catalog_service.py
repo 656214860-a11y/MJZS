@@ -5,7 +5,10 @@
 """
 import os
 import re
+import time
 from pathlib import Path
+
+import infra.business_log as business_log
 from contract.project_context import ProjectContext
 
 
@@ -439,12 +442,19 @@ def catalog(context, kind, ignored=IGNORED, completed=None):
 
 def catalog_snapshot(context, ignored=IGNORED):
     """Read both catalogs once, including previews and the completed-script set."""
-    context = _context(context)
-    sources = {}
-    boards = _catalog(context, 'storyboard', ignored, sources=sources, previews=True)
-    completed = {sources[entry['path']] for entry in boards} - {None}
-    scripts = _catalog(context, 'script', ignored, completed=completed, previews=True)
-    return {'script': scripts, 'storyboard': boards, 'completed_scripts': completed}
+    started = time.perf_counter()
+    outcome = 'error'
+    try:
+        context = _context(context)
+        sources = {}
+        boards = _catalog(context, 'storyboard', ignored, sources=sources, previews=True)
+        completed = {sources[entry['path']] for entry in boards} - {None}
+        scripts = _catalog(context, 'script', ignored, completed=completed, previews=True)
+        outcome = 'ok'
+        return {'script': scripts, 'storyboard': boards, 'completed_scripts': completed}
+    finally:
+        business_log.log_event('storyboard_catalog.snapshot', outcome=outcome,
+                               cost_ms=round((time.perf_counter() - started) * 1000.0, 1))
 
 
 def _catalog(context, kind, ignored, *, completed=None, sources=None, previews=False):

@@ -134,11 +134,39 @@ class BlenderDiscoveryTests(_Base):
              patch('white_model_service.shutil.which', return_value=None):
             self.assertEqual(wm.find_blender(), exe)
 
-    def test_legacy_drives_stay_in_the_candidate_list(self):
-        with self.env():
+    def test_candidates_have_no_fixed_drive_letter_fallbacks(self):
+        """R3320 规则 12：候选清单不再内置 D:/E: 盘符兜底，只来自配置/PATH/Program Files。"""
+        exe = self.root / 'tools' / 'blender.exe'
+        exe.parent.mkdir(parents=True, exist_ok=True)
+        exe.write_bytes(b'MZ')
+        with self.env(),              patch('white_model_service.shutil.which', return_value=str(exe)),              patch.dict(os.environ, {'ProgramFiles': str(self.root / 'no-pf'),
+                                     'ProgramFiles(x86)': str(self.root / 'no-pf-x86')}):
             candidates = wm.blender_candidates()
-        self.assertIn(Path('E:/Blender/blender.exe'), candidates)
-        self.assertIn(Path('D:/Blender/blender.exe'), candidates)
+        self.assertEqual(candidates, [Path(str(exe))])
+        self.assertNotIn(Path('D:/Blender/blender.exe'), candidates)
+        self.assertNotIn(Path('E:/Blender/blender.exe'), candidates)
+
+    def test_path_discovery_finds_blender_without_drive_letters(self):
+        """PATH 上的 blender 照常被探测（不再依赖盘符兜底）。"""
+        exe = self.root / 'tools' / 'blender.exe'
+        exe.parent.mkdir(parents=True, exist_ok=True)
+        exe.write_bytes(b'MZ')
+        with self.env(),              patch('white_model_service.shutil.which', return_value=str(exe)),              patch.dict(os.environ, {'ProgramFiles': str(self.root / 'no-pf'),
+                                     'ProgramFiles(x86)': str(self.root / 'no-pf-x86')}):
+            self.assertEqual(wm.find_blender(refresh=True), Path(str(exe)))
+
+    def test_program_files_discovery_finds_blender_without_drive_letters(self):
+        """Program Files 下的 Blender Foundation 版本目录照常被 glob 探测。"""
+        pf = self.root / 'Program Files'
+        exe = pf / 'Blender Foundation' / '4.2' / 'blender.exe'
+        exe.parent.mkdir(parents=True, exist_ok=True)
+        exe.write_bytes(b'MZ')
+        with self.env(),              patch('white_model_service.shutil.which', return_value=None),              patch.dict(os.environ, {'ProgramFiles': str(pf),
+                                     'ProgramFiles(x86)': str(self.root / 'no-pf-x86')}):
+            candidates = wm.blender_candidates()
+            self.assertEqual(wm.find_blender(refresh=True), exe)
+        self.assertNotIn(Path('D:/Blender/blender.exe'), candidates)
+        self.assertNotIn(Path('E:/Blender/blender.exe'), candidates)
 
     def test_path_scan_runs_once_between_refreshes(self):
         with self.env(), patch('white_model_service.shutil.which', return_value=None) as which:

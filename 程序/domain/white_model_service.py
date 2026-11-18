@@ -5,10 +5,15 @@ import os
 import re
 import shutil
 import subprocess
+import threading
+import time
 import uuid
 from datetime import datetime
 from pathlib import Path
 
+import infra.app_logging as app_logging
+import infra.business_log as business_log
+from infra import unit_of_work
 from infra.file_cache import probe_writable, read_json, remove_temporary_file
 from contract.platform_tools import run_process
 from domain.project_naming import dated_path
@@ -21,6 +26,10 @@ _BASE_CACHE = {}
 _DIR_CACHE = {}
 _SETTINGS_CACHE = {}
 _VERSION_CACHE = {}
+# 六个模块级缓存共用一把可重入锁：缓存都很小，get/set/clear 复合序列必须在锁内
+# 原子完成，否则并发「判定命中→取值」与「清空/淘汰」交错会抛 KeyError/IndexError。
+# 计算（读 JSON、解析路径、探测 Blender）一律放在锁外，避免把 IO 拖进临界区。
+_CACHE_LOCK = threading.RLock()
 SETTINGS_NAME = 'white_model_settings.json'
 SETTINGS_ENV = 'MANJU_WHITE_MODEL_SETTINGS'
 WORKSPACE_ENV = 'MANJU_WHITE_MODEL_WORKSPACE'
@@ -118,12 +127,14 @@ def _base(context, space):
     """(项目身份, 基目录)：有身份用项目 UUID，没有身份退回旧目录名。"""
     project = _context(context).root
     key = (str(space), str(project))
-    cached = _BASE_CACHE.get(key)
+    with _CACHE_LOCK:
+        cached = _BASE_CACHE.get(key)
     if cached is None:
         identity = project_identity(project)
         cached = (identity, (space / (identity or project.name)).resolve())
-        if len(_BASE_CACHE) >= 1024: _BASE_CACHE.clear()
-        _BASE_CACHE[key] = cached
+        with _CACHE_LOCK:
+            if len(_BASE_CACHE) >= 1024: _BASE_CACHE.clear()
+            _BASE_CACHE[key] = cached
     return project, cached
 
 
@@ -264,22 +275,35 @@ def sync_project_copy(context, sid, source, *, publish):
     from contract.stage_path_service import write_dir
     folder = write_dir(context.root, 'previs') / 'assets' / _segment(sid)
     target = folder / path.name
-    if not target.is_file() or target.stat().st_size != path.stat().st_size:
-        folder.mkdir(parents=True, exist_ok=True)
-        temporary = target.with_suffix(target.suffix + '.importing')
+    index_path = project_index_path(context, write=True)
+    need_copy = not target.is_file() or target.stat().st_size != path.stat().st_size
+    # 预演副本与项目索引同进退；取消与进程中断也由事务 journal 恢复（R3310 轮 6）。
+    # 目标已是最新时不登记它，避免给大体积视频白做一次备份。
+    token = unit_of_work.begin((target, index_path) if need_copy else (index_path,))
+    try:
+        if need_copy:
+            folder.mkdir(parents=True, exist_ok=True)
+            temporary = target.with_suffix(target.suffix + '.importing')
+            try:
+                shutil.copy2(path, temporary)
+                temporary.replace(target)
+            finally:
+                remove_temporary_file(temporary)
+        index = read_project_index(context)
+        entry = {'shot_id': str(sid), 'source': str(source) if source else '',
+                 'source_sha256': source_digest(source, sid),
+                 'preview': target.relative_to(context.root).as_posix(),
+                 'preview_bytes': target.stat().st_size,
+                 'synced_at': datetime.now().isoformat(timespec='seconds')}
+        index['shots'][str(sid)] = entry
+        publish(index_path, index)
+        unit_of_work.commit(token)
+    except BaseException:
         try:
-            shutil.copy2(path, temporary)
-            temporary.replace(target)
-        finally:
-            remove_temporary_file(temporary)
-    index = read_project_index(context)
-    entry = {'shot_id': str(sid), 'source': str(source) if source else '',
-             'source_sha256': source_digest(source, sid),
-             'preview': target.relative_to(context.root).as_posix(),
-             'preview_bytes': target.stat().st_size,
-             'synced_at': datetime.now().isoformat(timespec='seconds')}
-    index['shots'][str(sid)] = entry
-    publish(project_index_path(context, write=True), index)
+            unit_of_work.rollback(token)
+        except Exception:
+            app_logging.swallowed('white_model_service.sync_project_copy.rollback')
+        raise
     return entry
 
 
@@ -332,6 +356,9 @@ def import_previs_media(root, sid, source, *, publish):
     root.mkdir(parents=True, exist_ok=True)
     target = dated_path(root, sid + '_白模预演', source.suffix.lower())
     temporary = target.with_suffix(target.suffix + '.importing')
+    record_path = root / '预演记录.json'
+    # 媒体副本与预演记录同进退；取消与进程中断也由事务 journal 恢复（R3310 轮 6）。
+    token = unit_of_work.begin((target, record_path))
     try:
         shutil.copy2(source, temporary)
         if temporary.stat().st_size != source.stat().st_size:
@@ -341,12 +368,16 @@ def import_previs_media(root, sid, source, *, publish):
         saved.update(shot_id=sid, updated_at=datetime.now().isoformat(timespec='seconds'))
         saved[key] = str(target)
         write_record(root, saved, publish=publish)
-        return target
-    except Exception:
-        remove_temporary_file(target)
+        unit_of_work.commit(token)
+    except BaseException:
+        try:
+            unit_of_work.rollback(token)
+        except Exception:
+            app_logging.swallowed('white_model_service.import_previs_media.rollback')
         raise
     finally:
         remove_temporary_file(temporary)
+    return target
 
 
 def save_previs_notes(root, sid, notes, *, publish):
@@ -368,11 +399,13 @@ def settings_path():
 def read_settings(refresh=False):
     """读白模设置；不存在或损坏都当没有，绝不让它挡住页面。"""
     path = settings_path(); key = str(path)
-    if not refresh and key in _SETTINGS_CACHE: return _SETTINGS_CACHE[key]
+    with _CACHE_LOCK:
+        if not refresh and key in _SETTINGS_CACHE: return _SETTINGS_CACHE[key]
     data = _json_quiet(path)
     result = data if isinstance(data, dict) else {}
-    if len(_SETTINGS_CACHE) >= 256: _SETTINGS_CACHE.clear()
-    _SETTINGS_CACHE[key] = result
+    with _CACHE_LOCK:
+        if len(_SETTINGS_CACHE) >= 256: _SETTINGS_CACHE.clear()
+        _SETTINGS_CACHE[key] = result
     return result
 
 def default_workspace():
@@ -396,14 +429,16 @@ def workspace():
     """成果目录：配置优先，否则用户数据目录；按目录缓存，绝不指向 Blender 安装目录。"""
     target = configured_workspace() or default_workspace()
     key = str(target)
-    cached = _WORKSPACE_CACHE.get(key)
+    with _CACHE_LOCK:
+        cached = _WORKSPACE_CACHE.get(key)
     if cached is None:
         cached = target.resolve()
-        _WORKSPACE_CACHE.clear(); _WORKSPACE_CACHE[key] = cached
+        with _CACHE_LOCK:
+            _WORKSPACE_CACHE.clear(); _WORKSPACE_CACHE[key] = cached
     return cached
 
 def blender_candidates():
-    """候选 blender.exe，按优先级：配置 → PATH → 常见盘符 → 两个 Program Files。只读发现。"""
+    """候选 blender.exe，按优先级：配置 → PATH → 两个 Program Files。只读发现。"""
     choices = []
     settings = read_settings()
     for value in (os.environ.get(BLENDER_ENV), settings.get('blender')):
@@ -411,7 +446,7 @@ def blender_candidates():
         if text: choices.append(Path(text))
     found = shutil.which('blender')
     if found: choices.append(Path(found))
-    choices.extend([Path('D:/Blender/blender.exe'), Path('E:/Blender/blender.exe')])
+    # R3320 规则 12：不再内置 D:/E: 盘符兜底；候选只来自配置 → PATH → Program Files。
     base = Path(os.environ.get('ProgramFiles', 'C:/Program Files')) / 'Blender Foundation'
     if base.is_dir(): choices.extend(sorted(base.glob('*/blender.exe'), reverse=True))
     other = os.environ.get('ProgramFiles(x86)')
@@ -421,9 +456,11 @@ def blender_candidates():
     return choices
 
 def find_blender(refresh=False):
-    if _BLENDER_CACHE and not refresh: return _BLENDER_CACHE[0]
+    with _CACHE_LOCK:
+        if _BLENDER_CACHE and not refresh: return _BLENDER_CACHE[0]
     result = next((path for path in blender_candidates() if path.is_file()), None)
-    _BLENDER_CACHE[:] = [result]
+    with _CACHE_LOCK:
+        _BLENDER_CACHE[:] = [result]
     return result
 
 def _os_hint(exc):
@@ -451,7 +488,8 @@ def blender_version(exe, *, run=None):
     """读 blender.exe 的版本号；读不出来返回空串（版本不是可用性的前提）。"""
     if not exe: return ''
     key = str(exe)
-    if key in _VERSION_CACHE: return _VERSION_CACHE[key]
+    with _CACHE_LOCK:
+        if key in _VERSION_CACHE: return _VERSION_CACHE[key]
     text = ''
     try:
         result = run_process([key, '--version'], capture_output=True, timeout=15, run=run)
@@ -461,8 +499,9 @@ def blender_version(exe, *, run=None):
         text = ''
     match = re.search(r'Blender\s+([0-9][0-9.]*)', text)
     version = match.group(1) if match else ''
-    if len(_VERSION_CACHE) >= 64: _VERSION_CACHE.clear()
-    _VERSION_CACHE[key] = version
+    with _CACHE_LOCK:
+        if len(_VERSION_CACHE) >= 64: _VERSION_CACHE.clear()
+        _VERSION_CACHE[key] = version
     return version
 
 def legacy_workspaces(workspace_path=None):
@@ -534,12 +573,15 @@ def shot_directory(context, sid, workspace_path=None, source=None):
     parent = base if identity is None else base / episode_identity(project, sid, source)
     root = parent / sid
     if not root.is_relative_to(base): raise ValueError('镜头编号不正确')
-    key = (str(parent), str(sid)); cached = _DIR_CACHE.get(key)
+    key = (str(parent), str(sid))
+    with _CACHE_LOCK:
+        cached = _DIR_CACHE.get(key)
     if cached is not None: return cached
     resolved = root.resolve()
     if resolved == root:
-        if len(_DIR_CACHE) >= 1024: _DIR_CACHE.clear()
-        _DIR_CACHE[key] = resolved
+        with _CACHE_LOCK:
+            if len(_DIR_CACHE) >= 1024: _DIR_CACHE.clear()
+            _DIR_CACHE[key] = resolved
     return resolved
 
 
@@ -583,6 +625,20 @@ def migrate_legacy_directories(context, *, publish, workspace_path=None):
     不为搬完而藏起某个镜头。搬迁中途失败把已搬目录原样搬回，旧成果保持可用；
     全部搬完才把项目身份写进项目配置并落一份含来源版本的迁移清单。已有身份时直接返回。
     """
+    started = time.perf_counter()
+    outcome = 'error'
+    try:
+        result = _migrate_legacy_directories(context, publish=publish,
+                                             workspace_path=workspace_path)
+        outcome = 'ok'
+        return result
+    finally:
+        business_log.log_event('white_model.migrate', stage='previs',
+                               outcome=outcome,
+                               cost_ms=round((time.perf_counter() - started) * 1000.0, 1))
+
+
+def _migrate_legacy_directories(context, *, publish, workspace_path=None):
     project = _context(context).root
     space = workspace_path if workspace_path is not None else workspace()
     identity = project_identity(project)
@@ -610,26 +666,55 @@ def migrate_legacy_directories(context, *, publish, workspace_path=None):
                 / datetime.now().strftime('%Y%m%d_%H%M%S_%f') / '迁移清单.json')
     record = {'project_id': identity, 'generated_at': datetime.now().isoformat(timespec='seconds'),
               'items': plan, 'skipped': skipped}
-    if plan or skipped:
-        publish(manifest, dict(record, status='planned'))
+    config_path = Path(project) / 'config.json'
     done = []
+    # 迁移清单与项目身份配置同进退；目录搬迁不在事务原语范围，仍靠反向搬回，
+    # 但取消/中断同样触发，且回滚失败一律留日志不再静默（R3310 轮 6）。
+    token = unit_of_work.begin((manifest, config_path))
     try:
+        if plan or skipped:
+            publish(manifest, dict(record, status='planned'))
         for item in plan:
             Path(item['to']).parent.mkdir(parents=True, exist_ok=True)
             shutil.move(item['from'], item['to'])
             done.append(item)
         # 身份落盘和搬迁是同一步：写不进去就把已搬目录搬回，避免成果留在读不到的布局里。
         _publish_identity(project, publish, identity)
-    except Exception:
-        for item in reversed(done):
-            try: shutil.move(item['to'], item['from'])
-            except OSError: pass
         if plan or skipped:
-            try: publish(manifest, dict(record, status='rolled_back', moved=[item['sid'] for item in done]))
-            except OSError: pass
+            publish(manifest, dict(record, status='completed', moved=[item['sid'] for item in plan]))
+        unit_of_work.commit(token)
+    except BaseException:
+        for item in reversed(done):
+            try:
+                shutil.move(item['to'], item['from'])
+            except OSError:
+                app_logging.swallowed('white_model_service.migrate_legacy_directories.move_back')
+        try:
+            unit_of_work.rollback(token)
+        except Exception:
+            app_logging.swallowed('white_model_service.migrate_legacy_directories.rollback')
+        if plan or skipped:
+            try:
+                publish(manifest, dict(record, status='rolled_back', moved=[item['sid'] for item in done]))
+            except OSError:
+                app_logging.swallowed('white_model_service.migrate_legacy_directories.rolled_back_manifest')
         raise
-    _BASE_CACHE.clear(); _DIR_CACHE.clear()
-    if plan or skipped:
-        publish(manifest, dict(record, status='completed', moved=[item['sid'] for item in plan]))
+    with _CACHE_LOCK:
+        _BASE_CACHE.clear(); _DIR_CACHE.clear()
     return {'project_id': identity, 'moved': [item['sid'] for item in plan], 'skipped': skipped,
             'manifest': str(manifest) if (plan or skipped) else None}
+
+
+def _reset_caches():
+    """测试重置入口：在 ``_CACHE_LOCK`` 内清空全部六个模块级缓存。
+
+    并发回归与单测隔离需要一个「清空」动作与读写路径走同一把锁，
+    裸 ``.clear()`` 会绕过锁、在复合序列中间插入，正是本锁要消除的竞态。
+    """
+    with _CACHE_LOCK:
+        _BLENDER_CACHE.clear()
+        _WORKSPACE_CACHE.clear()
+        _BASE_CACHE.clear()
+        _DIR_CACHE.clear()
+        _SETTINGS_CACHE.clear()
+        _VERSION_CACHE.clear()

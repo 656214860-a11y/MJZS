@@ -34,10 +34,11 @@ _REPLACE_REGISTERED = {
     "log_maintenance.py": 2,
     "skill_import_service.py": 2,
     "skill_registry.py": 1,
-    "stage_execution_service.py": 1,
-    "stage_asset_gateways.py": 1,
     "stage_handoff_gateways.py": 1,
     "stage_write_preparation_service.py": 3,
+    # white_model_service 的两处 temporary.replace(target) 属 L2 边界内既有形态
+    # （该模块被 test_white_model_service_json_boundary 禁止 import agent.core），
+    # 保持登记原值；R3310 只收敛了 orchestrator/stage_execution_service 的网关 lambda。
     "white_model_service.py": 2,
 }
 

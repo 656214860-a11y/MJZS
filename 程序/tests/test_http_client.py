@@ -137,6 +137,85 @@ class RequestJsonTests(unittest.TestCase):
         self.assertEqual(len(opener.calls), before)
 
 
+class RequestBytesTests(unittest.TestCase):
+    """request_bytes：与 request_json 同一传输内核，成功 data 带原始字节 ``body``。"""
+
+    def setUp(self):
+        http_client._HOST_FAILURES.clear()
+
+    def test_success_returns_raw_bytes_without_text_decoding(self):
+        body = b'\x89PNG\r\n\x1a\n\xff\xfe\x00binary'
+        opener = _Opener([_Resp(body, headers={'X-Kind': 'audio/mpeg'})])
+        result = http_client.request_bytes('GET', 'http://h/x', timeout=5, opener=opener)
+        self.assertTrue(result.ok)
+        self.assertEqual(result.data['body'], body)
+        self.assertEqual(result.data['status'], 200)
+        self.assertEqual(result.data['headers']['X-Kind'], 'audio/mpeg')
+        self.assertNotIn('text', result.data)
+        self.assertNotIn('json', result.data)
+
+    def test_payload_marks_post_and_sends_json_body(self):
+        opener = _Opener([_Resp(b'audio')])
+        result = http_client.request_bytes('POST', 'http://h/x',
+                                           payload={'input': '你好'},
+                                           headers={'Authorization': 'Bearer k'},
+                                           timeout=5, opener=opener)
+        self.assertTrue(result.ok)
+        request = opener.calls[0][0]
+        self.assertEqual(request.get_method(), 'POST')
+        self.assertEqual(json.loads(request.data.decode('utf-8')), {'input': '你好'})
+        sent = {key.lower(): value for key, value in request.header_items()}
+        self.assertEqual(sent.get('content-type'), 'application/json')
+        self.assertEqual(sent.get('authorization'), 'Bearer k')
+
+    def test_post_never_retries_by_default(self):
+        opener = _Opener([_http_error(500), _Resp(b'ok')])
+        result = http_client.request_bytes('POST', 'http://h/x', payload={'a': 1},
+                                           timeout=5, retries=3, opener=opener,
+                                           sleep=lambda s: None)
+        self.assertFalse(result.ok)
+        self.assertEqual(len(opener.calls), 1)
+        self.assertEqual(code_of(result), 'E-NET-SERVER')
+
+    def test_http_error_classifies_with_status_and_body(self):
+        opener = _Opener([_http_error(429, b'{"error": "slow down"}')])
+        result = http_client.request_bytes('POST', 'http://h/x', payload={},
+                                           timeout=5, opener=opener)
+        self.assertFalse(result.ok)
+        self.assertEqual(code_of(result), 'E-NET-RATE-LIMIT')
+        self.assertEqual(result.data['status'], 429)
+        self.assertIn('slow down', result.data['error_body'])
+
+    def test_timeout_and_unreachable_classify(self):
+        opener = _Opener([TimeoutError('timed out'), urllib.error.URLError('connection refused')])
+        first = http_client.request_bytes('GET', 'http://h/x', timeout=5, opener=opener)
+        second = http_client.request_bytes('GET', 'http://h/y', timeout=5, opener=opener)
+        self.assertEqual(code_of(first), 'E-NET-TIMEOUT')
+        self.assertEqual(code_of(second), 'E-NET-UNREACHABLE')
+
+    def test_body_over_limit_rejected(self):
+        opener = _Opener([_Resp(b'x' * 100)])
+        result = http_client.request_bytes('GET', 'http://h/x', timeout=5,
+                                           max_bytes=10, opener=opener)
+        self.assertFalse(result.ok)
+        self.assertIn('上限', result.data['error_body'])
+
+    def test_circuit_breaker_shared_across_entry_points(self):
+        opener = _Opener([urllib.error.URLError('down')] * 10)
+        for _ in range(http_client._CIRCUIT_THRESHOLD):
+            http_client.request_bytes('GET', 'http://cb-shared/x', timeout=1, opener=opener)
+        before = len(opener.calls)
+        blocked = http_client.request_bytes('GET', 'http://cb-shared/x', timeout=1, opener=opener)
+        blocked_json = http_client.request_json('GET', 'http://cb-shared/x', timeout=1, opener=opener)
+        self.assertEqual(code_of(blocked), 'E-NET-UNREACHABLE')
+        self.assertEqual(code_of(blocked_json), 'E-NET-UNREACHABLE')
+        self.assertEqual(len(opener.calls), before)
+
+    def test_timeout_is_mandatory(self):
+        with self.assertRaises(TypeError):
+            http_client.request_bytes('GET', 'http://h/x')
+
+
 class RequestsTransportTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -170,6 +249,9 @@ class RequestsTransportTests(unittest.TestCase):
                 elif path == '/gzip':
                     data = gzip.compress(b'x' * 100000)
                     headers['Content-Encoding'] = 'gzip'
+                elif path == '/audio':
+                    # 含非法 UTF-8 字节的二进制响应：request_bytes 必须原样返回，不能经文本解码。
+                    status, data = 200, b'\x00\xff\xfe\x89PNG-audio-bytes'
                 self.send_response(status)
                 for name, value in headers.items():
                     self.send_header(name, value)
@@ -327,6 +409,21 @@ class RequestsTransportTests(unittest.TestCase):
         self.assertEqual(result.data['headers']['Authorization'], '[REDACTED]')
         self.assert_closed()
         self.responses[0].raw.read.assert_called_once_with(http_client.ERROR_BODY_MAX_BYTES, decode_content=True)
+
+    def test_request_bytes_returns_exact_binary_body(self):
+        result = http_client.request_bytes('GET', self.base + '/audio', timeout=1)
+        self.assertTrue(result.ok)
+        self.assertEqual(result.data['body'], b'\x00\xff\xfe\x89PNG-audio-bytes')
+        self.assertEqual(result.data['status'], 200)
+        self.assertNotIn('text', result.data)
+        self.assert_closed()
+
+    def test_request_bytes_post_carries_json_payload(self):
+        result = http_client.request_bytes('POST', self.base + '/audio',
+                                           payload={'input': '你好'}, timeout=1)
+        self.assertTrue(result.ok)
+        self.assertEqual(json.loads(self.server.calls[0][3])['input'], '你好')
+        self.assert_closed()
 
     def test_timeout_disconnect_and_read_failure_are_normalized_and_closed(self):
         for path, expected in (('/timeout', 'E-NET-TIMEOUT'), ('/read-timeout', 'E-NET-TIMEOUT'),

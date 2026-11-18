@@ -12,8 +12,12 @@
 这一份只做文件与人话：不碰 Tk、不发网络。问模型那一趟由界面注入（自检传假函数），离线可跑。
 """
 import re
+import time
 from collections import namedtuple
 from pathlib import Path
+import infra.app_logging as app_logging
+import infra.business_log as business_log
+from infra import unit_of_work
 from domain.idea_script_heuristic import looks_like_script
 from contract.project_context import ProjectContext
 from contract.script_contract import INLINE_REQUIRED_LABELS, PRODUCTION_LOCK_DEFINITIONS, stage_lock_requirements, stage_lock_definitions
@@ -524,71 +528,87 @@ def receive_brief(root, text, workflow=None, lock_definitions=(), *, gateway=Non
     if not value:
         raise ValueError('请先输入创意')
     gateway = _require_gateway(gateway)
-    if inline_text is None:
-        raw_path = _append_raw_brief(root, value, gateway=gateway)
-        raw = raw_path.read_text(encoding='utf-8')
-    else:
-        # 当前模板优先；发送启动成功后由调用方覆盖保存，失败不吞掉上一份简报。
-        raw_path = brief_raw_path(root)
-        raw = strip_inline_required_markers(inline_text)
-    extraction_text = '\n'.join((_brief_source_text(root, raw, gateway=gateway),
-                                 *(attachment_reference or {}).get('brief_texts', ())))
-    lock_sources = [raw, *(attachment_reference or {}).get('brief_texts', ())]
-    if inline_text is not None:
-        values = extract_brief_creation(raw, extra_labels=inline_template_labels(raw), include_extra=True)
-        missing = inline_required_missing(inline_template, raw, tuple(values), stage=None, lock_definitions=lock_definitions) if inline_template is not None else ()
-        current = '\n'.join(label + '：' + ' '.join(value.splitlines()) for label, value in values.items()
-                            if value.strip() and label not in missing)
-        lock_sources = [current, *(attachment_reference or {}).get('brief_texts', ())]
-        extraction_text = '\n'.join(lock_sources)
-    fields = _brief_fields(extraction_text)
-    workflow = dict(workflow or {})
-    selected_locks = {}
-    name = str(workflow.get('name') or '').strip()
-    # 已同步附档与手动配置优先于历史简报；本轮明确填写仍可覆盖。
-    # R2862：配置锁直接读项目 production_locks（含旧 workflow.lock 命名空间回退），不再由调用方透传。
-    import infra.stage_model_value as stage_model_value
-    project_root = root if isinstance(root, (str, Path)) else getattr(root, 'root', None)
-    configured = (stage_model_value.production_locks(project_root) if project_root
-                  else {}) or (workflow.get('lock') or {}).get(name, {})
-    for item in lock_definitions:
-        labels = (item['label'], *item.get('aliases', ()), item['key'])
-        selected_locks[item['key']] = (_brief_value(str(text or ''), labels)
-            or configured.get(item['key'], '')
-            or next((value for source in lock_sources
-                     if (value := _brief_value(source, labels))), ''))
-    fields['production_locks'] = {key: value for key, value in selected_locks.items() if value}
-    from contract.script_contract import validate_production_locks
-    validate_production_locks(fields['production_locks'])
-    from contract.script_contract import brief_document, missing_brief_fields
-    missing_locks = tuple(item for item in lock_definitions
-                          if item['key'] in stage_lock_requirements(stage, created_at)
-                          and not selected_locks.get(item['key']))
-    missing = missing_brief_fields(fields) + tuple(item['key'] for item in missing_locks)
-    followup = brief_followup(fields)
-    if missing_locks:
-        followup += ('\n' if followup else '') + '请补充本阶段制作锁：' + '、'.join(item['label'] for item in missing_locks) + '。'
-    result = {'raw_path': raw_path, 'fields': fields, 'missing': missing,
-              'followup': followup, 'complete_path': None,
-              'attachment_notice': BRIEF_ATTACHMENT_NOTICE if (attachment_reference or {}).get('brief_unreadable') else ''}
-    if missing:
-        return result
-    document = brief_document(fields)
-    # 统筹锁在简报和项目投影中各保留一份：前者供人/模型阅读，后者供页面程序查询。
-    if name:
-        locks = fields['production_locks']
-        if locks:
-            document['brief']['production_locks'] = locks
-            document['recommended_missing'] = [item for item in document['recommended_missing']
-                                               if item != 'production_locks']
-        namespaces = dict(workflow.get('lock') or {})
-        namespaces[name] = locks
-        workflow['lock'] = namespaces
-    path = brief_complete_path(root)
-    gateway['publish_json'](path, document)
-    result['complete_path'] = path
-    # L2 只形成投影数据；L4 调用方经 stage_config 的原子写入口落盘，避免领域服务反向依赖阶段编排层。
-    result['workflow_projection'] = workflow if name else None
+    raw_path = brief_raw_path(root)
+    complete_path = brief_complete_path(root)
+    started = time.perf_counter()
+    outcome = 'error'
+    # 原始简报与完整简报同进退：第二写失败或取消时第一写也恢复（R3310 轮 6）。
+    token = unit_of_work.begin((raw_path, complete_path))
+    try:
+        if inline_text is None:
+            _append_raw_brief(root, value, gateway=gateway)
+            raw = raw_path.read_text(encoding='utf-8')
+        else:
+            # 当前模板优先；发送启动成功后由调用方覆盖保存，失败不吞掉上一份简报。
+            raw = strip_inline_required_markers(inline_text)
+        extraction_text = '\n'.join((_brief_source_text(root, raw, gateway=gateway),
+                                     *(attachment_reference or {}).get('brief_texts', ())))
+        lock_sources = [raw, *(attachment_reference or {}).get('brief_texts', ())]
+        if inline_text is not None:
+            values = extract_brief_creation(raw, extra_labels=inline_template_labels(raw), include_extra=True)
+            missing = inline_required_missing(inline_template, raw, tuple(values), stage=None, lock_definitions=lock_definitions) if inline_template is not None else ()
+            current = '\n'.join(label + '：' + ' '.join(value.splitlines()) for label, value in values.items()
+                                if value.strip() and label not in missing)
+            lock_sources = [current, *(attachment_reference or {}).get('brief_texts', ())]
+            extraction_text = '\n'.join(lock_sources)
+        fields = _brief_fields(extraction_text)
+        workflow = dict(workflow or {})
+        selected_locks = {}
+        name = str(workflow.get('name') or '').strip()
+        # 已同步附档与手动配置优先于历史简报；本轮明确填写仍可覆盖。
+        # R2862：配置锁直接读项目 production_locks（含旧 workflow.lock 命名空间回退），不再由调用方透传。
+        import infra.stage_model_value as stage_model_value
+        project_root = root if isinstance(root, (str, Path)) else getattr(root, 'root', None)
+        configured = (stage_model_value.production_locks(project_root) if project_root
+                      else {}) or (workflow.get('lock') or {}).get(name, {})
+        for item in lock_definitions:
+            labels = (item['label'], *item.get('aliases', ()), item['key'])
+            selected_locks[item['key']] = (_brief_value(str(text or ''), labels)
+                or configured.get(item['key'], '')
+                or next((value for source in lock_sources
+                         if (value := _brief_value(source, labels))), ''))
+        fields['production_locks'] = {key: value for key, value in selected_locks.items() if value}
+        from contract.script_contract import validate_production_locks
+        validate_production_locks(fields['production_locks'])
+        from contract.script_contract import brief_document, missing_brief_fields
+        missing_locks = tuple(item for item in lock_definitions
+                              if item['key'] in stage_lock_requirements(stage, created_at)
+                              and not selected_locks.get(item['key']))
+        missing = missing_brief_fields(fields) + tuple(item['key'] for item in missing_locks)
+        followup = brief_followup(fields)
+        if missing_locks:
+            followup += ('\n' if followup else '') + '请补充本阶段制作锁：' + '、'.join(item['label'] for item in missing_locks) + '。'
+        result = {'raw_path': raw_path, 'fields': fields, 'missing': missing,
+                  'followup': followup, 'complete_path': None,
+                  'attachment_notice': BRIEF_ATTACHMENT_NOTICE if (attachment_reference or {}).get('brief_unreadable') else ''}
+        if not missing:
+            document = brief_document(fields)
+            # 统筹锁在简报和项目投影中各保留一份：前者供人/模型阅读，后者供页面程序查询。
+            if name:
+                locks = fields['production_locks']
+                if locks:
+                    document['brief']['production_locks'] = locks
+                    document['recommended_missing'] = [item for item in document['recommended_missing']
+                                                       if item != 'production_locks']
+                namespaces = dict(workflow.get('lock') or {})
+                namespaces[name] = locks
+                workflow['lock'] = namespaces
+            gateway['publish_json'](complete_path, document)
+            result['complete_path'] = complete_path
+            # L2 只形成投影数据；L4 调用方经 stage_config 的原子写入口落盘，避免领域服务反向依赖阶段编排层。
+            result['workflow_projection'] = workflow if name else None
+        unit_of_work.commit(token)
+        outcome = 'ok'
+    except BaseException:
+        try:
+            unit_of_work.rollback(token)
+        except Exception:
+            app_logging.swallowed('idea_chat.receive_brief.rollback')
+        raise
+    finally:
+        business_log.log_event('idea_chat.receive_brief', stage=str(stage or ''),
+                               outcome=outcome,
+                               cost_ms=round((time.perf_counter() - started) * 1000.0, 1))
     return result
 
 

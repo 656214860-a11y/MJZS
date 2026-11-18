@@ -1,8 +1,9 @@
 """L1 统一 HTTP 传输：超时必填、有界重试、响应上限、错误码分类、凭据脱敏。
 
-所有调用方经 ``request_json`` 发请求；直接 ``urlopen``／``build_opener`` 由
-``tests/architecture/test_http_boundary.py`` 拦截（白名单只减不增）。
-返回 ``service_contract.ServiceResult`` 四字段结果；错误码取自 ``contract.error_codes``。
+所有调用方经 ``request_json``（JSON）或 ``request_bytes``（原始字节）发请求；
+直接 ``urlopen``／``build_opener`` 由 ``tests/architecture/test_http_boundary.py``
+拦截（白名单只减不增）。返回 ``service_contract.ServiceResult`` 四字段结果；
+错误码取自 ``contract.error_codes``。
 
 第 34 期第 9 条：``urllib.request`` 连 ssl 一起加载（约 4.4 MB 常驻），
 网络栈在函数内按需 import，模块导入零成本。
@@ -74,14 +75,12 @@ _OPTION_KEYS = frozenset({'retries', 'retry_statuses', 'max_bytes',
                           'allow_retry_post', 'opener', 'sleep'})
 
 
-def request_json(method, url, *, headers=None, payload=None, timeout, **opts):
-    """发一次 JSON 请求；``timeout`` 必填。``payload`` 非空视为 POST。
+def _request(method, url, *, headers=None, payload=None, timeout, caller='request', **opts):
+    """共用出站内核：超时必填、有界重试、响应上限、错误码分类、凭据脱敏、熔断。
 
-    可选项经 ``opts``：``retries``、``retry_statuses``、``max_bytes``、
-    ``allow_retry_post``、``opener``、``sleep``。重试只在调用方显式给
-    ``retries>0`` 且状态码可重试时发生；带 body 的 POST 默认永不重试
-    （计费接口），需 ``allow_retry_post=True`` 显式放行。响应体超过
-    ``max_bytes`` 视为协议错误，不落盘不解析。
+    ``payload`` 非空序列化为 JSON body 并强制 POST；成功返回
+    ``success({'status', 'body': bytes, 'headers'})``，失败返回带
+    ``error_code`` 的 ``ServiceResult``。``caller`` 仅用于 TypeError 文案。
     """
     import urllib.error
     import urllib.parse
@@ -89,7 +88,8 @@ def request_json(method, url, *, headers=None, payload=None, timeout, **opts):
 
     unknown = set(opts) - _OPTION_KEYS
     if unknown:
-        raise TypeError('request_json() got unexpected keyword arguments: ' + ', '.join(sorted(unknown)))
+        raise TypeError('%s() got unexpected keyword arguments: %s'
+                        % (caller, ', '.join(sorted(unknown))))
     retries = opts.get('retries', 0)
     retry_statuses = opts.get('retry_statuses', DEFAULT_RETRY_STATUSES)
     max_bytes = opts.get('max_bytes', MAX_BODY_BYTES)
@@ -107,7 +107,6 @@ def request_json(method, url, *, headers=None, payload=None, timeout, **opts):
     effective = method if body is None else 'POST'
     attempts = 1 + (retries if (allow_retry_post or effective != 'POST') else 0)
     request_headers = dict(headers or {})
-    request_headers.setdefault('Content-Type', 'application/json')
     transport = opener if opener is not None else _default_opener()
     last = None
     for attempt in range(1, attempts + 1):
@@ -128,12 +127,7 @@ def request_json(method, url, *, headers=None, payload=None, timeout, **opts):
                     return ServiceResult(False, _describe(code), False,
                                          code_data(code, status=status, error_body='响应体超过上限', retry_count=attempt - 1))
                 _circuit_record(host, False)
-                text = raw.decode('utf-8', errors='replace')
-                try:
-                    parsed = _json.loads(text)
-                except ValueError:
-                    parsed = None
-                return success({'status': status, 'json': parsed, 'text': text,
+                return success({'status': status, 'body': raw,
                                 'headers': _safe_headers(response.headers)})
         except urllib.error.HTTPError as exc:
             status = exc.code
@@ -170,6 +164,47 @@ def request_json(method, url, *, headers=None, payload=None, timeout, **opts):
     return ServiceResult(False, f'[{item.code}] {item.user_message}', item.retryable,
                          code_data(item.code, status=last[1] if last else None,
                                    error_body=last[2] if last else '', retry_count=attempts - 1))
+
+
+def request_json(method, url, *, headers=None, payload=None, timeout, **opts):
+    """发一次 JSON 请求；``timeout`` 必填。``payload`` 非空视为 POST。
+
+    可选项经 ``opts``：``retries``、``retry_statuses``、``max_bytes``、
+    ``allow_retry_post``、``opener``、``sleep``。重试只在调用方显式给
+    ``retries>0`` 且状态码可重试时发生；带 body 的 POST 默认永不重试
+    （计费接口），需 ``allow_retry_post=True`` 显式放行。响应体超过
+    ``max_bytes`` 视为协议错误，不落盘不解析。
+    """
+    request_headers = dict(headers or {})
+    request_headers.setdefault('Content-Type', 'application/json')
+    result = _request(method, url, headers=request_headers, payload=payload,
+                      timeout=timeout, caller='request_json', **opts)
+    if not result.ok:
+        return result
+    data = result.data if isinstance(result.data, dict) else {}
+    text = (data.get('body') or b'').decode('utf-8', errors='replace')
+    try:
+        parsed = _json.loads(text)
+    except ValueError:
+        parsed = None
+    return success({'status': data.get('status', 200), 'json': parsed, 'text': text,
+                    'headers': data.get('headers')})
+
+
+def request_bytes(method, url, *, headers=None, payload=None, timeout, **opts):
+    """发一次请求并返回原始响应字节；``timeout`` 必填，不做文本解码。
+
+    与 ``request_json`` 共用同一传输内核（重试／熔断／响应上限／错误码／
+    凭据脱敏）；成功 ``data`` 为 ``{'status', 'body': bytes, 'headers'}``，
+    供音频等二进制响应使用。``payload`` 非空序列化为 JSON body 并强制
+    POST（与 ``request_json`` 同口径），此时 ``Content-Type`` 默认
+    ``application/json``（调用方可覆盖）；可选项同 ``request_json``。
+    """
+    request_headers = dict(headers or {})
+    if payload is not None:
+        request_headers.setdefault('Content-Type', 'application/json')
+    return _request(method, url, headers=request_headers, payload=payload,
+                    timeout=timeout, caller='request_bytes', **opts)
 
 
 def _describe(code):

@@ -8,6 +8,7 @@ from unittest.mock import patch
 import engine
 import infra.pet_llm as pet_llm
 import stage_execution_service as ses
+from contract import platform_tools
 from domain import tts_api
 
 
@@ -158,7 +159,9 @@ class TtsRecordingTests(unittest.TestCase):
             root = Path(td)
             (root / 'cost_profile.json').write_text(json.dumps({'budget_amount': '0', 'price_table': {
                 'currency': 'CNY', 'version': 'test', 'model_rates': {'m': {'characters': '0.1'}}}}), encoding='utf-8')
-            with patch.object(tts_api, 'load_key', return_value='test'), patch('urllib.request.build_opener') as open_:
+            # R3320：出站统一走 infra.http_client → RequestsJsonOpener；预算拒绝时不得打开连接。
+            with patch.object(tts_api, 'load_key', return_value='test'), \
+                 patch.object(platform_tools.RequestsJsonOpener, 'open') as open_:
                 with self.assertRaises(BudgetRejected):
                     tts_api.synthesize('你好', project=root)
                 open_.assert_not_called()
@@ -170,13 +173,14 @@ class TtsRecordingTests(unittest.TestCase):
             root = Path(td)
             (root / 'cost_profile.json').write_text(json.dumps({'budget_amount': '1', 'price_table': {
                 'currency': 'CNY', 'version': 'test', 'model_rates': {'m': {'characters': '0.1'}}}}), encoding='utf-8')
-            with patch.object(tts_api, 'load_key', return_value='test'), patch('urllib.request.build_opener') as opener:
-                opener.return_value.open.side_effect = TimeoutError('test')
+            # R3320：默认传输是 RequestsJsonOpener；open 抛 TimeoutError → E-NET-TIMEOUT → synthesize 抛 TimeoutError。
+            with patch.object(tts_api, 'load_key', return_value='test'), \
+                 patch.object(platform_tools.RequestsJsonOpener, 'open', side_effect=TimeoutError('test')) as opener:
                 with self.assertRaises(TimeoutError):
                     tts_api.synthesize('你好', project=root, request_id='tts-full:test')
                 with self.assertRaises(BudgetRejected):
                     tts_api.synthesize('你好', project=root, request_id='tts-full:test')
-                self.assertEqual(opener.return_value.open.call_count, 1)
+                self.assertEqual(opener.call_count, 1)
             row = RequestLedger(root).load()._find('tts-full:test')
             self.assertEqual(row['money_state'], 'unknown')
             self.assertEqual(row['budget_cost'], '0.2')

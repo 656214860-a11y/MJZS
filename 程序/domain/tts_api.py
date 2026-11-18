@@ -1,5 +1,4 @@
 """OpenAI 兼容文本转语音（TTS）：支持 tts-1 及任何 OpenAI 兼容 /audio/speech 端点。"""
-import infra.app_logging as app_logging
 import base64
 import hashlib
 import json
@@ -8,17 +7,17 @@ import os
 import re
 from pathlib import Path
 from agent.core import read_json
-from infra.api_endpoints import no_redirect
+from contract.error_codes import code_of
 from contract.project_context import ProjectContext
 from urllib.parse import urlparse
-# 第 34 期第 9 条：`urllib.request`／`urllib.error` 连 ssl 一起加载（约 4.4 MB 常驻），
-# 本模块只在真要请求语音接口时用得到——都改成函数内 import。
-
 from infra.seedream_api import protect
 
 DEFAULT_URL = "https://api.openai.com/v1"
 DEFAULT_MODEL = "tts-1"
 KEY_ENV = "TTS_API_KEY"                     # 第 65 期任务 1：统一那份 .env 里的变量名
+# 单句配音音频上限：文本 ≤4000 字，64 MiB 足够覆盖高码率短音频；
+# 同时给 http_client 的有界读取一个明确边界（旧实现 response.read() 无上限）。
+TTS_AUDIO_MAX_BYTES = 64 * 1024 * 1024
 
 
 def settings_path():
@@ -509,8 +508,12 @@ def run_lines(lines, folder, generate=None, report=None, stop=None, *, gateway=N
 
 
 def synthesize(text, speed=1.0, voice=None, *, settings=None, project=None, request_id=None):
-    from urllib.request import Request, build_opener        # 第 34 期第 9 条：HTTP 栈按需加载
-    from urllib.error import HTTPError
+    """合成一段语音；出站请求统一走 ``infra.http_client.request_bytes``（规则 42）。
+
+    返回原始音频 bytes；错误分类与直连时代一致：HTTP 状态 → ``ValueError``
+    （文案不变）、空响应 → ``ValueError("TTS 未返回音频")``、超时 →
+    ``TimeoutError``、其余网络失败 → ``urllib.error.URLError``。
+    """
     if not isinstance(text, str) or not text.strip():
         raise ValueError('请填写要合成的文本')
     speed = coerce_speed(speed)
@@ -521,28 +524,30 @@ def synthesize(text, speed=1.0, voice=None, *, settings=None, project=None, requ
     if not key:
         raise ValueError("请先在“配音设置”保存 API Key")
     body = payload(text, settings["model"], voice or settings["voice"], speed)
-    request = Request(
-        settings["base_url"].rstrip("/") + "/audio/speech",
-        data=json.dumps(body, ensure_ascii=False).encode("utf-8"),
-        headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"},
-    )
     from contextlib import nullcontext
     from uuid import uuid4
     from infra.pet_llm import RequestLedger
+    import infra.http_client as http_client
     meter = (RequestLedger(project).metered_units(request_id or 'tts:' + uuid4().hex,
              settings['model'], 'audio', 'requests', 1, quantities={'characters': len(text)})
              if project is not None else nullcontext())
     with meter:
-        try:
-            with build_opener(no_redirect()).open(request, timeout=120) as response:
-                raw = response.read()
-        except HTTPError as exc:
-            detail = ""
-            try:
-                detail = exc.read().decode("utf-8", "replace")[:400]
-            except Exception:
-                app_logging.swallowed()
-            raise ValueError(f"TTS 请求失败（HTTP {exc.code}）：{detail}") from None
-        if not raw:
-            raise ValueError("TTS 未返回音频")
-        return raw
+        result = http_client.request_bytes(
+            'POST', settings["base_url"].rstrip("/") + "/audio/speech",
+            headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"},
+            payload=body, timeout=120, max_bytes=TTS_AUDIO_MAX_BYTES)
+        data = result.data if isinstance(result.data, dict) else {}
+        if result.ok:
+            raw = data.get('body')
+            if not raw:
+                raise ValueError("TTS 未返回音频")
+            return raw
+        status = data.get('status')
+        if status:
+            detail = str(data.get('error_body') or '')[:400]
+            raise ValueError(f"TTS 请求失败（HTTP {status}）：{detail}") from None
+        detail = str(data.get('error_body') or result.reason or '网络请求失败')
+        if code_of(result) == 'E-NET-TIMEOUT':
+            raise TimeoutError(detail) from None
+        import urllib.error
+        raise urllib.error.URLError(detail) from None

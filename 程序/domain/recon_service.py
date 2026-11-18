@@ -15,6 +15,7 @@ import hashlib
 import json
 import re
 import time
+import uuid
 from collections import abc
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -23,6 +24,10 @@ import contract.artifact_schema as artifact_schema
 import infra.broadcaster as broadcaster
 import infra.model_pool as model_pool
 import contract.stage_layout as stage_layout
+import infra.app_logging as app_logging
+import infra.business_log as business_log
+import infra.idempotency as idempotency
+import domain.domain_events as domain_events
 from agent import core
 from infra.file_cache import read_json
 from contract.service_contract import UserError, success
@@ -33,6 +38,7 @@ KIND = 'recon_card'
 CARD_NAME = 'recon_card.json'
 REQUEST_NAME = 'recon_request.json'
 DOC_NAME = 'intel_card.md'
+MARKER_NAME = 'recon_idempotency.json'
 UNKNOWN = '未找到'
 STATES = ('sources_ready', 'filled')
 MATERIAL_SOURCES = ('对标爆款', '热点速成')
@@ -121,6 +127,11 @@ def save_request(project, values, save=None):
 
 def doc_path(project):
     return stage_paths(project)['docs'] / DOC_NAME
+
+
+def marker_path(project):
+    """幂等标记与卡片同目录：记录「最近一次成功采风」的幂等键。"""
+    return stage_paths(project)['input'] / MARKER_NAME
 
 
 def load_card(project):
@@ -448,6 +459,8 @@ def _search_all(queries, budget, limits, notes, ports, started):
         if budget['search_used'] >= limits['search'] or ports.clock() - started >= limits['seconds']:
             notes.append('预算用完，还有没查到的：%s' % query)
             break
+        domain_events.emit(domain_events.PAID_INVOKED, stage=STAGE, op='search',
+                           nonce=uuid.uuid4().hex)
         result = _attempt(lambda: ports.sender('search', query, limits['count']), ports.pause)
         budget['search_used'] += 1
         if not result.get('ok'):
@@ -479,6 +492,8 @@ def _fetch_all(sources, budget, limits, notes, ports, started):
             notes.append('抓取预算用完，仍只有摘要：%s' % url)
             break
         seen.add(url)
+        domain_events.emit(domain_events.PAID_INVOKED, stage=STAGE, op='fetch',
+                           nonce=uuid.uuid4().hex)
         result = _attempt(lambda: ports.sender('fetch', url), ports.pause)
         budget['fetch_used'] += 1
         if not result.get('ok'):
@@ -534,21 +549,93 @@ def collect(target, material_source, *, ports=None):
     }
 
 
+# ── 幂等：同一采风只付一次费 ──────────────────────────────────────────────
+def _idempotency_key(target, material_source, ports):
+    """「同一镜头同一参数」的指纹：target／素材来源／生效预算／官方域名。
+
+    只收业务语义参数——sender、transport、时钟、落盘器是执行细节不进键；
+    target 与 ``collect()`` 同口径规范化（dict 原样、标量包成 ``{'name': ...}``），
+    limits 取 ``collect()`` 相同的生效值，official_hosts 影响分级也必须进键。
+    """
+    ports = ports or ReconPorts()
+    limits = dict(LIMITS, **(ports.limits or {}))
+    canonical = {
+        'kind': KIND,
+        'target': dict(target) if isinstance(target, dict) else {'name': str(target or '')},
+        'material_source': str(material_source or ''),
+        'limits': limits,
+        'official_hosts': sorted(str(item) for item in (ports.official_hosts or ())),
+    }
+    return idempotency.key_of(json.dumps(canonical, sort_keys=True,
+                                         ensure_ascii=False, default=str))
+
+
+def _load_marker(project):
+    """读幂等标记；缺失或损坏返回空表（标记不是产物，读不到按未命中处理）。"""
+    try:
+        value = read_json(marker_path(project))
+    except (OSError, ValueError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def _cached_success(project, card):
+    """幂等命中：由已落盘卡片字段重建与 ``run()`` 首次成功完全一致的 ``success``。"""
+    return success({'card': str(card_path(project)),
+                    'doc': str(doc_path(project)),
+                    'problems': list(card.get('evidence_report') or ()),
+                    'sources': len(card.get('sources') or ()),
+                    'queries': list(card.get('queries') or ()),
+                    'not_found': list(card.get('not_found') or ()),
+                    'budget': card.get('budget') or {}})
+
+
+def _save_marker(project, key, save=None):
+    """写幂等标记（原子发布）；写失败只留痕不挡主流程——宁可下次重采，不丢已落盘的卡。"""
+    try:
+        (save or core.save)(marker_path(project), {
+            'kind': KIND, 'key': str(key),
+            'written_at': time.strftime('%Y-%m-%dT%H:%M:%S')})
+    except Exception:
+        app_logging.swallowed('recon 幂等标记写入失败')
+
+
 def run(project, target, material_source, *, ports=None):
     """采风并落盘：卡片 JSON ＋ 人读 MD。
+
+    幂等：同一 project＋target＋material_source＋生效参数第二次进入时，若落盘
+    标记键一致且情报卡仍在，直接由卡片字段重建结果返回——不再发起付费
+    检索／抓取，也不重复写盘；标记损坏或卡片缺失一律按未命中重采。
 
     返回 `ServiceResult`，成功数据保留原字段
     `{card, doc, problems, sources, queries, not_found, budget}`；落盘失败原样透传。
     """
-    ports = ports or ReconPorts()
-    card = collect(target, material_source, ports=ports)
-    saved = save_card(project, card, save=ports.save, save_text=ports.save_text)
-    if not saved.ok:
-        return saved
-    data = saved.data or {}
-    return success({'card': data['card'], 'doc': data['doc'], 'problems': data['problems'],
-                    'sources': len(card['sources']), 'queries': card['queries'],
-                    'not_found': card['not_found'], 'budget': card['budget']})
+    started = time.perf_counter()
+    outcome = 'error'
+    try:
+        ports = ports or ReconPorts()
+        key = _idempotency_key(target, material_source, ports)
+        marker = _load_marker(project)
+        if str(marker.get('key') or '') == key:
+            cached = load_card(project)
+            if cached:
+                outcome = 'cached'
+                return _cached_success(project, cached)
+        card = collect(target, material_source, ports=ports)
+        saved = save_card(project, card, save=ports.save, save_text=ports.save_text)
+        if not saved.ok:
+            return saved
+        _save_marker(project, key, save=ports.save)
+        data = saved.data or {}
+        outcome = 'ok'
+        return success({'card': data['card'], 'doc': data['doc'], 'problems': data['problems'],
+                        'sources': len(card['sources']), 'queries': card['queries'],
+                        'not_found': card['not_found'], 'budget': card['budget']})
+    finally:
+        # 本地业务日志通道：与 collect() 内 paid.invoked 总线事件并存不混用——
+        # 前者每 run 一条（含幂等命中的 cached），后者每次真实付费调用一条。
+        business_log.log_event('recon.run', stage=STAGE, outcome=outcome,
+                               cost_ms=round((time.perf_counter() - started) * 1000.0, 1))
 
 
 # ── 人读版 ─────────────────────────────────────────────────────────────────
