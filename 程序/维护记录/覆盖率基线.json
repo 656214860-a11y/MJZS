@@ -1,14 +1,15 @@
 {
  "targets": [
-  "tests.test_money_invariants",
-  "tests.test_request_ledger",
-  "tests.test_keyframe_lifecycle_service",
-  "tests.test_video_lifecycle_service",
-  "tests.test_persistent_task_queue",
-  "tests.test_lifecycle",
-  "tests.test_publication_recovery",
   "tests.test_claim_queue_gateway",
-  "tests.test_usage_snapshot"
+  "tests.test_keyframe_lifecycle_service",
+  "tests.test_lifecycle",
+  "tests.test_money_invariants",
+  "tests.test_persistent_task_queue",
+  "tests.test_publication_recovery",
+  "tests.test_request_ledger",
+  "tests.test_skill_residue_service",
+  "tests.test_usage_snapshot",
+  "tests.test_video_lifecycle_service"
  ],
  "tests_ok": true,
  "modules": [
@@ -405,7 +406,7 @@
   {
    "module": "contract/workflow_context_budget.py",
    "covered": 0,
-   "total": 129,
+   "total": 140,
    "percent": 0.0
   },
   {
@@ -1191,13 +1192,13 @@
   {
    "module": "infra/account_store.py",
    "covered": 0,
-   "total": 76,
+   "total": 95,
    "percent": 0.0
   },
   {
    "module": "infra/aigc_lint.py",
    "covered": 0,
-   "total": 118,
+   "total": 122,
    "percent": 0.0
   },
   {
@@ -1215,7 +1216,7 @@
   {
    "module": "infra/broadcaster.py",
    "covered": 0,
-   "total": 33,
+   "total": 59,
    "percent": 0.0
   },
   {
@@ -1227,7 +1228,7 @@
   {
    "module": "infra/cloud_assets.py",
    "covered": 0,
-   "total": 80,
+   "total": 85,
    "percent": 0.0
   },
   {
@@ -1239,7 +1240,7 @@
   {
    "module": "infra/comfy_service.py",
    "covered": 0,
-   "total": 201,
+   "total": 214,
    "percent": 0.0
   },
   {
@@ -1311,7 +1312,7 @@
   {
    "module": "infra/native_apps.py",
    "covered": 0,
-   "total": 81,
+   "total": 82,
    "percent": 0.0
   },
   {
@@ -1341,7 +1342,7 @@
   {
    "module": "infra/seedream_api.py",
    "covered": 0,
-   "total": 139,
+   "total": 141,
    "percent": 0.0
   },
   {
@@ -1377,7 +1378,7 @@
   {
    "module": "infra/workflow_process_registry.py",
    "covered": 0,
-   "total": 161,
+   "total": 238,
    "percent": 0.0
   },
   {
@@ -1575,7 +1576,7 @@
   {
    "module": "orchestrator/exit_maintenance.py",
    "covered": 0,
-   "total": 28,
+   "total": 29,
    "percent": 0.0
   },
   {
@@ -1677,7 +1678,7 @@
   {
    "module": "orchestrator/skill_inline.py",
    "covered": 0,
-   "total": 105,
+   "total": 233,
    "percent": 0.0
   },
   {
@@ -1785,13 +1786,13 @@
   {
    "module": "orchestrator/workflow_engines.py",
    "covered": 0,
-   "total": 419,
+   "total": 423,
    "percent": 0.0
   },
   {
    "module": "orchestrator/workflow_settings.py",
    "covered": 0,
-   "total": 767,
+   "total": 808,
    "percent": 0.0
   },
   {
@@ -1869,7 +1870,7 @@
   {
    "module": "pet_skills_manage.py",
    "covered": 0,
-   "total": 455,
+   "total": 493,
    "percent": 0.0
   },
   {
@@ -2553,7 +2554,7 @@
   {
    "module": "ui/desktop_layout.py",
    "covered": 0,
-   "total": 326,
+   "total": 327,
    "percent": 0.0
   },
   {
@@ -2565,7 +2566,7 @@
   {
    "module": "ui/desktop_lifecycle.py",
    "covered": 0,
-   "total": 103,
+   "total": 105,
    "percent": 0.0
   },
   {
@@ -2937,7 +2938,7 @@
   {
    "module": "ui/skill_lifecycle_service.py",
    "covered": 0,
-   "total": 261,
+   "total": 259,
    "percent": 0.0
   },
   {
@@ -2991,7 +2992,7 @@
   {
    "module": "ui/speech_settings_ui.py",
    "covered": 0,
-   "total": 188,
+   "total": 218,
    "percent": 0.0
   },
   {
@@ -3465,7 +3466,7 @@
   {
    "module": "writing_api.py",
    "covered": 0,
-   "total": 954,
+   "total": 961,
    "percent": 0.0
   },
   {
@@ -3505,22 +3506,16 @@
    "percent": 11.6
   },
   {
-   "module": "orchestrator/skill_registry.py",
-   "covered": 95,
-   "total": 679,
-   "percent": 14.0
+   "module": "infra/file_index.py",
+   "covered": 68,
+   "total": 472,
+   "percent": 14.4
   },
   {
    "module": "infra/client_profiles.py",
    "covered": 55,
    "total": 379,
    "percent": 14.5
-  },
-  {
-   "module": "infra/file_index.py",
-   "covered": 68,
-   "total": 462,
-   "percent": 14.7
   },
   {
    "module": "orchestrator/stage_animatic_gateways.py",
@@ -3553,16 +3548,16 @@
    "percent": 15.4
   },
   {
+   "module": "infra/api_endpoints.py",
+   "covered": 64,
+   "total": 413,
+   "percent": 15.5
+  },
+  {
    "module": "infra/model_metering.py",
    "covered": 11,
    "total": 71,
    "percent": 15.5
-  },
-  {
-   "module": "infra/api_endpoints.py",
-   "covered": 64,
-   "total": 411,
-   "percent": 15.6
   },
   {
    "module": "agent/volcengine.py",
@@ -3571,28 +3566,16 @@
    "percent": 16.9
   },
   {
+   "module": "contract/platform_tools.py",
+   "covered": 122,
+   "total": 679,
+   "percent": 18.0
+  },
+  {
    "module": "agent/media.py",
    "covered": 17,
    "total": 93,
    "percent": 18.3
-  },
-  {
-   "module": "orchestrator/skill_project_layer.py",
-   "covered": 29,
-   "total": 157,
-   "percent": 18.5
-  },
-  {
-   "module": "orchestrator/skill_package_meta.py",
-   "covered": 8,
-   "total": 43,
-   "percent": 18.6
-  },
-  {
-   "module": "contract/platform_tools.py",
-   "covered": 119,
-   "total": 634,
-   "percent": 18.8
   },
   {
    "module": "orchestrator/legacy_compat.py",
@@ -3645,8 +3628,8 @@
   {
    "module": "infra/app_logging.py",
    "covered": 59,
-   "total": 265,
-   "percent": 22.3
+   "total": 267,
+   "percent": 22.1
   },
   {
    "module": "orchestrator/skill_budget.py",
@@ -3733,22 +3716,34 @@
    "percent": 30.8
   },
   {
-   "module": "infra/storage_maintenance.py",
-   "covered": 244,
-   "total": 747,
-   "percent": 32.7
+   "module": "infra/model_pool.py",
+   "covered": 239,
+   "total": 748,
+   "percent": 32.0
   },
   {
-   "module": "infra/model_pool.py",
-   "covered": 238,
-   "total": 726,
-   "percent": 32.8
+   "module": "infra/storage_maintenance.py",
+   "covered": 245,
+   "total": 761,
+   "percent": 32.2
+  },
+  {
+   "module": "orchestrator/skill_project_layer.py",
+   "covered": 54,
+   "total": 166,
+   "percent": 32.5
   },
   {
    "module": "orchestrator/stage_previs_gateways.py",
    "covered": 24,
    "total": 72,
    "percent": 33.3
+  },
+  {
+   "module": "infra/project_settings.py",
+   "covered": 33,
+   "total": 91,
+   "percent": 36.3
   },
   {
    "module": "contract/stage_path_service.py",
@@ -3763,12 +3758,6 @@
    "percent": 36.8
   },
   {
-   "module": "infra/project_settings.py",
-   "covered": 30,
-   "total": 77,
-   "percent": 39.0
-  },
-  {
    "module": "domain/asset_batch_lifecycle.py",
    "covered": 32,
    "total": 77,
@@ -3779,6 +3768,12 @@
    "covered": 202,
    "total": 457,
    "percent": 44.2
+  },
+  {
+   "module": "orchestrator/skill_registry.py",
+   "covered": 311,
+   "total": 679,
+   "percent": 45.8
   },
   {
    "module": "infra/file_cache.py",
@@ -3823,6 +3818,12 @@
    "percent": 72.6
   },
   {
+   "module": "orchestrator/skill_package_meta.py",
+   "covered": 33,
+   "total": 43,
+   "percent": 76.7
+  },
+  {
    "module": "contract/file_index_contract.py",
    "covered": 28,
    "total": 36,
@@ -3830,9 +3831,9 @@
   },
   {
    "module": "infra/usage_history.py",
-   "covered": 44,
-   "total": 54,
-   "percent": 81.5
+   "covered": 46,
+   "total": 56,
+   "percent": 82.1
   },
   {
    "module": "domain/keyframe_lifecycle_service.py",
@@ -3848,9 +3849,9 @@
   },
   {
    "module": "infra/request_ledger.py",
-   "covered": 566,
-   "total": 669,
-   "percent": 84.6
+   "covered": 564,
+   "total": 666,
+   "percent": 84.7
   },
   {
    "module": "contract/service_contract.py",
@@ -3869,6 +3870,12 @@
    "covered": 143,
    "total": 159,
    "percent": 89.9
+  },
+  {
+   "module": "domain/skill_residue_service.py",
+   "covered": 57,
+   "total": 61,
+   "percent": 93.4
   },
   {
    "module": "domain/video_lifecycle_service.py",
@@ -3937,6 +3944,6 @@
    "percent": 100.0
   }
  ],
- "modules_covered": 74,
- "modules_total": 654
+ "modules_covered": 75,
+ "modules_total": 655
 }

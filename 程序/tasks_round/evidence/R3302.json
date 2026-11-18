@@ -1,0 +1,15 @@
+{
+  "round": 3302,
+  "commit_base": "f34f4491",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k platform_tools speech_api http_client http_boundary",
+    "exit": 0,
+    "passed": 66,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T08:33:21"
+}

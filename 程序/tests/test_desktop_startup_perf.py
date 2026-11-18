@@ -351,6 +351,31 @@ class DesktopStartupPerfTests(unittest.TestCase):
             except tk.TclError:
                 pass
 
+    def test_opened_project_roots_are_deduplicated_for_exit_without_starting_sweep(self):
+        """启动、重复打开与切项目只保留退出清扫快照，不派发后台遍历。"""
+        import infra.temporary_sweep as temporary_sweep
+        window = tk.Tk()
+        desktop = None
+        try:
+            with tempfile.TemporaryDirectory(prefix='desktop-sweep-exit-') as temporary:
+                app, project = self._startup_app(temporary, remembered=True)
+                with mock.patch.object(temporary_sweep, 'schedule_stale_temporary_sweep') as sweep:
+                    desktop = Desktop(window, root=app)
+                    self.assertTrue(self._pump_until(
+                        window, lambda: window._desktop_startup_settled,
+                        time.perf_counter() + 2))
+                    other = Path(temporary) / '外部项目'; other.mkdir()
+                    (other / 'config.json').write_text('{}', encoding='utf-8')
+                    desktop.load(other)
+                    desktop.load(other)
+                    desktop.load(None)
+                    self.assertEqual(desktop._temporary_sweep_roots, {project, other})
+                    sweep.assert_not_called()
+        finally:
+            if desktop is not None:
+                desktop.cancel_timers()
+            window.destroy()
+
     def test_real_project_page_callback_is_interactive(self):
         try:
             window = tk.Tk()

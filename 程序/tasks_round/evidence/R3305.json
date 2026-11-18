@@ -1,0 +1,15 @@
+{
+  "round": 3305,
+  "commit_base": "78f58597",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k request_ledger l1_bounded_growth_r3269 l1_lost_update l1_p2_semantics l1_reliability_r3248 round_claim branch_coverage_floor coverage_baseline layers",
+    "exit": 0,
+    "passed": 181,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T09:06:09"
+}

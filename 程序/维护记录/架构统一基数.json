@@ -2,7 +2,11 @@
  "第一项": {
   "status": "active",
   "decided_at": "2026-10-04",
+  "entity_paths": {
+   "skill_residue_service": "domain/skill_residue_service.py"
+  },
   "adopters": [
+   "skill_residue_service",
    "animatic_service",
    "asset_batch_settings_service",
    "asset_plan",

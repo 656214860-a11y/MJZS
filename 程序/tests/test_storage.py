@@ -150,6 +150,41 @@ class StorageSafetyTests(unittest.TestCase):
         self.assertIs(commands[0][1]['stdout'], sm.subprocess.DEVNULL)
         self.assertIs(commands[0][1]['stderr'], sm.subprocess.DEVNULL)
 
+    def test_cleanup_passes_explicit_deduplicated_project_argv_without_shell(self):
+        with tempfile.TemporaryDirectory() as td:
+            program = Path(td) / 'program'
+            project = Path(td) / '外部 项目 & 原样'
+            with mock.patch.object(sm, 'launch_background') as launch:
+                sm.launch_cleanup(program, temporary_projects=(project, project))
+            command = launch.call_args.args[0]
+            self.assertEqual(command, [sys.executable, str(program / 'storage_maintenance.py'),
+                                       '--cleanup', '--temporary-project', str(project)])
+            self.assertNotIn('shell', launch.call_args.kwargs)
+
+    def test_exit_cleanup_sweeps_only_explicit_external_projects_without_library(self):
+        import os
+        import time
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            project = base / '外部项目'; project.mkdir()
+            unrelated = base / '未打开项目'; unrelated.mkdir()
+            name = 'draft.' + 'a' * 32 + '.tmp'
+            stale = project / name; stale.write_text('old', encoding='utf-8')
+            keep = unrelated / name; keep.write_text('old', encoding='utf-8')
+            fresh = project / ('fresh.' + 'b' * 32 + '.tmp')
+            fresh.write_text('fresh', encoding='utf-8')
+            old = time.time() - 25 * 3600
+            for path in (stale, keep):os.utime(path, (old, old))
+            with mock.patch.object(sm.time, 'sleep'), \
+                 mock.patch.object(sm, 'downloads_root', return_value=base / 'missing-library'), \
+                 mock.patch.object(sm, 'PROGRAM', base / 'program'), \
+                 mock.patch.object(sys, 'argv', ['storage_maintenance.py', '--cleanup',
+                                                 '--temporary-project', str(project)]):
+                sm.main()
+            self.assertFalse(stale.exists())
+            self.assertTrue(keep.exists())
+            self.assertTrue(fresh.exists())
+
     def test_within(self):
         root = Path(tempfile.mkdtemp())
         self.assertTrue(sm._within(root / "a", root))

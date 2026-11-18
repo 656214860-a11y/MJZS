@@ -64,6 +64,20 @@ class ExitMaintenanceTests(unittest.TestCase):
         self.assertIn('logs=not-attempted', output.getvalue())
         self.assertNotIn('SECRET', output.getvalue())
 
+    def test_explicit_opened_projects_only_go_to_storage_on_normal_or_forced_exit(self):
+        from pathlib import Path
+        roots = (Path('external-project'), Path('other-project'))
+        for forced in (False, True):
+            with self.subTest(forced=forced), \
+                 patch('infra.storage_maintenance.launch_cleanup') as storage, \
+                 patch('infra.log_maintenance.launch_cleanup') as logs, \
+                 patch('infra.workspace_maintenance.launch_cleanup') as workspace:
+                exit_maintenance.launch_cleanup('program', forced=forced, temporary_projects=roots)
+                storage.assert_called_once_with('program', temporary_projects=roots)
+                if not forced:
+                    logs.assert_called_once_with('program')
+                    workspace.assert_called_once_with('program')
+
     def test_broken_summary_stream_does_not_mask_storage_error(self):
         error = OSError('original')
         with patch('storage_maintenance.launch_cleanup', side_effect=error), \
