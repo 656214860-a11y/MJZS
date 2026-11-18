@@ -16,16 +16,19 @@ from enum import Enum
 
 
 class Severity(str, Enum):
-    """诊断严重度闭集。
+    """诊断严重度闭集（K8 统一后五值：fatal/error/warn/degraded/info）。
 
-    ``FATAL`` 拦住启动（甲类 fail-closed）；``ERROR``／``WARN``／``DEGRADED``
+    ``FATAL`` 拦住启动（甲类 fail-closed）；``ERROR``／``WARN``／``DEGRADED``／``INFO``
     由启动器按 Q2 策略放行或降级播报，具体出口在轮 3B 接线。
+    ``contract.error_codes.ErrorCode.severity`` 与本枚举同词表（K8），
+    旧 error_codes 的 ``recoverable`` 一律映射为 ``WARN``，可重试与否只读 ``retryable``。
     """
 
     FATAL = 'fatal'
     ERROR = 'error'
     WARN = 'warn'
     DEGRADED = 'degraded'
+    INFO = 'info'
 
 
 class StartupPhase(str, Enum):
