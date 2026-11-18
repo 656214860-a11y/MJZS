@@ -92,7 +92,10 @@
   "tests.test_video_lifecycle_service",
   "tests.test_workflow_process_registry",
   "tests.test_workspace_maintenance",
-  "tests.test_writing_api"
+  "tests.test_writing_api",
+  "tests.test_account_client.AccountStoreTests",
+  "tests.test_publication_transaction",
+  "tests.test_publication_fsync_budget"
  ],
  "tests_ok": true,
  "points_total": 2748,
@@ -249,12 +252,6 @@
    "percent": 35.3
   },
   {
-   "module": "account_store.py",
-   "points": 13,
-   "covered": 5,
-   "percent": 38.5
-  },
-  {
    "module": "unit_of_work.py",
    "points": 49,
    "covered": 19,
@@ -345,6 +342,12 @@
    "percent": 58.3
   },
   {
+   "module": "account_store.py",
+   "points": 15,
+   "covered": 9,
+   "percent": 60.0
+  },
+  {
    "module": "workflow_context_budget.py",
    "points": 25,
    "covered": 15,
@@ -353,8 +356,8 @@
   {
    "module": "publication.py",
    "points": 31,
-   "covered": 19,
-   "percent": 61.3
+   "covered": 20,
+   "percent": 64.5
   },
   {
    "module": "global_library_service.py",
@@ -451,12 +454,6 @@
    "points": 24,
    "covered": 19,
    "percent": 79.2
-  },
-  {
-   "module": "file_index.py",
-   "points": 93,
-   "covered": 74,
-   "percent": 79.6
   },
   {
    "module": "prompt_templates.py",

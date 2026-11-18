@@ -7,6 +7,7 @@ import io
 import json
 import random
 import sys
+import subprocess
 import tempfile
 import unittest
 import unittest.mock
@@ -164,14 +165,17 @@ class AccountStoreTests(unittest.TestCase):
         self.assertEqual((data['lease'], data['refresh_token'], data['server_time']), ('l2', 'r', 100))
 
     def test_clear_keeps_device_seed_and_clock_floor(self):
-        account_store.device_fingerprint(self.path, machine_id='')
+        fingerprint = account_store.device_fingerprint(self.path, machine_id='')
         account_store.save_session({'refresh_token': 'r', 'lease': 'l', 'server_time': 100}, self.path)
         account_store.clear_session(self.path)
         data = account_store.load(self.path)
         self.assertNotIn('refresh_token', data)
         self.assertNotIn('lease', data)
         self.assertEqual(data['server_time'], 100)
-        self.assertIn('device_seed', data)
+        self.assertNotIn('device_seed', data)
+        self.assertEqual(account_store.device_fingerprint(self.path, machine_id=''), fingerprint)
+        self.path.unlink()
+        self.assertEqual(account_store.device_fingerprint(self.path, machine_id=''), fingerprint)
 
     def test_corrupt_file_reads_as_empty(self):
         self.path.parent.mkdir(parents=True)
@@ -179,6 +183,32 @@ class AccountStoreTests(unittest.TestCase):
         self.assertEqual(account_store.load(self.path), {})
         self.path.write_text('[1]', encoding='utf-8')
         self.assertEqual(account_store.load(self.path), {})
+
+    def test_legacy_seed_migration_keeps_fingerprint(self):
+        legacy_seed = 'legacy-device-seed'
+        account_store._write({'device_seed': legacy_seed, 'last_email': 'legacy@example.test'}, self.path)
+        expected = hashlib.sha256(('manju-device-v1:' + legacy_seed).encode('utf-8')).hexdigest()
+
+        self.assertEqual(account_store.device_fingerprint(self.path, machine_id=''), expected)
+        self.assertEqual(account_store.load(self.path), {'last_email': 'legacy@example.test'})
+        seed_path = account_store._device_seed_path(self.path)
+        self.assertEqual(seed_path.read_text(encoding='utf-8'), legacy_seed)
+        self.assertEqual(account_store.device_fingerprint(self.path, machine_id=''), expected)
+
+    def test_two_processes_share_first_fallback_seed(self):
+        script = (
+            "import sys; from infra.account_store import device_fingerprint; "
+            "print(device_fingerprint(sys.argv[1], machine_id=''))"
+        )
+        args = [sys.executable, '-c', script, str(self.path)]
+        program = Path(account_store.__file__).resolve().parents[1]
+        with subprocess.Popen(args, stdout=subprocess.PIPE, cwd=program) as first:
+            with subprocess.Popen(args, stdout=subprocess.PIPE, cwd=program) as second:
+                outputs = [process.communicate(timeout=20)[0].strip() for process in (first, second)]
+                self.assertEqual([first.returncode, second.returncode], [0, 0])
+        fingerprint = account_store.device_fingerprint(self.path, machine_id='')
+        self.assertEqual(outputs, [fingerprint.encode('ascii')] * 2)
+        self.assertFalse(self.path.exists())
 
     def test_fingerprint_is_stable_hash(self):
         a = account_store.device_fingerprint(self.path, machine_id='guid-1')

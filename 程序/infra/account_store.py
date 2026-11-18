@@ -8,14 +8,14 @@ import hashlib
 import secrets
 from pathlib import Path
 
-from agent.core import read, read_json, save
+from agent.core import read, read_json, save, save_text
 from agent.publication import access
 from contract.platform_tools import windows_registry
 from infra.storage_maintenance import remove_private_file
 
 PROGRAM = Path(__file__).resolve().parents[1]
 SESSION_FILE = ('private', '账户', 'session.json')
-# 会话字段；device_seed 只在取不到机器标识时兜底，退出登录也保留，保证同机指纹稳定。
+DEVICE_SEED_FILE = ("设备", "seed.txt")
 SESSION_KEYS = ('email', 'refresh_token', 'lease', 'server_time', 'has_password')
 _FINGERPRINT_SALT = 'manju-device-v1:'
 
@@ -98,10 +98,12 @@ def mark_update_seen(version, path=None):
 
 
 def clear_session(path=None):
-    """退出登录：删掉令牌与租约；保留设备种子和最近服务器时间（防回拨钟重放旧租约）。"""
+    """退出登录：删掉令牌与租约；保留独立存放的设备种子和最近服务器时间（防回拨钟重放旧租约）。"""
     with access():
         data = _load_write(path)
-        kept = {key: data[key] for key in ('device_seed', 'server_time', 'update_seen', 'last_email') if key in data}
+        if 'device_seed' in data:
+            _device_seed(data, path)
+        kept = {key: data[key] for key in ('server_time', 'update_seen', 'last_email') if key in data}
         if data.get('email') and 'last_email' not in kept:
             kept['last_email'] = str(data['email'])
         if kept:
@@ -122,17 +124,36 @@ def _machine_guid():
         return ''
 
 
+def _device_seed_path(path=None):
+    account_dir = Path(path or session_path()).parent
+    private_dir = account_dir.parent if account_dir.name == SESSION_FILE[1] else account_dir
+    return private_dir.joinpath(*DEVICE_SEED_FILE)
+
+
+def _device_seed(data, path=None, *, generate=False):
+    """在发布锁内读取或迁移种子。先持久化种子，再由调用方保存会话。"""
+    seed_path = _device_seed_path(path)
+    try:
+        seed = seed_path.read_text(encoding='utf-8').strip()
+    except FileNotFoundError:
+        seed = ''
+    legacy = data.pop('device_seed', '')
+    if not seed and (legacy or generate):
+        seed = legacy or secrets.token_hex(32)
+        seed_path.parent.mkdir(parents=True, exist_ok=True)
+        save_text(seed_path, seed)
+    return seed
+
+
 def device_fingerprint(path=None, machine_id=None):
     """本机设备指纹：机器标识加盐 SHA-256 的 64 位十六进制，只上传哈希。"""
     ident = _machine_guid() if machine_id is None else machine_id
-    if not ident:
-        data = load(path)
-        ident = data.get('device_seed') or ''
-        if not ident:
-            with access():
-                data = _load_write(path)      # 锁内重读：别的进程可能刚补上种子
-                ident = data.get('device_seed') or ''
-                if not ident:
-                    ident = data['device_seed'] = secrets.token_hex(32)
-                    _write(data, path)
+    if not ident or 'device_seed' in load(path):
+        with access():
+            data = _load_write(path)
+            migrate = 'device_seed' in data
+            seed = _device_seed(data, path, generate=not ident)
+            if migrate:
+                _write(data, path)
+            ident = ident or seed
     return hashlib.sha256((_FINGERPRINT_SALT + ident).encode('utf-8')).hexdigest()
