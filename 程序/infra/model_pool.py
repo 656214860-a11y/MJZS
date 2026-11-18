@@ -11,6 +11,7 @@
 存储沿用宠物那份全局配置（配置/宠物/配置.json）——pet_llm 认的就是它，多存两把键互不打扰。
 """
 import infra.app_logging as app_logging
+from infra.config_patch import ConfigSnapshot
 import json
 import os
 import re
@@ -273,7 +274,7 @@ def raw(program=None, config=None):
         data = read_json(config_file(program))
     except Exception:                             # 连程序目录都算不出来：当没有配置
         data = {}
-    return dict(data) if isinstance(data, dict) else {}
+    return ConfigSnapshot(data if isinstance(data, dict) else {})
 
 
 def pool(config=None, program=None):
@@ -533,7 +534,7 @@ def upsert(data, value, model_id=""):
     if locations:
         updated['history_locations'] = locations
     items[key] = updated
-    result = dict(data)
+    result = data.copy()
     result['models'] = items
     if 'deleted_desktop_models' in result:
         result['deleted_desktop_models'] = [item for item in result['deleted_desktop_models'] if item != key]
@@ -545,7 +546,7 @@ def remove(data, model_id):
     items = pool(data)
     key = str(model_id or '').strip()
     items.pop(key, None)
-    result = dict(data)
+    result = data.copy()
     result['models'] = items
     if key:
         result['deleted_desktop_models'] = sorted(set(data.get('deleted_desktop_models') or []) | {key})
@@ -554,7 +555,7 @@ def remove(data, model_id):
 
 def with_tasks(data, tasks):
     """把四个任务维度写进配置：认不出来的 id 也留着（模型管理里可能只是还没加回来）。"""
-    result = dict(data)
+    result = data.copy()
     section = dict(result.get('agent')) if isinstance(result.get('agent'), dict) else {}
     section['name'] = section.get('name') or '三虎'
     section['models'] = {key: str((tasks or {}).get(key) or TASKS_DEFAULT[key]).strip()
@@ -564,20 +565,21 @@ def with_tasks(data, tasks):
 
 
 def store(data, program=None):
-    """落盘到 配置/宠物/配置.json（原子替换）；返回写到的路径。覆盖前留快照，失败不拦保存。"""
-    path = config_file(program)
-    config_snapshot.keep(path, Path(program or PROGRAM) / 'data' / 'config_snapshots', 'pool')
-    save(path, data)
-    return path
+    """raw 快照仅发布顶层改动；dict(snapshot)／普通 dict 完整替换，返回路径。"""
+    from agent.publication import access
+    if isinstance(data, ConfigSnapshot):
+        _update(data.apply_to, program)
+        return config_file(program)
+    with access():
+        path = config_file(program)
+        config_snapshot.keep(path, Path(program or PROGRAM) / 'data' / 'config_snapshots', 'pool')
+        save(path, data)
+        return path
 
 
 def _update(mutate, program=None):
-    """在发布锁内重新读盘、应用 ``mutate``、原子写回；``mutate`` 返回 None 表示放弃写入。
-
-    读—改—写必须整体持锁：锁外先读再写会让后台任务把用户刚保存的模型池回滚掉。
-    配置文件读不出来（被占用或已损坏）时拒绝写入——健康度这类元数据丢一次不可惜，
-    把空表盖回配置文件却会清掉用户整个模型池。
-    """
+    """跨进程发布锁内重读、mutate、原子写回；返回 None 放弃写入。
+    读失败拒绝写入，不能把空表盖回用户模型池或回滚并发更新。"""
     from agent.publication import access
     path = config_file(program)
     with access():

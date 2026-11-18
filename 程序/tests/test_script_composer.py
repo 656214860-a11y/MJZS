@@ -282,6 +282,11 @@ class ScriptComposerTests(unittest.TestCase):
                 patch.object(speech_api, 'missing_reason', return_value='没有配置语音识别密钥 DASHSCOPE_API_KEY'), \
                 patch.object(platform_tools, 'MicrophoneRecorder', side_effect=AssertionError('不应开麦')):
             d, win = self.desktop(make_minimal_project(td))
+            # 本测只验缺密钥提示；隔离发送门禁尚未执行的防抖回调，
+            # 与上面的语音错误用例一致，避免 win.update 覆盖语音状态。
+            pending = getattr(d, '_idea_send_state_after', None)
+            if pending:
+                win.after_cancel(pending); d._idea_send_state_after = None
             button = d.shared_input.voice_button
             button.invoke(); win.update()
             self.assertIn('DASHSCOPE_API_KEY', d.status.get())

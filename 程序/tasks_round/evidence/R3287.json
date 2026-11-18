@@ -1,0 +1,15 @@
+{
+  "round": 3287,
+  "commit_base": "d90358b7",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k skill_package_pins aigc_package_diff skill_residue_service skill_project_layer line_endings",
+    "exit": 0,
+    "passed": 57,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T05:36:18"
+}

@@ -109,26 +109,59 @@ def _offline_package_row(card, win, row, variables, hint):
 
 
 def _scrolling_form(win):
-    """长表单独立滚动，底部动作始终可达。"""
-    actions = ttk.Frame(win)
-    actions.pack(side='bottom', fill='x', padx=SPACING['md'], pady=SPACING['md'])
-    view = ScrollForm(win)
-    card = Card(view.form)
-    card.pack(fill='both', expand=True, padx=SPACING['md'], pady=SPACING['md'])
-    return actions, card, view
+    """动作区先占底部，长表单只压缩视口。"""
+    bar = ttk.Frame(win)
+    bar.pack(side='bottom', fill='x', padx=SPACING['md'],
+             pady=(SPACING['none'], SPACING['md']))
+    holder = ttk.Frame(win)
+    holder.pack(fill='both', expand=True, padx=SPACING['md'], pady=SPACING['md'])
+    scroll = ScrollForm(holder)
+    card = Card(scroll.form)
+    card.pack(fill='both', expand=True)
+    return scroll, card, bar
+
+
+def _fit_scroll_form(win, scroll, card, bar):
+    """按真实内容确定视口；焦点到不可见字段时自动滚入视口。"""
+    def focus_in(event):
+        widget = event.widget
+        # FocusIn 沿 toplevel bindtag 传播；只响应表单后代，保留控件原键盘行为。
+        if not str(widget).startswith(str(card) + '.'):
+            return
+        top = widget.winfo_rooty() - scroll.form.winfo_rooty()
+        bottom = top + widget.winfo_height()
+        view_top = scroll.canvas.canvasy(0)
+        view_height = scroll.canvas.winfo_height()
+        if top < view_top or bottom > view_top + view_height:
+            target = top if top < view_top else bottom - view_height
+            scroll.canvas.yview_moveto(target / max(1, scroll.form.winfo_height()))
+
+    win.bind('<FocusIn>', focus_in, add='+')
+    scroll.bind_wheel()
+    win.update_idletasks()
+    # Canvas 不传播窗内 form 的请求尺寸；显式传入并为标题栏／任务栏留余量。
+    margin = 2 * SPACING['2xl']
+    action_height = bar.winfo_reqheight() + 3 * SPACING['md']
+    scroll.canvas.configure(
+        width=scroll.form.winfo_reqwidth(),
+        height=min(scroll.form.winfo_reqheight(),
+                   win.winfo_screenheight() - margin - action_height))
+    win.update_idletasks()
+    win.geometry('%dx%d' % (min(win.winfo_reqwidth(), win.winfo_screenwidth() - margin),
+                            win.winfo_reqheight()))
 
 
 def open_speech_settings(pet, parent=None):
     """``parent`` 是模型管理窗；外壳与模型管理的小窗同款：非模态、Escape 关闭、内容放进 Card。
 
-    只给宽度下限、不写死尺寸：长表单可滚动，保存动作固定在底部可见。
+    表单随内容滚动，动作固定可见；尺寸按真实内容和屏幕余量计算。
     """
     win = BaseDialog(parent, '', modal=False, chrome=False)
     win.title(SPEECH_TITLE)
     win.minsize(TEXT_DESC['wraplength'] + 2 * DIALOG_CONTENT_PADDING, DIALOG_MIN_HEIGHT)
     win.transient(parent or None)
     win.bind('<Escape>', lambda event: win.destroy())
-    actions, card, view = _scrolling_form(win)
+    scroll, card, bar = _scrolling_form(win)
     card.columnconfigure(1, weight=1)
     ttk.Label(card, text=SPEECH_TITLE, font=FONTS['title']).grid(row=0, column=0, columnspan=2, sticky='w')
     ttk.Label(card, text=SPEECH_NOTE, style='Muted.TLabel', wraplength=TEXT_DESC['wraplength']).grid(
@@ -256,8 +289,6 @@ def open_speech_settings(pet, parent=None):
     fill(speech_api.read_settings())
     fill_dictionary(speech_api.read_dictionary())
     variables['key_env'].trace_add('write', show_key_state)
-    view.bind_wheel()
-    bar = actions
     SecondaryButton(bar, text='恢复默认', command=reset).pack(side='left')
     PrimaryButton(bar, text='保存', command=save).pack(side='right')
     SecondaryButton(bar, text='取消', command=win.destroy).pack(side='right', padx=(SPACING['none'], BUTTON_GAP))
@@ -265,4 +296,7 @@ def open_speech_settings(pet, parent=None):
     win._pet_speech_dict_vars, win._pet_speech_dict_fill = dict_vars, fill_dictionary
     win._pet_speech_hint, win._pet_speech_key_state = hint, key_state
     win._pet_speech_setup = setup_refs
+    win._pet_speech_scroll, win._pet_speech_actions = scroll, bar
+
+    _fit_scroll_form(win, scroll, card, bar)
     return win

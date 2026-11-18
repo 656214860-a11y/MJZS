@@ -163,6 +163,44 @@ class SkillsManagePageTests(SkillsManageCase):
         names = [self.tree(win).item(iid, 'values')[0] for iid in self.tree(win).get_children()]
         self.assertNotIn('other-project-skill', names)
 
+    def test_residue_entry_lists_package_and_requires_both_confirmations(self):
+        package = self.program / 'skills' / '00全流程SKILL' / 'AIGC创作全流程'
+        package.mkdir(parents=True)
+        (package / 'README.md').write_text('总包说明', encoding='utf-8')
+        other = self.program / 'skills' / 'imagegen'
+        other.mkdir()
+        (other / 'SKILL.md').write_text('另一个包', encoding='utf-8')
+        hub = self.hub()
+        self.assertIn('残留包管理…', self._dialog_buttons(hub))
+        win = pet_skills_manage.residue_dialog(self.pet, mock.Mock())
+        self.addCleanup(win.destroy)
+        seam = win._pet_seams['residue']
+        rows = seam['tree'].get_children()
+        self.assertEqual(rows, ('00全流程SKILL/AIGC创作全流程', 'imagegen'))
+        self.assertEqual(str(seam['tree']['selectmode']), 'extended')
+        self.assertEqual(seam['tree']['columns'], ('name', 'path', 'count', 'size', 'description'))
+        seam['tree'].selection_set(rows)
+        with mock.patch.object(pet_skills_manage, 'ask_confirmation', return_value=False) as confirm:
+            self.assertIsNone(seam['dispose']())
+            self.assertEqual(confirm.call_count, 1)
+        with mock.patch.object(pet_skills_manage, 'ask_confirmation', side_effect=[True, False]) as confirm:
+            self.assertIsNone(seam['dispose']())
+            self.assertEqual(confirm.call_count, 2)
+        self.assertTrue(package.exists())
+        self.win.update()
+        for child in self.walk(win, self.ttk.Button):
+            if isinstance(child, self.ttk.Button):
+                self.assertGreater(child.winfo_width(), 0)
+                self.assertLessEqual(child.winfo_rootx() + child.winfo_width(), win.winfo_rootx() + win.winfo_width())
+        with mock.patch.object(pet_skills_manage, 'ask_confirmation', return_value=True) as confirm:
+            result = seam['dispose']()
+            self.assertTrue(result.ok, result.reason)
+            self.assertEqual(confirm.call_count, 2)
+        self.assertFalse(package.exists())
+        self.assertFalse(other.exists())
+        self.assertEqual(len(result.data['records']), 2)
+        self.assertEqual(seam['tree'].get_children(), ())
+
     def test_note_dialog_shows_body(self):
         self.add_skills()
         win = self.hub()
@@ -332,18 +370,26 @@ class SkillsManagePageTests(SkillsManageCase):
             win, lambda t: 'user-layer-skill' in t.get_children()
             and 'disabled|user-layer-skill' not in t.get_children()))
 
-    def test_builtin_disable_is_refused(self):
+    def test_builtin_disable_and_enable_are_available(self):
         self.add_skills()
         win = self.hub()
         self.assertTrue(self.wait_rows(win, 3))
-        self.select(win, 'pipeline-script-preparation')
+        name = 'pipeline-script-preparation'
+        self.select(win, name)
         seams = win._pet_seams['skills']
         with mock.patch('pet_skills_manage.ask_confirmation', return_value=True) as confirm:
             result = pet_skills_manage.toggle_disabled(
                 self.pet, self.tree(win), seams['state'], seams['refresh'], seams['hint'])
-        self.assertIsNone(result)
-        confirm.assert_not_called()
-        self.assertIn('只读', seams['hint'].get())
+        self.assertTrue(result)
+        confirm.assert_called_once()
+        self.assertIn('已禁用', seams['hint'].get())
+        self.assertTrue(self.wait_tree(win, lambda t: 'disabled|' + name in t.get_children()))
+        self.select(win, 'disabled|' + name)
+        with mock.patch('pet_skills_manage.ask_confirmation', return_value=True):
+            self.assertTrue(pet_skills_manage.toggle_disabled(
+                self.pet, self.tree(win), seams['state'], seams['refresh'], seams['hint']))
+        self.assertTrue(self.wait_tree(win, lambda t: name in t.get_children()
+                                     and 'disabled|' + name not in t.get_children()))
 
     def test_rename_flows_through_plan_and_apply(self):
         self.add_skills()

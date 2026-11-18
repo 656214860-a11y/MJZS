@@ -3,9 +3,10 @@ import io
 import os
 import unittest
 from unittest.mock import patch
+import urllib.request
 
 import requests
-import urllib3
+from urllib3.response import HTTPResponse
 
 import infra.model_pool as model_pool
 
@@ -32,21 +33,49 @@ def _respond(status, location=None, streaming=False):
 
 
 class ModelRedirectTests(unittest.TestCase):
+    def test_unmocked_network_is_blocked_by_fixture_guards(self):
+        import socket
+        with patch('socket.getaddrinfo', side_effect=AssertionError('unexpected real DNS')), \
+                patch('socket.socket.connect', side_effect=AssertionError('unexpected real network')):
+            with self.assertRaisesRegex(AssertionError, 'unexpected real DNS'):
+                socket.getaddrinfo('provider.invalid', 443)
+            with socket.socket() as connection:
+                with self.assertRaisesRegex(AssertionError, 'unexpected real network'):
+                    connection.connect(('127.0.0.1', 443))
+
     def request(self, streaming, status, location=None):
-        seen = []
+        seen, responses = [], []
 
-        def send(self, request, **kwargs):
-            seen.append(request)
-            return _respond(status, location, streaming)(self, request, **kwargs)
+        def respond(adapter, prepared, **settings):
+            self.assertEqual(prepared.url, 'https://provider.invalid/v1/chat/completions',
+                             'unexpected request must not leave this fixture')
+            seen.append(urllib.request.Request(prepared.url, headers=dict(prepared.headers)))
+            body = (b'data: {"choices":[{"delta":{"content":"ok"}}]}\n\n'
+                    b'data: [DONE]\n' if streaming else b'{"message":"ok"}')
+            response = requests.Response()
+            response.status_code = status
+            response.url = prepared.url
+            response.reason = 'Synthetic response'
+            if location:
+                response.headers['Location'] = location
+            response.raw = HTTPResponse(body=io.BytesIO(body), preload_content=False)
+            responses.append(response)
+            return response
 
-        # 只换掉适配器的 send；重定向语义由 RequestsJsonOpener 的真实代码保证。
-        with patch.dict(os.environ, {'DRAMA_SUPPRESS_NETWORK': '0', 'NO_PROXY': '*'}), \
-                patch('requests.adapters.HTTPAdapter.send', send):
-            args = ('https://provider.invalid/v1/chat/completions', {'input': 'synthetic'},
-                    {'Authorization': 'Bearer SYNTHETIC', 'x-api-key': 'SYNTHETIC'}, 3)
-            chunks = []
-            result = (model_pool.http_stream(*args, on_chunk=chunks.append) if streaming
-                      else model_pool.http_transport(*args))
+        # Replace only the current adapter's send seam; keep the real opener's redirect policy.
+        with patch('socket.getaddrinfo', side_effect=AssertionError('unexpected real DNS')), \
+                patch('socket.socket.connect', side_effect=AssertionError('unexpected real network')), \
+                patch.object(requests.adapters.HTTPAdapter, 'send', respond), \
+                patch.dict(os.environ, {'DRAMA_SUPPRESS_NETWORK': '0', 'NO_PROXY': '*'}):
+            try:
+                args = ('https://provider.invalid/v1/chat/completions', {'input': 'synthetic'},
+                        {'Authorization': 'Bearer SYNTHETIC', 'x-api-key': 'SYNTHETIC'}, 3)
+                chunks = []
+                result = (model_pool.http_stream(*args, on_chunk=chunks.append) if streaming
+                          else model_pool.http_transport(*args))
+            finally:
+                for response in responses:
+                    response.close()
         return result, seen, chunks
 
     def test_redirects_never_send_a_second_request(self):

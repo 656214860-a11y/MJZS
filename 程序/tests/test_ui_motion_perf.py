@@ -5,6 +5,7 @@
 import time
 import tkinter as tk
 import unittest
+from unittest import mock
 from tkinter import ttk
 from types import SimpleNamespace
 
@@ -85,14 +86,29 @@ class EasedScrollTests(TkCase):
         self.pump(.4)
         self.assertAlmostEqual(self.top_px(canvas), self.top_px(reference), delta=SCROLL_SNAP_PX + 2)
 
+    def settle_scroll(self, canvas, limit=3.0):
+        """按动画完成状态泵真实事件；晚到的帧仍须在截止时间内结束。"""
+        end = time.monotonic() + limit
+        while canvas._eased_scroll.running and time.monotonic() < end:
+            self.root.update()
+        self.assertFalse(canvas._eased_scroll.running, '滚动动画必须在截止时间内结束')
+        self.assertLessEqual(time.monotonic(), end, '最后一帧也不能越过截止时间')
+
     def test_clamped_at_both_ends_and_reverse_returns(self):
-        canvas = self.make_canvas()
-        ui_scroll.eased_scroll(canvas, 1000)
-        self.pump(.6)
-        self.assertAlmostEqual(canvas.yview()[1], 1.0, places=3)
-        ui_scroll.eased_scroll(canvas, -1000)
-        self.pump(.6)
-        self.assertAlmostEqual(canvas.yview()[0], 0.0, places=3)
+        for frame_delay in (SCROLL_FRAME_MS, 4 * SCROLL_FRAME_MS):
+            with self.subTest(frame_delay=frame_delay):
+                canvas = self.make_canvas()
+                native_after = canvas.after
+                # 真实 Tk 定时器可晚到；同时覆盖正常帧与事件循环繁忙的帧。
+                with mock.patch.object(canvas, 'after', side_effect=lambda _ms, *args:
+                                       native_after(frame_delay, *args)):
+                    ui_scroll.eased_scroll(canvas, 1000)
+                    self.settle_scroll(canvas)
+                    self.assertAlmostEqual(canvas.yview()[1], 1.0, places=3)
+                    ui_scroll.eased_scroll(canvas, -1000)
+                    self.settle_scroll(canvas)
+                    self.assertAlmostEqual(canvas.yview()[0], 0.0, places=3)
+                canvas.destroy()
 
     def test_other_code_moving_the_canvas_cancels_the_animation(self):
         canvas = self.make_canvas()

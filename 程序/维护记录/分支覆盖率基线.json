@@ -95,8 +95,8 @@
   "tests.test_writing_api"
  ],
  "tests_ok": true,
- "points_total": 2739,
- "points_covered": 1530,
+ "points_total": 2748,
+ "points_covered": 1540,
  "modules": [
   {
    "module": "comfy_service.py",
@@ -262,15 +262,15 @@
   },
   {
    "module": "model_pool.py",
-   "points": 134,
-   "covered": 55,
-   "percent": 41.0
+   "points": 135,
+   "covered": 56,
+   "percent": 41.5
   },
   {
    "module": "platform_tools.py",
    "points": 133,
-   "covered": 57,
-   "percent": 42.9
+   "covered": 58,
+   "percent": 43.6
   },
   {
    "module": "continuity_ledger.py",
@@ -317,8 +317,8 @@
   {
    "module": "diagnostic_capture.py",
    "points": 89,
-   "covered": 46,
-   "percent": 51.7
+   "covered": 47,
+   "percent": 52.8
   },
   {
    "module": "pet_bus.py",
@@ -328,9 +328,9 @@
   },
   {
    "module": "storage_maintenance.py",
-   "points": 171,
-   "covered": 93,
-   "percent": 54.4
+   "points": 172,
+   "covered": 95,
+   "percent": 55.2
   },
   {
    "module": "client_profiles.py",
@@ -353,8 +353,8 @@
   {
    "module": "publication.py",
    "points": 31,
-   "covered": 20,
-   "percent": 64.5
+   "covered": 19,
+   "percent": 61.3
   },
   {
    "module": "global_library_service.py",
@@ -405,12 +405,6 @@
    "percent": 70.6
   },
   {
-   "module": "temporary_sweep.py",
-   "points": 11,
-   "covered": 8,
-   "percent": 72.7
-  },
-  {
    "module": "app_icon.py",
    "points": 52,
    "covered": 38,
@@ -430,9 +424,9 @@
   },
   {
    "module": "request_ledger.py",
-   "points": 157,
-   "covered": 121,
-   "percent": 77.1
+   "points": 156,
+   "covered": 120,
+   "percent": 76.9
   },
   {
    "module": "stage_model_value.py",
@@ -459,6 +453,12 @@
    "percent": 79.2
   },
   {
+   "module": "file_index.py",
+   "points": 93,
+   "covered": 74,
+   "percent": 79.6
+  },
+  {
    "module": "prompt_templates.py",
    "points": 10,
    "covered": 8,
@@ -471,10 +471,10 @@
    "percent": 80.0
   },
   {
-   "module": "file_index.py",
-   "points": 93,
-   "covered": 75,
-   "percent": 80.6
+   "module": "temporary_sweep.py",
+   "points": 15,
+   "covered": 12,
+   "percent": 80.0
   },
   {
    "module": "token_saver.py",
@@ -546,6 +546,12 @@
    "module": "asset_prompt_rules.py",
    "points": 2,
    "covered": 2,
+   "percent": 100.0
+  },
+  {
+   "module": "config_patch.py",
+   "points": 4,
+   "covered": 4,
    "percent": 100.0
   },
   {
@@ -663,5 +669,5 @@
    "percent": 100.0
   }
  ],
- "modules_total": 94
+ "modules_total": 95
 }

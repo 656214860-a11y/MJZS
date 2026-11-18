@@ -9,12 +9,12 @@ def _register(layer: float, *names: str) -> None:
     for name in names:
         LAYERS[name] = layer
 
-_register(2, "video_source_evidence")
+_register(2, "video_source_evidence", "skill_residue_service")
 _register(0, "pet_bus", "script_contract", "script_brief", "script_manifest_contract", "script_manifest_schema", "script_output_spec", "asset_contract", "episode_contract", "service_contract", "error_codes", "project_context", "stage_layout", "stage_path_service", "storyboard_paths", "project_stages", "platform_tools",
           "prompt_templates", "shot_batches", "production_model_contract", "app_metadata")
 # R1647：stage_model_value 只依赖 file_cache／pet_bus（无 Tk、无编排状态），按实际依赖登记为 L1，
 # 纠正原先按名字后缀落在 L3 的旧账；L2 领域服务不该为读一个阶段模型名反向依赖编排层。
-_register(1, "client_profiles", "model_pool", "model_secrets", "config_snapshot", "pet_llm", "request_ledger", "file_cache", "hash_backend",
+_register(1, "client_profiles", "model_pool", "model_secrets", "config_snapshot", "config_patch", "pet_llm", "request_ledger", "file_cache", "hash_backend",
           "usage_snapshot", "usage_history",
           "storage_maintenance", "temporary_sweep", "log_maintenance", "workspace_maintenance", "diagnostic_capture", "app_logging", "line_endings", "app_icon", "workflow_process_registry", "script_text_reader", "stage_model_value", "native_asset_codec", "comfy_runtime", "ui_tokens", "continuity_ledger",
           "aigc_lint")

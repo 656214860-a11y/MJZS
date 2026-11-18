@@ -1,0 +1,15 @@
+{
+  "round": 3294,
+  "commit_base": "57406202",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k ui_edges_tables window_resize_coalescing timers page_paint_freeze line_endings",
+    "exit": 0,
+    "passed": 58,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T07:08:43"
+}
