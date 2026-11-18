@@ -53,11 +53,14 @@ class AgentsMdConsistencyTests(unittest.TestCase):
     def test_contract_round_whitelist_matches_authorized_l0_scope(self) -> None:
         section = self.agents.split('### 3.4 契约轮', 1)[1].split('### 3.5', 1)[0]
         clause = section.split('- 只改 ', 1)[1].split('。', 1)[0]
-        modules = set(re.findall(r'`([a-z_]+)`', clause))
-        self.assertEqual(modules, {'pet_bus', 'script_contract', 'asset_contract',
-                                  'stage_layout', 'storyboard_paths'})
-        self.assertEqual({module: LAYERS[module] for module in modules},
-                         dict.fromkeys(modules, 0))
+        # 2026-11-18 起契约轮范围由五个点名模块放宽为 `contract/` 包（用户授权，runbook §15 3.4）；
+        # 守卫意图不变：条款所指范围必须恰是已登记的 L0 契约层，且新建模块须登记 `_layers`。
+        self.assertIn('`contract/`', clause)
+        self.assertIn('`_layers`', clause)
+        package = {path.stem for path in (ROOT / 'contract').glob('*.py') if path.stem != '__init__'}
+        self.assertTrue(package)
+        self.assertEqual({module: LAYERS.get(module) for module in package},
+                         dict.fromkeys(package, 0))
         self.assertIn('不动 L1 以上', section)
         self.assertIn('跑全量自检', section)
 
