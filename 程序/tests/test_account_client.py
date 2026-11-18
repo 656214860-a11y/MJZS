@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import account_client
 from orchestrator import account_controller
-from infra import account_store
+from infra import account_store, model_secrets, session_integrity
 import entitlement_service as ent
 from infra import lease_verifier
 from orchestrator import stage_handler_registry
@@ -186,14 +186,35 @@ class AccountStoreTests(unittest.TestCase):
 
     def test_legacy_seed_migration_keeps_fingerprint(self):
         legacy_seed = 'legacy-device-seed'
-        account_store._write({'device_seed': legacy_seed, 'last_email': 'legacy@example.test'}, self.path)
+        self.path.parent.mkdir(parents=True)
+        self.path.write_text(json.dumps({'device_seed': legacy_seed, 'refresh_token': 'old-fixture'}), encoding='utf-8')
         expected = hashlib.sha256(('manju-device-v1:' + legacy_seed).encode('utf-8')).hexdigest()
 
         self.assertEqual(account_store.device_fingerprint(self.path, machine_id=''), expected)
-        self.assertEqual(account_store.load(self.path), {'last_email': 'legacy@example.test'})
+        self.assertEqual(account_store.load(self.path), {})
         seed_path = account_store._device_seed_path(self.path)
         self.assertEqual(seed_path.read_text(encoding='utf-8'), legacy_seed)
         self.assertEqual(account_store.device_fingerprint(self.path, machine_id=''), expected)
+
+    def test_session_integrity_rejects_tampering_and_recovers(self):
+        account_store.save_session({'refresh_token': 'first-fixture'}, self.path)
+        stored = json.loads(self.path.read_text(encoding='utf-8'))
+        self.assertTrue(session_integrity.verify(stored, self.path))
+        key_path = self.path.with_name('.mac_key.dpapi')
+        self.assertTrue(model_secrets.looks_like_blob(key_path.read_bytes()[:20]))
+
+        stored['refresh_token'] = 'changed-fixture'
+        self.path.write_text(json.dumps(stored), encoding='utf-8')
+        self.assertFalse(session_integrity.verify(stored, self.path))
+        self.assertEqual(account_store.load(self.path), {})
+        self.assertFalse(self.path.exists())
+
+        account_store.save_session({'refresh_token': 'second-fixture'}, self.path)
+        key_path.unlink()
+        self.assertEqual(account_store.load(self.path), {})
+        self.assertFalse(key_path.exists())
+        account_store.save_session({'refresh_token': 'third-fixture'}, self.path)
+        self.assertEqual(account_store.load(self.path)['refresh_token'], 'third-fixture')
 
     def test_two_processes_share_first_fallback_seed(self):
         script = (

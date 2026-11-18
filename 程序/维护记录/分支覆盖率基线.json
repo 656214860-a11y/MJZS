@@ -342,22 +342,16 @@
    "percent": 58.3
   },
   {
-   "module": "account_store.py",
-   "points": 15,
-   "covered": 9,
-   "percent": 60.0
-  },
-  {
    "module": "workflow_context_budget.py",
    "points": 25,
    "covered": 15,
    "percent": 60.0
   },
   {
-   "module": "publication.py",
-   "points": 31,
-   "covered": 20,
-   "percent": 64.5
+   "module": "account_store.py",
+   "points": 19,
+   "covered": 12,
+   "percent": 63.2
   },
   {
    "module": "global_library_service.py",
@@ -382,6 +376,12 @@
    "points": 68,
    "covered": 46,
    "percent": 67.6
+  },
+  {
+   "module": "publication.py",
+   "points": 31,
+   "covered": 21,
+   "percent": 67.7
   },
   {
    "module": "artifact_lineage.py",
@@ -459,6 +459,12 @@
    "module": "prompt_templates.py",
    "points": 10,
    "covered": 8,
+   "percent": 80.0
+  },
+  {
+   "module": "session_integrity.py",
+   "points": 5,
+   "covered": 4,
    "percent": 80.0
   },
   {

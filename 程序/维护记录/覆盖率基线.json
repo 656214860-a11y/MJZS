@@ -3550,12 +3550,6 @@
    "percent": 19.7
   },
   {
-   "module": "infra/model_secrets.py",
-   "covered": 39,
-   "total": 195,
-   "percent": 20.0
-  },
-  {
    "module": "orchestrator/stage_handoff_gateways.py",
    "covered": 42,
    "total": 204,
@@ -3694,6 +3688,12 @@
    "percent": 32.1
   },
   {
+   "module": "domain/entitlement_service.py",
+   "covered": 30,
+   "total": 92,
+   "percent": 32.6
+  },
+  {
    "module": "infra/storage_maintenance.py",
    "covered": 245,
    "total": 757,
@@ -3728,6 +3728,12 @@
    "covered": 283,
    "total": 754,
    "percent": 37.5
+  },
+  {
+   "module": "domain/account_client.py",
+   "covered": 47,
+   "total": 117,
+   "percent": 40.2
   },
   {
    "module": "domain/account_client.py",

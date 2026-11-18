@@ -1,7 +1,7 @@
-"""账号会话的本机落盘：刷新令牌、授权租约、最近一次已知服务器时间与设备指纹种子。
+"""账号会话的本机落盘：刷新令牌、授权租约和最近一次已知服务器时间。
 
 文件在「程序目录/private/账户/session.json」，与模型 API Key（private/密钥）分开存放。
-按设计决策 D10 不走 DPAPI 机器绑定：刷新令牌可被服务端吊销，换机重新登录即可。
+文件级 MAC 校验内容完整性。DPAPI 保护本机 MAC 密钥，D10 仍允许换机后重新登录并取得授权。
 内容不进日志、不进任务 JSON；本模块不联网、不导入 Tk。
 """
 import hashlib
@@ -11,6 +11,7 @@ from pathlib import Path
 from agent.core import read, read_json, save, save_text
 from agent.publication import access
 from contract.platform_tools import windows_registry
+from infra import session_integrity
 from infra.storage_maintenance import remove_private_file
 
 PROGRAM = Path(__file__).resolve().parents[1]
@@ -25,36 +26,42 @@ def session_path(base=None):
 
 
 def load(path=None):
-    """读取会话；文件缺失、损坏或不是对象都按空会话处理。"""
-    data = read_json(path or session_path(), {})
-    return data if isinstance(data, dict) else {}
+    """完整性验证失败按未登录处理，由既有登录入口提示重新登录。"""
+    target = Path(path or session_path())
+    data = read_json(target, {})
+    if session_integrity.verify(data, target):
+        return session_integrity.fields(data)
+    if target.is_file():
+        with access():
+            try:
+                return _load_write(target)
+            except (OSError, ValueError):
+                return {}
+    return {}
 
 
 def _load_write(path=None):
-    """写路径的严格读取：只有文件不存在才当空；其余读失败抛可操作错误，绝不写回空值。
-
-    与 ``load()`` 的分工：``load()`` 服务于「读」，读不出就当没有；这里服务于
-    「读—改—写」，读不出却照写会把 ``refresh_token``／``lease`` 等字段整体清掉
-    （文件被占用或截断时丢登录态，比报错严重得多）。
-    """
+    """锁内读取和校验，避免重新签署失效会话或清除其他进程刚保存的会话。"""
     target = Path(path or session_path())
     try:
-        if not target.exists():
-            return {}
         data = read(target)
     except FileNotFoundError:
         return {}
     except (OSError, ValueError) as exc:
-        raise ValueError('账户会话文件 %s 读取失败（%s）：可能被其他程序占用或文件已损坏。'
-                         '请关闭占用该文件的程序后重试；反复出现请把该文件移走再重新登录。'
-                         % (target, exc)) from exc
-    return data if isinstance(data, dict) else {}
+        raise ValueError(f'账户会话文件 {target} 无法读取。请关闭占用它的程序后重试；'
+                         '如果文件已损坏，请移走文件再重新登录。') from exc
+    if session_integrity.verify(data, target):
+        return session_integrity.fields(data)
+    if isinstance(data, dict) and '_mac' not in data and '_mac_key_id' not in data:
+        _device_seed(data, target)
+    remove_private_file(target)
+    return {}
 
 
 def _write(data, path=None):
     target = Path(path or session_path())
     target.parent.mkdir(parents=True, exist_ok=True)
-    save(target, data)
+    save(target, session_integrity.seal(data, target))
 
 
 def save_session(fields, path=None):
