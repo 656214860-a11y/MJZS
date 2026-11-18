@@ -1,15 +1,16 @@
 {
   "round": 3315,
-  "commit_base": "f69fa690",
+  "commit_base": "8fbd4a6b",
   "credential_scan": {
     "ran": true,
     "hits": []
   },
   "targeted": {
-    "cmd": "run_selftests.py -k platform_tools selftest_env merge_queue local_ci tools_lock mutation_sample environment_check",
+    "cmd": "",
     "exit": 0,
-    "passed": 56,
-    "failed": 0
+    "passed": 0,
+    "failed": 0,
+    "skipped": "docs-only"
   },
-  "generated_at": "2026-11-18T10:32:18"
+  "generated_at": "2026-11-18T11:18:38"
 }
