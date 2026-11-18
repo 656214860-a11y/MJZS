@@ -88,7 +88,7 @@
  ],
  "tests_ok": true,
  "points_total": 2546,
- "points_covered": 1349,
+ "points_covered": 1352,
  "modules": [
   {
    "module": "aigc_lint.py",
@@ -451,6 +451,12 @@
    "percent": 79.2
   },
   {
+   "module": "file_index.py",
+   "points": 89,
+   "covered": 71,
+   "percent": 79.8
+  },
+  {
    "module": "prompt_templates.py",
    "points": 10,
    "covered": 8,
@@ -469,18 +475,6 @@
    "percent": 80.8
   },
   {
-   "module": "file_index.py",
-   "points": 89,
-   "covered": 72,
-   "percent": 80.9
-  },
-  {
-   "module": "asset_contract.py",
-   "points": 53,
-   "covered": 44,
-   "percent": 83.0
-  },
-  {
    "module": "api_models.py",
    "points": 7,
    "covered": 6,
@@ -491,6 +485,12 @@
    "points": 7,
    "covered": 6,
    "percent": 85.7
+  },
+  {
+   "module": "asset_contract.py",
+   "points": 66,
+   "covered": 57,
+   "percent": 86.4
   },
   {
    "module": "file_naming.py",
@@ -509,12 +509,6 @@
    "points": 40,
    "covered": 37,
    "percent": 92.5
-  },
-  {
-   "module": "script_manifest_schema.py",
-   "points": 57,
-   "covered": 53,
-   "percent": 93.0
   },
   {
    "module": "app_metadata.py",
@@ -598,6 +592,12 @@
    "module": "script_manifest_contract.py",
    "points": 0,
    "covered": 0,
+   "percent": 100.0
+  },
+  {
+   "module": "script_manifest_schema.py",
+   "points": 44,
+   "covered": 44,
    "percent": 100.0
   },
   {

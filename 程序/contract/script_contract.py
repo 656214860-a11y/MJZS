@@ -38,7 +38,7 @@ import re
 import hashlib
 from datetime import datetime
 from pathlib import Path
-from contract.script_manifest_contract import (HEADER, KIND_OF_MANIFEST, KINDS, MANIFEST_OF_KIND,
+from contract.script_manifest_contract import (HEADER, KIND_OF_MANIFEST, MANIFEST_KINDS, MANIFEST_OF_KIND,
                                       MANIFESTS, STAGE_OUTPUTS, STRUCTURE_MANIFESTS)
 
 # ── 五类产出（任务 5）─────────────────────────────────────────────────────────
