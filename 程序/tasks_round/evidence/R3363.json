@@ -1,0 +1,15 @@
+{
+  "round": 3363,
+  "commit_base": "9e3d1924",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k model_pool_redirects api_cache_usage model_gateway_robustness latent_defects_r2175 auto_full_safe secret_status_diagnostics core shared_adapter_infrastructure keyframe_evidence keyframe batch_frames file_origin_provenance req_s08 pet_ui stage_gate_e2e_probe stage_parallel",
+    "exit": 0,
+    "passed": 1062,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T16:42:29"
+}

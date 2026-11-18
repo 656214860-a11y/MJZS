@@ -8,14 +8,15 @@
 - Claude 的 system 拆成固定块＋变化块，固定块上显式打 cache_control。
 """
 import io
+import os
 import tempfile
 import unittest
-from email.message import Message
 from pathlib import Path
 from unittest.mock import patch
 import json
-import urllib.request
-import urllib.response
+
+import requests
+import urllib3
 
 from infra import model_diagnostics
 import infra.model_pool as model_pool
@@ -113,15 +114,20 @@ class StreamUsageTests(unittest.TestCase):
     def stream(self, body):
         seen = []
 
-        def respond(handler, request):
+        def send(self, request, **kwargs):
             seen.append(request)
-            response = urllib.response.addinfourl(io.BytesIO(body), Message(), request.full_url, 200)
-            response.msg = 'OK'
-            self.addCleanup(response.close)
+            response = requests.Response()
+            response.status_code = 200
+            response.reason = 'OK'
+            response.url = request.url
+            response.headers = requests.structures.CaseInsensitiveDict({})
+            response.raw = urllib3.HTTPResponse(body=io.BytesIO(body),
+                                               preload_content=False, decode_content=False)
+            response.request = request
             return response
 
-        with patch('urllib.request._opener', None), \
-                patch.object(urllib.request.HTTPSHandler, 'https_open', respond):
+        # 出站已收敛 RequestsJsonOpener（requests 栈）：替换适配器 send，不再经 urllib Handler。
+        with patch.dict(os.environ, {'DRAMA_SUPPRESS_NETWORK': '0', 'NO_PROXY': '*'}),                 patch('requests.adapters.HTTPAdapter.send', send):
             chunks = []
             result = model_pool.http_stream('https://provider.invalid/v1/chat/completions',
                                             {'model': 'm', 'messages': []}, {}, 3, chunks.append)
@@ -134,7 +140,7 @@ class StreamUsageTests(unittest.TestCase):
                 b'"prompt_tokens_details":{"cached_tokens":32}}}\n\n'
                 b'data: [DONE]\n')
         result, seen, chunks = self.stream(body)
-        sent = json.loads(seen[0].data.decode('utf-8'))
+        sent = json.loads(seen[0].body.decode('utf-8'))
         self.assertEqual(sent['stream_options'], {'include_usage': True})
         self.assertTrue(result['ok'])
         self.assertEqual(chunks, ['ok'])

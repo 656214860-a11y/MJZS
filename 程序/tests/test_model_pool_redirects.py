@@ -1,35 +1,47 @@
 """Model requests must not forward credentials or payloads through redirects."""
 import io
+import os
 import unittest
-from email.message import Message
 from unittest.mock import patch
-import urllib.request
-import urllib.response
+
+import requests
+import urllib3
 
 import infra.model_pool as model_pool
+
+
+def _respond(status, location=None, streaming=False):
+    """requests 适配器 send 的替身：出站请求已收敛 RequestsJsonOpener（requests 栈），
+    重定向不跟随由 opener 保证，这里只回放状态码与响应体。"""
+    body = (b'data: {"choices":[{"delta":{"content":"ok"}}]}\n\n'
+            b'data: [DONE]\n' if streaming else b'{"message":"ok"}')
+    headers = {'Location': location} if location else {}
+
+    def send(self, request, **kwargs):
+        response = requests.Response()
+        response.status_code = status
+        response.reason = 'Synthetic response'
+        response.url = request.url
+        response.headers = requests.structures.CaseInsensitiveDict(headers)
+        response.raw = urllib3.HTTPResponse(body=io.BytesIO(body),
+                                           preload_content=False, decode_content=False)
+        response.request = request
+        return response
+
+    return send
 
 
 class ModelRedirectTests(unittest.TestCase):
     def request(self, streaming, status, location=None):
         seen = []
 
-        def respond(handler, request):
+        def send(self, request, **kwargs):
             seen.append(request)
-            headers = Message()
-            if location:
-                headers['Location'] = location
-            body = (b'data: {"choices":[{"delta":{"content":"ok"}}]}\n\n'
-                    b'data: [DONE]\n' if streaming else b'{"message":"ok"}')
-            response = urllib.response.addinfourl(io.BytesIO(body), headers,
-                                                 request.full_url, status)
-            response.msg = 'Synthetic response'
-            self.addCleanup(response.close)
-            return response
+            return _respond(status, location, streaming)(self, request, **kwargs)
 
-        # Replace only socket-facing handlers; exercise the real urllib redirect machinery.
-        with patch('urllib.request._opener', None), \
-                patch.object(urllib.request.HTTPHandler, 'http_open', respond), \
-                patch.object(urllib.request.HTTPSHandler, 'https_open', respond):
+        # 只换掉适配器的 send；重定向语义由 RequestsJsonOpener 的真实代码保证。
+        with patch.dict(os.environ, {'DRAMA_SUPPRESS_NETWORK': '0', 'NO_PROXY': '*'}), \
+                patch('requests.adapters.HTTPAdapter.send', send):
             args = ('https://provider.invalid/v1/chat/completions', {'input': 'synthetic'},
                     {'Authorization': 'Bearer SYNTHETIC', 'x-api-key': 'SYNTHETIC'}, 3)
             chunks = []
@@ -47,15 +59,15 @@ class ModelRedirectTests(unittest.TestCase):
                         result, seen, chunks = self.request(streaming, status, target)
                         self.assertFalse(result['ok'])
                         self.assertEqual(len(seen), 1)
-                        self.assertEqual(seen[0].get_header('Authorization'), 'Bearer SYNTHETIC')
-                        self.assertEqual(seen[0].get_header('X-api-key'), 'SYNTHETIC')
+                        self.assertEqual(seen[0].headers.get('Authorization'), 'Bearer SYNTHETIC')
+                        self.assertEqual(seen[0].headers.get('X-api-key'), 'SYNTHETIC')
                         self.assertEqual(chunks, [])
 
     def test_requests_carry_a_non_urllib_user_agent(self):
         for streaming in (False, True):
             with self.subTest(streaming=streaming):
                 _, seen, _ = self.request(streaming, 200)
-                agent = seen[0].get_header('User-agent')
+                agent = seen[0].headers.get('User-agent')
                 self.assertEqual(agent, model_pool.HTTP_USER_AGENT)
                 self.assertNotIn('Python-urllib', agent)
 

@@ -706,7 +706,9 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
             def start_stale_temporary_sweep():
                 if getattr(self,'shutting_down',False) or self.root!=sweep_target:return
                 temporary_sweep.schedule_stale_temporary_sweep(sweep_target)
-            self.win.after(temporary_sweep.TEMP_SWEEP_START_DELAY_MS,start_stale_temporary_sweep)
+            # 裸 ``Desktop.__new__`` 测试替身没有 Tk 窗口：没有消息循环可挂，就不排程。
+            win=getattr(self,'win',None)
+            if win is not None:win.after(temporary_sweep.TEMP_SWEEP_START_DELAY_MS,start_stale_temporary_sweep)
             if not defer_page:
                 self._complete_project_recovery(self.root)
         if not defer_page and getattr(self,'_startup_tick_paused',False):

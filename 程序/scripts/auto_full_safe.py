@@ -336,6 +336,7 @@ def _sync_clean_worktree(root: Path, head: str) -> Path:
         _git("worktree", "add", "--detach", "-f", str(target), head, cwd=root)
     _fill_embedded_repos(root, target)
     _fill_ignored_inputs(root, target)
+    _fill_bundled_tools(root, target)
     _lock_worktree(target)
     if not (target / PROGRAM.name / "run_selftests.py").is_file():
         raise RuntimeError("干净检出缺少 程序/run_selftests.py：%s" % target)
@@ -356,6 +357,30 @@ def _fill_ignored_inputs(root: Path, target: Path) -> None:
             continue
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, destination)
+
+
+# 随包二进制工具（运行环境/）同样被 .gitignore 排除：干净检出里 tool_path 找不到
+# ffmpeg/ffprobe，关键帧取证等测试必红。用硬链接补齐——同盘零拷贝、不占第二份磁盘、
+# 被忽略目录 git clean 不动；目标已存在就跳过（与 _fill_ignored_inputs 同语义）。
+BUNDLED_TOOL_DIRS = ("ffmpeg",)
+
+
+def _fill_bundled_tools(root: Path, target: Path) -> None:
+    for name in BUNDLED_TOOL_DIRS:
+        source = root / "运行环境" / name
+        destination = target / "运行环境" / name
+        if not source.is_dir() or destination.exists():
+            continue
+        for path in sorted(source.rglob("*")):
+            goal = destination / path.relative_to(source)
+            if path.is_dir():
+                goal.mkdir(parents=True, exist_ok=True)
+            elif path.is_file() and not goal.exists():
+                goal.parent.mkdir(parents=True, exist_ok=True)
+                try:
+                    os.link(path, goal)
+                except OSError:
+                    shutil.copy2(path, goal)
 
 
 def _fill_embedded_repos(root: Path, target: Path) -> None:

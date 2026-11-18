@@ -9,16 +9,17 @@
 """
 import io
 import json
+import os
 import socket
 import tempfile
 import threading
 import unittest
-from email.message import Message
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
-import urllib.request
-import urllib.response
+
+import requests
+import urllib3
 
 import infra.model_pool as model_pool
 import infra.model_router as model_router
@@ -73,8 +74,8 @@ class ResponseFailureKindTests(unittest.TestCase):
         return 'http://127.0.0.1:%d/v1/chat/completions' % server.getsockname()[1]
 
     def send(self, url, timeout=0.5):
-        # 系统代理不能把回环地址转走：只换掉代理表，其余仍是真实的 urllib 栈与真实套接字。
-        with patch('urllib.request.getproxies', dict):
+        # RequestsJsonOpener 对回环地址显式清空代理；这里只解除测试网络抑制，套接字仍是真实的。
+        with patch.dict(os.environ, {'DRAMA_SUPPRESS_NETWORK': '0', 'NO_PROXY': '*'}):
             return model_pool.http_transport(url, {'model': 'synthetic', 'messages': []},
                                              {'Authorization': 'Bearer SYNTHETIC'}, timeout)
 
@@ -110,23 +111,22 @@ class QwenProbeTests(unittest.TestCase):
     def probe(self, status, location=None, body=b'{"data":[{"id":"qwen-x"}]}', model='qwen-x'):
         import qwen_setup
         seen = []
+        headers = {'Location': location} if location else {}
 
-        def respond(handler, request):
+        def send(self, request, **kwargs):
             seen.append(request)
-            headers = Message()
-            first = len(seen) == 1
-            if first and location:
-                headers['Location'] = location
-            response = urllib.response.addinfourl(io.BytesIO(body), headers, request.full_url,
-                                                 status if first else 200)
-            response.msg = 'Synthetic response'
-            self.addCleanup(response.close)
+            response = requests.Response()
+            response.status_code = status
+            response.reason = 'Synthetic response'
+            response.url = request.url
+            response.headers = requests.structures.CaseInsensitiveDict(headers)
+            response.raw = urllib3.HTTPResponse(body=io.BytesIO(body),
+                                               preload_content=False, decode_content=False)
+            response.request = request
             return response
 
-        # 只换掉面向套接字的两个处理器，重定向走真实的 urllib 机制。
-        with patch('urllib.request._opener', None), patch('urllib.request.getproxies', dict), \
-                patch.object(urllib.request.HTTPHandler, 'http_open', respond), \
-                patch.object(urllib.request.HTTPSHandler, 'https_open', respond):
+        # 只换掉适配器 send；重定向不跟随由 RequestsJsonOpener 的真实代码保证。
+        with patch.dict(os.environ, {'DRAMA_SUPPRESS_NETWORK': '0', 'NO_PROXY': '*'}),                 patch('requests.adapters.HTTPAdapter.send', send):
             text = qwen_setup.probe({'base_url': self.BASE, 'api_key': 'SYNTHETIC-KEY', 'model': model})
         return text, seen
 
@@ -134,16 +134,16 @@ class QwenProbeTests(unittest.TestCase):
         for status in (301, 302, 303, 307, 308):
             with self.subTest(status=status):
                 text, seen = self.probe(status, 'https://collector.invalid/models')
-                self.assertEqual([request.full_url for request in seen], [self.BASE + '/models'])
+                self.assertEqual([request.url for request in seen], [self.BASE + '/models'])
                 self.assertEqual(text, '连接失败（HTTP %d），请检查网络、根地址和 API Key。' % status)
 
     def test_the_probe_carries_the_key_and_a_non_urllib_user_agent(self):
         text, seen = self.probe(200)
         self.assertEqual(text, 'API 已连接；模型在返回列表中。')
         self.assertEqual(len(seen), 1)
-        self.assertEqual(seen[0].get_method(), 'GET')
-        self.assertEqual(seen[0].get_header('Authorization'), 'Bearer SYNTHETIC-KEY')
-        self.assertEqual(seen[0].get_header('User-agent'), model_pool.HTTP_USER_AGENT)
+        self.assertEqual(seen[0].method, 'GET')
+        self.assertEqual(seen[0].headers.get('Authorization'), 'Bearer SYNTHETIC-KEY')
+        self.assertEqual(seen[0].headers.get('User-agent'), model_pool.HTTP_USER_AGENT)
 
     def test_messages_for_other_answers_are_unchanged(self):
         self.assertEqual(self.probe(200, model='qwen-other')[0], 'API 已连接；请确认填写的模型已开通权限。')
