@@ -1,0 +1,15 @@
+{
+  "round": 3330,
+  "commit_base": "bfc51754",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k shot_field_specs golden_outputs shot_batches storyboard_contract episode_contract",
+    "exit": 0,
+    "passed": 60,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T11:49:24"
+}

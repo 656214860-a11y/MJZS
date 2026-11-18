@@ -2,6 +2,11 @@
 
 此模块刻意不依赖项目服务或阶段编排；项目创建、剧本和分镜都可以安全复用。
 ``writing`` 仍重导出这些函数，兼容既有插件和脚本。
+
+镜头字段的单一事实源也在本模块（轮 6C·D7）：``SHOT_FIELD_SPECS`` 与取值常量
+被 ``shot_batches.schema()``／``shot_batches.validate()``、本模块
+``validate_episode()``／``duration_gap()``、``storyboard_contract.rules()``
+三处呈现共用，改字段先改这里再同步呈现。
 """
 from __future__ import annotations
 
@@ -10,6 +15,55 @@ import re
 from pathlib import Path, PureWindowsPath
 
 from contract.media_signature import is_png
+
+
+# ===== 镜头字段契约事实（轮 6C·D7：schema()／validate()／rules() 的单一事实源）=====
+# 分镜镜头字段「有哪些、取值约束、提示词写法」只在这里定义一份；三个呈现方：
+#   · schema()   → contract/shot_batches.schema() 的镜头 properties；
+#   · validate() → 本模块 validate_episode()／duration_gap() 与
+#                  contract/shot_batches.validate() 的判定；
+#   · rules()    → contract/storyboard_contract.rules() 的提示词枚举。
+# 改字段或约束先改这里再同步各呈现；rules() 输出须与改动前逐字一致
+# （tests/fixtures/golden/storyboard_contract_rules.txt 黄金对照）。
+
+#: 镜头编号：提示词样例（rules()）与合法格式（validate_episode 判定）。
+SHOT_ID_SAMPLE = 'SH001'
+SHOT_ID_PATTERN = r'(?:EP\d{3,}_)?SH\d{3,}'
+
+#: 镜头 duration（秒）与 video_prompt（字符数）的合法区间。
+SHOT_DURATION_RANGE = (2, 15)
+VIDEO_PROMPT_RANGE = (1, 1500)
+
+#: action_complexity 的合法取值（rules() 提示词与 shot_batches.schema() 枚举同源）。
+ACTION_COMPLEXITY = ('simple', 'medium', 'complex')
+
+#: 镜头字段清单：(字段名, rules() 括注, schema() properties 片段)。
+#: - 括注 None → rules() 枚举里裸写字段名；否则渲染为 ``name（note）``。
+#: - 片段 None → schema() 不单列 properties（字段仍可出现在镜头 JSON，
+#:   靠 additionalProperties: True 放行）。
+#: 次序即 rules() 字段枚举的次序；批次层九字段在 contract/shot_batches.SHOT_FIELDS。
+SHOT_FIELD_SPECS = (
+    ('id', '%s 格式且不重复' % SHOT_ID_SAMPLE,
+     {'type': 'string', 'description': '兼容老字段：没有 shot_id 时由它推'}),
+    ('title', None, {'type': 'string'}),
+    ('duration', '%d–%d 的整数秒' % SHOT_DURATION_RANGE,
+     {'type': 'integer', 'minimum': SHOT_DURATION_RANGE[0], 'maximum': SHOT_DURATION_RANGE[1]}),
+    ('characters', '角色编号字符串数组',
+     {'type': 'array', 'items': {'type': 'string'}}),
+    ('location', '场景编号', {'type': 'string'}),
+    ('props', '关键道具编号数组',
+     {'type': 'array', 'items': {'type': 'string'}}),
+    ('frame', '相对素材目录的 frames/镜头编号.png', {'type': 'string'}),
+    ('frame_prompt', None, {'type': 'string'}),
+    ('video_prompt', None, {'type': 'string'}),
+    ('dialogue', None, {'type': 'array'}),
+    ('action_complexity', '/'.join(ACTION_COMPLEXITY), {'enum': list(ACTION_COMPLEXITY)}),
+    ('complexity_reason', None, None),
+    ('ordinary_props', None, None),
+    ('edit_duration', None, None),
+    ('trim_in', None, None),
+    ('trim_out', None, None),
+)
 
 
 def relative(value):
@@ -54,7 +108,8 @@ def duration_gap(episode):
         return None
     total = sum(shot.get('duration') for shot in shots
                 if isinstance(shot, dict) and number(shot.get('duration'))
-                and isinstance(shot.get('duration'), int) and 2 <= shot['duration'] <= 15)
+                and isinstance(shot.get('duration'), int)
+                and SHOT_DURATION_RANGE[0] <= shot['duration'] <= SHOT_DURATION_RANGE[1])
     declared = episode['duration']
     if declared == total:
         return None
@@ -77,16 +132,16 @@ def validate_episode(episode, source, assets=None):
         tag = f'第{index}镜'
         if not isinstance(shot, dict): errors.append(tag + '不是对象'); continue
         shot_id = shot.get('id')
-        if not isinstance(shot_id, str) or not re.fullmatch(r'(?:EP\d{3,}_)?SH\d{3,}', shot_id): errors.append(tag + '编号须为SH001或EP001_SH001格式')
+        if not isinstance(shot_id, str) or not re.fullmatch(SHOT_ID_PATTERN, shot_id): errors.append(tag + '编号须为%s或EP001_%s格式' % (SHOT_ID_SAMPLE, SHOT_ID_SAMPLE))
         if isinstance(shot_id, str) and shot_id in ids: errors.append(tag + '编号重复')
         if isinstance(shot_id, str): ids.add(shot_id)
         duration = shot.get('duration')
-        valid_duration = number(duration) and isinstance(duration, int) and 2 <= duration <= 15
-        if not valid_duration: errors.append(tag + '时长必须为2–15的整数秒')
+        valid_duration = number(duration) and isinstance(duration, int) and SHOT_DURATION_RANGE[0] <= duration <= SHOT_DURATION_RANGE[1]
+        if not valid_duration: errors.append(tag + '时长必须为%d–%d的整数秒' % SHOT_DURATION_RANGE)
         else: total += duration
         if not isinstance(shot.get('title'), str) or not shot['title'].strip(): errors.append(tag + '缺少title')
         prompt = shot.get('video_prompt')
-        if not isinstance(prompt, str) or not 1 <= len(prompt.strip()) <= 1500: errors.append(tag + 'video_prompt须为1–1500字符')
+        if not isinstance(prompt, str) or not VIDEO_PROMPT_RANGE[0] <= len(prompt.strip()) <= VIDEO_PROMPT_RANGE[1]: errors.append(tag + 'video_prompt须为%d–%d字符' % VIDEO_PROMPT_RANGE)
         characters = shot.get('characters')
         if not isinstance(characters, list) or not all(isinstance(item, str) and item.strip() for item in characters): errors.append(tag + 'characters须为角色ID数组（空镜头可为空）'); characters = []
         location = shot.get('location')

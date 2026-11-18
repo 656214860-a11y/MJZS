@@ -159,6 +159,10 @@ class StoryboardPromptGoldenTests(unittest.TestCase):
         _golden('storyboard_contract_prompt_lines.txt',
                 storyboard_contract.prompt_lines() + '\n')
 
+    def test_storyboard_contract_rules_prompt(self):
+        # 轮 6C·D7：rules() 改由契约事实表渲染字段枚举，输出须与改动前逐字一致。
+        _golden('storyboard_contract_rules.txt', storyboard_contract.rules() + '\n')
+
     def test_batch_plan_markdown(self):
         from orchestrator import storyboard_final
         _golden('storyboard_batch_plan.md',
