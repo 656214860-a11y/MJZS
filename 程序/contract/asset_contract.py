@@ -329,14 +329,20 @@ def panel_text():
 
 
 def validate(asset, aid=''):
-    """这一项资产的校验问题（空列表＝通过）。规则就是「新增字段的值域」，老字段不查。"""
+    """这一项资产的校验问题（空列表＝通过）。规则就是「新增字段的值域」，老字段不查。
+
+    认不出类别（编号前缀与 character_id／scene_id／prop_id 都指不出）也算一条问题——
+    R3230 §2.4：以前这里直接返回空列表，编号拼错、类别字段缺失都静默放行。
+    """
     problems = []
     if not isinstance(asset, dict):
         return ['资产条目必须是对象']
     kind = kind_of(aid) or kind_of(asset.get('character_id') or asset.get('scene_id')
                                   or asset.get('prop_id') or '')
     if not kind:
-        return problems
+        return ['认不出资产类别：%s（编号要 CHAR_/LOC_/PROP_ 开头，或资产里带 '
+                'character_id／scene_id／prop_id）'
+                % (str(aid or '').strip() or '（空编号）')]
     data = normalize(asset, aid)
     if kind == 'character':
         anchor = str(data.get('character_anchor') or '')

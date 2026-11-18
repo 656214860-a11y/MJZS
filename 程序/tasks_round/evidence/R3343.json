@@ -1,0 +1,15 @@
+{
+  "round": 3343,
+  "commit_base": "a25edab1",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k asset_contract assets_scope confirm_gates",
+    "exit": 0,
+    "passed": 73,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T14:16:15"
+}

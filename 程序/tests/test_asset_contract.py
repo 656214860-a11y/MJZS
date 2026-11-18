@@ -195,6 +195,23 @@ class ValidateTests(unittest.TestCase):
         problems = ac.validate({"name": "怀表", "holder": "林小满"}, "PROP_001")
         self.assertTrue(any("holder" in text for text in problems))
 
+    def test_an_unrecognized_category_is_a_problem_not_a_silent_pass(self):
+        """R3230 §2.4／轮 7A D9：认不出类别不再返回空列表（空列表只给真能判定类别的资产）。"""
+        # 类别字段缺失：编号为空，资产里也没有 character_id／scene_id／prop_id
+        self.assertEqual(len(ac.validate({"name": "无类别"}, "")), 1)
+        # 编号拼错：前缀对不上 CHAR_/LOC_/PROP_，资产里也没有 *_id 字段，各报一条
+        for bad_aid in ("CHRA_001", "CHAR-001", "SH001"):
+            problems = ac.validate({"name": "拼错编号"}, bad_aid)
+            self.assertEqual(len(problems), 1, bad_aid)
+            self.assertIn("类别", problems[0])
+        # *_id 字段能认出类别时不算「认不出」：照旧按那一类校验（锁定缺锚点是角色规则）
+        problems = ac.validate({"name": "角色", "character_id": "CHAR_009",
+                                "locked": True}, "杂项键")
+        self.assertTrue(any("character_anchor" in text for text in problems))
+        self.assertFalse(any("类别" in text for text in problems))
+        # 合法类别行为不变
+        self.assertEqual(ac.validate({"name": "怀表", "holder": ""}, "PROP_001"), [])
+
 
 class MissingAndSchemaTests(unittest.TestCase):
     def test_missing_ids_reports_unknown_and_promptless_assets(self):
