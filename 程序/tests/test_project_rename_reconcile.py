@@ -132,7 +132,11 @@ class DesktopRenameReconcileTests(unittest.TestCase):
                 app._sync_desktop_project_paths.assert_called_once_with(old,str(new))
                 self.assertEqual(service.info['active'],str(new))
                 if deferred:
-                    app.win.after.assert_called_once()
+                    # R3309：延迟载入除页面壳回调外还会登记清扫延迟任务；
+                    # 契约＝show_loaded_project 已排程且 show 未提前调用。
+                    scheduled=[call.args[1].__name__ for call in app.win.after.call_args_list
+                               if len(call.args)>1 and callable(call.args[1])]
+                    self.assertIn('show_loaded_project',scheduled)
                     app.show.assert_not_called()
                 else:app.show.assert_called_once_with(0)
 

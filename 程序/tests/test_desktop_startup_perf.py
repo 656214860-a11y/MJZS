@@ -589,3 +589,49 @@ class DesktopStartupPerfTests(unittest.TestCase):
                 window.destroy()
             except tk.TclError:
                 pass
+
+    def test_project_open_defers_stale_temporary_sweep(self):
+        """R3309：打开项目不得在启动窗口内同步起清扫线程——其 os.walk 会撞上
+        「窗口出现到可交互之间零递归扫描」（规则 33），清扫须延到稳定后由
+        调度器回调触发，而不是 load() 内直接起线程。"""
+        try:
+            window = tk.Tk()
+        except tk.TclError as exc:
+            self.skipTest(PLATFORM_TK_DISPLAY + ': ' + str(exc))
+        desktop = None
+        pending = []
+        real_after = None
+        try:
+            with tempfile.TemporaryDirectory(prefix='desktop-sweep-defer-') as temporary:
+                project = Path(temporary)
+                (project / '01剧本准备' / '输入').mkdir(parents=True)
+                (project / 'config.json').write_text('{}', encoding='utf-8')
+                desktop = Desktop(window, root=project)
+                desktop.startup_controller.cancel()
+                desktop.projects.info['projects'].append({'name': 'sweep-defer', 'path': str(project)})
+                desktop.reload()
+                real_after = window.after
+                def recording_after(delay, callback=None, *args, **kwargs):
+                    timer = (real_after(delay, callback, *args, **kwargs) if callback is not None
+                             else real_after(delay))
+                    if callback is not None:
+                        pending.append((delay, callback))
+                    return timer
+                window.after = recording_after
+                with mock.patch('infra.temporary_sweep.schedule_stale_temporary_sweep') as sweep:
+                    desktop.load(project)
+                    sweep.assert_not_called()
+                    jobs = [callback for _delay, callback in pending
+                            if getattr(callback, '__name__', '') == 'start_stale_temporary_sweep']
+                    self.assertEqual(len(jobs), 1)
+                    jobs[0]()
+                    sweep.assert_called_once_with(project)
+        finally:
+            if real_after is not None:
+                window.after = real_after
+            if desktop is not None:
+                desktop.cancel_timers()
+            try:
+                window.destroy()
+            except tk.TclError:
+                pass

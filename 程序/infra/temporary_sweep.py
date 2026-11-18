@@ -16,6 +16,10 @@ import infra.app_logging as app_logging
 import infra.file_cache as file_cache
 
 TEMP_SWEEP_MAX_AGE_SECONDS = 24 * 3600
+# 清扫线程的最早启动时刻（毫秒）：必须晚于「窗口出现到可交互」的启动窗口
+# （规则 33，实测约 1.5 秒），否则后台线程里的 os.walk 会被启动零扫描门禁
+# 计入违规。与 ui.desktop_account_page.RENEW_DELAY_MS 同档的保守延迟。
+TEMP_SWEEP_START_DELAY_MS = 3000
 _TEMP_NAME_RE = re.compile(r'\.[0-9a-fA-F]{32}\.(?:tmp|download|recover|partial\.mp4)$')
 
 
