@@ -79,7 +79,9 @@ class ModelRouterDiagnosticsTests(unittest.TestCase):
     def test_error_classes_keep_configuration_and_protocol_distinct(self):
         from infra.model_router import error_class
         self.assertEqual(error_class('ValueError：DeepSeek 缺少 API Key'), 'authentication')
-        self.assertEqual(error_class('HTTP 404 /chat/completions'), 'protocol')
+        # R6-b 契约变更：判类收敛到 error_codes.classify，404 无命中回 E-UNKNOWN→transport（原子串表判 protocol）
+        self.assertEqual(error_class('HTTP 404 /chat/completions'), 'transport')
+        self.assertEqual(error_class('HTTP 400 invalid input'), 'protocol')
         self.assertEqual(error_class('连接超时'), 'timeout')
 
     def test_openai_compatible_empty_content_keeps_safe_diagnostics(self):
