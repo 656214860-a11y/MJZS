@@ -893,13 +893,13 @@
   {
    "module": "domain/offline_asr_client.py",
    "covered": 0,
-   "total": 455,
+   "total": 457,
    "percent": 0.0
   },
   {
    "module": "domain/offline_asr_setup.py",
    "covered": 0,
-   "total": 200,
+   "total": 199,
    "percent": 0.0
   },
   {
@@ -971,7 +971,7 @@
   {
    "module": "domain/speech_api.py",
    "covered": 0,
-   "total": 338,
+   "total": 341,
    "percent": 0.0
   },
   {
@@ -1505,7 +1505,7 @@
   {
    "module": "orchestrator/agent_skill_sync.py",
    "covered": 0,
-   "total": 151,
+   "total": 152,
    "percent": 0.0
   },
   {
@@ -1583,7 +1583,7 @@
   {
    "module": "orchestrator/idea_chat_controller.py",
    "covered": 0,
-   "total": 297,
+   "total": 298,
    "percent": 0.0
   },
   {
@@ -1643,7 +1643,7 @@
   {
    "module": "orchestrator/previs_automation.py",
    "covered": 0,
-   "total": 168,
+   "total": 169,
    "percent": 0.0
   },
   {
@@ -1655,13 +1655,13 @@
   {
    "module": "orchestrator/previs_monitor.py",
    "covered": 0,
-   "total": 116,
+   "total": 117,
    "percent": 0.0
   },
   {
    "module": "orchestrator/qwen_adapter.py",
    "covered": 0,
-   "total": 112,
+   "total": 113,
    "percent": 0.0
   },
   {
@@ -1721,7 +1721,7 @@
   {
    "module": "orchestrator/storyboard_direct_api.py",
    "covered": 0,
-   "total": 280,
+   "total": 297,
    "percent": 0.0
   },
   {
@@ -3555,12 +3555,6 @@
    "percent": 15.3
   },
   {
-   "module": "orchestrator/stage_parallel.py",
-   "covered": 103,
-   "total": 667,
-   "percent": 15.4
-  },
-  {
    "module": "infra/api_endpoints.py",
    "covered": 64,
    "total": 413,
@@ -3571,6 +3565,12 @@
    "covered": 11,
    "total": 71,
    "percent": 15.5
+  },
+  {
+   "module": "orchestrator/stage_parallel.py",
+   "covered": 104,
+   "total": 668,
+   "percent": 15.6
   },
   {
    "module": "agent/volcengine.py",
@@ -3802,9 +3802,9 @@
   },
   {
    "module": "orchestrator/desktop_automation_service.py",
-   "covered": 212,
-   "total": 469,
-   "percent": 45.2
+   "covered": 213,
+   "total": 470,
+   "percent": 45.3
   },
   {
    "module": "contract/media_signature.py",
@@ -3910,15 +3910,15 @@
   },
   {
    "module": "infra/executors.py",
-   "covered": 181,
-   "total": 206,
-   "percent": 87.9
+   "covered": 211,
+   "total": 237,
+   "percent": 89.0
   },
   {
    "module": "agent/publication.py",
-   "covered": 145,
+   "covered": 143,
    "total": 159,
-   "percent": 91.2
+   "percent": 89.9
   },
   {
    "module": "domain/video_lifecycle_service.py",

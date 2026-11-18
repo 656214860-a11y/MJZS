@@ -67,14 +67,14 @@ SPAWN_SITE_EXEMPT = {
     'short_probe': frozenset({
         'infra/aigc_lint.py:85', 'infra/engine_probe.py:140',
         'infra/native_apps.py:42', 'codex_paste.py:34', 'console_submit.py:14',
-        'orchestrator/previs_automation.py:22',
+        'orchestrator/previs_automation.py:23',
     }),
     'os_operation': frozenset({
         'app_shortcut.py:50', 'app_shortcut.py:114', 'app_shortcut.py:243',
         'infra/native_apps.py:75', 'infra/native_apps.py:87',
     }),
     'detached': frozenset({
-        'infra/native_apps.py:124', 'orchestrator/qwen_adapter.py:99',
+        'infra/native_apps.py:124', 'orchestrator/qwen_adapter.py:100',
         'orchestrator/workflow_engines.py:456', 'orchestrator/workflow_engines.py:518',
         'ui/desktop_idea_chat.py:964', 'ui/desktop_idea_chat.py:980',
         'ui/desktop_media_pages.py:873', 'ui/desktop_send_choice.py:54',

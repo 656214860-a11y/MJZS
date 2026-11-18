@@ -122,6 +122,49 @@ class VendorGateTests(ExecutorCase):
         self.assertNotIn('x', executors.vendor_status())
 
 
+class StreamPoolTests(ExecutorCase):
+    def test_stream_runs_task_on_dedicated_thread(self):
+        seen = []
+
+        def work():
+            seen.append(threading.current_thread().name)
+            return 'done'
+
+        future = executors.submit('stream', work, label='reader')
+        self.assertEqual(future.result(timeout=5), 'done')
+        self.assertEqual(seen, ['executor-stream'])
+        status = executors.pool_status()
+        self.assertIn('stream', status)
+
+    def test_stream_cancelled_before_run_never_executes(self):
+        flag = executors.CancelFlag()
+        flag.cancel()
+        ran = []
+        future = executors.submit('stream', lambda: ran.append(1), cancel=flag)
+        deadline = time.monotonic() + 5
+        while not future.done() and time.monotonic() < deadline:
+            time.sleep(0.01)
+        self.assertTrue(future.cancelled())
+        self.assertEqual(ran, [])
+
+    def test_stream_shutdown_waits_bounded_and_logs(self):
+        started = threading.Event()
+        release = threading.Event()
+
+        def work():
+            started.set()
+            release.wait(timeout=30)
+
+        executors.submit('stream', work, label='straggler')
+        self.assertTrue(started.wait(timeout=5))
+        begin = time.monotonic()
+        with self.assertLogs('executors', level='WARNING') as logs:
+            executors.shutdown(wait=0.05)
+        self.assertLess(time.monotonic() - begin, 3.0)
+        self.assertTrue(any('stream' in line for line in logs.output))
+        release.set()
+
+
 class ShutdownTests(ExecutorCase):
     def test_shutdown_cancels_queued_tasks(self):
         gate = threading.Event()

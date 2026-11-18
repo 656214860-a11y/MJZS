@@ -7,6 +7,8 @@
 - 取消：``cancel`` 传 ``threading.Event``、``CancelFlag`` 或带 ``is_set()``/
   ``cancelled()`` 的对象；任务出队时已取消则不执行（Future 置 cancelled），
   执行中由任务自身读同一标记。K12 落地 L0 ``CancelToken`` 后本封装可整体替换。
+- ``stream`` 池：延迟敏感的实时读线程（子进程 stdout 泵、socket 收包循环）专用，
+  每个任务独占一条 daemon 线程，不排队不复用；关闭时同样限时等待。
 - ``shutdown(wait=5)`` 有序收尾：停止接收、取消未开始任务、worker 按期限退出，
   超时任务记诊断日志，不阻塞退出（线程为 daemon）。
 """
@@ -34,6 +36,10 @@ _POOLS_LOCK = threading.Lock()
 # 供应商并发闸门：vendor -> _VendorGate
 _VENDOR_GATES = {}
 _VENDOR_LOCK = threading.Lock()
+
+# stream 池：每任务独占线程的登记表（供 shutdown 限时等待与诊断）。
+_STREAM_THREADS = set()
+_STREAM_LOCK = threading.Lock()
 
 
 class CancelFlag:
@@ -160,6 +166,40 @@ def _ensure_network_workers():
         _pool('network', want)
 
 
+def _execute_item(item):
+    """执行单个任务项：取消检查 → 供应商闸门 → fn() → 结果回填 Future。"""
+    fn, cancel, _label, vendor, future = item
+    try:
+        if future.cancelled() or _cancelled(cancel):
+            future.cancel()
+            return
+        if not future.set_running_or_notify_cancel():
+            return
+        gate = _vendor_gate(vendor)
+        if gate is not None and not gate.acquire(cancel):
+            future.cancel()
+            return
+        try:
+            future.set_result(fn())
+        finally:
+            if gate is not None:
+                gate.release()
+    except BaseException as exc:  # noqa: BLE001 —— 结果一律回传 Future
+        try:
+            future.set_exception(exc)
+        except Exception:
+            _LOG.debug('future 回填异常失败', exc_info=True)
+
+
+def _stream_entry(item):
+    """stream 池 worker：一任务一线程，跑完即注销。"""
+    try:
+        _execute_item(item)
+    finally:
+        with _STREAM_LOCK:
+            _STREAM_THREADS.discard(threading.current_thread())
+
+
 class _Pool:
     def __init__(self, name, workers):
         self.name = name
@@ -200,29 +240,8 @@ class _Pool:
                 if self._closing and self._queue.empty():
                     break
                 continue
-            fn, cancel, _label, vendor, future = item
-            try:
-                if future.cancelled() or _cancelled(cancel):
-                    future.cancel()
-                    continue
-                if not future.set_running_or_notify_cancel():
-                    continue
-                gate = _vendor_gate(vendor)
-                if gate is not None and not gate.acquire(cancel):
-                    future.cancel()
-                    continue
-                try:
-                    future.set_result(fn())
-                finally:
-                    if gate is not None:
-                        gate.release()
-            except BaseException as exc:  # noqa: BLE001 —— 结果一律回传 Future
-                try:
-                    future.set_exception(exc)
-                except Exception:
-                    _LOG.debug('future 回填异常失败', exc_info=True)
-            finally:
-                self._queue.task_done()
+            _execute_item(item)
+            self._queue.task_done()
 
     def shutdown(self, wait):
         with self._lock:
@@ -264,7 +283,7 @@ def _pool(name, workers=None):
 def submit(pool, fn, *, cancel=None, label='', vendor=None):
     """向命名池提交任务，返回 ``concurrent.futures.Future``。
 
-    - ``pool``：``io``/``cpu``/``network``/``gpu``。
+    - ``pool``：``io``/``cpu``/``network``/``gpu``/``stream``（stream 每任务独占线程）。
     - ``cancel``：``CancelFlag``/``threading.Event`` 或 ``cancelled()``/``is_set()`` 对象；
       出队时已置位则任务不执行。
     - ``vendor``：供应商桶名；配合 ``set_vendor_limit`` 的并发闸门（network 池建议携带）。
@@ -272,7 +291,18 @@ def submit(pool, fn, *, cancel=None, label='', vendor=None):
     """
     if not callable(fn):
         raise ConfigError('submit 的 fn 必须可调用')
-    target = _pool(str(pool or '').strip())
+    name = str(pool or '').strip()
+    if name == 'stream':
+        # 延迟敏感读线程专用：每任务独占 daemon 线程，不经队列。
+        future = Future()
+        item = (fn, cancel, str(label or ''), vendor, future)
+        thread = threading.Thread(target=_stream_entry, args=(item,),
+                                  name='executor-stream', daemon=True)
+        with _STREAM_LOCK:
+            _STREAM_THREADS.add(thread)
+        thread.start()
+        return future
+    target = _pool(name)
     if target.name == 'network' and vendor:
         _ensure_network_workers()
     future = Future()
@@ -283,10 +313,14 @@ def submit(pool, fn, *, cancel=None, label='', vendor=None):
 def pool_status():
     """诊断快照：各池 worker 数、排队深度与关闭状态。"""
     with _POOLS_LOCK:
-        return {name: {'workers': len(pool._workers),
-                       'queued': pool._queue.qsize(),
-                       'closing': pool._closing}
-                for name, pool in _POOLS.items()}
+        pools = {name: {'workers': len(pool._workers),
+                        'queued': pool._queue.qsize(),
+                        'closing': pool._closing}
+                 for name, pool in _POOLS.items()}
+    with _STREAM_LOCK:
+        pools['stream'] = {'workers': len(_STREAM_THREADS), 'queued': 0,
+                           'closing': False}
+    return pools
 
 
 def shutdown(wait=SHUTDOWN_WAIT):
@@ -294,10 +328,19 @@ def shutdown(wait=SHUTDOWN_WAIT):
 
     超时仍在运行的任务只记诊断日志，不阻塞调用方（线程为 daemon）。
     """
+    deadline = time.monotonic() + max(0.0, wait)
     with _POOLS_LOCK:
         pools = list(_POOLS.values())
     for pool in pools:
-        pool.shutdown(wait)
+        pool.shutdown(max(0.0, deadline - time.monotonic()))
+    with _STREAM_LOCK:
+        stream_threads = list(_STREAM_THREADS)
+    for thread in stream_threads:
+        thread.join(timeout=max(0.0, deadline - time.monotonic()))
+    alive = [t for t in stream_threads if t.is_alive()]
+    if alive:
+        _LOG.warning('stream 池关闭超时：仍有 %d 个任务在运行（等待 %.1f 秒）',
+                     len(alive), wait)
 
 
 __all__ = ['CancelFlag', 'QUEUE_LIMIT', 'SHUTDOWN_WAIT',

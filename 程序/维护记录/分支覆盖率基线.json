@@ -98,8 +98,8 @@
   "tests.test_executors"
  ],
  "tests_ok": true,
- "points_total": 2813,
- "points_covered": 1574,
+ "points_total": 2816,
+ "points_covered": 1577,
  "modules": [
   {
    "module": "comfy_service.py",
@@ -396,12 +396,6 @@
    "percent": 70.6
   },
   {
-   "module": "executors.py",
-   "points": 38,
-   "covered": 27,
-   "percent": 71.1
-  },
-  {
    "module": "engine_probe.py",
    "points": 53,
    "covered": 38,
@@ -418,6 +412,12 @@
    "points": 52,
    "covered": 38,
    "percent": 73.1
+  },
+  {
+   "module": "executors.py",
+   "points": 41,
+   "covered": 30,
+   "percent": 73.2
   },
   {
    "module": "workflow_process_registry.py",

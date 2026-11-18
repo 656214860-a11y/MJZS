@@ -7,9 +7,11 @@
 """
 import json
 import re
-import threading
 import time
 from pathlib import Path
+
+import infra.app_logging as app_logging
+import infra.executors as executors
 from contract.file_naming import generate_existing
 
 MAX_TOKENS = 32768
@@ -308,26 +310,47 @@ def run_batch(project, config, skill_text, *, scripts=(), existing=(), report=No
     return results
 
 
-class Job(threading.Thread):
-    """后台线程：跑一批并登记取消句柄；结果在 results。"""
+class Job:
+    """后台任务：跑一批并登记取消句柄；结果在 results（I11 起经 infra.executors 调度）。"""
 
     thread_name = 'storyboard-direct'
     busy_text = '正在直连制作初步分镜，请等当前这批完成，或先点「强制停止制作」。'
 
     def __init__(self, project, config, skill_text, **kwargs):
-        super().__init__(daemon=True, name=self.thread_name)
         from contract.platform_tools import ExecutionControl
         self.project, self.config, self.skill_text, self.kwargs = Path(project).resolve(), config, skill_text, kwargs
         self.control = ExecutionControl(timeout=6 * 3600)
         self.results = []
         self.error = ''
         self.done = None
+        self.name = self.thread_name
+        self._future = None
 
     def cancel(self):
         self.control.cancel()
 
     def execute(self, **services):
         return run_batch(self.project, self.config, self.skill_text, **services, **self.kwargs)
+
+    def start(self):
+        if self._future is not None:
+            raise RuntimeError('threads can only be started once')
+        self._future = executors.submit('io', self.run, label=self.thread_name)
+        return self._future
+
+    def is_alive(self):
+        return self._future is not None and not self._future.done()
+
+    def join(self, timeout=None):
+        """兼容 threading.Thread.join：等结束或超时；工作异常已由 run() 收进 self.error。"""
+        if self._future is None:
+            return
+        try:
+            self._future.result(timeout=timeout)
+        except TimeoutError:
+            return
+        except Exception:
+            app_logging.swallowed('storyboard-direct join 等待收尾')
 
     def run(self):
         from contract.platform_tools import execution_scope

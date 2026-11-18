@@ -18,6 +18,7 @@ from json import loads as _loads
 from pathlib import Path
 
 import contract.platform_tools as platform_tools
+import infra.executors as executors
 import infra.storage_maintenance as storage_maintenance
 from domain.offline_asr_client import VENV_DIR, venv_python
 
@@ -130,23 +131,25 @@ class OfflineSetupRunner:
         self._probe = probe or _probe
         self._lock = threading.Lock()
         self._proc = None
-        self._cancelled = False
-        self._thread = None
+        self._cancel_event = threading.Event()
+        self._task = None
 
     def start(self):
         """后台启动下载链；已有任务在跑返回 False（按钮态由 UI 防重点）。"""
         with self._lock:
-            if self._thread is not None and self._thread.is_alive():
+            if self._task is not None and not self._task.done():
                 return False
-            self._cancelled = False
-            self._thread = threading.Thread(target=self._run, daemon=True)
-            self._thread.start()
+            self._cancel_event.clear()
+            # I11a：下载链改经执行器 io 池提交；取消标记即 _cancel_event。
+            self._task = executors.submit('io', self._run,
+                                          cancel=self._cancel_event,
+                                          label='offline-asr-setup')
             return True
 
     def cancel(self):
         """取消：杀掉当前阶段子进程；模型分块由 modelscope 续传，venv 半成品收尾清理。"""
         with self._lock:
-            self._cancelled = True
+            self._cancel_event.set()
             proc = self._proc
         if proc is not None:
             try:
@@ -156,7 +159,7 @@ class OfflineSetupRunner:
 
     @property
     def running(self):
-        return self._thread is not None and self._thread.is_alive()
+        return self._task is not None and not self._task.done()
 
     def _notify(self, event):
         try:
@@ -166,8 +169,7 @@ class OfflineSetupRunner:
             app_logging.swallowed()
 
     def _is_cancelled(self):
-        with self._lock:
-            return self._cancelled
+        return self._cancel_event.is_set()
 
     def _run(self):
         try:

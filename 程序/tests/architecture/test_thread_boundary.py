@@ -15,20 +15,8 @@ from pathlib import Path
 from tests.architecture import _layers, _scan
 
 # I0（R3386 F11）实测：L2 3 文件＋L3 9 文件，共 15 个建线程位点。
-THREAD_SITE_BASELINE = {
-    'domain/offline_asr_client.py': 2,
-    'domain/offline_asr_setup.py': 1,
-    'domain/speech_api.py': 3,
-    'orchestrator/agent_skill_sync.py': 1,
-    'orchestrator/codex_skill_sync.py': 1,
-    'orchestrator/desktop_automation_service.py': 1,
-    'orchestrator/idea_chat_controller.py': 1,
-    'orchestrator/previs_automation.py': 1,
-    'orchestrator/previs_monitor.py': 1,
-    'orchestrator/qwen_adapter.py': 1,
-    'orchestrator/stage_parallel.py': 1,
-    'orchestrator/storyboard_direct_api.py': 1,
-}
+# I11a–I11d 已全部迁往 infra.executors（domain 三文件＋orchestrator 九文件），FL-08 = 0。
+THREAD_SITE_BASELINE = {}
 
 _THREAD_TAILS = frozenset({'Thread', 'ThreadPoolExecutor', 'Timer'})
 

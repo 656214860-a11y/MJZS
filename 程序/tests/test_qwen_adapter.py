@@ -29,14 +29,16 @@ class InteractiveLaunchTests(unittest.TestCase):
             with patch.object(qwen_adapter, 'command', return_value=[str(executable), '--cli']), \
                  patch('qwen_setup.environment', return_value={'OPENAI_MODEL': 'qwen'}), \
                  patch.object(qwen_adapter, 'launch_windows_app', return_value=process) as launch, \
-                 patch.object(qwen_adapter.threading, 'Thread') as thread:
+                 patch.object(qwen_adapter.executors, 'submit') as submit:
                 result = qwen_adapter.launch_interactive(root, 'writing', '标题', '提示词', {})
             self.assertIs(result['process'], process)
             args = launch.call_args.kwargs['args']
             self.assertEqual(args[:2], [str(executable), '--cli'])
             self.assertEqual(launch.call_args.args, (str(executable), 'Qwen Code'))
             self.assertEqual(launch.call_args.kwargs['cwd'], root)
-            thread.return_value.start.assert_called_once_with()
+            self.assertEqual(submit.call_count, 1)
+            self.assertEqual(submit.call_args.args[0], 'io')
+            self.assertEqual(submit.call_args.kwargs.get('label'), 'qwen-name-ready')
             from infra.workflow_process_registry import forget_process
             forget_process(root, process)
 
@@ -45,7 +47,7 @@ class InteractiveLaunchTests(unittest.TestCase):
         adapter = entity_file('qwen_adapter').read_text(encoding='utf-8')
         desktop = desktop_text()
         self.assertIn(
-            "threading.Thread(target=name_when_ready,args=(process,),daemon=True).start()",
+            "executors.submit('io', lambda: name_when_ready(process), label='qwen-name-ready')",
             adapter)
         start = desktop.index("if key in sessions and sessions[key].poll() is None:")
         end = desktop.index("        def launched(result):", start)  # R1840：open_flow_agent 改写成类，缩进少一级

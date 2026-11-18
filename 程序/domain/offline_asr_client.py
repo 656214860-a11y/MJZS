@@ -21,6 +21,7 @@ from pathlib import Path
 
 import infra.app_logging as app_logging
 import contract.platform_tools as platform_tools
+import infra.executors as executors
 import infra.workflow_process_registry as proc_registry
 
 PROGRAM = Path(__file__).resolve().parents[1]
@@ -143,8 +144,9 @@ class EngineHost:
                 self.dead_reason = '离线识别引擎启动失败：%s' % str(error)[:160]
                 raise EngineUnavailable(self.dead_reason)
             process = self.process = self.supervised.process
-        threading.Thread(target=self._read_stdout, args=(process,),
-                         name='voice-asr-reader', daemon=True).start()
+        # I11a：实时 stdout 泵走执行器 stream 池（每任务独占线程，不回退裸线程）。
+        executors.submit('stream', lambda: self._read_stdout(process),
+                         label='voice-asr-reader')
         return True
 
     def _read_stdout(self, process):
@@ -421,14 +423,16 @@ class OfflineAsrSession:
         self.thread = None
         self._delegate = None
         self._finished = threading.Event()
+        self._stop_event = threading.Event()
         self._closed = False
         self._failed = False
         self._seq = 0
 
     # ---- 与 RealtimeSession 一致的外部接口 ----
     def start(self):
-        self.thread = threading.Thread(target=self._run, name='voice-offline-asr', daemon=True)
-        self.thread.start()
+        # I11a：会话主流程改经执行器 io 池提交，取消标记复用 _stop_event。
+        self.thread = executors.submit('io', self._run, cancel=self._stop_event,
+                                       label='voice-offline-asr')
 
     def send(self, pcm):
         self.audio.put(bytes(pcm))
@@ -438,6 +442,7 @@ class OfflineAsrSession:
 
     def cancel(self):
         self.cancelled = True
+        self._stop_event.set()
         self.audio.put(None)
         delegate = self._delegate
         if delegate is not None:

@@ -106,9 +106,9 @@
     "tests/architecture/test_resources.py"
    ],
    "metric": "9 项中无守卫测试的能力数",
-   "violations": 4,
-   "baseline": 4,
-   "note": "已有守卫：HTTP、JSON、删除、子进程、密钥；缺：线程（I10）、日志（I12）、磁盘空间（I15）、时钟（待 L0 端口）。"
+   "violations": 3,
+   "baseline": 3,
+   "note": "已有守卫：HTTP、JSON、删除、子进程、线程（I10 新建棘轮、I11 迁移清零）、密钥；缺：日志（I12）、磁盘空间（I15）、时钟（待 L0 端口）。"
   },
   {
    "id": "LR-09",

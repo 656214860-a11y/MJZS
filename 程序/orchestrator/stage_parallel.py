@@ -20,6 +20,7 @@ import contract.pet_bus as pet_bus
 from infra.file_cache import read_text
 import time
 import threading
+import infra.executors as executors
 from datetime import datetime
 from pathlib import Path
 
@@ -420,10 +421,10 @@ def parallel_map(stage, items, worker, governor=None, at=None, wait=WAIT_SECONDS
                         on_late(item, value, error)
                     return
 
-    threads = [threading.Thread(target=run, daemon=True) for _ in range(workers)]
-    for thread in threads:
-        thread.start()
-    while any(thread.is_alive() for thread in threads):
+    from concurrent.futures import wait as futures_wait, FIRST_COMPLETED
+    futures = [executors.submit('io', run, label='stage-parallel-%d' % slot)
+               for slot in range(workers)]
+    while any(not future.done() for future in futures):
         try:
             control.checkpoint()
         except platform_tools.ExecutionStopped as stop:
@@ -436,8 +437,9 @@ def parallel_map(stage, items, worker, governor=None, at=None, wait=WAIT_SECONDS
             control.report(event='stopped', stage=stage, reason=stop.reason,
                            unresolved=sum(row[2] is not None and getattr(row[2], 'started', False) for row in results))
             break
-        for thread in threads:
-            thread.join(POLL_SECONDS)
+        pending = [future for future in futures if not future.done()]
+        if pending:
+            futures_wait(pending, timeout=POLL_SECONDS, return_when=FIRST_COMPLETED)
     return list(results)
 
 
