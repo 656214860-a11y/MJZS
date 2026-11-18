@@ -100,7 +100,8 @@
    "tests/architecture/test_json_io_boundary.py",
    "tests/architecture/test_deletion_gateway.py",
    "tests/architecture/test_platform_process_boundary.py",
-   "tests/architecture/test_secret_sink_audit.py"
+   "tests/architecture/test_secret_sink_audit.py",
+   "tests/architecture/test_thread_boundary.py"
   ],
   "LR-09": [
    "tests/architecture/test_layer_relations.py"

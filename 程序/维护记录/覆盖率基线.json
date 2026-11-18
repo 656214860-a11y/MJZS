@@ -9,7 +9,8 @@
   "tests.test_publication_recovery",
   "tests.test_claim_queue_gateway",
   "tests.test_usage_snapshot",
-  "tests.test_unit_of_work"
+  "tests.test_unit_of_work",
+  "tests.test_executors"
  ],
  "tests_ok": true,
  "modules": [
@@ -40,7 +41,7 @@
   {
    "module": "agent/prompt_optimizer.py",
    "covered": 0,
-   "total": 192,
+   "total": 194,
    "percent": 0.0
   },
   {
@@ -332,21 +333,9 @@
    "percent": 0.0
   },
   {
-   "module": "contract/error_codes.py",
-   "covered": 0,
-   "total": 70,
-   "percent": 0.0
-  },
-  {
    "module": "contract/frame_checks.py",
    "covered": 0,
    "total": 67,
-   "percent": 0.0
-  },
-  {
-   "module": "contract/infra_errors.py",
-   "covered": 0,
-   "total": 44,
    "percent": 0.0
   },
   {
@@ -904,7 +893,7 @@
   {
    "module": "domain/offline_asr_client.py",
    "covered": 0,
-   "total": 437,
+   "total": 455,
    "percent": 0.0
   },
   {
@@ -916,13 +905,13 @@
   {
    "module": "domain/pet_performance_service.py",
    "covered": 0,
-   "total": 106,
+   "total": 109,
    "percent": 0.0
   },
   {
    "module": "domain/pet_test_service.py",
    "covered": 0,
-   "total": 98,
+   "total": 102,
    "percent": 0.0
   },
   {
@@ -1390,7 +1379,7 @@
   {
    "module": "infra/workflow_process_registry.py",
    "covered": 0,
-   "total": 238,
+   "total": 420,
    "percent": 0.0
   },
   {
@@ -2428,7 +2417,7 @@
   {
    "module": "ui/asset_thumbs.py",
    "covered": 0,
-   "total": 632,
+   "total": 638,
    "percent": 0.0
   },
   {
@@ -3794,6 +3783,12 @@
    "percent": 36.8
   },
   {
+   "module": "contract/error_codes.py",
+   "covered": 27,
+   "total": 70,
+   "percent": 38.6
+  },
+  {
    "module": "domain/asset_batch_lifecycle.py",
    "covered": 32,
    "total": 77,
@@ -3801,9 +3796,9 @@
   },
   {
    "module": "agent/core.py",
-   "covered": 93,
-   "total": 215,
-   "percent": 43.3
+   "covered": 94,
+   "total": 225,
+   "percent": 41.8
   },
   {
    "module": "orchestrator/desktop_automation_service.py",
@@ -3873,9 +3868,9 @@
   },
   {
    "module": "infra/unit_of_work.py",
-   "covered": 218,
-   "total": 278,
-   "percent": 78.4
+   "covered": 223,
+   "total": 283,
+   "percent": 78.8
   },
   {
    "module": "infra/usage_history.py",
@@ -3897,9 +3892,9 @@
   },
   {
    "module": "infra/request_ledger.py",
-   "covered": 566,
-   "total": 671,
-   "percent": 84.4
+   "covered": 571,
+   "total": 676,
+   "percent": 84.5
   },
   {
    "module": "contract/service_contract.py",
@@ -3914,6 +3909,12 @@
    "percent": 85.7
   },
   {
+   "module": "infra/executors.py",
+   "covered": 181,
+   "total": 206,
+   "percent": 87.9
+  },
+  {
    "module": "agent/publication.py",
    "covered": 145,
    "total": 159,
@@ -3924,6 +3925,12 @@
    "covered": 78,
    "total": 83,
    "percent": 94.0
+  },
+  {
+   "module": "contract/infra_errors.py",
+   "covered": 43,
+   "total": 44,
+   "percent": 97.7
   },
   {
    "module": "asset_batch_lifecycle.py",
@@ -3986,6 +3993,6 @@
    "percent": 100.0
   }
  ],
- "modules_covered": 80,
- "modules_total": 662
+ "modules_covered": 83,
+ "modules_total": 663
 }

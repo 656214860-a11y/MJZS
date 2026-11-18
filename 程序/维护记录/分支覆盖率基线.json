@@ -94,11 +94,12 @@
   "tests.test_workflow_process_registry",
   "tests.test_workspace_maintenance",
   "tests.test_writing_api",
-  "tests.test_process_supervisor"
+  "tests.test_process_supervisor",
+  "tests.test_executors"
  ],
  "tests_ok": true,
- "points_total": 2775,
- "points_covered": 1547,
+ "points_total": 2813,
+ "points_covered": 1574,
  "modules": [
   {
    "module": "comfy_service.py",
@@ -395,6 +396,12 @@
    "percent": 70.6
   },
   {
+   "module": "executors.py",
+   "points": 38,
+   "covered": 27,
+   "percent": 71.1
+  },
+  {
    "module": "engine_probe.py",
    "points": 53,
    "covered": 38,
@@ -665,5 +672,5 @@
    "percent": 100.0
   }
  ],
- "modules_total": 94
+ "modules_total": 95
 }
