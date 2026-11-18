@@ -1,40 +1,60 @@
 """Model requests must not forward credentials or payloads through redirects."""
 import io
+import os
 import unittest
-from email.message import Message
 from unittest.mock import patch
 import urllib.request
-import urllib.response
+
+import requests
+from urllib3.response import HTTPResponse
 
 import infra.model_pool as model_pool
 
 
 class ModelRedirectTests(unittest.TestCase):
-    def request(self, streaming, status, location=None):
-        seen = []
+    def test_unmocked_network_is_blocked_by_fixture_guards(self):
+        import socket
+        with patch('socket.getaddrinfo', side_effect=AssertionError('unexpected real DNS')), \
+                patch('socket.socket.connect', side_effect=AssertionError('unexpected real network')):
+            with self.assertRaisesRegex(AssertionError, 'unexpected real DNS'):
+                socket.getaddrinfo('provider.invalid', 443)
+            with socket.socket() as connection:
+                with self.assertRaisesRegex(AssertionError, 'unexpected real network'):
+                    connection.connect(('127.0.0.1', 443))
 
-        def respond(handler, request):
-            seen.append(request)
-            headers = Message()
-            if location:
-                headers['Location'] = location
+    def request(self, streaming, status, location=None):
+        seen, responses = [], []
+
+        def respond(adapter, prepared, **settings):
+            self.assertEqual(prepared.url, 'https://provider.invalid/v1/chat/completions',
+                             'unexpected request must not leave this fixture')
+            seen.append(urllib.request.Request(prepared.url, headers=dict(prepared.headers)))
             body = (b'data: {"choices":[{"delta":{"content":"ok"}}]}\n\n'
                     b'data: [DONE]\n' if streaming else b'{"message":"ok"}')
-            response = urllib.response.addinfourl(io.BytesIO(body), headers,
-                                                 request.full_url, status)
-            response.msg = 'Synthetic response'
-            self.addCleanup(response.close)
+            response = requests.Response()
+            response.status_code = status
+            response.url = prepared.url
+            response.reason = 'Synthetic response'
+            if location:
+                response.headers['Location'] = location
+            response.raw = HTTPResponse(body=io.BytesIO(body), preload_content=False)
+            responses.append(response)
             return response
 
-        # Replace only socket-facing handlers; exercise the real urllib redirect machinery.
-        with patch('urllib.request._opener', None), \
-                patch.object(urllib.request.HTTPHandler, 'http_open', respond), \
-                patch.object(urllib.request.HTTPSHandler, 'https_open', respond):
-            args = ('https://provider.invalid/v1/chat/completions', {'input': 'synthetic'},
-                    {'Authorization': 'Bearer SYNTHETIC', 'x-api-key': 'SYNTHETIC'}, 3)
-            chunks = []
-            result = (model_pool.http_stream(*args, on_chunk=chunks.append) if streaming
-                      else model_pool.http_transport(*args))
+        # Replace only the current adapter's send seam; keep the real opener's redirect policy.
+        with patch('socket.getaddrinfo', side_effect=AssertionError('unexpected real DNS')), \
+                patch('socket.socket.connect', side_effect=AssertionError('unexpected real network')), \
+                patch.object(requests.adapters.HTTPAdapter, 'send', respond), \
+                patch.dict(os.environ, {'DRAMA_SUPPRESS_NETWORK': '0'}):
+            try:
+                args = ('https://provider.invalid/v1/chat/completions', {'input': 'synthetic'},
+                        {'Authorization': 'Bearer SYNTHETIC', 'x-api-key': 'SYNTHETIC'}, 3)
+                chunks = []
+                result = (model_pool.http_stream(*args, on_chunk=chunks.append) if streaming
+                          else model_pool.http_transport(*args))
+            finally:
+                for response in responses:
+                    response.close()
         return result, seen, chunks
 
     def test_redirects_never_send_a_second_request(self):

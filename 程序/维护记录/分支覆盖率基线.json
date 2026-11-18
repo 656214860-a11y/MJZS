@@ -4,6 +4,7 @@
  "metric": "决策点双结果覆盖：if/loop 体进入且条件走完；try handler 进入且干净路径走完；match case 进入且（无 case _ 时）落空路径走完。单行复合语句与表达式短路不计。",
  "targets": [
   "tests.test_aigc_lint",
+  "tests.test_api",
   "tests.test_app_icon",
   "tests.test_app_logging",
   "tests.test_app_metadata",
@@ -11,86 +12,85 @@
   "tests.test_artifact_schema",
   "tests.test_asset_contract",
   "tests.test_broadcaster",
+  "tests.test_claim_queue_gateway",
+  "tests.test_claude_program_detection",
+  "tests.test_cli_streaming",
   "tests.test_client_profiles",
   "tests.test_clipboard_lock",
+  "tests.test_context",
+  "tests.test_context_budget_model",
   "tests.test_continuity_ledger",
   "tests.test_diagnostic_capture",
   "tests.test_engine_probe",
   "tests.test_error_codes",
   "tests.test_file_cache",
+  "tests.test_file_index",
+  "tests.test_file_naming",
+  "tests.test_file_naming_producers",
+  "tests.test_file_origin_provenance",
   "tests.test_frame_checks",
+  "tests.test_global_library_config",
+  "tests.test_global_library_index",
+  "tests.test_global_library_service",
   "tests.test_hash_backend",
   "tests.test_http_client",
+  "tests.test_keyframe_lifecycle_service",
+  "tests.test_l1_bounded_growth_r3269",
+  "tests.test_l1_lost_update",
+  "tests.test_l1_p2_semantics",
+  "tests.test_l1_reliability_r3248",
+  "tests.test_lifecycle",
   "tests.test_line_endings",
   "tests.test_log_maintenance",
   "tests.test_model_diagnostics",
   "tests.test_model_metering",
   "tests.test_model_pool",
+  "tests.test_model_router_diagnostics",
+  "tests.test_model_router_parse",
+  "tests.test_money_invariants",
   "tests.test_native_apps",
+  "tests.test_page_paint_metric",
+  "tests.test_persistent_task_queue",
   "tests.test_pet_bus",
   "tests.test_pet_llm",
+  "tests.test_pet_settings",
   "tests.test_pet_state",
   "tests.test_platform_tools",
   "tests.test_project_context",
   "tests.test_project_stages",
   "tests.test_prompt_templates",
+  "tests.test_publication_recovery",
+  "tests.test_qwen_adapter",
+  "tests.test_recycle_panel_actions",
+  "tests.test_recycle_retention",
+  "tests.test_recycle_write_ahead",
   "tests.test_request_ledger",
   "tests.test_script_contract",
   "tests.test_script_text_reader",
+  "tests.test_seedream_direct",
   "tests.test_service_contract",
   "tests.test_shot_batches",
+  "tests.test_skill_context_budget_prestage",
+  "tests.test_skill_orchestrator_cache",
+  "tests.test_stage_file_index_publication",
+  "tests.test_stage_flow",
   "tests.test_stage_layout",
   "tests.test_stage_model_value",
   "tests.test_stage_path_service",
+  "tests.test_stage_reasoning",
+  "tests.test_storage",
+  "tests.test_subtitle_export_service",
   "tests.test_token_saver",
   "tests.test_update_notice",
   "tests.test_usage_snapshot",
+  "tests.test_video_lifecycle_service",
   "tests.test_workflow_process_registry",
   "tests.test_workspace_maintenance",
-  "tests.test_api",
-  "tests.test_cli_streaming",
-  "tests.test_context_budget_model",
-  "tests.test_lifecycle",
-  "tests.test_money_invariants",
-  "tests.test_pet_settings",
-  "tests.test_publication_recovery",
-  "tests.test_persistent_task_queue",
-  "tests.test_claim_queue_gateway",
-  "tests.test_keyframe_lifecycle_service",
-  "tests.test_video_lifecycle_service",
-  "tests.test_writing_api",
-  "tests.test_stage_flow",
-  "tests.test_subtitle_export_service",
-  "tests.test_storage",
-  "tests.test_qwen_adapter",
-  "tests.test_seedream_direct",
-  "tests.test_skill_orchestrator_cache",
-  "tests.test_model_router_parse",
-  "tests.test_model_router_diagnostics",
-  "tests.test_file_naming",
-  "tests.test_file_index",
-  "tests.test_global_library_service",
-  "tests.test_global_library_index",
-  "tests.test_global_library_config",
-  "tests.test_recycle_retention",
-  "tests.test_stage_reasoning",
-  "tests.test_page_paint_metric",
-  "tests.test_recycle_write_ahead",
-  "tests.test_claude_program_detection",
-  "tests.test_recycle_panel_actions",
-  "tests.test_stage_file_index_publication",
-  "tests.test_file_naming_producers",
-  "tests.test_file_origin_provenance",
-  "tests.test_context",
-  "tests.test_l1_reliability_r3248",
-  "tests.test_skill_context_budget_prestage",
-  "tests.test_l1_bounded_growth_r3269",
-  "tests.test_l1_lost_update",
-  "tests.test_l1_p2_semantics"
+  "tests.test_writing_api"
  ],
  "tests_ok": true,
- "points_total": 2443,
- "points_covered": 1340,
+ "points_total": 2451,
+ "points_covered": 1347,
  "modules": [
   {
    "module": "comfy_service.py",
@@ -153,12 +153,6 @@
    "percent": 11.1
   },
   {
-   "module": "diagnostic_capture.py",
-   "points": 8,
-   "covered": 1,
-   "percent": 12.5
-  },
-  {
    "module": "prop_assets.py",
    "points": 21,
    "covered": 3,
@@ -181,6 +175,12 @@
    "points": 17,
    "covered": 4,
    "percent": 23.5
+  },
+  {
+   "module": "diagnostic_capture.py",
+   "points": 8,
+   "covered": 2,
+   "percent": 25.0
   },
   {
    "module": "native_apps.py",
@@ -256,9 +256,9 @@
   },
   {
    "module": "model_pool.py",
-   "points": 134,
-   "covered": 55,
-   "percent": 41.0
+   "points": 135,
+   "covered": 56,
+   "percent": 41.5
   },
   {
    "module": "continuity_ledger.py",
@@ -269,8 +269,8 @@
   {
    "module": "platform_tools.py",
    "points": 132,
-   "covered": 56,
-   "percent": 42.4
+   "covered": 57,
+   "percent": 43.2
   },
   {
    "module": "model_router.py",
@@ -310,9 +310,9 @@
   },
   {
    "module": "storage_maintenance.py",
-   "points": 171,
-   "covered": 93,
-   "percent": 54.4
+   "points": 175,
+   "covered": 95,
+   "percent": 54.3
   },
   {
    "module": "client_profiles.py",
@@ -412,9 +412,9 @@
   },
   {
    "module": "request_ledger.py",
-   "points": 157,
-   "covered": 121,
-   "percent": 77.1
+   "points": 156,
+   "covered": 120,
+   "percent": 76.9
   },
   {
    "module": "stage_model_value.py",
@@ -429,6 +429,12 @@
    "percent": 79.2
   },
   {
+   "module": "file_index.py",
+   "points": 93,
+   "covered": 74,
+   "percent": 79.6
+  },
+  {
    "module": "prompt_templates.py",
    "points": 10,
    "covered": 8,
@@ -439,12 +445,6 @@
    "points": 10,
    "covered": 8,
    "percent": 80.0
-  },
-  {
-   "module": "file_index.py",
-   "points": 93,
-   "covered": 75,
-   "percent": 80.6
   },
   {
    "module": "token_saver.py",
@@ -516,6 +516,12 @@
    "module": "asset_prompt_rules.py",
    "points": 2,
    "covered": 2,
+   "percent": 100.0
+  },
+  {
+   "module": "config_patch.py",
+   "points": 4,
+   "covered": 4,
    "percent": 100.0
   },
   {
@@ -603,5 +609,5 @@
    "percent": 100.0
   }
  ],
- "modules_total": 85
+ "modules_total": 86
 }

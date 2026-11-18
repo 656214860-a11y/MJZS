@@ -2,6 +2,7 @@
  "targets": [
   "tests.test_claim_queue_gateway",
   "tests.test_keyframe_lifecycle_service",
+  "tests.test_l1_lost_update",
   "tests.test_lifecycle",
   "tests.test_money_invariants",
   "tests.test_persistent_task_queue",
@@ -13,12 +14,6 @@
  ],
  "tests_ok": true,
  "modules": [
-  {
-   "module": "account_client.py",
-   "covered": 0,
-   "total": 4,
-   "percent": 0.0
-  },
   {
    "module": "account_inputs.py",
    "covered": 0,
@@ -680,12 +675,6 @@
    "percent": 0.0
   },
   {
-   "module": "domain/account_client.py",
-   "covered": 0,
-   "total": 117,
-   "percent": 0.0
-  },
-  {
    "module": "domain/animatic_service.py",
    "covered": 0,
    "total": 174,
@@ -797,12 +786,6 @@
    "module": "domain/edit_service.py",
    "covered": 0,
    "total": 82,
-   "percent": 0.0
-  },
-  {
-   "module": "domain/entitlement_service.py",
-   "covered": 0,
-   "total": 92,
    "percent": 0.0
   },
   {
@@ -1130,12 +1113,6 @@
    "percent": 0.0
   },
   {
-   "module": "entitlement_service.py",
-   "covered": 0,
-   "total": 4,
-   "percent": 0.0
-  },
-  {
    "module": "environment_check.py",
    "covered": 0,
    "total": 157,
@@ -1187,12 +1164,6 @@
    "module": "image_agent_runner.py",
    "covered": 0,
    "total": 106,
-   "percent": 0.0
-  },
-  {
-   "module": "infra/account_store.py",
-   "covered": 0,
-   "total": 95,
    "percent": 0.0
   },
   {
@@ -1286,12 +1257,6 @@
    "percent": 0.0
   },
   {
-   "module": "infra/lease_verifier.py",
-   "covered": 0,
-   "total": 37,
-   "percent": 0.0
-  },
-  {
    "module": "infra/line_endings.py",
    "covered": 0,
    "total": 90,
@@ -1367,12 +1332,6 @@
    "module": "infra/ui_plugin_registry.py",
    "covered": 0,
    "total": 9,
-   "percent": 0.0
-  },
-  {
-   "module": "infra/update_notice.py",
-   "covered": 0,
-   "total": 29,
    "percent": 0.0
   },
   {
@@ -1487,12 +1446,6 @@
    "module": "native_assets.py",
    "covered": 0,
    "total": 3,
-   "percent": 0.0
-  },
-  {
-   "module": "orchestrator/account_controller.py",
-   "covered": 0,
-   "total": 225,
    "percent": 0.0
   },
   {
@@ -1712,12 +1665,6 @@
    "percent": 0.0
   },
   {
-   "module": "orchestrator/stage_handler_registry.py",
-   "covered": 0,
-   "total": 120,
-   "percent": 0.0
-  },
-  {
    "module": "orchestrator/storyboard_direct_api.py",
    "covered": 0,
    "total": 280,
@@ -1739,12 +1686,6 @@
    "module": "orchestrator/storyboard_page_controller.py",
    "covered": 0,
    "total": 84,
-   "percent": 0.0
-  },
-  {
-   "module": "orchestrator/storyboard_plan_service.py",
-   "covered": 0,
-   "total": 18,
    "percent": 0.0
   },
   {
@@ -1823,12 +1764,6 @@
    "module": "pet_agent_rules.py",
    "covered": 0,
    "total": 4,
-   "percent": 0.0
-  },
-  {
-   "module": "pet_bus.py",
-   "covered": 0,
-   "total": 2,
    "percent": 0.0
   },
   {
@@ -3506,6 +3441,12 @@
    "percent": 11.6
   },
   {
+   "module": "orchestrator/stage_handler_registry.py",
+   "covered": 14,
+   "total": 120,
+   "percent": 11.7
+  },
+  {
    "module": "infra/file_index.py",
    "covered": 68,
    "total": 472,
@@ -3608,6 +3549,12 @@
    "percent": 20.7
   },
   {
+   "module": "orchestrator/account_controller.py",
+   "covered": 47,
+   "total": 225,
+   "percent": 20.9
+  },
+  {
    "module": "orchestrator/stage_handoff_gateways.py",
    "covered": 42,
    "total": 201,
@@ -3630,6 +3577,12 @@
    "covered": 59,
    "total": 267,
    "percent": 22.1
+  },
+  {
+   "module": "orchestrator/storyboard_plan_service.py",
+   "covered": 4,
+   "total": 18,
+   "percent": 22.2
   },
   {
    "module": "orchestrator/skill_budget.py",
@@ -3704,22 +3657,22 @@
    "percent": 30.2
   },
   {
-   "module": "agent/core.py",
-   "covered": 66,
-   "total": 215,
-   "percent": 30.7
-  },
-  {
    "module": "orchestrator/stage_asset_gateways.py",
    "covered": 28,
    "total": 91,
    "percent": 30.8
   },
   {
-   "module": "infra/model_pool.py",
-   "covered": 239,
-   "total": 748,
-   "percent": 32.0
+   "module": "infra/update_notice.py",
+   "covered": 9,
+   "total": 29,
+   "percent": 31.0
+  },
+  {
+   "module": "agent/core.py",
+   "covered": 68,
+   "total": 215,
+   "percent": 31.6
   },
   {
    "module": "infra/storage_maintenance.py",
@@ -3734,16 +3687,16 @@
    "percent": 32.5
   },
   {
+   "module": "domain/entitlement_service.py",
+   "covered": 30,
+   "total": 92,
+   "percent": 32.6
+  },
+  {
    "module": "orchestrator/stage_previs_gateways.py",
    "covered": 24,
    "total": 72,
    "percent": 33.3
-  },
-  {
-   "module": "infra/project_settings.py",
-   "covered": 33,
-   "total": 91,
-   "percent": 36.3
   },
   {
    "module": "contract/stage_path_service.py",
@@ -3752,10 +3705,16 @@
    "percent": 36.4
   },
   {
-   "module": "infra/config_snapshot.py",
-   "covered": 7,
-   "total": 19,
-   "percent": 36.8
+   "module": "infra/model_pool.py",
+   "covered": 283,
+   "total": 754,
+   "percent": 37.5
+  },
+  {
+   "module": "domain/account_client.py",
+   "covered": 47,
+   "total": 117,
+   "percent": 40.2
   },
   {
    "module": "domain/asset_batch_lifecycle.py",
@@ -3782,6 +3741,12 @@
    "percent": 50.3
   },
   {
+   "module": "infra/project_settings.py",
+   "covered": 46,
+   "total": 91,
+   "percent": 50.5
+  },
+  {
    "module": "orchestrator/stage_publication.py",
    "covered": 68,
    "total": 133,
@@ -3794,6 +3759,12 @@
    "percent": 53.3
   },
   {
+   "module": "infra/account_store.py",
+   "covered": 54,
+   "total": 95,
+   "percent": 56.8
+  },
+  {
    "module": "domain/keyframe_evidence.py",
    "covered": 76,
    "total": 130,
@@ -3804,6 +3775,12 @@
    "covered": 6,
    "total": 9,
    "percent": 66.7
+  },
+  {
+   "module": "infra/lease_verifier.py",
+   "covered": 25,
+   "total": 37,
+   "percent": 67.6
   },
   {
    "module": "agent/video.py",
@@ -3828,6 +3805,12 @@
    "covered": 28,
    "total": 36,
    "percent": 77.8
+  },
+  {
+   "module": "infra/config_snapshot.py",
+   "covered": 15,
+   "total": 19,
+   "percent": 78.9
   },
   {
    "module": "infra/usage_history.py",
@@ -3884,6 +3867,18 @@
    "percent": 94.0
   },
   {
+   "module": "infra/config_patch.py",
+   "covered": 27,
+   "total": 28,
+   "percent": 96.4
+  },
+  {
+   "module": "account_client.py",
+   "covered": 4,
+   "total": 4,
+   "percent": 100.0
+  },
+  {
    "module": "asset_batch_lifecycle.py",
    "covered": 4,
    "total": 4,
@@ -3920,6 +3915,12 @@
    "percent": 100.0
   },
   {
+   "module": "entitlement_service.py",
+   "covered": 4,
+   "total": 4,
+   "percent": 100.0
+  },
+  {
    "module": "infra/__init__.py",
    "covered": 1,
    "total": 1,
@@ -3938,12 +3939,18 @@
    "percent": 100.0
   },
   {
+   "module": "pet_bus.py",
+   "covered": 2,
+   "total": 2,
+   "percent": 100.0
+  },
+  {
    "module": "usage_overview.py",
    "covered": 4,
    "total": 4,
    "percent": 100.0
   }
  ],
- "modules_covered": 75,
- "modules_total": 655
+ "modules_covered": 87,
+ "modules_total": 656
 }
