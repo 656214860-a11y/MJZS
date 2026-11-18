@@ -1,5 +1,5 @@
 # R3312 结果：L2领域服务层优化任务书轮7（功能轮：infra/business_log＋8 模块业务字段日志）
-<!-- round-evidence: {"commit_base": "105aeda3", "credential_hits": 0, "evidence_sha256": "863807ab8545e569", "exit": 0, "failed": 0, "passed": 17, "round": 3312, "tests": "run_selftests.py -k business_log"} -->
+<!-- round-evidence: {"commit_base": "df14b3fb", "credential_hits": 0, "evidence_sha256": "67eb4cfb3707b7a1", "exit": 0, "failed": 0, "passed": 17, "round": 3312, "tests": "run_selftests.py -k business_log"} -->
 
 ## 三问
 
@@ -97,5 +97,6 @@
 ## 提交
 
 - 分支 `codex/wip-r3282`（领号 R3312，工作树 `dsh-864fd932-4054`；领号记录见 `<git common-dir>/round-claims.json`，R3311/R3313 属并行工作树 `dsh-5158b800-34ae`）。
-- 主提交：待补记。
-- 轮次证据以 `tasks_round/evidence/R3312.json` 为准（`--tests business_log` 定向重跑）。
+- 主提交：`df14b3fb`（13 文件：9 个生产文件——infra/business_log.py＋8 个 domain 模块、tests/test_business_log.py、维护记录/分支覆盖率基线.json、本结果文件、tasks_round/evidence/R3312.json）。
+- 结果文件补记提交：本提交（`R3312: 补记结果文件commit哈希df14b3fb`；docs-only 补记同样带 `--tests business_log` 重跑定向测试刷新证据）。
+- 轮次证据以 `tasks_round/evidence/R3312.json` 为准（`run_selftests.py -k business_log` exit 0 / 17 通过 / 0 失败）。
