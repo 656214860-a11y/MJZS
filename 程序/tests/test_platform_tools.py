@@ -355,7 +355,7 @@ class WebSocketTests(unittest.TestCase):
         thread = threading.Thread(target=run, daemon=True)
         thread.start()
         self.addCleanup(thread.join, 5)
-        return 'ws://127.0.0.1:%d/realtime?model=m' % listener.getsockname()[1], seen
+        return 'ws://127.0.0.1:%d/realtime?model=m' % listener.getsockname()[1], seen, thread
 
     @staticmethod
     def accept(request):
@@ -391,11 +391,13 @@ class WebSocketTests(unittest.TestCase):
             conn.sendall(b'\x88\x00')
             frames['close'] = self.read_frame(conn)
 
-        url, seen = self.serve(handler)
+        url, seen, thread = self.serve(handler)
         ws = platform_tools.open_websocket(url, headers={'Authorization': 'Bearer t'}, timeout=5)
         self.assertEqual(ws.recv_text(), '主角')
         ws.send_text('你好')
         self.assertIsNone(ws.recv_text())
+        thread.join(5)
+        self.assertFalse(thread.is_alive(), '服务端须读完关闭应答再检查协议帧')
         self.assertIn('GET /realtime?model=m HTTP/1.1', seen['request'])
         self.assertIn('Authorization: Bearer t', seen['request'])
         self.assertEqual(frames['pong'], (0xA, b'hi', True))
@@ -403,7 +405,7 @@ class WebSocketTests(unittest.TestCase):
         self.assertEqual(frames['close'][0], 0x8)
 
     def test_refused_handshake_reports_status(self):
-        url, _ = self.serve(lambda conn, request: conn.sendall(b'HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\n\r\n'))
+        url, _, _ = self.serve(lambda conn, request: conn.sendall(b'HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\n\r\n'))
         with self.assertRaises(platform_tools.WebSocketRefused) as caught:
             platform_tools.open_websocket(url, timeout=5)
         self.assertEqual(caught.exception.status, 401)
