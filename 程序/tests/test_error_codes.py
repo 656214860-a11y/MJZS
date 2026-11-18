@@ -1,6 +1,7 @@
 import unittest
 
 from contract import error_codes
+from contract.diagnostics import Severity
 from contract.error_codes import (CODES, SEVERITIES, ErrorCode, analyze, code_data,
                                   code_of, classify, describe, from_http_result, lookup,
                                   TEXT_RULES)
@@ -45,17 +46,20 @@ class ErrorCodesTests(unittest.TestCase):
         self.assertEqual(from_http_result({'ok': False, 'error_class': 'bug'}), 'E-UNKNOWN')
 
     def test_every_code_declares_severity_in_the_closed_set(self):
-        self.assertEqual(SEVERITIES, frozenset({'fatal', 'degraded', 'recoverable', 'info'}))
+        # K8：severity 闭集唯一权威是 contract.diagnostics.Severity 五值枚举，
+        # SEVERITIES 由枚举派生、不再是字符串字面量闭集；旧 recoverable 已删。
+        self.assertEqual(SEVERITIES, frozenset({'fatal', 'error', 'warn', 'degraded', 'info'}))
         for key, item in CODES.items():
             with self.subTest(code=key):
-                self.assertIn(item.severity, SEVERITIES)
+                self.assertIsInstance(item.severity, Severity)
+                self.assertIn(item.severity.value, SEVERITIES)
 
     def test_severity_spot_values_reflect_user_impact(self):
-        self.assertEqual(lookup('E-CANCELLED').severity, 'info')
-        self.assertEqual(lookup('E-TOOL-MISSING').severity, 'degraded')
-        self.assertEqual(lookup('E-CONTRACT-VIOLATION').severity, 'degraded')
-        self.assertEqual(lookup('E-NET-TIMEOUT').severity, 'recoverable')
-        self.assertEqual(lookup('E-AUTH-MISSING').severity, 'recoverable')
+        self.assertEqual(lookup('E-CANCELLED').severity, Severity.INFO)
+        self.assertEqual(lookup('E-TOOL-MISSING').severity, Severity.DEGRADED)
+        self.assertEqual(lookup('E-CONTRACT-VIOLATION').severity, Severity.DEGRADED)
+        self.assertEqual(lookup('E-NET-TIMEOUT').severity, Severity.WARN)
+        self.assertEqual(lookup('E-AUTH-MISSING').severity, Severity.WARN)
 
     def test_error_code_rejects_unregistered_severity(self):
         with self.assertRaises(ValueError):
@@ -154,7 +158,44 @@ class ClassifyTextTests(unittest.TestCase):
                 item = error_codes.lookup(code)
                 self.assertTrue(item.user_message and item.remedy)
                 self.assertFalse(item.retryable)
-                self.assertEqual(item.severity, 'recoverable')
+                self.assertEqual(item.severity, Severity.WARN)
+
+    def test_golden_table_code_severity_retryable(self):
+        """K8-4 黄金样本：错误码表整份对照（码 → Severity, retryable）。"""
+        expected = {
+            'E-UNKNOWN': (Severity.WARN, False),
+            'E-NET-TIMEOUT': (Severity.WARN, True),
+            'E-NET-UNREACHABLE': (Severity.WARN, True),
+            'E-NET-RATE-LIMIT': (Severity.WARN, True),
+            'E-NET-SERVER': (Severity.WARN, True),
+            'E-NET-CLIENT': (Severity.WARN, False),
+            'E-QUOTA-EXCEEDED': (Severity.WARN, False),
+            'E-CONTENT-POLICY': (Severity.WARN, False),
+            'E-AUTH-MISSING': (Severity.WARN, False),
+            'E-AUTH-REJECTED': (Severity.WARN, False),
+            'E-ASSET-MISSING': (Severity.WARN, False),
+            'E-FILE-NOT-FOUND': (Severity.WARN, False),
+            'E-FILE-TOO-LARGE': (Severity.WARN, False),
+            'E-PATH-UNSAFE': (Severity.WARN, False),
+            'E-CONTRACT-VIOLATION': (Severity.DEGRADED, False),
+            'E-STAGE-BLOCKED': (Severity.WARN, False),
+            'E-CANCELLED': (Severity.INFO, False),
+            'E-IO-WRITE': (Severity.WARN, True),
+            'E-TOOL-MISSING': (Severity.DEGRADED, False),
+        }
+        self.assertEqual(set(CODES), set(expected))
+        for code, (severity, retryable) in expected.items():
+            with self.subTest(code=code):
+                item = lookup(code)
+                self.assertEqual(item.severity, severity)
+                self.assertEqual(item.retryable, retryable)
+
+    def test_recoverable_value_is_rejected(self):
+        """K8-3：旧 recoverable 取值删除，重试与否只读 retryable。"""
+        with self.assertRaises(ValueError):
+            ErrorCode('E-X', 'recoverable', False, 'm', 'r')
+        # 字符串入参仍归一到枚举（兼容构造口径）
+        self.assertIs(ErrorCode('E-X', 'warn', True, 'm', 'r').severity, Severity.WARN)
 
 
 if __name__ == '__main__':

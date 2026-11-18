@@ -11,44 +11,49 @@ import re
 from dataclasses import dataclass
 from typing import Any, Callable
 
-# 错误码严重度闭集（任务书 §3b-1）：fatal＝不可继续；degraded＝相关功能降级；
-# recoverable＝按 remedy 修复后可重试；info＝仅提示无需处置。
-SEVERITIES = frozenset({'fatal', 'degraded', 'recoverable', 'info'})
+from contract.diagnostics import Severity
+
+# 错误码严重度闭集（K8 统一）：与 ``contract.diagnostics.Severity`` 同词表
+# （fatal/error/warn/degraded/info 五值）。旧值 ``recoverable`` 已删除、一律
+# 映射为 ``warn``——「是否可重试」以 ``retryable`` 字段为唯一权威（G10），
+# 不再由 severity 表达。``degraded``＝相关功能降级；``info``＝仅提示无需处置。
+SEVERITIES = frozenset(member.value for member in Severity)
 
 
 @dataclass(frozen=True)
 class ErrorCode:
     code: str
-    severity: str
+    severity: Severity
     retryable: bool
     user_message: str
     remedy: str
 
     def __post_init__(self):
-        if self.severity not in SEVERITIES:
-            raise ValueError('未登记的错误码严重度：%r' % self.severity)
+        # severity 归一到 diagnostics.Severity 闭集：接受 'fatal'/'warn' 等
+        # 字符串与枚举成员，'recoverable' 等非法值当场拒绝。
+        object.__setattr__(self, 'severity', Severity(self.severity))
 
 
 _ITEMS = (
-    ErrorCode('E-UNKNOWN', 'recoverable', False, '发生了未分类的错误', '查看日志中的详细信息后重试'),
-    ErrorCode('E-NET-TIMEOUT', 'recoverable', True, '网络请求超时', '检查网络或稍后重试'),
-    ErrorCode('E-NET-UNREACHABLE', 'recoverable', True, '无法连接到服务', '检查网络、代理和服务地址'),
-    ErrorCode('E-NET-RATE-LIMIT', 'recoverable', True, '请求过于频繁，服务限流', '稍等片刻后重试，或降低并发'),
-    ErrorCode('E-NET-SERVER', 'recoverable', True, '远端服务暂时不可用', '稍后重试，持续失败请检查服务状态'),
-    ErrorCode('E-NET-CLIENT', 'recoverable', False, '请求被服务拒绝', '检查请求参数、模型名与权限'),
-    ErrorCode('E-QUOTA-EXCEEDED', 'recoverable', False, '余额或配额不足', '充值或调整配额上限后重试'),
-    ErrorCode('E-CONTENT-POLICY', 'recoverable', False, '内容命中安全审核', '改写提示词后重新提交，勿原样重试'),
-    ErrorCode('E-AUTH-MISSING', 'recoverable', False, '缺少凭据', '在模型管理中配置对应密钥'),
-    ErrorCode('E-AUTH-REJECTED', 'recoverable', False, '凭据被服务拒绝', '检查密钥是否有效、是否过期'),
-    ErrorCode('E-ASSET-MISSING', 'recoverable', False, '缺少必需的资产文件', '在资产管理中补齐后重试'),
-    ErrorCode('E-FILE-NOT-FOUND', 'recoverable', False, '文件不存在', '确认路径，文件是否被移动或删除'),
-    ErrorCode('E-FILE-TOO-LARGE', 'recoverable', False, '文件超过允许的大小上限', '压缩或拆分文件后重试'),
-    ErrorCode('E-PATH-UNSAFE', 'recoverable', False, '路径越界，已拒绝', '只使用项目目录内的文件'),
-    ErrorCode('E-CONTRACT-VIOLATION', 'degraded', False, '产物不符合契约', '按报告中的字段修正后重新生成'),
-    ErrorCode('E-STAGE-BLOCKED', 'recoverable', False, '前置阶段未完成，当前阶段被阻塞', '先完成并确认上一阶段'),
-    ErrorCode('E-CANCELLED', 'info', False, '操作已取消', '无需处理，需要时重新发起'),
-    ErrorCode('E-IO-WRITE', 'recoverable', True, '写入文件失败', '检查磁盘空间与目录权限'),
-    ErrorCode('E-TOOL-MISSING', 'degraded', False, '缺少外部工具', '在配置中指定 ffmpeg 等工具路径'),
+    ErrorCode('E-UNKNOWN', Severity.WARN, False, '发生了未分类的错误', '查看日志中的详细信息后重试'),
+    ErrorCode('E-NET-TIMEOUT', Severity.WARN, True, '网络请求超时', '检查网络或稍后重试'),
+    ErrorCode('E-NET-UNREACHABLE', Severity.WARN, True, '无法连接到服务', '检查网络、代理和服务地址'),
+    ErrorCode('E-NET-RATE-LIMIT', Severity.WARN, True, '请求过于频繁，服务限流', '稍等片刻后重试，或降低并发'),
+    ErrorCode('E-NET-SERVER', Severity.WARN, True, '远端服务暂时不可用', '稍后重试，持续失败请检查服务状态'),
+    ErrorCode('E-NET-CLIENT', Severity.WARN, False, '请求被服务拒绝', '检查请求参数、模型名与权限'),
+    ErrorCode('E-QUOTA-EXCEEDED', Severity.WARN, False, '余额或配额不足', '充值或调整配额上限后重试'),
+    ErrorCode('E-CONTENT-POLICY', Severity.WARN, False, '内容命中安全审核', '改写提示词后重新提交，勿原样重试'),
+    ErrorCode('E-AUTH-MISSING', Severity.WARN, False, '缺少凭据', '在模型管理中配置对应密钥'),
+    ErrorCode('E-AUTH-REJECTED', Severity.WARN, False, '凭据被服务拒绝', '检查密钥是否有效、是否过期'),
+    ErrorCode('E-ASSET-MISSING', Severity.WARN, False, '缺少必需的资产文件', '在资产管理中补齐后重试'),
+    ErrorCode('E-FILE-NOT-FOUND', Severity.WARN, False, '文件不存在', '确认路径，文件是否被移动或删除'),
+    ErrorCode('E-FILE-TOO-LARGE', Severity.WARN, False, '文件超过允许的大小上限', '压缩或拆分文件后重试'),
+    ErrorCode('E-PATH-UNSAFE', Severity.WARN, False, '路径越界，已拒绝', '只使用项目目录内的文件'),
+    ErrorCode('E-CONTRACT-VIOLATION', Severity.DEGRADED, False, '产物不符合契约', '按报告中的字段修正后重新生成'),
+    ErrorCode('E-STAGE-BLOCKED', Severity.WARN, False, '前置阶段未完成，当前阶段被阻塞', '先完成并确认上一阶段'),
+    ErrorCode('E-CANCELLED', Severity.INFO, False, '操作已取消', '无需处理，需要时重新发起'),
+    ErrorCode('E-IO-WRITE', Severity.WARN, True, '写入文件失败', '检查磁盘空间与目录权限'),
+    ErrorCode('E-TOOL-MISSING', Severity.DEGRADED, False, '缺少外部工具', '在配置中指定 ffmpeg 等工具路径'),
 )
 
 CODES: dict[str, ErrorCode] = {item.code: item for item in _ITEMS}

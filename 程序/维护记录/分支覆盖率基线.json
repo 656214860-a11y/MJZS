@@ -95,8 +95,8 @@
   "tests.test_writing_api"
  ],
  "tests_ok": true,
- "points_total": 2739,
- "points_covered": 1530,
+ "points_total": 2738,
+ "points_covered": 1527,
  "modules": [
   {
    "module": "comfy_service.py",
@@ -353,8 +353,8 @@
   {
    "module": "publication.py",
    "points": 31,
-   "covered": 20,
-   "percent": 64.5
+   "covered": 19,
+   "percent": 61.3
   },
   {
    "module": "global_library_service.py",
@@ -459,6 +459,12 @@
    "percent": 79.2
   },
   {
+   "module": "file_index.py",
+   "points": 93,
+   "covered": 74,
+   "percent": 79.6
+  },
+  {
    "module": "prompt_templates.py",
    "points": 10,
    "covered": 8,
@@ -469,12 +475,6 @@
    "points": 10,
    "covered": 8,
    "percent": 80.0
-  },
-  {
-   "module": "file_index.py",
-   "points": 93,
-   "covered": 75,
-   "percent": 80.6
   },
   {
    "module": "token_saver.py",
@@ -556,8 +556,8 @@
   },
   {
    "module": "error_codes.py",
-   "points": 12,
-   "covered": 12,
+   "points": 11,
+   "covered": 11,
    "percent": 100.0
   },
   {

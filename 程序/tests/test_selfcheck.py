@@ -14,9 +14,10 @@ def _diag(severity=Severity.WARN, scope='scope', code='code', message='msg'):
 
 
 class TypeContractTests(unittest.TestCase):
-    def test_severity_is_a_closed_set_of_four_levels(self):
+    def test_severity_is_a_closed_set_of_five_levels(self):
+        # K8：统一词表＝fatal/error/warn/degraded/info（旧 recoverable 已删）。
         self.assertEqual({item.value for item in Severity},
-                         {'fatal', 'error', 'warn', 'degraded'})
+                         {'fatal', 'error', 'warn', 'degraded', 'info'})
         self.assertEqual(Severity.FATAL.value, 'fatal')
         self.assertEqual(Severity.DEGRADED.value, 'degraded')
 
