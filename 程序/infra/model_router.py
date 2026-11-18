@@ -173,18 +173,26 @@ def response_envelope_error(wire_api, data):
     return ''
 
 
-def error_class(error):
-    """将可显示的失败归为稳定类别，供界面提示和无正文诊断使用。"""
-    text = str(error or '').casefold()
-    if any(mark in text for mark in ('超时', 'timeout', 'timed out')):
-        return 'timeout'
-    if any(mark in text for mark in ('api key', '密钥', '401', '403', 'unauthorized', 'forbidden')):
-        return 'authentication'
-    if any(mark in text for mark in ('/chat/completions', '协议', 'payload', '400', '404', '422')):
-        return 'protocol'
-    if any(mark in text for mark in ('缺少', '未配置', 'configuration', '配置')):
-        return 'configuration'
-    return 'transport'
+# L0 轮 5A ``error_codes.classify`` 的码 → 本模块历史类别词表（R6-b）：
+# 分类权威已收敛到 L0，这里只把码翻回既有消费者认的类别字符串。
+_ERROR_CLASS_BY_CODE = {
+    'E-NET-TIMEOUT': 'timeout',
+    'E-AUTH-REJECTED': 'authentication', 'E-AUTH-MISSING': 'authentication',
+    'E-NET-CLIENT': 'protocol',
+    'E-QUOTA-EXCEEDED': 'configuration', 'E-CONTENT-POLICY': 'protocol',
+    'E-CANCELLED': 'cancelled',
+}
+
+
+def error_class(error, status=None):
+    """将可显示的失败归为稳定类别，供界面提示和无正文诊断使用。
+
+    分类权威是 ``contract.error_codes.classify``（L0 轮 5A）：``status`` 为
+    HTTP 状态码时先并入判定，缺失时纯按错误文本；认不出回 ``E-UNKNOWN``。
+    """
+    from contract import error_codes
+    code = error_codes.classify(error, status=status).code
+    return _ERROR_CLASS_BY_CODE.get(code, 'transport')
 
 
 def failure_policy(result):
@@ -378,7 +386,7 @@ class ModelAdapter:
                     'response_meta': response_meta}
         return {'ok': bool(result.get('ok')), 'status': result.get('status'), 'error': result.get('error'),
                 'kind': result.get('kind') or '', 'model': target, 'text': text, 'usage': usage, 'data': data,
-                'error_class': '' if result.get('ok') else error_class(result.get('error')),
+                'error_class': '' if result.get('ok') else error_class(result.get('error'), status=result.get('status')),
                 'response_meta': response_meta, 'accepted': result.get('accepted'),
                 'provider_task_id': result.get('provider_task_id') or result.get('task_id')}
 

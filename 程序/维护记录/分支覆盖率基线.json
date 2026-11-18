@@ -89,11 +89,12 @@
   "tests.test_skill_context_budget_prestage",
   "tests.test_l1_bounded_growth_r3269",
   "tests.test_l1_lost_update",
-  "tests.test_l1_p2_semantics"
+  "tests.test_l1_p2_semantics",
+  "tests.test_l1_l0_integration_r3331"
  ],
  "tests_ok": true,
- "points_total": 2649,
- "points_covered": 1461,
+ "points_total": 2667,
+ "points_covered": 1477,
  "modules": [
   {
    "module": "comfy_service.py",
@@ -270,16 +271,10 @@
    "percent": 45.3
   },
   {
-   "module": "diagnostic_capture.py",
-   "points": 67,
-   "covered": 31,
-   "percent": 46.3
-  },
-  {
    "module": "model_router.py",
-   "points": 112,
-   "covered": 52,
-   "percent": 46.4
+   "points": 108,
+   "covered": 51,
+   "percent": 47.2
   },
   {
    "module": "broadcaster.py",
@@ -304,6 +299,12 @@
    "points": 4,
    "covered": 2,
    "percent": 50.0
+  },
+  {
+   "module": "diagnostic_capture.py",
+   "points": 85,
+   "covered": 43,
+   "percent": 50.6
   },
   {
    "module": "model_secrets.py",
@@ -336,12 +337,6 @@
    "percent": 55.7
   },
   {
-   "module": "temporary_sweep.py",
-   "points": 7,
-   "covered": 4,
-   "percent": 57.1
-  },
-  {
    "module": "file_cache.py",
    "points": 24,
    "covered": 14,
@@ -356,8 +351,8 @@
   {
    "module": "publication.py",
    "points": 31,
-   "covered": 19,
-   "percent": 61.3
+   "covered": 20,
+   "percent": 64.5
   },
   {
    "module": "native_asset_codec.py",
@@ -400,6 +395,12 @@
    "points": 34,
    "covered": 24,
    "percent": 70.6
+  },
+  {
+   "module": "temporary_sweep.py",
+   "points": 11,
+   "covered": 8,
+   "percent": 72.7
   },
   {
    "module": "app_icon.py",
