@@ -4509,7 +4509,9 @@ class DesktopPetSeamTests(unittest.TestCase):
         import entitlement_service
         from unittest.mock import patch
         # 本组只验切页与续跑接缝；会员闸门（真实账号状态）另有 test_account_* 覆盖，隔离后结果不随本机登录态变化。
-        self.enterContext(patch.object(entitlement_service, "GATE_ENFORCED", False))
+        from orchestrator.account_controller import AccountController
+        allowed = entitlement_service.Entitlement(entitlement_service.VALID, {'state': 'active'})
+        self.enterContext(patch.object(AccountController, 'entitlement', return_value=allowed))
         self.win = self.tk.Tk()
         self.win.withdraw()
         self.addCleanup(self.win.destroy)

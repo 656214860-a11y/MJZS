@@ -184,6 +184,10 @@ def renew(refresh_token, device_id, **kw):
     return request('POST', '/v1/lease/renew', {'refresh_token': refresh_token, 'device_id': device_id}, **kw)
 
 
+def logout(lease, **kw):
+    return request('POST', '/v1/auth/logout', {}, token=lease, **kw)
+
+
 def me(lease, **kw):
     return request('GET', '/v1/me', token=lease, **kw)
 

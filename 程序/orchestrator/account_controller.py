@@ -9,6 +9,7 @@
 import platform
 import threading
 import time
+from contextlib import nullcontext
 from pathlib import Path
 
 import domain.account_client as account_client
@@ -16,6 +17,7 @@ import infra.account_store as account_store
 import domain.entitlement_service as entitlement_service
 import infra.update_notice as update_notice
 from agent.core import save
+from agent.publication import access
 from contract.service_contract import SystemError, success
 
 RENEW_INTERVAL = 12 * 3600
@@ -26,10 +28,13 @@ SESSION_DEAD = frozenset({'session_invalid', 'account_pending_deletion', 'invali
 
 class AccountController:
     def __init__(self, *, submit, background=None, clock=time.time, store=account_store, client=account_client,
-                 enforce=None):
+                 enforce=None, monotonic=time.monotonic):
         self._submit, self._clock, self._store, self._client = submit, clock, store, client
         self._background = background or submit
-        self.enforce = entitlement_service.GATE_ENFORCED if enforce is None else bool(enforce)
+        self._monotonic = monotonic
+        self._clock_mark = None
+        # 正常入口始终走租约授权，只有显式注入可关闭拦截。
+        self.enforce = enforce is None or bool(enforce)
         self._device_id = ''
         self.last_renew_at = 0.0
         self._renew_lock = threading.Lock()      # 刷新令牌一次一换：并发续签拿旧令牌会被服务端当重放吊销会话
@@ -46,14 +51,30 @@ class AccountController:
     def now(self):
         return int(self._clock())
 
+    def _estimated_now(self, now):
+        """进程存活期间用单调钟推进过期判断，即使系统时间停止。"""
+        tick = self._monotonic()
+        last_tick, last_now = self._clock_mark or (tick, now)
+        estimate = max(now, last_now + max(0, tick - last_tick))
+        self._clock_mark = (tick, estimate)
+        return int(estimate)
+
+    def clock_backup_available(self):
+        status = getattr(self._store, 'clock_backup_available', None)
+        return status() if status is not None else None
+
     def entitlement(self):
         data = self.session()
-        return entitlement_service.evaluate(data.get('lease'), now=int(self._clock()),
-                                            device_id=self.device_id,
-                                            last_server_time=data.get('server_time') or 0)
+        floor = data.get('server_time') or 0
+        baseline = getattr(self._store, 'clock_baseline', None)
+        if baseline is not None:
+            floor = baseline(floor)
+        now = self.now()
+        return entitlement_service.evaluate(data.get('lease'), now=now, device_id=self.device_id,
+                                            last_server_time=floor, estimated_now=self._estimated_now(now))
 
     def stage_gate(self, stage):
-        """阶段启动前置判定：放行返回空串，否则返回拦截原因；总开关关闭时一律放行。"""
+        """阶段启动前置判定：放行返回空串，否则返回拦截原因；只有显式注入关闭拦截时才直接放行。"""
         if not self.enforce or not entitlement_service.is_paid_stage(stage):
             return ''
         return entitlement_service.stage_block_message(self.entitlement(), stage)
@@ -133,24 +154,38 @@ class AccountController:
 
         def work():
             result = self._renew_once(token, device_id)
-            return success({'already_renewed': True}) if result is None else result
+            if result is None:
+                return success({'already_renewed': True, 'lease': self.session().get('lease')})
+            return result
         self._run(work, done, '续签会员授权', quiet=quiet)
         return True
 
     def _renew_once(self, token, device_id):
-        """持锁续签，返回结果；``None`` 表示别的续签已把令牌换新，本次不再用旧令牌请求。
-
-        会话失效只在本机令牌仍是本次所用令牌时才清：令牌已换新说明会话是活的。
-        """
-        with self._renew_lock:
-            if self.session().get('refresh_token') != token:
-                return None
+        """序列化同会话的续签，等待者重读。项目发布锁只覆盖最后的本机写入。"""
+        with self._renew_lock, self._account_process_lock():
+            current = self.session().get('refresh_token')
+            if current != token:
+                return self._changed_renewal(current)
             result = self._client.renew(token, device_id)
-            if result.ok:
-                return self._accept(result.data)
-            if (result.data or {}).get('code') in SESSION_DEAD:
-                self._store.clear_session()
-            return result
+            with access():
+                current = self.session().get('refresh_token')
+                if current != token:
+                    return self._changed_renewal(current)
+                if result.ok:
+                    return self._accept(result.data)
+                if (result.data or {}).get('code') in SESSION_DEAD:
+                    self._store.clear_session()
+                return result
+
+    def _account_process_lock(self):
+        lock_path = getattr(self._store, 'renew_lock_path', None)
+        return access(lock_path=lock_path()) if lock_path else nullcontext()
+
+    @staticmethod
+    def _changed_renewal(current):
+        if current:
+            return None
+        return SystemError('登录已失效，请重新登录', data={'code': 'session_invalid'})
 
     def check_update(self, done):
         """联网读 ``/v1/meta`` 判定是否有新版；结果 data 为 ``update_notice.evaluate`` 的字典，
@@ -276,9 +311,32 @@ class AccountController:
         getter = getattr(self._store, 'last_email', None)
         return getter() if getter else ''
 
-    def logout(self):
-        """只清本机会话；服务端会话由刷新令牌过期或在别处解绑本机来吊销。"""
-        return self._store.clear_session()
+    def logout(self, done=None):
+        """先尝试服务端吊销，失败仍清本机。桌面回调走后台线程。"""
+        if done is None:
+            return self._logout_once()
+        self._run(self._logout_once, done, '退出登录')
+        return True
+
+    def _logout_once(self):
+        with self._renew_lock, self._account_process_lock():
+            before = self.session()
+            lease = before.get('lease')
+            try:
+                remote_ok = self._client.logout(lease).ok if lease else not before.get('refresh_token')
+            except Exception:
+                remote_ok = False
+            with access():
+                after = self.session()
+                token = before.get('refresh_token')
+                if after.get('refresh_token') != token or (not token and after.get('lease') != lease):
+                    return SystemError('登录状态已变化，请重试退出登录', data={'code': 'session_changed'})
+                if not self._store.clear_session():
+                    return SystemError('无法清除本机会话，请重试退出登录', data={'code': 'local_clear_failed'})
+        if not remote_ok:
+            return SystemError('本地已登出，服务端会话将在到期后失效',
+                               data={'code': 'remote_logout_unconfirmed', 'local_cleared': True})
+        return success({'local_cleared': True})
 
     def _accept(self, data, *, email=None, rotate=True):
         """先验签再落盘：返回原结果或 SystemError，不抛异常（完成回调总能收到结果）。
@@ -286,7 +344,7 @@ class AccountController:
         ``rotate=False``（兑换）只替换租约，刷新令牌不变。
         """
         data = data if isinstance(data, dict) else {}
-        fields = {'lease': data.get('lease'), 'server_time': data.get('server_time') or 0}
+        fields = {'lease': data.get('lease')}
         if rotate:
             fields['refresh_token'] = data.get('refresh_token')
         if email is not None:
@@ -300,5 +358,7 @@ class AccountController:
         if checked.state == entitlement_service.SIGNED_OUT:
             # 验签失败或不是本机的租约：不覆盖本机已有的有效会话。
             return SystemError('账号服务返回的授权无法验证，请稍后重试', data={'code': 'lease_unverified'})
+        payload = checked.payload
+        fields['server_time'] = max(int(payload.get('iat_server') or 0), int(payload.get('issued_at') or 0))
         self._store.save_session(fields)
         return success(data)

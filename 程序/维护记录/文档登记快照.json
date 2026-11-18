@@ -1,12 +1,12 @@
 {
-  "generated_at": "2026-11-19T01:59:29+08:00",
+  "generated_at": "2026-11-19T04:45:49+08:00",
   "registry": "说明/工程文档登记表.md",
   "scopes": [
     "*.md",
     "docs/**/*.md",
     "说明/*.md"
   ],
-  "count": 73,
+  "count": 79,
   "docs": {
     "AGENTS.md": {
       "exists": true,
@@ -81,7 +81,7 @@
       "性质": "权威",
       "最后核验轮次": "R3490",
       "消费者": "执行 agent",
-      "bytes": 79373,
+      "bytes": 80213,
       "req_count": 5,
       "des_count": 0
     },
@@ -147,7 +147,7 @@
       "性质": "权威",
       "最后核验轮次": "R3496",
       "消费者": "执行 agent",
-      "bytes": 1953,
+      "bytes": 1927,
       "req_count": 0,
       "des_count": 0
     },
@@ -158,7 +158,7 @@
       "性质": "权威",
       "最后核验轮次": "R3496",
       "消费者": "执行 agent",
-      "bytes": 2153,
+      "bytes": 2127,
       "req_count": 0,
       "des_count": 0
     },
@@ -169,7 +169,7 @@
       "性质": "权威",
       "最后核验轮次": "R3496",
       "消费者": "执行 agent",
-      "bytes": 2128,
+      "bytes": 2101,
       "req_count": 0,
       "des_count": 0
     },
@@ -180,7 +180,7 @@
       "性质": "权威",
       "最后核验轮次": "R3496",
       "消费者": "执行 agent",
-      "bytes": 2339,
+      "bytes": 2313,
       "req_count": 0,
       "des_count": 0
     },
@@ -191,7 +191,73 @@
       "性质": "权威",
       "最后核验轮次": "R3496",
       "消费者": "执行 agent",
-      "bytes": 2190,
+      "bytes": 2164,
+      "req_count": 0,
+      "des_count": 0
+    },
+    "docs/adr/0007-client-hardening-boundary.md": {
+      "exists": true,
+      "层级": "L1,L2,L3",
+      "阶段": "全局",
+      "性质": "权威",
+      "最后核验轮次": "R3572",
+      "消费者": "执行 agent",
+      "bytes": 987,
+      "req_count": 0,
+      "des_count": 0
+    },
+    "docs/adr/0008-session-file-hmac.md": {
+      "exists": true,
+      "层级": "L1",
+      "阶段": "全局",
+      "性质": "权威",
+      "最后核验轮次": "R3572",
+      "消费者": "执行 agent",
+      "bytes": 963,
+      "req_count": 0,
+      "des_count": 0
+    },
+    "docs/adr/0009-dual-clock-baseline.md": {
+      "exists": true,
+      "层级": "L1,L2",
+      "阶段": "全局",
+      "性质": "权威",
+      "最后核验轮次": "R3572",
+      "消费者": "执行 agent",
+      "bytes": 955,
+      "req_count": 0,
+      "des_count": 0
+    },
+    "docs/adr/0010-redeem-first-refunds.md": {
+      "exists": true,
+      "层级": "L2",
+      "阶段": "全局",
+      "性质": "权威",
+      "最后核验轮次": "R3572",
+      "消费者": "执行 agent",
+      "bytes": 943,
+      "req_count": 0,
+      "des_count": 0
+    },
+    "docs/adr/0011-model-probe-availability.md": {
+      "exists": true,
+      "层级": "L1,L2",
+      "阶段": "全局",
+      "性质": "权威",
+      "最后核验轮次": "R3572",
+      "消费者": "执行 agent",
+      "bytes": 955,
+      "req_count": 0,
+      "des_count": 0
+    },
+    "docs/adr/0012-configuration-schema-pattern.md": {
+      "exists": true,
+      "层级": "L0,L1",
+      "阶段": "全局",
+      "性质": "权威",
+      "最后核验轮次": "R3572",
+      "消费者": "执行 agent",
+      "bytes": 901,
       "req_count": 0,
       "des_count": 0
     },
@@ -202,7 +268,7 @@
       "性质": "权威",
       "最后核验轮次": "R3496",
       "消费者": "执行 agent",
-      "bytes": 1778,
+      "bytes": 2435,
       "req_count": 0,
       "des_count": 0
     },
@@ -213,7 +279,7 @@
       "性质": "权威",
       "最后核验轮次": "R3496",
       "消费者": "执行 agent",
-      "bytes": 762,
+      "bytes": 740,
       "req_count": 0,
       "des_count": 0
     },
@@ -345,7 +411,7 @@
       "性质": "权威",
       "最后核验轮次": "R3490",
       "消费者": "执行 agent、tests/architecture",
-      "bytes": 99121,
+      "bytes": 99459,
       "req_count": 76,
       "des_count": 63
     },
@@ -488,7 +554,7 @@
       "性质": "权威",
       "最后核验轮次": "R3490",
       "消费者": "执行 agent",
-      "bytes": 19665,
+      "bytes": 19573,
       "req_count": 0,
       "des_count": 0
     },
@@ -499,7 +565,7 @@
       "性质": "权威",
       "最后核验轮次": "R3490",
       "消费者": "执行 agent、部署者",
-      "bytes": 45918,
+      "bytes": 46082,
       "req_count": 2,
       "des_count": 0
     },
@@ -554,7 +620,7 @@
       "性质": "权威",
       "最后核验轮次": "R3492",
       "消费者": "用户、执行 agent",
-      "bytes": 14301,
+      "bytes": 14209,
       "req_count": 22,
       "des_count": 0
     },
@@ -609,7 +675,7 @@
       "性质": "权威",
       "最后核验轮次": "R3490",
       "消费者": "执行 agent",
-      "bytes": 7448,
+      "bytes": 8004,
       "req_count": 0,
       "des_count": 0
     },
@@ -631,7 +697,7 @@
       "性质": "权威",
       "最后核验轮次": "R3499",
       "消费者": "执行 agent",
-      "bytes": 8082,
+      "bytes": 8024,
       "req_count": 0,
       "des_count": 0
     },
@@ -772,9 +838,9 @@
       "层级": "全局",
       "阶段": "全局",
       "性质": "权威",
-      "最后核验轮次": "R3490",
+      "最后核验轮次": "R3572",
       "消费者": "执行 agent",
-      "bytes": 23587,
+      "bytes": 27347,
       "req_count": 0,
       "des_count": 0
     },

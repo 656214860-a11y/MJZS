@@ -1,4 +1,4 @@
-"""R2048：未登录或授权失效时，侧栏只放「00 会员账户」与免费阶段，其余整页换成锁定页。
+"""授权不可用时，侧栏锁定收费阶段，免费阶段与非阶段工具页可用。
 R2933：图标轨上锁定不再追加 🔒 文字，改为把导航图标换成 lock.png。"""
 import re
 import tkinter as tk
@@ -15,14 +15,18 @@ from ui_icons import IconLoader
 
 
 class PageBlockMessageTests(unittest.TestCase):
-    def test_free_stages_stay_open_and_others_lock_when_unusable(self):
-        out = ent.Entitlement(ent.SIGNED_OUT)
-        for stage in ent.FREE_STAGES:
-            self.assertEqual(ent.page_block_message(out, stage, stage), '')
-        self.assertIn('需要登录账号', ent.page_block_message(out, pet_bus.STAGES[2], '初步分镜'))
-        self.assertIn('「参考网站」', ent.page_block_message(out, None, '参考网站'))
+    def test_page_and_stage_share_the_paid_stage_rule(self):
+        cases = ((None, False), (ent.FREE_STAGES[0], False), (pet_bus.STAGES[2], True))
+        for verdict in (ent.Entitlement(ent.SIGNED_OUT), ent.Entitlement(ent.LOCKED, {'state': 'expired'}),
+                        ent.Entitlement(ent.VALID, {'state': 'active'})):
+            for stage, paid in cases:
+                with self.subTest(state=verdict.state, stage=stage):
+                    stage_reason = ent.stage_block_message(verdict, stage)
+                    page_reason = ent.page_block_message(verdict, stage, '页面')
+                    self.assertEqual(bool(stage_reason), paid and not verdict.usable)
+                    self.assertEqual(bool(page_reason), bool(stage_reason))
         expired = ent.Entitlement(ent.LOCKED, {'state': 'expired'})
-        self.assertIn('试用或会员已到期', ent.page_block_message(expired, None, '参考网站'))
+        self.assertIn('试用或会员已到期', ent.page_block_message(expired, pet_bus.STAGES[2], '初步分镜'))
 
     def test_usable_entitlement_opens_everything(self):
         ok = ent.Entitlement(ent.VALID, {'state': 'trial'})
@@ -45,12 +49,12 @@ class PageGateControllerTests(unittest.TestCase):
     def test_reads_entitlement_once_and_lists_only_locked_pages(self):
         account, calls = self.controller(ent.SIGNED_OUT)
         pages = [(0, ent.FREE_STAGES[0], 'a'), (2, pet_bus.STAGES[2], 'b'), (13, None, '参考网站')]
-        self.assertEqual(set(account.page_gate(pages)), {2, 13})
+        self.assertEqual(set(account.page_gate(pages)), {2})
         self.assertEqual(len(calls), 1)
 
     def test_switch_off_opens_everything(self):
         account, _ = self.controller(ent.SIGNED_OUT, enforce=False)
-        self.assertEqual(account.page_gate([(13, None, '参考网站')]), {})
+        self.assertEqual(account.page_gate([(2, pet_bus.STAGES[2], '初步分镜')]), {})
 
 
 class Host(AccountPageMixin):

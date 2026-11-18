@@ -75,6 +75,7 @@
   "seedream_api.py": 35.0,
   "selfcheck.py": 100.0,
   "service_contract.py": 100.0,
+  "session_integrity.py": 80.0,
   "shot_batches.py": 92.0,
   "shot_selection.py": 0.0,
   "stage_layout.py": 70.0,

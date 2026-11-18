@@ -157,7 +157,7 @@ class LoginGateTests(unittest.TestCase):
         self.assertFalse(hasattr(d,'membership_badge'))   # R2027：侧栏到期小字已删
 
     def test_unlicensed_pages_are_locked_and_unlock_after_renewal(self):
-        """R2048：授权失效时只放会员页与免费阶段，其余页整页锁定、侧栏挂锁；授权恢复后解锁并重建当前页。
+        """R2048：授权失效时只锁收费阶段；授权恢复后解锁并重建当前页。
         R2933：图标轨上锁定改为换 lock.png（PNG 缺失才退回 🔒 文字兜底）。"""
         from desktop_account_page import NAV_LOCK_MARK
         from desktop_page_registry import (NAV_LOCK_ICON, PAGE, PAGE_ACCOUNT,
@@ -175,27 +175,29 @@ class LoginGateTests(unittest.TestCase):
             found=re.findall(r"'([^']+)'",value)
             return found[0] if found else value
         try:
-            for index in (PAGE['storyboard'],PAGE_SITES):
-                button=d.nav[index]
-                self.assertTrue(button._nav_locked)
-                if nav_icon(index,NAV_LOCK_ICON) is not None:
-                    self.assertEqual(image_name(index),str(nav_icon(index,NAV_LOCK_ICON)))
-                    self.assertEqual(str(button.cget('compound')),'image')
-                else:
-                    self.assertTrue(button.cget('text').endswith(NAV_LOCK_MARK))
+            index=PAGE['storyboard']
+            button=d.nav[index]
+            self.assertTrue(button._nav_locked)
+            if nav_icon(index,NAV_LOCK_ICON) is not None:
+                self.assertEqual(image_name(index),str(nav_icon(index,NAV_LOCK_ICON)))
+                self.assertEqual(str(button.cget('compound')),'image')
+            else:
+                self.assertTrue(button.cget('text').endswith(NAV_LOCK_MARK))
             self.assertFalse(getattr(d.nav[PAGE['script_structure']],'_nav_locked',False))
+            self.assertFalse(getattr(d.nav[PAGE_SITES],'_nav_locked',False))
             d.show(PAGE_SITES);self.pump()
+            self.assertFalse(locked())
+            d.show(PAGE['storyboard']);self.pump()
             self.assertTrue(locked())
             self.assertIn('试用或会员已到期',d.status.get())
             d.show(PAGE_ACCOUNT);self.pump()
             self.assertFalse(locked())
-            d.show(PAGE_SITES);self.pump()
+            d.show(PAGE['storyboard']);self.pump()
             account_store.save_session({'email':'a@b.c','refresh_token':'r','lease':sign(payload()),'server_time':NOW},store.path)
             d._account_changed();self.pump()
-            self.assertFalse(d.nav[PAGE_SITES]._nav_locked)
-            if nav_icon(PAGE_SITES,PAGE_NAV_ICONS[PAGE_SITES]) is not None:
-                self.assertEqual(image_name(PAGE_SITES),
-                                 str(nav_icon(PAGE_SITES,PAGE_NAV_ICONS[PAGE_SITES])))
+            self.assertFalse(d.nav[index]._nav_locked)
+            if nav_icon(index,PAGE_NAV_ICONS[index]) is not None:
+                self.assertEqual(image_name(index),str(nav_icon(index,PAGE_NAV_ICONS[index])))
             self.assertFalse(locked())
         finally:
             d._require_login=False;d.refresh_nav_locks()

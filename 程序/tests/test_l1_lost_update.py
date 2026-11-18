@@ -362,6 +362,15 @@ class ModelPoolUpdateTests(unittest.TestCase):
         model_pool.store({'models': {}}, self.program)
         self.assertEqual(json.loads(self.config.read_text(encoding='utf-8')), {'models': {}})
 
+    def test_store_keeps_health_written_after_the_config_snapshot(self):
+        before = model_pool.raw(self.program)
+        model_pool.record_health('shared', {'ok': True, 'at': 'new'}, program=self.program)
+        before['models'] = {'new_model': {'model': 'fixture'}}
+        model_pool.store(before, self.program)
+        persisted = model_pool.raw(self.program)
+        self.assertEqual(persisted['models'], before['models'])
+        self.assertEqual(persisted[model_pool.HEALTH_KEY]['shared']['at'], 'new')
+
     def test_two_processes_health_and_store_do_not_rollback(self):
         script_health = (
             "import sys\n"
