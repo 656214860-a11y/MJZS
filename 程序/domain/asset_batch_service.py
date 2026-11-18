@@ -4,6 +4,8 @@ import threading
 import uuid
 from pathlib import Path
 
+import infra.app_logging as app_logging
+from infra import unit_of_work
 from infra.file_cache import read_json
 from contract.project_context import ProjectContext
 
@@ -117,9 +119,9 @@ def import_asset_image(base, project_root, aid, source, requirements, *, gateway
     if renamed != source and renamed.exists() and renamed != dest:
         raise ValueError('原图目录已有同名文件：' + str(renamed) + '。请先移走该文件后再导入。')
     original_hash = gateway['file_hash'](source)
-    old_dest = dest.read_bytes() if dest.is_file() else None
-    old_registry = registry_file.read_bytes()
     temporary = dest.with_name(dest.stem + '_' + uuid.uuid4().hex + '.importing')
+    # 跨文件事务：登记表与目标图片同进退；取消/中断也回滚（R3310 轮 6）。
+    token = unit_of_work.begin((registry_file, dest))
     try:
         if source != dest:
             folder.mkdir(parents=True, exist_ok=True)
@@ -135,16 +137,12 @@ def import_asset_image(base, project_root, aid, source, requirements, *, gateway
         updated[aid] = {'name': name, 'image': dest.relative_to(base).as_posix(),
                         'description': requirement.get('description', name)}
         gateway['publish_json'](registry_file, updated)
-    except Exception:
-        if old_dest is None:
-            if dest.is_file():
-                from infra.storage_maintenance import recycle_paths
-                if not recycle_paths(project_root, (dest,), '资产导入索引失败回收'):
-                    raise OSError('资产索引发布失败，且新导入图片未能安全回收')
-        else:
-            gateway['publish_bytes'](dest, old_dest)
-        if registry_file.read_bytes() != old_registry:
-            gateway['publish_bytes'](registry_file, old_registry)
+        unit_of_work.commit(token)
+    except BaseException:
+        try:
+            unit_of_work.rollback(token)
+        except Exception:
+            app_logging.swallowed('asset_batch_service.import_asset_image.rollback')
         raise
     finally:
         if temporary.exists():
@@ -196,16 +194,18 @@ def rename_asset(base, aid, old_name, new_name, *, gateway=None):
     updated_registry = dict(registry)
     if aid in updated_registry:
         updated_registry[aid] = {**updated_registry[aid], 'name': name}
-    previous = ((plan_file, plan_file.read_bytes()),
-                (registry_file, registry_file.read_bytes() if registry_file.is_file() else None))
+    # 清单与登记表同进退；登记表原本不存在时由事务删除新建文件（R3310 轮 6）。
+    token = unit_of_work.begin((plan_file, registry_file))
     try:
         gateway['publish_json'](plan_file, updated_plan)
         if aid in updated_registry:
             gateway['publish_json'](registry_file, updated_registry)
-    except Exception:
-        for path, raw in previous:
-            if raw is not None:
-                gateway['publish_bytes'](path, raw)
+        unit_of_work.commit(token)
+    except BaseException:
+        try:
+            unit_of_work.rollback(token)
+        except Exception:
+            app_logging.swallowed('asset_batch_service.rename_asset.rollback')
         raise
     return plan_entry
 

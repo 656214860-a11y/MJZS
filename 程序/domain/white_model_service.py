@@ -10,6 +10,8 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
+import infra.app_logging as app_logging
+from infra import unit_of_work
 from infra.file_cache import probe_writable, read_json, remove_temporary_file
 from contract.platform_tools import run_process
 from domain.project_naming import dated_path
@@ -271,22 +273,35 @@ def sync_project_copy(context, sid, source, *, publish):
     from contract.stage_path_service import write_dir
     folder = write_dir(context.root, 'previs') / 'assets' / _segment(sid)
     target = folder / path.name
-    if not target.is_file() or target.stat().st_size != path.stat().st_size:
-        folder.mkdir(parents=True, exist_ok=True)
-        temporary = target.with_suffix(target.suffix + '.importing')
+    index_path = project_index_path(context, write=True)
+    need_copy = not target.is_file() or target.stat().st_size != path.stat().st_size
+    # 预演副本与项目索引同进退；取消与进程中断也由事务 journal 恢复（R3310 轮 6）。
+    # 目标已是最新时不登记它，避免给大体积视频白做一次备份。
+    token = unit_of_work.begin((target, index_path) if need_copy else (index_path,))
+    try:
+        if need_copy:
+            folder.mkdir(parents=True, exist_ok=True)
+            temporary = target.with_suffix(target.suffix + '.importing')
+            try:
+                shutil.copy2(path, temporary)
+                temporary.replace(target)
+            finally:
+                remove_temporary_file(temporary)
+        index = read_project_index(context)
+        entry = {'shot_id': str(sid), 'source': str(source) if source else '',
+                 'source_sha256': source_digest(source, sid),
+                 'preview': target.relative_to(context.root).as_posix(),
+                 'preview_bytes': target.stat().st_size,
+                 'synced_at': datetime.now().isoformat(timespec='seconds')}
+        index['shots'][str(sid)] = entry
+        publish(index_path, index)
+        unit_of_work.commit(token)
+    except BaseException:
         try:
-            shutil.copy2(path, temporary)
-            temporary.replace(target)
-        finally:
-            remove_temporary_file(temporary)
-    index = read_project_index(context)
-    entry = {'shot_id': str(sid), 'source': str(source) if source else '',
-             'source_sha256': source_digest(source, sid),
-             'preview': target.relative_to(context.root).as_posix(),
-             'preview_bytes': target.stat().st_size,
-             'synced_at': datetime.now().isoformat(timespec='seconds')}
-    index['shots'][str(sid)] = entry
-    publish(project_index_path(context, write=True), index)
+            unit_of_work.rollback(token)
+        except Exception:
+            app_logging.swallowed('white_model_service.sync_project_copy.rollback')
+        raise
     return entry
 
 
@@ -339,6 +354,9 @@ def import_previs_media(root, sid, source, *, publish):
     root.mkdir(parents=True, exist_ok=True)
     target = dated_path(root, sid + '_白模预演', source.suffix.lower())
     temporary = target.with_suffix(target.suffix + '.importing')
+    record_path = root / '预演记录.json'
+    # 媒体副本与预演记录同进退；取消与进程中断也由事务 journal 恢复（R3310 轮 6）。
+    token = unit_of_work.begin((target, record_path))
     try:
         shutil.copy2(source, temporary)
         if temporary.stat().st_size != source.stat().st_size:
@@ -348,12 +366,16 @@ def import_previs_media(root, sid, source, *, publish):
         saved.update(shot_id=sid, updated_at=datetime.now().isoformat(timespec='seconds'))
         saved[key] = str(target)
         write_record(root, saved, publish=publish)
-        return target
-    except Exception:
-        remove_temporary_file(target)
+        unit_of_work.commit(token)
+    except BaseException:
+        try:
+            unit_of_work.rollback(token)
+        except Exception:
+            app_logging.swallowed('white_model_service.import_previs_media.rollback')
         raise
     finally:
         remove_temporary_file(temporary)
+    return target
 
 
 def save_previs_notes(root, sid, notes, *, publish):
@@ -628,28 +650,41 @@ def migrate_legacy_directories(context, *, publish, workspace_path=None):
                 / datetime.now().strftime('%Y%m%d_%H%M%S_%f') / '迁移清单.json')
     record = {'project_id': identity, 'generated_at': datetime.now().isoformat(timespec='seconds'),
               'items': plan, 'skipped': skipped}
-    if plan or skipped:
-        publish(manifest, dict(record, status='planned'))
+    config_path = Path(project) / 'config.json'
     done = []
+    # 迁移清单与项目身份配置同进退；目录搬迁不在事务原语范围，仍靠反向搬回，
+    # 但取消/中断同样触发，且回滚失败一律留日志不再静默（R3310 轮 6）。
+    token = unit_of_work.begin((manifest, config_path))
     try:
+        if plan or skipped:
+            publish(manifest, dict(record, status='planned'))
         for item in plan:
             Path(item['to']).parent.mkdir(parents=True, exist_ok=True)
             shutil.move(item['from'], item['to'])
             done.append(item)
         # 身份落盘和搬迁是同一步：写不进去就把已搬目录搬回，避免成果留在读不到的布局里。
         _publish_identity(project, publish, identity)
-    except Exception:
-        for item in reversed(done):
-            try: shutil.move(item['to'], item['from'])
-            except OSError: pass
         if plan or skipped:
-            try: publish(manifest, dict(record, status='rolled_back', moved=[item['sid'] for item in done]))
-            except OSError: pass
+            publish(manifest, dict(record, status='completed', moved=[item['sid'] for item in plan]))
+        unit_of_work.commit(token)
+    except BaseException:
+        for item in reversed(done):
+            try:
+                shutil.move(item['to'], item['from'])
+            except OSError:
+                app_logging.swallowed('white_model_service.migrate_legacy_directories.move_back')
+        try:
+            unit_of_work.rollback(token)
+        except Exception:
+            app_logging.swallowed('white_model_service.migrate_legacy_directories.rollback')
+        if plan or skipped:
+            try:
+                publish(manifest, dict(record, status='rolled_back', moved=[item['sid'] for item in done]))
+            except OSError:
+                app_logging.swallowed('white_model_service.migrate_legacy_directories.rolled_back_manifest')
         raise
     with _CACHE_LOCK:
         _BASE_CACHE.clear(); _DIR_CACHE.clear()
-    if plan or skipped:
-        publish(manifest, dict(record, status='completed', moved=[item['sid'] for item in plan]))
     return {'project_id': identity, 'moved': [item['sid'] for item in plan], 'skipped': skipped,
             'manifest': str(manifest) if (plan or skipped) else None}
 

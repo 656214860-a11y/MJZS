@@ -1,0 +1,15 @@
+{
+  "round": 3310,
+  "commit_base": "88169301",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k uow_write_paths",
+    "exit": 0,
+    "passed": 13,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T09:42:50"
+}

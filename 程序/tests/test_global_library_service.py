@@ -266,6 +266,40 @@ class CopySafetyTests(unittest.TestCase):
                                         p.parent == stage_layout.shared_paths(project)['root'] / service.SHARED_SUB / '角色'
                                         for p in paths))
 
+    def test_copy_to_project_rollback_and_recycle_failures_are_logged_not_masking(self):
+        """R3310：事务回滚与副本回收各自失败都只记日志，调用方原异常照常抛出。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            library, project = _library(tmp), _project(tmp)
+
+            def fail_save(path, text):
+                raise OSError('injected manifest failure')
+
+            with mock.patch.object(service.unit_of_work, 'rollback',
+                                   side_effect=RuntimeError('journal rollback failed')), \
+                 mock.patch.object(service, '_rollback',
+                                   side_effect=OSError('recycle failed')), \
+                 self.assertLogs('swallowed', level='WARNING') as logs:
+                with self.assertRaisesRegex(OSError, 'injected manifest failure'):
+                    service.copy_to_project(library, '角色/CHAR_001.png', project, saver=fail_save)
+            self.assertTrue(any('rollback' in line for line in logs.output))
+            self.assertTrue(any('recycle' in line for line in logs.output))
+
+    def test_copy_to_library_rollback_and_recycle_failures_are_logged_not_masking(self):
+        """R3310：事务回滚与副本回收各自失败都只记日志，调用方原异常照常抛出。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            library, project = _library(tmp), _project(tmp)
+            with mock.patch.object(service.file_index, 'rebuild_global',
+                                   side_effect=OSError('index failed')), \
+                 mock.patch.object(service.unit_of_work, 'rollback',
+                                   side_effect=RuntimeError('journal rollback failed')), \
+                 mock.patch.object(service, '_rollback',
+                                   side_effect=OSError('recycle failed')), \
+                 self.assertLogs('swallowed', level='WARNING') as logs:
+                with self.assertRaisesRegex(OSError, 'index failed'):
+                    service.copy_to_library(project, '01剧本准备/docs/脚本.md', library)
+            self.assertTrue(any('rollback' in line for line in logs.output))
+            self.assertTrue(any('recycle' in line for line in logs.output))
+
 
 if __name__ == '__main__':
     unittest.main()

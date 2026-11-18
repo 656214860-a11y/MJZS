@@ -86,8 +86,8 @@
   "tests.test_unit_of_work"
  ],
  "tests_ok": true,
- "points_total": 2416,
- "points_covered": 1280,
+ "points_total": 2420,
+ "points_covered": 1288,
  "modules": [
   {
    "module": "aigc_lint.py",
@@ -234,12 +234,6 @@
    "percent": 30.0
   },
   {
-   "module": "unit_of_work.py",
-   "points": 49,
-   "covered": 16,
-   "percent": 32.7
-  },
-  {
    "module": "seedream_api.py",
    "points": 20,
    "covered": 7,
@@ -256,6 +250,12 @@
    "points": 27,
    "covered": 10,
    "percent": 37.0
+  },
+  {
+   "module": "unit_of_work.py",
+   "points": 49,
+   "covered": 19,
+   "percent": 38.8
   },
   {
    "module": "model_pool.py",
@@ -312,12 +312,6 @@
    "percent": 51.5
   },
   {
-   "module": "global_library_service.py",
-   "points": 13,
-   "covered": 7,
-   "percent": 53.8
-  },
-  {
    "module": "storage_maintenance.py",
    "points": 171,
    "covered": 93,
@@ -340,6 +334,12 @@
    "points": 88,
    "covered": 49,
    "percent": 55.7
+  },
+  {
+   "module": "global_library_service.py",
+   "points": 17,
+   "covered": 11,
+   "percent": 64.7
   },
   {
    "module": "artifact_lineage.py",
@@ -432,12 +432,6 @@
    "percent": 79.2
   },
   {
-   "module": "file_index.py",
-   "points": 89,
-   "covered": 71,
-   "percent": 79.8
-  },
-  {
    "module": "prompt_templates.py",
    "points": 10,
    "covered": 8,
@@ -454,6 +448,12 @@
    "points": 52,
    "covered": 42,
    "percent": 80.8
+  },
+  {
+   "module": "file_index.py",
+   "points": 89,
+   "covered": 72,
+   "percent": 80.9
   },
   {
    "module": "model_metering.py",

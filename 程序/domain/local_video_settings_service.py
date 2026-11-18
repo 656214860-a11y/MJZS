@@ -2,6 +2,8 @@
 from pathlib import Path
 
 from agent.core import file_hash, temporary_path
+import infra.app_logging as app_logging
+from infra import unit_of_work
 from infra.file_cache import remove_temporary_file
 from contract.project_context import ProjectContext
 
@@ -25,12 +27,12 @@ def save_local_video_settings(context, current_config, options, *, gateway=None)
         raise ValueError('项目工作流目录越界')
     target = (workflow_dir / ('video_' + file_hash(source)[:16] + '.json')).resolve()
     config_file = project / 'config.json'
-    old_config = config_file.read_bytes() if config_file.is_file() else None
-    old_target = target.read_bytes() if target.is_file() else None
     temporary = temporary_path(target, '.workflow')
     copied = source != target
     updated = {**current_config, 'local_video': dict(options), 'video_backend': 'comfy'}
     updated['local_video']['workflow'] = str(target)
+    # 工作流副本与项目配置同进退；取消与进程中断也由事务 journal 恢复（R3310 轮 6）。
+    token = unit_of_work.begin((target, config_file))
     try:
         if copied:
             workflow_dir.mkdir(parents=True, exist_ok=True)
@@ -39,18 +41,12 @@ def save_local_video_settings(context, current_config, options, *, gateway=None)
             gateway['published'](target)
         gateway['publish_json'](config_file, updated)
         gateway['published'](config_file)
-    except Exception:
-        if copied:
-            if old_target is None:
-                remove_temporary_file(target)
-            else:
-                gateway['publish_bytes'](target, old_target)
-            gateway['published'](target)
-        if old_config is None:
-            remove_temporary_file(config_file)
-        elif not config_file.is_file() or config_file.read_bytes() != old_config:
-            gateway['publish_bytes'](config_file, old_config)
-            gateway['published'](config_file)
+        unit_of_work.commit(token)
+    except BaseException:
+        try:
+            unit_of_work.rollback(token)
+        except Exception:
+            app_logging.swallowed('local_video_settings_service.save_local_video_settings.rollback')
         raise
     finally:
         remove_temporary_file(temporary)

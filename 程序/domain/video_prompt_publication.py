@@ -10,6 +10,7 @@ from contract.service_contract import SystemError, UserError, success
 
 from agent.core import fingerprint, read
 from domain.project_naming import dated_path
+from infra import unit_of_work
 
 
 LOGGER = logging.getLogger('video_prompt_publication')
@@ -92,14 +93,24 @@ def stage_import(studio, sid, text, *, gateway=None):
     backup = dated_path(folder / '历史版本', sid, '.json') if previous is not None else None
     record = {'shot_id': sid, 'source_signature': fingerprint(shot),
               'video_prompt': text, 'provider': 'import'}
+    # 草稿与历史版本备份同进退；取消与进程中断也由事务 journal 恢复，
+    # 回滚自身失败不再覆盖调用方正在处理的原异常（R3310 轮 6）。
+    paths = [target] + ([backup] if backup is not None else [])
+    token = unit_of_work.begin(paths)
     try:
         if backup is not None:
             writers['publish_bytes'](backup, previous)
         writers['publish_json'](target, record)
-    except Exception:
-        if backup is not None:
-            writers['restore_bytes'](backup, None)
-            writers['remove_dir'](backup.parent)
-        writers['restore_bytes'](target, previous)
+        unit_of_work.commit(token)
+    except BaseException:
+        try:
+            unit_of_work.rollback(token)
+        except Exception:
+            LOGGER.exception('视频提示词导入回滚失败')
+        if backup is not None and backup.parent.is_dir():
+            try:
+                writers['remove_dir'](backup.parent)
+            except Exception:
+                LOGGER.exception('视频提示词历史版本目录清理失败')
         raise
     return success(copy.deepcopy(record))
