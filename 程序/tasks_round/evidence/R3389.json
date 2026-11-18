@@ -1,0 +1,15 @@
+{
+  "round": 3389,
+  "commit_base": "39ed022e",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k perf_baseline perf_measurement desktop_startup_perf",
+    "exit": 0,
+    "passed": 28,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T20:04:47"
+}

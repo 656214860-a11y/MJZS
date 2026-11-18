@@ -301,9 +301,13 @@ def tool_path(name, fallback='', configured=''):
     bundled = _bundled_tool(name)
     if bundled:
         return bundled
-    if name not in _TOOL_CACHE:
-        _TOOL_CACHE[name] = shutil.which(name) or None
-    return _TOOL_CACHE[name] or fallback or None
+    cached = _TOOL_CACHE.get(name)
+    if cached:
+        return cached
+    found = shutil.which(name)
+    if found:
+        _TOOL_CACHE[name] = found
+    return found or fallback or None
 
 
 def reveal_in_folder(path):

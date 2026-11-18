@@ -69,11 +69,56 @@ class ApprovedVersionSourceGuardTests(unittest.TestCase):
         self.assertRegex(consumer, r"from (?:orchestrator\.)?engine import [^\n]*\badopted_edit_version\b")
         self.assertRegex(consumer, r"from (?:orchestrator\.)?engine import [^\n]*\badoption_summary\b")
         # 自动粗剪与手动拼装都收敛到 adopted_edit_version；approved_versions 只留一处实现。
-        # R3364（REQ-S10-22）后自动粗剪经共用内核 edit_ready_rows（其内仍调 adopted_edit_version），
-        # 手动拼装 assemble() 保留直接调用，故字面模式各为 1 处＋内核入口 ≥2 处。
-        self.assertEqual(sources["engine.py"].count("adopted_edit_version(st['shots'].get(shot['id'])"), 1)
-        self.assertGreaterEqual(sources["engine.py"].count("edit_ready_rows("), 2)
+        # REQ-S10-22：AST 同时核验自动、手动与无界面路径复用选版内核，坏样本防绕路。
+        import ast
+        engine_tree = ast.parse(sources['engine.py'])
+        completion_tree = ast.parse(entity_file('stage_completion_service').read_text(encoding='utf-8'))
+        self.assertEqual(self.approval_delegation_errors(engine_tree, completion_tree), set())
         self.assertEqual(sources["engine.py"].count("approved_versions(st['shots'].get(shot['id']))"), 0)
+
+    @staticmethod
+    def approval_delegation_errors(engine_tree, completion_tree):
+        """REQ/DES-S10-22：界面与无界面核验必须复用真实选版内核。"""
+        import ast
+        studio = next(node for node in engine_tree.body
+                      if isinstance(node, ast.ClassDef) and node.name == 'Studio')
+        functions = {node.name: node for node in studio.body if isinstance(node, ast.FunctionDef)}
+        functions.update({node.name: node for node in engine_tree.body if isinstance(node, ast.FunctionDef)})
+        functions.update({node.name: node for node in completion_tree.body if isinstance(node, ast.FunctionDef)})
+        required = {'assemble': 'adopted_edit_version', 'auto_edit_ready': 'edit_ready_rows',
+                    'edit_ready_rows': 'adopted_edit_version', 'edit_ready_for_project': 'edit_ready_rows'}
+        errors = set()
+        for caller, callee in required.items():
+            calls = {node.func.id for node in ast.walk(functions[caller])
+                     if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)}
+            if callee not in calls:
+                errors.add((caller, callee))
+        return errors
+
+    def test_each_approval_delegation_bypass_is_detected(self):
+        """四处逐一临时替换成绕路调用，守卫必须逐一报红，不接受只改数字。"""
+        import ast
+        import copy
+        from tests.architecture._scan import entity_file
+        engine = ast.parse(entity_file('engine').read_text(encoding='utf-8'))
+        completion = ast.parse(entity_file('stage_completion_service').read_text(encoding='utf-8'))
+        edges = {'assemble': 'adopted_edit_version', 'auto_edit_ready': 'edit_ready_rows',
+                 'edit_ready_rows': 'adopted_edit_version', 'edit_ready_for_project': 'edit_ready_rows'}
+        for caller, callee in edges.items():
+            with self.subTest(caller=caller, callee=callee):
+                bad_engine, bad_completion = copy.deepcopy(engine), copy.deepcopy(completion)
+                tree = bad_completion if caller == 'edit_ready_for_project' else bad_engine
+                function = next(node for node in ast.walk(tree)
+                                if isinstance(node, ast.FunctionDef) and node.name == caller)
+                replaced = 0
+                for node in ast.walk(function):
+                    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == callee:
+                        node.func.id = 'unverified_version_bypass'
+                        replaced += 1
+                self.assertGreater(replaced, 0)
+                self.assertEqual(self.approval_delegation_errors(bad_engine, bad_completion), {(caller, callee)})
+                with self.assertRaises(AssertionError):
+                    self.assertEqual(self.approval_delegation_errors(bad_engine, bad_completion), set())
 
 class EngineNameFallbackTests(unittest.TestCase):
     """第 14 期：workflow_settings 里没有 model_name 时，白模页不该整页炸在 ImportError 上。

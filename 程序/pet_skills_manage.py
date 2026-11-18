@@ -79,6 +79,8 @@ def skills_page(frame, pet, width=None):
     SecondaryButton(bar, text='体检详情',
                     command=lambda: health_dialog(pet, state)).pack(
         side='left', padx=(SPACING['sm'], SPACING['none']))
+    SecondaryButton(bar, text='残留包管理…', command=lambda: residue_dialog(pet, refresh)).pack(
+        side='left', padx=(SPACING['sm'], SPACING['none']))
     SecondaryButton(bar, text='刷新', command=lambda: load(state, fill)).pack(side='left')
 
     table = DataTable(frame, columns=list(_COLUMNS), height=TEXT_ROWS['2xl'],
@@ -408,9 +410,6 @@ def toggle_disabled(pet, tree, state, refresh, hint):
     name = getattr(skill, 'name', '') or ''
     disabling = not _is_disabled_row(tree, state)
     verb = '禁用' if disabling else '启用'
-    if disabling and getattr(skill, 'layer', '') == 'builtin':
-        hint.set('内置 SKILL 只读，不能禁用；要换行为请用用户层同名覆盖。')
-        return None
     if not ask_confirmation(getattr(pet, 'win', None), verb + ' SKILL',
                             '将%s SKILL「%s」（文件保留在磁盘，随时可恢复），是否继续？'
                             % (verb, name), dangerous=disabling):
@@ -625,6 +624,69 @@ def import_dialog(pet, state, refresh):
     ttk.Label(body, textvariable=hint, style='Muted.TLabel',
               wraplength=TEXT_DESC['wraplength']).pack(anchor='w', pady=(SPACING['xs'], SPACING['none']))
     SecondaryButton(win.actions, text='关闭', command=win.destroy).pack(side='right')
+    return win
+
+
+def residue_dialog(pet, refresh):
+    """用户主动打开的独立管理通道；不混入阶段 SKILL 列表。"""
+    win = BaseDialog(getattr(pet, 'win', None), '残留包管理', modal=False)
+    ttk.Label(win.content, text='仅列出非阶段资料包；回收整个包，可在程序回收站恢复。',
+              wraplength=TEXT_DESC['wraplength']).pack(anchor='w')
+    table = DataTable(win.content, columns=[('name', '包名', _COLUMNS[0][2]),
+                                           ('path', '位置', _COLUMNS[1][2]),
+                                           ('count', '子技能数', _COLUMNS[3][2]),
+                                           ('size', '占用空间', _COLUMNS[2][2]),
+                                           ('description', '包说明', _COLUMNS[2][2])],
+                      height=TEXT_ROWS['lg'], selectmode='extended', empty_text='没有非阶段残留包。')
+    table.pack(fill='both', expand=True, pady=(SPACING['sm'], SPACING['none']))
+    hint = tk.StringVar(value='')
+    rows = {}
+
+    def load_rows():
+        table.tree.delete(*table.tree.get_children())
+        rows.clear()
+        try:
+            for row in skill_project_layer.scan_residue(
+                    _program_of(pet), package_source=skill_registry.Registry._package_source):
+                key = row['relative_path']
+                rows[key] = row
+                table.tree.insert('', 'end', iid=key,
+                                  values=(row['name'], row['relative_path'], row['sub_skill_count'],
+                                          '%s B' % format(row['size'], ','), row['description']))
+        except OSError as exc:
+            hint.set('残留包扫描失败：' + str(exc))
+
+    def dispose():
+        selected = table.tree.selection()
+        chosen = [rows[key] for key in selected if key in rows]
+        if not chosen:
+            hint.set('先选择一个或多个残留包。')
+            return None
+        if not ask_confirmation(win, '回收残留包',
+                                '将以下整包移入回收站？\n' + '\n'.join(row['path'] for row in chosen),
+                                dangerous=True):
+            return None
+        if not ask_confirmation(win, '再次确认回收',
+                                '确认回收 %d 个包及其全部内容？可从程序回收站恢复。' % len(chosen),
+                                dangerous=True):
+            return None
+        result = skill_project_layer.dispose_residue(
+            _program_of(pet), [row['relative_path'] for row in chosen],
+            package_source=skill_registry.Registry._package_source)
+        hint.set(result.reason)
+        if result.ok:
+            load_rows()
+            refresh()
+        return result
+
+    ttk.Label(win.content, textvariable=hint, style='Muted.TLabel',
+              wraplength=TEXT_DESC['wraplength']).pack(anchor='w', pady=(SPACING['sm'], SPACING['none']))
+    SecondaryButton(win.actions, text='关闭', command=win.destroy).pack(side='right')
+    SecondaryButton(win.actions, text='移入回收站…', command=dispose).pack(side='left')
+    SecondaryButton(win.actions, text='刷新', command=load_rows).pack(
+        side='left', padx=(SPACING['sm'], SPACING['none']))
+    win._pet_seams = {'residue': {'tree': table.tree, 'rows': rows, 'dispose': dispose, 'hint': hint}}
+    load_rows()
     return win
 
 

@@ -1,0 +1,15 @@
+{
+  "round": 3350,
+  "commit_base": "d122caf0",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k api_cache_usage model_gateway_robustness shared_adapter_infrastructure latent_defects_r2175 model_pool_redirects l1_transport_requests",
+    "exit": 0,
+    "passed": 65,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T14:29:31"
+}

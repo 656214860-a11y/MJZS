@@ -57,7 +57,7 @@ class KeyframeEvidenceTests(unittest.TestCase):
         self.assertIn('缺少来源', self.problem())
         result = replace_stage_keyframe(self.root, self.source, self.episode, self.shot,
                                         self.image.read_bytes())
-        self.assertTrue(result.ok, result.reason)
+        self.assertTrue(result.ok, (result.reason, result.data))
         self.episode = read(self.source)
         self.shot = self.episode['shots'][0]
         self.assertEqual(self.problem(), '')

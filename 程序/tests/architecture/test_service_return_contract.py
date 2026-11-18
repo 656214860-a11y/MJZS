@@ -103,7 +103,13 @@ class ServiceReturnContractBoundaryTests(unittest.TestCase):
         names = [name for group in groups for name in group]
         self.assertEqual(len(names), len(set(names)), '范围记录不得重复或跨组重叠')
         self.assertEqual(set(names), {name for name, layer in LAYERS.items() if layer == 2})
-        missing = {name for name in names if not (root / f'{name}.py').is_file()
+        entity_paths = ledger.get('entity_paths', {})
+        self.assertTrue(set(entity_paths) <= set(names))
+        for name, relative in entity_paths.items():
+            self.assertEqual((root / relative).resolve(), entity_file(name).resolve())
+            self.assertTrue((root / relative).is_file())
+        missing = {name for name in names if name not in entity_paths
+                   and not (root / f'{name}.py').is_file()
                    and not (root / name / '__init__.py').is_file()}
         historical = ledger['historical_name_audit_pending']
         self.assertEqual(len(historical), len(set(historical)))
@@ -143,7 +149,7 @@ class ServiceReturnContractBoundaryTests(unittest.TestCase):
                    and node.module in {'service_contract', 'contract.service_contract'}
                    for node in ast.walk(tree)):
                 adopters.add(module)
-        self.assertEqual(adopters, {'account_client', 'animatic_service', 'asset_batch_settings_service', 'asset_detail_service', 'asset_resume', 'asset_plan', 'storyboard_storage', 'idea_attachments', 'audio_import_service', 'delivery_import_service', 'desktop_settings_service', 'keyframe_lifecycle_service', 'projects',
+        self.assertEqual(adopters, {'skill_residue_service', 'account_client', 'animatic_service', 'asset_batch_settings_service', 'asset_detail_service', 'asset_resume', 'asset_plan', 'storyboard_storage', 'idea_attachments', 'audio_import_service', 'delivery_import_service', 'desktop_settings_service', 'keyframe_lifecycle_service', 'projects',
                                     'cloud_video_service', 'edit_service', 'handoff_service', 'legacy_adoption_service', 'recon_service', 'recycle_recovery_service', 'script_workspace_service', 'stage_workspace_service', 'storyboard_edit_service', 'subtitle_export_service', 'video_lifecycle_service', 'video_prompt_publication', 'voice_ai', 'workflow_context', 'writing', 'writing_tools', 'writing_quality'})
         ledger = json.loads((Path(ROOT) / '维护记录' / '架构统一基数.json').read_text(encoding='utf-8'))['第一项']
         self.assertEqual(adopters, set(ledger['adopters']))

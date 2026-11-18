@@ -24,7 +24,6 @@ from tkinter import ttk, messagebox
 from agent.core import read,save,save_text,save_bytes
 import infra.project_settings as project_settings
 import infra.storage_maintenance as storage_maintenance
-import infra.temporary_sweep as temporary_sweep
 from domain.projects import Projects, needs_cleanup_after_open_error, is_missing_storyboard_open_error
 from responsive_ui import FlowBar,ScrollForm,growable_extra,configure_check_column,refresh_check_heading,CheckboxColumn,fit_columns_by_content,auto_columns,bind_row_toggle,fit_row_height,row_height_for,bind_show_all
 from orchestrator.engine import approved_versions, review_label, adoption_summary
@@ -160,6 +159,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         # An idle modal here would block the root while it is still transparent.
         self._initialize_automation_state()
         self.root=None
+        self._temporary_sweep_roots=set()
         self.studio=None
         self.asset_kind='all'
         self.asset_detail_id=None
@@ -654,6 +654,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         if self.root != (Path(path) if path else None) and self.idea_chat_controller.requesting:
             self.interrupt_script_agent()
         self.root=Path(path) if path else None;self.studio=studio
+        if self.root is not None:self._temporary_sweep_roots.add(self.root)
         if path:
             # 第 68 期任务 9：把「当前项目」记进 projects.json 只是记账——记账这一步失败
             # （程序目录只读、杀毒软件锁住 projects.json、磁盘满…）绝不该把「打开项目」拦下来，
@@ -700,15 +701,6 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         self.auto.adopt_signature=None;self.auto.adopt_pending=False;self.auto.adopt_startup=True
         if path:
             self._schedule_stage_model_sync(self.root)
-            # 遗留临时文件清扫延到启动稳定后再起线程：打开项目即 walk 会撞上
-            # 「窗口出现到可交互之间零递归扫描」（规则 33／R3309）。
-            sweep_target=self.root
-            def start_stale_temporary_sweep():
-                if getattr(self,'shutting_down',False) or self.root!=sweep_target:return
-                temporary_sweep.schedule_stale_temporary_sweep(sweep_target)
-            # 裸 ``Desktop.__new__`` 测试替身没有 Tk 窗口：没有消息循环可挂，就不排程。
-            win=getattr(self,'win',None)
-            if win is not None:win.after(temporary_sweep.TEMP_SWEEP_START_DELAY_MS,start_stale_temporary_sweep)
             if not defer_page:
                 self._complete_project_recovery(self.root)
         if not defer_page and getattr(self,'_startup_tick_paused',False):
