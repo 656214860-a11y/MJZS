@@ -1,0 +1,15 @@
+{
+  "round": 3601,
+  "commit_base": "7b9ce88b",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k perf_batch_queue",
+    "exit": 0,
+    "passed": 3,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T05:24:36"
+}
