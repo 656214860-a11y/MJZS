@@ -1,15 +1,15 @@
 {
   "round": 3292,
-  "commit_base": "ed34a129",
+  "commit_base": "c1b60fe3",
   "credential_scan": {
     "ran": true,
     "hits": []
   },
   "targeted": {
-    "cmd": "run_selftests.py -k coverage_baseline branch_coverage_floor",
+    "cmd": "run_selftests.py -k round_claim",
     "exit": 0,
-    "passed": 10,
+    "passed": 21,
     "failed": 0
   },
-  "generated_at": "2026-11-18T07:55:59"
+  "generated_at": "2026-11-18T08:03:12"
 }
