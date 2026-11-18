@@ -1,11 +1,11 @@
 """来自 architecture.md 第 3 节的模块分层登记。"""
 from __future__ import annotations
 
-LAYER_NAMES = {0: "L0 契约与事实层", 1: "L1 基础设施层", 2: "L2 领域服务层",
+LAYER_NAMES = {0: "L0 契约与事实层", 0.5: "L0P 平台基座", 1: "L1 基础设施层", 2: "L2 领域服务层",
                3: "L3 编排与阶段层", 4: "L4 UI 层", 5: "L5 启动层"}
-LAYERS: dict[str, int] = {}
+LAYERS: dict[str, float] = {}
 
-def _register(layer: int, *names: str) -> None:
+def _register(layer: float, *names: str) -> None:
     for name in names:
         LAYERS[name] = layer
 

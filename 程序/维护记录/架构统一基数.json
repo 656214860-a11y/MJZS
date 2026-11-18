@@ -1645,5 +1645,768 @@
   "disposition": "frozen",
   "reason": "R1648：冻结窄谓词＝发出 stage.completed／script.completed 且同一函数内没有核验证据（emit_verified_completion／_completion_evidence／verified_stage_output），权威白名单 stage_completion_service／pet_bus；真候选 0，金丝雀仍覆盖未核验宣布完成。",
   "items": []
+ },
+ "L0 纯度": {
+  "allowed_stdlib": [
+   "__future__",
+   "abc",
+   "collections",
+   "copy",
+   "dataclasses",
+   "datetime",
+   "enum",
+   "functools",
+   "hashlib",
+   "itertools",
+   "json",
+   "math",
+   "operator",
+   "pathlib",
+   "re",
+   "string",
+   "textwrap",
+   "types",
+   "typing",
+   "warnings"
+  ],
+  "os_path_exception": "os 仅放行 os.path 纯函数用法（import os.path / from os import path / from os.path import *）",
+  "forbidden_modules": "K-H1 禁用模块：os（非 path）、subprocess、socket、ssl、ctypes、winreg、msvcrt、threading、queue、multiprocessing、urllib、http、shutil、tempfile、webbrowser、time、importlib 及全部第三方运行时包；未列入 allowed_stdlib 的标准库同样违规",
+  "forbidden_calls": "open()、Path 禁用方法（read_text/write_text/read_bytes/write_bytes/open/mkdir/touch/unlink/rename/replace/iterdir/glob/rglob/exists/is_file/is_dir/stat）、os.environ 属性访问与 os.getenv()",
+  "receiver_precision": "接收者为字符串字面量/JoinedStr 时不计 Path 方法（保守口径：其余接收者一律计入，棘轮只减不增）",
+  "baseline_total": 136,
+  "items": [
+   {
+    "file": "contract/api_models.py",
+    "symbol": "cloud_removed",
+    "type": "call:path.is_file",
+    "count": 1
+   },
+   {
+    "file": "contract/artifact_lineage.py",
+    "symbol": "_report",
+    "type": "call:path.is_file",
+    "count": 1
+   },
+   {
+    "file": "contract/artifact_lineage.py",
+    "symbol": "_report",
+    "type": "call:path.stat",
+    "count": 1
+   },
+   {
+    "file": "contract/artifact_lineage.py",
+    "symbol": "affected",
+    "type": "call:path.rglob",
+    "count": 1
+   },
+   {
+    "file": "contract/artifact_schema.py",
+    "symbol": "<module>",
+    "type": "import:shutil",
+    "count": 1
+   },
+   {
+    "file": "contract/artifact_schema.py",
+    "symbol": "_restore_backup",
+    "type": "call:path.is_file",
+    "count": 1
+   },
+   {
+    "file": "contract/episode_contract.py",
+    "symbol": "validate_episode",
+    "type": "call:path.exists",
+    "count": 1
+   },
+   {
+    "file": "contract/episode_contract.py",
+    "symbol": "validate_episode",
+    "type": "call:path.is_file",
+    "count": 1
+   },
+   {
+    "file": "contract/file_naming.py",
+    "symbol": "<module>",
+    "type": "import:time",
+    "count": 1
+   },
+   {
+    "file": "contract/media_signature.py",
+    "symbol": "is_png",
+    "type": "call:open",
+    "count": 1
+   },
+   {
+    "file": "contract/pet_bus.py",
+    "symbol": "<module>",
+    "type": "import:queue",
+    "count": 1
+   },
+   {
+    "file": "contract/pet_bus.py",
+    "symbol": "<module>",
+    "type": "import:threading",
+    "count": 1
+   },
+   {
+    "file": "contract/pet_bus.py",
+    "symbol": "<module>",
+    "type": "import:time",
+    "count": 1
+   },
+   {
+    "file": "contract/pet_bus.py",
+    "symbol": "Bus._diagnose",
+    "type": "call:path.mkdir",
+    "count": 1
+   },
+   {
+    "file": "contract/pet_bus.py",
+    "symbol": "Bus._diagnose",
+    "type": "call:path.open",
+    "count": 1
+   },
+   {
+    "file": "contract/pet_bus.py",
+    "symbol": "Bus._write",
+    "type": "call:path.mkdir",
+    "count": 1
+   },
+   {
+    "file": "contract/pet_bus.py",
+    "symbol": "Bus._write",
+    "type": "call:path.open",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "<module>",
+    "type": "import:contextlib",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "<module>",
+    "type": "import:os",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "<module>",
+    "type": "import:shutil",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "<module>",
+    "type": "import:socket",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "<module>",
+    "type": "import:subprocess",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "<module>",
+    "type": "import:sys",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "<module>",
+    "type": "import:threading",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "<module>",
+    "type": "import:time",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "<module>",
+    "type": "import:urllib",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "<module>",
+    "type": "import:webbrowser",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "ExecutionControl.__init__",
+    "type": "import:uuid",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "MicrophoneRecorder._collect",
+    "type": "import:ctypes",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "MicrophoneRecorder.start",
+    "type": "import:ctypes",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "RequestsJsonOpener.open",
+    "type": "call:os.environ",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "RequestsJsonOpener.open",
+    "type": "import:requests",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "RequestsJsonOpener.open",
+    "type": "import:urllib",
+    "count": 2
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "WebSocket._frame",
+    "type": "import:struct",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "WebSocket.recv_text",
+    "type": "import:struct",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "_RequestsJsonResponse.__init__",
+    "type": "import:requests",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "_RequestsJsonResponse.read",
+    "type": "import:requests",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "_RequestsJsonResponse.read",
+    "type": "import:urllib3",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "_bundled_tool",
+    "type": "call:path.is_file",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "_peak",
+    "type": "import:array",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "_redirect_handler",
+    "type": "import:urllib",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "_requests_failure",
+    "type": "import:requests",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "_requests_failure",
+    "type": "import:urllib",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "_requests_failure",
+    "type": "import:urllib3",
+    "count": 2
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "_requests_tls_adapter",
+    "type": "import:certifi",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "_requests_tls_adapter",
+    "type": "import:requests",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "_requests_tls_adapter",
+    "type": "import:ssl",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "_requests_tls_adapter",
+    "type": "import:urllib3",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "_stream_communicate_or_kill",
+    "type": "import:threading",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "_wave_types",
+    "type": "import:ctypes",
+    "count": 2
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "downloads_directory",
+    "type": "call:path.is_dir",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "execution_metadata",
+    "type": "import:uuid",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "find_editor_shortcut",
+    "type": "call:os.environ",
+    "count": 2
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "find_editor_shortcut",
+    "type": "call:path.glob",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "find_editor_shortcut",
+    "type": "call:path.is_dir",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "launch_windows_app",
+    "type": "call:path.is_file",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "open_directory",
+    "type": "call:path.mkdir",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "open_https",
+    "type": "call:path.open",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "open_https",
+    "type": "import:urllib",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "open_path",
+    "type": "call:path.exists",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "open_target",
+    "type": "call:path.open",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "open_websocket",
+    "type": "import:base64",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "open_websocket",
+    "type": "import:socket",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "open_websocket",
+    "type": "import:ssl",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "open_websocket",
+    "type": "import:urllib",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "probe_http_endpoint",
+    "type": "import:urllib",
+    "count": 2
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "reveal_in_folder",
+    "type": "call:path.exists",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "reveal_in_folder",
+    "type": "call:path.is_file",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "tool_path",
+    "type": "call:path.is_file",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "wav_bytes",
+    "type": "import:struct",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "windows_registry",
+    "type": "import:winreg",
+    "count": 1
+   },
+   {
+    "file": "contract/platform_tools.py",
+    "symbol": "work_area",
+    "type": "import:ctypes",
+    "count": 2
+   },
+   {
+    "file": "contract/prompt_templates.py",
+    "symbol": "strip_appearance",
+    "type": "call:path.replace",
+    "count": 1
+   },
+   {
+    "file": "contract/script_contract.py",
+    "symbol": "_is_newer",
+    "type": "call:path.stat",
+    "count": 2
+   },
+   {
+    "file": "contract/script_contract.py",
+    "symbol": "_manifest_file_problems",
+    "type": "call:path.is_file",
+    "count": 1
+   },
+   {
+    "file": "contract/script_contract.py",
+    "symbol": "_structured_script_candidates",
+    "type": "call:path.is_dir",
+    "count": 1
+   },
+   {
+    "file": "contract/script_contract.py",
+    "symbol": "_structured_script_candidates",
+    "type": "call:path.rglob",
+    "count": 1
+   },
+   {
+    "file": "contract/script_contract.py",
+    "symbol": "_structured_source_identity",
+    "type": "call:path.read_bytes",
+    "count": 1
+   },
+   {
+    "file": "contract/script_contract.py",
+    "symbol": "_structured_source_is_available",
+    "type": "call:path.is_file",
+    "count": 1
+   },
+   {
+    "file": "contract/script_contract.py",
+    "symbol": "_structured_source_is_available",
+    "type": "call:path.read_text",
+    "count": 1
+   },
+   {
+    "file": "contract/script_contract.py",
+    "symbol": "_structured_source_is_available",
+    "type": "call:path.replace",
+    "count": 1
+   },
+   {
+    "file": "contract/script_contract.py",
+    "symbol": "_structured_source_is_available",
+    "type": "call:path.stat",
+    "count": 1
+   },
+   {
+    "file": "contract/script_contract.py",
+    "symbol": "episode_digest",
+    "type": "call:path.replace",
+    "count": 2
+   },
+   {
+    "file": "contract/script_contract.py",
+    "symbol": "is_structured_script",
+    "type": "call:path.is_file",
+    "count": 1
+   },
+   {
+    "file": "contract/script_contract.py",
+    "symbol": "is_structured_script",
+    "type": "call:path.read_text",
+    "count": 1
+   },
+   {
+    "file": "contract/script_contract.py",
+    "symbol": "natural_script_paths",
+    "type": "call:path.is_dir",
+    "count": 1
+   },
+   {
+    "file": "contract/script_contract.py",
+    "symbol": "natural_script_paths",
+    "type": "call:path.is_file",
+    "count": 1
+   },
+   {
+    "file": "contract/script_contract.py",
+    "symbol": "natural_script_paths",
+    "type": "call:path.read_bytes",
+    "count": 1
+   },
+   {
+    "file": "contract/script_contract.py",
+    "symbol": "natural_script_paths",
+    "type": "call:path.rglob",
+    "count": 1
+   },
+   {
+    "file": "contract/script_contract.py",
+    "symbol": "natural_script_paths",
+    "type": "call:path.stat",
+    "count": 2
+   },
+   {
+    "file": "contract/script_contract.py",
+    "symbol": "read_episode_ledger",
+    "type": "call:path.is_file",
+    "count": 1
+   },
+   {
+    "file": "contract/script_contract.py",
+    "symbol": "resolve_script_source",
+    "type": "call:path.exists",
+    "count": 1
+   },
+   {
+    "file": "contract/script_contract.py",
+    "symbol": "resolve_script_source",
+    "type": "call:path.is_file",
+    "count": 2
+   },
+   {
+    "file": "contract/script_contract.py",
+    "symbol": "resolve_script_source",
+    "type": "call:path.read_bytes",
+    "count": 1
+   },
+   {
+    "file": "contract/script_contract.py",
+    "symbol": "resolve_script_source",
+    "type": "call:path.stat",
+    "count": 1
+   },
+   {
+    "file": "contract/script_contract.py",
+    "symbol": "script_baseline_path",
+    "type": "call:path.is_file",
+    "count": 1
+   },
+   {
+    "file": "contract/script_contract.py",
+    "symbol": "script_baseline_path",
+    "type": "call:path.stat",
+    "count": 1
+   },
+   {
+    "file": "contract/script_contract.py",
+    "symbol": "script_episode_baseline",
+    "type": "call:path.read_text",
+    "count": 1
+   },
+   {
+    "file": "contract/script_contract.py",
+    "symbol": "split_script_episodes",
+    "type": "call:path.replace",
+    "count": 2
+   },
+   {
+    "file": "contract/script_contract.py",
+    "symbol": "structure_manifest_problems",
+    "type": "call:path.read_text",
+    "count": 1
+   },
+   {
+    "file": "contract/script_contract.py",
+    "symbol": "structured_script_paths",
+    "type": "call:path.stat",
+    "count": 1
+   },
+   {
+    "file": "contract/script_contract.py",
+    "symbol": "write_structured_script",
+    "type": "call:path.is_file",
+    "count": 1
+   },
+   {
+    "file": "contract/script_contract.py",
+    "symbol": "write_structured_script",
+    "type": "call:path.read_text",
+    "count": 1
+   },
+   {
+    "file": "contract/script_manifest_schema.py",
+    "symbol": "completeness",
+    "type": "call:path.is_file",
+    "count": 1
+   },
+   {
+    "file": "contract/shot_selection.py",
+    "symbol": "bind_shot_checks.space",
+    "type": "call:path.exists",
+    "count": 1
+   },
+   {
+    "file": "contract/stage_layout.py",
+    "symbol": "<module>",
+    "type": "import:os",
+    "count": 1
+   },
+   {
+    "file": "contract/stage_layout.py",
+    "symbol": "<module>",
+    "type": "import:subprocess",
+    "count": 1
+   },
+   {
+    "file": "contract/stage_layout.py",
+    "symbol": "adopt_legacy",
+    "type": "call:path.exists",
+    "count": 1
+   },
+   {
+    "file": "contract/stage_layout.py",
+    "symbol": "ensure",
+    "type": "call:path.exists",
+    "count": 1
+   },
+   {
+    "file": "contract/stage_layout.py",
+    "symbol": "ensure",
+    "type": "call:path.is_file",
+    "count": 1
+   },
+   {
+    "file": "contract/stage_layout.py",
+    "symbol": "ensure",
+    "type": "call:path.mkdir",
+    "count": 1
+   },
+   {
+    "file": "contract/stage_layout.py",
+    "symbol": "legacy_map",
+    "type": "call:path.is_dir",
+    "count": 1
+   },
+   {
+    "file": "contract/stage_layout.py",
+    "symbol": "link_dir",
+    "type": "call:path.is_dir",
+    "count": 1
+   },
+   {
+    "file": "contract/stage_layout.py",
+    "symbol": "link_dir",
+    "type": "call:path.mkdir",
+    "count": 1
+   },
+   {
+    "file": "contract/stage_layout.py",
+    "symbol": "real_dir",
+    "type": "call:path.is_dir",
+    "count": 1
+   },
+   {
+    "file": "contract/stage_path_service.py",
+    "symbol": "existing_dir",
+    "type": "call:path.is_dir",
+    "count": 3
+   },
+   {
+    "file": "contract/stage_path_service.py",
+    "symbol": "existing_dir",
+    "type": "call:path.iterdir",
+    "count": 2
+   },
+   {
+    "file": "contract/stage_path_service.py",
+    "symbol": "existing_dir.material",
+    "type": "call:path.is_file",
+    "count": 1
+   },
+   {
+    "file": "contract/stage_path_service.py",
+    "symbol": "read_file",
+    "type": "call:path.is_file",
+    "count": 1
+   },
+   {
+    "file": "contract/storyboard_contract.py",
+    "symbol": "rules",
+    "type": "call:path.is_file",
+    "count": 1
+   },
+   {
+    "file": "contract/storyboard_paths.py",
+    "symbol": "config_listing",
+    "type": "call:path.glob",
+    "count": 1
+   },
+   {
+    "file": "contract/storyboard_paths.py",
+    "symbol": "file_signature",
+    "type": "call:path.stat",
+    "count": 1
+   }
+  ]
  }
 }
