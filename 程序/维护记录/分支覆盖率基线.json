@@ -89,8 +89,8 @@
   "tests.test_writing_api"
  ],
  "tests_ok": true,
- "points_total": 2428,
- "points_covered": 1331,
+ "points_total": 2432,
+ "points_covered": 1335,
  "modules": [
   {
    "module": "comfy_service.py",
@@ -153,12 +153,6 @@
    "percent": 11.1
   },
   {
-   "module": "diagnostic_capture.py",
-   "points": 8,
-   "covered": 1,
-   "percent": 12.5
-  },
-  {
    "module": "prop_assets.py",
    "points": 21,
    "covered": 3,
@@ -181,6 +175,12 @@
    "points": 17,
    "covered": 4,
    "percent": 23.5
+  },
+  {
+   "module": "diagnostic_capture.py",
+   "points": 8,
+   "covered": 2,
+   "percent": 25.0
   },
   {
    "module": "native_apps.py",
@@ -310,9 +310,9 @@
   },
   {
    "module": "storage_maintenance.py",
-   "points": 171,
-   "covered": 93,
-   "percent": 54.4
+   "points": 175,
+   "covered": 95,
+   "percent": 54.3
   },
   {
    "module": "client_profiles.py",
@@ -429,12 +429,6 @@
    "percent": 79.2
   },
   {
-   "module": "file_index.py",
-   "points": 93,
-   "covered": 74,
-   "percent": 79.6
-  },
-  {
    "module": "prompt_templates.py",
    "points": 10,
    "covered": 8,
@@ -445,6 +439,12 @@
    "points": 10,
    "covered": 8,
    "percent": 80.0
+  },
+  {
+   "module": "file_index.py",
+   "points": 93,
+   "covered": 75,
+   "percent": 80.6
   },
   {
    "module": "token_saver.py",

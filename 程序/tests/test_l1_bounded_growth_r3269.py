@@ -333,6 +333,37 @@ class StorageSweepTests(unittest.TestCase):
             for path in kept:
                 self.assertTrue(path.exists(), path)
 
+    def test_sweep_ttl_boundary_is_strict(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            now = 200000.0
+            ttl = temporary_sweep.TEMP_SWEEP_MAX_AGE_SECONDS
+            stale = self._make(root, 'old.%s.tmp' % self.HEX, 0)
+            exact = self._make(root, 'exact.%s.tmp' % self.HEX, 0)
+            fresh = self._make(root, 'fresh.%s.tmp' % self.HEX, 0)
+            for path, modified in ((stale, now-ttl-1), (exact, now-ttl), (fresh, now-ttl+1)):
+                os.utime(path, (modified, modified))
+            self.assertEqual(temporary_sweep.sweep_stale_temporary_files(root, now=now), 1)
+            self.assertFalse(stale.exists())
+            self.assertTrue(exact.exists())
+            self.assertTrue(fresh.exists())
+
+    def test_sweep_prunes_linked_directories_without_following_them(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            dirs = ['external-link', 'inside']
+            def walk(target, *, followlinks):
+                self.assertEqual(target, root)
+                self.assertFalse(followlinks)
+                yield str(root), dirs, []
+                self.assertEqual(dirs, ['inside'])
+            with mock.patch.object(temporary_sweep.os, 'walk', walk), \
+                 mock.patch.object(temporary_sweep.os.path, 'islink',
+                                   side_effect=lambda path: Path(path).name == 'external-link'), \
+                 mock.patch.object(temporary_sweep.file_cache, 'remove_temporary_file') as remove:
+                self.assertEqual(temporary_sweep.sweep_stale_temporary_files(root), 0)
+                remove.assert_not_called()
+
     def test_sweep_name_predicate(self):
         self.assertTrue(temporary_sweep.is_stale_temporary_name('x.' + self.HEX + '.tmp'))
         self.assertTrue(temporary_sweep.is_stale_temporary_name('x.' + self.HEX + '.partial.mp4'))
