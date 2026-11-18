@@ -16,8 +16,10 @@
 不改内容；不通过就把话说短，打回上一阶段或让用户点一下。
 """
 import hashlib
+import time
 from pathlib import Path
 
+import infra.business_log as business_log
 from infra.file_cache import read_json
 from contract.asset_contract import missing_ids
 from contract.asset_contract import normalize as normalize_asset
@@ -386,22 +388,31 @@ def run(gate_id, project='', shots=None, assets=None, ledger=None, *, context=No
     客观门禁：problems 空＝通过，自动放行。
     主观门禁：ask＝还没点过的候选（空＝已确认，放行）。
     """
-    row = by_id(gate_id)
-    if row is None:
-        raise ValueError('未知门禁：' + str(gate_id))
-    result = {'gate_id': row['id'], 'type': row['type'], 'judge': row['judge'],
-              'title': row['title'], 'problems': (), 'ask': ()}
-    if row['type'] == OBJECTIVE:
-        result['problems'] = tuple(_CHECKS[row['check']](shots=shots, assets=assets, ledger=ledger))
-        result['passed'] = not result['problems']
-    else:
-        items = tuple(_ASKS[row['ask']](shots=shots, assets=assets, ledger=ledger))
-        result['ask'] = pending(project, items, context=context) if project or context is not None else items
-        result['passed'] = not result['ask']
-    # 诊断只保留最后一次结果，不写项目目录，也不参与门禁判定。
-    import infra.diagnostic_capture as diagnostic_capture
-    diagnostic_capture.record_gate_result(row['id'], 'passed' if result['passed'] else 'blocked')
-    return result
+    started = time.perf_counter()
+    outcome = 'error'
+    try:
+        row = by_id(gate_id)
+        if row is None:
+            raise ValueError('未知门禁：' + str(gate_id))
+        result = {'gate_id': row['id'], 'type': row['type'], 'judge': row['judge'],
+                  'title': row['title'], 'problems': (), 'ask': ()}
+        if row['type'] == OBJECTIVE:
+            result['problems'] = tuple(_CHECKS[row['check']](shots=shots, assets=assets, ledger=ledger))
+            result['passed'] = not result['problems']
+        else:
+            items = tuple(_ASKS[row['ask']](shots=shots, assets=assets, ledger=ledger))
+            result['ask'] = pending(project, items, context=context) if project or context is not None else items
+            result['passed'] = not result['ask']
+        # 诊断只保留最后一次结果，不写项目目录，也不参与门禁判定。
+        import infra.diagnostic_capture as diagnostic_capture
+        diagnostic_capture.record_gate_result(row['id'], 'passed' if result['passed'] else 'blocked')
+        outcome = 'passed' if result['passed'] else 'blocked'
+        return result
+    finally:
+        # 门禁判定细节与项目内容不进字段；只记连贯性阶段、判定结果与耗时。
+        business_log.log_event('confirm_gates.run', stage='continuity',
+                               outcome=outcome,
+                               cost_ms=round((time.perf_counter() - started) * 1000.0, 1))
 
 
 def summary(project='', shots=None, assets=None, ledger=None, *, context=None):

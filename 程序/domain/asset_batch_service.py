@@ -1,10 +1,12 @@
 """Asset-batch domain operations shared by local and Skill-backed production."""
 import re
 import threading
+import time
 import uuid
 from pathlib import Path
 
 import infra.app_logging as app_logging
+import infra.business_log as business_log
 from infra import unit_of_work
 from infra.file_cache import read_json
 from contract.project_context import ProjectContext
@@ -45,46 +47,56 @@ def asset_prompt(asset, kind):
 
 def register_image(base, aid, asset, image, *, gateway=None):
     gateway = _require_gateway(gateway)
-    base = Path(base).resolve()
-    prefix = aid.split('_')[0]
-    if not re.fullmatch(r'(CHAR|LOC|PROP)_\d{3,}', aid):
-        raise ValueError('资产编号无效')
-    raw = Path(image).read_bytes()
-    if len(raw) < 33 or raw[12:16] != b'IHDR' or raw[-8:-4] != b'IEND':
-        raise ValueError('PNG图片未保存完整')
-    if not raw.startswith(b'\x89PNG\r\n\x1a\n'):
-        raise ValueError('生成结果不是PNG图片')
-    registry_file = base / 'assets.json'
-    registry = gateway['read_json'](registry_file) if registry_file.exists() else {}
-    if not isinstance(registry, dict):
-        registry = {}
-    existing = registry.get(aid, {})
-    if existing.get('image'):
-        old = (base / existing['image']).resolve()
-        if old.is_relative_to(base) and old.is_file():
-            return '已有图片，跳过登记'
-    planfile = base / 'assets/资产清单/assets.json'
-    plan = gateway['read_json'](planfile)
-    if not isinstance(plan, dict):
-        raise ValueError('资产清单 assets.json 顶层必须为对象')
-    current = plan.get(aid)
-    from asset_reference_images import signature
-    if (not current or any(current.get(k) != asset.get(k) for k in
-                           ('name', 'description', 'image_prompt', 'negative_prompt', 'positive_prompt', 'prompt'))
-            or current.get('reference_images', []) != asset.get('reference_images', [])
-            or ('_reference_signature' in asset and signature(base, current) != asset['_reference_signature'])):
-        raise ValueError('生成期间资产定义已变化，图片已保留，未自动关联')
-    name = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', str(asset.get('name', aid))).strip(' .')[:65]
-    folder = base / 'assets' / KINDS[prefix][0]
-    folder.mkdir(parents=True, exist_ok=True)
-    dest = folder / (aid + '_' + name + '_' + uuid.uuid4().hex[:8] + '.png')
-    # 成果先经原子替换落盘，随后才更新资产索引；UI 刷新或进程中断不会读到半张 PNG。
-    gateway['publish_bytes'](dest, raw)
-    registry[aid] = {**{k: v for k, v in asset.items() if k not in ('status', 'image') and not k.startswith('_')},
-                     **existing, 'name': asset.get('name', aid),
-                     'image': dest.relative_to(base).as_posix()}
-    gateway['publish_json'](registry_file, registry)
-    return '已生成并导入'
+    started = time.perf_counter()
+    outcome = 'error'
+    try:
+        base = Path(base).resolve()
+        prefix = aid.split('_')[0]
+        if not re.fullmatch(r'(CHAR|LOC|PROP)_\d{3,}', aid):
+            raise ValueError('资产编号无效')
+        raw = Path(image).read_bytes()
+        if len(raw) < 33 or raw[12:16] != b'IHDR' or raw[-8:-4] != b'IEND':
+            raise ValueError('PNG图片未保存完整')
+        if not raw.startswith(b'\x89PNG\r\n\x1a\n'):
+            raise ValueError('生成结果不是PNG图片')
+        registry_file = base / 'assets.json'
+        registry = gateway['read_json'](registry_file) if registry_file.exists() else {}
+        if not isinstance(registry, dict):
+            registry = {}
+        existing = registry.get(aid, {})
+        if existing.get('image'):
+            old = (base / existing['image']).resolve()
+            if old.is_relative_to(base) and old.is_file():
+                outcome = 'skipped'
+                return '已有图片，跳过登记'
+        planfile = base / 'assets/资产清单/assets.json'
+        plan = gateway['read_json'](planfile)
+        if not isinstance(plan, dict):
+            raise ValueError('资产清单 assets.json 顶层必须为对象')
+        current = plan.get(aid)
+        from asset_reference_images import signature
+        if (not current or any(current.get(k) != asset.get(k) for k in
+                               ('name', 'description', 'image_prompt', 'negative_prompt', 'positive_prompt', 'prompt'))
+                or current.get('reference_images', []) != asset.get('reference_images', [])
+                or ('_reference_signature' in asset and signature(base, current) != asset['_reference_signature'])):
+            raise ValueError('生成期间资产定义已变化，图片已保留，未自动关联')
+        name = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', str(asset.get('name', aid))).strip(' .')[:65]
+        folder = base / 'assets' / KINDS[prefix][0]
+        folder.mkdir(parents=True, exist_ok=True)
+        dest = folder / (aid + '_' + name + '_' + uuid.uuid4().hex[:8] + '.png')
+        # 成果先经原子替换落盘，随后才更新资产索引；UI 刷新或进程中断不会读到半张 PNG。
+        gateway['publish_bytes'](dest, raw)
+        registry[aid] = {**{k: v for k, v in asset.items() if k not in ('status', 'image') and not k.startswith('_')},
+                         **existing, 'name': asset.get('name', aid),
+                         'image': dest.relative_to(base).as_posix()}
+        gateway['publish_json'](registry_file, registry)
+        outcome = 'ok'
+        return '已生成并导入'
+    finally:
+        # 资产名与图片路径属用户内容，绝不进字段；只记资产号、阶段、成败与耗时。
+        business_log.log_event('asset_batch.register_image', stage='assets',
+                               asset_id=str(aid or ''), outcome=outcome,
+                               cost_ms=round((time.perf_counter() - started) * 1000.0, 1))
 
 
 def import_asset_image(base, project_root, aid, source, requirements, *, gateway=None):

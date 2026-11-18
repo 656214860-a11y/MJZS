@@ -12,9 +12,11 @@
 这一份只做文件与人话：不碰 Tk、不发网络。问模型那一趟由界面注入（自检传假函数），离线可跑。
 """
 import re
+import time
 from collections import namedtuple
 from pathlib import Path
 import infra.app_logging as app_logging
+import infra.business_log as business_log
 from infra import unit_of_work
 from domain.idea_script_heuristic import looks_like_script
 from contract.project_context import ProjectContext
@@ -528,6 +530,8 @@ def receive_brief(root, text, workflow=None, lock_definitions=(), *, gateway=Non
     gateway = _require_gateway(gateway)
     raw_path = brief_raw_path(root)
     complete_path = brief_complete_path(root)
+    started = time.perf_counter()
+    outcome = 'error'
     # 原始简报与完整简报同进退：第二写失败或取消时第一写也恢复（R3310 轮 6）。
     token = unit_of_work.begin((raw_path, complete_path))
     try:
@@ -594,12 +598,17 @@ def receive_brief(root, text, workflow=None, lock_definitions=(), *, gateway=Non
             # L2 只形成投影数据；L4 调用方经 stage_config 的原子写入口落盘，避免领域服务反向依赖阶段编排层。
             result['workflow_projection'] = workflow if name else None
         unit_of_work.commit(token)
+        outcome = 'ok'
     except BaseException:
         try:
             unit_of_work.rollback(token)
         except Exception:
             app_logging.swallowed('idea_chat.receive_brief.rollback')
         raise
+    finally:
+        business_log.log_event('idea_chat.receive_brief', stage=str(stage or ''),
+                               outcome=outcome,
+                               cost_ms=round((time.perf_counter() - started) * 1000.0, 1))
     return result
 
 

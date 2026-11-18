@@ -83,11 +83,12 @@
   "tests.test_file_origin_provenance",
   "tests.test_context",
   "tests.test_l1_reliability_r3248",
-  "tests.test_unit_of_work"
+  "tests.test_unit_of_work",
+  "tests.test_business_log"
  ],
  "tests_ok": true,
- "points_total": 2420,
- "points_covered": 1288,
+ "points_total": 2435,
+ "points_covered": 1301,
  "modules": [
   {
    "module": "aigc_lint.py",
@@ -480,6 +481,12 @@
    "percent": 85.7
   },
   {
+   "module": "business_log.py",
+   "points": 15,
+   "covered": 13,
+   "percent": 86.7
+  },
+  {
    "module": "file_naming.py",
    "points": 29,
    "covered": 26,
@@ -513,12 +520,6 @@
    "module": "asset_prompt_rules.py",
    "points": 2,
    "covered": 2,
-   "percent": 100.0
-  },
-  {
-   "module": "business_log.py",
-   "points": 0,
-   "covered": 0,
    "percent": 100.0
   },
   {

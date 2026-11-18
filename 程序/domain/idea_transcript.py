@@ -16,10 +16,12 @@
 import ast
 import json
 import threading
+import time
 from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
 
+import infra.business_log as business_log
 from domain import message_parts
 from contract.project_context import ProjectContext
 from domain.idea_document_paths import ChatModel
@@ -180,19 +182,29 @@ def load(root, model=None, *, gateway=None):
 
 def append(root, role, text, at=None, model=None, *, gateway=None, context_budget=None, request_usage=None, skill_injection=None):
     """记一轮对话（读回来再追加，原子写：写坏一次不会把整段对话丢掉）。"""
-    rows = _all_rows(root, model=model, gateway=gateway)
-    row = {'role': str(role), 'text': str(text), 'at': _stamp(at)}
-    if isinstance(context_budget, dict):row['context_budget'] = dict(context_budget)
-    if isinstance(request_usage, dict):row['request_usage'] = dict(request_usage)
-    if isinstance(skill_injection, dict):
-        from copy import deepcopy
-        row['skill_injection'] = deepcopy(skill_injection)
-    if str(model or '').strip():
-        identity = chat_model(model)
-        row['model'] = str(identity)
-        if identity.model_id:row['model_id'] = identity.model_id
-    rows.append(row)
-    return save_rows(root, rows, model=model, gateway=gateway)
+    started = time.perf_counter()
+    outcome = 'error'
+    try:
+        rows = _all_rows(root, model=model, gateway=gateway)
+        row = {'role': str(role), 'text': str(text), 'at': _stamp(at)}
+        if isinstance(context_budget, dict):row['context_budget'] = dict(context_budget)
+        if isinstance(request_usage, dict):row['request_usage'] = dict(request_usage)
+        if isinstance(skill_injection, dict):
+            from copy import deepcopy
+            row['skill_injection'] = deepcopy(skill_injection)
+        if str(model or '').strip():
+            identity = chat_model(model)
+            row['model'] = str(identity)
+            if identity.model_id:row['model_id'] = identity.model_id
+        rows.append(row)
+        result = save_rows(root, rows, model=model, gateway=gateway)
+        outcome = 'ok'
+        return result
+    finally:
+        # 对话正文属用户内容，绝不进字段；只记阶段、成败与耗时。
+        business_log.log_event('idea_transcript.append', stage='script',
+                               outcome=outcome,
+                               cost_ms=round((time.perf_counter() - started) * 1000.0, 1))
 
 
 def compact_context(root, model=None, *, gateway=None):

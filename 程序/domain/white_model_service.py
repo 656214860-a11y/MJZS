@@ -6,11 +6,13 @@ import re
 import shutil
 import subprocess
 import threading
+import time
 import uuid
 from datetime import datetime
 from pathlib import Path
 
 import infra.app_logging as app_logging
+import infra.business_log as business_log
 from infra import unit_of_work
 from infra.file_cache import probe_writable, read_json, remove_temporary_file
 from contract.platform_tools import run_process
@@ -623,6 +625,20 @@ def migrate_legacy_directories(context, *, publish, workspace_path=None):
     不为搬完而藏起某个镜头。搬迁中途失败把已搬目录原样搬回，旧成果保持可用；
     全部搬完才把项目身份写进项目配置并落一份含来源版本的迁移清单。已有身份时直接返回。
     """
+    started = time.perf_counter()
+    outcome = 'error'
+    try:
+        result = _migrate_legacy_directories(context, publish=publish,
+                                             workspace_path=workspace_path)
+        outcome = 'ok'
+        return result
+    finally:
+        business_log.log_event('white_model.migrate', stage='previs',
+                               outcome=outcome,
+                               cost_ms=round((time.perf_counter() - started) * 1000.0, 1))
+
+
+def _migrate_legacy_directories(context, *, publish, workspace_path=None):
     project = _context(context).root
     space = workspace_path if workspace_path is not None else workspace()
     identity = project_identity(project)

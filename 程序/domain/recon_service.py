@@ -24,6 +24,7 @@ import contract.artifact_schema as artifact_schema
 import infra.model_pool as model_pool
 import contract.stage_layout as stage_layout
 import infra.app_logging as app_logging
+import infra.business_log as business_log
 import infra.idempotency as idempotency
 import domain.domain_events as domain_events
 from agent import core
@@ -596,22 +597,32 @@ def run(project, target, material_source, *, ports=None):
     返回 `ServiceResult`，成功数据保留原字段
     `{card, doc, problems, sources, queries, not_found, budget}`；落盘失败原样透传。
     """
-    ports = ports or ReconPorts()
-    key = _idempotency_key(target, material_source, ports)
-    marker = _load_marker(project)
-    if str(marker.get('key') or '') == key:
-        cached = load_card(project)
-        if cached:
-            return _cached_success(project, cached)
-    card = collect(target, material_source, ports=ports)
-    saved = save_card(project, card, save=ports.save, save_text=ports.save_text)
-    if not saved.ok:
-        return saved
-    _save_marker(project, key, save=ports.save)
-    data = saved.data or {}
-    return success({'card': data['card'], 'doc': data['doc'], 'problems': data['problems'],
-                    'sources': len(card['sources']), 'queries': card['queries'],
-                    'not_found': card['not_found'], 'budget': card['budget']})
+    started = time.perf_counter()
+    outcome = 'error'
+    try:
+        ports = ports or ReconPorts()
+        key = _idempotency_key(target, material_source, ports)
+        marker = _load_marker(project)
+        if str(marker.get('key') or '') == key:
+            cached = load_card(project)
+            if cached:
+                outcome = 'cached'
+                return _cached_success(project, cached)
+        card = collect(target, material_source, ports=ports)
+        saved = save_card(project, card, save=ports.save, save_text=ports.save_text)
+        if not saved.ok:
+            return saved
+        _save_marker(project, key, save=ports.save)
+        data = saved.data or {}
+        outcome = 'ok'
+        return success({'card': data['card'], 'doc': data['doc'], 'problems': data['problems'],
+                        'sources': len(card['sources']), 'queries': card['queries'],
+                        'not_found': card['not_found'], 'budget': card['budget']})
+    finally:
+        # 本地业务日志通道：与 collect() 内 paid.invoked 总线事件并存不混用——
+        # 前者每 run 一条（含幂等命中的 cached），后者每次真实付费调用一条。
+        business_log.log_event('recon.run', stage=STAGE, outcome=outcome,
+                               cost_ms=round((time.perf_counter() - started) * 1000.0, 1))
 
 
 # ── 人读版 ─────────────────────────────────────────────────────────────────
