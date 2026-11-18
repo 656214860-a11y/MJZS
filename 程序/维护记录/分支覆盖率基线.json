@@ -87,8 +87,8 @@
   "tests.test_business_log"
  ],
  "tests_ok": true,
- "points_total": 2435,
- "points_covered": 1301,
+ "points_total": 2437,
+ "points_covered": 1303,
  "modules": [
   {
    "module": "aigc_lint.py",
@@ -253,12 +253,6 @@
    "percent": 37.0
   },
   {
-   "module": "unit_of_work.py",
-   "points": 49,
-   "covered": 19,
-   "percent": 38.8
-  },
-  {
    "module": "model_pool.py",
    "points": 129,
    "covered": 52,
@@ -269,6 +263,12 @@
    "points": 119,
    "covered": 48,
    "percent": 40.3
+  },
+  {
+   "module": "unit_of_work.py",
+   "points": 49,
+   "covered": 20,
+   "percent": 40.8
   },
   {
    "module": "workflow_process_registry.py",
@@ -409,12 +409,6 @@
    "percent": 75.7
   },
   {
-   "module": "http_client.py",
-   "points": 17,
-   "covered": 13,
-   "percent": 76.5
-  },
-  {
    "module": "artifact_schema.py",
    "points": 13,
    "covered": 10,
@@ -427,10 +421,22 @@
    "percent": 77.8
   },
   {
+   "module": "http_client.py",
+   "points": 19,
+   "covered": 15,
+   "percent": 78.9
+  },
+  {
    "module": "log_maintenance.py",
    "points": 24,
    "covered": 19,
    "percent": 79.2
+  },
+  {
+   "module": "file_index.py",
+   "points": 89,
+   "covered": 71,
+   "percent": 79.8
   },
   {
    "module": "prompt_templates.py",
@@ -449,12 +455,6 @@
    "points": 52,
    "covered": 42,
    "percent": 80.8
-  },
-  {
-   "module": "file_index.py",
-   "points": 89,
-   "covered": 72,
-   "percent": 80.9
   },
   {
    "module": "model_metering.py",

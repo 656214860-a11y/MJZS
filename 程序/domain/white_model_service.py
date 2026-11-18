@@ -438,7 +438,7 @@ def workspace():
     return cached
 
 def blender_candidates():
-    """候选 blender.exe，按优先级：配置 → PATH → 常见盘符 → 两个 Program Files。只读发现。"""
+    """候选 blender.exe，按优先级：配置 → PATH → 两个 Program Files。只读发现。"""
     choices = []
     settings = read_settings()
     for value in (os.environ.get(BLENDER_ENV), settings.get('blender')):
@@ -446,7 +446,7 @@ def blender_candidates():
         if text: choices.append(Path(text))
     found = shutil.which('blender')
     if found: choices.append(Path(found))
-    choices.extend([Path('D:/Blender/blender.exe'), Path('E:/Blender/blender.exe')])
+    # R3320 规则 12：不再内置 D:/E: 盘符兜底；候选只来自配置 → PATH → Program Files。
     base = Path(os.environ.get('ProgramFiles', 'C:/Program Files')) / 'Blender Foundation'
     if base.is_dir(): choices.extend(sorted(base.glob('*/blender.exe'), reverse=True))
     other = os.environ.get('ProgramFiles(x86)')
