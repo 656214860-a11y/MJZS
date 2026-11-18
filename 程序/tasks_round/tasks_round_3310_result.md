@@ -1,5 +1,5 @@
 # R3310 结果：L2领域服务层优化任务书轮6（修复轮：事务原语接入 7 处）
-<!-- round-evidence: {"commit_base": "88169301", "credential_hits": 0, "evidence_sha256": "6b84825d14b76841", "exit": 0, "failed": 0, "passed": 13, "round": 3310, "tests": "run_selftests.py -k uow_write_paths"} -->
+<!-- round-evidence: {"commit_base": "d6af4c75", "credential_hits": 0, "evidence_sha256": "d3fc485d4fd33e83", "exit": 0, "failed": 0, "passed": 13, "round": 3310, "tests": "run_selftests.py -k uow_write_paths"} -->
 
 ## 三问
 
@@ -100,6 +100,6 @@ FAILED (failures=12, errors=1)   # 13 条用例
 ## 提交
 
 - 分支 `codex/wip-r3282`（领号 R3310，工作树 `dsh-864fd932-4054`；领号记录见 `<git common-dir>/round-claims.json`）。
-- 主提交：见本文件 git 历史（`R3310: …`，14 文件＋`tasks_round/evidence/R3310.json`）。
-- 结果文件补记提交：见本文件 git 历史（`R3310: 补记结果文件commit哈希<hash>`）。
+- 主提交：`d6af4c75`（16 文件：10 个生产/网关文件、tests/test_uow_write_paths.py、tests/test_global_library_service.py、tests/architecture/test_atomic_write_boundary.py、维护记录/分支覆盖率基线.json、本结果文件、tasks_round/evidence/R3310.json）。
+- 结果文件补记提交：本提交（`R3310: 补记结果文件commit哈希d6af4c75`；docs-only 补记同样带 `--tests uow_write_paths` 重跑定向测试刷新证据）。
 - 轮次证据以 `tasks_round/evidence/R3310.json` 中 `run_selftests.py -k uow_write_paths` exit 0 / 13 通过 / 0 失败为准。
