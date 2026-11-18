@@ -114,16 +114,15 @@ class ProjectSettingsWriteTests(unittest.TestCase):
         self.project = Path(self.temp.name) / 'proj'
         self.project.mkdir()
 
-    def test_corrupt_file_is_quarantined_then_put_succeeds(self):
+    def test_corrupt_file_rejects_put_without_overwriting(self):
         target = project_settings.file(self.project)
         broken = b'{"auto_review": tru'
         target.write_bytes(broken)
-        self.assertIs(project_settings.put(self.project, 'auto_review', True), True)
-        data = json.loads(target.read_text(encoding='utf-8'))
-        self.assertIs(data['auto_review'], True)
-        corrupt = target.with_name(target.name + '.corrupt')
-        self.assertTrue(corrupt.is_file())
-        self.assertEqual(corrupt.read_bytes(), broken)
+        with mock.patch.object(project_settings, 'save') as publisher:
+            with self.assertRaisesRegex(ValueError, 'ui_settings.json'):
+                project_settings.put(self.project, 'auto_review', True)
+            publisher.assert_not_called()
+        self.assertEqual(target.read_bytes(), broken)
 
     def test_put_merges_without_dropping_other_keys(self):
         project_settings.put(self.project, 'auto_review', True)

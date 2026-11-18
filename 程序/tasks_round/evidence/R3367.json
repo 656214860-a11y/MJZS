@@ -1,0 +1,15 @@
+{
+  "round": 3367,
+  "commit_base": "92b8182e",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k project_settings_validation l1_lost_update req_s10_anchors",
+    "exit": 0,
+    "passed": 32,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T16:43:51"
+}
