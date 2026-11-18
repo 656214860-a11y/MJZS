@@ -9,6 +9,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 from agent.core import read, read_json, save
 import infra.model_pool as model_pool
+from infra.api_endpoints import no_redirect  # noqa: F401  重定向拒绝唯一实现在 api_endpoints（R2178 J13）；本模块传输已收敛 RequestsJsonOpener
 # 第 34 期第 9 条：`urllib.request`／`urllib.error` 连 ssl 一起加载（约 4.4 MB 常驻），
 # 本模块只在真要请求生图接口时用得到——都改成函数内 import。
 

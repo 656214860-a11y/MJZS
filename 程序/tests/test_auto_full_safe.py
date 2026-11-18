@@ -357,6 +357,44 @@ class IgnoredInputTests(unittest.TestCase):
             self.assertEqual((target / '程序' / '维护记录' / '基准历史.json').read_text(encoding='utf-8'), '旧')
 
 
+class BundledToolTests(unittest.TestCase):
+    """运行环境/ 被 .gitignore 排除：干净检出里 tool_path 找不到 ffmpeg/ffprobe，
+    关键帧取证等测试必红（R33xx 全量实测 ~10 个文件）。补齐只圈 ffmpeg 一棵子树。"""
+
+    def test_bundled_ffmpeg_is_supplied_to_the_checkout(self):
+        with tempfile.TemporaryDirectory() as folder:
+            main, target = Path(folder) / 'main', Path(folder) / 'ci'
+            bindir = main / '运行环境' / 'ffmpeg' / 'bin'
+            bindir.mkdir(parents=True)
+            (bindir / 'ffmpeg.exe').write_bytes(b'FFMPEG')
+            (bindir / 'ffprobe.exe').write_bytes(b'FFPROBE')
+            python_dir = main / '运行环境' / 'Python'
+            python_dir.mkdir(parents=True)
+            (python_dir / 'python.exe').write_bytes(b'PY')
+            auto._fill_bundled_tools(main, target)
+            self.assertEqual((target / '运行环境' / 'ffmpeg' / 'bin' / 'ffmpeg.exe').read_bytes(), b'FFMPEG')
+            self.assertEqual((target / '运行环境' / 'ffmpeg' / 'bin' / 'ffprobe.exe').read_bytes(), b'FFPROBE')
+            self.assertFalse((target / '运行环境' / 'Python').exists(),
+                             '只补 ffmpeg 一棵子树，Python 运行时不进检出')
+            self.assertIn('ffmpeg', auto.BUNDLED_TOOL_DIRS)
+
+    def test_a_missing_tool_dir_is_tolerated(self):
+        with tempfile.TemporaryDirectory() as folder:
+            auto._fill_bundled_tools(Path(folder) / 'main', Path(folder) / 'ci')
+            self.assertFalse((Path(folder) / 'ci').exists())
+
+    def test_an_existing_tool_dir_is_not_overwritten(self):
+        with tempfile.TemporaryDirectory() as folder:
+            main, target = Path(folder) / 'main', Path(folder) / 'ci'
+            (main / '运行环境' / 'ffmpeg' / 'bin').mkdir(parents=True)
+            (main / '运行环境' / 'ffmpeg' / 'bin' / 'ffmpeg.exe').write_bytes(b'NEW')
+            old = target / '运行环境' / 'ffmpeg' / 'bin' / 'ffmpeg.exe'
+            old.parent.mkdir(parents=True)
+            old.write_bytes(b'OLD')
+            auto._fill_bundled_tools(main, target)
+            self.assertEqual(old.read_bytes(), b'OLD')
+
+
 class ScanIsolationTests(unittest.TestCase):
     """R1693：`.wt/ci` 常驻后，扫描口径必须把它当检出副本，不能算第二批生产模块。"""
 

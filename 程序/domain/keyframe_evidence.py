@@ -71,6 +71,8 @@ def image_facts(image):
         if not chunks or chunks[-1] != b'IEND' or b'IDAT' not in chunks:
             raise ValueError('首帧 PNG 未保存完整')
         decoder = tool_path('ffmpeg')
+        if decoder is None:
+            raise ValueError('首帧图片损坏或解码器不可用，请重新导入或检查 FFmpeg')
         result = run_process([decoder, '-v', 'error', '-xerror', '-err_detect', 'explode',
                               '-f', 'image2pipe', '-c:v', 'png', '-i', 'pipe:0',
                               '-f', 'null', '-'], input=data, capture_output=True, timeout=30)
