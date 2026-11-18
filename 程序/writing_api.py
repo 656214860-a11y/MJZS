@@ -32,7 +32,7 @@ from orchestrator.writing_preparation_ledger import (PREPARATION_STAGES, _PREPAR
 from domain.writing_quality import enabled as quality_enabled
 from domain.writing_stream import chat_streaming
 from contract.workflow_context_budget import (REQUEST_CONTEXT_MAX_CHARS, budget_advice, budget_sections,
-                                     context_budget_report, preset_context_length, text_fingerprint)
+                                     context_budget_report, text_fingerprint)
 
 
 def selected_model(project):
@@ -221,8 +221,8 @@ class WritingRequestAdapter(ModelAdapter):
         saved = (settings or {}).get('skill_budget') or {}
         self.context_limit = (model_pool.context_length_of(self.record.get('context_length'))
                               or (model_pool.context_length_of(saved.get('context_length'))
-                                  if saved.get('model') == chosen else 0)
-                              or preset_context_length(chosen) or None)
+                                  if saved.get('model') == chosen and saved.get('source') == 'explicit' else 0)
+                              or None)
         self.stage = stage
         self.project = project
         self.wire_api = adapter.wire_api
@@ -240,6 +240,12 @@ class WritingRequestAdapter(ModelAdapter):
                     'error': f'请求模型 {model} 与冻结模型 {self.chosen} 不一致，已阻止发送；请重新发送以捕获模型配置。',
                     'context_budget': dict(self.context_budget), 'request_usage': dict(self.request_usage)}
         model = model or self.chosen
+        if not self.context_limit:
+            return {'ok': False, 'status': 0, 'model': model, 'text': '', 'usage': {},
+                    'reason': 'context_window_unknown',
+                    'error': (f'未填写上下文窗口，已阻止发送：{model or "(未选择)"}；'
+                              '请在模型管理补填 context_length 或核实供应商窗口后再发送。'),
+                    'context_budget': dict(self.context_budget), 'request_usage': dict(self.request_usage)}
         options = dict(options or {})
         for key, value in stage_model_value.reasoning_options(self.project, self.stage).items():
             options.setdefault(key, value)
@@ -266,10 +272,6 @@ class WritingRequestAdapter(ModelAdapter):
             'fingerprint': text_fingerprint(str(system or '') + _messages_text(messages)),
         }
         rejected = _context_budget_error(model or self.chosen, system, messages)
-        if not limit:
-            rejected = {'ok': False, 'status': 0, 'model': model or self.chosen, 'text': '', 'usage': {},
-                        'reason': 'context_window_unknown',
-                        'error': f'未填写上下文窗口，已阻止发送：{self.chosen or "未选择模型"}；请在模型管理中补填。'}
         if not rejected and report['exceeded']:
             rejected = {'ok': False, 'status': 0, 'model': model or self.chosen, 'text': '', 'usage': {},
                         'reason': 'context_budget_exceeded',

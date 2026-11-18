@@ -48,10 +48,10 @@ class WritingContextBudgetGuardTests(unittest.TestCase):
         self.ledger.authorize_model.assert_not_called()
         self.rpm.assert_not_called()
 
-    def test_deepseek_missing_window_is_in_final_report_and_reaches_real_adapter_once(self):
+    def test_deepseek_explicit_window_is_in_final_report_and_reaches_real_adapter_once(self):
         transport = Mock(return_value={'ok': True, 'status': 200, 'data': {
             'choices': [{'message': {'content': 'controlled reply'}, 'finish_reason': 'stop'}]}})
-        record = {'model': 'deepseek-fixture', 'base_url': 'https://example.invalid',
+        record = {'context_length': 128000, 'model': 'deepseek-fixture', 'base_url': 'https://example.invalid',
                   'wire_api': 'chat.completions', 'path': '/v1/chat/completions'}
         raw = PoolAdapter(record, 'deepseek-fixture', transport=transport, key='synthetic-test-only')
         adapter = writing_api.WritingRequestAdapter(raw, record, 'deepseek-fixture', project=self.root)
@@ -91,11 +91,10 @@ class WritingContextBudgetGuardTests(unittest.TestCase):
         self.assertIn('模型管理', result['error'])
         self.assertIn('补填', result['error'])
 
-    def test_mismatched_snapshot_falls_back_to_current_model_preset(self):
+    def test_mismatched_snapshot_never_guesses_current_model_window(self):
         settings = {'skill_budget': {'model': 'other-model', 'context_length': 1000, 'source': 'explicit'}}
         result = self.adapter(settings=settings).chat([{'role': 'user', 'content': '任务'}], {'max_tokens': 100})
-        self.assertTrue(result['ok'])
-        self.assertEqual(result['context_budget']['context_limit'], 128000)
+        self.assert_refused(result, reason='context_window_unknown')
 
     def test_unknown_window_refused_for_chat_and_stream_before_metering_or_rpm(self):
         for method in ('chat', 'stream'):
@@ -104,6 +103,12 @@ class WritingContextBudgetGuardTests(unittest.TestCase):
                     [{'role': 'user', 'content': '任务'}], {'max_tokens': 100})
                 self.assert_refused(result, reason='context_window_unknown')
                 self.assertIn('custom-model', result['error'])
+
+    def test_legacy_preset_snapshot_does_not_confirm_unknown_window(self):
+        settings = {'skill_budget': {'model': 'deepseek-fixture', 'context_length': 128000, 'source': 'preset'}}
+        result = self.adapter({'rpm': 5}, settings=settings).chat(
+            [{'role': 'user', 'content': '任务'}], {'max_tokens': 100})
+        self.assert_refused(result, reason='context_window_unknown')
 
     def test_model_override_cannot_reuse_other_snapshot_window(self):
         for method in ('chat', 'stream'):
@@ -119,7 +124,7 @@ class WritingContextBudgetGuardTests(unittest.TestCase):
         for method in ('chat', 'stream'):
             for model in ('', 'deepseek-fixture'):
                 with self.subTest(method=method, model=model):
-                    result = getattr(self.adapter(), method)(
+                    result = getattr(self.adapter({'context_length': 128000}), method)(
                         [{'role': 'user', 'content': '任务'}], {'max_tokens': 100}, model=model)
                     self.assertTrue(result['ok'])
                     self.assertEqual(getattr(self.raw, method).call_args.kwargs['model'], 'deepseek-fixture')

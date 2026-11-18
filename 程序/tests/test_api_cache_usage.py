@@ -210,7 +210,7 @@ class ClaudeSystemBlockTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             project = make_project(td)
             stage_config.put(project, 'script', model='claude-test')
-            record = {'label': 'Claude Test', 'model': 'claude-test', 'provider': 'anthropic',
+            record = {'context_length': 200000, 'label': 'Claude Test', 'model': 'claude-test', 'provider': 'anthropic',
                       'wire_api': 'messages', 'base_url': 'https://api.anthropic.com',
                       'key_env': 'ANTHROPIC_API_KEY'}
             done = {'ok': True, 'text': '好', 'data': {'content': [{'type': 'text', 'text': '好'}]}}

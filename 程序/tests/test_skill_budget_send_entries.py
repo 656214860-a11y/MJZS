@@ -90,9 +90,17 @@ class SkillBudgetSendEntriesTests(unittest.TestCase):
         for body in self.bodies:
             self.assertIn(body, frozen)
         self.assertEqual(len(config['skill_injection']['loaded']), 6)
-        self.assertLessEqual(estimate_tokens(frozen), config['skill_injection']['inline_budget'])
-        self.assertGreater(len('引用资料' * 16000) * 6, 300000)
-        self.assertTrue(config['skill_injection']['skipped'])
+        inline_budget = config['skill_injection']['inline_budget']
+        if inline_budget is None:
+            self.assertEqual(config['engine'], 'qwen')
+            self.assertEqual(config['skill_budget']['context_length'], 0)
+            self.assertEqual(config['skill_budget']['source'], 'unknown')
+            self.assertLessEqual(len(frozen), 300_000)
+            self.assertEqual(config['skill_injection']['skipped'], [])
+        else:
+            self.assertLessEqual(estimate_tokens(frozen), inline_budget)
+            self.assertGreater(len('引用资料' * 16000) * 6, 300000)
+            self.assertTrue(config['skill_injection']['skipped'])
 
     def command_to_frozen(self, rejection=''):
         captured = []
@@ -156,10 +164,21 @@ class SkillBudgetSendEntriesTests(unittest.TestCase):
             config, prompt = self.command_to_frozen()
             self.launch_frozen(config, prompt)
 
-    def test_cli_raw_engine_command_reaches_qwen_task_with_prefix_fallback(self):
+    def test_cli_unknown_window_still_delivers_complete_task(self):
+        # Full references also fit the independent 300K character hard limit.
+        for path in self.paths:
+            (path.parent / 'reference.md').write_text('合成引用正文', encoding='utf-8')
         with self.isolated(self.record('')):
             config, prompt = self.command_to_frozen()
             self.launch_frozen(config, prompt)
+        self.assertIn('合成引用正文', config['frozen_skill_prompt'])
+        self.assertEqual(config['skill_budget']['context_length'], 0)
+        self.assertEqual(config['skill_budget']['source'], 'unknown')
+
+    def test_cli_unknown_window_keeps_character_hard_limit(self):
+        with self.isolated(self.record('')), patch.object(qwen, 'launch_windows_app') as launch:
+            self.command_to_frozen(rejection='300,000')
+        launch.assert_not_called()
 
     def test_registered_skill_has_priority_and_space_command_is_free_text(self):
         raw = '/short-drama-director'
@@ -213,8 +232,12 @@ class SkillBudgetSendEntriesTests(unittest.TestCase):
     def test_api_capture_reply_real_pool_transport_explicit_128k(self):
         self.assert_api_success(self.record())
 
-    def test_api_capture_reply_real_pool_transport_prefix_fallback(self):
-        self.assert_api_success(self.record(''))
+    def test_api_unknown_same_model_stops_before_transport_and_rpm(self):
+        calls, result, error, rpm = self.api_exchange(self.record(''))
+        self.assertEqual(calls, [])
+        self.assertEqual(rpm, 0)
+        self.assertIn('context_window_unknown', error or result.get('reason', ''))
+        self.assertIn('context_length', error or result.get('error', ''))
 
     def assert_api_success(self, record):
         calls, result, error, rpm = self.api_exchange(record)

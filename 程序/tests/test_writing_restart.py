@@ -85,7 +85,7 @@ class WritingRestartTests(unittest.TestCase):
 
     def test_native_claude_answers_revise_pending_document_before_confirmation(self):
         stage_config.put(self.project, 'script', model='claude-test')
-        record = {'label': 'Claude Test', 'model': 'claude-test', 'provider': 'anthropic',
+        record = {'context_length': 200000, 'label': 'Claude Test', 'model': 'claude-test', 'provider': 'anthropic',
                   'wire_api': 'messages', 'base_url': 'https://api.anthropic.com',
                   'key_env': 'ANTHROPIC_API_KEY'}
         restart_writing_preparation(self.project, '项目设定')

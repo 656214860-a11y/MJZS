@@ -33,12 +33,20 @@ class SkillContextBudgetPrestageTests(unittest.TestCase):
         with patch('infra.model_pool.pool', side_effect=AssertionError('snapshot must not query pool')):
             return settings.freeze_skills(config, model_snapshot=record)
 
-    def test_fallback_and_explicit_priority_and_empty_snapshot(self):
+    def test_unknown_api_rejects_and_explicit_snapshot_keeps_budget(self):
         with patch('infra.model_pool.pool', side_effect=AssertionError('provided record')):
-            fallback = _skill_inline_budget({'model': 'deepseek-v4.1-flash-1017'}, record={})
+            with self.assertRaisesRegex(ValueError, 'context_window_unknown.*context_length'):
+                _skill_inline_budget({'model': 'deepseek-v4.1-flash-1017', 'engine': 'api'}, record={})
             explicit = _skill_inline_budget({'model': 'deepseek-v4.1-flash-1017'}, record={'context_length': 32000})
-        self.assertEqual(fallback['remaining'], skill_inline_token_budget(128000))
         self.assertEqual(explicit['remaining'], skill_inline_token_budget(32000))
+
+    def test_legacy_preset_snapshot_is_not_a_confirmed_api_window(self):
+        config = {'model': 'deepseek-v4.1-flash-1017', 'engine': 'api',
+                  'skill_budget': {'model': 'deepseek-v4.1-flash-1017',
+                                   'context_length': 128000, 'source': 'preset'}}
+        with patch('infra.model_pool.pool', side_effect=AssertionError('frozen snapshot')):
+            with self.assertRaisesRegex(ValueError, 'context_window_unknown'):
+                _skill_inline_budget(config)
 
     def test_default_pool_root_is_owned_by_model_pool(self):
         with patch('infra.model_pool.pool', return_value={'mystery-x': {'context_length': 32000}}) as pool:
