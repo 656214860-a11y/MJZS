@@ -38,7 +38,8 @@ class NoRedirectSharedTests(unittest.TestCase):
                         connection.connect(('127.0.0.1', 443))
 
     def test_every_adapter_uses_the_one_implementation(self):
-        # 仍走 urllib 的适配器共享唯一拒跳实现；TTS 走统一有界二进制出口。
+        # 仍走 urllib 的适配器共享唯一拒跳实现；TTS 已收口有界 request_bytes，
+        # Seedream 走 Requests；下方以真实 Adapter 验证三种适配器均拒绝全部五种跳转。
         for module in (local_video,):
             self.assertIs(module.no_redirect, api_endpoints.no_redirect, module.__name__)
         for status in (301, 302, 303, 307, 308):

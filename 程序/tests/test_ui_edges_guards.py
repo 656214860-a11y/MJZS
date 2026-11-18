@@ -69,6 +69,7 @@ class ApprovedVersionSourceGuardTests(unittest.TestCase):
         self.assertRegex(consumer, r"from (?:orchestrator\.)?engine import [^\n]*\badopted_edit_version\b")
         self.assertRegex(consumer, r"from (?:orchestrator\.)?engine import [^\n]*\badoption_summary\b")
         # 自动粗剪与手动拼装都收敛到 adopted_edit_version；approved_versions 只留一处实现。
+        # REQ-S10-22：AST 同时核验自动、手动与无界面路径复用选版内核，坏样本防绕路。
         import ast
         engine_tree = ast.parse(sources['engine.py'])
         completion_tree = ast.parse(entity_file('stage_completion_service').read_text(encoding='utf-8'))

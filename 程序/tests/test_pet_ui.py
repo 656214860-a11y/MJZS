@@ -1195,6 +1195,7 @@ class DesktopSeamTests(unittest.TestCase):
                 d._tick_once()
             evidence.assert_called_once_with(d.root, 'delivery', getattr(d.studio, 'auto_edit_ready', None))
             kinds = [(item["kind"], item.get("stage")) for item in d.pet.bus.history]
+            # REQ-S13-54：此处显式注入产物核验通过，真实空项目拒绝完成另在下一用例验证。
             self.assertIn(("stage.completed", "delivery"), kinds)
             self.assertIn("自动交接包已整理：exports/MASTER.mp4", d.pet.last_status)
         finally:

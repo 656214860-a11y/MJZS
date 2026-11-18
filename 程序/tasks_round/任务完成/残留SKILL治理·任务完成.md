@@ -105,3 +105,8 @@ R3482修后full2真实9035条／1070.8秒，仅共享解释器新出现5个未�
 
 
 R3482最终固定接收树合法声明隔离环境full3完整诊断9035条／969.4秒／0红；158消费者无漏，K2/K9与真实空项目完成拒绝等必需尾部回归及Severity全执行，skip5逐项匹配324台账，冻结5197项零漂移，GUI_DEFERRED0，状态原字节finally恢复。官方行12组／分支90组真实测量、floor19、集中预检120及出口CI均绿；行146条／54.306秒、分支1764条／306.180秒，95实体2748点／1540覆盖，error_codes11/11。CI具体计数见本轮ci-detail.log原始日志。NO_RECEIPT，公共收据不变；正式clean master收据仍待lead新独立会话，用户本人回收／重装／共享输入框调用仍manual pending。 接收commit与官方master合入回执分别以R3482结果、官方merge结果和持久审计为准；不把人工轮4勾为通过。
+
+
+R3482接收补充：40908304固定吸收ec62feb6835b83e9a5f74c212281e4e660aeb386最新主干，仅新增工程文档／规则工具与等价测试整合，无生产或覆盖基线变化；两冲突逐hunk保留AST四路径＋坏样本／真实空项目paused／注入通过completed／真实Adapter15跳转与TTS120秒64MiB。AGENTS新增已知坑指针与36条边界已读。doc_registry --check、新文档预算／closure／skip／EOL／静态及三重叠测试完整676条除5个TTS跳转因自动合删除import导致NameError；补回原import后完整shared_adapter与静态复验绿，官方出口CI真实绿；所有命令／实际计数见supplement-targets.log与supplement-ci-detail.log。full3合法环境9035条／969.4秒绿及双冻结记录保留；无新增生产不机械重跑全量，正式clean master full由下一独立会话执行。
+
+状态页40908304与ec62仅第3轮头替换，排头正文逐字一致且原R历史集合相同；ec62完整原字节／原始diff已保存。feature保40908304原字节不暂存status，主树官方merge将真实领号bump头与N=M+1，原ec62轮头及R3515／R3524／R3535／R3544历史均在补充合并父历史与此处留证。

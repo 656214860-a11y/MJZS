@@ -1,5 +1,5 @@
 # R3482：残留SKILL治理官方最终接收
-<!-- round-evidence: {"commit_base": "93e3ef64", "credential_hits": 0, "evidence_sha256": "51c347d94c305d9c", "exit": 0, "failed": 0, "passed": 0, "round": 3482, "tests": "merge-ci-exit"} -->
+<!-- round-evidence: {"commit_base": "40908304", "credential_hits": 0, "evidence_sha256": "d049660157ab04dc", "exit": 0, "failed": 0, "passed": 0, "round": 3482, "tests": "merge-ci-exit"} -->
 
 - 类型：§3.2固定输入整合修复轮。唯一接收树从master固定93e3ef647d66bcd704c6ed85250a0ad5aefaed64接收已验证候选a33a464301a133061b5bf59dd2160e2dbc3c0cec，不追其他分支。
 - 测试与三个基线：本树集中预检、官方覆盖测量、出口CI和唯一冻结完整诊断待实际执行；不借用R3452绿色结果。
@@ -51,3 +51,8 @@ full2真实9035条／1070.8秒／唯一1文件1条红：dependency_whitelist.tes
 R3482最终固定接收树合法声明隔离环境full3完整诊断9035条／969.4秒／0红；158消费者无漏，K2/K9与真实空项目完成拒绝等必需尾部回归及Severity全执行，skip5逐项匹配324台账，冻结5197项零漂移，GUI_DEFERRED0，状态原字节finally恢复。官方行12组／分支90组真实测量、floor19、集中预检120及出口CI均绿；行146条／54.306秒、分支1764条／306.180秒，95实体2748点／1540覆盖，error_codes11/11。CI具体计数见本轮ci-detail.log原始日志。NO_RECEIPT，公共收据不变；正式clean master收据仍待lead新独立会话，用户本人回收／重装／共享输入框调用仍manual pending。
 
 冻结前后changed=[]，恢复后drift=[]；受测source/test/md/JSON/status均纳入冻结，本轮结果与完成文件也在freeze中，运行结束且after audit通过后才追加实测回执。该收尾文档更新使提交内容树与受测冻结内容树不同，不冒同一tree的正式全量收据；正式固定已提交master收据仍须下一独立会话实跑。freeze SHA256 46997df454046afa0674b3d3ea27a143e4ea6eb5c338e936bfc13416c105b0ae。所有真实PID／命令／完整日志／退出JSON见round-local-evidence/R3482。接收提交由本轮官方dev.py commit实际生成，commit哈希以Git回执为准，不为自引用另起提交。
+
+
+R3482接收补充：40908304固定吸收ec62feb6835b83e9a5f74c212281e4e660aeb386最新主干，仅新增工程文档／规则工具与等价测试整合，无生产或覆盖基线变化；两冲突逐hunk保留AST四路径＋坏样本／真实空项目paused／注入通过completed／真实Adapter15跳转与TTS120秒64MiB。AGENTS新增已知坑指针与36条边界已读。doc_registry --check、新文档预算／closure／skip／EOL／静态及三重叠测试完整676条除5个TTS跳转因自动合删除import导致NameError；补回原import后完整shared_adapter与静态复验绿，官方出口CI真实绿；所有命令／实际计数见supplement-targets.log与supplement-ci-detail.log。full3合法环境9035条／969.4秒绿及双冻结记录保留；无新增生产不机械重跑全量，正式clean master full由下一独立会话执行。
+
+状态页40908304与ec62仅第3轮头替换，排头正文逐字一致且原R历史集合相同；ec62完整原字节／原始diff已保存。feature保40908304原字节不暂存status，主树官方merge将真实领号bump头与N=M+1，原ec62轮头及R3515／R3524／R3535／R3544历史均在补充合并父历史与此处留证。
