@@ -9,7 +9,6 @@ from urllib.request import HTTPRedirectHandler
 import infra.api_endpoints as api_endpoints
 import local_video
 import seedream_api
-from domain import tts_api
 import workflow_engines
 from infra import workflow_process_registry
 from agent.video import VideoAdapter
@@ -18,7 +17,9 @@ from agent.wan import WanAdapter
 
 class NoRedirectSharedTests(unittest.TestCase):
     def test_every_adapter_uses_the_one_implementation(self):
-        for module in (local_video, seedream_api, tts_api):
+        # tts_api 已收口 infra.http_client.request_bytes（规则 42），不再自开 urllib opener，
+        # 其直连传输由 test_http_boundary 守卫，不在本门禁的适配器集内。
+        for module in (local_video, seedream_api):
             self.assertIs(module.no_redirect, api_endpoints.no_redirect, module.__name__)
 
     def test_redirects_are_refused(self):
