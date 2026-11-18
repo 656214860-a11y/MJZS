@@ -29,7 +29,8 @@ class AccountController:
                  enforce=None):
         self._submit, self._clock, self._store, self._client = submit, clock, store, client
         self._background = background or submit
-        self.enforce = entitlement_service.GATE_ENFORCED if enforce is None else bool(enforce)
+        # 正常入口始终走租约授权，只有显式注入可关闭拦截。
+        self.enforce = enforce is None or bool(enforce)
         self._device_id = ''
         self.last_renew_at = 0.0
         self._renew_lock = threading.Lock()      # 刷新令牌一次一换：并发续签拿旧令牌会被服务端当重放吊销会话
@@ -53,7 +54,7 @@ class AccountController:
                                             last_server_time=data.get('server_time') or 0)
 
     def stage_gate(self, stage):
-        """阶段启动前置判定：放行返回空串，否则返回拦截原因；总开关关闭时一律放行。"""
+        """阶段启动前置判定：放行返回空串，否则返回拦截原因；只有显式注入关闭拦截时才直接放行。"""
         if not self.enforce or not entitlement_service.is_paid_stage(stage):
             return ''
         return entitlement_service.stage_block_message(self.entitlement(), stage)

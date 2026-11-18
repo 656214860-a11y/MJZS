@@ -482,16 +482,21 @@ class AccountControllerTests(unittest.TestCase):
         self.assertNotIn('lease', ctl.session())
         self.assertFalse(ctl.redeem('C', self.results.append))
 
-    def test_switch_on_by_default_and_off_only_evaluates(self):
-        """总开关默认开启（R1913 契约变更）；显式关闭时判定照常，但不拦截付费阶段。"""
-        self.assertTrue(ent.GATE_ENFORCED)
-        self.assertTrue(account_controller.AccountController(
-            submit=None, clock=lambda: NOW, store=self.store, client=_Client()).enforce)
+    def test_stage_gate_follows_verified_lease_and_explicit_override(self):
         ctl = account_controller.AccountController(
+            submit=None, clock=lambda: NOW, store=self.store, client=_Client())
+        self.assertTrue(ctl.enforce)
+        self.assertEqual([stage for stage in STAGES if not ctl.stage_gate(stage)], list(STAGES[:2]))
+
+        account_store.save_session({'lease': sign(payload(state='active'))}, self.store.path)
+        self.assertTrue(all(not ctl.stage_gate(stage) for stage in STAGES))
+
+        account_store.clear_session(self.store.path)
+        disabled = account_controller.AccountController(
             submit=None, clock=lambda: NOW, store=self.store, client=_Client(), enforce=False)
-        self.assertFalse(ctl.enforce)
-        self.assertEqual(ctl.entitlement().state, ent.SIGNED_OUT)
-        self.assertEqual(ctl.stage_gate(STAGES[2]), '')
+        self.assertFalse(disabled.enforce)
+        self.assertEqual(disabled.entitlement().state, ent.SIGNED_OUT)
+        self.assertTrue(all(not disabled.stage_gate(stage) for stage in STAGES))
 
     def test_logout_keeps_clock_floor_against_replay(self):
         """§8：退出后把旧租约写回并回拨时钟，仍被识别为时钟可疑。"""

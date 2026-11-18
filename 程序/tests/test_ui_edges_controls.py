@@ -745,7 +745,9 @@ class UiEdgeControlsTests(UiEdgeCase):
         # 本用例只验派单逻辑；会员闸门（真实账号状态）另有 test_account_* 覆盖，这里隔离，免得结果随本机登录态变化。
         import entitlement_service
         from unittest import mock
-        gate = mock.patch.object(entitlement_service, "GATE_ENFORCED", False)
+        from orchestrator.account_controller import AccountController
+        allowed = entitlement_service.Entitlement(entitlement_service.VALID, {'state': 'active'})
+        gate = mock.patch.object(AccountController, 'entitlement', return_value=allowed)
         gate.start()
         self.addCleanup(gate.stop)
         with tempfile.TemporaryDirectory() as td:
