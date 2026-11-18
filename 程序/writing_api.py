@@ -7,6 +7,7 @@ API 使用模型池协议；本机 Claude／Codex 桌面程序走桌面 Agent �
 from pathlib import Path
 import json
 import hashlib
+import logging
 import re
 from collections import namedtuple
 from datetime import datetime
@@ -99,7 +100,6 @@ SCRIPT_RAW_AUTO_SAVE_MIN_CHARS = 800
 # 与模型上下文 token 上限分开的第二道闸：防止 JSON 请求体本身超过网关的 413 字节上限。
 # 300,000 中文字符约 0.9MB，仍远低于这个值；真超了属于异常附档或错误拼装，必须就地拦截。
 DIRECT_REQUEST_MAX_BODY_BYTES = 8 * 1024 * 1024
-EMPTY_RESPONSE_LOG = Path(__file__).resolve().parent / 'logs' / 'claude_empty_response.log'
 
 
 def idea_chat_gateway():
@@ -152,12 +152,7 @@ def _record_empty_response(result):
             'status': result.get('status'), 'stop_reason': data.get('stop_reason'),
             'block_types': [str(block.get('type') or '') for block in content if isinstance(block, dict)],
             'usage': dict(result.get('usage') or {})}
-    try:
-        EMPTY_RESPONSE_LOG.parent.mkdir(parents=True, exist_ok=True)
-        with EMPTY_RESPONSE_LOG.open('a', encoding='utf-8') as handle:
-            handle.write(json.dumps(meta, ensure_ascii=False, sort_keys=True) + '\n')
-    except OSError:
-        pass
+    logging.getLogger(__name__).info('%s', json.dumps(meta, ensure_ascii=False, sort_keys=True))
 
 
 def _tool_batch_signature(uses):

@@ -16,6 +16,7 @@
 3. 并发上限是硬上限（全局 8，单阶段按表），挡下来的活儿排队降速，直接丢掉。
 """
 import json
+import logging
 import contract.pet_bus as pet_bus
 from infra.file_cache import read_text
 import time
@@ -457,7 +458,8 @@ def log_row(stage, task, status, detail='', at=None):
 
 
 def log_path(project, stage):
-    """这一阶段的日志文件：项目根 `logs/<阶段>.agent_logs.jsonl`。
+    """历史阶段日志文件位置：项目根 `logs/<阶段>.agent_logs.jsonl`（I12 起只读兼容，
+    新日志写 app.log；log_read 仍按此路径读回历史记录）。
 
     不再为了记一条日志预建整套编号阶段目录；阶段名仍在文件名与每条记录中保留。
     """
@@ -470,18 +472,14 @@ def log_path(project, stage):
 
 
 def log_write(project, stage, task, status, detail='', at=None):
-    """写一条。写不进去只返回 None——日志不该把干活的那一步拖下水。"""
-    path = log_path(project, stage)
-    if path is None:
-        return None
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open('a', encoding='utf-8') as handle:
-            handle.write(json.dumps(log_row(stage, task, status, detail, at), ensure_ascii=False,
-                                    sort_keys=True) + '\n')
-    except OSError:
-        return None
-    return path
+    """记一条阶段日志到诊断总线（app.log 命名记录器，随 app_logging 脱敏/轮转）。
+
+    I12 起不再单独落 `logs/<阶段>.agent_logs.jsonl`——阶段日志与其它诊断统一走
+    logging；返回值保留 None 仅为兼容旧调用方。历史 jsonl 仍可用 log_read 读回。
+    """
+    logging.getLogger(__name__).info('%s', json.dumps(
+        log_row(stage, task, status, detail, at), ensure_ascii=False, sort_keys=True))
+    return None
 
 
 def log_read(project, stage=None, limit=20):
