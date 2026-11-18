@@ -162,9 +162,7 @@ class AccountController:
 
     def _renew_once(self, token, device_id):
         """序列化同会话的续签，等待者重读。项目发布锁只覆盖最后的本机写入。"""
-        lock_path = getattr(self._store, 'renew_lock_path', None)
-        process_lock = access(lock_path=lock_path()) if lock_path else nullcontext()
-        with self._renew_lock, process_lock:
+        with self._renew_lock, self._account_process_lock():
             current = self.session().get('refresh_token')
             if current != token:
                 return self._changed_renewal(current)
@@ -178,6 +176,10 @@ class AccountController:
                 if (result.data or {}).get('code') in SESSION_DEAD:
                     self._store.clear_session()
                 return result
+
+    def _account_process_lock(self):
+        lock_path = getattr(self._store, 'renew_lock_path', None)
+        return access(lock_path=lock_path()) if lock_path else nullcontext()
 
     @staticmethod
     def _changed_renewal(current):
@@ -309,9 +311,32 @@ class AccountController:
         getter = getattr(self._store, 'last_email', None)
         return getter() if getter else ''
 
-    def logout(self):
-        """只清本机会话；服务端会话由刷新令牌过期或在别处解绑本机来吊销。"""
-        return self._store.clear_session()
+    def logout(self, done=None):
+        """先尝试服务端吊销，失败仍清本机。桌面回调走后台线程。"""
+        if done is None:
+            return self._logout_once()
+        self._run(self._logout_once, done, '退出登录')
+        return True
+
+    def _logout_once(self):
+        with self._renew_lock, self._account_process_lock():
+            before = self.session()
+            lease = before.get('lease')
+            try:
+                remote_ok = self._client.logout(lease).ok if lease else not before.get('refresh_token')
+            except Exception:
+                remote_ok = False
+            with access():
+                after = self.session()
+                token = before.get('refresh_token')
+                if after.get('refresh_token') != token or (not token and after.get('lease') != lease):
+                    return SystemError('登录状态已变化，请重试退出登录', data={'code': 'session_changed'})
+                if not self._store.clear_session():
+                    return SystemError('无法清除本机会话，请重试退出登录', data={'code': 'local_clear_failed'})
+        if not remote_ok:
+            return SystemError('本地已登出，服务端会话将在到期后失效',
+                               data={'code': 'remote_logout_unconfirmed', 'local_cleared': True})
+        return success({'local_cleared': True})
 
     def _accept(self, data, *, email=None, rotate=True):
         """先验签再落盘：返回原结果或 SystemError，不抛异常（完成回调总能收到结果）。

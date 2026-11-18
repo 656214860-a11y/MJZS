@@ -270,8 +270,15 @@ class AccountPageMixin:
         def renew():
             if not self.account.renew(done=self._account_renewed):self.status.set('本机没有可续签的登录会话，请重新登录')
             else:self.status.set('正在续签会员授权…')
+        def logout_done(result):
+            if (result.data or {}).get('local_cleared'):
+                self.show(PAGE_ACCOUNT)
+                self._account_changed()
+            self.status.set('已退出登录（项目和素材不受影响）' if result.ok else result.reason)
+
         def logout():
-            self.account.logout();self.show(PAGE_ACCOUNT);self.status.set('已退出登录（项目和素材不受影响）');self._account_changed()
+            self.account.logout(done=logout_done)
+
         SecondaryButton(actions,text='退出登录',command=logout).pack(side='right')
         PrimaryButton(actions,text='立即续签',command=renew).pack(side='right',padx=(SPACING['none'],SPACING['sm']))
         self._account_redeem_form()

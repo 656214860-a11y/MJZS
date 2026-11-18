@@ -542,6 +542,26 @@ class AccountControllerTests(unittest.TestCase):
         stale = sign(payload(iat_server=NOW + 400))
         self.assertEqual(evaluate(stale, now=NOW).state, ent.CLOCK_SUSPECT)
 
+    def test_logout_requests_revocation_then_clears_local_session(self):
+        lease = sign(payload())
+        account_store.save_session({'refresh_token': 'fixture', 'lease': lease}, self.store.path)
+        client = _Client(logout=success({'ok': True}))
+        self.assertTrue(self.controller(client).logout(done=self.results.append))
+        self.assertEqual(client.calls, [('logout', (lease,))])
+        self.assertTrue(self.results[-1].ok)
+        self.assertNotIn('refresh_token', account_store.load(self.store.path))
+
+    def test_logout_with_network_failure_reports_partial_completion(self):
+        lease = sign(payload())
+        account_store.save_session({'refresh_token': 'fixture', 'lease': lease}, self.store.path)
+        client = _Client(logout=SystemError('断网', data={'code': 'network'}))
+        self.controller(client).logout(done=self.results.append)
+        result = self.results[-1]
+        self.assertFalse(result.ok)
+        self.assertTrue(result.data['local_cleared'])
+        self.assertIn('本地已登出，服务端会话将在到期后失效', result.reason)
+        self.assertNotIn('lease', account_store.load(self.store.path))
+
     def test_logout_keeps_clock_floor_against_replay(self):
         """§8：退出后把旧租约写回并回拨时钟，仍被识别为时钟可疑。"""
         old = sign(payload())
