@@ -348,6 +348,12 @@
    "percent": 60.0
   },
   {
+   "module": "publication.py",
+   "points": 32,
+   "covered": 20,
+   "percent": 62.5
+  },
+  {
    "module": "account_store.py",
    "points": 25,
    "covered": 16,
@@ -358,12 +364,6 @@
    "points": 17,
    "covered": 11,
    "percent": 64.7
-  },
-  {
-   "module": "publication.py",
-   "points": 32,
-   "covered": 21,
-   "percent": 65.6
   },
   {
    "module": "native_asset_codec.py",
