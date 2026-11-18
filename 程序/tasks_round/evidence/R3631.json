@@ -1,0 +1,15 @@
+{
+  "round": 3631,
+  "commit_base": "f82f40f3",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k publication_fsync_budget publication_recovery renew_concurrency",
+    "exit": 0,
+    "passed": 17,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T06:40:18"
+}
