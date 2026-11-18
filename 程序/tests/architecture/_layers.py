@@ -43,7 +43,7 @@ _register(5, "app_shortcut")
 _register(0, "artifact_schema", "api_models", "frame_checks", "model_protocol", "pet_settings_contract",
           "prop_assets", "shot_selection", "storyboard_contract", "workflow_context_budget")
 _register(1, "api_endpoints", "broadcaster", "clipboard_lock",
-          "comfy_service", "engine_probe", "h3_reference_adapter", "http_client", "model_diagnostics", "model_router",
+          "comfy_service", "engine_probe", "http_client", "model_diagnostics", "model_router",
           "native_apps", "seedream_api", "token_saver", "tk_timers", "global_library_service")
 _register(2, "asset_batch_settings_service", "asset_plan", "asset_resume", "audio_import_service", "edit_export", "usage_overview",
           "desktop_settings_service", "legacy_adoption_service", "offline_asr_client", "offline_asr_setup", "project_naming",
@@ -84,7 +84,7 @@ _register(4, "script_line_numbers", "script_find_bar", "script_outline", "script
 # 记入「层级」棘轮豁免，不为它们抬层；prompt_optimizer 消费 ui_widgets(L4) → L4。
 _register(0, "media_signature")
 _register(1, "core", "media", "publication")
-_register(2, "shot_assets", "volcengine", "wan", "video")
+_register(2, "h3_reference_adapter", "shot_assets", "volcengine", "wan", "video")
 _register(3, "voice_mcp_server", "optimizer_mcp_bridge")
 _register(4, "prompt_optimizer")
 
@@ -439,6 +439,7 @@ SAME_LAYER_EDGES: frozenset[tuple[str, str]] = frozenset({
     ('global_library_service', 'file_index'),
     ('global_library_service', 'storage_maintenance'),
     ('global_library_service', 'unit_of_work'),
+    ('h3_reference_adapter', 'shot_assets'),
     ('idea_brief_form', 'idea_document_paths'),
     ('idea_chat', 'download_inbox'),
     ('idea_chat', 'idea_brief_form'),

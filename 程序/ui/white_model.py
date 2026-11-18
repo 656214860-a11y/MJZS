@@ -189,3 +189,13 @@ def validate_video_submission(studio,sid):
     from importlib import import_module
     reference_adapter=import_module('ui.white_model_ref')
     return reference_adapter.descriptor(project_root(studio.root),sid,studio.cfg)
+
+
+# I3b（L1 任务书）：把 find_blender 登记给 L1 native_apps（迟绑定包装，
+# mock.patch('white_model.find_blender') 的补丁面不变）。
+def _registered_blender_finder(refresh=False):
+    return find_blender(refresh)
+
+
+from infra import native_apps as _native_apps
+_native_apps.register_blender_finder(_registered_blender_finder)

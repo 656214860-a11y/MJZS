@@ -10,9 +10,9 @@
     "tests/architecture/test_layer_relations.py"
    ],
    "metric": "上行依赖边数（importer 层 < imported 层，静态＋动态字面量，alias-aware）",
-   "violations": 21,
-   "baseline": 21,
-   "note": "18 条在 架构统一基数.json「层级」豁免、3 条在 test_layers.KNOWN_DYNAMIC_UPWARD；I3 清零 L1 三条反向依赖。"
+   "violations": 18,
+   "baseline": 18,
+   "note": "18 条存量豁免（importer 属 L1 已 0，I3 归零）；I2–I5 迁移继续下调。"
   },
   {
    "id": "LR-02",
@@ -86,9 +86,9 @@
     "tests/architecture/test_infra_errors.py"
    ],
    "metric": "L1 中 raise 节点异常表达式含 CJK 用户文案字符串的处数（test_infra_errors 建成后切换为非 InfraError 计数）",
-   "violations": 263,
-   "baseline": 263,
-   "note": "I6/I7 迁移棘轮；业务语义模块清退由 FL-03（I4/I5）另行度量。"
+   "violations": 257,
+   "baseline": 257,
+   "note": "I3 后 257；I6 建 contract/infra_errors 后切非技术异常口径，I7–I11 迁移下调。"
   },
   {
    "id": "LR-08",
@@ -118,9 +118,9 @@
     "tests/architecture/test_contract_manifest.py"
    ],
    "metric": "无 __all__ 的 L1 模块数",
-   "violations": 57,
-   "baseline": 57,
-   "note": "I20 全部补齐；契约清单/破坏性变更检测待 G-A2。"
+   "violations": 56,
+   "baseline": 56,
+   "note": "I3 后 56；__all__ 待 I20，端口协议待 G-A4。"
   },
   {
    "id": "LR-10",
@@ -130,9 +130,9 @@
     "tests/architecture/test_layer_relations.py"
    ],
    "metric": "无 __all__ 且无 L0 端口协议的 L1 模块数",
-   "violations": 57,
-   "baseline": 57,
-   "note": "与 LR-09 同源度量；端口协议待 G-A4，__all__ 待 I20。"
+   "violations": 56,
+   "baseline": 56,
+   "note": "I3 后 56；__all__ 待 I20，端口协议待 G-A4。"
   }
  ]
 }

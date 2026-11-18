@@ -50,6 +50,7 @@
    "domain_events",
    "edit_service",
    "final_service",
+   "h3_reference_adapter",
    "handoff_service",
    "idea_attachments",
    "idea_brief_form",
@@ -90,7 +91,7 @@
    "video_task_state": "R1578：仅读取视频任务状态并生成锁定、等待及显式提交阻断原因；submission_block_reason 与 provider_failure_reason 仅判断传入版本，后者返回供应商终态恢复说明，不启动、取消、重提或写入任务。",
    "storyboard_adoption_contract": "R981：只读设置、解析已有别名并校验采用路径；采用状态写入由独立服务承担。"
   },
-  "exempt_count": 52,
+  "exempt_count": 53,
   "exempt_items": [
    "asset_batch_lifecycle",
    "asset_batch_selection_service",
@@ -104,6 +105,7 @@
    "edit_export",
    "entitlement_service",
    "final_service",
+   "h3_reference_adapter",
    "idea_brief_form",
    "idea_chat",
    "idea_document_paths",
@@ -663,8 +665,8 @@
   ]
  },
  "层级": {
-  "count": 18,
-  "baseline_exempt": 18,
+  "count": 15,
+  "baseline_exempt": 15,
   "items": [
    {
     "file": "api_models.py",
@@ -702,20 +704,6 @@
     "reason": "既存越层，待专项收口"
    },
    {
-    "file": "engine_probe.py",
-    "importer": "engine_probe",
-    "imported": "workflow_engines",
-    "disposition": "exempt",
-    "reason": "既存越层，待专项收口"
-   },
-   {
-    "file": "h3_reference_adapter.py",
-    "importer": "h3_reference_adapter",
-    "imported": "shot_assets",
-    "disposition": "exempt",
-    "reason": "既存越层，待专项收口"
-   },
-   {
     "file": "idea_chat.py",
     "importer": "idea_chat",
     "imported": "pet_agent",
@@ -726,13 +714,6 @@
     "file": "idea_document_paths.py",
     "importer": "idea_document_paths",
     "imported": "legacy_compat",
-    "disposition": "exempt",
-    "reason": "既存越层，待专项收口"
-   },
-   {
-    "file": "native_apps.py",
-    "importer": "native_apps",
-    "imported": "white_model",
     "disposition": "exempt",
     "reason": "既存越层，待专项收口"
    },

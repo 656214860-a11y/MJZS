@@ -26,6 +26,12 @@
    "percent": 0.0
   },
   {
+   "module": "agent/h3_reference_adapter.py",
+   "covered": 0,
+   "total": 44,
+   "percent": 0.0
+  },
+  {
    "module": "agent/optimizer_mcp_bridge.py",
    "covered": 0,
    "total": 37,
@@ -412,7 +418,7 @@
   {
    "module": "desktop.py",
    "covered": 0,
-   "total": 718,
+   "total": 719,
    "percent": 0.0
   },
   {
@@ -604,7 +610,7 @@
   {
    "module": "desktop_shared_input.py",
    "covered": 0,
-   "total": 696,
+   "total": 698,
    "percent": 0.0
   },
   {
@@ -1252,19 +1258,13 @@
   {
    "module": "infra/diagnostic_capture.py",
    "covered": 0,
-   "total": 514,
+   "total": 544,
    "percent": 0.0
   },
   {
    "module": "infra/engine_probe.py",
    "covered": 0,
-   "total": 254,
-   "percent": 0.0
-  },
-  {
-   "module": "infra/h3_reference_adapter.py",
-   "covered": 0,
-   "total": 44,
+   "total": 270,
    "percent": 0.0
   },
   {
@@ -1318,7 +1318,7 @@
   {
    "module": "infra/native_apps.py",
    "covered": 0,
-   "total": 82,
+   "total": 89,
    "percent": 0.0
   },
   {
@@ -1348,7 +1348,7 @@
   {
    "module": "infra/seedream_api.py",
    "covered": 0,
-   "total": 141,
+   "total": 142,
    "percent": 0.0
   },
   {
@@ -1696,7 +1696,7 @@
   {
    "module": "orchestrator/skill_orchestrator.py",
    "covered": 0,
-   "total": 613,
+   "total": 620,
    "percent": 0.0
   },
   {
@@ -1708,7 +1708,7 @@
   {
    "module": "orchestrator/stage_completion_service.py",
    "covered": 0,
-   "total": 664,
+   "total": 685,
    "percent": 0.0
   },
   {
@@ -1792,7 +1792,7 @@
   {
    "module": "orchestrator/workflow_engines.py",
    "covered": 0,
-   "total": 423,
+   "total": 428,
    "percent": 0.0
   },
   {
@@ -3238,7 +3238,7 @@
   {
    "module": "ui/white_model.py",
    "covered": 0,
-   "total": 137,
+   "total": 141,
    "percent": 0.0
   },
   {
@@ -3507,8 +3507,8 @@
   },
   {
    "module": "orchestrator/engine.py",
-   "covered": 87,
-   "total": 745,
+   "covered": 88,
+   "total": 749,
    "percent": 11.7
   },
   {
@@ -3716,16 +3716,16 @@
    "percent": 26.0
   },
   {
-   "module": "contract/stage_layout.py",
-   "covered": 58,
-   "total": 205,
-   "percent": 28.3
-  },
-  {
    "module": "domain/project_naming.py",
    "covered": 4,
    "total": 14,
    "percent": 28.6
+  },
+  {
+   "module": "contract/stage_layout.py",
+   "covered": 63,
+   "total": 211,
+   "percent": 29.9
   },
   {
    "module": "orchestrator/stage_asset_gateways.py",
@@ -3770,16 +3770,16 @@
    "percent": 33.3
   },
   {
+   "module": "contract/stage_path_service.py",
+   "covered": 19,
+   "total": 54,
+   "percent": 35.2
+  },
+  {
    "module": "infra/project_settings.py",
    "covered": 33,
    "total": 91,
    "percent": 36.3
-  },
-  {
-   "module": "contract/stage_path_service.py",
-   "covered": 20,
-   "total": 55,
-   "percent": 36.4
   },
   {
    "module": "infra/config_snapshot.py",
@@ -3837,9 +3837,9 @@
   },
   {
    "module": "domain/keyframe_evidence.py",
-   "covered": 76,
-   "total": 130,
-   "percent": 58.5
+   "covered": 77,
+   "total": 132,
+   "percent": 58.3
   },
   {
    "module": "orchestrator/project_context_factory.py",

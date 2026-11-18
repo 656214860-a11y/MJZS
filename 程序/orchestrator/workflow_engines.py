@@ -18,6 +18,7 @@ from infra.workflow_process_registry import (register_process, forget_process, p
 from contract.platform_tools import launch_windows_app, terminate_process_tree
 from contract.workflow_context_budget import ensure_request_context
 import infra.client_profiles as client_profiles
+from infra import engine_probe as _engine_probe
 def _stage_slot_arguments(stage):
     """阶段名（英文键或中文名）→ 槽位注册表要的 (键, 阶段并发上限, 全局上限, 显示名)。"""
     from contract.pet_bus import STAGE_NAMES
@@ -554,6 +555,11 @@ def close_for_restart(project, process):
     forget_process(project, process)
 
 
+def _engine_probe_command_builder(config, project, output, report):
+    """I3b：把 background_command 登记给 L1 engine_probe（迟绑定，mock 补丁面不变）。"""
+    return background_command(config, project, output, report)
+
+
 def submit_existing(process,prompt,title=None):
     """Continue the exact CLI process using a short immutable task-file message."""
     if process.poll() is not None:raise ValueError('Agent 窗口已关闭，请重新打开')
@@ -568,3 +574,8 @@ def current_config(project, stage):
     """供 L3 编排读取实际引擎配置；复用引擎模块既有的设置依赖边界。"""
     from orchestrator.workflow_settings import current
     return current(project, stage)
+
+
+# I3b（L1 任务书）：engine_probe 不再反向 import 本模块；导入本模块即完成注入，
+# 未导入时 engine_probe 返回明确的「未配置」结果。
+_engine_probe.register_command_builder(_engine_probe_command_builder)

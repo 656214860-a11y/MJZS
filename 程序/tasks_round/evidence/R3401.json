@@ -1,0 +1,15 @@
+{
+  "round": 3401,
+  "commit_base": "e4f9c3d2",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k engine_probe native_apps h3_reference shot_assets layers",
+    "exit": 0,
+    "passed": 57,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T20:45:48"
+}
