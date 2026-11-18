@@ -115,6 +115,10 @@ class SpeechSettingsTests(Batch7Case):
         self.assertGreaterEqual(win.winfo_width(), win.winfo_reqwidth())
         self.assertGreater(scroll.canvas.winfo_height(), 0)
         self.assertLessEqual(win.winfo_height(), win.winfo_screenheight())
+        self._assert_actions_visible(win)
+        # 高屏可以一次容纳表单；只在明确受限的短窗里要求发生滚动。
+        win.geometry('%dx600' % win.winfo_width())
+        win.update()
         self.assertGreater(scroll.form.winfo_reqheight(), scroll.canvas.winfo_height())
         self.assertTrue(scroll.scroll.winfo_ismapped(), '长表单必须提供可见滚动条')
         region = tuple(float(value) for value in scroll.canvas.cget('scrollregion').split())
