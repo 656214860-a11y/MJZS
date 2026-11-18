@@ -1,15 +1,15 @@
 {
  "targets": [
-  "tests.test_money_invariants",
-  "tests.test_request_ledger",
-  "tests.test_keyframe_lifecycle_service",
-  "tests.test_video_lifecycle_service",
-  "tests.test_persistent_task_queue",
-  "tests.test_lifecycle",
-  "tests.test_publication_recovery",
   "tests.test_claim_queue_gateway",
+  "tests.test_keyframe_lifecycle_service",
+  "tests.test_lifecycle",
+  "tests.test_money_invariants",
+  "tests.test_persistent_task_queue",
+  "tests.test_publication_recovery",
+  "tests.test_request_ledger",
+  "tests.test_skill_residue_service",
   "tests.test_usage_snapshot",
-  "tests.test_skill_residue_service"
+  "tests.test_video_lifecycle_service"
  ],
  "tests_ok": true,
  "modules": [
@@ -406,13 +406,13 @@
   {
    "module": "contract/workflow_context_budget.py",
    "covered": 0,
-   "total": 129,
+   "total": 140,
    "percent": 0.0
   },
   {
    "module": "desktop.py",
    "covered": 0,
-   "total": 708,
+   "total": 711,
    "percent": 0.0
   },
   {
@@ -1192,13 +1192,13 @@
   {
    "module": "infra/account_store.py",
    "covered": 0,
-   "total": 76,
+   "total": 95,
    "percent": 0.0
   },
   {
    "module": "infra/aigc_lint.py",
    "covered": 0,
-   "total": 118,
+   "total": 122,
    "percent": 0.0
   },
   {
@@ -1216,7 +1216,7 @@
   {
    "module": "infra/broadcaster.py",
    "covered": 0,
-   "total": 33,
+   "total": 59,
    "percent": 0.0
   },
   {
@@ -1228,7 +1228,7 @@
   {
    "module": "infra/cloud_assets.py",
    "covered": 0,
-   "total": 80,
+   "total": 85,
    "percent": 0.0
   },
   {
@@ -1240,7 +1240,7 @@
   {
    "module": "infra/comfy_service.py",
    "covered": 0,
-   "total": 201,
+   "total": 210,
    "percent": 0.0
   },
   {
@@ -1306,13 +1306,13 @@
   {
    "module": "infra/model_diagnostics.py",
    "covered": 0,
-   "total": 41,
+   "total": 75,
    "percent": 0.0
   },
   {
    "module": "infra/native_apps.py",
    "covered": 0,
-   "total": 81,
+   "total": 82,
    "percent": 0.0
   },
   {
@@ -1342,7 +1342,7 @@
   {
    "module": "infra/seedream_api.py",
    "covered": 0,
-   "total": 139,
+   "total": 141,
    "percent": 0.0
   },
   {
@@ -1355,6 +1355,12 @@
    "module": "infra/store_program_locator.py",
    "covered": 0,
    "total": 63,
+   "percent": 0.0
+  },
+  {
+   "module": "infra/temporary_sweep.py",
+   "covered": 0,
+   "total": 39,
    "percent": 0.0
   },
   {
@@ -1372,7 +1378,7 @@
   {
    "module": "infra/workflow_process_registry.py",
    "covered": 0,
-   "total": 161,
+   "total": 238,
    "percent": 0.0
   },
   {
@@ -1672,7 +1678,7 @@
   {
    "module": "orchestrator/skill_inline.py",
    "covered": 0,
-   "total": 105,
+   "total": 233,
    "percent": 0.0
   },
   {
@@ -1780,13 +1786,13 @@
   {
    "module": "orchestrator/workflow_engines.py",
    "covered": 0,
-   "total": 419,
+   "total": 423,
    "percent": 0.0
   },
   {
    "module": "orchestrator/workflow_settings.py",
    "covered": 0,
-   "total": 767,
+   "total": 808,
    "percent": 0.0
   },
   {
@@ -2548,7 +2554,7 @@
   {
    "module": "ui/desktop_layout.py",
    "covered": 0,
-   "total": 326,
+   "total": 327,
    "percent": 0.0
   },
   {
@@ -2800,7 +2806,7 @@
   {
    "module": "ui/pet_ui.py",
    "covered": 0,
-   "total": 455,
+   "total": 456,
    "percent": 0.0
   },
   {
@@ -2986,7 +2992,7 @@
   {
    "module": "ui/speech_settings_ui.py",
    "covered": 0,
-   "total": 188,
+   "total": 218,
    "percent": 0.0
   },
   {
@@ -3460,7 +3466,7 @@
   {
    "module": "writing_api.py",
    "covered": 0,
-   "total": 954,
+   "total": 961,
    "percent": 0.0
   },
   {
@@ -3500,16 +3506,16 @@
    "percent": 11.6
   },
   {
+   "module": "infra/file_index.py",
+   "covered": 68,
+   "total": 472,
+   "percent": 14.4
+  },
+  {
    "module": "infra/client_profiles.py",
    "covered": 55,
    "total": 379,
    "percent": 14.5
-  },
-  {
-   "module": "infra/file_index.py",
-   "covered": 68,
-   "total": 462,
-   "percent": 14.7
   },
   {
    "module": "orchestrator/stage_animatic_gateways.py",
@@ -3622,8 +3628,8 @@
   {
    "module": "infra/app_logging.py",
    "covered": 59,
-   "total": 265,
-   "percent": 22.3
+   "total": 267,
+   "percent": 22.1
   },
   {
    "module": "orchestrator/skill_budget.py",
@@ -3645,9 +3651,9 @@
   },
   {
    "module": "infra/pet_llm.py",
-   "covered": 79,
-   "total": 328,
-   "percent": 24.1
+   "covered": 81,
+   "total": 330,
+   "percent": 24.5
   },
   {
    "module": "contract/pet_bus.py",
@@ -3710,6 +3716,12 @@
    "percent": 30.8
   },
   {
+   "module": "infra/model_pool.py",
+   "covered": 239,
+   "total": 748,
+   "percent": 32.0
+  },
+  {
    "module": "orchestrator/skill_project_layer.py",
    "covered": 54,
    "total": 166,
@@ -3722,16 +3734,16 @@
    "percent": 32.7
   },
   {
-   "module": "infra/model_pool.py",
-   "covered": 238,
-   "total": 726,
-   "percent": 32.8
-  },
-  {
    "module": "orchestrator/stage_previs_gateways.py",
    "covered": 24,
    "total": 72,
    "percent": 33.3
+  },
+  {
+   "module": "infra/project_settings.py",
+   "covered": 33,
+   "total": 91,
+   "percent": 36.3
   },
   {
    "module": "contract/stage_path_service.py",
@@ -3744,12 +3756,6 @@
    "covered": 7,
    "total": 19,
    "percent": 36.8
-  },
-  {
-   "module": "infra/project_settings.py",
-   "covered": 30,
-   "total": 77,
-   "percent": 39.0
   },
   {
    "module": "domain/asset_batch_lifecycle.py",
@@ -3771,9 +3777,9 @@
   },
   {
    "module": "infra/file_cache.py",
-   "covered": 78,
-   "total": 158,
-   "percent": 49.4
+   "covered": 85,
+   "total": 169,
+   "percent": 50.3
   },
   {
    "module": "orchestrator/stage_publication.py",
@@ -3807,9 +3813,9 @@
   },
   {
    "module": "infra/usage_snapshot.py",
-   "covered": 126,
-   "total": 172,
-   "percent": 73.3
+   "covered": 130,
+   "total": 179,
+   "percent": 72.6
   },
   {
    "module": "orchestrator/skill_package_meta.py",
@@ -3825,9 +3831,9 @@
   },
   {
    "module": "infra/usage_history.py",
-   "covered": 44,
-   "total": 54,
-   "percent": 81.5
+   "covered": 46,
+   "total": 56,
+   "percent": 82.1
   },
   {
    "module": "domain/keyframe_lifecycle_service.py",
@@ -3843,9 +3849,9 @@
   },
   {
    "module": "infra/request_ledger.py",
-   "covered": 541,
-   "total": 641,
-   "percent": 84.4
+   "covered": 564,
+   "total": 666,
+   "percent": 84.7
   },
   {
    "module": "contract/service_contract.py",
@@ -3939,5 +3945,5 @@
   }
  ],
  "modules_covered": 75,
- "modules_total": 654
+ "modules_total": 655
 }

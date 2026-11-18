@@ -314,7 +314,8 @@ class SharedWorktreeQueueTests(unittest.TestCase):
             self.git("-C", str(tree), "-c", "user.name=Queue Test", "-c",
                      "user.email=queue@example.invalid", "commit", "-m", "far %d" % index)
         result = subprocess.run([sys.executable, str(script), "next"], cwd=script.parent,
-                                capture_output=True, timeout=30)
+                                capture_output=True, timeout=30,
+                                env={**os.environ, "PYTHONIOENCODING": "utf-8"})
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("领先 master".encode(), result.stderr)
         self.assertFalse((self.common / round_claim.COUNTER_NAME).exists())

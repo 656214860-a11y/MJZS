@@ -22,6 +22,8 @@ _TEMPORARY_BOUNDARIES = frozenset({"app_shortcut", "skill_archive", "skill_remot
 _REPLACE_AUTHORITY = "agent/core.py"
 _REPLACE_REGISTERED = {
     "agent/core.py": 1,
+    # R3292：faulthandler.log 超 5MiB 时的日志轮转（FAULT_LOG → FAULT_LOG.1），与 log_maintenance 同类。
+    "app_logging.py": 1,
     "agent/publication.py": 2,
     "image_agent_runner.py": 1,
     "log_maintenance.py": 2,

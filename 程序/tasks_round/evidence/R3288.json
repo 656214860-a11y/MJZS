@@ -1,0 +1,15 @@
+{
+  "round": 3288,
+  "commit_base": "f7e0e3a3",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k l1_lost_update account model_pool usage pet_settings",
+    "exit": 0,
+    "passed": 315,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T05:43:45"
+}

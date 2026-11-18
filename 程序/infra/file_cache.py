@@ -10,6 +10,7 @@ import json
 import os
 import shutil
 import tempfile
+from collections import OrderedDict
 from pathlib import Path
 from agent.core import read  # read：兼容仍由外部替换的历史测试钩子。
 from agent.publication import access
@@ -19,8 +20,9 @@ def _key(path):
     return os.path.normcase(os.path.abspath(str(path)))
 
 _CACHE = {}
-_TEXT_CACHE = {}
-_BYTES_CACHE = {}
+_CACHE_LIMIT = 32
+_TEXT_CACHE = OrderedDict()
+_BYTES_CACHE = OrderedDict()
 _DIGEST_CACHE = {}
 
 
@@ -28,17 +30,26 @@ def _digest(data):
     return hashlib.sha256(data).digest()
 
 
-def _cached_content(cache, key, token, data):
+def _touch(cache, key, limit):
+    """命中即提到最近端；限容缓存超上限时淘汰最旧项。"""
+    if limit:
+        cache.move_to_end(key)
+        while len(cache) > limit:
+            cache.popitem(last=False)
+
+
+def _cached_content(cache, key, token, data, limit=None):
     """签名变动后仅在内容真的变了时才丢弃已解析的对象。"""
     digest = _digest(data)
     hit = cache.get(key)
     if hit is not None and hit[1] == digest:
         cache[key] = (token, digest, hit[2])
+        _touch(cache, key, limit)
         return hit[2]
     return None
 
 
-def _read_through(cache, key, path, parse):
+def _read_through(cache, key, path, parse, limit=None):
     """按文件签名（修改时间＋大小）复用解析结果；签名变了但字节没变也复用，stat 失败则清掉旧条目再抛。"""
     try:
         stat = Path(path).stat()
@@ -48,13 +59,15 @@ def _read_through(cache, key, path, parse):
     token = (stat.st_mtime_ns, stat.st_size)
     hit = cache.get(key)
     if hit is not None and hit[0] == token:
+        _touch(cache, key, limit)
         return hit[2]
     raw = Path(path).read_bytes()
-    cached = _cached_content(cache, key, token, raw)
+    cached = _cached_content(cache, key, token, raw, limit)
     if cached is not None:
         return cached
     data = parse(raw)
     cache[key] = (token, _digest(raw), data)
+    _touch(cache, key, limit)
     return data
 
 
@@ -99,13 +112,14 @@ def _locked_json_shared(path, key):
 def read_text(path, encoding='utf-8-sig', errors=None):
     """读取用于 UI 预览的文本，并在文件未变时复用结果。"""
     return _read_through(_TEXT_CACHE, (_key(path), encoding, errors), path,
-                         lambda raw: raw.decode(encoding, errors=errors or 'strict'))
+                         lambda raw: raw.decode(encoding, errors=errors or 'strict'),
+                         limit=_CACHE_LIMIT)
 
 
 @access()
 def read_bytes(path):
     """读取大文本的原始字节并按文件签名复用，供编码探测类预览使用。"""
-    return _read_through(_BYTES_CACHE, _key(path), path, bytes)
+    return _read_through(_BYTES_CACHE, _key(path), path, bytes, limit=_CACHE_LIMIT)
 
 
 @access()

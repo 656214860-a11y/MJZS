@@ -9,6 +9,7 @@ RequestLedger 一条请求一行：预留 → 结算／未知／取消，同一�
 """
 import json
 import hashlib
+import shutil
 import time
 import threading
 from contextlib import contextmanager
@@ -22,6 +23,8 @@ _REQUEST_LOCK = threading.RLock()
 REQUEST_LOCK_WAIT_SECONDS = 10.0
 REQUEST_LOCK_POLL_SECONDS = 0.02
 REQUEST_RESERVED_STALE_SECONDS = 1800.0
+# 每个台账路径每天第一次成功加载时刷新一份 .bak；键为路径字符串，值为 clock()//86400 日序。
+_BACKUP_REFRESH = {}
 
 
 class LedgerLockTimeout(ValueError):
@@ -39,6 +42,30 @@ REQUEST_MODES = ('estimated', 'reported', 'unknown')
 
 def request_ledger_path(project):
     return Path(project).joinpath(*REQUEST_LEDGER_PATH)
+
+
+def ledger_backup_path(path):
+    return Path(path).with_suffix('.bak')
+
+
+def _corrupt_message(path, detail=''):
+    return ('请求台账损坏：%s%s；可用同目录备份 %s 恢复后重试'
+            '（备份为最近一次成功加载时的快照），或先移走坏文件再重建——'
+            '重建会清零预算与对账历史。'
+            % (path, ('（%s）' % detail) if detail else '', ledger_backup_path(path)))
+
+
+def _refresh_daily_backup(path, clock):
+    """每天第一次成功加载时把台账原样复制成 ``请求台账.bak``；备份失败不挡主流程。"""
+    try:
+        day = int(float(clock()) // 86400)
+        key = str(path)
+        if _BACKUP_REFRESH.get(key) == day or not Path(path).is_file():
+            return
+        shutil.copyfile(path, ledger_backup_path(path))
+        _BACKUP_REFRESH[key] = day
+    except (OSError, TypeError, ValueError):
+        app_logging.swallowed()
 
 
 class BudgetRejected(ValueError):
@@ -125,11 +152,21 @@ class RequestLedger:
         self.project = Path(project) if project else None
         self.clock = clock
         self.entries = []
+        self._index_marker, self._index = None, {}
+
+    def _entries_index(self):
+        """``{请求号: [条目…]}`` 懒索引：条目只增不改键，列表对象被替换或长度变化时重建。"""
+        marker = id(self.entries), len(self.entries)
+        if self._index_marker != marker:
+            self._index = {}
+            for entry in self.entries:
+                self._index.setdefault(entry.get('id'), []).append(entry)
+            self._index_marker = marker
+        return self._index
 
     def _find(self, request_id, kind=None):
-        rid = str(request_id)
-        for entry in self.entries:
-            if entry.get('id') == rid and (kind is None or entry.get('kind') == kind):
+        for entry in self._entries_index().get(str(request_id), ()):
+            if kind is None or entry.get('kind') == kind:
                 return entry
         return None
 
@@ -384,12 +421,17 @@ class RequestLedger:
             return self
         from agent.core import read
         path = request_ledger_path(self.project)
-        data = read(path) if path.exists() else {'entries': []}
+        try:
+            data = read(path) if path.exists() else {'entries': []}
+        except ValueError as exc:
+            # 只把「内容坏」翻成可操作错误；OSError 与锁忙 RuntimeError 原样上抛。
+            raise ValueError(_corrupt_message(path, exc)) from exc
         if (not isinstance(data, dict) or not isinstance(data.get('entries'), list)
                 or any(not isinstance(row, dict) for row in data['entries'])):
-            raise ValueError('请求台账损坏，请恢复后继续')
+            raise ValueError(_corrupt_message(path))
         self.entries = data['entries']
         _sweep_stale_reserved(self.entries, self.clock)
+        _refresh_daily_backup(path, self.clock)
         return self
 
     def transaction(self):
