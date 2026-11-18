@@ -280,5 +280,53 @@ class WindowResizeCoalescingTests(unittest.TestCase):
         self.assertLess(STEP_PAUSE_MS / 1000.0, DESKTOP_LAYOUT['resize_quiet_ms'] / 4000.0)
 
 
+class LayoutConvergenceTests(unittest.TestCase):
+    """画布宽度不变时，新控件及逐层请求几何仍须收敛。"""
+
+    def setUp(self):
+        from desktop_layout import LayoutMixin
+        self.win = tk.Tk()
+        self.addCleanup(self.win.destroy)
+        self.win.geometry('800x500')
+        canvas = tk.Canvas(self.win, highlightthickness=0)
+        canvas.pack(fill='both', expand=True)
+        content = ttk.Frame(canvas)
+        window = canvas.create_window(0, 0, window=content, anchor='nw')
+
+        class Layout(LayoutMixin):
+            def align_header(self):
+                pass
+
+        self.layout = Layout()
+        self.layout.win = self.win
+        self.layout.canvas = canvas
+        self.layout.content = content
+        self.layout.content_id = window
+        self.layout.page_index = 0
+        self.win.update()
+
+    def test_new_label_wraps_at_unchanged_canvas_width(self):
+        d = self.layout
+        d.fit_content(); self.win.update()
+        label = ttk.Label(d.content, text='同宽重建的长说明' * 60, wraplength=200)
+        label.pack()
+        d.fit_content(); self.win.update()
+        self.assertEqual(int(label.cget('wraplength')), d.canvas.winfo_width() - 28)
+
+    def test_descendant_requests_settle_before_scroll_boundary(self):
+        d = self.layout
+        parent = d.content
+        for _ in range(6):
+            parent = ttk.Frame(parent)
+            parent.pack()
+        label = ttk.Label(parent, text='逐层传播的长说明' * 100, wraplength=200)
+        label.pack()
+        d.fit_content(); self.win.update()
+        region = [int(v) for v in d.canvas.cget('scrollregion').split()]
+        self.assertEqual(region[3], max(d.canvas.winfo_height(), d.content.winfo_reqheight()))
+        self.assertIsNone(d._fit_job)
+        self.assertFalse(d._fit_pending)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

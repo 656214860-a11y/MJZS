@@ -1,0 +1,15 @@
+{
+  "round": 3308,
+  "commit_base": "5405e063",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_core desktop_startup_perf l1_bounded_growth_r3269 exit_maintenance force_quit test_storage test_timers stage_command_contract",
+    "exit": 0,
+    "passed": 230,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T10:29:41"
+}

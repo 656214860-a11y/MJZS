@@ -19,6 +19,7 @@
   "cloud_assets.py": 20.0,
   "comfy_runtime.py": 11.0,
   "comfy_service.py": 0.0,
+  "config_patch.py": 100.0,
   "config_snapshot.py": 50.0,
   "continuity_ledger.py": 42.0,
   "core.py": 21.0,

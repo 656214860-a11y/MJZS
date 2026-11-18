@@ -2,7 +2,7 @@
 """T8 SKILL 生命周期补全：启停用、重命名、version 优先比对、编辑定位。
 
 - 禁用：``data/skills/disabled_skills.json`` 登记，文件保留、``getAll()`` 滤除、
-  ``disabled_names``/``disabled_entries`` 供管理页灰显；内置层拒绝；项目层条目
+  ``disabled_names``/``disabled_entries`` 供管理页灰显；内置层允许禁用但禁止删除；项目层条目
   按项目隔离；发送边界 ``validate_selected_skills`` 报「已禁用」而非「未加载」。
 - 重命名：``rename_plan`` 只读干跑统计受影响项目；``apply_rename`` 同步
   frontmatter ``name``（清单）或目录名（包）、全部项目 ``skill_config.json``
@@ -76,13 +76,44 @@ class DisabledStoreTests(unittest.TestCase):
         self.assertIsNotNone(self.registry.getById('alpha'))
         self.assertNotIn('alpha', self.registry.disabled_names())
 
-    def test_builtin_layer_cannot_be_disabled(self):
-        write_manifest(self.program / 'skills' / STAGE_DIR / 'builtin-one.skill.md',
-                       name='builtin-one', stage='script')
+    def test_builtin_disable_persists_and_enable_restores(self):
+        path = self.program / 'skills' / STAGE_DIR / 'builtin-one.skill.md'
+        write_manifest(path, name='builtin-one', stage='script')
+        before = path.read_bytes()
         self.registry.scan(force=True)
-        with self.assertRaises(skill_import_service.ImportBlocked):
-            skill_lifecycle_service.set_skill_disabled(
-                self.program, self.registry, 'builtin-one', True)
+        skill_lifecycle_service.set_skill_disabled(
+            self.program, self.registry, 'builtin-one', True)
+        self.registry.scan(force=True)
+        self.assertNotIn('builtin-one', {item.name for item in self.registry.getAll()})
+        self.assertEqual(before, path.read_bytes())
+        stored = json.loads(skill_project_layer.disabled_skills_path(
+            self.registry.user_root).read_text(encoding='utf-8'))
+        entry = next(item for item in stored['items'].values()
+                     if item['name'] == 'builtin-one')
+        self.assertEqual('builtin', entry['layer'])
+        # 新注册表模拟重启／升级后的重新扫描，禁用仍须生效且可重新启用。
+        registry = skill_registry.Registry(self.registry.root, user_root=self.registry.user_root)
+        registry.scan(force=True)
+        self.assertIsNone(registry.getById('builtin-one'))
+        self.assertIn('builtin-one', registry.disabled_names())
+        skill_lifecycle_service.set_skill_disabled(
+            self.program, registry, 'builtin-one', False)
+        registry.scan(force=True)
+        self.assertIsNotNone(registry.getById('builtin-one'))
+        self.assertEqual(before, path.read_bytes())
+
+    def test_builtin_delete_remains_blocked_when_enabled_or_disabled(self):
+        path = self.program / 'skills' / STAGE_DIR / 'builtin-one.skill.md'
+        write_manifest(path, name='builtin-one', stage='script')
+        self.registry.scan(force=True)
+        for disabled in (False, True):
+            if disabled:
+                skill_lifecycle_service.set_skill_disabled(
+                    self.program, self.registry, 'builtin-one', True)
+            with self.assertRaises(skill_import_service.ImportBlocked):
+                skill_lifecycle_service.uninstall_skill_entry(
+                    self.program, self.registry, 'builtin-one')
+            self.assertTrue(path.is_file())
 
     def test_corrupt_disabled_file_reads_as_empty(self):
         path = skill_project_layer.disabled_skills_path(self.registry.user_root)

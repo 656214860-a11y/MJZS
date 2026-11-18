@@ -1,0 +1,15 @@
+{
+  "round": 3299,
+  "commit_base": "368371a5",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k request_ledger l1_reliability_r3248 money_invariants model_metering pet_llm request_recording line_endings branch_coverage_floor",
+    "exit": 0,
+    "passed": 175,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T07:47:11"
+}
