@@ -141,6 +141,25 @@ R3267（L0 任务书轮 3A D3）：新增两个 L0 契约模块——`contract/d
 
 用户可编辑的只有项目级「编剧风格」：保存在项目 `skill_config.json` 的 `script.writer_style`（旧项目的编剧规则读取时迁入，下次保存不再写旧键，其余旧框架键忽略），由 `stage_config.writer_style()` 读取，`workflow_settings.writer_style_prompt()` 在剧本准备的桌面任务书与直连 API 的 system 中各注入一次，空风格不占请求。写作取消异常为 `writing_api.WritingCancelledError`。Claude 桌面程序模型不再作为受控 CLI 对话模型，`writing_api.selected_model()` 对其返回空，走桌面 Agent 通道。
 
+### 层间关系规范（LR-01~LR-10，L1 任务书 §5）
+
+分层依赖唯一权威仍是本节分层表；以下十条为层间关系细则，逐条有守卫测试，实测违规数与棘轮基线登记在 `维护记录/层间合规清单.json`，由 `tests/architecture/test_layer_relations.py` 比对，超基线即红、低于基线提示下调。
+
+| 编号 | 规则 | 守卫测试 |
+| --- | --- | --- |
+| LR-01 | 只允许依赖同层或更低层：L1 只依赖 L0/L0P，L2/L3 依赖更低层及同层；上行边全部登记豁免台账 | `test_layers.py`、`test_layer_relations.py` |
+| LR-02 | 全仓依赖图为有向无环图，静态与字面量动态合并图无新增循环 | `test_no_circular_import.py`、`test_layer_relations.py` |
+| LR-03 | 同层依赖方向登记 `_layers.SAME_LAYER_EDGES`；未登记同层边即违规，同层互相依赖禁止（存量棘轮只降不升） | `test_layer_relations.py` |
+| LR-04 | 动态导入遵守 LR-01：`import_module`/`__import__` 模块名必须是字面量，或来自已登记插件登记表且登记表层不低于被加载模块层 | `test_layer_relations.py`、`test_dynamic_import_registry.py` |
+| LR-05 | 框架回调/事件/插件经 L0 契约解耦；低层不得 import、持有或调用上层对象，Tk 回调注册只在 UI 层或已登记端口模块（`tk_timers`、`app_logging`） | `test_layer_relations.py`、`test_event_bus_boundary.py` |
+| LR-06 | 上层只使用 L1 公开接口（`__all__`）；访问 L1 私有名即违规（`__all__` 判定随 I20 启用） | `test_layer_relations.py` |
+| LR-07 | L1 只放横切能力、不持业务状态；只抛 `contract.infra_errors` 技术异常（I6 建层级，I6 前以中文文案 raise 计数棘轮） | `test_layer_relations.py`、`test_infra_errors.py` |
+| LR-08 | 九项横切能力（HTTP、JSON 读写、删除、子进程、线程、日志、密钥、磁盘空间、时钟）强制不可绕过，各有门禁 | `test_http_boundary.py`、`test_json_io_boundary.py`、`test_deletion_gateway.py`、`test_platform_process_boundary.py`、`test_thread_boundary.py`、`test_log_sink_boundary.py`、`test_secret_sink_audit.py`、`test_resources.py`、`test_clock_boundary.py` |
+| LR-09 | L1 公开接口为准契约：须有 `__all__` 并登记契约清单，破坏性变更走弃用周期（依赖 G-A1/G-A2） | `test_layer_relations.py`、`test_contract_manifest.py` |
+| LR-10 | 每个 L1 模块可被替换：上层依赖须有 L0 端口协议或稳定 `__all__` 接口，测试可注入替身 | `test_layer_relations.py` |
+
+存量违规与收口轮次见 `维护记录/层间合规清单.json` 各条 note；新增违规一律判红。
+
 ## 4. 三虎 Agent 的阶段定义
 
 R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析模型身份、调用方式和 `workflow_settings.current()` 的有效配置；`freeze_skills()` 内联所选技能及直接 Markdown/文本引用并冻结正文，API 与桌面复用该快照。失效选择、缺失引用、空技能和超出请求字符预算均阻止发送，不截断或静默省略；完整请求另沿用既有发送前预算闸门。`idea_chat` 保存脱敏的选中/加载清单、字数及 SHA-256，气泡显示本次加载结果，旧记录不伪造凭据。共享阶段成果、角色顺序、重试及发布边界不变。
@@ -280,7 +299,7 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 当前架构门禁清单（`tests/architecture/`）：总数以 `python smoke_test.py --architecture` 当轮输出为准，基线只增不减。
 
 - 卡片与忙碌状态补充：`test_card_boundary.py`、`test_busy_state_boundary.py`。
-- 分层与一致性：`test_agents_md.py`、`test_layers.py`、`test_no_circular_import.py`、`test_path_authority.py`、`test_stage_paths.py`、`test_storyboard_edit_boundary.py`、`test_storyboard_final_selection_boundary.py`。
+- 分层与一致性：`test_agents_md.py`、`test_layers.py`、`test_no_circular_import.py`、`test_layer_relations.py`、`test_path_authority.py`、`test_stage_paths.py`、`test_storyboard_edit_boundary.py`、`test_storyboard_final_selection_boundary.py`。
 - 写入与删除边界：`test_atomic_write_boundary.py`、`test_asset_batch_ledger_boundary.py`、`test_asset_batch_settings_boundary.py`、`test_asset_detail_binding_boundary.py`、`test_asset_generated_import_boundary.py`、`test_asset_image_import_boundary.py`、`test_asset_plan_publication_boundary.py`、`test_asset_rename_boundary.py`、`test_asset_image_removal_boundary.py`、`test_asset_image_restore_boundary.py`、`test_audio_import_boundary.py`、`test_cloud_video_settings_boundary.py`、`test_continuity_publication_boundary.py`、`test_delivery_import_boundary.py`、`test_desktop_settings_boundary.py`、`test_edit_publication_boundary.py`、`test_final_bundle_boundary.py`、`test_handoff_publication_boundary.py`、`test_keyframe_delete_boundary.py`、`test_keyframe_restore_boundary.py`、`test_keyframe_replace_boundary.py`、`test_keyframe_reference_publication_boundary.py`、`test_legacy_adoption_boundary.py`、`test_local_video_settings_boundary.py`、`test_manual_creative_publication_boundary.py`、`test_previs_routing_publication_boundary.py`、`test_stage_workspace_boundary.py`、`test_structured_script_write_boundary.py`、`test_subtitle_export_publication_boundary.py`、`test_tts_publication_boundary.py`、`test_video_delete_boundary.py`、`test_video_options_boundary.py`、`test_video_prompt_publication_boundary.py`、`test_video_publication_boundary.py`、`test_white_model_import_boundary.py`、`test_writing_preparation_path_boundary.py`、`test_deletion_gateway.py`、`test_remove_authority.py`、`test_recycle_service.py`。
 - 潜伏缺陷防复发（R1854）：`test_subprocess_timeout_boundary.py`（等子进程必须带 timeout）、`test_workflow_dir_ratchet.py`（手拼“工作流任务”只许减少）、`test_read_json_definitions.py`（`read_json` 同名定义不得新增）、`test_pet_error_log_boundary.py`（三虎 errors 必须有上限）；`test_skill_config_path_single_entry.py`（`skill_config.json` 文件名只在 `stage_layout` 写一次）；`test_atomic_write_boundary.py` 另以 AST 限定直接 `os.replace`／`Path.replace` 只在登记写入器内且只许减少。
 - 测试隐藏桌面强制执行（R3039）：`test_hidden_desktop_gate.py`（`scripts/gui_hidden.py` 入库；`run_selftests.py`／`smoke_test.py` 自包装硬闸在位；`auto_full_safe.py` 无静默直跑降级、不再引用未跟踪运行现场文件）。
