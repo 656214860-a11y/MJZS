@@ -290,12 +290,17 @@ def _bundled_tool(name):
 
     只在文件真实存在时返回——失效的随包路径不能压过系统 PATH。
     """
-    for candidate in (_BUNDLED_BIN_DIR / (name + '.exe'), _BUNDLED_BIN_DIR / name):
-        try:
-            if candidate.is_file():
-                return str(candidate)
-        except OSError:
-            continue
+    directories = [_BUNDLED_BIN_DIR]
+    executable = Path(sys.executable).resolve()
+    if executable.parent.name.casefold() == 'python' and executable.parent.parent.name == '运行环境':
+        directories.append(executable.parent.parent / 'ffmpeg' / 'bin')
+    for directory in directories:
+        for candidate in (directory / (name + '.exe'), directory / name):
+            try:
+                if candidate.is_file():
+                    return str(candidate)
+            except OSError:
+                continue
     return None
 
 
