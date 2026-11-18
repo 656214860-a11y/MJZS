@@ -3,8 +3,11 @@
 每个码带严重度、可重试标记、用户可读说明与修复建议；``lookup`` 对未登记的码返回 ``E-UNKNOWN``，
 调用方不必处理 ``KeyError``。``analyze()`` 是 Spring Boot ``FailureAnalyzer`` 式派发链：
 按序遍历 analyzer、首个非 ``None`` 结果胜出，诊断器自身异常被吞掉继续下一条——
-诊断器崩了不能掩盖原始失败（任务书 §3b-1）。
+诊断器崩了不能掩盖原始失败（任务书 §3b-1）。``classify(text)`` 是错误文本 → 错误码
+分类器：关键词表 ``TEXT_RULES`` 自 ``ui/pet_agent_rules.PATTERNS`` 迁入（轮 5A D6），
+「是否可重试」以码的 ``retryable`` 为唯一权威（G10），认不出返回 ``E-UNKNOWN``。
 """
+import re
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -33,6 +36,8 @@ _ITEMS = (
     ErrorCode('E-NET-RATE-LIMIT', 'recoverable', True, '请求过于频繁，服务限流', '稍等片刻后重试，或降低并发'),
     ErrorCode('E-NET-SERVER', 'recoverable', True, '远端服务暂时不可用', '稍后重试，持续失败请检查服务状态'),
     ErrorCode('E-NET-CLIENT', 'recoverable', False, '请求被服务拒绝', '检查请求参数、模型名与权限'),
+    ErrorCode('E-QUOTA-EXCEEDED', 'recoverable', False, '余额或配额不足', '充值或调整配额上限后重试'),
+    ErrorCode('E-CONTENT-POLICY', 'recoverable', False, '内容命中安全审核', '改写提示词后重新提交，勿原样重试'),
     ErrorCode('E-AUTH-MISSING', 'recoverable', False, '缺少凭据', '在模型管理中配置对应密钥'),
     ErrorCode('E-AUTH-REJECTED', 'recoverable', False, '凭据被服务拒绝', '检查密钥是否有效、是否过期'),
     ErrorCode('E-ASSET-MISSING', 'recoverable', False, '缺少必需的资产文件', '在资产管理中补齐后重试'),
@@ -83,6 +88,58 @@ def from_http_result(result: dict[str, Any]) -> str:
     if result.get('error_class') == 'network' and ('timed out' in text or 'timeout' in text):
         return 'E-NET-TIMEOUT'
     return _CLASS_TO_CODE.get(result.get('error_class', ''), 'E-UNKNOWN')
+
+
+# 错误文本分类表（轮 5A D6-a）：自 ``ui.pet_agent_rules.PATTERNS`` 逐字迁入的
+# 「错误文本 → 错误码」关键词表，**顺序即优先级**（auth/quota 先于 params，content
+# 先于 server），与原表一致不得调序。每行 ``(原 PATTERNS 类目, 错误码, 关键词表)``；
+# 类目名仅作文档对照与 5B 接线索引——``classify`` 的产出是 ``ErrorCode``。
+# ``quota``／``content`` 两个类目在码表里原本没有语义吻合的码，本轮按 registry
+# 扩展机制各补一个（``E-QUOTA-EXCEEDED``／``E-CONTENT-POLICY``），避免挤进
+# ``E-NET-CLIENT`` 让 remedy 张冠李戴。
+TEXT_RULES = (
+    ('auth', 'E-AUTH-REJECTED', ('401', '403', 'unauthorized', 'forbidden', '密钥', 'api key')),
+    ('quota', 'E-QUOTA-EXCEEDED', ('402', '余额', '欠费', 'quota', 'insufficient', 'balance')),
+    ('content', 'E-CONTENT-POLICY', ('content', '审核', '敏感', '违规', 'policy', 'blocked', 'safety')),
+    ('params', 'E-NET-CLIENT', ('400', '参数', 'invalid', 'not valid', 'unsupported', '尺寸')),
+    ('rate_limit', 'E-NET-RATE-LIMIT', ('429', 'rate limit', '限流', 'too many', '太频繁')),
+    ('timeout', 'E-NET-TIMEOUT', ('timeout', 'timed out', '超时', '逾时')),
+    ('server', 'E-NET-SERVER', ('500', '501', '502', '503', '504', 'server error', '服务不可用')),
+)
+
+
+def _mark_hit(haystack: str, mark: Any) -> bool:
+    """单条关键词命中判定，与 ``pet_agent._mark_hit`` 同口径：纯数字标记只认
+    「独立的一串数字」（退出码 4294967295 里的 429 不算限流），其余按子串。"""
+    mark = str(mark).lower()
+    if mark.isdigit():
+        return re.search(r'(?<!\d)' + mark + r'(?!\d)', haystack) is not None
+    return mark in haystack
+
+
+def _status_text(status: Any) -> str:
+    """HTTP 状态码归一成检索串片段：能转整数就用整数形（``429.0`` → ``'429'``），
+    否则原样 ``str``——与 ``pet_agent.classify`` 的 ``_int`` 口径一致。"""
+    try:
+        return str(int(float(status)))
+    except (TypeError, ValueError, OverflowError):
+        return str(status)
+
+
+def classify(text: Any, status: Any = None) -> ErrorCode:
+    """错误文本 → ``ErrorCode``（轮 5A D6）：按 ``TEXT_RULES`` 顺序首个命中胜出，
+    认不出返回 ``E-UNKNOWN``。
+
+    ``status`` 是可选 HTTP 状态码，与 ``pet_agent.classify`` 同口径拼成
+    ``'http <code>'`` 参与匹配；匹配全程小写化。只读纯函数，不联网不抛业务异常。
+    """
+    haystack = str(text or '').lower() + ' '
+    if status not in (None, ''):
+        haystack += 'http ' + _status_text(status)
+    for _category, item_code, marks in TEXT_RULES:
+        if any(_mark_hit(haystack, mark) for mark in marks):
+            return lookup(item_code)
+    return lookup('E-UNKNOWN')
 
 
 # FailureAnalyzer 派发链（§3b-1）：analyzer 返回 ErrorCode 或 None，首个非 None 胜出。

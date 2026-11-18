@@ -54,7 +54,7 @@
 | 语音识别后端路由 | `domain.speech_api.create_session()`：按 `backend` 分流 `offline`／`cloud`（离线不可用且已配云端密钥时自动降级） |
 | 离线 ASR 引擎 | `voice_engine/offline_asr_server.py`：独立子进程常驻 stdio JSON-Lines；缓存 `data/voice_models/`、`data/voice_asr_venv/`，不 import 主运行时模块 |
 | 语音词典与 AI 优化 | `data/语音词典.json` 校验在 `speech_api`（热词随会话下发、替换表定稿后处理）；优化在 `voice_ai`（`chat` 注入） |
-| 启动诊断与自检 | `contract/diagnostics.py`／`contract/selfcheck.py`（`run(checks)` 注入式，L0 内建 `default_checks()`）／`contract/error_codes.py`（severity、`analyze()`） |
+| 启动诊断与自检 | `contract/diagnostics.py`／`contract/selfcheck.py`（`run(checks)` 注入式，L0 内建 `default_checks()`）／`contract/error_codes.py`（severity、`analyze()`、`classify()`） |
 
 `stage_layout.validate_stage_contract()` 守卫目录阶段契约；变更 `pet_bus.STAGES`／`stage_layout.STAGES` 的轮次必须使它通过。
 

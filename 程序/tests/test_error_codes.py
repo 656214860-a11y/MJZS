@@ -1,7 +1,9 @@
 import unittest
 
+from contract import error_codes
 from contract.error_codes import (CODES, SEVERITIES, ErrorCode, analyze, code_data,
-                                  code_of, describe, from_http_result, lookup)
+                                  code_of, classify, describe, from_http_result, lookup,
+                                  TEXT_RULES)
 from contract.service_contract import ServiceResult, SystemError, UserError, success
 
 
@@ -85,6 +87,70 @@ class ErrorCodesTests(unittest.TestCase):
         # 原始失败对象不被吞掉：调用方仍持有它
         self.assertIsInstance(failure, RuntimeError)
         self.assertEqual(str(failure), 'original startup failure')
+
+
+class ClassifyTextTests(unittest.TestCase):
+    """轮 5A D6：``classify(text)`` 错误文本 → ``ErrorCode`` 分类器。
+
+    关键词表自 ``ui.pet_agent_rules.PATTERNS`` 迁入（顺序即优先级）；
+    「是否重试」以码的 ``retryable`` 为唯一权威（G10），本类断言的正是
+    结果文件对照表里「改后 retry」那一列。
+    """
+
+    # 对照表逐行：(探测文本, 期望码, 期望 retryable)。params→E-NET-CLIENT 是
+    # 唯一与现行 VERDICTS 不一致的行（现行 retry=True，接线后=False）。
+    ROWS = (
+        ('接口返回 401 Unauthorized', 'E-AUTH-REJECTED', False),
+        ('余额不足，请充值', 'E-QUOTA-EXCEEDED', False),
+        ('内容审核未通过', 'E-CONTENT-POLICY', False),
+        ('参数不合法：size', 'E-NET-CLIENT', False),
+        ('rate limit exceeded', 'E-NET-RATE-LIMIT', True),
+        ('请求超时，请重试', 'E-NET-TIMEOUT', True),
+        ('HTTP 503：服务不可用', 'E-NET-SERVER', True),
+        ('完全没见过的故障', 'E-UNKNOWN', False),
+    )
+
+    def test_each_comparison_row_classifies_to_its_code(self):
+        for text, code, retryable in self.ROWS:
+            with self.subTest(text=text):
+                item = classify(text)
+                self.assertIsInstance(item, ErrorCode)
+                self.assertEqual(item.code, code)
+                self.assertEqual(item.retryable, retryable, code)
+                self.assertIn(item.severity, SEVERITIES)
+
+    def test_text_rules_mirror_patterns_order_categories_and_marks(self):
+        """迁入保真：类目顺序、类目名与每条关键词表与 PATTERNS 逐一相等。"""
+        from ui.pet_agent_rules import PATTERNS
+        self.assertEqual([(category, marks) for category, _code, marks in TEXT_RULES],
+                         [(category, marks) for category, marks in PATTERNS])
+        self.assertEqual([category for category, _code, _marks in TEXT_RULES],
+                         [category for category, _marks in PATTERNS])
+
+    def test_numeric_marks_require_standalone_digits(self):
+        """与 pet_agent._mark_hit 同口径：长数字里的 429 不算被限流。"""
+        self.assertEqual(classify('ComfyUI 进程已退出（退出代码 4294967295）').code, 'E-UNKNOWN')
+        self.assertEqual(classify('被限流').code, 'E-NET-RATE-LIMIT')
+
+    def test_status_parameter_feeds_the_same_haystack(self):
+        self.assertEqual(classify('', status=503).code, 'E-NET-SERVER')
+        self.assertEqual(classify('请求失败', status='429').code, 'E-NET-RATE-LIMIT')
+        self.assertEqual(classify('某个怪问题', status='not-a-number').code, 'E-UNKNOWN')
+        self.assertEqual(classify('某个怪问题', status='').code, 'E-UNKNOWN')
+        self.assertEqual(classify(None).code, 'E-UNKNOWN')
+
+    def test_earlier_category_wins_on_overlap(self):
+        # content（第 3 位）先于 server（第 7 位）；auth（第 1 位）先于 params（第 4 位）
+        self.assertEqual(classify('内容审核未通过，HTTP 500').code, 'E-CONTENT-POLICY')
+        self.assertEqual(classify('401 参数不合法').code, 'E-AUTH-REJECTED')
+
+    def test_new_codes_carry_user_facing_remedy(self):
+        for code in ('E-QUOTA-EXCEEDED', 'E-CONTENT-POLICY'):
+            with self.subTest(code=code):
+                item = error_codes.lookup(code)
+                self.assertTrue(item.user_message and item.remedy)
+                self.assertFalse(item.retryable)
+                self.assertEqual(item.severity, 'recoverable')
 
 
 if __name__ == '__main__':

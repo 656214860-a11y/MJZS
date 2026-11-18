@@ -87,8 +87,8 @@
   "tests.test_artifact_schema_wiring"
  ],
  "tests_ok": true,
- "points_total": 2541,
- "points_covered": 1343,
+ "points_total": 2546,
+ "points_covered": 1349,
  "modules": [
   {
    "module": "aigc_lint.py",
@@ -451,12 +451,6 @@
    "percent": 79.2
   },
   {
-   "module": "file_index.py",
-   "points": 89,
-   "covered": 71,
-   "percent": 79.8
-  },
-  {
    "module": "prompt_templates.py",
    "points": 10,
    "covered": 8,
@@ -473,6 +467,12 @@
    "points": 52,
    "covered": 42,
    "percent": 80.8
+  },
+  {
+   "module": "file_index.py",
+   "points": 89,
+   "covered": 72,
+   "percent": 80.9
   },
   {
    "module": "asset_contract.py",
@@ -536,8 +536,8 @@
   },
   {
    "module": "error_codes.py",
-   "points": 7,
-   "covered": 7,
+   "points": 12,
+   "covered": 12,
    "percent": 100.0
   },
   {
