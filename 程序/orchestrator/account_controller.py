@@ -26,9 +26,11 @@ SESSION_DEAD = frozenset({'session_invalid', 'account_pending_deletion', 'invali
 
 class AccountController:
     def __init__(self, *, submit, background=None, clock=time.time, store=account_store, client=account_client,
-                 enforce=None):
+                 enforce=None, monotonic=time.monotonic):
         self._submit, self._clock, self._store, self._client = submit, clock, store, client
         self._background = background or submit
+        self._monotonic = monotonic
+        self._clock_mark = None
         # 正常入口始终走租约授权，只有显式注入可关闭拦截。
         self.enforce = enforce is None or bool(enforce)
         self._device_id = ''
@@ -47,11 +49,27 @@ class AccountController:
     def now(self):
         return int(self._clock())
 
+    def _estimated_now(self, now):
+        """进程存活期间用单调钟推进过期判断，即使系统时间停止。"""
+        tick = self._monotonic()
+        last_tick, last_now = self._clock_mark or (tick, now)
+        estimate = max(now, last_now + max(0, tick - last_tick))
+        self._clock_mark = (tick, estimate)
+        return int(estimate)
+
+    def clock_backup_available(self):
+        status = getattr(self._store, 'clock_backup_available', None)
+        return status() if status is not None else None
+
     def entitlement(self):
         data = self.session()
-        return entitlement_service.evaluate(data.get('lease'), now=int(self._clock()),
-                                            device_id=self.device_id,
-                                            last_server_time=data.get('server_time') or 0)
+        floor = data.get('server_time') or 0
+        baseline = getattr(self._store, 'clock_baseline', None)
+        if baseline is not None:
+            floor = baseline(floor)
+        now = self.now()
+        return entitlement_service.evaluate(data.get('lease'), now=now, device_id=self.device_id,
+                                            last_server_time=floor, estimated_now=self._estimated_now(now))
 
     def stage_gate(self, stage):
         """阶段启动前置判定：放行返回空串，否则返回拦截原因；只有显式注入关闭拦截时才直接放行。"""
@@ -287,7 +305,7 @@ class AccountController:
         ``rotate=False``（兑换）只替换租约，刷新令牌不变。
         """
         data = data if isinstance(data, dict) else {}
-        fields = {'lease': data.get('lease'), 'server_time': data.get('server_time') or 0}
+        fields = {'lease': data.get('lease')}
         if rotate:
             fields['refresh_token'] = data.get('refresh_token')
         if email is not None:
@@ -301,5 +319,7 @@ class AccountController:
         if checked.state == entitlement_service.SIGNED_OUT:
             # 验签失败或不是本机的租约：不覆盖本机已有的有效会话。
             return SystemError('账号服务返回的授权无法验证，请稍后重试', data={'code': 'lease_unverified'})
+        payload = checked.payload
+        fields['server_time'] = max(int(payload.get('iat_server') or 0), int(payload.get('issued_at') or 0))
         self._store.save_session(fields)
         return success(data)

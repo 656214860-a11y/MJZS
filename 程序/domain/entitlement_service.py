@@ -37,7 +37,7 @@ class Entitlement:
         return self.state in USABLE
 
 
-def evaluate(lease, *, now, device_id, last_server_time=0, keys=None):
+def evaluate(lease, *, now, device_id, last_server_time=0, estimated_now=0, keys=None):
     """按 §4.3 离线状态机判定；``now`` 与 ``last_server_time`` 均为 UTC 秒。"""
     payload = lease_verifier.verify(lease, keys) if lease else None
     if payload is None or not device_id or payload.get('did') != device_id:
@@ -45,11 +45,13 @@ def evaluate(lease, *, now, device_id, last_server_time=0, keys=None):
     try:
         expires_at = int(payload['expires_at'])
         grace_until = int(payload['grace_until'])
-        floor = max(int(last_server_time or 0), int(payload.get('issued_at') or 0))
+        floor = max(int(last_server_time or 0), int(payload.get('iat_server') or 0),
+                    int(payload.get('issued_at') or 0))
     except (KeyError, TypeError, ValueError):
         return Entitlement(SIGNED_OUT)
     if now + CLOCK_TOLERANCE < floor:
         return Entitlement(CLOCK_SUSPECT, payload)
+    now = max(now, estimated_now)
     if payload.get('state') not in PAID_STATES or now >= grace_until:
         return Entitlement(LOCKED, payload)
     return Entitlement(VALID if now < expires_at else GRACE, payload)

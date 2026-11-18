@@ -216,6 +216,31 @@ class AccountStoreTests(unittest.TestCase):
         account_store.save_session({'refresh_token': 'third-fixture'}, self.path)
         self.assertEqual(account_store.load(self.path)['refresh_token'], 'third-fixture')
 
+    def test_clock_baseline_copies_fall_back_independently(self):
+        registry = unittest.mock.MagicMock()
+        registry.KEY_QUERY_VALUE, registry.KEY_SET_VALUE, registry.REG_QWORD = 1, 2, 11
+        clock_value = {'stamp': 0}
+        registry.QueryValueEx.side_effect = lambda *_: (clock_value['stamp'], registry.REG_QWORD)
+        registry.SetValueEx.side_effect = lambda *args: clock_value.update(stamp=args[-1])
+
+        with unittest.mock.patch.object(account_store, 'session_path', return_value=self.path):
+            with unittest.mock.patch.object(account_store, 'windows_registry', return_value=registry):
+                account_store.save_session({'server_time': NOW + 86400, 'lease': sign(payload())})
+                self.assertEqual(clock_value['stamp'], NOW + 86400)
+                account_store._write({'server_time': 0, 'lease': sign(payload())})
+                floor = account_store.clock_baseline(account_store.load()['server_time'])
+                verdict = evaluate(sign(payload(expires_at=NOW - 1)), now=NOW, last=floor)
+                self.assertEqual(verdict.state, ent.CLOCK_SUSPECT)
+
+                account_store.save_session({'server_time': NOW + 86400})
+                clock_value['stamp'] = 0
+                self.assertEqual(account_store.clock_baseline(account_store.load()['server_time']), NOW + 86400)
+                self.assertTrue(account_store.clock_backup_available())
+
+            with unittest.mock.patch.object(account_store, 'windows_registry', return_value=None):
+                self.assertEqual(account_store.clock_baseline(account_store.load()['server_time']), NOW + 86400)
+                self.assertFalse(account_store.clock_backup_available())
+
     def test_two_processes_share_first_fallback_seed(self):
         script = (
             "import sys; from infra.account_store import device_fingerprint; "
@@ -497,6 +522,25 @@ class AccountControllerTests(unittest.TestCase):
         self.assertFalse(disabled.enforce)
         self.assertEqual(disabled.entitlement().state, ent.SIGNED_OUT)
         self.assertTrue(all(not disabled.stage_gate(stage) for stage in STAGES))
+
+    def test_frozen_wall_clock_uses_elapsed_time_to_expire_lease(self):
+        ticks = iter((100.0, 121.0))
+        ctl = account_controller.AccountController(
+            submit=None, clock=lambda: NOW, monotonic=lambda: next(ticks), store=self.store, client=_Client())
+        account_store.save_session({'lease': sign(payload(expires_at=NOW - 1, grace_until=NOW + 20))},
+                                   self.store.path)
+        self.assertEqual(ctl.entitlement().state, ent.GRACE)
+        self.assertEqual(ctl.entitlement().state, ent.LOCKED)
+
+    def test_signed_server_time_takes_precedence_over_response_hint(self):
+        lease = sign(payload(iat_server=NOW + 20))
+        ctl = self.controller(_Client(verify_code=success(
+            {'refresh_token': 'fixture', 'lease': lease, 'server_time': NOW + 9999})))
+        ctl.login('a@b.c', '123456', age_confirmed=True, done=self.results.append)
+        self.assertTrue(self.results[-1].ok)
+        self.assertEqual(ctl.session()['server_time'], NOW + 20)
+        stale = sign(payload(iat_server=NOW + 400))
+        self.assertEqual(evaluate(stale, now=NOW).state, ent.CLOCK_SUSPECT)
 
     def test_logout_keeps_clock_floor_against_replay(self):
         """§8：退出后把旧租约写回并回拨时钟，仍被识别为时钟可疑。"""

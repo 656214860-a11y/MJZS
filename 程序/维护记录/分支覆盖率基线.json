@@ -120,12 +120,6 @@
    "percent": 0.0
   },
   {
-   "module": "lease_verifier.py",
-   "points": 6,
-   "covered": 0,
-   "percent": 0.0
-  },
-  {
    "module": "media.py",
    "points": 18,
    "covered": 0,
@@ -234,6 +228,12 @@
    "percent": 32.3
   },
   {
+   "module": "lease_verifier.py",
+   "points": 6,
+   "covered": 2,
+   "percent": 33.3
+  },
+  {
    "module": "script_contract.py",
    "points": 132,
    "covered": 46,
@@ -252,16 +252,16 @@
    "percent": 35.3
   },
   {
-   "module": "unit_of_work.py",
-   "points": 49,
-   "covered": 19,
-   "percent": 38.8
-  },
-  {
    "module": "model_pool.py",
    "points": 135,
    "covered": 56,
    "percent": 41.5
+  },
+  {
+   "module": "unit_of_work.py",
+   "points": 49,
+   "covered": 21,
+   "percent": 42.9
   },
   {
    "module": "platform_tools.py",
@@ -336,22 +336,22 @@
    "percent": 55.7
   },
   {
-   "module": "file_cache.py",
-   "points": 24,
-   "covered": 14,
-   "percent": 58.3
-  },
-  {
    "module": "workflow_context_budget.py",
    "points": 25,
    "covered": 15,
    "percent": 60.0
   },
   {
+   "module": "file_cache.py",
+   "points": 24,
+   "covered": 15,
+   "percent": 62.5
+  },
+  {
    "module": "account_store.py",
-   "points": 19,
-   "covered": 12,
-   "percent": 63.2
+   "points": 25,
+   "covered": 16,
+   "percent": 64.0
   },
   {
    "module": "global_library_service.py",
@@ -454,6 +454,12 @@
    "points": 24,
    "covered": 19,
    "percent": 79.2
+  },
+  {
+   "module": "file_index.py",
+   "points": 93,
+   "covered": 74,
+   "percent": 79.6
   },
   {
    "module": "prompt_templates.py",

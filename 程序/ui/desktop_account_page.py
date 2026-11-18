@@ -246,6 +246,10 @@ class AccountPageMixin:
         view = entitlement_service.membership_view(entitlement, self.account.now())
         style = {'warn': 'Warn.TLabel', 'expired': 'Expired.TLabel'}.get(view['level'], 'Muted.TLabel')
         lines = list(view['lines'])
+        if self.account.clock_backup_available() is False:
+            notice = '注册表时钟基线不可用，会员授权暂使用本机会话基线。'
+            lines.append(notice)
+            self.status.set(notice)
         if not self.account.enforce:lines.append('测试期暂不拦截。')
         for line in lines:
             ttk.Label(status,text=line,style=style,wraplength=TEXT_DESC['wraplength'],justify='left').pack(anchor='w',pady=(SPACING['xs'],SPACING['none']))

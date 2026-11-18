@@ -19,6 +19,8 @@ SESSION_FILE = ('private', '账户', 'session.json')
 DEVICE_SEED_FILE = ("设备", "seed.txt")
 SESSION_KEYS = ('email', 'refresh_token', 'lease', 'server_time', 'has_password')
 _FINGERPRINT_SALT = 'manju-device-v1:'
+_CLOCK_KEY = r'Software\漫剧制作助手'
+_CLOCK_VALUE = 'clock_floor'
 
 
 def session_path(base=None):
@@ -64,6 +66,45 @@ def _write(data, path=None):
     save(target, session_integrity.seal(data, target))
 
 
+def _read_clock_value(registry, key):
+    try:
+        value, kind = registry.QueryValueEx(key, _CLOCK_VALUE)
+    except FileNotFoundError:
+        return 0
+    return max(0, value) if kind == registry.REG_QWORD and isinstance(value, int) else 0
+
+
+def _registry_clock_floor(path=None, *, value=None):
+    """返回独立基线，访问失败为 None。替代会话路径与主机注册表隔离。"""
+    if path is not None and Path(path) != session_path():
+        return None
+    registry = windows_registry()
+    if registry is None:
+        return None
+    permissions = registry.KEY_QUERY_VALUE | registry.KEY_SET_VALUE
+    try:
+        open_key = registry.OpenKey if value is None else registry.CreateKeyEx
+        with open_key(registry.HKEY_CURRENT_USER, _CLOCK_KEY, 0, permissions) as key:
+            known = _read_clock_value(registry, key)
+            if value is not None and value > known:
+                registry.SetValueEx(key, _CLOCK_VALUE, 0, registry.REG_QWORD, value)
+                return value
+            return known
+    except FileNotFoundError:
+        return 0 if value is None else None
+    except OSError:
+        return None
+
+
+def clock_baseline(session_floor=0, path=None):
+    """JSON 与注册表分别单调保存，读取时合取较高的可信基线。"""
+    return max(int(session_floor or 0), _registry_clock_floor(path) or 0)
+
+
+def clock_backup_available(path=None):
+    return _registry_clock_floor(path) is not None
+
+
 def save_session(fields, path=None):
     """合并写入会话字段；``server_time`` 只增不减（防止旧响应把时钟基线拉回去）。"""
     with access():
@@ -76,6 +117,8 @@ def save_session(fields, path=None):
         if fields.get('email'):
             data['last_email'] = str(fields['email'])      # R2052：退出登录后登录框仍默认填上次的邮箱
         _write(data, path)
+        if data['server_time']:
+            _registry_clock_floor(path, value=data['server_time'])
     return data
 
 
@@ -90,6 +133,7 @@ def note_server_time(server_time, path=None):
         if int(server_time or 0) > int(data.get('server_time') or 0):
             data['server_time'] = int(server_time)
             _write(data, path)
+            _registry_clock_floor(path, value=data['server_time'])
 
 
 def update_seen(path=None):
