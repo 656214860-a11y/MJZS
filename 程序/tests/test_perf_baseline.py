@@ -146,18 +146,20 @@ REFERENCE_LOOP = 1000000        # 参考活的圈数：纯 Python 算一圈，42
 
 
 def machine_speed_ms():
-    """现量一把「这台机器现在有多快」：固定圈数的纯 Python 活，取三次里最快的一次。
+    """三次最快的纯 Python 参考活，结果仍归一到原一百万圈单位。
 
-    门禁判「这一页 CPU 时间 ÷ 参考活」，就不怕机器被降频、也不怕旁边有人抢（第 72 期实测：
-    写死的毫秒数在 42% 频率的机器上会把本来没问题的页面判成退化）。
+    Windows GetProcessTimes 的实测增量为 15.625ms，单份参考活只有两三 tick，
+    取最快会放大量化低估。每个样本连续做八份相同工作再除以八，将计时量化的
+    绝对误差界缩至 1.954ms；不补偿负载或频率变化，不改变三次最快和页面比值10。
     """
     best = None
     for _ in range(3):
         start = time.process_time()
-        total = 0
-        for index in range(REFERENCE_LOOP):
-            total += index * index % 7
-        spent = (time.process_time() - start) * 1000.0
+        for _ in range(8):
+            total = 0
+            for index in range(REFERENCE_LOOP):
+                total += index * index % 7
+        spent = (time.process_time() - start) * 1000.0 / 8
         best = spent if best is None else min(best, spent)
     return max(1.0, best)
 
