@@ -87,6 +87,10 @@ def upstream_send_error(project, stage):
     stage = str(stage or '')
     if not stage or stage == 'script' or stage not in pet_bus.STAGES:
         return ''
+    if project in (None, ''):
+        # REQ-S13-54：completion_evidence(None) 已改判未完成；无项目放行是本门禁
+        # 自己的契约（简报门禁由宿主发送路径负责），不能靠证据缺省值顺带放行。
+        return ''
     try:
         import orchestrator.stage_parallel as stage_parallel
         row = stage_parallel.gate_for(stage)

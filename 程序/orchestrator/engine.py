@@ -228,6 +228,27 @@ def current_episode(project):
     return path if path.is_file() else None
 
 
+def edit_ready_rows(root,shots,state_shots):
+    """逐镜汇总「已下载＋技术合格＋已验收且文件摘要一致」的版本。
+
+    ``Studio.auto_edit_ready`` 与 ``stage_completion_service.edit_ready_for_project`` 共用这一份选版内核：
+    返回 ``(成片指纹, 就绪版本清单)``；有镜头未就绪返回 ``(None, 未就绪原因列表)``。
+    """
+    rows=[];waiting=[]
+    waiting_text={ADOPT_UNAPPROVED:' 尚未验收',ADOPT_MISSING:' 视频文件缺失',
+                  ADOPT_REPLACED:' 视频已被替换，需重新验收',ADOPT_UNREADABLE:' 视频无法读取'}
+    for shot in shots or []:
+        if shot.get('video_deleted'):continue
+        sid=shot.get('id')
+        v,reason=adopted_edit_version((state_shots or {}).get(sid),root)
+        if v is None:
+            waiting.append(str(sid)+waiting_text.get(reason,' 视频不可用'));continue
+        rows.append({'shot':sid,'version':v['version'],'sha256':v['sha256']})
+    if waiting:return None,waiting
+    if not rows:return None,['本集没有可剪辑的镜头']
+    return fingerprint(rows),rows
+
+
 def _media_tool(cfg,name):
     """ffmpeg/ffprobe 在读取时统一解析：显式有效配置 > 随包 > PATH（R3154）。
 
@@ -627,19 +648,9 @@ class Studio:
 
         只有本集每个未删除镜头都有「已下载＋技术质检通过＋已验收」且文件与验收指纹一致的版本，
         才给出指纹；否则返回 (None, 未就绪原因列表)，由调用方决定何时再试。
+        选版内核与无界面核验 ``stage_completion_service.edit_ready_for_project`` 共用 ``edit_ready_rows``（REQ-S10-22）。
         """
-        st=self.state();rows=[];waiting=[]
-        waiting_text={ADOPT_UNAPPROVED:' 尚未验收',ADOPT_MISSING:' 视频文件缺失',
-                      ADOPT_REPLACED:' 视频已被替换，需重新验收',ADOPT_UNREADABLE:' 视频无法读取'}
-        for shot in self.episode['shots']:
-            if shot.get('video_deleted'):continue
-            v,reason=adopted_edit_version(st['shots'].get(shot['id']),self.root)
-            if v is None:
-                waiting.append(shot['id']+waiting_text.get(reason,' 视频不可用'));continue
-            rows.append({'shot':shot['id'],'version':v['version'],'sha256':v['sha256']})
-        if waiting:return None,waiting
-        if not rows:return None,['本集没有可剪辑的镜头']
-        return fingerprint(rows),rows
+        return edit_ready_rows(self.root,self.episode['shots'],self.state()['shots'])
 
     def assemble(self,shot_ids=None,skip_unready=False,report=None):
         """拼装成片。skip_unready=True：跳过未验收／文件缺失的镜头，只在没有任何可用镜头时报错；

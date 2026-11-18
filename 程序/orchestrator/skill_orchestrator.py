@@ -45,22 +45,38 @@ CHECKPOINT_VERSION = 2
 
 
 def verified_stage_output(project, stage):
-    """返回编排器可独立验证的阶段成果。
+    """返回编排器可独立验证的阶段成果（REQ-S13-54：全部 13 个生产阶段同一判据）。
 
-    SKILL 的返回值只说明工具函数跑完，不能作为三虎“阶段完成”的证据。只有这里
-    明确检查到磁盘上的当前阶段成果，编排器才可发送完成事件；其余阶段由各自的
-    生成→校验→采用服务在真正收尾时上报，避免“页面仍未制作却显示已完成”。
+    SKILL 的返回值只说明工具函数跑完，不能作为三虎“阶段完成”的证据。这里把
+    ``project`` 交给 ``stage_completion_service.completion_evidence`` 按磁盘成果
+    判定——页面未打开的 L3 路径与界面路径共用同一份证据规则；无项目、空目录或
+    证据不全一律 False，编排器据此只发 ``stage.paused`` 不发 ``stage.completed``。
     """
-    root = Path(project or '')
-    if not root.is_dir():
+    if project in (None, ''):
         return False
-    if stage not in ('script', 'script_structure'):
+    try:
+        root = Path(project)
+    except (TypeError, ValueError):
+        return False
+    if not root.is_dir():
         return False
     try:
         import orchestrator.stage_completion_service as stage_completion_service  # 判据只在完成服务一处（R2178 J16）
         return bool(stage_completion_service.completion_evidence(root, stage)[0])
     except (OSError, TypeError, ValueError):
         return False
+
+
+def report_skill_completion(bus, errors, project, stage, text):
+    """REQ-S13-54：SKILL 跑完后的唯一完成出口——经 stage_completion_service 核验磁盘
+    证据后才发 ``stage.completed``；终态事件经 ``with_current_run`` 带本轮 run，与
+    界面路径同 run 去重（R4A/R3286）。返回 ``(completed, 未通过原因)``。"""
+    import orchestrator.stage_completion_service as stage_completion_service
+    completed, detail, _emitted = stage_completion_service.emit_verified_completion(
+        project, stage, text,
+        lambda kind, **payload: pet_bus.emit_safe(
+            bus, errors, kind, **pet_bus.with_current_run(bus, kind, payload)))
+    return completed, detail
 
 
 def project_status_path(project=None):
@@ -606,7 +622,10 @@ class Orchestrator:
             status, detail = DONE, '做完了'
         # ``script.completed`` 是三虎自动链的唯一启动信号。工具本身返回完成，
         # 并不等同于自然剧本已经保存；没有可读原稿时绝不能让下游结构化阶段抢跑。
-        output_verified = status == DONE and verified_stage_output(context.get('project'), item.stage)
+        # 其余阶段的完成判定统一交给下方 emit_verified_completion 一次核验（REQ-S13-54），
+        # 这里不再对全部阶段预扫一遍磁盘证据（video／媒体阶段的核验要读文件与探测）。
+        output_verified = (status == DONE and item.stage in ('script', 'script_structure')
+                           and verified_stage_output(context.get('project'), item.stage))
         if status == DONE and item.stage in ('script', 'script_structure') and not output_verified:
             if item.stage == 'script':
                 status = FAILED
@@ -625,17 +644,18 @@ class Orchestrator:
                     # 第 54 期附件四第 3 条：剧本做完就是自动推进那条链的起点。
                     pet_bus.emit_safe(self.bus, self.errors, 'script.completed', stage=item.stage,
                                       skill=item.name, run=run or None)
-                # 只有当前模块能直接验证成果的两段剧本可以在此收场。初步分镜及
-                # 其他阶段的 SKILL “done”常只是派发或检查完成，必须由对应服务在
-                # 生成→校验→采用后发 stage.completed，不能让三虎产生假完成提示。
-                if output_verified:
-                    pet_bus.emit_safe(self.bus, self.errors, 'stage.completed', stage=item.stage,
-                                      skill=item.name, run=run or None)
-                else:
+                # REQ-S13-54：stage.completed 一律经 stage_completion_service 按磁盘
+                # 证据发出（report_skill_completion）——13 个阶段同一判据，页面未打开
+                # 的 L3 路径也能完成；SKILL 的 DONE 只是「可进入核验」。证据不通过仍
+                # 只发 stage.paused（附核验原因），不推进自动链。
+                completed, ev_detail = report_skill_completion(
+                    self.bus, self.errors, context.get('project'), item.stage, detail)
+                if not completed:
                     # 释放按钮的“执行中”视觉状态，但不改变 pet_state 的成功状态，也
                     # 不触发自动链。用户仍可继续操作或等待后台产物校验完成。
                     pet_bus.emit_safe(self.bus, self.errors, 'stage.paused', stage=item.stage,
-                                      reason='SKILL 已执行，等待已验证的阶段成果')
+                                      reason='SKILL 已执行，等待已验证的阶段成果'
+                                             + (('：' + str(ev_detail)) if ev_detail else ''))
             elif status == FAILED:
                 pet_bus.emit_safe(self.bus, self.errors, 'stage.failed', stage=item.stage,
                                   error=detail, skill=item.name, run=run or None)

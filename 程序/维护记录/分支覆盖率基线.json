@@ -95,8 +95,8 @@
   "tests.test_writing_api"
  ],
  "tests_ok": true,
- "points_total": 2737,
- "points_covered": 1517,
+ "points_total": 2741,
+ "points_covered": 1522,
  "modules": [
   {
    "module": "comfy_service.py",
@@ -309,16 +309,16 @@
    "percent": 50.0
   },
   {
-   "module": "diagnostic_capture.py",
-   "points": 85,
-   "covered": 43,
-   "percent": 50.6
-  },
-  {
    "module": "model_secrets.py",
    "points": 33,
    "covered": 17,
    "percent": 51.5
+  },
+  {
+   "module": "diagnostic_capture.py",
+   "points": 89,
+   "covered": 46,
+   "percent": 51.7
   },
   {
    "module": "pet_bus.py",
@@ -501,12 +501,6 @@
    "percent": 85.7
   },
   {
-   "module": "asset_contract.py",
-   "points": 66,
-   "covered": 57,
-   "percent": 86.4
-  },
-  {
    "module": "business_log.py",
    "points": 15,
    "covered": 13,
@@ -517,6 +511,12 @@
    "points": 37,
    "covered": 33,
    "percent": 89.2
+  },
+  {
+   "module": "asset_contract.py",
+   "points": 66,
+   "covered": 59,
+   "percent": 89.4
   },
   {
    "module": "file_naming.py",

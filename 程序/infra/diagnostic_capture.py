@@ -559,8 +559,72 @@ def _check_temporary_leftovers(program):
                      '多为被占用或权限拒绝的文件；可手动清理项目目录下的 *.tmp/*.download 残留')
 
 
+# ---------- §3c-3 族开关（A1111 同构；GUI 等价物＝旗标文件） ----------
+#
+# 乙类 L1 检查按「族」命名开关，每族一个、只认自己那族；甲类 FATAL 仍只有全局
+# ``selfcheck_failopen.flag``（G12 不变），族开关管不到甲类：
+#   ``data/selfcheck_skip_<族>.flag``    跳过该族检查（探针不执行），并留一条
+#                                       DEGRADED 诊断 ``selfcheck-skip-<族>`` 注明已跳过；
+#   ``data/selfcheck_disable_<族>.flag`` 该族检查照跑，但产出与自身异常一并抑制
+#                                       （关掉该族告警，完全静默）。
+# 旗标在 ``data/`` 下、与 failopen 同为零依赖旗标文件；读取失败按未开处理不挡自检。
+_SKIP_FLAG_PREFIX = 'selfcheck_skip_'
+_DISABLE_FLAG_PREFIX = 'selfcheck_disable_'
+_FLAG_SUFFIX = '.flag'
+_SELFTEST_SCOPE = 'selfcheck'
+
+# 启动自检乙类检查的「族」登记：顺序与 ``startup_checks`` 的检查元组一一对应；
+# 新增检查须同轮在此登记族名（族名只用 [a-z0-9_]，即旗标文件名 ``selfcheck_{skip,disable}_<族>.flag`` 的 <族>）。
+_STARTUP_CHECK_FAMILIES = (
+    'data_writable', 'disk_space', 'model_pool', 'bundled_tools',
+    'dependency_lock', 'settings_corrupt',
+    'request_ledger_corrupt', 'ledger_unknown_stale',
+    'ui_settings_corrupt', 'temporary_leftovers',
+)
+
+
+def _family_flag_enabled(root, prefix, family):
+    """``data/<前缀><族名>.flag`` 存在即开；OSError 按未开（旗标读不出不挡自检）。"""
+    try:
+        return (Path(root) / 'data' / (prefix + family + _FLAG_SUFFIX)).is_file()
+    except OSError:
+        return False
+
+
+def _skip_diagnostic(family):
+    """skip 旗标的可见诊断：DEGRADED、scope=selfcheck、码随族名（状态栏按码去重不串族）。"""
+    return _degraded(_SELFTEST_SCOPE, 'selfcheck-skip-' + family.replace('_', '-'),
+                     '启动自检族「%s」已按 data/selfcheck_skip_%s.flag 跳过'
+                     % (family, family),
+                     '如需恢复该项检查，请删除对应旗标文件后重启')
+
+
+def _family_check(root, family, check):
+    """给一个零参乙类检查包上族开关：skip→返回跳过诊断（探针不执行）；
+    disable→检查照跑、产出与异常一并抑制（返回 None，完全静默）；无旗标→原样返回。"""
+    if _family_flag_enabled(root, _SKIP_FLAG_PREFIX, family):
+        def skipped():
+            return _skip_diagnostic(family)
+        skipped.__name__ = 'skip_' + family
+        return skipped
+    if _family_flag_enabled(root, _DISABLE_FLAG_PREFIX, family):
+        def disabled():
+            try:
+                check()
+            except Exception:
+                app_logging.swallowed()
+            return None
+        disabled.__name__ = 'disable_' + family
+        return disabled
+    return check
+
+
 def startup_checks(program=None):
-    """L1 环境检查项（D3-g 乙类六项＋L1 任务书轮 6 四项）：返回零参数可调用对象元组，由启动器注入 ``selfcheck.run``。"""
+    """L1 环境检查项（D3-g 乙类六项＋L1 任务书轮 6 四项）：返回零参数可调用对象元组，由启动器注入 ``selfcheck.run``。
+
+    每项检查对应一个「族」开关（§3c-3）：``data/selfcheck_skip_<族>.flag`` 跳过该族并留诊断，
+    ``data/selfcheck_disable_<族>.flag`` 关闭该族告警（产出被抑制）。族名见 ``_STARTUP_CHECK_FAMILIES``。
+    """
     root = Path(program or PROGRAM)
 
     def data_writable():
@@ -593,10 +657,12 @@ def startup_checks(program=None):
     def temporary_leftovers():
         return _check_temporary_leftovers(root)
 
-    return (data_writable, disk_space, model_pool_empty,
-            bundled_tools, dependency_lock, settings_corrupt,
-            request_ledger_corrupt, ledger_unknown_stale,
-            ui_settings_corrupt, temporary_leftovers)
+    checks = (data_writable, disk_space, model_pool_empty,
+              bundled_tools, dependency_lock, settings_corrupt,
+              request_ledger_corrupt, ledger_unknown_stale,
+              ui_settings_corrupt, temporary_leftovers)
+    return tuple(_family_check(root, family, check)
+                 for family, check in zip(_STARTUP_CHECK_FAMILIES, checks))
 
 
 # ---------- G12 关闭开关与自检入口 ----------

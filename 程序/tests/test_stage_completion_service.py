@@ -11,8 +11,15 @@ from agent.core import save, read
 
 
 class CompletionEvidenceTests(unittest.TestCase):
-    def test_missing_project_keeps_lightweight_host_compatible(self):
-        self.assertEqual(completion_evidence(None, 'keyframe'), (True, ''))
+    def test_req_s13_54_missing_project_is_never_complete(self):
+        """REQ-S13-54：无项目＝空项目＝未完成；旧口径「root 为空直接通过」已废弃。"""
+        import pet_bus
+        for stage in pet_bus.STAGES:
+            with self.subTest(stage=stage):
+                ok, detail = completion_evidence(None, stage)
+                self.assertFalse(ok, '%s 不应因无项目判完成' % stage)
+                self.assertTrue(str(detail))
+        self.assertFalse(completion_evidence('', 'keyframe')[0])
 
     def test_subtitle_alone_does_not_complete_audio(self):
         with tempfile.TemporaryDirectory() as td:
@@ -53,6 +60,26 @@ class MediaCompletionTests(unittest.TestCase):
         path = folder / (name or ('output.wav' if stage == 'audio' else 'output.mp4'))
         path.write_bytes(b'fixture-media')
         return path
+
+    def test_req_s10_22_video_without_callback_reads_episode_and_state(self):
+        """REQ-S10-22：无 video_ready 回调时按镜头 JSON＋data/state.json 同口径核验。"""
+        # setUp 已把 ui_settings.frame_json 指到 storyboard/episode.json（镜头 S01），
+        # 但还没有任何已下载＋验收版本 → 未完成。
+        ok, detail = completion_evidence(self.root, 'video')
+        self.assertFalse(ok)
+        self.assertIn('S01', detail)
+        media = self.root / 'data' / 'S01' / 'v001' / 'S01.mp4'
+        media.parent.mkdir(parents=True)
+        media.write_bytes(b'approved-video')
+        from agent.core import file_hash
+        save(self.root / 'data' / 'state.json', {'schema': 1, 'shots': {'S01': [{
+            'version': 1, 'state': 'downloaded', 'review': 'pass', 'qc_pass': True,
+            'file': 'data/S01/v001/S01.mp4', 'sha256': file_hash(media)}]}})
+        ok, detail = completion_evidence(self.root, 'video')
+        self.assertTrue(ok, detail)
+        # 摘要被替换后同一核验必须重新判未完成（与 Studio.auto_edit_ready 同口径）。
+        media.write_bytes(b'tampered-video')
+        self.assertFalse(completion_evidence(self.root, 'video')[0])
 
     def prepare(self, stage, path):
         kind = 'audio' if stage == 'audio' else 'video'

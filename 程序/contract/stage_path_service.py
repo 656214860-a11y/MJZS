@@ -7,15 +7,11 @@ import contract.stage_layout as stage_layout
 # 旧英文目录只服务于已存在的历史项目；到期后删除兼容分支前必须迁移并复核调用方。
 LEGACY_READ_UNTIL = date(2027, 3, 31)
 
-_STAGES = {
-    'script': 'script', 'structure': 'script_structure', 'script_structure': 'script_structure',
-    'storyboard': 'storyboard', 'animatic': 'animatic', 'assets': 'assets', 'continuity': 'continuity',
-    'final': 'final', 'frames': 'keyframe', 'keyframe': 'keyframe', 'previs': 'previs',
-    'video': 'video', 'audio': 'audio', 'editing': 'edit', 'edit': 'edit', 'delivery': 'delivery',
-}
+# 阶段键 → 规范阶段 id 的唯一解析口径在 contract.stage_layout
+# （canonical_stage_id：STAGE_ALIASES 历史拼写 ＋ STAGES 第 2 列），本模块不再另存阶段表。
+# _LEGACY／LEGACY_NUMBERED 的键一律是规范阶段 id，不再为历史拼写各留一份。
 _LEGACY = {
     'script': ('writing',),
-    'structure': ('writing/结构剧本',),
     'script_structure': ('writing/结构剧本',),
     'storyboard': ('storyboard/分镜拆分',),
     'assets': ('episode/assets/资产清单',),
@@ -43,7 +39,7 @@ def shared_reference_read_dirs(project):
 
 def write_dir(project, stage):
     """返回唯一的当前阶段写入目录；绝不创建或返回旧英文目录。"""
-    key = _STAGES.get(str(stage))
+    key = stage_layout.canonical_stage_id(stage)
     if key is None:
         raise ValueError('未知阶段：' + str(stage))
     folder = next((row[0] for row in stage_layout.STAGES if row[1] == key), None)
@@ -57,12 +53,12 @@ def legacy_read_dirs(project, stage, today=None):
     if (today or date.today()) > LEGACY_READ_UNTIL:
         return ()
     root = Path(project)
-    return tuple(root / relative for relative in _LEGACY.get(str(stage), ()))
+    return tuple(root / relative for relative in _LEGACY.get(stage_layout.canonical_stage_id(stage), ()))
 
 
 def read_dirs(project, stage, today=None):
     """当前目录优先，旧目录仅作为只读回退，且不重复。"""
-    old = LEGACY_NUMBERED.get(_STAGES.get(str(stage)))
+    old = LEGACY_NUMBERED.get(stage_layout.canonical_stage_id(stage))
     values = [write_dir(project, stage)]
     if old:
         values.append(Path(project) / old)

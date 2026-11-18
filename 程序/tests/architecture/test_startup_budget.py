@@ -28,6 +28,8 @@ STARTUP_CHAIN = {
         '_check_data_writable', '_check_disk_space', '_check_model_pool',
         '_check_bundled_tools', '_check_dependency_lock', '_check_settings_corrupt',
         '_installed_distributions', '_parse_dependency_lock',
+        # 轮 7B §3c-3：族开关三个助手同在启动链上（startup_checks 逐项包裹调用），一并受检。
+        '_family_flag_enabled', '_skip_diagnostic', '_family_check',
     )),
 }
 
