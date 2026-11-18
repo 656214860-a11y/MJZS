@@ -51,7 +51,7 @@ import threading
 import time
 import uuid
 import weakref
-from collections.abc import Iterable
+from collections import abc
 from pathlib import Path
 
 import infra.app_logging as app_logging
@@ -366,7 +366,7 @@ def recover_pending():
             app_logging.swallowed('unit_of_work.recover_pending')
 
 
-def begin(paths: Iterable[Path]) -> object:
+def begin(paths: abc.Iterable[Path]) -> object:
     """登记 ``paths`` 的原内容备份并返回事务令牌；语义见模块 docstring。"""
     _locking()
     recover_pending()                        # 先清扫上次中断留下的 journal
