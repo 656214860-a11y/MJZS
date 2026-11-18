@@ -10,12 +10,12 @@
 import io
 import tempfile
 import unittest
-from email.message import Message
 from pathlib import Path
 from unittest.mock import patch
 import json
 import urllib.request
-import urllib.response
+import requests
+from urllib3.response import HTTPResponse
 
 from infra import model_diagnostics
 import infra.model_pool as model_pool
@@ -111,20 +111,39 @@ class ClaudeAdapterUsageTests(unittest.TestCase):
 
 class StreamUsageTests(unittest.TestCase):
     def stream(self, body):
-        seen = []
+        seen, responses = [], []
 
-        def respond(handler, request):
+        def respond(adapter, prepared, **settings):
+            self.assertEqual(prepared.url, 'https://provider.invalid/v1/chat/completions')
+            request = urllib.request.Request(prepared.url, data=prepared.body,
+                                             headers=dict(prepared.headers), method=prepared.method)
             seen.append(request)
-            response = urllib.response.addinfourl(io.BytesIO(body), Message(), request.full_url, 200)
-            response.msg = 'OK'
-            self.addCleanup(response.close)
+            response = requests.Response()
+            response.status_code, response.url, response.reason = 200, prepared.url, 'OK'
+            response.request = prepared
+            response.raw = HTTPResponse(io.BytesIO(body), preload_content=False)
+            responses.append(response)
             return response
 
-        with patch('urllib.request._opener', None), \
-                patch.object(urllib.request.HTTPSHandler, 'https_open', respond):
-            chunks = []
-            result = model_pool.http_stream('https://provider.invalid/v1/chat/completions',
-                                            {'model': 'm', 'messages': []}, {}, 3, chunks.append)
+        with patch('socket.getaddrinfo', side_effect=AssertionError('unexpected real DNS')), \
+                patch('socket.socket.connect', side_effect=AssertionError('unexpected real network')), \
+                patch.object(requests.adapters.HTTPAdapter, 'send', respond):
+            import socket
+            with self.assertRaisesRegex(AssertionError, 'unexpected real DNS'):
+                socket.getaddrinfo('provider.invalid', 443)
+            with socket.socket() as connection:
+                with self.assertRaisesRegex(AssertionError, 'unexpected real network'):
+                    connection.connect(('127.0.0.1', 443))
+            try:
+                with patch.dict('os.environ', {'DRAMA_SUPPRESS_NETWORK': '0'}):
+                    chunks = []
+                    result = model_pool.http_stream('https://provider.invalid/v1/chat/completions',
+                                                    {'model': 'm', 'messages': []}, {}, 3, chunks.append)
+            finally:
+                for response in responses:
+                    response.close()
+        self.assertEqual(len(seen), 1)
+        self.assertTrue(all(response.raw.closed for response in responses))
         return result, seen, chunks
 
     def test_stream_requests_usage_and_reads_the_final_usage_chunk(self):

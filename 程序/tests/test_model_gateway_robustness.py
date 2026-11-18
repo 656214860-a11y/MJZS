@@ -4,7 +4,8 @@ import io
 import gzip
 import tempfile
 import unittest
-import urllib.request
+import requests
+from urllib3.response import HTTPResponse
 from email.message import Message
 from pathlib import Path
 from unittest.mock import patch
@@ -41,19 +42,37 @@ class RetryAfterTests(unittest.TestCase):
 
 class StreamLifecycleTests(unittest.TestCase):
     def stream(self, body):
-        seen = []
+        seen, responses, requests_seen = [], [], []
 
-        def respond(handler, request):
-            response = urllib.response.addinfourl(io.BytesIO(body), Message(), request.full_url, 200)
-            response.msg = 'OK'
-            self.addCleanup(response.close)
+        def respond(adapter, prepared, **settings):
+            self.assertEqual(prepared.url, 'https://provider.invalid/v1/chat/completions')
+            requests_seen.append(prepared)
+            response = requests.Response()
+            response.status_code, response.url, response.reason = 200, prepared.url, 'OK'
+            response.request = prepared
+            response.raw = HTTPResponse(io.BytesIO(body), preload_content=False)
+            responses.append(response)
             return response
 
-        with patch('urllib.request._opener', None), \
-                patch.object(urllib.request.HTTPSHandler, 'https_open', respond):
-            result = model_pool.http_stream(
-                'https://provider.invalid/v1/chat/completions',
-                {'model': 'm', 'messages': []}, {}, 3, seen.append)
+        with patch('socket.getaddrinfo', side_effect=AssertionError('unexpected real DNS')), \
+                patch('socket.socket.connect', side_effect=AssertionError('unexpected real network')), \
+                patch.object(requests.adapters.HTTPAdapter, 'send', respond):
+            import socket
+            with self.assertRaisesRegex(AssertionError, 'unexpected real DNS'):
+                socket.getaddrinfo('provider.invalid', 443)
+            with socket.socket() as connection:
+                with self.assertRaisesRegex(AssertionError, 'unexpected real network'):
+                    connection.connect(('127.0.0.1', 443))
+            try:
+                with patch.dict('os.environ', {'DRAMA_SUPPRESS_NETWORK': '0'}):
+                    result = model_pool.http_stream(
+                        'https://provider.invalid/v1/chat/completions',
+                        {'model': 'm', 'messages': []}, {}, 3, seen.append)
+            finally:
+                for response in responses:
+                    response.close()
+        self.assertEqual(len(requests_seen), 1)
+        self.assertTrue(all(response.raw.closed for response in responses))
         return result, seen
 
     def test_stream_without_completion_event_is_rejected(self):
