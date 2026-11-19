@@ -1,0 +1,15 @@
+{
+  "round": 3721,
+  "commit_base": "133b8918",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k job_store asset_resume",
+    "exit": 0,
+    "passed": 25,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T12:30:02"
+}

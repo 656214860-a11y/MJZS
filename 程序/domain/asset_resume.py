@@ -18,6 +18,7 @@
 「打开项目」拦下来。
 """
 import time
+import sqlite3
 from pathlib import Path
 from functools import wraps
 import logging
@@ -106,7 +107,38 @@ def note_round(project, ids, limit=None, now=None, *, publish=None):
             data[aid]['state'] = 'stopped'
             data[aid]['next_try'] = None
     publish(path(project), data)
+    _dual_write(project, data)
     return success(data)
+
+
+def _dual_write(project, data):
+    """I19 试点：把台账镜像进通用作业库；旧台账仍是读取权威，双写失败不阻断本轮。"""
+    try:
+        from infra.job_store import open_store
+        with open_store(project) as store:
+            for job in store.list():
+                if job['key'] not in data and job['state'] != 'succeeded':
+                    store.mirror(job['key'], job['kind'], attempts=job['attempts'],
+                                 next_try=None, state='succeeded')
+            for aid, entry in data.items():
+                store.mirror(aid, 'asset_resume', attempts=entry['attempts'],
+                             next_try=entry['next_try'],
+                             state='retrying' if entry['state'] == 'waiting' else 'stopped')
+    except (OSError, sqlite3.Error):
+        logging.getLogger('asset_resume').exception('作业库双写失败（旧台账不受影响）')
+
+
+def consistency_report(project):
+    """I19-2 一致性检查：旧台账与作业库的差异报告（missing/field_diffs）。"""
+    from infra.job_store import open_store
+    ledger = load(project)
+    mapped = {aid: {'attempts': entry.get('attempts'),
+                    'next_try': entry.get('next_try'),
+                    'state': entry.get('state')}
+              for aid, entry in ledger.items()}
+    with open_store(project) as store:
+        return store.reconcile(
+            mapped, state_map={'waiting': 'retrying', 'stopped': 'stopped'})
 
 
 def delay(project, now=None):
