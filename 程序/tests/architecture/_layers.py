@@ -42,7 +42,7 @@ _register(5, "app_shortcut")
 # R741：顶层运行期模块必须逐一入表。层级按实际静态依赖和职责判断，不能以名称后缀代替。
 _register(0, "artifact_schema", "api_models", "frame_checks", "model_protocol", "pet_settings_contract",
           "prop_assets", "shot_selection", "storyboard_contract", "workflow_context_budget")
-_register(1, "api_endpoints", "broadcaster", "clipboard_lock",
+_register(1, "api_endpoints", "broadcaster", "budget", "clipboard_lock",
           "comfy_service", "engine_probe", "executors", "http_client", "metrics", "model_diagnostics", "model_router",
           "native_apps", "resources", "seedream_api", "token_saver", "tk_timers", "global_library_service")
 _register(2, "asset_batch_settings_service", "asset_plan", "asset_resume", "audio_import_service", "edit_export", "usage_overview",
@@ -51,7 +51,7 @@ _register(2, "asset_batch_settings_service", "asset_plan", "asset_resume", "audi
           "storyboard_adoption_contract", "storyboard_rows_service",
           "storyboard_storage", "subtitle_export_service", "video_lifecycle_service", "video_prompt_publication",
           "video_task_state", "workflow_context", "writing", "writing_tools", "writing_quality", "writing_stream")
-_register(3, "image_agent_runner", "keyframe_model_service", "skill_budget", "skill_templates", "subtitle_export_controller",
+_register(3, "image_agent_runner", "keyframe_model_service", "pet_budget", "skill_budget", "skill_templates", "subtitle_export_controller",
           "stage_handler_registry", "storyboard_recycle_service", "workflow_context_controller", "workflow_engines", "recycle_recovery_controller")
 _register(4, "desktop_auto_flows", "desktop_direct_dispatch", "desktop_storyboard_direct", "desktop_audio_direct", "desktop_video_prompt_direct", "desktop_image_direct", "desktop_file_card", "desktop_idea_bubbles", "desktop_idea_attachments", "desktop_page_registry", "desktop_tk_gc", "desktop_tray", "desktop_automation_tick", "desktop_layout", "desktop_layout_resize", "desktop_pet_bridge", "desktop_async_tasks", "desktop_idea_chat", "desktop_idea_deferred", "desktop_writing_page", "desktop_storyboard_page", "desktop_idea_menus", "pet_ui_support", "pet_ui_stages", "pet_ui_settings", "pet_ui_voice", "pet_ui_view", "pet_ui_popup", "desktop_asset_pages", "desktop_script_pages", "desktop_script_edit_session", "desktop_media_pages", "desktop_project_pages", "desktop_page_support", "task_center_ui", "environment_check", "version_picker", "skill_import_service", "skill_archive", "skill_remote_service", "skill_lifecycle_service", "skill_security_service", "asset_reference_images", "asset_reference_import", "desktop_idea_send_gate", "desktop_writing_snapshots", "desktop_voice_input", 
           "asset_reference_search", "asset_skill_batch", "background_characters", "keyframe_comfy",
@@ -216,6 +216,7 @@ SAME_LAYER_EDGES: frozenset[tuple[str, str]] = frozenset({
     ('background_characters', 'ui_widgets'),
     ('broadcaster', 'app_logging'),
     ('business_log', 'app_logging'),
+    ('budget', 'request_ledger'),
     ('cell_hover', 'cell_menu'),
     ('cell_hover', 'ui_widgets'),
     ('cell_menu', 'ui_widgets'),

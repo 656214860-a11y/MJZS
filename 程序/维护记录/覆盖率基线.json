@@ -1471,6 +1471,12 @@
    "percent": 32.1
   },
   {
+   "module": "infra/budget.py",
+   "covered": 0,
+   "total": 115,
+   "percent": 0.0
+  },
+  {
    "module": "infra/business_log.py",
    "covered": 0,
    "total": 69,
@@ -2050,6 +2056,12 @@
    "module": "orchestrator/pet_broadcast_state.py",
    "covered": 0,
    "total": 79,
+   "percent": 0.0
+  },
+  {
+   "module": "orchestrator/pet_budget.py",
+   "covered": 0,
+   "total": 49,
    "percent": 0.0
   },
   {
@@ -4028,5 +4040,5 @@
   }
  ],
  "modules_covered": 88,
- "modules_total": 668
+ "modules_total": 670
 }
