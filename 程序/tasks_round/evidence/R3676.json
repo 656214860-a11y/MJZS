@@ -1,0 +1,15 @@
+{
+  "round": 3676,
+  "commit_base": "04fce634",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_publication_recovery test_publication_transaction test_publication_fsync_budget test_recycle_write_ahead test_recycle_restore test_stage_file_index_publication",
+    "exit": 0,
+    "passed": 44,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T09:32:56"
+}

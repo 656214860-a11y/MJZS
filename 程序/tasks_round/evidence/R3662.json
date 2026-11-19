@@ -1,0 +1,15 @@
+{
+  "round": 3662,
+  "commit_base": "afe4598b",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_skill_import_validation test_skill_lifecycle test_skill_repo_import test_l1_reliability_r3248",
+    "exit": 0,
+    "passed": 83,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T08:48:39"
+}

@@ -35,7 +35,7 @@ def replace(source, target):
     key = os.path.normcase(os.path.abspath(target))
     from agent.publication import access, before_replace
     with access(), _PUBLISH_LOCKS[hash(key) % len(_PUBLISH_LOCKS)]:
-        before_replace(target)
+        before_replace(target, source)
         _replace_locked(source, target)
 
 

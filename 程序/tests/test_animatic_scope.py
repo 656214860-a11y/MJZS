@@ -2,7 +2,7 @@
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pet_bus
 import script_contract
@@ -10,9 +10,17 @@ import stage_flow
 from orchestrator import stage_handler_registry
 import stage_layout
 import stage_parallel
+from desktop import Desktop
+from ui.pet_ui_stages import stage_run_action
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILL = ROOT / 'skills' / '04 分镜预演SKILL' / 'pipeline-animatic.skill.md'
+
+
+def _host(**attrs):
+    host = Mock(**attrs)
+    host.present_stage = Desktop.present_stage.__get__(host)
+    return host
 
 
 class AnimaticScopeTests(unittest.TestCase):
@@ -25,14 +33,36 @@ class AnimaticScopeTests(unittest.TestCase):
 
     def test_req_s04_03_start_only_opens_the_page_and_never_generates(self):
         with tempfile.TemporaryDirectory() as folder:
-            manual = Mock(root=Path(folder), pet=None)
-            self.assertEqual(stage_handler_registry.start(manual, 'animatic', 'manual'), '')
-            auto = Mock(root=Path(folder))
-            reply = stage_handler_registry.start(auto, 'animatic', 'auto')
+            manual = _host(root=Path(folder), pet=None)
+            self.assertEqual(stage_handler_registry.start(
+                manual, 'animatic', 'manual', run_action=stage_run_action), '')
+            auto = _host(root=Path(folder))
+            reply = stage_handler_registry.start(auto, 'animatic', 'auto', run_action=stage_run_action)
         manual.show.assert_called_once_with(pet_bus.STAGES.index('animatic'))
         auto.show.assert_called_once_with(pet_bus.STAGES.index('animatic'))
         self.assertIn('确认节奏、时长和对白同步', reply)
-        auto.pet._emit.assert_called_once()
+        auto.pet._emit.assert_called_once_with('stage.failed', stage='animatic', error=reply)
+
+    def test_req_s04_03_page_rejection_or_exception_prevents_waiting_event(self):
+        host = _host(show=Mock(return_value=False))
+        with patch.object(stage_flow, 'unchecked', return_value=False):
+            self.assertIs(stage_handler_registry.start(
+                host, 'animatic', run_action=stage_run_action), False)
+            host.show.assert_called_once_with(pet_bus.STAGES.index('animatic'))
+            host.show.side_effect = RuntimeError('page failed')
+            with self.assertRaisesRegex(RuntimeError, 'page failed'):
+                stage_handler_registry.start(host, 'animatic', run_action=stage_run_action)
+        self.assertEqual(host.show.call_count, 2)
+        host.pet._emit.assert_not_called()
+
+    def test_req_s04_03_unchecked_auto_stage_skips_without_opening_page(self):
+        host, skip = Mock(), Mock(return_value='skipped')
+        with patch.object(stage_flow, 'unchecked', return_value=True):
+            self.assertEqual(stage_handler_registry.start(
+                host, 'animatic', run_action=stage_run_action, skip_action=skip), 'skipped')
+        skip.assert_called_once_with(host, 'animatic')
+        host.show.assert_not_called()
+        host.pet._emit.assert_not_called()
 
     def test_req_s04_04_no_lock_is_required(self):
         self.assertNotIn('animatic', script_contract.STAGE_LOCK_REQUIREMENTS)

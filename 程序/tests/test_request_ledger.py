@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """O29：请求级可对账台账——重试不重复结算、同一远端任务唯一账单、缺量记未知、取消不伪造退款。"""
+import errno
 import json
 import tempfile
 import unittest
@@ -7,10 +8,90 @@ from pathlib import Path
 from unittest import mock
 
 import infra.model_pool as model_pool
+from infra import diagnostic_capture, diagnostic_state, request_ledger
 from infra.pet_llm import RequestLedger, request_ledger_path
 
 
 class RequestLedgerTests(unittest.TestCase):
+    def test_settlement_lock_timeout_keeps_diagnostics_without_startup_capture(self):
+        for method, usage in (
+            ('settle_units', {'amount': 2}),
+            ('settle_model', {'usage': {'prompt_tokens': 2, 'completion_tokens': 1}}),
+        ):
+            with self.subTest(method=method), tempfile.TemporaryDirectory() as td:
+                ledger = RequestLedger(td)
+                ledger.reserve('paid', 'seconds', 2)['money_state'] = 'reserved'
+                ledger.save()
+                state_file = Path(td) / 'latest.json'
+                settle = getattr(ledger, method)
+                with mock.patch.object(diagnostic_state, 'STATE_FILE', state_file), \
+                        mock.patch.object(diagnostic_capture, 'STATE_FILE', state_file), \
+                        mock.patch.object(diagnostic_capture, 'record_degradation',
+                                          wraps=diagnostic_capture.record_degradation) as capture, \
+                        mock.patch.object(ledger, 'transaction',
+                                          side_effect=request_ledger.LedgerLockTimeout('busy')):
+                    diagnostic_capture.record_gate_result('ledger-test', 'pass')
+                    self.assertIsNone(settle('paid', **usage))
+                    state = diagnostic_capture._state()
+                row = ledger.entries[0]
+                self.assertEqual((row['state'], row['mode'], row['money_state'], row['amount'],
+                                  row['unknown_via']),
+                                 ('unknown', 'unknown', 'unknown', None, 'settle-lock-timeout'))
+                path = request_ledger_path(td)
+                self.assertEqual(json.loads(path.read_text(encoding='utf-8'))['entries'][0]['state'],
+                                 'reserved')
+                self.assertEqual(state['last_gate']['result'], 'pass')
+                degradation, = state['degradations']
+                self.assertEqual((degradation['exception'], degradation['stage'], degradation['code']),
+                                 ('LedgerLockTimeout', 'request-ledger', 'E-IO-WRITE'))
+                settle('paid', **usage)
+                settled = list(map(dict, ledger.entries))
+                settle('paid', **usage)
+                self.assertEqual(ledger.entries, settled)
+                self.assertEqual(len(settled), 1)
+                self.assertEqual(settled[0]['state'], 'settled')
+                capture.assert_not_called()
+
+    def test_lock_timeout_diagnostic_write_failure_preserves_original_error(self):
+        with tempfile.TemporaryDirectory() as td:
+            ledger = RequestLedger(td)
+            ledger.reserve('paid', 'seconds', 2)
+            ledger.save()
+            original = RuntimeError('remote response failed')
+            with mock.patch.object(diagnostic_state, 'STATE_FILE', Path(td) / 'latest.json'), \
+                    mock.patch.object(diagnostic_state, 'save_text',
+                                      side_effect=OSError(errno.ENOSPC, 'diagnostic disk full')) as write, \
+                    mock.patch.object(ledger, 'transaction',
+                                      side_effect=request_ledger.LedgerLockTimeout('busy')), \
+                    self.assertRaises(RuntimeError) as caught:
+                try:
+                    raise original
+                except RuntimeError:
+                    ledger.settle_units('paid')
+                    raise
+            self.assertIs(caught.exception, original)
+            self.assertEqual(ledger.entries[0]['state'], 'unknown')
+            write.assert_called_once()
+
+    def test_settlement_ledger_write_failure_preserves_disk_and_can_retry(self):
+        with tempfile.TemporaryDirectory() as td:
+            ledger = RequestLedger(td)
+            ledger.reserve('paid', 'seconds', 2)
+            ledger.save()
+            path = request_ledger_path(td)
+            before = path.read_bytes()
+            failure = OSError(errno.ENOSPC, 'ledger disk full')
+            with mock.patch.object(request_ledger, 'save', side_effect=failure), \
+                    self.assertRaises(OSError) as caught:
+                ledger.settle_units('paid', amount=2)
+            self.assertIs(caught.exception, failure)
+            self.assertEqual(path.read_bytes(), before)
+            ledger.settle_units('paid', amount=2)
+            ledger.settle_units('paid', amount=2)
+            row, = json.loads(path.read_text(encoding='utf-8'))['entries']
+            self.assertEqual((row['state'], row['money_state'], row['amount']),
+                             ('settled', 'estimated', 2))
+
     def test_invalid_usage_and_rates_do_not_produce_money(self):
         for value in (-1, float('nan'), float('inf'), True):
             with self.subTest(value=value), self.assertRaises(ValueError):

@@ -1,0 +1,15 @@
+{
+  "round": 3463,
+  "commit_base": "d1c80bed",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_layers test_service_return_contract test_no_circular_import test_gate_selfaudit test_rule_guard_map test_checkpoint_tree test_branch_tree_ui test_asset_hovercard test_citation test_code_highlight test_diff_view test_hitl_ui test_media_render test_video_audio_card test_multimodal_upload test_param_panel test_background_task",
+    "exit": 0,
+    "passed": 76,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T23:43:44"
+}

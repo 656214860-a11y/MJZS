@@ -147,12 +147,25 @@ from ui.desktop_tk_gc import (protect_readonly_combobox, protect_tk_gc, drain_tk
 from ui.desktop_automation_tick import AutomationTickMixin
 from ui.desktop_layout import LayoutMixin
 from ui.desktop_pet_bridge import PetBridgeMixin, PET_STAGE_POLL, UNATTENDED_SWITCH
+from orchestrator.stage_handler_registry import StagePresentation
 from ui.desktop_async_tasks import AsyncTasksMixin
 from ui.desktop_tray import TrayMixin
 # R3056 收尾：桥接与左区段方法拆入 StatusBridgeMixin；status_kind/STATUS_* 一并迁出，别名保留给既有导入。
 from ui.desktop_status_bridge import STATUS_ERROR_MARKERS, STATUS_RUNNING_MARKERS, StatusBridgeMixin, status_kind  # noqa: F401
 
+def _present_stage(desktop, presentation, text):
+    """执行注册器已选定的单个桌面动作。"""
+    if presentation is StagePresentation.REPORT_STORYBOARD:
+        return desktop.pet_report('storyboard', text)
+    if presentation is StagePresentation.OPEN_STORYBOARD:
+        return desktop.open_storyboard_skill(None)
+    if presentation is StagePresentation.SHOW_ANIMATIC:
+        return desktop.show(pet_bus.STAGES.index('animatic'))
+    raise ValueError(f'未知阶段呈现动作：{presentation!r}')
+
+
 class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMixin, LoginGateMixin, IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin, ProjectPagesMixin, StoryboardPageMixin, WritingPageMixin, IdeaChatMixin, AutoFlowsMixin, AutomationTickMixin, LayoutMixin, PetBridgeMixin, AsyncTasksMixin, TrayMixin):
+    present_stage = _present_stage
     def __init__(self,win,root=ROOT,*,require_login=False,**page_services):
         self._init_window_and_sidebar(win, root, page_services)
         self._init_body_and_status(win)
@@ -640,9 +653,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
             if not Path(path).is_dir():
                 raise ValueError('项目目录不存在或已被移动：'+str(path)
                                  +'。未找到可自动认领的目录；可“重新查找项目”或只清除登记，不动磁盘。')
-        # ``Studio`` 服务于初步分镜之后的工作集，初始化时会要求
-        # episode.json。剧本准备/剧本结构尚未产出分镜时不能因此拒绝打开
-        # 项目，更不能误报“剧本已删除”；后续页面会经 align_studio() 延迟建立。
+        # 尚无 episode.json 的早期项目也可打开，后续页面经 align_studio() 延迟建立。
         studio=None
         if path:
             try:
@@ -651,13 +662,14 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
                 if not is_missing_storyboard_open_error(exc):
                     raise
         self.flush_brief()
-        if self.root != (Path(path) if path else None) and self.idea_chat_controller.requesting:
-            self.interrupt_script_agent()
-        self.root=Path(path) if path else None;self.studio=studio
+        target = Path(path) if path else None
+        if self.root != target:
+            asset_thumbs.forget()
+            if self.idea_chat_controller.requesting:
+                self.interrupt_script_agent()
+        self.root=target;self.studio=studio
         if path:
-            # 第 68 期任务 9：把「当前项目」记进 projects.json 只是记账——记账这一步失败
-            # （程序目录只读、杀毒软件锁住 projects.json、磁盘满…）绝不该把「打开项目」拦下来，
-            # 更不该弹一句「无法打开项目：[Errno 2] No such file or directory：…」让用户无从下手。
+            # 登记当前项目失败时仍允许打开，只提示用户下次可能需要重新选择。
             try:
                 self._project_result_data(self.projects.activate(str(self.root)))
             except (OSError, ValueError) as exc:
@@ -822,26 +834,27 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         from ui.workflow_agents import refresh
         show_settings(self,self.root,stage=stage,on_saved=lambda:refresh(self),function=function)
     def open_storyboard_skill(self,key=None):
-        batch={}
+        project, batch = self.root, {}
         def work():
             from stage_execution_service import storyboard_produced_scripts as produced_scripts
             from orchestrator.storyboard_selection import selected_many
             from orchestrator.workflow_tasks import storyboard_batch_prompt
-            scripts=selected_many(self.root,'script');existing=selected_many(self.root,'storyboard')
-            made=produced_scripts(self.root);already=[p for p in scripts if p in made]
-            prompt,followup=storyboard_batch_prompt(self.root,scripts,existing)
+            scripts=selected_many(project,'script');existing=selected_many(project,'storyboard')
+            made=produced_scripts(project);already=[p for p in scripts if p in made]
+            prompt,followup=storyboard_batch_prompt(project,scripts,existing)
             batch.update(prompt=prompt,followup=followup)
             # 跳过已有定稿的剧本是无损操作：直接继续，避免模态确认挂住无人值守流程。
             if not already:return '正在启动分镜制作 agent…'
             return '已跳过 '+str(len(already))+' 个已制作分镜的剧本：'+'、'.join(Path(p).name for p in already)+'；继续处理其余剧本／分镜。'
         def finish(message):
+            if self.root!=project or getattr(self,'shutting_down',False):return
             # 异步准备阶段的结果原来只作为回调参数传入，界面一直停留在
             # 「正在处理」；批量跳过已有分镜时，必须把实际处理结果反馈出来。
             self.open_flow_agent('storyboard','初步分镜',batch['prompt'],batch['followup'])
             self.status.set(message)
         # 结果经异步队列回到主线程：工作线程直接调用 winfo_exists／after 在 Tk 里会抛
         # RuntimeError: main thread is not in main loop，表现为「点了按钮没有反应」。
-        self.async_(work,finish)
+        return self.async_(work,finish)
     def open_codex_skill(self,folder,brief,value):
         """兼容旧入口：仍只启动工作流，绝不回退为直连模型对话。"""
         creative=str(value or '').strip()

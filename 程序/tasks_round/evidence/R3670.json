@@ -1,0 +1,15 @@
+{
+  "round": 3670,
+  "commit_base": "abbb7f83",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_http_client test_platform_tools test_l1_transport_requests test_model_gateway_robustness test_model_router test_model_failure_route test_l1_reliability_r3248 test_pet_llm",
+    "exit": 0,
+    "passed": 211,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T09:03:08"
+}

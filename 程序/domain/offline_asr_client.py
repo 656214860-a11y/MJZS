@@ -30,6 +30,10 @@ _ACQUIRE_POLL = 0.1
 _MISSING = object()
 
 
+PROTOCOL_VERSION = 1
+MAX_LINE_BYTES = 8 * 1024 * 1024  # 与独立引擎一致，含行结束符
+
+
 class EngineUnavailable(RuntimeError):
     """引擎不可用（环境缺失/启动失败/进程死亡），``args[0]`` 是中文原因。"""
 
@@ -103,6 +107,9 @@ class EngineHost:
         self.session = None          # 当前占用的 OfflineAsrSession
         self.dead_reason = ''
         self.pending_error = ''
+        self.protocol_version = None
+        self.session_started = False
+        self.session_id = 0
         self.stderr_tail = []
         self.log_sinks = []          # 等待就绪期间的进度接收者
         self.write_lock = threading.Lock()
@@ -124,6 +131,7 @@ class EngineHost:
                 return False
             self.state = 'starting'
             self.dead_reason = self.pending_error = ''
+            self.protocol_version = None
             self.stderr_tail = []
             try:
                 self.process = platform_tools.launch_text_process(
@@ -142,18 +150,24 @@ class EngineHost:
 
     def _read_stdout(self, process):
         try:
-            for line in process.stdout:
+            stream = process.stdout.buffer
+            while line := stream.readline(MAX_LINE_BYTES + 1):
+                if len(line) > MAX_LINE_BYTES:
+                    self.kill('离线识别响应超出字节上限', expected_process=process)
+                    return
+                if not line.endswith(b'\n'):
+                    break
                 line = line.strip()
                 if not line:
                     continue
                 try:
-                    message = _json_loads(line)
-                except ValueError:
+                    message = _json_loads(line.decode('utf-8'))
+                except (ValueError, RecursionError):
                     continue
                 if isinstance(message, dict):
-                    self._dispatch(message)
+                    self._dispatch(message, process)
         except (OSError, ValueError):
-            pass
+            app_logging.swallowed()
         self._on_exit(process)
 
     def _drain_stderr(self, process):
@@ -166,36 +180,45 @@ class EngineHost:
         except (OSError, ValueError):
             pass
 
-    def _dispatch(self, message):
+    def _dispatch(self, message, process):
         kind = message.get('type')
-        if kind == 'ready':
-            with self.lock:
-                if self.state == 'starting':
+        with self.lock:
+            if self.process is not process or self.state == 'dead':
+                return
+            session = self.session
+            if kind == 'ready' and self.state == 'starting':
+                version = message.get('protocol_version')
+                if 'protocol_version' not in message or (
+                    type(version) is int and version == PROTOCOL_VERSION
+                ):
+                    self.protocol_version = version
                     self.state = 'ready'
+                    return
+            elif kind == 'log':
+                sinks = list(self.log_sinks)
+                if session is not None and message.get('started_session_id') == self.session_id:
+                    self.session_started = True
+            elif kind == 'error' and self.state == 'starting':
+                self.pending_error = str(message.get('message') or '')[:200]
+            if kind in ('sentence', 'done') and not self.session_started:
+                return
+            if kind == 'error' and not self.session_started and (
+                message.get('start_error_session_id') != self.session_id
+            ):
+                return
+        if kind == 'ready':
+            if self.state == 'starting':
+                self.kill('离线识别引擎协议版本不受支持', expected_process=process)
             return
         if kind == 'log':
             text = str(message.get('message') or '')
-            with self.lock:
-                sinks = list(self.log_sinks)
-                session = self.session
             if session is not None:
                 session._engine_log(text)
             for sink in sinks:
                 _emit_safe(sink, text)
             return
-        if kind == 'error':
-            if self.state == 'starting':
-                self.pending_error = str(message.get('message') or '')[:200]
-            with self.lock:
-                session = self.session
-            if session is not None:
-                session._engine_message(message)
-            return
-        if kind == 'sentence' or kind == 'done':
-            with self.lock:
-                session = self.session
-            if session is not None:
-                session._engine_message(message)
+        if kind in ('error', 'sentence', 'done') and session is not None:
+            session._engine_message(message)
 
     def _on_exit(self, process):
         """stdout EOF：只有当前登记的进程退出才算数（旧 reader 不干扰新进程）。"""
@@ -234,6 +257,8 @@ class EngineHost:
             if self.session is not None:
                 raise EngineBusy('离线识别正在输出上一句，请稍候再试')
             self.session = session
+            self.session_id += 1
+            self.session_started = self.protocol_version is None
 
     def detach(self, session):
         with self.lock:
@@ -255,8 +280,7 @@ class EngineHost:
                 self._mark_dead('离线识别进程已退出')
                 raise EngineUnavailable(self.dead_reason)
             try:
-                process.stdin.write(json.dumps(message, ensure_ascii=False) + '\n')
-                process.stdin.flush()
+                self._write_command(process, message)
             except (OSError, ValueError) as error:
                 self._mark_dead('离线识别进程通信中断：%s' % str(error)[:120])
                 raise EngineUnavailable(self.dead_reason)
@@ -264,6 +288,14 @@ class EngineHost:
     def feed(self, pcm):
         self.command({'cmd': 'audio',
                       'data': base64.b64encode(bytes(pcm)).decode('ascii')})
+
+    def _write_command(self, process, message):
+        if self.protocol_version is not None:
+            message = dict(message, protocol_version=self.protocol_version)
+            if message.get('cmd') == 'start':
+                message['session_id'] = self.session_id
+        process.stdin.write(json.dumps(message, ensure_ascii=False) + '\n')
+        process.stdin.flush()
 
     def _mark_dead(self, reason):
         with self.lock:
@@ -276,11 +308,13 @@ class EngineHost:
         if session is not None:
             session._engine_dead(self.dead_reason)
 
-    def kill(self, reason):
+    def kill(self, reason, *, expected_process=None):
         """强制结束引擎进程（看门狗用）；下一会话重新拉起。"""
         with self.lock:
             process = self.process
-            if self.state == 'dead':
+            if self.state == 'dead' or (
+                expected_process is not None and self.process is not expected_process
+            ):
                 return
             self.state = 'dead'
             self.dead_reason = reason
@@ -305,8 +339,7 @@ class EngineHost:
             process = self.process
             if process is not None and self.state != 'dead':
                 try:
-                    process.stdin.write(json.dumps({'cmd': 'shutdown'}) + '\n')
-                    process.stdin.flush()
+                    self._write_command(process, {'cmd': 'shutdown'})
                     process.wait(timeout=5)
                 except Exception:  # noqa: BLE001
                     app_logging.swallowed()
@@ -437,6 +470,8 @@ class OfflineAsrSession:
         self._log_event(message)
 
     def _engine_message(self, message):
+        if self.cancelled or self._closed:
+            return
         kind = message.get('type')
         if kind == 'sentence':
             self._seq += 1
@@ -449,6 +484,8 @@ class OfflineAsrSession:
     def _engine_dead(self, reason):
         """引擎进程死亡/被杀：唤醒消费线程并按失败收尾。"""
         self.audio.put(None)
+        if self.cancelled or self._closed:
+            return
         self._fail(reason or '离线识别进程意外退出')
         self._finished.set()
         self._emit_closed()

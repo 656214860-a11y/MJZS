@@ -1,0 +1,15 @@
+{
+  "round": 3582,
+  "commit_base": "f090d54f",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_aspect_ratio_priority test_native_run test_http_client test_batch_frames test_execution_deadline test_layers test_no_circular_import test_http_boundary test_dynamic_import_registry test_unification_ratchet test_static_hygiene",
+    "exit": 0,
+    "passed": 157,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T04:15:39"
+}

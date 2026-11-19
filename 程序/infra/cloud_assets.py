@@ -2,6 +2,7 @@
 import os
 import re
 from pathlib import Path
+from infra.http_client import LocalComfyClient
 from infra.seedream_api import protect
 import contract.production_model_contract as production_model_contract
 
@@ -67,7 +68,6 @@ def validate(client, options, assets):
 
 
 def graph(client, aid, asset, prompt, images, options):
-    from batch_frames_tool.batch_frames import Client
     model = options['backend']
     if len(images) > LIMITS[model]:
         raise ValueError('参考图数量超过模型上限')
@@ -77,7 +77,7 @@ def graph(client, aid, asset, prompt, images, options):
         raise ValueError('参考图与参考路径数量不一致（%d 张图片 / %d 条路径），请重新导入资产' % (len(images), len(paths)))
     workflow = {}
     previous = None
-    upload = Client(client.url)
+    upload = LocalComfyClient(client.url)
     for index, path in enumerate(images):
         image_path = Path(path)
         if not image_path.is_file():

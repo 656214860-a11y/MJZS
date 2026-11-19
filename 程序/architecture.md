@@ -77,6 +77,57 @@ R1139：L3 `agent_skill_sync`（R3084 由 `codex_skill_sync` 泛化，后者保�
 
 ## 3. 分层判定
 
+R3481（A9-4f，六组同 stem 门面／包实体）：按源码职责、当前消费者和既有分层权威逐项登记下列**六个精确限定名**。顶层兼容键与包实体各自保留；不按 stem 合并、删除或继承包层级，不修改任何生产文件。
+
+| 顶层兼容身份 → 精确实体 | 实体层级与依据 | 兼容责任与当前消费者 |
+|---|---|---|
+| `file_index` → `infra.file_index` | L1：显式扫描、可再生索引缓存、原子写盘；本节原 L1 索引权威 | 顶层 28 项 `__all__` 再导出；`audio_import_service`、`global_library_service`、文件面板等消费实体 |
+| `file_index_contract` → `contract.file_index_contract` | L0：FileRow 字段、状态和来源事实；本节原 L0 字段契约 | 顶层 11 项再导出；`infra.file_index` 和文件面板消费实体 |
+| `file_naming` → `contract.file_naming` | L0：名称模板、解析、清洗及校验；本节原 L0 命名权威 | 顶层 13 项再导出；`contract.script_contract`、索引及产物发布消费实体；本轮不扩大旧导出集 |
+| `global_library_service` → `domain.global_library_service` | **L1**：复制、事务、索引和来源登记；实体 docstring 与本节原 L1 权威一致，历史 domain 目录不赋予 L2 | 顶层 4 项再导出；`desktop_files_panel_filters.py:177/210` 调用双向复制 |
+| `legacy_migration` → `orchestrator.legacy_migration` | L3：计划、事务迁移、成果引用重写及回滚；调用阶段服务，本节原 L3 权威 | 顶层 11 项迁移／回滚 API 再导出；真实 CLI `scripts/migrate_legacy_layout.py:17` 消费实体，不能因默认生产扫描排除 scripts 而判无消费者 |
+| `storage_maintenance` → `infra.storage_maintenance` | L1：回收、恢复及受控清理；本节原 L1 删除权威 | 顶层 `sys.modules` 别名保留私有名、状态与扁平 mock.patch 身份，`--cleanup` 转发实体 main；桌面退出、回收服务等消费实体 |
+
+严格拒绝 **21→15**，六项 ambiguous 全部消除，其余拒绝身份／状态不变；登记 418→424，原 418 键和值、5 个 TOOLS、静态 18／动态 2 条豁免与默认依赖图均不变。剩余为 `agent` 初始化和前批移交 A13 的 14 项包实体，不新增允许清单或阈值。`global_library_service.py:3 → domain` 是仍存在的 **L1→L2 初始化依赖**，不能因实体本身是 L1 而隐藏；交 A10/A13 按兼容责任安排迁移／边界修复，本轮不改层、不加豁免。严格入口仍先拒绝剩余未知身份，不能把本批有界边检查说成全图通过；默认严格模式保持关闭。
+
+`test_layers.FacadeIdentityTests` 新增四项行为守卫：双身份精确分类、撤销登记恰好恢复六项歧义、旧静态／动态图不变，以及五组导出对象与 storage 模块别名／补丁／CLI 的实际兼容行为（CLI main 使用 mock，不执行清理）。架构门禁改前 563 项、改后 567 项，均保留相同三项历史失败；证据见 [R3481 结果](tasks_round/tasks_round_3481_result.md)。动态注册 H03/H09 的调用者／常量／未知键闭包、TOOLS 生产依赖与分发边界、agent 初始化和五模块环仍是后续输入；本轮不启动下一批。
+
+R3471（A9-4e，最后一个 UI 未登记身份裁定）：`ui.edit_habits_dialog` **保持未登记并移交 A13，属于无当前生产入口的包内历史残留**。其 `entry_button/open_dialog/HabitsDialog` 负责 Tk 展示、规则操作和后台归纳结果回送，读写委托 L3 `orchestrator.edit_habits`；职责形态不能替代接线证据。437 个限定身份扫描实体、705 个递归生产 Python 文件中，其精确静态消费者、字面量动态消费者与排除自身后的模块/类名引用均为零，当前测试也无该弹窗引用，UI 插件和阶段注册均无入口。R2074 曾交付按钮；R2862（`8f5c2990`）删除面板导入及 `entry_button` 调用；R3059 搬入 `ui/` 的实体仍在，R3063（`09e8cd8f`）删除的是顶层文件及旧登记，不能据此宣称包内实体已删除。当前 `skill_panel._build` 只有 SKILL／制作锁等区域，DES-S01-60 所述「风格行入口」与当前实现不符。
+
+本次登记 0、移交 1、待定 0，严格拒绝 **21→21**，其余 20 项逐项不变。A13 删除前须重核静态/动态/配置/分发消费者和旧项目兼容，确认不恢复该弹窗后处置包内残留、覆盖登记及过时入口说明；若保留投产，先明确实际页面入口、L3 服务边界和后台生命周期，补打开→归纳/规则操作→取消/关闭的集成回归，再申请精确登记。`orchestrator.edit_habits` 仍由剧本保存、配置构建、工作流与写作提示词消费，不能连带删除其服务、测试或用户习惯数据。本轮不恢复入口、不删源码、不改登记/TOOLS/豁免/阈值；默认严格模式保持关闭。同 stem 门面、动态注册反解及 TOOLS 仍是后续 A9 输入，五模块环及已移交原型不在本轮范围。证据与退出条件见 [R3471 结果](tasks_round/tasks_round_3471_result.md)。
+
+R3463（A9-4d，首个 UI 未登记身份分类批）：下列 **12 项保持未登记并移交 A13**，不因目录或源码自述 L4 而补登记：`ui.project_settings_dialog`、`ui.ui_asset_card`、`ui.ui_branch_tree`、`ui.ui_citation`、`ui.ui_code_block`、`ui.ui_diff`、`ui.ui_hitl`、`ui.ui_media`、`ui.ui_media_player`、`ui.ui_multimodal`、`ui.ui_param_panel`、`ui.ui_task_progress`。437 个限定身份扫描实体内，逐项精确静态消费者与字面量动态消费者均为零；705 个递归生产 Python 文件中排除各自定义后的模块名称引用也为零，UI 插件及阶段入口均未登记这些名称。前 1 项是无消费者的历史包内残留，其余 11 项只有组件测试，历史交付未证明生产接线。`ui_multimodal` 只构造 FILE part，没有 Tk；其层级更不能仅凭 ui 目录推断。
+
+本批登记 0 项、待定 0 项；限定身份严格入口仍精确拒绝 21 项，旧登记、TOOLS、阈值与豁免均不变。A13 须复核生产/配置/发布消费者后，选择删除残留及同步专属测试，或先明确生产入口与职责、完成接线回归后再精确登记；本批不删源码、不接线。逐项源码、测试、历史依据与退出条件见 [R3463 结果](tasks_round/tasks_round_3463_result.md)。当时留给下一批的 `ui.edit_habits_dialog` 已由上方 R3471 独立裁定；`domain.checkpoint_tree` 沿用 R3456 的 A13 移交，不计入本批 12 项。默认严格模式保持关闭，A9 全图尚未验收。
+
+R3437（A9-4a，首个精确身份登记子批）：以下 5 项为逐实体权威登记，只作用于列出的限定名；包初始化的层级不向其子模块传播。旧 411 个登记键及值、5 个 TOOLS、静态 18／动态 2 条豁免保持不变，现有登记共 416 项。未修改生产源码或运行时行为。
+
+| 精确身份 | 层级 | 源码职责与归属依据 |
+| --- | --- | --- |
+| `contract` | L0 | `contract/__init__.py` 仅契约包纯事实/协议说明；§1 契约包和本节 L0 职责一致，无导入或初始化副作用。 |
+| `infra` | L1 | `infra/__init__.py` 仅 T10 包化说明并指向本节；§1 基础设施包及本节 L1 职责为权威，无导入。 |
+| `orchestrator` | L3 | `orchestrator/__init__.py` 仅 T10 包化说明并指向本节；§1 编排包及本节 L3 职责为权威，无导入。 |
+| `ui` | L4 | `ui/__init__.py` 明确 L4 界面组件包，只含说明；§1 和本节 L4 职责一致。 |
+| `ui.ui_part_renderers` | L4 | Tk Text 消息 part 分派渲染，消费 `domain.message_parts` 与 `ui_tokens`，动作由 host 回调注入；生产入口 `ui/desktop_idea_bubbles.py:352` 引入。 |
+
+严格拒绝由 28 项降为 23 项（15 个未登记包实体、`agent`／`domain` 初始化、6 个歧义包实体），未选项保持拒绝。`agent` 的子实体横跨多层，空初始化尚无独立层级裁定，不能按目录猜层。`domain`／`domain.hitl` 已有L2职责证据，但新增L2键还须同步服务范围台账；本批三模块无法原子完成，继续严格拒绝并移交A9-4b。其余未接线组件、TOOLS、动态注册、同名门面迁移和五模块环继续交给 A9-4b／原 owner。本轮登记暴露 8 条指向所选初始化的向上边，详见 R3437 结果；未增豁免，默认严格模式仍关闭，不宣称全图已通过。
+
+`AuthoritativeIdentityTests` 验证精确登记、撤销这些条目后恢复原拒绝集、未选拒绝不变及旧静态/动态依赖语义不变；实体存在性守卫同时验证精确限定文件路径，不用 stem 回退接纳新身份。规则11的生成索引仍指向原守卫文件；生成器仅消费 AGENTS 规则与规则守卫基线，不消费层级条目，`test_rule_guard_map` 验证生成结果无需变化。
+
+R3429（A9 第三个子批，包身份严格影子模式）：`_scan.module_scan_files(qualified=True)` 在既有六个分层包内递归扫描并包含 `__init__.py`；`module_name(..., qualified=True)` 保留包限定名，初始化文件的规范身份是可导入的包名。`resolved_module_import_rows(..., qualified=True)` 保留子模块、相对导入和本地父包初始化边。门面过滤谓词不变，仍保留在扫描集里的六组顶层/包内同 stem 文件不合并，也不删除其再导出或 CLI 责任。
+
+严格入口是原 `test_layers.LayerDirectionTests.test_higher_layers_may_depend_only_on_same_or_lower_layers(qualified=True)`。其分类清单独立列出“扫描实体/登记键/层级/分类”：精确登记优先；非初始化实体只有在扫描集中 stem 唯一时才能绑定既有扁平登记键，标为 `legacy-unique`，不生成新登记，不按包目录推断层级；同 stem 歧义、未登记源、未登记本地导入目标和非法层值均拒绝。已有 TOOLS 仅作为显式分类保留，不表示生产/工具闭包已经验收。`PackageIdentityCanaryTests` 经此实际消费者验证坏样本拒绝和同层/向下正例。
+
+R3429 当时只交付严格影子扫描、拒绝机制和分类证据，**默认仓库门禁尚未切换到限定身份**。该检查点严格预检拒绝 28 项：16 个未登记包实体、6 个初始化实体、6 个歧义包实体（清单见 R3429 结果；最新登记见上方 R3437）。完整启用还需修改 `_layers.py` 的权威登记，连同扫描器、消费者及本节将超过该轮三模块上限，故留给 A9-4；不将这些项登记为豁免或通过断言。当时411 个层级、5 个 TOOLS、静态18/动态2豁免均不变；动态注册反解、TOOLS 产品边界、薄门面 alias 精确迁移、限定身份豁免迁移及五模块环仍未验收。原环消费者及默认 from-import 行为不变，规则11生成索引继续指向原测试文件。
+
+R3424（A9 第二个子批，登记入口闭环）：`_layers._register()` 仅接受 `LAYER_NAMES` 已定义的数值层级（含 L0P=0.5；拒绝 None、布尔值、字符串及未知数值），同一登记键不得静默改层；整批先校验再写入，失败保持原登记表，同层重复登记仍可幂等。`test_layers.LayerRegistrationCanaryTests` 覆盖未知层、冲突、整批不部分写入，并经实际越层守卫验证非法登记不能抹掉告警。登记键按原字符串区分，不折叠同 stem 的不同包名，也不把包名与 `包.__init__` 擅自合并；这只是登记入口语义，**不表示现行扫描器已支持包限定身份或已扫描初始化文件**。现有 411 个层级条目、5 个 TOOLS 条目和豁免均不变；未登记本地模块、包初始化归属、完整身份及动态闭包仍待 A9 后续批次。沿用规则 11 的原守卫与生成索引，无新增规则编号或测试模块。
+
+R3419（A9 首个子批）：分层守卫经 `_scan.resolved_module_import_rows()` 补齐 `from 包 import 子模块`（含别名、函数体与 try 内）及基于源文件所在包的相对导入；仅当本地存在对应 `.py` 或包 `__init__.py` 时增加子模块边，保留原包边，不将普通导出符号当作模块。`test_layers.PackageImportCanaryTests` 用隔离包树验证坏依赖触发实际分层守卫、同层／向下依赖通过。此批仍沿用扁平登记名和既有扫描集，层级／环豁免不变。环守卫暂保留原 `module_import_rows()` 口径：增强解析会暴露 A1 已知的 api_endpoints/diagnostic_capture/model_metering/model_pool/request_ledger 五模块环，须先由 L1 owner 拆环再切强制，不能登记为新豁免。完整包限定身份、同 stem、包初始化扫描、未知层拒绝、动态注册反解与 TOOLS 运行分类仍待后续 A9，不代表 H01/H02/H03/H09 全部验收。未新增规则编号或测试模块，规则守卫生成索引继续引用原 `test_layers.py`。
+
+R3543（A10 第一批）：`infra.diagnostic_state`（L1）持有程序诊断状态文件和同一把进程内写锁，复用 `agent.core` 原子写入和 `app_logging` 脱敏。`request_ledger` 的锁超时记录直接使用它；`diagnostic_capture` 继续提供原采集、启动检查和导出入口。原五模块环收缩为四模块。
+
+R3565（A10 第二批）：`infra.config_snapshot` 提供模型配置路径和只读非空探针。`model_pool` 沿用原配置路径及宽松读取契约；启动自检直接调用只读探针，配置缺失按空池报告，实际读取异常由 `contract.selfcheck` 记录为 `DEGRADED/check-error`。生产静态图的四模块环已拆除。
+
 R1623：运行期诊断统一走 `logging`（`app_logging` 在启动时装好 `logs/app.log` 的文件处理器并脱敏）。生产模块里的 `print` 在 pythonw 下是静默空操作，只允许登记的控制台入口保留——命令行工具（`engine_probe`／`shot_numbering`／`workspace_maintenance`／`log_maintenance`／`exit_maintenance`／`app_icon`／`app_shortcut`／`asset_thumbs`）、子进程协议 `image_agent_runner`、控制台提交 `console_submit` 与双通道 `broadcaster`；由 `test_print_ratchet.py` 冻结，只许下降。
 
 R1125：L3 `skill_notes` 负责阶段配置的中文阅读副本：优先中文说明、本地术语翻译、经现有模型路由后台翻译及内容哈希缓存；L4 `skill_panel` 只处理选择与显示。代码、地址、路径和执行源文件保持原样；失败保留原文并提示，不阻断导入。
@@ -143,6 +194,8 @@ R3267（L0 任务书轮 3A D3）：新增两个 L0 契约模块——`contract/d
 用户可编辑的只有项目级「编剧风格」：保存在项目 `skill_config.json` 的 `script.writer_style`（旧项目的编剧规则读取时迁入，下次保存不再写旧键，其余旧框架键忽略），由 `stage_config.writer_style()` 读取，`workflow_settings.writer_style_prompt()` 在剧本准备的桌面任务书与直连 API 的 system 中各注入一次，空风格不占请求。写作取消异常为 `writing_api.WritingCancelledError`。Claude 桌面程序模型不再作为受控 CLI 对话模型，`writing_api.selected_model()` 对其返回空，走桌面 Agent 通道。
 
 ## 4. 三虎 Agent 的阶段定义
+
+阶段启动经 L3 `stage_handler_registry.start()`。制作锁、分镜输入和分镜预演确认阻断自动启动时，L3 将原因交给 L4 注入的 `run_action` 动作。桌面桥接统一注入 `stage_run_action` 处理准入、登记和失败发布，沿用 `Pet._emit` 的运行序号与事件总线。手动启动保留各路径原有返回值。
 
 R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析模型身份、调用方式和 `workflow_settings.current()` 的有效配置；`freeze_skills()` 内联所选技能及直接 Markdown/文本引用并冻结正文，API 与桌面复用该快照。失效选择、缺失引用、空技能和超出请求字符预算均阻止发送，不截断或静默省略；完整请求另沿用既有发送前预算闸门。`idea_chat` 保存脱敏的选中/加载清单、字数及 SHA-256，气泡显示本次加载结果，旧记录不伪造凭据。共享阶段成果、角色顺序、重试及发布边界不变。
 
@@ -280,6 +333,8 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 
 当前架构门禁清单（`tests/architecture/`）：总数以 `python smoke_test.py --architecture` 当轮输出为准，基线只增不减。
 
+生产静态导入环由 `test_no_circular_import.py` 检查。扫描递归产品源码，按完整模块名解析已识别的包子模块、相对导入和包初始化边，包含函数内懒导入。新增强连通分量按文件和行号报出环内边，静态存量环只减不增。常量动态导入继续由同文件的既有棘轮检查。
+
 - 卡片与忙碌状态补充：`test_card_boundary.py`、`test_busy_state_boundary.py`。
 - 分层与一致性：`test_agents_md.py`、`test_layers.py`、`test_no_circular_import.py`、`test_contract_purity.py`（L0 纯度棘轮，K9：禁用 import／禁用调用按「文件:符号:类型」登记 `架构统一基数.json`「L0 纯度」段，只减不增；含函数体与 try 内；L0P 层登记）、`test_path_authority.py`、`test_stage_paths.py`、`test_storyboard_edit_boundary.py`、`test_storyboard_final_selection_boundary.py`。
 - 写入与删除边界：`test_atomic_write_boundary.py`、`test_asset_batch_ledger_boundary.py`、`test_asset_batch_settings_boundary.py`、`test_asset_detail_binding_boundary.py`、`test_asset_generated_import_boundary.py`、`test_asset_image_import_boundary.py`、`test_asset_plan_publication_boundary.py`、`test_asset_rename_boundary.py`、`test_asset_image_removal_boundary.py`、`test_asset_image_restore_boundary.py`、`test_audio_import_boundary.py`、`test_cloud_video_settings_boundary.py`、`test_continuity_publication_boundary.py`、`test_delivery_import_boundary.py`、`test_desktop_settings_boundary.py`、`test_edit_publication_boundary.py`、`test_final_bundle_boundary.py`、`test_handoff_publication_boundary.py`、`test_keyframe_delete_boundary.py`、`test_keyframe_restore_boundary.py`、`test_keyframe_replace_boundary.py`、`test_keyframe_reference_publication_boundary.py`、`test_legacy_adoption_boundary.py`、`test_local_video_settings_boundary.py`、`test_manual_creative_publication_boundary.py`、`test_previs_routing_publication_boundary.py`、`test_stage_workspace_boundary.py`、`test_structured_script_write_boundary.py`、`test_subtitle_export_publication_boundary.py`、`test_tts_publication_boundary.py`、`test_video_delete_boundary.py`、`test_video_options_boundary.py`、`test_video_prompt_publication_boundary.py`、`test_video_publication_boundary.py`、`test_white_model_import_boundary.py`、`test_writing_preparation_path_boundary.py`、`test_deletion_gateway.py`、`test_remove_authority.py`、`test_recycle_service.py`。
@@ -287,6 +342,15 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 - 测试隐藏桌面强制执行（R3039）：`test_hidden_desktop_gate.py`（`scripts/gui_hidden.py` 入库；`run_selftests.py`／`smoke_test.py` 自包装硬闸在位；`auto_full_safe.py` 无静默直跑降级、不再引用未跟踪运行现场文件）。
 - 任务书闭环（规则 35，R3039）：`test_taskbook_closure.py`（五项机器检查的坏/好样本自审＋真实仓库状态；与提交闸共用 `scripts/taskbook_closure.py`）。
 - 剧本重命名边界：`test_script_rename_boundary.py`。
+- A9-6 UI 注册闭包：`test_dynamic_import_registry.RegistryClosureTests` 消费 `_scan.ui_registry_targets` 与 `ui_registry_declaration`，仅 AST 解析，不执行被扫描模块。扫描限定实体集内已登记 L4 调用者，核对声明键、目标登记与目标层；识别 import/from/as、关键字 name 和条件字面量两支。变量、加载器/注册器转存、getattr 与星号导入显式报 unresolved，无变量豁免。顶层 `__main__` 中直接表达式调用按 A4 保留的 L5 调试装配核验；函数体仍按 L4，不能借主入口放行 UI 越层。目标沿现有扁平身份登记口径，严格身份模式及剩余15项拒绝不变。
+- A9-6 本身不覆盖 L3 调用者和阶段回调；声明中 L5 `desktop_launcher` 只在 app 顶层调试入口使用，运行时未知 UI 键由原注册器 ValueError 拒绝。规则18沿用已有守卫文件与生成索引，不增加规则编号或架构测试文件。
+- A9-7 / R3506：阶段闭包由 `test_dynamic_import_registry.StageClosureTests` 实际消费 `_scan.stage_registry_audit`、`literal_string_keys` 和 `require_stage_registry_closure`。只读 AST：13 个阶段键来自 `contract.pet_bus.STAGES`，另核验现存两个非工作流指令 `pet_performance` / `pet_test`；枚举条件两支（含死分支）、调用者、常量目标、可解析本地函数/方法回调及其函数体。回调按注入者层级核验，不能把 L4 注入函数误作 L3 import 许可。未知键、变量、星号参数、转存/遮蔽、未登记目标、向上目标及不能证明归属的方法调用均拒绝；未知阶段须在分派或副作用前拒绝，返回空串或调用 fallback 不算验证。非启动的注册器方法只有在 AST 声明确实存在且调用目标层合法时通过。
+- 严格入口 `require_stage_registry_closure(_production_stage_audits())` **当前失败**，没有允许失败的清单或新豁免；默认测试验证拒绝行为，不等于生产闭包绿色。它与 A9-6 UI 守卫并存，另按实际源层拒绝 L0–L3 经 UI 注册器向上加载。`stage_models.manual_command → open_config:252 → skill_panel.show` 的 L3→L4 边已机器检出，生产行为未改。阶段注册器的未知键 fallthrough、`desktop_pet_bridge.pet_start` 的变量键/回调及不可证明的方法目标交 A10/A11；跨函数数据流、继承方法和动态属性尚未证明时保留 unresolved，不能静默合法。修复后应让严格入口正常返回并更新拒绝用例，不能把拒绝转成豁免。UI 构造上移需同步 stage_models、stage_exec 与 ui_stage_popups 呈现器安装链，加守卫/测试超过三模块，拆后续轮；TOOLS 和剩余15项严格身份拒绝不变。
+- A9-8 / R3519：`test_dynamic_import_registry.ProductionToolClosureTests` 使用 `_scan.tool_runtime_audit` 对账显式角色、生产导入、可调用入口、独立进程闭包与分发构建器的实际 `plan`。旧 `TOOLS` 只保留兼容扫描键（5 项登记、4 项顶层命中）。其余角色按具体文件、生产调用位置和发布计划裁定。规则 18 与其生成索引沿用现有守卫文件。
+  - 应用运行工具包括 `codex_tasks`、`codex_paste`、`console_submit` 和 `batch_frames_tool/batch_frames.py`。`codex_tasks` 供 Codex 调度、工作流、创意对话和发送选择消费（候选 L1）。`codex_paste` 由创意对话和发送选择调用，分发含 `codex_paste.ps1`（候选 L1）。`console_submit` 由工作流调用 `send` 并自启脚本（候选 L1）。批处理模块供出图、ComfyUI 和 UI 调用，分发含配置及兼容的独立首帧启动器（候选 L2）。候选层用于工具门禁。R3574 拆除 `infra/comfy_service.py` 的两条反向导入。R3582 将 `infra/cloud_assets.py` 的本机参考图上传接到同层 `infra.http_client.LocalComfyClient`，A9-8 记录的三条 L1 → 批处理边全部移除。
+  - 预演批次提示引用生成模板 `blender_previs_template.py`。Blender 生成流程使用随包模板，并由 Blender 提供 `bpy` 和 `mathutils`。分发构建器由开发和发布流程调用。三虎的显式测试意图经 `pet_test_service` 启动开发自检，正式分发清单排除了其测试集合。
+  - `domain/offline_asr_client.py` 启动独立的 stdio JSON Lines 识别进程。`domain/offline_asr_setup.py` 启动 bootstrap 并经独立 venv 运行模型下载模块。三个入口、包初始化、模型配置、独立依赖声明共六个闭包文件均须随包。独立进程递归导入只接收自身闭包、标准库和独立依赖声明中的包。应用运行链禁止直接导入独立进程代码。模型缓存与 venv 是目标机生成数据。
+  - 严格入口 `require_tool_runtime_closure(_production_tool_audit())` 拒绝当前三条越层边、两个开发自检启动位置、八个随包的自检文件和两个 ASR 缓存探针。默认回归逐项核对现有拒绝，严格入口处理全部诊断。批处理依赖与 ASR 协议版本及读取边界交 A10。正式版测试意图边界、发布精确文件校验、缓存排除和独立 venv 锁定及干净安装交 A15。[R3519 结果](tasks_round/tasks_round_3519_result.md)
 - 阶段/UI 契约：`test_dynamic_import_registry.py`、`test_stage_command_contract.py`、`test_completion_gate.py`、`test_event_bus_boundary.py`、`test_skill_dependency_dag.py`、`test_pipeline_stage_io_contract.py`、`test_skill_reference_injection.py`、`test_project_entry_boundary.py`。
 - 依赖与平台边界：`test_import_error_boundaries.py`、`test_model_provider_boundary.py`、`test_platform_opening.py`、`test_platform_process_boundary.py`、`test_migrated_ui_boundaries.py`、`test_dependency_whitelist.py`（R3199 新增：白名单库版本、完整性、传递依赖检查）。
 - 体验与布局：`test_responsive_layout_contract.py`、`test_combobox_boundary.py`、`test_nav_icon_size_boundary.py`（Fluent PNG 固定 24px 画布）、`test_box_boundary.py`（Box 框体唯一入口 `ui_theme.box_frame`，`Box.TFrame` 字面量零容忍、自拼 1px 边框冻结）、`test_font_boundary.py`（内联字体元组冻结，只取 `FONTS[...]`）、`test_native_control_boundary.py`（自配颜色 `tk.Label`/`tk.Frame` 冻结）、`test_form_control_boundary.py`（表单控件只用已登记样式名，局部样式改写零容忍）。

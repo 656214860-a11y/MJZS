@@ -208,9 +208,9 @@ def _retry_after_seconds(headers):
     text = str(value).strip()
     if not text:
         return None
-    if text.isdigit():
-        return int(text)
     try:
+        if text.isascii() and text.isdigit():
+            return int(text)
         from email.utils import parsedate_to_datetime
         from datetime import timezone
         parsed = parsedate_to_datetime(text)
@@ -235,9 +235,10 @@ def _wait_before_retry(attempt, retry_after, control=None, jitter=True):
     delay = _retry_delay(attempt, retry_after, jitter=jitter)
     if delay <= 0:
         return
-    if control is not None and hasattr(control, 'checkpoint'):
-        control.checkpoint()
-    _SLEEP(delay)
+    if control is None:
+        _SLEEP(delay)
+    else:
+        control.wait_for_retry(delay, sleep=None if _SLEEP is time.sleep else _SLEEP)
 
 
 @app_logging.timed('model.http', 30000)
@@ -378,12 +379,11 @@ def _http_transport(url, payload, headers, timeout, opener=None, attempt_budget=
     credential = _header_credential(headers)
     for attempt in range(1, limit + 1):
         _wait_for_rate_limit(url, control, credential=credential)
+        attempt_timeout = timeout if control is None else control.remaining(timeout)
         if attempt_budget is not None:
             attempt_budget[0] -= 1
-        if control is not None:
-            timeout = control.remaining(timeout)
         try:
-            with (opener or _http_opener)().open(request, timeout=timeout) as response:
+            with (opener or _http_opener)().open(request, timeout=attempt_timeout) as response:
                 status = getattr(response, 'status', 200)
                 if _content_length_exceeded(response.headers, RESPONSE_BODY_MAX_BYTES):
                     return {'ok': False, 'status': status, 'kind': 'client',

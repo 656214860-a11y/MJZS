@@ -9,6 +9,7 @@ import random
 import sys
 import tempfile
 import unittest
+from ui.pet_ui_stages import stage_run_action
 import unittest.mock
 import urllib.error
 from pathlib import Path
@@ -616,22 +617,22 @@ class StageGateTests(unittest.TestCase):
 
     def test_manual_start_returns_block_reason(self):
         desk = _Desktop(lambda stage: '需要登录' if stage == 'storyboard' else '')
-        self.assertEqual(stage_handler_registry.start(desk, 'storyboard', trigger='manual'), '需要登录')
+        self.assertEqual(stage_handler_registry.start(desk, 'storyboard', trigger='manual', run_action=stage_run_action), '需要登录')
 
     def test_auto_start_emits_stage_failed(self):
         desk = _Desktop(lambda stage: '需要登录')
         fallback = unittest.mock.Mock(return_value='ran')
-        self.assertEqual(stage_handler_registry.start(desk, 'keyframe', fallback=fallback), '需要登录')
+        self.assertEqual(stage_handler_registry.start(desk, 'keyframe', fallback=fallback, run_action=stage_run_action), '需要登录')
         fallback.assert_not_called()
         self.assertEqual(desk.events[0][1]['stage'], 'keyframe')
 
     def test_non_string_gate_result_does_not_block(self):
         desk = _Desktop(lambda stage: unittest.mock.Mock())
-        self.assertEqual(stage_handler_registry.start(desk, 'keyframe', fallback=lambda s, t: 'ran'), 'ran')
+        self.assertEqual(stage_handler_registry.start(desk, 'keyframe', fallback=lambda s, t: 'ran', run_action=stage_run_action), 'ran')
 
     def test_open_gate_falls_through(self):
         desk = _Desktop(lambda stage: '')
-        self.assertEqual(stage_handler_registry.start(desk, 'keyframe', fallback=lambda s, t: 'ran'), 'ran')
+        self.assertEqual(stage_handler_registry.start(desk, 'keyframe', fallback=lambda s, t: 'ran', run_action=stage_run_action), 'ran')
 
 
 if __name__ == '__main__':

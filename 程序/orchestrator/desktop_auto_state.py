@@ -17,6 +17,7 @@ import queue
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+from infra import project_settings
 from orchestrator.desktop_automation_service import BackgroundTaskLifecycle
 
 
@@ -27,9 +28,17 @@ PET_STAGE_POLL={'storyboard':'auto_adopt','assets':'auto_asset','final':'auto_fi
                 'previs':'auto_previs','video':'auto_video','edit':'auto_edit','delivery':'auto_handoff'}
 # 第 67 期任务 5：无人值守轮询名 → 打开它的那一把开关（project_settings 里的 set_auto_*）。
 # 用户切到自动档之后，三虎要「自动开始每个阶段的任务」：先把这一步的开关替他打开，再起跑。
-UNATTENDED_SWITCH={'auto_adopt':'set_auto_adopt','auto_asset':'set_auto_asset','auto_final':'set_auto_final',
-                   'auto_keyframe':'set_auto_keyframe','auto_previs':'set_auto_previs','auto_video':'set_auto_video',
-                   'auto_edit':'set_auto_edit','auto_handoff':'set_auto_handoff'}
+UNATTENDED_SWITCH_SETTERS = {
+    'auto_adopt': project_settings.set_auto_adopt,
+    'auto_asset': project_settings.set_auto_asset,
+    'auto_final': project_settings.set_auto_final,
+    'auto_keyframe': project_settings.set_auto_keyframe,
+    'auto_previs': project_settings.set_auto_previs,
+    'auto_video': project_settings.set_auto_video,
+    'auto_edit': project_settings.set_auto_edit,
+    'auto_handoff': project_settings.set_auto_handoff,
+}
+UNATTENDED_SWITCH = {name: setter.__name__ for name, setter in UNATTENDED_SWITCH_SETTERS.items()}
 
 
 # 无人值守链路的下游关系：某一步刚成功完成时，把它的下游节流清零，链路立刻往前走一步，

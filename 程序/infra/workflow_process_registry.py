@@ -283,6 +283,25 @@ def processes(project):
         return list(_running.get(_key(project), []))
 
 
+DIAGNOSTIC_BYTES = 100 * 1024 * 1024
+_QUOTA_NOTICE = '[诊断输出达到容量上限，后续已截断]\n'
+
+
+def _diagnostic_lines(pipe):
+    """排空整行，只向日志与订阅者交付一次有界预览。"""
+    from infra.app_logging import EVENT_BYTES, TRUNCATED, bounded_text
+    while line := pipe.readline(EVENT_BYTES):
+        if len(line) == EVENT_BYTES and not line.endswith('\n'):
+            preview = bounded_text(line, EVENT_BYTES - 16)
+            if not preview.endswith(TRUNCATED):
+                preview += TRUNCATED
+            yield preview + '\n'
+            while line and not line.endswith('\n'):
+                line = pipe.readline(EVENT_BYTES)
+        else:
+            yield bounded_text(line.rstrip('\n'), EVENT_BYTES - 2) + ('\n' if line.endswith('\n') else '')
+
+
 def run_registered(args, project, prompt, streams, timeout, *, timeout_label, options=None):
     """启动子进程并登记（唯一实现，R2178 J14）：只有登记过的进程才会被「强制停止制作」结束。
 
@@ -298,24 +317,52 @@ def run_registered(args, project, prompt, streams, timeout, *, timeout_label, op
     env = options.get('env')
     on_output = options.get('on_output')
     stdout, stderr = streams
-    pipe_out = subprocess.PIPE if on_output is not None else stdout
-    pipe_err = subprocess.PIPE if on_output is not None else stderr
+    # 同一输出对象接收两路的是合并诊断日志；独立 stdout 承载引擎响应协议。
+    diagnostics = set()
+    if hasattr(stderr, 'write'):
+        diagnostics.add('stderr')
+        if stdout is stderr:
+            diagnostics.add('stdout')
+    pipe_out = subprocess.PIPE if on_output is not None or 'stdout' in diagnostics else stdout
+    pipe_err = subprocess.PIPE if on_output is not None or 'stderr' in diagnostics else stderr
     process = launch_text_process(args, cwd=project, stdin=subprocess.PIPE, stdout=pipe_out, stderr=pipe_err, env=env)
     register_process(project, process)
+    pipes = {}
     try:
-        if on_output is None:
+        for name in diagnostics:
+            pipe = getattr(process, name, None)
+            if pipe is not None:
+                pipes[name] = pipe
+                setattr(process, name, _diagnostic_lines(pipe))
+        if on_output is None and not pipes:
             communicate_or_kill(process, prompt, timeout)
         else:
+            remaining = DIAGNOSTIC_BYTES
+            write_lock = threading.Lock()
+            notice_bytes = len(_QUOTA_NOTICE.encode('utf-8')) + 1
+
             def forward(line, stream):
+                nonlocal remaining
                 # 逐行写回调用方给的对应文件对象（若有），再交回调；stream 区分 stdout/stderr。
                 target = stdout if stream == 'stdout' else stderr
-                if hasattr(target, 'write'):
-                    try:
-                        target.write(line)
-                        target.flush()
-                    except (OSError, ValueError):
-                        pass
-                on_output(line, stream)
+                with write_lock:
+                    if stream in diagnostics:
+                        if remaining == 0:
+                            return
+                        size = len(line.encode('utf-8')) + line.count('\n')
+                        if size + notice_bytes > remaining:
+                            line = _QUOTA_NOTICE
+                            remaining = 0
+                        else:
+                            remaining -= size
+                    if hasattr(target, 'write'):
+                        try:
+                            target.write(line)
+                            target.flush()
+                        except (OSError, ValueError):
+                            pass
+                if on_output is not None:
+                    on_output(line, stream)
             communicate_or_kill(process, prompt, timeout, on_output=forward)
     except subprocess.TimeoutExpired:
         raise ValueError('%s（%s 仍未结束），已强制结束；请查看运行日志后重试' % (timeout_label, duration_text(timeout))) from None
@@ -323,5 +370,7 @@ def run_registered(args, project, prompt, streams, timeout, *, timeout_label, op
         terminate_process_tree(process)
         raise
     finally:
+        for name, pipe in pipes.items():
+            setattr(process, name, pipe)
         forget_process(project, process)
     return process.returncode

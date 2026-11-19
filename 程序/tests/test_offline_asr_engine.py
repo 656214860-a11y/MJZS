@@ -498,6 +498,33 @@ class StdioEncodingTests(unittest.TestCase):
         "srv.main()"
     )
 
+    def test_command_versions_and_malformed_json(self):
+        raw = (b'{not-json}\n{"cmd":"start","protocol_version":9}\n'
+               b'{"cmd":"start","protocol_version":1}\n'
+               b'{"cmd":"stop","protocol_version":1}\n{"cmd":"shutdown"}\n')
+        incoming = io.TextIOWrapper(io.BytesIO(raw))
+        outgoing = io.StringIO()
+        with mock.patch.object(srv.sys, 'stdin', incoming), \
+             mock.patch.object(srv.sys, 'stdout', outgoing), \
+             mock.patch.object(srv.FunAsrBackend, 'load'):
+            self.assertEqual(srv.main(), 0)
+        messages = [json.loads(line) for line in outgoing.getvalue().splitlines()]
+        self.assertEqual(messages[0]['protocol_version'], 1)
+        self.assertEqual([m['type'] for m in messages],
+                         ['ready', 'error', 'error', 'log', 'done'])
+
+    def test_command_limit_precedes_complete_line_read(self):
+        raw = io.BytesIO('界'.encode() * 40 + b'\n')
+        outgoing = io.StringIO()
+        incoming = io.TextIOWrapper(raw)
+        with mock.patch.object(srv.sys, 'stdin', incoming), \
+             mock.patch.object(srv.sys, 'stdout', outgoing), \
+             mock.patch.object(srv.FunAsrBackend, 'load'), \
+             mock.patch.object(srv, 'MAX_LINE_BYTES', 64):
+            self.assertEqual(srv.main(), srv.EXIT_FATAL)
+        self.assertEqual(raw.tell(), 65)
+        self.assertIn('字节', outgoing.getvalue())
+
     def test_engine_stdout_emits_utf8_chinese(self):
         commands = ('{"cmd":"start","sample_rate":16000}\n'
                     '{"cmd":"stop"}\n{"cmd":"shutdown"}\n').encode('utf-8')

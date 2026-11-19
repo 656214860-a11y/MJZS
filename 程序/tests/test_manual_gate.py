@@ -134,6 +134,39 @@ class ManualCommandTests(unittest.TestCase):
         import stage_models
         self.sm = stage_models
 
+    def test_configure_uses_installed_presenter_without_starting(self):
+        from unittest.mock import Mock, patch
+        from ui import ui_stage_popups
+
+        host = stub_desktop(None)
+        action = Mock()
+        with patch.object(self.sm, 'plan', return_value='configure'), \
+                patch('ui.skill_panel.show') as show:
+            ui_stage_popups.install_stage_presenters()
+            self.assertFalse(self.sm.manual_command(host, 'previs', action)())
+        show.assert_called_once_with(host, 'previs')
+        action.assert_not_called()
+
+    def test_explicit_start_failure_is_not_success(self):
+        from unittest.mock import Mock, patch
+
+        with patch.object(self.sm, 'plan', return_value='run'), \
+                patch.object(self.sm, 'before_manual', return_value=True):
+            action = Mock(return_value=False)
+            self.assertFalse(self.sm.manual_command(stub_desktop(None), 'previs', action)())
+        action.assert_called_once_with()
+
+    def test_unavailable_config_presenter_reports_failure(self):
+        from unittest.mock import Mock, patch
+
+        host = stub_desktop(None)
+        for presenter in (None, Mock(side_effect=RuntimeError('panel failed'))):
+            with self.subTest(presenter=presenter), \
+                    patch.object(self.sm, '_CONFIG_PRESENTER', presenter), \
+                    patch.object(self.sm, '_status') as status:
+                self.assertIsNone(self.sm.open_config(host, 'previs'))
+                status.assert_called_once_with(host, '未能打开阶段配置，请稍后重试。')
+
     def test_the_action_runs_when_the_gate_lets_it_through(self):
         import stage_models
         original = stage_models.before_manual

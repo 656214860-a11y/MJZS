@@ -1,0 +1,15 @@
+{
+  "round": 3494,
+  "commit_base": "b548a184",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_layers test_service_return_contract test_no_circular_import test_gate_selfaudit test_rule_guard_map test_checkpoint_tree test_branch_tree_ui test_asset_hovercard test_citation test_code_highlight test_diff_view test_hitl_ui test_media_render test_video_audio_card test_multimodal_upload test_param_panel test_background_task test_edit_habits test_direct_chat_metering test_artifact_schema_wiring test_file_index test_file_naming test_global_library_service test_migrate_legacy_layout test_dynamic_import_registry",
+    "exit": 0,
+    "passed": 240,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T00:59:28"
+}

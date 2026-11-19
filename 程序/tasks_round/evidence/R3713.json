@@ -1,0 +1,15 @@
+{
+  "round": 3713,
+  "commit_base": "c577fe9d",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k skill_panel_long_list",
+    "exit": 0,
+    "passed": 2,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T12:03:10"
+}

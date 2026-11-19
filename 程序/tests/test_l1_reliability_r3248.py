@@ -367,7 +367,7 @@ class SettleLockTimeoutTests(unittest.TestCase):
                 msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
                 with mock.patch.object(request_ledger_module, 'REQUEST_LOCK_WAIT_SECONDS', 0.2), \
                         mock.patch.object(request_ledger_module, 'REQUEST_LOCK_POLL_SECONDS', 0.02), \
-                        mock.patch('infra.diagnostic_capture.record_degradation') as degrade:
+                        mock.patch.object(request_ledger_module, 'record_degradation') as degrade:
                     ledger2.settle_units('r', amount=3)
                     ledger2.settle_model('r', {'prompt_tokens': 1, 'completion_tokens': 1})
             finally:
@@ -388,7 +388,7 @@ class SettleLockTimeoutTests(unittest.TestCase):
             ledger.entries = [{'id': 'r', 'kind': 'tokens', 'state': 'reserved',
                                'at': ledger.clock(), 'amount': 5}]
             exc = request_ledger_module.LedgerLockTimeout('busy')
-            with mock.patch('infra.diagnostic_capture.record_degradation',
+            with mock.patch.object(request_ledger_module, 'record_degradation',
                             side_effect=RuntimeError('diag down')):
                 request_ledger_module._settle_lock_timeout(ledger, 'r', exc)
             entry = ledger._find('r')

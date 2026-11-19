@@ -101,8 +101,8 @@ class PublicationFsyncBudgetTests(unittest.TestCase):
         self.assertEqual(seen, [('result.json', ['result.json']),
                                 ('index.json', ['result.json', 'index.json'])])
 
-    def test_journals_left_by_earlier_versions_still_recover(self):
-        for state, expected in (('committed', 'new'), ('pending', 'old')):
+    def test_legacy_journal_preserves_unverifiable_target_and_backup(self):
+        for state in ('committed', 'rolled_back', 'pending'):
             with self.subTest(state=state):
                 core.save_text(self.target, 'new')
                 folder = publication.ROOT / ('b' * 32)
@@ -110,9 +110,15 @@ class PublicationFsyncBudgetTests(unittest.TestCase):
                 (folder / '0').write_text('old', encoding='utf-8')
                 (folder / 'journal.json').write_text(json.dumps({'version': 1, 'state': state, 'entries': [
                     {'target': str(self.target.resolve()), 'backup': '0', 'existed': True}]}), encoding='utf-8')
-                publication.recover_pending()
-                self.assertEqual(self.target.read_text(encoding='utf-8'), expected)
-                self.assertEqual(self._leftovers(), [])
+                if state == 'pending':
+                    with self.assertRaisesRegex(RuntimeError, '旧版.*保留备份'):
+                        publication.recover_pending()
+                    self.assertEqual((folder / '0').read_text(encoding='utf-8'), 'old')
+                    self.assertEqual(self._leftovers(), [folder])
+                else:
+                    publication.recover_pending()
+                    self.assertEqual(self._leftovers(), [])
+                self.assertEqual(self.target.read_text(encoding='utf-8'), 'new')
 
 
 if __name__ == '__main__':

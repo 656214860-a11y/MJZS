@@ -17,6 +17,7 @@ PROGRAM = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROGRAM))
 
 import diagnostic_capture  # noqa: E402
+from infra import diagnostic_state  # noqa: E402
 
 ENV = "DRAMA_SUPPRESS_DIAGNOSTICS"
 PROGRAM_STATE = PROGRAM / "logs" / "diagnostics" / "latest.json"
@@ -33,7 +34,7 @@ class SelftestDiagnosticsIsolationTests(unittest.TestCase):
     def _writes(self, environ):
         writes = []
         with mock.patch.dict(os.environ, environ, clear=True), \
-                mock.patch.object(diagnostic_capture, "save_text", lambda path, text: writes.append(Path(path))):
+                mock.patch.object(diagnostic_state, "save_text", lambda path, text: writes.append(Path(path))):
             _record_all()
         return writes
 

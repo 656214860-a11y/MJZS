@@ -32,7 +32,6 @@ _REPLACE_REGISTERED = {
     "app_logging.py": 1,
     "image_agent_runner.py": 1,
     "log_maintenance.py": 2,
-    "skill_import_service.py": 2,
     "skill_registry.py": 1,
     "stage_handoff_gateways.py": 1,
     "stage_write_preparation_service.py": 3,

@@ -15,14 +15,13 @@ import os
 import re
 import shutil
 import tempfile
-import threading
 import traceback
 import zipfile
 from datetime import datetime, timedelta
 from pathlib import Path
 
 import infra.app_logging as app_logging
-import contract.artifact_schema as artifact_schema
+from infra import config_snapshot, diagnostic_state
 from agent.core import read_json, save_bytes, save_text
 from infra.log_maintenance import RETENTION_DAYS
 
@@ -30,14 +29,11 @@ from infra.log_maintenance import RETENTION_DAYS
 PROGRAM = Path(__file__).resolve().parents[1]
 LOGS = PROGRAM / "logs"
 ERROR_LOG = LOGS / "启动错误.log"
-STATE_FILE = LOGS / "diagnostics" / "latest.json"
-# 自检与本地 CI 设置 DRAMA_SUPPRESS_DIAGNOSTICS=1：测试故意触发的报错不写进程序自己的这份
-# 记录，免得临时项目混进用户的运行状况与诊断导出；测试把 STATE_FILE 改指到临时文件时照常写。
-SUPPRESS_DIAGNOSTICS_ENV = "DRAMA_SUPPRESS_DIAGNOSTICS"
-_PROGRAM_STATE_FILE = STATE_FILE
+STATE_FILE = diagnostic_state.STATE_FILE
+SUPPRESS_DIAGNOSTICS_ENV = diagnostic_state.SUPPRESS_DIAGNOSTICS_ENV
 _SECRET = app_logging._SECRET
 _PRIVATE_NAME = re.compile(r"(?i)(?:\.env$|\.dpapi$|private|credential|secret)")
-_LOCK = threading.Lock()
+_LOCK = diagnostic_state.STATE_LOCK
 
 
 def redact(value: object) -> str:
@@ -45,29 +41,11 @@ def redact(value: object) -> str:
     return _clean(value)
 
 def _state() -> dict:
-    try:
-        value = read_json(STATE_FILE, default={})
-    except (OSError, ValueError):
-        value = {}
-    return value if isinstance(value, dict) else {}
-
-
-def _artifact_state_rows() -> dict:
-    """产物版本分类计数快照（``artifact_schema`` 内存计数 → 诊断账本，G8/D4-d）。"""
-    try:
-        return artifact_schema.read_state_counts() or {}
-    except Exception:
-        return {}
+    return diagnostic_state.read_state(STATE_FILE)
 
 
 def _save_state(value: dict) -> None:
-    if os.environ.get(SUPPRESS_DIAGNOSTICS_ENV) == "1" and STATE_FILE == _PROGRAM_STATE_FILE:
-        return
-    rows = _artifact_state_rows()
-    if rows:
-        value = dict(value)
-        value["artifact_versions"] = rows
-    save_text(STATE_FILE, json.dumps(value, ensure_ascii=False, indent=2))
+    diagnostic_state.save_state(STATE_FILE, value)
 
 
 def flush_artifact_states() -> None:
@@ -76,7 +54,7 @@ def flush_artifact_states() -> None:
     计数由各属主读取点记入 ``artifact_schema`` 内存；这里只负责落盘收走，
     任何一步失败都静默，不影响诊断主流程。
     """
-    rows = _artifact_state_rows()
+    rows = diagnostic_state.artifact_state_rows()
     if not rows:
         return
     with _LOCK:
@@ -98,16 +76,10 @@ def record_degradation(exc: BaseException, *, page: str = "", stage: str = "",
                        project: str = "", automatic_daily_open: bool = False,
                        error_code: str = "") -> None:
     """记录一次已降级异常；调用方仍保持原有容错/返回语义。``error_code`` 用 L0 码表已有码（如 E-IO-WRITE）。"""
-    with _LOCK:
-        state = _state()
-        rows = list(state.get("degradations") or [])[-49:]
-        rows.append({"at": datetime.now().isoformat(timespec="seconds"),
-                     "exception": type(exc).__name__, "message": _clean(exc),
-                     "page": _clean(page), "stage": _clean(stage),
-                     "project": _clean(project), "automatic_daily_open": bool(automatic_daily_open),
-                     "code": _clean(error_code)})
-        state["degradations"] = rows
-        _save_state(state)
+    diagnostic_state.record_degradation(
+        exc, page=page, stage=stage, project=project, automatic_daily_open=automatic_daily_open,
+        error_code=error_code, state_file=STATE_FILE,
+    )
 
 
 def record_startup_timing(name: str, elapsed_ms: float) -> None:
@@ -283,19 +255,9 @@ def _check_disk_space(root):
 
 
 def _check_model_pool(root):
-    """乙类（Q7）：模型池为空 → DEGRADED。
-
-    「空」口径与 ``desktop_login_gate._guide_first_model_setup`` 一致：
-    ``model_pool.raw().get('models')`` 不是非空 dict（没配过或配空了）。
-    惰性 import：L1 同层引用，不向上越层。
-    """
+    """空池报告 Q7，读取异常由自检运行器记录为降级。"""
     from contract.diagnostics import StartupPhase
-    try:
-        import infra.model_pool as model_pool
-        stored = model_pool.raw(program=Path(root)).get('models')
-    except Exception:
-        return None                       # 配置读不出来按「无法确认」处理，不误报
-    if isinstance(stored, dict) and stored:
+    if config_snapshot.has_stored_models(root):
         return None
     return _degraded(StartupPhase.CONFIG, 'model-pool-empty',
                      '模型池为空：还没有配置任何模型，制作阶段会缺模型可用',

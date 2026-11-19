@@ -305,18 +305,51 @@ def swallowed(note: str = "") -> None:
         pass
 
 
+EVENT_BYTES = 64 * 1024
+TRUNCATED = "…[已截断]"
+
+
+def bounded_text(text: str, limit: int = EVENT_BYTES - 2) -> str:
+    """限制 UTF-8 文本，计入 Windows 换行展开；避免为原长文本分配编码副本。"""
+    prefix = text[:limit]
+    encoded = prefix.encode("utf-8", "replace")
+    extra = prefix.count("\n")
+    if len(text) == len(prefix) and len(encoded) + extra <= limit:
+        return prefix
+    budget = limit - len(TRUNCATED.encode("utf-8"))
+    # 多行文本预留最坏每字节一个换行；单行保留全部可用空间。
+    if extra:
+        budget //= 2
+    return encoded[:budget].decode("utf-8", "ignore") + TRUNCATED
+
+
+class _EventFormatter(logging.Formatter):
+    def format(self, record):
+        return bounded_text(super().format(record))
+
+
 class _Redact(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         try:
-            record.msg = redact(record.getMessage())
+            record.msg = redact(bounded_text(record.getMessage()))
             record.args = None
             if record.exc_info:
                 import traceback
-                record.msg += "\n" + redact("".join(traceback.format_exception(*record.exc_info)))
+                trace = traceback.TracebackException(*record.exc_info, limit=32)
+                parts = []
+                room = EVENT_BYTES
+                for piece in trace.format():
+                    parts.append(piece[:room])
+                    room -= len(parts[-1])
+                    if not room:
+                        parts.append(TRUNCATED)
+                        break
+                record.msg += "\n" + redact(bounded_text("".join(parts)))
                 record.exc_info = None
                 record.exc_text = None
         except Exception:
-            pass
+            record.msg, record.args = "[日志格式化失败]", ()
+            record.exc_info = record.exc_text = None
         return True
 
 
@@ -357,7 +390,7 @@ def install(root=None, crash_sink=None) -> bool:
     try:
         LOGS.mkdir(parents=True, exist_ok=True)
         handler = RotatingFileHandler(APP_LOG, maxBytes=MAX_BYTES, backupCount=BACKUPS, encoding="utf-8")
-        handler.setFormatter(logging.Formatter(FORMAT))
+        handler.setFormatter(_EventFormatter(FORMAT))
         handler.addFilter(_Redact())
         logger = logging.getLogger()
         logger.addHandler(handler)

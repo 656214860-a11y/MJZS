@@ -1,0 +1,15 @@
+{
+  "round": 3694,
+  "commit_base": "1b59bc34",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_history_output_bounds",
+    "exit": 0,
+    "passed": 8,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T10:51:35"
+}

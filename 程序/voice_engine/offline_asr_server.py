@@ -39,7 +39,8 @@ SAMPLE_RATE = 16000
 CHANNELS = 1
 SAMPLE_WIDTH = 2
 BYTES_PER_MS = SAMPLE_RATE * SAMPLE_WIDTH // 1000  # 32
-MAX_LINE_BYTES = 8 * 1024 * 1024                    # 单行命令上限（约 6MB 音频）
+PROTOCOL_VERSION = 1
+MAX_LINE_BYTES = 8 * 1024 * 1024  # 与客户端一致，含行结束符（约 6 MB 音频）
 
 # ---- 分句参数 ----
 VAD_TICK_MS = 300        # 两次 VAD 轮询的最小新音频间隔
@@ -537,12 +538,10 @@ def _parse_line(raw):
     line = raw.strip()
     if not line:
         return {}
-    if len(line) > MAX_LINE_BYTES:
-        return {"_invalid": "命令行过长"}
     try:
         msg = json.loads(line)
-    except ValueError:
-        return {"_invalid": line[:80]}
+    except (ValueError, RecursionError):
+        return {"_invalid": "JSON 格式无效"}
     return msg if isinstance(msg, dict) else {"_invalid": "命令必须是 JSON 对象"}
 
 
@@ -556,13 +555,31 @@ def main(argv=None):
     except Exception as exc:  # noqa: BLE001
         emit_message({"type": "error", "message": _zh_error("模型加载失败", exc)})
         return EXIT_MODEL_ERROR
-    emit_message({"type": "ready", "device": backend.device,
+    emit_message({"type": "ready", "protocol_version": PROTOCOL_VERSION, "device": backend.device,
                   "models": dict(backend.model_names)})
 
-    for raw in sys.stdin:
-        msg = _parse_line(raw)
+    status = EXIT_OK
+    stream = sys.stdin.buffer
+    while raw := stream.readline(MAX_LINE_BYTES + 1):
+        if len(raw) > MAX_LINE_BYTES:
+            emit_message({"type": "error", "message": "命令超出字节上限"})
+            status = EXIT_FATAL
+            break
+        if not raw.endswith(b"\n"):
+            emit_message({"type": "error", "message": "命令帧缺少换行符"})
+            status = EXIT_FATAL
+            break
+        try:
+            msg = _parse_line(raw.decode("utf-8"))
+        except UnicodeDecodeError:
+            msg = {"_invalid": "命令编码必须为 UTF-8"}
         if not msg:
             continue
+        if "protocol_version" in msg:
+            version = msg["protocol_version"]
+            if type(version) is not int or version != PROTOCOL_VERSION:
+                emit_message({"type": "error", "message": "命令协议版本不受支持"})
+                continue
         if "_invalid" in msg:
             emit_message({"type": "error",
                           "message": "无法解析的命令：%s" % msg["_invalid"]})
@@ -573,7 +590,8 @@ def main(argv=None):
                 engine.open_session(
                     msg.get("sample_rate", SAMPLE_RATE),
                     msg.get("hotword", ""), vad=msg.get("vad"), log_fn=_emit_log)
-                emit_message({"type": "log", "message": "识别会话已开始"})
+                emit_message({"type": "log", "message": "识别会话已开始",
+                              "started_session_id": msg.get("session_id")})
             elif cmd == "audio":
                 engine.feed(msg.get("data", ""), emit_message)
             elif cmd == "stop":
@@ -585,13 +603,16 @@ def main(argv=None):
             else:
                 emit_message({"type": "error", "message": "未知命令：%s" % cmd})
         except Exception as exc:  # noqa: BLE001 —— 单命令失败不退出进程
-            emit_message({"type": "error", "message": _zh_error("命令处理失败", exc)})
+            error = {"type": "error", "message": _zh_error("命令处理失败", exc)}
+            if cmd == "start":
+                error["start_error_session_id"] = msg.get("session_id")
+            emit_message(error)
 
     try:
         backend.close()
     except Exception:  # noqa: BLE001
         pass
-    return EXIT_OK
+    return status
 
 
 if __name__ == "__main__":

@@ -117,6 +117,123 @@ class StableImportTests(unittest.TestCase):
             result = skill_panel.Panel.add_skill_from_file(self.panel)
         return result, confirm
 
+    def _replacement_plan(self):
+        from agent import publication
+        self.enterContext(mock.patch.object(publication, 'ROOT', self.root / 'transactions'))
+        source = write_skill(self.root / 'source', 'lead', conflicts='known')
+        plan = skill_import_service.plan_import(source, self.target_dir, 'script', self.panel.registry)
+        skill_import_service.perform_import(plan, self.program)
+        plan['target'].write_text('old', encoding='utf-8')
+        return plan
+
+    def test_record_failure_restores_previous_skill_and_allows_retry(self):
+        plan = self._replacement_plan()
+        ledger = skill_import_service.ledger_path(self.program)
+        previous = ledger.read_bytes()
+        record = skill_import_service.record
+
+        def fail_after_write(*args, **kwargs):
+            record(*args, **kwargs)
+            raise OSError('record failed after write')
+
+        with mock.patch.object(skill_import_service, 'record', side_effect=fail_after_write):
+            with self.assertRaisesRegex(OSError, 'record failed'):
+                skill_import_service.perform_import(plan, self.program, now=123)
+        self.assertEqual(plan['target'].read_text(encoding='utf-8'), 'old')
+        self.assertEqual(ledger.read_bytes(), previous)
+        skill_import_service.perform_import(plan, self.program)
+        self.assertEqual(len(skill_import_service.ledger_items(self.program)), 1)
+
+    def test_forget_failure_restores_skill_and_allows_retry(self):
+        plan = self._replacement_plan()
+        skill = mock.Mock(path=plan['target'])
+        skill.name = plan['name']
+        skill.get.return_value = False
+        self.panel.registry.getAll.return_value = [skill]
+        with mock.patch.object(skill_import_service, 'forget_ledger_targets',
+                               side_effect=PermissionError('forget failed')):
+            with self.assertRaisesRegex(skill_import_service.ImportBlocked, 'forget failed'):
+                skill_import_service.uninstall_skill(self.program, self.panel.registry, plan['name'])
+        self.assertEqual(plan['target'].read_text(encoding='utf-8'), 'old')
+        skill_import_service.uninstall_skill(self.program, self.panel.registry, plan['name'])
+        self.assertFalse(plan['target'].exists())
+        self.assertEqual(skill_import_service.ledger_items(self.program), {})
+        with self.assertRaises(skill_import_service.ImportBlocked):
+            skill_import_service.uninstall_skill(self.program, self.panel.registry, plan['name'])
+
+    def test_failed_restore_leaves_old_skill_queryable_and_retriable(self):
+        from ui import skill_install_recovery
+        plan = self._replacement_plan()
+        with (mock.patch.object(skill_import_service, 'record', side_effect=OSError('record failed')),
+              mock.patch.object(skill_install_recovery, 'restore_recycle_batch',
+                                side_effect=PermissionError('restore failed')) as restore):
+            with self.assertRaisesRegex(skill_import_service.ImportBlocked,
+                                       'record failed.*restore failed') as caught:
+                skill_import_service.perform_import(plan, self.program)
+        self.assertIsInstance(caught.exception.__cause__, OSError)
+        batch = restore.call_args.args[1]
+        self.assertIn(str(batch), str(caught.exception))
+        self.assertFalse(plan['target'].exists())
+        self.assertTrue((batch / '恢复位置.json').is_file())
+        skill_install_recovery.restore_recycle_batch(self.program, batch)
+        self.assertEqual(plan['target'].read_text(encoding='utf-8'), 'old')
+
+    def test_ledger_recovery_failure_retries_on_next_access(self):
+        from agent import publication
+        plan = self._replacement_plan()
+        ledger = skill_import_service.ledger_path(self.program)
+        previous = ledger.read_bytes()
+        record = skill_import_service.record
+
+        def fail_after_write(*args, **kwargs):
+            record(*args, **kwargs)
+            raise OSError('record failed')
+
+        with (mock.patch.object(skill_import_service, 'record', side_effect=fail_after_write),
+              mock.patch.object(publication, '_copy', side_effect=PermissionError('ledger restore failed'))):
+            with self.assertRaisesRegex(skill_import_service.ImportBlocked,
+                                       'record failed.*ledger restore failed') as caught:
+                skill_import_service.perform_import(plan, self.program, now=123)
+        self.assertIsInstance(caught.exception.__cause__, OSError)
+        self.assertEqual(plan['target'].read_text(encoding='utf-8'), 'old')
+        skill_import_service.ledger_items(self.program)
+        self.assertEqual(ledger.read_bytes(), previous)
+
+    def test_interrupt_after_swap_restores_original_scope_without_ui_callback(self):
+        plan = self._replacement_plan()
+        later = self.root / 'later-project'
+        later.mkdir()
+        other = later / plan['target'].name
+        other.write_text('other project', encoding='utf-8')
+
+        def interrupt(*args):
+            self.panel.registry.project_root = later
+            self.panel.winfo_exists.return_value = False
+            raise KeyboardInterrupt
+
+        with mock.patch.object(skill_import_service, '_verify', side_effect=interrupt):
+            with self.assertRaises(KeyboardInterrupt):
+                skill_import_service.perform_import(plan, self.program)
+        self.assertEqual(plan['target'].read_text(encoding='utf-8'), 'old')
+        self.assertEqual(other.read_text(encoding='utf-8'), 'other project')
+        self.panel.registry.scan.assert_not_called()
+
+    def test_record_failure_preserves_user_replacement_and_reports_recovery_location(self):
+        plan = self._replacement_plan()
+
+        def replace_target(*args, **kwargs):
+            path = plan['target']
+            replacement = path.with_name('user-edit.tmp')
+            replacement.write_text('user edit', encoding='utf-8')
+            replacement.replace(path)
+            raise OSError('record failed')
+
+        with mock.patch.object(skill_import_service, 'record', side_effect=replace_target):
+            with self.assertRaisesRegex(skill_import_service.ImportBlocked, 'record failed.*回收') as caught:
+                skill_import_service.perform_import(plan, self.program)
+        self.assertEqual(plan['target'].read_text(encoding='utf-8'), 'user edit')
+        self.assertIsInstance(caught.exception.__cause__, OSError)
+
     def state_text(self):
         return self.panel.state.configure.call_args.kwargs['text']
 

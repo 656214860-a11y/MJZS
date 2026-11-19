@@ -17,6 +17,7 @@ from pathlib import Path
 
 import infra.app_logging as app_logging
 import contract.stage_layout as stage_layout
+from infra.diagnostic_state import record_degradation
 from agent.core import save, read
 
 _REQUEST_LOCK = threading.RLock()
@@ -143,8 +144,7 @@ def _settle_lock_timeout(ledger, request_id, exc):
     except Exception:
         app_logging.swallowed()
     try:
-        from infra import diagnostic_capture
-        diagnostic_capture.record_degradation(exc, stage='request-ledger', error_code='E-IO-WRITE')
+        record_degradation(exc, stage='request-ledger', error_code='E-IO-WRITE')
     except Exception:
         app_logging.swallowed()
 

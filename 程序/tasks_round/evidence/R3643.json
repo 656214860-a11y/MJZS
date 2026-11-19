@@ -1,0 +1,15 @@
+{
+  "round": 3643,
+  "commit_base": "c98dd0c1",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_dynamic_import_registry test_desktop_auto_state test_unattended_chain_tables test_continuity_scope test_idea_request_lifecycle test_module_size_ratchet test_no_circular_import test_complexity_ratchet",
+    "exit": 0,
+    "passed": 81,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T07:46:42"
+}

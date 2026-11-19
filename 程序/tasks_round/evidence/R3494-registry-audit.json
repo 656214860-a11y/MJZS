@@ -1,0 +1,380 @@
+{
+  "base": "b548a184a4f22ad3cb63cc802197a48738448adb",
+  "registry_keys": [
+    "agent.prompt_optimizer",
+    "agent.shot_assets",
+    "agent_dispatch",
+    "asset_batch",
+    "asset_prompt_check_dialog",
+    "asset_reference_images",
+    "asset_reference_import",
+    "asset_skill_batch",
+    "background_characters",
+    "cloud_video",
+    "desktop_launcher",
+    "desktop_voice_input",
+    "keyframe_comfy",
+    "local_previs",
+    "native_assets",
+    "pet_ui",
+    "previs_automation",
+    "reference_wall",
+    "skill_panel",
+    "stage_exec",
+    "stage_flow",
+    "task_center_ui",
+    "workflow_settings"
+  ],
+  "calls": [
+    {
+      "file": "app.py",
+      "line": 1487,
+      "target": "desktop_launcher",
+      "caller_layer": 4
+    },
+    {
+      "file": "app.py",
+      "line": 345,
+      "target": "stage_flow",
+      "caller_layer": 4
+    },
+    {
+      "file": "app.py",
+      "line": 1235,
+      "target": "pet_ui",
+      "caller_layer": 4
+    },
+    {
+      "file": "app.py",
+      "line": 1250,
+      "target": "pet_ui",
+      "caller_layer": 4
+    },
+    {
+      "file": "app.py",
+      "line": 286,
+      "target": "agent.prompt_optimizer",
+      "caller_layer": 4
+    },
+    {
+      "file": "asset_reference_images.py",
+      "line": 432,
+      "target": "asset_reference_import",
+      "caller_layer": 4
+    },
+    {
+      "file": "asset_reference_images.py",
+      "line": 567,
+      "target": "asset_reference_import",
+      "caller_layer": 4
+    },
+    {
+      "file": "desktop_shared_input.py",
+      "line": 530,
+      "target": "skill_panel",
+      "caller_layer": 4
+    },
+    {
+      "file": "orchestrator/stage_models.py",
+      "line": 252,
+      "target": "skill_panel",
+      "caller_layer": 3
+    },
+    {
+      "file": "ui/asset_batch.py",
+      "line": 42,
+      "target": "asset_skill_batch",
+      "caller_layer": 4
+    },
+    {
+      "file": "ui/asset_batch.py",
+      "line": 47,
+      "target": "native_assets",
+      "caller_layer": 4
+    },
+    {
+      "file": "ui/asset_batch.py",
+      "line": 52,
+      "target": "workflow_settings",
+      "caller_layer": 4
+    },
+    {
+      "file": "ui/desktop_asset_pages.py",
+      "line": 317,
+      "target": "stage_flow",
+      "caller_layer": 4
+    },
+    {
+      "file": "ui/desktop_asset_pages.py",
+      "line": 421,
+      "target": "asset_reference_import",
+      "caller_layer": 4
+    },
+    {
+      "file": "ui/desktop_asset_pages.py",
+      "line": 425,
+      "target": "asset_reference_images",
+      "caller_layer": 4
+    },
+    {
+      "file": "ui/desktop_asset_pages.py",
+      "line": 310,
+      "target": "asset_batch",
+      "caller_layer": 4
+    },
+    {
+      "file": "ui/desktop_asset_pages.py",
+      "line": 245,
+      "target": "asset_prompt_check_dialog",
+      "caller_layer": 4
+    },
+    {
+      "file": "ui/desktop_asset_pages.py",
+      "line": 246,
+      "target": "background_characters",
+      "caller_layer": 4
+    },
+    {
+      "file": "ui/desktop_asset_pages.py",
+      "line": 264,
+      "target": "reference_wall",
+      "caller_layer": 4
+    },
+    {
+      "file": "ui/desktop_media_pages.py",
+      "line": 216,
+      "target": "stage_flow",
+      "caller_layer": 4
+    },
+    {
+      "file": "ui/desktop_media_pages.py",
+      "line": 527,
+      "target": "local_previs",
+      "caller_layer": 4
+    },
+    {
+      "file": "ui/desktop_media_pages.py",
+      "line": 748,
+      "target": "stage_flow",
+      "caller_layer": 4
+    },
+    {
+      "file": "ui/desktop_media_pages.py",
+      "line": 798,
+      "target": "stage_flow",
+      "caller_layer": 4
+    },
+    {
+      "file": "ui/desktop_media_pages.py",
+      "line": 619,
+      "target": "cloud_video",
+      "caller_layer": 4
+    },
+    {
+      "file": "ui/desktop_media_pages.py",
+      "line": 612,
+      "target": "cloud_video",
+      "caller_layer": 4
+    },
+    {
+      "file": "ui/desktop_media_pages.py",
+      "line": 616,
+      "target": "cloud_video",
+      "caller_layer": 4
+    },
+    {
+      "file": "ui/desktop_media_pages.py",
+      "line": 650,
+      "target": "cloud_video",
+      "caller_layer": 4
+    },
+    {
+      "file": "ui/desktop_media_pages.py",
+      "line": 796,
+      "target": "stage_exec",
+      "caller_layer": 4
+    },
+    {
+      "file": "ui/desktop_project_pages.py",
+      "line": 601,
+      "target": "task_center_ui",
+      "caller_layer": 4
+    },
+    {
+      "file": "ui/desktop_script_pages.py",
+      "line": 524,
+      "target": "stage_flow",
+      "caller_layer": 4
+    },
+    {
+      "file": "ui/desktop_script_pages.py",
+      "line": 423,
+      "target": "stage_exec",
+      "caller_layer": 4
+    },
+    {
+      "file": "ui/desktop_storyboard_page.py",
+      "line": 73,
+      "target": "stage_flow",
+      "caller_layer": 4
+    },
+    {
+      "file": "ui/desktop_storyboard_page.py",
+      "line": 289,
+      "target": "keyframe_comfy",
+      "caller_layer": 4
+    },
+    {
+      "file": "ui/desktop_storyboard_page.py",
+      "line": 81,
+      "target": "agent.shot_assets",
+      "caller_layer": 4
+    },
+    {
+      "file": "ui/local_previs.py",
+      "line": 179,
+      "target": "stage_flow",
+      "caller_layer": 4
+    },
+    {
+      "file": "ui/local_previs.py",
+      "line": 292,
+      "target": "previs_automation",
+      "caller_layer": 4
+    },
+    {
+      "file": "ui/local_previs.py",
+      "line": 311,
+      "target": "previs_automation",
+      "caller_layer": 4
+    },
+    {
+      "file": "ui/skill_panel_support.py",
+      "line": 269,
+      "target": "cloud_video",
+      "caller_layer": 4
+    },
+    {
+      "file": "ui/storyboard_files.py",
+      "line": 217,
+      "target": "stage_flow",
+      "caller_layer": 4
+    },
+    {
+      "file": "ui/storyboard_files.py",
+      "line": 783,
+      "target": "stage_flow",
+      "caller_layer": 4
+    },
+    {
+      "file": "ui/ui_stage_popups.py",
+      "line": 158,
+      "target": "stage_exec",
+      "caller_layer": 4
+    },
+    {
+      "file": "ui/white_model.py",
+      "line": 153,
+      "target": "desktop_voice_input",
+      "caller_layer": 4
+    },
+    {
+      "file": "ui/workflow_settings_dialog.py",
+      "line": 74,
+      "target": "desktop_voice_input",
+      "caller_layer": 4
+    }
+  ],
+  "l4_calls": 42,
+  "unresolved": 0,
+  "production_hashes": {
+    "infra\\ui_plugin_registry.py": "e034b0f0de4420fd43323eea47ab447738a68b5b3751e4f6345d84a2bb5adeb6",
+    "orchestrator\\stage_handler_registry.py": "fc214db96c4cf80e3e42ad2e8e8b60647d49eb74f484b5a66a87d56c8b877c8d"
+  },
+  "strict_rejected": {
+    "domain.checkpoint_tree": "unregistered",
+    "ui.edit_habits_dialog": "unregistered",
+    "ui.project_settings_dialog": "unregistered",
+    "ui.ui_asset_card": "unregistered",
+    "ui.ui_branch_tree": "unregistered",
+    "ui.ui_citation": "unregistered",
+    "ui.ui_code_block": "unregistered",
+    "ui.ui_diff": "unregistered",
+    "ui.ui_hitl": "unregistered",
+    "ui.ui_media": "unregistered",
+    "ui.ui_media_player": "unregistered",
+    "ui.ui_multimodal": "unregistered",
+    "ui.ui_param_panel": "unregistered",
+    "ui.ui_task_progress": "unregistered",
+    "agent": "unregistered"
+  },
+  "unchanged_files": {
+    "tests/architecture/_layers.py": true,
+    "维护记录/架构统一基数.json": true,
+    "维护记录/规则守卫基线.json": true,
+    "维护记录/规则守卫对照.md": true
+  },
+  "checks": {
+    "before": {
+      "sha256": "2df94f3becaaedc28bfdce64cd43f620b181ede77f4b5a09ba13f63e87cc956a",
+      "failures": [
+        "test_performance_history_is_declared_as_historical_only (tests.architecture.test_agents_md.AgentsMdConsistencyTests.test_performance_history_is_declared_as_historical_only)\r",
+        "test_round_number_continuous (tests.architecture.test_round_baselines.RoundBaselineTests.test_round_number_continuous)\r",
+        "test_script_stages_name_only_their_approved_00_references (tests.architecture.test_skill_reference_injection.SkillReferenceInjectionTests.test_script_stages_name_only_their_approved_00_references)\r"
+      ],
+      "summary": [
+        "Ran 567 tests in 378.722s",
+        "FAILED (failures=2, errors=1)"
+      ]
+    },
+    "after": {
+      "sha256": "42d335432f8a4abd3ff6856ebc02c6110a0242051f6448642a52b42a1261ae0c",
+      "failures": [
+        "test_performance_history_is_declared_as_historical_only (tests.architecture.test_agents_md.AgentsMdConsistencyTests.test_performance_history_is_declared_as_historical_only)\r",
+        "test_round_number_continuous (tests.architecture.test_round_baselines.RoundBaselineTests.test_round_number_continuous)\r",
+        "test_script_stages_name_only_their_approved_00_references (tests.architecture.test_skill_reference_injection.SkillReferenceInjectionTests.test_script_stages_name_only_their_approved_00_references)\r"
+      ],
+      "summary": [
+        "Ran 577 tests in 309.718s",
+        "FAILED (failures=2, errors=1)"
+      ]
+    },
+    "red": {
+      "sha256": "58420c9db264caa217abde6637f89b38a67719d7ea19290a19d0af77da48e12b",
+      "failures": [
+        "test_unknown_key_is_rejected (tests.architecture.test_dynamic_import_registry.RegistryClosureTests.test_unknown_key_is_rejected)\r",
+        "test_unregistered_and_upward_targets_are_rejected (tests.architecture.test_dynamic_import_registry.RegistryClosureTests.test_unregistered_and_upward_targets_are_rejected) (reason='unregistered-target')\r",
+        "test_unregistered_and_upward_targets_are_rejected (tests.architecture.test_dynamic_import_registry.RegistryClosureTests.test_unregistered_and_upward_targets_are_rejected) (reason='upward-target')\r",
+        "test_variable_is_not_silently_accepted (tests.architecture.test_dynamic_import_registry.RegistryClosureTests.test_variable_is_not_silently_accepted)\r"
+      ],
+      "summary": [
+        "Ran 3 tests in 0.036s",
+        "FAILED (failures=4)"
+      ]
+    },
+    "green": {
+      "sha256": "f74964ef6741bdcc2f5c5ca72de03c464ac4c72754833b0466ac3080fc5d9e68",
+      "failures": [],
+      "summary": [
+        "Ran 13 tests in 5.765s"
+      ]
+    },
+    "smoke": {
+      "sha256": "bd3b225eb22d8c6c85bf85d4a87fcaef643fb6d22ffd80d8bd5d59f7fa66814d",
+      "failures": [],
+      "summary": [
+        "通过：9 项",
+        "失败：0 项"
+      ]
+    }
+  },
+  "architecture_failure_set_unchanged": true,
+  "targeted": {
+    "cmd": "run_selftests.py -k test_layers test_service_return_contract test_no_circular_import test_gate_selfaudit test_rule_guard_map test_checkpoint_tree test_branch_tree_ui test_asset_hovercard test_citation test_code_highlight test_diff_view test_hitl_ui test_media_render test_video_audio_card test_multimodal_upload test_param_panel test_background_task test_edit_habits test_direct_chat_metering test_artifact_schema_wiring test_file_index test_file_naming test_global_library_service test_migrate_legacy_layout test_dynamic_import_registry",
+    "exit": 0,
+    "passed": 240,
+    "failed": 0
+  },
+  "scope_overlap_branches": 38,
+  "equivalent_registry_scanners": []
+}

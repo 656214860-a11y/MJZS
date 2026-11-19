@@ -338,12 +338,12 @@ def uninstall_skill_entry(program, registry, name, *, project=None):
     if (not target.exists()
             or not any(target.resolve().is_relative_to(root) for root in roots)):
         raise skill_import_service.ImportBlocked('SKILL「%s」不在可卸载目录' % name)
-    records = recycle_paths(program, [target], '删除已禁用 SKILL：' + name)
-    if not records:
-        raise skill_import_service.ImportBlocked('SKILL「%s」未能移入回收站' % name)
-    skill_import_service.forget_ledger_targets(program, [target])
-    skill_project_layer.set_disabled(
-        skill_registry.default_user_root(program), entry['layer'], name,
-        project=entry['project'] if entry['layer'] == 'project' else '',
-        disabled=False)
+    def clear_disabled():
+        skill_project_layer.set_disabled(
+            skill_registry.default_user_root(program), entry['layer'], name,
+            project=entry['project'] if entry['layer'] == 'project' else '',
+            disabled=False)
+
+    skill_import_service.recycle_installed_skill(
+        program, target, name, '删除已禁用', after_forget=clear_disabled)
     return {'name': name, 'target': str(target), 'disabled': True}

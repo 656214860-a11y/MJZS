@@ -5,6 +5,7 @@
 可在随附零依赖解释器下运行。
 """
 
+import io
 import json
 import os
 import queue
@@ -296,10 +297,12 @@ class _Stdout:
     def __init__(self, ready):
         self.ready = ready
         self.sent = False
+        self.buffer = self
 
-    def __iter__(self):
-        if self.ready:
-            yield json.dumps({'type': 'ready'}) + '\n'
+    def readline(self, _limit):
+        if self.ready and not self.sent:
+            self.sent = True
+            return b'{"type":"ready"}\n'
         # 常驻：一直阻塞直到进程被杀（测试里用 daemon 线程，不会泄漏到退出）
         blocker = threading.Event()
         blocker.wait()
@@ -311,6 +314,36 @@ class AcquireTests(unittest.TestCase):
 
     def tearDown(self):
         client._HOST = None
+
+    def test_ready_version_controls_commands(self):
+        for ready, expected in ((b'{"type":"ready","protocol_version":1}\n', 1),
+                                (b'{"type":"ready"}\n', None)):
+            with self.subTest(ready=ready):
+                process = FakePopen()
+                process.stdout = io.TextIOWrapper(io.BytesIO(ready))
+                host = client.EngineHost()
+                host.process, host.state = process, 'starting'
+                with mock.patch.object(host, '_on_exit'):
+                    host._read_stdout(process)
+                self.assertEqual(host.state, 'ready')
+                host.command({'cmd': 'stop'})
+                self.assertEqual(json.loads(process.stdin.lines[0]).get('protocol_version'), expected)
+
+    def test_rejects_unknown_version_and_bounds_response_read(self):
+        for payload, reason in ((b'{"type":"ready","protocol_version":9}\n', '协议版本'),
+                                ('界'.encode() * 32, '字节')):
+            with self.subTest(reason=reason):
+                process = FakePopen()
+                stream = io.BytesIO(payload)
+                process.stdout = io.TextIOWrapper(stream)
+                host = client.EngineHost()
+                host.process, host.state = process, 'starting'
+                with mock.patch.object(client, 'MAX_LINE_BYTES', 64, create=True), \
+                     mock.patch.object(client.platform_tools, 'terminate_process_tree'):
+                    host._read_stdout(process)
+                self.assertEqual(host.state, 'dead')
+                self.assertIn(reason, host.dead_reason)
+                self.assertLessEqual(stream.tell(), 65)
 
     def test_acquire_spawns_and_waits_ready(self):
         fake = FakePopen(ready=True)
@@ -335,7 +368,7 @@ class AcquireTests(unittest.TestCase):
 
     def test_acquire_dead_process_reports_reason(self):
         fake = FakePopen(ready=False)
-        fake.stdout = iter([])   # 立即 EOF → _on_exit
+        fake.stdout = io.TextIOWrapper(io.BytesIO())  # 立即 EOF → _on_exit
         with mock.patch.object(client.platform_tools, 'launch_text_process',
                                return_value=fake):
             host = client._host()
@@ -347,6 +380,38 @@ class AcquireTests(unittest.TestCase):
             with self.assertRaises(client.EngineUnavailable) as ctx:
                 client.acquire(settings(offline={'python': sys.executable}))
             self.assertTrue(str(ctx.exception))
+
+    def test_old_reader_cannot_deliver_late_response_to_new_session(self):
+        host = client.EngineHost()
+        host.process, host.state = FakePopen(), 'ready'
+        session = mock.Mock()
+        host.attach(session)
+        stale = FakePopen()
+        stale.stdout = io.TextIOWrapper(io.BytesIO(
+            b'{"type":"sentence","text":"old"}\n{"type":"done"}\n'))
+        host._read_stdout(stale)
+        session._engine_message.assert_not_called()
+        session._engine_dead.assert_not_called()
+        self.assertEqual(host.state, 'ready')
+
+    def test_versioned_start_barrier_discards_previous_session_results(self):
+        process = FakePopen()
+        host = client.EngineHost()
+        host.process, host.state = process, 'starting'
+        host._dispatch({'type': 'ready', 'protocol_version': 1}, process)
+        session = mock.Mock()
+        host.attach(session)
+        host.command({'cmd': 'start'})
+        current = json.loads(process.stdin.lines[-1])['session_id']
+        host._dispatch({'type': 'log', 'started_session_id': current - 1}, process)
+        host._dispatch({'type': 'sentence', 'text': 'previous'}, process)
+        host._dispatch({'type': 'done'}, process)
+        host._dispatch({'type': 'error', 'start_error_session_id': current - 1}, process)
+        session._engine_message.assert_not_called()
+        host._dispatch({'type': 'log', 'started_session_id': current}, process)
+        result = {'type': 'sentence', 'text': 'current'}
+        host._dispatch(result, process)
+        session._engine_message.assert_called_once_with(result)
 
 
 class SpeechApiRoutingTests(unittest.TestCase):

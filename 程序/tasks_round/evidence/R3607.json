@@ -1,0 +1,15 @@
+{
+  "round": 3607,
+  "commit_base": "4530fed3",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_dynamic_import_registry test_animatic_scope test_account_security test_req_s03_anchors test_continuity_scope",
+    "exit": 0,
+    "passed": 109,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T05:52:08"
+}

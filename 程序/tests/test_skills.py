@@ -1348,9 +1348,14 @@ class PanelTests(unittest.TestCase):
 
     def test_delete_checked_program_skill_recycles_it_and_refreshes_the_panel(self):
         """删除按钮只能把程序 skills/ 的 .skill.md 移到程序回收站，并立即刷新。"""
+        from agent.core import save
+        from ui.skill_import_service import ledger_items, ledger_path
+
         program = Path(self.tmp.name) / '删除测试程序'
         target = write_skill(program / 'skills' / '08首帧管理SKILL',
                              'temporary-delete', stage='keyframe')
+        key = target.relative_to(program / 'skills').as_posix()
+        save(ledger_path(program), {'version': 1, 'items': {key: {'name': 'temporary-delete'}}})
         registry = skill_registry.Registry(root=program / 'skills')
         registry.scan(force=True)
         with mock.patch.object(skill_panel, '__file__', str(program / 'ui' / 'skill_panel.py')):
@@ -1362,6 +1367,7 @@ class PanelTests(unittest.TestCase):
                     records = panel.delete_checked_skills()
 
         self.assertTrue(records)
+        self.assertEqual(ledger_items(program), {})
         self.assertFalse(target.exists(), '源文件应从 skills/ 消失')
         self.assertTrue(any((program / '工作流任务' / '回收站').rglob('temporary-delete.skill.md')),
                         '回收副本必须在程序回收站，不能留在 skills/')
@@ -1370,6 +1376,32 @@ class PanelTests(unittest.TestCase):
         reopened.scan(force=True)
         self.assertNotIn('temporary-delete', [item.name for item in reopened.getAll()],
                          '重新建立注册表（模拟重启）后，被删 SKILL 也不得复活')
+
+    def test_checked_skill_delete_stops_when_confirmation_outlives_project_or_panel(self):
+        program = Path(self.tmp.name) / '程序'
+        target = write_skill(program / 'skills' / '08首帧管理SKILL', 'stale-delete', stage='keyframe')
+        registry = skill_registry.Registry(root=program / 'skills')
+        registry.scan(force=True)
+        with (mock.patch.object(skill_panel, '__file__', str(program / 'ui' / 'skill_panel.py')),
+              mock.patch.object(skill_panel.skill_registry, 'default_registry', return_value=registry)):
+            for event in ('switch', 'close'):
+                with self.subTest(event=event):
+                    panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
+                    self.addCleanup(panel.destroy)
+                    panel.vars['stale-delete'].set(True)
+
+                    def confirm(*args, **kwargs):
+                        if event == 'switch':
+                            self.desktop.root = Path(self.tmp.name) / 'new-project'
+                        else:
+                            panel.destroy()
+                        return True
+
+                    with (mock.patch.object(skill_panel, 'confirm', side_effect=confirm),
+                          mock.patch.object(skill_panel, 'recycle_paths') as recycle):
+                        self.assertEqual(panel.delete_checked_skills(), [])
+                        recycle.assert_not_called()
+                    self.assertTrue(target.exists())
 
     def test_referenced_program_skill_requires_confirmation_before_deleting(self):
         """仍被项目配置引用时必须先确认；确认后才可回收，不改项目配置。"""
