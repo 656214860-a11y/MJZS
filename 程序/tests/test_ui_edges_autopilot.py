@@ -267,7 +267,7 @@ class UiEdgeAutoTests(UiEdgeCase):
                     win.update()
                     if not d.auto.handoff_busy:
                         break
-                    time.sleep(0.05)
+                    time.sleep(0.01)
             from contract.project_stages import editing
             folder = editing(proj) / "自动交接包"
             d.poll_auto_handoff()
@@ -1298,14 +1298,14 @@ class UiEdgeAutoTests(UiEdgeCase):
                     win.update(); d._tick_once()
                     if frames.is_file() and not d.auto.keyframe_busy and not d.auto.asset_busy:
                         break
-                    time.sleep(0.03)
+                    time.sleep(0.01)
             # 收尾：等三个无人值守轮询都停下来再退出临时目录（后台线程还在写项目时清理会报「目录不是空的」）
             for _ in range(60):
                 win.update(); d._tick_once()
                 if not (d.auto.asset_busy or d.auto.final_busy or d.auto.keyframe_busy):
                     break
                 time.sleep(0.05)
-            d.cancel_timers(); time.sleep(0.1)
+            d.cancel_timers(); time.sleep(0.02)
             # 每一步都真的发生过，且顺序是 资产 → 定稿 → 首帧
             self.assertEqual(events, ["asset", "keyframe"])
             finals = final_dirs(proj)
@@ -1391,7 +1391,7 @@ class UiEdgeAutoTests(UiEdgeCase):
                     win.update(); d._tick_once()
                     if d.auto.asset_busy and written.is_set():
                         break
-                    time.sleep(0.03)
+                    time.sleep(0.01)
                 self.assertTrue(d.auto.asset_busy, "假资产批次没被拉起来")
                 self.assertIn("asset", events)
                 # 窗口里反复 tick：定稿在等这批资产收尾，首帧批次一次都不许开跑
@@ -1407,13 +1407,13 @@ class UiEdgeAutoTests(UiEdgeCase):
                     win.update(); d._tick_once()
                     if len(events) > 1 and not (d.auto.asset_busy or d.auto.final_busy or d.auto.keyframe_busy):
                         break
-                    time.sleep(0.03)
+                    time.sleep(0.01)
             for _ in range(60):
                 win.update(); d._tick_once()
                 if not (d.auto.asset_busy or d.auto.final_busy or d.auto.keyframe_busy):
                     break
                 time.sleep(0.05)
-            d.cancel_timers(); time.sleep(0.1)
+            d.cancel_timers(); time.sleep(0.02)
             kinds = [event[0] if isinstance(event, tuple) else event for event in events]
             self.assertEqual(kinds, ["asset", "keyframe"])
             self.assertTrue(events[1][1], "首帧批次跑在工作稿上：定稿还没接管就出图了")
@@ -1486,13 +1486,13 @@ class UiEdgeAutoTests(UiEdgeCase):
                     win.update(); d._tick_once()
                     if (folder / "镜头顺序.json").is_file() and (editing_stage(proj) / "自动粗剪.json").is_file() and settled():
                         break
-                    time.sleep(0.03)
+                    time.sleep(0.01)
             for _ in range(60):
                 win.update(); d._tick_once()
                 if settled():
                     break
                 time.sleep(0.05)
-            d.cancel_timers(); time.sleep(0.1)
+            d.cancel_timers(); time.sleep(0.02)
             self.assertEqual(events, ["video"])                       # 视频批次只派发一次
             self.assertEqual(assembled, [1])                          # 同一批验收只粗剪一次
             self.assertTrue((editing_stage(proj) / "自动粗剪.json").is_file())
@@ -1570,9 +1570,9 @@ class UiEdgeAutoTests(UiEdgeCase):
                     win.update(); d._tick_once()
                     if settled():
                         break
-                    time.sleep(0.05)
+                    time.sleep(0.01)
                 self.assertTrue(settled(), '自动资产与粗剪须在期限内完成')
-            d.cancel_timers(); time.sleep(0.1)
+            d.cancel_timers(); time.sleep(0.02)
             self.assertEqual(len(batches), 1)
             self.assertEqual(assembled, [1])
 
@@ -1672,13 +1672,13 @@ class UiEdgeAutoTests(UiEdgeCase):
                     win.update(); d._tick_once()
                     if (folder / "镜头顺序.json").is_file() and settled():
                         break
-                    time.sleep(0.03)
+                    time.sleep(0.01)
                 for _ in range(60):
                     win.update(); d._tick_once()
                     if settled():
                         break
-                    time.sleep(0.05)
-            d.cancel_timers(); time.sleep(0.1)
+                    time.sleep(0.01)
+            d.cancel_timers(); time.sleep(0.02)
             # 六步各自动作一次，顺序是 资产 → 首帧 → 视频 → 粗剪
             self.assertEqual(events, ["asset", "keyframe", "video", "assemble"])
             self.assertLess(ticks, 60)                                           # 每一步都在下一轮就接上
@@ -1777,7 +1777,7 @@ class UiEdgeAutoTests(UiEdgeCase):
                     win.update(); d._tick_once()
                     if not d.auto.keyframe_busy:
                         break
-                    time.sleep(0.03)
+                    time.sleep(0.01)
                 self.assertFalse(d.auto.keyframe_busy)
             # 批次结束后定稿才动手。假批次要一直挂着：定稿成功会立刻叫醒首帧轮询，
             # 一旦这里换回真批次，测试会在临时目录里对着 ComfyUI 真的跑起来。
@@ -1789,13 +1789,13 @@ class UiEdgeAutoTests(UiEdgeCase):
                     win.update(); d._tick_once()
                     if not d.auto.final_busy:
                         break
-                    time.sleep(0.03)
+                    time.sleep(0.01)
                 for _ in range(60):
                     win.update(); d._tick_once()
                     if not (d.auto.final_busy or d.auto.keyframe_busy):
                         break
-                    time.sleep(0.05)
-            d.cancel_timers(); time.sleep(0.1)
+                    time.sleep(0.01)
+            d.cancel_timers(); time.sleep(0.02)
             finals = final_dirs(proj)
             self.assertEqual(len(finals), 1)
             self.assertFalse(source.is_file())

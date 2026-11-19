@@ -399,10 +399,10 @@ class DesktopStartupPerfTests(unittest.TestCase):
                 # 自动续开必须先交还“剧本准备”的可见壳；完整页面及项目维护
                 # 即使变慢，也不能把首屏困在“我的项目 / 正在载入今日项目”。
                 original_recovery = desktop._complete_project_recovery
-                desktop._complete_project_recovery = lambda target: time.sleep(.35)
+                desktop._complete_project_recovery = lambda target: time.sleep(.05)
                 measurements = self._measure_after_callbacks(window)
                 desktop.load(project, defer_page=True)
-                time.sleep(.12)
+                time.sleep(.02)
                 window.update()
                 callback_times = [elapsed for name, elapsed in measurements
                                    if name == 'show_loaded_project']
@@ -535,7 +535,7 @@ class DesktopStartupPerfTests(unittest.TestCase):
                 desktop.load(project)
                 window.update()
                 desktop._idea_view_model_cache = None
-                with mock.patch.object(desktop, 'idea_chat_model', side_effect=lambda: (time.sleep(.35), 'probe')[1]):
+                with mock.patch.object(desktop, 'idea_chat_model', side_effect=lambda: (time.sleep(.05), 'probe')[1]):
                     started = time.perf_counter()
                     desktop.show_conversation()
                 while time.perf_counter() - started < CHAT_FIRST_TEXT_SECONDS:
