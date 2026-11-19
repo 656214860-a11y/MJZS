@@ -29,7 +29,11 @@ def _record_attempt(ledger, request_id, **fields):
         return
     try:
         from infra.request_ledger import record_request_attempt
-        record_request_attempt(ledger, request_id, **fields)
+        if getattr(ledger, 'project', None) is None:
+            record_request_attempt(ledger, request_id, **fields)
+        else:
+            with ledger.transaction():
+                record_request_attempt(ledger, request_id, **fields)
     except Exception:
         LOGGER.exception('请求尝试记录失败')
 

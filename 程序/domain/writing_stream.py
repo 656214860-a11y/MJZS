@@ -27,6 +27,7 @@ def chat_streaming(adapter, messages, options, model, system, cancelled=None):
         sink(chunk)
     result = adapter.stream(messages, options=options, model=model, system=system,
                             on_chunk=forward, cancelled=cancelled)
-    if not result.get('ok') and not seen and result.get('error_class') != 'cancelled':
+    if (not result.get('ok') and not seen and result.get('error_class') != 'cancelled'
+            and not (cancelled is not None and cancelled())):
         return adapter.chat(messages, options=options, model=model, system=system)
     return result

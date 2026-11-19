@@ -1143,6 +1143,14 @@ class StreamingChatTests(unittest.TestCase):
         adapter = self.Adapter({'ok': True, 'text': 'x'}, ('x',))
         self.assertEqual(writing_stream.chat_streaming(adapter, [], {}, 'm', 's')['text'], '整段')
 
+    def test_cancelled_request_does_not_fall_back(self):
+        adapter = self.Adapter({'ok': False, 'error_class': 'cancelled'})
+        with writing_stream.stream_to(lambda c: None):
+            result = writing_stream.chat_streaming(adapter, [], {}, 'm', 's',
+                                                   cancelled=lambda: True)
+        self.assertFalse(result['ok'])
+        self.assertEqual(adapter.chat_calls, 0)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

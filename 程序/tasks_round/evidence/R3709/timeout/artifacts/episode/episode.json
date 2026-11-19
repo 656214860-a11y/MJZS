@@ -1,0 +1,1 @@
+{"episode_id": "EP001", "title": "T", "shots": [{"id": "SH001", "title": "镜头", "duration": 5, "characters": ["CHAR_001"], "location": "LOC_001", "frame": "frames/SH001.png", "video_prompt": "画面", "frame_prompt": "窗边的猫", "dialogue": []}]}

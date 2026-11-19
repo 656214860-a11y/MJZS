@@ -1,0 +1,42 @@
+{
+  "updated_at": 1795064784.2723348,
+  "entries": [
+    {
+      "id": "27f8288bbdd644f69119f7f14aa35816",
+      "kind": "tokens",
+      "amount": null,
+      "mode": "unknown",
+      "state": "unknown",
+      "remote_task_id": null,
+      "note": "",
+      "at": 1795064780.4876237,
+      "settled_at": 1795064784.2723165,
+      "model": "fake-acceptance-1",
+      "stage": "script",
+      "input_estimate": 251061.0,
+      "output_limit": 8192.0,
+      "quantities": {
+        "prompt_tokens": "251061",
+        "completion_tokens": "8192"
+      },
+      "rates": {
+        "prompt_tokens": "0.000001",
+        "completion_tokens": "0.000002"
+      },
+      "price_version": "acceptance-fake-v1",
+      "currency": "CNY",
+      "budget_cost": "0.267445",
+      "money_state": "unknown",
+      "attempts": [
+        {
+          "at": 1795064784.258866,
+          "status": 0,
+          "error_class": "",
+          "retry_after": null,
+          "wire_api": "",
+          "retry_count": 0
+        }
+      ]
+    }
+  ]
+}

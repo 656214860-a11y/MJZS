@@ -1,0 +1,148 @@
+{
+  "script": {
+    "model": "fake-acceptance-1",
+    "reasoning": "auto",
+    "skills": [
+      "pipeline-script-preparation"
+    ],
+    "writer_style": ""
+  },
+  "script_structure": {
+    "model": "auto",
+    "reasoning": "auto",
+    "skills": [
+      "pipeline-script-structure",
+      "script-character-extraction",
+      "script-dialogue-polish",
+      "script-structured-generation",
+      "script-worldbuilding"
+    ]
+  },
+  "storyboard": {
+    "model": "auto",
+    "reasoning": "auto",
+    "skills": [
+      "pipeline-storyboard-draft",
+      "storyboard-camera-language",
+      "storyboard-duration-estimate",
+      "storyboard-pacing-check",
+      "storyboard-scene-breakdown",
+      "storyboard-shot-generation"
+    ]
+  },
+  "animatic": {
+    "model": "auto",
+    "reasoning": "auto",
+    "skills": [
+      "pipeline-animatic"
+    ]
+  },
+  "assets": {
+    "model": "auto",
+    "reasoning": "auto",
+    "skills": [
+      "asset-auto-fill",
+      "asset-candidate-wall",
+      "asset-copyright-filter",
+      "asset-dedupe",
+      "asset-visual-rank",
+      "pipeline-assets"
+    ]
+  },
+  "continuity": {
+    "model": "auto",
+    "reasoning": "auto",
+    "skills": [
+      "continuity-anchor-freeze",
+      "continuity-conflict-adjudicate",
+      "continuity-cross-batch-guard",
+      "continuity-drift-audit",
+      "continuity-triplet-check",
+      "pipeline-continuity"
+    ]
+  },
+  "final": {
+    "model": "auto",
+    "reasoning": "auto",
+    "skills": [
+      "pipeline-storyboard-final",
+      "storyboard-asset-sync",
+      "storyboard-consistency-lock",
+      "storyboard-final-validate",
+      "storyboard-prompt-render",
+      "storyboard-version-snapshot"
+    ]
+  },
+  "keyframe": {
+    "model": "auto",
+    "reasoning": "auto",
+    "skills": [
+      "firstframe-auto-fill",
+      "firstframe-batch",
+      "firstframe-quality",
+      "firstframe-retry",
+      "firstframe-thumbnail",
+      "pipeline-keyframe"
+    ]
+  },
+  "previs": {
+    "model": "auto",
+    "reasoning": "auto",
+    "skills": [
+      "create-blender-story-video",
+      "pipeline-previs",
+      "whitemodel-actor-place",
+      "whitemodel-camera-record",
+      "whitemodel-motion-preview",
+      "whitemodel-rhythm-check",
+      "whitemodel-scene-build"
+    ]
+  },
+  "video": {
+    "model": "auto",
+    "reasoning": "auto",
+    "skills": [
+      "pipeline-video-generation",
+      "video-batch-submit",
+      "video-multi-model-route",
+      "video-quality-check",
+      "video-retry"
+    ]
+  },
+  "audio": {
+    "model": "auto",
+    "reasoning": "auto",
+    "skills": [
+      "pipeline-audio-subtitle",
+      "subtitle-auto-align",
+      "subtitle-format-export",
+      "voice-emotion-check",
+      "voice-tts-synthesis"
+    ]
+  },
+  "edit": {
+    "model": "auto",
+    "reasoning": "auto",
+    "skills": [
+      "edit-auto-compose",
+      "edit-bgm-sfx",
+      "edit-multi-format-export",
+      "edit-preview-generate",
+      "edit-transition-library",
+      "pipeline-editing",
+      "video-audio-sync-precheck"
+    ]
+  },
+  "delivery": {
+    "model": "auto",
+    "reasoning": "auto",
+    "skills": [
+      "delivery-archive",
+      "delivery-report-generate",
+      "pipeline-delivery",
+      "qa-compliance-check",
+      "qa-overall-check",
+      "qa-style-consistency"
+    ]
+  }
+}

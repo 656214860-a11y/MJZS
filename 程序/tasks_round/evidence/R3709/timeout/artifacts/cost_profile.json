@@ -1,0 +1,1 @@
+{"budget_amount": "10.00", "price_table": {"currency": "CNY", "version": "acceptance-fake-v1", "model_rates": {"fake-acceptance-1": {"prompt_tokens": "0.000001", "completion_tokens": "0.000002"}}}}

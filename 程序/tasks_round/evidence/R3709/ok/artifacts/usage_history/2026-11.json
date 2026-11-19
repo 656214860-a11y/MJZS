@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "currency": "CNY",
+  "days": {
+    "2026-11-19": {
+      "tokens": 150,
+      "cost": "0.000180",
+      "calls": 1
+    }
+  }
+}

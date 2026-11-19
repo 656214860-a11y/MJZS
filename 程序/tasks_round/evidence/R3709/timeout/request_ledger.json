@@ -1,0 +1,79 @@
+{
+  "updated_at": 1795064970.2921703,
+  "entries": [
+    {
+      "id": "0d2fd52a4ec047bbaa3fca04492b8768",
+      "kind": "tokens",
+      "amount": null,
+      "mode": "unknown",
+      "state": "unknown",
+      "remote_task_id": null,
+      "note": "",
+      "at": 1795064908.519797,
+      "settled_at": 1795064923.6754396,
+      "model": "fake-acceptance-1",
+      "stage": "script",
+      "input_estimate": 251061.0,
+      "output_limit": 8192.0,
+      "quantities": {
+        "prompt_tokens": "251061",
+        "completion_tokens": "8192"
+      },
+      "rates": {
+        "prompt_tokens": "0.000001",
+        "completion_tokens": "0.000002"
+      },
+      "price_version": "acceptance-fake-v1",
+      "currency": "CNY",
+      "budget_cost": "0.267445",
+      "money_state": "unknown",
+      "attempts": [
+        {
+          "at": 1795064923.6653538,
+          "status": 0,
+          "error_class": "",
+          "retry_after": null,
+          "wire_api": "",
+          "retry_count": 0
+        }
+      ]
+    },
+    {
+      "id": "2cf3e533412e4716834b379df884506f",
+      "kind": "tokens",
+      "amount": null,
+      "mode": "unknown",
+      "state": "unknown",
+      "remote_task_id": null,
+      "note": "",
+      "at": 1795064923.694926,
+      "settled_at": 1795064970.2921531,
+      "model": "fake-acceptance-1",
+      "stage": "script",
+      "input_estimate": 251061.0,
+      "output_limit": 8192.0,
+      "quantities": {
+        "prompt_tokens": "251061",
+        "completion_tokens": "8192"
+      },
+      "rates": {
+        "prompt_tokens": "0.000001",
+        "completion_tokens": "0.000002"
+      },
+      "price_version": "acceptance-fake-v1",
+      "currency": "CNY",
+      "budget_cost": "0.267445",
+      "money_state": "unknown",
+      "attempts": [
+        {
+          "at": 1795064970.278377,
+          "status": 0,
+          "error_class": "timeout",
+          "retry_after": null,
+          "wire_api": "chat",
+          "retry_count": 0
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "contract": "script_brief",
+  "version": 1,
+  "brief": {
+    "story_summary": "夜班照相馆收到一张会显影未来的旧底片。",
+    "main_characters": "摄影师林默",
+    "genre": "都市悬疑",
+    "length": "故事集数：12集；单集时间：120秒",
+    "physical_features": "",
+    "special_requirements": "",
+    "production_locks": {
+      "aspect_ratio": "9:16",
+      "delivery_format": "只要 markdown 文档",
+      "video_model_version": "MiniMax H3"
+    }
+  },
+  "recommended_missing": [
+    "physical_features"
+  ],
+  "rhythm_template": "skills/templates/rhythm_template.yaml"
+}
