@@ -1,12 +1,12 @@
 {
-  "generated_at": "2026-11-19T14:52:48+08:00",
+  "generated_at": "2026-11-19T16:36:14+08:00",
   "registry": "说明/工程文档登记表.md",
   "scopes": [
     "*.md",
     "docs/**/*.md",
     "说明/*.md"
   ],
-  "count": 79,
+  "count": 84,
   "docs": {
     "AGENTS.md": {
       "exists": true,
@@ -48,7 +48,7 @@
       "性质": "权威",
       "最后核验轮次": "R3490",
       "消费者": "执行 agent",
-      "bytes": 23685,
+      "bytes": 23830,
       "req_count": 2,
       "des_count": 0
     },
@@ -261,6 +261,17 @@
       "req_count": 0,
       "des_count": 0
     },
+    "docs/adr/0013-ui-framework-locked-tkinter.md": {
+      "exists": true,
+      "层级": "L4",
+      "阶段": "全局",
+      "性质": "权威",
+      "最后核验轮次": "R3785",
+      "消费者": "执行 agent",
+      "bytes": 3956,
+      "req_count": 0,
+      "des_count": 0
+    },
     "docs/adr/README.md": {
       "exists": true,
       "层级": "全局",
@@ -268,7 +279,7 @@
       "性质": "权威",
       "最后核验轮次": "R3496",
       "消费者": "执行 agent",
-      "bytes": 2435,
+      "bytes": 2544,
       "req_count": 0,
       "des_count": 0
     },
@@ -382,17 +393,6 @@
       "req_count": 0,
       "des_count": 0
     },
-    "docs/review/发布签名与SBOM方案_T6.md": {
-      "exists": true,
-      "层级": "全局",
-      "阶段": "全局",
-      "性质": "权威",
-      "最后核验轮次": "R3490",
-      "消费者": "执行 agent",
-      "bytes": 2789,
-      "req_count": 0,
-      "des_count": 0
-    },
     "docs/review/变异测试抽样_T8.md": {
       "exists": true,
       "层级": "全局",
@@ -401,6 +401,94 @@
       "最后核验轮次": "R3490",
       "消费者": "执行 agent",
       "bytes": 1163,
+      "req_count": 0,
+      "des_count": 0
+    },
+    "docs/specs/01_架构与技术选型.md": {
+      "exists": true,
+      "层级": "L0,L1,L3",
+      "阶段": "全局",
+      "性质": "权威",
+      "最后核验轮次": "R3785",
+      "消费者": "执行 agent",
+      "bytes": 9448,
+      "req_count": 0,
+      "des_count": 0
+    },
+    "docs/specs/02_接口与详细设计.md": {
+      "exists": true,
+      "层级": "L0,L1,L2,L3",
+      "阶段": "全局",
+      "性质": "权威",
+      "最后核验轮次": "R3785",
+      "消费者": "执行 agent",
+      "bytes": 10902,
+      "req_count": 0,
+      "des_count": 0
+    },
+    "docs/specs/03_安装签名与分发.md": {
+      "exists": true,
+      "层级": "全局",
+      "阶段": "全局",
+      "性质": "权威",
+      "最后核验轮次": "R3785",
+      "消费者": "执行 agent",
+      "bytes": 8876,
+      "req_count": 0,
+      "des_count": 0
+    },
+    "docs/specs/04_数据与本地存储.md": {
+      "exists": true,
+      "层级": "L1",
+      "阶段": "全局",
+      "性质": "权威",
+      "最后核验轮次": "R3785",
+      "消费者": "执行 agent",
+      "bytes": 10583,
+      "req_count": 0,
+      "des_count": 0
+    },
+    "docs/specs/05_UIUX与交互规范.md": {
+      "exists": true,
+      "层级": "L4",
+      "阶段": "全局",
+      "性质": "权威",
+      "最后核验轮次": "R3785",
+      "消费者": "执行 agent",
+      "bytes": 9387,
+      "req_count": 1,
+      "des_count": 0
+    },
+    "docs/specs/06_安全设计.md": {
+      "exists": true,
+      "层级": "全局",
+      "阶段": "全局",
+      "性质": "权威",
+      "最后核验轮次": "R3785",
+      "消费者": "执行 agent",
+      "bytes": 9582,
+      "req_count": 0,
+      "des_count": 0
+    },
+    "docs/specs/07_业务域规格.md": {
+      "exists": true,
+      "层级": "L2,L4",
+      "阶段": "全局",
+      "性质": "权威",
+      "最后核验轮次": "R3785",
+      "消费者": "执行 agent",
+      "bytes": 8608,
+      "req_count": 0,
+      "des_count": 0
+    },
+    "docs/specs/README.md": {
+      "exists": true,
+      "层级": "全局",
+      "阶段": "全局",
+      "性质": "派生",
+      "最后核验轮次": "R3785",
+      "消费者": "执行 agent",
+      "bytes": 6409,
       "req_count": 0,
       "des_count": 0
     },
@@ -554,7 +642,7 @@
       "性质": "权威",
       "最后核验轮次": "R3490",
       "消费者": "执行 agent",
-      "bytes": 18650,
+      "bytes": 18790,
       "req_count": 0,
       "des_count": 0
     },
@@ -609,7 +697,7 @@
       "性质": "权威",
       "最后核验轮次": "R3503",
       "消费者": "执行 agent、用户",
-      "bytes": 4184,
+      "bytes": 4616,
       "req_count": 0,
       "des_count": 0
     },
@@ -620,7 +708,7 @@
       "性质": "权威",
       "最后核验轮次": "R3492",
       "消费者": "用户、执行 agent",
-      "bytes": 48380,
+      "bytes": 49058,
       "req_count": 23,
       "des_count": 0
     },
@@ -675,18 +763,18 @@
       "性质": "权威",
       "最后核验轮次": "R3490",
       "消费者": "执行 agent",
-      "bytes": 8004,
+      "bytes": 8403,
       "req_count": 0,
       "des_count": 0
     },
-    "说明/工程规格缺口清单_20261119.md": {
+    "说明/已并入设计规格.md": {
       "exists": true,
       "层级": "全局",
       "阶段": "全局",
       "性质": "派生",
-      "最后核验轮次": "R3531",
+      "最后核验轮次": "R3785",
       "消费者": "执行 agent",
-      "bytes": 13606,
+      "bytes": 1650,
       "req_count": 0,
       "des_count": 0
     },
@@ -709,28 +797,6 @@
       "最后核验轮次": "R3490",
       "消费者": "执行 agent",
       "bytes": 4888,
-      "req_count": 0,
-      "des_count": 0
-    },
-    "说明/技术选型对比表_20261119.md": {
-      "exists": true,
-      "层级": "全局",
-      "阶段": "全局",
-      "性质": "派生",
-      "最后核验轮次": "R3531",
-      "消费者": "执行 agent",
-      "bytes": 21408,
-      "req_count": 0,
-      "des_count": 0
-    },
-    "说明/持久化产物版本清单.md": {
-      "exists": true,
-      "层级": "L0",
-      "阶段": "全局",
-      "性质": "权威",
-      "最后核验轮次": "R3490",
-      "消费者": "执行 agent",
-      "bytes": 3124,
       "req_count": 0,
       "des_count": 0
     },
@@ -842,17 +908,6 @@
       "消费者": "执行 agent",
       "bytes": 27347,
       "req_count": 0,
-      "des_count": 0
-    },
-    "说明/零依赖边界与媒体预览预案.md": {
-      "exists": true,
-      "层级": "全局",
-      "阶段": "全局",
-      "性质": "权威",
-      "最后核验轮次": "R3490",
-      "消费者": "用户、执行 agent",
-      "bytes": 8356,
-      "req_count": 6,
       "des_count": 0
     },
     "配置说明.md": {
