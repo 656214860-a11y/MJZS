@@ -103,8 +103,8 @@
     "tests.test_writing_api"
   ],
   "tests_ok": true,
-  "points_total": 2973,
-  "points_covered": 1639,
+  "points_total": 2986,
+  "points_covered": 1650,
   "modules": [
     {
       "module": "account_store.py",
@@ -351,6 +351,12 @@
       "points": 0,
       "covered": 0,
       "percent": 100.0
+    },
+    {
+      "module": "job_store.py",
+      "points": 13,
+      "covered": 11,
+      "percent": 84.6
     },
     {
       "module": "lease_verifier.py",
@@ -713,6 +719,6 @@
       "percent": 67.6
     }
   ],
-  "modules_total": 101,
+  "modules_total": 102,
   "modules_covered": 76
 }

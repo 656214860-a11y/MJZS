@@ -42,6 +42,7 @@
     "idempotency.py": 0.0,
     "infra_errors.py": 100.0,
     "integrations.py": 100.0,
+    "job_store.py": 84.6,
     "lease_verifier.py": 0.0,
     "line_endings.py": 50.0,
     "log_maintenance.py": 79.0,

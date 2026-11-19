@@ -1591,6 +1591,12 @@
       "percent": 0.0
     },
     {
+      "module": "infra/job_store.py",
+      "covered": 133,
+      "total": 142,
+      "percent": 93.7
+    },
+    {
       "module": "infra/lease_verifier.py",
       "covered": 0,
       "total": 37,
@@ -4045,6 +4051,6 @@
       "percent": 0.0
     }
   ],
-  "modules_covered": 89,
-  "modules_total": 671
+  "modules_covered": 90,
+  "modules_total": 672
 }
