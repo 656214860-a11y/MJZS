@@ -24,8 +24,10 @@ from pathlib import Path
 
 try:
     from scripts import sbom as sbom_builder
+    from scripts import release_runtime
 except ImportError:  # direct ``python scripts/distribution_build.py``
     import sbom as sbom_builder
+    import release_runtime
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
@@ -193,6 +195,16 @@ def build(destination, root=ROOT, manifest=None, allow_undecided=False) -> dict:
     selected = list(buckets['keep'])
     if allow_undecided:
         selected += buckets['undecided']
+    runtime = None
+    if (base / release_runtime.SITE).is_dir():
+        runtime = release_runtime.plan(base, base / '程序')
+        if runtime['missing'] or runtime['version_mismatches']:
+            raise ValueError('随附解释器与生产锁不一致：' + str({
+                'missing': runtime['missing'],
+                'version_mismatches': runtime['version_mismatches'],
+            }))
+        removed = set(runtime['remove_files'])
+        selected = [path for path in selected if path not in removed]
     entries = []
     for relative in selected:
         source = base / relative
@@ -210,6 +222,9 @@ def build(destination, root=ROOT, manifest=None, allow_undecided=False) -> dict:
               'bytes': sum(item['bytes'] for item in entries),
               'keep_patterns': list(manifest['keep']),
               'exclude_patterns': list(manifest['exclude']) + list(ALWAYS_EXCLUDE),
+              'runtime': ({'removed_distributions': runtime['removed_distributions'],
+                           'removed_files': len(runtime['remove_files'])}
+                          if runtime is not None else None),
               'entries': entries}
     (dest / DIGEST_NAME).write_text(json.dumps(report, ensure_ascii=False, indent=2),
                                     encoding='utf-8')
@@ -254,12 +269,16 @@ def verify(destination, root=ROOT, manifest=None) -> dict:
         'components': len(components or []), 'release_blockers': blockers,
     }
     jingju = dest / JINGJU_PACKAGE / 'SKILL.md'
+    runtime = ({'ok': True, 'skipped': True}
+               if not (dest / release_runtime.SITE).is_dir()
+               else release_runtime.validate(dest, dest / '程序'))
     checks = {
         'no_excluded': {'ok': not leaked, 'count': len(leaked), 'hits': leaked[:20]},
         'keep_present': {'ok': not missing, 'missing': missing},
         'digest': digest,
         'jingju_package': {'ok': jingju.is_file(), 'path': str(jingju)},
         'supply_chain': supply_chain,
+        'release_runtime': runtime,
     }
     valid = all(item['ok'] for item in checks.values())
     return {'ok': valid, 'release_ready': valid and not blockers,

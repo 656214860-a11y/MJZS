@@ -11,6 +11,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from scripts import release_runtime
+from tests.test_release_runtime import write_dist
+
 SCRIPT = Path(__file__).resolve().parents[1] / 'scripts' / 'distribution_build.py'
 _spec = importlib.util.spec_from_file_location('distribution_build_subject', SCRIPT)
 subject = importlib.util.module_from_spec(_spec)
@@ -121,6 +124,16 @@ class DistributionBuildTests(unittest.TestCase):
         self.assertFalse((out / '程序/private/密钥/a.dpapi').exists())
         self.assertFalse((out / '程序/logs/x.log').exists())
         self.assertEqual(report['files'], len(subject.candidate_files(out)) - 1)
+
+    def test_build_prunes_unlocked_runtime_distribution_from_copy_only(self):
+        write_dist(self.source, 'requests', '2.34.2', 'requests')
+        write_dist(self.source, 'pydantic', '2.14.3', 'pydantic')
+        report = subject.build(self.base / 'out', self.source, MANIFEST)
+        self.assertEqual(report['runtime']['removed_distributions'], ['pydantic'])
+        self.assertTrue((self.source / release_runtime.SITE / 'pydantic/__init__.py').is_file())
+        self.assertFalse((self.base / 'out' / release_runtime.SITE / 'pydantic/__init__.py').exists())
+        verdict = subject.verify(self.base / 'out', self.source, MANIFEST)
+        self.assertTrue(verdict['checks']['release_runtime']['ok'], verdict)
 
     def test_build_writes_version_and_per_file_digest(self):
         subject.build(self.base / 'out', self.source, MANIFEST)

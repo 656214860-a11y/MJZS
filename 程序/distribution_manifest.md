@@ -71,4 +71,5 @@
 - `--plan` 生成候选文件集并报告三类命中：清单要保留的、清单要排除的、以及清单没提、需要人工决定的（避免悄悄漏文件）。
 - `--build` 拒绝把输出写到开发目录内部、拒绝覆盖非空目录、拒绝在还有未决定文件时静默继续；输出里写 `分发清单.json`（版本＋逐文件 sha256）。
 - `--build` 同时生成 CycloneDX 1.5 `sbom.cdx.json` 与人读 `THIRD_PARTY_NOTICES.txt`，两者进入 `分发清单.json` 的逐文件 sha256。
+- 随附 Python 运行时只保留 `requirements.txt` 精确锁定的 distribution；开发工具和其他未声明包仅从新建分发副本裁剪，源安装目录不被修改。缺包、错版、缺 RECORD 时拒绝构建；被生产包共享的文件不得随未知包误删。
 - `--verify` 校验输出里没有排除项、必需入口齐全、摘要与 SBOM 自洽，并确认 `程序/skills/00全流程SKILL/jingju-skills` 整包仍在（安装验收的隔离要求）；`distribution_selfcheck.py --release` 还会拒绝 `NOASSERTION` 等发布阻断。
