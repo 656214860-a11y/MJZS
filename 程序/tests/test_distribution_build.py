@@ -155,6 +155,16 @@ class DistributionBuildTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             subject.build(out, self.source, MANIFEST)
 
+    def test_side_by_side_build_does_not_change_previous_release(self):
+        previous = self.base / 'previous-release'
+        subject.build(previous, self.source, MANIFEST)
+        before = {rel: (previous / rel).read_bytes()
+                  for rel in subject.candidate_files(previous)}
+        subject.build(self.base / 'next-release', self.source, MANIFEST)
+        after = {rel: (previous / rel).read_bytes()
+                 for rel in subject.candidate_files(previous)}
+        self.assertEqual(after, before)
+
     def test_build_refuses_undecided_unless_explicitly_allowed(self):
         self.stray()
         with self.assertRaises(ValueError):
