@@ -4,6 +4,7 @@ import os
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 PROGRAM = Path(__file__).resolve().parents[1]
@@ -13,6 +14,29 @@ import run_selftests  # noqa: E402
 
 
 class CommitRoundTests(unittest.TestCase):
+    def test_detached_codex_commit_keeps_index_and_leaves_shared_lock_alone(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            repo = home / "repo"
+            repo.mkdir()
+            work = home / ".codex" / "worktrees" / "abcd" / "repo"
+            git = commit_round._git
+            git("init", "-b", "main", cwd=repo).check_returncode()
+            git("-c", "user.name=test", "-c", "user.email=test@example.org",
+                "commit", "--allow-empty", "-m", "init", cwd=repo).check_returncode()
+            git("worktree", "add", "--detach", str(work), cwd=repo).check_returncode()
+            lock = self.lock(commit_round.common_dir(repo), os.getpid())
+            (work / "change").write_text("staged", encoding="utf-8")
+            git("add", "change", cwd=work).check_returncode()
+            before = git("rev-parse", "HEAD", cwd=work).stdout
+            with patch.object(Path, "home", return_value=home):
+                self.assertEqual(commit_round.attach_codex_worktree(work), 0)
+                self.assertEqual(commit_round.attach_codex_worktree(work), 0)
+            self.assertEqual(git("branch", "--show-current", cwd=work).stdout.strip(), "codex/worktree-abcd")
+            self.assertEqual(git("rev-parse", "HEAD", cwd=work).stdout, before)
+            self.assertEqual(git("diff", "--cached", "--name-only", cwd=work).stdout.strip(), "change")
+            self.assertTrue(lock.exists())
+
     def lock(self, common, pid):
         path = Path(common) / run_selftests.FULL_SAFE_LOCK_NAME
         path.write_text(json.dumps({'pid': pid, 'round': 1}), encoding='utf-8')

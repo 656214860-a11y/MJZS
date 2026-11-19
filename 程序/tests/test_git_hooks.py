@@ -26,6 +26,27 @@ spec.loader.exec_module(install_git_hooks)
 
 
 class GitHookTests(unittest.TestCase):
+    def test_new_codex_session_attaches_under_shared_lock_but_ci_stays_detached(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            repo = base / "repo"
+            repo.mkdir()
+            def git(cwd, *args):
+                return subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True).stdout.strip()
+            git(repo, "init", "-b", "main")
+            git(repo, "-c", "user.name=test", "-c", "user.email=test@example.org",
+                "commit", "--allow-empty", "-m", "init")
+            install_git_hooks.install(repo / ".git")
+            (repo / ".git" / "full-safe-selftest.lock").touch()
+            session = base / ".codex" / "worktrees" / "abcd" / "repo"
+            ci = session / ".wt" / "ci"
+            git(repo, "worktree", "add", "--detach", str(session))
+            self.assertEqual(git(session, "branch", "--show-current"), b"codex/worktree-abcd")
+            git(repo, "worktree", "add", "--detach", str(ci))
+            self.assertEqual(git(ci, "branch", "--show-current"), b"")
+            git(session, "switch", "--detach")
+            self.assertEqual(git(session, "branch", "--show-current"), b"")
+
     def test_precommit_blocks_full_safe_lock_even_without_staged_files(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -100,7 +121,7 @@ class GitHookTests(unittest.TestCase):
     def test_installer_copies_executable_hooks(self):
         with tempfile.TemporaryDirectory() as temporary:
             installed = install_git_hooks.install(Path(temporary))
-            self.assertEqual([path.name for path in installed], ["commit-msg", "pre-commit", "post-commit"])
+            self.assertEqual([path.name for path in installed], ["commit-msg", "pre-commit", "post-commit", "post-checkout"])
             self.assertTrue(all(path.exists() for path in installed))
 
     def test_post_commit_hook_never_blocks_a_commit(self):
