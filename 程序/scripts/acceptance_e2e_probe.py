@@ -34,6 +34,8 @@ HERE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE / 'tests'))
 sys.path.insert(0, str(HERE / 'scripts'))
+import app_logging  # noqa: E402  验收探针尽力而为路径留痕
+import file_cache  # noqa: E402  正式 JSON 读唯一入口
 
 MODEL_ID = 'fake-acceptance-e2e-1'
 KEY_ENV = 'FAKE_ACCEPTANCE_E2E_KEY'
@@ -98,7 +100,7 @@ def _write_json(path, payload):
 
 def _read_json(path, default=None):
     try:
-        return json.loads(Path(path).read_text(encoding='utf-8'))
+        return file_cache.read_json(Path(path))
     except (OSError, ValueError):
         return default
 
@@ -579,11 +581,11 @@ def main():
         try:
             supplier.shutdown()
         except Exception:
-            pass
+            app_logging.swallowed()
         try:
             account_server.shutdown()
         except Exception:
-            pass
+            app_logging.swallowed()
         if pool_existed:
             shutil.copyfile(pool_backup, pool_path)
         else:

@@ -173,12 +173,14 @@ class DiagnosticCapturePreviewTests(unittest.TestCase):
             output = diagnostic_capture.export(Path(self.temp.name) / 'bundle.zip')
         with zipfile.ZipFile(output) as archive:
             self.assertEqual(sorted(archive.namelist()),
-                             ['logs/diagnostics/latest.json', 'logs/启动错误.log', 'manifest.json'])
+                             ['logs/diagnostics/latest.json', 'logs/metrics_summary.json',
+                              'logs/启动错误.log', 'manifest.json'])
             state = json.loads(archive.read('logs/diagnostics/latest.json'))
             manifest = json.loads(archive.read('manifest.json'))
         self.assertEqual(state['artifact_versions'], counts)
         self.assertEqual(sorted(manifest['included']),
-                         ['logs/diagnostics/latest.json', 'logs/启动错误.log'])
+                         ['logs/diagnostics/latest.json', 'logs/metrics_summary.json',
+                          'logs/启动错误.log'])
 
 
 class ModelDiagnosticsScrubTests(unittest.TestCase):

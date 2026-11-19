@@ -25,6 +25,8 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HERE))
+import file_cache  # noqa: E402  正式 JSON 读唯一入口
+import app_logging  # noqa: E402  验收探针尽力而为路径留痕
 sys.path.insert(0, str(HERE / 'tests'))  # catalog_page_test_support 等测试侧支撑
 
 PROGRAM = HERE
@@ -68,7 +70,7 @@ def make_project(root, adopt=True):
     shots = [
         {'id': 'SH001', 'title': '开场', 'duration': 5, 'characters': ['主角', 'CHAR_002'],
          'location': 'LOC_001', 'frame': 'frames/SH001.png', 'video_prompt': '开场镜头',
-         'dialogue': [{'speaker': '主角', 'text': '你好'}]},
+         'dialogue': [{'speaker': '主角', 'text': '您好'}]},
         {'id': 'SH002', 'title': '反应', 'duration': 4, 'characters': ['CHAR_001'],
          'location': 'LOC_001', 'frame': 'frames/SH002.png', 'video_prompt': '反应镜头',
          'dialogue': []},
@@ -91,7 +93,7 @@ def pump(win, seconds=0.05):
     try:
         win.update()
     except Exception:
-        pass
+        app_logging.swallowed()
     time.sleep(seconds)
 
 
@@ -103,7 +105,7 @@ def wait_until(win, predicate, timeout=60.0, interval=0.1):
             if predicate():
                 return True
         except Exception:
-            pass
+            app_logging.swallowed()
     return False
 
 
@@ -115,7 +117,7 @@ def all_widgets(root):
         try:
             stack.extend(w.winfo_children())
         except Exception:
-            pass
+            app_logging.swallowed()
 
 
 def find_button(win, label):
@@ -195,7 +197,7 @@ def case_missing_input(evidence):
         try:
             win.destroy()
         except Exception:
-            pass
+            app_logging.swallowed()
     evidence['cases'].append(rec)
     return rec
 
@@ -242,7 +244,7 @@ def case_normal(evidence):
         rec['final_dirs'] = [p.parent.name for p in finals]
         if finals:
             ep = finals[0].parent
-            data = json.loads((ep / 'episode.json').read_text(encoding='utf-8'))
+            data = file_cache.read_json((ep / 'episode.json'))
             shots = data.get('shots') or []
             rec['artifact'] = {
                 'episode_json': str(ep / 'episode.json'),
@@ -274,7 +276,7 @@ def case_normal(evidence):
         try:
             win.destroy()
         except Exception:
-            pass
+            app_logging.swallowed()
     evidence['cases'].append(rec)
     return rec
 
@@ -326,7 +328,7 @@ def case_legacy(evidence):
             pump(win, 0.1)
         rec['checks']['no_new_07_dir'] = not (project / '07分镜定稿').exists()
         rec['checks']['legacy_dir_intact'] = (legacy_dir / 'episode.json').is_file()
-        data = json.loads((legacy_dir / 'episode.json').read_text(encoding='utf-8'))
+        data = file_cache.read_json((legacy_dir / 'episode.json'))
         rec['legacy_episode_sha256'] = _sha256(legacy_dir / 'episode.json')
         rec['legacy_shots'] = len(data.get('shots') or [])
         import orchestrator.stage_parallel as stage_parallel
@@ -340,7 +342,7 @@ def case_legacy(evidence):
         try:
             win.destroy()
         except Exception:
-            pass
+            app_logging.swallowed()
     evidence['cases'].append(rec)
     return rec
 

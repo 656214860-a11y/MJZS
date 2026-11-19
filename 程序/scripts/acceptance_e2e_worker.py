@@ -40,6 +40,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE / 'scripts'))
+import app_logging  # noqa: E402  验收探针尽力而为路径留痕
 
 import acceptance_recovery_worker as rw  # noqa: E402  复用 A/D 轮同一批取证助手
 
@@ -50,16 +51,16 @@ DOC_SCRIPT = (
     '【场景一：修理铺内·夜】\n\n'
     '陈麦：（俯身焊接）今晚最后一台，祖母留下的留声机。\n\n'
     '阿棠：（推门进来，雨水顺着发梢滴落）老板，我妈的旧怀表又不走了。\n\n'
-    '陈麦：拿来吧。你的委托单上写着「修复记忆」，我这儿修的是时间。\n\n'
+    '陈麦：拿来吧。您的委托单上写着「修复记忆」，我这儿修的是时间。\n\n'
     '阿棠：时间也能修？\n\n'
-    '陈麦：能。只要你还记得它原来走得有多准。\n\n'
+    '陈麦：能。只要您还记得它原来走得有多准。\n\n'
     '【场景二：修理铺后间·夜】\n\n'
     '陈麦：（打开工作台暗格）这台机器三年前停的，停在我妈走的那晚。\n\n'
     '阿棠：（轻声）那今晚能修好吗？\n\n'
     '陈麦：不知道。但委托人付了双倍的定金——定金是用来买「试试看的勇气」的。\n\n'
-    '阿棠：（把怀表放上台面）那我也押一把。修不好，我用一个月的外卖钱赔你。\n\n'
+    '阿棠：（把怀表放上台面）那我也押一把。修不好，我用一个月的外卖钱赔您。\n\n'
     '陈麦：（调试旋钮）走了。\n\n'
-    '阿棠：（凑近听）真的走了……老板，你刚才的手在抖。\n\n'
+    '阿棠：（凑近听）真的走了……老板，您刚才的手在抖。\n\n'
     '陈麦：修表师傅的手，抖是常事。怕的是不敢接单。\n\n'
     '【场景三：街口·黎明前】\n\n'
     '阿棠：（跨上电动车）明晚我还来，带我表姐的旧钢琴。\n\n'
@@ -71,12 +72,12 @@ DOC_SCRIPT = (
     '陈麦：（轻声自语）今晚关门早一点，给自己也留一单。\n\n'
     '【场景五：修理铺门口·黄昏】\n\n'
     '阿棠：（抱着一台旧钢琴踏板）表姐说这玩意儿比她命还难伺候。\n\n'
-    '陈麦：钢琴踏板不修声音，只修手感。你表姐弹琴用脚还是用手？\n\n'
+    '陈麦：钢琴踏板不修声音，只修手感。您表姐弹琴用脚还是用手？\n\n'
     '阿棠：都用。她说踏板一沉，整个人就像踩进了小时候的雨里。\n\n'
     '陈麦：（接过踏板翻看）弹簧锈了，轴承缺油。不过这东西比留声机老得多，零件都是手工挫出来的。\n\n'
     '阿棠：修得好吗？\n\n'
     '陈麦：修不好也没关系——修的过程本身就是委托。\n\n'
-    '阿棠：（笑）老板你这话比心理医生还贵。\n\n'
+    '阿棠：（笑）老板您这话比心理医生还贵。\n\n'
     '陈麦：定金已经收了，概不退换。\n\n'
     '【场景六：修理铺内·深夜】\n\n'
     '陈麦：（独自调试钢琴踏板）三年了，我修过的东西都还在走。\n\n'
@@ -276,14 +277,14 @@ def phase_local(d, win, proj, ev, rec):
         try:
             status_before = str(getattr(d, 'status', None).get() or '')
         except Exception:
-            pass
+            app_logging.swallowed()
         ok_f, _ = rw.send_idea(d, win, '失败反馈探针：请回复一个字。', timeout=30)
         rw.pump(win, 1.0)
         status_after = ''
         try:
             status_after = str(getattr(d, 'status', None).get() or '')
         except Exception:
-            pass
+            app_logging.swallowed()
         rows = rw.transcript_rows(proj)
         fail_rec.update({'send_returned': bool(ok_f), 'status_before': status_before[:200],
                          'status_after': status_after[:300],
@@ -402,7 +403,7 @@ def phase_cloud(d, win, proj, ev, rec, args):
     try:
         _jlog(ev, 'account_down.json', {'down_at': rw._now()})
     except Exception:
-        pass
+        app_logging.swallowed()
     try:
         account.renew(done=lambda r: results.__setitem__('renew_offline', r), quiet=False)
         r = wait_result('renew_offline', timeout=40.0)
@@ -504,7 +505,7 @@ def main():
             try:
                 win.destroy()
             except Exception:
-                pass
+                app_logging.swallowed()
     print(json.dumps({'elapsed': rec.get('elapsed_seconds'),
                       'checks': rec.get('checks'),
                       'fatal': bool(rec.get('fatal'))}, ensure_ascii=False))

@@ -34,6 +34,8 @@ import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(HERE))
+import file_cache  # noqa: E402  正式 JSON 读唯一入口
 BASE = HERE.parent.parent / '_accept_c'
 DIST_OLD = BASE / 'dist_old'
 DIST_NEW = BASE / 'dist_new'
@@ -104,7 +106,7 @@ def overlay(src, dst, limit=None):
 
 
 def load_digest(dist):
-    data = json.loads((Path(dist) / DIGEST_NAME).read_text(encoding='utf-8'))
+    data = file_cache.read_json((Path(dist) / DIGEST_NAME))
     return data
 
 
@@ -321,7 +323,7 @@ def main():
     if 'config.json' in changed_proj and not non_cfg:
         fixture_keys = {'episode_dir': 'episode', 'video_backend': 'comfy', 'live_enabled': False}
         try:
-            now_cfg = json.loads((project / 'config.json').read_text(encoding='utf-8'))
+            now_cfg = file_cache.read_json((project / 'config.json'))
             kept = all(now_cfg.get(k) == v for k, v in fixture_keys.items())
             added = sorted(set(now_cfg) - set(fixture_keys))
             cfg_note = f'config_selfheal kept_fixture={kept} added_keys={added}'

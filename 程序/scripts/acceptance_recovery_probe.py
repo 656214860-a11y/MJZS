@@ -40,6 +40,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE / 'tests'))
+import app_logging  # noqa: E402  验收探针尽力而为路径留痕
+import file_cache  # noqa: E402  正式 JSON 读唯一入口
 
 MODEL_ID = 'fake-acceptance-recovery-1'
 KEY_ENV = 'FAKE_ACCEPTANCE_RECOVERY_KEY'
@@ -95,7 +97,7 @@ def _write_json(path, payload):
 
 def _read_json(path, default=None):
     try:
-        return json.loads(Path(path).read_text(encoding='utf-8'))
+        return file_cache.read_json(Path(path))
     except (OSError, ValueError):
         return default
 
@@ -164,11 +166,11 @@ class Handler(BaseHTTPRequestHandler):
         try:
             time.sleep(240)
         except Exception:
-            pass
+            app_logging.swallowed()
         try:
             self._finish_sse(seq)
         except Exception:
-            pass
+            app_logging.swallowed()
 
     def do_POST(self):
         raw = self._read_body()
@@ -673,7 +675,7 @@ def main():
             server.shutdown()
             server.server_close()
         except Exception:
-            pass
+            app_logging.swallowed()
         _write_json(evdir / 'supplier_log.jsonl',
                     {'requests': supplier_log_rows()})
         summary['finished_at'] = _now()

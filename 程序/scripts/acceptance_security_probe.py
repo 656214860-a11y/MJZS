@@ -35,6 +35,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HERE))
+import file_cache  # noqa: E402  正式 JSON 读唯一入口
 sys.path.insert(0, str(HERE / 'tests'))
 
 import account_client                       # noqa: E402  领域客户端（钉证书 TLS）
@@ -465,7 +466,7 @@ def probe_client_offline(lease, session_data):
     # 1) 会话文件完整性（只读 verify，不走 load()——避免任何写路径）
     if SESSION_JSON.is_file():
         try:
-            raw = json.loads(SESSION_JSON.read_text(encoding='utf-8'))
+            raw = file_cache.read_json(SESSION_JSON)
             ok = session_integrity.verify(raw, SESSION_JSON)
             record(sec, 'session_mac_valid', ok,
                    f'keys={sorted(raw.keys())}（值不落盘）')
@@ -579,7 +580,7 @@ def main():
     lease, session_data = '', {}
     if SESSION_JSON.is_file():
         try:
-            session_data = json.loads(SESSION_JSON.read_text(encoding='utf-8'))
+            session_data = file_cache.read_json(SESSION_JSON)
             lease = str(session_data.get('lease') or '')
         except (OSError, ValueError):
             pass

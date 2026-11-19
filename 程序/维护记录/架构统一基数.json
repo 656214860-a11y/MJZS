@@ -1306,6 +1306,48 @@
     "point": "_merge_summary_rows:json.loads:94ffaaf373e3b2ee:1",
     "disposition": "exempt",
     "reason": "R3623/I14：sqlite 日汇总 dims 列的自有 JSON 解码，非正式登记/配置文件；格式归 metrics 自有。"
+   },
+   {
+    "file": "scripts/acceptance_chain_probe.py",
+    "point": "Handler.do_POST:json.loads:b9d180ad77bcd20a:1",
+    "disposition": "exempt",
+    "reason": "R38xx验收探针：解析内存中的HTTP请求体/JSONL载荷，非正式文件读；文件读已走file_cache.read_json"
+   },
+   {
+    "file": "scripts/acceptance_e2e_probe.py",
+    "point": "AccountHandler.do_POST:json.loads:b9d180ad77bcd20a:1",
+    "disposition": "exempt",
+    "reason": "R38xx验收探针：解析内存中的HTTP请求体/JSONL载荷，非正式文件读；文件读已走file_cache.read_json"
+   },
+   {
+    "file": "scripts/acceptance_e2e_probe.py",
+    "point": "SupplierHandler.do_POST:json.loads:b9d180ad77bcd20a:1",
+    "disposition": "exempt",
+    "reason": "R38xx验收探针：解析内存中的HTTP请求体/JSONL载荷，非正式文件读；文件读已走file_cache.read_json"
+   },
+   {
+    "file": "scripts/acceptance_recovery_probe.py",
+    "point": "Handler.do_POST:json.loads:b9d180ad77bcd20a:1",
+    "disposition": "exempt",
+    "reason": "R38xx验收探针：解析内存中的HTTP请求体/JSONL载荷，非正式文件读；文件读已走file_cache.read_json"
+   },
+   {
+    "file": "scripts/acceptance_release_probe.py",
+    "point": "run_engine_open:json.loads:cb57ae7929daaf0d:1",
+    "disposition": "exempt",
+    "reason": "R38xx验收探针：解析内存中的HTTP请求体/JSONL载荷，非正式文件读；文件读已走file_cache.read_json"
+   },
+   {
+    "file": "scripts/acceptance_security_probe.py",
+    "point": "Probe.request:json.loads:fc66c8571fec0d11:1",
+    "disposition": "exempt",
+    "reason": "R38xx验收探针：解析内存中的HTTP请求体/JSONL载荷，非正式文件读；文件读已走file_cache.read_json"
+   },
+   {
+    "file": "scripts/acceptance_security_probe.py",
+    "point": "probe_auth_surface:json.loads:2743584eb8f133af:1",
+    "disposition": "exempt",
+    "reason": "R38xx验收探针：解析内存中的HTTP请求体/JSONL载荷，非正式文件读；文件读已走file_cache.read_json"
    }
   ]
  },

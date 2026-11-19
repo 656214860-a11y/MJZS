@@ -36,6 +36,8 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HERE))
+import app_logging  # noqa: E402  验收探针尽力而为路径留痕
+import file_cache  # noqa: E402  正式 JSON 读唯一入口
 
 
 def _now():
@@ -58,7 +60,7 @@ def ledger_entries(project):
     if not path.is_file():
         return []
     try:
-        data = json.loads(path.read_text(encoding='utf-8'))
+        data = file_cache.read_json(path)
     except ValueError:
         return []
     return data.get('entries') or []
@@ -75,7 +77,7 @@ def preparation_state(project):
     if not target.is_file():
         return None, 'missing'
     try:
-        return json.loads(target.read_text(encoding='utf-8')), None
+        return file_cache.read_json(target), None
     except ValueError as exc:
         return None, str(exc)
 
@@ -101,7 +103,7 @@ def transcript_rows(project):
     if not path.is_file():
         return []
     try:
-        data = json.loads(path.read_text(encoding='utf-8'))
+        data = file_cache.read_json(path)
     except ValueError:
         return []
     return data.get('messages') or []
@@ -118,7 +120,7 @@ def pump(win, seconds):
     try:
         win.update()
     except Exception:
-        pass
+        app_logging.swallowed()
 
 
 def pump_until(win, predicate, timeout, interval=0.05):
@@ -134,7 +136,7 @@ def pump_until(win, predicate, timeout, interval=0.05):
     try:
         win.update()
     except Exception:
-        pass
+        app_logging.swallowed()
     return predicate()
 
 
@@ -162,7 +164,7 @@ def open_project_desktop(proj):
         try:
             win.destroy()
         except Exception:
-            pass
+            app_logging.swallowed()
         desktop_module.Desktop.choose_project = original_choose
         raise
 
@@ -240,7 +242,7 @@ def run_adopt(args, ev):
             desktop_module.Desktop.choose_project = original_choose
             win.destroy()
         except Exception:
-            pass
+            app_logging.swallowed()
 
 
 def run_hang(args, ev):
@@ -311,7 +313,7 @@ def run_hang(args, ev):
             if win is not None:
                 win.destroy()
         except Exception:
-            pass
+            app_logging.swallowed()
 
 
 def run_verify(args, ev):
@@ -367,7 +369,7 @@ def run_verify(args, ev):
             if win is not None:
                 win.destroy()
         except Exception:
-            pass
+            app_logging.swallowed()
 
 
 def main():
