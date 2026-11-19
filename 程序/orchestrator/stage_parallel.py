@@ -22,6 +22,7 @@ from infra.file_cache import read_text
 import time
 import threading
 import infra.executors as executors
+import infra.metrics as metrics
 from datetime import datetime
 from pathlib import Path
 
@@ -384,6 +385,7 @@ def parallel_map(stage, items, worker, governor=None, at=None, wait=WAIT_SECONDS
     control = control or platform_tools.current_execution() or platform_tools.ExecutionControl(timeout)
     governor = shared() if governor is None else governor
     values = list(items)
+    map_started = time.monotonic()
     workers = max(1, min(degree(stage)[1], governor.limit))
     results = [None] * len(values)
     started = set()
@@ -441,6 +443,9 @@ def parallel_map(stage, items, worker, governor=None, at=None, wait=WAIT_SECONDS
         pending = [future for future in futures if not future.done()]
         if pending:
             futures_wait(pending, timeout=POLL_SECONDS, return_when=FIRST_COMPLETED)
+    metrics.observe('stage.run', (time.monotonic() - map_started) * 1000.0,
+                    stage=str(stage or ''),
+                    outcome='error' if any(row[2] is not None for row in results) else 'ok')
     return list(results)
 
 

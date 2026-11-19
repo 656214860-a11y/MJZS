@@ -95,11 +95,12 @@
   "tests.test_workspace_maintenance",
   "tests.test_writing_api",
   "tests.test_process_supervisor",
-  "tests.test_executors"
+  "tests.test_executors",
+  "tests.test_metrics"
  ],
  "tests_ok": true,
- "points_total": 2816,
- "points_covered": 1577,
+ "points_total": 2889,
+ "points_covered": 1615,
  "modules": [
   {
    "module": "comfy_service.py",
@@ -282,6 +283,12 @@
    "percent": 47.2
   },
   {
+   "module": "metrics.py",
+   "points": 71,
+   "covered": 35,
+   "percent": 49.3
+  },
+  {
    "module": "broadcaster.py",
    "points": 10,
    "covered": 5,
@@ -306,16 +313,16 @@
    "percent": 50.0
   },
   {
+   "module": "diagnostic_capture.py",
+   "points": 90,
+   "covered": 46,
+   "percent": 51.1
+  },
+  {
    "module": "model_secrets.py",
    "points": 33,
    "covered": 17,
    "percent": 51.5
-  },
-  {
-   "module": "diagnostic_capture.py",
-   "points": 89,
-   "covered": 46,
-   "percent": 51.7
   },
   {
    "module": "pet_bus.py",
@@ -350,8 +357,8 @@
   {
    "module": "publication.py",
    "points": 31,
-   "covered": 19,
-   "percent": 61.3
+   "covered": 20,
+   "percent": 64.5
   },
   {
    "module": "global_library_service.py",
@@ -414,16 +421,10 @@
    "percent": 73.1
   },
   {
-   "module": "executors.py",
-   "points": 41,
-   "covered": 30,
-   "percent": 73.2
-  },
-  {
    "module": "workflow_process_registry.py",
-   "points": 68,
-   "covered": 50,
-   "percent": 73.5
+   "points": 69,
+   "covered": 51,
+   "percent": 73.9
   },
   {
    "module": "frame_checks.py",
@@ -436,6 +437,12 @@
    "points": 4,
    "covered": 3,
    "percent": 75.0
+  },
+  {
+   "module": "executors.py",
+   "points": 41,
+   "covered": 31,
+   "percent": 75.6
   },
   {
    "module": "request_ledger.py",
@@ -672,5 +679,5 @@
    "percent": 100.0
   }
  ],
- "modules_total": 95
+ "modules_total": 96
 }

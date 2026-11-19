@@ -1253,7 +1253,7 @@
   {
    "module": "infra/diagnostic_capture.py",
    "covered": 0,
-   "total": 544,
+   "total": 550,
    "percent": 0.0
   },
   {
@@ -1271,7 +1271,7 @@
   {
    "module": "infra/http_client.py",
    "covered": 0,
-   "total": 134,
+   "total": 141,
    "percent": 0.0
   },
   {
@@ -1379,7 +1379,7 @@
   {
    "module": "infra/workflow_process_registry.py",
    "covered": 0,
-   "total": 420,
+   "total": 426,
    "percent": 0.0
   },
   {
@@ -3467,7 +3467,7 @@
   {
    "module": "writing_api.py",
    "covered": 0,
-   "total": 961,
+   "total": 957,
    "percent": 0.0
   },
   {
@@ -3568,15 +3568,21 @@
   },
   {
    "module": "orchestrator/stage_parallel.py",
-   "covered": 104,
-   "total": 668,
-   "percent": 15.6
+   "covered": 106,
+   "total": 665,
+   "percent": 15.9
   },
   {
    "module": "agent/volcengine.py",
    "covered": 13,
    "total": 77,
    "percent": 16.9
+  },
+  {
+   "module": "infra/metrics.py",
+   "covered": 60,
+   "total": 341,
+   "percent": 17.6
   },
   {
    "module": "contract/platform_tools.py",
@@ -3910,15 +3916,15 @@
   },
   {
    "module": "infra/executors.py",
-   "covered": 211,
+   "covered": 210,
    "total": 237,
-   "percent": 89.0
+   "percent": 88.6
   },
   {
    "module": "agent/publication.py",
-   "covered": 143,
+   "covered": 145,
    "total": 159,
-   "percent": 89.9
+   "percent": 91.2
   },
   {
    "module": "domain/video_lifecycle_service.py",
@@ -3993,6 +3999,6 @@
    "percent": 100.0
   }
  ],
- "modules_covered": 83,
- "modules_total": 663
+ "modules_covered": 84,
+ "modules_total": 664
 }

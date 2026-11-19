@@ -1270,6 +1270,18 @@
     "point": "_probe_media:json.loads:a2bd43747d745de3:1",
     "disposition": "exempt",
     "reason": "R3196 M4：ffprobe 子进程 stdout JSON 解析，不是文件读取（R3217 合入 codex/wip-R3215 后锚点随合并内容更新）"
+   },
+   {
+    "file": "infra/metrics.py",
+    "point": "_iter_raw_events:json.loads:cb57ae7929daaf0d:1",
+    "disposition": "exempt",
+    "reason": "R3623/I14：指标自有 raw-*.jsonl 行的逐行解析，非正式登记/配置文件；格式归 metrics 自有。"
+   },
+   {
+    "file": "infra/metrics.py",
+    "point": "_merge_summary_rows:json.loads:94ffaaf373e3b2ee:1",
+    "disposition": "exempt",
+    "reason": "R3623/I14：sqlite 日汇总 dims 列的自有 JSON 解码，非正式登记/配置文件；格式归 metrics 自有。"
    }
   ]
  },

@@ -103,12 +103,13 @@
     "tests/architecture/test_secret_sink_audit.py",
     "tests/architecture/test_thread_boundary.py",
     "tests/architecture/test_log_sink_boundary.py",
-    "tests/architecture/test_resources.py"
+    "tests/architecture/test_resources.py",
+    "tests/architecture/test_clock_boundary.py"
    ],
    "metric": "9 项中无守卫测试的能力数",
-   "violations": 3,
-   "baseline": 3,
-   "note": "已有守卫：HTTP、JSON、删除、子进程、线程（I10 新建棘轮、I11 迁移清零）、密钥；缺：日志（I12）、磁盘空间（I15）、时钟（待 L0 端口）。"
+   "violations": 2,
+   "baseline": 2,
+   "note": "已有守卫：HTTP、JSON、删除、子进程、线程（I10 新建棘轮、I11 迁移清零）、日志（I12 test_log_sink_boundary）、密钥；缺：磁盘空间（I15 test_resources）、时钟（待 L0 端口 test_clock_boundary）。"
   },
   {
    "id": "LR-09",

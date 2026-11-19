@@ -3,6 +3,8 @@ import logging
 import os
 import threading
 
+import infra.metrics as metrics
+
 _LOG = logging.getLogger('workflow_process_registry')
 
 _running = {}
@@ -331,12 +333,21 @@ def all_processes():
 def forget_process(project, process):
     with _lock:
         items = _running.get(_key(project))
+        tracked = bool(items and process in items) or id(process) in _supervised
+        info = dict(_supervised.get(id(process)) or {})
         if items and process in items:
             items.remove(process)
         if items is not None and not items:
             _running.pop(_key(project), None)
         _supervised.pop(id(process), None)
     release_process_slot(getattr(process, 'workflow_process_slot', None))
+    if tracked:
+        code = getattr(process, 'returncode', None)
+        metrics.counter('process.run',
+                        kind=info.get('kind') or 'registered',
+                        stage=info.get('stage') or '',
+                        project=info.get('project') or project,
+                        outcome='ok' if code == 0 else ('unknown' if code is None else 'error'))
 
 
 def register_supervised(process, *, kind, stage, project, in_job):

@@ -152,7 +152,7 @@ class DiagnosticCapturePreviewTests(unittest.TestCase):
         outside.parent.mkdir(parents=True)
         outside.write_text('用户的剧本正文不算诊断', encoding='utf-8')
         self.error.write_text('boom', encoding='utf-8')
-        # latest.json 是白名单第三成员（R3342 起 diagnostics 状态随包导出）：造一个让它确定在场。
+        # latest.json 与 metrics_summary.json（I14/R3623 指标快照）是白名单成员：造一个让 latest.json 确定在场。
         self.state.parent.mkdir(parents=True, exist_ok=True)
         self.state.write_text('{"degradations": []}', encoding='utf-8')
         output = diagnostic_capture.export(Path(self.temp.name) / 'bundle.zip')
@@ -160,7 +160,8 @@ class DiagnosticCapturePreviewTests(unittest.TestCase):
             names = archive.namelist()
             text = '\n'.join(archive.read(n).decode('utf-8') for n in names)
         self.assertEqual(sorted(n for n in names if n != 'manifest.json'),
-                         ['logs/diagnostics/latest.json', 'logs/启动错误.log'])
+                         ['logs/diagnostics/latest.json', 'logs/metrics_summary.json',
+                          'logs/启动错误.log'])
         self.assertNotIn('用户的剧本正文', text)
 
 

@@ -44,6 +44,7 @@
   "log_maintenance.py": 79.0,
   "media.py": 0.0,
   "media_signature.py": 100.0,
+  "metrics.py": 49.3,
   "model_diagnostics.py": 100.0,
   "model_metering.py": 71.0,
   "model_pool.py": 40.0,
