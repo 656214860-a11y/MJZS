@@ -238,7 +238,7 @@ class EngineLedgerTests(unittest.TestCase):
 
     def test_usage_matches_report_kinds(self):
         ledger = self._ledger()
-        budget_engine.reserve(ledger, 'r1', 'images', 2, stage='assets', provider='p1')
+        budget_engine.reserve(ledger, 'r1', 'images', 2, meta={'stage':'assets','provider':'p1'})
         budget_engine.settle(ledger, 'r1', amount=2)
         budget_engine.reserve(ledger, 'r2', 'videos', 1)
         budget_engine.cancel(ledger, 'r2', reason='test')
@@ -268,7 +268,7 @@ class EngineLedgerTests(unittest.TestCase):
     def test_reserve_stamps_stage_and_provider(self):
         ledger = self._ledger()
         entry = budget_engine.reserve(ledger, 'r1', 'images', 1,
-                                      stage='assets', provider='seedream')
+                                      meta={'stage':'assets','provider':'seedream'})
         budget_engine.settle(ledger, 'r1', amount=1)
         ledger.save()
         self.assertEqual(entry['stage'], 'assets')
@@ -276,11 +276,11 @@ class EngineLedgerTests(unittest.TestCase):
 
     def test_summary_aggregates_by_stage_and_provider(self):
         ledger = self._ledger()
-        budget_engine.reserve(ledger, 'r1', 'images', 2, stage='assets', provider='p1')
+        budget_engine.reserve(ledger, 'r1', 'images', 2, meta={'stage':'assets','provider':'p1'})
         budget_engine.settle(ledger, 'r1', amount=2)
-        budget_engine.reserve(ledger, 'r2', 'images', 3, stage='keyframe', provider='p2')
+        budget_engine.reserve(ledger, 'r2', 'images', 3, meta={'stage':'keyframe','provider':'p2'})
         budget_engine.settle(ledger, 'r2', amount=3)
-        budget_engine.reserve(ledger, 'r3', 'tokens', 10, stage='assets')
+        budget_engine.reserve(ledger, 'r3', 'tokens', 10, meta={'stage':'assets'})
         budget_engine.settle(ledger, 'r3', amount=10)
         budget_engine.reserve(ledger, 'r4', 'videos', 1)       # 保持 reserved：进 kinds 不进 by_*
         ledger.save()
@@ -299,10 +299,10 @@ class EngineLedgerTests(unittest.TestCase):
     def test_summary_since_filters_by_settled_at(self):
         ledger = self._ledger()
         ledger.clock = lambda: 1000.0
-        budget_engine.reserve(ledger, 'old', 'images', 1, stage='assets')
+        budget_engine.reserve(ledger, 'old', 'images', 1, meta={'stage':'assets'})
         budget_engine.settle(ledger, 'old', amount=1, at=1000.0)
         ledger.clock = lambda: 5000.0
-        budget_engine.reserve(ledger, 'new', 'images', 2, stage='assets')
+        budget_engine.reserve(ledger, 'new', 'images', 2, meta={'stage':'assets'})
         budget_engine.settle(ledger, 'new', amount=2, at=5000.0)
         ledger.save()
         out = budget_engine.summary(self.project, since=2000.0)

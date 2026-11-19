@@ -12,6 +12,7 @@ from __future__ import annotations
 import datetime
 
 from infra import request_ledger
+from contract.infra_errors import ConfigError
 
 __all__ = ['WARN_RATIO', 'check_amount', 'headroom', 'usage', 'reserve',
            'settle', 'cancel', 'summary']
@@ -36,7 +37,7 @@ def _since_epoch(since):
     try:
         day = datetime.date.fromisoformat(text[:10])
     except ValueError:
-        raise ValueError('since 需为 epoch 秒或 YYYY-MM-DD：' + str(since)) from None
+        raise ConfigError('since 需为 epoch 秒或 YYYY-MM-DD：' + str(since)) from None
     return datetime.datetime.combine(day, datetime.time.min).timestamp()
 
 
@@ -86,12 +87,13 @@ def usage(ledger, kind=None):
     return {kind: dict(bucket)} if bucket is not None else {}
 
 
-def reserve(ledger, request_id, kind, amount, *, limits=None, stage=None,
-            provider=None, at=None):
+def reserve(ledger, request_id, kind, amount, *, limits=None, meta=None,
+            at=None):
     """预算预留：``limits={kind: 上限}`` 且该 kind 登记了上限时，先按台账
     ``settled+reserved`` 判定，越线抛 ``request_ledger.BudgetRejected`` 且不落账；
     通过则落预留，并把 ``stage``/``provider`` 回填到条目（成本汇总维度）。
     """
+    meta = meta or {}
     cap = (limits or {}).get(kind)
     if cap is not None:
         bucket = usage(ledger, kind).get(kind, {})
@@ -101,10 +103,9 @@ def reserve(ledger, request_id, kind, amount, *, limits=None, stage=None,
             raise request_ledger.BudgetRejected(
                 '%s 配额已用完（%s/%s）：已拒绝本次预留' % (kind, used, cap))
     entry = ledger.reserve(request_id, kind, amount, at=at)
-    if stage is not None:
-        entry['stage'] = str(stage)
-    if provider is not None:
-        entry['provider'] = str(provider)
+    for key in ('stage', 'provider'):
+        if meta.get(key) is not None:
+            entry[key] = str(meta[key])
     return entry
 
 
