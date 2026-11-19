@@ -1,11 +1,27 @@
 {
-  "version": 1,
-  "note": "随附解释器与受控工具的完整性锁；--update 重新生成",
+  "version": 2,
+  "note": "随附解释器与受控工具的来源、许可证与完整性锁；--update 重新生成",
   "tools": {
     "运行环境/Python/python.exe": {
-      "sha256": "727b92dc55e1ac0f17a48cbd20557427fdb8d9f50731de0355c4fd4c08d2f473",
-      "bytes": 105696,
-      "version": "Python 3.15.0"
+      "sha256": "4942b86a6597e5aee0128daa00050ed79bc21f6e709a78eb19cbfeb0c2f39ac9",
+      "bytes": 106208,
+      "version": "Python 3.14.7",
+      "source": "https://www.python.org/downloads/windows/",
+      "license": "PSF-2.0"
+    },
+    "运行环境/ffmpeg/bin/ffmpeg.exe": {
+      "sha256": "72a489eccd008c2ec2c0a5856c5c75bc3d8bbfa90166c4566865c246445e6aa3",
+      "bytes": 102856192,
+      "version": "ffmpeg version 9.0.1-essentials_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers",
+      "source": "https://www.gyan.dev/ffmpeg/builds/",
+      "license": "GPL-3.0-or-later"
+    },
+    "运行环境/ffmpeg/bin/ffprobe.exe": {
+      "sha256": "19202b23c0043f15ad1b7bce2344f406fd52bd6efd8f995ce02e7392a1cec52f",
+      "bytes": 102652416,
+      "version": "ffprobe version 9.0.1-essentials_build-www.gyan.dev Copyright (c) 2007-2026 the FFmpeg developers",
+      "source": "https://www.gyan.dev/ffmpeg/builds/",
+      "license": "GPL-3.0-or-later"
     }
   }
 }
