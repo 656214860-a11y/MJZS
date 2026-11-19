@@ -1,0 +1,309 @@
+{
+ "round": 3739,
+ "target": "https://8.138.223.126",
+ "server_repo_head": "14602b4",
+ "client_version": "0.7",
+ "collected_at": "2026-11-19T13:32:23+0800",
+ "summary": {
+  "total": 49,
+  "pass": 48,
+  "fail": 0,
+  "skip": 1
+ },
+ "results": [
+  {
+   "section": "tls_meta",
+   "name": "cert_matches_pinned",
+   "ok": true,
+   "detail": "peer_cert_sha256=2d59754776b8bae6 pinned_equal=True"
+  },
+  {
+   "section": "tls_meta",
+   "name": "tls_version",
+   "ok": true,
+   "detail": "version=TLSv1.3 cipher=TLS_AES_256_GCM_SHA384"
+  },
+  {
+   "section": "tls_meta",
+   "name": "meta_ok",
+   "ok": true,
+   "detail": "api_version=1 min_client=0.0.0 latest=- kids=['k2026a'] features=['password']"
+  },
+  {
+   "section": "tls_meta",
+   "name": "healthz",
+   "ok": true,
+   "detail": "status=200"
+  },
+  {
+   "section": "tls_meta",
+   "name": "security_headers",
+   "ok": true,
+   "detail": "hsts=True nosniff=True server=nginx"
+  },
+  {
+   "section": "tls_meta",
+   "name": "docs_hidden_docs",
+   "ok": true,
+   "detail": "status=404"
+  },
+  {
+   "section": "tls_meta",
+   "name": "docs_hidden_openapi.json",
+   "ok": true,
+   "detail": "status=404"
+  },
+  {
+   "section": "tls_meta",
+   "name": "docs_hidden_redoc",
+   "ok": true,
+   "detail": "status=404"
+  },
+  {
+   "section": "version_gate",
+   "name": "missing_version_rejected",
+   "ok": true,
+   "detail": "status=400 code=client_version_required"
+  },
+  {
+   "section": "version_gate",
+   "name": "malformed_version_rejected",
+   "ok": true,
+   "detail": "status=400 code=client_version_required"
+  },
+  {
+   "section": "auth_surface",
+   "name": "no_token_rejected",
+   "ok": true,
+   "detail": "status=401 code=session_invalid"
+  },
+  {
+   "section": "auth_surface",
+   "name": "garbage_token_rejected",
+   "ok": true,
+   "detail": "status=401 code=session_invalid"
+  },
+  {
+   "section": "auth_surface",
+   "name": "empty_bearer_rejected",
+   "ok": true,
+   "detail": "status=401 code=session_invalid"
+  },
+  {
+   "section": "auth_surface",
+   "name": "tampered_lease_rejected",
+   "ok": true,
+   "detail": "status=401 code=session_invalid"
+  },
+  {
+   "section": "auth_surface",
+   "name": "forged_payload_rejected",
+   "ok": true,
+   "detail": "status=401 code=session_invalid"
+  },
+  {
+   "section": "authed_reads",
+   "name": "real_session_available",
+   "ok": true,
+   "detail": "lease present (value withheld)"
+  },
+  {
+   "section": "authed_reads",
+   "name": "me_ok",
+   "ok": true,
+   "detail": "status_field=active sub_state=active plan=monthly devices={'active': 1, 'max': 3} keys=['created_at', 'devices', 'email', 'has_password', 'id', 'status', 'subscription']"
+  },
+  {
+   "section": "authed_reads",
+   "name": "me_no_secret_fields",
+   "ok": true,
+   "detail": "leak_keys=[]"
+  },
+  {
+   "section": "authed_lists",
+   "name": "devices_ok",
+   "ok": true,
+   "detail": "count=1 max=3 keys=['current', 'first_seen', 'id', 'last_seen', 'name', 'os'] current_flags=[True]"
+  },
+  {
+   "section": "authed_lists",
+   "name": "devices_no_fingerprint_leak",
+   "ok": true,
+   "detail": "leak_keys=[]"
+  },
+  {
+   "section": "authed_lists",
+   "name": "providers_ok",
+   "ok": true,
+   "detail": "enabled=True providers=2 relay_sites=0 (member_view 不含地址与凭据——relay.py 契约)"
+  },
+  {
+   "section": "authed_lists",
+   "name": "providers_no_key_material",
+   "ok": true,
+   "detail": "leak_keys=[]"
+  },
+  {
+   "section": "authed_lists",
+   "name": "export_ok",
+   "ok": true,
+   "detail": "top_keys=['account', 'consents', 'devices', 'exported_at', 'identities', 'redemptions', 'subscription'] shape_keys=['account', 'consents', 'devices', 'exported_at', 'identities', 'redemptions', 'subscription']"
+  },
+  {
+   "section": "authed_lists",
+   "name": "export_no_credential_fields",
+   "ok": true,
+   "detail": "leak_keys=[]"
+  },
+  {
+   "section": "authed_lists",
+   "name": "redeem_rejected",
+   "ok": true,
+   "detail": "status=400 code=redeem_invalid"
+  },
+  {
+   "section": "app_rate_limit",
+   "name": "code_request_1",
+   "ok": true,
+   "detail": "status=200 code=ok (503=mailer 故障属环境事实，429 判定不受影响)"
+  },
+  {
+   "section": "app_rate_limit",
+   "name": "code_resend_429",
+   "ok": true,
+   "detail": "status=429 code=too_many_requests retry_after=59"
+  },
+  {
+   "section": "app_rate_limit",
+   "name": "invalid_email_400",
+   "ok": true,
+   "detail": "status=400 code=invalid_email"
+  },
+  {
+   "section": "app_rate_limit",
+   "name": "oversize_body_413",
+   "ok": true,
+   "detail": "status=413 (nginx 16k 上限先于应用参数校验)"
+  },
+  {
+   "section": "nginx_rate_limit",
+   "name": "burst_limited",
+   "ok": true,
+   "detail": "total=45 non200=11 first_reject_at=29 codes=[200, 503]"
+  },
+  {
+   "section": "nginx_rate_limit",
+   "name": "recovered_after_burst",
+   "ok": true,
+   "detail": "meta_status=200（令牌桶回充后恢复）"
+  },
+  {
+   "section": "admin_surface",
+   "name": "port80_redirect",
+   "ok": true,
+   "detail": "status_line=HTTP/1.1 301 Moved Permanently"
+  },
+  {
+   "section": "admin_surface",
+   "name": "port8000_loopback_only",
+   "ok": true,
+   "detail": "reset after probe bytes (filtered by egress proxy/firewall)"
+  },
+  {
+   "section": "admin_surface",
+   "name": "port8001_loopback_only",
+   "ok": true,
+   "detail": "reset after probe bytes (filtered by egress proxy/firewall)"
+  },
+  {
+   "section": "admin_surface",
+   "name": "admin_8443",
+   "ok": null,
+   "detail": "TCP connect ok but TLS reset — 管理面公网不可达（与 SSH 22 同被透明代理重置）；Host 白名单/登录门/限流以服务端单测＋deploy/nginx-mj.conf:54-71 为准"
+  },
+  {
+   "section": "client_offline",
+   "name": "session_mac_valid",
+   "ok": true,
+   "detail": "keys=['_mac', '_mac_key_id', 'email', 'has_password', 'last_email', 'lease', 'refresh_token', 'server_time']（值不落盘）"
+  },
+  {
+   "section": "client_offline",
+   "name": "lease_signature_valid",
+   "ok": true,
+   "detail": "kid=k2026a state=active did=did:64dce550de"
+  },
+  {
+   "section": "client_offline",
+   "name": "lease_kid_in_meta",
+   "ok": true,
+   "detail": "kid=k2026a meta_kids=['k2026a']"
+  },
+  {
+   "section": "client_offline",
+   "name": "device_fingerprint",
+   "ok": true,
+   "detail": "len=64 (sha256 hex)"
+  },
+  {
+   "section": "client_offline",
+   "name": "real_lease_entitlement",
+   "ok": true,
+   "detail": "state=valid usable=True floor=1795064635"
+  },
+  {
+   "section": "client_offline",
+   "name": "fixture_valid",
+   "ok": true,
+   "detail": "got=valid want=valid"
+  },
+  {
+   "section": "client_offline",
+   "name": "fixture_grace",
+   "ok": true,
+   "detail": "got=grace want=grace"
+  },
+  {
+   "section": "client_offline",
+   "name": "fixture_expired_state",
+   "ok": true,
+   "detail": "got=locked want=locked"
+  },
+  {
+   "section": "client_offline",
+   "name": "fixture_wrong_device",
+   "ok": true,
+   "detail": "got=signed_out want=signed_out"
+  },
+  {
+   "section": "client_offline",
+   "name": "fixture_garbage",
+   "ok": true,
+   "detail": "got=signed_out want=signed_out"
+  },
+  {
+   "section": "client_offline",
+   "name": "stage_gate_free_vs_paid",
+   "ok": true,
+   "detail": "free_block='' paid_block_head='「初步分镜」试用或会员已到期；请到「00 会员账户」处理。「剧本准备」「剧本结构'"
+  },
+  {
+   "section": "client_offline",
+   "name": "message_masking",
+   "ok": true,
+   "detail": "masked='错误：[邮箱已隐藏] 的令牌 [已隐藏] 已失效'"
+  },
+  {
+   "section": "client_offline",
+   "name": "client_meta_call",
+   "ok": true,
+   "detail": "ok=True code=-"
+  },
+  {
+   "section": "server_unit_tests",
+   "name": "pytest",
+   "ok": true,
+   "detail": "exit=0 tail='ette.testclient` is deprecated; install `httpx2` instead.\\n    from starlette.testclient import TestClient as TestClient  # noqa\\n\\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html'"
+  }
+ ]
+}
