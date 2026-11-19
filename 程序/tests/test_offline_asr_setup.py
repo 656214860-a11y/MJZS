@@ -118,9 +118,18 @@ class EnvironmentTests(unittest.TestCase):
             cache = Path(td) / 'models'
             settings = {'offline': {'cache_dir': str(cache)}}
             self.assertFalse(setup_mod.models_ready(settings))
-            onnx = cache / 'hub' / 'models' / 'iic' / 'demo' / 'model_quant.onnx'
-            onnx.parent.mkdir(parents=True)
-            onnx.write_bytes(b'x')
+            names = setup_mod._configured_models()
+            first = next(iter(names.values()))
+            org, short = first.split('/', 1)
+            partial = cache / 'hub' / 'models' / org / short / 'model_quant.onnx'
+            partial.parent.mkdir(parents=True)
+            partial.write_bytes(b'x')
+            self.assertFalse(setup_mod.models_ready(settings), '只有一个模型不能标记就绪')
+            for name in names.values():
+                org, short = name.split('/', 1)
+                onnx = cache / 'hub' / 'models' / org / short / 'model_quant.onnx'
+                onnx.parent.mkdir(parents=True, exist_ok=True)
+                onnx.write_bytes(b'x')
             self.assertTrue(setup_mod.models_ready(settings))
 
     def test_cleanup_only_removes_incomplete_venv(self):

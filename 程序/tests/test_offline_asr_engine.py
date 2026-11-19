@@ -435,6 +435,26 @@ class GetModelCachePathTests(unittest.TestCase):
 
 
 class BootstrapTests(unittest.TestCase):
+    def test_asr_requirements_are_exactly_pinned(self):
+        for name in ('requirements.txt', 'requirements.lock'):
+            requirements = (PROGRAM / 'voice_engine' / name).read_text(encoding='utf-8')
+            lines = [line.partition('#')[0].strip() for line in requirements.splitlines()]
+            packages = [line for line in lines if line]
+            self.assertTrue(packages)
+            self.assertTrue(all(line.count('==') == 1 for line in packages), (name, packages))
+            self.assertIn('numpy==1.26.4', packages)
+            self.assertIn('onnxruntime==1.20.1', packages)
+        self.assertEqual(bootstrap.DEFAULT_REQ.name, 'requirements.lock')
+
+    def test_verify_imports_covers_every_runtime_entrypoint_dependency(self):
+        completed = types.SimpleNamespace(returncode=0, stdout='', stderr='')
+        with mock.patch.object(bootstrap, '_run', return_value=completed) as run:
+            self.assertIsNone(bootstrap.verify_imports('venv-python'))
+        command = run.call_args.args[0]
+        for module in ('numpy', 'onnxruntime', 'funasr_onnx', 'jieba',
+                       'modelscope', 'librosa', 'soundfile'):
+            self.assertIn(module, command[-1])
+
     def test_venv_python_windows_and_posix(self):
         with mock.patch.object(os, "name", "nt"):
             self.assertTrue(bootstrap.venv_python("V").endswith(
