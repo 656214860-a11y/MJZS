@@ -1,5 +1,5 @@
 # R3887 结果：G-1 阻塞支吸收率与车道存活证据（只读诊断·续 R3855）
-<!-- round-evidence: {"commit_base": "adefa0da", "credential_hits": 0, "evidence_sha256": "4a7ce4b08a7ded5d", "exit": 0, "failed": 0, "passed": 0, "round": 3887, "tests": "docs-only"} -->
+<!-- round-evidence: {"commit_base": "46a419f4", "credential_hits": 0, "evidence_sha256": "3bee816d42ea8846", "exit": 0, "failed": 0, "passed": 0, "round": 3887, "tests": "docs-only"} -->
 
 ## 三问
 
@@ -56,6 +56,12 @@
 ## 验证
 
 - 全部结论由 git 只读命令与车道租约表实测；三个基线均未运行（只读诊断）。
+
+## 勘误（同车道 R3879/R3884 更新数据）
+
+- 本文件提交后，同车道 R3879/R3884 复核显示：G-1 命中分支已 16→**22**（新增 C6 分解 `c6-catalog`/`c6-extension`/`c6-owner`/`c6-pages`/`c6-skill-pages` 与 `update-admission`，均 4 文件全中）。
+- 「resume 祖先链整支含入 next」已被 supersede：`resume` 经移动后 **⊄ next、⊂ `update-admission`**（载体变更）；`next` 合入预计仅自动消化 `c6-pages`。
+- 吸收率表对原 14 支仍有效（以 `next` 为参照系）；新增 6 支未测。
 
 ## 提交
 
