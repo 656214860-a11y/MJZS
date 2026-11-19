@@ -1,0 +1,4 @@
+{"seq": 1, "at": "2026-11-19T13:08:28.652", "path": "/chat/completions", "stream": true, "model": "fake-acceptance-1", "mode": "timeout", "auth_present": true, "body_bytes": 250902, "first_chunk_at": "2026-11-19T13:08:28.652"}
+{"seq": 2, "at": "2026-11-19T13:08:43.725", "path": "/chat/completions", "stream": false, "model": "fake-acceptance-1", "mode": "timeout", "auth_present": true, "body_bytes": 250843, "first_chunk_at": "2026-11-19T13:08:28.652"}
+{"seq": 3, "at": "2026-11-19T13:08:59.287", "path": "/chat/completions", "stream": false, "model": "fake-acceptance-1", "mode": "timeout", "auth_present": true, "body_bytes": 250843, "first_chunk_at": "2026-11-19T13:08:28.652"}
+{"seq": 4, "at": "2026-11-19T13:09:15.274", "path": "/chat/completions", "stream": false, "model": "fake-acceptance-1", "mode": "timeout", "auth_present": true, "body_bytes": 250843, "first_chunk_at": "2026-11-19T13:08:28.652"}

@@ -1,0 +1,96 @@
+{
+  "scenario": "ok",
+  "project": "C:\\Users\\LAIBIAO\\AppData\\Local\\Temp\\acceptance-ok-29pxbibe\\p",
+  "send_error": null,
+  "supplier_requests": [
+    {
+      "seq": 1,
+      "at": "2026-11-19T13:00:57.046",
+      "path": "/chat/completions",
+      "stream": true,
+      "model": "fake-acceptance-1",
+      "mode": "ok",
+      "auth_present": true,
+      "body_bytes": 250902,
+      "first_chunk_at": null,
+      "response": {
+        "finished": true,
+        "note": "",
+        "chunks": 9
+      }
+    }
+  ],
+  "ledger_entries": [
+    {
+      "id": "70d8d4864f2a4d72b57027e20b51a48c",
+      "kind": "tokens",
+      "amount": 150.0,
+      "mode": "reported",
+      "state": "settled",
+      "remote_task_id": null,
+      "note": "",
+      "at": 1795064456.8480332,
+      "settled_at": 1795064457.070091,
+      "model": "fake-acceptance-1",
+      "stage": "script",
+      "input_estimate": 251061.0,
+      "output_limit": 8192.0,
+      "quantities": {
+        "prompt_tokens": "251061",
+        "completion_tokens": "8192"
+      },
+      "rates": {
+        "prompt_tokens": "0.000001",
+        "completion_tokens": "0.000002"
+      },
+      "price_version": "acceptance-fake-v1",
+      "currency": "CNY",
+      "budget_cost": "0.000180",
+      "money_state": "estimated",
+      "attempts": [
+        {
+          "at": 1795064457.0557947,
+          "status": 200,
+          "error_class": "",
+          "retry_after": null,
+          "wire_api": "chat",
+          "retry_count": 0
+        }
+      ]
+    }
+  ],
+  "assistant_replies": [
+    {
+      "at": "20261119_130057_197280",
+      "model": "验收假供应商",
+      "text_len": 71,
+      "text_head": "# 项目设定\n\n- 名称：验收样例·夜班照相馆\n- 题材：都市悬疑\n- 时代背景：当代中国二线城市\n- 视觉基调：冷色调"
+    }
+  ],
+  "diagnostic_events": [
+    "model_diagnostics/20261119_130057_104065_b8afb655.json"
+  ],
+  "artifact_count": 18,
+  "artifacts": [
+    "01剧本准备/brief_complete.json",
+    "01剧本准备/brief_creation.md",
+    "01剧本准备/preparation_state.json",
+    "01剧本准备/responses/20261119_130057_081172_f8f379ed0f864b609de3688e282e7198.txt",
+    "01剧本准备/创意对话/对话.json",
+    "01剧本准备/自定义/验收假供应商/创意_20261119/项目设定/p_项目设定_自定义_20261119.md",
+    "config.json",
+    "cost_profile.json",
+    "data/state.json",
+    "episode/assets.json",
+    "episode/episode.json",
+    "logs/model_diagnostics/20261119_130057_104065_b8afb655.json",
+    "skill_config.json",
+    "usage_history/2026-11.json",
+    "usage_summary.json",
+    "工作流任务/宠物/请求台账.bak",
+    "工作流任务/宠物/请求台账.json",
+    "工作流任务/宠物/请求台账.lock"
+  ],
+  "probe_request_timeout_seconds": null,
+  "collected_at": "2026-11-19T13:00:58.554"
+}

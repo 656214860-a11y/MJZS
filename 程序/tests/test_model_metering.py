@@ -75,3 +75,28 @@ class RetryPolicyNamingTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+class AttemptPersistenceTests(unittest.TestCase):
+    """R3709 A 维验收发现：metered 的尝试元数据必须在结算事务重读后仍落盘。"""
+
+    def test_attempt_metadata_survives_settle(self):
+        import json
+        import tempfile
+        from pathlib import Path
+        from infra.pet_llm import RequestLedger, request_ledger_path
+        with tempfile.TemporaryDirectory() as td:
+            ledger = RequestLedger(Path(td))
+            result, usage, rejected = metered(
+                ledger, ('r-att', 'm', 'script', 100, 50),
+                lambda: {'ok': True, 'status': 200,
+                         'data': {'usage': {'prompt_tokens': 3, 'completion_tokens': 4}}},
+                lambda r: {'prompt_tokens': 3, 'completion_tokens': 4})
+            self.assertIsNone(rejected)
+            self.assertTrue(result.get('ok'))
+            data = json.loads(request_ledger_path(Path(td)).read_text(encoding='utf-8'))
+            entry = data['entries'][0]
+            self.assertEqual(entry['state'], 'settled')
+            attempts = entry.get('attempts') or []
+            self.assertTrue(attempts, '结算后尝试元数据必须仍在台账里')
+            self.assertEqual(attempts[0].get('status'), 200)
+            self.assertEqual(attempts[0].get('wire_api'), '')

@@ -1,0 +1,1 @@
+{"seq": 1, "at": "2026-11-19T13:06:20.650", "path": "/chat/completions", "stream": true, "model": "fake-acceptance-1", "mode": "cancel", "auth_present": true, "body_bytes": 250902, "first_chunk_at": null, "response": {"finished": true, "note": "", "chunks": 9}}

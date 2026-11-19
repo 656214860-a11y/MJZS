@@ -1,0 +1,78 @@
+[
+  {
+    "path": "01剧本准备/brief_complete.json",
+    "bytes": 635,
+    "sha256": "78e8cacbc865c8ebaab8293375562033a4fe9abc723602dcfdbd4b0f065ce448",
+    "copied": true
+  },
+  {
+    "path": "01剧本准备/brief_creation.md",
+    "bytes": 265,
+    "sha256": "0f8220e78c8055e2f8b6343dd2058d0ec334f3e57a8c0cb1b3ea0f9f1fef9187",
+    "copied": true
+  },
+  {
+    "path": "01剧本准备/创意对话/对话.json",
+    "bytes": 23017,
+    "sha256": "df6bfdd3a2da491ad413d67de0a868a3ca513f1335d057a0d9f5688f84dfc322",
+    "copied": true
+  },
+  {
+    "path": "config.json",
+    "bytes": 397,
+    "sha256": "fa467d22b472a5af4da946516c8c5d93048a2721f862029cfb8b17ed28326eb7",
+    "copied": true
+  },
+  {
+    "path": "cost_profile.json",
+    "bytes": 197,
+    "sha256": "af3d4b9494513d5bccf1f35661c2be40240b7c88b87044c4df03ca7b86867ccb",
+    "copied": true
+  },
+  {
+    "path": "data/state.json",
+    "bytes": 56,
+    "sha256": "9995acb418835df19cc1557b277a5ecc0802d99ebe2ae3419b9438fcc396c267",
+    "copied": true
+  },
+  {
+    "path": "episode/assets.json",
+    "bytes": 2,
+    "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "copied": true
+  },
+  {
+    "path": "episode/episode.json",
+    "bytes": 253,
+    "sha256": "2020365413be04cf0097bf80104f5451f34ce49460487be3663dbdc23711f6ed",
+    "copied": true
+  },
+  {
+    "path": "logs/model_diagnostics/20261119_130930_299913_5df91435.json",
+    "bytes": 501,
+    "sha256": "e7d564e6c0dced18ae7cd9cabae4297af4d9340054fdedfbf0fdf5f2b710556e",
+    "copied": true
+  },
+  {
+    "path": "skill_config.json",
+    "bytes": 3422,
+    "sha256": "ec90e84cd24f486ee270fc180ea077c10aef20242860ea6be12a20cea93e46ba",
+    "copied": true
+  },
+  {
+    "path": "工作流任务/宠物/请求台账.bak",
+    "bytes": 822,
+    "sha256": "f944b0b3ed7cb7a1aa020dcdc61f6c25f2d8c8bfcd6d0d4dcf7133a514ef4e0b"
+  },
+  {
+    "path": "工作流任务/宠物/请求台账.json",
+    "bytes": 2069,
+    "sha256": "a19ac9eee8cbc5607abb7feaccb3c5b239ac8a1acf91786f89becb2ad8e25b29",
+    "copied": true
+  },
+  {
+    "path": "工作流任务/宠物/请求台账.lock",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+]

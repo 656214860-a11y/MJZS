@@ -1,0 +1,108 @@
+[
+  {
+    "path": "01剧本准备/brief_complete.json",
+    "bytes": 635,
+    "sha256": "78e8cacbc865c8ebaab8293375562033a4fe9abc723602dcfdbd4b0f065ce448",
+    "copied": true
+  },
+  {
+    "path": "01剧本准备/brief_creation.md",
+    "bytes": 265,
+    "sha256": "0f8220e78c8055e2f8b6343dd2058d0ec334f3e57a8c0cb1b3ea0f9f1fef9187",
+    "copied": true
+  },
+  {
+    "path": "01剧本准备/preparation_state.json",
+    "bytes": 614,
+    "sha256": "1620208a02ccfbff7d5fbd794faf1c70b873e3edc89c935034118da0c54172d6",
+    "copied": true
+  },
+  {
+    "path": "01剧本准备/responses/20261119_130057_081172_f8f379ed0f864b609de3688e282e7198.txt",
+    "bytes": 184,
+    "sha256": "2c06dca2ce072216349b9c92e6a330b9c7b317c97bdcaec325d14c4ab76ed6db",
+    "copied": true
+  },
+  {
+    "path": "01剧本准备/创意对话/对话.json",
+    "bytes": 46721,
+    "sha256": "0513522cc2d08931012a22576dd8445712ddace06e3dd08c17593a11c6addf4d",
+    "copied": true
+  },
+  {
+    "path": "01剧本准备/自定义/验收假供应商/创意_20261119/项目设定/p_项目设定_自定义_20261119.md",
+    "bytes": 184,
+    "sha256": "2c06dca2ce072216349b9c92e6a330b9c7b317c97bdcaec325d14c4ab76ed6db",
+    "copied": true
+  },
+  {
+    "path": "config.json",
+    "bytes": 387,
+    "sha256": "7e7b81da7b8c59ef6585166ee2f8ab5aed119f173b9ab7ef066da18c2aff5968",
+    "copied": true
+  },
+  {
+    "path": "cost_profile.json",
+    "bytes": 197,
+    "sha256": "af3d4b9494513d5bccf1f35661c2be40240b7c88b87044c4df03ca7b86867ccb",
+    "copied": true
+  },
+  {
+    "path": "data/state.json",
+    "bytes": 56,
+    "sha256": "9995acb418835df19cc1557b277a5ecc0802d99ebe2ae3419b9438fcc396c267",
+    "copied": true
+  },
+  {
+    "path": "episode/assets.json",
+    "bytes": 2,
+    "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "copied": true
+  },
+  {
+    "path": "episode/episode.json",
+    "bytes": 253,
+    "sha256": "2020365413be04cf0097bf80104f5451f34ce49460487be3663dbdc23711f6ed",
+    "copied": true
+  },
+  {
+    "path": "logs/model_diagnostics/20261119_130057_104065_b8afb655.json",
+    "bytes": 541,
+    "sha256": "634921540ee8662fca76cf91ed4f29a322a6717ccbe984e484e76d48b1631ce9",
+    "copied": true
+  },
+  {
+    "path": "skill_config.json",
+    "bytes": 3422,
+    "sha256": "ec90e84cd24f486ee270fc180ea077c10aef20242860ea6be12a20cea93e46ba",
+    "copied": true
+  },
+  {
+    "path": "usage_history/2026-11.json",
+    "bytes": 156,
+    "sha256": "2b353e95198c9ff57955add8aa26d9cb58dc8ce2df3272b2b170a92621cfeb0a",
+    "copied": true
+  },
+  {
+    "path": "usage_summary.json",
+    "bytes": 140,
+    "sha256": "8e4e0bd8711e59ded345efa0196dfd5cca868368c371bc86e25663524f1eace5",
+    "copied": true
+  },
+  {
+    "path": "工作流任务/宠物/请求台账.bak",
+    "bytes": 824,
+    "sha256": "4e5a0088f65b43111d4e113b499aa1c503f7b13e88ed544d389317aec5130286"
+  },
+  {
+    "path": "工作流任务/宠物/请求台账.json",
+    "bytes": 1070,
+    "sha256": "fb21f71900242f02946d09e0e4cd478606eb3bc95db775db06075d23b9539368",
+    "copied": true
+  },
+  {
+    "path": "工作流任务/宠物/请求台账.lock",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+]

@@ -1,0 +1,15 @@
+{
+  "round": 3812,
+  "commit_base": "a83298e1",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k s07 final shot_batches storyboard_final stage_completion final_bundle",
+    "exit": 0,
+    "passed": 135,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T17:26:59"
+}

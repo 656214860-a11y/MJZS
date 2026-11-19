@@ -1,0 +1,12 @@
+{
+  "pid": 42332,
+  "mode": "hang",
+  "request_id": "6a9b7d94746b45e98f2022cd81de9974",
+  "kind": "tokens",
+  "state": "reserved",
+  "money_state": "reserved",
+  "at": 1795075032.889504,
+  "sent_at": 1795075032.8689065,
+  "armed_at": "2026-11-19T15:57:12.934",
+  "ledger_path": "C:\\Users\\LAIBIAO\\AppData\\Local\\Temp\\acceptance-recovery-c02tesml\\p\\工作流任务\\宠物\\请求台账.json"
+}

@@ -1,0 +1,560 @@
+{
+  "updated_at": 1795077940.310831,
+  "entries": [
+    {
+      "id": "720bd6d46bc34ddeb2e8a61db8945878",
+      "kind": "tokens",
+      "amount": 150.0,
+      "mode": "reported",
+      "state": "settled",
+      "remote_task_id": null,
+      "note": "",
+      "at": 1795077878.4933167,
+      "settled_at": 1795077878.6530788,
+      "model": "fake-acceptance-e2e-1",
+      "stage": "script",
+      "input_estimate": 251457.0,
+      "output_limit": 8192.0,
+      "quantities": {
+        "prompt_tokens": "251457",
+        "completion_tokens": "8192"
+      },
+      "rates": {
+        "prompt_tokens": "0.000001",
+        "completion_tokens": "0.000002"
+      },
+      "price_version": "acceptance-e2e-v1",
+      "currency": "CNY",
+      "budget_cost": "0.000180",
+      "money_state": "estimated",
+      "attempts": [
+        {
+          "at": 1795077878.6395152,
+          "status": 200,
+          "error_class": "",
+          "retry_after": null,
+          "wire_api": "chat",
+          "retry_count": 0
+        }
+      ]
+    },
+    {
+      "id": "2ee17db8b92842eba3e0ac3d200efaa8",
+      "kind": "tokens",
+      "amount": 150.0,
+      "mode": "reported",
+      "state": "settled",
+      "remote_task_id": null,
+      "note": "",
+      "at": 1795077880.3189404,
+      "settled_at": 1795077880.366284,
+      "model": "fake-acceptance-e2e-1",
+      "stage": "script",
+      "input_estimate": 251348.0,
+      "output_limit": 8192.0,
+      "quantities": {
+        "prompt_tokens": "251348",
+        "completion_tokens": "8192"
+      },
+      "rates": {
+        "prompt_tokens": "0.000001",
+        "completion_tokens": "0.000002"
+      },
+      "price_version": "acceptance-e2e-v1",
+      "currency": "CNY",
+      "budget_cost": "0.000180",
+      "money_state": "estimated",
+      "attempts": [
+        {
+          "at": 1795077880.3542554,
+          "status": 200,
+          "error_class": "",
+          "retry_after": null,
+          "wire_api": "chat",
+          "retry_count": 0
+        }
+      ]
+    },
+    {
+      "id": "99378c38aa334fc99d6ad0cf88c984c9",
+      "kind": "tokens",
+      "amount": 150.0,
+      "mode": "reported",
+      "state": "settled",
+      "remote_task_id": null,
+      "note": "",
+      "at": 1795077882.1764607,
+      "settled_at": 1795077882.2273052,
+      "model": "fake-acceptance-e2e-1",
+      "stage": "script",
+      "input_estimate": 251610.0,
+      "output_limit": 8192.0,
+      "quantities": {
+        "prompt_tokens": "251610",
+        "completion_tokens": "8192"
+      },
+      "rates": {
+        "prompt_tokens": "0.000001",
+        "completion_tokens": "0.000002"
+      },
+      "price_version": "acceptance-e2e-v1",
+      "currency": "CNY",
+      "budget_cost": "0.000180",
+      "money_state": "estimated",
+      "attempts": [
+        {
+          "at": 1795077882.2152827,
+          "status": 200,
+          "error_class": "",
+          "retry_after": null,
+          "wire_api": "chat",
+          "retry_count": 0
+        }
+      ]
+    },
+    {
+      "id": "10209b1965ca4d0d84dad5864eee74c7",
+      "kind": "tokens",
+      "amount": 150.0,
+      "mode": "reported",
+      "state": "settled",
+      "remote_task_id": null,
+      "note": "",
+      "at": 1795077883.9366052,
+      "settled_at": 1795077883.9847395,
+      "model": "fake-acceptance-e2e-1",
+      "stage": "script",
+      "input_estimate": 251831.0,
+      "output_limit": 8192.0,
+      "quantities": {
+        "prompt_tokens": "251831",
+        "completion_tokens": "8192"
+      },
+      "rates": {
+        "prompt_tokens": "0.000001",
+        "completion_tokens": "0.000002"
+      },
+      "price_version": "acceptance-e2e-v1",
+      "currency": "CNY",
+      "budget_cost": "0.000180",
+      "money_state": "estimated",
+      "attempts": [
+        {
+          "at": 1795077883.9744117,
+          "status": 200,
+          "error_class": "",
+          "retry_after": null,
+          "wire_api": "chat",
+          "retry_count": 0
+        }
+      ]
+    },
+    {
+      "id": "4437f4ce48604e498a55a8ab24016d93",
+      "kind": "tokens",
+      "amount": 150.0,
+      "mode": "reported",
+      "state": "settled",
+      "remote_task_id": null,
+      "note": "",
+      "at": 1795077884.0887356,
+      "settled_at": 1795077884.1378033,
+      "model": "fake-acceptance-e2e-1",
+      "stage": "script",
+      "input_estimate": 256947.0,
+      "output_limit": 4096.0,
+      "quantities": {
+        "prompt_tokens": "256947",
+        "completion_tokens": "4096"
+      },
+      "rates": {
+        "prompt_tokens": "0.000001",
+        "completion_tokens": "0.000002"
+      },
+      "price_version": "acceptance-e2e-v1",
+      "currency": "CNY",
+      "budget_cost": "0.000180",
+      "money_state": "estimated",
+      "attempts": [
+        {
+          "at": 1795077884.1274786,
+          "status": 200,
+          "error_class": "",
+          "retry_after": null,
+          "wire_api": "chat",
+          "retry_count": 0
+        }
+      ]
+    },
+    {
+      "id": "1909574198304915a4e698a2da64db49",
+      "kind": "tokens",
+      "amount": 150.0,
+      "mode": "reported",
+      "state": "settled",
+      "remote_task_id": null,
+      "note": "",
+      "at": 1795077886.0884798,
+      "settled_at": 1795077886.1340501,
+      "model": "fake-acceptance-e2e-1",
+      "stage": "script",
+      "input_estimate": 259672.0,
+      "output_limit": 4096.0,
+      "quantities": {
+        "prompt_tokens": "259672",
+        "completion_tokens": "4096"
+      },
+      "rates": {
+        "prompt_tokens": "0.000001",
+        "completion_tokens": "0.000002"
+      },
+      "price_version": "acceptance-e2e-v1",
+      "currency": "CNY",
+      "budget_cost": "0.000180",
+      "money_state": "estimated",
+      "attempts": [
+        {
+          "at": 1795077886.123753,
+          "status": 200,
+          "error_class": "",
+          "retry_after": null,
+          "wire_api": "chat",
+          "retry_count": 0
+        }
+      ]
+    },
+    {
+      "id": "e73b9987b651450c9ec4fc1088a02c4e",
+      "kind": "tokens",
+      "amount": 150.0,
+      "mode": "reported",
+      "state": "settled",
+      "remote_task_id": null,
+      "note": "",
+      "at": 1795077887.9085245,
+      "settled_at": 1795077887.9505708,
+      "model": "fake-acceptance-e2e-1",
+      "stage": "script",
+      "input_estimate": 262549.0,
+      "output_limit": 4096.0,
+      "quantities": {
+        "prompt_tokens": "262549",
+        "completion_tokens": "4096"
+      },
+      "rates": {
+        "prompt_tokens": "0.000001",
+        "completion_tokens": "0.000002"
+      },
+      "price_version": "acceptance-e2e-v1",
+      "currency": "CNY",
+      "budget_cost": "0.000180",
+      "money_state": "estimated",
+      "attempts": [
+        {
+          "at": 1795077887.940459,
+          "status": 200,
+          "error_class": "",
+          "retry_after": null,
+          "wire_api": "chat",
+          "retry_count": 0
+        }
+      ]
+    },
+    {
+      "id": "0da967c4b98a4f1aa56866ff4b541368",
+      "kind": "tokens",
+      "amount": 150.0,
+      "mode": "reported",
+      "state": "settled",
+      "remote_task_id": null,
+      "note": "",
+      "at": 1795077889.9799616,
+      "settled_at": 1795077890.0555449,
+      "model": "fake-acceptance-e2e-1",
+      "stage": "script",
+      "input_estimate": 265477.0,
+      "output_limit": 4096.0,
+      "quantities": {
+        "prompt_tokens": "265477",
+        "completion_tokens": "4096"
+      },
+      "rates": {
+        "prompt_tokens": "0.000001",
+        "completion_tokens": "0.000002"
+      },
+      "price_version": "acceptance-e2e-v1",
+      "currency": "CNY",
+      "budget_cost": "0.000180",
+      "money_state": "estimated",
+      "attempts": [
+        {
+          "at": 1795077890.042721,
+          "status": 200,
+          "error_class": "",
+          "retry_after": null,
+          "wire_api": "chat",
+          "retry_count": 0
+        }
+      ]
+    },
+    {
+      "id": "a223d52568354d2e91da78df257c2a18",
+      "kind": "tokens",
+      "amount": 150.0,
+      "mode": "reported",
+      "state": "settled",
+      "remote_task_id": null,
+      "note": "",
+      "at": 1795077892.166479,
+      "settled_at": 1795077892.2341726,
+      "model": "fake-acceptance-e2e-1",
+      "stage": "script",
+      "input_estimate": 268345.0,
+      "output_limit": 4096.0,
+      "quantities": {
+        "prompt_tokens": "268345",
+        "completion_tokens": "4096"
+      },
+      "rates": {
+        "prompt_tokens": "0.000001",
+        "completion_tokens": "0.000002"
+      },
+      "price_version": "acceptance-e2e-v1",
+      "currency": "CNY",
+      "budget_cost": "0.000180",
+      "money_state": "estimated",
+      "attempts": [
+        {
+          "at": 1795077892.2168894,
+          "status": 200,
+          "error_class": "",
+          "retry_after": null,
+          "wire_api": "chat",
+          "retry_count": 0
+        }
+      ]
+    },
+    {
+      "id": "369ed78a5a4d4c0abfcbe0fb69e7224e",
+      "kind": "tokens",
+      "amount": 150.0,
+      "mode": "reported",
+      "state": "settled",
+      "remote_task_id": null,
+      "note": "",
+      "at": 1795077894.3169386,
+      "settled_at": 1795077894.3843071,
+      "model": "fake-acceptance-e2e-1",
+      "stage": "script",
+      "input_estimate": 271197.0,
+      "output_limit": 4096.0,
+      "quantities": {
+        "prompt_tokens": "271197",
+        "completion_tokens": "4096"
+      },
+      "rates": {
+        "prompt_tokens": "0.000001",
+        "completion_tokens": "0.000002"
+      },
+      "price_version": "acceptance-e2e-v1",
+      "currency": "CNY",
+      "budget_cost": "0.000180",
+      "money_state": "estimated",
+      "attempts": [
+        {
+          "at": 1795077894.3709445,
+          "status": 200,
+          "error_class": "",
+          "retry_after": null,
+          "wire_api": "chat",
+          "retry_count": 0
+        }
+      ]
+    },
+    {
+      "id": "848b9f5bc8b74ae295d8977baf2429b1",
+      "kind": "tokens",
+      "amount": 150.0,
+      "mode": "reported",
+      "state": "settled",
+      "remote_task_id": null,
+      "note": "",
+      "at": 1795077896.5904486,
+      "settled_at": 1795077896.6373196,
+      "model": "fake-acceptance-e2e-1",
+      "stage": "script",
+      "input_estimate": 274050.0,
+      "output_limit": 4096.0,
+      "quantities": {
+        "prompt_tokens": "274050",
+        "completion_tokens": "4096"
+      },
+      "rates": {
+        "prompt_tokens": "0.000001",
+        "completion_tokens": "0.000002"
+      },
+      "price_version": "acceptance-e2e-v1",
+      "currency": "CNY",
+      "budget_cost": "0.000180",
+      "money_state": "estimated",
+      "attempts": [
+        {
+          "at": 1795077896.6273234,
+          "status": 200,
+          "error_class": "",
+          "retry_after": null,
+          "wire_api": "chat",
+          "retry_count": 0
+        }
+      ]
+    },
+    {
+      "id": "db479bdd8cf245fd883b5efe267b5be9",
+      "kind": "tokens",
+      "amount": 150.0,
+      "mode": "reported",
+      "state": "settled",
+      "remote_task_id": null,
+      "note": "",
+      "at": 1795077898.4935186,
+      "settled_at": 1795077898.5549037,
+      "model": "fake-acceptance-e2e-1",
+      "stage": "script",
+      "input_estimate": 274611.0,
+      "output_limit": 4096.0,
+      "quantities": {
+        "prompt_tokens": "274611",
+        "completion_tokens": "4096"
+      },
+      "rates": {
+        "prompt_tokens": "0.000001",
+        "completion_tokens": "0.000002"
+      },
+      "price_version": "acceptance-e2e-v1",
+      "currency": "CNY",
+      "budget_cost": "0.000180",
+      "money_state": "estimated",
+      "attempts": [
+        {
+          "at": 1795077898.544312,
+          "status": 200,
+          "error_class": "",
+          "retry_after": null,
+          "wire_api": "chat",
+          "retry_count": 0
+        }
+      ]
+    },
+    {
+      "id": "9544984c4dab47aaacc0f3a41eaa8e9e",
+      "kind": "tokens",
+      "amount": null,
+      "mode": "unknown",
+      "state": "unknown",
+      "remote_task_id": null,
+      "note": "",
+      "at": 1795077900.3426938,
+      "settled_at": 1795077938.6133933,
+      "model": "fake-acceptance-e2e-1",
+      "stage": "script",
+      "input_estimate": 274912.0,
+      "output_limit": 4096.0,
+      "quantities": {
+        "prompt_tokens": "274912",
+        "completion_tokens": "4096"
+      },
+      "rates": {
+        "prompt_tokens": "0.000001",
+        "completion_tokens": "0.000002"
+      },
+      "price_version": "acceptance-e2e-v1",
+      "currency": "CNY",
+      "budget_cost": "0.283104",
+      "money_state": "unknown",
+      "attempts": [
+        {
+          "at": 1795077938.5901518,
+          "status": 0,
+          "error_class": "",
+          "retry_after": null,
+          "wire_api": "",
+          "retry_count": 0
+        }
+      ]
+    },
+    {
+      "id": "2dbb7ca3c9cc4783a1617afa4611a50a",
+      "kind": "tokens",
+      "amount": null,
+      "mode": "unknown",
+      "state": "unknown",
+      "remote_task_id": null,
+      "note": "",
+      "at": 1795077938.805194,
+      "settled_at": 1795077938.8814323,
+      "model": "fake-acceptance-e2e-1",
+      "stage": "script",
+      "input_estimate": 272102.0,
+      "output_limit": 4096.0,
+      "quantities": {
+        "prompt_tokens": "272102",
+        "completion_tokens": "4096"
+      },
+      "rates": {
+        "prompt_tokens": "0.000001",
+        "completion_tokens": "0.000002"
+      },
+      "price_version": "acceptance-e2e-v1",
+      "currency": "CNY",
+      "budget_cost": "0.280294",
+      "money_state": "unknown",
+      "attempts": [
+        {
+          "at": 1795077938.8673728,
+          "status": 0,
+          "error_class": "",
+          "retry_after": null,
+          "wire_api": "",
+          "retry_count": 0
+        }
+      ]
+    },
+    {
+      "id": "f3859ba5ed814463acf1e01c668ff4e5",
+      "kind": "tokens",
+      "amount": null,
+      "mode": "unknown",
+      "state": "unknown",
+      "remote_task_id": null,
+      "note": "",
+      "at": 1795077938.91093,
+      "settled_at": 1795077940.3108103,
+      "model": "fake-acceptance-e2e-1",
+      "stage": "script",
+      "input_estimate": 272102.0,
+      "output_limit": 4096.0,
+      "quantities": {
+        "prompt_tokens": "272102",
+        "completion_tokens": "4096"
+      },
+      "rates": {
+        "prompt_tokens": "0.000001",
+        "completion_tokens": "0.000002"
+      },
+      "price_version": "acceptance-e2e-v1",
+      "currency": "CNY",
+      "budget_cost": "0.280294",
+      "money_state": "unknown",
+      "attempts": [
+        {
+          "at": 1795077940.2962341,
+          "status": 500,
+          "error_class": "transport",
+          "retry_after": null,
+          "wire_api": "chat",
+          "retry_count": 0
+        }
+      ]
+    }
+  ]
+}

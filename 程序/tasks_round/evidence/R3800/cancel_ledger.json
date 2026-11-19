@@ -1,0 +1,31 @@
+{
+  "entries": [
+    {
+      "id": "9544984c4dab47aaacc0f3a41eaa8e9e",
+      "kind": "tokens",
+      "amount": 279008.0,
+      "mode": "estimated",
+      "state": "reserved",
+      "remote_task_id": null,
+      "note": "",
+      "at": 1795077900.3426938,
+      "settled_at": null,
+      "model": "fake-acceptance-e2e-1",
+      "stage": "script",
+      "input_estimate": 274912.0,
+      "output_limit": 4096.0,
+      "quantities": {
+        "prompt_tokens": "274912",
+        "completion_tokens": "4096"
+      },
+      "rates": {
+        "prompt_tokens": "0.000001",
+        "completion_tokens": "0.000002"
+      },
+      "price_version": "acceptance-e2e-v1",
+      "currency": "CNY",
+      "budget_cost": "0.283104",
+      "money_state": "reserved"
+    }
+  ]
+}

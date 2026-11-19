@@ -1,0 +1,15 @@
+{
+  "round": 3800,
+  "commit_base": "fb362630",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k account writing script_structure stage_completion lease http_boundary",
+    "exit": 0,
+    "passed": 446,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T17:05:58"
+}

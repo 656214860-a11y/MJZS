@@ -1,0 +1,90 @@
+{
+  "01剧本准备/brief_complete.json": {
+    "bytes": 650,
+    "sha256": "e2ac54d46538c30fcad9a5d2bfa410940e2e498ce66b6424bd61b66d604fc357"
+  },
+  "01剧本准备/brief_creation.md": {
+    "bytes": 280,
+    "sha256": "c636f3f267ddd97a33da3d59840dab1572ffe59459241c166e03fb39d2b7e35a"
+  },
+  "01剧本准备/preparation_state.json": {
+    "bytes": 1522,
+    "sha256": "7e4df124521f370a4e19ce7cc2421e877488989af8e052535df865a9fa992f8b"
+  },
+  "01剧本准备/responses/20261119_155706_521567_96b2a8f63ede4912a61f0bd2dad7fc68.txt": {
+    "bytes": 190,
+    "sha256": "e5b7b72a88d38369d471ea4f34daee3306fae54029e85db116a13031251c1adb"
+  },
+  "01剧本准备/responses/20261119_155707_828197_e51610c9467e489097bdc5b5b50b25ca.txt": {
+    "bytes": 185,
+    "sha256": "a6d73b7ecfb21b11bb586c44314361fdd049b7c7f744355d2432cc06f19cda8d"
+  },
+  "01剧本准备/创意对话/对话.json": {
+    "bytes": 92998,
+    "sha256": "032b7185f4747539b69fb977c80203701593481ff5b3ea57f814fffb8edd4850"
+  },
+  "01剧本准备/确认快照/项目设定_20261119-155707_cfd2d956.md": {
+    "bytes": 190,
+    "sha256": "e5b7b72a88d38369d471ea4f34daee3306fae54029e85db116a13031251c1adb"
+  },
+  "01剧本准备/自定义/验收恢复假供应商/创意_20261119/项目大纲/p_项目大纲_自定义_20261119.md": {
+    "bytes": 185,
+    "sha256": "a6d73b7ecfb21b11bb586c44314361fdd049b7c7f744355d2432cc06f19cda8d"
+  },
+  "01剧本准备/自定义/验收恢复假供应商/创意_20261119/项目设定/p_项目设定_自定义_20261119.md": {
+    "bytes": 190,
+    "sha256": "e5b7b72a88d38369d471ea4f34daee3306fae54029e85db116a13031251c1adb"
+  },
+  "config.json": {
+    "bytes": 399,
+    "sha256": "ab88d43409371dd78bbb585718ad6c8aed59848555f435ca625b1f4996156e22"
+  },
+  "cost_profile.json": {
+    "bytes": 210,
+    "sha256": "7e3fc57376870735c8f4d5ee55f6ea4ce69b6569d3b00c086deae5694c2b4833"
+  },
+  "data/state.json": {
+    "bytes": 56,
+    "sha256": "9995acb418835df19cc1557b277a5ecc0802d99ebe2ae3419b9438fcc396c267"
+  },
+  "episode/assets.json": {
+    "bytes": 2,
+    "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+  },
+  "episode/episode.json": {
+    "bytes": 253,
+    "sha256": "2020365413be04cf0097bf80104f5451f34ce49460487be3663dbdc23711f6ed"
+  },
+  "logs/model_diagnostics/20261119_155706_542825_227a0057.json": {
+    "bytes": 550,
+    "sha256": "1a5df1dcd103b1ea6dc98b2ca5b8b3da36c9da6a8df69cfc8d1c54939ffd7883"
+  },
+  "logs/model_diagnostics/20261119_155707_847521_71a60b3d.json": {
+    "bytes": 550,
+    "sha256": "94dc01e75dabf6588ede83e8aef3330e0852c200953758d15f182948cba8c233"
+  },
+  "skill_config.json": {
+    "bytes": 3431,
+    "sha256": "d09b5ecd05f77be807aeafe21c37c9112e196863dd483380fb8d76d0a62f3593"
+  },
+  "usage_history/2026-11.json": {
+    "bytes": 156,
+    "sha256": "2b353e95198c9ff57955add8aa26d9cb58dc8ce2df3272b2b170a92621cfeb0a"
+  },
+  "usage_summary.json": {
+    "bytes": 140,
+    "sha256": "78af3db0357f89be1835d9707d1a9d6aa0cf41c16a1d37bad69afe5337900338"
+  },
+  "工作流任务/宠物/请求台账.bak": {
+    "bytes": 836,
+    "sha256": "35de1905cf03186ab8cf86b220e8d15775798bff2c6e88f4bd1c857036952746"
+  },
+  "工作流任务/宠物/请求台账.json": {
+    "bytes": 2106,
+    "sha256": "104679fa030b61e5231dba091f95fb8730fc3e118472a260ed1f74c6ddf83096"
+  },
+  "工作流任务/宠物/请求台账.lock": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

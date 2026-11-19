@@ -1,0 +1,63 @@
+{
+  "requests": [
+    {
+      "seq": 1,
+      "at": "2026-11-19T15:57:06.493",
+      "at_epoch": 1795075026.493393,
+      "path": "/chat/completions",
+      "stream": true,
+      "model": "fake-acceptance-recovery-1",
+      "mode": "ok",
+      "auth_present": true,
+      "body_bytes": 250956,
+      "response": {
+        "finished": true,
+        "note": "",
+        "chunks": 10
+      }
+    },
+    {
+      "seq": 2,
+      "at": "2026-11-19T15:57:07.800",
+      "at_epoch": 1795075027.8001323,
+      "path": "/chat/completions",
+      "stream": true,
+      "model": "fake-acceptance-recovery-1",
+      "mode": "ok",
+      "auth_present": true,
+      "body_bytes": 251075,
+      "response": {
+        "finished": true,
+        "note": "",
+        "chunks": 10
+      }
+    },
+    {
+      "seq": 3,
+      "at": "2026-11-19T15:57:13.075",
+      "at_epoch": 1795075033.0758007,
+      "path": "/chat/completions",
+      "stream": true,
+      "model": "fake-acceptance-recovery-1",
+      "mode": "hang",
+      "auth_present": true,
+      "body_bytes": 251337
+    },
+    {
+      "seq": 4,
+      "at": "2026-11-19T15:57:24.281",
+      "at_epoch": 1795075044.2814357,
+      "path": "/chat/completions",
+      "stream": true,
+      "model": "fake-acceptance-recovery-1",
+      "mode": "ok",
+      "auth_present": true,
+      "body_bytes": 251337,
+      "response": {
+        "finished": true,
+        "note": "",
+        "chunks": 8
+      }
+    }
+  ]
+}

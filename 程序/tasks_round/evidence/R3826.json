@@ -1,0 +1,15 @@
+{
+  "round": 3826,
+  "commit_base": "c051bbdd",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k silent_exception_ratchet unification_ratchet copy_rules branch_coverage_floor error_codes secret_status_diagnostics",
+    "exit": 0,
+    "passed": 61,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T18:44:54"
+}

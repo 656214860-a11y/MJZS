@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "brief_hash": "6274043e1a05b56642bfea235ece5ded77761495154eb217db3710b8150e9730",
+  "documents": [
+    {
+      "stage": "项目设定",
+      "path": "自定义/验收假供应商/创意_20261119/项目设定/p_项目设定_自定义_20261119.md",
+      "sha256": "61c6ccbfd385363703ce3fdfd82d9e92ba39944694e70e398bfab1fa1d42b3af",
+      "confirmed": false,
+      "model_id": "fake-acceptance-1",
+      "generated_at": "2026-11-19T13:00:57",
+      "token_usage": {
+        "prompt_tokens": 120,
+        "completion_tokens": 30,
+        "cached_tokens": 0
+      }
+    }
+  ]
+}

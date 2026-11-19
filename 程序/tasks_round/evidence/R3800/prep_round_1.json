@@ -1,0 +1,24 @@
+{
+  "round": 1,
+  "prep": {
+    "error": null,
+    "brief_complete": true,
+    "documents": [
+      {
+        "stage": "项目设定",
+        "confirmed": true,
+        "path": "自定义/验收E2E假供应商/创意_20261119/项目设定/p_项目设定_自定义_20261119.md",
+        "sha256": "a6350c0aa97926fef0e8c2a25f1e8eaf8d290fa9d5efc4971873fcdc840fc49c"
+      },
+      {
+        "stage": "剧本大纲",
+        "confirmed": false,
+        "path": "自定义/验收E2E假供应商/创意_20261119/项目大纲/p_项目大纲_自定义_20261119.md",
+        "sha256": "bd4d25231a94925a022a7301e6545744eb263397d565badeffee715a5025727c"
+      }
+    ]
+  },
+  "script_raw": false,
+  "source": null,
+  "candidates": []
+}

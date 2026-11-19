@@ -1,0 +1,64 @@
+{
+  "mode": "adopt",
+  "project": "C:\\Users\\LAIBIAO\\AppData\\Local\\Temp\\acceptance-recovery-c02tesml\\p",
+  "desktop_ready": true,
+  "started_at": "2026-11-19T15:57:06.057",
+  "sends": [
+    {
+      "text": "draft",
+      "ok": true,
+      "assistant_new": 1,
+      "stage_status": {
+        "documents": [
+          {
+            "stage": "项目设定",
+            "confirmed": false,
+            "path": "自定义/验收恢复假供应商/创意_20261119/项目设定/p_项目设定_自定义_20261119.md",
+            "sha256": "cfd2d9567e6af7463209bbd87ec354fd627ad09036794d714d03d7d56dbe0be4"
+          }
+        ]
+      }
+    },
+    {
+      "text": "继续",
+      "ok": true,
+      "assistant_new": 1,
+      "stage_status": {
+        "documents": [
+          {
+            "stage": "项目设定",
+            "confirmed": true,
+            "path": "自定义/验收恢复假供应商/创意_20261119/项目设定/p_项目设定_自定义_20261119.md",
+            "sha256": "cfd2d9567e6af7463209bbd87ec354fd627ad09036794d714d03d7d56dbe0be4"
+          },
+          {
+            "stage": "剧本大纲",
+            "confirmed": false,
+            "path": "自定义/验收恢复假供应商/创意_20261119/项目大纲/p_项目大纲_自定义_20261119.md",
+            "sha256": "bd4d25231a94925a022a7301e6545744eb263397d565badeffee715a5025727c"
+          }
+        ]
+      }
+    }
+  ],
+  "adopted_confirmed": true,
+  "final_stage_status": {
+    "documents": [
+      {
+        "stage": "项目设定",
+        "confirmed": true,
+        "path": "自定义/验收恢复假供应商/创意_20261119/项目设定/p_项目设定_自定义_20261119.md",
+        "sha256": "cfd2d9567e6af7463209bbd87ec354fd627ad09036794d714d03d7d56dbe0be4"
+      },
+      {
+        "stage": "剧本大纲",
+        "confirmed": false,
+        "path": "自定义/验收恢复假供应商/创意_20261119/项目大纲/p_项目大纲_自定义_20261119.md",
+        "sha256": "bd4d25231a94925a022a7301e6545744eb263397d565badeffee715a5025727c"
+      }
+    ]
+  },
+  "elapsed_seconds": 5.665,
+  "ok": true,
+  "finished_at": "2026-11-19T15:57:09.646"
+}

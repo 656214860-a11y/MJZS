@@ -1,0 +1,15 @@
+{
+  "round": 3709,
+  "commit_base": "7e638057",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k writing_stream model_metering",
+    "exit": 0,
+    "passed": 8,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T13:20:31"
+}

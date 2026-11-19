@@ -1,0 +1,15 @@
+{
+  "round": 3759,
+  "commit_base": "ba998374",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k request_ledger model_metering",
+    "exit": 0,
+    "passed": 49,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T16:15:56"
+}

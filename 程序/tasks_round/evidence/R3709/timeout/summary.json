@@ -1,0 +1,149 @@
+{
+  "scenario": "timeout",
+  "project": "C:\\Users\\LAIBIAO\\AppData\\Local\\Temp\\acceptance-timeout-wxn1szkv\\p",
+  "send_error": null,
+  "supplier_requests": [
+    {
+      "seq": 1,
+      "at": "2026-11-19T13:08:28.652",
+      "path": "/chat/completions",
+      "stream": true,
+      "model": "fake-acceptance-1",
+      "mode": "timeout",
+      "auth_present": true,
+      "body_bytes": 250902,
+      "first_chunk_at": "2026-11-19T13:08:28.652"
+    },
+    {
+      "seq": 2,
+      "at": "2026-11-19T13:08:43.725",
+      "path": "/chat/completions",
+      "stream": false,
+      "model": "fake-acceptance-1",
+      "mode": "timeout",
+      "auth_present": true,
+      "body_bytes": 250843,
+      "first_chunk_at": "2026-11-19T13:08:28.652"
+    },
+    {
+      "seq": 3,
+      "at": "2026-11-19T13:08:59.287",
+      "path": "/chat/completions",
+      "stream": false,
+      "model": "fake-acceptance-1",
+      "mode": "timeout",
+      "auth_present": true,
+      "body_bytes": 250843,
+      "first_chunk_at": "2026-11-19T13:08:28.652"
+    },
+    {
+      "seq": 4,
+      "at": "2026-11-19T13:09:15.274",
+      "path": "/chat/completions",
+      "stream": false,
+      "model": "fake-acceptance-1",
+      "mode": "timeout",
+      "auth_present": true,
+      "body_bytes": 250843,
+      "first_chunk_at": "2026-11-19T13:08:28.652"
+    }
+  ],
+  "ledger_entries": [
+    {
+      "id": "0d2fd52a4ec047bbaa3fca04492b8768",
+      "kind": "tokens",
+      "amount": null,
+      "mode": "unknown",
+      "state": "unknown",
+      "remote_task_id": null,
+      "note": "",
+      "at": 1795064908.519797,
+      "settled_at": 1795064923.6754396,
+      "model": "fake-acceptance-1",
+      "stage": "script",
+      "input_estimate": 251061.0,
+      "output_limit": 8192.0,
+      "quantities": {
+        "prompt_tokens": "251061",
+        "completion_tokens": "8192"
+      },
+      "rates": {
+        "prompt_tokens": "0.000001",
+        "completion_tokens": "0.000002"
+      },
+      "price_version": "acceptance-fake-v1",
+      "currency": "CNY",
+      "budget_cost": "0.267445",
+      "money_state": "unknown",
+      "attempts": [
+        {
+          "at": 1795064923.6653538,
+          "status": 0,
+          "error_class": "",
+          "retry_after": null,
+          "wire_api": "",
+          "retry_count": 0
+        }
+      ]
+    },
+    {
+      "id": "2cf3e533412e4716834b379df884506f",
+      "kind": "tokens",
+      "amount": null,
+      "mode": "unknown",
+      "state": "unknown",
+      "remote_task_id": null,
+      "note": "",
+      "at": 1795064923.694926,
+      "settled_at": 1795064970.2921531,
+      "model": "fake-acceptance-1",
+      "stage": "script",
+      "input_estimate": 251061.0,
+      "output_limit": 8192.0,
+      "quantities": {
+        "prompt_tokens": "251061",
+        "completion_tokens": "8192"
+      },
+      "rates": {
+        "prompt_tokens": "0.000001",
+        "completion_tokens": "0.000002"
+      },
+      "price_version": "acceptance-fake-v1",
+      "currency": "CNY",
+      "budget_cost": "0.267445",
+      "money_state": "unknown",
+      "attempts": [
+        {
+          "at": 1795064970.278377,
+          "status": 0,
+          "error_class": "timeout",
+          "retry_after": null,
+          "wire_api": "chat",
+          "retry_count": 0
+        }
+      ]
+    }
+  ],
+  "assistant_replies": [],
+  "diagnostic_events": [
+    "model_diagnostics/20261119_130930_299913_5df91435.json"
+  ],
+  "artifact_count": 13,
+  "artifacts": [
+    "01剧本准备/brief_complete.json",
+    "01剧本准备/brief_creation.md",
+    "01剧本准备/创意对话/对话.json",
+    "config.json",
+    "cost_profile.json",
+    "data/state.json",
+    "episode/assets.json",
+    "episode/episode.json",
+    "logs/model_diagnostics/20261119_130930_299913_5df91435.json",
+    "skill_config.json",
+    "工作流任务/宠物/请求台账.bak",
+    "工作流任务/宠物/请求台账.json",
+    "工作流任务/宠物/请求台账.lock"
+  ],
+  "probe_request_timeout_seconds": 15,
+  "collected_at": "2026-11-19T13:09:31.731"
+}

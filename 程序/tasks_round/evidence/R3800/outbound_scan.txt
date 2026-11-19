@@ -1,0 +1,27 @@
+# 出站调用点静态抽检（R3800）
+# 口径：新 JSON API 唯一入口 infra/http_client.request_json；urlopen/build_opener 只许 http_client 与登记白名单（test_http_boundary 守卫）。
+# 命中 24 处（含注释/字符串，需人工对照白名单）：
+程序\agent\volcengine.py:1: """Volcano Ark adapter. No automatic retries of billable POST requests."""
+程序\batch_frames_tool\batch_frames.py:8: from urllib.request import Request,build_opener,HTTPRedirectHandler,ProxyHandler
+程序\batch_frames_tool\batch_frames.py:63: self.url=url.rstrip('/');self.opener=build_opener(ProxyHandler({}),NoRedirect)
+程序\contract\platform_tools.py:440: with urllib.request.urlopen(str(base_url).rstrip('/'), timeout=timeout) as response:
+程序\contract\platform_tools.py:512: opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=context), _redirect_handler())
+程序\contract\platform_tools.py:514: # 同 urlopen 的全局 opener 一样复用：每建一个都要重新装一遍系统根证书（本机实测约 20 ms）。
+程序\contract\platform_tools.py:517: opener = _HTTP_CACHE['opener'] = urllib.request.build_opener(_redirect_handler())
+程序\contract\platform_tools.py:533: return isinstance(exc, (requests.exceptions.Timeout, Urllib3Timeout, TimeoutError))
+程序\contract\platform_tools.py:562: headers = requests.structures.CaseInsensitiveDict(headers or {})
+程序\contract\platform_tools.py:572: except (requests.exceptions.RequestException, HTTPError, OSError) as error:
+程序\contract\platform_tools.py:611: from requests.adapters import HTTPAdapter
+程序\contract\platform_tools.py:657: session, response = requests.Session(), None
+程序\contract\platform_tools.py:661: prepared = session.prepare_request(requests.Request(
+程序\contract\platform_tools.py:678: if isinstance(error, (requests.exceptions.RequestException, OSError)):
+程序\contract\workflow_context_budget.py:1: """Shared preflight budget for workflow-engine and model requests.
+程序\infra\comfy_service.py:1: """Local ComfyUI API workflow execution; no cloud video requests."""
+程序\infra\http_client.py:4: 直接 ``urlopen``／``build_opener`` 由 ``tests/architecture/test_http_boundary.py``
+程序\infra\workflow_process_registry.py:294: if _requests.get(key) is handle:
+程序\infra\workflow_process_registry.py:301: handle = _requests.get(_key(project))
+程序\local_video.py:24: from urllib.request import build_opener,ProxyHandler   # 第 34 期第 9 条：HTTP 栈按需加载
+程序\local_video.py:28: self.opener=build_opener(ProxyHandler({}),no_redirect())
+程序\ui\desktop_layout.py:247: measured_requests.append((str(child),child.winfo_reqwidth(),child.winfo_reqheight()))
+程序\附加工具\ComfyUI_批量首帧_Klein4B\batch_frames.py:4: from urllib.request import Request,build_opener,HTTPRedirectHandler
+程序\附加工具\ComfyUI_批量首帧_Klein4B\batch_frames.py:78: self.url=url.rstrip('/');self.opener=build_opener(NoRedirect)

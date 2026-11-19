@@ -1,0 +1,28 @@
+{
+  "at": "2026-11-19T13:00:57",
+  "context": {
+    "stage": "script",
+    "purpose": "preparation"
+  },
+  "ok": true,
+  "status": 200,
+  "model": "fake-acceptance-1",
+  "error_class": "",
+  "wire_api": "chat",
+  "response_id": "",
+  "finish_reason": "stop",
+  "response_shape": [
+    "choices"
+  ],
+  "message_fields": [
+    "content"
+  ],
+  "reasoning_fields": [],
+  "reasoning_lengths": {},
+  "content_length": 71,
+  "usage": {
+    "prompt_tokens": 120,
+    "completion_tokens": 30,
+    "cached_tokens": 0
+  }
+}
