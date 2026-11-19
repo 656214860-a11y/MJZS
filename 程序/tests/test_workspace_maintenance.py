@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """仓库级有界卫生的回归：pycache、超期 .selftmp、已并净工作树三段与挂接形态。"""
 import os
-import sys
 import tempfile
 import time
 import unittest
@@ -328,10 +327,16 @@ class WorkspaceMaintenanceTests(unittest.TestCase):
             self.assertIsNone(wm.append_summary_log(self.program, summary), '日志不可写不得炸掉退出链')
 
     def test_launch_cleanup_detached_command(self):
-        commands = []
-        with mock.patch.object(wm, 'launch_background', lambda command, **kwargs: commands.append(command)):
-            wm.launch_cleanup(self.program)
-        self.assertEqual(commands, [[sys.executable, str(self.program / 'workspace_maintenance.py'), '--cleanup']])
+        with mock.patch.object(wm, 'launch_background') as launch:
+            wm.launch_cleanup(wm.PROGRAM)
+        command = launch.call_args.args[0]
+        self.assertEqual(launch.call_args.kwargs.get('cwd'), wm.PROGRAM)
+        self.assertEqual(command[-1], '--cleanup')
+        # 核实实际派发入口可加载；帮助模式不运行物理清理。
+        result = wm.run_process([*command[:-1], '--help'], cwd=launch.call_args.kwargs.get('cwd'),
+                                capture_output=True, timeout=15)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(b'--dry-run', result.stdout)
 
     def test_main_dry_run_reports_and_returns_zero(self):
         self._pycache(self.program / 'pkg')

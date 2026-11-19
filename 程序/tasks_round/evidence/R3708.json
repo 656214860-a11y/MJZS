@@ -1,0 +1,15 @@
+{
+  "round": 3708,
+  "commit_base": "86e863bb",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k workspace_maintenance exit_maintenance",
+    "exit": 0,
+    "passed": 29,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T11:19:45"
+}
