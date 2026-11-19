@@ -1675,6 +1675,12 @@
       "percent": 0.0
     },
     {
+      "module": "infra/prefetch.py",
+      "covered": 45,
+      "total": 50,
+      "percent": 90.0
+    },
+    {
       "module": "infra/project_settings.py",
       "covered": 33,
       "total": 91,
@@ -4051,6 +4057,6 @@
       "percent": 0.0
     }
   ],
-  "modules_covered": 90,
-  "modules_total": 672
+  "modules_covered": 91,
+  "modules_total": 673
 }
