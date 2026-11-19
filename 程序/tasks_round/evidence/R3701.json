@@ -1,0 +1,15 @@
+{
+  "round": 3701,
+  "commit_base": "3badb0b5",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_artifact_index keyframe_lifecycle error_codes secret_status",
+    "exit": 0,
+    "passed": 51,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T12:03:54"
+}

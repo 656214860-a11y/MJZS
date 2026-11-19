@@ -42,7 +42,7 @@ _register(5, "app_shortcut")
 # R741：顶层运行期模块必须逐一入表。层级按实际静态依赖和职责判断，不能以名称后缀代替。
 _register(0, "artifact_schema", "api_models", "frame_checks", "model_protocol", "pet_settings_contract",
           "prop_assets", "shot_selection", "storyboard_contract", "workflow_context_budget")
-_register(1, "api_endpoints", "broadcaster", "budget", "clipboard_lock",
+_register(1, "api_endpoints", "artifact_index", "broadcaster", "budget", "clipboard_lock",
           "comfy_service", "engine_probe", "executors", "http_client", "metrics", "model_diagnostics", "model_router",
           "native_apps", "resources", "seedream_api", "token_saver", "tk_timers", "global_library_service")
 _register(2, "asset_batch_settings_service", "asset_plan", "asset_resume", "audio_import_service", "edit_export", "usage_overview",
@@ -155,6 +155,8 @@ SAME_LAYER_EDGES: frozenset[tuple[str, str]] = frozenset({
     ('storage_maintenance', 'temporary_sweep'),
     ('agent_skill_sync', 'skill_registry'),
     ('aigc_lint', 'file_cache'),
+    ('artifact_index', 'executors'),
+    ('artifact_index', 'storage_maintenance'),
     ('animatic_service', 'edit_service'),
     ('animatic_service', 'tts_api'),
     ('api_endpoints', 'app_logging'),

@@ -182,6 +182,11 @@ class ClassifyTextTests(unittest.TestCase):
             'E-CANCELLED': (Severity.INFO, False),
             'E-IO-WRITE': (Severity.WARN, True),
             'E-TOOL-MISSING': (Severity.DEGRADED, False),
+            'E-IO-READ': (Severity.WARN, True),
+            'E-IO-CORRUPT': (Severity.DEGRADED, False),
+            'E-TOOL-FAILED': (Severity.DEGRADED, True),
+            'E-TOOL-TIMEOUT': (Severity.DEGRADED, True),
+            'E-CONFIG-INVALID': (Severity.WARN, False),
         }
         self.assertEqual(set(CODES), set(expected))
         for code, (severity, retryable) in expected.items():

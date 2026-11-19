@@ -1,10 +1,33 @@
 """Transactional persistence for user-visible keyframe lifecycle actions."""
 import re
+import sqlite3
 import uuid
 from functools import wraps
 from pathlib import Path
 
+from contract.infra_errors import ConfigError
 from contract.service_contract import SystemError, UserError, success
+
+
+def _index_register(base, path):
+    """Best-effort artifact-index registration; the index is rebuildable (L1-H4)."""
+    try:
+        from infra.artifact_index import open_index
+        with open_index(base) as index:
+            return index.register(path, stage='keyframe', kind='image')
+    except (OSError, sqlite3.Error, ConfigError):
+        return None
+
+
+def _index_recycled(base, artifact_id):
+    if artifact_id is None:
+        return
+    try:
+        from infra.artifact_index import RECYCLED, open_index
+        with open_index(base) as index:
+            index.set_state(artifact_id, RECYCLED)
+    except (OSError, sqlite3.Error, ConfigError):
+        return
 
 
 def _lifecycle_result(operation):
@@ -40,6 +63,7 @@ def delete_keyframe(base, source, episode, shot, *, publish=None):
     if not callable(publish):
         raise TypeError('首帧状态需要由 L3 注入发布器。')
     from infra.storage_maintenance import recycle_paths, restore_latest_recycled_path
+    aid = _index_register(base, path)
     if not recycle_paths(base, (path,), '删除首帧'):
         raise OSError('首帧未能安全移入项目回收站')
     previous = dict(shot)
@@ -51,6 +75,7 @@ def delete_keyframe(base, source, episode, shot, *, publish=None):
         shot.update(previous)
         restore_latest_recycled_path(base, path)
         raise
+    _index_recycled(base, aid)
     return path
 
 
@@ -144,6 +169,7 @@ def replace_keyframe(base, source, episode, shot, data, *, publish=None, publish
         if replaced:
             restore_latest_recycled_path(base, dest)
         raise
+    _index_register(base, dest)
     from domain import domain_events
     domain_events.emit(domain_events.KEYFRAME_REPLACED, stage='keyframe', shot=sid,
                        nonce=uuid.uuid4().hex)
