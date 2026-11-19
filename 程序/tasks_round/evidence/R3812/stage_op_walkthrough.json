@@ -1,0 +1,82 @@
+{
+  "round": "R3812",
+  "operation": "S07 分镜定稿·手动同步资产",
+  "entry_ui": "ui/storyboard_files.py 手动同步资产按钮 → desktop.make_final_storyboard → async_",
+  "entry_service": "orchestrator/storyboard_final_controller.finalize_stage_storyboard → orchestrator.storyboard_final.finalize",
+  "work_dir": "C:\\Users\\LAIBIAO\\AppData\\Local\\Temp\\acceptance-stage-op-jz1bwili",
+  "cases": [
+    {
+      "case": "missing_input",
+      "checks": {
+        "button_found": true,
+        "no_final_produced": true,
+        "error_surfaced": true
+      },
+      "button_state": "normal",
+      "error_text": "请先在列表中选择 JSON",
+      "status_text": ""
+    },
+    {
+      "case": "normal_input",
+      "checks": {
+        "catalog_row_visible": true,
+        "button_found": true,
+        "button_invoke": true,
+        "final_landed": true,
+        "bundle_pair": true,
+        "batch_assigned": true,
+        "missing_recorded": true,
+        "lineage": true,
+        "batches_ready_ok": true,
+        "working_source_retired": true
+      },
+      "final_dirs": [
+        "EP001_分镜定稿_20261119"
+      ],
+      "artifact": {
+        "episode_json": "C:\\Users\\LAIBIAO\\AppData\\Local\\Temp\\acceptance-stage-op-jz1bwili\\case_normal\\07分镜定稿\\分镜\\EP001_分镜定稿_20261119\\episode.json",
+        "episode_sha256": "0df1d774126f7d68be0f93bb78aca8e5b7bf233b76a6c574fcd9336912dfc984",
+        "assets_json": true,
+        "batch_ids": [
+          "B01",
+          "B02"
+        ],
+        "missing_assets": [
+          "CHAR_002"
+        ],
+        "assets_ready": false,
+        "asset_status": [
+          "待补齐资产",
+          "已匹配资产"
+        ]
+      },
+      "gate": {
+        "ok": true,
+        "started": true,
+        "detail": "批次划分完成"
+      },
+      "status_tail": ""
+    },
+    {
+      "case": "legacy_project",
+      "checks": {
+        "legacy_dir_seeded": true,
+        "new_dir_absent": true,
+        "catalog_row_visible": true,
+        "button_found": true,
+        "no_new_07_dir": true,
+        "legacy_dir_intact": true,
+        "batches_ready_ok": true
+      },
+      "legacy_episode_sha256": "0df1d774126f7d68be0f93bb78aca8e5b7bf233b76a6c574fcd9336912dfc984",
+      "legacy_shots": 2,
+      "gate": {
+        "ok": true,
+        "started": true,
+        "detail": "批次划分完成"
+      }
+    }
+  ],
+  "elapsed": 12.436,
+  "all_passed": true
+}
