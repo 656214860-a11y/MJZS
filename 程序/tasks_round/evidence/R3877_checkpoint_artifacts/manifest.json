@@ -14,7 +14,9 @@
       "bytes": 12874,
       "sha256": "a78bc7f495e639ecd0c458b422c6139959480147b56d36aaf6f022e40157567e",
       "backup_verified": true,
-      "source_commit": "f583e096"
+      "source_commit": "f583e096",
+      "archived_path": ".agents/account_r3832_checks.json.utf16le",
+      "encoding": "utf-16le"
     },
     {
       "path": ".agents/account_r3832_checks_utf8.json",
@@ -44,5 +46,6 @@
       "backup_verified": true,
       "source_commit": "f583e096"
     }
-  ]
+  ],
+  "byte_exact_note": "account_r3832_checks.json 原为 UTF-16LE（PowerShell 重定向产物），含落单 CR；为不扩文本扫描白名单，保留原字节并改附加后缀 .utf16le，内容与 SHA-256 不变。"
 }
