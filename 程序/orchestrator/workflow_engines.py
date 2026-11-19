@@ -455,7 +455,7 @@ def launch_interactive(project,stage,title,prompt,config,followup=None,slot=None
         try:
             process=launch_windows_app(args[0],item['display'],args=args,cwd=project,
                                        creationflags=getattr(subprocess,'CREATE_NEW_CONSOLE',0))
-        except ValueError as exc:
+        except (ValueError, OSError) as exc:
             release_process_slot(slot)
             raise ValueError('本机命令行客户端无法启动；任务已保存到 %s，请手动打开并粘贴。' % task) from exc
         except BaseException:

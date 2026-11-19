@@ -30,7 +30,7 @@ class LedgerFileLockInitializationTests(unittest.TestCase):
                 "with path.open('a+b') as stream:\n"
                 " msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)\n"
                 " ready.write_text('locked', encoding='utf-8')\n"
-                " time.sleep(10)\n"
+                " time.sleep(1)\n"
             )
             process = subprocess.Popen([sys.executable, '-B', '-c', script,
                                         str(path), str(ready)])
@@ -88,11 +88,11 @@ class LedgerFileLockInitializationTests(unittest.TestCase):
                             with RequestLedger(td).transaction():
                                 return True
                         future = pool.submit(transact)
-                        self.assertTrue(waiting.wait(2), '真实锁竞争须进入 checkpoint 轮询')
+                        self.assertTrue(waiting.wait(0.5), '真实锁竞争须进入 checkpoint 轮询')
                         self.assertFalse(future.done())
                         with RequestLedger(Path(td) / 'other').transaction():
                             pass
-                    self.assertTrue(future.result(timeout=2))
+                    self.assertTrue(future.result(timeout=0.5))
 
     def test_empty_lock_transaction_exception_releases_range(self):
         class FailedTransaction(Exception):
@@ -700,7 +700,7 @@ class ModelMoneyBudgetTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, '正在更新'):
                     RequestLedger(td).authorize_model('a', 'm', 'script', 1, 1)
             finally:
-                child.communicate('\n', timeout=10)
+                child.communicate('\n', timeout=2)
             self.assertEqual(child.returncode, 0)
             RequestLedger(td).authorize_model('a', 'm', 'script', 1, 1)
 
