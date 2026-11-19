@@ -147,22 +147,22 @@ class ProjectLayerCase(unittest.TestCase):
 
     # ── 引用解析回退 ───────────────────────────────────────────────
     def test_resolve_reference_project_falls_back_user_then_builtin(self):
-        shared_user = self.user / '00全流程SKILL' / 'shared.md'
-        shared_builtin = self.builtin / '00全流程SKILL' / 'shared.md'
+        shared_user = self.user / 'shared-reference' / 'shared.md'
+        shared_builtin = self.builtin / 'shared-reference' / 'shared.md'
         shared_user.parent.mkdir(parents=True, exist_ok=True)
         shared_builtin.parent.mkdir(parents=True, exist_ok=True)
         source = self.project_a / 'skills' / STAGE_DIR / 'aaa.skill.md'
         source.parent.mkdir(parents=True, exist_ok=True)
-        source.write_text(_skill_md('aaa', extra='see [x](../00全流程SKILL/shared.md)\n'),
+        source.write_text(_skill_md('aaa', extra='see [x](../shared-reference/shared.md)\n'),
                           encoding='utf-8')
         # 只内置层有 → 落到内置层
         shared_builtin.write_text('builtin', encoding='utf-8')
-        hit = skill_registry.resolve_reference(source, Path('../00全流程SKILL/shared.md'),
+        hit = skill_registry.resolve_reference(source, Path('../shared-reference/shared.md'),
                                                program=self.program)
         self.assertEqual(hit, shared_builtin.resolve())
         # 用户层也有 → 项目引用优先用户层共享资料
         shared_user.write_text('user', encoding='utf-8')
-        hit = skill_registry.resolve_reference(source, Path('../00全流程SKILL/shared.md'),
+        hit = skill_registry.resolve_reference(source, Path('../shared-reference/shared.md'),
                                                program=self.program)
         self.assertEqual(hit, shared_user.resolve())
 

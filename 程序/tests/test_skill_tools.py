@@ -12,6 +12,15 @@ import skill_tools
 import asset_reference_search as reference_search
 
 
+class RetiredToolTests(unittest.TestCase):
+    def test_builtin_control_tools_are_not_exposed(self):
+        retired = {'feed.validate', 'feed.gateCheck', 'feed.auditContract',
+                   'style.lockRecommend', 'style.lockLadder'}
+        self.assertFalse(retired.intersection(skill_tools.ready_names()))
+        self.assertFalse(retired.intersection(skill_tools.READY))
+        self.assertFalse(retired.intersection(skill_tools.PAGES))
+
+
 class CopyrightFilterTests(unittest.TestCase):
     def test_restricted_or_ambiguous_license_never_passes_commercial_filter(self):
         for license_name in ('CC BY-NC', 'CC-BY-NC-SA 4.0', 'CC BY-ND',

@@ -42,8 +42,7 @@ _register(0, "pet_bus", "script_contract", "script_brief", "script_manifest_cont
 # 纠正原先按名字后缀落在 L3 的旧账；L2 领域服务不该为读一个阶段模型名反向依赖编排层。
 _register(1, "client_profiles", "model_pool", "model_secrets", "config_snapshot", "config_patch", "pet_llm", "request_ledger", "file_cache", "hash_backend",
           "usage_snapshot", "usage_history",
-          "storage_maintenance", "temporary_sweep", "log_maintenance", "workspace_maintenance", "diagnostic_capture", "app_logging", "line_endings", "app_icon", "workflow_process_registry", "script_text_reader", "stage_model_value", "native_asset_codec", "comfy_runtime", "ui_tokens", "continuity_ledger",
-          "aigc_lint")
+          "storage_maintenance", "temporary_sweep", "log_maintenance", "workspace_maintenance", "diagnostic_capture", "app_logging", "line_endings", "app_icon", "workflow_process_registry", "script_text_reader", "stage_model_value", "native_asset_codec", "comfy_runtime", "ui_tokens", "continuity_ledger")
 _register(2, "task_center_service", "keyframe_evidence", "animatic_service", "writing_files", "writing_workflow", "idea_chat", "idea_brief_form", "idea_attachments", "idea_script_heuristic", "idea_document_paths", "idea_transcript", "download_inbox",
           "storyboard_lifecycle", "storyboard_catalog_service",
           "storyboard_edit_service",
@@ -191,7 +190,6 @@ SAME_LAYER_EDGES: frozenset[tuple[str, str]] = frozenset({
     ('session_integrity', 'publication'),
     ('storage_maintenance', 'temporary_sweep'),
     ('agent_skill_sync', 'skill_registry'),
-    ('aigc_lint', 'file_cache'),
     ('artifact_index', 'executors'),
     ('artifact_index', 'storage_maintenance'),
     ('prefetch', 'executors'),

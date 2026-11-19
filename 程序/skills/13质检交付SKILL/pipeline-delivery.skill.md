@@ -29,19 +29,25 @@ examples:
 ## 本阶段读取的项目锁
 
 直接读取项目创作信息窗／阶段配置中由「剧本准备」填写的 `track`、`material_source`、`aspect_ratio`、`resolution`、`fps`、`delivery_format`、`video_model_version`、`splice_mode`、`style_base`、`style_directors`；`reference_mode` 仅在 Seedance 2.5 时读取并按该版本校验。赛道与来源用于继承创作上下文，规格、模型、段缝和风格用于本阶段产物及验收。
-项目设置优先于引用中的交互询问、默认推荐及独立调用示例；后续阶段直接读取，不再向用户弹问或重新收集锁。必填锁缺失或矛盾时记录缺项并退回剧本准备／项目配置补齐，不擅填默认值；选填空值按新版包适用默认处理，在本阶段清单及最终交付中声明采用值和依据，不把空值当成用户已选风格卡。此规则不取消既有制作授权、预算和人工复核要求，也不关闭调试、手动执行或总控替换入口。
+项目设置优先于外部 SKILL 的交互询问、默认推荐及独立调用示例；后续阶段直接读取，不再向用户弹问或重新收集锁。必填锁缺失或矛盾时记录缺项并退回剧本准备／项目配置补齐，不擅填默认值；选填空值仅采用当前已选 SKILL 明示且适用的默认；没有依据则保持未设置，在本阶段清单及最终交付中声明采用值和依据，不把空值当成用户已选风格卡。此规则不取消既有制作授权、预算和人工复核要求，也不关闭调试、手动执行或 SKILL 选换入口。
 
-## 新版子技能章节（按职责读取）
+## 本阶段方法与交付边界
 
-按 [连续性核对](../00全流程SKILL/AIGC创作全流程/sd-qc-engine/SKILL.md#1-连续性检查跨镜跨集)、[转场检查](../00全流程SKILL/AIGC创作全流程/sd-qc-engine/SKILL.md#2-剪辑转场与分段检查)、[声音检查](../00全流程SKILL/AIGC创作全流程/sd-qc-engine/SKILL.md#3-声音设计) 组织成片复核，按 [出稿机检](../00全流程SKILL/AIGC创作全流程/sd-qc-engine/SKILL.md#4-出稿机检) 和 [统一裁决](../00全流程SKILL/AIGC创作全流程/sd-qc-engine/references/rule-taxonomy-and-verdict.md#四pass--warn--fail-三态定义跨阶段统一) 分别记录硬性失败与建议项。
+按 连续性核对、转场检查、声音检查 组织成片复核，按 出稿机检 和 统一裁决 分别记录硬性失败与建议项。
 该引擎的出稿机检只证明稿件层检查结果，不能替代本阶段真实成片、音轨、字幕与交付文件验收。M0/M1 文本交付按声明形态核对，不索要不存在的图片；交付形态若要求实际成片，则必须有真实可播放媒体，不能用稿件或占位清单放行。
 
-本文件仅声明所需章节，不授权加载整个总控包；读取时以项目锁及本阶段职责为边界。
+本文件直接定义本阶段职责；外部 SKILL 不能覆盖项目锁及阶段交付边界。
 
-## 定向注入（00 包）
+## 阶段核验方法
 
-执行本阶段时，只按需读取 [failure-modes.md 的 60-second triage tree](../00全流程SKILL/cinematic-director/references/failure-modes.md#60-second-triage-tree)、[The cost ladder](../00全流程SKILL/cinematic-director/references/failure-modes.md#the-cost-ladder)、[Failure taxonomy F1–F19](../00全流程SKILL/cinematic-director/references/failure-modes.md#failure-taxonomy-f1f19)，以及 [editing-and-assembly.md 的 The assembly spec](../00全流程SKILL/cinematic-director/references/editing-and-assembly.md#the-assembly-spec) 和 [continuity-bible.md 的 Seed and reference registry](../00全流程SKILL/cinematic-director/references/continuity-bible.md#seed-and-reference-registry)。把观察到的症状记录为可追溯的 F 码、时间码和返工入口，并核对交付清单能追溯至剪辑、媒体、种子和参考资产。
+执行本阶段时，按以下职责核验：60-second triage tree、The cost ladder、Failure taxonomy F1–F19，以及 The assembly spec 和 Seed and reference registry。把观察到的症状记录为可追溯的 F 码、时间码和返工入口，并核对交付清单能追溯至剪辑、媒体、种子和参考资产。
 
 任一质量项未通过、失败项未列入 `qualityReport`、或交付包与 `deliveryManifest` 无法回溯来源时，不得标记交付完成；返工应保留最小可执行入口，不得用“已交付”掩盖未解决的失败码。
 
-不得加载 00 包全文、风格库或示例库；调试、人工复核与统筹替换入口保持可用。
+不默认加载外部包、风格库或示例库；调试、人工复核与 SKILL 选换入口保持可用。
+
+## 故障分类与返工
+
+F1身份漂移；F2无运动/PPT感；F3几何扭曲/融化；F4动作错误或缺失；F5无明确终态；F6镜头混乱/擅自运动；F7跨镜连续性断裂；F8时代泄漏；F9凭空增加人/物；F10手肢眼齿解剖错误；F11文字/水印伪影；F12光色漂移；F13速度/变速异常；F14重力重量碰撞液体等物理错误；F15音画/口型不同步；F16风格漂移；F17取景裁切错误；F18延长/循环接缝；F19既有对象消失。
+
+逐种观察症状记录镜头、时间码、症状、F码、根因与返工入口；不用“假/无聊”代替观察。先修提示或参数，再按原因修首帧、重设镜头或交剪辑；同因失败不无改动盲重试，多故障先简化或拆镜。可通过剪辑修正的局部问题不强制重生，重试与预算沿用程序既有权威。

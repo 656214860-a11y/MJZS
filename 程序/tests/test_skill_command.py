@@ -56,15 +56,32 @@ class ParseCommandTests(unittest.TestCase):
         hit = skill_command.parse_command('/storyboard', skills=skills)
         self.assertEqual(hit['kind'], 'skill')
 
-    def test_sub_engine_names_from_disk(self):
+    def test_sub_engine_names_from_registered_packages(self):
         with tempfile.TemporaryDirectory() as tmp:
-            base = Path(tmp) / 'skills' / '00全流程SKILL' / 'AIGC创作全流程'
-            (base / 'sd-alpha-engine').mkdir(parents=True)
-            (base / 'sd-alpha-engine' / 'SKILL.md').write_text('x', encoding='utf-8')
-            (base / 'empty-dir').mkdir()
-            (base / '.hidden').mkdir()
-            names = skill_command.sub_engine_names(Path(tmp) / 'skills')
+            base = Path(tmp)
+            items = [SimpleNamespace(name='sd-alpha-engine', layer='user',
+                                     path=base / 'alpha' / 'SKILL.md'),
+                     SimpleNamespace(name='sd-alpha-engine', layer='project',
+                                     path=base / 'override' / 'SKILL.md'),
+                     SimpleNamespace(name='flat', layer='user', path=base / 'flat.skill.md'),
+                     SimpleNamespace(name='builtin', layer='builtin', path=base / 'SKILL.md'),
+                     SimpleNamespace(name='../unsafe', layer='user', path=base / 'README.md'),
+                     SimpleNamespace(name='broken', layer='user', path=None)]
+            names = skill_command.sub_engine_names(items)
         self.assertEqual(names, ('sd-alpha-engine',))
+        parsed = skill_command.parse_command('/sd-alpha-engine 继续', skills=items)
+        self.assertEqual(parsed['kind'], 'engine')
+        completions = skill_command.completion_entries('sd-alpha', skills=items)
+        self.assertEqual([(row['name'], row['kind']) for row in completions],
+                         [('sd-alpha-engine', 'engine')])
+        self.assertEqual(skill_command.parse_command('/flat', skills=items)['kind'], 'skill')
+
+    def test_empty_registered_engines_need_no_filesystem(self):
+        from unittest.mock import patch
+        with patch.object(Path, 'iterdir', side_effect=AssertionError('must not scan')):
+            self.assertEqual(skill_command.sub_engine_names(), ())
+            self.assertIsNone(skill_command.parse_command('/未知引擎'))
+            self.assertEqual(skill_command.KINDS, ('skill', 'stage', 'engine'))
 
 
 class CompletionEntriesTests(unittest.TestCase):

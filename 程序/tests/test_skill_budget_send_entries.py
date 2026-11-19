@@ -38,7 +38,7 @@ class SkillBudgetSendEntriesTests(unittest.TestCase):
         self.project.mkdir()
         (self.project / 'skill_config.json').write_text('{}', encoding='utf-8')
         self.skills = self.program / 'skills'
-        self.target = (self.skills / '00全流程SKILL' / 'AIGC创作全流程' /
+        self.target = (self.skills / 'registered-packages' /
                        'short-drama-director' / 'SKILL.md')
         self.target.parent.mkdir(parents=True)
         self.target.write_text('---\nname: short-drama-director\n---\n目标入口正文', encoding='utf-8')
@@ -110,7 +110,8 @@ class SkillBudgetSendEntriesTests(unittest.TestCase):
         raw = '/short-drama-director 继续合成任务'
         parsed = commands.parse_command(raw, stage='script', skills=[], engines=['short-drama-director'])
         self.assertEqual(parsed['kind'], 'engine')
-        with patch.object(commands, '__file__', str(self.program / 'domain' / 'skill_command.py')), \
+        with patch.object(shared, '_skill_items', return_value=[SimpleNamespace(
+                name='short-drama-director', stage='script', path=self.target, layer='user')]), \
                 patch.object(_FlowAgentLaunch, 'prepare', prepared):
             accepted = shared.send(host, 'script', raw, parsed)
         if rejection:

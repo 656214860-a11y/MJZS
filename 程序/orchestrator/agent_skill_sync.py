@@ -18,7 +18,8 @@ import threading
 
 import infra.executors as executors
 from agent.core import read_json, save, save_text
-from orchestrator.skill_registry import default_registry, parse, stage_from_path
+from orchestrator.skill_registry import (default_registry, parse, stage_from_path,
+                                         reference_targets, resolve_reference)
 from infra.storage_maintenance import recycle_paths
 
 _LOCK = threading.RLock()
@@ -73,10 +74,22 @@ def _render(source, text, shared_root=None):
         raise ValueError('技能 name 为系统保留名称')
     if not isinstance(description, str) or not description.strip():
         raise ValueError('技能缺少 description')
-    # 共享资料只在内置层；用户层（data/skills）技能也指向内置层的 00 全流程包。
-    shared = (Path(shared_root) if shared_root else source.parent.parent)
-    shared = (shared / '00全流程SKILL').resolve().as_posix() + '/'
-    body = body.replace('../00全流程SKILL/', shared)
+    # 物化后工作目录改变：沿用注册器的三层引用解析，不依赖特定共享包。
+    program = Path(shared_root).parent if shared_root else None
+    def rewrite(match):
+        original = match.group(0)
+        entries = reference_targets(original)
+        if not entries:
+            return original
+        entry = entries[0]
+        relative = entry.get('path')
+        if relative is None or relative.is_absolute():
+            return original
+        target = resolve_reference(source, relative, program=program)
+        fragment = entry.get('fragment')
+        link = target.as_posix() + ('#' + fragment if fragment else '')
+        return original.replace(entry['raw'], link, 1)
+    body = re.sub(r'\]\(\s*(?:<[^>]+>|[^)]+)\s*\)', rewrite, body)
     return name, '---\nname: %s\ndescription: %s\n---\n%s' % (
         json.dumps(name, ensure_ascii=False), json.dumps(description, ensure_ascii=False), body)
 

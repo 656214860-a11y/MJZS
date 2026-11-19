@@ -240,11 +240,11 @@ if __name__ == '__main__':
 
 
 class UnsupportedVideoModelLockTests(unittest.TestCase):
-    def test_manual_unknown_model_falls_back_to_skill_default_format(self):
+    def test_manual_unknown_model_requires_selected_model_format(self):
         import workflow_settings
         prompt = workflow_settings.skill_prompt({'workflow_lock': {'video_model_version': '可灵 2.1'}}, stage='video')
-        self.assertIn('制作锁：video_model_version=可灵 2.1（总控 SKILL 未适配该模型', prompt)
-        self.assertIn('七段式', prompt)
+        self.assertIn('制作锁：video_model_version=可灵 2.1（请按所选模型能力', prompt)
+        self.assertIn('不套用其他模型专用语法', prompt)
         for listed in ('Seedance 2.5', 'seedance2.5', 'MiniMax H3'):
             prompt = workflow_settings.skill_prompt({'workflow_lock': {'video_model_version': listed}}, stage='video')
             self.assertNotIn('未适配', prompt)

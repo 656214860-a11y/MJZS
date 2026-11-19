@@ -1,0 +1,164 @@
+[
+  {
+    "path": "程序/tests/architecture/test_skill_reference_injection.py",
+    "removed": [
+      "SkillReferenceInjectionTests.test_asset_and_continuity_sources_contain_the_named_sections",
+      "SkillReferenceInjectionTests.test_asset_and_continuity_stages_keep_canon_and_audit_separate",
+      "SkillReferenceInjectionTests.test_audio_edit_delivery_sources_contain_the_named_sections",
+      "SkillReferenceInjectionTests.test_audio_edit_delivery_stages_keep_timeline_and_quality_gates_explicit",
+      "SkillReferenceInjectionTests.test_emotion_curve_uses_the_12_beat_source_not_the_old_scene_jump_rule",
+      "SkillReferenceInjectionTests.test_keyframe_previs_video_stages_keep_media_handoffs_explicit",
+      "SkillReferenceInjectionTests.test_script_stages_name_only_their_approved_00_references",
+      "SkillReferenceInjectionTests.test_storyboard_and_final_stages_keep_precheck_and_d_lock_separate",
+      "SkillReferenceInjectionTests.test_storyboard_cluster_reference_anchors_exist_in_the_00_package"
+    ],
+    "added": [
+      "SkillReferenceInjectionTests.test_audio_edit_delivery_keep_timeline_and_quality_gates",
+      "SkillReferenceInjectionTests.test_draft_assets_continuity_and_final_keep_release_boundaries",
+      "SkillReferenceInjectionTests.test_emotion_curve_keeps_scoped_12_beat_method",
+      "SkillReferenceInjectionTests.test_every_stage_remains_self_contained_without_retired_links",
+      "SkillReferenceInjectionTests.test_keyframe_previs_and_video_keep_real_evidence_gates",
+      "SkillReferenceInjectionTests.test_script_stages_keep_local_method_definitions"
+    ],
+    "reason": "外部资源存在及锚点测试随包退役；阶段放行、时间线、职责边界断言保留并改验本地定义、断链，新增13阶段检查。"
+  },
+  {
+    "path": "程序/tests/test_agent_skill_sync.py",
+    "removed": [],
+    "added": [
+      "AgentSkillSyncTests.test_relative_link_rewrite_preserves_repeated_targets_and_plain_text"
+    ],
+    "reason": "新增重复目标、片段、正文和标签不误改的回归。"
+  },
+  {
+    "path": "程序/tests/test_aigc_lint.py",
+    "removed": [
+      "BridgeContractTests.test_gate_check_returns_structured_dict_when_mounted",
+      "BridgeContractTests.test_style_ladder_returns_text_when_mounted",
+      "BridgeContractTests.test_style_recommend_returns_pool_shape_when_mounted",
+      "BridgeContractTests.test_unmounted_scripts_return_friendly_dict_not_raise",
+      "BridgeContractTests.test_validate_prompt_returns_structured_dict_when_mounted",
+      "SkillToolsWiringTests.test_feed_and_style_tools_are_registered_ready",
+      "SkillToolsWiringTests.test_feed_validate_requires_feed_input",
+      "SkillToolsWiringTests.test_style_recommend_requires_genre_input",
+      "SkillToolsWiringTests.test_unmounted_feed_validate_raises_toolerror_not_traceback"
+    ],
+    "added": [],
+    "reason": "专用桥与五工具退役，专用正向契约测试删除；五工具不可见改由test_skill_tools负向行为检验。"
+  },
+  {
+    "path": "程序/tests/test_aigc_package_diff.py",
+    "removed": [
+      "AigcPackageDiffTests.test_accept_only_writes_ownership",
+      "AigcPackageDiffTests.test_baseline_missing_still_exits_zero",
+      "AigcPackageDiffTests.test_baseline_not_in_history_still_exits_zero",
+      "AigcPackageDiffTests.test_baseline_show_and_json_are_machine_readable",
+      "AigcPackageDiffTests.test_broken_links_cover_deleted_and_renamed_old_name",
+      "AigcPackageDiffTests.test_diff_statuses_and_rename",
+      "AigcPackageDiffTests.test_links_ignore_anchors_and_total_control_path",
+      "AigcPackageDiffTests.test_missing_package_still_exits_zero",
+      "AigcPackageDiffTests.test_unlinked_engine_detection"
+    ],
+    "added": [],
+    "reason": "被测专用维护脚本已删除，临时仓库差异分析测试一并退役。"
+  },
+  {
+    "path": "程序/tests/test_distribution_build.py",
+    "removed": [
+      "DistributionBuildTests.test_verify_requires_the_jingju_package"
+    ],
+    "added": [
+      "DistributionBuildTests.test_verify_checks_every_packaged_skill_in_digest"
+    ],
+    "reason": "取消强制退役包存在；用任意保留技能摘要缺失继续检验分发完整性。"
+  },
+  {
+    "path": "程序/tests/test_l1_p2_semantics.py",
+    "removed": [
+      "AigcLintTempTests.test_feed_path_removes_file_on_error",
+      "AigcLintTempTests.test_write_temp_failure_leaves_no_residue"
+    ],
+    "added": [],
+    "reason": "仅删除专用桥临时文件两用例，其余并发、资源释放、进程语义保持。"
+  },
+  {
+    "path": "程序/tests/test_skill_command.py",
+    "removed": [
+      "ParseCommandTests.test_sub_engine_names_from_disk"
+    ],
+    "added": [
+      "ParseCommandTests.test_empty_registered_engines_need_no_filesystem",
+      "ParseCommandTests.test_sub_engine_names_from_registered_packages"
+    ],
+    "reason": "磁盘扫描改为注册快照投影；保留命令形态并新增无文件扫描、空候选与非法输入校验。"
+  },
+  {
+    "path": "程序/tests/test_skill_tools.py",
+    "removed": [],
+    "added": [
+      "RetiredToolTests.test_builtin_control_tools_are_not_exposed"
+    ],
+    "reason": "新增五个退役工具不在ready/page暴露面的行为测试。"
+  },
+  {
+    "path": "程序/tests/test_skill_user_layer.py",
+    "removed": [],
+    "added": [
+      "RegistryLayerTests.test_engine_candidates_reuse_registered_packages_and_project_override"
+    ],
+    "reason": "新增真实注册用户包、项目优先、非法包不暴露和发送路径集成测试。"
+  },
+  {
+    "path": "程序/tests/test_stage_prompt_governance.py",
+    "removed": [
+      "UnsupportedVideoModelLockTests.test_manual_unknown_model_falls_back_to_skill_default_format"
+    ],
+    "added": [
+      "UnsupportedVideoModelLockTests.test_manual_unknown_model_requires_selected_model_format"
+    ],
+    "reason": "退役总控默认Seedance格式改为核对所选模型能力，不强套其他模型语法。"
+  },
+  {
+    "path": "程序/tests/test_workflow_writing_stages.py",
+    "removed": [
+      "WritingStageInstructionsTests.test_installed_api_skill_loads_without_jingju_and_keeps_aigc",
+      "WritingStageInstructionsTests.test_jingju_edits_do_not_change_api_or_synced_skill"
+    ],
+    "added": [
+      "WritingStageInstructionsTests.test_installed_api_skill_loads_without_builtin_control",
+      "WritingStageInstructionsTests.test_installed_codex_skill_rewrites_generic_references",
+      "WritingStageInstructionsTests.test_unregistered_package_edits_do_not_change_api_or_synced_skill"
+    ],
+    "reason": "保留自然剧本、无关包隔离、物化同步；包内外链改本地方法与通用相对链接fixture。"
+  },
+  {
+    "path": "程序/tests/test_script_preparation_roles.py",
+    "removed": [],
+    "added": [],
+    "reason": "只更新退役章节标题定位；三角色与不另设确认阶段原断言保持。"
+  },
+  {
+    "path": "程序/tests/test_req_s05_anchors.py",
+    "removed": [],
+    "added": [],
+    "reason": "仅退役外部锚点改验本地正典职责；缺来源/锚点/版本与冲突不覆盖行为保持。"
+  },
+  {
+    "path": "程序/tests/test_storyboard_final_scope.py",
+    "removed": [],
+    "added": [],
+    "reason": "只将不加载旧包文案改验不默认加载外部包；制作锁、五段缝字段、依赖原断言保持。"
+  },
+  {
+    "path": "程序/tests/test_workflow_process_registry.py",
+    "removed": [],
+    "added": [],
+    "reason": "全部7方法断言保持；只隔离并恢复_running字典，精确前置SimpleNamespace无poll污染原类6红、修后7绿。"
+  },
+  {
+    "path": "程序/tests/test_writing_quality.py",
+    "removed": [],
+    "added": [],
+    "reason": "原四引擎与启用断言未改；生产启用识别改按本地四角色职责，不再依赖退役文件名。"
+  }
+]

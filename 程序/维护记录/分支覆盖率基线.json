@@ -4,7 +4,6 @@
  "metric": "决策点双结果覆盖：if/loop 体进入且条件走完；try handler 进入且干净路径走完；match case 进入且（无 case _ 时）落空路径走完。单行复合语句与表达式短路不计。",
  "targets": [
   "tests.test_account_client.AccountStoreTests",
-  "tests.test_aigc_lint",
   "tests.test_api",
   "tests.test_app_icon",
   "tests.test_app_logging",
@@ -108,8 +107,8 @@
   "tests.test_writing_api"
  ],
  "tests_ok": true,
- "points_total": 3081,
- "points_covered": 1742,
+ "points_total": 3062,
+ "points_covered": 1741,
  "modules": [
   {
    "module": "budget.py",
@@ -158,12 +157,6 @@
    "points": 1,
    "covered": 0,
    "percent": 0.0
-  },
-  {
-   "module": "aigc_lint.py",
-   "points": 19,
-   "covered": 1,
-   "percent": 5.3
   },
   {
    "module": "prop_assets.py",
@@ -736,5 +729,5 @@
    "percent": 100.0
   }
  ],
- "modules_total": 104
+ "modules_total": 103
 }

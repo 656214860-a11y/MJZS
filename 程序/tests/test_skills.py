@@ -200,7 +200,7 @@ class RegistryTests(unittest.TestCase):
             stage_dir = root / '01 剧本准备SKILL'
             stage_dir.mkdir(parents=True)
             legacy = write_skill(root, 'legacy-script', stage='剧本准备')
-            flow = write_skill(root / '00全流程SKILL', 'whole-flow', stage='剧本准备')
+            flow = write_skill(root / 'unregistered-reference', 'whole-flow', stage='剧本准备')
             reg = skill_registry.Registry(root=root)
 
             expected = stage_dir / legacy.name

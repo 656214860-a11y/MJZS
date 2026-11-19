@@ -8,8 +8,8 @@ SKILL = Path(__file__).resolve().parents[1] / 'skills' / '01 剧本准备SKILL' 
 class ScriptPreparationRoleTests(unittest.TestCase):
     def setUp(self):
         text = SKILL.read_text(encoding='utf-8')
-        self.assertIn('## 定向注入（00 包）', text)
-        self.section = text.split('## 定向注入（00 包）', 1)[1].split('\n## ', 1)[0]
+        self.assertIn('## 阶段核验方法', text)
+        self.section = text.split('## 阶段核验方法', 1)[1].split('\n## ', 1)[0]
 
     def test_three_roles_declared(self):
         for role, duty in (('编剧角色', '五阶门控'), ('编辑角色', '情绪节拍'), ('演员角色', '台词七维诊断')):

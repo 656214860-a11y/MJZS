@@ -18,7 +18,7 @@ class SkillResidueTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.program = Path(self.temp.name)
         self.root = self.program / 'skills'
-        self.package = self.root / '00全流程SKILL' / 'AIGC创作全流程'
+        self.package = self.root / 'AIGC创作全流程'
         self.package.mkdir(parents=True)
         (self.package / 'README.md').write_text('总包说明', encoding='utf-8')
         self.normal = self.root / '01剧本准备' / 'normal'
@@ -56,7 +56,7 @@ class SkillResidueTests(unittest.TestCase):
         self.assertTrue(self.normal.exists())
         records = result.data['records']
         self.assertEqual(records[0]['status'], 'moved')
-        self.assertEqual(Path(records[0]['source']).as_posix(), 'skills/00全流程SKILL/AIGC创作全流程')
+        self.assertEqual(Path(records[0]['source']).as_posix(), 'skills/AIGC创作全流程')
         manifests = list(self.program.rglob('恢复位置.json'))
         self.assertEqual(len(manifests), 1)
         receipt = read_json(manifests[0])
@@ -67,7 +67,7 @@ class SkillResidueTests(unittest.TestCase):
         self.assertEqual(nested.read_text(encoding='utf-8'), '保留内容')
 
     def test_missing_empty_outside_and_stage_targets_are_user_errors(self):
-        for name in ('', '不存在', '../outside', str(self.normal), '01剧本准备', '00全流程SKILL'):
+        for name in ('', '不存在', '../outside', str(self.normal), '01剧本准备', 'missing-container'):
             with self.subTest(name=name):
                 result = self.dispose(name)
                 self.assertIsInstance(result, UserError)

@@ -31,6 +31,36 @@ class UserLayerTestCase(unittest.TestCase):
 
 
 class RegistryLayerTests(UserLayerTestCase):
+    def test_engine_candidates_reuse_registered_packages_and_project_override(self):
+        from domain import skill_command
+        from desktop_shared_send import _resolve_skill
+        from types import SimpleNamespace
+        project_root = self.base / 'project' / 'skills'
+        user = self.user / STAGE_DIR / 'user-package' / 'SKILL.md'
+        project = project_root / STAGE_DIR / 'project-package' / 'SKILL.md'
+        for path, description in ((user, '用户说明'), (project, '项目说明')):
+            path.parent.mkdir(parents=True)
+            path.write_text('---\nname: installed-engine\ndescription: ' + description
+                            + '\n---\n合法入口', encoding='utf-8')
+        flat = write_skill(self.user / STAGE_DIR, 'flat-user')
+        bad = self.user / STAGE_DIR / 'invalid-package'
+        bad.mkdir()
+        (bad / 'run.py').write_text('raise AssertionError("must not execute")', encoding='utf-8')
+        registry = skill_registry.Registry(self.builtin, user_root=self.user,
+                                           project_root=project_root.parent).scan(force=True)
+        items = registry.getAll()
+        self.assertEqual(skill_command.sub_engine_names(items), ('installed-engine',))
+        parsed = skill_command.parse_command('/installed-engine 继续', skills=items)
+        self.assertEqual(parsed['kind'], 'engine')
+        self.assertEqual(registry.get('installed-engine').path, project)
+        host = SimpleNamespace(root=project_root.parent, shared_input=SimpleNamespace(skill_items=lambda: items))
+        with mock.patch('desktop_shared_send._skill_items', return_value=items):
+            stage, path = _resolve_skill(host, parsed)
+        self.assertEqual(path, project)
+        self.assertEqual(stage, 'script')
+        self.assertEqual(skill_command.parse_command('/flat-user', skills=items)['kind'], 'skill')
+        self.assertTrue(flat.is_file())
+
     def test_user_version_overrides_builtin_and_builtin_returns_after_delete(self):
         write_skill(self.builtin / STAGE_DIR, 'lead', display='内置版')
         user_file = write_skill(self.user / STAGE_DIR, 'lead', display='用户版')
@@ -49,13 +79,13 @@ class RegistryLayerTests(UserLayerTestCase):
         self.assertEqual(skill_registry.default_registry(self.program).user_root, self.user)
 
     def test_user_reference_falls_back_to_builtin_shared_package(self):
-        shared = self.builtin / '00全流程SKILL' / 'rule.md'
+        shared = self.builtin / 'shared-reference' / 'rule.md'
         shared.parent.mkdir()
         shared.write_text('共享规则', encoding='utf-8')
         source = write_skill(self.user / STAGE_DIR, 'lead')
-        source.write_text(source.read_text(encoding='utf-8') + '\n见 [规则](../00全流程SKILL/rule.md)\n',
+        source.write_text(source.read_text(encoding='utf-8') + '\n见 [规则](../shared-reference/rule.md)\n',
                           encoding='utf-8')
-        relative = Path('../00全流程SKILL/rule.md')
+        relative = Path('../shared-reference/rule.md')
         self.assertEqual(skill_registry.resolve_reference(source, relative, program=self.program),
                          shared.resolve())
         roots = (self.builtin.resolve(), self.user.resolve())
@@ -163,12 +193,15 @@ class CodexUserLayerTests(UserLayerTestCase):
         write_skill(self.builtin / STAGE_DIR, 'pipeline-script-preparation')
         source = write_skill(self.user / STAGE_DIR, 'user-extra')
         with source.open('a', encoding='utf-8') as stream:
-            stream.write('\n[规则](../00全流程SKILL/reference.md)\n')
+            stream.write('\n[规则](../shared-reference/reference.md)\n')
+        reference = self.builtin / 'shared-reference' / 'reference.md'
+        reference.parent.mkdir(parents=True, exist_ok=True)
+        reference.write_text('共享规则', encoding='utf-8')
         home = self.base / 'codex' / 'skills'
         result = codex_skill_sync.sync_codex_skills(self.program, home)
         self.assertIn('user-extra', result['written'])
         body = (home / 'user-extra' / 'SKILL.md').read_text(encoding='utf-8')
-        self.assertIn((self.builtin / '00全流程SKILL').resolve().as_posix(), body)
+        self.assertIn((self.builtin / 'shared-reference').resolve().as_posix(), body)
 
     def test_injected_migration_runs_before_sync_on_the_same_thread(self):
         calls = []

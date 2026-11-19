@@ -45,7 +45,7 @@ SOURCE_FILES = {
                                       'bytes': 3, 'source': 'https://python.org/',
                                       'license': 'PSF-2.0'},
     }}),
-    '程序/skills/00全流程SKILL/jingju-skills/SKILL.md': 'jingju',
+    '程序/skills/example-package/SKILL.md': 'jingju',
     '程序/配置/默认.json': '{}',
     '程序/agent/core.py': 'core',
     '程序/extra/thing.txt': 'extra',
@@ -118,7 +118,7 @@ class DistributionBuildTests(unittest.TestCase):
         self.stray()
         buckets = subject.plan(self.source, MANIFEST)
         self.assertIn('程序/app.py', buckets['keep'])
-        self.assertIn('程序/skills/00全流程SKILL/jingju-skills/SKILL.md', buckets['keep'])
+        self.assertIn('程序/skills/example-package/SKILL.md', buckets['keep'])
         self.assertIn('程序/tests/test_x.py', buckets['excluded'])
         self.assertIn('程序/private/密钥/a.dpapi', buckets['excluded'])
         self.assertIn('程序/a.pyc', buckets['excluded'])
@@ -253,12 +253,13 @@ class DistributionBuildTests(unittest.TestCase):
         self.assertFalse(verdict['ok'])
         self.assertIn('程序/app.py', verdict['checks']['keep_present']['missing'])
 
-    def test_verify_requires_the_jingju_package(self):
+    def test_verify_checks_every_packaged_skill_in_digest(self):
         subject.build(self.base / 'out', self.source, MANIFEST)
-        (self.base / 'out' / subject.JINGJU_PACKAGE / 'SKILL.md').unlink()
+        relative = '程序/skills/example-package/SKILL.md'
+        (self.base / 'out' / relative).unlink()
         verdict = subject.verify(self.base / 'out', self.source, MANIFEST)
         self.assertFalse(verdict['ok'])
-        self.assertFalse(verdict['checks']['jingju_package']['ok'])
+        self.assertIn(relative, verdict['checks']['digest']['mismatch'])
 
     def test_cli_plan_only_reports_and_copies_nothing(self):
         buffer = io.StringIO()

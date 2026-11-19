@@ -175,7 +175,7 @@ class StoryboardFinalScopeTests(unittest.TestCase):
     def test_req_s07_51_pipeline_skill_reads_locks_and_freezes_seams(self):
         text = (SKILL_DIR / 'pipeline-storyboard-final.skill.md').read_text(encoding='utf-8')
         for term in ('splice_mode', 'in_state', 'out_state', 'cut_type', 'audio_bridge', 'owner',
-                     '不得加载 00 包全文', '不再向用户弹问'):
+                     '不默认加载外部包、风格库或示例库', '不再向用户弹问'):
             with self.subTest(term=term):
                 self.assertIn(term, text)
         self.assertIsNotNone(re.search(r'(?m)^dependsOn: \[pipeline-continuity\]$', text))

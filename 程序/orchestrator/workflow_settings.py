@@ -126,7 +126,7 @@ def skill_roots_for_config(config):
     """勾选 SKILL 的目录白名单（供 CLI 引擎 `--add-dir`／`--include-directories`）。
 
     返回去重后的目录列表：每份勾选 SKILL 的所在目录（导入包＝包目录、单文件＝阶段目录）。
-    勾选了 SKILL 时再附上 skill 根目录（内置/用户层，供 ``../00全流程SKILL`` 跨层引用可读）；
+    勾选了 SKILL 时再附上 skill 根目录（内置/用户层，供已校验的跨层文档引用可读）；
     未勾选任何 SKILL 时返回空表，不把整个 skills 树无谓授权给 CLI。CLI 模型据此能按需读全文、
     看图、跑脚本，等效 desktop 原生行为；纯 API 模型走内联，不经过这里。
     """

@@ -32,14 +32,14 @@ class AgentSkillSyncTests(unittest.TestCase):
             with self.subTest(target=target):
                 home = self.home(target)
                 with self.source.open('a', encoding='utf-8') as stream:
-                    stream.write('\n[规则](../00全流程SKILL/reference.md)\n')
+                    stream.write('\n[规则](../shared-reference/reference.md)\n')
                 result = self.run_sync(target, home)
                 self.assertEqual(result['written'], ['pipeline-script-preparation'])
                 target_file = home / 'pipeline-script-preparation' / 'SKILL.md'
                 meta, body = sync.parse(target_file.read_text(encoding='utf-8'))
                 self.assertEqual(set(meta), {'name', 'description'})
-                self.assertIn((self.program / 'skills' / '00全流程SKILL').as_posix(), body)
-                self.assertNotIn('../00全流程SKILL/', body)
+                self.assertIn((self.program / 'skills' / 'shared-reference').as_posix(), body)
+                self.assertNotIn('../shared-reference/', body)
                 marker = json.loads((home / 'pipeline-script-preparation' / sync._MARKER
                                      ).read_text(encoding='utf-8'))
                 self.assertEqual(marker['target'], target)
@@ -47,6 +47,17 @@ class AgentSkillSyncTests(unittest.TestCase):
                 self.assertEqual(self.run_sync(target, home)['unchanged'],
                                  ['pipeline-script-preparation'])
                 self.assertEqual(target_file.stat().st_mtime_ns, before)
+
+    def test_relative_link_rewrite_preserves_repeated_targets_and_plain_text(self):
+        source = self.source
+        text = source.read_text(encoding='utf-8')
+        text += '\nkeep rule.md [a](rule.md) [a2](rule.md) [b](rule.md#part) [rule.md](rule.md)\n'
+        _name, rendered = sync._render(source, text, self.program / 'skills')
+        target = (source.parent / 'rule.md').resolve().as_posix()
+        self.assertIn('keep rule.md', rendered)
+        self.assertIn('[rule.md](' + target + ')', rendered)
+        self.assertEqual(rendered.count('](' + target + ')'), 3)
+        self.assertEqual(rendered.count('](' + target + '#part)'), 1)
 
     def test_orphan_is_recycled_not_deleted(self):
         for target in sync.TARGETS:

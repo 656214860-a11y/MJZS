@@ -4,6 +4,14 @@ from unittest.mock import patch
 
 
 class WorkflowProcessCapacityTests(unittest.TestCase):
+    def setUp(self):
+        # ProcessPool 复用解释器；容量用例只能观察自己登记的进程。
+        # patch.dict 的清理会恢复原字典，不替产品吞掉无 poll 对象的错误。
+        from infra import workflow_process_registry as registry
+        running = patch.dict(registry._running, {}, clear=True)
+        running.start()
+        self.addCleanup(running.stop)
+
     def test_legacy_process_registration_does_not_block_slot_checks(self):
         from types import SimpleNamespace
         from infra import workflow_process_registry as registry
