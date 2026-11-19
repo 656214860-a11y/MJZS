@@ -10,7 +10,8 @@
   "tests.test_claim_queue_gateway",
   "tests.test_usage_snapshot",
   "tests.test_unit_of_work",
-  "tests.test_executors"
+  "tests.test_executors",
+  "tests.test_resources"
  ],
  "tests_ok": true,
  "modules": [
@@ -3897,6 +3898,12 @@
    "percent": 83.3
   },
   {
+   "module": "infra/resources.py",
+   "covered": 109,
+   "total": 130,
+   "percent": 83.8
+  },
+  {
    "module": "infra/request_ledger.py",
    "covered": 571,
    "total": 676,
@@ -3916,9 +3923,9 @@
   },
   {
    "module": "infra/executors.py",
-   "covered": 210,
+   "covered": 211,
    "total": 237,
-   "percent": 88.6
+   "percent": 89.0
   },
   {
    "module": "agent/publication.py",
@@ -3999,6 +4006,6 @@
    "percent": 100.0
   }
  ],
- "modules_covered": 84,
- "modules_total": 664
+ "modules_covered": 85,
+ "modules_total": 665
 }

@@ -96,11 +96,12 @@
   "tests.test_writing_api",
   "tests.test_process_supervisor",
   "tests.test_executors",
-  "tests.test_metrics"
+  "tests.test_metrics",
+  "tests.test_resources"
  ],
  "tests_ok": true,
- "points_total": 2889,
- "points_covered": 1615,
+ "points_total": 2909,
+ "points_covered": 1622,
  "modules": [
   {
    "module": "comfy_service.py",
@@ -259,6 +260,12 @@
    "percent": 38.8
   },
   {
+   "module": "resources.py",
+   "points": 20,
+   "covered": 8,
+   "percent": 40.0
+  },
+  {
    "module": "model_pool.py",
    "points": 134,
    "covered": 55,
@@ -301,12 +308,6 @@
    "percent": 50.0
   },
   {
-   "module": "line_endings.py",
-   "points": 14,
-   "covered": 7,
-   "percent": 50.0
-  },
-  {
    "module": "storyboard_paths.py",
    "points": 4,
    "covered": 2,
@@ -343,6 +344,12 @@
    "percent": 55.7
   },
   {
+   "module": "line_endings.py",
+   "points": 14,
+   "covered": 8,
+   "percent": 57.1
+  },
+  {
    "module": "file_cache.py",
    "points": 24,
    "covered": 14,
@@ -357,8 +364,8 @@
   {
    "module": "publication.py",
    "points": 31,
-   "covered": 20,
-   "percent": 64.5
+   "covered": 19,
+   "percent": 61.3
   },
   {
    "module": "global_library_service.py",
@@ -421,6 +428,12 @@
    "percent": 73.1
   },
   {
+   "module": "executors.py",
+   "points": 41,
+   "covered": 30,
+   "percent": 73.2
+  },
+  {
    "module": "workflow_process_registry.py",
    "points": 69,
    "covered": 51,
@@ -437,12 +450,6 @@
    "points": 4,
    "covered": 3,
    "percent": 75.0
-  },
-  {
-   "module": "executors.py",
-   "points": 41,
-   "covered": 31,
-   "percent": 75.6
   },
   {
    "module": "request_ledger.py",
@@ -679,5 +686,5 @@
    "percent": 100.0
   }
  ],
- "modules_total": 96
+ "modules_total": 97
 }
