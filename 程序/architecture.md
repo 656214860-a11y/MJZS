@@ -86,7 +86,7 @@ R3481（A9-4f，六组同 stem 门面／包实体）：按源码职责、当前�
 | `file_naming` → `contract.file_naming` | L0：名称模板、解析、清洗及校验；本节原 L0 命名权威 | 顶层 13 项再导出；`contract.script_contract`、索引及产物发布消费实体；本轮不扩大旧导出集 |
 | `global_library_service` → `domain.global_library_service` | **L1**：复制、事务、索引和来源登记；实体 docstring 与本节原 L1 权威一致，历史 domain 目录不赋予 L2 | 顶层 4 项再导出；`desktop_files_panel_filters.py:177/210` 调用双向复制 |
 | `legacy_migration` → `orchestrator.legacy_migration` | L3：计划、事务迁移、成果引用重写及回滚；调用阶段服务，本节原 L3 权威 | 顶层 11 项迁移／回滚 API 再导出；真实 CLI `scripts/migrate_legacy_layout.py:17` 消费实体，不能因默认生产扫描排除 scripts 而判无消费者 |
-| `storage_maintenance` → `infra.storage_maintenance` | L1：回收、恢复及受控清理；本节原 L1 删除权威 | 顶层 `sys.modules` 别名保留私有名、状态与扁平 mock.patch 身份，`--cleanup` 转发实体 main；桌面退出、回收服务等消费实体 |
+| `storage_maintenance` → `infra.storage_maintenance` | L1：回收、恢复及受控清理；本节原 L1 删除权威 | 生产自启动走 `python -m infra.storage_maintenance --cleanup`；顶层 `sys.modules` 别名仅为旧外部 CLI、私有名、状态与扁平 mock.patch 身份保留兼容，退出条件见 R3722；桌面退出、回收服务等消费实体 |
 
 严格拒绝 **21→15**，六项 ambiguous 全部消除，其余拒绝身份／状态不变；登记 418→424，原 418 键和值、5 个 TOOLS、静态 18／动态 2 条豁免与默认依赖图均不变。剩余为 `agent` 初始化和前批移交 A13 的 14 项包实体，不新增允许清单或阈值。`global_library_service.py:3 → domain` 是仍存在的 **L1→L2 初始化依赖**，不能因实体本身是 L1 而隐藏；交 A10/A13 按兼容责任安排迁移／边界修复，本轮不改层、不加豁免。严格入口仍先拒绝剩余未知身份，不能把本批有界边检查说成全图通过；默认严格模式保持关闭。
 

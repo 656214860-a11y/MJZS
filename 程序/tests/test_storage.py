@@ -145,7 +145,8 @@ class StorageSafetyTests(unittest.TestCase):
             with mock.patch.object(sm, 'launch_background',
                                    lambda command, **kwargs: commands.append((command, kwargs))):
                 sm.launch_cleanup(program)
-        self.assertEqual(commands[0][0], [sys.executable, str(program / 'storage_maintenance.py'), '--cleanup'])
+        self.assertEqual(commands[0][0], [sys.executable, '-m', 'infra.storage_maintenance', '--cleanup'])
+        self.assertEqual(commands[0][1]['cwd'], program)
         self.assertIs(commands[0][1]['stdin'], sm.subprocess.DEVNULL)
         self.assertIs(commands[0][1]['stdout'], sm.subprocess.DEVNULL)
         self.assertIs(commands[0][1]['stderr'], sm.subprocess.DEVNULL)

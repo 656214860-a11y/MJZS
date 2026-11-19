@@ -51,7 +51,7 @@ VERSION_CLEAN_REASON='超过保留期，且未被采用、未进成片来源、�
 
 def launch_cleanup(app_root=None):
     program=Path(app_root or PROGRAM)
-    launch_background([sys.executable,str(program/'storage_maintenance.py'),'--cleanup'],
+    launch_background([sys.executable,'-m','infra.storage_maintenance','--cleanup'],cwd=program,
                       stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
 
 def _within(child,parent):
