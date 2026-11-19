@@ -41,7 +41,8 @@ import struct
 import subprocess
 import sys
 import time
-from contract.platform_tools import launch_background, run_process, tool_path
+from contract.platform_tools import run_process, tool_path
+from infra.workflow_process_registry import spawn, forget_process
 import tkinter as tk
 from pathlib import Path
 from infra.file_cache import read_json, remove_temporary_file
@@ -700,19 +701,22 @@ def reset_worker(timeout=2.0):
     """
     global _WORKER, _WORKER_AT, _WORKER_BAD
     worker = _WORKER
+    # I9a：_WORKER 现在是 SupervisedProcess 包装；等待/终止须落在底层 Popen 上，
+    # 否则 wait 超时返回 None 而非抛 TimeoutExpired，kill 升级路径会失效。
+    proc = getattr(worker, 'process', worker) if worker is not None else None
     reaped = True
-    if worker is not None and callable(getattr(worker, 'wait', None)):
+    if proc is not None and callable(getattr(proc, 'wait', None)):
         try:
-            worker.terminate()
+            proc.terminate()
         except Exception:
             app_logging.swallowed()
         try:
-            worker.wait(timeout=timeout)   # 回收掉，别留一个「还在跑」的句柄（自检会报 ResourceWarning）
+            proc.wait(timeout=timeout)   # 回收掉，别留一个「还在跑」的句柄（自检会报 ResourceWarning）
         except subprocess.TimeoutExpired:
             reaped = False
             try:
-                worker.kill()
-                worker.wait(timeout=timeout)
+                proc.kill()
+                proc.wait(timeout=timeout)
                 reaped = True
             except subprocess.TimeoutExpired:
                 pass
@@ -728,6 +732,11 @@ def reset_worker(timeout=2.0):
     _WORKER = None
     _WORKER_AT = 0.0
     _WORKER_BAD = False
+    if proc is not None:
+        try:
+            forget_process(PROGRAM, proc)
+        except Exception:
+            app_logging.swallowed()
     return reaped
 
 
@@ -754,11 +763,14 @@ def _ensure_worker():
         return True
     try:
         Path(CACHE_ROOT).mkdir(parents=True, exist_ok=True)
-        _WORKER = launch_background(
-            [sys.executable, '-m', 'ui.asset_thumbs', '--worker', str(CACHE_ROOT)],
-            cwd=str(Path(__file__).resolve().parents[1]),
+        # I9a：经进程监督器拉起——进 Job Object（应用退出即收）、登记进程表；
+        # 凭据白名单环境不变，空转 90 秒自退的契约不变（timeout 只约束 wait 缺省）。
+        _WORKER = spawn(
+            'ffmpeg', [sys.executable, '-m', 'ui.asset_thumbs', '--worker', str(CACHE_ROOT)],
+            project=PROGRAM, stage='asset-thumbs', timeout=3600,
+            cwd=str(PROGRAM),
             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-            env=_worker_environment(), popen=subprocess.Popen)
+            env=_worker_environment())
         _WORKER_AT = time.monotonic()
         return True
     except Exception:

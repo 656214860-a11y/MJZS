@@ -122,6 +122,26 @@ class OpenPathTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, '已取消等待'):
             comfy_runtime.wait_comfy('http://127.0.0.1:8189', cancelled=lambda: True)
 
+    def test_comfy_wait_never_marks_ready_when_probe_keeps_failing(self):
+        """I9-2：/system_stats 探针持续失败时 wait_comfy 只会超时抛错，绝不提前返回（即不标记就绪）。"""
+        import comfy_runtime
+        calls = []
+
+        class FailingClient:
+            def __init__(self, url):
+                pass
+
+            def request(self, path):
+                calls.append(path)
+                raise OSError('connection refused')
+
+        with patch('infra.comfy_service.Comfy', FailingClient), \
+             patch.object(comfy_runtime.time, 'sleep', lambda _s: None):
+            with self.assertRaisesRegex(ValueError, '未就绪'):
+                comfy_runtime.wait_comfy('http://127.0.0.1:8189', timeout=0.01)
+        self.assertTrue(calls)
+        self.assertTrue(all(path == '/system_stats' for path in calls))
+
     def test_windows_app_launcher_checks_host_and_starts_existing_executable(self):
         with tempfile.TemporaryDirectory() as td:
             executable = Path(td) / 'JianyingPro.exe'

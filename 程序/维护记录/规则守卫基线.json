@@ -66,6 +66,49 @@
   ],
   "42": [
    "tests/architecture/test_outbound_http_authority.py"
+  ],
+  "LR-01": [
+   "tests/architecture/test_layers.py",
+   "tests/architecture/test_layer_relations.py"
+  ],
+  "LR-02": [
+   "tests/architecture/test_no_circular_import.py",
+   "tests/architecture/test_layer_relations.py"
+  ],
+  "LR-03": [
+   "tests/architecture/test_layer_relations.py"
+  ],
+  "LR-04": [
+   "tests/architecture/test_layer_relations.py",
+   "tests/architecture/test_dynamic_import_registry.py"
+  ],
+  "LR-05": [
+   "tests/architecture/test_layer_relations.py",
+   "tests/architecture/test_event_bus_boundary.py"
+  ],
+  "LR-06": [
+   "tests/architecture/test_layer_relations.py"
+  ],
+  "LR-07": [
+   "tests/architecture/test_layer_relations.py",
+   "tests/architecture/test_infra_errors_boundary.py",
+   "tests/test_infra_errors.py"
+  ],
+  "LR-08": [
+   "tests/architecture/test_layer_relations.py",
+   "tests/architecture/test_http_boundary.py",
+   "tests/architecture/test_json_io_boundary.py",
+   "tests/architecture/test_deletion_gateway.py",
+   "tests/architecture/test_platform_process_boundary.py",
+   "tests/architecture/test_secret_sink_audit.py",
+   "tests/architecture/test_thread_boundary.py",
+   "tests/architecture/test_log_sink_boundary.py"
+  ],
+  "LR-09": [
+   "tests/architecture/test_layer_relations.py"
+  ],
+  "LR-10": [
+   "tests/architecture/test_layer_relations.py"
   ]
  }
 }

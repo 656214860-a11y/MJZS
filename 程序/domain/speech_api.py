@@ -19,7 +19,9 @@ import time
 from pathlib import Path
 from urllib.parse import urlparse
 
+import infra.app_logging as app_logging
 import infra.business_log as business_log
+import infra.executors as executors
 import infra.file_cache as file_cache
 import contract.platform_tools as platform_tools
 
@@ -276,12 +278,13 @@ class _DictionarySession:
         self._inner, self._replacements = inner, dict(replacements)
         self.events = queue.Queue()
         self._stop = threading.Event()
-        self._thread = None
+        self._task = None
 
     def start(self):
         self._inner.start()
-        self._thread = threading.Thread(target=self._pump, name='voice-dict', daemon=True)
-        self._thread.start()
+        # I11a：事件转发泵改经执行器 io 池；取消标记即 _stop。
+        self._task = executors.submit('io', self._pump, cancel=self._stop,
+                                      label='voice-dict')
 
     def send(self, pcm):
         self._inner.send(pcm)
@@ -399,10 +402,12 @@ class RealtimeSession:
         self.connect = connect or platform_tools.open_websocket
         self.events, self.audio = queue.Queue(), queue.Queue()
         self.socket, self.cancelled, self.thread = None, False, None
+        self._stop_event = threading.Event()
 
     def start(self):
-        self.thread = threading.Thread(target=self._run, name='voice-realtime', daemon=True)
-        self.thread.start()
+        # I11a：会话主流程改经执行器 io 池提交；取消标记复用 _stop_event。
+        self.thread = executors.submit('io', self._run, cancel=self._stop_event,
+                                       label='voice-realtime')
 
     def send(self, pcm):
         self.audio.put(bytes(pcm))
@@ -412,6 +417,7 @@ class RealtimeSession:
 
     def cancel(self):
         self.cancelled = True
+        self._stop_event.set()
         self.audio.put(None)
         if self.socket is not None:
             self.socket.close()
@@ -443,10 +449,12 @@ class RealtimeSession:
             return self._fail('连不上识别服务：%s' % (type(error).__name__ if not str(error) else str(error)[:120]))
         if self.cancelled:
             return self.socket.close()
-        reader = threading.Thread(target=self._read, name='voice-realtime-read', daemon=True)
+        # I11a：实时收包循环走执行器 stream 池（每任务独占线程）；
+        # reader.join(timeout) 语义改经 Future.result(timeout)（join 不传播异常）。
+        reader = executors.submit('stream', self._read, cancel=self._stop_event,
+                                  label='voice-realtime-read')
         try:
             self.socket.send_text(json.dumps(session_update(settings)))
-            reader.start()
             while True:
                 pcm = self.audio.get()
                 if pcm is None or self.cancelled:
@@ -455,7 +463,10 @@ class RealtimeSession:
                                                   'audio': base64.b64encode(pcm).decode('ascii')}))
             if not self.cancelled:
                 self.socket.send_text(json.dumps({'type': 'session.finish'}))
-                reader.join(settings['timeout'])
+                try:
+                    reader.result(timeout=settings['timeout'])
+                except Exception:
+                    app_logging.swallowed('speech_api realtime reader wait')
         except OSError:
             self._fail('识别连接中断')
         finally:

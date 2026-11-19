@@ -40,7 +40,7 @@ ENTRY = os.path.join(ROOT, "app.py")
 
 def _requirements_imports(path):
     """只认显式 requirements 项；发行包名与导入名的例外也须明确登记。"""
-    aliases = {"pillow": "PIL"}
+    aliases = {"pillow": "PIL", "nvidia_ml_py": "pynvml"}
     with open(path, encoding="utf-8") as handle:
         names = []
         for line in handle:
@@ -154,7 +154,8 @@ def _resolve(name):
 def _defines(path, symbol):
     """这个符号是不是模块自己定义的（`def`／`class`／赋值／再导出都算）。"""
     text = _read(path)
-    for pattern in (r"^\s*(?:def|class)\s+%s\b", r"^\s*%s\s*[:=]", r"^\s*from\s+\S+\s+import\s+[^\n#]*\b%s\b"):
+    for pattern in (r"^\s*(?:def|class)\s+%s\b", r"^\s*%s\s*[:=]", r"^\s*from\s+\S+\s+import\s+[^\n#]*\b%s\b",
+                    r"(?s)\bfrom\s+\S+\s+import\s*\([^)]*\b%s\b"):
         if re.search(pattern % (re.escape(symbol),), text, re.M):
             return True
     return False

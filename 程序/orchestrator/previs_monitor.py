@@ -8,7 +8,8 @@ HTTP 服务，按这一批的 state（状态、Blender 脚本写出来的进度 
 工作线程只写 state（status／progress／progress JSON），这一页只读；两边不共享 Tk 上下文。
 """
 import infra.app_logging as app_logging
-import html,threading,time,webbrowser
+import infra.executors as executors
+import html,time,webbrowser
 from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 from pathlib import Path
 from infra.file_cache import read_json
@@ -138,7 +139,7 @@ def start(state, project, title=TITLE, opener=None):
         return None
     server.daemon_threads = True
     url = 'http://127.0.0.1:%d/' % server.server_address[1]
-    threading.Thread(target=server.serve_forever, daemon=True).start()
+    executors.submit('stream', server.serve_forever, label='previs-monitor')
     try:
         (opener or webbrowser.open)(url)
     except Exception:

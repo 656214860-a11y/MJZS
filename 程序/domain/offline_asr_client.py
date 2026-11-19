@@ -21,12 +21,15 @@ from pathlib import Path
 
 import infra.app_logging as app_logging
 import contract.platform_tools as platform_tools
+import infra.executors as executors
+import infra.workflow_process_registry as proc_registry
 
 PROGRAM = Path(__file__).resolve().parents[1]
 SERVER_SCRIPT = PROGRAM / 'voice_engine' / 'offline_asr_server.py'
 VENV_DIR = PROGRAM / 'data' / 'voice_asr_venv'
 SAMPLE_RATE = 16000
 _ACQUIRE_POLL = 0.1
+_READY_TIMEOUT = 300          # I9-2：模型加载＋首个 ready 握手的上限（秒），超时按 E-TOOL-TIMEOUT 收尾
 _MISSING = object()
 
 
@@ -100,10 +103,11 @@ class EngineHost:
         self.lock = threading.Lock()
         self.state = 'idle'          # idle | starting | ready | dead
         self.process = None
+        self.supervised = None       # I9：spawn 返回的 SupervisedProcess（stderr 尾部/错误归类）
+        self.spawned_at = 0.0        # 本次进入 starting 的 monotonic 时刻（握手超时判据）
         self.session = None          # 当前占用的 OfflineAsrSession
         self.dead_reason = ''
         self.pending_error = ''
-        self.stderr_tail = []
         self.log_sinks = []          # 等待就绪期间的进度接收者
         self.write_lock = threading.Lock()
 
@@ -123,21 +127,26 @@ class EngineHost:
             if self.state not in ('idle', 'dead'):
                 return False
             self.state = 'starting'
+            self.spawned_at = time.monotonic()
             self.dead_reason = self.pending_error = ''
-            self.stderr_tail = []
             try:
-                self.process = platform_tools.launch_text_process(
-                    command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE, env=env)
+                # I9-1/I9-2：经监督器拉起——进进程表（项目=程序根、阶段=voice-asr，
+                # 可 cancel_supervised 统一取消）、挂 Job Object、stderr 尾部由监督器留存；
+                # health 探针即「首个 ready JSON 行」握手，由 acquire 的超时兜底。
+                self.supervised = proc_registry.spawn(
+                    'asr', command, project=PROGRAM, stage='voice-asr',
+                    timeout=_READY_TIMEOUT, health=lambda: self.state == 'ready',
+                    stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE, env=env,
+                    text=True, encoding='utf-8', errors='replace')
             except Exception as error:  # noqa: BLE001
                 self.state = 'dead'
                 self.dead_reason = '离线识别引擎启动失败：%s' % str(error)[:160]
                 raise EngineUnavailable(self.dead_reason)
-            process = self.process
-        threading.Thread(target=self._read_stdout, args=(process,),
-                         name='voice-asr-reader', daemon=True).start()
-        threading.Thread(target=self._drain_stderr, args=(process,),
-                         name='voice-asr-stderr', daemon=True).start()
+            process = self.process = self.supervised.process
+        # I11a：实时 stdout 泵走执行器 stream 池（每任务独占线程，不回退裸线程）。
+        executors.submit('stream', lambda: self._read_stdout(process),
+                         label='voice-asr-reader')
         return True
 
     def _read_stdout(self, process):
@@ -156,15 +165,16 @@ class EngineHost:
             pass
         self._on_exit(process)
 
-    def _drain_stderr(self, process):
+    def _stderr_tail_text(self, count=3):
+        """监督器留存的 stderr 尾部最后 ``count`` 行（引擎退出原因取证用）。"""
+        sup = self.supervised
+        if sup is None:
+            return ''
         try:
-            for line in process.stderr:
-                text = line.strip()
-                if text:
-                    self.stderr_tail.append(text)
-                    del self.stderr_tail[:-20]
-        except (OSError, ValueError):
-            pass
+            lines = [line for line in sup.stderr_tail().splitlines() if line.strip()]
+        except Exception:  # noqa: BLE001 —— 取证失败不影响退出归类
+            return ''
+        return '；'.join(lines[-count:])[:240]
 
     def _dispatch(self, message):
         kind = message.get('type')
@@ -216,9 +226,13 @@ class EngineHost:
             self.session = None
         if session is not None:
             session._engine_dead(reason)
+        try:
+            proc_registry.forget_process(PROGRAM, process)
+        except Exception:  # noqa: BLE001 —— 登记表清理失败不影响会话收尾
+            app_logging.swallowed()
 
     def _exit_reason(self, code):
-        tail = '；'.join(self.stderr_tail[-3:])[:200]
+        tail = self._stderr_tail_text(3)
         suffix = ('：' + tail) if tail else ''
         if code == 2:
             return self.pending_error or '离线识别模型不可用，请检查模型缓存或网络'
@@ -276,6 +290,13 @@ class EngineHost:
         if session is not None:
             session._engine_dead(self.dead_reason)
 
+    def _handshake_timeout_reason(self):
+        """I9-2：握手超时按 ``E-TOOL-TIMEOUT`` 归类，并保留 stderr 尾部取证。"""
+        tail = self._stderr_tail_text(5)
+        suffix = ('；stderr 尾部：' + tail) if tail else ''
+        return 'E-TOOL-TIMEOUT：离线识别引擎握手超时（%d 秒未收到 ready）%s' % (
+            _READY_TIMEOUT, suffix)
+
     def kill(self, reason):
         """强制结束引擎进程（看门狗用）；下一会话重新拉起。"""
         with self.lock:
@@ -298,6 +319,10 @@ class EngineHost:
                     process.kill()
                 except Exception:  # noqa: BLE001
                     app_logging.swallowed()
+            try:
+                proc_registry.forget_process(PROGRAM, process)
+            except Exception:  # noqa: BLE001
+                app_logging.swallowed()
 
     def shutdown(self):
         """退出前收尾：请引擎自尽，超时强杀。"""
@@ -353,6 +378,7 @@ def acquire(settings, *, log_sink=None, is_cancelled=None):
         while True:
             with host.lock:
                 state = host.state
+                spawned_at = host.spawned_at
             if state == 'ready':
                 return host
             if state == 'dead':
@@ -364,6 +390,10 @@ def acquire(settings, *, log_sink=None, is_cancelled=None):
                 if problem:
                     raise EngineUnavailable(problem)
                 host.spawn(settings)
+                continue
+            if (state == 'starting' and spawned_at
+                    and time.monotonic() - spawned_at > _READY_TIMEOUT):
+                host.kill(host._handshake_timeout_reason())
                 continue
             if is_cancelled is not None and is_cancelled():
                 raise EngineCancelled()
@@ -393,14 +423,16 @@ class OfflineAsrSession:
         self.thread = None
         self._delegate = None
         self._finished = threading.Event()
+        self._stop_event = threading.Event()
         self._closed = False
         self._failed = False
         self._seq = 0
 
     # ---- 与 RealtimeSession 一致的外部接口 ----
     def start(self):
-        self.thread = threading.Thread(target=self._run, name='voice-offline-asr', daemon=True)
-        self.thread.start()
+        # I11a：会话主流程改经执行器 io 池提交，取消标记复用 _stop_event。
+        self.thread = executors.submit('io', self._run, cancel=self._stop_event,
+                                       label='voice-offline-asr')
 
     def send(self, pcm):
         self.audio.put(bytes(pcm))
@@ -410,6 +442,7 @@ class OfflineAsrSession:
 
     def cancel(self):
         self.cancelled = True
+        self._stop_event.set()
         self.audio.put(None)
         delegate = self._delegate
         if delegate is not None:

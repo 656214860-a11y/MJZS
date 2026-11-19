@@ -1,0 +1,15 @@
+{
+  "round": 3623,
+  "commit_base": "3cc3ffdf",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k metrics http_client process_supervisor stage_parallel diagnostic_capture",
+    "exit": 0,
+    "passed": 125,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T08:48:29"
+}

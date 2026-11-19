@@ -898,7 +898,7 @@ class Agent:
         return stage_parallel.blocked_text(self.gate(stage, mode=mode))
 
     def log_stage(self, stage, task, status, detail='', at=None):
-        """按统一格式记一条到 <阶段目录>/logs/agent_logs.jsonl（写不进去也不报错）。"""
+        """按统一格式记一条阶段日志：内存行供面板，持久记录走 app.log 诊断总线（I12 起不再写 agent_logs.jsonl）。"""
         row = stage_parallel.log_row(stage, task, status, detail, at)
         self.agent_logs.append(row)
         del self.agent_logs[:-KEEP]

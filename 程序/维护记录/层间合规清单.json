@@ -1,0 +1,140 @@
+{
+ "说明": "L1任务书 §5 层间关系规范 LR-01~LR-10 的合规清单（I1/R3391 建立）。每条含编号、描述、守卫测试、当前违规数、棘轮基线；tests/architecture/test_layer_relations.py 逐条实测比对，实测高于基线即红、低于基线提示下调。存量违规随 I2–I26 各轮收口，只降不升。",
+ "rules": [
+  {
+   "id": "LR-01",
+   "title": "只允许依赖同层或更低层",
+   "description": "L1 只依赖 L0 与 L0P；L2、L3 只依赖 L0、L0P、L1 及同层；上行依赖（含静态与字面量动态 import，from pkg import 别名口径）全部登记在案。",
+   "guard": [
+    "tests/architecture/test_layers.py",
+    "tests/architecture/test_layer_relations.py"
+   ],
+   "metric": "上行依赖边数（importer 层 < imported 层，静态＋动态字面量，alias-aware）",
+   "violations": 18,
+   "baseline": 18,
+   "note": "18 条存量豁免（importer 属 L1 已 0，I3 归零）；I2–I5 迁移继续下调。"
+  },
+  {
+   "id": "LR-02",
+   "title": "全仓依赖图为有向无环图",
+   "description": "静态与动态（字面量）合并图无新增循环；存量环登记棘轮。",
+   "guard": [
+    "tests/architecture/test_no_circular_import.py",
+    "tests/architecture/test_layer_relations.py"
+   ],
+   "metric": "循环依赖连通分量数（静态 KNOWN_STATIC_CYCLES＋动态 KNOWN_DYNAMIC_CYCLES）",
+   "violations": 6,
+   "baseline": 6,
+   "note": "静态 1 环 {core,file_cache,publication}；动态 5 环（含同源 {core,file_cache,publication} 与 keyframe_evidence→…→white_model_ref 大环）。"
+  },
+  {
+   "id": "LR-03",
+   "title": "同层依赖登记方向且禁止互相依赖",
+   "description": "同层边必须登记 _layers.SAME_LAYER_EDGES；未登记同层边即违规；同层互相依赖（A→B 且 B→A）禁止。",
+   "guard": [
+    "tests/architecture/test_layer_relations.py"
+   ],
+   "metric": "未登记同层边数＋同层互依赖对数",
+   "violations": 5,
+   "baseline": 5,
+   "note": "764 条同层边已全部登记 SAME_LAYER_EDGES（I1 基线 763，I6 新增 infra_errors→error_codes 1 条）；互依赖 5 对：L1 {core↔file_cache, file_cache↔publication, diagnostic_capture↔request_ledger}、L3 {stage_models↔workflow_settings}、L4 {white_model↔white_model_ref}，随 I3/I4/I5 模块迁移收口。"
+  },
+  {
+   "id": "LR-04",
+   "title": "动态导入遵守分层且模块名受控",
+   "description": "import_module/__import__ 的模块名必须是字面量，或来自已登记插件登记表（登记表层不低于被加载模块层）；动态导入不得制造 LR-01 上行边。",
+   "guard": [
+    "tests/architecture/test_layer_relations.py",
+    "tests/architecture/test_dynamic_import_registry.py"
+   ],
+   "metric": "非字面量动态导入点（登记表外）＋上行动态边数＋登记表层级违规数",
+   "violations": 4,
+   "baseline": 4,
+   "note": "上行动态边 3（KNOWN_DYNAMIC_UPWARD）；登记表层级违规 1（ui_plugin_registry L1 加载 L2–L5 插件，I2 上移 L4 收口）；非字面量点 1 属登记表本体、暂计入登记表违规。"
+  },
+  {
+   "id": "LR-05",
+   "title": "框架回调/事件/插件经 L0 契约解耦",
+   "description": "低层不得 import、持有或调用上层对象；Tk 框架回调（after/bind/protocol/trace）注册只许在 UI 层或已登记端口模块（tk_timers、app_logging）。",
+   "guard": [
+    "tests/architecture/test_layer_relations.py",
+    "tests/architecture/test_event_bus_boundary.py"
+   ],
+   "metric": "L0–L3 中 Tk 回调注册点数（排除端口模块 tk_timers、app_logging）",
+   "violations": 5,
+   "baseline": 5,
+   "note": "shot_selection×2(L0)、stage_models×3(L3)；I4/I5 相关模块迁移时复核。"
+  },
+  {
+   "id": "LR-06",
+   "title": "上层只使用 L1 公开接口",
+   "description": "上层访问 L1 模块私有名（_前缀属性/导入）即违规；__all__ 判定在 I20 启用前以私有名访问计。",
+   "guard": [
+    "tests/architecture/test_layer_relations.py"
+   ],
+   "metric": "非 L1 模块访问 L1 私有名的点数",
+   "violations": 1,
+   "baseline": 1,
+   "note": "ui/task_center_ui.py:15 → diagnostic_capture._state()；I4 task_center_ui 已在 L4，随 I20 __all__ 落地收口。"
+  },
+  {
+   "id": "LR-07",
+   "title": "L1 只放横切能力且只抛技术异常",
+   "description": "L1 不持业务状态、不含业务语义；只抛 contract.infra_errors 技术异常（I6 建层级）。",
+   "guard": [
+    "tests/architecture/test_layer_relations.py",
+    "tests/architecture/test_infra_errors_boundary.py",
+    "tests/test_infra_errors.py"
+   ],
+   "metric": "L1 中 raise 节点异常表达式含 CJK 字符串且异常类型非 contract.infra_errors 族（含其子类）的处数；I6 起生效",
+   "violations": 184,
+   "baseline": 184,
+   "note": "I7（本轮）迁移 request_ledger/comfy_service/unit_of_work 三模块 71 处内置异常 raise 至 infra_errors 族（含模块自有子类多重继承兼容），实测 257→186；I9a 迁移 agent/core.command() 4 处至 ProcessError，实测 186→184；I10–I11 续迁下调。"
+  },
+  {
+   "id": "LR-08",
+   "title": "9 项横切能力强制不可绕过",
+   "description": "HTTP、JSON 读写、删除、子进程、线程、日志、密钥、磁盘空间检查、时钟各有门禁；缺门禁项计违规。",
+   "guard": [
+    "tests/architecture/test_http_boundary.py",
+    "tests/architecture/test_json_io_boundary.py",
+    "tests/architecture/test_deletion_gateway.py",
+    "tests/architecture/test_platform_process_boundary.py",
+    "tests/architecture/test_secret_sink_audit.py",
+    "tests/architecture/test_thread_boundary.py",
+    "tests/architecture/test_log_sink_boundary.py",
+    "tests/architecture/test_resources.py",
+    "tests/architecture/test_clock_boundary.py"
+   ],
+   "metric": "9 项中无守卫测试的能力数",
+   "violations": 2,
+   "baseline": 2,
+   "note": "已有守卫：HTTP、JSON、删除、子进程、线程（I10 新建棘轮、I11 迁移清零）、日志（I12 test_log_sink_boundary）、密钥；缺：磁盘空间（I15 test_resources）、时钟（待 L0 端口 test_clock_boundary）。"
+  },
+  {
+   "id": "LR-09",
+   "title": "L1 公开接口为准契约",
+   "description": "L1 模块须有 __all__ 并登记契约清单；破坏性变更走弃用周期（依赖 G-A1/G-A2）。",
+   "guard": [
+    "tests/architecture/test_layer_relations.py",
+    "tests/architecture/test_contract_manifest.py"
+   ],
+   "metric": "无 __all__ 的 L1 模块数",
+   "violations": 56,
+   "baseline": 56,
+   "note": "I3 后 56；__all__ 待 I20，端口协议待 G-A4。"
+  },
+  {
+   "id": "LR-10",
+   "title": "每个 L1 模块可被替换",
+   "description": "上层依赖的能力有 L0 端口协议或稳定 __all__ 接口，测试可注入替身；I26 抽查。",
+   "guard": [
+    "tests/architecture/test_layer_relations.py"
+   ],
+   "metric": "无 __all__ 且无 L0 端口协议的 L1 模块数",
+   "violations": 56,
+   "baseline": 56,
+   "note": "I3 后 56；__all__ 待 I20，端口协议待 G-A4。"
+  }
+ ]
+}

@@ -18,12 +18,11 @@
 免得把子命令的开关误报成「漂了」。`-p` 那一次的判据也按引擎分——claude 看标准输出那份 JSON，
 codex 看 `-o` 写出的报告（真机实测：codex 的标准输出是过程日志，不是 JSON）。
 
-跑法（在程序根目录）：
-    python engine_probe.py                    # 验 Claude Code，并落台账
-    python engine_probe.py --engine codex
-    python engine_probe.py --dry-run          # 只报「装在哪／参数长什么样」，不真跑
-    python engine_probe.py --program <某个 .exe>
-    python engine_probe.py --json             # 顺带把整条记录打到屏幕上
+跑法（在程序根目录；「程序真会拼的那串参数」由 L3 组装点注入——应用内
+workflow_engines 导入即完成登记；裸跑本文件未注入时结论是明确的「未配置」）：
+    python -c "import orchestrator.workflow_engines, infra.engine_probe as e; raise SystemExit(e.main())"
+    python -c "import orchestrator.workflow_engines, infra.engine_probe as e; raise SystemExit(e.main(['--engine','codex']))"
+    # 其余选项见 USAGE：--dry-run／--program／--json／--no-record／--model
 """
 import json
 import os
@@ -85,14 +84,29 @@ def locate(engine, program='', which=None, home=None):
 
 
 # ── 程序会传的那串参数 ────────────────────────────────────────────────────────
-def app_argv(engine, exe, project, output, report, model=''):
-    """程序真会拼的那串参数：**向 workflow_engines 要**，不在这儿另抄一份。
+# I3b（L1 任务书）：L1 不得反向依赖 L3 workflow_engines；「程序真会拼的那串参数」
+# 由 L3 组装点经 register_command_builder 注入（workflow_engines 导入时自登记）。
+# 未注入时 app_argv 返回明确的「未配置」错误，不抛 AttributeError。
+_COMMAND_BUILDER = None
+
+
+def register_command_builder(builder):
+    """登记「程序真会拼的那串参数」构造器，签名同 workflow_engines.background_command。"""
+    global _COMMAND_BUILDER
+    _COMMAND_BUILDER = builder
+
+
+def app_argv(engine, exe, project, output, report, model='', command_builder=None):
+    """程序真会拼的那串参数：**向注入的构造器要**，不在这儿另抄一份。
 
     第一条换成我们要跑的那支 CLI（`find_program` 见到 program 就原样返回，不校验存在）。
     """
-    import orchestrator.workflow_engines as workflow_engines
+    builder = command_builder if command_builder is not None else _COMMAND_BUILDER
+    if builder is None:
+        # 注入点：workflow_engines.background_command（L3/L5 组装）
+        raise ValueError('引擎命令构造器未配置：需 L3/L5 组装点注入')
     config = {'engine': engine, 'program': str(exe), 'model': model}
-    argv = workflow_engines.background_command(config, Path(project), Path(output), Path(report))
+    argv = builder(config, Path(project), Path(output), Path(report))
     return [str(item) for item in argv], config
 
 
@@ -219,7 +233,15 @@ def probe(engine='claude', program='', runner=run, which=None, home=None, model=
         row['verdict_override'] = 'handled-by-adapter'
         row['verdict'] = verdict_of(row)
         return row
-    argv, _config = app_argv(engine, located or (engine + '.exe'), folder, folder, folder / 'report.md', model=model)
+    try:
+        argv, _config = app_argv(engine, located or (engine + '.exe'), folder, folder, folder / 'report.md', model=model)
+    except ValueError as exc:
+        if '未配置' not in str(exc):
+            raise
+        row['verdict_override'] = 'not-configured'
+        row['argv_error'] = str(exc)
+        row['verdict'] = verdict_of(row)
+        return row
     row['switches'] = switches(argv)
     row['argv'] = argv
     if not located:
@@ -292,6 +314,8 @@ def summary(row):
         return '%s：由 qwen_adapter 自己解析，这一份不代跑' % label
     if verdict == 'not-run':
         return '%s：只做了静态核对（没真跑）：%s' % (label, row.get('version') or '版本未知')
+    if verdict == 'not-configured':
+        return '%s：引擎命令构造器未配置（%s）' % (label, row.get('argv_error', ''))
     head = '%s：%s（%s）' % (label, row.get('version') or '版本未知', row['located'])
     if verdict == 'verified':
         return head + '；程序要传的开关都在 --help 里，-p 那一次返回的字段也齐——真机验证通过'
@@ -365,7 +389,7 @@ def main(argv=None):
         print('  台账：%s' % record(row))
     if show:
         print(json.dumps(row, ensure_ascii=False, indent=2))
-    return 1 if row['verdict'] in ('installed-switches-missing', 'installed-one-shot-failed') else 0
+    return 1 if row['verdict'] in ('installed-switches-missing', 'installed-one-shot-failed', 'not-configured') else 0
 
 
 if __name__ == '__main__':

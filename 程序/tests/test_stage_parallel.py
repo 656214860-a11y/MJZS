@@ -324,12 +324,21 @@ class LogTests(unittest.TestCase):
         self.assertEqual(row['stage'], 'assets')
         self.assertEqual(row['status'], 'start')
 
-    def test_it_lands_in_the_stage_folder_and_reads_back(self):
+    def test_it_lands_in_the_diagnostic_log_and_legacy_files_still_read(self):
+        # I12：log_write 改走 logging 诊断总线（app.log），不再新写 jsonl；
+        # log_read 保留只读兼容，历史 agent_logs.jsonl 仍能读回。
+        with self.assertLogs('orchestrator.stage_parallel', level='INFO') as caught:
+            self.assertIsNone(spec.log_write(Path('x'), 'video', 'dispatch', 'start', '批次 B01', at=0))
+        self.assertEqual(len(caught.output), 1)
+        row = json.loads(caught.output[0].split(':', 2)[2])
+        self.assertEqual((row['stage'], row['task'], row['status']), ('video', 'dispatch', 'start'))
+        self.assertIn('批次 B01', spec.log_line(row))
         with tempfile.TemporaryDirectory() as td:
             proj = Path(td)
-            path = spec.log_write(proj, 'video', 'dispatch', 'start', '批次 B01', at=0)
-            self.assertEqual(path.name, 'video.agent_logs.jsonl')
-            self.assertEqual(path.parent, proj / 'logs')
+            path = spec.log_path(proj, 'video')
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(spec.log_row('video', 'dispatch', 'start', '批次 B01', at=0),
+                                       ensure_ascii=False) + '\n', encoding='utf-8')
             rows = spec.log_read(proj, 'video')
             self.assertEqual(len(rows), 1)
             self.assertEqual((rows[0]['stage'], rows[0]['task'], rows[0]['status']), ('video', 'dispatch', 'start'))
@@ -565,8 +574,10 @@ class AgentWiringTests(unittest.TestCase):
         self.assertFalse(self.agent.release(ticket))
 
     def test_the_stage_log_lands_in_the_project(self):
-        path = self.agent.log_stage('assets', 'submit', 'start', '3 项', at=0)
-        self.assertTrue(Path(path).is_file())
+        # I12：阶段日志改走 app.log 诊断总线，返回值兼容为 None，内存行照旧。
+        with self.assertLogs('orchestrator.stage_parallel', level='INFO'):
+            path = self.agent.log_stage('assets', 'submit', 'start', '3 项', at=0)
+        self.assertIsNone(path)
         self.assertEqual(self.agent.agent_logs[-1]['stage'], 'assets')
 
     def test_the_gate_answers_in_plain_words(self):

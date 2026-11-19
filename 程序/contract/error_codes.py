@@ -54,6 +54,12 @@ _ITEMS = (
     ErrorCode('E-CANCELLED', Severity.INFO, False, '操作已取消', '无需处理，需要时重新发起'),
     ErrorCode('E-IO-WRITE', Severity.WARN, True, '写入文件失败', '检查磁盘空间与目录权限'),
     ErrorCode('E-TOOL-MISSING', Severity.DEGRADED, False, '缺少外部工具', '在配置中指定 ffmpeg 等工具路径'),
+    ErrorCode('E-IO-READ', Severity.WARN, True, '读取文件失败', '检查文件是否被占用、权限或路径'),
+    ErrorCode('E-IO-CORRUPT', Severity.DEGRADED, False, '数据已损坏或不完整', '从备份恢复或重新生成'),
+    ErrorCode('E-TOOL-FAILED', Severity.DEGRADED, True, '外部工具执行失败', '查看工具输出后重试'),
+    ErrorCode('E-TOOL-TIMEOUT', Severity.DEGRADED, True, '外部工具执行超时', '检查工具状态或调大超时后重试'),
+    ErrorCode('E-CONFIG-INVALID', Severity.WARN, False, '配置无效或缺失', '检查对应配置项后重试'),
+
 )
 
 CODES: dict[str, ErrorCode] = {item.code: item for item in _ITEMS}

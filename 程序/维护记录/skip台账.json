@@ -2916,6 +2916,33 @@
    "reason_constant": "PLATFORM_WINDOWS_ONLY",
    "reason": "平台限制：受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
    "reference": ""
+  },
+  {
+   "file": "tests/test_process_supervisor.py",
+   "test": "JobObjectSupervisionTests.setUp",
+   "ordinal": 1,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_JOB_OBJECT",
+   "reason": "平台限制：当前 Windows 环境无法创建 Job Object；支持 Job Object 的 Windows 环境应恢复执行",
+   "reference": ""
+  },
+  {
+   "file": "tests/test_process_supervisor.py",
+   "test": "JobObjectSupervisionTests.test_assign_to_job_refuses_self_and_non_children",
+   "ordinal": 1,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_JOB_OBJECT",
+   "reason": "平台限制：当前 Windows 环境无法创建 Job Object；支持 Job Object 的 Windows 环境应恢复执行",
+   "reference": ""
+  },
+  {
+   "file": "tests/test_process_supervisor.py",
+   "test": "JobObjectSupervisionTests",
+   "ordinal": 1,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_WINDOWS_ONLY",
+   "reason": "平台限制：受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+   "reference": ""
   }
  ]
 }

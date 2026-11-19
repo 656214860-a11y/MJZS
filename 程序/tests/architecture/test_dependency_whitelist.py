@@ -1,4 +1,4 @@
-"""依赖门禁：生产六包必装且精确锁版，开发工具只允许、不要求安装。
+"""依赖门禁：生产八包必装且精确锁版，开发工具只允许、不要求安装。
 
 生产版本唯一来源为 requirements.txt；仅发现当前解释器 purelib 内的
 第三方 distribution，不扫描用户 site-packages，也不导入待核验的库。
@@ -105,9 +105,10 @@ class DependencyValidationTests(unittest.TestCase):
     def setUp(self):
         self.production = production_requirements()
 
-    def test_production_lock_has_exactly_six_packages(self):
+    def test_production_lock_has_exactly_eight_packages(self):
         self.assertEqual(set(self.production), {
             "requests", "urllib3", "certifi", "charset-normalizer", "idna", "pillow",
+            "psutil", "nvidia-ml-py",
         })
         self.assertTrue(all(self.production.values()))
         self.assertFalse(set(self.production) & set(DEVELOPMENT_OPTIONAL))

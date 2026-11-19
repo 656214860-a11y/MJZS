@@ -1030,10 +1030,12 @@ class WritingApiTests(unittest.TestCase):
             def chat(self, messages, options=None, model='', system=''):
                 self.calls += 1
                 return {'ok': True, 'status': 200, 'text': '', 'data': {'content': []}, 'usage': {}}
-        with tempfile.TemporaryDirectory() as td, patch.object(writing_api, 'EMPTY_RESPONSE_LOG', Path(td) / 'meta.log'):
+        # I12：空响应元数据改走 logging 诊断总线（app.log），不再单独落盘。
+        with tempfile.TemporaryDirectory() as td:
             adapter = Adapter()
-            result = writing_api._reply_with_project_tools(adapter, 'claude-test', 'system', '任务', td)
-            self.assertTrue((Path(td) / 'meta.log').is_file())
+            with self.assertLogs('writing_api', level='INFO') as caught:
+                result = writing_api._reply_with_project_tools(adapter, 'claude-test', 'system', '任务', td)
+        self.assertTrue(any('block_types' in line for line in caught.output))
         self.assertEqual(adapter.calls, 2)
         self.assertEqual(result['text'], '')
 

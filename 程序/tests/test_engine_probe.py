@@ -93,6 +93,34 @@ class ContractTests(unittest.TestCase):
                           'workflow_engines 拼出来的参数里该有 %s' % flag)
         self.assertEqual(argv[0], 'CLI.exe', '第一条就是我们要跑的那支 CLI')
 
+    def test_app_argv_without_injected_builder_reports_not_configured(self):
+        # I3-2：未注入构造器时返回明确「未配置」，不抛 AttributeError。
+        with mock.patch.object(engine_probe, '_COMMAND_BUILDER', None):
+            with self.assertRaises(ValueError) as ctx:
+                engine_probe.app_argv('claude', 'CLI.exe', '项目', '输出', '报告')
+        self.assertIn('未配置', str(ctx.exception))
+
+    def test_an_explicit_command_builder_wins(self):
+        seen = {}
+
+        def builder(config, project, output, report):
+            seen.update(config=config, project=project)
+            return ['cli.exe', '-p']
+
+        argv, config = engine_probe.app_argv('claude', 'CLI.exe', '项目', '输出', '报告',
+                                             model='m', command_builder=builder)
+        self.assertEqual(argv, ['cli.exe', '-p'])
+        self.assertEqual(config, {'engine': 'claude', 'program': 'CLI.exe', 'model': 'm'})
+        self.assertEqual(seen['project'], Path('项目'))
+
+    def test_register_command_builder_installs_the_builder(self):
+        previous = engine_probe._COMMAND_BUILDER
+        try:
+            engine_probe.register_command_builder(lambda *args: ['cli.exe'])
+            self.assertEqual(engine_probe._COMMAND_BUILDER(['x'], 'p', 'o', 'r'), ['cli.exe'])
+        finally:
+            engine_probe.register_command_builder(previous)
+
     def test_the_help_goes_to_the_subcommand_the_program_uses(self):
         """`codex --help` 不列 exec 的开关：问错一层会把好好的契约误报成漂了（真机踩过）。"""
         self.assertEqual(
@@ -188,6 +216,25 @@ class VerdictTests(unittest.TestCase):
     def test_qwen_is_left_to_its_own_adapter(self):
         row = engine_probe.probe('qwen')
         self.assertEqual(row['verdict'], 'handled-by-adapter')
+
+    def test_probe_without_builder_reports_not_configured(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.object(engine_probe, '_COMMAND_BUILDER', None):
+                row = engine_probe.probe('claude', which=lambda name: None,
+                                         home=Path(tmp), workdir=tmp)
+        self.assertEqual(row['verdict'], 'not-configured')
+        self.assertIn('未配置', row['argv_error'])
+        self.assertIn('未配置', engine_probe.summary(row))
+        self.assertFalse(row['ran'])
+
+    def test_probe_reraises_errors_that_are_not_configuration(self):
+        def bad_builder(*args):
+            raise ValueError('别的毛病')
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.object(engine_probe, '_COMMAND_BUILDER', bad_builder):
+                with self.assertRaises(ValueError):
+                    engine_probe.probe('claude', which=lambda name: None,
+                                       home=Path(tmp), workdir=tmp)
 
     def codex_runner(self, help_text, reply):
         """造一支「codex 样子」的 CLI：答案写进 -o 指定的那份报告，标准输出是过程日志。"""
@@ -323,7 +370,7 @@ class MainTests(unittest.TestCase):
 
     def test_failed_verdicts_exit_one(self):
         for verdict, expected in (('installed-switches-missing', 1), ('installed-one-shot-failed', 1),
-                                  ('not-installed', 0)):
+                                  ('not-configured', 1), ('not-installed', 0)):
             self.assertEqual(self._main(['--no-record'], verdict=verdict)[0], expected, verdict)
 
 

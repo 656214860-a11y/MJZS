@@ -5,6 +5,8 @@ import time
 from enum import Enum
 from pathlib import Path
 
+import infra.executors as executors
+
 
 BUBBLE_COLLAPSE_CHARS = 360
 BUBBLE_COLLAPSE_LINES = 8
@@ -343,7 +345,7 @@ class IdeaChatController:
                 self._attachment_results.put((token, True, prepared))
             except (OSError, ValueError) as exc:
                 self._attachment_results.put((token, False, str(exc)))
-        threading.Thread(target=work, daemon=True).start()
+        executors.submit('io', work, label='idea-attachment-prep')
         return token
 
     def poll_attachment_preparation(self):

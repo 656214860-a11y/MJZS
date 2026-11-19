@@ -57,6 +57,7 @@ from pathlib import Path
 import infra.app_logging as app_logging
 from agent.core import restore_bytes, save_file, save_text
 from infra.file_cache import published, read_json, remove_temporary_file, remove_temporary_tree
+from contract.infra_errors import ConfigError, CorruptDataError, InfraError, ProcessError, StorageError
 
 # journal 根：程序私有运行数据（与 agent/publication 的 transactions 同区性质），
 # 测试可 patch 本常量隔离到临时目录。
@@ -71,16 +72,24 @@ _ACTIVE = set()                    # 本进程持有的 journal 目录（str）�
 _logger = logging.getLogger(__name__)
 
 
-class RollbackFailedError(RuntimeError):
+class RollbackFailedError(ProcessError):
     """``rollback`` 未能恢复全部登记路径。
 
     ``failures`` 是 ``(路径, 异常)`` 列表；journal 与令牌保持 ``active``，
     调用方可修复现场后重试 ``rollback(token)``，或交给下次 ``begin`` 的自动恢复。
+    兼容 ``except RuntimeError``（I7 迁移至 infra_errors 进程族）。
     """
 
-    def __init__(self, message, failures=()):
-        super().__init__(message)
+    def __init__(self, message, failures=(), **kwargs):
+        super().__init__(message, **kwargs)
         self.failures = list(failures)
+
+
+class _TokenTypeError(InfraError, TypeError):
+    """``commit``/``rollback`` 收到非 ``begin()`` 产物的令牌；兼容 ``except TypeError``。"""
+
+    code = 'E-CONFIG-INVALID'
+    _allowed = frozenset({'E-CONFIG-INVALID'})
 
 
 class _Token:
@@ -122,7 +131,7 @@ def _locking():
     本模块只做硬性前置检查（``test_import_error_boundaries`` 门禁）。
     """
     if os.name != 'nt':
-        raise RuntimeError('unit_of_work 事务锁仅支持随附 Windows 运行环境')
+        raise ProcessError('unit_of_work 事务锁仅支持随附 Windows 运行环境')
     import msvcrt
     return msvcrt
 
@@ -209,13 +218,13 @@ def _check_supported(path):
     except FileNotFoundError:
         return
     if stat.S_ISLNK(info.st_mode):
-        raise ValueError('事务原语不支持符号链接：' + path.name)
+        raise ConfigError('事务原语不支持符号链接：' + path.name)
     if getattr(info, 'st_file_attributes', 0) & _REPARSE_POINT:
-        raise ValueError('事务原语不支持联接点／重解析点：' + path.name)
+        raise ConfigError('事务原语不支持联接点／重解析点：' + path.name)
     if stat.S_ISDIR(info.st_mode):
-        raise ValueError('事务原语只登记文件，不登记目录：' + path.name)
+        raise ConfigError('事务原语只登记文件，不登记目录：' + path.name)
     if not stat.S_ISREG(info.st_mode):
-        raise ValueError('事务原语只支持普通文件：' + path.name)
+        raise ConfigError('事务原语只支持普通文件：' + path.name)
 
 
 def _prepare_paths(paths):
@@ -238,7 +247,7 @@ def _prepare_paths(paths):
 
 def _check_token(token):
     if not isinstance(token, _Token):
-        raise TypeError('unit_of_work 令牌必须来自 begin()')
+        raise _TokenTypeError('unit_of_work 令牌必须来自 begin()')
 
 
 def _release_files(token):
@@ -262,24 +271,24 @@ def _restore_entry(journal_dir, entry):
     raw = entry.get('path')
     candidate = Path(raw) if isinstance(raw, str) else None
     if candidate is None or not candidate.is_absolute():
-        raise ValueError('journal 登记路径无效')
+        raise CorruptDataError('journal 登记路径无效')
     # 不再 resolve()：begin 时登记的已是解析后绝对路径；此处若跟随符号链接，
     # 事务窗口内被换成链接的路径会把恢复写到链接目标、越出登记范围。
     target = candidate
     if entry.get('existed'):
         backup = entry.get('backup')
         if not isinstance(backup, str):
-            raise ValueError('journal 备份名无效')
+            raise CorruptDataError('journal 备份名无效')
         source = Path(journal_dir) / backup
         if source.parent != Path(journal_dir) or not source.is_file():
-            raise ValueError('journal 备份缺失或越界')
+            raise CorruptDataError('journal 备份缺失或越界')
         save_file(target, source)
     else:
         restore_bytes(target, None)
         if os.path.lexists(target):
             # remove_temporary_file 对 OSError 静默返回 False；删不掉必须如实记失败，
             # 否则「原本不存在」的路径会带着事务产物被当成已恢复、journal 还被清掉。
-            raise OSError('原本不存在的登记路径删除失败')
+            raise StorageError('原本不存在的登记路径删除失败')
     published(target)
 
 
@@ -413,7 +422,7 @@ def commit(token: object) -> None:
         if token.state == 'committed':
             return
         if token.state == 'rolled_back':
-            raise ValueError('事务已回滚，不能再提交')
+            raise ConfigError('事务已回滚，不能再提交')
         # 提交点：manifest 改写为 committed——此后 journal 即使残留，自动恢复
         # 也只清目录、绝不回滚目标。用原子写而非删文件：写失败抛出时 manifest
         # 仍是 pending，令牌保持 active 可回滚；物理删除统一走 file_cache。

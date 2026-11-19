@@ -1,0 +1,15 @@
+{
+  "round": 3396,
+  "commit_base": "0ae2c654",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k layer_relations layers gate_selfaudit rule_guard_map",
+    "exit": 0,
+    "passed": 44,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T19:54:03"
+}

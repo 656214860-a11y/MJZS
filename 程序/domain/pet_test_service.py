@@ -14,8 +14,8 @@ from pathlib import Path
 
 import contract.stage_layout as stage_layout
 from agent.core import read_json
-from contract.platform_tools import launch_background, run_process
 from contract.project_context import ProjectContext
+from infra.workflow_process_registry import forget_process, spawn
 
 LEDGER_PATH = (stage_layout.WORKFLOW_DIR, '宠物', '测试.json')
 KEEP = 30
@@ -76,10 +76,14 @@ def run_incremental(program, context, text='', executable=None, invoke=None, at=
     program = Path(program)
     repeats = repeat_count(text)
     command = [str(executable or sys.executable), 'run_selftests.py', '--incremental']
-    invoke = invoke or (lambda args, cwd: run_process(
-        args, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-        text=True, encoding='utf-8', errors='replace', check=False,
-        run=subprocess.run))
+    def invoke_default(args, cwd):
+        sup = spawn('test_runner', args, project=cwd, stage='pet-test',
+                    timeout=1800, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                    text=True, encoding='utf-8', errors='replace')
+        out, _err = sup.communicate(timeout=1800)
+        return type('Completed', (), {'returncode': sup.process.returncode,
+                                      'stdout': out})()
+    invoke = invoke or invoke_default
     runs = [result_of(invoke(command, program), index + 1) for index in range(repeats)]
     item = record(context, runs, at=at, publish=publish)
     failed = [name for row in runs for name in row['failures']]
@@ -95,15 +99,15 @@ def start_incremental(program, text='', executable=None, popen=None):
     program = Path(program)
     output = tempfile.TemporaryFile(mode='w+b')
     command = [str(executable or sys.executable), 'run_selftests.py', '--incremental']
-    popen = popen or subprocess.Popen
     try:
-        process = launch_background(command, cwd=program, stdout=output,
-                                    stderr=subprocess.STDOUT, popen=popen)
+        sup = spawn('test_runner', command, project=program, stage='pet-test',
+                    timeout=1800, stdout=output, stderr=subprocess.STDOUT,
+                    popen=popen)
     except Exception:
         output.close()
         raise
-    return {'program': program, 'command': command, 'process': process, 'output': output,
-            'repeats': repeat_count(text), 'runs': []}
+    return {'program': program, 'command': command, 'process': sup.process,
+            'output': output, 'repeats': repeat_count(text), 'runs': []}
 
 
 def poll_incremental(session, context, at=None, publish=None):
@@ -111,6 +115,7 @@ def poll_incremental(session, context, at=None, publish=None):
     process = session['process']
     if process.poll() is None:
         return None
+    forget_process(session['program'], process)
     output = session['output']
     try:
         output.seek(0)

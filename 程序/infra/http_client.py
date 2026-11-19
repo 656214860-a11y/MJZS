@@ -11,9 +11,12 @@
 import json as _json
 import random as _random
 import time as _time
+import urllib.parse as _parse
 
-from contract.error_codes import code_data, lookup
+from contract.error_codes import code_data, code_of, lookup
 from contract.service_contract import ServiceResult, success
+
+import infra.metrics as metrics
 
 MAX_BODY_BYTES = 32 * 1024 * 1024
 ERROR_BODY_MAX_BYTES = 64 * 1024
@@ -177,8 +180,13 @@ def request_json(method, url, *, headers=None, payload=None, timeout, **opts):
     """
     request_headers = dict(headers or {})
     request_headers.setdefault('Content-Type', 'application/json')
+    started = _time.monotonic()
     result = _request(method, url, headers=request_headers, payload=payload,
                       timeout=timeout, caller='request_json', **opts)
+    metrics.observe('http.request', (_time.monotonic() - started) * 1000.0,
+                    provider=_parse.urlparse(url).hostname or '',
+                    outcome='ok' if result.ok else 'error',
+                    error_code=code_of(result))
     if not result.ok:
         return result
     data = result.data if isinstance(result.data, dict) else {}
@@ -203,8 +211,14 @@ def request_bytes(method, url, *, headers=None, payload=None, timeout, **opts):
     request_headers = dict(headers or {})
     if payload is not None:
         request_headers.setdefault('Content-Type', 'application/json')
-    return _request(method, url, headers=request_headers, payload=payload,
-                    timeout=timeout, caller='request_bytes', **opts)
+    started = _time.monotonic()
+    result = _request(method, url, headers=request_headers, payload=payload,
+                      timeout=timeout, caller='request_bytes', **opts)
+    metrics.observe('http.request', (_time.monotonic() - started) * 1000.0,
+                    provider=_parse.urlparse(url).hostname or '',
+                    outcome='ok' if result.ok else 'error',
+                    error_code=code_of(result))
+    return result
 
 
 def _describe(code):

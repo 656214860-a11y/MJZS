@@ -197,6 +197,13 @@ def export(destination: str | Path) -> Path:
                 raise ValueError("诊断包仍含凭据形态，已拒绝导出。")
             archive.writestr(member, cleaned)
             manifest.append(member)
+        try:
+            import infra.metrics as metrics
+            payload = _clean(json.dumps(metrics.export_snapshot(), ensure_ascii=False, sort_keys=True))
+            archive.writestr('logs/metrics_summary.json', payload)
+            manifest.append('logs/metrics_summary.json')
+        except Exception:
+            app_logging.swallowed('diagnostic_capture.metrics-export')
         archive.writestr("manifest.json", json.dumps({"included": manifest, "secret_policy": "redacted"}, ensure_ascii=False))
     output = Path(destination)
     if output.suffix.lower() != ".zip":
