@@ -46,6 +46,7 @@ from infra.workflow_process_registry import spawn, forget_process
 import tkinter as tk
 from pathlib import Path
 from infra.file_cache import read_json, remove_temporary_file
+from infra import prefetch as _prefetch
 from agent.core import save, save_bytes
 
 DEFAULT_SIZE = 36
@@ -363,13 +364,23 @@ def request_media(master, key, path, size, stamp, token, configured=None):
 
 
 def prefetch_media(master, paths, size=DEFAULT_SIZE, configured=None):
-    """一批文件里的视频／音频后台预生成封面（面板打开、发布或导入完成时补齐）。"""
+    """一批文件里的视频／音频后台预生成封面（面板打开、发布或导入完成时补齐）。
+
+    I22 试点：登记完成后把这批源文件投进 io 池低优先级暖系统页缓存——
+    后台 worker／ffmpeg 下次读时命中页缓存。受内存／活跃／关闭开关三闸约束，
+    调度不上静默放弃；``master``／Tk 一概不进后台。
+    """
     count = 0
+    media_paths = []
     for path in paths:
         if media_kind(path) is None:
             continue
         media_thumbnail(master, path, size=size, configured=configured)
+        media_paths.append(path)
         count += 1
+    if media_paths:
+        _prefetch.schedule(lambda: _prefetch.warm_files(media_paths),
+                           label='asset_thumbs.prefetch')
     return count
 
 

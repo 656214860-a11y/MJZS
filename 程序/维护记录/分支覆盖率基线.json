@@ -103,8 +103,8 @@
     "tests.test_writing_api"
   ],
   "tests_ok": true,
-  "points_total": 2986,
-  "points_covered": 1650,
+  "points_total": 2996,
+  "points_covered": 1658,
   "modules": [
     {
       "module": "account_store.py",
@@ -473,6 +473,12 @@
       "percent": 42.5
     },
     {
+      "module": "prefetch.py",
+      "points": 10,
+      "covered": 8,
+      "percent": 80.0
+    },
+    {
       "module": "production_model_contract.py",
       "points": 0,
       "covered": 0,
@@ -719,6 +725,6 @@
       "percent": 67.6
     }
   ],
-  "modules_total": 102,
+  "modules_total": 103,
   "modules_covered": 76
 }
