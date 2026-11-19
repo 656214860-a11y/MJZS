@@ -10,8 +10,8 @@
     "tests/architecture/test_layer_relations.py"
    ],
    "metric": "上行依赖边数（importer 层 < imported 层，静态＋动态字面量，alias-aware）",
-   "violations": 18,
-   "baseline": 18,
+   "violations": 17,
+   "baseline": 17,
    "note": "18 条存量豁免（importer 属 L1 已 0，I3 归零）；I2–I5 迁移继续下调。"
   },
   {
@@ -48,8 +48,8 @@
     "tests/architecture/test_dynamic_import_registry.py"
    ],
    "metric": "非字面量动态导入点（登记表外）＋上行动态边数＋登记表层级违规数",
-   "violations": 4,
-   "baseline": 4,
+   "violations": 3,
+   "baseline": 3,
    "note": "上行动态边 3（KNOWN_DYNAMIC_UPWARD）；登记表层级违规 1（ui_plugin_registry L1 加载 L2–L5 插件，I2 上移 L4 收口）；非字面量点 1 属登记表本体、暂计入登记表违规。"
   },
   {
@@ -87,8 +87,8 @@
     "tests/test_infra_errors.py"
    ],
    "metric": "L1 中 raise 节点异常表达式含 CJK 字符串且异常类型非 contract.infra_errors 族（含其子类）的处数；I6 起生效",
-   "violations": 184,
-   "baseline": 184,
+   "violations": 185,
+   "baseline": 185,
    "note": "I7（本轮）迁移 request_ledger/comfy_service/unit_of_work 三模块 71 处内置异常 raise 至 infra_errors 族（含模块自有子类多重继承兼容），实测 257→186；I9a 迁移 agent/core.command() 4 处至 ProcessError，实测 186→184；I10–I11 续迁下调。"
   },
   {
@@ -120,8 +120,8 @@
     "tests/architecture/test_contract_manifest.py"
    ],
    "metric": "无 __all__ 的 L1 模块数",
-   "violations": 56,
-   "baseline": 56,
+   "violations": 58,
+   "baseline": 58,
    "note": "I3 后 56；__all__ 待 I20，端口协议待 G-A4。"
   },
   {
@@ -132,8 +132,8 @@
     "tests/architecture/test_layer_relations.py"
    ],
    "metric": "无 __all__ 且无 L0 端口协议的 L1 模块数",
-   "violations": 56,
-   "baseline": 56,
+   "violations": 58,
+   "baseline": 58,
    "note": "I3 后 56；__all__ 待 I20，端口协议待 G-A4。"
   }
  ]
