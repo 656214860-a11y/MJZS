@@ -1,0 +1,147 @@
+{
+ "round": 3749,
+ "collected_at": "2026-11-19T13:57:25+0800",
+ "base": "C:\\Users\\LAIBIAO\\.codex\\worktrees\\5650\\_accept_c",
+ "artifacts": {
+  "old": {
+   "version": "V0.7",
+   "commit": "86e863bb8ef2b1eb652ec12ac2e1921039a227e0",
+   "round": 3705,
+   "files": 4070,
+   "bytes": 458283887
+  },
+  "new": {
+   "version": "V0.7",
+   "commit": "f156999a3d9916c035ffaf563eda87163792e36b",
+   "round": 3739,
+   "files": 4071,
+   "bytes": 458295975
+  }
+ },
+ "version_diff_summary": {
+  "added": 1,
+  "removed": 0,
+  "changed": 6
+ },
+ "summary": {
+  "total": 15,
+  "pass": 15,
+  "fail": 0,
+  "skip": 0
+ },
+ "operations": [
+  {
+   "at": "13:53:18",
+   "op": "load digests"
+  },
+  {
+   "at": "13:53:18",
+   "op": "install old artifact -> install/"
+  },
+  {
+   "at": "13:53:25",
+   "op": "hash manifests"
+  },
+  {
+   "at": "13:54:15",
+   "op": "open project under OLD install"
+  },
+  {
+   "at": "13:54:16",
+   "op": "snapshot install -> snap_pre/"
+  },
+  {
+   "at": "13:55:20",
+   "op": "failed upgrade: overlay ~50% of new artifact then abort + damage files"
+  },
+  {
+   "at": "13:55:53",
+   "op": "rollback: restore snap_pre -> install/"
+  },
+  {
+   "at": "13:56:39",
+   "op": "successful upgrade: full overlay of new artifact"
+  },
+  {
+   "at": "13:57:25",
+   "op": "open project under NEW install"
+  }
+ ],
+ "results": [
+  {
+   "name": "artifact_old_identity",
+   "ok": true,
+   "detail": "version=V0.7 commit=86e863bb round=3705 files=4070 bytes=458283887"
+  },
+  {
+   "name": "artifact_new_identity",
+   "ok": true,
+   "detail": "version=V0.7 commit=f156999a round=3739 files=4071 bytes=458295975"
+  },
+  {
+   "name": "version_diff_surface",
+   "ok": true,
+   "detail": "added=1 removed=0 changed=6 sample_changed=['程序/domain/writing_stream.py', '程序/infra/model_metering.py', '程序/runbook.md', '程序/说明/产品需求规格.md', '程序/说明/工程文档登记表.md']"
+  },
+  {
+   "name": "install_fixtures",
+   "ok": true,
+   "detail": "install_files=4078 project_files=16 user_markers=4"
+  },
+  {
+   "name": "open_project_old_version",
+   "ok": true,
+   "detail": "{\"ok\": true, \"episode_path\": \"C:\\\\Users\\\\LAIBIAO\\\\.codex\\\\worktrees\\\\5650\\\\_accept_c\\\\projects\\\\???վ???Ŀ_v1\\\\episode\\\\episode.json\", \"episode_id\": \"EP001\", \"shots\": 1}"
+  },
+  {
+   "name": "snapshot_identical",
+   "ok": true,
+   "detail": "files=4079 identical_to_pre_copy=True runtime_added_by_open=['程序/outputs/publication-transactions/writer.lock']"
+  },
+  {
+   "name": "failed_upgrade_detected",
+   "ok": true,
+   "detail": "copied=2035/4072 aborted=True damaged=app.py+desktop.py digest_mismatch_vs_new=2 diff_vs_snapshot=10"
+  },
+  {
+   "name": "rollback_hashes_match",
+   "ok": true,
+   "detail": "files=4079 identical_to_snapshot=True"
+  },
+  {
+   "name": "open_project_after_rollback",
+   "ok": true,
+   "detail": "{\"ok\": true, \"episode_path\": \"C:\\\\Users\\\\LAIBIAO\\\\.codex\\\\worktrees\\\\5650\\\\_accept_c\\\\projects\\\\???վ???Ŀ_v1\\\\episode\\\\episode.json\", \"episode_id\": \"EP001\", \"shots\": 1}"
+  },
+  {
+   "name": "upgrade_overlay_complete",
+   "ok": true,
+   "detail": "copied=4072/4072"
+  },
+  {
+   "name": "program_files_match_new_digest",
+   "ok": true,
+   "detail": "mismatch=0 extra_non_program=8"
+  },
+  {
+   "name": "user_data_preserved",
+   "ok": true,
+   "detail": "changed=[] missing=[]"
+  },
+  {
+   "name": "old_project_files_untouched",
+   "ok": true,
+   "detail": "changed=['config.json'] non_config_changed=[] config_selfheal kept_fixture=False added_keys=['episode_file'] （config.json 指针自愈写回属设计内行为，见 test_project_open.py）"
+  },
+  {
+   "name": "open_project_new_version",
+   "ok": true,
+   "detail": "{\"ok\": true, \"episode_path\": \"C:\\\\Users\\\\LAIBIAO\\\\.codex\\\\worktrees\\\\5650\\\\_accept_c\\\\projects\\\\???վ???Ŀ_v1\\\\episode\\\\episode.json\", \"episode_id\": \"EP001\", \"shots\": 1}"
+  },
+  {
+   "name": "old_project_compatible_with_new",
+   "ok": true,
+   "detail": "episode_id=EP001 shots=1"
+  }
+ ]
+}
