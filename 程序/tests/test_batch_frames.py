@@ -92,6 +92,7 @@ class ComfyServiceUrlTests(unittest.TestCase):
     def test_reference_upload_failure_is_propagated_without_retry(self):
         from unittest.mock import patch
         from infra.comfy_service import Comfy
+        from contract.infra_errors import NetworkError
         from urllib.error import URLError
         from urllib.request import OpenerDirector
 
@@ -99,7 +100,7 @@ class ComfyServiceUrlTests(unittest.TestCase):
             path = Path(folder) / 'reference.png'
             path.write_bytes(b'fixture')
             with patch.object(OpenerDirector, 'open', side_effect=URLError('offline')) as send:
-                with self.assertRaisesRegex(ValueError, '无法连接ComfyUI'):
+                with self.assertRaisesRegex(NetworkError, '无法连接ComfyUI'):
                     Comfy('http://localhost:8189').reference_graph('prompt', [path], {})
                 send.assert_called_once()
 

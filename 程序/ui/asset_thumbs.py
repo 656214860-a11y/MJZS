@@ -18,6 +18,7 @@ from infra.workflow_process_registry import spawn, forget_process
 import tkinter as tk
 from pathlib import Path
 from infra.file_cache import read_json, remove_temporary_file
+from infra import prefetch as _prefetch
 from agent.core import save, save_bytes
 DEFAULT_SIZE = 36
 LIMIT = 1200
@@ -64,7 +65,6 @@ def gif_size(data):
         return None
     return struct.unpack('<HH', data[6:10])
 
-
 def image_size(path):
     """这张图的（宽，高）；认不出（不是 PNG／GIF、读不到）返回 None。"""
     try:
@@ -72,7 +72,6 @@ def image_size(path):
             return _safe_size(handle.read(32))
     except OSError:
         return None
-
 
 def _safe_size(head):
     dimensions = png_size(head) or gif_size(head)
@@ -82,12 +81,10 @@ def _safe_size(head):
             return dimensions
     return None
 
-
 def factor(width, height, size=DEFAULT_SIZE):
     """subsample 的整数倍：长边不超过 size，且不放大（至少 1）。"""
     longest = max(int(width or 0), int(height or 0), 1)
     return max(1, -(-longest // max(1, min(THUMB_EDGE, int(size)))))
-
 
 def build(master, path, size=DEFAULT_SIZE):
     """后台读取首帧，校验头、释放源文件后解码有界快照，再按旧步长取样。"""
@@ -120,7 +117,6 @@ def build(master, path, size=DEFAULT_SIZE):
     except Exception:
         return None
 
-
 def _root_key(master):
     """缓存按 Tk 解释器分开：解释器换了一个，手上那张图元就不能再用了。"""
     try:
@@ -128,14 +124,12 @@ def _root_key(master):
     except Exception:
         return str(master)
 
-
 def _alive(master):
     """这个 master（Tk 根或控件）还在不在：窗口拆了之后它就一直报 False。"""
     try:
         return bool(master.winfo_exists())
     except Exception:
         return False
-
 
 def placeholder_size(path, size=DEFAULT_SIZE):
     """这张图缩完之后是多大（宽，高）；文件头读不出来（jpg／webp）返回 None。
@@ -149,7 +143,6 @@ def placeholder_size(path, size=DEFAULT_SIZE):
     step = factor(known[0], known[1], size)
     return max(1, -(-int(known[0]) // step)), max(1, -(-int(known[1]) // step))
 
-
 # ── 磁盘缓存（Round 1）──────────────────────────────────────────────────
 def cache_key(path, stamp, size):
     """这一张图在缓存里的键：路径 ＋ 改动时间 ＋ size 一起算。
@@ -158,7 +151,6 @@ def cache_key(path, stamp, size):
     """
     raw = '%s|%s|%s' % (os.path.normcase(str(path)), stamp, int(size))
     return hashlib.sha1(raw.encode('utf-8')).hexdigest()[:20]
-
 
 def cache_file(token):
     """造好的那张小图落在哪（.png）。"""
@@ -366,15 +358,25 @@ def request_media(master, key, path, size, stamp, token, configured=None):
 
 
 def prefetch_media(master, paths, size=DEFAULT_SIZE, configured=None):
-    """一批文件里的视频／音频后台预生成封面（面板打开、发布或导入完成时补齐）。"""
+    """一批文件里的视频／音频后台预生成封面（面板打开、发布或导入完成时补齐）。
+
+    I22 试点：登记完成后把这批源文件投进 io 池低优先级暖系统页缓存——
+    后台 worker／ffmpeg 下次读时命中页缓存。受内存／活跃／关闭开关三闸约束，
+    调度不上静默放弃；``master``／Tk 一概不进后台。
+    """
     count = 0
+    media_paths = []
     for path in paths:
         if len(_PENDING) >= max(0, QUEUE_LIMIT - RESULTS_PER_TICK):
             break
         if media_kind(path) is None:
             continue
         media_thumbnail(master, path, size=size, configured=configured)
+        media_paths.append(path)
         count += 1
+    if media_paths:
+        _prefetch.schedule(lambda: _prefetch.warm_files(media_paths),
+                           label='asset_thumbs.prefetch')
     return count
 
 

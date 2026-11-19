@@ -879,7 +879,7 @@
   {
    "module": "domain/offline_asr_setup.py",
    "covered": 0,
-   "total": 211,
+   "total": 210,
    "percent": 0.0
   },
   {
@@ -1197,7 +1197,7 @@
   {
    "module": "infra/cloud_assets.py",
    "covered": 0,
-   "total": 85,
+   "total": 86,
    "percent": 0.0
   },
   {
@@ -1233,7 +1233,7 @@
   {
    "module": "infra/http_client.py",
    "covered": 0,
-   "total": 202,
+   "total": 203,
    "percent": 0.0
   },
   {
@@ -1276,6 +1276,12 @@
    "module": "infra/native_asset_codec.py",
    "covered": 0,
    "total": 41,
+   "percent": 0.0
+  },
+  {
+   "module": "infra/prefetch.py",
+   "covered": 0,
+   "total": 50,
    "percent": 0.0
   },
   {
@@ -2319,7 +2325,7 @@
   {
    "module": "ui/asset_thumbs.py",
    "covered": 0,
-   "total": 740,
+   "total": 745,
    "percent": 0.0
   },
   {
@@ -3332,9 +3338,9 @@
   },
   {
    "module": "contract/platform_tools.py",
-   "covered": 105,
-   "total": 711,
-   "percent": 14.8
+   "covered": 104,
+   "total": 709,
+   "percent": 14.7
   },
   {
    "module": "orchestrator/stage_download_inbox_service.py",
@@ -3812,9 +3818,9 @@
   },
   {
    "module": "infra/file_cache.py",
-   "covered": 187,
-   "total": 278,
-   "percent": 67.3
+   "covered": 188,
+   "total": 279,
+   "percent": 67.4
   },
   {
    "module": "infra/config_snapshot.py",
@@ -3914,15 +3920,15 @@
   },
   {
    "module": "agent/publication.py",
-   "covered": 216,
-   "total": 245,
+   "covered": 217,
+   "total": 246,
    "percent": 88.2
   },
   {
    "module": "infra/executors.py",
-   "covered": 211,
+   "covered": 210,
    "total": 237,
-   "percent": 89.0
+   "percent": 88.6
   },
   {
    "module": "domain/skill_residue_service.py",
@@ -3938,9 +3944,9 @@
   },
   {
    "module": "infra/session_integrity.py",
-   "covered": 48,
-   "total": 51,
-   "percent": 94.1
+   "covered": 49,
+   "total": 52,
+   "percent": 94.2
   },
   {
    "module": "contract/diagnostics.py",
@@ -3950,9 +3956,9 @@
   },
   {
    "module": "infra/config_patch.py",
-   "covered": 27,
-   "total": 28,
-   "percent": 96.4
+   "covered": 28,
+   "total": 29,
+   "percent": 96.6
   },
   {
    "module": "contract/infra_errors.py",
@@ -4070,5 +4076,5 @@
   }
  ],
  "modules_covered": 133,
- "modules_total": 675
+ "modules_total": 676
 }

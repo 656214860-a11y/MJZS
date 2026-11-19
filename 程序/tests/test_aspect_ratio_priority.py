@@ -24,6 +24,7 @@ class CloudReferenceUploadTests(unittest.TestCase):
 
     def test_failed_upload_raises_without_retry(self):
         from infra import cloud_assets, http_client
+        from contract.infra_errors import NetworkError
 
         with tempfile.TemporaryDirectory() as td:
             image = Path(td) / 'reference.png'
@@ -32,7 +33,7 @@ class CloudReferenceUploadTests(unittest.TestCase):
             opener = mock.Mock()
             opener.open.side_effect = URLError('disconnected')
             with mock.patch.object(http_client, '_local_comfy_opener', return_value=opener):
-                with self.assertRaisesRegex(ValueError, '无法连接ComfyUI'):
+                with self.assertRaisesRegex(NetworkError, '无法连接ComfyUI'):
                     cloud_assets.graph(client, 'CHAR_001', {'reference_images': ['ref']},
                                        '提示词', [image], {'backend': 'Seedream 5.0 Pro'})
             opener.open.assert_called_once()

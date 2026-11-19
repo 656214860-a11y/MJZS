@@ -704,9 +704,12 @@ class MediaThumbTests(unittest.TestCase):
         self.no_real_worker()
         clip = self.media('clip.mp4'); voice = self.media('voice.mp3')
         self.media('notes.md'); self.media('cover.png')
-        count = asset_thumbs.prefetch_media(self.win, sorted(self.root.iterdir()))
+        with mock.patch.object(asset_thumbs._prefetch, 'schedule',
+                               return_value=True) as schedule:
+            count = asset_thumbs.prefetch_media(self.win, sorted(self.root.iterdir()))
         self.assertEqual(count, 2, '只有视频／音频进队列')
         self.assertEqual(asset_thumbs.pending(), 2)
+        schedule.assert_called_once()          # I22：媒体文件另投一条 io 池暖缓存任务
 
 
 if __name__ == "__main__":

@@ -69,6 +69,15 @@ class ReleaseRuntimeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, '缺少 RECORD'):
             release_runtime.plan(self.root, self.program)
 
+    def test_inventory_rejects_record_outside_site_packages(self):
+        (self.program / 'requirements.txt').write_text('requests==2.34.2\n', encoding='utf-8')
+        write_dist(self.root, 'requests', '2.34.2', 'requests')
+        record = self.root / release_runtime.SITE / 'requests-2.34.2.dist-info/RECORD'
+        record.write_text(record.read_text(encoding='utf-8') + '../../../../程序/requirements.txt,,\n',
+                          encoding='utf-8')
+        with self.assertRaisesRegex(ValueError, 'RECORD 越出运行时根目录'):
+            release_runtime.inventory(self.root)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -34,6 +34,10 @@ def inventory(root: Path) -> dict[str, dict]:
     site = root / SITE
     if not site.is_dir():
         return {}
+    runtime_relative = SITE.parents[1]
+    runtime = (root / runtime_relative).resolve()
+    site = site.resolve()
+    physical_site = site.resolve()
     found = {}
     for dist in distributions(path=[str(site)]):
         name = dist.metadata.get('Name')
@@ -41,11 +45,12 @@ def inventory(root: Path) -> dict[str, dict]:
             continue
         files = []
         for item in dist.files or ():
-            candidate = (site / item).resolve()
+            candidate = (physical_site / item).resolve()
             try:
-                files.append(candidate.relative_to(root).as_posix())
+                relative = candidate.relative_to(runtime)
             except ValueError:
                 raise ValueError(f'{name} 的 RECORD 越出运行时根目录：{item}')
+            files.append((runtime_relative / relative).as_posix())
         found[canonical(name)] = {'version': dist.version, 'files': files}
     return found
 

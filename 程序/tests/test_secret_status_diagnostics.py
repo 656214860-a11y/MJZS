@@ -156,7 +156,7 @@ class DiagnosticCapturePreviewTests(unittest.TestCase):
         self.state.parent.mkdir(parents=True, exist_ok=True)
         self.state.write_text('{"degradations": []}', encoding='utf-8')
         # 此例只验证程序日志白名单；产物读取计数由单独用例显式提供。
-        with patch.object(diagnostic_capture.artifact_schema, 'read_state_counts', return_value={}):
+        with patch.object(diagnostic_capture.diagnostic_state, 'artifact_state_rows', return_value={}):
             output = diagnostic_capture.export(Path(self.temp.name) / 'bundle.zip')
         with zipfile.ZipFile(output) as archive:
             names = archive.namelist()
@@ -169,7 +169,7 @@ class DiagnosticCapturePreviewTests(unittest.TestCase):
     def test_export_includes_only_explicit_artifact_state_diagnostic_and_logs(self):
         self.error.write_text('boom', encoding='utf-8')
         counts = {'script_manifest': {'legacy': 1}}
-        with patch.object(diagnostic_capture.artifact_schema, 'read_state_counts', return_value=counts):
+        with patch.object(diagnostic_capture.diagnostic_state, 'artifact_state_rows', return_value=counts):
             output = diagnostic_capture.export(Path(self.temp.name) / 'bundle.zip')
         with zipfile.ZipFile(output) as archive:
             self.assertEqual(sorted(archive.namelist()),

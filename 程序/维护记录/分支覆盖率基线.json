@@ -103,11 +103,12 @@
   "tests.test_video_lifecycle_service",
   "tests.test_workflow_process_registry",
   "tests.test_workspace_maintenance",
-  "tests.test_writing_api"
+  "tests.test_writing_api",
+  "tests.test_autotune_prefetch"
  ],
  "tests_ok": true,
- "points_total": 3069,
- "points_covered": 1731,
+ "points_total": 3079,
+ "points_covered": 1739,
  "modules": [
   {
    "module": "budget.py",
@@ -506,6 +507,12 @@
    "percent": 79.6
   },
   {
+   "module": "prefetch.py",
+   "points": 10,
+   "covered": 8,
+   "percent": 80.0
+  },
+  {
    "module": "prompt_templates.py",
    "points": 10,
    "covered": 8,
@@ -728,5 +735,5 @@
    "percent": 100.0
   }
  ],
- "modules_total": 103
+ "modules_total": 104
 }

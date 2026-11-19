@@ -1,0 +1,15 @@
+{
+  "round": 3752,
+  "commit_base": "bfd577f8",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_autotune_prefetch test_asset_thumbs",
+    "exit": 0,
+    "passed": 44,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T14:38:52"
+}
