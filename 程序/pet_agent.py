@@ -5,7 +5,7 @@
   pet_llm（Flash），且只接受一行严格 JSON。
 - 异常分级是纯函数：classify(错误文本, HTTP 码) 给出分类与该做什么；是否可重试以
   contract.error_codes 码表 retryable 为唯一权威（轮 5B）；退避 30/60/120 秒，上限 4 次。
-- 预算五类硬限制：生图/首帧/视频/配音/Token；越线即暂停该阶段并上报 budget.exceeded。
+- 预算五类硬限制：生图/首帧/视频/配音/Token；判定策略在 L3 orchestrator.pet_budget，机制在 L1 infra.budget（I16）；越线即暂停该阶段并上报 budget.exceeded。
 - 通知先聚合后说话：同批事件合成一句（首帧完成，3 张重试成功，1 张需确认）。
 - 免打扰 23:00-07:00（北京时间）：窗口内只记账，出了窗口补一条汇总。
 - 审批三档：只提示 / 半自动（付费步骤先确认）/ 全自动；付费动作白名单固定。
@@ -22,6 +22,8 @@ from pathlib import Path
 import infra.pet_llm as pet_llm
 import infra.pet_state as pet_state, stage_layout
 import orchestrator.stage_parallel as stage_parallel
+from orchestrator.pet_budget import (BUDGET_ALIASES, BUDGET_KINDS, BUDGET_NAMES,
+                                    DEFAULT_BUDGET, WARN_RATIO, Budget, normalize_kind)
 from agent.core import save
 from contract import error_codes
 from contract.pet_bus import SEEN_LIMIT, STAGE_NAMES, STAGES, ErrorLog, emit_safe, read_json, with_current_run
@@ -41,12 +43,6 @@ PET_NAME = '三虎'
 PET_PERSONA = '一只可爱的小猫，说话简洁，帮用户把漫剧做完'
 DND = (23, 7)                                   # 免打扰：北京时间 23:00-07:00
 PAID_ACTIONS = ('image.generate', 'firstframe.generate', 'video.generate', 'voice.generate')
-BUDGET_KINDS = ('image', 'firstframe', 'video', 'voice', 'tokens')
-BUDGET_NAMES = {'image': '生图', 'firstframe': '首帧', 'video': '视频', 'voice': '配音', 'tokens': 'Token'}
-BUDGET_ALIASES = {'token': 'tokens', 'tokens_per_day': 'tokens', 'keyframe': 'firstframe',
-                  'shots': 'video', 'tts': 'voice', 'img': 'image'}
-DEFAULT_BUDGET = {'image': 200, 'firstframe': 200, 'video': 100, 'voice': 200, 'tokens': 2000000}
-WARN_RATIO = 0.9                                # 用到九成先报一声
 MAX_ATTEMPTS = 4
 NOTICE_PATH = (stage_layout.WORKFLOW_DIR, '宠物', '通知.json')
 JOURNAL_PATH = (stage_layout.WORKFLOW_DIR, '宠物', '事件日志.jsonl')
@@ -437,60 +433,6 @@ def fix_params(params, sizes=SIZES, aliases=MODEL_ALIASES):
             fixed.append('模型名')
     return {'params': out, 'fixed': fixed}
 
-
-# ── 五类配额硬限制 ──────────────────────────────────────────────────────────
-def normalize_kind(kind):
-    name = BUDGET_ALIASES.get(str(kind or '').strip().lower(), str(kind or '').strip().lower())
-    if name not in BUDGET_KINDS:
-        raise ValueError('未登记的配额类型：' + str(kind))
-    return name
-
-
-class Budget:
-    """生图/首帧/视频/配音/Token 五类配额的硬限制：越线直接拒绝，不留「再试一次」的口子。"""
-
-    def __init__(self, limits=None):
-        self.limits = dict(DEFAULT_BUDGET)
-        for kind, value in (limits or {}).items():
-            try:
-                name = normalize_kind(kind)
-            except ValueError:
-                continue
-            number = _int(value)
-            if number and number > 0:
-                self.limits[name] = number
-        self.used = {kind: 0 for kind in BUDGET_KINDS}
-
-    def check(self, kind, amount=1):
-        """只算不扣：够不够、还剩多少、要不要提前报警。"""
-        name = normalize_kind(kind)
-        count = max(0, _int(amount) or 0)
-        limit, used = self.limits[name], self.used[name]
-        ok = used + count <= limit
-        ratio = (used + count) / limit if limit else 1.0
-        return {'ok': ok, 'kind': name, 'used': used, 'limit': limit, 'amount': count,
-                'remaining': max(0, limit - used - count), 'warning': ok and ratio >= WARN_RATIO,
-                'exceeded': not ok}
-
-    def spend(self, kind, amount=1):
-        """扣减：越线时原样返回拒绝结果且不扣，调用方据此暂停。"""
-        result = self.check(kind, amount)
-        if result['ok']:
-            self.used[result['kind']] += result['amount']
-        return result
-
-    def sync_tokens(self, ledger, at=None):
-        """把 pet_llm 台账里当天的 Token 用量同步进来（Token 也是一类配额）。"""
-        if ledger is None:
-            return self.used['tokens']
-        try:
-            self.used['tokens'] = int(ledger.today_tokens(at))
-        except Exception:
-            return self.used['tokens']
-        return self.used['tokens']
-
-    def snapshot(self):
-        return {'limits': dict(self.limits), 'used': dict(self.used)}
 
 
 # ── 通知聚合与免打扰 ────────────────────────────────────────────────────────

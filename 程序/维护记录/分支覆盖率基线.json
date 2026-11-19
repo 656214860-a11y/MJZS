@@ -103,14 +103,14 @@
   "tests.test_writing_api"
  ],
  "tests_ok": true,
- "points_total": 2909,
- "points_covered": 1622,
+ "points_total": 2959,
+ "points_covered": 1629,
  "modules": [
   {
    "module": "account_store.py",
-   "points": 13,
+   "points": 25,
    "covered": 5,
-   "percent": 38.5
+   "percent": 20.0
   },
   {
    "module": "aigc_lint.py",
@@ -177,6 +177,12 @@
    "points": 10,
    "covered": 5,
    "percent": 50.0
+  },
+  {
+   "module": "budget.py",
+   "points": 25,
+   "covered": 0,
+   "percent": 0.0
   },
   {
    "module": "business_log.py",
@@ -264,8 +270,8 @@
   },
   {
    "module": "error_codes.py",
-   "points": 12,
-   "covered": 12,
+   "points": 11,
+   "covered": 11,
    "percent": 100.0
   },
   {
@@ -390,9 +396,9 @@
   },
   {
    "module": "model_pool.py",
-   "points": 134,
+   "points": 135,
    "covered": 55,
-   "percent": 41.0
+   "percent": 40.7
   },
   {
    "module": "model_protocol.py",
@@ -450,9 +456,9 @@
   },
   {
    "module": "platform_tools.py",
-   "points": 133,
+   "points": 134,
    "covered": 57,
-   "percent": 42.9
+   "percent": 42.5
   },
   {
    "module": "production_model_contract.py",
@@ -492,9 +498,9 @@
   },
   {
    "module": "publication.py",
-   "points": 31,
+   "points": 32,
    "covered": 19,
-   "percent": 61.3
+   "percent": 59.4
   },
   {
    "module": "qwen_setup.py",
@@ -504,9 +510,9 @@
   },
   {
    "module": "request_ledger.py",
-   "points": 157,
+   "points": 156,
    "covered": 121,
-   "percent": 77.1
+   "percent": 77.6
   },
   {
    "module": "resources.py",
@@ -522,9 +528,9 @@
   },
   {
    "module": "script_contract.py",
-   "points": 134,
+   "points": 132,
    "covered": 40,
-   "percent": 29.9
+   "percent": 30.3
   },
   {
    "module": "script_manifest_contract.py",
@@ -606,9 +612,9 @@
   },
   {
    "module": "storage_maintenance.py",
-   "points": 171,
+   "points": 172,
    "covered": 93,
-   "percent": 54.4
+   "percent": 54.1
   },
   {
    "module": "store_program_locator.py",
@@ -630,9 +636,9 @@
   },
   {
    "module": "temporary_sweep.py",
-   "points": 11,
+   "points": 15,
    "covered": 8,
-   "percent": 72.7
+   "percent": 53.3
   },
   {
    "module": "tk_timers.py",
@@ -701,6 +707,6 @@
    "percent": 67.6
   }
  ],
- "modules_total": 99,
+ "modules_total": 100,
  "modules_covered": 76
 }
