@@ -12,14 +12,11 @@ from contextlib import contextmanager
 from urllib.parse import urlparse
 
 _TOOL_CACHE = {}
-# 随包二进制目录相对应用根（本文件在 程序/contract/ 下，上两级即分发根）。
-# 运行环境/ 不入库，由分发构建从部署机复制；不存在时 _bundled_tool 返回 None。
 _BUNDLED_BIN_DIR = Path(__file__).resolve().parents[2] / '运行环境' / 'ffmpeg' / 'bin'
 _EXECUTION = threading.local()
 
 
 class ExecutionStopped(RuntimeError):
-    """Local stop, never proof that a provider or an in-flight thread stopped."""
     def __init__(self, reason, *, started=False):
         self.reason, self.started = reason, started
         super().__init__('执行已停止：%s；%s' % (reason, '在途结果待核对' if started else '未开始此单元'))
@@ -51,6 +48,15 @@ class ExecutionControl:
         remaining = max(.001, self.deadline - time.monotonic())
         return remaining if requested is None else min(float(requested), remaining)
 
+    def wait_for_retry(self, delay, *, sleep=None):
+        self.checkpoint()
+        remaining = self.deadline - time.monotonic()
+        if remaining <= 0:
+            raise ExecutionStopped('deadline')
+        wait = min(delay, remaining)
+        (sleep or self.stopped.wait)(wait)
+        self.checkpoint()
+
     def report(self, **facts):
         if self.observer is not None:
             self.observer(facts)
@@ -61,7 +67,6 @@ def current_execution():
 
 
 def execution_metadata(stage, task, *, attempt=None):
-    """Identity only: one supervised invocation is a run, each submission an attempt."""
     import uuid
     control = current_execution()
     return {'run_id': control.run_id if control is not None else uuid.uuid4().hex,
@@ -189,8 +194,6 @@ def terminate_process_tree(process, *, timeout=3):
     except (OSError, subprocess.SubprocessError):
         return False
     return result.returncode == 0
-
-
 def communicate_or_kill(process, data, timeout, on_output=None):
     """喂完输入并等进程退出；超过 timeout 秒就结束整棵进程树，再抛 TimeoutExpired。
 
@@ -200,6 +203,12 @@ def communicate_or_kill(process, data, timeout, on_output=None):
     回调抛异常只吞掉并继续，不打断引擎运行。未提供时行为与原先一致（``communicate``）。
     """
     if on_output is None:
+        control = current_execution()
+        if control is not None:
+            from contract.process_wait import controlled_communicate
+            runtime = (terminate_process_tree, ExecutionStopped, time.monotonic,
+                       subprocess.TimeoutExpired)
+            return controlled_communicate(process, data, timeout, control, runtime)
         try:
             return process.communicate(data, timeout=timeout)
         except subprocess.TimeoutExpired:
@@ -241,7 +250,14 @@ def _stream_communicate_or_kill(process, data, timeout, on_output):
         # stdin 不是 PIPE（如某些调用方用文件对象）时，无法喂输入，忽略。
         pass
     try:
-        process.wait(timeout=timeout)
+        control = current_execution()
+        if control is None:
+            process.wait(timeout=timeout)
+        else:
+            from contract.process_wait import controlled_wait
+            runtime = (terminate_process_tree, ExecutionStopped, time.monotonic,
+                       subprocess.TimeoutExpired)
+            controlled_wait(process, timeout, control, runtime)
     except subprocess.TimeoutExpired:
         terminate_process_tree(process)
         try:
@@ -253,6 +269,13 @@ def _stream_communicate_or_kill(process, data, timeout, on_output):
     finally:
         out_thread.join(timeout=3)
         err_thread.join(timeout=3)
+        for stream in (process.stdout, process.stderr):
+            try:
+                close = getattr(stream, 'close', None)
+                if close is not None:
+                    close()
+            except (OSError, ValueError):
+                pass
     return process.returncode
 
 
@@ -633,21 +656,11 @@ def _requests_tls_adapter(verify):
             pool['ssl_context'] = context
             return host, pool
 
-    from urllib3.util import Retry
-    # GET/HEAD 轮询与下载的传输层退避：connect/read/status 有界重试，
-    # 遵守 Retry-After（封顶 backoff_max）、限定方法；付费 POST 不在
-    # allowed_methods 内，仍由调用方手写口径独占重试。
-    retry = Retry(total=2, connect=2, read=2, status=2, redirect=0,
-                  raise_on_status=False, backoff_max=30.0, backoff_factor=0.5,
-                  allowed_methods=frozenset({'GET', 'HEAD'}),
-                  status_forcelist=frozenset({408, 425, 429, 500, 502, 503, 504}),
-                  respect_retry_after_header=True)
-    return VerifiedAdapter(max_retries=retry)
+    return VerifiedAdapter(max_retries=0)
 
 
 class RequestsJsonOpener:
-    """urllib Request/.open adapter；重定向与付费 POST 重试仍在调用方，
-    GET/HEAD 的传输层退避由适配器 Retry 提供（遵守 Retry-After、限定方法）。"""
+    """Single-attempt urllib adapter. The caller owns redirects and retry policy."""
     def open(self, request, timeout=None):
         import urllib.error
         import urllib.parse
@@ -668,6 +681,9 @@ class RequestsJsonOpener:
             for scheme in ('http://', 'https://'):
                 session.mount(scheme, adapter)
             # Session.send builds _next even with redirects disabled, consuming redirect bodies.
+            control = current_execution()
+            if control is not None:
+                timeout = control.remaining(timeout)
             response = session.get_adapter(prepared.url).send(prepared, timeout=timeout, **settings)
         except BaseException as error:
             try:

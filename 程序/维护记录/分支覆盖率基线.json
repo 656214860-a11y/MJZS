@@ -9,10 +9,13 @@
   "tests.test_app_icon",
   "tests.test_app_logging",
   "tests.test_app_metadata",
+  "tests.test_artifact_index",
   "tests.test_artifact_lineage",
   "tests.test_artifact_schema",
   "tests.test_artifact_schema_wiring",
   "tests.test_asset_contract",
+  "tests.test_asset_thumbs",
+  "tests.test_autotune_prefetch",
   "tests.test_broadcaster",
   "tests.test_business_log",
   "tests.test_claim_queue_gateway",
@@ -28,6 +31,7 @@
   "tests.test_error_codes",
   "tests.test_executors",
   "tests.test_file_cache",
+  "tests.test_file_cache_bounds",
   "tests.test_file_index",
   "tests.test_file_naming",
   "tests.test_file_naming_producers",
@@ -39,6 +43,7 @@
   "tests.test_hash_backend",
   "tests.test_http_client",
   "tests.test_infra_errors",
+  "tests.test_job_store",
   "tests.test_keyframe_lifecycle_service",
   "tests.test_l1_bounded_growth_r3269",
   "tests.test_l1_l0_integration_r3331",
@@ -100,15 +105,11 @@
   "tests.test_video_lifecycle_service",
   "tests.test_workflow_process_registry",
   "tests.test_workspace_maintenance",
-  "tests.test_writing_api",
-  "tests.test_artifact_index",
-  "tests.test_job_store",
-  "tests.test_autotune_prefetch",
-  "tests.test_asset_thumbs"
+  "tests.test_writing_api"
  ],
  "tests_ok": true,
- "points_total": 2997,
- "points_covered": 1690,
+ "points_total": 3081,
+ "points_covered": 1742,
  "modules": [
   {
    "module": "budget.py",
@@ -118,7 +119,7 @@
   },
   {
    "module": "comfy_service.py",
-   "points": 31,
+   "points": 32,
    "covered": 0,
    "percent": 0.0
   },
@@ -195,18 +196,6 @@
    "percent": 25.0
   },
   {
-   "module": "api_endpoints.py",
-   "points": 87,
-   "covered": 24,
-   "percent": 27.6
-  },
-  {
-   "module": "core.py",
-   "points": 35,
-   "covered": 10,
-   "percent": 28.6
-  },
-  {
    "module": "native_apps.py",
    "points": 21,
    "covered": 6,
@@ -223,6 +212,18 @@
    "points": 10,
    "covered": 3,
    "percent": 30.0
+  },
+  {
+   "module": "api_endpoints.py",
+   "points": 86,
+   "covered": 26,
+   "percent": 30.2
+  },
+  {
+   "module": "core.py",
+   "points": 35,
+   "covered": 11,
+   "percent": 31.4
   },
   {
    "module": "usage_snapshot.py",
@@ -243,6 +244,12 @@
    "percent": 33.3
   },
   {
+   "module": "app_logging.py",
+   "points": 55,
+   "covered": 19,
+   "percent": 34.5
+  },
+  {
    "module": "script_contract.py",
    "points": 132,
    "covered": 46,
@@ -255,10 +262,10 @@
    "percent": 35.0
   },
   {
-   "module": "app_logging.py",
-   "points": 51,
-   "covered": 18,
-   "percent": 35.3
+   "module": "process_wait.py",
+   "points": 11,
+   "covered": 4,
+   "percent": 36.4
   },
   {
    "module": "unit_of_work.py",
@@ -279,16 +286,16 @@
    "percent": 41.5
   },
   {
-   "module": "platform_tools.py",
-   "points": 134,
-   "covered": 58,
-   "percent": 43.3
-  },
-  {
    "module": "continuity_ledger.py",
    "points": 117,
    "covered": 53,
    "percent": 45.3
+  },
+  {
+   "module": "platform_tools.py",
+   "points": 141,
+   "covered": 66,
+   "percent": 46.8
   },
   {
    "module": "model_router.py",
@@ -309,12 +316,6 @@
    "percent": 50.0
   },
   {
-   "module": "config_snapshot.py",
-   "points": 2,
-   "covered": 1,
-   "percent": 50.0
-  },
-  {
    "module": "line_endings.py",
    "points": 14,
    "covered": 7,
@@ -327,16 +328,16 @@
    "percent": 50.0
   },
   {
-   "module": "diagnostic_capture.py",
-   "points": 90,
-   "covered": 46,
-   "percent": 51.1
-  },
-  {
    "module": "model_secrets.py",
    "points": 33,
    "covered": 17,
    "percent": 51.5
+  },
+  {
+   "module": "diagnostic_capture.py",
+   "points": 85,
+   "covered": 45,
+   "percent": 52.9
   },
   {
    "module": "pet_bus.py",
@@ -345,16 +346,22 @@
    "percent": 53.1
   },
   {
-   "module": "storage_maintenance.py",
-   "points": 172,
-   "covered": 95,
-   "percent": 55.2
-  },
-  {
    "module": "client_profiles.py",
    "points": 88,
    "covered": 49,
    "percent": 55.7
+  },
+  {
+   "module": "storage_maintenance.py",
+   "points": 176,
+   "covered": 99,
+   "percent": 56.2
+  },
+  {
+   "module": "file_cache.py",
+   "points": 44,
+   "covered": 26,
+   "percent": 59.1
   },
   {
    "module": "workflow_context_budget.py",
@@ -363,16 +370,10 @@
    "percent": 60.0
   },
   {
-   "module": "file_cache.py",
-   "points": 24,
-   "covered": 15,
-   "percent": 62.5
-  },
-  {
-   "module": "publication.py",
-   "points": 32,
-   "covered": 20,
-   "percent": 62.5
+   "module": "workflow_process_registry.py",
+   "points": 83,
+   "covered": 53,
+   "percent": 63.9
   },
   {
    "module": "account_store.py",
@@ -385,6 +386,18 @@
    "points": 17,
    "covered": 11,
    "percent": 64.7
+  },
+  {
+   "module": "publication.py",
+   "points": 55,
+   "covered": 36,
+   "percent": 65.5
+  },
+  {
+   "module": "config_snapshot.py",
+   "points": 3,
+   "covered": 2,
+   "percent": 66.7
   },
   {
    "module": "native_asset_codec.py",
@@ -447,12 +460,6 @@
    "percent": 75.0
   },
   {
-   "module": "workflow_process_registry.py",
-   "points": 69,
-   "covered": 52,
-   "percent": 75.4
-  },
-  {
    "module": "executors.py",
    "points": 41,
    "covered": 31,
@@ -484,9 +491,9 @@
   },
   {
    "module": "http_client.py",
-   "points": 19,
-   "covered": 15,
-   "percent": 78.9
+   "points": 24,
+   "covered": 19,
+   "percent": 79.2
   },
   {
    "module": "log_maintenance.py",
@@ -495,10 +502,10 @@
    "percent": 79.2
   },
   {
-   "module": "prefetch.py",
-   "points": 10,
-   "covered": 8,
-   "percent": 80.0
+   "module": "file_index.py",
+   "points": 93,
+   "covered": 74,
+   "percent": 79.6
   },
   {
    "module": "prompt_templates.py",
@@ -523,12 +530,6 @@
    "points": 15,
    "covered": 12,
    "percent": 80.0
-  },
-  {
-   "module": "file_index.py",
-   "points": 93,
-   "covered": 75,
-   "percent": 80.6
   },
   {
    "module": "token_saver.py",
@@ -577,6 +578,12 @@
    "points": 29,
    "covered": 26,
    "percent": 89.7
+  },
+  {
+   "module": "prefetch.py",
+   "points": 10,
+   "covered": 9,
+   "percent": 90.0
   },
   {
    "module": "pet_state.py",
@@ -729,5 +736,5 @@
    "percent": 100.0
   }
  ],
- "modules_total": 103
+ "modules_total": 104
 }

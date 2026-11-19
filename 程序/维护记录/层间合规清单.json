@@ -35,8 +35,8 @@
         "tests/architecture/test_layer_relations.py"
       ],
       "metric": "未登记同层边数＋同层互依赖对数",
-      "violations": 5,
-      "baseline": 5,
+      "violations": 4,
+      "baseline": 4,
       "note": "764 条同层边已全部登记 SAME_LAYER_EDGES（I1 基线 763，I6 新增 infra_errors→error_codes 1 条）；互依赖 5 对：L1 {core↔file_cache, file_cache↔publication, diagnostic_capture↔request_ledger}、L3 {stage_models↔workflow_settings}、L4 {white_model↔white_model_ref}，随 I3/I4/I5 模块迁移收口。；I17 登记 766 条"
     },
     {
@@ -87,8 +87,8 @@
         "tests/test_infra_errors.py"
       ],
       "metric": "L1 中 raise 节点异常表达式含 CJK 字符串且异常类型非 contract.infra_errors 族（含其子类）的处数；I6 起生效",
-      "violations": 185,
-      "baseline": 185,
+      "violations": 176,
+      "baseline": 176,
       "note": "I7（本轮）迁移 request_ledger/comfy_service/unit_of_work 三模块 71 处内置异常 raise 至 infra_errors 族（含模块自有子类多重继承兼容），实测 257→186；I9a 迁移 agent/core.command() 4 处至 ProcessError，实测 186→184；I10–I11 续迁下调。"
     },
     {

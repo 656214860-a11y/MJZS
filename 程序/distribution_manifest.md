@@ -2,7 +2,7 @@
 
 ## 用途与边界
 
-本清单定义正式分发副本应包含和排除的路径。它是供未来构建/校验工具消费的声明，**不执行复制、移动、删除或归档**，也不在应用启动时读取。
+本清单定义正式分发副本应包含和排除的路径，由仓库现有 `scripts/distribution_build.py` 构建/校验工具消费；清单本身不执行复制、移动、删除或归档，也不在应用启动时读取。
 
 分发根为 `D:\漫剧制作助手\`。正式副本保留根目录启动器、`运行环境/` 与 `程序/` 的运行所需内容；用户项目 `D:\漫剧下载\` 不属于分发输入。
 
@@ -12,7 +12,7 @@
 | --- | --- |
 | `启动漫剧制作助手.pyw`、`开发者工具/启动助手.cmd` | 正式启动入口。 |
 | `运行环境/Python/` | 随应用交付的解释器与依赖。 |
-| `运行环境/ffmpeg/` | 随应用交付的 LGPL 构建 FFmpeg（`ffmpeg.exe`/`ffprobe.exe`，`bin/` 下）；须含 `LICENSE`/`NOTICE` 与构建来源、版本号说明（R3154，零依赖边界任务书 M1）。运行时经 `contract.platform_tools.tool_path` 按「显式有效配置 > 随包 > PATH」定位，用户可在配置中改用自备 FFmpeg 满足 LGPL 可替换义务。 |
+| `运行环境/ffmpeg/` | 随应用交付的 Gyan FFmpeg 9.0.1 essentials build（`ffmpeg.exe`/`ffprobe.exe`，`bin/` 下）；实测构建参数含 `--enable-gpl --enable-version3`，许可证按 `GPL-3.0-or-later` 而非 LGPL 声明。来源、版本与二进制 SHA256 由 `external_tools.lock.json` 锁定并投影到 SBOM。运行时经 `contract.platform_tools.tool_path` 按「显式有效配置 > 随包 > PATH」定位，用户仍可在配置中改用自备 FFmpeg。 |
 | `程序/app.py`、`程序/desktop.py` 及其生产 Python 模块 | 主界面与业务实现。 |
 | `程序/assets/`、`程序/skills/`、`程序/workflows/`、`程序/data/` | 内置资源、SKILL、流程和内置数据。 |
 | `程序/配置/` 与程序随附说明 | 默认配置和面向用户的资料。 |
@@ -37,8 +37,9 @@
 | `程序/logs/**`、`启动错误.log`、`_wm.log`、`程序/.*.out`、`程序/log.txt` | 历史运行日志与自检输出 | 正式副本不携带既有日志；运行期仍按现有行为创建日志。 |
 | `程序/private/**` | 本机私有数据 | 不得随分发副本携带私有配置或密钥副本。 |
 | `程序/data/skills/**` | 用户导入的 SKILL | R2073：用户层 SKILL 与导入台账，由目标机器生成；升级只保留不覆盖。 |
+| `程序/skills/01 剧本准备SKILL/剧本锻造/**` | 无可确认再分发许可证的外部 Skill | 上游固定提交未提供 LICENSE；源码工作树保留作审计，正式副本排除。取得书面授权或上游补许可证后才可重新纳入。 |
 | `.claude/**`、`.codex/**`、`.agents/**`、`.agent-handoff/**`、`.tools/**`、`outputs/**`（本机 Agent 草稿目录与第三方下载工具，已被 .git/info/exclude 忽略） | 代理/开发产物 | 不是运行时内容，不进正式副本。 |
-| `.wt/**`、`.gitattributes`、`.gitignore`、`.claudeignore`、`AGENTS.md`、`CLAUDE.md`、`开发者工具/BLOCKED_ISSUES.md`、`reorganize_install.py`、`开发者工具/handoff-full-safe.md` | 开发/代理资料 | 不是运行时内容。 |
+| `.wt/**`、`.gitmodules`、`.gitattributes`、`.gitignore`、`.claudeignore`、`AGENTS.md`、`CLAUDE.md`、`开发者工具/BLOCKED_ISSUES.md`、`reorganize_install.py`、`开发者工具/handoff-full-safe.md` | 开发/代理资料 | 子模块来源映射与其他开发元数据不属于运行时；Skill 内容由构建器从已初始化的固定提交复制。 |
 | `程序/.*.err`、`程序/.*.out`、`程序/.*.log`、`维护记录/**` | 自检与维护产物 | 可再生成的诊断输出。 |
 | `程序/outputs/**`、`程序/工作流任务/**`、`工作流任务/**`、`程序/episode/**`、`程序/tasks/**`、`程序/_supervisor/**` | 本地运行产物 | 可再生产物与根目录开发任务现场，不随分发副本携带。 |
 | `运行环境/Python_alpha_a2_backup/**`、`运行环境/Python315_pruned_backup/**`、`运行环境/Python.bak*/**` | 本机备份 | 解释器旧版、裁剪与换版前的 `.bak_*` 快照备份，正式交付只保留 `运行环境/Python/`。 |
@@ -70,4 +71,6 @@
 
 - `--plan` 生成候选文件集并报告三类命中：清单要保留的、清单要排除的、以及清单没提、需要人工决定的（避免悄悄漏文件）。
 - `--build` 拒绝把输出写到开发目录内部、拒绝覆盖非空目录、拒绝在还有未决定文件时静默继续；输出里写 `分发清单.json`（版本＋逐文件 sha256）。
-- `--verify` 校验输出里没有排除项、必需入口齐全、摘要自洽，并确认 `程序/skills/00全流程SKILL/jingju-skills` 整包仍在（安装验收的隔离要求）。
+- `--build` 同时生成 CycloneDX 1.5 `sbom.cdx.json` 与人读 `THIRD_PARTY_NOTICES.txt`，两者进入 `分发清单.json` 的逐文件 sha256。
+- 随附 Python 运行时只保留 `requirements.txt` 精确锁定的 distribution；开发工具和其他未声明包仅从新建分发副本裁剪，源安装目录不被修改。缺包、错版、缺 RECORD 时拒绝构建；被生产包共享的文件不得随未知包误删。
+- `--verify` 校验输出里没有排除项、必需入口齐全、摘要与 SBOM 自洽，并确认 `程序/skills/00全流程SKILL/jingju-skills` 整包仍在（安装验收的隔离要求）；`distribution_selfcheck.py --release` 还会拒绝 `NOASSERTION` 等发布阻断。

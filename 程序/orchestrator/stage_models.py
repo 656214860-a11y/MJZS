@@ -21,6 +21,7 @@ from orchestrator.stage_flow import manual_label as manual_label_for
 # L4 在应用组合时注入窗口和确认呈现器；阶段层仅决定文案、阻断条件和返回选择。
 _PLAN_WINDOW_PRESENTER = None
 _CONFIRMATION_PRESENTER = None
+_CONFIG_PRESENTER = None
 
 
 def set_plan_window_presenter(presenter):
@@ -33,6 +34,12 @@ def set_confirmation_presenter(presenter):
     """登记统一确认呈现器，避免阶段层反向依赖 UI 组件。"""
     global _CONFIRMATION_PRESENTER
     _CONFIRMATION_PRESENTER = presenter
+
+
+def set_config_presenter(presenter):
+    """登记阶段配置呈现器。"""
+    global _CONFIG_PRESENTER
+    _CONFIG_PRESENTER = presenter
 
 
 def assets_choices():
@@ -248,12 +255,13 @@ def plan_window(desktop, stage, parent=None):
 def open_config(desktop, stage):
     """「修改配置」：打开这一阶段的 SKILL／制作锁面板（R2942：面板不再含模型选择）。"""
     try:
-        from infra.ui_plugin_registry import module
-        return module('skill_panel').show(desktop, stage)
+        if _CONFIG_PRESENTER is not None:
+            return _CONFIG_PRESENTER(desktop, stage)
     except Exception:
         # 面板加载失败不能静默吞掉，否则用户只会看到按钮没有反应。
-        _status(desktop, '未能打开阶段配置，请稍后重试。')
-        return None
+        app_logging.swallowed()
+    _status(desktop, '未能打开阶段配置，请稍后重试。')
+    return None
 
 
 def _model_asked(desktop):
@@ -350,8 +358,7 @@ def manual_command(desktop, stage, action, parent=None, trigger='manual'):
         if choice != 'run':
             return False
         if before_manual(desktop, stage, parent):
-            action()
-            return True
+            return action() is not False
         return False
     return run
 

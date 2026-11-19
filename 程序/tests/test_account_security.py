@@ -10,6 +10,7 @@ import logging
 import sys
 import tempfile
 import unittest
+from ui.pet_ui_stages import stage_run_action
 import unittest.mock
 from pathlib import Path
 
@@ -223,8 +224,8 @@ class GateCoverageTests(_Base):
         for stage in PAID:
             fallback = unittest.mock.Mock(return_value='ran')
             desk = _Desktop(ctl)
-            self.assertIn('需要登录', stage_handler_registry.start(desk, stage, trigger='manual', fallback=fallback), stage)
-            self.assertIn('需要登录', stage_handler_registry.start(desk, stage, trigger='auto', fallback=fallback), stage)
+            self.assertIn('需要登录', stage_handler_registry.start(desk, stage, trigger='manual', fallback=fallback, run_action=stage_run_action), stage)
+            self.assertIn('需要登录', stage_handler_registry.start(desk, stage, trigger='auto', fallback=fallback, run_action=stage_run_action), stage)
             fallback.assert_not_called()
             self.assertEqual(desk.events[-1][1].get('stage'), stage)
 
@@ -239,7 +240,7 @@ class GateCoverageTests(_Base):
     def test_paid_stage_runs_once_signed_in(self):
         self.save(sign(payload()))
         desk = _Desktop(self.controller())
-        self.assertEqual(stage_handler_registry.start(desk, 'keyframe', fallback=lambda s, t: 'ran'), 'ran')
+        self.assertEqual(stage_handler_registry.start(desk, 'keyframe', fallback=lambda s, t: 'ran', run_action=stage_run_action), 'ran')
 
     def test_delivery_export_goes_through_gate(self):
         """「质检与交付」的成片导出（后期剪辑页按平台导出）不经 start()，单独过 account_blocked。"""

@@ -3,7 +3,9 @@ import os
 import queue
 import sys
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
@@ -324,6 +326,59 @@ class BackgroundDeliveryMatrixTests(unittest.TestCase):
         self.assertEqual(len(names), len(set(names)))
         self.assertEqual(set(names), set(self.ENTRIES))
         self.assertTrue(all(item['state'] == 'migrated' for item in BACKGROUND_TASK_MIGRATION))
+
+    def test_storyboard_preparation_delivers_once_only_to_live_project(self):
+        from desktop import Desktop
+        from orchestrator import stage_handler_registry
+
+        plan = {'scripts': ['script'], 'todo': ['script'], 'revise': []}
+        for mode in ('current', 'cancel', 'replace', 'switch', 'close'):
+            with self.subTest(mode=mode):
+                desktop, effects = self.make_desktop('Desktop.async_')
+                original = desktop.root = Path('storyboard-original')
+                desktop.page_index = 0
+                desktop.pet.stop = Mock()
+                desktop.pet.cancel_greet = Mock()
+                desktop.async_ = Mock(wraps=Desktop.async_.__get__(desktop))
+                desktop.present_stage = Desktop.present_stage.__get__(desktop)
+                desktop.open_storyboard_skill = Desktop.open_storyboard_skill.__get__(desktop)
+                desktop.open_flow_agent = Mock()
+                desktop._schedule_async_result_poll = Mock()
+                with patch.object(stage_handler_registry, '_workflow_lock_error', return_value=''), \
+                        patch.object(stage_handler_registry, 'storyboard_work_plan', return_value=plan), \
+                        patch('ui.desktop_async_tasks.threading.Thread') as thread:
+                    reply = Desktop.pet_storyboard_batch(desktop)
+                self.assertIn('已经在准备分镜任务', reply)
+                desktop.async_.assert_called_once()
+                thread.return_value.start.assert_called_once()
+                ticket = desktop._async_ticket
+                if mode == 'cancel':
+                    self.assertTrue(desktop.background_tasks.cancel(ticket))
+                elif mode == 'replace':
+                    desktop.background_tasks.submit(ticket + 1)
+                elif mode == 'switch':
+                    desktop.root = Path('storyboard-next')
+                elif mode == 'close':
+                    Desktop.cancel_timers(desktop)
+                effects.clear()
+                with patch('orchestrator.storyboard_selection.selected_many', return_value=[]) as selected, \
+                        patch('stage_execution_service.storyboard_produced_scripts', return_value=set()), \
+                        patch('orchestrator.workflow_tasks.storyboard_batch_prompt',
+                              return_value=('prompt', 'followup')):
+                    thread.call_args.kwargs['target']()
+                self.assertTrue(all(call.args[0] == original for call in selected.call_args_list))
+                if mode in ('current', 'switch'):
+                    self.assertEqual(selected.call_count, 2)
+                row = desktop.q.queue[0]
+                desktop.q.put(row)
+                self.drain(desktop, 'Desktop.async_')
+                self.drain(desktop, 'Desktop.async_')
+                if mode == 'current':
+                    desktop.open_flow_agent.assert_called_once_with('storyboard', '初步分镜', 'prompt', 'followup')
+                else:
+                    desktop.open_flow_agent.assert_not_called()
+                self.assertEqual(sum(args == ('正在启动分镜制作 agent…',) for args, _ in effects),
+                                 int(mode == 'current'))
 
     def test_cancel_replace_and_window_close_reject_all_late_deliveries(self):
         from desktop import Desktop

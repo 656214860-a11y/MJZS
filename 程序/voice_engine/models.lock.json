@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "revision": "v2.0.5",
+  "models": {
+    "asr": "iic/speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-onnx",
+    "vad": "iic/speech_fsmn_vad_zh-cn-16k-common-onnx",
+    "punc": "iic/punc_ct-transformer_zh-cn-common-vocab272727-onnx"
+  }
+}

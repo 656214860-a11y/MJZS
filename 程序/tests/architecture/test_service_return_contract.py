@@ -4,6 +4,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from tests.architecture._scan import entity_file
 
@@ -108,9 +109,11 @@ class ServiceReturnContractBoundaryTests(unittest.TestCase):
         for name, relative in entity_paths.items():
             self.assertEqual((root / relative).resolve(), entity_file(name).resolve())
             self.assertTrue((root / relative).is_file())
-        missing = {name for name in names if name not in entity_paths
-                   and not (root / f'{name}.py').is_file()
-                   and not (root / name / '__init__.py').is_file()}
+        # 限定身份只解析自身源码；entity_paths 仅覆盖文件名与实体名不一致的例外。
+        locations = {name: root.joinpath(*name.split('.')) for name in names}
+        missing = {name for name, path in locations.items() if name not in entity_paths
+                   and not path.with_suffix('.py').is_file()
+                   and not (path / '__init__.py').is_file()}
         historical = ledger['historical_name_audit_pending']
         self.assertEqual(len(historical), len(set(historical)))
         audited = ledger['historical_name_audited']
@@ -182,3 +185,72 @@ class ServiceReturnContractBoundaryTests(unittest.TestCase):
     def test_service_result_contract_is_l0(self):
         from tests.architecture._layers import LAYERS
         self.assertEqual(LAYERS['service_contract'], 0)
+
+
+class L2IdentityScopeTests(unittest.TestCase):
+    """精确 L2 身份与范围登记原子闭环，沿用真实分层及服务范围消费者。"""
+
+    selected = {'domain': 2, 'domain.hitl': 2}
+
+    def test_exact_l2_identities_preserve_all_other_strict_refusals(self):
+        from tests.architecture import test_layers as layers
+        paths = layers.module_scan_files(qualified=True)
+        after = layers._module_classifications(paths)
+        legacy = {name: layer for name, layer in layers.LAYERS.items() if name not in self.selected}
+        with patch.dict(layers.LAYERS, legacy, clear=True):
+            before = layers._module_classifications(paths)
+        self.assertEqual({name for name in before if before[name] != after[name]}, set(self.selected))
+        for name, layer in self.selected.items():
+            with self.subTest(name=name):
+                self.assertEqual(before[name]['status'], 'unregistered')
+                self.assertEqual((after[name]['status'], after[name]['registration'], after[name]['layer']),
+                                 ('registered', name, layer))
+        remaining = {name: row['status'] for name, row in after.items()
+                     if row['status'] not in ('registered', 'legacy-unique', 'tool')}
+        guard = layers.LayerDirectionTests('test_higher_layers_may_depend_only_on_same_or_lower_layers')
+        if remaining:
+            with self.assertRaises(AssertionError) as refusal:
+                guard.test_higher_layers_may_depend_only_on_same_or_lower_layers(qualified=True)
+            self.assertEqual(str(refusal.exception),
+                             f'Unclassified local modules: {dict(sorted(remaining.items()))}')
+        selected_paths = tuple(path for path in paths
+                               if layers.module_name(path, qualified=True) in self.selected)
+        with patch.object(layers, 'module_scan_files', return_value=selected_paths):
+            guard.test_higher_layers_may_depend_only_on_same_or_lower_layers(qualified=True)
+        ServiceReturnContractBoundaryTests().test_every_registered_l2_module_has_a_scope_record()
+
+    def test_removing_l2_scope_record_trips_actual_scope_guard(self):
+        data = json.loads((Path(ROOT) / '维护记录' / '架构统一基数.json').read_text(encoding='utf-8'))
+        pending = data['第一项']['scope_audit_pending']
+        self.assertTrue(set(self.selected) <= set(pending))
+        guard = ServiceReturnContractBoundaryTests()
+        for name in self.selected:
+            with self.subTest(name=name):
+                pending.remove(name)
+                try:
+                    with patch(__name__ + '.json.loads', return_value=data):
+                        with self.assertRaisesRegex(AssertionError, name.replace('.', r'\.')):
+                            guard.test_every_registered_l2_module_has_a_scope_record()
+                finally:
+                    pending.append(name)
+
+    def test_missing_exact_source_is_not_hidden_by_a_same_stem_file(self):
+        original = Path.is_file
+        for name, source in (('domain', 'domain/__init__.py'), ('domain.hitl', 'domain/hitl.py')):
+            missing = Path(ROOT) / source
+            same_stem = Path(ROOT) / 'hitl.py'
+
+            def is_file(path):
+                return False if path == missing else path == same_stem or original(path)
+
+            with self.subTest(name=name), patch.object(Path, 'is_file', is_file):
+                # 实际缺失的包初始化仍报错；限定子模块不回退至 hitl.py。
+                with self.assertRaisesRegex(AssertionError, name.replace('.', r'\.')):
+                    ServiceReturnContractBoundaryTests().test_every_registered_l2_module_has_a_scope_record()
+
+    def test_exact_l2_entries_preserve_legacy_dependency_semantics(self):
+        from tests.architecture import test_layers as layers
+        current = (layers._upward_pairs(), layers._dynamic_upward_pairs())
+        legacy = {name: layer for name, layer in layers.LAYERS.items() if name not in self.selected}
+        with patch.dict(layers.LAYERS, legacy, clear=True):
+            self.assertEqual(current, (layers._upward_pairs(), layers._dynamic_upward_pairs()))

@@ -1,0 +1,15 @@
+{
+  "round": 3586,
+  "commit_base": "9f48cb26",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_offline_asr_client test_offline_asr_engine test_offline_asr_setup test_distribution_build test_distribution_selfcheck test_dynamic_import_registry test_static_names test_static_hygiene test_complexity_ratchet",
+    "exit": 0,
+    "passed": 145,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T04:40:16"
+}

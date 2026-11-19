@@ -6,12 +6,38 @@ LAYER_NAMES = {0: "L0 契约与事实层", 0.5: "L0P 平台基座", 1: "L1 基�
 LAYERS: dict[str, float] = {}
 
 def _register(layer: float, *names: str) -> None:
+    """整批校验再登记；未知层或同一登记键换层不能静默改写依赖图。"""
+    if type(layer) not in (int, float) or layer not in LAYER_NAMES:
+        raise ValueError(f"Unknown architecture layer: {layer!r}")
+    conflicts = {name: LAYERS[name] for name in names
+                 if name in LAYERS and LAYERS[name] != layer}
+    if conflicts:
+        raise ValueError(f"Conflicting architecture layer: {conflicts!r} -> {layer!r}")
     for name in names:
         LAYERS[name] = layer
 
+# R3437 / A9-4a：精确身份只覆盖所列实体，不给包内后代隐式赋层。
+# 四个初始化目前只有包职责 docstring；authority 为 architecture.md §3 的包职责裁定。
+# agent 横跨 L1–L4，初始化身份留给后续子批。
+_register(0, "contract")
+_register(1, "infra")
+_register(1, "infra.diagnostic_state")
+_register(3, "orchestrator")
+_register(4, "ui", "ui.ui_part_renderers")  # desktop_idea_bubbles 的消息 part 渲染入口。
+# R3447 / A9-4b：architecture.md §1/§3 已裁定的 L2 包初始化及 HITL 业务规则。
+# 精确身份同步服务范围待审计台账；不代表已采用 ServiceResult，也不向子模块传播。
+_register(2, "domain", "domain.hitl")
+
+# R3481 / A9-4f：逐项核实的包实体；保留独立顶层兼容键，不按目录或同 stem 推层。
+# global_library_service 承担 L1 文件事务；domain 初始化的 L2 依赖仍须单独治理。
+_register(0, "contract.file_index_contract", "contract.file_naming")
+_register(1, "infra.file_index", "domain.global_library_service", "infra.storage_maintenance")
+_register(3, "orchestrator.legacy_migration")
+
 _register(2, "video_source_evidence", "skill_residue_service")
 _register(0, "pet_bus", "script_contract", "script_brief", "script_manifest_contract", "script_manifest_schema", "script_output_spec", "asset_contract", "episode_contract", "service_contract", "error_codes", "project_context", "stage_layout", "stage_path_service", "storyboard_paths", "project_stages", "platform_tools",
-          "prompt_templates", "shot_batches", "production_model_contract", "app_metadata")
+          "prompt_templates", "shot_batches", "production_model_contract", "app_metadata",
+          "process_wait")
 # R1647：stage_model_value 只依赖 file_cache／pet_bus（无 Tk、无编排状态），按实际依赖登记为 L1，
 # 纠正原先按名字后缀落在 L3 的旧账；L2 领域服务不该为读一个阶段模型名反向依赖编排层。
 _register(1, "client_profiles", "model_pool", "model_secrets", "config_snapshot", "config_patch", "pet_llm", "request_ledger", "file_cache", "hash_backend",
@@ -53,6 +79,7 @@ _register(2, "asset_batch_settings_service", "asset_plan", "asset_resume", "audi
           "video_task_state", "workflow_context", "writing", "writing_tools", "writing_quality", "writing_stream")
 _register(3, "image_agent_runner", "keyframe_model_service", "pet_budget", "skill_budget", "skill_templates", "subtitle_export_controller",
           "stage_handler_registry", "storyboard_recycle_service", "workflow_context_controller", "workflow_engines", "recycle_recovery_controller")
+_register(4, "skill_install_recovery")
 _register(4, "desktop_auto_flows", "desktop_direct_dispatch", "desktop_storyboard_direct", "desktop_audio_direct", "desktop_video_prompt_direct", "desktop_image_direct", "desktop_file_card", "desktop_idea_bubbles", "desktop_idea_attachments", "desktop_page_registry", "desktop_tk_gc", "desktop_tray", "desktop_automation_tick", "desktop_layout", "desktop_layout_resize", "desktop_pet_bridge", "desktop_async_tasks", "desktop_idea_chat", "desktop_idea_deferred", "desktop_writing_page", "desktop_storyboard_page", "desktop_idea_menus", "pet_ui_support", "pet_ui_stages", "pet_ui_settings", "pet_ui_voice", "pet_ui_view", "pet_ui_popup", "desktop_asset_pages", "desktop_script_pages", "desktop_script_edit_session", "desktop_media_pages", "desktop_project_pages", "desktop_page_support", "task_center_ui", "environment_check", "version_picker", "skill_import_service", "skill_archive", "skill_remote_service", "skill_lifecycle_service", "skill_security_service", "asset_reference_images", "asset_reference_import", "desktop_idea_send_gate", "desktop_writing_snapshots", "desktop_voice_input", 
           "asset_reference_search", "asset_skill_batch", "background_characters", "keyframe_comfy",
           "keyframe_import", "pet_agent", "pet_agent_rules", "pet_models_ui", "pet_models_tabs", "speech_settings_ui", "pet_report", "pet_settings_ui",
@@ -142,6 +169,16 @@ TOOLS: dict[str, str] = {
 # tests/architecture/test_layer_relations.py 判红。存量 763 条为 I1 首登记基线，
 # 只许随模块迁移减少；新增同层边必须先在本表登记方向（I6 增至 764：infra_errors→error_codes）。
 SAME_LAYER_EDGES: frozenset[tuple[str, str]] = frozenset({
+    ('cloud_assets', 'http_client'),
+    ('comfy_service', 'http_client'),
+    ('desktop_pet_bridge', 'pet_ui_stages'),
+    ('diagnostic_capture', 'config_snapshot'),
+    ('http_client', 'api_endpoints'),
+    ('platform_tools', 'process_wait'),
+    ('skill_import_service', 'skill_install_recovery'),
+    ('skill_panel', 'skill_install_recovery'),
+    ('storage_maintenance', 'publication'),
+    ('workflow_process_registry', 'app_logging'),
     ('account_inputs', 'ui_widgets'),
     ('account_store', 'core'),
     ('account_store', 'publication'),

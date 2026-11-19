@@ -1,0 +1,15 @@
+{
+  "round": 3750,
+  "commit_base": "7873bbec",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k distribution_build artifact_schema",
+    "exit": 0,
+    "passed": 68,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T13:45:56"
+}

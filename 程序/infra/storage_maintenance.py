@@ -6,7 +6,6 @@ import contract.stage_layout as stage_layout
 from agent.core import save
 from infra.file_cache import recycled, read_json
 from contract.platform_tools import launch_background
-
 PROGRAM=Path(__file__).resolve().parents[1]
 def downloads_root():
     cfg_file = PROGRAM / "config.json"
@@ -21,9 +20,6 @@ AGE_SECONDS=7*24*3600
 PENDING={'queued','running','succeeded','unknown','submitting'}
 MANIFEST_NAME='恢复位置.json'
 BATCH_PREFIX='自动维护_'
-# O38：回收批次要「写前计划 → 逐项状态 → 最终提交」，中断后还能恢复或撤回。
-# 批次状态：planned（写前清单已落盘，尚未搬完）／committed（全部搬完，可恢复）／
-# rolled_back（整批撤回，原文件已回原位）。逐项状态：planned／moved／failed／undone。
 BATCH_PLANNED='planned'
 BATCH_COMMITTED='committed'
 BATCH_ROLLED_BACK='rolled_back'
@@ -31,10 +27,7 @@ ITEM_PLANNED='planned'
 ITEM_MOVED='moved'
 ITEM_FAILED='failed'
 ITEM_UNDONE='undone'
-# O39：清理老视频前先查成果引用图，只清真正无引用的旧版。
-# 成片来源清单的文件名权威在 engine（L3）；L1 不能向上导入，故在此复名并由架构测试锁死一致。
 EXPORT_MANIFEST_NAMES=('edit_bundle.json','edit_manifest.json')
-# 已定局状态：只有这三种旧版本才可以进入回收候选；其余（含空）一律按「未结算」留住。
 SETTLED_STATES=frozenset(('downloaded','failed','rejected'))
 RETAIN_UNSETTLED='unsettled'
 RETAIN_LOCKED='locked'
@@ -49,14 +42,13 @@ RETAIN_REASONS={RETAIN_UNSETTLED:'任务未结算，等结果取回或查询',
                 RETAIN_LATEST:'该镜头最新版本',
                 RETAIN_FRESH:'未到项目保留期或创建时间无效'}
 VERSION_CLEAN_REASON='超过保留期，且未被采用、未进成片来源、未锁定、任务已定局'
-
 def launch_cleanup(app_root=None, *, temporary_projects=()):
     program=Path(app_root or PROGRAM)
-    command=[sys.executable,str(program/'storage_maintenance.py'),'--cleanup']
+    command=[sys.executable,'-m','infra.storage_maintenance','--cleanup']
     for project in dict.fromkeys(str(Path(root)) for root in temporary_projects):
         command.extend(('--temporary-project',project))
-    launch_background(command, stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-
+    launch_background(command,cwd=program,stdin=subprocess.DEVNULL,
+                      stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
 def _within(child,parent):
     return child.resolve().is_relative_to(parent.resolve())
 
@@ -70,8 +62,6 @@ def recycle_base(root):
     return _recycle_base(Path(root))
 
 
-# R3117（任务书 P2，Q5）：回收站保留期。到期批次不会自动消失——只有用户在面板里
-# 显式「清空过期回收站」时才会物理删除，删除动作仍只经本模块。
 RECYCLE_RETENTION_DAYS = 30
 
 
@@ -271,13 +261,17 @@ def plan_recycle(path, root, batch):
             'status':ITEM_PLANNED,'error':''}
 
 
-def move_planned(record, root, batch):
+def move_planned(record, root, batch, *, transactional=False):
     """按计划把这一项移进回收站；成功把状态改成 moved，失败原样抛出给调用方。"""
     root=Path(root)
     source=root/str(record['source'])
     target=root/str(record['recycle_path'])
     target.parent.mkdir(parents=True,exist_ok=True)
-    shutil.move(str(source),str(target))
+    if transactional:
+        from agent.publication import recycle_file
+        recycle_file(source, target)
+    else:
+        shutil.move(str(source),str(target))
     record['status']=ITEM_MOVED
     record['error']=''
     return record
@@ -318,15 +312,19 @@ def _distinct_outermost(records):
     return kept
 
 
-def recycle_paths(root, paths, reason, now=None):
-    """供用户可见的删除入口复用的受控回收接口。
+def recycle_paths(root, paths, reason, now=None, *, after_moves=None):
+    """先登记批次再移动，去重且保留原件供恢复。
 
-    O38：先把写前计划（UUID 批次、逐项状态 state=planned）原子落盘，再逐项移动并随时更新
-    清单，全部搬完才写 state=committed。任一项移动失败就撤回本批已移动项、写明失败原因后
-    再抛出原异常；进程中断时清单已带逐项状态（恢复按文件是否真的在回收站里判断），可经
-    restore_recycle_batch 恢复已搬走的项，或经 rollback_recycle_batch 撤回整批。
-    同批重复路径只算一次，目录已在批内时不再单列其中的文件。始终只移动、不永久删除。
+    默认逐项更新清单，移动失败时撤回；中断可用 rollback_recycle_batch 撤回。
+    after_moves 模式限同卷普通文件，移动、回调的台账发布和批次清单共同提交。
     """
+    if after_moves is not None:
+        from agent.publication import access
+        with access():
+            return _recycle_paths(root, paths, reason, now, after_moves)
+    return _recycle_paths(root, paths, reason, now, None)
+
+def _recycle_paths(root, paths, reason, now, after_moves):
     root=Path(root).resolve(); now=now or time.time()
     batch=_recycle_base(root)/batch_name(now)
     created_at=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(now))
@@ -334,6 +332,15 @@ def recycle_paths(root, paths, reason, now=None):
     if not records:return []
     batch.mkdir(parents=True,exist_ok=True)
     _write_batch_manifest(batch,BATCH_PLANNED,records,reason,created_at)     # 写前计划先落盘
+    if after_moves is not None:
+        from agent.publication import transaction
+        with transaction():
+            for record in records:
+                move_planned(record, root, batch, transactional=True)
+            after_moves([root / record['source'] for record in records])
+            _write_batch_manifest(batch, BATCH_COMMITTED, records, reason, created_at)
+        recycled((root / record['source'], root / record['recycle_path']) for record in records)
+        return records
     moved=[]
     try:
         for record in records:

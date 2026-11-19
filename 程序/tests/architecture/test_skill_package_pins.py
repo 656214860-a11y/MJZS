@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import importlib.util
+import configparser
+import subprocess
 import sys
 import unittest
 
@@ -18,6 +20,21 @@ ENTRY = {'p': {'source': 'https://x/y.git', 'commit': COMMIT, 'tree': TREE}}
 
 
 class SkillPackagePinTests(unittest.TestCase):
+    def test_every_gitlink_has_a_reproducible_submodule_mapping(self):
+        repository = ROOT.parent
+        tracked = subprocess.run(
+            ['git', 'ls-files', '--stage', '-z'], cwd=repository, check=True,
+            text=True, encoding='utf-8', errors='strict', capture_output=True,
+        ).stdout.split('\0')
+        gitlinks = {line.split('\t', 1)[1].replace('\\', '/')
+                    for line in tracked if line.startswith('160000 ')}
+        config = configparser.ConfigParser()
+        config.read(repository / '.gitmodules', encoding='utf-8')
+        mapped = {config[section]['path'].replace('\\', '/') for section in config.sections()}
+        self.assertEqual(mapped, gitlinks, 'gitlink 必须逐项登记 .gitmodules，干净工作树才能初始化')
+        for section in config.sections():
+            self.assertTrue(config[section]['url'].startswith('https://'))
+
     def test_registry_matches_the_commits_the_repository_pins(self):
         pinned = PINS.pinned_packages()
         self.assertTrue(pinned, '没有找到被固定的外部技能包')

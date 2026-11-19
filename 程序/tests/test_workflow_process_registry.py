@@ -4,6 +4,17 @@ from unittest.mock import patch
 
 
 class WorkflowProcessCapacityTests(unittest.TestCase):
+    def test_legacy_process_registration_does_not_block_slot_checks(self):
+        from types import SimpleNamespace
+        from infra import workflow_process_registry as registry
+
+        process = SimpleNamespace()
+        registry.register_process('legacy-project', process)
+        self.addCleanup(registry.forget_process, 'legacy-project', process)
+
+        self.assertIsNotNone(registry.reserve_process_slot('new-project', 'script'))
+        self.assertEqual(registry.processes('legacy-project'), [process])
+
     def test_exited_process_releases_slot_for_queued_request(self):
         from unittest.mock import Mock
         from infra import workflow_process_registry as registry

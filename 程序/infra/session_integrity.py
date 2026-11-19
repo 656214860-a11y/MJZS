@@ -10,6 +10,8 @@ from agent.core import save_bytes
 from agent.publication import access
 from infra import model_secrets
 
+__all__ = ['fields', 'seal', 'verify']
+
 _KEY_FILE = '.mac_key.dpapi'
 _KEY_SIZE = 32
 _METADATA = frozenset(('_mac', '_mac_key_id'))

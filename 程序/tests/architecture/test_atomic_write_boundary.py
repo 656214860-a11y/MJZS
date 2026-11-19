@@ -16,9 +16,10 @@ _ATOMIC_BOUNDARIES = frozenset({"model_secrets", "qwen_adapter", "workflow_engin
 # 包内文件是任意字节不是正式成果，不走 agent.core 文本保存口径；
 # skill_remote_service 的 open(dest,'wb') 只写下载缓存（data/skills/下载缓存/，
 # 同为暂存语义，失败即删半截文件），同理不算正式成果。
+# app_logging 的 perf_metrics.json 是可丢弃诊断日志，不是项目正式成果；进程退出时尽力写入。
 # optimizer_mcp_bridge 的 open(os.devnull,'w') 只是给 MCP 子进程重定向 stderr，
 # 不产生任何文件（R3246 轮 2 agent/ 入包扫描后登记）。
-_TEMPORARY_BOUNDARIES = frozenset({"app_shortcut", "skill_archive", "skill_remote_service",
+_TEMPORARY_BOUNDARIES = frozenset({"app_logging", "app_shortcut", "skill_archive", "skill_remote_service",
                                    "optimizer_mcp_bridge"})
 
 # R1854：直接 os.replace／Path.replace 会绕过 agent.core.replace 的 Windows 共享冲突重试与发布记录
@@ -32,7 +33,6 @@ _REPLACE_REGISTERED = {
     "app_logging.py": 1,
     "image_agent_runner.py": 1,
     "log_maintenance.py": 2,
-    "skill_import_service.py": 2,
     "skill_registry.py": 1,
     "stage_handoff_gateways.py": 1,
     "stage_write_preparation_service.py": 3,

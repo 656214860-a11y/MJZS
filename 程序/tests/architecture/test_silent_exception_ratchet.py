@@ -20,7 +20,7 @@ PROGRAM = Path(__file__).resolve().parents[2]
 # artifact_schema（R3298 轮 4B）：L0 契约不能 import L1 app_logging；读取分类计数是
 # 尽力而为的内存记账，契约承诺不抛异常、不影响读取主路径，豁免一处。
 ALLOWED = {
-    'infra/app_logging.py': 10,
+    'infra/app_logging.py': 9,
     'agent/volcengine.py': 1,
     'contract/platform_tools.py': 1,
     'contract/artifact_schema.py': 1,

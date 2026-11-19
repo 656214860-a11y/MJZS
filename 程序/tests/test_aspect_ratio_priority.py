@@ -1,11 +1,71 @@
 # -*- coding: utf-8 -*-
 """三处画幅默认均遵循：制作锁 → 已存偏好 → 各自旧默认。"""
+import io
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
+from urllib.error import URLError
 
 from contract import asset_contract
+
+
+class CloudReferenceUploadTests(unittest.TestCase):
+    def test_infra_comfy_consumers_do_not_import_batch_frames_tool(self):
+        from tests.architecture._scan import module_import_rows
+
+        infra = Path(__file__).resolve().parents[1] / 'infra'
+        edges = [(name, line, target)
+                 for name in ('cloud_assets.py', 'comfy_service.py')
+                 for line, target in module_import_rows(infra / name)
+                 if target.split('.')[0] == 'batch_frames_tool']
+        self.assertEqual(edges, [])
+
+    def test_failed_upload_raises_without_retry(self):
+        from infra import cloud_assets, http_client
+        from contract.infra_errors import NetworkError
+
+        with tempfile.TemporaryDirectory() as td:
+            image = Path(td) / 'reference.png'
+            image.write_bytes(b'fake png bytes')
+            client = SimpleNamespace(url='http://127.0.0.1:8188')
+            opener = mock.Mock()
+            opener.open.side_effect = URLError('disconnected')
+            with mock.patch.object(http_client, '_local_comfy_opener', return_value=opener):
+                with self.assertRaisesRegex(NetworkError, '无法连接ComfyUI'):
+                    cloud_assets.graph(client, 'CHAR_001', {'reference_images': ['ref']},
+                                       '提示词', [image], {'backend': 'Seedream 5.0 Pro'})
+            opener.open.assert_called_once()
+            request, = opener.open.call_args.args
+            self.assertEqual(request.full_url, client.url + '/upload/image')
+            self.assertEqual(request.get_method(), 'POST')
+            self.assertEqual(opener.open.call_args.kwargs, {'timeout': 30})
+            self.assertIsNone(request.get_header('Authorization'))
+            self.assertIn(image.read_bytes(), request.data)
+
+    def test_workflow_uses_decoded_upload_names_in_reference_order(self):
+        from infra import cloud_assets, http_client
+
+        with tempfile.TemporaryDirectory() as td:
+            images = [Path(td) / name for name in ('first.png', 'second.png')]
+            for image in images:
+                image.write_bytes(image.name.encode())
+            opener = mock.Mock()
+            opener.open.side_effect = [
+                io.BytesIO(b'{"subfolder":"refs","name":"first.png"}'),
+                io.BytesIO(b'{"name":"second.png"}'),
+            ]
+            client = SimpleNamespace(url='http://127.0.0.1:8188')
+            asset = {'reference_images': ['a', 'b'], 'reference_roles': {'b': '服饰参考'}}
+            with mock.patch.object(http_client, '_local_comfy_opener', return_value=opener):
+                graph = cloud_assets.graph(client, 'CHAR_001', asset, '提示词', images,
+                                           {'backend': 'Seedream 5.0 Pro'})
+            self.assertEqual(opener.open.call_count, 2)
+            self.assertEqual(graph['100']['inputs'], {'image': 'refs/first.png', 'role': '综合参考'})
+            self.assertEqual(graph['101']['inputs'], {'image': 'second.png', 'role': '服饰参考',
+                                                     'previous': ['100', 0]})
+            self.assertEqual(graph['30']['inputs']['references'], ['101', 0])
 
 
 class AspectRatioPriorityTests(unittest.TestCase):
@@ -18,17 +78,13 @@ class AspectRatioPriorityTests(unittest.TestCase):
         import cloud_assets
 
         class Client:
-            url = 'http://example.invalid'
-        class Upload:
-            def __init__(self, _url): pass
-            def upload(self, value): return str(value)
+            url = 'http://127.0.0.1:8188'
         common = {'backend': 'Seedream 5.0 Pro'}
-        with mock.patch('batch_frames_tool.batch_frames.Client', Upload):
-            for lock, preference, expected in (({'aspect_ratio': '9:16'}, '16:9', '9:16'),
-                                                ({}, '16:9', '16:9'), ({}, '', '1:1')):
-                graph = cloud_assets.graph(Client(), 'CHAR_001', {'name': '甲'}, '提示词', [],
-                                           dict(common, workflow_lock=lock, aspect_ratio=preference))
-                self.assertEqual(graph['30']['inputs']['aspect_ratio'], expected)
+        for lock, preference, expected in (({'aspect_ratio': '9:16'}, '16:9', '9:16'),
+                                            ({}, '16:9', '16:9'), ({}, '', '1:1')):
+            graph = cloud_assets.graph(Client(), 'CHAR_001', {'name': '甲'}, '提示词', [],
+                                       dict(common, workflow_lock=lock, aspect_ratio=preference))
+            self.assertEqual(graph['30']['inputs']['aspect_ratio'], expected)
 
     def test_seedream_uses_lock_then_preference_then_legacy_default(self):
         import keyframe_comfy, keyframe_import, native_assets, seedream_api

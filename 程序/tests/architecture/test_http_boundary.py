@@ -12,7 +12,6 @@ from tests.architecture._scan import parse, production_runtime_files
 ALLOWED = frozenset({
     'infra/http_client.py',
     # 存量直连点，按 T3 迁移计划逐个迁入 http_client 后移除
-    'batch_frames_tool/batch_frames.py',
     'local_video.py',
     'contract/platform_tools.py',
 })

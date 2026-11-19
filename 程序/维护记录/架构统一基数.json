@@ -40,6 +40,8 @@
   ],
   "scope_audit_pending": [
    "asset_reference_prompts",
+   "domain",
+   "domain.hitl",
    "domain_events",
    "offline_asr_setup",
    "script_structure_edit_controller",
@@ -872,12 +874,6 @@
    {
     "file": "batch_frames_tool/batch_frames.py",
     "point": "read:json.loads:500648c8c87e599c:1",
-    "disposition": "exempt",
-    "reason": "独立批帧工具的本地配置读写，非运行期 L2"
-   },
-   {
-    "file": "batch_frames_tool/batch_frames.py",
-    "point": "Client.request:json.loads:5f497435521120fd:1",
     "disposition": "exempt",
     "reason": "独立批帧工具的本地配置读写，非运行期 L2"
    },
@@ -1994,12 +1990,6 @@
     "file": "contract/platform_tools.py",
     "symbol": "_requests_tls_adapter",
     "type": "import:ssl",
-    "count": 1
-   },
-   {
-    "file": "contract/platform_tools.py",
-    "symbol": "_requests_tls_adapter",
-    "type": "import:urllib3",
     "count": 1
    },
    {

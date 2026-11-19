@@ -64,7 +64,9 @@
 ## 5. 升级、备份与回滚
 
 - 发布流程以 `说明/发布检查单.md` 为准；安装后对照 `安装信息.json` 与 `distribution_manifest.md` 核对落位（旧文档里的 `reorganize_install.py`／`install_release.py` 仓库里已不存在）。
-- 回滚靠 Git：`升级备份/` 与 `.bak_*` 是历史证据、今后不再新增（AGENTS §2.6）。回滚后跑 §3 第一档自检。
+- 当前没有在线自动更新器；程序更新采用全新空目录并列构建、校验后人工切换，旧发布目录至少保留一个完整使用周期。程序版本回退切回旧发布目录；开发源码撤销才使用独立 `git revert`。
+- 用户项目数据不靠 Git 回滚。版本化产物迁移使用 `contract.artifact_schema` 的同目录 `.bak`、原子发布与读回断言；迁移失败恢复 `.bak`，未来 schema 拒写。完整步骤与发布门见 `docs/review/安装更新与恢复方案_A15.md`。
+- 历史 `升级备份/` 与解释器 `.bak_*` 不进入发布包，也不把整目录备份机制重新引入源码提交。
 - `程序\outputs\`、`程序\logs\`、私有配置不进发布包。
 
 ### 远端备份与服务器 CI（T1）
@@ -143,23 +145,23 @@
 
 ## 10. 性能基准口径
 
-`维护记录\基准历史.json` 是**历史参考，不作当前判据**：它是三类离线探针（启动与页面／热点路径／长列表）的自愿归档，最新记录停在 R1373（2026-10-12）；它记录的指标名（如 `first_frame_ms`、`ready_total_ms`、`cold_ms`、`warm_ms`、`row_count`）与现行契约**不同名、不同口径**，两者不能直接比较。
+`维护记录\基准历史.json` 是**历史参考，不作当前判据**：它是含机器指纹与本机路径的三类离线探针（启动与页面／热点路径／长列表）自愿归档，继续由 `.gitignore` 排除。门禁只读取版本化、脱敏的 `维护记录\基准历史契约快照.json`，因此干净检出不依赖开发机运行文件；快照仅保留允许比较的历史指标投影，不保存机器或项目路径。
 
 当前性能判据只有两处权威源：
 
 - `tests\performance_contract.py`：11 条阈值常量（含 `STARTUP_RECURSIVE_SCAN_COUNT = 0`、`STARTUP_FIRST_FRAME_MS`、`LONG_LIST_SCROLL_MEDIAN_MS`、`MEMORY_DELTA_MB`、`BATCH_PLAN_PER_SHOT_MS`、`QUEUE_ITEM_MS`、`CONCURRENT_SUBMIT_ITEMS_PER_SECOND` 等）。
 - `tests\test_perf_baseline.py`：把上述阈值写成用例，只拦明显退化；口径与放宽理由见其模块 docstring。
 
-要让归档重新成为判据，必须先把探针指标名与 `performance_contract` 对齐、再在真机重跑一次；对齐之前，不得用 `基准历史.json` 的数字声称「回归」或「达标」。门禁在 `tests\architecture\test_agents_md.py`：断言本节存在，并在 `performance_contract` 的指标名与 `基准历史.json` 出现同名时报警，逼一次口径更新。
+要让归档重新成为判据，必须先把探针指标名与 `performance_contract` 对齐、在真机重跑，再生成脱敏快照；对齐之前，不得用 `基准历史.json` 的数字声称「回归」或「达标」。门禁在 `tests\architecture\test_agents_md.py`：断言本节存在，并在 `performance_contract` 的指标名与版本化快照出现同名时报警，逼一次口径更新。运行历史与门禁输入分开，不能把本机文件复制进干净工作树伪造可复现性。
 
 R2979 起探针侧已按 `performance_contract.py` 末尾对照表补齐同口径指标：长列表新增 `scroll_median_ms`（与 `LONG_LIST_SCROLL_MEDIAN_MS` 同为 60 帧中位数）、`fill_ms`（分批插行长齐总时长），长列表滚动测量前先等行长齐（与 `test_perf_baseline` 同口径 settle）；`first_frame_ms` 本就同口径。归档其余指标（页面墙钟、行数、内存绝对值、热点路径）仍无契约常量对应物，只作期间趋势参考、不作判据。
 
 ## 11. 覆盖率口径
 
-`维护记录\覆盖率基线.json` 是**定向测量**，不是整仓覆盖率。当前基线：生产运行时模块 673 个，其中 91 个有行覆盖（其余 582 个在这 15 组定向用例里没被碰到）。双方目标并集共 15 组，合并轮实测全绿。
+`维护记录\覆盖率基线.json` 是**定向测量**，不是整仓覆盖率。当前基线：生产运行时模块 676 个，其中 133 个有行覆盖（其余 543 个在这 15 组定向用例里没被碰到）。双方目标并集共 15 组，合并轮实测全绿。
 
 - 字段口径：`modules_total` ＝ 生产运行时模块总数；`modules_covered` ＝ 其中被覆盖到的模块数；`targets` ＝ 本次测量使用的定向用例组；`tests_ok` ＝ 测量时刻目标用例是否全绿。
-- 因此「582 个模块覆盖率 0」**不等于**「整仓覆盖率 13%」，也不能据此列出「未覆盖模块」清单——它只说明这 15 组定向用例碰过哪些模块。
+- 因此「543 个模块覆盖率 0」**不等于**「整仓覆盖率 19.7%」，也不能据此列出「未覆盖模块」清单——它只说明这 15 组定向用例碰过哪些模块。
 
 - 测量工具 `scripts\coverage_report.py`（`sys.settrace`，零第三方依赖）。本仓随附解释器没有标准库 `trace`，也不引入 `coverage.py`；**不重跑测量**，刷新基线必须显式重跑工具，工具在目标用例失败时拒绝写基线。
 - 诚实边界：阈值只对「基线里记录的那次测量」成立。门禁 `tests\architecture\test_coverage_baseline.py` 只做结构自洽、磁盘存在性、口径相等与核心路径下限四件事。
@@ -220,7 +222,7 @@ AGENTS 只保留触发条件；本节是细则全文。开工领号、建工作�
 
 **结果侧观测（R2533 起）**：`python -B scripts/dora_report.py [--days 30]` 只读输出前置时间（分支首个独有提交到合入 master）、`R<n>-FAIL:` 占比、「7 天内被修复」比例（同模块又有「修复」提交，启发式）、返工热点前 15 个模块、红灯停留与按 `Agent:` 来源的分组，并写 `程序/logs/dora_最近.md`。红灯停留的原始数据是后台全量每次结束追加到 common-dir `full-safe-history.jsonl` 的一行（环境受阻不记）。`dev.py commit --agent <名称>` 在提交信息末尾加 `Agent: <名称>`。这些是结果侧信号，不设阈值、不是目标；冒烟 8/8 与架构门禁数量只是健康检查。
 
-**其余闸门工具（R2538 起）**：① `scripts/typecheck_baseline.py --check|--update`——开发机用 `npx pyright@1.1.414`（basic、Python 3.13）数每个生产模块的类型错误，基线 `维护记录/类型检查基线.json` 只许减少，需要 Node 与联网，不进产品和发布包；`tests/architecture/test_type_check_baseline.py` 只守基线文件自洽。② `scripts/skill_package_pins.py --check|--update`——外部技能包（gitlink）的来源、固定提交与 git 内容树哈希登记在 `维护记录/外部技能包哈希.json`，已检出的包被改过或漂移即红，升级外部包后用 `--update` 重新登记。③ `tests/architecture/test_gate_selfaudit.py`——路径权威、删除权威、静默异常、秘密出口、分层 5 个门禁各有坏／好样本，门禁被改坏时先红。④ `tests/test_fault_injection_chain.py`——传输层注入超时／429／5xx／半截响应，核对计量台账不重复计费、未知用量不算已花费、没有产物时模型嘴上说完成也不发 `stage.completed`。⑤ 结果文件标题行之后由 `dev.py commit` 写一行 `<!-- round-evidence: {...} -->`（类型、命令、退出码、通过／失败数、证据文件摘要、基线提交），已有则替换。
+**其余闸门工具（R2538 起）**：① `scripts/typecheck_baseline.py --check|--update`——开发机用 `npx pyright@1.1.414`（basic、Python 3.13）数每个生产模块的类型错误，基线 `维护记录/类型检查基线.json` 只许减少，需要 Node 与联网，不进产品和发布包；`tests/architecture/test_type_check_baseline.py` 只守基线文件自洽。② `scripts/skill_package_pins.py --check|--update`——外部技能包（gitlink）的来源、固定提交与 git 内容树哈希登记在 `维护记录/外部技能包哈希.json`，已检出的包被改过或漂移即红，升级外部包后用 `--update` 重新登记；所有 gitlink 必须逐项登记在仓库根 `.gitmodules`，干净克隆先执行 `git submodule update --init --recursive`，不得再从主工作区复制未跟踪目录补测试环境。③ `tests/architecture/test_gate_selfaudit.py`——路径权威、删除权威、静默异常、秘密出口、分层 5 个门禁各有坏／好样本，门禁被改坏时先红。④ `tests/test_fault_injection_chain.py`——传输层注入超时／429／5xx／半截响应，核对计量台账不重复计费、未知用量不算已花费、没有产物时模型嘴上说完成也不发 `stage.completed`。⑤ 结果文件标题行之后由 `dev.py commit` 写一行 `<!-- round-evidence: {...} -->`（类型、命令、退出码、通过／失败数、证据文件摘要、基线提交），已有则替换。
 **测试搬家守卫（规则 16）**：`scripts/test_move_audit.py` 核对暂存区或某个提交——测试文件新增／删除、或新旧内容除 `import` 行外有任何差异都不通过；`dev.py commit` 在提交信息首行以「R<n>: 测试搬家」开头时自动核对，不通过拒绝提交。规则 26 由 `test_rule_guard_map.py` 守卫（新增规则不登记守卫即红）。暂无守卫的规则只剩 25、30a、32，均为纯流程要求。
 **服务器端闸门（R2716 起已部署）**：备份服务器 `/srv/git/manju-assistant.git/hooks/pre-receive` 即 `维护记录/基准脚本/remote_pre_receive.py`（静态编译＋新增行凭据形态＋可选 gitleaks＋master/main 证据门禁四合一）。证据门禁判据与 `维护记录/基准脚本/server_hooks/pre-receive`、`round_evidence.judge` 同口径：推到 master/main 的 R2527 及以后源码轮次提交必须带同一提交里的绿色证据文件，删除 master/main 一律拒绝，其它分支不受此限。更新钩子＝把 `remote_pre_receive.py` 传到 hooks/ 下并 `chmod +x`；紧急绕过只能由服务器管理员临时摘掉钩子。注意：backup 远端 master 落后本地较多时，首次同步推送会因历史提交缺证据被拒（R2716 实测 186 个待推提交中 8 个缺证据），需管理员一次性摘钩推送后再装回。
 

@@ -1,0 +1,915 @@
+{
+  "base": "4b527bfda72077f5de93469a37e6496d300f3894",
+  "callers": {
+    "batch_frames_tool": {
+      "batch_frames_tool/batch_frames.py": [
+        [
+          "image_agent_runner.py",
+          96,
+          "import"
+        ],
+        [
+          "infra/cloud_assets.py",
+          70,
+          "import"
+        ],
+        [
+          "infra/comfy_service.py",
+          133,
+          "import"
+        ],
+        [
+          "infra/comfy_service.py",
+          146,
+          "import"
+        ],
+        [
+          "ui/desktop_pet_bridge.py",
+          91,
+          "import"
+        ],
+        [
+          "ui/keyframe_comfy.py",
+          37,
+          "import"
+        ],
+        [
+          "ui/keyframe_comfy.py",
+          105,
+          "import"
+        ],
+        [
+          "ui/native_assets.py",
+          227,
+          "import"
+        ]
+      ],
+      "batch_frames_tool/启动批量首帧.pyw": []
+    },
+    "blender_previs_template": {
+      "blender_previs_template.py": [
+        [
+          "orchestrator/previs_batch_service.py",
+          35,
+          "generation-template"
+        ]
+      ]
+    },
+    "codex_paste": {
+      "codex_paste.py": [
+        [
+          "ui/desktop_idea_chat.py",
+          965,
+          "import"
+        ],
+        [
+          "ui/desktop_idea_chat.py",
+          982,
+          "import"
+        ],
+        [
+          "ui/desktop_send_choice.py",
+          60,
+          "import"
+        ]
+      ]
+    },
+    "codex_tasks": {
+      "codex_tasks.py": [
+        [
+          "orchestrator/agent_dispatch.py",
+          6,
+          "import"
+        ],
+        [
+          "orchestrator/workflow_engines.py",
+          491,
+          "import"
+        ],
+        [
+          "ui/desktop_idea_chat.py",
+          760,
+          "import"
+        ],
+        [
+          "ui/desktop_send_choice.py",
+          104,
+          "import"
+        ]
+      ]
+    },
+    "console_submit": {
+      "console_submit.py": [
+        [
+          "orchestrator/workflow_engines.py",
+          546,
+          "import"
+        ],
+        [
+          "orchestrator/workflow_engines.py",
+          563,
+          "import"
+        ]
+      ]
+    },
+    "distribution_builder": {
+      "scripts/distribution_build.py": []
+    },
+    "selftests": {
+      "run_selftests.py": [
+        [
+          "domain/pet_test_service.py",
+          78,
+          "developer-test-mode"
+        ],
+        [
+          "domain/pet_test_service.py",
+          97,
+          "developer-test-mode"
+        ]
+      ],
+      "smoke_test.py": []
+    },
+    "voice_engine": {
+      "voice_engine/bootstrap.py": [
+        [
+          "domain/offline_asr_setup.py",
+          25,
+          "setup-script"
+        ]
+      ],
+      "voice_engine/download_models.py": [
+        [
+          "domain/offline_asr_setup.py",
+          185,
+          "setup-module"
+        ]
+      ],
+      "voice_engine/offline_asr_server.py": [
+        [
+          "domain/offline_asr_client.py",
+          26,
+          "stdio-script"
+        ]
+      ]
+    }
+  },
+  "closure": {
+    "batch_frames_tool": [
+      "batch_frames_tool/batch_frames.py",
+      "batch_frames_tool/config.json",
+      "batch_frames_tool/启动批量首帧.pyw"
+    ],
+    "blender_previs_template": [
+      "blender_previs_template.py"
+    ],
+    "codex_paste": [
+      "codex_paste.ps1",
+      "codex_paste.py"
+    ],
+    "codex_tasks": [
+      "codex_tasks.py"
+    ],
+    "console_submit": [
+      "console_submit.py"
+    ],
+    "distribution_builder": [
+      "scripts/distribution_build.py"
+    ],
+    "selftests": [
+      "run_selftests.py",
+      "selftest_discovery.py",
+      "selftest_env.py",
+      "selftest_receipts.py",
+      "selftest_reporting.py",
+      "selftest_sandbox.py",
+      "selftest_scheduling.py",
+      "smoke_test.py"
+    ],
+    "voice_engine": [
+      "voice_engine/__init__.py",
+      "voice_engine/bootstrap.py",
+      "voice_engine/download_models.py",
+      "voice_engine/funasr_config.py",
+      "voice_engine/offline_asr_server.py",
+      "voice_engine/requirements.txt"
+    ]
+  },
+  "issues": [
+    [
+      "development-launch",
+      "domain/pet_test_service.py:78",
+      "run_selftests.py"
+    ],
+    [
+      "development-launch",
+      "domain/pet_test_service.py:97",
+      "run_selftests.py"
+    ],
+    [
+      "release-development",
+      "run_selftests.py",
+      "selftests"
+    ],
+    [
+      "release-development",
+      "selftest_discovery.py",
+      "selftests"
+    ],
+    [
+      "release-development",
+      "selftest_env.py",
+      "selftests"
+    ],
+    [
+      "release-development",
+      "selftest_receipts.py",
+      "selftests"
+    ],
+    [
+      "release-development",
+      "selftest_reporting.py",
+      "selftests"
+    ],
+    [
+      "release-development",
+      "selftest_sandbox.py",
+      "selftests"
+    ],
+    [
+      "release-development",
+      "selftest_scheduling.py",
+      "selftests"
+    ],
+    [
+      "release-development",
+      "smoke_test.py",
+      "selftests"
+    ],
+    [
+      "release-generated-data",
+      "data/voice_asr_venv/pyvenv.cfg",
+      "local runtime data"
+    ],
+    [
+      "release-generated-data",
+      "data/voice_models/model.bin",
+      "local runtime data"
+    ],
+    [
+      "upward-import",
+      "infra/cloud_assets.py:70",
+      "batch_frames_tool/batch_frames.py"
+    ],
+    [
+      "upward-import",
+      "infra/comfy_service.py:133",
+      "batch_frames_tool/batch_frames.py"
+    ],
+    [
+      "upward-import",
+      "infra/comfy_service.py:146",
+      "batch_frames_tool/batch_frames.py"
+    ]
+  ],
+  "legacy": {
+    "registered": [
+      "batch_frames_tool",
+      "blender_previs_template",
+      "codex_paste",
+      "codex_tasks",
+      "console_submit"
+    ],
+    "scan_hits": [
+      "blender_previs_template",
+      "codex_paste",
+      "codex_tasks",
+      "console_submit"
+    ]
+  },
+  "process_imports": {
+    "voice_engine": [
+      [
+        "voice_engine/__init__.py",
+        10,
+        "os",
+        null
+      ],
+      [
+        "voice_engine/__init__.py",
+        11,
+        "sys",
+        null
+      ],
+      [
+        "voice_engine/bootstrap.py",
+        14,
+        "argparse",
+        null
+      ],
+      [
+        "voice_engine/bootstrap.py",
+        15,
+        "json",
+        null
+      ],
+      [
+        "voice_engine/bootstrap.py",
+        16,
+        "os",
+        null
+      ],
+      [
+        "voice_engine/bootstrap.py",
+        17,
+        "subprocess",
+        null
+      ],
+      [
+        "voice_engine/bootstrap.py",
+        18,
+        "sys",
+        null
+      ],
+      [
+        "voice_engine/bootstrap.py",
+        19,
+        "venv",
+        null
+      ],
+      [
+        "voice_engine/bootstrap.py",
+        20,
+        "pathlib",
+        null
+      ],
+      [
+        "voice_engine/download_models.py",
+        11,
+        "json",
+        null
+      ],
+      [
+        "voice_engine/download_models.py",
+        12,
+        "os",
+        null
+      ],
+      [
+        "voice_engine/download_models.py",
+        13,
+        "sys",
+        null
+      ],
+      [
+        "voice_engine/download_models.py",
+        14,
+        "threading",
+        null
+      ],
+      [
+        "voice_engine/download_models.py",
+        15,
+        "pathlib",
+        null
+      ],
+      [
+        "voice_engine/download_models.py",
+        17,
+        "voice_engine",
+        "voice_engine/__init__.py"
+      ],
+      [
+        "voice_engine/download_models.py",
+        17,
+        "voice_engine.funasr_config",
+        "voice_engine/funasr_config.py"
+      ],
+      [
+        "voice_engine/download_models.py",
+        52,
+        "modelscope.hub.snapshot_download",
+        null
+      ],
+      [
+        "voice_engine/funasr_config.py",
+        8,
+        "os",
+        null
+      ],
+      [
+        "voice_engine/offline_asr_server.py",
+        21,
+        "base64",
+        null
+      ],
+      [
+        "voice_engine/offline_asr_server.py",
+        22,
+        "binascii",
+        null
+      ],
+      [
+        "voice_engine/offline_asr_server.py",
+        23,
+        "json",
+        null
+      ],
+      [
+        "voice_engine/offline_asr_server.py",
+        24,
+        "os",
+        null
+      ],
+      [
+        "voice_engine/offline_asr_server.py",
+        25,
+        "struct",
+        null
+      ],
+      [
+        "voice_engine/offline_asr_server.py",
+        26,
+        "sys",
+        null
+      ],
+      [
+        "voice_engine/offline_asr_server.py",
+        27,
+        "tempfile",
+        null
+      ],
+      [
+        "voice_engine/offline_asr_server.py",
+        28,
+        "time",
+        null
+      ],
+      [
+        "voice_engine/offline_asr_server.py",
+        29,
+        "traceback",
+        null
+      ],
+      [
+        "voice_engine/offline_asr_server.py",
+        35,
+        "voice_engine",
+        "voice_engine/__init__.py"
+      ],
+      [
+        "voice_engine/offline_asr_server.py",
+        35,
+        "voice_engine.download_models",
+        "voice_engine/download_models.py"
+      ],
+      [
+        "voice_engine/offline_asr_server.py",
+        35,
+        "voice_engine.funasr_config",
+        "voice_engine/funasr_config.py"
+      ],
+      [
+        "voice_engine/offline_asr_server.py",
+        282,
+        "threading",
+        null
+      ],
+      [
+        "voice_engine/offline_asr_server.py",
+        332,
+        "funasr_onnx.utils.utils",
+        null
+      ],
+      [
+        "voice_engine/offline_asr_server.py",
+        333,
+        "funasr_onnx.utils.frontend",
+        null
+      ],
+      [
+        "voice_engine/offline_asr_server.py",
+        334,
+        "funasr_onnx.paraformer_bin",
+        null
+      ],
+      [
+        "voice_engine/offline_asr_server.py",
+        335,
+        "funasr_onnx.vad_bin",
+        null
+      ],
+      [
+        "voice_engine/offline_asr_server.py",
+        336,
+        "funasr_onnx.punc_bin",
+        null
+      ],
+      [
+        "voice_engine/offline_asr_server.py",
+        353,
+        "funasr_onnx.paraformer_bin",
+        null
+      ],
+      [
+        "voice_engine/offline_asr_server.py",
+        367,
+        "funasr_onnx.vad_bin",
+        null
+      ],
+      [
+        "voice_engine/offline_asr_server.py",
+        381,
+        "funasr_onnx.punc_bin",
+        null
+      ],
+      [
+        "voice_engine/offline_asr_server.py",
+        414,
+        "sys",
+        null
+      ],
+      [
+        "voice_engine/offline_asr_server.py",
+        423,
+        "sys",
+        null
+      ],
+      [
+        "voice_engine/offline_asr_server.py",
+        456,
+        "gc",
+        null
+      ]
+    ]
+  },
+  "regressions": {
+    "old_scan_functions_unchanged": 31,
+    "strict_identity_rejections": {
+      "agent": "unregistered",
+      "domain.checkpoint_tree": "unregistered",
+      "ui.edit_habits_dialog": "unregistered",
+      "ui.project_settings_dialog": "unregistered",
+      "ui.ui_asset_card": "unregistered",
+      "ui.ui_branch_tree": "unregistered",
+      "ui.ui_citation": "unregistered",
+      "ui.ui_code_block": "unregistered",
+      "ui.ui_diff": "unregistered",
+      "ui.ui_hitl": "unregistered",
+      "ui.ui_media": "unregistered",
+      "ui.ui_media_player": "unregistered",
+      "ui.ui_multimodal": "unregistered",
+      "ui.ui_param_panel": "unregistered",
+      "ui.ui_task_progress": "unregistered"
+    },
+    "strict_stage_file_count": 3,
+    "strict_stage_rejection_count": 29
+  },
+  "release": {
+    "excluded": [
+      "程序/scripts/distribution_build.py"
+    ],
+    "keep": [
+      "程序/batch_frames_tool/batch_frames.py",
+      "程序/batch_frames_tool/config.json",
+      "程序/batch_frames_tool/启动批量首帧.pyw",
+      "程序/blender_previs_template.py",
+      "程序/codex_paste.ps1",
+      "程序/codex_paste.py",
+      "程序/codex_tasks.py",
+      "程序/console_submit.py",
+      "程序/data/voice_asr_venv/pyvenv.cfg",
+      "程序/data/voice_models/model.bin",
+      "程序/run_selftests.py",
+      "程序/selftest_discovery.py",
+      "程序/selftest_env.py",
+      "程序/selftest_receipts.py",
+      "程序/selftest_reporting.py",
+      "程序/selftest_sandbox.py",
+      "程序/selftest_scheduling.py",
+      "程序/smoke_test.py",
+      "程序/voice_engine/__init__.py",
+      "程序/voice_engine/bootstrap.py",
+      "程序/voice_engine/download_models.py",
+      "程序/voice_engine/funasr_config.py",
+      "程序/voice_engine/offline_asr_server.py",
+      "程序/voice_engine/requirements.txt"
+    ],
+    "undecided": []
+  },
+  "roles": {
+    "batch_frames_tool": {
+      "candidate_layer": 2,
+      "role": "runtime"
+    },
+    "blender_previs_template": {
+      "candidate_layer": null,
+      "role": "generator"
+    },
+    "codex_paste": {
+      "candidate_layer": 1,
+      "role": "runtime"
+    },
+    "codex_tasks": {
+      "candidate_layer": 1,
+      "role": "runtime"
+    },
+    "console_submit": {
+      "candidate_layer": 1,
+      "role": "runtime"
+    },
+    "distribution_builder": {
+      "candidate_layer": null,
+      "role": "development"
+    },
+    "selftests": {
+      "candidate_layer": null,
+      "role": "development"
+    },
+    "voice_engine": {
+      "candidate_layer": null,
+      "role": "process"
+    }
+  },
+  "source_sha256": {
+    "architecture.md": "96977dd644da8797dad9879cf3b95078687d334778e8a37e5bd089cc93f48c83",
+    "batch_frames_tool/batch_frames.py": "5834727860a2f2d51be54aec3ef444fbf413f622803c26ef78b650464d040c9e",
+    "batch_frames_tool/config.json": "9b6f6aa5fabbb0f727dd7b66a8287b677b5b7ccb29ba2263172a184181e6384a",
+    "batch_frames_tool/启动批量首帧.pyw": "ce5d7d4ce1103ae5729b33c9d190958346d4b0d20423c2933c2d75793c904e55",
+    "blender_previs_template.py": "c72cfa9a47167832ccd3764acc885cfbc5c00607a23ae1d8b389d5d52deea6ee",
+    "codex_paste.ps1": "308fd216aa2a4fba86bbd2d397caae8f87886f37d48670af38241760ac7919e0",
+    "codex_paste.py": "37eaccc55d80eea0dfe0b8364983797e6d882403eacc475ea7079b52f4855c0f",
+    "codex_tasks.py": "9d2d88d31140a60d313d7e8b6ce6762bf984b5fdc22901b129982ac226e8a179",
+    "console_submit.py": "2c3b794b26109ec90833d5b62888d2e0ceef6b53ad7c15f4b4a799505e364daf",
+    "distribution_manifest.md": "84c817ba26dece88979eee7c2adf747939913514038d2bcf6e93bc5022292059",
+    "domain/offline_asr_client.py": "adb3f323a817d5118cec683612e8fac1e3c03f61abb4e78c76db8f5f13205d60",
+    "domain/offline_asr_setup.py": "56737770ba023d2548262efb7f4bd0b20cefa5be11d0f4f80391a8f09656f1df",
+    "domain/pet_test_service.py": "4e6caa213b0e8712eeaf671150da53c7240f96d278a9fcbe6d5f43f39ba8e564",
+    "domain/speech_api.py": "d007195ad0e41b311b71143e4e511816023f445b57877b2ce5ee3c6e0add8eb9",
+    "image_agent_runner.py": "c14012ffe00d4d0542e53a660b1d24b645b1eb4a9d89efead7285345b0e056dc",
+    "infra/cloud_assets.py": "d0d01e767eaa0caab559edc6dc0492c33fa8992de7e87ccf0988485008a68744",
+    "infra/comfy_service.py": "a40f6399c45e7f4b9117639f94ac195615861cb10aa4cea053c1b91874f1f64e",
+    "orchestrator/agent_dispatch.py": "7d16000bdc31fd2303b7db56babca3c77768710fbc958646d111dc676d391932",
+    "orchestrator/previs_batch_service.py": "7ebc9d7f341d9573a05d481d9dd45a1da6d1a3bae5ef23c587ec5991b4be88df",
+    "orchestrator/stage_handler_registry.py": "fc214db96c4cf80e3e42ad2e8e8b60647d49eb74f484b5a66a87d56c8b877c8d",
+    "orchestrator/workflow_engines.py": "3718ed74f9fdd92d92aecb44d74dc1d2fb47a1f017656e9e345597fa0e5d2fa1",
+    "run_selftests.py": "30657d4d7e54259753060bff87adc0c55cb551a4fb35b70f6c1a7b4d0a49139d",
+    "scripts/distribution_build.py": "904e340b5e0006c2cef7f6dee2d37f282bb18a527425a2363b09ab08c5f7ed75",
+    "scripts/distribution_selfcheck.py": "ddf10e04138f2b1904c5a392c4f4513dd5950ef907d4ac6c300d6971b31b8a23",
+    "selftest_discovery.py": "b9a68b9a55f2b749459c209d0eebd961bec3a4b4303d22c51bb37c326629c7d1",
+    "selftest_env.py": "dc27c45660b9fc0cfd8c209692285b9d672f8d4ac2d933ed13d19fcf403d3432",
+    "selftest_receipts.py": "6480c9bead131c83848d52a122b4258819682e1adc53473401613ae0df7b49f5",
+    "selftest_reporting.py": "3b395055aa0670ba4ba87fd4e21b383d39434af43d5e7201cd0faa40b39d665c",
+    "selftest_sandbox.py": "81f67db7a2e37b3e59bd4bb345c0fe3ff33310747f9ee5b97be7fcd4b94bc64c",
+    "selftest_scheduling.py": "7bfd284aa35171c9b46257b7abe74199879f0ad46c1c650db3cfce0260dfd6b2",
+    "smoke_test.py": "78644075c5ebbf0dc83cc8a478a50e1fff37f5e5145d66e02b54e2a809cea762",
+    "stage_execution_service.py": "2862cc5cb315e10df7990188affe502fe3725f9420557c3b060456e83bb7e41b",
+    "tests/architecture/_scan.py": "cc7243f9def9eb6d0f740a5a02ec53fa2e7bff176e5ee5931000ea09c500c24f",
+    "tests/architecture/test_dynamic_import_registry.py": "2b4d975fb6b3adbacd2b2606b5278cbe2cc606286b110b8085275fbb8c660cb8",
+    "ui/desktop_idea_chat.py": "1bdee91a637dbe002c7a8239e142a12e7e6cf99dd85c670eca1c6beec74e0839",
+    "ui/desktop_pet_bridge.py": "523a676d13e63284afe156520f70e89b73c473de9426bdc693669dee11cdab12",
+    "ui/desktop_send_choice.py": "2449524034493c2bd977f8a33ccc51af340ae97cbd22d3a4fe1dfde5d953853a",
+    "ui/keyframe_comfy.py": "644f2aeff80aa0ecaaf39943cc7f2ae3c40b262b4f2ffd4edd9ea559bd123ca4",
+    "ui/native_assets.py": "8c13770df795268e4e83ca8f5f48453684c0795824bdac9c250e45ca8b743902",
+    "ui/pet_ui_stages.py": "040217117ba78f063d42c0f10e41a8ad8721c801184fc1ac5a7191cbcc868b0d",
+    "voice_engine/README.md": "32a0060d90092108ab257e920fa05f3c3806880093fc7a8359bce450c32579ca",
+    "voice_engine/__init__.py": "f6671ff1d29f606d7286e0ab34a33a3f7517897853a75c6015fdd7b899e32176",
+    "voice_engine/bootstrap.py": "6787c709687859dce2fb32acf7354628979384d4f0dc5733635eb1b0d1b59b72",
+    "voice_engine/download_models.py": "a1822c5827f1eb460a39dd9726bd4590dc3f0f0bf0bb3746ee8e40e451513eae",
+    "voice_engine/funasr_config.py": "f163bb534011c29db0e500891de221ff8fa23fe1beed2360f37d59bfa1e216d8",
+    "voice_engine/offline_asr_server.py": "e7e7d956b02a073255f10d486e791b42951a1a7ba3620c775c103783f0b026d1",
+    "voice_engine/requirements.txt": "8f5f334a9cd11fbb9f6d5134270c629d753fe6afab79e7958828ad24b5b77ed7"
+  },
+  "strict_exit": 1,
+  "tool_imports": [
+    [
+      "batch_frames_tool/batch_frames.py",
+      6,
+      "agent/core.py"
+    ],
+    [
+      "batch_frames_tool/batch_frames.py",
+      7,
+      "contract/storyboard_paths.py"
+    ],
+    [
+      "batch_frames_tool/batch_frames.py",
+      11,
+      "contract/pet_bus.py"
+    ],
+    [
+      "batch_frames_tool/batch_frames.py",
+      20,
+      "agent/shot_assets.py"
+    ],
+    [
+      "batch_frames_tool/batch_frames.py",
+      65,
+      "contract/platform_tools.py"
+    ],
+    [
+      "batch_frames_tool/batch_frames.py",
+      115,
+      "asset_context.py"
+    ],
+    [
+      "batch_frames_tool/batch_frames.py",
+      116,
+      "contract/prop_assets.py"
+    ],
+    [
+      "batch_frames_tool/batch_frames.py",
+      136,
+      "keyframe_batch.py"
+    ],
+    [
+      "batch_frames_tool/batch_frames.py",
+      201,
+      "keyframe_evidence.py"
+    ],
+    [
+      "batch_frames_tool/batch_frames.py",
+      249,
+      "keyframe_evidence.py"
+    ],
+    [
+      "batch_frames_tool/batch_frames.py",
+      259,
+      "contract/platform_tools.py"
+    ],
+    [
+      "batch_frames_tool/启动批量首帧.pyw",
+      5,
+      "batch_frames_tool/batch_frames.py"
+    ],
+    [
+      "codex_paste.py",
+      6,
+      "agent/core.py"
+    ],
+    [
+      "codex_tasks.py",
+      3,
+      "contract/stage_layout.py"
+    ],
+    [
+      "codex_tasks.py",
+      4,
+      "infra/token_saver.py"
+    ],
+    [
+      "codex_tasks.py",
+      8,
+      "agent/core.py"
+    ],
+    [
+      "codex_tasks.py",
+      9,
+      "contract/pet_bus.py"
+    ],
+    [
+      "codex_tasks.py",
+      10,
+      "infra/pet_llm.py"
+    ],
+    [
+      "codex_tasks.py",
+      11,
+      "contract/platform_tools.py"
+    ],
+    [
+      "codex_tasks.py",
+      12,
+      "contract/workflow_context_budget.py"
+    ],
+    [
+      "console_submit.py",
+      4,
+      "agent/core.py"
+    ],
+    [
+      "image_agent_runner.py",
+      96,
+      "batch_frames_tool/batch_frames.py"
+    ],
+    [
+      "infra/cloud_assets.py",
+      70,
+      "batch_frames_tool/batch_frames.py"
+    ],
+    [
+      "infra/comfy_service.py",
+      133,
+      "batch_frames_tool/batch_frames.py"
+    ],
+    [
+      "infra/comfy_service.py",
+      146,
+      "batch_frames_tool/batch_frames.py"
+    ],
+    [
+      "orchestrator/agent_dispatch.py",
+      6,
+      "codex_tasks.py"
+    ],
+    [
+      "orchestrator/workflow_engines.py",
+      491,
+      "codex_tasks.py"
+    ],
+    [
+      "orchestrator/workflow_engines.py",
+      546,
+      "console_submit.py"
+    ],
+    [
+      "orchestrator/workflow_engines.py",
+      563,
+      "console_submit.py"
+    ],
+    [
+      "ui/desktop_idea_chat.py",
+      760,
+      "codex_tasks.py"
+    ],
+    [
+      "ui/desktop_idea_chat.py",
+      965,
+      "codex_paste.py"
+    ],
+    [
+      "ui/desktop_idea_chat.py",
+      982,
+      "codex_paste.py"
+    ],
+    [
+      "ui/desktop_pet_bridge.py",
+      91,
+      "batch_frames_tool/batch_frames.py"
+    ],
+    [
+      "ui/desktop_send_choice.py",
+      60,
+      "codex_paste.py"
+    ],
+    [
+      "ui/desktop_send_choice.py",
+      104,
+      "codex_tasks.py"
+    ],
+    [
+      "ui/keyframe_comfy.py",
+      37,
+      "batch_frames_tool/batch_frames.py"
+    ],
+    [
+      "ui/keyframe_comfy.py",
+      105,
+      "batch_frames_tool/batch_frames.py"
+    ],
+    [
+      "ui/native_assets.py",
+      227,
+      "batch_frames_tool/batch_frames.py"
+    ]
+  ],
+  "verification": {
+    "architecture_after": {
+      "collected": 600,
+      "errors": 1,
+      "exit": 1,
+      "failure_ids": [
+        "tests.architecture.test_agents_md.AgentsMdConsistencyTests.test_performance_history_is_declared_as_historical_only",
+        "tests.architecture.test_round_baselines.RoundBaselineTests.test_round_number_continuous",
+        "tests.architecture.test_skill_reference_injection.SkillReferenceInjectionTests.test_script_stages_name_only_their_approved_00_references"
+      ],
+      "failures": 2,
+      "log_sha256": "8bb7505b0c8000b3cb9a978dc8aaf77e2ac1547dc193d9425c44b070f794c570",
+      "passed": 597,
+      "seconds": 407.147
+    },
+    "architecture_before": {
+      "collected": 590,
+      "errors": 1,
+      "exit": 1,
+      "failure_ids": [
+        "tests.architecture.test_agents_md.AgentsMdConsistencyTests.test_performance_history_is_declared_as_historical_only",
+        "tests.architecture.test_round_baselines.RoundBaselineTests.test_round_number_continuous",
+        "tests.architecture.test_skill_reference_injection.SkillReferenceInjectionTests.test_script_stages_name_only_their_approved_00_references"
+      ],
+      "failures": 2,
+      "log_sha256": "761fad09dcbc4e1c3ae79cde02e65e9813891d0d7549ef29586f29fdcca2762e",
+      "passed": 587,
+      "seconds": 382.61
+    },
+    "asr_and_distribution_targeted_passed": 85,
+    "final_architecture_doc_checks": 3,
+    "final_tool_suite_passed": 10,
+    "smoke_checks": 9
+  },
+  "wildcard_verify_canary": {
+    "keep_pattern": "程序/voice_engine/**",
+    "omitted_member": "程序/voice_engine/funasr_config.py",
+    "verifier_ok": true
+  }
+}

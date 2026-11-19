@@ -230,7 +230,7 @@ class RequestsTransportTests(unittest.TestCase):
                 body = self.rfile.read(int(self.headers.get('Content-Length', 0)))
                 self.server.calls.append((self.command, self.path, dict(self.headers), body))
                 path = self.path
-                if path == '/disconnect':
+                if path in ('/disconnect', '/images/generations'):
                     self.connection.shutdown(socket.SHUT_RDWR)
                     self.connection.close()
                     return
@@ -244,6 +244,11 @@ class RequestsTransportTests(unittest.TestCase):
                     status = 503
                 elif path == '/retry501' and sum(c[1] == path for c in self.server.calls) == 1:
                     status = 501
+                elif path == '/busy':
+                    status = 503
+                elif path == '/throttled':
+                    status = 429
+                    headers['Retry-After'] = '7200'
                 elif path == '/error':
                     status, data = 500, b'x' * (http_client.ERROR_BODY_MAX_BYTES + 4096)
                 elif path == '/gzip':
@@ -338,8 +343,7 @@ class RequestsTransportTests(unittest.TestCase):
         for session in self.sessions:
             for adapter in session.adapters.values():
                 retry = adapter.max_retries
-                self.assertEqual(retry.total, 2)
-                self.assertEqual(set(retry.allowed_methods), {'GET', 'HEAD'})
+                self.assertEqual(retry.total, 0)
         self.assert_closed()
 
     def test_effective_get_and_payload_force_post(self):
@@ -350,22 +354,91 @@ class RequestsTransportTests(unittest.TestCase):
         self.assertEqual(json.loads(self.server.calls[1][3]), {'中文': 2})
         self.assert_closed()
 
-    def test_get_forcelist_status_retries_at_transport(self):
-        # R5-g：forcelist 状态码的退避在 urllib3 Retry（传输层），业务循环不再重试。
+    def test_get_retryable_status_retries_in_http_loop(self):
         waits = []
         result = self.call('/retry', retries=1, sleep=waits.append)
         self.assertTrue(result.ok)
         self.assertEqual(len(self.server.calls), 2)
-        self.assertEqual(len(waits), 0)
+        self.assertEqual(len(waits), 1)
         self.assert_closed()
 
     def test_get_non_forcelist_status_still_retries_in_business_loop(self):
-        # 501 不在传传输层 forcelist：业务循环仍是唯一重试方，退避走 sleep 注入。
         waits = []
         result = self.call('/retry501', retries=1, retry_statuses={501}, sleep=waits.append)
         self.assertTrue(result.ok)
         self.assertEqual(len(self.server.calls), 2)
         self.assertEqual(len(waits), 1)
+        self.assert_closed()
+
+    def test_model_get_spends_only_the_shared_budget(self):
+        from infra import api_endpoints
+
+        budget = [2]
+        with mock.patch.object(api_endpoints, '_SLEEP'):
+            result = api_endpoints.http_transport(self.base + '/busy', None, {}, 1,
+                                                  attempt_budget=budget)
+        self.assertFalse(result['ok'])
+        self.assertEqual(budget, [0])
+        self.assertEqual(len(self.server.calls), 2)
+        self.assert_closed()
+
+    def test_pre_cancelled_execution_sends_no_http_request(self):
+        control = platform_tools.ExecutionControl(timeout=5)
+        control.cancel()
+        with platform_tools.execution_scope(control):
+            with self.assertRaisesRegex(platform_tools.ExecutionStopped, 'cancelled'):
+                self.call('/ok')
+        self.assertEqual(self.server.calls, [])
+
+    def test_persistent_503_uses_only_the_configured_http_budget(self):
+        result = self.call('/busy', retries=2, sleep=lambda _: None)
+        self.assertFalse(result.ok)
+        self.assertEqual(len(self.server.calls), 3)
+        self.assertEqual(result.data['retry_count'], 2)
+        self.assert_closed()
+
+    def test_cancel_during_backoff_prevents_another_http_request(self):
+        control = platform_tools.ExecutionControl(timeout=5)
+        with platform_tools.execution_scope(control):
+            with self.assertRaisesRegex(platform_tools.ExecutionStopped, 'cancelled'):
+                self.call('/busy', retries=2, sleep=lambda _: control.cancel())
+        self.assertEqual(len(self.server.calls), 1)
+        self.assert_closed()
+
+    def test_retry_after_beyond_deadline_cannot_send_another_request(self):
+        control = platform_tools.ExecutionControl(timeout=5)
+        waits = []
+
+        def advance(seconds):
+            waits.append(seconds)
+            control.deadline = platform_tools.time.monotonic() - 1
+
+        with platform_tools.execution_scope(control):
+            with self.assertRaisesRegex(platform_tools.ExecutionStopped, 'deadline'):
+                self.call('/throttled', retries=2, sleep=advance)
+        self.assertEqual(len(self.server.calls), 1)
+        self.assertEqual(len(waits), 1)
+        self.assertGreater(waits[0], 0)
+        self.assertLessEqual(waits[0], 5)
+        self.assert_closed()
+
+    def test_ambiguous_paid_post_disconnect_is_unknown_and_never_repeated(self):
+        result = self.call('/disconnect', payload={}, retries=3)
+        self.assertFalse(result.ok)
+        self.assertFalse(result.recoverable)
+        self.assertEqual(result.data['acceptance'], 'unknown')
+        self.assertEqual(result.data['retry_count'], 0)
+        self.assertEqual([call[0] for call in self.server.calls], ['POST'])
+        self.assert_closed()
+
+    def test_seedream_lost_receipt_is_uncertain_after_one_paid_submission(self):
+        from infra import seedream_api
+
+        profile = {'api_key': 'local-only', 'base_url': self.base}
+        with self.assertRaises(seedream_api.Uncertain):
+            seedream_api.request_image(profile, {'model': 'local-test'})
+        self.assertEqual([(call[0], call[1]) for call in self.server.calls],
+                         [('POST', '/images/generations')])
         self.assert_closed()
 
     def test_post_never_repeats_without_explicit_permission(self):

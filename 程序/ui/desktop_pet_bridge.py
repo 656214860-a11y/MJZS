@@ -7,10 +7,15 @@ UNATTENDED_SWITCH 的唯一定义在 desktop_auto_state（R2230 J15），desktop
 import time
 
 from ui.desktop_auto_flows import UNATTENDED_BACKOFF_FLOOR
-from orchestrator.desktop_auto_state import PET_STAGE_POLL, UNATTENDED_SWITCH, flow_get, flow_set
+from orchestrator.desktop_auto_state import (
+    PET_STAGE_POLL, UNATTENDED_SWITCH, UNATTENDED_SWITCH_SETTERS, flow_get, flow_set,
+)
 from ui.desktop_page_registry import PAGES
+from contract.pet_bus import STAGES, stage_name
 from contract.storyboard_paths import media_root
 import orchestrator.stage_handler_registry as stage_handler_registry
+from ui.pet_ui_stages import stage_run_action, skip_unchecked
+
 
 class PetBridgeMixin:
     def pet_show_text(self,title,text,receipt=''):
@@ -45,8 +50,7 @@ class PetBridgeMixin:
         now=time.monotonic()
         if flow_get(self,name,'_due',0)>now+UNATTENDED_BACKOFF_FLOOR:return ''
         flow_set(self,name,'_due',0)
-        import contract.pet_bus as pet_bus
-        return '已把「'+pet_bus.STAGE_NAMES.get(stage,stage)+'」这一步提前叫醒一轮'
+        return '已把「'+stage_name(stage)+'」这一步提前叫醒一轮'
     def pet_start(self,stage):
         """第 67 期任务 5：三虎在自动档要「自动开始每个阶段的任务」。
 
@@ -55,26 +59,38 @@ class PetBridgeMixin:
         剧本结构虽没有常驻轮询，但有一条与手动按钮相同的确定性模板执行链，单独派发；
         连贯性清单是本地规则计算，直接走与手动按钮同一个实现；其余没有无人值守的步骤（剧本、配音）老实给空串，让宠物自己说「没有能自动跑的路子」。
         """
-        return stage_handler_registry.start(self,stage,trigger='auto',fallback=self._start_unattended_stage)
+        if stage not in (*STAGES, 'pet_performance', 'pet_test'):
+            raise ValueError(f'未知阶段指令：{stage!r}')
+        return stage_handler_registry.start(
+            self, stage, trigger='auto', fallback=self._start_unattended_stage, skip_action=skip_unchecked,
+            run_action=stage_run_action)
     def _start_unattended_stage(self,stage,trigger):
         """尚未拆出的无人值守阶段由 L3 启动适配器回调到此处。"""
-        if self.root is None:return ''
-        if stage=='script_structure':return self.pet_script_structure_batch(trigger=trigger)
-        if stage=='continuity':return self.pet_continuity_ledger()
-        # 首帧不是普通的轮询开关：自动链需要立即把当前缺口派发，并由批次的
-        # completed/failed 事件收场。经 L3 转到这里，避免 Pet UI 再另走一条直连路径。
-        if stage=='keyframe':return self.pet_frame_batch(trigger=trigger)
-        name=PET_STAGE_POLL.get(stage)
-        if name is None:return ''
-        import infra.project_settings as project_settings, pet_bus
-        turn_on=getattr(project_settings,UNATTENDED_SWITCH.get(name,''),None)
-        if callable(turn_on):
-            try:turn_on(self.root,True)
-            except (OSError,ValueError,KeyError,TypeError):pass
-        title=pet_bus.STAGE_NAMES.get(stage,stage)
-        if self.pet_advance(stage):
-            return '已自动开始「'+title+'」：无人值守已打开，跑完自己往下走'
-        return '「'+title+'」这一步已经在跑，等它收尾'
+        return stage_run_action(self, stage, trigger, unattended=True)
+
+    def _execute_unattended_stage(self, stage, trigger):
+        """执行 L4 启动动作。直接派发的阶段由既有批次或清单处理器收场。"""
+        if self.root is None:
+            return ''
+        if stage == 'script_structure':
+            return self.pet_script_structure_batch(trigger=trigger)
+        if stage == 'continuity':
+            return self.pet_continuity_ledger()
+        if stage == 'keyframe':
+            return self.pet_frame_batch(trigger=trigger)
+        name = PET_STAGE_POLL.get(stage)
+        if name is None:
+            return ''
+        try:
+            UNATTENDED_SWITCH_SETTERS[name](self.root, True)
+        except (OSError, ValueError, KeyError, TypeError):
+            pass
+        title = stage_name(stage)
+        awakened = self.pet_advance(stage)
+        if awakened:
+            return f'已自动开始「{title}」：无人值守已打开，跑完自己往下走'
+        return f'「{title}」这一步已经在跑，等它收尾'
+
     def pet_storyboard_batch(self, trigger='manual'):
         """第 62 期任务 2：三虎要「自动制作分镜」时走这一条——与「手动制作分镜」同一份实现。
 
@@ -82,7 +98,9 @@ class PetBridgeMixin:
         真的派了就返回一句人话。派发本身是异步的（work 在后台线程里算），失败那句会走
         「操作未完成」的既有出口，不在这里另造一套。
         """
-        return stage_handler_registry.start(self,'storyboard',trigger=trigger)
+        return stage_handler_registry.start(
+            self, 'storyboard', trigger=trigger, skip_action=skip_unchecked,
+            run_action=stage_run_action)
     def batch_blockers(self,source,pending):
         """用引擎自己的逐镜检查（batch_frames.shot_inputs）列出无法生成的镜头与原因。
 

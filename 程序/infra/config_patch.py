@@ -1,6 +1,8 @@
 """配置编辑的纯内存快照：区分未改字段与显式清空，不负责锁和落盘。"""
 from copy import deepcopy
 
+__all__ = ['ConfigSnapshot']
+
 
 class ConfigSnapshot(dict):
     """兼容 dict 的编辑快照；基准和赋值记录只在内存中保存。"""

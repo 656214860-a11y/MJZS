@@ -1,0 +1,256 @@
+{
+  "round": 3471,
+  "base": "8ebd5e2bb95d8c28f806a9e0fdceffa781b0e436",
+  "decision": "unregistered; A13 disconnected historical UI residue",
+  "before": {
+    "round": 3471,
+    "phase": "before",
+    "identity": "ui.edit_habits_dialog",
+    "scanned_entities": 437,
+    "recursive_production_files": 705,
+    "classification": {
+      "file": "ui/edit_habits_dialog.py",
+      "status": "unregistered",
+      "registration": null,
+      "layer": null
+    },
+    "strict_error": "Unclassified local modules: {'agent': 'unregistered', 'contract.file_index_contract': 'ambiguous', 'contract.file_naming': 'ambiguous', 'domain.checkpoint_tree': 'unregistered', 'domain.global_library_service': 'ambiguous', 'infra.file_index': 'ambiguous', 'infra.storage_maintenance': 'ambiguous', 'orchestrator.legacy_migration': 'ambiguous', 'ui.edit_habits_dialog': 'unregistered', 'ui.project_settings_dialog': 'unregistered', 'ui.ui_asset_card': 'unregistered', 'ui.ui_branch_tree': 'unregistered', 'ui.ui_citation': 'unregistered', 'ui.ui_code_block': 'unregistered', 'ui.ui_diff': 'unregistered', 'ui.ui_hitl': 'unregistered', 'ui.ui_media': 'unregistered', 'ui.ui_media_player': 'unregistered', 'ui.ui_multimodal': 'unregistered', 'ui.ui_param_panel': 'unregistered', 'ui.ui_task_progress': 'unregistered'}",
+    "refusals": {
+      "agent": "unregistered",
+      "contract.file_index_contract": "ambiguous",
+      "contract.file_naming": "ambiguous",
+      "domain.checkpoint_tree": "unregistered",
+      "domain.global_library_service": "ambiguous",
+      "infra.file_index": "ambiguous",
+      "infra.storage_maintenance": "ambiguous",
+      "orchestrator.legacy_migration": "ambiguous",
+      "ui.edit_habits_dialog": "unregistered",
+      "ui.project_settings_dialog": "unregistered",
+      "ui.ui_asset_card": "unregistered",
+      "ui.ui_branch_tree": "unregistered",
+      "ui.ui_citation": "unregistered",
+      "ui.ui_code_block": "unregistered",
+      "ui.ui_diff": "unregistered",
+      "ui.ui_hitl": "unregistered",
+      "ui.ui_media": "unregistered",
+      "ui.ui_media_player": "unregistered",
+      "ui.ui_multimodal": "unregistered",
+      "ui.ui_param_panel": "unregistered",
+      "ui.ui_task_progress": "unregistered"
+    },
+    "static_consumers": [],
+    "literal_dynamic_consumers": [],
+    "production_name_references": [],
+    "test_name_references": [],
+    "lower_service_consumers": [
+      [
+        "orchestrator/workflow_engines.py",
+        12,
+        "orchestrator.edit_habits"
+      ],
+      [
+        "orchestrator/workflow_settings.py",
+        15,
+        "orchestrator.edit_habits"
+      ],
+      [
+        "ui/desktop_script_edit_session.py",
+        12,
+        "orchestrator.edit_habits"
+      ],
+      [
+        "ui/edit_habits_dialog.py",
+        13,
+        "orchestrator.edit_habits"
+      ],
+      [
+        "writing_api.py",
+        21,
+        "orchestrator.edit_habits"
+      ]
+    ],
+    "source_sha256": "3a02f4803caea07aab951f6feeda44d54755ffda56ecec40b4ba26b1512362ba",
+    "legacy_guard": "passed"
+  },
+  "after": {
+    "round": 3471,
+    "phase": "after",
+    "identity": "ui.edit_habits_dialog",
+    "scanned_entities": 437,
+    "recursive_production_files": 705,
+    "classification": {
+      "file": "ui/edit_habits_dialog.py",
+      "status": "unregistered",
+      "registration": null,
+      "layer": null
+    },
+    "strict_error": "Unclassified local modules: {'agent': 'unregistered', 'contract.file_index_contract': 'ambiguous', 'contract.file_naming': 'ambiguous', 'domain.checkpoint_tree': 'unregistered', 'domain.global_library_service': 'ambiguous', 'infra.file_index': 'ambiguous', 'infra.storage_maintenance': 'ambiguous', 'orchestrator.legacy_migration': 'ambiguous', 'ui.edit_habits_dialog': 'unregistered', 'ui.project_settings_dialog': 'unregistered', 'ui.ui_asset_card': 'unregistered', 'ui.ui_branch_tree': 'unregistered', 'ui.ui_citation': 'unregistered', 'ui.ui_code_block': 'unregistered', 'ui.ui_diff': 'unregistered', 'ui.ui_hitl': 'unregistered', 'ui.ui_media': 'unregistered', 'ui.ui_media_player': 'unregistered', 'ui.ui_multimodal': 'unregistered', 'ui.ui_param_panel': 'unregistered', 'ui.ui_task_progress': 'unregistered'}",
+    "refusals": {
+      "agent": "unregistered",
+      "contract.file_index_contract": "ambiguous",
+      "contract.file_naming": "ambiguous",
+      "domain.checkpoint_tree": "unregistered",
+      "domain.global_library_service": "ambiguous",
+      "infra.file_index": "ambiguous",
+      "infra.storage_maintenance": "ambiguous",
+      "orchestrator.legacy_migration": "ambiguous",
+      "ui.edit_habits_dialog": "unregistered",
+      "ui.project_settings_dialog": "unregistered",
+      "ui.ui_asset_card": "unregistered",
+      "ui.ui_branch_tree": "unregistered",
+      "ui.ui_citation": "unregistered",
+      "ui.ui_code_block": "unregistered",
+      "ui.ui_diff": "unregistered",
+      "ui.ui_hitl": "unregistered",
+      "ui.ui_media": "unregistered",
+      "ui.ui_media_player": "unregistered",
+      "ui.ui_multimodal": "unregistered",
+      "ui.ui_param_panel": "unregistered",
+      "ui.ui_task_progress": "unregistered"
+    },
+    "static_consumers": [],
+    "literal_dynamic_consumers": [],
+    "production_name_references": [],
+    "test_name_references": [],
+    "lower_service_consumers": [
+      [
+        "orchestrator/workflow_engines.py",
+        12,
+        "orchestrator.edit_habits"
+      ],
+      [
+        "orchestrator/workflow_settings.py",
+        15,
+        "orchestrator.edit_habits"
+      ],
+      [
+        "ui/desktop_script_edit_session.py",
+        12,
+        "orchestrator.edit_habits"
+      ],
+      [
+        "ui/edit_habits_dialog.py",
+        13,
+        "orchestrator.edit_habits"
+      ],
+      [
+        "writing_api.py",
+        21,
+        "orchestrator.edit_habits"
+      ]
+    ],
+    "source_sha256": "3a02f4803caea07aab951f6feeda44d54755ffda56ecec40b4ba26b1512362ba",
+    "legacy_guard": "passed"
+  },
+  "other_20_refusals_unchanged": true,
+  "guard_diff_vs_base": [],
+  "guard_sha256": {
+    "tests/architecture/_layers.py": "94228a60dc4fdf197b92438b32c5c53a27b66c2df609e6b4b869143b28718ccf",
+    "tests/architecture/test_layers.py": "8d84d5d59a7e624b6c85b082a2a9ce299d65771a37f6ecd605a19c27dfe2e8d2",
+    "tests/architecture/_scan.py": "865be24e952acdf9818ab92f2c726d522aabf1ddbada96bc1a5032707292a95b",
+    "维护记录/架构统一基数.json": "94bcc7591323e9991fc991f5f5a7fe9c7e12965a2e349c73ce386b448ce595ad"
+  },
+  "architecture_before": {
+    "command": "smoke_test.py --architecture",
+    "exit": 1,
+    "total": 563,
+    "passed": 560,
+    "failures": [
+      {
+        "kind": "ERROR",
+        "id": "tests.architecture.test_agents_md.AgentsMdConsistencyTests.test_performance_history_is_declared_as_historical_only"
+      },
+      {
+        "kind": "FAIL",
+        "id": "tests.architecture.test_round_baselines.RoundBaselineTests.test_round_number_continuous"
+      },
+      {
+        "kind": "FAIL",
+        "id": "tests.architecture.test_skill_reference_injection.SkillReferenceInjectionTests.test_script_stages_name_only_their_approved_00_references"
+      }
+    ],
+    "seconds": 311.787,
+    "round_assertion": "AssertionError: 3409 != 3464",
+    "log_sha256": "3153ae5edf85b20b7922042d207d4fc8345c3f5ccae77a0b924dd7514a5da7fb"
+  },
+  "architecture_after": {
+    "command": "smoke_test.py --architecture",
+    "exit": 1,
+    "total": 563,
+    "passed": 560,
+    "failures": [
+      {
+        "kind": "ERROR",
+        "id": "tests.architecture.test_agents_md.AgentsMdConsistencyTests.test_performance_history_is_declared_as_historical_only"
+      },
+      {
+        "kind": "FAIL",
+        "id": "tests.architecture.test_round_baselines.RoundBaselineTests.test_round_number_continuous"
+      },
+      {
+        "kind": "FAIL",
+        "id": "tests.architecture.test_skill_reference_injection.SkillReferenceInjectionTests.test_script_stages_name_only_their_approved_00_references"
+      }
+    ],
+    "seconds": 273.074,
+    "round_assertion": "AssertionError: 3409 != 3472",
+    "log_sha256": "750a0fe5c3d0e4bb2b03dbea32c7f332217ae1b4f073549cd5827f6a5a8070eb"
+  },
+  "architecture_failure_set_unchanged": true,
+  "targeted_evidence_snapshot": {
+    "round": 3471,
+    "commit_base": "8ebd5e2b",
+    "credential_scan": {
+      "ran": true,
+      "hits": []
+    },
+    "targeted": {
+      "cmd": "run_selftests.py -k test_layers test_service_return_contract test_no_circular_import test_gate_selfaudit test_rule_guard_map test_checkpoint_tree test_branch_tree_ui test_asset_hovercard test_citation test_code_highlight test_diff_view test_hitl_ui test_media_render test_video_audio_card test_multimodal_upload test_param_panel test_background_task test_edit_habits test_direct_chat_metering test_artifact_schema_wiring",
+      "exit": 0,
+      "passed": 102,
+      "failed": 0
+    },
+    "generated_at": "2026-11-19T00:03:15"
+  },
+  "targeted_evidence_snapshot_sha256": "9aa32ca7c8d41ccb5cb44ec2fe88ed3da7cc303831e9e24e35e459e34d111efb",
+  "targeted_log_sha256": "c7d0be48534e984b071f17ac4b994c4b58f1e470ddc5c03992b9a57d600ac934",
+  "targeted_summary": [
+    "  architecture.test_layers#2    0.4 秒 / 10 条",
+    "  test_video_audio_card         0.4 秒 / 2 条",
+    "  test_media_render             0.3 秒 / 2 条",
+    "  test_hitl_ui                  0.3 秒 / 2 条",
+    "  test_asset_hovercard          0.3 秒 / 2 条",
+    "实际跳过 0 条用例：本机没有任何登记位被跳过",
+    "增量台账已刷新：D:\\漫剧制作助手\\.git\\selftest-incremental.json",
+    "最近 5 轮自检中位基线：3.9 秒",
+    "",
+    "ALL TESTS PASSED"
+  ],
+  "smoke": {
+    "command": "smoke_test.py",
+    "exit": 0,
+    "base_passed": 8,
+    "hidden_desktop_probe": true,
+    "passed": 9,
+    "failed": 0,
+    "log_sha256": "d45e6bfe90cd6a36ced0d5a89c72a424dc93defffe192004abe902d0207811f1"
+  },
+  "history": {
+    "initial_delivery": "53b3be87 R2074",
+    "entry_removed": "8f5c2990 R2862",
+    "package_move": "3008566c R3059",
+    "top_level_deleted": "09e8cd8f R3063",
+    "helper_import_moved": "043cd4f0 R3165"
+  },
+  "limitations": [
+    "No claim about arbitrary external dynamic name construction",
+    "No production source, registration, exemption, TOOLS or threshold mutation",
+    "Full-safe not run; existing debt retained",
+    "R3471-FAIL prefix preserves existing targeted evidence; standard tool does not refresh evidence for this prefix"
+  ],
+  "final_delivery_credential_scan": {
+    "ran": true,
+    "method": "round_evidence.scan_lines on all added lines of four delivered files versus base, including evidence",
+    "hits": []
+  }
+}

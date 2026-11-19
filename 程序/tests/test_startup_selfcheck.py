@@ -98,6 +98,22 @@ class StartupSelfcheckTests(unittest.TestCase):
         self.assertIs(hit[0].severity, Severity.DEGRADED)
         self.assertEqual(hit[0].scope, StartupPhase.CONFIG.value)
 
+    def test_configured_model_pool_has_no_empty_warning(self):
+        self.assertNotIn('model-pool-empty', self._codes(self._run()))
+
+    def test_missing_model_config_is_an_empty_pool(self):
+        (self.program / '配置' / '宠物' / '配置.json').unlink()
+        self.assertIn('model-pool-empty', self._codes(self._run(), Severity.DEGRADED))
+
+    def test_unreadable_model_config_records_nonfatal_check_error(self):
+        (self.program / '配置' / '宠物' / '配置.json').write_text('{', encoding='utf-8')
+        items = self._run()
+        self.assertNotIn('model-pool-empty', self._codes(items))
+        self.assertEqual(self._codes(items, Severity.FATAL), [])
+        self.assertIn('check-error', self._codes(items, Severity.DEGRADED))
+        state = json.loads(self.state.read_text(encoding='utf-8'))
+        self.assertIn('check-error', [row['code'] for row in state['selfcheck']['items']])
+
     def test_missing_bundled_tools_reports_degraded(self):
         with mock.patch('contract.platform_tools.tool_path', return_value=None):
             items = self._run()

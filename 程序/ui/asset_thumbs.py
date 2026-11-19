@@ -1,39 +1,11 @@
 # -*- coding: utf-8 -*-
-"""资产图片的缩略图（第 52 期第 3 条）：一个第三方库都不引，Tk 自己就认 PNG／GIF。
-
-Tk 8.6 的 PhotoImage 能从文件读 PNG／GIF，缩放只有整数倍的 subsample（抽点）。所以先读文件头
-拿原图尺寸，再挑一个「长边不超过 size」的最大整数倍：原图越大抽得越狠，缩略图不会放大、也不会
-超过 size，最小是 size 的一半。读不出尺寸（jpg／webp 这些 Tk 不认的）、文件不在、Tk 解不开，
-一律返回 None——界面上退回原来的文字，不抛。
-
-同一张图（哪个 Tk 解释器 ＋ 路径 ＋ 改动时间 ＋ size）只造一次：PhotoImage 一被回收，画面上就
-只剩空框（第 30 期踩过这个坑），所以图元一直留在缓存里；缓存按解释器分开，自检里反复新建 Tk 根
-也不会串。
-
-第 64 期任务 8：淘汰规则从「先进先出」改成「最久没看的先走」（LRU），容量 240 → 1200。
-先进先出挤掉的是**最早**造的那几张——恰恰是天天在看的资产图；图一多（长项目、一页几十行）
-每次翻回来都得整张重新解码，用户看到的就是「资产管理打开缓慢」。
-
-Round 1（2026-09-23）：缩略图不再在界面线程里整张解 PNG（95 张实测 26.3 秒），改成两层：
-
-· 磁盘缓存（本机临时目录下的 `AI漫剧制作助手/缩略图/<键>.png`）：抽好点的小图按「路径 ＋ 改动时间 ＋ size」存一份，
-  像素与从前同步解出来的一字不差（同一个整数倍抽点）。第二次打开读的就是这份小图——Tk 解一张
-  长边几十像素的图是零点几毫秒的事，用户看到的就是「二次打开秒显」。Tk 不认的（jpg／webp）
-  落一份 `<键>.none` 记号，省得每翻一次重试一次。
-· 后台进程：没缓存过的图，界面线程只登记一条任务（`private/缩略图/jobs/<键>.json`），返回的是
-  **一个同尺寸的空图元**（尺寸从文件头算得，与缩出来的图严丝合缝），页面上照旧当「有图」对待、
-  照旧写它该写的字。由 `python asset_thumbs.py --worker <缓存目录>` 那个进程去解、去写缓存；
-  这一批落地之后由 update()（挂在界面线程的定时器上）把真图**就地贴进**那个空图元
-  （`image copy`）——Tk 自己会把用到这个图元的地方重画一遍，缩略图就这么长出来，不必用户先滚
-  一下，页面一行也不用改（正典板那种「有图才写文件名」的地方也不会先显示一句「缺图」）。
-
-后台进程起不来、或者起了一半就没了（换台机器、没有桌面会话），同一批任务就地退回老路：
-界面线程同步解一次并把结果写进缓存——最坏也不过是和从前一样慢，图不会不见。JOB_DEADLINE
-兜住「进程还活着、这一张却一直不回来」那种情况。
-"""
+"""资产缩略图。界面只加载有界小图，原图交给后台进程按整数步长抽点。"""
 import infra.app_logging as app_logging
 import atexit
 import hashlib
+import io
+from itertools import islice
+import re
 import json
 import logging
 import os
@@ -48,78 +20,102 @@ from pathlib import Path
 from infra.file_cache import read_json, remove_temporary_file
 from infra import prefetch as _prefetch
 from agent.core import save, save_bytes
-
 DEFAULT_SIZE = 36
-LIMIT = 1200          # 第 64 期任务 8：一项约 20 KB，满打满算约 24 MB
+LIMIT = 1200
 _CACHE = {}
 PNG_MAGIC = b'\x89PNG\r\n\x1a\n'
 GIF_MAGIC = (b'GIF87a', b'GIF89a')
-
 PROGRAM = Path(__file__).resolve().parents[1]
-# 安装目录在交付版中可能是只读的；缓存与任务队列必须落在当前用户可写的位置，
-# 否则 request() 会失败并把每张大图退回界面线程同步解码。
 CACHE_ROOT = Path(os.environ.get('TEMP') or os.environ.get('LOCALAPPDATA') or PROGRAM) / 'AI漫剧制作助手' / '缩略图'
-CACHE_LIMIT = 4000    # 缓存上限（张）：超过就先丢最久没动过的那一半
-POLL_MS = 120         # 界面线程每 120 毫秒收一次结果
-WORKER_IDLE = 90      # 后台进程空转 90 秒自己退（关掉软件之后不留常驻进程）
-FALLBACK_SECONDS = 2.0   # 「刚起来就死」的判据：这么短就没了的，当它这一趟不可用
-JOB_DEADLINE = 20.0      # 一条任务等这么久还不回来，就地同步解（进程卡住也不至于不出图）
-QUEUE_LIMIT = 400         # 大项目滚动列表时，后台任务不能无限堆积占满磁盘与内存
-RESULTS_PER_TICK = 12     # 分批收结果，不能一拍扫／贴完整个长列表队列，留出 Tk 绘制时间
+CACHE_LIMIT = 4000
+POLL_MS = 120
+WORKER_IDLE = 90
+FALLBACK_SECONDS = 2.0
+JOB_DEADLINE = 20.0
+QUEUE_LIMIT = 400
+RESULTS_PER_TICK = 12
 
-_PENDING = {}         # 键 → 一条等 update() 来收的任务
-_PUMP = None          # 界面线程上那个定时器挂在哪个 master 上
-_PUMP_ID = None       # 上面那一拍的 after 标识；销毁窗口前必须取消
+SOURCE_EDGE = 16384
+SOURCE_PIXELS = 16 * 1024 * 1024
+SOURCE_BYTES = 64 * 1024 * 1024
+THUMB_EDGE = 256
+THUMB_BYTES = 512 * 1024
+MEMORY_BYTES = 24 * 1024 * 1024
+DISK_BYTES = 128 * 1024 * 1024
+TRIM_INTERVAL = 16
+_CACHE_COST = {}
+_CACHE_BYTES = 0
+_GENERATION = 0
+_PENDING = {}
+_PUMP = None
+_PUMP_ID = None
 _PENDING_CURSOR = 0   # 分批轮询 pending 的起点，避免永远只检查队首
 _WORKER = None        # 后台进程句柄
 _WORKER_AT = 0.0
-_WORKER_BAD = False   # 这一趟会话里它已经不可用了，不必再起
+_WORKER_BAD = False   # 失败启动进入有限冷却；回收失败保留句柄
 _BLIT_BAD = False     # 这一趟会话里「就地贴图」用不了（老 Tk）：照旧先给 None，不摆空盒子
-
-
 def png_size(data):
     """PNG 的 IHDR：宽、高（都是大端 4 字节）；认不出返回 None。"""
     if len(data) < 24 or not data.startswith(PNG_MAGIC) or data[12:16] != b'IHDR':
         return None
     return struct.unpack('>II', data[16:24])
-
-
 def gif_size(data):
     """GIF 的逻辑屏幕宽高（小端 2 字节）；认不出返回 None。"""
     if len(data) < 10 or data[:6] not in GIF_MAGIC:
         return None
     return struct.unpack('<HH', data[6:10])
 
-
 def image_size(path):
     """这张图的（宽，高）；认不出（不是 PNG／GIF、读不到）返回 None。"""
     try:
         with open(str(path), 'rb') as handle:
-            head = handle.read(32)
+            return _safe_size(handle.read(32))
     except OSError:
         return None
-    return png_size(head) or gif_size(head)
 
+def _safe_size(head):
+    dimensions = png_size(head) or gif_size(head)
+    if dimensions:
+        width, height = dimensions
+        if 0 < min(dimensions) and max(dimensions) <= SOURCE_EDGE and width * height <= SOURCE_PIXELS:
+            return dimensions
+    return None
 
 def factor(width, height, size=DEFAULT_SIZE):
     """subsample 的整数倍：长边不超过 size，且不放大（至少 1）。"""
     longest = max(int(width or 0), int(height or 0), 1)
-    return max(1, -(-longest // max(1, int(size))))
-
+    return max(1, -(-longest // max(1, min(THUMB_EDGE, int(size)))))
 
 def build(master, path, size=DEFAULT_SIZE):
-    """在调用方这一侧把这张图解成缩略图；解不出来返回 None。
-
-    界面线程只在「没有后台进程可用」时才走这一条（上面那三种兜底），平时都是那个进程在解。
-    """
-    known = image_size(path)
+    """后台读取首帧，校验头、释放源文件后解码有界快照，再按旧步长取样。"""
     try:
-        source = tk.PhotoImage(master=master, data=Path(path).read_bytes())
-        step = factor(known[0], known[1], size) if known else 1
-        return source.subsample(step, step) if step > 1 else source
+        from PIL import Image
+        with Path(path).open('rb') as stream:
+            encoded_size = os.fstat(stream.fileno()).st_size
+            if encoded_size > SOURCE_BYTES:
+                return None
+            known = _safe_size(stream.read(32))
+            if known is None:
+                return None
+            stream.seek(0)
+            data = stream.read(encoded_size + 1)
+        if len(data) != encoded_size:
+            return None
+        with Image.open(io.BytesIO(data), formats=('PNG', 'GIF')) as source:
+            w, h = known
+            if source.size != known:
+                return None
+            step = factor(w, h, size)
+            target = (-(-w // step), -(-h // step))
+            # NEAREST 以输出像素中心采样；偏移后对应原图 (0, step, 2*step...)。
+            offset = (1 - step) / 2
+            image = source.convert('RGBA').transform(target, Image.Transform.AFFINE,
+                (step, 0, offset, 0, step, offset), Image.Resampling.NEAREST)
+            output = io.BytesIO()
+            image.save(output, format='PNG')
+            return tk.PhotoImage(master=master, data=output.getvalue(), format='png')
     except Exception:
         return None
-
 
 def _root_key(master):
     """缓存按 Tk 解释器分开：解释器换了一个，手上那张图元就不能再用了。"""
@@ -128,14 +124,12 @@ def _root_key(master):
     except Exception:
         return str(master)
 
-
 def _alive(master):
     """这个 master（Tk 根或控件）还在不在：窗口拆了之后它就一直报 False。"""
     try:
         return bool(master.winfo_exists())
     except Exception:
         return False
-
 
 def placeholder_size(path, size=DEFAULT_SIZE):
     """这张图缩完之后是多大（宽，高）；文件头读不出来（jpg／webp）返回 None。
@@ -149,7 +143,6 @@ def placeholder_size(path, size=DEFAULT_SIZE):
     step = factor(known[0], known[1], size)
     return max(1, -(-int(known[0]) // step)), max(1, -(-int(known[1]) // step))
 
-
 # ── 磁盘缓存（Round 1）──────────────────────────────────────────────────
 def cache_key(path, stamp, size):
     """这一张图在缓存里的键：路径 ＋ 改动时间 ＋ size 一起算。
@@ -158,7 +151,6 @@ def cache_key(path, stamp, size):
     """
     raw = '%s|%s|%s' % (os.path.normcase(str(path)), stamp, int(size))
     return hashlib.sha1(raw.encode('utf-8')).hexdigest()[:20]
-
 
 def cache_file(token):
     """造好的那张小图落在哪（.png）。"""
@@ -211,7 +203,7 @@ def media_geometry(kind, size=DEFAULT_SIZE):
     ffmpeg 按同一画幅出图（scale＋pad 补黑边／showwavespic 固定 s=宽x高），
     空盒尺寸与成品严丝合缝，落地时才能就地贴上不露边。
     """
-    width = max(1, int(size))
+    width = max(1, min(THUMB_EDGE, int(size)))
     if kind == 'audio':
         return width, max(1, width // 3)
     return width, max(1, round(width * 9 / 16))
@@ -275,6 +267,8 @@ def _media_placeholder(master, kind, size):
             _draw_play(image, width, height, ink)
     except Exception:
         return None
+    if len(_MEDIA_PH) >= 8:
+        _MEDIA_PH.pop(next(iter(_MEDIA_PH)))
     _MEDIA_PH[key] = image
     return image
 
@@ -323,7 +317,7 @@ def media_thumbnail(master, path, size=DEFAULT_SIZE, configured=None):
             _CACHE[key] = _CACHE.pop(key)
             return image
         except Exception:
-            _CACHE.pop(key, None)
+            _discard(key)
     token = cache_key(path, stamp, size)
     state, image = _load_cached(master, token)
     if state == 'hit':
@@ -354,11 +348,11 @@ def request_media(master, key, path, size, stamp, token, configured=None):
     try:
         jobs = _jobs_dir()
         jobs.mkdir(parents=True, exist_ok=True)
-        save(jobs / (token + '.json'), spec)  # 原子落盘：后台进程读不到半截
+        save(jobs / (token + '.json'), spec, durable=False)  # 原子落盘：后台进程读不到半截
     except OSError:
         return False
     _PENDING[token] = {'key': key, 'path': Path(path), 'size': int(size), 'stamp': stamp,
-                       'kind': kind, 'master': master, 'at': time.monotonic()}
+                       'kind': kind, 'spec': spec, 'master': master, 'at': time.monotonic()}
     _arm(master)
     return True
 
@@ -373,6 +367,8 @@ def prefetch_media(master, paths, size=DEFAULT_SIZE, configured=None):
     count = 0
     media_paths = []
     for path in paths:
+        if len(_PENDING) >= max(0, QUEUE_LIMIT - RESULTS_PER_TICK):
+            break
         if media_kind(path) is None:
             continue
         media_thumbnail(master, path, size=size, configured=configured)
@@ -402,7 +398,12 @@ def _load_cached(master, token):
     if not path.is_file():
         return 'miss', None
     try:
-        return 'hit', tk.PhotoImage(master=master, data=path.read_bytes())
+        with path.open('rb') as stream:
+            data = stream.read(THUMB_BYTES + 1)
+        shape = png_size(data)
+        if len(data) > THUMB_BYTES or not shape or min(shape) < 1 or max(shape) > THUMB_EDGE:
+            raise ValueError('invalid thumbnail')
+        return 'hit', tk.PhotoImage(master=master, data=data, format='png')
     except Exception:
         if _alive(master):           # 窗口还在才当它是坏缓存；窗口没了只是这张读不了
             try:
@@ -433,9 +434,22 @@ def write_cache(image, token):
 # ── 内存缓存与入口 ──────────────────────────────────────────────────────
 def _remember(key, image):
     """收进内存缓存：刚用过的排到最后，最久没看的先挤掉（第 64 期任务 8 的 LRU）。"""
-    while len(_CACHE) >= LIMIT and _CACHE:
-        _CACHE.pop(next(iter(_CACHE)), None)
+    global _CACHE_BYTES
+    cost = image.width() * image.height() * 4 if image is not None else 0
+    _discard(key)
+    if cost > MEMORY_BYTES:
+        return
+    while _CACHE and (len(_CACHE) >= LIMIT or _CACHE_BYTES + cost > MEMORY_BYTES):
+        _discard(next(iter(_CACHE)))
+    _CACHE_COST[key] = cost
+    _CACHE_BYTES += cost
     _CACHE[key] = image
+
+
+def _discard(key):
+    global _CACHE_BYTES
+    _CACHE.pop(key, None)
+    _CACHE_BYTES -= _CACHE_COST.pop(key, 0)
 
 
 def _blit(target, source):
@@ -469,6 +483,9 @@ def _landed(job, image):
     global _BLIT_BAD
     target = _CACHE.get(job['key'])
     if image is not None and target is not None and target is not image:
+        if (target.width(), target.height()) != (image.width(), image.height()):
+            _remember(job['key'], image)
+            return 'set'
         if _blit(target, image):
             return 'blit'
         _BLIT_BAD = True               # 贴不进去：这一趟会话不再摆空盒子，免得永远空着
@@ -496,7 +513,7 @@ def thumbnail(master, path, size=DEFAULT_SIZE):
             _CACHE[key] = _CACHE.pop(key)
             return image
         except Exception:
-            _CACHE.pop(key, None)
+            _discard(key)
     token = cache_key(path, stamp, size)
     state, image = _load_cached(master, token)
     if state == 'hit':
@@ -532,23 +549,15 @@ def request(master, key, path, size, stamp, token):
     try:
         jobs = _jobs_dir()
         jobs.mkdir(parents=True, exist_ok=True)
-        save(jobs / (token + '.json'), spec)  # 原子落盘：后台进程读不到半截
+        save(jobs / (token + '.json'), spec, durable=False)  # 原子落盘：后台进程读不到半截
     except OSError:
         return False
     _PENDING[token] = {'key': key, 'path': Path(path), 'size': int(size), 'stamp': stamp,
-                       'master': master, 'at': time.monotonic()}
+                       'spec': spec, 'master': master, 'at': time.monotonic()}
     _arm(master)
     return True
 
 
-def _build_here(master, path, size, stamp, token):
-    """没有后台进程可用的那条老路：界面线程解一次，顺手把结果写进磁盘缓存。"""
-    image = build(master, Path(path), size)
-    write_cache(image, token)
-    return image
-
-
-# ── 界面线程那一拍：收结果、通知页面 ─────────────────────────────────────
 def _arm(master):
     """挂上（或已经挂着）界面线程那一拍：每 POLL_MS 收一次结果。"""
     global _PUMP, _PUMP_ID
@@ -564,7 +573,8 @@ def _arm(master):
             master.bind('<Destroy>', lambda event, owner=master: _disarm(owner, event), add='+')
             master._asset_thumbs_pump_cleanup_bound = True
         _PUMP = master
-        _PUMP_ID = master.after(POLL_MS, lambda: update(master))
+        generation = _GENERATION
+        _PUMP_ID = master.after(POLL_MS, lambda: update(master) if generation == _GENERATION and _PUMP is master else None)
     except Exception:
         _PUMP = None
         _PUMP_ID = None
@@ -577,6 +587,8 @@ def _disarm(master, event=None):
         return
     if _PUMP is not master:
         return
+    global _GENERATION
+    _GENERATION += 1
     pump_id = _PUMP_ID
     _PUMP = None
     _PUMP_ID = None
@@ -587,6 +599,11 @@ def _disarm(master, event=None):
             # <Destroy> 期间 winfo_exists() 已可能是 false，但 Tcl 解释器通常
             # 仍在，所以上面必须实际尝试取消；走到这里才说明解释器也已拆掉。
             app_logging.swallowed()
+    for token, job in list(_PENDING.items()):
+        if job['master'] is master:
+            _cancel_job(token, job)
+    if _PENDING:
+        _arm(next(iter(_PENDING.values()))['master'])
 
 
 def update(master=None):
@@ -609,6 +626,7 @@ def update(master=None):
             app_logging.swallowed()
     if not _PENDING:
         return 0
+    gone = _worker_gone()
     landed = []
     jobs = list(_PENDING.items())
     start = _PENDING_CURSOR % len(jobs) if jobs else 0
@@ -618,35 +636,32 @@ def update(master=None):
         if token not in _PENDING:
             continue
         if not _alive(job['master']):
-            _PENDING.pop(token, None)  # 那一页拆了：这条不必再收，也不去动磁盘缓存
+            _cancel_job(token, job)
             continue
         state, image = _load_cached(job['master'], token)
-        if state == 'miss' and time.monotonic() - job['at'] > JOB_DEADLINE:
-            if job.get('kind'):
-                # 媒体封面绝不进界面线程做 ffmpeg：先落占位图，任务继续等——
-                # 封面真到了还会就地贴进同一个盒子（任务书 M4）。
-                if not job.get('fallback'):
-                    job['fallback'] = True
+        age = time.monotonic() - job['at']
+        if state == 'miss' and (age > JOB_DEADLINE or gone and age > FALLBACK_SECONDS):
+            if not job.get('retried'):
+                job['retried'] = True
+                job['at'] = time.monotonic()
+                if job.get('kind'):
                     _landed(job, _media_placeholder(job['master'], job['kind'], job['size']))
-            else:
-                image = _build_here(job['master'], job['path'], job['size'], job['stamp'], token)
-                state = 'hit' if image is not None else 'blank'
+                spec_path = _jobs_dir() / (token + '.json')
+                try:
+                    if not spec_path.exists():
+                        save(spec_path, job['spec'], durable=False)
+                    if _ensure_worker():
+                        continue
+                except OSError:
+                    pass
+            _cancel_job(token, job)
+            continue
         if state == 'miss':
             continue
         _PENDING.pop(token, None)
         _landed(job, image if state == 'hit' else _blank_fallback(job))
         landed.append(token)
     _PENDING_CURSOR = (start + checked) % max(1, len(_PENDING))
-    if _PENDING and _worker_gone():
-        # worker 不可用时也分批回退，不能把数百张图的同步解码塞进一次 UI tick。
-        for token, job in list(_PENDING.items())[:RESULTS_PER_TICK]:
-            if job.get('kind'):
-                image = _media_placeholder(job['master'], job['kind'], job['size'])
-            else:
-                image = _build_here(job['master'], job['path'], job['size'], job['stamp'], token)
-            _PENDING.pop(token, None)
-            _landed(job, image)
-            landed.append(token)
     if _PENDING:
         _arm(master)
     return len(landed)
@@ -686,9 +701,17 @@ def settle(master, seconds=30.0):
     return not _PENDING
 
 
+def _cancel_job(token, job):
+    _PENDING.pop(token, None)
+    _discard(job['key'])
+    remove_temporary_file(_jobs_dir() / (token + '.json'))
+
+
 def forget():
     """把内存缓存清空（自检换项目、换窗口时用）。"""
     global _PUMP, _PUMP_ID, _PENDING_CURSOR
+    global _GENERATION, _CACHE_BYTES
+    _GENERATION += 1
     master, pump_id = _PUMP, _PUMP_ID
     _PUMP = None
     _PUMP_ID = None
@@ -697,8 +720,12 @@ def forget():
             master.after_cancel(pump_id)
         except Exception:
             app_logging.swallowed()
-    _CACHE.clear()
+    for token in _PENDING:
+        remove_temporary_file(_jobs_dir() / (token + '.json'))
     _PENDING.clear()
+    _CACHE.clear()
+    _CACHE_COST.clear()
+    _CACHE_BYTES = 0
     _MEDIA_PH.clear()
     _PENDING_CURSOR = 0
 
@@ -740,6 +767,9 @@ def reset_worker(timeout=2.0):
             logging.getLogger('asset_thumbs').warning(
                 '后台缩略图进程未能在 %.1f 秒内退出：已尝试 terminate/kill，它可能仍占用缓存文件',
                 timeout)
+    if not reaped:
+        _WORKER_BAD = True
+        return False
     _WORKER = None
     _WORKER_AT = 0.0
     _WORKER_BAD = False
@@ -766,10 +796,13 @@ atexit.register(reset_worker)
 
 # ── 后台进程（Round 1）──────────────────────────────────────────────────
 def _ensure_worker():
-    """后台进程在不在：不在（或已经退了）就起一个；这一趟会话里它坏过一次就不再起。"""
+    """后台进程在不在：不在（或已经退了）就起一个；失败后冷却再试。"""
     global _WORKER, _WORKER_AT, _WORKER_BAD
-    if _WORKER_BAD:
+    if _WORKER_BAD and (not _WORKER_AT or time.monotonic() - _WORKER_AT < FALLBACK_SECONDS):
         return False
+    if _WORKER_BAD and _WORKER is not None and _WORKER.poll() is None:
+        return False
+    _WORKER_BAD = False
     if _WORKER is not None and _WORKER.poll() is None:
         return True
     try:
@@ -787,22 +820,31 @@ def _ensure_worker():
     except Exception:
         _WORKER = None
         _WORKER_BAD = True
+        _WORKER_AT = time.monotonic()
         return False
 
 
 def _trim_cache():
-    """缓存太多了就先丢最久没动过的那一半（只在后台进程刚起来时做一次）。"""
-    root = Path(CACHE_ROOT)
-    try:
-        files = sorted((item for item in root.glob('*') if item.is_file()),
-                       key=lambda item: item.stat().st_mtime)
-    except OSError:
-        return
-    for old in files[:max(0, len(files) - CACHE_LIMIT // 2)]:
+    """只回收本模块生成的缓存文件，按时间淘汰至两个预算以内。"""
+    files = []
+    for path in Path(CACHE_ROOT).glob('*'):
+        if not re.fullmatch(r'[0-9a-f]{20}\.(png|none|info\.json)', path.name):
+            continue
         try:
-            remove_temporary_file(old)
+            stat = path.stat()
         except OSError:
-            pass
+            continue
+        files.append((stat.st_mtime_ns, path, stat.st_size))
+    total = sum(item[2] for item in files)
+    count = len(files)
+    if count <= CACHE_LIMIT and total <= DISK_BYTES:
+        return
+    for _, path, size in sorted(files):
+        if count <= CACHE_LIMIT and total <= DISK_BYTES:
+            break
+        if remove_temporary_file(path):
+            total -= size
+            count -= 1
 
 
 def worker_main(cache_root, idle=WORKER_IDLE):
@@ -823,11 +865,15 @@ def worker_main(cache_root, idle=WORKER_IDLE):
         root = tk.Tk()            # 解图只要一个解释器，不要窗口
         root.withdraw()
     except Exception:
-        return                    # 没有桌面会话：不接活，界面线程那一侧会就地退回同步解
+        return                    # 没有桌面会话：不接活，界面保留占位
+    processed = 0
     quiet = time.monotonic()
     while True:
-        todo = sorted(jobs.glob('*.json'))
+        todo = list(islice(jobs.glob('*.json'), QUEUE_LIMIT))
         if not todo:
+            if processed:
+                _trim_cache()
+                processed = 0
             if time.monotonic() - quiet > idle:
                 return
             time.sleep(0.05)
@@ -844,6 +890,10 @@ def worker_main(cache_root, idle=WORKER_IDLE):
                     write_cache(build(root, src, int(spec['size'])), token)
             except Exception:
                 app_logging.swallowed()                    # 单张图出事不许把这一批带停
+            processed += 1
+            if processed == TRIM_INTERVAL:
+                _trim_cache()
+                processed = 0
             try:
                 remove_temporary_file(spec_file)
             except OSError:
@@ -867,7 +917,7 @@ def _media_job(src, size, token, kind, spec):
             app_logging.swallowed()
     image = _render_media(ffmpeg, src, kind, *media_geometry(kind, size), info) if ffmpeg else None
     try:
-        if image is None:
+        if image is None or len(image) > THUMB_BYTES:
             save_bytes(blank_mark(token), b'')
         else:
             save_bytes(cache_file(token), image)

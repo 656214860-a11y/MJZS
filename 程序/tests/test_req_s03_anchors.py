@@ -22,6 +22,8 @@ import workflow_settings
 from agent.core import read, save
 from project_context_factory import project_context
 from stage_completion_service import completion_evidence
+from desktop import Desktop
+from ui.pet_ui_stages import stage_run_action
 
 
 def _shot(sid='SH001', duration=5, **extra):
@@ -63,6 +65,8 @@ class _Pet:
 
 
 class _Host:
+    present_stage = Desktop.present_stage
+
     def __init__(self, root):
         self.root = root
         self.pet = _Pet()
@@ -85,6 +89,39 @@ class ReqS03DocAnchorTests(unittest.TestCase):
 
 
 class ReqS03AnchorTests(unittest.TestCase):
+    def test_req_s03_04_presentation_rejection_does_not_report_success(self):
+        host = _Host(Path('D:/project'))
+        host.pet.auto.active = 'storyboard'
+        plan = {'scripts': ['script'], 'todo': [], 'revise': []}
+        for method, pending in (('pet_report', []), ('open_storyboard_skill', ['script'])):
+            with self.subTest(method=method), \
+                    patch.object(stage_handler_registry, 'storyboard_work_plan',
+                                 return_value=dict(plan, todo=pending)), \
+                    patch.object(host, method, return_value=False) as action:
+                self.assertIs(stage_handler_registry.start(
+                    host, 'storyboard', run_action=stage_run_action), False)
+                action.assert_called_once()
+                self.assertEqual(host.pet.events, [])
+                action.side_effect = RuntimeError('presentation failed')
+                with self.assertRaisesRegex(RuntimeError, 'presentation failed'):
+                    stage_handler_registry.start(host, 'storyboard', run_action=stage_run_action)
+                self.assertEqual(action.call_count, 2)
+                self.assertEqual(host.pet.events, [])
+
+    def test_req_s03_04_missing_presentation_action_rejects_pending_work(self):
+        host = _Host(Path('D:/project'))
+        with patch.object(stage_handler_registry, 'storyboard_work_plan',
+                          return_value={'scripts': ['script'], 'todo': ['script'], 'revise': []}):
+            with self.assertRaisesRegex(RuntimeError, '缺少'):
+                stage_handler_registry.start(host, 'storyboard', 'manual')
+        self.assertEqual(host.opened, [])
+
+    def test_req_s03_04_unknown_presentation_action_is_rejected(self):
+        host = _Host(Path('D:/project'))
+        with self.assertRaisesRegex(ValueError, '未知阶段呈现动作'):
+            stage_run_action(host, 'storyboard', 'auto', presentation='OPEN_STORYBOARD')
+        self.assertEqual((host.opened, host.pet.reported, host.pet.events), ([], [], []))
+
     # --- 启动与输入 -------------------------------------------------------
     def test_req_s03_03_workflow_lock_blocks_manual_and_auto_before_start(self):
         """REQ-S03-03：启动前先过总控制作锁门禁，手动与自动同样阻断；入口只有 stage_handler_registry.start()。"""
@@ -97,7 +134,8 @@ class ReqS03AnchorTests(unittest.TestCase):
                     patch.object(stage_config, 'workflow_lock', return_value={}):
                 host.root = project
                 manual = stage_handler_registry.start(host, 'storyboard', 'manual')
-                auto = stage_handler_registry.start(host, 'storyboard', 'auto')
+                auto = stage_handler_registry.start(
+                    host, 'storyboard', 'auto', run_action=stage_run_action)
         for result in (manual, auto):
             self.assertIn('画幅', result)
             self.assertIn('发送框内写明制作锁', result)
@@ -105,7 +143,7 @@ class ReqS03AnchorTests(unittest.TestCase):
         self.assertEqual(host.pet.events, [('stage.failed', {'stage': 'storyboard', 'error': auto})])
 
         # 锁门禁通过后，分镜阶段也只能由这个入口转到 _start_storyboard。
-        with patch.object(stage_handler_registry, '_start_storyboard', return_value='started') as stage:
+        with patch.object(stage_handler_registry, '_start_storyboard', return_value=('started', '', None)) as stage:
             self.assertEqual(stage_handler_registry.start(host, 'storyboard', 'manual'), 'started')
         stage.assert_called_once_with(host, 'manual')
 
@@ -119,14 +157,16 @@ class ReqS03AnchorTests(unittest.TestCase):
             self.assertEqual(stage_handler_registry.start(host, 'storyboard', 'manual'), '')
             self.assertEqual(host.opened, [])
             host.pet.auto.active = 'storyboard'
-            text = stage_handler_registry.start(host, 'storyboard', 'auto')
+            text = stage_handler_registry.start(host, 'storyboard', 'auto', run_action=stage_run_action)
         self.assertIn('已确认所有已选结构剧本的分镜均已生成并采用', text)
         self.assertEqual(host.pet.reported, [('storyboard', text)])
+        self.assertEqual(host.pet.events, [])
         self.assertEqual(host.opened, [])
 
         pending = dict(empty, todo=[script])
         with patch.object(stage_handler_registry, 'storyboard_work_plan', return_value=pending):
-            self.assertIn('已经在准备分镜任务', stage_handler_registry.start(host, 'storyboard', 'manual'))
+            self.assertIn('已经在准备分镜任务', stage_handler_registry.start(
+                host, 'storyboard', 'manual', run_action=stage_run_action))
         self.assertEqual(host.opened, [None])
 
     def test_req_s03_06_single_json_per_episode_and_stitch_across_scenes(self):

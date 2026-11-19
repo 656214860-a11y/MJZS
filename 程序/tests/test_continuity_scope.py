@@ -2,6 +2,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import Mock, patch
 
 import infra.continuity_ledger as continuity_ledger
 import script_contract
@@ -119,10 +120,20 @@ class ContinuityScopeTests(unittest.TestCase):
         self.assertIn('不调用模型', text)
 
     def test_req_s06_33_auto_chain_has_one_entry_through_the_registry(self):
-        source = entity_file('desktop_pet_bridge').read_text(encoding='utf-8')  # SPLITD：pet_start/_start_unattended_stage 迁到 PetBridgeMixin
-        self.assertIn("if stage=='continuity':return self.pet_continuity_ledger()", source)
-        self.assertIn("stage_handler_registry.start(self,stage,trigger='auto',fallback=self._start_unattended_stage)",
-                      source)
+        from orchestrator import stage_handler_registry
+        from ui.desktop_pet_bridge import PetBridgeMixin
+
+        host = PetBridgeMixin()
+        host.root = Path('project')
+        host.pet_continuity_ledger = Mock(return_value='ledger')
+        with (
+            patch.object(stage_handler_registry, 'start', wraps=stage_handler_registry.start) as start,
+            patch.object(stage_handler_registry, '_workflow_lock_error', return_value=''),
+            patch.object(stage_handler_registry.stage_flow, 'unchecked', return_value=False),
+        ):
+            self.assertEqual(host.pet_start('continuity'), 'ledger')
+        start.assert_called_once()
+        host.pet_continuity_ledger.assert_called_once_with()
         pages = entity_file('desktop_media_pages').read_text(encoding='utf-8')
         self.assertEqual(pages.count('self.write_continuity_ledger('), 1)
         self.assertGreaterEqual(pages.count('self.generate_continuity_ledger('), 2)

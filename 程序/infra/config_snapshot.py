@@ -1,14 +1,30 @@
-"""配置覆盖前的环形快照（U10）：固定 ``SLOTS`` 个槽位轮流覆盖，不需要删除旧文件。
+"""共享模型配置的路径、只读探针和配置覆盖前的环形快照（U10）。
 
-调用方只在写入前调一次 ``keep(path, folder, prefix)``；失败只记日志，绝不拦住真正的保存。
+快照固定使用 ``SLOTS`` 个槽位轮流覆盖。调用方只在写入前调用 ``keep``；
+快照失败时记录日志，继续保存配置。
 """
 import os
 from pathlib import Path
 
 import infra.app_logging as app_logging
-from agent.core import save_bytes
+from agent.core import read, save_bytes
 
+MODEL_CONFIG_PATH = ('配置', '宠物', '配置.json')
 SLOTS = 20
+
+
+def model_config_file(program):
+    return Path(program).joinpath(*MODEL_CONFIG_PATH)
+
+
+def has_stored_models(program) -> bool:
+    """配置文件缺失视为空池，其他读取错误交给调用方处理。"""
+    try:
+        config = read(model_config_file(program))
+    except FileNotFoundError:
+        return False
+    models = config.get('models') if isinstance(config, dict) else None
+    return isinstance(models, dict) and bool(models)
 
 
 def keep(path, folder, prefix, slots=SLOTS):

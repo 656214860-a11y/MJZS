@@ -1,0 +1,15 @@
+{
+  "round": 3653,
+  "commit_base": "d52351a4",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_publication_recovery test_publication_fsync_budget test_publication_transaction test_fault_injection_chain test_stage_execution_service test_stage_file_index_publication test_l1_reliability_r3248",
+    "exit": 0,
+    "passed": 70,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T08:26:23"
+}

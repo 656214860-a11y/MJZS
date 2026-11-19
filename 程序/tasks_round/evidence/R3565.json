@@ -1,0 +1,15 @@
+{
+  "round": 3565,
+  "commit_base": "b8725bac",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_startup_selfcheck test_request_ledger test_l1_reliability_r3248 test_no_circular_import test_layers test_dynamic_import_registry test_rule_guard_map",
+    "exit": 0,
+    "passed": 189,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T03:40:06"
+}

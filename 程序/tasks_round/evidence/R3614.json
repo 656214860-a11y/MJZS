@@ -1,0 +1,15 @@
+{
+  "round": 3614,
+  "commit_base": "025982b4",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_dynamic_import_registry test_animatic_scope test_continuity_scope test_req_s03_anchors architecture.test_stage_command_contract",
+    "exit": 0,
+    "passed": 79,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T06:16:46"
+}

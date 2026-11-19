@@ -39,13 +39,16 @@ from typing import NamedTuple
 
 import orchestrator.skill_project_layer as skill_project_layer
 import orchestrator.skill_registry as skill_registry
+from agent import publication
 from agent.core import replace, save
 from contract.pet_bus import read_json
 from contract import platform_tools
 from ui.skill_security_service import (  # T9 安全提示助手；re-export 供调用方走本模块名
     ALERT_DIR_NAMES, EXECUTABLE_ALERT_SUFFIXES, import_alerts, package_alerts,
     untrusted_source_notice)
-from infra.storage_maintenance import recycle_paths, restore_recycle_batch
+from infra.storage_maintenance import recycle_paths
+from ui.skill_install_recovery import (
+    ImportBlocked, batch_of as _batch_of, installed_version, ledger_transaction, restore_skill)
 
 LEDGER_NAME = '导入台账.json'
 STAGING_PREFIX = '.导入中-'
@@ -78,10 +81,6 @@ def _check_package_bounds(package_root):
         total += path.stat().st_size
         if total > PACKAGE_MAX_BYTES:
             raise ImportBlocked('包总体积超过 %d MB 上限' % (PACKAGE_MAX_BYTES // 1024 // 1024))
-
-
-class ImportBlocked(ValueError):
-    """导入被硬性拦截；消息可直接展示给用户。"""
 
 
 _PACKAGE_ENTRY_NAMES = {skill_registry.PACKAGE_SKILL_FILENAME.casefold()} | {
@@ -180,7 +179,7 @@ def _verify(target):
     try:
         workflow_settings._inline_skill_report(target, strict=True)
     except (OSError, UnicodeError, ValueError) as exc:
-        raise ImportBlocked('导入后试冻结失败，已撤回：%s' % exc) from exc
+        raise ImportBlocked('导入后试冻结失败：%s' % exc) from exc
 
 
 def program_of(target_dir):
@@ -246,8 +245,12 @@ def record(program, plan, digest, now=None):
 
 
 def perform_import(plan, program, now=None):
+    with publication.access():
+        return _perform_import(plan, Path(program), now)
+
+
+def _perform_import(plan, program, now):
     """暂存 → 换入 → 试冻结 → 登记；任一步失败都回到导入前状态并抛出。"""
-    program = Path(program)
     target_dir = plan['target_dir']
     target_dir.mkdir(parents=True, exist_ok=True)
     staging = target_dir / (STAGING_PREFIX + uuid.uuid4().hex[:8])
@@ -256,6 +259,7 @@ def perform_import(plan, program, now=None):
     final = plan['target'].parent if package else plan['target']
     staged = staging / final.name
     batch = None
+    version = None
     try:
         if package:
             _check_package_bounds(plan['source'].parent)
@@ -263,32 +267,29 @@ def perform_import(plan, program, now=None):
         else:
             shutil.copy2(plan['source'], staged)
         digest = _tree_digest(staged)
-        if final.exists():
+        staged_version = installed_version(staged)
+        if os.path.lexists(final):
             records = recycle_paths(program, [final], '新增 SKILL 替换旧版：' + final.name, now=now)
             if not records:
                 raise ImportBlocked('旧版 %s 未能移入回收站，已取消导入，原文件未改动。' % final.name)
             batch = _batch_of(program, records)
-        os.replace(staged, final)
-        try:
+        staged.rename(final)
+        version = staged_version
+        with ledger_transaction():
             _verify(plan['target'])
-        except ImportBlocked:
-            os.replace(final, staged)
-            if batch is not None:
-                restore_recycle_batch(program, batch)
-            raise
-        ledger = record(program, plan, digest, now=now)
+            ledger = record(program, plan, digest, now=now)
         return {'target': plan['target'], 'digest': digest, 'ledger': ledger, 'replaced_batch': batch}
+    except BaseException as original:
+        if batch is not None or version is not None:
+            restore_skill(program, final, batch, original, staged=staged, version=version)
+        raise
     finally:
         # 暂存区（含撤回的新版）只移走、不永久删除。
         if staging.exists():
-            recycle_paths(program, [staging], '新增 SKILL 暂存区收尾', now=now)
-
-
-def _batch_of(root, records):
-    """由回收记录反推批次目录：recycle_path＝批次/原相对路径，去掉原路径的层数即批次。"""
-    item = records[0]
-    full = Path(root) / str(item['recycle_path'])
-    return full.parents[len(Path(str(item['source'])).parts) - 1]
+            try:
+                recycle_paths(program, [staging], '新增 SKILL 暂存区收尾', now=now)
+            except OSError:
+                app_logging.swallowed('SKILL 暂存区未能回收：%s' % staging)
 
 
 def _legacy_key_ok(key):
@@ -635,11 +636,27 @@ def uninstall_skill(program, registry, name):
     if not path.is_file() or not any(path.resolve().is_relative_to(root) for root in roots):
         raise ImportBlocked('SKILL「%s」不在可卸载目录' % name)
     target = path.parent if skill.get(skill_registry.IMPORTED_PACKAGE_FLAG, False) else path
-    records = recycle_paths(program, [target], '卸载 SKILL：' + skill.name)
-    if not records:
-        raise ImportBlocked('SKILL「%s」未能移入回收站' % name)
-    forget_ledger_targets(program, [target])
+    recycle_installed_skill(program, target, skill.name, '卸载')
     return {'name': skill.name, 'target': str(target)}
+
+
+def recycle_installed_skill(program, target, name, action, *, after_forget=None):
+    """既有回收与台账入口共用同一补偿，删除失败时原位置仍可用。"""
+    with publication.access():
+        records = recycle_paths(program, [target], action + ' SKILL：' + name)
+        if not records:
+            raise ImportBlocked('SKILL「%s」未能移入回收站' % name)
+        batch = _batch_of(program, records)
+        try:
+            with ledger_transaction():
+                forget_ledger_targets(program, [target])
+                if after_forget is not None:
+                    after_forget()
+        except BaseException as original:
+            restore_skill(program, target, batch, original)
+            if isinstance(original, Exception):
+                raise ImportBlocked('SKILL 回收已撤回：%s' % original) from original
+            raise
 
 
 def validate_skill(path):

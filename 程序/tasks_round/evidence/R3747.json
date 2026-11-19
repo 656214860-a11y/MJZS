@@ -1,0 +1,15 @@
+{
+  "round": 3747,
+  "commit_base": "bae0a9f6",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k offline_asr_engine offline_asr_setup dynamic_import_registry",
+    "exit": 0,
+    "passed": 93,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T13:43:28"
+}

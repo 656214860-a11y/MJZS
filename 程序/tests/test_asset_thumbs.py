@@ -171,7 +171,8 @@ class WorkerResetTests(unittest.TestCase):
         with self.assertLogs('asset_thumbs', level='WARNING') as logs:
             self.assertFalse(asset_thumbs.reset_worker(), '收不掉必须让调用方知道')
         self.assertTrue(any('未能在' in line for line in logs.output), logs.output)
-        self.assertIsNone(asset_thumbs._WORKER)
+        self.assertIsInstance(asset_thumbs._WORKER, Unreapable)
+        self.assertFalse(asset_thumbs._ensure_worker())
 
 
 class ThumbnailTests(unittest.TestCase):
@@ -203,6 +204,114 @@ class ThumbnailTests(unittest.TestCase):
         # cache/jobs/*.json 在读，临时目录清理会撞上 WinError 32「另一个程序正在使用此文件」。
         self.addCleanup(asset_thumbs.reset_worker)
         self.addCleanup(asset_thumbs.forget)
+
+    def test_timeout_and_worker_exit_never_decode_on_tk(self):
+        for timeout in (True, False):
+            with self.subTest(timeout=timeout):
+                asset_thumbs.forget()
+                path = self.write("slow.png", png(32, 32))
+                with mock.patch.object(asset_thumbs, "_ensure_worker", return_value=True), \
+                     mock.patch.object(asset_thumbs, "_worker_gone", return_value=not timeout), \
+                     mock.patch.object(asset_thumbs, "build") as decode:
+                    asset_thumbs.thumbnail(self.win, path)
+                    age = asset_thumbs.JOB_DEADLINE if timeout else asset_thumbs.FALLBACK_SECONDS
+                    next(iter(asset_thumbs._PENDING.values()))["at"] -= age + 1
+                    asset_thumbs.update(self.win)
+                    decode.assert_not_called()
+
+    def test_forget_removes_queued_specs_and_ignores_previous_timer(self):
+        with mock.patch.object(asset_thumbs, "_ensure_worker", return_value=True), \
+             mock.patch.object(self.win, "after", return_value="fake") as timer:
+            path = self.write("old.png", png(24, 24))
+            asset_thumbs.thumbnail(self.win, path)
+            callback = timer.call_args.args[1]
+            asset_thumbs.forget()
+            self.assertFalse(list(asset_thumbs._jobs_dir().glob("*.json")))
+            asset_thumbs.thumbnail(self.win, path)
+            with mock.patch.object(asset_thumbs, "_load_cached") as read:
+                callback()
+                read.assert_not_called()
+
+    def test_project_switch_drops_late_thumbnail_callback(self):
+        import desktop
+        app = mock.Mock()
+        app.root = self.root
+        app.idea_chat_controller.requesting = False
+        target = Path(self.tmp.name) / "new-project"
+        target.mkdir()
+        with mock.patch.object(asset_thumbs, "_ensure_worker", return_value=True), \
+             mock.patch.object(self.win, "after", return_value="timer") as timer, \
+             mock.patch("stage_execution_service.recover_stage_publications"), \
+             mock.patch.object(desktop, "open_studio"):
+            asset_thumbs.thumbnail(self.win, self.write("old.png", png(16, 16)))
+            old_timer = timer.call_args.args[1]
+            desktop.Desktop.load(app, target, defer_page=True)
+            self.assertEqual(app.root, target)
+            self.assertEqual(asset_thumbs.pending(), 0)
+            asset_thumbs.thumbnail(self.win, self.write("new.png", png(12, 12)))
+            with mock.patch.object(asset_thumbs, "_load_cached") as read:
+                old_timer()
+                read.assert_not_called()
+
+    def test_missing_spec_is_retried_once_then_released(self):
+        path = self.write("retry.png", png(24, 24))
+        with mock.patch.object(asset_thumbs, "_ensure_worker", return_value=True), \
+             mock.patch.object(asset_thumbs, "_worker_gone", return_value=False):
+            asset_thumbs.thumbnail(self.win, path)
+            token, job = next(iter(asset_thumbs._PENDING.items()))
+            spec = asset_thumbs._jobs_dir() / (token + ".json")
+            asset_thumbs.remove_temporary_file(spec)
+            job["at"] = 0
+            asset_thumbs.update(self.win)
+            self.assertEqual(asset_thumbs.read_json(spec)["src"], str(path))
+            job["at"] = 0
+            asset_thumbs.update(self.win)
+            self.assertFalse(spec.exists())
+            self.assertFalse(asset_thumbs.pending())
+            self.assertNotIn(job["key"], asset_thumbs._CACHE)
+
+    def test_oversize_disk_thumbnail_never_reaches_tk(self):
+        self.cache.mkdir(exist_ok=True)
+        cached = asset_thumbs.cache_file("a" * 20)
+        cached.write_bytes(png(257, 1))
+        with mock.patch.object(asset_thumbs.tk, "PhotoImage") as decode:
+            self.assertEqual(asset_thumbs._load_cached(self.win, cached.stem), ("miss", None))
+            decode.assert_not_called()
+
+    def test_cache_budgets_evict_generated_images_only(self):
+        image = self.tk.PhotoImage(master=self.win, width=16, height=16)
+        with mock.patch.object(asset_thumbs, "MEMORY_BYTES", 1024):
+            asset_thumbs._remember(("first",), image)
+            asset_thumbs._remember(("second",), image)
+            self.assertEqual(list(asset_thumbs._CACHE), [("second",)])
+        self.cache.mkdir(exist_ok=True)
+        private = self.cache / "keep.png"
+        private.write_bytes(b"untouched")
+        cached = asset_thumbs.cache_file("a" * 20)
+        cached.write_bytes(b"12345")
+        with mock.patch.object(asset_thumbs, "DISK_BYTES", 4):
+            asset_thumbs._trim_cache()
+        self.assertFalse(cached.exists())
+        self.assertEqual(private.read_bytes(), b"untouched")
+
+    def test_worker_releases_source_before_decoding_snapshot(self):
+        from PIL import Image
+        path = self.write("editable.png", png(24, 24))
+        open_image = Image.open
+
+        def move_during_decode(stream, **options):
+            path.rename(path.with_name("moved.png"))
+            return open_image(stream, **options)
+
+        with mock.patch.object(Image, "open", side_effect=move_during_decode):
+            self.assertIsNotNone(asset_thumbs.build(self.win, path))
+
+    def test_oversize_header_rejected_before_decoder(self):
+        path = self.write("size.png", png(16, 16))
+        with mock.patch.object(asset_thumbs, "SOURCE_PIXELS", 200, create=True), \
+             mock.patch("PIL.PngImagePlugin.PngImageFile.load") as decoder:
+            self.assertIsNone(asset_thumbs.build(self.win, path))
+            decoder.assert_not_called()
 
     def test_result_poll_checks_a_bounded_batch_of_pending_jobs(self):
         """长列表滚动时，单个 Tk tick 不能为全部待处理缩略图反复做磁盘检查。"""
@@ -315,7 +424,7 @@ class ThumbnailTests(unittest.TestCase):
         """后台不可用时，Tk 当前拍不能同步解整图；页面先保留文字，避免可见卡顿。"""
         asset_thumbs._WORKER_BAD = True                    # 就当这一趟会话里它已经不可用
         path = self.write("big.png", png(400, 200))
-        with mock.patch.object(asset_thumbs, '_build_here', side_effect=AssertionError('不应在 UI 线程解码')):
+        with mock.patch.object(asset_thumbs, 'build', side_effect=AssertionError('不应在 UI 线程解码')):
             image = asset_thumbs.thumbnail(self.win, path, 72)
         self.assertIsNone(image, "后台不可用时先保留文字，避免阻塞当前 UI 回调")
         self.assertEqual(asset_thumbs.pending(), 0, "没有后台进程就不排队")
@@ -580,6 +689,16 @@ class MediaThumbTests(unittest.TestCase):
         asset_thumbs.update(self.win)
         self.assertEqual(asset_thumbs.pending(), 0)
         self.assertEqual(colors(box), PICTURE, '迟到的封面仍就地贴上')
+
+    def test_prefetch_reserves_room_for_visible_media(self):
+        self.no_real_worker()
+        with mock.patch.object(asset_thumbs, "QUEUE_LIMIT", 3), \
+             mock.patch.object(asset_thumbs, "RESULTS_PER_TICK", 1):
+            paths = [self.media(str(i) + ".mp4") for i in range(4)]
+            self.assertEqual(asset_thumbs.prefetch_media(self.win, paths), 2)
+            asset_thumbs.media_thumbnail(self.win, paths[3])
+            self.assertEqual(asset_thumbs.pending(), 3)
+            self.assertIn(self.token(paths[3], asset_thumbs.DEFAULT_SIZE), asset_thumbs._PENDING)
 
     def test_prefetch_media_only_queues_media_files(self):
         self.no_real_worker()

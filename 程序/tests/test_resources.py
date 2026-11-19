@@ -101,8 +101,12 @@ class EnsureFreeTests(unittest.TestCase):
         # I15-3：空间不足 → StorageError(E-IO-WRITE)，detail 带所需/可用字节。
         with tempfile.TemporaryDirectory() as tmp:
             probe = resources._probe_for(tmp)
-            available = shutil.disk_usage(probe).free
-            with self.assertRaises(StorageError) as ctx:
+            usage = shutil.disk_usage(probe)
+            available = usage.free
+            # 共享测试机上其他进程可能在两次 disk_usage 之间释放空间；固定同一快照，
+            # 本用例只验证阈值和错误契约，不把全机磁盘竞态当产品结果。
+            with mock.patch.object(resources.shutil, 'disk_usage', return_value=usage), \
+                    self.assertRaises(StorageError) as ctx:
                 resources.ensure_free(tmp, available + 1)
             exc = ctx.exception
             self.assertEqual(exc.code, "E-IO-WRITE")

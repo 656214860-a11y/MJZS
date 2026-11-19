@@ -2,16 +2,22 @@
 
 分镜表、镜头列表、内容预览会在每次页面重排、每次选中变化、每 1.5 秒的文件轮询里
 各自读同一个 JSON；一个 60 镜的分镜稿会被解析 3 次以上。这里按文件签名缓存，
-文件一旦被 save() 覆盖（mtime/大小变化）自动失效，所以不会读到旧内容。
+读缓存验证文件身份及变更时间。应用发布和外部适配器也可显式失效缓存。
 每次返回一份新拷贝（只拷 dict／list 骨架，比重新解析便宜）：调用方改了也不会污染缓存。
 """
+import ctypes
 import hashlib
 import json
 import os
 import shutil
+import struct
+import sys
 import tempfile
+from threading import RLock
 from collections import OrderedDict
+from itertools import chain
 from pathlib import Path
+from contract.infra_errors import CorruptDataError, StorageError
 from agent.core import read  # read：兼容仍由外部替换的历史测试钩子。
 from agent.publication import access
 
@@ -19,56 +25,200 @@ from agent.publication import access
 def _key(path):
     return os.path.normcase(os.path.abspath(str(path)))
 
-_CACHE = {}
-_CACHE_LIMIT = 32
-_TEXT_CACHE = OrderedDict()
-_BYTES_CACHE = OrderedDict()
-_DIGEST_CACHE = {}
+_ENTRY_LIMIT = 64
+_CONTENT_BUDGET = 8 * 1024 * 1024
+_DIGEST_BUDGET = 64 * 1024
+_CACHE_LOCK = RLock()
+_epoch = 0
 
 
-def _digest(data):
-    return hashlib.sha256(data).digest()
+class _BoundedCache(OrderedDict):
+    """调用者持有 _CACHE_LOCK；权重涵盖缓存保留的键、元数据与值。"""
+
+    def __init__(self, limit, budget):
+        super().__init__()
+        self.limit = limit
+        self.budget = budget
+        self.weight = 0
+
+    def discard(self, key):
+        entry = self.pop(key, None)
+        if entry is None:
+            return False
+        self.weight -= entry[-1]
+        return True
+
+    def put(self, key, token, digest, value, weight):
+        self.discard(key)
+        if weight > self.budget:
+            return
+        self[key] = (token, digest, value, weight)
+        self.weight += weight
+        while len(self) > self.limit or self.weight > self.budget:
+            _, entry = self.popitem(last=False)
+            self.weight -= entry[-1]
+
+    def clear(self):
+        super().clear()
+        self.weight = 0
 
 
-def _touch(cache, key, limit):
-    """命中即提到最近端；限容缓存超上限时淘汰最旧项。"""
-    if limit:
-        cache.move_to_end(key)
-        while len(cache) > limit:
-            cache.popitem(last=False)
+def _weight(limit, *values):
+    size = 256  # OrderedDict 节点、条目元组及记账开销的预留。
+    levels = [iter(values)]
+    while levels and size <= limit:
+        value = next(levels[-1], _END)
+        if value is _END:
+            levels.pop()
+            continue
+        size += sys.getsizeof(value)
+        if isinstance(value, dict):
+            levels.append(chain(value.keys(), value.values()))
+        elif isinstance(value, (tuple, list)):
+            levels.append(iter(value))
+    return size
 
 
-def _cached_content(cache, key, token, data, limit=None):
-    """签名变动后仅在内容真的变了时才丢弃已解析的对象。"""
-    digest = _digest(data)
-    hit = cache.get(key)
-    if hit is not None and hit[1] == digest:
-        cache[key] = (token, digest, hit[2])
-        _touch(cache, key, limit)
-        return hit[2]
+_END = object()
+
+
+_CACHE = _BoundedCache(_ENTRY_LIMIT, _CONTENT_BUDGET)
+_TEXT_CACHE = _BoundedCache(32, _CONTENT_BUDGET)
+_BYTES_CACHE = _BoundedCache(32, _CONTENT_BUDGET)
+_DIGEST_CACHE = _BoundedCache(_ENTRY_LIMIT, _DIGEST_BUDGET)
+
+
+if os.name == 'nt':
+    from ctypes import wintypes
+
+    class _FileBasicInfo(ctypes.Structure):
+        _fields_ = [('created', ctypes.c_int64), ('accessed', ctypes.c_int64),
+                    ('modified', ctypes.c_int64), ('changed', ctypes.c_int64),
+                    ('attributes', wintypes.DWORD)]
+
+    class _FileStandardInfo(ctypes.Structure):
+        _fields_ = [('allocation', ctypes.c_int64), ('size', ctypes.c_int64),
+                    ('links', wintypes.DWORD), ('pending', ctypes.c_ubyte),
+                    ('directory', ctypes.c_ubyte)]
+
+    class _FileIdInfo(ctypes.Structure):
+        _fields_ = [('volume', ctypes.c_uint64), ('file_id', ctypes.c_ubyte * 16)]
+
+    _kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    _open_attributes = _kernel.CreateFileW
+    _open_attributes.argtypes = (wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD,
+                                 wintypes.LPVOID, wintypes.DWORD, wintypes.DWORD,
+                                 wintypes.HANDLE)
+    _open_attributes.restype = wintypes.HANDLE
+    _query_info = _kernel.GetFileInformationByHandleEx
+    _query_info.argtypes = (wintypes.HANDLE, ctypes.c_int, wintypes.LPVOID,
+                            wintypes.DWORD)
+    _query_info.restype = wintypes.BOOL
+    _device_control = _kernel.DeviceIoControl
+    _device_control.argtypes = (wintypes.HANDLE, wintypes.DWORD, wintypes.LPVOID,
+                                wintypes.DWORD, wintypes.LPVOID, wintypes.DWORD,
+                                ctypes.POINTER(wintypes.DWORD), wintypes.LPVOID)
+    _device_control.restype = wintypes.BOOL
+    _close_handle = _kernel.CloseHandle
+    _close_handle.argtypes = (wintypes.HANDLE,)
+    _close_handle.restype = wintypes.BOOL
+    _INVALID_HANDLE = ctypes.c_void_p(-1).value
+
+
+def _windows_usn(handle):
+    """查询该文件最新的 USN。时间戳在 Windows 上可能因时钟粒度碰撞。"""
+    versions = struct.pack('<HH', 2, 3)
+    record = ctypes.create_string_buffer(1024)
+    returned = wintypes.DWORD()
+    # FSCTL_READ_FILE_USN_DATA，返回 USN_RECORD_V2 或 V3。
+    if not _device_control(handle, 0x900EB, versions, len(versions), record,
+                           len(record), ctypes.byref(returned), None):
+        return None
+    version = struct.unpack_from('<H', record, 4)[0]
+    if version == 2 and returned.value >= 32:
+        return struct.unpack_from('<q', record, 24)[0] or None
+    if version == 3 and returned.value >= 48:
+        return struct.unpack_from('<q', record, 40)[0] or None
     return None
 
 
-def _read_through(cache, key, path, parse, limit=None):
-    """按文件签名（修改时间＋大小）复用解析结果；签名变了但字节没变也复用，stat 失败则清掉旧条目再抛。"""
+def _signature(path):
+    if os.name != 'nt':
+        stat = path.stat()
+        return stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns
+
+    # FILE_READ_ATTRIBUTES, share read/write/delete, OPEN_EXISTING.
+    # Python 的 Windows st_ctime 可能是创建时间，普通 stat 不暴露 ChangeTime。
+    handle = _open_attributes(os.fspath(path), 0x80, 7, None, 3, 0x02000000, None)
+    if handle == _INVALID_HANDLE:
+        path.stat()  # 保留 Python 对缺失路径等错误的异常类型。
+        return None
     try:
-        stat = Path(path).stat()
+        basic, standard, identity = _FileBasicInfo(), _FileStandardInfo(), _FileIdInfo()
+        if (_query_info(handle, 0, ctypes.byref(basic), ctypes.sizeof(basic))
+                and _query_info(handle, 1, ctypes.byref(standard), ctypes.sizeof(standard))
+                and _query_info(handle, 18, ctypes.byref(identity), ctypes.sizeof(identity))
+                and basic.changed and any(identity.file_id)):
+            usn = _windows_usn(handle)
+            if usn is not None:
+                return (identity.volume, bytes(identity.file_id), standard.size,
+                        basic.modified, basic.changed, usn)
+        # 意外不支持强签名的文件系统走读盘，不能降级为按 size/mtime 命中。
+        return None
+    finally:
+        _close_handle(handle)
+
+
+def _lookup(cache, key, path):
+    with _CACHE_LOCK:
+        epoch = _epoch
+    try:
+        token = _signature(path)
     except OSError:
-        cache.pop(key, None)
+        with _CACHE_LOCK:
+            cache.discard(key)
         raise
-    token = (stat.st_mtime_ns, stat.st_size)
-    hit = cache.get(key)
-    if hit is not None and hit[0] == token:
-        _touch(cache, key, limit)
-        return hit[2]
-    raw = Path(path).read_bytes()
-    cached = _cached_content(cache, key, token, raw, limit)
-    if cached is not None:
-        return cached
-    data = parse(raw)
-    cache[key] = (token, _digest(raw), data)
-    _touch(cache, key, limit)
-    return data
+    with _CACHE_LOCK:
+        hit = cache.get(key)
+        if epoch == _epoch and token is not None and hit is not None and hit[0] == token:
+            cache.move_to_end(key)
+            return token, hit, epoch
+        return token, None, epoch
+
+
+def _store(cache, key, token, epoch, digest, value):
+    if token is None:
+        return
+    weight = _weight(cache.budget, key, token, digest, value)
+    with _CACHE_LOCK:
+        if epoch == _epoch:
+            cache.put(key, token, digest, value, weight)
+
+
+def _read_through(cache, key, path, parse):
+    path = Path(path)
+    for _ in range(3):
+        token, hit, epoch = _lookup(cache, key, path)
+        if hit is not None:
+            return hit[2]
+        with _CACHE_LOCK:
+            previous = cache.get(key)
+        raw = path.read_bytes()
+        if token is None:
+            return parse(raw)
+        if token != _signature(path):
+            continue
+        digest = hashlib.sha256(raw).digest()
+        try:
+            value = previous[2] if previous is not None and previous[1] == digest else parse(raw)
+        except (ValueError, RecursionError):
+            with _CACHE_LOCK:
+                if cache.get(key) is previous:
+                    cache.discard(key)
+            raise
+        _store(cache, key, token, epoch, digest, value)
+        return value
+    raise StorageError(f'读取期间文件持续变化：{path}', code='E-IO-READ', detail=str(path))
 
 
 def _json_copy(value):
@@ -86,20 +236,16 @@ def read_json(path):
 
 
 def read_json_shared(path):
-    """同 read_json，但不拷贝：返回缓存里的共享对象，调用方只读不改。供每秒级 UI 轮询用。
-
-    文件签名（mtime＋大小）与上次加锁读取时一致，说明内容仍是当时读到的那一版，直接返回，
-    不再为每次轮询打开 writer.lock 加事务锁；签名变了才走带锁的 read_through。
-    """
+    """共享只读 JSON。身份和变更时间一致时跳过发布事务锁。"""
+    path = Path(path)
     key = _key(path)
-    hit = _CACHE.get(key)
+    try:
+        _, hit, _ = _lookup(_CACHE, key, path)
+    except OSError:
+        # 发布事务可能留下待恢复的正式路径，由慢路径先恢复。
+        hit = None
     if hit is not None:
-        try:
-            stat = Path(path).stat()
-        except OSError:
-            stat = None
-        if stat is not None and hit[0] == (stat.st_mtime_ns, stat.st_size):
-            return hit[2]
+        return hit[2]
     return _locked_json_shared(path, key)
 
 
@@ -112,14 +258,13 @@ def _locked_json_shared(path, key):
 def read_text(path, encoding='utf-8-sig', errors=None):
     """读取用于 UI 预览的文本，并在文件未变时复用结果。"""
     return _read_through(_TEXT_CACHE, (_key(path), encoding, errors), path,
-                         lambda raw: raw.decode(encoding, errors=errors or 'strict'),
-                         limit=_CACHE_LIMIT)
+                         lambda raw: raw.decode(encoding, errors=errors or 'strict'))
 
 
 @access()
 def read_bytes(path):
     """读取大文本的原始字节并按文件签名复用，供编码探测类预览使用。"""
-    return _read_through(_BYTES_CACHE, _key(path), path, bytes, limit=_CACHE_LIMIT)
+    return _read_through(_BYTES_CACHE, _key(path), path, bytes)
 
 
 @access()
@@ -129,30 +274,23 @@ def path_key(path):
 
 
 def file_digest(path):
-    """流式 sha256 校验和（十六进制），按文件签名缓存；从不把整份文件读进内存。
-
-    animatic 这类成果含整段视频与音频，反复校验时若用 read_bytes＋sha256 会把大媒体
-    整份读进内存。这里只按 1 MiB 块喂给 sha256，并按 (mtime_ns, size) 复用上一次结果，
-    未改动的大文件不会重复计算。
-    """
+    """流式计算 SHA-256，缓存中仅保留摘要与文件签名。"""
     path = Path(path)
     key = _key(path)
-    try:
-        stat = path.stat()
-    except OSError:
-        _DIGEST_CACHE.pop(key, None)
-        raise
-    token = (stat.st_mtime_ns, stat.st_size)
-    hit = _DIGEST_CACHE.get(key)
-    if hit is not None and hit[0] == token:
-        return hit[1]
-    digest = hashlib.sha256()
-    with path.open('rb') as handle:
-        for block in iter(lambda: handle.read(1024 * 1024), b''):
-            digest.update(block)
-    value = digest.hexdigest()
-    _DIGEST_CACHE[key] = (token, value)
-    return value
+    for _ in range(3):
+        token, hit, epoch = _lookup(_DIGEST_CACHE, key, path)
+        if hit is not None:
+            return hit[2]
+        digest = hashlib.sha256()
+        with path.open('rb') as handle:
+            for block in iter(lambda: handle.read(1024 * 1024), b''):
+                digest.update(block)
+        if token is not None and token != _signature(path):
+            continue
+        value = digest.hexdigest()
+        _store(_DIGEST_CACHE, key, token, epoch, None, value)
+        return value
+    raise StorageError(f'计算摘要期间文件持续变化：{path}', code='E-IO-READ', detail=str(path))
 
 
 @access()
@@ -168,32 +306,31 @@ def read_stable_json_snapshot(path):
     raw = path.read_bytes()
     after = path.stat()
     if (before.st_mtime_ns, before.st_size) != (after.st_mtime_ns, after.st_size):
-        raise ValueError('文件正在写入')
+        raise CorruptDataError('文件正在写入', detail=str(path))
     return json.loads(raw.decode('utf-8-sig')), raw, after
 
 
 def clear():
-    _CACHE.clear()
-    _TEXT_CACHE.clear()
-    _BYTES_CACHE.clear()
-    _DIGEST_CACHE.clear()
+    global _epoch
+    with _CACHE_LOCK:
+        _epoch += 1
+        for cache in (_CACHE, _TEXT_CACHE, _BYTES_CACHE, _DIGEST_CACHE):
+            cache.clear()
 
 
 def invalidate(path):
-    """丢弃某一正式路径的所有读取缓存，返回是否确实命中过缓存。
-
-    这是缓存一致性的唯一失效原语。调用方不得靠重建页面或修改缓存字典来让
-    新成果可见；文件生命周期边界应改用下面带业务语义的三个事件。
-    """
+    """丢弃某一正式路径的所有读取缓存，返回是否确实命中过缓存。"""
+    global _epoch
     key = _key(path)
-    removed = _CACHE.pop(key, None) is not None
-    removed = _BYTES_CACHE.pop(key, None) is not None or removed
-    removed = _DIGEST_CACHE.pop(key, None) is not None or removed
-    for text_key in tuple(_TEXT_CACHE):
-        if text_key[0] == key:
-            _TEXT_CACHE.pop(text_key, None)
-            removed = True
-    return removed
+    with _CACHE_LOCK:
+        _epoch += 1
+        removed = _CACHE.discard(key)
+        removed = _BYTES_CACHE.discard(key) or removed
+        removed = _DIGEST_CACHE.discard(key) or removed
+        for text_key in tuple(_TEXT_CACHE):
+            if text_key[0] == key:
+                removed = _TEXT_CACHE.discard(text_key) or removed
+        return removed
 
 
 def published(path):

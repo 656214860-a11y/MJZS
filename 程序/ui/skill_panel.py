@@ -341,8 +341,6 @@ class Panel(PanelWorkflowMixin, PanelImportMixin, FormScrollMixin, ttk.Frame):
             Tooltip(widget, full)
         if self.skill_canvas is None:
             self.skill_action_row.add(widget)  # 流式，FlowFields 负责按可用宽度换行
-        else:
-            self.schedule_skill_layout()
         return widget
 
     def skill_label(self, label, limit=26):
@@ -369,8 +367,7 @@ class Panel(PanelWorkflowMixin, PanelImportMixin, FormScrollMixin, ttk.Frame):
         for widget in self.skill_controls:
             widget.grid_forget()
         columns = 3
-        for widget in self.skill_controls:
-            index = self.skill_controls.index(widget)
+        for index, widget in enumerate(self.skill_controls):
             row, column = divmod(index, columns)
             widget.grid(row=row, column=column, sticky='w', padx=(SPACING['none'], SPACING['sm']), pady=(SPACING['none'], SPACING['xs']))
         for column in range(columns):
@@ -435,7 +432,8 @@ class Panel(PanelWorkflowMixin, PanelImportMixin, FormScrollMixin, ttk.Frame):
     def delete_checked_skills(self):
         """仅回收程序 skills/ 与用户层 data/skills/ 下已勾选的 .skill.md，绝不改项目配置。"""
         program = Path(__file__).resolve().parents[1]
-        roots = skill_registry.skill_roots(program, project=desktop_project(self.desktop))
+        project = desktop_project(self.desktop)
+        roots = skill_registry.skill_roots(program, project=project)
         selected = [item for item in self.skills if self.vars.get(item.name) and self.vars[item.name].get()]
         paths = []
         for item in selected:
@@ -453,13 +451,11 @@ class Panel(PanelWorkflowMixin, PanelImportMixin, FormScrollMixin, ttk.Frame):
         if not confirm(self.winfo_toplevel(), TITLE, '将把以下 SKILL 移入程序回收站，是否继续？\n' + names + reference_notice,
                        dangerous=True):
             return []
-        records = recycle_paths(program, [path for _item, path in paths], '阶段配置删除 SKILL')
+        records = _recycle_checked_skills(self, program, project, paths)
         if not records:
-            self.state.configure(text='SKILL 未删除：回收服务未返回记录')
             return []
-        import ui.skill_import_service as skill_import_service
-        skill_import_service.forget_ledger_targets(program, [path for _item, path in paths])
-        removed = {item.name for item, _path in paths}
+        moved = {program / record['source'] for record in records}
+        removed = {item.name for item, path in paths if path in moved}
         self.skills = [item for item in self.skills if item.name not in removed]
         for name in removed:
             box = self.registered_boxes.pop(name, None)
@@ -789,6 +785,30 @@ class Panel(PanelWorkflowMixin, PanelImportMixin, FormScrollMixin, ttk.Frame):
 
 _HEALTH_STATUS_LABELS = {'ok': '正常', 'warning': '有警告', 'problem': '有问题', 'error': '预演失败'}
 _HEALTH_LAYER_LABELS = {'builtin': '内置', 'user': '用户'}
+
+
+def _recycle_checked_skills(panel, program, project, paths):
+    try:
+        alive = panel.winfo_exists()
+    except tk.TclError:
+        return []
+    if not alive or desktop_project(panel.desktop) != project:
+        return []
+    import ui.skill_import_service as skill_import_service
+    from ui.skill_install_recovery import ledger_transaction
+
+    def forget_moved(targets):
+        with ledger_transaction():
+            skill_import_service.forget_ledger_targets(program, targets)
+    try:
+        records = recycle_paths(program, [path for _item, path in paths],
+                                '阶段配置删除 SKILL', after_moves=forget_moved)
+    except (OSError, ValueError, RuntimeError) as exc:
+        panel.state.configure(text='SKILL 删除失败：%s' % exc)
+        return []
+    if not records:
+        panel.state.configure(text='SKILL 未删除：回收服务未返回记录')
+    return records
 
 
 def _health_detail_text(row, globals_):

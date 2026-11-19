@@ -188,7 +188,8 @@ class AgentsMdConsistencyTests(unittest.TestCase):
                     if name.isupper()
                     and isinstance(getattr(performance_contract, name), (int, float))
                     and not isinstance(getattr(performance_contract, name), bool)}
-        history = json.loads((ROOT / '维护记录' / '基准历史.json').read_text(encoding='utf-8'))
+        # 本机历史含机器指纹和项目路径且被 gitignore；门禁只能读取可复现的脱敏快照。
+        history = json.loads((ROOT / '维护记录' / '基准历史契约快照.json').read_text(encoding='utf-8'))
         recorded = {metric for record in history for metric in (record.get('metrics') or {})}
         self.assertFalse(recorded & contract,
                          '基准历史出现与现行契约同名的指标，请重跑基准并同步 runbook §10')

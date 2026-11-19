@@ -1,0 +1,15 @@
+{
+  "round": 3519,
+  "commit_base": "3388dd36",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_layers test_service_return_contract test_no_circular_import test_gate_selfaudit test_rule_guard_map test_checkpoint_tree test_branch_tree_ui test_asset_hovercard test_citation test_code_highlight test_diff_view test_hitl_ui test_media_render test_video_audio_card test_multimodal_upload test_param_panel test_background_task test_edit_habits test_direct_chat_metering test_artifact_schema_wiring test_file_index test_file_naming test_global_library_service test_migrate_legacy_layout test_dynamic_import_registry test_stage_command_contract test_offline_asr_client test_offline_asr_engine test_offline_asr_setup test_distribution_build test_distribution_selfcheck test_batch_frames test_codex_paste_diagnostics test_codex_task_lock test_keyframe_comfy test_dispatch test_desktop_send_ledger test_desktop_idea_chat_desktop_paste test_pet_test_service",
+    "exit": 0,
+    "passed": 463,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T02:11:34"
+}

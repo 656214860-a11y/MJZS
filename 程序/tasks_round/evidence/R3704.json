@@ -1,0 +1,15 @@
+{
+  "round": 3704,
+  "commit_base": "2b7ad889",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k cli_streaming platform_tools workflow_engines_run",
+    "exit": 0,
+    "passed": 59,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T11:29:26"
+}

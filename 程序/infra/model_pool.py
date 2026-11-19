@@ -26,7 +26,7 @@ from infra.api_endpoints import configured_key, normalize_url, _http_error_kind,
 from contract.pet_bus import read_json
 
 PROGRAM = Path(__file__).resolve().parents[1]
-CONFIG_PATH = ('配置', '宠物', '配置.json')
+CONFIG_PATH = config_snapshot.MODEL_CONFIG_PATH
 AUTO = 'auto'                                    # 「自动」是特殊值，由 model_router 解析
 AUTO_LABEL = '自动'
 FIELDS = ('label', 'model', 'base_url', 'path', 'wire_api', 'key_env', 'provider', 'note', 'program', 'call_mode', 'provider_label', 'modality', 'rpm', 'group', 'weight')
@@ -263,7 +263,7 @@ def model_id_of(value, model_id=''):
 
 
 def config_file(program=None):
-    return Path(program or PROGRAM).joinpath(*CONFIG_PATH)
+    return config_snapshot.model_config_file(program or PROGRAM)
 
 
 def raw(program=None, config=None):

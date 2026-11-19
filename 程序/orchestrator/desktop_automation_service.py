@@ -137,7 +137,7 @@ class BackgroundTaskQueue:
         self._items.clear()
 
 
-def _read_runtime_record(path):
+def _read_runtime_record(path, *, execution=False):
     """读本机后台排队／执行记录；读不出的坏文件改名留存，按空记录重建。
 
     这两份记录只加锁、原子替换，不等落盘（``save(..., durable=False)``），断电后可能读出全零
@@ -154,9 +154,14 @@ def _read_runtime_record(path):
         return read(path)
     except ValueError:
         corrupt = path.with_name(path.name + '.corrupt')
+        if execution and corrupt.exists():
+            import uuid
+            corrupt = path.with_name(corrupt.name + "." + uuid.uuid4().hex)
         try:
             replace(path, corrupt)
         except OSError:
+            if execution:
+                raise
             app_logging.swallowed('后台记录读不出，改名留存失败，按空记录继续')
         else:
             app_logging.swallowed('后台记录读不出，已改名为 %s，按空记录重建' % corrupt.name)
@@ -355,6 +360,30 @@ class RetryRegistry:
         return self._specs.pop(ticket) if ticket is not None else None
 
 
+def _history_unresolved(row):
+    return (row.get('state') not in ('succeeded', 'failed') or
+            bool(row.get('costly') or row.get('remote_tasks') or row.get('remote_task_id')) or
+            'unknown' in (row.get('status'), row.get('billing_status')))
+
+
+def _compact_history_display(row):
+    for field in ('label', 'error'):
+        if isinstance(row.get(field), str):
+            row[field] = app_logging.bounded_text(row[field], 1024)
+    units = row.get('late_units', [])
+    if not isinstance(units, list):
+        raise ValueError('后台执行记录损坏，无法裁剪迟到明细')
+    if len(units) > HISTORY_LIMIT:
+        # 老版本或扩展生产者的额外字段可能是查单凭据，只有已知展示结构可丢。
+        older = units[:-HISTORY_LIMIT]
+        protected = [unit for unit in older if not isinstance(unit, dict) or
+                     unit.keys() - {'stage', 'unit', 'succeeded'}]
+        omitted = len(older) - len(protected)
+        if omitted:
+            row['late_units_omitted'] = row.get('late_units_omitted', 0) + omitted
+            units[:len(older)] = protected
+
+
 class BackgroundTaskLifecycle:
     """桌面单一主动后台任务的代次、取消与收尾判定。
 
@@ -382,12 +411,13 @@ class BackgroundTaskLifecycle:
         from agent.core import save
         from agent.publication import access
         with access():
-            data = _read_runtime_record(self._path)
+            data = _read_runtime_record(self._path, execution=True)
             if data.get('version') != 1 or not isinstance(data.get('tasks'), list):
                 raise ValueError('后台执行记录损坏，无法覆盖')
             key = self._session + ':' + str(ticket)
             row = next((row for row in data['tasks'] if row['id'] == key), None)
-            if row is None:
+            is_new = row is None
+            if is_new:
                 row = {'id': key, 'ticket': ticket, 'created': time.time()}
                 data['tasks'].append(row)
             if row.get('state') == 'late' and facts.get('state') in ('cancelled', 'stopped'):
@@ -405,25 +435,30 @@ class BackgroundTaskLifecycle:
                 facts['local_outcome'] = facts['state']
                 facts['state'] = 'reconcile'
             if facts.get('event') == 'late':
-                row.setdefault('late_units', []).append({
-                    'stage': facts.get('stage'), 'unit': app_logging.redact(str(facts.get('unit', '')))[:200],
-                    'succeeded': facts.get('succeeded')})
+                detail = {key: value for key, value in facts.items() if key != 'event'}
+                detail['unit'] = app_logging.redact(app_logging.bounded_text(str(facts.get('unit', '')), 200))
+                row.setdefault('late_units', []).append(detail)
                 facts['state'] = 'late'
                 facts.pop('unit', None)
             row.update(facts)
             row['updated'] = time.time()
-            unresolved = [row for row in data['tasks'] if row.get('state') not in ('succeeded', 'failed')]
-            history = [row for row in data['tasks'] if row.get('state') in ('succeeded', 'failed')]
+            unresolved, history = [], []
+            for item in data['tasks']:
+                _compact_history_display(item)
+                (unresolved if _history_unresolved(item) else history).append(item)
             data['tasks'] = unresolved + history[-HISTORY_LIMIT:]
             save(self._path, data, durable=False)
+            if is_new and _history_unresolved(row) and len(unresolved) % HISTORY_LIMIT == 0:
+                import logging
+                logging.getLogger(__name__).warning('执行历史有 %d 条待核对，全部保留', len(unresolved))
 
     def unresolved_records(self):
         if self._path is None:
             return []
         from agent.publication import access
         with access():
-            data = _read_runtime_record(self._path)
-            return [dict(row) for row in data['tasks'] if row.get('state') not in ('succeeded', 'failed')]
+            data = _read_runtime_record(self._path, execution=True)
+            return [dict(row) for row in data['tasks'] if _history_unresolved(row)]
 
     def execution_control(self, ticket):
         return self._controls[ticket]
@@ -468,7 +503,7 @@ class BackgroundTaskLifecycle:
         """把已结束的一次任务记进最近历史（只留 ``HISTORY_LIMIT`` 条，供运行状况面板读取）。"""
         started = self._started or {}
         self._history.append({'ticket': ticket, 'state': state, 'label': started.get('label', ''),
-                              'error': app_logging.redact(error)[:200] if error else '',
+                              'error': app_logging.redact(app_logging.bounded_text(str(error), 200)) if error else '',
                               'elapsed_s': round(time.monotonic() - started['at'], 1) if 'at' in started else None})
         self._started = None
 
@@ -483,14 +518,15 @@ class BackgroundTaskLifecycle:
         self._controls[ticket] = ExecutionControl(timeout, observer=lambda facts: self._persist(ticket, **facts))
         for old in list(self._controls)[:-LATE_RESULT_LIMIT]:
             del self._controls[old]
-        self._started = {'at': time.monotonic(), 'label': str(label or '')}
+        label = app_logging.redact(app_logging.bounded_text(str(label or ''), 1024))
+        self._started = {'at': time.monotonic(), 'label': label}
         self._active_ticket = ticket
         self._facts = {'remote_task_id': (str(remote_task_id) if remote_task_id else None),
                        'costly': bool(costly)}
         self._seen.append(ticket)
         del self._seen[:-LATE_RESULT_LIMIT]
         self._last = {'ticket': ticket, 'state': 'running'}
-        self._persist(ticket, state='running', label=app_logging.redact(str(label or '')),
+        self._persist(ticket, state='running', label=label,
                       run_id=self._controls[ticket].run_id,
                       project=str(Path(project).resolve()) if project is not None else None,
                       remote_task_id=self._facts['remote_task_id'], costly=self._facts['costly'])
@@ -517,7 +553,7 @@ class BackgroundTaskLifecycle:
         self._facts = None
         self._last = {'ticket': ticket, 'state': 'succeeded' if succeeded else 'failed'}
         self._record(ticket, self._last['state'], error)
-        self._persist(ticket, state=self._last['state'], error=app_logging.redact(str(error))[:200])
+        self._persist(ticket, state=self._last['state'], error=app_logging.redact(app_logging.bounded_text(str(error), 200)))
         return True
 
     def cancel(self, ticket=None, *, costly=False, remote_task_id=None,

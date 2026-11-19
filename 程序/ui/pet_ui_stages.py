@@ -1,8 +1,5 @@
-"""三虎的阶段推进、自动流程与一键制作。
-
-从 ``pet_ui.Pet`` 原样迁出（R1506）：方法体未改，``self`` 语义不变，``Pet`` 通过继承
-``PetStagesMixin`` 获得；用到的模块级名字来自 ``pet_ui_support``。
-"""
+"""三虎的阶段推进、自动流程与一键制作。"""
+import infra.app_logging as app_logging
 import pet_agent
 import contract.pet_bus as pet_bus
 import ui.pet_cloud as pet_cloud
@@ -10,19 +7,59 @@ import orchestrator.stage_flow as stage_flow
 import orchestrator.stage_handler_registry as stage_handler_registry
 import orchestrator.stage_parallel as stage_parallel
 from tkinter import TclError
+from uuid import uuid4
 from ui_widgets import ask_confirmation
 from ui.pet_ui_support import ADVANCE_SECONDS, AUTO_STAGE_VARIABLES, AUTO_VARIABLE_NAMES, CONFIRM_NEED, CONFIRM_TITLE, FALLBACK_ASK, LEVEL_SWITCH_NOTES, ONE_CLICK_ASK, ONE_CLICK_TITLE, PAGE_ASKS, PAW_LEVELS, SANHU_MODES, STAGE_ASK_SECONDS, _BooleanFlag, accepts_keyword
 
+
+def stage_run_action(desktop, stage, trigger, *, error=None, presentation=None, text='', unattended=False):
+    if unattended:
+        return desktop._execute_unattended_stage(stage, trigger)
+    if presentation is not None:
+        return desktop.present_stage(presentation, text)
+    if error is not None:
+        return desktop.pet._emit('stage.failed', stage=stage, error=error)
+    pet, account = getattr(desktop, 'pet', None), getattr(desktop, 'account', None)
+    reason = account.stage_gate(stage) if account is not None else ''
+    if isinstance(reason, str) and reason:
+        if trigger == 'auto' and pet is not None:
+            try: pet._emit('stage.failed', stage=stage, error=reason, run=0, key=uuid4().hex)
+            except Exception: app_logging.swallowed()
+        return reason
+    bus = getattr(pet, 'bus', None)
+    return False if bus is not None and bus.begin_run(stage) is False else None
+
+
+def skip_unchecked(desktop, stage):
+    """先保存 skipped，再推进和播报。完成事件仍由产物核验决定。"""
+    text = stage_handler_registry.unchecked_skip_text(stage)
+    pet = getattr(desktop, 'pet', None)
+    if pet is not None:
+        try:
+            machine = pet.machine
+            if machine is not None:
+                machine.skip(stage, '未勾选 SKILL')
+                machine.save()
+        except Exception:
+            app_logging.swallowed()
+        try:
+            auto = getattr(pet, 'auto', None)
+            if auto is not None:
+                auto.done(stage, True)
+        except Exception:
+            app_logging.swallowed()
+        try:
+            pet.broadcast('【警告】' + text + '（阶段配置里勾选后可重跑）')
+        except Exception:
+            app_logging.swallowed()
+    return text
 
 class PetStagesMixin:
     """Pet 的阶段推进方法集（见模块说明）。"""
     def _completion_evidence(self, stage):
         """返回某阶段是否已有可核验的落盘成果及未通过原因。
 
-        自动任务的 ``ok`` 只代表调用没有抛异常：它可能只是提交了远端任务、生成了
-        一段提示词，或者页面仍在等待用户采用。三虎只能把可复核的项目产物标成完成。
-        没有项目时一律判未完成（REQ-S13-54）：轻量宿主只是不发完成事件，
-        阶段状态本就不该由空项目推进。
+        远端提交、提示词与等待采用均未完成。没有项目也按未完成处理（REQ-S13-54）。
         """
         import orchestrator.stage_completion_service as stage_completion_service
         studio = getattr(self.desktop, 'studio', None)
@@ -259,20 +296,11 @@ class PetStagesMixin:
         except (OSError, TypeError, ValueError):
             return False
     def start_stage(self, stage, at=None):
-        """第 67 期任务 5：自动档下「自动开始每个阶段的任务」。
-
-        能免费自己派的（分镜、首帧）走「手动制作XX」那一条准备链；其余各步交给宿主把这一步的
-        无人值守开关打开并立刻起跑。半自动档会花钱的那几步只叫醒、等他点一下确认（与 approve
-        同一条口径），hint 档一个字都不做。宿主没有这条接缝、或这一步不放行时，退回原来的
-        「只叫醒轮询」。
-        """
+        """按自动档授权派发，未放行时尝试提前唤醒轮询。"""
         if self.agent.level not in stage_flow.AUTO_LEVELS:
-            # 第 67 期任务 4：只提醒档只看着——连「提前叫醒一轮」都不做，一个阶段都不替他开。
             return ''
-        # R2905：一个 SKILL 都没勾的阶段直接跳过并提示——先于付费审批，
-        # 反正不会跑，没必要先问「要不要花钱」。L3 入口里还有同一道门禁兜底。
         if stage_flow.unchecked(getattr(self.desktop, 'root', None), stage):
-            return stage_handler_registry.skip_unchecked(self.desktop, stage)
+            return skip_unchecked(self.desktop, stage)
         kick = getattr(self.desktop, 'pet_start', None)
         allowed = False
         if callable(kick):
@@ -280,42 +308,29 @@ class PetStagesMixin:
                 allowed = bool(self.agent.approve('stage.run', paid=stage in stage_flow.PAID_STAGES)['run'])
             except Exception as exc:
                 self.errors.append(('start', str(exc)))
-                allowed = False
         if allowed:
-            # 所有阶段都必须经过宿主的 L3 命令入口。此前这里为结构剧本／分镜／首帧
-            # 直接调用了三个批处理接缝，既绕过注册器，也使手动与自动拥有两套状态路径。
-            # L3 再按阶段选择批处理或无人值守轮询；Pet 只负责授权与观察终态。
-            started = ''
+            prefix = {
+                'script_structure': '剧本结构未派发：', 'storyboard': '分镜批次未派发：',
+                'keyframe': '首帧批次未派发：',
+            }.get(stage, '阶段未派发：')
+            failure_key = None
             try:
-                started = str(kick(stage) or '')
+                started = kick(stage)
             except Exception as exc:
                 self.errors.append(('start', str(exc)))
-                # L3 入口抛错也必须给 active 阶段一个终态，不能退回
-                # advance_stage 后把“派发失败”伪装成仅仅提前叫醒。
-                prefix = {
-                    'script_structure': '剧本结构未派发：',
-                    'storyboard': '分镜批次未派发：',
-                    'keyframe': '首帧批次未派发：',
-                }.get(stage, '阶段未派发：')
                 started = prefix + str(exc)
+                failure_key = uuid4().hex
+            if started is False:
+                started = prefix + '运行登记或启动动作未成功'
+                failure_key = uuid4().hex
+            started = str(started or '')
             if started:
-                # 三个本地批处理接缝会把异常转换成人可读文字。此前这里把那种
-                # 非空错误文字误认成「已经启动」，自动链的 active 永远得不到终态事件。
-                # 只识别本模块固定前缀，正常宿主返回的任意中文提示仍照旧透传。
-                failed_prefix = {
-                    'script_structure': '剧本结构未派发：',
-                    'storyboard': '分镜批次未派发：',
-                    'keyframe': '首帧批次未派发：',
-                }.get(stage, '')
-                if failed_prefix and started.startswith(failed_prefix):
-                    self._emit('stage.failed', stage=stage, error=started)
+                if started.startswith(prefix):
+                    self._emit('stage.failed', stage=stage, error=started, key=failure_key)
                 return started
         advanced = self.advance_stage(stage, at=at)
         if advanced:
             return advanced
-        # 自动队长已经在 next_stage() 中把本阶段置为 active。宿主既没有可派发
-        # 的批处理、也没有可提前叫醒的轮询时，继续静默返回会永久显示“自动执行中”。
-        # 这不是成功；明确阻塞，让用户手动完成后再恢复自动链。
         if self.auto.armed and self.auto.active == stage:
             error = '当前版本没有「%s」的自动执行入口，请手动完成后再恢复自动流程' % (
                 pet_bus.STAGE_NAMES.get(stage, stage))

@@ -79,7 +79,7 @@ SPAWN_SITE_EXEMPT = {
         'ui/desktop_idea_chat.py:964', 'ui/desktop_idea_chat.py:980',
         'ui/desktop_media_pages.py:873', 'ui/desktop_send_choice.py:54',
         'ui/desktop_tray.py:411', 'infra/log_maintenance.py:141',
-        'infra/storage_maintenance.py:58', 'infra/workspace_maintenance.py:384',
+        'infra/storage_maintenance.py:50', 'infra/workspace_maintenance.py:384',
     }),
     'background_boundary': frozenset({
         'codex_tasks.py:45',

@@ -12,6 +12,7 @@ ALLOWED = {
     '程序': '源码根目录',
     '.claude': 'Claude Code 项目配置（settings 等）',
     '.claudeignore': 'Claude 忽略规则', '.gitattributes': 'Git 属性', '.gitignore': 'Git 忽略规则',
+    '.gitmodules': '外部参考与技能包的固定 Git 子模块映射',
     'AGENTS.md': '代理入口协议', 'CLAUDE.md': 'Claude 入口说明',
     'reorganize_install.py': '升级安装整理脚本',
     '使用说明.md': '用户说明', '使用说明.txt': '用户说明（纯文本）',

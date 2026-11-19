@@ -145,7 +145,8 @@ class StorageSafetyTests(unittest.TestCase):
             with mock.patch.object(sm, 'launch_background',
                                    lambda command, **kwargs: commands.append((command, kwargs))):
                 sm.launch_cleanup(program)
-        self.assertEqual(commands[0][0], [sys.executable, str(program / 'storage_maintenance.py'), '--cleanup'])
+        self.assertEqual(commands[0][0], [sys.executable, '-m', 'infra.storage_maintenance', '--cleanup'])
+        self.assertEqual(commands[0][1]['cwd'], program)
         self.assertIs(commands[0][1]['stdin'], sm.subprocess.DEVNULL)
         self.assertIs(commands[0][1]['stdout'], sm.subprocess.DEVNULL)
         self.assertIs(commands[0][1]['stderr'], sm.subprocess.DEVNULL)
@@ -157,8 +158,9 @@ class StorageSafetyTests(unittest.TestCase):
             with mock.patch.object(sm, 'launch_background') as launch:
                 sm.launch_cleanup(program, temporary_projects=(project, project))
             command = launch.call_args.args[0]
-            self.assertEqual(command, [sys.executable, str(program / 'storage_maintenance.py'),
+            self.assertEqual(command, [sys.executable, '-m', 'infra.storage_maintenance',
                                        '--cleanup', '--temporary-project', str(project)])
+            self.assertEqual(launch.call_args.kwargs['cwd'], program)
             self.assertNotIn('shell', launch.call_args.kwargs)
 
     def test_exit_cleanup_sweeps_only_explicit_external_projects_without_library(self):

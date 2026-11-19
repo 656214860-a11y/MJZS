@@ -5,9 +5,9 @@ import sys
 sys.path.insert(0,str(Path(__file__).resolve().parent.parent))
 from agent.core import save as atomic_save, save_bytes
 from contract.storyboard_paths import media_root
-from urllib.request import Request,build_opener,HTTPRedirectHandler,ProxyHandler
-from urllib.error import HTTPError,URLError
-from urllib.parse import urlparse,urlencode
+from urllib.parse import urlencode
+from infra.comfy_service import build_reference_graph
+from infra.http_client import LocalComfyClient
 import contract.pet_bus as pet_bus
 
 def read(p):
@@ -28,58 +28,14 @@ def inside(base,relative):
     if not p.is_relative_to(base.resolve()):raise ValueError('图片路径越出JSON目录：'+str(relative))
     return p
 
-def graph(prompt,images,cfg,seed):
-    g={}
-    def node(i,kind,**inputs):g[str(i)]={'class_type':kind,'inputs':inputs};return [str(i),0]
-    model=node(1,'UNETLoader',unet_name=cfg['model'],weight_dtype='default')
-    clip=node(2,'CLIPLoader',clip_name=cfg['text_encoder'],type='flux2',device='default')
-    vae=node(3,'VAELoader',vae_name=cfg['vae'])
-    positive=node(4,'CLIPTextEncode',clip=clip,text=prompt)
-    negative=node(5,'ConditioningZeroOut',conditioning=positive)
-    for index,name in enumerate(images):
-        i=100+index*5
-        image=node(i,'LoadImage',image=name)
-        image=node(i+1,'ImageScaleToTotalPixels',image=image,upscale_method='area',megapixels=.5,resolution_steps=16)
-        latent=node(i+2,'VAEEncode',pixels=image,vae=vae)
-        positive=node(i+3,'ReferenceLatent',conditioning=positive,latent=latent)
-        negative=node(i+4,'ReferenceLatent',conditioning=negative,latent=latent)
-    latent=node(6,'EmptyFlux2LatentImage',width=cfg['width'],height=cfg['height'],batch_size=1)
-    guider=node(7,'CFGGuider',model=model,positive=positive,negative=negative,cfg=1.0)
-    noise=node(8,'RandomNoise',noise_seed=seed)
-    sampler=node(10,'KSamplerSelect',sampler_name='euler')
-    sigmas=node(11,'Flux2Scheduler',steps=4,width=cfg['width'],height=cfg['height'])
-    samples=node(12,'SamplerCustomAdvanced',noise=noise,guider=guider,sampler=sampler,sigmas=sigmas,latent_image=latent)
-    image=node(13,'VAEDecode',samples=samples,vae=vae)
-    node(14,'SaveImage',images=image,filename_prefix='DramaFrames/'+str(seed))
-    return g
+def graph(prompt, images, cfg, seed):
+    """批量首帧工具对外提供的参考图工作流入口。"""
+    return build_reference_graph(prompt, images, cfg, seed)
 
-class NoRedirect(HTTPRedirectHandler):
-    def redirect_request(self,*args,**kwargs):raise ValueError('拒绝接口跳转')
 
-class Client:
-    def __init__(self,url):
-        p=urlparse(url)
-        if p.scheme!='http' or p.hostname not in ('127.0.0.1','localhost','::1') or p.username or p.password:raise ValueError('仅支持本机ComfyUI地址')
-        self.url=url.rstrip('/');self.opener=build_opener(ProxyHandler({}),NoRedirect)
-    def request(self,path,data=None,raw=False,content_type='application/json'):
-        from contract.platform_tools import current_execution
-        control = current_execution()
-        timeout = control.remaining(30) if control is not None else 30
-        if isinstance(data,dict):data=json.dumps(data).encode()
-        try:
-            with self.opener.open(Request(self.url+path,data=data,headers={'Content-Type':content_type}),timeout=timeout) as r:
-                body=r.read(64*1024*1024+1)
-        except HTTPError as e:
-            hint='请等待ComfyUI启动完成，并核对窗口中的地址与ComfyUI实际服务地址一致。' if e.code in (502,503,504) else '请查看ComfyUI的错误信息。'
-            if path=='/prompt':hint+=' 本次提交结果不确定，请先在ComfyUI核实任务，避免重复生成。'
-            raise ValueError(f'ComfyUI返回HTTP {e.code}：{self.url}{path}\n{hint} 本机连接已绕过系统代理。') from None
-        except (URLError,TimeoutError,OSError) as e:
-            hint='请确认ComfyUI已经启动，并将此处地址改为它实际使用的本机地址。'
-            if path=='/prompt':hint+=' 提交结果不确定，请先核实ComfyUI任务队列。'
-            raise ValueError(f'无法连接ComfyUI：{self.url}\n{hint}') from None
-        if len(body)>64*1024*1024:raise ValueError('返回文件超过64MB')
-        if raw and control is not None:control.checkpoint()
-        return body if raw else json.loads(body)
+class Client(LocalComfyClient):
+    """批量首帧的提交回执恢复保留在批处理侧。"""
+
     def locate_prompt(self,client_id='',workflow=None,attempts=3,wait=1.0):
         """提交响应中断后，按本次 client_id（或完全相同的图）找回已进入 ComfyUI 的任务编号。
 
@@ -103,13 +59,7 @@ class Client:
                 if workflow is not None and entry[2]==workflow:return entry[1]
             if index<attempts-1:time.sleep(wait)
         return None
-    def upload(self,path):
-        content=path.read_bytes()
-        if len(content)>20*1024*1024:raise ValueError('参考图超过20MB：'+path.name)
-        boundary=uuid.uuid4().hex;name='drama_'+uuid.uuid4().hex+path.suffix.lower()
-        body=(f'--{boundary}\r\nContent-Disposition: form-data; name="image"; filename="{name}"\r\nContent-Type: application/octet-stream\r\n\r\n').encode()+content+f'\r\n--{boundary}--\r\n'.encode()
-        result=self.request('/upload/image',body,content_type='multipart/form-data; boundary='+boundary)
-        return '/'.join(x for x in (result.get('subfolder'),result['name']) if x)
+
 
 def shot_inputs(shot,base,assets):
     from asset_context import references

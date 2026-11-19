@@ -1,0 +1,9 @@
+[submodule "程序/reference/HoLLMwood"]
+	path = 程序/reference/HoLLMwood
+	url = https://github.com/litmirror123/HoLLMwood.git
+[submodule "程序/skills/01 剧本准备SKILL/剧本锻造"]
+	path = 程序/skills/01 剧本准备SKILL/剧本锻造
+	url = https://github.com/zhlmi/script-forging.git
+[submodule "程序/skills/01 剧本准备SKILL/编剧技能集"]
+	path = 程序/skills/01 剧本准备SKILL/编剧技能集
+	url = https://github.com/jtydhr88/screenwriting-skills.git

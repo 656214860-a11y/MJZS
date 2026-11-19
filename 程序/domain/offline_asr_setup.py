@@ -28,6 +28,9 @@ MODELS_DIR = PROGRAM / 'data' / 'voice_models'
 PROBE_TIMEOUT = 25
 MIN_PYTHON = (3, 10)
 MAX_PYTHON = (3, 12)          # 与 bootstrap.py 同口径：依赖无更高版本预编译轮子
+MODEL_LOCK = PROGRAM / 'voice_engine' / 'models.lock.json'
+MODEL_ENV = {'asr': 'FUNASR_ASR_MODEL', 'vad': 'FUNASR_VAD_MODEL',
+             'punc': 'FUNASR_PUNC_MODEL'}
 
 
 def base_candidates(settings=None):
@@ -90,15 +93,28 @@ def environment_ready(settings=None):
 
 
 def models_ready(settings=None):
-    """模型缓存里是否已有可用模型文件（``model_quant.onnx`` 或 ``model.onnx``）。"""
+    """锁定的 ASR/VAD/标点三个模型均有 ONNX 文件才算可用。"""
     cache = Path(_cache_root(settings))
-    hub = cache / 'hub' / 'models'
-    if not hub.is_dir():
-        return False
     try:
-        return any(item.suffix == '.onnx' for item in hub.rglob('*.onnx'))
-    except OSError:
+        model_names = _configured_models()
+    except (OSError, ValueError, KeyError, TypeError):
         return False
+    for name in model_names.values():
+        parts = name.split('/', 1)
+        if len(parts) != 2:
+            return False
+        model_dir = cache / 'hub' / 'models' / parts[0] / parts[1]
+        if not ((model_dir / 'model_quant.onnx').is_file()
+                or (model_dir / 'model.onnx').is_file()):
+            return False
+    return True
+
+
+def _configured_models():
+    data = _loads(MODEL_LOCK.read_text(encoding='utf-8'))
+    locked = data['models']
+    return {kind: os.environ.get(MODEL_ENV[kind]) or locked[kind]
+            for kind in ('asr', 'vad', 'punc')}
 
 
 def _cache_root(settings=None):

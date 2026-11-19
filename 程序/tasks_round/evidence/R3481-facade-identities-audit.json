@@ -1,0 +1,1632 @@
+{
+  "round": 3481,
+  "base": "756df6b6fa1ac99d0298f052f95fa1179aead260",
+  "scope": {
+    "scanned": 106,
+    "overlaps": 36,
+    "exact_identity_overlap": {}
+  },
+  "scanned_entities": 437,
+  "selected": {
+    "infra.file_index": {
+      "before": {
+        "file": "infra/file_index.py",
+        "status": "ambiguous",
+        "registration": "file_index",
+        "layer": null
+      },
+      "after": {
+        "file": "infra/file_index.py",
+        "status": "registered",
+        "registration": "infra.file_index",
+        "layer": 1
+      },
+      "facade": {
+        "file": "file_index.py",
+        "status": "registered",
+        "registration": "file_index",
+        "layer": 1
+      }
+    },
+    "contract.file_index_contract": {
+      "before": {
+        "file": "contract/file_index_contract.py",
+        "status": "ambiguous",
+        "registration": "file_index_contract",
+        "layer": null
+      },
+      "after": {
+        "file": "contract/file_index_contract.py",
+        "status": "registered",
+        "registration": "contract.file_index_contract",
+        "layer": 0
+      },
+      "facade": {
+        "file": "file_index_contract.py",
+        "status": "registered",
+        "registration": "file_index_contract",
+        "layer": 0
+      }
+    },
+    "contract.file_naming": {
+      "before": {
+        "file": "contract/file_naming.py",
+        "status": "ambiguous",
+        "registration": "file_naming",
+        "layer": null
+      },
+      "after": {
+        "file": "contract/file_naming.py",
+        "status": "registered",
+        "registration": "contract.file_naming",
+        "layer": 0
+      },
+      "facade": {
+        "file": "file_naming.py",
+        "status": "registered",
+        "registration": "file_naming",
+        "layer": 0
+      }
+    },
+    "domain.global_library_service": {
+      "before": {
+        "file": "domain/global_library_service.py",
+        "status": "ambiguous",
+        "registration": "global_library_service",
+        "layer": null
+      },
+      "after": {
+        "file": "domain/global_library_service.py",
+        "status": "registered",
+        "registration": "domain.global_library_service",
+        "layer": 1
+      },
+      "facade": {
+        "file": "global_library_service.py",
+        "status": "registered",
+        "registration": "global_library_service",
+        "layer": 1
+      }
+    },
+    "orchestrator.legacy_migration": {
+      "before": {
+        "file": "orchestrator/legacy_migration.py",
+        "status": "ambiguous",
+        "registration": "legacy_migration",
+        "layer": null
+      },
+      "after": {
+        "file": "orchestrator/legacy_migration.py",
+        "status": "registered",
+        "registration": "orchestrator.legacy_migration",
+        "layer": 3
+      },
+      "facade": {
+        "file": "legacy_migration.py",
+        "status": "registered",
+        "registration": "legacy_migration",
+        "layer": 3
+      }
+    },
+    "infra.storage_maintenance": {
+      "before": {
+        "file": "infra/storage_maintenance.py",
+        "status": "ambiguous",
+        "registration": "storage_maintenance",
+        "layer": null
+      },
+      "after": {
+        "file": "infra/storage_maintenance.py",
+        "status": "registered",
+        "registration": "infra.storage_maintenance",
+        "layer": 1
+      },
+      "facade": {
+        "file": "storage_maintenance.py",
+        "status": "registered",
+        "registration": "storage_maintenance",
+        "layer": 1
+      }
+    }
+  },
+  "before_refusals": {
+    "contract.file_index_contract": "ambiguous",
+    "contract.file_naming": "ambiguous",
+    "infra.file_index": "ambiguous",
+    "infra.storage_maintenance": "ambiguous",
+    "domain.checkpoint_tree": "unregistered",
+    "domain.global_library_service": "ambiguous",
+    "orchestrator.legacy_migration": "ambiguous",
+    "ui.edit_habits_dialog": "unregistered",
+    "ui.project_settings_dialog": "unregistered",
+    "ui.ui_asset_card": "unregistered",
+    "ui.ui_branch_tree": "unregistered",
+    "ui.ui_citation": "unregistered",
+    "ui.ui_code_block": "unregistered",
+    "ui.ui_diff": "unregistered",
+    "ui.ui_hitl": "unregistered",
+    "ui.ui_media": "unregistered",
+    "ui.ui_media_player": "unregistered",
+    "ui.ui_multimodal": "unregistered",
+    "ui.ui_param_panel": "unregistered",
+    "ui.ui_task_progress": "unregistered",
+    "agent": "unregistered"
+  },
+  "after_refusals": {
+    "domain.checkpoint_tree": "unregistered",
+    "ui.edit_habits_dialog": "unregistered",
+    "ui.project_settings_dialog": "unregistered",
+    "ui.ui_asset_card": "unregistered",
+    "ui.ui_branch_tree": "unregistered",
+    "ui.ui_citation": "unregistered",
+    "ui.ui_code_block": "unregistered",
+    "ui.ui_diff": "unregistered",
+    "ui.ui_hitl": "unregistered",
+    "ui.ui_media": "unregistered",
+    "ui.ui_media_player": "unregistered",
+    "ui.ui_multimodal": "unregistered",
+    "ui.ui_param_panel": "unregistered",
+    "ui.ui_task_progress": "unregistered",
+    "agent": "unregistered"
+  },
+  "invariants": {
+    "tools": {
+      "unchanged": true,
+      "sha256": "9280f315b32677b6a992f22d2abbe81d4d408359f7d0861427043e7bff4b967b"
+    },
+    "static_exceptions": {
+      "unchanged": true,
+      "sha256": "ed9ddf9a66f2d78ab4b521f85f3889ec7e1f79a59d012eec569855d3e50e8545"
+    },
+    "dynamic_exceptions": {
+      "unchanged": true,
+      "sha256": "7ed138ab29d296948ab3f874ffb8634c298ec2bace95dd348be1f6702e730684"
+    },
+    "legacy_static": {
+      "unchanged": true,
+      "sha256": "ee751307536387bf5e227df0fc8b2a9e4d261700db5c7bd16e3cc63e8d123435"
+    },
+    "legacy_dynamic": {
+      "unchanged": true,
+      "sha256": "a3e6c6a530e38240a6e54697200d7c68192b0c21866b67e1155b73be910c212c"
+    },
+    "outgoing": {
+      "unchanged": true,
+      "sha256": "0e9ac036a8e13cf3802c48c42f81268cc74c06fa67e9b71311261505a13a6f5f"
+    },
+    "original_layers": {
+      "unchanged": true,
+      "count": 418,
+      "sha256": "12e7a24a63bbe44cd0fba901f03e27b5338fa11d7b71e20a95ea081274be197f"
+    }
+  },
+  "production_sha256": {
+    "file_index": "5168d08fcd230c6bd4bb8b79f74075cb3870a844dae5dfbcbe8dd7678aa9fe4d",
+    "file_index_contract": "f9e5beae49143786d3c913a23ed6c4cbbd47093d2ac07363c9d96be3349cbd54",
+    "file_naming": "8f66e21bbc3d9b01983fa3dd11dd2c13a5b7cac16776b2eec0a33a9de6032fd6",
+    "global_library_service": "6bd390c38af053114b957f6dfe5fba58234bba782c311cc347392a0e03f9a856",
+    "legacy_migration": "2b54f7038417168fa97f96672ecc165d38f312ff17d919d0c4cf189bf7b627b2",
+    "storage_maintenance": "47a6295805638edf318414ff9c14c1cb1cd0cca231fdd192c0c947a74c4fddf3",
+    "contract.file_index_contract": "847d12b60f51e6faa4ba60237a9c5dcb9decf08e72f7515e7b18e8bd4b6edccd",
+    "contract.file_naming": "876c32f6d7c2c031a766745c6060333392f183b528ac9aff39c1796aa074b959",
+    "infra.file_index": "61c59267bcc28f96c31cfc965c1da525d0e4822ab68a1623262bee599e021653",
+    "infra.storage_maintenance": "e4a5c582e4539ee0607a58519c345d3b009c5ceeaae661eb83bdb0a351cff6ec",
+    "domain.global_library_service": "69d441268fa3386449137df31a5d119b11eb305097079330c17c9dd4ecdfa2d5",
+    "orchestrator.legacy_migration": "d9a3d429bc0d188ef09d150c454e989d69c8e0f8c1f9e95a89f9625c55f3d79a"
+  },
+  "compatibility_exports": {
+    "file_index": [
+      "AUDIO_SUFFIXES",
+      "CONFIRM_DIR_NAME",
+      "DELIVERY_MANIFEST",
+      "GLOBAL_INDEX_NAME",
+      "IMAGE_SUFFIXES",
+      "INDEX_DIR_NAME",
+      "INDEX_NAME",
+      "SKIP_DIRS",
+      "VIDEO_SUFFIXES",
+      "build",
+      "build_global",
+      "ensure",
+      "global_index_path",
+      "global_rows",
+      "index_path",
+      "kind_of",
+      "kinds",
+      "published_paths",
+      "read",
+      "read_global",
+      "rebuild",
+      "rebuild_global",
+      "rows",
+      "search",
+      "search_global",
+      "stage_of",
+      "summary",
+      "update"
+    ],
+    "file_index_contract": [
+      "FIELDS",
+      "INDEX_VERSION",
+      "ORIGIN_MODEL",
+      "ORIGIN_SYSTEM",
+      "ORIGIN_USER",
+      "ORIGINS",
+      "STATUSES",
+      "STATUS_ARCHIVED",
+      "STATUS_DRAFT",
+      "STATUS_PUBLISHED",
+      "FileRow"
+    ],
+    "file_naming": [
+      "DEFAULT_KIND",
+      "KINDS",
+      "MAX_NAME",
+      "MAX_PATH",
+      "RESERVED_NAMES",
+      "TEMPLATES",
+      "check_path",
+      "generate_name",
+      "kind_from_suffix",
+      "legacy_scheme",
+      "parse",
+      "sanitize_part",
+      "validate"
+    ],
+    "global_library_service": [
+      "SHARED_SUB",
+      "SOURCE_MANIFEST",
+      "copy_to_library",
+      "copy_to_project"
+    ],
+    "legacy_migration": [
+      "ASSETS_MANIFEST_NAME",
+      "BACKUP_DIR_NAME",
+      "CONFIRM_DIR_NAME",
+      "REPORT_NAME",
+      "MigrationError",
+      "apply",
+      "mapping_of",
+      "plan",
+      "report",
+      "rollback",
+      "target_relpath"
+    ],
+    "storage_maintenance": null,
+    "contract.file_index_contract": null,
+    "contract.file_naming": null,
+    "infra.file_index": null,
+    "infra.storage_maintenance": null,
+    "domain.global_library_service": null,
+    "orchestrator.legacy_migration": null
+  },
+  "scanned_import_positions": {
+    "domain.global_library_service": [
+      [
+        "global_library_service.py",
+        3
+      ],
+      [
+        "ui/desktop_files_panel_filters.py",
+        177
+      ],
+      [
+        "ui/desktop_files_panel_filters.py",
+        210
+      ]
+    ],
+    "storage_maintenance": [],
+    "global_library_service": [],
+    "infra.storage_maintenance": [
+      [
+        "asset_reference_images.py",
+        235
+      ],
+      [
+        "asset_reference_images.py",
+        347
+      ],
+      [
+        "desktop.py",
+        26
+      ],
+      [
+        "stage_execution_service.py",
+        408
+      ],
+      [
+        "stage_execution_service.py",
+        609
+      ],
+      [
+        "storage_maintenance.py",
+        9
+      ],
+      [
+        "infra/account_store.py",
+        14
+      ],
+      [
+        "infra/model_secrets.py",
+        15
+      ],
+      [
+        "infra/workspace_maintenance.py",
+        28
+      ],
+      [
+        "domain/asset_batch_service.py",
+        242
+      ],
+      [
+        "domain/asset_batch_service.py",
+        276
+      ],
+      [
+        "domain/asset_batch_service.py",
+        169
+      ],
+      [
+        "domain/asset_batch_state_service.py",
+        98
+      ],
+      [
+        "domain/asset_generated_import_service.py",
+        24
+      ],
+      [
+        "domain/asset_resume.py",
+        125
+      ],
+      [
+        "domain/global_library_service.py",
+        103
+      ],
+      [
+        "domain/idea_chat.py",
+        212
+      ],
+      [
+        "domain/keyframe_lifecycle_service.py",
+        42
+      ],
+      [
+        "domain/keyframe_lifecycle_service.py",
+        83
+      ],
+      [
+        "domain/keyframe_lifecycle_service.py",
+        124
+      ],
+      [
+        "domain/offline_asr_setup.py",
+        21
+      ],
+      [
+        "domain/projects.py",
+        9
+      ],
+      [
+        "domain/projects.py",
+        347
+      ],
+      [
+        "domain/recycle_recovery_service.py",
+        6
+      ],
+      [
+        "domain/storyboard_lifecycle.py",
+        73
+      ],
+      [
+        "domain/storyboard_storage.py",
+        9
+      ],
+      [
+        "orchestrator/agent_skill_sync.py",
+        20
+      ],
+      [
+        "orchestrator/audio_direct_api.py",
+        146
+      ],
+      [
+        "orchestrator/desktop_automation_service.py",
+        598
+      ],
+      [
+        "orchestrator/exit_maintenance.py",
+        16
+      ],
+      [
+        "orchestrator/idea_chat_controller.py",
+        372
+      ],
+      [
+        "orchestrator/legacy_migration.py",
+        408
+      ],
+      [
+        "orchestrator/legacy_migration.py",
+        502
+      ],
+      [
+        "orchestrator/stage_download_inbox_service.py",
+        28
+      ],
+      [
+        "orchestrator/stage_download_inbox_service.py",
+        90
+      ],
+      [
+        "orchestrator/stage_exec.py",
+        70
+      ],
+      [
+        "orchestrator/stage_handoff_gateways.py",
+        68
+      ],
+      [
+        "orchestrator/stage_handoff_gateways.py",
+        87
+      ],
+      [
+        "orchestrator/storyboard_direct_api.py",
+        232
+      ],
+      [
+        "orchestrator/storyboard_recycle_service.py",
+        5
+      ],
+      [
+        "orchestrator/storyboard_recycle_service.py",
+        145
+      ],
+      [
+        "ui/desktop_files_panel.py",
+        478
+      ],
+      [
+        "ui/desktop_files_panel_filters.py",
+        42
+      ],
+      [
+        "ui/desktop_files_panel_index.py",
+        314
+      ],
+      [
+        "ui/desktop_project_pages.py",
+        25
+      ],
+      [
+        "ui/desktop_script_pages.py",
+        738
+      ],
+      [
+        "ui/pet_report.py",
+        122
+      ],
+      [
+        "ui/skill_archive.py",
+        28
+      ],
+      [
+        "ui/skill_import_service.py",
+        48
+      ],
+      [
+        "ui/skill_lifecycle_service.py",
+        17
+      ],
+      [
+        "ui/skill_panel.py",
+        77
+      ],
+      [
+        "ui/skill_remote_service.py",
+        33
+      ],
+      [
+        "ui/skill_tools.py",
+        128
+      ]
+    ],
+    "legacy_migration": [],
+    "contract.file_naming": [
+      [
+        "file_naming.py",
+        3
+      ],
+      [
+        "contract/script_contract.py",
+        400
+      ],
+      [
+        "contract/script_contract.py",
+        410
+      ],
+      [
+        "contract/script_contract.py",
+        417
+      ],
+      [
+        "infra/file_index.py",
+        24
+      ],
+      [
+        "domain/animatic_service.py",
+        17
+      ],
+      [
+        "domain/audio_import_service.py",
+        21
+      ],
+      [
+        "domain/handoff_service.py",
+        11
+      ],
+      [
+        "domain/script_workspace_service.py",
+        358
+      ],
+      [
+        "domain/script_workspace_service.py",
+        509
+      ],
+      [
+        "domain/storyboard_storage.py",
+        76
+      ],
+      [
+        "orchestrator/storyboard_direct_api.py",
+        13
+      ],
+      [
+        "orchestrator/storyboard_final.py",
+        9
+      ],
+      [
+        "ui/desktop_files_panel_filters.py",
+        53
+      ],
+      [
+        "ui/keyframe_import.py",
+        80
+      ]
+    ],
+    "infra.file_index": [
+      [
+        "file_index.py",
+        3
+      ],
+      [
+        "domain/audio_import_service.py",
+        44
+      ],
+      [
+        "domain/global_library_service.py",
+        18
+      ],
+      [
+        "domain/script_workspace_service.py",
+        537
+      ],
+      [
+        "orchestrator/stage_publication.py",
+        36
+      ],
+      [
+        "ui/asset_thumbs.py",
+        188
+      ],
+      [
+        "ui/desktop_files_panel.py",
+        211
+      ],
+      [
+        "ui/desktop_files_panel.py",
+        407
+      ],
+      [
+        "ui/desktop_files_panel_filters.py",
+        178
+      ],
+      [
+        "ui/desktop_files_panel_filters.py",
+        198
+      ],
+      [
+        "ui/desktop_files_panel_filters.py",
+        211
+      ],
+      [
+        "ui/desktop_files_panel_filters.py",
+        229
+      ],
+      [
+        "ui/desktop_files_panel_filters.py",
+        278
+      ],
+      [
+        "ui/desktop_files_panel_index.py",
+        38
+      ],
+      [
+        "ui/desktop_files_panel_index.py",
+        316
+      ],
+      [
+        "ui/keyframe_import.py",
+        86
+      ]
+    ],
+    "file_index_contract": [],
+    "orchestrator.legacy_migration": [
+      [
+        "legacy_migration.py",
+        3
+      ]
+    ],
+    "file_naming": [],
+    "contract.file_index_contract": [
+      [
+        "file_index_contract.py",
+        3
+      ],
+      [
+        "infra/file_index.py",
+        25
+      ],
+      [
+        "ui/desktop_files_panel_filters.py",
+        52
+      ],
+      [
+        "ui/desktop_files_panel_index.py",
+        8
+      ]
+    ],
+    "file_index": []
+  },
+  "extra_scripts_test_consumers": {
+    "scripts/migrate_legacy_layout.py": [
+      [
+        17,
+        "orchestrator.legacy_migration"
+      ]
+    ],
+    "tests/test_asset_batch_retention.py": [
+      [
+        42,
+        "infra.storage_maintenance"
+      ],
+      [
+        90,
+        "infra.storage_maintenance"
+      ]
+    ],
+    "tests/test_asset_image_restore_service.py": [
+      [
+        8,
+        "infra.storage_maintenance"
+      ]
+    ],
+    "tests/test_critical_chains.py": [
+      [
+        22,
+        "infra.storage_maintenance"
+      ]
+    ],
+    "tests/test_files_panel.py": [
+      [
+        246,
+        "infra.storage_maintenance"
+      ]
+    ],
+    "tests/test_files_panel_stages.py": [
+      [
+        18,
+        "infra.file_index"
+      ],
+      [
+        327,
+        "contract.file_index_contract"
+      ],
+      [
+        353,
+        "contract.file_index_contract"
+      ],
+      [
+        395,
+        "contract.file_index_contract"
+      ],
+      [
+        492,
+        "contract.file_index_contract"
+      ],
+      [
+        525,
+        "contract.file_index_contract"
+      ],
+      [
+        546,
+        "infra.storage_maintenance"
+      ],
+      [
+        622,
+        "contract.file_index_contract"
+      ],
+      [
+        653,
+        "infra.file_index"
+      ],
+      [
+        757,
+        "infra.file_index"
+      ]
+    ],
+    "tests/test_file_index.py": [
+      [
+        17,
+        "infra.file_index"
+      ],
+      [
+        18,
+        "contract.file_naming"
+      ],
+      [
+        19,
+        "contract.file_index_contract"
+      ]
+    ],
+    "tests/test_file_naming.py": [
+      [
+        10,
+        "contract.file_naming"
+      ]
+    ],
+    "tests/test_file_naming_producers.py": [
+      [
+        10,
+        "contract.file_naming"
+      ]
+    ],
+    "tests/test_file_origin_provenance.py": [
+      [
+        12,
+        "infra.file_index"
+      ],
+      [
+        16,
+        "domain.global_library_service"
+      ]
+    ],
+    "tests/test_force_quit.py": [
+      [
+        202,
+        "infra.storage_maintenance"
+      ],
+      [
+        253,
+        "infra.storage_maintenance"
+      ],
+      [
+        274,
+        "infra.storage_maintenance"
+      ]
+    ],
+    "tests/test_global_library_config.py": [
+      [
+        11,
+        "infra.file_index"
+      ]
+    ],
+    "tests/test_global_library_index.py": [
+      [
+        13,
+        "infra.file_index"
+      ]
+    ],
+    "tests/test_global_library_service.py": [
+      [
+        16,
+        "domain.global_library_service"
+      ]
+    ],
+    "tests/test_idea_chat_controller.py": [
+      [
+        38,
+        "infra.storage_maintenance"
+      ],
+      [
+        69,
+        "infra.storage_maintenance"
+      ]
+    ],
+    "tests/test_latent_defects_r2175.py": [
+      [
+        26,
+        "infra.storage_maintenance"
+      ]
+    ],
+    "tests/test_migrate_legacy_layout.py": [
+      [
+        15,
+        "orchestrator.legacy_migration"
+      ],
+      [
+        238,
+        "infra.storage_maintenance"
+      ]
+    ],
+    "tests/test_pet_report.py": [
+      [
+        278,
+        "infra.storage_maintenance"
+      ]
+    ],
+    "tests/test_project_recovery.py": [
+      [
+        13,
+        "infra.storage_maintenance"
+      ]
+    ],
+    "tests/test_recycle_directories.py": [
+      [
+        13,
+        "infra.storage_maintenance"
+      ]
+    ],
+    "tests/test_recycle_panel_actions.py": [
+      [
+        9,
+        "infra.storage_maintenance"
+      ]
+    ],
+    "tests/test_recycle_recovery_service.py": [
+      [
+        11,
+        "infra.storage_maintenance"
+      ]
+    ],
+    "tests/test_recycle_restore.py": [
+      [
+        6,
+        "infra.storage_maintenance"
+      ]
+    ],
+    "tests/test_recycle_retention.py": [
+      [
+        16,
+        "infra.storage_maintenance"
+      ],
+      [
+        18,
+        "infra.storage_maintenance"
+      ]
+    ],
+    "tests/test_recycle_write_ahead.py": [
+      [
+        10,
+        "infra.storage_maintenance"
+      ],
+      [
+        11,
+        "infra.storage_maintenance"
+      ]
+    ],
+    "tests/test_req_s12_anchors.py": [
+      [
+        19,
+        "infra.storage_maintenance"
+      ]
+    ],
+    "tests/test_script_rename_validation.py": [
+      [
+        19,
+        "infra.file_index"
+      ]
+    ],
+    "tests/test_script_structure_dedup.py": [
+      [
+        36,
+        "infra.storage_maintenance"
+      ],
+      [
+        66,
+        "infra.storage_maintenance"
+      ]
+    ],
+    "tests/test_stage_file_index_publication.py": [
+      [
+        9,
+        "infra.file_index"
+      ]
+    ],
+    "tests/test_storage.py": [
+      [
+        10,
+        "infra.storage_maintenance"
+      ]
+    ],
+    "tests/test_uow_write_paths.py": [
+      [
+        17,
+        "domain.global_library_service"
+      ]
+    ],
+    "tests/test_video_retention.py": [
+      [
+        11,
+        "infra.storage_maintenance"
+      ],
+      [
+        13,
+        "infra.storage_maintenance"
+      ]
+    ]
+  },
+  "selected_outgoing": {
+    "file_index": [
+      [
+        3,
+        "infra"
+      ],
+      [
+        3,
+        "infra.file_index"
+      ]
+    ],
+    "file_index_contract": [
+      [
+        3,
+        "contract"
+      ],
+      [
+        3,
+        "contract.file_index_contract"
+      ]
+    ],
+    "file_naming": [
+      [
+        3,
+        "contract"
+      ],
+      [
+        3,
+        "contract.file_naming"
+      ]
+    ],
+    "global_library_service": [
+      [
+        3,
+        "domain"
+      ],
+      [
+        3,
+        "domain.global_library_service"
+      ]
+    ],
+    "legacy_migration": [
+      [
+        3,
+        "orchestrator"
+      ],
+      [
+        3,
+        "orchestrator.legacy_migration"
+      ]
+    ],
+    "storage_maintenance": [
+      [
+        8,
+        "sys"
+      ],
+      [
+        9,
+        "infra"
+      ],
+      [
+        9,
+        "infra"
+      ],
+      [
+        9,
+        "infra.storage_maintenance"
+      ]
+    ],
+    "contract.file_index_contract": [
+      [
+        12,
+        "__future__"
+      ],
+      [
+        14,
+        "dataclasses"
+      ]
+    ],
+    "contract.file_naming": [
+      [
+        13,
+        "__future__"
+      ],
+      [
+        15,
+        "re"
+      ],
+      [
+        16,
+        "time"
+      ],
+      [
+        17,
+        "pathlib"
+      ]
+    ],
+    "infra.file_index": [
+      [
+        13,
+        "__future__"
+      ],
+      [
+        15,
+        "math"
+      ],
+      [
+        16,
+        "os"
+      ],
+      [
+        17,
+        "stat"
+      ],
+      [
+        18,
+        "threading"
+      ],
+      [
+        19,
+        "time"
+      ],
+      [
+        20,
+        "contextlib"
+      ],
+      [
+        21,
+        "pathlib"
+      ],
+      [
+        23,
+        "contract"
+      ],
+      [
+        23,
+        "contract.stage_layout"
+      ],
+      [
+        24,
+        "contract"
+      ],
+      [
+        24,
+        "contract"
+      ],
+      [
+        24,
+        "contract.file_naming"
+      ],
+      [
+        25,
+        "contract"
+      ],
+      [
+        25,
+        "contract.file_index_contract"
+      ],
+      [
+        28,
+        "contract"
+      ],
+      [
+        28,
+        "contract.stage_path_service"
+      ],
+      [
+        29,
+        "contract"
+      ],
+      [
+        29,
+        "contract.pet_bus"
+      ],
+      [
+        152,
+        "infra"
+      ],
+      [
+        152,
+        "infra.file_cache"
+      ],
+      [
+        181,
+        "agent"
+      ],
+      [
+        181,
+        "agent.core"
+      ],
+      [
+        295,
+        "infra"
+      ],
+      [
+        295,
+        "infra.file_cache"
+      ],
+      [
+        384,
+        "agent"
+      ],
+      [
+        384,
+        "agent.core"
+      ],
+      [
+        407,
+        "infra"
+      ],
+      [
+        407,
+        "infra.file_cache"
+      ],
+      [
+        420,
+        "agent"
+      ],
+      [
+        420,
+        "agent.core"
+      ],
+      [
+        461,
+        "agent"
+      ],
+      [
+        461,
+        "agent.core"
+      ],
+      [
+        522,
+        "infra"
+      ],
+      [
+        522,
+        "infra.file_cache"
+      ],
+      [
+        557,
+        "infra"
+      ],
+      [
+        557,
+        "infra.file_cache"
+      ],
+      [
+        591,
+        "agent"
+      ],
+      [
+        591,
+        "agent.core"
+      ],
+      [
+        95,
+        "msvcrt"
+      ]
+    ],
+    "infra.storage_maintenance": [
+      [
+        2,
+        "math"
+      ],
+      [
+        2,
+        "os"
+      ],
+      [
+        2,
+        "shutil"
+      ],
+      [
+        2,
+        "subprocess"
+      ],
+      [
+        2,
+        "sys"
+      ],
+      [
+        2,
+        "time"
+      ],
+      [
+        2,
+        "uuid"
+      ],
+      [
+        3,
+        "pathlib"
+      ],
+      [
+        4,
+        "contract"
+      ],
+      [
+        4,
+        "contract.stage_layout"
+      ],
+      [
+        5,
+        "agent"
+      ],
+      [
+        5,
+        "agent.core"
+      ],
+      [
+        6,
+        "infra"
+      ],
+      [
+        6,
+        "infra.file_cache"
+      ],
+      [
+        7,
+        "contract"
+      ],
+      [
+        7,
+        "contract.platform_tools"
+      ],
+      [
+        197,
+        "agent"
+      ],
+      [
+        197,
+        "agent.core"
+      ],
+      [
+        632,
+        "contract"
+      ],
+      [
+        632,
+        "contract.project_stages"
+      ]
+    ],
+    "domain.global_library_service": [
+      [
+        8,
+        "__future__"
+      ],
+      [
+        10,
+        "json"
+      ],
+      [
+        11,
+        "threading"
+      ],
+      [
+        12,
+        "time"
+      ],
+      [
+        13,
+        "pathlib"
+      ],
+      [
+        15,
+        "contract"
+      ],
+      [
+        15,
+        "contract.stage_layout"
+      ],
+      [
+        16,
+        "agent"
+      ],
+      [
+        16,
+        "agent.core"
+      ],
+      [
+        17,
+        "infra"
+      ],
+      [
+        17,
+        "infra.app_logging"
+      ],
+      [
+        18,
+        "infra"
+      ],
+      [
+        18,
+        "infra"
+      ],
+      [
+        18,
+        "infra.file_index"
+      ],
+      [
+        18,
+        "infra"
+      ],
+      [
+        18,
+        "infra.unit_of_work"
+      ],
+      [
+        171,
+        "infra"
+      ],
+      [
+        171,
+        "infra.file_cache"
+      ],
+      [
+        103,
+        "infra"
+      ],
+      [
+        103,
+        "infra.storage_maintenance"
+      ]
+    ],
+    "orchestrator.legacy_migration": [
+      [
+        7,
+        "__future__"
+      ],
+      [
+        9,
+        "copy"
+      ],
+      [
+        10,
+        "hashlib"
+      ],
+      [
+        11,
+        "json"
+      ],
+      [
+        12,
+        "os"
+      ],
+      [
+        13,
+        "stat"
+      ],
+      [
+        14,
+        "time"
+      ],
+      [
+        15,
+        "uuid"
+      ],
+      [
+        16,
+        "functools"
+      ],
+      [
+        17,
+        "pathlib"
+      ],
+      [
+        19,
+        "contract"
+      ],
+      [
+        19,
+        "contract.stage_layout"
+      ],
+      [
+        20,
+        "contract"
+      ],
+      [
+        20,
+        "contract.stage_path_service"
+      ],
+      [
+        266,
+        "infra"
+      ],
+      [
+        266,
+        "infra.file_cache"
+      ],
+      [
+        283,
+        "stage_completion_service"
+      ],
+      [
+        369,
+        "agent"
+      ],
+      [
+        369,
+        "agent.core"
+      ],
+      [
+        378,
+        "agent"
+      ],
+      [
+        378,
+        "agent.core"
+      ],
+      [
+        391,
+        "infra"
+      ],
+      [
+        391,
+        "infra.file_cache"
+      ],
+      [
+        407,
+        "agent"
+      ],
+      [
+        407,
+        "agent.core"
+      ],
+      [
+        408,
+        "infra"
+      ],
+      [
+        408,
+        "infra.storage_maintenance"
+      ],
+      [
+        500,
+        "agent"
+      ],
+      [
+        500,
+        "agent.core"
+      ],
+      [
+        501,
+        "infra"
+      ],
+      [
+        501,
+        "infra.file_cache"
+      ],
+      [
+        502,
+        "infra"
+      ],
+      [
+        502,
+        "infra.storage_maintenance"
+      ],
+      [
+        538,
+        "agent"
+      ],
+      [
+        538,
+        "agent.core"
+      ],
+      [
+        435,
+        "agent"
+      ],
+      [
+        435,
+        "agent.publication"
+      ]
+    ]
+  },
+  "known_selected_upward": [
+    [
+      "global_library_service",
+      3,
+      "domain",
+      1,
+      2
+    ]
+  ],
+  "negative": {
+    "sha256": "79a8f0a31aedb938bc2908bdff85648ffb96a3eb969f5f9ccc2c330d7e2940be",
+    "tests": 4,
+    "seconds": 7.767,
+    "failure_ids": [
+      "FAIL: test_entities_and_compatibility_facades_keep_separate_exact_layers (tests.architecture.test_layers.FacadeIdentityTests.test_entities_and_compatibility_facades_keep_separate_exact_layers) (entity='contract.file_index_contract')",
+      "FAIL: test_entities_and_compatibility_facades_keep_separate_exact_layers (tests.architecture.test_layers.FacadeIdentityTests.test_entities_and_compatibility_facades_keep_separate_exact_layers) (entity='contract.file_naming')",
+      "FAIL: test_entities_and_compatibility_facades_keep_separate_exact_layers (tests.architecture.test_layers.FacadeIdentityTests.test_entities_and_compatibility_facades_keep_separate_exact_layers) (entity='domain.global_library_service')",
+      "FAIL: test_entities_and_compatibility_facades_keep_separate_exact_layers (tests.architecture.test_layers.FacadeIdentityTests.test_entities_and_compatibility_facades_keep_separate_exact_layers) (entity='infra.file_index')",
+      "FAIL: test_entities_and_compatibility_facades_keep_separate_exact_layers (tests.architecture.test_layers.FacadeIdentityTests.test_entities_and_compatibility_facades_keep_separate_exact_layers) (entity='infra.storage_maintenance')",
+      "FAIL: test_entities_and_compatibility_facades_keep_separate_exact_layers (tests.architecture.test_layers.FacadeIdentityTests.test_entities_and_compatibility_facades_keep_separate_exact_layers) (entity='orchestrator.legacy_migration')",
+      "FAIL: test_removing_exact_entries_restores_only_six_ambiguous_entities (tests.architecture.test_layers.FacadeIdentityTests.test_removing_exact_entries_restores_only_six_ambiguous_entities)"
+    ],
+    "failed_summary": [
+      "FAILED (failures=7)"
+    ],
+    "ok": false
+  },
+  "positive": {
+    "sha256": "9a52a9c92a9112da014f08c9dba4047c0cf839fedf2909947ee3f1d548d2a923",
+    "tests": 4,
+    "seconds": 7.51,
+    "failure_ids": [],
+    "failed_summary": [],
+    "ok": true
+  },
+  "architecture_before": {
+    "sha256": "da809ee3f29a6de5bdc0e3f08f84ef885fab63d75095d74c0ba18009f0c3b5d0",
+    "tests": 563,
+    "seconds": 280.599,
+    "failure_ids": [
+      "ERROR: test_performance_history_is_declared_as_historical_only (tests.architecture.test_agents_md.AgentsMdConsistencyTests.test_performance_history_is_declared_as_historical_only)",
+      "FAIL: test_round_number_continuous (tests.architecture.test_round_baselines.RoundBaselineTests.test_round_number_continuous)",
+      "FAIL: test_script_stages_name_only_their_approved_00_references (tests.architecture.test_skill_reference_injection.SkillReferenceInjectionTests.test_script_stages_name_only_their_approved_00_references)"
+    ],
+    "failed_summary": [
+      "FAILED (failures=2, errors=1)"
+    ],
+    "ok": false
+  },
+  "architecture_after": {
+    "sha256": "d9dc2dcafa21d5164a564278e15e176050772d124a272723a4b8c6014afcae7f",
+    "tests": 567,
+    "seconds": 341.657,
+    "failure_ids": [
+      "ERROR: test_performance_history_is_declared_as_historical_only (tests.architecture.test_agents_md.AgentsMdConsistencyTests.test_performance_history_is_declared_as_historical_only)",
+      "FAIL: test_round_number_continuous (tests.architecture.test_round_baselines.RoundBaselineTests.test_round_number_continuous)",
+      "FAIL: test_script_stages_name_only_their_approved_00_references (tests.architecture.test_skill_reference_injection.SkillReferenceInjectionTests.test_script_stages_name_only_their_approved_00_references)"
+    ],
+    "failed_summary": [
+      "FAILED (failures=2, errors=1)"
+    ],
+    "ok": false
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_layers test_service_return_contract test_no_circular_import test_gate_selfaudit test_rule_guard_map test_checkpoint_tree test_branch_tree_ui test_asset_hovercard test_citation test_code_highlight test_diff_view test_hitl_ui test_media_render test_video_audio_card test_multimodal_upload test_param_panel test_background_task test_edit_habits test_direct_chat_metering test_artifact_schema_wiring test_file_index test_file_naming test_global_library_service test_migrate_legacy_layout",
+    "exit": 0,
+    "passed": 227,
+    "failed": 0
+  },
+  "standard_evidence_sha256": "bb040e2a0973cf187fb889789fd44a777fdc86c799b16360df6dd8a7e1db7b1d",
+  "smoke": {
+    "exit": 0,
+    "passed": 9,
+    "failed": 0,
+    "default_baseline": 8,
+    "hidden_probe": true,
+    "sha256": "afef0fd5c4b320c70b63bd8f470127c707234df2c6b3373c208d46ccd1154659"
+  },
+  "full_safe_run": false,
+  "default_strict_mode_enabled": false,
+  "production_changed": false,
+  "targeted_details": {
+    "files": 25,
+    "passed": 227,
+    "skipped": 0,
+    "exit": 0,
+    "log_sha256": "212a36f1aab57733c2200144bd5bf087c9cf13980ca1f94b864b9c3788291e9c",
+    "gui_queue_waited": true
+  }
+}

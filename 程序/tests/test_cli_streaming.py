@@ -10,6 +10,12 @@
 先红后绿：这些测试在实现前应失败（参数不存在 / 行为缺位）。
 """
 import subprocess
+import threading
+import time
+import os
+import sys
+import tempfile
+from pathlib import Path
 import unittest
 from unittest import mock
 
@@ -92,6 +98,76 @@ class CommunicateStreamTests(unittest.TestCase):
         # 原路径把 stdin 喂给 process.communicate，且不逐行回调（没有 on_output 就不会碰 stdout 迭代）。
         self.assertEqual(len(process._communicated), 1)
         self.assertEqual(process._communicated[0][0], '提示词')
+
+    def test_stream_wait_observes_execution_cancel_and_terminates_tree(self):
+        from contract.platform_tools import (ExecutionControl, ExecutionStopped,
+                                             communicate_or_kill, execution_scope)
+
+        process = _StreamProcess()
+        process.wait = mock.Mock(side_effect=subprocess.TimeoutExpired('engine', .05))
+        control = ExecutionControl(10)
+        timer = threading.Timer(.03, control.cancel)
+        timer.start()
+        started = time.monotonic()
+        try:
+            with mock.patch('contract.platform_tools.terminate_process_tree', return_value=True) as terminate, \
+                 execution_scope(control), self.assertRaises(ExecutionStopped) as caught:
+                communicate_or_kill(process, '提示词', 60, on_output=lambda *_: None)
+        finally:
+            timer.cancel()
+        self.assertTrue(caught.exception.started)
+        self.assertLess(time.monotonic() - started, .5)
+        terminate.assert_called_once_with(process)
+
+    def test_non_stream_wait_observes_deadline_and_terminates_tree(self):
+        from contract.platform_tools import (ExecutionControl, ExecutionStopped,
+                                             communicate_or_kill, execution_scope)
+
+        process = _StreamProcess()
+        process.communicate = mock.Mock(side_effect=subprocess.TimeoutExpired('engine', .02))
+        with mock.patch('contract.platform_tools.terminate_process_tree', return_value=True) as terminate, \
+             execution_scope(ExecutionControl(.03)), self.assertRaises(ExecutionStopped) as caught:
+            communicate_or_kill(process, '提示词', 60)
+        self.assertEqual(caught.exception.reason, 'deadline')
+        self.assertTrue(caught.exception.started)
+        terminate.assert_called_once_with(process)
+
+    def test_cancel_reaps_real_parent_and_grandchild_within_three_seconds(self):
+        if os.name != 'nt':
+            return
+        from contract.platform_tools import (ExecutionControl, ExecutionStopped,
+                                             communicate_or_kill, execution_scope,
+                                             launch_text_process)
+
+        with tempfile.TemporaryDirectory() as td:
+            child_pid = Path(td) / 'child.pid'
+            child_code = 'import time; time.sleep(60)'
+            parent_code = (
+                'import pathlib,subprocess,sys,time; '
+                f'p=subprocess.Popen([sys.executable,"-c",{child_code!r}]); '
+                f'pathlib.Path({str(child_pid)!r}).write_text(str(p.pid)); time.sleep(60)')
+            process = launch_text_process(
+                [sys.executable, '-c', parent_code], stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            deadline = time.monotonic() + 2
+            while not child_pid.exists() and time.monotonic() < deadline:
+                time.sleep(.01)
+            self.assertTrue(child_pid.exists())
+            grandchild = int(child_pid.read_text())
+            control = ExecutionControl(10)
+            timer = threading.Timer(.03, control.cancel)
+            timer.start()
+            try:
+                with execution_scope(control), self.assertRaises(ExecutionStopped) as caught:
+                    communicate_or_kill(process, '', 60, on_output=lambda *_: None)
+            finally:
+                timer.cancel()
+            self.assertTrue(caught.exception.process_tree_terminated)
+            self.assertIsNotNone(process.poll())
+            listing = subprocess.run(
+                ['tasklist', '/FI', f'PID eq {grandchild}', '/NH'], capture_output=True,
+                timeout=3).stdout.decode('mbcs', 'replace')
+            self.assertNotIn(str(grandchild), listing)
 
 
 class BackgroundCommandResumeTests(unittest.TestCase):

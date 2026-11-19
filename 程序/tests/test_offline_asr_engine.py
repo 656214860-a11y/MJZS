@@ -435,6 +435,26 @@ class GetModelCachePathTests(unittest.TestCase):
 
 
 class BootstrapTests(unittest.TestCase):
+    def test_asr_requirements_are_exactly_pinned(self):
+        for name in ('requirements.txt', 'requirements.lock'):
+            requirements = (PROGRAM / 'voice_engine' / name).read_text(encoding='utf-8')
+            lines = [line.partition('#')[0].strip() for line in requirements.splitlines()]
+            packages = [line for line in lines if line]
+            self.assertTrue(packages)
+            self.assertTrue(all(line.count('==') == 1 for line in packages), (name, packages))
+            self.assertIn('numpy==1.26.4', packages)
+            self.assertIn('onnxruntime==1.20.1', packages)
+        self.assertEqual(bootstrap.DEFAULT_REQ.name, 'requirements.lock')
+
+    def test_verify_imports_covers_every_runtime_entrypoint_dependency(self):
+        completed = types.SimpleNamespace(returncode=0, stdout='', stderr='')
+        with mock.patch.object(bootstrap, '_run', return_value=completed) as run:
+            self.assertIsNone(bootstrap.verify_imports('venv-python'))
+        command = run.call_args.args[0]
+        for module in ('numpy', 'onnxruntime', 'funasr_onnx', 'jieba',
+                       'modelscope', 'librosa', 'soundfile'):
+            self.assertIn(module, command[-1])
+
     def test_venv_python_windows_and_posix(self):
         with mock.patch.object(os, "name", "nt"):
             self.assertTrue(bootstrap.venv_python("V").endswith(
@@ -497,6 +517,33 @@ class StdioEncodingTests(unittest.TestCase):
         "srv.FunAsrBackend.load = lambda self, progress=None: None;"
         "srv.main()"
     )
+
+    def test_command_versions_and_malformed_json(self):
+        raw = (b'{not-json}\n{"cmd":"start","protocol_version":9}\n'
+               b'{"cmd":"start","protocol_version":1}\n'
+               b'{"cmd":"stop","protocol_version":1}\n{"cmd":"shutdown"}\n')
+        incoming = io.TextIOWrapper(io.BytesIO(raw))
+        outgoing = io.StringIO()
+        with mock.patch.object(srv.sys, 'stdin', incoming), \
+             mock.patch.object(srv.sys, 'stdout', outgoing), \
+             mock.patch.object(srv.FunAsrBackend, 'load'):
+            self.assertEqual(srv.main(), 0)
+        messages = [json.loads(line) for line in outgoing.getvalue().splitlines()]
+        self.assertEqual(messages[0]['protocol_version'], 1)
+        self.assertEqual([m['type'] for m in messages],
+                         ['ready', 'error', 'error', 'log', 'done'])
+
+    def test_command_limit_precedes_complete_line_read(self):
+        raw = io.BytesIO('界'.encode() * 40 + b'\n')
+        outgoing = io.StringIO()
+        incoming = io.TextIOWrapper(raw)
+        with mock.patch.object(srv.sys, 'stdin', incoming), \
+             mock.patch.object(srv.sys, 'stdout', outgoing), \
+             mock.patch.object(srv.FunAsrBackend, 'load'), \
+             mock.patch.object(srv, 'MAX_LINE_BYTES', 64):
+            self.assertEqual(srv.main(), srv.EXIT_FATAL)
+        self.assertEqual(raw.tell(), 65)
+        self.assertIn('字节', outgoing.getvalue())
 
     def test_engine_stdout_emits_utf8_chinese(self):
         commands = ('{"cmd":"start","sample_rate":16000}\n'

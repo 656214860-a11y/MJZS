@@ -21,7 +21,7 @@ from pathlib import Path
 
 PROGRAM_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_VENV = PROGRAM_ROOT / "data" / "voice_asr_venv"
-DEFAULT_REQ = Path(__file__).resolve().parent / "requirements.txt"
+DEFAULT_REQ = Path(__file__).resolve().parent / "requirements.lock"
 MIN_PYTHON = (3, 10)
 MAX_PYTHON = (3, 12)   # funasr_onnx 依赖 numpy<=1.26.4，无 cp313+ 预编译轮子
 
@@ -149,7 +149,7 @@ def verify_imports(vpy):
     """校验关键依赖可导入；返回错误串或 None。"""
     try:
         proc = _run([vpy, "-c",
-                     "import numpy, onnxruntime, funasr_onnx, jieba, modelscope"],
+                     "import numpy, onnxruntime, funasr_onnx, jieba, modelscope, librosa, soundfile"],
                     timeout=120)
     except Exception as exc:  # noqa: BLE001
         return "依赖导入校验执行失败：%s" % exc

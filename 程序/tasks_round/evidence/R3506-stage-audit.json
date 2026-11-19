@@ -1,0 +1,924 @@
+{
+  "round": 3506,
+  "baseline": "01cc78a9a35f43354d898fcf724d97d96c1ab274",
+  "method": "AST only; fail closed; no production import/exec",
+  "strict_gate": {
+    "status": "rejected",
+    "files": 3,
+    "diagnostics": 29,
+    "exit_code": 1,
+    "stderr_sha256": "adbf47606e90b000adf3493f358974b6f4ca71b7dd979c683fb82cd917f72c4b",
+    "command": "python -B -c from tests.architecture.test_dynamic_import_registry import _production_stage_audits; from tests.architecture._scan import require_stage_registry_closure; require_stage_registry_closure(_production_stage_audits())"
+  },
+  "audits": {
+    "orchestrator/stage_handler_registry.py": {
+      "keys": [
+        [
+          166,
+          "storyboard"
+        ],
+        [
+          168,
+          "animatic"
+        ],
+        [
+          172,
+          "pet_performance"
+        ],
+        [
+          174,
+          "pet_test"
+        ],
+        [
+          19,
+          "script"
+        ],
+        [
+          154,
+          "animatic"
+        ],
+        [
+          154,
+          "assets"
+        ],
+        [
+          154,
+          "audio"
+        ],
+        [
+          154,
+          "continuity"
+        ],
+        [
+          154,
+          "delivery"
+        ],
+        [
+          154,
+          "edit"
+        ],
+        [
+          154,
+          "final"
+        ],
+        [
+          154,
+          "keyframe"
+        ],
+        [
+          154,
+          "previs"
+        ],
+        [
+          154,
+          "script"
+        ],
+        [
+          154,
+          "script_structure"
+        ],
+        [
+          154,
+          "storyboard"
+        ],
+        [
+          154,
+          "video"
+        ]
+      ],
+      "calls": [],
+      "branches": [
+        [
+          162,
+          "trigger == 'auto' and stage_flow.unchecked(getattr(desktop, 'root', None), stage)",
+          [
+            165
+          ]
+        ],
+        [
+          166,
+          "stage == 'storyboard'",
+          [
+            167
+          ]
+        ],
+        [
+          168,
+          "stage == 'animatic'",
+          [
+            170,
+            170,
+            171
+          ]
+        ],
+        [
+          172,
+          "stage == 'pet_performance'",
+          [
+            173,
+            173
+          ]
+        ],
+        [
+          174,
+          "stage == 'pet_test'",
+          [
+            175,
+            175
+          ]
+        ],
+        [
+          154,
+          "stage in _STAGES and callable(begin)",
+          [
+            155
+          ]
+        ],
+        [
+          19,
+          "not project or (stage == 'script' and trigger != 'auto')",
+          []
+        ],
+        [
+          21,
+          "lock_stage(stage) not in STAGE_LOCK_REQUIREMENTS",
+          []
+        ]
+      ],
+      "targets": [
+        [
+          158,
+          "_account_gate_error"
+        ],
+        [
+          43,
+          null
+        ],
+        [
+          158,
+          "_workflow_lock_error"
+        ],
+        [
+          24,
+          "contract.script_contract.stage_lock_requirements"
+        ],
+        [
+          28,
+          "orchestrator.stage_config.workflow_lock"
+        ],
+        [
+          21,
+          "contract.script_contract.lock_stage"
+        ],
+        [
+          24,
+          "orchestrator.stage_config.project_created_at"
+        ],
+        [
+          32,
+          null
+        ],
+        [
+          27,
+          null
+        ],
+        [
+          29,
+          null
+        ],
+        [
+          29,
+          null
+        ],
+        [
+          162,
+          "orchestrator.stage_flow.unchecked"
+        ],
+        [
+          165,
+          "skip_unchecked"
+        ],
+        [
+          55,
+          "contract.pet_bus.STAGE_NAMES.get"
+        ],
+        [
+          73,
+          null
+        ],
+        [
+          62,
+          null
+        ],
+        [
+          63,
+          null
+        ],
+        [
+          65,
+          "infra.app_logging.swallowed"
+        ],
+        [
+          69,
+          null
+        ],
+        [
+          71,
+          "infra.app_logging.swallowed"
+        ],
+        [
+          75,
+          "infra.app_logging.swallowed"
+        ],
+        [
+          167,
+          "_start_storyboard"
+        ],
+        [
+          107,
+          null
+        ],
+        [
+          95,
+          "orchestrator.storyboard_plan_service.storyboard_work_plan"
+        ],
+        [
+          99,
+          "_fail"
+        ],
+        [
+          83,
+          null
+        ],
+        [
+          85,
+          "infra.app_logging.swallowed"
+        ],
+        [
+          97,
+          "_fail"
+        ],
+        [
+          104,
+          null
+        ],
+        [
+          170,
+          null
+        ],
+        [
+          171,
+          "_fail"
+        ],
+        [
+          173,
+          "_start_pet_performance"
+        ],
+        [
+          120,
+          "stage_execution_service.start_pet_performance_check"
+        ],
+        [
+          175,
+          "_start_pet_test"
+        ],
+        [
+          136,
+          "stage_execution_service.start_pet_test_check"
+        ],
+        [
+          177,
+          "<injected:fallback>"
+        ],
+        [
+          155,
+          null
+        ],
+        [
+          157,
+          "infra.app_logging.swallowed"
+        ],
+        [
+          161,
+          "_fail"
+        ],
+        [
+          170,
+          "contract.pet_bus.STAGES.index"
+        ],
+        [
+          173,
+          null
+        ],
+        [
+          175,
+          null
+        ]
+      ],
+      "errors": [
+        [
+          104,
+          "unresolved-target",
+          "desktop.pet_report"
+        ],
+        [
+          107,
+          "unresolved-target",
+          "desktop.open_storyboard_skill"
+        ],
+        [
+          145,
+          "unvalidated-stage-domain",
+          "start"
+        ],
+        [
+          155,
+          "unresolved-target",
+          "begin"
+        ],
+        [
+          162,
+          "unresolved-condition",
+          "trigger == 'auto' and stage_flow.unchecked(getattr(desktop, 'root', None), stage)"
+        ],
+        [
+          170,
+          "unresolved-target",
+          "desktop.show"
+        ],
+        [
+          173,
+          "unresolved-target",
+          "options.get"
+        ],
+        [
+          175,
+          "unresolved-target",
+          "options.get"
+        ],
+        [
+          21,
+          "unresolved-condition",
+          "lock_stage(stage) not in STAGE_LOCK_REQUIREMENTS"
+        ],
+        [
+          27,
+          "unresolved-target",
+          "item.get"
+        ],
+        [
+          29,
+          "unresolved-target",
+          ""
+        ],
+        [
+          29,
+          "unresolved-target",
+          "selected.get"
+        ],
+        [
+          32,
+          "unresolved-target",
+          ""
+        ],
+        [
+          43,
+          "unresolved-target",
+          "gate"
+        ],
+        [
+          62,
+          "unresolved-target",
+          "machine.skip"
+        ],
+        [
+          63,
+          "unresolved-target",
+          "machine.save"
+        ],
+        [
+          69,
+          "unresolved-target",
+          "auto.done"
+        ],
+        [
+          73,
+          "unresolved-target",
+          "pet.broadcast"
+        ],
+        [
+          83,
+          "unresolved-target",
+          "pet._emit"
+        ]
+      ]
+    },
+    "orchestrator/stage_models.py": {
+      "keys": [],
+      "calls": [],
+      "branches": [],
+      "targets": [],
+      "errors": [
+        [
+          252,
+          "upward-target"
+        ]
+      ]
+    },
+    "ui/desktop_pet_bridge.py": {
+      "keys": [
+        [
+          58,
+          null
+        ],
+        [
+          62,
+          "script_structure"
+        ],
+        [
+          63,
+          "continuity"
+        ],
+        [
+          66,
+          "keyframe"
+        ],
+        [
+          85,
+          "storyboard"
+        ]
+      ],
+      "calls": [
+        58,
+        85
+      ],
+      "branches": [
+        [
+          62,
+          "stage == 'script_structure'",
+          [
+            62
+          ]
+        ],
+        [
+          63,
+          "stage == 'continuity'",
+          [
+            63
+          ]
+        ],
+        [
+          66,
+          "stage == 'keyframe'",
+          [
+            66
+          ]
+        ],
+        [
+          75,
+          "self.pet_advance(stage)",
+          []
+        ]
+      ],
+      "targets": [
+        [
+          58,
+          "orchestrator.stage_handler_registry.start"
+        ],
+        [
+          58,
+          "PetBridgeMixin._start_unattended_stage"
+        ],
+        [
+          67,
+          "orchestrator.desktop_auto_state.PET_STAGE_POLL.get"
+        ],
+        [
+          74,
+          null
+        ],
+        [
+          75,
+          "PetBridgeMixin.pet_advance"
+        ],
+        [
+          42,
+          "orchestrator.desktop_auto_state.PET_STAGE_POLL.get"
+        ],
+        [
+          44,
+          "orchestrator.desktop_auto_state.flow_get"
+        ],
+        [
+          45,
+          "time.monotonic"
+        ],
+        [
+          47,
+          "orchestrator.desktop_auto_state.flow_set"
+        ],
+        [
+          46,
+          "orchestrator.desktop_auto_state.flow_get"
+        ],
+        [
+          49,
+          null
+        ],
+        [
+          62,
+          null
+        ],
+        [
+          63,
+          null
+        ],
+        [
+          66,
+          null
+        ],
+        [
+          70,
+          "orchestrator.desktop_auto_state.UNATTENDED_SWITCH.get"
+        ],
+        [
+          72,
+          null
+        ],
+        [
+          85,
+          "orchestrator.stage_handler_registry.start"
+        ]
+      ],
+      "errors": [
+        [
+          45,
+          "unregistered-target",
+          "time.monotonic"
+        ],
+        [
+          49,
+          "unresolved-target",
+          "pet_bus.STAGE_NAMES.get"
+        ],
+        [
+          58,
+          "unresolved-key",
+          null
+        ],
+        [
+          62,
+          "unresolved-target",
+          "self.pet_script_structure_batch"
+        ],
+        [
+          63,
+          "unresolved-target",
+          "self.pet_continuity_ledger"
+        ],
+        [
+          66,
+          "unresolved-target",
+          "self.pet_frame_batch"
+        ],
+        [
+          72,
+          "unresolved-target",
+          "turn_on"
+        ],
+        [
+          74,
+          "unresolved-target",
+          "pet_bus.STAGE_NAMES.get"
+        ],
+        [
+          75,
+          "unresolved-condition",
+          "self.pet_advance(stage)"
+        ]
+      ]
+    },
+    "ui/pet_ui_stages.py": {
+      "keys": [
+        [
+          604,
+          "pet_test"
+        ],
+        [
+          638,
+          "pet_performance"
+        ]
+      ],
+      "calls": [
+        603,
+        637
+      ],
+      "branches": [],
+      "targets": [
+        [
+          603,
+          "orchestrator.stage_handler_registry.start"
+        ],
+        [
+          637,
+          "orchestrator.stage_handler_registry.start"
+        ],
+        [
+          275,
+          "orchestrator.stage_handler_registry.skip_unchecked"
+        ],
+        [
+          615,
+          "orchestrator.stage_handler_registry.poll_pet_test"
+        ],
+        [
+          651,
+          "orchestrator.stage_handler_registry.poll_pet_performance"
+        ]
+      ],
+      "errors": []
+    }
+  },
+  "identity_rejections": {
+    "domain.checkpoint_tree": "unregistered",
+    "ui.edit_habits_dialog": "unregistered",
+    "ui.project_settings_dialog": "unregistered",
+    "ui.ui_asset_card": "unregistered",
+    "ui.ui_branch_tree": "unregistered",
+    "ui.ui_citation": "unregistered",
+    "ui.ui_code_block": "unregistered",
+    "ui.ui_diff": "unregistered",
+    "ui.ui_hitl": "unregistered",
+    "ui.ui_media": "unregistered",
+    "ui.ui_media_player": "unregistered",
+    "ui.ui_multimodal": "unregistered",
+    "ui.ui_param_panel": "unregistered",
+    "ui.ui_task_progress": "unregistered",
+    "agent": "unregistered"
+  },
+  "production_hashes": {
+    "orchestrator/stage_handler_registry.py": "fc214db96c4cf80e3e42ad2e8e8b60647d49eb74f484b5a66a87d56c8b877c8d",
+    "orchestrator/stage_models.py": "306685620a53ccdb26bd6f8ee3082be2ea7a60e4692106fe873c5e6a5d3ecf1d",
+    "orchestrator/stage_exec.py": "b6bfcc881f7f942508a1e871af3ef0c900ff1e9aaa5e6b9048c842cd5eccc945",
+    "ui/ui_stage_popups.py": "4d30695240ec169938a75e0c0b13c5ec4d3fa910fdc7dbb24c82c5cad17413a8",
+    "ui/desktop_pet_bridge.py": "523a676d13e63284afe156520f70e89b73c473de9426bdc693669dee11cdab12",
+    "ui/pet_ui_stages.py": "040217117ba78f063d42c0f10e41a8ad8721c801184fc1ac5a7191cbcc868b0d",
+    "infra/ui_plugin_registry.py": "e034b0f0de4420fd43323eea47ab447738a68b5b3751e4f6345d84a2bb5adeb6"
+  },
+  "negative_before": {
+    "tests": 3,
+    "failures": 7
+  },
+  "ui_stage_repair_handoff": [
+    "orchestrator/stage_models.py",
+    "orchestrator/stage_exec.py",
+    "ui/ui_stage_popups.py",
+    "tests/architecture/test_dynamic_import_registry.py"
+  ],
+  "implementation_hashes": {
+    "tests\\architecture\\_scan.py": "a192dd1d532128312d8e0def4e207c7ec4d998b386a4f896f52ffdf6136d4449",
+    "tests\\architecture\\test_dynamic_import_registry.py": "1881572bca371c33f72cd0c887e1b90ec112802819d1de72b8a174de45024c39"
+  },
+  "logs": {
+    "negative-before": {
+      "sha256": "e1a329a976e33ad088672d5fc203e75a7b62ac340ff1e322f05e3c05b80835c0",
+      "summary": [
+        "FAIL: test_stage_callback_variable_is_rejected (tests.architecture.test_dynamic_import_registry.StageClosureTests.test_stage_callback_variable_is_rejected)",
+        "FAIL: test_stage_dispatch_unregistered_upward_and_variable_targets (tests.architecture.test_dynamic_import_registry.StageClosureTests.test_stage_dispatch_unregistered_upward_and_variable_targets) (target='missing.run')",
+        "FAIL: test_stage_dispatch_unregistered_upward_and_variable_targets (tests.architecture.test_dynamic_import_registry.StageClosureTests.test_stage_dispatch_unregistered_upward_and_variable_targets) (target='view.run')",
+        "FAIL: test_stage_dispatch_unregistered_upward_and_variable_targets (tests.architecture.test_dynamic_import_registry.StageClosureTests.test_stage_dispatch_unregistered_upward_and_variable_targets) (target='selected')",
+        "FAIL: test_stage_unknown_and_variable_keys_fail_closed (tests.architecture.test_dynamic_import_registry.StageClosureTests.test_stage_unknown_and_variable_keys_fail_closed) (key=\"'missing'\")",
+        "FAIL: test_stage_unknown_and_variable_keys_fail_closed (tests.architecture.test_dynamic_import_registry.StageClosureTests.test_stage_unknown_and_variable_keys_fail_closed) (key='stage')",
+        "FAIL: test_stage_unknown_and_variable_keys_fail_closed (tests.architecture.test_dynamic_import_registry.StageClosureTests.test_stage_unknown_and_variable_keys_fail_closed) (key=\"'storyboard' if flag else unknown\")",
+        "Ran 3 tests in 0.079s",
+        "FAILED (failures=7)"
+      ]
+    },
+    "stage-final": {
+      "sha256": "fb13dc97b94262e4102d36f16989dea7ce7486d6c425271c2c45f2a939e35ed8",
+      "summary": [
+        "Ran 26 tests in 13.288s",
+        "OK"
+      ]
+    },
+    "smoke": {
+      "sha256": "28d7217a55e34a5b50c2f25d105d3555794104343595f3c3af958d3a825c2c73",
+      "summary": [
+        "通过：9 项",
+        "失败：0 项"
+      ]
+    },
+    "architecture-before": {
+      "sha256": "35ac6bace4d116756c1e0110c15e108f85ccf6a5c7388a06bed2fdd3249a037c",
+      "summary": [
+        "ERROR: test_performance_history_is_declared_as_historical_only (tests.architecture.test_agents_md.AgentsMdConsistencyTests.test_performance_history_is_declared_as_historical_only)",
+        "FAIL: test_round_number_continuous (tests.architecture.test_round_baselines.RoundBaselineTests.test_round_number_continuous)",
+        "FAIL: test_script_stages_name_only_their_approved_00_references (tests.architecture.test_skill_reference_injection.SkillReferenceInjectionTests.test_script_stages_name_only_their_approved_00_references)",
+        "Ran 577 tests in 294.651s",
+        "FAILED (failures=2, errors=1)"
+      ]
+    },
+    "final-targeted": {
+      "sha256": "af0bf6ba2d1e9852cb35305bef86f7532aae1e5184999a0d146cf0b6e1a077a8",
+      "summary": [
+        "Ran 27 tests in 17.352s",
+        "OK"
+      ]
+    },
+    "architecture-verified": {
+      "sha256": "85107b65c4a09c2d2f0367ca9935966ba5a6bd729924d672b4e07675c5bb8359",
+      "summary": [
+        "ERROR: test_performance_history_is_declared_as_historical_only (tests.architecture.test_agents_md.AgentsMdConsistencyTests.test_performance_history_is_declared_as_historical_only)",
+        "FAIL: test_round_number_continuous (tests.architecture.test_round_baselines.RoundBaselineTests.test_round_number_continuous)",
+        "FAIL: test_script_stages_name_only_their_approved_00_references (tests.architecture.test_skill_reference_injection.SkillReferenceInjectionTests.test_script_stages_name_only_their_approved_00_references)",
+        "Ran 590 tests in 441.409s",
+        "FAILED (failures=2, errors=1)"
+      ]
+    }
+  },
+  "original_scanner_functions_unchanged": 28,
+  "registry_all_conditions": [
+    {
+      "line": 19,
+      "test": "not project or (stage == 'script' and trigger != 'auto')",
+      "body_calls": [],
+      "else_calls": []
+    },
+    {
+      "line": 21,
+      "test": "lock_stage(stage) not in STAGE_LOCK_REQUIREMENTS",
+      "body_calls": [],
+      "else_calls": []
+    },
+    {
+      "line": 25,
+      "test": "not required_keys",
+      "body_calls": [],
+      "else_calls": []
+    },
+    {
+      "line": 30,
+      "test": "not missing",
+      "body_calls": [],
+      "else_calls": []
+    },
+    {
+      "line": 58,
+      "test": "pet is not None",
+      "body_calls": [
+        62,
+        63,
+        65,
+        67,
+        69,
+        71,
+        73,
+        75
+      ],
+      "else_calls": []
+    },
+    {
+      "line": 81,
+      "test": "trigger == 'auto' and pet is not None",
+      "body_calls": [
+        83,
+        85
+      ],
+      "else_calls": []
+    },
+    {
+      "line": 91,
+      "test": "getattr(desktop, 'root', None) is None",
+      "body_calls": [],
+      "else_calls": []
+    },
+    {
+      "line": 98,
+      "test": "not plan['scripts']",
+      "body_calls": [
+        99
+      ],
+      "else_calls": []
+    },
+    {
+      "line": 100,
+      "test": "not plan['todo'] and (not plan['revise'])",
+      "body_calls": [
+        101,
+        104,
+        102
+      ],
+      "else_calls": []
+    },
+    {
+      "line": 118,
+      "test": "not program or project is None",
+      "body_calls": [
+        119
+      ],
+      "else_calls": []
+    },
+    {
+      "line": 134,
+      "test": "not program or getattr(desktop, 'root', None) is None",
+      "body_calls": [
+        135
+      ],
+      "else_calls": []
+    },
+    {
+      "line": 159,
+      "test": "error",
+      "body_calls": [
+        161
+      ],
+      "else_calls": []
+    },
+    {
+      "line": 162,
+      "test": "trigger == 'auto' and stage_flow.unchecked(getattr(desktop, 'root', None), stage)",
+      "body_calls": [
+        165
+      ],
+      "else_calls": []
+    },
+    {
+      "line": 166,
+      "test": "stage == 'storyboard'",
+      "body_calls": [
+        167
+      ],
+      "else_calls": []
+    },
+    {
+      "line": 168,
+      "test": "stage == 'animatic'",
+      "body_calls": [
+        170,
+        170,
+        171
+      ],
+      "else_calls": []
+    },
+    {
+      "line": 172,
+      "test": "stage == 'pet_performance'",
+      "body_calls": [
+        173,
+        173
+      ],
+      "else_calls": []
+    },
+    {
+      "line": 174,
+      "test": "stage == 'pet_test'",
+      "body_calls": [
+        175,
+        175
+      ],
+      "else_calls": []
+    },
+    {
+      "line": 176,
+      "test": "callable(fallback)",
+      "body_calls": [
+        177
+      ],
+      "else_calls": []
+    },
+    {
+      "line": 102,
+      "test": "trigger == 'auto' and getattr(auto, 'active', None) == 'storyboard'",
+      "body_calls": [
+        104
+      ],
+      "else_calls": []
+    },
+    {
+      "line": 154,
+      "test": "stage in _STAGES and callable(begin)",
+      "body_calls": [
+        155
+      ],
+      "else_calls": []
+    },
+    {
+      "line": 61,
+      "test": "machine is not None",
+      "body_calls": [
+        62,
+        63
+      ],
+      "else_calls": []
+    },
+    {
+      "line": 68,
+      "test": "auto is not None",
+      "body_calls": [
+        69
+      ],
+      "else_calls": []
+    }
+  ],
+  "architecture_failure_ids_unchanged": true
+}

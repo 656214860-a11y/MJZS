@@ -1,0 +1,183 @@
+{
+  "round": 3463,
+  "baseline_commit": "d1c80bed7f9d6e6c69079a1da3dc03450728dbb1",
+  "selected": {
+    "ui.project_settings_dialog": {
+      "decision": "A13; remain unregistered",
+      "static_consumers": [],
+      "literal_dynamic_consumers": [],
+      "source_sha256": "6897caeafa861b13187e51b8b3854c95a20801fa391cabc9b29d1beb2e3f60e6"
+    },
+    "ui.ui_asset_card": {
+      "decision": "A13; remain unregistered",
+      "static_consumers": [],
+      "literal_dynamic_consumers": [],
+      "source_sha256": "3dab1bf00cdc36ab40d68c3c35d2fd9536593b12adc7a7e501b0a6901c198d96"
+    },
+    "ui.ui_branch_tree": {
+      "decision": "A13; remain unregistered",
+      "static_consumers": [],
+      "literal_dynamic_consumers": [],
+      "source_sha256": "72b4997e3c2a5e423ab0db8e06f40ceb39c41fda2805eb3f3238f71060d3c6e8"
+    },
+    "ui.ui_citation": {
+      "decision": "A13; remain unregistered",
+      "static_consumers": [],
+      "literal_dynamic_consumers": [],
+      "source_sha256": "2aba34b69a7bfb5f7b768ebac6909e6d37b8f6cf9e801bd2d24defabe5deb8de"
+    },
+    "ui.ui_code_block": {
+      "decision": "A13; remain unregistered",
+      "static_consumers": [],
+      "literal_dynamic_consumers": [],
+      "source_sha256": "05451d01c95e039c9391948e242c82da00850877fbb52975bcb3f1c44f4e0139"
+    },
+    "ui.ui_diff": {
+      "decision": "A13; remain unregistered",
+      "static_consumers": [],
+      "literal_dynamic_consumers": [],
+      "source_sha256": "79e9ffaebbdd5e65bac26055fc8862fb753e83245a34574ed5ba846cd96993b5"
+    },
+    "ui.ui_hitl": {
+      "decision": "A13; remain unregistered",
+      "static_consumers": [],
+      "literal_dynamic_consumers": [],
+      "source_sha256": "f0b78684c2650093c166487e2f68bf5b2302abda17e8cbf1cac528f621bdd223"
+    },
+    "ui.ui_media": {
+      "decision": "A13; remain unregistered",
+      "static_consumers": [],
+      "literal_dynamic_consumers": [],
+      "source_sha256": "f8119237b8fb25ecc68aded6c631bb0693d3f193db4cf6db6532e907a06014d3"
+    },
+    "ui.ui_media_player": {
+      "decision": "A13; remain unregistered",
+      "static_consumers": [],
+      "literal_dynamic_consumers": [],
+      "source_sha256": "946142c5d046ae6033a77b15f7d1d160831c7d91908847219c7b9a3c91444328"
+    },
+    "ui.ui_multimodal": {
+      "decision": "A13; remain unregistered",
+      "static_consumers": [],
+      "literal_dynamic_consumers": [],
+      "source_sha256": "5e987668ee3c24758b01c8faf99c659f7dd10d6d2e0a4d2e7e8977d7c800ef62"
+    },
+    "ui.ui_param_panel": {
+      "decision": "A13; remain unregistered",
+      "static_consumers": [],
+      "literal_dynamic_consumers": [],
+      "source_sha256": "595013f85058b79abac6d4a804649a75c7bb84dc28ecfb0cedc4c3acb2fd63d4"
+    },
+    "ui.ui_task_progress": {
+      "decision": "A13; remain unregistered",
+      "static_consumers": [],
+      "literal_dynamic_consumers": [],
+      "source_sha256": "45ce982bb543f4d6eb55ab1a11ac2bd6c24787528a37b25d002a217acce2d0b1"
+    }
+  },
+  "registered": [],
+  "pending": [],
+  "next_ui_input": [
+    "ui.edit_habits_dialog"
+  ],
+  "scan_counts": {
+    "qualified_entities": 437,
+    "recursive_production_python": 705
+  },
+  "strict_before": {
+    "contract.file_index_contract": "ambiguous",
+    "contract.file_naming": "ambiguous",
+    "infra.file_index": "ambiguous",
+    "infra.storage_maintenance": "ambiguous",
+    "domain.checkpoint_tree": "unregistered",
+    "domain.global_library_service": "ambiguous",
+    "orchestrator.legacy_migration": "ambiguous",
+    "ui.edit_habits_dialog": "unregistered",
+    "ui.project_settings_dialog": "unregistered",
+    "ui.ui_asset_card": "unregistered",
+    "ui.ui_branch_tree": "unregistered",
+    "ui.ui_citation": "unregistered",
+    "ui.ui_code_block": "unregistered",
+    "ui.ui_diff": "unregistered",
+    "ui.ui_hitl": "unregistered",
+    "ui.ui_media": "unregistered",
+    "ui.ui_media_player": "unregistered",
+    "ui.ui_multimodal": "unregistered",
+    "ui.ui_param_panel": "unregistered",
+    "ui.ui_task_progress": "unregistered",
+    "agent": "unregistered"
+  },
+  "strict_after": {
+    "contract.file_index_contract": "ambiguous",
+    "contract.file_naming": "ambiguous",
+    "infra.file_index": "ambiguous",
+    "infra.storage_maintenance": "ambiguous",
+    "domain.checkpoint_tree": "unregistered",
+    "domain.global_library_service": "ambiguous",
+    "orchestrator.legacy_migration": "ambiguous",
+    "ui.edit_habits_dialog": "unregistered",
+    "ui.project_settings_dialog": "unregistered",
+    "ui.ui_asset_card": "unregistered",
+    "ui.ui_branch_tree": "unregistered",
+    "ui.ui_citation": "unregistered",
+    "ui.ui_code_block": "unregistered",
+    "ui.ui_diff": "unregistered",
+    "ui.ui_hitl": "unregistered",
+    "ui.ui_media": "unregistered",
+    "ui.ui_media_player": "unregistered",
+    "ui.ui_multimodal": "unregistered",
+    "ui.ui_param_panel": "unregistered",
+    "ui.ui_task_progress": "unregistered",
+    "agent": "unregistered"
+  },
+  "default_layer_guard": "passed",
+  "architecture": {
+    "before": {
+      "total": 563,
+      "passed": 560,
+      "failures": [
+        "test_performance_history_is_declared_as_historical_only (tests.architecture.test_agents_md.AgentsMdConsistencyTests.test_performance_history_is_declared_as_historical_only)\r",
+        "test_round_number_continuous (tests.architecture.test_round_baselines.RoundBaselineTests.test_round_number_continuous)\r",
+        "test_script_stages_name_only_their_approved_00_references (tests.architecture.test_skill_reference_injection.SkillReferenceInjectionTests.test_script_stages_name_only_their_approved_00_references)\r"
+      ],
+      "seconds": 391.8,
+      "exit": 1,
+      "log_sha256": "d9e6ee3de21dce191b1763afede588581a208a6d0e78fe012073b46962b0f201"
+    },
+    "after": {
+      "total": 563,
+      "passed": 560,
+      "failures": [
+        "test_performance_history_is_declared_as_historical_only (tests.architecture.test_agents_md.AgentsMdConsistencyTests.test_performance_history_is_declared_as_historical_only)\r",
+        "test_round_number_continuous (tests.architecture.test_round_baselines.RoundBaselineTests.test_round_number_continuous)\r",
+        "test_script_stages_name_only_their_approved_00_references (tests.architecture.test_skill_reference_injection.SkillReferenceInjectionTests.test_script_stages_name_only_their_approved_00_references)\r"
+      ],
+      "seconds": 354.422,
+      "exit": 1,
+      "log_sha256": "43b1c6124d729f4ac860b4e427d18571fd3ace051e9dbeb3f80a38138b29c63b"
+    }
+  },
+  "smoke": {
+    "baseline_passed": 8,
+    "hidden_probe_passed": true,
+    "total_passed": 9,
+    "failed": 0
+  },
+  "targeted_evidence_snapshot": {
+    "round": 3463,
+    "commit_base": "d1c80bed",
+    "credential_scan": {
+      "ran": true,
+      "hits": []
+    },
+    "targeted": {
+      "cmd": "run_selftests.py -k test_layers test_service_return_contract test_no_circular_import test_gate_selfaudit test_rule_guard_map test_checkpoint_tree test_branch_tree_ui test_asset_hovercard test_citation test_code_highlight test_diff_view test_hitl_ui test_media_render test_video_audio_card test_multimodal_upload test_param_panel test_background_task",
+      "exit": 0,
+      "passed": 76,
+      "failed": 0
+    },
+    "generated_at": "2026-11-18T23:43:44"
+  },
+  "targeted_evidence_sha256": "4ddbafb1924a89a492e68166ea56bdaf62b583eb66cd60674d52df5ad36b2b3b",
+  "note": "Actual scanner observations and original standard round_evidence.py test receipt; FAIL checkpoint preserves R3463.json. No skipped GUI case counted as passed."
+}

@@ -5,6 +5,7 @@ from urllib.parse import urlparse, urlencode
 # 第 34 期第 9 条：`urllib.request`／`urllib.error` 连 ssl 一起加载（约 4.4 MB 常驻），
 # 本模块只在真要连本机 ComfyUI 时用得到——都改成函数内 import。
 from agent.core import save, read, save_bytes
+from infra.http_client import LocalComfyClient
 from contract.infra_errors import ConfigError, CorruptDataError, ProcessError
 
 class ComfyGenerationFailed(ProcessError, ValueError):
@@ -77,6 +78,31 @@ def locate_prompt(fetch,client_id='',workflow=None,attempts=3,wait=1.0):
         if index<attempts-1:time.sleep(wait)
     return None
 
+def build_reference_graph(prompt,images,cfg,seed):
+    g={}
+    def node(i,kind,**inputs):g[str(i)]={'class_type':kind,'inputs':inputs};return [str(i),0]
+    model=node(1,'UNETLoader',unet_name=cfg['model'],weight_dtype='default')
+    clip=node(2,'CLIPLoader',clip_name=cfg['text_encoder'],type='flux2',device='default')
+    vae=node(3,'VAELoader',vae_name=cfg['vae'])
+    positive=node(4,'CLIPTextEncode',clip=clip,text=prompt)
+    negative=node(5,'ConditioningZeroOut',conditioning=positive)
+    for index,name in enumerate(images):
+        i=100+index*5
+        image=node(i,'LoadImage',image=name)
+        image=node(i+1,'ImageScaleToTotalPixels',image=image,upscale_method='area',megapixels=.5,resolution_steps=16)
+        latent=node(i+2,'VAEEncode',pixels=image,vae=vae)
+        positive=node(i+3,'ReferenceLatent',conditioning=positive,latent=latent)
+        negative=node(i+4,'ReferenceLatent',conditioning=negative,latent=latent)
+    latent=node(6,'EmptyFlux2LatentImage',width=cfg['width'],height=cfg['height'],batch_size=1)
+    guider=node(7,'CFGGuider',model=model,positive=positive,negative=negative,cfg=1.0)
+    noise=node(8,'RandomNoise',noise_seed=seed)
+    sampler=node(10,'KSamplerSelect',sampler_name='euler')
+    sigmas=node(11,'Flux2Scheduler',steps=4,width=cfg['width'],height=cfg['height'])
+    samples=node(12,'SamplerCustomAdvanced',noise=noise,guider=guider,sampler=sampler,sigmas=sigmas,latent_image=latent)
+    image=node(13,'VAEDecode',samples=samples,vae=vae)
+    node(14,'SaveImage',images=image,filename_prefix='DramaFrames/'+str(seed))
+    return g
+
 class Comfy:
     def __init__(self,url):
         self.url=url.rstrip('/');p=urlparse(self.url)
@@ -131,11 +157,10 @@ class Comfy:
         return self.submit_graph(root,kind,prompt,graph)
 
     def reference_config(self):
-        from batch_frames_tool.batch_frames import graph
         cfg=read(Path(__file__).parents[1]/'batch_frames_tool/config.json')
         cfg.update(width=768,height=768)
         info=self.request('/object_info')
-        for item in graph('check',['reference.png'],cfg,1).values():
+        for item in build_reference_graph('check',['reference.png'],cfg,1).values():
             if item['class_type'] not in info:raise ConfigError('参考图工作流缺少节点：'+item['class_type'])
         for kind,field,key in [('UNETLoader','unet_name','model'),('CLIPLoader','clip_name','text_encoder'),('VAELoader','vae_name','vae')]:
             spec=info[kind]['input']['required'][field]
@@ -144,11 +169,10 @@ class Comfy:
         return cfg
 
     def reference_graph(self,prompt,images,cfg):
-        from batch_frames_tool.batch_frames import Client,graph
-        upload=Client(self.url)
+        upload=LocalComfyClient(self.url)
         names=[upload.upload(Path(path)) for path in images]
         task='按提示词中每张参考图的用途生成资产图；长相、服饰、画风、色调、氛围分别参考，不把风格参考中的人物身份或服装混入当前角色。\n'+prompt
-        workflow=graph(task,names,cfg,int(uuid.uuid4().hex[:12],16))
+        workflow=build_reference_graph(task,names,cfg,int(uuid.uuid4().hex[:12],16))
         workflow['14']['inputs']['filename_prefix']='DramaAssets/reference_'+uuid.uuid4().hex[:10]
         return workflow
 

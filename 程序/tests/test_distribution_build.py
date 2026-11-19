@@ -11,6 +11,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from scripts import release_runtime
+from tests.test_release_runtime import write_dist
+
 SCRIPT = Path(__file__).resolve().parents[1] / 'scripts' / 'distribution_build.py'
 _spec = importlib.util.spec_from_file_location('distribution_build_subject', SCRIPT)
 subject = importlib.util.module_from_spec(_spec)
@@ -18,9 +21,11 @@ _spec.loader.exec_module(subject)
 
 MANIFEST = {
     'keep': ['启动漫剧制作助手.pyw', '启动助手.cmd', '运行环境/Python/', '程序/app.py',
-             '程序/desktop.py', '程序/skills/', '程序/配置/', '程序/agent/', '程序/extra/'],
+             '程序/desktop.py', '程序/requirements.txt', '程序/skills/', '程序/配置/',
+             '程序/agent/', '程序/extra/', '程序/voice_engine/'],
     'exclude': ['程序/tests/**', '程序/tasks_round/**', '程序/维护记录/**',
-                '程序/scripts/**', '程序/logs/**', '程序/private/**'],
+                '程序/scripts/**', '程序/logs/**', '程序/private/**',
+                '程序/external_tools.lock.json'],
 }
 
 SOURCE_FILES = {
@@ -29,6 +34,17 @@ SOURCE_FILES = {
     '运行环境/Python/python.exe': 'exe',
     '程序/app.py': 'app',
     '程序/desktop.py': 'desktop',
+    '程序/requirements.txt': 'requests==2.34.2\n',
+    '程序/voice_engine/requirements.lock': 'numpy==1.26.4\n',
+    '程序/voice_engine/supply_chain.lock.json': json.dumps({
+        'source_template': 'https://pypi.org/project/{name}/{version}/',
+        'licenses': {'numpy': 'BSD-3-Clause'},
+    }),
+    '程序/external_tools.lock.json': json.dumps({'tools': {
+        '运行环境/Python/python.exe': {'version': 'Python fixture', 'sha256': 'a' * 64,
+                                      'bytes': 3, 'source': 'https://python.org/',
+                                      'license': 'PSF-2.0'},
+    }}),
     '程序/skills/00全流程SKILL/jingju-skills/SKILL.md': 'jingju',
     '程序/配置/默认.json': '{}',
     '程序/agent/core.py': 'core',
@@ -36,6 +52,7 @@ SOURCE_FILES = {
     '程序/tests/test_x.py': 'test',
     '程序/tasks_round/a.md': 'round',
     '程序/维护记录/b.json': '{}',
+    '程序/维护记录/外部技能包哈希.json': json.dumps({'packages': {}}),
     '程序/scripts/tool.py': 'tool',
     '程序/logs/x.log': 'log',
     '程序/private/密钥/a.dpapi': 'secret',
@@ -79,6 +96,15 @@ class DistributionBuildTests(unittest.TestCase):
             self.assertNotIn(relative, planned['keep'])
             self.assertEqual((self.source / relative).read_bytes(), b'diagnostic-history')
 
+    def test_actual_manifest_excludes_unlicensed_external_skill(self):
+        relative = '程序/skills/01 剧本准备SKILL/剧本锻造/SKILL.md'
+        path = self.source / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('unlicensed fixture', encoding='utf-8')
+        planned = subject.plan(self.source, subject.parse_manifest())
+        self.assertIn(relative, planned['excluded'])
+        self.assertNotIn(relative, planned['keep'])
+
     def test_parse_manifest_reads_both_tables_of_the_real_document(self):
         parsed = subject.parse_manifest()
         self.assertIn('启动漫剧制作助手.pyw', parsed['keep'])
@@ -113,6 +139,16 @@ class DistributionBuildTests(unittest.TestCase):
         self.assertFalse((out / '程序/logs/x.log').exists())
         self.assertEqual(report['files'], len(subject.candidate_files(out)) - 1)
 
+    def test_build_prunes_unlocked_runtime_distribution_from_copy_only(self):
+        write_dist(self.source, 'requests', '2.34.2', 'requests')
+        write_dist(self.source, 'pydantic', '2.14.3', 'pydantic')
+        report = subject.build(self.base / 'out', self.source, MANIFEST)
+        self.assertEqual(report['runtime']['removed_distributions'], ['pydantic'])
+        self.assertTrue((self.source / release_runtime.SITE / 'pydantic/__init__.py').is_file())
+        self.assertFalse((self.base / 'out' / release_runtime.SITE / 'pydantic/__init__.py').exists())
+        verdict = subject.verify(self.base / 'out', self.source, MANIFEST)
+        self.assertTrue(verdict['checks']['release_runtime']['ok'], verdict)
+
     def test_build_writes_version_and_per_file_digest(self):
         subject.build(self.base / 'out', self.source, MANIFEST)
         saved = json.loads((self.base / 'out' / subject.DIGEST_NAME).read_text(encoding='utf-8'))
@@ -133,6 +169,16 @@ class DistributionBuildTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             subject.build(out, self.source, MANIFEST)
 
+    def test_side_by_side_build_does_not_change_previous_release(self):
+        previous = self.base / 'previous-release'
+        subject.build(previous, self.source, MANIFEST)
+        before = {rel: (previous / rel).read_bytes()
+                  for rel in subject.candidate_files(previous)}
+        subject.build(self.base / 'next-release', self.source, MANIFEST)
+        after = {rel: (previous / rel).read_bytes()
+                 for rel in subject.candidate_files(previous)}
+        self.assertEqual(after, before)
+
     def test_build_refuses_undecided_unless_explicitly_allowed(self):
         self.stray()
         with self.assertRaises(ValueError):
@@ -146,6 +192,50 @@ class DistributionBuildTests(unittest.TestCase):
         subject.build(self.base / 'out', self.source, MANIFEST)
         verdict = subject.verify(self.base / 'out', self.source, MANIFEST)
         self.assertTrue(verdict['ok'], verdict)
+        self.assertTrue(verdict['release_ready'], verdict)
+        self.assertTrue((self.base / 'out/sbom.cdx.json').is_file())
+        self.assertTrue((self.base / 'out/THIRD_PARTY_NOTICES.txt').is_file())
+        self.assertGreater(verdict['checks']['supply_chain']['components'], 0)
+
+    def test_verify_blocks_release_when_skill_license_is_unconfirmed(self):
+        registry = self.source / '程序/维护记录/外部技能包哈希.json'
+        registry.write_text(json.dumps({'packages': {
+            'skills/01 剧本准备SKILL/剧本锻造': {
+                'source': 'https://github.com/zhlmi/script-forging.git',
+                'commit': 'b' * 40,
+                'tree': 'c' * 40,
+            },
+        }}), encoding='utf-8')
+        skill = self.source / '程序/skills/01 剧本准备SKILL/剧本锻造/SKILL.md'
+        skill.parent.mkdir(parents=True, exist_ok=True)
+        skill.write_text('fixture', encoding='utf-8')
+        subject.build(self.base / 'out', self.source, MANIFEST)
+        verdict = subject.verify(self.base / 'out', self.source, MANIFEST)
+        self.assertTrue(verdict['ok'], verdict)
+        self.assertFalse(verdict['release_ready'], verdict)
+        self.assertIn('skill:skills/01 剧本准备SKILL/剧本锻造',
+                      verdict['checks']['supply_chain']['release_blockers'])
+
+    def test_excluded_unlicensed_skill_is_absent_from_release_sbom(self):
+        registry = self.source / '程序/维护记录/外部技能包哈希.json'
+        registry.write_text(json.dumps({'packages': {
+            'skills/01 剧本准备SKILL/剧本锻造': {
+                'source': 'https://github.com/zhlmi/script-forging.git',
+                'commit': 'b' * 40,
+                'tree': 'c' * 40,
+            },
+        }}), encoding='utf-8')
+        skill = self.source / '程序/skills/01 剧本准备SKILL/剧本锻造/SKILL.md'
+        skill.parent.mkdir(parents=True, exist_ok=True)
+        skill.write_text('fixture', encoding='utf-8')
+        manifest = {key: list(value) for key, value in MANIFEST.items()}
+        manifest['exclude'].append('程序/skills/01 剧本准备SKILL/剧本锻造/**')
+        subject.build(self.base / 'out', self.source, manifest)
+        verdict = subject.verify(self.base / 'out', self.source, manifest)
+        self.assertTrue(verdict['release_ready'], verdict)
+        sbom = json.loads((self.base / 'out/sbom.cdx.json').read_text(encoding='utf-8'))
+        self.assertNotIn('skill:skills/01 剧本准备SKILL/剧本锻造',
+                         {item['bom-ref'] for item in sbom['components']})
 
     def test_verify_flags_injected_excluded_file(self):
         subject.build(self.base / 'out', self.source, MANIFEST)
