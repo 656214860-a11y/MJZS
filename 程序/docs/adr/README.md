@@ -24,5 +24,6 @@
 | ADR-0010 | [兑换码优先与人工退款](0010-redeem-first-refunds.md) | 已接受 | 2026-11-19 | — |
 | ADR-0011 | [以五维探针表达模型可用性](0011-model-probe-availability.md) | 已接受 | 2026-11-19 | — |
 | ADR-0012 | [配置校验复用产物规格模式](0012-configuration-schema-pattern.md) | 已接受 | 2026-11-19 | — |
+| ADR-0013 | [UI 框架锁定 Tkinter](0013-ui-framework-locked-tkinter.md) | 已接受 | 2026-11-19 | — |
 
 > 0003／0004／0006 为补记 ADR：决策早于记录日，日期为补记日，决策出处见各文「背景与问题」。
