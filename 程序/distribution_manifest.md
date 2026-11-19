@@ -37,6 +37,7 @@
 | `程序/logs/**`、`启动错误.log`、`_wm.log`、`程序/.*.out`、`程序/log.txt` | 历史运行日志与自检输出 | 正式副本不携带既有日志；运行期仍按现有行为创建日志。 |
 | `程序/private/**` | 本机私有数据 | 不得随分发副本携带私有配置或密钥副本。 |
 | `程序/data/skills/**` | 用户导入的 SKILL | R2073：用户层 SKILL 与导入台账，由目标机器生成；升级只保留不覆盖。 |
+| `程序/skills/01 剧本准备SKILL/剧本锻造/**` | 无可确认再分发许可证的外部 Skill | 上游固定提交未提供 LICENSE；源码工作树保留作审计，正式副本排除。取得书面授权或上游补许可证后才可重新纳入。 |
 | `.claude/**`、`.codex/**`、`.agents/**`、`.agent-handoff/**`、`.tools/**`、`outputs/**`（本机 Agent 草稿目录与第三方下载工具，已被 .git/info/exclude 忽略） | 代理/开发产物 | 不是运行时内容，不进正式副本。 |
 | `.wt/**`、`.gitmodules`、`.gitattributes`、`.gitignore`、`.claudeignore`、`AGENTS.md`、`CLAUDE.md`、`开发者工具/BLOCKED_ISSUES.md`、`reorganize_install.py`、`开发者工具/handoff-full-safe.md` | 开发/代理资料 | 子模块来源映射与其他开发元数据不属于运行时；Skill 内容由构建器从已初始化的固定提交复制。 |
 | `程序/.*.err`、`程序/.*.out`、`程序/.*.log`、`维护记录/**` | 自检与维护产物 | 可再生成的诊断输出。 |

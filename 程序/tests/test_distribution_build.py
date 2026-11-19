@@ -96,6 +96,15 @@ class DistributionBuildTests(unittest.TestCase):
             self.assertNotIn(relative, planned['keep'])
             self.assertEqual((self.source / relative).read_bytes(), b'diagnostic-history')
 
+    def test_actual_manifest_excludes_unlicensed_external_skill(self):
+        relative = '程序/skills/01 剧本准备SKILL/剧本锻造/SKILL.md'
+        path = self.source / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('unlicensed fixture', encoding='utf-8')
+        planned = subject.plan(self.source, subject.parse_manifest())
+        self.assertIn(relative, planned['excluded'])
+        self.assertNotIn(relative, planned['keep'])
+
     def test_parse_manifest_reads_both_tables_of_the_real_document(self):
         parsed = subject.parse_manifest()
         self.assertIn('启动漫剧制作助手.pyw', parsed['keep'])
@@ -197,12 +206,36 @@ class DistributionBuildTests(unittest.TestCase):
                 'tree': 'c' * 40,
             },
         }}), encoding='utf-8')
+        skill = self.source / '程序/skills/01 剧本准备SKILL/剧本锻造/SKILL.md'
+        skill.parent.mkdir(parents=True, exist_ok=True)
+        skill.write_text('fixture', encoding='utf-8')
         subject.build(self.base / 'out', self.source, MANIFEST)
         verdict = subject.verify(self.base / 'out', self.source, MANIFEST)
         self.assertTrue(verdict['ok'], verdict)
         self.assertFalse(verdict['release_ready'], verdict)
         self.assertIn('skill:skills/01 剧本准备SKILL/剧本锻造',
                       verdict['checks']['supply_chain']['release_blockers'])
+
+    def test_excluded_unlicensed_skill_is_absent_from_release_sbom(self):
+        registry = self.source / '程序/维护记录/外部技能包哈希.json'
+        registry.write_text(json.dumps({'packages': {
+            'skills/01 剧本准备SKILL/剧本锻造': {
+                'source': 'https://github.com/zhlmi/script-forging.git',
+                'commit': 'b' * 40,
+                'tree': 'c' * 40,
+            },
+        }}), encoding='utf-8')
+        skill = self.source / '程序/skills/01 剧本准备SKILL/剧本锻造/SKILL.md'
+        skill.parent.mkdir(parents=True, exist_ok=True)
+        skill.write_text('fixture', encoding='utf-8')
+        manifest = {key: list(value) for key, value in MANIFEST.items()}
+        manifest['exclude'].append('程序/skills/01 剧本准备SKILL/剧本锻造/**')
+        subject.build(self.base / 'out', self.source, manifest)
+        verdict = subject.verify(self.base / 'out', self.source, manifest)
+        self.assertTrue(verdict['release_ready'], verdict)
+        sbom = json.loads((self.base / 'out/sbom.cdx.json').read_text(encoding='utf-8'))
+        self.assertNotIn('skill:skills/01 剧本准备SKILL/剧本锻造',
+                         {item['bom-ref'] for item in sbom['components']})
 
     def test_verify_flags_injected_excluded_file(self):
         subject.build(self.base / 'out', self.source, MANIFEST)

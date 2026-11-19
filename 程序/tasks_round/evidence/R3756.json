@@ -1,0 +1,15 @@
+{
+  "round": 3756,
+  "commit_base": "92457297",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k sbom distribution_build",
+    "exit": 0,
+    "passed": 21,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T13:59:32"
+}

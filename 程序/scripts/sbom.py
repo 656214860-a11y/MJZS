@@ -116,10 +116,15 @@ def _tools(program: Path) -> list:
     return components
 
 
-def _skills(program: Path) -> list:
+def _skills(program: Path, release_files=None) -> list:
     registry = _json(program / '维护记录' / '外部技能包哈希.json')
     components = []
     for path, item in sorted((registry.get('packages') or {}).items()):
+        prefix = '程序/' + path.rstrip('/') + '/'
+        if release_files is not None and not any(
+                str(relative).replace('\\', '/').startswith(prefix)
+                for relative in release_files):
+            continue
         components.append({'type': 'library', 'name': Path(path).name,
                            'version': str(item['commit']), 'bom-ref': 'skill:' + path,
                            'licenses': _license(SKILL_LICENSES.get(path, 'NOASSERTION')),
@@ -130,10 +135,10 @@ def _skills(program: Path) -> list:
     return components
 
 
-def build(program: Path, app_version='') -> tuple[dict, str]:
+def build(program: Path, app_version='', release_files=None) -> tuple[dict, str]:
     program = Path(program)
     components = (_packages(program) + _optional_asr_packages(program)
-                  + _tools(program) + _skills(program))
+                  + _tools(program) + _skills(program, release_files=release_files))
     document = {
         'bomFormat': 'CycloneDX', 'specVersion': '1.5', 'version': 1,
         'metadata': {'component': {'type': 'application', 'name': '漫剧制作助手',
@@ -154,8 +159,8 @@ def build(program: Path, app_version='') -> tuple[dict, str]:
     return document, '\n'.join(lines) + '\n'
 
 
-def write(program: Path, destination: Path, app_version='') -> tuple[Path, Path]:
-    document, notices = build(program, app_version=app_version)
+def write(program: Path, destination: Path, app_version='', release_files=None) -> tuple[Path, Path]:
+    document, notices = build(program, app_version=app_version, release_files=release_files)
     destination = Path(destination)
     sbom_path = destination / 'sbom.cdx.json'
     notices_path = destination / 'THIRD_PARTY_NOTICES.txt'

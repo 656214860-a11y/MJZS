@@ -213,7 +213,8 @@ def build(destination, root=ROOT, manifest=None, allow_undecided=False) -> dict:
         shutil.copy2(source, target)
         entries.append({'path': relative, 'bytes': source.stat().st_size,
                         'sha256': _sha256(source)})
-    for target in sbom_builder.write(base / '程序', dest, app_version=_version()):
+    for target in sbom_builder.write(base / '程序', dest, app_version=_version(),
+                                     release_files=selected):
         entries.append({'path': target.relative_to(dest).as_posix(),
                         'bytes': target.stat().st_size, 'sha256': _sha256(target)})
     report = {'version': _version(), **_git_binding(base),
