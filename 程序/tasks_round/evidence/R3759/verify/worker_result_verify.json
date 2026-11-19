@@ -1,0 +1,79 @@
+{
+  "mode": "verify",
+  "project": "C:\\Users\\LAIBIAO\\AppData\\Local\\Temp\\acceptance-recovery-c02tesml\\p",
+  "started_at": "2026-11-19T15:57:13.379",
+  "stale_seconds_applied": 2.0,
+  "stale_seconds_production": 1800.0,
+  "desktop_ready": true,
+  "resend": {
+    "ok": true,
+    "assistant_new": 1
+  },
+  "ledger_entries": [
+    {
+      "id": "852ea252b1364a11bfd5d80b89b15393",
+      "kind": "tokens",
+      "state": "settled",
+      "mode": "reported",
+      "money_state": "estimated",
+      "unknown_via": null,
+      "at": 1795075026.3315914,
+      "settled_at": 1795075026.5138664
+    },
+    {
+      "id": "a4be2bbd749f4f8faed6dedefa8d6b07",
+      "kind": "tokens",
+      "state": "settled",
+      "mode": "reported",
+      "money_state": "estimated",
+      "unknown_via": null,
+      "at": 1795075027.762736,
+      "settled_at": 1795075027.8213186
+    },
+    {
+      "id": "6a9b7d94746b45e98f2022cd81de9974",
+      "kind": "tokens",
+      "state": "unknown",
+      "mode": "unknown",
+      "money_state": "unknown",
+      "unknown_via": "stale-reserved",
+      "at": 1795075032.889504,
+      "settled_at": 1795075044.105578
+    },
+    {
+      "id": "f096df4978e845129fbff5cb752381b9",
+      "kind": "tokens",
+      "state": "settled",
+      "mode": "reported",
+      "money_state": "estimated",
+      "unknown_via": null,
+      "at": 1795075044.1097093,
+      "settled_at": 1795075044.3040714
+    }
+  ],
+  "final_stage_status": {
+    "documents": [
+      {
+        "stage": "项目设定",
+        "confirmed": true,
+        "path": "自定义/验收恢复假供应商/创意_20261119/项目设定/p_项目设定_自定义_20261119.md",
+        "sha256": "cfd2d9567e6af7463209bbd87ec354fd627ad09036794d714d03d7d56dbe0be4"
+      },
+      {
+        "stage": "剧本大纲",
+        "confirmed": true,
+        "path": "自定义/验收恢复假供应商/创意_20261119/项目大纲/p_项目大纲_自定义_20261119.md",
+        "sha256": "bd4d25231a94925a022a7301e6545744eb263397d565badeffee715a5025727c"
+      },
+      {
+        "stage": "角色卡",
+        "confirmed": false,
+        "path": "自定义/验收恢复假供应商/创意_20261119/角色卡/p_角色卡_自定义_20261119.md",
+        "sha256": "b63fba7f90a19ebfbfc3734fc5a1664f432a3bd806a82ecdb694739085612038"
+      }
+    ]
+  },
+  "elapsed_seconds": 12.59,
+  "ok": true,
+  "finished_at": "2026-11-19T15:57:26.193"
+}

@@ -1,0 +1,294 @@
+{
+  "project": "C:\\Users\\LAIBIAO\\AppData\\Local\\Temp\\acceptance-recovery-c02tesml\\p",
+  "sandbox": "C:\\Users\\LAIBIAO\\AppData\\Local\\Temp\\acceptance-recovery-c02tesml",
+  "checks": [
+    {
+      "name": "adopt_worker_exited",
+      "ok": true,
+      "detail": "returncode=0"
+    },
+    {
+      "name": "adopt_project_setting_confirmed",
+      "ok": true,
+      "detail": "{\"documents\": [{\"stage\": \"项目设定\", \"confirmed\": true, \"path\": \"自定义/验收恢复假供应商/创意_20261119/项目设定/p_项目设定_自定义_20261119.md\", \"sha256\": \"cfd2d9567e6af7463209bbd87ec354fd627ad09036794d714d03d7d56dbe0be4\"}, {\"stage\": \"剧本大纲\", \"confirmed\": false, \"path\": \"自定义/验收恢复假供应商/创意_20261119/项目大纲/p_项目大纲_自定义_20261119.md\", \"sh"
+    },
+    {
+      "name": "hang_armed_reserved_seen",
+      "ok": true,
+      "detail": "armed=True supplier_seq=3"
+    },
+    {
+      "name": "verify_worker_exited",
+      "ok": true,
+      "detail": "returncode=0"
+    },
+    {
+      "name": "verify_resend_replied",
+      "ok": true,
+      "detail": "{\"ok\": true, \"assistant_new\": 1}"
+    },
+    {
+      "name": "killed_request_marked_unknown_stale",
+      "ok": true,
+      "detail": "{\"id\": \"6a9b7d94746b45e98f2022cd81de9974\", \"kind\": \"tokens\", \"amount\": null, \"mode\": \"unknown\", \"state\": \"unknown\", \"remote_task_id\": null, \"note\": \"\", \"at\": 1795075032.889504, \"settled_at\": 1795075044.105578, \"model\": \"fake-acceptance-recovery-1\", \"stage\": \"script\", \"input_estimate\": 251487.0, \"out"
+    },
+    {
+      "name": "killed_request_reserved_at_kill",
+      "ok": true,
+      "detail": "{\"id\": \"6a9b7d94746b45e98f2022cd81de9974\", \"kind\": \"tokens\", \"amount\": 259679.0, \"mode\": \"estimated\", \"state\": \"reserved\", \"remote_task_id\": null, \"note\": \"\", \"at\": 1795075032.889504, \"settled_at\": null, \"model\": \"fake-acceptance-recovery-1\", \"stage\": \"script\", \"input_estimate\": 251487.0, \"output_li"
+    },
+    {
+      "name": "no_auto_resend_during_observe_window",
+      "ok": true,
+      "detail": "verify_requests=[4] send_epoch=1795075043.7884288 opened_epoch=1795075035.7853377"
+    },
+    {
+      "name": "adopted_artifacts_intact_across_crash",
+      "ok": true,
+      "detail": "intact=2 missing=[]"
+    }
+  ],
+  "started_at": "2026-11-19T15:57:03.484",
+  "started_epoch": 1795075023.4843235,
+  "adopt_seconds": 6.282,
+  "hang_proc_returncode": 15,
+  "kill": {
+    "pid": 42332,
+    "method": "os.kill(SIGTERM)",
+    "kill_epoch": 1795075033.1791837,
+    "request_id": "6a9b7d94746b45e98f2022cd81de9974",
+    "request_at": 1795075032.889504,
+    "proc_returncode": 15,
+    "armed_payload": {
+      "pid": 42332,
+      "mode": "hang",
+      "request_id": "6a9b7d94746b45e98f2022cd81de9974",
+      "kind": "tokens",
+      "state": "reserved",
+      "money_state": "reserved",
+      "at": 1795075032.889504,
+      "sent_at": 1795075032.8689065,
+      "armed_at": "2026-11-19T15:57:12.934",
+      "ledger_path": "C:\\Users\\LAIBIAO\\AppData\\Local\\Temp\\acceptance-recovery-c02tesml\\p\\工作流任务\\宠物\\请求台账.json"
+    }
+  },
+  "hang_seconds": 3.392,
+  "verify_seconds": 13.077,
+  "stale_seconds_applied": 2.0,
+  "verify_phase_requests": [
+    {
+      "seq": 4,
+      "at": "2026-11-19T15:57:24.281",
+      "at_epoch": 1795075044.2814357,
+      "path": "/chat/completions",
+      "stream": true,
+      "model": "fake-acceptance-recovery-1",
+      "mode": "ok",
+      "auth_present": true,
+      "body_bytes": 251337,
+      "response": {
+        "finished": true,
+        "note": "",
+        "chunks": 8
+      }
+    }
+  ],
+  "adopted_artifacts": [
+    {
+      "path": "自定义/验收恢复假供应商/创意_20261119/项目设定/p_项目设定_自定义_20261119.md",
+      "sha256": "e5b7b72a88d38369d471ea4f34daee3306fae54029e85db116a13031251c1adb"
+    },
+    {
+      "path": "自定义/验收恢复假供应商/创意_20261119/项目大纲/p_项目大纲_自定义_20261119.md",
+      "sha256": "a6d73b7ecfb21b11bb586c44314361fdd049b7c7f744355d2432cc06f19cda8d"
+    }
+  ],
+  "adopted_docs": [
+    {
+      "stage": "项目设定",
+      "path": "自定义/验收恢复假供应商/创意_20261119/项目设定/p_项目设定_自定义_20261119.md",
+      "sha256": "cfd2d9567e6af7463209bbd87ec354fd627ad09036794d714d03d7d56dbe0be4",
+      "confirmed": true,
+      "model_id": "fake-acceptance-recovery-1",
+      "generated_at": "2026-11-19T15:57:06",
+      "token_usage": {
+        "prompt_tokens": 120,
+        "completion_tokens": 30,
+        "cached_tokens": 0
+      }
+    },
+    {
+      "stage": "剧本大纲",
+      "path": "自定义/验收恢复假供应商/创意_20261119/项目大纲/p_项目大纲_自定义_20261119.md",
+      "sha256": "bd4d25231a94925a022a7301e6545744eb263397d565badeffee715a5025727c",
+      "confirmed": true,
+      "model_id": "fake-acceptance-recovery-1",
+      "generated_at": "2026-11-19T15:57:07",
+      "token_usage": {
+        "prompt_tokens": 120,
+        "completion_tokens": 30,
+        "cached_tokens": 0
+      }
+    },
+    {
+      "stage": "角色卡",
+      "path": "自定义/验收恢复假供应商/创意_20261119/角色卡/p_角色卡_自定义_20261119.md",
+      "sha256": "b63fba7f90a19ebfbfc3734fc5a1664f432a3bd806a82ecdb694739085612038",
+      "confirmed": false,
+      "model_id": "fake-acceptance-recovery-1",
+      "generated_at": "2026-11-19T15:57:24",
+      "token_usage": {
+        "prompt_tokens": 120,
+        "completion_tokens": 30,
+        "cached_tokens": 0
+      }
+    }
+  ],
+  "recovery_seconds": 2.606,
+  "manual_steps": [
+    "重新启动漫剧制作助手（探针以新进程等价）",
+    "打开同一项目目录（探针 open_studio(proj) 等价）",
+    "在剧本页重新发送「继续」推进（探针 send_message 等价）",
+    "陈旧 reserved 由台账既有清扫规则自动转 unknown，无需人工核对即可继续制作"
+  ],
+  "ledger_final_entries": [
+    {
+      "id": "852ea252b1364a11bfd5d80b89b15393",
+      "kind": "tokens",
+      "state": "settled",
+      "money_state": "estimated",
+      "unknown_via": null,
+      "at": 1795075026.3315914,
+      "settled_at": 1795075026.5138664
+    },
+    {
+      "id": "a4be2bbd749f4f8faed6dedefa8d6b07",
+      "kind": "tokens",
+      "state": "settled",
+      "money_state": "estimated",
+      "unknown_via": null,
+      "at": 1795075027.762736,
+      "settled_at": 1795075027.8213186
+    },
+    {
+      "id": "6a9b7d94746b45e98f2022cd81de9974",
+      "kind": "tokens",
+      "state": "unknown",
+      "money_state": "unknown",
+      "unknown_via": "stale-reserved",
+      "at": 1795075032.889504,
+      "settled_at": 1795075044.105578
+    },
+    {
+      "id": "f096df4978e845129fbff5cb752381b9",
+      "kind": "tokens",
+      "state": "settled",
+      "money_state": "estimated",
+      "unknown_via": null,
+      "at": 1795075044.1097093,
+      "settled_at": 1795075044.3040714
+    }
+  ],
+  "supplier_requests": [
+    {
+      "seq": 1,
+      "at": "2026-11-19T15:57:06.493",
+      "at_epoch": 1795075026.493393,
+      "path": "/chat/completions",
+      "stream": true,
+      "model": "fake-acceptance-recovery-1",
+      "mode": "ok",
+      "auth_present": true,
+      "body_bytes": 250956,
+      "response": {
+        "finished": true,
+        "note": "",
+        "chunks": 10
+      }
+    },
+    {
+      "seq": 2,
+      "at": "2026-11-19T15:57:07.800",
+      "at_epoch": 1795075027.8001323,
+      "path": "/chat/completions",
+      "stream": true,
+      "model": "fake-acceptance-recovery-1",
+      "mode": "ok",
+      "auth_present": true,
+      "body_bytes": 251075,
+      "response": {
+        "finished": true,
+        "note": "",
+        "chunks": 10
+      }
+    },
+    {
+      "seq": 3,
+      "at": "2026-11-19T15:57:13.075",
+      "at_epoch": 1795075033.0758007,
+      "path": "/chat/completions",
+      "stream": true,
+      "model": "fake-acceptance-recovery-1",
+      "mode": "hang",
+      "auth_present": true,
+      "body_bytes": 251337
+    },
+    {
+      "seq": 4,
+      "at": "2026-11-19T15:57:24.281",
+      "at_epoch": 1795075044.2814357,
+      "path": "/chat/completions",
+      "stream": true,
+      "model": "fake-acceptance-recovery-1",
+      "mode": "ok",
+      "auth_present": true,
+      "body_bytes": 251337,
+      "response": {
+        "finished": true,
+        "note": "",
+        "chunks": 8
+      }
+    }
+  ],
+  "supplier_seq_total": 4,
+  "network_probe": {
+    "host": "8.138.223.126",
+    "probed_at": "2026-11-19T15:57:38.629",
+    "ports": {
+      "22": {
+        "connect_seconds": 0.001,
+        "protocol": "timeout",
+        "detail": "connected but no protocol data within 3s",
+        "tcp_connect": true
+      },
+      "443": {
+        "connect_seconds": 0.001,
+        "protocol": "https-get",
+        "detail": "HTTP 200",
+        "tcp_connect": true
+      },
+      "8000": {
+        "connect_seconds": 0.014,
+        "protocol": "timeout",
+        "detail": "connected but no protocol data within 3s",
+        "tcp_connect": true
+      },
+      "8001": {
+        "connect_seconds": 0.024,
+        "protocol": "timeout",
+        "detail": "connected but no protocol data within 3s",
+        "tcp_connect": true
+      },
+      "8443": {
+        "connect_seconds": 0.014,
+        "protocol": "timeout",
+        "detail": "connected but no protocol data within 3s",
+        "tcp_connect": true
+      }
+    },
+    "note": "TCP connect + 协议层只读探测；B 轮协议级证据见 R3739"
+  },
+  "finished_at": "2026-11-19T15:57:38.948",
+  "finished_epoch": 1795075058.9480548,
+  "all_checks_passed": true
+}
