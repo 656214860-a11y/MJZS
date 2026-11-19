@@ -1,0 +1,15 @@
+{
+  "round": 3698,
+  "commit_base": "e297acfb",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_budget infra/budget.py tests/test_budget.py runbook.md tasks_round/tasks_round_3698_result.md",
+    "exit": 0,
+    "passed": 22,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T10:35:28"
+}
