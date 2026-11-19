@@ -22,6 +22,11 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+try:
+    from scripts import sbom as sbom_builder
+except ImportError:  # direct ``python scripts/distribution_build.py``
+    import sbom as sbom_builder
+
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
 PROGRAM = ROOT / '程序'
@@ -196,6 +201,9 @@ def build(destination, root=ROOT, manifest=None, allow_undecided=False) -> dict:
         shutil.copy2(source, target)
         entries.append({'path': relative, 'bytes': source.stat().st_size,
                         'sha256': _sha256(source)})
+    for target in sbom_builder.write(base / '程序', dest, app_version=_version()):
+        entries.append({'path': target.relative_to(dest).as_posix(),
+                        'bytes': target.stat().st_size, 'sha256': _sha256(target)})
     report = {'version': _version(), **_git_binding(base),
               'generated_at': datetime.now().isoformat(timespec='seconds'),
               'root': str(base), 'files': len(entries),
@@ -230,14 +238,31 @@ def verify(destination, root=ROOT, manifest=None) -> dict:
             extra = [rel for rel in present if rel not in listed and rel != DIGEST_NAME]
             digest = {'ok': not mismatch and not extra, 'files': len(entries),
                       'mismatch': mismatch[:20], 'extra': extra[:20]}
+    sbom_path = dest / 'sbom.cdx.json'
+    notices_path = dest / 'THIRD_PARTY_NOTICES.txt'
+    sbom = read_json_file(sbom_path, default=None) if sbom_path.is_file() else None
+    components = sbom.get('components') if isinstance(sbom, dict) else None
+    blockers = []
+    for component in components or []:
+        license_ids = [item.get('license', {}).get('id')
+                       for item in component.get('licenses') or [] if isinstance(item, dict)]
+        if 'NOASSERTION' in license_ids:
+            blockers.append(component.get('bom-ref') or component.get('name'))
+    supply_chain = {
+        'ok': bool(isinstance(sbom, dict) and sbom.get('bomFormat') == 'CycloneDX'
+                   and sbom.get('specVersion') == '1.5' and components and notices_path.is_file()),
+        'components': len(components or []), 'release_blockers': blockers,
+    }
     jingju = dest / JINGJU_PACKAGE / 'SKILL.md'
     checks = {
         'no_excluded': {'ok': not leaked, 'count': len(leaked), 'hits': leaked[:20]},
         'keep_present': {'ok': not missing, 'missing': missing},
         'digest': digest,
         'jingju_package': {'ok': jingju.is_file(), 'path': str(jingju)},
+        'supply_chain': supply_chain,
     }
-    return {'ok': all(item['ok'] for item in checks.values()),
+    valid = all(item['ok'] for item in checks.values())
+    return {'ok': valid, 'release_ready': valid and not blockers,
             'destination': str(dest), 'checks': checks}
 
 

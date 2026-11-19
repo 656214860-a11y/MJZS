@@ -70,4 +70,5 @@
 
 - `--plan` 生成候选文件集并报告三类命中：清单要保留的、清单要排除的、以及清单没提、需要人工决定的（避免悄悄漏文件）。
 - `--build` 拒绝把输出写到开发目录内部、拒绝覆盖非空目录、拒绝在还有未决定文件时静默继续；输出里写 `分发清单.json`（版本＋逐文件 sha256）。
-- `--verify` 校验输出里没有排除项、必需入口齐全、摘要自洽，并确认 `程序/skills/00全流程SKILL/jingju-skills` 整包仍在（安装验收的隔离要求）。
+- `--build` 同时生成 CycloneDX 1.5 `sbom.cdx.json` 与人读 `THIRD_PARTY_NOTICES.txt`，两者进入 `分发清单.json` 的逐文件 sha256。
+- `--verify` 校验输出里没有排除项、必需入口齐全、摘要与 SBOM 自洽，并确认 `程序/skills/00全流程SKILL/jingju-skills` 整包仍在（安装验收的隔离要求）；`distribution_selfcheck.py --release` 还会拒绝 `NOASSERTION` 等发布阻断。

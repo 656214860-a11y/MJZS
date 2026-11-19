@@ -9,6 +9,7 @@ r"""分发副本自检：构建 → 校验 → 用副本自带的解释器导入
 """
 from __future__ import annotations
 
+import argparse
 import subprocess
 import sys
 import tempfile
@@ -21,7 +22,7 @@ import distribution_build  # noqa: E402
 ENTRY_MODULES = ('app_logging', 'diagnostic_capture', 'model_pool', 'desktop', 'app')
 
 
-def run(root: Path | None = None) -> list[str]:
+def run(root: Path | None = None, *, require_release_ready=False) -> list[str]:
     """返回问题列表；空表示通过。"""
     root = Path(root or distribution_build.ROOT)
     problems: list[str] = []
@@ -34,6 +35,9 @@ def run(root: Path | None = None) -> list[str]:
         report = distribution_build.verify(destination)
         if not report.get('ok', False):
             problems.append('校验未通过：' + str({k: v for k, v in report.items() if k != 'files'})[:400])
+        if require_release_ready and not report.get('release_ready', False):
+            blockers = report.get('checks', {}).get('supply_chain', {}).get('release_blockers', [])
+            problems.append('发布供应链门未通过：' + ', '.join(blockers or ['未知阻断']))
         python = destination / '运行环境' / 'Python' / 'python.exe'
         program = destination / '程序'
         if not python.is_file():
@@ -47,8 +51,11 @@ def run(root: Path | None = None) -> list[str]:
     return problems
 
 
-def main() -> int:
-    problems = run()
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument('--release', action='store_true', help='同时要求许可证/签名等发布门就绪')
+    args = parser.parse_args(argv)
+    problems = run(require_release_ready=args.release)
     for line in problems:
         print('[分发自检]', line)
     print('[分发自检]', '通过' if not problems else '未通过')

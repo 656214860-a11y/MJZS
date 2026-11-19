@@ -18,9 +18,11 @@ _spec.loader.exec_module(subject)
 
 MANIFEST = {
     'keep': ['启动漫剧制作助手.pyw', '启动助手.cmd', '运行环境/Python/', '程序/app.py',
-             '程序/desktop.py', '程序/skills/', '程序/配置/', '程序/agent/', '程序/extra/'],
+             '程序/desktop.py', '程序/requirements.txt', '程序/skills/', '程序/配置/',
+             '程序/agent/', '程序/extra/'],
     'exclude': ['程序/tests/**', '程序/tasks_round/**', '程序/维护记录/**',
-                '程序/scripts/**', '程序/logs/**', '程序/private/**'],
+                '程序/scripts/**', '程序/logs/**', '程序/private/**',
+                '程序/external_tools.lock.json'],
 }
 
 SOURCE_FILES = {
@@ -29,6 +31,12 @@ SOURCE_FILES = {
     '运行环境/Python/python.exe': 'exe',
     '程序/app.py': 'app',
     '程序/desktop.py': 'desktop',
+    '程序/requirements.txt': 'requests==2.34.2\n',
+    '程序/external_tools.lock.json': json.dumps({'tools': {
+        '运行环境/Python/python.exe': {'version': 'Python fixture', 'sha256': 'a' * 64,
+                                      'bytes': 3, 'source': 'https://python.org/',
+                                      'license': 'PSF-2.0'},
+    }}),
     '程序/skills/00全流程SKILL/jingju-skills/SKILL.md': 'jingju',
     '程序/配置/默认.json': '{}',
     '程序/agent/core.py': 'core',
@@ -36,6 +44,7 @@ SOURCE_FILES = {
     '程序/tests/test_x.py': 'test',
     '程序/tasks_round/a.md': 'round',
     '程序/维护记录/b.json': '{}',
+    '程序/维护记录/外部技能包哈希.json': json.dumps({'packages': {}}),
     '程序/scripts/tool.py': 'tool',
     '程序/logs/x.log': 'log',
     '程序/private/密钥/a.dpapi': 'secret',
@@ -146,6 +155,26 @@ class DistributionBuildTests(unittest.TestCase):
         subject.build(self.base / 'out', self.source, MANIFEST)
         verdict = subject.verify(self.base / 'out', self.source, MANIFEST)
         self.assertTrue(verdict['ok'], verdict)
+        self.assertTrue(verdict['release_ready'], verdict)
+        self.assertTrue((self.base / 'out/sbom.cdx.json').is_file())
+        self.assertTrue((self.base / 'out/THIRD_PARTY_NOTICES.txt').is_file())
+        self.assertGreater(verdict['checks']['supply_chain']['components'], 0)
+
+    def test_verify_blocks_release_when_skill_license_is_unconfirmed(self):
+        registry = self.source / '程序/维护记录/外部技能包哈希.json'
+        registry.write_text(json.dumps({'packages': {
+            'skills/01 剧本准备SKILL/剧本锻造': {
+                'source': 'https://github.com/zhlmi/script-forging.git',
+                'commit': 'b' * 40,
+                'tree': 'c' * 40,
+            },
+        }}), encoding='utf-8')
+        subject.build(self.base / 'out', self.source, MANIFEST)
+        verdict = subject.verify(self.base / 'out', self.source, MANIFEST)
+        self.assertTrue(verdict['ok'], verdict)
+        self.assertFalse(verdict['release_ready'], verdict)
+        self.assertIn('skill:skills/01 剧本准备SKILL/剧本锻造',
+                      verdict['checks']['supply_chain']['release_blockers'])
 
     def test_verify_flags_injected_excluded_file(self):
         subject.build(self.base / 'out', self.source, MANIFEST)

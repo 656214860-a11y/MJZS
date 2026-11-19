@@ -1,6 +1,6 @@
 # 发布包签名与 SBOM 方案（T6，先出方案待批准）
 
-- 日期：2026-11-15｜状态：**方案，未实现**
+- 日期：2026-11-19｜状态：**SBOM 已实现；发布签名待外部密钥/证书**
 - 范围：发布包（`distribution_build.py` 产物）的签名验证与物料清单；不动发布流程、不加运行时依赖。
 
 ## 1. 目标与非目标
@@ -10,10 +10,10 @@
 
 ## 2. SBOM（物料清单）
 
-- 产物：`sbom.json`（CycloneDX 1.5 JSON）＋ `sbom.txt`（人读清单），随分发包输出到 `dist/`。
+- 产物：`sbom.cdx.json`（CycloneDX 1.5 JSON）＋ `THIRD_PARTY_NOTICES.txt`（人读清单），由现有分发构建器写入输出根并纳入逐文件 SHA256。
 - 内容：随附解释器 `运行环境/Python`（版本与哈希，复用 `external_tools.lock.json` 数据）、全部产品 `.py` 的相对路径＋sha256、gitlink 技能包的来源仓库与固定提交（读 `维护记录/外部技能包哈希.json`）、ffmpeg 等外部工具条目。
-- 生成器：`scripts/sbom.py`（stdlib-only），`distribution_build.py` 末尾可选调用；`distribution_selfcheck` 校验 `sbom.json` 与清单一致。
-- 决策点：①格式选 CycloneDX（SPDX 亦可，CycloneDX JSON 生态更顺手）；②gitlink 包列到包级还是文件级——建议包级＋固定提交，文件级清单会让 SBOM 体积×10。
+- 生成器：`scripts/sbom.py`（stdlib-only），`distribution_build.py` 默认调用；`distribution_selfcheck --release` 校验 SBOM 并阻断 `NOASSERTION`。
+- 已采用：CycloneDX 1.5；产品 Python 依赖按包级，随附二进制按文件 SHA256，gitlink 包按包级＋固定提交/树哈希，避免重复一份巨型文件清单。
 
 ## 3. 发布包签名
 
@@ -29,8 +29,7 @@
 - `skill_package_pins`（R2538）已钉外部技能包提交与树哈希——SBOM 引用其登记值。
 - `tools_lock` 启动自检保持"只告警不阻断"；签名验证也只放发布与自检通道，不进启动路径（规则 33）。
 
-## 5. 待用户拍板
+## 5. 剩余发布门
 
-1. SBOM 粒度：包级 vs 文件级（建议混合：产品文件逐文件、外部包到包级）。
-2. 签名方案 A/B/C 选型与密钥保管位置（构建机本地 vs 服务器）。
-3. 是否把 SBOM/签名挂进 `distribution_build.py` 默认流程还是先独立脚本。
+1. `剧本锻造` 上游固定提交没有 LICENSE；SBOM 标 `NOASSERTION`，正式发布前须移除该组件或取得再分发授权。
+2. 签名方案与密钥保管仍需真实构建机资源；当前不生成假签名。首发建议 minisign/GPG，商业发行再评估 Authenticode。
