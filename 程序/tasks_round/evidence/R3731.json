@@ -1,0 +1,15 @@
+{
+  "round": 3731,
+  "commit_base": "fa43dea8",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k skill_package_pins agents_md",
+    "exit": 0,
+    "passed": 22,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T13:07:50"
+}
