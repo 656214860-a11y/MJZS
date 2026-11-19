@@ -2,7 +2,7 @@
 
 ## 用途与边界
 
-本清单定义正式分发副本应包含和排除的路径。它是供未来构建/校验工具消费的声明，**不执行复制、移动、删除或归档**，也不在应用启动时读取。
+本清单定义正式分发副本应包含和排除的路径，由仓库现有 `scripts/distribution_build.py` 构建/校验工具消费；清单本身不执行复制、移动、删除或归档，也不在应用启动时读取。
 
 分发根为 `D:\漫剧制作助手\`。正式副本保留根目录启动器、`运行环境/` 与 `程序/` 的运行所需内容；用户项目 `D:\漫剧下载\` 不属于分发输入。
 
@@ -38,7 +38,7 @@
 | `程序/private/**` | 本机私有数据 | 不得随分发副本携带私有配置或密钥副本。 |
 | `程序/data/skills/**` | 用户导入的 SKILL | R2073：用户层 SKILL 与导入台账，由目标机器生成；升级只保留不覆盖。 |
 | `.claude/**`、`.codex/**`、`.agents/**`、`.agent-handoff/**`、`.tools/**`、`outputs/**`（本机 Agent 草稿目录与第三方下载工具，已被 .git/info/exclude 忽略） | 代理/开发产物 | 不是运行时内容，不进正式副本。 |
-| `.wt/**`、`.gitattributes`、`.gitignore`、`.claudeignore`、`AGENTS.md`、`CLAUDE.md`、`开发者工具/BLOCKED_ISSUES.md`、`reorganize_install.py`、`开发者工具/handoff-full-safe.md` | 开发/代理资料 | 不是运行时内容。 |
+| `.wt/**`、`.gitmodules`、`.gitattributes`、`.gitignore`、`.claudeignore`、`AGENTS.md`、`CLAUDE.md`、`开发者工具/BLOCKED_ISSUES.md`、`reorganize_install.py`、`开发者工具/handoff-full-safe.md` | 开发/代理资料 | 子模块来源映射与其他开发元数据不属于运行时；Skill 内容由构建器从已初始化的固定提交复制。 |
 | `程序/.*.err`、`程序/.*.out`、`程序/.*.log`、`维护记录/**` | 自检与维护产物 | 可再生成的诊断输出。 |
 | `程序/outputs/**`、`程序/工作流任务/**`、`工作流任务/**`、`程序/episode/**`、`程序/tasks/**`、`程序/_supervisor/**` | 本地运行产物 | 可再生产物与根目录开发任务现场，不随分发副本携带。 |
 | `运行环境/Python_alpha_a2_backup/**`、`运行环境/Python315_pruned_backup/**`、`运行环境/Python.bak*/**` | 本机备份 | 解释器旧版、裁剪与换版前的 `.bak_*` 快照备份，正式交付只保留 `运行环境/Python/`。 |
