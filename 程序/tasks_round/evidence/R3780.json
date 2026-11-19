@@ -1,0 +1,15 @@
+{
+  "round": 3780,
+  "commit_base": "936c0484",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k agent_doc_budget architecture.md tests/architecture/test_agent_doc_budget.py 维护记录/文档登记快照.json 说明/产品需求规格.md tasks_round/tasks_round_3766_result.md tasks_round/evidence/R3766.json",
+    "exit": 0,
+    "passed": 11,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T15:04:37"
+}
