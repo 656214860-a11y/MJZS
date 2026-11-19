@@ -62,6 +62,44 @@ def _packages(program: Path) -> list:
     return components
 
 
+def _optional_asr_packages(program: Path) -> list:
+    voice = program / 'voice_engine'
+    lock_path = voice / 'requirements.lock'
+    supply_path = voice / 'supply_chain.lock.json'
+    if not lock_path.is_file() or not supply_path.is_file():
+        raise ValueError('离线 ASR 缺完整依赖锁或供应链登记')
+    supply = _json(supply_path)
+    licenses = {re.sub(r'[-_.]+', '-', name).lower(): value
+                for name, value in (supply.get('licenses') or {}).items()}
+    source_template = str(supply.get('source_template') or '')
+    locked = {}
+    for raw in lock_path.read_text(encoding='utf-8').splitlines():
+        line = raw.partition('#')[0].strip()
+        if not line:
+            continue
+        match = LOCK_LINE.fullmatch(line)
+        if not match:
+            raise ValueError('ASR 依赖不是精确锁：' + line)
+        name, version = match.groups()
+        locked[re.sub(r'[-_.]+', '-', name).lower()] = version
+    if set(locked) != set(licenses):
+        raise ValueError('ASR 供应链登记与完整锁不一致：' + str({
+            'missing': sorted(set(locked) - set(licenses)),
+            'extra': sorted(set(licenses) - set(locked)),
+        }))
+    components = []
+    for name, version in sorted(locked.items()):
+        source = source_template.format(name=name, version=version)
+        purl = f'pkg:pypi/{name}@{version}'
+        components.append({'type': 'library', 'name': name, 'version': version,
+                           'bom-ref': 'optional-asr:' + purl, 'purl': purl,
+                           'scope': 'optional', 'licenses': _license(str(licenses[name])),
+                           'externalReferences': _reference(source),
+                           'properties': [{'name': 'release:environment',
+                                           'value': 'voice_engine isolated venv'}]})
+    return components
+
+
 def _tools(program: Path) -> list:
     components = []
     for path, item in sorted((_json(program / 'external_tools.lock.json').get('tools') or {}).items()):
@@ -94,7 +132,8 @@ def _skills(program: Path) -> list:
 
 def build(program: Path, app_version='') -> tuple[dict, str]:
     program = Path(program)
-    components = _packages(program) + _tools(program) + _skills(program)
+    components = (_packages(program) + _optional_asr_packages(program)
+                  + _tools(program) + _skills(program))
     document = {
         'bomFormat': 'CycloneDX', 'specVersion': '1.5', 'version': 1,
         'metadata': {'component': {'type': 'application', 'name': '漫剧制作助手',

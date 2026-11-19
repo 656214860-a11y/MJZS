@@ -11,7 +11,7 @@
 ## 2. SBOM（物料清单）
 
 - 产物：`sbom.cdx.json`（CycloneDX 1.5 JSON）＋ `THIRD_PARTY_NOTICES.txt`（人读清单），由现有分发构建器写入输出根并纳入逐文件 SHA256。
-- 内容：随附解释器 `运行环境/Python`（版本与哈希，复用 `external_tools.lock.json` 数据）、全部产品 `.py` 的相对路径＋sha256、gitlink 技能包的来源仓库与固定提交（读 `维护记录/外部技能包哈希.json`）、ffmpeg 等外部工具条目。
+- 内容：主程序精确生产依赖、离线 ASR 独立环境的完整传递锁（标为 optional）、随附解释器/FFmpeg 工具锁，以及 gitlink 技能包的来源仓库、固定提交和树哈希。逐文件完整性由同包 `分发清单.json` 负责，不在 SBOM 重复生成巨型文件组件表。
 - 生成器：`scripts/sbom.py`（stdlib-only），`distribution_build.py` 默认调用；`distribution_selfcheck --release` 校验 SBOM 并阻断 `NOASSERTION`。
 - 已采用：CycloneDX 1.5；产品 Python 依赖按包级，随附二进制按文件 SHA256，gitlink 包按包级＋固定提交/树哈希，避免重复一份巨型文件清单。
 
@@ -28,6 +28,7 @@
 - `external_tools.lock.json`（R2569）已钉外部工具哈希——SBOM 直接复用其数据，不重复登记。
 - `skill_package_pins`（R2538）已钉外部技能包提交与树哈希——SBOM 引用其登记值。
 - `tools_lock` 启动自检保持"只告警不阻断"；签名验证也只放发布与自检通道，不进启动路径（规则 33）。
+- ASR 供应链登记在 `voice_engine/supply_chain.lock.json`，其包名集合必须与 `requirements.lock` 完全相等；少登记、多登记或非精确版本均拒绝生成 SBOM。
 
 ## 5. 剩余发布门
 

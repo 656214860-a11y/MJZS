@@ -22,7 +22,7 @@ _spec.loader.exec_module(subject)
 MANIFEST = {
     'keep': ['启动漫剧制作助手.pyw', '启动助手.cmd', '运行环境/Python/', '程序/app.py',
              '程序/desktop.py', '程序/requirements.txt', '程序/skills/', '程序/配置/',
-             '程序/agent/', '程序/extra/'],
+             '程序/agent/', '程序/extra/', '程序/voice_engine/'],
     'exclude': ['程序/tests/**', '程序/tasks_round/**', '程序/维护记录/**',
                 '程序/scripts/**', '程序/logs/**', '程序/private/**',
                 '程序/external_tools.lock.json'],
@@ -35,6 +35,11 @@ SOURCE_FILES = {
     '程序/app.py': 'app',
     '程序/desktop.py': 'desktop',
     '程序/requirements.txt': 'requests==2.34.2\n',
+    '程序/voice_engine/requirements.lock': 'numpy==1.26.4\n',
+    '程序/voice_engine/supply_chain.lock.json': json.dumps({
+        'source_template': 'https://pypi.org/project/{name}/{version}/',
+        'licenses': {'numpy': 'BSD-3-Clause'},
+    }),
     '程序/external_tools.lock.json': json.dumps({'tools': {
         '运行环境/Python/python.exe': {'version': 'Python fixture', 'sha256': 'a' * 64,
                                       'bytes': 3, 'source': 'https://python.org/',

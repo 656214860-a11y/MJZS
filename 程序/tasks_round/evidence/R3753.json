@@ -1,0 +1,15 @@
+{
+  "round": 3753,
+  "commit_base": "adcc27f3",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k sbom distribution_build dynamic_import_registry",
+    "exit": 0,
+    "passed": 58,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T13:50:43"
+}

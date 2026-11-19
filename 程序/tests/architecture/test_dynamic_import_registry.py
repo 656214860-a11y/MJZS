@@ -114,7 +114,7 @@ def _production_tool_audit() -> dict:
             "voice_engine/bootstrap.py": ("main", "__main__"),
             "voice_engine/download_models.py": ("main", "__main__"),
         }, ("voice_engine/requirements.txt", "voice_engine/requirements.lock",
-            "voice_engine/models.lock.json")),
+            "voice_engine/models.lock.json", "voice_engine/supply_chain.lock.json")),
         "selftests": tool("development", {
             "smoke_test.py": ("main",), "run_selftests.py": ("main",),
         }, tuple(sorted(f"{name}.py" for name in _scan._EXCLUDED_STEMS - {"smoke_test", "run_selftests"}))),
@@ -217,6 +217,7 @@ class ProductionToolClosureTests(unittest.TestCase):
             "voice_engine/download_models.py", "voice_engine/funasr_config.py",
             "voice_engine/offline_asr_server.py", "voice_engine/requirements.txt",
             "voice_engine/requirements.lock", "voice_engine/models.lock.json",
+            "voice_engine/supply_chain.lock.json",
         })
 
     def test_infra_does_not_import_batch_orchestration(self) -> None:
