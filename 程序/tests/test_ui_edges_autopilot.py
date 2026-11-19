@@ -263,11 +263,15 @@ class UiEdgeAutoTests(UiEdgeCase):
             self.assertTrue(project_settings.auto_handoff(proj))
             self.assertTrue(d.pet.should_auto_run('delivery'))
             def settle():
-                for _ in range(80):
+                deadline = time.monotonic() + 5
+                while time.monotonic() < deadline:
                     win.update()
+                    # 本用例取消了自动tick；结果队列仍须由真实主线程tick消费。
+                    d._tick_once()
                     if not d.auto.handoff_busy:
-                        break
+                        return
                     time.sleep(0.01)
+                self.assertFalse(d.auto.handoff_busy, '自动交接后台任务未在5秒内结束')
             from contract.project_stages import editing
             folder = editing(proj) / "自动交接包"
             d.poll_auto_handoff()
