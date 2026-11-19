@@ -25,8 +25,6 @@ USABLE = frozenset({VALID, GRACE})
 CLOCK_TOLERANCE = 300
 FREE_STAGES = tuple(STAGES[:2])
 PAID_STATES = frozenset({'trial', 'active'})
-# 总开关：True 时付费阶段（前 2 个之外）在未登录、过期、时钟异常时拦截新生成；False 只判定不拦截。
-GATE_ENFORCED = True
 
 
 @dataclass(frozen=True)
@@ -39,7 +37,7 @@ class Entitlement:
         return self.state in USABLE
 
 
-def evaluate(lease, *, now, device_id, last_server_time=0, keys=None):
+def evaluate(lease, *, now, device_id, last_server_time=0, estimated_now=0, keys=None):
     """按 §4.3 离线状态机判定；``now`` 与 ``last_server_time`` 均为 UTC 秒。"""
     payload = lease_verifier.verify(lease, keys) if lease else None
     if payload is None or not device_id or payload.get('did') != device_id:
@@ -47,11 +45,13 @@ def evaluate(lease, *, now, device_id, last_server_time=0, keys=None):
     try:
         expires_at = int(payload['expires_at'])
         grace_until = int(payload['grace_until'])
-        floor = max(int(last_server_time or 0), int(payload.get('issued_at') or 0))
+        floor = max(int(last_server_time or 0), int(payload.get('iat_server') or 0),
+                    int(payload.get('issued_at') or 0))
     except (KeyError, TypeError, ValueError):
         return Entitlement(SIGNED_OUT)
     if now + CLOCK_TOLERANCE < floor:
         return Entitlement(CLOCK_SUSPECT, payload)
+    now = max(now, estimated_now)
     if payload.get('state') not in PAID_STATES or now >= grace_until:
         return Entitlement(LOCKED, payload)
     return Entitlement(VALID if now < expires_at else GRACE, payload)
@@ -108,17 +108,19 @@ def is_paid_stage(stage):
 
 
 def stage_block_message(entitlement, stage):
-    """放行返回空串；拦截时返回给用户看的一句话。非阶段键（如三虎表演）一律放行。"""
-    if not is_paid_stage(stage) or entitlement.usable:
-        return ''
-    return _block_text(STAGE_NAMES.get(stage, stage), entitlement)
+    """阶段入口按收费阶段判断，返回供 UI 展示的拦截文案。"""
+    return _block_reason(entitlement, stage)
 
 
 def page_block_message(entitlement, stage, title):
-    """侧栏换页闸：免费阶段之外的页（含与项目无关的工具页，``stage`` 为 None）在授权不可用时返回原因。"""
-    if stage in FREE_STAGES or entitlement.usable:
+    """侧栏与阶段入口使用同一授权判据。"""
+    return _block_reason(entitlement, stage, title)
+
+
+def _block_reason(entitlement, stage, title=None):
+    if not is_paid_stage(stage) or entitlement.usable:
         return ''
-    return _block_text(title, entitlement)
+    return _block_text(STAGE_NAMES.get(stage, stage) if title is None else title, entitlement)
 
 
 def _block_text(title, entitlement):

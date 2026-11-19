@@ -1,0 +1,15 @@
+{
+  "round": 3610,
+  "commit_base": "2ee0ca83",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k log_sink_boundary app_logging secret_sink_audit image_agent_runner writing_api stage_parallel pet_agent",
+    "exit": 0,
+    "passed": 241,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T06:04:35"
+}

@@ -1,0 +1,15 @@
+{
+  "round": 3407,
+  "commit_base": "ea9f94ed",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k infra_errors error_codes engine_probe native_apps copy_rules layer_relations",
+    "exit": 0,
+    "passed": 83,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T22:27:42"
+}

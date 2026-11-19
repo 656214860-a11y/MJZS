@@ -1,5 +1,5 @@
 """Qwen executes the app's configured local image backend for a fixed batch."""
-import argparse,copy,json,shutil,sys,threading,time
+import argparse,copy,json,logging,shutil,sys,threading,time
 from pathlib import Path
 from agent.core import read,save,fingerprint
 from contract.media_signature import is_png
@@ -23,7 +23,7 @@ class Events:
     def __init__(self,manifest):self.folder=Path(manifest).parent
     def put(self,message):
         print(message,flush=True)
-        with (self.folder/'执行日志.txt').open('a',encoding='utf-8') as stream:stream.write(str(message)+'\n')
+        logging.getLogger(__name__).info('%s', message)
         save(self.folder/'执行状态.json',{'state':'running','message':str(message),'updated':time.time()})
 
 

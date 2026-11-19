@@ -13,29 +13,26 @@ import struct
 import subprocess
 import sys
 import time
-from contract.platform_tools import launch_background, run_process, tool_path
+from contract.platform_tools import run_process, tool_path
+from infra.workflow_process_registry import spawn, forget_process
 import tkinter as tk
 from pathlib import Path
 from infra.file_cache import read_json, remove_temporary_file
 from agent.core import save, save_bytes
-
 DEFAULT_SIZE = 36
-LIMIT = 1200          # 第 64 期任务 8：一项约 20 KB，满打满算约 24 MB
+LIMIT = 1200
 _CACHE = {}
 PNG_MAGIC = b'\x89PNG\r\n\x1a\n'
 GIF_MAGIC = (b'GIF87a', b'GIF89a')
-
 PROGRAM = Path(__file__).resolve().parents[1]
-# 安装目录在交付版中可能是只读的；缓存与任务队列必须落在当前用户可写的位置，
-# 任务登记失败时页面先保留文字或占位图。
 CACHE_ROOT = Path(os.environ.get('TEMP') or os.environ.get('LOCALAPPDATA') or PROGRAM) / 'AI漫剧制作助手' / '缩略图'
-CACHE_LIMIT = 4000    # 缓存上限（张）：与字节预算一起按最老优先回收
-POLL_MS = 120         # 界面线程每 120 毫秒收一次结果
-WORKER_IDLE = 90      # 后台进程空转 90 秒自己退（关掉软件之后不留常驻进程）
-FALLBACK_SECONDS = 2.0   # 「刚起来就死」的判据：这么短就没了的，当它这一趟不可用
-JOB_DEADLINE = 20.0      # 一条任务等这么久还不回来，后台重试一次
-QUEUE_LIMIT = 400         # 大项目滚动列表时，后台任务不能无限堆积占满磁盘与内存
-RESULTS_PER_TICK = 12     # 分批收结果，不能一拍扫／贴完整个长列表队列，留出 Tk 绘制时间
+CACHE_LIMIT = 4000
+POLL_MS = 120
+WORKER_IDLE = 90
+FALLBACK_SECONDS = 2.0
+JOB_DEADLINE = 20.0
+QUEUE_LIMIT = 400
+RESULTS_PER_TICK = 12
 
 SOURCE_EDGE = 16384
 SOURCE_PIXELS = 16 * 1024 * 1024
@@ -48,24 +45,19 @@ TRIM_INTERVAL = 16
 _CACHE_COST = {}
 _CACHE_BYTES = 0
 _GENERATION = 0
-
-_PENDING = {}         # 键 → 一条等 update() 来收的任务
-_PUMP = None          # 界面线程上那个定时器挂在哪个 master 上
-_PUMP_ID = None       # 上面那一拍的 after 标识；销毁窗口前必须取消
+_PENDING = {}
+_PUMP = None
+_PUMP_ID = None
 _PENDING_CURSOR = 0   # 分批轮询 pending 的起点，避免永远只检查队首
 _WORKER = None        # 后台进程句柄
 _WORKER_AT = 0.0
 _WORKER_BAD = False   # 失败启动进入有限冷却；回收失败保留句柄
 _BLIT_BAD = False     # 这一趟会话里「就地贴图」用不了（老 Tk）：照旧先给 None，不摆空盒子
-
-
 def png_size(data):
     """PNG 的 IHDR：宽、高（都是大端 4 字节）；认不出返回 None。"""
     if len(data) < 24 or not data.startswith(PNG_MAGIC) or data[12:16] != b'IHDR':
         return None
     return struct.unpack('>II', data[16:24])
-
-
 def gif_size(data):
     """GIF 的逻辑屏幕宽高（小端 2 字节）；认不出返回 None。"""
     if len(data) < 10 or data[:6] not in GIF_MAGIC:
@@ -745,19 +737,22 @@ def reset_worker(timeout=2.0):
     """
     global _WORKER, _WORKER_AT, _WORKER_BAD
     worker = _WORKER
+    # I9a：_WORKER 现在是 SupervisedProcess 包装；等待/终止须落在底层 Popen 上，
+    # 否则 wait 超时返回 None 而非抛 TimeoutExpired，kill 升级路径会失效。
+    proc = getattr(worker, 'process', worker) if worker is not None else None
     reaped = True
-    if worker is not None and callable(getattr(worker, 'wait', None)):
+    if proc is not None and callable(getattr(proc, 'wait', None)):
         try:
-            worker.terminate()
+            proc.terminate()
         except Exception:
             app_logging.swallowed()
         try:
-            worker.wait(timeout=timeout)   # 回收掉，别留一个「还在跑」的句柄（自检会报 ResourceWarning）
+            proc.wait(timeout=timeout)   # 回收掉，别留一个「还在跑」的句柄（自检会报 ResourceWarning）
         except subprocess.TimeoutExpired:
             reaped = False
             try:
-                worker.kill()
-                worker.wait(timeout=timeout)
+                proc.kill()
+                proc.wait(timeout=timeout)
                 reaped = True
             except subprocess.TimeoutExpired:
                 pass
@@ -776,6 +771,11 @@ def reset_worker(timeout=2.0):
     _WORKER = None
     _WORKER_AT = 0.0
     _WORKER_BAD = False
+    if proc is not None:
+        try:
+            forget_process(PROGRAM, proc)
+        except Exception:
+            app_logging.swallowed()
     return reaped
 
 
@@ -805,11 +805,14 @@ def _ensure_worker():
         return True
     try:
         Path(CACHE_ROOT).mkdir(parents=True, exist_ok=True)
-        _WORKER = launch_background(
-            [sys.executable, '-m', 'ui.asset_thumbs', '--worker', str(CACHE_ROOT)],
-            cwd=str(Path(__file__).resolve().parents[1]),
+        # I9a：经进程监督器拉起——进 Job Object（应用退出即收）、登记进程表；
+        # 凭据白名单环境不变，空转 90 秒自退的契约不变（timeout 只约束 wait 缺省）。
+        _WORKER = spawn(
+            'ffmpeg', [sys.executable, '-m', 'ui.asset_thumbs', '--worker', str(CACHE_ROOT)],
+            project=PROGRAM, stage='asset-thumbs', timeout=3600,
+            cwd=str(PROGRAM),
             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-            env=_worker_environment(), popen=subprocess.Popen)
+            env=_worker_environment())
         _WORKER_AT = time.monotonic()
         return True
     except Exception:

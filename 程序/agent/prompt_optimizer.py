@@ -1,6 +1,7 @@
 """Nonblocking desktop integration; no API call on opening settings."""
 import json,subprocess,threading,queue,re
-import contract.platform_tools as platform_tools
+from contract.infra_errors import ProcessError
+from infra.workflow_process_registry import spawn
 from pathlib import Path
 from contract.storyboard_paths import media_root
 from urllib.parse import urlparse
@@ -185,10 +186,13 @@ def start(app,source_prompt=None):
     results=queue.Queue();app.optimizer_busy=True;app.write('Prompt Optimizer MCP 正在优化，可切换其他页面。')
     def work():
         try:
-            proc=platform_tools.run_process([cfg.get('python'),str(ROOT/'agent/optimizer_mcp_bridge.py')],input=json.dumps(data),
-                capture_output=True,text=True,encoding='utf-8',timeout=125)
-            response=json.loads(proc.stdout)
-            if proc.returncode or response.get('error'):
+            sup=spawn('optimizer',[cfg.get('python'),str(ROOT/'agent/optimizer_mcp_bridge.py')],
+                      project=ROOT,stage='prompt-optimizer',timeout=125,pump_stderr=False,
+                      stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,
+                      text=True,encoding='utf-8')
+            out,_err=sup.communicate(input=json.dumps(data),timeout=125)
+            response=json.loads(out)
+            if sup.process.returncode or response.get('error'):
                 results.put((False,response.get('error','MCP 服务未正常退出，请检查安装路径与依赖。')));return
             text=response.get('text','').strip()
             if not text or len(text)>1500:raise ValueError('优化结果为空或超过1500字，原提示词保留')
@@ -199,7 +203,7 @@ def start(app,source_prompt=None):
         except subprocess.TimeoutExpired:results.put((False,'MCP 优化超时（125秒），原提示词保留，未自动重试。'))
         except json.JSONDecodeError:results.put((False,'MCP 服务没有返回有效结果，请检查服务依赖与 Python 路径。'))
         except ValueError as exc:results.put((False,'优化未完成：'+str(exc)+'。原提示词保留。'))
-        except (OSError,subprocess.SubprocessError):results.put((False,'无法启动 MCP 服务，请检查 Python 和 MCP 服务文件路径。'))
+        except (OSError,subprocess.SubprocessError,ProcessError):results.put((False,'无法启动 MCP 服务，请检查 Python 和 MCP 服务文件路径。'))
     threading.Thread(target=work,daemon=True).start()
     def receive():
         try:ok,text=results.get_nowait()

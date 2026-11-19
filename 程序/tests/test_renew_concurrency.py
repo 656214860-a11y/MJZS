@@ -68,7 +68,7 @@ class _Server:
 class RenewConcurrencyTests(unittest.TestCase):
     def setUp(self):
         patch = mock.patch.object(account_controller.entitlement_service, 'evaluate',
-                                  return_value=entitlement_service.Entitlement(entitlement_service.VALID))
+                                  return_value=entitlement_service.Entitlement(entitlement_service.VALID, {'issued_at': 1}))
         patch.start()
         self.addCleanup(patch.stop)
         self.store, self.server = _Store(), _Server(hold=True)

@@ -41,13 +41,13 @@ class FileCacheBoundTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             paths = []
-            for i in range(file_cache._CACHE_LIMIT + 8):
+            for i in range(file_cache._TEXT_CACHE.limit + 8):
                 p = root / ('f%02d.txt' % i)
                 p.write_text('内容-%d' % i, encoding='utf-8')
                 paths.append(p)
             for p in paths:
                 file_cache.read_text(p)
-            self.assertLessEqual(len(file_cache._TEXT_CACHE), file_cache._CACHE_LIMIT)
+            self.assertLessEqual(len(file_cache._TEXT_CACHE), file_cache._TEXT_CACHE.limit)
             text_key = lambda p: (file_cache._key(p), 'utf-8-sig', None)
             self.assertNotIn(text_key(paths[0]), file_cache._TEXT_CACHE)
             # 被淘汰的项再读仍拿到磁盘真值，并重新成为最近项。
@@ -57,11 +57,11 @@ class FileCacheBoundTests(unittest.TestCase):
     def test_bytes_cache_bounded_and_json_cache_untouched_by_limit(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
-            paths = [root / ('b%02d.bin' % i) for i in range(file_cache._CACHE_LIMIT + 4)]
+            paths = [root / ('b%02d.bin' % i) for i in range(file_cache._BYTES_CACHE.limit + 4)]
             for i, p in enumerate(paths):
                 p.write_bytes(b'byte-%d' % i)
                 file_cache.read_bytes(p)
-            self.assertLessEqual(len(file_cache._BYTES_CACHE), file_cache._CACHE_LIMIT)
+            self.assertLessEqual(len(file_cache._BYTES_CACHE), file_cache._BYTES_CACHE.limit)
             self.assertEqual(file_cache.read_bytes(paths[0]), b'byte-0')
             # _CACHE（正式 JSON）不在本轮限容范围，行为不变。
             j = root / 'a.json'
@@ -332,6 +332,37 @@ class StorageSweepTests(unittest.TestCase):
                 self.assertFalse(path.exists(), path)
             for path in kept:
                 self.assertTrue(path.exists(), path)
+
+    def test_sweep_ttl_boundary_is_strict(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            now = 200000.0
+            ttl = temporary_sweep.TEMP_SWEEP_MAX_AGE_SECONDS
+            stale = self._make(root, 'old.%s.tmp' % self.HEX, 0)
+            exact = self._make(root, 'exact.%s.tmp' % self.HEX, 0)
+            fresh = self._make(root, 'fresh.%s.tmp' % self.HEX, 0)
+            for path, modified in ((stale, now-ttl-1), (exact, now-ttl), (fresh, now-ttl+1)):
+                os.utime(path, (modified, modified))
+            self.assertEqual(temporary_sweep.sweep_stale_temporary_files(root, now=now), 1)
+            self.assertFalse(stale.exists())
+            self.assertTrue(exact.exists())
+            self.assertTrue(fresh.exists())
+
+    def test_sweep_prunes_linked_directories_without_following_them(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            dirs = ['external-link', 'inside']
+            def walk(target, *, followlinks):
+                self.assertEqual(target, root)
+                self.assertFalse(followlinks)
+                yield str(root), dirs, []
+                self.assertEqual(dirs, ['inside'])
+            with mock.patch.object(temporary_sweep.os, 'walk', walk), \
+                 mock.patch.object(temporary_sweep.os.path, 'islink',
+                                   side_effect=lambda path: Path(path).name == 'external-link'), \
+                 mock.patch.object(temporary_sweep.file_cache, 'remove_temporary_file') as remove:
+                self.assertEqual(temporary_sweep.sweep_stale_temporary_files(root), 0)
+                remove.assert_not_called()
 
     def test_sweep_name_predicate(self):
         self.assertTrue(temporary_sweep.is_stale_temporary_name('x.' + self.HEX + '.tmp'))

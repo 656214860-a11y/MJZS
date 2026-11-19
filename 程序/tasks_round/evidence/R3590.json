@@ -1,0 +1,15 @@
+{
+  "round": 3590,
+  "commit_base": "693e483c",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k offline_asr speech_api thread_boundary executors agent_skill_sync skill_user_layer qwen_adapter storyboard_direct desktop_automation platform_process_boundary layer_relations",
+    "exit": 0,
+    "passed": 159,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T05:32:51"
+}

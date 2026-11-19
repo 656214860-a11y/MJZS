@@ -17,6 +17,7 @@ from threading import RLock
 from collections import OrderedDict
 from itertools import chain
 from pathlib import Path
+from contract.infra_errors import CorruptDataError, StorageError
 from agent.core import read  # read：兼容仍由外部替换的历史测试钩子。
 from agent.publication import access
 
@@ -217,7 +218,7 @@ def _read_through(cache, key, path, parse):
             raise
         _store(cache, key, token, epoch, digest, value)
         return value
-    raise OSError(f'读取期间文件持续变化：{path}')
+    raise StorageError(f'读取期间文件持续变化：{path}', code='E-IO-READ', detail=str(path))
 
 
 def _json_copy(value):
@@ -289,7 +290,7 @@ def file_digest(path):
         value = digest.hexdigest()
         _store(_DIGEST_CACHE, key, token, epoch, None, value)
         return value
-    raise OSError(f'计算摘要期间文件持续变化：{path}')
+    raise StorageError(f'计算摘要期间文件持续变化：{path}', code='E-IO-READ', detail=str(path))
 
 
 @access()
@@ -305,7 +306,7 @@ def read_stable_json_snapshot(path):
     raw = path.read_bytes()
     after = path.stat()
     if (before.st_mtime_ns, before.st_size) != (after.st_mtime_ns, after.st_size):
-        raise ValueError('文件正在写入')
+        raise CorruptDataError('文件正在写入', detail=str(path))
     return json.loads(raw.decode('utf-8-sig')), raw, after
 
 

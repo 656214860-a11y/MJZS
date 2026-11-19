@@ -9,6 +9,16 @@ from contract.platform_tools import hidden_console_flags, launch_windows_app, re
 
 _launch_lock = threading.Lock()
 _blender_process = None
+# I3b（L1 任务书）：L1 不得反向依赖 L4 ui.white_model；Blender 查找器由
+# L4/L5 组装点经 register_blender_finder 注入（ui.white_model 导入时自登记）。
+# 未注入时 open_blender 返回明确的「未配置」错误，不抛 AttributeError。
+_blender_finder = None
+
+
+def register_blender_finder(finder):
+    """登记 Blender 可执行文件查找器，签名同 ui.white_model.find_blender(refresh=...)。"""
+    global _blender_finder
+    _blender_finder = finder
 
 
 def open_comfy(settings=None):
@@ -88,9 +98,12 @@ def _blender_window_running():
 
 
 def open_blender(project_file=None):
-    from ui.white_model import find_blender
+    finder = _blender_finder
+    if finder is None:
+        # 注入点：ui.white_model.find_blender（L4/L5 组装）
+        raise ValueError('Blender 查找器未配置：需 L4/L5 组装点注入')
     # 每次点击都重新检测：用户可能在程序启动后才安装 Blender（扫描一次约 12 毫秒）。
-    exe = find_blender(refresh=True)
+    exe = finder(refresh=True)
     if exe is None:
         raise ValueError('未找到本地 Blender，请检查 Blender 程序位置')
     project_file = Path(project_file).resolve() if project_file else None

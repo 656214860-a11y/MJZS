@@ -122,6 +122,26 @@ class OpenPathTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, '已取消等待'):
             comfy_runtime.wait_comfy('http://127.0.0.1:8189', cancelled=lambda: True)
 
+    def test_comfy_wait_never_marks_ready_when_probe_keeps_failing(self):
+        """I9-2：/system_stats 探针持续失败时 wait_comfy 只会超时抛错，绝不提前返回（即不标记就绪）。"""
+        import comfy_runtime
+        calls = []
+
+        class FailingClient:
+            def __init__(self, url):
+                pass
+
+            def request(self, path):
+                calls.append(path)
+                raise OSError('connection refused')
+
+        with patch('infra.comfy_service.Comfy', FailingClient), \
+             patch.object(comfy_runtime.time, 'sleep', lambda _s: None):
+            with self.assertRaisesRegex(ValueError, '未就绪'):
+                comfy_runtime.wait_comfy('http://127.0.0.1:8189', timeout=0.01)
+        self.assertTrue(calls)
+        self.assertTrue(all(path == '/system_stats' for path in calls))
+
     def test_windows_app_launcher_checks_host_and_starts_existing_executable(self):
         with tempfile.TemporaryDirectory() as td:
             executable = Path(td) / 'JianyingPro.exe'
@@ -356,7 +376,7 @@ class WebSocketTests(unittest.TestCase):
         thread = threading.Thread(target=run, daemon=True)
         thread.start()
         self.addCleanup(thread.join, 5)
-        return 'ws://127.0.0.1:%d/realtime?model=m' % listener.getsockname()[1], seen
+        return 'ws://127.0.0.1:%d/realtime?model=m' % listener.getsockname()[1], seen, thread
 
     @staticmethod
     def accept(request):
@@ -392,11 +412,13 @@ class WebSocketTests(unittest.TestCase):
             conn.sendall(b'\x88\x00')
             frames['close'] = self.read_frame(conn)
 
-        url, seen = self.serve(handler)
+        url, seen, thread = self.serve(handler)
         ws = platform_tools.open_websocket(url, headers={'Authorization': 'Bearer t'}, timeout=5)
         self.assertEqual(ws.recv_text(), '主角')
         ws.send_text('你好')
         self.assertIsNone(ws.recv_text())
+        thread.join(5)
+        self.assertFalse(thread.is_alive(), '服务端须读完关闭应答再检查协议帧')
         self.assertIn('GET /realtime?model=m HTTP/1.1', seen['request'])
         self.assertIn('Authorization: Bearer t', seen['request'])
         self.assertEqual(frames['pong'], (0xA, b'hi', True))
@@ -404,7 +426,7 @@ class WebSocketTests(unittest.TestCase):
         self.assertEqual(frames['close'][0], 0x8)
 
     def test_refused_handshake_reports_status(self):
-        url, _ = self.serve(lambda conn, request: conn.sendall(b'HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\n\r\n'))
+        url, _, _ = self.serve(lambda conn, request: conn.sendall(b'HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\n\r\n'))
         with self.assertRaises(platform_tools.WebSocketRefused) as caught:
             platform_tools.open_websocket(url, timeout=5)
         self.assertEqual(caught.exception.status, 401)

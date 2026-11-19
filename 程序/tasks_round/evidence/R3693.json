@@ -1,0 +1,15 @@
+{
+  "round": 3693,
+  "commit_base": "b756121c",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k architecture.test_layer_relations architecture.test_platform_process_boundary architecture.test_branch_coverage_floor",
+    "exit": 0,
+    "passed": 18,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T10:25:50"
+}

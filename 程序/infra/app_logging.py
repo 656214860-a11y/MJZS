@@ -246,9 +246,12 @@ def flush_metrics() -> None:
     try:
         data = metrics_snapshot()
         if data:
-            from agent.core import save_text
-            save_text(PERF_FILE, json.dumps({"at": time.strftime("%Y-%m-%d %H:%M:%S"), "metrics": data},
-                                            ensure_ascii=False, indent=2))
+            PERF_FILE.parent.mkdir(parents=True, exist_ok=True)
+            PERF_FILE.write_text(
+                json.dumps({"at": time.strftime("%Y-%m-%d %H:%M:%S"), "metrics": data},
+                           ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
     except Exception:
         pass
 

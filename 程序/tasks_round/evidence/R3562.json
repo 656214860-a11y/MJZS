@@ -1,0 +1,15 @@
+{
+  "round": 3562,
+  "commit_base": "5a977ef8",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k account_controller renew_concurrency account_client account_offline publication",
+    "exit": 0,
+    "passed": 128,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T03:17:07"
+}

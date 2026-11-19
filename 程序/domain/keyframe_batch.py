@@ -1,6 +1,7 @@
 """First-frame batch entry points sharing the project's asset task."""
 import json
 import contract.pet_bus as pet_bus
+from stat import S_ISREG
 from pathlib import Path
 from contract.storyboard_paths import media_root
 from infra.file_cache import read_json
@@ -61,6 +62,10 @@ ATTEMPT_NOTES = {'sending': '提交中', 'uncertain': '结果待核实（可能�
 
 def frame_state(base, shot):
     """一镜的首帧现状：done／missing／empty／deleted／unset／outside（与门禁同口径）。"""
+    return _frame_state(base, shot, resolved=False)
+
+
+def _frame_state(base, shot, *, resolved):
     if not isinstance(shot, dict):
         return STATE_UNSET
     if shot.get('frame_deleted'):
@@ -69,16 +74,17 @@ def frame_state(base, shot):
     if not isinstance(frame, str) or not frame.strip():
         return STATE_UNSET
     try:
-        base = Path(base).resolve()
+        base = base if resolved else Path(base).resolve()
         path = (base / frame).resolve()
     except (OSError, ValueError):
         return STATE_OUTSIDE
     if not path.is_relative_to(base):
         return STATE_OUTSIDE
     try:
-        if not path.is_file():
+        info = path.stat()
+        if not S_ISREG(info.st_mode):
             return STATE_MISSING
-        return STATE_DONE if path.stat().st_size else STATE_EMPTY
+        return STATE_DONE if info.st_size else STATE_EMPTY
     except OSError:
         return STATE_MISSING
 
@@ -176,7 +182,7 @@ def batch_plan(source, *, shot_ids=None, mode=MODE_MISSING, model='', attempts=N
         sid = str(shot['id'])
         if wanted is not None and sid not in wanted:
             continue
-        state = frame_state(base, shot)
+        state = _frame_state(base, shot, resolved=True)
         if state in (STATE_DELETED, STATE_UNSET, STATE_OUTSIDE, STATE_EMPTY):
             plan['skipped'].append({'shot_id': sid, 'title': shot.get('title', ''),
                                     'state': state, 'reason': STATE_NOTES[state]})

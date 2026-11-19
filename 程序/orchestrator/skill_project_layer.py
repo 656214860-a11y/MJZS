@@ -113,15 +113,15 @@ def disabled_view_entries(user_root, project_root=None):
     return tuple(
         dict(entry) for entry in load_disabled(user_root).values()
         if isinstance(entry, dict)
-        and ((entry.get('layer') == 'user')
+        and ((entry.get('layer') in ('builtin', 'user'))
              or (entry.get('layer') == 'project'
                  and str(entry.get('project') or '') == project_key)))
 
 
 def disabled_pairs(user_root, project_root=None):
-    """本注册表视图下被禁用的 ``(layer, name)`` 集合：用户层全局项＋本项目项目层项。
+    """本注册表视图下被禁用的 ``(layer, name)`` 集合：内置／用户全局项＋本项目项。
 
-    内置层不可禁用；项目层条目只在 ``project`` 与本注册表项目根一致时生效，
+    内置层禁用只登记、不删除文件；项目层条目只在 ``project`` 与本注册表项目根一致时生效，
     避免 A 项目禁用的 SKILL 泄漏到 B 项目视图。
     """
     project = str(Path(project_root).resolve()) if project_root else ''
@@ -130,7 +130,7 @@ def disabled_pairs(user_root, project_root=None):
         if not isinstance(entry, dict):
             continue
         layer, name = str(entry.get('layer') or ''), str(entry.get('name') or '')
-        if not name or layer not in ('user', 'project'):
+        if not name or layer not in ('builtin', 'user', 'project'):
             continue
         owner = str(entry.get('project') or '')
         if layer == 'project' and owner != project:
@@ -147,11 +147,11 @@ def disabled_names(user_root, project_root=None):
 def set_disabled(user_root, layer, name, project='', disabled=True, path='', save=None):
     """写禁用登记（读改写）；``save`` 注入正式 JSON 写入口，缺省用 ``agent.core.save``。
 
-    返回写后的条目 dict；``disabled=False`` 时摘除条目（幂等）。内置层拒绝。
+    返回写后的条目 dict；``disabled=False`` 时摘除条目（幂等）。内置层只登记禁用。
     ``path`` 记录条目文件位置，供已禁用 SKILL 的重命名／编辑／删除定位。
     """
-    if layer not in ('user', 'project'):
-        raise ValueError('内置层 SKILL 只读，不能禁用')
+    if layer not in ('builtin', 'user', 'project'):
+        raise ValueError('未知 SKILL 层，不能禁用')
     name = str(name or '').strip()
     if not name:
         raise ValueError('SKILL 名不能为空')
@@ -246,3 +246,19 @@ class ProjectLayerMixin:
         existing = next((path for path in self._stage_directories(root)
                          if stage_from_path(path / '__stage_probe__') == sid), None)
         return existing or root / builtin.name
+
+
+def scan_residue(program, *, package_source):
+    """管理通道：注入唯一阶段判定与调用方已有的包定位器，避免注册表环依赖。"""
+    from domain import skill_residue_service
+    return skill_residue_service.scan_residue(
+        program, stage_from_path=stage_from_path, package_source=package_source)
+
+
+def dispose_residue(program, names, *, package_source):
+    """L3 组装回收发布器；L2 不反向依赖注册表或自行写回收凭据。"""
+    from domain import skill_residue_service
+    from infra.storage_maintenance import recycle_paths
+    return skill_residue_service.dispose_residue(
+        program, names, stage_from_path=stage_from_path,
+        package_source=package_source, publisher=recycle_paths)

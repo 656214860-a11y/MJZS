@@ -222,7 +222,10 @@ class FileOriginProvenanceTests(unittest.TestCase):
         image = self.make('external.png', png())
         item = {'shot_id': 'SH001', 'shot_signature': keyframe_import.fingerprint(shot),
                 'source_evidence': keyframe_evidence.source_evidence(source, episode, shot)}
-        target = keyframe_import.register(source, item, image)
+        with mock.patch.object(keyframe_evidence, 'tool_path', return_value='ffmpeg'), \
+                mock.patch.object(keyframe_evidence, 'run_process') as decode:
+            decode.return_value.returncode = 0
+            target = keyframe_import.register(source, item, image)
         self.assertEqual(self.origins()[target.relative_to(self.root).as_posix()], '用户上传')
         file_index.rebuild(self.root)
         self.assertEqual(self.origins()[target.relative_to(self.root).as_posix()], '用户上传')

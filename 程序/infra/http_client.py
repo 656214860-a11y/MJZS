@@ -14,9 +14,14 @@ import time as _time
 import uuid
 from urllib.parse import urlparse
 
-from contract.error_codes import code_data, lookup
+import urllib.parse as _parse
+
+from contract.error_codes import code_data, code_of, lookup
+from contract.infra_errors import ConfigError, CorruptDataError, NetworkError
 from contract.platform_tools import current_execution
 from contract.service_contract import ServiceResult, success
+
+import infra.metrics as metrics
 
 MAX_BODY_BYTES = 32 * 1024 * 1024
 ERROR_BODY_MAX_BYTES = 64 * 1024
@@ -80,7 +85,7 @@ def _local_comfy_opener():
 
     class NoRedirect(HTTPRedirectHandler):
         def redirect_request(self, *args, **kwargs):
-            raise ValueError('拒绝接口跳转')
+            raise ConfigError('拒绝接口跳转')
 
     return build_opener(ProxyHandler({}), NoRedirect)
 
@@ -88,7 +93,7 @@ def _local_comfy_opener():
 class LocalComfyClient:
     def __init__(self,url):
         p=urlparse(url)
-        if p.scheme!='http' or p.hostname not in ('127.0.0.1','localhost','::1') or p.username or p.password:raise ValueError('仅支持本机ComfyUI地址')
+        if p.scheme!='http' or p.hostname not in ('127.0.0.1','localhost','::1') or p.username or p.password:raise ConfigError('仅支持本机ComfyUI地址')
         self.url=url.rstrip('/');self.opener=_local_comfy_opener()
     def request(self,path,data=None,raw=False,content_type='application/json'):
         from urllib.error import HTTPError, URLError
@@ -103,17 +108,17 @@ class LocalComfyClient:
         except HTTPError as e:
             hint='请等待ComfyUI启动完成，并核对窗口中的地址与ComfyUI实际服务地址一致。' if e.code in (502,503,504) else '请查看ComfyUI的错误信息。'
             if path=='/prompt':hint+=' 本次提交结果不确定，请先在ComfyUI核实任务，避免重复生成。'
-            raise ValueError(f'ComfyUI返回HTTP {e.code}：{self.url}{path}\n{hint} 本机连接已绕过系统代理。') from None
+            raise NetworkError(f'ComfyUI返回HTTP {e.code}：{self.url}{path}\n{hint} 本机连接已绕过系统代理。', code='E-NET-SERVER', detail=e.code) from None
         except (URLError,TimeoutError,OSError) as e:
             hint='请确认ComfyUI已经启动，并将此处地址改为它实际使用的本机地址。'
             if path=='/prompt':hint+=' 提交结果不确定，请先核实ComfyUI任务队列。'
-            raise ValueError(f'无法连接ComfyUI：{self.url}\n{hint}') from None
-        if len(body)>64*1024*1024:raise ValueError('返回文件超过64MB')
+            raise NetworkError(f'无法连接ComfyUI：{self.url}\n{hint}', detail=str(e)) from None
+        if len(body)>64*1024*1024:raise CorruptDataError('返回文件超过64MB')
         if raw and control is not None:control.checkpoint()
         return body if raw else _json.loads(body)
     def upload(self,path):
         content=path.read_bytes()
-        if len(content)>20*1024*1024:raise ValueError('参考图超过20MB：'+path.name)
+        if len(content)>20*1024*1024:raise CorruptDataError('参考图超过20MB：'+path.name, detail=str(path))
         boundary=uuid.uuid4().hex;name='drama_'+uuid.uuid4().hex+path.suffix.lower()
         body=(f'--{boundary}\r\nContent-Disposition: form-data; name="image"; filename="{name}"\r\nContent-Type: application/octet-stream\r\n\r\n').encode()+content+f'\r\n--{boundary}--\r\n'.encode()
         result=self.request('/upload/image',body,content_type='multipart/form-data; boundary='+boundary)
@@ -149,7 +154,7 @@ def _request(method, url, *, headers=None, payload=None, timeout, caller='reques
         control.checkpoint()
 
     method = (method or 'GET').upper()
-    host = urllib.parse.urlparse(url).hostname or ''
+    host = _parse.urlparse(url).hostname or ''
     if _circuit_open(host):
         code = 'E-NET-UNREACHABLE'
         return ServiceResult(False, _describe(code), True,
@@ -246,8 +251,13 @@ def request_json(method, url, *, headers=None, payload=None, timeout, **opts):
     """
     request_headers = dict(headers or {})
     request_headers.setdefault('Content-Type', 'application/json')
+    started = _time.monotonic()
     result = _request(method, url, headers=request_headers, payload=payload,
                       timeout=timeout, caller='request_json', **opts)
+    metrics.observe('http.request', (_time.monotonic() - started) * 1000.0,
+                    provider=_parse.urlparse(url).hostname or '',
+                    outcome='ok' if result.ok else 'error',
+                    error_code=code_of(result))
     if not result.ok:
         return result
     data = result.data if isinstance(result.data, dict) else {}
@@ -272,8 +282,14 @@ def request_bytes(method, url, *, headers=None, payload=None, timeout, **opts):
     request_headers = dict(headers or {})
     if payload is not None:
         request_headers.setdefault('Content-Type', 'application/json')
-    return _request(method, url, headers=request_headers, payload=payload,
-                    timeout=timeout, caller='request_bytes', **opts)
+    started = _time.monotonic()
+    result = _request(method, url, headers=request_headers, payload=payload,
+                      timeout=timeout, caller='request_bytes', **opts)
+    metrics.observe('http.request', (_time.monotonic() - started) * 1000.0,
+                    provider=_parse.urlparse(url).hostname or '',
+                    outcome='ok' if result.ok else 'error',
+                    error_code=code_of(result))
+    return result
 
 
 def _describe(code):

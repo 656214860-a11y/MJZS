@@ -347,6 +347,7 @@ storage.recycle_paths(root, [root/'first.skill.md', root/'second.skill.md'], 'te
                 ledger = root / 'ledger.json'
                 ledger.write_text('{"v":1}', encoding='utf-8')
                 child = subprocess.run([sys.executable, '-c', script, str(root), change],
+                                       cwd=str(Path(__file__).resolve().parents[1]),
                                        capture_output=True, timeout=30)
                 self.assertEqual(child.returncode, 77, child.stderr.decode(errors='replace'))
                 if change == 'replacement':

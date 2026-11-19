@@ -135,7 +135,7 @@ class VideoRevisionTests(unittest.TestCase):
             stack.enter_context(patch('local_video.LocalAPI', return_value=api))
             stack.enter_context(patch('local_video.prepare_graph', return_value=({'114': {'inputs': {}}}, {})))
             stack.enter_context(patch('local_video.png_size', return_value=(32, 32)))
-            stack.enter_context(patch('infra.h3_reference_adapter.attach', return_value=[]))
+            stack.enter_context(patch('agent.h3_reference_adapter.attach', return_value=[]))
             stack.enter_context(patch('native_apps.open_comfy'))
             stack.enter_context(patch('native_apps.wait_comfy'))
             stack.enter_context(patch('local_video.preflight'))
@@ -168,7 +168,7 @@ class VideoRevisionTests(unittest.TestCase):
         api.call.side_effect = submit
         asset = {'id': 'CHAR_001', 'name': '角色', 'path': str(self.root / 'asset.png'),
                  'picture': 1, 'node_id': 'ref'}
-        with patch('infra.h3_reference_adapter.attach', return_value=[asset]), patch('local_video.prepare_graph',
+        with patch('agent.h3_reference_adapter.attach', return_value=[asset]), patch('local_video.prepare_graph',
                 return_value=({'114': {'inputs': {}}, 'ref': {'inputs': {}}}, {})):
             studio.submit('SH001')
 

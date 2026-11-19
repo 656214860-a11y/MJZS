@@ -1,0 +1,15 @@
+{
+  "round": 3554,
+  "commit_base": "9066076e",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k entitlement account_store account_client l1_lost_update account_security",
+    "exit": 0,
+    "passed": 101,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T03:00:18"
+}

@@ -1,0 +1,15 @@
+{
+  "round": 3412,
+  "commit_base": "0e3fc763",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k error_codes diagnostics selfcheck startup_selfcheck pet_agent branch_coverage",
+    "exit": 0,
+    "passed": 241,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T22:32:48"
+}

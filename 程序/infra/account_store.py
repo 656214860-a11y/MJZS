@@ -1,60 +1,112 @@
-"""账号会话的本机落盘：刷新令牌、授权租约、最近一次已知服务器时间与设备指纹种子。
+"""账号会话的本机落盘：刷新令牌、授权租约和最近一次已知服务器时间。
 
 文件在「程序目录/private/账户/session.json」，与模型 API Key（private/密钥）分开存放。
-按设计决策 D10 不走 DPAPI 机器绑定：刷新令牌可被服务端吊销，换机重新登录即可。
+文件级 MAC 校验内容完整性。DPAPI 保护本机 MAC 密钥，D10 仍允许换机后重新登录并取得授权。
 内容不进日志、不进任务 JSON；本模块不联网、不导入 Tk。
 """
 import hashlib
 import secrets
 from pathlib import Path
 
-from agent.core import read, read_json, save
+from agent.core import read, read_json, save, save_text
 from agent.publication import access
 from contract.platform_tools import windows_registry
+from infra import session_integrity
 from infra.storage_maintenance import remove_private_file
 
 PROGRAM = Path(__file__).resolve().parents[1]
 SESSION_FILE = ('private', '账户', 'session.json')
-# 会话字段；device_seed 只在取不到机器标识时兜底，退出登录也保留，保证同机指纹稳定。
+DEVICE_SEED_FILE = ("设备", "seed.txt")
 SESSION_KEYS = ('email', 'refresh_token', 'lease', 'server_time', 'has_password')
 _FINGERPRINT_SALT = 'manju-device-v1:'
+_CLOCK_KEY = r'Software\漫剧制作助手'
+_CLOCK_VALUE = 'clock_floor'
 
 
 def session_path(base=None):
     return Path(base or PROGRAM).joinpath(*SESSION_FILE)
 
 
+def renew_lock_path(path=None):
+    return Path(path or session_path()).with_name('renew.lock')
+
+
 def load(path=None):
-    """读取会话；文件缺失、损坏或不是对象都按空会话处理。"""
-    data = read_json(path or session_path(), {})
-    return data if isinstance(data, dict) else {}
+    """完整性验证失败按未登录处理，由既有登录入口提示重新登录。"""
+    target = Path(path or session_path())
+    data = read_json(target, {})
+    if session_integrity.verify(data, target):
+        return session_integrity.fields(data)
+    if target.is_file():
+        with access():
+            try:
+                return _load_write(target)
+            except (OSError, ValueError):
+                return {}
+    return {}
 
 
 def _load_write(path=None):
-    """写路径的严格读取：只有文件不存在才当空；其余读失败抛可操作错误，绝不写回空值。
-
-    与 ``load()`` 的分工：``load()`` 服务于「读」，读不出就当没有；这里服务于
-    「读—改—写」，读不出却照写会把 ``refresh_token``／``lease`` 等字段整体清掉
-    （文件被占用或截断时丢登录态，比报错严重得多）。
-    """
+    """锁内读取和校验，避免重新签署失效会话或清除其他进程刚保存的会话。"""
     target = Path(path or session_path())
     try:
-        if not target.exists():
-            return {}
         data = read(target)
     except FileNotFoundError:
         return {}
     except (OSError, ValueError) as exc:
-        raise ValueError('账户会话文件 %s 读取失败（%s）：可能被其他程序占用或文件已损坏。'
-                         '请关闭占用该文件的程序后重试；反复出现请把该文件移走再重新登录。'
-                         % (target, exc)) from exc
-    return data if isinstance(data, dict) else {}
+        raise ValueError(f'账户会话文件 {target} 无法读取。请关闭占用它的程序后重试；'
+                         '如果文件已损坏，请移走文件再重新登录。') from exc
+    if session_integrity.verify(data, target):
+        return session_integrity.fields(data)
+    if isinstance(data, dict) and '_mac' not in data and '_mac_key_id' not in data:
+        _device_seed(data, target)
+    remove_private_file(target)
+    return {}
 
 
 def _write(data, path=None):
     target = Path(path or session_path())
     target.parent.mkdir(parents=True, exist_ok=True)
-    save(target, data)
+    save(target, session_integrity.seal(data, target))
+
+
+def _read_clock_value(registry, key):
+    try:
+        value, kind = registry.QueryValueEx(key, _CLOCK_VALUE)
+    except FileNotFoundError:
+        return 0
+    return max(0, value) if kind == registry.REG_QWORD and isinstance(value, int) else 0
+
+
+def _registry_clock_floor(path=None, *, value=None):
+    """返回独立基线，访问失败为 None。替代会话路径与主机注册表隔离。"""
+    if path is not None and Path(path) != session_path():
+        return None
+    registry = windows_registry()
+    if registry is None:
+        return None
+    permissions = registry.KEY_QUERY_VALUE | registry.KEY_SET_VALUE
+    try:
+        open_key = registry.OpenKey if value is None else registry.CreateKeyEx
+        with open_key(registry.HKEY_CURRENT_USER, _CLOCK_KEY, 0, permissions) as key:
+            known = _read_clock_value(registry, key)
+            if value is not None and value > known:
+                registry.SetValueEx(key, _CLOCK_VALUE, 0, registry.REG_QWORD, value)
+                return value
+            return known
+    except FileNotFoundError:
+        return 0 if value is None else None
+    except OSError:
+        return None
+
+
+def clock_baseline(session_floor=0, path=None):
+    """JSON 与注册表分别单调保存，读取时合取较高的可信基线。"""
+    return max(int(session_floor or 0), _registry_clock_floor(path) or 0)
+
+
+def clock_backup_available(path=None):
+    return _registry_clock_floor(path) is not None
 
 
 def save_session(fields, path=None):
@@ -69,6 +121,8 @@ def save_session(fields, path=None):
         if fields.get('email'):
             data['last_email'] = str(fields['email'])      # R2052：退出登录后登录框仍默认填上次的邮箱
         _write(data, path)
+        if data['server_time']:
+            _registry_clock_floor(path, value=data['server_time'])
     return data
 
 
@@ -83,6 +137,7 @@ def note_server_time(server_time, path=None):
         if int(server_time or 0) > int(data.get('server_time') or 0):
             data['server_time'] = int(server_time)
             _write(data, path)
+            _registry_clock_floor(path, value=data['server_time'])
 
 
 def update_seen(path=None):
@@ -98,10 +153,12 @@ def mark_update_seen(version, path=None):
 
 
 def clear_session(path=None):
-    """退出登录：删掉令牌与租约；保留设备种子和最近服务器时间（防回拨钟重放旧租约）。"""
+    """退出登录：删掉令牌与租约；保留独立存放的设备种子和最近服务器时间（防回拨钟重放旧租约）。"""
     with access():
         data = _load_write(path)
-        kept = {key: data[key] for key in ('device_seed', 'server_time', 'update_seen', 'last_email') if key in data}
+        if 'device_seed' in data:
+            _device_seed(data, path)
+        kept = {key: data[key] for key in ('server_time', 'update_seen', 'last_email') if key in data}
         if data.get('email') and 'last_email' not in kept:
             kept['last_email'] = str(data['email'])
         if kept:
@@ -122,17 +179,36 @@ def _machine_guid():
         return ''
 
 
+def _device_seed_path(path=None):
+    account_dir = Path(path or session_path()).parent
+    private_dir = account_dir.parent if account_dir.name == SESSION_FILE[1] else account_dir
+    return private_dir.joinpath(*DEVICE_SEED_FILE)
+
+
+def _device_seed(data, path=None, *, generate=False):
+    """在发布锁内读取或迁移种子。先持久化种子，再由调用方保存会话。"""
+    seed_path = _device_seed_path(path)
+    try:
+        seed = seed_path.read_text(encoding='utf-8').strip()
+    except FileNotFoundError:
+        seed = ''
+    legacy = data.pop('device_seed', '')
+    if not seed and (legacy or generate):
+        seed = legacy or secrets.token_hex(32)
+        seed_path.parent.mkdir(parents=True, exist_ok=True)
+        save_text(seed_path, seed)
+    return seed
+
+
 def device_fingerprint(path=None, machine_id=None):
     """本机设备指纹：机器标识加盐 SHA-256 的 64 位十六进制，只上传哈希。"""
     ident = _machine_guid() if machine_id is None else machine_id
-    if not ident:
-        data = load(path)
-        ident = data.get('device_seed') or ''
-        if not ident:
-            with access():
-                data = _load_write(path)      # 锁内重读：别的进程可能刚补上种子
-                ident = data.get('device_seed') or ''
-                if not ident:
-                    ident = data['device_seed'] = secrets.token_hex(32)
-                    _write(data, path)
+    if not ident or 'device_seed' in load(path):
+        with access():
+            data = _load_write(path)
+            migrate = 'device_seed' in data
+            seed = _device_seed(data, path, generate=not ident)
+            if migrate:
+                _write(data, path)
+            ident = ident or seed
     return hashlib.sha256((_FINGERPRINT_SALT + ident).encode('utf-8')).hexdigest()

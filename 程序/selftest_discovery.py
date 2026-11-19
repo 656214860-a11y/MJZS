@@ -132,8 +132,14 @@ def test_path(name):
     return os.path.join(env.TESTS_DIR, *name.split('.')) + '.py'
 
 
+# 这些测试通过共享基类创建真 Tk，文件自身没有直接 tkinter 导入。
+INHERITED_TK_TEST_MODULES = frozenset({'test_model_manager_actions'})
+
+
 def gui_test_module(name):
-    """按测试文件的直接依赖识别 GUI 测试，避免服务层偷偷拉起 Tk。"""
+    """按直接依赖及显式登记的 Tk 夹具使用者识别 GUI 测试。"""
+    if name in INHERITED_TK_TEST_MODULES:
+        return True
     imports = imports_of(test_path(name))
     return bool({'tkinter', 'desktop', 'pet_ui', 'ui_theme', 'ui.pet_ui', 'ui.pet_ui_stages', 'ui.pet_ui_support', 'ui.pet_ui_settings', 'ui.pet_ui_voice', 'ui.pet_ui_view', 'ui.pet_ui_popup'} & imports)
 

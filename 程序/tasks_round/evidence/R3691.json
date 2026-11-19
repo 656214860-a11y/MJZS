@@ -1,0 +1,15 @@
+{
+  "round": 3691,
+  "commit_base": "1121d248",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_budget test_skill_budget_send_entries infra/budget.py orchestrator/pet_budget.py tests/test_budget.py tests/test_skill_budget_send_entries.py orchestrator/skill_budget.py pet_agent.py tests/architecture/_layers.py architecture.md PROJECT_MAP.md tasks_round/L1基础设施层企业级任务书.md tasks_round/tasks_round_3691_result.md 维护记录/覆盖率基线.json 维护记录/分支覆盖率基线.json 维护记录/分支覆盖率下限.json",
+    "exit": 0,
+    "passed": 30,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T10:23:22"
+}

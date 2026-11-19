@@ -18,7 +18,7 @@ OVERSIZE_CAPS = {
     'script_contract.py': 1103,
     'pet_ui_stages.py': 1202,
     'pet_ui_voice.py': 1201,
-    'pet_agent.py': 1182,
+    'pet_agent.py': 1046,
     'model_pool.py': 1117,
 }
 

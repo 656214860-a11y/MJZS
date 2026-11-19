@@ -136,7 +136,7 @@ class SkillBudgetSendEntriesTests(unittest.TestCase):
                     'base_url': 'https://unused.invalid/v1', 'model': 'unused', 'api_key': 'synthetic-only'}), \
                 patch('infra.qwen_setup.api_credential', return_value='synthetic-only'), \
                 patch.object(qwen, 'launch_windows_app', return_value=process) as launch, \
-                patch.object(qwen.threading, 'Thread') as thread, \
+                patch.object(qwen.executors, 'submit') as executor_submit, \
                 patch('infra.workflow_process_registry.register_process'):
             result = engines.launch_interactive(self.project, 'writing', '合成任务', full_prompt, config,
                                                 new_session=True)
@@ -144,7 +144,7 @@ class SkillBudgetSendEntriesTests(unittest.TestCase):
         args = launch.call_args.kwargs['args']
         self.assertEqual(args[args.index('--model') + 1], self.MODEL)
         self.assertEqual(launch.call_args.kwargs['env']['OPENAI_BASE_URL'], self.URL)
-        self.assertTrue(thread.called)  # thread creation intercepted: no ready/title workers.
+        self.assertTrue(executor_submit.called)  # ready/title worker submitted via executors.
         task = Path(result['task_file']).read_text(encoding='utf-8')
         for body in self.bodies:
             self.assertIn(body, task)

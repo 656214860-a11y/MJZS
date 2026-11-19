@@ -326,6 +326,49 @@ class ToolPathTests(unittest.TestCase):
             self.assertEqual(integrations.tool_path("ffmpeg", configured=missing, fallback="FB"),
                              r"X:/tools/ffmpeg.exe")
 
+    def test_missing_tool_is_rechecked_after_path_becomes_available(self):
+        import integrations
+        integrations._TOOL_CACHE.clear(); self.addCleanup(integrations._TOOL_CACHE.clear)
+        which_patch, bundled_patch = self._patches(bundled=None)
+        with which_patch as which, bundled_patch:
+            which.side_effect = [None, r'X:/tools/ffmpeg.exe']
+            integrations._TOOL_CACHE['ffmpeg'] = None
+            self.assertIsNone(integrations.tool_path('ffmpeg'))
+            self.assertEqual(integrations.tool_path('ffmpeg'), r'X:/tools/ffmpeg.exe')
+            self.assertEqual(which.call_count, 2)
+
+    def test_missing_decoder_recovers_for_the_same_original_png(self):
+        from unittest.mock import patch
+        import contract.platform_tools as platform_tools
+        import keyframe_evidence
+        from tests.image_fixtures import png
+        platform_tools._TOOL_CACHE.clear(); self.addCleanup(platform_tools._TOOL_CACHE.clear)
+        keyframe_evidence._DECODED.clear(); self.addCleanup(keyframe_evidence._DECODED.clear)
+        raw = png()
+        with patch.object(platform_tools, '_bundled_tool', return_value=None):
+            with patch.object(platform_tools.shutil, 'which', return_value=None):
+                with self.assertRaisesRegex(ValueError, '解码器不可用'):
+                    keyframe_evidence.image_facts(raw)
+            self.assertEqual(keyframe_evidence._DECODED, {})
+            with patch.object(platform_tools.shutil, 'which', return_value='restored-ffmpeg'), \
+                    patch.object(keyframe_evidence, 'run_process') as decode:
+                decode.return_value.returncode = 0
+                facts = keyframe_evidence.image_facts(raw)
+            self.assertEqual((facts['width'], facts['height']), (16, 9))
+            self.assertEqual(decode.call_args.args[0][0], 'restored-ffmpeg')
+            self.assertEqual(decode.call_args.kwargs['input'], raw)
+
+    def test_missing_fallback_is_not_cached_but_success_is_cached(self):
+        import integrations
+        integrations._TOOL_CACHE.clear(); self.addCleanup(integrations._TOOL_CACHE.clear)
+        which_patch, bundled_patch = self._patches(bundled=None)
+        with which_patch as which, bundled_patch:
+            which.side_effect = [None, r'X:/tools/ffmpeg.exe']
+            self.assertEqual(integrations.tool_path('ffmpeg', fallback='FB'), 'FB')
+            self.assertEqual(integrations.tool_path('ffmpeg'), r'X:/tools/ffmpeg.exe')
+            self.assertEqual(integrations.tool_path('ffmpeg'), r'X:/tools/ffmpeg.exe')
+            self.assertEqual(which.call_count, 2)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

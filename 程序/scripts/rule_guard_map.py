@@ -21,10 +21,13 @@ sys.path.insert(0, str(PROGRAM))
 import infra.file_cache as file_cache  # noqa: E402
 
 AGENTS = PROGRAM / 'AGENTS.md'
+ARCHITECTURE = PROGRAM / 'architecture.md'
 BASELINE = PROGRAM / '维护记录' / '规则守卫基线.json'
 REPORT = PROGRAM / '维护记录' / '规则守卫对照.md'
 SECTIONS = ('### 2.3 ', '## 2.5 ')
+LR_SECTION = '### 层间关系规范'
 RULE_LINE = re.compile(r'^(\d+[a-z]?)\. (?:\*\*([^*]+)\*\*)?(.*)$')
+LR_ROW = re.compile(r'^\|\s*(LR-\d+)\s*\|\s*([^|]+?)\s*\|')
 
 
 def parse_rules(text):
@@ -41,13 +44,31 @@ def parse_rules(text):
     return rules
 
 
+def parse_arch_rules(text):
+    """``[(编号, 标题)]``：architecture.md「层间关系规范」表的 LR-01~LR-10。"""
+    rules, active = [], False
+    for line in text.splitlines():
+        if line.startswith('### '):
+            active = line.startswith(LR_SECTION)
+            continue
+        matched = LR_ROW.match(line) if active else None
+        if matched:
+            title = matched.group(2).strip().split('：')[0].split(':')[0].strip()
+            rules.append((matched.group(1), title[:24] + ('…' if len(title) > 24 else '')))
+    return rules
+
+
 def load_guards(path=BASELINE):
     return file_cache.read_json(Path(path)).get('guards', {})
 
 
-def build(agents=AGENTS, baseline=BASELINE):
+def build(agents=AGENTS, baseline=BASELINE, architecture=ARCHITECTURE):
     guards = load_guards(baseline)
-    return [(number, title, guards.get(number, [])) for number, title in parse_rules(Path(agents).read_text(encoding='utf-8'))]
+    rows = [(number, title, guards.get(number, []))
+            for number, title in parse_rules(Path(agents).read_text(encoding='utf-8'))]
+    rows += [(number, title, guards.get(number, []))
+             for number, title in parse_arch_rules(Path(architecture).read_text(encoding='utf-8'))]
+    return rows
 
 
 def render(rows):

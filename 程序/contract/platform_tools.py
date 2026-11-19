@@ -12,14 +12,11 @@ from contextlib import contextmanager
 from urllib.parse import urlparse
 
 _TOOL_CACHE = {}
-# 随包二进制目录相对应用根（本文件在 程序/contract/ 下，上两级即分发根）。
-# 运行环境/ 不入库，由分发构建从部署机复制；不存在时 _bundled_tool 返回 None。
 _BUNDLED_BIN_DIR = Path(__file__).resolve().parents[2] / '运行环境' / 'ffmpeg' / 'bin'
 _EXECUTION = threading.local()
 
 
 class ExecutionStopped(RuntimeError):
-    """Local stop, never proof that a provider or an in-flight thread stopped."""
     def __init__(self, reason, *, started=False):
         self.reason, self.started = reason, started
         super().__init__('执行已停止：%s；%s' % (reason, '在途结果待核对' if started else '未开始此单元'))
@@ -70,7 +67,6 @@ def current_execution():
 
 
 def execution_metadata(stage, task, *, attempt=None):
-    """Identity only: one supervised invocation is a run, each submission an attempt."""
     import uuid
     control = current_execution()
     return {'run_id': control.run_id if control is not None else uuid.uuid4().hex,
@@ -328,9 +324,13 @@ def tool_path(name, fallback='', configured=''):
     bundled = _bundled_tool(name)
     if bundled:
         return bundled
-    if name not in _TOOL_CACHE:
-        _TOOL_CACHE[name] = shutil.which(name) or None
-    return _TOOL_CACHE[name] or fallback or None
+    cached = _TOOL_CACHE.get(name)
+    if cached:
+        return cached
+    found = shutil.which(name)
+    if found:
+        _TOOL_CACHE[name] = found
+    return found or fallback or None
 
 
 def reveal_in_folder(path):

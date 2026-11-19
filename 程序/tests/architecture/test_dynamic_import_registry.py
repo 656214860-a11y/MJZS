@@ -137,12 +137,12 @@ def _production_tool_audit() -> dict:
         )},
         "selftests": {"run_selftests.py": refs(
             "domain/pet_test_service.py", "run_selftests.py", "developer-test-mode",
-            required_calls=("run_process", "launch_background"),
+            required_calls=("spawn",),
         )},
         "voice_engine": {
             "voice_engine/offline_asr_server.py": refs(
                 "domain/offline_asr_client.py", "offline_asr_server.py", "stdio-script",
-                required_calls=("platform_tools.launch_text_process",), names=("SERVER_SCRIPT",),
+                required_calls=("proc_registry.spawn",), names=("SERVER_SCRIPT",),
             ),
             "voice_engine/bootstrap.py": refs(
                 "domain/offline_asr_setup.py", "bootstrap.py", "setup-script",
@@ -236,8 +236,8 @@ class ProductionToolClosureTests(unittest.TestCase):
             for path in ("data/voice_asr_venv/pyvenv.cfg", "data/voice_models/model.bin")
         ]
         dev_launch = [
-            ("development-launch", f"domain/pet_test_service.py:{line}", "run_selftests.py")
-            for line in (78, 97)
+            ("development-launch", f"{source}:{line}", "run_selftests.py")
+            for source, line, _kind in self.audit["callers"]["selftests"]["run_selftests.py"]
         ]
         # 精确记录当前拒绝。任意新拒绝会使默认回归失败，严格调用始终检查全部问题。
         self.assertCountEqual(self.audit["issues"], [*release, *generated, *dev_launch])

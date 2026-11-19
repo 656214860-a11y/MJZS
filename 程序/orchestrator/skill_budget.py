@@ -7,8 +7,10 @@
 
 界面与编排器都只问这里：check() 给结论（能不能再花），spend() 记账，snapshot() 给面板显示。
 """
-import time
 import threading
+import time
+
+import infra.budget as budget_engine
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -156,7 +158,8 @@ class Budget:
         return int(self.counters.get(kind, 0))
 
     def remaining(self, kind):
-        return max(0, self.limit(kind) - self.used(kind) - self.reserved(kind))
+        # I16：剩余额度的算术收敛到 L1 预算引擎（headroom 与原式逐字等价）。
+        return budget_engine.headroom(self.limit(kind), self.used(kind), self.reserved(kind))
 
     def check(self, kind, amount=1):
         """还能不能再花 amount：返回 (能不能, 一句话)。"""

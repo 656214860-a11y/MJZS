@@ -1,0 +1,15 @@
+{
+  "round": 3460,
+  "commit_base": "6ecf2b1d",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k workflow_process_registry process_supervisor platform_process subprocess_timeout gate_selfaudit",
+    "exit": 0,
+    "passed": 39,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T01:15:39"
+}

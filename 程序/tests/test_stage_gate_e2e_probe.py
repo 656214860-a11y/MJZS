@@ -2,6 +2,8 @@
 import importlib.util
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 SCRIPT = Path(__file__).resolve().parents[1] / "维护记录/基准脚本/探针_阶段门禁端到端.py"
 SPEC = importlib.util.spec_from_file_location("stage_gate_e2e_probe", SCRIPT)
@@ -10,6 +12,18 @@ SPEC.loader.exec_module(probe)
 
 
 class StageGateE2EProbeTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        decoder = patch("domain.keyframe_evidence.tool_path", return_value="fixture-ffmpeg")
+        process = patch(
+            "domain.keyframe_evidence.run_process",
+            return_value=SimpleNamespace(returncode=0, stderr="", stdout=""),
+        )
+        decoder.start()
+        process.start()
+        cls.addClassCleanup(decoder.stop)
+        cls.addClassCleanup(process.stop)
+
     def test_empty_project_gate_semantics_are_not_uniform(self):
         """空项目：SG-A／SG-B 是“必须有上游成果”的入口闸，SG-01..05 是“上游没做就别拦”。
 

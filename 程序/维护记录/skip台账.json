@@ -1074,6 +1074,15 @@
   },
   {
    "file": "tests/test_pet_ui.py",
+   "test": "DesktopSeamTests.test_handoff_success_text_without_artifacts_never_completes",
+   "ordinal": 1,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_TKINTER",
+   "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+   "reference": ""
+  },
+  {
+   "file": "tests/test_pet_ui.py",
    "test": "DesktopSeamTests.test_tick_once_drains_into_the_bus",
    "ordinal": 1,
    "kind": "平台限制",
@@ -2903,6 +2912,33 @@
    "file": "tests/test_l1_p2_semantics.py",
    "test": "JobObjectTests.test_assign_to_job_swallows_kernel_errors",
    "ordinal": 2,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_WINDOWS_ONLY",
+   "reason": "平台限制：受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+   "reference": ""
+  },
+  {
+   "file": "tests/test_process_supervisor.py",
+   "test": "JobObjectSupervisionTests.setUp",
+   "ordinal": 1,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_JOB_OBJECT",
+   "reason": "平台限制：当前 Windows 环境无法创建 Job Object；支持 Job Object 的 Windows 环境应恢复执行",
+   "reference": ""
+  },
+  {
+   "file": "tests/test_process_supervisor.py",
+   "test": "JobObjectSupervisionTests.test_assign_to_job_refuses_self_and_non_children",
+   "ordinal": 1,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_JOB_OBJECT",
+   "reason": "平台限制：当前 Windows 环境无法创建 Job Object；支持 Job Object 的 Windows 环境应恢复执行",
+   "reference": ""
+  },
+  {
+   "file": "tests/test_process_supervisor.py",
+   "test": "JobObjectSupervisionTests",
+   "ordinal": 1,
    "kind": "平台限制",
    "reason_constant": "PLATFORM_WINDOWS_ONLY",
    "reason": "平台限制：受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",

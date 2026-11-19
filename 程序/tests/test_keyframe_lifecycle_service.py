@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import keyframe_lifecycle_service
@@ -22,6 +23,11 @@ class KeyframeLifecycleServiceTests(unittest.TestCase):
         self.source = self.base / 'episode.json'
         self.episode = {'shots': [{'id': 'SH001', 'frame': 'frames/SH001.png'}]}
         save(self.source, self.episode)
+        decoder = patch('domain.keyframe_evidence.tool_path', return_value='fixture-ffmpeg')
+        process = patch('domain.keyframe_evidence.run_process',
+                        return_value=SimpleNamespace(returncode=0, stderr='', stdout=''))
+        decoder.start(); process.start()
+        self.addCleanup(decoder.stop); self.addCleanup(process.stop)
 
     def test_recycles_frame_then_marks_episode(self):
         result = delete_stage_keyframe(self.base, self.source, self.episode, self.episode['shots'][0])

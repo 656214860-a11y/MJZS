@@ -13,6 +13,7 @@ from pathlib import Path
 import contract.stage_layout as stage_layout
 from agent.core import read_json
 from contract.project_context import ProjectContext
+from infra.workflow_process_registry import forget_process, spawn
 
 LEDGER_PATH = (stage_layout.WORKFLOW_DIR, '宠物', '优化.json')
 SLOWDOWN_THRESHOLD = 1.4
@@ -95,12 +96,13 @@ def _start_check(program, project, script_name, baseline_name, arguments=(), exe
     output = tempfile.TemporaryFile(mode='w+b')
     command = [str(executable or sys.executable), str(script), *arguments, '--output', str(current)]
     try:
-        process = (popen or subprocess.Popen)(
-            command, cwd=str(program), stdout=output, stderr=subprocess.STDOUT)
+        sup = spawn('test_runner', command, project=project, stage='pet-performance',
+                    timeout=600, stdout=output, stderr=subprocess.STDOUT,
+                    cwd=str(program), popen=popen)
     except Exception:
         output.close()
         raise
-    return {'process': process, 'output': output, 'project': project,
+    return {'process': sup.process, 'output': output, 'project': project,
             'baseline': baseline, 'current': current, 'command': command}
 
 
@@ -124,8 +126,10 @@ def start_hotspot_check(program, project, executable=None, popen=None):
 def poll_startup_check(session, context, at=None, publish=None):
     """已完成时比较报告；子进程文本仅在失败提示中截短，不写入台账。"""
     process = session['process']
-    if process.poll() is None:
+    code = process.poll()
+    if code is None:
         return None
+    forget_process(session['project'], process)
     output = session['output']
     try:
         output.seek(0)

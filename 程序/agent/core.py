@@ -249,16 +249,35 @@ def file_hash(path):
     return h.hexdigest()
 
 
-def command(args, cwd=None):
-    import contract.platform_tools as platform_tools       # 第 34 期第 9 条：按需加载，保持启动路径轻量
+_MEDIA_COMMAND_TIMEOUT = 1800  # I9a：ffmpeg/ffprobe 单次命令上限（秒），覆盖整片合成等长任务
+
+
+def command(args, cwd=None, timeout=_MEDIA_COMMAND_TIMEOUT):
+    """跑一次本地媒体命令（ffmpeg/ffprobe）：I9a 起经进程监督器——
+    进 Job Object、登记进程表、限时、失败带 stderr 尾部。"""
+    import subprocess
+    from contract.infra_errors import ProcessError
+    from infra.workflow_process_registry import spawn
+    project = str(cwd) if cwd else str(Path(__file__).resolve().parents[1])
     try:
-        r = platform_tools.run_process([str(x) for x in args], capture_output=True, text=True,
-                                       encoding="utf-8", errors="replace", cwd=cwd)
-    except FileNotFoundError:
-        raise RuntimeError(f"找不到程序 {args[0]}，请安装或在 config.json 填绝对路径") from None
-    if r.returncode:
-        raise RuntimeError(f"本地媒体处理失败：{r.stderr[-1800:]}")
-    return r.stdout
+        sup = spawn('ffmpeg', [str(x) for x in args], project=project, stage='media',
+                    timeout=timeout, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                    text=True, encoding='utf-8', errors='replace', pump_stderr=False,
+                    cwd=None if cwd is None else str(cwd))
+    except ProcessError as exc:
+        if exc.code == 'E-TOOL-MISSING':
+            raise ProcessError(f"找不到程序 {args[0]}，请安装或在 config.json 填绝对路径",
+                               code='E-TOOL-MISSING') from None
+        raise ProcessError(f"本地媒体处理失败：{exc}", code=exc.code) from None
+    try:
+        _out, err = sup.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        raise ProcessError(f"本地媒体处理超时（{timeout} 秒）：{args[0]}",
+                           code='E-TOOL-TIMEOUT') from None
+    if sup.process.returncode:
+        raise ProcessError(f"本地媒体处理失败：{(err or '')[-1800:]}",
+                           code='E-TOOL-FAILED')
+    return _out
 
 
 def request(url, payload=None, headers=None, raw=False):

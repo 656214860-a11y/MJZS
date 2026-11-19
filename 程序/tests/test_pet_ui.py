@@ -1188,12 +1188,43 @@ class DesktopSeamTests(unittest.TestCase):
             d.auto.handoff_ticket += 1
             ticket = d.auto.handoff_tasks.submit(d.auto.handoff_ticket)
             d.auto.handoff_queue.put((ticket, True, "自动交接包已整理：exports/MASTER.mp4", "sig"))
-            d._tick_once()
+            from unittest import mock
+            from orchestrator import stage_completion_service
+            with mock.patch.object(stage_completion_service, 'completion_evidence',
+                                   return_value=(True, '')) as evidence:
+                d._tick_once()
+            evidence.assert_called_once_with(d.root, 'delivery', getattr(d.studio, 'auto_edit_ready', None))
             kinds = [(item["kind"], item.get("stage")) for item in d.pet.bus.history]
+            # REQ-S13-54：此处显式注入产物核验通过，真实空项目拒绝完成另在下一用例验证。
             self.assertIn(("stage.completed", "delivery"), kinds)
             self.assertIn("自动交接包已整理：exports/MASTER.mp4", d.pet.last_status)
         finally:
             win.destroy()
+
+    def test_handoff_success_text_without_artifacts_never_completes(self):
+        """REQ/DES-S13-54：真实空项目入队成功文字仍须通过产物门禁。"""
+        if self.tk is None:
+            self.skipTest(PLATFORM_TKINTER)
+        from desktop import Desktop
+        with tempfile.TemporaryDirectory() as folder:
+            win = self.tk.Tk(); win.withdraw()
+            try:
+                d = Desktop(win, root=folder)
+                d.auto.handoff_ticket += 1
+                ticket = d.auto.handoff_tasks.submit(d.auto.handoff_ticket)
+                d.auto.handoff_queue.put((ticket, True, "自动交接包已整理：exports/MASTER.mp4", "sig"))
+                history_start = len(d.pet.bus.history)
+                d._tick_once()
+                events = d.pet.bus.history[history_start:]
+                kinds = [(item['kind'], item.get('stage')) for item in events]
+                self.assertIn(('stage.paused', 'delivery'), kinds)
+                self.assertNotIn(('stage.completed', 'delivery'), kinds)
+                paused = [item for item in events
+                          if item['kind'] == 'stage.paused' and item.get('stage') == 'delivery']
+                self.assertIn('待校验', paused[-1]['text'])
+                self.assertIn('自动交接包已整理：exports/MASTER.mp4', d.pet.last_status)
+            finally:
+                win.destroy()
 
     def test_button_seam_reports_the_label(self):
         if self.tk is None:
@@ -4478,7 +4509,9 @@ class DesktopPetSeamTests(unittest.TestCase):
         import entitlement_service
         from unittest.mock import patch
         # 本组只验切页与续跑接缝；会员闸门（真实账号状态）另有 test_account_* 覆盖，隔离后结果不随本机登录态变化。
-        self.enterContext(patch.object(entitlement_service, "GATE_ENFORCED", False))
+        from orchestrator.account_controller import AccountController
+        allowed = entitlement_service.Entitlement(entitlement_service.VALID, {'state': 'active'})
+        self.enterContext(patch.object(AccountController, 'entitlement', return_value=allowed))
         self.win = self.tk.Tk()
         self.win.withdraw()
         self.addCleanup(self.win.destroy)

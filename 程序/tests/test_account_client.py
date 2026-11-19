@@ -7,6 +7,7 @@ import io
 import json
 import random
 import sys
+import subprocess
 import tempfile
 import unittest
 from ui.pet_ui_stages import stage_run_action
@@ -18,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import account_client
 from orchestrator import account_controller
-from infra import account_store
+from infra import account_store, model_secrets, session_integrity
 import entitlement_service as ent
 from infra import lease_verifier
 from orchestrator import stage_handler_registry
@@ -165,14 +166,17 @@ class AccountStoreTests(unittest.TestCase):
         self.assertEqual((data['lease'], data['refresh_token'], data['server_time']), ('l2', 'r', 100))
 
     def test_clear_keeps_device_seed_and_clock_floor(self):
-        account_store.device_fingerprint(self.path, machine_id='')
+        fingerprint = account_store.device_fingerprint(self.path, machine_id='')
         account_store.save_session({'refresh_token': 'r', 'lease': 'l', 'server_time': 100}, self.path)
         account_store.clear_session(self.path)
         data = account_store.load(self.path)
         self.assertNotIn('refresh_token', data)
         self.assertNotIn('lease', data)
         self.assertEqual(data['server_time'], 100)
-        self.assertIn('device_seed', data)
+        self.assertNotIn('device_seed', data)
+        self.assertEqual(account_store.device_fingerprint(self.path, machine_id=''), fingerprint)
+        self.path.unlink()
+        self.assertEqual(account_store.device_fingerprint(self.path, machine_id=''), fingerprint)
 
     def test_corrupt_file_reads_as_empty(self):
         self.path.parent.mkdir(parents=True)
@@ -180,6 +184,78 @@ class AccountStoreTests(unittest.TestCase):
         self.assertEqual(account_store.load(self.path), {})
         self.path.write_text('[1]', encoding='utf-8')
         self.assertEqual(account_store.load(self.path), {})
+
+    def test_legacy_seed_migration_keeps_fingerprint(self):
+        legacy_seed = 'legacy-device-seed'
+        self.path.parent.mkdir(parents=True)
+        self.path.write_text(json.dumps({'device_seed': legacy_seed, 'refresh_token': 'old-fixture'}), encoding='utf-8')
+        expected = hashlib.sha256(('manju-device-v1:' + legacy_seed).encode('utf-8')).hexdigest()
+
+        self.assertEqual(account_store.device_fingerprint(self.path, machine_id=''), expected)
+        self.assertEqual(account_store.load(self.path), {})
+        seed_path = account_store._device_seed_path(self.path)
+        self.assertEqual(seed_path.read_text(encoding='utf-8'), legacy_seed)
+        self.assertEqual(account_store.device_fingerprint(self.path, machine_id=''), expected)
+
+    def test_session_integrity_rejects_tampering_and_recovers(self):
+        account_store.save_session({'refresh_token': 'first-fixture'}, self.path)
+        stored = json.loads(self.path.read_text(encoding='utf-8'))
+        self.assertTrue(session_integrity.verify(stored, self.path))
+        key_path = self.path.with_name('.mac_key.dpapi')
+        self.assertTrue(model_secrets.looks_like_blob(key_path.read_bytes()[:20]))
+
+        stored['refresh_token'] = 'changed-fixture'
+        self.path.write_text(json.dumps(stored), encoding='utf-8')
+        self.assertFalse(session_integrity.verify(stored, self.path))
+        self.assertEqual(account_store.load(self.path), {})
+        self.assertFalse(self.path.exists())
+
+        account_store.save_session({'refresh_token': 'second-fixture'}, self.path)
+        key_path.unlink()
+        self.assertEqual(account_store.load(self.path), {})
+        self.assertFalse(key_path.exists())
+        account_store.save_session({'refresh_token': 'third-fixture'}, self.path)
+        self.assertEqual(account_store.load(self.path)['refresh_token'], 'third-fixture')
+
+    def test_clock_baseline_copies_fall_back_independently(self):
+        registry = unittest.mock.MagicMock()
+        registry.KEY_QUERY_VALUE, registry.KEY_SET_VALUE, registry.REG_QWORD = 1, 2, 11
+        clock_value = {'stamp': 0}
+        registry.QueryValueEx.side_effect = lambda *_: (clock_value['stamp'], registry.REG_QWORD)
+        registry.SetValueEx.side_effect = lambda *args: clock_value.update(stamp=args[-1])
+
+        with unittest.mock.patch.object(account_store, 'session_path', return_value=self.path):
+            with unittest.mock.patch.object(account_store, 'windows_registry', return_value=registry):
+                account_store.save_session({'server_time': NOW + 86400, 'lease': sign(payload())})
+                self.assertEqual(clock_value['stamp'], NOW + 86400)
+                account_store._write({'server_time': 0, 'lease': sign(payload())})
+                floor = account_store.clock_baseline(account_store.load()['server_time'])
+                verdict = evaluate(sign(payload(expires_at=NOW - 1)), now=NOW, last=floor)
+                self.assertEqual(verdict.state, ent.CLOCK_SUSPECT)
+
+                account_store.save_session({'server_time': NOW + 86400})
+                clock_value['stamp'] = 0
+                self.assertEqual(account_store.clock_baseline(account_store.load()['server_time']), NOW + 86400)
+                self.assertTrue(account_store.clock_backup_available())
+
+            with unittest.mock.patch.object(account_store, 'windows_registry', return_value=None):
+                self.assertEqual(account_store.clock_baseline(account_store.load()['server_time']), NOW + 86400)
+                self.assertFalse(account_store.clock_backup_available())
+
+    def test_two_processes_share_first_fallback_seed(self):
+        script = (
+            "import sys; from infra.account_store import device_fingerprint; "
+            "print(device_fingerprint(sys.argv[1], machine_id=''))"
+        )
+        args = [sys.executable, '-c', script, str(self.path)]
+        program = Path(account_store.__file__).resolve().parents[1]
+        with subprocess.Popen(args, stdout=subprocess.PIPE, cwd=program) as first:
+            with subprocess.Popen(args, stdout=subprocess.PIPE, cwd=program) as second:
+                outputs = [process.communicate(timeout=20)[0].strip() for process in (first, second)]
+                self.assertEqual([first.returncode, second.returncode], [0, 0])
+        fingerprint = account_store.device_fingerprint(self.path, machine_id='')
+        self.assertEqual(outputs, [fingerprint.encode('ascii')] * 2)
+        self.assertFalse(self.path.exists())
 
     def test_fingerprint_is_stable_hash(self):
         a = account_store.device_fingerprint(self.path, machine_id='guid-1')
@@ -432,16 +508,60 @@ class AccountControllerTests(unittest.TestCase):
         self.assertNotIn('lease', ctl.session())
         self.assertFalse(ctl.redeem('C', self.results.append))
 
-    def test_switch_on_by_default_and_off_only_evaluates(self):
-        """总开关默认开启（R1913 契约变更）；显式关闭时判定照常，但不拦截付费阶段。"""
-        self.assertTrue(ent.GATE_ENFORCED)
-        self.assertTrue(account_controller.AccountController(
-            submit=None, clock=lambda: NOW, store=self.store, client=_Client()).enforce)
+    def test_stage_gate_follows_verified_lease_and_explicit_override(self):
         ctl = account_controller.AccountController(
+            submit=None, clock=lambda: NOW, store=self.store, client=_Client())
+        self.assertTrue(ctl.enforce)
+        self.assertEqual([stage for stage in STAGES if not ctl.stage_gate(stage)], list(STAGES[:2]))
+
+        account_store.save_session({'lease': sign(payload(state='active'))}, self.store.path)
+        self.assertTrue(all(not ctl.stage_gate(stage) for stage in STAGES))
+
+        account_store.clear_session(self.store.path)
+        disabled = account_controller.AccountController(
             submit=None, clock=lambda: NOW, store=self.store, client=_Client(), enforce=False)
-        self.assertFalse(ctl.enforce)
-        self.assertEqual(ctl.entitlement().state, ent.SIGNED_OUT)
-        self.assertEqual(ctl.stage_gate(STAGES[2]), '')
+        self.assertFalse(disabled.enforce)
+        self.assertEqual(disabled.entitlement().state, ent.SIGNED_OUT)
+        self.assertTrue(all(not disabled.stage_gate(stage) for stage in STAGES))
+
+    def test_frozen_wall_clock_uses_elapsed_time_to_expire_lease(self):
+        ticks = iter((100.0, 121.0))
+        ctl = account_controller.AccountController(
+            submit=None, clock=lambda: NOW, monotonic=lambda: next(ticks), store=self.store, client=_Client())
+        account_store.save_session({'lease': sign(payload(expires_at=NOW - 1, grace_until=NOW + 20))},
+                                   self.store.path)
+        self.assertEqual(ctl.entitlement().state, ent.GRACE)
+        self.assertEqual(ctl.entitlement().state, ent.LOCKED)
+
+    def test_signed_server_time_takes_precedence_over_response_hint(self):
+        lease = sign(payload(iat_server=NOW + 20))
+        ctl = self.controller(_Client(verify_code=success(
+            {'refresh_token': 'fixture', 'lease': lease, 'server_time': NOW + 9999})))
+        ctl.login('a@b.c', '123456', age_confirmed=True, done=self.results.append)
+        self.assertTrue(self.results[-1].ok)
+        self.assertEqual(ctl.session()['server_time'], NOW + 20)
+        stale = sign(payload(iat_server=NOW + 400))
+        self.assertEqual(evaluate(stale, now=NOW).state, ent.CLOCK_SUSPECT)
+
+    def test_logout_requests_revocation_then_clears_local_session(self):
+        lease = sign(payload())
+        account_store.save_session({'refresh_token': 'fixture', 'lease': lease}, self.store.path)
+        client = _Client(logout=success({'ok': True}))
+        self.assertTrue(self.controller(client).logout(done=self.results.append))
+        self.assertEqual(client.calls, [('logout', (lease,))])
+        self.assertTrue(self.results[-1].ok)
+        self.assertNotIn('refresh_token', account_store.load(self.store.path))
+
+    def test_logout_with_network_failure_reports_partial_completion(self):
+        lease = sign(payload())
+        account_store.save_session({'refresh_token': 'fixture', 'lease': lease}, self.store.path)
+        client = _Client(logout=SystemError('断网', data={'code': 'network'}))
+        self.controller(client).logout(done=self.results.append)
+        result = self.results[-1]
+        self.assertFalse(result.ok)
+        self.assertTrue(result.data['local_cleared'])
+        self.assertIn('本地已登出，服务端会话将在到期后失效', result.reason)
+        self.assertNotIn('lease', account_store.load(self.store.path))
 
     def test_logout_keeps_clock_floor_against_replay(self):
         """§8：退出后把旧租约写回并回拨时钟，仍被识别为时钟可疑。"""

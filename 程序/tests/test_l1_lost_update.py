@@ -4,7 +4,9 @@
 以及 lease_verifier 签名长度不符负例（正例／篡改／未知 kid 已由 test_account_client 覆盖）。
 """
 import json
+import os
 import subprocess
+import threading
 import sys
 import tempfile
 import unittest
@@ -16,6 +18,7 @@ from test_account_client import KEYS, _b64, payload, sign
 import infra.account_store as account_store
 import infra.lease_verifier as lease_verifier
 import infra.model_pool as model_pool
+from infra.config_patch import ConfigSnapshot
 import infra.project_settings as project_settings
 import infra.usage_history as usage_history
 
@@ -191,6 +194,29 @@ class UsageHistoryWriteTests(unittest.TestCase):
         self.assertEqual(len(days), 20)          # 两进程各写 10 个不同日期，零丢失
 
 
+class ConfigPatchTests(unittest.TestCase):
+    def test_only_changed_fields_replace_latest_and_baseline_is_deep(self):
+        data = ConfigSnapshot({'models': {'old': {}}, 'health': {'at': 'old'}, 'removed': True})
+        data['models']['new'] = {}
+        del data['removed']
+        data['added'] = None
+        latest = {'models': {'old': {}}, 'health': {'at': 'new'}, 'removed': False, 'other': True}
+        self.assertEqual(data.apply_to(latest),
+                         {'models': {'old': {}, 'new': {}}, 'health': {'at': 'new'},
+                          'added': None, 'other': True})
+        self.assertFalse(latest['removed'])
+
+    def test_copy_and_update_keep_explicit_same_empty_assignment(self):
+        data = ConfigSnapshot({'health': {}, 'deleted': True})
+        copied = data.copy()
+        copied.update({'health': {}})
+        del copied['deleted']
+        self.assertEqual(copied.apply_to({'health': {'at': 'new'}, 'deleted': True}), {'health': {}})
+        self.assertEqual(data, {'health': {}, 'deleted': True})
+        self.assertEqual(json.loads(json.dumps(copied)), {'health': {}})
+        self.assertEqual(ConfigSnapshot({}).apply_to({'keep': True}), {'keep': True})
+
+
 class ModelPoolUpdateTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -223,6 +249,127 @@ class ModelPoolUpdateTests(unittest.TestCase):
         entry = model_pool.record_health('m1', {'ok': True}, program=self.program)
         self.assertTrue(entry['ok'])
         self.assertEqual(self.config.read_bytes(), original)   # 坏配置原样保留，不盖空表
+
+    def _controlled_store_and_health(self, initial, change, *, health_first=True):
+        """管道只控制读写顺序，不用调度概率替代跨进程契约。"""
+        self._seed_config(initial)
+        script = (
+            "import sys\n"
+            "sys.path.insert(0, sys.argv[1])\n"
+            "from infra import model_pool\n"
+            "program = sys.argv[2]\n"
+            "data = model_pool.raw(program)\n"
+            "print('ready', flush=True)\n"
+            "if sys.stdin.readline().strip() != 'publish': raise RuntimeError('no release')\n"
+            + change + "\nmodel_pool.store(data, program)\n"
+        )
+        health = (
+            "import sys\n"
+            "sys.path.insert(0, sys.argv[1])\n"
+            "from infra import model_pool\n"
+            "entry = model_pool.record_health('shared', {'ok': True, 'at': 'new'}, program=sys.argv[2])\n"
+            "assert entry['at'] == 'new'\n"
+        )
+        env = dict(os.environ, PYTHONUTF8='1', PYTHONIOENCODING='utf-8')
+        proc = subprocess.Popen(
+            [sys.executable, '-B', '-c', script, str(PROGRAM), str(self.program)],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True, encoding='utf-8', env=env, creationflags=subprocess.CREATE_NO_WINDOW)
+        ready = []
+        reader = threading.Thread(target=lambda: ready.append(proc.stdout.readline()), daemon=True)
+        reader.start()
+        try:
+            reader.join(timeout=20)
+            self.assertFalse(reader.is_alive(), 'store child did not read its snapshot')
+            self.assertEqual(ready, ['ready\n'])
+            def record_health():
+                result = subprocess.run(
+                    [sys.executable, '-B', '-c', health, str(PROGRAM), str(self.program)],
+                    capture_output=True, text=True, encoding='utf-8', env=env, timeout=30,
+                    creationflags=subprocess.CREATE_NO_WINDOW)
+                self.assertEqual(result.returncode, 0, result.stderr)
+            if health_first:
+                record_health()
+            _out, err = proc.communicate('publish\n', timeout=30)
+            self.assertEqual(proc.returncode, 0, err)
+            if not health_first:
+                record_health()
+        finally:
+            if proc.poll() is None:
+                proc.kill()
+                proc.communicate(timeout=10)
+            reader.join(timeout=10)
+        return json.loads(self.config.read_text(encoding='utf-8'))
+
+    def test_stale_store_keeps_concurrent_health_in_both_orders(self):
+        changes = (
+            "data['models']['added'] = {'model': 'added'}",
+            "data = data.copy(); data['models']['added'] = {'model': 'added'}",
+            "data = model_pool.upsert(data, {'model': 'added'}, 'added')",
+            "data = model_pool.remove(data, 'old')",
+            "data = model_pool.with_tasks(data, {'default': 'added'})",
+        )
+        for has_health in (False, True):
+            initial = {'models': {'old': {'model': 'old'}}, 'other': {'keep': True}}
+            if has_health:
+                initial[model_pool.HEALTH_KEY] = {'shared': {'ok': False, 'at': 'old'}}
+            for health_first in (False, True):
+                for change in changes:
+                    with self.subTest(has_health=has_health, health_first=health_first, change=change):
+                        data = self._controlled_store_and_health(initial, change, health_first=health_first)
+                        self.assertEqual(data[model_pool.HEALTH_KEY]['shared']['at'], 'new')
+                        self.assertEqual(data['other'], {'keep': True})
+                        if 'remove(' in change:
+                            self.assertNotIn('old', data['models'])
+                            self.assertIn('old', data['deleted_desktop_models'])
+                        elif 'with_tasks(' in change:
+                            self.assertEqual(data['agent']['models']['default'], 'added')
+                        else:
+                            self.assertIn('added', data['models'])
+
+    def test_stale_store_explicit_clear_and_delete_are_not_merged_back(self):
+        initial = {'models': {'old': {'model': 'old'}},
+                   model_pool.HEALTH_KEY: {'shared': {'ok': False, 'at': 'old'}},
+                   'other': {'keep': True}}
+        for old_health in ({}, initial[model_pool.HEALTH_KEY]):
+            initial[model_pool.HEALTH_KEY] = old_health
+            for change, expected in (("data[model_pool.HEALTH_KEY] = {}", {}),
+                                     ("data.update({model_pool.HEALTH_KEY: {}})", {}),
+                                     ("data[model_pool.HEALTH_KEY] = None", None),
+                                     ("del data[model_pool.HEALTH_KEY]", 'missing')):
+                with self.subTest(old_health=old_health, change=change):
+                    data = self._controlled_store_and_health(initial, change)
+                    self.assertEqual(data.get(model_pool.HEALTH_KEY, 'missing'), expected)
+                    self.assertEqual(data['models'], initial['models'])
+        data = self._controlled_store_and_health(initial, "data['models'] = {}")
+        self.assertEqual(data['models'], {})
+        self.assertEqual(data[model_pool.HEALTH_KEY]['shared']['at'], 'new')
+
+    def test_snapshot_metadata_stays_in_memory_and_dict_conversion_is_full_replace(self):
+        initial = {'models': {}, model_pool.HEALTH_KEY: {'old': {}}}
+        self._seed_config(initial)
+        data = model_pool.raw(self.program)
+        self.assertIsInstance(data, dict)
+        self.assertEqual(json.loads(json.dumps(data)), initial)
+        self.assertEqual(json.loads(json.dumps(data.copy())), initial)
+        full = dict(data)
+        del full[model_pool.HEALTH_KEY]
+        model_pool.store(full, self.program)
+        self.assertEqual(json.loads(self.config.read_text(encoding='utf-8')), {'models': {}})
+
+    def test_plain_dict_store_still_replaces_the_entire_document(self):
+        self._seed_config({'models': {'old': {'model': 'old'}}, model_pool.HEALTH_KEY: {'old': {}}})
+        model_pool.store({'models': {}}, self.program)
+        self.assertEqual(json.loads(self.config.read_text(encoding='utf-8')), {'models': {}})
+
+    def test_store_keeps_health_written_after_the_config_snapshot(self):
+        before = model_pool.raw(self.program)
+        model_pool.record_health('shared', {'ok': True, 'at': 'new'}, program=self.program)
+        before['models'] = {'new_model': {'model': 'fixture'}}
+        model_pool.store(before, self.program)
+        persisted = model_pool.raw(self.program)
+        self.assertEqual(persisted['models'], before['models'])
+        self.assertEqual(persisted[model_pool.HEALTH_KEY]['shared']['at'], 'new')
 
     def test_two_processes_health_and_store_do_not_rollback(self):
         script_health = (

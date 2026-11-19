@@ -26,7 +26,8 @@ LOCK_LINE = re.compile(r'^([A-Za-z0-9][A-Za-z0-9._-]*)==([^\s#]+)$')
 
 
 def _json(path: Path) -> dict:
-    data = json.loads(path.read_text(encoding='utf-8'))
+    with path.open(encoding='utf-8') as stream:
+        data = json.load(stream)
     if not isinstance(data, dict):
         raise ValueError(f'{path.name} 必须是 JSON 对象')
     return data

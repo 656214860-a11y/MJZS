@@ -172,11 +172,10 @@ class CodexUserLayerTests(UserLayerTestCase):
 
     def test_injected_migration_runs_before_sync_on_the_same_thread(self):
         calls = []
-        with mock.patch.object(codex_skill_sync.threading, 'Thread') as thread, \
+        with mock.patch.object(codex_skill_sync.executors, 'submit') as submit, \
                 mock.patch.object(codex_skill_sync, 'sync_codex_skills', side_effect=lambda **kw: calls.append('sync')):
             codex_skill_sync.start_codex_skill_sync(self.program, before=lambda: calls.append('migrate'))
-            kwargs = thread.call_args.kwargs
-            kwargs['target'](**kwargs['kwargs'])
+            submit.call_args.args[1]()
         self.assertEqual(calls, ['migrate', 'sync'])
 
 

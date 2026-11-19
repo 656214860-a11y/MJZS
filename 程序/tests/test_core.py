@@ -76,6 +76,7 @@ class ResidualProjectTests(unittest.TestCase):
             (project/'config.json').write_text('{}',encoding='utf-8')
             desk=Desktop.__new__(Desktop)
             desk.root=None
+            desk._temporary_sweep_roots=set()
             desk.idea_chat_controller=__import__('orchestrator.idea_chat_controller', fromlist=['IdeaChatController']).IdeaChatController()
             desk.flush_brief=lambda:None
             desk.projects=type('Projects',(),{'activate':lambda self,path:None})()

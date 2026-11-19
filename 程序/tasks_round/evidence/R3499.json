@@ -1,0 +1,15 @@
+{
+  "round": 3499,
+  "commit_base": "11ecbaf5",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k agent_doc_budget",
+    "exit": 0,
+    "passed": 5,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T00:52:02"
+}

@@ -3,6 +3,7 @@ import hashlib, json, os, subprocess, time, uuid, re, threading
 from pathlib import Path
 import contract.stage_layout as stage_layout
 import infra.client_profiles as client_profiles
+import infra.executors as executors
 from infra.file_cache import remove_temporary_file
 from agent.core import read,save,save_text,temporary_path,replace
 from contract.platform_tools import launch_windows_app
@@ -102,7 +103,7 @@ def launch_interactive(project,stage,title,prompt,config,followup=None):
     register_process(project, process)
     process.qwen_input=incoming;process.qwen_events=events;process.qwen_folder=folder;process.qwen_started=time.monotonic()
     process.qwen_input_lock=threading.Lock();process.qwen_title=title;process.qwen_renamed_title=''
-    threading.Thread(target=name_when_ready,args=(process,),daemon=True).start()
+    executors.submit('io', lambda: name_when_ready(process), label='qwen-name-ready')
     info[stage]={'session_id':session,'events':str(events),'title':title,'setup_key':key};save(bindings,info)
     return {'engine':'Qwen Code（阿里云）','task_file':str(task),'process':process}
 

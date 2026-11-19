@@ -1,9 +1,10 @@
 """Non-interactive, bounded-to-project Codex jobs. No Tk calls in workers."""
-import json, queue, shutil, subprocess, threading
+import json, queue, shutil, subprocess
 from datetime import datetime
 from pathlib import Path
 from agent.core import save
 from infra.file_cache import read_json
+import infra.executors as executors
 from contract.storyboard_paths import media_root
 import contract.stage_layout as stage_layout
 import domain.white_model_service as wm
@@ -215,4 +216,5 @@ def start(project,source,ids,state,monitor=False,ticket=None,is_current=None,exe
                 state['stop']=True;state['busy']=False
                 state['summary']='本机已停止等待；在途白模结果待核对'
                 announce(state,False,state['summary'],ticket)
-    threading.Thread(target=controlled_worker if execute is not None else worker,daemon=True).start()
+    executors.submit('io', controlled_worker if execute is not None else worker,
+                     label='previs-automation')

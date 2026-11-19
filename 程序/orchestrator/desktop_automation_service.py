@@ -9,6 +9,7 @@ from collections import deque
 import infra.app_logging as app_logging
 import contract.artifact_schema as artifact_schema
 import infra.broadcaster as broadcaster
+import infra.executors as executors
 
 
 # 后台任务生命周期的唯一迁移清单。每一项都必须证明同一代次覆盖提交、替换、
@@ -482,7 +483,7 @@ class BackgroundTaskLifecycle:
                 finished.set()
             if late:
                 self._persist(ticket, state='late', succeeded=error is None)
-        threading.Thread(target=work, daemon=True).start()
+        executors.submit('io', work, label='desktop-exec-%s' % ticket)
         while not finished.wait(.02):
             try:
                 control.checkpoint()

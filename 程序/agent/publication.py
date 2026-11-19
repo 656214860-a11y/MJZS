@@ -18,6 +18,8 @@ import threading
 import time
 import uuid
 
+from contract.infra_errors import ConfigError, CorruptDataError, ProcessError, StorageError
+
 ROOT = Path(__file__).resolve().parents[1] / 'outputs' / 'publication-transactions'
 _LOCK = threading.RLock()
 _LOCAL = threading.local()
@@ -82,12 +84,12 @@ def _commit(folder):
 def _discard(folder):
     folder = folder.resolve()
     if folder.parent != ROOT.resolve() or len(folder.name) != 32:
-        raise RuntimeError('非法发布事务目录，已停止清理')
+        raise ConfigError('非法发布事务目录，已停止清理')
     int(folder.name, 16)
     from infra.file_cache import remove_temporary_tree
     remove_temporary_tree(folder)
     if folder.exists():
-        raise OSError('发布事务临时目录清理未完成：' + str(folder))
+        raise StorageError('发布事务临时目录清理未完成：' + str(folder), detail=str(folder))
 
 
 def _recover(folder):
@@ -119,10 +121,10 @@ def _recover(folder):
                                               or not isinstance(stamp[4], str) or len(stamp[4]) != 64):
                         raise ValueError('invalid artifact version')
     except (KeyError, TypeError, ValueError, OSError) as exc:
-        raise RuntimeError('发布事务日志损坏，已停止读取以保护旧成果：' + str(folder)) from exc
+        raise ProcessError('发布事务日志损坏，已停止读取以保护旧成果：' + str(folder), detail=str(folder)) from exc
     if record['state'] == 'pending':
         if version == 1 and entries:
-            raise RuntimeError('旧版发布日志缺少目标版本，已保留备份，需核对成果后恢复：' + str(folder))
+            raise ProcessError('旧版发布日志缺少目标版本，已保留备份，需核对成果后恢复：' + str(folder), detail=str(folder))
         for entry in reversed(entries):
             target = Path(entry['target'])
             if 'recycled' in entry:
@@ -179,11 +181,11 @@ def recycle_file(source, destination):
     """Enroll a same-volume, no-overwrite move in the active publication."""
     active = getattr(_LOCAL, 'active', None)
     if active is None:
-        raise RuntimeError('回收移动需要发布事务')
+        raise ProcessError('回收移动需要发布事务')
     folder, record = active
     source, destination = Path(source), Path(destination)
     if source.resolve() != source or destination.resolve() != destination or not source.is_file():
-        raise ValueError('回收移动只接受普通文件及真实路径：' + str(source))
+        raise ConfigError('回收移动只接受普通文件及真实路径：' + str(source))
     original = _version(source)
     if original is None:
         raise FileNotFoundError(source)
@@ -192,13 +194,44 @@ def recycle_file(source, destination):
                               'replacement': None, 'recycled': str(destination)})
     _write(folder, record)
     if not _may_restore(source, original):
-        raise RuntimeError('回收前源文件已被修改：' + str(source))
+        raise ProcessError('回收前源文件已被修改：' + str(source), detail=str(source))
     source.rename(destination)
 
 
 @contextmanager
-def access():
-    """Block conflicting readers/writers; recover stale transactions once locked."""
+def _file_access(path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, 'a+b') as stream:
+        if stream.seek(0, 2) == 0:
+            stream.write(b'0')
+            stream.flush()
+        if os.name != 'nt':
+            raise ProcessError('发布事务锁仅支持随附的 Windows 运行环境')
+        import msvcrt
+        deadline = time.monotonic() + 30
+        while True:
+            try:
+                stream.seek(0)
+                msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
+                break
+            except OSError as exc:
+                if time.monotonic() >= deadline:
+                    raise ProcessError('发布事务忙，未读取或覆盖未提交成果') from exc
+                time.sleep(0.01)
+        try:
+            yield
+        finally:
+            stream.seek(0)
+            msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
+
+
+@contextmanager
+def access(*, lock_path=None):
+    """Serialize access and recover stale publication transactions for the default lock."""
+    if lock_path is not None:
+        with _file_access(Path(lock_path)):
+            yield
+        return
     with _LOCK:
         if getattr(_LOCAL, 'depth', 0):
             _LOCAL.depth += 1
@@ -207,24 +240,7 @@ def access():
             finally:
                 _LOCAL.depth -= 1
             return
-        ROOT.mkdir(parents=True, exist_ok=True)
-        with open(ROOT / 'writer.lock', 'a+b') as stream:
-            if stream.seek(0, 2) == 0:
-                stream.write(b'0')
-                stream.flush()
-            if os.name != 'nt':
-                raise RuntimeError('发布事务锁仅支持随附的 Windows 运行环境')
-            import msvcrt
-            deadline = time.monotonic() + 30
-            while True:
-                try:
-                    stream.seek(0)
-                    msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
-                    break
-                except OSError as exc:
-                    if time.monotonic() >= deadline:
-                        raise RuntimeError('发布事务忙，未读取或覆盖未提交成果') from exc
-                    time.sleep(0.01)
+        with _file_access(ROOT / 'writer.lock'):
             _LOCAL.depth = 1
             try:
                 for folder in ROOT.iterdir():
@@ -233,8 +249,6 @@ def access():
                 yield
             finally:
                 _LOCAL.depth = 0
-                stream.seek(0)
-                msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
 
 
 def before_replace(target, source=None):
@@ -245,7 +259,7 @@ def before_replace(target, source=None):
     folder, record = active
     target = Path(target).resolve()
     if target.exists() and not target.is_file():
-        raise ValueError('成果目标不是普通文件')
+        raise ConfigError('成果目标不是普通文件')
     prior = _version(target)
     replacement = None if source is None else _version(source)
     if source is not None and replacement is None:
@@ -253,7 +267,7 @@ def before_replace(target, source=None):
     for item in record['entries']:
         if item['target'] == str(target):
             if prior not in (item['prior'], item['replacement']):
-                raise RuntimeError('成果在发布期间已被修改：' + str(target))
+                raise ProcessError('成果在发布期间已被修改：' + str(target), detail=str(target))
             item.update(prior=prior, replacement=replacement)
             _write(folder, record)
             return
@@ -284,7 +298,7 @@ def transaction():
         try:
             yield
             if record.get('rollback_only'):
-                raise RuntimeError('嵌套发布失败，整包成果已回滚')
+                raise ProcessError('嵌套发布失败，整包成果已回滚')
             _commit(folder)
         except BaseException:
             _LOCAL.active = None

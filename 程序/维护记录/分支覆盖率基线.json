@@ -3,11 +3,13 @@
  "scope": "L0/L1 登记模块实体定向测量（tests/architecture/_layers.py 登记层 0/1；不是全量套件分支覆盖率）",
  "metric": "决策点双结果覆盖：if/loop 体进入且条件走完；try handler 进入且干净路径走完；match case 进入且（无 case _ 时）落空路径走完。单行复合语句与表达式短路不计。",
  "targets": [
+  "tests.test_account_client.AccountStoreTests",
   "tests.test_aigc_lint",
   "tests.test_api",
   "tests.test_app_icon",
   "tests.test_app_logging",
   "tests.test_app_metadata",
+  "tests.test_artifact_index",
   "tests.test_artifact_lineage",
   "tests.test_artifact_schema",
   "tests.test_artifact_schema_wiring",
@@ -25,6 +27,7 @@
   "tests.test_diagnostic_capture",
   "tests.test_engine_probe",
   "tests.test_error_codes",
+  "tests.test_executors",
   "tests.test_file_cache",
   "tests.test_file_cache_bounds",
   "tests.test_file_index",
@@ -37,6 +40,8 @@
   "tests.test_global_library_service",
   "tests.test_hash_backend",
   "tests.test_http_client",
+  "tests.test_infra_errors",
+  "tests.test_job_store",
   "tests.test_keyframe_lifecycle_service",
   "tests.test_l1_bounded_growth_r3269",
   "tests.test_l1_l0_integration_r3331",
@@ -46,6 +51,7 @@
   "tests.test_lifecycle",
   "tests.test_line_endings",
   "tests.test_log_maintenance",
+  "tests.test_metrics",
   "tests.test_model_diagnostics",
   "tests.test_model_metering",
   "tests.test_model_pool",
@@ -60,15 +66,19 @@
   "tests.test_pet_settings",
   "tests.test_pet_state",
   "tests.test_platform_tools",
+  "tests.test_process_supervisor",
   "tests.test_project_context",
   "tests.test_project_stages",
   "tests.test_prompt_templates",
+  "tests.test_publication_fsync_budget",
   "tests.test_publication_recovery",
+  "tests.test_publication_transaction",
   "tests.test_qwen_adapter",
   "tests.test_recycle_panel_actions",
   "tests.test_recycle_retention",
   "tests.test_recycle_write_ahead",
   "tests.test_request_ledger",
+  "tests.test_resources",
   "tests.test_script_contract",
   "tests.test_script_text_reader",
   "tests.test_seedream_direct",
@@ -93,21 +103,18 @@
   "tests.test_video_lifecycle_service",
   "tests.test_workflow_process_registry",
   "tests.test_workspace_maintenance",
-  "tests.test_writing_api",
-  "tests.test_publication_transaction",
-  "tests.test_batch_frames",
-  "tests.test_execution_deadline",
-  "tests.test_l1_transport_requests",
-  "tests.test_model_gateway_robustness",
-  "tests.test_model_failure_route",
-  "tests.test_history_output_bounds",
-  "tests.test_shared_adapter_infrastructure.RunRegisteredSharedTests",
-  "tests.test_force_quit.BackgroundProcessTests"
+  "tests.test_writing_api"
  ],
  "tests_ok": true,
- "points_total": 2822,
- "points_covered": 1565,
+ "points_total": 3069,
+ "points_covered": 1731,
  "modules": [
+  {
+   "module": "budget.py",
+   "points": 25,
+   "covered": 0,
+   "percent": 0.0
+  },
   {
    "module": "comfy_service.py",
    "points": 32,
@@ -115,19 +122,7 @@
    "percent": 0.0
   },
   {
-   "module": "h3_reference_adapter.py",
-   "points": 5,
-   "covered": 0,
-   "percent": 0.0
-  },
-  {
    "module": "hash_backend.py",
-   "points": 6,
-   "covered": 0,
-   "percent": 0.0
-  },
-  {
-   "module": "lease_verifier.py",
    "points": 6,
    "covered": 0,
    "percent": 0.0
@@ -169,12 +164,6 @@
    "percent": 5.3
   },
   {
-   "module": "comfy_runtime.py",
-   "points": 9,
-   "covered": 1,
-   "percent": 11.1
-  },
-  {
    "module": "prop_assets.py",
    "points": 21,
    "covered": 3,
@@ -199,16 +188,16 @@
    "percent": 23.5
   },
   {
-   "module": "native_apps.py",
-   "points": 20,
-   "covered": 5,
-   "percent": 25.0
-  },
-  {
    "module": "project_settings.py",
    "points": 4,
    "covered": 1,
    "percent": 25.0
+  },
+  {
+   "module": "native_apps.py",
+   "points": 21,
+   "covered": 6,
+   "percent": 28.6
   },
   {
    "module": "qwen_setup.py",
@@ -223,10 +212,16 @@
    "percent": 30.0
   },
   {
+   "module": "api_endpoints.py",
+   "points": 86,
+   "covered": 26,
+   "percent": 30.2
+  },
+  {
    "module": "core.py",
-   "points": 33,
-   "covered": 10,
-   "percent": 30.3
+   "points": 35,
+   "covered": 11,
+   "percent": 31.4
   },
   {
    "module": "usage_snapshot.py",
@@ -235,16 +230,28 @@
    "percent": 32.3
   },
   {
+   "module": "comfy_runtime.py",
+   "points": 9,
+   "covered": 3,
+   "percent": 33.3
+  },
+  {
+   "module": "lease_verifier.py",
+   "points": 6,
+   "covered": 2,
+   "percent": 33.3
+  },
+  {
+   "module": "app_logging.py",
+   "points": 55,
+   "covered": 19,
+   "percent": 34.5
+  },
+  {
    "module": "script_contract.py",
    "points": 132,
    "covered": 46,
    "percent": 34.8
-  },
-  {
-   "module": "api_endpoints.py",
-   "points": 86,
-   "covered": 30,
-   "percent": 34.9
   },
   {
    "module": "seedream_api.py",
@@ -253,16 +260,10 @@
    "percent": 35.0
   },
   {
-   "module": "app_logging.py",
-   "points": 55,
-   "covered": 12,
-   "percent": 21.8
-  },
-  {
-   "module": "account_store.py",
-   "points": 13,
-   "covered": 5,
-   "percent": 38.5
+   "module": "process_wait.py",
+   "points": 11,
+   "covered": 4,
+   "percent": 36.4
   },
   {
    "module": "unit_of_work.py",
@@ -271,22 +272,16 @@
    "percent": 38.8
   },
   {
-   "module": "platform_tools.py",
-   "points": 140,
-   "covered": 53,
-   "percent": 37.9
-  },
-  {
-   "module": "process_wait.py",
-   "points": 11,
-   "covered": 5,
-   "percent": 45.5
+   "module": "resources.py",
+   "points": 20,
+   "covered": 8,
+   "percent": 40.0
   },
   {
    "module": "model_pool.py",
-   "points": 134,
-   "covered": 55,
-   "percent": 41.0
+   "points": 135,
+   "covered": 56,
+   "percent": 41.5
   },
   {
    "module": "continuity_ledger.py",
@@ -299,6 +294,18 @@
    "points": 108,
    "covered": 51,
    "percent": 47.2
+  },
+  {
+   "module": "platform_tools.py",
+   "points": 141,
+   "covered": 67,
+   "percent": 47.5
+  },
+  {
+   "module": "metrics.py",
+   "points": 71,
+   "covered": 35,
+   "percent": 49.3
   },
   {
    "module": "broadcaster.py",
@@ -332,21 +339,21 @@
   },
   {
    "module": "diagnostic_capture.py",
-   "points": 84,
-   "covered": 45,
-   "percent": 53.6
-  },
-  {
-   "module": "storage_maintenance.py",
-   "points": 175,
-   "covered": 105,
-   "percent": 60.0
+   "points": 85,
+   "covered": 46,
+   "percent": 54.1
   },
   {
    "module": "client_profiles.py",
    "points": 88,
    "covered": 49,
    "percent": 55.7
+  },
+  {
+   "module": "storage_maintenance.py",
+   "points": 176,
+   "covered": 99,
+   "percent": 56.2
   },
   {
    "module": "file_cache.py",
@@ -361,10 +368,28 @@
    "percent": 60.0
   },
   {
+   "module": "workflow_process_registry.py",
+   "points": 82,
+   "covered": 51,
+   "percent": 62.2
+  },
+  {
+   "module": "account_store.py",
+   "points": 25,
+   "covered": 16,
+   "percent": 64.0
+  },
+  {
    "module": "global_library_service.py",
    "points": 17,
    "covered": 11,
    "percent": 64.7
+  },
+  {
+   "module": "publication.py",
+   "points": 55,
+   "covered": 36,
+   "percent": 65.5
   },
   {
    "module": "config_snapshot.py",
@@ -397,12 +422,6 @@
    "percent": 68.2
   },
   {
-   "module": "engine_probe.py",
-   "points": 49,
-   "covered": 34,
-   "percent": 69.4
-  },
-  {
    "module": "pet_llm.py",
    "points": 36,
    "covered": 25,
@@ -415,16 +434,10 @@
    "percent": 70.6
   },
   {
-   "module": "publication.py",
-   "points": 54,
-   "covered": 35,
-   "percent": 64.8
-  },
-  {
-   "module": "temporary_sweep.py",
-   "points": 11,
-   "covered": 8,
-   "percent": 72.7
+   "module": "engine_probe.py",
+   "points": 53,
+   "covered": 38,
+   "percent": 71.7
   },
   {
    "module": "app_icon.py",
@@ -445,16 +458,28 @@
    "percent": 75.0
   },
   {
+   "module": "executors.py",
+   "points": 41,
+   "covered": 31,
+   "percent": 75.6
+  },
+  {
    "module": "request_ledger.py",
-   "points": 157,
-   "covered": 121,
-   "percent": 77.1
+   "points": 156,
+   "covered": 120,
+   "percent": 76.9
   },
   {
    "module": "stage_model_value.py",
    "points": 9,
    "covered": 7,
    "percent": 77.8
+  },
+  {
+   "module": "artifact_index.py",
+   "points": 14,
+   "covered": 11,
+   "percent": 78.6
   },
   {
    "module": "artifact_schema.py",
@@ -487,9 +512,21 @@
    "percent": 80.0
   },
   {
+   "module": "session_integrity.py",
+   "points": 5,
+   "covered": 4,
+   "percent": 80.0
+  },
+  {
    "module": "store_program_locator.py",
    "points": 10,
    "covered": 8,
+   "percent": 80.0
+  },
+  {
+   "module": "temporary_sweep.py",
+   "points": 15,
+   "covered": 12,
    "percent": 80.0
   },
   {
@@ -503,6 +540,12 @@
    "points": 11,
    "covered": 9,
    "percent": 81.8
+  },
+  {
+   "module": "job_store.py",
+   "points": 13,
+   "covered": 11,
+   "percent": 84.6
   },
   {
    "module": "api_models.py",
@@ -521,12 +564,6 @@
    "points": 15,
    "covered": 13,
    "percent": 86.7
-  },
-  {
-   "module": "workflow_process_registry.py",
-   "points": 50,
-   "covered": 26,
-   "percent": 52.0
   },
   {
    "module": "asset_contract.py",
@@ -565,6 +602,12 @@
    "percent": 100.0
   },
   {
+   "module": "config_patch.py",
+   "points": 4,
+   "covered": 4,
+   "percent": 100.0
+  },
+  {
    "module": "diagnostics.py",
    "points": 0,
    "covered": 0,
@@ -572,8 +615,8 @@
   },
   {
    "module": "error_codes.py",
-   "points": 12,
-   "covered": 12,
+   "points": 11,
+   "covered": 11,
    "percent": 100.0
   },
   {
@@ -586,6 +629,12 @@
    "module": "idempotency.py",
    "points": 0,
    "covered": 0,
+   "percent": 100.0
+  },
+  {
+   "module": "infra_errors.py",
+   "points": 1,
+   "covered": 1,
    "percent": 100.0
   },
   {
@@ -679,5 +728,5 @@
    "percent": 100.0
   }
  ],
- "modules_total": 95
+ "modules_total": 103
 }

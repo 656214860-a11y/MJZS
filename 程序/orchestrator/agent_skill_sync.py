@@ -8,6 +8,7 @@ marker 增 ``target`` 字段，孤儿回收按 ``(owner, root, target)`` 三元�
 """
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 import os
@@ -15,6 +16,7 @@ from pathlib import Path
 import re
 import threading
 
+import infra.executors as executors
 from agent.core import read_json, save, save_text
 from orchestrator.skill_registry import default_registry, parse, stage_from_path
 from infra.storage_maintenance import recycle_paths
@@ -210,10 +212,10 @@ def start_agent_skill_sync(program=None, before=None, targets=None):
             app_logging.swallowed('Agent 技能同步前置维护失败')
         sync_all_agent_skills(program=program, targets=targets)
 
-    worker = threading.Thread(target=run if callable(before) else _all_entry,
-                              kwargs={'program': program, 'targets': targets},
-                              name='agent-skill-sync', daemon=True)
-    worker.start()
+    worker = executors.submit('io',
+                              functools.partial(run if callable(before) else _all_entry,
+                                                program=program, targets=targets),
+                              label='agent-skill-sync')
     return worker
 
 

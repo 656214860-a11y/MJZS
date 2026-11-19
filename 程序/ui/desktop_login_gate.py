@@ -3,7 +3,7 @@
 真实启动（``Desktop(..., require_login=True)``）时，本机没有可用登录会话（``SIGNED_OUT``）就在主窗口上盖一层
 全屏登录页：登录成功前不选项目、不检查更新，登录后才走原来的首帧启动流程。已登录但授权失效
 （``LOCKED``／``GRACE``／``CLOCK_SUSPECT``）的账号照常进主界面，付费阶段仍由 ``stage_gate`` 拦截。
-判定只读本机会话并验签，不联网；``GATE_ENFORCED`` 关闭或不要求登录的宿主（测试）不建覆盖层。
+判定只读本机会话并验签，不联网。显式注入关闭拦截或宿主不要求登录时不建覆盖层。
 登录／注册／验证码登录／找回密码表单与「00 会员账户」页共用 ``AccountPageMixin._build_login_form``。
 """
 from tkinter import ttk
@@ -23,7 +23,7 @@ class LoginGateMixin:
     _login_gate_startup_pending = False
 
     def login_required(self):
-        """要求登录、总开关开着，且本机没有可用登录会话。"""
+        """宿主要求登录和拦截，且本机没有登录会话。"""
         account = self.account
         return bool(self._require_login and account.enforce
                     and account.entitlement().state == entitlement_service.SIGNED_OUT)

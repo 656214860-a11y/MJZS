@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import re
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -15,10 +16,36 @@ BUDGETS = {
     ROOT / 'AGENTS.md': 16000,
     REPO / 'AGENTS.md': 2000,
     REPO / 'CLAUDE.md': 4000,
+    # 工程文档体系任务书轮5（R3503）：agent 会整读的工程文档同样受 16 KB 加载窗口约束。
+    ROOT / '文档导航.md': 16000,
+    ROOT / '说明' / '工程文档登记表.md': 16000,
+    ROOT / '说明' / '产品需求规格.md': 16000,
+    ROOT / '说明' / '已知坑与不可破坏契约.md': 16000,
+    ROOT / '维护记录' / 'README.md': 16000,
+    ROOT / 'docs' / 'adr' / 'README.md': 16000,
 }
+# D10 总量预算：程序/ 根 .md 与 维护记录/ 顶层文件只减不增的上限。
+ROOT_MD_BUDGET = 18
+MAINTENANCE_FILE_BUDGET = 60
 LINK = re.compile(r'\[[^\]]*\]\(([^)#\s]+)(?:#[^)]*)?\)')
 MUST_FIT = ('## 5. 自检规则', '## 8. 任务执行协议', '## 2.6 Git 提交门禁')
 LIMIT = 16384
+
+
+def tracked_files():
+    """git ls-files 口径的跟踪文件集（相对 ROOT）；git 不可用时退回文件系统枚举。
+
+    运行时落盘的 gitignored 状态文件（如 维护记录/基准历史.json）不计入 D10 预算——
+    预算约束的是入库文件的膨胀，不是工作区里的运行时产物。"""
+    try:
+        out = subprocess.run(['git', 'ls-files', '-z'], cwd=ROOT,
+                             capture_output=True, timeout=30)
+        if out.returncode == 0:
+            return [p for p in out.stdout.decode('utf-8').split('\0') if p]
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return [str(p.relative_to(ROOT)).replace('\\', '/')
+            for p in ROOT.rglob('*') if p.is_file()]
 
 
 def oversize(size, budget):
@@ -59,6 +86,28 @@ class AgentDocBudgetTests(unittest.TestCase):
             sample = Path(temporary) / 'x.md'
             sample.write_text('[好](x.md) [坏](missing.md) [外](https://a.b/c)', encoding='utf-8')
             self.assertEqual(broken_links(sample), ['missing.md'])
+
+    def test_budget_guard_rejects_oversize_sample(self):
+        """负向自测：构造超预算样本，证明体积断言确实会红而非恒真。"""
+        import tempfile
+        with tempfile.TemporaryDirectory() as temporary:
+            sample = Path(temporary) / 'big.md'
+            sample.write_text('x' * 20000, encoding='utf-8')
+            size = len(sample.read_bytes())
+            self.assertGreater(oversize(size, 16000), 0,
+                               '超预算样本未被 oversize() 检出，预算断言形同虚设')
+
+    def test_program_root_markdown_count_within_budget(self):
+        count = len([p for p in tracked_files()
+                     if '/' not in p and p.endswith('.md')])
+        self.assertLessEqual(count, ROOT_MD_BUDGET,
+                             '程序/ 根 .md 共 %d 份，超过 D10 预算 %d：新文档进子目录或说明/' % (count, ROOT_MD_BUDGET))
+
+    def test_maintenance_record_top_level_count_within_budget(self):
+        count = len([p for p in tracked_files()
+                     if p.startswith('维护记录/') and p.count('/') == 1])
+        self.assertLessEqual(count, MAINTENANCE_FILE_BUDGET,
+                             '维护记录/ 顶层跟踪文件共 %d 个，超过 D10 预算 %d：历史件移入归档子目录' % (count, MAINTENANCE_FILE_BUDGET))
 
 
 if __name__ == '__main__':

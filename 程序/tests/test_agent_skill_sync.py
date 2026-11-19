@@ -184,10 +184,12 @@ class AgentSkillSyncTests(unittest.TestCase):
                          ['pipeline-script-preparation'])
 
     def test_startup_is_background_and_dispatch_sync_precedes_prompt(self):
-        with patch.object(sync.threading, 'Thread') as thread:
+        with patch.object(sync.executors, 'submit') as submit:
             sync.start_agent_skill_sync(self.program)
-            self.assertIs(thread.call_args.kwargs['target'], sync._all_entry)
-            thread.return_value.start.assert_called_once()
+            self.assertEqual(submit.call_count, 1)
+            self.assertEqual(submit.call_args.args[0], 'io')
+            fn = submit.call_args.args[1]
+            self.assertIs(getattr(fn, 'func', fn), sync._all_entry)
         tree = ast.parse(desktop_text())
         # open_flow_agent 已改写成 _FlowAgentLaunch，工作线程里的构建步骤是 prepare；
         # 改写后 prompt_with_settings 以 self.prompt_with_settings 调用，属性调用一并收集。
@@ -222,12 +224,11 @@ class CodexCompatTests(unittest.TestCase):
 
     def test_start_codex_skill_sync_runs_before_then_sync(self):
         calls = []
-        with unittest.mock.patch.object(codex_sync.threading, 'Thread') as thread, \
+        with unittest.mock.patch.object(codex_sync.executors, 'submit') as submit, \
                 unittest.mock.patch.object(codex_sync, 'sync_codex_skills',
                                            side_effect=lambda **kw: calls.append('sync')):
             codex_sync.start_codex_skill_sync(self.program, before=lambda: calls.append('migrate'))
-            kwargs = thread.call_args.kwargs
-            kwargs['target'](**kwargs['kwargs'])
+            submit.call_args.args[1]()
         self.assertEqual(calls, ['migrate', 'sync'])
 
 

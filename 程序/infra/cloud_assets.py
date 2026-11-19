@@ -6,6 +6,9 @@ from infra.http_client import LocalComfyClient
 from infra.seedream_api import protect
 import contract.production_model_contract as production_model_contract
 
+__all__ = ['get_key', 'save_key', 'validate', 'graph', 'redact', 'LOCAL', 'MODELS',
+           'NODE_TYPES', 'LIMITS']
+
 KEY_LABEL = '本机 Comfy API Key'                      # 只用于出错提示；DPAPI 实现在 seedream_api.protect
 KEY_ENV = 'COMFY_API_KEY'                             # 第 65 期任务 1：统一那份 .env 里的变量名
 LOCAL = production_model_contract.ASSET_LOCAL_MODEL    # 第 1647 轮：后端名下沉 L0，这里按原名字保留
