@@ -1,0 +1,33 @@
+{
+  "round": 4,
+  "prep": {
+    "error": null,
+    "brief_complete": true,
+    "documents": [
+      {
+        "stage": "项目设定",
+        "confirmed": true,
+        "path": "自定义/验收E2E假供应商/创意_20261119/项目设定/p_项目设定_自定义_20261119.md",
+        "sha256": "a6350c0aa97926fef0e8c2a25f1e8eaf8d290fa9d5efc4971873fcdc840fc49c"
+      },
+      {
+        "stage": "剧本大纲",
+        "confirmed": true,
+        "path": "自定义/验收E2E假供应商/创意_20261119/项目大纲/p_项目大纲_自定义_20261119.md",
+        "sha256": "bd4d25231a94925a022a7301e6545744eb263397d565badeffee715a5025727c"
+      },
+      {
+        "stage": "角色卡",
+        "confirmed": true,
+        "path": "自定义/验收E2E假供应商/创意_20261119/角色卡/p_角色卡_自定义_20261119.md",
+        "sha256": "b63fba7f90a19ebfbfc3734fc5a1664f432a3bd806a82ecdb694739085612038"
+      }
+    ]
+  },
+  "script_raw": true,
+  "source": null,
+  "candidates": [
+    "C:\\Users\\LAIBIAO\\AppData\\Local\\Temp\\acceptance-e2e-uzoq65r1\\p\\p\\01剧本准备\\自定义\\验收E2E假供应商\\创意_20261119\\项目剧本\\p_自然剧本_自定义_20261119.md",
+    "C:\\Users\\LAIBIAO\\AppData\\Local\\Temp\\acceptance-e2e-uzoq65r1\\p\\p\\01剧本准备\\确认快照\\剧本大纲_20261119-164442_bd4d2523.md"
+  ]
+}
