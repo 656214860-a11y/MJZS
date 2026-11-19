@@ -1676,6 +1676,14 @@ class UiEdgeAutoTests(UiEdgeCase):
                     win.update(); d._tick_once()
                     if (folder / "镜头顺序.json").is_file() and settled():
                         break
+                    # 这里衡量结果可调度后的接力次数，不把后台磁盘工作耗时算成空转tick。
+                    queues = (d.auto.asset_queue, d.auto.final_queue, d.auto.keyframe_queue,
+                              d.auto.video_queue, d.auto.edit_queue, d.auto.handoff_queue)
+                    deadline = time.monotonic() + 15
+                    while not settled() and all(q.empty() for q in queues):
+                        self.assertLess(time.monotonic(), deadline, '后台制作15秒内未产生结果')
+                        win.update()
+                        time.sleep(0.01)
                     time.sleep(0.01)
                 for _ in range(60):
                     win.update(); d._tick_once()
