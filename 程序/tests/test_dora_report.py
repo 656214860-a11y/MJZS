@@ -18,6 +18,19 @@ spec.loader.exec_module(dora)
 
 DAY = 86400
 BASE = 1_700_000_000
+A, B, C, D = ('a' * 40, 'b' * 40, 'c' * 40, 'd' * 40)
+SAMPLE = 'abcdef1234'  # 早期自检写进真实历史的样例行用的 head，不是完整提交号
+
+
+def full_run(clock, head, failed=None, seconds=600):
+    """一行全量记录：``failed`` 为 None 是绿，列表是红（空列表＝红了但没留下失败文件名）。"""
+    return {'at': '2026-01-01T%s:00' % clock, 'head': head, 'ok': failed is None, 'seconds': seconds,
+            'failed_files': list(failed or [])}
+
+
+def write_history(path, rows):
+    path.write_text('\n'.join(row if isinstance(row, str) else json.dumps(row) for row in rows) + '\n', encoding='utf-8')
+    return path
 
 
 def git(root, *args, when=None):
@@ -80,8 +93,8 @@ class DoraReportTests(unittest.TestCase):
 
     def test_red_dwell_pairs_first_red_with_the_next_green(self):
         history = self.root / 'h.jsonl'
-        rows = [{'at': '2026-01-01T10:00:00', 'ok': True}, {'at': '2026-01-01T11:00:00', 'ok': False},
-                {'at': '2026-01-01T12:00:00', 'ok': False}, {'at': '2026-01-01T15:00:00', 'ok': True}]
+        rows = [{'at': '2026-01-01T10:00:00', 'ok': True, 'head': A}, {'at': '2026-01-01T11:00:00', 'ok': False, 'head': B},
+                {'at': '2026-01-01T12:00:00', 'ok': False, 'head': C}, {'at': '2026-01-01T15:00:00', 'ok': True, 'head': D}]
         history.write_text('\n'.join(json.dumps(row) for row in rows) + '\n', encoding='utf-8')
         self.assertEqual(dora.red_dwell(history), [4 * 3600])
 
@@ -95,6 +108,86 @@ class DoraReportTests(unittest.TestCase):
     def test_modules_ignore_tests_docs_and_records(self):
         files = {'程序/a.py', '程序/tests/test_a.py', '程序/docs/x.md', '程序/维护记录/y.json', '程序/agent/core.py'}
         self.assertEqual(dora.modules_of(files), {'a', 'agent'})
+
+    def test_report_separates_flaky_files_from_persistent_ones(self):
+        commit(self.root, 'R1: x', ['程序/a.py'], BASE)
+        history = write_history(self.root / 'h.jsonl', [
+            full_run('09:00', A, ['test_perf']), full_run('09:20', A),
+            full_run('10:00', B, ['test_broken']), full_run('10:20', B, ['test_broken']),
+            full_run('11:00', C, ['test_broken']), full_run('12:00', D), full_run('12:30', SAMPLE, ['test_alpha'])])
+        report = dora.render(self.root, None, history)
+        self.assertIn('有效全量 6 次（绿 2／红 4）', report)
+        self.assertIn('另有 1 行无效记录未计入', report)
+        self.assertIn('最近 6 次（从旧到新）：红绿红红红绿。', report)
+        self.assertIn('| 只有偶发、疑似偶发的文件 | 1 | 25.0% |', report)
+        self.assertIn('| 含持续红的文件（连续 3 次及以上） | 3 | 75.0% |', report)
+        self.assertIn('| test_perf | 偶发 | 1 | 1 | 1 | 1 | 2026-01-01T09:00:00 |', report)
+        self.assertIn('| test_broken | 3 | 1 | 3 | 2026-01-01T11:00:00 |', report)
+        self.assertNotIn('test_alpha', report)
+
+
+class RedBreakdownTests(unittest.TestCase):
+    """全量红灯归因：偶发看「同一个提交红绿不一」，持续红看「连续 3 次完整全量都红」。"""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.history = Path(self.tmp.name) / 'h.jsonl'
+
+    def breakdown(self, rows):
+        valid, _dropped = dora.history_rows(write_history(self.history, rows))
+        return dora.red_breakdown(valid)
+
+    def test_sample_rows_do_not_bend_the_red_dwell(self):
+        write_history(self.history, [full_run('10:00', A), full_run('10:30', SAMPLE, ['test_alpha']),
+                                     full_run('10:40', SAMPLE), full_run('11:00', B, ['test_x']), full_run('13:00', C)])
+        self.assertEqual(dora.red_dwell(self.history), [2 * 3600])
+
+    def test_rows_without_a_full_commit_id_or_a_readable_time_are_dropped_and_counted(self):
+        rows = [full_run('10:00', A), full_run('10:30', SAMPLE, ['test_alpha']), '{"at": "2026-01-01T10:35',
+                dict(full_run('10:40', B), at='昨天'), full_run('11:00', C)]
+        valid, dropped = dora.history_rows(write_history(self.history, rows))
+        self.assertEqual([row['head'] for row in valid], [A, C])
+        self.assertEqual(dropped, 3)
+        self.assertEqual(dora.history_rows(self.history.with_name('none.jsonl')), (None, 0))
+
+    def test_window_keeps_only_rows_from_since_onwards(self):
+        rows = [full_run('10:00', SAMPLE, ['test_alpha']), full_run('10:30', A), full_run('11:00', B), full_run('12:00', C)]
+        everything, _dropped = dora.history_rows(write_history(self.history, rows))
+        valid, dropped = dora.history_rows(self.history, since=everything[1]['stamp'])
+        self.assertEqual([row['head'] for row in valid], [B, C])
+        self.assertEqual(dropped, 0, '统计窗之前的行不保留也不计数，哪怕它本身无效')
+
+    def test_same_commit_red_then_green_marks_the_file_flaky(self):
+        runs, files = self.breakdown([full_run('10:00', A, ['test_perf']), full_run('10:20', A),
+                                      full_run('11:00', B, ['test_perf']), full_run('12:00', C)])
+        info = files['test_perf']
+        self.assertEqual((info['kind'], info['reds'], info['flips'], info['streaks']), ('偶发', 2, 1, [1, 1]))
+        self.assertEqual(runs, {'偶发': [2, 1200], '持续红': [0, 0], '未定': [0, 0], '没有失败文件名': [0, 0]})
+
+    def test_three_reds_in_a_row_are_persistent_and_own_the_run(self):
+        runs, files = self.breakdown([full_run('10:00', A, ['test_broken', 'test_perf']), full_run('10:20', A, ['test_broken']),
+                                      full_run('11:00', B, ['test_broken']), full_run('12:00', C)])
+        info = files['test_broken']
+        self.assertEqual((info['kind'], info['streaks'], info['flips']), ('持续红', [3], 0))
+        self.assertEqual(files['test_perf']['kind'], '偶发', '同一提交上另一次完整的红没有红它，也算红绿不一')
+        self.assertEqual(runs['持续红'], [3, 1800], '有文件正处在持续红里，这次红就不能记到偶发头上')
+        self.assertEqual(runs['偶发'], [0, 0])
+
+    def test_a_red_without_file_names_is_listed_apart_and_proves_nothing(self):
+        runs, files = self.breakdown([full_run('10:00', A, ['test_x']), full_run('10:10', A, [], seconds=1),
+                                      full_run('10:30', A, ['test_x']), full_run('11:00', B)])
+        info = files['test_x']
+        self.assertEqual((info['kind'], info['flips'], info['streaks']), ('未定', 0, [2]))
+        self.assertEqual(runs['没有失败文件名'], [1, 1])
+        self.assertEqual(runs['未定'], [2, 1200])
+
+    def test_repeated_short_reds_without_proof_are_only_suspected(self):
+        runs, files = self.breakdown([full_run('10:00', A, ['test_y']), full_run('11:00', B),
+                                      full_run('12:00', C, ['test_y']), full_run('13:00', D)])
+        info = files['test_y']
+        self.assertEqual((info['kind'], info['flips'], info['streaks']), ('疑似偶发', 0, [1, 1]))
+        self.assertEqual(runs['偶发'], [2, 1200])
 
 
 if __name__ == '__main__':

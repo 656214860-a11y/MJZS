@@ -1,0 +1,15 @@
+{
+  "round": 3967,
+  "commit_base": "05d8ec19",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_dora_report",
+    "exit": 0,
+    "passed": 15,
+    "failed": 0
+  },
+  "generated_at": "2026-11-21T01:15:15"
+}
