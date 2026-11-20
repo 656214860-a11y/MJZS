@@ -21,6 +21,31 @@ from infra import api_endpoints, comfy_service, seedream_api
 PROGRAM_DIR = Path(__file__).resolve().parent.parent
 
 
+def _openssl():
+    """PATH 上的 openssl；没有时用随 Git 安装的那一份。
+
+    提交钩子拉起的全量继承 Git 的 PATH，找得到 openssl；从普通终端手动启动的全量找不到
+    （2026-11-20 主干正式全量实录）。两种启动方式应当得到同一个结论。
+    """
+    found = shutil.which('openssl')
+    if found:
+        return found
+    git = shutil.which('git')
+    if not git:
+        return None
+    try:
+        exec_path = subprocess.run([git, '--exec-path'], capture_output=True, text=True, encoding='utf-8',
+                                   errors='replace', timeout=30).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return None
+    # Git for Windows 的 exec-path 是 <安装目录>/mingw64/libexec/git-core；钩子环境里排在前面的是 mingw64/bin。
+    for root in list(Path(exec_path).parents)[:3] if exec_path else ():
+        for relative in ('bin/openssl.exe', 'usr/bin/openssl.exe'):
+            if (root / relative).is_file():
+                return str(root / relative)
+    return None
+
+
 class _Handler(BaseHTTPRequestHandler):
     protocol_version = 'HTTP/1.1'
 
@@ -156,7 +181,7 @@ class TransportConvergenceTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr[-500:])
 
     def test_selfsigned_https_untrusted_fails_readably(self):
-        openssl = shutil.which('openssl')
+        openssl = _openssl()
         self.assertIsNotNone(openssl, '验收环境需要 openssl 签发自签证书')
         with tempfile.TemporaryDirectory() as folder:
             key, cert = Path(folder) / 'k.pem', Path(folder) / 'c.pem'

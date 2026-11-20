@@ -1,0 +1,15 @@
+{
+  "round": 3950,
+  "commit_base": "01d25ba3",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_copy_rules test_skill_context_budget_prestage test_skill_budget_send_entries test_l1_transport_requests test_context_budget_model test_writing_context_budget_guard test_idea_inline_brief test_idea_chat",
+    "exit": 0,
+    "passed": 274,
+    "failed": 0
+  },
+  "generated_at": "2026-11-20T23:15:39"
+}

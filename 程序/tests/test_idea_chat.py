@@ -1681,7 +1681,7 @@ class SendMessageTests(_Harness):
             d.async_ = lambda fn, done=None, **kwargs: pending.append((fn, done)) or 1
             with patch('idea_chat.repair_internal_replies', return_value={'retry_creative': '恢复创意'}), \
                     patch('writing_api.capture_request_model', return_value={
-                        'id': 'deepseek-v4-flash', 'record': {}, 'label': 'DeepSeek V4 Flash', 'provider': 'DeepSeek'}), \
+                        'id': 'deepseek-v4-flash', 'record': {'context_length': 1_000_000}, 'label': 'DeepSeek V4 Flash', 'provider': 'DeepSeek'}), \
                     patch.object(d, 'show_conversation'), patch.object(d, 'refresh_script_list'):
                 d.refresh_script_workspace()
             def reply(project, creative, **kwargs):

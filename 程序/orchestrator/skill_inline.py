@@ -101,8 +101,7 @@ def _skill_inline_budget(config, record=None, program=None):
         source = 'explicit' if limit else 'unknown'
     if not limit:
         if api:
-            raise ValueError(f'context_window_unknown：未填写上下文窗口，已阻止发送：{model or "(未选择)"}；'
-                             '请在模型管理补填 context_length 或核实供应商窗口后再发送。')
+            raise ValueError(f'未填写上下文窗口{model or "?"} context_window_unknown 填context_length')
         return None
     return {'remaining': skill_inline_token_budget(limit), 'context_length': limit, 'source': source, 'model': model}
 
