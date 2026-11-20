@@ -23,6 +23,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from contextlib import contextmanager
 from datetime import date
 from pathlib import Path
 
@@ -83,6 +84,11 @@ def _git(*args: str) -> subprocess.CompletedProcess:
     return commit_round._git(*args)
 
 
+def trunk_dirty() -> bool:
+    """主干工作树有已跟踪改动（本机设置文件除外）。"""
+    return bool(foreign_changes(_git("status", "--porcelain", "--untracked-files=no").stdout))
+
+
 def merge_in_progress(cwd: Path = PROGRAM) -> bool:
     """MERGE_HEAD 存在＝有合并进行中，可能是其他会话的合并轮；此时绝不能 merge --abort。"""
     return commit_round._git("rev-parse", "-q", "--verify", "MERGE_HEAD", cwd=cwd).returncode == 0
@@ -133,6 +139,14 @@ def rebase_in_progress(cwd: Path) -> bool:
     return _git_path("rebase-merge", cwd).exists() or _git_path("rebase-apply", cwd).exists()
 
 
+def _rebase_failure_is_foreign(done: subprocess.CompletedProcess) -> bool:
+    """失败是因为已经有别人的变基，而不是这次变基自己冲突。"""
+    blob = ((done.stdout or "") + "\n" + (done.stderr or "")).lower()
+    return ("already a rebase-merge" in blob
+            or "already a rebase-apply" in blob
+            or "rebase is already in progress" in blob)
+
+
 def _rebase_in(wt: Path, upstream: str, branch: str) -> int:
     if rebase_in_progress(wt):
         print("车道 %s 已有未完成的变基，未动现场、未领号。" % branch, file=sys.stderr)
@@ -144,6 +158,10 @@ def _rebase_in(wt: Path, upstream: str, branch: str) -> int:
     done = commit_round._git("rebase", upstream, cwd=wt)
     if done.returncode == 0:
         return 0
+    # 开始前没有变基，但 git rebase 仍可能撞上同时开始的另一路。那种失败不能 --abort。
+    if _rebase_failure_is_foreign(done):
+        print("车道 %s 已有未完成的变基，未动现场、未领号。" % branch, file=sys.stderr)
+        return REBASE_RETURNED
     if rebase_in_progress(wt):
         commit_round._git("rebase", "--abort", cwd=wt)
     detail = ((done.stdout or "") + (done.stderr or "")).strip()
@@ -152,8 +170,32 @@ def _rebase_in(wt: Path, upstream: str, branch: str) -> int:
     return REBASE_RETURNED
 
 
+class _WorktreeError(Exception):
+    def __init__(self, detail: str):
+        self.detail = detail
+
+
+@contextmanager
+def _temporary_worktree(branch: str, cwd: Path, prefix: str):
+    """没有检出时建临时工作树。创建失败先删目录；离开时 remove --force 并删目录。"""
+    temporary = Path(tempfile.mkdtemp(prefix=prefix))
+    added = commit_round._git("worktree", "add", "--quiet", str(temporary), branch, cwd=cwd)
+    if added.returncode:
+        shutil.rmtree(temporary, ignore_errors=True)
+        detail = ((added.stdout or "") + (added.stderr or "")).strip()
+        raise _WorktreeError(detail)
+    try:
+        yield temporary
+    finally:
+        commit_round._git("worktree", "remove", "--force", str(temporary), cwd=cwd)
+        shutil.rmtree(temporary, ignore_errors=True)
+
+
 def rebase_onto_master(branch: str, cwd: Path = PROGRAM) -> int:
-    """把分支变基到当前 master。冲突则中止变基并退回该车道，不移动主干检出。"""
+    """把分支变基到当前 master。冲突则中止变基并退回该车道，不移动主干检出。
+
+    分支已经包含 master 时变基是空操作，仍拒绝该车道上未提交的已跟踪文件。
+    """
     master = commit_round._git("rev-parse", "master", cwd=cwd)
     if master.returncode:
         print("找不到 master，已退回车道 %s，未领号。" % branch, file=sys.stderr)
@@ -162,29 +204,23 @@ def rebase_onto_master(branch: str, cwd: Path = PROGRAM) -> int:
         print("找不到分支 %s，已退回车道，未领号。" % branch, file=sys.stderr)
         return REBASE_RETURNED
     upstream = master.stdout.strip()
-    if commit_round._git("merge-base", "--is-ancestor", upstream, branch, cwd=cwd).returncode == 0:
-        return 0
+    ancestor = commit_round._git(
+        "merge-base", "--is-ancestor", upstream, branch, cwd=cwd).returncode == 0
     wt = worktree_for_branch(branch, cwd)
     if wt is not None and wt.resolve() == Path(cwd).resolve():
         print("分支 %s 正检出在当前主干工作树，已退回车道，未领号。" % branch, file=sys.stderr)
         return REBASE_RETURNED
-    temporary = None
-    if wt is None:
-        temporary = Path(tempfile.mkdtemp(prefix="rebase-lane-"))
-        added = commit_round._git("worktree", "add", "--quiet", str(temporary), branch, cwd=cwd)
-        if added.returncode:
-            shutil.rmtree(temporary, ignore_errors=True)
-            detail = ((added.stdout or "") + (added.stderr or "")).strip()
-            print("无法为 %s 准备变基工作树，已退回车道，未领号：\n%s" % (branch, detail),
-                  file=sys.stderr)
-            return REBASE_RETURNED
-        wt = temporary
-    try:
+    if ancestor and wt is None:
+        return 0
+    if wt is not None:
         return _rebase_in(wt, upstream, branch)
-    finally:
-        if temporary is not None:
-            commit_round._git("worktree", "remove", "--force", str(temporary), cwd=cwd)
-            shutil.rmtree(temporary, ignore_errors=True)
+    try:
+        with _temporary_worktree(branch, cwd, "rebase-lane-") as temporary:
+            return _rebase_in(temporary, upstream, branch)
+    except _WorktreeError as exc:
+        print("无法为 %s 准备变基工作树，已退回车道，未领号：\n%s" % (branch, exc.detail),
+              file=sys.stderr)
+        return REBASE_RETURNED
 
 
 def cleanup_failed_merge(branch: str, cwd: Path = PROGRAM) -> str:
@@ -247,15 +283,24 @@ def acquire_merge_lane(branch: str, tip: str, cwd: Path = PROGRAM) -> bool:
     return False
 
 
-def release_merge_lane(cwd: Path = PROGRAM) -> None:
-    path = merge_lane_lock_path(cwd)
+def _merge_lane_holder(path: Path):
+    """读出锁主人。空文件、坏 JSON、或较短心跳留下的尾巴都不算认得出。"""
     try:
-        holder = json.loads(path.read_text(encoding="utf-8"))
+        return lock_lease._read(str(path))
     except (OSError, ValueError):
-        holder = {}
-    if holder.get("pid") not in (None, os.getpid()):
+        return None
+
+
+def release_merge_lane(cwd: Path = PROGRAM) -> None:
+    """只删自己的合并道锁。认不出主人、或主人已经换成下一位时留下文件。"""
+    path = merge_lane_lock_path(cwd)
+    holder = _merge_lane_holder(path)
+    if holder is None or holder.get("pid") != os.getpid():
         return
     lock_lease.release(str(path))
+    current = _merge_lane_holder(path)
+    if current is None or current.get("pid") != os.getpid():
+        return
     try:
         path.unlink()
     except OSError:
@@ -282,29 +327,21 @@ def run_exit_ci(program: Path = PROGRAM) -> int:
 def run_branch_exit_ci(branch: str, cwd: Path = PROGRAM) -> int:
     """在分支自己的工作树里跑出口 CI。主干检出保持干净，失败不占主干、不领号。"""
     program = lane_program(branch, cwd)
-    temporary = None
-    if program is None:
-        temporary = Path(tempfile.mkdtemp(prefix="merge-ci-"))
-        added = commit_round._git("worktree", "add", "--quiet", str(temporary), branch, cwd=cwd)
-        if added.returncode:
-            shutil.rmtree(temporary, ignore_errors=True)
-            detail = ((added.stdout or "") + (added.stderr or "")).strip()
-            print("无法为 %s 准备出口 CI 工作树，未占主干、未领号：\n%s" % (branch, detail),
-                  file=sys.stderr)
-            return 1
-        program = temporary / "程序"
-        if not (program / "scripts" / "local_ci.py").is_file():
-            commit_round._git("worktree", "remove", "--force", str(temporary), cwd=cwd)
-            shutil.rmtree(temporary, ignore_errors=True)
-            print("分支 %s 没有出口 CI 脚本，未占主干、未领号。" % branch, file=sys.stderr)
-            return 1
-    try:
+    if program is not None:
         print("出口 CI 在车道工作树运行，主干检出保持干净：%s" % program, flush=True)
         return run_exit_ci(program)
-    finally:
-        if temporary is not None:
-            commit_round._git("worktree", "remove", "--force", str(temporary), cwd=cwd)
-            shutil.rmtree(temporary, ignore_errors=True)
+    try:
+        with _temporary_worktree(branch, cwd, "merge-ci-") as temporary:
+            program = temporary / "程序"
+            if not (program / "scripts" / "local_ci.py").is_file():
+                print("分支 %s 没有出口 CI 脚本，未占主干、未领号。" % branch, file=sys.stderr)
+                return 1
+            print("出口 CI 在车道工作树运行，主干检出保持干净：%s" % program, flush=True)
+            return run_exit_ci(program)
+    except _WorktreeError as exc:
+        print("无法为 %s 准备出口 CI 工作树，未占主干、未领号：\n%s" % (branch, exc.detail),
+              file=sys.stderr)
+        return 1
 
 
 def abort_merge(result: Path) -> None:
@@ -331,7 +368,7 @@ def main(argv=None) -> int:
         print("已有未完成的合并（MERGE_HEAD 存在），可能是其他会话的合并轮；"
               "待其提交或中止后再运行本命令。", file=sys.stderr)
         return 2
-    if foreign_changes(_git("status", "--porcelain", "--untracked-files=no").stdout):
+    if trunk_dirty():
         print("master 检出有未提交改动或他人暂存，先处理再合并。", file=sys.stderr)
         return 2
     aligned = rebase_onto_master(args.branch)
@@ -342,6 +379,9 @@ def main(argv=None) -> int:
     if code:
         print("出口档 CI 未通过（退出码 %d），未占主干、未领号。" % code, file=sys.stderr)
         return code
+    if trunk_dirty():
+        print("出口 CI 期间主干检出出现已跟踪改动，未占主干、未领号。", file=sys.stderr)
+        return 2
     tip = _git("rev-parse", args.branch).stdout.strip()
     if not acquire_merge_lane(args.branch, tip):
         return 2
@@ -354,6 +394,9 @@ def main(argv=None) -> int:
 def _merge_locked(args) -> int:
     if merge_in_progress():
         print("已有未完成的合并（MERGE_HEAD 存在），未领号、未动现场。", file=sys.stderr)
+        return 2
+    if trunk_dirty():
+        print("主干检出已不干净，未合并、未领号。", file=sys.stderr)
         return 2
     merged = _git("merge", "--no-commit", "--no-ff", args.branch)
     if merged.returncode:

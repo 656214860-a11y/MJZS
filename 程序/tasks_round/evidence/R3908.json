@@ -1,0 +1,15 @@
+{
+  "round": 3908,
+  "commit_base": "5d010101",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k lane_flow_gates test_merge_round unification_ratchet",
+    "exit": 0,
+    "passed": 33,
+    "failed": 0
+  },
+  "generated_at": "2026-11-20T12:38:48"
+}

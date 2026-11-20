@@ -1,4 +1,5 @@
 """合并轮一条命令：状态页抬头与结果文件的纯函数部分。"""
+import argparse
 import json
 import os
 import subprocess
@@ -8,12 +9,14 @@ import time
 import unittest
 from datetime import date
 from pathlib import Path
+from unittest import mock
 
 HERE = Path(__file__).resolve().parent
 for folder in (str(HERE.parent / "scripts"), str(HERE.parent)):
     if folder not in sys.path:
         sys.path.insert(0, folder)
 
+import commit_round
 import merge_round
 
 OLD = ("# 项目状态\n\n更新：2026-11-01｜当前轮次：2287（R2286 合并轮：甲合入；断言未动。上一轮：R2271 文档轮。）"
@@ -147,6 +150,18 @@ class MergeInProgressTests(unittest.TestCase):
         self.assertTrue(merge_round.acquire_merge_lane('feature', 'abc', self.root))
         merge_round.release_merge_lane(self.root)
 
+    def test_release_keeps_a_lock_it_cannot_attribute(self):
+        path = merge_round.merge_lane_lock_path(self.root)
+        for text in ('', '{', json.dumps({'pid': None, 'branch': 'next'}),
+                     json.dumps({'pid': 2 ** 31 - 1, 'branch': 'next'})):
+            path.write_text(text, encoding='utf-8')
+            merge_round.release_merge_lane(self.root)
+            self.assertTrue(path.is_file(), text)
+        tailed = json.dumps({'pid': os.getpid(), 'branch': 'feature'}) + ',"stale":true}'
+        path.write_text(tailed, encoding='utf-8')
+        merge_round.release_merge_lane(self.root)
+        self.assertFalse(path.exists())
+
 
 class RebaseOntoMasterTests(unittest.TestCase):
     """合入前变基：干净则分支含当前 master；冲突则 abort，主干尖端不动。"""
@@ -216,6 +231,51 @@ class RebaseOntoMasterTests(unittest.TestCase):
         self.assertEqual(_git(self.lane, "rev-parse", "HEAD"), lane_tip)
         self.assertEqual((self.lane / "a.txt").read_text(encoding="utf-8"), "dirty\n")
 
+    def test_clean_lane_that_already_contains_master_stays(self):
+        before = _git(self.root, "rev-parse", "HEAD")
+        self.assertEqual(merge_round.rebase_onto_master("feature", self.root), 0)
+        self.assertEqual(_git(self.lane, "rev-parse", "HEAD"), before)
+        self.assertEqual(_git(self.root, "rev-parse", "HEAD"), before)
+        self.assertFalse(merge_round.rebase_in_progress(self.lane))
+
+    def test_dirty_lane_that_already_contains_master_is_returned(self):
+        (self.lane / 'a.txt').write_text('dirty\n', encoding='utf-8')
+        lane_tip = _git(self.lane, 'rev-parse', 'HEAD')
+        before = _git(self.root, 'rev-parse', 'HEAD')
+        self.assertEqual(merge_round.rebase_onto_master('feature', self.root), merge_round.REBASE_RETURNED)
+        self.assertEqual(_git(self.root, 'rev-parse', 'HEAD'), before)
+        self.assertEqual(_git(self.lane, 'rev-parse', 'HEAD'), lane_tip)
+        self.assertEqual((self.lane / 'a.txt').read_text(encoding='utf-8'), 'dirty\n')
+        self.assertFalse(merge_round.rebase_in_progress(self.lane))
+
+    def test_foreign_rebase_failure_does_not_abort(self):
+        planted = {}
+        real = commit_round._git
+
+        def wrapped(*args, cwd=commit_round.PROGRAM):
+            if args and args[0] == 'rebase' and '--abort' not in args:
+                git_path = real('rev-parse', '--git-path', 'rebase-merge', cwd=cwd).stdout.strip()
+                path = Path(git_path)
+                if not path.is_absolute():
+                    path = (Path(cwd) / path).resolve()
+                path.mkdir(parents=True, exist_ok=True)
+                (path / 'head-name').write_text('refs/heads/feature\n', encoding='utf-8')
+                planted['path'] = path
+                return subprocess.CompletedProcess(
+                    args, 1, '',
+                    'fatal: It seems that there is already a rebase-merge directory, and\n'
+                    'I wonder if you are in the middle of another rebase.\n')
+            if args[:2] == ('rebase', '--abort'):
+                planted['aborted'] = True
+                return subprocess.CompletedProcess(args, 0, '', '')
+            return real(*args, cwd=cwd)
+
+        with mock.patch.object(commit_round, '_git', side_effect=wrapped):
+            code = merge_round._rebase_in(self.lane, 'master', 'feature')
+        self.assertEqual(code, merge_round.REBASE_RETURNED)
+        self.assertNotIn('aborted', planted)
+        self.assertTrue(planted['path'].is_dir())
+
     def test_unchecked_branch_rebases_in_a_temporary_worktree(self):
         _git(self.root, "branch", "side")
         _git(self.root, "commit", "--allow-empty", "-q", "-m", "master-move")
@@ -224,6 +284,102 @@ class RebaseOntoMasterTests(unittest.TestCase):
         self.assertEqual(_git(self.root, "rev-parse", "HEAD"), before)
         self.assertEqual(_git(self.root, "rev-parse", "side"), before)
         self.assertEqual(_git(self.root, "symbolic-ref", "--short", "HEAD"), "master")
+
+
+class MergeOrderTests(unittest.TestCase):
+    def _git(self, events, *, dirty_after_ci):
+        def git(*args):
+            if args and args[0] == "merge":
+                events.append("merge")
+            if args[:2] == ("symbolic-ref", "--short"):
+                return subprocess.CompletedProcess(args, 0, "master\n", "")
+            if args[:1] == ("status",):
+                text = " M tracked.txt\n" if dirty_after_ci and "ci" in events else ""
+                return subprocess.CompletedProcess(args, 0, text, "")
+            if args[:1] == ("rev-parse",):
+                return subprocess.CompletedProcess(args, 0, "abc\n", "")
+            return subprocess.CompletedProcess(args, 0, "", "")
+        return git
+
+    def test_dirty_trunk_after_exit_ci_does_not_take_the_lane(self):
+        events = []
+        def ci(branch, cwd=merge_round.PROGRAM):
+            events.append("ci")
+            return 0
+        def lock(branch, tip, cwd=merge_round.PROGRAM):
+            events.append("lock")
+            return True
+        def occupy(args):
+            events.append("occupy")
+            return 0
+        with mock.patch.object(merge_round, "_git", side_effect=self._git(events, dirty_after_ci=True)), \
+             mock.patch.object(merge_round, "reclaim_dead_owned_merge", return_value=False), \
+             mock.patch.object(merge_round, "merge_in_progress", return_value=False), \
+             mock.patch.object(merge_round, "rebase_onto_master", return_value=0), \
+             mock.patch.object(merge_round, "run_branch_exit_ci", side_effect=ci), \
+             mock.patch.object(merge_round, "acquire_merge_lane", side_effect=lock), \
+             mock.patch.object(merge_round, "_merge_locked", side_effect=occupy), \
+             mock.patch.object(merge_round, "release_merge_lane"):
+            code = merge_round.main(["feature", "-s", "gate"])
+        self.assertEqual(code, 2)
+        self.assertEqual(events, ["ci"])
+
+    def test_exit_ci_precedes_the_merge_lane(self):
+        events = []
+        def ci(branch, cwd=merge_round.PROGRAM):
+            events.append("ci")
+            return 0
+        def lock(branch, tip, cwd=merge_round.PROGRAM):
+            events.append("lock")
+            return True
+        def occupy(args):
+            events.append("occupy")
+            return 0
+        with mock.patch.object(merge_round, "_git", side_effect=self._git(events, dirty_after_ci=False)), \
+             mock.patch.object(merge_round, "reclaim_dead_owned_merge", return_value=False), \
+             mock.patch.object(merge_round, "merge_in_progress", return_value=False), \
+             mock.patch.object(merge_round, "rebase_onto_master", return_value=0), \
+             mock.patch.object(merge_round, "run_branch_exit_ci", side_effect=ci), \
+             mock.patch.object(merge_round, "acquire_merge_lane", side_effect=lock), \
+             mock.patch.object(merge_round, "_merge_locked", side_effect=occupy), \
+             mock.patch.object(merge_round, "release_merge_lane"):
+            code = merge_round.main(["feature", "-s", "gate"])
+        self.assertEqual(code, 0)
+        self.assertEqual(events, ["ci", "lock", "occupy"])
+
+    def test_locked_merge_uses_no_commit_only_on_a_clean_trunk(self):
+        calls = []
+
+        def git(*args, cwd=commit_round.PROGRAM):
+            calls.append(args)
+            if args[:3] == ("status", "--porcelain", "--untracked-files=no"):
+                return subprocess.CompletedProcess(args, 0, " M tracked.txt\n", "")
+            if args[:4] == ("rev-parse", "-q", "--verify", "MERGE_HEAD"):
+                return subprocess.CompletedProcess(args, 1, "", "")
+            return subprocess.CompletedProcess(args, 0, "", "")
+
+        with mock.patch.object(commit_round, "_git", side_effect=git):
+            code = merge_round._merge_locked(argparse.Namespace(branch="feature", summary="s"))
+        self.assertEqual(code, 2)
+        self.assertFalse(any(item and item[0] == "merge" for item in calls))
+
+        calls.clear()
+
+        def clean(*args, cwd=commit_round.PROGRAM):
+            calls.append(args)
+            if args[:3] == ("status", "--porcelain", "--untracked-files=no"):
+                return subprocess.CompletedProcess(args, 0, "", "")
+            if args[:4] == ("rev-parse", "-q", "--verify", "MERGE_HEAD"):
+                return subprocess.CompletedProcess(args, 1, "", "")
+            if args[:2] == ("merge", "--no-commit"):
+                return subprocess.CompletedProcess(args, 0, "", "")
+            return subprocess.CompletedProcess(args, 0, "", "")
+
+        with mock.patch.object(commit_round, "_git", side_effect=clean), \
+             mock.patch.object(commit_round, "wait_for_lock", return_value=False):
+            code = merge_round._merge_locked(argparse.Namespace(branch="feature", summary="s"))
+        self.assertEqual(code, 3)
+        self.assertIn(("merge", "--no-commit", "--no-ff", "feature"), calls)
 
 
 if __name__ == "__main__":
