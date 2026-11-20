@@ -1,5 +1,5 @@
 # R3978 结果：文案规则测试跳过版本库忽略的路径并提速到 3.8 秒
-<!-- round-evidence: {"commit_base": "b3544e90", "credential_hits": 0, "evidence_sha256": "5ebf83b9f77f0847", "exit": 0, "failed": 0, "passed": 18, "round": 3978, "tests": "run_selftests.py -k copy_rules"} -->
+<!-- round-evidence: {"commit_base": "a9df9359", "credential_hits": 0, "evidence_sha256": "6aba5edbfa6ea3ec", "exit": 0, "failed": 0, "passed": 0, "round": 3978, "tests": "docs-only"} -->
 
 ## 1. 三问
 
@@ -73,4 +73,4 @@ FAILED (errors=4)
 ## 8. 提交
 
 - 提交命令：`PY -B scripts\dev.py commit -m "R3978: 文案规则测试跳过版本库忽略的路径并提速" --agent Devin tests/test_copy_rules.py tasks_round/tasks_round_3978_result.md --tests copy_rules`
-- commit hash：见下方提交后补记。
+- 已提交：`a9df9359`（主提交），本行由补记提交写入。
