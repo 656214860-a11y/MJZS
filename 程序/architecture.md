@@ -30,8 +30,7 @@ R1041（J5 分轮 2）：app 日志视图清空、desktop 最后剧本回收确�
 ├─ private/               本机私有配置和加密密钥副本
 ├─ scripts/               Python 维护/迁移工具
 ├─ skills/                可注册 SKILL 与阶段模板
-│  ├─ templates/          13 阶段 YAML 流程模板
-│  └─ cinematic-director/ 导演工作流资料包
+│  └─ templates/          13 阶段 YAML 流程模板
 ├─ tasks/                 任务记录
 ├─ tasks_round/           每轮开发结果
 ├─ 配置/宠物/             三虎全局设置、模型池
@@ -73,7 +72,7 @@ R1139：L3 `agent_skill_sync`（R3084 由 `codex_skill_sync` 泛化，后者保�
 | 各阶段内容 SKILL（`skills/12后期剪辑SKILL/`） | 后期剪辑 | 粗剪合成、镜头间转场、背景音乐、平台版本导出与剪映交接（音效、配音混音、预览生成未实现）。 |
 | 各阶段内容 SKILL（`skills/13质检交付SKILL/`） | 质检与交付 | 质检、合规与风格检查、归档和交付报告。 |
 
-阶段模板位于 `skills/templates/`：`script`、`script_structure`、`storyboard`、`asset`、`continuity`、`final`、`keyframe`、`previs`、`video`、`audio`、`edit`、`delivery` 各一份 YAML。每份均含读取/分析、生成（可确认）和写入产物步骤。
+阶段模板位于 `skills/templates/`：`script`、`script_structure`、`storyboard`、`animatic`、`asset`、`continuity`、`final`、`keyframe`、`previs`、`video`、`audio`、`edit`、`delivery` 各一份 YAML。每份均含读取/分析、生成（可确认）和写入产物步骤。
 
 R3283（残留治理 D1）：管理页「残留包管理」懒列出 `skills/` 非 01–13 的整包，`00全流程SKILL` 仅作容器、逐包列出，不进入阶段 registry。L2 `domain/skill_residue_service` 接收 L3 `skill_project_layer` 注入的既有 `stage_from_path`、`Registry._package_source` 与 `recycle_paths` 发布器，处置重扫校验唯一路径，拒绝链接／junction／越界；返回 `ServiceResult` 四字段及真实回收记录。UI 两次确认后才回收，恢复沿用 `storage_maintenance.restore_recycle_batch`。不物理删除内置阶段 SKILL，不改变阶段目录口径。
 
