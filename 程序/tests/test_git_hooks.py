@@ -118,10 +118,48 @@ class GitHookTests(unittest.TestCase):
         return subprocess.run([str(SH), str(hook), *args], cwd=cwd, text=True,
                               capture_output=True, env=env, check=False)
 
+    def test_pre_push_rejects_non_fast_forward_and_master_delete(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            env = dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t",
+                       GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t")
+
+            def git(*args):
+                return subprocess.run(["git", *args], cwd=root, env=env, check=True,
+                                      capture_output=True, text=True, encoding="utf-8").stdout.strip()
+
+            git("init", "-q", "-b", "master")
+            git("commit", "--allow-empty", "-q", "-m", "base")
+            base = git("rev-parse", "HEAD")
+            git("commit", "--allow-empty", "-q", "-m", "remote-tip")
+            remote = git("rev-parse", "HEAD")
+            git("checkout", "-q", "-b", "side", base)
+            git("commit", "--allow-empty", "-q", "-m", "rewritten")
+            local = git("rev-parse", "HEAD")
+            zero = "0" * 40
+
+            def push(line):
+                return subprocess.run([str(SH), str(HOOKS / "pre-push")], cwd=root, env=env,
+                                      input=line, text=True, capture_output=True, encoding="utf-8")
+
+            rewritten = push("refs/heads/master %s refs/heads/master %s\n" % (local, remote))
+            self.assertNotEqual(rewritten.returncode, 0)
+            self.assertIn("不是快进", rewritten.stderr)
+            fast = push("refs/heads/master %s refs/heads/master %s\n" % (remote, base))
+            self.assertEqual(fast.returncode, 0, fast.stderr)
+            other = push("refs/heads/feature %s refs/heads/feature %s\n" % (local, remote))
+            self.assertEqual(other.returncode, 0, other.stderr)
+            deleted = push("refs/heads/master %s refs/heads/master %s\n" % (zero, remote))
+            self.assertNotEqual(deleted.returncode, 0)
+            self.assertIn("不允许删除", deleted.stderr)
+            created = push("refs/heads/master %s refs/heads/master %s\n" % (remote, zero))
+            self.assertEqual(created.returncode, 0, created.stderr)
+
     def test_installer_copies_executable_hooks(self):
         with tempfile.TemporaryDirectory() as temporary:
             installed = install_git_hooks.install(Path(temporary))
-            self.assertEqual([path.name for path in installed], ["commit-msg", "pre-commit", "post-commit", "post-checkout"])
+            self.assertEqual([path.name for path in installed],
+                             ["commit-msg", "pre-commit", "post-commit", "post-checkout", "pre-push"])
             self.assertTrue(all(path.exists() for path in installed))
 
     def test_post_commit_hook_never_blocks_a_commit(self):

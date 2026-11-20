@@ -408,11 +408,64 @@ r.release_gui_lock(p)
                                 '_git_text': 'head', 'latest_completed_round': 965}.items():
                 _patch(stack, name, return_value=value)
             def check_order(todo, jobs, **kwargs):
-                self.assertTrue((Path(common) / runner.FULL_SAFE_LOCK_NAME).exists())
+                self.assertTrue((Path(common) / runner.FULL_SAFE_RUNNER_LOCK_NAME).exists())
+                self.assertFalse((Path(common) / runner.FULL_SAFE_LOCK_NAME).exists())
                 self.assertTrue((Path(common) / runner.GUI_LOCK_NAME).exists())
                 raise RuntimeError('after both locks')
             stack.enter_context(mock.patch.object(runner, 'run_units', side_effect=check_order))
             with self.assertRaisesRegex(RuntimeError, 'after both locks'):
                 runner.main(['--all', '--safe', '--force', '--gui-wait', '0'])
+            self.assertFalse((Path(common) / runner.FULL_SAFE_RUNNER_LOCK_NAME).exists())
             self.assertFalse((Path(common) / runner.FULL_SAFE_LOCK_NAME).exists())
             self.assertFalse((Path(common) / runner.GUI_LOCK_NAME).exists())
+
+    def test_foreign_full_suite_caps_gui_wait(self):
+        with tempfile.TemporaryDirectory() as common:
+            folder = Path(common)
+            (folder / runner.FULL_SAFE_RUNNER_LOCK_NAME).write_text(
+                json.dumps(selftest_env.lock_lease.payload(999999, round=1)), encoding='utf-8')
+            (folder / runner.GUI_LOCK_NAME).write_text(
+                json.dumps(selftest_env.lock_lease.payload(888888)), encoding='utf-8')
+            started = time.monotonic()
+            output = io.StringIO()
+            with mock.patch.object(selftest_env, 'GUI_FULL_SUITE_WAIT_SECONDS', 0.05), \
+                 contextlib.redirect_stdout(output):
+                self.assertIsNone(runner.acquire_gui_lock(common, wait=30))
+            self.assertLess(time.monotonic() - started, 5)
+            self.assertIn('本会话不再等待', output.getvalue())
+
+    def test_own_full_suite_does_not_count_as_foreign(self):
+        with tempfile.TemporaryDirectory() as common:
+            folder = Path(common)
+            (folder / runner.FULL_SAFE_RUNNER_LOCK_NAME).write_text(
+                json.dumps(selftest_env.lock_lease.payload(os.getpid(), round=1)), encoding='utf-8')
+            self.assertFalse(selftest_scheduling.foreign_full_suite(common))
+
+    def test_full_suite_yields_gui_token_between_waves(self):
+        events = []
+
+        def run_units(todo, jobs, **kwargs):
+            events.append(tuple(unit[1] for unit in todo))
+            return [(unit[0], unit[1], 1, [], '', 0.1, '', []) for unit in todo]
+
+        def acquire(wait=None):
+            events.append('acquire')
+            return 'token'
+
+        def release(path):
+            events.append('release')
+
+        gui = [('a', 'a', None), ('b', 'b', None), ('c', 'c', None)]
+        with mock.patch.object(runner, 'run_units', side_effect=run_units), \
+             mock.patch.object(runner, 'acquire_gui_lock', side_effect=acquire), \
+             mock.patch.object(runner, 'release_gui_lock', side_effect=release):
+            got, deferred = runner.run_gui_under_token(
+                gui, [], safe=True, serial=False, jobs=4, gui_jobs=1,
+                gui_wait=1, yield_between=True, got=[])
+        self.assertEqual(deferred, [])
+        self.assertEqual([item[1] for item in got], ['a', 'b', 'c'])
+        self.assertEqual(events, [
+            'acquire', ('a',), 'release',
+            'acquire', ('b',), 'release',
+            'acquire', ('c',), 'release',
+        ])

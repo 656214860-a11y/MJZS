@@ -52,6 +52,7 @@
 - 凭据：`.git/full-safe-receipts.json`（同一 `HEAD:程序` 内容树 7 日内可复用）。补跑由 post-commit 触发，
   日志 `程序\logs\auto_full_safe.log`，结果 `.git/auto-full-safe-result.json`。
 - 门禁报「欠一次完整安全全量」时**不要手动全量**，等后台；只有后台确实没起来（锁丢了）才手动 `--all --safe`。
+- 超长全量只持有 common-dir 的 `full-safe-runner.lock`：挡住第二份全量，并让架构门禁认出正在偿债的进程。它不创建 `full-safe-selftest.lock`。pre-commit、`commit_round` 和合并轮的等待只看后者，所以十几到三十分钟的全量不再卡住车道提交和合并。测量期间 HEAD 或内容树变了，仍不写绿凭据。全量的 Tk 部分按波次归还 `gui-selftest.lock`。别的会话碰到正在跑的全量，GUI 等待封顶 60 秒，到点记 `GUI_DEFERRED` 并返回。车道之间互等仍用 30 分钟上限。
 
 ### 详细口径（自 AGENTS §5 迁入）
 
@@ -73,7 +74,7 @@
 
 私有服务器 `backup`（`root@8.138.223.126`，仓库 `/srv/git/manju-assistant.git`）承担三件事，全部只用 python3 标准库、不依赖 Tk 与项目解释器：
 
-- **pre-receive 门禁**：`维护记录/基准脚本/remote_pre_receive.py` 部署为 `hooks/pre-receive`——推送 `.py` 编译检查、凭据形态扫描、gitleaks（可选）、`master`/`main` 轮次证据门禁。参照副本 `/srv/git/ci/remote_pre_receive.py`。
+- **pre-receive 门禁**：`维护记录/基准脚本/remote_pre_receive.py` 部署为 `hooks/pre-receive`——拒绝 `master`／`main` 非快进更新和删除，并做推送 `.py` 编译检查、凭据形态扫描、gitleaks（可选）、轮次证据门禁。本地 `pre-push` 对主干做同样的快进限制。参照副本 `/srv/git/ci/remote_pre_receive.py`。
 - **post-receive 远端 CI**：`维护记录/基准脚本/remote_post_receive_ci.py` 部署为 `hooks/post-receive`——对 `master`/`main`/`codex/*` 推送把 bare 仓库 `--shared` 克隆到 `/srv/git/ci/work/<ref>`（含 `.git`，gitlink 技能包按 `维护记录/外部技能包哈希.json` 检出固定提交），在 `程序/` 下跑静态门禁＋架构门禁（平台边界用例按脚本内显式清单排除）；结果在 `/srv/git/ci/results/`（`last_ci_status.json` 与 `<ref>.status.json` 汇总，逐 ref 日志同目录）。post-receive 不能拒绝推送，红了看状态文件与日志。
 - **每周 bundle 备份**：`/etc/cron.d/manju-bundle` 每周一 04:00 跑 `/srv/git/ci/weekly_bundle.sh`，产物 `/srv/git/backups/manju-<日期>.bundle`，只留最近 4 份。校验：`python -B scripts/backup_verify.py /srv/git/backups`（自动以同级 `manju-assistant.git` 作 verify 上下文；bundle verify 必须在仓库内跑）。
 
@@ -175,6 +176,8 @@ R2979 起探针侧已按 `performance_contract.py` 末尾对照表补齐同口�
 
 AGENTS 只保留触发条件；本节是细则全文。开工领号、建工作树、回收车道时读本节。
 
+**现行开发闭环（后续轮次照此执行）**：`dev.py claim` 领号并进入 `codex/<任务>` 工作树 → 在该工作树改代码 → 定向测试 `run_selftests.py -k`（含 Tk 的界面改动放 `role: gui` 车道；后台全量占用 GUI 时本会话最多再等 60 秒，到点记 `GUI_DEFERRED` 并返回，不等整段全量）→ `dev.py commit`（暂存路径与其他活跃车道相对 master 的未合入改动重叠即拒绝）→ 合并队列把分支变基到当前 master，冲突退回该车道且不领号 → 出口 CI 在车道工作树跑完，主干检出仍干净 → 独占 `merge-lane.lock` 后才 `merge --no-commit`、等验收锁、领号、提交。推 `master`／`main` 只接受快进，本地 `pre-push` 与远端 `pre-receive` 都拒绝强推和删除主干。全量只持 `<git common-dir>/full-safe-runner.lock`，不创建会挡住提交和合并的 `full-safe-selftest.lock`。`merge-lane.lock` 已静默且 `MERGE_HEAD` 等于锁里记下的提交时，下一次合并自动还原；锁还活着、没有锁或提交对不上，不自动 abort。推送之后还要发布：`scripts/distribution_build.py` 落到新的空目录，对照 `安装信息.json` 与 `distribution_manifest.md` 冒烟启动，确认用户数据仍在；旧目录保留一个使用周期，出问题切回旧目录。仓库绿不等于用户打开的那一份已经更新。守卫测试 `tests/architecture/test_lane_flow_gates.py`。
+
 **领号与队列（规则 27）**：开工先运行 `维护记录/基准脚本/round_claim.py next` 领取轮次，有匹配队列任务时再 `claim <队列ID> --owner <署名>`，没有则记录无对应 ID，不冒领无关任务。轮次计数器与唯一可写队列 `<git common-dir>/maintenance-queue.json` 共用认领锁；`next` 同时把「轮次→认领工作树」写进 `<git common-dir>/round-claims.json`（独立文件，旧版领号不感知也不破坏），commit-msg 据此校验归属而非「最新领号」，多车道并行时先领号者不再被后领号者顶掉提交；升级前已领、无归属记录的在途轮次可在认领工作树运行 `round_claim.py record <轮次号>` 补登，或按旧规则等 `last_claimed`。工作树内 `维护记录/任务队列.json` 仅为只读快照，不手工编辑。默认租约 60 分钟，他人的有效租约不得覆盖；`release`／`complete`／`show`／`validate` 语义不变。每轮结束检查 `N == M + 1`（N 为 project_status.md 当前轮次，M 为最新结果文件轮次），不连续时先修正编号再继续。
 
 **轮的定义**：一轮＝一个可独立回滚的完整变更集。同类改动必须批量成轮（如 UI 卡片迁移按页面一次 ≥5 处），不做一卡一轮、一字段一轮。
@@ -183,7 +186,7 @@ AGENTS 只保留触发条件；本节是细则全文。开工领号、建工作�
 
 **并行硬规则**：同一时刻活跃 `codex/*` 车道上限 20 条（冻结期内只有主树可提交）；一个队列 id 全局只允许一条线持有；分支 ahead>10 必须先回合或 rebase，否则 `round_claim.py next` 拒绝领号（ahead 口径按源码提交计，纯文档／结果文件提交不计，B3 落地）；detached HEAD 工作树不得开工；分支 behind>20 或 ahead=0 且 48 小时无活动即列入待回收。回收前保存未提交内容、核验活跃租约；用 `维护记录/基准脚本/worktree_ledger.py --plan` 生成计划，删除须用户逐条确认，台账不自动删除。
 
-**高并发治理（R3108 起，机制随 B 轮逐项落地）**：车道活跃状态以 `<git common-dir>/lanes.json` 登记为准（lane→分支→工作树→owner→role→last_seen，B3 落地，落地前以 `worktree_ledger.py --plan` 为准）；合并走合并请求队列＋专职合并车道，会话不再各自阻塞 `dev.py merge`（B1 落地）；GUI 密集改动优先走 `role: gui` 车道，其余车道 GUI 测试排队优先级降低（B2 落地）；队列租约支持心跳续约，失联车道警告不阻断、MERGE_HEAD 超龄只提示人工处置不自动 abort（B1/B3 落地）。
+**高并发治理（R3108 起，机制随 B 轮逐项落地）**：车道活跃状态以 `<git common-dir>/lanes.json` 登记为准（lane→分支→工作树→owner→role→last_seen，B3 落地，落地前以 `worktree_ledger.py --plan` 为准）；合并走合并请求队列＋专职合并车道，会话不再各自阻塞 `dev.py merge`（B1 落地）；GUI 密集改动优先走 `role: gui` 车道，其余车道 GUI 测试排队优先级降低（B2 落地）；队列租约支持心跳续约，失联车道警告不阻断。失联合并道留下的 `MERGE_HEAD` 只在 `merge-lane.lock` 已静默且提交对得上时自动还原；其余超龄现场只报警，不自动 abort。
 
 **脏树处置协议（并行吞吐治理任务书 A2 起）**：台账把脏树一律 KEEP，删除前按三类裁定——① 仅未跟踪草稿（截图、_snapshot、nul、preview_* 等）：复制到 <git common-dir>/rescue/<lane>/ 留档后可删；② 含已跟踪改动：先 git -C <树> add -N . && git -C <树> diff HEAD > <common-dir>/rescue/<lane>.patch 保存补丁（rescue 目录在 .git 内、不入库、不随工作树删除），再由用户逐条确认；③ 百级以上文件的大改动活树视为在途工作，不动。分支删除只走 git branch -d（拒绝未合并项），前缀提交等价已由 ledger 的 MERGED／PARKED／ACTIVE-WT 分类给出，patch 等价核验用 git cherry master <分支>（全 '-' 即内容已在主干）。
 
@@ -214,9 +217,9 @@ AGENTS 只保留触发条件；本节是细则全文。开工领号、建工作�
 - `git diff <合并前master>..HEAD -- 程序/project_status.md | grep '^-' | grep -v '^---' | grep -v '当前轮次：'`（表头「当前轮次」行每轮都会改，故排除）
 - `git show HEAD:程序/project_status.md | grep -oE '^R[0-9]+' | sort -u`
 
-**轮次证据与合入门禁（R2527 起）**：`dev.py commit` 对 R2527 及以后的提交生成 `tasks_round/evidence/R<N>.json`（`维护记录/基准脚本/round_evidence.py`）：凭据扫描由脚本对已暂存的新增行执行，只记「文件:行:规则名」；定向测试由 `--tests <模块关键词>` 触发 `run_selftests.py -k`。改了 `程序/` 下 `.py` 而没带 `--tests`、凭据命中或测试有红，一律拒绝提交；纯文档提交记为 `docs-only`，合并提交记为 `merge-ci-exit`。`round_gate.py` 读这份证据，不再匹配结果文件里的文字，阈值取自 `维护记录/测试分层基线.json` 的 `architecture_gate_files_min`／`skill_registry_count`／`smoke_checks_expected`（只增不减）。`dev.py merge` 流程（R3117 起）：merge --no-commit → `local_ci.py exit` → 等全量验收锁 → 领号 → 提交；CI 失败与等锁超时都中止还原且不领号（不烧轮次），提交失败且 MERGE_HEAD 确属本分支时自动还原防僵死；MERGE_HEAD 超 45 分钟未结会报警提示人工处置，绝不自动 abort。pre-commit 在暂存了 `程序/*.py` 时先跑 `tests.test_static_names` 与 `tests.architecture.test_static_hygiene`（约 6 秒），红则拒绝提交。
+**轮次证据与合入门禁（R2527 起）**：`dev.py commit` 对 R2527 及以后的提交生成 `tasks_round/evidence/R<N>.json`（`维护记录/基准脚本/round_evidence.py`）：凭据扫描由脚本对已暂存的新增行执行，只记「文件:行:规则名」；定向测试由 `--tests <模块关键词>` 触发 `run_selftests.py -k`。改了 `程序/` 下 `.py` 而没带 `--tests`、凭据命中或测试有红，一律拒绝提交；纯文档提交记为 `docs-only`，合并提交记为 `merge-ci-exit`。`round_gate.py` 读这份证据，不再匹配结果文件里的文字，阈值取自 `维护记录/测试分层基线.json` 的 `architecture_gate_files_min`／`skill_registry_count`／`smoke_checks_expected`（只增不减）。`dev.py merge` 流程：变基到当前 master → 在车道工作树跑 `local_ci.py exit` → 独占合并道 → `merge --no-commit` → 等全量验收锁 → 领号 → 提交。出口 CI 期间主干检出保持干净。CI 失败与等锁超时都不领号；提交失败且 MERGE_HEAD 确属本分支时自动还原。合并道锁已静默且 MERGE_HEAD 等于锁里记下的提交时，下一次合并自动还原该现场；锁还活着、没有锁、或提交对不上，仍不自动 abort。除此之外 MERGE_HEAD 超 45 分钟未结只报警，交给人工。pre-commit 在暂存了 `程序/*.py` 时先跑 `tests.test_static_names` 与 `tests.architecture.test_static_hygiene`（约 6 秒），红则拒绝提交。
 
-**车道范围门禁（R2611 起）**：两条并行车道各自实现同一需求时会「新增」同名文件，合入时变 add/add 冲突（R2542 对 R2538 工程闸门批次4 的重复实现）。防线有两层：① 开工前 `dev.py scope <路径>...`（`维护记录/基准脚本/branch_scope.py`）把计划触及的路径与各活跃工作树分支相对 master 的改动求交，重叠即提示；`--added` 只看新增文件口径，`--json` 机器可读。② `dev.py commit` 时暂存区新增文件与其他活跃分支新增文件同名即拒绝提交（`commit_round.check_scope_overlap`，exit 5）；合并提交（MERGE_HEAD）与 master/main 不触发。「活跃分支」＝`git worktree list` 中带分支引用的工作树，排除主干与当前分支；无工作树的未合并分支视为停放或遗留，不阻断，其风险由合并轮 CI 兜底。
+**车道范围门禁（R2611 起）**：两条并行车道各自实现同一需求时会「新增」同名文件，合入时变 add/add 冲突（R2542 对 R2538 工程闸门批次4 的重复实现）。防线有两层：① 开工前 `dev.py scope <路径>...`（`维护记录/基准脚本/branch_scope.py`）把计划触及的路径与各活跃工作树分支相对 master 的改动求交，重叠即提示；`--added` 只看新增文件口径，`--json` 机器可读。② `dev.py commit` 时暂存路径与其他活跃分支相对 master 的未合入改动有交集即拒绝提交（`commit_round.check_scope_overlap`，exit 5），包括新增撞名和改到同一已有文件；合并提交（MERGE_HEAD）与 master/main 不触发。「活跃分支」＝`git worktree list` 中带分支引用的工作树，排除主干与当前分支；无工作树的未合并分支视为停放或遗留，不阻断，其风险由合并轮 CI 兜底。
 
 **规则文件预算与规则守卫（R2530 起）**：`tests/architecture/test_agent_doc_budget.py` 限制 `程序/AGENTS.md` ≤16000 字节、根 `AGENTS.md` ≤2000、`CLAUDE.md` ≤4000，并要求 §5、§8、§2.6 的标题落在前 16384 字节内、相对链接都存在；超了先删旧规则，细则写进本手册。`scripts/rule_guard_map.py --write` 生成 `维护记录/规则守卫对照.md`（规则编号→守卫测试，登记在 `维护记录/规则守卫基线.json`，`test_rule_guard_map.py` 校验同步）；没有守卫的规则上限固定在该测试的 `UNGUARDED_CEILING`，只许减少。可选的外部体检：`npx agents-md-polish audit 程序/AGENTS.md`（需联网，不进 CI）。出站 HTTP 只许经 `platform_tools.open_https()`（规则 42，`test_outbound_http_authority.py` 守卫，ComfyUI 本机请求也已迁入）。
 

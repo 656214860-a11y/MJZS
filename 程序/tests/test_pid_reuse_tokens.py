@@ -58,6 +58,27 @@ class PidReuseTokenTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'PID %d' % os.getpid()):
             runner.acquire_pid_lock(runner.GUI_LOCK_NAME, str(self.common))
 
+    def test_fresh_heartbeat_blocks_acquire_when_the_pid_cannot_be_opened(self):
+        path = self.common / runner.GUI_LOCK_NAME
+        path.write_text(json.dumps({
+            'pid': 2 ** 22 + 9, 'started_at': time.time(), 'heartbeat_at': time.time(),
+            'token': 'held', 'round': 1,
+        }), encoding='utf-8')
+        with self.assertRaisesRegex(RuntimeError, 'PID'):
+            runner.acquire_pid_lock(runner.GUI_LOCK_NAME, str(self.common))
+        self.assertEqual(json.loads(path.read_text(encoding='utf-8'))['token'], 'held')
+
+    def test_silent_heartbeat_is_replaced(self):
+        path = self.common / runner.GUI_LOCK_NAME
+        path.write_text(json.dumps({
+            'pid': os.getpid(), 'started_at': time.time(), 'heartbeat_at': time.time() - 300,
+            'token': 'old', 'round': 1,
+        }), encoding='utf-8')
+        token = runner.acquire_pid_lock(runner.GUI_LOCK_NAME, str(self.common))
+        self.addCleanup(runner.release_pid_lock, token)
+        self.assertEqual(runner.lock_holder(token)['pid'], os.getpid())
+        self.assertNotEqual(runner.lock_holder(token)['token'], 'old')
+
     def test_creation_time_failure_falls_back_to_pid_check(self):
         with mock.patch.object(selftest_env, '_process_created_at', return_value=None):
             self.assertTrue(runner._pid_is_alive(os.getpid(), time.time() - 86400))

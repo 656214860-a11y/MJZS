@@ -1,0 +1,94 @@
+diff --git "a/\347\250\213\345\272\217/domain/idea_chat.py" "b/\347\250\213\345\272\217/domain/idea_chat.py"
+index c714d7ca..4d1c84b4 100644
+--- "a/\347\250\213\345\272\217/domain/idea_chat.py"
++++ "b/\347\250\213\345\272\217/domain/idea_chat.py"
+@@ -808,7 +808,7 @@ def reply_text(result):
+         return anthropic_text(data)
+     value = ''
+     try:
+-        from pet_agent import extract_content
++        from infra.token_saver import extract_content
+         value = extract_content(data)
+     except Exception:
+         value = ''
+diff --git "a/\347\250\213\345\272\217/infra/token_saver.py" "b/\347\250\213\345\272\217/infra/token_saver.py"
+index b27543c5..b616ba7b 100644
+--- "a/\347\250\213\345\272\217/infra/token_saver.py"
++++ "b/\347\250\213\345\272\217/infra/token_saver.py"
+@@ -365,6 +365,32 @@ def reported_usage(raw):
+     return {key: value for key, value in usage.items() if value is not None}
+ 
+ 
++def extract_content(data):
++    """兼容两种线协议：chat 取 choices[0].message.content，responses 取 output_text/output[].content[].text。"""
++    if not isinstance(data, dict):
++        return ''
++    choices = data.get('choices')
++    if isinstance(choices, list) and choices and isinstance(choices[0], dict):
++        message = choices[0].get('message')
++        if isinstance(message, dict) and message.get('content'):
++            return str(message['content'])
++        # 第 65 期任务 10：推理型模型只出思考不出正文时，思考那段就是唯一拿得到的字，
++        # 丢掉它就等于告诉用户「空回复」——只出思考也算有回复。
++        if isinstance(message, dict) and (message.get('reasoning_content') or message.get('reasoning')):
++            return str(message.get('reasoning_content') or message.get('reasoning'))
++    if isinstance(data.get('output_text'), str) and data['output_text']:
++        return data['output_text']
++    output = data.get('output')
++    if isinstance(output, list):
++        for block in output:
++            content = block.get('content') if isinstance(block, dict) else None
++            for piece in content if isinstance(content, list) else ():
++                if isinstance(piece, dict) and piece.get('text'):
++                    return str(piece['text'])
++    return ''
++
++
++
+ def anthropic_usage(data):
+     """Claude 的用量：总输入＝input＋cache_read＋cache_creation（附件 2C），四格齐全。"""
+     usage = reported_usage(data.get('usage') if isinstance(data, dict) else None)
+diff --git "a/\347\250\213\345\272\217/pet_agent.py" "b/\347\250\213\345\272\217/pet_agent.py"
+index 79092c67..15c2b15c 100644
+--- "a/\347\250\213\345\272\217/pet_agent.py"
++++ "b/\347\250\213\345\272\217/pet_agent.py"
+@@ -25,6 +25,7 @@ import orchestrator.stage_parallel as stage_parallel
+ from orchestrator.pet_budget import (BUDGET_ALIASES, BUDGET_KINDS, BUDGET_NAMES,
+                                     DEFAULT_BUDGET, WARN_RATIO, Budget, normalize_kind)
+ from agent.core import save
++from infra.token_saver import extract_content  # 兼容原公开入口；纯解析由L1唯一实现。
+ from contract import error_codes
+ from contract.pet_bus import SEEN_LIMIT, STAGE_NAMES, STAGES, ErrorLog, emit_safe, read_json, with_current_run
+ from ui.pet_agent_rules import REPLIES, RULES, UNKNOWN_REPLY, VERDICTS
+@@ -209,31 +210,6 @@ def match_skill(text, registry=None, current=None, project=None):
+             'reply': reply, 'source': 'skill'}
+ 
+ 
+-def extract_content(data):
+-    """兼容两种线协议：chat 取 choices[0].message.content，responses 取 output_text/output[].content[].text。"""
+-    if not isinstance(data, dict):
+-        return ''
+-    choices = data.get('choices')
+-    if isinstance(choices, list) and choices and isinstance(choices[0], dict):
+-        message = choices[0].get('message')
+-        if isinstance(message, dict) and message.get('content'):
+-            return str(message['content'])
+-        # 第 65 期任务 10：推理型模型只出思考不出正文时，思考那段就是唯一拿得到的字，
+-        # 丢掉它就等于告诉用户「空回复」——只出思考也算有回复。
+-        if isinstance(message, dict) and (message.get('reasoning_content') or message.get('reasoning')):
+-            return str(message.get('reasoning_content') or message.get('reasoning'))
+-    if isinstance(data.get('output_text'), str) and data['output_text']:
+-        return data['output_text']
+-    output = data.get('output')
+-    if isinstance(output, list):
+-        for block in output:
+-            content = block.get('content') if isinstance(block, dict) else None
+-            for piece in content if isinstance(content, list) else ():
+-                if isinstance(piece, dict) and piece.get('text'):
+-                    return str(piece['text'])
+-    return ''
+-
+-
+ def parse_intent(text):
+     """严格解析模型回复：只认 intent/stage/params/reply，围栏与多余解释一律丢掉，解析不出来返回 None。"""
+     body = str(text or '').strip()

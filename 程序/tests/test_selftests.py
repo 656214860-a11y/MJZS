@@ -228,14 +228,16 @@ class IncrementalTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder, \
              mock.patch.object(selftest_env, 'git_common_dir', return_value=folder), \
              mock.patch.object(selftest_env, '_pid_is_alive', return_value=True):
-            path = os.path.join(folder, run_selftests.FULL_SAFE_LOCK_NAME)
             self.assertFalse(run_selftests.participating_full_safe_run(946))
-            for pid, round_number, expected in (
-                    (os.getpid(), 946, True), (os.getppid(), 946, True),
-                    (-100, 946, False), (os.getpid(), 945, False)):
-                with open(path, 'w', encoding='utf-8') as handle:
-                    json.dump({'pid': pid, 'round': round_number}, handle)
-                self.assertEqual(run_selftests.participating_full_safe_run(946), expected)
+            for lock_name in (run_selftests.FULL_SAFE_RUNNER_LOCK_NAME,
+                              run_selftests.FULL_SAFE_LOCK_NAME):
+                path = os.path.join(folder, lock_name)
+                for pid, round_number, expected in (
+                        (os.getpid(), 946, True), (os.getppid(), 946, True),
+                        (-100, 946, False), (os.getpid(), 945, False)):
+                    with open(path, 'w', encoding='utf-8') as handle:
+                        json.dump({'pid': pid, 'round': round_number}, handle)
+                    self.assertEqual(run_selftests.participating_full_safe_run(946), expected)
             with mock.patch.object(selftest_env, '_pid_is_alive', return_value=False):
                 self.assertFalse(run_selftests.participating_full_safe_run(945))
 
@@ -496,7 +498,8 @@ class SelftestModuleSplitTests(unittest.TestCase):
 
     DOMAINS = {
         selftest_env: ('git_common_dir', '_git_text', 'lock_holder', '_pid_is_alive',
-                       'TESTS_DIR', 'FULL_SAFE_LOCK_NAME', 'GUI_E2E_MODULES'),
+                       'TESTS_DIR', 'FULL_SAFE_LOCK_NAME', 'FULL_SAFE_RUNNER_LOCK_NAME',
+                       'GUI_E2E_MODULES'),
         selftest_discovery: ('test_modules', 'imports_of', 'dependency_closure',
                              'modules_for_layer', 'units', 'gui_test_module'),
         selftest_receipts: ('load_cache', 'save_cache', 'incremental', 'content_tree',

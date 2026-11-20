@@ -99,6 +99,13 @@ class ServerPreReceiveTests(unittest.TestCase):
         self.assertEqual(hook.check_push(self.base, hook.ZERO, 'refs/heads/master', repo=str(self.root / '.git')),
                          ['不允许删除 refs/heads/master'])
 
+    def test_non_fast_forward_is_rejected(self):
+        old = commit(self.root, 'R2527: 旧尖端', {'程序/a.py': 'x = 2\n'})
+        git(self.root, 'reset', '--hard', self.base)
+        new = commit(self.root, 'R2528: 改写', {'程序/a.py': 'x = 3\n'})
+        self.assertEqual(hook.check_push(old, new, 'refs/heads/master', repo=str(self.root / '.git')),
+                         ['拒绝非快进更新 refs/heads/master：禁止强推改写主干'])
+
 
 if __name__ == '__main__':
     unittest.main()

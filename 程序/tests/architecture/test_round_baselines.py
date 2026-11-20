@@ -45,9 +45,8 @@ class RoundBaselineTests(unittest.TestCase):
         matched = re.search(r'当前轮次：(\d+)', text)
         self.assertIsNotNone(matched, 'project_status.md 缺少当前轮次')
         if self._merge_in_progress():
-            # B1 新流程：merge --no-commit 后、领号写状态页前跑 exit-CI，
-            # 此时「当前轮次==最新结果+1」结构上尚不成立；merge_round 在领号后提交前以
-            # continuity_gap() 复核，本检查在合并候选期只保格式断言。
+            # 合并已占主干、领号写状态页之前，「当前轮次==最新结果+1」结构上尚不成立。
+            # merge_round 在领号后提交前以 continuity_gap() 复核。
             return
         self.assertEqual(int(matched.group(1)), _latest_result_number() + 1)
 

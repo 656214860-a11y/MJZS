@@ -1,0 +1,15 @@
+﻿git : [�Զ�ȫ��] �ϴ�δ�ܲ��������������������������̣������ɳ��Ự���ύ�����Ӽ̳�ͬһ���ƣ������ǲ���ʧ�ܡ����ڷ�ɳ��Ự�ֶ��� `run_selftests
+.py --all --safe`��ԭ���������治���ã�gui_hidden �˳��� 2��
+所在位置 行:1 字符: 641
++ ... peline.py'; git commit -m "WIP: C8 升级执行器（TUF可信源/安装事务/回滚/发布脚本/验收）" 2>& ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([�Զ�ȫ��] �ϴ�δ�ܲ...idden �˳��� 2��:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[codex/foundation-c8-updater 08f86551] WIP: C8 升级执行器（TUF可信源/安装事务/回滚/发布脚本/验收）
+ 17 files changed, 1380 insertions(+), 35 deletions(-)
+ create mode 100644 "\347\250\213\345\272\217/infra/update_installer.py"
+ create mode 100644 "\347\250\213\345\272\217/infra/update_source.py"
+ create mode 100644 "\347\250\213\345\272\217/scripts/update_publish.py"
+ create mode 100644 "\347\250\213\345\272\217/tests/test_update_pipeline.py"
+

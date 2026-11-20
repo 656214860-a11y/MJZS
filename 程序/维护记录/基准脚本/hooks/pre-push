@@ -1,0 +1,27 @@
+#!/bin/sh
+# 由 install_git_hooks.py 安装到 Git common-dir/hooks/pre-push。
+# 主干只接受快进。强推改写 master/main 在推到服务器之前就拒绝。
+# stdin：<local ref> <local sha> <remote ref> <remote sha>
+zero=0000000000000000000000000000000000000000
+while read -r local_ref local_sha remote_ref remote_sha; do
+  local_ref=$(printf '%s' "$local_ref" | tr -d '\r')
+  local_sha=$(printf '%s' "$local_sha" | tr -d '\r')
+  remote_ref=$(printf '%s' "$remote_ref" | tr -d '\r')
+  remote_sha=$(printf '%s' "$remote_sha" | tr -d '\r')
+  case "$remote_ref" in
+    refs/heads/master|refs/heads/main) ;;
+    *) continue ;;
+  esac
+  if [ "$local_sha" = "$zero" ]; then
+    echo "拒绝推送：不允许删除 $remote_ref。" >&2
+    exit 1
+  fi
+  if [ "$remote_sha" = "$zero" ]; then
+    continue
+  fi
+  if ! git merge-base --is-ancestor "$remote_sha" "$local_sha"; then
+    echo "拒绝推送：$remote_ref 不是快进。禁止强推改写主干。" >&2
+    exit 1
+  fi
+done
+exit 0

@@ -162,6 +162,21 @@ class EvidenceGateTests(unittest.TestCase):
                              ['不允许删除 refs/heads/master'])
             self.assertEqual(mod.check_push(mod.ZERO, sha, 'refs/heads/master', repo=repo), [])
 
+    def test_check_push_rejects_non_fast_forward(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            _git(root, 'init', '-q', '-b', 'master')
+            base = _commit(root, 'R2526: 基线', {'程序/a.py': 'x = 1\n'})
+            old = _commit(root, 'R2527: 旧尖端', {'程序/a.py': 'x = 2\n'})
+            _git(root, 'reset', '--hard', base)
+            new = _commit(root, 'R2528: 改写', {'程序/a.py': 'x = 3\n'})
+            repo = str(root / '.git')
+            reason = ['拒绝非快进更新 refs/heads/master：禁止强推改写主干']
+            self.assertEqual(mod.check_push(old, new, 'refs/heads/master', repo=repo), reason)
+            self.assertEqual(spec_hook_mod.check_push(old, new, 'refs/heads/master', repo=repo), reason)
+            self.assertEqual(mod.check_push(old, new, 'refs/heads/codex/work', repo=repo), [])
+            self.assertTrue(any('缺少' in item for item in mod.check_push(base, new, 'refs/heads/master', repo=repo)))
+
     def test_check_push_passes_with_green_evidence(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

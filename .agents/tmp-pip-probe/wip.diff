@@ -1,0 +1,2101 @@
+diff --git "a/\347\250\213\345\272\217/.importlinter" "b/\347\250\213\345\272\217/.importlinter"
+index 945ddca1..0c6bb65b 100644
+--- "a/\347\250\213\345\272\217/.importlinter"
++++ "b/\347\250\213\345\272\217/.importlinter"
+@@ -1232,12 +1232,9 @@ forbidden_modules =
+     ui_widgets
+     writing_api
+ ignore_imports =
+-    agent.shot_assets -> ui.white_model_ref
+     agent.volcengine -> ui.white_model_ref
+     agent.wan -> ui.white_model_ref
+     domain.asset_batch_service -> asset_reference_images
+-    domain.confirm_gates -> orchestrator.legacy_compat
+-    domain.idea_chat -> pet_agent
+     domain.idea_document_paths -> orchestrator.legacy_compat
+ 
+ [importlinter:contract:L3]
+diff --git "a/\347\250\213\345\272\217/agent/shot_assets.py" "b/\347\250\213\345\272\217/agent/shot_assets.py"
+index 9d26c7fe..42ba5614 100644
+--- "a/\347\250\213\345\272\217/agent/shot_assets.py"
++++ "b/\347\250\213\345\272\217/agent/shot_assets.py"
+@@ -115,10 +115,10 @@ def prepare(source,shot,cfg,white=None):
+     # 参考视频自己就是一种参考模式（万相→wan、火山→seedance），挂上它要把模式拨过去；
+     # 拨不动（比如接口对不上）就留在上面算出来的那一支，由适配器按原样走。
+     if white:
+-        import ui.white_model_ref as white_model_ref
++        from domain.white_model_service import reference_prompt_line
+         result['_white_model_reference']=white
+         result['_reference_mode']={'wan':'wan','volcengine':'seedance'}.get(white.get('provider'),result['_reference_mode'])
+-        result['video_prompt']+='\n'+white_model_ref.prompt_line(white)
++        result['video_prompt']+='\n'+reference_prompt_line(white)
+     if len(result['video_prompt'])>5000:raise ValueError('含资产映射的提示词过长，请精简')
+     return result
+ 
+diff --git "a/\347\250\213\345\272\217/architecture.md" "b/\347\250\213\345\272\217/architecture.md"
+index 91e468ba..5b1ba57f 100644
+--- "a/\347\250\213\345\272\217/architecture.md"
++++ "b/\347\250\213\345\272\217/architecture.md"
+@@ -79,6 +79,7 @@ R3283（残留治理 D1）：管理页「残留包管理」懒列出 `skills/` 
+ 
+ ## 3. 分层判定
+ 
++R3880（结构治理受限小批）：L2 `confirm_gates.stage_gates()` 直接消费 L0 `stage_layout.LEGACY_STAGE_ALIASES` 的精确目录别名事实，不再反向导入 L3 `legacy_compat`；旧空值、空白、大小写与非字符串转换语义保持，兼容门面的原函数保留、生产 caller 清单置空。真实静态层级扫描 15→14，台账仅移除 `confirm_gates→legacy_compat` 一边，其它边与层号不变。
+ R1623：运行期诊断统一走 `logging`（`app_logging` 在启动时装好 `logs/app.log` 的文件处理器并脱敏）。生产模块里的 `print` 在 pythonw 下是静默空操作，只允许登记的控制台入口保留——命令行工具（`engine_probe`／`shot_numbering`／`workspace_maintenance`／`log_maintenance`／`exit_maintenance`／`app_icon`／`app_shortcut`／`asset_thumbs`）、子进程协议 `image_agent_runner`、控制台提交 `console_submit` 与双通道 `broadcaster`；由 `test_print_ratchet.py` 冻结，只许下降。
+ 
+ R1125：L3 `skill_notes` 负责阶段配置的中文阅读副本：优先中文说明、本地术语翻译、经现有模型路由后台翻译及内容哈希缓存；L4 `skill_panel` 只处理选择与显示。代码、地址、路径和执行源文件保持原样；失败保留原文并提示，不阻断导入。
+@@ -99,6 +100,8 @@ R1649：清掉 `tests/architecture/_layers.py` 里 3 个**僵尸登记名**—
+ 
+ R3255（L0 任务书轮 2 D2）：`agent/` 成为第六个分层包——`tests/architecture/_scan.py` 的 `PACKAGE_NAMES` 加入 `agent`，包实体以扁平名入分层／环／规模扫描集（`agent.core` 归一为 `core`），此前 `contract/*.py` 对 `agent.*` 的反向 import 对门禁不可见。按真实静态依赖登记 10 个子模块：`agent/core`、`agent/media`、`agent/publication`→L1，`agent/shot_assets`、`agent/volcengine`、`agent/wan`、`agent/video`→L2，`agent/voice_mcp_server`、`agent/optimizer_mcp_bridge`→L3，`agent/prompt_optimizer`→L4；同时新建 L0 `contract/media_signature` 承接 `is_png`／`PNG_SIGNATURE`（自 `agent.media` 下沉，`agent.media` 保留其余媒体 API 并再导出两符号，`contract/episode_contract` 与 `image_agent_runner` 改导 L0）。登记后全仓可见越层由 8 条增至 18 条（消 `is_png` 边前 19），净增 10 条全部以 `exempt` 记入 `层级` 台账、`baseline_exempt` 8→18 只降不升；连带暴露的 `{core,file_cache,publication}` 静态环与两个动态环按棘轮登记待专项收口。
+ 
++R3878（地基内容解析反向边收口）：将原 `pet_agent.extract_content` 纯函数逐字迁入既有 L1 `token_saver.extract_content`，`pet_agent` 再导出同一函数对象，L2 `idea_chat.reply_text` 改依赖 L1；chat/Responses 字符串化、首 text 与仅推理回退兼容不变，Anthropic 现有严格 text 分支不变。真实静态扫描 14→13。
++R3881（白模参考反向边收口）：`shot_assets` 白模提示词改用既有 L2 `domain.white_model_service.reference_prompt_line`，`ui.white_model_ref` 的数据 URL／entries／prompt_line 委托同一 L2 实现；动态白模五节点环缩为既存二环 `(white_model,white_model_ref)`。真实静态扫描 13→12。剩余 `volcengine`／`wan→white_model_ref`、`idea_document_paths→legacy_compat` 与 L0→core 系列边另批收口。
+ R3267（L0 任务书轮 3A D3）：新增两个 L0 契约模块——`contract/diagnostics.py` 定义启动诊断类型 `Severity`（fatal/error/warn/degraded 闭集）、`Diagnostic`（severity/scope/code/message/remedy/escape_hint，抄 ComfyUI「类别码＋what＋fix＋逃生」结构）、`StartupPhase`（contract/config/resource/ui_shell/ready）；`contract/selfcheck.py` 提供注入式 `run(checks)` 与 L0 内建检查 `default_checks()`（阶段契约、产物登记自洽两项甲类），检查自身异常记 DEGRADED 永不升级 FATAL。`contract/error_codes.py` 的 `ErrorCode` 增 `severity` 闭集字段（fatal/degraded/recoverable/info）并新增 `analyze()` 派发链（首个非 None 胜出、诊断器异常不掩盖原错）。本轮只落 L0 类型与框架，启动器接线在轮 3B；L0 无新增向上 import。
+ 
+ R3407（L1 任务书轮 I6，L1-H7）：新增 L0 `contract/infra_errors.py`——L1 技术异常层级根 `InfraError` 与七族（`NetworkError`/`StorageError`/`CorruptDataError`/`ProcessError`/`QuotaError`/`AuthError`/`ConfigError`）。每个异常带 `code`（构造时校验必须是 `error_codes.CODES` 已登记码且在族内允许集）与 `detail` 技术事实载荷；族基类多重继承对应内置异常（OSError/ValueError/RuntimeError/PermissionError），旧 `except` 子句不破。`error_codes._ITEMS` 按「缺码按规则新增」补 `E-IO-READ`/`E-IO-CORRUPT`/`E-TOOL-FAILED`/`E-CONFIG-INVALID` 四码。守卫：`tests/test_infra_errors.py`（码解析/兼容继承/码门禁）＋`tests/architecture/test_infra_errors_boundary.py`（I6-2 内置异常中文 raise 按模块棘轮，基线 237 处/37 模块）；LR-07 口径切换为「非 InfraError 族（含子类）的 CJK raise」，实测仍 257 待 I7–I11 迁移下调。本轮不改 L1 以上，无 manifest/CHANGELOG 机制（`contract/` 尚无 `_manifest.py`）。
+diff --git "a/\347\250\213\345\272\217/contract/pet_bus.py" "b/\347\250\213\345\272\217/contract/pet_bus.py"
+index a9818d1a..8f347acd 100644
+--- "a/\347\250\213\345\272\217/contract/pet_bus.py"
++++ "b/\347\250\213\345\272\217/contract/pet_bus.py"
+@@ -30,6 +30,7 @@ class StageDefinition:
+     outputs: tuple
+     longtask: bool = True
+     needs_output_disk: bool = True
++    dependencies: tuple | None = None
+ 
+ 
+ STAGE_DEFINITIONS = (
+diff --git "a/\347\250\213\345\272\217/domain/confirm_gates.py" "b/\347\250\213\345\272\217/domain/confirm_gates.py"
+index 1a2e9f37..670b7293 100644
+--- "a/\347\250\213\345\272\217/domain/confirm_gates.py"
++++ "b/\347\250\213\345\272\217/domain/confirm_gates.py"
+@@ -24,7 +24,7 @@ from infra.file_cache import read_json
+ from contract.asset_contract import missing_ids
+ from contract.asset_contract import normalize as normalize_asset
+ from contract.shot_batches import check_batches, validate as validate_shot
+-from orchestrator.legacy_compat import canonical_stage_name
++from contract.stage_layout import LEGACY_STAGE_ALIASES
+ from contract.project_context import ProjectContext
+ 
+ OBJECTIVE = '客观'
+@@ -120,9 +120,9 @@ def subjective_ids():
+ 
+ def stage_gates(folder):
+     """某个阶段目录适用的门禁编号（stage_layout.contract_rows 用它填契约表）。"""
+-    # 兼容读取统一由门面处理；传入旧标识时仍落到当前阶段名，从而门禁表、目录与实际
+-    # 存储共用一套口径。
+-    text = canonical_stage_name(folder)
++    # 只认目录契约的精确历史别名；不改变旧门面的空值、空白和大小写语义。
++    value = str(folder or '')
++    text = LEGACY_STAGE_ALIASES.get(value, value)
+     return tuple(row['id'] for row in GATES if text in GATE_STAGES.get(row['id'], ()))
+ 
+ 
+diff --git "a/\347\250\213\345\272\217/domain/idea_chat.py" "b/\347\250\213\345\272\217/domain/idea_chat.py"
+index c714d7ca..4d1c84b4 100644
+--- "a/\347\250\213\345\272\217/domain/idea_chat.py"
++++ "b/\347\250\213\345\272\217/domain/idea_chat.py"
+@@ -808,7 +808,7 @@ def reply_text(result):
+         return anthropic_text(data)
+     value = ''
+     try:
+-        from pet_agent import extract_content
++        from infra.token_saver import extract_content
+         value = extract_content(data)
+     except Exception:
+         value = ''
+diff --git "a/\347\250\213\345\272\217/domain/white_model_service.py" "b/\347\250\213\345\272\217/domain/white_model_service.py"
+index 2c5709e0..9b285139 100644
+--- "a/\347\250\213\345\272\217/domain/white_model_service.py"
++++ "b/\347\250\213\345\272\217/domain/white_model_service.py"
+@@ -1,4 +1,5 @@
+ """不依赖 Tk 的白模预演记录、目录与 Blender 发现服务。"""
++import base64
+ import hashlib
+ import json
+ import os
+@@ -20,6 +21,36 @@ from domain.project_naming import dated_path
+ import contract.stage_layout as stage_layout
+ from contract.project_context import ProjectContext
+ 
++REFERENCE_MIME = {'.mp4': 'video/mp4', '.webm': 'video/webm', '.mov': 'video/quicktime'}
++
++
++def reference_data_url(path, suffix=None):
++    """把已明确提供的白模视频读为data URL，不发现目录或改变原异常语义。"""
++    path = Path(path)
++    mime = REFERENCE_MIME.get(str(suffix or path.suffix).lower())
++    if not mime:
++        raise ValueError('白模视频只认 mp4／webm／mov：' + path.name)
++    return 'data:' + mime + ';base64,' + base64.b64encode(path.read_bytes()).decode()
++
++
++def reference_entries(reference):
++    """保持原接口槽位形状与先读文件后判断slot的顺序。"""
++    if not reference:
++        return []
++    url = reference_data_url(reference['path'], reference.get('suffix'))
++    slot = reference.get('slot')
++    if slot == 'media':
++        return [{'type': 'reference_video', 'url': url}]
++    if slot == 'content':
++        return [{'type': 'video_url', 'video_url': {'url': url}, 'role': 'reference_video'}]
++    raise ValueError('不认识的参考视频槽位：' + repr(slot))
++
++
++def reference_prompt_line(reference=None):
++    return ('白模预演视频＝本镜的动作与机位参考：人物站位、动作起止、镜头运动照它走；'
++            '只借动作与机位，不复制白模的外观与材质。')
++
++
+ _BLENDER_CACHE = []
+ _WORKSPACE_CACHE = {}
+ _BASE_CACHE = {}
+diff --git "a/\347\250\213\345\272\217/infra/token_saver.py" "b/\347\250\213\345\272\217/infra/token_saver.py"
+index 2f0cd304..650d6835 100644
+--- "a/\347\250\213\345\272\217/infra/token_saver.py"
++++ "b/\347\250\213\345\272\217/infra/token_saver.py"
+@@ -386,6 +386,32 @@ def reported_usage(raw):
+     return {key: value for key, value in usage.items() if value is not None}
+ 
+ 
++def extract_content(data):
++    """兼容两种线协议：chat 取 choices[0].message.content，responses 取 output_text/output[].content[].text。"""
++    if not isinstance(data, dict):
++        return ''
++    choices = data.get('choices')
++    if isinstance(choices, list) and choices and isinstance(choices[0], dict):
++        message = choices[0].get('message')
++        if isinstance(message, dict) and message.get('content'):
++            return str(message['content'])
++        # 第 65 期任务 10：推理型模型只出思考不出正文时，思考那段就是唯一拿得到的字，
++        # 丢掉它就等于告诉用户「空回复」——只出思考也算有回复。
++        if isinstance(message, dict) and (message.get('reasoning_content') or message.get('reasoning')):
++            return str(message.get('reasoning_content') or message.get('reasoning'))
++    if isinstance(data.get('output_text'), str) and data['output_text']:
++        return data['output_text']
++    output = data.get('output')
++    if isinstance(output, list):
++        for block in output:
++            content = block.get('content') if isinstance(block, dict) else None
++            for piece in content if isinstance(content, list) else ():
++                if isinstance(piece, dict) and piece.get('text'):
++                    return str(piece['text'])
++    return ''
++
++
++
+ def anthropic_usage(data):
+     """Claude 的用量：总输入＝input＋cache_read＋cache_creation（附件 2C），四格齐全。"""
+     usage = reported_usage(data.get('usage') if isinstance(data, dict) else None)
+diff --git "a/\347\250\213\345\272\217/orchestrator/legacy_compat.py" "b/\347\250\213\345\272\217/orchestrator/legacy_compat.py"
+index 4bb42ba4..11169e66 100644
+--- "a/\347\250\213\345\272\217/orchestrator/legacy_compat.py"
++++ "b/\347\250\213\345\272\217/orchestrator/legacy_compat.py"
+@@ -16,7 +16,7 @@ FACADE_MANIFEST = {
+         'owner': 'legacy_compat', 'callers': ('engine',), 'retire_after': RETIRE_AFTER,
+     },
+     'canonical_stage_name': {
+-        'owner': 'legacy_compat', 'callers': ('confirm_gates',), 'retire_after': RETIRE_AFTER,
++        'owner': 'legacy_compat', 'callers': (), 'retire_after': RETIRE_AFTER,
+     },
+     'optional_workflow_model_name': {
+         'owner': 'legacy_compat', 'callers': ('local_previs',), 'retire_after': RETIRE_AFTER,
+diff --git "a/\347\250\213\345\272\217/orchestrator/stage_completion_service.py" "b/\347\250\213\345\272\217/orchestrator/stage_completion_service.py"
+index 30c8decd..8ef176c7 100644
+--- "a/\347\250\213\345\272\217/orchestrator/stage_completion_service.py"
++++ "b/\347\250\213\345\272\217/orchestrator/stage_completion_service.py"
+@@ -5,6 +5,21 @@ import math
+ import contract.pet_bus as pet_bus
+ 
+ 
++_EXTENSION_COMPLETION_CATALOG = {}
++
++
++def bind_extension_completion_catalog(catalog):
++    """仅受信启动组合注入新增阶段定义与核验器，不导入L3登记实现。"""
++    checked = {}
++    for stage, (definition, validator) in catalog.items():
++        if not callable(validator) or definition.stage != stage:
++            raise ValueError('Invalid extension completion catalog')
++        checked[stage] = (definition, validator)
++    if _EXTENSION_COMPLETION_CATALOG and _EXTENSION_COMPLETION_CATALOG != checked:
++        raise RuntimeError('Extension completion catalog is already bound')
++    _EXTENSION_COMPLETION_CATALOG.update(checked)
++
++
+ def media_output_folders(root, stage):
+     """返回媒体阶段的成果目录与允许扩展名（成片后缀与导入共用 delivery_import_service 那一份）。"""
+     from domain.delivery_import_service import ALLOWED_SUFFIXES
+@@ -796,6 +811,9 @@ def completion_evidence(root, stage, video_ready=None):
+             if digest:
+                 return True, ''
+             return False, '；'.join(str(item) for item in (waiting or ['没有全部下载、质检并验收的视频镜头']))
++        extension = _extension_completion_evidence(root, stage)
++        if extension is not None:
++            return extension
+         folders, suffixes = media_output_folders(root, stage)
+         if not folders and stage in pet_bus.STAGES:
+             from contract.project_stages import stage as stage_dir
+@@ -810,6 +828,33 @@ def completion_evidence(root, stage, video_ready=None):
+         return False, '成果校验失败：%s' % exc
+ 
+ 
++def _extension_completion_evidence(root, stage):
++    """新阶段完成必须经受信handler验证；文字/进度和任意文件均不作默认证据。"""
++    record = _EXTENSION_COMPLETION_CATALOG.get(stage)
++    if record is None:
++        return False, '新增阶段没有受信成果核验器，不能确认完成'
++    definition, validator = record
++    if not definition.outputs:
++        return False, '新增阶段未声明实际成果，不能确认完成'
++    try:
++        from contract.stage_path_service import write_dir
++        folder = write_dir(root, stage) / 'output'
++        if (folder.is_symlink() or folder.is_junction() or folder.parent.is_symlink() or folder.parent.is_junction()
++                or not folder.resolve().is_relative_to(root.resolve())):
++            return False, '新增阶段成果路径越界'
++        for name in definition.outputs:
++            path = folder / name
++            if (path.is_symlink() or path.is_junction() or not path.resolve().is_relative_to(folder.resolve())
++                    or not path.is_file() or path.stat().st_size <= 0):
++                return False, '新增阶段缺少有效声明成果：' + name
++        result = validator(root)
++    except Exception:
++        return False, '新增阶段成果核验器执行失败'
++    if not isinstance(result, tuple) or len(result) != 2 or type(result[0]) is not bool or not isinstance(result[1], str):
++        return False, '新增阶段成果核验器返回值不符合(bool, detail)契约'
++    return result
++
++
+ def emit_verified_completion(root, stage, text, emit, video_ready=None, before_emit=None):
+     """核验成果后才通过受控事件出口标记阶段完成。"""
+     ok, detail = completion_evidence(root, stage, video_ready)
+diff --git "a/\347\250\213\345\272\217/orchestrator/stage_handler_registry.py" "b/\347\250\213\345\272\217/orchestrator/stage_handler_registry.py"
+index c723fd08..fc358eb3 100644
+--- "a/\347\250\213\345\272\217/orchestrator/stage_handler_registry.py"
++++ "b/\347\250\213\345\272\217/orchestrator/stage_handler_registry.py"
+@@ -108,9 +108,12 @@ def poll_pet_test(session, project, at=None):
+ def start(desktop, stage, trigger='auto', fallback=None, *, skip_action=None,
+           run_action=None, **options):
+     """三虎唯一的 L3 启动指令入口。"""
+-    if stage not in (*STAGES, 'pet_performance', 'pet_test'):
++    if stage not in (*pet_bus.STAGES, 'pet_performance', 'pet_test'):
+         raise ValueError(f'未知阶段指令：{stage!r}')
+-    if stage in STAGES and run_action is not None:
++    global _CATALOG_STARTED
++    seal_stage_catalog()
++    _CATALOG_STARTED = True
++    if stage in pet_bus.STAGES and run_action is not None:
+         readiness = run_action(desktop, stage, trigger)
+         if readiness is False or (isinstance(readiness, str) and readiness):
+             return readiness
+@@ -119,6 +122,9 @@ def start(desktop, stage, trigger='auto', fallback=None, *, skip_action=None,
+     error = _workflow_lock_error(getattr(desktop, 'root', None), stage, trigger)
+     if error:
+         return _finish_start(ctx, error, error)
++    extension_error = _extension_start_error(desktop, stage, trigger)
++    if extension_error:
++        return _finish_start(ctx, extension_error, extension_error)
+     if trigger == 'auto' and stage_flow.unchecked(getattr(desktop, 'root', None), stage):
+         if callable(skip_action):
+             return skip_action(desktop, stage)
+@@ -126,7 +132,7 @@ def start(desktop, stage, trigger='auto', fallback=None, *, skip_action=None,
+             raise RuntimeError('缺少未勾选 SKILL 阶段的跳过动作')
+         return unchecked_skip_text(stage)
+     project = getattr(desktop, 'root', None)
+-    if stage in STAGES and stage != 'animatic' and project is not None:
++    if stage in pet_bus.STAGES and stage != 'animatic' and project is not None:
+         from contract.stage_path_service import write_dir
+         try:
+             require_output_space(write_dir(project, stage), options.get('disk_required_bytes'))
+@@ -282,7 +288,10 @@ class StageRegistry:
+         self.handlers[definition.stage] = handler
+ 
+ 
+-HANDLERS = {item.stage: LegacyStageHandler(_legacy_start) for item in pet_bus.STAGE_DEFINITIONS}
++LEGACY_STAGES = ('script', 'script_structure', 'storyboard', 'animatic', 'assets',
++                 'continuity', 'final', 'keyframe', 'previs', 'video', 'audio', 'edit', 'delivery')
++_LEGACY_DEFINITIONS = tuple(item for item in pet_bus.STAGE_DEFINITIONS if item.stage in LEGACY_STAGES)
++HANDLERS = {stage: LegacyStageHandler(_legacy_start) for stage in LEGACY_STAGES}
+ HANDLERS.update({
+     'storyboard': LegacyStageHandler(_storyboard_start),
+     'animatic': LegacyStageHandler(_animatic_start),
+@@ -292,12 +301,153 @@ HANDLERS.update({
+         lambda ctx: _start_pet_test(ctx.desktop, ctx.options.get('text', ''))),
+ })
+ REGISTRY = StageRegistry(handlers=HANDLERS)
++_CATALOG_SEALED = False
++_CATALOG_STARTED = False
++_DEPENDENCY_CHECKER = None
++_SEALED_EXTENSIONS = {}
++
++
++def register_stage(definition, handler):
++    """受信启动组合入口；在UI/阶段事实消费者导入及首次start前显式调用。"""
++    if _CATALOG_SEALED or _CATALOG_STARTED:
++        raise RuntimeError('Stage catalog is sealed; runtime registration is not supported')
++    _validate_extension(definition, handler, REGISTRY.stages)
++    if any(item.directory.casefold() == definition.directory.casefold() for item in REGISTRY.definitions):
++        raise ValueError('Stage directory already registered: ' + definition.directory)
++    REGISTRY.register(definition, handler)
++
++
++def _validate_extension(definition, handler, known_stages):
++    if definition.stage in LEGACY_STAGES:
++        raise ValueError('Legacy stage definitions cannot be replaced')
++    if not isinstance(definition.stage, str) or not definition.stage or not definition.stage.isidentifier():
++        raise ValueError('Extension stage key must be an identifier')
++    dependencies = definition.dependencies
++    if not isinstance(dependencies, tuple):
++        raise ValueError('Extension dependencies must be explicitly declared')
++    if any(not isinstance(key, str) or key not in known_stages or key == definition.stage for key in dependencies):
++        raise ValueError('Extension dependency is not registered')
++    if len(set(dependencies)) != len(dependencies):
++        raise ValueError('Duplicate extension dependencies')
++    if not callable(getattr(handler, 'validate_completion', None)):
++        raise ValueError('Extension completion validator is required')
++    _validate_extension_outputs(definition.outputs)
++    from pathlib import PureWindowsPath
++    folder = PureWindowsPath(definition.directory)
++    if (len(folder.parts) != 1 or folder.parts[0] in ('.', '..') or folder.drive
++            or str(folder) != definition.directory or any(ord(char) < 32 for char in definition.directory)
++            or any(char in definition.directory for char in '<>:"/\\|?*')):
++        raise ValueError('Stage directory must be a single relative directory')
++    if definition.directory.endswith((' ', '.')) or folder.is_reserved():
++        raise ValueError('Stage directory is reserved on Windows')
++
++
++def _validate_extension_outputs(outputs):
++    if not isinstance(outputs, tuple) or not outputs or len(set(outputs)) != len(outputs):
++        raise ValueError('Extension must declare unique output file names')
++    from pathlib import PureWindowsPath
++    if len({name.casefold() for name in outputs if isinstance(name, str)}) != len(outputs):
++        raise ValueError('Extension output file names must be unique on Windows')
++    for name in outputs:
++        path = PureWindowsPath(name) if isinstance(name, str) else None
++        if (path is None or len(path.parts) != 1 or path.drive or str(path) != name
++                or name in ('.', '..') or name.endswith((' ', '.')) or path.is_reserved()
++                or any(ord(char) < 32 for char in name) or any(char in name for char in '<>:"/\\|?*')):
++            raise ValueError('Extension output must be a single relative file name')
++
++
++def _ensure_stage_bootstrap_phase():
++    import sys
++    if any(name in sys.modules for name in ('infra.pet_state', 'ui.desktop_page_registry')):
++        raise RuntimeError('Seal stage extensions before importing UI stage snapshots')
++
++
++def seal_stage_catalog(*, completion_checker=None, completion_binder=None):
++    """启动期一次发布既有纯投影；无扩展时不替换原13阶段对象。"""
++    global _CATALOG_SEALED, _DEPENDENCY_CHECKER, _SEALED_EXTENSIONS
++    if _CATALOG_SEALED:
++        if completion_checker is not None and completion_checker is not _DEPENDENCY_CHECKER:
++            raise RuntimeError('Stage catalog checker is already sealed')
++        return
++    # 先完整复验，避免直接篡改目录或handlers产生一半发布。
++    checked = StageRegistry(REGISTRY.definitions, REGISTRY.handlers)
++    if tuple(item for item in checked.definitions if item.stage in LEGACY_STAGES) != _LEGACY_DEFINITIONS:
++        raise ValueError('Original stage definitions cannot be changed during composition')
++    extensions = tuple(item for item in checked.definitions if item.stage not in LEGACY_STAGES)
++    validated_stages = list(LEGACY_STAGES)
++    directories = {item.directory.casefold() for item in checked.definitions if item.stage in LEGACY_STAGES}
++    for definition in extensions:
++        _validate_extension(definition, checked.handlers[definition.stage], validated_stages)
++        if definition.directory.casefold() in directories:
++            raise ValueError('Stage directory already registered: ' + definition.directory)
++        directories.add(definition.directory.casefold())
++        validated_stages.append(definition.stage)
++    if any(item.dependencies for item in extensions) and not callable(completion_checker):
++        raise ValueError('Extension dependency completion checker is required')
++    if extensions:
++        if not callable(completion_binder):
++            raise ValueError('Extension completion catalog binder is required')
++        _ensure_stage_bootstrap_phase()
++        from contract import stage_layout
++        layouts = stage_layout.stage_layouts(checked.definitions)
++        completion_binder({item.stage: (item, checked.handlers[item.stage].validate_completion) for item in extensions})
++        pet_bus.STAGE_DEFINITIONS = checked.definitions
++        pet_bus.STAGES = checked.stages
++        pet_bus.STAGE_NAMES = {item.stage: item.name for item in checked.definitions}
++        stage_layout.STAGES = layouts
++        HANDLERS.clear()
++        HANDLERS.update(checked.handlers)
++    _DEPENDENCY_CHECKER = completion_checker if extensions else None
++    _SEALED_EXTENSIONS = {item.stage: (item, checked.handlers[item.stage]) for item in extensions}
++    _CATALOG_SEALED = True
++
++
++def extension_definition_for(stage):
++    if stage in LEGACY_STAGES or not _CATALOG_SEALED:
++        return None
++    record = _SEALED_EXTENSIONS.get(stage)
++    return record[0] if record is not None else None
++
++
++def extension_handler_for(stage):
++    """只查询显式登记的新增阶段；原阶段继续走专用实现。"""
++    if stage in LEGACY_STAGES:
++        return None
++    if not _CATALOG_SEALED:
++        return None
++    record = _SEALED_EXTENSIONS.get(stage)
++    return record[1] if record is not None else None
++
++
++def _extension_start_error(desktop, stage, trigger):
++    if stage in LEGACY_STAGES or stage not in pet_bus.STAGES:
++        return ''
++    handler = extension_handler_for(stage)
++    if handler is None:
++        return '新增阶段缺少显式handler，不能启动'
++    definition = extension_definition_for(stage)
++    if definition.dependencies is None:
++        return '新增阶段未声明前置依赖，不能启动'
++    if trigger == 'auto':
++        return '新增阶段自动推进默认未启用，请手动启动'
++    if definition.dependencies and not callable(_DEPENDENCY_CHECKER):
++        return '新增阶段前置成果核验器未绑定，不能启动'
++    for dependency in definition.dependencies:
++        result = _DEPENDENCY_CHECKER(getattr(desktop, 'root', None), dependency)
++        if not isinstance(result, tuple) or len(result) != 2 or type(result[0]) is not bool or not isinstance(result[1], str):
++            return '新增阶段前置成果核验返回值不符合契约'
++        ok, detail = result
++        if not ok:
++            return '新增阶段前置未完成：%s（%s）' % (dependency, detail)
++    return ''
+ 
+ 
+ def dispatch(ctx, registry=None, operation='start'):
+     """Execute a registered lifecycle without stage-specific branching."""
+     handlers = HANDLERS if registry is None else registry.handlers
+     handler = handlers.get(ctx.stage)
++    if registry is None and ctx.stage not in LEGACY_STAGES and ctx.stage in _SEALED_EXTENSIONS:
++        handler = extension_handler_for(ctx.stage)
+     if handler is None:
+         # Unknown/non-production commands retain the previous callback behavior.
+         return _legacy_start(ctx) if operation == 'start' else NotImplemented
+@@ -305,3 +455,104 @@ def dispatch(ctx, registry=None, operation='start'):
+     if operation not in ('start', 'pause', 'resume', 'cancel', 'progress'):
+         raise ValueError('Unknown stage operation: ' + str(operation))
+     return getattr(handler, operation)(ctx)
++
++
++@dataclass(frozen=True)
++class TaskLifecycleOwner:
++    """Frozen identity for one local background ticket, never a global cancel handle."""
++    host_id: int
++    project: str
++    stage: str
++    tasks: object
++    ticket: object
++    execution: object
++
++    def _current(self, ctx):
++        owners = getattr(ctx.desktop, '_stage_task_owners', {})
++        key = (self.project, self.stage)
++        if id(ctx.desktop) != self.host_id or ctx.stage != self.stage:
++            return False
++        if _task_project(ctx.desktop) != self.project:
++            if owners.get(key) is self:
++                owners.pop(key)
++            return False
++        return (owners.get(key) is self and self.tasks.accepts(self.ticket)
++                and self.tasks.execution_control(self.ticket) is self.execution)
++
++    def progress(self, ctx):
++        if not self._current(ctx):
++            return NotImplemented
++        snapshot = self.tasks.snapshot()
++        if not isinstance(snapshot, dict) or snapshot.get('ticket') != self.ticket:
++            return NotImplemented
++        return {'project': self.project, 'stage': self.stage, 'ticket': self.ticket,
++                'lifecycle': dict(snapshot)}
++
++    def cancel(self, ctx):
++        if not self._current(ctx):
++            return NotImplemented
++        stopped = self.tasks.cancel(self.ticket)
++        if not stopped:
++            return NotImplemented
++        return {'project': self.project, 'stage': self.stage, 'ticket': self.ticket,
++                'local_wait_stopped': bool(stopped),
++                'remote_cancel_requested': False, 'remote_cancel_confirmed': False}
++
++    def pause(self, ctx):
++        if not self._current(ctx):
++            return NotImplemented
++        raise NotImplementedError('Background ticket owner does not support pausing execution')
++
++    def resume(self, ctx):
++        if not self._current(ctx):
++            return NotImplemented
++        raise NotImplementedError('Background ticket owner does not support resuming execution')
++
++
++def _task_project(desktop):
++    from pathlib import Path
++    project = getattr(desktop, 'root', None)
++    return str(Path(project).resolve()) if project is not None else None
++
++
++def bind_task_owner(desktop, stage, tasks, ticket):
++    """Bind only an active ticket to its exact host/project/stage identity."""
++    project = _task_project(desktop)
++    if stage not in pet_bus.STAGES or project is None or not tasks.accepts(ticket):
++        raise ValueError('Cannot bind an inactive ticket or unknown stage/project')
++    owners = getattr(desktop, '_stage_task_owners', None)
++    if owners is None:
++        owners = desktop._stage_task_owners = {}
++    for key, previous in tuple(owners.items()):
++        if key[0] != project or not previous.tasks.accepts(previous.ticket):
++            owners.pop(key, None)
++    owner = TaskLifecycleOwner(id(desktop), project, stage, tasks, ticket, tasks.execution_control(ticket))
++    owners[(project, stage)] = owner
++    return owner
++
++
++def task_owner_for(desktop, stage):
++    """Return only the still-current owner; switching project never targets old work."""
++    project = _task_project(desktop)
++    owners = getattr(desktop, '_stage_task_owners', {})
++    for key, candidate in tuple(owners.items()):
++        if key[0] != project or not candidate.tasks.accepts(candidate.ticket):
++            owners.pop(key, None)
++    owner = owners.get((project, stage))
++    if owner is None:
++        return None
++    ctx = StageContext(desktop, stage, owner=owner)
++    return owner if owner._current(ctx) else None
++
++
++def control_task(desktop, stage, operation):
++    """Operate on the current stage ticket only; unsupported operations stay explicit."""
++    if operation not in ('pause', 'resume', 'cancel', 'progress'):
++        raise ValueError('Unknown task lifecycle operation: ' + str(operation))
++    owner = task_owner_for(desktop, stage)
++    if owner is None:
++        return NotImplemented
++    try:
++        return getattr(owner, operation)(StageContext(desktop, stage, owner=owner))
++    except NotImplementedError:
++        return NotImplemented
+diff --git "a/\347\250\213\345\272\217/pet_agent.py" "b/\347\250\213\345\272\217/pet_agent.py"
+index 79092c67..15c2b15c 100644
+--- "a/\347\250\213\345\272\217/pet_agent.py"
++++ "b/\347\250\213\345\272\217/pet_agent.py"
+@@ -25,6 +25,7 @@ import orchestrator.stage_parallel as stage_parallel
+ from orchestrator.pet_budget import (BUDGET_ALIASES, BUDGET_KINDS, BUDGET_NAMES,
+                                     DEFAULT_BUDGET, WARN_RATIO, Budget, normalize_kind)
+ from agent.core import save
++from infra.token_saver import extract_content  # 兼容原公开入口；纯解析由L1唯一实现。
+ from contract import error_codes
+ from contract.pet_bus import SEEN_LIMIT, STAGE_NAMES, STAGES, ErrorLog, emit_safe, read_json, with_current_run
+ from ui.pet_agent_rules import REPLIES, RULES, UNKNOWN_REPLY, VERDICTS
+@@ -209,31 +210,6 @@ def match_skill(text, registry=None, current=None, project=None):
+             'reply': reply, 'source': 'skill'}
+ 
+ 
+-def extract_content(data):
+-    """兼容两种线协议：chat 取 choices[0].message.content，responses 取 output_text/output[].content[].text。"""
+-    if not isinstance(data, dict):
+-        return ''
+-    choices = data.get('choices')
+-    if isinstance(choices, list) and choices and isinstance(choices[0], dict):
+-        message = choices[0].get('message')
+-        if isinstance(message, dict) and message.get('content'):
+-            return str(message['content'])
+-        # 第 65 期任务 10：推理型模型只出思考不出正文时，思考那段就是唯一拿得到的字，
+-        # 丢掉它就等于告诉用户「空回复」——只出思考也算有回复。
+-        if isinstance(message, dict) and (message.get('reasoning_content') or message.get('reasoning')):
+-            return str(message.get('reasoning_content') or message.get('reasoning'))
+-    if isinstance(data.get('output_text'), str) and data['output_text']:
+-        return data['output_text']
+-    output = data.get('output')
+-    if isinstance(output, list):
+-        for block in output:
+-            content = block.get('content') if isinstance(block, dict) else None
+-            for piece in content if isinstance(content, list) else ():
+-                if isinstance(piece, dict) and piece.get('text'):
+-                    return str(piece['text'])
+-    return ''
+-
+-
+ def parse_intent(text):
+     """严格解析模型回复：只认 intent/stage/params/reply，围栏与多余解释一律丢掉，解析不出来返回 None。"""
+     body = str(text or '').strip()
+diff --git "a/\347\250\213\345\272\217/tests/architecture/_layers.py" "b/\347\250\213\345\272\217/tests/architecture/_layers.py"
+index e1d0ba99..4831f7be 100644
+--- "a/\347\250\213\345\272\217/tests/architecture/_layers.py"
++++ "b/\347\250\213\345\272\217/tests/architecture/_layers.py"
+@@ -106,8 +106,8 @@ _register(4, "script_line_numbers", "script_find_bar", "script_outline", "script
+ 
+ # R3246 轮 2（任务书 D2-b，G9）：agent/ 第六分层包入册，层级按实际静态 import 核实——
+ # core 仍惰性 import agent.publication（:13,:36,:67），与 publication 同 L1；
+-# shot_assets(:118)／volcengine(:23)／wan(:19) 对 ui.white_model_ref(L4) 的懒加载
+-# 记入「层级」棘轮豁免，不为它们抬层；prompt_optimizer 消费 ui_widgets(L4) → L4。
++# R3881：shot_assets白模说明改用既有L2 white_model_service；未改层号。
++# volcengine/wan对UI引用序列化的存量边待后续批收口；prompt_optimizer归L4。
+ _register(0, "media_signature")
+ _register(1, "core", "media", "publication")
+ _register(2, "h3_reference_adapter", "shot_assets", "volcengine", "wan", "video")
+@@ -740,6 +740,7 @@ SAME_LAYER_EDGES: frozenset[tuple[str, str]] = frozenset({
+     ('shared_video_controls', 'responsive_ui'),
+     ('shared_video_controls', 'ui_widgets'),
+     ('shot_assets', 'asset_context'),
++    ('shot_assets', 'white_model_service'),
+     ('shot_batches', 'episode_contract'),
+     ('skill_archive', 'skill_import_service'),
+     ('skill_import_service', 'skill_security_service'),
+diff --git "a/\347\250\213\345\272\217/tests/architecture/_scan.py" "b/\347\250\213\345\272\217/tests/architecture/_scan.py"
+index 5f66ec3b..748607ec 100644
+--- "a/\347\250\213\345\272\217/tests/architecture/_scan.py"
++++ "b/\347\250\213\345\272\217/tests/architecture/_scan.py"
+@@ -540,10 +540,75 @@ def _closed_catalog_dispatch(tree: ast.Module, keys: frozenset[str]) -> tuple[se
+         return ast.dump(clone, include_attributes=False)
+ 
+     expected = '''
++class StagePresentation(Enum):
++    REPORT_STORYBOARD = auto()
++    OPEN_STORYBOARD = auto()
++    SHOW_ANIMATIC = auto()
++def _workflow_lock_error(project, stage, trigger):
++    from contract.script_contract import PRODUCTION_LOCK_DEFINITIONS, STAGE_LOCK_REQUIREMENTS, lock_stage, stage_lock_requirements
++    if not project or (stage == 'script' and trigger != 'auto'):
++        return ''
++    if lock_stage(stage) not in STAGE_LOCK_REQUIREMENTS:
++        return ''
++    import orchestrator.stage_config as stage_config
++    required_keys = stage_lock_requirements(stage, stage_config.project_created_at(project))
++    if not required_keys:
++        return ''
++    labels = {item['key']: dict.get(item, 'label') or item['key'] for item in PRODUCTION_LOCK_DEFINITIONS}
++    selected = stage_config.workflow_lock(project)
++    missing = [labels[key] for key in required_keys if not str.strip(str(dict.get(selected, key) or ''))]
++    if not missing:
++        return ''
++    return '请先在 01 剧本准备 的发送框内写明制作锁：' + str.join('、', missing)
++def unchecked_skip_text(stage):
++    from contract.pet_bus import STAGE_NAMES
++    name = STAGE_NAMES.get(stage, stage)
++    return '「%s」没有勾选 SKILL，三虎自动已跳过这一步' % name
++def _start_storyboard(desktop, trigger):
++    if getattr(desktop, 'root', None) is None:
++        return ('', '', None)
++    pet = getattr(desktop, 'pet', None)
++    try:
++        plan = storyboard_work_plan(desktop.root)
++    except (OSError, ValueError, KeyError, TypeError) as exc:
++        return ('', '读取结构剧本输入失败：' + str(exc), None)
++    if not plan['scripts']:
++        return ('', '未选择结构剧本，无法制作分镜', None)
++    if not plan['todo'] and (not plan['revise']):
++        auto = getattr(pet, 'auto', None)
++        if trigger == 'auto' and getattr(auto, 'active', None) == 'storyboard':
++            text = '已确认所有已选结构剧本的分镜均已生成并采用'
++            return (text, '', StagePresentation.REPORT_STORYBOARD)
++        return ('', '', None)
++    return ('已经在准备分镜任务：' + str(len(plan['todo']) + len(plan['revise'])) + ' 份输入交给 Agent，做完会自动提示；没做完的会自动采用。', '', StagePresentation.OPEN_STORYBOARD)
++def _start_pet_performance(desktop, kind):
++    from stage_execution_service import start_pet_performance_check
++    pet = getattr(desktop, 'pet', None)
++    program = getattr(pet, 'program', None)
++    project = getattr(desktop, 'root', None)
++    if not program or project is None:
++        raise RuntimeError('缺少优化检查所需的程序或项目路径')
++    return start_pet_performance_check(program, project, kind=kind)
++def poll_pet_performance(session, at=None):
++    from stage_execution_service import poll_pet_performance_check
++    return poll_pet_performance_check(session, at=at)
++def _start_pet_test(desktop, text):
++    from stage_execution_service import start_pet_test_check
++    pet = getattr(desktop, 'pet', None)
++    program = getattr(pet, 'program', None)
++    if not program or getattr(desktop, 'root', None) is None:
++        raise RuntimeError('缺少增量自检所需的程序或项目路径')
++    return start_pet_test_check(program, text)
++def poll_pet_test(session, project, at=None):
++    from stage_execution_service import poll_pet_test_check
++    return poll_pet_test_check(session, project, at=at)
+ def start(desktop, stage, trigger='auto', fallback=None, *, skip_action=None, run_action=None, **options):
+-    if stage not in (*STAGES, 'pet_performance', 'pet_test'):
++    if stage not in (*pet_bus.STAGES, 'pet_performance', 'pet_test'):
+         raise ValueError(f'未知阶段指令：{stage!r}')
+-    if stage in STAGES and run_action is not None:
++    global _CATALOG_STARTED
++    seal_stage_catalog()
++    _CATALOG_STARTED = True
++    if stage in pet_bus.STAGES and run_action is not None:
+         readiness = run_action(desktop, stage, trigger)
+         if readiness is False or (isinstance(readiness, str) and readiness):
+             return readiness
+@@ -552,6 +617,9 @@ def start(desktop, stage, trigger='auto', fallback=None, *, skip_action=None, ru
+     error = _workflow_lock_error(getattr(desktop, 'root', None), stage, trigger)
+     if error:
+         return _finish_start(ctx, error, error)
++    extension_error = _extension_start_error(desktop, stage, trigger)
++    if extension_error:
++        return _finish_start(ctx, extension_error, extension_error)
+     if trigger == 'auto' and stage_flow.unchecked(getattr(desktop, 'root', None), stage):
+         if callable(skip_action):
+             return skip_action(desktop, stage)
+@@ -559,7 +627,7 @@ def start(desktop, stage, trigger='auto', fallback=None, *, skip_action=None, ru
+             raise RuntimeError('缺少未勾选 SKILL 阶段的跳过动作')
+         return unchecked_skip_text(stage)
+     project = getattr(desktop, 'root', None)
+-    if stage in STAGES and stage != 'animatic' and project is not None:
++    if stage in pet_bus.STAGES and stage != 'animatic' and (project is not None):
+         from contract.stage_path_service import write_dir
+         try:
+             require_output_space(write_dir(project, stage), options.get('disk_required_bytes'))
+@@ -597,16 +665,29 @@ class StageContext:
+     run_action: object = None
+ @runtime_checkable
+ class StageHandler(Protocol):
+-    def start(self, ctx: StageContext): ...
+-    def progress(self, ctx: StageContext) -> dict: ...
+-    def pause(self, ctx: StageContext): ...
+-    def resume(self, ctx: StageContext): ...
+-    def cancel(self, ctx: StageContext): ...
++
++    def start(self, ctx: StageContext):
++        ...
++
++    def progress(self, ctx: StageContext) -> dict:
++        ...
++
++    def pause(self, ctx: StageContext):
++        ...
++
++    def resume(self, ctx: StageContext):
++        ...
++
++    def cancel(self, ctx: StageContext):
++        ...
+ class LegacyStageHandler:
++
+     def __init__(self, starter):
+         self.starter = starter
++
+     def start(self, ctx):
+         return self.starter(ctx)
++
+     def _call(self, ctx, operation, legacy=None):
+         method = getattr(ctx.owner, operation, None)
+         if not callable(method) and legacy:
+@@ -614,15 +695,32 @@ class LegacyStageHandler:
+         if not callable(method):
+             raise NotImplementedError('%s: %s requires a lifecycle owner' % (ctx.stage, operation))
+         return method(ctx)
+-    def progress(self, ctx): return self._call(ctx, 'progress', 'poll')
+-    def pause(self, ctx): return self._call(ctx, 'pause')
+-    def resume(self, ctx): return self._call(ctx, 'resume')
+-    def cancel(self, ctx): return self._call(ctx, 'cancel', 'stop')
+-    def poll(self, ctx): return self._call(ctx, 'poll', 'progress')
+-    def stop(self, ctx): return self._call(ctx, 'stop', 'cancel')
++
++    def progress(self, ctx):
++        return self._call(ctx, 'progress', 'poll')
++
++    def pause(self, ctx):
++        return self._call(ctx, 'pause')
++
++    def resume(self, ctx):
++        return self._call(ctx, 'resume')
++
++    def cancel(self, ctx):
++        return self._call(ctx, 'cancel', 'stop')
++
++    def poll(self, ctx):
++        return self._call(ctx, 'poll', 'progress')
++
++    def stop(self, ctx):
++        return self._call(ctx, 'stop', 'cancel')
+ def _legacy_start(ctx):
+     return ctx.fallback(ctx.stage, ctx.trigger) if callable(ctx.fallback) else ''
++def _storyboard_start(ctx):
++    return _finish_start(ctx, *_start_storyboard(ctx.desktop, ctx.trigger))
++def _animatic_start(ctx):
++    return _finish_start(ctx, error='分镜预演需要选择参考图与临时声音，生成后请您确认节奏、时长和对白同步', presentation=StagePresentation.SHOW_ANIMATIC)
+ class StageRegistry:
++
+     def __init__(self, definitions=None, handlers=None):
+         self._definitions = []
+         self.handlers = {}
+@@ -639,57 +737,255 @@ class StageRegistry:
+                 raise ValueError('Stage definition missing: ' + stage)
+             self._validate_handler(handler)
+             self.handlers[stage] = handler
++
+     @property
+-    def definitions(self): return tuple(self._definitions)
++    def definitions(self):
++        return tuple(self._definitions)
++
+     @property
+-    def stages(self): return tuple(item.stage for item in self._definitions)
++    def stages(self):
++        return tuple((item.stage for item in self._definitions))
++
+     @staticmethod
+     def _validate_handler(handler):
+-        missing = [name for name in ('start', 'pause', 'resume', 'cancel', 'progress')
+-                   if not callable(getattr(handler, name, None))]
++        missing = [name for name in ('start', 'pause', 'resume', 'cancel', 'progress') if not callable(getattr(handler, name, None))]
+         if missing:
+             aliases = {'progress': 'progress (poll)', 'cancel': 'cancel (stop)'}
+-            raise TypeError('StageHandler missing: ' + ', '.join(aliases.get(name, name) for name in missing))
++            raise TypeError('StageHandler missing: ' + ', '.join((aliases.get(name, name) for name in missing)))
++
+     def register(self, definition, handler):
+         self._validate_handler(handler)
+         if definition.stage in self.stages or definition.stage in self.handlers:
+             raise ValueError('Stage already registered: ' + definition.stage)
+-        if any(item.directory == definition.directory for item in self._definitions):
++        if any((item.directory == definition.directory for item in self._definitions)):
+             raise ValueError('Stage directory already registered: ' + definition.directory)
+         self._definitions.append(definition)
+         self.handlers[definition.stage] = handler
++HANDLERS = {stage: LegacyStageHandler(_legacy_start) for stage in LEGACY_STAGES}
++HANDLERS.update({'storyboard': LegacyStageHandler(_storyboard_start), 'animatic': LegacyStageHandler(_animatic_start), 'pet_performance': LegacyStageHandler(lambda ctx: _start_pet_performance(ctx.desktop, ctx.options.get('kind', 'startup'))), 'pet_test': LegacyStageHandler(lambda ctx: _start_pet_test(ctx.desktop, ctx.options.get('text', '')))})
++REGISTRY = StageRegistry(handlers=HANDLERS)
++def register_stage(definition, handler):
++    if _CATALOG_SEALED or _CATALOG_STARTED:
++        raise RuntimeError('Stage catalog is sealed; runtime registration is not supported')
++    _validate_extension(definition, handler, REGISTRY.stages)
++    if any((item.directory.casefold() == definition.directory.casefold() for item in REGISTRY.definitions)):
++        raise ValueError('Stage directory already registered: ' + definition.directory)
++    REGISTRY.register(definition, handler)
++def _validate_extension(definition, handler, known_stages):
++    if definition.stage in LEGACY_STAGES:
++        raise ValueError('Legacy stage definitions cannot be replaced')
++    if not isinstance(definition.stage, str) or not definition.stage or (not definition.stage.isidentifier()):
++        raise ValueError('Extension stage key must be an identifier')
++    dependencies = definition.dependencies
++    if not isinstance(dependencies, tuple):
++        raise ValueError('Extension dependencies must be explicitly declared')
++    if any((not isinstance(key, str) or key not in known_stages or key == definition.stage for key in dependencies)):
++        raise ValueError('Extension dependency is not registered')
++    if len(set(dependencies)) != len(dependencies):
++        raise ValueError('Duplicate extension dependencies')
++    if not callable(getattr(handler, 'validate_completion', None)):
++        raise ValueError('Extension completion validator is required')
++    _validate_extension_outputs(definition.outputs)
++    from pathlib import PureWindowsPath
++    folder = PureWindowsPath(definition.directory)
++    if len(folder.parts) != 1 or folder.parts[0] in ('.', '..') or folder.drive or (str(folder) != definition.directory) or any((ord(char) < 32 for char in definition.directory)) or any((char in definition.directory for char in '<>:"/\\|?*')):
++        raise ValueError('Stage directory must be a single relative directory')
++    if definition.directory.endswith((' ', '.')) or folder.is_reserved():
++        raise ValueError('Stage directory is reserved on Windows')
++def _validate_extension_outputs(outputs):
++    if not isinstance(outputs, tuple) or not outputs or len(set(outputs)) != len(outputs):
++        raise ValueError('Extension must declare unique output file names')
++    from pathlib import PureWindowsPath
++    if len({name.casefold() for name in outputs if isinstance(name, str)}) != len(outputs):
++        raise ValueError('Extension output file names must be unique on Windows')
++    for name in outputs:
++        path = PureWindowsPath(name) if isinstance(name, str) else None
++        if path is None or len(path.parts) != 1 or path.drive or (str(path) != name) or (name in ('.', '..')) or name.endswith((' ', '.')) or path.is_reserved() or any((ord(char) < 32 for char in name)) or any((char in name for char in '<>:"/\\|?*')):
++            raise ValueError('Extension output must be a single relative file name')
++def _ensure_stage_bootstrap_phase():
++    import sys
++    if any((name in sys.modules for name in ('infra.pet_state', 'ui.desktop_page_registry'))):
++        raise RuntimeError('Seal stage extensions before importing UI stage snapshots')
++def seal_stage_catalog(*, completion_checker=None, completion_binder=None):
++    global _CATALOG_SEALED, _DEPENDENCY_CHECKER, _SEALED_EXTENSIONS
++    if _CATALOG_SEALED:
++        if completion_checker is not None and completion_checker is not _DEPENDENCY_CHECKER:
++            raise RuntimeError('Stage catalog checker is already sealed')
++        return
++    checked = StageRegistry(REGISTRY.definitions, REGISTRY.handlers)
++    if tuple((item for item in checked.definitions if item.stage in LEGACY_STAGES)) != _LEGACY_DEFINITIONS:
++        raise ValueError('Original stage definitions cannot be changed during composition')
++    extensions = tuple((item for item in checked.definitions if item.stage not in LEGACY_STAGES))
++    validated_stages = list(LEGACY_STAGES)
++    directories = {item.directory.casefold() for item in checked.definitions if item.stage in LEGACY_STAGES}
++    for definition in extensions:
++        _validate_extension(definition, checked.handlers[definition.stage], validated_stages)
++        if definition.directory.casefold() in directories:
++            raise ValueError('Stage directory already registered: ' + definition.directory)
++        directories.add(definition.directory.casefold())
++        validated_stages.append(definition.stage)
++    if any((item.dependencies for item in extensions)) and (not callable(completion_checker)):
++        raise ValueError('Extension dependency completion checker is required')
++    if extensions:
++        if not callable(completion_binder):
++            raise ValueError('Extension completion catalog binder is required')
++        _ensure_stage_bootstrap_phase()
++        from contract import stage_layout
++        layouts = stage_layout.stage_layouts(checked.definitions)
++        completion_binder({item.stage: (item, checked.handlers[item.stage].validate_completion) for item in extensions})
++        pet_bus.STAGE_DEFINITIONS = checked.definitions
++        pet_bus.STAGES = checked.stages
++        pet_bus.STAGE_NAMES = {item.stage: item.name for item in checked.definitions}
++        stage_layout.STAGES = layouts
++        HANDLERS.clear()
++        HANDLERS.update(checked.handlers)
++    _DEPENDENCY_CHECKER = completion_checker if extensions else None
++    _SEALED_EXTENSIONS = {item.stage: (item, checked.handlers[item.stage]) for item in extensions}
++    _CATALOG_SEALED = True
++def extension_definition_for(stage):
++    if stage in LEGACY_STAGES or not _CATALOG_SEALED:
++        return None
++    record = _SEALED_EXTENSIONS.get(stage)
++    return record[0] if record is not None else None
++def extension_handler_for(stage):
++    if stage in LEGACY_STAGES:
++        return None
++    if not _CATALOG_SEALED:
++        return None
++    record = _SEALED_EXTENSIONS.get(stage)
++    return record[1] if record is not None else None
++def _extension_start_error(desktop, stage, trigger):
++    if stage in LEGACY_STAGES or stage not in pet_bus.STAGES:
++        return ''
++    handler = extension_handler_for(stage)
++    if handler is None:
++        return '新增阶段缺少显式handler，不能启动'
++    definition = extension_definition_for(stage)
++    if definition.dependencies is None:
++        return '新增阶段未声明前置依赖，不能启动'
++    if trigger == 'auto':
++        return '新增阶段自动推进默认未启用，请手动启动'
++    if definition.dependencies and (not callable(_DEPENDENCY_CHECKER)):
++        return '新增阶段前置成果核验器未绑定，不能启动'
++    for dependency in definition.dependencies:
++        result = _DEPENDENCY_CHECKER(getattr(desktop, 'root', None), dependency)
++        if not isinstance(result, tuple) or len(result) != 2 or type(result[0]) is not bool or (not isinstance(result[1], str)):
++            return '新增阶段前置成果核验返回值不符合契约'
++        ok, detail = result
++        if not ok:
++            return '新增阶段前置未完成：%s（%s）' % (dependency, detail)
++    return ''
+ def dispatch(ctx, registry=None, operation='start'):
+     handlers = HANDLERS if registry is None else registry.handlers
+     handler = handlers.get(ctx.stage)
++    if registry is None and ctx.stage not in LEGACY_STAGES and (ctx.stage in _SEALED_EXTENSIONS):
++        handler = extension_handler_for(ctx.stage)
+     if handler is None:
+         return _legacy_start(ctx) if operation == 'start' else NotImplemented
+     operation = {'poll': 'progress', 'stop': 'cancel'}.get(operation, operation)
+     if operation not in ('start', 'pause', 'resume', 'cancel', 'progress'):
+         raise ValueError('Unknown stage operation: ' + str(operation))
+     return getattr(handler, operation)(ctx)
+-HANDLERS = {item.stage: LegacyStageHandler(_legacy_start) for item in pet_bus.STAGE_DEFINITIONS}
+-HANDLERS.update({
+-    'storyboard': LegacyStageHandler(_storyboard_start),
+-    'animatic': LegacyStageHandler(_animatic_start),
+-    'pet_performance': LegacyStageHandler(lambda ctx: _start_pet_performance(ctx.desktop, ctx.options.get('kind', 'startup'))),
+-    'pet_test': LegacyStageHandler(lambda ctx: _start_pet_test(ctx.desktop, ctx.options.get('text', ''))),
+-})
+-REGISTRY = StageRegistry(handlers=HANDLERS)
++@dataclass(frozen=True)
++class TaskLifecycleOwner:
++    host_id: int
++    project: str
++    stage: str
++    tasks: object
++    ticket: object
++    execution: object
++
++    def _current(self, ctx):
++        owners = getattr(ctx.desktop, '_stage_task_owners', {})
++        key = (self.project, self.stage)
++        if id(ctx.desktop) != self.host_id or ctx.stage != self.stage:
++            return False
++        if _task_project(ctx.desktop) != self.project:
++            if owners.get(key) is self:
++                owners.pop(key)
++            return False
++        return owners.get(key) is self and self.tasks.accepts(self.ticket) and (self.tasks.execution_control(self.ticket) is self.execution)
++
++    def progress(self, ctx):
++        if not self._current(ctx):
++            return NotImplemented
++        snapshot = self.tasks.snapshot()
++        if not isinstance(snapshot, dict) or snapshot.get('ticket') != self.ticket:
++            return NotImplemented
++        return {'project': self.project, 'stage': self.stage, 'ticket': self.ticket, 'lifecycle': dict(snapshot)}
++
++    def cancel(self, ctx):
++        if not self._current(ctx):
++            return NotImplemented
++        stopped = self.tasks.cancel(self.ticket)
++        if not stopped:
++            return NotImplemented
++        return {'project': self.project, 'stage': self.stage, 'ticket': self.ticket, 'local_wait_stopped': bool(stopped), 'remote_cancel_requested': False, 'remote_cancel_confirmed': False}
++
++    def pause(self, ctx):
++        if not self._current(ctx):
++            return NotImplemented
++        raise NotImplementedError('Background ticket owner does not support pausing execution')
++
++    def resume(self, ctx):
++        if not self._current(ctx):
++            return NotImplemented
++        raise NotImplementedError('Background ticket owner does not support resuming execution')
++def _task_project(desktop):
++    from pathlib import Path
++    project = getattr(desktop, 'root', None)
++    return str(Path(project).resolve()) if project is not None else None
++def bind_task_owner(desktop, stage, tasks, ticket):
++    project = _task_project(desktop)
++    if stage not in pet_bus.STAGES or project is None or (not tasks.accepts(ticket)):
++        raise ValueError('Cannot bind an inactive ticket or unknown stage/project')
++    owners = getattr(desktop, '_stage_task_owners', None)
++    if owners is None:
++        owners = desktop._stage_task_owners = {}
++    for key, previous in tuple(owners.items()):
++        if key[0] != project or not previous.tasks.accepts(previous.ticket):
++            owners.pop(key, None)
++    owner = TaskLifecycleOwner(id(desktop), project, stage, tasks, ticket, tasks.execution_control(ticket))
++    owners[project, stage] = owner
++    return owner
++def task_owner_for(desktop, stage):
++    project = _task_project(desktop)
++    owners = getattr(desktop, '_stage_task_owners', {})
++    for key, candidate in tuple(owners.items()):
++        if key[0] != project or not candidate.tasks.accepts(candidate.ticket):
++            owners.pop(key, None)
++    owner = owners.get((project, stage))
++    if owner is None:
++        return None
++    ctx = StageContext(desktop, stage, owner=owner)
++    return owner if owner._current(ctx) else None
++def control_task(desktop, stage, operation):
++    if operation not in ('pause', 'resume', 'cancel', 'progress'):
++        raise ValueError('Unknown task lifecycle operation: ' + str(operation))
++    owner = task_owner_for(desktop, stage)
++    if owner is None:
++        return NotImplemented
++    try:
++        return getattr(owner, operation)(StageContext(desktop, stage, owner=owner))
++    except NotImplementedError:
++        return NotImplemented
+ '''
+     # The compatibility branch is sealed to the existing catalog. A new production
+     # stage requires a new explicit handler proof, never automatic Legacy fallback.
+     legacy = {'script', 'script_structure', 'storyboard', 'animatic', 'assets', 'continuity', 'final',
+               'keyframe', 'previs', 'video', 'audio', 'edit', 'delivery'}
+     if set(keys) != legacy | {'pet_test', 'pet_performance'}:
+-        return set(), ()
++        return set(), (), frozenset()
+     actual = {node.name: node for node in tree.body if isinstance(node, (ast.FunctionDef, ast.ClassDef))}
+     required = ast.parse(expected).body
+     definitions = [node for node in required if isinstance(node, (ast.FunctionDef, ast.ClassDef))]
++    trusted = set()
+     for node in definitions:
+         if (sum(isinstance(item, (ast.FunctionDef, ast.ClassDef)) and item.name == node.name
+                 for item in tree.body) != 1 or node.name not in actual
+                 or normalized(node) != normalized(actual[node.name])):
+-            return set(), ()
++            return set(), (), frozenset()
++        trusted.add(node.name)
+     wanted = [node for node in required if not isinstance(node, (ast.FunctionDef, ast.ClassDef))]
+     compositions = [node for node in tree.body if (isinstance(node, ast.Assign) and any(
+         isinstance(target, ast.Name) and target.id in {'HANDLERS', 'REGISTRY'} for target in node.targets))
+@@ -699,7 +995,7 @@ REGISTRY = StageRegistry(handlers=HANDLERS)
+         or (isinstance(node, ast.Expr) and isinstance(node.value, ast.Call)
+             and dotted(node.value.func).split('.')[0] in {'HANDLERS', 'REGISTRY'})]
+     if [normalized(node) for node in compositions] != [normalized(node) for node in wanted]:
+-        return set(), ()
++        return set(), (), frozenset()
+     # Verify imported names used by the proven segment, including constructor and
+     # stage-domain identity. Merely spelling a known name is not sufficient.
+     imports = {alias.asname or alias.name: (node.module or '') + '.' + alias.name
+@@ -708,23 +1004,23 @@ REGISTRY = StageRegistry(handlers=HANDLERS)
+                         'Protocol': 'typing.Protocol', 'runtime_checkable': 'typing.runtime_checkable',
+                         'STAGES': 'contract.pet_bus.STAGES', 'pet_bus': 'contract.pet_bus'}
+     if any(imports.get(name) != origin for name, origin in expected_imports.items()):
+-        return set(), ()
++        return set(), (), frozenset()
+     builtin_proof = {'getattr', 'callable', 'tuple', 'dict', 'str', 'isinstance', 'ValueError', 'TypeError', 'RuntimeError'}
+     if any(isinstance(node, (ast.FunctionDef, ast.ClassDef)) and node.name in builtin_proof for node in tree.body):
+-        return set(), ()
++        return set(), (), frozenset()
+     if any((alias.asname or alias.name.split('.')[0]) in builtin_proof for node in tree.body
+            if isinstance(node, (ast.Import, ast.ImportFrom)) for alias in node.names):
+-        return set(), ()
++        return set(), (), frozenset()
+     reserved = set(actual) | {'HANDLERS', 'REGISTRY'} | set(expected_imports) | builtin_proof
+     for node in tree.body:
+         if isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+             targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+             if any(isinstance(target, ast.Name) and target.id in reserved - {'HANDLERS', 'REGISTRY'} for target in targets):
+-                return set(), ()
++                return set(), (), frozenset()
+     calls = set()
+     for name in ('start', '_finish_start', '_legacy_start', 'dispatch'):
+         calls.update(id(node) for node in ast.walk(actual[name]) if isinstance(node, ast.Call))
+-    return calls, ('_legacy_start', '_storyboard_start', '_animatic_start', '_start_pet_performance', '_start_pet_test')
++    return calls, ('_legacy_start', '_storyboard_start', '_animatic_start', '_start_pet_performance', '_start_pet_test'), frozenset(trusted)
+ 
+ 
+ def stage_registry_audit(path: Path, keys: frozenset[str], layers: dict,
+@@ -876,11 +1172,14 @@ def stage_registry_audit(path: Path, keys: frozenset[str], layers: dict,
+             if key is None or key not in keys:
+                 error(node, 'unresolved-key' if key is None else 'unknown-key', key)
+ 
+-    proven_calls, catalog_starters = (_closed_catalog_dispatch(tree, keys) if registry else (set(), ()))
++    proven_calls, catalog_starters, trusted = (_closed_catalog_dispatch(tree, keys) if registry else (set(), (), frozenset()))
+     visited = set()
+     def target(node, resolved, ceiling):
+         rows['targets'].append((node.lineno, resolved))
+         if resolved in local:
++            if resolved in trusted:
++                rows['targets'].append((node.lineno, resolved))
++                return
+             walk_handler(local[resolved], ceiling)
+         elif resolved is None:
+             error(node, 'unresolved-target', dotted(node))
+diff --git "a/\347\250\213\345\272\217/tests/architecture/test_dynamic_import_registry.py" "b/\347\250\213\345\272\217/tests/architecture/test_dynamic_import_registry.py"
+index 9fc44842..4416cfc3 100644
+--- "a/\347\250\213\345\272\217/tests/architecture/test_dynamic_import_registry.py"
++++ "b/\347\250\213\345\272\217/tests/architecture/test_dynamic_import_registry.py"
+@@ -537,7 +537,7 @@ def start(desktop, stage):
+             source.replace("if operation not in ('start', 'pause', 'resume', 'cancel', 'progress'):",
+                            "if operation not in allowed_operations:"),
+             source.replace('ctx.run_action(ctx.desktop', 'ctx.undeclared(ctx.desktop', 1),
+-            source.replace("if stage not in (*STAGES, 'pet_performance', 'pet_test'):", 'if False:'),
++            source.replace("if stage not in (*pet_bus.STAGES, 'pet_performance', 'pet_test'):", 'if False:'),
+             source.replace("if callable(ctx.fallback) else ''", "if ctx.fallback else ''"),
+             source.replace('return getattr(handler, operation)(ctx)', 'return getattr(handler, arbitrary)(ctx)'),
+             source.replace("('start', 'pause', 'resume', 'cancel', 'progress')\n                   if not callable", "('start', 'pause', 'resume', 'cancel')\n                   if not callable"),
+diff --git "a/\347\250\213\345\272\217/tests/architecture/test_no_circular_import.py" "b/\347\250\213\345\272\217/tests/architecture/test_no_circular_import.py"
+index f040bdc1..d555bd54 100644
+--- "a/\347\250\213\345\272\217/tests/architecture/test_no_circular_import.py"
++++ "b/\347\250\213\345\272\217/tests/architecture/test_no_circular_import.py"
+@@ -95,14 +95,13 @@ class ProductionCycleScannerTests(unittest.TestCase):
+ 
+ # R1777 审计：常量字符串的 import_module／__import__ 曾绕开上面的静态环检测。
+ # 下面是并入动态导入后才暴露的存量，只许减少、不许新增；拆掉一个就删一行。
+-# R3246 轮 2：agent/ 入图后 (white_model,white_model_ref) 二环被更大的
+-# keyframe_evidence→shot_assets→white_model_ref→white_model→stage_parallel 环吸收，
+-# 同时暴露出与静态环同源的 {core,file_cache,publication}；按实测重登。
++# R3881：shot_assets白模说明下沉后，实测五节点白模环缩为既存
++# (white_model,white_model_ref)二环；只减节点，不增加边或豁免。
+ KNOWN_DYNAMIC_CYCLES = (
+     ("local_video", "skill_orchestrator", "skill_tools", "stage_execution_service"),
+     ("stage_models", "workflow_settings"),
+     ("core", "file_cache", "publication"),
+-    ("keyframe_evidence", "shot_assets", "stage_parallel", "white_model", "white_model_ref"),
++    ("white_model", "white_model_ref"),
+ )
+ 
+ 
+diff --git "a/\347\250\213\345\272\217/tests/test_confirm_gates.py" "b/\347\250\213\345\272\217/tests/test_confirm_gates.py"
+index b2cb9a3c..92ff69d5 100644
+--- "a/\347\250\213\345\272\217/tests/test_confirm_gates.py"
++++ "b/\347\250\213\345\272\217/tests/test_confirm_gates.py"
+@@ -39,6 +39,32 @@ def good_shots(count=2, chars=("CHAR_001",), batch="B01"):
+ 
+ 
+ class TableTests(unittest.TestCase):
++    def test_stage_gate_aliases_preserve_exact_directory_semantics_without_l3_facade(self):
++        """目录别名由L0事实提供，L2独立导入不得要求L3兼容门面。"""
++        import builtins
++        import runpy
++        from contract import stage_layout
++        original_import = builtins.__import__
++
++        def without_facade(name, globals=None, locals=None, fromlist=(), level=0):
++            if name == 'orchestrator.legacy_compat':
++                raise ImportError('L3 facade is unavailable to L2')
++            return original_import(name, globals, locals, fromlist, level)
++
++        with mock.patch.object(builtins, '__import__', side_effect=without_facade):
++            isolated = runpy.run_path(cg.__file__, run_name='confirm_gate_alias_probe')
++        stage_gates = isolated['stage_gates']
++        for old, current in stage_layout.LEGACY_STAGE_ALIASES.items():
++            with self.subTest(old=old):
++                self.assertEqual(stage_gates(old), stage_gates(current))
++        for unknown in (' 02_assets', '02_assets ', '02_assets/', '02_ASSETS', 'unknown', None, 0, False, 123):
++            with self.subTest(unknown=unknown):
++                self.assertEqual(stage_gates(unknown), ())
++        for row in stage_layout.STAGES:
++            expected = tuple(gate['id'] for gate in cg.GATES
++                             if row[0] in cg.GATE_STAGES.get(gate['id'], ()))
++            self.assertEqual(stage_gates(row[0]), expected)
++
+     def test_the_gate_table_is_the_delivery_table(self):
+         rows = cg.table_rows()
+         self.assertEqual(len(rows), 9)
+diff --git "a/\347\250\213\345\272\217/tests/test_content_extraction_owner.py" "b/\347\250\213\345\272\217/tests/test_content_extraction_owner.py"
+new file mode 100644
+index 00000000..3b081cc7
+--- /dev/null
++++ "b/\347\250\213\345\272\217/tests/test_content_extraction_owner.py"
+@@ -0,0 +1,54 @@
++"""内容解析属主下沉：精确兼容与真实静态层级边回归，不修改旧解析契约。"""
++import unittest
++
++from infra import token_saver
++from tests.architecture import _scan
++
++
++class ContentExtractionOwnerTests(unittest.TestCase):
++    def test_idea_chat_has_no_static_dependency_on_ui_pet_agent(self):
++        targets = {name for _line, name in _scan.resolved_module_import_rows(_scan.entity_file('idea_chat'))}
++        self.assertNotIn('pet_agent', targets)
++        self.assertIn('token_saver', targets)
++
++    def test_existing_pet_agent_name_reexports_the_same_low_layer_function(self):
++        import pet_agent
++        self.assertIs(pet_agent.extract_content, token_saver.extract_content)
++
++    def test_legacy_wire_content_and_priority_are_unchanged(self):
++        cases = [
++            ({'choices': [{'message': {'content': '聊天', 'reasoning_content': '内部'}}]}, '聊天'),
++            ({'output_text': '响应'}, '响应'),
++            ({'output': [{'type': 'message', 'content': [{'type': 'output_text', 'text': '首正文'},
++                                                       {'type': 'output_text', 'text': '次正文'}]}]}, '首正文'),
++            ({'choices': [{'message': {'reasoning_content': '仅推理'}}]}, '仅推理'),
++            ({'choices': [{'message': {'reasoning': '仅推理'}}]}, '仅推理'),
++            ({'choices': [{'message': {'content': {'legacy': 'value'}}}]}, "{'legacy': 'value'}"),
++            ({'choices': [{'message': {'content': [{'type': 'text', 'text': '旧列表'}]}}]},
++             "[{'type': 'text', 'text': '旧列表'}]"),
++        ]
++        for data, expected in cases:
++            with self.subTest(data=data):
++                self.assertEqual(token_saver.extract_content(data), expected)
++
++    def test_legacy_empty_malformed_and_error_payloads_stay_empty(self):
++        cases = [None, [], 'text', {}, {'choices': []}, {'choices': [None]},
++                 {'choices': [{'message': None}]}, {'error': {'message': '错误'}},
++                 {'output': [{'type': 'function_call', 'arguments': 'not body'}]},
++                 {'output': [{'type': 'message', 'content': [None, {'type': 'output_text', 'text': ''}]}]}]
++        for data in cases:
++            with self.subTest(data=data):
++                self.assertEqual(token_saver.extract_content(data), '')
++
++    def test_idea_chat_keeps_native_anthropic_text_and_legacy_fallback(self):
++        from domain import idea_chat
++        native = {'data': {'content': [{'type': 'thinking', 'thinking': '内部'},
++                                      {'type': 'text', 'text': '甲'}, {'type': 'tool_use', 'text': '工具'},
++                                      {'type': 'text', 'text': '乙'}]}}
++        self.assertEqual(idea_chat.reply_text(native), '甲乙')
++        self.assertEqual(idea_chat.reply_text({'data': {'content': [{'type': 'tool_use', 'text': '工具'}]}}), '')
++        self.assertEqual(idea_chat.reply_text({'data': {'choices': [{'message': {'reasoning_content': '仅推理'}}]}}), '仅推理')
++
++
++if __name__ == '__main__':
++    unittest.main()
+diff --git "a/\347\250\213\345\272\217/tests/test_skill_tools.py" "b/\347\250\213\345\272\217/tests/test_skill_tools.py"
+index 384b1aec..095fee8e 100644
+--- "a/\347\250\213\345\272\217/tests/test_skill_tools.py"
++++ "b/\347\250\213\345\272\217/tests/test_skill_tools.py"
+@@ -75,5 +75,34 @@ class DeliveryManifestTests(unittest.TestCase):
+             self.assertEqual(line_endings.problems(target), [])
+ 
+ 
++class StagePageExtensionTests(unittest.TestCase):
++    def test_fake_stage_append_or_insert_preserves_original_tools_by_stage_key(self):
++        import runpy
++        from unittest.mock import patch
++        from contract import pet_bus
++        from ui import skill_tools as entity
++        stages=pet_bus.STAGES;names=pet_bus.STAGE_NAMES
++        source=Path(entity.__file__)
++        expected={tool:(stages[page],hint.split('→',1)[-1].strip())
++                  for tool,(page,hint) in entity.PAGES.items()}
++        original=dict(entity.PAGES)
++        for position in (len(stages),2):
++            with self.subTest(position=position):
++                extended=list(stages);extended.insert(position,'fake')
++                with patch.object(pet_bus,'STAGES',tuple(extended)), \
++                        patch.object(pet_bus,'STAGE_NAMES',{**names,'fake':'测试新增阶段'}):
++                    namespace=runpy.run_path(str(source))
++                self.assertEqual(set(namespace['PAGES']),set(original))
++                for tool,(stage,action) in expected.items():
++                    page,hint=namespace['PAGES'][tool]
++                    self.assertEqual(extended[page],stage,tool)
++                    self.assertEqual(hint,f'{page+1:02d} {names[stage]} → {action}',tool)
++                    self.assertNotEqual(extended[page],'fake')
++                with self.assertRaises(namespace['ToolMissing']):
++                    namespace['call']('fake.unregistered',{})
++        self.assertEqual(entity.PAGES,original)
++        self.assertEqual(pet_bus.STAGES,stages)
++
++
+ if __name__ == '__main__':
+     unittest.main()
+diff --git "a/\347\250\213\345\272\217/tests/test_stage_extension_safety.py" "b/\347\250\213\345\272\217/tests/test_stage_extension_safety.py"
+new file mode 100644
+index 00000000..c6278c86
+--- /dev/null
++++ "b/\347\250\213\345\272\217/tests/test_stage_extension_safety.py"
+@@ -0,0 +1,293 @@
++"""C6启动期受信扩展必须同时具备handler、依赖声明和真实成果核验。"""
++import json
++import os
++import subprocess
++import sys
++import tempfile
++import unittest
++from pathlib import Path
++from types import SimpleNamespace
++from unittest.mock import Mock, patch
++
++from contract import pet_bus, stage_layout
++from orchestrator import stage_handler_registry as registry
++from orchestrator import stage_completion_service as completion
++
++
++class StageExtensionSafetyTests(unittest.TestCase):
++    def setUp(self):
++        self.folder = tempfile.TemporaryDirectory()
++        self.addCleanup(self.folder.cleanup)
++        self.root = Path(self.folder.name)
++        self.baseline = (pet_bus.STAGES, pet_bus.STAGE_NAMES, stage_layout.STAGES)
++        for name, value in (('REGISTRY', registry.StageRegistry()),
++                            ('HANDLERS', dict(registry.HANDLERS)),
++                            ('STAGES', registry.STAGES),
++                            ('_CATALOG_SEALED', False), ('_CATALOG_STARTED', False),
++                            ('_DEPENDENCY_CHECKER', None), ('_SEALED_EXTENSIONS', {})):
++            target = patch.object(registry, name, value, create=True)
++            target.start(); self.addCleanup(target.stop)
++        for module, name in ((pet_bus, 'STAGE_DEFINITIONS'), (pet_bus, 'STAGES'),
++                             (pet_bus, 'STAGE_NAMES'), (stage_layout, 'STAGES')):
++            target = patch.object(module, name, getattr(module, name))
++            target.start(); self.addCleanup(target.stop)
++        phase = patch.object(registry, '_ensure_stage_bootstrap_phase')
++        phase.start(); self.addCleanup(phase.stop)
++        evidence_catalog = patch.object(completion, '_EXTENSION_COMPLETION_CATALOG', {})
++        evidence_catalog.start(); self.addCleanup(evidence_catalog.stop)
++        self.handler = SimpleNamespace(**{name: Mock(return_value=name) for name in
++                                         ('start', 'pause', 'resume', 'cancel', 'progress')})
++        from contract.stage_path_service import write_dir
++        self.handler.validate_completion = lambda project: ((write_dir(project, 'extension') / 'output' / 'actual.txt').is_file(), 'missing actual')
++        self.host = SimpleNamespace(root=self.root, pet=SimpleNamespace(bus=SimpleNamespace(begin_run=Mock()), _emit=Mock()))
++
++    def definition(self, dependencies=()):
++        return pet_bus.StageDefinition('14安全扩展', 'extension', '扩展', 'fixture', (), ('actual.txt',),
++                                       dependencies=dependencies)
++
++    def register(self, dependencies=()):
++        registry.register_stage(self.definition(dependencies), self.handler)
++        registry.seal_stage_catalog(completion_checker=lambda project, stage: completion.completion_evidence(project, stage),
++                                    completion_binder=completion.bind_extension_completion_catalog)
++
++    def start(self, trigger='manual'):
++        with patch.object(registry, '_workflow_lock_error', return_value=''), \
++                patch.object(registry.stage_flow, 'unchecked', return_value=False), \
++                patch.object(registry, 'require_output_space'):
++            return registry.start(self.host, 'extension', trigger)
++
++    def test_one_record_and_handler_reaches_start_and_verified_actual_completion(self):
++        self.register()
++        self.assertEqual(pet_bus.STAGES[-1], 'extension')
++        self.assertEqual(stage_layout.STAGES[-1][0], '14安全扩展')
++        self.assertEqual(self.start(), 'start')
++        self.handler.start.assert_called_once()
++        self.assertEqual(registry.dispatch(registry.StageContext(self.host, 'extension'), operation='progress'), 'progress')
++        emitted = Mock()
++        self.assertFalse(completion.emit_verified_completion(self.root, 'extension', 'done', emitted)[0])
++        emitted.assert_not_called()
++        from contract.stage_path_service import write_dir
++        output = write_dir(self.root, 'extension') / 'output' / 'actual.txt'
++        output.parent.mkdir(parents=True)
++        output.write_text('actual', encoding='utf-8')
++        self.assertTrue(completion.emit_verified_completion(self.root, 'extension', 'done', emitted)[0])
++        emitted.assert_called_once_with('stage.completed', stage='extension', text='done')
++
++    def test_missing_dependencies_validator_and_incomplete_handler_reject_before_mutation(self):
++        before = registry.REGISTRY.definitions
++        with self.assertRaises(ValueError):
++            registry.register_stage(self.definition(None), self.handler)
++        self.assertEqual(registry.REGISTRY.definitions, before)
++        del self.handler.validate_completion
++        with self.assertRaises(ValueError):
++            registry.register_stage(self.definition(), self.handler)
++        self.handler.validate_completion = lambda project: (True, '')
++        del self.handler.cancel
++        with self.assertRaises(TypeError):
++            registry.register_stage(self.definition(), self.handler)
++        self.assertEqual(registry.REGISTRY.definitions, before)
++
++    def test_unknown_dependency_and_duplicate_directory_are_atomic_rejections(self):
++        before = (registry.REGISTRY.definitions, dict(registry.REGISTRY.handlers))
++        with self.assertRaises(ValueError):
++            registry.register_stage(self.definition(('unknown',)), self.handler)
++        duplicate = pet_bus.StageDefinition('01剧本准备', 'extension', '扩展', '', (), (), dependencies=())
++        with self.assertRaises(ValueError):
++            registry.register_stage(duplicate, self.handler)
++        self.assertEqual((registry.REGISTRY.definitions, registry.REGISTRY.handlers), before)
++
++    def test_existing_dependencies_must_have_verified_outputs(self):
++        self.register(('script',))
++        with patch.object(completion, 'completion_evidence', return_value=(False, 'missing')) as evidence:
++            self.assertIn('script', self.start())
++            evidence.assert_called_once_with(self.root, 'script')
++        self.handler.start.assert_not_called()
++        with patch.object(completion, 'completion_evidence', return_value=(True, '')):
++            self.assertEqual(self.start(), 'start')
++
++    def test_sealed_catalog_uses_startup_mapping_snapshot(self):
++        self.register()
++        replacement = SimpleNamespace(**{name: Mock() for name in ('start','pause','resume','cancel','progress')})
++        registry.REGISTRY.handlers['extension'] = replacement
++        registry.HANDLERS['extension'] = replacement
++        self.assertEqual(self.start(), 'start')
++        replacement.start.assert_not_called()
++        self.assertIs(registry.extension_handler_for('extension'), self.handler)
++
++    def test_auto_defaults_to_disabled_and_start_freezes_new_registration(self):
++        self.register()
++        self.assertIn('自动', self.start('auto'))
++        self.handler.start.assert_not_called()
++        with self.assertRaises(RuntimeError):
++            registry.register_stage(pet_bus.StageDefinition('15其它', 'other', '其它', '', (), (), dependencies=()), self.handler)
++
++    def test_dependency_checker_is_explicit_and_missing_checker_cannot_publish(self):
++        registry.register_stage(self.definition(('script',)), self.handler)
++        with self.assertRaises(ValueError):
++            registry.seal_stage_catalog()
++        self.assertIs(pet_bus.STAGES, self.baseline[0])
++        self.assertFalse(registry._CATALOG_SEALED)
++
++    def test_seal_rejects_mutating_original_stage_facts(self):
++        from dataclasses import replace
++        registry.REGISTRY._definitions[0] = replace(registry.REGISTRY.definitions[0], name='changed')
++        with self.assertRaises(ValueError):
++            registry.seal_stage_catalog()
++        self.assertIs(pet_bus.STAGES, self.baseline[0])
++        self.assertFalse(registry._CATALOG_SEALED)
++
++    def test_direct_local_registry_cannot_bypass_safe_seal_and_windows_names(self):
++        for outputs in (('CON.txt',), ('name.',), ('A.txt', 'a.txt')):
++            with self.subTest(outputs=outputs):
++                definition = pet_bus.StageDefinition('14安全扩展', 'extension', '扩展', '', (), outputs, dependencies=())
++                with self.assertRaises(ValueError):
++                    registry.register_stage(definition, self.handler)
++        registry.REGISTRY.register(self.definition(None), self.handler)
++        with self.assertRaises(ValueError):
++            registry.seal_stage_catalog(completion_binder=completion.bind_extension_completion_catalog)
++        self.assertFalse(registry._CATALOG_SEALED)
++        self.assertIs(pet_bus.STAGES, self.baseline[0])
++
++    def test_extension_start_exceptions_and_cancellation_propagate(self):
++        self.register()
++        self.handler.start.side_effect = RuntimeError('start failed')
++        with self.assertRaisesRegex(RuntimeError, 'start failed'):
++            self.start()
++        self.handler.cancel.side_effect = RuntimeError('cancel failed')
++        with self.assertRaisesRegex(RuntimeError, 'cancel failed'):
++            registry.dispatch(registry.StageContext(self.host, 'extension'), operation='stop')
++
++    def test_completion_binder_is_required_and_failure_does_not_publish(self):
++        registry.register_stage(self.definition(), self.handler)
++        with self.assertRaises(ValueError):
++            registry.seal_stage_catalog()
++        self.assertIs(pet_bus.STAGES, self.baseline[0])
++        with self.assertRaisesRegex(RuntimeError, 'binder failed'):
++            registry.seal_stage_catalog(completion_binder=Mock(side_effect=RuntimeError('binder failed')))
++        self.assertIs(pet_bus.STAGES, self.baseline[0])
++        self.assertFalse(registry._CATALOG_SEALED)
++
++    def test_original_facts_and_no_extension_seal_preserve_identity(self):
++        registry.seal_stage_catalog()
++        self.assertIs(pet_bus.STAGES, self.baseline[0])
++        self.assertIs(pet_bus.STAGE_NAMES, self.baseline[1])
++        self.assertIs(stage_layout.STAGES, self.baseline[2])
++
++    def test_extra_source_stage_never_gets_implicit_legacy_handler(self):
++        with patch.object(pet_bus, 'STAGE_DEFINITIONS', pet_bus.STAGE_DEFINITIONS + (self.definition(),)):
++            with self.assertRaises(ValueError):
++                registry.StageRegistry()
++
++    def test_declared_outputs_required_even_when_validator_claims_complete(self):
++        self.register()
++        completion._EXTENSION_COMPLETION_CATALOG['extension'] = (self.definition(), lambda project: (True, ''))
++        self.assertFalse(completion.completion_evidence(self.root, 'extension')[0])
++        from contract.stage_path_service import write_dir
++        output = write_dir(self.root, 'extension') / 'output' / 'actual.txt'
++        output.parent.mkdir(parents=True); output.write_bytes(b'')
++        self.assertFalse(completion.completion_evidence(self.root, 'extension')[0])
++        output.write_bytes(b'actual')
++        self.assertTrue(completion.completion_evidence(self.root, 'extension')[0])
++
++    def test_symlink_or_junction_output_directory_never_completes(self):
++        self.register()
++        from contract.stage_path_service import write_dir
++        folder = write_dir(self.root, 'extension') / 'output'
++        folder.mkdir(parents=True); (folder / 'actual.txt').write_bytes(b'actual')
++        original = Path.is_junction
++        with patch.object(Path, 'is_junction', autospec=True,
++                          side_effect=lambda path: path == folder or original(path)):
++            self.assertFalse(completion.completion_evidence(self.root, 'extension')[0])
++
++    def test_no_output_declaration_and_unsafe_output_names_reject_registration(self):
++        for outputs in ((), ('../outside.txt',), ('/absolute.txt',), ('C:\\private.txt',), ('sub/file.txt',), ('',)):
++            with self.subTest(outputs=outputs):
++                definition = pet_bus.StageDefinition('14安全扩展', 'extension', '扩展', '', (), outputs, dependencies=())
++                with self.assertRaises(ValueError):
++                    registry.register_stage(definition, self.handler)
++                self.assertNotIn('extension', registry.REGISTRY.stages)
++
++    def test_control_characters_in_directory_or_outputs_are_atomic_rejections(self):
++        from dataclasses import replace
++        baseline = (registry.REGISTRY.definitions, dict(registry.REGISTRY.handlers))
++        for char in ('\x00', '\n', '\t'):
++            for field in ('directory', 'outputs'):
++                with self.subTest(code=ord(char), field=field):
++                    changes = {field: '14bad' + char + 'name' if field == 'directory' else ('bad' + char + '.txt',)}
++                    with self.assertRaises(ValueError):
++                        registry.register_stage(replace(self.definition(), **changes), self.handler)
++                    self.assertEqual((registry.REGISTRY.definitions, registry.REGISTRY.handlers), baseline)
++
++    def test_validator_result_is_strict_and_errors_never_emit_completion(self):
++        self.register()
++        from contract.stage_path_service import write_dir
++        output = write_dir(self.root, 'extension') / 'output' / 'actual.txt'
++        output.parent.mkdir(parents=True); output.write_bytes(b'actual')
++        emitted = Mock()
++        for result in (True, None, {'ok': True}, ('yes', ''), (True,)):
++            with self.subTest(result=result):
++                completion._EXTENSION_COMPLETION_CATALOG['extension'] = (self.definition(), lambda project, value=result: value)
++                self.assertFalse(completion.emit_verified_completion(self.root, 'extension', '100%', emitted)[0])
++        completion._EXTENSION_COMPLETION_CATALOG['extension'] = (self.definition(), Mock(side_effect=RuntimeError('validator failed')))
++        self.assertFalse(completion.emit_verified_completion(self.root, 'extension', 'done', emitted)[0])
++        emitted.assert_not_called()
++
++    def test_real_bootstrap_projects_before_ui_import_and_rejects_late_composition(self):
++        script = '''
++from pathlib import Path
++from types import SimpleNamespace
++from contract import pet_bus, stage_layout
++from orchestrator import stage_handler_registry as registry
++from orchestrator import stage_completion_service as completion
++handler = SimpleNamespace(**{name: lambda ctx: None for name in ('start','pause','resume','cancel','progress')})
++handler.validate_completion=lambda root: ((Path(root)/'actual.txt').is_file(),'missing')
++registry.register_stage(pet_bus.StageDefinition('14新阶段','fresh','新阶段','',(),('actual.txt',),dependencies=()),handler)
++registry.seal_stage_catalog(completion_binder=completion.bind_extension_completion_catalog)
++from infra import pet_state
++from contract.stage_path_service import write_dir
++assert pet_bus.STAGES[-1]=='fresh'
++assert pet_state.PAGE_OF['fresh']==len(pet_bus.STAGES)-1
++assert write_dir(Path.cwd(),'fresh').name=='14新阶段'
++registry.seal_stage_catalog()
++try:
++ registry.register_stage(pet_bus.StageDefinition('15其它','late','其它','',(),(),dependencies=()),handler)
++except RuntimeError:
++ pass
++else:
++ raise AssertionError('runtime registration accepted')
++'''
++        result = subprocess.run([sys.executable, '-B', '-c', script], cwd=Path(__file__).resolve().parents[1],
++                                env=dict(os.environ, PYTHONUTF8='1'), capture_output=True, timeout=30)
++        self.assertEqual(result.returncode, 0, result.stderr.decode('utf-8', errors='replace'))
++        late = '''
++from infra import pet_state
++from types import SimpleNamespace
++from contract import pet_bus
++from orchestrator import stage_handler_registry as registry
++from orchestrator import stage_completion_service as completion
++handler=SimpleNamespace(**{name:lambda ctx:None for name in ('start','pause','resume','cancel','progress')})
++handler.validate_completion=lambda root:(False,'')
++registry.register_stage(pet_bus.StageDefinition('14新','late','新','',(),('actual.txt',),dependencies=()),handler)
++try:
++ registry.seal_stage_catalog(completion_binder=completion.bind_extension_completion_catalog)
++except RuntimeError:
++ pass
++else:
++ raise AssertionError('late UI composition accepted')
++'''
++        result = subprocess.run([sys.executable, '-B', '-c', late], cwd=Path(__file__).resolve().parents[1],
++                                env=dict(os.environ, PYTHONUTF8='1'), capture_output=True, timeout=30)
++        self.assertEqual(result.returncode, 0, result.stderr.decode('utf-8', errors='replace'))
++
++    def test_workflow_lock_and_disk_gates_still_precede_extension_start(self):
++        self.register()
++        with patch.object(registry, '_workflow_lock_error', return_value='lock blocked'):
++            self.assertEqual(registry.start(self.host, 'extension', 'manual'), 'lock blocked')
++        with patch.object(registry, '_workflow_lock_error', return_value=''), \
++                patch.object(registry, 'require_output_space', side_effect=ValueError('disk blocked')):
++            self.assertEqual(registry.start(self.host, 'extension', 'manual'), 'disk blocked')
++        self.handler.start.assert_not_called()
++
++
++if __name__ == '__main__':
++    unittest.main()
+diff --git "a/\347\250\213\345\272\217/tests/test_stage_flow.py" "b/\347\250\213\345\272\217/tests/test_stage_flow.py"
+index 380df56f..e37334fc 100644
+--- "a/\347\250\213\345\272\217/tests/test_stage_flow.py"
++++ "b/\347\250\213\345\272\217/tests/test_stage_flow.py"
+@@ -374,16 +374,30 @@ class PetWiringTests(unittest.TestCase):
+         pet.auto.pause()
+         self.assertEqual(pet.auto_stage(), 'fallback')
+ 
+-    def test_pausing_restores_the_running_stage_button(self):
++    def test_confirmed_real_pause_restores_the_running_stage_button(self):
++        from unittest.mock import patch
++        from orchestrator import stage_handler_registry
+         pet = self.pet()
+         bus = self.pet_bus.Bus()
+         stage_flow.listen(bus)
+         type(pet).bus = bus
+         stage_flow.mark('video', 'stage.executing', 'auto')
+-        self.assertEqual(pet.pause_running_stage(), ['video'])
++        with patch.object(stage_handler_registry, 'control_task', return_value=True):
++            self.assertEqual(pet.pause_running_stage(), ['video'])
+         bus.pump()
+         self.assertEqual(stage_flow.button_text('video'), '手动制作视频')
+ 
++    def test_unsupported_pause_keeps_the_running_stage_button(self):
++        pet = self.pet()
++        bus = self.pet_bus.Bus()
++        stage_flow.listen(bus)
++        type(pet).bus = bus
++        stage_flow.mark('video', 'stage.executing', 'auto')
++        self.assertEqual(pet.pause_running_stage(), [])
++        bus.pump()
++        self.assertTrue(stage_flow.running('video'))
++        self.assertNotEqual(stage_flow.button_text('video'), '手动制作视频')
++
+     def test_pausing_with_nothing_running_is_a_no_op(self):
+         pet = self.pet()
+         type(pet).bus = self.pet_bus.Bus()
+diff --git "a/\347\250\213\345\272\217/tests/test_stage_task_owner.py" "b/\347\250\213\345\272\217/tests/test_stage_task_owner.py"
+new file mode 100644
+index 00000000..dcafa2b0
+--- /dev/null
++++ "b/\347\250\213\345\272\217/tests/test_stage_task_owner.py"
+@@ -0,0 +1,166 @@
++"""C6真实自动ticket owner：阶段/项目隔离与不支持暂停不伪发事件。"""
++import tempfile
++import unittest
++from pathlib import Path
++from types import SimpleNamespace
++from unittest.mock import Mock, patch
++
++from orchestrator import stage_handler_registry as registry
++from orchestrator.desktop_automation_service import BackgroundTaskLifecycle
++from ui.pet_ui_stages import PetStagesMixin
++
++
++class Host:
++    pass
++
++
++class TaskOwnerTests(unittest.TestCase):
++    def setUp(self):
++        self.temp = tempfile.TemporaryDirectory()
++        self.addCleanup(self.temp.cleanup)
++        self.host = Host()
++        self.host.root = Path(self.temp.name) / 'project'
++
++    def bind(self, stage, ticket=1, tasks=None):
++        tasks = tasks or BackgroundTaskLifecycle()
++        tasks.submit(ticket)
++        owner = registry.bind_task_owner(self.host, stage, tasks, ticket)
++        return tasks, owner
++
++    def test_projects_and_stages_are_exact_and_progress_is_lifecycle_snapshot(self):
++        assets, owner = self.bind('assets')
++        video, _ = self.bind('video', 2)
++        result = registry.control_task(self.host, 'assets', 'progress')
++        self.assertEqual(result['lifecycle'], assets.snapshot())
++        self.assertEqual(result['ticket'], 1)
++        self.assertEqual(result['stage'], 'assets')
++        self.assertNotIn('percent', result)
++        self.assertIs(registry.task_owner_for(self.host, 'assets'), owner)
++        self.assertTrue(registry.control_task(self.host, 'assets', 'cancel')['local_wait_stopped'])
++        self.assertTrue(video.accepts(2))
++        self.host.root = Path(self.temp.name) / 'other'
++        self.assertIsNone(registry.task_owner_for(self.host, 'video'))
++        self.assertIs(registry.control_task(self.host, 'video', 'cancel'), NotImplemented)
++        self.assertTrue(video.accepts(2))
++
++    def test_replaced_and_late_owner_cannot_cancel_new_ticket_or_different_binding(self):
++        tasks, old = self.bind('assets', 1)
++        tasks.submit(2)
++        new = registry.bind_task_owner(self.host, 'assets', tasks, 2)
++        ctx = registry.StageContext(self.host, 'assets', owner=old)
++        self.assertIs(old.cancel(ctx), NotImplemented)
++        self.assertTrue(tasks.accepts(2))
++        self.assertIs(registry.task_owner_for(self.host, 'assets'), new)
++        other = BackgroundTaskLifecycle(); other.submit(2)
++        registry.bind_task_owner(self.host, 'assets', other, 2)
++        self.assertIs(new.cancel(ctx), NotImplemented)
++        self.assertTrue(tasks.accepts(2)); self.assertTrue(other.accepts(2))
++
++    def test_reusing_the_same_ticket_number_does_not_revive_old_owner(self):
++        tasks, owner = self.bind('assets', 1)
++        tasks.submit(1)
++        ctx = registry.StageContext(self.host, 'assets', owner=owner)
++        self.assertIs(owner.cancel(ctx), NotImplemented)
++        self.assertTrue(tasks.accepts(1))
++
++    def test_project_switch_invalidates_frozen_owner_without_cancelling_work(self):
++        tasks, owner = self.bind('assets')
++        self.host.root = Path(self.temp.name) / 'other'
++        ctx = registry.StageContext(self.host, 'assets', owner=owner)
++        self.assertIs(owner.cancel(ctx), NotImplemented)
++        self.assertIs(owner.progress(ctx), NotImplemented)
++        self.assertTrue(tasks.accepts(1))
++
++    def test_cancel_is_local_wait_only_and_never_confirms_remote_cancel(self):
++        tasks = BackgroundTaskLifecycle(); tasks.submit(3, remote_task_id='remote-fixture', costly=True)
++        registry.bind_task_owner(self.host, 'assets', tasks, 3)
++        result = registry.control_task(self.host, 'assets', 'cancel')
++        self.assertTrue(result['local_wait_stopped'])
++        self.assertFalse(result['remote_cancel_confirmed'])
++        self.assertFalse(tasks.cancellation_status(3)['remote_cancel_confirmed'])
++        self.assertFalse(tasks.accepts(3))
++
++    def test_old_remote_confirmation_is_not_reused_for_same_numeric_ticket(self):
++        tasks=BackgroundTaskLifecycle()
++        tasks.submit(4,remote_task_id='old-remote')
++        tasks.cancel(4,remote_cancel_confirmed=True)
++        tasks.submit(4)
++        registry.bind_task_owner(self.host,'assets',tasks,4)
++        result=registry.control_task(self.host,'assets','cancel')
++        self.assertTrue(result['local_wait_stopped'])
++        self.assertFalse(result['remote_cancel_requested'])
++        self.assertFalse(result['remote_cancel_confirmed'])
++
++    def test_unsupported_pause_does_not_emit_or_clear_running(self):
++        self.bind('assets')
++        pet = SimpleNamespace(desktop=self.host, _emit=Mock())
++        with patch.object(registry.stage_flow, 'OWN_ORDER', ('assets',)), \
++                patch.dict(registry.stage_flow.RUNNING, {'assets':'auto'}, clear=True):
++            self.assertEqual(PetStagesMixin.pause_running_stage(pet), [])
++            self.assertEqual(registry.stage_flow.RUNNING, {'assets':'auto'})
++        pet._emit.assert_not_called()
++        self.assertTrue(registry.control_task(self.host, 'assets', 'progress')['lifecycle']['state'] == 'running')
++
++    def test_only_confirmed_real_pause_stages_emit_paused(self):
++        pet = SimpleNamespace(desktop=self.host, _emit=Mock())
++        with patch.object(registry.stage_flow, 'OWN_ORDER', ('assets','video','edit')), \
++                patch.object(registry.stage_flow, 'running', return_value=True), \
++                patch.object(registry, 'control_task', side_effect=(True, NotImplemented, False)):
++            self.assertEqual(PetStagesMixin.pause_running_stage(pet), ['assets'])
++        pet._emit.assert_called_once_with('stage.paused', stage='assets')
++
++
++class AutomaticSubmissionBindingTests(unittest.TestCase):
++    def test_five_existing_submission_paths_bind_their_exact_stage_and_ticket(self):
++        import queue
++        from ui import desktop_auto_flows as flows
++        from orchestrator.desktop_auto_state import create_auto_state
++        methods=(('edit','poll_auto_edit'),('previs','poll_auto_previs'),
++                 ('assets','poll_auto_asset'),('video','poll_auto_video'),('delivery','poll_auto_handoff'))
++        for stage,method in methods:
++            with self.subTest(stage=stage), tempfile.TemporaryDirectory() as td:
++                root=Path(td)
++                source=root/'episode.json';source.write_text('{"shots":[]}',encoding='utf-8')
++                auto=create_auto_state(None,stage_queue=lambda *args:queue.Queue(),drain=lambda:None)
++                host=SimpleNamespace(root=root,studio=SimpleNamespace(episode={}),auto=auto,
++                                     pet=SimpleNamespace(should_auto_run=lambda key:True,drain=lambda:None),
++                                     worker=None,status=Mock(),align_studio=lambda:True,final_holding=lambda:False,
++                                     current_frame_json=lambda:source,stage_engine=lambda key:'fixture',
++                                     edit_ready=lambda:('signature','digest'),_previs_last_result=lambda:{},
++                                     asset_base=lambda:root,clear_asset_resume=Mock(),
++                                     _load_scheduled_entries=lambda:None,frame_rows=[],frame_json=None,
++                                     _asset_batch_done=Mock(),_schedule_auto_edit_result_poll=Mock(),
++                                     _schedule_auto_video_result_poll=Mock(),_schedule_auto_handoff_result_poll=Mock())
++                class Bound(BaseException):
++                    pass
++                actual=registry.bind_task_owner
++                def bind(desktop,key,tasks,ticket):
++                    owner=actual(desktop,key,tasks,ticket)
++                    self.assertEqual(key,stage)
++                    self.assertEqual(owner.ticket,ticket)
++                    self.assertTrue(tasks.accepts(ticket))
++                    raise Bound()
++                from contextlib import ExitStack
++                with ExitStack() as stack:
++                    stack.enter_context(patch.object(flows,'bind_task_owner',side_effect=bind))
++                    stack.enter_context(patch('domain.edit_service.automatic_assemble_decision',return_value={'action':'run','signature':'signature'}))
++                    stack.enter_context(patch('domain.handoff_service.automatic_decision',return_value={'action':'run','signature':'signature'}))
++                    stack.enter_context(patch('stage_execution_service.previs_automatic_candidates',return_value={'pending':[{'id':'S1'}],'waiting':[],'medium':[]}))
++                    stack.enter_context(patch('stage_execution_service.previs_automatic_engine',return_value='fixture'))
++                    stack.enter_context(patch('domain.previs_routing.automatic_signature',return_value='signature'))
++                    stack.enter_context(patch('stage_execution_service.plan_unattended_assets',return_value=([('asset',{})],[],{})))
++                    stack.enter_context(patch('domain.asset_context.scope_sources',return_value=[]))
++                    stack.enter_context(patch('domain.asset_batch_service.current_model',return_value='fixture'))
++                    stack.enter_context(patch('domain.asset_batch_service.unattended_signature',return_value='signature'))
++                    stack.enter_context(patch('domain.asset_batch_service.unattended_retry_decision',return_value={'action':'run','signature':'signature'}))
++                    stack.enter_context(patch('domain.asset_resume.attempts',return_value=0))
++                    stack.enter_context(patch('local_video.LocalStudio',SimpleNamespace))
++                    stack.enter_context(patch('local_video.auto_plan',return_value=([{}],[],[])))
++                    stack.enter_context(patch('local_video.auto_poll_decision',return_value={'action':'run','signature':'signature'}))
++                    with self.assertRaises(Bound):
++                        getattr(flows.AutoFlowsMixin,method)(host)
++                self.assertEqual(registry.task_owner_for(host,stage).project,str(root.resolve()))
++
++
++if __name__ == '__main__':
++    unittest.main()
+diff --git "a/\347\250\213\345\272\217/tests/test_white_model_ref.py" "b/\347\250\213\345\272\217/tests/test_white_model_ref.py"
+index 80a2db71..85934184 100644
+--- "a/\347\250\213\345\272\217/tests/test_white_model_ref.py"
++++ "b/\347\250\213\345\272\217/tests/test_white_model_ref.py"
+@@ -209,6 +209,63 @@ class EntryTests(unittest.TestCase):
+                 white_model_ref.data_url(spot)
+ 
+ 
++class ReferenceSerializationServiceTests(unittest.TestCase):
++    def test_service_preserves_mime_slot_and_error_order(self):
++        from domain import white_model_service as service
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td)
++            self.assertEqual(service.reference_entries(None), [])
++            self.assertEqual(service.reference_entries({}), [])
++            for suffix, mime in (('.mp4','video/mp4'),('.webm','video/webm'),('.mov','video/quicktime')):
++                path = root / ('clip' + suffix.upper())
++                path.write_bytes(b'media-fixture')
++                expected = 'data:' + mime + ';base64,' + base64.b64encode(b'media-fixture').decode()
++                self.assertEqual(service.reference_data_url(path), expected)
++                explicit = root / 'clip.binary'; explicit.write_bytes(b'media-fixture')
++                self.assertEqual(service.reference_data_url(explicit, suffix.upper()), expected)
++                row = {'path':str(path),'slot':'media'}
++                self.assertEqual(service.reference_entries(row), [{'type':'reference_video','url':expected}])
++                row['slot']='content'
++                self.assertEqual(service.reference_entries(row), [{'type':'video_url','video_url':{'url':expected},'role':'reference_video'}])
++                row['slot']='unknown'
++                with self.assertRaisesRegex(ValueError,'不认识的参考视频槽位'):
++                    service.reference_entries(row)
++            missing = {'path':str(root/'missing.mp4'),'slot':'unknown'}
++            with self.assertRaises(FileNotFoundError):
++                service.reference_entries(missing)
++            self.assertEqual(white_model_ref.MIME, service.REFERENCE_MIME)
++            self.assertIs(white_model_ref.MIME, service.REFERENCE_MIME)
++            self.assertEqual(white_model_ref.prompt_line(None), service.reference_prompt_line(None))
++
++    def test_actual_shot_prepare_white_branch_never_imports_ui(self):
++        import subprocess
++        script = r'''
++import importlib.abc, json, sys, tempfile
++from pathlib import Path
++class DenyUi(importlib.abc.MetaPathFinder):
++    def find_spec(self, fullname, path=None, target=None):
++        if fullname == 'ui' or fullname.startswith('ui.') or fullname in ('white_model_ref','white_model'):
++            raise AssertionError('L2 must not import UI: ' + fullname)
++sys.meta_path.insert(0, DenyUi())
++from agent.shot_assets import prepare
++with tempfile.TemporaryDirectory() as td:
++    project=Path(td)/'p'; source=project/'episode'/'episode.json'
++    source.parent.mkdir(parents=True)
++    (source.parent/'assets.json').write_text('{}',encoding='utf-8')
++    (project/'config.json').write_text(json.dumps({'episode_dir':str(source.parent),'episode_file':str(source)}),encoding='utf-8')
++    shot={'id':'SH001','duration':5,'characters':[],'frame':'frames/SH001.png','video_prompt':'fixture','upload_assets':False,'generate_audio':True}
++    reference={'path':str(project/'reference.mp4'),'provider':'volcengine','slot':'content'}
++    result=prepare(source,shot,{'model':'doubao-seedance-2-0-pro','cloud_provider':'volcengine'},white=reference)
++    assert result['_white_model_reference'] is reference
++    assert result['_reference_mode']=='seedance'
++    assert '白模预演视频' in result['video_prompt']
++    assert '不复制白模的外观与材质' in result['video_prompt']
++assert not any(name=='ui' or name.startswith('ui.') for name in sys.modules)
++'''
++        result = subprocess.run([sys.executable,'-B','-c',script],cwd=Path(HERE).parent, capture_output=True,timeout=30)
++        self.assertEqual(result.returncode,0,result.stderr.decode('utf-8',errors='replace'))
++
++
+ class PayloadTests(unittest.TestCase):
+     """两个适配器真把参考视频拼进请求（不真发请求）。"""
+ 
+diff --git "a/\347\250\213\345\272\217/ui/desktop_auto_flows.py" "b/\347\250\213\345\272\217/ui/desktop_auto_flows.py"
+index 03b13bd1..d65d9c7b 100644
+--- "a/\347\250\213\345\272\217/ui/desktop_auto_flows.py"
++++ "b/\347\250\213\345\272\217/ui/desktop_auto_flows.py"
+@@ -16,6 +16,7 @@ import infra.pet_state as pet_state
+ from agent.core import read
+ from orchestrator.desktop_auto_state import UNATTENDED_NEXT, flow_get, flow_set
+ from contract.storyboard_paths import media_root
++from orchestrator.stage_handler_registry import bind_task_owner
+ 
+ LOGGER = logging.getLogger('desktop_auto_flows')
+ PAGE = pet_state.PAGE_OF
+@@ -420,7 +421,7 @@ class AutoFlowsMixin:
+         self.auto.edit_signature=decision['signature']
+         if decision['action'] in ('wait','complete'):return
+         self.auto.edit_busy=True;self.auto.edit_ticket+=1
+-        ticket=self.auto.edit_tasks.submit(self.auto.edit_ticket,project=getattr(self,'root',None))
++        ticket=self.auto.edit_tasks.submit(self.auto.edit_ticket,project=getattr(self,'root',None)); bind_task_owner(self,'edit',self.auto.edit_tasks,ticket)
+         self.status.set('全部镜头已验收，正在自动粗剪整集…')
+         def produce():
+             path=studio.assemble()
+@@ -510,7 +511,7 @@ class AutoFlowsMixin:
+         try:
+             from orchestrator.previs_automation import start
+             self.auto.previs_ticket+=1
+-            ticket=self.auto.previs_tasks.submit(self.auto.previs_ticket,project=getattr(self,'root',None))
++            ticket=self.auto.previs_tasks.submit(self.auto.previs_ticket,project=getattr(self,'root',None)); bind_task_owner(self,'previs',self.auto.previs_tasks,ticket)
+             start(self.root,source,pending,state,ticket=ticket,is_current=self.auto.previs_tasks.accepts,
+                   execute=lambda fn:self.auto.previs_tasks.run(ticket,fn))
+         except Exception as exc:
+@@ -555,7 +556,7 @@ class AutoFlowsMixin:
+             self.auto.asset_tried=signature
+             self.auto.asset_busy=True
+         self.auto.asset_ticket+=1
+-        ticket=self.auto.asset_tasks.submit(self.auto.asset_ticket,project=getattr(self,'root',None))
++        ticket=self.auto.asset_tasks.submit(self.auto.asset_ticket,project=getattr(self,'root',None)); bind_task_owner(self,'assets',self.auto.asset_tasks,ticket)
+         self.status.set('无人值守自动补资产（'+current_model(project)+'）：准备处理 '+str(len(missing))+' 项…')
+         # 第 64 期任务 2：提交结果不确定的那几项（连接中断、ComfyUI 里也找不到任务编号）按设计
+         # 不自动重提，以免重复扣费——但必须说给用户听，否则这一项会永远卡在「待导入」，
+@@ -603,7 +604,7 @@ class AutoFlowsMixin:
+         if decision['action']=='skip':return
+         signature=decision['signature']
+         self.auto.video_busy=True;self.auto.video_ticket+=1
+-        ticket=self.auto.video_tasks.submit(self.auto.video_ticket,project=getattr(self,'root',None))
++        ticket=self.auto.video_tasks.submit(self.auto.video_ticket,project=getattr(self,'root',None)); bind_task_owner(self,'video',self.auto.video_tasks,ticket)
+         self.status.set('无人值守自动补视频：准备提交 '+str(len(submit))+' 镜、查询 '+str(len(poll))+' 镜…')
+         studio=self.studio
+         def worker():
+@@ -633,7 +634,7 @@ class AutoFlowsMixin:
+         self.auto.handoff_signature=decision['signature']
+         if decision['action'] in ('wait','complete'):return
+         self.auto.handoff_busy=True;self.auto.handoff_ticket+=1
+-        ticket=self.auto.handoff_tasks.submit(self.auto.handoff_ticket,project=getattr(self,'root',None))
++        ticket=self.auto.handoff_tasks.submit(self.auto.handoff_ticket,project=getattr(self,'root',None)); bind_task_owner(self,'delivery',self.auto.handoff_tasks,ticket)
+         self.status.set('全部镜头已验收，正在自动整理剪映素材交接包…')
+         def produce():
+             out=self.handoff(auto=True)
+diff --git "a/\347\250\213\345\272\217/ui/pet_ui_stages.py" "b/\347\250\213\345\272\217/ui/pet_ui_stages.py"
+index e8175ff1..aa9260bf 100644
+--- "a/\347\250\213\345\272\217/ui/pet_ui_stages.py"
++++ "b/\347\250\213\345\272\217/ui/pet_ui_stages.py"
+@@ -409,16 +409,16 @@ class PetStagesMixin:
+         self._gate_said = reason
+         return self.announce(reason, at=at)
+     def pause_running_stage(self):
+-        """暂停自动：正在跑的那一步按钮恢复「手动制作XX」（附件四第 7 条）。返回那几步。"""
+-        stages = [stage for stage in stage_flow.OWN_ORDER if stage_flow.running(stage)]
+-        for stage in stages:
+-            self._emit('stage.paused', stage=stage)
+-        return stages
++        """只有真实owner确认暂停才发事件；停止自动派单不等于暂停运行任务。"""
++        paused = []
++        for stage in stage_flow.OWN_ORDER:
++            if stage_flow.running(stage) and stage_handler_registry.control_task(
++                    getattr(self, 'desktop', None), stage, 'pause') is True:
++                self._emit('stage.paused', stage=stage)
++                paused.append(stage)
++        return paused
+     def advance_stage(self, stage, at=None):
+-        """让某一步的无人值守轮询提前跑一轮；返回宿主给的那句人话，没有这条路返回空串。
+-
+-        只有宿主知道那一步有没有轮询、用户在页面上勾没勾开关，所以这里只负责问一句。
+-        """
++        """让某一步的无人值守轮询提前跑一轮；返回宿主原话，没有这条路返回空串。"""
+         kick = getattr(self.desktop, 'pet_advance', None)
+         if not callable(kick) or not stage:
+             return ''
+diff --git "a/\347\250\213\345\272\217/ui/skill_tools.py" "b/\347\250\213\345\272\217/ui/skill_tools.py"
+index 80f09a93..7039e75a 100644
+--- "a/\347\250\213\345\272\217/ui/skill_tools.py"
++++ "b/\347\250\213\345\272\217/ui/skill_tools.py"
+@@ -626,7 +626,7 @@ READY = {
+ 
+ # 只能在页面上按的那几步：页序号按 STAGES 的顺序（与左侧导航一一对应）。
+ from contract.pet_bus import STAGES, STAGE_NAMES
+-_SCRIPT, _SCRIPT_STRUCTURE, _STORYBOARD, _ANIMATIC, _ASSETS, _CONTINUITY, _FINAL, _KEYFRAME, _PREVIS, _VIDEO, _AUDIO, _EDIT, _DELIVERY = map(STAGES.index, STAGES)
++_SCRIPT, _SCRIPT_STRUCTURE, _STORYBOARD, _ANIMATIC, _ASSETS, _CONTINUITY, _FINAL, _KEYFRAME, _PREVIS, _VIDEO, _AUDIO, _EDIT, _DELIVERY = map(STAGES.index, ('script', 'script_structure', 'storyboard', 'animatic', 'assets', 'continuity', 'final', 'keyframe', 'previs', 'video', 'audio', 'edit', 'delivery'))
+ PAGES = {
+     'animatic.generate': (_ANIMATIC, '生成分镜预演'),
+     'animatic.validate': (_ANIMATIC, '确认预演（SG-B）'),
+diff --git "a/\347\250\213\345\272\217/ui/white_model_ref.py" "b/\347\250\213\345\272\217/ui/white_model_ref.py"
+index aae132fd..92536c71 100644
+--- "a/\347\250\213\345\272\217/ui/white_model_ref.py"
++++ "b/\347\250\213\345\272\217/ui/white_model_ref.py"
+@@ -13,13 +13,13 @@
+ 
+ 一句话口径（第 8 轮）：**接不上的仍然拦，但不再是一句「不支持」**。
+ """
+-import base64
+ import hashlib
+ from pathlib import Path
+ import contract.pet_bus as pet_bus
++from domain.white_model_service import REFERENCE_MIME as MIME
++from domain import white_model_service
+ 
+ SUFFIXES = ('.mp4', '.webm', '.mov')
+-MIME = {'.mp4': 'video/mp4', '.webm': 'video/webm', '.mov': 'video/quicktime'}
+ DEFAULT_MAX_MB = 20
+ 
+ # ── 能力表（唯一口径）────────────────────────────────────────────────────────
+@@ -124,30 +124,17 @@ def descriptor(project, sid, cfg, record=None):
+ # ── 拼槽位 ────────────────────────────────────────────────────────────────────
+ def data_url(path, suffix=None):
+     """读成 data URL（与资产图那条 `image_url` 同一个做法：直接内嵌进请求）。"""
+-    path = Path(path)
+-    mime = MIME.get(str(suffix or path.suffix).lower())
+-    if not mime:
+-        raise ValueError('白模视频只认 mp4／webm／mov：' + path.name)
+-    return 'data:' + mime + ';base64,' + base64.b64encode(path.read_bytes()).decode()
++    return white_model_service.reference_data_url(path, suffix)
+ 
+ 
+ def entries(reference):
+     """按目标接口的形状把参考视频拼成请求里的那一条（没有就回空表）。"""
+-    if not reference:
+-        return []
+-    url = data_url(reference['path'], reference.get('suffix'))
+-    slot = reference.get('slot')
+-    if slot == 'media':
+-        return [{'type': 'reference_video', 'url': url}]
+-    if slot == 'content':
+-        return [{'type': 'video_url', 'video_url': {'url': url}, 'role': 'reference_video'}]
+-    raise ValueError('不认识的参考视频槽位：' + repr(slot))
++    return white_model_service.reference_entries(reference)
+ 
+ 
+ def prompt_line(reference=None):
+     """提示词里那一句：这份视频是干什么用的（只借动作与机位，不抄白模外观）。"""
+-    return ('白模预演视频＝本镜的动作与机位参考：人物站位、动作起止、镜头运动照它走；'
+-            '只借动作与机位，不复制白模的外观与材质。')
++    return white_model_service.reference_prompt_line(reference)
+ 
+ 
+ def brief(reference):
+diff --git "a/\347\250\213\345\272\217/\347\273\264\346\212\244\350\256\260\345\275\225/\346\236\266\346\236\204\347\273\237\344\270\200\345\237\272\346\225\260.json" "b/\347\250\213\345\272\217/\347\273\264\346\212\244\350\256\260\345\275\225/\346\236\266\346\236\204\347\273\237\344\270\200\345\237\272\346\225\260.json"
+index 5a2b6bc6..12d2785e 100644
+--- "a/\347\250\213\345\272\217/\347\273\264\346\212\244\350\256\260\345\275\225/\346\236\266\346\236\204\347\273\237\344\270\200\345\237\272\346\225\260.json"
++++ "b/\347\250\213\345\272\217/\347\273\264\346\212\244\350\256\260\345\275\225/\346\236\266\346\236\204\347\273\237\344\270\200\345\237\272\346\225\260.json"
+@@ -671,8 +671,8 @@
+   ]
+  },
+  "层级": {
+-  "count": 15,
+-  "baseline_exempt": 15,
++  "count": 12,
++  "baseline_exempt": 12,
+   "items": [
+    {
+     "file": "api_models.py",
+@@ -702,20 +702,6 @@
+     "disposition": "exempt",
+     "reason": "既存越层，待专项收口"
+    },
+-   {
+-    "file": "confirm_gates.py",
+-    "importer": "confirm_gates",
+-    "imported": "legacy_compat",
+-    "disposition": "exempt",
+-    "reason": "既存越层，待专项收口"
+-   },
+-   {
+-    "file": "idea_chat.py",
+-    "importer": "idea_chat",
+-    "imported": "pet_agent",
+-    "disposition": "exempt",
+-    "reason": "既存越层，待专项收口"
+-   },
+    {
+     "file": "idea_document_paths.py",
+     "importer": "idea_document_paths",
+@@ -744,13 +730,6 @@
+     "disposition": "exempt",
+     "reason": "既存越层，待专项收口"
+    },
+-   {
+-    "file": "shot_assets.py",
+-    "importer": "shot_assets",
+-    "imported": "white_model_ref",
+-    "disposition": "exempt",
+-    "reason": "既存越层，待专项收口"
+-   },
+    {
+     "file": "skill_orchestrator.py",
+     "importer": "skill_orchestrator",

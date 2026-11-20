@@ -1,0 +1,1763 @@
+diff --git "a/\347\250\213\345\272\217/.importlinter" "b/\347\250\213\345\272\217/.importlinter"
+index 945ddca1..39df0e0e 100644
+--- "a/\347\250\213\345\272\217/.importlinter"
++++ "b/\347\250\213\345\272\217/.importlinter"
+@@ -248,7 +248,9 @@ forbidden_modules =
+     infra.token_saver
+     infra.ui_plugin_registry
+     infra.unit_of_work
++    infra.update_installer
+     infra.update_notice
++    infra.update_source
+     infra.usage_history
+     infra.usage_snapshot
+     infra.workflow_process_registry
+@@ -562,7 +564,9 @@ source_modules =
+     infra.token_saver
+     infra.ui_plugin_registry
+     infra.unit_of_work
++    infra.update_installer
+     infra.update_notice
++    infra.update_source
+     infra.usage_history
+     infra.usage_snapshot
+     infra.workflow_process_registry
+diff --git "a/\347\250\213\345\272\217/PROJECT_MAP.md" "b/\347\250\213\345\272\217/PROJECT_MAP.md"
+index d8085e8e..4d1fd029 100644
+--- "a/\347\250\213\345\272\217/PROJECT_MAP.md"
++++ "b/\347\250\213\345\272\217/PROJECT_MAP.md"
+@@ -21,6 +21,7 @@ R1247 数据边界（R2898 更新）：剧本聊天及回收站统一位于 `01
+ | Agent 工作流 | `orchestrator/workflow_settings.py`、`orchestrator/workflow_engines.py`、`orchestrator/workflow_tasks.py` | GPT/Anthropic API 在对应本机程序可启动时优先本机执行、启动失败兼容 API 回退；桌面模型显式选择、任务文件与进程台账 |
+ | Agent 运行时 | `agent/core.py`（命令执行、JSON 读写、hash、原子复制发布）、`agent/media.py`（ffprobe/ffmpeg 媒体探测与技术质检；`is_png`/`PNG_SIGNATURE` 事实已下沉 L0 `contract/media_signature.py`，此处再导出）、`agent/publication.py`（可恢复发布事务与期刊）、`agent/shot_assets.py`（分镜身份→项目图片解析）、`agent/video.py`＋`agent/wan.py`＋`agent/volcengine.py`（`VideoAdapter` 抽象与万相/火山方舟适配）、`agent/h3_reference_adapter.py`（H3 Ref2VA 参考资产接入，自 `infra/` 上移 L2）、`agent/voice_mcp_server.py`、`agent/optimizer_mcp_bridge.py`（两个 MCP stdio 服务）、`agent/prompt_optimizer.py`（提示词优化器桌面集成） | R3255 起 `agent/` 为第六个分层包并纳入 `_scan.PACKAGE_NAMES`：core/media/publication→L1、shot_assets/volcengine/wan/video/h3_reference_adapter→L2、voice_mcp_server/optimizer_mcp_bridge→L3、prompt_optimizer→L4；媒体签名判定是 L0 事实 |
+ | 模型与安全 | `infra/model_pool.py`、`infra/model_router.py`、`infra/pet_llm.py`、`infra/model_secrets.py`、`infra/http_client.py`、`contract/error_codes.py`、`contract/diagnostics.py`、`contract/selfcheck.py` | 厂商/模型池、协议路由、唯一密钥判据、DPAPI；`http_client` 是 L1 统一 JSON HTTP 传输（超时必填、错误码分类、有界重试、响应上限、凭据脱敏），直连 `urlopen`／`build_opener` 由 `test_http_boundary` 白名单棘轮守卫；L0 错误码注册表实体在 `contract/error_codes.py`（R3267 起每码带 `severity` 闭集并有 `analyze()` 派发链；R3300 起有 `classify()` 错误文本分类器与 `TEXT_RULES` 关键词表，retryable 为「是否重试」唯一权威、接线在轮 5B），顶层 `error_codes.py` 为历史门面；`contract/diagnostics.py` 是启动诊断类型唯一权威（`Severity`／`Diagnostic` 含 `escape_hint`／`StartupPhase`），`contract/selfcheck.py` 是注入式自检运行器 `run(checks)`（检查由上层注入、自身异常记 DEGRADED，R3267，启动器接线在后续轮）；`contract/infra_errors.py` 是 L1 技术异常层级唯一权威（`InfraError` 根＋七族，`code` 经 `error_codes` 登记校验、兼容内置异常多重继承，R3407／I6）；共享输入发送瞬间锁定模型快照（`desktop_shared_input.request_snapshot`，R2893），在途请求不受中途切模影响 |
++| 升级与分发 | `infra/update_notice.py`（版本提示纯判定）、`infra/update_source.py`（TUF 可信源：内置 root 信任锚、四角色验签、目标筛选与受控下载）、`infra/update_installer.py`（ZIP 安全解包、逐文件原子替换、失败回滚、用户数据保护）、`scripts/update_publish.py`（开发期发布端：生成 root/targets/snapshot/timestamp 与 Ed25519 签名目标包）、`scripts/distribution_build.py`（分发副本构建/校验） | C8：更新只覆盖升级包列出的程序文件，保留 `config.json`／`projects.json`／`desktop_settings.json`／`private`／`data`／`升级备份`／用户项目与素材；校验或安装失败恢复旧版本并把旧/新文件交 `storage_maintenance.recycle_paths` 回收；发布私钥只在仓库外构建机，客户端只信任随安装包交付的 root.json |
+ | 人在回路 | `domain/hitl.py`（HITL 请求/决策信封）、`ui/ui_hitl.py`（审批门三按钮/选择卡） | 选择卡/审批门/红绿 Diff 共用 `HITLRequest{kind,payload,risk,timeout}` → `Decision` 协议；低风险自动放行、高风险人工、超时竞速；`from_confirm_result` 把 `confirm_gates.ask` 转成选择卡 |
+ | 分支与断点 | `domain/checkpoint_tree.py`（append-only checkpoint 树）、`ui/ui_branch_tree.py`（节点树） | `(thread_id, checkpoint_id, parent_id)` 树，分支只追加不覆盖；state 小 JSON + `artifact_refs` 存引用；剪枝改挂根；节点树切换/延续/独立提问 |
+ | 剧本与契约 | `idea_chat.py`、`domain/idea_attachments.py`、`orchestrator/idea_chat_controller.py`（`ChatStatus` 会话状态机＋取消令牌＋发送排队＋继续/重新生成计划）、`domain/message_parts.py`、`script_contract.py`、`prompt_templates.py` | 聊天、受控文本附档、无 Tk 对话请求/节流/流式进度编排、会话级状态机、创意工作流、消息 typed parts 契约（schema v2：一条消息 = 有序 text/reasoning/tool_call/artifact 等 part）、五类 manifest、提示词模板 |
+diff --git "a/\347\250\213\345\272\217/architecture.md" "b/\347\250\213\345\272\217/architecture.md"
+index 91e468ba..30b98a27 100644
+--- "a/\347\250\213\345\272\217/architecture.md"
++++ "b/\347\250\213\345\272\217/architecture.md"
+@@ -128,6 +128,7 @@ R3721（L1 任务书轮 I19，L1-H5 作业库实现与试点）：新增 L1 `inf
+ - `artifact_index`：产物索引：每项目 `data/artifact_index/<hash>.sqlite` WAL，register/versions/set_state 四态机（候选·采用·归档·回收）/duplicates 摘要去重/rebuild 走 executors io 池，「回收」落盘仍经 `recycle_paths`，I17／L1-H4。
+ - `job_store`：通用作业库：每项目 `data/job_store/<hash>.sqlite` WAL，enqueue 幂等键/六态机/attempt 指数退避/checkpoint+digest/reconcile 一致性报告；启动恢复 running→retrying，I19／L1-H5。
+ - `prefetch`：预测性预加载闸门：三闸（关闭开关 `data/autotune_disable_prefetch.flag`／可用内存<10%／用户活跃探针）过后把任务投 executors io 池，QuotaError 静默放弃；`warm_files` 显式清单暖 file_cache／系统页缓存不递归，I22。
++- `update_source`／`update_installer`（C8 升级执行器）：两者同为 L1。`update_source` 只信任随安装包交付的本地 `root.json`，用 python-tuf 验签四角色元数据、校验目标哈希/长度、按 `custom.app_version` 防降级，下载经 `http_client` 适配器；`update_installer` 只替换签名升级包列出的程序文件，拒绝 zip slip 与受保护路径（`config.json`／`projects.json`／`desktop_settings.json`／`private`／`data`／`升级备份` 等），失败按事务备份回滚、旧文件与暂存交 `storage_maintenance.recycle_paths` 回收。发布端 Ed25519 签名在 `scripts/update_publish.py` 开发工具，私钥不进仓库；版本提示仍由 `update_notice` 判定，不新增第二个更新入口。
+ 
+ 
+ 刷新：`python -B scripts/generate_layer_docs.py --write`；只读校验：`python -B scripts/generate_layer_docs.py --check`。新增登记合入后须重新生成。
+@@ -137,7 +138,7 @@ R3721（L1 任务书轮 I19，L1-H5 作业库实现与试点）：新增 L1 `inf
+ | --- | --- | --- |
+ | L0 契约与事实层 | 40 | `api_models`、`app_metadata`、`artifact_lineage`、`artifact_schema`、`asset_contract`、`contract`、`contract.file_index_contract`、`contract.file_naming`、`diagnostics`、`episode_contract`、`error_codes`、`file_index_contract`、`file_naming`、`frame_checks`、`infra_errors`、`media_signature`、`model_protocol`、`pet_bus`、`pet_settings_contract`、`platform_tools`、`process_wait`、`production_model_contract`、`project_context`、`project_stages`、`prompt_templates`、`prop_assets`、`script_brief`、`script_contract`、`script_manifest_contract`、`script_manifest_schema`、`script_output_spec`、`selfcheck`、`service_contract`、`shot_batches`、`shot_selection`、`stage_layout`、`stage_path_service`、`storyboard_contract`、`storyboard_paths`、`workflow_context_budget` |
+ | L0P 平台基座 | 0 | — |
+-| L1 基础设施层 | 73 | `account_store`、`aigc_lint`、`api_endpoints`、`app_icon`、`app_logging`、`artifact_index`、`asset_prompt_rules`、`broadcaster`、`budget`、`business_log`、`client_profiles`、`clipboard_lock`、`cloud_assets`、`comfy_runtime`、`comfy_service`、`config_patch`、`config_snapshot`、`config_validation`、`continuity_ledger`、`core`、`diagnostic_capture`、`domain.global_library_service`、`engine_probe`、`executors`、`file_cache`、`file_index`、`global_library_service`、`hash_backend`、`http_client`、`idempotency`、`infra`、`infra.diagnostic_state`、`infra.file_index`、`infra.storage_maintenance`、`integrations`、`job_store`、`lease_verifier`、`line_endings`、`log_maintenance`、`media`、`metrics`、`model_diagnostics`、`model_metering`、`model_pool`、`model_router`、`model_secrets`、`native_apps`、`native_asset_codec`、`pet_llm`、`pet_state`、`prefetch`、`project_settings`、`publication`、`qwen_setup`、`request_ledger`、`resources`、`script_text_reader`、`seedream_api`、`session_integrity`、`stage_model_value`、`storage_maintenance`、`store_program_locator`、`temporary_sweep`、`tk_timers`、`token_saver`、`ui_plugin_registry`、`ui_tokens`、`unit_of_work`、`update_notice`、`usage_history`、`usage_snapshot`、`workflow_process_registry`、`workspace_maintenance` |
++| L1 基础设施层 | 75 | `account_store`、`aigc_lint`、`api_endpoints`、`app_icon`、`app_logging`、`artifact_index`、`asset_prompt_rules`、`broadcaster`、`budget`、`business_log`、`client_profiles`、`clipboard_lock`、`cloud_assets`、`comfy_runtime`、`comfy_service`、`config_patch`、`config_snapshot`、`config_validation`、`continuity_ledger`、`core`、`diagnostic_capture`、`domain.global_library_service`、`engine_probe`、`executors`、`file_cache`、`file_index`、`global_library_service`、`hash_backend`、`http_client`、`idempotency`、`infra`、`infra.diagnostic_state`、`infra.file_index`、`infra.storage_maintenance`、`integrations`、`job_store`、`lease_verifier`、`line_endings`、`log_maintenance`、`media`、`metrics`、`model_diagnostics`、`model_metering`、`model_pool`、`model_router`、`model_secrets`、`native_apps`、`native_asset_codec`、`pet_llm`、`pet_state`、`prefetch`、`project_settings`、`publication`、`qwen_setup`、`request_ledger`、`resources`、`script_text_reader`、`seedream_api`、`session_integrity`、`stage_model_value`、`storage_maintenance`、`store_program_locator`、`temporary_sweep`、`tk_timers`、`token_saver`、`ui_plugin_registry`、`ui_tokens`、`unit_of_work`、`update_installer`、`update_notice`、`update_source`、`usage_history`、`usage_snapshot`、`workflow_process_registry`、`workspace_maintenance` |
+ | L2 领域服务层 | 91 | `account_client`、`animatic_service`、`asset_batch_lifecycle`、`asset_batch_selection_service`、`asset_batch_service`、`asset_batch_settings_service`、`asset_batch_state_service`、`asset_context`、`asset_detail_service`、`asset_gating`、`asset_generated_import_service`、`asset_plan`、`asset_reference_prompts`、`asset_resume`、`audio_import_service`、`cloud_video_service`、`confirm_gates`、`delivery_import_service`、`desktop_settings_service`、`domain`、`domain.hitl`、`domain_events`、`download_inbox`、`edit_export`、`edit_service`、`entitlement_service`、`final_service`、`h3_reference_adapter`、`handoff_service`、`idea_attachments`、`idea_brief_form`、`idea_chat`、`idea_document_paths`、`idea_script_heuristic`、`idea_transcript`、`keyframe`、`keyframe_api`、`keyframe_batch`、`keyframe_evidence`、`keyframe_lifecycle_service`、`legacy_adoption_service`、`local_video_settings_service`、`message_parts`、`offline_asr_client`、`offline_asr_setup`、`pet_performance_service`、`pet_test_service`、`previs`、`previs_progress_service`、`previs_routing`、`project_naming`、`projects`、`recon_service`、`recycle_recovery_service`、`script_preview_service`、`script_structure_edit_controller`、`script_workspace_service`、`shot_assets`、`skill_command`、`skill_residue_service`、`speech_api`、`stage_workspace_service`、`storyboard_adoption_contract`、`storyboard_adoption_service`、`storyboard_catalog_service`、`storyboard_edit_service`、`storyboard_lifecycle`、`storyboard_rows_service`、`storyboard_source_service`、`storyboard_storage`、`subtitle_export_service`、`subtitle_timing`、`task_center_service`、`tts_api`、`usage_overview`、`video`、`video_lifecycle_service`、`video_prompt_publication`、`video_source_evidence`、`video_task_state`、`voice_ai`、`volcengine`、`wan`、`white_model_service`、`workflow_context`、`writing`、`writing_files`、`writing_quality`、`writing_stream`、`writing_tools`、`writing_workflow` |
+ | L3 编排与阶段层 | 82 | `account_controller`、`agent_dispatch`、`agent_skill_sync`、`asset_auto_batch_service`、`asset_batch_controller`、`asset_batch_execution`、`asset_page_controller`、`audio_direct_api`、`codex_skill_sync`、`desktop_auto_state`、`desktop_automation_service`、`desktop_send_ledger`、`desktop_startup_service`、`edit_habits`、`editing_page_controller`、`engine`、`exit_maintenance`、`idea_chat_controller`、`idea_semantic_brief_service`、`image_agent_runner`、`image_direct`、`keyframe_model_service`、`keyframe_page_controller`、`legacy_compat`、`legacy_migration`、`media_page_controller`、`optimizer_mcp_bridge`、`orchestrator`、`orchestrator.legacy_migration`、`page_navigation_controller`、`pet_broadcast_state`、`pet_budget`、`pet_chat_coordinator`、`previs_automation`、`previs_batch_service`、`previs_monitor`、`project_context_factory`、`qwen_adapter`、`recycle_recovery_controller`、`script_skill_report`、`skill_budget`、`skill_inline`、`skill_notes`、`skill_orchestrator`、`skill_package_meta`、`skill_project_layer`、`skill_registry`、`skill_templates`、`stage_animatic_gateways`、`stage_asset_gateways`、`stage_completion_service`、`stage_config`、`stage_download_inbox_service`、`stage_exec`、`stage_execution_service`、`stage_flow`、`stage_gate_gateways`、`stage_handler_registry`、`stage_handoff_gateways`、`stage_models`、`stage_parallel`、`stage_previs_gateways`、`stage_publication`、`stage_write_preparation_service`、`storyboard_direct_api`、`storyboard_final`、`storyboard_final_controller`、`storyboard_page_controller`、`storyboard_plan_service`、`storyboard_recycle_service`、`storyboard_selection`、`subtitle_export_controller`、`video_prompt_direct_api`、`voice_mcp_server`、`white_model_persistence_controller`、`workflow_context_controller`、`workflow_engines`、`workflow_settings`、`workflow_tasks`、`writing_api`、`writing_preparation_ledger`、`writing_unconfirm` |
+ | L4 UI 层 | 152 | `account_inputs`、`app`、`asset_batch`、`asset_detail`、`asset_prompt_check_dialog`、`asset_reference_images`、`asset_reference_import`、`asset_reference_prompts_dialog`、`asset_reference_search`、`asset_skill_batch`、`asset_thumbs`、`background_characters`、`cell_hover`、`cell_menu`、`cloud_assets_dialog`、`cloud_video`、`desktop`、`desktop_account_page`、`desktop_asset_pages`、`desktop_async_tasks`、`desktop_audio_direct`、`desktop_auto_flows`、`desktop_automation_tick`、`desktop_direct_dispatch`、`desktop_file_card`、`desktop_files_panel`、`desktop_files_panel_filters`、`desktop_files_panel_index`、`desktop_idea_attachments`、`desktop_idea_bubbles`、`desktop_idea_chat`、`desktop_idea_deferred`、`desktop_idea_menus`、`desktop_idea_send_gate`、`desktop_image_direct`、`desktop_layout`、`desktop_layout_resize`、`desktop_lifecycle`、`desktop_login_gate`、`desktop_media_pages`、`desktop_page_nav`、`desktop_page_registry`、`desktop_page_support`、`desktop_pet_bridge`、`desktop_project_pages`、`desktop_script_edit_session`、`desktop_script_pages`、`desktop_send_choice`、`desktop_shared_input`、`desktop_shared_menus`、`desktop_shared_send`、`desktop_status_bridge`、`desktop_storyboard_direct`、`desktop_storyboard_page`、`desktop_tk_gc`、`desktop_tray`、`desktop_video_prompt_direct`、`desktop_voice_input`、`desktop_writing_page`、`desktop_writing_snapshots`、`environment_check`、`keyframe_comfy`、`keyframe_import`、`local_previs`、`local_video`、`native_assets`、`pet_agent`、`pet_agent_rules`、`pet_cloud`、`pet_cloud_geometry`、`pet_cloud_hint`、`pet_cloud_move_guard`、`pet_cloud_place`、`pet_cloud_shape`、`pet_cloud_tail`、`pet_cloud_text`、`pet_cloud_timing`、`pet_models_tabs`、`pet_models_ui`、`pet_report`、`pet_settings_ui`、`pet_skills_manage`、`pet_ui`、`pet_ui_popup`、`pet_ui_settings`、`pet_ui_stages`、`pet_ui_support`、`pet_ui_view`、`pet_ui_voice`、`previs_progress`、`production_lock_fields`、`prompt_optimizer`、`prompt_window`、`qwen_setup_dialog`、`reference_wall`、`responsive_ui`、`script_find_bar`、`script_line_numbers`、`script_outline`、`script_reading`、`script_view_style`、`seedream_settings`、`shared_video_controls`、`shot_numbering`、`skill_archive`、`skill_import_service`、`skill_install_recovery`、`skill_lifecycle_service`、`skill_note_render`、`skill_panel`、`skill_panel_import`、`skill_panel_support`、`skill_panel_workflow`、`skill_remote_service`、`skill_security_service`、`skill_tools`、`speech_settings_ui`、`stage_model_picker`、`storyboard_files`、`storyboard_source_selector`、`storyboard_table_ui`、`task_center_ui`、`tts_settings`、`ui`、`ui.ui_part_renderers`、`ui_composer_style`、`ui_dialogs`、`ui_hover_fade`、`ui_icons`、`ui_motion`、`ui_popup`、`ui_rounded`、`ui_scroll`、`ui_shortcuts`、`ui_splash`、`ui_stage_popups`、`ui_status_bar`、`ui_status_bus`、`ui_theme`、`ui_tooltip`、`ui_usage_detail`、`ui_usage_indicator`、`ui_widgets`、`version_picker`、`video_navigation`、`video_progress`、`video_prompt_results`、`white_model`、`white_model_ref`、`workflow_agents`、`workflow_settings_dialog`、`writing_page_controller` |
+diff --git "a/\347\250\213\345\272\217/distribution_manifest.md" "b/\347\250\213\345\272\217/distribution_manifest.md"
+index 8e8fb52a..2284decc 100644
+--- "a/\347\250\213\345\272\217/distribution_manifest.md"
++++ "b/\347\250\213\345\272\217/distribution_manifest.md"
+@@ -4,6 +4,8 @@
+ 
+ 本清单定义正式分发副本应包含和排除的路径，由仓库现有 `scripts/distribution_build.py` 构建/校验工具消费；清单本身不执行复制、移动、删除或归档，也不在应用启动时读取。
+ 
++升级安装（C8）不复用本清单做原地覆盖：`infra/update_source.py` 只信任 TUF 元数据与随安装包交付的 `root.json`，`infra/update_installer.py` 只替换签名升级包容量的程序文件，并保留 `config.json`、`projects.json`、`desktop_settings.json`、`private/`、`data/`、`升级备份/` 与用户项目素材。分发清单仍负责「新的正式副本里应有哪些文件」，升级器负责「既有安装上如何安全替换程序文件」。
++
+ 分发根为 `D:\漫剧制作助手\`。正式副本保留根目录启动器、`运行环境/` 与 `程序/` 的运行所需内容；用户项目 `D:\漫剧下载\` 不属于分发输入。
+ 
+ ## 必须保留
+diff --git "a/\347\250\213\345\272\217/docs/specs/03_\345\256\211\350\243\205\347\255\276\345\220\215\344\270\216\345\210\206\345\217\221.md" "b/\347\250\213\345\272\217/docs/specs/03_\345\256\211\350\243\205\347\255\276\345\220\215\344\270\216\345\210\206\345\217\221.md"
+index 1bdf1093..d8ed46ee 100644
+--- "a/\347\250\213\345\272\217/docs/specs/03_\345\256\211\350\243\205\347\255\276\345\220\215\344\270\216\345\210\206\345\217\221.md"
++++ "b/\347\250\213\345\272\217/docs/specs/03_\345\256\211\350\243\205\347\255\276\345\220\215\344\270\216\345\210\206\345\217\221.md"
+@@ -10,10 +10,10 @@
+ | 分发形态 | 目录副本 + 脚本 | `scripts/distribution_build.py`（`--plan/--build/--verify`） |
+ | 分发清单 | 已有白名单机制 | [`distribution_manifest.md`](../../distribution_manifest.md)（构建器消费） |
+ | 完整性 | **已有逐文件 sha256** | `distribution_build.py` 写 `分发清单.json`；`verify()` 比对 mismatch/extra |
+-| 签名 | **未实现** | 需要真实构建机密钥；发布门拒绝伪造通过 |
+ | SBOM | **已实现** | `scripts/sbom.py` 默认接入 `distribution_build.py`；`distribution_selfcheck --release` 校验 |
++| 签名 | **发布端已实现 TUF Ed25519（C8）**；真实发布密钥待首次发布时生成 | `scripts/update_publish.py`；客户端验签 `infra/update_source.py` |
+ | 代码签名证书 | **无**（无 `.pfx`／`.p12`／`.snk`） | 全仓 0 命中 |
+-| 更新机制 | 只比版本号，**不校验包** | `infra/update_notice.py`（读 `/v1/meta`） |
++| 更新机制 | **C8 已实现**：TUF 元数据验签＋目标哈希校验＋防降级＋原子安装＋失败回滚；版本提示仍由 `update_notice` 判定 | `infra/update_source.py`、`infra/update_installer.py`；验收 `tests/test_update_pipeline.py` |
+ | CI | 本地 `.cmd`，无 GitHub Actions | `开发者工具/本地CI.cmd` |
+ 
+ **关键结论**：完整性校验的**基础已存在**（`分发清单.json` + `verify()`），缺的是「用它」——更新流程不验包。
+@@ -108,10 +108,30 @@
+ ```
+ 
+ **设计要求**：
+-1. 更新流程**必须**调用 `distribution_build.verify()`，不能只比版本号（当前 `update_notice.py` 的缺陷）。
++1. 更新流程**必须**校验包完整性，不能只比版本号（`update_notice.py` 只做提示判定，不下载）。
+ 2. 签名验证**只放发布与自检通道**，不进启动路径（规则 33 启动零递归扫描）。
+ 3. 校验失败必须**拒绝安装**并明确提示，不得「警告后继续」。
+ 
++C8 选型结果：不采用「SHA256SUMS + minisign」外挂签名，改用成熟 TUF 框架（`tuf 7.0.1`＋`securesystemslib 1.6.0`）。`tufup` 因硬依赖 `bsdiff4` 无 cp314 win_amd64 wheel 被排除；python-tuf 的 Ed25519 客户端验证走自带参考实现，不需要 `cryptography`。发布端仍可由 `distribution_build.py` 生成逐文件摘要供交付物核对，但更新链路的信任根是 TUF 元数据。
++
++### 3.5 升级执行器（C8 已实现）
++
++| 环节 | 实现 | 边界 |
++| --- | --- | --- |
++| 信任锚 | `infra/update_source.py: load_trusted_root()` | 只读随安装包交付的本地 `root.json`；元数据不从网络取 root，客户端没有其它信任来源 |
++| 元数据 | python-tuf `Updater`（root／targets／snapshot／timestamp） | 验签、过期、元数据版本回放（`BadVersionNumberError`）全部由 TUF 判定；`metadata_dir` 持久缓存用于防回放 |
++| 目标选择 | `UpdateSource.check()` | 目标名 `program-<platform>.zip`；`custom.app_version` 必须高于当前版本，相同返回「已最新」，更低抛 `DowngradeRejected`；`custom.min_client_version` 标记强制更新 |
++| 下载 | `UpdateSource.download()` → `http_client.request_bytes` 适配器 | 出站唯一入口复用 L1 `http_client`；测试注入内存仓库传输；哈希/长度不符抛 `TargetRejected` |
++| 解包 | `infra/update_installer.py: plan_entries()` | 拒绝绝对路径、`..`、盘符、反斜杠、Windows 保留名、尾随点/空格、ADS 冒号、符号链接、大小写重复、单文件与总量超限 |
++| 数据保护 | `PROTECTED_ROOTS` | `config.json`、`projects.json`、`desktop_settings.json`、`private/`、`data/`、`升级备份/`、`logs/`、`配置/` 即使出现在包内也整包拒绝；未列出的文件一律不动 |
++| 安装事务 | `install_archive()` | 同卷暂存 → 旧文件移入事务备份 → 新文件 `os.replace` 换入；每步失败反向恢复旧文件 |
++| 回滚/回收 | `_rollback()` ＋ `storage_maintenance.recycle_paths()` | 回滚恢复旧版本字节；旧版文件与失败暂存统一进回收站（可恢复），不新写删除逻辑 |
++| 发布端 | `scripts/update_publish.py` | 生成四角色元数据与签名目标包；私钥种子只从 Git 树外目录读取，本脚本不写私钥、不进分发 |
++
++验收：`tests/test_update_pipeline.py` 在真实临时目录跑完整「发布签名→检查→下载→验签→安装→保留用户数据→回滚」链路，并覆盖篡改目标、空签名元数据、不可信 root、元数据回放、zip slip、受保护路径、回滚恢复等拒绝路径；禁用真实网络。
++
++真实发布密钥生成、离线保管、root 轮换与发布流水线仍待首次正式发布时落地（见 §7）。
++
+ ### 3.4 何时升级到 Authenticode
+ 
+ 满足任一条件时重新评估：
+@@ -160,8 +180,8 @@
+ | D-1 | 编写 Inno Setup 脚本 | 无 |
+ | D-2 | 编写 WiX v4 MSI 配置 | 无 |
+ | D-3 | `scripts/sbom.py` 与发布门 | **已完成** |
+-| D-4 | 实现 minisign 签名与验证 | 需生成密钥对 |
+-| D-5 | 修 `update_notice` 使其校验包完整性 | D-3、D-4 |
++| D-4 | 实现 minisign 签名与验证 | **C8 改为 TUF Ed25519 已实现**；真实发布密钥待生成 |
++| D-5 | 修 `update_notice` 使其校验包完整性 | **C8 由升级执行器实现**（`update_notice` 仍只做提示判定，不下载） |
+ | D-6 | 清理死文件 `说明/版本文件校验.json` | 已确认零消费方 |
+ | D-7 | 导出软件实机验收（P1-4） | 需安装目标软件 |
+ 
+diff --git "a/\347\250\213\345\272\217/infra/update_installer.py" "b/\347\250\213\345\272\217/infra/update_installer.py"
+new file mode 100644
+index 00000000..63c74540
+--- /dev/null
++++ "b/\347\250\213\345\272\217/infra/update_installer.py"
+@@ -0,0 +1,267 @@
++"""L1 升级安装事务：安全解包 → 逐文件原子替换 → 失败回滚 → 用户数据保护。
++
++设计要点（C8）：
++
++- 只替换升级清单（ZIP 条目）列出的程序文件；未列出的文件（``config.json``、
++  ``projects.json``、``desktop_settings.json``、``private/``、``data/``、``升级备份/``、
++  日志、全局配置目录）即使出现在包内也直接拒绝，绝不删除、移动或覆盖。
++- 解包不用 ``extractall``：逐条目校验绝对路径、``..``、盘符、Windows 保留名、
++  尾随点／空格、ADS 冒号、符号链接与大小上限，防 zip slip 与 zip bomb。
++- 事务：先把旧文件移入同卷临时备份目录，再把新文件移入正式路径；任一步失败即
++  反向恢复旧文件，新文件交给 ``storage_maintenance.recycle_paths`` 回收而非直接删除。
++- 不做 shell 调用：全程纯 Python，``os.replace`` 经注入的 ``mover`` 单点收口。
++"""
++from __future__ import annotations
++
++import os
++import time
++import uuid
++import zipfile
++from dataclasses import dataclass
++from pathlib import Path
++
++from contract.infra_errors import StorageError
++from infra import storage_maintenance
++
++__all__ = [
++    'MAX_ENTRY_BYTES', 'MAX_TOTAL_BYTES', 'PROTECTED_ROOTS', 'InstallError',
++    'UnsafePayload', 'install_archive', 'install_update', 'plan_entries',
++    'staging_root',
++]
++
++MAX_ENTRY_BYTES = 64 * 1024 * 1024
++MAX_TOTAL_BYTES = 512 * 1024 * 1024
++PROTECTED_ROOTS = frozenset({
++    'config.json', 'projects.json', 'desktop_settings.json',
++    'private', 'data', '升级备份', 'logs', '配置',
++})
++STAGING_DIR_NAME = '.upgrade-tmp'
++_INVALID_CHARS = frozenset('<>:"|?*')
++_RESERVED = frozenset({'CON', 'PRN', 'AUX', 'NUL'}
++                      | {'COM%d' % index for index in range(1, 10)}
++                      | {'LPT%d' % index for index in range(1, 10)})
++
++
++class InstallError(StorageError):
++    """安装事务失败；旧文件已尽力恢复，新文件已交回回收站。"""
++
++
++class UnsafePayload(InstallError):
++    """升级包路径／体积／条目类型越界，整包拒绝且不写入任何文件。"""
++
++
++@dataclass(frozen=True)
++class Entry:
++    """一个待安装条目：包内条目名与相对安装根的安全路径。"""
++
++    name: str
++    relative: Path
++    size: int
++
++
++def staging_root(install_root):
++    """升级事务临时目录的父目录；与安装根同卷，保证 ``os.replace`` 原子。"""
++    return Path(install_root) / STAGING_DIR_NAME
++
++
++def _segments(name):
++    """把 ZIP 条目名切成安全路径段；越界即 ``UnsafePayload``。"""
++    if not isinstance(name, str) or not name:
++        raise UnsafePayload('升级包条目名为空')
++    if '\\' in name:
++        raise UnsafePayload('升级包条目含反斜杠，拒绝歧义路径：%r' % name)
++    if name.startswith('/') or (len(name) > 1 and name[1] == ':'):
++        raise UnsafePayload('升级包条目是绝对路径：%r' % name)
++    parts = name.split('/')
++    for part in parts:
++        if part in ('', '.', '..'):
++            raise UnsafePayload('升级包条目含空段或上跳段：%r' % name)
++        if part != part.rstrip(' .') or part.endswith('.'):
++            raise UnsafePayload('升级包条目含尾随点或空格：%r' % name)
++        if any(char in _INVALID_CHARS or ord(char) < 32 for char in part):
++            raise UnsafePayload('升级包条目含非法字符：%r' % name)
++        if part.split('.')[0].upper() in _RESERVED:
++            raise UnsafePayload('升级包条目命中 Windows 保留名：%r' % name)
++    return parts
++
++
++def _relative_path(name):
++    """校验并返回相对安装根的路径；受保护根即使出现在包内也拒绝。"""
++    parts = _segments(name)
++    if parts[0].casefold() in {item.casefold() for item in PROTECTED_ROOTS}:
++        raise UnsafePayload('升级包试图覆盖受保护路径：%r' % name)
++    return Path(*parts)
++
++
++def plan_entries(archive_path):
++    """只读预检升级包，返回待安装条目；不写任何文件。"""
++    entries = []
++    seen = set()
++    total = 0
++    try:
++        archive = zipfile.ZipFile(archive_path)
++    except (OSError, zipfile.BadZipFile) as exc:
++        raise UnsafePayload('升级包无法打开：%s' % type(exc).__name__,
++                            detail={'path': str(archive_path)}) from exc
++    with archive:
++        for info in archive.infolist():
++            if info.is_dir():
++                continue
++            mode = (info.external_attr >> 16) & 0o170000
++            if mode == 0o120000:
++                raise UnsafePayload('升级包含符号链接条目：%r' % info.filename)
++            relative = _relative_path(info.filename)
++            key = '/'.join(part.casefold() for part in relative.parts)
++            if key in seen:
++                raise UnsafePayload('升级包条目大小写重复：%r' % info.filename)
++            seen.add(key)
++            if info.file_size > MAX_ENTRY_BYTES:
++                raise UnsafePayload('升级包单文件超限：%r（%d 字节）'
++                                    % (info.filename, info.file_size))
++            total += info.file_size
++            if total > MAX_TOTAL_BYTES:
++                raise UnsafePayload('升级包解压总量超限：%d 字节' % total)
++            entries.append(Entry(info.filename, relative, info.file_size))
++    if not entries:
++        raise UnsafePayload('升级包没有任何程序文件')
++    return entries
++
++
++def _check_ancestors(root, relative):
++    """拒绝经符号链接／junction 逃出安装根的既有路径。"""
++    current = Path(root)
++    is_junction = getattr(os.path, 'isjunction', None)
++    for part in relative.parts[:-1]:
++        current = current / part
++        if current.is_symlink() or (is_junction is not None and is_junction(current)):
++            raise UnsafePayload('安装目标路径经过链接目录：%s' % relative)
++    target = Path(root) / relative
++    if target.is_symlink() or (is_junction is not None and is_junction(target)):
++        raise UnsafePayload('安装目标是符号链接或 junction：%s' % relative)
++    if target.exists() and target.is_dir():
++        raise UnsafePayload('安装目标是目录：%s' % relative)
++    return target
++
++
++def _extract(archive_path, entry, staging_dir):
++    """把单条目写入事务暂存区；写入长度必须与声明一致。"""
++    destination = Path(staging_dir) / entry.relative
++    destination.parent.mkdir(parents=True, exist_ok=True)
++    written = 0
++    try:
++        with zipfile.ZipFile(archive_path) as archive, archive.open(entry.name) as source, \
++                open(destination, 'wb') as target:
++            while True:
++                chunk = source.read(1024 * 1024)
++                if not chunk:
++                    break
++                written += len(chunk)
++                if written > entry.size or written > MAX_ENTRY_BYTES:
++                    raise UnsafePayload('升级包条目实际长度超出声明：%r' % entry.name)
++                target.write(chunk)
++    except (OSError, zipfile.BadZipFile, RuntimeError) as exc:
++        raise UnsafePayload('升级包解压失败：%s' % type(exc).__name__,
++                            detail={'entry': entry.name}) from exc
++    if written != entry.size:
++        raise UnsafePayload('升级包条目长度与 ZIP 声明不符：%r' % entry.name)
++    return destination
++
++
++def _move(source, target):
++    """同卷原子移动单点收口（所有移动都经这里，便于注入失败）。"""
++    target.parent.mkdir(parents=True, exist_ok=True)
++    os.replace(source, target)
++
++
++def _recycle_or_keep(root, path, reason):
++    """回收失败不掩盖安装结果；返回是否完成回收。"""
++    try:
++        storage_maintenance.recycle_paths(root, [path], reason)
++        return True
++    except (OSError, ValueError):
++        return False
++
++
++def _rollback(installed, backups, mover, transaction):
++    """反向恢复：先挪走已安装的新文件，再放回旧文件。返回恢复失败数。"""
++    failed = 0
++    for relative, target in reversed(installed):
++        try:
++            mover(target, transaction / 'failed' / relative)
++        except OSError:
++            failed += 1
++    for relative, backup, target in reversed(backups):
++        try:
++            mover(backup, target)
++        except OSError:
++            failed += 1
++    return failed
++
++
++def _apply(entry_pairs, transaction, mover, installed, backups):
++    """执行备份＋安装；部分状态由调用方持有，异常后仍可完整回滚。"""
++    for relative, target in entry_pairs:
++        if target.exists():
++            backup = transaction / 'old' / relative
++            mover(target, backup)
++            backups.append((relative, backup, target))
++    for relative, target in entry_pairs:
++        source = transaction / 'new' / relative
++        mover(source, target)
++        installed.append((relative, target))
++
++
++def install_archive(archive_path, install_root, *, version, now=None, mover=_move):
++    """把已验签升级包安装到 ``install_root``；失败自动回滚并抛 ``InstallError``。
++
++    返回回执：版本、安装文件数、事务目录与回收结果。旧版本文件经
++    ``storage_maintenance.recycle_paths`` 回收，可在回收站恢复。
++    """
++    root = Path(install_root).resolve()
++    if not root.is_dir():
++        raise InstallError('安装根不存在：%s' % root)
++    entries = plan_entries(archive_path)
++    pairs = []
++    for entry in entries:
++        target = _check_ancestors(root, entry.relative)
++        pairs.append((entry.relative, target))
++    token = time.strftime('%Y%m%d_%H%M%S', time.localtime(now if now is not None else time.time()))
++    transaction = staging_root(root) / ('%s-%s' % (token, uuid.uuid4().hex[:8]))
++    (transaction / 'new').mkdir(parents=True)
++    (transaction / 'old').mkdir()
++    installed = []
++    backups = []
++    try:
++        for entry in entries:
++            _extract(archive_path, entry, transaction / 'new')
++        _apply(pairs, transaction, mover, installed, backups)
++    except Exception as exc:
++        failed = _rollback(installed, backups, mover, transaction)
++        _recycle_or_keep(root, transaction, '升级安装失败，回收临时文件与未采用版本')
++        if isinstance(exc, InstallError):
++            raise
++        raise InstallError('升级安装失败，已回滚：%s' % type(exc).__name__,
++                           detail={'error': str(exc), 'rollback_failures': failed}) from exc
++    recycled = _recycle_or_keep(root, transaction / 'old',
++                                '升级安装完成，旧版程序文件归档')
++    _recycle_or_keep(root, transaction / 'new', '升级安装完成，清理空暂存目录')
++    try:
++        transaction.rmdir()
++    except OSError:
++        pass
++    return {'version': str(version or ''), 'installed': len(installed),
++            'files': [relative.as_posix() for relative, _target in installed],
++            'transaction': str(transaction), 'old_recycled': recycled}
++
++
++def install_update(source, install_root, *, current_version=None, archive=None):
++    """完整升级链：``source.check()`` → 下载 → 安装；无新版返回 ``current``。
++
++    校验失败或安装失败时 ``install_archive`` 已回滚；本函数不吞异常。
++    """
++    release = source.check()
++    if release is None:
++        return {'status': 'current', 'release': None}
++    archive_path = Path(archive) if archive is not None else source.download(release)
++    receipt = install_archive(archive_path, install_root, version=release.app_version)
++    return {'status': 'installed', 'release': release.summary(), 'receipt': receipt}
+diff --git "a/\347\250\213\345\272\217/infra/update_source.py" "b/\347\250\213\345\272\217/infra/update_source.py"
+new file mode 100644
+index 00000000..bf4655f8
+--- /dev/null
++++ "b/\347\250\213\345\272\217/infra/update_source.py"
+@@ -0,0 +1,328 @@
++"""L1 可信升级源：内置 TUF root 信任锚 + 元数据验签 + 目标筛选 + 受控下载。
++
++边界（C8 升级执行器）：
++
++- 只信任调用方交付的本地 ``root.json`` 字节（``load_trusted_root``）；元数据、目标文件
++  一律经注入的 ``transport(url) -> (status, body)`` 获取，生产适配器走
++  ``infra.http_client.request_bytes``，测试注入内存仓库，模块自身不联网。
++- 发布私钥、签名角色与 root 轮换只存在于 ``scripts/update_publish.py``（开发期工具），
++  本模块不生成密钥、不写签名。
++- 只负责「有没有可用新版 + 安全下载到暂存」；解包、原子替换、数据保护与回滚在
++  ``infra.update_installer``，用户可见提示复用 ``infra.update_notice``。
++"""
++from __future__ import annotations
++
++import platform as _platform
++import sys
++from dataclasses import dataclass, field
++from pathlib import Path
++
++from contract.infra_errors import CorruptDataError, NetworkError
++from infra import update_notice
++from tuf.api.exceptions import (BadVersionNumberError, DownloadHTTPError,
++                                ExpiredMetadataError, LengthOrHashMismatchError,
++                                RepositoryError, UnsignedMetadataError)
++from tuf.ngclient import Updater
++from tuf.ngclient.fetcher import FetcherInterface
++
++__all__ = [
++    'DEFAULT_METADATA_BASE_URL', 'DEFAULT_TARGET_BASE_URL', 'Release', 'SourceOptions',
++    'TransportError', 'TrustError', 'TargetRejected', 'DowngradeRejected',
++    'UnsupportedPlatform', 'UpdateSource', 'http_transport', 'load_trusted_root',
++    'platform_tag', 'target_name',
++]
++
++DEFAULT_METADATA_BASE_URL = 'https://updates.invalid/metadata/'
++DEFAULT_TARGET_BASE_URL = 'https://updates.invalid/targets/'
++MAX_ROOT_BYTES = 512 * 1024
++TARGET_TEMPLATE = 'program-{platform}.zip'
++
++
++class UpdateSourceError(CorruptDataError):
++    """升级源技术异常根；兼容 ``except ValueError``。"""
++
++    code = 'E-IO-CORRUPT'
++    _allowed = frozenset({'E-IO-CORRUPT', 'E-CONTRACT-VIOLATION'})
++
++
++class TrustError(UpdateSourceError):
++    """root／元数据缺失、签名无效、过期或不完整。"""
++
++
++class TargetRejected(UpdateSourceError):
++    """目标包不满足元数据声明的长度／哈希／版本字段。"""
++
++
++class DowngradeRejected(UpdateSourceError):
++    """目标版本不高于当前版本，或元数据版本回放。"""
++
++    code = 'E-CONTRACT-VIOLATION'
++
++
++class UnsupportedPlatform(UpdateSourceError):
++    """当前平台没有对应的升级目标命名。"""
++
++    code = 'E-CONTRACT-VIOLATION'
++
++
++class TransportError(NetworkError):
++    """传输失败（超时、5xx、非 404 的错误码）。"""
++
++
++def platform_tag():
++    """当前平台的目标命名；仅支持 Windows（应用只交付 Windows 解释器）。"""
++    if sys.platform != 'win32':
++        raise UnsupportedPlatform('升级只支持 Windows，当前平台为 %s' % sys.platform)
++    machine = (_platform.machine() or '').lower()
++    if machine in ('amd64', 'x86_64'):
++        return 'win_amd64'
++    if machine in ('arm64', 'aarch64'):
++        return 'win_arm64'
++    raise UnsupportedPlatform('不支持的 CPU 架构：%s' % (machine or 'unknown'))
++
++
++def target_name(platform=None):
++    """升级目标在 TUF targets 里的固定名字。"""
++    return TARGET_TEMPLATE.format(platform=platform or platform_tag())
++
++
++def load_trusted_root(path):
++    """读取并结构校验随安装包交付的信任锚 root.json，返回原始字节。
++
++    只做本地解析与类型校验；真正的签名信任由 ``Updater(bootstrap=...)`` 覆盖，
++    不从网络拉取 root。
++    """
++    from tuf.api.metadata import Metadata
++
++    root_path = Path(path)
++    try:
++        size = root_path.stat().st_size
++        data = root_path.read_bytes()
++    except OSError as exc:
++        raise TrustError('缺少可信 root.json：%s' % root_path,
++                         detail={'path': str(root_path), 'error': type(exc).__name__}) from exc
++    if not data or size > MAX_ROOT_BYTES:
++        raise TrustError('可信 root.json 大小异常：%d 字节' % size)
++    try:
++        metadata = Metadata.from_bytes(data)
++    except Exception as exc:
++        raise TrustError('可信 root.json 无法解析',
++                         detail={'error': type(exc).__name__}) from exc
++    if metadata.signed.type != 'root':
++        raise TrustError('可信信任锚不是 root 元数据：%s' % metadata.signed.type)
++    return data
++
++
++def http_transport(*, timeout=30, request=None):
++    """生产传输适配器：唯一出站入口 ``http_client.request_bytes`` 的薄包装。
++
++    ``request`` 可注入以替换传输实现；返回 ``(status, body)``，404 交给 TUF
++    fetcher 翻译成 ``DownloadHTTPError``。
++    """
++    from infra import http_client
++
++    send = request or http_client.request_bytes
++
++    def fetch(url):
++        result = send('GET', url, timeout=timeout, retries=1)
++        data = getattr(result, 'data', None) or {}
++        status = int(data.get('status') or 0)
++        if not getattr(result, 'ok', False):
++            if status == 404:
++                return 404, b''
++            raise TransportError('升级源请求失败：%s' % (getattr(result, 'message', '') or url),
++                                 detail={'url': url, 'status': status})
++        body = data.get('body')
++        if not isinstance(body, (bytes, bytearray)):
++            raise TransportError('升级源响应缺少字节体', detail={'url': url})
++        return status or 200, bytes(body)
++
++    return fetch
++
++
++def _compare_versions(candidate, baseline):
++    """版本元组比较：返回 1／0／-1；任一侧不可解析返回 0（由调用方决定语义）。"""
++    left = update_notice.parse_version(candidate)
++    right = update_notice.parse_version(baseline)
++    if left is None or right is None:
++        return 0
++    size = max(len(left), len(right))
++    left = tuple(left) + (0,) * (size - len(left))
++    right = tuple(right) + (0,) * (size - len(right))
++    return (left > right) - (left < right)
++
++
++class _TransportFetcher(FetcherInterface):
++    """把注入传输接到 python-tuf；不实现任何网络栈。"""
++
++    def __init__(self, transport):
++        self._transport = transport
++        self.calls = []
++
++    def _fetch(self, url):
++        status, body = self._transport(url)
++        self.calls.append((url, status))
++        if status >= 400:
++            raise DownloadHTTPError('升级源不存在：%s（HTTP %s）' % (url, status), status)
++        yield body
++
++
++@dataclass
++class Release:
++    """一个可安装的升级目标（已通过元数据验签与防降级检查）。"""
++
++    name: str
++    app_version: str
++    platform: str
++    length: int
++    hashes: dict
++    required: bool = False
++    target: object = field(default=None, repr=False, compare=False)
++
++    def summary(self):
++        """供上层提示／日志使用的公开摘要，不含 TUF 内部对象。"""
++        return {'name': self.name, 'app_version': self.app_version,
++                'platform': self.platform, 'length': self.length,
++                'sha256': self.hashes.get('sha256', ''), 'required': self.required}
++
++
++@dataclass(frozen=True)
++class SourceOptions:
++    """可替换的升级源接口参数；默认值即生产布局（仓库 ``metadata/``＋``targets/``）。"""
++
++    metadata_base_url: str = DEFAULT_METADATA_BASE_URL
++    target_base_url: str = DEFAULT_TARGET_BASE_URL
++    target: str = ''
++    updater_factory: object = Updater
++
++
++class UpdateSource:
++    """一次升级会话的 TUF 客户端：``refresh -> check -> download``。"""
++
++    def __init__(self, metadata_dir, target_dir, *, transport, trusted_root,
++                 current_version, options=None):
++        if not isinstance(trusted_root, (bytes, bytearray)) or not trusted_root:
++            raise TrustError('可信 root 必须是本地 root.json 字节')
++        chosen = options or SourceOptions()
++        self.metadata_dir = Path(metadata_dir)
++        self.target_dir = Path(target_dir)
++        self._transport = transport
++        self._trusted_root = bytes(trusted_root)
++        self.current_version = str(current_version or '')
++        self.metadata_base_url = chosen.metadata_base_url
++        self.target_base_url = chosen.target_base_url
++        self.target = chosen.target or target_name()
++        self._updater_factory = chosen.updater_factory
++        self._updater = None
++        self.fetcher = _TransportFetcher(self._wrap_transport())
++
++    def _wrap_transport(self):
++        def guarded(url):
++            try:
++                return self._transport(url)
++            except TransportError:
++                raise
++            except OSError as exc:
++                raise TransportError('升级源连接失败：%s' % type(exc).__name__,
++                                     detail={'url': url}) from exc
++            except Exception as exc:
++                raise TransportError('升级源传输异常：%s' % type(exc).__name__,
++                                     detail={'url': url}) from exc
++        return guarded
++
++    def _client(self):
++        if self._updater is not None:
++            return self._updater
++        try:
++            self.metadata_dir.mkdir(parents=True, exist_ok=True)
++            self.target_dir.mkdir(parents=True, exist_ok=True)
++            self._updater = self._updater_factory(
++                str(self.metadata_dir), self.metadata_base_url, str(self.target_dir),
++                self.target_base_url, fetcher=self.fetcher, bootstrap=self._trusted_root)
++        except (OSError, ValueError) as exc:
++            raise TrustError('无法初始化升级源：%s' % type(exc).__name__,
++                             detail={'error': str(exc)}) from exc
++        return self._updater
++
++    def refresh(self):
++        """拉取并验签 timestamp/snapshot/targets（必要时轮换 root）。"""
++        try:
++            self._client().refresh()
++        except TransportError:
++            raise
++        except ExpiredMetadataError as exc:
++            raise TrustError('升级元数据已过期', detail={'error': type(exc).__name__}) from exc
++        except UnsignedMetadataError as exc:
++            raise TrustError('升级元数据签名无效或不受信任',
++                             detail={'error': type(exc).__name__}) from exc
++        except BadVersionNumberError as exc:
++            raise DowngradeRejected('拒绝回放旧版升级元数据',
++                                    detail={'error': type(exc).__name__}) from exc
++        except DownloadHTTPError as exc:
++            raise TransportError('升级元数据不可用：HTTP %s' % exc.status_code,
++                                 detail={'status': exc.status_code}) from exc
++        except (RepositoryError, OSError, ValueError) as exc:
++            raise TrustError('升级元数据校验失败：%s' % type(exc).__name__,
++                             detail={'error': str(exc)}) from exc
++        return self
++
++    def _compare(self, candidate):
++        """目标版本相对当前版本：1 更新／0 相同／-1 更旧；当前不可解析视为更新。"""
++        mine = update_notice.parse_version(self.current_version)
++        theirs = update_notice.parse_version(candidate)
++        if theirs is None:
++            raise TargetRejected('升级目标缺少可解析的版本号：%r' % candidate)
++        if mine is None:
++            return 1
++        return _compare_versions(candidate, self.current_version)
++
++    def check(self):
++        """返回可用 ``Release``；已是最新返回 ``None``。"""
++        self.refresh()
++        try:
++            info = self._client().get_targetinfo(self.target)
++        except (RepositoryError, ValueError, OSError) as exc:
++            raise TrustError('升级目标元数据不可用：%s' % type(exc).__name__,
++                             detail={'error': str(exc)}) from exc
++        if info is None:
++            return None
++        custom = (info.unrecognized_fields or {}).get('custom')
++        if not isinstance(custom, dict):
++            raise TargetRejected('升级目标缺少 custom 元数据')
++        version = str(custom.get('app_version') or '')
++        current = update_notice.parse_version(self.current_version)
++        required = bool(current is not None
++                        and _compare_versions(custom.get('min_client_version'), current) > 0)
++        comparison = self._compare(version)
++        if comparison < 0:
++            raise DowngradeRejected('升级目标版本 %s 低于当前版本 %s'
++                                    % (version, self.current_version),
++                                    detail={'target': version, 'current': self.current_version})
++        if comparison == 0:
++            return None
++        return Release(name=self.target, app_version=version,
++                       platform=str(custom.get('platform') or ''),
++                       length=info.length, hashes=dict(info.hashes),
++                       required=required, target=info)
++
++    def download(self, release):
++        """把已验证目标下载到 ``target_dir``，返回本地暂存路径。"""
++        if release is None or release.target is None:
++            raise TargetRejected('缺少可下载的升级目标')
++        try:
++            path = Path(self._client().download_target(release.target))
++        except LengthOrHashMismatchError as exc:
++            raise TargetRejected('升级包长度或哈希与元数据不符',
++                                 detail={'target': release.name}) from exc
++        except DownloadHTTPError as exc:
++            raise TransportError('升级包下载失败：HTTP %s' % exc.status_code,
++                                 detail={'status': exc.status_code}) from exc
++        except TransportError:
++            raise
++        except OSError as exc:
++            raise TransportError('升级包写入失败：%s' % type(exc).__name__,
++                                 detail={'error': str(exc)}) from exc
++        path = path.resolve()
++        if not path.is_file() or not path.is_relative_to(self.target_dir.resolve()):
++            raise TargetRejected('升级包落点不在受控暂存目录：%s' % path)
++        return path
+diff --git "a/\347\250\213\345\272\217/requirements.txt" "b/\347\250\213\345\272\217/requirements.txt"
+index d3e8d8f0..f44c44b7 100644
+--- "a/\347\250\213\345\272\217/requirements.txt"
++++ "b/\347\250\213\345\272\217/requirements.txt"
+@@ -13,3 +13,5 @@ typing-extensions==4.16.0
+ typing-inspection==0.4.5
+ psutil==7.2.2
+ nvidia-ml-py==13.615.71
++tuf==7.0.1
++securesystemslib==1.6.0
+diff --git "a/\347\250\213\345\272\217/runbook.md" "b/\347\250\213\345\272\217/runbook.md"
+index 6cec939f..ded044ce 100644
+--- "a/\347\250\213\345\272\217/runbook.md"
++++ "b/\347\250\213\345\272\217/runbook.md"
+@@ -158,7 +158,7 @@ R2979 起探针侧已按 `performance_contract.py` 末尾对照表补齐同口
+ 
+ ## 11. 覆盖率口径
+ 
+-`维护记录\覆盖率基线.json` 是**定向测量**，不是整仓覆盖率。R3874当前整合树以目标并集20组真实重测275条全通过：生产运行时模块677个，其中147个有行覆盖，其余530个未在该定向集触及；不是整仓覆盖率21.7%。
++`维护记录\覆盖率基线.json` 是**定向测量**，不是整仓覆盖率。R3874当前整合树＋C8新增两模块以目标并集21组真实重测290条全通过：生产运行时模块679个，其中150个有行覆盖，其余529个未在该定向集触及；不是整仓覆盖率22.1%。
+ 
+ - 字段口径：`modules_total`＝生产运行时模块总数；`modules_covered`＝其中被覆盖到的模块数；`targets`＝本次定向用例组；`tests_ok`＝测量时目标是否全绿。未触及模块不等于整仓质量百分比。
+ 
+@@ -167,7 +167,7 @@ R2979 起探针侧已按 `performance_contract.py` 末尾对照表补齐同口
+ 
+ 要一份真实的「未覆盖模块」清单，须另立一次全量 `sys.settrace` 测量（成本高，须用户同意）。
+ 
+-分支覆盖率（SWE-2 T8.4，L0/L1 棘轮）：`维护记录\分支覆盖率基线.json` 同样是**定向测量**，不是全量套件分支覆盖率。口径：对 `_layers.LAYERS` 登记层 0/1 的 105 个实体模块（含迁包与无顶层门面的实体）统计「决策点双结果覆盖」——`if`／`while`／`for`／`try`（含 `except*`）／`match` 每个决策点要求两个方向都被真实执行过；单行复合语句（`if x: y`）、表达式短路（`and`／`or`／三元／推导式 if）、`try/finally`（无 handler）不计入分母；`while` 退出＝条件判假、`for` 耗尽＝迭代器走完（`break` 离开不算）；`match` 末位 `case _` 时只要求 case 被进入。动态证据按 `(文件, co_qualname)` 归属代码对象作用域。测量工具 `scripts\branch_coverage_report.py`（同 `sys.settrace`、零第三方依赖），棘轮下限在 `维护记录\分支覆盖率下限.json`（只许人工上调，工具重测不改写），门禁 `tests\architecture\test_branch_coverage_floor.py` 只做结构自洽、模块集合相等、下限不回退与工具可用性四件事，不重跑测量。刷新基线必须显式重跑工具并同步上调下限表，目标用例失败时工具拒绝写基线。
++分支覆盖率（SWE-2 T8.4，L0/L1 棘轮）：`维护记录\分支覆盖率基线.json` 同样是**定向测量**，不是全量套件分支覆盖率。口径：对 `_layers.LAYERS` 登记层 0/1 的 107 个实体模块（含迁包与无顶层门面的实体）统计「决策点双结果覆盖」——`if`／`while`／`for`／`try`（含 `except*`）／`match` 每个决策点要求两个方向都被真实执行过；单行复合语句（`if x: y`）、表达式短路（`and`／`or`／三元／推导式 if）、`try/finally`（无 handler）不计入分母；`while` 退出＝条件判假、`for` 耗尽＝迭代器走完（`break` 离开不算）；`match` 末位 `case _` 时只要求 case 被进入。动态证据按 `(文件, co_qualname)` 归属代码对象作用域。测量工具 `scripts\branch_coverage_report.py`（同 `sys.settrace`、零第三方依赖），棘轮下限在 `维护记录\分支覆盖率下限.json`（只许人工上调，工具重测不改写），门禁 `tests\architecture\test_branch_coverage_floor.py` 只做结构自洽、模块集合相等、下限不回退与工具可用性四件事，不重跑测量。刷新基线必须显式重跑工具并同步上调下限表，目标用例失败时工具拒绝写基线。
+ 
+ ### C7 第二静态契约引擎（开发环境）
+ 
+diff --git "a/\347\250\213\345\272\217/scripts/update_publish.py" "b/\347\250\213\345\272\217/scripts/update_publish.py"
+new file mode 100644
+index 00000000..bddbc9cc
+--- /dev/null
++++ "b/\347\250\213\345\272\217/scripts/update_publish.py"
+@@ -0,0 +1,321 @@
++r"""开发期发布端：生成 TUF 元数据与签名目标包（不进分发副本、不写仓库私钥）。
++
++信任边界：
++
++- 四个角色（root／targets／snapshot／timestamp）的 **Ed25519 私钥种子只在构建机本地**
++  ``--keys`` 目录（仓库外）读取，本脚本绝不写私钥，也拒绝在 Git 工作树内生成密钥。
++- 客户端只拿到 ``root.json``（公开公钥）与已签名元数据；root 轮换、离线密钥保管与
++  真实发布地址由发布流程人工决定（见 ``docs/specs/03_安装签名与分发.md``）。
++- 优先用 ``cryptography``（真实发布建议安装到开发环境）；未安装时退回
++  securesystemslib 自带的 Ed25519 参考实现，仅适合本地构建与自动化测试。
++
++用法（随附解释器，工作目录 ``程序``）::
++
++    python.exe -B scripts\update_publish.py --generate-keys D:\release-keys\c8
++    python.exe -B scripts\update_publish.py --repository D:\release\repo --keys D:\release-keys\c8 --version 0.8.2
++"""
++from __future__ import annotations
++
++import argparse
++import io
++import json
++import os
++import sys
++import zipfile
++from datetime import datetime, timedelta, timezone
++from pathlib import Path
++
++PROGRAM_DIR = Path(__file__).resolve().parents[1]
++if str(PROGRAM_DIR) not in sys.path:
++    sys.path.insert(0, str(PROGRAM_DIR))
++
++from infra import update_notice  # noqa: E402  (脚本目录注入后导入)
++
++sys.dont_write_bytecode = True
++
++ROLES = ('root', 'targets', 'snapshot', 'timestamp')
++SEED_NAME = '%s.ed25519.seed'
++PROTECTED = frozenset({'config.json', 'projects.json', 'desktop_settings.json',
++                       'private', 'data', '升级备份', 'logs', '配置', '.upgrade-tmp'})
++MAX_PAYLOAD_BYTES = 512 * 1024 * 1024
++
++
++def _canonical_seed(text):
++    seed = bytes.fromhex(str(text or '').strip())
++    if len(seed) != 32:
++        raise ValueError('Ed25519 种子必须是 32 字节（64 位十六进制）')
++    return seed
++
++
++class VendoredEd25519Signer:
++    """无 ``cryptography`` 时的签名器：复用 securesystemslib 自带参考实现。"""
++
++    def __init__(self, seed):
++        from securesystemslib._vendor.ed25519 import ed25519
++        from securesystemslib.signer import SSlibKey, Signature
++        from securesystemslib.signer._utils import compute_default_keyid
++
++        self._ed = ed25519
++        self._signature = Signature
++        self._seed = seed
++        self._public = ed25519.publickey_unsafe(seed)
++        keyval = {'public': self._public.hex()}
++        keyid = compute_default_keyid('ed25519', 'ed25519', keyval)
++        self._key = SSlibKey(keyid, 'ed25519', 'ed25519', keyval)
++
++    @classmethod
++    def from_priv_key_uri(cls, priv_key_uri, public_key, secret_store=None):
++        raise NotImplementedError('本签名器只在本进程内接收种子')
++
++    @property
++    def public_key(self):
++        return self._key
++
++    def sign(self, payload):
++        signature = self._ed.signature_unsafe(payload, self._seed, self._public)
++        return self._signature(self._key.keyid, signature.hex())
++
++
++def signer_for(seed):
++    """返回 (signer, backend)；优先 cryptography，缺失时用自带参考实现。"""
++    try:
++        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
++        from securesystemslib.signer import CryptoSigner
++
++        return CryptoSigner(Ed25519PrivateKey.from_private_bytes(seed)), 'cryptography'
++    except ImportError:
++        return VendoredEd25519Signer(seed), 'vendored-ed25519'
++
++
++def _inside_git_tree(path):
++    current = Path(path).resolve()
++    for parent in (current, *current.parents):
++        if (parent / '.git').exists():
++            return True
++    return False
++
++
++def _check_keys_location(path, allow_temporary):
++    """私钥目录默认不得位于 Git 工作树；测试临时目录显式放行（内容不提交）。"""
++    if allow_temporary:
++        return Path(path).resolve()
++    target = Path(path).resolve()
++    if _inside_git_tree(target):
++        raise ValueError('发布私钥目录不得位于 Git 工作树内：%s' % target)
++    return target
++
++
++def generate_keys(keys_dir, *, allow_temporary=False):
++    """在仓库外目录生成四个角色的种子文件；返回角色列表。"""
++    target = _check_keys_location(keys_dir, allow_temporary)
++    target.mkdir(parents=True, exist_ok=True)
++    written = []
++    for role in ROLES:
++        path = target / (SEED_NAME % role)
++        if path.exists():
++            raise ValueError('密钥已存在，拒绝覆盖：%s' % path)
++        with open(path, 'w', encoding='utf-8') as stream:
++            stream.write(os.urandom(32).hex() + '\n')
++        try:
++            os.chmod(path, 0o600)
++        except OSError:
++            pass
++        written.append(role)
++    return written
++
++
++def load_signers(keys_dir, *, allow_temporary=False):
++    """读取四个角色种子并返回 (signers, backend)；私钥不落日志、不返回种子。"""
++    directory = _check_keys_location(keys_dir, allow_temporary)
++    signers, backends = {}, set()
++    for role in ROLES:
++        path = directory / (SEED_NAME % role)
++        try:
++            seed = _canonical_seed(path.read_text(encoding='utf-8'))
++        except OSError as exc:
++            raise ValueError('缺少发布密钥 %s：%s' % (role, path)) from exc
++        signers[role], backend = signer_for(seed)
++        backends.add(backend)
++    return signers, '+'.join(sorted(backends))
++
++
++def _payload_files(program_dir):
++    """枚举要打包的程序文件；受保护数据与缓存不进入升级包。"""
++    program = Path(program_dir).resolve()
++    files = []
++    for path in sorted(program.rglob('*')):
++        if not path.is_file() or path.is_symlink():
++            continue
++        relative = path.relative_to(program)
++        if relative.parts[0].casefold() in {item.casefold() for item in PROTECTED}:
++            continue
++        if '__pycache__' in relative.parts or path.suffix.lower() == '.pyc':
++            continue
++        files.append(relative)
++    return files
++
++
++def build_payload(program_dir):
++    """把程序目录打成确定性顺序的 ZIP 字节流（不含受保护数据）。"""
++    program = Path(program_dir).resolve()
++    files = _payload_files(program)
++    if not files:
++        raise ValueError('程序目录没有任何可打包文件：%s' % program)
++    total = sum((program / relative).stat().st_size for relative in files)
++    if total > MAX_PAYLOAD_BYTES:
++        raise ValueError('升级包体积超限：%d 字节' % total)
++    buffer = io.BytesIO()
++    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as archive:
++        for relative in files:
++            info = zipfile.ZipInfo(relative.as_posix(), date_time=(1980, 1, 1, 0, 0, 0))
++            info.compress_type = zipfile.ZIP_DEFLATED
++            info.external_attr = 0o644 << 16
++            archive.writestr(info, (program / relative).read_bytes())
++    return buffer.getvalue()
++
++
++def _next_version(path):
++    """读取已有元数据的版本号并加一；不存在从 1 开始。"""
++    from tuf.api.metadata import Metadata
++
++    if not Path(path).is_file():
++        return 1
++    return int(Metadata.from_file(str(path)).signed.version) + 1
++
++
++def _build_root(signers, expires, consistent_snapshot=False):
++    from tuf.api.metadata import Metadata, Root
++
++    root = Metadata(Root(expires=expires, consistent_snapshot=consistent_snapshot))
++    for role in ROLES:
++        root.signed.add_key(signers[role].public_key, role)
++    root.sign(signers['root'])
++    return root
++
++
++def _read_or_build_root(repository, signers, expires):
++    from tuf.api.metadata import Metadata
++
++    root_path = Path(repository) / 'metadata' / 'root.json'
++    if not root_path.is_file():
++        root = _build_root(signers, expires)
++        root.to_file(str(root_path))
++        return root
++    root = Metadata.from_file(str(root_path))
++    if root.signed.type != 'root':
++        raise ValueError('repository/metadata/root.json 不是 root 元数据')
++    role = root.signed.roles.get('root')
++    if role is None or signers['root'].public_key.keyid not in role.keyids:
++        raise ValueError('现有 root.json 的 root 角色不包含当前 root 密钥；'
++                         '变更根密钥须走离线轮换，不能原地重签')
++    if root.signed.expires < expires:
++        root.signed.expires = expires
++        root.signatures.clear()
++        root.sign(signers['root'])
++        root.to_file(str(root_path))
++    return root
++
++
++def publish(repository, program_dir, keys_dir, version, *, platform='win_amd64',
++            expires_days=7, min_client_version=None, root_out=None, now=None,
++            payload=None, allow_temporary_keys=False):
++    """生成一整套 TUF 元数据与签名目标包；返回公开摘要（不含密钥材料）。
++
++    ``repository`` 布局：``metadata/{root,targets,snapshot,timestamp}.json`` +
++    ``targets/program-<platform>.zip``。``root_out`` 是给客户端内置的信任锚副本。
++    """
++    parsed = update_notice.parse_version(version)
++    if parsed is None:
++        raise ValueError('版本号无法解析：%r' % version)
++    repository = Path(repository).resolve()
++    metadata_dir = repository / 'metadata'
++    targets_dir = repository / 'targets'
++    metadata_dir.mkdir(parents=True, exist_ok=True)
++    targets_dir.mkdir(parents=True, exist_ok=True)
++    signers, backend = load_signers(keys_dir, allow_temporary=allow_temporary_keys)
++    moment = now or datetime.now(timezone.utc)
++    expires = moment + timedelta(days=int(expires_days))
++    root = _read_or_build_root(repository, signers, expires)
++
++    raw = payload if payload is not None else build_payload(program_dir)
++    target = 'program-%s.zip' % platform
++    from tuf.api.metadata import (Metadata, MetaFile, Snapshot, TargetFile, Targets,
++                                  Timestamp)
++
++    targets_meta = Metadata(Targets(version=_next_version(metadata_dir / 'targets.json'),
++                                    expires=expires))
++    target_file = TargetFile.from_data(target, raw, ['sha256'])
++    custom = {'app_version': str(version), 'platform': platform}
++    if min_client_version:
++        custom['min_client_version'] = str(min_client_version)
++    target_file.unrecognized_fields['custom'] = custom
++    targets_meta.signed.targets[target] = target_file
++    targets_meta.sign(signers['targets'])
++    targets_bytes = targets_meta.to_bytes()
++    targets_meta.to_file(str(metadata_dir / 'targets.json'))
++
++    snapshot_meta = Metadata(Snapshot(version=_next_version(metadata_dir / 'snapshot.json'),
++                                      expires=expires))
++    snapshot_meta.signed.meta['targets.json'] = MetaFile.from_data(
++        targets_meta.signed.version, targets_bytes, ['sha256'])
++    snapshot_meta.sign(signers['snapshot'])
++    snapshot_bytes = snapshot_meta.to_bytes()
++    snapshot_meta.to_file(str(metadata_dir / 'snapshot.json'))
++
++    timestamp_meta = Metadata(Timestamp(version=_next_version(metadata_dir / 'timestamp.json'),
++                                        expires=expires))
++    timestamp_meta.signed.snapshot_meta = MetaFile.from_data(
++        snapshot_meta.signed.version, snapshot_bytes, ['sha256'])
++    timestamp_meta.sign(signers['timestamp'])
++    timestamp_meta.to_file(str(metadata_dir / 'timestamp.json'))
++
++    with open(targets_dir / target, 'wb') as stream:
++        stream.write(raw)
++    root_bytes = root.to_bytes()
++    with open(metadata_dir / ('%d.root.json' % root.signed.version), 'wb') as stream:
++        stream.write(root_bytes)
++    anchor = Path(root_out) if root_out else repository / 'trusted-root.json'
++    anchor.parent.mkdir(parents=True, exist_ok=True)
++    with open(anchor, 'wb') as stream:
++        stream.write(root_bytes)
++
++    return {'repository': str(repository), 'target': target, 'version': str(version),
++            'platform': platform, 'root': str(anchor), 'signer_backend': backend,
++            'target_sha256': target_file.hashes['sha256'],
++            'target_length': len(raw),
++            'targets_version': targets_meta.signed.version,
++            'snapshot_version': snapshot_meta.signed.version,
++            'timestamp_version': timestamp_meta.signed.version,
++            'metadata': sorted(path.name for path in metadata_dir.iterdir())}
++
++
++def main(argv=None):
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument('--generate-keys', type=Path, default=None,
++                        help='在仓库外目录生成四角色 Ed25519 种子后退出')
++    parser.add_argument('--repository', type=Path, default=None, help='发布仓库输出目录')
++    parser.add_argument('--program', type=Path, default=PROGRAM_DIR, help='要打包的程序目录')
++    parser.add_argument('--keys', type=Path, default=None, help='仓库外的发布密钥目录')
++    parser.add_argument('--version', default=None, help='应用版本号，如 0.8.2')
++    parser.add_argument('--platform', default='win_amd64')
++    parser.add_argument('--expires-days', type=int, default=7)
++    parser.add_argument('--min-client-version', default=None)
++    parser.add_argument('--root-out', type=Path, default=None, help='信任锚 root.json 输出路径')
++    args = parser.parse_args(argv)
++    if args.generate_keys:
++        roles = generate_keys(args.generate_keys)
++        print(json.dumps({'generated': roles, 'directory': str(args.generate_keys)},
++                         ensure_ascii=False))
++        return 0
++    missing = [name for name in ('repository', 'keys', 'version') if not getattr(args, name)]
++    if missing:
++        parser.error('缺少参数：%s（或使用 --generate-keys）' % ', '.join(missing))
++    summary = publish(args.repository, args.program, args.keys, args.version,
++                      platform=args.platform, expires_days=args.expires_days,
++                      min_client_version=args.min_client_version, root_out=args.root_out)
++    print(json.dumps(summary, ensure_ascii=False, indent=2))
++    return 0
++
++
++if __name__ == '__main__':
++    raise SystemExit(main())
+diff --git "a/\347\250\213\345\272\217/tests/architecture/_layers.py" "b/\347\250\213\345\272\217/tests/architecture/_layers.py"
+index e1d0ba99..6d987031 100644
+--- "a/\347\250\213\345\272\217/tests/architecture/_layers.py"
++++ "b/\347\250\213\345\272\217/tests/architecture/_layers.py"
+@@ -89,6 +89,9 @@ _register(4, "desktop_auto_flows", "desktop_direct_dispatch", "desktop_storyboar
+ _register(5, "desktop_launcher")
+ # R1895：账户会员客户端（设计文档 说明/账户会员云端设计.md §5.1）。
+ _register(1, "lease_verifier", "account_store", "session_integrity", "update_notice")
++# C8 升级执行器：可信 TUF 源（验签/下载）与安装事务（解包/原子替换/回滚/数据保护）都在 L1；
++# 发布端签名只在 scripts/update_publish.py 开发工具，不进分层。
++_register(1, "update_source", "update_installer")
+ _register(2, "entitlement_service", "account_client")
+ _register(3, "account_controller")
+ _register(4, "account_inputs", "desktop_account_page", "desktop_login_gate", "desktop_page_nav", "desktop_lifecycle", "desktop_files_panel")
+@@ -929,6 +932,10 @@ SAME_LAYER_EDGES: frozenset[tuple[str, str]] = frozenset({
+     ('usage_snapshot', 'core'),
+     ('usage_snapshot', 'file_cache'),
+     ('usage_snapshot', 'usage_history'),
++    # C8 升级执行器同层边：源复用版本口径与出站唯一入口，安装事务复用回收语义。
++    ('update_source', 'http_client'),
++    ('update_source', 'update_notice'),
++    ('update_installer', 'storage_maintenance'),
+     ('version_picker', 'responsive_ui'),
+     ('version_picker', 'ui_widgets'),
+     ('video_navigation', 'local_video'),
+diff --git "a/\347\250\213\345\272\217/tests/architecture/test_atomic_write_boundary.py" "b/\347\250\213\345\272\217/tests/architecture/test_atomic_write_boundary.py"
+index 0090f3e5..49849ef5 100644
+--- "a/\347\250\213\345\272\217/tests/architecture/test_atomic_write_boundary.py"
++++ "b/\347\250\213\345\272\217/tests/architecture/test_atomic_write_boundary.py"
+@@ -20,7 +20,10 @@ _ATOMIC_BOUNDARIES = frozenset({"model_secrets", "qwen_adapter", "workflow_engin
+ # optimizer_mcp_bridge 的 open(os.devnull,'w') 只是给 MCP 子进程重定向 stderr，
+ # 不产生任何文件（R3246 轮 2 agent/ 入包扫描后登记）。
+ _TEMPORARY_BOUNDARIES = frozenset({"app_logging", "app_shortcut", "skill_archive", "skill_remote_service",
+-                                   "optimizer_mcp_bridge"})
++                                   "optimizer_mcp_bridge",
++                                   # C8：upgrade 解包只写同卷事务暂存区（.upgrade-tmp/new），
++                                   # 随后由 _move 原子换入正式路径；失败/成功均经回收站收走。
++                                   "update_installer"})
+ 
+ # R1854：直接 os.replace／Path.replace 会绕过 agent.core.replace 的 Windows 共享冲突重试与发布记录
+ # （R1853 的 asset_detail_service 就是这样一次“拒绝访问”整次失败）。agent/core.py 是权威实现；
+@@ -32,6 +35,9 @@ _REPLACE_REGISTERED = {
+     # R3292：faulthandler.log 超 5MiB 时的日志轮转（FAULT_LOG → FAULT_LOG.1），与 log_maintenance 同类。
+     "app_logging.py": 1,
+     "image_agent_runner.py": 1,
++    # C8：升级安装事务的「备份→换入→回滚」全部经单点 _move（os.replace）收口，
++    # 与 agent.core 的发布记录语义不同（替换的是程序文件而非用户成果）。
++    "update_installer.py": 1,
+     "log_maintenance.py": 2,
+     "skill_registry.py": 1,
+     "stage_handoff_gateways.py": 1,
+diff --git "a/\347\250\213\345\272\217/tests/test_update_pipeline.py" "b/\347\250\213\345\272\217/tests/test_update_pipeline.py"
+new file mode 100644
+index 00000000..50ddfd89
+--- /dev/null
++++ "b/\347\250\213\345\272\217/tests/test_update_pipeline.py"
+@@ -0,0 +1,361 @@
++# -*- coding: utf-8 -*-
++"""C8 升级执行器 Windows 验收：发布端签名 → 客户端验签 → 下载 → 安装 → 数据保护 → 回滚。
++
++所有用例在真实临时目录运行，传输注入内存仓库映射，禁用 socket，不做任何真实网络请求，
++不生成或提交真实私钥（临时密钥目录位于系统临时目录，测试结束随临时目录删除）。
++"""
++import importlib.util
++import os
++import socket
++import sys
++import tempfile
++import unittest
++import zipfile
++from pathlib import Path
++
++PROGRAM = Path(__file__).resolve().parents[1]
++if str(PROGRAM) not in sys.path:
++    sys.path.insert(0, str(PROGRAM))
++
++from contract import infra_errors  # noqa: E402
++from infra import storage_maintenance  # noqa: E402
++from infra import update_installer, update_source  # noqa: E402
++
++META_URL = 'https://updates.invalid/metadata/'
++TARGET_URL = 'https://updates.invalid/targets/'
++
++
++def _load_publisher():
++    path = PROGRAM / 'scripts' / 'update_publish.py'
++    spec = importlib.util.spec_from_file_location('update_publish_under_test', path)
++    module = importlib.util.module_from_spec(spec)
++    spec.loader.exec_module(module)
++    return module
++
++
++PUBLISH = _load_publisher()
++
++
++def _write(path, text):
++    path.parent.mkdir(parents=True, exist_ok=True)
++    with open(path, 'w', encoding='utf-8') as stream:
++        stream.write(text)
++
++
++def _read(path):
++    return Path(path).read_text(encoding='utf-8')
++
++
++class RepositoryTransport:
++    """把 TUF 请求映射到本地仓库目录；不打开任何 socket。"""
++
++    def __init__(self, repository):
++        self.repository = Path(repository)
++        self.calls = []
++
++    def __call__(self, url):
++        marker = '/metadata/' if '/metadata/' in url else '/targets/'
++        name = url.split(marker, 1)[1]
++        path = self.repository / marker.strip('/') / name
++        self.calls.append((name, path.is_file()))
++        if not path.is_file():
++            return 404, b''
++        with open(path, 'rb') as stream:
++            return 200, stream.read()
++
++
++class PipelineCase(unittest.TestCase):
++    """公共夹具：旧版本安装目录 + 新版本载荷 + 已签名仓库。"""
++
++    def setUp(self):
++        self.tmp = tempfile.TemporaryDirectory(prefix='c8-update-')
++        self.addCleanup(self.tmp.cleanup)
++        base = Path(self.tmp.name)
++        self.repository = base / 'repo'
++        self.keys = base / 'keys'
++        self.install_root = base / 'install' / '程序'
++        self.payload_root = base / 'payload'
++        self.cache = base / 'cache'
++        PUBLISH.generate_keys(self.keys, allow_temporary=True)
++        self._seed_payload()
++        self._seed_install_root()
++
++    def _seed_payload(self):
++        _write(self.payload_root / 'app.py', 'APP = "new"\n')
++        _write(self.payload_root / 'ui' / 'desktop.py', 'DESKTOP = "new"\n')
++        _write(self.payload_root / 'infra' / 'update_notice.py', 'NOTICE = "new"\n')
++        _write(self.payload_root / 'data' / 'builtin.json', '{"internal": true}\n')
++        _write(self.payload_root / 'config.json', '{"leak": true}\n')
++
++    def _seed_install_root(self):
++        _write(self.install_root / 'app.py', 'APP = "old"\n')
++        _write(self.install_root / 'ui' / 'desktop.py', 'DESKTOP = "old"\n')
++        _write(self.install_root / 'infra' / 'update_notice.py', 'NOTICE = "old"\n')
++        _write(self.install_root / '旧版独有.py', 'LEGACY = "keep"\n')
++        self.user_files = {
++            'config.json': '{"user": 1}\n',
++            'projects.json': '{"projects": []}\n',
++            'desktop_settings.json': '{"theme": "dark"}\n',
++            'private/密钥.txt': 'private-secret\n',
++            'data/user.json': '{"user_data": true}\n',
++            '升级备份/backup.zip': 'historical backup\n',
++            'logs/app.log': 'log line\n',
++            '配置/global.json': '{"global": 1}\n',
++        }
++        for name, text in self.user_files.items():
++            _write(self.install_root / name, text)
++
++    def publish(self, version, **kwargs):
++        return PUBLISH.publish(self.repository, self.payload_root, self.keys, version,
++                               allow_temporary_keys=True, **kwargs)
++
++    def source(self, current_version, repository=None, trusted_root=None):
++        repository = repository or self.repository
++        trusted_root = trusted_root or (Path(repository) / 'trusted-root.json')
++        return update_source.UpdateSource(
++            self.cache / 'metadata', self.cache / 'targets',
++            transport=RepositoryTransport(repository),
++            trusted_root=update_source.load_trusted_root(trusted_root),
++            current_version=current_version)
++
++    def assert_user_data_untouched(self):
++        for name, text in self.user_files.items():
++            self.assertEqual(_read(self.install_root / name), text, name)
++        self.assertEqual(_read(self.install_root / '旧版独有.py'), 'LEGACY = "keep"\n')
++
++
++class FullChainTests(PipelineCase):
++    def test_signed_repository_installs_program_and_keeps_user_data(self):
++        summary = self.publish('0.9')
++        self.assertEqual(summary['target'], 'program-win_amd64.zip')
++        self.assertIn(summary['signer_backend'], ('cryptography', 'vendored-ed25519'))
++        original_socket = socket.socket
++
++        def deny(*_args, **_kwargs):
++            raise AssertionError('升级链路必须使用注入传输，不得打开 socket')
++
++        socket.socket = deny
++        try:
++            result = update_installer.install_update(self.source('0.8'), self.install_root)
++        finally:
++            socket.socket = original_socket
++        self.assertEqual(result['status'], 'installed')
++        self.assertEqual(result['release']['app_version'], '0.9')
++        self.assertEqual(_read(self.install_root / 'app.py'), 'APP = "new"\n')
++        self.assertEqual(_read(self.install_root / 'ui' / 'desktop.py'), 'DESKTOP = "new"\n')
++        self.assertEqual(_read(self.install_root / 'infra' / 'update_notice.py'),
++                         'NOTICE = "new"\n')
++        self.assert_user_data_untouched()
++        self.assertEqual(_read(self.install_root / 'config.json'), self.user_files['config.json'])
++
++    def test_current_version_returns_without_download(self):
++        self.publish('0.9')
++        result = update_installer.install_update(self.source('0.9'), self.install_root)
++        self.assertEqual(result['status'], 'current')
++        self.assertEqual(_read(self.install_root / 'app.py'), 'APP = "old"\n')
++
++    def test_downgrade_target_is_rejected_before_install(self):
++        self.publish('0.7.1')
++        with self.assertRaises(update_source.DowngradeRejected):
++            update_installer.install_update(self.source('0.9'), self.install_root)
++        self.assertEqual(_read(self.install_root / 'app.py'), 'APP = "old"\n')
++
++    def test_second_release_bumps_metadata_versions(self):
++        first = self.publish('0.9')
++        second = self.publish('0.9.1')
++        self.assertEqual(second['targets_version'], first['targets_version'] + 1)
++        self.assertEqual(second['snapshot_version'], first['snapshot_version'] + 1)
++        self.assertEqual(second['timestamp_version'], first['timestamp_version'] + 1)
++
++
++class RejectionTests(PipelineCase):
++    def test_tampered_target_is_rejected_without_writing(self):
++        self.publish('0.9')
++        target = self.repository / 'targets' / 'program-win_amd64.zip'
++        data = bytearray(target.read_bytes())
++        data[0] ^= 0xFF
++        with open(target, 'wb') as stream:
++            stream.write(bytes(data))
++        with self.assertRaises(update_source.TargetRejected):
++            update_installer.install_update(self.source('0.8'), self.install_root)
++        self.assertEqual(_read(self.install_root / 'app.py'), 'APP = "old"\n')
++        self.assert_user_data_untouched()
++
++    def test_unsigned_metadata_is_rejected(self):
++        self.publish('0.9')
++        path = self.repository / 'metadata' / 'timestamp.json'
++        import json
++
++        payload = json.loads(path.read_text(encoding='utf-8'))
++        payload['signatures'] = []
++        with open(path, 'w', encoding='utf-8') as stream:
++            json.dump(payload, stream)
++        with self.assertRaises(update_source.TrustError):
++            update_installer.install_update(self.source('0.8'), self.install_root)
++        self.assertEqual(_read(self.install_root / 'app.py'), 'APP = "old"\n')
++
++    def test_untrusted_root_is_rejected(self):
++        self.publish('0.9')
++        alien_keys = Path(self.tmp.name) / 'alien-keys'
++        PUBLISH.generate_keys(alien_keys, allow_temporary=True)
++        alien_root = Path(self.tmp.name) / 'alien-root.json'
++        PUBLISH.publish(Path(self.tmp.name) / 'alien-repo', self.payload_root, alien_keys,
++                        '0.9', root_out=alien_root, allow_temporary_keys=True)
++        with self.assertRaises(update_source.TrustError):
++            update_installer.install_update(
++                self.source('0.8', repository=Path(self.tmp.name) / 'alien-repo'),
++                self.install_root)
++        self.assertEqual(_read(self.install_root / 'app.py'), 'APP = "old"\n')
++
++    def test_metadata_replay_is_rejected_with_same_cache(self):
++        self.publish('0.9')
++        fresh = Path(self.tmp.name) / 'stale-repo'
++        import shutil
++
++        shutil.copytree(self.repository, fresh)
++        self.publish('0.9.1')
++        source = self.source('0.8')
++        result = update_installer.install_update(source, self.install_root)
++        self.assertEqual(result['status'], 'installed')
++        stale = self.source('0.9.1', repository=fresh)
++        with self.assertRaises(update_source.DowngradeRejected):
++            stale.check()
++
++
++class PayloadSafetyTests(PipelineCase):
++    def _archive(self, entries):
++        path = Path(self.tmp.name) / ('payload-%d.zip' % len(list(entries)))
++        with zipfile.ZipFile(path, 'w') as archive:
++            for name, data in entries.items():
++                archive.writestr(name, data)
++        return path
++
++    def test_zip_slip_and_protected_paths_are_refused(self):
++        cases = {
++            'parent escape': {'../evil.txt': 'x'},
++            'absolute path': {'C:/Windows/evil.txt': 'x'},
++            'protected config': {'config.json': '{"leak": true}'},
++            'protected data dir': {'data/user.json': 'x'},
++            'protected backup dir': {'升级备份/x.zip': 'x'},
++            'case duplicate': {'App.py': 'a', 'app.py': 'b'},
++            'reserved name': {'CON.txt': 'x'},
++            'trailing dot': {'app.py.': 'x'},
++        }
++        for label, entries in cases.items():
++            with self.subTest(case=label):
++                archive = self._archive(entries)
++                with self.assertRaises(update_installer.UnsafePayload):
++                    update_installer.install_archive(archive, self.install_root, version='0.9')
++                self.assertEqual(_read(self.install_root / 'app.py'), 'APP = "old"\n')
++                self.assert_user_data_untouched()
++
++    def test_tampered_package_would_install_without_tuf_verification(self):
++        """先红后绿证据：安装事务本身不知道目标哈希，篡改包会被直接接受；
++        生产链路 ``install_update`` 必须靠 TUF 元数据在安装前拒绝。"""
++        self.publish('0.9')
++        target = self.repository / 'targets' / 'program-win_amd64.zip'
++        tampered = Path(self.tmp.name) / 'tampered.zip'
++        with zipfile.ZipFile(target) as source, zipfile.ZipFile(tampered, 'w') as sink:
++            for info in source.infolist():
++                data = source.read(info.filename)
++                if info.filename == 'app.py':
++                    data = b'APP = "evil"\n'
++                sink.writestr(info.filename, data)
++        # 红：绕过验签直接安装篡改包，恶意内容会被写进程序目录。
++        update_installer.install_archive(tampered, self.install_root, version='0.9')
++        self.assertEqual(_read(self.install_root / 'app.py'), 'APP = "evil"\n')
++        # 红：把同样的篡改包放进发布仓库，元数据仍指向原始哈希。
++        with open(target, 'wb') as stream:
++            stream.write(tampered.read_bytes())
++        # 绿：恢复旧版后走生产链路，篡改包在安装前被元数据哈希拒绝。
++        self._seed_install_root()
++        with self.assertRaises(update_source.TargetRejected):
++            update_installer.install_update(self.source('0.8'), self.install_root)
++        self.assertEqual(_read(self.install_root / 'app.py'), 'APP = "old"\n')
++        self.assert_user_data_untouched()
++
++    def test_empty_payload_is_refused(self):
++        archive = self._archive({})
++        with self.assertRaises(update_installer.UnsafePayload):
++            update_installer.install_archive(archive, self.install_root, version='0.9')
++
++
++class RollbackTests(PipelineCase):
++    def test_replace_failure_restores_old_files(self):
++        self.publish('0.9')
++        source = self.source('0.8')
++        release = source.check()
++        archive = source.download(release)
++        calls = {'count': 0}
++
++        def flaky_mover(move_source, move_target):
++            calls['count'] += 1
++            if calls['count'] == 2:
++                raise OSError('injected disk failure')
++            move_target.parent.mkdir(parents=True, exist_ok=True)
++            os.replace(move_source, move_target)
++
++        with self.assertRaises(update_installer.InstallError):
++            update_installer.install_archive(archive, self.install_root,
++                                             version=release.app_version,
++                                             mover=flaky_mover)
++        self.assertGreaterEqual(calls['count'], 2)
++        self.assertEqual(_read(self.install_root / 'app.py'), 'APP = "old"\n')
++        self.assertEqual(_read(self.install_root / 'ui' / 'desktop.py'), 'DESKTOP = "old"\n')
++        self.assertEqual(_read(self.install_root / 'infra' / 'update_notice.py'),
++                         'NOTICE = "old"\n')
++        self.assert_user_data_untouched()
++        self.assertFalse((self.install_root / 'data' / 'builtin.json').exists())
++
++    def test_successful_install_recycles_previous_program_files(self):
++        self.publish('0.9')
++        update_installer.install_update(self.source('0.8'), self.install_root)
++        recycle = storage_maintenance.recycle_base(self.install_root)
++        self.assertTrue(recycle.exists())
++        recovered = list(recycle.rglob('app.py'))
++        self.assertTrue(recovered, '旧版程序文件应进入回收站，可恢复')
++
++
++class DependencyBoundaryTests(unittest.TestCase):
++    def test_update_errors_belong_to_infra_error_family(self):
++        for name in ('UpdateSourceError', 'TrustError', 'TargetRejected',
++                     'DowngradeRejected', 'UnsupportedPlatform', 'TransportError'):
++            self.assertTrue(issubclass(getattr(update_source, name), infra_errors.InfraError))
++        for name in ('InstallError', 'UnsafePayload'):
++            self.assertTrue(issubclass(getattr(update_installer, name), infra_errors.InfraError))
++
++    def test_no_shell_or_network_modules_are_used(self):
++        for module in (update_source, update_installer):
++            source = Path(module.__file__).read_text(encoding='utf-8')
++            self.assertNotIn('subprocess', source)
++            self.assertNotIn('urllib', source)
++            self.assertNotIn('socket', source)
++
++    def test_http_transport_maps_status_without_network(self):
++        class Result:
++            def __init__(self, ok, data, message=''):
++                self.ok = ok
++                self.data = data
++                self.message = message
++
++        calls = []
++
++        def request(method, url, **kwargs):
++            calls.append((method, url, kwargs))
++            return Result(**self.responses[url])
++
++        self.responses = {
++            'https://updates.invalid/good': dict(ok=True, data={'status': 200, 'body': b'abc'}),
++            'https://updates.invalid/missing': dict(ok=False, data={'status': 404}),
++            'https://updates.invalid/broken': dict(ok=False, data={'status': 500}),
++        }
++        fetch = update_source.http_transport(request=request, timeout=5)
++        self.assertEqual(fetch('https://updates.invalid/good'), (200, b'abc'))
++        self.assertEqual(fetch('https://updates.invalid/missing'), (404, b''))
++        with self.assertRaises(update_source.TransportError):
++            fetch('https://updates.invalid/broken')
++        self.assertEqual(calls[0][0], 'GET')
++
++
++if __name__ == '__main__':
++    unittest.main()
+diff --git "a/\347\250\213\345\272\217/\347\273\264\346\212\244\350\256\260\345\275\225/\344\276\235\350\265\226\347\231\275\345\220\215\345\215\225.md" "b/\347\250\213\345\272\217/\347\273\264\346\212\244\350\256\260\345\275\225/\344\276\235\350\265\226\347\231\275\345\220\215\345\215\225.md"
+index a0ff06ef..dd0856d1 100644
+--- "a/\347\250\213\345\272\217/\347\273\264\346\212\244\350\256\260\345\275\225/\344\276\235\350\265\226\347\231\275\345\220\215\345\215\225.md"
++++ "b/\347\250\213\345\272\217/\347\273\264\346\212\244\350\256\260\345\275\225/\344\276\235\350\265\226\347\231\275\345\220\215\345\215\225.md"
+@@ -1,7 +1,7 @@
+ # 第三方依赖白名单
+ 
+-**更新日期**：2026-11-19  
+-**生效轮次**：R3199 起；R3224 拆分生产锁与开发可选允许项；R3540 Pydantic、R3671资源依赖、R3775并集核验
++**更新日期**：2026-11-20  
++**生效轮次**：R3199 起；R3224 拆分生产锁与开发可选允许项；R3540 Pydantic、R3671资源依赖、R3775并集核验、C8 升级执行器（TUF）
+ 
+ ## 一、策略与权威源
+ 
+@@ -31,6 +31,8 @@
+ | typing-inspection | pydantic 传递依赖 | 类型注解检查；配置校验内部使用 |
+ | psutil | 直接依赖（R3671 准入） | L1 资源感知：内存、磁盘读写、网络计数、进程树；惰性导入，不在启动关键路径 |
+ | nvidia-ml-py（导入名 pynvml） | 直接依赖（R3671 准入） | 可选显存采集；惰性导入，无 NVIDIA 驱动即降级 |
++| tuf | 直接依赖（C8 准入） | 可信升级执行器的 TUF 客户端：四角色元数据验签、目标哈希/长度校验、元数据版本防回放；Ed25519 验证走 securesystemslib 自带参考实现，客户端不依赖 cryptography |
++| securesystemslib | tuf 传递依赖（C8 准入） | Ed25519／签名与公钥数据结构；升级校验只消费公开密钥，发布私钥不进入仓库与产品 runtime |
+ 
+ requests 的修复依据见官方 [HISTORY.md](https://github.com/psf/requests/blob/main/HISTORY.md)。生产验收只接受当前锁定版本，不因旧维护环境仍装有旧版本而同时放行；不把早期版本批准记录视为持续安全背书。
+ 
+@@ -42,7 +44,7 @@ requests 的修复依据见官方 [HISTORY.md](https://github.com/psf/requests/b
+ & '<独立准备环境>\python.exe' -m pip install --no-deps -r requirements.txt
+ ```
+ 
+-八包已经包含传递依赖并精确锁版；`--no-deps` 避免解析器在锁表之外追加或升级包。安装工具属于准备环境，不要求进入产品 runtime。之后必须使用目标生产解释器执行本页门禁，核验交付 purelib 的实际结果。该锁固定包版本，不声称固定 wheel 哈希、下载源或整个 Python/系统环境；Python、Tkinter、FFmpeg/FFprobe 的交付另循既有流程。
++八包已并入下面 C8 后共十包；已包含传递依赖并精确锁版；`--no-deps` 避免解析器在锁表之外追加或升级包。安装工具属于准备环境，不要求进入产品 runtime。之后必须使用目标生产解释器执行本页门禁，核验交付 purelib 的实际结果。该锁固定包版本，不声称固定 wheel 哈希、下载源或整个 Python/系统环境；Python、Tkinter、FFmpeg/FFprobe 的交付另循既有流程。
+ 
+ 本轮隔离运行环境已由父任务准备；本轮没有安装包、升级包或修改共享运行环境。
+ 
+@@ -85,10 +87,10 @@ R3215 现有维护工具保留允许；以下版本仅在工具实际存在于
+ 
+ `tests/architecture/test_dependency_whitelist.py` 使用 `importlib.metadata.distributions(path=[purelib])` 只枚举目标解释器目录，不使用用户 site 或导入模块来推断安装版本：
+ 
+-1. 生产锁的八包必须齐全，版本必须与 `requirements.txt` 精确一致。
++1. 生产锁的包必须齐全，版本必须与 `requirements.txt` 精确一致。
+ 2. 开发允许包缺失不报错；安装了有版本约束的开发工具则检查该约束。
+ 3. 生产锁、开发允许项以外的实际 distribution 报未知包。
+-4. 缺包、错版本、未知包、仅生产八包和含开发工具的正常组合均由可注入映射的纯验证函数覆盖；发现路径用替身校验，不接触用户目录。
++4. 缺包、错版本、未知包、仅生产包和含开发工具的正常组合均由可注入映射的纯验证函数覆盖；发现路径用替身校验，不接触用户目录。
+ 5. 锁表只接受 `包名==精确版本` 和注释；重复名称、范围及安装指令报错。名称统一大小写及 `-`、`_`、`.` 差异。
+ 
+ 在 `程序` 目录使用目标解释器运行：
+@@ -118,6 +120,25 @@ R3215 现有维护工具保留允许；以下版本仅在工具实际存在于
+ 
+ 准入结论：两包均满足 L1-H6 四项阈值（冷导入 ≤50 ms、非启动关键路径惰性导入、体积增量 ≤5 MB、许可证／Windows 支持／维护状态已记录）。psutil 在 `infra/resources.py` 内惰性导入，模块导入零成本由 `tests/test_resources.py::LazyImportTests` 断言；nvidia-ml-py 无 NVIDIA 驱动时 `snapshot()` 的 `vram` 字段降级为 'unavailable' 不抛异常（I15-2）。
+ 
++### C8 升级执行器依赖实测（2026-11-20）
++
++前置证据见 `tasks_round/tasks_round_3844_result.md` 与《C8前置准入回执_R3844.md》：官方 wheel SHA-256、许可证、离线 resolver 闭合与 isolated Ed25519 fixture 7/7。本轮正式准入按同一官方哈希用本地 wheel 离线安装到随包运行环境：
++
++```powershell
++& '<运行环境>\Python\python.exe' -B -m pip install --no-index --find-links D:\漫剧制作助手\.agents\tmp-pip-probe `
++    tuf==7.0.1 securesystemslib==1.6.0 urllib3==2.8.0
++```
++
++| 包 | 锁定版本 | wheel SHA-256 | 许可证 | 安装结果 |
++| --- | --- | --- | --- | --- |
++| tuf | 7.0.1 | d30434bda6e079ab303fb30d1b3006d939a10ca34783b1573d61cd9b802fa45c | Apache-2.0 OR MIT | 已装入随包 purelib |
++| securesystemslib | 1.6.0 | 1c1aa00f058f4851f038d409c8ca4a727db854a91f07ec3a0fa047bb93e43e0e | MIT | 已装入随包 purelib |
++| urllib3 | 2.8.0 | 0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3 | MIT | 已锁版本，无变更 |
++
++- 两者均为纯 Python wheel；客户端 Ed25519 验证走 securesystemslib 自带的参考实现，实测 `cryptography`/`cffi` 未安装也能完成完整验签与下载。
++- 发布端签名优先用 `cryptography`（仅开发构建环境，不进入生产锁）；未安装时回退 securesystemslib 自带参考实现，只用于本地构建与自动化测试。私钥种子只从仓库外目录读取，仓库不含任何密钥材料。
++- 依赖门禁（白名单、依赖图）在安装后复跑通过，结果记录在 C8 车道报告。
++
+ ## 六、变更记录
+ 
+ | 轮次 | 日期 | 变更 | 理由 |
+@@ -129,3 +150,4 @@ R3215 现有维护工具保留允许；以下版本仅在工具实际存在于
+ | R3540 | 2026-11-19 | C4 批准 Pydantic 及四个传递依赖为生产必装；版本见唯一锁 | 复用成熟校验/迁移实现；官方 wheel 的 SHA-256、许可证和 cp314-win_amd64 原生导入需实证，正式安装和分发结果见 R3540 报告，不以旧隔离 target 冒充准入完成 |
+ | R3594 | 2026-11-19 | C7 准入import-linter/Grimp及完整开发传递依赖，版本见开发锁 | 真实成熟引擎复核静态契约；原AST动态/纯度守卫保留，官方wheel摘要/许可证与cp314原生行为见R3594；不装生产runtime、不以--check文本同步冒充引擎验收 |
+ | R3671 | 2026-12-08 | 准入 psutil 7.2.2 与 nvidia-ml-py 13.615.71；生产锁六包→八包 | L1 资源感知（I15）实测达标 L1-H6 阈值 |
++| C8 | 2026-11-20 | 准入 tuf 7.0.1、securesystemslib 1.6.0；urllib3 沿用已锁 2.8.0 | 升级执行器采用成熟 TUF 框架（tufup 因 bsdiff4 无 cp314 win_amd64 wheel 排除）；纯 Python wheel，客户端 Ed25519 验证实测不依赖 cryptography |
+diff --git "a/\347\250\213\345\272\217/\347\273\264\346\212\244\350\256\260\345\275\225/\345\210\206\346\224\257\350\246\206\347\233\226\347\216\207\344\270\213\351\231\220.json" "b/\347\250\213\345\272\217/\347\273\264\346\212\244\350\256\260\345\275\225/\345\210\206\346\224\257\350\246\206\347\233\226\347\216\207\344\270\213\351\231\220.json"
+index bfcf7786..f8fa6dc5 100644
+--- "a/\347\250\213\345\272\217/\347\273\264\346\212\244\350\256\260\345\275\225/\345\210\206\346\224\257\350\246\206\347\233\226\347\216\207\344\270\213\351\231\220.json"
++++ "b/\347\250\213\345\272\217/\347\273\264\346\212\244\350\256\260\345\275\225/\345\210\206\346\224\257\350\246\206\347\233\226\347\216\207\344\270\213\351\231\220.json"
+@@ -100,7 +100,9 @@
+   "ui_plugin_registry.py": 0.0,
+   "ui_tokens.py": 100.0,
+   "unit_of_work.py": 32.0,
++  "update_installer.py": 46.3,
+   "update_notice.py": 100.0,
++  "update_source.py": 37.0,
+   "usage_history.py": 30.0,
+   "usage_snapshot.py": 30.0,
+   "workflow_context_budget.py": 54.0,
+diff --git "a/\347\250\213\345\272\217/\347\273\264\346\212\244\350\256\260\345\275\225/\345\210\206\346\224\257\350\246\206\347\233\226\347\216\207\345\237\272\347\272\277.json" "b/\347\250\213\345\272\217/\347\273\264\346\212\244\350\256\260\345\275\225/\345\210\206\346\224\257\350\246\206\347\233\226\347\216\207\345\237\272\347\272\277.json"
+index 1c08ad18..2f65b24d 100644
+--- "a/\347\250\213\345\272\217/\347\273\264\346\212\244\350\256\260\345\275\225/\345\210\206\346\224\257\350\246\206\347\233\226\347\216\207\345\237\272\347\272\277.json"
++++ "b/\347\250\213\345\272\217/\347\273\264\346\212\244\350\256\260\345\275\225/\345\210\206\346\224\257\350\246\206\347\233\226\347\216\207\345\237\272\347\272\277.json"
+@@ -119,11 +119,12 @@
+   "tests.test_config_global_validation",
+   "tests.test_config_project_profile_validation",
+   "tests.test_project_settings_validation",
+-  "tests.test_dpi_metrics"
++  "tests.test_dpi_metrics",
++  "tests.test_update_pipeline"
+  ],
+  "tests_ok": true,
+- "points_total": 3135,
+- "points_covered": 1818,
++ "points_total": 3203,
++ "points_covered": 1847,
+  "modules": [
+   {
+    "module": "budget.py",
+@@ -275,6 +276,12 @@
+    "covered": 4,
+    "percent": 36.4
+   },
++  {
++   "module": "update_source.py",
++   "points": 27,
++   "covered": 10,
++   "percent": 37.0
++  },
+   {
+    "module": "unit_of_work.py",
+    "points": 49,
+@@ -299,6 +306,12 @@
+    "covered": 10,
+    "percent": 45.5
+   },
++  {
++   "module": "update_installer.py",
++   "points": 41,
++   "covered": 19,
++   "percent": 46.3
++  },
+   {
+    "module": "platform_tools.py",
+    "points": 142,
+@@ -756,5 +769,5 @@
+    "percent": 100.0
+   }
+  ],
+- "modules_total": 105
++ "modules_total": 107
+ }
+diff --git "a/\347\250\213\345\272\217/\347\273\264\346\212\244\350\256\260\345\275\225/\350\246\206\347\233\226\347\216\207\345\237\272\347\272\277.json" "b/\347\250\213\345\272\217/\347\273\264\346\212\244\350\256\260\345\275\225/\350\246\206\347\233\226\347\216\207\345\237\272\347\272\277.json"
+index bf5b9a0d..7499388f 100644
+--- "a/\347\250\213\345\272\217/\347\273\264\346\212\244\350\256\260\345\275\225/\350\246\206\347\233\226\347\216\207\345\237\272\347\272\277.json"
++++ "b/\347\250\213\345\272\217/\347\273\264\346\212\244\350\256\260\345\275\225/\350\246\206\347\233\226\347\216\207\345\237\272\347\272\277.json"
+@@ -19,7 +19,8 @@
+   "tests.test_config_global_validation",
+   "tests.test_config_project_profile_validation",
+   "tests.test_project_settings_validation",
+-  "tests.test_dpi_metrics"
++  "tests.test_dpi_metrics",
++  "tests.test_update_pipeline"
+  ],
+  "tests_ok": true,
+  "modules": [
+@@ -1193,12 +1194,6 @@
+    "total": 28,
+    "percent": 0.0
+   },
+-  {
+-   "module": "infra/http_client.py",
+-   "covered": 0,
+-   "total": 203,
+-   "percent": 0.0
+-  },
+   {
+    "module": "infra/idempotency.py",
+    "covered": 0,
+@@ -3377,6 +3372,12 @@
+    "total": 341,
+    "percent": 17.6
+   },
++  {
++   "module": "infra/http_client.py",
++   "covered": 36,
++   "total": 203,
++   "percent": 17.7
++  },
+   {
+    "module": "infra/pet_state.py",
+    "covered": 39,
+@@ -3617,12 +3618,6 @@
+    "total": 215,
+    "percent": 30.7
+   },
+-  {
+-   "module": "infra/update_notice.py",
+-   "covered": 9,
+-   "total": 29,
+-   "percent": 31.0
+-  },
+   {
+    "module": "contract/artifact_schema.py",
+    "covered": 56,
+@@ -3655,9 +3650,9 @@
+   },
+   {
+    "module": "infra/storage_maintenance.py",
+-   "covered": 266,
++   "covered": 267,
+    "total": 796,
+-   "percent": 33.4
++   "percent": 33.5
+   },
+   {
+    "module": "contract/script_brief.py",
+@@ -3689,6 +3684,12 @@
+    "total": 408,
+    "percent": 37.3
+   },
++  {
++   "module": "infra/update_notice.py",
++   "covered": 11,
++   "total": 29,
++   "percent": 37.9
++  },
+   {
+    "module": "infra/model_pool.py",
+    "covered": 289,
+@@ -3869,6 +3870,18 @@
+    "total": 159,
+    "percent": 81.8
+   },
++  {
++   "module": "infra/update_installer.py",
++   "covered": 154,
++   "total": 188,
++   "percent": 81.9
++  },
++  {
++   "module": "infra/update_source.py",
++   "covered": 168,
++   "total": 205,
++   "percent": 82.0
++  },
+   {
+    "module": "infra/usage_history.py",
+    "covered": 46,
+@@ -4086,6 +4099,6 @@
+    "percent": 100.0
+   }
+  ],
+- "modules_covered": 147,
+- "modules_total": 677
++ "modules_covered": 150,
++ "modules_total": 679
+ }

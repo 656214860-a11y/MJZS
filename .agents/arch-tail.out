@@ -1,0 +1,45 @@
+﻿'infra/update_source.py' : 基线模块集合与生产运行时口径不一致；新增／删除生产模块后须重跑工具刷新基线
+
+======================================================================
+FAIL: test_coverage_tool_runs_on_bundled_interpreter (tests.architecture.test_coverage_baseline.CoverageBaselineTests.t
+est_coverage_tool_runs_on_bundled_interpreter)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\漫剧制作助手\.agents\worktrees\foundation-c8-updater\程序\tests\architecture\test_coverage_baseline.py", line 124, i
+n test_coverage_tool_runs_on_bundled_interpreter
+    self.assertEqual(int(matched.group(2)), len(self._baseline()["modules"]),
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                     "工具与基线的模块口径不一致（一侧改了算法未刷新另一侧）")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 679 != 677 : 工具与基线的模块口径不一致（一侧改了算法未刷新另一侧）
+
+======================================================================
+FAIL: test_generated_config_matches_registry (tests.architecture.test_import_contracts.TestImportContracts.test_generat
+ed_config_matches_registry)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\漫剧制作助手\.agents\worktrees\foundation-c8-updater\程序\tests\architecture\test_import_contracts.py", line 77, in 
+test_generated_config_matches_registry
+    self.assertEqual(contracts.CONFIG.read_text(encoding="utf-8"), contracts.render())
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: '# Ge[6607 chars]date_notice\n    infra.usage_history\n    infr[39949 chars]er\n' != '# Ge[6607 chars]d
+ate_installer\n    infra.update_notice\n    i[40055 chars]er\n'
+Diff is 48371 characters long. Set self.maxDiff to None to see it.
+
+======================================================================
+FAIL: test_round_number_continuous (tests.architecture.test_round_baselines.RoundBaselineTests.test_round_number_contin
+uous)
+AGENTS 2.5 规则 27：状态轮次必须紧接最新结果报告。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\漫剧制作助手\.agents\worktrees\foundation-c8-updater\程序\tests\architecture\test_round_baselines.py", line 52, in t
+est_round_number_continuous
+    self.assertEqual(int(matched.group(1)), _latest_result_number() + 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 3850 != 3875
+
+----------------------------------------------------------------------
+Ran 666 tests in 254.329s
+
+FAILED (failures=5, errors=5)
+❌ 架构治理测试：tests/architecture

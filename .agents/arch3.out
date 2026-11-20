@@ -1,0 +1,1013 @@
+﻿python.exe : test_budget_guard_rejects_oversize_sample (tests.architecture.test_agent_doc_budget.AgentDocBudgetTests.te
+st_budget_guard_rejects_oversize_sample)
+所在位置 行:1 字符: 188
++ ... pdater\程序'; & 'D:\漫剧制作助手\.agents\worktrees\foundation-c8-updater\运行环境 ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (test_budget_gua...versize_sample):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+负向自测：构造超预算样本，证明体积断言确实会红而非恒真。 ... ok
+test_critical_sections_begin_inside_the_loaded_prefix (tests.architecture.test_agent_doc_budget.AgentDocBudgetTests.tes
+t_critical_sections_begin_inside_the_loaded_prefix) ... ok
+test_entry_files_stay_within_budget (tests.architecture.test_agent_doc_budget.AgentDocBudgetTests.test_entry_files_stay
+_within_budget) ... ok
+test_link_checker_flags_a_missing_target (tests.architecture.test_agent_doc_budget.AgentDocBudgetTests.test_link_checke
+r_flags_a_missing_target) ... ok
+test_maintenance_record_top_level_count_within_budget (tests.architecture.test_agent_doc_budget.AgentDocBudgetTests.tes
+t_maintenance_record_top_level_count_within_budget) ... ok
+test_missing_index_detects_both_samples (tests.architecture.test_agent_doc_budget.AgentDocBudgetTests.test_missing_inde
+x_detects_both_samples)
+负向自测：索引缺失／落在窗口之后都要被检出，断言不恒真。 ... ok
+test_overflow_arithmetic (tests.architecture.test_agent_doc_budget.AgentDocBudgetTests.test_overflow_arithmetic) ... ok
+test_program_root_markdown_count_within_budget (tests.architecture.test_agent_doc_budget.AgentDocBudgetTests.test_progr
+am_root_markdown_count_within_budget) ... ok
+test_reference_documents_declare_section_index (tests.architecture.test_agent_doc_budget.AgentDocBudgetTests.test_refer
+ence_documents_declare_section_index) ... ok
+test_reference_documents_stay_within_budget (tests.architecture.test_agent_doc_budget.AgentDocBudgetTests.test_referenc
+e_documents_stay_within_budget) ... ok
+test_relative_links_point_at_existing_files (tests.architecture.test_agent_doc_budget.AgentDocBudgetTests.test_relative
+_links_point_at_existing_files) ... ok
+test_architecture_guard_list_matches_actual_test_files (tests.architecture.test_agents_md.AgentsMdConsistencyTests.test
+_architecture_guard_list_matches_actual_test_files) ... ok
+test_architecture_parallel_table_matches_bus_order (tests.architecture.test_agents_md.AgentsMdConsistencyTests.test_arc
+hitecture_parallel_table_matches_bus_order)
+architecture.md 第 5 节并行表必须逐行与 pet_bus.STAGES 对齐，不得缺 animatic。 ... ok
+test_architecture_stage_table_matches_bus_order (tests.architecture.test_agents_md.AgentsMdConsistencyTests.test_archit
+ecture_stage_table_matches_bus_order)
+architecture.md 第 4 节阶段表必须与 pet_bus.STAGES 同序、同编号、同名。 ... ok
+test_authority_table_modules_exist (tests.architecture.test_agents_md.AgentsMdConsistencyTests.test_authority_table_mod
+ules_exist) ... ok
+test_broadcaster_stage_denominator_matches_bus (tests.architecture.test_agents_md.AgentsMdConsistencyTests.test_broadca
+ster_stage_denominator_matches_bus) ... ok
+test_contract_round_whitelist_matches_authorized_l0_scope (tests.architecture.test_agents_md.AgentsMdConsistencyTests.t
+est_contract_round_whitelist_matches_authorized_l0_scope) ... ok
+test_delete_authority_contract_matches_remove_guard (tests.architecture.test_agents_md.AgentsMdConsistencyTests.test_de
+lete_authority_contract_matches_remove_guard) ... ok
+test_desktop_route_documentation_matches_current_contract (tests.architecture.test_agents_md.AgentsMdConsistencyTests.t
+est_desktop_route_documentation_matches_current_contract) ... ok
+test_gitignore_covers_runtime_and_secret_boundaries (tests.architecture.test_agents_md.AgentsMdConsistencyTests.test_gi
+tignore_covers_runtime_and_secret_boundaries)
+版本控制兼容轮：必排除项缺一即红，防止用户数据或凭据进入暂存区。 ... ok
+test_new_test_location_rule_matches_root (tests.architecture.test_agents_md.AgentsMdConsistencyTests.test_new_test_loca
+tion_rule_matches_root) ... ok
+test_path_authority_contract_matches_path_guard (tests.architecture.test_agents_md.AgentsMdConsistencyTests.test_path_a
+uthority_contract_matches_path_guard) ... ok
+test_performance_history_is_declared_as_historical_only (tests.architecture.test_agents_md.AgentsMdConsistencyTests.tes
+t_performance_history_is_declared_as_historical_only)
+runbook §10 必须声明基准历史不是当前判据；同名指标一旦出现就逼一次口径更新（R1650）。 ... ok
+test_stage_step_labels_in_production_derive_from_authority (tests.architecture.test_agents_md.AgentsMdConsistencyTests.
+test_stage_step_labels_in_production_derive_from_authority)
+生产文案里的「第 N 步」只能由 pet_bus.stage_step 现算；资产子步骤固定编号除外。 ... ok
+test_three_documents_agree_on_stage_count (tests.architecture.test_agents_md.AgentsMdConsistencyTests.test_three_docume
+nts_agree_on_stage_count) ... ok
+test_workflow_stage_count_matches_bus (tests.architecture.test_agents_md.AgentsMdConsistencyTests.test_workflow_stage_c
+ount_matches_bus) ... ok
+test_executor_uses_state_service_not_direct_ledger_persistence (tests.architecture.test_asset_batch_ledger_boundary.Ass
+etBatchLedgerBoundaryTests.test_executor_uses_state_service_not_direct_ledger_persistence) ... ok
+test_state_service_requires_l3_publisher_for_ledger_write (tests.architecture.test_asset_batch_ledger_boundary.AssetBat
+chLedgerBoundaryTests.test_state_service_requires_l3_publisher_for_ledger_write) ... ok
+test_settings_service_uses_project_settings_reader_and_atomic_save (tests.architecture.test_asset_batch_settings_bounda
+ry.AssetBatchSettingsBoundaryTests.test_settings_service_uses_project_settings_reader_and_atomic_save) ... ok
+test_ui_delegates_settings_persistence_to_service (tests.architecture.test_asset_batch_settings_boundary.AssetBatchSett
+ingsBoundaryTests.test_ui_delegates_settings_persistence_to_service) ... ok
+test_detail_ui_delegates_all_image_publication_to_service (tests.architecture.test_asset_detail_binding_boundary.AssetD
+etailBindingBoundaryTests.test_detail_ui_delegates_all_image_publication_to_service) ... ok
+test_service_requires_l3_gateway_and_has_no_direct_byte_publisher (tests.architecture.test_asset_detail_binding_boundar
+y.AssetDetailBindingBoundaryTests.test_service_requires_l3_gateway_and_has_no_direct_byte_publisher) ... ok
+test_l2_requires_injected_byte_publisher (tests.architecture.test_asset_generated_import_boundary.AssetGeneratedImportB
+oundaryTests.test_l2_requires_injected_byte_publisher) ... ok
+test_desktop_delegates_image_and_registry_publication (tests.architecture.test_asset_image_import_boundary.AssetImageIm
+portBoundaryTests.test_desktop_delegates_image_and_registry_publication) ... ok
+test_desktop_delegates_image_recycle_and_index_update (tests.architecture.test_asset_image_removal_boundary.AssetImageR
+emovalBoundaryTests.test_desktop_delegates_image_recycle_and_index_update) ... ok
+test_desktop_delegates_image_restore_and_index_update (tests.architecture.test_asset_image_restore_boundary.AssetImageR
+estoreBoundaryTests.test_desktop_delegates_image_restore_and_index_update) ... ok
+test_l2_requires_injected_publishers_and_l3_owns_their_assembly (tests.architecture.test_asset_plan_publication_boundar
+y.AssetPlanPublicationBoundaryTests.test_l2_requires_injected_publishers_and_l3_owns_their_assembly) ... ok
+test_sync_plan_delegates_all_output_to_bundle_publisher (tests.architecture.test_asset_plan_publication_boundary.AssetP
+lanPublicationBoundaryTests.test_sync_plan_delegates_all_output_to_bundle_publisher) ... ok
+test_desktop_rename_delegates_both_document_writes (tests.architecture.test_asset_rename_boundary.AssetRenameBoundaryTe
+sts.test_desktop_rename_delegates_both_document_writes) ... ok
+test_background_adapters_validate_report_body_before_publication (tests.architecture.test_atomic_write_boundary.AtomicW
+riteBoundaryTests.test_background_adapters_validate_report_body_before_publication) ... ok
+test_direct_production_writes_are_limited_to_registered_boundaries (tests.architecture.test_atomic_write_boundary.Atomi
+cWriteBoundaryTests.test_direct_production_writes_are_limited_to_registered_boundaries) ... ok
+test_direct_replace_detector_catches_both_spellings (tests.architecture.test_atomic_write_boundary.AtomicWriteBoundaryT
+ests.test_direct_replace_detector_catches_both_spellings) ... ok
+test_direct_replace_is_limited_to_registered_writers (tests.architecture.test_atomic_write_boundary.AtomicWriteBoundary
+Tests.test_direct_replace_is_limited_to_registered_writers) ... ok
+test_registered_atomic_boundaries_prove_temporary_then_replace (tests.architecture.test_atomic_write_boundary.AtomicWri
+teBoundaryTests.test_registered_atomic_boundaries_prove_temporary_then_replace) ... ok
+test_shortcut_script_is_temporary_and_is_reclaimed (tests.architecture.test_atomic_write_boundary.AtomicWriteBoundaryTe
+sts.test_shortcut_script_is_temporary_and_is_reclaimed) ... ok
+test_desktop_delegates_audio_copy_to_service (tests.architecture.test_audio_import_boundary.AudioImportBoundaryTests.te
+st_desktop_delegates_audio_copy_to_service) ... ok
+test_border_canary (tests.architecture.test_box_boundary.BoxBoundaryTests.test_border_canary) ... ok
+test_box_style_literal_is_zero_outside_theme (tests.architecture.test_box_boundary.BoxBoundaryTests.test_box_style_lite
+ral_is_zero_outside_theme) ... <unknown>:2239: SyntaxWarning: "\[" is an invalid escape sequence. Such sequences will n
+ot work in the future. Did you mean "\\["? A raw string is also an option.
+ok
+test_hand_rolled_borders_only_decrease (tests.architecture.test_box_boundary.BoxBoundaryTests.test_hand_rolled_borders_
+only_decrease) ... <unknown>:2239: SyntaxWarning: "\[" is an invalid escape sequence. Such sequences will not work in t
+he future. Did you mean "\\["? A raw string is also an option.
+ok
+test_literal_canary (tests.architecture.test_box_boundary.BoxBoundaryTests.test_literal_canary) ... ok
+test_writing_page_chat_box_uses_entry (tests.architecture.test_box_boundary.BoxBoundaryTests.test_writing_page_chat_box
+_uses_entry) ... ok
+test_baseline_decision_points_match_current_entities (tests.architecture.test_branch_coverage_floor.BranchCoverageFloor
+Tests.test_baseline_decision_points_match_current_entities) ... ok
+test_baseline_is_self_consistent (tests.architecture.test_branch_coverage_floor.BranchCoverageFloorTests.test_baseline_
+is_self_consistent) ... ok
+test_branch_coverage_tool_runs_on_bundled_interpreter (tests.architecture.test_branch_coverage_floor.BranchCoverageFloo
+rTests.test_branch_coverage_tool_runs_on_bundled_interpreter) ... ok
+test_floors_cover_every_module_and_ratchet_holds (tests.architecture.test_branch_coverage_floor.BranchCoverageFloorTest
+s.test_floors_cover_every_module_and_ratchet_holds) ... ok
+test_module_set_matches_l01_registry (tests.architecture.test_branch_coverage_floor.BranchCoverageFloorTests.test_modul
+e_set_matches_l01_registry) ... ok
+test_async_lifecycle_uses_busy_state_for_start_and_finish (tests.architecture.test_busy_state_boundary.BusyStateBoundar
+yTests.test_async_lifecycle_uses_busy_state_for_start_and_finish) ... ok
+test_desktop_cancel_invalidates_ticket_and_restores_busy (tests.architecture.test_busy_state_boundary.BusyStateBoundary
+Tests.test_desktop_cancel_invalidates_ticket_and_restores_busy) ... ok
+test_desktop_result_drain_rejects_late_results_before_restoring_busy (tests.architecture.test_busy_state_boundary.BusyS
+tateBoundaryTests.test_desktop_result_drain_rejects_late_results_before_restoring_busy) ... ok
+test_desktop_submission_pairs_lifecycle_and_busy (tests.architecture.test_busy_state_boundary.BusyStateBoundaryTests.te
+st_desktop_submission_pairs_lifecycle_and_busy) ... ok
+test_interrupt_does_not_stop_the_progressbar_directly (tests.architecture.test_busy_state_boundary.BusyStateBoundaryTes
+ts.test_interrupt_does_not_stop_the_progressbar_directly) ... ok
+test_pages_with_progress_route_through_the_shared_busy_entry (tests.architecture.test_busy_state_boundary.BusyStateBoun
+daryTests.test_pages_with_progress_route_through_the_shared_busy_entry)
+app.py／native_assets.py 的加载态必须由同一个 BusyState 成对恢复。 ... ok
+test_production_pages_do_not_build_progressbars (tests.architecture.test_busy_state_boundary.BusyStateBoundaryTests.tes
+t_production_pages_do_not_build_progressbars)
+忙碌态统一用转圈（ui_motion.Spinner），页面不再构造 ttk.Progressbar。 ... ok
+test_progress_start_stop_lives_only_in_busy_state (tests.architecture.test_busy_state_boundary.BusyStateBoundaryTests.t
+est_progress_start_stop_lives_only_in_busy_state)
+业务页面不得直接开关不确定进度条；加载态只能经 BusyState.set_busy。 ... ok
+test_app_uses_semantic_buttons (tests.architecture.test_button_boundary.ButtonBoundaryTests.test_app_uses_semantic_butt
+ons) ... ok
+test_asset_detail_uses_semantic_buttons (tests.architecture.test_button_boundary.ButtonBoundaryTests.test_asset_detail_
+uses_semantic_buttons) ... ok
+test_asset_reference_import_uses_semantic_buttons (tests.architecture.test_button_boundary.ButtonBoundaryTests.test_ass
+et_reference_import_uses_semantic_buttons) ... ok
+test_asset_reference_windows_use_semantic_buttons (tests.architecture.test_button_boundary.ButtonBoundaryTests.test_ass
+et_reference_windows_use_semantic_buttons) ... ok
+test_assignment_alias_canaries_are_detected (tests.architecture.test_button_boundary.ButtonBoundaryTests.test_assignmen
+t_alias_canaries_are_detected) ... ok
+test_background_character_dialog_uses_semantic_buttons (tests.architecture.test_button_boundary.ButtonBoundaryTests.tes
+t_background_character_dialog_uses_semantic_buttons) ... ok
+test_cloud_asset_settings_use_semantic_buttons (tests.architecture.test_button_boundary.ButtonBoundaryTests.test_cloud_
+asset_settings_use_semantic_buttons) ... ok
+test_desktop_uses_semantic_buttons (tests.architecture.test_button_boundary.ButtonBoundaryTests.test_desktop_uses_seman
+tic_buttons) ... ok
+test_keyframe_comfy_uses_semantic_buttons (tests.architecture.test_button_boundary.ButtonBoundaryTests.test_keyframe_co
+mfy_uses_semantic_buttons) ... ok
+test_native_assets_uses_semantic_buttons (tests.architecture.test_button_boundary.ButtonBoundaryTests.test_native_asset
+s_uses_semantic_buttons) ... ok
+test_production_modules_use_semantic_buttons (tests.architecture.test_button_boundary.ButtonBoundaryTests.test_producti
+on_modules_use_semantic_buttons)
+递归扫描全部生产模块（含 batch_frames_tool/、agent/ 等子目录）：不得出现裸 tk/ttk.Button。 ... D:\漫剧制作助手\.agents\worktrees\foundation-c8-updater
+\程序\skills\00全流程SKILL\AIGC创作全流程\short-drama-director\scripts\check_package.py:2239: SyntaxWarning: "\[" is an invalid e
+scape sequence. Such sequences will not work in the future. Did you mean "\\["? A raw string is also an option.
+  and "[\[【]?" in _bbl_txt
+ok
+test_prompt_optimizer_settings_use_semantic_buttons (tests.architecture.test_button_boundary.ButtonBoundaryTests.test_p
+rompt_optimizer_settings_use_semantic_buttons) ... ok
+test_prompt_window_uses_semantic_buttons (tests.architecture.test_button_boundary.ButtonBoundaryTests.test_prompt_windo
+w_uses_semantic_buttons) ... ok
+test_qwen_settings_use_semantic_buttons (tests.architecture.test_button_boundary.ButtonBoundaryTests.test_qwen_settings
+_use_semantic_buttons) ... ok
+test_recursive_scan_covers_subdirectories (tests.architecture.test_button_boundary.ButtonBoundaryTests.test_recursive_s
+can_covers_subdirectories)
+镜像 canary：确认扫描范围覆盖子目录模块，门禁不是「只扫根目录」的假阴性空集。 ... ok
+test_reference_wall_uses_semantic_buttons (tests.architecture.test_button_boundary.ButtonBoundaryTests.test_reference_w
+all_uses_semantic_buttons) ... ok
+test_seedream_settings_use_semantic_buttons (tests.architecture.test_button_boundary.ButtonBoundaryTests.test_seedream_
+settings_use_semantic_buttons) ... ok
+test_semantic_and_unrelated_buttons_are_not_flagged (tests.architecture.test_button_boundary.ButtonBoundaryTests.test_s
+emantic_and_unrelated_buttons_are_not_flagged) ... ok
+test_shared_video_controls_use_semantic_buttons (tests.architecture.test_button_boundary.ButtonBoundaryTests.test_share
+d_video_controls_use_semantic_buttons) ... ok
+test_skill_panel_uses_semantic_buttons (tests.architecture.test_button_boundary.ButtonBoundaryTests.test_skill_panel_us
+es_semantic_buttons) ... ok
+test_tk_import_alias_canaries_are_detected (tests.architecture.test_button_boundary.ButtonBoundaryTests.test_tk_import_
+alias_canaries_are_detected) ... ok
+test_ttk_import_alias_canaries_are_detected (tests.architecture.test_button_boundary.ButtonBoundaryTests.test_ttk_impor
+t_alias_canaries_are_detected) ... ok
+test_video_navigation_uses_semantic_buttons (tests.architecture.test_button_boundary.ButtonBoundaryTests.test_video_nav
+igation_uses_semantic_buttons) ... ok
+test_white_model_uses_semantic_buttons (tests.architecture.test_button_boundary.ButtonBoundaryTests.test_white_model_us
+es_semantic_buttons) ... ok
+test_workflow_settings_use_semantic_buttons (tests.architecture.test_button_boundary.ButtonBoundaryTests.test_workflow_
+settings_use_semantic_buttons) ... ok
+test_asset_detail_page_blocks_use_card (tests.architecture.test_card_boundary.CardBoundaryTests.test_asset_detail_page_
+blocks_use_card)
+资产详情页的六个信息／操作单元（正典板、锚点、职责、变体、原始数据、待确认）统一用 Card。 ... ok
+test_asset_reference_import_uses_card_for_its_configuration_group (tests.architecture.test_card_boundary.CardBoundaryTe
+sts.test_asset_reference_import_uses_card_for_its_configuration_group) ... ok
+test_background_character_dialog_uses_card_for_its_content (tests.architecture.test_card_boundary.CardBoundaryTests.tes
+t_background_character_dialog_uses_card_for_its_content) ... ok
+test_cloud_asset_settings_uses_card_for_its_configuration_group (tests.architecture.test_card_boundary.CardBoundaryTest
+s.test_cloud_asset_settings_uses_card_for_its_configuration_group) ... ok
+test_cloud_studio_settings_uses_card_for_its_configuration_group (tests.architecture.test_card_boundary.CardBoundaryTes
+ts.test_cloud_studio_settings_uses_card_for_its_configuration_group) ... ok
+test_cloud_video_settings_uses_card_for_its_configuration_group (tests.architecture.test_card_boundary.CardBoundaryTest
+s.test_cloud_video_settings_uses_card_for_its_configuration_group) ... ok
+test_desktop_pages_use_card_for_content_groups (tests.architecture.test_card_boundary.CardBoundaryTests.test_desktop_pa
+ges_use_card_for_content_groups)
+桌面页的分类导航、连续性与视频主页信息承载区统一用 Card（标题行改为卡内标签）。 ... ok
+test_keyframe_comfy_windows_use_card (tests.architecture.test_card_boundary.CardBoundaryTests.test_keyframe_comfy_windo
+ws_use_card)
+首帧 ComfyUI 窗的两个配置单元（生成模型与接口、ComfyUI 连接与模型接口）统一用 Card。 ... ok
+test_local_video_settings_uses_card_for_its_configuration_group (tests.architecture.test_card_boundary.CardBoundaryTest
+s.test_local_video_settings_uses_card_for_its_configuration_group) ... ok
+test_native_assets_and_asset_batch_forms_use_card (tests.architecture.test_card_boundary.CardBoundaryTests.test_native_
+assets_and_asset_batch_forms_use_card)
+原生资产窗与批量资产表单的配置区统一用 Card（标题行改为卡内标签）。 ... ok
+test_pet_model_windows_use_card_for_their_configuration_group (tests.architecture.test_card_boundary.CardBoundaryTests.
+test_pet_model_windows_use_card_for_their_configuration_group) ... ok
+test_pet_settings_hub_uses_card_for_its_configuration_group (tests.architecture.test_card_boundary.CardBoundaryTests.te
+st_pet_settings_hub_uses_card_for_its_configuration_group) ... ok
+test_prompt_optimizer_settings_uses_card_for_its_configuration_group (tests.architecture.test_card_boundary.CardBoundar
+yTests.test_prompt_optimizer_settings_uses_card_for_its_configuration_group) ... ok
+test_qwen_settings_uses_card_for_its_configuration_group (tests.architecture.test_card_boundary.CardBoundaryTests.test_
+qwen_settings_uses_card_for_its_configuration_group) ... ok
+test_reference_wall_uses_card_for_its_content (tests.architecture.test_card_boundary.CardBoundaryTests.test_reference_w
+all_uses_card_for_its_content) ... ok
+test_seedream_settings_uses_card_for_its_configuration_group (tests.architecture.test_card_boundary.CardBoundaryTests.t
+est_seedream_settings_uses_card_for_its_configuration_group) ... ok
+test_tts_settings_uses_card_for_its_configuration_group (tests.architecture.test_card_boundary.CardBoundaryTests.test_t
+ts_settings_uses_card_for_its_configuration_group) ... ok
+test_white_model_picker_uses_card_for_its_configuration_group (tests.architecture.test_card_boundary.CardBoundaryTests.
+test_white_model_picker_uses_card_for_its_configuration_group) ... ok
+test_white_model_workspace_uses_card_for_its_configuration_group (tests.architecture.test_card_boundary.CardBoundaryTes
+ts.test_white_model_workspace_uses_card_for_its_configuration_group) ... ok
+test_workflow_settings_uses_card_for_its_configuration_group (tests.architecture.test_card_boundary.CardBoundaryTests.t
+est_workflow_settings_uses_card_for_its_configuration_group) ... ok
+test_desktop_video_mode_preference_delegates_to_service (tests.architecture.test_cloud_video_settings_boundary.CloudVid
+eoSettingsBoundaryTests.test_desktop_video_mode_preference_delegates_to_service) ... ok
+test_desktop_workspace_selection_delegates_to_service (tests.architecture.test_cloud_video_settings_boundary.CloudVideo
+SettingsBoundaryTests.test_desktop_workspace_selection_delegates_to_service) ... ok
+test_l2_requires_l3_gateway_for_all_configuration_publication (tests.architecture.test_cloud_video_settings_boundary.Cl
+oudVideoSettingsBoundaryTests.test_l2_requires_l3_gateway_for_all_configuration_publication) ... ok
+test_settings_publication_delegates_to_service (tests.architecture.test_cloud_video_settings_boundary.CloudVideoSetting
+sBoundaryTests.test_settings_publication_delegates_to_service) ... ok
+test_studio_settings_delegate_to_service (tests.architecture.test_cloud_video_settings_boundary.CloudVideoSettingsBound
+aryTests.test_studio_settings_delegate_to_service) ... ok
+test_business_pages_create_comboboxes_through_select_box (tests.architecture.test_combobox_boundary.ComboboxBoundaryTes
+ts.test_business_pages_create_comboboxes_through_select_box) ... D:\漫剧制作助手\.agents\worktrees\foundation-c8-updater\程序\s
+kills\00全流程SKILL\AIGC创作全流程\short-drama-director\scripts\check_package.py:2239: SyntaxWarning: "\[" is an invalid escape
+ sequence. Such sequences will not work in the future. Did you mean "\\["? A raw string is also an option.
+  and "[\[【]?" in _bbl_txt
+ok
+test_business_pages_do_not_define_private_combobox_styles (tests.architecture.test_combobox_boundary.ComboboxBoundaryTe
+sts.test_business_pages_do_not_define_private_combobox_styles) ... D:\漫剧制作助手\.agents\worktrees\foundation-c8-updater\程序
+\skills\00全流程SKILL\AIGC创作全流程\short-drama-director\scripts\check_package.py:2239: SyntaxWarning: "\[" is an invalid esca
+pe sequence. Such sequences will not work in the future. Did you mean "\\["? A raw string is also an option.
+  and "[\[【]?" in _bbl_txt
+ok
+test_desktop_initializes_global_combobox_styles (tests.architecture.test_combobox_boundary.ComboboxBoundaryTests.test_d
+esktop_initializes_global_combobox_styles) ... ok
+test_completion_event_senders_depend_on_completion_service (tests.architecture.test_completion_gate.CompletionGateTests
+.test_completion_event_senders_depend_on_completion_service)
+任何发送者须显式依赖产物核验服务，而非模型文字。 ... D:\漫剧制作助手\.agents\worktrees\foundation-c8-updater\程序\skills\00全流程SKILL\AIGC创作全流程\short-dra
+ma-director\scripts\check_package.py:2239: SyntaxWarning: "\[" is an invalid escape sequence. Such sequences will not w
+ork in the future. Did you mean "\\["? A raw string is also an option.
+  and "[\[【]?" in _bbl_txt
+ok
+test_completion_events_are_not_emitted_by_ui_or_agent_modules (tests.architecture.test_completion_gate.CompletionGateTe
+sts.test_completion_events_are_not_emitted_by_ui_or_agent_modules)
+UI/Agent 不能以文字或页面提示直接宣告阶段完成。 ... D:\漫剧制作助手\.agents\worktrees\foundation-c8-updater\程序\skills\00全流程SKILL\AIGC创作全流程\short
+-drama-director\scripts\check_package.py:2239: SyntaxWarning: "\[" is an invalid escape sequence. Such sequences will n
+ot work in the future. Did you mean "\\["? A raw string is also an option.
+  and "[\[【]?" in _bbl_txt
+ok
+test_class_size_does_not_grow (tests.architecture.test_complexity_ratchet.ComplexityRatchet.test_class_size_does_not_gr
+ow) ... ok
+test_nesting_does_not_grow (tests.architecture.test_complexity_ratchet.ComplexityRatchet.test_nesting_does_not_grow) ..
+. ok
+test_parameter_count_does_not_grow (tests.architecture.test_complexity_ratchet.ComplexityRatchet.test_parameter_count_d
+oes_not_grow) ... ok
+test_registries_track_real_values (tests.architecture.test_complexity_ratchet.ComplexityRatchet.test_registries_track_r
+eal_values) ... ok
+test_confirmations_use_cache_and_recording_accepts_l3_publisher (tests.architecture.test_confirm_gates_json_boundary.Co
+nfirmGatesJsonBoundaryTests.test_confirmations_use_cache_and_recording_accepts_l3_publisher) ... ok
+test_l4_confirmation_writes_delegate_to_l3 (tests.architecture.test_confirm_gates_json_boundary.ConfirmGatesJsonBoundar
+yTests.test_l4_confirmation_writes_delegate_to_l3) ... ok
+test_all_production_modules_do_not_construct_tk_menus (tests.architecture.test_context_menu_boundary.ContextMenuBoundar
+yTests.test_all_production_modules_do_not_construct_tk_menus) ... <unknown>:2239: SyntaxWarning: "\[" is an invalid esc
+ape sequence. Such sequences will not work in the future. Did you mean "\\["? A raw string is also an option.
+ok
+test_business_modules_do_not_construct_tk_menus (tests.architecture.test_context_menu_boundary.ContextMenuBoundaryTests
+.test_business_modules_do_not_construct_tk_menus) ... ok
+test_write_delegates_to_bundle_publisher_without_direct_save (tests.architecture.test_continuity_publication_boundary.C
+ontinuityPublicationBoundaryTests.test_write_delegates_to_bundle_publisher_without_direct_save) ... ok
+test_allowed_stdlib_and_first_party_pass (tests.architecture.test_contract_purity.ContractPurityTests.test_allowed_stdl
+ib_and_first_party_pass) ... ok
+test_bad_sample_path_write_text_is_flagged (tests.architecture.test_contract_purity.ContractPurityTests.test_bad_sample
+_path_write_text_is_flagged) ... ok
+test_canary_bad_samples_turn_gate_red (tests.architecture.test_contract_purity.ContractPurityTests.test_canary_bad_samp
+les_turn_gate_red)
+K9-2：_canary 下两个 L0 坏样本必须被门禁识别。 ... ok
+test_forbidden_import_inside_function_and_try_is_flagged (tests.architecture.test_contract_purity.ContractPurityTests.t
+est_forbidden_import_inside_function_and_try_is_flagged) ... ok
+test_open_and_os_environ_are_flagged (tests.architecture.test_contract_purity.ContractPurityTests.test_open_and_os_envi
+ron_are_flagged) ... ok
+test_scan_matches_ledger_and_never_exceeds_baseline (tests.architecture.test_contract_purity.ContractPurityTests.test_s
+can_matches_ledger_and_never_exceeds_baseline)
+棘轮：实测违规集合必须与台账逐项相等，且总数不超立书基线。 ... ok
+test_third_party_and_non_allowed_stdlib_flagged (tests.architecture.test_contract_purity.ContractPurityTests.test_third
+_party_and_non_allowed_stdlib_flagged) ... ok
+test_l0_importing_l0p_is_upward (tests.architecture.test_contract_purity.L0PLayerTests.test_l0_importing_l0p_is_upward)
+L0(0) < L0P(0.5)：L0 引用 L0P 属向上依赖，与 test_layers 同一判定。 ... ok
+test_l0p_layer_registered_between_l0_and_l1 (tests.architecture.test_contract_purity.L0PLayerTests.test_l0p_layer_regis
+tered_between_l0_and_l1) ... ok
+test_l0p_registration_accepts_float_layer (tests.architecture.test_contract_purity.L0PLayerTests.test_l0p_registration_
+accepts_float_layer) ... ok
+test_clipboard_writes_only_live_in_the_shared_copy_entry (tests.architecture.test_copy_entry_boundary.CopyEntryBoundary
+Tests.test_clipboard_writes_only_live_in_the_shared_copy_entry) ... ok
+test_copy_feedback_uses_the_fixed_terms (tests.architecture.test_copy_entry_boundary.CopyEntryBoundaryTests.test_copy_f
+eedback_uses_the_fixed_terms)
+复制反馈固定术语：成功「已复制…」、失败「复制失败：…」；页面不得自创不可检索的文案。 ... ok
+test_shared_entry_locks_writes_and_masks_status_preview (tests.architecture.test_copy_entry_boundary.CopyEntryBoundaryT
+ests.test_shared_entry_locks_writes_and_masks_status_preview) ... ok
+test_audit19_is_merged_into_the_third_item_scope (tests.architecture.test_coverage_audit_ratchet.CoverageAuditCanaryTes
+ts.test_audit19_is_merged_into_the_third_item_scope)
+第 19 项不另建扫描器：它的 config.json 写入点必须已被第 3 项登记覆盖。 ... ok
+test_audit19_to_23_each_record_a_disposition_and_reason (tests.architecture.test_coverage_audit_ratchet.CoverageAuditCa
+naryTests.test_audit19_to_23_each_record_a_disposition_and_reason)
+19–23 每段都必须有处置与理由（19 归并、22 复用既有门禁、23 冻结窄谓词）。 ... ok
+test_audit_pending_sets_do_not_overlap (tests.architecture.test_coverage_audit_ratchet.CoverageAuditCanaryTests.test_au
+dit_pending_sets_do_not_overlap)
+同一待办位置只能归属一个审计段落。 ... ok
+test_criteria_true_candidate_counts_match_scan_and_pending (tests.architecture.test_coverage_audit_ratchet.CoverageAudi
+tCanaryTests.test_criteria_true_candidate_counts_match_scan_and_pending)
+判据表由同一冻结扫描器生成，不能手写另一套数字。 ... ok
+test_each_predicate_hits_canary (tests.architecture.test_coverage_audit_ratchet.CoverageAuditCanaryTests.test_each_pred
+icate_hits_canary) ... ok
+test_pending_and_predicate_hits_are_exactly_equal (tests.architecture.test_coverage_audit_ratchet.CoverageAuditCanaryTe
+sts.test_pending_and_predicate_hits_are_exactly_equal)
+双向棘轮：既禁止漏账，也禁止待办死账。 ... ok
+test_baseline_is_self_consistent (tests.architecture.test_coverage_baseline.CoverageBaselineTests.test_baseline_is_self
+_consistent) ... ok
+test_baseline_modules_exist_and_keep_production_scope (tests.architecture.test_coverage_baseline.CoverageBaselineTests.
+test_baseline_modules_exist_and_keep_production_scope) ... ok
+test_core_paths_meet_recorded_floor (tests.architecture.test_coverage_baseline.CoverageBaselineTests.test_core_paths_me
+et_recorded_floor) ... ok
+test_coverage_tool_runs_on_bundled_interpreter (tests.architecture.test_coverage_baseline.CoverageBaselineTests.test_co
+verage_tool_runs_on_bundled_interpreter) ... ok
+test_runbook_states_the_directed_measurement_caliber (tests.architecture.test_coverage_baseline.CoverageBaselineTests.t
+est_runbook_states_the_directed_measurement_caliber)
+runbook §11 的数字必须与基线字段自洽，并明说这不是整仓覆盖率（R1650）。 ... ok
+test_asset_batch_uses_data_table_not_a_page_treeview (tests.architecture.test_data_table_boundary.DataTableBoundaryTest
+s.test_asset_batch_uses_data_table_not_a_page_treeview) ... ok
+test_asset_picker_uses_data_table_not_a_page_treeview (tests.architecture.test_data_table_boundary.DataTableBoundaryTes
+ts.test_asset_picker_uses_data_table_not_a_page_treeview) ... ok
+test_asset_reference_windows_use_data_table_not_a_page_treeview (tests.architecture.test_data_table_boundary.DataTableB
+oundaryTests.test_asset_reference_windows_use_data_table_not_a_page_treeview) ... ok
+test_asset_table_uses_data_table_not_a_page_treeview (tests.architecture.test_data_table_boundary.DataTableBoundaryTest
+s.test_asset_table_uses_data_table_not_a_page_treeview) ... ok
+test_continuity_tables_use_data_table_not_a_page_treeview (tests.architecture.test_data_table_boundary.DataTableBoundar
+yTests.test_continuity_tables_use_data_table_not_a_page_treeview) ... ok
+test_final_storyboard_files_use_data_table_not_a_page_treeview (tests.architecture.test_data_table_boundary.DataTableBo
+undaryTests.test_final_storyboard_files_use_data_table_not_a_page_treeview) ... ok
+test_keyframe_comfy_uses_data_table_not_a_page_treeview (tests.architecture.test_data_table_boundary.DataTableBoundaryT
+ests.test_keyframe_comfy_uses_data_table_not_a_page_treeview) ... ok
+test_keyframe_table_uses_data_table_not_a_page_treeview (tests.architecture.test_data_table_boundary.DataTableBoundaryT
+ests.test_keyframe_table_uses_data_table_not_a_page_treeview) ... ok
+test_local_previs_uses_data_table_not_a_page_treeview (tests.architecture.test_data_table_boundary.DataTableBoundaryTes
+ts.test_local_previs_uses_data_table_not_a_page_treeview) ... ok
+test_main_workbench_uses_data_table_not_a_page_treeview (tests.architecture.test_data_table_boundary.DataTableBoundaryT
+ests.test_main_workbench_uses_data_table_not_a_page_treeview) ... ok
+test_model_manager_uses_data_table_not_a_page_treeview (tests.architecture.test_data_table_boundary.DataTableBoundaryTe
+sts.test_model_manager_uses_data_table_not_a_page_treeview) ... ok
+test_only_project_navigation_uses_raw_treeview_recursively (tests.architecture.test_data_table_boundary.DataTableBounda
+ryTests.test_only_project_navigation_uses_raw_treeview_recursively)
+表格一律经 DataTable；仅项目导航保留树形选择器语义。 ... D:\漫剧制作助手\.agents\worktrees\foundation-c8-updater\程序\skills\00全流程SKILL\AIGC创作全流程\sh
+ort-drama-director\scripts\check_package.py:2239: SyntaxWarning: "\[" is an invalid escape sequence. Such sequences wil
+l not work in the future. Did you mean "\\["? A raw string is also an option.
+  and "[\[【]?" in _bbl_txt
+ok
+test_project_selection_pages_use_data_table_not_a_page_treeview (tests.architecture.test_data_table_boundary.DataTableB
+oundaryTests.test_project_selection_pages_use_data_table_not_a_page_treeview) ... ok
+test_recovery_dialog_tables_use_data_table_not_a_page_treeview (tests.architecture.test_data_table_boundary.DataTableBo
+undaryTests.test_recovery_dialog_tables_use_data_table_not_a_page_treeview) ... ok
+test_reference_wall_uses_data_table_not_a_page_treeview (tests.architecture.test_data_table_boundary.DataTableBoundaryT
+ests.test_reference_wall_uses_data_table_not_a_page_treeview) ... ok
+test_script_file_lists_use_data_table_not_a_page_treeview (tests.architecture.test_data_table_boundary.DataTableBoundar
+yTests.test_script_file_lists_use_data_table_not_a_page_treeview) ... ok
+test_storyboard_file_table_uses_data_table_not_a_page_treeview (tests.architecture.test_data_table_boundary.DataTableBo
+undaryTests.test_storyboard_file_table_uses_data_table_not_a_page_treeview) ... ok
+test_production_deletion_calls_are_lifecycle_owned (tests.architecture.test_deletion_gateway.DeletionGatewayTests.test_
+production_deletion_calls_are_lifecycle_owned)
+用户文件删除只能经生命周期网关；UI 与业务模块不得绕过。 ... ok
+test_desktop_delegates_final_import_to_l3_orchestrator (tests.architecture.test_delivery_import_boundary.DeliveryImport
+BoundaryTests.test_desktop_delegates_final_import_to_l3_orchestrator) ... ok
+test_l2_requires_l3_publisher_without_copy_fallback (tests.architecture.test_delivery_import_boundary.DeliveryImportBou
+ndaryTests.test_l2_requires_l3_publisher_without_copy_fallback) ... ok
+test_discovery_passes_only_purelib_to_metadata (tests.architecture.test_dependency_whitelist.DependencyValidationTests.
+test_discovery_passes_only_purelib_to_metadata) ... ok
+test_distribution_names_are_normalized (tests.architecture.test_dependency_whitelist.DependencyValidationTests.test_dis
+tribution_names_are_normalized) ... ok
+test_installed_development_package_version_is_checked (tests.architecture.test_dependency_whitelist.DependencyValidatio
+nTests.test_installed_development_package_version_is_checked) ... ok
+test_lock_accepts_comments_and_normalizes_names (tests.architecture.test_dependency_whitelist.DependencyValidationTests
+.test_lock_accepts_comments_and_normalizes_names) ... ok
+test_lock_gate_accepts_registered_addition (tests.architecture.test_dependency_whitelist.DependencyValidationTests.test
+_lock_gate_accepts_registered_addition) ... ok
+test_lock_gate_rejects_unregistered_addition (tests.architecture.test_dependency_whitelist.DependencyValidationTests.te
+st_lock_gate_rejects_unregistered_addition) ... ok
+test_lock_rejects_unpinned_duplicate_or_install_options (tests.architecture.test_dependency_whitelist.DependencyValidat
+ionTests.test_lock_rejects_unpinned_duplicate_or_install_options) ... ok
+test_missing_production_dependency_is_reported (tests.architecture.test_dependency_whitelist.DependencyValidationTests.
+test_missing_production_dependency_is_reported) ... ok
+test_old_requests_version_is_rejected (tests.architecture.test_dependency_whitelist.DependencyValidationTests.test_old_
+requests_version_is_rejected) ... ok
+test_optional_development_packages_are_allowed (tests.architecture.test_dependency_whitelist.DependencyValidationTests.
+test_optional_development_packages_are_allowed) ... ok
+test_production_dependencies_match_lock (tests.architecture.test_dependency_whitelist.DependencyValidationTests.test_pr
+oduction_dependencies_match_lock) ... ok
+test_production_only_is_complete (tests.architecture.test_dependency_whitelist.DependencyValidationTests.test_productio
+n_only_is_complete) ... ok
+test_production_version_comes_from_lock_mapping (tests.architecture.test_dependency_whitelist.DependencyValidationTests
+.test_production_version_comes_from_lock_mapping) ... ok
+test_unknown_distribution_is_reported (tests.architecture.test_dependency_whitelist.DependencyValidationTests.test_unkn
+own_distribution_is_reported) ... ok
+test_site_packages_whitelist (tests.architecture.test_dependency_whitelist.DependencyWhitelistTests.test_site_packages_
+whitelist) ... ok
+test_whitelist_completeness (tests.architecture.test_dependency_whitelist.DependencyWhitelistTests.test_whitelist_compl
+eteness) ... ok
+test_whitelist_versions (tests.architecture.test_dependency_whitelist.DependencyWhitelistTests.test_whitelist_versions)
+ ... ok
+test_coverage_rows_point_at_real_sections (tests.architecture.test_design_coverage.DesignCoverageTests.test_coverage_ro
+ws_point_at_real_sections) ... ok
+test_every_priority_requirement_has_a_landing_place (tests.architecture.test_design_coverage.DesignCoverageTests.test_e
+very_priority_requirement_has_a_landing_place) ... ok
+test_every_user_story_has_a_landing_place (tests.architecture.test_design_coverage.DesignCoverageTests.test_every_user_
+story_has_a_landing_place) ... ok
+test_no_stale_coverage_rows (tests.architecture.test_design_coverage.DesignCoverageTests.test_no_stale_coverage_rows)
+覆盖表里出现 PRD 已经没有的条目＝表过期，同样要红。 ... ok
+test_positive_sample_resolves (tests.architecture.test_design_coverage.DesignCoverageTests.test_positive_sample_resolve
+s)
+正样本：真实存在的册与章节必须放行，否则门禁会误报。 ... ok
+test_spec_index_exists (tests.architecture.test_design_coverage.DesignCoverageTests.test_spec_index_exists) ... ok
+test_unresolved_detects_negative_samples (tests.architecture.test_design_coverage.DesignCoverageTests.test_unresolved_d
+etects_negative_samples)
+负向自测：错册号、错章节、非 § 形式都必须被检出，断言不恒真。 ... ok
+test_desktop_preferences_delegate_all_mutations_to_service (tests.architecture.test_desktop_settings_boundary.DesktopSe
+ttingsBoundaryTests.test_desktop_preferences_delegate_all_mutations_to_service) ... ok
+test_cloud_asset_settings_uses_form_dialog_not_a_raw_toplevel (tests.architecture.test_dialog_boundary.DialogBoundaryTe
+sts.test_cloud_asset_settings_uses_form_dialog_not_a_raw_toplevel) ... ok
+test_dialogs_use_the_unified_boundary (tests.architecture.test_dialog_boundary.DialogBoundaryTests.test_dialogs_use_the
+_unified_boundary)
+递归扫描全部生产模块（R922 起应覆盖子目录），不只根目录。 ... D:\漫剧制作助手\.agents\worktrees\foundation-c8-updater\程序\skills\00全流程SKILL\AIGC创作全流程\sh
+ort-drama-director\scripts\check_package.py:2239: SyntaxWarning: "\[" is an invalid escape sequence. Such sequences wil
+l not work in the future. Did you mean "\\["? A raw string is also an option.
+  and "[\[【]?" in _bbl_txt
+ok
+test_prompt_window_uses_base_dialog_not_a_raw_toplevel (tests.architecture.test_dialog_boundary.DialogBoundaryTests.tes
+t_prompt_window_uses_base_dialog_not_a_raw_toplevel) ... ok
+test_qwen_settings_uses_form_dialog_not_a_raw_toplevel (tests.architecture.test_dialog_boundary.DialogBoundaryTests.tes
+t_qwen_settings_uses_form_dialog_not_a_raw_toplevel) ... ok
+test_raw_toplevel_canary_is_detected (tests.architecture.test_dialog_boundary.DialogBoundaryTests.test_raw_toplevel_can
+ary_is_detected)
+镜像：属性式与 ``from tkinter import Toplevel`` 的裸构造都必须被同一谓词识别。 ... ok
+test_tts_settings_uses_form_dialog_not_a_raw_toplevel (tests.architecture.test_dialog_boundary.DialogBoundaryTests.test
+_tts_settings_uses_form_dialog_not_a_raw_toplevel) ... ok
+test_l4_dynamic_imports_use_the_plugin_registry (tests.architecture.test_dynamic_import_registry.DynamicImportRegistryT
+ests.test_l4_dynamic_imports_use_the_plugin_registry)
+登记的 L4 页面不得直接调用动态 import。 ... ok
+test_registry_has_the_ui_plugins_used_by_callers (tests.architecture.test_dynamic_import_registry.DynamicImportRegistry
+Tests.test_registry_has_the_ui_plugins_used_by_callers) ... ok
+test_registry_rejects_unknown_plugin (tests.architecture.test_dynamic_import_registry.DynamicImportRegistryTests.test_r
+egistry_rejects_unknown_plugin) ... ok
+test_infra_does_not_import_batch_orchestration (tests.architecture.test_dynamic_import_registry.ProductionToolClosureTe
+sts.test_infra_does_not_import_batch_orchestration) ... ok
+test_legacy_scan_discrepancy_and_actual_entrypoints_are_accounted_for (tests.architecture.test_dynamic_import_registry.
+ProductionToolClosureTests.test_legacy_scan_discrepancy_and_actual_entrypoints_are_accounted_for) ... ok
+test_strict_production_guard_refuses_current_release_gaps (tests.architecture.test_dynamic_import_registry.ProductionTo
+olClosureTests.test_strict_production_guard_refuses_current_release_gaps) ... ok
+test_debug_entry_does_not_exempt_ui_functions (tests.architecture.test_dynamic_import_registry.RegistryClosureTests.tes
+t_debug_entry_does_not_exempt_ui_functions) ... ok
+test_declaration_is_parsed_without_execution (tests.architecture.test_dynamic_import_registry.RegistryClosureTests.test
+_declaration_is_parsed_without_execution) ... ok
+test_l4_production_target_closure (tests.architecture.test_dynamic_import_registry.RegistryClosureTests.test_l4_product
+ion_target_closure) ... ok
+test_literals_aliases_keywords_and_conditionals (tests.architecture.test_dynamic_import_registry.RegistryClosureTests.t
+est_literals_aliases_keywords_and_conditionals) ... ok
+test_loader_escape_is_rejected (tests.architecture.test_dynamic_import_registry.RegistryClosureTests.test_loader_escape
+_is_rejected) ... ok
+test_registry_escape_and_conditional_unknown_are_rejected (tests.architecture.test_dynamic_import_registry.RegistryClos
+ureTests.test_registry_escape_and_conditional_unknown_are_rejected) ... ok
+test_unknown_key_is_rejected (tests.architecture.test_dynamic_import_registry.RegistryClosureTests.test_unknown_key_is_
+rejected) ... ok
+test_unknown_runtime_key_never_imports (tests.architecture.test_dynamic_import_registry.RegistryClosureTests.test_unkno
+wn_runtime_key_never_imports) ... ok
+test_unregistered_and_upward_targets_are_rejected (tests.architecture.test_dynamic_import_registry.RegistryClosureTests
+.test_unregistered_and_upward_targets_are_rejected) ... ok
+test_variable_is_not_silently_accepted (tests.architecture.test_dynamic_import_registry.RegistryClosureTests.test_varia
+ble_is_not_silently_accepted) ... ok
+test_accepts_runtime_and_isolated_closure (tests.architecture.test_dynamic_import_registry.RuntimeToolClosureTests.test
+_accepts_runtime_and_isolated_closure) ... ok
+test_rejects_missing_isolated_module_and_dynamic_dependency (tests.architecture.test_dynamic_import_registry.RuntimeToo
+lClosureTests.test_rejects_missing_isolated_module_and_dynamic_dependency) ... ok
+test_rejects_process_dependency_omitted_from_distribution (tests.architecture.test_dynamic_import_registry.RuntimeToolC
+losureTests.test_rejects_process_dependency_omitted_from_distribution) ... ok
+test_rejects_process_dependency_outside_isolation_or_requirements (tests.architecture.test_dynamic_import_registry.Runt
+imeToolClosureTests.test_rejects_process_dependency_outside_isolation_or_requirements) ... ok
+test_rejects_production_import_with_no_category (tests.architecture.test_dynamic_import_registry.RuntimeToolClosureTest
+s.test_rejects_production_import_with_no_category) ... ok
+test_rejects_runtime_layer_violation_without_legacy_exemption (tests.architecture.test_dynamic_import_registry.RuntimeT
+oolClosureTests.test_rejects_runtime_layer_violation_without_legacy_exemption) ... ok
+test_requires_legacy_registration_to_resolve_file_and_entry (tests.architecture.test_dynamic_import_registry.RuntimeToo
+lClosureTests.test_requires_legacy_registration_to_resolve_file_and_entry) ... ok
+test_runtime_and_process_require_a_production_consumer (tests.architecture.test_dynamic_import_registry.RuntimeToolClos
+ureTests.test_runtime_and_process_require_a_production_consumer) ... ok
+test_authoritative_stage_projection_is_static_and_does_not_execute_module (tests.architecture.test_dynamic_import_regis
+try.StageClosureTests.test_authoritative_stage_projection_is_static_and_does_not_execute_module) ... ok
+test_authoritative_stage_projection_rejects_nonliteral_and_ambiguous_catalogs (tests.architecture.test_dynamic_import_r
+egistry.StageClosureTests.test_authoritative_stage_projection_rejects_nonliteral_and_ambiguous_catalogs) ... ok
+test_catalog_registry_proof_rejects_broken_lifecycle_and_dynamic_escape (tests.architecture.test_dynamic_import_registr
+y.StageClosureTests.test_catalog_registry_proof_rejects_broken_lifecycle_and_dynamic_escape) ... ok
+test_guarded_stage_parameter_proves_the_domain (tests.architecture.test_dynamic_import_registry.StageClosureTests.test_
+guarded_stage_parameter_proves_the_domain) ... ok
+test_l3_ui_dynamic_edge_uses_source_layer (tests.architecture.test_dynamic_import_registry.StageClosureTests.test_l3_ui
+_dynamic_edge_uses_source_layer) ... ok
+test_production_strict_closure_accepts_all_entries (tests.architecture.test_dynamic_import_registry.StageClosureTests.t
+est_production_strict_closure_accepts_all_entries) ... ok
+test_projected_stage_domain_is_used_by_audit_values_and_guarded_handlers (tests.architecture.test_dynamic_import_regist
+ry.StageClosureTests.test_projected_stage_domain_is_used_by_audit_values_and_guarded_handlers) ... ok
+test_source_layer_and_unknown_registry_members_are_rejected (tests.architecture.test_dynamic_import_registry.StageClosu
+reTests.test_source_layer_and_unknown_registry_members_are_rejected) ... ok
+test_stage_action_targets_are_checked_at_the_injecting_layer (tests.architecture.test_dynamic_import_registry.StageClos
+ureTests.test_stage_action_targets_are_checked_at_the_injecting_layer) ... ok
+test_stage_callback_variable_is_rejected (tests.architecture.test_dynamic_import_registry.StageClosureTests.test_stage_
+callback_variable_is_rejected) ... ok
+test_stage_callbacks_are_checked_at_the_injecting_layer (tests.architecture.test_dynamic_import_registry.StageClosureTe
+sts.test_stage_callbacks_are_checked_at_the_injecting_layer) ... ok
+test_stage_declaration_closure_follows_helpers_and_dead_branches (tests.architecture.test_dynamic_import_registry.Stage
+ClosureTests.test_stage_declaration_closure_follows_helpers_and_dead_branches) ... ok
+test_stage_dispatch_unregistered_upward_and_variable_targets (tests.architecture.test_dynamic_import_registry.StageClos
+ureTests.test_stage_dispatch_unregistered_upward_and_variable_targets) ... ok
+test_stage_keys_are_literal_unique_and_never_executed (tests.architecture.test_dynamic_import_registry.StageClosureTest
+s.test_stage_keys_are_literal_unique_and_never_executed) ... ok
+test_stage_literals_aliases_keywords_and_all_conditional_arms (tests.architecture.test_dynamic_import_registry.StageClo
+sureTests.test_stage_literals_aliases_keywords_and_all_conditional_arms) ... ok
+test_stage_local_callback_body_is_not_a_name_only_exemption (tests.architecture.test_dynamic_import_registry.StageClosu
+reTests.test_stage_local_callback_body_is_not_a_name_only_exemption) ... ok
+test_stage_registry_escapes_shadowing_and_star_arguments (tests.architecture.test_dynamic_import_registry.StageClosureT
+ests.test_stage_registry_escapes_shadowing_and_star_arguments) ... ok
+test_stage_unknown_and_variable_keys_fail_closed (tests.architecture.test_dynamic_import_registry.StageClosureTests.tes
+t_stage_unknown_and_variable_keys_fail_closed) ... ok
+test_unknown_stage_fallthrough_is_not_proof_of_registration (tests.architecture.test_dynamic_import_registry.StageClosu
+reTests.test_unknown_stage_fallthrough_is_not_proof_of_registration) ... ok
+test_bundle_publication_requires_master_and_writes_both_indexes (tests.architecture.test_edit_publication_boundary.Edit
+PublicationBoundaryTests.test_bundle_publication_requires_master_and_writes_both_indexes) ... ok
+test_desktop_delegates_automatic_assemble_marker_to_l3_publisher (tests.architecture.test_edit_publication_boundary.Edi
+tPublicationBoundaryTests.test_desktop_delegates_automatic_assemble_marker_to_l3_publisher) ... ok
+test_desktop_delegates_checklist_publication_to_l3 (tests.architecture.test_edit_publication_boundary.EditPublicationBo
+undaryTests.test_desktop_delegates_checklist_publication_to_l3) ... ok
+test_encode_uses_temporary_master_and_delegates_bundle_publication (tests.architecture.test_edit_publication_boundary.E
+ditPublicationBoundaryTests.test_encode_uses_temporary_master_and_delegates_bundle_publication) ... ok
+test_broadcaster_is_text_log_not_cross_module_state_bus (tests.architecture.test_event_bus_boundary.EventBusBoundaryTes
+ts.test_broadcaster_is_text_log_not_cross_module_state_bus) ... D:\漫剧制作助手\.agents\worktrees\foundation-c8-updater\程序\sk
+ills\00全流程SKILL\AIGC创作全流程\short-drama-director\scripts\check_package.py:2239: SyntaxWarning: "\[" is an invalid escape 
+sequence. Such sequences will not work in the future. Did you mean "\\["? A raw string is also an option.
+  and "[\[【]?" in _bbl_txt
+ok
+test_only_declared_wrappers_are_allowed (tests.architecture.test_event_bus_boundary.EventBusBoundaryTests.test_only_dec
+lared_wrappers_are_allowed) ... D:\漫剧制作助手\.agents\worktrees\foundation-c8-updater\程序\skills\00全流程SKILL\AIGC创作全流程\short-
+drama-director\scripts\check_package.py:2239: SyntaxWarning: "\[" is an invalid escape sequence. Such sequences will no
+t work in the future. Did you mean "\\["? A raw string is also an option.
+  and "[\[【]?" in _bbl_txt
+ok
+test_only_pet_bus_implements_direct_bus_emit (tests.architecture.test_event_bus_boundary.EventBusBoundaryTests.test_onl
+y_pet_bus_implements_direct_bus_emit) ... D:\漫剧制作助手\.agents\worktrees\foundation-c8-updater\程序\skills\00全流程SKILL\AIGC创作
+全流程\short-drama-director\scripts\check_package.py:2239: SyntaxWarning: "\[" is an invalid escape sequence. Such sequenc
+es will not work in the future. Did you mean "\\["? A raw string is also an option.
+  and "[\[【]?" in _bbl_txt
+ok
+test_scanners_reject_bypass_canaries (tests.architecture.test_event_bus_boundary.EventBusBoundaryTests.test_scanners_re
+ject_bypass_canaries) ... ok
+test_all_production_modules_use_file_dialog_boundary (tests.architecture.test_file_dialog_boundary.FileDialogBoundaryTe
+sts.test_all_production_modules_use_file_dialog_boundary) ... <unknown>:2239: SyntaxWarning: "\[" is an invalid escape 
+sequence. Such sequences will not work in the future. Did you mean "\\["? A raw string is also an option.
+ok
+test_business_modules_use_file_dialog_boundary (tests.architecture.test_file_dialog_boundary.FileDialogBoundaryTests.te
+st_business_modules_use_file_dialog_boundary)
+路线图收口：除统一入口本身外，业务模块不再直调 tkinter.filedialog。 ... ok
+test_business_pages_have_no_direct_file_chooser_calls (tests.architecture.test_file_dialog_boundary.FileDialogBoundaryT
+ests.test_business_pages_have_no_direct_file_chooser_calls) ... ok
+test_desktop_file_chooser_calls_do_not_increase (tests.architecture.test_file_dialog_boundary.FileDialogBoundaryTests.t
+est_desktop_file_chooser_calls_do_not_increase) ... ok
+test_idea_attachment_uses_unified_file_dialog (tests.architecture.test_file_dialog_boundary.FileDialogBoundaryTests.tes
+t_idea_attachment_uses_unified_file_dialog) ... ok
+test_desktop_finalization_delegates_retirement_to_l3 (tests.architecture.test_final_bundle_boundary.FinalBundleBoundary
+Tests.test_desktop_finalization_delegates_retirement_to_l3) ... ok
+test_finalizer_delegates_json_publication_to_storage_service (tests.architecture.test_final_bundle_boundary.FinalBundle
+BoundaryTests.test_finalizer_delegates_json_publication_to_storage_service) ... ok
+test_font_canary (tests.architecture.test_font_boundary.FontBoundaryTests.test_font_canary) ... ok
+test_inline_font_tuples_only_decrease (tests.architecture.test_font_boundary.FontBoundaryTests.test_inline_font_tuples_
+only_decrease) ... <unknown>:2239: SyntaxWarning: "\[" is an invalid escape sequence. Such sequences will not work in t
+he future. Did you mean "\\["? A raw string is also an option.
+ok
+test_new_font_violation_is_rejected (tests.architecture.test_font_boundary.FontBoundaryTests.test_new_font_violation_is
+_rejected) ... ok
+test_form_canary (tests.architecture.test_form_control_boundary.FormControlBoundaryTests.test_form_canary) ... ok
+test_form_controls_only_decrease (tests.architecture.test_form_control_boundary.FormControlBoundaryTests.test_form_cont
+rols_only_decrease) ... <unknown>:2239: SyntaxWarning: "\[" is an invalid escape sequence. Such sequences will not work
+ in the future. Did you mean "\\["? A raw string is also an option.
+ok
+test_local_form_style_reconfigure_is_zero (tests.architecture.test_form_control_boundary.FormControlBoundaryTests.test_
+local_form_style_reconfigure_is_zero) ... <unknown>:2239: SyntaxWarning: "\[" is an invalid escape sequence. Such seque
+nces will not work in the future. Did you mean "\\["? A raw string is also an option.
+ok
+test_new_form_violation_is_rejected (tests.architecture.test_form_control_boundary.FormControlBoundaryTests.test_new_fo
+rm_violation_is_rejected) ... ok
+test_style_config_canary (tests.architecture.test_form_control_boundary.FormControlBoundaryTests.test_style_config_cana
+ry) ... ok
+test_no_function_exceeds_its_cap (tests.architecture.test_function_size_ratchet.FunctionSizeRatchet.test_no_function_ex
+ceeds_its_cap) ... ok
+test_registry_tracks_real_sizes (tests.architecture.test_function_size_ratchet.FunctionSizeRatchet.test_registry_tracks
+_real_sizes) ... ok
+test_l1_importing_l2_is_reported_as_upward (tests.architecture.test_gate_selfaudit.LayerRelationsSelfAuditTests.test_l1
+_importing_l2_is_reported_as_upward) ... ok
+test_mutual_same_layer_dependency_is_reported (tests.architecture.test_gate_selfaudit.LayerRelationsSelfAuditTests.test
+_mutual_same_layer_dependency_is_reported) ... ok
+test_nonliteral_dynamic_import_is_reported (tests.architecture.test_gate_selfaudit.LayerRelationsSelfAuditTests.test_no
+nliteral_dynamic_import_is_reported) ... ok
+test_unregistered_same_layer_edge_is_reported (tests.architecture.test_gate_selfaudit.LayerRelationsSelfAuditTests.test
+_unregistered_same_layer_edge_is_reported) ... ok
+test_upward_import_is_reported_and_downward_is_not (tests.architecture.test_gate_selfaudit.LayerSelfAuditTests.test_upw
+ard_import_is_reported_and_downward_is_not) ... ok
+test_bad_sample_fails_and_good_samples_pass (tests.architecture.test_gate_selfaudit.PathAuthoritySelfAuditTests.test_ba
+d_sample_fails_and_good_samples_pass) ... ok
+test_bad_sample_fails_and_good_samples_pass (tests.architecture.test_gate_selfaudit.RemoveAuthoritySelfAuditTests.test_
+bad_sample_fails_and_good_samples_pass) ... ok
+test_key_flowing_into_a_log_is_reported_and_clean_code_is_not (tests.architecture.test_gate_selfaudit.SecretSinkSelfAud
+itTests.test_key_flowing_into_a_log_is_reported_and_clean_code_is_not) ... ok
+test_bad_sample_is_found_and_trips_the_ratchet (tests.architecture.test_gate_selfaudit.SilentExceptionSelfAuditTests.te
+st_bad_sample_is_found_and_trips_the_ratchet) ... ok
+test_narrow_or_logged_handlers_are_not_flagged (tests.architecture.test_gate_selfaudit.SilentExceptionSelfAuditTests.te
+st_narrow_or_logged_handlers_are_not_flagged) ... ok
+test_desktop_delegates_automatic_handoff_marker_to_l3_publisher (tests.architecture.test_handoff_publication_boundary.H
+andoffPublicationBoundaryTests.test_desktop_delegates_automatic_handoff_marker_to_l3_publisher) ... ok
+test_desktop_delegates_handoff_bundle_publication (tests.architecture.test_handoff_publication_boundary.HandoffPublicat
+ionBoundaryTests.test_desktop_delegates_handoff_bundle_publication) ... ok
+test_l3_injects_handoff_bundle_publisher (tests.architecture.test_handoff_publication_boundary.HandoffPublicationBounda
+ryTests.test_l3_injects_handoff_bundle_publisher) ... ok
+test_service_owns_manifest_and_instruction_writes (tests.architecture.test_handoff_publication_boundary.HandoffPublicat
+ionBoundaryTests.test_service_owns_manifest_and_instruction_writes) ... ok
+test_auto_full_safe_has_no_silent_visible_fallback (tests.architecture.test_hidden_desktop_gate.HiddenDesktopGateTests.
+test_auto_full_safe_has_no_silent_visible_fallback) ... ok
+test_helper_module_is_in_repo (tests.architecture.test_hidden_desktop_gate.HiddenDesktopGateTests.test_helper_module_is
+_in_repo) ... ok
+test_run_selftests_self_wraps (tests.architecture.test_hidden_desktop_gate.HiddenDesktopGateTests.test_run_selftests_se
+lf_wraps) ... ok
+test_smoke_wraps_widget_checks_and_probes (tests.architecture.test_hidden_desktop_gate.HiddenDesktopGateTests.test_smok
+e_wraps_widget_checks_and_probes) ... ok
+test_allowlist_has_no_stale_entries (tests.architecture.test_http_boundary.HttpBoundaryTests.test_allowlist_has_no_stal
+e_entries) ... ok
+test_direct_http_calls_stay_inside_allowlist (tests.architecture.test_http_boundary.HttpBoundaryTests.test_direct_http_
+calls_stay_inside_allowlist) ... ok
+test_emoji_icon_debt_only_decreases (tests.architecture.test_icon_source_boundary.IconSourceBoundaryTests.test_emoji_ic
+on_debt_only_decreases) ... <unknown>:2239: SyntaxWarning: "\[" is an invalid escape sequence. Such sequences will not 
+work in the future. Did you mean "\\["? A raw string is also an option.
+ok
+test_emoji_scope_canary (tests.architecture.test_icon_source_boundary.IconSourceBoundaryTests.test_emoji_scope_canary) 
+... ok
+test_glyph_debt_only_decreases (tests.architecture.test_icon_source_boundary.IconSourceBoundaryTests.test_glyph_debt_on
+ly_decreases) ... <unknown>:2239: SyntaxWarning: "\[" is an invalid escape sequence. Such sequences will not work in th
+e future. Did you mean "\\["? A raw string is also an option.
+ok
+test_nav_path_canary (tests.architecture.test_icon_source_boundary.IconSourceBoundaryTests.test_nav_path_canary) ... ok
+test_new_glyph_import_canary (tests.architecture.test_icon_source_boundary.IconSourceBoundaryTests.test_new_glyph_impor
+t_canary) ... ok
+test_png_paths_use_shared_loader (tests.architecture.test_icon_source_boundary.IconSourceBoundaryTests.test_png_paths_u
+se_shared_loader) ... <unknown>:2239: SyntaxWarning: "\[" is an invalid escape sequence. Such sequences will not work i
+n the future. Did you mean "\\["? A raw string is also an option.
+ok
+test_l2_store_requires_injected_publisher_without_direct_write (tests.architecture.test_idea_attachment_publication_bou
+ndary.IdeaAttachmentPublicationBoundaryTests.test_l2_store_requires_injected_publisher_without_direct_write) ... ok
+test_l3_injects_stage_text_publisher_and_controller_uses_l3 (tests.architecture.test_idea_attachment_publication_bounda
+ry.IdeaAttachmentPublicationBoundaryTests.test_l3_injects_stage_text_publisher_and_controller_uses_l3) ... ok
+test_all_layers_and_exact_ledger_edges_are_declared (tests.architecture.test_import_contracts.TestImportContracts.test_
+all_layers_and_exact_ledger_edges_are_declared) ... ERROR
+test_full_exit_and_release_ci_run_the_real_engine (tests.architecture.test_import_contracts.TestImportContracts.test_fu
+ll_exit_and_release_ci_run_the_real_engine) ... ok
+test_generated_config_matches_registry (tests.architecture.test_import_contracts.TestImportContracts.test_generated_con
+fig_matches_registry) ... ok
+test_native_contract_rejects_reverse_and_only_ignores_exact_edge (tests.architecture.test_import_contracts.TestImportCo
+ntracts.test_native_contract_rejects_reverse_and_only_ignores_exact_edge) ... ERROR
+test_native_package_edge_is_found_before_legacy_bridge (tests.architecture.test_import_contracts.TestImportContracts.te
+st_native_package_edge_is_found_before_legacy_bridge) ... ERROR
+test_real_package_and_flat_sources_share_entity_graph (tests.architecture.test_import_contracts.TestImportContracts.tes
+t_real_package_and_flat_sources_share_entity_graph) ... ERROR
+test_registry_change_detects_config_drift (tests.architecture.test_import_contracts.TestImportContracts.test_registry_c
+hange_detects_config_drift) ... ok
+test_repository_native_contracts (tests.architecture.test_import_contracts.TestImportContracts.test_repository_native_c
+ontracts) ... ERROR
+test_import_error_handlers_have_a_single_registered_boundary (tests.architecture.test_import_error_boundaries.ImportErr
+orBoundaryTests.test_import_error_handlers_have_a_single_registered_boundary) ... ok
+test_legacy_facade_declares_a_retirement_date (tests.architecture.test_import_error_boundaries.ImportErrorBoundaryTests
+.test_legacy_facade_declares_a_retirement_date) ... ok
+test_non_compatibility_boundaries_keep_their_failure_semantics (tests.architecture.test_import_error_boundaries.ImportE
+rrorBoundaryTests.test_non_compatibility_boundaries_keep_their_failure_semantics) ... ok
+test_baseline_modules_registered (tests.architecture.test_infra_errors_boundary.InfraErrorsBoundaryTests.test_baseline_
+modules_registered) ... ok
+test_builtin_cjk_raises_within_baseline (tests.architecture.test_infra_errors_boundary.InfraErrorsBoundaryTests.test_bu
+iltin_cjk_raises_within_baseline) ... ok
+test_infra_errors_module_is_l0_contract_pure (tests.architecture.test_infra_errors_boundary.InfraErrorsBoundaryTests.te
+st_infra_errors_module_is_l0_contract_pure) ... ok
+test_business_ui_has_no_direct_entry_or_text_construction (tests.architecture.test_input_boundary.InputBoundaryTests.te
+st_business_ui_has_no_direct_entry_or_text_construction) ... D:\漫剧制作助手\.agents\worktrees\foundation-c8-updater\程序\skill
+s\00全流程SKILL\AIGC创作全流程\short-drama-director\scripts\check_package.py:2239: SyntaxWarning: "\[" is an invalid escape seq
+uence. Such sequences will not work in the future. Did you mean "\\["? A raw string is also an option.
+  and "[\[【]?" in _bbl_txt
+ok
+test_desktop_has_no_direct_inputs (tests.architecture.test_input_boundary.InputBoundaryTests.test_desktop_has_no_direct
+_inputs) ... ok
+test_main_workbench_has_no_direct_inputs (tests.architecture.test_input_boundary.InputBoundaryTests.test_main_workbench
+_has_no_direct_inputs) ... ok
+test_previs_progress_uses_cache_and_l3_injected_publisher (tests.architecture.test_json_io_boundary.JsonIoBoundaryTests
+.test_previs_progress_uses_cache_and_l3_injected_publisher)
+L2 进度轮询不得退回裸读写，正式发布器必须由 L3 注入。 ... ok
+test_candidates_uses_cache_for_episode_json (tests.architecture.test_keyframe_batch_json_boundary.KeyframeBatchJsonBoun
+daryTests.test_candidates_uses_cache_for_episode_json) ... ok
+test_desktop_delegates_keyframe_delete_persistence (tests.architecture.test_keyframe_delete_boundary.KeyframeDeleteBoun
+daryTests.test_desktop_delegates_keyframe_delete_persistence) ... ok
+test_register_delegates_reference_write_after_media_publish (tests.architecture.test_keyframe_reference_publication_bou
+ndary.KeyframeReferencePublicationBoundaryTests.test_register_delegates_reference_write_after_media_publish) ... ok
+test_keyframe_page_delegates_replace_persistence_to_service (tests.architecture.test_keyframe_replace_boundary.Keyframe
+ReplaceBoundaryTests.test_keyframe_page_delegates_replace_persistence_to_service) ... ok
+test_l2_lifecycle_service_only_accepts_l3_publishers (tests.architecture.test_keyframe_replace_boundary.KeyframeReplace
+BoundaryTests.test_l2_lifecycle_service_only_accepts_l3_publishers) ... ok
+test_desktop_delegates_keyframe_restore_persistence (tests.architecture.test_keyframe_restore_boundary.KeyframeRestoreB
+oundaryTests.test_desktop_delegates_keyframe_restore_persistence) ... ok
+test_all_real_registered_modules_are_rendered_once (tests.architecture.test_layer_documentation.LayerDocumentationTests
+.test_all_real_registered_modules_are_rendered_once) ... ok
+test_cli_check_is_readonly_and_write_is_scoped_and_idempotent (tests.architecture.test_layer_documentation.LayerDocumen
+tationTests.test_cli_check_is_readonly_and_write_is_scoped_and_idempotent) ... ok
+test_invalid_or_repeated_markers_fail_without_writing (tests.architecture.test_layer_documentation.LayerDocumentationTe
+sts.test_invalid_or_repeated_markers_fail_without_writing) ... ok
+test_render_uses_registry_module_and_layer_name_values (tests.architecture.test_layer_documentation.LayerDocumentationT
+ests.test_render_uses_registry_module_and_layer_name_values) ... ok
+test_repository_region_matches_registry (tests.architecture.test_layer_documentation.LayerDocumentationTests.test_repos
+itory_region_matches_registry) ... ok
+test_compliance_ledger_matches_measured_violations (tests.architecture.test_layer_relations.LayerRelationsTests.test_co
+mpliance_ledger_matches_measured_violations) ... ok
+test_lr01_l1_has_no_unexempted_upward_import (tests.architecture.test_layer_relations.LayerRelationsTests.test_lr01_l1_
+has_no_unexempted_upward_import) ... ok
+test_lr03_mutual_same_layer_dependency_is_red (tests.architecture.test_layer_relations.LayerRelationsTests.test_lr03_mu
+tual_same_layer_dependency_is_red) ... ok
+test_lr03_unregistered_same_layer_edge_is_red (tests.architecture.test_layer_relations.LayerRelationsTests.test_lr03_un
+registered_same_layer_edge_is_red) ... ok
+test_lr04_nonliteral_dynamic_import_outside_registry_is_red (tests.architecture.test_layer_relations.LayerRelationsTest
+s.test_lr04_nonliteral_dynamic_import_outside_registry_is_red) ... ok
+test_exact_entries_preserve_legacy_dependency_semantics (tests.architecture.test_layers.AuthoritativeIdentityTests.test
+_exact_entries_preserve_legacy_dependency_semantics) ... ok
+test_removing_exact_entries_restores_only_selected_refusals (tests.architecture.test_layers.AuthoritativeIdentityTests.
+test_removing_exact_entries_restores_only_selected_refusals) ... ok
+test_selected_identities_have_exact_authoritative_layers (tests.architecture.test_layers.AuthoritativeIdentityTests.tes
+t_selected_identities_have_exact_authoritative_layers) ... ok
+test_entities_and_compatibility_facades_keep_separate_exact_layers (tests.architecture.test_layers.FacadeIdentityTests.
+test_entities_and_compatibility_facades_keep_separate_exact_layers) ... ok
+test_exact_entries_preserve_default_static_and_dynamic_dependencies (tests.architecture.test_layers.FacadeIdentityTests
+.test_exact_entries_preserve_default_static_and_dynamic_dependencies) ... ok
+test_reexports_and_storage_alias_cli_preserve_compatibility (tests.architecture.test_layers.FacadeIdentityTests.test_re
+exports_and_storage_alias_cli_preserve_compatibility) ... ok
+test_removing_exact_entries_restores_only_six_ambiguous_entities (tests.architecture.test_layers.FacadeIdentityTests.te
+st_removing_exact_entries_restores_only_six_ambiguous_entities) ... ok
+test_dynamic_imports_do_not_add_upward_dependencies (tests.architecture.test_layers.LayerDirectionTests.test_dynamic_im
+ports_do_not_add_upward_dependencies) ... ok
+test_every_top_level_runtime_module_is_registered_or_an_explicit_tool (tests.architecture.test_layers.LayerDirectionTes
+ts.test_every_top_level_runtime_module_is_registered_or_an_explicit_tool) ... ok
+test_higher_layers_may_depend_only_on_same_or_lower_layers (tests.architecture.test_layers.LayerDirectionTests.test_hig
+her_layers_may_depend_only_on_same_or_lower_layers) ... ok
+test_idea_attachments_is_registered_as_l2_and_has_no_upward_dependency (tests.architecture.test_layers.LayerDirectionTe
+sts.test_idea_attachments_is_registered_as_l2_and_has_no_upward_dependency)
+附件文本编排是领域服务，必须受分层扫描保护。 ... ok
+test_layer_exemptions_are_a_locatable_nonincreasing_baseline (tests.architecture.test_layers.LayerDirectionTests.test_l
+ayer_exemptions_are_a_locatable_nonincreasing_baseline) ... ok
+test_registered_names_resolve_to_a_file_tool_or_historical_entry (tests.architecture.test_layers.LayerDirectionTests.te
+st_registered_names_resolve_to_a_file_tool_or_historical_entry)
+登记表每一名须有实体文件、或声明为工具、或是已登记的历史名称（R1649）。 ... ok
+test_conflicting_exact_identities_reject_without_partial_writes (tests.architecture.test_layers.LayerRegistrationCanary
+Tests.test_conflicting_exact_identities_reject_without_partial_writes) ... ok
+test_distinct_names_and_idempotent_known_layers_remain_valid (tests.architecture.test_layers.LayerRegistrationCanaryTes
+ts.test_distinct_names_and_idempotent_known_layers_remain_valid) ... ok
+test_invalid_registration_cannot_erase_actual_upward_dependency (tests.architecture.test_layers.LayerRegistrationCanary
+Tests.test_invalid_registration_cannot_erase_actual_upward_dependency) ... ok
+test_unknown_layers_reject_the_whole_registration (tests.architecture.test_layers.LayerRegistrationCanaryTests.test_unk
+nown_layers_reject_the_whole_registration) ... ok
+test_ambiguous_legacy_key_is_rejected_instead_of_guessed (tests.architecture.test_layers.PackageIdentityCanaryTests.tes
+t_ambiguous_legacy_key_is_rejected_instead_of_guessed) ... ok
+test_cross_package_same_stem_uses_exact_layers_in_actual_guard (tests.architecture.test_layers.PackageIdentityCanaryTes
+ts.test_cross_package_same_stem_uses_exact_layers_in_actual_guard) ... ok
+test_direct_dotted_import_checks_parent_initialization_dependency (tests.architecture.test_layers.PackageIdentityCanary
+Tests.test_direct_dotted_import_checks_parent_initialization_dependency) ... ok
+test_initializer_and_relative_nested_imports_trip_actual_guard (tests.architecture.test_layers.PackageIdentityCanaryTes
+ts.test_initializer_and_relative_nested_imports_trip_actual_guard) ... ok
+test_scanned_unknown_module_and_initializer_are_rejected (tests.architecture.test_layers.PackageIdentityCanaryTests.tes
+t_scanned_unknown_module_and_initializer_are_rejected) ... ok
+test_unique_legacy_registration_and_external_symbols_remain_valid (tests.architecture.test_layers.PackageIdentityCanary
+Tests.test_unique_legacy_registration_and_external_symbols_remain_valid) ... ok
+test_unscanned_local_target_cannot_masquerade_as_external (tests.architecture.test_layers.PackageIdentityCanaryTests.te
+st_unscanned_local_target_cannot_masquerade_as_external) ... ok
+test_package_submodule_imports_trip_the_actual_layer_guard (tests.architecture.test_layers.PackageImportCanaryTests.tes
+t_package_submodule_imports_trip_the_actual_layer_guard) ... ok
+test_same_layer_and_downward_package_imports_remain_allowed (tests.architecture.test_layers.PackageImportCanaryTests.te
+st_same_layer_and_downward_package_imports_remain_allowed) ... ok
+test_symbols_are_not_invented_modules_and_line_numbers_survive (tests.architecture.test_layers.PackageImportCanaryTests
+.test_symbols_are_not_invented_modules_and_line_numbers_survive) ... ok
+test_desktop_delegates_legacy_adoption_log_persistence (tests.architecture.test_legacy_adoption_boundary.LegacyAdoption
+BoundaryTests.test_desktop_delegates_legacy_adoption_log_persistence) ... ok
+test_every_public_compatibility_entry_has_one_owned_manifest_row (tests.architecture.test_legacy_facade_manifest.Legacy
+FacadeManifestTests.test_every_public_compatibility_entry_has_one_owned_manifest_row) ... ok
+test_facade_is_not_past_its_retirement_date (tests.architecture.test_legacy_facade_manifest.LegacyFacadeManifestTests.t
+est_facade_is_not_past_its_retirement_date) ... ok
+test_manifest_callers_equal_production_references (tests.architecture.test_legacy_facade_manifest.LegacyFacadeManifestT
+ests.test_manifest_callers_equal_production_references) ... ok
+test_show_uses_cache_for_current_episode (tests.architecture.test_local_previs_json_boundary.LocalPrevisJsonBoundaryTes
+ts.test_show_uses_cache_for_current_episode) ... ok
+test_l2_requires_l3_gateway_without_direct_publishers (tests.architecture.test_local_video_settings_boundary.LocalVideo
+SettingsBoundaryTests.test_l2_requires_l3_gateway_without_direct_publishers) ... ok
+test_settings_commit_delegates_publication_to_service (tests.architecture.test_local_video_settings_boundary.LocalVideo
+SettingsBoundaryTests.test_settings_commit_delegates_publication_to_service) ... ok
+test_detector_catches_log_targets_and_ignores_products (tests.architecture.test_log_sink_boundary.LogSinkBoundaryTests.
+test_detector_catches_log_targets_and_ignores_products) ... ok
+test_detector_ignores_read_and_non_log_writes (tests.architecture.test_log_sink_boundary.LogSinkBoundaryTests.test_dete
+ctor_ignores_read_and_non_log_writes) ... ok
+test_l2_plus_log_writes_within_whitelist (tests.architecture.test_log_sink_boundary.LogSinkBoundaryTests.test_l2_plus_l
+og_writes_within_whitelist) ... ok
+执行 api_key=sk-FAKE-12345 完成
+test_image_agent_events_reach_app_log_redacted (tests.architecture.test_log_sink_boundary.MigratedDiagnosticsSinkTests.
+test_image_agent_events_reach_app_log_redacted) ... ok
+test_stage_parallel_log_write_reaches_app_log (tests.architecture.test_log_sink_boundary.MigratedDiagnosticsSinkTests.t
+est_stage_parallel_log_write_reaches_app_log) ... ok
+test_writing_api_empty_meta_reaches_app_log (tests.architecture.test_log_sink_boundary.MigratedDiagnosticsSinkTests.tes
+t_writing_api_empty_meta_reaches_app_log) ... ok
+test_desktop_delegates_manual_creative_publication (tests.architecture.test_manual_creative_publication_boundary.Manual
+CreativePublicationBoundaryTests.test_desktop_delegates_manual_creative_publication) ... ok
+test_layers_below_ui_have_no_tkinter_import_anywhere (tests.architecture.test_migrated_ui_boundaries.LowerLayersNeverIm
+portTkTests.test_layers_below_ui_have_no_tkinter_import_anywhere)
+R2311（J 路线收尾 #20）：L0–L3 连函数内的懒导入也不许出现 tkinter，窗口与控件只在 L4。 ... ok
+test_migrated_services_never_import_tk (tests.architecture.test_migrated_ui_boundaries.MigratedServiceBoundaryTests.tes
+t_migrated_services_never_import_tk) ... ok
+test_split_settings_modules_load_without_tk (tests.architecture.test_migrated_ui_boundaries.MigratedServiceBoundaryTest
+s.test_split_settings_modules_load_without_tk) ... ok
+test_adapter_imports_are_limited_to_registered_entrypoints (tests.architecture.test_migrated_ui_boundaries.MigratedView
+BoundaryTests.test_adapter_imports_are_limited_to_registered_entrypoints) ... ok
+test_views_do_not_directly_call_process_or_network_apis (tests.architecture.test_migrated_ui_boundaries.MigratedViewBou
+ndaryTests.test_views_do_not_directly_call_process_or_network_apis) ... ok
+test_timer_reschedules_are_guarded_against_a_destroyed_window (tests.architecture.test_migrated_ui_boundaries.ViewTimer
+LifecycleTests.test_timer_reschedules_are_guarded_against_a_destroyed_window) ... ok
+test_provider_adapters_do_not_import_pet_llm (tests.architecture.test_model_provider_boundary.ModelProviderBoundaryTest
+s.test_provider_adapters_do_not_import_pet_llm) ... ok
+test_shared_protocol_does_not_depend_on_clients_or_providers (tests.architecture.test_model_provider_boundary.ModelProv
+iderBoundaryTests.test_shared_protocol_does_not_depend_on_clients_or_providers) ... ok
+test_no_module_exceeds_its_cap (tests.architecture.test_module_size_ratchet.ModuleSizeRatchet.test_no_module_exceeds_it
+s_cap) ... ok
+test_registry_tracks_real_sizes (tests.architecture.test_module_size_ratchet.ModuleSizeRatchet.test_registry_tracks_rea
+l_sizes) ... ok
+test_colored_native_controls_only_decrease (tests.architecture.test_native_control_boundary.NativeControlBoundaryTests.
+test_colored_native_controls_only_decrease) ... <unknown>:2239: SyntaxWarning: "\[" is an invalid escape sequence. Such
+ sequences will not work in the future. Did you mean "\\["? A raw string is also an option.
+ok
+test_native_color_canary (tests.architecture.test_native_control_boundary.NativeControlBoundaryTests.test_native_color_
+canary) ... ok
+test_new_native_color_violation_is_rejected (tests.architecture.test_native_control_boundary.NativeControlBoundaryTests
+.test_new_native_color_violation_is_rejected) ... ok
+test_main_nav_icons_use_fixed_canvas (tests.architecture.test_nav_icon_size_boundary.NavIconSizeBoundaryTests.test_main
+_nav_icons_use_fixed_canvas) ... ok
+test_png_header_canary (tests.architecture.test_nav_icon_size_boundary.NavIconSizeBoundaryTests.test_png_header_canary)
+ ... ok
+test_static_import_cycles_are_a_nonincreasing_baseline (tests.architecture.test_no_circular_import.CircularImportTests.
+test_static_import_cycles_are_a_nonincreasing_baseline) ... ok
+test_dynamic_imports_do_not_add_import_cycles (tests.architecture.test_no_circular_import.DynamicImportCycleRatchetTest
+s.test_dynamic_imports_do_not_add_import_cycles) ... ok
+test_accepts_one_way_package_dependency (tests.architecture.test_no_circular_import.ProductionCycleScannerTests.test_ac
+cepts_one_way_package_dependency) ... ok
+test_rejects_package_and_relative_import_cycle (tests.architecture.test_no_circular_import.ProductionCycleScannerTests.
+test_rejects_package_and_relative_import_cycle) ... ok
+test_all_production_modules_use_the_notification_entry (tests.architecture.test_notification_boundary.NotificationBound
+aryTests.test_all_production_modules_use_the_notification_entry) ... D:\漫剧制作助手\.agents\worktrees\foundation-c8-updater\
+程序\skills\00全流程SKILL\AIGC创作全流程\short-drama-director\scripts\check_package.py:2239: SyntaxWarning: "\[" is an invalid es
+cape sequence. Such sequences will not work in the future. Did you mean "\\["? A raw string is also an option.
+  and "[\[【]?" in _bbl_txt
+ok
+test_all_root_business_modules_use_the_notification_entry (tests.architecture.test_notification_boundary.NotificationBo
+undaryTests.test_all_root_business_modules_use_the_notification_entry) ... ok
+test_business_pages_have_no_direct_display_messagebox_calls (tests.architecture.test_notification_boundary.Notification
+BoundaryTests.test_business_pages_have_no_direct_display_messagebox_calls) ... ok
+test_desktop_display_notifications_do_not_increase (tests.architecture.test_notification_boundary.NotificationBoundaryT
+ests.test_desktop_display_notifications_do_not_increase) ... ok
+test_desktop_safe_uses_the_notification_dispatcher (tests.architecture.test_notification_boundary.NotificationBoundaryT
+ests.test_desktop_safe_uses_the_notification_dispatcher) ... ok
+test_allowlist_has_no_stale_entries (tests.architecture.test_outbound_http_authority.OutboundHttpAuthorityTests.test_al
+lowlist_has_no_stale_entries) ... ok
+test_only_the_host_adapter_opens_connections_directly (tests.architecture.test_outbound_http_authority.OutboundHttpAuth
+orityTests.test_only_the_host_adapter_opens_connections_directly) ... ok
+test_requests_scanner_flags_direct_outbound_samples (tests.architecture.test_outbound_http_authority.OutboundHttpAuthor
+ityTests.test_requests_scanner_flags_direct_outbound_samples) ... ok
+test_requests_scanner_passes_host_api_and_unrelated_business_objects (tests.architecture.test_outbound_http_authority.O
+utboundHttpAuthorityTests.test_requests_scanner_passes_host_api_and_unrelated_business_objects) ... ok
+test_scanner_flags_known_bad_samples_and_passes_good_ones (tests.architecture.test_outbound_http_authority.OutboundHttp
+AuthorityTests.test_scanner_flags_known_bad_samples_and_passes_good_ones) ... ok
+test_path_rules_are_owned_by_authority_modules (tests.architecture.test_path_authority.PathAuthorityTests.test_path_rul
+es_are_owned_by_authority_modules) ... ok
+test_detector_catches_plain_list (tests.architecture.test_pet_error_log_boundary.PetErrorLogBoundaryTests.test_detector
+_catches_plain_list) ... ok
+test_pet_errors_use_bounded_error_log (tests.architecture.test_pet_error_log_boundary.PetErrorLogBoundaryTests.test_pet
+_errors_use_bounded_error_log) ... ok
+test_animatic_tools_and_gates_follow_the_stage_authority (tests.architecture.test_pipeline_stage_io_contract.PipelineSt
+ageIoContractTests.test_animatic_tools_and_gates_follow_the_stage_authority) ... ok
+test_manifest_owners_and_pipeline_outputs_derive_from_contract_sources (tests.architecture.test_pipeline_stage_io_contr
+act.PipelineStageIoContractTests.test_manifest_owners_and_pipeline_outputs_derive_from_contract_sources) ... ok
+test_pipeline_dependencies_match_the_single_contract_map (tests.architecture.test_pipeline_stage_io_contract.PipelineSt
+ageIoContractTests.test_pipeline_dependencies_match_the_single_contract_map) ... ok
+test_pipeline_inputs_are_produced_upstream_or_are_documented_entry_facts (tests.architecture.test_pipeline_stage_io_con
+tract.PipelineStageIoContractTests.test_pipeline_inputs_are_produced_upstream_or_are_documented_entry_facts) ... ok
+test_migrated_ui_modules_do_not_call_windows_startfile (tests.architecture.test_platform_opening.PlatformOpeningTests.t
+est_migrated_ui_modules_do_not_call_windows_startfile) ... ok
+test_direct_popen_is_limited_to_platform_or_background_boundaries (tests.architecture.test_platform_process_boundary.Pl
+atformProcessBoundaryTests.test_direct_popen_is_limited_to_platform_or_background_boundaries) ... ok
+test_taskkill_is_limited_to_native_or_platform_adapters (tests.architecture.test_platform_process_boundary.PlatformProc
+essBoundaryTests.test_taskkill_is_limited_to_native_or_platform_adapters) ... ok
+test_bad_samples_all_four_forms_flagged (tests.architecture.test_platform_process_boundary.ProcessSpawnBoundaryTests.te
+st_bad_samples_all_four_forms_flagged) ... ok
+test_baseline_sites_wellformed (tests.architecture.test_platform_process_boundary.ProcessSpawnBoundaryTests.test_baseli
+ne_sites_wellformed) ... ok
+test_bounded_sites_declare_timeout (tests.architecture.test_platform_process_boundary.ProcessSpawnBoundaryTests.test_bo
+unded_sites_declare_timeout)
+I9-3：短时探测与 OS 操作豁免要求调用显式带 ``timeout``（AST 复核）。 ... ok
+test_exempt_registry_covers_baseline_exactly (tests.architecture.test_platform_process_boundary.ProcessSpawnBoundaryTes
+ts.test_exempt_registry_covers_baseline_exactly)
+I9-3：豁免清单与棘轮基线一一对应——每个登记点恰好归入一个类别。 ... ok
+test_good_samples_not_flagged (tests.architecture.test_platform_process_boundary.ProcessSpawnBoundaryTests.test_good_sa
+mples_not_flagged) ... ok
+test_spawn_sites_within_baseline (tests.architecture.test_platform_process_boundary.ProcessSpawnBoundaryTests.test_spaw
+n_sites_within_baseline) ... ok
+test_start_uses_cache_for_episode_json (tests.architecture.test_previs_automation_json_boundary.PrevisAutomationJsonBou
+ndaryTests.test_start_uses_cache_for_episode_json) ... ok
+test_prepare_batch_uses_cache_for_episode_json (tests.architecture.test_previs_batch_json_boundary.PrevisBatchJsonBound
+aryTests.test_prepare_batch_uses_cache_for_episode_json) ... ok
+test_progress_reader_uses_cache (tests.architecture.test_previs_monitor_json_boundary.PrevisMonitorJsonBoundaryTests.te
+st_progress_reader_uses_cache) ... ok
+test_l2_write_points_require_an_injected_publisher (tests.architecture.test_previs_routing_publication_boundary.PrevisR
+outingPublicationBoundaryTests.test_l2_write_points_require_an_injected_publisher) ... ok
+test_previs_page_delegates_publication_to_l3 (tests.architecture.test_previs_routing_publication_boundary.PrevisRouting
+PublicationBoundaryTests.test_previs_page_delegates_publication_to_l3) ... ok
+test_no_print_outside_registered_console_entries (tests.architecture.test_print_ratchet.PrintRatchet.test_no_print_outs
+ide_registered_console_entries) ... ok
+test_registered_entries_only_shrink (tests.architecture.test_print_ratchet.PrintRatchet.test_registered_entries_only_sh
+rink) ... ok
+test_asset_domain_services_consume_but_do_not_construct_context (tests.architecture.test_project_context_boundary.Proje
+ctContextBoundaryTests.test_asset_domain_services_consume_but_do_not_construct_context) ... ok
+test_cloud_video_consumes_context_and_l3_injects_it (tests.architecture.test_project_context_boundary.ProjectContextBou
+ndaryTests.test_cloud_video_consumes_context_and_l3_injects_it) ... ok
+test_confirmation_service_consumes_context_and_l3_injects_it (tests.architecture.test_project_context_boundary.ProjectC
+ontextBoundaryTests.test_confirmation_service_consumes_context_and_l3_injects_it) ... ok
+test_context_contract_is_l0_and_constructed_only_by_l3 (tests.architecture.test_project_context_boundary.ProjectContext
+BoundaryTests.test_context_contract_is_l0_and_constructed_only_by_l3) ... ok
+test_context_factory_is_shared_without_orchestrator_back_dependency (tests.architecture.test_project_context_boundary.P
+rojectContextBoundaryTests.test_context_factory_is_shared_without_orchestrator_back_dependency) ... ok
+test_idea_attachments_consume_context_and_l3_injects_it (tests.architecture.test_project_context_boundary.ProjectContex
+tBoundaryTests.test_idea_attachments_consume_context_and_l3_injects_it) ... ok
+test_idea_chat_consumes_context_and_l3_injects_it (tests.architecture.test_project_context_boundary.ProjectContextBound
+aryTests.test_idea_chat_consumes_context_and_l3_injects_it) ... ok
+test_keyframe_batch_consumes_context_and_l3_injects_it (tests.architecture.test_project_context_boundary.ProjectContext
+BoundaryTests.test_keyframe_batch_consumes_context_and_l3_injects_it) ... ok
+test_l2_uses_injected_stage_resolver_without_project_path_join (tests.architecture.test_project_context_boundary.Projec
+tContextBoundaryTests.test_l2_uses_injected_stage_resolver_without_project_path_join) ... ok
+test_local_video_settings_consumes_context_and_l3_injects_it (tests.architecture.test_project_context_boundary.ProjectC
+ontextBoundaryTests.test_local_video_settings_consumes_context_and_l3_injects_it) ... ok
+test_pet_performance_consumes_context_and_l3_injects_it (tests.architecture.test_project_context_boundary.ProjectContex
+tBoundaryTests.test_pet_performance_consumes_context_and_l3_injects_it) ... ok
+test_pet_test_consumes_context_and_l3_injects_it (tests.architecture.test_project_context_boundary.ProjectContextBounda
+ryTests.test_pet_test_consumes_context_and_l3_injects_it) ... ok
+test_previs_page_and_finalization_inject_context_at_l3 (tests.architecture.test_project_context_boundary.ProjectContext
+BoundaryTests.test_previs_page_and_finalization_inject_context_at_l3) ... ok
+test_previs_routing_consumes_context_and_l3_injects_it (tests.architecture.test_project_context_boundary.ProjectContext
+BoundaryTests.test_previs_routing_consumes_context_and_l3_injects_it) ... ok
+test_second_roadmap_scope_is_a_complete_migration_ratchet (tests.architecture.test_project_context_boundary.ProjectCont
+extBoundaryTests.test_second_roadmap_scope_is_a_complete_migration_ratchet) ... ok
+test_storyboard_catalog_consumes_context_and_l3_injects_it (tests.architecture.test_project_context_boundary.ProjectCon
+textBoundaryTests.test_storyboard_catalog_consumes_context_and_l3_injects_it) ... ok
+test_storyboard_lifecycle_consumes_context_and_l3_injects_it (tests.architecture.test_project_context_boundary.ProjectC
+ontextBoundaryTests.test_storyboard_lifecycle_consumes_context_and_l3_injects_it) ... ok
+test_storyboard_path_only_services_are_explicit_context_exemptions (tests.architecture.test_project_context_boundary.Pr
+ojectContextBoundaryTests.test_storyboard_path_only_services_are_explicit_context_exemptions) ... ok
+test_tts_consumes_context_and_l3_injects_it (tests.architecture.test_project_context_boundary.ProjectContextBoundaryTes
+ts.test_tts_consumes_context_and_l3_injects_it) ... ok
+test_white_model_service_consumes_context_and_l3_injects_it (tests.architecture.test_project_context_boundary.ProjectCo
+ntextBoundaryTests.test_white_model_service_consumes_context_and_l3_injects_it) ... ok
+test_daily_choice_memory_delegates_to_settings_service (tests.architecture.test_project_entry_boundary.ProjectEntryBoun
+daryTests.test_daily_choice_memory_delegates_to_settings_service) ... ok
+test_every_entering_path_remembers_daily_choice (tests.architecture.test_project_entry_boundary.ProjectEntryBoundaryTes
+ts.test_every_entering_path_remembers_daily_choice) ... ok
+test_first_choice_is_scheduled_by_startup_controller (tests.architecture.test_project_entry_boundary.ProjectEntryBounda
+ryTests.test_first_choice_is_scheduled_by_startup_controller) ... ok
+test_project_load_calls_sit_in_frozen_entrypoints (tests.architecture.test_project_entry_boundary.ProjectEntryBoundaryT
+ests.test_project_load_calls_sit_in_frozen_entrypoints) ... ok
+test_startup_controller_module_stays_tk_free (tests.architecture.test_project_entry_boundary.ProjectEntryBoundaryTests.
+test_startup_controller_module_stays_tk_free) ... ok

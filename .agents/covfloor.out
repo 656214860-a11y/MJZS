@@ -1,0 +1,13 @@
+﻿IMPORT OK: all modules imported
+定向：忽略增量台账，执行 1 个匹配测试文件
+跑 1 个测试文件 / 1 路工作单元（8 路并行）
+  architecture.test_branch_coverage_floor     5 条     0.8 秒
+
+共 5 条用例，1.7 秒；0 个文件有红
+最慢 1 路工作单元：
+  architecture.test_branch_coverage_floor    0.8 秒 / 5 条
+实际跳过 0 条用例：本机没有任何登记位被跳过
+增量台账已刷新：D:\漫剧制作助手\.git\selftest-incremental.json
+最近 5 轮自检中位基线：12.8 秒
+
+ALL TESTS PASSED

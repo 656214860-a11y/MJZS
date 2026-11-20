@@ -1,5 +1,6 @@
 """B3 车道注册/租约心跳/合并队列/源码口径 测试。"""
 import json
+import subprocess
 import sys
 import tempfile
 import time
@@ -92,6 +93,18 @@ class MergeQueueTests(unittest.TestCase):
         done = merge_queue.list_items(self.common)[0]
         self.assertEqual(done["status"], "done")
         self.assertEqual(done["round"], 3120)
+
+    def test_serve_records_rebase_return_without_a_round(self):
+        merge_queue.enqueue(self.common, "codex/a", "A", owner="lane")
+        done = subprocess.CompletedProcess([], 5)
+        with mock.patch.object(merge_queue.subprocess, "run", return_value=done):
+            rc = merge_queue.serve(self.common, once=True)
+        self.assertEqual(rc, 5)
+        item = merge_queue.list_items(self.common)[0]
+        self.assertEqual(item["status"], "failed")
+        self.assertIsNone(item["round"])
+        self.assertIn("变基", item["note"])
+        self.assertIn("未领号", item["note"])
 
 
 class RenewTaskTests(unittest.TestCase):

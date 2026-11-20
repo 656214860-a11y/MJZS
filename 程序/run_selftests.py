@@ -27,6 +27,10 @@ test_pet_ui／test_ui_edges_* 各自几十秒，整跑就被它们顶住了。
 台账优先落在仓库共同 Git 目录的 selftest-incremental.json；非 Git 目录才降级到
 维护记录/自检增量.json。--all 会忽略台账全跑，跑绿之后重写台账。
 怀疑漏检时用 --all 或 --serial 对照，两条路都在。
+``--all --safe`` 只持有 ``full-safe-runner.lock``（互斥第二份全量）。它不创建
+``full-safe-selftest.lock``，所以超长全量不再挡住 master 提交和合并。
+全量的 Tk 部分按波次归还 GUI 令牌；别的会话遇到正在跑的全量，最多再等
+``GUI_FULL_SUITE_WAIT_SECONDS`` 秒，不等完整段测试。
 """
 
 import atexit
@@ -65,10 +69,12 @@ from selftest_env import (
     CACHE_NAME,
     INCREMENTAL_RULES,
     FULL_SAFE_LOCK_NAME,
+    FULL_SAFE_RUNNER_LOCK_NAME,
     GUI_LOCK_NAME,
     GUI_QUEUE_NAME,
     GUI_QUEUE_SUFFIX,
     GUI_WAIT_SECONDS,
+    GUI_FULL_SUITE_WAIT_SECONDS,
     GUI_WAIT_NOTICE_SECONDS,
     GUI_LOCK_POLL_SECONDS,
     LAYER_BASELINE_NAME,
@@ -93,6 +99,8 @@ from selftest_env import (
     _record_is_reused,
     _pid_is_alive,
     lock_holder,
+    holder_is_live,
+    reclaim_stale_lock,
 )
 from selftest_discovery import (
     project_modules,
@@ -229,6 +237,51 @@ def _run_hidden(argv):
     return result.returncode
 
 
+def gui_hold_batches(gui, perf_gui, width, yield_between):
+    """全量按波次归还 GUI 令牌；其它运行整段持有。"""
+    if not yield_between:
+        return [(list(gui), list(perf_gui))]
+    width = max(1, int(width or 1))
+    batches = [(gui[start:start + width], []) for start in range(0, len(gui), width)]
+    batches.extend(([], [unit]) for unit in perf_gui)
+    return batches
+
+
+def run_gui_under_token(gui, perf_gui, *, safe, serial, jobs, gui_jobs, gui_wait,
+                        yield_between, got):
+    """持有 GUI 令牌跑 Tk 单元。全量每波结束就归还，其它会话不用等完整段。"""
+    deferred = []
+    ordered = prioritize_gui_units(gui) if safe else list(gui)
+    width = gui_jobs if safe else jobs
+    batches = gui_hold_batches(ordered, perf_gui, width, yield_between)
+    for index, (gui_batch, perf_batch) in enumerate(batches):
+        print('申请跨树 GUI 令牌（最多等待 %.1f 秒）' % gui_wait, flush=True)
+        gui_lock = acquire_gui_lock(wait=gui_wait)
+        if not gui_lock:
+            for later_gui, later_perf in batches[index:]:
+                for unit in later_gui + later_perf:
+                    if unit[1] not in deferred:
+                        deferred.append(unit[1])
+            break
+        atexit.register(release_gui_lock, gui_lock)
+        try:
+            if gui_batch:
+                if safe:
+                    got += run_units(gui_batch, gui_jobs, fresh_children=True)
+                elif serial:
+                    got += run_serial(gui_batch)
+                else:
+                    got += run_units(gui_batch, jobs, fresh_children=True)
+            if perf_batch:
+                got += run_safe_serial(perf_batch) if safe else run_serial(perf_batch)
+        finally:
+            atexit.unregister(release_gui_lock)
+            release_gui_lock(gui_lock)
+        if yield_between and index < len(batches) - 1:
+            print('归还 GUI 令牌，其他会话可以先跑', flush=True)
+    return got, deferred
+
+
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     raw_argv = list(argv)
@@ -237,7 +290,6 @@ def main(argv=None):
     allow_dirty_diagnostic = False
     gui_override = None
     gui_wait = GUI_WAIT_SECONDS
-    gui_lock = None
     lock = None
     deferred = []
     while argv:
@@ -381,33 +433,10 @@ def main(argv=None):
         else:
             got = []
         if gui or perf_gui:
-            print('申请跨树 GUI 令牌（最多等待 %.1f 秒）' % gui_wait, flush=True)
-            gui_lock = acquire_gui_lock(wait=gui_wait)
-            if gui_lock:
-                atexit.register(release_gui_lock, gui_lock)
-            else:
-                deferred = []
-                for unit in gui + perf_gui:
-                    if unit[1] not in deferred:
-                        deferred.append(unit[1])
-                gui, perf_gui = [], []
-            try:
-                if gui:
-                    if safe:
-                        got += run_units(prioritize_gui_units(gui), gui_jobs,
-                                         fresh_children=True)
-                    elif serial:
-                        got += run_serial(gui)
-                    else:
-                        got += run_units(gui, jobs, fresh_children=True)
-                if perf_gui:
-                    got += run_safe_serial(perf_gui) if safe else run_serial(perf_gui)
-            finally:
-                # 跑完 GUI 用例立刻还牌，不等汇总、台账或进程退出。
-                if gui_lock:
-                    atexit.unregister(release_gui_lock)
-                    release_gui_lock(gui_lock)
-                    gui_lock = None
+            # 非全量整段持有；全量按波次归还，避免一次占住十几分钟。
+            got, deferred = run_gui_under_token(
+                gui, perf_gui, safe=safe, serial=serial, jobs=jobs, gui_jobs=gui_jobs,
+                gui_wait=gui_wait, yield_between=full_safe, got=got)
         if perf_non_gui:
             got += run_safe_serial(perf_non_gui) if safe else run_serial(perf_non_gui)
         elapsed = time.time() - started
@@ -466,9 +495,6 @@ def main(argv=None):
     finally:
         if temp_run is not None and not env.finish_temp_run(temp_run['root']):
             print('警告：本轮自检临时目录未能删净，留给下一轮按超期回收：%s' % temp_run['root'])
-        if gui_lock:
-            atexit.unregister(release_gui_lock)
-            release_gui_lock(gui_lock)
         if lock:
             atexit.unregister(release_full_safe_lock)
             release_full_safe_lock(lock)

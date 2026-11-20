@@ -58,6 +58,64 @@ class CommitRoundTests(unittest.TestCase):
             self.assertFalse(commit_round.wait_for_lock(Path(tmp), 0.05, poll=0.01, out=lambda _: None))
             self.assertTrue(path.exists())
 
+    def test_fresh_heartbeat_stays_even_when_the_pid_cannot_be_opened(self):
+        import time
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / run_selftests.FULL_SAFE_LOCK_NAME
+            path.write_text(json.dumps({
+                'pid': 2 ** 22 + 9, 'round': 4, 'token': 'held',
+                'heartbeat_at': time.time(), 'started_at': time.time(),
+            }), encoding='utf-8')
+            self.assertFalse(commit_round.wait_for_lock(Path(tmp), 0.05, poll=0.01, out=lambda _: None))
+            self.assertEqual(json.loads(path.read_text(encoding='utf-8'))['token'], 'held')
+
+    def test_silent_heartbeat_is_reclaimed_even_if_the_pid_is_alive(self):
+        import time
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self.lock(tmp, os.getpid())
+            path.write_text(json.dumps({
+                'pid': os.getpid(), 'round': 4, 'token': 'old',
+                'heartbeat_at': time.time() - 300, 'started_at': time.time(),
+            }), encoding='utf-8')
+            self.assertTrue(commit_round.wait_for_lock(Path(tmp), 1, poll=0.01, out=lambda _: None))
+            self.assertFalse(path.exists())
+
+    def test_young_unreadable_lock_is_not_deleted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / run_selftests.FULL_SAFE_LOCK_NAME
+            path.write_text('{', encoding='utf-8')
+            self.assertFalse(commit_round.wait_for_lock(Path(tmp), 0.05, poll=0.01, out=lambda _: None))
+            self.assertEqual(path.read_text(encoding='utf-8'), '{')
+
+    def test_index_lock_retries_then_stops(self):
+        from subprocess import CompletedProcess
+        calls = []
+
+        def fake_run(command, **kwargs):
+            calls.append(command)
+            if len(calls) < 3:
+                return CompletedProcess(command, 128, '', "fatal: Unable to create '.git/index.lock': File exists.")
+            return CompletedProcess(command, 0, '', '')
+
+        with patch('commit_round.subprocess.run', side_effect=fake_run), \
+             patch('commit_round.time.sleep') as slept:
+            done = commit_round._git('add', '--', 'a')
+        self.assertEqual(done.returncode, 0)
+        self.assertEqual([item.args[0] for item in slept.call_args_list], [0.2, 0.4])
+
+    def test_unrelated_git_failure_is_not_retried(self):
+        from subprocess import CompletedProcess
+
+        def fake_run(command, **kwargs):
+            return CompletedProcess(command, 1, '', 'fatal: pathspec did not match')
+
+        with patch('commit_round.subprocess.run', side_effect=fake_run) as run, \
+             patch('commit_round.time.sleep') as slept:
+            done = commit_round._git('add', '--', 'missing')
+        self.assertEqual(done.returncode, 1)
+        self.assertEqual(run.call_count, 1)
+        slept.assert_not_called()
+
     def test_old_round_numbers_skip_evidence_and_new_ones_require_it(self):
         import round_evidence
         self.assertEqual(commit_round.attach_evidence('R1931: 旧轮', [], Path('.')), 0)

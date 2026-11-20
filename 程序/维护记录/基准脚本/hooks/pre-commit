@@ -3,7 +3,8 @@
 # CODEX_STAGE_ALLOWLIST 使用分号分隔 repo 相对路径；只对非默认安全文档路径必填。
 common=$(git rev-parse --git-common-dir) || exit 1
 branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)
-# 验收锁只拦 master/main 与游离 HEAD；工作分支随手提交不等锁（全量验收在合入 master 前跑）。
+# 验收锁只拦 master/main 与游离 HEAD；工作分支随手提交不等锁。
+# 超长全量不创建这把锁，只持有 full-safe-runner.lock，避免十几分钟卡住提交。
 case "$branch" in
   ""|master|main)
     if [ -e "$common/full-safe-selftest.lock" ]; then

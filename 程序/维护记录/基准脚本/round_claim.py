@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import re
@@ -11,6 +12,21 @@ import time
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+
+def _load_lock_lease():
+    path = Path(__file__).resolve().parent / "lock_lease.py"
+    loaded = sys.modules.get("lock_lease")
+    if loaded is not None and Path(getattr(loaded, "__file__", "")).resolve() == path:
+        return loaded
+    spec = importlib.util.spec_from_file_location("lock_lease", path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["lock_lease"] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+lock_lease = _load_lock_lease()
 
 
 PROGRAM = Path(__file__).resolve().parents[2]
@@ -209,18 +225,23 @@ def _claim_owner(claimant_dir: Path) -> dict:
 
 
 def _acquire_lock(common_dir: Path, timeout: float = 15.0) -> Path:
+    """独占认领锁。心跳静默超过 3 分钟才回收；打不开进程不算死亡。"""
     lock = common_dir / LOCK_NAME
     deadline = time.monotonic() + timeout
     while True:
         try:
             descriptor = os.open(str(lock), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
         except FileExistsError:
+            if lock_lease.reclaim(lock):
+                continue
             if time.monotonic() >= deadline:
                 raise TimeoutError("共享认领锁被占用：%s" % lock)
             time.sleep(0.05)
             continue
         with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
-            json.dump({"pid": os.getpid(), "created_at": time.time()}, handle)
+            json.dump(lock_lease.payload(os.getpid()), handle)
+            handle.write("\n")
+        lock_lease.arm(lock)
         return lock
 
 
@@ -231,6 +252,7 @@ def shared_lock(common_dir: Path):
     try:
         yield
     finally:
+        lock_lease.release(lock)
         try:
             lock.unlink()
         except FileNotFoundError:

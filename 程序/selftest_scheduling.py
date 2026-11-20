@@ -23,12 +23,12 @@ _FULL_LOCK_DEPTH = {}
 
 
 def acquire_pid_lock(name, common_dir=None, round_number=None, reentrant=False):
-    """两个跨树令牌共用 PID 检查和失效回收；原子发布避免半写锁。"""
+    """跨树令牌：心跳 3 分钟内视为占用；没有心跳的旧锁仍按 PID。原子发布，避免半写锁。"""
     common = common_dir or env.git_common_dir()
     if not common:
         raise RuntimeError('无法定位 Git common-dir，拒绝无令牌执行')
     path = os.path.join(common, name)
-    payload = {'pid': os.getpid(), 'round': round_number, 'started_at': time.time()}
+    payload = env.lock_lease.payload(os.getpid(), round=round_number)
     while True:
         descriptor, temporary = tempfile.mkstemp(prefix=name + '.', suffix='.tmp', dir=common)
         try:
@@ -36,31 +36,34 @@ def acquire_pid_lock(name, common_dir=None, round_number=None, reentrant=False):
                 json.dump(payload, handle, ensure_ascii=False)
             try:
                 os.link(temporary, path)
-                return path
             except FileExistsError:
-                try:
-                    stat = os.stat(path)
-                except FileNotFoundError:
+                state, holder, _snapshot = env.inspect_lock(path)
+                if state == 'missing':
                     continue
-                holder = env.lock_holder(path)
-                if (reentrant and holder.get('pid') == os.getpid()
-                        and not env._record_is_reused(holder.get('pid'), holder.get('started_at'))):
+                ours = (reentrant and holder.get('pid') == os.getpid()
+                        and not env._record_is_reused(holder.get('pid'), holder.get('started_at')))
+                if state == 'live' and ours:
+                    env.arm_lock(path)
                     return path
-                if env._pid_is_alive(holder.get('pid'), holder.get('started_at')):
+                if state in ('live', 'unknown'):
                     raise RuntimeError('%s 已由 PID %s（R%s）持有' %
                                        (name, holder.get('pid'), holder.get('round', '?')))
-                # 只回收刚读到的失效实例，避免竞争者替换后误删新锁。
-                try:
-                    if os.stat(path) == stat:
-                        os.unlink(path)
-                except FileNotFoundError:
-                    pass
+                if not env.reclaim_stale_lock(path) and os.path.exists(path):
+                    raise RuntimeError('%s 已由 PID %s（R%s）持有' %
+                                       (name, holder.get('pid'), holder.get('round', '?')))
+                continue
+            env.arm_lock(path)
+            return path
         finally:
-            os.unlink(temporary)
+            try:
+                os.unlink(temporary)
+            except OSError:
+                pass
 
 
 def acquire_full_safe_lock(common_dir=None, round_number=None):
-    path = acquire_pid_lock(env.FULL_SAFE_LOCK_NAME, common_dir, round_number, reentrant=True)
+    """同一时刻只跑一份全量。锁文件不拦提交：十几分钟的全量不再卡住车道和合并。"""
+    path = acquire_pid_lock(env.FULL_SAFE_RUNNER_LOCK_NAME, common_dir, round_number, reentrant=True)
     _FULL_LOCK_DEPTH[path] = _FULL_LOCK_DEPTH.get(path, 0) + 1
     return path
 
@@ -77,6 +80,7 @@ def release_full_safe_lock(path):
 def release_pid_lock(path):
     if env.lock_holder(path).get('pid') != os.getpid():
         return
+    env.disarm_lock(path)
     try:
         os.unlink(path)
     except OSError:
@@ -168,6 +172,24 @@ def _gui_wait_report(common, waited, queue, ticket):
           (pid, started_text, held_text, waited, _gui_queue_position(queue, ticket)), flush=True)
 
 
+def foreign_full_suite(common):
+    """别的进程正在跑全量。本进程和它的 worker 不算。"""
+    if not common:
+        return False
+    holder = env.lock_holder(os.path.join(common, env.FULL_SAFE_RUNNER_LOCK_NAME))
+    pid = holder.get('pid')
+    if pid in (None, os.getpid(), os.getppid()):
+        return False
+    return env.holder_is_live(holder)
+
+
+def _gui_deferred(reason, capped):
+    if capped:
+        print('[GUI_DEFERRED] 全量测试正在占用 GUI，本会话不再等待：%s' % reason)
+    else:
+        print('[GUI_DEFERRED] GUI 令牌等待超时：%s' % reason)
+
+
 def acquire_gui_lock(common_dir=None, wait=env.GUI_WAIT_SECONDS):
     if wait < 0:
         raise ValueError('--gui-wait 必须非负')
@@ -180,9 +202,14 @@ def acquire_gui_lock(common_dir=None, wait=env.GUI_WAIT_SECONDS):
         return path
     except RuntimeError as exc:
         holder_error = exc
+    capped = False
+    if foreign_full_suite(common):
+        wait = min(wait, env.GUI_FULL_SUITE_WAIT_SECONDS)
+        capped = True
+        print('[GUI_WAIT] 全量测试正在占用 GUI，本会话最多再等 %.0f 秒' % wait, flush=True)
     deadline = time.monotonic() + wait
     if time.monotonic() >= deadline:
-        print('[GUI_DEFERRED] GUI 令牌等待超时：%s' % holder_error)
+        _gui_deferred(holder_error, capped)
         return None
     queue = _gui_queue_dir(common)
     ticket = _join_gui_queue(queue)
@@ -201,7 +228,7 @@ def acquire_gui_lock(common_dir=None, wait=env.GUI_WAIT_SECONDS):
             waited = time.monotonic() - entered
             remaining = deadline - time.monotonic()
             if remaining <= 0:
-                print('[GUI_DEFERRED] GUI 令牌等待超时：%s' % holder_error)
+                _gui_deferred(holder_error, capped)
                 return None
             if last_report is None or waited - last_report >= env.GUI_WAIT_NOTICE_SECONDS:
                 _gui_wait_report(common, waited, queue, ticket)
@@ -227,8 +254,10 @@ def other_gui_holder():
     holder = env.lock_holder(os.path.join(common, env.GUI_LOCK_NAME)) if common else {}
     pid = holder.get('pid')
     # 工作池子进程使用父进程的令牌，不是竞争工作流。
-    return (pid if pid not in (os.getpid(), os.getppid())
-            and env._pid_is_alive(pid, holder.get('started_at')) else None)
+    # 心跳仍在就视为占用，打不开对方进程不算对方已经退出。
+    if pid in (os.getpid(), os.getppid(), None):
+        return None
+    return pid if env.holder_is_live(holder) else None
 
 
 def concurrency_warning():

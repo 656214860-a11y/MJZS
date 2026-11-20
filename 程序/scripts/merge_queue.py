@@ -2,6 +2,7 @@
 
 高并发下各车道不再各自阻塞等合并：``enqueue`` 只登记请求（亚秒级），
 由合并道（专职或任一空闲会话）``serve`` 按 FIFO 逐条执行 merge_round。
+merge_round 会先把分支变基到当前 master，变基冲突以退出码 5 退回该车道，不占主干、不领号。
 队列项带租约；serve 中途死亡时过期 serving 项可被重新拾取，
 绝不自动 abort 他人 MERGE_HEAD（merge_round 自身负责归属清理）。
 """
@@ -156,7 +157,11 @@ def serve(common: Path, once: bool = False) -> int:
             print("[merge-queue] %s 完成" % item["id"], flush=True)
         else:
             failures += 1
-            _finish(common, item["id"], "failed", note="merge_round 退出码 %d" % proc.returncode)
+            if proc.returncode == 5:  # merge_round.REBASE_RETURNED
+                note = "变基冲突，已退回车道，未占主干、未领号"
+            else:
+                note = "merge_round 退出码 %d" % proc.returncode
+            _finish(common, item["id"], "failed", note=note)
             print("[merge-queue] %s 失败 rc=%d" % (item["id"], proc.returncode), flush=True)
         if once:
             return proc.returncode

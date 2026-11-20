@@ -37,6 +37,11 @@ os.environ.setdefault("DRAMA_REDUCE_MOTION", "0")  # 自检固定保留动效，
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
+_LEASE_DIR = os.path.join(HERE, "维护记录", "基准脚本")
+if _LEASE_DIR not in sys.path:
+    sys.path.append(_LEASE_DIR)
+import lock_lease  # noqa: E402
+
 
 TESTS_DIR = os.path.join(HERE, 'tests')
 
@@ -84,7 +89,8 @@ CACHE_NAME = 'selftest-incremental.json'
 INCREMENTAL_RULES = 2
 
 
-FULL_SAFE_LOCK_NAME = 'full-safe-selftest.lock'
+FULL_SAFE_LOCK_NAME = 'full-safe-selftest.lock'  # 只拦 master/main 提交；超长全量不再创建它
+FULL_SAFE_RUNNER_LOCK_NAME = 'full-safe-runner.lock'  # 同一时刻一份全量，不拦车道提交与合并
 
 
 GUI_LOCK_NAME = 'gui-selftest.lock'
@@ -96,7 +102,8 @@ GUI_QUEUE_NAME = 'gui-selftest.queue'
 GUI_QUEUE_SUFFIX = '.ticket'
 
 
-GUI_WAIT_SECONDS = 1800   # R-B2：20 车道下 GUI 串行排队，15min 超时会把整队饿死成 DEFERRED；30min 内仍标 DEFERRED 不计通过
+GUI_WAIT_SECONDS = 1800   # R-B2：车道之间排队仍可等到 30 分钟，避免整队被标成 DEFERRED
+GUI_FULL_SUITE_WAIT_SECONDS = 60   # 别人正在跑全量时，本会话最多再等一分钟，不等完整段 Tk
 
 
 GUI_WAIT_NOTICE_SECONDS = 30.0
@@ -255,10 +262,36 @@ def _pid_is_alive(pid, started_at=None):
 def lock_holder(path):
     try:
         with io.open(path, encoding='utf-8') as handle:
-            value = json.load(handle)
+            text = handle.read()
+        if not text.strip():
+            return {}
+        # 心跳原地覆盖后，文件尾部可能留下上一次更长的内容。
+        value, _end = json.JSONDecoder().raw_decode(text)
         return value if isinstance(value, dict) else {}
     except (OSError, ValueError):
         return {}
+
+
+def holder_is_live(holder, now=None):
+    """有心跳时只看 3 分钟静默；旧锁没有心跳，仍按 PID。"""
+    return lock_lease.is_live(holder, now=now, legacy_pid_alive=_pid_is_alive)
+
+
+def inspect_lock(path):
+    return lock_lease.inspect(path, legacy_pid_alive=_pid_is_alive)
+
+
+def reclaim_stale_lock(path):
+    """心跳已停、或旧锁的进程已不在，并且文件身份未变时删除。"""
+    return lock_lease.reclaim(path, legacy_pid_alive=_pid_is_alive)
+
+
+def arm_lock(path):
+    lock_lease.arm(path)
+
+
+def disarm_lock(path):
+    lock_lease.release(path)
 
 
 # ── 自检临时目录沙盒 ────────────────────────────────────────────────

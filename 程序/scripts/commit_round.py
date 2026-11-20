@@ -1,9 +1,11 @@
 """一条命令完成「暂存 → 白名单 → 等全量验收锁 → 提交」。
 
 pre-commit 钩子仅在 master/main/游离 HEAD 上、``full-safe-selftest.lock`` 存在时拒绝提交（工作分支不受锁限制，
-直接提交，WIP 提交首行用 ``WIP: 说明``、免领轮次号，合入 master 前须整理成 R<轮次>）。后台全量一跑十几分钟；
-以前靠会话里 ``sleep 20`` 循环重试（最长 40 分钟）。本脚本在 master 上把等待放进进程内：
-锁持有进程已死则回收，仍存活则静默轮询，直到释放或超时。钩子规则不变，不绕过。
+直接提交，WIP 提交首行用 ``WIP: 说明``、免领轮次号，合入 master 前须整理成 R<轮次>）。超长 ``--all --safe``
+只持有 ``full-safe-runner.lock``，不再创建这把提交锁，车道提交和合并不必等十几分钟。若仍有旧进程持着提交锁，
+本脚本在 master 上把等待放进进程内：心跳静默满 3 分钟（旧锁则持有进程已不在）才回收，仍有效则静默轮询，直到释放或超时。
+``git add`` / ``commit`` 撞上 index.lock 或其他 Git 锁时，按 0.2、0.4、0.8、1.6、3.2 秒再试 5 次。
+钩子规则不变，不绕过。
 
 用法（程序目录下）::
 
@@ -37,6 +39,7 @@ import taskbook_closure  # noqa: E402
 POLL_SECONDS = 15
 REPORT_SECONDS = 120
 REJECT_MARK = "全量安全验收锁存在"
+GIT_LOCK_DELAYS = (0.2, 0.4, 0.8, 1.6, 3.2)
 ROUND_MESSAGE_RE = re.compile(r"^R(\d+):")
 
 
@@ -59,7 +62,7 @@ def check_test_move(message: str, root: Path) -> int:
 
 
 def check_scope_overlap(root: Path) -> int:
-    """暂存区新增文件与其他活跃工作树分支的新增文件同名即拒绝（add/add 重复实现门禁）。
+    """暂存路径与其他活跃工作树分支的未合入改动有交集即拒绝。
 
     合并提交（MERGE_HEAD）与主干分支不触发；被合入的源分支本就含同名新文件，
     属正常合并而非重复实现。"""
@@ -113,9 +116,31 @@ def attach_evidence(message: str, keywords, root: Path) -> int:
     return 4
 
 
+def _git_lock_busy(text: str) -> bool:
+    sample = (text or "").lower()
+    if "another git process" in sample or "index.lock" in sample:
+        return True
+    return ".lock" in sample and "file exists" in sample
+
+
+def _run_git(args, cwd, env=None) -> subprocess.CompletedProcess:
+    """瞬时的 index.lock / ref 锁按指数退避再试 5 次，其它失败原样返回。"""
+    command = ["git", "-c", "core.quotepath=false", *args]
+    delays = iter(GIT_LOCK_DELAYS)
+    while True:
+        done = subprocess.run(command, cwd=cwd, env=env, capture_output=True,
+                              text=True, encoding="utf-8", errors="replace")
+        blob = (done.stderr or "") + (done.stdout or "")
+        if done.returncode == 0 or not _git_lock_busy(blob):
+            return done
+        try:
+            time.sleep(next(delays))
+        except StopIteration:
+            return done
+
+
 def _git(*args: str, cwd: Path = PROGRAM) -> subprocess.CompletedProcess:
-    return subprocess.run(["git", "-c", "core.quotepath=false", *args], cwd=cwd,
-                          capture_output=True, text=True, encoding="utf-8", errors="replace")
+    return _run_git(args, cwd)
 
 
 def common_dir(cwd: Path = PROGRAM) -> Path:
@@ -149,18 +174,18 @@ def attach_codex_worktree(root: Path) -> int:
 
 def wait_for_lock(common: Path, timeout: float, *, poll: float = POLL_SECONDS,
                   report: float = REPORT_SECONDS, out=print) -> bool:
-    """锁释放（或回收了失效锁）返回 True；超时返回 False。"""
+    """锁释放（或回收了失效锁）返回 True；超时返回 False。
+
+    新锁以心跳为准：3 分钟内有心跳就继续等，打不开进程不算死亡。
+    没有心跳的旧锁仍按持有进程是否还在。
+    """
     lock = common / run_selftests.FULL_SAFE_LOCK_NAME
     deadline = time.monotonic() + timeout
     last_report = time.monotonic()
     while lock.exists():
         holder = run_selftests.lock_holder(str(lock))
-        if not run_selftests._pid_is_alive(holder.get("pid"), holder.get("started_at")):
-            try:
-                lock.unlink()
-                out("已回收失效验收锁（持有进程 %s 已不存在）" % holder.get("pid"))
-            except FileNotFoundError:
-                pass
+        if run_selftests.reclaim_stale_lock(str(lock)):
+            out("已回收失效验收锁（PID %s）" % holder.get("pid"))
             break
         if time.monotonic() >= deadline:
             return False
@@ -211,8 +236,7 @@ def main(argv=None) -> int:
         if lock_applies and not wait_for_lock(common, max(0.0, deadline - time.monotonic())):
             print("等待全量验收锁超过 %.0f 分钟，未提交；暂存区保留。" % args.wait_minutes, file=sys.stderr)
             return 3
-        done = subprocess.run(["git", "commit", "-q", "-m", args.message], cwd=PROGRAM, env=env,
-                              capture_output=True, text=True, encoding="utf-8", errors="replace")
+        done = _run_git(["commit", "-q", "-m", args.message], PROGRAM, env=env)
         text = (done.stdout + done.stderr).strip()
         if done.returncode and REJECT_MARK in text and time.monotonic() < deadline:
             continue  # 检查与提交之间被抢了锁，回头再等

@@ -259,20 +259,27 @@ def full_safe_auto_due(latest_round, last_full_round, master_checkout):
     return risk_changed_since(last_full_round, latest_round) or count >= env.FULL_SAFE_ROUND_INTERVAL - env.FULL_SAFE_AUTO_LEAD
 
 
+def _holder_participates(path, round_number):
+    try:
+        with io.open(path, encoding='utf-8') as handle:
+            holder = json.load(handle)
+    except (OSError, ValueError):
+        return False
+    return (isinstance(holder, dict)
+            and holder.get('round') == round_number
+            and holder.get('pid') in (os.getpid(), os.getppid())
+            and env._pid_is_alive(holder.get('pid')))
+
+
 def participating_full_safe_run(round_number):
-    """Only the full-run lock owner and its workers may defer receipt checking."""
+    """正在跑全量的进程及其 worker 可以推迟凭据检查。
+
+    长跑持有 runner 锁。旧进程若仍持有会挡住提交的 full-safe-selftest.lock，同样算参与。"""
     common = env.git_common_dir()
     if not common:
         return False
-    try:
-        with io.open(os.path.join(common, env.FULL_SAFE_LOCK_NAME), encoding='utf-8') as handle:
-            holder = json.load(handle)
-        return (isinstance(holder, dict)
-                and holder.get('round') == round_number
-                and holder.get('pid') in (os.getpid(), os.getppid())
-                and env._pid_is_alive(holder.get('pid')))
-    except (OSError, ValueError):
-        return False
+    return any(_holder_participates(os.path.join(common, name), round_number)
+               for name in (env.FULL_SAFE_RUNNER_LOCK_NAME, env.FULL_SAFE_LOCK_NAME))
 
 
 def measurement_unchanged(head, tree):

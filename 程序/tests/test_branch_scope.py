@@ -68,11 +68,27 @@ class BranchScopeTests(unittest.TestCase):
         self.assertEqual(report["skipped"], [])
 
     def test_no_staged_additions_means_no_conflict(self):
-        # 只修改已跟踪文件：暂存区没有「新增」，门禁不触发
+        # 修改的文件不在其他车道的未合入改动里，门禁不触发
         write(self.repo, "base.txt", "changed\n")
         git(self.repo, "add", "base.txt")
         report = scope.commit_gate_report(self.repo, exclude_branch="codex/current")
         self.assertEqual(report["conflicts"], [])
+
+    def test_overlapping_modification_is_rejected(self):
+        git(self.repo, "switch", "-c", "codex/lane-b", "master")
+        write(self.repo, "base.txt", "lane-b\n")
+        git(self.repo, "add", "base.txt")
+        git(self.repo, "commit", "-m", "lane-b modify")
+        git(self.repo, "switch", "codex/current")
+        git(self.repo, "worktree", "add", str(self.container / "wt-b"), "codex/lane-b")
+        write(self.repo, "base.txt", "current\n")
+        git(self.repo, "add", "base.txt")
+        report = scope.commit_gate_report(self.repo, exclude_branch="codex/current")
+        self.assertEqual(len(report["conflicts"]), 1)
+        self.assertIn("base.txt", report["conflicts"][0])
+        self.assertIn("codex/lane-b", report["conflicts"][0])
+        self.assertNotIn("add/add", report["conflicts"][0])
+        self.assertEqual(commit_round.check_scope_overlap(self.repo), 5)
 
     def test_unrelated_new_file_passes(self):
         self.stage("prog/other.py")

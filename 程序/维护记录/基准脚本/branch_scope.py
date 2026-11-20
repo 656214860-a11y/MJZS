@@ -5,8 +5,9 @@
 
 - ``dev.py scope <路径>...``：开工前把计划触及的路径与各活跃工作树分支
   相对 master 的改动求交，重叠即提示，避免重复开工；
-- ``dev.py commit`` 门禁（``commit_round.check_scope_overlap``）：暂存区新增
-  文件与其他活跃分支的新增文件同名即拒绝提交，把 add/add 风险拦在提交点。
+- ``dev.py commit`` 门禁（``commit_round.check_scope_overlap``）：暂存路径与其他
+  活跃分支相对 master 的改动有交集即拒绝提交。新增撞名与改到同一已有文件都在
+  提交点拦住，不必等到合入才冲突。
 
 「活跃分支」口径：``git worktree list`` 中带分支引用的工作树，排除主干
 （master/main）与调用方当前分支；无工作树的未合并分支视为停放或遗留，
@@ -101,25 +102,46 @@ def staged_added_files(root):
     return {line for line in out.splitlines() if line}
 
 
+def staged_files(root):
+    """暂存区相对 HEAD 的全部路径（含修改与删除）。"""
+    out = git(root, "diff", "--cached", "--name-only")
+    return {line for line in out.splitlines() if line}
+
+
 def commit_gate_report(root, exclude_branch):
     """提交门禁报告：``{"conflicts": [...], "skipped": [...]}``。
 
-    暂存区新增文件与其他活跃分支新增文件同名即冲突（双方都按新文件添加，
-    合入将成 add/add）；读取失败的分支只进 skipped 警告，不阻断提交。
+    暂存路径与其他活跃分支相对 master 的改动有交集即冲突。双方都是新增时
+    沿用 add/add 文案；其余重叠（改到同一已有文件、一边改一边删）单独说明。
+    读取失败的分支只进 skipped 警告，不阻断提交。
     """
-    staged = staged_added_files(root)
+    staged = staged_files(root)
     if not staged:
         return {"conflicts": [], "skipped": []}
-    found, errors = scan(root, added_only=True, exclude={exclude_branch})
+    added = staged_added_files(root)
+    found, errors = scan(root, added_only=False, exclude={exclude_branch})
+    added_found, added_errors = scan(root, added_only=True, exclude={exclude_branch})
+    errors.update(added_errors)
     hits = {}
+    added_hits = set()
     for branch, info in found.items():
         for path in sorted(staged & info["files"]):
             hits.setdefault(path, []).append(branch)
-    conflicts = [
-        "新增文件 %s 与活跃分支 %s 撞名（双方均按新文件添加，合入将成 add/add 冲突；"
-        "请改名、协调归属，或待对方合入后再提交）" % (path, "、".join(sorted(hits[path])))
-        for path in sorted(hits)]
-    skipped = ["活跃分支 %s 的新增文件清单读取失败，本次未纳入比对：%s" % (b, e)
+            other_added = added_found.get(branch, {}).get("files", set())
+            if path in added and path in other_added:
+                added_hits.add(path)
+    conflicts = []
+    for path in sorted(hits):
+        names = "、".join(sorted(hits[path]))
+        if path in added_hits:
+            conflicts.append(
+                "新增文件 %s 与活跃分支 %s 撞名（双方均按新文件添加，合入将成 add/add 冲突；"
+                "请改名、协调归属，或待对方合入后再提交）" % (path, names))
+        else:
+            conflicts.append(
+                "路径 %s 与活跃分支 %s 的未合入改动重叠（合入将冲突；"
+                "请错开文件，或待对方合入后再提交）" % (path, names))
+    skipped = ["活跃分支 %s 的改动清单读取失败，本次未纳入比对：%s" % (b, e)
                for b, e in sorted(errors.items())]
     return {"conflicts": conflicts, "skipped": skipped}
 

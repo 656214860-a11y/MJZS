@@ -26,5 +26,6 @@
 | ADR-0012 | [配置校验复用产物规格模式](0012-configuration-schema-pattern.md) | 已接受 | 2026-11-19 | — |
 | ADR-0013 | [UI 框架锁定 Tkinter](0013-ui-framework-locked-tkinter.md) | 已接受 | 2026-11-19 | — |
 | ADR-0014 | [移除应用内建 SKILL 总控](0014-remove-builtin-skill-orchestrator.md) | 已接受 | 2026-11-19 | — |
+| ADR-0015 | [车道开发不因全量、合并和发布停住](0015-lane-flow-does-not-block-sessions.md) | 已接受 | 2026-11-20 | — |
 
 > 0003／0004／0006 为补记 ADR：决策早于记录日，日期为补记日，决策出处见各文「背景与问题」。

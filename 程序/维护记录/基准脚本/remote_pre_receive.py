@@ -17,8 +17,8 @@
 4. 推到 ``master``/``main`` 的 R2527 及以后轮次提交必须带同一提交里的绿色证据
    ``程序/tasks_round/evidence/R<n>.json``（凭据扫描已跑且无命中、定向测试退出码
    0 且无红；文档轮／合并轮按证据里的 skipped 记录放行），删除 master/main 一律
-   拒绝。判据与 ``server_hooks/pre-receive``、``round_evidence.judge`` 同口径，
-   其它分支不受此限。
+   拒绝。旧尖端必须是新尖端的祖先，非快进（含强推改写）一律拒绝。判据与
+   ``server_hooks/pre-receive``、``round_evidence.judge`` 同口径，其它分支不受此限。
 
 stdin 协议：每行 ``<old> <new> <ref>``；``new`` 为全零是删分支，跳过静态检查，
 但删除 ``master``/``main`` 会被第 4 项拒绝。
@@ -186,6 +186,13 @@ def commit_problems(sha, repo=None):
     return ['%s R%d：%s' % (sha[:10], number, reason)] if reason else []
 
 
+def is_fast_forward(old, new, repo=None):
+    """old 是 new 的祖先（含两者相同）才是快进。"""
+    if old == new:
+        return True
+    return git('merge-base', '--is-ancestor', old, new, repo=repo).returncode == 0
+
+
 def check_push(old, new, ref, repo=None):
     """返回拒绝原因列表（空即放行）；只管 master/main，其它 ref 恒为空。"""
     if ref not in PROTECTED_REFS:
@@ -194,6 +201,8 @@ def check_push(old, new, ref, repo=None):
         return ['不允许删除 %s' % ref]
     if old == ZERO:
         return []
+    if not is_fast_forward(old, new, repo):
+        return ['拒绝非快进更新 %s：禁止强推改写主干' % ref]
     listing = git('rev-list', '%s..%s' % (old, new), repo=repo).stdout
     problems = []
     for sha in listing.split():

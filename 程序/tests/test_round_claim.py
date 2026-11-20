@@ -188,11 +188,14 @@ class SharedWorktreeQueueTests(unittest.TestCase):
         script.write_bytes(SCRIPT.read_bytes())
         lanes = script.with_name("lane_registry.py")
         lanes.write_bytes(SCRIPT.with_name("lane_registry.py").read_bytes())
+        lease = script.with_name("lock_lease.py")
+        lease.write_bytes(SCRIPT.with_name("lock_lease.py").read_bytes())
         entry = self.repo / "程序/scripts/dev.py"
         entry.parent.mkdir(parents=True)
         entry.write_bytes((PROGRAM / "scripts/dev.py").read_bytes())
         self.git("-C", str(self.repo), "add", "--", "程序/维护记录/基准脚本/round_claim.py",
-                 "程序/维护记录/基准脚本/lane_registry.py", "程序/scripts/dev.py")
+                 "程序/维护记录/基准脚本/lane_registry.py",
+                 "程序/维护记录/基准脚本/lock_lease.py", "程序/scripts/dev.py")
         self.git("-C", str(self.repo), "-c", "user.name=Queue Test", "-c",
                  "user.email=queue@example.invalid", "commit", "-m", "script fixture")
         self.trees = [self.root / name for name in ("A", "B")]
@@ -394,3 +397,33 @@ class SharedWorktreeQueueTests(unittest.TestCase):
         payload["items"] = [{"id": "T", "status": "claimed", "owner": "A", "lease_minutes": 60,
                               "lease_until": "2026-10-04T01:00:00+00:00"}]
         self.assertEqual(round_claim.validate_queue(payload, now), ([], []))
+
+    def test_stale_claim_lock_is_reclaimed_and_fresh_heartbeat_blocks(self):
+        import time
+        with tempfile.TemporaryDirectory() as tmp:
+            common = Path(tmp)
+            stale = common / round_claim.LOCK_NAME
+            stale.write_text(json.dumps({
+                "pid": 2 ** 22 + 3, "token": "old",
+                "heartbeat_at": time.time() - 300, "created_at": time.time() - 300,
+            }), encoding="utf-8")
+            lock = round_claim._acquire_lock(common, timeout=1)
+            try:
+                body = json.loads(lock.read_text(encoding="utf-8"))
+                self.assertNotEqual(body["token"], "old")
+                self.assertGreater(body["heartbeat_at"], time.time() - 5)
+            finally:
+                round_claim.lock_lease.release(lock)
+                lock.unlink(missing_ok=True)
+            fresh = common / round_claim.LOCK_NAME
+            fresh.write_text(json.dumps({
+                "pid": 2 ** 22 + 3, "token": "live",
+                "heartbeat_at": time.time(), "created_at": time.time(),
+            }), encoding="utf-8")
+            with self.assertRaises(TimeoutError):
+                round_claim._acquire_lock(common, timeout=0.2)
+            self.assertEqual(json.loads(fresh.read_text(encoding="utf-8"))["token"], "live")
+            fresh.unlink()
+            with round_claim.shared_lock(common):
+                self.assertTrue((common / round_claim.LOCK_NAME).exists())
+            self.assertFalse((common / round_claim.LOCK_NAME).exists())
