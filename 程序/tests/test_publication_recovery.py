@@ -241,6 +241,9 @@ class PublicationRecoveryTests(unittest.TestCase):
             root = Path(directory)
             with patch.object(publication, 'ROOT', root/'transactions'):
                 core.save(root/'first.json', {'v':1})
+                # 手工摆坏日志不经过 access()：拿住进程内的发布锁到用例收尾，免得别的线程读写时把还没写日志的目录清掉。
+                publication._LOCK.acquire()
+                self.addCleanup(publication._LOCK.release)
                 folder = publication.ROOT / ('a'*32)
                 folder.mkdir()
                 (folder/'journal.json').write_text('{broken', encoding='utf-8')
