@@ -26,15 +26,15 @@ BUDGETS = {
     REPO / 'CLAUDE.md': 4000,
     # 工程文档体系任务书轮5（R3503）：agent 会整读的工程文档同样受 16 KB 加载窗口约束。
     ROOT / '文档导航.md': 16000,
-    ROOT / '说明' / '工程文档登记表.md': 16000,
-    ROOT / '说明' / '已知坑与不可破坏契约.md': 16000,
+    ROOT / 'docs' / 'records' / '工程文档登记表.md': 16000,
+    ROOT / 'docs' / 'contracts' / '已知坑与不可破坏契约.md': 16000,
     ROOT / '维护记录' / 'README.md': 16000,
     ROOT / 'docs' / 'adr' / 'README.md': 16000,
 }
 # 按节查询型：权威参考文档。上限不按加载窗口卡，而按「单文件仍可检索」的体量卡；
 # 必须带章节索引（INDEX_HEADING），且索引要出现在 INDEX_WINDOW 字节内。
 REFERENCE_BUDGETS = {
-    ROOT / '说明' / '产品需求规格.md': 96000,
+    ROOT / 'docs' / 'requirements' / '产品需求规格.md': 96000,
 }
 INDEX_WINDOW = 8192
 # 章节索引标题：`## 0. 章节索引` / `## 目录` / `## 索引` 等。
@@ -147,7 +147,7 @@ class AgentDocBudgetTests(unittest.TestCase):
         count = len([p for p in tracked_files()
                      if '/' not in p and p.endswith('.md')])
         self.assertLessEqual(count, ROOT_MD_BUDGET,
-                             '程序/ 根 .md 共 %d 份，超过 D10 预算 %d：新文档进子目录或说明/' % (count, ROOT_MD_BUDGET))
+                             '程序/ 根 .md 共 %d 份，超过 D10 预算 %d：新文档进 docs/ 职责目录' % (count, ROOT_MD_BUDGET))
 
     def test_maintenance_record_top_level_count_within_budget(self):
         count = len([p for p in tracked_files()

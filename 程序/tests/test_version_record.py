@@ -11,7 +11,7 @@ PROGRAM = Path(__file__).resolve().parents[1]
 
 class VersionRecordTests(unittest.TestCase):
     def test_changelog_has_section_for_current_version(self):
-        text = (PROGRAM / '说明' / '更新记录.md').read_text(encoding='utf-8')
+        text = (PROGRAM / 'CHANGELOG.md').read_text(encoding='utf-8')
         self.assertRegex(text, r'(?m)^## ' + re.escape(app_metadata.VERSION) + r'\s*$')
 
     def test_build_commit_is_short_hash_or_empty(self):

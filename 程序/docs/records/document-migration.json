@@ -1,0 +1,224 @@
+{
+  "schema_version": 1,
+  "round": 3836,
+  "source_commit": "26c9a60766ee33060ef23186bd733323bf8bca76",
+  "items": [
+    {
+      "old_path": "说明/产品需求规格.md",
+      "new_path": "docs/requirements/产品需求规格.md",
+      "mode": "move",
+      "before_sha256": "e81a9d09ff51cc829723b77ffe5cd18d91b5b5a8851ca6193ba57e9380974ff5",
+      "bytes": 49058,
+      "after_sha256": "04e710b2dea65d7f761ed1b01925b9c2a82d8a995c6dc9e0718dad1b349df579"
+    },
+    {
+      "old_path": "说明/发布检查单.md",
+      "new_path": "docs/process/发布检查单.md",
+      "mode": "move",
+      "before_sha256": "97a5dc9b5226299be95d246590db7105d8b405bf764ced42d4ebae6a1692a361",
+      "bytes": 4723,
+      "after_sha256": "141ba43022aaf5f0c52742c9970c1ec7a4b9c0c08d96bcb632b6c5acf83bb9bf"
+    },
+    {
+      "old_path": "说明/商用交付资料.md",
+      "new_path": "docs/process/商用交付资料.md",
+      "mode": "move",
+      "before_sha256": "b82fe0b0da86a2fe9c4c2029e30c0676f9fd91a988f72c1e0d1dd59222f4395f",
+      "bytes": 5313,
+      "after_sha256": "b82fe0b0da86a2fe9c4c2029e30c0676f9fd91a988f72c1e0d1dd59222f4395f"
+    },
+    {
+      "old_path": "说明/制作失败与人工替代.md",
+      "new_path": "docs/process/制作失败与人工替代.md",
+      "mode": "move",
+      "before_sha256": "1e583f1deada51322a1dcdec427bdf600ccc2539fe8479b30b91e5a12b133632",
+      "bytes": 3960,
+      "after_sha256": "ac7c46a28bf8b13705e60e11e0acd76c91b4735e0765321936d774c477d0dace"
+    },
+    {
+      "old_path": "说明/存储盘点与保留.md",
+      "new_path": "docs/process/存储盘点与保留.md",
+      "mode": "move",
+      "before_sha256": "ba823dddd734ddeb09476fde97a530bb90dd7519d87b3d1da2d9a61985e0be74",
+      "bytes": 1772,
+      "after_sha256": "ba823dddd734ddeb09476fde97a530bb90dd7519d87b3d1da2d9a61985e0be74"
+    },
+    {
+      "old_path": "说明/维护约定.md",
+      "new_path": "docs/process/维护约定.md",
+      "mode": "move",
+      "before_sha256": "62f0e57e5898198c87a22efeca144c1b3e5876caad0b62e9e0d80884d8053b42",
+      "bytes": 963,
+      "after_sha256": "2e6004e1bb64ac80fc6abf7507c4f8ad119672e54e5963b9ec4bc5e4b2808815"
+    },
+    {
+      "old_path": "说明/版本控制处置说明.md",
+      "new_path": "docs/process/版本控制处置说明.md",
+      "mode": "move",
+      "before_sha256": "d8e761650b62505964780268c556c3356c32611f822f5f37a18cb295bca8dd06",
+      "bytes": 1124,
+      "after_sha256": "d8e761650b62505964780268c556c3356c32611f822f5f37a18cb295bca8dd06"
+    },
+    {
+      "old_path": "说明/联调测试出口基线.md",
+      "new_path": "docs/process/联调测试出口基线.md",
+      "mode": "move",
+      "before_sha256": "7ec34c94e5120b408904bda4cac85b3b83d04f2021ebe53b7c34adb3503c41e6",
+      "bytes": 17811,
+      "after_sha256": "01718beefc9205d25b3ab18693805cfc0cc4d4d0a71ccea3cb3fe94a2a30a8ba"
+    },
+    {
+      "old_path": "说明/每分钟成本核算.md",
+      "new_path": "docs/process/每分钟成本核算.md",
+      "mode": "move",
+      "before_sha256": "a1134bcdc66217f6cdb043fb5f7408c225234a5fee2e0aa9b6efd852fe71bc9c",
+      "bytes": 6653,
+      "after_sha256": "acc6e465204eca33fcd02f2f115d0dcf3e11507ef357645286983b36c2eef2f3"
+    },
+    {
+      "old_path": "说明/编剧功能说明.md",
+      "new_path": "docs/guides/编剧功能说明.md",
+      "mode": "move",
+      "before_sha256": "b09674e7a5145ede8e01aae6ebf76e3da7946902b19f821f420827cfcbc19398",
+      "bytes": 1978,
+      "after_sha256": "b09674e7a5145ede8e01aae6ebf76e3da7946902b19f821f420827cfcbc19398"
+    },
+    {
+      "old_path": "说明/工程文档登记表.md",
+      "new_path": "docs/records/工程文档登记表.md",
+      "mode": "move",
+      "before_sha256": "57c8fbfb859bf0c648f53520dcd82a2e099569d5fe4ed5ae67aba8683c7b8b30",
+      "bytes": 8478,
+      "after_sha256": "1f2f553c83d4f8384fc72d742d62854f3d18c475919565a32c8a96f86c2f85fe"
+    },
+    {
+      "old_path": "说明/已知坑与不可破坏契约.md",
+      "new_path": "docs/contracts/已知坑与不可破坏契约.md",
+      "mode": "move",
+      "before_sha256": "19ad6ccb9423ff65df9b452b3a119db61b67befe6a0690a6131ec3c6b9191840",
+      "bytes": 8034,
+      "after_sha256": "19ad6ccb9423ff65df9b452b3a119db61b67befe6a0690a6131ec3c6b9191840"
+    },
+    {
+      "old_path": "说明/模型金额预算.md",
+      "new_path": "docs/contracts/模型金额预算.md",
+      "mode": "move",
+      "before_sha256": "0a5241712f891824a3da1af021b788bca095fe86158e4479f568b0dca7a97d5b",
+      "bytes": 11343,
+      "after_sha256": "0a5241712f891824a3da1af021b788bca095fe86158e4479f568b0dca7a97d5b"
+    },
+    {
+      "old_path": "说明/生成服务失败处理契约.md",
+      "new_path": "docs/contracts/生成服务失败处理契约.md",
+      "mode": "move",
+      "before_sha256": "c051c64e19e37947f113591120c5a8ae928474d5151b005703dc900e8c4276d3",
+      "bytes": 2778,
+      "after_sha256": "c051c64e19e37947f113591120c5a8ae928474d5151b005703dc900e8c4276d3"
+    },
+    {
+      "old_path": "说明/账户会员云端立项前清单.md",
+      "new_path": "docs/records/账户会员立项历史.md",
+      "mode": "move",
+      "before_sha256": "dc9bf6484d32b57e883187083ecf8e97f375ada33c79dd4c553c51d8ff8f1f5a",
+      "bytes": 9994,
+      "after_sha256": "b9d1abac7976325c99ed6d1513199836e99dcbdca4d19f8ef15ec1e69d2ff9c1"
+    },
+    {
+      "old_path": "说明/已并入设计规格.md",
+      "new_path": "docs/records/文档迁移台账.md",
+      "mode": "move",
+      "before_sha256": "d0c356fadf0dda454d75273f15a69c36eaf25e22d19d99d9d7bf37546368226f",
+      "bytes": 1650,
+      "after_sha256": null,
+      "after_hash_note": "派生索引自身会变更，不作自引用摘要"
+    },
+    {
+      "old_path": "说明/示例/雨夜修伞/episode.json",
+      "new_path": "resources/examples/rainy_umbrella/episode.json",
+      "mode": "move",
+      "before_sha256": "d768ede75ede10e8af3fdbd9d8fc3be26e87d64119eaccf1d48ff50afe54fd96",
+      "bytes": 5109,
+      "after_sha256": "d768ede75ede10e8af3fdbd9d8fc3be26e87d64119eaccf1d48ff50afe54fd96"
+    },
+    {
+      "old_path": "说明/示例/雨夜修伞/assets.json",
+      "new_path": "resources/examples/rainy_umbrella/assets.json",
+      "mode": "move",
+      "before_sha256": "d045c19a4d8268694a1c097c7ab69fa74e6d8d38a7407dbbaeae1d2fedb0e7d8",
+      "bytes": 473,
+      "after_sha256": "d045c19a4d8268694a1c097c7ab69fa74e6d8d38a7407dbbaeae1d2fedb0e7d8"
+    },
+    {
+      "old_path": "说明/示例/雨夜修伞/开始练习.md",
+      "new_path": "resources/examples/rainy_umbrella/开始练习.md",
+      "mode": "move",
+      "before_sha256": "3c0b3052a0d3e90a74ee28256f78aad470365f21e1ca31ed1296d54af6a7b8fd",
+      "bytes": 3574,
+      "after_sha256": "a30f08f56c0e1689460b338e5d40c6f28214bfd11e4e3b23324493d6cedf1ecd"
+    },
+    {
+      "old_path": "说明/账户会员云端设计.md",
+      "new_path": "docs/specs/07_业务域规格.md",
+      "mode": "merge",
+      "before_sha256": "c02c6b209464def0bab7c087fe4bf48d228753cd8f2cc7aa53c859af18697622",
+      "bytes": 27347,
+      "after_sha256": "fffd30f7b231fc69e7335598c45324325492a296d4306c6b4fb963158f28ac1a"
+    },
+    {
+      "old_path": "说明/更新记录.md",
+      "new_path": "CHANGELOG.md",
+      "mode": "merge",
+      "before_sha256": "be8eb479960cf27db5cdd854564120c1afc195f017b33d59c84acafafb7fdbaa",
+      "bytes": 950,
+      "after_sha256": "d2fe111d8a07821f22585a8669e7cfbddf388a0c701a15d03f7ca5b890477c9e"
+    },
+    {
+      "old_path": "docs/review/优化任务书_SKILL生命周期_20261116.md",
+      "new_path": "tasks_round/历史任务_SKILL生命周期_20261116任务书.md",
+      "mode": "move",
+      "before_sha256": "f6de5f8ffa6364b0bcc9a36f882be41c3c9c8641d8cbc9b066f4367e6782e5a1",
+      "bytes": 28085,
+      "after_sha256": "f6de5f8ffa6364b0bcc9a36f882be41c3c9c8641d8cbc9b066f4367e6782e5a1"
+    },
+    {
+      "old_path": "docs/review/优化任务书_SWE2_20261115.md",
+      "new_path": "tasks_round/历史任务_SWE2_20261115任务书.md",
+      "mode": "move",
+      "before_sha256": "b13badbef3e63a74bd1b1ee6fa87536d6e7612cbf7ab1dd988ae0e38bdce7cdf",
+      "bytes": 12768,
+      "after_sha256": "b13badbef3e63a74bd1b1ee6fa87536d6e7612cbf7ab1dd988ae0e38bdce7cdf"
+    },
+    {
+      "old_path": "docs/review/包化迁移方案_T10.md",
+      "new_path": "docs/records/包化迁移历史.md",
+      "mode": "move",
+      "before_sha256": "758934b07622754201850b0c648eedab97f108e88a78a0f8e69e491ed70cc15a",
+      "bytes": 7559,
+      "after_sha256": "758934b07622754201850b0c648eedab97f108e88a78a0f8e69e491ed70cc15a"
+    },
+    {
+      "old_path": "docs/review/变异测试抽样_T8.md",
+      "new_path": "docs/records/变异测试抽样历史.md",
+      "mode": "move",
+      "before_sha256": "0758dacc20fd3affe3248ae04ec272e4e0de470b9900ee70e09a0224e6617803",
+      "bytes": 1163,
+      "after_sha256": "0758dacc20fd3affe3248ae04ec272e4e0de470b9900ee70e09a0224e6617803"
+    },
+    {
+      "old_path": "docs/review/分支覆盖率棘轮_T8.md",
+      "new_path": "docs/records/分支覆盖率棘轮历史.md",
+      "mode": "move",
+      "before_sha256": "8304275851f08e7577569828ecb4cb5bcd7f53693b20dde5377017e298851e5a",
+      "bytes": 2951,
+      "after_sha256": "8304275851f08e7577569828ecb4cb5bcd7f53693b20dde5377017e298851e5a"
+    },
+    {
+      "old_path": "说明/对话需求追溯.md",
+      "new_path": "docs/records/对话需求追溯.md",
+      "mode": "move",
+      "before_sha256": "c299317ac6b748e24eb66b22a7a60d35a06be9c8ca05176a49462a3a497dcd2e",
+      "bytes": 5336,
+      "after_sha256": "99a1dc2245ce79d2c8b13d4959e226543a9446e68b6387b5cb57b743e1fe42a6"
+    }
+  ]
+}

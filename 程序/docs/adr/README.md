@@ -8,6 +8,8 @@
 - **层级字段**：层级取值引用 `tests/architecture/_layers.py` 的 `LAYER_NAMES` 短名；阶段取 `S01`–`S13` 或 `全局`。
 - **权威关系**：ADR 记录决策与理由；决策的**现行口径**仍以 `AGENTS.md` §2.2 权威源表、`architecture.md`、`pet_bus.STAGES` 等唯一权威为准，冲突时以权威源为准并回改 ADR。
 
+目录结构决策唯一正文在 [governance/decisions/0001-directory-layout.md](../../governance/decisions/0001-directory-layout.md)，本索引只引用，不分配第二份同主题 ADR。
+
 ## 索引
 
 | 编号 | 标题 | 状态 | 日期 | 取代关系 |

@@ -73,7 +73,7 @@ def _dynamic_string_refs() -> dict[str, set[str]]:
 
 _ALL_EXCLUDED_PARTS = frozenset({"tasks_round", "维护记录", ".git", ".wt", ".selftmp",
                                 "__pycache__", "data", "skills", "outputs",
-                                "工作流任务", "episode", "docs", "说明", "配置",
+                                "工作流任务", "episode", "docs", "governance", "resources", "legacy", "配置",
                                 "reference", "assets", "workflows", "附加工具"})
 
 

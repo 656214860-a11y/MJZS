@@ -15,7 +15,7 @@ from stage_execution_service import project_registry_gateway
 class ProjectsGatewayTests(unittest.TestCase):
     def test_practice_sample_creates_isolated_ten_shot_project_without_generation(self):
         from contract.episode_contract import validate_episode
-        sample = Path(__file__).resolve().parents[1] / '说明' / '示例' / '雨夜修伞'
+        sample = Path(__file__).resolve().parents[1] / 'resources' / 'examples' / 'rainy_umbrella'
         episode = json.loads((sample / 'episode.json').read_text(encoding='utf-8'))
         assets = json.loads((sample / 'assets.json').read_text(encoding='utf-8'))
         originals = {name: (sample / name).read_bytes() for name in ('episode.json', 'assets.json')}

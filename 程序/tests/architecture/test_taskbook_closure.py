@@ -69,7 +69,7 @@ class TaskbookClosureTests(unittest.TestCase):
                          '仓库内的任务完成目录应通过校验器（无孤儿、README 建档、已有完成文件覆盖其任务书）')
 
     def test_exempt_whitelist_only_shrinks(self):
-        self.assertEqual(closure.EXEMPT_TASKBOOKS, frozenset({'docs/review/优化任务书_SWE2_20261115.md'}),
+        self.assertEqual(closure.EXEMPT_TASKBOOKS, frozenset({'tasks_round/历史任务_SWE2_20261115任务书.md'}),
                          '豁免白名单只许减少，不许新增')
 
     def test_declares_closure_triggers(self):

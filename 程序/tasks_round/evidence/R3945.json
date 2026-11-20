@@ -1,0 +1,16 @@
+{
+  "round": 3945,
+  "commit_base": "fbcde1c4",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "",
+    "exit": 0,
+    "passed": 0,
+    "failed": 0,
+    "skipped": "merge-ci-exit"
+  },
+  "generated_at": "2026-11-20T22:29:48"
+}

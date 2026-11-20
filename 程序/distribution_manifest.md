@@ -15,8 +15,8 @@
 | `运行环境/ffmpeg/` | 随应用交付的 Gyan FFmpeg 9.0.1 essentials build（`ffmpeg.exe`/`ffprobe.exe`，`bin/` 下）；实测构建参数含 `--enable-gpl --enable-version3`，许可证按 `GPL-3.0-or-later` 而非 LGPL 声明。来源、版本与二进制 SHA256 由 `external_tools.lock.json` 锁定并投影到 SBOM。运行时经 `contract.platform_tools.tool_path` 按「显式有效配置 > 随包 > PATH」定位，用户仍可在配置中改用自备 FFmpeg。 |
 | `程序/app.py`、`程序/desktop.py` 及其生产 Python 模块 | 主界面与业务实现。 |
 | `程序/assets/`、`程序/skills/`、`程序/workflows/`、`程序/data/` | 内置资源、SKILL、流程和内置数据。 |
-| `程序/配置/` 与程序随附说明 | 默认配置和面向用户的资料。 |
-| `程序/*.py`（生产 Python 模块）、`程序/agent/**`、`程序/contract/**`、`程序/domain/**`、`程序/infra/**`、`程序/orchestrator/**`、`程序/ui/**`、`程序/voice_engine/**`、`程序/说明/**`、`程序/附加工具/**`、`程序/batch_frames_tool/**` | 主界面之外的生产模块、随附说明与独立批处理小工具；`voice_engine/` 为离线语音识别独立 ASR 运行时（引擎、模型配置、ModelScope 下载、venv 引导），模型与依赖在运行时落 `data/`。 |
+| `程序/配置/`、`程序/resources/examples/rainy_umbrella/**`、`程序/docs/process/制作失败与人工替代.md` | 默认配置、完整练习示例（三文件同级）与包内失败处理指南。 |
+| `程序/*.py`（生产 Python 模块）、`程序/agent/**`、`程序/contract/**`、`程序/domain/**`、`程序/infra/**`、`程序/orchestrator/**`、`程序/ui/**`、`程序/voice_engine/**`、`程序/resources/examples/**`、`程序/docs/process/制作失败与人工替代.md`、`程序/附加工具/**`、`程序/batch_frames_tool/**` | 主界面之外的生产模块、随附说明与独立批处理小工具；`voice_engine/` 为离线语音识别独立 ASR 运行时（引擎、模型配置、ModelScope 下载、venv 引导），模型与依赖在运行时落 `data/`。 |
 | `使用说明.md`、`使用说明.txt`、`漫剧制作助手.ico` | 面向用户的说明与程序图标（根目录唯一正式图标为 git 跟踪的 `漫剧制作助手.ico`）。 |
 | `程序/README.md`、`程序/runbook.md`、`程序/配置说明.md`、`程序/批量资产说明.md`、`程序/默认创意示例.md`、`程序/requirements.txt` | 面向用户的随附说明与依赖声明。 |
 | `程序/asset_manifest.schema.json`、`程序/flux2_klein_asset_text_api.json`、`程序/z_image_assets_api.json`、`程序/z_image_official.json`、`程序/codex_paste.ps1` | 运行时按文件名读取的内置模板与辅助脚本。 |
@@ -28,8 +28,13 @@
 | 路径/模式 | 分类 | 原因 |
 | --- | --- | --- |
 | `程序/tests/**` | 测试 | 仅用于开发验证。 |
+| `程序/docs/specs/**` | 设计规格 | 开发权威与技术边界，不是运行时输入。 |
+| `程序/docs/requirements/**`、`程序/docs/adr/**`、`程序/docs/stages/**`、`程序/docs/review/**`、`程序/docs/guides/**`、`程序/docs/contracts/**`、`程序/docs/records/**` | 开发文档 | 用户运行所需的流程指南在单文件保留规则中明确列出，其余工程资料不入包。 |
+| `程序/docs/process/发布检查单.md`、`程序/docs/process/商用交付资料.md`、`程序/docs/process/存储盘点与保留.md`、`程序/docs/process/维护约定.md`、`程序/docs/process/版本控制处置说明.md`、`程序/docs/process/联调测试出口基线.md`、`程序/docs/process/每分钟成本核算.md` | 开发流程 | 保留仅被用户练习引用的制作失败与人工替代说明，其余运行时不读取。 |
+| `程序/governance/**` | 开发治理 | 目录协议、检查器与基线只在开发与CI中使用，不进入产品。 |
+| `程序/legacy/**` | 退役内容 | 未来经确认保留的退役代码不得进入运行时和分发；当前不创建空目录。 |
 | `程序/tasks_round/**` | 开发记录 | 轮次过程产物。 |
-| `程序/维护记录/**` | 开发记录 | 维护和自检日志。 |
+| `程序/维护记录/**`、`程序/auto-full-safe-result.json`、`程序/full-safe-history.jsonl` | 开发记录 | 维护和自检日志及历史验收凭据；不作为产品运行输入。 |
 | `程序/scripts/**` | 开发工具 | 仅供开发/维护人员调用。 |
 | `程序/.selftmp/**`、`.selftmp/**` | 临时产物 | 可再生的自检或维护临时文件。 |
 | `程序/**/__pycache__/**`、`程序/**/*.pyc` | 字节码缓存 | 可由解释器重新生成。 |
@@ -74,3 +79,5 @@
 - `--build` 同时生成 CycloneDX 1.5 `sbom.cdx.json` 与人读 `THIRD_PARTY_NOTICES.txt`，两者进入 `分发清单.json` 的逐文件 sha256。
 - 随附 Python 运行时只保留 `requirements.txt` 精确锁定的 distribution；开发工具和其他未声明包仅从新建分发副本裁剪，源安装目录不被修改。缺包、错版、缺 RECORD 时拒绝构建；被生产包共享的文件不得随未知包误删。
 - `--verify` 校验输出里没有排除项、必需入口齐全、摘要与 SBOM 自洽，保留 SKILL 均通过摘要逐项校验，不再强制退役包存在；`distribution_selfcheck.py --release` 还会拒绝 `NOASSERTION` 等发布阻断。
+
+内建总控资源已退役，不再要求其专用包存在；其余 `skills/` 资源仍按清单保留。

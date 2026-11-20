@@ -32,6 +32,40 @@ def _latest_result_number() -> int:
     return max(numbers)
 
 
+def _mainline_snapshot():
+    """Feature branches inherit master metadata; only the merge lane may advance it."""
+    def git(*args):
+        result = subprocess.run(['git', '-C', str(ROOT), *args], capture_output=True,
+                                text=True, encoding='utf-8', errors='strict', timeout=20)
+        if result.returncode:
+            raise AssertionError('无法验证分支状态基线：' + result.stderr)
+        return result.stdout
+    branch = git('branch', '--show-current').strip()
+    if branch in ('master', 'main', ''):
+        return None
+    base = git('merge-base', 'HEAD', 'master').strip()
+    status = git('show', base + ':程序/project_status.md')
+    paths = git('ls-tree', '-r', '--name-only', base, '--', 'tasks_round').splitlines()
+    numbers = [int(match.group(1)) for name in paths
+               if (match := RESULT_PATTERN.search(name))]
+    if not numbers:
+        raise AssertionError('主干基点没有轮次结果')
+    return status, max(numbers)
+
+
+def continuity_errors(text, latest, inherited=None):
+    """Check mainline order and feature metadata ownership without bypassing either."""
+    problems = []
+    matched = re.search(r'当前轮次：(\d+)', text)
+    if matched is None:
+        return ['状态页缺当前轮次']
+    if inherited is not None and text != inherited:
+        problems.append('功能分支不得改写主干状态页')
+    if int(matched.group(1)) != latest + 1:
+        problems.append('主干状态轮次未紧接已合入结果')
+    return problems
+
+
 class RoundBaselineTests(unittest.TestCase):
     @staticmethod
     def _merge_in_progress() -> bool:
@@ -48,7 +82,20 @@ class RoundBaselineTests(unittest.TestCase):
             # 合并已占主干、领号写状态页之前，「当前轮次==最新结果+1」结构上尚不成立。
             # merge_round 在领号后提交前以 continuity_gap() 复核。
             return
-        self.assertEqual(int(matched.group(1)), _latest_result_number() + 1)
+        mainline = _mainline_snapshot()
+        if mainline is not None:
+            inherited, latest = mainline
+            self.assertEqual(continuity_errors(text, latest, inherited), [],
+                             '功能分支必须保留连续的主干基点状态，合并轮负责推进')
+        else:
+            self.assertEqual(continuity_errors(text, _latest_result_number()), [])
+
+    def test_feature_metadata_rule_rejects_local_rewrite_and_bad_mainline(self):
+        inherited = '当前轮次：12'
+        self.assertEqual(continuity_errors(inherited, 11, inherited), [])
+        self.assertTrue(continuity_errors('当前轮次：13', 11, inherited))
+        self.assertTrue(continuity_errors('当前轮次：10', 11))
+        self.assertTrue(continuity_errors('missing', 11))
 
     def test_baseline_unchanged(self) -> None:
         """AGENTS 2.5 规则 29：默认冒烟 8 项，架构门禁不低于历史 14 项。"""

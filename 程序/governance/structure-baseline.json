@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "source_commit": "b43a19162dc1836dc4fd07473527e97c35f2696e",
+  "inventory_sha256": "48523f35e8035374e0894ffba8471affc4e0e693df01c678ee9329f8ea0314b7",
+  "policy_sha256": "4187bc370702cc16c5d9929d6bc69273b8818f6f9dbf1f7dc5a715ef98614e0e",
+  "violations": [
+    {
+      "rule_id": "STR003",
+      "path": "程序/batch_frames_tool/启动批量首帧.pyw",
+      "subject": "code_name",
+      "detail": "Own code uses lowercase ASCII snake_case",
+      "owner": "项目维护者",
+      "reason": "冻结治理前存量，禁止新增同类违规",
+      "review_when": "对应路径迁移或命名调整时"
+    }
+  ]
+}

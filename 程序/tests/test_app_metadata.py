@@ -114,7 +114,7 @@ class AppMetadataTests(unittest.TestCase):
         for path in (PROGRAM / 'tasks_round' / '归档' / '2026-11_历史文档' / 'agent-handoff' / 'GLOSSARY.md',
                      ROOT / '使用说明.md', ROOT / '使用说明.txt',
                      PROGRAM / 'README.md', PROGRAM / 'PROJECT_MAP.md',
-                     PROGRAM / 'architecture.md', PROGRAM / '说明' / '维护约定.md'):
+                     PROGRAM / 'architecture.md', PROGRAM / 'docs' / 'process' / '维护约定.md'):
             with self.subTest(path=path.name):
                 title = path.read_text(encoding='utf-8').splitlines()[0]
                 self.assertIn(app_metadata.APP_NAME, title)

@@ -1,0 +1,15 @@
+{
+  "round": 3830,
+  "commit_base": "dcfe76db",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k architecture.test_structure architecture.test_agent_doc_budget architecture.test_design_coverage",
+    "exit": 0,
+    "passed": 40,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T19:27:23"
+}

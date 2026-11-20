@@ -1,7 +1,7 @@
 """离线全链夹具：装载 recovery_to_delivery_baseline 脚本，供 E2E 与 soak 共用。
 
 供应商是离线替身、媒体是合成测试源、评审是脚本模拟；只证明代码路径与落盘事实，
-不证明真实供应商可用性、人工验收或付费行为（见 说明/联调测试出口基线.md §1）。
+不证明真实供应商可用性、人工验收或付费行为（见 docs/process/联调测试出口基线.md §1）。
 """
 import importlib.util
 import subprocess

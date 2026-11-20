@@ -74,7 +74,7 @@ R1139：L3 `agent_skill_sync`（R3084 由 `codex_skill_sync` 泛化，后者保�
 
 阶段模板位于 `skills/templates/`：`script`、`script_structure`、`storyboard`、`animatic`、`asset`、`continuity`、`final`、`keyframe`、`previs`、`video`、`audio`、`edit`、`delivery` 各一份 YAML。每份均含读取/分析、生成（可确认）和写入产物步骤。
 
-R3283（残留治理 D1）：管理页「残留包管理」懒列出 `skills/` 非 01–13 的整包，`00全流程SKILL` 仅作容器、逐包列出，不进入阶段 registry。L2 `domain/skill_residue_service` 接收 L3 `skill_project_layer` 注入的既有 `stage_from_path`、`Registry._package_source` 与 `recycle_paths` 发布器，处置重扫校验唯一路径，拒绝链接／junction／越界；返回 `ServiceResult` 四字段及真实回收记录。UI 两次确认后才回收，恢复沿用 `storage_maintenance.restore_recycle_batch`。不物理删除内置阶段 SKILL，不改变阶段目录口径。
+R3283（残留治理 D1）：管理页「残留包管理」懒列出 `skills/` 非 01–13 的整包，各非阶段目录按整包列出，不设总控容器特例，不进入阶段 registry。L2 `domain/skill_residue_service` 接收 L3 `skill_project_layer` 注入的既有 `stage_from_path`、`Registry._package_source` 与 `recycle_paths` 发布器，处置重扫校验唯一路径，拒绝链接／junction／越界；返回 `ServiceResult` 四字段及真实回收记录。UI 两次确认后才回收，恢复沿用 `storage_maintenance.restore_recycle_batch`。不物理删除内置阶段 SKILL，不改变阶段目录口径。
 
 ## 3. 分层判定
 
@@ -156,7 +156,7 @@ R3721（L1 任务书轮 I19，L1-H5 作业库实现与试点）：新增 L1 `inf
 
 ### 剧本 SKILL 角色审核与编剧风格
 
-角色职责位于 `skills/01 剧本准备SKILL/pipeline-script-preparation.skill.md` 的「定向注入（00 包）」，由同一次回复内的三个内部角色承担：编剧角色审核五阶门控、编辑角色审核 12 个情绪节拍、演员角色完成台词七维诊断与语速自检；`writing_quality.prompt()` 在四份规则齐全时把同一角色分工写入辅助质检交付契约。旧框架及适配器的移除证据见 [R1441](tasks_round/tasks_round_1441_result.md)、[R1442](tasks_round/tasks_round_1442_result.md)。
+角色职责位于 `skills/01 剧本准备SKILL/pipeline-script-preparation.skill.md` 的「定向注入（00 包）」，由同一次回复内的三个内部角色承担：编剧角色审核五阶门控、编辑角色审核 12 个情绪节拍、演员角色完成台词七维诊断与语速自检；`writing_quality.prompt()` 在四份规则齐全时把同一角色分工写入辅助质检交付契约。旧框架及适配器的移除证据见 [R1441](tasks_round/归档/2026-10/tasks_round_1441_result.md)、[R1442](tasks_round/归档/2026-10/tasks_round_1442_result.md)。
 
 用户可编辑的只有项目级「编剧风格」：保存在项目 `skill_config.json` 的 `script.writer_style`（旧项目的编剧规则读取时迁入，下次保存不再写旧键，其余旧框架键忽略），由 `stage_config.writer_style()` 读取，`workflow_settings.writer_style_prompt()` 在剧本准备的桌面任务书与直连 API 的 system 中各注入一次，空风格不占请求。写作取消异常为 `writing_api.WritingCancelledError`。Claude 桌面程序模型不再作为受控 CLI 对话模型，`writing_api.selected_model()` 对其返回空，走桌面 Agent 通道。
 
@@ -329,7 +329,7 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 - 阶段/UI 契约：`test_dynamic_import_registry.py`、`test_stage_command_contract.py`、`test_completion_gate.py`、`test_event_bus_boundary.py`、`test_skill_dependency_dag.py`、`test_pipeline_stage_io_contract.py`、`test_skill_reference_injection.py`、`test_project_entry_boundary.py`。
 - 依赖与平台边界：`test_import_error_boundaries.py`、`test_model_provider_boundary.py`、`test_platform_opening.py`、`test_platform_process_boundary.py`、`test_thread_boundary.py`（I10：L2/L3 直接 `threading.Thread`／`ThreadPoolExecutor` 计数不超基线）、`test_log_sink_boundary.py`（I12：L2+ 诊断日志写盘计数不超产物白名单，app.log 落盘脱敏验收）、`test_migrated_ui_boundaries.py`、`test_dependency_whitelist.py`（R3199 新增：白名单库版本、完整性、传递依赖检查）。
 - 体验与布局：`test_responsive_layout_contract.py`、`test_combobox_boundary.py`、`test_nav_icon_size_boundary.py`（Fluent PNG 固定 24px 画布）、`test_box_boundary.py`（Box 框体唯一入口 `ui_theme.box_frame`，`Box.TFrame` 字面量零容忍、自拼 1px 边框冻结）、`test_font_boundary.py`（内联字体元组冻结，只取 `FONTS[...]`）、`test_native_control_boundary.py`（自配颜色 `tk.Label`/`tk.Frame` 冻结）、`test_form_control_boundary.py`（表单控件只用已登记样式名，局部样式改写零容忍）。
-- 出站与文档预算：`test_outbound_http_authority.py`（直接建连只许在 `platform_tools`；R3220 覆盖 requests 模块/导入别名及 Session 请求）、`test_http_boundary.py`（`urlopen`／`build_opener` 只许在 `http_client` 与存量白名单，白名单只减不增）、`test_agent_doc_budget.py`（文档体积与链接：整读型规则文件仍卡 16 KB 加载窗口；按节查询型权威参考文档走 `REFERENCE_BUDGETS` 放宽上限，但强制正文前 8 KB 内给出章节索引，R3766）、`test_design_coverage.py`（设计规格覆盖门禁：PRD 的每个 P0/P1/P2 与 US** 条目必须在 `docs/specs/README.md` 覆盖映射表里有落点，且指向真实存在的分册章节；表过期同样报红，R3785）、`test_rule_guard_map.py`（规则→守卫登记，暂无守卫的规则只许减少）、`test_gate_selfaudit.py`（5 个关键门禁的坏／好样本自审）、`test_type_check_baseline.py`（开发期类型检查基线只许减少）、`test_skill_package_pins.py`（外部技能包固定提交与内容树哈希）、`test_test_move_guard.py`（测试搬家轮只许移动文件与修 import）。
+- 出站与文档预算：`test_outbound_http_authority.py`（直接建连只许在 `platform_tools`；R3220 覆盖 requests 模块/导入别名及 Session 请求）、`test_http_boundary.py`（`urlopen`／`build_opener` 只许在 `http_client` 与存量白名单，白名单只减不增）、`test_agent_doc_budget.py`（文档体积与链接：整读型规则文件仍卡 16 KB 加载窗口；按节查询型权威参考文档走 `REFERENCE_BUDGETS` 放宽上限，但强制正文前 8 KB 内给出章节索引，R3766）、`test_doc_registry_migration.py`（docs/records登记入口、递归范围与权威主题唯一性，R3836）、`test_design_coverage.py`（设计规格覆盖门禁：PRD 的每个 P0/P1/P2 与 US** 条目必须在 `docs/specs/README.md` 覆盖映射表里有落点，且指向真实存在的分册章节；表过期同样报红，R3785）、`test_structure.py`（目录协议：跟踪文件及显式候选、路径安全、精确owner、身份棘轮、测试归属与legacy隔离，R3830；governance为开发工具，不进产品运行时覆盖率）、`test_rule_guard_map.py`（规则→守卫登记，暂无守卫的规则只许减少）、`test_gate_selfaudit.py`（5 个关键门禁的坏／好样本自审）、`test_type_check_baseline.py`（开发期类型检查基线只许减少）、`test_skill_package_pins.py`（外部技能包固定提交与内容树哈希）、`test_test_move_guard.py`（测试搬家轮只许移动文件与修 import）。
 - 启动预算：`test_startup_budget.py`。
 - 源码文本契约锁：`test_source_text_contracts.py`（原散落在功能测试里的 `inspect.getsource` 断言，内容未动）。
 - 历史兼容门面：`test_legacy_facade_manifest.py`。
