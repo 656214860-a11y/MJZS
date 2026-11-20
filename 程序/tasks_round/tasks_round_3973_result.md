@@ -1,5 +1,5 @@
 # tasks_round_3973_result — L5-E0 入口层只读诊断
-<!-- round-evidence: {"commit_base": "4968a665", "credential_hits": 0, "evidence_sha256": "02b94624525d8d49", "exit": 0, "failed": 0, "passed": 0, "round": 3973, "tests": "docs-only"} -->
+<!-- round-evidence: {"commit_base": "489153d5", "credential_hits": 0, "evidence_sha256": "4dd9055ef4ffdbe3", "exit": 0, "failed": 0, "passed": 0, "round": 3973, "tests": "docs-only"} -->
 
 ## 三问
 
@@ -45,5 +45,5 @@
 
 ## 提交
 
-- 已提交：`<commit hash 待填>`
+- 已提交：`489153d5`（含本文件与证据文件 `evidence/R3973.json`）；本条 hash 由后续补记提交写入
 - 提交后 `git status --short`：空
