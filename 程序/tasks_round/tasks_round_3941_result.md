@@ -1,5 +1,5 @@
 # R3941 结果：历史残留盘点任务书
-<!-- round-evidence: {"commit_base": "fbcde1c4", "credential_hits": 0, "evidence_sha256": "586ceb241f585e1d", "exit": 0, "failed": 0, "passed": 0, "round": 3941, "tests": "docs-only"} -->
+<!-- round-evidence: {"commit_base": "07af3a6c", "credential_hits": 0, "evidence_sha256": "39f3acbed0bb40e5", "exit": 0, "failed": 0, "passed": 0, "round": 3941, "tests": "docs-only"} -->
 
 ## 1. 三问
 
@@ -16,7 +16,7 @@
 
 ## 3. 盘点结论摘要
 
-- **实锤残留**：仓库根 `.agents/` 被 git 跟踪 78 个会话工件（39 `.out`、22 个 `c8-*.py` 探针、6 `.patch`、3 `.diff`、3 `.whl`、`.agents/tmp-pip-probe/`）；hooks 公共目录残留 `pre-commit.bak_20261004_0433`；`tasks_round/` 根目录散落十余件已收尾轮次的一次性证据（目录共 1038 项，`任务完成/` 20 件为活跃凭据不动）。
+- **实锤残留**：仓库根 `.agents/` 被 git 跟踪 78 个会话工件（39 `.out`、22 个 `c8-*.py` 探针、6 `.patch`、3 `.diff`、3 `.whl`、`.agents/tmp-pip-probe/`）（**注：取消跟踪已由在途车道 `codex/governance-land` R3934 `81140ca1` 覆盖、待合并；该车道未补 `.gitignore` 的 `.agents/` 条目，清理轮 A1 先查合并状态再补 gitignore**）；hooks 公共目录残留 `pre-commit.bak_20261004_0433`；`tasks_round/` 根目录散落十余件已收尾轮次的一次性证据（目录共 1038 项，`任务完成/` 20 件为活跃凭据不动）。
 - **零引用模块分三类**：路径启动型 6 个判定保留（`optimizer_mcp_bridge`、`voice_mcp_server`、`voice_engine/bootstrap`、`offline_asr_server`、`blender_previs_template`、`app_shortcut` 待裁定）；已建待接线型 12 个（`ui/ui_*.py` ×11 出自文件卡片与HITL R3123–R3138＋`domain/checkpoint_tree.py`，组件与测试全绿但未接页面，需用户裁定接线或回收）；疑似死代码 4 个（`ui/edit_habits_dialog.py`、`ui/project_settings_dialog.py`、`orchestrator/codex_skill_sync.py`、`app_shortcut.py`）。
 - **门面**：全树 225 个纯转发门面中 49 个全仓零引用，退役沿用 `deadcode_20261116/retire_facades.py` 路线分批执行。
 - **延期项核对**：CRT-026/027/028 三个死符号 grep 0 命中，可核销；`legacy_compat` 仍有 5 个生产调用方（退役日 2027-03-31 未到）；L2 三项（`recoverable` 字段 0 读取、`is_failure()` 0 调用、三个 `schema()` 0 消费者）仍开放；`engine_probe` 已在 `infra/`。
@@ -38,7 +38,7 @@
 - 已知车道注意：`test_round_number_continuous` 在本车道可能因状态页抬头仍是主干轮次而失败，属既有口径（R3932 §3.2 同案），待主干结果轮次超过 3941 后变基消化。
 - 状态页 `project_status.md` 按规则仅 master 可提交，本车道不动；合并轮落地主干时同步抬头为 3942。
 
-（commit hash 由提交后回填：______）
+（commit hash：`07af3a6c`；本行回填与车道提示补充见后续提交）
 
 ## 完成记录
 
