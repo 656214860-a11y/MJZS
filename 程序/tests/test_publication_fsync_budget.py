@@ -103,7 +103,9 @@ class PublicationFsyncBudgetTests(unittest.TestCase):
 
     def test_legacy_journal_preserves_unverifiable_target_and_backup(self):
         for state in ('committed', 'rolled_back', 'pending'):
-            with self.subTest(state=state):
+            # 手工摆事务目录不经过 access()：本进程别的线程此刻读写任何 JSON 都会进 access()，把还没写日志的
+            # 目录当成未登记清掉。摆放到断言期间拿住进程内的发布锁，别的线程进不来。
+            with self.subTest(state=state), publication._LOCK:
                 core.save_text(self.target, 'new')
                 folder = publication.ROOT / ('b' * 32)
                 folder.mkdir(parents=True)
