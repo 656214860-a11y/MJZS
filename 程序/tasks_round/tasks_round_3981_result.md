@@ -1,5 +1,5 @@
 # R3981 结果：文案规则测试进静态门禁，两份清单立一致性测试
-<!-- round-evidence: {"commit_base": "fd2431c2", "credential_hits": 0, "evidence_sha256": "cd039ce2a0676514", "exit": 0, "failed": 0, "passed": 40, "round": 3981, "tests": "run_selftests.py -k release_bindings remote_post_receive_ci copy_rules"} -->
+<!-- round-evidence: {"commit_base": "3409745e", "credential_hits": 0, "evidence_sha256": "d97ee2e9593f5203", "exit": 0, "failed": 0, "passed": 0, "round": 3981, "tests": "docs-only"} -->
 
 ## 1. 三问
 
@@ -88,4 +88,4 @@ from unittest import mock
 ## 8. 提交
 
 - 提交命令：`PY -B scripts\dev.py commit -m "R3981: 文案规则测试进静态门禁，两份清单立一致性测试" --agent Devin scripts/local_ci.py 维护记录/基准脚本/remote_post_receive_ci.py tests/test_remote_post_receive_ci.py tasks_round/tasks_round_3981_result.md --tests release_bindings remote_post_receive_ci copy_rules`
-- 已提交：待填（提交后补记）。
+- 已提交：`3409745e`（主提交），本行由补记提交写入。
