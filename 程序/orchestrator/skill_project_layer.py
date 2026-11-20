@@ -23,6 +23,11 @@ STAGE_DIRECTORY_IDS = {
     '11': 'audio', '12': 'edit', '13': 'delivery',
 }
 
+# ``skills/`` 根下由程序自己按路径读取的目录：阶段流程模板（``skill_templates.template_root``）和
+# 节奏模板（``contract.script_brief.RHYTHM_TEMPLATE_PATH``）都在这里。它们不是残留包：
+# 回收后阶段取不到模板，所以不进残留包列表，也不能经残留包通道回收。
+PRODUCT_RESOURCE_DIRECTORIES = frozenset({'templates'})
+
 
 def stage_from_path(path):
     """从 ``01…12`` 阶段目录推断阶段；非阶段资料目录不作猜测。"""
@@ -248,11 +253,21 @@ class ProjectLayerMixin:
         return existing or root / builtin.name
 
 
+def _kept_out_of_residue(probe):
+    """残留通道的排除口径：阶段目录，或程序自己读取的资源目录。
+
+    L2 只把注入判定的真值当作「跳过」，所以两类目录在这里合成一个判定。目录名按不区分
+    大小写比较，与 Windows 的路径解析一致。
+    """
+    return bool(stage_from_path(probe)
+                or Path(probe).parent.name.casefold() in PRODUCT_RESOURCE_DIRECTORIES)
+
+
 def scan_residue(program, *, package_source):
-    """管理通道：注入唯一阶段判定与调用方已有的包定位器，避免注册表环依赖。"""
+    """管理通道：注入排除口径与调用方已有的包定位器，避免注册表环依赖。"""
     from domain import skill_residue_service
     return skill_residue_service.scan_residue(
-        program, stage_from_path=stage_from_path, package_source=package_source)
+        program, stage_from_path=_kept_out_of_residue, package_source=package_source)
 
 
 def dispose_residue(program, names, *, package_source):
@@ -260,5 +275,5 @@ def dispose_residue(program, names, *, package_source):
     from domain import skill_residue_service
     from infra.storage_maintenance import recycle_paths
     return skill_residue_service.dispose_residue(
-        program, names, stage_from_path=stage_from_path,
+        program, names, stage_from_path=_kept_out_of_residue,
         package_source=package_source, publisher=recycle_paths)

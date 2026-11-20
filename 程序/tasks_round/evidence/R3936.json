@@ -1,0 +1,15 @@
+{
+  "round": 3936,
+  "commit_base": "f675ebf6",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k skill_residue_protection skill_residue_service pet_skills_manage skill_templates skill_project_layer",
+    "exit": 0,
+    "passed": 53,
+    "failed": 0
+  },
+  "generated_at": "2026-11-20T21:29:58"
+}
