@@ -1,0 +1,15 @@
+{
+  "round": 3345,
+  "commit_base": "b0a3bcd9",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k ffmpeg_runtime platform_tools",
+    "exit": 0,
+    "passed": 43,
+    "failed": 0
+  },
+  "generated_at": "2026-11-18T13:22:42"
+}

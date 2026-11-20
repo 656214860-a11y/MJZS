@@ -286,11 +286,11 @@ def duration_text(seconds):
 
 
 def _bundled_tool(name):
-    """随包版本（``运行环境/ffmpeg/bin/<name>.exe``）；不存在返回 None。
-
-    只在文件真实存在时返回——失效的随包路径不能压过系统 PATH。
-    """
-    for candidate in (_BUNDLED_BIN_DIR / (name + '.exe'), _BUNDLED_BIN_DIR / name):
+    """随包 ``运行环境/ffmpeg/bin`` 或内置目录中真实存在的可执行文件；否则 None。"""
+    exe = Path(sys.executable).resolve()
+    use_runtime = exe.parent.name.casefold() == 'python' and exe.parent.parent.name == '运行环境'
+    dirs = [_BUNDLED_BIN_DIR, exe.parent.parent / 'ffmpeg' / 'bin'][:2 if use_runtime else 1]
+    for candidate in (d / (name + s) for d in dirs for s in ('.exe', '')):
         try:
             if candidate.is_file():
                 return str(candidate)
