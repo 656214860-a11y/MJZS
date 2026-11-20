@@ -12,7 +12,7 @@ from tkinter import ttk
 
 from ui_tokens import SPACING
 from ui_widgets import LineInput, SecondaryButton, SelectBox, Tooltip
-from ui.desktop_files_panel_index import FilesPanelIndexMixin
+from ui.desktop_files_panel_index import FilesPanelIndexMixin, SCRIPT_NAME_CELL_PAD
 
 # R3094（任务书 P1，Q8 补充需求）：停靠面板右缘的阶段快捷图标列，顺序＝pet_bus.STAGES。
 # R3191（任务书 M3，REQ-S01-93）：图标优先用 assets/nav/<stage>_files.png（IconLoader.nav_icon），
@@ -333,6 +333,9 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
             if not text:
                 continue
             tree.item(item, values=tuple(values[:4]) + (text,))
+            details = self.script_row_details.get(item, '')
+            if text not in details:
+                self.script_row_details[item] = details + ('\n' if details else '') + '时长／分辨率：' + text
             changed = True
         if changed:
             fit = getattr(self, '_fit_script_width', None)

@@ -495,10 +495,12 @@ class IndexLifecycleTests(StageRailTests):
         self.assertIn('2026-11-16 12:34:56', panel.script_row_details[row.path])
         self.assertLessEqual(panel.script_box.winfo_width(),
                              self.desktop.panel_area.winfo_width() * .5)
-        self.assertTrue(panel.script_list.horizontal_scrollbar.winfo_ismapped())
-        tree.xview_moveto(1)
-        self.win.update()
-        self.assertGreater(tree.xview()[0], 0, '字段列须可横向滚动访问')
+        # R4005（任务书 L4-U3，R4）：属性列不再靠横向滚动访问——放不下的列整列
+        # 隐藏（displaycolumns），内容进悬停提示；表格横向滚动范围恒为 (0.0, 1.0)。
+        first, last = tree.xview()
+        self.assertEqual((first, last), (0.0, 1.0), '表格不再需要横向滚动')
+        self.assertIn('资产', panel.script_row_details[row.path])
+        self.assertIn('1.5 KB', panel.script_row_details[row.path])
 
     def test_three_group_modes_reparent_rows_across_stages(self):
         from datetime import datetime
@@ -1094,6 +1096,174 @@ class FileActionsTests(StageRailTests):
                           lambda path: seen.setdefault('path', Path(path))):
             panel.show_in_folder()
         self.assertEqual(seen['path'], src)
+
+
+class FilenameDisplayTests(StageRailTests):
+    """任务书 L4-U3：文件名列优先——其余列放不下就整列隐藏（内容进悬停提示）；
+    只剩文件名列仍不够宽时文件名中间省略；表格不再需要横向滚动。"""
+
+    LONG_NAME = '面板文件名完整显示样例素材ABCDEFGHIJKLMNOPQR_0001.png'
+    LONG_ROW = '05资产管理/assets/' + LONG_NAME
+
+    def _seed_long_file(self):
+        self.assertEqual(len(self.LONG_NAME), 40, '样例文件名按任务卡取 40 个字符')
+        root = Path(self.desktop.root)
+        target = root / '05资产管理' / 'assets' / self.LONG_NAME
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(b'\x89PNG')
+        self.desktop.files_panel.refresh_file_index()
+        self.wait_index()
+        return target
+
+    def _drop_long_file(self, target):
+        target.unlink(missing_ok=True)
+        self.desktop.files_panel.refresh_file_index()
+        self.wait_index()
+
+    def test_long_filename_fully_visible_at_wide_window(self):
+        """T1：1280×800 下 40 字符文件名完整显示——显示文字是全名，
+        文件名列可见宽 ≥ 文字像素宽＋单元格留白。"""
+        from ui_tokens import SPACING
+        panel = self.desktop.files_panel
+        panel.open_panel()
+        target = self._seed_long_file()
+        win, old = self.win, self.win.geometry()
+        try:
+            win.geometry('1280x800')
+            self.pump(.5)
+            tree = panel.script_tree
+            self.assertEqual(str(tree.item(self.LONG_ROW, 'values')[0]), self.LONG_NAME)
+            font = panel._script_list_font()
+            bbox = tree.bbox(self.LONG_ROW, 'name')
+            self.assertTrue(bbox, '文件名列应处于可见区内')
+            self.assertGreaterEqual(
+                bbox[2], font.measure(self.LONG_NAME) + SPACING['sm'],
+                '文件名列可见宽 %d < 文字宽 %d＋留白' % (bbox[2], font.measure(self.LONG_NAME)))
+        finally:
+            self._drop_long_file(target)
+            win.geometry(old)
+            self.pump(.3)
+
+    def test_long_filename_middle_elided_at_narrow_window(self):
+        """T2：880×600 下显示文字以全名前 8 字符开头、以扩展名结尾、含「…」，
+        且显示文字像素宽 ≤ 文件名列可见宽。"""
+        panel = self.desktop.files_panel
+        panel.open_panel()
+        target = self._seed_long_file()
+        win, old = self.win, self.win.geometry()
+        try:
+            win.geometry('880x600')
+            self.pump(.5)
+            tree = panel.script_tree
+            shown = str(tree.item(self.LONG_ROW, 'values')[0])
+            self.assertTrue(shown.startswith(self.LONG_NAME[:8]), shown)
+            self.assertTrue(shown.endswith('.png'), shown)
+            self.assertIn('…', shown)
+            font = panel._script_list_font()
+            bbox = tree.bbox(self.LONG_ROW, 'name')
+            name_w = bbox[2] if bbox else int(tree.column('name', 'width'))
+            self.assertLessEqual(
+                font.measure(shown), name_w,
+                '显示文字宽 %d > 文件名列可见宽 %d' % (font.measure(shown), name_w))
+        finally:
+            self._drop_long_file(target)
+            win.geometry(old)
+            self.pump(.3)
+
+    def test_table_never_scrolls_horizontally(self):
+        """T3：两档窗口下表格横向滚动范围都是 (0.0, 1.0)。"""
+        panel = self.desktop.files_panel
+        panel.open_panel()
+        target = self._seed_long_file()
+        win, old = self.win, self.win.geometry()
+        try:
+            for size in ('1280x800', '880x600'):
+                win.geometry(size)
+                self.pump(.5)
+                first, last = panel.script_tree.xview()
+                self.assertAlmostEqual(first, 0.0, places=3, msg=size)
+                self.assertAlmostEqual(last, 1.0, places=3, msg=size)
+        finally:
+            self._drop_long_file(target)
+            win.geometry(old)
+            self.pump(.3)
+
+    def test_no_column_half_visible(self):
+        """T4：任一显示列的右边缘不超过表格可见区右边缘（无半露列）。"""
+        panel = self.desktop.files_panel
+        panel.open_panel()
+        target = self._seed_long_file()
+        win, old = self.win, self.win.geometry()
+        try:
+            tree = panel.script_tree
+            for size in ('1280x800', '880x600'):
+                win.geometry(size)
+                self.pump(.5)
+                shown = [column for column in tree['displaycolumns']
+                         if column != '#all'] or ['name', 'kind', 'size', 'mtime', 'meta']
+                total = int(tree.column('#0', 'width')) + sum(
+                    int(tree.column(column, 'width')) for column in shown)
+                self.assertLessEqual(
+                    total, tree.winfo_width() + 2,
+                    '%s：显示列合计宽 %d 超出表格可见宽 %d'
+                    % (size, total, tree.winfo_width()))
+        finally:
+            self._drop_long_file(target)
+            win.geometry(old)
+            self.pump(.3)
+
+    def test_tooltip_keeps_full_name_and_hidden_columns(self):
+        """T5：悬停提示带完整文件名，以及被隐藏各列的内容
+        （类型、大小、修改时间、时长／分辨率）。"""
+        from datetime import datetime
+        from unittest.mock import patch
+        from contract.file_index_contract import FileRow
+        panel = self.desktop.files_panel
+        stamp = datetime(2026, 11, 17, 8, 30, 0).timestamp()
+        row = FileRow(path='05资产管理/assets/悬停样例.mp4', stage='assets',
+                      kind='资产', size=2048, mtime=stamp)
+        with patch.object(panel, '_row_meta_text', return_value='2.5s · 320×180'):
+            panel.cancel_script_load()
+            panel._clear_index_tree()
+            panel.library_view = False
+            root = Path(self.desktop.root)
+            panel._start_index_render([row], {}, root, False, panel._index_generation,
+                                      panel._index_context(root, False))
+            self.win.update()
+        details = panel.script_row_details[row.path]
+        self.assertIn('悬停样例.mp4', details)
+        self.assertIn('资产', details)
+        self.assertIn('2.0 KB', details)
+        self.assertIn('2026-11-17 08:30:00', details)
+        self.assertIn('2.5s · 320×180', details)
+
+    def test_elided_row_opens_the_full_filename(self):
+        """T6：省略显示的行触发「打开」，拿到的路径仍是完整文件名对应的文件。"""
+        from dataclasses import replace
+        from unittest.mock import Mock, patch
+        panel = self.desktop.files_panel
+        panel.open_panel()
+        target = self._seed_long_file()
+        win, old = self.win, self.win.geometry()
+        try:
+            win.geometry('880x600')
+            self.pump(.5)
+            tree = panel.script_tree
+            self.assertIn('…', str(tree.item(self.LONG_ROW, 'values')[0]),
+                          '前置：该行应处于省略显示')
+            tree.selection_set(self.LONG_ROW)
+            opened = Mock()
+            services = replace(panel.page.writing_page_services, open_path=opened)
+            with patch.object(panel.page, 'writing_page_services', services):
+                panel.open_script_file()
+            opened.assert_called_once()
+            opened_path = Path(opened.call_args.args[0])
+            self.assertEqual(opened_path.name, self.LONG_NAME)
+            self.assertTrue(opened_path.is_file())
+        finally:
+            self._drop_long_file(target)
+            win.geometry(old)
+            self.pump(.3)
 
 
 if __name__ == '__main__':

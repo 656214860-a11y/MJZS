@@ -16,7 +16,7 @@ from tkinter import ttk
 
 from ui.desktop_files_panel_filters import (
     FilesPanelFilterMixin, STAGE_FILTER_ROW_CATEGORY,
-    PANEL_META_WIDTH, PANEL_PREVIEW_COL_WIDTH,
+    PANEL_META_WIDTH, PANEL_PREVIEW_COL_WIDTH, SCRIPT_NAME_CELL_PAD,
 )
 
 from ui.desktop_file_card import TreeRowCard, script_row_card
@@ -37,6 +37,15 @@ SCRIPT_LIST_MIN_WIDTH = SPACING['sm'] * 23      # 沿用原固定列宽下限（
 SCRIPT_PANEL_MAX_SHARE = 0.5                     # 面板最多占内容区一半宽
 SCRIPT_PANEL_MAX_WIDTH = SPACING['sm'] * 60      # 480：更长的文件名靠悬停看全
 SCRIPT_CELL_OVERHEAD = SPACING['md'] * 4         # 48：格内边距＋滚动条＋面板留白
+# R4005（任务书 L4-U3，Q3）：文件名列优先——属性列放不进面板内宽时按
+# meta→size→kind→mtime 顺序整列隐藏（displaycolumns，列定义与行数据不动），
+# 只剩文件名列仍不够宽时文件名中间省略；隐藏列的内容经悬停提示查看。
+# 省略实现（_apply_name_labels/_elide_label 与留白常量）在 index mixin。
+SCRIPT_NAME_MIN_WIDTH = SPACING['sm'] * 12       # 96：与 name 列 minwidth 一致
+SCRIPT_PANEL_EDGE = SPACING['xs']                # 4：表格边框与取整余量
+SCRIPT_VSCROLL_WIDTH = SPACING['lg']             # 16：竖滚动条预留宽
+SCRIPT_AUX_HIDE_ORDER = (('meta', PANEL_META_WIDTH), ('size', SPACING['sm'] * 10),
+                         ('kind', SPACING['sm'] * 9), ('mtime', SPACING['sm'] * 21))
 # R3196 后续（任务书 M5，REQ-S01-95/96）：预览列图元长边与列宽、时长／分辨率列宽都从 token 派生；
 # 定义在 desktop_files_panel_filters（本模块自它导入），视频封面 16:9（40×22）与音频波形
 # （40×13）落在字高行内，行高仍由字体 token 量。
@@ -135,6 +144,9 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
         fit_row_height(self.script_tree, style='Script.Treeview')
         # 窗口缩放改变内容区宽度上限时重算面板宽（去抖到 idle，且只在面板开着时跑）。
         area.bind('<Configure>', self._on_files_area_resize, add='+')
+        # R4005：停靠列被挤到请求宽以下时 stretch 的 name 列随 Treeview 实宽
+        # 收缩；树自身的 <Configure> 在实宽落地后再跑一次，省略量按新实宽收敛。
+        self.script_tree.bind('<Configure>', self._on_files_area_resize, add='+')
         self.script_loader = ScriptListLoadController(('setting', 'outline', 'character', 'script'))
         self.script_load_job = None
         self.script_box.bind('<Destroy>', self.cancel_script_load, add='+')
@@ -164,7 +176,12 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
                    ('meta', '时长／分辨率', PANEL_META_WIDTH))
         for key, title, width in columns:
             tree.heading(key, text=title, anchor='center')
-            tree.column(key, width=width, minwidth=width, stretch=(key == 'name'))
+            # R4005：name 列 minwidth 收到 SCRIPT_NAME_MIN_WIDTH——面板取最小宽
+            # 时列随 Treeview 实宽收缩、文件名改中间省略；minwidth 留全宽会把
+            # 预览列＋name 顶过控件实宽，表格被迫横向滚动。
+            tree.column(key, width=width,
+                        minwidth=SCRIPT_NAME_MIN_WIDTH if key == 'name' else width,
+                        stretch=(key == 'name'))
 
     def _entry_allowed(self):
         """有项目且当前页不是会员账户／参考网站时才显示入口。"""
@@ -324,6 +341,9 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
 
         上限取「内容区宽一半」与 ``SCRIPT_PANEL_MAX_WIDTH`` 的较小者，保证主内容区
         不被超长文件名挤没；更长的名字仍可经行悬停卡片看全文。
+        R4005（任务书 L4-U3）：文件名列优先——属性列放不进面板内宽时按
+        ``SCRIPT_AUX_HIDE_ORDER`` 整列隐藏（displaycolumns），只剩文件名列仍
+        不够宽时文件名中间省略，表格不再横向滚动。
         """
         tree = getattr(self, 'script_tree', None)
         sizer = getattr(self, 'script_width_sizer', None)
@@ -331,22 +351,13 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
             return
         groups = tree.get_children()
         rows = tuple(groups) + tuple(item for group in groups for item in tree.get_children(group))
-        widest = 0
-        if rows:
-            font = self._script_list_font()
-            texts = []
-            for item in rows:
-                values = tree.item(item, 'values')
-                if values:
-                    texts.append(str(values[0]))
-            widest = measure_text_width(font, texts)
-            needed = widest + SCRIPT_CELL_OVERHEAD
-        else:
-            needed = SCRIPT_LIST_MIN_WIDTH
-        # 名字保留实测宽度，metadata 列超出面板时由横向滚动访问；面板本身仍按名字收窄。
-        name_width = max(SCRIPT_LIST_MIN_WIDTH, widest + SPACING['lg'])
-        if int(tree.column('name', 'width')) != name_width:
-            tree.column('name', width=name_width)
+        full_labels = getattr(self, '_full_labels', {})
+        texts = [full_labels.get(item) or str(tree.item(item, 'values')[0] or '')
+                 for item in rows]
+        widest = measure_text_width(self._script_list_font(), texts) if texts else 0
+        name_need = max(SCRIPT_NAME_MIN_WIDTH, widest + SCRIPT_NAME_CELL_PAD)
+        preview_w = (int(tree.column('#0', 'width'))
+                     if 'tree' in str(tree.cget('show')) else 0)
         try:
             # R3060：script_box.master 已是自适应宽度的 panel_dock，拿它当分母会形成
             # 「面板宽→停靠列宽→上限」的循环；内容区宽度应量 panel_area（画布列同级外框）。
@@ -355,15 +366,50 @@ class ProjectFilesPanel(FilesPanelFilterMixin, WritingSnapshotsMixin):
         except tk.TclError:
             share = SCRIPT_PANEL_MAX_WIDTH
         cap = max(SCRIPT_LIST_MIN_WIDTH, min(share, SCRIPT_PANEL_MAX_WIDTH))
+        # sizer 宽＝预览列＋文件名列＋边框与竖滚动条余量（属性列不再占面板宽）。
+        needed = name_need + preview_w + SCRIPT_PANEL_EDGE + SCRIPT_VSCROLL_WIDTH
         panel_width = max(SCRIPT_LIST_MIN_WIDTH, min(needed, cap))
+        # sizer 只是请求宽：窄窗时停靠列被内容区挤到请求宽之下，stretch 的
+        # name 列随 Treeview 实宽收缩，所以隐藏判定与省略预算都按实宽算；
+        # 实宽变化（<Configure>→本函数重跑）会逐级收敛到稳定值。
+        realized = tree.winfo_width()
+        inner = realized if realized > 1 else panel_width - SCRIPT_VSCROLL_WIDTH
+        inner = max(1, inner - preview_w - SCRIPT_PANEL_EDGE)
+        # 实宽缺口补偿：请求宽够但实宽不足（盒内边距/图标列/滚动条吃掉差额）时，
+        # 把缺口一次性补进 sizer——没挤到上限就追平，挤到上限就停在 cap，靠
+        # 下一轮 <Configure> 收敛，不靠固定余量逐像素猜。
+        shortfall = name_need - inner
+        if shortfall > 0 and realized > 1 and panel_width < cap:
+            panel_width = min(cap, panel_width + shortfall + SCRIPT_NAME_CELL_PAD)
         if int(sizer.cget('width')) != panel_width:
             sizer.configure(width=panel_width)
+        # 面板内宽放不下属性列时按 meta→size→kind→mtime 整列隐藏，直到文件名列
+        # 的可见宽度够显示最长文件名，或者只剩文件名列；不允许半露的列。
+        hidden = []
+        for column, _width in SCRIPT_AUX_HIDE_ORDER:
+            extra = sum(w for c, w in SCRIPT_AUX_HIDE_ORDER if c not in hidden)
+            if name_need <= inner - extra:
+                break
+            hidden.append(column)
+        shown = [column for column in ('kind', 'size', 'mtime', 'meta')
+                 if column not in hidden]
+        display = ('name',) + tuple(shown)
+        if tuple(tree['displaycolumns']) != display:
+            tree.configure(displaycolumns=display)
+        # stretch 的 name 列实得「内宽 − 已显示属性列」；省略预算按它算。
+        name_visible = max(SCRIPT_NAME_MIN_WIDTH, inner - sum(
+            w for c, w in SCRIPT_AUX_HIDE_ORDER if c in shown))
+        col_width = min(name_need, name_visible)
+        if int(tree.column('name', 'width')) != col_width:
+            tree.column('name', width=col_width)
+        self._apply_name_labels(rows, name_visible, measure_text_width)
 
     def _on_files_area_resize(self, event=None):
         """内容区宽度变化（窗口缩放）时去抖重算面板宽；只在面板开着时跑。"""
         if not self._open or self._fit_width_job is not None:
             return
-        if event is not None and getattr(event, 'widget', None) is not self.script_box.master:
+        if event is not None and getattr(event, 'widget', None) not in (
+                self.script_box.master, self.script_tree):
             return
         try:
             self._fit_width_job = self.page.win.after_idle(self._fit_script_width_debounced)

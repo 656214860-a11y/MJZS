@@ -13,6 +13,10 @@ from ui.desktop_file_card import script_row_card
 GROUP_PREFIX = 'stage-group:'
 RENDER_BATCH = SPACING['sm'] * 4
 THUMB_SIZE = SPACING['lg']
+# R4005（任务书 L4-U3）：文件名列优先——只剩文件名列仍不够宽时文件名
+# 中间省略；省略要量真实像素，测宽函数由调用方注入（ui_popup.measure_text_width）。
+SCRIPT_NAME_CELL_PAD = SPACING['sm']             # 8：文件名单元格留白
+SCRIPT_NAME_HEAD = SPACING['sm']                 # 8：中间省略至少保留的开头字符数
 SCRIPT_CATEGORIES = {'项目设定': 'setting', '项目大纲': 'outline',
                      '剧本大纲': 'outline', '角色卡': 'character', '项目剧本': 'script'}
 
@@ -194,6 +198,7 @@ class FilesPanelIndexMixin:
         self.script_row_category.clear()
         self._index_rows = {}
         self._index_images = {}
+        self._full_labels = {}
 
     def _start_index_render(self, rows, categories, root, library, generation, context):
         self._clear_index_tree()
@@ -232,8 +237,12 @@ class FilesPanelIndexMixin:
         self._index_rows[item] = row
         self.script_row_category[item] = category
         size_text, modified = row_metadata(row)
+        # 时长／分辨率列可整列隐藏（任务书 L4-U3）：内容进悬停提示。
+        meta_text = self._row_meta_text(Path(root) / row.path) if hasattr(self, '_row_meta_text') else ''
         metadata = '%s · %s · %s（%d 字节）· %s\n%s' % (
             name, row.kind, size_text, row.size, modified, row.path)
+        if meta_text:
+            metadata += '\n时长／分辨率：' + meta_text
         self.script_row_details[item] = (row.title + '\n' if row.title else '') + metadata
         label = ('[缺失] ' if row.missing else '') + name
         if category != 'index' and not row.missing:
@@ -244,6 +253,7 @@ class FilesPanelIndexMixin:
                 label = '[' + state + '] ' + name
             document = SimpleNamespace(item_id=str(path), name=name)
             self.script_row_details[item] = script_row_card(document, state, modified, Path(root)) + '\n' + metadata
+        self._full_labels[item] = label
         image = None
         if not row.missing:
             if hasattr(self, '_row_preview'):
@@ -254,15 +264,52 @@ class FilesPanelIndexMixin:
         options = {'image': image} if image is not None else {}
         if image is not None:
             self._index_images[item] = image
-        metadata = self._row_meta_text(Path(root) / row.path) if hasattr(self, '_row_meta_text') else ''
         self.script_row_stage[item] = stage_name(row.stage) if row.stage in STAGES else ''
-        self.script_tree.insert(group, 'end', iid=item, values=(label, row.kind, size_text, modified, metadata),
+        self.script_tree.insert(group, 'end', iid=item, values=(label, row.kind, size_text, modified, meta_text),
                                 tags=('missing',) if row.missing else (), **options)
 
     def _finish_index_render(self):
         self._fit_script_width()
         count = len(getattr(self, '_index_rows', {})) + len(self.script_tree.get_children())
         self.script_tree.configure(height=max(1, min(SCRIPT_FILE_MAX_ROWS, count)))
+
+    def _apply_name_labels(self, rows, name_px, measure):
+        """按文件名列可见宽写回显示文字：放得下写全名，放不下中间省略。"""
+        tree = self.script_tree
+        full_labels = getattr(self, '_full_labels', {})
+        budget = max(0, name_px - SCRIPT_NAME_CELL_PAD)
+        font = self._script_list_font()
+        for item in rows:
+            full = full_labels.get(item)
+            if not full:
+                continue
+            display = (full if measure(font, [full]) <= budget
+                       else self._elide_label(full, budget, measure))
+            values = list(tree.item(item, 'values'))
+            if values and str(values[0]) != display:
+                values[0] = display
+                tree.item(item, values=values)
+
+    def _elide_label(self, label, budget, measure):
+        """中间省略：保留开头至少 ``SCRIPT_NAME_HEAD`` 个字符与扩展名，中间用「…」。"""
+        import re
+        font = self._script_list_font()
+        match = re.match(r'^(\[[^\]]*\]\s*)+', label)
+        prefix = match.group(0) if match else ''
+        body = label[len(prefix):]
+        stem, dot, ext = body.rpartition('.')
+        core, suffix = (stem, dot + ext) if dot else (body, '')
+        best = None
+        lo, hi = SCRIPT_NAME_HEAD, len(core)
+        while lo <= hi:
+            mid = (lo + hi) // 2
+            candidate = prefix + core[:mid] + '…' + suffix
+            if measure(font, [candidate]) <= budget:
+                best = candidate
+                lo = mid + 1
+            else:
+                hi = mid - 1
+        return best if best is not None else prefix + core[:SCRIPT_NAME_HEAD] + '…' + suffix
 
     def index_file_path(self, item, require_file=True):
         """拒绝组节点、库节点、绝对路径/越界/符号链接；删除只认当前索引行。"""
