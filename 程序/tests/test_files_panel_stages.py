@@ -1266,5 +1266,106 @@ class FilenameDisplayTests(StageRailTests):
             self.pump(.3)
 
 
+class StageFileIconTests(unittest.TestCase):
+    """R4013（任务书 L4-U4）：阶段文件图标＝导航图形原大小贴左上＋右下角统一文件标识。
+
+    断言针对 PNG 像素本身：``<stage>_files.png`` 与 ``<nav>.png``（nav 名经
+    ui.desktop_page_registry.NAV_STAGE_ICONS 取得，导航图固定在画布左上、
+    越界按全透明比）在右下 50%×50% 角标区域之外逐像素一致；全部差异像素
+    构成文件标识的外接矩形，须落在该区域内、宽高各 ≥35% 画布边长，且 13 张图
+    完全一致；生成脚本重跑结果可复现。
+    """
+
+    @staticmethod
+    def _nav_dir():
+        from tests.architecture._scan import ROOT
+        return ROOT / 'assets' / 'nav'
+
+    @classmethod
+    def _rgba(cls, name):
+        from PIL import Image
+        with Image.open(cls._nav_dir() / name) as image:
+            return image.convert('RGBA')
+
+    @staticmethod
+    def _nav_pixel(nav, x, y):
+        if 0 <= x < nav.width and 0 <= y < nav.height:
+            return nav.getpixel((x, y))
+        return (0, 0, 0, 0)
+
+    @classmethod
+    def _diff_box(cls, comp, nav):
+        """合成图与导航图逐像素差异的外接矩形 (left, top, right, bottom)。"""
+        xs, ys = [], []
+        for y in range(comp.height):
+            for x in range(comp.width):
+                if comp.getpixel((x, y)) != cls._nav_pixel(nav, x, y):
+                    xs.append(x)
+                    ys.append(y)
+        if not xs:
+            return None
+        return min(xs), min(ys), max(xs) + 1, max(ys) + 1
+
+    @classmethod
+    def _pairs(cls):
+        from ui.desktop_page_registry import NAV_STAGE_ICONS
+        return [(stage, cls._rgba(f'{stage}_files.png'),
+                 cls._rgba(f'{NAV_STAGE_ICONS[stage]}.png')) for stage in STAGES]
+
+    def test_stage_graphic_identical_to_nav_icon_outside_badge_region(self):
+        """T1：右下 50%×50% 区域以外，_files 图与导航图逐像素一致。"""
+        for stage, comp, nav in self._pairs():
+            edge_x, edge_y = -(-comp.width // 2), -(-comp.height // 2)
+            bad = [(x, y) for y in range(comp.height) for x in range(comp.width)
+                   if not (x >= edge_x and y >= edge_y)
+                   and comp.getpixel((x, y)) != self._nav_pixel(nav, x, y)]
+            self.assertEqual(bad, [],
+                             f'{stage}: 角标区域外 {len(bad)} 像素不同，首个 {bad[:1]}')
+
+    def test_badge_diff_box_in_bottom_right_region(self):
+        """T2：差异外接矩形落在右下 50%×50% 内，宽高各在画布边长 35%–45% 之间。"""
+        import math
+        for stage, comp, nav in self._pairs():
+            box = self._diff_box(comp, nav)
+            self.assertIsNotNone(box, f'{stage}: 与导航图没有任何差异，文件标识缺失')
+            left, top, right, bottom = box
+            self.assertGreaterEqual(left, -(-comp.width // 2),
+                                    f'{stage} 差异越出右半区: {box} (画布 {comp.size})')
+            self.assertGreaterEqual(top, -(-comp.height // 2),
+                                    f'{stage} 差异越出下半区: {box} (画布 {comp.size})')
+            self.assertGreaterEqual(right - left, math.ceil(comp.width * 0.35),
+                                    f'{stage} 文件标识宽不足 35%: {box}')
+            self.assertGreaterEqual(bottom - top, math.ceil(comp.height * 0.35),
+                                    f'{stage} 文件标识高不足 35%: {box}')
+            self.assertLessEqual(right - left, math.floor(comp.width * 0.45),
+                                 f'{stage} 文件标识宽超 45%: {box}')
+            self.assertLessEqual(bottom - top, math.floor(comp.height * 0.45),
+                                 f'{stage} 文件标识高超 45%: {box}')
+
+    def test_badge_diff_box_identical_across_stages(self):
+        """T3：13 张图画布尺寸一致，差异外接矩形坐标完全相同。"""
+        pairs = self._pairs()
+        sizes = {comp.size for _stage, comp, _nav in pairs}
+        self.assertEqual(len(sizes), 1, f'画布尺寸不统一: {sizes}')
+        boxes = {stage: self._diff_box(comp, nav) for stage, comp, nav in pairs}
+        self.assertEqual(len(set(boxes.values())), 1,
+                         f'文件标识外接矩形不一致: {boxes}')
+
+    def test_icon_regeneration_is_reproducible(self):
+        """T4：重跑 scripts/build_nav_icons.py，assets/nav 下 PNG 字节不变。"""
+        import subprocess
+        import sys
+        from tests.architecture._scan import ROOT
+        nav_dir = self._nav_dir()
+        before = {path.name: path.read_bytes() for path in nav_dir.glob('*.png')}
+        subprocess.run([sys.executable, '-B',
+                        str(ROOT / 'scripts' / 'build_nav_icons.py')],
+                       check=True, capture_output=True, timeout=120)
+        after = {path.name: path.read_bytes() for path in nav_dir.glob('*.png')}
+        self.assertEqual(set(before), set(after))
+        changed = [name for name in before if before[name] != after[name]]
+        self.assertEqual(changed, [], f'重跑生成脚本改动了: {changed}')
+
+
 if __name__ == '__main__':
     unittest.main()
