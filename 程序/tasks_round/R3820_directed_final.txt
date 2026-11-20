@@ -1,0 +1,78 @@
+IMPORT OK: all modules imported
+
+定向：忽略增量台账，执行 17 个匹配测试文件
+
+跑 17 个测试文件 / 18 路工作单元（8 路并行）
+
+  architecture.test_skill_reference_injection     7 条     0.0 秒
+
+  test_req_anchor_s03_s07        2 条     0.0 秒
+
+  test_builtin_controller_retirement     6 条     0.1 秒
+
+  test_skill_command            20 条     0.0 秒
+
+  test_l1_p2_semantics#2        10 条     0.2 秒
+
+  test_distribution_selfcheck     3 条     0.3 秒
+
+  test_skill_reference_closure    11 条     0.2 秒
+
+  test_skill_project_layer      16 条     0.6 秒
+
+  test_skill_residue_service    10 条     0.5 秒
+
+  test_l1_p2_semantics#1        13 条     0.8 秒
+
+  test_workflow_writing_stages     6 条     0.2 秒
+
+  test_skill_user_layer         10 条     0.7 秒
+
+  test_storyboard_final_scope    19 条     0.4 秒
+
+  test_agent_skill_sync         18 条     1.7 秒
+
+  test_distribution_build       13 条     1.7 秒
+
+  test_skill_budget_send_entries     8 条     1.9 秒
+
+  test_stage_prompt_governance    15 条     1.5 秒
+
+  test_copy_rules               14 条    26.5 秒
+
+
+
+共 201 条用例，28.4 秒；0 个文件有红
+
+最慢 10 路工作单元：
+
+  test_copy_rules              26.5 秒 / 14 条
+
+  test_skill_budget_send_entries    1.9 秒 / 8 条
+
+  test_distribution_build       1.7 秒 / 13 条
+
+  test_agent_skill_sync         1.7 秒 / 18 条
+
+  test_stage_prompt_governance    1.5 秒 / 15 条
+
+  test_l1_p2_semantics#1        0.8 秒 / 13 条
+
+  test_skill_user_layer         0.7 秒 / 10 条
+
+  test_skill_project_layer      0.6 秒 / 16 条
+
+  test_skill_residue_service    0.5 秒 / 10 条
+
+  test_storyboard_final_scope    0.4 秒 / 19 条
+
+实际跳过 0 条用例：本机没有任何登记位被跳过
+
+增量台账已刷新：D:\漫剧制作助手\.git\selftest-incremental.json
+
+最近 5 轮自检中位基线：4.5 秒
+
+
+
+ALL TESTS PASSED
+

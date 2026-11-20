@@ -87,7 +87,7 @@ _register(4, "desktop_auto_flows", "desktop_direct_dispatch", "desktop_storyboar
           "video_navigation", "video_progress", "video_prompt_results", "white_model_ref", "workflow_agents",
           "writing_page_controller")
 _register(5, "desktop_launcher")
-# R1895：账户会员客户端（设计文档 说明/账户会员云端设计.md §5.1）。
+# R1895：账户会员客户端（设计文档 docs/specs/07_业务域规格.md §5.1）。
 _register(1, "lease_verifier", "account_store", "session_integrity", "update_notice")
 _register(2, "entitlement_service", "account_client")
 _register(3, "account_controller")

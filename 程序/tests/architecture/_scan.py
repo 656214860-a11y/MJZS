@@ -249,7 +249,7 @@ def module_imports_with_dynamic_of(path: Path) -> frozenset[str]:
 
 # 非产品目录：技能随附脚本、开发／维护脚本、参考资料、构建产物与外部附加工具。
 # 它们是独立工具，不属于产品运行时，不参与「正式资源目标」类审计的扫描范围。
-NON_PRODUCT_PARTS = frozenset({"skills", "scripts", "reference", "outputs", "附加工具"})
+NON_PRODUCT_PARTS = frozenset({"skills", "scripts", "reference", "outputs", "附加工具", "governance"})
 
 
 def production_runtime_files() -> tuple[Path, ...]:

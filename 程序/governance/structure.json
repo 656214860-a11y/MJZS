@@ -1,0 +1,1327 @@
+{
+  "schema_version": 1,
+  "source_root": "程序",
+  "roles": {
+    "程序": {
+      "role": "source",
+      "owner": "项目维护者",
+      "description": "现有源码根，承担src角色；本任务不迁移技术层目录"
+    },
+    "程序/agent": {
+      "role": "source",
+      "owner": "项目维护者",
+      "description": "代理运行适配"
+    },
+    "程序/contract": {
+      "role": "source",
+      "owner": "项目维护者",
+      "description": "现有契约包"
+    },
+    "程序/domain": {
+      "role": "source",
+      "owner": "项目维护者",
+      "description": "现有领域服务"
+    },
+    "程序/infra": {
+      "role": "source",
+      "owner": "项目维护者",
+      "description": "现有基础设施"
+    },
+    "程序/orchestrator": {
+      "role": "source",
+      "owner": "项目维护者",
+      "description": "现有阶段编排"
+    },
+    "程序/ui": {
+      "role": "source",
+      "owner": "项目维护者",
+      "description": "Tk桌面适配"
+    },
+    "程序/voice_engine": {
+      "role": "source",
+      "owner": "项目维护者",
+      "description": "离线语音子进程"
+    },
+    "程序/batch_frames_tool": {
+      "role": "source",
+      "owner": "项目维护者",
+      "description": "独立首帧工具"
+    },
+    "程序/scripts": {
+      "role": "tooling",
+      "owner": "项目维护者",
+      "description": "开发构建与测试入口"
+    },
+    "程序/tests": {
+      "role": "tests",
+      "owner": "项目维护者",
+      "description": "模块/集成/契约与架构测试"
+    },
+    "程序/docs": {
+      "role": "docs",
+      "owner": "项目维护者",
+      "description": "工程文档唯一入口"
+    },
+    "程序/governance": {
+      "role": "governance",
+      "owner": "项目维护者",
+      "description": "开发期结构协议与检查器，不是产品模块"
+    },
+    "程序/assets": {
+      "role": "resources",
+      "owner": "项目维护者",
+      "description": "内置图标与字体"
+    },
+    "程序/skills": {
+      "role": "vendor",
+      "owner": "项目维护者",
+      "description": "内置阶段说明与受控外部技能"
+    },
+    "程序/reference": {
+      "role": "vendor",
+      "owner": "项目维护者",
+      "description": "只读参考gitlink，不是运行代码"
+    },
+    "程序/workflows": {
+      "role": "resources",
+      "owner": "项目维护者",
+      "description": "内置生成工作流"
+    },
+    "程序/维护记录": {
+      "role": "history",
+      "owner": "项目维护者",
+      "description": "既有基线与维护证据，不在本轮搬家"
+    },
+    "程序/tasks_round": {
+      "role": "history",
+      "owner": "项目维护者",
+      "description": "轮次任务和结果"
+    },
+    "程序/配置": {
+      "role": "resources",
+      "owner": "项目维护者",
+      "description": "已跟踪的内置配置种子，运行时配置另行忽略"
+    },
+    "程序/data": {
+      "role": "resources",
+      "owner": "项目维护者",
+      "description": "唯一跟踪的内置术语种子，其余data不纳管"
+    },
+    "程序/附加工具": {
+      "role": "vendor",
+      "owner": "项目维护者",
+      "description": "既有独立外部工具"
+    },
+    "程序/resources": {
+      "role": "resources",
+      "owner": "项目维护者",
+      "description": "运行时演示项目等自有资源"
+    },
+    "程序/legacy": {
+      "role": "legacy",
+      "owner": "项目维护者",
+      "description": "实际退役并保留参考的代码，不进执行和分发"
+    },
+    ".claudeignore": {
+      "role": "docs",
+      "owner": "项目维护者",
+      "description": "仓库根标准入口/资源，保留现名"
+    },
+    ".gitattributes": {
+      "role": "docs",
+      "owner": "项目维护者",
+      "description": "仓库根标准入口/资源，保留现名"
+    },
+    ".gitignore": {
+      "role": "docs",
+      "owner": "项目维护者",
+      "description": "仓库根标准入口/资源，保留现名"
+    },
+    "AGENTS.md": {
+      "role": "docs",
+      "owner": "项目维护者",
+      "description": "仓库根标准入口/资源，保留现名"
+    },
+    "CLAUDE.md": {
+      "role": "docs",
+      "owner": "项目维护者",
+      "description": "仓库根标准入口/资源，保留现名"
+    },
+    "reorganize_install.py": {
+      "role": "tooling",
+      "owner": "项目维护者",
+      "description": "仓库根标准入口/资源，保留现名"
+    },
+    "使用说明.md": {
+      "role": "docs",
+      "owner": "项目维护者",
+      "description": "仓库根标准入口/资源，保留现名"
+    },
+    "使用说明.txt": {
+      "role": "docs",
+      "owner": "项目维护者",
+      "description": "仓库根标准入口/资源，保留现名"
+    },
+    "启动漫剧制作助手.pyw": {
+      "role": "tooling",
+      "owner": "项目维护者",
+      "description": "仓库根标准入口/资源，保留现名"
+    },
+    "漫剧制作助手.ico": {
+      "role": "docs",
+      "owner": "项目维护者",
+      "description": "仓库根标准入口/资源，保留现名"
+    },
+    ".claude": {
+      "role": "tooling",
+      "owner": "项目维护者",
+      "description": "开发助手配置"
+    },
+    "开发者工具": {
+      "role": "tooling",
+      "owner": "项目维护者",
+      "description": "开发者命令入口"
+    },
+    ".gitmodules": {
+      "role": "tooling",
+      "owner": "项目维护者",
+      "description": "外部技能包固定gitlink来源映射，不进入产品分发"
+    }
+  },
+  "excludes": {
+    "程序/private": {
+      "category": "private",
+      "owner": "项目维护者",
+      "reason": "运行/开发机生成边界，结构检查不读取正文"
+    },
+    "程序/logs": {
+      "category": "runtime",
+      "owner": "项目维护者",
+      "reason": "运行/开发机生成边界，结构检查不读取正文"
+    },
+    "程序/outputs": {
+      "category": "runtime",
+      "owner": "项目维护者",
+      "reason": "运行/开发机生成边界，结构检查不读取正文"
+    },
+    "程序/episode": {
+      "category": "runtime",
+      "owner": "项目维护者",
+      "reason": "运行/开发机生成边界，结构检查不读取正文"
+    },
+    "程序/writing": {
+      "category": "runtime",
+      "owner": "项目维护者",
+      "reason": "运行/开发机生成边界，结构检查不读取正文"
+    },
+    "程序/工作流任务": {
+      "category": "runtime",
+      "owner": "项目维护者",
+      "reason": "运行/开发机生成边界，结构检查不读取正文"
+    },
+    "程序/.selftmp": {
+      "category": "cache",
+      "owner": "项目维护者",
+      "reason": "运行/开发机生成边界，结构检查不读取正文"
+    },
+    "程序/__pycache__": {
+      "category": "cache",
+      "owner": "项目维护者",
+      "reason": "运行/开发机生成边界，结构检查不读取正文"
+    },
+    "程序/Tencent": {
+      "category": "runtime",
+      "owner": "项目维护者",
+      "reason": "运行/开发机生成边界，结构检查不读取正文"
+    },
+    "程序/_supervisor": {
+      "category": "tooling",
+      "owner": "项目维护者",
+      "reason": "运行/开发机生成边界，结构检查不读取正文"
+    },
+    "程序/tasks": {
+      "category": "history",
+      "owner": "项目维护者",
+      "reason": "运行/开发机生成边界，结构检查不读取正文"
+    },
+    "程序/.ruff_cache": {
+      "category": "cache",
+      "owner": "项目维护者",
+      "reason": "运行/开发机生成边界，结构检查不读取正文"
+    },
+    "程序/.mypy_cache": {
+      "category": "cache",
+      "owner": "项目维护者",
+      "reason": "运行/开发机生成边界，结构检查不读取正文"
+    },
+    "程序/.pytest_cache": {
+      "category": "cache",
+      "owner": "项目维护者",
+      "reason": "运行/开发机生成边界，结构检查不读取正文"
+    },
+    "程序/data/artifact_index": {
+      "category": "runtime",
+      "owner": "项目维护者",
+      "reason": "运行/开发机生成边界，结构检查不读取正文"
+    },
+    "程序/data/job_store": {
+      "category": "runtime",
+      "owner": "项目维护者",
+      "reason": "运行/开发机生成边界，结构检查不读取正文"
+    },
+    "程序/data/metrics": {
+      "category": "runtime",
+      "owner": "项目维护者",
+      "reason": "运行/开发机生成边界，结构检查不读取正文"
+    },
+    "程序/data/skills": {
+      "category": "runtime",
+      "owner": "项目维护者",
+      "reason": "运行/开发机生成边界，结构检查不读取正文"
+    },
+    "程序/data/voice_models": {
+      "category": "runtime",
+      "owner": "项目维护者",
+      "reason": "运行/开发机生成边界，结构检查不读取正文"
+    },
+    "程序/data/voice_asr_venv": {
+      "category": "runtime",
+      "owner": "项目维护者",
+      "reason": "运行/开发机生成边界，结构检查不读取正文"
+    },
+    ".agents": {
+      "category": "worktree",
+      "owner": "项目维护者",
+      "reason": "运行/开发机生成边界，结构检查不读取正文"
+    },
+    ".wt": {
+      "category": "worktree",
+      "owner": "项目维护者",
+      "reason": "运行/开发机生成边界，结构检查不读取正文"
+    },
+    ".git": {
+      "category": "worktree",
+      "owner": "项目维护者",
+      "reason": "运行/开发机生成边界，结构检查不读取正文"
+    },
+    ".selftmp": {
+      "category": "cache",
+      "owner": "项目维护者",
+      "reason": "运行/开发机生成边界，结构检查不读取正文"
+    },
+    ".codex": {
+      "category": "tooling",
+      "owner": "项目维护者",
+      "reason": "运行/开发机生成边界，结构检查不读取正文"
+    },
+    ".tools": {
+      "category": "tooling",
+      "owner": "项目维护者",
+      "reason": "运行/开发机生成边界，结构检查不读取正文"
+    },
+    "运行环境": {
+      "category": "runtime",
+      "owner": "项目维护者",
+      "reason": "运行/开发机生成边界，结构检查不读取正文"
+    },
+    "升级备份": {
+      "category": "history",
+      "owner": "项目维护者",
+      "reason": "运行/开发机生成边界，结构检查不读取正文"
+    },
+    "工作流任务": {
+      "category": "runtime",
+      "owner": "项目维护者",
+      "reason": "运行/开发机生成边界，结构检查不读取正文"
+    },
+    "程序/skills": {
+      "category": "vendor",
+      "owner": "项目维护者",
+      "reason": "第三方原名/历史凭据不按自有源码命名深度规则重写"
+    },
+    "程序/reference": {
+      "category": "vendor",
+      "owner": "项目维护者",
+      "reason": "第三方原名/历史凭据不按自有源码命名深度规则重写"
+    },
+    "程序/附加工具": {
+      "category": "vendor",
+      "owner": "项目维护者",
+      "reason": "第三方原名/历史凭据不按自有源码命名深度规则重写"
+    },
+    "程序/tasks_round": {
+      "category": "history",
+      "owner": "项目维护者",
+      "reason": "第三方原名/历史凭据不按自有源码命名深度规则重写"
+    },
+    "程序/维护记录": {
+      "category": "history",
+      "owner": "项目维护者",
+      "reason": "第三方原名/历史凭据不按自有源码命名深度规则重写"
+    }
+  },
+  "naming_exceptions": {
+    "AGENTS.md": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "CLAUDE.md": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "reorganize_install.py": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "启动漫剧制作助手.pyw": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/AGENTS.md": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/CHANGELOG.md": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/GLOSSARY.md": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/PROJECT_MAP.md": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/README.md": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/SECURITY.md": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/docs/README.md": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/docs/adr/README.md": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/docs/adr/TEMPLATE.md": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/docs/review/README.md": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/docs/specs/README.md": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/h3_launcher.pyw": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/skills/video-storyboard-gen/CHANGELOG.md": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/skills/video-storyboard-gen/README.md": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/skills/video-storyboard-gen/SECURITY.md": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/tasks_round/任务完成/README.md": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/tasks_round/归档/2026-11_历史文档/agent-handoff/GLOSSARY.md": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/tests/architecture/_canary/audit20_cache_violation.py": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/tests/architecture/_canary/audit21_platform_violation.py": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/tests/architecture/_canary/audit22_violation.py": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/tests/architecture/_canary/audit23_violation.py": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/tests/architecture/_canary/audit24_violation.py": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/tests/architecture/_canary/audit25_event_violation.py": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/tests/architecture/_canary/audit26_violation.py": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/tests/architecture/_canary/audit27_secret_violation.py": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/tests/architecture/_canary/l0_purity_import_subprocess.py": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/tests/architecture/_canary/l0_purity_path_write_text.py": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/tests/fixtures/benchmark_history_r776_with_r1373_regressions.json": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/tests/fixtures/golden/ass_full.ass": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/tests/fixtures/golden/asset_rules_storyboard.txt": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/tests/fixtures/golden/asset_rules_writing.txt": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/tests/fixtures/golden/calibrate_report.json": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/tests/fixtures/golden/prompt_contract_lines.txt": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/tests/fixtures/golden/prompt_image_cst01.txt": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/tests/fixtures/golden/prompt_rows.txt": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/tests/fixtures/golden/prompt_video_roles.txt": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/tests/fixtures/golden/shot_batches_grouping.txt": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/tests/fixtures/golden/srt_calibrated.srt": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/tests/fixtures/golden/srt_estimated.srt": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/tests/fixtures/golden/storyboard_batch_plan.md": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/tests/fixtures/golden/storyboard_contract_prompt_lines.txt": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/tests/fixtures/golden/storyboard_contract_rules.txt": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/tests/fixtures/golden/storyboard_shot_table.md": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/voice_engine/README.md": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    },
+    "程序/维护记录/README.md": {
+      "owner": "项目维护者",
+      "reason": "标准入口/兼容名/负向测试样本精确保留",
+      "review_when": "该路径契约改变时"
+    }
+  },
+  "max_depth": 4,
+  "test_ownership": {
+    "程序/tests/architecture/test_structure.py": {
+      "kind": "architecture",
+      "owner": "项目维护者",
+      "contract": "目录协议与边界检查",
+      "targets": [
+        "程序/governance/check_structure.py"
+      ]
+    },
+    "程序/tests/architecture/test_doc_registry_migration.py": {
+      "kind": "architecture",
+      "owner": "项目维护者",
+      "contract": "工程文档登记与唯一权威",
+      "targets": [
+        "程序/维护记录/基准脚本/doc_registry.py"
+      ]
+    },
+    "程序/tests/test_file_cache_bounds.py": {
+      "kind": "module",
+      "owner": "项目维护者",
+      "contract": "文件缓存容量上界与等stat外部重写检测",
+      "targets": [
+        "程序/infra/file_cache.py"
+      ]
+    },
+    "程序/tests/test_history_output_bounds.py": {
+      "kind": "integration",
+      "owner": "项目维护者",
+      "contract": "发布事件与诊断日志容量、进程生命周期边界",
+      "targets": [
+        "程序/agent/publication.py",
+        "程序/infra/app_logging.py",
+        "程序/infra/workflow_process_registry.py",
+        "程序/orchestrator/desktop_automation_service.py"
+      ]
+    },
+    "程序/tests/test_release_runtime.py": {
+      "kind": "module",
+      "owner": "项目维护者",
+      "contract": "发布运行时精确依赖闭包",
+      "targets": [
+        "程序/scripts/release_runtime.py"
+      ]
+    },
+    "程序/tests/test_sbom.py": {
+      "kind": "integration",
+      "owner": "项目维护者",
+      "contract": "发布供应链SBOM与固定技能包来源",
+      "targets": [
+        "程序/scripts/sbom.py",
+        "程序/scripts/distribution_build.py"
+      ]
+    },
+    "程序/tests/test_skill_panel_long_list.py": {
+      "kind": "module",
+      "owner": "项目维护者",
+      "contract": "技能面板长列表有界批量布局",
+      "targets": [
+        "程序/ui/skill_panel.py"
+      ]
+    },
+    "程序/tests/test_tools_lock.py": {
+      "kind": "module",
+      "owner": "项目维护者",
+      "contract": "随附工具二进制来源与摘要锁",
+      "targets": [
+        "程序/scripts/tools_lock.py"
+      ]
+    },
+    "程序/tests/architecture/test_lane_flow_gates.py": {
+      "kind": "architecture",
+      "owner": "项目维护者",
+      "contract": "车道闭环、合并队列与自检锁契约",
+      "targets": [
+        "程序/scripts/merge_round.py",
+        "程序/scripts/merge_queue.py",
+        "程序/scripts/commit_round.py",
+        "程序/维护记录/基准脚本/round_claim.py",
+        "程序/selftest_scheduling.py"
+      ]
+    },
+    "程序/tests/test_ffmpeg_runtime.py": {
+      "kind": "integration",
+      "owner": "项目维护者",
+      "contract": "工作树复用随包解释器的FFmpeg，图片校验不跳过真实解码",
+      "targets": [
+        "程序/contract/platform_tools.py",
+        "程序/domain/keyframe_evidence.py"
+      ]
+    },
+    "程序/tests/test_project_settings_validation.py": {
+      "kind": "module",
+      "owner": "项目维护者",
+      "contract": "项目设置的安全读取视图不能成为损坏文件的写入基础",
+      "targets": [
+        "程序/infra/project_settings.py"
+      ]
+    },
+    "程序/tests/test_skill_residue_protection.py": {
+      "kind": "integration",
+      "owner": "项目维护者",
+      "contract": "残留包通道不列出也不回收程序自己读取的资源目录",
+      "targets": [
+        "程序/orchestrator/skill_project_layer.py",
+        "程序/domain/skill_residue_service.py"
+      ]
+    }
+  },
+  "packaging": {
+    "manifest": "程序/distribution_manifest.md",
+    "exclude_prefixes": [
+      "程序/governance",
+      "程序/legacy"
+    ],
+    "ignore_patterns": [
+      "/程序/outputs/",
+      "/dist/",
+      "/build/",
+      "/程序/dist/",
+      "/程序/build/"
+    ],
+    "configuration_home": "程序/packaging",
+    "private_keys": "outside-repository"
+  },
+  "retirement": {},
+  "decisions": [
+    "程序/governance/decisions/0001-directory-layout.md"
+  ],
+  "frozen_contract_tests": {
+    "paths": [
+      "程序/tests/architecture/test_agent_doc_budget.py",
+      "程序/tests/architecture/test_agents_md.py",
+      "程序/tests/architecture/test_asset_batch_ledger_boundary.py",
+      "程序/tests/architecture/test_asset_batch_settings_boundary.py",
+      "程序/tests/architecture/test_asset_detail_binding_boundary.py",
+      "程序/tests/architecture/test_asset_generated_import_boundary.py",
+      "程序/tests/architecture/test_asset_image_import_boundary.py",
+      "程序/tests/architecture/test_asset_image_removal_boundary.py",
+      "程序/tests/architecture/test_asset_image_restore_boundary.py",
+      "程序/tests/architecture/test_asset_plan_publication_boundary.py",
+      "程序/tests/architecture/test_asset_rename_boundary.py",
+      "程序/tests/architecture/test_atomic_write_boundary.py",
+      "程序/tests/architecture/test_audio_import_boundary.py",
+      "程序/tests/architecture/test_box_boundary.py",
+      "程序/tests/architecture/test_branch_coverage_floor.py",
+      "程序/tests/architecture/test_busy_state_boundary.py",
+      "程序/tests/architecture/test_button_boundary.py",
+      "程序/tests/architecture/test_card_boundary.py",
+      "程序/tests/architecture/test_cloud_video_settings_boundary.py",
+      "程序/tests/architecture/test_combobox_boundary.py",
+      "程序/tests/architecture/test_completion_gate.py",
+      "程序/tests/architecture/test_complexity_ratchet.py",
+      "程序/tests/architecture/test_confirm_gates_json_boundary.py",
+      "程序/tests/architecture/test_context_menu_boundary.py",
+      "程序/tests/architecture/test_continuity_publication_boundary.py",
+      "程序/tests/architecture/test_contract_purity.py",
+      "程序/tests/architecture/test_copy_entry_boundary.py",
+      "程序/tests/architecture/test_coverage_audit_ratchet.py",
+      "程序/tests/architecture/test_coverage_baseline.py",
+      "程序/tests/architecture/test_data_table_boundary.py",
+      "程序/tests/architecture/test_deletion_gateway.py",
+      "程序/tests/architecture/test_delivery_import_boundary.py",
+      "程序/tests/architecture/test_dependency_whitelist.py",
+      "程序/tests/architecture/test_design_coverage.py",
+      "程序/tests/architecture/test_desktop_settings_boundary.py",
+      "程序/tests/architecture/test_dialog_boundary.py",
+      "程序/tests/architecture/test_dynamic_import_registry.py",
+      "程序/tests/architecture/test_edit_publication_boundary.py",
+      "程序/tests/architecture/test_event_bus_boundary.py",
+      "程序/tests/architecture/test_file_dialog_boundary.py",
+      "程序/tests/architecture/test_final_bundle_boundary.py",
+      "程序/tests/architecture/test_font_boundary.py",
+      "程序/tests/architecture/test_form_control_boundary.py",
+      "程序/tests/architecture/test_function_size_ratchet.py",
+      "程序/tests/architecture/test_gate_selfaudit.py",
+      "程序/tests/architecture/test_handoff_publication_boundary.py",
+      "程序/tests/architecture/test_hidden_desktop_gate.py",
+      "程序/tests/architecture/test_http_boundary.py",
+      "程序/tests/architecture/test_icon_source_boundary.py",
+      "程序/tests/architecture/test_idea_attachment_publication_boundary.py",
+      "程序/tests/architecture/test_import_error_boundaries.py",
+      "程序/tests/architecture/test_infra_errors_boundary.py",
+      "程序/tests/architecture/test_input_boundary.py",
+      "程序/tests/architecture/test_json_io_boundary.py",
+      "程序/tests/architecture/test_keyframe_batch_json_boundary.py",
+      "程序/tests/architecture/test_keyframe_delete_boundary.py",
+      "程序/tests/architecture/test_keyframe_reference_publication_boundary.py",
+      "程序/tests/architecture/test_keyframe_replace_boundary.py",
+      "程序/tests/architecture/test_keyframe_restore_boundary.py",
+      "程序/tests/architecture/test_layer_relations.py",
+      "程序/tests/architecture/test_layers.py",
+      "程序/tests/architecture/test_legacy_adoption_boundary.py",
+      "程序/tests/architecture/test_legacy_facade_manifest.py",
+      "程序/tests/architecture/test_local_previs_json_boundary.py",
+      "程序/tests/architecture/test_local_video_settings_boundary.py",
+      "程序/tests/architecture/test_log_sink_boundary.py",
+      "程序/tests/architecture/test_manual_creative_publication_boundary.py",
+      "程序/tests/architecture/test_migrated_ui_boundaries.py",
+      "程序/tests/architecture/test_model_provider_boundary.py",
+      "程序/tests/architecture/test_module_size_ratchet.py",
+      "程序/tests/architecture/test_native_control_boundary.py",
+      "程序/tests/architecture/test_nav_icon_size_boundary.py",
+      "程序/tests/architecture/test_no_circular_import.py",
+      "程序/tests/architecture/test_notification_boundary.py",
+      "程序/tests/architecture/test_outbound_http_authority.py",
+      "程序/tests/architecture/test_path_authority.py",
+      "程序/tests/architecture/test_pet_error_log_boundary.py",
+      "程序/tests/architecture/test_pipeline_stage_io_contract.py",
+      "程序/tests/architecture/test_platform_opening.py",
+      "程序/tests/architecture/test_platform_process_boundary.py",
+      "程序/tests/architecture/test_previs_automation_json_boundary.py",
+      "程序/tests/architecture/test_previs_batch_json_boundary.py",
+      "程序/tests/architecture/test_previs_monitor_json_boundary.py",
+      "程序/tests/architecture/test_previs_routing_publication_boundary.py",
+      "程序/tests/architecture/test_print_ratchet.py",
+      "程序/tests/architecture/test_project_context_boundary.py",
+      "程序/tests/architecture/test_project_entry_boundary.py",
+      "程序/tests/architecture/test_read_json_definitions.py",
+      "程序/tests/architecture/test_recycle_service.py",
+      "程序/tests/architecture/test_remove_authority.py",
+      "程序/tests/architecture/test_requirement_traceability.py",
+      "程序/tests/architecture/test_responsive_layout_contract.py",
+      "程序/tests/architecture/test_round_baselines.py",
+      "程序/tests/architecture/test_rule_guard_map.py",
+      "程序/tests/architecture/test_script_rename_boundary.py",
+      "程序/tests/architecture/test_scrollbar_theme_boundary.py",
+      "程序/tests/architecture/test_secret_sink_audit.py",
+      "程序/tests/architecture/test_service_return_contract.py",
+      "程序/tests/architecture/test_shared_state_ratchet.py",
+      "程序/tests/architecture/test_shortcut_registry_boundary.py",
+      "程序/tests/architecture/test_silent_exception_ratchet.py",
+      "程序/tests/architecture/test_simpledialog_boundary.py",
+      "程序/tests/architecture/test_skill_config_path_single_entry.py",
+      "程序/tests/architecture/test_skill_dependency_dag.py",
+      "程序/tests/architecture/test_skill_orchestrator_json_boundary.py",
+      "程序/tests/architecture/test_skill_package_pins.py",
+      "程序/tests/architecture/test_skill_reference_injection.py",
+      "程序/tests/architecture/test_skip_hygiene.py",
+      "程序/tests/architecture/test_source_text_contracts.py",
+      "程序/tests/architecture/test_stable_registration.py",
+      "程序/tests/architecture/test_stage_command_contract.py",
+      "程序/tests/architecture/test_stage_display_boundary.py",
+      "程序/tests/architecture/test_stage_paths.py",
+      "程序/tests/architecture/test_stage_workspace_boundary.py",
+      "程序/tests/architecture/test_startup_budget.py",
+      "程序/tests/architecture/test_static_hygiene.py",
+      "程序/tests/architecture/test_status_page_size.py",
+      "程序/tests/architecture/test_storyboard_edit_boundary.py",
+      "程序/tests/architecture/test_storyboard_final_selection_boundary.py",
+      "程序/tests/architecture/test_structured_script_write_boundary.py",
+      "程序/tests/architecture/test_subprocess_timeout_boundary.py",
+      "程序/tests/architecture/test_subtitle_export_publication_boundary.py",
+      "程序/tests/architecture/test_taskbook_closure.py",
+      "程序/tests/architecture/test_test_move_guard.py",
+      "程序/tests/architecture/test_text_component_boundary.py",
+      "程序/tests/architecture/test_text_measure_boundary.py",
+      "程序/tests/architecture/test_thread_boundary.py",
+      "程序/tests/architecture/test_todo_comment_snapshot.py",
+      "程序/tests/architecture/test_token_boundary.py",
+      "程序/tests/architecture/test_tooltip_boundary.py",
+      "程序/tests/architecture/test_tts_publication_boundary.py",
+      "程序/tests/architecture/test_type_check_baseline.py",
+      "程序/tests/architecture/test_ui_icons_boundary.py",
+      "程序/tests/architecture/test_unification_ratchet.py",
+      "程序/tests/architecture/test_video_delete_boundary.py",
+      "程序/tests/architecture/test_video_navigation_json_boundary.py",
+      "程序/tests/architecture/test_video_options_boundary.py",
+      "程序/tests/architecture/test_video_prompt_publication_boundary.py",
+      "程序/tests/architecture/test_video_publication_boundary.py",
+      "程序/tests/architecture/test_white_model_import_boundary.py",
+      "程序/tests/architecture/test_white_model_json_boundary.py",
+      "程序/tests/architecture/test_white_model_service_json_boundary.py",
+      "程序/tests/architecture/test_workflow_dir_ratchet.py",
+      "程序/tests/architecture/test_workflow_settings_json_boundary.py",
+      "程序/tests/architecture/test_writing_api_json_boundary.py",
+      "程序/tests/architecture/test_writing_api_stage_config_boundary.py",
+      "程序/tests/architecture/test_writing_preparation_path_boundary.py",
+      "程序/tests/architecture/test_writing_publication_boundary.py",
+      "程序/tests/test_account_background_checks.py",
+      "程序/tests/test_account_entry.py",
+      "程序/tests/test_account_offline.py",
+      "程序/tests/test_account_page.py",
+      "程序/tests/test_account_security.py",
+      "程序/tests/test_adapter_failure_conformance.py",
+      "程序/tests/test_adoption_impact.py",
+      "程序/tests/test_agent_current_script_notice.py",
+      "程序/tests/test_animatic_scope.py",
+      "程序/tests/test_animatic_timeline.py",
+      "程序/tests/test_anthropic_script_truncation.py",
+      "程序/tests/test_api.py",
+      "程序/tests/test_api_cache_usage.py",
+      "程序/tests/test_archive_results.py",
+      "程序/tests/test_artifact_schema_wiring.py",
+      "程序/tests/test_ask_string.py",
+      "程序/tests/test_aspect_ratio_priority.py",
+      "程序/tests/test_asset_batch_retention.py",
+      "程序/tests/test_asset_batch_settings_callers.py",
+      "程序/tests/test_asset_batch_window.py",
+      "程序/tests/test_asset_gating.py",
+      "程序/tests/test_asset_hovercard.py",
+      "程序/tests/test_asset_image_import_service.py",
+      "程序/tests/test_asset_image_removal_service.py",
+      "程序/tests/test_asset_image_restore_service.py",
+      "程序/tests/test_asset_impact.py",
+      "程序/tests/test_asset_page_services.py",
+      "程序/tests/test_asset_rename_service.py",
+      "程序/tests/test_asset_restore.py",
+      "程序/tests/test_assets.py",
+      "程序/tests/test_assets_scope.py",
+      "程序/tests/test_audio_manifest_scope.py",
+      "程序/tests/test_audio_role_binding.py",
+      "程序/tests/test_audio_subtitle_scope.py",
+      "程序/tests/test_auto_full_safe.py",
+      "程序/tests/test_auto_import.py",
+      "程序/tests/test_autotune_prefetch.py",
+      "程序/tests/test_background_probe.py",
+      "程序/tests/test_background_record_rebuild.py",
+      "程序/tests/test_background_task.py",
+      "程序/tests/test_backup_verify.py",
+      "程序/tests/test_baseline_history.py",
+      "程序/tests/test_benchmark_trend.py",
+      "程序/tests/test_branch_coverage_entity.py",
+      "程序/tests/test_branch_coverage_report.py",
+      "程序/tests/test_branch_scope.py",
+      "程序/tests/test_branch_tree_ui.py",
+      "程序/tests/test_business_quality_baseline.py",
+      "程序/tests/test_button_consistency.py",
+      "程序/tests/test_cancellation_status.py",
+      "程序/tests/test_cell_zoom_suppress.py",
+      "程序/tests/test_chat_status.py",
+      "程序/tests/test_checkbox_column.py",
+      "程序/tests/test_citation.py",
+      "程序/tests/test_claim_queue_gateway.py",
+      "程序/tests/test_claude_program_detection.py",
+      "程序/tests/test_claude_session_stale.py",
+      "程序/tests/test_claude_writing_session.py",
+      "程序/tests/test_cli_streaming.py",
+      "程序/tests/test_code_highlight.py",
+      "程序/tests/test_codex_paste_diagnostics.py",
+      "程序/tests/test_codex_task_lock.py",
+      "程序/tests/test_column_fit.py",
+      "程序/tests/test_commit_round.py",
+      "程序/tests/test_confirm_gates_cache.py",
+      "程序/tests/test_context.py",
+      "程序/tests/test_context_budget_model.py",
+      "程序/tests/test_continuity_issues.py",
+      "程序/tests/test_continuity_scope.py",
+      "程序/tests/test_copy_rules.py",
+      "程序/tests/test_copy_text.py",
+      "程序/tests/test_critical_chains.py",
+      "程序/tests/test_delivery_scope.py",
+      "程序/tests/test_desktop_attachment_send.py",
+      "程序/tests/test_desktop_close.py",
+      "程序/tests/test_desktop_compact_layout.py",
+      "程序/tests/test_desktop_idea_chat_desktop_paste.py",
+      "程序/tests/test_desktop_send_steps.py",
+      "程序/tests/test_desktop_settings_callers.py",
+      "程序/tests/test_desktop_shortcuts.py",
+      "程序/tests/test_desktop_startup_perf.py",
+      "程序/tests/test_dev_entry.py",
+      "程序/tests/test_dialog_voice_input.py",
+      "程序/tests/test_diff_view.py",
+      "程序/tests/test_direct_chat_metering.py",
+      "程序/tests/test_dispatch.py",
+      "程序/tests/test_distribution_build.py",
+      "程序/tests/test_distribution_selfcheck.py",
+      "程序/tests/test_domain_cache_locks.py",
+      "程序/tests/test_dora_report.py",
+      "程序/tests/test_edit_adoption.py",
+      "程序/tests/test_editing_scope.py",
+      "程序/tests/test_env_key_import.py",
+      "程序/tests/test_execution_deadline.py",
+      "程序/tests/test_extra_batch_frames.py",
+      "程序/tests/test_fault_injection_chain.py",
+      "程序/tests/test_file_naming_producers.py",
+      "程序/tests/test_file_origin_provenance.py",
+      "程序/tests/test_files_panel.py",
+      "程序/tests/test_files_panel_stages.py",
+      "程序/tests/test_final_page_loading.py",
+      "程序/tests/test_final_viewer.py",
+      "程序/tests/test_flatten_flourish_open_cell.py",
+      "程序/tests/test_flow_agent_launch.py",
+      "程序/tests/test_flowbar_visibility.py",
+      "程序/tests/test_follow_buttons.py",
+      "程序/tests/test_force_quit.py",
+      "程序/tests/test_frame_sources.py",
+      "程序/tests/test_full_safe_merge_gate.py",
+      "程序/tests/test_git_hooks.py",
+      "程序/tests/test_global_library_config.py",
+      "程序/tests/test_global_library_index.py",
+      "程序/tests/test_golden_outputs.py",
+      "程序/tests/test_handoff_bundle.py",
+      "程序/tests/test_hitl_ui.py",
+      "程序/tests/test_hover_card_states.py",
+      "程序/tests/test_idea_attachment_brief.py",
+      "程序/tests/test_idea_attachment_budgets.py",
+      "程序/tests/test_idea_chat_attachment_refresh.py",
+      "程序/tests/test_idea_chat_presentation.py",
+      "程序/tests/test_idea_chat_remove_restore.py",
+      "程序/tests/test_idea_deferred_fill.py",
+      "程序/tests/test_idea_download_import.py",
+      "程序/tests/test_idea_download_kind.py",
+      "程序/tests/test_idea_history_first_paint.py",
+      "程序/tests/test_idea_inline_brief.py",
+      "程序/tests/test_idea_local_brief.py",
+      "程序/tests/test_idea_request_lifecycle.py",
+      "程序/tests/test_idea_semantic_brief.py",
+      "程序/tests/test_idea_send_gate.py",
+      "程序/tests/test_infra_errors_i7_migration.py",
+      "程序/tests/test_integration.py",
+      "程序/tests/test_keyframe.py",
+      "程序/tests/test_keyframe_batch_plan.py",
+      "程序/tests/test_keyframe_scope.py",
+      "程序/tests/test_l1_bounded_growth_r3269.py",
+      "程序/tests/test_l1_l0_integration_r3331.py",
+      "程序/tests/test_l1_lost_update.py",
+      "程序/tests/test_l1_p2_semantics.py",
+      "程序/tests/test_l1_reliability_r3248.py",
+      "程序/tests/test_l1_transport_requests.py",
+      "程序/tests/test_lane_merge_queue.py",
+      "程序/tests/test_latent_defects_r1853.py",
+      "程序/tests/test_latent_defects_r2175.py",
+      "程序/tests/test_launcher_imports.py",
+      "程序/tests/test_leak_teardown.py",
+      "程序/tests/test_lifecycle.py",
+      "程序/tests/test_login_gate.py",
+      "程序/tests/test_manual_gate.py",
+      "程序/tests/test_manual_plan.py",
+      "程序/tests/test_mcp_settings.py",
+      "程序/tests/test_media_import_validation.py",
+      "程序/tests/test_media_page_services.py",
+      "程序/tests/test_media_publish_streaming.py",
+      "程序/tests/test_media_render.py",
+      "程序/tests/test_membership_refresh_on_view.py",
+      "程序/tests/test_membership_view.py",
+      "程序/tests/test_merge_round.py",
+      "程序/tests/test_message_toolbar.py",
+      "程序/tests/test_migrate_legacy_layout.py",
+      "程序/tests/test_model_call_error_kind.py",
+      "程序/tests/test_model_delete_presets.py",
+      "程序/tests/test_model_delete_stays_deleted.py",
+      "程序/tests/test_model_failure_route.py",
+      "程序/tests/test_model_gateway_robustness.py",
+      "程序/tests/test_model_manager_actions.py",
+      "程序/tests/test_model_output_contract.py",
+      "程序/tests/test_model_pool_redirects.py",
+      "程序/tests/test_model_pool_snapshot.py",
+      "程序/tests/test_model_pool_tools.py",
+      "程序/tests/test_model_probe_layers.py",
+      "程序/tests/test_model_router_diagnostics.py",
+      "程序/tests/test_model_router_parse.py",
+      "程序/tests/test_money_invariants.py",
+      "程序/tests/test_multi_monitor_popups.py",
+      "程序/tests/test_multimodal_upload.py",
+      "程序/tests/test_mutation_sample.py",
+      "程序/tests/test_native_run.py",
+      "程序/tests/test_nav_press_padding.py",
+      "程序/tests/test_notice_dialog.py",
+      "程序/tests/test_numbering.py",
+      "程序/tests/test_offline_asr_engine.py",
+      "程序/tests/test_open_https_redirect.py",
+      "程序/tests/test_opencode_engine.py",
+      "程序/tests/test_outbound_request_contract.py",
+      "程序/tests/test_output_spec.py",
+      "程序/tests/test_page_cache.py",
+      "程序/tests/test_page_lock.py",
+      "程序/tests/test_page_navigation_decide.py",
+      "程序/tests/test_page_paint_freeze.py",
+      "程序/tests/test_page_paint_metric.py",
+      "程序/tests/test_param_panel.py",
+      "程序/tests/test_part_renderers.py",
+      "程序/tests/test_paths.py",
+      "程序/tests/test_perf_baseline.py",
+      "程序/tests/test_perf_batch_queue.py",
+      "程序/tests/test_perf_concurrent_submit.py",
+      "程序/tests/test_perf_measurement.py",
+      "程序/tests/test_persistent_task_queue.py",
+      "程序/tests/test_pet_agent_error_wiring.py",
+      "程序/tests/test_pet_bus_backpressure.py",
+      "程序/tests/test_pet_cloud_contract.py",
+      "程序/tests/test_pet_cloud_position_state.py",
+      "程序/tests/test_pet_cloud_r1449.py",
+      "程序/tests/test_pet_login_quiet.py",
+      "程序/tests/test_pet_offer_brevity.py",
+      "程序/tests/test_pet_popup_policy.py",
+      "程序/tests/test_pet_retry_anim_edges.py",
+      "程序/tests/test_pet_settings.py",
+      "程序/tests/test_pid_reuse_tokens.py",
+      "程序/tests/test_popup_no_interrupt.py",
+      "程序/tests/test_preparation_confirmation.py",
+      "程序/tests/test_preparation_monitor.py",
+      "程序/tests/test_preparation_parallel.py",
+      "程序/tests/test_preparation_source_priority.py",
+      "程序/tests/test_previs.py",
+      "程序/tests/test_previs_local_agent_only.py",
+      "程序/tests/test_previs_monitor_exposure.py",
+      "程序/tests/test_previs_scope.py",
+      "程序/tests/test_process_supervisor.py",
+      "程序/tests/test_production_lock_edit.py",
+      "程序/tests/test_production_lock_ui.py",
+      "程序/tests/test_project_open.py",
+      "程序/tests/test_project_page_services.py",
+      "程序/tests/test_project_recovery.py",
+      "程序/tests/test_project_rename_reconcile.py",
+      "程序/tests/test_project_sort_key.py",
+      "程序/tests/test_project_switch_guard.py",
+      "程序/tests/test_publication_fsync_budget.py",
+      "程序/tests/test_publication_recovery.py",
+      "程序/tests/test_publication_transaction.py",
+      "程序/tests/test_recovery_delivery_e2e.py",
+      "程序/tests/test_recycle.py",
+      "程序/tests/test_recycle_directories.py",
+      "程序/tests/test_recycle_panel_actions.py",
+      "程序/tests/test_recycle_restore.py",
+      "程序/tests/test_recycle_retention.py",
+      "程序/tests/test_recycle_write_ahead.py",
+      "程序/tests/test_reference_images.py",
+      "程序/tests/test_reference_search.py",
+      "程序/tests/test_release_bindings.py",
+      "程序/tests/test_release_snapshot.py",
+      "程序/tests/test_release_watch.py",
+      "程序/tests/test_remote_post_receive_ci.py",
+      "程序/tests/test_remote_pre_receive.py",
+      "程序/tests/test_renew_concurrency.py",
+      "程序/tests/test_renew_concurrency_process.py",
+      "程序/tests/test_req_anchor_s02.py",
+      "程序/tests/test_req_anchor_s03_s07.py",
+      "程序/tests/test_req_anchor_s06.py",
+      "程序/tests/test_req_anchor_s10.py",
+      "程序/tests/test_req_s01_anchors.py",
+      "程序/tests/test_req_s03_anchors.py",
+      "程序/tests/test_req_s04_anchors.py",
+      "程序/tests/test_req_s05_anchors.py",
+      "程序/tests/test_req_s06_anchors.py",
+      "程序/tests/test_req_s07_anchors.py",
+      "程序/tests/test_req_s08_anchors.py",
+      "程序/tests/test_req_s09_anchors.py",
+      "程序/tests/test_req_s10_anchors.py",
+      "程序/tests/test_req_s11_anchors.py",
+      "程序/tests/test_req_s12_anchors.py",
+      "程序/tests/test_req_s13_anchors.py",
+      "程序/tests/test_request_freeze_entries.py",
+      "程序/tests/test_request_recording.py",
+      "程序/tests/test_results.py",
+      "程序/tests/test_resume_preview.py",
+      "程序/tests/test_root_layout.py",
+      "程序/tests/test_round_claim.py",
+      "程序/tests/test_round_evidence.py",
+      "程序/tests/test_round_gate.py",
+      "程序/tests/test_row_targets.py",
+      "程序/tests/test_runtime_projection.py",
+      "程序/tests/test_sanhu_mode.py",
+      "程序/tests/test_script_agent_delivery_assembly.py",
+      "程序/tests/test_script_agent_delivery_paths.py",
+      "程序/tests/test_script_autosave.py",
+      "程序/tests/test_script_composer.py",
+      "程序/tests/test_script_context_menu.py",
+      "程序/tests/test_script_contract_production_locks.py",
+      "程序/tests/test_script_file_hover_card.py",
+      "程序/tests/test_script_page_services.py",
+      "程序/tests/test_script_preparation_manifest_scope.py",
+      "程序/tests/test_script_preparation_roles.py",
+      "程序/tests/test_script_rename_validation.py",
+      "程序/tests/test_script_structure.py",
+      "程序/tests/test_script_structure_dedup.py",
+      "程序/tests/test_script_structure_edit.py",
+      "程序/tests/test_script_structure_empty_box_edit.py",
+      "程序/tests/test_script_structure_expand_edit.py",
+      "程序/tests/test_script_structure_natural_edit.py",
+      "程序/tests/test_script_structure_scope.py",
+      "程序/tests/test_script_undo_shortcuts.py",
+      "程序/tests/test_script_workspace_results.py",
+      "程序/tests/test_script_zoom.py",
+      "程序/tests/test_secret_status_diagnostics.py",
+      "程序/tests/test_seedream_direct.py",
+      "程序/tests/test_select_placeholder.py",
+      "程序/tests/test_selftest_diagnostics_isolation.py",
+      "程序/tests/test_selftest_incremental_gaps.py",
+      "程序/tests/test_selftests.py",
+      "程序/tests/test_selftests_gui_token.py",
+      "程序/tests/test_server_pre_receive.py",
+      "程序/tests/test_shared_adapter_infrastructure.py",
+      "程序/tests/test_shared_input_stages.py",
+      "程序/tests/test_shared_input_ui.py",
+      "程序/tests/test_shared_input_voice.py",
+      "程序/tests/test_shot_field_specs.py",
+      "程序/tests/test_sidebar_project_title.py",
+      "程序/tests/test_skill_archive_import.py",
+      "程序/tests/test_skill_budget_send_entries.py",
+      "程序/tests/test_skill_conditional_sections.py",
+      "程序/tests/test_skill_context_budget_prestage.py",
+      "程序/tests/test_skill_deep_inline.py",
+      "程序/tests/test_skill_health_service.py",
+      "程序/tests/test_skill_import_validation.py",
+      "程序/tests/test_skill_lifecycle.py",
+      "程序/tests/test_skill_orchestrator_cache.py",
+      "程序/tests/test_skill_orchestrator_completion.py",
+      "程序/tests/test_skill_panel_dropdown_layout.py",
+      "程序/tests/test_skill_panel_imported.py",
+      "程序/tests/test_skill_panel_layout_fit.py",
+      "程序/tests/test_skill_panel_production_locks.py",
+      "程序/tests/test_skill_reference_closure.py",
+      "程序/tests/test_skill_registry_parse.py",
+      "程序/tests/test_skill_remote_import.py",
+      "程序/tests/test_skill_repo_import.py",
+      "程序/tests/test_skill_security.py",
+      "程序/tests/test_skill_update_check.py",
+      "程序/tests/test_skill_user_layer.py",
+      "程序/tests/test_skills.py",
+      "程序/tests/test_slowpage_first_paint.py",
+      "程序/tests/test_smoke_affected_consumers.py",
+      "程序/tests/test_soak_light.py",
+      "程序/tests/test_space_toggle.py",
+      "程序/tests/test_splash_timing.py",
+      "程序/tests/test_stage_command_contract.py",
+      "程序/tests/test_stage_config_empty_project_cache.py",
+      "程序/tests/test_stage_copy_on_write.py",
+      "程序/tests/test_stage_file_index_publication.py",
+      "程序/tests/test_stage_flow_summary.py",
+      "程序/tests/test_stage_gate_e2e_probe.py",
+      "程序/tests/test_stage_gate_modes.py",
+      "程序/tests/test_stage_gateway_base.py",
+      "程序/tests/test_stage_prompt_governance.py",
+      "程序/tests/test_stage_reasoning.py",
+      "程序/tests/test_stage_templates.py",
+      "程序/tests/test_stage_wiring.py",
+      "程序/tests/test_stage_workspace_callers.py",
+      "程序/tests/test_startup_selfcheck.py",
+      "程序/tests/test_state_transition_tables.py",
+      "程序/tests/test_static_names.py",
+      "程序/tests/test_stdlib_closure.py",
+      "程序/tests/test_stdlib_imports_available.py",
+      "程序/tests/test_storage.py",
+      "程序/tests/test_storyboard_catalog_scan_count.py",
+      "程序/tests/test_storyboard_catalog_snapshot.py",
+      "程序/tests/test_storyboard_current_source.py",
+      "程序/tests/test_storyboard_final_scope.py",
+      "程序/tests/test_storyboard_final_selection.py",
+      "程序/tests/test_storyboard_page_loading.py",
+      "程序/tests/test_storyboard_page_services.py",
+      "程序/tests/test_storyboard_scope.py",
+      "程序/tests/test_subtitle_calibration.py",
+      "程序/tests/test_subtitles.py",
+      "程序/tests/test_swallowed_cleanup.py",
+      "程序/tests/test_sync_master.py",
+      "程序/tests/test_task_center.py",
+      "程序/tests/test_temp_sandbox.py",
+      "程序/tests/test_text_measure.py",
+      "程序/tests/test_timers.py",
+      "程序/tests/test_tooltip.py",
+      "程序/tests/test_tts.py",
+      "程序/tests/test_ui_batch3_shell.py",
+      "程序/tests/test_ui_batch4_desktop_project_pages.py",
+      "程序/tests/test_ui_batch5_stage_panel_and_script_page.py",
+      "程序/tests/test_ui_batch6_pages.py",
+      "程序/tests/test_ui_batch7_settings_models.py",
+      "程序/tests/test_ui_batch8_video_ui_tokens.py",
+      "程序/tests/test_ui_batch9_pet_accessibility.py",
+      "程序/tests/test_ui_compact_widgets.py",
+      "程序/tests/test_ui_edges_autopilot.py",
+      "程序/tests/test_ui_edges_controls.py",
+      "程序/tests/test_ui_edges_guards.py",
+      "程序/tests/test_ui_edges_pages.py",
+      "程序/tests/test_ui_edges_tables.py",
+      "程序/tests/test_ui_modern_system.py",
+      "程序/tests/test_ui_motion_perf.py",
+      "程序/tests/test_ui_notifications.py",
+      "程序/tests/test_ui_reading_density.py",
+      "程序/tests/test_ui_snapshot_tool.py",
+      "程序/tests/test_ui_style_engine.py",
+      "程序/tests/test_ui_token_contract.py",
+      "程序/tests/test_ui_widgets_dialogs.py",
+      "程序/tests/test_ui_widgets_inputs.py",
+      "程序/tests/test_ui_widgets_table.py",
+      "程序/tests/test_ui_writing_recon.py",
+      "程序/tests/test_unattended_chain_tables.py",
+      "程序/tests/test_uow_write_paths.py",
+      "程序/tests/test_usage_indicator_ui.py",
+      "程序/tests/test_version_pin.py",
+      "程序/tests/test_version_record.py",
+      "程序/tests/test_video_audio_card.py",
+      "程序/tests/test_video_generation_scope.py",
+      "程序/tests/test_video_manifest_scope.py",
+      "程序/tests/test_video_result_polling.py",
+      "程序/tests/test_video_retention.py",
+      "程序/tests/test_video_revision.py",
+      "程序/tests/test_video_task_state_cache.py",
+      "程序/tests/test_video_task_status.py",
+      "程序/tests/test_video_ui.py",
+      "程序/tests/test_voice_ai_optimize.py",
+      "程序/tests/test_voice_dict.py",
+      "程序/tests/test_voice_mcp.py",
+      "程序/tests/test_white_model_identity.py",
+      "程序/tests/test_white_model_workspace.py",
+      "程序/tests/test_window_resize_coalescing.py",
+      "程序/tests/test_workflow.py",
+      "程序/tests/test_workflow_dir_authority.py",
+      "程序/tests/test_workflow_engines_run.py",
+      "程序/tests/test_workflow_settings_cache.py",
+      "程序/tests/test_workflow_writing_stages.py",
+      "程序/tests/test_worktree_ledger.py",
+      "程序/tests/test_writer_style_agent_delivery.py",
+      "程序/tests/test_writing_api_output_budget.py",
+      "程序/tests/test_writing_cancellation.py",
+      "程序/tests/test_writing_context_budget_guard.py",
+      "程序/tests/test_writing_edited_restart.py",
+      "程序/tests/test_writing_page_services.py",
+      "程序/tests/test_writing_response_preservation.py",
+      "程序/tests/test_writing_restart.py",
+      "程序/tests/test_writing_restart_intent.py",
+      "程序/tests/test_writing_status_line.py"
+    ],
+    "owner": "项目维护者",
+    "reason": "治理前索引已有的跨模块契约或非一对一测试；新测试必须有真实用例及显式归属",
+    "review_when": "对应测试重构或明确映射时"
+  }
+}

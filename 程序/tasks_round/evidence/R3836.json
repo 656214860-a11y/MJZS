@@ -1,0 +1,15 @@
+{
+  "round": 3836,
+  "commit_base": "68e17ddf",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k architecture.test_structure architecture.test_doc_registry_migration architecture.test_agent_doc_budget architecture.test_design_coverage test_distribution_build test_projects test_version_record",
+    "exit": 0,
+    "passed": 68,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T21:29:17"
+}

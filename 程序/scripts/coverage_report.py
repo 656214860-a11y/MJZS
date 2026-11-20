@@ -32,7 +32,7 @@ PROGRAM = Path(__file__).resolve().parents[1]
 EXCLUDED_PARTS = frozenset({'tests', 'tasks_round', '维护记录', '.git', '.wt', '.selftmp', '__pycache__',
                             'voice_asr_venv'})
 # 非产品目录：技能随附脚本、开发维护脚本、参考资料、构建产物、外部附加工具。
-NON_PRODUCT_PARTS = frozenset({'skills', 'scripts', 'reference', 'outputs', '附加工具'})
+NON_PRODUCT_PARTS = frozenset({'skills', 'scripts', 'reference', 'outputs', '附加工具', 'governance'})
 SKIP_STEMS = frozenset({'smoke_test', 'run_selftests', 'selftest_sandbox',
                         'selftest_env', 'selftest_discovery', 'selftest_receipts',
                         'selftest_scheduling', 'selftest_reporting'})

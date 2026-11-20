@@ -20,7 +20,7 @@ PROGRAM = Path(__file__).resolve().parents[1]
 TASKS_ROUND = PROGRAM / 'tasks_round'
 COMPLETION_DIR = TASKS_ROUND / '任务完成'
 README_NAME = 'README.md'
-EXEMPT_TASKBOOKS = frozenset({'docs/review/优化任务书_SWE2_20261115.md'})
+EXEMPT_TASKBOOKS = frozenset({'tasks_round/历史任务_SWE2_20261115任务书.md'})
 
 CHECKBOX_RE = re.compile(r'^\s*-\s*\[[ xX]\]\s*(.*)$', re.MULTILINE)
 EVIDENCE_MARK = re.compile(r'R\d{3,}|[0-9a-f]{7,40}|转欠账|请求授权|放弃|不实施|范围外')

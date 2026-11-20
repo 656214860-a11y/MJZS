@@ -601,7 +601,7 @@ class ProjectPagesMixin(RecyclePanelMixin):
         self._project_action(actions,'运行状况…',lambda:ui_plugin_registry.module('task_center_ui').show(self))
     def create_practice_project(self):
         """复用项目创建器隔离练习数据；不调用模型、不伪造阶段完成。"""
-        sample = Path(__file__).resolve().parents[1] / '说明' / '示例' / '雨夜修伞'
+        sample = Path(__file__).resolve().parents[1] / 'resources' / 'examples' / 'rainy_umbrella'
         project = self._project_result_data(self.projects.create('练习－雨夜修伞', sample / 'episode.json'))
         self.reload()
         self.load(project)

@@ -20,11 +20,13 @@ from tests.architecture._scan import ROOT
 PROGRAM = ROOT
 SPECS = PROGRAM / 'docs' / 'specs'
 INDEX = SPECS / 'README.md'
-PRD = PROGRAM / '说明' / '产品需求规格.md'
+PRD = PROGRAM / 'docs' / 'requirements' / '产品需求规格.md'
 
 # PRD 里必须被设计规格覆盖的条目。
 PRIORITY_ROW = re.compile(r'^\|\s*(P[012]-\d+)\s', re.M)
 STORY_ROW = re.compile(r'^\|\s*(US\d{2})\s', re.M)
+APP_ROW = re.compile(r'\*\*(REQ-APP-\d+)\s*[·:]', re.M)
+APP_COVERAGE_ROW = re.compile(r'^\|\s*(REQ-APP-\d+)[^|]*\|\s*([^|]+)\|\s*([^|]*)\|', re.M)
 # 覆盖映射表的表格行：| PRD 条目 | 覆盖册 | 覆盖方式 |
 COVERAGE_ROW = re.compile(r'^\|\s*((?:P[012]-\d+)|(?:US\d{2}))[^|]*\|\s*([^|]+)\|\s*([^|]*)\|', re.M)
 # 「01 §6」这类引用：册号 + 章节号。
@@ -82,7 +84,10 @@ def unresolved(rows: dict[str, str], files: dict[str, Path]) -> list[str]:
 class DesignCoverageTests(unittest.TestCase):
     def setUp(self):
         self.priorities, self.stories = prd_items()
+        self.app_requirements = set(APP_ROW.findall(PRD.read_text(encoding='utf-8')))
         self.rows = coverage_rows()
+        self.rows.update({item: (volume.strip(), how.strip())
+                          for item, volume, how in APP_COVERAGE_ROW.findall(INDEX.read_text(encoding='utf-8'))})
         self.files = spec_files()
 
     def test_spec_index_exists(self):
@@ -102,6 +107,10 @@ class DesignCoverageTests(unittest.TestCase):
                          'PRD 的用户故事在设计规格里没有落点：%s\n'
                          '请在 docs/specs/README.md §4 的覆盖映射表补行' % '、'.join(missing))
 
+    def test_every_app_requirement_has_a_landing_place(self):
+        missing = sorted(self.app_requirements - set(self.rows))
+        self.assertEqual(missing, [], 'PRD 的 REQ-APP 需求没有设计落点：%s' % '、'.join(missing))
+
     def test_coverage_rows_point_at_real_sections(self):
         problems = unresolved(self.rows, self.files)
         self.assertEqual(problems, [],
@@ -109,7 +118,7 @@ class DesignCoverageTests(unittest.TestCase):
 
     def test_no_stale_coverage_rows(self):
         """覆盖表里出现 PRD 已经没有的条目＝表过期，同样要红。"""
-        known = self.priorities | self.stories
+        known = self.priorities | self.stories | self.app_requirements
         stale = sorted(set(self.rows) - known)
         self.assertEqual(stale, [],
                          '覆盖映射表列了 PRD 里不存在的条目（表已过期）：%s' % '、'.join(stale))

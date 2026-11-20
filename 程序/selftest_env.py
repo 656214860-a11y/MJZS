@@ -133,7 +133,7 @@ AUTO_FULL_LOCK_NAME = 'auto-full-safe.lock'
 AUTO_FULL_STALE_SECONDS = 3 * 3600
 
 
-NON_SOURCE_DIRS = ('tests/', 'tasks_round/', '维护记录/', '说明/', 'logs/')
+NON_SOURCE_DIRS = ('tests/', 'tasks_round/', '维护记录/', 'docs/', 'governance/', 'resources/', 'logs/')
 
 
 _ROUND_SUBJECT = re.compile(r'^R(\d+)(?:-FAIL)?[:：]')

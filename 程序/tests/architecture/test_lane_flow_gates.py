@@ -65,18 +65,18 @@ class LaneFlowGateTests(unittest.TestCase):
         self.assertIn("- 状态：已接受", decision)
         self.assertIn("full-safe-runner.lock", decision)
         self.assertIn("runbook.md", decision)
-        checklist = _text(ROOT / "说明" / "发布检查单.md")
+        checklist = _text(ROOT / "docs" / "process" / "发布检查单.md")
         self.assertIn("不覆盖旧发布目录", checklist)
         self.assertIn("新空目录", checklist)
         self.assertNotIn("手工解压覆盖", checklist)
-        pits = _text(ROOT / "说明" / "已知坑与不可破坏契约.md")
+        pits = _text(ROOT / "docs" / "contracts" / "已知坑与不可破坏契约.md")
         self.assertIn("full-safe-runner.lock", pits)
         self.assertIn("C20", pits)
-        registry = _text(ROOT / "说明" / "工程文档登记表.md")
+        registry = _text(ROOT / "docs" / "records" / "工程文档登记表.md")
         self.assertIn("docs/review/安装更新与恢复方案_A15.md", registry)
         self.assertIn("0015-lane-flow-does-not-block-sessions.md", registry)
         self.assertIn("0015-lane-flow-does-not-block-sessions.md",
-                      _text(ROOT / "文档导航.md"))
+                      _text(ROOT / "docs" / "adr" / "README.md"))
 
 
 if __name__ == "__main__":

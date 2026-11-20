@@ -1,0 +1,15 @@
+{
+  "round": 3907,
+  "commit_base": "656b5277",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k lane_flow_gates round_baselines structure doc_registry design_coverage coverage_floor",
+    "exit": 0,
+    "passed": 0,
+    "failed": 0
+  },
+  "generated_at": "2026-11-20T12:28:24"
+}

@@ -1,0 +1,15 @@
+{
+  "round": 3831,
+  "commit_base": "59a117ee",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k builtin_controller_retirement skill_command skill_tools agent_skill_sync skill_user_layer skill_project_layer skill_residue_service distribution_build distribution_selfcheck skill_budget_send_entries stage_prompt_governance l1_p2_semantics skill_reference_injection req_anchor_s03_s07 workflow_writing_stages skill_reference_closure storyboard_final_scope script_preparation_roles req_s05_anchors",
+    "exit": 0,
+    "passed": 204,
+    "failed": 0
+  },
+  "generated_at": "2026-11-19T19:06:00"
+}

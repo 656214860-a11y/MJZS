@@ -1,0 +1,15 @@
+{
+  "round": 3903,
+  "commit_base": "a008615e",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k structure doc_registry round_baselines design_coverage agent_doc_budget",
+    "exit": 1,
+    "passed": 0,
+    "failed": -1
+  },
+  "generated_at": "2026-11-20T11:07:41"
+}

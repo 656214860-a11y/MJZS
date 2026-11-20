@@ -108,7 +108,7 @@
  ],
  "tests_ok": true,
  "points_total": 3059,
- "points_covered": 1738,
+ "points_covered": 1743,
  "modules": [
   {
    "module": "budget.py",
@@ -255,22 +255,16 @@
    "percent": 35.0
   },
   {
-   "module": "process_wait.py",
-   "points": 11,
-   "covered": 4,
-   "percent": 36.4
-  },
-  {
-   "module": "unit_of_work.py",
-   "points": 49,
-   "covered": 19,
-   "percent": 38.8
-  },
-  {
    "module": "resources.py",
    "points": 20,
    "covered": 8,
    "percent": 40.0
+  },
+  {
+   "module": "unit_of_work.py",
+   "points": 49,
+   "covered": 20,
+   "percent": 40.8
   },
   {
    "module": "model_pool.py",
@@ -285,16 +279,22 @@
    "percent": 45.3
   },
   {
-   "module": "platform_tools.py",
-   "points": 141,
-   "covered": 66,
-   "percent": 46.8
+   "module": "process_wait.py",
+   "points": 11,
+   "covered": 5,
+   "percent": 45.5
   },
   {
    "module": "model_router.py",
    "points": 108,
    "covered": 51,
    "percent": 47.2
+  },
+  {
+   "module": "platform_tools.py",
+   "points": 141,
+   "covered": 68,
+   "percent": 48.2
   },
   {
    "module": "metrics.py",
@@ -327,16 +327,22 @@
    "percent": 51.5
   },
   {
-   "module": "diagnostic_capture.py",
-   "points": 85,
-   "covered": 45,
-   "percent": 52.9
-  },
-  {
    "module": "pet_bus.py",
    "points": 32,
    "covered": 17,
    "percent": 53.1
+  },
+  {
+   "module": "diagnostic_capture.py",
+   "points": 85,
+   "covered": 46,
+   "percent": 54.1
+  },
+  {
+   "module": "workflow_context_budget.py",
+   "points": 22,
+   "covered": 12,
+   "percent": 54.5
   },
   {
    "module": "client_profiles.py",
@@ -355,12 +361,6 @@
    "points": 44,
    "covered": 26,
    "percent": 59.1
-  },
-  {
-   "module": "workflow_context_budget.py",
-   "points": 22,
-   "covered": 12,
-   "percent": 54.5
   },
   {
    "module": "workflow_process_registry.py",
