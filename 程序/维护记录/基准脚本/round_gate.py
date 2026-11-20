@@ -20,7 +20,8 @@ import round_evidence  # noqa: E402
 
 
 def git(*args):
-    return subprocess.run(['git', '-C', str(ROOT), *args], text=True, capture_output=True, check=False)
+    return subprocess.run(['git', '-C', str(ROOT), *args], text=True, capture_output=True,
+                          check=False, encoding="utf-8", errors="replace")
 
 
 def check(name, ok, detail):

@@ -48,6 +48,50 @@ def _parse_lenient(path: Path) -> ast.Module | None:
         return None
 
 
+_SUBPROCESS_CAPTURE_FUNCS = frozenset({"run", "call", "check_call", "check_output", "Popen"})
+_TEXT_KWARGS = frozenset({"text", "universal_newlines"})
+
+
+def _tool_script_files() -> list[Path]:
+    """工具脚本三处范围（程序根、scripts/、维护记录/基准脚本/），不递归子目录。"""
+    files = list(ROOT.glob("*.py"))
+    files += (ROOT / "scripts").glob("*.py")
+    files += (ROOT / "维护记录" / "基准脚本").glob("*.py")
+    return sorted(files)
+
+
+def _subprocess_bindings(tree: ast.Module) -> tuple[frozenset[str], frozenset[str]]:
+    """返回（subprocess 模块别名集, from subprocess import 绑定的捕获函数名集）。"""
+    modules = {"subprocess"}
+    names = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            modules.update(alias.asname or alias.name for alias in node.names
+                           if alias.name == "subprocess")
+        elif isinstance(node, ast.ImportFrom) and node.module == "subprocess":
+            for alias in node.names:
+                if alias.name == "*":
+                    names |= set(_SUBPROCESS_CAPTURE_FUNCS)
+                elif alias.name in _SUBPROCESS_CAPTURE_FUNCS:
+                    names.add(alias.asname or alias.name)
+    return frozenset(modules), frozenset(names)
+
+
+def _is_subprocess_capture_call(node: ast.Call, modules, names) -> bool:
+    func = node.func
+    if isinstance(func, ast.Attribute):
+        return (func.attr in _SUBPROCESS_CAPTURE_FUNCS and isinstance(func.value, ast.Name)
+                and func.value.id in modules)
+    return isinstance(func, ast.Name) and func.id in names
+
+
+def _captures_text_without_encoding(node: ast.Call) -> bool:
+    """text=True／universal_newlines=True 捕获文本却没显式 encoding。"""
+    captures = any(kw.arg in _TEXT_KWARGS and isinstance(kw.value, ast.Constant)
+                   and kw.value.value is True for kw in node.keywords)
+    return captures and not any(kw.arg == "encoding" for kw in node.keywords)
+
+
 class StaticHygieneTests(unittest.TestCase):
     def test_no_invalid_escape_sequences(self) -> None:
         offenders = []
@@ -100,6 +144,25 @@ class StaticHygieneTests(unittest.TestCase):
         leaked = [path.relative_to(ROOT).as_posix() for path in _all_sources()
                   if "skills" in path.relative_to(ROOT).parts]
         self.assertEqual(leaked, [], "外部技能包不得计入本仓静态卫生扫描范围")
+
+    def test_tool_scripts_decode_subprocess_text_as_utf8(self) -> None:
+        """R2-G3 T2：工具脚本捕获子进程文本必须显式 encoding。
+
+        本机默认编码 cp936，git／ffmpeg 等输出 UTF-8；text=True 不指定 encoding 时
+        读线程抛 UnicodeDecodeError、stdout 变 None，领号与合入工具静默丢数据。"""
+        offenders = []
+        for path in _tool_script_files():
+            tree = _parse_lenient(path)
+            if tree is None:
+                continue
+            modules, names = _subprocess_bindings(tree)
+            for node in ast.walk(tree):
+                if (isinstance(node, ast.Call)
+                        and _is_subprocess_capture_call(node, modules, names)
+                        and _captures_text_without_encoding(node)):
+                    offenders.append("%s:%d" % (path.relative_to(ROOT).as_posix(), node.lineno))
+        self.assertEqual(offenders, [],
+                         "捕获子进程文本（text=True）必须显式 encoding=\"utf-8\"")
 
     def test_scan_scope_excludes_runtime_asr_venv(self) -> None:
         """`data/voice_asr_venv/` 是离线 ASR 运行时创建的第三方 venv（约 7700 个 .py），

@@ -37,8 +37,10 @@ def _write(path: Path, doc: dict) -> None:
 def _worktree_info(root: Path):
     """当前工作树 → (lane名, branch, worktree路径)。"""
     def git(*args):
-        return subprocess.run(["git", "-C", str(root), *args],
-                              capture_output=True, text=True, timeout=15).stdout.strip()
+        done = subprocess.run(["git", "-C", str(root), *args],
+                              capture_output=True, text=True, timeout=15,
+                              encoding="utf-8", errors="replace")
+        return (done.stdout or "").strip()
     top = git("rev-parse", "--show-toplevel")
     branch = git("rev-parse", "--abbrev-ref", "HEAD")
     lane = Path(top).name if top else ""

@@ -108,7 +108,8 @@ def gitleaks_scan(base, new):
         done = subprocess.run(
             [GITLEAKS_BIN, 'git', '--log-opts', '%s..%s' % (base, new), '--redact',
              '--config', config, '--report-format', 'json', '--report-path', report, '.'],
-            capture_output=True, text=True, timeout=300)
+            capture_output=True, text=True, timeout=300,
+            encoding='utf-8', errors='replace')
         if done.returncode != 1:
             return []
         findings = json.loads(Path(report).read_text(encoding='utf-8') or '[]')
