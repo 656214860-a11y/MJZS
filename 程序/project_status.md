@@ -1,6 +1,6 @@
 # 项目状态（可独立接续）
 
-更新：2026-11-20｜当前轮次：3922（R3921 状态接续轮：校正已合入的 l0 车道记录；docs-only；未跑全量。上一轮：R3920 合并轮：合入 codex/l0-constitution。）
+更新：2026-11-20｜当前轮次：3923（R3922 状态接续轮：校正架构文档合并试算；docs-only；未跑全量。上一轮：R3921 状态接续轮：校正已合入的 l0 车道记录。）
 
 历史接续记录：R3308 修复槽位泄漏 bug 并优化慢测试超时，定向测试 46/46 通过。
 
@@ -60,7 +60,7 @@ R1036 后续文档收尾（用户明确授权）：归档原诊断报告与优�
 
 ## 验证基线
 
-R3918 登记（状态接续轮）：写入时 master 为 `385dd7b6`（R3915）。`.git/full-safe-receipts.json` 最新绿凭据仍是 R3849：合并提交 `98dafefa` 的 `程序` 树等于 `36ab86d05cdf8f660e1cd48edd8f84c05408ce73`，凭据记执行器计时 1025.121 秒、时间 `2026-11-19T22:30:50`；`.git/full-safe-history.jsonl` 末行是同一提交、外层 1037 秒、成功、无失败文件。凭据没有当次总条数，不追认条数。R3849 结果文件写于这次全量结束之前，正文是「未跑全量」；条数以外的实测明细见 [R3854](tasks_round/tasks_round_3854_result.md)。`scripts/auto_full_safe.py --status`：R3849 至 R3915 之间改过源码的轮次为 1（门禁线 8），未到自动全量。字段 `last_full_safe_all_at` 仍是 `2026-10-03`，与凭据条目时间不一致，不能当作 R3849 的日期。冒烟登记基线仍是 8 项，运行输出另含 1 项隐藏桌面探针。架构门禁总数以当轮 `smoke_test.py --architecture` 为准，本轮未重跑。2026-11-20 17:54 起 `codex/l2-edit-source-publication` 工作树持有 `full-safe-runner.lock`（PID 7796，`--all --safe --force`），结果尚未写入凭据。
+R3918 登记（状态接续轮）：写入时 master 为 `385dd7b6`（R3915）。`.git/full-safe-receipts.json` 最新绿凭据仍是 R3849：合并提交 `98dafefa` 的 `程序` 树等于 `36ab86d05cdf8f660e1cd48edd8f84c05408ce73`，凭据记执行器计时 1025.121 秒、时间 `2026-11-19T22:30:50`；`.git/full-safe-history.jsonl` 末行是同一提交、外层 1037 秒、成功、无失败文件。凭据没有当次总条数，不追认条数。R3849 结果文件写于这次全量结束之前，正文是「未跑全量」；条数以外的实测明细见 [R3854](tasks_round/tasks_round_3854_result.md)。`scripts/auto_full_safe.py --status`：R3849 至 R3915 之间改过源码的轮次为 1（门禁线 8），未到自动全量。字段 `last_full_safe_all_at` 仍是 `2026-10-03`，与凭据条目时间不一致，不能当作 R3849 的日期。冒烟登记基线仍是 8 项，运行输出另含 1 项隐藏桌面探针。架构门禁总数以当轮 `smoke_test.py --architecture` 为准，本轮未重跑。2026-11-20 17:54 起 `codex/l2-edit-source-publication` 工作树持有 `full-safe-runner.lock`（PID 7796，`--all --safe --force`），结果尚未写入凭据。R3922 再查时 `full-safe-runner.lock` 与 `gui-selftest.lock` 都不在，PID 7796 已退出；`.git/full-safe-history.jsonl` 末行仍是上述成功记录，没有新的绿凭据。锁已释放不能写成全量成功，也不能写成全量失败。
 
 R2912 登记（验证基线轮）：R2908 合并轮（`7f3d2953`，任务书五轮＋R2909 行数修复入 master）全量实测——冒烟 8/8；`--all --safe` 7520 条/530.0 秒/3 文件红，逐项核验均为环境性既有欠账（`test_client_profiles` 默认 user_path 读到 gitignore 的用户自定义档案 6 条；`test_distribution_selfcheck` 扫到未跟踪 `.agent-handoff` 归档文件；`test_pet_ui` 读时长用例全量并行下偶发、串行复跑全绿），零合并回归；绿凭据未写入，欠账口径不变。详见 [R2912](tasks_round/tasks_round_2912_result.md)。
 
@@ -73,7 +73,7 @@ R1507 核验：R1506 正式记录 tree=`1844649ecd07befa6f6fabd2c0e12e486cb40657
 
 ## 已知阻塞与待办
 
-- 【当前车道·2026-11-20】主树 `bf3639ab`（R3920）。`codex/l0-constitution` 的尖端 `35196826` 已包含在这次合并中。`codex/gate-unblock` 仍为 `2e3399af`（R3916，未合入）：六支历史快照已改名为 `archive/foundation-*`；`codex/foundation-ffmpeg-runtime` 为 `0f359379`，定向测试与合入未做，U3、U4 未开始。`codex/foundation-integration-final` 为 `d5fb72fd`（R3909，未合入）。`codex/l1-enterprise` 与 `codex/architecture-root-layout` 的尖端 `385dd7b6` 已是主干祖先；R3917 仍由后者认领，本树没有 R3917 结果文件。master 上 29 份任务书有 10 份没有完成文件，名单见 [R3918](tasks_round/tasks_round_3918_result.md)。`architecture.md` 的阶段口径修正尚未提交：对 49 条检出分支做合并试算，47 条会在该文件上冲突。
+- 【当前车道·2026-11-20】主树 `f870678a`（R3921）。`codex/l0-constitution` 的尖端 `35196826` 已包含在 R3920 合并 `bf3639ab` 中。`codex/gate-unblock` 仍为 `2e3399af`（R3916，未合入）：六支历史快照已改名为 `archive/foundation-*`；`codex/foundation-ffmpeg-runtime` 为 `0f359379`，定向测试与合入未做，U3、U4 未开始。`codex/foundation-integration-final` 为 `d5fb72fd`（R3909，未合入）。`codex/l1-enterprise` 与 `codex/architecture-root-layout` 的尖端 `385dd7b6` 已是主干祖先；R3917 仍由后者认领，本树没有 R3917 结果文件。master 上 29 份任务书有 10 份没有完成文件，名单见 [R3918](tasks_round/tasks_round_3918_result.md)。`architecture.md` 与 `维护记录/优化待办队列.md` 的修正仍在 `codex/architecture-doc-facts`，未提交。R3922 用 merge-base 重算后，R3921 写的「47 条冲突」作废，明细见 [R3922](tasks_round/tasks_round_3922_result.md)。
 
 - 【待办·等开发到配音阶段再做】R2244（S11 音频脚本直连 API，已合入 master）遗留：① 三虎自动化接入音频脚本直连（现仅手动按钮有入口）；② 指定模型后做真实 API 联调（未调用过真实 API）；③ 非 chat 线路无法在请求中途中断（停止后丢弃结果、不落盘）；④ 架构门禁 5 项改前即存在的红：`model_pool.py`（原子写／体量上限／`old.unlink` 删除登记）、`scripts/release_watch.py` 裸 json.loads 债务、`test_agents_md` performance_history 错误。
 
