@@ -1,0 +1,15 @@
+{
+  "round": 3956,
+  "commit_base": "c6ae9f72",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_branch_scope test_lane_flow_gates",
+    "exit": 0,
+    "passed": 46,
+    "failed": 0
+  },
+  "generated_at": "2026-11-20T23:47:29"
+}
