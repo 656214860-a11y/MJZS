@@ -131,9 +131,9 @@ R3721（L1 任务书轮 I19，L1-H5 作业库实现与试点）：新增 L1 `inf
 ### 阶段专属全流程 SKILL
 
 `skills/01 剧本准备SKILL/`、`02剧本整理SKILL/`、`03初步分镜SKILL/`、`05资产管理SKILL/`、`06连贯性SKILL/`、`07分镜定稿SKILL/`、`08首帧管理SKILL/`、`09白模预演SKILL/`、`10视频生成SKILL/`、`11配音字幕SKILL/`、`12后期剪辑SKILL/` 与 `13质检交付SKILL/` 各含一个 `pipeline-*.skill.md`。剧本准备另有 `screenplay-production-line`、`screenplay-writer`、`script-forging`、`短剧编剧搭子`、`编剧技能集` 五个外部包总入口；其审计归属统一以 `script_contract.AUDIT` 为准，均不产生 manifest。
-它们从 `skills/00全流程SKILL/` 的全流程资料抽出阶段职责，并以 `dependsOn` 表达强前置关系；
-`pipeline-editing` 同时依赖视频与配音字幕。原始全流程资料保留为只读参考。`skill_registry.Registry.files()`
-只递归扫描 `skills/01`—`12` 阶段目录内的常规 `.skill.md`；根目录遗留 `.skill.md` 只在该懒扫描中按 frontmatter `stage` 安全归档，无法归档则保留并报告。`00全流程SKILL` 与其他根目录资料包不扫描。阶段下外部包只登记根部 `SKILL.md`（集合包可用根部 README）为一个总入口，不展开内部子目录。该扫描仅由阶段配置面板显式触发，未进入启动路径。
+阶段 SKILL 自包含本阶段职责，并以 `dependsOn` 表达强前置关系；应用不再分发或加载内建总控包。
+`pipeline-editing` 同时依赖视频与配音字幕。已退役包仅可通过 Git 历史查询。`skill_registry.Registry.files()`
+只递归扫描 `skills/01`—`12` 阶段目录内的常规 `.skill.md`；根目录遗留 `.skill.md` 只在该懒扫描中按 frontmatter `stage` 安全归档，无法归档则保留并报告。其他根目录资料包不扫描。阶段下外部包只登记根部 `SKILL.md`（集合包可用根部 README）为一个总入口，不展开内部子目录。该扫描仅由阶段配置面板显式触发，未进入启动路径。
 
 `workflow_engines` 与 `qwen_adapter` 仅在模型最终报告正文非空时发布正式报告；空响应保留原始响应记录供诊断，不覆盖成果。
 

@@ -158,19 +158,12 @@ def _skill_items(desktop):
 
 
 def _resolve_skill(desktop, parsed):
-    """``/skill名`` → (目标阶段, 技能文件)；``/子引擎`` → (当前阶段, SKILL.md)。"""
+    """技能与用户包命令统一解析为注册入口的 (目标阶段, 技能文件)。"""
     kind = str(parsed.get('kind') or '')
     name = str(parsed.get('name') or '')
     stage = str(parsed.get('stage') or '') or current_stage(desktop)
-    if kind == 'engine':
-        folder = (Path(skill_command.__file__).resolve().parents[1] / 'skills' /
-                  '00全流程SKILL' / 'AIGC创作全流程' / name)
-        for marker in ('SKILL.md', 'README.md', 'readme.md'):
-            path = folder / marker
-            if path.is_file():
-                return stage, path
-        return '', ''
-    if kind != 'skill':
+    # 两种类别共用注册器已校验的入口与项目层优先级。
+    if kind not in ('skill', 'engine'):
         return '', ''
     for item in _skill_items(desktop):
         if str(getattr(item, 'name', item) or '') == name:

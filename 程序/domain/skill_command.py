@@ -2,8 +2,8 @@
 
 命令形态三者都支持（任务书 §4）：``/skill名``、``/阶段别名``、``/子引擎``。
 输入不以 ``/`` 开头＝自由聊天，返回 ``None``。阶段别名来自
-``contract.pet_bus.STAGES``／``STAGE_NAMES`` 的反向映射；子引擎名来自
-``skills/00全流程SKILL/AIGC创作全流程/`` 下一层目录（含 SKILL.md 或 README 的包）。
+``contract.pet_bus.STAGES``／``STAGE_NAMES`` 的反向映射；引擎候选由调用方注入
+统一注册器已发现的用户／项目 SKILL 包，不自行扫描目录或加载脚本。
 """
 from __future__ import annotations
 
@@ -13,7 +13,6 @@ from pathlib import Path
 from contract import pet_bus
 
 KINDS = ('skill', 'stage', 'engine')
-_SUB_ENGINE_PARENT = Path('00全流程SKILL') / 'AIGC创作全流程'
 _ENGINE_MARKERS = ('SKILL.md', 'README.md', 'readme.md')
 # token 右界：空白之外的中英文句读也截断，避免光标在 ``/name，后文`` 中间时
 # 选中候选把标点和后文一起吃掉（R2980）。
@@ -50,19 +49,20 @@ def stage_alias_for(token):
     return ''
 
 
-def sub_engine_names(skills_root=None):
-    """``AIGC创作全流程`` 下一层子引擎目录名（有 SKILL.md／README 的目录才算）。"""
-    root = Path(skills_root) if skills_root else Path(__file__).resolve().parents[1] / 'skills'
-    parent = root / _SUB_ENGINE_PARENT
-    if not parent.is_dir():
-        return ()
-    names = []
-    for child in sorted(parent.iterdir()):
-        if not child.is_dir() or child.name.startswith('.'):
+def sub_engine_names(skills=()):
+    """从注册器快照投影用户／项目包；不做文件 I/O，扁平 SKILL 沿用 skill 类别。"""
+    names = set()
+    for item in skills or ():
+        field = item.get if isinstance(item, dict) else lambda key, default=None: getattr(item, key, default)
+        name = _skill_name(item)
+        path = field('path')
+        if (field('layer') not in ('user', 'project') or not path
+                or Path(path).name not in _ENGINE_MARKERS
+                or not name or name.startswith('.')
+                or any(char.isspace() or char in '/\\\\' for char in name)):
             continue
-        if any((child / marker).is_file() for marker in _ENGINE_MARKERS):
-            names.append(child.name)
-    return tuple(names)
+        names.add(name)
+    return tuple(sorted(names))
 
 
 def _skill_name(item):
@@ -90,7 +90,7 @@ def _match_skill(token, skills):
 def parse_command(text, *, stage=None, skills=(), engines=None):
     """``/`` 开头文本 → ``{'kind', 'name', 'stage', 'rest'}``；自由聊天返回 ``None``。
 
-    ``skills`` 可为名字字符串或带 ``.name`` 的注册项；``engines`` 缺省时扫仓内目录。
+    ``skills`` 可为名字字符串或带 ``.name`` 的注册项；``engines`` 缺省时从注册项投影。
     ``rest`` 是命令 token 之后的剩余正文（可为空串）。
     """
     raw = str(text or '')
@@ -104,7 +104,11 @@ def parse_command(text, *, stage=None, skills=(), engines=None):
     rest = rest.strip()
     if not token:
         return None
-    names = engines if engines is not None else sub_engine_names()
+    names = engines if engines is not None else sub_engine_names(skills)
+    packages = sub_engine_names(skills)
+    package = next((name for name in packages if name.casefold() == token.casefold()), '')
+    if package and package in names:
+        return {'kind': 'engine', 'name': package, 'stage': stage, 'rest': rest}
     skill = _match_skill(token, skills)
     if skill:
         return {'kind': 'skill', 'name': skill, 'stage': stage, 'rest': rest}
@@ -168,10 +172,13 @@ def completion_entries(query, *, stage=None, skills=(), engines=None):
     """``/`` 候选结构化条目（R2980）：当前阶段 skill → 其余 skill → 阶段别名 → 子引擎，
     子串过滤、去重保序。条目 ``{'kind','name','label','insert'}``；
     ``insert`` 是含触发符与末尾空格的完整替换文本。"""
+    names = engines if engines is not None else sub_engine_names(skills)
+    packages = set(sub_engine_names(skills)).intersection(names)
     current, others = [], []
     for item in skills or ():
+        if _skill_name(item) in packages:
+            continue
         (current if _item_stage(item, stage) == stage else others).append(item)
-    names = engines if engines is not None else sub_engine_names()
     groups = (('skill', current), ('skill', others),
               ('stage', [alias for alias, _target in stage_aliases().items()]),
               ('engine', list(names)))

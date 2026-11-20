@@ -29,21 +29,36 @@ examples:
 ## 本阶段读取的项目锁
 
 直接读取项目创作信息窗／阶段配置中由「剧本准备」填写的 `track`、`material_source`、`aspect_ratio`、`resolution`、`fps`、`delivery_format`、`video_model_version`、`splice_mode`、`style_base`、`style_directors`；`reference_mode` 仅在 Seedance 2.5 时读取并按该版本校验。赛道与来源用于继承创作上下文，规格、模型、段缝和风格用于本阶段产物及验收。
-项目设置优先于引用中的交互询问、默认推荐及独立调用示例；后续阶段直接读取，不再向用户弹问或重新收集锁。必填锁缺失或矛盾时记录缺项并退回剧本准备／项目配置补齐，不擅填默认值；选填空值按新版包适用默认处理，在本阶段清单及最终交付中声明采用值和依据，不把空值当成用户已选风格卡。此规则不取消既有制作授权、预算和人工复核要求，也不关闭调试、手动执行或总控替换入口。
+项目设置优先于外部 SKILL 的交互询问、默认推荐及独立调用示例；后续阶段直接读取，不再向用户弹问或重新收集锁。必填锁缺失或矛盾时记录缺项并退回剧本准备／项目配置补齐，不擅填默认值；选填空值仅采用当前已选 SKILL 明示且适用的默认；没有依据则保持未设置，在本阶段清单及最终交付中声明采用值和依据，不把空值当成用户已选风格卡。此规则不取消既有制作授权、预算和人工复核要求，也不关闭调试、手动执行或 SKILL 选换入口。
 
-## 新版子技能章节（按职责读取）
+## 本阶段方法与交付边界
 
-投喂封装按 [素材映射与锚定](../00全流程SKILL/AIGC创作全流程/sd-feed-engine/SKILL.md#步骤-4--素材映射与人物道具锚定)、[多段衔接](../00全流程SKILL/AIGC创作全流程/sd-feed-engine/SKILL.md#步骤-5--多段衔接策略)、[工程语言清洗](../00全流程SKILL/AIGC创作全流程/sd-feed-engine/SKILL.md#步骤-6--工程语言清洗)、[台词完整性对照](../00全流程SKILL/AIGC创作全流程/sd-feed-engine/SKILL.md#步骤-7--台词完整性对照治格式全对内容漏句)、[闸门检查](../00全流程SKILL/AIGC创作全流程/sd-feed-engine/SKILL.md#步骤-8--过六道闸门)、[输出封装](../00全流程SKILL/AIGC创作全流程/sd-feed-engine/SKILL.md#步骤-9--输出) 执行；M0 不写图号，M1 附接线单且不声称已挂图，M2 只绑定真实登记素材。图像依赖模式的实际提交必须有可用输入，文本稿完成不等于视频生成成功。
-按已锁模型选择 [Seedance 2.5／2.0 投喂差异](../00全流程SKILL/AIGC创作全流程/short-drama-director/references/model-adapters.md#1-25-vs-20-投喂法则对照表)、[2.5 提示词范式](../00全流程SKILL/AIGC创作全流程/short-drama-director/references/model-adapters.md#2-seedance-25-三层解耦提示词投喂范式)、[投喂前自检](../00全流程SKILL/AIGC创作全流程/short-drama-director/references/model-adapters.md#三-投喂前自检清单-pre-flight-checklist)；H3 使用 [H3 模式路由](../00全流程SKILL/AIGC创作全流程/short-drama-director/references/h3-adapter.md#一模式路由h3-只有两个-checkpoint别按五模型理解)、[字段映射](../00全流程SKILL/AIGC创作全流程/short-drama-director/references/h3-adapter.md#二七段式--h3-字段映射核心表)、[H3 硬约束](../00全流程SKILL/AIGC创作全流程/short-drama-director/references/h3-adapter.md#三h3-硬约束写死--机检兜底) 和 [投喂载荷](../00全流程SKILL/AIGC创作全流程/short-drama-director/references/h3-adapter.md#五投喂路径与载荷p4-封装)。只应用匹配版本及参考模式的章节，包内规范不是当前供应商接口可用性的实测证明。
+投喂封装按 素材映射与锚定、多段衔接、工程语言清洗、台词完整性对照、闸门检查、输出封装 执行；M0 不写图号，M1 附接线单且不声称已挂图，M2 只绑定真实登记素材。图像依赖模式的实际提交必须有可用输入，文本稿完成不等于视频生成成功。
+按已锁模型和当前接口核对参考模式、输入图像/视频/音频、时长、画幅与字段；H3 依已有适配器的实际能力路由，不保留退役包的专用载荷要求。用户选装的适配说明也不是供应商接口可用性的实测证明。
 
-本文件仅声明所需章节，不授权加载整个总控包；读取时以项目锁及本阶段职责为边界。
+本文件直接定义本阶段职责；外部 SKILL 不能覆盖项目锁及阶段交付边界。
 
-## 定向注入（00 包）
+## 阶段核验方法
 
-执行本阶段时，只按需读取 [ai-video-tool-adapters.md 的 The capability-first rule](../00全流程SKILL/cinematic-director/references/ai-video-tool-adapters.md#the-capability-first-rule)、[The four prompt shapes](../00全流程SKILL/cinematic-director/references/ai-video-tool-adapters.md#the-four-prompt-shapes)、[Per-tool adapters](../00全流程SKILL/cinematic-director/references/ai-video-tool-adapters.md#per-tool-adapters)、[The motion budget](../00全流程SKILL/cinematic-director/references/ai-video-tool-adapters.md#the-motion-budget) 与 [Duration strategy](../00全流程SKILL/cinematic-director/references/ai-video-tool-adapters.md#duration-strategy)：先读取所选工具的控制面，再选择 S1／S2／S3／S4 提示词形态，继承首帧画幅并回填 `videoManifest`。
+执行本阶段时，按以下职责核验：The capability-first rule、The four prompt shapes、Per-tool adapters、The motion budget 与 Duration strategy：先读取所选工具的控制面，再选择 S1／S2／S3／S4 提示词形态，继承首帧画幅并回填 `videoManifest`。
 
-失败片段按需读取 [failure-modes.md 的 60-second triage tree](../00全流程SKILL/cinematic-director/references/failure-modes.md#60-second-triage-tree) 与 [Failure taxonomy F1–F19](../00全流程SKILL/cinematic-director/references/failure-modes.md#failure-taxonomy-f1f19)，记录可重试根因和任务状态，不能伪造完成。未经所选工具控制面或实际接口核验的 Seedance 2.0／2.5 专有语法及“2.0 禁首尾帧”断言，不能作为已验证规则写入本阶段。
+失败片段核验：60-second triage tree 与 Failure taxonomy F1–F19，记录可重试根因和任务状态，不能伪造完成。未经所选工具控制面或实际接口核验的 Seedance 2.0／2.5 专有语法及“2.0 禁首尾帧”断言，不能作为已验证规则写入本阶段。
 
-Seedance 2.0／2.5 已有新版包内模型适配参考；版本专有语法按上列对应章节执行，仍须核对实际接口能力，不能把包内说明冒充接口实测。
+Seedance 2.0／2.5 版本专有语法须按所选工具实际能力或用户安装的适用说明核对；缺依据时不声称已验证，不把说明冒充接口实测。
 
-不得加载 00 包全文、风格库或示例库；调试、人工复核与统筹替换入口保持可用。
+不默认加载外部包、风格库或示例库；调试、人工复核与 SKILL 选换入口保持可用。
+
+## S1／S2／S3／S4 的本地定义
+
+先核对实际工具的首尾帧、参考图、视频驱动、镜头控件、负面词和音频能力；有专用控件时使用控件，不以文本重复冲突指令。
+- S1 图生视频：镜头行为→主体起态→一个主动作及速度方向→一个环境运动→明确终态→身份连续性锁→必要排除；只写变化，不重写首帧已确定外观。
+- S2 文生视频：画幅风格→可复用身份细节→地点时间天气→主动作→景别角度焦段→一个镜头运动→实际光源→工具支持的音频→约束。
+- S3 首尾帧：起止桥接→单一变化（姿态、机位、光态择一）→镜头路径→时序缓急→不变项→排除；多项差异过大先补中间帧并拆片。
+- S4 时间戳多镜头：仅限支持时间分段的工具；全局定义风格画幅色盘、角色身份、连续性和切镜规则；每段写时间、景别角度、动作、镜头及至多一个光/声音提示，不逐段重述服装身份。存在负面字段时将排除项放该字段。
+视频驱动属于输入控制面，说明保留源片什么、替换什么，不另建S5。供应商参数、重试和预算仍以既有权威与实际接口为准。
+
+## 故障分类与返工
+
+F1身份漂移；F2无运动/PPT感；F3几何扭曲/融化；F4动作错误或缺失；F5无明确终态；F6镜头混乱/擅自运动；F7跨镜连续性断裂；F8时代泄漏；F9凭空增加人/物；F10手肢眼齿解剖错误；F11文字/水印伪影；F12光色漂移；F13速度/变速异常；F14重力重量碰撞液体等物理错误；F15音画/口型不同步；F16风格漂移；F17取景裁切错误；F18延长/循环接缝；F19既有对象消失。
+
+逐种观察症状记录镜头、时间码、症状、F码、根因与返工入口；不用“假/无聊”代替观察。先修提示或参数，再按原因修首帧、重设镜头或交剪辑；同因失败不无改动盲重试，多故障先简化或拆镜。可通过剪辑修正的局部问题不强制重生，重试与预算沿用程序既有权威。

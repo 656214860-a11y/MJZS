@@ -295,14 +295,9 @@ class PetVoiceTests(unittest.TestCase):
 # 第 68 期任务 10：界面文案一律第二人称「您」。下面这三个文件是「写给模型／Agent 的提示词」，
 # 里面的「你」指的是模型自己，不是用户，所以只在它们身上放行；以后再加这类提示词，把文件补进来。
 PROMPT_FILES = ("infra/pet_llm.py", "infra/continuity_ledger.py", "orchestrator/workflow_tasks.py",
-                "domain/voice_ai.py",
-                "skills/00全流程SKILL/AIGC创作全流程/short-drama-director/scripts/validate_prompt.py")
+                "domain/voice_ai.py")
 
 
-# R1489：AIGC 创作全流程是整包引入的第三方 SKILL（嵌套仓库，按版本升级整体替换），其脚本输出的
-# 文案不属于本项目的界面文案，也不由我们改写；V7.4.20 新增脚本里的「你」让本项收红。整包放行，
-# 不逐文件登记——否则每次升级都要追着补白名单。项目自己的界面文案仍一律受本项约束。
-VENDORED_SKILL_PACKAGE = "skills/00全流程SKILL/AIGC创作全流程/"
 
 
 class SecondPersonTests(unittest.TestCase):
@@ -320,7 +315,7 @@ class SecondPersonTests(unittest.TestCase):
     def test_interface_copy_speaks_to_you_with_the_polite_pronoun(self):
         bad = []
         for rel, body in sorted(self.sources.items()):
-            if rel in PROMPT_FILES or rel.startswith(VENDORED_SKILL_PACKAGE):
+            if rel in PROMPT_FILES:
                 continue
             for line, text in literals(ast.parse(body)):
                 if "你" in text:

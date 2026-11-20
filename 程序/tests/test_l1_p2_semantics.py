@@ -11,7 +11,6 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-import infra.aigc_lint as aigc_lint
 import infra.native_apps as native_apps
 import infra.workflow_process_registry as registry
 import orchestrator.workflow_engines as workflow_engines
@@ -48,39 +47,6 @@ class BroadcasterConcurrencyTests(unittest.TestCase):
                 # 每行必须是「时间戳＋一个完整前缀消息」，不允许两行内容被写进同一物理行。
                 self.assertRegex(line, r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} 【警告】t\d-\d+$')
             caster.close()
-
-
-class AigcLintTempTests(unittest.TestCase):
-    def test_write_temp_failure_leaves_no_residue(self):
-        with tempfile.TemporaryDirectory() as td:
-            old = os.environ.get('TMPDIR')
-            os.environ['TMPDIR'] = td
-            os.environ['TEMP'] = td
-            os.environ['TMP'] = td
-            try:
-                broken = mock.MagicMock()
-                broken.write.side_effect = OSError('disk full')
-                with mock.patch.object(aigc_lint.tempfile, 'NamedTemporaryFile', return_value=broken):
-                    with self.assertRaises(OSError):
-                        aigc_lint._write_temp('剧本正文')
-            finally:
-                for key, value in (('TMPDIR', old), ('TEMP', old), ('TMP', old)):
-                    if value is None:
-                        os.environ.pop(key, None)
-                    else:
-                        os.environ[key] = value
-            self.assertEqual(list(Path(td).iterdir()), [])
-
-    def test_feed_path_removes_file_on_error(self):
-        with tempfile.TemporaryDirectory() as td:
-            os.environ['TMP'] = td
-            try:
-                with self.assertRaises(RuntimeError):
-                    with aigc_lint._feed_path('x'):
-                        raise RuntimeError('boom')
-            finally:
-                os.environ.pop('TMP', None)
-            self.assertEqual([p for p in Path(td).iterdir() if p.suffix == '.md'], [])
 
 
 class CloudAssetsGraphTests(unittest.TestCase):

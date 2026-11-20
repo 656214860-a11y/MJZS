@@ -263,11 +263,15 @@ class UiEdgeAutoTests(UiEdgeCase):
             self.assertTrue(project_settings.auto_handoff(proj))
             self.assertTrue(d.pet.should_auto_run('delivery'))
             def settle():
-                for _ in range(80):
+                deadline = time.monotonic() + 5
+                while time.monotonic() < deadline:
                     win.update()
+                    # 本用例取消了自动tick；结果队列仍须由真实主线程tick消费。
+                    d._tick_once()
                     if not d.auto.handoff_busy:
-                        break
+                        return
                     time.sleep(0.01)
+                self.assertFalse(d.auto.handoff_busy, '自动交接后台任务未在5秒内结束')
             from contract.project_stages import editing
             folder = editing(proj) / "自动交接包"
             d.poll_auto_handoff()
@@ -1672,6 +1676,14 @@ class UiEdgeAutoTests(UiEdgeCase):
                     win.update(); d._tick_once()
                     if (folder / "镜头顺序.json").is_file() and settled():
                         break
+                    # 这里衡量结果可调度后的接力次数，不把后台磁盘工作耗时算成空转tick。
+                    queues = (d.auto.asset_queue, d.auto.final_queue, d.auto.keyframe_queue,
+                              d.auto.video_queue, d.auto.edit_queue, d.auto.handoff_queue)
+                    deadline = time.monotonic() + 15
+                    while not settled() and all(q.empty() for q in queues):
+                        self.assertLess(time.monotonic(), deadline, '后台制作15秒内未产生结果')
+                        win.update()
+                        time.sleep(0.01)
                     time.sleep(0.01)
                 for _ in range(60):
                     win.update(); d._tick_once()

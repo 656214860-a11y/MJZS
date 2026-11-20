@@ -90,22 +90,21 @@ class WritingStageInstructionsTests(unittest.TestCase):
         skill = root / relative
         skill.parent.mkdir(parents=True)
         shutil.copyfile(source / relative, skill)
-        aigc = Path('00全流程SKILL/AIGC创作全流程')
-        shutil.copytree(source / aigc, root / aigc)
         return root, skill
 
-    def test_installed_api_skill_loads_without_jingju_and_keeps_aigc(self):
+    def test_installed_api_skill_loads_without_builtin_control(self):
         from orchestrator import codex_skill_sync
         from workflow_settings import skill_prompt
         with tempfile.TemporaryDirectory() as directory:
             root, skill = self._installed_skill(directory)
-            self.assertFalse((root / '00全流程SKILL/jingju-skills').exists())
+            self.assertFalse((root / '00全流程SKILL').exists())
             with patch('skill_registry.default_root', return_value=root):
                 prompt = skill_prompt({'stage_skills': [str(skill)]}, inline=True)
             self.assertIn('### 4. 自然剧本', prompt)
-            for name in ('screenplay-gate-engine.md', 'emotion-beat-curve.md',
-                         'dialogue-doctor-7d.md', 'dialogue-speed-check.md'):
-                self.assertIn('## 引用: ' + name, prompt)
+            for phrase in ('Premise：明确主角', '标准三分钟短剧', '台词七维', '语速五步'):
+                self.assertIn(phrase, prompt)
+            self.assertIn('台词七维：角色辨识度', prompt)
+            self.assertIn('语速五步：拆句', prompt)
             home = Path(directory) / 'codex-skills'
             result = codex_skill_sync.sync_codex_skills(root.parent, home)
             self.assertEqual(result['written'], ['pipeline-script-preparation'])
@@ -113,12 +112,12 @@ class WritingStageInstructionsTests(unittest.TestCase):
             self.assertIn('### 4. 自然剧本', body)
             self.assertNotIn('jingju-skills', body)
 
-    def test_jingju_edits_do_not_change_api_or_synced_skill(self):
+    def test_unregistered_package_edits_do_not_change_api_or_synced_skill(self):
         from orchestrator import codex_skill_sync
         from workflow_settings import _inline_skill
         with tempfile.TemporaryDirectory() as directory:
             root, skill = self._installed_skill(directory)
-            reference = root / '00全流程SKILL/jingju-skills/references/stage-output-contracts.md'
+            reference = root / 'unregistered-package/references/stage-output-contracts.md'
             reference.parent.mkdir(parents=True)
             reference.write_text('原始外部模板', encoding='utf-8')
             with patch('skill_registry.default_root', return_value=root):
@@ -131,28 +130,22 @@ class WritingStageInstructionsTests(unittest.TestCase):
             body = (home / 'pipeline-script-preparation/SKILL.md').read_text(encoding='utf-8')
             self.assertNotIn('jingju-skills', body)
             self.assertIn('### 4. 自然剧本', body)
-            links = re.findall(r'\]\(([^)]+)\)', body)
-            original_references = {
-                'short-drama-director/references/screenplay-gate-engine.md#一-工业五阶门控开发流水线-5-stage-gate-pipeline',
-                'short-drama-director/references/emotion-beat-curve.md#一-12-关键节拍点量化模型0--10-分',
-                'short-drama-director/references/dialogue-doctor-7d.md#一-台词七维全量诊断扫描体系',
-                'short-drama-director/references/dialogue-speed-check.md#三-五步自检流程',
-            }
-            added_engines = {
-                'sd-decision-engine/SKILL.md#四工作流程',
-                'sd-script-engine/SKILL.md#六阶段链',
-                'sd-script-engine/SKILL.md#长剧批次合同',
-                'sd-script-engine/references/dialogue-naturalization.md',
-                'sd-overseas-engine/SKILL.md#六剧本层执行规则',
-                'sd-jieshuo-engine/SKILL.md#六旁白稿vo-script写作规范核心',
-                'sd-recon-engine/SKILL.md#四采风四步轻量流水线',
-            }
-            package_marker = '/00全流程SKILL/AIGC创作全流程/'
-            targets = [link.split(package_marker, 1)[-1] for link in links]
-            self.assertCountEqual(targets, original_references | added_engines)
-            for link in links:
-                self.assertIn('/00全流程SKILL/AIGC创作全流程/', link)
-                self.assertTrue(Path(link.split('#')[0]).is_file())
+    def test_installed_codex_skill_rewrites_generic_references(self):
+        from orchestrator import codex_skill_sync
+        with tempfile.TemporaryDirectory() as directory:
+            root, skill = self._installed_skill(directory)
+            reference = root / 'shared-reference' / 'rules.md'
+            reference.parent.mkdir()
+            reference.write_text('# Rules\n规则', encoding='utf-8')
+            with skill.open('a', encoding='utf-8') as stream:
+                stream.write('\n[规则](../shared-reference/rules.md#rules)\n')
+            home = Path(directory) / 'codex-skills'
+            report = codex_skill_sync.sync_codex_skills(root.parent, home)
+            self.assertEqual(report['errors'], [])
+            body = (home / 'pipeline-script-preparation/SKILL.md').read_text(encoding='utf-8')
+            links = re.findall(r'\[[^\]]*\]\(([^)]+)\)', body)
+            self.assertEqual(links, [reference.resolve().as_posix() + '#rules'])
+            self.assertTrue(Path(links[0].split('#')[0]).is_file())
 
 
 if __name__ == '__main__':

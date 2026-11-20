@@ -496,6 +496,7 @@ class SharedStageInput(_CandidateFlow, ttk.Frame):
         # R2942：换页先收掉补全弹层（锚点与候选都变），并让技能/引擎缓存下轮重取。
         self.close_completion()
         self._skills_cache = None
+        self._engines_cache = None
         self._sync_model_label()
 
     def skill_items(self):
@@ -513,13 +514,8 @@ class SharedStageInput(_CandidateFlow, ttk.Frame):
     def engine_names(self):
         if self._engines is not None:
             return tuple(self._engines)
-        if self._engines_cache is not None:
-            return self._engines_cache
-        try:
-            self._engines_cache = tuple(skill_command.sub_engine_names())
-            return self._engines_cache
-        except Exception:
-            return ()
+        # 只投影已加载的注册表快照；补全引擎候选不另触发递归发现。
+        return skill_command.sub_engine_names(self._skills or self._skills_cache or ())
 
     # ── 入口回调 ────────────────────────────────────────────────────────
     def open_skill_config(self):

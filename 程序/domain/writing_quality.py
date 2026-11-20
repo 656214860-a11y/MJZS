@@ -13,8 +13,9 @@ REPORTS = {
     'dialogue_diagnosis': ('台词诊断', 7),
     'dialogue_speed_check': ('台词语速自检', None),
 }
-REFERENCES = ('screenplay-gate-engine.md', 'emotion-beat-curve.md',
-              'dialogue-doctor-7d.md', 'dialogue-speed-check.md')
+# 能力由阶段职责声明判定，不能依赖已退役包的参考文件名。
+REFERENCES = ('编剧角色 · 剧本五阶门控', '编辑角色 · 情绪节拍曲线',
+              '演员角色 · 台词七维诊断', '演员角色 · 台词语速自检')
 OPEN, CLOSE = '<script_quality>', '</script_quality>'
 
 

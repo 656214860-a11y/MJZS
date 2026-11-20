@@ -2,60 +2,6 @@
  "schema_version": 1,
  "entries": [
   {
-   "file": "tests/test_aigc_lint.py",
-   "test": "BridgeContractTests.test_gate_check_returns_structured_dict_when_mounted",
-   "ordinal": 1,
-   "kind": "需实机复验",
-   "reason_constant": "REQUIRES_BUNDLED_SKILL",
-   "reason": "需实机复验：发行包未包含受测 bundled skill；打包产物具备该技能后应恢复执行",
-   "reference": ""
-  },
-  {
-   "file": "tests/test_aigc_lint.py",
-   "test": "BridgeContractTests.test_style_ladder_returns_text_when_mounted",
-   "ordinal": 1,
-   "kind": "需实机复验",
-   "reason_constant": "REQUIRES_BUNDLED_SKILL",
-   "reason": "需实机复验：发行包未包含受测 bundled skill；打包产物具备该技能后应恢复执行",
-   "reference": ""
-  },
-  {
-   "file": "tests/test_aigc_lint.py",
-   "test": "BridgeContractTests.test_style_recommend_returns_pool_shape_when_mounted",
-   "ordinal": 1,
-   "kind": "需实机复验",
-   "reason_constant": "REQUIRES_BUNDLED_SKILL",
-   "reason": "需实机复验：发行包未包含受测 bundled skill；打包产物具备该技能后应恢复执行",
-   "reference": ""
-  },
-  {
-   "file": "tests/test_aigc_lint.py",
-   "test": "BridgeContractTests.test_unmounted_scripts_return_friendly_dict_not_raise",
-   "ordinal": 1,
-   "kind": "需实机复验",
-   "reason_constant": "REQUIRES_BUNDLED_SKILL",
-   "reason": "需实机复验：发行包未包含受测 bundled skill；打包产物具备该技能后应恢复执行",
-   "reference": ""
-  },
-  {
-   "file": "tests/test_aigc_lint.py",
-   "test": "BridgeContractTests.test_validate_prompt_returns_structured_dict_when_mounted",
-   "ordinal": 1,
-   "kind": "需实机复验",
-   "reason_constant": "REQUIRES_BUNDLED_SKILL",
-   "reason": "需实机复验：发行包未包含受测 bundled skill；打包产物具备该技能后应恢复执行",
-   "reference": ""
-  },
-  {
-   "file": "tests/test_aigc_lint.py",
-   "test": "SkillToolsWiringTests.test_unmounted_feed_validate_raises_toolerror_not_traceback",
-   "ordinal": 1,
-   "kind": "需实机复验",
-   "reason_constant": "REQUIRES_BUNDLED_SKILL",
-   "reason": "需实机复验：发行包未包含受测 bundled skill；打包产物具备该技能后应恢复执行",
-   "reference": ""
-  },
-  {
    "file": "tests/test_app_icon.py",
    "test": "WindowTests.test_apply_hands_the_icon_to_a_real_window",
    "ordinal": 1,

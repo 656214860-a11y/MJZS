@@ -249,14 +249,14 @@ class ReqS05AnchorTests(unittest.TestCase):
     # --- SKILL 正典准入 ---------------------------------------------------
     def test_req_s05_41_canon_admission_and_conflicts_do_not_overwrite_assets(self):
         """REQ-S05-41：缺来源/锚点/版本不得进正典；冲突只生成待修复项，不覆盖已确认资产；
-        SKILL 只按需读取两份参考的相应章节，不注入 00 包全文。"""
+        SKILL 直接保留阶段正典核验职责，不默认加载外部包。"""
         text = _skill_text()
         for fragment in (
                 '资产缺少可追溯来源、身份锚点或版本时不得进入正典',
                 '发现冲突只生成待修复项，不覆盖已确认资产',
-                'continuity-bible.md#the-identity-string-contract',
-                'image-model-adapters.md#4-character-consistency-playbook-cheapest-first',
-                '不得加载 00 包全文'):
+                '稳定身份串的资产正典',
+                '根据已选工具的控制面决定参考图、种子或编辑约束',
+                '不默认加载外部包、风格库或示例库'):
             self.assertIn(fragment, text)
 
         assets = {'CHAR_001': {

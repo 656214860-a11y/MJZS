@@ -1,0 +1,51 @@
+{
+  "source_commit": "f583e096",
+  "reason": "验收产物误入源码根；原字节归档，不扩白名单",
+  "files": [
+    {
+      "path": ".agents/account_consolidate_r3832.py",
+      "bytes": 21592,
+      "sha256": "d9cd21ff6c64176f7bd3bfcf746791104e8f2d6121651356d30be9c8812bb15a",
+      "backup_verified": true,
+      "source_commit": "f583e096"
+    },
+    {
+      "path": ".agents/account_r3832_checks.json",
+      "bytes": 12874,
+      "sha256": "a78bc7f495e639ecd0c458b422c6139959480147b56d36aaf6f022e40157567e",
+      "backup_verified": true,
+      "source_commit": "f583e096",
+      "archived_path": ".agents/account_r3832_checks.json.utf16le",
+      "encoding": "utf-16le"
+    },
+    {
+      "path": ".agents/account_r3832_checks_utf8.json",
+      "bytes": 6116,
+      "sha256": "de02e703cae7a0ccb8f0cdd4510e40fafa4cb11e5f3f2fe71f6baa7ec32a85fc",
+      "backup_verified": true,
+      "source_commit": "f583e096"
+    },
+    {
+      "path": ".agents/verify_account_r3832.py",
+      "bytes": 4258,
+      "sha256": "b807c9649a6902617c145a7bc0c31d3485173287ed63d3c123b40da6f0a54892",
+      "backup_verified": true,
+      "source_commit": "f583e096"
+    },
+    {
+      "path": "程序/auto-full-safe-result.json",
+      "bytes": 209,
+      "sha256": "d89831fd602b8776f98afb34e6401cdf2ab39309c279df0b8cd55d4f56a26726",
+      "backup_verified": true,
+      "source_commit": "f583e096"
+    },
+    {
+      "path": "程序/full-safe-history.jsonl",
+      "bytes": 132,
+      "sha256": "6286775ecf0757b8295bf3fd2a1e304a9bb2b2a5e2f9be10a892b9c932f8bdbd",
+      "backup_verified": true,
+      "source_commit": "f583e096"
+    }
+  ],
+  "byte_exact_note": "account_r3832_checks.json 原为 UTF-16LE（PowerShell 重定向产物），含落单 CR；为不扩文本扫描白名单，保留原字节并改附加后缀 .utf16le，内容与 SHA-256 不变。"
+}

@@ -25,7 +25,7 @@ def _package_stats(package):
 
 
 def scan_residue(program, *, stage_from_path, package_source):
-    """只枚举根部非阶段包，00 容器按下一层整包展示；不触碰阶段注册表。"""
+    """只枚举根部非阶段整包；不触碰阶段注册表。"""
     program = Path(program).absolute()
     root = program / 'skills'
     if _linked(root) or not root.is_dir():
@@ -35,8 +35,7 @@ def scan_residue(program, *, stage_from_path, package_source):
         if (directory.name.startswith('.') or not directory.is_dir() or _linked(directory)
                 or stage_from_path(directory / '__stage_probe__')):
             continue
-        candidates = sorted(directory.iterdir(), key=lambda p: p.name) if directory.name == '00全流程SKILL' else [directory]
-        for package in candidates:
+        for package in [directory]:
             if not package.is_dir() or package.name.startswith('.') or _linked(package):
                 continue
             source = package_source(package)

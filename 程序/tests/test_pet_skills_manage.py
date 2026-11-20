@@ -164,7 +164,7 @@ class SkillsManagePageTests(SkillsManageCase):
         self.assertNotIn('other-project-skill', names)
 
     def test_residue_entry_lists_package_and_requires_both_confirmations(self):
-        package = self.program / 'skills' / '00全流程SKILL' / 'AIGC创作全流程'
+        package = self.program / 'skills' / 'AIGC创作全流程'
         package.mkdir(parents=True)
         (package / 'README.md').write_text('总包说明', encoding='utf-8')
         other = self.program / 'skills' / 'imagegen'
@@ -176,7 +176,7 @@ class SkillsManagePageTests(SkillsManageCase):
         self.addCleanup(win.destroy)
         seam = win._pet_seams['residue']
         rows = seam['tree'].get_children()
-        self.assertEqual(rows, ('00全流程SKILL/AIGC创作全流程', 'imagegen'))
+        self.assertEqual(rows, ('AIGC创作全流程', 'imagegen'))
         self.assertEqual(str(seam['tree']['selectmode']), 'extended')
         self.assertEqual(seam['tree']['columns'], ('name', 'path', 'count', 'size', 'description'))
         seam['tree'].selection_set(rows)

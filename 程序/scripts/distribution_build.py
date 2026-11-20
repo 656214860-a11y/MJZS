@@ -38,7 +38,6 @@ DIGEST_NAME = '分发清单.json'
 # 构建器安全兜底：不管清单怎么写，源控制元数据与字节码缓存都不进正式副本。
 ALWAYS_EXCLUDE = ('.git', '.git/**', '**/.git/**', '__pycache__/**', '**/__pycache__/**',
                   '*.pyc', '**/*.pyc')
-JINGJU_PACKAGE = '程序/skills/00全流程SKILL/jingju-skills'
 
 _ROW = re.compile(r'^\|\s*(.+?)\s*\|')
 _TOKEN = re.compile(r'`([^`]+)`')
@@ -233,7 +232,7 @@ def build(destination, root=ROOT, manifest=None, allow_undecided=False) -> dict:
 
 
 def verify(destination, root=ROOT, manifest=None) -> dict:
-    """校验一个已经建好的输出目录：不含排除项、入口齐全、摘要自洽、jingju 整包还在。"""
+    """校验一个已经建好的输出目录：不含排除项、入口齐全、摘要自洽、保留技能完整。"""
     manifest = manifest or parse_manifest()
     dest = Path(destination).resolve()
     present = candidate_files(dest)
@@ -269,7 +268,6 @@ def verify(destination, root=ROOT, manifest=None) -> dict:
                    and sbom.get('specVersion') == '1.5' and components and notices_path.is_file()),
         'components': len(components or []), 'release_blockers': blockers,
     }
-    jingju = dest / JINGJU_PACKAGE / 'SKILL.md'
     runtime = ({'ok': True, 'skipped': True}
                if not (dest / release_runtime.SITE).is_dir()
                else release_runtime.validate(dest, dest / '程序'))
@@ -277,7 +275,6 @@ def verify(destination, root=ROOT, manifest=None) -> dict:
         'no_excluded': {'ok': not leaked, 'count': len(leaked), 'hits': leaked[:20]},
         'keep_present': {'ok': not missing, 'missing': missing},
         'digest': digest,
-        'jingju_package': {'ok': jingju.is_file(), 'path': str(jingju)},
         'supply_chain': supply_chain,
         'release_runtime': runtime,
     }

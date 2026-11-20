@@ -212,9 +212,9 @@ class RemovablePackageTests(unittest.TestCase):
         registry = skill_registry.default_registry()
         registry.scan(force=True)
         skills = {skill.name: skill for skill in registry.getAll()}
-        # 鲸剧包放在非阶段目录 00全流程SKILL 下，不是注册依赖源；删掉它不改剧本技能的依赖面。
+        # 退役包应已删除，注册依赖与其不存在保持解耦。
         package = skill_registry.default_root() / '00全流程SKILL' / 'jingju-skills'
-        self.assertTrue((package / 'SKILL.md').is_file())
+        self.assertFalse(package.exists())
         self.assertNotIn('jingju-skills', skills)
         known = set(skills)
         for skill in skills.values():

@@ -1,0 +1,15 @@
+{
+  "round": 3860,
+  "commit_base": "b85eb285",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k resources previs_monitor_exposure ui_edges_autopilot",
+    "exit": 0,
+    "passed": 51,
+    "failed": 0
+  },
+  "generated_at": "2026-11-20T00:12:06"
+}

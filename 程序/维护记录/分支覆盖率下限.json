@@ -2,7 +2,6 @@
   "note": "L0/L1 分支覆盖率棘轮下限（SWE-2 T8.4）：取 分支覆盖率基线.json 首次定向测量实测百分比向下取整；只许人工上调，工具重测不改写本文件。口径见 runbook §11 与基线 metric 字段。 R3181更正：工具按entity_file解析实体，恢复所有历史下调/漏记门槛；file_naming/file_index/global_library_service旧门面0/0=100无实体测量意义，本轮首次真实实体测量向下取整建立初始门槛，非既有实体覆盖率回退。",
   "floors": {
     "account_store.py": 20.0,
-    "aigc_lint.py": 0.0,
     "api_endpoints.py": 14.0,
     "api_models.py": 85.0,
     "app_icon.py": 73.0,

@@ -75,9 +75,10 @@ class PrevisMonitorExposureTests(unittest.TestCase):
 
     def test_non_get_methods_never_return_the_page(self):
         for method in ('POST', 'PUT', 'DELETE', 'HEAD'):
-            status, _content_type, body = self._call(method, '/', body=b'x' if method == 'POST' else None)
-            self.assertNotEqual(status, 200, method + ' 不得返回页面')
-            self.assertNotIn(PAGE_MARK, body, method + ' 的响应不得带页面内容')
+            with self.subTest(method=method):
+                status, _content_type, body = self._call(method, '/', body=b'x' if method == 'POST' else None)
+                self.assertNotEqual(status, 200, method + ' 不得返回页面')
+                self.assertNotIn(PAGE_MARK, body, method + ' 的响应不得带页面内容')
 
 
 if __name__ == '__main__':

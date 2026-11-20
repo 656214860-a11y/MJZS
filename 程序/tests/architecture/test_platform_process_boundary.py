@@ -65,7 +65,7 @@ _PROCESS_EXEMPT_STEMS = frozenset({'platform_tools', 'workflow_process_registry'
 
 SPAWN_SITE_EXEMPT = {
     'short_probe': frozenset({
-        'infra/aigc_lint.py:85', 'infra/engine_probe.py:140',
+        'infra/engine_probe.py:140',
         'infra/native_apps.py:42', 'codex_paste.py:34', 'console_submit.py:14',
         'orchestrator/previs_automation.py:23',
     }),
