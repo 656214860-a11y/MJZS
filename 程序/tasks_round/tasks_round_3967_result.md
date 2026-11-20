@@ -1,10 +1,10 @@
 # R3967 — 功能轮：全量红灯归因（偶发与持续分开统计）
-<!-- round-evidence: {"commit_base": "05d8ec19", "credential_hits": 0, "evidence_sha256": "2a8b9bb0f962ec60", "exit": 0, "failed": 0, "passed": 15, "round": 3967, "tests": "run_selftests.py -k test_dora_report"} -->
+<!-- round-evidence: {"commit_base": "4468486f", "credential_hits": 0, "evidence_sha256": "372b98b773c8394f", "exit": 0, "failed": 0, "passed": 15, "round": 3967, "tests": "run_selftests.py -k test_dora_report"} -->
 
 ## 1. 三问
 
 1. **轮次类型**：功能轮（工程观测工具，不涉及产品需求编号）。先改 `runbook.md` 的「结果侧观测」一段，再写测试，最后写实现。
-2. **测试跑了吗、三个基线过了吗**：先红后绿（§4）。定向 `run_selftests.py -k test_dora_report`，条数以本文件第 2 行的证据为准。默认冒烟 9 项通过、0 项失败。文档门禁 31 条绿，`doc_registry.py --check` 86 份通过。架构门禁和全量没有在车道里跑：架构门禁由合入时的出口检查跑，全量按欠账规则由后台补跑。
+2. **测试跑了吗、三个基线过了吗**：先红后绿（§4）。定向 `run_selftests.py -k test_dora_report`，条数以本文件第 2 行的证据为准。默认冒烟 9 项通过、0 项失败。文档门禁 31 条绿，`doc_registry.py --check` 86 份通过。架构门禁和全量没有在车道里跑：架构门禁由合入时的出口检查跑，全量按欠账规则由后台补跑。第一次合入时出口检查的架构门禁红了 1 条，已修（§4 末）。
 3. **欠账少了吗**：关闭一条——红灯停留的统计把 182 行样例记录算了进去（§2）。新增一项能力——一条命令能看到偶发红与持续红各占多少。新记两条待办（§6 第 1、2 条）。
 
 ## 2. 为什么做
@@ -57,6 +57,17 @@ FAILED (failures=2, errors=6)
 第一条就是污染的复现：两行样例记录凭空造出一段 600 秒的红灯。
 
 改之后：同一命令 `Ran 15 tests … OK`；`run_selftests.py -k test_dora_report` 15 条、0 个文件有红。
+
+**出口检查红过一次。** 第一次合入（车道提交 `4468486f`）时，默认冒烟和静态门禁通过，架构门禁 684 条里红 1 条，主干未被占用、未领合并号：
+
+```
+FAIL: test_bare_json_load_debt_is_a_nonincreasing_subset (tests.architecture.test_unification_ratchet)
+AssertionError: 第四项 出现未登记新增债务：['scripts/dora_report.py:history_rows:json.loads:cb57ae7929daaf0d:1']
+```
+
+原因：把读历史的代码从 `red_dwell()` 挪进 `history_rows()` 时，把主干原来的 `json.JSONDecoder().decode` 写成了 `json.loads`；裸 `json.loads` 按《架构统一基数》第四项只减不增。提交前只跑了冒烟、定向和文档门禁，没有跑架构门禁，所以到出口检查才发现。
+
+修法：改回原写法，行为不变，台账没有动。复测 `python -B -m unittest tests.architecture.test_unification_ratchet tests.architecture.test_stable_registration tests.test_dora_report`：`Ran 25 tests … OK`。
 
 ## 5. 真实仓库上的基线
 
@@ -116,6 +127,7 @@ FAILED (failures=2, errors=6)
 4. **偶发的证据面很窄。** 91 个提交里只有 10 个跑过两次及以上全量；其余提交上的偶发拿不到同提交证据，只能列为疑似或未定。
 5. **「另一次完整的红没有红它」当作它通过的证据，前提是那次全量跑完了。** 全量中途被打断但已经留下部分失败文件名时，这个前提不成立；历史里没有字段能区分。
 6. **只统计，没有处置。** 隔离名单、自动重跑、全量分级都没有做，等用户看过数据再定。
+7. **逐行解析沿用主干原写法，没有登记豁免。** 本文件读 JSONL 用的是 `json.JSONDecoder().decode`，不在裸 `json.loads` 棘轮的扫描口径内；同类脚本 `scripts/benchmark_trend.py` 是登记豁免后用 `json.loads`。两种做法要不要统一，留给治理轮，本轮没有改变现状。
 
 ## 7. 回退
 

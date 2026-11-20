@@ -141,12 +141,12 @@ def history_rows(history_path, since=None):
         lines = Path(history_path).read_text(encoding='utf-8').splitlines()
     except (OSError, ValueError):
         return None, 0
-    rows, dropped = [], 0
+    rows, dropped, decoder = [], 0, json.JSONDecoder()
     for line in lines:
         if not line.strip():
             continue
         try:
-            row = json.loads(line)
+            row = decoder.decode(line)
         except ValueError:
             row = None
         stamp = _stamp(row.get('at')) if isinstance(row, dict) else None
