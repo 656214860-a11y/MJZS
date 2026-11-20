@@ -3,10 +3,10 @@
 只保存「助手行为」类开关，不保存分镜采用列表等业务数据；沿用同一份 ui_settings.json，
 写入前先读回已有内容，避免覆盖其他模块的键。
 """
-import shutil
 from pathlib import Path
 from agent.core import read,save,read_json
 from agent.publication import access
+from contract.infra_errors import ConfigError
 
 DEFAULTS={'auto_review':False,'auto_adopt':False,'auto_edit':False,'auto_submit':False,'auto_keyframe':False,'auto_asset':False,'auto_video':False,'auto_previs':False,'auto_final':False,'auto_handoff':False}
 
@@ -38,20 +38,19 @@ def get(project,key,default=None):
     return DEFAULTS.get(key,default)
 
 def _read_for_write(path):
-    """put 的严格读取：文件不存在→空；读失败→原文件改名 ``.corrupt`` 保留，再按空处理。
+    """put 锁内严格重读：仅文件不存在可建空表，其余读取错误均拒写。
 
-    与 ``load()`` 的分工同 ``account_store._load_write``：读路径读不出就当开关全关；
-    写路径读不出却整份覆盖，会把用户刚改的其它开关全部抹掉。坏文件先留证再写。
+    ``load()`` 的安全关闭视图只供读取；损坏文件须由用户显式恢复后才能写入。
     """
-    target=Path(path)
-    if not target.is_file():return {}
-    try:data=read(target)
+    try:data=read(Path(path))
     except FileNotFoundError:return {}
     except (OSError,ValueError,UnicodeError):
-        try:shutil.copy2(target,target.with_name(target.name+'.corrupt'))
-        except OSError:pass
-        return {}
-    return data if isinstance(data,dict) else {}
+        raise ConfigError('项目设置文件 ui_settings.json 无法读取，已取消保存。'
+                          '请保留原文件，检查访问权限、UTF-8 编码和 JSON 对象格式后重试。') from None
+    if not isinstance(data,dict):
+        raise ConfigError('项目设置文件 ui_settings.json 顶层必须是 JSON 对象，已取消保存。'
+                          '请保留原文件，修复格式后重试。')
+    return data
 
 def put(project,key,value):
     path=file(project)
