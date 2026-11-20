@@ -1,5 +1,5 @@
 # R3999 结果：全量持续红归因报告（任务卡 R2-G0，只读归因轮）
-<!-- round-evidence: {"commit_base": "51e2a9a0", "credential_hits": 0, "evidence_sha256": "c9f5140b94b8336e", "exit": 0, "failed": 0, "passed": 0, "round": 3999, "tests": "docs-only"} -->
+<!-- round-evidence: {"commit_base": "4555fbe5", "credential_hits": 0, "evidence_sha256": "10bcc9fdf906c953", "exit": 0, "failed": 0, "passed": 0, "round": 3999, "tests": "docs-only"} -->
 
 ## 1. 三问
 
@@ -42,4 +42,4 @@
 ## 7. 提交
 
 - 提交命令：`PY -B scripts\dev.py commit -m "R3999: 全量持续红归因报告" --agent Devin tasks_round/全量持续红归因报告.md tasks_round/tasks_round_3999_result.md`
-- 提交号：（提交后回填）
+- 提交号：`4555fbe5`（含自动生成的 `tasks_round/evidence/R3999.json`）
