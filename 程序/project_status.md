@@ -1,6 +1,6 @@
 # 项目状态（可独立接续）
 
-更新：2026-11-20｜当前轮次：3921（R3920 合并轮：合入 codex/l0-constitution：R3804-R3904 L0门控诊断批（G-1命中分支处置矩阵/IF定版匹配度分层/任务书完成态盘点）＋R3913 master架构门禁红诊断收口（R3914已根因修复、零代码变更）；docs-only；断言未动；未跑全量。上一轮：R3918 状态接续轮：同步验证基线与阶段口径；docs-only；未跑全量。）
+更新：2026-11-20｜当前轮次：3922（R3921 状态接续轮：校正已合入的 l0 车道记录；docs-only；未跑全量。上一轮：R3920 合并轮：合入 codex/l0-constitution。）
 
 历史接续记录：R3308 修复槽位泄漏 bug 并优化慢测试超时，定向测试 46/46 通过。
 
@@ -73,7 +73,7 @@ R1507 核验：R1506 正式记录 tree=`1844649ecd07befa6f6fabd2c0e12e486cb40657
 
 ## 已知阻塞与待办
 
-- 【当前车道·2026-11-20】主树 `385dd7b6`（R3915）。`codex/gate-unblock` 为 `2e3399af`（R3916，未合入）：六支历史快照已改名为 `archive/foundation-*`；`codex/foundation-ffmpeg-runtime` 为 `0f359379`，定向测试与合入未做，U3、U4 未开始。`codex/foundation-integration-final` 为 `d5fb72fd`（R3909，未合入）。`codex/l0-constitution` 为 `3efe095d`（R3913）。`codex/l1-enterprise` 与 `codex/architecture-root-layout` 的尖端都是 `385dd7b6`；R3917 已由后者在 13:52 认领，本树没有 R3917 结果文件。master 上 29 份任务书有 10 份没有完成文件，名单见 [R3918](tasks_round/tasks_round_3918_result.md)。
+- 【当前车道·2026-11-20】主树 `bf3639ab`（R3920）。`codex/l0-constitution` 的尖端 `35196826` 已包含在这次合并中。`codex/gate-unblock` 仍为 `2e3399af`（R3916，未合入）：六支历史快照已改名为 `archive/foundation-*`；`codex/foundation-ffmpeg-runtime` 为 `0f359379`，定向测试与合入未做，U3、U4 未开始。`codex/foundation-integration-final` 为 `d5fb72fd`（R3909，未合入）。`codex/l1-enterprise` 与 `codex/architecture-root-layout` 的尖端 `385dd7b6` 已是主干祖先；R3917 仍由后者认领，本树没有 R3917 结果文件。master 上 29 份任务书有 10 份没有完成文件，名单见 [R3918](tasks_round/tasks_round_3918_result.md)。`architecture.md` 的阶段口径修正尚未提交：对 49 条检出分支做合并试算，47 条会在该文件上冲突。
 
 - 【待办·等开发到配音阶段再做】R2244（S11 音频脚本直连 API，已合入 master）遗留：① 三虎自动化接入音频脚本直连（现仅手动按钮有入口）；② 指定模型后做真实 API 联调（未调用过真实 API）；③ 非 chat 线路无法在请求中途中断（停止后丢弃结果、不落盘）；④ 架构门禁 5 项改前即存在的红：`model_pool.py`（原子写／体量上限／`old.unlink` 删除登记）、`scripts/release_watch.py` 裸 json.loads 债务、`test_agents_md` performance_history 错误。
 
