@@ -7,7 +7,7 @@
 
 ## 范围与因果证据
 
-执行[内建总控退役任务书](总控机制删除任务书_R3811.md)最终验收。主体变化检查点b85eb285（R3818-FAIL），本轮真实领号3860。
+执行[内建总控退役任务书](总控机制删除任务书.md)最终验收。主体变化检查点b85eb285（R3818-FAIL），本轮真实领号3860。
 
 1. `test_resources.test_ensure_free_rejects_oversized_request` 原先先读free，再要求free+1时必拒绝，其他测试释放磁盘会使后次free增大。用精确两次采样100→101复现原断言`StorageError not raised`。修复为固定同一次真实disk_usage返回值；required/available/code/异常类型等原断言保持，不改资源服务。
 2. `test_sanhu_auto_mode_persists_and_polls_handoff` 原settle最多80×10ms，在完整树日志中后台仍busy而断言完成文案。先改为5秒终态等待仍复现busy失败，因此重新读真实回调发现：用例`cancel_timers()`取消了自动tick，win.update并不执行应用结果队列消费；原代码只在等待结束后tick一次。最小修复是在等待中调用真实`d._tick_once()`消费交接结果，并以handoff_busy终态及5秒上界断言结束。完成文案、产物、digest与仅整理一次断言保持。不改产品执行器，不调整产品性能契约。
