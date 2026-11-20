@@ -9,6 +9,8 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+import tkinter as tk
+from tkinter import ttk
 
 import tk_test_support
 from contract import project_stages
@@ -277,56 +279,57 @@ class FilterBarTests(StageRailTests):
     def rows(self):
         return super().rows()
 
-    def test_filter_bar_has_three_boxes_and_a_keyword_entry(self):
+    def test_filter_bar_has_four_boxes_and_a_keyword_entry(self):
+        """R3983（L4-U2）：阶段选择并入图标列，stage_box 控件不存在。"""
         panel = self.desktop.files_panel
-        for name in ('stage_box', 'kind_box', 'status_box', 'keyword_entry'):
+        for name in ('kind_box', 'status_box', 'group_box', 'sort_box', 'keyword_entry'):
             self.assertTrue(hasattr(panel, name), name)
-        self.assertEqual(tuple(panel.stage_box.cget('values'))[0], '全部阶段')
+        self.assertFalse(hasattr(panel, 'stage_box'), '阶段下拉框已并入右侧图标列')
         self.assertEqual(tuple(panel.kind_box.cget('values'))[0], '全部类型')
         self.assertEqual(tuple(panel.status_box.cget('values'))[0], '全部状态')
 
     def test_kind_and_stage_combine(self):
         panel = self.desktop.files_panel
-        panel.stage_box.set('资产管理')
+        panel.show_stage('assets')
         panel.kind_box.set('资产')
         panel._apply_filters()
-        self.pump(.2)
+        self.wait_index()
         rows = self.rows()
         self.assertTrue(rows)
         self.assertTrue(all(row.startswith('05资产管理/') for row in rows), rows)
 
     def test_keyword_filters_by_name(self):
         panel = self.desktop.files_panel
-        panel.stage_box.set('全部阶段')
+        panel.show_stage(None)
         panel.kind_box.set('全部类型')
         panel.status_box.set('全部状态')
         panel.keyword_var.set('CHAR_001')
         panel._apply_filters()
-        self.pump(.2)
+        self.wait_index()
         rows = self.rows()
         self.assertTrue(rows)
         self.assertTrue(all('CHAR_001' in row for row in rows), rows)
 
     def test_status_filter_matches_published(self):
         panel = self.desktop.files_panel
-        panel.stage_box.set('全部阶段')
+        panel.show_stage(None)
         panel.kind_box.set('全部类型')
         panel.status_box.set('草稿')
         panel._apply_filters()
-        self.pump(.2)
+        self.wait_index()
         draft = self.rows()
         panel.status_box.set('已发布')
         panel._apply_filters()
-        self.pump(.2)
+        self.wait_index()
         published = self.rows()
         self.assertEqual(len(draft) + len(published), len(file_index.rows(self.desktop.root)))
 
     def test_clearing_conditions_restores_full_index(self):
         panel = self.desktop.files_panel
-        panel.stage_box.set('资产管理')
+        panel.show_stage('assets')
         panel.kind_box.set('资产')
         panel._apply_filters()
-        self.pump(.2)
+        self.wait_index()
         self.assertTrue(panel._filters_active())
         panel.show_stage(None)
         panel.kind_box.set('全部类型')
@@ -338,6 +341,127 @@ class FilterBarTests(StageRailTests):
         self.assertTrue(self.rows())
         self.assertIn('stage-group:script', panel.script_tree.get_children())
         self.assertIn('stage-group:assets', panel.script_tree.get_children())
+
+
+class FilterDedupTests(StageRailTests):
+    """R3983（任务书 L4-U2）：筛选区去重——无阶段下拉框；四个下拉框按取值自适应宽。
+
+    面板内宽放不下第二行时，「分组」「排序」连同名称整体换到第三行。
+    """
+
+    def _leaf_controls(self):
+        """筛选条里所有已映射的非容器控件（下拉框、名称文字、关键字框、刷新钮）。"""
+        panel = self.desktop.files_panel
+        controls = []
+        stack = [panel.filter_bar]
+        while stack:
+            widget = stack.pop()
+            stack.extend(widget.winfo_children())
+            if not isinstance(widget, (ttk.Frame, tk.Frame)) and widget.winfo_ismapped():
+                controls.append(widget)
+        return controls
+
+    def _widen_panel(self):
+        """面板宽按最长文件名收缩：放一个够长的名字把它撑到上限再量几何。"""
+        root = Path(self.desktop.root)
+        target = root / '05资产管理' / 'assets' / (
+            '面板宽度撑满用样例素材文件名零一二三四五六七八九零一二三四五六七八九_0001.png')
+        target.write_bytes(b'\x89PNG')
+        self.desktop.files_panel.refresh_file_index()
+        self.wait_index()
+        return target, root
+
+    def _restore_panel(self, target, root, win, old):
+        """删掉撑宽用的文件并让面板收回去，不弄脏共用夹具。"""
+        target.unlink(missing_ok=True)
+        self.desktop.files_panel.refresh_file_index()
+        self.wait_index()
+        win.geometry(old)
+        self.pump(.3)
+
+    def test_filter_controls_sit_on_two_rows_at_wide_window(self):
+        """T1：1280×800 下筛选区控件只占两行（按控件顶边坐标分组计数）。
+
+        夹具文件名都很短，面板只有最窄宽；先放一个长名字撑到上限宽（§2.2 实测
+        478）再量，收尾删掉并重建索引，不弄脏共用夹具。
+        """
+        panel = self.desktop.files_panel
+        panel.open_panel()
+        target, root = self._widen_panel()
+        win = self.win
+        old = win.geometry()
+        try:
+            win.geometry('1280x800')
+            self.pump(.5)
+            tops = sorted({widget.winfo_rooty() for widget in self._leaf_controls()})
+            self.assertEqual(len(tops), 2, tops)
+        finally:
+            self._restore_panel(target, root, win, old)
+
+    def test_each_dropdown_fully_shows_current_value(self):
+        """T2：两档窗口下四个下拉框实际宽 ≥ 当前取值文字宽＋箭头区宽。
+
+        箭头区宽度＝控件请求宽 − 字符宽×字符单位，覆盖内边距与下拉箭头；
+        文字宽用该控件字体实测，不做全角×2 近似。长文件名撑宽面板避免
+        夹具窄面板把换行后的框挤小。
+        """
+        from tkinter import font as tkfont
+        from ui_tokens import COMBOBOX_FONT
+        panel = self.desktop.files_panel
+        panel.open_panel()
+        target, root = self._widen_panel()
+        win = self.win
+        old = win.geometry()
+        try:
+            for size in ('1280x800', '880x600'):
+                win.geometry(size)
+                self.pump(.5)
+                for name in ('kind_box', 'status_box', 'group_box', 'sort_box'):
+                    box = getattr(panel, name)
+                    font = tkfont.Font(root=box, font=COMBOBOX_FONT)
+                    chrome = box.winfo_reqwidth() - font.measure('0') * int(box.cget('width'))
+                    needed = font.measure(str(box.get())) + chrome
+                    self.assertGreaterEqual(
+                        box.winfo_width(), needed,
+                        '%s %s：实际宽 %d < 取值「%s」宽 %d＋箭头区 %d'
+                        % (size, name, box.winfo_width(), box.get(),
+                           font.measure(str(box.get())), chrome))
+        finally:
+            self._restore_panel(target, root, win, old)
+
+    def test_group_sort_pair_wraps_aligned_with_kind_box(self):
+        """T3：880×600 下「分组」名称文字换行后左边缘与类型框左边缘一致。"""
+        panel = self.desktop.files_panel
+        panel.open_panel()
+        target, root = self._widen_panel()
+        win = self.win
+        old = win.geometry()
+        try:
+            win.geometry('880x600')
+            self.pump(.5)
+            labels = [widget for widget in self._leaf_controls()
+                      if isinstance(widget, ttk.Label)]
+            group_label = next(widget for widget in labels
+                               if str(widget.cget('text')) == '分组')
+            self.assertEqual(group_label.winfo_rootx(), panel.kind_box.winfo_rootx())
+            sort_label = next(widget for widget in labels
+                              if str(widget.cget('text')) == '排序')
+            self.assertGreater(sort_label.winfo_rooty(), panel.kind_box.winfo_rooty())
+        finally:
+            self._restore_panel(target, root, win, old)
+
+    def test_clicking_stage_icon_updates_panel_title(self):
+        """T4：点阶段图标后面板标题随之变化；「全部」＝「项目文件 · 全部阶段」。"""
+        panel = self.desktop.files_panel
+        before = str(panel.script_title.cget('text'))
+        panel.stage_buttons['assets'].invoke()
+        self.pump(.2)
+        title = str(panel.script_title.cget('text'))
+        self.assertNotEqual(title, before)
+        self.assertIn(stage_name('assets'), title)
+        panel.stage_buttons[None].invoke()
+        self.pump(.2)
+        self.assertEqual(str(panel.script_title.cget('text')), '项目文件 · 全部阶段')
 
 
 class IndexLifecycleTests(StageRailTests):
@@ -729,11 +853,11 @@ class GlobalLibraryViewTests(StageRailTests):
                 self.pump(.3)
                 self.assertTrue(panel.library_view)
                 self.assertEqual(self.rows(), ['library:唯一库文件.md'])
-                self.assertEqual(str(panel.stage_box.cget('state')), 'disabled')
+                self.assertEqual(str(panel.status_box.cget('state')), 'disabled')
                 panel.show_stage(None)
                 self.pump(.3)
                 self.assertFalse(panel.library_view)
-                self.assertEqual(str(panel.stage_box.cget('state')), 'readonly')
+                self.assertEqual(str(panel.status_box.cget('state')), 'readonly')
 
     def test_configure_library_persists_selection_and_refreshes(self):
         from unittest.mock import patch
