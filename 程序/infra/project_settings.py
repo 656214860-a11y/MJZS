@@ -6,6 +6,7 @@
 from pathlib import Path
 from agent.core import read,save,read_json
 from agent.publication import access
+from contract.infra_errors import ConfigError
 
 DEFAULTS={'auto_review':False,'auto_adopt':False,'auto_edit':False,'auto_submit':False,'auto_keyframe':False,'auto_asset':False,'auto_video':False,'auto_previs':False,'auto_final':False,'auto_handoff':False}
 
@@ -44,11 +45,11 @@ def _read_for_write(path):
     try:data=read(Path(path))
     except FileNotFoundError:return {}
     except (OSError,ValueError,UnicodeError):
-        raise ValueError('项目设置文件 ui_settings.json 无法读取，已取消保存。'
-                         '请保留原文件，检查访问权限、UTF-8 编码和 JSON 对象格式后重试。') from None
+        raise ConfigError('项目设置文件 ui_settings.json 无法读取，已取消保存。'
+                          '请保留原文件，检查访问权限、UTF-8 编码和 JSON 对象格式后重试。') from None
     if not isinstance(data,dict):
-        raise ValueError('项目设置文件 ui_settings.json 顶层必须是 JSON 对象，已取消保存。'
-                         '请保留原文件，修复格式后重试。')
+        raise ConfigError('项目设置文件 ui_settings.json 顶层必须是 JSON 对象，已取消保存。'
+                          '请保留原文件，修复格式后重试。')
     return data
 
 def put(project,key,value):
