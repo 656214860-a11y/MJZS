@@ -44,6 +44,8 @@ STATIC_GATE_TESTS = (
     "tests.architecture.test_silent_exception_ratchet",
     "tests.architecture.test_todo_comment_snapshot",
     "tests.architecture.test_skip_hygiene",
+    # R2-G2：文案规则（弹窗行数/按钮字数/命名统一）违规合入后才被全量发现，提进静态门禁拦在合入前。
+    "tests.test_copy_rules",
 )
 # 机器可判定的「CI 通过」出口：静态门禁＋架构门禁＋默认冒烟，非 0 即失败。
 EXIT_STEPS = (

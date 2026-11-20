@@ -13,10 +13,12 @@ from unittest import mock
 
 PROGRAM = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROGRAM))
+sys.path.insert(0, str(PROGRAM / 'scripts'))
 spec = importlib.util.spec_from_file_location(
     'remote_post_receive_ci', PROGRAM / '维护记录' / '基准脚本' / 'remote_post_receive_ci.py')
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
+import local_ci  # noqa: E402
 
 
 def _git(repo: Path, *args) -> None:
@@ -220,6 +222,16 @@ class RunCiTests(unittest.TestCase):
             self.assertFalse(status['ok'])
             self.assertEqual(step.call_count, 1)
             self.assertEqual(len(status['steps']), 1)
+
+
+class StaticGateListTests(unittest.TestCase):
+    """R2-G2：本机与远端两份静态门禁清单保持一致；文案规则测试在清单里。"""
+
+    def test_local_and_remote_static_gate_tests_are_identical(self):
+        self.assertEqual(tuple(local_ci.STATIC_GATE_TESTS), tuple(mod.STATIC_GATE_TESTS))
+
+    def test_copy_rules_is_in_static_gate(self):
+        self.assertIn('tests.test_copy_rules', local_ci.STATIC_GATE_TESTS)
 
 
 class MainTests(unittest.TestCase):

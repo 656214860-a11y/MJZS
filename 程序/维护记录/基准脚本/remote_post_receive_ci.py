@@ -74,6 +74,7 @@ STATIC_GATE_TESTS = (
     'tests.architecture.test_silent_exception_ratchet',
     'tests.architecture.test_todo_comment_snapshot',
     'tests.architecture.test_skip_hygiene',
+    'tests.test_copy_rules',
 )
 
 # ---- 平台边界排除清单（unittest 目标；模块名＝整模块跳过）----
