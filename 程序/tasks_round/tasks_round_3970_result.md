@@ -1,5 +1,5 @@
 # R3970 结果：L4 界面层、L5 入口层两份优化任务书
-<!-- round-evidence: {"commit_base": "e2570834", "credential_hits": 0, "evidence_sha256": "e991d578de79762c", "exit": 0, "failed": 0, "passed": 0, "round": 3970, "tests": "docs-only"} -->
+<!-- round-evidence: {"commit_base": "922ae4ab", "credential_hits": 0, "evidence_sha256": "44873a7aa082d7ff", "exit": 0, "failed": 0, "passed": 0, "round": 3970, "tests": "docs-only"} -->
 
 ## 1. 三问
 
@@ -30,6 +30,8 @@
 3. 入口代码没有逐行诊断，交给 L5-E0。
 4. 两份任务书没有登记进文档导航，沿用以往任务书的做法。
 5. 提交前复核 L5 书时改了两处：`desktop_launcher.py` 的函数数由 1 改为 2；E1 卡里一条引用了不存在脚本的验收命令，换成两个真实存在的文档测试。两份书的只读轮验收命令统一改为与分叉点比较。
+6. 第二次提交更正了 `--affected` 的参数：原先写的 `desktop_files_panel_filters` 实测选中 0 个测试文件，改为 `desktop_files_panel`（选中 6 个）；U4、U5 和 L5 书也改成实测能选中测试的名字。
+7. 首次合入检查的架构门禁失败，原因不在任务书：检查运行期间我在本车道 `程序\` 下放过一个临时探测脚本，扫描全部生产模块的架构测试读到它并报语法错（`logs/ci_最近.log`：677 条里 1 条失败、21 条报错；失败那条的差集只有这个文件，报错的回溯里有 13 处点名这个文件，其余报错没有逐条看）。脚本已删，重新合入。两份书的测试方案里补了一句：临时脚本不放在工作树的 `程序\` 下。
 
 ## 5. 下一步
 
