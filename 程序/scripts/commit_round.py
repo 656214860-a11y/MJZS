@@ -62,7 +62,7 @@ def check_test_move(message: str, root: Path) -> int:
 
 
 def check_scope_overlap(root: Path) -> int:
-    """暂存路径与其他活跃工作树分支的未合入改动有交集即拒绝。
+    """暂存内容与其他活跃车道的未合入改动有真实冲突、或双方新增了同名文件时拒绝；能自动合并的重叠只提示。
 
     合并提交（MERGE_HEAD）与主干分支不触发；被合入的源分支本就含同名新文件，
     属正常合并而非重复实现。"""
@@ -74,6 +74,8 @@ def check_scope_overlap(root: Path) -> int:
     report = branch_scope.commit_gate_report(root, exclude_branch=branch)
     for line in report["skipped"]:
         print("警告：" + line, file=sys.stderr)
+    for line in report.get("notes", ()):
+        print("提示：" + line, file=sys.stderr)
     for line in report["conflicts"]:
         print("拒绝提交：" + line, file=sys.stderr)
     return 5 if report["conflicts"] else 0
