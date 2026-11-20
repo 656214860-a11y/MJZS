@@ -194,7 +194,8 @@ def main(root):
     qc = check(master, 60, {**cfg, **spec}, strict=True)
     assert not qc['errors'], qc
     result = {'scope': 'offline provider simulation, synthetic media and simulated reviews; NOT real-provider/human acceptance',
-              'head': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=PROGRAM, text=True).strip(),
+              'head': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=PROGRAM, text=True,
+                                              encoding='utf-8', errors='replace').strip(),
               'seconds': round(time.monotonic() - started, 3), 'faults': faults,
               'submissions': counts, 'shots': len(bundle['manifest']), 'qc': qc, 'output_spec': spec,
               'master': str(master), 'sha256': file_hash(master)}

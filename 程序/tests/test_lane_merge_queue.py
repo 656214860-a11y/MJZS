@@ -1,5 +1,6 @@
 """B3 车道注册/租约心跳/合并队列/源码口径 测试。"""
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -56,6 +57,30 @@ class LaneRegistryTests(unittest.TestCase):
         self.assertEqual(e["role"], "merge")
         e2 = self._register(lane="wt-b", top="D:/wt-b")
         self.assertEqual(e2["role"], "dev")
+
+
+class WorktreeInfoEncodingTests(unittest.TestCase):
+    """R2-G3 T1：默认本地编码（cp936）下 _worktree_info 仍能读出 git 的 UTF-8 输出。"""
+
+    def test_worktree_info_with_chinese_path_under_default_encoding(self):
+        scripts = Path(__file__).resolve().parents[1] / "维护记录" / "基准脚本"
+        with tempfile.TemporaryDirectory(prefix="车道-") as lane_dir:
+            root = Path(lane_dir)
+            subprocess.run(["git", "init", "-q"], cwd=str(root), check=True, capture_output=True)
+            env = {key: value for key, value in os.environ.items()
+                   if key.upper() not in ("PYTHONUTF8", "PYTHONIOENCODING")}
+            child = ("import json, sys;"
+                     "sys.path.insert(0, sys.argv[1]);"
+                     "from pathlib import Path;"
+                     "import lane_registry;"
+                     "print(json.dumps(lane_registry._worktree_info(Path(sys.argv[2]))))")
+            done = subprocess.run([sys.executable, "-B", "-c", child, str(scripts), str(root)],
+                                  capture_output=True, text=True, encoding="utf-8",
+                                  errors="replace", env=env, timeout=30)
+            self.assertNotIn("UnicodeDecodeError", done.stderr)
+            self.assertEqual(done.returncode, 0, done.stderr)
+            lane, _branch, _top = json.loads(done.stdout)
+            self.assertEqual(lane, root.name)
 
 
 class MergeQueueTests(unittest.TestCase):

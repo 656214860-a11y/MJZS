@@ -625,7 +625,8 @@ def main():
 def _git_head(repo):
     try:
         done = subprocess.run(['git', 'rev-parse', '--short', 'HEAD'], cwd=str(repo),
-                              capture_output=True, text=True, timeout=15)
+                              capture_output=True, text=True, timeout=15,
+                              encoding='utf-8', errors='replace')
         return done.stdout.strip() or '?'
     except (OSError, subprocess.TimeoutExpired):
         return '?'

@@ -14,7 +14,8 @@ HOOKS = ("commit-msg", "pre-commit", "post-commit", "post-checkout", "pre-push")
 
 def git_common_dir(root: Path = ROOT) -> Path:
     result = subprocess.run(["git", "-C", str(root), "rev-parse", "--git-common-dir"],
-                            text=True, capture_output=True, check=True)
+                            text=True, capture_output=True, check=True,
+                            encoding="utf-8", errors="replace")
     path = Path(result.stdout.strip())
     return path if path.is_absolute() else (root / path).resolve()
 
