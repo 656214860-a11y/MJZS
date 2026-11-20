@@ -1,5 +1,5 @@
 # R3972 结果：L4-U0 界面层只读盘点
-<!-- round-evidence: {"commit_base": "4968a665", "credential_hits": 0, "evidence_sha256": "868cd7a6d8f90f6a", "exit": 0, "failed": 0, "passed": 0, "round": 3972, "tests": "docs-only"} -->
+<!-- round-evidence: {"commit_base": "d20dab8e", "credential_hits": 0, "evidence_sha256": "b0c5cc6e61a3786d", "exit": 0, "failed": 0, "passed": 0, "round": 3972, "tests": "docs-only"} -->
 
 ## 三问
 
@@ -43,4 +43,4 @@ Select-String -Path *.py,ui\*.py,contract\*.py,infra\*.py -Pattern 'error_codes|
 
 ## 提交
 
-- 提交号：见下（提交后回填）。
+- 提交号：`d20dab8e`（盘点报告+结果文件），提交号回填 `见后续小提交`。
