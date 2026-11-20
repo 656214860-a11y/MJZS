@@ -1,6 +1,6 @@
 # 项目状态（可独立接续）
 
-更新：2026-11-20｜当前轮次：3925（R3924 状态接续轮：登记已合入的架构树与队列修正；docs-only；未跑全量。上一轮：R3923 合并轮：校正架构树、阶段模板清单与优化队列断链。）
+更新：2026-11-20｜当前轮次：3927（R3926 状态接续轮：登记架构扫描范围对齐；docs-only；未跑全量。上一轮：R3925：对齐架构扫描范围与总控退役句，避免车道合并冲突。）
 
 历史接续记录：R3308 修复槽位泄漏 bug 并优化慢测试超时，定向测试 46/46 通过。
 
@@ -73,7 +73,7 @@ R1507 核验：R1506 正式记录 tree=`1844649ecd07befa6f6fabd2c0e12e486cb40657
 
 ## 已知阻塞与待办
 
-- 【当前车道·2026-11-20】主树 `271e7637`（R3923）。`codex/l0-constitution` 的尖端 `35196826` 已包含在 R3920 合并 `bf3639ab` 中。`codex/gate-unblock` 仍为 `2e3399af`（R3916，未合入）：六支历史快照已改名为 `archive/foundation-*`；`codex/foundation-ffmpeg-runtime` 为 `0f359379`，定向测试与合入未做，U3、U4 未开始。`codex/foundation-integration-final` 为 `d5fb72fd`（R3909，未合入）。`codex/l1-enterprise` 与 `codex/architecture-root-layout` 的尖端 `385dd7b6` 已是主干祖先；R3917 仍由后者认领，本树没有 R3917 结果文件。master 上 29 份任务书有 10 份没有完成文件，名单见 [R3918](tasks_round/tasks_round_3918_result.md)。R3923 已合入：删去不存在的 `skills/cinematic-director/`，阶段模板清单补上 `animatic`，优化队列的归档链接、A7、U14 已改正。两处扫描范围仍是 `01`—`12`，`message_parts` 仍写未登记；这两处会给已检出分支新增冲突，留在 `codex/architecture-doc-facts` 未提交。R3921 写的「47 条冲突」已作废，见 [R3922](tasks_round/tasks_round_3922_result.md)。
+- 【当前车道·2026-11-20】主树 `02bc9693`（R3925）。`codex/l0-constitution` 的尖端 `35196826` 已包含在 R3920 合并 `bf3639ab` 中。`codex/gate-unblock` 仍为 `2e3399af`（R3916，未合入）：六支历史快照已改名为 `archive/foundation-*`；`codex/foundation-ffmpeg-runtime` 为 `0f359379`，定向测试与合入未做，U3、U4 未开始。`codex/foundation-integration-final` 为 `d5fb72fd`（R3909，未合入）。`codex/l1-enterprise` 与 `codex/architecture-root-layout` 的尖端 `385dd7b6` 已是主干祖先；R3917 仍由后者认领，本树没有 R3917 结果文件。master 上 29 份任务书有 10 份没有完成文件，名单见 [R3918](tasks_round/tasks_round_3918_result.md)。R3923 已合入：删去不存在的 `skills/cinematic-director/`，阶段模板清单补上 `animatic`，优化队列的归档链接、A7、U14 已改正。扫描范围两处已是 `01`—`13`，总控退役句已与 `codex/governance-land` 对齐。`message_parts` 仍写未登记；改括注会给 `codex/foundation-c8-updater` 和 `codex/foundation-integration-final` 新增冲突，本轮未改。`codex/account-design-consolidation`、`codex/retire-builtin-prerequisite`、`codex/wip-r3764` 已各自提交同一处对齐。`codex/directory-governance-execution` 仍在合并 `99554eb1`，`architecture.md` 冲突维持 1 处。R3921 写的「47 条冲突」已作废，见 [R3922](tasks_round/tasks_round_3922_result.md)。
 
 - 【待办·等开发到配音阶段再做】R2244（S11 音频脚本直连 API，已合入 master）遗留：① 三虎自动化接入音频脚本直连（现仅手动按钮有入口）；② 指定模型后做真实 API 联调（未调用过真实 API）；③ 非 chat 线路无法在请求中途中断（停止后丢弃结果、不落盘）；④ 架构门禁 5 项改前即存在的红：`model_pool.py`（原子写／体量上限／`old.unlink` 删除登记）、`scripts/release_watch.py` 裸 json.loads 债务、`test_agents_md` performance_history 错误。
 
