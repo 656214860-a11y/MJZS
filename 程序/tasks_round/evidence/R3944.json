@@ -1,0 +1,15 @@
+{
+  "round": 3944,
+  "commit_base": "b45aff71",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k taskbook_closure doc_registry agent_doc_budget",
+    "exit": 0,
+    "passed": 19,
+    "failed": 0
+  },
+  "generated_at": "2026-11-20T22:27:44"
+}

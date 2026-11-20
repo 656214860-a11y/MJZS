@@ -3,6 +3,8 @@
 版本：V1｜立书日期：2026-11-20｜执行方：任一具备写权限的会话（每轮一条 `codex/git-lock-g<N>-<主题>` 车道）
 状态：**待执行**（本文件只立书，不含已落地的改动）
 
+V1.1（R3944）：§0.1a 增加合入治理分支时实录的六条事实 F19–F24，各自写明去向。分轮任务没有改。
+
 前序任务书：
 
 - `并行吞吐治理任务书.md`（已收尾）：决策 D1–D6 继续有效，本书不改。
@@ -34,6 +36,17 @@
 | F16 | 已启用 `rerere.enabled=true`；Git 版本 2.52，支持 `merge-tree --write-tree` 和 `reference-transaction` 钩子；`extensions.worktreeconfig=true` | `git config -l`、`git --version` |
 | F17 | 车道的结果号是全仓最新时，车道出口检查里的 `test_round_number_continuous` 失败（R3932 车道实测 `3932 != 3933`）：状态页抬头是主干的当前轮次，车道不改状态页。要等主干有一轮结果号超过它，变基后才能合入 | 在结果号最新的车道里运行 `python -B -m unittest tests.architecture.test_round_baselines` |
 | F18 | `merge_round.py` 把合并提交的协作者署名写成一个固定的模型名，与实际执行合并的会话无关 | `scripts/merge_round.py` 的 `_merge_locked` |
+
+### 0.1a 补充事实（2026-11-20 22:00–22:40，合入治理分支时实录）
+
+| 编号 | 事实 | 复核方法 | 去向 |
+|---|---|---|---|
+| F19 | F10 的一种情形：车道已经包含 master、但历史里有合并提交时，`rebase_onto_master` 仍执行 `git rebase`。合并提交被丢弃，其余提交重放后冲突，合并被退回。治理分支在 5 个文件上冲突，最后只能压成单提交 | `tasks_round_3934_result.md` §8；读 `scripts/merge_round.py` 的 `rebase_onto_master` | 临时修复：冲刺任务书 W6。根治：G3 第 7 条 |
+| F20 | commit-msg 钩子用 `git log --all --not HEAD` 判断轮次号是否被别处占用，标签也算。车道重写历史后，只要还有引用指着旧提交链，同号的新提交就被拒。R3934 实录：先删掉备份标签才能提交 | `维护记录/基准脚本/hooks/commit-msg` 第 81 行；`tasks_round_3934_result.md` §8 | G5 第 1 条的救援引用会撞上同一个检查，G5 开工前先定判断范围 |
+| F21 | 车道上 `git merge master` 出现冲突时无法收尾：收尾提交会暂存状态页，pre-commit 只允许主干提交状态页 | 读 `维护记录/基准脚本/hooks/pre-commit`；`tasks_round_3934_result.md` §2 | 绕行办法：冲刺任务书 §8 补充规则 3。根治：G6 |
+| F22 | 合并队列的条目不随后来的事实更新：mq-30 状态是失败，但分支 `codex/git-full-safe-18f2` 已经在主干里；mq-29 的分支已经不存在，条目仍是失败 | `git merge-base --is-ancestor codex/git-full-safe-18f2 master`；读 common-dir 下 `merge-queue.json` | G4 |
+| F23 | 覆盖率基线测试按磁盘上的 `.py` 文件计数，不入库的 `程序/logs/` 也算。任何会话在 `logs/` 里留一个 `.py` 脚本，那棵工作树的架构门禁就红。治理分支第二次合入因此失败（676 ≠ 675） | 在 `程序/logs/` 放一个空 `.py`，运行 `python -B -m unittest tests.architecture.test_coverage_baseline` | 冲刺任务书 W13 |
+| F24 | `dev.py commit` 的 `--tests` 会把写在它后面的文件路径当成测试关键词，文件没有被暂存，工具报「没有已暂存的改动」 | `scripts/commit_round.py` 第 202–206 行的参数定义 | 文档已改（冲刺任务书通用规则 5）。工具侧随 G4 改 `dev.py` 时处理 |
 
 ### 0.2 现有锁与共享台账（都在 Git common-dir）
 
