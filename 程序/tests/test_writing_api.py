@@ -895,7 +895,7 @@ class WritingApiTests(unittest.TestCase):
             project=make_project(td)
             stage_config.put(project, 'script', model='claude-test')
             record={'label':'Claude Test','model':'claude-test','provider':'anthropic','wire_api':'messages',
-                    'base_url':'https://api.anthropic.com','key_env':'ANTHROPIC_API_KEY'}
+                    'base_url':'https://api.anthropic.com','key_env':'ANTHROPIC_API_KEY','context_length':200000}
             responses = [
                 {'ok':True, 'data':{'content':[{'type':'tool_use','id':'read-1',
                     'name':'read_project_writing_file','input':{'path':'writing/项目接续.JSON'}}]}},
