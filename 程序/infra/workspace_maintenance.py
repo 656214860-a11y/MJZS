@@ -381,7 +381,7 @@ def append_summary_log(program: Path, summary: dict) -> None:
 def launch_cleanup(program: Path | None = None) -> None:
     """与 log_maintenance 同构：正常退出后另起无窗口进程做仓库卫生，不拖慢关窗。"""
     root = Path(program or PROGRAM)
-    launch_background([sys.executable, str(root / "workspace_maintenance.py"), "--cleanup"],
+    launch_background([sys.executable, "-m", "infra.workspace_maintenance", "--cleanup"], cwd=root,
                       stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
