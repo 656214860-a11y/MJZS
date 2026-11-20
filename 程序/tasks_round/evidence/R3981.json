@@ -1,0 +1,15 @@
+{
+  "round": 3981,
+  "commit_base": "fd2431c2",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k release_bindings remote_post_receive_ci copy_rules",
+    "exit": 0,
+    "passed": 40,
+    "failed": 0
+  },
+  "generated_at": "2026-11-21T02:58:22"
+}
