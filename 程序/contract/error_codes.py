@@ -59,6 +59,8 @@ _ITEMS = (
     ErrorCode('E-TOOL-FAILED', Severity.DEGRADED, True, '外部工具执行失败', '查看工具输出后重试'),
     ErrorCode('E-TOOL-TIMEOUT', Severity.DEGRADED, True, '外部工具执行超时', '检查工具状态或调大超时后重试'),
     ErrorCode('E-CONFIG-INVALID', Severity.WARN, False, '配置无效或缺失', '检查对应配置项后重试'),
+    ErrorCode('E-START-FAILED', Severity.FATAL, False, '程序启动失败', '重新启动一次；仍然失败请把提示里的日志文件发给技术支持'),
+    ErrorCode('E-START-SELFCHECK', Severity.FATAL, False, '启动自检没有通过', '按下面列出的处理建议逐条处理后重新启动'),
 
 )
 
@@ -171,3 +173,48 @@ def analyze(failure: Exception, analyzers: tuple[Analyzer, ...]) -> ErrorCode:
         if hit is not None:
             return hit
     return lookup('E-UNKNOWN')
+
+
+_CJK_RE = re.compile('[一-鿿]')  # U+4E00–U+9FFF CJK 基本块
+_BLANK_RE = re.compile(r'\s+')
+
+
+def _one_line(text: str) -> str:
+    return _BLANK_RE.sub(' ', text).strip()
+
+
+def user_text(error: Any, *, fallback: str = 'E-UNKNOWN') -> str:
+    """界面把失败变成用户可读文字的唯一出口（EC-1）：规则按序命中即返回。
+
+    R1 ``error`` 带已登记 ``code`` 属性（``infra_errors`` 家族，不引入该模块、
+    只看属性避免循环）→ ``describe(code)``；``str(error)`` 非空且含中文时再
+    接 ``'：' + 说明``。
+    R2 系统抛出的 ``OSError``（``errno`` 非 ``None``）→ ``FileNotFoundError``
+    给 ``E-FILE-NOT-FOUND``，其余给 ``describe(fallback)``；系统原文含本机
+    路径，不给用户看。
+    R3 ``str(error)`` 含中文 → 原样返回（换行与连续空白并成一个空格）。
+    R4 其余（空串、``None``、非异常对象）→ ``describe(fallback)``；
+    ``fallback`` 未登记时 ``lookup`` 归到 ``E-UNKNOWN``。
+
+    纯函数：不读写文件、不联网、不记日志、任何输入都不抛异常（内部出错
+    返回 ``describe('E-UNKNOWN')``）。不调用 ``classify()``——``TEXT_RULES``
+    关键词表为模型接口报错设计，套在任意程序报错上会归错（含 content
+    一词即误判「内容审核」）。
+    """
+    try:
+        code = getattr(error, 'code', None)
+        if code in CODES:
+            message = _one_line(str(error))
+            if message and _CJK_RE.search(message):
+                return describe(code) + '：' + message
+            return describe(code)
+        if isinstance(error, OSError) and getattr(error, 'errno', None) is not None:
+            if isinstance(error, FileNotFoundError):
+                return describe('E-FILE-NOT-FOUND')
+            return describe(fallback)
+        message = _one_line(str(error))
+        if _CJK_RE.search(message):
+            return message
+        return describe(fallback)
+    except Exception:
+        return describe('E-UNKNOWN')

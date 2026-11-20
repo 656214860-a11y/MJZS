@@ -1,3 +1,5 @@
+import os
+import tempfile
 import unittest
 
 from contract import error_codes
@@ -5,6 +7,7 @@ from contract.diagnostics import Severity
 from contract.error_codes import (CODES, SEVERITIES, ErrorCode, analyze, code_data,
                                   code_of, classify, describe, from_http_result, lookup,
                                   TEXT_RULES)
+from contract.infra_errors import StorageError
 from contract.service_contract import ServiceResult, SystemError, UserError, success
 
 
@@ -187,6 +190,8 @@ class ClassifyTextTests(unittest.TestCase):
             'E-TOOL-FAILED': (Severity.DEGRADED, True),
             'E-TOOL-TIMEOUT': (Severity.DEGRADED, True),
             'E-CONFIG-INVALID': (Severity.WARN, False),
+            'E-START-FAILED': (Severity.FATAL, False),
+            'E-START-SELFCHECK': (Severity.FATAL, False),
         }
         self.assertEqual(set(CODES), set(expected))
         for code, (severity, retryable) in expected.items():
@@ -201,6 +206,80 @@ class ClassifyTextTests(unittest.TestCase):
             ErrorCode('E-X', 'recoverable', False, 'm', 'r')
         # 字符串入参仍归一到枚举（兼容构造口径）
         self.assertIs(ErrorCode('E-X', 'warn', True, 'm', 'r').severity, Severity.WARN)
+
+
+class UserTextTests(unittest.TestCase):
+    """EC-1：界面失败文字统一出口 ``user_text(error, *, fallback='E-UNKNOWN')``。
+
+    规则按序命中：R1 带已登记 ``code`` 的异常走 ``describe``；R2 系统
+    ``OSError``（errno 非 None）归码不给原文；R3 中文说明原样（并一行）；
+    R4 其余回 ``fallback``。纯函数，任何输入不抛异常。
+    """
+
+    def test_infra_error_with_code_uses_describe(self):
+        self.assertEqual(error_codes.user_text(StorageError('', code='E-IO-READ')),
+                         describe('E-IO-READ'))
+
+    def test_infra_error_appends_chinese_message(self):
+        self.assertEqual(
+            error_codes.user_text(StorageError('分镜文件读不出', code='E-IO-READ')),
+            describe('E-IO-READ') + '：分镜文件读不出')
+
+    def test_handwritten_chinese_passes_through_on_one_line(self):
+        self.assertEqual(error_codes.user_text(ValueError('当前操作尚未结束，请稍后')),
+                         '当前操作尚未结束，请稍后')
+        self.assertEqual(error_codes.user_text(ValueError('  第一段\n\n   第二段  ')),
+                         '第一段 第二段')
+
+    def test_programmer_error_hides_original_text(self):
+        text = error_codes.user_text(AttributeError("'NoneType' object has no attribute 'state'"))
+        self.assertEqual(text, describe('E-UNKNOWN'))
+        self.assertNotIn('NoneType', text)
+
+    def test_real_os_error_maps_to_code_without_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            try:
+                open(os.path.join(tmp, '不存在的文件.txt'), 'rb')
+            except OSError as exc:
+                err = exc
+        text = error_codes.user_text(err)
+        self.assertEqual(text, describe('E-FILE-NOT-FOUND'))
+        self.assertNotIn(tmp, text)
+
+    def test_other_real_os_error_uses_fallback(self):
+        # errno 非 None 但不是 FileNotFoundError 的系统错误（本机打开目录
+        # 抛 PermissionError）→ describe(fallback)，系统原文不给用户
+        with tempfile.TemporaryDirectory() as tmp:
+            try:
+                open(tmp, 'rb')
+            except OSError as exc:
+                err = exc
+        self.assertIsInstance(err, OSError)
+        self.assertIsNotNone(err.errno)
+        self.assertNotIsInstance(err, FileNotFoundError)
+        text = error_codes.user_text(err)
+        self.assertEqual(text, describe('E-UNKNOWN'))
+        self.assertNotIn(tmp, text)
+
+    def test_manually_raised_oserror_with_chinese_passes_through(self):
+        # 手工构造的 OSError errno 为 None，不是系统报错——按 R3 原样返回
+        self.assertEqual(error_codes.user_text(OSError('磁盘已满，请清理后重试')),
+                         '磁盘已满，请清理后重试')
+
+    def test_anything_else_falls_back_without_raising(self):
+        class BadStr:
+            def __str__(self):
+                raise RuntimeError('str broken')
+
+        for obj in (None, '', object(), BadStr()):
+            with self.subTest(obj=type(obj).__name__):
+                self.assertEqual(error_codes.user_text(obj), describe('E-UNKNOWN'))
+
+    def test_fallback_code_is_used(self):
+        self.assertEqual(error_codes.user_text(RuntimeError('boom'), fallback='E-START-FAILED'),
+                         describe('E-START-FAILED'))
+        self.assertEqual(error_codes.user_text(RuntimeError('boom'), fallback='E-BOGUS'),
+                         describe('E-UNKNOWN'))
 
 
 if __name__ == '__main__':
