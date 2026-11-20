@@ -466,18 +466,23 @@ def _run_locked() -> int:
             return 0
         # 全量会建大量 Tk 窗口；放进隐藏桌面跑，不弹到用户屏幕上抢焦点。
         run_log = LOG.with_name("auto_full_safe.run.log")
+        run_log.unlink(missing_ok=True)
         log.write("[自动全量] 在隐藏桌面运行\n")
         log.flush()
         result = subprocess.run([sys.executable, "-B", str(hidden), str(run_log), str(program), "--", *cmd],
-                                env=env, stdout=log, stderr=subprocess.STDOUT, check=False, **quiet)
+                                env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False, **quiet)
+        wrapper_output = result.stdout.decode("utf-8", errors="replace")
+        log.write(wrapper_output)
         if run_log.is_file():
             log.write(run_log.read_text(encoding="utf-8", errors="replace"))
         if result.returncode in (2, 3, 4):
-            log.write("\n[自动全量] 隐藏桌面不可用（退出码 %d）：环境阻塞，未在可见桌面直跑。\n"
-                      % result.returncode)
+            # gui_hidden 原样透传子进程退出码。启动失败时包装器会输出诊断，
+            # 成功启动时仅子进程写入 run_log；锁冲突和验收预检也可能返回 2。
+            reason = (wrapper_output.strip().splitlines()[-1] if wrapper_output.strip()
+                      else "全量执行器受阻（退出码 %d，详见运行日志）" % result.returncode)
+            log.write("\n[自动全量] %s\n" % reason)
             log.flush()
-            write_result(head, BLOCKED_CODE, 0.0,
-                         blocked="隐藏桌面不可用（gui_hidden 退出码 %d）" % result.returncode)
+            write_result(head, BLOCKED_CODE, time.perf_counter() - started, blocked=reason)
             return 0
         elapsed = time.perf_counter() - started
         log.write("\n[自动全量] 退出码 %d，用时 %.0f 秒（0＝绿且凭据已写入）\n"

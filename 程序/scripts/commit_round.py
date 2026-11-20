@@ -123,6 +123,30 @@ def common_dir(cwd: Path = PROGRAM) -> Path:
     return path if path.is_absolute() else (cwd / path).resolve()
 
 
+def attach_codex_worktree(root: Path) -> int:
+    """Codex 的临时工作树在首次提交前取得具名分支，保留原 HEAD 和暂存区。"""
+    if (root.parent.parent != Path.home() / ".codex" / "worktrees"
+            or not re.fullmatch("[0-9a-f]{4}", root.parent.name)):
+        return 0
+    head = _git("symbolic-ref", "--quiet", "HEAD", cwd=root)
+    if head.returncode != 1:
+        return head.returncode
+    git_dir = _git("rev-parse", "--absolute-git-dir", cwd=root)
+    if git_dir.returncode:
+        return git_dir.returncode
+    metadata = Path(git_dir.stdout.strip())
+    if metadata == common_dir(root):
+        return 0
+    if any((metadata / name).exists() for name in
+           ("rebase-merge", "rebase-apply", "MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD", "BISECT_START", "sequencer")):
+        print("工作树正在执行 Git 操作，请先完成该操作。", file=sys.stderr)
+        return 1
+    branch = "codex/worktree-" + root.parent.name
+    attached = _git("switch", "-c", branch, cwd=root)
+    print(attached.stderr.strip(), file=sys.stderr)
+    return attached.returncode
+
+
 def wait_for_lock(common: Path, timeout: float, *, poll: float = POLL_SECONDS,
                   report: float = REPORT_SECONDS, out=print) -> bool:
     """锁释放（或回收了失效锁）返回 True；超时返回 False。"""
@@ -157,6 +181,9 @@ def main(argv=None) -> int:
     parser.add_argument("files", nargs="*", help="要暂存的 repo 内路径；省略则只提交已暂存内容")
     args = parser.parse_args(argv)
 
+    status = attach_codex_worktree(PROGRAM.parent)
+    if status:
+        return status
     args.message = with_agent_trailer(args.message, args.agent)
     if args.files:
         added = _git("add", "--", *args.files)
