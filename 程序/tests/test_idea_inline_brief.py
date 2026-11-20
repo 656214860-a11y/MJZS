@@ -176,7 +176,7 @@ class InlineBriefDesktopTests(_Harness):
             def finish(_action, received, **_kwargs):
                 received(_action())
                 return 1
-            with patch('writing_api.capture_request_model', return_value={'id': 'gpt-4o', 'label': 'gpt-4o', 'model_id': 'test-model', 'record': {}}), \
+            with patch('writing_api.capture_request_model', return_value={'id': 'gpt-4o', 'label': 'gpt-4o', 'model_id': 'test-model', 'record': {'context_length': 1_000_000}}), \
                  patch('writing_api.preparation_continuation', return_value=True) as continuation, \
                  patch.object(d.idea_chat_controller, 'prepare_submission', return_value=prepared), \
                  patch('stage_execution_service.reply_to_writing', return_value=result) as reply, \
@@ -213,7 +213,7 @@ class InlineBriefDesktopTests(_Harness):
             def finish(action, received, **kwargs):
                 received(action())
                 return 1
-            with patch('writing_api.capture_request_model', return_value={'id': 'gpt-4o', 'label': 'gpt-4o', 'record': {}}), \
+            with patch('writing_api.capture_request_model', return_value={'id': 'gpt-4o', 'label': 'gpt-4o', 'record': {'context_length': 1_000_000}}), \
                  patch('writing_api.preparation_continuation', return_value=True), \
                  patch.object(d.idea_chat_controller, 'prepare_submission', return_value=prepared), \
                  patch('stage_execution_service.reply_to_writing', return_value=result), \
