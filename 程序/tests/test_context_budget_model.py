@@ -1,30 +1,24 @@
 # -*- coding: utf-8 -*-
 """上下文预算：模型窗口相关预估与分项报告回归（O36）。"""
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from contract import workflow_context_budget as budget
 import writing_api
 
 
 class PresetContextLengthTests(unittest.TestCase):
-    def test_user_selected_application_defaults(self):
-        cases = {
-            'deepseek-v4.1-flash-1017': 128_000,
-            'gemini-3.5-flash': 128_000,
-            'qwen3': 32_000,
-            'claude-sonnet-4': 200_000,
-            'gpt-4o': 128_000,
-        }
-        for model_id, expected in cases.items():
+    def test_model_names_never_supply_unknown_windows(self):
+        for model_id in ('deepseek-v4.1-flash-1017', 'gemini-3.5-flash',
+                         'qwen3', 'claude-sonnet-4', 'gpt-4o'):
             with self.subTest(model_id=model_id):
-                self.assertEqual(budget.preset_context_length(model_id), expected)
+                self.assertEqual(budget.preset_context_length(model_id), '')
 
-    def test_prefix_matching_is_casefolded_and_accepts_family_boundaries(self):
+    def test_case_and_family_boundaries_do_not_supply_windows(self):
         for model_id in ('deepseek', 'DeEpSeEk-V4', 'DEEPSEEK4',
                          'deepseek_v4', 'deepseek.v4', 'deepseek:latest'):
             with self.subTest(model_id=model_id):
-                self.assertEqual(budget.preset_context_length(model_id), 128_000)
+                self.assertEqual(budget.preset_context_length(model_id), '')
 
     def test_empty_unknown_and_similar_words_have_no_preset(self):
         for model_id in (None, '', ' ', 'unknown-model', 'OpenAI 兼容',
@@ -107,6 +101,23 @@ class PrepareContextTests(unittest.TestCase):
 
 
 class WritingAdapterBudgetTests(unittest.TestCase):
+    def test_unknown_window_rejects_before_adapter_and_metering(self):
+        raw = Mock()
+        adapter = writing_api.WritingRequestAdapter(
+            raw, {'context_length': '', 'rpm': 10}, 'gpt-4o', project='synthetic-project')
+        with patch('infra.model_pool.wait_for_rpm') as rpm, \
+                patch('infra.pet_llm.RequestLedger') as ledger:
+            result = adapter.chat([{'role': 'user', 'content': '短正文'}],
+                                  options={'max_tokens': 100}, system='规则')
+        rpm.assert_not_called()
+        ledger.assert_not_called()
+        self.assertFalse(result['ok'])
+        self.assertEqual(result['reason'], 'context_window_unknown')
+        self.assertIn('context_length', result['error'])
+        self.assertIn('供应商', result['error'])
+        raw.chat.assert_not_called()
+        self.assertEqual(adapter.request_usage['calls'], 0)
+
     def test_small_model_rejects_with_sections_and_dominant(self):
         raw = Mock()
         adapter = writing_api.WritingRequestAdapter(raw, {'context_length': 8000}, 'small')

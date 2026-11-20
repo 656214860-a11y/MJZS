@@ -347,7 +347,7 @@ class ToolPathTests(unittest.TestCase):
         raw = png()
         with patch.object(platform_tools, '_bundled_tool', return_value=None):
             with patch.object(platform_tools.shutil, 'which', return_value=None):
-                with self.assertRaisesRegex(ValueError, '解码器不可用'):
+                with self.assertRaisesRegex(ValueError, '未找到 FFmpeg 解码器'):
                     keyframe_evidence.image_facts(raw)
             self.assertEqual(keyframe_evidence._DECODED, {})
             with patch.object(platform_tools.shutil, 'which', return_value='restored-ffmpeg'), \

@@ -107,8 +107,8 @@
   "tests.test_writing_api"
  ],
  "tests_ok": true,
- "points_total": 3062,
- "points_covered": 1741,
+ "points_total": 3059,
+ "points_covered": 1738,
  "modules": [
   {
    "module": "budget.py",
@@ -358,9 +358,9 @@
   },
   {
    "module": "workflow_context_budget.py",
-   "points": 25,
-   "covered": 15,
-   "percent": 60.0
+   "points": 22,
+   "covered": 12,
+   "percent": 54.5
   },
   {
    "module": "workflow_process_registry.py",

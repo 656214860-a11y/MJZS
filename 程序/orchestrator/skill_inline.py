@@ -10,7 +10,7 @@ from pathlib import Path
 
 import orchestrator.skill_registry as skill_registry
 from orchestrator.skill_registry import reference_row as _reference_row
-from contract.workflow_context_budget import estimate_tokens, skill_inline_token_budget, preset_context_length
+from contract.workflow_context_budget import estimate_tokens, skill_inline_token_budget
 
 _TEXT_SCRIPT_SUFFIXES = ('.py', '.sh', '.ps1', '.bat', '.cmd', '.json', '.yaml', '.yml', '.toml', '.ini', '.cfg')
 
@@ -77,7 +77,7 @@ def _is_text_script(suffix):
 
 
 def _skill_inline_budget(config, record=None, program=None):
-    """从同次请求的记录推导预算；None 才查池，空记录仍是有效快照。
+    """从同次请求的确证窗口推导预算；None 才查池，空记录仍是有效快照。
 
     仅直连 API 强制要求已知窗口，CLI／桌面保留无窗口模式。
     返回值只含安全预算元数据，不保留模型记录或凭据。
@@ -89,8 +89,8 @@ def _skill_inline_budget(config, record=None, program=None):
         return None
     if record is None and config.get('skill_budget', {}).get('model') == model:
         saved = config['skill_budget']
-        limit = saved['context_length']
         source = saved['source']
+        limit = saved['context_length'] if source == 'explicit' else 0
     else:
         import infra.model_pool as model_pool
         if record is None:
@@ -98,11 +98,11 @@ def _skill_inline_budget(config, record=None, program=None):
             records = model_pool.pool() if program is None else model_pool.pool(program=program)
             record = records.get(model) or {}
         limit = model_pool.context_length_of(record.get('context_length'))
-        source = 'explicit' if limit else 'preset'
-        limit = limit or preset_context_length(model)
+        source = 'explicit' if limit else 'unknown'
     if not limit:
         if api:
-            raise ValueError(f'未填写上下文窗口，已阻止发送：{model or "未选择模型"}；请在模型管理中补填。')
+            raise ValueError(f'context_window_unknown：未填写上下文窗口，已阻止发送：{model or "(未选择)"}；'
+                             '请在模型管理补填 context_length 或核实供应商窗口后再发送。')
         return None
     return {'remaining': skill_inline_token_budget(limit), 'context_length': limit, 'source': source, 'model': model}
 
