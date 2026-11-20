@@ -1,0 +1,138 @@
+# R3967 — 功能轮：全量红灯归因（偶发与持续分开统计）
+<!-- round-evidence: {"commit_base": "4468486f", "credential_hits": 0, "evidence_sha256": "372b98b773c8394f", "exit": 0, "failed": 0, "passed": 15, "round": 3967, "tests": "run_selftests.py -k test_dora_report"} -->
+
+## 1. 三问
+
+1. **轮次类型**：功能轮（工程观测工具，不涉及产品需求编号）。先改 `runbook.md` 的「结果侧观测」一段，再写测试，最后写实现。
+2. **测试跑了吗、三个基线过了吗**：先红后绿（§4）。定向 `run_selftests.py -k test_dora_report`，条数以本文件第 2 行的证据为准。默认冒烟 9 项通过、0 项失败。文档门禁 31 条绿，`doc_registry.py --check` 86 份通过。架构门禁和全量没有在车道里跑：架构门禁由合入时的出口检查跑，全量按欠账规则由后台补跑。第一次合入时出口检查的架构门禁红了 1 条，已修（§4 末）。
+3. **欠账少了吗**：关闭一条——红灯停留的统计把 182 行样例记录算了进去（§2）。新增一项能力——一条命令能看到偶发红与持续红各占多少。新记两条待办（§6 第 1、2 条）。
+
+## 2. 为什么做
+
+用户要求先减少测试红，第一步是把偶发红和真红分开统计（2026-11-21 确认）。此前只用一次性脚本量过，没有入库的办法。
+
+`scripts/dora_report.py` 已经在读 common-dir 的 `full-safe-history.jsonl` 算红灯停留，所以统计加在这里，没有新建脚本。
+
+读历史时发现它被污染：297 行里 182 行的 `head` 是 `abcdef1234`，时间在 11-15 到 11-17，来自 `tests/test_auto_full_safe.py` 里直接调 `write_result` 的用例。那几条用例现在已经把历史路径换到临时目录（断言「不能污染真实 full-safe-history.jsonl」），11-17 之后没有新增样例行；但旧行还在，红灯停留一直把它们算在内。
+
+## 3. 改动
+
+| 文件 | 改动 |
+|---|---|
+| `runbook.md` | 「结果侧观测」一段补写新一节和判定口径 |
+| `scripts/dora_report.py` | 新增 `history_rows()`：只留 `head` 是 40 位提交号、时间读得出的行，支持统计窗，返回被剔除的行数。新增 `red_breakdown()` 和 `render_reds()`。`red_dwell()` 改为经 `history_rows()` 读，多一个可选的 `since`。`render()` 把 `--days` 同时用作全量历史的统计窗，在主表之后插入「全量红灯归因」一节。模块说明补口径 |
+| `tests/test_dora_report.py` | 新增 8 条用例；原有红灯停留用例的 4 行夹具各补一个 `head` |
+
+**判定口径**（全文在脚本开头）：
+
+- 有效记录：`head` 是完整提交号，时间读得出。没有失败文件名的红（中断、超时）单列，不参与下面的判断，也不打断连续段；其余的红和绿算「完整全量」。
+- 测试文件：
+  - 偶发：同一个提交上，有一次全量红了它，另一次完整全量没红它。
+  - 持续红：没有上面的证据，且连续 3 次及以上完整全量都红。
+  - 疑似偶发：以上都不是，但分成两段及以上、每段红一两次就恢复。
+  - 未定：其余。
+- 某次红的全量：有文件正处在连续 3 次及以上的红里，记「含持续红」；否则失败文件全是偶发、疑似偶发的，记「只有偶发」；剩下的记「未定」。
+
+**契约变化（按 AGENTS §2.4 说明）**：
+
+1. `red_dwell()` 以前接受没有 `head` 的行，现在不接受。原用例 `test_red_dwell_pairs_first_red_with_the_next_green` 的夹具行没有 `head`，各补了一个；断言 `[4 * 3600]` 没有改。
+2. 以前历史里只要有一行不是 JSON，整个红灯停留就返回「数据不足」；现在只丢掉那一行并计数。
+3. 报告里红灯停留以前读全部历史，现在和其他指标一样只读 `--days` 窗内的记录。
+
+## 4. 先红后绿
+
+改实现之前先加测试，跑 `python -B -m unittest tests.test_dora_report`：15 条里 2 条失败、6 条报错，原有 7 条通过。
+
+```
+FAIL: test_sample_rows_do_not_bend_the_red_dwell
+AssertionError: Lists differ: [600, 7200] != [7200]
+FAIL: test_report_separates_flaky_files_from_persistent_ones
+AssertionError: '有效全量 6 次（绿 2／红 4）' not found in '# DORA 类指标报告…'
+ERROR（RedBreakdownTests 其余 6 条）
+AttributeError: module 'dora_report_for_tests' has no attribute 'history_rows'
+Ran 15 tests in 4.498s
+FAILED (failures=2, errors=6)
+```
+
+第一条就是污染的复现：两行样例记录凭空造出一段 600 秒的红灯。
+
+改之后：同一命令 `Ran 15 tests … OK`；`run_selftests.py -k test_dora_report` 15 条、0 个文件有红。
+
+**出口检查红过一次。** 第一次合入（车道提交 `4468486f`）时，默认冒烟和静态门禁通过，架构门禁 684 条里红 1 条，主干未被占用、未领合并号：
+
+```
+FAIL: test_bare_json_load_debt_is_a_nonincreasing_subset (tests.architecture.test_unification_ratchet)
+AssertionError: 第四项 出现未登记新增债务：['scripts/dora_report.py:history_rows:json.loads:cb57ae7929daaf0d:1']
+```
+
+原因：把读历史的代码从 `red_dwell()` 挪进 `history_rows()` 时，把主干原来的 `json.JSONDecoder().decode` 写成了 `json.loads`；裸 `json.loads` 按《架构统一基数》第四项只减不增。提交前只跑了冒烟、定向和文档门禁，没有跑架构门禁，所以到出口检查才发现。
+
+修法：改回原写法，行为不变，台账没有动。复测 `python -B -m unittest tests.architecture.test_unification_ratchet tests.architecture.test_stable_registration tests.test_dora_report`：`Ran 25 tests … OK`。
+
+## 5. 真实仓库上的基线
+
+2026-11-21 在车道工作树里跑 `python -B scripts/dora_report.py --days 30 --no-write`。
+
+红灯停留：改之前 19 段，改之后 14 段（少的 5 段是样例记录造出来的）；中位 2.4 小时、最长 24.5 小时，改前改后相同。
+
+有效全量 115 次（绿 20／红 95），2026-11-15T13:28:16 → 2026-11-21T00:22:18；另有 182 行无效记录未计入。
+
+| 这次红的原因 | 次数 | 占红的比例 | 耗时 |
+| --- | --- | --- | --- |
+| 只有偶发、疑似偶发的文件 | 9 | 9.5% | 2.0 小时 |
+| 含持续红的文件（连续 3 次及以上） | 71 | 74.7% | 16.3 小时 |
+| 未定（文件只红过一小段） | 11 | 11.6% | 2.3 小时 |
+| 没有失败文件名（中断或超时） | 4 | 4.2% | 0.3 小时 |
+
+偶发与疑似偶发的测试文件共 45 个，前 8 名：
+
+| 测试文件 | 判定 | 红的次数 | 分成几段 | 最长连续 | 红绿不一的提交 | 最近一次红 |
+| --- | --- | --- | --- | --- | --- | --- |
+| test_perf_baseline | 偶发 | 15 | 12 | 3 | 4 | 2026-11-19T13:30:51 |
+| test_api_cache_usage | 偶发 | 6 | 2 | 5 | 1 | 2026-11-18T16:07:23 |
+| test_video_ui | 偶发 | 5 | 4 | 2 | 2 | 2026-11-16T14:33:47 |
+| architecture.test_dependency_whitelist | 偶发 | 4 | 2 | 3 | 1 | 2026-11-19T15:27:29 |
+| test_claude_writing_session | 疑似偶发 | 4 | 2 | 2 | 0 | 2026-11-17T22:16:13 |
+| test_desktop_startup_perf | 疑似偶发 | 4 | 3 | 2 | 0 | 2026-11-18T13:00:14 |
+| test_soak_light | 疑似偶发 | 4 | 4 | 1 | 0 | 2026-11-17T13:57:47 |
+| architecture.test_agents_md | 偶发 | 3 | 1 | 3 | 1 | 2026-11-16T00:10:07 |
+
+持续红的测试文件共 29 个，前 8 名：
+
+| 测试文件 | 红的次数 | 分成几段 | 最长连续 | 最近一次红 |
+| --- | --- | --- | --- | --- |
+| test_pet_ui | 15 | 3 | 8 | 2026-11-19T02:05:43 |
+| test_shared_adapter_infrastructure | 15 | 1 | 15 | 2026-11-19T02:05:43 |
+| architecture.test_round_baselines | 14 | 3 | 9 | 2026-11-16T01:58:20 |
+| test_ui_edges_guards | 13 | 2 | 8 | 2026-11-19T02:05:43 |
+| test_multi_monitor_popups | 12 | 1 | 12 | 2026-11-17T12:40:47 |
+| test_ui_batch5_stage_panel_and_script_page | 11 | 2 | 7 | 2026-11-17T08:13:01 |
+| test_batch_frames | 8 | 2 | 6 | 2026-11-18T16:07:23 |
+| test_copy_rules | 8 | 4 | 3 | 2026-11-20T22:57:11 |
+
+未定的文件 34 个。
+
+**读法。**
+
+- 红的全量里四分之三有测试连续红着；纯偶发至少占一成。
+- `test_perf_baseline` 证实是偶发，次数最多。`test_soak_light`、`test_desktop_startup_perf` 同样按时间判定，列在疑似偶发。
+- `test_copy_rules` 落在持续红：8 次、分成 4 段、最长连红 3 次，没有同提交红绿不一的记录。此前把它当成偶发，证据不足；是偶发还是反复有人提交了不合规的内容，要看失败内容，留给下一轮。
+- 持续红前几名除 `test_copy_rules` 外，最近一次红都在 11-19 或更早。
+
+## 6. 没做的事与已知边界
+
+1. **没有清理历史文件里的 182 行样例记录。** 那是 common-dir 里不受版本管理的共享数据，删它是数据操作，没有授权；报告里剔除已经够用。
+2. **状态页的分母没有更正。** `project_status.md` 里「297 次全量里红过 2 次」的分母应为 115（R3963 结果文件同）。状态页只能在主干改，留给下一个状态轮。
+3. **分不出「真缺陷」和「环境一直有问题」。** 历史里只有文件名，两者都落在持续红。偶发文件碰巧连红 3 次及以上时，那几次也记在「含持续红」，所以「只有偶发」是下限。
+4. **偶发的证据面很窄。** 91 个提交里只有 10 个跑过两次及以上全量；其余提交上的偶发拿不到同提交证据，只能列为疑似或未定。
+5. **「另一次完整的红没有红它」当作它通过的证据，前提是那次全量跑完了。** 全量中途被打断但已经留下部分失败文件名时，这个前提不成立；历史里没有字段能区分。
+6. **只统计，没有处置。** 隔离名单、自动重跑、全量分级都没有做，等用户看过数据再定。
+7. **逐行解析沿用主干原写法，没有登记豁免。** 本文件读 JSONL 用的是 `json.JSONDecoder().decode`，不在裸 `json.loads` 棘轮的扫描口径内；同类脚本 `scripts/benchmark_trend.py` 是登记豁免后用 `json.loads`。两种做法要不要统一，留给治理轮，本轮没有改变现状。
+
+## 7. 回退
+
+`git revert` 本提交。报告只读，不影响门禁和产品。
+
+## 8. 提交
+
+已提交：是，在车道分支 `codex/full-safe-red-breakdown`。hash 以 `git log --grep "^R3967:"` 为准（同一提交无法回填自身 hash）。合入主干由合并轮另记。
