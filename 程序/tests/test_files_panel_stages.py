@@ -95,8 +95,36 @@ class StageRailTests(unittest.TestCase):
             self.assertTrue(stage_name(stage), stage)
 
     def test_scroll_rail_requests_minimum_width_without_geometry_feedback(self):
+        """R3971（任务书 L4-U1）：阶段图标列整列可见，且文件表高度不随刷新振荡。
+
+        T1：1280×800 与 880×600 两档窗口下，「全部」＋13 个阶段钮＋资料库钮的
+        实际宽度不小于各自请求宽度（R3214 把画布钉成 1px 的回归，按钮实际宽 1）。
+        T2：880×600 下连续刷新 10 次，文件表高度始终不变（守住 R3214 的几何振荡修复）。
+        """
         panel = self.desktop.files_panel
-        self.assertEqual(int(panel.stage_rail_scroller.canvas.cget('width')), 1)
+        win = self.win
+        buttons = list(panel.stage_buttons.values()) + [panel.library_button]
+        old_geo = win.geometry()
+        try:
+            for size in ('1280x800', '880x600'):
+                win.geometry(size)
+                self.pump(.5)
+                for button in buttons:
+                    self.assertTrue(button.winfo_ismapped(), '%s: %s' % (size, button))
+                    self.assertGreaterEqual(
+                        button.winfo_width(), button.winfo_reqwidth(),
+                        '%s: %s 实际宽 %d < 请求宽 %d' % (size, button,
+                                                        button.winfo_width(),
+                                                        button.winfo_reqwidth()))
+            win.geometry('880x600')
+            heights = []
+            for _ in range(10):
+                self.pump(.1)
+                heights.append(panel.script_tree.winfo_height())
+            self.assertEqual(len(set(heights)), 1, heights)
+        finally:
+            win.geometry(old_geo)
+            self.pump(.3)
         self.assertGreater(panel.stage_rail.winfo_width(), 1)
 
     def test_rail_sits_on_the_right_edge_of_the_panel(self):

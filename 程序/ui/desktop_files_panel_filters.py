@@ -427,6 +427,13 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
         from ui_icons import IconLoader
         from ui_tokens import COLORS
         self._ensure_filter_state()
+        # R3971（任务书 L4-U1）：齿轮设置钮钉在列顶——pack 先于滚动画布，
+        # 否则它落进滚动条与画布之间的中间腔，把画布挤成 1px 宽。
+        settings = SecondaryButton(self.stage_rail, text='⚙', width=0, style='RailIcon.TButton',
+                                   command=self.configure_library)
+        settings.pack(side='top', pady=(SPACING['none'], SPACING['xs']))
+        Tooltip(settings, '设置全局素材库目录')
+        self.library_settings_button = settings
         # 图标列自身仍是 script_box 右缘的固定竖条；内部换成可滚动画布，矮窗口不再裁掉底部图标。
         self.stage_rail_scroller = ScrollForm(self.stage_rail, bg=COLORS['background_primary'])
         self.stage_rail_form = self.stage_rail_scroller.form
@@ -460,11 +467,6 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
         library.pack(side='top', pady=(SPACING['none'], SPACING['xs']))
         Tooltip(library, '全局素材库：跨项目的共享素材（可在设置里指定目录）')
         self.library_button = library
-        settings = SecondaryButton(self.stage_rail, text='⚙', width=0, style='RailIcon.TButton',
-                                   command=self.configure_library)
-        settings.pack(side='top', pady=(SPACING['none'], SPACING['xs']))
-        Tooltip(settings, '设置全局素材库目录')
-        self.library_settings_button = settings
         # 滚轮绑定要等全部子件建完再递归挂一次（见 ScrollForm.bind_wheel 说明）。
         self.stage_rail_scroller.bind_wheel()
         # tk.Canvas 默认请求宽约 378px，会把整条图标列撑成宽面板；钉成内容实际宽度。
@@ -473,9 +475,13 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
         content_w = max((child.winfo_reqwidth() for child in self.stage_rail_form.winfo_children()),
                         default=0)
         if content_w:
-            # 内部Canvas仅请求最小宽，避免窄窗几何协商让内容表格高度反复振荡。
-            # 实际画布尺寸仍由pack布局分配，内容滚动不受影响。
-            self.stage_rail_scroller.canvas.configure(width=SPACING['none'] + 1)
+            # R3971（任务书 L4-U1）：外框钉固定宽＝内容宽＋竖滚动条宽，画布在其中填满；
+            # 关掉 pack 传播后画布的请求宽不再参与外层几何协商——
+            # 与 R3214「画布钉 1px」等价地切断振荡回路，但图标列恢复可见。
+            scroll_w = self.stage_rail_scroller.scroll.winfo_reqwidth()
+            self.stage_rail.configure(width=max(content_w, settings.winfo_reqwidth()) + scroll_w)
+            self.stage_rail.pack_propagate(False)
+            self.stage_rail_scroller.canvas.configure(width=content_w)
 
     def _add_rail_action(self, glyph, tip, method_name):
         """在图标列末尾追加一个动作钮；宿主没有该动作时只留按钮不绑回调。"""
