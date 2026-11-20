@@ -1,10 +1,10 @@
 # R3956 — 功能轮：提交门禁改为按真实冲突判断（《Git并发锁机制优化任务书》G2）
-<!-- round-evidence: {"commit_base": "c6ae9f72", "credential_hits": 0, "evidence_sha256": "48f533d2239da399", "exit": 0, "failed": 0, "passed": 46, "round": 3956, "tests": "run_selftests.py -k test_branch_scope test_lane_flow_gates"} -->
+<!-- round-evidence: {"commit_base": "4081eb82", "credential_hits": 0, "evidence_sha256": "a3f9865d1142c69c", "exit": 0, "failed": 0, "passed": 75, "round": 3956, "tests": "run_selftests.py -k test_structure test_branch_scope test_lane_flow_gates"} -->
 
 ## 1. 三问
 
 1. **轮次类型**：功能轮（工程治理）。只做任务书的 G2：`dev.py commit` 的车道范围门禁从「文件名有交集就拒绝」改成「与活跃车道有真实冲突才拒绝」。
-2. **测试跑了吗、三个基线过了吗**：新增 `tests/test_branch_scope_precise.py` 30 条行为用例，连同原有的 `tests/test_branch_scope.py` 12 条、`tests/architecture/test_lane_flow_gates.py` 4 条，共 46 条。新增的 30 条里，19 条在实现前是红的，6 条在原门禁下本来就通过（新旧规则一致的部分），5 条是实现之后才写的（§4.1）。另在真实仓库上验了两次（§4.2、§4.3）。本轮没有跑完整全量；三个基线由合入时的出口检查跑，本文件不另写结论。
+2. **测试跑了吗、三个基线过了吗**：新增 `tests/test_branch_scope_precise.py` 30 条行为用例，连同原有的 `tests/test_branch_scope.py` 12 条、`tests/architecture/test_lane_flow_gates.py` 4 条，共 46 条。新增的 30 条里，19 条在实现前是红的，6 条在原门禁下本来就通过（新旧规则一致的部分），5 条是实现之后才写的（§4.1）。另在真实仓库上验了两次（§4.2、§4.3）。第一次合入被出口检查的架构门禁拦下（新测试文件没有登记归属），补交时定向多带了结构检查，共 75 条，第 2 行的证据是补交这一次的（§4.5）。本轮没有跑完整全量；三个基线由合入时的出口检查跑，本文件不另写结论。
 3. **欠账少了吗**：任务书 F8（门禁按文件名整文件拒绝）关闭。顺带关掉原门禁就有的两个盲区：一方改过名的文件查不到；与主干新提交的冲突算在车道头上。没做的事和已知边界记在 §5、§7。
 
 ## 2. 问题
@@ -67,7 +67,7 @@
 - 改名 4 条在实现前：`Ran 4 tests in 5.340s`，`FAILED (failures=4)`（23:36）。
 - 23:39，`python -B -m unittest tests.test_branch_scope_precise tests.test_branch_scope tests.architecture.test_lane_flow_gates`：`Ran 45 tests in 98.185s`，`OK`（同一时间主干的全量正在跑，用时偏长）。
 - 23:41，补了第 46 条，所在的 `TrialMergeHygieneTests` 6 条单独跑：`OK`。
-- 46 条整体跑的结论以提交工具写在本文件第 2 行的证据为准。
+- 23:47，提交工具跑 `run_selftests.py -k test_branch_scope test_lane_flow_gates`：46 条通过，0 失败。这是第一个提交 `4081eb82` 的证据；补交时证据文件被重写，本文件第 2 行现在是补交那次的（§4.5）。
 
 ### 4.2 复演 R3950 被拒的那次提交
 
@@ -112,6 +112,21 @@
 - 原门禁在同样的状态下是 10.9–11.0 秒。
 - 以上都是单次测量，测的时候机器上没有全量在跑。
 
+### 4.5 第一次合入被出口检查拦下（补交）
+
+23:48 用合并工具合入，出口检查的第三步架构门禁失败：`Ran 684 tests in 363.746s`，`FAILED (failures=1)`。红的是 `tests/architecture/test_structure.py` 的 `test_real_repository_has_no_new_structure_violations`，报 `STR006 程序/tests/test_branch_scope_precise.py ownership`。前两步（默认冒烟、静态门禁）通过。合并工具没有占主干、没有领号，主干没有变化。
+
+原因是我漏了一步：`governance/README.md` 的开工检查要求新增文件先跑 `check_structure.py --check --candidate <路径>`，我没有跑；提交时的定向关键词也没有带结构检查。新测试文件的名字对不上任何同名模块（没有 `branch_scope_precise.py`），按目录协议必须在 `structure.json` 的 `test_ownership` 里写明归属。
+
+补交的内容（本轮第二个提交）：
+
+- `governance/structure.json`：`test_ownership` 加一条，`kind` 为 `module`，目标 `程序/维护记录/基准脚本/branch_scope.py`。做法与 R3907 给 `test_lane_flow_gates.py` 登记时相同。
+- `governance/structure-baseline.json`：协议文件一改，基线里的协议摘要必须显式重写。重写前先不落盘算了一遍差异：新增 0、减少 0，违规仍只有原来接受的那 1 条（STR003）。然后跑 `--write-baseline`，变的只有来源提交、索引摘要、协议摘要三行；再跑 `--check`，`ok: true`。
+- 23:56，`run_selftests.py -k test_structure test_branch_scope test_lane_flow_gates`：5 个测试文件 75 条，0 个文件有红。其中 `architecture.test_structure` 27 条、`test_branch_scope_precise` 30 条、`test_branch_scope` 12 条、`architecture.test_lane_flow_gates` 4 条，另有 `architecture.test_structured_script_write_boundary` 2 条是关键词顺带匹配到的。
+- 新门禁对这两个治理文件的结论：放行，2 条提示（`codex/directory-governance-execution` 改过这两个文件，已超过 24 小时没有活动），用时 1.21 秒。
+
+补交后重新合入，出口检查三步会整体再跑一遍，结论以合并轮的结果文件为准。
+
 ## 5. 取舍与已知边界
 
 1. **试合并没做成只警告，不拦截。** 与这个模块原有的做法一致（改动清单读不出来的分支本来就只警告）。代价是 Git 出故障时门禁等于没有，警告行会写明哪条分支、哪些路径没比对。
@@ -125,7 +140,7 @@
 
 ## 6. 范围偏离与文档修订
 
-任务书给 G2 定的改动范围是 `branch_scope.py` 和新增的测试文件。实际多改了五处，另多做了两件事：
+任务书给 G2 定的改动范围是 `branch_scope.py` 和新增的测试文件。实际多改了七处，另多做了两件事：
 
 | 文件 | 改了什么 | 为什么 |
 |---|---|---|
@@ -134,6 +149,8 @@
 | `architecture.md` | 两句 | 同上 |
 | `docs/adr/0015-lane-flow-does-not-block-sessions.md` | 第 3 条改写，注明「R3956 回改」和原文 | ADR 索引的规则：与权威源冲突时回改 ADR。没有新开编号 |
 | `docs/contracts/已知坑与不可破坏契约.md` | C18 一行 | 它引用的就是 ADR-0015 第 3 条 |
+| `governance/structure.json` | `test_ownership` 加一条：新测试文件归 `维护记录/基准脚本/branch_scope.py` | 目录协议要求名字对不上同名模块的新测试写明归属（§4.5） |
+| `governance/structure-baseline.json` | 来源提交、索引摘要、协议摘要三行 | 协议文件改了必须显式重写基线；接受的违规没有增减 |
 
 - **改名**：任务书没有要求。提交前在临时仓库里复现了盲区：对方改名并改了某一行，本分支改旧名字的同一行，新旧门禁都看不到重叠，直接放行。这是真实冲突，按 G2 的目标应当拦住，而且目录治理的分支正在移动文件。
 - **落后主干的归属**：任务书没有要求。不区分的话，拒绝信息会叫人「等对方合入」，而真正该做的是变基，等了也没用。
@@ -150,4 +167,4 @@ ADR-0015 第 3 条和契约 C18 的改动等用户确认：已经告知，用户
 
 ## 8. 回退
 
-`git revert` 本提交即可。只想恢复旧规则时，单独还原 `维护记录/基准脚本/branch_scope.py` 就够：`commit_round.py` 用 `report.get("notes", ())` 取提示，旧模块没有这个键也能运行。`<git common-dir>/scope-gate-cache.json` 可以直接删。
+本轮有两个提交（门禁本身、治理登记）。合入主干后回退那个合并提交（`git revert -m 1 <合并提交>`）就整轮撤回。只想恢复旧规则时可以单独还原 `维护记录/基准脚本/branch_scope.py`：`commit_round.py` 用 `report.get("notes", ())` 取提示，旧模块没有这个键也能运行。但 `tests/test_branch_scope_precise.py` 里按新规则写的用例会红（实现前有 19 条是红的），这个测试文件要一并删掉，它在 `governance/structure.json` 里的登记也跟着删并重写基线。`<git common-dir>/scope-gate-cache.json` 可以直接删。

@@ -714,6 +714,14 @@
         "程序/orchestrator/skill_project_layer.py",
         "程序/domain/skill_residue_service.py"
       ]
+    },
+    "程序/tests/test_branch_scope_precise.py": {
+      "kind": "module",
+      "owner": "项目维护者",
+      "contract": "提交门禁只在暂存内容与活跃车道试合并出新冲突或同名新增时拒绝",
+      "targets": [
+        "程序/维护记录/基准脚本/branch_scope.py"
+      ]
     }
   },
   "packaging": {
