@@ -146,5 +146,108 @@ class TkRenderTests(unittest.TestCase):
                 self.assertIsInstance(self.widget.get('1.0', 'end'), str)
 
 
+class ChatProfileTests(unittest.TestCase):
+    """REQ-S01-99 对话口径：不吞正文、保留编号、列表分层、空行规则。"""
+
+    def _levels(self, markdown):
+        levels = []
+        for text, tags in render.parse(markdown, profile=render.CHAT):
+            if render.LIST not in tags or text == '\n':
+                continue
+            if render.LIST_L3 in tags:
+                levels.append(3)
+            elif render.LIST_L2 in tags:
+                levels.append(2)
+            else:
+                levels.append(1)
+        return levels
+
+    def test_t1_chat_keeps_opening_separator_and_body(self):
+        """REQ-S01-99 C1：开头的 --- 是分隔线，后面的正文照常显示。"""
+        markdown = '---\n第一段\n---\n正文'
+        chat = render.parse(markdown, profile=render.CHAT)
+        plain = _joined(chat)
+        self.assertIn('第一段', plain)
+        self.assertIn('正文', plain)
+        separators = [tags for _text, tags in chat if render.SEPARATOR in tags]
+        self.assertEqual(len(separators), 2)
+        note = _joined(render.parse(markdown, profile=render.NOTE))
+        self.assertNotIn('第一段', note)
+
+    def test_t2_chat_treats_hint_prefix_as_body(self):
+        """REQ-S01-99 C2：提示前缀在对话口径按普通正文处理。"""
+        chat = render.parse('正在生成中文说明的句子', profile=render.CHAT)
+        self.assertNotIn(render.HINT, _tags(chat))
+        note = render.parse('正在生成中文说明的句子', profile=render.NOTE)
+        self.assertIn(render.HINT, _tags(note))
+
+    def test_t3_chat_keeps_ordered_list_numbers(self):
+        """REQ-S01-99 C3：编号列表保留数字，无序列表仍是圆点。"""
+        markdown = '1. 甲\n2) 乙\n- 丙'
+        chat = [text for text, tags in render.parse(markdown, profile=render.CHAT)
+                if render.LIST in tags]
+        self.assertTrue(chat[0].startswith('1. '))
+        self.assertTrue(chat[1].startswith('2. '))
+        self.assertTrue(chat[2].startswith('• '))
+        note = [text for text, tags in render.parse(markdown, profile=render.NOTE)
+                if render.LIST in tags]
+        self.assertEqual(len(note), 3)
+        self.assertTrue(all(text.startswith('• ') for text in note))
+
+    def test_t4_chat_list_nests_by_indent(self):
+        """REQ-S01-99 C4：按行首缩进分层，缩进栈弹出后回到浅层。"""
+        self.assertEqual(self._levels('- a\n  - b\n    - c\n  - d\n- e'),
+                         [1, 2, 3, 2, 1])
+        self.assertEqual(self._levels('- a\n    - b\n        - c\n            - d'),
+                         [1, 2, 3, 3])
+
+    def test_t5_chat_list_stack_cleared_by_non_list_lines(self):
+        """REQ-S01-99 C4：非空正文清空缩进栈，空行不清空。"""
+        self.assertEqual(self._levels('- a\n正文\n  - b'), [1, 1])
+        self.assertEqual(self._levels('- a\n\n  - b'), [1, 2])
+
+    def test_t6_chat_blank_line_rules(self):
+        """REQ-S01-99 C5：块间空行并成一个空行片段，标题、分隔线、相邻列表项除外。"""
+        cases = (
+            ('甲\n\n\n乙', '甲\n\n乙\n'),
+            ('# 标题\n\n正文', '标题\n正文\n'),
+            ('正文\n\n## 标题', '正文\n标题\n'),
+            ('- 一\n\n- 二', '• 一\n• 二\n'),
+            ('甲\n\n- 一', '甲\n\n• 一\n'),
+            ('\n\n甲\n\n', '甲\n'),
+        )
+        for markdown, expected in cases:
+            with self.subTest(markdown=markdown):
+                self.assertEqual(
+                    _joined(render.parse(markdown, profile=render.CHAT)), expected)
+        separator = _joined(render.parse('甲\n\n---\n\n乙', profile=render.CHAT))
+        self.assertNotIn('\n\n', separator)
+        code = render.parse('甲\n\n```\nx\n\ny\n```', profile=render.CHAT)
+        self.assertTrue(_joined(code).startswith('甲\n\n'))
+        code_text = ''.join(text for text, tags in code if render.CODE_BLOCK in tags)
+        self.assertIn('\n    \n', code_text)
+        note = _joined(render.parse('甲\n\n\n乙', profile=render.NOTE))
+        self.assertEqual(note, '甲\n乙\n')
+
+    def test_t7_chat_malformed_inputs_do_not_raise(self):
+        """REQ-S01-99：任何输入不抛异常，残缺记号原样保留。"""
+        for bad in (None, '', 123, '   \n \t '):
+            with self.subTest(value=bad):
+                self.assertEqual(render.parse(bad, profile=render.CHAT), [])
+        plain = _joined(render.parse('**未闭合 [残缺', profile=render.CHAT))
+        self.assertIn('**未闭合 [残缺', plain)
+
+    def test_t8_table_identical_across_profiles(self):
+        """REQ-S01-99 CHT-Q5：表格两种口径逐片段相等。"""
+        markdown = '| 列1 | 列2 |\n| --- | --- |\n| 甲 | 乙 |'
+        self.assertEqual(render.parse(markdown, profile=render.CHAT),
+                         render.parse(markdown, profile=render.NOTE))
+
+    def test_t9_unknown_profile_falls_back_to_note(self):
+        """REQ-S01-99：profile 传别的值一律按 note 处理。"""
+        self.assertEqual(render.parse(MARKDOWN, profile='别的值'),
+                         render.parse(MARKDOWN, profile=render.NOTE))
+
+
 if __name__ == '__main__':
     unittest.main()
