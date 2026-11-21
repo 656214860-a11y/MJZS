@@ -14,6 +14,56 @@ import run_selftests  # noqa: E402
 
 
 class CommitRoundTests(unittest.TestCase):
+    def test_explicit_commit_rejects_foreign_index_before_adding_files(self):
+        from contextlib import ExitStack
+        with tempfile.TemporaryDirectory() as tmp, ExitStack() as stack:
+            repo = Path(tmp)
+            program = repo / 'program'
+            program.mkdir()
+            git = commit_round._git
+            def run(*args):
+                result = git(*args, cwd=program)
+                result.check_returncode()
+                return result.stdout
+            run('init', '-b', 'codex/test', str(repo))
+            run('config', 'user.name', 'test')
+            run('config', 'user.email', 'test@example.invalid')
+            run('config', 'core.hooksPath', 'unused')
+            run('commit', '--allow-empty', '-m', 'base')
+            (repo / '其他文件').write_text('foreign', encoding='utf8')
+            (program / 'owned').write_text('requested', encoding='utf8')
+            run('add', '../其他文件')
+            head = run('rev-parse', 'HEAD')
+            index = run('write-tree')
+            stack.enter_context(patch.object(commit_round, 'PROGRAM', program))
+            stack.enter_context(patch.object(commit_round, '_git', side_effect=lambda *a, **kw:
+                                             git(*a, cwd=kw.get('cwd', program))))
+            for guard in ('attach_codex_worktree', 'check_scope_overlap', 'check_test_move',
+                          'check_taskbook_closure', 'attach_evidence', 'common_dir'):
+                stack.enter_context(patch.object(commit_round, guard, return_value=0))
+            self.assertNotEqual(0, commit_round.main(['-m', 'R1: explicit', 'owned']))
+            self.assertEqual(head, run('rev-parse', 'HEAD'))
+            self.assertEqual(index, run('write-tree'))
+            self.assertEqual(0, commit_round.main(['-m', 'R1: staged']))
+            merge_head = repo / '.git' / 'MERGE_HEAD'
+            merge_head.write_text(run('rev-parse', 'HEAD'), encoding='ascii')
+            self.assertNotEqual(0, commit_round.main(['-m', 'R2: partial merge', 'owned']))
+            self.assertEqual('', run('diff', '--cached', '--name-only'))
+            merge_head.unlink()
+            # Another process stages a file after the last check, before Git takes its lock.
+            late = repo / 'late'
+            late.write_text('concurrent addition', encoding='utf8')
+            original_run = commit_round._run_git
+            def stage_during_commit(args, cwd, env=None):
+                if args[0] == 'commit':
+                    original_run(['add', '--', 'late'], repo).check_returncode()
+                return original_run(args, cwd, env)
+            with patch.object(commit_round, '_run_git', side_effect=stage_during_commit):
+                self.assertEqual(0, commit_round.main(['-m', 'R2: explicit', 'owned']))
+            self.assertEqual('late', run('diff', '--cached', '--name-only').strip())
+            self.assertEqual('program/owned', run('diff-tree', '--no-commit-id', '--name-only',
+                                                 '-r', 'HEAD').strip())
+
     def test_detached_codex_commit_keeps_index_and_leaves_shared_lock_alone(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp)
