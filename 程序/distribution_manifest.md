@@ -52,7 +52,7 @@
 | `漫剧制作助手_图标_*.ico`、`漫剧助手.lnk` | 本机产物 | 除 `漫剧制作助手_图标_629c80fc.ico`（已列保留）外的本地图标副本与快捷方式，由目标机器生成。 |
 | `升级备份/**` | 本机维护产物 | 不属于正式运行所需内容。 |
 | `开发者工具/本地CI.cmd`、`开发者工具/ci_clean.cmd`、`开发者工具/ci_targets.cmd`、`开发者工具/ci_unattended.cmd`、`开发者工具/启动助手_测试模式.cmd`、`程序/_diag_window_probe.ps1` | 开发工具 | 本地 CI、测试模式与窗口诊断，仅供开发。 |
-| `程序/AGENTS.md`、`程序/PROJECT_MAP.md`、`程序/architecture.md`、`程序/design_tokens.md`、`程序/ui_components.md`、`程序/docs/README.md`、`程序/docs/stages/**`、`程序/docs/review/**`、`程序/docs/specs/**`、`程序/data_model.md`、`程序/task_states.md`、`程序/project_status.md`、`程序/distribution_manifest.md`、`程序/文档导航.md`、`程序/docs/process/用户沟通与要求标准.md` | 开发文档 | 代理协议、架构、设计与状态记录，不是用户资料。 |
+| `程序/AGENTS.md`、`程序/PROJECT_MAP.md`、`程序/architecture.md`、`程序/design_tokens.md`、`程序/ui_components.md`、`程序/docs/README.md`、`程序/docs/stages/**`、`程序/docs/review/**`、`程序/docs/specs/**`、`程序/data_model.md`、`程序/task_states.md`、`程序/project_status.md`、`程序/distribution_manifest.md`、`程序/文档导航.md`、`程序/docs/process/用户沟通与要求标准.md`、`程序/docs/process/阶段文档写法.md` | 开发文档 | 代理协议、架构、设计与状态记录，不是用户资料。 |
 | `安装信息.json`、`程序/config.json`、`程序/desktop_settings.json`、`程序/projects.json`、`程序/task-execution.log`、`程序/漫剧制作助手.lnk` | 本机状态 | 安装记录、用户配置、项目索引与本机快捷方式，由目标机器生成；升级也只保留不覆盖。 |
 | `程序/h3_launcher.pyw` | 个人开发工具 | 写死本机 ComfyUI 路径的临时启动器，不随分发。 |
 | `程序/reference/**` | 参考资料 | 外部参考仓库快照，非运行时内容。 |
