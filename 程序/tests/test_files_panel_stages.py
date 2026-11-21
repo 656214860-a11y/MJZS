@@ -9,6 +9,8 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+import tkinter as tk
+from tkinter import ttk
 
 import tk_test_support
 from contract import project_stages
@@ -95,8 +97,36 @@ class StageRailTests(unittest.TestCase):
             self.assertTrue(stage_name(stage), stage)
 
     def test_scroll_rail_requests_minimum_width_without_geometry_feedback(self):
+        """R3971（任务书 L4-U1）：阶段图标列整列可见，且文件表高度不随刷新振荡。
+
+        T1：1280×800 与 880×600 两档窗口下，「全部」＋13 个阶段钮＋资料库钮的
+        实际宽度不小于各自请求宽度（R3214 把画布钉成 1px 的回归，按钮实际宽 1）。
+        T2：880×600 下连续刷新 10 次，文件表高度始终不变（守住 R3214 的几何振荡修复）。
+        """
         panel = self.desktop.files_panel
-        self.assertEqual(int(panel.stage_rail_scroller.canvas.cget('width')), 1)
+        win = self.win
+        buttons = list(panel.stage_buttons.values()) + [panel.library_button]
+        old_geo = win.geometry()
+        try:
+            for size in ('1280x800', '880x600'):
+                win.geometry(size)
+                self.pump(.5)
+                for button in buttons:
+                    self.assertTrue(button.winfo_ismapped(), '%s: %s' % (size, button))
+                    self.assertGreaterEqual(
+                        button.winfo_width(), button.winfo_reqwidth(),
+                        '%s: %s 实际宽 %d < 请求宽 %d' % (size, button,
+                                                        button.winfo_width(),
+                                                        button.winfo_reqwidth()))
+            win.geometry('880x600')
+            heights = []
+            for _ in range(10):
+                self.pump(.1)
+                heights.append(panel.script_tree.winfo_height())
+            self.assertEqual(len(set(heights)), 1, heights)
+        finally:
+            win.geometry(old_geo)
+            self.pump(.3)
         self.assertGreater(panel.stage_rail.winfo_width(), 1)
 
     def test_rail_sits_on_the_right_edge_of_the_panel(self):
@@ -249,56 +279,57 @@ class FilterBarTests(StageRailTests):
     def rows(self):
         return super().rows()
 
-    def test_filter_bar_has_three_boxes_and_a_keyword_entry(self):
+    def test_filter_bar_has_four_boxes_and_a_keyword_entry(self):
+        """R3983（L4-U2）：阶段选择并入图标列，stage_box 控件不存在。"""
         panel = self.desktop.files_panel
-        for name in ('stage_box', 'kind_box', 'status_box', 'keyword_entry'):
+        for name in ('kind_box', 'status_box', 'group_box', 'sort_box', 'keyword_entry'):
             self.assertTrue(hasattr(panel, name), name)
-        self.assertEqual(tuple(panel.stage_box.cget('values'))[0], '全部阶段')
+        self.assertFalse(hasattr(panel, 'stage_box'), '阶段下拉框已并入右侧图标列')
         self.assertEqual(tuple(panel.kind_box.cget('values'))[0], '全部类型')
         self.assertEqual(tuple(panel.status_box.cget('values'))[0], '全部状态')
 
     def test_kind_and_stage_combine(self):
         panel = self.desktop.files_panel
-        panel.stage_box.set('资产管理')
+        panel.show_stage('assets')
         panel.kind_box.set('资产')
         panel._apply_filters()
-        self.pump(.2)
+        self.wait_index()
         rows = self.rows()
         self.assertTrue(rows)
         self.assertTrue(all(row.startswith('05资产管理/') for row in rows), rows)
 
     def test_keyword_filters_by_name(self):
         panel = self.desktop.files_panel
-        panel.stage_box.set('全部阶段')
+        panel.show_stage(None)
         panel.kind_box.set('全部类型')
         panel.status_box.set('全部状态')
         panel.keyword_var.set('CHAR_001')
         panel._apply_filters()
-        self.pump(.2)
+        self.wait_index()
         rows = self.rows()
         self.assertTrue(rows)
         self.assertTrue(all('CHAR_001' in row for row in rows), rows)
 
     def test_status_filter_matches_published(self):
         panel = self.desktop.files_panel
-        panel.stage_box.set('全部阶段')
+        panel.show_stage(None)
         panel.kind_box.set('全部类型')
         panel.status_box.set('草稿')
         panel._apply_filters()
-        self.pump(.2)
+        self.wait_index()
         draft = self.rows()
         panel.status_box.set('已发布')
         panel._apply_filters()
-        self.pump(.2)
+        self.wait_index()
         published = self.rows()
         self.assertEqual(len(draft) + len(published), len(file_index.rows(self.desktop.root)))
 
     def test_clearing_conditions_restores_full_index(self):
         panel = self.desktop.files_panel
-        panel.stage_box.set('资产管理')
+        panel.show_stage('assets')
         panel.kind_box.set('资产')
         panel._apply_filters()
-        self.pump(.2)
+        self.wait_index()
         self.assertTrue(panel._filters_active())
         panel.show_stage(None)
         panel.kind_box.set('全部类型')
@@ -310,6 +341,127 @@ class FilterBarTests(StageRailTests):
         self.assertTrue(self.rows())
         self.assertIn('stage-group:script', panel.script_tree.get_children())
         self.assertIn('stage-group:assets', panel.script_tree.get_children())
+
+
+class FilterDedupTests(StageRailTests):
+    """R3983（任务书 L4-U2）：筛选区去重——无阶段下拉框；四个下拉框按取值自适应宽。
+
+    面板内宽放不下第二行时，「分组」「排序」连同名称整体换到第三行。
+    """
+
+    def _leaf_controls(self):
+        """筛选条里所有已映射的非容器控件（下拉框、名称文字、关键字框、刷新钮）。"""
+        panel = self.desktop.files_panel
+        controls = []
+        stack = [panel.filter_bar]
+        while stack:
+            widget = stack.pop()
+            stack.extend(widget.winfo_children())
+            if not isinstance(widget, (ttk.Frame, tk.Frame)) and widget.winfo_ismapped():
+                controls.append(widget)
+        return controls
+
+    def _widen_panel(self):
+        """面板宽按最长文件名收缩：放一个够长的名字把它撑到上限再量几何。"""
+        root = Path(self.desktop.root)
+        target = root / '05资产管理' / 'assets' / (
+            '面板宽度撑满用样例素材文件名零一二三四五六七八九零一二三四五六七八九_0001.png')
+        target.write_bytes(b'\x89PNG')
+        self.desktop.files_panel.refresh_file_index()
+        self.wait_index()
+        return target, root
+
+    def _restore_panel(self, target, root, win, old):
+        """删掉撑宽用的文件并让面板收回去，不弄脏共用夹具。"""
+        target.unlink(missing_ok=True)
+        self.desktop.files_panel.refresh_file_index()
+        self.wait_index()
+        win.geometry(old)
+        self.pump(.3)
+
+    def test_filter_controls_sit_on_two_rows_at_wide_window(self):
+        """T1：1280×800 下筛选区控件只占两行（按控件顶边坐标分组计数）。
+
+        夹具文件名都很短，面板只有最窄宽；先放一个长名字撑到上限宽（§2.2 实测
+        478）再量，收尾删掉并重建索引，不弄脏共用夹具。
+        """
+        panel = self.desktop.files_panel
+        panel.open_panel()
+        target, root = self._widen_panel()
+        win = self.win
+        old = win.geometry()
+        try:
+            win.geometry('1280x800')
+            self.pump(.5)
+            tops = sorted({widget.winfo_rooty() for widget in self._leaf_controls()})
+            self.assertEqual(len(tops), 2, tops)
+        finally:
+            self._restore_panel(target, root, win, old)
+
+    def test_each_dropdown_fully_shows_current_value(self):
+        """T2：两档窗口下四个下拉框实际宽 ≥ 当前取值文字宽＋箭头区宽。
+
+        箭头区宽度＝控件请求宽 − 字符宽×字符单位，覆盖内边距与下拉箭头；
+        文字宽用该控件字体实测，不做全角×2 近似。长文件名撑宽面板避免
+        夹具窄面板把换行后的框挤小。
+        """
+        from tkinter import font as tkfont
+        from ui_tokens import COMBOBOX_FONT
+        panel = self.desktop.files_panel
+        panel.open_panel()
+        target, root = self._widen_panel()
+        win = self.win
+        old = win.geometry()
+        try:
+            for size in ('1280x800', '880x600'):
+                win.geometry(size)
+                self.pump(.5)
+                for name in ('kind_box', 'status_box', 'group_box', 'sort_box'):
+                    box = getattr(panel, name)
+                    font = tkfont.Font(root=box, font=COMBOBOX_FONT)
+                    chrome = box.winfo_reqwidth() - font.measure('0') * int(box.cget('width'))
+                    needed = font.measure(str(box.get())) + chrome
+                    self.assertGreaterEqual(
+                        box.winfo_width(), needed,
+                        '%s %s：实际宽 %d < 取值「%s」宽 %d＋箭头区 %d'
+                        % (size, name, box.winfo_width(), box.get(),
+                           font.measure(str(box.get())), chrome))
+        finally:
+            self._restore_panel(target, root, win, old)
+
+    def test_group_sort_pair_wraps_aligned_with_kind_box(self):
+        """T3：880×600 下「分组」名称文字换行后左边缘与类型框左边缘一致。"""
+        panel = self.desktop.files_panel
+        panel.open_panel()
+        target, root = self._widen_panel()
+        win = self.win
+        old = win.geometry()
+        try:
+            win.geometry('880x600')
+            self.pump(.5)
+            labels = [widget for widget in self._leaf_controls()
+                      if isinstance(widget, ttk.Label)]
+            group_label = next(widget for widget in labels
+                               if str(widget.cget('text')) == '分组')
+            self.assertEqual(group_label.winfo_rootx(), panel.kind_box.winfo_rootx())
+            sort_label = next(widget for widget in labels
+                              if str(widget.cget('text')) == '排序')
+            self.assertGreater(sort_label.winfo_rooty(), panel.kind_box.winfo_rooty())
+        finally:
+            self._restore_panel(target, root, win, old)
+
+    def test_clicking_stage_icon_updates_panel_title(self):
+        """T4：点阶段图标后面板标题随之变化；「全部」＝「项目文件 · 全部阶段」。"""
+        panel = self.desktop.files_panel
+        before = str(panel.script_title.cget('text'))
+        panel.stage_buttons['assets'].invoke()
+        self.pump(.2)
+        title = str(panel.script_title.cget('text'))
+        self.assertNotEqual(title, before)
+        self.assertIn(stage_name('assets'), title)
+        panel.stage_buttons[None].invoke()
+        self.pump(.2)
+        self.assertEqual(str(panel.script_title.cget('text')), '项目文件 · 全部阶段')
 
 
 class IndexLifecycleTests(StageRailTests):
@@ -343,10 +495,12 @@ class IndexLifecycleTests(StageRailTests):
         self.assertIn('2026-11-16 12:34:56', panel.script_row_details[row.path])
         self.assertLessEqual(panel.script_box.winfo_width(),
                              self.desktop.panel_area.winfo_width() * .5)
-        self.assertTrue(panel.script_list.horizontal_scrollbar.winfo_ismapped())
-        tree.xview_moveto(1)
-        self.win.update()
-        self.assertGreater(tree.xview()[0], 0, '字段列须可横向滚动访问')
+        # R4005（任务书 L4-U3，R4）：属性列不再靠横向滚动访问——放不下的列整列
+        # 隐藏（displaycolumns），内容进悬停提示；表格横向滚动范围恒为 (0.0, 1.0)。
+        first, last = tree.xview()
+        self.assertEqual((first, last), (0.0, 1.0), '表格不再需要横向滚动')
+        self.assertIn('资产', panel.script_row_details[row.path])
+        self.assertIn('1.5 KB', panel.script_row_details[row.path])
 
     def test_three_group_modes_reparent_rows_across_stages(self):
         from datetime import datetime
@@ -701,11 +855,11 @@ class GlobalLibraryViewTests(StageRailTests):
                 self.pump(.3)
                 self.assertTrue(panel.library_view)
                 self.assertEqual(self.rows(), ['library:唯一库文件.md'])
-                self.assertEqual(str(panel.stage_box.cget('state')), 'disabled')
+                self.assertEqual(str(panel.status_box.cget('state')), 'disabled')
                 panel.show_stage(None)
                 self.pump(.3)
                 self.assertFalse(panel.library_view)
-                self.assertEqual(str(panel.stage_box.cget('state')), 'readonly')
+                self.assertEqual(str(panel.status_box.cget('state')), 'readonly')
 
     def test_configure_library_persists_selection_and_refreshes(self):
         from unittest.mock import patch
@@ -942,6 +1096,275 @@ class FileActionsTests(StageRailTests):
                           lambda path: seen.setdefault('path', Path(path))):
             panel.show_in_folder()
         self.assertEqual(seen['path'], src)
+
+
+class FilenameDisplayTests(StageRailTests):
+    """任务书 L4-U3：文件名列优先——其余列放不下就整列隐藏（内容进悬停提示）；
+    只剩文件名列仍不够宽时文件名中间省略；表格不再需要横向滚动。"""
+
+    LONG_NAME = '面板文件名完整显示样例素材ABCDEFGHIJKLMNOPQR_0001.png'
+    LONG_ROW = '05资产管理/assets/' + LONG_NAME
+
+    def _seed_long_file(self):
+        self.assertEqual(len(self.LONG_NAME), 40, '样例文件名按任务卡取 40 个字符')
+        root = Path(self.desktop.root)
+        target = root / '05资产管理' / 'assets' / self.LONG_NAME
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(b'\x89PNG')
+        self.desktop.files_panel.refresh_file_index()
+        self.wait_index()
+        return target
+
+    def _drop_long_file(self, target):
+        target.unlink(missing_ok=True)
+        self.desktop.files_panel.refresh_file_index()
+        self.wait_index()
+
+    def test_long_filename_fully_visible_at_wide_window(self):
+        """T1：1280×800 下 40 字符文件名完整显示——显示文字是全名，
+        文件名列可见宽 ≥ 文字像素宽＋单元格留白。"""
+        from ui_tokens import SPACING
+        panel = self.desktop.files_panel
+        panel.open_panel()
+        target = self._seed_long_file()
+        win, old = self.win, self.win.geometry()
+        try:
+            win.geometry('1280x800')
+            self.pump(.5)
+            tree = panel.script_tree
+            self.assertEqual(str(tree.item(self.LONG_ROW, 'values')[0]), self.LONG_NAME)
+            font = panel._script_list_font()
+            bbox = tree.bbox(self.LONG_ROW, 'name')
+            self.assertTrue(bbox, '文件名列应处于可见区内')
+            self.assertGreaterEqual(
+                bbox[2], font.measure(self.LONG_NAME) + SPACING['sm'],
+                '文件名列可见宽 %d < 文字宽 %d＋留白' % (bbox[2], font.measure(self.LONG_NAME)))
+        finally:
+            self._drop_long_file(target)
+            win.geometry(old)
+            self.pump(.3)
+
+    def test_long_filename_middle_elided_at_narrow_window(self):
+        """T2：880×600 下显示文字以全名前 8 字符开头、以扩展名结尾、含「…」，
+        且显示文字像素宽 ≤ 文件名列可见宽。"""
+        panel = self.desktop.files_panel
+        panel.open_panel()
+        target = self._seed_long_file()
+        win, old = self.win, self.win.geometry()
+        try:
+            win.geometry('880x600')
+            self.pump(.5)
+            tree = panel.script_tree
+            shown = str(tree.item(self.LONG_ROW, 'values')[0])
+            self.assertTrue(shown.startswith(self.LONG_NAME[:8]), shown)
+            self.assertTrue(shown.endswith('.png'), shown)
+            self.assertIn('…', shown)
+            font = panel._script_list_font()
+            bbox = tree.bbox(self.LONG_ROW, 'name')
+            name_w = bbox[2] if bbox else int(tree.column('name', 'width'))
+            self.assertLessEqual(
+                font.measure(shown), name_w,
+                '显示文字宽 %d > 文件名列可见宽 %d' % (font.measure(shown), name_w))
+        finally:
+            self._drop_long_file(target)
+            win.geometry(old)
+            self.pump(.3)
+
+    def test_table_never_scrolls_horizontally(self):
+        """T3：两档窗口下表格横向滚动范围都是 (0.0, 1.0)。"""
+        panel = self.desktop.files_panel
+        panel.open_panel()
+        target = self._seed_long_file()
+        win, old = self.win, self.win.geometry()
+        try:
+            for size in ('1280x800', '880x600'):
+                win.geometry(size)
+                self.pump(.5)
+                first, last = panel.script_tree.xview()
+                self.assertAlmostEqual(first, 0.0, places=3, msg=size)
+                self.assertAlmostEqual(last, 1.0, places=3, msg=size)
+        finally:
+            self._drop_long_file(target)
+            win.geometry(old)
+            self.pump(.3)
+
+    def test_no_column_half_visible(self):
+        """T4：任一显示列的右边缘不超过表格可见区右边缘（无半露列）。"""
+        panel = self.desktop.files_panel
+        panel.open_panel()
+        target = self._seed_long_file()
+        win, old = self.win, self.win.geometry()
+        try:
+            tree = panel.script_tree
+            for size in ('1280x800', '880x600'):
+                win.geometry(size)
+                self.pump(.5)
+                shown = [column for column in tree['displaycolumns']
+                         if column != '#all'] or ['name', 'kind', 'size', 'mtime', 'meta']
+                total = int(tree.column('#0', 'width')) + sum(
+                    int(tree.column(column, 'width')) for column in shown)
+                self.assertLessEqual(
+                    total, tree.winfo_width() + 2,
+                    '%s：显示列合计宽 %d 超出表格可见宽 %d'
+                    % (size, total, tree.winfo_width()))
+        finally:
+            self._drop_long_file(target)
+            win.geometry(old)
+            self.pump(.3)
+
+    def test_tooltip_keeps_full_name_and_hidden_columns(self):
+        """T5：悬停提示带完整文件名，以及被隐藏各列的内容
+        （类型、大小、修改时间、时长／分辨率）。"""
+        from datetime import datetime
+        from unittest.mock import patch
+        from contract.file_index_contract import FileRow
+        panel = self.desktop.files_panel
+        stamp = datetime(2026, 11, 17, 8, 30, 0).timestamp()
+        row = FileRow(path='05资产管理/assets/悬停样例.mp4', stage='assets',
+                      kind='资产', size=2048, mtime=stamp)
+        with patch.object(panel, '_row_meta_text', return_value='2.5s · 320×180'):
+            panel.cancel_script_load()
+            panel._clear_index_tree()
+            panel.library_view = False
+            root = Path(self.desktop.root)
+            panel._start_index_render([row], {}, root, False, panel._index_generation,
+                                      panel._index_context(root, False))
+            self.win.update()
+        details = panel.script_row_details[row.path]
+        self.assertIn('悬停样例.mp4', details)
+        self.assertIn('资产', details)
+        self.assertIn('2.0 KB', details)
+        self.assertIn('2026-11-17 08:30:00', details)
+        self.assertIn('2.5s · 320×180', details)
+
+    def test_elided_row_opens_the_full_filename(self):
+        """T6：省略显示的行触发「打开」，拿到的路径仍是完整文件名对应的文件。"""
+        from dataclasses import replace
+        from unittest.mock import Mock, patch
+        panel = self.desktop.files_panel
+        panel.open_panel()
+        target = self._seed_long_file()
+        win, old = self.win, self.win.geometry()
+        try:
+            win.geometry('880x600')
+            self.pump(.5)
+            tree = panel.script_tree
+            self.assertIn('…', str(tree.item(self.LONG_ROW, 'values')[0]),
+                          '前置：该行应处于省略显示')
+            tree.selection_set(self.LONG_ROW)
+            opened = Mock()
+            services = replace(panel.page.writing_page_services, open_path=opened)
+            with patch.object(panel.page, 'writing_page_services', services):
+                panel.open_script_file()
+            opened.assert_called_once()
+            opened_path = Path(opened.call_args.args[0])
+            self.assertEqual(opened_path.name, self.LONG_NAME)
+            self.assertTrue(opened_path.is_file())
+        finally:
+            self._drop_long_file(target)
+            win.geometry(old)
+            self.pump(.3)
+
+
+class StageFileIconTests(unittest.TestCase):
+    """R4013（任务书 L4-U4）：阶段文件图标＝导航图形原大小贴左上＋右下角统一文件标识。
+
+    断言针对 PNG 像素本身：``<stage>_files.png`` 与 ``<nav>.png``（nav 名经
+    ui.desktop_page_registry.NAV_STAGE_ICONS 取得，导航图固定在画布左上、
+    越界按全透明比）在右下 50%×50% 角标区域之外逐像素一致；全部差异像素
+    构成文件标识的外接矩形，须落在该区域内、宽高各 ≥35% 画布边长，且 13 张图
+    完全一致；生成脚本重跑结果可复现。
+    """
+
+    @staticmethod
+    def _nav_dir():
+        from tests.architecture._scan import ROOT
+        return ROOT / 'assets' / 'nav'
+
+    @classmethod
+    def _rgba(cls, name):
+        from PIL import Image
+        with Image.open(cls._nav_dir() / name) as image:
+            return image.convert('RGBA')
+
+    @staticmethod
+    def _nav_pixel(nav, x, y):
+        if 0 <= x < nav.width and 0 <= y < nav.height:
+            return nav.getpixel((x, y))
+        return (0, 0, 0, 0)
+
+    @classmethod
+    def _diff_box(cls, comp, nav):
+        """合成图与导航图逐像素差异的外接矩形 (left, top, right, bottom)。"""
+        xs, ys = [], []
+        for y in range(comp.height):
+            for x in range(comp.width):
+                if comp.getpixel((x, y)) != cls._nav_pixel(nav, x, y):
+                    xs.append(x)
+                    ys.append(y)
+        if not xs:
+            return None
+        return min(xs), min(ys), max(xs) + 1, max(ys) + 1
+
+    @classmethod
+    def _pairs(cls):
+        from ui.desktop_page_registry import NAV_STAGE_ICONS
+        return [(stage, cls._rgba(f'{stage}_files.png'),
+                 cls._rgba(f'{NAV_STAGE_ICONS[stage]}.png')) for stage in STAGES]
+
+    def test_stage_graphic_identical_to_nav_icon_outside_badge_region(self):
+        """T1：右下 50%×50% 区域以外，_files 图与导航图逐像素一致。"""
+        for stage, comp, nav in self._pairs():
+            edge_x, edge_y = -(-comp.width // 2), -(-comp.height // 2)
+            bad = [(x, y) for y in range(comp.height) for x in range(comp.width)
+                   if not (x >= edge_x and y >= edge_y)
+                   and comp.getpixel((x, y)) != self._nav_pixel(nav, x, y)]
+            self.assertEqual(bad, [],
+                             f'{stage}: 角标区域外 {len(bad)} 像素不同，首个 {bad[:1]}')
+
+    def test_badge_diff_box_in_bottom_right_region(self):
+        """T2：差异外接矩形落在右下 50%×50% 内，宽高各在画布边长 35%–45% 之间。"""
+        import math
+        for stage, comp, nav in self._pairs():
+            box = self._diff_box(comp, nav)
+            self.assertIsNotNone(box, f'{stage}: 与导航图没有任何差异，文件标识缺失')
+            left, top, right, bottom = box
+            self.assertGreaterEqual(left, -(-comp.width // 2),
+                                    f'{stage} 差异越出右半区: {box} (画布 {comp.size})')
+            self.assertGreaterEqual(top, -(-comp.height // 2),
+                                    f'{stage} 差异越出下半区: {box} (画布 {comp.size})')
+            self.assertGreaterEqual(right - left, math.ceil(comp.width * 0.35),
+                                    f'{stage} 文件标识宽不足 35%: {box}')
+            self.assertGreaterEqual(bottom - top, math.ceil(comp.height * 0.35),
+                                    f'{stage} 文件标识高不足 35%: {box}')
+            self.assertLessEqual(right - left, math.floor(comp.width * 0.45),
+                                 f'{stage} 文件标识宽超 45%: {box}')
+            self.assertLessEqual(bottom - top, math.floor(comp.height * 0.45),
+                                 f'{stage} 文件标识高超 45%: {box}')
+
+    def test_badge_diff_box_identical_across_stages(self):
+        """T3：13 张图画布尺寸一致，差异外接矩形坐标完全相同。"""
+        pairs = self._pairs()
+        sizes = {comp.size for _stage, comp, _nav in pairs}
+        self.assertEqual(len(sizes), 1, f'画布尺寸不统一: {sizes}')
+        boxes = {stage: self._diff_box(comp, nav) for stage, comp, nav in pairs}
+        self.assertEqual(len(set(boxes.values())), 1,
+                         f'文件标识外接矩形不一致: {boxes}')
+
+    def test_icon_regeneration_is_reproducible(self):
+        """T4：重跑 scripts/build_nav_icons.py，assets/nav 下 PNG 字节不变。"""
+        import subprocess
+        import sys
+        from tests.architecture._scan import ROOT
+        nav_dir = self._nav_dir()
+        before = {path.name: path.read_bytes() for path in nav_dir.glob('*.png')}
+        subprocess.run([sys.executable, '-B',
+                        str(ROOT / 'scripts' / 'build_nav_icons.py')],
+                       check=True, capture_output=True, timeout=120)
+        after = {path.name: path.read_bytes() for path in nav_dir.glob('*.png')}
+        self.assertEqual(set(before), set(after))
+        changed = [name for name in before if before[name] != after[name]]
+        self.assertEqual(changed, [], f'重跑生成脚本改动了: {changed}')
 
 
 if __name__ == '__main__':

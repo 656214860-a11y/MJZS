@@ -12,7 +12,7 @@ from tkinter import ttk
 
 from ui_tokens import SPACING
 from ui_widgets import LineInput, SecondaryButton, SelectBox, Tooltip
-from ui.desktop_files_panel_index import FilesPanelIndexMixin
+from ui.desktop_files_panel_index import FilesPanelIndexMixin, SCRIPT_NAME_CELL_PAD
 
 # R3094（任务书 P1，Q8 补充需求）：停靠面板右缘的阶段快捷图标列，顺序＝pet_bus.STAGES。
 # R3191（任务书 M3，REQ-S01-93）：图标优先用 assets/nav/<stage>_files.png（IconLoader.nav_icon），
@@ -25,9 +25,7 @@ STAGE_RAIL_ICONS = {
 STAGE_RAIL_ALL = '📁'          # 「全部」：全项目索引，按阶段分组
 STAGE_FILTER_ROW_CATEGORY = 'index'   # 索引行在右键菜单里与剧本行区分
 
-# 下拉框与输入框的宽度以「字符」计，从 token 派生，避免新增数字字面量（test_token_boundary）。
-FILTER_STAGE_WIDTH = max(6, SPACING['sm'])
-FILTER_BOX_WIDTH = max(4, SPACING['xs'])
+# 关键字输入框的宽度以「字符」计，从 token 派生，避免新增数字字面量（test_token_boundary）。
 FILTER_KEYWORD_WIDTH = max(4, SPACING['xs'])
 
 # 任务书 M5（REQ-S01-95/96）：预览列图元长边与列宽、时长／分辨率列宽全部 token 派生；
@@ -48,69 +46,69 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
 
     # ── 筛选条（R3106，任务书 P1，Q25）────────────────────────────────────
     def _build_filter_bar(self):
-        """阶段／类型／状态下拉＋文件名关键字；空值一律表示「不限」。"""
+        """类型／状态／分组／排序下拉＋文件名关键字；空值一律表示「不限」。
+
+        R3983（任务书 L4-U2，Q1/Q2）：阶段选择由右缘图标列承担，去掉重复的阶段
+        下拉框；第一行关键字＋刷新，第二行四个下拉框——面板内宽放不下时
+        「分组」「排序」连同名称经 FlowBar 整体换到第三行。下拉框不写死字符宽：
+        只读 SelectBox 按全部取值实测像素宽自适应，完整显示当前取值。
+        """
         from contract.file_index_contract import STATUSES
         from contract.file_naming import KINDS
-        from contract.pet_bus import STAGES, stage_name
+        from responsive_ui import FlowBar
         bar = ttk.Frame(self.script_box)
         bar.pack(side='top', fill='x', pady=(SPACING['none'], SPACING['xs']))
         self.filter_bar = bar
-        # 两行摆放：下拉框的 width 以「字符」计，单行并排会把面板请求宽撑到 400+，
-        # 让「按最长文件名收窄」的既有契约失效（R2998／test_file_list_width_fits_longest_filename）。
-        row_one = ttk.Frame(bar)
-        row_one.pack(side='top', fill='x')
-        row_two = ttk.Frame(bar)
-        row_two.pack(side='top', fill='x')
-        row_three = ttk.Frame(bar)
-        row_three.pack(side='top', fill='x')
-        self.stage_labels = {'全部阶段': None}
-        for stage in STAGES:
-            self.stage_labels[stage_name(stage)] = stage
         self.kind_labels = {'全部类型': None}
         for kind in KINDS:
             self.kind_labels[kind] = kind
         self.status_labels = {'全部状态': None}
         for status in STATUSES:
             self.status_labels[status] = status
-        self.stage_box = SelectBox(row_one, values=tuple(self.stage_labels), width=FILTER_STAGE_WIDTH)
-        self.stage_box.pack(side='left', fill='x', expand=True)
-        self.stage_box.bind('<<ComboboxSelected>>', lambda _event: self._apply_filters())
-        Tooltip(self.stage_box, '按工作阶段筛选')
-        self.kind_box = SelectBox(row_two, values=tuple(self.kind_labels), width=FILTER_BOX_WIDTH)
+        row_one = ttk.Frame(bar)
+        row_one.pack(side='top', fill='x')
+        self.keyword_var = tk.StringVar(value='')
+        # 业务 UI 不得直接建 ttk.Entry（test_input_boundary）：统一走 LineInput。
+        self.keyword_entry = LineInput(row_one, textvariable=self.keyword_var, width=FILTER_KEYWORD_WIDTH)
+        self.keyword_entry.pack(side='left', fill='x', expand=True)
+        self.keyword_entry.bind('<KeyRelease>', self._keyword_changed)
+        Tooltip(self.keyword_entry, '按文件名关键字筛选（回车立即生效）')
+        self.index_refresh_button = SecondaryButton(row_one, text='刷新', command=self.refresh_file_index)
+        self.index_refresh_button.pack(side='left', padx=(SPACING['xs'], SPACING['none']))
+        Tooltip(self.index_refresh_button, '后台重建索引，发现外部新增或修改的文件')
+        row_two = FlowBar(bar)
+        row_two.pack(side='top', fill='x')
+        self.kind_box = SelectBox(row_two, values=tuple(self.kind_labels))
         self.kind_box.pack(side='left')
         self.kind_box.bind('<<ComboboxSelected>>', lambda _event: self._apply_filters())
         Tooltip(self.kind_box, '按文件类型筛选')
-        self.status_box = SelectBox(row_two, values=tuple(self.status_labels), width=FILTER_BOX_WIDTH)
-        self.status_box.pack(side='left', padx=(SPACING['xs'], SPACING['none']))
+        self.status_box = SelectBox(row_two, values=tuple(self.status_labels))
+        self.status_box.pack(side='left')
         self.status_box.bind('<<ComboboxSelected>>', lambda _event: self._apply_filters())
         Tooltip(self.status_box, '按状态筛选：草稿／已发布／已归档')
-        self.keyword_var = tk.StringVar(value='')
-        # 业务 UI 不得直接建 ttk.Entry（test_input_boundary）：统一走 LineInput。
-        self.keyword_entry = LineInput(row_three, textvariable=self.keyword_var, width=FILTER_KEYWORD_WIDTH)
-        self.keyword_entry.pack(side='left', fill='x', expand=True, padx=(SPACING['xs'], SPACING['none']))
-        self.keyword_entry.bind('<KeyRelease>', self._keyword_changed)
-        Tooltip(self.keyword_entry, '按文件名关键字筛选（回车立即生效）')
-        row_four = ttk.Frame(bar)
-        row_four.pack(side='top', fill='x')
-        self.group_box = SelectBox(row_four, values=('阶段', '类型', '日期'), width=FILTER_BOX_WIDTH)
-        self.group_box.pack(side='left')
+        # 「分组」「排序」连同名称装进同一个子框：内宽不够时 FlowBar 把它整体
+        # 换到下一行（R2），名称跟着框走不拆散；fill='y' 让名称与下拉框顶边齐平。
+        tail = ttk.Frame(row_two)
+        tail.pack(side='left')
+        self.group_label = ttk.Label(tail, text='分组', style='Muted.TLabel')
+        self.group_label.pack(side='left', fill='y')
+        self.group_box = SelectBox(tail, values=('阶段', '类型', '日期'))
+        self.group_box.pack(side='left', padx=(SPACING['xs'], SPACING['none']))
         self.group_box.set('阶段')
         self.group_box.bind('<<ComboboxSelected>>', lambda _event: self._apply_filters())
         Tooltip(self.group_box, '分组方式：阶段／类型／日期（跨阶段归组）')
-        self.sort_box = SelectBox(row_four, values=('类型', '修改时间'), width=FILTER_STAGE_WIDTH)
+        self.sort_label = ttk.Label(tail, text='排序', style='Muted.TLabel')
+        self.sort_label.pack(side='left', fill='y', padx=(SPACING['md'], SPACING['none']))
+        self.sort_box = SelectBox(tail, values=('类型', '修改时间'))
         self.sort_box.pack(side='left', padx=(SPACING['xs'], SPACING['none']))
         self.sort_box.set('类型')
         self.sort_box.bind('<<ComboboxSelected>>', lambda _event: self._apply_filters())
         Tooltip(self.sort_box, '组内按类型或修改时间排序（最新在前）')
-        self.index_refresh_button = SecondaryButton(row_three, text='刷新', command=self.refresh_file_index)
-        self.index_refresh_button.pack(side='left', padx=(SPACING['xs'], SPACING['none']))
-        Tooltip(self.index_refresh_button, '后台重建索引，发现外部新增或修改的文件')
         self._reset_filter_boxes()
 
     def _reset_filter_boxes(self):
         """下拉框显示回「全部」，不触发回调。"""
-        for box in (getattr(self, 'stage_box', None), getattr(self, 'kind_box', None),
-                    getattr(self, 'status_box', None)):
+        for box in (getattr(self, 'kind_box', None), getattr(self, 'status_box', None)):
             if box is not None:
                 box.set(tuple(box.cget('values'))[0])
         if getattr(self, 'keyword_var', None) is not None:
@@ -127,12 +125,13 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
         self.group_box.set('阶段')
         self._reset_filter_boxes()
         self._sync_stage_buttons()
+        title = getattr(self, 'script_title', None)
+        if title is not None:
+            title.configure(text='项目文件')
 
     def _sync_view_filters(self):
-        """全局库只支持类型/名称，避免展示无效的阶段和发布状态条件。"""
-        state = 'disabled' if self.library_view else 'readonly'
-        self.stage_box.configure(state=state)
-        self.status_box.configure(state=state)
+        """全局库只支持类型/名称，避免展示无效的发布状态条件。"""
+        self.status_box.configure(state='disabled' if self.library_view else 'readonly')
 
     def _keyword_changed(self, event=None):
         """关键字输入去抖 250ms：避免每个按键都全表筛一遍。"""
@@ -156,15 +155,13 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
         self._filter_job = win.after(250, self._apply_filters)
 
     def _apply_filters(self):
-        """把三项下拉与关键字收成筛选条件，再按条件重填列表。"""
+        """把类型／状态／分组／排序与关键字收成筛选条件，再按条件重填列表。"""
         self._filter_job = None
-        self.stage_filter = self.stage_labels.get(str(self.stage_box.get()))
         self.kind_filter = self.kind_labels.get(str(self.kind_box.get()))
         self.status_filter = self.status_labels.get(str(self.status_box.get()))
         if self.library_view:
             self.stage_filter = None
             self.status_filter = None
-            self.stage_box.set('全部阶段')
             self.status_box.set('全部状态')
         self.keyword_filter = str(self.keyword_var.get()).strip()
         self.sort_mode = self.sort_box.get()
@@ -236,6 +233,9 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
         self._reset_filter_boxes()
         self.kind_box.set(next(text for text, value in self.kind_labels.items() if value == self.kind_filter))
         self._sync_stage_buttons()
+        title = getattr(self, 'script_title', None)
+        if title is not None:
+            title.configure(text='项目文件 · 全局素材库')
         library = file_index.read_global_dir()
         if library is None:
             self.page.status.set('尚未设置全局素材库目录：请先指定一个跨项目共用的素材文件夹。')
@@ -333,6 +333,9 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
             if not text:
                 continue
             tree.item(item, values=tuple(values[:4]) + (text,))
+            details = self.script_row_details.get(item, '')
+            if text not in details:
+                self.script_row_details[item] = details + ('\n' if details else '') + '时长／分辨率：' + text
             changed = True
         if changed:
             fit = getattr(self, '_fit_script_width', None)
@@ -427,6 +430,13 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
         from ui_icons import IconLoader
         from ui_tokens import COLORS
         self._ensure_filter_state()
+        # R3971（任务书 L4-U1）：齿轮设置钮钉在列顶——pack 先于滚动画布，
+        # 否则它落进滚动条与画布之间的中间腔，把画布挤成 1px 宽。
+        settings = SecondaryButton(self.stage_rail, text='⚙', width=0, style='RailIcon.TButton',
+                                   command=self.configure_library)
+        settings.pack(side='top', pady=(SPACING['none'], SPACING['xs']))
+        Tooltip(settings, '设置全局素材库目录')
+        self.library_settings_button = settings
         # 图标列自身仍是 script_box 右缘的固定竖条；内部换成可滚动画布，矮窗口不再裁掉底部图标。
         self.stage_rail_scroller = ScrollForm(self.stage_rail, bg=COLORS['background_primary'])
         self.stage_rail_form = self.stage_rail_scroller.form
@@ -460,11 +470,6 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
         library.pack(side='top', pady=(SPACING['none'], SPACING['xs']))
         Tooltip(library, '全局素材库：跨项目的共享素材（可在设置里指定目录）')
         self.library_button = library
-        settings = SecondaryButton(self.stage_rail, text='⚙', width=0, style='RailIcon.TButton',
-                                   command=self.configure_library)
-        settings.pack(side='top', pady=(SPACING['none'], SPACING['xs']))
-        Tooltip(settings, '设置全局素材库目录')
-        self.library_settings_button = settings
         # 滚轮绑定要等全部子件建完再递归挂一次（见 ScrollForm.bind_wheel 说明）。
         self.stage_rail_scroller.bind_wheel()
         # tk.Canvas 默认请求宽约 378px，会把整条图标列撑成宽面板；钉成内容实际宽度。
@@ -473,9 +478,13 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
         content_w = max((child.winfo_reqwidth() for child in self.stage_rail_form.winfo_children()),
                         default=0)
         if content_w:
-            # 内部Canvas仅请求最小宽，避免窄窗几何协商让内容表格高度反复振荡。
-            # 实际画布尺寸仍由pack布局分配，内容滚动不受影响。
-            self.stage_rail_scroller.canvas.configure(width=SPACING['none'] + 1)
+            # R3971（任务书 L4-U1）：外框钉固定宽＝内容宽＋竖滚动条宽，画布在其中填满；
+            # 关掉 pack 传播后画布的请求宽不再参与外层几何协商——
+            # 与 R3214「画布钉 1px」等价地切断振荡回路，但图标列恢复可见。
+            scroll_w = self.stage_rail_scroller.scroll.winfo_reqwidth()
+            self.stage_rail.configure(width=max(content_w, settings.winfo_reqwidth()) + scroll_w)
+            self.stage_rail.pack_propagate(False)
+            self.stage_rail_scroller.canvas.configure(width=content_w)
 
     def _add_rail_action(self, glyph, tip, method_name):
         """在图标列末尾追加一个动作钮；宿主没有该动作时只留按钮不绑回调。"""
@@ -496,15 +505,24 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
             except tk.TclError:
                 return
 
+    def _sync_stage_title(self):
+        """面板标题跟着当前阶段走：「项目文件 · <阶段名>」，全部＝「项目文件 · 全部阶段」。"""
+        title = getattr(self, 'script_title', None)
+        if title is None:
+            return
+        from contract.pet_bus import stage_name
+        text = '全部阶段' if self.stage_filter is None else stage_name(self.stage_filter)
+        try:
+            title.configure(text='项目文件 · ' + text)
+        except tk.TclError:
+            pass
+
     def show_stage(self, stage=None):
-        """点阶段图标：同步下拉框，再按筛选条件重填（``None``＝不限阶段）。"""
+        """点阶段图标：写当前阶段并同步面板标题，再按筛选条件重填（``None``＝不限阶段）。"""
         self._ensure_filter_state()
         self.library_view = False
         self.stage_filter = stage
-        label = next((text for text, value in self.stage_labels.items() if value == stage), '全部阶段')
-        box = getattr(self, 'stage_box', None)
-        if box is not None:
-            box.set(label)
+        self._sync_stage_title()
         self._sync_stage_buttons()
         self._reload_current_view()
 

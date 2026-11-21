@@ -1,0 +1,15 @@
+{
+  "round": 4013,
+  "commit_base": "d5a0476c",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k nav_icon files_panel",
+    "exit": 0,
+    "passed": 142,
+    "failed": 0
+  },
+  "generated_at": "2026-11-21T04:51:49"
+}

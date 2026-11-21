@@ -57,7 +57,7 @@ ACCENT_INK_KEYS = {'back'}
 
 # R3191（零依赖边界与媒体预览任务书 M3，D10）：阶段文件图标＝阶段字形＋右下角小「文件」角标。
 # 键名 ``<stage>_files``；阶段键 → Fluent 码位与上表侧栏图标一一对应（pet_bus.STAGES 顺序由
-# 运行时决定，生成顺序无所谓）。角标复用 ``project_files`` 的 folder-list 字形。
+# 运行时决定，生成顺序无所谓）。角标是手绘折角纸形（L4-U4），不再复用其他字形。
 STAGE_FILE_BASES = {
     'script':           0xF314,  # compose            剧本准备
     'script_structure': 0xF812,  # text-number-list   剧本结构
@@ -73,14 +73,12 @@ STAGE_FILE_BASES = {
     'edit':             0xF33A,  # cut                后期剪辑
     'delivery':         0xEAD1,  # shield-checkmark   质检与交付
 }
-FILE_BADGE_CODEPOINT = ICONS['project_files']  # folder-list：与「项目文件」入口同字形
 
 RENDER_PX = 48      # 2 倍渲染后 LANCZOS 缩小，边缘更顺
 
 
 def render_icons(ink: tuple[int, int, int, int], accent_ink=None):
-    from PIL import Image, ImageDraw, ImageFont
-    from ui_tokens import NAV_ICON_SIZE
+    from PIL import ImageFont
     font = ImageFont.truetype(str(FONT_PATH), RENDER_PX)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     written = []
@@ -90,79 +88,78 @@ def render_icons(ink: tuple[int, int, int, int], accent_ink=None):
         else:
             use_ink = ink
         char = chr(codepoint)
-        bbox = font.getbbox(char)
-        w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
-        pad = RENDER_PX // 2
-        image = Image.new('RGBA', (w + pad * 2, h + pad * 2), (0, 0, 0, 0))
-        ImageDraw.Draw(image).text((pad - bbox[0], pad - bbox[1]), char,
-                                   font=font, fill=use_ink)
-        image = image.resize((image.width // 2, image.height // 2), Image.LANCZOS)
-        box = image.getchannel('A').getbbox()
-        canvas = Image.new('RGBA', (NAV_ICON_SIZE, NAV_ICON_SIZE), (0, 0, 0, 0))
-        if box:
-            image = image.crop(box)
-            max_ink = NAV_ICON_SIZE - 2  # leave one transparent pixel on each edge
-            if image.width > max_ink or image.height > max_ink:
-                scale = min(max_ink / image.width, max_ink / image.height)
-                image = image.resize((max(1, round(image.width * scale)),
-                                      max(1, round(image.height * scale))), Image.LANCZOS)
-            alpha = image.getchannel('A')
-            image = Image.new('RGBA', image.size, use_ink)
-            image.putalpha(alpha)
-            canvas.paste(image, ((NAV_ICON_SIZE - image.width) // 2,
-                                 (NAV_ICON_SIZE - image.height) // 2))
+        canvas = _nav_glyph_image(font, char, use_ink)
         path = OUT_DIR / f'{key}.png'
         canvas.save(path)
         written.append((path.name, canvas.width, canvas.height))
     return written
 
 
-def _glyph_layer(font, codepoint, ink, canvas_px):
-    """把一个字形画成透明小图并缩到 ``canvas_px`` 内（返回裁好透明边的图层，由调用方定位）。"""
+def _nav_glyph_image(font, char, ink):
+    """把一个 Fluent 字形渲染成 NAV_ICON_SIZE 方画布图标；主导航与阶段文件图标共用本管线。"""
     from PIL import Image, ImageDraw
-    char = chr(codepoint)
+    from ui_tokens import NAV_ICON_SIZE
     bbox = font.getbbox(char)
     w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
     pad = RENDER_PX // 2
-    glyph = Image.new('RGBA', (w + pad * 2, h + pad * 2), (0, 0, 0, 0))
-    ImageDraw.Draw(glyph).text((pad - bbox[0], pad - bbox[1]), char, font=font, fill=ink)
-    scale = min(1.0, canvas_px / max(glyph.width, glyph.height))
-    if scale < 1.0:
-        glyph = glyph.resize((max(1, int(glyph.width * scale)), max(1, int(glyph.height * scale))),
-                             Image.LANCZOS)
-    box = glyph.getchannel('A').getbbox()
-    return glyph.crop(box) if box else glyph
+    image = Image.new('RGBA', (w + pad * 2, h + pad * 2), (0, 0, 0, 0))
+    ImageDraw.Draw(image).text((pad - bbox[0], pad - bbox[1]), char,
+                               font=font, fill=ink)
+    image = image.resize((image.width // 2, image.height // 2), Image.LANCZOS)
+    box = image.getchannel('A').getbbox()
+    canvas = Image.new('RGBA', (NAV_ICON_SIZE, NAV_ICON_SIZE), (0, 0, 0, 0))
+    if box:
+        image = image.crop(box)
+        max_ink = NAV_ICON_SIZE - 2  # leave one transparent pixel on each edge
+        if image.width > max_ink or image.height > max_ink:
+            scale = min(max_ink / image.width, max_ink / image.height)
+            image = image.resize((max(1, round(image.width * scale)),
+                                  max(1, round(image.height * scale))), Image.LANCZOS)
+        alpha = image.getchannel('A')
+        image = Image.new('RGBA', image.size, ink)
+        image.putalpha(alpha)
+        canvas.paste(image, ((NAV_ICON_SIZE - image.width) // 2,
+                             (NAV_ICON_SIZE - image.height) // 2))
+    return canvas
 
 
-def render_stage_file_icons(ink):
-    """13 张 ``<stage>_files.png``：阶段字形居中偏上，右下角叠小「文件」角标。
+# L4-U4（任务书，默认 L4-Q4）：画布固定 31×34；阶段图形＝对应导航图标原大小贴左上，
+# 文件标识＝折角纸形贴右下角，宽高各占画布边长的 35%–45%，带 1 像素浅色描边，
+# 全部 13 张图的标识位置和大小完全一致。
+STAGE_FILE_CANVAS = (31, 34)
+STAGE_FILE_BADGE_POS = (18, 20)
+STAGE_FILE_BADGE_SIZE = (12, 13)
+STAGE_FILE_BADGE_FOLD = 4
 
-    画布取 2×RENDER_PX（96px）保证角标边缘顺滑，合成后整体 LANCZOS 减半再裁透明边，
-    与单图标同一条输出管线（最终约 24px 网格）。
-    """
+
+def _file_badge_layer(colors):
+    """折角纸张角标：浅色纸面、右上角折角、四周 1 像素浅色描边，把标识和阶段图形分开。"""
+    from PIL import Image, ImageDraw
+    w, h = STAGE_FILE_BADGE_SIZE
+    fold = STAGE_FILE_BADGE_FOLD
+    image = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    body = [(0, 0), (w - fold, 0), (w - 1, fold - 1), (w - 1, h - 1), (0, h - 1)]
+    draw.polygon(body, fill=colors['background_card'], outline=colors['border_default'])
+    flap = [(w - fold, 0), (w - 1, fold - 1), (w - fold, fold - 1)]
+    draw.polygon(flap, fill=colors['border_input'], outline=colors['border_default'])
+    return image
+
+
+def render_stage_file_icons(ink, colors):
+    """13 张 ``<stage>_files.png``：阶段图形与 ``<nav>.png`` 逐像素一致，右下角叠文件标识。"""
     from PIL import Image, ImageFont
     font = ImageFont.truetype(str(FONT_PATH), RENDER_PX)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
+    badge = _file_badge_layer(colors)
     written = []
-    side = RENDER_PX * 2
     for stage, codepoint in STAGE_FILE_BASES.items():
-        canvas = Image.new('RGBA', (side, side), (0, 0, 0, 0))
-        base = _glyph_layer(font, codepoint, ink, int(RENDER_PX * 1.15))
-        badge = _glyph_layer(font, FILE_BADGE_CODEPOINT, ink, int(RENDER_PX * 0.6))
-        # 字形略偏上、略偏左为右下角角标让位；角标贴右下、留约 8% 边距。
-        canvas.paste(base, ((side - base.width) // 2 - int(RENDER_PX * 0.15),
-                            (side - base.height) // 2 - int(RENDER_PX * 0.3)), base)
-        margin = int(RENDER_PX * 0.35)
-        canvas.paste(badge, (side - badge.width - margin, side - badge.height - margin), badge)
-        image = canvas.resize((canvas.width // 2, canvas.height // 2), Image.LANCZOS)
-        box = image.getchannel('A').getbbox()
-        if box:
-            left, top, right, bottom = box
-            image = image.crop((max(0, left - 1), max(0, top - 1),
-                                min(image.width, right + 1), min(image.height, bottom + 1)))
+        canvas = Image.new('RGBA', STAGE_FILE_CANVAS, (0, 0, 0, 0))
+        canvas.paste(_nav_glyph_image(font, chr(codepoint), ink), (0, 0))
+        canvas.paste(badge, STAGE_FILE_BADGE_POS, badge)
         path = OUT_DIR / f'{stage}_files.png'
-        image.save(path)
-        written.append((path.name, image.width, image.height))
+        canvas.save(path)
+        written.append((path.name, canvas.width, canvas.height))
     return written
 
 
@@ -177,7 +174,7 @@ def main():
     accent_ink = tuple(int(primary_hex[i:i + 2], 16) for i in (0, 2, 4)) + (255,)
     try:
         written = render_icons(ink, accent_ink)
-        written += render_stage_file_icons(ink)
+        written += render_stage_file_icons(ink, COLORS)
     except ImportError:
         raise SystemExit('需要 Pillow：pip install pillow（仅开发环境，不进运行环境）')
     for name, width, height in written:
