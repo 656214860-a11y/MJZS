@@ -609,6 +609,14 @@
   },
   "max_depth": 4,
   "test_ownership": {
+    "程序/tests/test_script_page_layout.py": {
+      "kind": "module",
+      "owner": "项目维护者",
+      "contract": "02 剧本结构页主操作可见、分区标题与下拉框右边缘对齐",
+      "targets": [
+        "程序/ui/desktop_script_pages.py"
+      ]
+    },
     "程序/tests/architecture/test_structure.py": {
       "kind": "architecture",
       "owner": "项目维护者",

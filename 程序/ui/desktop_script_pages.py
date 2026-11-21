@@ -24,6 +24,7 @@ from ui.script_outline import OutlinePanel
 from ui.script_reading import ReadingAids
 from ui_tokens import (
     COLORS,
+    FONTS,
     SCRIPT_VIEW_FONT,
     SCRIPT_VIEW_PADDING,
     SPACING,
@@ -485,6 +486,20 @@ class _ScriptStructurePage:
         structure_directory = structure.output_directory
         self.source = structure.source
         target = structure.target
+        # L4-U7a R1：主操作放在内容区顶部。原先挂在等分网格的最后一行，窗口缩到
+        # 1280×800／880×600 时会被共享输入框与可视区下沿裁掉；顶部行不参与阅读区分配。
+        actions = FlowBar(self.page.content)
+        actions.pack(fill='x', pady=(SPACING["xs"], SPACING["none"]))
+        from orchestrator.stage_models import manual_command
+        self.manual_command = manual_command
+        action_group = ttk.Frame(actions)
+        action_group.pack(anchor='center', pady=SPACING["xs"])
+        SecondaryButton(action_group, text='采用选中剧本', command=lambda:self.page.safe(self.adopt_source)).pack(
+            side='left', padx=(SPACING['none'], SPACING['xs']))
+        manual = PrimaryButton(action_group, text='手动制作结构剧本', width=STAGE_ACTION_WIDTH,
+                               command=lambda:self.page.safe(self.manual_command(self.page, 'script_structure', self.start_structure, self.page.win)))
+        manual.pack(side='left', padx=(SPACING["none"], SPACING["xs"])); self.page.script_structure_manual_button = manual
+        ui_plugin_registry.module('stage_flow').follow(manual, 'script_structure')
         # 将两份剧本放入同一个等分网格。动作栏与说明文字不参与分配，窗口缩放时
         # 上、下内容框始终各占剩余阅读区域的一半。
         split_area = ttk.Frame(self.page.content)
@@ -499,7 +514,7 @@ class _ScriptStructurePage:
         self.page.script_structure_source_box = self.content_box(
             split_area,
             '自然剧本（采用：'+self.source.name+'）' if self.source else '自然剧本（待选择采用版本）',
-            '自然剧本', structure.source_documents, self.source,
+            '原剧本', structure.source_documents, self.source,
             '尚未找到剧本准备阶段的剧本。请先生成或添加剧本。',
             # 编辑与“采用”无关：采用记录带内容哈希，改过一次就失效，若按采用状态锁编辑，
             # 保存一次后再也点不开（R1958）。下拉框里选中的任一份都可编辑。
@@ -511,17 +526,7 @@ class _ScriptStructurePage:
             '尚未生成结构化剧本。点击上方“手动制作结构剧本”，或由三虎全自动模式执行。',
             'script_structure_output_preview', editable=True, kind='structured')
         self.page.script_structure_output_box.grid(row=1, column=0, sticky='nsew')
-        actions = FlowBar(split_area); actions.grid(row=2, column=0, sticky='ew', pady=(SPACING["xs"], SPACING["none"]))
-        from orchestrator.stage_models import manual_command
-        self.manual_command = manual_command
-        action_group = ttk.Frame(actions)
-        action_group.pack(anchor='center', pady=SPACING["xs"])
-        SecondaryButton(action_group, text='采用选中剧本', command=lambda:self.page.safe(self.adopt_source)).pack(
-            side='left', padx=(SPACING['none'], SPACING['xs']))
-        manual = PrimaryButton(action_group, text='手动制作结构剧本', width=STAGE_ACTION_WIDTH,
-                               command=lambda:self.page.safe(self.manual_command(self.page, 'script_structure', self.start_structure, self.page.win)))
-        manual.pack(side='left', padx=(SPACING["none"], SPACING["xs"])); self.page.script_structure_manual_button = manual
-        ui_plugin_registry.module('stage_flow').follow(manual, 'script_structure')
+        self._align_picker_edges()
         # R2942：「阶段配置」按钮＋模型下拉框删除。
         # R3016 P2：流程说明改放统一底栏左区段（截断+悬停全文），不再占页头一行，
         # 把高度让给两块剧本内容（用户 R1862 要求）。
@@ -529,6 +534,16 @@ class _ScriptStructurePage:
         self.page.script_structure_info_label = info
         self.page.script_structure_source_directory = source_directory
         self.page.script_structure_output_directory = structure_directory
+
+    def _align_picker_edges(self):
+        """R3：两行下拉框的右边缘落在同一列——右侧操作列取两组按钮的最大需求宽度。"""
+        # 控件刚建好时 winfo_reqwidth() 还是 1；先让几何管理器算出真实需求宽度。
+        self.page.win.update_idletasks()
+        # 操作列左侧有 sm 间距（grid padx），列宽要把这段算进去，两行才会完全同宽。
+        width = max(box.controls.winfo_reqwidth() for box in self.split_boxes) + SPACING['sm']
+        for box in self.split_boxes:
+            box.header.columnconfigure(1, minsize=width)
+
 
     def content_box(self, parent, title, file_heading, documents, active_path, empty, attribute, editable=True, kind='natural'):
         content = _ContentBox(self, parent, title, file_heading, documents, active_path, empty, attribute, editable, kind)
@@ -589,6 +604,8 @@ class _ContentBox:
         # 剧本文件选择改为正文上方的横向下拉框，与操作按钮同一行；正文独占整行宽度。
         box = ttk.Frame(self.parent, padding=(SPACING["xs"], SPACING["none"]))
         self.frame = box
+        # R2：上下两块各有带标题的分区；标题沿用 content_box 的 file_heading。
+        ttk.Label(box, text=self.file_heading, font=FONTS['heading_3']).pack(anchor='w')
         self.available = tuple(path for path in self.documents if path and path.is_file())
         preview_area = ttk.Frame(box); preview_area.pack(fill='both', expand=True)
         # 网格三行：页头／查找条（默认隐藏）／正文行（正文＋右侧大纲栏，默认折叠）。
@@ -596,11 +613,15 @@ class _ContentBox:
         preview_area.rowconfigure(2, weight=1)
         preview_header = ttk.Frame(preview_area)
         preview_header.grid(row=0, column=0, sticky='ew')
-        # 编辑操作贴着标题行右侧，下拉框占用其余宽度。
+        # 编辑操作贴着标题行右侧，下拉框占用其余宽度；两行操作列由页面统一取等宽，
+        # 下拉框右边缘才会落在同一列（L4-U7a R3）。
+        preview_header.columnconfigure(0, weight=1)
         controls = ttk.Frame(preview_header)
-        controls.pack(side='right', padx=(SPACING["sm"], SPACING["none"]))
+        controls.grid(row=0, column=1, sticky='e', padx=(SPACING["sm"], SPACING["none"]))
+        self.header = preview_header
+        self.controls = controls
         self.file_list = _DocumentPicker(preview_header, self.available, self.active_path)
-        self.file_list.pack(side='left', fill='x', expand=True)
+        self.file_list.grid(row=0, column=0, sticky='ew')
         self.active = {'path': self.active_path if self.active_path in self.available else (self.available[0] if self.available else None)}
         text_area = ttk.Frame(preview_area)
         text_area.grid(row=2, column=0, sticky='nsew')
