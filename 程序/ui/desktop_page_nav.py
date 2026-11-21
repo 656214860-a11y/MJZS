@@ -268,11 +268,10 @@ class PageNavMixin:
         # 第 71 期任务 2：资产详情页与资产清单页都是「05 资产管理」的子路由；翻到别的页就回主页面。
         if index!=PAGE['assets']:self.asset_detail_id=None;self.asset_roster=False
 
-        if index==PAGE['video']:
-            # 视频工作台自带底栏，统一状态栏让位（R3016 P2：沿用旧状态条同款进退逻辑）。
-            self.status_bar.pack_forget()
-        else:
-            self.status_bar.pack(side='top',fill='x',pady=DESKTOP_LAYOUT['status_gap'])
+        # L4-U7d：视频页也显示统一状态栏——收起它会让画布列多 43px，input_dock 的共享输入框
+        # 跟着下沉、与其他页错位。工作台自带底栏（按钮/进度/日志）照留；其状态文字经
+        # bind_status_segment('video', …) 并进左区分段，两条栏各管各的内容、不重复。
+        self.status_bar.pack(side='top',fill='x',pady=DESKTOP_LAYOUT['status_gap'])
         if index==PAGE['video']:
             prefs_path=self.root/'ui_settings.json' if self.root else None
             prefs=_prefs(prefs_path)
