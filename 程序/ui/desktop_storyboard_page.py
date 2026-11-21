@@ -6,6 +6,7 @@
 测试按 ``desktop.<名字>`` 打补丁照常生效；本模块只从 ``desktop_page_support`` 取页面常量。
 """
 import infra.pet_state as pet_state
+import contract.pet_bus as pet_bus
 from dataclasses import dataclass
 from typing import Callable
 import ui.asset_thumbs as asset_thumbs
@@ -18,7 +19,7 @@ from responsive_ui import CheckboxColumn, FlowBar, MIN_COL, bind_row_toggle, bin
 from contract.storyboard_paths import media_root
 from tkinter import ttk
 from ui_tokens import TEXT_ROWS, COLORS, SPACING, TABLE_HEADER_FONT, TABLE_ROW_FONT
-from ui_widgets import DataTable, SelectBox
+from ui_widgets import DataTable, DescriptionBlock, PrimaryButton, SelectBox
 from ui.desktop_page_support import ASSET_ROW_HEIGHT, THUMB_SIZE
 
 PAGE = pet_state.PAGE_OF
@@ -44,6 +45,18 @@ class StoryboardPageServices:
 class StoryboardPageMixin:
     """Desktop 的首帧管理页构建（见模块说明）。"""
     def storyboard(self):
+        try:
+            self.current_frame_json()
+        except ValueError:
+            # 空项目：没有分镜 JSON 时不建表，先说明缺什么、去哪一步补（L4-U6）。
+            # 句子与 orchestrator/storyboard_selection.current_source 的提示一致。
+            DescriptionBlock(self.content, text='这个项目还没有分镜 JSON，请先到'
+                             + pet_bus.stage_step('storyboard') + '采用一份。').pack(
+                                 anchor='w', pady=SPACING['xs'])
+            PrimaryButton(self.content, text='去第%02d步' % (PAGE['storyboard'] + 1),
+                          command=lambda: self.go(PAGE['storyboard'])).pack(
+                              anchor='w', pady=SPACING['sm'])
+            return
         return _FirstFramePage(self).build()
 
 
