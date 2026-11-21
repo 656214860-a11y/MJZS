@@ -18,6 +18,7 @@ HINT = "hint"
 
 NOTE = "note"
 CHAT = "chat"
+CHAT_TAG_PREFIX = "md_"
 
 HEADING_TAGS = {level: "heading%d" % level for level in range(1, 5)}
 _HEADING = re.compile(r"^(#{1,4})\s+(.*?)(?:\s+#+)?\s*$")
@@ -311,5 +312,94 @@ def apply(text_widget, markdown):
     text_widget.delete("1.0", "end")
     for text, tags in fragments:
         text_widget.insert("end", text, tags)
+    text_widget.configure(state=state)
+    return fragments
+
+
+def _chat_tag_specs(left, right):
+    """对话标签的取值表：缩进标签以 left/right 为起点往内缩，全部取自 ui_tokens。"""
+    specs = {
+        BOLD: {"font": FONTS["body_bold"]},
+        INLINE_CODE: {
+            "font": FONTS["code"],
+            "background": COLORS["code_background"],
+        },
+        CODE_BLOCK: {
+            "font": FONTS["code"],
+            "background": COLORS["code_background"],
+            "lmargin1": left + SPACING["sm"],
+            "lmargin2": left + SPACING["sm"],
+            "rmargin": right + SPACING["sm"],
+            "spacing1": SPACING["none"],
+            "spacing2": SPACING["none"],
+            "spacing3": SPACING["none"],
+        },
+        QUOTE: {
+            "lmargin1": left + SPACING["md"],
+            "lmargin2": left + SPACING["md"],
+            "rmargin": right,
+            "foreground": COLORS["text_secondary"],
+        },
+        TABLE: {"font": FONTS["code"]},
+        SEPARATOR: {
+            "foreground": COLORS["border_strong"],
+            "spacing1": SPACING["xs"],
+            "spacing3": SPACING["xs"],
+        },
+    }
+    heading_fonts = {
+        1: FONTS["heading_3"],
+        2: FONTS["heading_4"],
+        3: FONTS["body_bold"],
+        4: FONTS["body_bold"],
+    }
+    for level, tag in HEADING_TAGS.items():
+        specs[tag] = {
+            "font": heading_fonts[level],
+            "foreground": COLORS["text_heading"],
+            "spacing1": SPACING["sm"],
+            "spacing3": SPACING["xs"],
+        }
+    for depth, tag in enumerate((LIST, LIST_L2, LIST_L3)):
+        margin = left + SPACING["sm"] + depth * SPACING["lg"]
+        specs[tag] = {
+            "lmargin1": margin,
+            "lmargin2": margin + SPACING["md"],
+            "rmargin": right,
+        }
+    return specs
+
+
+def configure_chat_tags(text_widget, *, left=0, right=0):
+    """配置一组 md_ 前缀的对话标签；可重复调用，left/right 变了按新值重配。"""
+    for tag, options in _chat_tag_specs(left, right).items():
+        text_widget.tag_configure(CHAT_TAG_PREFIX + tag, **options)
+
+
+def insert(text_widget, index, markdown, *, base_tags=(), left=0, right=0):
+    """从 index 起把 markdown 按对话口径逐片段插入，原有内容不删，返回片段列表。"""
+    fragments = parse(markdown, profile=CHAT)
+    if not fragments:
+        return []
+    configure_chat_tags(text_widget, left=left, right=right)
+    base = tuple(base_tags)
+    state = str(text_widget.cget("state")) or "normal"
+    text_widget.configure(state="normal")
+    cursor = index
+    used = []
+    for text, tags in fragments:
+        md_tags = base + tuple(
+            CHAT_TAG_PREFIX + tag for tag in tags if tag != BODY
+        )
+        text_widget.insert(cursor, text, md_tags)
+        cursor = text_widget.index("%s+%dc" % (cursor, len(text)))
+        for tag in md_tags[len(base):]:
+            if tag not in used:
+                used.append(tag)
+    nested = (CHAT_TAG_PREFIX + LIST_L2, CHAT_TAG_PREFIX + LIST_L3)
+    for tag in [name for name in used if name not in nested] + \
+            [name for name in nested if name in used]:
+        text_widget.tag_raise(tag)
+    text_widget.tag_raise("sel")
     text_widget.configure(state=state)
     return fragments

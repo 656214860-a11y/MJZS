@@ -6,6 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import skill_note_render as render
+from ui_tokens import FONTS, SPACING
 
 
 MARKDOWN = """---
@@ -247,6 +248,114 @@ class ChatProfileTests(unittest.TestCase):
         """REQ-S01-99：profile 传别的值一律按 note 处理。"""
         self.assertEqual(render.parse(MARKDOWN, profile='别的值'),
                          render.parse(MARKDOWN, profile=render.NOTE))
+
+
+class ChatInsertTests(unittest.TestCase):
+    """REQ-S01-99 按位置插入：对话用 md_ 标签、优先级、边距、可编辑状态。"""
+
+    def setUp(self):
+        self.root = tk.Tk()
+        self.root.withdraw()
+        self.addCleanup(self.root.destroy)
+        self.widget = tk.Text(self.root, wrap='word', state='disabled')
+
+    def _ranges(self, tag):
+        values = self.widget.tag_ranges(tag)
+        return [(self.widget.get(values[i], values[i + 1]),
+                 str(values[i]), str(values[i + 1]))
+                for i in range(0, len(values), 2)]
+
+    def _pixels(self, tag, option):
+        return int(float(str(self.widget.tag_cget(tag, option))))
+
+    def test_t1_insert_appends_with_base_tags(self):
+        """REQ-S01-99 R1–R4：片段按序写入，md_ 前缀，正文只带 base_tags。"""
+        fragments = render.insert(self.widget, 'end', '**粗** 正文\n- 项',
+                                  base_tags=('b0',))
+        self.assertEqual(self.widget.get('1.0', 'end-1c'), '粗 正文\n• 项\n')
+        self.assertEqual(fragments,
+                         render.parse('**粗** 正文\n- 项', profile=render.CHAT))
+        bold = self._ranges('md_bold')
+        self.assertEqual([(text, '', '') for text, _s, _e in bold], [('粗', '', '')])
+        b0 = self.widget.tag_ranges('b0')
+        self.assertEqual(len(b0), 2)
+        self.assertEqual(str(b0[0]), '1.0')
+        self.assertEqual(str(b0[1]), str(self.widget.index('end-1c')))
+
+    def test_t2_insert_at_arbitrary_index_keeps_existing_text(self):
+        """REQ-S01-99 R3：任意位置插入，原有内容不删、不改。"""
+        self.widget.configure(state='normal')
+        self.widget.insert('1.0', '头\n尾\n')
+        render.insert(self.widget, '2.0', '甲\n乙')
+        self.assertEqual(self.widget.get('1.0', 'end-1c'), '头\n甲\n乙\n尾\n')
+
+    def test_t3_md_tags_outrank_base_tags_and_sel_stays_top(self):
+        """REQ-S01-99 R5：md_ 标签压过 base_tags，sel 恒为最高优先级。"""
+        self.widget.tag_configure('b0', font=FONTS['body'])
+        render.insert(self.widget, 'end', '**粗**', base_tags=('b0',))
+        names = list(self.widget.tag_names())
+        self.assertLess(names.index('b0'), names.index('md_bold'))
+        self.assertEqual(names[-1], 'sel')
+        self.widget.tag_configure('b1', font=FONTS['body'])
+        render.insert(self.widget, 'end', '**再粗**', base_tags=('b1',))
+        names = list(self.widget.tag_names())
+        self.assertLess(names.index('b1'), names.index('md_bold'))
+        self.assertEqual(names[-1], 'sel')
+
+    def test_t4_insert_keeps_disabled_state(self):
+        """REQ-S01-99 R6：disabled 文本框写入后状态仍恢复为 disabled。"""
+        render.insert(self.widget, 'end', '正文')
+        self.assertEqual(self.widget.get('1.0', 'end-1c'), '正文\n')
+        self.assertEqual(str(self.widget.cget('state')), 'disabled')
+
+    def test_t5_empty_or_comment_only_input_inserts_nothing(self):
+        """REQ-S01-99 R7：非字符串、空串、排版为空的输入一律不写入，返回 []。"""
+        for bad in (None, '', '<!-- 只有注释 -->'):
+            with self.subTest(value=bad):
+                self.assertEqual(render.insert(self.widget, 'end', bad), [])
+        self.assertEqual(self.widget.get('1.0', 'end-1c'), '')
+
+    def test_t6_chat_tag_margins_follow_left_and_right(self):
+        """REQ-S01-99：缩进标签以 left/right 为起点，重复调用按新值重配。"""
+        render.insert(self.widget, 'end', '- a\n```\nx\n```', left=30, right=20)
+        list_left = self._pixels('md_list', 'lmargin1')
+        self.assertEqual(list_left, 30 + SPACING['sm'])
+        self.assertEqual(self._pixels('md_list_l2', 'lmargin1') - list_left,
+                         SPACING['lg'])
+        self.assertEqual(self._pixels('md_code_block', 'rmargin'),
+                         20 + SPACING['sm'])
+        render.insert(self.widget, 'end', '- a', left=50, right=20)
+        self.assertEqual(self._pixels('md_list', 'lmargin1'),
+                         50 + SPACING['sm'])
+
+    def test_t7_nested_list_item_carries_both_level_tags(self):
+        """REQ-S01-99：嵌套项同时带 md_list 和 md_list_l2，l2 优先级更高。"""
+        render.insert(self.widget, 'end', '- a\n  - b')
+        l2 = self._ranges('md_list_l2')
+        self.assertEqual([(text, '', '') for text, _s, _e in l2],
+                         [('• b', '', '')])
+        l1 = self._ranges('md_list')
+        self.assertIn(('• b', l2[0][1], l2[0][2]), l1)
+        names = list(self.widget.tag_names())
+        self.assertLess(names.index('md_list'), names.index('md_list_l2'))
+
+    def test_t8_heading_fonts_shrink_for_bubble(self):
+        """REQ-S01-99 CHT-Q2：气泡标题 md_heading1 用 heading_3，三级用正文字号粗体。"""
+        render.insert(self.widget, 'end', '# 一\n### 三')
+        self.widget.tag_configure('ref_h3', font=FONTS['heading_3'])
+        self.widget.tag_configure('ref_bold', font=FONTS['body_bold'])
+        self.assertEqual(str(self.widget.tag_cget('md_heading1', 'font')),
+                         str(self.widget.tag_cget('ref_h3', 'font')))
+        self.assertEqual(str(self.widget.tag_cget('md_heading3', 'font')),
+                         str(self.widget.tag_cget('ref_bold', 'font')))
+
+    def test_t9_note_tags_stay_untouched_by_chat_insert(self):
+        """REQ-S01-99：说明栏标签不受 configure_chat_tags 影响。"""
+        render.apply(self.widget, '# 标题\n正文')
+        render.insert(self.widget, 'end', '# 二')
+        self.widget.tag_configure('ref_h1', font=FONTS['heading_1'])
+        self.assertEqual(str(self.widget.tag_cget('heading1', 'font')),
+                         str(self.widget.tag_cget('ref_h1', 'font')))
 
 
 if __name__ == '__main__':
