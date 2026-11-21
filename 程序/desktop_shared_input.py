@@ -133,8 +133,7 @@ def _composer_shell(parent):
     """R3060：输入区与工具行共用一条外框——外框由包裹层 1px 底色边承担
     （ttk 主题不支持 -highlight*），Card 内缩 RING_INSET 露出环色。"""
     ring = tk.Frame(parent, bg=COLORS['border_default'])
-    ring.pack(side='left', fill='both', expand=True,
-             padx=(SPACING['sm'], SPACING['none']))
+    ring.pack(side='left', fill='both', expand=True, padx=SPACING['none'])
     box = Card(ring, padding=(SPACING['sm'], SPACING['xs']))
     box.pack(fill='both', expand=True, padx=RING_INSET, pady=RING_INSET)
     return ring, box

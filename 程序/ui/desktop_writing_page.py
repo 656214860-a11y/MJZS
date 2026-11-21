@@ -240,7 +240,9 @@ class _WritingPage:
         brief=idea_chat.default_brief_document(self.page.idea_chat_context())
         self.page.idea_template=self.page.idea_example()
         # 聊天记录与发送框分离：记录可滚动，共享输入框固定停在窗口底部。
-        self.talk=box_frame(self.page.content,padding=(SPACING['xs'],SPACING['none']))
+        # L4-U5：聊天框外框与底部输入框卡片外框都贴齐共用内容区的左右边缘
+        # （外框两级容器 padding/padx 均取 SPACING['none']，不再内缩第二档）。
+        self.talk=box_frame(self.page.content,padding=(SPACING['none'],SPACING['none']))
         # 标题、聊天框与左侧内容起点同高；不在标题下额外留出一档空白。
         self.talk.pack(fill='both',expand=True,pady=SPACING['none'])
         # R2989 P1：页内「用量摘要 · 会话说明」单行状态栏并入统一底栏左区（set_status_segment）；
@@ -269,7 +271,7 @@ class _WritingPage:
         dialog_scroll.pack(side='right',fill='y')
         self.box=TextArea(self.dialog,bg=COLORS['background_card'],fg=COLORS['text_primary'],insertbackground=COLORS['primary'],
                     selectbackground=COLORS['primary'],inactiveselectbackground=COLORS['primary'],selectforeground=COLORS['background_card'],height=TALK_MIN_LINES,wrap='word',
-                    font=FONTS['body'],relief='flat',padx=SPACING['md'],pady=SPACING['sm'],yscrollcommand=dialog_scroll.set)
+                    font=FONTS['body'],relief='flat',padx=SPACING['xl'],pady=SPACING['sm'],yscrollcommand=dialog_scroll.set)
         self.box.pack(side='left',fill='both',expand=True)
         dialog_scroll.configure(command=self.box.yview)
         self.page.brief_editor=(brief,self.input_box);self.page.brief_saved_text=''
