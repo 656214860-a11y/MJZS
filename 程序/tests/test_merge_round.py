@@ -23,6 +23,21 @@ OLD = ("# 项目状态\n\n更新：2026-11-01｜当前轮次：2287（R2286 合�
        "｜上一轮：（历史）\n\n正文\n")
 
 
+class MergeResultCommitTests(unittest.TestCase):
+    def test_stages_metadata_before_whole_index_commit(self):
+        result = merge_round.PROGRAM / "tasks_round" / "result.md"
+        for code in (0, 1):
+            with self.subTest(code=code), mock.patch.object(merge_round, "_git") as stage, mock.patch.object(commit_round, "main", return_value=0) as commit:
+                stage.return_value.returncode = code
+                stage.return_value.stderr = ""
+                self.assertEqual(merge_round.commit_merge_result("merge", result), code)
+                stage.assert_called_once_with("add", "--", "project_status.md", str(result.relative_to(merge_round.PROGRAM)))
+                if code:
+                    commit.assert_not_called()
+                else:
+                    commit.assert_called_once_with(["-m", "merge"])
+
+
 class BumpStatusTests(unittest.TestCase):
     def test_header_moves_to_next_round_and_keeps_only_one_previous(self):
         text = merge_round.bump_status(OLD, 2290, "乙合入 master，无冲突。", date(2026, 11, 2))

@@ -17,11 +17,13 @@ pre-commit 钩子仅在 master/main/游离 HEAD 上、``full-safe-selftest.lock`
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 import re
 import subprocess
 import sys
 import time
+import tempfile
 from pathlib import Path
 
 PROGRAM = Path(__file__).resolve().parents[1]
@@ -33,6 +35,7 @@ import branch_scope  # noqa: E402
 import round_evidence  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import commit_retry
 import test_move_audit  # noqa: E402
 import taskbook_closure  # noqa: E402
 
@@ -95,7 +98,7 @@ def check_taskbook_closure(message: str, root: Path) -> int:
     return 0
 
 
-def attach_evidence(message: str, keywords, root: Path) -> int:
+def attach_evidence(message: str, keywords, root: Path, receipt=None) -> int:
     """R<N>（N 不早于证据制度起点）的提交必须带绿色证据文件：凭据扫描无命中，改了 .py 则定向测试须绿。
 
     返回 0 放行（证据已暂存），非 0 拒绝提交。"""
@@ -104,14 +107,29 @@ def attach_evidence(message: str, keywords, root: Path) -> int:
         return 0
     number = int(matched.group(1))
     merging = _git("rev-parse", "-q", "--verify", "MERGE_HEAD", cwd=root).returncode == 0
-    target = round_evidence.write_evidence(number, keywords, root=root, skip="merge-ci-exit" if merging else None)
-    scan_ok, tests_ok, detail = round_evidence.judge(number)
-    _git("add", "--", str(target), cwd=root)
+    if receipt:
+        with tempfile.TemporaryDirectory(dir=receipt.directory) as directory:
+            temp = Path(directory)
+            target = round_evidence.write_evidence(number, keywords, directory=temp, root=root)
+            scan_ok, tests_ok, detail = round_evidence.judge(number, directory=temp)
+            receipt.publish(receipt.evidence, target.read_bytes())
+            result = PROGRAM / "tasks_round" / ("tasks_round_%d_result.md" % number)
+            relative = result.relative_to(root).as_posix()
+            if scan_ok and tests_ok and relative in staged_paths(*receipt.files):
+                result_copy = temp / result.name
+                result_copy.write_bytes(result.read_bytes())
+                if round_evidence.stamp_result(result_copy, number, directory=temp):
+                    receipt.publish(relative, result_copy.read_bytes())
+    else:
+        target = round_evidence.write_evidence(number, keywords, root=root, skip="merge-ci-exit" if merging else None)
+        scan_ok, tests_ok, detail = round_evidence.judge(number)
+        _git("add", "--", str(target), cwd=root).check_returncode()
+        if scan_ok and tests_ok:
+            result = PROGRAM / "tasks_round" / ("tasks_round_%d_result.md" % number)
+            staged = _git("diff", "--cached", "--name-only", cwd=root).stdout.splitlines()
+            if any(name.endswith(result.name) for name in staged) and round_evidence.stamp_result(result, number):
+                _git("add", "--", str(result), cwd=root).check_returncode()
     if scan_ok and tests_ok:
-        result = PROGRAM / "tasks_round" / ("tasks_round_%d_result.md" % number)
-        staged = _git("diff", "--cached", "--name-only", cwd=root).stdout.splitlines()
-        if any(name.endswith(result.name) for name in staged) and round_evidence.stamp_result(result, number):
-            _git("add", "--", str(result), cwd=root)
         return 0
     print("拒绝提交：R%d 证据不通过（%s）。凭据命中先移除；改了 .py 须用 --tests <模块关键词> 跑定向测试且全绿。" % (number, detail),
           file=sys.stderr)
@@ -221,45 +239,78 @@ def main(argv=None) -> int:
     parser.add_argument("files", nargs="*", help="要暂存的 repo 内路径；省略则只提交已暂存内容")
     args = parser.parse_args(argv)
 
-    if args.files:
-        if reject_other_paths(staged_paths(), staged_paths(*args.files)):
-            return 1
-        if not _git("rev-parse", "--verify", "-q", "MERGE_HEAD").returncode:
-            print("Git 合并提交必须包含整个索引，请核对暂存区后使用无路径模式。", file=sys.stderr)
-            return 1
+    if args.files and not _git("rev-parse", "-q", "--verify", "MERGE_HEAD").returncode:
+        print("合并只能提交整个索引，请核对后使用无路径模式。", file=sys.stderr)
+        return 1
     status = attach_codex_worktree(PROGRAM.parent)
     if status:
         return status
+    if not args.files:
+        return commit(args)
+    number = re.match(r"^R(\d+)(?:-FAIL)?:", args.message)
+    key = "R" + number.group(1) if number else hashlib.sha256(args.message.encode()).hexdigest()
+    evidence = None
+    if number and ROUND_MESSAGE_RE.match(args.message) and int(number.group(1)) >= round_evidence.EVIDENCE_REQUIRED_FROM:
+        evidence = (PROGRAM / "tasks_round" / "evidence" / (key + ".json")).relative_to(PROGRAM.parent).as_posix()
+    try:
+        receipt = commit_retry.Receipt(_git, args.files, args.tests, args.message, key, evidence)
+        with commit_retry.exclusive(receipt.worktree_lock), commit_retry.exclusive(receipt.round_lock):
+            previous = receipt.open()
+            if previous:
+                print("已完成：" + previous)
+                return 0
+            return commit(args, receipt)
+    except (OSError, ValueError, KeyError, subprocess.CalledProcessError) as exc:
+        print("显式提交停止：" + str(exc), file=sys.stderr)
+        return 1
+
+
+def commit(args, receipt=None):
     args.message = with_agent_trailer(args.message, args.agent)
-    if args.files:
-        added = _git("add", "--", *args.files)
-        if added.returncode:
-            print(added.stderr.strip(), file=sys.stderr)
-            return added.returncode
+    if receipt:
+        allowed = staged_paths(*args.files)
+        if receipt.evidence:
+            if receipt.data:
+                allowed.add(receipt.evidence)
+            elif (receipt.root / receipt.evidence).exists():
+                print("没有持久记录能证明已有证据的归属：" + receipt.evidence, file=sys.stderr)
+                return 1
+        if reject_other_paths(staged_paths(), allowed):
+            return 1
+        receipt.start()
+        receipt.stage_inputs()
     if args.files or _git("diff", "--cached", "--name-only").stdout.strip():
         rejected = (check_test_move(args.message, PROGRAM.parent)
                     or check_scope_overlap(PROGRAM.parent)
-                    or check_taskbook_closure(args.message, PROGRAM.parent)
-                    or attach_evidence(args.message, args.tests, PROGRAM.parent))
+                    or check_taskbook_closure(args.message, PROGRAM.parent))
         if rejected:
             return rejected
-    staged = sorted(staged_paths())
-    commit_paths = []
-    if args.files:
-        allowed = staged_paths(*args.files)
-        matched = ROUND_MESSAGE_RE.match(args.message)
-        if matched and int(matched.group(1)) >= round_evidence.EVIDENCE_REQUIRED_FROM:
-            evidence = round_evidence.evidence_path(int(matched.group(1)))
-            allowed.update(staged_paths(str(evidence)))
-        if reject_other_paths(set(staged), allowed):
-            return 1
-        # --only keeps a concurrent add outside this path set for the next commit.
-        literal_paths = [":(top,literal)" + path for path in staged]
-        commit_paths = ["--only", "--", *literal_paths]
+        if receipt:
+            receipt.check()
+        if receipt and receipt.evidence:
+            rejected = attach_evidence(args.message, args.tests, PROGRAM.parent, receipt)
+        else:
+            rejected = attach_evidence(args.message, args.tests, PROGRAM.parent)
+        if rejected:
+            return rejected
+    staged = [line for line in _git("diff", "--cached", "--name-only").stdout.splitlines() if line]
     if not staged:
         print("没有已暂存的改动，未提交。", file=sys.stderr)
         return 1
     env = dict(os.environ, CODEX_STAGE_ALLOWLIST=";".join(staged))
+    commit_paths = []
+    if receipt:
+        permitted = staged_paths(*args.files)
+        if receipt.evidence:
+            permitted.add(receipt.evidence)
+        selected = staged_paths()
+        if reject_other_paths(selected, permitted):
+            return 1
+        commit_paths = ["--only", "--", *[":(top,literal)" + name for name in sorted(selected)]]
+        args.message += "\n\nCommit-Attempt: " + receipt.data["id"]
+        receipt.check()
+        receipt.data["ready"] = True
+        receipt.save()
     common = common_dir()
     deadline = time.monotonic() + args.wait_minutes * 60
     # 钩子只在 master/main/游离 HEAD 上拦验收锁；工作分支直接提交，不等锁。
@@ -269,13 +320,10 @@ def main(argv=None) -> int:
         if lock_applies and not wait_for_lock(common, max(0.0, deadline - time.monotonic())):
             print("等待全量验收锁超过 %.0f 分钟，未提交；暂存区保留。" % args.wait_minutes, file=sys.stderr)
             return 3
-        if args.files:
-            if staged_paths() != set(staged):
-                print("暂存区在验证后发生变化，请重新提交。", file=sys.stderr)
-                return 1
-            if commit_paths and _git("diff", "--quiet", "--", *literal_paths).returncode:
-                print("显式文件在暂存后发生变化，请重新验证。", file=sys.stderr)
-                return 1
+        if receipt:
+            receipt.check()
+            if _git("diff", "--quiet", "--", *commit_paths[2:]).returncode:
+                raise commit_retry.RetryConflict("提交前工作区与已验收暂存内容不同")
         done = _run_git(["commit", "-q", "-m", args.message, *commit_paths], PROGRAM, env=env)
         text = (done.stdout + done.stderr).strip()
         if done.returncode and REJECT_MARK in text and time.monotonic() < deadline:
@@ -283,7 +331,7 @@ def main(argv=None) -> int:
         if text:
             print(text)
         if not done.returncode:
-            print(_git("log", "--oneline", "-1").stdout.strip())
+            print(receipt.find_commit() if receipt else _git("log", "--oneline", "-1").stdout.strip())
         return done.returncode
 
 
