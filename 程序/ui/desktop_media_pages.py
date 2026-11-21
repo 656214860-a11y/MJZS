@@ -42,6 +42,33 @@ class MediaPageServices:
     find_editor_shortcut: Callable
 
 
+NO_VIDEO_NOTE = ('还没有已下载的镜头视频，自动粗剪与交接包暂不可用；请先在'
+                 + pet_bus.stage_step('video') + '生成并下载视频。')
+
+
+def storyboard_missing_text():
+    """与 orchestrator.storyboard_selection.current_source 的提示同一句话（该模块不许改）。"""
+    return '这个项目还没有分镜 JSON，请先到' + pet_bus.stage_step('storyboard') + '采用一份。'
+
+
+def _storyboard_source(page):
+    """非抛出版取当前分镜：前置不满足返回 None，页面据此改走引导分支（L4-U6）。"""
+    try:
+        return page.current_frame_json()
+    except ValueError:
+        return None
+
+
+def empty_stage_guide(page, text, target):
+    """空项目下的引导页：说明缺什么、去哪一步补，再给一颗主按钮跳过去（L4-U6）。
+
+    前置不满足时走这里，而不是让建页抛异常被 ``go()`` 兜成状态栏报错。
+    """
+    DescriptionBlock(page.content, text=text).pack(anchor='w', pady=SPACING['xs'])
+    PrimaryButton(page.content, text='去第%02d步' % (target + 1),
+                  command=lambda: page.go(target)).pack(anchor='w', pady=SPACING['sm'])
+
+
 def _configure_table_style(tree):
     """清单表的表头与行字体取自 ui_tokens，避免每张表各写一套。"""
     style = tree.cget('style') or 'Treeview'
@@ -524,6 +551,7 @@ class MediaPagesMixin:
                         confirmed)
         SecondaryButton(self.content, text='确认预演（SG-B）', command=confirm).pack(anchor='w', pady=SPACING['sm'])
     def previs(self):
+        if _storyboard_source(self) is None:return empty_stage_guide(self, storyboard_missing_text(), PAGE['storyboard'])
         ui_plugin_registry.module('local_previs').show(self)
     def refresh_video_workspace(self):
         current=self.video
@@ -797,6 +825,7 @@ class MediaPagesMixin:
         manual.pack(side='left',padx=(SPACING['none'],SPACING['xs']),pady=SPACING['xs'])
         ui_plugin_registry.module('stage_flow').follow(manual,stage)
     def editing(self):
+        if self.studio is None:return empty_stage_guide(self, NO_VIDEO_NOTE, PAGE['video'])
         from orchestrator.editing_page_controller import EditingPageController
         from domain.stage_workspace_service import ensure_editing_workspace
         controller = EditingPageController(self.root, self.studio)
@@ -823,7 +852,7 @@ class MediaPagesMixin:
         edit_buttons.append(edit_button('整理剪映素材交接包',lambda:self.async_(self.handoff,self.media_page_services.open_path)))
         has_downloaded=controller.has_downloaded_video()
         for button in edit_buttons:button.configure(state='normal' if has_downloaded else 'disabled')
-        if not has_downloaded:self.note('还没有已下载的镜头视频，自动粗剪与交接包暂不可用；请先在'+pet_bus.stage_step('video')+'生成并下载视频。')
+        if not has_downloaded:self.note(NO_VIDEO_NOTE)
         transition_button=edit_button('转场：'+controller.transition_label()+'（点击切换）',lambda:None)
         def switch_transition():
             transition_button.configure(text='转场：'+controller.next_transition()+'（点击切换）')
@@ -915,6 +944,7 @@ class MediaPagesMixin:
             self.status.set('交接包校验未通过：'+'；'.join(data.get('problems') or [result.reason or '未知问题']))
         self.async_(work,done)
     def delivery(self):
+        if self.studio is None:return empty_stage_guide(self, NO_VIDEO_NOTE, PAGE['video'])
         from domain.stage_workspace_service import ensure_delivery_workspace
         result=ensure_delivery_workspace(self.root)
         if not result.ok:raise ValueError(result.reason)
