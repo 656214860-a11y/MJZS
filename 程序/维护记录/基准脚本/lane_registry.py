@@ -23,9 +23,14 @@ def lanes_path(common_dir: Path) -> Path:
 def _read(path: Path) -> dict:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-        return data if isinstance(data, dict) and isinstance(data.get("lanes"), dict) else {"lanes": {}}
     except (OSError, ValueError):
         return {"lanes": {}}
+    lanes = data.get("lanes") if isinstance(data, dict) else None
+    if not isinstance(lanes, dict):
+        return {"lanes": {}}
+    # 条目不是对象的损坏行一并丢弃：list_lanes/register 假定每条都是 dict。
+    data["lanes"] = {lane: entry for lane, entry in lanes.items() if isinstance(entry, dict)}
+    return data
 
 
 def _write(path: Path, doc: dict) -> None:
