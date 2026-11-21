@@ -15,3 +15,10 @@ Spec Kit 采用官方三份模板，固定版本 a4d571229e164e440f8950cac034607
 上游依据：[Spec Kit](https://github.com/github/spec-kit/tree/a4d571229e164e440f8950cac034607bae7b7518/templates) · [Superpowers](https://github.com/obra/superpowers/tree/22f0b463e7a5e579904dd6211a520321035526f7/skills/subagent-driven-development) · [Anthropic 工作方法](https://code.claude.com/docs/en/best-practices)
 
 需要自动抽取子任务时，用 Git Bash 运行 scripts/task-brief PLAN 2 OUT（脚本在 superpowers 下）。计划用英文标题前缀例如 ## Task 2 Skill 生命周期；将 Spec Kit 的 T001 等任务编号保留在标题下，输出路径显式指定到临时目录。
+
+## DEV-FLOW-01 接力与复验
+
+- **规格与边界**。本次接入服务于漫剧助手的开发者。按场景补足规格，在原任务书记录执行上下文，再分别审查规格符合性和代码质量。沿用 [ADR-0006](../../程序/docs/adr/0006-round-system-no-external-spec-framework.md) 的 REQ、DES、轮次与证据体系。首轮沿文档规则、Skill 生命周期、Git 提交、测试凭据四条链扫描，发现及优先级见 [R4025](../../程序/tasks_round/tasks_round_4025_result.md)。
+- **实现与决策记录**。从项目技能进入本页。用上面固定版本的模板、实现提示和审查提示传递上下文。[R4028 验收](../../程序/tasks_round/tasks_round_4028_result.md)及 [R4029 合入凭据](../../程序/tasks_round/evidence/R4029.json)分别记录验收与合入。初次回放以功能车道提交 **5690376d**（R4027，显式提交隔离其他暂存文件）为样本，提交器定向测试历史结果为 13/13。R4027 未进入 **60f0f3af** 的主干历史，在该基线只能把这次回放作为历史证据。
+- **复验**。从仓库根核对技能到本页、再到三个模板和上下文、审查入口的相对链接。用 Git Bash 对两个带英文 Task 标题的临时计划运行 `bash 开发者工具/AI开发流程/superpowers/scripts/task-brief PLAN 2 OUT`，确认输出只含第二项。可用 `bash 开发者工具/AI开发流程/superpowers/scripts/review-package PLAN 60f0f3af^1 60f0f3af OUT` 生成本次接入的审查包，分别检查规格和质量，并记录当前命令结果。两个 OUT 都指向仓库外临时文件。审查包需要完整 Git 历史。
+- **回滚**。纯只读验收只退出临时克隆。若需撤回正式接入，先用 `git diff --name-status "60f0f3af^1" 60f0f3af` 核对首父差异，评估后续提交对入口的依赖，再按 [runbook §13](../../程序/runbook.md) 在隔离车道通过 Git 反向提交与门禁处理。整轮撤回 R4029 时，首父是主干，需按 merge revert 的主线 1 处理。只撤回某项时以待撤路径为边界。
