@@ -195,7 +195,8 @@ class Receipt:
 
     def open(self):
         if self.path.exists():
-            self.data = json.loads(self.path.read_text(encoding='utf8'))
+            with self.path.open(encoding='utf8') as stream:
+                self.data = json.load(stream)
             if self.data.get('identity') != self.identity:
                 raise RetryConflict('轮次已归属其他工作树、分支或命令参数：' + self.path.name)
             if self.head() != self.data['parent']:
