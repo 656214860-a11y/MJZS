@@ -722,6 +722,14 @@
       "targets": [
         "程序/维护记录/基准脚本/branch_scope.py"
       ]
+    },
+    "程序/tests/architecture/test_stage_doc_sections.py": {
+      "kind": "architecture",
+      "owner": "项目维护者",
+      "contract": "阶段文件接口与交互两节的结构守卫",
+      "targets": [
+        "程序/docs/process/阶段文档写法.md"
+      ]
     }
   },
   "packaging": {
