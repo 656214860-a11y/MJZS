@@ -1,0 +1,15 @@
+{
+  "round": 4041,
+  "commit_base": "be2bbe13",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k lane_merge_queue branch_scope",
+    "exit": 0,
+    "passed": 55,
+    "failed": 0
+  },
+  "generated_at": "2026-11-21T23:09:46"
+}

@@ -46,6 +46,15 @@ class LaneRegistryTests(unittest.TestCase):
         (self.common / "lanes.json").write_text("{bad", encoding="utf-8")
         self.assertEqual(lane_registry.list_lanes(self.common), [])
 
+    def test_non_dict_lane_entries_degrade_to_empty(self):
+        """JSON 合法但条目不是对象（手改/损坏写入）同样按空表降级，不让提交门禁崩。"""
+        (self.common / "lanes.json").write_text(
+            json.dumps({"lanes": {"bad": "oops", "worse": 7}}), encoding="utf-8")
+        self.assertEqual(lane_registry.list_lanes(self.common), [])
+        entry = self._register(now=1000.0)
+        self.assertEqual(entry["branch"], "codex/a")
+        self.assertNotIn("bad", lane_registry._read(lane_registry.lanes_path(self.common))["lanes"])
+
     def test_role_validation_falls_back_to_existing(self):
         self._register(role="gui")
         e = self._register(role="bogus")
