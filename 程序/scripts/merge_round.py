@@ -349,6 +349,15 @@ def abort_merge(result: Path) -> None:
     result.unlink(missing_ok=True)
 
 
+def commit_merge_result(message: str, result: Path) -> int:
+    # 合并必须提交完整索引。准备本轮元数据后由提交器运行原有门禁。
+    staged = _git("add", "--", "project_status.md", str(result.relative_to(PROGRAM)))
+    if staged.returncode:
+        print(staged.stderr.strip(), file=sys.stderr)
+        return staged.returncode
+    return commit_round.main(["-m", message])
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("branch", help="要合入 master 的分支")
@@ -426,9 +435,9 @@ def _merge_locked(args) -> int:
         print("状态页轮次连续性自检失败（差 %d），已中止本分支合并还原；轮次号 R%d 已被占用。"
               % (gap, number), file=sys.stderr)
         return 4
-    code = commit_round.main(["-m", "R%d: 合入 %s 到 master（合并轮）：%s\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
-                              % (number, args.branch, args.summary),
-                              "project_status.md", str(result.relative_to(PROGRAM))])
+    message = ("R%d: 合入 %s 到 master（合并轮）：%s\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
+               % (number, args.branch, args.summary))
+    code = commit_merge_result(message, result)
     if code and merge_in_progress() and merge_head_is(args.branch):
         # 提交没成但现场是本分支的：还原现场，避免 MERGE_HEAD 僵死阻塞后续合并（R2958 类事故）。
         abort_merge(result)
