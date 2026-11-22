@@ -11,7 +11,9 @@ import infra.ui_plugin_registry as ui_plugin_registry
 from contract.app_metadata import APP_NAME, VERSION
 from datetime import date
 from pathlib import Path
-from domain.projects import needs_cleanup_after_open_error
+from domain.projects import (needs_cleanup_after_open_error, is_empty_shell_open_error,
+                             project_dir_openable, shell_rescue_dirs, claimed_registration_notice,
+                             EMPTY_SHELL_OPEN_NOTICE)
 from tkinter import ttk
 from responsive_ui import FlowBar, auto_height
 from ui.ui_motion import EmptyState, bind_row_hover
@@ -258,10 +260,13 @@ class ProjectPagesMixin(RecyclePanelMixin):
         if title.cget('text')!=text:title.configure(text=text)
     def project_row_text(self,p):
         """项目行文字：当前打开的项目前加「●」，让用户随时看得出现在在哪个项目里。"""
-        missing=not Path(p['path']).is_dir()
+        path=Path(p['path'])
+        if not path.is_dir():note='（目录已失效，可右键清除登记）'
+        elif not (path/'config.json').is_file():note='（没有项目配置文件，可重新查找或清除登记）'
+        else:note=''
         root=getattr(self,'root',None)
-        current=root is not None and Path(p['path'])==root
-        return ('● ' if current else '')+p['name']+('（目录已失效，可右键清除登记）' if missing else '')
+        current=root is not None and path==root
+        return ('● ' if current else '')+p['name']+note
     def mark_current_project(self):
         """切换项目后同步侧栏选择器与首页行文字（● 标记），并把项目名写进窗口标题。"""
         self._sync_project_picker(snap=True)
@@ -398,7 +403,8 @@ class ProjectPagesMixin(RecyclePanelMixin):
             self.load(path)
         except Exception as exc:
             if not needs_cleanup_after_open_error(exc):raise
-            self.status.set('剧本已删除：请在项目选择窗点击“删除选中项目”清理残留项目。')
+            self.status.set(EMPTY_SHELL_OPEN_NOTICE if is_empty_shell_open_error(exc)
+                            else '剧本已删除：请在项目选择窗点击「删除选中项目」清理残留项目。')
             self._cleanup_project_path=str(path)
             self.choose_project()
             return False
@@ -469,8 +475,9 @@ class ProjectPagesMixin(RecyclePanelMixin):
         actions.pack(side='bottom',fill='x',padx=SPACING['xl'],pady=(SPACING['none'],SPACING['lg']))
         ttk.Label(popup,text='今天继续哪个故事？',font=FONTS['heading_1']).pack(anchor='w',padx=SPACING['xl'],pady=(SPACING['xl'],SPACING['sm']))
         ttk.Label(popup,text='选择项目后点击进入，或双击项目名称。',style='Muted.TLabel').pack(anchor='w',padx=SPACING['xl'],pady=(SPACING['none'],SPACING['md']))
-        missing_notice='项目目录不存在或已被移动，不能进入项目。可“重新查找项目”；选择清除时只清除登记，不动磁盘。'
-        notice=tk.StringVar(value=missing_notice if cleanup_path else '')
+        missing_notice='项目目录不存在或已被移动，不能进入项目。可「重新查找项目」；选择清除时只清除登记，不动磁盘。'
+        notice=tk.StringVar(value=((EMPTY_SHELL_OPEN_NOTICE if Path(cleanup_path).is_dir() else missing_notice)
+                                   if cleanup_path else ''))
         notice_label=ttk.Label(popup,textvariable=notice,foreground=COLORS['warning_text'],wraplength=TEXT_DESC['wraplength'])
         notice_label.pack(anchor='w',padx=SPACING['xl'],pady=(SPACING['none'],SPACING['sm']))
         def fit_notice(event):
@@ -495,6 +502,21 @@ class ProjectPagesMixin(RecyclePanelMixin):
                 if not self.project_page_services.confirm(popup, '只清除登记',
                         '项目目录已不存在。只清除这条项目登记，不会改动磁盘上的任何文件。是否继续？',
                         dangerous=True):return
+                if not self.clear_missing_project(item,confirmed=True):
+                    notice.set('清除失效项目登记失败，请查看状态栏后重试。');return
+                self.fill_projects(tree)
+                notice.set('已只清除失效项目登记。');return
+            if not project_dir_openable(path):
+                # 空壳登记：目录还在但没有 config.json，回收它找不回项目；先劝取消，
+                # 同时把还没登记的项目目录摆出来，用户仍继续就只清登记，绝不动磁盘。
+                rescue=shell_rescue_dirs(self.projects.info,self.projects.base,path)
+                message=(f"{item.get('name','项目')}\n{path}\n\n"
+                         '这个文件夹里没有项目配置文件（空壳），把它移入回收站找不回项目，建议先取消；'
+                         '可改用「重新查找项目」找回，或只清除这条登记，不动磁盘。')
+                if rescue:message+='\n\n项目库里尚未登记的目录：\n'+'\n'.join(rescue)
+                message+='\n\n仍要继续只会清除这条登记，不会改动磁盘上的任何文件。是否继续？'
+                if not self.project_page_services.confirm(popup, '只清除登记',
+                        message,dangerous=True):return
                 if not self.clear_missing_project(item,confirmed=True):
                     notice.set('清除失效项目登记失败，请查看状态栏后重试。');return
                 self.fill_projects(tree)
@@ -528,25 +550,32 @@ class ProjectPagesMixin(RecyclePanelMixin):
             try:outcome=self._project_result_data(self.projects.reconcile_missing(old))
             except Exception as exc:
                 notice.set(str(exc));return
+            if outcome.get('state')=='none':
+                notice.set('登记还在原位：目录能正常打开，无需重新查找。');return
             if outcome.get('state')=='claimed':
                 self.reload();self.fill_projects(tree)
                 new=outcome['path'];tree.selection_set(new);tree.see(new)
-                notice.set('已按新位置同步项目登记。');return
-            choices=outcome.get('choices',[])
+                notice.set(claimed_registration_notice(old));return
+            choices=outcome.get('choices',[]);manual=not choices
+            if manual:
+                # 指纹没对上时，把项目库里尚未登记的目录摆出来让用户手动指定。
+                choices=outcome.get('unregistered',[])
             if not choices:
                 notice.set('没有找到可认领的目录；可只清除这条失效登记。');return
             picker=BaseDialog(popup,'选择重新找到的项目目录',modal=False)
-            ttk.Label(picker.content,text='找到多个候选目录，请确认实际项目：').pack(anchor='w',pady=(SPACING['none'],SPACING['sm']))
+            ttk.Label(picker.content,text=('找到多个候选目录，请确认实际项目：' if not manual
+                      else '没有自动匹配；请从项目库里未登记的目录中指定一个：')).pack(
+                      anchor='w',pady=(SPACING['none'],SPACING['sm']))
             candidate=tk.StringVar(value=choices[0])
             for value in choices:
                 ttk.Radiobutton(picker.content,text=value,variable=candidate,value=value).pack(anchor='w',pady=SPACING['xs'])
             def claim():
-                try:claimed=self._project_result_data(self.projects.reconcile_missing(old,selected=candidate.get()))
+                try:claimed=self._project_result_data(self.projects.reconcile_missing(old,selected=candidate.get(),manual=manual))
                 except Exception as exc:
                     NotificationDispatcher(self.status, parent=picker).error(str(exc), title='无法同步项目登记');return
                 picker.close();self.reload();self.fill_projects(tree)
                 new=claimed['path'];tree.selection_set(new);tree.see(new)
-                notice.set('已按新位置同步项目登记。')
+                notice.set(claimed_registration_notice(old))
             picker.add_action('取消',picker.close)
             picker.add_action('认领此目录',claim,primary=True)
         def enter(event=None):
@@ -556,7 +585,7 @@ class ProjectPagesMixin(RecyclePanelMixin):
             except Exception as e:
                 # 目录失效不代表剧本被删除；保留登记，等待用户重新定位或确认清除。
                 if needs_cleanup_after_open_error(e):
-                    notice.set(missing_notice)
+                    notice.set(EMPTY_SHELL_OPEN_NOTICE if is_empty_shell_open_error(e) else missing_notice)
                     return
                 NotificationDispatcher(self.status, parent=popup).error(str(e), title='无法打开项目');return
             # 同侧栏入口：成功认领后以 load() 解析出的实际根目录记忆当天选择。
@@ -661,8 +690,8 @@ class ProjectPagesMixin(RecyclePanelMixin):
     def clear_missing_project(self,item,confirmed=False):
         """主界面右键清理幽灵登记；不把不存在的目录送入回收流程。"""
         path=str(item['path'])
-        if Path(path).exists():
-            raise ValueError('项目目录仍存在，请使用“删除项目及全部素材”移入回收站')
+        if project_dir_openable(path):
+            raise ValueError('项目目录仍存在，请使用「删除项目及全部素材」移入回收站')
         if not confirmed and not self.project_page_services.confirm(self.win,
                 '只清除登记', '项目目录已不存在。只清除这条项目登记，不会改动磁盘上的任何文件。是否继续？',
                 dangerous=True):

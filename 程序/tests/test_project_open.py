@@ -14,9 +14,17 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 os.chdir(HERE)
 
+import tkinter as tk
+from tkinter import ttk
+from unittest.mock import MagicMock, patch
+
 import desktop
 import engine
 import local_video
+import projects as projects_mod
+from contract import project_stages
+from desktop_project_pages import ProjectPageServices
+from stage_execution_service import project_registry_gateway
 
 
 def episode(eid="EP001", title="看它，别看我", shots=("SH001", "SH002")):
@@ -180,6 +188,232 @@ class UnopenableProjectTests(unittest.TestCase):
                 self.assertIn('项目目录不存在或已被移动', message)
                 self.assertNotIn('Errno', message)
             self.assertFalse(gone.exists())
+
+
+def make_service(folder, name="故事_20261001"):
+    """与改名找回用例同款的登记服务：程序目录与项目库全在临时目录。"""
+    app = Path(folder) / "程序"; base = Path(folder) / "库" / "项目"; base.mkdir(parents=True)
+    write(app / "config.json", {"downloads_root": str(Path(folder) / "库")})
+    write(app / "projects.json", {"active": str(base / name), "projects": [
+        {"name": "故事", "path": str(base / name), "created_at": 1, "status": "making"}]})
+    from projects import Projects
+    return Projects(app, gateway=project_registry_gateway()), base
+
+
+def dir_listing(root):
+    """目录内相对路径清单：失效登记的目录在任一动作前后必须一字不变。"""
+    return sorted(str(p.relative_to(root)) for p in Path(root).rglob("*"))
+
+
+def descendants(widget):
+    for child in widget.winfo_children():
+        yield child
+        yield from descendants(child)
+
+
+def fake_desktop(service):
+    """沿用假桌面写法：真服务 + MagicMock 宿主，不建真实窗口。"""
+    app = MagicMock()
+    app.projects = service
+    app._project_result_data = lambda r: desktop.Desktop._project_result_data(app, r)
+    app._sync_project_picker = lambda **kw: desktop.Desktop._sync_project_picker(app, **kw)
+    app._sync_project_group_styles = lambda: desktop.Desktop._sync_project_group_styles(app)
+    app.mark_current_project = lambda: desktop.Desktop.mark_current_project(app)
+    app.fill_projects = lambda tree: desktop.Desktop.fill_projects(app, tree)
+    app.project_row_text = lambda p: desktop.Desktop.project_row_text(app, p)
+    app.reload = lambda: desktop.Desktop.reload(app)
+    app.reload()
+    return app
+
+
+def chooser_desktop(service, win):
+    """项目选择窗用例的假桌面：真实 Tk + 真服务，确认框换成可断言的替身。"""
+    app = MagicMock()
+    app.win = win; app.root = None; app.projects = service
+    app.project_page_services = ProjectPageServices(
+        open_path=lambda *a, **k: desktop.open_path(*a, **k),
+        context_menu=lambda *a, **k: desktop.ContextMenu(*a, **k),
+        confirm=MagicMock(return_value=False))
+    app._cleanup_project_path = None; app._startup_project_choice = False
+    app.daily_project_choice = lambda: None
+    app.safe = lambda fn: fn()
+    app._project_result_data = lambda r: desktop.Desktop._project_result_data(app, r)
+    app.fill_projects = lambda tree: desktop.Desktop.fill_projects(app, tree)
+    return app
+
+
+def popup_parts(win):
+    """选择窗建好后取（弹窗, 列表, 动作按钮表）。"""
+    popup = next(w for w in win.winfo_children() if isinstance(w, tk.Toplevel))
+    tree = next(w for w in descendants(popup) if isinstance(w, ttk.Treeview))
+    buttons = {str(w.cget('text')): w for w in descendants(popup) if isinstance(w, ttk.Button)}
+    return popup, tree, buttons
+
+
+def notice_text(popup):
+    """选择窗顶部提示标签的当前文字（textvariable 内容）。"""
+    for widget in descendants(popup):
+        if isinstance(widget, ttk.Label) and str(widget.cget('textvariable')):
+            return popup.tk.call('set', str(widget.cget('textvariable')))
+    return ''
+
+
+class EmptyShellOpenTests(unittest.TestCase):
+    """登记还在、目录也在但没有 config.json（空壳）时，打开与列表的找回行为。"""
+
+    def shell_and_candidate(self, service, base):
+        """空壳登记 + 库里一个指回它的高匹配候选目录。"""
+        old = service.info["active"]; shell = Path(old); shell.mkdir()
+        (shell / "ui_settings.json").write_text("{}", encoding="utf-8")
+        new = base / "新故事_20261001"; story = project_stages.storyboard(new) / "分镜拆分"
+        story.mkdir(parents=True)
+        write(new / "config.json",
+              {"episode_dir": str(Path(old) / "03初步分镜" / "分镜拆分"),
+               "episode_file": str(Path(old) / "03初步分镜" / "分镜拆分" / "episode.json")})
+        return old, shell, new
+
+    def test_desktop_load_claims_shell_and_refreshes_picker_before_page(self):
+        with tempfile.TemporaryDirectory() as td:
+            service, base = make_service(td)
+            old, shell, new = self.shell_and_candidate(service, base)
+            before = dir_listing(shell)
+            app = fake_desktop(service)
+            self.assertIn(old, [p["path"] for p in app._picker_items])
+            with patch.object(desktop, "open_studio", return_value=None):
+                desktop.Desktop.load(app, old)
+            self.assertEqual(app.root, new)
+            self.assertEqual(service.info["active"], str(new))
+            app._sync_desktop_project_paths.assert_called_once_with(old, str(new))
+            self.assertEqual([p["path"] for p in app._picker_items], [str(new)])
+            self.assertIn("空文件夹没有动", app.status.set.call_args.args[0])
+            self.assertEqual(dir_listing(shell), before, "认领不得往失效登记的目录里写东西")
+            self.assertTrue(shell.is_dir(), "认领成功后原目录原样留在磁盘上")
+
+    def test_desktop_load_on_shell_without_match_reports_shell_sentence(self):
+        with tempfile.TemporaryDirectory() as td:
+            service, base = make_service(td)
+            old = service.info["active"]; shell = Path(old); shell.mkdir()
+            (shell / "ui_settings.json").write_text("{}", encoding="utf-8")
+            app = fake_desktop(service)
+            with patch.object(desktop, "open_studio", return_value=None), \
+                    self.assertRaises(ValueError) as caught:
+                desktop.Desktop.load(app, old)
+            message = str(caught.exception)
+            self.assertIn("没有项目配置文件", message)
+            self.assertIn("留下的空壳", message)
+            self.assertIn("重新查找项目", message)
+            self.assertNotIn("config.json：", message)
+            self.assertTrue(projects_mod.needs_cleanup_after_open_error(caught.exception))
+            engine_sentence = ('项目文件夹里没有项目配置文件 config.json：' + old
+                               + '。这个文件夹可能是项目被移动或改名后留下的空壳；'
+                               + '请在项目选择窗口选中这个项目后点「重新查找项目」，或把原来的项目文件夹放回原位后再打开。')
+            self.assertFalse(projects_mod.needs_cleanup_after_open_error(ValueError(engine_sentence)),
+                             'engine 的空壳报错不能走清理登记路径')
+            self.assertEqual(dir_listing(shell), ["ui_settings.json"],
+                             '打开失败不得往失效登记的目录里写东西')
+
+    def test_project_row_text_marks_openable_missing_and_shell(self):
+        with tempfile.TemporaryDirectory() as td:
+            ok = Path(td) / "好项目"; ok.mkdir(); (ok / "config.json").write_text("{}", encoding="utf-8")
+            gone = Path(td) / "已移走"
+            shell = Path(td) / "空壳"; shell.mkdir(); (shell / "ui_settings.json").write_text("{}", encoding="utf-8")
+            desk = MagicMock(); desk.root = None
+            rows = {p["name"]: desktop.Desktop.project_row_text(desk, p) for p in
+                    ({"name": "好", "path": str(ok)}, {"name": "移", "path": str(gone)},
+                     {"name": "壳", "path": str(shell)})}
+            self.assertNotIn("（", rows["好"])
+            self.assertIn("目录已失效", rows["移"])
+            self.assertIn("没有项目配置", rows["壳"])
+            self.assertNotIn("目录已失效", rows["壳"])
+
+    def test_delete_selected_project_on_shell_warns_and_cancel_preserves(self):
+        with tempfile.TemporaryDirectory() as td:
+            service, base = make_service(td)
+            old = service.info["active"]; shell = Path(old); shell.mkdir()
+            (shell / "ui_settings.json").write_text("{}", encoding="utf-8")
+            free = base / "落单_20261002"; (free / "01剧本准备").mkdir(parents=True)
+            before = dir_listing(shell)
+            win = tk.Tk(); win.withdraw()
+            try:
+                app = chooser_desktop(service, win)
+                desktop.Desktop._choose_project_impl(app)
+                popup, tree, buttons = popup_parts(win)
+                try:
+                    tree.selection_set(old)
+                    with patch.object(service, "delete", MagicMock()) as mocked_delete:
+                        buttons["删除选中项目"].invoke()
+                    message = app.project_page_services.confirm.call_args.args[2]
+                    self.assertIn("建议先取消", message)
+                    self.assertIn("没有项目配置文件", message)
+                    self.assertIn("落单_20261002", message)
+                    mocked_delete.assert_not_called()
+                    self.assertIn(old, [x["path"] for x in service.info["projects"]])
+                    self.assertEqual(dir_listing(shell), before)
+                finally:
+                    if popup.winfo_exists():
+                        popup.destroy()
+            finally:
+                win.destroy()
+
+    def test_open_project_or_cleanup_on_shell_status_uses_shell_wording(self):
+        with tempfile.TemporaryDirectory() as td:
+            service, base = make_service(td)
+            old = service.info["active"]; shell = Path(old); shell.mkdir()
+            app = MagicMock()
+            app.projects = service
+            app.status = MagicMock()
+            app.choose_project = MagicMock()
+            app.load = MagicMock(side_effect=ValueError(projects_mod.empty_shell_open_error(old)))
+            self.assertFalse(desktop.Desktop.open_project_or_cleanup(app, old))
+            text = app.status.set.call_args.args[0]
+            self.assertNotIn("剧本已删除", text)
+            self.assertNotIn("删除选中项目", text)
+            self.assertIn("重新查找项目", text)
+            app.choose_project.assert_called_once_with()
+
+    def test_chooser_enter_on_shell_shows_shell_notice(self):
+        with tempfile.TemporaryDirectory() as td:
+            service, base = make_service(td)
+            old = service.info["active"]; shell = Path(old); shell.mkdir()
+            win = tk.Tk(); win.withdraw()
+            try:
+                app = chooser_desktop(service, win)
+                app.load = MagicMock(side_effect=ValueError(projects_mod.empty_shell_open_error(old)))
+                desktop.Desktop._choose_project_impl(app)
+                popup, tree, buttons = popup_parts(win)
+                try:
+                    tree.selection_set(old)
+                    buttons["进入项目 →"].invoke()
+                    text = notice_text(popup)
+                    self.assertIn("没有项目配置文件", text)
+                    self.assertIn("重新查找项目", text)
+                    self.assertNotIn("项目目录不存在", text)
+                    self.assertNotIn("剧本已删除", text)
+                finally:
+                    if popup.winfo_exists():
+                        popup.destroy()
+            finally:
+                win.destroy()
+
+    def test_refind_on_openable_registration_says_still_in_place(self):
+        with tempfile.TemporaryDirectory() as td:
+            service, base = make_service(td)
+            old = service.info["active"]; shell = Path(old); shell.mkdir()
+            (shell / "config.json").write_text("{}", encoding="utf-8")
+            win = tk.Tk(); win.withdraw()
+            try:
+                app = chooser_desktop(service, win)
+                desktop.Desktop._choose_project_impl(app)
+                popup, tree, buttons = popup_parts(win)
+                try:
+                    tree.selection_set(old)
+                    buttons["重新查找项目"].invoke()
+                    self.assertIn("还在原位", notice_text(popup))
+                finally:
+                    if popup.winfo_exists():
+                        popup.destroy()
+            finally:
+                win.destroy()
 
 
 if __name__ == "__main__":

@@ -53,14 +53,28 @@ def _same_renamed_prefix(left,right):
     return bool(left_date and right_date and left_date.group(1)==right_date.group(1)
                 and _slug(left)==_slug(right))
 
+def project_dir_openable(path):
+    """能打开的登记：路径是目录，并且里面有项目配置文件 config.json。"""
+    if not str(path or ''):return False
+    root=Path(path)
+    return root.is_dir() and (root/'config.json').is_file()
+
+
+def recognizable_project_dir(path, base):
+    """项目库一级里可识别为项目的目录：有 config.json 或至少一个阶段骨架目录，回收站不算。"""
+    p=Path(path)
+    if p.name==stage_layout.WORKFLOW_DIR or stage_layout.WORKFLOW_DIR in p.parts:return False
+    if not p.is_dir() or p.parent.resolve()!=Path(base).resolve():return False
+    return (p/'config.json').is_file() or any((p/name).is_dir() for name in project_stages.stage_dirs())
+
+
 def _discover_candidates(base):
     """扫项目库一级里可识别为项目的目录（含 config 或阶段骨架），回收站永不回流。"""
     base=Path(base); candidates=[]
     for p in base.iterdir():
         # ``工作流任务`` 是项目库内回收站；历史回收站绝不回流到下一轮扫描。
-        if not p.is_dir() or p.name==stage_layout.WORKFLOW_DIR or stage_layout.WORKFLOW_DIR in p.parts:continue
+        if not recognizable_project_dir(p,base):continue
         cfg=p/'config.json'
-        if not cfg.is_file() and not any((p/name).is_dir() for name in project_stages.stage_dirs()):continue
         try:data=cached_read_json(cfg) if cfg.is_file() else {}
         except (OSError,ValueError):continue
         candidates.append((p,data if isinstance(data,dict) else {}))
@@ -69,13 +83,17 @@ def _discover_candidates(base):
 
 def reconcile_missing(projects_info, base):
     """只扫项目库一级，找回资源管理器改名后失效的登记。无 Tk、无写入。"""
-    base=Path(base); info=copy.deepcopy(projects_info); missing=[x for x in info.get('projects',[]) if not Path(x.get('path','')).is_dir()]
-    if not missing:return {'state':'none','info':info,'matches':{}}
+    base=Path(base); info=copy.deepcopy(projects_info)
+    missing=[x for x in info.get('projects',[]) if not project_dir_openable(x.get('path',''))]
+    if not missing:return {'state':'none','info':info,'matches':{},'candidates':[],'unregistered':[]}
     candidates=_discover_candidates(base)
+    registered={Path(x.get('path','')) for x in info.get('projects',[])}
+    held={p for p in registered if project_dir_openable(p)}
     matches={}
     for item in missing:
         old=Path(item['path']); found=[]
         for p,cfg in candidates:
+            if p==old or p in held:continue
             refs=(cfg.get('episode_dir',''),cfg.get('episode_file',''))
             high=any(_episode_project_root(r)==old for r in refs)
             mid=(all((p/name).is_dir() for name in project_stages.stage_dirs())
@@ -83,16 +101,73 @@ def reconcile_missing(projects_info, base):
             if high or mid:found.append(str(p))
         matches[item['path']]=found
     return {'state':'found' if any(matches.values()) else 'new','info':info,'matches':matches,
-            'candidates':[str(p) for p,_ in candidates]}
+            'candidates':[str(p) for p,_ in candidates],
+            'unregistered':[str(p) for p,_ in candidates if p not in registered]}
+
+_EMPTY_SHELL_HINT='没有找到可以自动接回的项目文件夹'
+
+EMPTY_SHELL_OPEN_NOTICE=('项目文件夹里没有项目配置文件（可能是项目被移动或改名后留下的空壳），'
+                         '不能进入项目。可点「重新查找项目」找回，或只清除这条登记，不动磁盘。')
+
+def missing_project_open_error(path):
+    """登记打不开的报错句子：目录不在和只剩空壳各一句，界面按登记现状选。"""
+    if Path(path).is_dir():return empty_shell_open_error(path)
+    return ('项目目录不存在或已被移动：'+str(path)
+            +'。未找到可自动认领的目录；可「重新查找项目」或只清除登记，不动磁盘。')
+
+def empty_shell_open_error(path):
+    return ('项目文件夹里没有项目配置文件（可能是项目被移动或改名后留下的空壳）：'+str(path)
+            +'。'+_EMPTY_SHELL_HINT+'；可在项目选择窗口点「重新查找项目」手动指定，或只清除这条登记，不动磁盘。')
+
+def is_empty_shell_open_error(error):
+    """空壳打开报错（本模块句子）的判定，与 engine 的 config.json 原句区分。"""
+    return _EMPTY_SHELL_HINT in str(error)
+
 
 def needs_cleanup_after_open_error(error):
-    """仅在项目根目录已不存在时才提示清理残留登记。
+    """目录不在或只剩空壳时才提示清理／找回；engine 的「没有 config.json」不算。
 
     ``episode.json`` 是初步分镜及之后阶段的工作集，不是项目存在性的
     判据。剧本准备/剧本结构阶段尚未生成分镜时仍必须可以打开项目。
     """
     text=str(error)
-    return '项目目录不存在或已被移动' in text
+    return '项目目录不存在或已被移动' in text or _EMPTY_SHELL_HINT in text
+
+
+def claimed_registration_notice(old_path):
+    """认领成功的提示：原目录还在（空壳被接走）时说明它没有动。"""
+    return '已按新位置同步项目登记。'+('原位置留下的空文件夹没有动。' if Path(old_path).is_dir() else '')
+
+
+def manual_claim_error(projects_info, base, old_path, selected):
+    """手动指定认领目录的逐项校验；返回拒绝原因，None 表示可以认领。"""
+    p=Path(selected)
+    if not p.is_dir():return '所选目录不存在，不能认领。'
+    if p==Path(old_path):return '所选目录就是这条登记自己的路径，不能认领。'
+    if p.name==stage_layout.WORKFLOW_DIR or stage_layout.WORKFLOW_DIR in p.parts:
+        return '所选目录在项目库回收站里，不能认领。'
+    if p.parent.resolve()!=Path(base).resolve():return '所选目录必须在项目库一级。'
+    if any(Path(x.get('path',''))==p for x in projects_info.get('projects',[])):
+        return '这个文件夹已经登记为另一个项目。'
+    if not recognizable_project_dir(p,base):
+        return '所选目录不可识别为项目（没有项目配置文件或阶段目录）。'
+    return None
+
+
+def shell_rescue_dirs(projects_info, base, path):
+    """空壳登记删除前的只读提示：指纹匹配的候选＋还没登记的项目目录（去重）。"""
+    result=reconcile_missing(projects_info,base)
+    dirs=[]
+    for d in result['matches'].get(str(path),[])+result.get('unregistered',[]):
+        if d not in dirs:dirs.append(d)
+    return dirs
+
+
+def _registration_kept(path, base):
+    """重建索引的保留判定：库内只留可识别为项目的目录，库外只留还能打开的登记。"""
+    p=Path(path)
+    if p.parent.resolve()==Path(base).resolve():return recognizable_project_dir(p,base)
+    return project_dir_openable(p)
 
 
 def is_missing_storyboard_open_error(error):
@@ -254,6 +329,8 @@ class Projects:
         info=copy.deepcopy(self.info)
         item=next((x for x in info.get('projects',[]) if x.get('path')==str(old)),None)
         if item is None:raise ValueError('失效项目未登记')
+        if str(new)!=str(old) and any(x.get('path')==str(new) for x in info.get('projects',[])):
+            raise ValueError('这个文件夹已经登记为另一个项目。')
         item['path']=str(new);item['name']=_slug(new)
         if info.get('active')==str(old):info['active']=str(new)
         self._write_transaction(self._live_path_writes(old,new,info))
@@ -266,16 +343,24 @@ class Projects:
         return self._claim_reconciled(old_path,new_path)
 
     @_project_write_result
-    def reconcile_missing(self,path,selected=None):
+    def reconcile_missing(self,path,selected=None,manual=False):
         """包装纯扫描服务：自动仅接受一对一，多个候选交给 UI 选择。"""
+        if project_dir_openable(path):return {'state':'none','path':str(path)}
         result=reconcile_missing(self.info,self.base)
         choices=result['matches'].get(str(path),[])
         if selected is not None:
-            if str(selected) not in choices:raise ValueError('所选目录不是该失效项目的候选目录')
-            return {'state':'claimed','path':self._claim_reconciled(path,selected),'result':result}
+            if manual:
+                reason=manual_claim_error(self.info,self.base,path,selected)
+                if reason:raise ValueError(reason)
+            elif str(selected) not in choices:
+                raise ValueError('所选目录不是该失效项目的候选目录')
+            return {'state':'claimed','path':self._claim_reconciled(path,selected),'result':result,
+                    'unregistered':result['unregistered']}
         if len(choices)==1:
-            return {'state':'claimed','path':self._claim_reconciled(path,choices[0]),'result':result}
-        return {'state':'confirm' if len(choices)>1 else 'missing','choices':choices,'result':result}
+            return {'state':'claimed','path':self._claim_reconciled(path,choices[0]),'result':result,
+                    'unregistered':result['unregistered']}
+        return {'state':'confirm' if len(choices)>1 else 'missing','choices':choices,'result':result,
+                'unregistered':result['unregistered']}
 
     @_project_write_result
     def register_discovered_project(self,path):
@@ -298,9 +383,9 @@ class Projects:
     @_project_write_result
     def clear_missing_registration(self,path):
         """普通目录已不存在时只清登记，绝不尝试移动或删除磁盘文件。"""
-        if Path(path).exists():raise ValueError('项目目录仍存在，请使用“删除选中项目”移入回收站')
+        if project_dir_openable(path):raise ValueError('项目目录仍存在，请使用「删除选中项目」移入回收站。')
         if path not in [x.get('path') for x in self.info.get('projects',[])]:raise ValueError('项目未登记')
-        self._drop_registration_entry(path,message='失效项目登记未清除，请稍后重试或“重建项目索引”。')
+        self._drop_registration_entry(path,message='失效项目登记未清除，请稍后重试或「重建项目索引」。')
     @_project_write_result
     def set_status(self,path,status):
         if status not in ('making','completed'):raise ValueError('无效的项目状态')
@@ -342,17 +427,17 @@ class Projects:
     def delete(self,path):
         target=self.deletion_target(path)
         if not target.exists():
-            raise ValueError('项目目录已不存在；可选择“只清除登记，不动磁盘”。')
+            raise ValueError('项目目录已不存在；可选择「只清除登记，不动磁盘」。')
         # target 是已登记的完整用户项目；移动至项目库回收站而非递归永久删除。
         from infra.storage_maintenance import recycle_paths
         try:records=recycle_paths(self.base,[target],'删除项目')
         except FileNotFoundError as exc:
-            raise ValueError('项目目录已不存在；可选择“只清除登记，不动磁盘”。') from exc
+            raise ValueError('项目目录已不存在；可选择「只清除登记，不动磁盘」。') from exc
         except OSError as exc:
             raise ValueError('项目目录仍被占用，项目入口未删除。请关掉占用它的窗口后重试。') from exc
         if not records or target.exists():
             raise ValueError('项目未能安全移入回收站，项目入口已保留。')
-        self._drop_registration_entry(path,message='项目内容已移入回收站，但项目登记未更新：请在项目选择窗点“重新查找项目”或“重建项目索引”恢复索引；项目内容仍可从回收站恢复。')
+        self._drop_registration_entry(path,message='项目内容已移入回收站，但项目登记未更新：请在项目选择窗点「重新查找项目」或「重建项目索引」恢复索引；项目内容仍可从回收站恢复。')
     @_project_write_result
     def unlink_registered_project(self,path):
         """只移除登记项目自身的目录链接，绝不递归进入它指向的真实目录。"""
@@ -366,7 +451,7 @@ class Projects:
         except OSError as exc:
             raise ValueError('项目链接仍被占用，项目入口未删除。请关闭占用它的窗口后重试。') from exc
         if raw.exists() or raw.is_symlink():raise ValueError('项目链接未能删除，项目入口已保留。')
-        self._drop_registration_entry(path,message='项目链接已移除，但项目登记未更新：请在项目选择窗点“重建项目索引”恢复索引。')
+        self._drop_registration_entry(path,message='项目链接已移除，但项目登记未更新：请在项目选择窗点「重建项目索引」恢复索引。')
     @_project_write_result
     def create(self,name,source=None):
         name=name.strip()
@@ -449,7 +534,7 @@ class Projects:
         projects=[]
         for item in self.info.get('projects',[]):
             path=str(item.get('path') or '')
-            if path and Path(path).is_dir():
+            if path and _registration_kept(path,base):
                 projects.append(item);kept.append(path)
             else:
                 dropped.append(path)

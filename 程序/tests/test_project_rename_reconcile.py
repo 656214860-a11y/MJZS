@@ -144,7 +144,7 @@ class DesktopRenameReconcileTests(unittest.TestCase):
         fixture=RenameReconcileTests()
         with tempfile.TemporaryDirectory() as td:
             service,base=fixture.make_service(td)
-            root=Path(service.info['active']);root.mkdir()
+            root=Path(service.info['active']);root.mkdir();dump(root/'config.json',{})
             app=self.make_desktop(service)
             before=self.picker_paths(app)
             with patch.object(desktop,'open_studio',return_value=None):
@@ -209,7 +209,7 @@ class DesktopMissingRegistrationTests(unittest.TestCase):
         self.assert_unchanged()
 
     def test_existing_project_is_not_cleared(self):
-        Path(self.old).mkdir()
+        Path(self.old).mkdir();dump(Path(self.old)/'config.json',{})
         with self.assertRaisesRegex(ValueError,'仍存在'):
             self.clear()
         self.assertTrue(Path(self.old).is_dir())
@@ -226,6 +226,102 @@ class DesktopMissingRegistrationTests(unittest.TestCase):
         self.assertTrue(self.clear())
         self.assertFalse(self.picker_has(self.old))
         self.assertEqual(self.service.refresh_registry()['projects'],[])
+
+
+def dir_listing(root):
+    """目录内相对路径清单：失效登记的目录在任一动作前后必须一字不变。"""
+    return sorted(str(p.relative_to(root)) for p in Path(root).rglob('*'))
+
+
+class EmptyShellReconcileTests(unittest.TestCase):
+    """登记还在、目录也在但里面没有 config.json（空壳）时，与目录不在同路找回。"""
+    def setUp(self):
+        self.fixture=RenameReconcileTests()
+
+    def shell(self,service,files=('ui_settings.json',)):
+        old=service.info['active'];shell=Path(old);shell.mkdir()
+        for name in files:(shell/name).write_text('{}',encoding='utf-8')
+        return old,shell
+
+    def test_empty_shell_auto_claims_single_match_and_leaves_disk_alone(self):
+        with tempfile.TemporaryDirectory() as td:
+            service,base=self.fixture.make_service(td)
+            old,shell=self.shell(service)
+            new=self.fixture.renamed(base,old=old)
+            before=dir_listing(shell)
+            out=service.reconcile_missing(old).data
+            self.assertEqual(out['state'],'claimed')
+            self.assertEqual(out['path'],str(new))
+            self.assertEqual(service.info['active'],str(new))
+            self.assertEqual(service.info['projects'][0]['path'],str(new))
+            self.assertEqual(dir_listing(shell),before,'认领不得往失效登记的目录里写东西')
+            self.assertTrue(shell.is_dir(),'认领成功后原目录原样留在磁盘上')
+
+    def test_empty_shell_with_two_candidates_returns_confirm(self):
+        with tempfile.TemporaryDirectory() as td:
+            service,base=self.fixture.make_service(td)
+            old,shell=self.shell(service)
+            self.fixture.renamed(base,'甲_20261001',old);self.fixture.renamed(base,'乙_20261001',old)
+            out=service.reconcile_missing(old).data
+            self.assertEqual(out['state'],'confirm');self.assertEqual(len(out['choices']),2)
+            self.assertEqual(service.info['active'],old)
+
+    def test_partial_shell_is_missing_and_never_matches_itself(self):
+        with tempfile.TemporaryDirectory() as td:
+            service,base=self.fixture.make_service(td)
+            old=service.info['active'];shell=Path(old);shell.mkdir()
+            (shell/'01剧本准备').mkdir()
+            result=reconcile_missing(service.info,base)
+            self.assertIn(old,result['matches'],'只剩阶段目录的残壳必须按失效登记进入扫描')
+            self.assertNotIn(old,result['matches'][old])
+            for name in project_stages.stage_dirs():(shell/name).mkdir(exist_ok=True)
+            result=reconcile_missing(service.info,base)
+            self.assertIn(old,result['matches'],'残壳登记仍在失效清单里')
+            self.assertNotIn(old,result['matches'][old],'候选目录不得是登记自己的路径')
+
+    def test_missing_match_lists_unregistered_dirs_and_manual_claim_works(self):
+        with tempfile.TemporaryDirectory() as td:
+            service,base=self.fixture.make_service(td)
+            old,shell=self.shell(service)
+            free=base/'落单_20261002';(free/'01剧本准备').mkdir(parents=True)
+            out=service.reconcile_missing(old).data
+            self.assertEqual(out['state'],'missing')
+            self.assertIn(str(free),out['unregistered'],'没有自动匹配时要把未登记目录带给界面')
+            claimed=service.reconcile_missing(old,selected=str(free),manual=True).data
+            self.assertEqual(claimed['state'],'claimed');self.assertEqual(claimed['path'],str(free))
+            self.assertEqual(service.info['active'],str(free))
+            self.assertTrue(shell.is_dir(),'手动认领后原目录原样留在磁盘上')
+
+    def test_manual_claim_rejects_each_invalid_directory(self):
+        with tempfile.TemporaryDirectory() as td:
+            service,base=self.fixture.make_service(td)
+            old,shell=self.shell(service)
+            outside=Path(td)/'库外_20261001';outside.mkdir()
+            registered=base/'已登记_20261003';registered.mkdir()
+            service.info['projects'].append({'name':'已登记','path':str(registered)})
+            recycled=base/'工作流任务'/'批次'/'旧_20261001';(recycled/'01剧本准备').mkdir(parents=True)
+            plain=base/'杂物_20261004';plain.mkdir()
+            cases=(('outside',outside,'项目库一级'),('registered',registered,'已经登记'),
+                   ('recycled',recycled,'回收站'),('plain',plain,'不可识别'),('self',Path(old),'自己'))
+            for label,target,reason in cases:
+                with self.subTest(label=label):
+                    with self.assertRaisesRegex(ValueError,reason):
+                        service.reconcile_missing(old,selected=str(target),manual=True)
+            self.assertEqual(service.info['active'],old)
+            self.assertEqual(dir_listing(shell),['ui_settings.json'])
+
+    def test_candidate_held_by_openable_registration_is_excluded_and_direct_claim_rejected(self):
+        with tempfile.TemporaryDirectory() as td:
+            service,base=self.fixture.make_service(td)
+            old,shell=self.shell(service)
+            other=self.fixture.renamed(base,'别的_20261001',old)
+            service.info['projects'].append({'name':'别的','path':str(other),'created_at':2,'status':'making'})
+            result=reconcile_missing(service.info,base)
+            self.assertIn(old,result['matches'])
+            self.assertNotIn(str(other),result['matches'][old],'被另一条能打开的登记占着的目录不进匹配')
+            with self.assertRaisesRegex(ValueError,'已经登记为另一个项目'):
+                service.claim_reconciled(old,str(other))
+            self.assertEqual(dir_listing(shell),['ui_settings.json'])
 
 
 if __name__=='__main__':unittest.main()
