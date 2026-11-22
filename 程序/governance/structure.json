@@ -720,6 +720,14 @@
         "程序/ui/desktop_async_tasks.py"
       ]
     },
+    "程序/tests/test_preview_app.py": {
+      "kind": "module",
+      "owner": "项目维护者",
+      "contract": "合入前预览工具：数据目录边界、示例数据、用户级目录与注册表隔离、关窗清理关闭、只在车道开窗口、窗口标题前缀",
+      "targets": [
+        "程序/scripts/preview_app.py"
+      ]
+    },
     "程序/tests/architecture/test_lane_flow_gates.py": {
       "kind": "architecture",
       "owner": "项目维护者",

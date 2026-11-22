@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "source_commit": "f624a5fc96b8fd118436ed9029e9ff0fce282190",
-  "inventory_sha256": "08b3a2f89b84037baaaf2490a67600273fb68758f04ef377fd93c3cf0a4891a8",
-  "policy_sha256": "5d551cf116a0c2ab06c53d9fdfc0d3f58a7d24a9c53466fe0727456cfc337132",
+  "source_commit": "56e82144eaec3ac37b142413a3253e196ab2b9bd",
+  "inventory_sha256": "b5997b249407e66f79a5d551889ccb62a56547436798ec1993b7c7293e6a09a9",
+  "policy_sha256": "29a23c7f688d4a40eca01f63d2bcc909e90a20f5672d3259524313a6bbd9ec0a",
   "violations": [
     {
       "rule_id": "STR003",
