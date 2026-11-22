@@ -123,31 +123,35 @@ def _nav_glyph_image(font, char, ink):
     return canvas
 
 
-# L4-U4（任务书，默认 L4-Q4）：画布固定 31×34；阶段图形＝对应导航图标原大小贴左上，
-# 文件标识＝折角纸形贴右下角，宽高各占画布边长的 35%–45%，带 1 像素浅色描边，
-# 全部 13 张图的标识位置和大小完全一致。
-STAGE_FILE_CANVAS = (31, 34)
-STAGE_FILE_BADGE_POS = (18, 20)
-STAGE_FILE_BADGE_SIZE = (12, 13)
-STAGE_FILE_BADGE_FOLD = 4
+# L4-U4（任务书，默认 L4-Q4）：阶段图形＝对应导航图标原大小贴左上，文件标识＝折角纸形在右下角，
+# 宽高各占画布边长的 35%–45%，全部 13 张图的标识位置和大小完全一致。
+# 用户反馈（REQ-S01-93 修订）：原标识是浅色纸面、大半挂在阶段图形外面，在浅色背景上看不清。
+# 现改为画布 28×28、标识外框 12×12 压在阶段图形右下角之上（四成以上面积在 24×24 图形范围内），
+# 纸面用主题色实心，外圈 1 像素不透明浅色描边把它和被压住的图形分开。
+STAGE_FILE_CANVAS = (28, 28)
+STAGE_FILE_BADGE_POS = (16, 16)
+STAGE_FILE_BADGE_SIZE = (12, 12)
+STAGE_FILE_BADGE_FOLD = 3
 
 
 def _file_badge_layer(colors):
-    """折角纸张角标：浅色纸面、右上角折角、四周 1 像素浅色描边，把标识和阶段图形分开。"""
+    """折角纸张角标：主题色实心纸面、右上角浅色折角、两条浅色文字线；外圈 1 像素不透明浅色描边。"""
     from PIL import Image, ImageDraw
     w, h = STAGE_FILE_BADGE_SIZE
     fold = STAGE_FILE_BADGE_FOLD
-    image = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+    image = Image.new('RGBA', (w, h), colors['background_primary'])
     draw = ImageDraw.Draw(image)
-    body = [(0, 0), (w - fold, 0), (w - 1, fold - 1), (w - 1, h - 1), (0, h - 1)]
-    draw.polygon(body, fill=colors['background_card'], outline=colors['border_default'])
-    flap = [(w - fold, 0), (w - 1, fold - 1), (w - fold, fold - 1)]
-    draw.polygon(flap, fill=colors['border_input'], outline=colors['border_default'])
+    body = [(1, 1), (w - 2 - fold, 1), (w - 2, 1 + fold), (w - 2, h - 2), (1, h - 2)]
+    draw.polygon(body, fill=colors['primary'])
+    flap = [(w - 2 - fold, 1), (w - 2, 1 + fold), (w - 2 - fold, 1 + fold)]
+    draw.polygon(flap, fill=colors['primary_subtle'])
+    for y in (h // 2, h // 2 + 2):
+        draw.line([(3, y), (w - 4, y)], fill=colors['background_card'])
     return image
 
 
 def render_stage_file_icons(ink, colors):
-    """13 张 ``<stage>_files.png``：阶段图形与 ``<nav>.png`` 逐像素一致，右下角叠文件标识。"""
+    """13 张 ``<stage>_files.png``：阶段图形与 ``<nav>.png`` 逐像素一致，文件标识压在其右下角之上。"""
     from PIL import Image, ImageFont
     font = ImageFont.truetype(str(FONT_PATH), RENDER_PX)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
