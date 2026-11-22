@@ -5,7 +5,7 @@ import threading
 from pathlib import Path
 from infra.file_cache import remove_temporary_file
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk
 
 from agent.core import read, save, save_bytes
 from contract.platform_tools import open_path

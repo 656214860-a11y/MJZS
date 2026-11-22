@@ -2,7 +2,7 @@
 import os
 from pathlib import Path
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk
 import domain.white_model_service as wm
 from agent.core import save_text
 from infra.file_cache import read_json

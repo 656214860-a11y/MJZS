@@ -59,7 +59,7 @@ from pathlib import Path
 import re
 
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import ttk
 from production_lock_fields import CompactLabel, FlowFields, label_pixel_width
 
 import infra.model_pool as model_pool
