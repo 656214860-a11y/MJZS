@@ -83,7 +83,7 @@ FAILED (failures=3)
 - （二）「停在资产管理页」按 `page_index==PAGE_OF['assets']` 判断，和 R4080 在 `ui/asset_skill_batch.py` 里的写法一样。资产详情页、资产清单页是这一页的子页，页码相同，所以也算「停在资产管理页」；重画后仍在原来的子页，这一点是读 `ui/desktop_page_nav.py` 的 `show` 得出的（只在翻到别的页时清 `asset_detail_id`、`asset_roster`），本轮没有为它写用例。
 - （三）用户停在别的页时不重画资产管理页，切回来会不会看到旧内容：资产管理页不在整页缓存名单里（`ui/desktop_page_registry.py` 的 `CACHED_PAGES` 只有剧本结构和初步分镜两页），每次切回来都重建。这一点也是读代码得出的，本轮没有为它写用例。
 - （四）批次窗、制图窗自己的表现没有改：批次窗照常刷新自己的列表和状态行，制图窗照常弹完成提示并关窗。用户停在别的页时，主窗口只有状态栏那一句变了。
-- （五）其他会切到资产管理页的调用没有动。在 ui 等产品目录里搜 `show(PAGE['assets'])`、`show(PAGE_OF['assets'])` 共 19 处：本轮改的 2 处；`ui/asset_skill_batch.py` 1 处和 `ui/desktop_auto_flows.py` 1 处本来就先判断页码；其余 15 处是用户自己在资产管理页上操作后的重画（筛选、进出详情、删除、改名、导入参考图等），不属于「批量生成结束」，没有逐处核对它们的调用时机。
+- （五）其他会切到资产管理页的调用没有动。在产品代码里（不含测试和 `维护记录` 下的基准脚本）搜 `show(PAGE['assets'])`、`show(PAGE_OF['assets'])` 共 21 处：本轮改的 2 处；`ui/asset_skill_batch.py` 1 处和 `ui/desktop_auto_flows.py` 1 处本来就先判断页码；其余 17 处里，16 处在用户操作的入口里（`ui/desktop_asset_pages.py` 11 处、`ui/asset_reference_import.py` 2 处、`ui/background_characters.py` 1 处、程序 根目录的 `asset_reference_images.py` 2 处：筛选、进出详情、删除、改名、导入参考图等），不属于「批量生成结束」，我没有逐处核对它们的调用时机（编码窗口的只读复核读过这 16 处，说都是用户点了按钮以后当场重画）；另 1 处是后台任务的结束回调——`ui/reference_wall.py` 的 `_ReferenceWall.finish`：候选图墙「下载并入库」结束时，没有 `on_saved` 就无条件切到资产管理页，图墙窗口不是模态的，按代码推用户在下载期间去了别的页会被拉回来（没有在界面上试）。它是参考图入库、不是资产图片制作，不在本卡范围，本轮没有改，已请需求机动窗口登记成候选项。（R4113 更正：这一条原来写的是「在 ui 等产品目录里搜……共 19 处」「其余 15 处是用户自己在资产管理页上操作后的重画」，漏数了根目录 `asset_reference_images.py` 的 2 处，也没有分出 `ui/reference_wall.py` 这 1 处；详见 `tasks_round_4113_result.md`。）
 - （六）主干已知的红（`-k idea_chat` 4 条、`-k ui_edges_pages` 1 条、`-k distribution_selfcheck` 1 条、`test_files_panel_stages` 机器忙时随机红）不在本轮跑的范围里，没有动。
 - （七）本轮由推进预备窗口直接写代码。按窗口协调的约定，除验收窗口复核和 `verify` 外，还要加一张不同型号的只读审查卡。
 
