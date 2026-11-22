@@ -392,38 +392,37 @@ class FileRowTests(unittest.TestCase):
                          ['c', 'b', 'a'])
 
 
-if __name__ == '__main__':
-    unittest.main()
-
-
 class FileIndexDiscoverTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix='file-index-discover-')
         self.root = Path(self.temp.name) / '测试项目'
         self.root.mkdir()
         _write(self.root / '01剧本准备' / 'docs' / 'a.md', 'a')
+        _write(self.root / '05资产管理' / 'assets' / 'b.png', b'\x89PNG')
         file_index.rebuild(self.root)
 
     def tearDown(self):
         self.temp.cleanup()
 
     def test_discover_finds_external_file(self):
-        new_file = _write(self.root / '01剧本准备' / 'docs' / '外部新增.md', '新')
-        before = file_index.index_path(self.root).stat().st_mtime
+        _write(self.root / '01剧本准备' / 'docs' / '外部新增.md', '新')
         self.assertEqual(file_index.discover(self.root), 1)
         paths = [row.path for row in file_index.rows(self.root)]
         self.assertIn('01剧本准备/docs/外部新增.md', paths)
-        self.assertEqual(file_index.discover(self.root), 0)
+        with mock.patch('agent.core.save') as save:
+            self.assertEqual(file_index.discover(self.root), 0)
+        save.assert_not_called()
 
     def test_discover_stage_limits_scope(self):
-        _write(self.root / '05资产管理' / 'assets' / 'b.png', b'\x89PNG')
-        # 先建索引（不包含 b.png），再 discover 仅剧本阶段
-        file_index.rebuild(self.root)
-        # remove b.png from index by rebuild? rebuild includes it; instead test stage filter
-        # discover with stage script should not add assets file if not in index
-        # Ensure assets file not in index by manually? Simpler: check returns 0 for script stage
-        # when no new script files
-        self.assertEqual(file_index.discover(self.root, stage='script'), 0)
+        _write(self.root / '01剧本准备' / 'docs' / '新剧本.md', 'x')
+        _write(self.root / '05资产管理' / 'assets' / '新资产.png', b'\x89PNG')
+        self.assertEqual(file_index.discover(self.root, stage='script'), 1)
+        paths = [row.path for row in file_index.rows(self.root)]
+        self.assertIn('01剧本准备/docs/新剧本.md', paths)
+        self.assertNotIn('05资产管理/assets/新资产.png', paths)
+        self.assertEqual(file_index.discover(self.root), 1)
+        paths = [row.path for row in file_index.rows(self.root)]
+        self.assertIn('05资产管理/assets/新资产.png', paths)
 
     def test_discover_no_cache_returns_zero(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -436,6 +435,18 @@ class FileIndexDiscoverTests(unittest.TestCase):
 
     def test_discover_skips_excluded(self):
         _write(self.root / '01剧本准备' / 'logs' / 'run.log', 'log')
+        skip_dir = sorted(file_index.SKIP_DIRS)[0]
+        hidden = '01剧本准备/%s/hidden.md' % skip_dir
+        _write(self.root / '01剧本准备' / skip_dir / 'hidden.md', 'x')
+        self.assertEqual(file_index.discover(self.root), 0)
+        paths = [row.path for row in file_index.rows(self.root)]
+        self.assertNotIn('01剧本准备/logs/run.log', paths)
+        self.assertNotIn(hidden, paths)
+
+    def test_discover_multiple_stages(self):
+        _write(self.root / '01剧本准备' / 'docs' / '新剧本.md', 'x')
+        _write(self.root / '05资产管理' / 'assets' / '新资产.png', b'\x89PNG')
+        self.assertEqual(file_index.discover(self.root), 2)
         self.assertEqual(file_index.discover(self.root), 0)
 
     def test_is_functional_suffixes(self):
@@ -446,34 +457,123 @@ class FileIndexDiscoverTests(unittest.TestCase):
         self.assertFalse(file_index.is_functional('x.mp4'))
         self.assertFalse(file_index.is_functional('x.srt'))
 
+    def test_discover_concurrent_registration_returns_zero(self):
+        """候选收齐到加锁写回之间另一写入者抢先登记：返回 0、行只出现一次。"""
+        _write(self.root / '01剧本准备' / 'docs' / '抢先登记.md', 'x')
+        original = file_index._collect_discover_candidates
 
-class FileIndexDiscoverMoreTests(unittest.TestCase):
-    def setUp(self):
-        self.temp = tempfile.TemporaryDirectory(prefix='file-index-discover2-')
-        self.root = Path(self.temp.name) / '测试项目'
-        self.root.mkdir()
-        _write(self.root / '01剧本准备' / 'docs' / 'a.md', 'a')
-        _write(self.root / '05资产管理' / 'assets' / 'b.png', b'\x89PNG')
-        file_index.rebuild(self.root)
+        def interleaved(root, stages, published, origins, now, existing):
+            candidates = original(root, stages, published, origins, now, existing)
+            file_index.rebuild(root)
+            return candidates
 
-    def tearDown(self):
-        self.temp.cleanup()
+        with mock.patch.object(file_index, '_collect_discover_candidates',
+                               side_effect=interleaved):
+            self.assertEqual(file_index.discover(self.root), 0)
+        paths = [row.path for row in file_index.rows(self.root)]
+        self.assertEqual(paths.count('01剧本准备/docs/抢先登记.md'), 1)
 
-    def test_discover_multiple_stages(self):
+    def test_discover_index_deleted_before_lock_returns_zero(self):
+        """加锁前索引被删：返回 0 且索引文件不被重建。"""
+        _write(self.root / '01剧本准备' / 'docs' / '新增.md', 'x')
+        original = file_index._collect_discover_candidates
+
+        def interleaved(root, stages, published, origins, now, existing):
+            candidates = original(root, stages, published, origins, now, existing)
+            file_index.index_path(root).unlink()
+            return candidates
+
+        with mock.patch.object(file_index, '_collect_discover_candidates',
+                               side_effect=interleaved):
+            self.assertEqual(file_index.discover(self.root), 0)
+        self.assertFalse(file_index.index_path(self.root).exists())
+
+    def test_discover_published_paths_failure_returns_zero(self):
+        """统计发布路径抛 OSError：discover 吞掉返回 0，索引内容不变。"""
+        before = file_index.index_path(self.root).read_bytes()
+        with mock.patch.object(file_index, 'published_paths', side_effect=OSError('x')):
+            self.assertEqual(file_index.discover(self.root), 0)
+        self.assertEqual(file_index.index_path(self.root).read_bytes(), before)
+
+    def test_discover_stage_read_dirs_failure_skips_only_that_stage(self):
+        """某阶段目录读取抛错只跳过该阶段，其余阶段的新文件照常收。"""
         _write(self.root / '01剧本准备' / 'docs' / '新剧本.md', 'x')
         _write(self.root / '05资产管理' / 'assets' / '新资产.png', b'\x89PNG')
-        self.assertEqual(file_index.discover(self.root), 2)
-        self.assertEqual(file_index.discover(self.root), 0)
+        original = file_index.read_dirs
+        calls = []
 
-    def test_discover_stage_script_only(self):
+        def flaky(project, stage, today=None):
+            if stage == 'assets':
+                calls.append(stage)
+                # 第一次 assets 调用来自 published_paths，放行；候选收集那次才抛错。
+                if len(calls) > 1:
+                    raise ValueError('模拟阶段目录读取失败')
+            return original(project, stage, today=today)
+
+        with mock.patch.object(file_index, 'read_dirs', side_effect=flaky):
+            self.assertEqual(file_index.discover(self.root), 1)
+        paths = [row.path for row in file_index.rows(self.root)]
+        self.assertIn('01剧本准备/docs/新剧本.md', paths)
+        self.assertNotIn('05资产管理/assets/新资产.png', paths)
+
+    def test_discover_skips_files_that_fail_row_build(self):
+        """_row_for 抛错或返回 None 的候选被跳过，其余文件照常收。"""
+        _write(self.root / '01剧本准备' / 'docs' / '新1.md', 'x')
+        _write(self.root / '01剧本准备' / 'docs' / '新2.md', 'x')
+        _write(self.root / '01剧本准备' / 'docs' / '新3.md', 'x')
+        original = file_index._row_for
+
+        def flaky(project, relative_path, published, now=None, origins=None):
+            if str(relative_path).endswith('新1.md'):
+                raise OSError('模拟 stat 失败')
+            if str(relative_path).endswith('新2.md'):
+                return None
+            return original(project, relative_path, published, now=now, origins=origins)
+
+        with mock.patch.object(file_index, '_row_for', side_effect=flaky):
+            self.assertEqual(file_index.discover(self.root), 1)
+        paths = [row.path for row in file_index.rows(self.root)]
+        self.assertIn('01剧本准备/docs/新3.md', paths)
+        self.assertNotIn('01剧本准备/docs/新1.md', paths)
+        self.assertNotIn('01剧本准备/docs/新2.md', paths)
+
+    def test_discover_skips_candidate_when_relative_fails(self):
+        """项目相对化抛错的候选被跳过，同目录其他新文件照常收。"""
+        _write(self.root / '01剧本准备' / 'docs' / '跳过.md', 'x')
+        _write(self.root / '01剧本准备' / 'docs' / '保留.md', 'x')
+        original = file_index._relative
+
+        def flaky(project, path):
+            if str(path).endswith('跳过.md'):
+                raise ValueError('模拟越界')
+            return original(project, path)
+
+        with mock.patch.object(file_index, '_relative', side_effect=flaky):
+            self.assertEqual(file_index.discover(self.root), 1)
+        paths = [row.path for row in file_index.rows(self.root)]
+        self.assertIn('01剧本准备/docs/保留.md', paths)
+        self.assertNotIn('01剧本准备/docs/跳过.md', paths)
+
+    def test_discover_walk_interruption_keeps_other_dirs(self):
+        """某目录遍历中途抛错：已产出的候选保留，其他目录新文件照收。"""
+        script_dir = Path(file_index.read_dirs(self.root, 'script')[0])
+        first = script_dir / 'docs' / '先出现.md'
+        _write(first, 'x')
         _write(self.root / '05资产管理' / 'assets' / '新资产.png', b'\x89PNG')
-        self.assertEqual(file_index.discover(self.root, stage='script'), 0)
+        original = file_index._walk
 
-    def test_discover_excluded_and_no_cache(self):
-        _write(self.root / '01剧本准备' / 'logs' / 'run.log', 'log')
-        self.assertEqual(file_index.discover(self.root), 0)
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp) / 'p'
-            root.mkdir()
-            _write(root / '01剧本准备' / 'docs' / 'a.md', 'a')
-            self.assertEqual(file_index.discover(root), 0)
+        def flaky(folder):
+            if Path(folder) == script_dir:
+                yield first
+                raise OSError('模拟遍历中断')
+            yield from original(folder)
+
+        with mock.patch.object(file_index, '_walk', side_effect=flaky):
+            self.assertEqual(file_index.discover(self.root), 2)
+        paths = [row.path for row in file_index.rows(self.root)]
+        self.assertIn('01剧本准备/docs/先出现.md', paths)
+        self.assertIn('05资产管理/assets/新资产.png', paths)
+
+
+if __name__ == '__main__':
+    unittest.main()
