@@ -354,7 +354,7 @@ class _AssetBatchWindow:
                 while True:self.events.get_nowait()
             except queue.Empty:pass
             self.controller.reload_rows();self.refresh();self.status.set(result);self.app.status.set(result)
-            if self.app.root==self.project:self.app.show(PAGE_OF['assets'])
+            if self.app.root==self.project and getattr(self.app,'page_index',None)==PAGE_OF['assets']:self.app.show(PAGE_OF['assets'])    # REQ-S05-24：人不在资产管理页就不翻页，状态栏照常更新
             # 第 47 期第 5 条：完成消息由宿主上报三虎；批量页不反向依赖宠物 UI。
             reporter=getattr(self.app, 'pet_report', None)
             if callable(reporter):

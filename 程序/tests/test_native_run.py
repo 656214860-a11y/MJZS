@@ -13,6 +13,7 @@
 """
 import io, json, os, sys, tempfile, threading, unittest
 from pathlib import Path
+from unittest import mock
 from urllib.error import HTTPError, URLError
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -21,6 +22,7 @@ os.chdir(HERE)
 
 import native_assets
 from asset_context import generated_dir
+from infra.pet_state import PAGE_OF
 
 PNG_1PX = __import__('base64').b64decode(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=')
@@ -221,6 +223,75 @@ class RunTests(unittest.TestCase):
             self.assertIn('本地 ComfyUI 没在运行', text)
             self.assertIn('不会重复提交', text)
             self.assertEqual(self.records(proj), [], '连不上就不该留下半截批次')
+
+
+class _Host:
+    """制图结束回调用到的主窗口那几样：当前项目、当前页、状态栏、翻页。"""
+
+    def __init__(self, root, page_index):
+        self.root = root
+        self.page_index = page_index
+        self.worker = None
+        self.settings = {}
+        self.status = mock.Mock()
+        self.shown = []
+        self.finishers = []
+
+    def show(self, index):
+        self.shown.append(index)
+
+    def launch_comfy(self, silent=False):
+        return True
+
+    def async_(self, work, done=None, **kw):
+        self.finishers.append(done)
+
+
+class FinishedStaysOnPageTests(unittest.TestCase):
+    """REQ-S05-24：制图结束不把人从别的页拉回资产管理页（UX-B6B）。
+
+    不开窗口：拿替身当制图窗的控件组，走到 start() 把结束回调交给后台任务那一步，再直接调这个回调。
+    """
+
+    RESULT = '已自动导入 1/1'
+
+    def _finish(self, page_index, *, project='项目甲', root='项目甲', window_open=False):
+        controls = mock.MagicMock()
+        controls.app = _Host(root, page_index)
+        controls.project = project
+        controls.context_matches.return_value = True
+        controls.selection.return_value = [('CHAR_001', {})]
+        controls.model.get.return_value = native_assets.LOCAL
+        controls.win.winfo_exists.return_value = window_open
+        controls.events.empty.return_value = True
+        native_assets._AssetControls.start(controls)
+        self.assertEqual(len(controls.app.finishers), 1, 'start() 应把结束回调交给后台任务一次')
+        with mock.patch('domain.asset_batch_service.batch_complete', return_value=True):
+            controls.app.finishers[0](self.RESULT)
+        return controls
+
+    def test_finished_redraws_assets_page_when_user_is_on_it(self):
+        controls = self._finish(PAGE_OF['assets'])
+        self.assertEqual(controls.app.shown, [PAGE_OF['assets']])
+        controls.app.status.set.assert_called_with(self.RESULT)
+
+    def test_finished_leaves_other_pages_alone(self):
+        controls = self._finish(PAGE_OF['storyboard'])
+        self.assertEqual(controls.app.shown, [], '人在别的页时不许翻回资产管理页')
+        controls.app.status.set.assert_called_with(self.RESULT)
+
+    def test_finished_on_another_page_still_reports_in_the_drawing_window(self):
+        controls = self._finish(PAGE_OF['storyboard'], window_open=True)
+        self.assertEqual(controls.app.shown, [], '制图窗还开着也不许翻回资产管理页')
+        controls.progress_text.set.assert_called_with(self.RESULT)
+        controls.notify.assert_called_once()
+        self.assertEqual(controls.notify.call_args.kwargs.get('title'), '制作完成')
+        controls.win.destroy.assert_called_once_with()
+
+    def test_finished_after_project_switch_does_not_redraw(self):
+        controls = self._finish(PAGE_OF['assets'], root='项目乙')
+        self.assertEqual(controls.app.shown, [])
+        controls.app.status.set.assert_called_with(self.RESULT)
 
 
 if __name__ == '__main__':

@@ -1,0 +1,15 @@
+{
+  "round": 4100,
+  "commit_base": "f624a5fc",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k asset_batch_window native_run stage_display_boundary",
+    "exit": 0,
+    "passed": 23,
+    "failed": 0
+  },
+  "generated_at": "2026-11-22T22:41:35"
+}
