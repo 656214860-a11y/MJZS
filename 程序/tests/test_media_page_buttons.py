@@ -14,8 +14,11 @@
 
 空项目下 12、13 页会走引导分支（L4-U6），本模块用补上分镜前置的夹具量按钮，
 不拆引导分支。
+
+L4-U8a 另加一条：11 页对白读不出时，原因只在页内显示一处，状态栏不再重复同一句。
 """
 import sys
+import tkinter
 import unittest
 from pathlib import Path
 from tkinter import ttk
@@ -31,6 +34,7 @@ import tk_test_support  # noqa: E402
 from responsive_ui import FlowBar  # noqa: E402
 from ui.desktop_page_registry import PAGE  # noqa: E402
 from ui.desktop_page_support import STAGE_ACTION_WIDTH  # noqa: E402
+from ui_widgets import DescriptionBlock  # noqa: E402
 
 # 改前快照：按钮文字（顺序按页面原顺序，断言时按集合比较）。
 ANIMATIC_BUTTONS = ('导入共享参考图', '选择分镜初稿', '选择临时音频', '本地生成参考草图',
@@ -78,6 +82,15 @@ def _walk(widget):
     for child in widget.winfo_children():
         yield child
         yield from _walk(child)
+
+
+def _texts(widget):
+    """页面里带 text 选项的控件及其文字；没有 text 选项的控件跳过。"""
+    for child in _walk(widget):
+        try:
+            yield child, str(child.cget('text'))
+        except tkinter.TclError:
+            continue
 
 
 class MediaPageButtonTests(media_fixtures._DesktopCase):
@@ -199,6 +212,30 @@ class MediaPageButtonTests(media_fixtures._DesktopCase):
         self._open('audio')
         self._assert_standard_buttons(AUDIO_BUTTONS, '11 配音与字幕')
         self._assert_groups(AUDIO_GROUPS, '11 配音与字幕')
+
+    def test_11_audio_dialogue_reason_shown_once(self):
+        """11（L4-U8a）：对白读不出时，原因只在页内显示一处，状态栏不再重复同一句。"""
+        def unreadable(episode=None):
+            raise ValueError('分镜文件缺少镜头列表')
+
+        self.desktop.dialogue_entries = unreadable
+        self.addCleanup(vars(self.desktop).pop, 'dialogue_entries', None)
+        self._open('audio')
+        reason = '对白无法读取，配音生成与字幕导出暂不可用：分镜文件缺少镜头列表'
+        shown = [widget for widget, text in _texts(self.desktop.content) if reason in text]
+        self.assertEqual(1, len(shown),
+                         '11 配音与字幕：对白读不出的原因应在页内显示一处，实测 %d 处' % len(shown))
+        for text in (str(self.desktop.status.get()),
+                     str(getattr(self.desktop.status_bar.message, 'full_text', ''))):
+            self.assertNotIn('对白无法读取', text,
+                             '11 配音与字幕：状态栏不应重复页内已显示的原因（实测：%s）' % text)
+        self.assertIsInstance(shown[0], DescriptionBlock,
+                              '11 配音与字幕：页内原因应使用统一的说明组件 DescriptionBlock')
+        self.assertTrue(shown[0].winfo_ismapped(), '11 配音与字幕：页内原因应已显示')
+        states = {str(b.cget('text')): str(b.cget('state')) for b in self._buttons()}
+        for name in ('生成配音（TTS）', '逐句配音（分句）', '导出对白字幕 SRT', '导出对白脚本 TXT'):
+            self.assertEqual('disabled', states.get(name),
+                             '11 配音与字幕：对白读不出时「%s」应置灰' % name)
 
     def test_12_editing_buttons_standard_and_grouped(self):
         """12：整行宽按钮改标准宽度并分组（分组名写进结果文件）。"""

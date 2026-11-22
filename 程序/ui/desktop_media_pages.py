@@ -762,9 +762,9 @@ class MediaPagesMixin:
         # 对白读不出来时不要静默禁用按钮：把原因写在页面上，用户才知道该改哪里。
         has_dialogue,dialogue_reason=media_logic.dialogue_availability(self.dialogue_entries)
         if dialogue_reason:
-            self.note(dialogue_reason)
-            # 状态栏会在换页后被覆盖；在当前页面也保留原因，避免用户只看到灰按钮。
-            ttk.Label(self.content,text=dialogue_reason,style='Muted.TLabel').pack(
+            # 原因只写在页内这一处，不再同时写状态栏（L4-Q8）：
+            # 状态栏一换页就被覆盖，留在页内用户才知道按钮为什么是灰的。
+            DescriptionBlock(self.content,text=dialogue_reason).pack(
                 anchor='w',pady=(SPACING['none'],SPACING['xs']))
         production=FlowBar(self.content);production.pack(
             fill='x',pady=(SPACING['none'],SPACING['sm']))
