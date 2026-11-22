@@ -16,6 +16,29 @@ spec = importlib.util.spec_from_file_location('auto_full_safe_for_tests', PROGRA
 auto = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(auto)
 
+_HOLD_DIR = None
+_HOLD_PATCH = None
+
+
+def setUpModule():
+    """本机 git 公共目录里可能有真实生效的暂缓文件：整个模块运行期间把 _hold_path 指到临时目录，
+    任何用例都不得读写真文件。按类拆分的工作单元不经模块 fixture，HoldTests.setUp 另有逐用例补丁兜底。"""
+    global _HOLD_DIR, _HOLD_PATCH
+    _HOLD_DIR = tempfile.TemporaryDirectory()
+    _HOLD_PATCH = mock.patch.object(auto, '_hold_path',
+                                    return_value=Path(_HOLD_DIR.name) / auto.HOLD_NAME)
+    _HOLD_PATCH.start()
+
+
+def tearDownModule():
+    global _HOLD_DIR, _HOLD_PATCH
+    if _HOLD_PATCH is not None:
+        _HOLD_PATCH.stop()
+        _HOLD_PATCH = None
+    if _HOLD_DIR is not None:
+        _HOLD_DIR.cleanup()
+        _HOLD_DIR = None
+
 
 class AutoFullSafeTests(unittest.TestCase):
     def test_spawn_strips_git_environment(self):
@@ -428,6 +451,150 @@ class ScanIsolationTests(unittest.TestCase):
     def test_history_write_failure_never_breaks_the_run(self):
         with mock.patch.object(auto, '_history_path', return_value=Path('/nonexistent-dir/h.jsonl')):
             auto.append_history('abc', 0, 1, [])
+
+
+class HoldTests(unittest.TestCase):
+    """暂缓开关：挂起后台全量的起跑，欠账照记、到点由等待者自动补跑（用户 2026-11-22 批准）。"""
+
+    T = 1000000.0
+
+    def setUp(self):
+        # 按类拆分的工作单元不经 setUpModule：逐用例再把 _hold_path 指到本用例临时目录，
+        # 保证 set_hold/clear_hold/_run_locked 永远碰不到 git 公共目录里的真实暂缓文件。
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        patcher = mock.patch.object(auto, '_hold_path',
+                                    return_value=Path(folder.name) / auto.HOLD_NAME)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        auto.clear_hold()
+
+    def test_a_hold_can_be_set_read_and_expires_on_schedule(self):
+        until = auto.set_hold(30, '用户在验证', now=self.T)
+        self.assertEqual(until, self.T + 1800)
+        self.assertEqual(auto.hold_until(self.T + 1), until)
+        self.assertEqual(auto.hold_until(until), 0.0, '到点即不再生效')
+        self.assertEqual(auto.hold_until(until + 60), 0.0)
+
+    def test_the_twelve_hour_cap_counts_from_the_first_set(self):
+        cap = auto.HOLD_MAX_SECONDS
+        self.assertEqual(auto.set_hold(600, 'x', now=self.T), self.T + 36000)
+        self.assertEqual(auto.set_hold(600, 'x', now=self.T + 30000), self.T + cap,
+                         '封顶从第一次设置算起，不因续设而顺延')
+        with self.assertRaises(ValueError):
+            auto.set_hold(60, 'x', now=self.T + cap)
+        self.assertEqual(auto.set_hold(60, 'x', now=self.T + 2 * cap), self.T + 2 * cap + 3600,
+                         '距第一次设置满 24 小时后可以重新设置')
+
+    def test_bad_arguments_raise_before_any_file_is_written(self):
+        for minutes, reason in ((0, 'x'), (-3, 'x'), ('abc', 'x'), (30, ''), (30, '   ')):
+            with self.subTest(minutes=minutes, reason=reason):
+                with self.assertRaises(ValueError):
+                    auto.set_hold(minutes, reason, now=self.T)
+        self.assertFalse(auto._hold_path().exists())
+
+    def test_corrupt_or_out_of_range_hold_files_count_as_no_hold(self):
+        path = auto._hold_path()
+        cases = [
+            'not json at all',
+            '"just a string"',
+            '[1, 2]',
+            '{"until": "soon", "first_set_at": 0}',
+            '{"until": true, "first_set_at": 0}',
+            '{"until": %d, "first_set_at": "x"}' % (self.T + 60),
+            '{"until": %d, "first_set_at": 0}' % (self.T + auto.HOLD_MAX_SECONDS + 60),
+        ]
+        for payload in cases:
+            with self.subTest(payload=payload):
+                path.write_text(payload, encoding='utf-8')
+                self.assertEqual(auto.hold_until(self.T), 0.0)
+
+    def test_decide_waits_through_an_active_hold(self):
+        held = {'auto_due': True, 'required': True, 'hold': 1.0}
+        self.assertEqual(
+            auto.decide(held, auto.QUIET_SECONDS * 2, auto.MAX_WAIT_SECONDS * 2), 'wait',
+            '暂缓期间哪怕 required、安静期已过、等待已满 60 分钟，都继续等')
+        self.assertEqual(auto.decide({'auto_due': False, 'hold': 1.0}, 0, 0), 'stop')
+        self.assertEqual(auto.decide({'auto_due': True, 'required': True, 'hold': 0.0}, 0, 0), 'run',
+                         '无暂缓时原有行为不变')
+
+    def test_wait_run_refreshes_its_lock_while_held_then_runs_once(self):
+        infos = iter([{'auto_due': True, 'required': True, 'hold': 1.0},
+                      {'auto_due': True, 'required': True, 'hold': 1.0},
+                      {'auto_due': True, 'required': True, 'hold': 0.0}])
+        clocks = iter([0, auto.MAX_WAIT_SECONDS + 1200,
+                       auto.MAX_WAIT_SECONDS + 1300, auto.MAX_WAIT_SECONDS + 1400])
+        sleeps = []
+        with tempfile.TemporaryDirectory() as folder:
+            lock = Path(folder) / auto.WAITER_LOCK_NAME
+            with mock.patch.object(auto, '_waiter_lock_path', return_value=lock), \
+                 mock.patch.object(auto, '_waiter_running', return_value=False), \
+                 mock.patch.object(auto, 'status', side_effect=lambda: next(infos)), \
+                 mock.patch.object(auto, '_last_commit_age', return_value=0), \
+                 mock.patch.object(auto.os, 'utime', wraps=os.utime) as utime, \
+                 mock.patch.object(auto, 'run', return_value=0) as run:
+                self.assertEqual(auto.wait_run(sleep=sleeps.append, clock=lambda: next(clocks)), 0)
+            run.assert_called_once()
+            self.assertEqual(utime.call_count, 2, '每次因暂缓而等待都刷新等待者锁，否则会被当成过期')
+            utime.assert_any_call(lock, None)
+            self.assertEqual(len(sleeps), 2)
+            self.assertFalse(lock.exists())
+
+    def test_run_locked_clears_the_hold_before_doing_anything(self):
+        calls = []
+        with tempfile.TemporaryDirectory() as folder:
+            with mock.patch.object(auto, 'clear_hold',
+                                   side_effect=lambda: calls.append('clear')), \
+                 mock.patch.object(auto, 'repo_root',
+                                   side_effect=lambda: calls.append('root') or Path(folder)), \
+                 mock.patch.object(auto, '_git', return_value='head-sha'), \
+                 mock.patch.object(auto, 'spawn_problem', return_value='进程池不可用'), \
+                 mock.patch.object(auto, 'write_result'), \
+                 mock.patch.object(auto, 'LOG', Path(folder) / 'auto.log'):
+                self.assertEqual(auto._run_locked(), 0)
+        self.assertEqual(calls[0], 'clear', '一轮全量真的开始就先解除暂缓')
+
+    def test_dispatch_hold_release_and_bad_arguments(self):
+        path = auto._hold_path()
+        with mock.patch.object(auto, 'spawn', return_value=0) as spawn, \
+             mock.patch('builtins.print'):
+            self.assertEqual(auto._dispatch(['--hold', 'abc', '--reason', 'x']), 2)
+            self.assertFalse(path.exists(), '分钟不是数：不写暂缓文件')
+            self.assertEqual(auto._dispatch(['--hold', '30']), 2)
+            self.assertFalse(path.exists(), '缺 --reason：不写暂缓文件')
+            self.assertEqual(auto._dispatch(['--hold', '30', '--reason', '用户在验证']), 0)
+        self.assertTrue(path.exists())
+        spawn.assert_called_once()
+        with mock.patch.object(auto, 'spawn', return_value=0) as spawn, \
+             mock.patch('builtins.print'):
+            self.assertEqual(auto._dispatch(['--release']), 0)
+        self.assertFalse(path.exists())
+        spawn.assert_called_once()
+
+    def test_dispatch_status_line_mentions_the_hold(self):
+        info = {'last_full': 1, 'latest': 9, 'master': True, 'source_rounds': 8,
+                'gate_at': 8, 'cooling': '', 'auto_due': True, 'required': True, 'hold': 0.0}
+        with mock.patch.object(auto, 'status', return_value=info), \
+             mock.patch.object(auto, 'failure_notice', return_value=''), \
+             mock.patch('builtins.print') as shown:
+            self.assertEqual(auto._dispatch([]), 0)
+        printed = ' '.join(str(call.args[0]) for call in shown.call_args_list if call.args)
+        self.assertIn('暂缓', printed)
+
+    def test_status_reports_a_hold_field(self):
+        with mock.patch.object(auto.run_selftests, 'load_layer_document',
+                               return_value={'last_full_safe_all_round': 1}), \
+             mock.patch.object(auto.run_selftests, 'latest_completed_round', return_value=20), \
+             mock.patch.object(auto.run_selftests, 'source_rounds_since', return_value=9), \
+             mock.patch.object(auto.run_selftests, 'is_master_checkout', return_value=True), \
+             mock.patch.object(auto.run_selftests, 'risk_overdue_since', return_value=False), \
+             mock.patch.object(auto.run_selftests, 'full_safe_required', return_value=True), \
+             mock.patch.object(auto.run_selftests, 'full_safe_auto_due', return_value=True), \
+             mock.patch.object(auto, '_git', return_value='bbb'), \
+             mock.patch.object(auto, 'last_result', return_value={}):
+            info = auto.status()
+        self.assertIn('hold', info)
+
 
 if __name__ == '__main__':
     unittest.main()

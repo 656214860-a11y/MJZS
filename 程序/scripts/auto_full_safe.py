@@ -9,6 +9,9 @@
   且没有同类任务在跑时，起一个脱离终端的后台等待者（``--wait-run``，同一时刻只有一个）；否则静默退出。钩子绝不阻塞提交。
 * ``--run``     前台执行：把 ``.wt/ci`` 对齐到当前 HEAD，跑 ``run_selftests.py --all --safe``。
   绿了凭据由执行器写进 git common-dir 的 ``full-safe-receipts.json``，门禁凭内容树放行。
+* ``--hold <分钟> --reason <原因>``  暂缓后台全量的起跑：``--spawn`` 照常起等待者，等待者等到
+  暂缓结束再跑；欠账照记。从第一次设置算起最长 12 小时，一轮全量真的开始即解除。
+* ``--release`` 解除暂缓，并补触发一次 ``--spawn``。
 
 欠账规则与阈值唯一权威是 ``run_selftests``（``FULL_SAFE_ROUND_INTERVAL`` 等），本脚本不另立数字。
 日志写 ``程序/logs/auto_full_safe.log``（UTF-8，被 gitignore）。
@@ -43,6 +46,10 @@ STALE_SECONDS = 3 * 3600       # 全量最长按小时计；超过即视为崩�
 # 红后冷却：上次后台全量是真红（非「环境不允许」）时，同一 HEAD 不再重跑（内容没变，结果必同）；
 # 换了 HEAD 也要等这么久才自动补跑，给修复留时间。门禁已因欠账报红（required）时才越过冷却。
 RED_COOLDOWN_SECONDS = 4 * 3600
+# 暂缓：用户正在用应用验证时挂起后台全量的起跑，欠账照记、到点由等待者自动补跑。
+# 从第一次设置算起最长 12 小时；想再延，要么全量真跑过一次，要么距第一次设置已满 24 小时。
+HOLD_NAME = "auto-full-safe-hold.json"
+HOLD_MAX_SECONDS = 12 * 3600
 # 「环境不允许派生工作进程」的可靠特征：沙箱会话里提交时，钩子继承了同一限制，
 # 全量会在 78 秒左右崩在进程池上。这类失败不是测试红，不能记成「未通过」。
 BLOCKED_MARKERS = ('BrokenProcessPool', 'process pool is not usable',
@@ -109,6 +116,7 @@ def status() -> dict:
         "cooling": cooling,
         "auto_due": not cooling and run_selftests.full_safe_auto_due(latest, last_full, master),
         "required": required,
+        "hold": hold_until(),
     }
 
 
@@ -168,6 +176,78 @@ def last_result() -> dict:
     except (OSError, ValueError):
         return {}
     return value if isinstance(value, dict) else {}
+
+
+def _hold_path() -> Path:
+    return Path(run_selftests.git_common_dir() or PROGRAM) / HOLD_NAME
+
+
+def hold_until(now=None) -> float:
+    """当前暂缓生效到的时刻（``time.time()`` 口径）；没有生效的暂缓返回 0.0，绝不抛异常。"""
+    if now is None:
+        now = time.time()
+    try:
+        value = file_cache.read_json(_hold_path())
+    except (OSError, ValueError):
+        return 0.0
+    if not isinstance(value, dict):
+        return 0.0
+    until, first = value.get("until"), value.get("first_set_at")
+    if (not isinstance(until, (int, float)) or isinstance(until, bool)
+            or not isinstance(first, (int, float)) or isinstance(first, bool)):
+        return 0.0
+    if until <= now or until > first + HOLD_MAX_SECONDS:
+        return 0.0
+    return float(until)
+
+
+def set_hold(minutes, reason, now=None) -> float:
+    """写入暂缓文件并返回生效到的时刻。
+
+    12 小时额度从第一次设置算起：``2 * HOLD_MAX_SECONDS`` 内的再次设置沿用原起点（哪怕那次
+    暂缓已经过期）；额度用满抛 ValueError。"""
+    if isinstance(minutes, bool) or not isinstance(minutes, (int, float)) or not minutes > 0:
+        raise ValueError("分钟必须是大于 0 的数")
+    if not isinstance(reason, str) or not reason.strip():
+        raise ValueError("原因不能为空")
+    reason = reason.strip()
+    if now is None:
+        now = time.time()
+    first = now
+    try:
+        value = file_cache.read_json(_hold_path())
+    except (OSError, ValueError):
+        value = None
+    if isinstance(value, dict):
+        previous = value.get("first_set_at")
+        if (isinstance(previous, (int, float)) and not isinstance(previous, bool)
+                and now - previous < 2 * HOLD_MAX_SECONDS):
+            first = previous
+    until = min(now + minutes * 60, first + HOLD_MAX_SECONDS)
+    if until <= now:
+        raise ValueError("暂缓额度已用满（从第一次设置算起最长 12 小时）")
+    _hold_path().write_text(json.dumps({"until": until, "first_set_at": first, "reason": reason},
+                                       ensure_ascii=False, indent=1), encoding="utf-8")
+    return until
+
+
+def clear_hold() -> None:
+    """删除暂缓文件；不存在或删不掉都不抛。"""
+    try:
+        _hold_path().unlink()
+    except OSError:
+        pass
+
+
+def _hold_label(until: float) -> str:
+    """状态行用的暂缓描述：「到 MM-DD HH:MM（原因）」；文件里读不出原因时写「未写原因」。"""
+    try:
+        value = file_cache.read_json(_hold_path())
+        reason = str(value.get("reason") or "").strip() if isinstance(value, dict) else ""
+    except (OSError, ValueError):
+        reason = ""
+    return "到 %s（%s）" % (time.strftime("%m-%d %H:%M", time.localtime(until)),
+                            reason or "未写原因")
 
 
 def blocked_reason(text: str) -> str:
@@ -236,9 +316,13 @@ def _already_running() -> bool:
 
 
 def decide(info: dict, commit_age: float, waited: float) -> str:
-    """防抖决策（纯函数）：stop＝已不需要补跑；run＝现在跑；wait＝继续等安静期。"""
+    """防抖决策（纯函数）：stop＝已不需要补跑；run＝现在跑；wait＝继续等安静期。
+
+    暂缓生效期间一律 wait：哪怕 required、安静期已过或已等满 60 分钟，都等暂缓结束再跑。"""
     if not info.get("auto_due"):
         return "stop"
+    if info.get("hold"):
+        return "wait"
     if info.get("required") or commit_age >= QUIET_SECONDS or waited >= MAX_WAIT_SECONDS:
         return "run"
     return "wait"
@@ -271,11 +355,19 @@ def wait_run(sleep=time.sleep, clock=time.monotonic) -> int:
     started = clock()
     try:
         while True:
-            verdict = decide(status(), _last_commit_age(), clock() - started)
+            info = status()
+            verdict = decide(info, _last_commit_age(), clock() - started)
             if verdict == "stop":
                 return 0
             if verdict == "run":
                 break
+            if info.get("hold"):
+                # 暂缓可能长达数小时；_waiter_running() 只认 MAX_WAIT_SECONDS + 600 秒内动过的锁，
+                # 每次因暂缓等待都刷新一次，别让等待者被当成崩溃遗留而过期。
+                try:
+                    os.utime(lock, None)
+                except OSError:
+                    pass
             sleep(POLL_SECONDS)
     finally:
         try:
@@ -433,6 +525,7 @@ def run() -> int:
 
 
 def _run_locked() -> int:
+    clear_hold()        # 一轮全量真的开始就结束本次暂缓，12 小时的额度重新起算
     root = repo_root()
     head = _git("rev-parse", "HEAD")
     # 先问一句能不能派生工作进程：不能就别建工作树、别跑 78 秒、更别记成「测试未通过」。
@@ -503,6 +596,33 @@ def main(argv=None) -> int:
 
 
 def _dispatch(args: list) -> int:
+    if "--hold" in args:
+        try:
+            minutes = float(args[args.index("--hold") + 1])
+            reason = args[args.index("--reason") + 1]
+        except (IndexError, ValueError):
+            print("[自动全量] 暂缓未生效：用法 --hold <分钟> --reason <原因>")
+            return 2
+        try:
+            until = set_hold(minutes, reason)
+        except ValueError as exc:
+            print("[自动全量] 暂缓未生效：%s" % exc)
+            return 2
+        print("[自动全量] 已暂缓到 %s（%s）；到点自动补跑，期间欠账照记"
+              % (time.strftime("%m-%d %H:%M", time.localtime(until)), reason.strip()))
+        try:
+            spawn()
+        except Exception:      # 等待者补触发失败不抵消已生效的暂缓
+            app_logging.swallowed('--hold 后补触发等待者')
+        return 0
+    if "--release" in args:
+        clear_hold()
+        print("[自动全量] 暂缓已解除")
+        try:
+            spawn()
+        except Exception:      # 等待者补触发失败不影响解除本身
+            app_logging.swallowed('--release 后补触发等待者')
+        return 0
     if "--wait-run" in args:
         return wait_run()
     if "--run" in args:
@@ -523,7 +643,9 @@ def _dispatch(args: list) -> int:
     info = status()
     print("上次全量 R%(last_full)d；最新 R%(latest)d；其间改过源码的轮次 %(source_rounds)s"
           "（门禁线 %(gate_at)d）；主干 %(master)s；后台触发 %(auto_due)s"
-          "；红后冷却 %(cooling)s" % dict(info, cooling=info.get("cooling") or "无"))
+          "；红后冷却 %(cooling)s；暂缓 %(hold)s"
+          % dict(info, cooling=info.get("cooling") or "无",
+                 hold=_hold_label(info["hold"]) if info.get("hold") else "无"))
     print(failure_notice() or "上次后台全量：通过或尚未运行")
     return 0
 

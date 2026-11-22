@@ -1,0 +1,15 @@
+{
+  "round": 4092,
+  "commit_base": "7ea1ddeb",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k auto_full_safe full_safe_merge_gate",
+    "exit": 0,
+    "passed": 58,
+    "failed": 0
+  },
+  "generated_at": "2026-11-22T20:54:57"
+}
