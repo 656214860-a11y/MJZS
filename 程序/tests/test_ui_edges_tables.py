@@ -706,3 +706,50 @@ class StoryboardRowLayoutTests(unittest.TestCase):
             self.assertGreaterEqual(top, 0, "按钮行不许被顶到画布上边去")
             self.assertLessEqual(bottom, d.canvas.winfo_height(),
                                  "按钮行整个要落在画布可见区里——越过底边就是用户看到的「按钮不显示」")
+
+class AutoHeightScrollbarTests(unittest.TestCase):
+    """auto_height 算行数时要把露着的横向滚动条一起扣掉。
+
+    页面放不下时，容器拿到的高度就是表格自己请求的高度。padding 只够表头、不够「表头＋滚动条」时，
+    算回来的行数与现在一样：表格收不回去，排在它后面的按钮被挤出可视区；再叠上请求高度的传播延迟，
+    两个在途的行数互相追着改，资产页在窄窗口里整窗卡死（主题下表头 43＋滚动条 8，比默认的 48 多 3）。
+    """
+
+    def test_the_table_gives_room_back_when_the_page_gets_short(self):
+        from tkinter import ttk
+        import tk_test_support
+        from responsive_ui import auto_height, row_height_of
+        from ui_widgets import DataTable
+        win = tk_test_support.make_root()
+        self.addCleanup(win.destroy)
+        page = ttk.Frame(win, width=420, height=200)
+        page.pack_propagate(False)
+        page.pack()
+        box = ttk.Frame(page)
+        box.pack(fill='both', expand=True)
+        box.columnconfigure(0, weight=1)
+        box.rowconfigure(0, weight=1)
+        shell = DataTable(box, columns=[('name', '名称', 160), ('note', '说明', 200)])
+        shell.grid(row=0, column=0, sticky='nsew')
+        tree, bar = shell.tree, shell.horizontal_scrollbar
+        for index in range(12):
+            tree.insert('', 'end', values=('第 %d 行' % (index + 1), ''))
+        shell.refresh_empty_state()
+        row = row_height_of(tree)
+        footer = ttk.Frame(page, width=10, height=row)      # 排在表格后面的那排按钮
+        footer.pack(fill='x')
+        tk_test_support.pump(win, .1)
+        self.assertTrue(bar.winfo_manager(), '这张表的横向滚动条一直露着')
+        header = tree.winfo_reqheight() - int(tree.cget('height')) * row
+        fixed = header + bar.winfo_reqheight()
+        # 与页面上的情形一样：padding 比表头多 5 像素，但没把滚动条算在内。
+        auto_height(tree, box, padding=header + 5)
+        page.configure(height=8 * row + fixed + row + 60)
+        tk_test_support.pump(win, .3)
+        self.assertGreater(int(tree.cget('height')), 3, '页面够高时表格跟着长高')
+        # 变矮到「三行差半行放不下」：表格得收到两行，把底下那排的位置让出来。
+        page.configure(height=3 * row + fixed + row - row // 2)
+        tk_test_support.pump(win, .3)
+        self.assertEqual(int(tree.cget('height')), 2, '表格没收回最少行数')
+        self.assertTrue(footer.winfo_ismapped(), '底下那排被整个挤没了')
+        self.assertEqual(footer.winfo_height(), row, '底下那排被挤掉了一截')
