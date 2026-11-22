@@ -80,7 +80,7 @@ def _account_block(desktop, stage):
 
 
 def _goto_stage(desktop, stage):
-    """``/阶段`` 与跨阶段技能命令的切页：走 ``show_stage`` 同步建页（含锁定路由）。"""
+    """``/阶段`` 命令的切页：走 ``show_stage`` 同步建页（含锁定路由）。技能命令不换页。"""
     show = getattr(desktop, 'show_stage', None)
     if callable(show):
         try:
@@ -135,8 +135,8 @@ def _send_free(desktop, stage, text):
         # send_message 只在真正受理时清空输入框；简报缺项等早退路径保留原文。
         return not _draft_text(desktop)
     if stage not in FLOW_FOR_STAGE:
-        _say(desktop, '「%s」阶段暂无对话入口；请使用页面上的制作按钮，或 /skill、/%s 命令。'
-             % (pet_bus.stage_name(stage), pet_bus.stage_name(stage)))
+        _say(desktop, '「%s」阶段暂无对话入口；请使用页面上的制作按钮，或输入 /阶段名 换到有对话入口的阶段。'
+             % pet_bus.stage_name(stage))
         return False
     return _open_flow(desktop, stage, text)
 
@@ -180,21 +180,31 @@ def _skill_prompt(name, path, rest):
     return '\n'.join(lines)
 
 
+def _no_entry_hint(stage, home, name):
+    """当前页没有对话入口：技能属于有入口的别的阶段时，给出用户自己换页的写法。"""
+    here = pet_bus.stage_name(stage)
+    if home != stage and home in FLOW_FOR_STAGE:
+        there = pet_bus.stage_name(home)
+        return ('「%s」页暂无对话入口，/%s 没有发送；要在「%s」里用它，请输入 /%s /%s'
+                % (here, name, there, there, name))
+    return '「%s」阶段暂无 Agent 入口，/%s 请在页面操作中使用。' % (here, name)
+
+
 def _send_skill(desktop, stage, parsed):
-    kind = str(parsed.get('kind') or '')
+    """技能／用户包命令只在当前页的入口里执行，不换页（DOC-D8-7）；换页只认 ``/阶段``。"""
     name = str(parsed.get('name') or '')
     rest = str(parsed.get('rest') or '').strip()
-    target, path = _resolve_skill(desktop, parsed)
-    if not target:
+    home, path = _resolve_skill(desktop, parsed)
+    if not home:
         _say(desktop, '没有这个技能或子引擎：/%s' % name)
         return False
-    if target != stage and not _goto_stage(desktop, target):
+    if not stage:
+        _say(desktop, '请先打开一个制作阶段页面')
         return False
-    if target not in FLOW_FOR_STAGE:
-        _say(desktop, '「%s」阶段暂无 Agent 入口，/%s 请在页面操作中使用。'
-             % (pet_bus.stage_name(target), name))
+    if stage not in FLOW_FOR_STAGE:
+        _say(desktop, _no_entry_hint(stage, home, name))
         return False
-    return _open_flow(desktop, target, _skill_prompt(name, path, rest))
+    return _open_flow(desktop, stage, _skill_prompt(name, path, rest))
 
 
 def send(desktop, stage, text, parsed):
