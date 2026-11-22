@@ -8,6 +8,7 @@
 """
 import tempfile
 import time
+import types
 import unittest
 from pathlib import Path
 
@@ -50,6 +51,8 @@ class FilesPanelTests(unittest.TestCase):
     def setUp(self):
         d = self.desktop
         d.files_panel.collapse()
+        d.files_panel._user_panel_width = None
+        d.files_panel._resize_start = None
         if getattr(d, 'page_index', None) != PAGE['script']:
             d.show(PAGE['script'])
         self.pump(.2)
@@ -146,9 +149,12 @@ class FilesPanelTests(unittest.TestCase):
         d.canvas.event_generate('<Button-1>', x=20, y=20); d.win.update()
         self.pump(.05)
         self.assertFalse(d.files_panel._open, '面板外按下左键收起')
-        d.files_panel.open_panel(); self.pump(.1)
-        d.win.event_generate('<Escape>'); d.win.update()
-        self.pump(.2)
+        d.files_panel.open_panel(); self.pump(.2)
+        d.win.focus_force()
+        d.win.update_idletasks()
+        d.win.event_generate('<Escape>', when='now')
+        d.win.update()
+        self.pump(.5)
         self.assertFalse(d.files_panel._open, 'Esc 收起')
 
     def test_page_and_project_switch_reset_panel(self):
@@ -260,6 +266,140 @@ class FilesPanelTests(unittest.TestCase):
         finally:
             (target / long_name).unlink(missing_ok=True)
             d.files_panel.collapse(); self.pump(.1)
+
+
+class FilesPanelResizeTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.win = tk_test_support.make_root()
+        cls.temp = tempfile.TemporaryDirectory(prefix='r-ux-dock-resize-')
+        app, cls.project = startup_fixtures.DesktopStartupPerfTests._startup_app(
+            cls.temp.name, remembered=True)
+        for directory in ('项目设定', '项目大纲', '角色卡', '项目剧本'):
+            target = (project_stages.writing(cls.project) / '测试提供方' / '测试模型'
+                      / '创意_20261015' / directory)
+            target.mkdir(parents=True)
+            (target / (directory + '_样例.md')).write_text('测试正文', encoding='utf8')
+        cls.desktop = Desktop(cls.win, root=app)
+        cls.pump(2)
+
+    @classmethod
+    def pump(cls, seconds=.2):
+        tk_test_support.pump(cls.win, seconds, idle_first=False)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.desktop.cancel_timers()
+        cls.win.destroy()
+        cls.temp.cleanup()
+
+    def setUp(self):
+        d = self.desktop
+        d.files_panel.collapse()
+        d.files_panel._user_panel_width = None
+        d.files_panel._resize_start = None
+        if getattr(d, 'page_index', None) != PAGE['script']:
+            d.show(PAGE['script'])
+        self.pump(.2)
+
+    def _open_panel(self):
+        d = self.desktop
+        d.files_panel.open_panel()
+        self.pump(.3)
+
+    def test_drag_left_widens_panel(self):
+        from desktop_files_panel import SCRIPT_LIST_MIN_WIDTH
+        d = self.desktop
+        d.show(PAGE['script']); self.pump(.2)
+        self._open_panel()
+        panel = d.files_panel
+        sizer = panel.script_width_sizer
+        before = int(sizer.cget('width'))
+        start_x = 1000
+        panel._start_resize(types.SimpleNamespace(x_root=start_x, widget=panel.resize_grip))
+        panel._do_resize(types.SimpleNamespace(x_root=start_x - 120, widget=panel.resize_grip))
+        after = int(sizer.cget('width'))
+        self.assertEqual(after, before + 120)
+        self.assertTrue(panel._open)
+        panel._end_resize(types.SimpleNamespace(x_root=start_x - 120, widget=panel.resize_grip))
+        panel.collapse(); self.pump(.1)
+
+    def test_drag_clamps_to_limits(self):
+        from desktop_files_panel import SCRIPT_LIST_MIN_WIDTH
+        d = self.desktop
+        d.show(PAGE['script']); self.pump(.2)
+        self._open_panel()
+        panel = d.files_panel
+        sizer = panel.script_width_sizer
+        # 向右拖过头 -> 最小宽
+        panel._start_resize(types.SimpleNamespace(x_root=1000, widget=panel.resize_grip))
+        panel._do_resize(types.SimpleNamespace(x_root=1000 + 100000, widget=panel.resize_grip))
+        self.assertEqual(int(sizer.cget('width')), SCRIPT_LIST_MIN_WIDTH)
+        # 向左拖过头 -> 手动上限
+        panel._start_resize(types.SimpleNamespace(x_root=1000, widget=panel.resize_grip))
+        cap = panel._manual_cap()
+        panel._do_resize(types.SimpleNamespace(x_root=1000 - 100000, widget=panel.resize_grip))
+        self.assertEqual(int(sizer.cget('width')), cap)
+        panel._end_resize(types.SimpleNamespace(x_root=1000, widget=panel.resize_grip))
+        panel.collapse(); self.pump(.1)
+
+    def test_manual_width_persists(self):
+        d = self.desktop
+        d.show(PAGE['script']); self.pump(.2)
+        self._open_panel()
+        panel = d.files_panel
+        sizer = panel.script_width_sizer
+        panel._start_resize(types.SimpleNamespace(x_root=500, widget=panel.resize_grip))
+        panel._do_resize(types.SimpleNamespace(x_root=450, widget=panel.resize_grip))
+        manual = int(sizer.cget('width'))
+        panel._end_resize(types.SimpleNamespace(x_root=450, widget=panel.resize_grip))
+        recorded = panel._user_panel_width
+        self.assertEqual(recorded, manual)
+        # 再次 _fit_script_width
+        panel._fit_script_width()
+        self.assertEqual(panel._user_panel_width, recorded)
+        # fill_script_list
+        panel.fill_script_list()
+        self.pump(.2)
+        self.assertEqual(panel._user_panel_width, recorded)
+        # collapse + open
+        panel.collapse(); self.pump(.1)
+        panel.open_panel(); self.pump(.3)
+        self.assertEqual(panel._user_panel_width, recorded)
+        panel.collapse(); self.pump(.1)
+
+    def test_double_click_restores_auto(self):
+        d = self.desktop
+        d.show(PAGE['script']); self.pump(.2)
+        self._open_panel()
+        panel = d.files_panel
+        sizer = panel.script_width_sizer
+        # 自动宽度
+        panel._user_panel_width = None
+        panel._fit_script_width()
+        self.pump(.2)
+        auto = int(sizer.cget('width'))
+        # 拖动
+        panel._start_resize(types.SimpleNamespace(x_root=500, widget=panel.resize_grip))
+        panel._do_resize(types.SimpleNamespace(x_root=400, widget=panel.resize_grip))
+        panel._end_resize(types.SimpleNamespace(x_root=400, widget=panel.resize_grip))
+        self.assertIsNotNone(panel._user_panel_width)
+        # 双击恢复
+        panel._restore_auto_width(types.SimpleNamespace(x_root=400, widget=panel.resize_grip))
+        self.assertIsNone(panel._user_panel_width)
+        self.pump(.2)
+        self.assertEqual(int(sizer.cget('width')), auto)
+        panel.collapse(); self.pump(.1)
+
+    def test_outside_press_allows_grip(self):
+        d = self.desktop
+        d.show(PAGE['script']); self.pump(.2)
+        self._open_panel()
+        panel = d.files_panel
+        event = types.SimpleNamespace(widget=panel.resize_grip)
+        panel._outside_press(event)
+        self.assertTrue(panel._open)
+        panel.collapse(); self.pump(.1)
 
 
 if __name__ == '__main__':
