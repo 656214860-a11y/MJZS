@@ -107,8 +107,8 @@
   "tests.test_writing_api"
  ],
  "tests_ok": true,
- "points_total": 3059,
- "points_covered": 1743,
+ "points_total": 3065,
+ "points_covered": 1749,
  "modules": [
   {
    "module": "budget.py",
@@ -616,8 +616,8 @@
   },
   {
    "module": "error_codes.py",
-   "points": 11,
-   "covered": 11,
+   "points": 17,
+   "covered": 17,
    "percent": 100.0
   },
   {
