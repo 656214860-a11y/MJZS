@@ -909,11 +909,12 @@ class _Harness(unittest.TestCase):
         self.wait_file_index(d, win, seconds)
 
     def assert_script_file_row(self, tree, proj, path):
-        """项目相对路径叶子必须位于剧本阶段分组内。"""
+        """剧本准备页的面板只列本阶段文件：文件行平铺在表格根下，不套阶段分组父行。"""
         item = path.relative_to(proj).as_posix()
-        self.assertIn('stage-group:script', tree.get_children())
-        self.assertIn(item, tree.get_children('stage-group:script'))
-        self.assertEqual(tree.parent(item), 'stage-group:script')
+        children = tree.get_children()
+        self.assertIn(item, children)
+        self.assertEqual([child for child in children if str(child).startswith('stage-group:')], [])
+        self.assertEqual(tree.parent(item), '')
         return item
 
     def log_text(self, d):
@@ -1122,24 +1123,39 @@ class SendMessageTests(_Harness):
             self.settle_script_page(win, .4)
             self.open_files_panel(d, win)
             self.assertTrue(d.script_box.winfo_ismapped(), '打开后保留「项目文件」面板')
+
+            def assert_chat_usable():
+                self.assertTrue(d.idea_log.winfo_ismapped(), '聊天记录仍保留可用空间')
+                self.assertGreater(d.idea_log.winfo_height(), 1)
+                self.assertTrue(d.idea_input.winfo_ismapped(), '没有剧本文件仍可输入聊天')
+
+            # R4075：面板跟随当前页，只列剧本准备阶段的用户文件，标题带阶段名。
             # R2942：四类文件合成一条「项目文件」列表，表头即「文件名」。
-            self.assertEqual(str(d.script_title.cget('text')), '项目文件')
+            self.assertEqual(str(d.script_title.cget('text')), '项目文件 · 剧本准备')
             tree = d.script_tree
             self.assertEqual(tree.heading('name')['text'], '文件名')
             self.assertTrue(tree.winfo_ismapped())
+            # 根目录的说明文件不属于剧本准备阶段，所以这里的列表是真的空：空态提示不能盖住表头和对话区。
+            self.assertEqual(tree.get_children(), (), '剧本准备阶段没有用户文件时列表为空')
             self.assertFalse(tree._data_table.empty_label.winfo_ismapped(), '空态不能遮住标题栏')
-            # 默认「全部」索引项目内可见文件；没有剧本不等于索引没有任何行。
-            groups = tree.get_children()
-            self.assertTrue(groups, '根文件也应进入阶段分组')
-            self.assertTrue(all(str(group).startswith('stage-group:') for group in groups))
-            leaves = [item for group in groups for item in tree.get_children(group)]
+            self.assertEqual(tree.identify_region(4, 4), 'heading', '列表为空时表头仍显示在表格顶部')
+            assert_chat_usable()
+            # 「全部阶段」索引项目内可见文件；没有剧本不等于索引没有任何行。
+            d.files_panel.show_stage(None); win.update()
+            self.wait_file_index(d, win)
+            self.assertEqual(str(d.script_title.cget('text')), '项目文件 · 全部阶段')
+            self.assertFalse(tree._data_table.empty_label.winfo_ismapped(), '有文件行时同样不显示空态')
+            rows = tree.get_children()
+            self.assertTrue(rows, '根文件也应进入「全部阶段」列表')
+            # 这个项目在「全部阶段」下只有「其他文件」一个分组；只有一个分组时不套分组父行，文件行平铺。
+            self.assertEqual([row for row in rows if str(row).startswith('stage-group:')], [])
+            leaves = d.files_panel.all_script_items()
+            self.assertCountEqual(leaves, rows, '平铺时表格根下每一行都是文件行')
             self.assertIn('项目说明.md', leaves, '根用户文件也应索引')
             for item in leaves:
                 self.assertFalse(Path(item).is_absolute(), '文件叶子使用项目相对路径')
                 self.assertTrue((proj / item).is_file())
-            self.assertTrue(d.idea_log.winfo_ismapped(), '聊天记录仍保留可用空间')
-            self.assertGreater(d.idea_log.winfo_height(), 1)
-            self.assertTrue(d.idea_input.winfo_ismapped(), '没有剧本文件仍可输入聊天')
+            assert_chat_usable()
 
     def test_project_files_panel_toggle_and_page_switch(self):
         """REQ-S01-90／REQ-S01-94：面板默认隐藏；点图标钮向左展开，收起钮／再点收起；
