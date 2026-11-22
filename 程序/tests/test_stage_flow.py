@@ -532,5 +532,47 @@ class ArmFromTests(unittest.TestCase):
         self.assertEqual(auto.pending()[0], 'script', '状态给不出来就从头走')
 
 
+class ManualLabelGuardTests(unittest.TestCase):
+    """守卫：MANUAL_LABELS 里的按钮名要在对应页面模块的源码里真的存在。
+
+    豁免两项（键必须在 MANUAL_LABELS 里）：
+    * script：剧本页的制作入口是底部输入框，「手动制作剧本」按钮是有意删掉的
+      （tests/test_manual_gate.py 有用例守着这件事）。
+    * animatic：页面按钮叫「生成分镜预演」，改名由发送链路那一项定。
+    """
+
+    PAGES = {
+        'script_structure': ('手动制作结构剧本', 'ui/desktop_script_pages.py'),
+        'storyboard': ('手动制作分镜', 'ui/storyboard_files.py'),
+        'assets': ('手动制作资产', 'ui/desktop_asset_pages.py'),
+        'continuity': ('手动生成连贯性清单', 'ui/desktop_media_pages.py'),
+        'final': ('手动同步资产', 'ui/storyboard_files.py'),
+        'keyframe': ('手动制作首帧', 'ui/desktop_storyboard_page.py'),
+        'previs': ('手动制作白模', 'ui/local_previs.py'),
+        'video': ('手动制作视频', 'app.py'),
+        'audio': ('手动制作配音', 'ui/desktop_media_pages.py'),
+        'edit': ('手动制作剪辑', 'ui/desktop_media_pages.py'),
+        'delivery': ('手动制作交付', 'ui/desktop_media_pages.py'),
+    }
+    EXEMPTIONS = {
+        'script': '剧本页的制作入口是底部输入框，按钮是有意删掉的（tests/test_manual_gate.py 守着）',
+        'animatic': '页面按钮叫「生成分镜预演」，改名由发送链路那一项定',
+    }
+
+    def test_table_and_exemptions_cover_every_manual_label(self):
+        self.assertTrue(set(self.EXEMPTIONS) <= set(stage_flow.MANUAL_LABELS),
+                        '豁免表的键必须都在 MANUAL_LABELS 里')
+        self.assertEqual(set(stage_flow.MANUAL_LABELS),
+                         set(self.PAGES) | set(self.EXEMPTIONS),
+                         '登记表加豁免表要正好等于 MANUAL_LABELS 的全部键')
+
+    def test_each_table_label_matches_and_appears_on_its_page(self):
+        root = Path(HERE).resolve().parent
+        for stage, (label, rel) in self.PAGES.items():
+            with self.subTest(stage=stage):
+                self.assertEqual(label, stage_flow.MANUAL_LABELS[stage])
+                self.assertIn(label, (root / rel).read_text(encoding='utf-8'))
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

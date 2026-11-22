@@ -460,9 +460,9 @@ class PetStagesMixin:
         self.notice = '「%s」这一步还没有能自动跑的路子，可以在页面上手动做' % name
         return self.notice
     def export_delivery(self, at=None):
-        """「导出交付」：把用户带到「质检与交付」页——导出按钮在那儿，三虎不代按。"""
+        """「导出交付」：把用户带到「质检与交付」页——制作入口在那儿，三虎不代按。"""
         self.goto('delivery')
-        self.notice = '交付导出在「质检与交付」页：按「导出」就出清单（这一步三虎不代按）'
+        self.notice = '交付在「质检与交付」页：点「手动制作交付」开始；各平台版本在「后期剪辑」页导出（这一步三虎不代按）'
         return self.notice
     def run_plan(self, result, at=None):
         """把对话里那句「听懂了」真的落到处（第 23 期）。
@@ -556,7 +556,7 @@ class PetStagesMixin:
             # R2905：执行顺序按阶段配置勾选顺序（面板顺序），不是注册表遍历顺序。
             picked = [name for name in stage_flow.selected_skills(project, stage) if name in set(names)]
             if not picked:
-                self.notice = '「%s」这一阶段的 SKILL 都被您取消勾选了——先到阶段配置里勾上再说。' % stage
+                self.notice = '「%s」这一阶段的 SKILL 都被您取消勾选了——先在底部输入框的「技能」里勾上再说。' % pet_bus.STAGE_NAMES.get(stage, stage)
                 self.show_progress(self.notice)
                 return self.notice
             names = picked
