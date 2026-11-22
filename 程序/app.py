@@ -581,7 +581,14 @@ class App:
         try:
             if self.busy: raise ValueError('正在执行操作，请稍后')
             fn()
-        except Exception as e:import contract.error_codes as error_codes;self.notifier.error(error_codes.user_text(e), title='提示')
+        except Exception as e:
+            # 先记录再提示：认不出的错误界面上只显示代码那一句，原始异常事后要查得到；记录自己出错不影响提示。
+            try:
+                import infra.diagnostic_capture as diagnostic_capture
+                diagnostic_capture.record_degradation(
+                    e,page='视频生成',stage='app.safe',project=str(getattr(self,'root','') or ''))
+            except Exception:app_logging.swallowed()
+            import contract.error_codes as error_codes;self.notifier.error(error_codes.user_text(e), title='提示')
     def white_model_path(self,sid):
         """这一镜的白模视频（第 54 期第 3 条：「白模 · 上传」那一列右键查看的就是它）。"""
         from ui.white_model import shot_directory,project_for_app,read_record
