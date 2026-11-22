@@ -21,11 +21,10 @@ from infra.model_router import ModelAdapter, PoolAdapter
 import domain.writing_tools as writing_tools
 import orchestrator.edit_habits as edit_habits, domain.workflow_context as workflow_context
 from orchestrator.writing_preparation_ledger import (PREPARATION_STAGES, _PREPARATION_STAGE_WORDS,
-                                        _confirmed_basis, _confirmed_prefix,
+                                        _confirmed_prefix,
                                         _preparation_draft_is_parallel,
                                         _preparation_stage_alias,
                                         _preparation_work_index, _promote_revision,
-                                        _revoke_natural_script_adoption,
                                         _save_preparation_state,
                                         _save_preparation_state_guarded,
                                         _working_documents)

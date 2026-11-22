@@ -102,3 +102,49 @@ class StoryboardCatalogSnapshotTests(unittest.TestCase):
                 controller.apply_catalogs(catalogs)
             self.assertLessEqual(len(comparisons), len(paths) * 3)
             self.assertEqual(controller.selection('script'), paths)
+
+
+class StructureScriptCatalogTests(unittest.TestCase):
+    """REQ-S03-07：初步分镜页的剧本清单列出每份可见的结构剧本。"""
+
+    def make_project(self, folder):
+        project = Path(folder).resolve() / '项目'
+        source = project / '01剧本准备' / '项目剧本' / '项目_自然剧本_Google_20261114.md'
+        source.parent.mkdir(parents=True)
+        source.write_text('第 1 集\n场景 1：夜，旧书店内\n林小满：把旧怀表交给我。\n', encoding='utf-8')
+        target = project / '02剧本结构' / '结构剧本'
+        target.mkdir(parents=True)
+        return project, source, target
+
+    def episode(self, project, source, target, number):
+        path = target / ('项目_结构剧本_第%02d集_20261122.md' % number)
+        path.write_text('# 第%d集：雨夜来客\n\n> 结构化剧本 · 第 %d 集\n> 来源：`%s`\n\n## 四、分场结构\n'
+                        % (number, number, source.relative_to(project).as_posix()), encoding='utf-8')
+        return path
+
+    def listed(self, project):
+        return [entry['path'] for entry in stages.storyboard_catalog(project, 'script')]
+
+    def test_model_written_episode_script_is_listed(self):
+        """模型按集写的结构剧本（版式不是本地规则那一种）在初步分镜页能选到。"""
+        with tempfile.TemporaryDirectory() as folder:
+            project, source, target = self.make_project(folder)
+            episode = self.episode(project, source, target, 1)
+            self.assertEqual(self.listed(project), [episode])
+
+    def test_every_visible_structure_script_is_listed_not_only_the_newest(self):
+        """按集各写一份时每一集都列出，按集号排序。"""
+        with tempfile.TemporaryDirectory() as folder:
+            project, source, target = self.make_project(folder)
+            episodes = [self.episode(project, source, target, number) for number in (1, 2)]
+            self.assertEqual(self.listed(project), episodes)
+
+    def test_structure_script_whose_source_is_gone_stays_hidden(self):
+        """来源原稿已不在的旧结构稿不列出（REQ-S02-21），可见的那份照常列出。"""
+        with tempfile.TemporaryDirectory() as folder:
+            project, source, target = self.make_project(folder)
+            episode = self.episode(project, source, target, 1)
+            orphan = target / '项目_结构剧本_正稿_20261021.md'
+            orphan.write_text('# 结构化剧本\n\n> 来源：`01剧本准备/项目剧本/项目_自然剧本_Anthropic_20261014.md`\n\n'
+                              '## 角色档案\n\n## 分场剧本\n', encoding='utf-8')
+            self.assertEqual(self.listed(project), [episode])

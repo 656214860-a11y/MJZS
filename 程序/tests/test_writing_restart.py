@@ -1,4 +1,5 @@
 """共享阶段成果的显式重写、确认失效与迟到响应保护。"""
+import hashlib
 import json
 import tempfile
 import unittest
@@ -51,8 +52,15 @@ class WritingRestartTests(unittest.TestCase):
                 for document in self.original['documents']:
                     self.assertTrue((self.target.parent / document['path']).is_file())
 
-    def test_confirm_new_outline_invalidates_character_and_script(self):
-        """REQ-S01-14：确认重写后该步及下游确认失效，已采用的自然稿撤销采用。"""
+    def test_confirm_new_outline_invalidates_character_and_keeps_script_adoption(self):
+        """REQ-S01-14：确认重写后该步及下游确认失效；已采用的自然稿不撤销。"""
+        script = self.target.parent / '项目剧本' / '旧剧本.md'
+        script.parent.mkdir(parents=True, exist_ok=True)
+        script.write_text('# 自然剧本\n旧稿\n', encoding='utf-8')
+        selection = script_contract.natural_script_selection_path(self.project)
+        save(selection, {'path': script.relative_to(self.project).as_posix(),
+                         'sha256': hashlib.sha256(script.read_bytes()).hexdigest()})
+        adopted = selection.read_bytes()
         restart_writing_preparation(self.project, '剧本大纲')
         result = self.reply('剧本大纲')
         self.reply('人物设定（角色卡）', '确认')
@@ -64,9 +72,8 @@ class WritingRestartTests(unittest.TestCase):
                          Path(result['preparation_path']).resolve())
         self.assertFalse(state['documents'][2]['confirmed'])
         self.assertNotEqual(state['documents'][2], self.original['documents'][2])
-        self.assertIsNone(script_contract.resolve_script_source(self.project))
-        selection = json.loads(script_contract.natural_script_selection_path(self.project).read_text(encoding='utf-8'))
-        self.assertIn('前置阶段已更新', selection['reason'])
+        self.assertEqual(script_contract.resolve_script_source(self.project), script.resolve())
+        self.assertEqual(selection.read_bytes(), adopted)
 
     def test_cancel_and_failed_generation_preserve_adopted(self):
         restart_writing_preparation(self.project, '项目设定')

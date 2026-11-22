@@ -462,8 +462,22 @@ def is_structured_script_file_name(path):
             stem.startswith('剧本结构_结构剧本_'))
 
 
+def _is_declared_structured_script(path, head):
+    """按命名规则写进「结构剧本」目录的稿：文件名声明了文件类型，正文非空即认。
+
+    模型写的结构稿常按集排版（「# 第1集：…」＋「分场结构」），和本地规则的版式不同。
+    这类稿不靠正文版式猜：目录和文件名是用户看得见、说得清的约定（REQ-S02-21）。
+    """
+    return (STRUCTURED_SCRIPT_DIR in path.parent.parts
+            and is_structured_script_file_name(path)
+            and bool(head.lstrip('\ufeff').strip()))
+
+
 def is_structured_script(path):
-    """按正文首部确认结构剧本，避免把误命名为 script.md 的大纲送入分镜。"""
+    """确认结构剧本：本地规则版式看正文首部，其余只认「结构剧本」目录里按命名规则写的稿。
+
+    看正文首部是为了不把误命名为 script.md 的大纲送入分镜。
+    """
     path = Path(path)
     if not path.is_file() or path.suffix.lower() != '.md':
         return False
@@ -472,7 +486,8 @@ def is_structured_script(path):
         head = path.read_text(encoding='utf-8', errors='replace')[:4096]
     except OSError:
         return False
-    if '# 结构化剧本' not in head or ('## 角色档案' not in head and '## 分场剧本' not in head):
+    standard = '# 结构化剧本' in head and ('## 角色档案' in head or '## 分场剧本' in head)
+    if not standard and not _is_declared_structured_script(path, head):
         return False
     # 早期流程会把“项目大纲”直接送给结构化器，产出虽然有结构化标题，
     # 本质仍是大纲提取，不能伪装成可供初步分镜使用的自然剧本正稿。
