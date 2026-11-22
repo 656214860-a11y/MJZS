@@ -37,7 +37,7 @@ def script_category(row):
     return 'index'
 
 
-def load_index(root, library=False, refresh=False):
+def load_index(root, library=False, refresh=False, stage=None):
     """只在 Desktop 后台任务执行；首次重建也在此线程。"""
     from infra import file_index
     if refresh:
@@ -45,6 +45,8 @@ def load_index(root, library=False, refresh=False):
             file_index.rebuild_global(root)
         else:
             file_index.rebuild(root)
+    if (not library) and (not refresh):
+        file_index.discover(root, stage)
     rows = file_index.global_rows(root) if library else file_index.rows(root)
     categories = {}
     if not library:
@@ -69,11 +71,13 @@ def filtered_rows(rows, filters, library=False):
     """全局库没有项目阶段/发布状态；项目筛选与索引 search 同一语义。"""
     stage, kind, status, keyword, sort = filters
     keyword = keyword.casefold()
+    from infra import file_index
     selected = [row for row in rows
                 if (library or not stage or row.stage == stage)
                 and (not kind or row.kind == kind)
                 and (library or not status or row.status == status)
-                and (not keyword or keyword in row.path.casefold())]
+                and (not keyword or keyword in row.path.casefold())
+                and not file_index.is_functional(row.path)]
     if sort == '修改时间':
         selected.sort(key=lambda row: (-row.mtime, row.kind, row.path))
     else:
@@ -172,7 +176,7 @@ class FilesPanelIndexMixin:
         def work():
             if not self._index_current_without_tk(generation, context):
                 return None
-            rows, categories, labels = load_index(root, library, refresh)
+            rows, categories, labels = load_index(root, library, refresh, stage=filters[0])
             return filtered_rows(rows, filters, library), categories, labels
 
         def done(result):
@@ -207,10 +211,24 @@ class FilesPanelIndexMixin:
         self.script_tree.column('#0', width=THUMB_SIZE + SPACING['xl'] * 2, stretch=False)
         self.script_tree.tag_configure('missing', foreground=COLORS['text_muted'])
         groups = grouped_rows(rows, getattr(self, 'group_mode', '阶段'), library)
-        for group, label, _members in groups:
-            self.script_tree.insert('', 'end', iid=group, open=True, values=(label, '', '', ''))
-            self.script_row_category[group] = '__file_group__'
-        pending = iter((group, row) for group, _label, members in groups for row in members)
+        self._index_group_count = len(groups)
+        if len(groups) > 1:
+            for group, label, _members in groups:
+                self.script_tree.insert('', 'end', iid=group, open=True, values=(label, '', '', ''))
+                self.script_row_category[group] = '__file_group__'
+        # 只有一个分组时平铺文件行，不套分组父行；没有缩略图时去掉左侧列。
+        if len(groups) == 1:
+            from infra import file_index
+            has_thumb = any(
+                (row.kind in ('资产', '音频', '视频'))
+                or (Path(row.path).suffix.lower() in file_index.IMAGE_SUFFIXES)
+                for _group, _label, members in groups for row in members)
+            if not has_thumb:
+                self.script_tree.configure(show='headings')
+        if len(groups) == 1:
+            pending = iter(('', row) for _group, _label, members in groups for row in members)
+        else:
+            pending = iter((group, row) for group, _label, members in groups for row in members)
 
         def batch():
             self._index_render_job = None
@@ -270,7 +288,9 @@ class FilesPanelIndexMixin:
 
     def _finish_index_render(self):
         self._fit_script_width()
-        count = len(getattr(self, '_index_rows', {})) + len(self.script_tree.get_children())
+        files = len(getattr(self, '_index_rows', {}))
+        groups = getattr(self, '_index_group_count', 0)
+        count = files + (groups if groups > 1 else 0)
         self.script_tree.configure(height=max(1, min(SCRIPT_FILE_MAX_ROWS, count)))
 
     def _apply_name_labels(self, rows, name_px, measure):

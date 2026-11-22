@@ -14,6 +14,8 @@ from ui_tokens import SPACING
 from ui_widgets import LineInput, SecondaryButton, SelectBox, Tooltip
 from ui.desktop_files_panel_index import FilesPanelIndexMixin, SCRIPT_NAME_CELL_PAD
 
+_FOLLOWED_STAGE_SENTINEL = object()
+
 # R3094（任务书 P1，Q8 补充需求）：停靠面板右缘的阶段快捷图标列，顺序＝pet_bus.STAGES。
 # R3191（任务书 M3，REQ-S01-93）：图标优先用 assets/nav/<stage>_files.png（IconLoader.nav_icon），
 # PNG 缺失退回本表 Unicode 符号；每个图标都带 Tooltip 中文名。
@@ -123,6 +125,7 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
         self.library_view = False
         self.group_mode = '阶段'
         self.group_box.set('阶段')
+        self._followed_page_stage = _FOLLOWED_STAGE_SENTINEL
         self._reset_filter_boxes()
         self._sync_stage_buttons()
         title = getattr(self, 'script_title', None)
@@ -132,6 +135,14 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
     def _sync_view_filters(self):
         """全局库只支持类型/名称，避免展示无效的发布状态条件。"""
         self.status_box.configure(state='disabled' if self.library_view else 'readonly')
+        if getattr(self, 'library_view', False):
+            return
+        current = self._page_stage()
+        if current != getattr(self, '_followed_page_stage', _FOLLOWED_STAGE_SENTINEL):
+            self.stage_filter = current
+            self._followed_page_stage = current
+            self._sync_stage_title()
+            self._sync_stage_buttons()
 
     def _keyword_changed(self, event=None):
         """关键字输入去抖 250ms：避免每个按键都全表筛一遍。"""
@@ -404,6 +415,13 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
         reveal_in_folder(path)
 
     # ── 阶段快捷图标列（R3094，任务书 P1）──────────────────────────────────
+    def _page_stage(self):
+        from contract.pet_bus import STAGES
+        page_index = getattr(self.page, 'page_index', None)
+        if isinstance(page_index, int) and 0 <= page_index < len(STAGES):
+            return STAGES[page_index]
+        return None
+
     def _ensure_filter_state(self):
         """首次装配前补齐筛选状态（宿主 ``__init__`` 不感知这些字段）。"""
         if not hasattr(self, 'stage_filter'):
@@ -418,6 +436,7 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
             self._meta_refresh_job = None
             self._library_root = None
             self.script_row_stage = {}      # iid → 阶段显示名（另存为预填名用）
+            self._followed_page_stage = _FOLLOWED_STAGE_SENTINEL
 
     def _build_stage_rail(self):
         """建右缘阶段图标列：「全部」＋ 13 个阶段，顺序＝``pet_bus.STAGES``。

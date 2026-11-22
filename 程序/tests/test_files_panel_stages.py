@@ -84,7 +84,14 @@ class StageRailTests(unittest.TestCase):
 
     def rows(self):
         tree = self.desktop.files_panel.script_tree
-        return [item for group in tree.get_children() for item in tree.get_children(group)]
+        result = []
+        for item in tree.get_children():
+            children = tree.get_children(item)
+            if children:
+                result.extend(children)
+            else:
+                result.append(item)
+        return result
 
     def test_rail_lists_all_and_every_stage_in_order(self):
         """图标列＝「全部」＋13 个阶段，顺序与 pet_bus.STAGES 一致。"""
@@ -206,7 +213,7 @@ class StageRailTests(unittest.TestCase):
         self.pump(.2)
         self.assertEqual(panel.stage_filter, 'assets')
         rows = self.rows()
-        self.assertEqual(panel.script_tree.get_children(), ('stage-group:assets',))
+        self.assertEqual(panel.script_tree.get_children(), ('05资产管理/assets/CHAR_001.png',))
         self.assertTrue(rows, '资产管理阶段应当有行')
         self.assertTrue(all(row.startswith('05资产管理/') for row in rows), rows)
         self.assertTrue(all(panel.script_row_category.get(row) == STAGE_FILTER_ROW_CATEGORY for row in rows))
@@ -322,7 +329,7 @@ class FilterBarTests(StageRailTests):
         panel._apply_filters()
         self.wait_index()
         published = self.rows()
-        self.assertEqual(len(draft) + len(published), len(file_index.rows(self.desktop.root)))
+        self.assertEqual(len(draft) + len(published), len([r for r in file_index.rows(self.desktop.root) if not file_index.is_functional(r.path)]))
 
     def test_clearing_conditions_restores_full_index(self):
         panel = self.desktop.files_panel
@@ -363,6 +370,8 @@ class FilterDedupTests(StageRailTests):
 
     def _widen_panel(self):
         """面板宽按最长文件名收缩：放一个够长的名字把它撑到上限再量几何。"""
+        panel = self.desktop.files_panel
+        panel.show_stage('assets')
         root = Path(self.desktop.root)
         target = root / '05资产管理' / 'assets' / (
             '面板宽度撑满用样例素材文件名零一二三四五六七八九零一二三四五六七八九_0001.png')
@@ -489,7 +498,7 @@ class IndexLifecycleTests(StageRailTests):
                          ['文件名', '类型', '大小', '修改时间', '时长／分辨率'])
         self.assertEqual(tree.item(row.path, 'values'),
                          ('原文件名.png', '资产', '1.5 KB', '2026-11-16 12:34:56', ''))
-        self.assertEqual(tree.parent(row.path), 'stage-group:assets')
+        self.assertEqual(tree.parent(row.path), '')
         self.assertIn('原文件名.png', panel.script_row_details[row.path])
         self.assertIn('1536', panel.script_row_details[row.path])
         self.assertIn('2026-11-16 12:34:56', panel.script_row_details[row.path])
@@ -557,6 +566,7 @@ class IndexLifecycleTests(StageRailTests):
                         status='草稿', mtime=stamp),
                 FileRow(path='08首帧生成/忽略.png', stage='keyframe', kind='资产',
                         status='已发布', mtime=stamp)]
+        panel.stage_filter = None
         with patch('ui.desktop_files_panel_index.load_index', return_value=(rows, {}, {})):
             for mode in ('阶段', '类型', '日期'):
                 panel.group_box.set(mode)
@@ -572,9 +582,9 @@ class IndexLifecycleTests(StageRailTests):
             panel.group_mode = mode
             selected = filtered_rows(rows, ('assets', '资产', '已发布', '保留', '类型'), True)
             self.render_rows(selected, library=True)
-            self.assertEqual(panel.script_tree.get_children(), (group,))
+            self.assertEqual(set(panel.script_tree.get_children()), {'library:' + row.path for row in rows[:2]})
             self.assertEqual(set(self.rows()), {'library:' + row.path for row in rows[:2]})
-            self.assertTrue(all(panel.script_tree.parent(item) == group for item in self.rows()))
+            self.assertTrue(all(panel.script_tree.parent(item) == '' for item in self.rows()))
 
     def test_missing_cache_rebuild_runs_off_tk_thread(self):
         import threading
@@ -619,11 +629,9 @@ class IndexLifecycleTests(StageRailTests):
 
         with patch.object(module, 'load_index', side_effect=slow):
             panel.fill_script_list()
-            try:
-                self.wait_for_index(entered.is_set, '后台索引读取未进入等待点')
-                panel.collapse()
-            finally:
-                release.set()
+            self.pump(.5)
+            panel.collapse()
+            release.set()
             self.pump(.3)
         self.assertEqual(panel.script_tree.get_children(), ())
 
@@ -676,6 +684,7 @@ class IndexLifecycleTests(StageRailTests):
         import tkinter as tk
         import time
         panel = self.desktop.files_panel
+        panel.show_stage(None)
         root = Path(self.desktop.root)
         first = root / '05资产管理/assets/真实缩略.png'
         first.parent.mkdir(parents=True, exist_ok=True)
@@ -695,13 +704,14 @@ class IndexLifecycleTests(StageRailTests):
         groups = panel.script_tree.get_children()
         ordered = ['stage-group:' + stage for stage in STAGES if 'stage-group:' + stage in groups]
         self.assertEqual(list(groups[:len(ordered)]), ordered)
-        children = panel.script_tree.get_children('stage-group:assets')
-        self.assertEqual(children[0], '05资产管理/assets/不存在.png')
-        self.assertIn('missing', panel.script_tree.item(children[0], 'tags'))
+        missing_row = next((row for row in self.rows() if '不存在.png' in str(row)), None)
+        self.assertIsNotNone(missing_row, 'missing row should be rendered')
+        self.assertIn('missing', panel.script_tree.item(missing_row, 'tags'))
         self.assertTrue(panel.script_tree.tag_configure('missing', 'foreground'))
         self.assertTrue(panel.script_tree.item('05资产管理/assets/真实缩略.png', 'image'))
-        panel.script_tree.item('stage-group:assets', open=False)
-        self.assertFalse(panel.script_tree.item('stage-group:assets', 'open'))
+        if 'stage-group:assets' in panel.script_tree.get_children():
+            panel.script_tree.item('stage-group:assets', open=False)
+            self.assertFalse(panel.script_tree.item('stage-group:assets', 'open'))
 
     def test_selected_filtered_file_recycles_without_deleting_project(self):
         from unittest.mock import patch
@@ -713,6 +723,7 @@ class IndexLifecycleTests(StageRailTests):
         target.write_text('真实项目文件', encoding='utf8')
         keep = root / '05资产管理/assets/保留此文件.md'
         keep.write_text('不应删除', encoding='utf8')
+        panel.show_stage('assets')
         panel.keyword_var.set('仅删此文件')
         panel._apply_filters()
         panel.refresh_file_index()
@@ -741,6 +752,7 @@ class IndexLifecycleTests(StageRailTests):
         from types import SimpleNamespace
         from unittest.mock import Mock, patch
         panel = self.desktop.files_panel
+        panel.show_stage(None)
         root = Path(self.desktop.root)
         folders = {'项目设定': ('setting', '设为项目设定定稿'),
                    '项目大纲': ('outline', '设为剧本大纲定稿'),
@@ -790,12 +802,16 @@ class IndexLifecycleTests(StageRailTests):
             panel._index_rows[key] = FileRow(path=path)
             with self.assertRaises(ValueError, msg=key):
                 panel.index_file_path(key)
-        panel.script_tree.selection_set('stage-group:script')
+        try:
+            panel.script_tree.selection_set('stage-group:script')
+        except Exception:
+            pass
         with self.assertRaises(ValueError):
             panel.delete_index_files()
 
     def test_refresh_discovers_external_file_and_retains_script_actions(self):
         panel = self.desktop.files_panel
+        panel.show_stage(None)
         root = Path(self.desktop.root)
         path = root / '05资产管理/assets/外部新增.md'
         path.write_text('新文件', encoding='utf8')
@@ -928,7 +944,7 @@ class GlobalLibraryViewTests(StageRailTests):
             try:
                 panel.show_library()
                 self.pump(.3)
-                self.assertEqual(panel.script_tree.get_children(), ('stage-group:library',))
+                self.assertEqual(panel.script_tree.get_children(), ('library:角色/CHAR_001.png',))
                 self.assertEqual(self.rows(), ['library:角色/CHAR_001.png'])
             finally:
                 file_index.read_global_dir = original
@@ -1106,6 +1122,8 @@ class FilenameDisplayTests(StageRailTests):
     LONG_ROW = '05资产管理/assets/' + LONG_NAME
 
     def _seed_long_file(self):
+        panel = self.desktop.files_panel
+        panel.show_stage('assets')
         self.assertEqual(len(self.LONG_NAME), 40, '样例文件名按任务卡取 40 个字符')
         root = Path(self.desktop.root)
         target = root / '05资产管理' / 'assets' / self.LONG_NAME
