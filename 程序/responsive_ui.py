@@ -619,6 +619,14 @@ def fit_row_height(tree, thumb=0, style=None, pad=ROW_PAD, floor=ROW_FLOOR):
     return height
 
 
+def _bar_height(tree):
+    """表格壳底下那条横向滚动条现在占多高；没有这条、或者它收起来了，就是 0。"""
+    bar = getattr(getattr(tree, '_data_table', None), 'horizontal_scrollbar', None)
+    if bar is None or not bar.winfo_manager():
+        return 0
+    return bar.winfo_reqheight()
+
+
 def auto_height(tree, container, row_height=None, padding=48, minimum=2):
     """让 Treeview 内容框高度随所在容器自动调整，供各页面复用。
 
@@ -639,7 +647,11 @@ def auto_height(tree, container, row_height=None, padding=48, minimum=2):
             try:
                 if not container.winfo_exists():
                     return
-                avail = max(1, int(container.winfo_height()) - padding)
+                # 横向滚动条露着时也占容器的高度，要一起扣掉。不扣的话，padding 比「表头＋滚动条」少：
+                # 页面放不下时容器高度就是表格自己请求的高度，算回来的行数与现在一样，表格收不回
+                # 最少行数，底下的按钮被挤出可视区；请求高度又要隔几轮空闲回调才传到容器，两个在途
+                # 的行数会互相追着改，停不下来——资产页在窄窗口里整窗卡死就是这么来的。
+                avail = max(1, int(container.winfo_height()) - padding - _bar_height(tree))
                 rows = max(minimum, avail // max(1, row_height))
                 count = len(tree.get_children())
                 if count:
