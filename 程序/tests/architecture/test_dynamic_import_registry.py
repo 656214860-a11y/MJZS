@@ -231,16 +231,16 @@ class ProductionToolClosureTests(unittest.TestCase):
         release = [
             ("release-development", f"{name}.py", "selftests") for name in _scan._EXCLUDED_STEMS
         ]
-        generated = [
-            ("release-generated-data", path, "local runtime data")
-            for path in ("data/voice_asr_venv/pyvenv.cfg", "data/voice_models/model.bin")
-        ]
         dev_launch = [
             ("development-launch", f"{source}:{line}", "run_selftests.py")
             for source, line, _kind in self.audit["callers"]["selftests"]["run_selftests.py"]
         ]
         # 精确记录当前拒绝。任意新拒绝会使默认回归失败，严格调用始终检查全部问题。
-        self.assertCountEqual(self.audit["issues"], [*release, *generated, *dev_launch])
+        self.assertCountEqual(self.audit["issues"], [*release, *dev_launch])
+        # 运行时才生成的本机数据（离线语音环境、语音模型）已由分发清单逐类排除，不再是当前缺口；
+        # 探针必须落在「排除」里：谁把 程序/data/ 改回整目录保留，这里会红。
+        for probe in ("程序/data/voice_asr_venv/pyvenv.cfg", "程序/data/voice_models/model.bin"):
+            self.assertIn(probe, self.audit["release"]["excluded"])
         with self.assertRaisesRegex(AssertionError, "Tool runtime closure rejected"):
             _scan.require_tool_runtime_closure(self.audit)
 

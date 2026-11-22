@@ -4,6 +4,9 @@
 的阶段侧）；没有 Agent 流程的阶段（剧本结构／分镜预演／连贯性清单／分镜定稿／后期剪辑／
 质检与交付）回状态栏提示，不新开对话。会员闸门复用 ``account.stage_gate``，上游完成门禁
 由 ``desktop_shared_input.upstream_send_error`` 在发送前统一执行，这里不复制判定。
+
+没有 Agent 流程的阶段里，页面在共享输入框上登记了发送动作（``set_stage_action``，目前是
+剧本结构页）的，自由文本改为执行该动作并说明文字用不上，见 ``_run_stage_action``。
 """
 from __future__ import annotations
 
@@ -20,6 +23,9 @@ FLOW_FOR_STAGE = {'script': 'writing', 'storyboard': 'storyboard', 'assets': 'as
 FLOW_LABEL = {'writing': '剧本准备', 'storyboard': '初步分镜', 'assets': '资产管理',
               'frames': '首帧管理', 'previs': '白模预演', 'video_prompt': '视频提示词',
               'audio': '配音与字幕'}
+# 没有对话流程、但页面登记了发送动作的阶段：输入框里有字时照样开动这一步，并说明文字
+# 用不上（%s＝阶段名）；文字留在输入框里，不清空。
+STAGE_ACTION_TEXT_UNUSED = '「%s」这一步不使用输入框里的文字：发送键启动的是本页的制作，文字仍留在输入框。'
 
 
 def stage_for_index(index):
@@ -114,6 +120,21 @@ def _open_flow(desktop, stage, prompt):
     return True
 
 
+def _run_stage_action(desktop, stage):
+    """没有对话流程的阶段：页面登记了发送动作就开动它；返回这一阶段有没有登记。
+
+    说明先写、动作后跑：动作自己的开工提示、「正在执行」或报错是状态栏的最后一句，
+    不被这句说明盖掉。
+    """
+    shared = getattr(desktop, 'shared_input', None)
+    registered = getattr(shared, 'stage_action', None)
+    if not callable(registered) or registered(stage) is None:
+        return False
+    _say(desktop, STAGE_ACTION_TEXT_UNUSED % pet_bus.stage_name(stage))
+    shared.run_stage_action(stage)
+    return True
+
+
 def _send_free(desktop, stage, text):
     """自由文本：script 走剧本准备既有发送链（简报/制作锁/直连 API 全保留）。"""
     text = str(text or '').strip()
@@ -135,6 +156,8 @@ def _send_free(desktop, stage, text):
         # send_message 只在真正受理时清空输入框；简报缺项等早退路径保留原文。
         return not _draft_text(desktop)
     if stage not in FLOW_FOR_STAGE:
+        if _run_stage_action(desktop, stage):
+            return False    # 文字没有被使用：返回假值让输入框保留原文
         _say(desktop, '「%s」阶段暂无对话入口；请使用页面上的制作按钮，或输入 /阶段名 换到有对话入口的阶段。'
              % pet_bus.stage_name(stage))
         return False

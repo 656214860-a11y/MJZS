@@ -33,6 +33,8 @@ from ui_widgets import BaseDialog, Card, SecondaryButton, TextArea, PrimaryButto
 SHORTCUT_SCOPE = 'shared_input'
 # 技能悬停说明卡片的换行宽度（像素常量，R2923：避免内联字面量触碰视觉 token 棘轮）。
 SKILL_CARD_WRAP = 300
+# 发送键承载的阶段制作动作：这一阶段正在执行时不重复开动（%s＝阶段名）。
+STAGE_ACTION_BUSY = '「%s」正在执行，请等这一轮结束再点发送。'
 
 
 def _widget_path(widget):
@@ -369,7 +371,34 @@ class _CandidateFlow:
         return None
 
 
-class SharedStageInput(_CandidateFlow, ttk.Frame):
+class _StageActions:
+    """发送键承载的阶段制作动作：页面建页时登记，输入框空着点发送就执行（见 ``send``）。"""
+
+    def set_stage_action(self, stage, action):
+        """登记（或替换）这一阶段的发送动作；``action`` 为 None＝取消登记。"""
+        self._stage_actions.pop(str(stage or ''), None)
+        if action is not None:
+            self._stage_actions[str(stage or '')] = action
+
+    def stage_action(self, stage=None):
+        """当前（或指定）阶段登记的发送动作；没登记返回 None。"""
+        return self._stage_actions.get(str(stage or self.stage))
+
+    def run_stage_action(self, stage=None):
+        """执行当前（或指定）阶段登记的发送动作，返回有没有执行：没登记、或这一阶段正在
+        执行（不重复开动，状态栏说明）都返回 False；动作抛错由登记方的 ``safe`` 处理。"""
+        stage = str(stage or self.stage)
+        action = self._stage_actions.get(stage)
+        if action is None:
+            return False
+        if ui_plugin_registry.module('stage_flow').running(stage):
+            _say(self.status, STAGE_ACTION_BUSY % pet_bus.stage_name(stage))
+            return False
+        action()
+        return True
+
+
+class SharedStageInput(_CandidateFlow, _StageActions, ttk.Frame):
     """底部固定共享输入框：单实例跨页复用，``stage`` 只换补全与门禁上下文。"""
 
     def __init__(self, master, *, desktop=None, stage='script', shortcuts=None, options=None):
@@ -387,6 +416,7 @@ class SharedStageInput(_CandidateFlow, ttk.Frame):
         self._engines = options.get('engines')
         self.in_flight = False
         self.request_model = None
+        self._stage_actions = {}    # 阶段 → 发送键承载的制作动作（页面建页时登记）
         # R2942 流畅度：/ 补全与技能列表每次按键都读注册表/目录，这里按内容树记忆，
         # 导入新 skill 或切阶段后失效。
         self._skills_cache = None
@@ -927,7 +957,8 @@ class SharedStageInput(_CandidateFlow, ttk.Frame):
         """发送门禁 → 命令解析 → 快照捕获 → 宿主 ``on_send``；返回是否受理。"""
         value = self.text()
         if not value:
-            return False
+            # 空输入框＝执行当前阶段登记的发送动作（没登记照旧不动）：和点页面按钮一样，不过上游门禁、不清输入框。
+            return self.run_stage_action()
         error = upstream_send_error(self.project, self.stage)
         if error:
             _say(self.status, error)

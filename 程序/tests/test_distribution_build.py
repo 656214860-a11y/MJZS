@@ -105,6 +105,43 @@ class DistributionBuildTests(unittest.TestCase):
         self.assertIn(relative, planned['excluded'])
         self.assertNotIn(relative, planned['keep'])
 
+    def test_actual_manifest_never_ships_machine_state_under_data_or_config(self):
+        machine_state = (
+            '程序/data/job_store/jobs.json',
+            '程序/data/artifact_index/demo/index.json',
+            '程序/data/config_snapshots/pool-1.json',
+            '程序/data/metrics/usage.jsonl',
+            '程序/data/voice_asr_venv/Scripts/python.exe',
+            '程序/data/voice_models/demo/model.bin',
+            '程序/data/skills/demo/SKILL.md',
+            '程序/data/desktop_settings.json',
+            '程序/data/客户端档案.json',
+            '程序/data/语音识别.json',
+            '程序/data/语音词典.json',
+            '程序/data/selfcheck_failopen.flag',
+            '程序/data/autotune_disable_prefetch.flag',
+            '程序/配置/宠物/配置.json',
+            '程序/配置/素材库.json',
+        )
+        shipped_seeds = (
+            '程序/data/skill_note_terms_zh.json',
+            '程序/配置/客户端档案.json',
+            '程序/配置/SKILL/预设.json',
+        )
+        unregistered = ('程序/data/未登记.json', '程序/配置/未登记.json')
+        for relative in machine_state + shipped_seeds + unregistered:
+            path = self.source / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('fixture', encoding='utf-8')
+        planned = subject.plan(self.source, subject.parse_manifest())
+        for relative in machine_state:
+            self.assertIn(relative, planned['excluded'])
+            self.assertNotIn(relative, planned['keep'])
+        for relative in shipped_seeds:
+            self.assertIn(relative, planned['keep'])
+        for relative in unregistered:
+            self.assertIn(relative, planned['undecided'])
+
     def test_parse_manifest_reads_both_tables_of_the_real_document(self):
         parsed = subject.parse_manifest()
         self.assertIn('启动漫剧制作助手.pyw', parsed['keep'])

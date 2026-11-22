@@ -150,6 +150,72 @@ class ScriptPageLayoutTests(unittest.TestCase):
                              source.winfo_rootx() + source.winfo_width() + 1,
                              '说明文字不得越出卡片右沿')
 
+    def _open_structure_page(self):
+        import desktop as desktop_module
+        from desktop import Desktop
+        project = Path(self.tmp.name) / 'project'
+        (project / 'writing').mkdir(parents=True)
+        self.win.geometry('1100x760+40+40')
+        # 不选项目，也不跑首帧之后的后台维护（技能同步、旧项目迁移、续期与更新检查的排程）：
+        # 这里只看建页时的登记，窗口随用例销毁。
+        for name in ('choose_project', '_after_first_paint'):
+            patcher = mock.patch.object(desktop_module.Desktop, name, lambda self: None)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        desktop = Desktop(self.win, root=PROGRAM)
+        desktop.root = project
+        desktop.show(pet_state.PAGE_OF['script_structure'])
+        self.win.update()
+        return desktop
+
+    def test_structure_page_send_key_shares_the_manual_entry(self):
+        """建页后底部发送键登记了本页的制作入口：空输入框点发送与点页面按钮走同一条路。"""
+        import desktop_script_pages as script_pages
+        import orchestrator.stage_flow as stage_flow
+        import orchestrator.stage_models as stage_models
+        stage_flow.reset()
+        self.addCleanup(stage_flow.reset)
+        desktop = self._open_structure_page()
+        shared = desktop.shared_input
+        self.assertEqual(shared.stage, 'script_structure')
+        self.assertTrue(callable(shared.stage_action('script_structure')),
+                        '建页后底部发送键应登记了本页的制作入口')
+        asked, wrapped = [], []
+        # 确认窗、模型提醒、safe 与开工动作都换成记录用的假函数：不弹窗、不真的开工。
+        fakes = {'PLANNER': lambda host, stage, parent=None: asked.append((stage, parent)) or 'run',
+                 'ASKER': lambda *args, **kwargs: False}
+        for name, fake in fakes.items():
+            self.addCleanup(setattr, stage_models, name, getattr(stage_models, name))
+            setattr(stage_models, name, fake)
+        desktop.safe = lambda fn: (wrapped.append(fn), fn())[1]
+        with mock.patch.object(script_pages._ScriptStructurePage, 'start_structure',
+                               autospec=True) as started:
+            self.assertIs(shared.send(), True)
+            self.assertEqual(started.call_count, 1, '空输入框点发送应走到制作结构剧本')
+            self.assertEqual(asked, [('script_structure', desktop.win)], '先出手动制作的确认窗')
+            self.assertEqual(len(wrapped), 1, '动作带着页面自己的 safe 包装')
+            desktop.script_structure_manual_button.invoke()
+            self.assertEqual(started.call_count, 2)
+            self.assertEqual(asked, [('script_structure', desktop.win)] * 2,
+                             '页面按钮与发送键是同一个入口')
+            self.assertEqual(len(wrapped), 2)
+
+    def test_structure_page_send_action_follows_the_page_button(self):
+        """重建页面换成新页面的入口；页面按钮销毁后发送键不再承载这一步。"""
+        desktop = self._open_structure_page()
+        shared = desktop.shared_input
+        first = shared.stage_action('script_structure')
+        self.assertTrue(callable(first))
+        desktop.show(pet_state.PAGE_OF['script_structure'])
+        self.win.update()
+        second = shared.stage_action('script_structure')
+        self.assertTrue(callable(second))
+        self.assertIsNot(second, first, '重建页面后登记的是新页面的入口')
+        desktop.script_structure_manual_button.destroy()
+        self.assertIsNone(shared.stage_action('script_structure'),
+                          '页面按钮没了，发送键不应留着过期的入口')
+        self.assertIs(shared.send(), False)
+
 
 if __name__ == '__main__':
     unittest.main()

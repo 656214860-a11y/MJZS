@@ -14,8 +14,8 @@
 | `运行环境/Python/` | 随应用交付的解释器与依赖。 |
 | `运行环境/ffmpeg/` | 随应用交付的 Gyan FFmpeg 9.0.1 essentials build（`ffmpeg.exe`/`ffprobe.exe`，`bin/` 下）；实测构建参数含 `--enable-gpl --enable-version3`，许可证按 `GPL-3.0-or-later` 而非 LGPL 声明。来源、版本与二进制 SHA256 由 `external_tools.lock.json` 锁定并投影到 SBOM。运行时经 `contract.platform_tools.tool_path` 按「显式有效配置 > 随包 > PATH」定位，用户仍可在配置中改用自备 FFmpeg。 |
 | `程序/app.py`、`程序/desktop.py` 及其生产 Python 模块 | 主界面与业务实现。 |
-| `程序/assets/`、`程序/skills/`、`程序/workflows/`、`程序/data/` | 内置资源、SKILL、流程和内置数据。 |
-| `程序/配置/`、`程序/resources/examples/rainy_umbrella/**`、`程序/docs/process/制作失败与人工替代.md` | 默认配置、完整练习示例（三文件同级）与包内失败处理指南。 |
+| `程序/assets/`、`程序/skills/`、`程序/workflows/`、`程序/data/skill_note_terms_zh.json` | 内置资源、SKILL、流程和唯一随包的内置数据文件（技能备注术语表）。程序/data 目录下其余内容都是应用运行时写的本机数据，见「必须排除」。 |
+| `程序/配置/客户端档案.json`、`程序/配置/SKILL/预设.json`、`程序/resources/examples/rainy_umbrella/**`、`程序/docs/process/制作失败与人工替代.md` | 随包的两份默认配置（客户端档案、SKILL 预设）、完整练习示例（三文件同级）与包内失败处理指南。程序/配置 目录下其余内容是本机数据，见「必须排除」。 |
 | `程序/*.py`（生产 Python 模块）、`程序/agent/**`、`程序/contract/**`、`程序/domain/**`、`程序/infra/**`、`程序/orchestrator/**`、`程序/ui/**`、`程序/voice_engine/**`、`程序/resources/examples/**`、`程序/docs/process/制作失败与人工替代.md`、`程序/附加工具/**`、`程序/batch_frames_tool/**` | 主界面之外的生产模块、随附说明与独立批处理小工具；`voice_engine/` 为离线语音识别独立 ASR 运行时（引擎、模型配置、ModelScope 下载、venv 引导），模型与依赖在运行时落 `data/`。 |
 | `使用说明.md`、`使用说明.txt`、`漫剧制作助手.ico` | 面向用户的说明与程序图标（根目录唯一正式图标为 git 跟踪的 `漫剧制作助手.ico`）。 |
 | `程序/README.md`、`程序/runbook.md`、`程序/配置说明.md`、`程序/批量资产说明.md`、`程序/默认创意示例.md`、`程序/requirements.txt` | 面向用户的随附说明与依赖声明。 |
@@ -42,6 +42,7 @@
 | `程序/logs/**`、`启动错误.log`、`_wm.log`、`程序/.*.out`、`程序/log.txt` | 历史运行日志与自检输出 | 正式副本不携带既有日志；运行期仍按现有行为创建日志。 |
 | `程序/private/**` | 本机私有数据 | 不得随分发副本携带私有配置或密钥副本。 |
 | `程序/data/skills/**` | 用户导入的 SKILL | R2073：用户层 SKILL 与导入台账，由目标机器生成；升级只保留不覆盖。 |
+| `程序/data/*/**`、`程序/data/desktop_settings.json`、`程序/data/客户端档案.json`、`程序/data/语音识别.json`、`程序/data/语音词典.json`、`程序/data/*.flag`、`程序/配置/宠物/**`、`程序/配置/素材库.json` | 本机运行数据 | 应用运行时写在程序目录里的任务记录、成果索引、配置快照、用量记录、离线语音识别的环境与模型、界面设置、用户的客户端档案、语音识别设置与词典、开关标记文件、模型池配置和素材库索引，都由目标机器生成；升级只保留不覆盖。以后代码在这两个目录下新写一种文件，要先在本行登记；没登记的会落到「未声明」，构建拒绝。 |
 | `程序/skills/01 剧本准备SKILL/剧本锻造/**` | 无可确认再分发许可证的外部 Skill | 上游固定提交未提供 LICENSE；源码工作树保留作审计，正式副本排除。取得书面授权或上游补许可证后才可重新纳入。 |
 | `.claude/**`、`.codex/**`、`.agents/**`、`.agent-handoff/**`、`.tools/**`、`outputs/**`（本机 Agent 草稿目录与第三方下载工具，已被 .git/info/exclude 忽略） | 代理/开发产物 | 不是运行时内容，不进正式副本。 |
 | `.agent-chat/**`、`.agent-tmp/**`、`.cpa-stage-fast/**`、`.devin/**` | 本机对话与派单工具产物 | 对话工具写在项目根目录的会话记录与临时文件、派单技能留下的暂存脚本、派单技能写给 Devin 的本机权限配置；只在本机存在，未纳入版本管理，不是运行时内容，不进正式副本。 |

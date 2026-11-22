@@ -1,0 +1,15 @@
+{
+  "round": 4108,
+  "commit_base": "67068467",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k shared_input skill_budget_send_entries ui_batch5_stage_panel_and_script_page manual_plan manual_gate stage_flow follow_buttons desktop_writing_page",
+    "exit": 0,
+    "passed": 204,
+    "failed": 0
+  },
+  "generated_at": "2026-11-22T23:28:12"
+}
