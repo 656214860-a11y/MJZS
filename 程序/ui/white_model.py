@@ -2,7 +2,7 @@
 import os
 import tkinter as tk
 import webbrowser
-from tkinter import messagebox, ttk
+from tkinter import ttk
 from contract.platform_tools import open_path
 from infra.file_cache import read_json
 from contract.storyboard_paths import project_root

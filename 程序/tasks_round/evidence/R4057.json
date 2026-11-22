@@ -1,0 +1,15 @@
+{
+  "round": 4057,
+  "commit_base": "8ec3f4f2",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k notification_boundary",
+    "exit": 0,
+    "passed": 6,
+    "failed": 0
+  },
+  "generated_at": "2026-11-22T13:16:13"
+}

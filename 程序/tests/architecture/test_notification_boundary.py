@@ -60,6 +60,19 @@ class NotificationBoundaryTests(unittest.TestCase):
             if count:
                 direct[str(relative)] = count
         self.assertEqual(direct, {}, '生产模块不得绕过统一通知入口：' + str(direct))
+
+    def test_ui_modules_do_not_import_messagebox(self):
+        imported = {
+            path.name for path in (ROOT / 'ui').glob('*.py')
+            if _imports_messagebox(parse(path))
+        }
+        unexpected = imported - UI_MESSAGEBOX_IMPORT_ALLOWED
+        self.assertEqual(unexpected, set(), '界面模块不得引入 messagebox：' + str(sorted(unexpected)))
+        stale = UI_MESSAGEBOX_IMPORT_ALLOWED - imported
+        self.assertEqual(stale, set(), '允许名单里的模块已不再引入 messagebox，请从名单移除：' + str(sorted(stale)))
+
+UI_MESSAGEBOX_IMPORT_ALLOWED = {'asset_detail.py', 'reference_wall.py', 'storyboard_files.py'}
+
 LEGACY_MESSAGEBOX_MAX = {
     'app.py': 0, 'asset_detail.py': 0, 'asset_prompt_rules.py': 0,
     'asset_reference_import.py': 0, 'background_characters.py': 0,
@@ -70,6 +83,19 @@ LEGACY_MESSAGEBOX_MAX = {
     'storyboard_files.py': 0, 'tts_settings.py': 0, 'white_model.py': 0,
     'workflow_settings_dialog.py': 0, 'agent/prompt_optimizer.py': 0,
 }
+
+def _imports_messagebox(tree):
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            if any(alias.name == 'tkinter.messagebox' for alias in node.names):
+                return True
+        elif isinstance(node, ast.ImportFrom):
+            if node.module == 'tkinter.messagebox':
+                return True
+            if node.module == 'tkinter' and any(alias.name == 'messagebox' for alias in node.names):
+                return True
+    return False
+
 
 def _display_messageboxes(tree):
     return [node for node in ast.walk(tree) if isinstance(node, ast.Call)

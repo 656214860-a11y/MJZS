@@ -359,7 +359,7 @@ class _AssetControls:
 
     def build(self):
         import tkinter as tk
-        from tkinter import ttk, messagebox
+        from tkinter import ttk
         from ui_widgets import BusyState, Card, SelectBox, PrimaryButton, ProgressLabel, SecondaryButton, notify
         self.notify = notify
         from responsive_ui import FlowBar
