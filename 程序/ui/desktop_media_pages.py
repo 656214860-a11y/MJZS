@@ -21,7 +21,7 @@ from domain.project_naming import dated_path
 from responsive_ui import FlowBar, MIN_COL, auto_columns, fit_row_height, refresh_request_width, remember_columns
 from contract.storyboard_paths import media_root
 from tkinter import ttk
-from ui_tokens import CHAR_WIDTH, COLORS, SPACING, TABLE_HEADER_FONT, TABLE_ROW_FONT, TEXT_DESC
+from ui_tokens import BUTTON_MIN_WIDTH, CHAR_WIDTH, COLORS, SPACING, TABLE_HEADER_FONT, TABLE_ROW_FONT, TEXT_DESC
 from ui_widgets import Card, DataTable, DescriptionBlock, PrimaryButton, SecondaryButton, ask_string
 from dataclasses import dataclass
 from typing import Callable
@@ -67,6 +67,17 @@ def empty_stage_guide(page, text, target):
     DescriptionBlock(page.content, text=text).pack(anchor='w', pady=SPACING['xs'])
     PrimaryButton(page.content, text='去第%02d步' % (target + 1),
                   command=lambda: page.go(target)).pack(anchor='w', pady=SPACING['sm'])
+
+
+def _group_bar(page, title):
+    """一组按钮一行 ``FlowBar``，行首写组名（写法照配音页「配音制作」那一行）。
+
+    按钮本身仍经各页原有的事件封装创建，这里只决定排布：整行宽按钮改成分组的标准宽度。
+    """
+    bar = FlowBar(page.content)
+    bar.pack(fill='x', pady=(SPACING['none'], SPACING['sm']))
+    ttk.Label(bar, text=title).pack(side='left', padx=(SPACING['none'], SPACING['sm']))
+    return bar
 
 
 def _configure_table_style(tree):
@@ -515,9 +526,9 @@ class MediaPagesMixin:
                         lambda _result: self.status.set('分镜预演已生成；请观看后确认节奏、时长与对白同步'),
                         label='正在生成分镜预演…')
 
-        for text, command in [('导入共享参考图', references), ('选择分镜初稿', lambda: choose('source')),
-                              ('选择临时音频', lambda: choose('audio'))]:
-            SecondaryButton(self.content, text=text, command=command).pack(anchor='w', pady=SPACING['xs'])
+        import_bar=FlowBar(self.content);import_bar.pack(fill='x',pady=(SPACING['none'],SPACING['sm']))
+        for text,command in [('导入共享参考图',references),('选择分镜初稿',lambda:choose('source')),('选择临时音频',lambda:choose('audio'))]:
+            SecondaryButton(import_bar,text=text,command=command).pack(side='left',padx=(SPACING['none'],SPACING['sm']),pady=SPACING['xs'])
         reference_prompt = LineInput(self.content, placeholder='参考图描述（角色或场景草图）')
         reference_prompt.pack(fill='x', pady=SPACING['xs'])
         reference_model = LineInput(self.content, placeholder='本地已安装模型名称（含扩展名）')
@@ -529,17 +540,17 @@ class MediaPagesMixin:
             self.async_(lambda: generate_animatic_reference(project, prompt, model, comfy_settings),
                         lambda result: self.status.set('已生成共享参考草图' if result.ok else result.reason),
                         label='正在生成共享参考草图…')
-        SecondaryButton(self.content, text='本地生成参考草图', command=make_reference).pack(anchor='w', pady=SPACING['xs'])
         HintLabel(self.content, text='临时 TTS（已导入音频优先）').pack(anchor='w')
         tts_text = LineInput(self.content, placeholder='未导入音频时使用的临时对白')
         tts_text.pack(fill='x', pady=SPACING['xs'])
-        PrimaryButton(self.content, text='生成分镜预演', command=generate).pack(anchor='w', pady=SPACING['sm'])
         def preview():
             self.async_(lambda: animatic_video(project), lambda path: open_target(path))
-        SecondaryButton(self.content, text='观看预演视频', command=preview).pack(anchor='w', pady=SPACING['xs'])
+        generate_bar=FlowBar(self.content);generate_bar.pack(fill='x',pady=(SPACING['none'],SPACING['sm']))
+        for factory,text,command in [(SecondaryButton,'本地生成参考草图',make_reference),(PrimaryButton,'生成分镜预演',generate),(SecondaryButton,'观看预演视频',preview)]:
+            factory(generate_bar,text=text,command=command).pack(side='left',padx=(SPACING['none'],SPACING['sm']),pady=SPACING['xs'])
         checked = {key: tk.BooleanVar(value=False) for key in ('rhythm', 'duration', 'dialogue_sync')}
-        for key, label in [('rhythm', '已确认节奏'), ('duration', '已确认时长'), ('dialogue_sync', '已确认对白同步')]:
-            ttk.Checkbutton(self.content, text=label, variable=checked[key]).pack(anchor='w')
+        confirm_bar=FlowBar(self.content);confirm_bar.pack(fill='x',pady=(SPACING['none'],SPACING['sm']))
+        for key,label in [('rhythm','已确认节奏'),('duration','已确认时长'),('dialogue_sync','已确认对白同步')]:ttk.Checkbutton(confirm_bar,text=label,variable=checked[key]).pack(side='left',padx=(SPACING['none'],SPACING['sm']))
 
         def confirm():
             values = {key: value.get() for key, value in checked.items()}
@@ -549,7 +560,7 @@ class MediaPagesMixin:
                     self.pet_report('animatic', '节奏、时长与对白同步均已确认')
             self.async_(lambda: confirm_animatic(project, **values),
                         confirmed)
-        SecondaryButton(self.content, text='确认预演（SG-B）', command=confirm).pack(anchor='w', pady=SPACING['sm'])
+        SecondaryButton(confirm_bar,text='确认预演（SG-B）',command=confirm).pack(side='left',padx=(SPACING['none'],SPACING['sm']),pady=SPACING['xs'])
     def previs(self):
         if _storyboard_source(self) is None:return empty_stage_guide(self, storyboard_missing_text(), PAGE['storyboard'])
         ui_plugin_registry.module('local_previs').show(self)
@@ -760,10 +771,11 @@ class MediaPagesMixin:
         ttk.Label(production,text='配音制作').pack(
             side='left',padx=(SPACING['none'],SPACING['sm']))
 
-        def audio_button(parent,text,command,primary=False):
+        def audio_button(parent,text,command,primary=False,standard=False):
             """保留既有事件封装，仅将本页按钮接入设计系统。"""
             button=self.button(parent,text,command)
             button.configure(style='Tokens.Primary.TButton' if primary else 'Tokens.Secondary.TButton')
+            if standard:button.configure(width=-BUTTON_MIN_WIDTH)
             if isinstance(parent,FlowBar):
                 button.pack_configure(padx=(SPACING['none'],SPACING['sm']),pady=SPACING['xs'])
             else:
@@ -779,14 +791,14 @@ class MediaPagesMixin:
         dialogue_buttons.append(audio_button(production,'生成配音（TTS）',self.generate_tts))
         dialogue_buttons.append(audio_button(production,'逐句配音（分句）',self.generate_tts_per_line))
         audio_button(production,'配音设置',self.open_tts_settings)
-        audio_button(self.content,'导入配音 / 音乐',self.import_audio)
-        audio_button(self.content,'校验并确认本阶段成果',lambda:self.confirm_stage_media('audio'))
-        dialogue_buttons.append(audio_button(self.content,'导出对白字幕 SRT',lambda:self.media_page_services.open_path(self.subtitles())))
-        dialogue_buttons.append(audio_button(self.content,'导出对白脚本 TXT',lambda:self.media_page_services.open_path(self.dialogue_script())))
+        import_bar=_group_bar(self,'导入与确认');audio_button(import_bar,'导入配音 / 音乐',self.import_audio,standard=True)
+        audio_button(import_bar,'校验并确认本阶段成果',lambda:self.confirm_stage_media('audio'),standard=True)
+        export_bar=_group_bar(self,'导出');dialogue_buttons.append(audio_button(export_bar,'导出对白字幕 SRT',lambda:self.media_page_services.open_path(self.subtitles()),standard=True))
+        dialogue_buttons.append(audio_button(export_bar,'导出对白脚本 TXT',lambda:self.media_page_services.open_path(self.dialogue_script()),standard=True))
         for button in dialogue_buttons:button.configure(state='normal' if has_dialogue else 'disabled')
-        audio_button(self.content,'打开音频目录',lambda:self.media_page_services.open_path(audio_dir))
-        audio_button(self.content,'打开字幕目录',lambda:self.media_page_services.open_path(subtitle_dir))
-        audio_button(self.content,'打开 ElevenLabs（浏览器）',lambda:self.safe(lambda:open_target('https://elevenlabs.io/app')))
+        tools_bar=_group_bar(self,'打开目录与外部工具');audio_button(tools_bar,'打开音频目录',lambda:self.media_page_services.open_path(audio_dir),standard=True)
+        audio_button(tools_bar,'打开字幕目录',lambda:self.media_page_services.open_path(subtitle_dir),standard=True)
+        audio_button(tools_bar,'打开 ElevenLabs（浏览器）',lambda:self.safe(lambda:open_target('https://elevenlabs.io/app')),standard=True)
     def import_audio(self):
         from domain.stage_workspace_service import ensure_audio_workspace
         result=ensure_audio_workspace(self.root)
@@ -835,29 +847,29 @@ class MediaPagesMixin:
         self.stage_action_bar('edit','手动制作剪辑')
         self.note('自动粗剪只拼装已验收的镜头：未验收的镜头会被跳过并列在状态栏，不再因为个别镜头卡住整集。本页可设置基础转场与背景音乐，并按平台导出成片副本；精细剪辑、对白音量和字幕烧录仍交给剪映，交接包保留镜头顺序。素材交接包只给有序视频与字幕，不是剪映草稿，可用「校验交接包」离线核对。本次输出规格：%s（等比缩放＋居中留边，不裁切）。'%controller.output_spec_text())
         edit_buttons=[]
-        def edit_button(text,command,primary=False):
+        def edit_button(bar,text,command,primary=False):
             """保留共享事件封装，只让后期页采用统一的视觉组件样式。"""
-            button=self.button(self.content,text,command)
-            button.configure(style='Tokens.Primary.TButton' if primary else 'Tokens.Secondary.TButton')
-            button.pack_configure(pady=SPACING['xs'])
+            button=self.button(bar,text,command)
+            button.configure(style='Tokens.Primary.TButton' if primary else 'Tokens.Secondary.TButton',width=-BUTTON_MIN_WIDTH)
+            button.pack_configure(padx=(SPACING['none'],SPACING['sm']),pady=SPACING['xs'])
             return button
         def assemble_all():return controller.assemble()
         def assembled(path):
             message=controller.assembled_message(path)
             if message:self.status.set(message)
-        edit_buttons.append(edit_button('自动粗剪整集（跳过未验收镜头）',lambda:self.async_(assemble_all,assembled),primary=True))
+        cut_bar=_group_bar(self,'粗剪与交接');edit_buttons.append(edit_button(cut_bar,'自动粗剪整集（跳过未验收镜头）',lambda:self.async_(assemble_all,assembled),primary=True))
         import infra.project_settings as project_settings
         self.pet.auto_variable('auto_edit_var')
         self.pet.auto_variable('auto_handoff_var')
-        edit_buttons.append(edit_button('整理剪映素材交接包',lambda:self.async_(self.handoff,self.media_page_services.open_path)))
+        edit_buttons.append(edit_button(cut_bar,'整理剪映素材交接包',lambda:self.async_(self.handoff,self.media_page_services.open_path)))
         has_downloaded=controller.has_downloaded_video()
         for button in edit_buttons:button.configure(state='normal' if has_downloaded else 'disabled')
         if not has_downloaded:self.note(NO_VIDEO_NOTE)
-        transition_button=edit_button('转场：'+controller.transition_label()+'（点击切换）',lambda:None)
+        tune_bar=_group_bar(self,'转场与配乐');transition_button=edit_button(tune_bar,'转场：'+controller.transition_label()+'（点击切换）',lambda:None)
         def switch_transition():
             transition_button.configure(text='转场：'+controller.next_transition()+'（点击切换）')
         transition_button.configure(command=lambda:self.safe(switch_transition))
-        music_button=edit_button('背景音乐：'+controller.music_label(),lambda:None)
+        music_button=edit_button(tune_bar,'背景音乐：'+controller.music_label(),lambda:None)
         def pick_music():
             chosen=self.media_page_services.file_dialog(self.win).open_file(title='选择背景音乐',filetypes=[('音频','*.wav *.mp3 *.m4a *.aac *.flac')])
             if not chosen:return
@@ -867,21 +879,21 @@ class MediaPagesMixin:
             controller.set_music('')
             music_button.configure(text='背景音乐：'+controller.music_label())
         music_button.configure(command=lambda:self.safe(pick_music))
-        edit_button('清除背景音乐',lambda:self.safe(clear_music))
+        edit_button(tune_bar,'清除背景音乐',lambda:self.safe(clear_music));export_bar=_group_bar(self,'导出平台版本')
         from domain.edit_export import PLATFORMS
         for platform_key,platform in PLATFORMS.items():
-            edit_button('导出%s版（%dx%d）'%(platform['label'],platform['width'],platform['height']),
+            edit_button(export_bar,'导出%s版（%dx%d）'%(platform['label'],platform['width'],platform['height']),
                         lambda key=platform_key:self.account_blocked('delivery') or self.async_(lambda:controller.export_platform(key),
                                                             lambda path:self.status.set('平台版本已导出：'+str(path))))
-        edit_button('启动剪映',self.launch_editor)
-        edit_button('打开后期目录',lambda:self.media_page_services.open_path(edit_dir))
-        edit_button('校验交接包',self.verify_handoff)
-        edit_button('校验并确认本阶段成果',lambda:self.confirm_stage_media('edit'))
+        tools_bar=_group_bar(self,'外部工具与目录');edit_button(tools_bar,'启动剪映',self.launch_editor)
+        edit_button(tools_bar,'打开后期目录',lambda:self.media_page_services.open_path(edit_dir))
+        confirm_bar=_group_bar(self,'校验与确认');edit_button(confirm_bar,'校验交接包',self.verify_handoff)
+        edit_button(confirm_bar,'校验并确认本阶段成果',lambda:self.confirm_stage_media('edit'))
         f=edit_dir/'剪辑优化清单.md'
         from infra.file_cache import read_text
         box=self.text(read_text(f,encoding='utf-8') if f.exists() else '□ 删除多余停顿\n□ 检查对白口型\n□ 校对字幕\n□ 统一人声与环境音量\n□ 检查角色、镜头衔接\n□ 检查片头片尾和导出比例',8)
         from stage_execution_service import save_stage_editing_checklist
-        edit_button('保存剪辑优化清单',lambda:save_stage_editing_checklist(self.root,box.get('1.0','end-1c')),primary=True)
+        checklist_bar=_group_bar(self,'优化清单');edit_button(checklist_bar,'保存剪辑优化清单',lambda:save_stage_editing_checklist(self.root,box.get('1.0','end-1c')),primary=True)
     def find_editor(self):
         from orchestrator.media_page_controller import editor_candidates;saved=self.settings.get('jianying','')
         for executable in editor_candidates(saved):
@@ -949,22 +961,22 @@ class MediaPagesMixin:
         result=ensure_delivery_workspace(self.root)
         if not result.ok:raise ValueError(result.reason)
         delivery_dir,export_dir=result.data
-        self.stage_action_bar('delivery','手动制作交付')
-        self.note('查看本地任务和技术质检状态，再由您确认画面、对白和剧情。这里不会查询云端任务。')
-        def delivery_button(text,command,primary=False):
+        self.stage_action_bar('delivery','手动制作交付');self.note('查看本地任务和技术质检状态，再由您确认画面、对白和剧情。这里不会查询云端任务。')
+        def delivery_button(bar,text,command,primary=False):
             """保留共享事件封装，只让交付页采用统一的视觉组件样式。"""
-            button=self.button(self.content,text,command)
-            button.configure(style='Tokens.Primary.TButton' if primary else 'Tokens.Secondary.TButton')
-            button.pack_configure(pady=SPACING['xs'])
+            button=self.button(bar,text,command)
+            button.configure(style='Tokens.Primary.TButton' if primary else 'Tokens.Secondary.TButton',
+                             width=-BUTTON_MIN_WIDTH)
+            button.pack_configure(padx=(SPACING['none'],SPACING['sm']),pady=SPACING['xs'])
             return button
         lines=media_logic.delivery_lines(self.root,self.studio,video_progress.LABELS,video_progress.status_next)
         box=self.text('\n'.join(lines),12);box.configure(state='disabled')
         from orchestrator.stage_completion_service import commercial_status
         self.note(commercial_status(self.root)[1])
-        delivery_button('导入剪映最终成片',self.final_import,primary=True)
-        delivery_button('校验并确认本阶段成果',lambda:self.confirm_stage_media('delivery'))
-        delivery_button('生成商用待填资料',lambda:self.safe(lambda:self.commercial_delivery_review(create=True)))
-        delivery_button('核验商用交付资料',lambda:self.safe(self.commercial_delivery_review))
-        delivery_button('选择采用版本…',lambda:self.safe(self.open_version_picker))
-        delivery_button('打开交付目录',lambda:self.media_page_services.open_path(delivery_dir))
-        delivery_button('打开自动剪辑与QC报告目录',lambda:self.open_folder(export_dir))
+        import_bar=_group_bar(self,'导入与确认');delivery_button(import_bar,'导入剪映最终成片',self.final_import,primary=True)
+        delivery_button(import_bar,'校验并确认本阶段成果',lambda:self.confirm_stage_media('delivery'))
+        commercial_bar=_group_bar(self,'商用资料');delivery_button(commercial_bar,'生成商用待填资料',lambda:self.safe(lambda:self.commercial_delivery_review(create=True)))
+        delivery_button(commercial_bar,'核验商用交付资料',lambda:self.safe(self.commercial_delivery_review))
+        version_bar=_group_bar(self,'版本与目录');delivery_button(version_bar,'选择采用版本…',lambda:self.safe(self.open_version_picker))
+        delivery_button(version_bar,'打开交付目录',lambda:self.media_page_services.open_path(delivery_dir))
+        delivery_button(version_bar,'打开自动剪辑与QC报告目录',lambda:self.open_folder(export_dir))

@@ -609,6 +609,14 @@
   },
   "max_depth": 4,
   "test_ownership": {
+    "程序/tests/test_media_page_buttons.py": {
+      "kind": "module",
+      "owner": "项目维护者",
+      "contract": "04 预演、11 配音、12 剪辑、13 交付四页按钮的标准宽度、分组同行与文字快照",
+      "targets": [
+        "程序/ui/desktop_media_pages.py"
+      ]
+    },
     "程序/tests/test_script_page_layout.py": {
       "kind": "module",
       "owner": "项目维护者",
