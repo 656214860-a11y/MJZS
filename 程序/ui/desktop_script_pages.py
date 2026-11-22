@@ -536,13 +536,15 @@ class _ScriptStructurePage:
         self.page.script_structure_output_directory = structure_directory
 
     def _align_picker_edges(self):
-        """R3：两行下拉框的右边缘落在同一列——右侧操作列取两组按钮的最大需求宽度。"""
+        """R3：两行下拉框的左右边缘落在同一列——标题列、操作列各取两行里的最大需求宽度。"""
         # 控件刚建好时 winfo_reqwidth() 还是 1；先让几何管理器算出真实需求宽度。
         self.page.win.update_idletasks()
-        # 操作列左侧有 sm 间距（grid padx），列宽要把这段算进去，两行才会完全同宽。
+        # 标题右侧、操作列左侧各有 sm 间距（grid padx），列宽要把这段算进去，两行才会完全同宽。
+        heading = max(box.heading_label.winfo_reqwidth() for box in self.split_boxes) + SPACING['sm']
         width = max(box.controls.winfo_reqwidth() for box in self.split_boxes) + SPACING['sm']
         for box in self.split_boxes:
-            box.header.columnconfigure(1, minsize=width)
+            box.header.columnconfigure(0, minsize=heading)
+            box.header.columnconfigure(2, minsize=width)
 
 
     def content_box(self, parent, title, file_heading, documents, active_path, empty, attribute, editable=True, kind='natural'):
@@ -604,8 +606,6 @@ class _ContentBox:
         # 剧本文件选择改为正文上方的横向下拉框，与操作按钮同一行；正文独占整行宽度。
         box = ttk.Frame(self.parent, padding=(SPACING["xs"], SPACING["none"]))
         self.frame = box
-        # R2：上下两块各有带标题的分区；标题沿用 content_box 的 file_heading。
-        ttk.Label(box, text=self.file_heading, font=FONTS['heading_3']).pack(anchor='w')
         self.available = tuple(path for path in self.documents if path and path.is_file())
         preview_area = ttk.Frame(box); preview_area.pack(fill='both', expand=True)
         # 网格三行：页头／查找条（默认隐藏）／正文行（正文＋右侧大纲栏，默认折叠）。
@@ -613,15 +613,18 @@ class _ContentBox:
         preview_area.rowconfigure(2, weight=1)
         preview_header = ttk.Frame(preview_area)
         preview_header.grid(row=0, column=0, sticky='ew')
-        # 编辑操作贴着标题行右侧，下拉框占用其余宽度；两行操作列由页面统一取等宽，
-        # 下拉框右边缘才会落在同一列（L4-U7a R3）。
-        preview_header.columnconfigure(0, weight=1)
+        # 页头一行三列：分区标题（L4-U7a R2，沿用 file_heading）、文档下拉框（占其余宽度）、操作列。
+        # 标题不独占一行，把高度留给正文（REQ-S02-32）；标题列和操作列由页面统一取等宽，
+        # 两行下拉框的左右边缘才会落在同一列（L4-U7a R3）。
+        self.heading_label = ttk.Label(preview_header, text=self.file_heading, font=FONTS['heading_3'])
+        self.heading_label.grid(row=0, column=0, sticky='w', padx=(SPACING["none"], SPACING["sm"]))
+        preview_header.columnconfigure(1, weight=1)
         controls = ttk.Frame(preview_header)
-        controls.grid(row=0, column=1, sticky='e', padx=(SPACING["sm"], SPACING["none"]))
+        controls.grid(row=0, column=2, sticky='e', padx=(SPACING["sm"], SPACING["none"]))
         self.header = preview_header
         self.controls = controls
         self.file_list = _DocumentPicker(preview_header, self.available, self.active_path)
-        self.file_list.grid(row=0, column=0, sticky='ew')
+        self.file_list.grid(row=0, column=1, sticky='ew')
         self.active = {'path': self.active_path if self.active_path in self.available else (self.available[0] if self.available else None)}
         text_area = ttk.Frame(preview_area)
         text_area.grid(row=2, column=0, sticky='nsew')

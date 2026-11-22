@@ -1,0 +1,15 @@
+{
+  "round": 4066,
+  "commit_base": "8b4d1602",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k ui_reading_density script_page_layout ui_edges_pages",
+    "exit": 0,
+    "passed": 52,
+    "failed": 0
+  },
+  "generated_at": "2026-11-22T16:05:25"
+}
