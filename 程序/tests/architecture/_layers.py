@@ -382,6 +382,7 @@ SAME_LAYER_EDGES: frozenset[tuple[str, str]] = frozenset({
     ('desktop_files_panel_index', 'desktop_file_card'),
     ('desktop_files_panel_index', 'ui_widgets'),
     ('desktop_idea_bubbles', 'prompt_window'),
+    ('desktop_idea_bubbles', 'skill_note_render'),
     ('desktop_idea_bubbles', 'ui_motion'),
     ('desktop_idea_chat', 'desktop_direct_dispatch'),
     ('desktop_idea_chat', 'desktop_idea_attachments'),

@@ -1,10 +1,15 @@
 import unittest
+from collections import Counter
 from unittest.mock import patch
 
 import ui_icons
+from contract.pet_bus import STAGES
 from desktop_page_registry import (ASSET_ROSTER_ICON, PAGE_NAV_ICONS,
                                    PROJECT_ACTION_ICONS, PROJECT_GROUP_ICONS)
-from ui_tokens import COLORS
+from ui_tokens import COLORS, NAV_ICON_SIZE
+
+MIN_BADGE_OVERLAP_SHARE = 0.4    # 角标外框至少四成面积压在阶段图形的画布范围内
+MIN_BADGE_CONTRAST = 4.5         # 角标主色与图标列背景的对比度下限
 
 
 class _Master:
@@ -85,3 +90,91 @@ class NavIconTests(unittest.TestCase):
         self.assertIsNone(ui_icons.IconLoader.nav_icon(master, None))
         self.assertIsNone(ui_icons.IconLoader.nav_icon(master, ''))
         self.assertIsNone(ui_icons.IconLoader.nav_icon(master, 'no_such_icon'))
+
+
+def _rgb(hex_color):
+    value = hex_color.lstrip('#')
+    return tuple(int(value[index:index + 2], 16) for index in (0, 2, 4))
+
+
+def _luminance(rgb):
+    channels = []
+    for channel in rgb:
+        channel = channel / 255
+        channels.append(channel / 12.92 if channel <= 0.03928 else ((channel + 0.055) / 1.055) ** 2.4)
+    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
+
+
+def _contrast(first, second):
+    high, low = sorted((_luminance(first), _luminance(second)), reverse=True)
+    return (high + 0.05) / (low + 0.05)
+
+
+class StageFileBadgeTests(unittest.TestCase):
+    """REQ-S01-93：阶段文件图标的文件角标压在阶段图形右下角之上、主题色实心、四周浅色描边。
+
+    断言针对 ``assets/nav/<stage>_files.png`` 的像素本身；角标位置取合成图与对应导航图的
+    逐像素差异外接矩形，与 ``tests/test_files_panel_stages.py::StageFileIconTests`` 同一口径。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        from PIL import Image
+        from ui.desktop_page_registry import NAV_STAGE_ICONS
+        cls.pairs = []
+        for stage in STAGES:
+            with Image.open(ui_icons._NAV_DIR / f'{stage}_files.png') as image:
+                comp = image.convert('RGBA')
+            with Image.open(ui_icons._NAV_DIR / f'{NAV_STAGE_ICONS[stage]}.png') as image:
+                nav = image.convert('RGBA')
+            cls.pairs.append((stage, comp, nav))
+
+    @staticmethod
+    def _nav_pixel(nav, x, y):
+        if 0 <= x < nav.width and 0 <= y < nav.height:
+            return nav.getpixel((x, y))
+        return (0, 0, 0, 0)
+
+    def _badge_box(self, comp, nav):
+        points = [(x, y) for y in range(comp.height) for x in range(comp.width)
+                  if comp.getpixel((x, y)) != self._nav_pixel(nav, x, y)]
+        self.assertTrue(points, '合成图与导航图没有差异，文件角标缺失')
+        xs = [x for x, _y in points]
+        ys = [y for _x, y in points]
+        return min(xs), min(ys), max(xs) + 1, max(ys) + 1
+
+    def test_badge_sits_on_top_of_stage_glyph(self):
+        """角标外框至少四成面积落在阶段图形的画布范围内：是压在图形上，不是挂在外面。"""
+        for stage, comp, nav in self.pairs:
+            left, top, right, bottom = self._badge_box(comp, nav)
+            over_w = max(0, min(right, NAV_ICON_SIZE) - left)
+            over_h = max(0, min(bottom, NAV_ICON_SIZE) - top)
+            share = over_w * over_h / float((right - left) * (bottom - top))
+            self.assertGreaterEqual(
+                share, MIN_BADGE_OVERLAP_SHARE,
+                f'{stage}: 角标只有 {share:.0%} 压在阶段图形上，外框 {(left, top, right, bottom)}')
+
+    def test_badge_main_color_stands_out_from_rail_background(self):
+        """角标里出现最多的颜色不透明，且与图标列背景的对比度不低于下限。"""
+        background = _rgb(COLORS['background_primary'])
+        for stage, comp, nav in self.pairs:
+            left, top, right, bottom = self._badge_box(comp, nav)
+            colors = Counter(comp.getpixel((x, y))
+                             for y in range(top, bottom) for x in range(left, right))
+            main = colors.most_common(1)[0][0]
+            self.assertEqual(main[3], 255, f'{stage}: 角标主色不是不透明色 {main}')
+            ratio = _contrast(main[:3], background)
+            self.assertGreaterEqual(
+                ratio, MIN_BADGE_CONTRAST,
+                f'{stage}: 角标主色 {main[:3]} 与背景对比度只有 {ratio:.2f}')
+
+    def test_badge_has_one_pixel_light_ring(self):
+        """角标外框最外一圈像素全是不透明的图标列背景色：把角标和它压住的阶段图形分开。"""
+        ring = _rgb(COLORS['background_primary']) + (255,)
+        for stage, comp, nav in self.pairs:
+            left, top, right, bottom = self._badge_box(comp, nav)
+            edge = [(x, y) for y in range(top, bottom) for x in range(left, right)
+                    if x in (left, right - 1) or y in (top, bottom - 1)]
+            wrong = [(x, y) for x, y in edge if comp.getpixel((x, y)) != ring]
+            self.assertEqual(
+                wrong, [], f'{stage}: 外圈有 {len(wrong)} 个像素不是描边色，首个 {wrong[:1]}')

@@ -44,6 +44,15 @@ SKIP_DIRS = frozenset({stage_layout.WORKFLOW_DIR, '__pycache__', '.git', '.cache
 SKIP_FILES = frozenset({stage_layout.SKILL_CONFIG_NAME, 'config.json', 'projects.json', 'desktop_settings.json',
                         'credentials.json', 'credentials', '素材库.json', 'id_rsa', 'id_ed25519',
                         'token.json', 'token.txt', 'tokens.json', 'auth.json', 'env', '.netrc'})
+# 停靠面板不列的功能文件后缀：这些文件仍进索引，其他调用方不受影响。
+FUNCTIONAL_SUFFIXES = frozenset({'.json', '.jsonl', '.yaml', '.yml', '.toml', '.ini', '.cfg',
+                                '.lock', '.bak', '.db', '.sqlite', '.pkl'})
+
+
+def is_functional(relative_path):
+    """按小写后缀判断是否为功能文件（停靠面板不列，索引仍收录）。"""
+    return Path(str(relative_path)).suffix.lower() in FUNCTIONAL_SUFFIXES
+
 _LOCKS = {}
 _LOCKS_GUARD = threading.Lock()
 
@@ -550,6 +559,81 @@ def search_global(library, kind=None, name=None, now=None):
             continue
         out.append(row)
     return out
+
+
+def _collect_from_folder(root, folder, published, origins, now, seen, candidates):
+    if not folder.is_dir():
+        return
+    try:
+        for path in _walk(folder):
+            try:
+                relative = _relative(root, path)
+            except (OSError, ValueError):
+                continue
+            if _excluded(relative) or relative in seen:
+                continue
+            seen.add(relative)
+            try:
+                item = _row_for(root, relative, published, now=now, origins=origins)
+            except (OSError, ValueError):
+                continue
+            if item is not None:
+                candidates.append(item)
+    except (OSError, ValueError):
+        return
+
+
+def _collect_discover_candidates(root, stages, published, origins, now, existing):
+    candidates = []
+    seen = set(existing)
+    for current_stage in stages:
+        try:
+            dirs = read_dirs(root, current_stage)
+        except (OSError, ValueError):
+            continue
+        for folder in dirs:
+            _collect_from_folder(root, Path(folder), published, origins, now, seen, candidates)
+    return candidates
+
+
+def discover(project, stage=None, now=None):
+    """增量发现磁盘上有、缓存索引里没有的文件并写回索引，返回新增行数。
+
+    没有有效缓存索引时直接返回 0，不触发重建、不写盘。stage 给定时只遍历该阶段目录。
+    """
+    try:
+        root = Path(project).resolve()
+        data = read(project)
+        if data is None:
+            return 0
+        existing = {str(item.get('path')) for item in data.get('files', [])
+                    if isinstance(item, dict)}
+        stages = [stage] if stage is not None else list(STAGE_ORDER)
+        published = published_paths(root)
+        origins = _read_origins(root)
+        candidates = _collect_discover_candidates(root, stages, published, origins, now, existing)
+        if not candidates:
+            return 0
+        with _index_lock(index_path(root), root):
+            data = read(root)
+            if data is None:
+                return 0
+            table = {item['path']: item for item in data['files']
+                     if isinstance(item, dict) and isinstance(item.get('path'), str)}
+            added = 0
+            for item in candidates:
+                if item.path not in table:
+                    table[item.path] = item.to_dict()
+                    added += 1
+            if added == 0:
+                return 0
+            data['files'] = list(table.values())
+            data['schema_version'] = INDEX_VERSION
+            from agent.core import save
+            save(index_path(root), data)
+            return added
+    except (OSError, ValueError):
+        return 0
 
 
 def read(project):

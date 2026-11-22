@@ -97,16 +97,74 @@ class SendDispatchTests(unittest.TestCase):
         self.assertEqual(desktop.opened[0][0], 'storyboard')
 
     def test_skill_command_dispatches_with_skill_prompt(self):
+        # DOC-D8-7（用户决定 2026-11-22）：技能属于别的阶段也不换页，交给当前页的入口执行。
         skill = SimpleNamespace(name='分镜技法', stage='storyboard',
                                 path=Path('skills') / 'x' / '分镜技法.skill.md')
         desktop = self._desktop(page_index=0,
                                 shared_input=SimpleNamespace(skill_items=lambda: [skill]))
         parsed = {'kind': 'skill', 'name': '分镜技法', 'stage': 'script', 'rest': '做三版'}
         self.assertTrue(shared_send.send(desktop, 'script', '/分镜技法 做三版', parsed))
-        self.assertEqual(desktop.navigated, ['storyboard'])
+        self.assertEqual(getattr(desktop, 'navigated', []), [])
+        self.assertEqual(desktop.page_index, 0)
+        self.assertEqual(desktop.opened[0][:2], ('writing', '剧本准备'))
         prompt = desktop.opened[0][2]
         self.assertIn('分镜技法', prompt)
         self.assertIn('做三版', prompt)
+
+    def test_cross_stage_skill_on_page_without_entry_stays_and_hints(self):
+        """DOC-D8-7：剧本结构页没有对话入口，用别的阶段的技能发送只提示，不换页、不开 Agent。"""
+        here = pet_bus.STAGES.index('script_structure')
+        skill = SimpleNamespace(name='短剧总控', stage='script',
+                                path=Path('skills') / 'x' / 'SKILL.md')
+        desktop = self._desktop(page_index=here,
+                                shared_input=SimpleNamespace(skill_items=lambda: [skill]))
+        parsed = {'kind': 'engine', 'name': '短剧总控', 'stage': 'script_structure',
+                  'rest': '整理结构'}
+        self.assertFalse(shared_send.send(desktop, 'script_structure', '/短剧总控 整理结构', parsed))
+        self.assertEqual(getattr(desktop, 'navigated', []), [])
+        self.assertEqual(desktop.page_index, here)
+        self.assertEqual(desktop.opened, [])
+        hint = desktop.status.get()
+        self.assertIn('「剧本结构」页暂无对话入口', hint)
+        self.assertIn('/剧本准备 /短剧总控', hint)
+
+    def test_same_stage_skill_without_entry_keeps_page_hint(self):
+        """本阶段技能在没有对话入口的页上：沿用原提示，不换页。"""
+        here = pet_bus.STAGES.index('script_structure')
+        skill = SimpleNamespace(name='结构整理', stage='script_structure',
+                                path=Path('skills') / 'x' / '结构整理.skill.md')
+        desktop = self._desktop(page_index=here,
+                                shared_input=SimpleNamespace(skill_items=lambda: [skill]))
+        parsed = {'kind': 'skill', 'name': '结构整理', 'stage': 'script_structure', 'rest': ''}
+        self.assertFalse(shared_send.send(desktop, 'script_structure', '/结构整理', parsed))
+        self.assertEqual(getattr(desktop, 'navigated', []), [])
+        self.assertEqual(desktop.opened, [])
+        self.assertIn('暂无 Agent 入口', desktop.status.get())
+
+    def test_explicit_stage_command_still_navigates_before_skill(self):
+        """只有用户明确写 /阶段名 才换页：换页后技能在那个阶段的入口里执行。"""
+        skill = SimpleNamespace(name='分镜技法', stage='storyboard',
+                                path=Path('skills') / 'x' / '分镜技法.skill.md')
+        desktop = self._desktop(page_index=0,
+                                shared_input=SimpleNamespace(skill_items=lambda: [skill]))
+        parsed = {'kind': 'stage', 'name': 'storyboard', 'stage': 'storyboard',
+                  'rest': '/分镜技法 做三版'}
+        self.assertTrue(shared_send.send(desktop, 'script', '/初步分镜 /分镜技法 做三版', parsed))
+        self.assertEqual(desktop.navigated, ['storyboard'])
+        self.assertEqual(desktop.opened[0][:2], ('storyboard', '初步分镜'))
+        self.assertIn('分镜技法', desktop.opened[0][2])
+
+    def test_skill_command_outside_stage_pages_asks_for_a_stage(self):
+        """不在制作阶段页面时不替用户挑阶段：提示先打开一个制作阶段页面。"""
+        skill = SimpleNamespace(name='分镜技法', stage='storyboard',
+                                path=Path('skills') / 'x' / '分镜技法.skill.md')
+        desktop = self._desktop(page_index=len(pet_bus.STAGES),
+                                shared_input=SimpleNamespace(skill_items=lambda: [skill]))
+        parsed = {'kind': 'skill', 'name': '分镜技法', 'stage': '', 'rest': '做三版'}
+        self.assertFalse(shared_send.send(desktop, '', '/分镜技法 做三版', parsed))
+        self.assertEqual(getattr(desktop, 'navigated', []), [])
+        self.assertEqual(desktop.opened, [])
+        self.assertIn('请先打开一个制作阶段页面', desktop.status.get())
 
     def test_unknown_skill_is_rejected_with_hint(self):
         desktop = self._desktop(page_index=0,

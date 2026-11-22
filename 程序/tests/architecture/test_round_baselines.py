@@ -130,6 +130,8 @@ class RoundBaselineTests(unittest.TestCase):
             return
         if run_selftests.auto_full_running():
             return      # 后台已在补跑：不报红，也别手动再跑
+        if auto_full_safe.hold_until():
+            return      # 用户要求暂缓：到点由等待者自动补跑，期间不报红（欠账照记，--status 可见）
         receipt = run_selftests.verified_tree_record(
             baseline.get('full_safe_verified_trees', []), run_selftests.content_tree())
         # A run cannot have its own success receipt before its tests finish.

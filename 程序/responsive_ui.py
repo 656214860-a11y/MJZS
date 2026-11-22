@@ -16,11 +16,19 @@ GROWABLE_FLOOR=2
 def register_growable(tree,row_height=34,padding=30):
     _growables.append([tree,row_height,padding])
 
-def growable_extra():
+def growable_extra(scope=None):
+    """登记过的内容框里超出 GROWABLE_FLOOR 的那些行一共多高：整页定高时从请求高度里扣掉。
+
+    scope 是正在量的那块内容框，给了就只数它底下的表格。登记表是全程序共用的：整页缓存收起来的
+    那几页、弹出来的对话框，表格都还活着，却不在这一页的请求高度里；把它们也扣掉，这一页会被定得
+    比自己的内容还矮。销毁了的表格不论在不在范围里，都顺手从登记表里清掉。
+    """
     extra=0;dead=[]
+    inside=None if scope is None else str(scope)+'.'      # 带上分隔的点：.!frame 不能把 .!frame2 底下的也算进来
     for index,(tree,row_height,padding) in enumerate(_growables):
         try:
             if not tree.winfo_exists():dead.append(index);continue
+            if inside is not None and not str(tree).startswith(inside):continue
             cur=int(tree.cget('height'))
             extra+=max(0,cur-GROWABLE_FLOOR)*row_height
         except Exception:

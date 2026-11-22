@@ -1,0 +1,15 @@
+{
+  "round": 4064,
+  "commit_base": "c53e60da",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k idea_chat_markdown",
+    "exit": 0,
+    "passed": 9,
+    "failed": 0
+  },
+  "generated_at": "2026-11-22T14:36:06"
+}

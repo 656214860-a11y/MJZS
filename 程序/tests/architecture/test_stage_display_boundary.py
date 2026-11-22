@@ -23,6 +23,37 @@ def _stage_pattern(numbers):
     return re.compile(r'(?<![A-Za-z0-9_])(\d{1,2})\s*(%s)' % names)
 
 
+def _page_number(node):
+    """非 0 的整数字面量才算写死的阶段页码：0 是「回到第一页」的既有写法，布尔值不算。"""
+    return isinstance(node, ast.Constant) and type(node.value) is int and node.value != 0
+
+
+def _reads_page_index(node):
+    """``x.page_index`` 或 ``getattr(x, 'page_index', …)``。"""
+    if isinstance(node, ast.Attribute):
+        return node.attr == 'page_index'
+    return (isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == 'getattr'
+            and len(node.args) >= 2 and isinstance(node.args[1], ast.Constant)
+            and node.args[1].value == 'page_index')
+
+
+def _literal_page_use(node):
+    """写死阶段页码的两种写法：``x.show(3)``／``x.go_page(3)``，以及拿 ``page_index`` 和数字比。"""
+    if isinstance(node, ast.Call):
+        return (isinstance(node.func, ast.Attribute) and node.func.attr in ('show', 'go_page')
+                and bool(node.args) and _page_number(node.args[0]))
+    if not isinstance(node, ast.Compare):
+        return False
+    sides = [node.left, *node.comparators]
+    if not any(_reads_page_index(side) for side in sides):
+        return False
+    for side in sides:
+        members = side.elts if isinstance(side, (ast.Tuple, ast.List, ast.Set)) else [side]
+        if any(_page_number(member) for member in members):
+            return True
+    return False
+
+
 class StageDisplayBoundaryTests(unittest.TestCase):
 
     # 展示位点：阶段名称与步号都必须由 pet_bus 权威表现算，不得退回写死。
@@ -83,6 +114,28 @@ class StageDisplayBoundaryTests(unittest.TestCase):
                     if int(match.group(1)) != want:
                         offenders.setdefault(path.name, set()).add('%s（应为 %02d）' % (match.group(0), want))
         self.assertFalse(offenders, '阶段编号与 pet_bus.STAGES 不一致：' + repr({k: sorted(v) for k, v in sorted(offenders.items())}))
+
+    def test_page_switches_do_not_hardcode_stage_page_numbers(self):
+        """换页和页码比较不得写死阶段页的数字：阶段顺序一调，数字就指到别的页去了（UX-B6）。
+
+        阶段页一律按阶段名取页码（``pet_state.PAGE_OF['assets']`` 这类）；``show(0)`` 不在此列。
+        """
+        offenders = []
+        for path in module_scan_files():
+            tree = ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
+            offenders.extend('%s:%d' % (path.name, node.lineno) for node in ast.walk(tree) if _literal_page_use(node))
+        self.assertEqual(sorted(offenders), [], '换页或页码比较写死了阶段页的数字，请改用 pet_state.PAGE_OF')
+
+    def test_literal_page_use_recognises_each_form(self):
+        """守卫自身的识别范围：该报的报，首页、按名取页码、不相干的比较不报。"""
+        def hits(source):
+            return [node for node in ast.walk(ast.parse(source)) if _literal_page_use(node)]
+        for source in ('app.show(2)', 'self.go_page(4)', 'ok = self.page_index == 2',
+                       "ok = getattr(app, 'page_index', None) != 3", 'ok = self.page_index in (2, 5)'):
+            self.assertEqual(len(hits(source)), 1, source)
+        for source in ('app.show(0)', "app.show(PAGE['assets'])", "ok = self.page_index == PAGE['assets']",
+                       'ok = self.page_index == 0', 'ok = count == 2', 'app.show(True)', 'app.show()'):
+            self.assertEqual(hits(source), [], source)
 
     def test_display_sites_derive_stage_labels_from_authority(self):
         """已迁移的展示位点必须继续由权威标签现算，不得退回写死。"""

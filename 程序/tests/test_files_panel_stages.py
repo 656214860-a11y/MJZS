@@ -84,7 +84,14 @@ class StageRailTests(unittest.TestCase):
 
     def rows(self):
         tree = self.desktop.files_panel.script_tree
-        return [item for group in tree.get_children() for item in tree.get_children(group)]
+        result = []
+        for item in tree.get_children():
+            children = tree.get_children(item)
+            if children:
+                result.extend(children)
+            else:
+                result.append(item)
+        return result
 
     def test_rail_lists_all_and_every_stage_in_order(self):
         """图标列＝「全部」＋13 个阶段，顺序与 pet_bus.STAGES 一致。"""
@@ -206,7 +213,7 @@ class StageRailTests(unittest.TestCase):
         self.pump(.2)
         self.assertEqual(panel.stage_filter, 'assets')
         rows = self.rows()
-        self.assertEqual(panel.script_tree.get_children(), ('stage-group:assets',))
+        self.assertEqual(panel.script_tree.get_children(), ('05资产管理/assets/CHAR_001.png',))
         self.assertTrue(rows, '资产管理阶段应当有行')
         self.assertTrue(all(row.startswith('05资产管理/') for row in rows), rows)
         self.assertTrue(all(panel.script_row_category.get(row) == STAGE_FILTER_ROW_CATEGORY for row in rows))
@@ -322,7 +329,7 @@ class FilterBarTests(StageRailTests):
         panel._apply_filters()
         self.wait_index()
         published = self.rows()
-        self.assertEqual(len(draft) + len(published), len(file_index.rows(self.desktop.root)))
+        self.assertEqual(len(draft) + len(published), len([r for r in file_index.rows(self.desktop.root) if not file_index.is_functional(r.path)]))
 
     def test_clearing_conditions_restores_full_index(self):
         panel = self.desktop.files_panel
@@ -363,6 +370,8 @@ class FilterDedupTests(StageRailTests):
 
     def _widen_panel(self):
         """面板宽按最长文件名收缩：放一个够长的名字把它撑到上限再量几何。"""
+        panel = self.desktop.files_panel
+        panel.show_stage('assets')
         root = Path(self.desktop.root)
         target = root / '05资产管理' / 'assets' / (
             '面板宽度撑满用样例素材文件名零一二三四五六七八九零一二三四五六七八九_0001.png')
@@ -489,7 +498,7 @@ class IndexLifecycleTests(StageRailTests):
                          ['文件名', '类型', '大小', '修改时间', '时长／分辨率'])
         self.assertEqual(tree.item(row.path, 'values'),
                          ('原文件名.png', '资产', '1.5 KB', '2026-11-16 12:34:56', ''))
-        self.assertEqual(tree.parent(row.path), 'stage-group:assets')
+        self.assertEqual(tree.parent(row.path), '')
         self.assertIn('原文件名.png', panel.script_row_details[row.path])
         self.assertIn('1536', panel.script_row_details[row.path])
         self.assertIn('2026-11-16 12:34:56', panel.script_row_details[row.path])
@@ -557,6 +566,7 @@ class IndexLifecycleTests(StageRailTests):
                         status='草稿', mtime=stamp),
                 FileRow(path='08首帧生成/忽略.png', stage='keyframe', kind='资产',
                         status='已发布', mtime=stamp)]
+        panel.stage_filter = None
         with patch('ui.desktop_files_panel_index.load_index', return_value=(rows, {}, {})):
             for mode in ('阶段', '类型', '日期'):
                 panel.group_box.set(mode)
@@ -572,9 +582,9 @@ class IndexLifecycleTests(StageRailTests):
             panel.group_mode = mode
             selected = filtered_rows(rows, ('assets', '资产', '已发布', '保留', '类型'), True)
             self.render_rows(selected, library=True)
-            self.assertEqual(panel.script_tree.get_children(), (group,))
+            self.assertEqual(set(panel.script_tree.get_children()), {'library:' + row.path for row in rows[:2]})
             self.assertEqual(set(self.rows()), {'library:' + row.path for row in rows[:2]})
-            self.assertTrue(all(panel.script_tree.parent(item) == group for item in self.rows()))
+            self.assertTrue(all(panel.script_tree.parent(item) == '' for item in self.rows()))
 
     def test_missing_cache_rebuild_runs_off_tk_thread(self):
         import threading
@@ -611,8 +621,8 @@ class IndexLifecycleTests(StageRailTests):
         entered, release = threading.Event(), threading.Event()
         original = module.load_index
 
-        def slow(*args):
-            result = original(*args)
+        def slow(*args, **kwargs):
+            result = original(*args, **kwargs)
             entered.set()
             release.wait(3)
             return result
@@ -636,8 +646,8 @@ class IndexLifecycleTests(StageRailTests):
         original = module.load_index
         root = self.desktop.root
 
-        def slow(*args):
-            result = original(*args)
+        def slow(*args, **kwargs):
+            result = original(*args, **kwargs)
             release.wait(3)
             return result
 
@@ -676,6 +686,7 @@ class IndexLifecycleTests(StageRailTests):
         import tkinter as tk
         import time
         panel = self.desktop.files_panel
+        panel.show_stage(None)
         root = Path(self.desktop.root)
         first = root / '05资产管理/assets/真实缩略.png'
         first.parent.mkdir(parents=True, exist_ok=True)
@@ -692,6 +703,7 @@ class IndexLifecycleTests(StageRailTests):
         panel.sort_box.set('修改时间')
         panel._apply_filters()
         self.pump(.5)
+        self.wait_index()
         groups = panel.script_tree.get_children()
         ordered = ['stage-group:' + stage for stage in STAGES if 'stage-group:' + stage in groups]
         self.assertEqual(list(groups[:len(ordered)]), ordered)
@@ -713,6 +725,7 @@ class IndexLifecycleTests(StageRailTests):
         target.write_text('真实项目文件', encoding='utf8')
         keep = root / '05资产管理/assets/保留此文件.md'
         keep.write_text('不应删除', encoding='utf8')
+        panel.show_stage('assets')
         panel.keyword_var.set('仅删此文件')
         panel._apply_filters()
         panel.refresh_file_index()
@@ -741,6 +754,7 @@ class IndexLifecycleTests(StageRailTests):
         from types import SimpleNamespace
         from unittest.mock import Mock, patch
         panel = self.desktop.files_panel
+        panel.show_stage(None)
         root = Path(self.desktop.root)
         folders = {'项目设定': ('setting', '设为项目设定定稿'),
                    '项目大纲': ('outline', '设为剧本大纲定稿'),
@@ -790,12 +804,16 @@ class IndexLifecycleTests(StageRailTests):
             panel._index_rows[key] = FileRow(path=path)
             with self.assertRaises(ValueError, msg=key):
                 panel.index_file_path(key)
+        panel.show_stage(None)
+        self.wait_index()
+        self.assertIn('stage-group:script', panel.script_tree.get_children())
         panel.script_tree.selection_set('stage-group:script')
         with self.assertRaises(ValueError):
             panel.delete_index_files()
 
     def test_refresh_discovers_external_file_and_retains_script_actions(self):
         panel = self.desktop.files_panel
+        panel.show_stage(None)
         root = Path(self.desktop.root)
         path = root / '05资产管理/assets/外部新增.md'
         path.write_text('新文件', encoding='utf8')
@@ -806,6 +824,109 @@ class IndexLifecycleTests(StageRailTests):
         self.assertTrue(scripts)
         panel.script_tree.selection_set(scripts[0])
         self.assertTrue(panel.selected_script().is_file())
+
+
+class DockContentTests(StageRailTests):
+    """停靠面板只列当前页所属阶段的用户文件；功能文件不进列表。"""
+
+    def test_filtered_rows_excludes_functional_files(self):
+        """T6：filtered_rows 滤掉功能文件行，项目视图与素材库视图各断言一次。"""
+        from datetime import datetime
+        from contract.file_index_contract import FileRow
+        from ui.desktop_files_panel_index import filtered_rows
+        stamp = datetime(2026, 11, 16, 12).timestamp()
+        rows = [FileRow(path='01剧本准备/docs/正文.md', stage='script', kind='剧本', mtime=stamp),
+                FileRow(path='01剧本准备/docs/配置.json', stage='script', kind='其他', mtime=stamp)]
+        for library in (False, True):
+            with self.subTest(library=library):
+                found = filtered_rows(rows, (None, None, None, '', '类型'), library)
+                paths = [row.path for row in found]
+                self.assertIn('01剧本准备/docs/正文.md', paths)
+                self.assertFalse(any(path.endswith('.json') for path in paths), paths)
+
+    def test_load_index_calls_discover_for_project_view(self):
+        """T7：项目视图非刷新加载调 discover 并带阶段；全局库视图与刷新不调。"""
+        from unittest.mock import patch
+        from ui.desktop_files_panel_index import load_index
+        root = Path(self.desktop.root)
+        with patch.object(file_index, 'discover') as discover, \
+                patch.object(file_index, 'rows', return_value=[]), \
+                patch.object(file_index, 'global_rows', return_value=[]), \
+                patch.object(file_index, 'rebuild'), \
+                patch.object(file_index, 'rebuild_global'):
+            load_index(root, stage='script_structure')
+            discover.assert_called_once()
+            self.assertEqual(discover.call_args.args[1], 'script_structure')
+            discover.reset_mock()
+            load_index(root, library=True)
+            load_index(root, refresh=True)
+            discover.assert_not_called()
+
+    def test_structure_page_shows_only_structure_files(self):
+        """T8：剧本结构页打开面板：只列该阶段用户文件、平铺无分组父行、无预览列。"""
+        from contract.stage_path_service import read_dirs
+        panel = self.desktop.files_panel
+        root = Path(self.desktop.root)
+        folder = read_dirs(root, 'script_structure')[0]
+        folder.mkdir(parents=True, exist_ok=True)
+        md = folder / '结构正稿.md'
+        md.write_text('正文', encoding='utf8')
+        data = folder / '结构数据.json'
+        data.write_text('{}', encoding='utf8')
+        self.addCleanup(md.unlink, missing_ok=True)
+        self.addCleanup(data.unlink, missing_ok=True)
+        file_index.rebuild(root)
+        self.desktop.show(PAGE['script_structure'])
+        self.wait_index()
+        self.assertEqual(panel.stage_filter, 'script_structure')
+        self.assertEqual(str(panel.script_title.cget('text')), '项目文件 · 剧本结构')
+        self.assertEqual(self.rows(), [md.relative_to(root).as_posix()])
+        children = panel.script_tree.get_children()
+        self.assertFalse(any(item.startswith('stage-group:') for item in children), children)
+        self.assertNotIn('tree', str(panel.script_tree['show']))
+
+    def test_stage_filter_follows_page_and_keeps_user_choice(self):
+        """T9：换页跟随新页阶段；用户手选阶段保持到下一次换页。"""
+        panel = self.desktop.files_panel
+        self.desktop.show(PAGE['video'])
+        self.wait_index()
+        self.assertEqual(panel.stage_filter, 'video')
+        panel.show_stage('assets')
+        self.wait_index()
+        self.assertEqual(panel.stage_filter, 'assets')
+        panel.collapse()
+        panel.open_panel()
+        self.wait_index()
+        self.assertEqual(panel.stage_filter, 'assets')
+        self.desktop.show(PAGE['audio'])
+        self.wait_index()
+        self.assertEqual(panel.stage_filter, 'audio')
+
+    def test_new_file_appears_without_refresh(self):
+        """T10：当前页阶段目录直接写新文件，收起再打开即出现，不点刷新。"""
+        panel = self.desktop.files_panel
+        root = Path(self.desktop.root)
+        file_index.rebuild(root)
+        self.wait_index()
+        target = project_stages.writing(root) / '外部新增.md'
+        target.write_text('新文件', encoding='utf8')
+        self.addCleanup(target.unlink, missing_ok=True)
+        panel.collapse()
+        panel.open_panel()
+        self.wait_index()
+        self.assertIn(target.relative_to(root).as_posix(), self.rows())
+
+    def test_multiple_groups_keep_stage_group_rows(self):
+        """T11：「全部」多个分组时保留阶段分组父行，子行非空，预览列显示。"""
+        panel = self.desktop.files_panel
+        panel.show_stage(None)
+        self.wait_index()
+        children = panel.script_tree.get_children()
+        self.assertIn('stage-group:script', children)
+        self.assertIn('stage-group:assets', children)
+        self.assertTrue(panel.script_tree.get_children('stage-group:script'))
+        self.assertTrue(panel.script_tree.get_children('stage-group:assets'))
+        self.assertIn('tree', str(panel.script_tree['show']))
 
 
 class GlobalLibraryViewTests(StageRailTests):
@@ -928,7 +1049,7 @@ class GlobalLibraryViewTests(StageRailTests):
             try:
                 panel.show_library()
                 self.pump(.3)
-                self.assertEqual(panel.script_tree.get_children(), ('stage-group:library',))
+                self.assertEqual(panel.script_tree.get_children(), ('library:角色/CHAR_001.png',))
                 self.assertEqual(self.rows(), ['library:角色/CHAR_001.png'])
             finally:
                 file_index.read_global_dir = original
@@ -1106,6 +1227,8 @@ class FilenameDisplayTests(StageRailTests):
     LONG_ROW = '05资产管理/assets/' + LONG_NAME
 
     def _seed_long_file(self):
+        panel = self.desktop.files_panel
+        panel.show_stage('assets')
         self.assertEqual(len(self.LONG_NAME), 40, '样例文件名按任务卡取 40 个字符')
         root = Path(self.desktop.root)
         target = root / '05资产管理' / 'assets' / self.LONG_NAME

@@ -225,7 +225,8 @@ class LayoutMixin:
     def _fit_content_now(self):
         width=max(1,self.canvas.winfo_width());height=max(1,self.canvas.winfo_height())
         req=self.content.winfo_reqheight()
-        req_min=max(1,req-growable_extra())
+        # 只收回这一页自己的表格：收着的缓存页、对话框里的表格不在 req 里，扣了这一页就被定矮了。
+        req_min=max(1,req-growable_extra(self.content))
         target=max(height,req_min)
         self.canvas.itemconfigure(self.content_id,width=width,height=target)
         self._content_applied_widget=self.content;self._content_applied_size=(width,target)

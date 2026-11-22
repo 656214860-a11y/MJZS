@@ -4,6 +4,7 @@ import tkinter as tk
 from tkinter import ttk
 from pathlib import Path
 from agent.core import read, save
+from infra.pet_state import PAGE_OF
 from responsive_ui import scroll_form
 from ui_widgets import BaseDialog, Card, PrimaryButton, SecondaryButton, notify
 from ui_tokens import BUTTON_GAP, WRAPLENGTH, SPACING
@@ -167,7 +168,7 @@ def show(desktop):
             return
         win.destroy()
         desktop.asset_kind = 'characters'
-        desktop.show(2)
+        desktop.show(PAGE_OF['assets'])
         desktop.status.set(f'已标记 {n} 个背景人物为不建档，并清理 {touched} 份分镜中的引用。')
 
     PrimaryButton(footer, text='标记为背景人物', command=confirm).pack(side='right')

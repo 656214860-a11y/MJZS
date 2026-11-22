@@ -5,6 +5,7 @@ import json
 import tkinter as tk
 from tkinter import ttk
 from ui.ui_motion import Spinner
+from ui import skill_note_render
 from ui_tokens import COLORS, FONTS, ICON_COPY, ICON_DELETE, ICON_FONT, ICON_REWIND, SPACING
 from pathlib import Path
 from orchestrator.idea_chat_controller import ALL_MODELS, bubble_timestamp, collapse_preview, model_bar_items, model_bar_selection
@@ -93,6 +94,11 @@ class IdeaBubblesMixin:
     def bubble_preview(self,text):
         """过长的消息先给紧凑预览（实现搬到 L3 idea_chat_controller，入口不变）。"""
         return collapse_preview(text)
+    def _write_bubble_body(self,box,index,text,name,markdown,left,right):
+        """REQ-S01-99：模型消息按排版写入；用户消息、软件示例和排版为空时按原文写入。"""
+        if markdown and skill_note_render.insert(box,index,text,base_tags=(name,),left=left,right=right):
+            return
+        box.insert(index,text+'\n',name)
     def toggle_bubble(self,box,name):
         """点击“展开全文／收起”只改当前气泡的正文，不重建输入区。"""
         record=getattr(self,'_bubble_full',{}).get(name)
@@ -109,7 +115,8 @@ class IdeaBubblesMixin:
             record['expanded']=not record['expanded']
             shown=record['text'] if record['expanded'] else record['preview']
             # 先插新正文再删旧正文，内容高度不会瞬间归零。
-            box.insert(ranges[-1],shown+'\n',name)
+            self._write_bubble_body(box,ranges[-1],shown,name,record.get('markdown',False),
+                                    record.get('left',BUBBLE_GAP),record.get('right',BUBBLE_GAP))
             box.delete(start,ranges[-1])
             toggle=name+'_toggle'
             spans=box.tag_ranges(toggle)
@@ -316,8 +323,10 @@ class IdeaBubblesMixin:
         box.insert('end',self.model_name(row)+'\n',name+'_meta')
         # 软件示例是用户填写前唯一的完整参考，不能被折叠；真实长对话仍保持收起功能。
         preview,folded=(text,False) if index=='example' else self.bubble_preview(text)
-        self._bubble_full[name]={'text':text,'preview':preview,'expanded':not folded}
-        box.insert('end',preview+'\n',name)
+        markdown=not mine and not example
+        self._bubble_full[name]={'text':text,'preview':preview,'expanded':not folded,
+                                 'markdown':markdown,'left':body_left,'right':body_right}
+        self._write_bubble_body(box,'end',preview,name,markdown,body_left,body_right)
         if folded:
             toggle=name+'_toggle'
             # 操作在本条气泡的右下角，而非正文下方左侧；它属于 Text 内容，滚动时和
@@ -402,14 +411,17 @@ class IdeaBubblesMixin:
         box.insert('end',thinking+' 模型正在思考…\n',name+'_thinking')
         box.tag_add(name+'_thinking',start,'end-1c')
         # 已收到的流式文字紧跟在状态行下面；重绘（例如窗口变化）时从缓冲里补回。
+        # 边距取落地气泡正文的边距（外边距加内边距）：排版标签整个聊天框共用一套，流式和落地用同一组边距，
+        # 前面回话里的列表、引用缩进才不会在流式期间变动（REQ-S01-100）。
         box.tag_configure('bubble_stream',justify='left',foreground=COLORS['text_primary'],font=BUBBLE_FONT,
-                          lmargin1=left,lmargin2=left,rmargin=right,spacing1=2,spacing2=1,spacing3=4,wrap='word')
+                          lmargin1=left+BUBBLE_PAD,lmargin2=left+BUBBLE_PAD,rmargin=right+BUBBLE_PAD,
+                          spacing1=2,spacing2=1,spacing3=4,wrap='word')
         box.mark_set('stream_start','end-1c');box.mark_gravity('stream_start','left')
-        self._stream_shown=0
+        self._stream_shown=0;self._stream_done=None
         self.refresh_stream_text(box)
     def begin_stream(self):
         """一次直连 API 请求开始：清空流式缓冲并开始定时把新文字画到聊天框末尾。"""
-        self._stream_parts=[];self._stream_shown=0
+        self._stream_parts=[];self._stream_shown=0;self._stream_done=None
         self._stream_generation=getattr(self,'_stream_generation',0)+1
         self.poll_stream(self._stream_generation)
     def stream_call(self,fn,*args,**kwargs):
@@ -421,7 +433,7 @@ class IdeaBubblesMixin:
         parts=getattr(self,'_stream_parts',None)
         if parts is not None and chunk:parts.append(str(chunk))
     def end_stream(self):
-        self._stream_parts=None;self._stream_shown=0
+        self._stream_parts=None;self._stream_shown=0;self._stream_done=None
         self._stream_generation=getattr(self,'_stream_generation',0)+1
     def poll_stream(self,generation):
         if generation!=getattr(self,'_stream_generation',0) or getattr(self,'_stream_parts',None) is None:return
@@ -432,16 +444,31 @@ class IdeaBubblesMixin:
                 self.win.after(80,lambda:self.poll_stream(generation))
         except tk.TclError:pass
     def refresh_stream_text(self,box):
-        """把缓冲里新增的文字补到状态行下面；只追加新文字，不重绘整个聊天记录。"""
+        """REQ-S01-100：把缓冲里的文字补到状态行下面——写完的行按排版，没写完的一行按原文；
+        写完的行没有变化时只替换最后一行，不重排前面的内容，也不重绘整个聊天记录。"""
         parts=getattr(self,'_stream_parts',None)
         if not parts or 'stream_start' not in box.mark_names() or not getattr(self,'_thinking_model',''):return
         if len(parts)==getattr(self,'_stream_shown',0) and box.compare('stream_start','!=','end-1c'):return
         at_bottom=box.yview()[1]>=0.98
         text=''.join(parts)
-        box.delete('stream_start','end-1c')
-        box.insert('end-1c',text,'bubble_stream')
+        cut=text.rfind('\n')+1
+        done,tail=text[:cut],text[cut:]
+        if done!=getattr(self,'_stream_done',None) or 'stream_tail' not in box.mark_names():
+            self._draw_stream_done(box,done)
+        box.delete('stream_tail','end-1c')
+        box.insert('end-1c',tail,'bubble_stream')
         self._stream_shown=len(parts)
         if at_bottom:box.see('end')
+    def _draw_stream_done(self,box,done):
+        """REQ-S01-100：从 stream_start 起整段重排写完的行，并把 stream_tail 标记放在它们后面。"""
+        box.delete('stream_start','end-1c')
+        if done.strip():
+            left=int(float(box.tag_cget('bubble_stream','lmargin1') or 0))
+            right=int(float(box.tag_cget('bubble_stream','rmargin') or 0))
+            if not skill_note_render.insert(box,'end',done,base_tags=('bubble_stream',),left=left,right=right):
+                box.insert('end-1c',done,'bubble_stream')
+        box.mark_set('stream_tail','end-1c');box.mark_gravity('stream_tail','left')
+        self._stream_done=done
     def drop_thinking_spinner(self):
         """撤掉「模型正在思考」前的转圈；重绘前与回复落地时调用，重复调用安全。"""
         spinner=getattr(self,'_thinking_spinner',None)

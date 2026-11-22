@@ -1,0 +1,15 @@
+{
+  "round": 4073,
+  "commit_base": "5c85dd13",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k ui_icons files_panel",
+    "exit": 0,
+    "passed": 151,
+    "failed": 0
+  },
+  "generated_at": "2026-11-22T18:58:43"
+}

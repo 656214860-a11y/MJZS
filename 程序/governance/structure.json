@@ -625,6 +625,14 @@
         "程序/ui/desktop_asset_pages.py"
       ]
     },
+    "程序/tests/test_idea_chat_markdown.py": {
+      "kind": "module",
+      "owner": "项目维护者",
+      "contract": "01 剧本准备页模型回话按排版显示：用户消息与软件示例原样、展开收起、复制原文、选中高亮优先",
+      "targets": [
+        "程序/ui/desktop_idea_bubbles.py"
+      ]
+    },
     "程序/tests/test_script_page_layout.py": {
       "kind": "module",
       "owner": "项目维护者",

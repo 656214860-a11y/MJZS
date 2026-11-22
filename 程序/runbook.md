@@ -22,7 +22,7 @@
 | `开发者工具/启动助手_测试模式.cmd` | 测试模式 |
 | `开发者工具/本地CI.cmd` / `开发者工具/本地CI.cmd quick` / `开发者工具/本地CI.cmd exit` | 自检（见 §3） |
 
-启动失败先看根目录 `启动错误.log` 与 `程序\logs\app.log`。
+启动失败先看根目录 `启动错误.log` 与 `程序\logs\app.log`。同名日志有两份：根目录的 `启动错误.log` 由启动文件最外层的异常处理写，主窗口出来之前就失败时看它；`程序\logs\启动错误.log` 由 `infra/diagnostic_capture.py` 的 `record_crash` 写，程序运行中出现未处理的错误时看它。
 
 ## 3. 验证与自检（按代价从低到高）
 
@@ -60,6 +60,8 @@
 
 **后台自动补跑**（带防抖）：欠账达到门禁线前 `FULL_SAFE_AUTO_LEAD`（2）个源码轮次，master 的 git post-commit 钩子（`维护记录/基准脚本/hooks/post-commit`，由 `install_git_hooks.py` 安装）调用 `scripts/auto_full_safe.py --spawn`，先起一个后台等待者（`--wait-run`，同一时刻只有一个）：等「安静」15 分钟（期间每有新提交就重新计时）再跑一次，连续拆分系列的 N 轮只补跑 1 次；欠账已让门禁报红或等满 60 分钟则立即跑。跑时在根目录 `.wt/ci` 干净分离检出上后台跑 `--all --safe`，绿凭据写入 common-dir 的 `full-safe-receipts.json`，日志在 `程序/logs/auto_full_safe.log`。钩子失败或已有同类任务在跑都静默跳过，不阻塞提交；后台运行期间（`auto_full_running()`）架构门禁不报「欠全量」，手动 `--all --safe` 也会被拒绝并提示等待（`--force` 可强制）——**欠账红灯出现时不要立刻手动跑全量，先看后台是否已在补跑**；`scripts/auto_full_safe.py --status` 查看欠账。后台全量红了不会自动改任何文件，按 §8 失败处置人工接续；**红后冷却**（R1781，`RED_COOLDOWN_SECONDS`＝4 小时）：上次后台全量是真红时，同一 HEAD 不再自动重跑，换了 HEAD 也要等冷却期过去才补跑，只有门禁已因欠账报红才越过时间冷却，避免红着不修时每次提交都白跑约 16 分钟，`--status` 显示「红后冷却」；结果写入 common-dir 的 `auto-full-safe-result.json`，post-commit 钩子每次提交先跑 `--notice`，上次未通过就在提交输出里打印红的测试文件与日志路径，`--status` 也会显示。`round_claim.py next` 领号时会自检 git 钩子，缺失或与版本受控源不一致就自动安装，新克隆无需手工装钩子。
 
+**暂缓（R4092，用户 2026-11-22 批准）**：用户正在用应用做验证、不想被约 27 分钟的全量抢磁盘时使用。`scripts/auto_full_safe.py --hold <分钟> --reason <原因>` 设置暂缓，`--release` 解除；暂缓期间 `--spawn` 照常起等待者，等待者等到暂缓结束再跑；欠账照记，`--status` 输出显示暂缓到几点；暂缓期间合并门禁的欠账项不报红。从第一次设置算起最长 12 小时，一轮全量真的开始（含手动 `--run`、夜间任务）即清除，距第一次设置满 24 小时后可以重新设置；只在用户明确要求时设置，助手和窗口不得自行设置或续期。
+
 **合并门禁与红后冷却的关系（R2995）**：合并出口门禁（`tests/architecture/test_round_baselines.py` 欠账项）在 required 且无在跑全量、无同树绿凭据、非全量进程本身时，「同 HEAD 已红」冷却（`auto-full-safe-result.json` 的 head 与当前 HEAD 相同）不报红放行——合并提交推进 HEAD 是该冷却降级为 'time'（required 下自动补跑）的唯一途径，此时拦合并即死锁（2026-11-16 事故：全量红在 test_ui_batch5→同 HEAD 冷却→合并全卡，靠手动 `--run` 陪跑解开）；'time' 冷却与 BLOCKED 环境受阻结果仍报红。冷却判定唯一实现 `auto_full_safe.current_cooling()`／`red_cooldown()`。
 
 ## 5. 升级、备份与回滚
@@ -86,8 +88,8 @@
 
 | 现象 | 先看 | 处置 |
 | --- | --- | --- |
-| 启动即退 | `启动错误.log`、`程序\logs\app.log` | 多为解释器路径／工作目录不对 |
-| 点按钮没反应 | `程序\logs\app.log`（运行期诊断都进这里） | 与云朵／对话框相关时留意 `NameError` 类回归（见 R1624） |
+| 启动即退 | 根目录 `启动错误.log`、`程序\logs\app.log` | 多为解释器路径／工作目录不对 |
+| 点按钮没反应 | `程序\logs\app.log`（运行期诊断都进这里）；未处理的错误还会记到 `程序\logs\启动错误.log` | 与云朵／对话框相关时留意 `NameError` 类回归（见 R1624） |
 | 任务卡在途 | 任务中心页、`程序\outputs\desktop-task-queue.json` | 在途＝等核实，绝不自动重提（见 `task_states.md`） |
 | 费用对不上 | 项目费用台账（逐笔）与 Token 台账 | 缺单价的档位不给金额，不当 0 记 |
 | 门禁红 | 报告里的 `文件:行号` | 先核验原始证据，不补造验收 |

@@ -8,6 +8,7 @@ from infra.comfy_service import Comfy
 from stage_execution_service import remove_asset_batch_model as remove_model, save_asset_batch_settings as save_settings
 import infra.tk_timers as tk_timers
 import infra.ui_plugin_registry as ui_plugin_registry
+from infra.pet_state import PAGE_OF
 import orchestrator.stage_models as stage_models
 from responsive_ui import FlowBar, scroll_form
 from contract.platform_tools import open_target
@@ -353,7 +354,7 @@ class _AssetBatchWindow:
                 while True:self.events.get_nowait()
             except queue.Empty:pass
             self.controller.reload_rows();self.refresh();self.status.set(result);self.app.status.set(result)
-            if self.app.root==self.project:self.app.show(2)
+            if self.app.root==self.project:self.app.show(PAGE_OF['assets'])
             # 第 47 期第 5 条：完成消息由宿主上报三虎；批量页不反向依赖宠物 UI。
             reporter=getattr(self.app, 'pet_report', None)
             if callable(reporter):

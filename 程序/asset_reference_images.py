@@ -6,6 +6,7 @@ import hashlib, re
 
 from agent.core import read,save,save_bytes
 from contract.platform_tools import open_path
+from infra.pet_state import PAGE_OF
 
 # 第 46 期第 1 条：内容框的右键菜单（查看／删除）与其它页共用同一份实现。
 from cell_hover import bind_row_menu
@@ -423,7 +424,7 @@ def show(app,aid):
         status.set(f'已绑定 {len(values)} 张；按每张用途结合提示词生成。' if values else '未选择参考图：仅使用提示词生成。')
     def changed():
 
-        refresh();app.show(2)
+        refresh();app.show(PAGE_OF['assets'])
 
     def add():
         guard()
@@ -566,7 +567,7 @@ def view_references(app, aid):
         from infra.ui_plugin_registry import module
         import_images=module('asset_reference_import').show
         import_images(app,aid,role=filtervar.get() if filtervar.get() in roles else roles[0],
-                      parent=win,on_saved=lambda:(refresh(),app.safe(lambda:app.show(2))))
+                      parent=win,on_saved=lambda:(refresh(),app.safe(lambda:app.show(PAGE_OF['assets']))))
     buttons=FlowBar(win)
     for label,fn,button_type in [('查看图片',preview,SecondaryButton),('导入参考图',add,PrimaryButton),('打开参考图目录',open_folder,SecondaryButton)]:
         button_type(buttons,text=label,command=lambda f=fn:app.safe(f)).pack(side='left',padx=(SPACING['none'],SPACING['xs']))

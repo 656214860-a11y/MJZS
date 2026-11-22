@@ -20,6 +20,7 @@ SHARED_STATE_CAPS = {
     'Pet': 54,    # R2281 J-Pet：_offer_* 五件收进 Pet.offer（PetOfferState）-5
     'Cloud': 11,    # J-Cloud：_hint_* 四件收进 Cloud.hint_state（CloudHintState）-4
     'Panel': 4,  # R2862：总控/预设/模型选择行删除后跨类写入实测 4
+    'ProjectFilesPanel': 0,  # R4076：加第三个 Mixin 基类（FilesPanelResizeMixin）后登记；拖动状态只由该 Mixin 写入；只许下降
     'IdeaChatMixin': 2,  # R2505：加第三个 Mixin 基类（IdeaAttachmentsMixin）后按实测登记；只许下降
 }
 MIXIN_BASE_THRESHOLD = 3
