@@ -339,8 +339,10 @@ def resume_folder(root, lines, episode=None):
 
 
 def line_name(index, line):
-    safe = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", str(line.get("name") or "")).strip(" .")[:20]
-    return f'{index:03}_{line.get("shot_id")}_{safe}_{float(line.get("start") or 0):.1f}s.mp3'
+    unsafe = r'[<>:"/\\|?*\x00-\x1f]'
+    safe = re.sub(unsafe, "_", str(line.get("name") or "")).strip(" .")[:20]
+    shot = re.sub(unsafe, "_", str(line.get("shot_id")))[:40]
+    return f'{index:03}_{shot}_{safe}_{float(line.get("start") or 0):.1f}s.mp3'
 
 
 def line_done(manifest, index, line, folder):
