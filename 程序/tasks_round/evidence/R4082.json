@@ -1,0 +1,15 @@
+{
+  "round": 4082,
+  "commit_base": "64dcdbdb",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k idea_chat",
+    "exit": 0,
+    "passed": 186,
+    "failed": 0
+  },
+  "generated_at": "2026-11-22T19:43:31"
+}

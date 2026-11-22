@@ -411,14 +411,17 @@ class IdeaBubblesMixin:
         box.insert('end',thinking+' 模型正在思考…\n',name+'_thinking')
         box.tag_add(name+'_thinking',start,'end-1c')
         # 已收到的流式文字紧跟在状态行下面；重绘（例如窗口变化）时从缓冲里补回。
+        # 边距取落地气泡正文的边距（外边距加内边距）：排版标签整个聊天框共用一套，流式和落地用同一组边距，
+        # 前面回话里的列表、引用缩进才不会在流式期间变动（REQ-S01-100）。
         box.tag_configure('bubble_stream',justify='left',foreground=COLORS['text_primary'],font=BUBBLE_FONT,
-                          lmargin1=left,lmargin2=left,rmargin=right,spacing1=2,spacing2=1,spacing3=4,wrap='word')
+                          lmargin1=left+BUBBLE_PAD,lmargin2=left+BUBBLE_PAD,rmargin=right+BUBBLE_PAD,
+                          spacing1=2,spacing2=1,spacing3=4,wrap='word')
         box.mark_set('stream_start','end-1c');box.mark_gravity('stream_start','left')
-        self._stream_shown=0
+        self._stream_shown=0;self._stream_done=None
         self.refresh_stream_text(box)
     def begin_stream(self):
         """一次直连 API 请求开始：清空流式缓冲并开始定时把新文字画到聊天框末尾。"""
-        self._stream_parts=[];self._stream_shown=0
+        self._stream_parts=[];self._stream_shown=0;self._stream_done=None
         self._stream_generation=getattr(self,'_stream_generation',0)+1
         self.poll_stream(self._stream_generation)
     def stream_call(self,fn,*args,**kwargs):
@@ -430,7 +433,7 @@ class IdeaBubblesMixin:
         parts=getattr(self,'_stream_parts',None)
         if parts is not None and chunk:parts.append(str(chunk))
     def end_stream(self):
-        self._stream_parts=None;self._stream_shown=0
+        self._stream_parts=None;self._stream_shown=0;self._stream_done=None
         self._stream_generation=getattr(self,'_stream_generation',0)+1
     def poll_stream(self,generation):
         if generation!=getattr(self,'_stream_generation',0) or getattr(self,'_stream_parts',None) is None:return
@@ -441,16 +444,31 @@ class IdeaBubblesMixin:
                 self.win.after(80,lambda:self.poll_stream(generation))
         except tk.TclError:pass
     def refresh_stream_text(self,box):
-        """把缓冲里新增的文字补到状态行下面；只追加新文字，不重绘整个聊天记录。"""
+        """REQ-S01-100：把缓冲里的文字补到状态行下面——写完的行按排版，没写完的一行按原文；
+        写完的行没有变化时只替换最后一行，不重排前面的内容，也不重绘整个聊天记录。"""
         parts=getattr(self,'_stream_parts',None)
         if not parts or 'stream_start' not in box.mark_names() or not getattr(self,'_thinking_model',''):return
         if len(parts)==getattr(self,'_stream_shown',0) and box.compare('stream_start','!=','end-1c'):return
         at_bottom=box.yview()[1]>=0.98
         text=''.join(parts)
-        box.delete('stream_start','end-1c')
-        box.insert('end-1c',text,'bubble_stream')
+        cut=text.rfind('\n')+1
+        done,tail=text[:cut],text[cut:]
+        if done!=getattr(self,'_stream_done',None) or 'stream_tail' not in box.mark_names():
+            self._draw_stream_done(box,done)
+        box.delete('stream_tail','end-1c')
+        box.insert('end-1c',tail,'bubble_stream')
         self._stream_shown=len(parts)
         if at_bottom:box.see('end')
+    def _draw_stream_done(self,box,done):
+        """REQ-S01-100：从 stream_start 起整段重排写完的行，并把 stream_tail 标记放在它们后面。"""
+        box.delete('stream_start','end-1c')
+        if done.strip():
+            left=int(float(box.tag_cget('bubble_stream','lmargin1') or 0))
+            right=int(float(box.tag_cget('bubble_stream','rmargin') or 0))
+            if not skill_note_render.insert(box,'end',done,base_tags=('bubble_stream',),left=left,right=right):
+                box.insert('end-1c',done,'bubble_stream')
+        box.mark_set('stream_tail','end-1c');box.mark_gravity('stream_tail','left')
+        self._stream_done=done
     def drop_thinking_spinner(self):
         """撤掉「模型正在思考」前的转圈；重绘前与回复落地时调用，重复调用安全。"""
         spinner=getattr(self,'_thinking_spinner',None)
