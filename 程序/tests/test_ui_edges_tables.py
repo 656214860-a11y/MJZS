@@ -753,3 +753,145 @@ class AutoHeightScrollbarTests(unittest.TestCase):
         self.assertEqual(int(tree.cget('height')), 2, '表格没收回最少行数')
         self.assertTrue(footer.winfo_ismapped(), '底下那排被整个挤没了')
         self.assertEqual(footer.winfo_height(), row, '底下那排被挤掉了一截')
+
+
+class GrowableScopeTests(unittest.TestCase):
+    """整页定高只收回「正在显示的这一页」里表格多出来的行。
+
+    登记表是整个程序共用的一张：整页缓存收起来的那几页、弹出来的对话框，表格都还活着。把它们多出来的
+    行也从这一页的请求高度里扣掉，这一页就被定得比自己的内容还矮——窗口小的时候表格被压扁、
+    底下的按钮被裁掉，而且滚不到。
+    """
+
+    ROW = 10        # 登记给表格的行高：只参与算术，不必等于主题里的真实行高
+
+    def setUp(self):
+        from unittest import mock
+        import responsive_ui
+        import tk_test_support
+        self.ui = responsive_ui
+        patcher = mock.patch.object(responsive_ui, '_growables', [])
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.win = tk_test_support.make_root()
+        def quiet_destroy():
+            try:
+                self.win.destroy()
+            except Exception:
+                pass
+        self.addCleanup(quiet_destroy)
+
+    def table(self, parent, rows):
+        from tkinter import ttk
+        tree = ttk.Treeview(parent, height=rows)
+        tree.pack()
+        self.ui.register_growable(tree, self.ROW, 0)
+        return tree
+
+    def extra(self, rows):
+        return (rows - self.ui.GROWABLE_FLOOR) * self.ROW
+
+    def test_only_tables_under_the_scope_are_counted(self):
+        from tkinter import ttk
+        shown, cached = ttk.Frame(self.win), ttk.Frame(self.win)
+        self.table(ttk.Frame(shown), 10)
+        self.table(cached, 30)
+        self.assertEqual(self.ui.growable_extra(shown), self.extra(10), '隔了一层也算在这一页里')
+        self.assertEqual(self.ui.growable_extra(cached), self.extra(30))
+        self.assertEqual(self.ui.growable_extra(), self.extra(10) + self.extra(30), '不给范围时照旧全数')
+
+    def test_a_sibling_whose_name_starts_the_same_is_outside(self):
+        from tkinter import ttk
+        page, other = ttk.Frame(self.win, name='page'), ttk.Frame(self.win, name='page2')
+        self.table(other, 12)
+        self.assertEqual(self.ui.growable_extra(page), 0, '.page2 不在 .page 底下，不能按字符串前缀算进去')
+        self.assertEqual(self.ui.growable_extra(other), self.extra(12))
+
+    def test_destroyed_tables_are_dropped_whatever_the_scope(self):
+        from tkinter import ttk
+        shown, cached = ttk.Frame(self.win), ttk.Frame(self.win)
+        kept = self.table(shown, 6)
+        self.table(cached, 9).destroy()
+        self.assertEqual(self.ui.growable_extra(shown), self.extra(6))
+        self.assertEqual([entry[0] for entry in self.ui._growables], [kept],
+                         '销毁了的表格要从登记表里清掉，哪怕它不在这一次的范围里')
+
+    def test_page_fit_ignores_tables_on_pages_that_are_put_away(self):
+        import tkinter as tk
+        from tkinter import ttk
+        from desktop_layout import LayoutMixin
+        win = self.win
+        win.geometry('800x300')
+        canvas = tk.Canvas(win, highlightthickness=0)
+        canvas.pack(fill='both', expand=True)
+        shown, cached = ttk.Frame(canvas), ttk.Frame(canvas)
+        for page, rows in ((shown, 10), (cached, 30)):
+            ttk.Frame(page, width=10, height=600).pack()     # 这一页里收不回去的那部分，比窗口高
+            self.table(page, rows)
+
+        class Layout(LayoutMixin):
+            def align_header(self):
+                pass
+
+        d = Layout()
+        d.win, d.canvas, d.content, d.page_index = win, canvas, shown, -1
+        d.content_id = canvas.create_window(0, 0, window=shown, anchor='nw')
+        win.update()
+        width, req, target = d._fit_content_now()
+        self.assertGreater(req - self.extra(10), canvas.winfo_height(), '用例前提：收回自己的表格后这一页仍比窗口高')
+        self.assertEqual(target, req - self.extra(10), '收起来的那一页的表格不该从这一页的高度里扣')
+        # 换到收着的那一页（整页缓存就是这样换的）：轮到它自己的表格算数，原来那一页的不算。
+        d.content = cached
+        canvas.itemconfigure(d.content_id, window=cached)
+        win.update()
+        width, req, target = d._fit_content_now()
+        self.assertGreater(req - self.extra(30), canvas.winfo_height(), '用例前提同上')
+        self.assertEqual(target, req - self.extra(30))
+
+    def test_a_real_page_keeps_its_height_after_the_storyboard_page_is_put_away(self):
+        """真实界面：大窗口里看过初步分镜（整页缓存），换到结构剧本再把窗口拉矮。
+
+        收起来的初步分镜页不再跟着窗口改行数，它的表格一直留着大窗口时的那么多行；这些行要是从
+        结构剧本页的高度里扣，结构剧本页就被定得比自己的内容矮、底下一截看不到也滚不到。
+        """
+        import desktop as desktop_module
+        import tk_test_support
+        from desktop import Desktop
+        from local_video import open_studio
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_adopted_project(td)
+            folder = storyboard_stage(proj) / "分镜文档"
+            body = (folder / "episode.json").read_text(encoding="utf-8")
+            listed = ["03初步分镜/分镜文档/episode.json"]
+            for index in range(2, 8):          # 分镜文件够多：大窗口里表格会长到好几行
+                name = "episode_%d.json" % index
+                (folder / name).write_text(body, encoding="utf-8")
+                listed.append("03初步分镜/分镜文档/" + name)
+            prefs = json.loads((proj / "ui_settings.json").read_text(encoding="utf-8"))
+            prefs["storyboard_files"] = listed
+            (proj / "ui_settings.json").write_text(json.dumps(prefs, ensure_ascii=False), encoding="utf-8")
+            keep_storyboard_fresh(proj)
+            original = desktop_module.Desktop.choose_project
+            desktop_module.Desktop.choose_project = lambda self: None
+            self.addCleanup(setattr, desktop_module.Desktop, "choose_project", original)
+            win = self.win
+            d = Desktop(win, root=PROGRAM)
+            d.root = proj
+            d.studio = open_studio(proj)
+            tk_test_support.pump(win, .3)
+            win.geometry("1008x900+40+40")
+            tk_test_support.pump(win, .5)
+            show_catalog_page_ready(d, PAGE["storyboard"])
+            tk_test_support.pump(win, .8)
+            storyboard = d.content
+            d.go_page(PAGE["script_structure"])      # 侧栏换页：初步分镜页整页收进缓存
+            tk_test_support.pump(win, 1.2)
+            win.geometry("1008x700+40+40")
+            tk_test_support.pump(win, 1.2)
+            self.assertEqual(d.page_index, PAGE["script_structure"])
+            self.assertTrue(storyboard.winfo_exists() and d.content is not storyboard, '用例前提：初步分镜页收在缓存里')
+            self.assertGreater(self.ui.growable_extra(storyboard), 0, '用例前提：收着的那一页里表格还留着多出来的行')
+            needed = d.content.winfo_reqheight() - self.ui.growable_extra(d.content)
+            self.assertGreater(needed, d.canvas.winfo_height(), '用例前提：窗口拉矮后这一页比窗口高')
+            region = [int(float(value)) for value in str(d.canvas.cget('scrollregion')).split()]
+            self.assertEqual(region[3], needed, '结构剧本页被定矮了：收着的初步分镜页的表格不该从这一页的高度里扣')

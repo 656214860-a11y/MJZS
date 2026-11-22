@@ -1,0 +1,15 @@
+{
+  "round": 4087,
+  "commit_base": "7ea1ddeb",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k ui_edges_tables desktop_compact_layout ui_edges_pages window_resize_coalescing",
+    "exit": 0,
+    "passed": 75,
+    "failed": 0
+  },
+  "generated_at": "2026-11-22T20:11:03"
+}
