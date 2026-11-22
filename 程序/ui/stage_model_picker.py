@@ -254,8 +254,9 @@ class StageModelPicker(ttk.Frame):
         view_h = min(content_h, row_h * POPUP_MAX_MODEL_ROWS + SPACING['lg'])
         holder.configure(height=view_h)
         # 画布需求宽度不含窗内 form：把最宽模型行的需求宽度直接喂给画布，
-        # 否则长模型名会被画布默认宽度裁掉（R2964 预览反馈）。
-        scroll.canvas.configure(width=max(need_w, scroll.canvas.winfo_reqwidth()))
+        # 否则长模型名会被画布默认宽度裁掉（R2964 预览反馈）。不拿 Tk 画布的默认宽度兜底：
+        # 模型名短时它会把卡片撑宽，右侧留出一大块空白。
+        scroll.canvas.configure(width=need_w)
         scroll.bind_wheel()
 
         pinned = tk.Frame(body, bg=COLORS['background_primary'])

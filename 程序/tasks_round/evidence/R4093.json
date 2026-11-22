@@ -1,0 +1,15 @@
+{
+  "round": 4093,
+  "commit_base": "6d8c1477",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k stage_reasoning stage_model_value multi_monitor_popups",
+    "exit": 0,
+    "passed": 29,
+    "failed": 0
+  },
+  "generated_at": "2026-11-22T21:50:44"
+}

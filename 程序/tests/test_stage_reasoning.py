@@ -267,6 +267,51 @@ class ReasoningPickerTests(unittest.TestCase):
         picker.choose_reasoning('没这档')
         self.assertEqual(stage_config.get(self.desktop.root, 'keyframe')['reasoning'], 'auto')
 
+    def test_popup_width_follows_the_widest_row(self):
+        """浮层宽度由内容决定：滚动区不拿 Tk 画布的默认宽度兜底（模型名短时会在右侧撑出一大块空白），
+        长模型名仍要完整放下。"""
+        import stage_model_picker
+        picker = stage_model_picker.StageModelPicker(self.win, self.desktop, 'keyframe')
+        self.addCleanup(picker.destroy)
+        self.addCleanup(picker._close_popup)
+        picker.pack(side='left')
+        self.win.deiconify()
+        self.win.update_idletasks()
+        self.win.update()
+        default_width = self.tk.Canvas(self.win).winfo_reqwidth()
+
+        def canvases(widget):
+            found = []
+            for child in widget.winfo_children():
+                if child.winfo_class() == 'Canvas':
+                    found.append(child)
+                found.extend(canvases(child))
+            return found
+
+        def open_with(labels):
+            picker._close_popup()
+            picker._items = [('m%d' % index, label) for index, label in enumerate(labels)]
+            picker._by_display = {label: model_id for model_id, label in picker._items}
+            picker._capable = {'m0'}
+            picker.model.set(labels[0])
+            self.win.update_idletasks()
+            picker.toggle_popup()
+            self.win.update_idletasks()
+            self.win.update()
+            top = picker._popup
+            canvas = canvases(top)[0]
+            rows = canvas.winfo_children()[0].winfo_children()
+            return top, canvas, max(row.winfo_reqwidth() for row in rows)
+
+        top, canvas, widest = open_with(['模型甲', '模型乙'])
+        self.assertLess(widest, default_width, '前提：短模型名的行比 Tk 画布的默认宽度窄')
+        self.assertEqual(int(canvas.cget('width')), widest, '滚动区宽度应等于最宽的模型行')
+        self.assertLess(top.winfo_reqwidth(), default_width, '短模型名时卡片不得被画布默认宽度撑宽')
+
+        top, canvas, widest = open_with(['很长的模型名称' * 8, '模型乙'])
+        self.assertGreater(widest, default_width, '前提：长模型名的行比 Tk 画布的默认宽度宽')
+        self.assertEqual(int(canvas.cget('width')), widest, '长模型名要完整放下，不被画布裁掉')
+
 
 if __name__ == '__main__':
     unittest.main()
