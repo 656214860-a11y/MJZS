@@ -1,0 +1,15 @@
+{
+  "round": 4129,
+  "commit_base": "d8d10a5b",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k keyframe_comfy storyboard_recycle_service native_assets storyboard_source_selector project_settings",
+    "exit": 0,
+    "passed": 39,
+    "failed": 0
+  },
+  "generated_at": "2026-11-23T00:59:08"
+}

@@ -1,5 +1,6 @@
 """In-app first-frame production: local ComfyUI (FLUX Klein) or the Seedream 5.0 API."""
 import infra.app_logging as app_logging
+import infra.project_settings as project_settings
 import queue
 import threading
 from pathlib import Path
@@ -569,7 +570,7 @@ class _KeyframeComfyWindow(_KeyframeComfyRows):
         if not isinstance(data, dict):
             data = {}
         data['frame_production'] = {'aspect_ratio': self.aspect.get()}
-        save(self.prefs_file, data)
+        project_settings.save_prefs(self.project, data)
 
     def update_model_ui(self, *_):
         current = self.kind()

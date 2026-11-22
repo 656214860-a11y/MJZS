@@ -11,6 +11,7 @@ import time
 import uuid
 from pathlib import Path
 from infra.file_cache import remove_temporary_file
+from infra.project_settings import save_prefs
 from urllib.parse import urlencode
 # 第 34 期第 9 条：`urllib.error` 连 http.client／ssl 一起加载（约 4.4 MB 常驻），
 # 本模块只在真要连 ComfyUI 时用得到——改成函数内 import。
@@ -412,7 +413,7 @@ class _AssetControls:
     def selected(self, event=None):
         self.update_hint()
         prefs=read(self.prefsfile) if self.prefsfile.is_file() else {}
-        prefs['asset_workflow']={'model':self.model.get(),'aspect_ratio':self.aspect.get(),'quality':'medium','seed':42};save(self.prefsfile,prefs)
+        prefs['asset_workflow']={'model':self.model.get(),'aspect_ratio':self.aspect.get(),'quality':'medium','seed':42};save_prefs(self.project,prefs)
 
     def account(self):
         if self.model.get()=='Seedream 5.0 Pro':
