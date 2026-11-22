@@ -101,7 +101,7 @@ class AsyncTasksMixin:
         self._script_agent_launching=False
         self.update_script_interrupt_button()
         self.clear_thinking()
-        self.notifier.error(str(value), title='操作未完成')
+        import contract.error_codes as error_codes;self.notifier.error(error_codes.user_text(value), title='操作未完成')
     def _tick_async_result(self):
         """消费主后台任务结果，并恢复相关 UI 与自动链。"""
         # 首帧的创意历史发现不属于用户操作，单独回收，绝不改变 worker 状态。

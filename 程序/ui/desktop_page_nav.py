@@ -87,7 +87,16 @@ class PageNavMixin:
         第 35 期第 4 条：video_mode 原样透给 show()——侧栏点「10 视频生成」时传 'choose'。
         """
         try:self.show(index,video_mode=video_mode)
-        except Exception as exc:self.notifier.error(str(exc), title='页面无法显示')
+        except Exception as exc:
+            # 先记录再提示：翻页失败的原始异常事后要查得到；记录自己出错不影响提示。
+            try:
+                import infra.diagnostic_capture as diagnostic_capture
+                diagnostic_capture.record_degradation(
+                    exc, page=page_title(getattr(self,'page_index',0)),
+                    project=str(getattr(self,'root', '') or ''),
+                    automatic_daily_open=bool(getattr(self,'_startup_project_choice',False)))
+            except Exception:app_logging.swallowed()
+            import contract.error_codes as error_codes;self.notifier.error(error_codes.user_text(exc), title='页面无法显示')
     def _page_cache_for(self,index,*,same_page):
         """整页缓存（CACHED_PAGES）：只在侧栏点回来时复用；同页重建、换项目一律作废重建。
 

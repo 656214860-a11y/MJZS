@@ -581,7 +581,7 @@ class App:
         try:
             if self.busy: raise ValueError('正在执行操作，请稍后')
             fn()
-        except Exception as e:self.notifier.error(str(e), title='提示')
+        except Exception as e:import contract.error_codes as error_codes;self.notifier.error(error_codes.user_text(e), title='提示')
     def white_model_path(self,sid):
         """这一镜的白模视频（第 54 期第 3 条：「白模 · 上传」那一列右键查看的就是它）。"""
         from ui.white_model import shot_directory,project_for_app,read_record

@@ -564,7 +564,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
                 e, page=PAGES[getattr(self,'page_index',0)],
                 project=str(getattr(self,'root', '') or ''),
                 automatic_daily_open=bool(getattr(self,'_startup_project_choice',False)))
-            self.notifier.error(str(e))
+            import contract.error_codes as error_codes;self.notifier.error(error_codes.user_text(e))
 
     def export_diagnostics_package(self):
         """唯一的用户诊断包动作：先透明说明白名单，再让用户选择保存位置。"""
