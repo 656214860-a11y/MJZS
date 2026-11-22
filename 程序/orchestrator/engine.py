@@ -259,16 +259,25 @@ def _media_tool(cfg,name):
     return tool_path(name,configured=(cfg or {}).get(name))
 
 
+def read_project_config(root):
+    """读项目的 config.json：目录不在、文件不在、文件读坏、顶层不是对象，各报各的原因。"""
+    root=Path(root);config=root/'config.json'
+    if not root.is_dir():raise ValueError('项目目录不存在或已被移动：'+str(root))
+    if not config.is_file():
+        raise ValueError('项目文件夹里没有项目配置文件 config.json：'+str(root)+'。这个文件夹可能是项目被移动或改名后留下的空壳；'
+                         '请在项目选择窗口选中这个项目后点「重新查找项目」，或把原来的项目文件夹放回原位后再打开。')
+    try:cfg=read(config)
+    except (OSError,ValueError) as exc:
+        raise ValueError('项目配置文件 config.json 无法读取：'+str(exc)) from None
+    if not isinstance(cfg,dict):raise ValueError('项目配置文件 config.json 顶层必须为对象')
+    return cfg
+
+
 class Studio:
     def __init__(self, root, factory=WanAdapter,episode_file=None):
         self.root=Path(root).resolve()
         self.factory=factory
-        try:
-            cfg=read(self.root/'config.json')
-        except (OSError,ValueError) as exc:
-            raise ValueError('项目配置文件 config.json 无法读取：'+str(exc)) from None
-        if not isinstance(cfg,dict):
-            raise ValueError('项目配置文件 config.json 顶层必须为对象')
+        cfg=read_project_config(self.root)
         self.cfg=cfg
         # 第 45 期：镜头 JSON 与它所在的目录一起定下来（改名映射、定稿目录都算数）。目录原来是从
         # config 里单读的，与真正那份 JSON 一脱节就报「[Errno 2] 无法打开项目」；现在以找到的文件

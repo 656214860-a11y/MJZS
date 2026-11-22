@@ -52,12 +52,17 @@ def _read_for_write(path):
                           '请保留原文件，修复格式后重试。')
     return data
 
+def save_prefs(project,data):
+    """写 ui_settings.json：项目目录被移走、改名或删除后，不得因为写设置把它重新建出来。"""
+    if not Path(project).is_dir():raise ConfigError('项目目录不存在或已被移动：'+str(project)+'。本次设置没有保存。')
+    save(file(project),data)
+
 def put(project,key,value):
     path=file(project)
     with access():
         data=_read_for_write(path)
         if data.get(key)!=value:
-            data[key]=value;save(path,data)
+            data[key]=value;save_prefs(project,data)
     return data.get(key)
 
 def unattended_label(text,model):

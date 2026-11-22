@@ -116,3 +116,24 @@ class ProjectSettingsValidationTests(unittest.TestCase):
         self.assertEqual(errors, [])
         self.assertEqual(json.loads(self.target.read_bytes()),
                          {'unknown': {'keep': True}, 'auto_review': True, 'auto_adopt': True})
+
+    def test_put_refuses_when_the_project_folder_is_gone(self):
+        gone = self.project / '项目' / '已移走'
+        with self.assertRaises(ValueError) as caught:
+            project_settings.put(gone, 'auto_review', True)
+        self.assertIn('项目目录不存在或已被移动', str(caught.exception))
+        self.assertFalse(gone.exists())
+        self.assertFalse(gone.parent.exists())
+
+    def test_save_prefs_refuses_when_the_project_folder_is_gone(self):
+        gone = self.project / '项目' / '已移走'
+        with self.assertRaises(ValueError) as caught:
+            project_settings.save_prefs(gone, {'a': 1})
+        self.assertIn('项目目录不存在或已被移动', str(caught.exception))
+        self.assertFalse(gone.exists())
+        self.assertFalse(gone.parent.exists())
+
+    def test_save_prefs_writes_into_an_existing_project(self):
+        project_settings.save_prefs(self.project, {'a': 1})
+        self.assertEqual(json.loads(self.target.read_text(encoding='utf-8')), {'a': 1})
+

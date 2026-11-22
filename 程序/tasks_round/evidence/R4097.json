@@ -1,0 +1,15 @@
+{
+  "round": 4097,
+  "commit_base": "f624a5fc",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k project_open project_settings_validation storyboard_page_controller storyboard_catalog_scan_count storyboard_current_source storyboard_final_selection storyboard_scope req_s03_anchors",
+    "exit": 0,
+    "passed": 76,
+    "failed": 0
+  },
+  "generated_at": "2026-11-22T21:53:59"
+}

@@ -1,8 +1,10 @@
 from pathlib import Path
+import json
 import tempfile
 import unittest
 from unittest.mock import patch
 
+from orchestrator import storyboard_selection
 from orchestrator.storyboard_page_controller import StoryboardPageController
 
 
@@ -69,3 +71,31 @@ class StoryboardPageControllerTests(unittest.TestCase):
                 })
                 self.assertEqual([entry['path'] for entry in catalogs['storyboard']], [kept])
                 self.assertEqual(controller.selection('storyboard'), [kept])
+
+    def test_a_vanished_project_folder_is_not_recreated_by_the_page_scan(self):
+        with tempfile.TemporaryDirectory() as folder:
+            gone = Path(folder) / '项目' / '已移走'
+            controller = StoryboardPageController(gone)
+            with self.assertRaises(ValueError) as caught:
+                controller.apply_catalogs({'script': [], 'storyboard': [], 'completed_scripts': []})
+            self.assertIn('项目目录不存在或已被移动', str(caught.exception))
+            self.assertFalse(gone.exists())
+            self.assertFalse(gone.parent.exists())
+
+    def test_remembering_a_selection_never_recreates_the_project_folder(self):
+        with tempfile.TemporaryDirectory() as folder:
+            gone = Path(folder) / '项目' / '已移走'
+            for kind in ('script', 'storyboard'):
+                with self.subTest(kind=kind), self.assertRaises(ValueError) as caught:
+                    storyboard_selection.remember_many(gone, kind, [])
+                self.assertIn('项目目录不存在或已被移动', str(caught.exception))
+            self.assertFalse(gone.exists())
+
+    def test_remembering_a_selection_still_works_in_an_existing_project(self):
+        with tempfile.TemporaryDirectory() as folder:
+            project = Path(folder)
+            storyboard_selection.remember_many(project, 'script', [])
+            path = project / 'ui_settings.json'
+            self.assertTrue(path.is_file())
+            self.assertEqual(json.loads(path.read_text(encoding='utf-8'))['storyboard_scripts'], [])
+
