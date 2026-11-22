@@ -1,0 +1,15 @@
+{
+  "round": 4084,
+  "commit_base": "7ea1ddeb",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k agent_doc_budget doc_registry_migration",
+    "exit": 0,
+    "passed": 18,
+    "failed": 0
+  },
+  "generated_at": "2026-11-22T19:35:59"
+}
