@@ -234,9 +234,11 @@ class AssetPagesMixin:
             prepare_folders(self.asset_base())
         if not hasattr(self,'asset_checks'):self.asset_checks={}
         self.asset_gated_buttons=[]
-        toolbar=FlowBar(self.content);toolbar.pack(fill='x',pady=(SPACING['none'],SPACING['xs']))
+        # L4-U7b：行首标签放在 FlowBar 外面，按钮换行后回到本行第一颗按钮下面，而不是标签下面。
+        toolbar_row=ttk.Frame(self.content);toolbar_row.pack(fill='x',pady=(SPACING['none'],SPACING['xs']))
         # 第 31 期第 7 条：这一行的标签与下面「参考图」「资产图片」两行同宽，三行按钮左边缘对齐。
-        ttk.Label(toolbar,text='资产',width=ASSET_ROW_LABEL).pack(side='left')
+        ttk.Label(toolbar_row,text='资产',width=ASSET_ROW_LABEL).pack(side='left')
+        toolbar=FlowBar(toolbar_row);toolbar.pack(side='left',fill='x',expand=True)
         def choose_all():self.asset_kind='all';self.show(PAGE['assets'])
         (PrimaryButton if self.asset_kind=='all' else SecondaryButton)(toolbar,text='全部',command=lambda:self.safe(choose_all)).pack(side='left')
         for label,kind in [('角色','characters'),('场景','scenes'),('道具','props')]:
@@ -258,13 +260,15 @@ class AssetPagesMixin:
         # 第 57 期第 6 条：「查看参考图」又删了——参考图那一格单击打开的就是它（同一件事两个
         # 入口，用户点名去重）；「批量删除图片」改名「批量删除资产」；「生成图目录」改名
         # 「资产目录」，改开 episode 根目录（它下面才是资产库、参考图与生成资产）。
-        refs=FlowBar(self.content);refs.pack(fill='x',pady=(SPACING['none'],SPACING['xs']))
-        ttk.Label(refs,text='参考图',width=ASSET_ROW_LABEL).pack(side='left')
+        refs_row=ttk.Frame(self.content);refs_row.pack(fill='x',pady=(SPACING['none'],SPACING['xs']))
+        ttk.Label(refs_row,text='参考图',width=ASSET_ROW_LABEL).pack(side='left')
+        refs=FlowBar(refs_row);refs.pack(side='left',fill='x',expand=True)
         b=SecondaryButton(refs,text='导入参考图',command=lambda:self.safe(lambda:self.import_reference_images()));b.pack(side='left',padx=SPACING['xs'],pady=SPACING['xs']);self.asset_gated_buttons.append(b)
         b=SecondaryButton(refs,text='候选图墙',command=lambda:self.safe(lambda:ui_plugin_registry.module('reference_wall').show(self,self.require_asset_selected('先点选一项资产，再打开候选图墙'))));b.pack(side='left',padx=SPACING['xs'],pady=SPACING['xs']);self.asset_gated_buttons.append(b)
         SecondaryButton(refs,text='参考图目录',command=lambda:self.safe(lambda:self.open_reference_folder())).pack(side='left',padx=SPACING['xs'],pady=SPACING['xs'])
-        imgs=FlowBar(self.content);imgs.pack(fill='x',pady=(SPACING['none'],SPACING['xs']))
-        ttk.Label(imgs,text='资产图片',width=ASSET_ROW_LABEL).pack(side='left')
+        imgs_row=ttk.Frame(self.content);imgs_row.pack(fill='x',pady=(SPACING['none'],SPACING['xs']))
+        ttk.Label(imgs_row,text='资产图片',width=ASSET_ROW_LABEL).pack(side='left')
+        imgs=FlowBar(imgs_row);imgs.pack(side='left',fill='x',expand=True)
         b=SecondaryButton(imgs,text='导入资产图片',command=lambda:self.safe(lambda:self.asset_import(self.asset_kind,selected=self.asset_selected())));b.pack(side='left',padx=SPACING['xs'],pady=SPACING['xs']);self.asset_gated_buttons.append(b)
         # 第 57 期第 6 条：「批量删除图片」→「批量删除资产」（它删的本来就不止图片：资产图上
         # 那一行的登记一并撤掉）。
@@ -324,12 +328,12 @@ class AssetPagesMixin:
                 try:return force_close_comfy(self.settings)
                 except Exception as exc:return '强制关闭失败：'+str(exc)
             self.async_(work,lambda text:self.status.set(str(text)),show_progress=False,label='正在强制关闭 ComfyUI…')
-        SecondaryButton(production,text='强制关闭 ComfyUI',command=lambda:self.safe(kill_comfy_here)).pack(side='left',padx=SPACING['xs'],pady=SPACING['xs'])
+        SecondaryButton(production,text='强制关闭 ComfyUI',width=STAGE_ACTION_WIDTH,command=lambda:self.safe(kill_comfy_here)).pack(side='left',padx=SPACING['xs'],pady=SPACING['xs'])
         def asset_records():
             folder=self.root/'workflows/Comfy资产批次';folder.mkdir(parents=True,exist_ok=True);self.asset_page_services.open_path(folder)
-        SecondaryButton(production,text='制作记录',command=lambda:self.safe(asset_records)).pack(side='left',padx=SPACING['xs'],pady=SPACING['xs'])
-        SecondaryButton(production,text='桌面打开 ComfyUI',command=lambda:self.safe(self.launch_comfy)).pack(side='left',padx=SPACING['xs'],pady=SPACING['xs'])
-        SecondaryButton(production,text='浏览器打开 ComfyUI',command=lambda:self.safe(self.open_comfy_browser)).pack(side='left',padx=SPACING['xs'],pady=SPACING['xs'])
+        SecondaryButton(production,text='制作记录',width=STAGE_ACTION_WIDTH,command=lambda:self.safe(asset_records)).pack(side='left',padx=SPACING['xs'],pady=SPACING['xs'])
+        SecondaryButton(production,text='桌面打开 ComfyUI',width=STAGE_ACTION_WIDTH,command=lambda:self.safe(self.launch_comfy)).pack(side='left',padx=SPACING['xs'],pady=SPACING['xs'])
+        SecondaryButton(production,text='浏览器打开 ComfyUI',width=STAGE_ACTION_WIDTH,command=lambda:self.safe(self.open_comfy_browser)).pack(side='left',padx=SPACING['xs'],pady=SPACING['xs'])
         # 自动制作开关由三虎模式统一控制；变量保留给活动页面即时同步，初始为关闭。
         self.pet.auto_variable('auto_asset_var')
         self.update_asset_buttons()
