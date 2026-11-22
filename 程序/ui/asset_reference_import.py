@@ -4,6 +4,7 @@ import hashlib
 import tkinter as tk
 from tkinter import ttk
 from agent.core import read
+from infra.pet_state import PAGE_OF
 from asset_reference_images import CATEGORIES,EXTENSIONS,ROLE_GROUPS,classified_target,image_bytes,save_copy,attach,unbind
 from ui.ui_dialogs import FileDialog
 from ui_widgets import (SelectBox, BaseDialog, Card, LineInput, PrimaryButton, ProgressLabel,
@@ -80,7 +81,7 @@ def show(app,aid=None,role=None,pending=False,parent=None,on_saved=None):
             active=sync_asset_plan(project,base,scope_sources(project,'adopted'),scope='adopted')
             count=save_images(base,choices.get(asset.get()),purpose.get(),paths,active,pending)
             if on_saved:on_saved()
-            else:app.show(2)
+            else:app.show(PAGE_OF['assets'])
             app.status.set(f'已保存 {count} 张分类参考图。'+('点击“批量导入参考图”完成绑定。' if pending else '已自动绑定资产。'))
             win.destroy()
         except (ValueError,OSError) as exc:notify(win, str(exc), level='error', title='保存未完成')
@@ -106,7 +107,7 @@ def show(app,aid=None,role=None,pending=False,parent=None,on_saved=None):
                 return
             unbind(base,target,values)
             if on_saved:on_saved()
-            else:app.show(2)
+            else:app.show(PAGE_OF['assets'])
             app.status.set('已解除 '+str(len(values))+' 张「'+role+'」参考图绑定，文件已移入回收站。')
             win.destroy()
         except (ValueError,OSError) as exc:notify(win, str(exc), level='error', title='删除未完成')

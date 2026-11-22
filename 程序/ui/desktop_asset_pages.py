@@ -476,7 +476,7 @@ class AssetPagesMixin:
             return False
         base=AssetPagesMixin.asset_write_base(self)
         unbind(base,aid,values)
-        self.show(2)
+        self.show(PAGE['assets'])
         self.status.set(aid+' 的 '+str(len(values))+' 张参考图已移入回收站。')
         return True
     def delete_asset_image(self,aid,ask=True):
@@ -501,7 +501,7 @@ class AssetPagesMixin:
         base=AssetPagesMixin.asset_write_base(self)
         remove_asset_image(base,aid,gateway=AssetPagesMixin.asset_batch_gateway())
         if ask:
-            self.show(2)
+            self.show(PAGE['assets'])
             self.status.set(aid+' 已导入图片已删除，恢复为待导入。')
         return True
     def delete_asset_images(self):
@@ -528,7 +528,7 @@ class AssetPagesMixin:
                 if self.delete_asset_image(aid,ask=False):done.append(aid)
             except (OSError,ValueError,KeyError) as exc:
                 self.note(aid+' 图片未删除：'+str(exc))
-        self.show(2)
+        self.show(PAGE['assets'])
         self.status.set('已删除 %d 项资产的已导入图片（移入项目回收站，可恢复）：%s'%(len(done),'、'.join(done)))
         return done
     def restore_asset_image(self,aid,ask=True):
@@ -560,7 +560,7 @@ class AssetPagesMixin:
         if not name:raise ValueError('资产名称不能为空')
         from domain.asset_batch_service import rename_asset as _rename_asset
         _rename_asset(AssetPagesMixin.asset_write_base(self),aid,old,name,gateway=AssetPagesMixin.asset_batch_gateway())
-        if refresh:self.show(2)
+        if refresh:self.show(PAGE['assets'])
         self.status.set('名称已保存')
     def asset_import(self,kind,initial=None,selected=None):
         base=self.asset_base()/'assets'

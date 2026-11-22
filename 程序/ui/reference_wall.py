@@ -12,6 +12,7 @@ from tkinter import ttk, messagebox
 import ui.asset_reference_search as search
 from asset_reference_images import ROLE_GROUPS
 from cell_hover import bind_row_menu
+from infra.pet_state import PAGE_OF
 from responsive_ui import CheckboxColumn, auto_columns, configure_check_column, bind_row_toggle
 from ui.ui_dialogs import FileDialog
 from ui_tokens import BUTTON_GAP, CHAR_WIDTH, TEXT_ROWS, WRAPLENGTH, SPACING
@@ -179,7 +180,7 @@ class _ReferenceWall:
         if self.on_saved:
             self.on_saved()
         else:
-            self.app.show(2)
+            self.app.show(PAGE_OF['assets'])
         self.win.destroy()
 
     def commit(self):

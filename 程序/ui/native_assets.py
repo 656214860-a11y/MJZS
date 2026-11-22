@@ -17,6 +17,7 @@ from urllib.parse import urlencode
 from agent.core import read, save, save_bytes
 from infra.comfy_service import Comfy
 from infra.cloud_assets import MODELS as CLOUD_MODELS
+from infra.pet_state import PAGE_OF
 import infra.tk_timers as tk_timers
 from ui.ui_motion import Spinner
 from ui_tokens import BUTTON_GAP_TIGHT, WRAPLENGTH, SPACING
@@ -504,7 +505,7 @@ class _AssetControls:
                     self.reload_rows();self.progress_text.set(result)
             except Exception:
                 app_logging.swallowed()
-            if self.app.root==self.project:self.app.show(2)
+            if self.app.root==self.project:self.app.show(PAGE_OF['assets'])
             try:
                 if self.win.winfo_exists():
                     # 按资产库里的落盘结果判断，不靠返回文案里的关键字：取消、超时、

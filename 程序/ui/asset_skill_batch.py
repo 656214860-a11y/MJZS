@@ -6,6 +6,7 @@ from agent.core import read,save
 from domain.asset_batch_service import asset_prompt, register_image, KINDS, image_ready
 import orchestrator.stage_parallel as stage_parallel
 import infra.tk_timers as tk_timers
+from infra.pet_state import PAGE_OF
 def launch(app,project,base,items):
     from contract.prop_assets import requires_asset
     items=[(aid,asset) for aid,asset in items if requires_asset(aid,asset) and not image_ready(base,aid)]
@@ -84,8 +85,8 @@ def watch(app,manifest):
                     app.status.set(item['id']+' 自动导入失败：'+str(exc))
             if dirty:
                 save(manifest,data)
-                if Path(app.root).resolve()==manifest.parents[3].resolve() and getattr(app,'page_index',None)==2:
-                    app.show(2)
+                if Path(app.root).resolve()==manifest.parents[3].resolve() and getattr(app,'page_index',None)==PAGE_OF['assets']:
+                    app.show(PAGE_OF['assets'])
             from domain.asset_batch_lifecycle import status
             execution=status(manifest,gateway=gateway)
             if execution['state']=='failed':

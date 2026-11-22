@@ -283,5 +283,27 @@ class WallDialogTests(unittest.TestCase):
         self.assertEqual(plan.read_bytes(), before)      # 剔除候选不改已入库资产
 
 
+class FinishTests(unittest.TestCase):
+    """入库完成后去的是资产管理页，页码按阶段名取，不写死数字（UX-B6）。"""
+
+    def _finish(self, on_saved):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        shown = []
+        wall = SimpleNamespace(app=SimpleNamespace(status=Mock(), show=shown.append), on_saved=on_saved, win=Mock())
+        reference_wall._ReferenceWall.finish(wall, {'adopted': ['a.png'], 'skipped': []})
+        wall.win.destroy.assert_called_once_with()
+        return shown
+
+    def test_finish_without_callback_shows_the_assets_page(self):
+        from infra.pet_state import PAGE_OF
+        self.assertEqual(self._finish(None), [PAGE_OF['assets']])
+
+    def test_finish_with_callback_leaves_the_page_to_the_caller(self):
+        calls = []
+        self.assertEqual(self._finish(lambda: calls.append('saved')), [])
+        self.assertEqual(calls, ['saved'])
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=1)
