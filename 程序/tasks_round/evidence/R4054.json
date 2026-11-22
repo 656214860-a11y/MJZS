@@ -1,0 +1,15 @@
+{
+  "round": 4054,
+  "commit_base": "9013996d",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k distribution_selfcheck",
+    "exit": 0,
+    "passed": 3,
+    "failed": 0
+  },
+  "generated_at": "2026-11-22T12:55:49"
+}
