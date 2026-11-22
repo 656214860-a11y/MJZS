@@ -617,6 +617,14 @@
         "程序/ui/desktop_media_pages.py"
       ]
     },
+    "程序/tests/test_board_assets_buttons.py": {
+      "kind": "module",
+      "owner": "项目维护者",
+      "contract": "03 初步分镜页与 05 资产管理页按钮换行左对齐、行首标签不被遮挡、底部按钮同宽",
+      "targets": [
+        "程序/ui/desktop_asset_pages.py"
+      ]
+    },
     "程序/tests/test_script_page_layout.py": {
       "kind": "module",
       "owner": "项目维护者",

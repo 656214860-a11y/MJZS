@@ -1,0 +1,15 @@
+{
+  "round": 4059,
+  "commit_base": "caf814a9",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k board_assets_buttons",
+    "exit": 0,
+    "passed": 5,
+    "failed": 0
+  },
+  "generated_at": "2026-11-22T13:41:57"
+}
