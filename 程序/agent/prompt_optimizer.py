@@ -54,7 +54,7 @@ def stored_key(base_url):
     return model_secrets.load(key_name_for(base_url),root=_secret_root()) if str(base_url or '').strip() else ''
 
 def _migrate_plain_keys(cfg):
-    """把设置里残留的明文密钥搬进本机加密存储，并从设置里抹掉；返回设置有没有被改动。"""
+    """把设置里残留的明文密钥搬进本机加密存储，并从设置里抹掉（没有接口地址的那一份没处可存，原样留着）；返回设置有没有被改动。"""
     profiles=cfg.get('profiles');models=cfg.get('model_profiles')
     holders=[*[v for v in (profiles.values() if isinstance(profiles,dict) else []) if isinstance(v,dict)],
              *[v for v in (models if isinstance(models,list) else []) if isinstance(v,dict)],cfg]
@@ -69,8 +69,8 @@ def _migrate_plain_keys(cfg):
         except (ValueError,OSError):failed.add(base)    # 存不进去：这个地址的明文原样留着，下次再试
     changed=False
     for holder in holders:
-        if holder.get('api_key') and str(holder.get('base_url') or '').strip().rstrip('/') not in failed:
-            holder['api_key']='';changed=True
+        base=str(holder.get('base_url') or '').strip().rstrip('/')
+        if holder.get('api_key') and base and base not in failed:holder['api_key']='';changed=True    # 没有地址的明文没处可存，原样留着
     return changed
 
 def load_config():

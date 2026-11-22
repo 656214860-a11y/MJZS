@@ -1,0 +1,15 @@
+{
+  "round": 4123,
+  "commit_base": "ffa744c3",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k mcp_settings",
+    "exit": 0,
+    "passed": 23,
+    "failed": 0
+  },
+  "generated_at": "2026-11-23T00:19:11"
+}

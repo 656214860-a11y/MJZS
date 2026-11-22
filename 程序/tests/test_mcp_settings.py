@@ -386,6 +386,19 @@ class KeyStoreTests(unittest.TestCase):
         self.assertEqual(self.stored(self.URL), "sk-test", "下次能存了再搬")
         self.assertNotIn("sk-test", self.file_text())
 
+    def test_a_plain_key_without_an_address_stays_in_the_file(self):
+        self.seed({"base_url": "", "model": "example-chat", "api_key": "sk-top",
+                   "profiles": {"x": {"base_url": "  ", "model": "blank-chat", "api_key": "sk-blank"}},
+                   "model_profiles": [{"model": "none-chat", "api_key": "sk-none"},
+                                      {"base_url": self.OTHER, "model": "other-chat", "api_key": "sk-other"}]})
+        cfg = optimizer.load_config()
+        for plain in ("sk-top", "sk-blank", "sk-none"):
+            self.assertIn(plain, self.file_text(), "没有地址的明文没处可存，原样留着，不丢用户的密钥")
+        self.assertEqual(cfg["api_key"], "sk-top")
+        self.assertNotIn("sk-other", self.file_text(), "有地址的那一份照常搬走")
+        self.assertEqual(self.stored(self.OTHER), "sk-other")
+        self.assertEqual(optimizer.load_config(), cfg, "再读一遍不再变")
+
     def test_starting_reads_the_key_from_the_store(self):
         self.seed({"base_url": self.URL, "model": "example-chat", "api_key": "sk-test", "server": "s.py"})
         cfg, secret, missing = optimizer.ready_config()
