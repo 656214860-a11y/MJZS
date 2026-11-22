@@ -3,7 +3,7 @@ import os, time
 from pathlib import Path
 from agent.core import read,save
 from infra.file_cache import read_json
-from infra.project_settings import read_prefs
+from infra.project_settings import read_prefs, save_prefs
 from orchestrator.project_context_factory import project_context
 from domain.storyboard_adoption_contract import adopted as _adopted, paths, problem_text, resolve_source
 import contract.pet_bus as pet_bus
@@ -45,7 +45,7 @@ def remember_many(project, kind, values):
     singular = 'storyboard_script' if kind == 'script' else 'storyboard_file'
     data[plural] = stored
     data[singular] = stored[0] if stored else ''
-    save(project / 'ui_settings.json', data)
+    save_prefs(project, data)
 
 
 def selected_many(project, kind):
@@ -77,7 +77,7 @@ def remember_final_view(project, source):
         raise ValueError('分镜定稿不在当前项目内')
     data = writable_prefs(project)
     data['final_storyboard_json'] = source.relative_to(project).as_posix()
-    save(project / 'ui_settings.json', data)
+    save_prefs(project, data)
     return source
 
 
@@ -207,7 +207,7 @@ def prune_invalid_adoptions(project):
     except (OSError,ValueError,IndexError):current_path=None
     if current_path not in valid:
         data['frame_json']=valid[-1].relative_to(project).as_posix() if valid else ''
-    save(project/'ui_settings.json',data)
+    save_prefs(project,data)
     sync_draft_outputs(project)
     return tuple(removed)
 
@@ -316,7 +316,7 @@ def adopt(project,values,*,gateway=None):
     data=writable_prefs(project)
     data['adopted_storyboards']=[p.relative_to(project).as_posix() for p in combined]
     data['frame_json']=incoming[-1].relative_to(project).as_posix()
-    save(project/'ui_settings.json',data)
+    save_prefs(project,data)
     sync_draft_outputs(project)
     return combined
 
@@ -423,7 +423,7 @@ def remove(project,values,*,gateway=None):
     current=resolve_source(project,data['frame_json']) if data.get('frame_json') else None
     if current not in remaining:data['frame_json']=remaining[-1].relative_to(project).as_posix() if remaining else ''
     _sync_plan(project,library_dir(project),remaining,gateway=_asset_plan_gateway(gateway), context=project_context(project))
-    save(project/'ui_settings.json',data)
+    save_prefs(project,data)
     sync_draft_outputs(project)
     return remaining
 
@@ -432,7 +432,7 @@ def focus(project,source):
     project=Path(project).resolve();source=paths(project,[source])[0]
     if source not in adopted(project):raise ValueError('请先采用该分镜')
     data=writable_prefs(project);data['frame_json']=source.relative_to(project).as_posix()
-    save(project/'ui_settings.json',data)
+    save_prefs(project,data)
 
 
 def summary(project):

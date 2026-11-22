@@ -16,6 +16,7 @@ os.chdir(HERE)
 
 import desktop
 import engine
+import local_video
 
 
 def episode(eid="EP001", title="看它，别看我", shots=("SH001", "SH002")):
@@ -130,6 +131,55 @@ class UnopenableProjectTests(unittest.TestCase):
                 desktop.Desktop.load(SimpleNamespace(), gone)
             self.assertIn("项目目录不存在或已被移动", str(caught.exception))
             self.assertIn(gone, str(caught.exception))
+
+    def test_a_folder_without_config_is_called_an_empty_shell(self):
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td) / 'p'
+            p.mkdir()
+            (p / 'ui_settings.json').write_text('{}', encoding='utf-8')
+            for opener in (engine.Studio, local_video.open_studio):
+                with self.subTest(opener=opener), self.assertRaises(ValueError) as caught:
+                    opener(p)
+                message = str(caught.exception)
+                self.assertIn('没有项目配置文件 config.json', message)
+                self.assertIn('重新查找项目', message)
+                self.assertIn(str(p), message)
+                self.assertNotIn('Errno', message)
+                self.assertNotIn('无法读取', message)
+
+    def test_a_corrupt_config_is_still_called_unreadable(self):
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td) / 'p'
+            p.mkdir()
+            (p / 'config.json').write_text('{"episode_dir":', encoding='utf-8')
+            for opener in (engine.Studio, local_video.open_studio):
+                with self.subTest(opener=opener), self.assertRaises(ValueError) as caught:
+                    opener(p)
+                message = str(caught.exception)
+                self.assertIn('config.json 无法读取', message)
+                self.assertNotIn('没有项目配置文件', message)
+
+    def test_a_config_that_is_not_an_object_is_rejected(self):
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td) / 'p'
+            p.mkdir()
+            (p / 'config.json').write_text('[]', encoding='utf-8')
+            for opener in (engine.Studio, local_video.open_studio):
+                with self.subTest(opener=opener), self.assertRaises(ValueError) as caught:
+                    opener(p)
+                self.assertIn('顶层必须为对象', str(caught.exception))
+
+    def test_opening_a_missing_folder_uses_the_standard_sentence(self):
+        with tempfile.TemporaryDirectory() as td:
+            gone = Path(td) / '早就删掉的项目'
+            for call in (lambda: engine.read_project_config(gone),
+                         lambda: local_video.open_studio(gone)):
+                with self.subTest(call=call), self.assertRaises(ValueError) as caught:
+                    call()
+                message = str(caught.exception)
+                self.assertIn('项目目录不存在或已被移动', message)
+                self.assertNotIn('Errno', message)
+            self.assertFalse(gone.exists())
 
 
 if __name__ == "__main__":
