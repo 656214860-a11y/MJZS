@@ -623,8 +623,8 @@ class _ContentBox:
             setattr(self, name, values[name])
 
     def build(self):
-        # 剧本文件选择改为正文上方的横向下拉框，与操作按钮同一行；正文独占整行宽度。
-        box = ttk.Frame(self.parent, padding=(SPACING["xs"], SPACING["none"]))
+        # 剧本文件选择改为正文上方的横向下拉框，与操作按钮同一行；正文独占整行宽度。左右不留内边距：页头、正文要和底部共享输入框的外框同左同右。
+        box = ttk.Frame(self.parent)
         self.frame = box
         self.available = tuple(path for path in self.documents if path and path.is_file())
         preview_area = ttk.Frame(box); preview_area.pack(fill='both', expand=True)
