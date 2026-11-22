@@ -309,6 +309,21 @@ class DefaultExampleGuardTests(unittest.TestCase):
         self.assertLess(labels.index('故事主题'), labels.index('故事题材'))
         self.assertEqual(idea_chat.extract_brief_creation(self.text).get('故事题材'), self._value('故事题材'))
 
+    def test_world_setting_line_sits_after_the_supplement_and_leaks_into_no_other_field(self):
+        """「世界设定」不是登记的字段，解析时并进它前面那个字段：放在文末的「内容补充」之后，只并进内容补充。
+
+        放在画风后面会混进画风；放在梗概、题材后面还会把空着的必填项顶住，清空了也不被点名。
+        「关键事件」「参考作品」并进故事角色是改前就有的行为，不在这一条里。
+        """
+        fields = idea_chat.extract_brief_creation(idea_chat.strip_inline_required_markers(self.text))
+        for label in ('故事集数', '单集时间', '故事题材', '故事梗概', '故事画风', '特殊要求'):
+            with self.subTest(field=label):
+                self.assertEqual(fields.get(label), self._value(label), '这个字段的值只能是它自己那一行')
+        labels = [label for label in map(self._label, self.body) if label]
+        self.assertEqual(labels[-2:], ['内容补充', '世界设定'])
+        self.assertEqual(self._value('内容补充'), '', '内容补充留空，由用户自己写')
+        self.assertEqual(fields.get('内容补充'), '世界设定: ' + self._value('世界设定'))
+
     def test_header_is_description_and_adds_no_fields(self):
         self.assertTrue(self.header, '示例开头要有技能说明段')
         self.assertIn('short-drama-director', self.header[0])
