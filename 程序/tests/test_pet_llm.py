@@ -11,6 +11,7 @@ os.chdir(HERE)
 
 import model_secrets
 import pet_agent
+import pet_bus
 import infra.pet_llm as pet_llm
 from infra.pet_llm import Client, Ledger, Queue, choose, compress, load_config, model_for
 
@@ -167,6 +168,9 @@ class PersonaTests(unittest.TestCase):
         payload = pet_llm.build_payload('intent.route', '继续')
         self.assertEqual(payload['messages'][0]['content'], pet_llm.SYSTEM_PREFIX)
         self.assertNotIn('20', pet_llm.SYSTEM_PREFIX)
+
+    def test_the_stage_list_covers_all_thirteen_stages(self):
+        self.assertIn('stage 只能是：' + ' '.join(pet_bus.STAGES) + '。', pet_llm.SYSTEM_PREFIX)
 
 
 class CompressTests(unittest.TestCase):

@@ -67,7 +67,7 @@ class RetryAuthorityTests(unittest.TestCase):
              'content': ('prompt_fix', '命中内容审核：改写提示词后再提，别原样重试'),
              'quota': ('pause', '余额或配额不足：暂停该阶段并通知，不再消耗'),
              'auth': ('notify', '接口密钥无效或没配：检查 .env 里的 Key'),
-             'unknown': ('notify', '没认出来：先按「重试失败项」，要细节看「查看待确认详情」')})
+             'unknown': ('notify', '没认出来：先按「重试失败项」，要细节看右键菜单里的「待确认项」')})
         for category, verdict in pet_agent_rules.VERDICTS.items():
             with self.subTest(category=category):
                 action, hint = verdict

@@ -664,5 +664,56 @@ class SaveSettingsTests(unittest.TestCase):
             self.assertEqual(data["max_attempts"], 4)
 
 
+class StageAndLevelRuleTests(unittest.TestCase):
+    """W6-SANHU-FIX-5：三虎聊天规则认得全部 13 个阶段与三个档位名（只提醒/半自动/全自动）。"""
+
+    def test_every_stage_is_reachable_by_chat(self):
+        cases = [("去剧本准备", "script"), ("打开剧本结构", "script_structure"), ("去初步分镜", "storyboard"),
+                 ("去分镜预演", "animatic"), ("打开资产管理", "assets"), ("连贯性清单", "continuity"),
+                 ("去分镜定稿", "final"), ("去首帧管理", "keyframe"), ("去白模预演", "previs"),
+                 ("去视频生成页", "video"), ("去配音与字幕", "audio"), ("去后期剪辑", "edit")]
+        for text, stage in cases:
+            with self.subTest(text=text):
+                plan = pet_agent.match_rule(text)
+                self.assertEqual(plan["intent"], "goto")
+                self.assertEqual(plan["stage"], stage)
+        # 「去质检与交付」先撞上前面的「交付→导出」规则，只核阶段。
+        self.assertEqual(pet_agent.match_rule("去质检与交付")["stage"], "delivery")
+
+    def test_level_words_route_to_the_right_level(self):
+        cases = [("切到只提醒", "hint"), ("切到半自动", "semi"), ("切到全自动", "auto"), ("切到只提示", "hint")]
+        for text, level in cases:
+            with self.subTest(text=text):
+                plan = pet_agent.match_rule(text)
+                self.assertEqual(plan["intent"], "level")
+                self.assertEqual(plan["params"]["level"], level)
+
+    def test_bare_level_word_asks_which_level(self):
+        plan = pet_agent.match_rule("自动化等级")
+        self.assertEqual(plan["intent"], "level")
+        self.assertIsNone(plan["params"]["level"])
+        for name in ("只提醒", "半自动", "全自动"):
+            self.assertIn(name, plan["reply"])
+
+    def test_animatic_goes_to_its_page_and_old_hits_hold(self):
+        plan = pet_agent.match_rule("生成分镜预演")
+        self.assertEqual((plan["intent"], plan["stage"]), ("goto", "animatic"))
+        self.assertEqual((pet_agent.match_rule("生成分镜")["intent"], pet_agent.match_rule("生成分镜")["stage"]),
+                         ("generate", "storyboard"))
+        self.assertEqual((pet_agent.match_rule("生成视频")["intent"], pet_agent.match_rule("生成视频")["stage"]),
+                         ("generate", "video"))
+        self.assertEqual((pet_agent.match_rule("预演")["intent"], pet_agent.match_rule("预演")["stage"]),
+                         ("goto", "previs"))
+        self.assertEqual((pet_agent.match_rule("剧本")["intent"], pet_agent.match_rule("剧本")["stage"]),
+                         ("goto", "script"))
+
+    def test_goto_reply_names_each_of_the_thirteen_stages(self):
+        for stage in pet_bus.STAGES:
+            with self.subTest(stage=stage):
+                reply = pet_agent.rule_reply("goto", stage)
+                self.assertIn(pet_agent.SHORT_NAMES[stage], reply)
+                self.assertNotEqual(reply, "切到对应页面。")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)
