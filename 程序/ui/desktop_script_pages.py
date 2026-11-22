@@ -496,10 +496,14 @@ class _ScriptStructurePage:
         action_group.pack(anchor='center', pady=SPACING["xs"])
         SecondaryButton(action_group, text='采用选中剧本', command=lambda:self.page.safe(self.adopt_source)).pack(
             side='left', padx=(SPACING['none'], SPACING['xs']))
+        def run_manual():
+            """页面按钮与底部发送键共用的制作入口：先出手动制作确认窗，再过模型检查，再开工。"""
+            return self.page.safe(self.manual_command(self.page, 'script_structure', self.start_structure, self.page.win))
         manual = PrimaryButton(action_group, text='手动制作结构剧本', width=STAGE_ACTION_WIDTH,
-                               command=lambda:self.page.safe(self.manual_command(self.page, 'script_structure', self.start_structure, self.page.win)))
+                               command=run_manual)
         manual.pack(side='left', padx=(SPACING["none"], SPACING["xs"])); self.page.script_structure_manual_button = manual
         ui_plugin_registry.module('stage_flow').follow(manual, 'script_structure')
+        self._register_send_action(manual, run_manual)
         # 将两份剧本放入同一个等分网格。动作栏与说明文字不参与分配，窗口缩放时
         # 上、下内容框始终各占剩余阅读区域的一半。
         split_area = ttk.Frame(self.page.content)
@@ -534,6 +538,22 @@ class _ScriptStructurePage:
         self.page.script_structure_info_label = info
         self.page.script_structure_source_directory = source_directory
         self.page.script_structure_output_directory = structure_directory
+
+    def _register_send_action(self, button, action):
+        """底部发送键在本页承载同一个制作入口；按钮随页面销毁时撤销，不留过期的入口。
+
+        宿主没有共享输入框（独立页面测试的假宿主）时跳过。
+        """
+        shared = getattr(self.page, 'shared_input', None)
+        register = getattr(shared, 'set_stage_action', None)
+        if not callable(register):
+            return
+        register('script_structure', action)
+
+        def release(_event=None):
+            if shared.stage_action('script_structure') is action:
+                register('script_structure', None)
+        button.bind('<Destroy>', release, add='+')
 
     def _align_picker_edges(self):
         """R3：两行下拉框的左右边缘落在同一列——标题列、操作列各取两行里的最大需求宽度。"""
