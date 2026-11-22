@@ -80,18 +80,20 @@
 
 **错误策略（R1689 裁决，UI 批次 2 落地）**：可恢复的错误（网络、模型、校验）默认非模态——`NotificationDispatcher.error()` 默认 `modal=False`，只把完整文案落到状态栏，不弹系统框、不锁界面；需要“查看详情／重试”的页面自行在动作附近提供。只有删除、覆盖等破坏性确认保留模态，但它们走 `ConfirmDialog`／`ask_confirmation`，不在本函数内。仅当后续代码确实必须等用户关掉提示才能继续时，调用方才显式传 `modal=True` 并写明理由。状态栏颜色按级别区分（就绪中性、成功绿、警告、错误红），不再一律绿色。
 
-## 统一状态栏（文字提示模块，R2984 起）
+## 统一状态栏（文字提示模块，R2984 起；UX-C4 起左区按内容排布）
 
 应用只保留一条全局底部状态栏 `ui/ui_status_bar.py:StatusBar`，散落的文字提示统一为一个模块：
 
 | 区段 | 内容 | 规则 |
 | --- | --- | --- |
-| 左区（常驻） | 页标题「NN 名称」、项目路径、Token/¥/余额（点击开用量详情）、模型用量摘要 | 每段独立 `EllipsisLabel`：放不下截断、悬停 Tooltip 全文；点击展开详情；无数据时段隐藏，不显示假 0 |
-| 右区（消息） | 四级消息 info/success/warning/error | error/warning 常驻直到被处理或下一条替换；info/success 约 8 秒自动消失；错误仍写日志 |
+| 左区（常驻） | 页标题「NN 名称」、项目路径、Token/¥/余额（点击开用量详情）、模型用量摘要 | 每段一个 `SegmentLabel`（`EllipsisLabel` 的子类）：宽度按文字定，超过 `STATUS_BAR_SEGMENT_MAX_WIDTH`（28 字符）才截断、悬停 Tooltip 全文；调用方给了 `width` 的段维持那个宽度；文字为空的段不占位，再有文字时回到登记时的位置；点击展开详情；无数据时段隐藏，不显示假 0 |
+| 右区（消息） | 四级消息 info/success/warning/error | error/warning 常驻直到被处理或下一条替换；info/success 约 8 秒自动消失；错误仍写日志；没有消息时显示中性提示「就绪」，字色和左区各段同一档灰 |
 | 历史 | 点击右区展开最近 N 条 | 含时间、级别、全文；不另开窗口 |
 
+- 左区排布（UX-C4）：看得见的段两两之间放一个分隔符 `STATUS_BAR_SEPARATOR`，分隔符两侧各留 `STATUS_BAR_SEPARATOR_GAP`；第一段前、最后一段后不放，中间的段隐藏时也不会出现两个连着的分隔符。段、分隔符、右区消息同用 `STATUS_BAR_FONT`，段和分隔符同用样式 `Muted.TLabel`（`color.text.secondary`）。左区开头、右区消息左右的留白都是 `STATUS_BAR_EDGE_PAD`。
+- 别的模块直接 `pack` 进 `StatusBar.left_zone` 的控件（现在只有用量指示 `ui/ui_usage_indicator.py`）算一段：位置按它摆进来时已登记的段排，两侧的留白由状态栏改成 0、分隔符由状态栏补；它没有内容（宽度不到 2 像素）时不配分隔符。这类控件自己不要在两端留白，字体用 `STATUS_BAR_FONT`；新增左区内容优先用 `set_segment`。
 - 消息唯一入口 `ui/ui_status_bus.py:StatusBus.publish(Message(level, text, ttl, source))`；业务模块只发消息，不得直接写状态栏（`status.set`）或组合 `messagebox`；`NotificationDispatcher` 保留为分级渲染的既有入口，内部转交 StatusBus。
-- 视觉取值一律引用 `design_tokens.md`：就绪 `color.text.primary`、成功 `color.success`／`color.success.subtle`、警告与错误沿用 `color.danger.text`／`color.danger.subtle` 及既有 `status_kind` 样式；圆角、间距、字体只取 token。
+- 视觉取值一律引用 `design_tokens.md`：就绪 `color.text.secondary`（UX-C4 起，和左区同一档）、成功 `color.success`／`color.success.subtle`、警告与错误沿用 `color.danger.text`／`color.danger.subtle` 及既有 `status_kind` 样式；圆角、间距、字体只取 token。
 - 顶部标题行自 R3016 起已删除：原页头状态／模型名信息等价迁移（视频页模型/状态进左区段 `video_model`/`video`、剧本页流程说明进 `script_note`、分镜页「当前 JSON」进 `storyboard`），功能不丢；页标题进左区 `page` 段，侧栏图标轨上移填空。
 
 ## 右键菜单

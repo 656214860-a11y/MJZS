@@ -149,7 +149,7 @@ class ShellScrollAndStatusTests(unittest.TestCase):
         def actual(widget):return font.Font(root=self.win,font=widget.cget('font')).actual()
         # R3016 P2：顶部标题行与侧栏页标题已删；用量指示器收进统一底栏左区，字体仍取 token。
         label=d.usage_indicator._labels['token']
-        self.assertEqual(actual(label)['size'],FONTS['pet_hint'][1])
+        self.assertEqual(actual(label)['size'],FONTS['body'][1])
         self.assertFalse(hasattr(d,'app_title'),'R2933：侧栏顶部浮层已删')
         self.assertIn('page',d.status_bar._segments)
         self.assertIn('path',d.status_bar._segments)

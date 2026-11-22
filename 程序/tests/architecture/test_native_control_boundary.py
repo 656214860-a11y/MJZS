@@ -8,14 +8,15 @@ AST 口径（``production_files_recursive``，不含 tests／tasks_round／维�
   insertbackground/selectbackground/selectforeground/disabledforeground/
   activebackground/activeforeground``。
   AST 无法圈定「浮层与卡片内」，口径为全仓棘轮，存量按文件冻结、只减不增。
-- 存量冻结 ``NATIVE_BASELINE``（63 处/13 文件，AST 实测；任务书作者正则口径
+- 存量冻结 ``NATIVE_BASELINE``（61 处/13 文件，AST 实测；任务书作者正则口径
   ``tk.Label`` 44 处＋``tk.Frame`` 30 处，差异见本轮结果文件：正则把 ``ttk.`` 限定
   与非颜色选项计入，本门禁只认 ``tk`` 原生接收者＋颜色选项）：
   ``app.py``×4、``cell_hover.py``×3、``desktop.py``×6、``desktop_shared_input.py``×2、
   ``ui/desktop_file_card.py``×2、``ui/desktop_idea_bubbles.py``×5、
   ``ui/desktop_page_nav.py``×2、``ui/desktop_shared_menus.py``×14、
   ``ui/pet_cloud.py``×5、``ui/stage_model_picker.py``×13、``ui/ui_popup.py``×2、
-  ``ui/ui_status_bar.py``×4、``ui/ui_usage_indicator.py``×1。
+  ``ui/ui_status_bar.py``×2（UX-C4 起左区容器和分隔符改用 ttk，由 4 降到 2）、
+  ``ui/ui_usage_indicator.py``×1。
   集中在 ``ui/desktop_shared_menus.py`` 与 ``ui/stage_model_picker.py`` 的浮层内部结构
   （任务书 §3.2-5 已核实为浮层构造，冻结不迁移，见 D6）。
 - 豁免：``ui_widgets.py``／``ui_tooltip.py``（组件与提示层自身是原生控件定义处），
@@ -64,7 +65,7 @@ NATIVE_BASELINE = {
     'ui/pet_cloud.py': 5,
     'ui/stage_model_picker.py': 13,
     'ui/ui_popup.py': 2,
-    'ui/ui_status_bar.py': 4,
+    'ui/ui_status_bar.py': 2,
     'ui/ui_usage_indicator.py': 1,
 }
 

@@ -1,0 +1,15 @@
+{
+  "round": 4091,
+  "commit_base": "f624a5fc",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k ui_status_bar writing_status_line ui_batch3_shell usage_indicator_ui ui_token_contract pet_agent_error_wiring account_entry frame_sources desktop_page_nav window_resize_coalescing media_page_buttons desktop_compact_layout desktop_startup_perf timers ui_batch5_stage_panel_and_script_page ui_style_engine desktop_media_pages",
+    "exit": 0,
+    "passed": 135,
+    "failed": 0
+  },
+  "generated_at": "2026-11-22T22:52:18"
+}

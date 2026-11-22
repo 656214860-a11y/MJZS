@@ -886,6 +886,7 @@ SAME_LAYER_EDGES: frozenset[tuple[str, str]] = frozenset({
     ('ui_hover_fade', 'ui_rounded'),
     ('ui_motion', 'ui_rounded'),
     ('ui_stage_popups', 'ui_widgets'),
+    ('ui_status_bar', 'ui_popup'),
     ('ui_status_bar', 'ui_status_bus'),
     ('ui_status_bar', 'ui_widgets'),
     ('ui_theme', 'responsive_ui'),

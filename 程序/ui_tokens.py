@@ -109,6 +109,15 @@ FONTS = {
     "heading_4": ("Microsoft YaHei UI", 11, "bold"),
 }
 
+# 统一状态栏（UX-C4）：全栏同一字号；左区每段按文字定宽，超过上限才截断；分隔符两侧等距。
+STATUS_BAR_FONT = FONTS["body"]
+# 段宽上限，单位同 ttk 控件的 width（字符）；超出的段卡在这个宽度、截断并在悬停时给全文。
+STATUS_BAR_SEGMENT_MAX_WIDTH = 28
+STATUS_BAR_SEPARATOR = "·"
+STATUS_BAR_SEPARATOR_GAP = SPACING["sm"]
+# 左区开头、右区消息左右的留白。
+STATUS_BAR_EDGE_PAD = SPACING["sm"]
+
 # 阶段配置「技能说明」栏的布局规格：目录宽度按显示宽度自适应，正文高度由页面按紧凑档选用。
 NOTE_LIST_MIN_WIDTH = 12
 NOTE_LIST_MAX_WIDTH = 28

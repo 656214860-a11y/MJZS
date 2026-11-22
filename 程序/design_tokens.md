@@ -104,6 +104,10 @@
 | `NAV_ROW_HEIGHT` / `NAV_ROW_HEIGHT_COMPACT` | 24 / 20px | 侧栏项目树行高；`fit_sidebar` 矮窗口切换，Compact／Nav／RailIcon 各变体（含 Selected）同步内边距 |
 | `CONTROL_HIT_MIN` | 36px | 任何可点击元素的最小点击区；小于它的图标要外扩点击区（宠物齿轮、猫爪待迁移） |
 | `BUTTON_RADIUS` | `radius.md`（8px） | 按钮圆角半径 |
+| `STATUS_BAR_FONT` | `FONTS['body']`（微软雅黑 UI 10） | 底部状态栏全栏同一字号：左区各段、分隔符、右区消息 |
+| `STATUS_BAR_SEGMENT_MAX_WIDTH` | 28 字符 | 状态栏左区一段的宽度上限：不超过就按文字本身的宽度显示，超过才截断并在悬停时给全文 |
+| `STATUS_BAR_SEPARATOR` / `STATUS_BAR_SEPARATOR_GAP` | `·` / 8px（`space.sm`） | 状态栏左区相邻两段之间的分隔符，和它两侧各留的间距 |
+| `STATUS_BAR_EDGE_PAD` | 8px（`space.sm`） | 状态栏左区开头、右区消息左右的留白 |
 | 焦点环 | `focuscolor` = `color.focus` | 所有可操作控件必须有可见键盘焦点 |
 
 **36px 计算式（100% DPI）**：ttk 控件没有 height 属性，高度 = 字体行高 + 2×上下内边距 + 主题边框/焦点占位。10pt 微软雅黑 UI 的 `linespace` 实测 19px。

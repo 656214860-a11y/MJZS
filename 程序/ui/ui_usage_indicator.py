@@ -11,7 +11,7 @@
 import tkinter as tk
 
 import infra.app_logging as app_logging
-from ui_tokens import COLORS, FONTS, SPACING
+from ui_tokens import COLORS, SPACING, STATUS_BAR_FONT
 from infra.usage_snapshot import abbr_number, get_snapshot, money_amount, money_text
 
 _TOKEN_WARN = 500000     # ≥50 万：黄色
@@ -28,7 +28,7 @@ class UsageIndicator(tk.Frame):
         self._labels = {}
         for key in ('token', 'money', 'balance'):
             label = tk.Label(self, text='', bg=COLORS['background_primary'],
-                             fg=COLORS['text_primary'], font=FONTS['pet_hint'])
+                             fg=COLORS['text_primary'], font=STATUS_BAR_FONT)
             label.pack_forget()
             label.bind('<Button-1>', self._open_detail)
             self._labels[key] = label
@@ -76,8 +76,9 @@ class UsageIndicator(tk.Frame):
         for index, (key, text, fg) in enumerate(ordered):
             label = self._labels[key]
             label.configure(text=text, fg=fg)
-            label.pack(side='left', padx=(SPACING['xs'] if index else SPACING['none'],
-                                         SPACING['xs']))
+            # 整组两端不留白：它和左右两段之间的间距、分隔符由状态栏统一给
+            label.pack(side='left', padx=(SPACING['sm'] if index else SPACING['none'],
+                                         SPACING['none']))
 
     # -- 事件总线 ---------------------------------------------------
     def sync_bus(self):

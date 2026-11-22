@@ -9,9 +9,12 @@ import unittest
 from pathlib import Path
 
 import tkinter as tk
+from tkinter import font as tkfont
 
-from ui_tokens import COLORS
+from ui_tokens import COLORS, SPACING, STATUS_BAR_FONT, STATUS_BAR_SEPARATOR, STATUS_BAR_SEPARATOR_GAP
 from infra.usage_snapshot import get_snapshot
+from ui.ui_status_bar import StatusBar
+from ui.ui_status_bus import StatusBus
 from ui.ui_usage_detail import TodayDetailsDialog, UsageDetailDialog
 from ui.ui_usage_indicator import UsageIndicator
 
@@ -138,6 +141,55 @@ class UsageIndicatorTests(unittest.TestCase):
             self.assertGreater(label.winfo_width(), 0)
         tops = {label.winfo_rooty() for label in labels}
         self.assertEqual(len(tops), 1, '三段标签必须在同一行')
+
+    @staticmethod
+    def _pad(label):
+        value = label.pack_info()['padx']
+        parts = value if isinstance(value, (tuple, list)) else str(value).split()
+        pixels = [label.winfo_pixels(str(part)) for part in parts]
+        return pixels[0], pixels[-1]
+
+    def test_labels_use_the_status_bar_font(self):
+        """UX-C4：三项和状态栏的其他段同一字体、同一字号。"""
+        wanted = tkfont.Font(root=self.root, font=STATUS_BAR_FONT).actual()
+        for key, label in self.indicator._labels.items():
+            with self.subTest(label=key):
+                self.assertEqual(tkfont.Font(root=self.root, font=label.cget('font')).actual(), wanted)
+
+    def test_group_has_no_outer_padding_and_one_gap_inside(self):
+        """UX-C4：整组两端不留白（两侧的间距由状态栏统一给），组内相邻两项之间一档间距。"""
+        self.snapshot._balance = {'amount': '9', 'currency': 'CNY'}
+        self.snapshot.record_call('a', 'm', 1200, cost='0.82', currency='CNY')
+        self.indicator.refresh()
+        pads = [self._pad(self.indicator._labels[key]) for key in ('token', 'money', 'balance')]
+        self.assertEqual(pads, [(0, 0), (SPACING['sm'], 0), (SPACING['sm'], 0)])
+
+    def test_inside_the_status_bar_the_group_keeps_the_same_gap_on_both_sides(self):
+        """UX-C4：摆进底栏左区后，前后各一个分隔符，分隔符到这一组文字的距离和别的段一样。"""
+        bar = StatusBar(self.root, StatusBus())
+        bar.pack(fill='x')
+        self.addCleanup(bar.destroy)
+        self.addCleanup(bar.shutdown)
+        bar.set_segment('page', '01 创意')
+        bar.set_segment('path', '')
+        indicator = UsageIndicator(bar.left_zone, self.desktop)
+        indicator.pack(side='left', padx=(SPACING['xs'], SPACING['none']))  # 和 desktop.py 的摆法一样
+        bar.set_segment('model', '模型：甲')
+        self.snapshot.record_call('a', 'm', 1200, cost='0.82', currency='CNY')
+        indicator.refresh()
+        end = time.monotonic() + 0.3
+        while time.monotonic() < end:
+            self.root.update()
+            time.sleep(0.005)
+        row = sorted((w for w in bar.left_zone.winfo_children() if w.winfo_manager() and w.winfo_width() > 1),
+                     key=lambda w: w.winfo_x())
+        self.assertEqual(len(row), 5, [str(w) for w in row])
+        self.assertIs(row[2], indicator)
+        self.assertEqual([str(w.cget('text')) for w in (row[1], row[3])], [STATUS_BAR_SEPARATOR] * 2)
+        first, last = indicator._labels['token'], indicator._labels['money']
+        before = first.winfo_rootx() - (row[1].winfo_rootx() + row[1].winfo_width())
+        after = row[3].winfo_rootx() - (last.winfo_rootx() + last.winfo_width())
+        self.assertEqual((before, after), (STATUS_BAR_SEPARATOR_GAP, STATUS_BAR_SEPARATOR_GAP))
 
 
 if __name__ == '__main__':
