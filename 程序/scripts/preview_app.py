@@ -360,8 +360,8 @@ def main(argv=None) -> int:
                 print(f"[预览] 已删除 {resolved}")
             return 0
         if not args.print_only and not in_linked_worktree():
-            raise ValueError("预览窗口只在车道工作树里打开：主工作区的代码目录里放着正式应用的数据，"
-                             "要看主干上的效果请直接开正式应用")
+            raise ValueError("预览只能在车道工作树里开：主工作区放着正式应用的数据，"
+                             "看主干效果请开正式应用")
         built = build_sample(data_dir)
         print(f"[预览] 数据目录 {data_dir}；项目 {built['project']}")
         if args.print_only:
