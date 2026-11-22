@@ -308,7 +308,6 @@ class FilesPanelResizeTests(unittest.TestCase):
         self.pump(.3)
 
     def test_drag_left_widens_panel(self):
-        from desktop_files_panel import SCRIPT_LIST_MIN_WIDTH
         d = self.desktop
         d.show(PAGE['script']); self.pump(.2)
         self._open_panel()

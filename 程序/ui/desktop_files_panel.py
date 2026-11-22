@@ -58,6 +58,9 @@ class FilesPanelResizeMixin:
     只读写 self 上的拖动状态与 _user_panel_width，不直接触碰 Tk 几何之外的业务。
     """
 
+    _user_panel_width = None
+    _resize_start = None
+
     def _manual_cap(self):
         """手动宽度上限：内容区宽的 70%，至少 SCRIPT_LIST_MIN_WIDTH。"""
         try:
@@ -140,8 +143,6 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelFilterMixin, WritingSna
         self._button_bind = None
         self._escape_bind = None
         self._fit_width_job = None
-        self._user_panel_width = None
-        self._resize_start = None
 
     def build(self):
         """建入口图标列与停靠面板；初始收起，文件列表默认隐藏（REQ-S01-90）。"""
@@ -173,7 +174,7 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelFilterMixin, WritingSna
         self.script_box = ttk.Frame(area, padding=(SPACING['xs'], SPACING['xs']))
         self.sep = ttk.Separator(area, orient='vertical')
         # 拖动调宽手柄：放在分隔线与面板之间，宽度从 SPACING 推导。
-        self.resize_grip = tk.Frame(area, width=SPACING['sm'], cursor='sb_h_double_arrow')
+        self.resize_grip = ttk.Frame(area, width=SPACING['sm'], cursor='sb_h_double_arrow')
         Tooltip(self.resize_grip, '拖动调整面板宽度，双击恢复自动宽度')
         self.resize_grip.bind('<Button-1>', self._start_resize, add='+')
         self.resize_grip.bind('<B1-Motion>', self._do_resize, add='+')
@@ -371,10 +372,6 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelFilterMixin, WritingSna
         win = self.page.win
         self._button_bind = win.bind('<Button-1>', self._outside_press, add='+')
         self._escape_bind = win.bind('<Escape>', lambda event: self.collapse(), add='+')
-        try:
-            win.focus_set()
-        except tk.TclError:
-            pass
 
     def _unbind_outside(self):
         win = self.page.win
@@ -453,8 +450,9 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelFilterMixin, WritingSna
         name_need = max(SCRIPT_NAME_MIN_WIDTH, widest + SCRIPT_NAME_CELL_PAD)
         preview_w = (int(tree.column('#0', 'width'))
                      if 'tree' in str(tree.cget('show')) else 0)
-        # 内容区宽：page.panel_area，没有就用 script_box.master（与原写法一致）。
         try:
+            # R3060：script_box.master 已是自适应宽度的 panel_dock，拿它当分母会形成
+            # 「面板宽→停靠列宽→上限」的循环；内容区宽度应量 panel_area（画布列同级外框）。
             host = getattr(self.page, 'panel_area', None) or self.script_box.master
             content_width = int(host.winfo_width())
         except (tk.TclError, AttributeError, TypeError, ValueError):
@@ -482,7 +480,10 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelFilterMixin, WritingSna
         realized = tree.winfo_width()
         inner = realized if realized > 1 else panel_width - SCRIPT_VSCROLL_WIDTH
         inner = max(1, inner - preview_w - SCRIPT_PANEL_EDGE)
-        # 实宽缺口补偿：仅自动宽度模式；手动宽度不补。
+        # 实宽缺口补偿：请求宽够但实宽不足（盒内边距/图标列/滚动条吃掉差额）时，
+        # 把缺口一次性补进 sizer——没挤到上限就追平，挤到上限就停在 cap，靠
+        # 下一轮 <Configure> 收敛，不靠固定余量逐像素猜。
+        # 手动宽度（_user_panel_width 不为 None）不做这一步。
         if getattr(self, '_user_panel_width', None) is None:
             shortfall = name_need - inner
             if shortfall > 0 and realized > 1 and panel_width < cap:
@@ -724,4 +725,3 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelFilterMixin, WritingSna
         menu.command('另存为…', lambda: self.page.safe(self.save_as_file))
         menu.command('删除', lambda: self.page.safe(self.delete_script))
         return menu.popup(event)
-
