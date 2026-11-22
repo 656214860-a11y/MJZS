@@ -31,7 +31,7 @@
     "error_codes.py": 100.0,
     "executors.py": 65.0,
     "file_cache.py": 54.0,
-    "file_index.py": 56.0,
+    "file_index.py": 78.0,
     "file_index_contract.py": 100.0,
     "file_naming.py": 88.0,
     "frame_checks.py": 75.0,
