@@ -199,7 +199,7 @@ class FilesPanelTests(unittest.TestCase):
             self.pump(.05)
         self.assertGreaterEqual(len(self.file_items()), 4, '分组视图中四类文件都进列表')
         self.assertTrue(d.script_box.winfo_ismapped())
-        self.assertEqual(str(d.script_title.cget('text')), '项目文件')
+        self.assertEqual(str(d.script_title.cget('text')), '项目文件 · 剧本准备')
         names = [d.script_tree.item(item, 'values')[0] for item in self.file_items()]
         for expected in ('项目设定_样例.md', '项目大纲_样例.md', '角色卡_样例.md', '项目剧本_样例.md'):
             self.assertTrue(any(expected in name for name in names), expected + ' 应出现在列表')

@@ -561,6 +561,41 @@ def search_global(library, kind=None, name=None, now=None):
     return out
 
 
+def _collect_from_folder(root, folder, published, origins, now, seen, candidates):
+    if not folder.is_dir():
+        return
+    try:
+        for path in _walk(folder):
+            try:
+                relative = _relative(root, path)
+            except (OSError, ValueError):
+                continue
+            if _excluded(relative) or relative in seen:
+                continue
+            seen.add(relative)
+            try:
+                item = _row_for(root, relative, published, now=now, origins=origins)
+            except (OSError, ValueError):
+                continue
+            if item is not None:
+                candidates.append(item)
+    except (OSError, ValueError):
+        return
+
+
+def _collect_discover_candidates(root, stages, published, origins, now, existing):
+    candidates = []
+    seen = set(existing)
+    for current_stage in stages:
+        try:
+            dirs = read_dirs(root, current_stage)
+        except (OSError, ValueError):
+            continue
+        for folder in dirs:
+            _collect_from_folder(root, Path(folder), published, origins, now, seen, candidates)
+    return candidates
+
+
 def discover(project, stage=None, now=None):
     """增量发现磁盘上有、缓存索引里没有的文件并写回索引，返回新增行数。
 
@@ -576,36 +611,7 @@ def discover(project, stage=None, now=None):
         stages = [stage] if stage is not None else list(STAGE_ORDER)
         published = published_paths(root)
         origins = _read_origins(root)
-        candidates = []
-        seen = set(existing)
-        for current_stage in stages:
-            try:
-                dirs = read_dirs(root, current_stage)
-            except (OSError, ValueError):
-                continue
-            for folder in dirs:
-                folder = Path(folder)
-                if not folder.is_dir():
-                    continue
-                try:
-                    for path in _walk(folder):
-                        try:
-                            relative = _relative(root, path)
-                        except (OSError, ValueError):
-                            continue
-                        if _excluded(relative):
-                            continue
-                        if relative in seen:
-                            continue
-                        seen.add(relative)
-                        try:
-                            item = _row_for(root, relative, published, now=now, origins=origins)
-                        except (OSError, ValueError):
-                            continue
-                        if item is not None:
-                            candidates.append(item)
-                except (OSError, ValueError):
-                    continue
+        candidates = _collect_discover_candidates(root, stages, published, origins, now, existing)
         if not candidates:
             return 0
         with _index_lock(index_path(root), root):

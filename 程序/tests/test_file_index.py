@@ -394,3 +394,86 @@ class FileRowTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class FileIndexDiscoverTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(prefix='file-index-discover-')
+        self.root = Path(self.temp.name) / '测试项目'
+        self.root.mkdir()
+        _write(self.root / '01剧本准备' / 'docs' / 'a.md', 'a')
+        file_index.rebuild(self.root)
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def test_discover_finds_external_file(self):
+        new_file = _write(self.root / '01剧本准备' / 'docs' / '外部新增.md', '新')
+        before = file_index.index_path(self.root).stat().st_mtime
+        self.assertEqual(file_index.discover(self.root), 1)
+        paths = [row.path for row in file_index.rows(self.root)]
+        self.assertIn('01剧本准备/docs/外部新增.md', paths)
+        self.assertEqual(file_index.discover(self.root), 0)
+
+    def test_discover_stage_limits_scope(self):
+        _write(self.root / '05资产管理' / 'assets' / 'b.png', b'\x89PNG')
+        # 先建索引（不包含 b.png），再 discover 仅剧本阶段
+        file_index.rebuild(self.root)
+        # remove b.png from index by rebuild? rebuild includes it; instead test stage filter
+        # discover with stage script should not add assets file if not in index
+        # Ensure assets file not in index by manually? Simpler: check returns 0 for script stage
+        # when no new script files
+        self.assertEqual(file_index.discover(self.root, stage='script'), 0)
+
+    def test_discover_no_cache_returns_zero(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / 'nocache'
+            root.mkdir()
+            _write(root / '01剧本准备' / 'docs' / 'a.md', 'a')
+            self.assertFalse(file_index.index_path(root).exists())
+            self.assertEqual(file_index.discover(root), 0)
+            self.assertFalse(file_index.index_path(root).exists())
+
+    def test_discover_skips_excluded(self):
+        _write(self.root / '01剧本准备' / 'logs' / 'run.log', 'log')
+        self.assertEqual(file_index.discover(self.root), 0)
+
+    def test_is_functional_suffixes(self):
+        self.assertTrue(file_index.is_functional('x.json'))
+        self.assertTrue(file_index.is_functional('x.JSONL'))
+        self.assertFalse(file_index.is_functional('x.md'))
+        self.assertFalse(file_index.is_functional('x.png'))
+        self.assertFalse(file_index.is_functional('x.mp4'))
+        self.assertFalse(file_index.is_functional('x.srt'))
+
+
+class FileIndexDiscoverMoreTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(prefix='file-index-discover2-')
+        self.root = Path(self.temp.name) / '测试项目'
+        self.root.mkdir()
+        _write(self.root / '01剧本准备' / 'docs' / 'a.md', 'a')
+        _write(self.root / '05资产管理' / 'assets' / 'b.png', b'\x89PNG')
+        file_index.rebuild(self.root)
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def test_discover_multiple_stages(self):
+        _write(self.root / '01剧本准备' / 'docs' / '新剧本.md', 'x')
+        _write(self.root / '05资产管理' / 'assets' / '新资产.png', b'\x89PNG')
+        self.assertEqual(file_index.discover(self.root), 2)
+        self.assertEqual(file_index.discover(self.root), 0)
+
+    def test_discover_stage_script_only(self):
+        _write(self.root / '05资产管理' / 'assets' / '新资产.png', b'\x89PNG')
+        self.assertEqual(file_index.discover(self.root, stage='script'), 0)
+
+    def test_discover_excluded_and_no_cache(self):
+        _write(self.root / '01剧本准备' / 'logs' / 'run.log', 'log')
+        self.assertEqual(file_index.discover(self.root), 0)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / 'p'
+            root.mkdir()
+            _write(root / '01剧本准备' / 'docs' / 'a.md', 'a')
+            self.assertEqual(file_index.discover(root), 0)

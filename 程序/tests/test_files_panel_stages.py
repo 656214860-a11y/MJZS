@@ -621,8 +621,8 @@ class IndexLifecycleTests(StageRailTests):
         entered, release = threading.Event(), threading.Event()
         original = module.load_index
 
-        def slow(*args):
-            result = original(*args)
+        def slow(*args, **kwargs):
+            result = original(*args, **kwargs)
             entered.set()
             release.wait(3)
             return result
@@ -644,8 +644,8 @@ class IndexLifecycleTests(StageRailTests):
         original = module.load_index
         root = self.desktop.root
 
-        def slow(*args):
-            result = original(*args)
+        def slow(*args, **kwargs):
+            result = original(*args, **kwargs)
             release.wait(3)
             return result
 
