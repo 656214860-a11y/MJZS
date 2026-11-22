@@ -5,6 +5,7 @@ import json
 import tkinter as tk
 from tkinter import ttk
 from ui.ui_motion import Spinner
+from ui import skill_note_render
 from ui_tokens import COLORS, FONTS, ICON_COPY, ICON_DELETE, ICON_FONT, ICON_REWIND, SPACING
 from pathlib import Path
 from orchestrator.idea_chat_controller import ALL_MODELS, bubble_timestamp, collapse_preview, model_bar_items, model_bar_selection
@@ -93,6 +94,11 @@ class IdeaBubblesMixin:
     def bubble_preview(self,text):
         """过长的消息先给紧凑预览（实现搬到 L3 idea_chat_controller，入口不变）。"""
         return collapse_preview(text)
+    def _write_bubble_body(self,box,index,text,name,markdown,left,right):
+        """REQ-S01-99：模型消息按排版写入；用户消息、软件示例和排版为空时按原文写入。"""
+        if markdown and skill_note_render.insert(box,index,text,base_tags=(name,),left=left,right=right):
+            return
+        box.insert(index,text+'\n',name)
     def toggle_bubble(self,box,name):
         """点击“展开全文／收起”只改当前气泡的正文，不重建输入区。"""
         record=getattr(self,'_bubble_full',{}).get(name)
@@ -109,7 +115,8 @@ class IdeaBubblesMixin:
             record['expanded']=not record['expanded']
             shown=record['text'] if record['expanded'] else record['preview']
             # 先插新正文再删旧正文，内容高度不会瞬间归零。
-            box.insert(ranges[-1],shown+'\n',name)
+            self._write_bubble_body(box,ranges[-1],shown,name,record.get('markdown',False),
+                                    record.get('left',BUBBLE_GAP),record.get('right',BUBBLE_GAP))
             box.delete(start,ranges[-1])
             toggle=name+'_toggle'
             spans=box.tag_ranges(toggle)
@@ -316,8 +323,10 @@ class IdeaBubblesMixin:
         box.insert('end',self.model_name(row)+'\n',name+'_meta')
         # 软件示例是用户填写前唯一的完整参考，不能被折叠；真实长对话仍保持收起功能。
         preview,folded=(text,False) if index=='example' else self.bubble_preview(text)
-        self._bubble_full[name]={'text':text,'preview':preview,'expanded':not folded}
-        box.insert('end',preview+'\n',name)
+        markdown=not mine and not example
+        self._bubble_full[name]={'text':text,'preview':preview,'expanded':not folded,
+                                 'markdown':markdown,'left':body_left,'right':body_right}
+        self._write_bubble_body(box,'end',preview,name,markdown,body_left,body_right)
         if folded:
             toggle=name+'_toggle'
             # 操作在本条气泡的右下角，而非正文下方左侧；它属于 Text 内容，滚动时和
