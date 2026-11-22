@@ -65,7 +65,7 @@ class StageRailTests(unittest.TestCase):
             d.show(PAGE['script'])
         self.pump(.2)
         d.files_panel.open_panel()
-        self.pump(.3)
+        self.wait_index()
 
     def teardown_method(self):
         self.desktop.files_panel.collapse()
@@ -210,7 +210,7 @@ class StageRailTests(unittest.TestCase):
         panel = self.desktop.files_panel
         file_index.rebuild(self.desktop.root)
         panel.show_stage('assets')
-        self.pump(.2)
+        self.wait_index()
         self.assertEqual(panel.stage_filter, 'assets')
         rows = self.rows()
         self.assertEqual(panel.script_tree.get_children(), ('05资产管理/assets/CHAR_001.png',))
@@ -230,9 +230,9 @@ class StageRailTests(unittest.TestCase):
     def test_all_returns_to_grouped_project_index(self):
         panel = self.desktop.files_panel
         panel.show_stage('assets')
-        self.pump(.2)
+        self.wait_index()
         panel.show_stage(None)
-        self.pump(.4)
+        self.wait_index()
         self.assertIsNone(panel.stage_filter)
         self.assertIn('stage-group:script', panel.script_tree.get_children())
         self.assertIn('stage-group:assets', panel.script_tree.get_children())
@@ -574,7 +574,7 @@ class IndexLifecycleTests(StageRailTests):
                 panel.keyword_entry.delete(0, 'end')
                 panel.keyword_entry.insert(0, '保留')
                 panel._apply_filters()
-                self.pump(.2)
+                self.wait_index()
                 self.assertEqual(self.rows(), [rows[0].path], mode)
                 self.assertEqual(panel.script_tree.set(rows[0].path, 'kind'), '资产')
         for mode, group in (('阶段', 'stage-group:library'), ('类型', 'kind-group:资产'),
@@ -601,7 +601,7 @@ class IndexLifecycleTests(StageRailTests):
 
         with patch.object(file_index, 'rebuild', side_effect=rebuild):
             panel.fill_script_list()
-            self.pump(.4)
+            self.wait_index()
         self.assertTrue(calls)
         self.assertTrue(all(thread != threading.get_ident() for thread in calls))
         self.assertTrue(path.is_file())
@@ -702,7 +702,7 @@ class IndexLifecycleTests(StageRailTests):
         save(file_index.index_path(root), data)
         panel.sort_box.set('修改时间')
         panel._apply_filters()
-        self.pump(.5)
+        self.wait_index()
         self.wait_index()
         groups = panel.script_tree.get_children()
         ordered = ['stage-group:' + stage for stage in STAGES if 'stage-group:' + stage in groups]
@@ -738,7 +738,7 @@ class IndexLifecycleTests(StageRailTests):
         with patch.object(panel.page, 'writing_page_services', services), \
                 patch.object(panel.page, 'delete_project') as delete_project:
             panel.delete_script()
-            self.pump(.2)
+            self.wait_index()
         delete_project.assert_not_called()
         self.assertFalse(target.exists())
         self.assertTrue(keep.is_file())
@@ -818,7 +818,7 @@ class IndexLifecycleTests(StageRailTests):
         path = root / '05资产管理/assets/外部新增.md'
         path.write_text('新文件', encoding='utf8')
         panel.refresh_file_index()
-        self.pump(.4)
+        self.wait_index()
         self.assertIn(path.relative_to(root).as_posix(), self.rows())
         scripts = [row for row in self.rows() if panel.script_row_category[row] == 'script']
         self.assertTrue(scripts)
@@ -967,13 +967,13 @@ class GlobalLibraryViewTests(StageRailTests):
             with patch.object(file_index, 'read_global_dir', return_value=library), \
                     patch.object(file_index, 'rebuild_global', side_effect=rebuild):
                 panel.show_library()
-                self.pump(.3)
+                self.wait_index()
                 self.assertTrue(calls)
                 self.assertTrue(all(call != threading.get_ident() for call in calls))
                 self.assertEqual(self.rows(), ['library:唯一库文件.md'])
                 panel.keyword_var.set('唯一库文件')
                 panel._apply_filters()
-                self.pump(.3)
+                self.wait_index()
                 self.assertTrue(panel.library_view)
                 self.assertEqual(self.rows(), ['library:唯一库文件.md'])
                 self.assertEqual(str(panel.status_box.cget('state')), 'disabled')
@@ -1048,7 +1048,7 @@ class GlobalLibraryViewTests(StageRailTests):
             file_index.read_global_dir = lambda program=None: library
             try:
                 panel.show_library()
-                self.pump(.3)
+                self.wait_index()
                 self.assertEqual(panel.script_tree.get_children(), ('library:角色/CHAR_001.png',))
                 self.assertEqual(self.rows(), ['library:角色/CHAR_001.png'])
             finally:
