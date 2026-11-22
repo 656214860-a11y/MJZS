@@ -590,11 +590,13 @@ class UiEdgePagesTests(UiEdgeCase):
             self.assertEqual(str(tree.heading("name", "text")), "文件名")
             self.assertEqual(tuple(tree["columns"]), ("name", "kind", "size", "mtime", "meta"))
             files = d.files_panel.all_script_items()
-            self.assertEqual(int(tree.cget("height")),
-                             min(SCRIPT_FILE_MAX_ROWS, len(files) + len(tree.get_children())),
+            # R4075：面板跟随当前页，只列剧本准备阶段的用户文件：文件行平铺，不套分组父行。
+            self.assertEqual(str(d.script_title.cget("text")), "项目文件 · 剧本准备")
+            self.assertCountEqual(tree.get_children(), files, "只列本阶段文件时文件行平铺、没有分组父行")
+            self.assertEqual(int(tree.cget("height")), min(SCRIPT_FILE_MAX_ROWS, len(files)),
                              "表高按分组与文件行数收紧")
-            self.assertEqual(tuple(map(str, win.tk.splitlist(tree.cget("show")))), ("tree", "headings"),
-                             "分组树与文件属性列同时可见")
+            self.assertEqual(tuple(map(str, win.tk.splitlist(tree.cget("show")))), ("headings",),
+                             "只列本阶段文件且没有缩略图时不留左侧空白列")
             self.assertEqual(str(tree.cget("selectmode")), "extended", "剧本文件表支持 Ctrl／Shift 多选")
             names = [tree.item(item, "values")[0] for item in files]
             for item in files:
@@ -602,7 +604,32 @@ class UiEdgePagesTests(UiEdgeCase):
                 self.assertEqual(len(tree.item(item, "values")), 5, "每行展示名称、类型、大小、修改时间及媒体信息")
             for expected in ("项目设定_测试.md", "项目大纲_测试.md", "角色卡_测试.md", "项目剧本_测试.md"):
                 self.assertTrue(any(expected in name for name in names), expected + " 应出现在项目文件列表")
+            # 切到「全部阶段」才有分组树和其他阶段的文件；补一个剧本结构阶段的用户文件，让下面的断言有对象可验。
+            structure_file = proj / "02剧本结构" / "结构剧本" / "结构剧本_测试.md"
+            structure_file.parent.mkdir(parents=True, exist_ok=True)
+            structure_file.write_text("结构剧本", encoding="utf-8")
+            from infra import file_index
+            file_index.rebuild(proj)
+            panel = d.files_panel
+            panel.show_stage(None)
+            deadline = time.monotonic() + 10
+            while True:
+                win.update(); time.sleep(.02)
+                if not (d.worker or d.task_queue.labels() or panel._index_render_job is not None):
+                    break
+                self.assertLess(time.monotonic(), deadline, "「全部阶段」的文件索引没有在限时内加载完")
+            self.assertEqual(str(d.script_title.cget("text")), "项目文件 · 全部阶段")
+            groups = [item for item in tree.get_children() if str(item).startswith("stage-group:")]
+            self.assertEqual(sorted(groups), ["stage-group:script", "stage-group:script_structure"],
+                             "「全部阶段」有多个阶段的文件时按阶段分组")
+            self.assertEqual(tuple(map(str, win.tk.splitlist(tree.cget("show")))), ("tree", "headings"),
+                             "分组树与文件属性列同时可见")
+            files = d.files_panel.all_script_items()
+            self.assertEqual(int(tree.cget("height")), min(SCRIPT_FILE_MAX_ROWS, len(files) + len(groups)),
+                             "表高按分组与文件行数收紧")
             structured = [item for item in files if item.startswith('02剧本结构/')]
+            self.assertEqual(structured, [structure_file.relative_to(proj).as_posix()],
+                             "其他阶段的用户文件在「全部阶段」下可见")
             self.assertTrue(all(d.script_row_category[item] == 'index' for item in structured),
                             "其他阶段文件可见，但不得冒用剧本准备的采用/确认动作")
 
