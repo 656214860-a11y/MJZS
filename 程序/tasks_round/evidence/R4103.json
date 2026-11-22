@@ -1,0 +1,15 @@
+{
+  "round": 4103,
+  "commit_base": "15ec6d0e",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k idea_inline_brief desktop_startup_perf",
+    "exit": 0,
+    "passed": 57,
+    "failed": 0
+  },
+  "generated_at": "2026-11-22T22:39:58"
+}

@@ -1,0 +1,15 @@
+{
+  "round": 4090,
+  "commit_base": "7ea1ddeb",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k idea_inline_brief idea_chat ui_edges_pages desktop_startup_perf",
+    "exit": 0,
+    "passed": 266,
+    "failed": 0
+  },
+  "generated_at": "2026-11-22T21:24:18"
+}

@@ -161,6 +161,186 @@ class InlineBriefTests(unittest.TestCase):
             self.assertEqual(injected_chat.brief_creation_values(root)['故事梗概'], VALUES['故事梗概'])
 
 
+class DefaultExampleGuardTests(unittest.TestCase):
+    """随程序的示例文本：开头是技能说明和各把锁的选项；六行锁留空等用户填，故事字段是示例值。
+
+    契约（必填字段、本阶段必填锁、锁的选项）改了而示例没跟着改，这里会红。
+    """
+
+    EXAMPLE = Path(__file__).resolve().parents[1] / '默认创意示例.md'
+    STAR = '* '  # 必填行的行首标记；解析时会被去掉，不进取值
+    CREATED = '2026-11-22'  # 晚于赛道、素材来源的生效日，三把锁都必填
+    # 示例里六行锁的行序：锁键 → 示例里写的标签（必须是契约登记的标签或别名）。
+    LOCK_LINES = (('material_source', '素材来源'), ('track', '赛道'), ('delivery_format', '交付形态'),
+                  ('video_model_version', '视频模型'), ('aspect_ratio', '故事画幅'),
+                  ('splice_mode', '段缝衔接方式'))
+
+    def setUp(self):
+        self.text = self.EXAMPLE.read_text(encoding='utf-8-sig')
+        self.lines = self.text.splitlines()
+        self.definitions = {item['key']: item for item in PRODUCTION_LOCK_DEFINITIONS}
+        self.example_label = dict(self.LOCK_LINES)
+        first = next((index for index, line in enumerate(self.lines)
+                      if self._label(line) == self.LOCK_LINES[0][1]), 0)
+        # 第一行锁之前是说明段，之后是字段行。
+        self.header, self.body = self.lines[:first], self.lines[first:]
+        self.required_keys = tuple(script_contract.stage_lock_requirements('script', self.CREATED))
+        self.required_locks = tuple(self.definitions[key]['label'] for key in self.required_keys)
+
+    def _label(self, line):
+        """顶层字段行的标签（去掉行首必填标记）；缩进行、没有冒号的行返回空串。"""
+        if line[:1].isspace() or ':' not in line:
+            return ''
+        head = line.split(':', 1)[0]
+        return head[len(self.STAR):] if head.startswith(self.STAR) else head
+
+    def _missing(self, text):
+        """和界面发送时同一种调法：输入已去掉行尾标记，模板参数传 None，script 阶段。"""
+        return idea_chat.inline_required_missing(None, idea_chat.strip_inline_required_markers(text),
+                                                 stage='script', lock_definitions=PRODUCTION_LOCK_DEFINITIONS,
+                                                 created_at=self.CREATED)
+
+    def _value(self, label):
+        for line in self.body:
+            if self._label(line) == label:
+                return line.split(':', 1)[1].strip()
+        self.fail('示例里没有「%s:」这一行' % label)
+
+    def _listed_options(self, label):
+        """说明段里「<锁名>可选 → 甲 / 乙」那一行列出的选项。"""
+        for line in self.header:
+            head, arrow, tail = line.strip().partition('→')
+            if arrow and head.strip() == label + '可选':
+                return [option.strip() for option in tail.split(' / ')]
+        self.fail('说明段里没有「%s可选 → …」这一行' % label)
+
+    def _first_choices(self):
+        """三把必填锁各取说明段列出的第一个选项：示例里的标签 → 取值。"""
+        return {self.example_label[key]: self._listed_options(self.example_label[key])[0]
+                for key in self.required_keys}
+
+    def _rewritten(self, values):
+        """把指定标签那一行的取值换成给定内容（连同它下面缩进的续行），标签和其余各行原样。"""
+        kept, skipping = [], False
+        for line in self.lines:
+            label = self._label(line)
+            if label and label in values:
+                kept.append(line.split(':', 1)[0] + ':' + (' ' + values[label] if values[label] else ''))
+                skipping = True
+                continue
+            if skipping and line[:1].isspace():
+                continue
+            skipping = False
+            kept.append(line)
+        return '\n'.join(kept)
+
+    def test_example_pasted_unchanged_is_stopped_for_exactly_the_required_locks(self):
+        """必填锁留空：原样粘贴发不出去，点名的正好是本阶段必填的锁，故事字段的示例值不被点名。"""
+        self.assertEqual(sorted(self._missing(self.text)), sorted(self.required_locks))
+
+    def test_choosing_a_listed_option_for_each_required_lock_passes_the_send_check(self):
+        self.assertEqual(self._missing(self._rewritten(self._first_choices())), ())
+
+    def test_each_empty_required_value_is_reported_by_name(self):
+        chosen = self._first_choices()
+        for key in self.required_keys:
+            label = self.definitions[key]['label']
+            with self.subTest(lock=label):
+                others = {name: value for name, value in chosen.items() if name != self.example_label[key]}
+                self.assertEqual(self._missing(self._rewritten(others)), (label,))
+        for label in ('故事梗概', '故事集数', '单集时间', '故事题材'):
+            with self.subTest(field=label):
+                self.assertEqual(self._missing(self._rewritten(dict(chosen, **{label: ''}))), (label,))
+
+    def test_lock_lines_are_blank_and_the_header_lists_registered_options(self):
+        self.assertEqual([self._label(line) for line in self.body[:len(self.LOCK_LINES)]],
+                         [label for _key, label in self.LOCK_LINES])
+        for key, label in self.LOCK_LINES:
+            item = self.definitions[key]
+            with self.subTest(lock=label):
+                self.assertIn(label, (item['label'], *item.get('aliases', ())))
+                self.assertEqual(self._value(label), '', '锁行留空，由用户照说明段的选项自己填')
+                listed = self._listed_options(label)
+                self.assertGreaterEqual(len(listed), 2)
+                self.assertEqual([option for option in listed if option not in item['options']], [])
+
+    def test_sent_with_chosen_locks_stores_exactly_those_options(self):
+        chosen = self._first_choices()
+        sent = idea_chat.strip_inline_required_markers(self._rewritten(chosen))
+        with tempfile.TemporaryDirectory() as td:
+            root = make_minimal_project(td)
+            result = injected_chat.receive_brief(root, sent, inline_text=sent, stage='script',
+                                                lock_definitions=PRODUCTION_LOCK_DEFINITIONS,
+                                                created_at=self.CREATED)
+        self.assertEqual(result['missing'], ())
+        locks = result['fields']['production_locks']
+        for key in self.required_keys:
+            with self.subTest(lock=self.example_label[key]):
+                self.assertEqual(locks.get(key), chosen[self.example_label[key]])
+                self.assertIn(locks.get(key), self.definitions[key]['options'])
+
+    def test_filling_from_the_missing_items_dialog_lands_on_the_blank_lock_lines(self):
+        """缺项弹窗保存时经 fill_idea_brief 调 merge_brief_creation 回填：值落在空着的锁行上，不在文末另起一行。"""
+        merged = idea_chat.merge_brief_creation(self.text, self._first_choices())
+        self.assertEqual(len(merged.splitlines()), len(self.lines))
+        self.assertEqual(self._missing(merged), ())
+
+    def test_required_marks_match_the_contract(self):
+        starred = [self._label(line) for line in self.body if line.startswith(self.STAR)]
+        self.assertEqual(sorted(starred),
+                         sorted((*script_contract.INLINE_REQUIRED_LABELS, *self.required_locks)))
+        for label in script_contract.INLINE_REQUIRED_LABELS:
+            with self.subTest(field=label):
+                self.assertTrue(self._value(label), '必填的故事字段保留示例值，供用户照着改')
+        must = [line for line in self.header if '必须写明' in line]
+        self.assertEqual(len(must), 1, '说明段要有且只有一行写明本页必须写明的锁')
+        for label in self.required_locks:
+            self.assertIn(label, must[0])
+        self.assertIn('星号', must[0], '说明段要交代行首星号表示必填')
+        self.assertEqual(idea_chat.strip_inline_required_markers(self.text), self.text,
+                         '一行只用行首星号一种必填标记，不再带行尾的全角标记')
+        self.assertNotIn('必填项', self.text, '旧的行尾星号必填项写法会被当成取值的一部分，不再使用')
+
+    def test_theme_line_precedes_genre_so_the_genre_line_wins(self):
+        """「故事主题」是「故事题材」的别名，后写的覆盖先写的：题材行排在后面，用户改题材才算数。"""
+        labels = [self._label(line) for line in self.body]
+        self.assertIn('故事主题', labels)
+        self.assertIn('故事题材', labels)
+        self.assertLess(labels.index('故事主题'), labels.index('故事题材'))
+        self.assertEqual(idea_chat.extract_brief_creation(self.text).get('故事题材'), self._value('故事题材'))
+
+    def test_world_setting_line_sits_after_the_supplement_and_leaks_into_no_other_field(self):
+        """「世界设定」不是登记的字段，解析时并进它前面那个字段：放在文末的「内容补充」之后，只并进内容补充。
+
+        放在画风后面会混进画风；放在梗概、题材后面还会把空着的必填项顶住，清空了也不被点名。
+        「关键事件」「参考作品」并进故事角色是改前就有的行为，不在这一条里。
+        """
+        fields = idea_chat.extract_brief_creation(idea_chat.strip_inline_required_markers(self.text))
+        for label in ('故事集数', '单集时间', '故事题材', '故事梗概', '故事画风', '特殊要求'):
+            with self.subTest(field=label):
+                self.assertEqual(fields.get(label), self._value(label), '这个字段的值只能是它自己那一行')
+        labels = [label for label in map(self._label, self.body) if label]
+        self.assertEqual(labels[-2:], ['内容补充', '世界设定'])
+        self.assertEqual(self._value('内容补充'), '', '内容补充留空，由用户自己写')
+        self.assertEqual(fields.get('内容补充'), '世界设定: ' + self._value('世界设定'))
+
+    def test_header_is_description_and_adds_no_fields(self):
+        self.assertTrue(self.header, '示例开头要有技能说明段')
+        self.assertIn('short-drama-director', self.header[0])
+        self.assertFalse(self.header[0][:1].isspace())
+        self.assertNotRegex(self.header[0], '[:：]')
+        self.assertEqual([line for line in self.header[1:] if not line.startswith('  ')], [],
+                         '说明段首行之后的行都缩进，才不会被当成字段')
+        self.assertNotRegex('\n'.join(self.header), r'[|\t]')
+        self.assertEqual([line for line in self.lines if line.startswith('/')], [])
+        body_heads = [line.split(':', 1)[0] for line in self.body if line and not line[:1].isspace()]
+        self.assertEqual(list(idea_chat.inline_template_labels(self.text)), body_heads)
+        lock_labels = tuple(name for item in PRODUCTION_LOCK_DEFINITIONS
+                            for name in (item['label'], *item.get('aliases', ())))
+        self.assertEqual(idea_chat.extract_brief_creation('\n'.join(self.header), extra_labels=lock_labels,
+                                                          include_extra=True), {})
+
+
 class InlineBriefDesktopTests(_Harness):
     def test_api_stage_confirmation_keeps_brief_and_refreshes_saved_document(self):
         with tempfile.TemporaryDirectory() as td:
