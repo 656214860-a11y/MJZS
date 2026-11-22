@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 ALLOWED = {
     '程序': '源码根目录',
     '.claude': 'Claude Code 项目配置（settings 等）',
+    '.agents': '仓库级项目开发技能（spec-context-review；说明见 开发者工具/AI开发流程/README.md）',
     '.claudeignore': 'Claude 忽略规则', '.gitattributes': 'Git 属性', '.gitignore': 'Git 忽略规则',
     '.gitmodules': '外部参考与技能包的固定 Git 子模块映射',
     'AGENTS.md': '代理入口协议', 'CLAUDE.md': 'Claude 入口说明',
