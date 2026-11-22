@@ -505,7 +505,7 @@ class _AssetControls:
                     self.reload_rows();self.progress_text.set(result)
             except Exception:
                 app_logging.swallowed()
-            if self.app.root==self.project:self.app.show(PAGE_OF['assets'])
+            if self.app.root==self.project and getattr(self.app,'page_index',None)==PAGE_OF['assets']:self.app.show(PAGE_OF['assets'])    # REQ-S05-24：人不在资产管理页就不翻页，状态栏照常更新
             try:
                 if self.win.winfo_exists():
                     # 按资产库里的落盘结果判断，不靠返回文案里的关键字：取消、超时、

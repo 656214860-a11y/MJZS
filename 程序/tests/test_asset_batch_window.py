@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
 """批量资产窗口：在已填充的演示项目上用 ComfyUI、资产工作流、Skill 三种方式打开，
 点不联网、不开外部程序的按钮，确认表单、类别勾选、保存设置、云模型密钥窗口都能用。"""
+import queue
 import shutil
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 import asset_batch
+from infra.pet_state import PAGE_OF
 from skip_reasons import PLATFORM_TKINTER
 
 # 会联网、开外部程序、弹模态框或真开始生产的按钮不点。
@@ -122,6 +125,86 @@ class AssetBatchWindowTests(unittest.TestCase):
         self.assertNotIn('开始批量生成并导入', found)
         self.press(popup, '保存设置')
         self.assertTrue(popup.winfo_exists())
+
+
+class _Host:
+    """批次结束回调用到的主窗口那几样：当前项目、当前页、状态栏、翻页、完成消息上报。"""
+
+    def __init__(self, root, page_index):
+        self.root = root
+        self.page_index = page_index
+        self.status = mock.Mock()
+        self.shown = []
+        self.reports = []
+        self.finishers = []
+
+    def show(self, index):
+        self.shown.append(index)
+
+    def pet_report(self, stage, text):
+        self.reports.append((stage, text))
+
+    def launch_comfy(self, silent=False):
+        return True
+
+    def async_(self, work, done=None, **kw):
+        self.finishers.append(done)
+
+    def current_frame_json(self):
+        return None
+
+    def asset_scope(self):
+        return None
+
+    def asset_sources(self):
+        return None
+
+
+class AssetBatchFinishStaysOnPageTests(unittest.TestCase):
+    """REQ-S05-24：批量生成结束不把人从别的页拉回资产管理页（UX-B6B）。
+
+    不开窗口：拿替身当批次窗，走到 start() 把结束回调交给后台任务那一步，再直接调这个回调。
+    """
+
+    RESULT = '资产批次完成：已导入 2 项'
+
+    def _finish(self, page_index, *, project='项目甲', root='项目甲'):
+        window = mock.MagicMock()
+        window.app = _Host(root, page_index)
+        window.project = project
+        window.skill_mode = False
+        window.events = queue.Queue()
+        window.events.put('上一条进度消息')
+        window.checks = {}
+        window.work_options.return_value = {'url': 'http://127.0.0.1:8188'}
+        window.controller.start_decision.return_value = SimpleNamespace(items=[], uncertain_ids=[])
+        with mock.patch('stage_execution_service.require_formal_asset_generation'), \
+                mock.patch.object(asset_batch, 'uncertain_assets', return_value=[]), \
+                mock.patch.object(asset_batch, 'Comfy'), \
+                mock.patch.object(asset_batch, 'save_settings',
+                                  return_value=SimpleNamespace(ok=True, reason='')):
+            asset_batch._AssetBatchWindow.start(window)
+        self.assertEqual(len(window.app.finishers), 1, 'start() 应把结束回调交给后台任务一次')
+        window.app.finishers[0](self.RESULT)
+        return window
+
+    def test_finish_redraws_assets_page_when_user_is_on_it(self):
+        window = self._finish(PAGE_OF['assets'])
+        self.assertEqual(window.app.shown, [PAGE_OF['assets']])
+        window.app.status.set.assert_called_with(self.RESULT)
+
+    def test_finish_leaves_other_pages_alone(self):
+        window = self._finish(PAGE_OF['storyboard'])
+        self.assertEqual(window.app.shown, [], '人在别的页时不许翻回资产管理页')
+        window.app.status.set.assert_called_with(self.RESULT)
+        window.status.set.assert_called_with(self.RESULT)
+        self.assertEqual(window.app.reports, [('assets', self.RESULT)], '完成消息仍要上报')
+        self.assertTrue(window.events.empty(), '没显示完的进度消息仍要清掉')
+
+    def test_finish_after_project_switch_does_not_redraw(self):
+        window = self._finish(PAGE_OF['assets'], root='项目乙')
+        self.assertEqual(window.app.shown, [])
+        window.app.status.set.assert_called_with(self.RESULT)
 
 
 if __name__ == '__main__':
