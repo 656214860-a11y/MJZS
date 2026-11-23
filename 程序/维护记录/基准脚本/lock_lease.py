@@ -84,6 +84,8 @@ def inspect(path, legacy_pid_alive=None):
         before = os.stat(path)
     except FileNotFoundError:
         return "missing", {}, None
+    except PermissionError:
+        return "unknown", {}, None
     try:
         holder = _read(path)
         after = os.stat(path)

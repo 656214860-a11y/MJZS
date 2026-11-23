@@ -142,6 +142,73 @@ class RoundClaimTests(unittest.TestCase):
             self.assertEqual(errors, [])
             self.assertEqual(sorted(values), list(range(41, 49)))
 
+    def test_claim_retries_permission_error_while_lock_is_being_replaced(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._init_repo(root)
+            common = root / ".git"
+            tasks = self._tasks(root, 40)
+            lock = common / round_claim.LOCK_NAME
+            real_open = os.open
+            failures = []
+
+            def flaky_open(path, flags, *args, **kwargs):
+                try:
+                    candidate = os.fspath(path)
+                except TypeError:
+                    candidate = path
+                if candidate == str(lock) and len(failures) < 3:
+                    failures.append(candidate)
+                    raise PermissionError(13, "另一个程序正在使用此文件，进程无法访问。")
+                return real_open(path, flags, *args, **kwargs)
+
+            with mock.patch.object(os, "open", flaky_open):
+                self.assertEqual(round_claim.claim_next(common_dir=common, tasks_round=tasks, root=root), 41)
+            self.assertEqual(len(failures), 3)
+            self.assertFalse(lock.exists())
+
+    def test_shared_lock_retries_permission_error_when_removing_lock(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            common = Path(temporary)
+            lock = common / round_claim.LOCK_NAME
+            real_unlink = Path.unlink
+            failures = []
+
+            def flaky_unlink(path, *args, **kwargs):
+                if path == lock and len(failures) < 2:
+                    failures.append(path)
+                    raise PermissionError(13, "另一个程序正在使用此文件，进程无法访问。")
+                return real_unlink(path, *args, **kwargs)
+
+            with mock.patch.object(Path, "unlink", flaky_unlink):
+                with round_claim.shared_lock(common):
+                    pass
+            self.assertEqual(len(failures), 2)
+            self.assertFalse(lock.exists())
+
+    def test_lock_lease_permission_error_is_treated_as_occupied(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            lock = Path(temporary) / round_claim.LOCK_NAME
+            lock.write_text(json.dumps(round_claim.lock_lease.payload(os.getpid())), encoding="utf-8")
+            real_stat = os.stat
+            failures = []
+
+            def flaky_stat(path, *args, **kwargs):
+                try:
+                    candidate = os.fspath(path)
+                except TypeError:
+                    candidate = path
+                if candidate == str(lock):
+                    failures.append(candidate)
+                    raise PermissionError(13, "另一个程序正在使用此文件，进程无法访问。")
+                return real_stat(path, *args, **kwargs)
+
+            with mock.patch.object(os, "stat", flaky_stat):
+                self.assertEqual(round_claim.lock_lease.inspect(lock)[0], "unknown")
+                self.assertFalse(round_claim.lock_lease.reclaim(lock))
+            self.assertEqual(len(failures), 2)
+            self.assertTrue(lock.exists())
+
     def test_claim_rejects_another_active_lease_and_release_restores_pending(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

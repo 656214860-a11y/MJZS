@@ -231,8 +231,8 @@ def _acquire_lock(common_dir: Path, timeout: float = 15.0) -> Path:
     while True:
         try:
             descriptor = os.open(str(lock), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-        except FileExistsError:
-            if lock_lease.reclaim(lock):
+        except (FileExistsError, PermissionError) as error:
+            if isinstance(error, FileExistsError) and lock_lease.reclaim(lock):
                 continue
             if time.monotonic() >= deadline:
                 raise TimeoutError("共享认领锁被占用：%s" % lock)
@@ -253,10 +253,17 @@ def shared_lock(common_dir: Path):
         yield
     finally:
         lock_lease.release(lock)
-        try:
-            lock.unlink()
-        except FileNotFoundError:
-            pass
+        deadline = time.monotonic() + 2.0
+        while True:
+            try:
+                lock.unlink()
+                break
+            except FileNotFoundError:
+                break
+            except PermissionError:
+                if time.monotonic() >= deadline:
+                    break
+                time.sleep(0.05)
 
 
 def _atomic_json_write(path: Path, value: object) -> None:
