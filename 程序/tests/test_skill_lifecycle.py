@@ -298,6 +298,29 @@ class RenameTests(unittest.TestCase):
         with self.assertRaises(skill_import_service.ImportBlocked):
             skill_lifecycle_service.rename_plan(self.program, self.registry, 'beta', 'beta-two')
 
+    def test_apply_rename_rolls_back_when_post_steps_fail(self):
+        """后半段（迁引用等）失败时须回滚落盘改名，避免新旧名不一致被 clean 清掉旧引用（AUD-SKILL D8）。"""
+        source = _write(self.root / 'src' / 'alpha.skill.md', 'alpha')
+        import_file(self.program, self.registry, source)
+        project = _project(self.root, self.program, 'proj', skills=['alpha'])
+        self.registry.scan(force=True)
+        plan = skill_lifecycle_service.rename_plan(
+            self.program, self.registry, 'alpha', 'alpha-two', project=project)
+        old_file = self.program / 'data' / 'skills' / STAGE_DIR / 'alpha.skill.md'
+        new_file = self.program / 'data' / 'skills' / STAGE_DIR / 'alpha-two.skill.md'
+        with mock.patch.object(skill_lifecycle_service, '_migrate_project_refs',
+                               side_effect=OSError('migrate boom')):
+            with self.assertRaises((OSError, skill_import_service.ImportBlocked)):
+                skill_lifecycle_service.apply_rename(self.program, plan)
+        # 落盘已改名、引用未迁：必须回滚到旧名，否则旧引用会被后续清理清掉。
+        self.assertTrue(old_file.is_file(), '后半段失败后旧清单应仍在原位（或已回滚）')
+        self.assertFalse(new_file.exists(), '后半段失败后不应留下仅新名文件')
+        config = json.loads((project / 'skill_config.json').read_text(encoding='utf-8'))
+        self.assertEqual(['alpha'], config['script']['skills'])
+        self.registry.scan(force=True)
+        self.assertIsNotNone(self.registry.getById('alpha'))
+        self.assertIsNone(self.registry.getById('alpha-two'))
+
 
 class VersionCompareTests(unittest.TestCase):
     def test_version_key_orders_numeric_segments(self):

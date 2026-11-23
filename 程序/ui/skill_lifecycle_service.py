@@ -14,6 +14,7 @@ import orchestrator.skill_registry as skill_registry
 from agent.core import save, save_text
 from contract.pet_bus import read_json
 from contract.stage_layout import skill_config_path
+import infra.app_logging as app_logging
 from infra.storage_maintenance import recycle_paths
 
 # ── 生命周期操作（T8）：定位／重命名／启停用 ──
@@ -256,13 +257,8 @@ def rename_plan(program, registry, name, new_name, project=None):
             'affected_projects': affected, 'affected_count': len(affected)}
 
 
-def apply_rename(program, plan):
-    """执行重命名计划：先落盘改名，再迁项目引用、台账与禁用登记；返回摘要。
-
-    清单＝写新文件再回收旧文件；包＝改入口 ``name`` 字段（无字段由目录名派生）后整目录改名。
-    同步标记由下一次 agent 技能同步按注册表自动重算（改名后旧名目录按孤儿回收）。
-    """
-    program = Path(program)
+def _apply_disk_rename(program, plan):
+    """落盘改名（清单写新回收旧；包改入口名后整目录改名）。"""
     old_path, new_path = Path(plan['target_old']), Path(plan['target_new'])
     if plan['kind'] == 'manifest':
         text = old_path.read_text(encoding='utf-8-sig')
@@ -275,21 +271,112 @@ def apply_rename(program, plan):
         if not records:
             raise skill_import_service.ImportBlocked('旧文件 %s 未能移入回收站；新文件已写入，请您处理'
                                                      % old_path.name)
-    else:
-        entry_path = Path(plan['entry_path'])
-        text = entry_path.read_text(encoding='utf-8-sig')
-        rewritten = _rewrite_frontmatter_name(text, plan['new'])
-        if rewritten is not None:
-            save_text(entry_path, rewritten)
-        new_path.parent.mkdir(parents=True, exist_ok=True)
-        old_path.rename(new_path)
-    affected = _migrate_project_refs(program, plan['old'], plan['new'],
-                                     extra=plan.get('project') or '')
-    moved = _rename_ledger_targets(program, plan)
-    skill_project_layer.rename_disabled(
-        skill_registry.default_user_root(program), plan['old'], plan['new'],
-        layer=plan.get('layer') or '', project=plan.get('project') or '',
-        new_path=plan['target_new'])
+        return
+    entry_path = Path(plan['entry_path'])
+    text = entry_path.read_text(encoding='utf-8-sig')
+    rewritten = _rewrite_frontmatter_name(text, plan['new'])
+    if rewritten is not None:
+        save_text(entry_path, rewritten)
+    new_path.parent.mkdir(parents=True, exist_ok=True)
+    old_path.rename(new_path)
+
+
+def _package_entry_file(folder):
+    """包目录内入口文件（``SKILL.md`` 等）；找不到返回 ``None``。"""
+    folder = Path(folder)
+    names = {name.casefold() for name in skill_import_service._PACKAGE_ENTRY_NAMES}
+    for path in folder.iterdir() if folder.is_dir() else ():
+        if path.is_file() and path.name.casefold() in names:
+            return path
+    return None
+
+
+def _rollback_disk_rename(program, plan):
+    """把已完成的落盘改名撤回到旧名；尽量恢复可读状态。"""
+    old_path, new_path = Path(plan['target_old']), Path(plan['target_new'])
+    if plan['kind'] == 'manifest':
+        if not new_path.is_file():
+            return
+        text = new_path.read_text(encoding='utf-8-sig')
+        restored = _rewrite_frontmatter_name(text, plan['old'])
+        save_text(old_path, restored if restored is not None else text)
+        recycle_paths(program, [new_path],
+                      '回滚 SKILL 改名：%s → %s' % (plan['new'], plan['old']))
+        return
+    if not new_path.exists():
+        return
+    entry = _package_entry_file(new_path)
+    if entry is not None:
+        text = entry.read_text(encoding='utf-8-sig')
+        restored = _rewrite_frontmatter_name(text, plan['old'])
+        if restored is not None:
+            save_text(entry, restored)
+    if not old_path.exists():
+        new_path.rename(old_path)
+
+
+def _rollback_rename(program, plan, done):
+    """按已完成步骤逆序回滚：禁用登记 → 台账 → 项目引用 → 落盘。"""
+    if 'disabled' in done:
+        try:
+            skill_project_layer.rename_disabled(
+                skill_registry.default_user_root(program), plan['new'], plan['old'],
+                layer=plan.get('layer') or '', project=plan.get('project') or '',
+                new_path=plan['target_old'])
+        except Exception:
+            app_logging.swallowed('rollback rename disabled')
+    if 'ledger' in done:
+        try:
+            reverse = dict(plan)
+            reverse['old'], reverse['new'] = plan['new'], plan['old']
+            reverse['target_old'], reverse['target_new'] = plan['target_new'], plan['target_old']
+            _rename_ledger_targets(program, reverse)
+        except Exception:
+            app_logging.swallowed('rollback rename ledger')
+    if 'refs' in done:
+        try:
+            _migrate_project_refs(program, plan['new'], plan['old'],
+                                  extra=plan.get('project') or '')
+        except Exception:
+            app_logging.swallowed('rollback rename refs')
+    if 'disk' in done:
+        try:
+            _rollback_disk_rename(program, plan)
+        except Exception:
+            app_logging.swallowed('rollback rename disk')
+
+
+def apply_rename(program, plan):
+    """执行重命名计划：先落盘改名，再迁项目引用、台账与禁用登记；返回摘要。
+
+    清单＝写新文件再回收旧文件；包＝改入口 ``name`` 字段（无字段由目录名派生）后整目录改名。
+    同步标记由下一次 agent 技能同步按注册表自动重算（改名后旧名目录按孤儿回收）。
+    后半段任一步失败则逆序回滚已完成步骤，避免新旧名不一致后旧引用被清理清掉。
+    """
+    program = Path(program)
+    new_path = Path(plan['target_new'])
+    done = []
+    try:
+        _apply_disk_rename(program, plan)
+        done.append('disk')
+        affected = _migrate_project_refs(program, plan['old'], plan['new'],
+                                         extra=plan.get('project') or '')
+        done.append('refs')
+        moved = _rename_ledger_targets(program, plan)
+        done.append('ledger')
+        skill_project_layer.rename_disabled(
+            skill_registry.default_user_root(program), plan['old'], plan['new'],
+            layer=plan.get('layer') or '', project=plan.get('project') or '',
+            new_path=plan['target_new'])
+        done.append('disabled')
+    except skill_import_service.ImportBlocked:
+        _rollback_rename(program, plan, done)
+        raise
+    except Exception as exc:
+        _rollback_rename(program, plan, done)
+        raise skill_import_service.ImportBlocked(
+            'SKILL 改名失败，已回滚（完成至：%s）：%s' % ('→'.join(done) or '无', exc)
+        ) from exc
     return {'old': plan['old'], 'new': plan['new'], 'kind': plan['kind'],
             'target': str(new_path), 'affected_projects': affected,
             'ledger_rows': moved, 'affected_count': len(affected)}
