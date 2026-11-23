@@ -8,11 +8,13 @@
 测试里真实 Desktop 会用本机会话续签，多进程并发续签会触发服务端令牌重用检测、吊销真实会话。
 本模块不读写本机文件、不导入 Tk；令牌只在入参和返回值里，不写日志。
 """
+import base64
 import json
 import os
 import re
 import ssl
 import urllib.error
+from datetime import datetime, timezone
 
 import contract.platform_tools as platform_tools
 from contract.app_metadata import VERSION
@@ -38,6 +40,10 @@ A0gAMEUCIQCKrvHcmf/zufpgtzawLfuUHjvoPZVFu9FiRvhXw6jqBAIgFc6nefcI
 b6etUR7Flp4yByBxEYfi2aW+oFkJiSphyis=
 -----END CERTIFICATE-----
 '''
+# 钉死证书到期前多少天开始告警（账号页／自检可调本函数展示）。
+PINNED_CERT_WARN_DAYS = 60
+# ASN.1 UTCTime 标签 0x17 + 长度 0x0d（YYMMDDHHMMSSZ）。
+_UTC_TIME_TAG = b'\x17\x0d'
 # 服务端错误码 → 给用户看的话；未登记的码用服务端 message。
 MESSAGES = {
     'invalid_email': '邮箱格式不正确',
@@ -71,6 +77,52 @@ def _ssl_context():
     if _context is None:
         _context = ssl.create_default_context(cadata=PINNED_CERT) if PINNED_CERT else ssl.create_default_context()
     return _context
+
+
+def pinned_cert_not_after(pem=None):
+    """解析钉死证书的 ``notAfter``（UTC）；解析失败返回 ``None``。不改地址与证书本身。"""
+    text = PINNED_CERT if pem is None else pem
+    if not text:
+        return None
+    body = ''.join(line for line in str(text).splitlines() if line and not line.startswith('-----'))
+    try:
+        der = base64.b64decode(body)
+    except (ValueError, TypeError):
+        return None
+    times = []
+    idx = 0
+    while True:
+        pos = der.find(_UTC_TIME_TAG, idx)
+        if pos < 0:
+            break
+        stamp = der[pos + 2:pos + 15]
+        try:
+            times.append(datetime.strptime(stamp.decode('ascii'), '%y%m%d%H%M%SZ').replace(tzinfo=timezone.utc))
+        except (ValueError, UnicodeError):
+            pass
+        idx = pos + 1
+    return max(times) if times else None
+
+
+def pinned_cert_warning(*, now=None, warn_days=PINNED_CERT_WARN_DAYS, pem=None):
+    """到期前 ``warn_days`` 天内（含已过期）返回告警文案，否则空串。
+
+    供账号页或自检展示；本函数不改 ``BASE_URL``／``PINNED_CERT``。
+    """
+    not_after = pinned_cert_not_after(pem)
+    if not_after is None:
+        return ''
+    clock = now or datetime.now(timezone.utc)
+    if clock.tzinfo is None:
+        clock = clock.replace(tzinfo=timezone.utc)
+    remaining = not_after - clock
+    limit = max(0, int(warn_days)) * 86400
+    if remaining.total_seconds() > limit:
+        return ''
+    day = not_after.date().isoformat()
+    if remaining.total_seconds() < 0:
+        return '账号服务钉死证书已于 %s 到期，登录可能失败，请尽快更换域名与系统 CA。' % day
+    return '账号服务钉死证书将于 %s 到期（剩余不足 %d 天），到期后登录闸可能无法通过。' % (day, max(0, int(warn_days)))
 
 
 _EMAIL = re.compile(r'[A-Za-z0-9_.+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+')

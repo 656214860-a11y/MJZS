@@ -10,6 +10,7 @@ import sys
 import subprocess
 import tempfile
 import unittest
+from datetime import datetime, timezone, timedelta
 from ui.pet_ui_stages import stage_run_action
 import unittest.mock
 import urllib.error
@@ -300,6 +301,19 @@ class AccountClientTests(unittest.TestCase):
         account_client.verify_code('a@b.c', '123456', {'id': DID}, age_confirmed=True, opener=fake)
         body = json.loads(calls[0][1]['data'])
         self.assertEqual((body['age_confirmed'], body['tos_version']), (True, account_client.TOS_VERSION))
+
+    def test_pinned_cert_warns_within_sixty_days(self):
+        """钉死证书 2027-10-22 到期；到期前 60 天内须给出告警，否则登录闸到期后才暴露（AUD-MODEL D3）。"""
+        not_after = account_client.pinned_cert_not_after()
+        self.assertEqual(not_after.date().isoformat(), '2027-10-22')
+        far = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        self.assertEqual(account_client.pinned_cert_warning(now=far), '')
+        soon = not_after - timedelta(days=30)
+        warn = account_client.pinned_cert_warning(now=soon)
+        self.assertTrue(warn)
+        self.assertIn('2027-10-22', warn)
+        expired = not_after + timedelta(days=1)
+        self.assertTrue(account_client.pinned_cert_warning(now=expired))
 
     def test_http_error_maps_stable_code(self):
         err = urllib.error.HTTPError('u', 429, 'x', {}, io.BytesIO(json.dumps(
