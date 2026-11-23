@@ -1,5 +1,6 @@
 """单文件 SKILL 导入在复制前校验并确认。"""
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -9,7 +10,7 @@ import skill_panel_import
 import skill_import_service
 import skill_registry
 from skip_reasons import PLATFORM_SYMLINK
-from test_skills import write_skill
+from test_skills import SKILL_TEMPLATE, write_skill
 
 
 class SkillImportValidationTests(unittest.TestCase):
@@ -363,3 +364,112 @@ class SkillImportBoundsTests(unittest.TestCase):
     def test_normal_package_passes_bounds(self):
         package = self._package()
         skill_import_service._check_package_bounds(package)  # 不抛即过
+
+
+class _QueuedDesktop:
+    """``async_queued`` 替身：像 Desktop 一样把 fn 放上工作线程，done 留在调用方线程回调。"""
+
+    def __init__(self):
+        self.root = None
+        self.submitted = []
+        self.errors = []
+
+    def async_queued(self, fn, done=None, label=None, show_progress=True, retryable=False):
+        self.submitted.append({'fn': fn, 'done': done, 'label': label,
+                               'retryable': retryable})
+        box = {}
+
+        def run():
+            try:
+                box['value'] = fn()
+            except Exception as exc:
+                box['error'] = exc
+
+        worker = threading.Thread(target=run, daemon=True)
+        worker.start()
+        worker.join(30)
+        self.errors.extend(box.get('error') for _ in [0] if 'error' in box)
+        if 'error' not in box and done is not None:
+            done(box.get('value'))
+        return len(self.submitted)
+
+
+class SkillImportAuditFixTests(unittest.TestCase):
+    """AUD-SKILL D5/D6：非 SKILL 清单硬拒、更新体检不占界面线程。"""
+
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.root = Path(temp.name)
+        self.target_dir = self.root / 'target' / '01剧本准备SKILL'
+        self.panel = mock.Mock()
+        self.panel.stage = 'script'
+        self.panel.registry.user_stage_directory_for.return_value = self.target_dir
+        self.panel.registry.getAll.return_value = []
+        self.panel.registry.getByStage.return_value = []
+        self.panel.skill_content.winfo_children.return_value = []
+
+    def run_import(self, source, accept=False):
+        with mock.patch.object(skill_panel_import, 'FileDialog') as dialog, \
+                mock.patch.object(skill_panel_import, 'confirm', return_value=accept) as confirm:
+            dialog.return_value.open_file.return_value = str(source)
+            result = skill_panel.Panel.add_skill_from_file(self.panel)
+        return result, confirm
+
+    def state_text(self):
+        return self.panel.state.configure.call_args.kwargs['text']
+
+    def test_non_skill_manifest_is_rejected_before_copy(self):
+        """「全部文件」选中的 .txt 不是 SKILL 清单：复制前硬拒，不再提示新增成功。"""
+        source = self.root / 'notes.txt'
+        source.write_text(SKILL_TEMPLATE % {'name': 'notes.txt', 'display': '记事',
+                                            'stage': 'script', 'tool': '', 'depends': '',
+                                            'conflicts': '', 'paid': 'false'},
+                          encoding='utf-8')
+        result, confirm = self.run_import(source)
+        self.assertIsNone(result)
+        confirm.assert_not_called()
+        self.assertIn('不是 SKILL 清单', self.state_text())
+        self.assertIn('skill.md', self.state_text())
+        self.assertFalse((self.target_dir / 'notes.txt').exists())
+        self.panel.registry.scan.assert_not_called()
+
+    def _update_panel(self):
+        desktop = _QueuedDesktop()
+        panel = mock.Mock()
+        panel.stage = 'script'
+        panel.desktop = desktop
+        panel.registry = mock.Mock()
+        return panel, desktop
+
+    def test_check_updates_probes_on_background_thread(self):
+        """「检查更新」的克隆／下载体检必须在后台线程跑，结果回界面线程再开窗。"""
+        panel, desktop = self._update_panel()
+        seen = []
+
+        def fake_check(program, *, probe=None, project=None):
+            seen.append(threading.current_thread())
+            return {}
+
+        with mock.patch.object(skill_import_service, 'check_updates',
+                               side_effect=fake_check), \
+                mock.patch.object(skill_import_service, 'ledger_items', return_value={}):
+            skill_panel.Panel.check_skill_updates(panel)
+        self.assertTrue(desktop.submitted, '体检应提交到桌面后台队列而不是界面线程同步跑')
+        self.assertEqual(len(seen), 1)
+        self.assertIsNot(seen[0], threading.current_thread(),
+                         'check_updates 必须在工作线程执行')
+        self.assertFalse(desktop.errors)
+        self.assertIn('没有导入记录',
+                      panel.state.configure.call_args.kwargs['text'])
+
+    def test_check_updates_failure_still_reports_on_state(self):
+        """后台体检异常仍落在状态行（与同步路径同一文案），不丢反馈。"""
+        panel, desktop = self._update_panel()
+        with mock.patch.object(skill_import_service, 'check_updates',
+                               side_effect=RuntimeError('boom')), \
+                mock.patch.object(skill_import_service, 'ledger_items', return_value={}):
+            skill_panel.Panel.check_skill_updates(panel)
+        text = panel.state.configure.call_args.kwargs['text']
+        self.assertIn('SKILL 更新检查失败', text)
+        self.assertIn('boom', text)

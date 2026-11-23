@@ -217,9 +217,14 @@ class PanelImportMixin:
     # ── T4：台账消费——检查更新与重新导入 ──
 
     def check_skill_updates(self):
-        """「检查更新」：遍历导入台账做更新体检；有更新的条目给「重新导入」。"""
+        """「检查更新」：遍历导入台账做更新体检；有更新的条目给「重新导入」。
+
+        体检含远程克隆与下载，多远程行会长时间占线程：经 ``Desktop.async_queued``
+        放后台执行，结果回界面线程再开窗；没有后台执行器（轻量替身）时退回同步。
+        """
         import skill_import_service
         program = Path(skill_import_service.__file__).resolve().parent
+        project = getattr(getattr(self, 'desktop', None), 'root', None)
         cache = {}
 
         def _probe(key, row):
@@ -231,15 +236,33 @@ class PanelImportMixin:
                 status = skill_archive.probe_row(key, row, program, self.registry)
             return status
 
-        try:
-            project = getattr(getattr(self, 'desktop', None), 'root', None)
-            statuses = skill_import_service.check_updates(
-                program, probe=_probe, project=project)
-            items = skill_import_service.ledger_items(program)
-        except Exception as exc:
-            self.state.configure(text='SKILL 更新检查失败：' + str(exc))
-            return None
-        return show_skill_updates(self, items, statuses)
+        def _work():
+            try:
+                statuses = skill_import_service.check_updates(
+                    program, probe=_probe, project=project)
+                items = skill_import_service.ledger_items(program)
+            except Exception as exc:
+                return exc
+            return items, statuses
+
+        def _done(result):
+            if isinstance(result, Exception):
+                if self.winfo_exists():
+                    self.state.configure(text='SKILL 更新检查失败：' + str(result))
+                return None
+            items, statuses = result
+            if not self.winfo_exists():
+                return None
+            return show_skill_updates(self, items, statuses)
+
+        desktop = getattr(self, 'desktop', None)
+        queued = getattr(desktop, 'async_queued', None)
+        if callable(queued):
+            return queued(_work, _done, label='检查 SKILL 更新', retryable=True)
+        async_ = getattr(desktop, 'async_', None)
+        if callable(async_):
+            return async_(_work, _done, label='检查 SKILL 更新')
+        return _done(_work())
 
 
 _UPDATE_STATUS_LABELS = {'unchanged': '已是最新', 'source-newer': '有更新',
