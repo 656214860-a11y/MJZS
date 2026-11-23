@@ -27,8 +27,17 @@ os.chdir(HERE)
 
 from contract import api_models
 from agent import prompt_optimizer as optimizer
+import infra.model_secrets as model_secrets
 
 PRESET_NAMES = ["智谱 GLM-4.7-Flash", "OpenAI GPT", "DeepSeek"]
+
+
+def use_fake_protector(case):
+    """换掉 Windows 加密：用例只看密钥去了哪儿，不依赖执行进程的用户配置文件。"""
+    original = model_secrets.PROTECTOR
+    case.addCleanup(setattr, model_secrets, "PROTECTOR", original)
+    model_secrets.PROTECTOR = lambda data, decrypt=False, label="": (
+        bytes(data)[len(b"enc:"):] if decrypt else b"enc:" + bytes(data))
 
 
 class FakeApp:
@@ -64,6 +73,7 @@ class SettingsCase(unittest.TestCase):
         original = optimizer.CONFIG
         optimizer.CONFIG = self.config
         self.addCleanup(setattr, optimizer, "CONFIG", original)
+        use_fake_protector(self)
         self.win = self.tk.Tk()
         self.win.withdraw()
         self.addCleanup(self.win.destroy)
@@ -231,6 +241,178 @@ class NewInterfaceSaveTests(SettingsCase):
         self.assertEqual(self.labels(), [])
         again = self.open_settings()
         self.assertNotIn(label, self.values(again))
+
+
+class KeyAtRestTests(SettingsCase):
+    """密钥不再明文写进设置文件：保存、搬家、留空沿用、删除后清掉。"""
+    URL = "https://api.example.com/v1"
+    OTHER = "https://api.other.example/v1"
+
+    def file_text(self):
+        return self.config.read_text(encoding="utf-8")
+
+    def stored(self, url):
+        return model_secrets.load(optimizer.key_name_for(url), root=self.tmp.name)
+
+    def confirm_deletion(self):
+        original = optimizer.ask_confirmation
+        optimizer.ask_confirmation = lambda *args, **kwargs: True
+        self.addCleanup(setattr, optimizer, "ask_confirmation", original)
+
+    def test_saving_keeps_the_key_out_of_the_settings_file(self):
+        sheet = self.open_settings()
+        self.choose(sheet, optimizer.NEW_INTERFACE)
+        self.fill(sheet, self.URL, "example-chat", "sk-test")
+        self.save(sheet)
+        self.assertNotIn("sk-test", self.file_text(), "设置文件里不该再有密钥原文")
+        self.assertEqual(self.stored(self.URL), "sk-test", "密钥进了本机加密存储")
+        self.assertTrue(model_secrets.path(optimizer.key_name_for(self.URL), root=self.tmp.name).is_file(),
+                        "加密存储跟着设置文件落在临时目录里")
+
+    def test_opening_settings_moves_an_old_plain_key_into_the_store(self):
+        self.seed({"base_url": self.URL, "model": "example-chat", "api_key": "sk-test"})
+        sheet = self.open_settings()
+        self.assertNotIn("sk-test", self.file_text(), "一打开设置，老的明文密钥就该搬走")
+        self.assertEqual(self.stored(self.URL), "sk-test")
+        self.assertEqual(self.field(sheet, 3).get(), "sk-test", "密钥格照旧回填")
+
+    def test_a_blank_key_box_keeps_the_saved_key(self):
+        self.seed({"base_url": self.URL, "model": "example-chat", "api_key": "sk-test"})
+        sheet = self.open_settings()
+        self.fill(sheet, self.URL, "example-chat-2", "")
+        self.save(sheet)
+        self.assertEqual(self.stored(self.URL), "sk-test", "留空＝沿用这个地址已保存的密钥")
+        self.assertIn("example-chat-2 · " + self.URL, self.labels())
+        self.assertNotIn("sk-test", self.file_text())
+
+    def test_a_new_address_without_a_key_is_refused(self):
+        sheet = self.open_settings()
+        self.choose(sheet, optimizer.NEW_INTERFACE)
+        self.fill(sheet, self.OTHER, "other-chat", "")
+        shown = []
+        original = optimizer.notify
+        optimizer.notify = lambda *args, **kwargs: shown.append(args[1])
+        self.addCleanup(setattr, optimizer, "notify", original)
+        self.save(sheet)
+        self.assertEqual(shown, ["新地址需要填写对应密钥，不会复用视频密钥"])
+        self.assertFalse(self.config.is_file(), "被拒绝时什么都不落盘")
+        self.assertEqual(self.stored(self.OTHER), "")
+
+    def test_deleting_the_last_model_of_an_address_forgets_its_key(self):
+        self.seed({"base_url": self.URL, "model": "example-chat", "api_key": "",
+                   "model_profiles": [
+                       {"base_url": self.URL, "model": "example-chat", "api_key": "sk-test"},
+                       {"base_url": self.OTHER, "model": "other-chat", "api_key": "sk-other"}]})
+        sheet = self.open_settings()
+        self.assertEqual(self.stored(self.OTHER), "sk-other", "先确认两把密钥都搬进去了")
+        self.fill(sheet, self.OTHER, "other-chat", "")
+        self.confirm_deletion()
+        self.button(sheet, "删除模型").invoke()
+        self.win.update_idletasks()
+        self.assertEqual(self.stored(self.OTHER), "", "这个地址没有模型在用了，密钥一并删掉")
+        self.assertEqual(self.stored(self.URL), "sk-test", "当前在用的地址，密钥留着")
+
+    def test_deleting_the_model_of_the_address_in_use_keeps_its_key(self):
+        self.seed({"base_url": self.URL, "model": "example-chat", "api_key": "sk-test"})
+        sheet = self.open_settings()
+        self.confirm_deletion()
+        self.button(sheet, "删除模型").invoke()
+        self.win.update_idletasks()
+        self.assertEqual(self.labels(), [])
+        self.assertEqual(self.stored(self.URL), "sk-test", "地址还填在当前设置里，密钥不删")
+
+
+class KeyStoreTests(unittest.TestCase):
+    """不用开窗口的那一半：密钥叫什么、老文件怎么搬、开始优化时读到什么、交给子进程的是哪几项。"""
+    URL = "https://api.example.com/v1"
+    OTHER = "https://api.other.example/v1"
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.config = Path(self.tmp.name) / "prompt_optimizer.json"
+        original = optimizer.CONFIG
+        optimizer.CONFIG = self.config
+        self.addCleanup(setattr, optimizer, "CONFIG", original)
+        use_fake_protector(self)
+
+    def seed(self, values):
+        self.config.write_text(json.dumps(values, ensure_ascii=False), encoding="utf-8")
+
+    def file_text(self):
+        return self.config.read_text(encoding="utf-8")
+
+    def stored(self, url):
+        return model_secrets.load(optimizer.key_name_for(url), root=self.tmp.name)
+
+    def test_key_names_are_per_address_and_file_safe(self):
+        pattern = r"^OPTIMIZER_[0-9A-Z_]+_[0-9a-f]{8}_KEY$"
+        name = optimizer.key_name_for(self.URL)
+        self.assertRegex(name, pattern)
+        self.assertEqual(name, optimizer.key_name_for(self.URL + "/"), "末尾斜杠不算两个地址")
+        self.assertNotEqual(name, optimizer.key_name_for("https://api.example.com/v2"), "路径不同是两个地址")
+        self.assertNotEqual(name, optimizer.key_name_for(self.OTHER))
+        self.assertRegex(optimizer.key_name_for("不是网址"), pattern, "认不出主机名也给得出能当文件名的名字")
+        self.assertEqual(model_secrets.safe_name(name), name)
+
+    def test_migration_moves_every_plain_key_and_blanks_the_file(self):
+        self.seed({"base_url": self.URL, "model": "example-chat", "api_key": "sk-top",
+                   "profiles": {self.URL: {"base_url": self.URL, "model": "example-chat",
+                                           "api_key": "sk-old"}},
+                   "model_profiles": [{"base_url": self.OTHER, "model": "other-chat",
+                                       "api_key": "sk-other"}]})
+        cfg = optimizer.load_config()
+        for plain in ("sk-top", "sk-old", "sk-other"):
+            self.assertNotIn(plain, self.file_text())
+        self.assertEqual(self.stored(self.URL), "sk-top", "同一个地址有多份时以顶层那一份为准")
+        self.assertEqual(self.stored(self.OTHER), "sk-other")
+        self.assertEqual(cfg["api_key"], "")
+        self.assertEqual(optimizer.load_config(), cfg, "再读一遍不再变")
+
+    def test_migration_keeps_a_key_already_in_the_store(self):
+        model_secrets.save(optimizer.key_name_for(self.URL), "sk-new", root=self.tmp.name)
+        self.seed({"base_url": self.URL, "model": "example-chat", "api_key": "sk-stale"})
+        optimizer.load_config()
+        self.assertEqual(self.stored(self.URL), "sk-new", "加密存储里已有的，不被老文件里的覆盖")
+        self.assertNotIn("sk-stale", self.file_text())
+
+    def test_a_key_the_store_refuses_stays_in_the_file(self):
+        self.seed({"base_url": self.URL, "model": "example-chat", "api_key": "sk-test"})
+        with patch.object(model_secrets, "PROTECTOR", side_effect=OSError("x")):
+            cfg = optimizer.load_config()
+        self.assertEqual(cfg["api_key"], "sk-test", "存不进去就原样留着，不丢用户的密钥")
+        self.assertIn("sk-test", self.file_text())
+        optimizer.load_config()
+        self.assertEqual(self.stored(self.URL), "sk-test", "下次能存了再搬")
+        self.assertNotIn("sk-test", self.file_text())
+
+    def test_a_plain_key_without_an_address_stays_in_the_file(self):
+        self.seed({"base_url": "", "model": "example-chat", "api_key": "sk-top",
+                   "profiles": {"x": {"base_url": "  ", "model": "blank-chat", "api_key": "sk-blank"}},
+                   "model_profiles": [{"model": "none-chat", "api_key": "sk-none"},
+                                      {"base_url": self.OTHER, "model": "other-chat", "api_key": "sk-other"}]})
+        cfg = optimizer.load_config()
+        for plain in ("sk-top", "sk-blank", "sk-none"):
+            self.assertIn(plain, self.file_text(), "没有地址的明文没处可存，原样留着，不丢用户的密钥")
+        self.assertEqual(cfg["api_key"], "sk-top")
+        self.assertNotIn("sk-other", self.file_text(), "有地址的那一份照常搬走")
+        self.assertEqual(self.stored(self.OTHER), "sk-other")
+        self.assertEqual(optimizer.load_config(), cfg, "再读一遍不再变")
+
+    def test_starting_reads_the_key_from_the_store(self):
+        self.seed({"base_url": self.URL, "model": "example-chat", "api_key": "sk-test", "server": "s.py"})
+        cfg, secret, missing = optimizer.ready_config()
+        self.assertEqual((secret, missing), ("sk-test", []))
+        self.assertEqual(cfg["api_key"], "", "读出来的设置里不带密钥")
+        model_secrets.clear(optimizer.key_name_for(self.URL), root=self.tmp.name)
+        self.assertEqual(optimizer.ready_config()[1:], ("", ["api_key"]), "密钥没了要报缺 api_key")
+
+    def test_the_bridge_gets_only_the_fields_it_uses(self):
+        cfg = {"base_url": self.URL, "model": "example-chat", "server": "s.py", "python": "p.exe",
+               "profiles": {self.OTHER: {"api_key": "sk-elsewhere"}}, "deleted_models": []}
+        self.assertEqual(optimizer.bridge_payload(cfg, "sk-test", "原提示词", "要求"),
+                         {"base_url": self.URL, "model": "example-chat", "server": "s.py",
+                          "api_key": "sk-test", "prompt": "原提示词", "instructions": "要求"})
 
 
 class OptimizerHomeTests(unittest.TestCase):
