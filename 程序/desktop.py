@@ -191,6 +191,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         self._startup_project_page_job=None
         self._startup_script_build_job=None
         self._startup_project_recovery_job=None
+        self._startup_ready_fallback_id=None
         self._startup_project_choice=True
         # 窗口只提供 Tk 调度与事件绑定；无 Tk 控制器保持首帧后才选择项目的时序。
         self._startup_timer=None
@@ -218,9 +219,8 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         # 不让气泡的浮窗映射与页面回填争用同一轮 Tk 事件循环。
         pet_ui.start(self,delay_ms=5000)
         self.setup_tray()
-        # 轮 3B G6：主窗口壳与登录闸决策完成＝READY（登录闸出现也算），崩溃预算清零，
-        # 不等正常退出；此后运行期崩溃不再计入启动预算。
-        diagnostic_capture.record_startup_ready()
+        # 崩溃预算 READY 改到启动稳定（tick 恢复）或登录闸出现／60s 兜底（DES-APP-06）。
+        self._arm_startup_ready_guard()
 
     def _init_window_and_sidebar(self, win, root, page_services):
         """服务、窗口外观与侧栏（项目列表、导航按钮、标题行），从 __init__ 原样切出，R1808。"""

@@ -320,6 +320,124 @@ class CrashBudgetTests(unittest.TestCase):
         self.assertFalse(subject.confirm_safe_start(ask=lambda *a: (_ for _ in ()).throw(RuntimeError('x'))))
 
 
+class StartupReadyLateTests(unittest.TestCase):
+    """DES-APP-06：READY 后移到 settle／登录闸／60s 兜底；不建真实 Desktop／Tk。"""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        root = Path(self.temp.name)
+        self.state = root / 'logs' / 'diagnostics' / 'latest.json'
+        patcher = mock.patch.multiple(subject, PROGRAM=root, LOGS=root / 'logs',
+                                      ERROR_LOG=root / 'logs' / 'e.log', STATE_FILE=self.state)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _guard(self):
+        return json.loads(self.state.read_text(encoding='utf-8')).get('startup_guard') or {}
+
+    def _host(self, *, login_gate_active=False, shutting_down=False):
+        from ui.desktop_automation_tick import AutomationTickMixin
+        from orchestrator.desktop_automation_service import DesktopAutomationScheduler
+
+        class Host(AutomationTickMixin):
+            pass
+
+        host = Host()
+        host.shutting_down = shutting_down
+        host._startup_tick_resume_id = None
+        host._startup_tick_paused = True
+        host._startup_ready_fallback_id = None
+        host.login_gate_active = login_gate_active
+        host.win = SimpleNamespace(_desktop_startup_settled=False)
+        host._sched = {'cb': None, 'ms': None, 'timer': 'fallback-tid', 'cancelled': []}
+
+        def schedule_after(ms, cb):
+            host._sched['ms'] = ms
+            host._sched['cb'] = cb
+            return host._sched['timer']
+
+        def cancel_scheduled(tid):
+            host._sched['cancelled'].append(tid)
+
+        host.automation_scheduler = DesktopAutomationScheduler(
+            schedule_after=schedule_after,
+            cancel_scheduled=cancel_scheduled,
+            is_stopping=lambda: bool(getattr(host, 'shutting_down', False)),
+        )
+        return host
+
+    def test_ready_fallback_ms_is_sixty_seconds(self):
+        self.assertEqual(subject.READY_FALLBACK_MS, 60_000)
+
+    def test_resume_tick_clears_attempt_after_settle(self):
+        subject.startup_guard()
+        self.assertTrue(self._guard().get('attempt_at'))
+        host = self._host()
+        host._resume_tick_after_first_paint()
+        guard = self._guard()
+        self.assertTrue(host.win._desktop_startup_settled)
+        self.assertIsNone(guard.get('attempt_at'))
+        self.assertEqual(guard.get('crash_count'), 0)
+
+    def test_arm_without_login_keeps_attempt_until_settle(self):
+        subject.startup_guard()
+        host = self._host(login_gate_active=False)
+        host._arm_startup_ready_guard()
+        self.assertTrue(self._guard().get('attempt_at'))
+        self.assertEqual(host._sched['ms'], subject.READY_FALLBACK_MS)
+        host._resume_tick_after_first_paint()
+        self.assertIsNone(self._guard().get('attempt_at'))
+
+    def test_login_gate_active_marks_ready_immediately(self):
+        subject.startup_guard()
+        host = self._host(login_gate_active=True)
+        host._arm_startup_ready_guard()
+        guard = self._guard()
+        self.assertIsNone(guard.get('attempt_at'))
+        self.assertEqual(guard.get('crash_count'), 0)
+
+    def test_fallback_callback_clears_budget(self):
+        subject.startup_guard()
+        host = self._host()
+        host._arm_startup_ready_guard()
+        self.assertTrue(self._guard().get('attempt_at'))
+        host._sched['cb']()
+        guard = self._guard()
+        self.assertIsNone(guard.get('attempt_at'))
+        self.assertEqual(guard.get('crash_count'), 0)
+
+    def test_fallback_skipped_when_shutting_down(self):
+        subject.startup_guard()
+        host = self._host()
+        host._arm_startup_ready_guard()
+        host.shutting_down = True
+        host._sched['cb']()
+        self.assertTrue(self._guard().get('attempt_at'))
+
+    def test_settle_cancels_fallback_timer(self):
+        subject.startup_guard()
+        host = self._host()
+        host._arm_startup_ready_guard()
+        host._resume_tick_after_first_paint()
+        self.assertIn(host._sched['timer'], host._sched['cancelled'])
+
+    def test_destroy_cancel_all_drops_fallback(self):
+        subject.startup_guard()
+        host = self._host()
+        host._arm_startup_ready_guard()
+        host.automation_scheduler.cancel_all()
+        self.assertIn(host._sched['timer'], host._sched['cancelled'])
+        self.assertTrue(self._guard().get('attempt_at'))
+
+    def test_death_before_ready_still_counts_toward_safe_start(self):
+        self.assertEqual(subject.startup_guard(), 'proceed')
+        self.assertEqual(subject.startup_guard(), 'proceed')
+        self.assertEqual(self._guard().get('crash_count'), 1)
+        self.assertEqual(subject.startup_guard(), 'proceed')
+        self.assertEqual(subject.startup_guard(), 'safe_start')
+
+
 class FatalDialogTests(unittest.TestCase):
     """notify_startup_fatal / fatal_diagnostics_text：FATAL 的可操作弹窗文本。"""
 
