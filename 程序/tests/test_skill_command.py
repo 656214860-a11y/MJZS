@@ -173,5 +173,84 @@ class TriggerTokenTests(unittest.TestCase):
         self.assertIsNotNone(token, '全角空格同样是合法触发边界')
 
 
+class CompletionHintTests(unittest.TestCase):
+    """REQ-S01-106（UX-SLASH-HINT 轮）：候选条目在四字段外携带用途 ``hint``。
+
+    只消费已取得的注册对象／字典 ``description``；engine 按名回查包说明；
+    重名按快照先后（项目＞用户＞内置）取第一条；不读盘、不推测。
+    """
+
+    def test_object_and_dict_skills_carry_description(self):
+        skills = [SimpleNamespace(name='obj-skill', stage='storyboard', description='对象用途'),
+                  {'name': 'dict-skill', 'stage': 'storyboard', 'description': '字典用途'}]
+        out = skill_command.completion_entries('', stage='storyboard', skills=skills, engines=())
+        by_name = {e['name']: e for e in out}
+        self.assertEqual(by_name['obj-skill']['hint'], '对象用途')
+        self.assertEqual(by_name['dict-skill']['hint'], '字典用途')
+        # 既有四字段契约不变。
+        self.assertEqual(by_name['obj-skill']['kind'], 'skill')
+        self.assertEqual(by_name['obj-skill']['label'], '/obj-skill')
+        self.assertEqual(by_name['obj-skill']['insert'], '/obj-skill ')
+
+    def test_engine_entry_keeps_package_description(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            items = [SimpleNamespace(name='sd-alpha-engine', layer='user',
+                                     path=base / 'alpha' / 'SKILL.md',
+                                     description='包用途说明')]
+            # engines 缺省＝从注册快照投影；显式名单同样回查得到包说明。
+            for engines in (None, ('sd-alpha-engine',)):
+                with self.subTest(engines=engines):
+                    out = skill_command.completion_entries('sd-alpha', skills=items, engines=engines)
+                    rows = [e for e in out if e['kind'] == 'engine']
+                    self.assertEqual(len(rows), 1)
+                    self.assertEqual(rows[0]['name'], 'sd-alpha-engine')
+                    self.assertEqual(rows[0]['hint'], '包用途说明')
+                    self.assertEqual(rows[0]['insert'], '/sd-alpha-engine ')
+
+    def test_missing_description_is_empty_not_fabricated(self):
+        skills = [SimpleNamespace(name='no-desc', stage='storyboard'),
+                  {'name': 'blank-desc', 'stage': 'storyboard', 'description': '   '},
+                  {'name': 'none-desc', 'stage': 'storyboard', 'description': None},
+                  'plain-skill']
+        out = skill_command.completion_entries('', stage='storyboard', skills=skills, engines=())
+        by_name = {e['name']: e for e in out}
+        for name in ('no-desc', 'blank-desc', 'none-desc', 'plain-skill'):
+            self.assertEqual(by_name[name]['hint'], '', name)
+        # 阶段别名没有注册对象，hint 为空而不是编造用途。
+        stage_rows = [e for e in out if e['kind'] == 'stage']
+        self.assertTrue(stage_rows)
+        self.assertTrue(all(e['hint'] == '' for e in stage_rows))
+
+    def test_multiline_description_preserved(self):
+        desc = '第一行用途\n第二行细节'
+        skills = [{'name': 'multi', 'stage': 'storyboard', 'description': desc}]
+        out = skill_command.completion_entries('multi', skills=skills, engines=())
+        self.assertEqual(len(out), 1)
+        self.assertEqual(out[0]['hint'], desc)
+
+    def test_duplicate_names_keep_priority_hint(self):
+        skills = [SimpleNamespace(name='dup', stage='storyboard', description='项目层用途'),
+                  SimpleNamespace(name='dup', stage='storyboard', description='用户层用途'),
+                  SimpleNamespace(name='dup', stage='storyboard', description='内置层用途')]
+        out = skill_command.completion_entries('dup', skills=skills, engines=())
+        self.assertEqual(len(out), 1, '重名去重保序不变')
+        self.assertEqual(out[0]['hint'], '项目层用途')
+
+    def test_duplicate_engine_names_keep_priority_hint(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            items = [SimpleNamespace(name='dup-engine', layer='project',
+                                     path=base / 'override' / 'SKILL.md',
+                                     description='项目层包用途'),
+                     SimpleNamespace(name='dup-engine', layer='user',
+                                     path=base / 'alpha' / 'SKILL.md',
+                                     description='用户层包用途')]
+            out = skill_command.completion_entries('dup-engine', skills=items)
+            rows = [e for e in out if e['kind'] == 'engine']
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]['hint'], '项目层包用途')
+
+
 if __name__ == '__main__':
     unittest.main()
