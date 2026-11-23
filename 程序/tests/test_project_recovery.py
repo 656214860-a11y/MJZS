@@ -135,5 +135,51 @@ class DesktopRebuildIndexTests(unittest.TestCase):
             self.assertIn('重建项目索引', app.status.set.call_args.args[0])
 
 
+class EmptyShellRegistrationTests(unittest.TestCase):
+    """目录还在但没有 config.json 的登记：清除只动登记，重建索引不误留。"""
+
+    def test_clear_missing_registration_keeps_shell_files_and_still_rejects_openable(self):
+        with tempfile.TemporaryDirectory() as td:
+            service, base, project = make_service(td)
+            shell = base / '空壳_20261001'
+            shell.mkdir()
+            (shell / 'ui_settings.json').write_text('{}', encoding='utf-8')
+            service.info['projects'].append({'name': '空壳', 'path': str(shell), 'created_at': 2})
+            before = sorted(str(p.relative_to(shell)) for p in shell.rglob('*'))
+            outcome = service.clear_missing_registration(str(shell))
+            self.assertTrue(outcome.ok)
+            self.assertEqual([x['path'] for x in service.info['projects']], [str(project)])
+            self.assertEqual(sorted(str(p.relative_to(shell)) for p in shell.rglob('*')), before,
+                             '只清登记绝不动失效登记目录里的文件')
+            self.assertTrue(shell.is_dir())
+            with self.assertRaisesRegex(ValueError, '仍存在'):
+                service.clear_missing_registration(str(project))
+            self.assertTrue((project / 'config.json').is_file())
+            self.assertEqual([x['path'] for x in service.info['projects']], [str(project)])
+
+    def test_rebuild_registry_drops_pure_shell_and_keeps_partial_project(self):
+        with tempfile.TemporaryDirectory() as td:
+            service, base, project = make_service(td)
+            shell = base / '空壳_20261001'
+            shell.mkdir()
+            partial = base / '残缺_20261002'
+            (partial / '01剧本准备').mkdir(parents=True)
+            service.info['projects'].append({'name': '空壳', 'path': str(shell),
+                                             'created_at': 2, 'status': 'making'})
+            service.info['projects'].append({'name': '残缺', 'path': str(partial),
+                                             'created_at': 3, 'status': 'completed'})
+            outcome = service.rebuild_registry().data
+            self.assertIn(str(shell), outcome['dropped'], '纯空壳登记要进 dropped')
+            self.assertIn(str(partial), outcome['kept'], '有阶段目录的残缺项目保持登记')
+            self.assertIn(str(project), outcome['kept'])
+            paths = [x['path'] for x in service.info['projects']]
+            self.assertNotIn(str(shell), paths)
+            self.assertEqual(paths, [str(project), str(partial)])
+            kept = next(x for x in service.info['projects'] if x['path'] == str(partial))
+            self.assertEqual(kept.get('status'), 'completed', '保持登记不丢状态')
+            self.assertEqual(sorted(str(p.relative_to(shell)) for p in shell.rglob('*')), [],
+                             '重建索引不动空壳目录')
+
+
 if __name__ == '__main__':
     unittest.main()

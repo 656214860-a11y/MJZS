@@ -1,0 +1,15 @@
+{
+  "round": 4127,
+  "commit_base": "89fdb829",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k project_open project_rename_reconcile project_recovery projects core project_switch_guard",
+    "exit": 0,
+    "passed": 185,
+    "failed": 0
+  },
+  "generated_at": "2026-11-23T00:32:37"
+}

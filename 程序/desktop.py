@@ -24,7 +24,8 @@ from tkinter import ttk, messagebox
 from agent.core import read,save,save_text,save_bytes
 import infra.project_settings as project_settings
 import infra.storage_maintenance as storage_maintenance
-from domain.projects import Projects, needs_cleanup_after_open_error, is_missing_storyboard_open_error
+from domain.projects import (Projects, needs_cleanup_after_open_error, is_missing_storyboard_open_error,
+                             project_dir_openable, missing_project_open_error, claimed_registration_notice)
 from responsive_ui import FlowBar,ScrollForm,growable_extra,configure_check_column,refresh_check_heading,CheckboxColumn,fit_columns_by_content,auto_columns,bind_row_toggle,fit_row_height,row_height_for,bind_show_all
 from orchestrator.engine import approved_versions, review_label, adoption_summary
 from local_video import open_studio,skip_summary
@@ -637,9 +638,12 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         recover_stage_publications()
         # 第 45 期：项目文件夹被移走／删掉时，先给一句能照做的话——原来会一路抛到
         # 「[Errno 2] No such file or directory: …」这种原始报错，用户看不懂也不知道删哪一项。
-        if path and not Path(path).is_dir():
+        if path and not project_dir_openable(path):
             service=getattr(self,'projects',None)
-            if service is not None:
+            # 只对已登记的路径走找回：没登记的路径照旧交给 open_studio 报引擎原句。
+            registered=isinstance(service,Projects) and any(
+                item.get('path')==str(path) for item in service.info.get('projects',[]))
+            if registered:
                 recovered=self._project_result_data(service.reconcile_missing(path))
                 if recovered.get('state')=='claimed':
                     original_path=path
@@ -647,12 +651,11 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
                     self._sync_desktop_project_paths(original_path,path)
                     # 认领已替换登记路径，先同步项目选择器再选中新项目。
                     self.reload()
-                    self.status.set('已按新位置同步项目登记')
+                    self.status.set(claimed_registration_notice(original_path))
                 elif recovered.get('state')=='confirm':
-                    raise ValueError('项目目录已被改名，找到多个候选目录；请在项目选择窗口点击“重新查找项目”后选择。')
-            if not Path(path).is_dir():
-                raise ValueError('项目目录不存在或已被移动：'+str(path)
-                                 +'。未找到可自动认领的目录；可“重新查找项目”或只清除登记，不动磁盘。')
+                    raise ValueError('项目目录已被改名，找到多个候选目录；请在项目选择窗口点击「重新查找项目」后选择。')
+                if not project_dir_openable(path):
+                    raise ValueError(missing_project_open_error(path))
         # 尚无 episode.json 的早期项目也可打开，后续页面经 align_studio() 延迟建立。
         studio=None
         if path:
