@@ -1,0 +1,15 @@
+{
+  "round": 4194,
+  "commit_base": "7f4b58d5",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_uow_write_paths test_latent_defects_r1853",
+    "exit": 0,
+    "passed": 23,
+    "failed": 0
+  },
+  "generated_at": "2026-11-23T19:02:54"
+}
