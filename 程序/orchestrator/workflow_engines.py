@@ -586,3 +586,45 @@ REPLY_FORMAT_RULE = (
     '\n回话组织要求：对话回复、进度汇报、失败说明请先给结论；再分点说明；最后给出下一步。'
     '本要求不适用于剧本、分镜、JSON 等产物，产物仍按各自输出契约。\n'
 )
+
+
+def terminate_all(timeout=3.0):
+    """结束所有项目登记的、退出时应收掉的制作进程（不含 detached）。
+
+    先对每个候选 ``terminate_process_tree``，再在总 ``timeout`` 秒内统一等待；
+    到点仍活着的 ``kill``；逐个 ``forget_process``。涉及项目各取消一次排队与直连请求。
+    放在文件末尾，避免上移 ``launch_windows_app`` 行号触及进程启动点登记。
+    """
+    import infra.app_logging as app_logging
+    from infra.workflow_process_registry import exit_candidates as _exit_candidates
+    candidates = _exit_candidates()
+    if not candidates:
+        return []
+    seen = set()
+    for project, _process in candidates:
+        if project in seen:
+            continue
+        seen.add(project)
+        cancel_project_slot_requests(project)
+        cancel_project_requests(project)
+    for _project, process in candidates:
+        terminate_process_tree(process)
+    deadline = time.monotonic() + max(0.0, float(timeout))
+    killed = []
+    for project, process in candidates:
+        if process.poll() is None:
+            remaining = deadline - time.monotonic()
+            if remaining > 0:
+                try:
+                    process.wait(timeout=remaining)
+                except subprocess.TimeoutExpired:
+                    pass
+            if process.poll() is None:
+                try:
+                    process.kill()
+                    process.wait(timeout=3)
+                except Exception:
+                    app_logging.swallowed()
+        forget_process(project, process)
+        killed.append(process.pid)
+    return killed

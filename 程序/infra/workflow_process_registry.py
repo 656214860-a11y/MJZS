@@ -333,6 +333,33 @@ def all_processes():
     with _lock:
         return [process for items in _running.values() for process in items]
 
+
+def exit_candidates():
+    """退出应收掉的进程快照：仍在跑、且不是 detached 种类。
+
+    每项是 ``(项目, 进程)``；「项目」是登记键，可直接交给 ``forget_process``／
+    ``cancel_project_requests``（再经 ``_key`` 结果不变）。只读，不改登记表。
+    """
+    with _lock:
+        snapshot = [(project, list(items)) for project, items in _running.items()]
+        supervised = {pid: dict(info) for pid, info in _supervised.items()}
+    result = []
+    for project, items in snapshot:
+        for process in items:
+            if (supervised.get(id(process)) or {}).get('kind') == 'detached':
+                continue
+            poll = getattr(process, 'poll', None)
+            if not callable(poll):
+                continue
+            try:
+                alive = poll() is None
+            except (OSError, ValueError):
+                continue
+            if alive:
+                result.append((project, process))
+    return result
+
+
 def forget_process(project, process):
     with _lock:
         items = _running.get(_key(project))

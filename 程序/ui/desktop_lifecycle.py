@@ -90,10 +90,12 @@ class LifecycleMixin:
         """关闭本窗口派发的自动／交互式制作进程，不触碰用户自行启动的终端。"""
         if getattr(self,'_automation_processes_stopped',False):return []
         self._automation_processes_stopped=True
-        if self.root is None:return []
+        killed=[]
         try:
-            from orchestrator.workflow_engines import terminate
-            killed=terminate(self.root)
+            from orchestrator.workflow_engines import terminate, terminate_all
+            if self.root is not None:
+                killed=list(terminate(self.root) or [])
+            killed.extend(terminate_all() or [])
         except Exception as exc:
             LOGGER.warning('关闭：引擎进程未收干净（%s）', exc)
             return []
@@ -105,6 +107,11 @@ class LifecycleMixin:
         self.cancel_timers()
         # 未标记 busy 的已派发任务也随程序退出，避免后台模型留存并拖慢下一次启动。
         self.stop_automation_processes()
+        try:
+            import infra.executors as executors
+            LOGGER.info('退出时后台任务 %s', executors.pool_status())
+        except Exception:
+            app_logging.swallowed()
         # 第 47 期第 2 条：白模那个浏览器监视页跟着程序一起收，端口不留着。
         state=getattr(self,'previs_jobs',None)
         if isinstance(state,dict) and state.get('monitor'):
