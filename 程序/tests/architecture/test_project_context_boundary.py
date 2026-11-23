@@ -243,7 +243,7 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         historical = historical_pending | historical_audited
         self.assertFalse((adopters & pending) | (adopters & exempt) | (adopters & historical))
         self.assertFalse((pending & exempt) | (pending & historical) | (exempt & historical))
-        self.assertEqual(len(adopters | pending | exempt | historical), 36)
+        self.assertEqual(len(adopters | pending | exempt | historical), 37)
         self.assertEqual(item['exempt_count'], len(exempt))
         reasons = item['exempt_reasons']
         self.assertEqual(set(reasons), exempt)

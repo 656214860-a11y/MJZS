@@ -48,7 +48,7 @@ _register(2, "task_center_service", "keyframe_evidence", "animatic_service", "wr
           "storyboard_edit_service",
           "asset_context", "asset_gating", "asset_batch_lifecycle",
           "asset_batch_service", "asset_batch_state_service", "asset_batch_selection_service", "asset_generated_import_service", "asset_detail_service",
-          "keyframe", "keyframe_api", "keyframe_batch", "keyframe_lifecycle_service", "cloud_video_service", "white_model_service", "storyboard_source_service", "tts_api", "speech_api", "voice_ai", "subtitle_timing", "pet_test_service", "pet_performance_service", "local_video_settings_service",
+          "keyframe", "keyframe_api", "keyframe_batch", "keyframe_lifecycle_service", "cloud_video_service", "white_model_service", "storyboard_source_service", "tts_api", "speech_api", "voice_ai", "subtitle_timing", "voice_emotion_check", "pet_test_service", "pet_performance_service", "local_video_settings_service",
           "previs", "previs_routing", "previs_progress_service", "handoff_service", "edit_service", "final_service", "storyboard_adoption_service", "delivery_import_service", "confirm_gates", "recycle_recovery_service",
           "recon_service", "skill_command")
 # domain/message_parts 是聊天消息 typed parts 的纯数据契约；architecture.md §3 L2 栏括注
