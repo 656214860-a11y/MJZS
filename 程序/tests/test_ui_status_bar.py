@@ -9,6 +9,7 @@ HERE = str(Path(__file__).resolve().parents[1])
 sys.path.insert(0, HERE)
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import _tkinter
 import tkinter as tk
 from tkinter import font as tkfont
 from tkinter import ttk
@@ -329,6 +330,62 @@ class StatusBarLayoutTests(unittest.TestCase):
         self.assertEqual(len(row), 5, '外来控件有了内容，状态栏要自己补上分隔符')
         self.assertIs(row[2], holder)
         self.assertEqual([str(w.cget('text')) for w in (row[1], row[3])], [STATUS_BAR_SEPARATOR] * 2)
+
+    def spin(self, seconds):
+        """一次只处理一个事件地转事件循环，到时间就返回：重摆停不下来时也能回来断言，不会卡在 update 里。"""
+        end = time.monotonic() + seconds
+        while time.monotonic() < end:
+            if not self.win.tk.dooneevent(_tkinter.DONT_WAIT):
+                time.sleep(0.002)
+
+    def test_relayout_settles_after_updates_and_resizes(self):
+        """重摆要自己停下来：连续更新、窗口变窄再变宽之后空等，不该还在重摆。"""
+        runs = []
+        original = self.bar._relayout
+
+        def counted():
+            runs.append(1)
+            return original()
+
+        self.bar._relayout = counted
+        self.addCleanup(self.win.geometry, '1400x300+0+0')
+        self.bar.set_segment('page', '01 创意')
+        self.bar.set_segment('path', '')
+        self.bar.set_segment('model', '模型：甲')
+        for index in range(40):
+            self.bar.set_segment('page', '页名 %d' % (index % 7))
+            self.bar.set_segment('path', '' if index % 2 else 'D:/项目')
+        self.win.geometry('500x300+0+0')
+        self.spin(0.3)
+        self.win.geometry('1400x300+0+0')
+        quiet, deadline = False, time.monotonic() + 5
+        while not quiet and time.monotonic() < deadline:
+            before = len(runs)
+            self.spin(0.3)
+            quiet = len(runs) == before
+        self.assertTrue(quiet, '空等时还在重摆，5 秒都没停下来（一共重摆了 %d 次）' % len(runs))
+        self.assertEqual(self.texts(), ['页名 4', STATUS_BAR_SEPARATOR, '模型：甲'])
+
+    def test_tooltip_follows_the_text_unless_the_caller_gives_one(self):
+        """悬停文字：调用方给了就用它的；之后不带 tooltip 再更新，回到这一段的全文。"""
+        label = self.bar.set_segment('path', 'D:/项目', tooltip='完整路径在这里')
+        self.assertEqual(label.tooltip.text, '完整路径在这里')
+        self.bar.set_segment('path', 'D:/项目二')
+        self.assertEqual(label.tooltip.text, 'D:/项目二')
+        self.bar.set_segment('path', 'D:/项目二', tooltip='又给了一次')
+        self.assertEqual(label.tooltip.text, '又给了一次')
+
+    def test_update_without_width_goes_back_to_the_text_width(self):
+        """建段时给的定宽只管那一次：之后不带 width 更新，回到按文字定宽。"""
+        label = self.bar.set_segment('note', '短', width=12)
+        self.pump()
+        self.assertEqual(int(str(label.cget('width'))), 12)
+        self.bar.set_segment('note', '短一点')
+        self.pump()
+        self.assertEqual(int(str(label.cget('width'))), 0)
+        extra = label.winfo_width() - self.text_px('短一点')
+        self.assertGreaterEqual(extra, 0)
+        self.assertLess(extra, self.unit())
 
 
 if __name__ == '__main__':
