@@ -215,5 +215,148 @@ class TtsRecordingTests(unittest.TestCase):
             self.assertEqual(quote['unknown'], 0)
 
 
+class WholeTrackRetryTests(unittest.TestCase):
+    """FIX-S11-E2：整段配音请求号＝指纹＋尝试序号；上次结果未知先确认；成品丢失可重做。"""
+
+    @staticmethod
+    def _settings(tag):
+        return {'model': 'm', 'voice': 'v',
+                'base_url': 'http://tts-e2-%s.invalid' % tag, 'voices': [], 'speeds': []}
+
+    @staticmethod
+    def _ok_audio():
+        import io
+
+        class _Resp:
+            status = 200
+            headers = {}
+
+            def __init__(self):
+                self._body = io.BytesIO(b'audio-bytes')
+
+            def read(self, n=-1):
+                return self._body.read(n)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+        return _Resp()
+
+    def test_rejected_attempt_retries_with_next_request_id(self):
+        """卡面边界：第一次 HTTP 401 → 第二次能发出，请求号与第一次不同；标记存相对路径。"""
+        import io
+        import urllib.error
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            calls = []
+
+            def opener(request, timeout=None):
+                calls.append(request)
+                if len(calls) == 1:
+                    raise urllib.error.HTTPError(request.full_url, 401, 'unauthorized', {},
+                                                 io.BytesIO(b'{"error":"bad key"}'))
+                return self._ok_audio()
+            with patch.object(tts_api, 'load_key', return_value='k'), \
+                 patch.object(platform_tools.RequestsJsonOpener, 'open', side_effect=opener):
+                rid1 = ses.reserve_tts_full_track(root, 'sig-e2a')
+                self.assertTrue(rid1.endswith(':1'))
+                with self.assertRaises(tts_api.TTSRejected):
+                    ses.synthesize_tts_full_track(root, '台词', 'sig-e2a', rid1,
+                                                  settings=self._settings('a'))
+                rid2 = ses.reserve_tts_full_track(root, 'sig-e2a')
+                self.assertIsNotNone(rid2)
+                self.assertNotEqual(rid1, rid2)
+                raw = ses.synthesize_tts_full_track(root, '台词', 'sig-e2a', rid2,
+                                                    settings=self._settings('a'))
+                self.assertEqual(raw, b'audio-bytes')
+                path = ses.publish_tts_full_track(root, 'sig-e2a', raw)
+            self.assertEqual(len(calls), 2)
+            marker = json.loads((path.parent / '整段配音.json').read_text(encoding='utf-8'))
+            self.assertFalse(Path(marker['file']).is_absolute())
+            self.assertEqual(ses.reusable_tts_full_track(root, 'sig-e2a'), path)
+
+    def test_unknown_whole_track_result_requires_confirm(self):
+        """卡面边界：第一次超时 → 不确认就不发；确认后发出且请求号不同。"""
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            calls = []
+
+            def opener(request, timeout=None):
+                calls.append(request)
+                raise TimeoutError('timed out')
+            with patch.object(tts_api, 'load_key', return_value='k'), \
+                 patch.object(platform_tools.RequestsJsonOpener, 'open', side_effect=opener):
+                rid1 = ses.reserve_tts_full_track(root, 'sig-e2t')
+                with self.assertRaises(TimeoutError):
+                    ses.synthesize_tts_full_track(root, '台词', 'sig-e2t', rid1,
+                                                  settings=self._settings('t'))
+                self.assertIsNone(ses.reserve_tts_full_track(root, 'sig-e2t'))
+                self.assertEqual(len(calls), 1)                       # 未确认不发
+                rid2 = ses.reserve_tts_full_track(root, 'sig-e2t', confirmed=True)
+                self.assertIsNotNone(rid2)
+                self.assertNotEqual(rid1, rid2)
+                with self.assertRaises(TimeoutError):
+                    ses.synthesize_tts_full_track(root, '台词', 'sig-e2t', rid2,
+                                                  settings=self._settings('t'))
+                self.assertIsNone(ses.reserve_tts_full_track(root, 'sig-e2t'))
+                self.assertEqual(len(calls), 2)
+
+    def test_deleted_whole_track_audio_rebuilds_with_new_request_id(self):
+        """卡面边界：成品文件被删后再点 → 重新合成（新请求号，不需要确认）。"""
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            with patch.object(tts_api, 'synthesize', return_value=b'audio'):
+                rid1 = ses.reserve_tts_full_track(root, 'sig-e2d')
+                raw = ses.synthesize_tts_full_track(root, '台词', 'sig-e2d', rid1)
+                path = ses.publish_tts_full_track(root, 'sig-e2d', raw)
+            self.assertIsNotNone(ses.reusable_tts_full_track(root, 'sig-e2d'))
+            path.unlink()
+            self.assertIsNone(ses.reusable_tts_full_track(root, 'sig-e2d'))
+            rid2 = ses.reserve_tts_full_track(root, 'sig-e2d')
+            self.assertIsNotNone(rid2)
+            self.assertNotEqual(rid1, rid2)
+
+    def test_moved_project_reuses_audio_via_relative_marker(self):
+        """卡面边界：项目目录改名后旧成品按相对路径仍能找到；新标记不存绝对路径。"""
+        from contract.project_context import ProjectContext
+        from contract.project_stages import audio
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            proj = base / 'project-a'
+            proj.mkdir()
+            ctx = ProjectContext.snapshot(proj, lambda _stage: proj)
+            path = tts_api.publish_full_track(ctx, 'sig-e2m', b'audio', gateway=ses.tts_gateway())
+            marker = json.loads((audio(proj) / '整段配音.json').read_text(encoding='utf-8'))
+            self.assertFalse(Path(marker['file']).is_absolute())
+            proj.rename(base / 'project-b')
+            moved = ProjectContext.snapshot(base / 'project-b', lambda _stage: base / 'project-b')
+            found = tts_api.reusable_full_track(moved, 'sig-e2m')
+            self.assertIsNotNone(found)
+            self.assertEqual(found.read_bytes(), b'audio')
+            self.assertEqual(found, audio(base / 'project-b') / path.name)
+
+    def test_legacy_absolute_marker_reuse_and_basename_fallback(self):
+        """旧格式绝对路径：文件在就沿用；绝对路径失效但同名文件在音频目录也找回。"""
+        from contract.project_context import ProjectContext
+        from contract.project_stages import audio
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            folder = audio(root)
+            folder.mkdir(parents=True)
+            keep = folder / '配音_keep00.mp3'
+            keep.write_bytes(b'audio')
+            marker = folder / '整段配音.json'
+            ctx = ProjectContext.snapshot(root, lambda _stage: root)
+            marker.write_text(json.dumps({'signature': 'sig-old', 'file': str(keep)}),
+                              encoding='utf-8')
+            self.assertEqual(tts_api.reusable_full_track(ctx, 'sig-old'), keep)
+            ghost = folder.parent / 'old' / keep.name          # 项目搬走后的旧绝对路径，不存在
+            marker.write_text(json.dumps({'signature': 'sig-old2', 'file': str(ghost)}),
+                              encoding='utf-8')
+            self.assertEqual(tts_api.reusable_full_track(ctx, 'sig-old2'), keep)
+
+
 if __name__ == '__main__':
     unittest.main()

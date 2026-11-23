@@ -1821,6 +1821,15 @@
   },
   {
    "file": "tests/test_ui_edges_autopilot.py",
+   "test": "UiEdgeAutoTests.test_whole_script_tts_unknown_result_asks_before_resend",
+   "ordinal": 1,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_TKINTER",
+   "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+   "reference": ""
+  },
+  {
+   "file": "tests/test_ui_edges_autopilot.py",
    "test": "WorkerThreadSafetyTests.test_seedream_probe_reports_reachable",
    "ordinal": 1,
    "kind": "平台限制",

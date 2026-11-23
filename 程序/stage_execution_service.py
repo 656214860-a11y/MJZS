@@ -39,6 +39,20 @@ def release_tts_unknown(folder, indexes):
     """L3：人工放开逐句配音结果未知的句子（sending／uncertain／unsaved → failed）。"""
     from domain.tts_api import release_unknown
     return release_unknown(folder, indexes, gateway=tts_gateway())
+
+
+def reserve_tts_full_track(project, signature, confirmed=False, confirm=None):
+    """L3：整段配音预约「指纹＋尝试序号」请求号；上次结果未知须经 confirm 放行。"""
+    from domain.tts_api import reserve_full_track_attempt
+    return reserve_full_track_attempt(project_context(project), signature,
+                                      confirmed=confirmed, confirm=confirm, gateway=tts_gateway())
+
+
+def synthesize_tts_full_track(project, text, signature, request_id, settings=None):
+    """L3：整段配音发送并把确定失败／结果未知回写尝试账，异常原样上抛。"""
+    from domain.tts_api import synthesize_full_track
+    return synthesize_full_track(project_context(project), text, signature, request_id,
+                                 settings=settings, gateway=tts_gateway())
 from orchestrator.stage_handoff_gateways import (  # noqa: F401  re-export
     asset_impact,
     continuity_issue_report,

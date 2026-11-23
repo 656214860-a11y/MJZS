@@ -723,17 +723,17 @@ class MediaPagesMixin:
         if not entries:raise ValueError('当前分镜没有对白，无法生成配音')
         script=tts_api.build_script(entries,assets)
         if len(script)>4000:raise ValueError('整集对白超过 4000 字，请改用“逐句配音（分句）”生成')
-        # 整段配音一次就是一次付费请求：台词与音色都没变、文件还在时直接沿用，双击或重复点击
-        # 不会再扣一次费；改台词、改模型或改音色会得到新指纹，才重新合成。
-        settings=tts_api.read_settings()
-        signature=tts_api.script_signature(script, settings)
-        from stage_execution_service import reusable_tts_full_track
+        # 整段配音按「指纹＋尝试序号」收费：台词音色没变且文件还在直接沿用；上次结果未知先确认。
+        settings=tts_api.read_settings();signature=tts_api.script_signature(script, settings)
+        from stage_execution_service import publish_tts_full_track,reusable_tts_full_track,reserve_tts_full_track,synthesize_tts_full_track
         previous=reusable_tts_full_track(self.root,signature)
         if previous:
             self.status.set('配音台词与音色都没变，沿用已有配音：'+str(previous)+'（未重复扣费）');return
+        request_id=reserve_tts_full_track(self.root,signature,confirm=lambda tip:self.media_page_services.confirm(
+            self.win,'整段配音（结果未知）',tip,dangerous=True))
+        if request_id is None:self.status.set('已取消：上次配音结果未知，未重发');return
         def work():
-            raw=tts_api.synthesize(script, settings=settings, project=self.root, request_id='tts-full:' + signature)
-            from stage_execution_service import publish_tts_full_track
+            raw=synthesize_tts_full_track(self.root,script,signature,request_id,settings=settings)
             p=publish_tts_full_track(self.root,signature,raw)
             note='配音已生成：'+str(p)
             if estimated:note+='（时间轴为草稿均分，建议在剪映中听校）'
