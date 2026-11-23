@@ -7,6 +7,9 @@ from agent.core import read, save
 from asset_detail_service import bind_canonical_view, bind_variant_thumbnail
 from stage_execution_service import bind_asset_canonical_view, bind_asset_variant_thumbnail
 from contract.service_contract import SystemError, UserError
+from tests.image_fixtures import png
+
+SOURCE_PNG = png()
 
 
 class AssetDetailServiceTests(unittest.TestCase):
@@ -18,14 +21,14 @@ class AssetDetailServiceTests(unittest.TestCase):
         save(self.project / 'config.json', {'episode_dir': '05资产管理'})
         save(self.index, {'CHAR_001': {'name': '小满', 'state_variants': [{'state_id': 'happy', 'label': '开心'}]}})
         self.source = self.project / 'source.png'
-        self.source.write_bytes(b'png-data')
+        self.source.write_bytes(SOURCE_PNG)
 
     def tearDown(self):
         self.temp.cleanup()
 
     def test_canonical_view_copies_and_updates_index(self):
         dest = bind_asset_canonical_view(self.project, self.base, 'CHAR_001', 'front', self.source)
-        self.assertEqual(dest.read_bytes(), b'png-data')
+        self.assertEqual(dest.read_bytes(), SOURCE_PNG)
         row = read(self.index)['CHAR_001']
         self.assertEqual(row['canon_board_views']['front'], 'assets/正典板/CHAR_001_front.png')
         self.assertEqual(row['canonical_board'], 'assets/正典板/CHAR_001_front.png')
@@ -59,7 +62,7 @@ class AssetDetailServiceTests(unittest.TestCase):
                                   gateway=asset_detail_gateway())
                 self.assertTrue(result.ok)
                 self.assertFalse(result.recoverable)
-                self.assertEqual(result.data.read_bytes(), b'png-data')
+                self.assertEqual(result.data.read_bytes(), SOURCE_PNG)
 
     def test_invalid_inputs_return_user_error_without_publication(self):
         from stage_execution_service import asset_detail_gateway
@@ -106,3 +109,36 @@ class AssetDetailServiceTests(unittest.TestCase):
             with self.subTest(name=name), patch('asset_detail_service.' + name, return_value=SystemError('失败')):
                 with self.assertRaisesRegex(ValueError, '失败'):
                     function(self.project, self.base, 'CHAR_001', view, self.source)
+
+    def test_non_image_content_returns_user_error_without_publication(self):
+        from stage_execution_service import asset_detail_gateway
+        cases = [('fake.png', '这不是图片，只是文本'.encode('utf-8')),
+                 ('fake.jpg', b'\xff\xd8\xff\xe0' + b'\x00' * 32),
+                 ('broken.webp', b'RIFF' + b'\x00' * 4 + b'WAVE' + b'\x00' * 8)]
+        old_index = self.index.read_bytes()
+        for filename, blob in cases:
+            fake = self.project / filename
+            fake.write_bytes(blob)
+            for function, view in ((bind_canonical_view, 'front'), (bind_variant_thumbnail, 'happy')):
+                with self.subTest(file=filename, function=function.__name__):
+                    result = function(self.project, self.base, 'CHAR_001', view, fake,
+                                      gateway=asset_detail_gateway())
+                    self.assertIsInstance(result, UserError)
+                    self.assertFalse(result.ok)
+        self.assertEqual(self.index.read_bytes(), old_index)
+        self.assertFalse(list((self.base / 'assets/正典板').glob('*')))
+
+    def test_real_jpeg_content_is_accepted(self):
+        import io
+        from PIL import Image
+        from stage_execution_service import asset_detail_gateway
+        buffer = io.BytesIO()
+        Image.new('RGB', (2, 2), (30, 200, 60)).save(buffer, 'JPEG')
+        blob = buffer.getvalue()
+        source = self.project / 'photo.jpg'
+        source.write_bytes(blob)
+        result = bind_canonical_view(self.project, self.base, 'CHAR_001', 'front', source,
+                                     gateway=asset_detail_gateway())
+        self.assertTrue(result.ok)
+        self.assertTrue(result.data.name.endswith('_front.jpg'))
+        self.assertEqual(result.data.read_bytes(), blob)

@@ -99,6 +99,32 @@ def register_image(base, aid, asset, image, *, gateway=None):
                                cost_ms=round((time.perf_counter() - started) * 1000.0, 1))
 
 
+def _image_content_ok(path):
+    """导入候选按内容验真：后缀合法但内容不是对应格式的完整图片时返回 False。
+
+    与 ``asset_reference_images.image_bytes`` 同一口径（PNG 看签名＋IHDR＋IEND，
+    JPG 看 SOI＋EOI，WEBP 看 RIFF＋WEBP），只读头 16 字节与尾 8 字节，不把整图读进内存。
+    """
+    path = Path(path)
+    suffix = path.suffix.lower()
+    try:
+        size = path.stat().st_size
+        with open(path, 'rb') as handle:
+            head = handle.read(16)
+            handle.seek(max(0, size - 8))
+            tail = handle.read(8)
+    except OSError:
+        return False
+    if suffix == '.png':
+        return (size >= 33 and head.startswith(b'\x89PNG\r\n\x1a\n')
+                and head[12:16] == b'IHDR' and tail[:4] == b'IEND')
+    if suffix in ('.jpg', '.jpeg'):
+        return size >= 4 and head.startswith(b'\xff\xd8') and tail[-2:] == b'\xff\xd9'
+    if suffix == '.webp':
+        return size >= 12 and head[:4] == b'RIFF' and head[8:12] == b'WEBP'
+    return False
+
+
 def import_asset_image(base, project_root, aid, source, requirements, *, gateway=None):
     """Import a user-selected asset image and publish its registry pointer safely."""
     gateway = _require_gateway(gateway)
@@ -114,6 +140,8 @@ def import_asset_image(base, project_root, aid, source, requirements, *, gateway
     suffix = source.suffix.lower()
     if suffix not in ('.png', '.jpg', '.jpeg', '.webp'):
         raise ValueError('请选择 PNG、JPG、JPEG 或 WEBP 图片')
+    if not _image_content_ok(source):
+        raise ValueError('图片内容无效，请选择完整的 PNG、JPG 或 WebP 图片')
     kind = KINDS[match.group(1)][0]
     registry_file = base / 'assets.json'
     registry = gateway['read_json'](registry_file)
