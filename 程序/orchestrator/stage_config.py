@@ -125,6 +125,31 @@ def clean_skills(values, stage=None, registry=None):
     return out
 
 
+def _clean_skills_for_save(values, stage, registry):
+    """落盘前的 SKILL 归一：有效项照旧去重并归一别名；注册表查不到的
+    （失效或已禁用）原样保留——发送门禁 ``validate_selected_skills`` 靠
+    ``skill_config.json`` 的原始 ``skills`` 列表报「未加载／已禁用」，保存时
+    静默丢弃会让任何一次无关写入绕过门禁。失效项由用户重新保存该阶段的
+    勾选列表时移除（显式 ``skills`` 不含它即视为取消）。"""
+    reg = registry
+    known = {skill.name for skill in reg.getByStage(stage)}
+    out = []
+    for value in values or ():
+        name = str(value or '').strip()
+        if not name:
+            continue
+        if reg.getById(name) is None:
+            if name not in out:
+                out.append(name)
+            continue
+        if name not in known:
+            continue
+        canonical = reg.canonical_id(name)
+        if canonical in known and canonical not in out:
+            out.append(canonical)
+    return out
+
+
 def synchronize(project, registry=None):
     """按当前注册表同步配置，保留失效项供发送校验并归位错阶段 SKILL。
 
@@ -344,11 +369,20 @@ def put(project, stage, model=None, skills=None, registry=None, writer_style=Non
     if stage not in STAGES:
         raise ValueError('没登记的阶段：' + str(stage))
     data = load(project, reg)
+    stored = _workflow_data(project)
+    for sid in STAGES:
+        if sid == stage and skills is not None:
+            continue
+        raw_entry = stored.get(sid)
+        raw_skills = raw_entry.get('skills') if isinstance(raw_entry, dict) else None
+        if isinstance(raw_skills, (list, tuple)):
+            # 未被本次调用改写的勾选：按落盘原样归一，失效／已禁用引用保留给发送门禁。
+            data[sid]['skills'] = _clean_skills_for_save(raw_skills, sid, reg)
     entry = data.get(stage) or default_entry(stage, reg)
     if model is not None:
         entry['model'] = clean_model(model)
     if skills is not None:
-        entry['skills'] = clean_skills(skills, stage, reg)
+        entry['skills'] = _clean_skills_for_save(skills, stage, reg)
     if reasoning is not None:
         entry[REASONING] = clean_reasoning(reasoning)
     if stage in WRITER_STYLE_STAGES and writer_style is not None:
