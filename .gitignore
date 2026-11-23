@@ -104,3 +104,5 @@
 /build/
 /程序/dist/
 /程序/build/
+/.agents/*
+!/.agents/skills/
