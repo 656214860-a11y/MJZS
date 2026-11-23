@@ -6,7 +6,7 @@ storyboard_selection，Tk 控件只在这里。
 """
 import infra.app_logging as app_logging
 from pathlib import Path
-from agent.core import save
+from infra.project_settings import save_prefs
 from orchestrator.storyboard_selection import adopted, focus, writable_prefs
 from ui_tokens import SPACING
 
@@ -60,7 +60,7 @@ def source_selector(app,index,*,select_box):
                   and app.current_frame_json()==Path(target).resolve()):return
             if broad:
                 data=writable_prefs(app.root);data['asset_scope']='current' if target else 'adopted'
-                save(Path(app.root)/'ui_settings.json',data)
+                save_prefs(app.root,data)
             if target is not None:focus(app.root,target)
             # 先明确收起下拉弹窗，等本控件的事件处理结束后再重建页面：切换途中的重建会让页面抖动。
             collapse()

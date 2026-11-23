@@ -9,6 +9,7 @@ from skip_reasons import (
     REQUIRES_BUNDLED_SKILL,
 )
 import json, os, sys, tempfile, unittest
+import types
 from pathlib import Path
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -472,6 +473,36 @@ class ResubmitTests(unittest.TestCase):
             keyframe_import.launch(App(), src, shot_ids=shot_ids)
             self.assertEqual(launched, [])
             self.assertEqual(list(keyframe_import.pending_tasks(proj, src)), ["SH001"])
+
+
+class SavePrefsEntryTests(unittest.TestCase):
+    """首帧制作窗口写 ui_settings.json 统一走 save_prefs：项目目录不在时拒写、不重建空壳目录。"""
+
+    def _window(self, project):
+        return types.SimpleNamespace(
+            project=project,
+            prefs_file=project / "ui_settings.json",
+            aspect=types.SimpleNamespace(get=lambda: "16:9"))
+
+    def test_writes_prefs_when_project_exists(self):
+        import keyframe_comfy
+        with tempfile.TemporaryDirectory() as td:
+            proj = Path(td) / "p"
+            proj.mkdir()
+            (proj / "ui_settings.json").write_text(
+                json.dumps({"other": 1}, ensure_ascii=False), encoding="utf-8")
+            keyframe_comfy._KeyframeComfyWindow.save_prefs(self._window(proj))
+            data = json.loads((proj / "ui_settings.json").read_text(encoding="utf-8"))
+        self.assertEqual(data, {"other": 1, "frame_production": {"aspect_ratio": "16:9"}})
+
+    def test_missing_project_raises_and_does_not_recreate(self):
+        import keyframe_comfy
+        with tempfile.TemporaryDirectory() as td:
+            proj = Path(td) / "p"
+            with self.assertRaises(ValueError) as ctx:
+                keyframe_comfy._KeyframeComfyWindow.save_prefs(self._window(proj))
+            self.assertIn("项目目录不存在或已被移动", str(ctx.exception))
+            self.assertFalse(proj.exists())
 
 
 if __name__ == "__main__":

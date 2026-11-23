@@ -78,7 +78,8 @@ def detach_video_refs(project, targets):
 
 def recycle_files(project, kind, paths):
     """Move verified files to one recoverable batch and repair related state."""
-    from agent.core import read, save
+    from agent.core import read
+    from infra.project_settings import save_prefs
     from contract.project_stages import writing, structure, storyboard
     from domain.storyboard_catalog_service import linked_path
     from stage_execution_service import project_context
@@ -100,7 +101,7 @@ def recycle_files(project, kind, paths):
         prefs = {}
     if linked_path(project_context(project), prefs.get('final_storyboard_json')) in targets:
         prefs['final_storyboard_json'] = ''
-        save(prefs_file, prefs)
+        save_prefs(project, prefs)
     detach_video_refs(project, targets)
     scopes = ((writing(project), structure(project), project / 'writing') if kind == 'script'
               else (storyboard(project), project / 'storyboard'))
