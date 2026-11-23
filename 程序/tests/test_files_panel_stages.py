@@ -2,7 +2,8 @@
 """R3094（任务书 P1）：停靠面板右缘的阶段快捷图标列。
 
 覆盖：图标列在面板右缘、按 ``pet_bus.STAGES`` 顺序垂直排列、每个都带 Tooltip 中文名；
-点阶段图标按项目文件索引填表、首次索引后台扫描、当前阶段高亮、点「全部」回到全项目分组视图；
+点阶段图标按项目文件索引填表、首次索引后台扫描、当前阶段高亮、
+``show_stage(None)`` 回到全项目分组视图（UX-C1：面板内不再放与入口重复的「全部文件」图标）；
 换项目时阶段筛选复位。
 """
 import tempfile
@@ -17,7 +18,7 @@ from contract import project_stages
 
 from contract.pet_bus import STAGES, stage_name
 from desktop import Desktop, PAGE
-from ui.desktop_files_panel_filters import STAGE_FILTER_ROW_CATEGORY, STAGE_RAIL_ALL
+from ui.desktop_files_panel_filters import STAGE_FILTER_ROW_CATEGORY
 import infra.file_index as file_index
 import test_desktop_startup_perf as startup_fixtures
 
@@ -94,19 +95,18 @@ class StageRailTests(unittest.TestCase):
         return result
 
     def test_rail_lists_all_and_every_stage_in_order(self):
-        """图标列＝「全部」＋13 个阶段，顺序与 pet_bus.STAGES 一致。"""
+        """UX-C1：图标列＝13 个阶段（无「全部文件」），顺序与 pet_bus.STAGES 一致。"""
         buttons = self.desktop.files_panel.stage_buttons
-        self.assertIn(None, buttons, '「全部」入口缺失')
-        self.assertEqual(len(buttons), len(STAGES) + 1)
-        order = [stage for stage in buttons if stage is not None]
-        self.assertEqual(order, list(STAGES))
+        self.assertNotIn(None, buttons, '面板内不应再有与入口重复的「全部文件」图标')
+        self.assertEqual(len(buttons), len(STAGES))
+        self.assertEqual(list(buttons), list(STAGES))
         for stage in STAGES:
             self.assertTrue(stage_name(stage), stage)
 
     def test_scroll_rail_requests_minimum_width_without_geometry_feedback(self):
         """R3971（任务书 L4-U1）：阶段图标列整列可见，且文件表高度不随刷新振荡。
 
-        T1：1280×800 与 880×600 两档窗口下，「全部」＋13 个阶段钮＋资料库钮的
+        T1：1280×800 与 880×600 两档窗口下，13 个阶段钮＋资料库钮的
         实际宽度不小于各自请求宽度（R3214 把画布钉成 1px 的回归，按钮实际宽 1）。
         T2：880×600 下连续刷新 10 次，文件表高度始终不变（守住 R3214 的几何振荡修复）。
         """
@@ -145,19 +145,29 @@ class StageRailTests(unittest.TestCase):
         panel = self.desktop.files_panel
         for stage, button in panel.stage_buttons.items():
             self.assertIn(button.cget('style'), ('RailIcon.TButton', 'Selected.RailIcon.TButton'))
-            expected = STAGE_RAIL_ALL if stage is None else stage
-            self.assertTrue(str(button.cget('text')), expected)
+            self.assertTrue(str(button.cget('text')), stage)
 
     def test_stage_icons_load_files_png(self):
-        """REQ-S01-93（R3191）：13 个阶段钮挂 ``<stage>_files.png``，「全部」挂 ``project_files.png``。"""
+        """REQ-S01-93（R3191）：13 个阶段钮挂 ``<stage>_files.png``（UX-C1：不再挂「全部」）。"""
         panel = self.desktop.files_panel
         for stage in STAGES:
             button = panel.stage_buttons[stage]
             self.assertTrue(button.cget('image'), f'{stage} 缺 PNG 图标')
             self.assertEqual(button._rail_icon_name, f'{stage}_files')
-        all_button = panel.stage_buttons[None]
-        self.assertTrue(all_button.cget('image'), '「全部」缺 project_files.png')
-        self.assertEqual(all_button._rail_icon_name, 'project_files')
+
+    def test_rail_action_buttons_use_nav_png_icons(self):
+        """UX-C1：设置／回收站／清空／素材库四个字符钮换成与侧栏同套 PNG。"""
+        panel = self.desktop.files_panel
+        expected = (
+            (panel.library_settings_button, 'library_settings'),
+            (panel.recycle_button, 'recycle'),
+            (panel.recycle_purge_button, 'recycle_purge'),
+            (panel.library_button, 'library'),
+        )
+        for button, icon_name in expected:
+            self.assertTrue(button.cget('image'), f'{icon_name} 缺 PNG 图标')
+            self.assertEqual(button._rail_icon_name, icon_name)
+            self.assertEqual(str(button.cget('compound')), 'image')
 
     def test_missing_png_falls_back_to_emoji(self):
         """REQ-S01-93：PNG 缺失时图标钮退回 STAGE_RAIL_ICONS emoji 文本。"""
@@ -224,8 +234,10 @@ class StageRailTests(unittest.TestCase):
         self.assertEqual(panel.stage_buttons['assets'].cget('style'), 'Selected.RailIcon.TButton')
         self.assertEqual(panel.stage_buttons['video'].cget('style'), 'RailIcon.TButton')
         panel.show_stage(None)
-        self.assertEqual(panel.stage_buttons[None].cget('style'), 'Selected.RailIcon.TButton')
+        # UX-C1：无「全部」钮；复位后所有阶段钮回到普通风格。
         self.assertEqual(panel.stage_buttons['assets'].cget('style'), 'RailIcon.TButton')
+        self.assertTrue(all(button.cget('style') == 'RailIcon.TButton'
+                            for button in panel.stage_buttons.values()))
 
     def test_all_returns_to_grouped_project_index(self):
         panel = self.desktop.files_panel
@@ -240,18 +252,16 @@ class StageRailTests(unittest.TestCase):
         self.assertTrue(any(panel.script_row_category[row] == 'script' for row in self.rows()))
 
     def test_rail_has_recycle_entries_after_the_stages(self):
-        """R3117：图标列末尾依次是「回收站（浏览/恢复）」与「清空过期回收站」。"""
+        """R3117／UX-C1：图标列末尾依次是回收站与清空过期（PNG 图标，语义标签仍保留）。"""
         panel = self.desktop.files_panel
-        texts = []
-        for child in panel.stage_rail_form.winfo_children():
-            try:
-                texts.append(str(child.cget('text')))
-            except Exception:
-                continue
-        self.assertIn('♻', texts)
-        self.assertIn('🗑', texts)
-        self.assertLess(texts.index('♻'), texts.index('🗑'))
-        self.assertFalse(hasattr(self.desktop, 'files_panel') is False)
+        children = list(panel.stage_rail_form.winfo_children())
+        recycle_i = children.index(panel.recycle_button)
+        purge_i = children.index(panel.recycle_purge_button)
+        library_i = children.index(panel.library_button)
+        self.assertLess(recycle_i, purge_i)
+        self.assertLess(purge_i, library_i)
+        self.assertEqual(panel.recycle_button._rail_icon_name, 'recycle')
+        self.assertEqual(panel.recycle_purge_button._rail_icon_name, 'recycle_purge')
 
     def test_project_change_resets_the_stage_filter(self):
         panel = self.desktop.files_panel
@@ -261,7 +271,8 @@ class StageRailTests(unittest.TestCase):
         panel.project_changed()
         self.pump(.2)
         self.assertIsNone(panel.stage_filter)
-        self.assertEqual(panel.stage_buttons[None].cget('style'), 'Selected.RailIcon.TButton')
+        self.assertTrue(all(button.cget('style') == 'RailIcon.TButton'
+                            for button in panel.stage_buttons.values()))
 
 
 class FilterBarTests(StageRailTests):
@@ -460,7 +471,7 @@ class FilterDedupTests(StageRailTests):
             self._restore_panel(target, root, win, old)
 
     def test_clicking_stage_icon_updates_panel_title(self):
-        """T4：点阶段图标后面板标题随之变化；「全部」＝「项目文件 · 全部阶段」。"""
+        """T4：点阶段图标后面板标题随之变化；复位全部＝「项目文件 · 全部阶段」。"""
         panel = self.desktop.files_panel
         before = str(panel.script_title.cget('text'))
         panel.stage_buttons['assets'].invoke()
@@ -468,7 +479,7 @@ class FilterDedupTests(StageRailTests):
         title = str(panel.script_title.cget('text'))
         self.assertNotEqual(title, before)
         self.assertIn(stage_name('assets'), title)
-        panel.stage_buttons[None].invoke()
+        panel.show_stage(None)
         self.pump(.2)
         self.assertEqual(str(panel.script_title.cget('text')), '项目文件 · 全部阶段')
 

@@ -91,6 +91,14 @@ class NavIconTests(unittest.TestCase):
         self.assertIsNone(ui_icons.IconLoader.nav_icon(master, ''))
         self.assertIsNone(ui_icons.IconLoader.nav_icon(master, 'no_such_icon'))
 
+    def test_files_panel_dock_action_icons_have_pngs(self):
+        """UX-C1：停靠面板四个动作钮与侧栏同套 PNG（素材库／设置／回收站／清空）。"""
+        names = ('library', 'library_settings', 'recycle', 'recycle_purge')
+        for name in names:
+            with self.subTest(icon=name):
+                self.assertTrue((ui_icons._NAV_DIR / f'{name}.png').is_file(),
+                                f'assets/nav/{name}.png 缺失：跑 scripts/build_nav_icons.py 重新生成')
+
 
 def _rgb(hex_color):
     value = hex_color.lstrip('#')
