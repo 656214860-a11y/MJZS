@@ -540,6 +540,129 @@ class UpstreamGateTests(unittest.TestCase):
             error = shared_input.upstream_send_error(object(), 'audio')
         self.assertIn('视频生成', error)
 
+    def test_s03_episode_script_does_not_block_send(self):
+        """REQ-S03-55：模型按集写的结构稿没有派生清单，S03 发送不再被 S02 核验拦。"""
+        import script_contract
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name) / 'project'
+        path = script_contract.canonical_structured_script_path(root)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            '# 第1集：咖啡馆初遇\n\n'
+            '## 分场结构\n\n'
+            '### 场景 01：咖啡馆·内景·日\n\n'
+            '- 出场角色：林夏、陈默\n\n'
+            '陈默：你终于来了。\n', encoding='utf-8')
+        error = shared_input.upstream_send_error(root, 'storyboard')
+        self.assertEqual(error, '', '有可用结构稿时 S03 发送门禁必须放行')
+        notes = []
+        status = SimpleNamespace(set=notes.append)
+        error = shared_input.upstream_send_error(root, 'storyboard', status)
+        self.assertEqual(error, '')
+        self.assertTrue(any('不影响分镜制作' in note for note in notes),
+                        '清单补不了时应把说明写进状态栏：%r' % notes)
+
+    def test_s03_without_script_blocks_with_guidance(self):
+        """REQ-S03-55：没有可用结构稿才拦截，文案指引去「剧本结构」页确认。"""
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name) / 'project'
+        root.mkdir()
+        error = shared_input.upstream_send_error(root, 'storyboard')
+        self.assertTrue(error)
+        self.assertIn('结构剧本', error)
+        self.assertIn('确认一份结构剧本', error)
+        self.assertNotIn('清单未通过核验', error)
+
+
+class StoryboardSendReadinessTests(unittest.TestCase):
+    """REQ-S03-55：S03 发送就绪度——有可用结构稿即可发；清单能派生就补，补不了只提示。"""
+
+    RAW_REL = '01剧本准备/output/script_raw.md'
+    RAW_TEXT = '第1场 咖啡馆 内景\n林夏：你好，我是黑发的人。\n陈默：道具：旧怀表\n林夏：走吧。'
+    EPISODIC = ('# 第1集：咖啡馆初遇\n\n## 分场结构\n\n### 场景 01：咖啡馆·内景·日\n\n'
+                '- 出场角色：林夏、陈默\n\n陈默：你终于来了。\n')
+
+    def setUp(self):
+        import script_contract
+        import stage_completion_service
+        self.contract = script_contract
+        self.readiness = stage_completion_service.storyboard_send_readiness
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name) / 'project'
+        self.root.mkdir()
+        raw = self.root / self.RAW_REL
+        raw.parent.mkdir(parents=True, exist_ok=True)
+        raw.write_text(self.RAW_TEXT, encoding='utf-8')
+
+    def _script(self, text):
+        path = self.contract.canonical_structured_script_path(self.root)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding='utf-8')
+        return path
+
+    def _standard(self, source=None):
+        return self.contract.structure_script(
+            self.RAW_TEXT, source if source is not None else self.RAW_REL)
+
+    def test_complete_manifests_send_without_note(self):
+        """清单齐全：可发送、无说明、不标已补。"""
+        path = self._script(self._standard())
+        self.contract.write_structure_manifests(self.root, self._standard())
+        self.assertEqual(self.contract.structure_manifest_problems(self.root, path), [])
+        self.assertEqual(self.readiness(self.root), (True, '', False))
+
+    def test_missing_manifests_are_derived_and_filled(self):
+        """清单缺失但稿可派生：自动补写一次后放行，说明已补全。"""
+        self._script(self._standard())
+        sendable, note, filled = self.readiness(self.root)
+        self.assertTrue(sendable)
+        self.assertTrue(filled)
+        self.assertIn('补全清单', note)
+        folder = self.contract.structure_manifest_dir(self.root)
+        for name in self.contract.STRUCTURE_MANIFESTS:
+            self.assertTrue((folder / name).is_file(), name)
+
+    def test_stale_manifests_are_rewritten_from_script(self):
+        """手改过的清单与稿不一致：按当前稿重写一次后放行。"""
+        import json
+        path = self._script(self._standard())
+        folder = self.contract.write_structure_manifests(self.root, self._standard())
+        target = folder / 'scene_manifest.json'
+        stale = json.loads(target.read_text(encoding='utf-8'))
+        stale['items'][0]['name'] = '别的场景'
+        target.write_text(json.dumps(stale, ensure_ascii=False), encoding='utf-8')
+        sendable, note, filled = self.readiness(self.root)
+        self.assertTrue(sendable)
+        self.assertTrue(filled)
+        self.assertEqual(self.contract.structure_manifest_problems(self.root, path), [])
+
+    def test_episode_script_notice_does_not_block(self):
+        """模型按集写的稿派生不出名单：可发送，说明只进状态栏不拦截。"""
+        self._script(self.EPISODIC)
+        sendable, note, filled = self.readiness(self.root)
+        self.assertTrue(sendable)
+        self.assertFalse(filled)
+        self.assertIn('未能自动生成', note)
+        self.assertIn('不影响分镜制作', note)
+
+    def test_no_usable_script_blocks_with_guidance(self):
+        """没有任何结构稿：拦截，文案指引去「剧本结构」页确认。"""
+        sendable, note, filled = self.readiness(self.root)
+        self.assertFalse(sendable)
+        self.assertFalse(filled)
+        self.assertIn('结构剧本', note)
+        self.assertIn('确认一份结构剧本', note)
+
+    def test_script_with_deleted_source_is_not_usable(self):
+        """唯一结构稿的来源原稿已删：不算可用，仍拦截。"""
+        self._script(self._standard(source='01剧本准备/output/deleted_raw.md'))
+        sendable, note, filled = self.readiness(self.root)
+        self.assertFalse(sendable)
+        self.assertIn('确认一份结构剧本', note)
+
 
 if __name__ == '__main__':
     unittest.main()

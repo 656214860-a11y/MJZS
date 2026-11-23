@@ -810,6 +810,47 @@ def completion_evidence(root, stage, video_ready=None):
         return False, '成果校验失败：%s' % exc
 
 
+def storyboard_send_readiness(project):
+    """初步分镜发送门禁（REQ-S03-55）：有可用结构稿即可发送，不复用 S02 完成核验。
+
+    返回 ``(可发送, 说明, 已自动补清单)``。唯一拦截情形是没有可用结构稿；
+    三份清单有问题时先按当前结构稿派生补写一次，补得上就放行并说明，
+    补不出（如模型按集写的稿没有可派生名单）也只给说明、不拦截。
+    ``completion_evidence`` 的判定不受影响。
+    """
+    try:
+        root = Path(project) if project else None
+    except (TypeError, ValueError):
+        root = None
+    blocked_note = '还没有可用的结构剧本，请先到「剧本结构」页确认一份结构剧本，再回来发送'
+    if root is None or not root.is_dir():
+        return False, blocked_note, False
+    import contract.script_contract as script_contract
+    try:
+        candidates = script_contract.structured_script_paths(root)
+    except (OSError, TypeError, ValueError):
+        candidates = ()
+    source = candidates[0] if candidates else None
+    if source is None or not script_contract.is_structured_script(source):
+        return False, blocked_note, False
+    problems = script_contract.structure_manifest_problems(root, source)
+    if not problems:
+        return True, '', False
+    try:
+        text = Path(source).read_text(encoding='utf-8-sig', errors='replace')
+        derived = script_contract.structure_manifests(text)
+        if any(manifest.get('items') for manifest in derived.values()):
+            script_contract.write_structure_manifests(root, text)
+            problems = script_contract.structure_manifest_problems(root, source)
+            if not problems:
+                return True, '已按当前结构剧本补全清单', True
+    except (OSError, TypeError, ValueError, KeyError, ImportError):
+        pass
+    reason = problems[0] if problems else '清单核验未通过'
+    return True, ('结构剧本清单未能自动生成（原因：%s），本次不影响分镜制作；'
+                  '需要时可回「剧本结构」页重新整理' % reason), False
+
+
 def emit_verified_completion(root, stage, text, emit, video_ready=None, before_emit=None):
     """核验成果后才通过受控事件出口标记阶段完成。"""
     ok, detail = completion_evidence(root, stage, video_ready)

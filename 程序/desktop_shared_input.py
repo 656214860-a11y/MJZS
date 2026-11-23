@@ -79,12 +79,13 @@ def _say(status, text):
             app_logging.swallowed()
 
 
-def upstream_send_error(project, stage):
+def upstream_send_error(project, stage, status=None):
     """发送门禁（任务书轮 3）：当前阶段上游空白 → 拒绝并提示；放行返回 ``''``。
 
     有 ``stage_parallel`` 门禁的阶段走 ``evaluate``（UPSTREAM_BLANK／BLOCKED 都拦）；
     没有门禁行的非 script 阶段看紧邻上游阶段的 ``completion_evidence``，上游被显式
     跳过（skipped）时豁免；``script`` 与无项目一律放行（简报门禁由宿主发送路径负责）。
+    ``storyboard`` 例外走 ``storyboard_send_readiness``（REQ-S03-55），说明经 ``status`` 写状态栏。
     """
     stage = str(stage or '')
     if not stage or stage == 'script' or stage not in pet_bus.STAGES:
@@ -118,6 +119,15 @@ def upstream_send_error(project, stage):
             return ''
     except Exception:
         app_logging.swallowed()
+    if stage == 'storyboard' and upstream == 'script_structure':
+        try:
+            from orchestrator.stage_completion_service import storyboard_send_readiness
+            sendable, note, _filled = storyboard_send_readiness(project)
+        except Exception:
+            return ''
+        if sendable and note:
+            _say(status, note)
+        return '' if sendable else (note or '请先到「剧本结构」页确认一份结构剧本，再回来发送')
     try:
         from orchestrator.stage_completion_service import completion_evidence
         ok, detail = completion_evidence(project, upstream)
@@ -959,7 +969,7 @@ class SharedStageInput(_CandidateFlow, _StageActions, ttk.Frame):
         if not value:
             # 空输入框＝执行当前阶段登记的发送动作（没登记照旧不动）：和点页面按钮一样，不过上游门禁、不清输入框。
             return self.run_stage_action()
-        error = upstream_send_error(self.project, self.stage)
+        error = upstream_send_error(self.project, self.stage, self.status)
         if error:
             _say(self.status, error)
             return False
