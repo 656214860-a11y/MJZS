@@ -193,6 +193,27 @@ class TtsRecordingTests(unittest.TestCase):
                               on_line=lambda index, line, entry: seen.append((index, entry['state'])))
             self.assertEqual(seen, [(1, 'ok')])
 
+    def test_quote_and_release_cover_unsaved_via_l3(self, _settings):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            lines = [{'shot_id': 'S1', 'text': '你好世界请放开重发', 'speed': 1.0}]
+            out = root / 'audio'
+            out.mkdir(parents=True)
+            (out / '时间轴.json').write_text(json.dumps([
+                {**lines[0], 'state': 'unsaved', 'file': '', 'request_id': 'rid-1',
+                 'error': '已付费未保存：disk'}]), encoding='utf-8')
+            quote = tts_api.batch_cost_preview(root, lines, out)
+            self.assertEqual((quote['pending'], quote['unknown']), ([], 1))
+            tip = tts_api.unknown_release_prompt(lines, out)
+            self.assertEqual(tip['indexes'], [1])
+            self.assertIn('已核对服务商后台，这些请求没有扣费，重新发送', tip['text'])
+            self.assertIn('S1', tip['text'])
+            self.assertIn('rid-1', tip['text'])
+            self.assertEqual(ses.release_tts_unknown(out, tip['indexes']), [1])
+            quote = tts_api.batch_cost_preview(root, lines, out)
+            self.assertEqual(quote['pending'], [1])
+            self.assertEqual(quote['unknown'], 0)
+
 
 if __name__ == '__main__':
     unittest.main()

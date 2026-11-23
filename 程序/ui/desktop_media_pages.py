@@ -90,6 +90,26 @@ def _configure_table_style(tree):
     fit_row_height(tree, 0, style=style)
 
 
+def _line_quote_gate(page, lines, out, settings):
+    """逐句配音付费闸口（模块级守住类行数棘轮）：摊开确认花费，取消不提交；返回 (quote, pending, early)，early 非 None 即终态提示。"""
+    import domain.tts_api as tts_api
+    quote=tts_api.batch_cost_preview(page.root,lines,out,settings)
+    pending=quote['pending']
+    if not pending and not quote['unknown']:
+        return quote,pending,'逐句配音：都已有成品，无需重复合成。'+quote['text']
+    if not pending and quote['unknown']:
+        release=tts_api.unknown_release_prompt(lines,out)
+        if not page.media_page_services.confirm(page.win,'逐句配音（待核实）',release['text'],dangerous=True):
+            return quote,pending,'已取消：未放开任何待核实句子，也没有提交'
+        from stage_execution_service import release_tts_unknown
+        release_tts_unknown(out,release['indexes'])
+        quote=tts_api.batch_cost_preview(page.root,lines,out,settings)
+        pending=quote['pending']
+        if not pending:
+            return quote,pending,'逐句配音：'+quote['text']
+    return quote,pending,None
+
+
 class MediaPagesMixin:
     """Desktop 的制作后段页面方法集（见模块说明）。"""
     def edit_ready(self):
@@ -732,12 +752,8 @@ class MediaPagesMixin:
         token=(episode.get('episode_id') or episode.get('id')) if isinstance(episode,dict) else None
         out=tts_api.resume_folder(folder,lines,token);resumed=out is not None
         out=out or dated_path(folder,'配音批次')
-        # 付费闸口：逐句配音按句计费，点一次会发出「待合成句数」个请求。先在点按钮时把要花多少、
-        # 有多少句沿用已生成文件摊开确认，取消时一句都不提交（沿用判定与批次内部同一口径）。
-        quote=tts_api.batch_cost_preview(self.root,lines,out,tts_settings)
-        pending=quote['pending']
-        if not pending:
-            self.status.set('逐句配音：'+('都已有成品，无需重复合成。' if not quote['unknown'] else '')+quote['text']);return
+        quote,pending,early=_line_quote_gate(self,lines,out,tts_settings)
+        if early:self.status.set(early);return
         tip=quote['text']
         if not self.media_page_services.confirm(self.win, '逐句配音（付费）', tip+'\n\n继续提交？', dangerous=True):
             self.status.set('已取消逐句配音：未提交任何句子，也没有产生费用');return

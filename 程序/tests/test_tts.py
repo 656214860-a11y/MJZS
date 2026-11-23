@@ -8,7 +8,7 @@ import tempfile
 import unittest
 import urllib.error
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -554,6 +554,105 @@ class TtsBatchIdentityTests(unittest.TestCase):
         self.assertNotEqual(plain, tts_api.script_signature(
             "你好", self._settings(endpoint="https://b.example/v1")))
 
+
+class TtsRejectAndReleaseTests(unittest.TestCase):
+    """AUD-US05 E-1：4xx／连不上记 failed；超时仍 uncertain；写盘失败 unsaved；人工放开。"""
+
+    def test_synthesize_http_4xx_raises_tts_rejected(self):
+        calls = {}
+        error = urllib.error.HTTPError(
+            "https://api.openai.com/v1/audio/speech", 401, "err", {},
+            io.BytesIO(b'{"error": "invalid key"}'))
+        patches = _synthesize_patches(calls, error=error)
+        with patches[0], patches[1], patches[2], patches[3]:
+            with self.assertRaises(tts_api.TTSRejected) as caught:
+                tts_api.synthesize("你好")
+        self.assertIsInstance(caught.exception, ValueError)
+        self.assertEqual(str(caught.exception),
+                         'TTS 请求失败（HTTP 401）：{"error": "invalid key"}')
+
+    def test_run_lines_http_reject_marks_failed_and_resends(self):
+        with tempfile.TemporaryDirectory() as td:
+            project, folder = Path(td), Path(td) / "audio"
+            lines = [{"shot_id": "S1", "text": "你好", "speed": 1.0}]
+            generate = Mock(side_effect=tts_api.TTSRejected("TTS 请求失败（HTTP 401）：x"))
+            self.assertEqual(
+                tts_api.run_lines(lines, folder, generate=generate, gateway=_gateway(), project=project),
+                (0, 0, 1))
+            entry = json.loads((folder / "时间轴.json").read_text(encoding="utf-8"))[0]
+            self.assertEqual(entry["state"], "failed")
+            self.assertTrue(entry.get("not_submitted"))
+            generate.side_effect = None
+            generate.return_value = b"audio"
+            self.assertEqual(
+                tts_api.run_lines(lines, folder, generate=generate, gateway=_gateway(), project=project),
+                (1, 0, 0))
+            self.assertEqual(generate.call_count, 2)
+
+    def test_run_lines_urlerror_marks_failed_timeout_stays_uncertain(self):
+        with tempfile.TemporaryDirectory() as td:
+            project, folder = Path(td), Path(td) / "audio"
+            lines = [{"shot_id": "S1", "text": "你好", "speed": 1.0}]
+            gen = Mock(side_effect=urllib.error.URLError("connection refused"))
+            tts_api.run_lines(lines, folder, generate=gen, gateway=_gateway(), project=project)
+            self.assertEqual(json.loads((folder / "时间轴.json").read_text(encoding="utf-8"))[0]["state"], "failed")
+            folder2 = Path(td) / "audio2"
+            gen2 = Mock(side_effect=TimeoutError("timed out"))
+            tts_api.run_lines(lines, folder2, generate=gen2, gateway=_gateway(), project=project)
+            self.assertEqual(json.loads((folder2 / "时间轴.json").read_text(encoding="utf-8"))[0]["state"], "uncertain")
+            self.assertEqual(
+                tts_api.run_lines(lines, folder2, generate=gen2, gateway=_gateway(), project=project),
+                (0, 0, 1))
+            self.assertEqual(gen2.call_count, 1)
+
+    def test_publish_failure_marks_unsaved_and_blocks_resend(self):
+        with tempfile.TemporaryDirectory() as td:
+            project, folder = Path(td), Path(td) / "audio"
+            lines = [{"shot_id": "S1", "text": "你好", "speed": 1.0}]
+            gateway = _gateway()
+            broken = {**gateway, "publish_bytes": Mock(side_effect=OSError("disk full"))}
+            self.assertEqual(
+                tts_api.run_lines(lines, folder, generate=lambda *a, **k: b"audio",
+                                  gateway=broken, project=project),
+                (0, 0, 1))
+            entry = json.loads((folder / "时间轴.json").read_text(encoding="utf-8"))[0]
+            self.assertEqual(entry["state"], "unsaved")
+            self.assertIn("已付费未保存", entry.get("error", ""))
+            quote = tts_api.batch_cost_preview(project, lines, folder)
+            self.assertEqual((quote["pending"], quote["unknown"]), ([], 1))
+            again = Mock(return_value=b"audio")
+            self.assertEqual(
+                tts_api.run_lines(lines, folder, generate=again, gateway=_gateway(), project=project),
+                (0, 0, 1))
+            again.assert_not_called()
+
+    def test_release_unknown_only_resends_released_indexes(self):
+        with tempfile.TemporaryDirectory() as td:
+            project, folder = Path(td), Path(td) / "audio"
+            lines = [
+                {"shot_id": "S1", "text": "第一句", "speed": 1.0},
+                {"shot_id": "S2", "text": "第二句", "speed": 1.0},
+            ]
+            folder.mkdir(parents=True)
+            manifest = [
+                {**lines[0], "state": "uncertain", "file": "", "request_id": "a"},
+                {**lines[1], "state": "sending", "file": "", "request_id": "b"},
+            ]
+            (folder / "时间轴.json").write_text(json.dumps(manifest), encoding="utf-8")
+            released = tts_api.release_unknown(folder, [1], gateway=_gateway())
+            self.assertEqual(released, [1])
+            data = json.loads((folder / "时间轴.json").read_text(encoding="utf-8"))
+            self.assertEqual(data[0]["state"], "failed")
+            self.assertIn("released_at", data[0])
+            self.assertEqual(data[1]["state"], "sending")
+            calls = []
+            def generate(text, speed=1.0, voice=None):
+                calls.append(text)
+                return b"x"
+            self.assertEqual(
+                tts_api.run_lines(lines, folder, generate=generate, gateway=_gateway(), project=project),
+                (1, 0, 1))
+            self.assertEqual(calls, ["第一句"])
 
 
 if __name__ == "__main__":
