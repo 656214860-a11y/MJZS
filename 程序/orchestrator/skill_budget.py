@@ -26,6 +26,9 @@ PET_CONFIG = ('配置', '宠物', '配置.json')
 PET_LIMIT_OF = {'tokens': 'tokens', 'images': 'image', 'videos': 'video'}
 KINDS = ('tokens', 'images', 'videos')
 DEFAULTS = {'tokens_per_day': 2000000, 'images_per_project': 200, 'videos_per_project': 100}
+# unknown 预留的对账窗口：执行中途失败落 unknown 后按「未提交」保留一天，
+# 超时由 reserved()/load() 按 released 处理，不再永久占额度（AUD-SKILL D2）。
+UNKNOWN_TTL = 24 * 3600
 LIMIT_OF = {'tokens': 'tokens_per_day', 'images': 'images_per_project', 'videos': 'videos_per_project'}
 LABELS = {'tokens': 'Token（每天）', 'images': '生图（每项目）', 'videos': '视频（每项目）'}
 _TRANSACTION_LOCK = threading.RLock()
@@ -140,11 +143,33 @@ class Budget:
                 entry['state'] = 'settled'
             else:
                 entry['state'] = 'unknown'
+                entry['unknown_at'] = float(self.clock())
             self.save()
 
     def reserved(self, kind):
+        now = float(self.clock())
         return sum(row['amount'] for row in self.reservations.values()
-                   if row['kind'] == kind and row['state'] in ('reserved', 'unknown'))
+                   if row['kind'] == kind and row['state'] in ('reserved', 'unknown')
+                   and not self._unknown_expired(row, now))
+
+    def _unknown_expired(self, row, now=None):
+        """unknown 预留是否已过对账窗口；旧账没有 unknown_at 视为已超时。"""
+        if row.get('state') != 'unknown':
+            return False
+        at = row.get('unknown_at')
+        if isinstance(at, bool) or not isinstance(at, (int, float)):
+            return True
+        return (now if now is not None else float(self.clock())) - at >= UNKNOWN_TTL
+
+    def _release_expired_unknown(self):
+        """对账清扫：unknown 超时的预留转 released，额度不再被占；返回是否有改动。"""
+        now = float(self.clock())
+        changed = False
+        for row in self.reservations.values():
+            if self._unknown_expired(row, now):
+                row['state'] = 'released'
+                changed = True
+        return changed
 
     # ── 额度与用量 ──────────────────────────────────────────────────────────
     def limit(self, kind):
@@ -213,6 +238,7 @@ class Budget:
                         or type(row.get('amount')) is not int or row['amount'] <= 0):
                     raise ValueError('预算预留账损坏，请核对后恢复')
             self.reservations = reservations
+            self._release_expired_unknown()
             for kind in KINDS:
                 value = data.get(kind, 0)
                 if type(value) is not int or value < 0:raise ValueError('预算计数损坏，请核对后恢复')
