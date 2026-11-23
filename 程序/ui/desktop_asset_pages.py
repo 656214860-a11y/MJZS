@@ -479,6 +479,38 @@ class AssetPagesMixin:
         self.show(PAGE['assets'])
         self.status.set(aid+' 的 '+str(len(values))+' 张参考图已移入回收站。')
         return True
+    def _delete_image_confirm_text(self,aid,image):
+        """单项删图确认文案：原文案后追加 deletion_references 摘要（UX-S05-54）。"""
+        text=('删除 %s 的已导入图片？\n%s\n\n图片将移入项目回收站，该资产恢复为待导入。'
+              %(aid,image))
+        try:
+            from stage_execution_service import deletion_references
+            summary=deletion_references(self.root,aid).get('summary') or ''
+            if summary:text+='\n\n'+summary
+        except Exception:
+            import infra.app_logging as app_logging
+            app_logging.swallowed()
+        return text
+
+    def _batch_delete_images_confirm_text(self,targets,shown,how):
+        """批量删图确认文案：追加「其中 N 项被采用镜头引用」（UX-S05-55）。"""
+        text=('删除勾选的 %d 项资产的已导入图片？\n%s\n\n图片将移入项目回收站，'
+              '这些资产恢复为待导入；未勾选资产不受影响。%s'
+              %(len(targets),shown,self.asset_work_hint(targets,how)))
+        try:
+            from stage_execution_service import deletion_references
+            cited=[]
+            for aid in targets:
+                refs=deletion_references(self.root,aid)
+                if refs.get('protected'):cited.append(aid)
+            if cited:
+                head='、'.join(cited[:6])+('…' if len(cited)>6 else '')
+                text+='\n\n其中 %d 项被采用镜头引用：%s'%(len(cited),head)
+        except Exception:
+            import infra.app_logging as app_logging
+            app_logging.swallowed()
+        return text
+
     def delete_asset_image(self,aid,ask=True):
         """逐个删除：把这一项的已导入图片移进项目回收站，资产恢复为待导入。
 
@@ -494,7 +526,7 @@ class AssetPagesMixin:
         if not path.is_relative_to(base):raise ValueError('资产路径越界')
         if not path.is_file():raise ValueError('图片文件已不存在，请刷新列表')
         if ask and not self.asset_page_services.confirm(self.win,'删除已导入图片',
-                f'删除 {aid} 的已导入图片？\n{image}\n\n图片将移入项目回收站，该资产恢复为待导入。',
+                self._delete_image_confirm_text(aid,image),
                 dangerous=True):
             return False
         from domain.asset_batch_service import remove_asset_image
@@ -518,8 +550,7 @@ class AssetPagesMixin:
         if not targets:raise ValueError('勾选的资产都没有已导入图片')
         shown='、'.join(targets[:8])+('…' if len(targets)>8 else '')
         if not self.asset_page_services.confirm(self.win,'批量删除已导入图片',
-                f'删除勾选的 {len(targets)} 项资产的已导入图片？\n{shown}\n\n图片将移入项目回收站，'
-                '这些资产恢复为待导入；未勾选资产不受影响。'+self.asset_work_hint(targets,how),
+                self._batch_delete_images_confirm_text(targets,shown,how),
                 dangerous=True):
             return []
         done=[]

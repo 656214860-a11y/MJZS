@@ -26,6 +26,7 @@ os.chdir(HERE)
 import contract.asset_contract as ac
 import asset_detail
 import asset_plan
+from ui_tokens import COLORS
 from domain import confirm_gates
 from stage_execution_service import apply_asset_plan_gate_choice as apply_gate_choice
 from test_asset_thumbs import png
@@ -736,6 +737,114 @@ class RosterTests(_Harness):
             self.assertFalse(d.asset_roster)
             self.assertIsNone(d.asset_detail_id)
             self.assertTrue(self.buttons(d.content, "手动制作资产"), "回到资产管理主页")
+
+
+class UsageBlockTests(_Harness):
+    """UX-S05-53：使用情况块位置、孤立空态、逐镜行条数（真 Tk 量几何）。"""
+
+    def test_usage_block_between_role_and_raw(self):
+        from types import SimpleNamespace
+        if self.tk is None:
+            self.skipTest(PLATFORM_TKINTER)
+        win = self.tk.Tk(); win.withdraw()
+        self.addCleanup(win.destroy)
+        content = self.ttk.Frame(win)
+        content.pack()
+        with tempfile.TemporaryDirectory() as td:
+            d = SimpleNamespace(content=content, root=Path(td),
+                                asset_base=lambda: Path(td),
+                                safe=lambda callback: callback())
+            with mock.patch('stage_execution_service.asset_usage',
+                            return_value={'aid': 'CHAR_001', 'orphan': True,
+                                          'rows': [], 'videos': []}):
+                role = asset_detail._role_block(d, 'CHAR_001', {})
+                usage = asset_detail._usage_block(d, 'CHAR_001', {})
+                raw = asset_detail._raw_block(d, 'CHAR_001')
+            win.update_idletasks()
+            # 真 Tk 量几何：使用情况块的顶部在参考职责之下、JSON 原文之上
+            self.assertGreaterEqual(usage.winfo_y(), role.winfo_y() + role.winfo_height() - 2)
+            self.assertLessEqual(usage.winfo_y() + usage.winfo_height(), raw.winfo_y() + 2)
+            self.assertIn('使用情况', self.texts(content))
+            self.assertIn('当前没有采用镜头引用，属可回收的孤立资产', self.texts(content))
+
+    def test_usage_block_row_count_matches_references(self):
+        from types import SimpleNamespace
+        if self.tk is None:
+            self.skipTest(PLATFORM_TKINTER)
+        win = self.tk.Tk(); win.withdraw()
+        self.addCleanup(win.destroy)
+        content = self.ttk.Frame(win)
+        content.pack()
+        rows = [
+            {'episode': 'EP01', 'shot': 'SH001', 'frame': 'missing',
+             'frame_reason': '', 'video': 'none'},
+            {'episode': 'EP01', 'shot': 'SH002', 'frame': 'stale',
+             'frame_reason': '提示词已变', 'video': 'generated'},
+        ]
+        d = SimpleNamespace(content=content, root=Path('.'),
+                            asset_base=lambda: Path('.'),
+                            safe=lambda callback: callback())
+        with mock.patch('stage_execution_service.asset_usage',
+                        return_value={'aid': 'CHAR_001', 'orphan': False,
+                                      'rows': rows, 'videos': ['SH002']}):
+            asset_detail._usage_block(d, 'CHAR_001', {})
+        win.update_idletasks()
+        texts = self.texts(content)
+        self.assertIn('被 2 个采用镜头引用', texts)
+        self.assertTrue(any('SH001' in t for t in texts))
+        self.assertTrue(any('SH002' in t for t in texts))
+        self.assertIn('出现过的镜头视频：SH002', texts)
+
+    def test_usage_block_colors_each_status_label(self):
+        """UX-S05-53：首帧三档与视频两档各自着色，镜头与原因文字仍可读。"""
+        from types import SimpleNamespace
+        if self.tk is None:
+            self.skipTest(PLATFORM_TKINTER)
+        win = self.tk.Tk(); win.withdraw()
+        self.addCleanup(win.destroy)
+        content = self.ttk.Frame(win)
+        content.pack()
+        rows = [
+            {'episode': 'EP01', 'shot': 'SH001', 'frame': 'latest',
+             'frame_reason': '', 'video': 'generated'},
+            {'episode': 'EP01', 'shot': 'SH002', 'frame': 'stale',
+             'frame_reason': '提示词已变', 'video': 'none'},
+            {'episode': 'EP01', 'shot': 'SH003', 'frame': 'missing',
+             'frame_reason': '', 'video': 'generated'},
+        ]
+        d = SimpleNamespace(content=content, root=Path('.'),
+                            asset_base=lambda: Path('.'),
+                            safe=lambda callback: callback())
+        with mock.patch('stage_execution_service.asset_usage',
+                        return_value={'aid': 'CHAR_001', 'orphan': False,
+                                      'rows': rows, 'videos': ['SH001', 'SH003']}):
+            asset_detail._usage_block(d, 'CHAR_001', {})
+        win.update_idletasks()
+
+        def labels_containing(needle):
+            found = []
+            for widget in widget_list(content, (self.ttk.Label, self.tk.Label)):
+                if needle in str(widget.cget('text')):
+                    found.append(widget)
+            return found
+
+        expected = [
+            ('首帧：最新', 'success_text'),
+            ('首帧：过期', 'warning_text'),
+            ('首帧：缺失', 'danger_text'),
+            ('视频：已生成', 'success_text'),
+            ('视频：未生成', 'text_muted'),
+        ]
+        for needle, key in expected:
+            matches = labels_containing(needle)
+            self.assertTrue(matches, needle)
+            for widget in matches:
+                self.assertEqual(str(widget.cget('foreground')), COLORS[key],
+                                 '%s 应用 COLORS[%s]' % (needle, key))
+        texts = self.texts(content)
+        for shot in ('SH001', 'SH002', 'SH003'):
+            self.assertTrue(any(shot in text for text in texts), shot)
+        self.assertTrue(any('提示词已变' in text for text in texts))
 
 
 if __name__ == "__main__":
