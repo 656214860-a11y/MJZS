@@ -14,6 +14,30 @@ SCENE = {"name": "咖啡馆", "lighting_direction": "右侧落地窗自然光 56
          "scale_reference": "吧台高约 1.1 米"}
 
 
+class WorkflowReplyFormatTests(unittest.TestCase):
+    """REQ-S01-108：回话组织约束只作用于对话回复、进度汇报、失败说明，不改产物契约。"""
+
+    def test_reply_format_rule_has_the_three_parts_and_excludes_products(self):
+        from workflow_engines import prompt_with_settings
+        from workflow_settings import stage_output_contract
+        text = prompt_with_settings('任务', {'instructions': '', 'skill': '', 'engine': 'codex'},
+                                    stage='writing')
+        self.assertIn('先给结论', text)
+        self.assertIn('再分点说明', text)
+        self.assertIn('最后给出下一步', text)
+        self.assertIn('不适用于', text)
+        self.assertIn('剧本、分镜、JSON', text)
+        self.assertIn(stage_output_contract('writing'), text)
+        self.assertIn('待确认', text)
+
+    def test_reply_format_rule_does_not_touch_the_json_only_contract(self):
+        from workflow_engines import prompt_with_settings
+        text = prompt_with_settings('任务', {'instructions': '补充要求', 'skill': '', 'engine': 'codex'})
+        self.assertLess(text.index('任务'), text.index('先给结论'))
+        self.assertLess(text.index('先给结论'), text.index('补充要求'))
+        self.assertNotIn('只返回 JSON', text)
+
+
 class ImagePromptTests(unittest.TestCase):
     def test_anchor_scene_and_composition_are_all_there(self):
         text = pt.image_prompt(CHARACTER, SCENE, "中景、平视")

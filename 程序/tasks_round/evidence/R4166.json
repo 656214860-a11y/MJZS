@@ -1,0 +1,15 @@
+{
+  "round": 4166,
+  "commit_base": "6997ae43",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k idea_chat ui_hitl hitl writing_api prompt",
+    "exit": 0,
+    "passed": 331,
+    "failed": 0
+  },
+  "generated_at": "2026-11-23T16:01:21"
+}

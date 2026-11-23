@@ -10,13 +10,24 @@ Anthropic 的「审批者能改输入」：选择卡、审批门、红绿 Diff �
 """
 from __future__ import annotations
 
+import re
 import time
 from enum import Enum
 
 
 DEFAULT_TIMEOUT_SECONDS = 300
+# 模型回话末尾的可点选项标记：```choices 每行一个选项。最多展示 4 个，超过截断。
+CHOICE_FENCE_LANGUAGE = 'choices'
+MAX_CHOICES = 4
 # 只有不可逆副作用／对外发布／删除需要人工；其余低风险自动放行（避免橡皮图章）。
 HIGH_RISK_ACTIONS = frozenset({'delete', 'publish', 'overwrite', 'adopt', 'release', 'replace'})
+
+_CHOICE_OPEN = re.compile(r'^\s*`{3,}\s*choices\b.*$', re.IGNORECASE)
+_CHOICE_CLOSE = re.compile(r'^\s*`{3,}\s*$')
+_CHOICE_PARTIAL = re.compile(
+    r'^\s*`{3,}\s*c(?:h(?:o(?:i(?:c(?:e(?:s)?)?)?)?)?)?\s*$', re.IGNORECASE)
+_CHOICE_BULLET = re.compile(r'^\s*(?:[-*+]|\d+[.)、])\s*')
+_CHOICE_QUOTES = (('“', '”'), ('「', '」'), ('『', '』'), ('"', '"'), ("'", "'"))
 
 
 class RequestKind(str, Enum):
@@ -126,3 +137,65 @@ def from_confirm_result(result, *, timeout=None):
                          'title': str(result.get('title') or ''),
                          'candidates': candidates},
                         timeout=timeout)
+
+
+def _choice_label(line):
+    """一行选项 → 可显示的标签：去列表记号、去成对中英文引号。"""
+    value = str(line or '').strip()
+    previous = None
+    while value and previous != value:
+        previous = value
+        value = _CHOICE_BULLET.sub('', value, count=1).strip()
+    for left, right in _CHOICE_QUOTES:
+        if len(value) >= 2 and value.startswith(left) and value.endswith(right):
+            value = value[1:-1].strip()
+            break
+    return value
+
+
+def parse_choice_reply(text):
+    """拆出回复末尾的 ```choices 标记段。
+
+    返回 ``{'text': 显示正文, 'candidates': [...], 'truncated': bool, 'open': bool}``。
+    完整标记段从正文剥离；未闭合的标记段连同其后文字一起隐藏，``open`` 为 True。
+    没有标记时原样返回正文，行为不变。
+    """
+    raw = str(text or '')
+    lines = raw.splitlines(True)
+    kept = []
+    blocks = []
+    opened = False
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        bare = line.rstrip('\r\n')
+        if _CHOICE_OPEN.match(bare):
+            body = []
+            end = index + 1
+            while end < len(lines) and not _CHOICE_CLOSE.match(lines[end].rstrip('\r\n')):
+                body.append(lines[end])
+                end += 1
+            if end < len(lines):
+                blocks.append(''.join(body))
+                index = end + 1
+                continue
+            opened = True
+            index = len(lines)
+            continue
+        if index == len(lines) - 1 and _CHOICE_PARTIAL.match(bare):
+            opened = True
+            index += 1
+            continue
+        kept.append(line)
+        index += 1
+    has_marker = bool(blocks) or opened
+    display = ''.join(kept)
+    if has_marker:
+        display = display.rstrip()
+    candidates = []
+    for line in (blocks[-1].splitlines() if blocks else ()):
+        label = _choice_label(line)
+        if label:
+            candidates.append(label)
+    return {'text': display, 'candidates': candidates,
+            'truncated': len(candidates) > MAX_CHOICES, 'open': opened}
