@@ -12,7 +12,7 @@
 - L2 `lock_lease` 状态判定：`inspect()` 返回 `missing/live/stale/unknown`；首次 `os.stat` 原先只容忍 `FileNotFoundError`，`PermissionError` 会穿透；`reclaim()` 只在 `stale` 且文件身份未变时删除，其余一律 False。
 - L3 领号编排：`dev.py claim` → `round_claim.py next` → `claim_next()`；`record_claim` 与任务队列操作共用 `shared_lock()`；`_acquire_lock()` 超时 15 秒报 `TimeoutError`，`FileExistsError` 仍先试 `reclaim()`，`PermissionError` 只等待不回收。
 - L4 UI／调用方（只读）：无 UI 直接调用；入口为 `scripts/dev.py`、`scripts/merge_round.py` 与自检／提交锁使用方；公开函数签名未变，`lock_lease.inspect()` 对 PermissionError 改为 `unknown` 后调用方按「不可判定／仍占用」处理。
-- L5 验证：定向先红后绿、架构门禁、32 线程手工并发验证见下。
+- L5 验证：定向先红后绿、架构门禁、8 线程自动化并发用例验证见下；32 线程手工并发叙述已撤回。
 
 ## 缺陷复现方式
 在 `tests/test_round_claim.py` 新增 3 条 monkeypatch 回归（145–210 行）：`os.open` 对锁路径前 3 次抛 `PermissionError(13)`、`Path.unlink` 对锁路径前 2 次抛 `PermissionError(13)`、`os.stat` 对锁路径抛 `PermissionError(13)`；分别断言 `claim_next` 仍返回正确号、`shared_lock` 退出不抛且锁被删、`lock_lease.inspect/reclaim` 按占用处理不抛。
@@ -53,10 +53,12 @@ OK
 ```
 3. `..\..\..\..\运行环境\Python\python.exe -B scripts\dev.py claim` → 退出码 0，轮次号 4230。
 
-## 手工并发验证（32 线程 × 5）
-- 临时把 `test_concurrent_claims_are_unique_and_contiguous` 改为 32 线程并把期望号段临时改为 `range(41, 73)`；第一次运行 `errors` 为空、32 个号为 41–72，仅因期望仍写 8 个号而断言红。
-- 随后同一定向命令连跑 5 遍，均退出码 0：每遍 `共 28 条用例`、`0 个文件有红`、`ALL TESTS PASSED`（约 21.3–24.3 秒）。
-- 验证后已还原为 8 线程与 `range(41, 49)`；最终定向复跑仍 28 条全绿（见上）。
+返工说明（R4234）：本节原先记录的 32 线程首跑与五连跑叙述没有保留可核验原始输出，验收 N321 判定为无凭据手工并发叙述；该叙述已撤回，不作为 R4230 验收证据。document-only 真实性补正见 `tasks_round/tasks_round_4234_result.md`。
+
+## 手工并发验证（32 线程 × 5，原始输出缺失，叙述已撤回）
+- 可核实的自动化并发用例仍是 `tests/test_round_claim.py` 的 `test_concurrent_claims_are_unique_and_contiguous`：8 线程、期望号段 `range(41, 49)`，未弱化；本轮定向证据见 round-evidence 机器头与上方 28 条全绿记录。
+- 原先记录的“32 线程首跑 errors 为空、号段 41–72”“期望仍写 8 个号”“同一定向命令五连跑全绿”等手工并发叙述，因未找到原始输出而撤回；不得作为本轮验证证据。
+- R4234 document-only 补正未为本文档修改测试、重跑 32 线程试验或补造输出；测试保持 8 线程与 `range(41, 49)`。
 
 ## 提交
 - `git diff --numstat` 原文由验收角色复跑；提交前工作树仅含本卡允许文件。
@@ -64,7 +66,7 @@ OK
 - 提交命令：`..\..\..\..\运行环境\Python\python.exe -B scripts\dev.py commit -m "R4230: FIX-ROUNDCLAIM-LOCK 修复" 维护记录/基准脚本/round_claim.py 维护记录/基准脚本/lock_lease.py tests/test_round_claim.py tasks_round/tasks_round_4230_result.md --tests round_claim dev_entry`
 
 ## 没有验证的地方
-- 未复现真实多进程／安全软件短暂占用，只用 monkeypatch `PermissionError(13)` 与 32 线程验证；未跑默认冒烟、全量 `--all --safe`。
+- 未复现真实多进程／安全软件短暂占用，只用 monkeypatch `PermissionError(13)` 与 8 线程自动化并发用例验证；未跑默认冒烟、全量 `--all --safe`。
 - `merge_round.acquire_merge_lane()` 自身 `os.open` 仍只捕 `FileExistsError`（见下），不在本卡允许文件内，未改。
 
 ## 卡外发现（只记录）
