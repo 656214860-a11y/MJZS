@@ -47,12 +47,40 @@ def _binding_result(function):
     return run
 
 
+def _image_content_ok(path):
+    """导入候选按内容验真：后缀合法但内容不是对应格式的完整图片时返回 False。
+
+    与 ``asset_reference_images.image_bytes`` 同一口径（PNG 看签名＋IHDR＋IEND，
+    JPG 看 SOI＋EOI，WEBP 看 RIFF＋WEBP），只读头 16 字节与尾 8 字节，不把整图读进内存。
+    """
+    path = Path(path)
+    suffix = path.suffix.lower()
+    try:
+        size = path.stat().st_size
+        with open(path, 'rb') as handle:
+            head = handle.read(16)
+            handle.seek(max(0, size - 8))
+            tail = handle.read(8)
+    except OSError:
+        return False
+    if suffix == '.png':
+        return (size >= 33 and head.startswith(b'\x89PNG\r\n\x1a\n')
+                and head[12:16] == b'IHDR' and tail[:4] == b'IEND')
+    if suffix in ('.jpg', '.jpeg'):
+        return size >= 4 and head.startswith(b'\xff\xd8') and tail[-2:] == b'\xff\xd9'
+    if suffix == '.webp':
+        return size >= 12 and head[:4] == b'RIFF' and head[8:12] == b'WEBP'
+    return False
+
+
 def _source(path):
     path = Path(path).resolve()
     if not path.is_file() or path.stat().st_size <= 0:
         raise _BindingInputError('请选择存在且非空的图片文件')
     if path.suffix.lower() not in _IMAGE_SUFFIXES:
         raise _BindingInputError('请选择 PNG、JPG、JPEG 或 WEBP 图片')
+    if not _image_content_ok(path):
+        raise _BindingInputError('图片内容无效，请选择完整的 PNG、JPG 或 WebP 图片')
     return path
 
 
