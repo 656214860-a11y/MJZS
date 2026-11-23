@@ -997,6 +997,69 @@ class UiEdgeAutoTests(UiEdgeCase):
                 d.generate_tts()                     # 换音色：指纹变了，重新合成
             self.assertEqual(len(calls), 2)
 
+    def test_whole_script_tts_unknown_result_asks_before_resend(self):
+        """FIX-S11-E2：整段配音上次结果未知时重发要先确认；取消不发，确认后换新请求号。"""
+        if self.tk is None:
+            self.skipTest(PLATFORM_TKINTER)
+        from unittest.mock import patch
+        from domain import tts_api
+        import desktop as desktop_module
+        original_choose = desktop_module.Desktop.choose_project
+        desktop_module.Desktop.choose_project = lambda self: None
+        self.addCleanup(setattr, desktop_module.Desktop, "choose_project", original_choose)
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_adopted_project(td)
+            with_dialogue(proj, [{"speaker": "CHAR_001", "text": "只有这一句台词"}])
+            win = self.tk.Tk(); win.geometry("1100x740+40+40")
+            def quiet_destroy():
+                try:
+                    win.destroy()
+                except Exception:
+                    pass
+            self.addCleanup(quiet_destroy)
+            from desktop import Desktop
+            from local_video import open_studio
+            d = Desktop(win, root=PROGRAM)
+            d.root = proj
+            d.studio = open_studio(proj)
+            original_async = desktop_module.Desktop.async_
+            self.addCleanup(setattr, desktop_module.Desktop, "async_", original_async)
+            def sync(self, fn, done=None, show_progress=True):
+                value = fn()
+                if done is None:
+                    self.status.set(value)
+                else:
+                    done(value)
+            desktop_module.Desktop.async_ = sync
+            calls = []
+            def fake_synthesize(text, speed=1.0, voice=None, **kwargs):
+                calls.append(kwargs.get('request_id'))
+                if len(calls) == 1:
+                    raise TimeoutError('test')
+                return b"audio"
+            asked = []
+            def refuse(_parent, title, message, **kwargs):
+                asked.append((title, message)); return False
+            with patch.object(tts_api, "synthesize", fake_synthesize), \
+                 patch.object(desktop_module, "confirm", refuse):
+                with self.assertRaises(TimeoutError):
+                    d.generate_tts()
+            self.assertEqual(len(calls), 1)
+            # 上次结果未知：再点先弹确认；取消则不发，也不产生新费用
+            with patch.object(tts_api, "synthesize", fake_synthesize), \
+                 patch.object(desktop_module, "confirm", refuse):
+                d.generate_tts()
+            self.assertEqual(len(calls), 1)
+            self.assertTrue(asked)
+            self.assertIn("未知", asked[-1][1])
+            # 确认后发出，且请求号与上一次不同
+            with patch.object(tts_api, "synthesize", fake_synthesize), \
+                 patch.object(desktop_module, "confirm", lambda *a, **k: True):
+                d.generate_tts()
+            self.assertEqual(len(calls), 2)
+            self.assertNotEqual(calls[0], calls[1])
+            self.assertIn("配音已生成", d.status.get())
+
     def test_auto_final_switch_generates_final_and_retires_working_json(self):
         """04「自动生成定稿」：资产没齐只提示缺什么；资产齐了自动定稿、工作稿移入回收站，随后自动停下。"""
         if self.tk is None:

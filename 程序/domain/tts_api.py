@@ -10,6 +10,7 @@ from agent.core import read_json
 from contract.error_codes import code_of
 from contract.project_context import ProjectContext
 from urllib.parse import urlparse
+from infra.app_logging import swallowed as _swallowed
 from infra.seedream_api import protect
 
 DEFAULT_URL = "https://api.openai.com/v1"
@@ -291,28 +292,130 @@ def script_signature(text, settings=None):
     return hashlib.sha256(json.dumps(payload_, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
 
 
+FULL_TRACK_ATTEMPT_FILE = '整段配音尝试.json'
+# 尝试账里「结果未知」的口径：预约后未见结果（sending）或发送后结果未知（unknown）。
+FULL_TRACK_UNKNOWN_STATES = ('sending', 'unknown')
+
+
+def _full_track_folder(context):
+    from contract.project_stages import audio
+    return audio(_context(context).root)
+
+
+def _full_track_attempts(context):
+    """整段配音尝试账：与成品标记同目录，按指纹记最近一次请求的序号与结果口径。"""
+    data = read_json(_full_track_folder(context) / FULL_TRACK_ATTEMPT_FILE)
+    records = data.get('attempts') if isinstance(data, dict) else None
+    return dict(records) if isinstance(records, dict) else {}
+
+
+def _save_full_track_attempts(context, records, gateway):
+    _require_gateway(gateway, 'publish_json')['publish_json'](
+        _full_track_folder(context) / FULL_TRACK_ATTEMPT_FILE, {'attempts': records})
+
+
+def reserve_full_track_attempt(context, signature, *, confirmed=False, confirm=None, gateway=None):
+    """预约整段配音的下一个请求号（指纹＋尝试序号）。
+
+    上一次是确定失败直接用下一个序号；上一次结果未知（含预约后未发出）必须先确认，
+    取消返回 None、不发请求。确认回调由 L3 注入，文案在这里统一。
+    """
+    ctx = _context(context)
+    records = _full_track_attempts(ctx)
+    entry = records.get(signature)
+    entry = entry if isinstance(entry, dict) else {}
+    if str(entry.get('state') or '') in FULL_TRACK_UNKNOWN_STATES and not confirmed:
+        if confirm is None or not confirm('上一次配音请求结果未知，可能已扣费，确认重发？'):
+            return None
+    try:
+        attempt = int(entry.get('attempt') or 0)
+    except (TypeError, ValueError):
+        attempt = 0
+    attempt += 1
+    request_id = 'tts-full:%s:%d' % (signature, attempt)
+    records[signature] = {'attempt': attempt, 'request_id': request_id, 'state': 'sending'}
+    _save_full_track_attempts(ctx, records, gateway)
+    return request_id
+
+
+def note_full_track_outcome(context, signature, request_id, outcome, *, gateway=None):
+    """把整段配音尝试的结果口径写回尝试账；请求号已不是当前尝试时不覆盖。"""
+    ctx = _context(context)
+    records = _full_track_attempts(ctx)
+    entry = records.get(signature)
+    if not isinstance(entry, dict) or entry.get('request_id') != request_id:
+        return False
+    records[signature] = {**entry, 'state': outcome}
+    _save_full_track_attempts(ctx, records, gateway)
+    return True
+
+
+def _complete_full_track_attempt(context, signature, gateway):
+    """成品发布成功后把该指纹的尝试记为 done；没有尝试账（直接发布）时不补记。"""
+    ctx = _context(context)
+    records = _full_track_attempts(ctx)
+    entry = records.get(signature)
+    if not isinstance(entry, dict):
+        return
+    records[signature] = {**entry, 'state': 'done'}
+    _save_full_track_attempts(ctx, records, gateway)
+
+
 def reusable_full_track(context, signature):
     """Return the completed whole-track audio for an unchanged paid request, if any."""
-    from contract.project_stages import audio
-    marker = audio(_context(context).root) / '整段配音.json'
+    folder = _full_track_folder(context)
+    marker = folder / '整段配音.json'
     previous = read_json(marker) if marker.is_file() else {}
-    path = Path(previous.get('file', '')) if isinstance(previous, dict) else Path()
-    if (isinstance(previous, dict) and previous.get('signature') == signature
-            and previous.get('file') and path.is_file() and path.stat().st_size > 0):
+    if not (isinstance(previous, dict) and previous.get('signature') == signature
+            and previous.get('file')):
+        return None
+    path = Path(str(previous['file']))
+    if path.is_absolute():
+        # 旧格式绝对路径：文件还在就沿用；项目搬家后失效时退回同名文件在当前音频目录。
+        if not (path.is_file() and path.stat().st_size > 0):
+            path = folder / path.name
+    else:
+        # 新格式相对音频目录：项目目录搬家后仍能找回成品。
+        path = folder / path
+    if path.is_file() and path.stat().st_size > 0:
         return path
     return None
 
 
 def publish_full_track(context, signature, raw, *, gateway=None):
     """Publish complete audio before its idempotence marker, preserving media on marker failure."""
-    from contract.project_stages import audio
-    folder = audio(_context(context).root)
+    folder = _full_track_folder(context)
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / ('配音_' + os.urandom(3).hex() + '.mp3')
     publish = _require_gateway(gateway, "publish_json", "publish_bytes")
     publish["publish_bytes"](path, raw)
-    publish["publish_json"](folder / '整段配音.json', {'signature': signature, 'file': str(path)})
+    publish["publish_json"](folder / '整段配音.json', {'signature': signature, 'file': path.name})
+    try:
+        _complete_full_track_attempt(context, signature, publish)
+    except Exception:
+        _swallowed('tts_api.publish_full_track.attempt')
     return path
+
+
+def synthesize_full_track(context, text, signature, request_id, *, settings=None, gateway=None):
+    """整段配音发送：确定失败记 failed 可直接重发，结果未知记 unknown 须确认后才重发。"""
+    ctx = _context(context)
+    try:
+        return synthesize(text, settings=settings, project=ctx.root, request_id=request_id)
+    except Exception as exc:
+        import urllib.error
+        from infra.pet_llm import BudgetRejected
+        duplicate = isinstance(exc, BudgetRejected) and '该请求已有记录' in str(exc)
+        definite = (isinstance(exc, (TTSRejected, urllib.error.URLError))
+                    or (isinstance(exc, BudgetRejected) and not duplicate))
+        outcome = 'failed' if definite else 'unknown'
+        try:
+            note_full_track_outcome(ctx, signature, request_id, outcome, gateway=gateway)
+        except Exception:
+            _swallowed('tts_api.synthesize_full_track.outcome')
+        if duplicate:
+            raise ValueError('上一次配音请求未完成，请核对请求记录后重试') from None
+        raise
 
 
 def batch_signature(lines, episode=None):
