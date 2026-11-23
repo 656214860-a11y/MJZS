@@ -16,6 +16,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import infra.file_cache as file_cache
+from image_fixtures import png
 
 
 class SharedCacheCopyTests(unittest.TestCase):
@@ -150,7 +151,7 @@ class AssetBindingReplaceRetryTests(unittest.TestCase):
             save(project / 'config.json', {'episode_dir': '05资产管理'})
             save(base / 'assets/资产清单/assets.json', {'CHAR_001': {'name': '小满'}})
             source = project / 'source.png'
-            source.write_bytes(b'png-data')
+            source.write_bytes(png())
             real = os.replace
             failed = []
 
@@ -162,7 +163,7 @@ class AssetBindingReplaceRetryTests(unittest.TestCase):
             with patch('os.replace', flaky):
                 dest = bind_asset_canonical_view(project, base, 'CHAR_001', 'front', source)
             self.assertTrue(failed)
-            self.assertEqual(Path(dest).read_bytes(), b'png-data')
+            self.assertEqual(Path(dest).read_bytes(), png())
 
 
 if __name__ == '__main__':

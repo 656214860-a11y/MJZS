@@ -14,6 +14,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import asset_batch_service
+from image_fixtures import png
 from domain import global_library_service as gls
 import idea_chat
 import local_video_settings_service
@@ -73,7 +74,7 @@ class AssetBatchTransactionTests(unittest.TestCase):
         project = self.base / 'project'
         project.mkdir()
         source = self.base / 'incoming.png'
-        source.write_bytes(b'new image')
+        source.write_bytes(png())
         registry_file = base / 'assets.json'
         save(registry_file, {'CHAR_001': {'name': '旧角色'}})
         dest = base / 'assets/characters/CHAR_001.png'
@@ -107,7 +108,7 @@ class AssetDetailTransactionTests(unittest.TestCase):
             save(project / 'config.json', {'episode_dir': '05资产管理'})
             save(index, {'CHAR_001': {'name': '小满'}})
             source = project / 'source.png'
-            source.write_bytes(b'png-data')
+            source.write_bytes(png())
             dest = base / 'assets/正典板/CHAR_001_front.png'
             dest.parent.mkdir(parents=True)
             dest.write_bytes(b'old-image')
