@@ -332,6 +332,53 @@ class LedgerTests(unittest.TestCase):
             self.assertEqual(len(restored.entries), 1)
             self.assertEqual(restored.hit_rate(), 0.9)
 
+    def test_entries_are_capped_to_the_most_recent(self):
+        """条数上限：内存与落盘都只留最近 LEDGER_KEEP 条，最老的按时间裁掉。"""
+        with tempfile.TemporaryDirectory() as td:
+            ledger = Ledger(td, clock=lambda: 1000.0)
+            for i in range(pet_llm.LEDGER_KEEP + 5):
+                ledger.record('deepseek-v4-flash', self.usage(1, 1, 0), at=1000.0 + i)
+            self.assertEqual(len(ledger.entries), pet_llm.LEDGER_KEEP)
+            ledger.save()
+            restored = Ledger(td).load()
+            self.assertEqual(len(restored.entries), pet_llm.LEDGER_KEEP)
+            self.assertEqual(restored.entries[-1]['at'], 1000.0 + pet_llm.LEDGER_KEEP + 4)
+
+    def test_today_is_never_trimmed_for_the_budget(self):
+        """上限裁「近期」不裁「今天」：时钟拨快留下的未来条目再多，当天用量也照实计。"""
+        with tempfile.TemporaryDirectory() as td:
+            day_start = (pet_llm.beijing() // 86400) * 86400 - 8 * 3600
+            now = pet_llm.time.time()
+            rows = []
+            for i in range(pet_llm.LEDGER_KEEP + 20):
+                rows.append({'at': day_start + 20 * 86400 + i, 'model': 'm', 'tier': 'flash',
+                             'prompt_tokens': 1, 'completion_tokens': 1, 'cached_tokens': 0})
+            for i in range(30):
+                rows.append({'at': day_start + 3600 + i, 'model': 'm', 'tier': 'flash',
+                             'prompt_tokens': 2, 'completion_tokens': 3, 'cached_tokens': 0})
+            rows.append({'at': day_start - 86400, 'model': 'm', 'tier': 'flash',
+                         'prompt_tokens': 9, 'completion_tokens': 9, 'cached_tokens': 0})
+            path = pet_llm.ledger_path(Path(td))
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps({'updated_at': now, 'entries': rows}), encoding='utf-8')
+            ledger = Ledger(td).load()
+            self.assertEqual(ledger.today_tokens(), 30 * 5)
+            self.assertEqual(len(ledger.entries), pet_llm.LEDGER_KEEP)
+
+    def test_save_merges_with_entries_written_meanwhile(self):
+        """保存按合并写：磁盘上别处落下的条目不被本台账的 save 整份覆写。"""
+        with tempfile.TemporaryDirectory() as td:
+            first = Ledger(td)
+            first.record('deepseek-v4-flash', self.usage(100, 10, 0), tier='flash')
+            second = Ledger(td)
+            second.record('deepseek-v4-pro', self.usage(50, 5, 0), tier='pro')
+            first.save()
+            second.save()
+            second.save()                       # 重复落盘不重复记账
+            restored = Ledger(td).load()
+            self.assertEqual(len(restored.entries), 2)
+            self.assertEqual(restored.today_tokens(), 165)
+
 
 class HttpTransportTests(unittest.TestCase):
     def test_tls_eof_is_retried_once_before_the_response_is_available(self):
@@ -501,6 +548,48 @@ class ClientTests(unittest.TestCase):
             client.ask('intent.route', '继续')
             client.flush()
             self.assertTrue(pet_llm.ledger_path(Path(td)).is_file())
+
+    def test_client_loads_ledger_history_on_start(self):
+        """Client 启动读台账：重启后历史用量不丢，当日用量与命中率都按盘上实数。"""
+        with tempfile.TemporaryDirectory() as td:
+            seed = Ledger(td)
+            seed.record('deepseek-v4-flash', {'prompt_tokens': 100, 'completion_tokens': 10,
+                                              'cached_tokens': 50}, tier='flash')
+            seed.record('deepseek-v4-pro', {'prompt_tokens': 100, 'completion_tokens': 20,
+                                            'cached_tokens': 0}, tier='pro')
+            seed.save()
+            client = Client(project=td, program=env_dir(td), transport=Fake())
+            self.assertEqual(len(client.ledger.entries), 2)
+            self.assertEqual(client.ledger.today_tokens(), 230)
+            self.assertEqual(client.ledger.hit_rate(), round(50 / 200, 3))
+
+    def test_daily_budget_survives_a_restart(self):
+        """重启（新 Client）后 tokens_per_day 仍按台账实数拦截，不再被清零绕过。"""
+        with tempfile.TemporaryDirectory() as td:
+            config = {'budget': {'tokens_per_day': 10}}
+            first = Client(project=td, program=env_dir(td), transport=Fake(), config=config)
+            first.ask('intent.route', '继续')
+            first.flush()
+            fake = Fake()
+            restarted = Client(project=td, program=env_dir(td), transport=fake, config=config)
+            result = restarted.ask('intent.route', '继续')
+            self.assertFalse(result['ok'])
+            self.assertTrue(result['budget'])
+            self.assertEqual(fake.calls, [])
+
+    def test_flush_merges_with_entries_written_by_another_client(self):
+        """flush 按合并写：另一客户端先落盘的条目不被本客户端的 flush 整份覆写。"""
+        with tempfile.TemporaryDirectory() as td:
+            first = Client(project=td, program=env_dir(td), transport=Fake())
+            first.ask('intent.route', '继续')
+            second = Client(project=td, program=env_dir(td), transport=Fake())
+            first.flush()
+            second.ask('intent.route', '继续')
+            second.flush()
+            second.flush()                       # 重复落盘不重复记账
+            restored = Ledger(td).load()
+            self.assertEqual(len(restored.entries), 2)
+            self.assertEqual(restored.today_tokens(), 24)
 
     def test_ask_records_a_sanitized_model_diagnostic_for_project_calls(self):
         with tempfile.TemporaryDirectory() as td:

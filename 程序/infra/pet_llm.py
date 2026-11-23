@@ -13,6 +13,7 @@
 """
 import json
 import logging
+import math
 import hashlib
 import time
 from collections import deque
@@ -58,6 +59,7 @@ RETRY_DELAYS = (30, 60, 120)
 RETRYABLE_STATUS = REPLAYABLE_RETRY_STATUS  # 对话可重放口径；提交口径见 model_metering.submission_retryable
 MAX_PAID_ATTEMPTS = 3  # 传输层重放与降级链共用的总发送上限：pro→flash→兜底 三步叠加不超过 3 次真实 POST
 CALLS_LIMIT = 256     # Client.calls 有界：三虎常驻进程内存不随调用数无限增长
+LEDGER_KEEP = 512     # Token 台账条数上限：当天的条目全留（预算按实数），其余只留最近的
 
 # 固定前缀：改动它等于让所有历史缓存失效，所以只放长期稳定的内容。
 # 第 15 期把人设写进这里（名字＝pet_agent.PET_NAME，改一处要改两处，自检有用例盯着）：
@@ -311,6 +313,7 @@ class Ledger:
         self.project = Path(project) if project else None
         self.clock = clock
         self.entries = []
+        self._pending = []            # 记了账还没合并进磁盘的条目：save 时与盘上条目合并写
 
     def record(self, model, usage, tier='flash', at=None):
         entry = {'at': float(self.clock() if at is None else at), 'model': str(model), 'tier': str(tier),
@@ -320,7 +323,27 @@ class Ledger:
         if usage.get('cache_creation_tokens'):
             entry['cache_creation_tokens'] = int(usage['cache_creation_tokens'])
         self.entries.append(entry)
+        self._pending.append(entry)
+        self.entries = self._bounded(self.entries)
+        ids = {id(item) for item in self.entries}
+        self._pending = [item for item in self._pending if id(item) in ids]
         return entry
+
+    @staticmethod
+    def _entry_at(entry):
+        at = entry.get('at') if isinstance(entry, dict) else None
+        return float(at) if isinstance(at, (int, float)) and math.isfinite(at) else 0.0
+
+    def _bounded(self, entries):
+        """条数上限：按时间留最近 LEDGER_KEEP 条，但当天的条目全留（预算要按实数）。"""
+        ordered = sorted(entries, key=self._entry_at)
+        today = self.day_key()
+        flags = [self.day_key(self._entry_at(entry)) == today for entry in ordered]
+        todays = [entry for entry, flag in zip(ordered, flags) if flag]
+        others = [entry for entry, flag in zip(ordered, flags) if not flag]
+        kept = (todays[-LEDGER_KEEP:] if len(todays) >= LEDGER_KEEP
+                else others[-(LEDGER_KEEP - len(todays)):] + todays) if len(ordered) > LEDGER_KEEP else ordered
+        return sorted(kept, key=self._entry_at)
 
     def hit_rate(self):
         prompt = sum(entry['prompt_tokens'] for entry in self.entries)
@@ -349,7 +372,15 @@ class Ledger:
         if self.project is None:
             return None
         path = ledger_path(self.project)
-        save(path, {'updated_at': self.clock(), 'entries': self.entries})
+        data = read_json(path)
+        raw = data.get('entries') if isinstance(data, dict) else []
+        stored = [entry for entry in raw if isinstance(entry, dict)] if isinstance(raw, list) else []
+        pending = {id(entry) for entry in self._pending}
+        fresh = [entry for entry in self.entries if id(entry) in pending]
+        merged = self._bounded(stored + fresh)
+        save(path, {'updated_at': self.clock(), 'entries': merged})
+        self.entries = merged
+        self._pending = []
         return path
 
     def load(self):
@@ -357,7 +388,9 @@ class Ledger:
             return self
         data = read_json(ledger_path(self.project))
         if isinstance(data, dict) and isinstance(data.get('entries'), list):
-            self.entries = [entry for entry in data['entries'] if isinstance(entry, dict)]
+            self.entries = self._bounded(
+                [entry for entry in data['entries'] if isinstance(entry, dict)])
+            self._pending = []
         return self
 
 
@@ -394,7 +427,7 @@ class Client:
         self.transport = transport or http_transport
         self.clock = clock
         self.program = program
-        self.ledger = Ledger(self.project, clock=clock)
+        self.ledger = Ledger(self.project, clock=clock).load()
         self.calls = deque(maxlen=CALLS_LIMIT)
 
     def payload(self, task, text, context=None, model=None, config=None):
