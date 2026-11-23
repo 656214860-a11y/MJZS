@@ -33,6 +33,7 @@ FORMAT = "%(asctime)s %(levelname)s %(threadName)s %(name)s: %(message)s"
 _installed = False
 _fault_stream = None
 _crash_sink = None
+_install_error = None
 _SECRET = re.compile(
     r"(?i)(?:api[ _-]?key|secret|token|password|credential)\s*[:=]\s*[^\s,;}]+|"
     r"authorization\s*[:=]\s*bearer\s+[^\s,;}]+|"
@@ -370,8 +371,9 @@ def install(root=None, crash_sink=None) -> bool:
 
     ``crash_sink(exc, trace)`` 由入口注入（通常是 ``diagnostic_capture.record_crash``），
     本模块不反向依赖诊断层，以便基础模块也能安全导入。
+    失败原因留在 ``_install_error``，供启动器记降级诊断（AUD-BOOT D6）。
     """
-    global _installed, _fault_stream, _crash_sink
+    global _installed, _fault_stream, _crash_sink, _install_error
     if crash_sink is not None:
         _crash_sink = crash_sink
     if root is not None:
@@ -399,8 +401,10 @@ def install(root=None, crash_sink=None) -> bool:
         logger.addHandler(handler)
         if logger.level in (logging.NOTSET, logging.WARNING):
             logger.setLevel(logging.INFO)
-    except Exception:
+    except Exception as exc:
+        _install_error = exc
         return False
+    _install_error = None
     _installed = True
     try:
         from contract.app_metadata import VERSION
