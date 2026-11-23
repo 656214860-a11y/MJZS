@@ -1,0 +1,15 @@
+{
+  "round": 4162,
+  "commit_base": "6997ae43",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k shared_input_ui shared_input_gate_s03 script_structure_scope req_anchor_s02 critical_chains stage_doc_sections requirement_traceability design_coverage",
+    "exit": 0,
+    "passed": 100,
+    "failed": 0
+  },
+  "generated_at": "2026-11-23T15:20:56"
+}
