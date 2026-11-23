@@ -262,5 +262,101 @@ class ExtractionProvenanceTests(unittest.TestCase):
         self.assertTrue(any('跨集 ID' in note for note in review['feedback']))
 
 
+EPISODE_SCRIPT = '''# 第1集：雨夜来客
+
+> 结构化剧本 · 《项目》第 1 集
+> 来源：`%s`
+> 整理日期：2026-11-22
+
+---
+
+## 一、本集信息
+
+## 二、本集人物索引
+
+## 四、分场结构
+
+### 场景 1｜EP01-S01｜旧书店
+林小满：把旧怀表交给我。
+'''
+
+
+class ModelWrittenStructureScriptTests(unittest.TestCase):
+    """REQ-S02-21：按命名规则写进「结构剧本」目录的稿，正文按集排版也认。"""
+
+    def project(self, folder):
+        root = Path(folder).resolve() / '项目'
+        source = (root / '01剧本准备' / 'Google' / 'Gemini desktop' / '创意_20261114' / '项目剧本'
+                  / '项目_自然剧本_Google_20261114.md')
+        source.parent.mkdir(parents=True)
+        source.write_text(RAW, encoding='utf-8')
+        return root, source
+
+    def episode(self, root, source, name='项目_结构剧本_第01集_20261122.md', text=None):
+        from contract.stage_path_service import write_dir
+        folder = write_dir(root, 'structure') / contract.STRUCTURED_SCRIPT_DIR
+        folder.mkdir(parents=True, exist_ok=True)
+        path = folder / name
+        path.write_text(EPISODE_SCRIPT % source.relative_to(root).as_posix() if text is None else text,
+                        encoding='utf-8')
+        return path
+
+    def test_episode_layout_in_structure_folder_is_recognised_and_listed(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root, source = self.project(folder)
+            path = self.episode(root, source)
+            self.assertTrue(contract.is_structured_script(path))
+            self.assertEqual(contract.structured_script_paths(root), (path,))
+            self.assertEqual(contract.structured_script_path(root), path)
+
+    def test_structure_page_lists_the_model_written_script(self):
+        from domain.script_workspace_service import script_structure_documents
+        with tempfile.TemporaryDirectory() as folder:
+            root, source = self.project(folder)
+            path = self.episode(root, source)
+            documents = script_structure_documents(root)
+            self.assertEqual(documents.output_documents, (path,))
+            self.assertEqual(documents.target, path)
+
+    def test_each_episode_file_stays_listed(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root, source = self.project(folder)
+            first = self.episode(root, source)
+            second = self.episode(
+                root, source, '项目_结构剧本_第02集_20261122.md',
+                (EPISODE_SCRIPT % source.relative_to(root).as_posix()).replace('第1集', '第2集'))
+            self.assertEqual(set(contract.structured_script_paths(root)), {first, second})
+
+    def test_outline_source_is_still_rejected(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root, source = self.project(folder)
+            path = self.episode(root, source,
+                                text=EPISODE_SCRIPT % '01剧本准备/项目_项目大纲_Google_20261114.md')
+            self.assertFalse(contract.is_structured_script(path))
+            self.assertEqual(contract.structured_script_paths(root), ())
+
+    def test_name_and_folder_are_both_required_and_blank_is_rejected(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root, source = self.project(folder)
+            text = EPISODE_SCRIPT % source.relative_to(root).as_posix()
+            notes = self.episode(root, source, '随手记.md', text)
+            self.assertFalse(contract.is_structured_script(notes))
+            outside = source.parent / '项目_结构剧本_第01集_20261122.md'
+            outside.write_text(text, encoding='utf-8')
+            self.assertFalse(contract.is_structured_script(outside))
+            blank = self.episode(root, source, '项目_结构剧本_第03集_20261122.md', ' \n')
+            self.assertFalse(contract.is_structured_script(blank))
+            self.assertEqual(contract.structured_script_paths(root), ())
+
+    def test_hidden_when_its_source_script_is_deleted(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root, source = self.project(folder)
+            path = self.episode(root, source)
+            self.assertEqual(contract.structured_script_paths(root), (path,))
+            source.unlink()
+            self.assertEqual(contract.structured_script_paths(root), ())
+            self.assertTrue(path.is_file())
+
+
 if __name__ == '__main__':
     unittest.main()

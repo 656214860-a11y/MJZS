@@ -129,9 +129,9 @@ class ConfirmPreparationDocumentTests(unittest.TestCase):
                          ['项目设定', '剧本大纲', '角色卡'])
         self.assertTrue(state['documents'][2]['confirmed'])
 
-    def test_confirm_last_rewrite_stage_promotes_revision_and_revokes_script(self):
+    def test_confirm_last_rewrite_stage_promotes_revision_and_keeps_script_adoption(self):
         """重写稿经右键「设为定稿」确认到三阶段齐全时，与聊天确认同口径：
-        采用版本切换到重写稿、revision 清除、已采用自然稿撤销采用。"""
+        采用版本切换到重写稿、revision 清除；已采用的自然稿不撤销（REQ-S01-14）。"""
         _, setting = confirmed(self.project, '项目设定', '项目设定/设定.md', '# 项目设定\n旧设定\n')
         _, outline = confirmed(self.project, '剧本大纲', '剧本大纲/大纲.md', '# 剧本大纲\n三幕\n')
         _, card = confirmed(self.project, '角色卡', '角色卡/旧卡.md', '# 角色卡\n旧少年\n')
@@ -152,10 +152,8 @@ class ConfirmPreparationDocumentTests(unittest.TestCase):
                          ['项目设定', '剧本大纲', '角色卡'])
         self.assertEqual(state['documents'][2]['path'], '角色卡/新卡.md')
         self.assertTrue(all(doc['confirmed'] for doc in state['documents']))
-        self.assertIsNone(script_contract.resolve_script_source(self.project))
-        selection = json.loads(
-            script_contract.natural_script_selection_path(self.project).read_text(encoding='utf-8'))
-        self.assertIn('前置阶段已更新', selection['reason'])
+        self.assertEqual(script_contract.resolve_script_source(self.project), script.resolve())
+        self.assertNotIn('reason', self.selection())
 
     def test_confirm_unchanged_adopted_file_preserves_natural_script_adoption(self):
         """REQ-S01-14 口径扩展：重确认内容未变的文件不改采用基线，保留自然稿采用。"""
@@ -169,34 +167,33 @@ class ConfirmPreparationDocumentTests(unittest.TestCase):
         self.assertEqual(invalidated, ())
         self.assertEqual(script_contract.resolve_script_source(self.project), script.resolve())
 
-    def test_confirm_different_adopted_file_revokes_natural_script_adoption(self):
-        """REQ-S01-14 口径扩展：同阶段换文件改采用基线时，已采用自然稿撤销采用。"""
+    def test_confirm_different_adopted_file_keeps_natural_script_adoption(self):
+        """REQ-S01-14：同阶段换文件设为定稿，已采用的自然稿不撤销。"""
         _, setting = confirmed(self.project, '项目设定', '项目设定/设定.md', '# 项目设定\n旧设定\n')
         _, outline = confirmed(self.project, '剧本大纲', '剧本大纲/大纲.md', '# 剧本大纲\n三幕\n')
         _, card = confirmed(self.project, '角色卡', '角色卡/旧卡.md', '# 角色卡\n旧少年\n')
         self.write_state([setting, outline, card])
-        self.adopt_script()
+        script = self.adopt_script()
         path, _ = confirmed(self.project, '角色卡', '角色卡/新卡.md', '# 角色卡\n新少年\n')
         writing_unconfirm.confirm_preparation_document(
             self.project, '角色卡', path, publish=publish_stage_text)
-        self.assertIsNone(script_contract.resolve_script_source(self.project))
-        self.assertIn('前置阶段已更新', self.selection()['reason'])
-        self.assertEqual(self.selection()['path'], '')
+        self.assertEqual(script_contract.resolve_script_source(self.project), script.resolve())
+        self.assertNotIn('reason', self.selection())
 
-    def test_confirm_after_brief_change_revokes_natural_script_adoption(self):
-        """REQ-S01-14 口径扩展：简报变化后重确认，采用基线随之清空并撤销自然稿采用。"""
+    def test_confirm_after_brief_change_keeps_natural_script_adoption(self):
+        """REQ-S01-14：简报变化后重确认，已采用的自然稿不撤销。"""
         _, setting = confirmed(self.project, '项目设定', '项目设定/设定.md', '# 项目设定\n旧设定\n')
         _, outline = confirmed(self.project, '剧本大纲', '剧本大纲/大纲.md', '# 剧本大纲\n三幕\n')
         self.write_state([setting, outline])
-        self.adopt_script()
+        script = self.adopt_script()
         save(preparation_folder(self.project) / 'brief_complete.json', script_contract.brief_document({
             'story_summary': '港口追查失踪的姐姐。', 'main_characters': '少年和老板',
             'genre': '奇幻', 'length': '单集 60 秒'}))
         path, _ = confirmed(self.project, '项目设定', '项目设定/新设定.md', '# 项目设定\n新设定\n')
         writing_unconfirm.confirm_preparation_document(
             self.project, '项目设定', path, publish=publish_stage_text)
-        self.assertIsNone(script_contract.resolve_script_source(self.project))
-        self.assertIn('前置阶段已更新', self.selection()['reason'])
+        self.assertEqual(script_contract.resolve_script_source(self.project), script.resolve())
+        self.assertNotIn('reason', self.selection())
 
     def test_confirm_rejects_file_outside_preparation_folder(self):
         """只能登记剧本准备目录内的文件，避免把外部文件当成本阶段成果。"""

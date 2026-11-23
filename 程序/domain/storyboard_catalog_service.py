@@ -471,12 +471,12 @@ def _catalog(context, kind, ignored, *, completed=None, sources=None, previews=F
     legacy_roots = ((project / 'writing').resolve(),) if kind == 'script' else ((project / 'storyboard').resolve(),)
     roots = tuple(dict.fromkeys((*current_roots, *legacy_roots)))
     suffixes = {'.md', '.txt', '.docx'} if kind == 'script' else {'.json'}
-    current_structured = None
+    structured = frozenset()
     if kind == 'script':
         try:
-            from contract.script_contract import structured_script_path
-            candidate = structured_script_path(project).resolve()
-            current_structured = candidate if candidate.is_file() else None
+            from contract.script_contract import structured_script_paths
+            # 每个来源最新的那份结构剧本都列出：按集各写一份时，每一集都要能选（REQ-S03-07）。
+            structured = frozenset(path.resolve() for path in structured_script_paths(project))
         except (OSError, ValueError):
             pass
     entries = []
@@ -490,12 +490,13 @@ def _catalog(context, kind, ignored, *, completed=None, sources=None, previews=F
             current = write_dir(project, 'final') / resolved.relative_to(root)
             if current.is_file():
                 continue
-        if not (kind == 'script' and current_structured is not None and resolved == current_structured) and not is_deliverable(path, kind):
+        listed_structured = resolved in structured
+        if not listed_structured and not is_deliverable(path, kind):
             continue
-        if kind == 'script' and _is_structured_name(path) and resolved != current_structured:
+        if kind == 'script' and _is_structured_name(path) and not listed_structured:
             continue
-        title = ('结构剧本（旧版）' if kind == 'script' and resolved == current_structured and path.name.casefold() == 'script.md' else path.stem)
-        if kind == 'script' and current_structured is not None and resolved == current_structured:
+        title = '结构剧本（旧版）' if listed_structured and path.name.casefold() == 'script.md' else path.stem
+        if listed_structured:
             # 原稿改动只把下游结构稿标成过期，不隐藏、不改写用户成品。
             if check(project, resolved)['status'] == STALE:
                 title += ' · 原稿已变更'

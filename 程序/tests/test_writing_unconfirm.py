@@ -112,40 +112,39 @@ class WritingUnconfirmTests(unittest.TestCase):
         self.assertEqual([doc['stage'] for doc in state['documents']], ['项目设定'])
         self.assertFalse(state['documents'][0]['confirmed'])
 
-    def test_unconfirm_revokes_natural_script_adoption(self):
-        """REQ-S01-14 口径扩展：取消已确认使采用基线变化，已采用自然稿同步撤销。"""
-        self.adopt_script()
+    def test_unconfirm_keeps_natural_script_adoption(self):
+        """REQ-S01-14：取消已确认只改台账，已采用的自然稿不撤销。"""
+        script = self.adopt_script()
         unconfirm_writing_preparation(self.project, '剧本大纲')
-        self.assertIsNone(script_contract.resolve_script_source(self.project))
-        self.assertIn('前置阶段已更新', self.selection()['reason'])
-        self.assertEqual(self.selection()['path'], '')
+        self.assertEqual(script_contract.resolve_script_source(self.project), script.resolve())
+        self.assertNotIn('reason', self.selection())
 
     def test_unconfirm_without_adoption_writes_no_selection_record(self):
         """从未采用过自然稿的项目，取消确认只改台账，不产生多余的失效记录。"""
         unconfirm_writing_preparation(self.project, '剧本大纲')
         self.assertIsNone(self.selection())
 
-    def test_unconfirm_then_reconfirm_different_file_keeps_adoption_revoked(self):
-        """REQ-S01-14 口径扩展：取消后改文件重确认，采用基线仍不同，采用维持撤销。"""
+    def test_unconfirm_then_reconfirm_different_file_keeps_adoption(self):
+        """REQ-S01-14：取消后改文件重确认，已采用的自然稿仍不撤销。"""
         from orchestrator import writing_unconfirm
         from stage_execution_service import publish_stage_text
-        self.adopt_script()
+        script = self.adopt_script()
         unconfirm_writing_preparation(self.project, '角色卡')
         path = self.target.parent / '角色卡' / '新卡.md'
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text('# 角色卡\n新少年\n', encoding='utf-8')
         writing_unconfirm.confirm_preparation_document(
             self.project, '角色卡', path, publish=publish_stage_text)
-        self.assertIsNone(script_contract.resolve_script_source(self.project))
-        self.assertIn('前置阶段已更新', self.selection()['reason'])
+        self.assertEqual(script_contract.resolve_script_source(self.project), script.resolve())
+        self.assertNotIn('reason', self.selection())
 
-    def test_partial_adoption_of_confirmed_doc_trims_deconfirms_and_revokes_adoption(self):
-        """REQ-S01-88：已确认稿选段采用——截写文件、按取消确认口径回退该阶段、撤销自然稿采用、台账记 partial_adoption。"""
+    def test_partial_adoption_of_confirmed_doc_trims_deconfirms_and_keeps_script_adoption(self):
+        """REQ-S01-88：已确认稿选段采用——截写文件、按取消确认口径回退该阶段、台账记 partial_adoption；已采用的自然稿不撤销（REQ-S01-14）。"""
         from stage_execution_service import apply_partial_adoption
         outline = self.target.parent / self.original['documents'][1]['path']
         outline.write_text('## 场一\n甲\n\n## 场二\n乙\n\n## 场三\n丙\n\n## 场四\n丁\n\n## 场五\n戊\n',
                            encoding='utf-8')
-        self.adopt_script()
+        script = self.adopt_script()
         apply_partial_adoption(self.project, '剧本大纲', outline, keep=(0, 1, 2))
         text = outline.read_text(encoding='utf-8')
         self.assertIn('场三', text)
@@ -155,8 +154,8 @@ class WritingUnconfirmTests(unittest.TestCase):
         self.assertTrue(documents[0]['confirmed'])
         self.assertFalse(documents[1]['confirmed'])
         self.assertEqual(documents[1]['partial_adoption'], {'kept': [0, 1, 2], 'total': 5})
-        self.assertIsNone(script_contract.resolve_script_source(self.project))
-        self.assertIn('前置阶段已更新', self.selection()['reason'])
+        self.assertEqual(script_contract.resolve_script_source(self.project), script.resolve())
+        self.assertNotIn('reason', self.selection())
 
     def test_partial_adoption_pending_draft_keeps_prefix_and_marks_ledger(self):
         """REQ-S01-88：待确认草稿选段——文件截写、前缀确认不动、台账记标记。"""
