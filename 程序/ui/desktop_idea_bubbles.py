@@ -6,6 +6,8 @@ import tkinter as tk
 from tkinter import ttk
 from ui.ui_motion import Spinner
 from ui import skill_note_render
+from ui import ui_hitl
+from domain import hitl
 from ui_tokens import COLORS, FONTS, ICON_COPY, ICON_DELETE, ICON_FONT, ICON_REWIND, SPACING
 from pathlib import Path
 from orchestrator.idea_chat_controller import ALL_MODELS, bubble_timestamp, collapse_preview, model_bar_items, model_bar_selection
@@ -25,6 +27,41 @@ BUBBLE_SLACK=26        # 量字宽只是估算（字号、全角半角都有出�
 # 模型目录条：一行紧凑标签，底色与聊天气泡框一致；高度按内容自适应，首建时给个占位值。
 MODEL_BAR_FONT=FONTS['hint']
 MODEL_BAR_HEIGHT=SPACING['xl']+SPACING['xs']
+
+
+def _choice_pick_key(host, row, raw_text):
+    """会话内记住已选选项：项目＋模型＋时间＋原文（含标记段）。"""
+    return (str(getattr(host, 'root', '') or ''), str(row.get('model') or ''),
+            str(row.get('at') or ''), str(raw_text or ''))
+
+
+def _embed_choice_card(host, box, row, raw_text, candidates, truncated):
+    """在气泡下嵌入可点选项卡；点选后把选项文字写入输入框并发送。"""
+    picks = getattr(host, '_choice_picks', None)
+    if picks is None:
+        picks = {}
+        host._choice_picks = picks
+    key = _choice_pick_key(host, row, raw_text)
+    selected = picks.get(key)
+
+    def on_pick(label):
+        picks[key] = str(label)
+        entry = getattr(host, 'idea_input', None)
+        if entry is not None and entry.winfo_exists():
+            entry.delete('1.0', 'end')
+            entry.insert('1.0', str(label))
+        host.safe(host.send_message)
+
+    request = hitl.make_request(hitl.RequestKind.CHOICE, {
+        'title': '请选择', 'candidates': list(candidates), 'truncated': bool(truncated)})
+    frame = ui_hitl.build_choice_card(box, request, lambda _decision: None,
+                                      on_pick=on_pick, selected=selected)
+    try:
+        frame.pack_forget()
+    except tk.TclError:
+        pass
+    box.window_create('end', window=frame, align='top')
+    box.insert('end', '\n')
 
 
 class IdeaBubblesMixin:
@@ -290,9 +327,22 @@ class IdeaBubblesMixin:
         # 软件示例是只读、可复制的参考文本；不能为了普通聊天气泡的排版
         # ``strip`` 掉它首尾的换行或空格，否则展示内容已不再等于程序提供的示例。
         # 普通消息仍沿用既有的首尾空白清理，避免空白消息生成气泡。
-        text=raw_text if index == 'example' else raw_text.strip()
-        if not text.strip():return
         mine=str(row.get('role'))=='user'
+        choice_candidates=()
+        choice_truncated=False
+        if index == 'example':
+            text=raw_text
+        elif not mine:
+            parsed=hitl.parse_choice_reply(raw_text)
+            text=str(parsed.get('text') or '').strip()
+            if not parsed.get('open') and parsed.get('candidates'):
+                choice_candidates=tuple(parsed['candidates'])
+                choice_truncated=bool(parsed.get('truncated'))
+        else:
+            text=raw_text.strip()
+        if not text.strip() and not choice_candidates:return
+        if not text.strip():
+            text='请选择'
         left,right=self.bubble_margins(box,text,mine)
         name='bubble_'+str(index)
         example=index == 'example'
@@ -327,6 +377,10 @@ class IdeaBubblesMixin:
         self._bubble_full[name]={'text':text,'preview':preview,'expanded':not folded,
                                  'markdown':markdown,'left':body_left,'right':body_right}
         self._write_bubble_body(box,'end',preview,name,markdown,body_left,body_right)
+        if choice_candidates:
+            ranges=box.tag_ranges(name)
+            if len(ranges)>=2 and box.get('%s-1c'%ranges[-1],ranges[-1])=='\n':
+                box.delete('%s-1c'%ranges[-1],ranges[-1])
         if folded:
             toggle=name+'_toggle'
             # 操作在本条气泡的右下角，而非正文下方左侧；它属于 Text 内容，滚动时和
@@ -362,6 +416,8 @@ class IdeaBubblesMixin:
         part_list = _message_parts.parts_of(row)
         if any(str(item.get('type') or '') != _message_parts.PartType.TEXT.value for item in part_list):
             _part_renderers.render_parts(box, name, part_list, self, skip_text=True)
+        if choice_candidates:
+            _embed_choice_card(self,box,row,raw_text,choice_candidates,choice_truncated)
     def add_bubble_actions(self,box,name,index,left,right,rewindable=False):
         """REQ-S01-66：正文左下角的复制／删除／回退图标；平时与框底同色占位，悬停这条消息才显出来。"""
         actions=name+'_actions'
@@ -445,12 +501,13 @@ class IdeaBubblesMixin:
         except tk.TclError:pass
     def refresh_stream_text(self,box):
         """REQ-S01-100：把缓冲里的文字补到状态行下面——写完的行按排版，没写完的一行按原文；
-        写完的行没有变化时只替换最后一行，不重排前面的内容，也不重绘整个聊天记录。"""
+        写完的行没有变化时只替换最后一行，不重排前面的内容，也不重绘整个聊天记录。
+        REQ-S01-109：流式阶段先剥离 choices 标记（含未闭合），半截标记不当正文、不出卡。"""
         parts=getattr(self,'_stream_parts',None)
         if not parts or 'stream_start' not in box.mark_names() or not getattr(self,'_thinking_model',''):return
         if len(parts)==getattr(self,'_stream_shown',0) and box.compare('stream_start','!=','end-1c'):return
         at_bottom=box.yview()[1]>=0.98
-        text=''.join(parts)
+        text=hitl.parse_choice_reply(''.join(parts))['text']
         cut=text.rfind('\n')+1
         done,tail=text[:cut],text[cut:]
         if done!=getattr(self,'_stream_done',None) or 'stream_tail' not in box.mark_names():

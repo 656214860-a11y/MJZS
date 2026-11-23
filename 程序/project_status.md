@@ -1,6 +1,6 @@
 # 项目状态（可独立接续）
 
-更新：2026-11-23｜当前轮次：4170（R4169 合并轮：合入 codex/fix-s03-send-gate 到 master（合并轮）：FIX-S03-SEND-GATE S03 发送前置就绪核验与状态栏说明（R4162，页面链关键路径）；断言未动；未跑全量。上一轮：R4168 合并轮：合入 codex/fix-aud-skill-panel 到 master（合并轮）：FIX-AUD-SKILL-PANEL-IMPORT 非 SKILL 导入明确拒绝、更新检查走后台线程（审查 AUD-SKILL，R4160）；断言未动；未跑全量。）
+更新：2026-11-23｜当前轮次：4175（R4174 合并轮：UX-REPLY-FORMAT-CHOICE 回话格式约束与可点选项卡（R4166，验收已验）；断言未动；未跑全量。上一轮：R4169 合并轮：合入 codex/fix-s03-send-gate 到 master（合并轮）：FIX-S03-SEND-GATE S03 发送前置就绪核验与状态栏说明（R4162，页面链关键路径）；断言未动；未跑全量。）
 
 历史接续记录：R3308 修复槽位泄漏 bug 并优化慢测试超时，定向测试 46/46 通过。
 

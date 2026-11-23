@@ -68,7 +68,7 @@ def prompt_with_settings(prompt,config,stage=None):
     stage = stage if stage is not None else config.get('stage')
     if stage not in ('assets', 'frames', 'keyframe', 'previs', 'video_prompt', 'video'):
         media_apps = ''
-    return skill_prompt(config, stage=stage)+stage_output_contract(stage)+writer_style_prompt(config,stage)+edit_habits.prompt(config,stage)+prompt+('\n用户补充制作要求：\n'+extra if extra else '')+language+media_apps
+    return skill_prompt(config, stage=stage)+stage_output_contract(stage)+writer_style_prompt(config,stage)+edit_habits.prompt(config,stage)+prompt+REPLY_FORMAT_RULE+('\n用户补充制作要求：\n'+extra if extra else '')+language+media_apps
 
 def _client_profile(config):
     found = client_profiles.profile_for_config(config)
@@ -579,3 +579,10 @@ def current_config(project, stage):
 # I3b（L1 任务书）：engine_probe 不再反向 import 本模块；导入本模块即完成注入，
 # 未导入时 engine_probe 返回明确的「未配置」结果。
 _engine_probe.register_command_builder(_engine_probe_command_builder)
+
+# 对话回复／进度汇报／失败说明的组织约束；产物（剧本、分镜、JSON）明确排除（REQ／DES-S01-108）。
+# 放在文件末尾，避免上移 launch_windows_app 行号触及进程启动点登记。
+REPLY_FORMAT_RULE = (
+    '\n回话组织要求：对话回复、进度汇报、失败说明请先给结论；再分点说明；最后给出下一步。'
+    '本要求不适用于剧本、分镜、JSON 等产物，产物仍按各自输出契约。\n'
+)

@@ -185,6 +185,101 @@ class ChatMarkdownTests(_Harness):
             self.assertGreaterEqual(second, body)
 
 
+class ChoiceCardTests(_Harness):
+    """REQ-S01-109：模型回话末尾的 choices 标记段在气泡下变成可点选项卡。"""
+
+    def show(self, proj, rows):
+        d, win = self.desktop(proj)
+        for role, text, model in rows(d) if callable(rows) else rows:
+            idea_chat.append(proj, role, text, model=model)
+        d.show(0)
+        self.settle_script_page(win)
+        return d, win
+
+    @staticmethod
+    def card_widgets(box):
+        """只收集选项卡 Frame；流式思考中的 Spinner 不算选项卡。"""
+        from ui.ui_motion import Spinner
+        found = []
+        for name in box.window_names():
+            widget = box.nametowidget(name)
+            if isinstance(widget, Spinner):
+                continue
+            found.append(widget)
+        return found
+
+    @staticmethod
+    def card_buttons(frame):
+        from tests.test_hitl_ui import _buttons
+        return _buttons(frame)
+
+    def test_marker_is_stripped_and_a_card_is_shown(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            reply = '先结论\n```choices\n- 悲剧\n- 喜剧\n```'
+            d, _win = self.show(
+                proj, lambda page: [('assistant', reply, page.idea_chat_model())])
+            box = d.idea_log
+            body = str(box.get(*box.tag_ranges('bubble_0')))
+            self.assertEqual(body, '先结论')
+            self.assertNotIn('```', str(box.get('1.0', 'end-1c')))
+            frames = self.card_widgets(box)
+            self.assertEqual(len(frames), 1)
+            self.assertEqual([button.cget('text') for button in self.card_buttons(frames[0])],
+                             ['悲剧', '喜剧'])
+
+    def test_click_sends_the_choice_and_locks_the_card(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            reply = '请选择\n```choices\n- 悲剧\n- 喜剧\n```'
+            d, win = self.show(
+                proj, lambda page: [('assistant', reply, page.idea_chat_model())])
+            box = d.idea_log
+            sent = []
+            d.send_message = lambda: sent.append(str(d.idea_input.get('1.0', 'end-1c')))
+            frame = self.card_widgets(box)[0]
+            buttons = self.card_buttons(frame)
+            buttons[0].invoke()
+            buttons[1].invoke()
+            self.assertEqual(sent, ['悲剧'], '同一张卡只能发出一次')
+            self.assertEqual([str(button.cget('state')) for button in buttons],
+                             ['disabled', 'disabled'])
+            d.show_conversation()
+            self.settle_script_page(win)
+            box = d.idea_log
+            frame = self.card_widgets(box)[0]
+            labels = [str(child.cget('text')) for child in frame.winfo_children()
+                      if child.winfo_class() in ('TLabel', 'Label')]
+            self.assertIn('已选：悲剧', labels)
+            self.assertEqual([str(button.cget('state'))
+                              for button in self.card_buttons(frame)],
+                             ['disabled', 'disabled'])
+
+    def test_streaming_half_a_marker_shows_no_marker_and_no_card(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            d, win = self.desktop(proj)
+            idea_chat.append(proj, 'user', '第一条', model=None)
+            d.show(0)
+            self.settle_script_page(win)
+            d.show_thinking(d.displayed_chat_model())
+            self.settle_script_page(win)
+            d._stream_parts = []
+            d._stream_shown = 0
+            box = d.idea_log
+            for chunk in ('先结论\n```choices\n- 悲', '剧\n- 喜剧'):
+                d.push_stream(chunk)
+                d.refresh_stream_text(box)
+            shown = str(box.get('stream_start', 'end-1c'))
+            self.assertEqual(shown.strip(), '先结论')
+            self.assertNotIn('```', shown)
+            self.assertNotIn('悲剧', shown)
+            self.assertEqual(self.card_widgets(box), [])
+            d.push_stream('\n```')
+            d.refresh_stream_text(box)
+            self.assertEqual(self.card_widgets(box), [])
+
+
 class ChatStreamMarkdownTests(_Harness):
     """REQ-S01-100：流式输出边写边排——写完的行按排版，没写完的一行按原文。"""
 
