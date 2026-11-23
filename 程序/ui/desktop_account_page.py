@@ -155,7 +155,10 @@ class AccountPageMixin:
             self.account.check_update(self._update_checked)
 
     def _update_checked(self, result):
-        """新版提示：账号页常驻显示；软提示每个版本只在状态栏主动提一次，强制升级每次都提。"""
+        """新版提示：账号页常驻显示；软提示每个版本只在状态栏主动提一次，强制升级每次都提。
+
+        软提示的「已见」必须在状态栏展示成功之后再记，避免展示前崩溃永久丢失该版本提示。
+        """
         if not result.ok or getattr(self, 'shutting_down', False):
             return
         notice = result.data or {}
@@ -164,6 +167,8 @@ class AccountPageMixin:
             return
         if notice.get('proactive'):
             self.status.set(notice.get('text') or '有新版本')
+            if notice.get('level') == 'soft':
+                self.account.mark_update_seen(notice.get('version'))
         if getattr(self, 'page_index', None) == PAGE_ACCOUNT:
             self.show(PAGE_ACCOUNT)
 

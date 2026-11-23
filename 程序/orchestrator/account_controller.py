@@ -189,7 +189,11 @@ class AccountController:
 
     def check_update(self, done):
         """联网读 ``/v1/meta`` 判定是否有新版；结果 data 为 ``update_notice.evaluate`` 的字典，
-        另带 ``proactive``（该版本尚未主动提示过；强制升级恒为 True）。提示过的软提示版本记在本机。"""
+        另带 ``proactive``（该版本尚未主动提示过；强制升级恒为 True）。
+
+        软提示的「已见」不在后台线程里提前写入：展示回调成功后再调 ``mark_update_seen``，
+        避免展示前崩溃导致该版本永久不再主动提示。
+        """
         def work():
             result = self._client.meta()
             if not result.ok:
@@ -197,11 +201,12 @@ class AccountController:
             notice = update_notice.evaluate(result.data, self._client.CLIENT_VERSION)
             notice['proactive'] = notice['level'] == update_notice.HARD or (
                 notice['level'] == update_notice.SOFT and notice['version'] != self._store.update_seen())
-            if notice['level'] == update_notice.SOFT and notice['proactive']:
-                self._store.mark_update_seen(notice['version'])
             return success(notice)
         self._run(work, done, '检查新版本', quiet=True)
 
+    def mark_update_seen(self, version):
+        """记下已主动提示过的软提示版本号；由展示回调在成功展示后调用。"""
+        self._store.mark_update_seen(version)
     def redeem(self, code, done):
         """用本机租约兑换；成功后服务端返回的新租约替换本机租约。无会话返回 False。"""
         code = str(code or '').strip()
