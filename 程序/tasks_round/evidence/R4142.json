@@ -1,0 +1,15 @@
+{
+  "round": 4142,
+  "commit_base": "3383684c",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k pet_llm budget",
+    "exit": 0,
+    "passed": 180,
+    "failed": 0
+  },
+  "generated_at": "2026-11-23T12:01:56"
+}
