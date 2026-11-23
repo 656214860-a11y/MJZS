@@ -389,6 +389,29 @@ class GateTests(unittest.TestCase):
             self.assertIn('资产管理', text)
             self.assertIn('先到 05 资产管理', text)
 
+    def test_hidden_assets_do_not_block_the_continuity_step(self):
+        """SG-01 与资产页同口径：requires_asset=false 的条目资产页不显示、用户删不掉，
+        门禁不该拿它们当「没到位」永远卡住连贯性（审查 AUD-US03 D1）。"""
+        from ui_edges_support import make_minimal_project
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            image = proj / 'episode' / 'assets' / 'characters' / 'CHAR_001.png'
+            image.parent.mkdir(parents=True, exist_ok=True)
+            image.write_bytes(b'png')
+            store = proj / 'episode' / 'assets' / '资产清单'
+            store.mkdir(parents=True, exist_ok=True)
+            (store / 'assets.json').write_text(json.dumps(
+                {'CHAR_001': {'name': '主角', 'character_anchor': '短发', 'locked': True,
+                              'image': 'assets/characters/CHAR_001.png'},
+                 'CHAR_009': {'name': '路人', 'requires_asset': False},
+                 'PROP_009': {'name': '纸杯', 'requires_asset': False}},
+                ensure_ascii=False), encoding='utf-8')
+            result = spec.evaluate(proj, 'continuity')
+            self.assertTrue(result['ok'])
+            self.assertNotIn('CHAR_009', ' '.join(result['problems']))
+            self.assertNotIn('PROP_009', ' '.join(result['problems']))
+            self.assertEqual(spec.blocked_stages(proj, 'continuity'), ())
+
     def test_a_stage_that_never_started_is_not_a_blocker(self):
         from ui_edges_support import make_minimal_project
         with tempfile.TemporaryDirectory() as td:
