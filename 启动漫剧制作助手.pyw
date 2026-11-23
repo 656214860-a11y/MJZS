@@ -43,7 +43,7 @@ try:
     # 其余（DEGRADED 等）暂存到窗口属性，主窗口状态栏播报（H2）。
     import infra.diagnostic_capture as diagnostic_capture
     selfcheck_items=diagnostic_capture.run_startup_selfcheck(program)
-    from contract.diagnostics import Severity
+    from contract.diagnostics import Diagnostic, Severity, StartupPhase
     fatal_items=[item for item in selfcheck_items if item.severity is Severity.FATAL]
     degraded_items=[item for item in selfcheck_items if item.severity is not Severity.FATAL]
     if fatal_items:
@@ -63,7 +63,19 @@ try:
     if safe_start:window._drama_safe_start=True
     # 启动画面出现时任务栏按钮就已在了：图标要在它之前挂上（default= 让之后的子窗口也沿用）。
     app_icon.apply(window)
-    app_logging.install(window)
+    if not app_logging.install(window):
+        # AUD-BOOT D6：日志与崩溃钩子装不上不能无声——记一条降级诊断，
+        # 随 _selfcheck_degraded 由主窗口状态栏播报，并写进诊断状态随导出带走。
+        try:
+            reason=getattr(app_logging,'_install_error',None)
+            item=Diagnostic(severity=Severity.DEGRADED,scope=StartupPhase.RESOURCE.value,
+                code='app-log-unavailable',
+                message='应用日志与崩溃诊断未启用：logs 目录不可写或 app.log 无法打开'+(
+                    '；原因：'+app_logging.redact(reason) if reason else ''),
+                remedy='检查 程序\\logs 目录权限、磁盘空间与安全软件占用后重启')
+            degraded_items.append(item)
+            diagnostic_capture.record_selfcheck(selfcheck_items+[item])
+        except Exception:app_logging.swallowed()
     # 主窗口在加载完成前一直透明（ui_theme 摆位置时也不显形），由启动画面整块盖住。
     window._drama_hold_alpha=True
     import platform_tools

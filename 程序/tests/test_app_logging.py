@@ -63,6 +63,18 @@ class AppLoggingTests(unittest.TestCase):
         app_logging.install()
         self.assertEqual(len(logging.getLogger().handlers), count)
 
+    def test_failed_install_returns_false_and_keeps_reason(self):
+        """AUD-BOOT D6：logs 不可写时 install 返回 False，且留下失败原因供启动器诊断。"""
+        blocker = self.tmp / 'occupied-by-file'
+        blocker.write_text('x', encoding='utf-8')
+        previous = getattr(app_logging, '_install_error', None)
+        self.addCleanup(setattr, app_logging, '_install_error', previous)
+        with mock.patch.object(app_logging, 'LOGS', blocker):
+            self.assertFalse(app_logging.install())
+        self.assertIsInstance(app_logging._install_error, OSError)
+        self.assertTrue(app_logging.install())
+        self.assertIsNone(app_logging._install_error)
+
     def test_thread_exception_is_captured(self):
         app_logging.install(crash_sink=diagnostic_capture.record_crash)
         def boom():

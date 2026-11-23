@@ -610,6 +610,224 @@ class BrokenContractSubprocessTests(unittest.TestCase):
             self.assertIn('contract broken for test', done.stdout)
 
 
+class AppLogInstallFailureTests(unittest.TestCase):
+    """AUD-BOOT D6：``app_logging.install`` 返回 False 时启动器必须记降级诊断并让状态栏可见。
+
+    子进程跑真实 ``.pyw``，tkinter／desktop／诊断模块全部换成桩（不建真窗口、
+    不碰真实 logs），只验证「install 返回 False → 降级诊断落账＋状态栏【警告】」接线。
+    """
+
+    def _run_launcher(self, install_plan):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / '程序').mkdir()                     # 启动器 os.chdir(program) 需要它存在
+            launcher = root / '启动漫剧制作助手.pyw'
+            shutil.copy(LAUNCHER, launcher)
+            wrapper = root / 'wrap.py'
+            wrapper.write_text(textwrap.dedent('''
+                import sys, types, ctypes, runpy, json, os, importlib.util
+
+                RESULTS = {'selfcheck_records': [], 'window_degraded': [],
+                           'window_messages': [], 'bus': [], 'install_calls': 0}
+
+                def _mod(name):
+                    module = types.ModuleType(name)
+                    sys.modules[name] = module
+                    return module
+
+                def _fn(ret):
+                    class F:
+                        def __call__(self, *a):
+                            return ret
+                    return F()
+
+                # ctypes.windll 全替身：不建真互斥体、不弹真 MessageBox。
+                kernel32 = types.SimpleNamespace(
+                    CreateMutexW=_fn(1), GetLastError=_fn(0), CreateEventW=_fn(1),
+                    SetEvent=_fn(1), WaitForSingleObject=_fn(0), CloseHandle=_fn(1))
+                ctypes.windll = types.SimpleNamespace(
+                    kernel32=kernel32, user32=types.SimpleNamespace(MessageBoxW=_fn(1)))
+
+                program_dir = sys.argv[2]
+
+                hash_backend = _mod('hash_backend')
+                hash_backend.install = lambda: None
+
+                app_logging = _mod('app_logging')
+                app_logging.CALLS = 0
+                plan = os.environ.get('FAKE_INSTALL_PLAN', 'F,F').split(',')
+                def _install(root=None, crash_sink=None):
+                    app_logging.CALLS += 1
+                    RESULTS['install_calls'] += 1
+                    ok = plan[min(app_logging.CALLS - 1, len(plan) - 1)] == 'T'
+                    app_logging._install_error = None if ok else OSError('denied for test')
+                    return ok
+                app_logging.install = _install
+                app_logging.redact = lambda value: str(value)
+                app_logging.swallowed = lambda *a, **k: None
+
+                contract_pkg = _mod('contract')
+                contract_pkg.__path__ = []
+                app_metadata = _mod('contract.app_metadata')
+                app_metadata.APP_NAME = '漫剧助手'
+                app_metadata.VERSION = 'unittest'
+                contract_pkg.app_metadata = app_metadata
+
+                def _load_real(name, path):
+                    spec = importlib.util.spec_from_file_location(name, path)
+                    module = importlib.util.module_from_spec(spec)
+                    sys.modules[name] = module
+                    spec.loader.exec_module(module)
+                    return module
+
+                # contract.diagnostics 与 ui_status_bus 用真实源码（纯数据／纯总线，无副作用）。
+                diagnostics = _load_real('contract.diagnostics',
+                                         program_dir + '/contract/diagnostics.py')
+                contract_pkg.diagnostics = diagnostics
+
+                infra_pkg = _mod('infra')
+                infra_pkg.__path__ = []
+                infra_pkg.app_logging = app_logging
+                sys.modules['infra.app_logging'] = app_logging
+
+                diag_cap = _mod('infra.diagnostic_capture')
+                diag_cap.run_startup_selfcheck = lambda program=None: []
+                diag_cap.startup_gate = lambda ask=None: False
+                diag_cap.startup_guard = lambda: 'proceed'
+                diag_cap.record_startup_ready = lambda: None
+                diag_cap.record_startup_closed = lambda: None
+                diag_cap.record_crash = lambda exc, trace=None: None
+                def _record_selfcheck(items):
+                    RESULTS['selfcheck_records'].append(
+                        [getattr(item, 'code', '') for item in (items or [])])
+                diag_cap.record_selfcheck = _record_selfcheck
+                diag_cap.notify_startup_fatal = lambda items: None
+                infra_pkg.diagnostic_capture = diag_cap
+                sys.modules['infra.diagnostic_capture'] = diag_cap
+
+                app_icon = _mod('app_icon')
+                app_icon.set_app_id = lambda: None
+                app_icon.apply = lambda window: None
+
+                platform_tools = _mod('platform_tools')
+                platform_tools.work_area = lambda: (0, 0, 1920, 1080)
+                platform_tools.outer_rect_for_client = lambda x, y, w, h: (x, y, w, h)
+
+                ui_theme = _mod('ui_theme')
+                ui_theme.main_window_size = lambda w, h: (1280, 800)
+
+                class _Splash:
+                    def __init__(self, window, rect):
+                        self.on_finish = None
+                    def step(self, index):
+                        pass
+                    def wait(self, loaded, reveal, track=None):
+                        pass
+                ui_widgets = _mod('ui_widgets')
+                ui_widgets.Splash = _Splash
+
+                status_bus_mod = _load_real('ui_status_bus',
+                                            program_dir + '/ui/ui_status_bus.py')
+
+                desktop = _mod('desktop')
+                class _Desktop:
+                    # 复刻 desktop.py 状态栏播报：读 window._selfcheck_degraded 走 publish_startup_warnings。
+                    def __init__(self, window, root=None, require_login=False, **kw):
+                        degraded = list(getattr(window, '_selfcheck_degraded', None) or [])
+                        RESULTS['window_degraded'] = [getattr(i, 'code', '') for i in degraded]
+                        RESULTS['window_messages'] = [getattr(i, 'message', '') for i in degraded]
+                        bus = status_bus_mod.StatusBus()
+                        seen = []
+                        bus.subscribe(lambda event: seen.append(event))
+                        status_bus_mod.publish_startup_warnings(bus, degraded)
+                        bus.pump()
+                        RESULTS['bus'] = [message.text for kind, message, _prev in seen
+                                          if kind == 'current' and message]
+                desktop.Desktop = _Desktop
+
+                tk = _mod('tkinter')
+                class _Window:
+                    def __init__(self):
+                        self._selfcheck_degraded = None
+                    def attributes(self, *a):
+                        return None
+                    def title(self, text):
+                        pass
+                    def after(self, ms, cb):
+                        return 'tid'
+                    def after_idle(self, cb):
+                        return 'tid'
+                    def after_cancel(self, tid):
+                        pass
+                    def update_idletasks(self):
+                        pass
+                    def lift(self):
+                        pass
+                    def focus_force(self):
+                        pass
+                    def deiconify(self):
+                        pass
+                    def grab_current(self):
+                        return None
+                    def wm_frame(self):
+                        return ''
+                    def winfo_screenwidth(self):
+                        return 1920
+                    def winfo_screenheight(self):
+                        return 1080
+                    def winfo_exists(self):
+                        return True
+                    def bind(self, *a, **k):
+                        return ''
+                    def unbind(self, *a, **k):
+                        pass
+                    def mainloop(self):
+                        pass
+                tk.Tk = _Window
+                tk.TclError = Exception
+
+                runpy.run_path(sys.argv[1], run_name='__main__')
+                print('RESULT_JSON=' + json.dumps(RESULTS, ensure_ascii=False))
+            '''), encoding='utf-8')
+            env = dict(os.environ, FAKE_INSTALL_PLAN=install_plan)
+            return subprocess.run(
+                [sys.executable, '-X', 'utf8', '-B', str(wrapper), str(launcher), str(HERE)],
+                capture_output=True, text=True, encoding='utf-8', errors='replace',
+                timeout=60, env=env)
+
+    @staticmethod
+    def _payload(done):
+        line = next((row for row in done.stdout.splitlines()
+                     if row.startswith('RESULT_JSON=')), '')
+        assert line, ('桩进程未回传 RESULT_JSON；stdout 尾部：' + done.stdout[-800:]
+                      + '；stderr 尾部：' + done.stderr[-800:])
+        return json.loads(line.split('=', 1)[1])
+
+    def test_install_false_records_degraded_and_status_warning(self):
+        """两次 install 都失败：降级诊断落账、挂上 _selfcheck_degraded、状态栏出【警告】。"""
+        done = self._run_launcher('F,F')
+        self.assertEqual(done.returncode, 0, done.stderr[-2000:])
+        results = self._payload(done)
+        self.assertEqual(results['install_calls'], 2)
+        recorded = [code for codes in results['selfcheck_records'] for code in codes]
+        self.assertIn('app-log-unavailable', recorded)
+        self.assertIn('app-log-unavailable', results['window_degraded'])
+        self.assertTrue(any(text.startswith('【警告】') and 'app-log-unavailable' in text
+                            for text in results['bus']),
+                        '状态栏应有一条含 app-log-unavailable 的【警告】：%r' % results['bus'])
+
+    def test_install_retry_success_stays_silent(self):
+        """第一次失败、建窗后重试成功：最终已生效，不算降级，不误报。"""
+        done = self._run_launcher('F,T')
+        self.assertEqual(done.returncode, 0, done.stderr[-2000:])
+        results = self._payload(done)
+        self.assertEqual(results['install_calls'], 2)
+        recorded = [code for codes in results['selfcheck_records'] for code in codes]
+        self.assertNotIn('app-log-unavailable', recorded)
+        self.assertNotIn('app-log-unavailable', results['window_degraded'])
+        self.assertFalse(any('app-log-unavailable' in text for text in results['bus']))
+
+
 class FatalManufactureTests(unittest.TestCase):
     """D3-n④：甲类逐条「制造故障 → FATAL → 修复后自检放行」。
 
