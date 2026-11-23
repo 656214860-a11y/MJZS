@@ -336,6 +336,36 @@ class TtsBatchResumeTests(unittest.TestCase):
         self.assertEqual(tts_api.line_name(2, {"shot_id": "SH002", "name": "旁白/角色", "start": 1.5}),
                           "002_SH002_旁白_角色_1.5s.mp3")
 
+    def test_line_name_neutralizes_unsafe_shot_id(self):
+        for shot in ("SH001/extra", "SH001\\extra", "../up", "..\\up", "a:b", "x\x00y", "SH*?<>|\"1"):
+            with self.subTest(shot=shot):
+                name = tts_api.line_name(1, {"shot_id": shot, "name": "角色", "start": 1.0})
+                self.assertEqual(Path(name).name, name)
+                self.assertNotRegex(name, r'[<>:"/\\|?*\x00-\x1f]')
+                self.assertTrue(name.startswith("001_") and name.endswith("_角色_1.0s.mp3"), name)
+
+    def test_line_name_keeps_format_for_missing_or_numeric_shot_id(self):
+        self.assertEqual(tts_api.line_name(1, {"name": "角色", "start": 0}), "001_None_角色_0.0s.mp3")
+        self.assertEqual(tts_api.line_name(3, {"shot_id": 7, "name": "角色", "start": 2}), "003_7_角色_2.0s.mp3")
+
+    def test_line_name_limits_shot_id_length(self):
+        self.assertEqual(tts_api.line_name(1, {"shot_id": "S" * 300, "name": "角色", "start": 1.0}),
+                         "001_" + "S" * 40 + "_角色_1.0s.mp3")
+
+    def test_run_lines_keeps_audio_inside_batch_folder_for_unsafe_shot_id(self):
+        line = {**self.lines(1)[0], "shot_id": "SH001/extra"}
+        with tempfile.TemporaryDirectory() as td:
+            folder = Path(td) / "batch"
+            self.assertEqual(tts_api.run_lines([line], folder, generate=lambda *_a, **_k: b"audio", gateway=_gateway()),
+                             (1, 0, 0))
+            manifest = json.loads((folder / "时间轴.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest[0]["state"], "ok")
+            self.assertEqual(manifest[0]["shot_id"], "SH001/extra")
+            self.assertEqual(manifest[0]["file"], "001_SH001_extra_角色_1.0s.mp3")
+            files = [path for path in Path(td).rglob("*") if path.is_file()]
+            self.assertTrue(files)
+            self.assertTrue(all(path.parent == folder for path in files), files)
+
     def test_batch_publication_requires_l3_gateway(self):
         with tempfile.TemporaryDirectory() as td:
             with self.assertRaisesRegex(TypeError, "L3"):
