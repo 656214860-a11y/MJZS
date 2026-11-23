@@ -1,0 +1,15 @@
+{
+  "round": 4209,
+  "commit_base": "af94e648",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k voice_emotion_check asset_image_import asset_detail_service",
+    "exit": 0,
+    "passed": 25,
+    "failed": 0
+  },
+  "generated_at": "2026-11-23T23:53:10"
+}
