@@ -1081,6 +1081,12 @@
       "percent": 0.0
     },
     {
+      "module": "domain/voice_emotion_check.py",
+      "covered": 0,
+      "total": 166,
+      "percent": 0.0
+    },
+    {
       "module": "domain/writing_stream.py",
       "covered": 0,
       "total": 23,
@@ -4070,6 +4076,6 @@
     }
   ],
   "modules_covered": 133,
-  "modules_total": 675,
+  "modules_total": 676,
   "integration_status": "historical_master_measurement_minus_retired_aigc_lint_pending_remeasurement"
 }
