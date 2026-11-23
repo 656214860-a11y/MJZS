@@ -4903,6 +4903,7 @@ class PawTests(PetTestCase):
         self.win.geometry('800x600+0+0')
         self.win.deiconify()
         self.win.update_idletasks()
+        self.win.update()
         patch = self.pet.canvas.place_info()
         paws = self.pet.paws.place_info()
         self.assertEqual(paws['anchor'], 'ne')
