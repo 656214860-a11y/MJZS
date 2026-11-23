@@ -439,10 +439,11 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
             self._followed_page_stage = _FOLLOWED_STAGE_SENTINEL
 
     def _build_stage_rail(self):
-        """建右缘阶段图标列：「全部」＋ 13 个阶段，顺序＝``pet_bus.STAGES``。
+        """建右缘阶段图标列：13 个阶段（顺序＝``pet_bus.STAGES``）＋回收站／素材库动作。
 
-        R3191（任务书 M3，D10）：图标用 ``assets/nav/<stage>_files.png``（阶段字形＋右下角
-        文件角标），PNG 缺失时退回 ``STAGE_RAIL_ICONS`` 的 emoji；高度不够时整列可滚轮滚动。
+        UX-C1：面板内不再放与入口重复的「全部文件」图标；全项目视图由入口打开／
+        ``show_stage(None)`` 复位。R3191：阶段图标用 ``assets/nav/<stage>_files.png``，
+        PNG 缺失时退回 ``STAGE_RAIL_ICONS`` 的 emoji；高度不够时整列可滚轮滚动。
         """
         from contract.pet_bus import STAGES, stage_name
         from responsive_ui import ScrollForm
@@ -451,43 +452,38 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
         self._ensure_filter_state()
         # R3971（任务书 L4-U1）：齿轮设置钮钉在列顶——pack 先于滚动画布，
         # 否则它落进滚动条与画布之间的中间腔，把画布挤成 1px 宽。
-        settings = SecondaryButton(self.stage_rail, text='⚙', width=0, style='RailIcon.TButton',
-                                   command=self.configure_library)
+        # UX-C1：与侧栏同套 PNG（library_settings），缺图退回 ⚙。
+        settings = self._make_rail_icon_button(
+            self.stage_rail, 'library_settings', '⚙', '设置全局素材库目录',
+            self.configure_library)
         settings.pack(side='top', pady=(SPACING['none'], SPACING['xs']))
-        Tooltip(settings, '设置全局素材库目录')
         self.library_settings_button = settings
         # 图标列自身仍是 script_box 右缘的固定竖条；内部换成可滚动画布，矮窗口不再裁掉底部图标。
         self.stage_rail_scroller = ScrollForm(self.stage_rail, bg=COLORS['background_primary'])
         self.stage_rail_form = self.stage_rail_scroller.form
         self.stage_buttons = {}
-        entries = [(None, 'project_files', STAGE_RAIL_ALL, '全部文件（剧本准备四类）')]
-        entries += [(stage, stage + '_files', STAGE_RAIL_ICONS.get(stage, '•'), stage_name(stage))
-                    for stage in STAGES]
-        for stage, icon_name, glyph, tip in entries:
-            image = IconLoader.nav_icon(self.page.win, icon_name)
-            # 有 PNG 时 compound='image' 只显示图，text 仍留 emoji 作语义标签与缺图兜底。
-            if image is not None:
-                button = SecondaryButton(self.stage_rail_form, text=glyph, image=image,
-                                         compound='image', width=0, style='RailIcon.TButton',
-                                         command=lambda value=stage: self.show_stage(value))
-            else:
-                button = SecondaryButton(self.stage_rail_form, text=glyph, width=0,
-                                         style='RailIcon.TButton',
-                                         command=lambda value=stage: self.show_stage(value))
-            button._rail_icon_name = icon_name
+        for stage in STAGES:
+            icon_name = stage + '_files'
+            glyph = STAGE_RAIL_ICONS.get(stage, '•')
+            button = self._make_rail_icon_button(
+                self.stage_rail_form, icon_name, glyph, stage_name(stage),
+                lambda value=stage: self.show_stage(value))
             button.pack(side='top', pady=(SPACING['none'], SPACING['xs']))
-            Tooltip(button, tip)
             self.stage_buttons[stage] = button
         self._sync_stage_buttons()
         # R3117（任务书 P2，Q5）：回收站入口放在图标列末尾——浏览／恢复走既有恢复窗，
         # 清空只删超过保留期的批次，物理删除仍只经 storage_maintenance。
-        self._add_rail_action('♻', '回收站：浏览与恢复已删除的文件', 'open_recycle_recovery')
-        self._add_rail_action('🗑', '清空过期回收站（保留 %d 天）' % _retention_days(), 'purge_expired_recycle')
+        self.recycle_button = self._add_rail_action(
+            '♻', '回收站：浏览与恢复已删除的文件', 'open_recycle_recovery',
+            icon_name='recycle')
+        self.recycle_purge_button = self._add_rail_action(
+            '🗑', '清空过期回收站（保留 %d 天）' % _retention_days(),
+            'purge_expired_recycle', icon_name='recycle_purge')
         # R3143（任务书 P3，Q11）：全局素材库视图——跨项目的共享素材，按库相对路径列出。
-        library = SecondaryButton(self.stage_rail_form, text='🗂', width=0, style='RailIcon.TButton',
-                                  command=self.show_library)
+        library = self._make_rail_icon_button(
+            self.stage_rail_form, 'library', '🗂',
+            '全局素材库：跨项目的共享素材（可在设置里指定目录）', self.show_library)
         library.pack(side='top', pady=(SPACING['none'], SPACING['xs']))
-        Tooltip(library, '全局素材库：跨项目的共享素材（可在设置里指定目录）')
         self.library_button = library
         # 滚轮绑定要等全部子件建完再递归挂一次（见 ScrollForm.bind_wheel 说明）。
         self.stage_rail_scroller.bind_wheel()
@@ -505,14 +501,32 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
             self.stage_rail.pack_propagate(False)
             self.stage_rail_scroller.canvas.configure(width=content_w)
 
-    def _add_rail_action(self, glyph, tip, method_name):
+    def _make_rail_icon_button(self, parent, icon_name, glyph, tip, command):
+        """建一枚右缘图标钮：优先 ``assets/nav/<icon_name>.png``，缺图退回 glyph 文本。"""
+        from ui_icons import IconLoader
+        image = IconLoader.nav_icon(self.page.win, icon_name)
+        if image is not None:
+            button = SecondaryButton(parent, text=glyph, image=image, compound='image',
+                                     width=0, style='RailIcon.TButton', command=command)
+        else:
+            button = SecondaryButton(parent, text=glyph, width=0, style='RailIcon.TButton',
+                                     command=command)
+        button._rail_icon_name = icon_name
+        Tooltip(button, tip)
+        return button
+
+    def _add_rail_action(self, glyph, tip, method_name, icon_name=None):
         """在图标列末尾追加一个动作钮；宿主没有该动作时只留按钮不绑回调。"""
         action = getattr(self.page, method_name, None)
         command = (lambda: self.page.safe(action)) if callable(action) else None
-        button = SecondaryButton(self.stage_rail_form, text=glyph, width=0, style='RailIcon.TButton',
-                                 command=command)
+        if icon_name:
+            button = self._make_rail_icon_button(self.stage_rail_form, icon_name, glyph, tip,
+                                                 command)
+        else:
+            button = SecondaryButton(self.stage_rail_form, text=glyph, width=0,
+                                     style='RailIcon.TButton', command=command)
+            Tooltip(button, tip)
         button.pack(side='top', pady=(SPACING['none'], SPACING['xs']))
-        Tooltip(button, tip)
         return button
 
     def _sync_stage_buttons(self):

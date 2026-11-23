@@ -50,6 +50,11 @@ ICONS = {
     'lock':           0xE79D,  # lock-closed    未授权页的锁标（替换原文字 🔒）
     # 页头返回钮（R3060 输入框发送/终止键已于 U4 改回 MDL2 字形＋圆形描边，不再用 PNG）
     'back':           0xF178,  # arrow_reply    返回（卡片底，墨水用主题色——沿用原手绘箭头的品牌色）
+    # UX-C1：停靠面板右缘动作钮（素材库／设置／回收站／清空）与侧栏同套 Filled 图标
+    'library':           0xE770,   # library           全局素材库
+    'library_settings':  0xF6B2,   # settings          设置全局素材库目录
+    'recycle':           0xF01C4,  # bin-recycle       回收站浏览与恢复
+    'recycle_purge':     0xF01C6,  # bin-recycle-full  清空过期回收站
 }
 
 # 返回等强调动作用主题色墨水（back），其余用正文色。
