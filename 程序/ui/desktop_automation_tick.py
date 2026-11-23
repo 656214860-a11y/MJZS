@@ -279,9 +279,16 @@ class AutomationTickMixin:
         canonical_board／character_anchor 一个字没写——「采用推荐」点了资产还是空的。
         现在与资产详情页走同一条写入路径（confirm_gates.apply_choice）。
         """
+        from domain.confirm_gates import FAILED
         from stage_execution_service import record_stage_confirmation
         from stage_execution_service import apply_asset_plan_gate_choice
-        apply_asset_plan_gate_choice(self.root,key,choice)
+        applied=apply_asset_plan_gate_choice(self.root,key,choice)
+        if applied is None:
+            # 不支持的 key（conflict: 裁决）：没落盘就不许伪装成已确认，记 failed 留痕。
+            path=record_stage_confirmation(self.root,key,choice,state=FAILED,digest=digest)
+            if again:again()
+            self.status.set('该项暂不支持采用，未确认：'+str(choice))
+            return path
         path=record_stage_confirmation(self.root,key,choice,digest=digest)
         if again:again()                      # 先重建页面（重建会重置状态栏），再写状态栏
         self.status.set('已确认：'+str(choice))
@@ -329,7 +336,8 @@ class AutomationTickMixin:
             choice=candidates[min(max(index,0),len(candidates)-1)]
             # 写资产清单或确认账本失败不能伪装成“这条已经处理过”。交给外层
             # _poll_auto_due 的节流与可见错误反馈，下一拍才会重试。
-            apply_asset_plan_gate_choice(self.root,key,choice)
+            applied=apply_asset_plan_gate_choice(self.root,key,choice)
+            if applied is None:continue     # 不支持的 key（conflict: 裁决）不落盘也不记确认
             record_stage_confirmation(self.root,key,choice,by=AUTO,digest=str(item.get('digest') or ''))
             done+=1
         if done:
