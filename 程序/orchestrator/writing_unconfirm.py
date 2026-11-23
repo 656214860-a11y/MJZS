@@ -12,8 +12,8 @@ import re
 from pathlib import Path
 
 from infra.file_cache import read_json
-from writing_api import (PREPARATION_STAGES, _complete_brief, _confirmed_prefix,
-                         _preparation_brief_hash, _promote_revision,
+from writing_api import (PREPARATION_STAGES, _complete_brief, _document_for_stage,
+                         _document_stage_index, _preparation_brief_hash, _promote_revision,
                          _save_preparation_state_guarded, _working_documents)
 
 
@@ -51,42 +51,51 @@ def confirm_preparation_document(project, stage, path, *, publish):
         raise ValueError('剧本准备重写记录无效')
     if not isinstance(documents, list):
         raise ValueError('剧本准备阶段记录无效，不能确认输出')
-    prefix = _confirmed_prefix(documents, index)
-    if prefix is None and isinstance(state.get('revision'), dict):
-        # 进行中的重写草稿（revision.documents）未推进到目标阶段时，显式「设为定稿」
-        # 回到采用版本（顶层 documents）操作，而不是误报前置未确认——采用版本里
-        # 前置阶段可能已确认（revision 只保留了重写起点之前的较短前缀）。
+    if isinstance(state.get('revision'), dict):
+        # 进行中的重写草稿（revision.documents）未覆盖目标阶段时，显式「设为定稿」
+        # 回到采用版本（顶层 documents）操作并放弃重写——采用版本里该阶段可能
+        # 已有记录（LOST-04：按阶段名判定，不再要求前置确认前缀）。
         adopted = state.get('documents')
-        if isinstance(adopted, list):
-            prefix = _confirmed_prefix(adopted, index)
-            if prefix is not None:
-                documents = adopted
-                state.pop('revision', None)
-                state.pop('pending_restart', None)
-    if prefix is None:
-        if brief_changed:
-            raise ValueError('创作简报已变化，前置确认已失效；请先重设为「项目设定」定稿，'
-                             '再确认「剧本大纲」「角色卡」')
-        missing = [PREPARATION_STAGES[position] for position in range(index)
-                   if position >= len(documents)
-                   or not (isinstance(documents[position], dict)
-                           and documents[position].get('confirmed') is True)]
-        raise ValueError('「' + stage + '」之前还有阶段未确认（' + '、'.join(missing)
-                         + '）；请先依次把这些阶段设为定稿，再设「' + stage + '」')
-    invalidated = tuple(PREPARATION_STAGES[position]
-                        for position, doc in enumerate(documents[index + 1:], start=index + 1)
-                        if isinstance(doc, dict) and doc.get('confirmed') is True)
+        _slot, working_hit = _document_for_stage(documents, stage)
+        _slot, adopted_hit = (_document_for_stage(adopted, stage)
+                              if isinstance(adopted, list) else (None, None))
+        if working_hit is None and adopted_hit is not None:
+            documents = adopted
+            state.pop('revision', None)
+            state.pop('pending_restart', None)
+    # LOST-04（用户 11-22 23:12 第 1 条）：四份文档相互独立、任意顺序生成——
+    # 任何阶段都可单独设为定稿，不再要求前置阶段已确认；同阶段旧记录被替换，
+    # 其后已确认的下游阶段照旧作废（沿用原有失效口径），未确认草稿一律保留。
+    invalidated = tuple(name for name in PREPARATION_STAGES[index + 1:]
+                        if any(isinstance(doc, dict) and doc.get('stage') == name
+                               and doc.get('confirmed') is True for doc in documents))
+    invalidated_stages = set(invalidated)
     document = {'stage': stage, 'path': chosen.relative_to(folder).as_posix(),
                 'sha256': hashlib.sha256(text.encode('utf-8')).hexdigest(), 'confirmed': True}
-    # REQ-S01-89：确认本阶段后，其后未确认的并行草稿记录保留；已确认下游照旧作废。
-    state.get('revision', state)['documents'] = prefix + [document] + [
-        doc for doc in documents[index + 1:]
-        if isinstance(doc, dict) and doc.get('confirmed') is not True]
+    kept = [doc for doc in documents
+            if not (isinstance(doc, dict)
+                    and (doc.get('stage') == stage or doc.get('stage') in invalidated_stages))]
+    insert_at = len(kept)
+    for position, doc in enumerate(kept):
+        doc_index = _document_stage_index(doc)
+        if doc_index is not None and doc_index > index:
+            insert_at = position
+            break
+    kept.insert(insert_at, document)
+    state.get('revision', state)['documents'] = kept
     revision = state.get('revision')
-    # 重写稿确认到三阶段齐全才切换采用版本；中途确认仍留在 revision，
-    # 与聊天「推进才采用」同口径，避免采用版本与自然稿采用记录错位。
-    promoted = (isinstance(revision, dict)
-                and len(revision.get('documents') or ()) == len(PREPARATION_STAGES)
+    # 重写稿确认后切换采用版本；LOST-04 后不再要求三阶段齐全——重写稿里全部
+    # 记录已确认、且覆盖采用版本已有的阶段集合时即提升，稀疏重写（如只重写
+    # 角色卡）同样生效；中途确认仍留在 revision，与聊天「推进才采用」同口径。
+    revision_documents = revision.get('documents') if isinstance(revision, dict) else None
+    adopted_stages = {doc.get('stage') for doc in state.get('documents') or ()
+                      if isinstance(doc, dict)}
+    revision_stages = {doc.get('stage') for doc in revision_documents or ()
+                       if isinstance(doc, dict)}
+    promoted = (isinstance(revision_documents, list) and revision_documents
+                and adopted_stages <= revision_stages
+                and all(isinstance(doc, dict) and doc.get('confirmed') is True
+                        for doc in revision_documents)
                 and _promote_revision(state, project, target, publish))
     if not promoted:
         # 放弃重写回到采用版本（rebound）、重确认同阶段换文件等都会改采用版本；
@@ -132,15 +141,19 @@ def unconfirm_preparation_document(project, stage, *, publish):
     if not isinstance(documents, list):
         raise ValueError('剧本准备阶段记录无效，不能取消确认')
     index = PREPARATION_STAGES.index(stage)
-    if index >= len(documents):
+    _slot, document = _document_for_stage(documents, stage)
+    if document is None or document.get('confirmed') is not True:
         return ()
-    document = documents[index]
-    if not isinstance(document, dict) or document.get('confirmed') is not True:
-        return ()
-    invalidated = tuple(PREPARATION_STAGES[position]
-                        for position, doc in enumerate(documents[index + 1:], start=index + 1)
-                        if isinstance(doc, dict) and doc.get('confirmed') is True)
-    state['documents'] = documents[:index] + [dict(document, confirmed=False)]
+    # LOST-04：取消某阶段确认后，其后已确认的阶段照旧连带取消（沿用原有下游
+    # 失效口径），各阶段草稿记录本身保留、不再按下标截断。
+    invalidated = tuple(name for name in PREPARATION_STAGES[index + 1:]
+                        if any(isinstance(doc, dict) and doc.get('stage') == name
+                               and doc.get('confirmed') is True for doc in documents))
+    cancelled = {stage, *invalidated}
+    for doc in documents:
+        if (isinstance(doc, dict) and doc.get('confirmed') is True
+                and doc.get('stage') in cancelled):
+            doc['confirmed'] = False
     state.pop('revision', None)
     state.pop('pending_restart', None)
     _save_preparation_state_guarded(project, target, state, publish)
@@ -213,9 +226,18 @@ def apply_partial_adoption(project, stage, path, keep, *, publish):
         if index is not None:
             document = dict(documents[index],
                             partial_adoption={'kept': keep, 'total': len(sections)})
+            documents[index] = document
             if document.get('confirmed') is True:
-                box['documents'] = documents[:index] + [dict(document, confirmed=False)]
-            else:
-                box['documents'] = documents[:index] + [document] + documents[index + 1:]
+                # LOST-04：与取消确认同口径——本阶段及其后已确认阶段转为未确认，
+                # 各阶段草稿记录保留，不再按下标截断。
+                stage_index = PREPARATION_STAGES.index(stage)
+                cancelled = {name for name in PREPARATION_STAGES[stage_index:]
+                             if any(isinstance(doc, dict) and doc.get('stage') == name
+                                    and doc.get('confirmed') is True for doc in documents)}
+                for doc in documents:
+                    if (isinstance(doc, dict) and doc.get('confirmed') is True
+                            and doc.get('stage') in cancelled):
+                        doc['confirmed'] = False
+            box['documents'] = documents
             _save_preparation_state_guarded(project, target, state, publish)
     return {'kept': keep, 'total': len(sections), 'changed': True}

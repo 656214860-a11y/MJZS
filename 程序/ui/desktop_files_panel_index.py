@@ -267,7 +267,9 @@ class FilesPanelIndexMixin:
             path = Path(root) / row.path
             labels = getattr(self, '_index_file_labels', {})
             state = labels.get(str(path.resolve()), labels.get(category, ''))
-            if state:
+            # LOST-04：文档名前不再出现「已确认」前缀；已确认稿与普通文件同名展示，
+            # 未确认草稿仍标「待确认／重写待确认」，悬停卡片保留完整状态说明。
+            if state and state != '已确认':
                 label = '[' + state + '] ' + name
             document = SimpleNamespace(item_id=str(path), name=name)
             self.script_row_details[item] = script_row_card(document, state, modified, Path(root)) + '\n' + metadata

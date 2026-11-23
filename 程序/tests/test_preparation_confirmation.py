@@ -92,18 +92,23 @@ class ConfirmPreparationDocumentTests(unittest.TestCase):
         self.assertEqual(len(after['documents']), 1)
         self.assertEqual(texts, ['# 项目设定\n新设定\n'])
 
-    def test_confirm_refuses_when_previous_stage_unconfirmed(self):
-        """不能跳过前置阶段：上一阶段未确认时拒绝登记，并说明缺哪些前置。
+    def test_confirm_later_stage_without_prefix_succeeds(self):
+        """LOST-04：四文档互不设卡——上一阶段未确认时仍可把角色卡登记为定稿。
 
-        REQ-S01-11：前一步未确认，不进入下一步。
+        同阶段旧记录被替换，其余阶段草稿保留；该阶段及其后已确认的下游照旧作废。
         """
         _, setting = confirmed(self.project, '项目设定', '项目设定/待确认.md', '# 项目设定\n草稿\n')
         setting['confirmed'] = False
         self.write_state([setting])
         path, _ = confirmed(self.project, '角色卡', '角色卡/角色卡.md', '# 角色卡\n少年\n')
-        with self.assertRaisesRegex(ValueError, '之前还有阶段未确认'):
-            writing_unconfirm.confirm_preparation_document(
-                self.project, '角色卡', path, publish=publish_stage_text)
+        invalidated = writing_unconfirm.confirm_preparation_document(
+            self.project, '角色卡', path, publish=publish_stage_text)
+        self.assertEqual(invalidated, ())
+        _, state, _ = writing_api._preparation_state(self.project, self.brief)
+        self.assertEqual([doc['stage'] for doc in state['documents']],
+                         ['项目设定', '角色卡'])
+        self.assertFalse(state['documents'][0]['confirmed'])
+        self.assertTrue(state['documents'][1]['confirmed'])
 
     def test_confirm_character_card_falls_back_to_adopted_when_revision_incomplete(self):
         """重写草稿未推进到角色卡时，设为角色卡定稿应回到采用版本，而非误报前置未确认。
@@ -212,12 +217,11 @@ class ConfirmPreparationDocumentTests(unittest.TestCase):
             writing_unconfirm.confirm_preparation_document(
                 self.project, '项目设定', path, publish=publish_stage_text)
 
-    def test_confirm_reports_brief_change_when_previous_confirmed(self):
-        """简报变化后设为角色卡定稿，应明确指出是简报变化、需按序重确认，而非笼统「请先确认前置」。
+    def test_confirm_after_brief_change_registers_stage_independently(self):
+        """LOST-04：简报变化后旧确认记录整体失效，但各阶段可独立重新设为定稿。
 
-        用户此前已确认设定、大纲，但之后改了创作简报（brief_complete.json），旧确认记录
-        因 brief 指纹变化整体失效。此时设为角色卡定稿不应再报误导性的
-        「请先确认所选阶段之前的文件」，而要说明是简报变化、需重新按序确认。
+        不再要求从「项目设定」按序重确认——直接把角色卡文件登记为定稿即可，
+        台账落为只含该阶段的稀疏采用记录。
         """
         _, setting = confirmed(self.project, '项目设定', '项目设定/设定.md', '# 项目设定\n旧设定\n')
         _, outline = confirmed(self.project, '剧本大纲', '剧本大纲/大纲.md', '# 剧本大纲\n三幕\n')
@@ -227,9 +231,12 @@ class ConfirmPreparationDocumentTests(unittest.TestCase):
             'story_summary': '港口追查失踪的姐姐。', 'main_characters': '少年和老板',
             'genre': '奇幻', 'length': '单集 60 秒'}))
         path, _ = confirmed(self.project, '角色卡', '角色卡/新卡.md', '# 角色卡\n新少年\n')
-        with self.assertRaisesRegex(ValueError, '创作简报已变化'):
-            writing_unconfirm.confirm_preparation_document(
-                self.project, '角色卡', path, publish=publish_stage_text)
+        invalidated = writing_unconfirm.confirm_preparation_document(
+            self.project, '角色卡', path, publish=publish_stage_text)
+        self.assertEqual(invalidated, ())
+        state = writing_api.read_json(preparation_folder(self.project) / 'preparation_state.json')
+        self.assertEqual([doc['stage'] for doc in state['documents']], ['角色卡'])
+        self.assertTrue(state['documents'][0]['confirmed'])
 
     def test_confirmation_writes_snapshot_and_keeps_history_across_brief_reset(self):
         """REQ-S01-87：确认把该版正文快照到「确认快照/」并记录台账；简报重置保留历史。"""

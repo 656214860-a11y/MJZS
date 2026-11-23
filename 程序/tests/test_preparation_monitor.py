@@ -76,22 +76,26 @@ class PreparationProgressTests(unittest.TestCase):
         return target
 
     def test_setting_missing_blocks_at_setting(self):
-        """设定文件缺失（无记录）→ 阻塞于项目设定，且标记为缺文件。"""
+        """LOST-04：设定缺失不再卡点——blocked 恒空，各阶段独立报告现状。"""
         progress = stage_completion_service.preparation_progress(self.project)
-        self.assertEqual(progress['blocked'], '项目设定')
-        self.assertTrue(progress['missing'])
+        self.assertEqual(progress['blocked'], '')
+        self.assertFalse(progress['missing'])
         self.assertEqual(progress['confirmed'], 0)
+        self.assertEqual(progress['stages'],
+                         (('项目设定', False, False), ('剧本大纲', False, False),
+                          ('角色卡', False, False)))
 
     def test_setting_confirmed_outline_unconfirmed_blocks_at_outline(self):
-        """设定已确认、大纲未确认 → 阻塞于剧本大纲，且标记为未确认。"""
+        """LOST-04：大纲未确认不再阻塞——只报告各阶段独立现状。"""
         _, setting = confirmed(self.project, '项目设定', '项目设定/定稿.md', '# 项目设定\n旧设定\n')
         _, outline = confirmed(self.project, '剧本大纲', '剧本大纲/大纲.md', '# 剧本大纲\n三幕\n')
         outline['confirmed'] = False
         self.write_state([setting, outline])
         progress = stage_completion_service.preparation_progress(self.project)
-        self.assertEqual(progress['blocked'], '剧本大纲')
+        self.assertEqual(progress['blocked'], '')
         self.assertFalse(progress['missing'])
         self.assertEqual(progress['confirmed'], 1)
+        self.assertEqual(progress['stages'][1], ('剧本大纲', True, False))
 
     def test_all_confirmed_passes(self):
         """设定、大纲、角色卡全部确认 → 不阻塞，连续已确认数为 3。"""
@@ -105,31 +109,30 @@ class PreparationProgressTests(unittest.TestCase):
         self.assertEqual(progress['confirmed'], 3)
 
     def test_missing_file_after_confirmed_record_blocks_as_missing(self):
-        """记录在但文件已被删 → 仍阻塞于该阶段，且标记为缺文件。"""
+        """LOST-04：记录在但文件已被删 → 该阶段报缺文件，不再阻塞整体。"""
         _, setting = confirmed(self.project, '项目设定', '项目设定/定稿.md', '# 项目设定\n旧设定\n')
         _, outline = confirmed(self.project, '剧本大纲', '剧本大纲/大纲.md', '# 剧本大纲\n三幕\n')
         self.write_state([setting, outline])
         Path(preparation_folder(self.project) / '剧本大纲/大纲.md').unlink()
         progress = stage_completion_service.preparation_progress(self.project)
-        self.assertEqual(progress['blocked'], '剧本大纲')
-        self.assertTrue(progress['missing'])
+        self.assertEqual(progress['blocked'], '')
+        self.assertEqual(progress['stages'][1], ('剧本大纲', False, True))
 
     def test_progress_reports_applicable_script_and_next_actions(self):
         """REQ-S01-84：进入确认流程的项目报 applicable、自然稿采用状态与下一步动作。"""
         progress = stage_completion_service.preparation_progress(self.project)
         self.assertTrue(progress['applicable'])
         self.assertEqual(progress['script'], '待采用')
-        self.assertIn('项目设定', progress['next_actions'][0])
+        self.assertIn('自然剧本', progress['next_actions'][0])
 
     def test_next_actions_distinguish_missing_and_unconfirmed(self):
-        """REQ-S01-84：缺文件指向生成并设为定稿，未确认指向确认动作。"""
+        """LOST-04：下一步动作只跟自然稿采用状态走，不再逐阶段点名。"""
         _, setting = confirmed(self.project, '项目设定', '项目设定/定稿.md', '# 项目设定\n旧设定\n')
         _, outline = confirmed(self.project, '剧本大纲', '剧本大纲/大纲.md', '# 剧本大纲\n三幕\n')
         outline['confirmed'] = False
         self.write_state([setting, outline])
         progress = stage_completion_service.preparation_progress(self.project)
-        self.assertIn('剧本大纲', progress['next_actions'][0])
-        self.assertIn('确认', progress['next_actions'][0])
+        self.assertIn('自然剧本', progress['next_actions'][0])
 
     def test_next_actions_cover_revoked_and_pending_adoption(self):
         """REQ-S01-84：三阶段齐全后，待采用指向生成采用，失效记录指向重新采用。"""
@@ -170,26 +173,25 @@ class CompletionEvidenceMonitorTests(unittest.TestCase):
         return target
 
     def test_completion_evidence_blocks_when_setting_missing(self):
-        """设定缺失时，即使已有自然剧本也不判剧本阶段完成，并点明卡点。"""
+        """LOST-04：设定缺失不再卡点——已采用自然剧本即判剧本阶段完成。"""
         write_natural_script(self.project)
-        ok, detail = stage_completion_service.completion_evidence(self.project, 'script')
-        self.assertFalse(ok)
-        self.assertIn('项目设定', detail)
-        self.assertIn('文件缺失', detail)
+        ok, _detail = stage_completion_service.completion_evidence(self.project, 'script')
+        self.assertTrue(ok)
 
     def test_auto_continue_blocked_does_not_complete(self):
-        """三虎自动续跑被阻塞：emit_verified_completion 不发 stage.completed。"""
+        """LOST-04：三虎自动续跑不再被准备顺序阻塞：emit_verified_completion 发 stage.completed。"""
         events = []
 
         def emit(kind, **kwargs):
             events.append((kind, kwargs))
             return {'ok': True}
 
+        write_natural_script(self.project)
         ok, _detail, payload = stage_completion_service.emit_verified_completion(
             self.project, 'script', '剧本已保存', emit)
-        self.assertFalse(ok)
-        self.assertIsNone(payload)
-        self.assertEqual(events, [])
+        self.assertTrue(ok)
+        self.assertIsNotNone(payload)
+        self.assertEqual([kind for kind, _kwargs in events], ['stage.completed'])
 
     def test_all_confirmed_and_script_present_completes(self):
         """设定、大纲、角色卡全部确认且自然剧本被采用 → 阶段完成并发出事件。"""
