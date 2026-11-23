@@ -196,6 +196,7 @@ def export(destination: str | Path) -> Path:
 
 FORGIVE_MINUTES = 5      # 仿 Chromium kForgiveGpuCrashMinutes（附 3b-2）
 CRASH_LIMIT = 3          # 仿 Chromium Windows 分支 GetFallbackCrashLimit
+READY_FALLBACK_MS = 60_000  # DES-APP-06：启动稳定漏调时的一次性兜底
 _GUARD_KEY = 'startup_guard'
 _SELFTEST_FLAG = 'selfcheck_failopen.flag'   # G12：data/ 下存在即甲类全部降级放行
 _DISK_MIN_FREE_MB = 500                     # H1：只查 程序\\data 所在盘
@@ -751,7 +752,7 @@ def startup_guard() -> str:
 
 
 def record_startup_ready() -> None:
-    """到达 READY（含登录闸出现）或正常构造完成：结清「进行中」并把崩溃计数清零（G6）。"""
+    """到达 READY（启动稳定／登录闸出现／60s 兜底）：结清「进行中」并把崩溃计数清零（G6／DES-APP-06）。"""
     try:
         with _LOCK:
             state = _state()

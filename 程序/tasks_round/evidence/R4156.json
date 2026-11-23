@@ -1,0 +1,15 @@
+{
+  "round": 4156,
+  "commit_base": "7684a7e7",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_startup_selfcheck test_desktop_startup_perf test_login_gate desktop.py ui/desktop_automation_tick.py infra/diagnostic_capture.py tests/test_startup_selfcheck.py docs/specs/02_接口与详细设计.md tasks_round/tasks_round_4156_result.md",
+    "exit": 0,
+    "passed": 98,
+    "failed": 0
+  },
+  "generated_at": "2026-11-23T14:09:21"
+}

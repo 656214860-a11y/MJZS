@@ -51,12 +51,52 @@ class AutomationTickMixin:
             self._startup_tick_resume_id=self.win.after_idle(self._resume_tick_after_first_paint)
         return self._startup_tick_resume_id
 
+    def _arm_startup_ready_guard(self):
+        """登录闸出现即 READY；否则等 settle；60s 兜底防漏计（DES-APP-06）。"""
+        import infra.diagnostic_capture as diagnostic_capture
+        if getattr(self,'login_gate_active',False):
+            try:diagnostic_capture.record_startup_ready()
+            except Exception:
+                import infra.app_logging as app_logging
+                app_logging.swallowed()
+        self.automation_scheduler.start(
+            'startup_ready_fallback',diagnostic_capture.READY_FALLBACK_MS,self._startup_ready_fallback,
+            on_error=lambda exc:None,
+            remember_timer=lambda timer:setattr(self,'_startup_ready_fallback_id',timer))
+
+    def _startup_ready_fallback(self):
+        self._cancel_startup_ready_fallback()
+        if getattr(self,'shutting_down',False):
+            return
+        try:
+            import infra.diagnostic_capture as diagnostic_capture
+            diagnostic_capture.record_startup_ready()
+        except Exception:
+            import infra.app_logging as app_logging
+            app_logging.swallowed()
+
+    def _cancel_startup_ready_fallback(self):
+        scheduler=getattr(self,'automation_scheduler',None)
+        if scheduler is None:
+            return
+        try:scheduler.cancel('startup_ready_fallback')
+        except Exception:
+            import infra.app_logging as app_logging
+            app_logging.swallowed()
+
     def _resume_tick_after_first_paint(self):
         self._startup_tick_resume_id=None
         if getattr(self,'shutting_down',False):
             return
         self._startup_tick_paused=False
         self.win._desktop_startup_settled=True
+        self._cancel_startup_ready_fallback()
+        try:
+            import infra.diagnostic_capture as diagnostic_capture
+            diagnostic_capture.record_startup_ready()
+        except Exception:
+            import infra.app_logging as app_logging
+            app_logging.swallowed()
         self.automation_scheduler.start(
             'tick',150,self._tick_once,
             on_error=lambda exc:self._set_automation_error('后台任务回调异常，已忽略：',exc),
