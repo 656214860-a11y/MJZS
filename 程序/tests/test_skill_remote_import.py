@@ -105,9 +105,30 @@ class ParseSourceTests(unittest.TestCase):
         self.assertEqual(spec['kind'], 'archive')
         self.assertEqual(spec['source_kind'], 'archive')
         self.assertIn('sig=abc123', spec['url'])
-        self.assertIn('sig=abc123', spec['source_url'])
+        self.assertEqual(spec['source_url'],
+                         'https://cdn.example.com/packs/my-skill.zip',
+                         '台账 source_url 不带查询串（签名参数可能夹带令牌）')
         self.assertNotIn('sig=', spec['label'])
         self.assertTrue(spec['cache_name'].endswith('.zip'))
+
+    def test_github_release_asset_zip_is_archive_link(self):
+        """``github.com/<o>/<r>/releases/download/<tag>/<asset>.zip`` 按 .zip 直链处理。"""
+        spec = skill_remote_service.parse_source(
+            'https://github.com/acme/tools/releases/download/v1.0/skill-pack.zip')
+        self.assertEqual(spec['kind'], 'archive')
+        self.assertEqual(spec['source_kind'], 'archive')
+        self.assertEqual(spec['source_ref'], '')
+        self.assertEqual(spec['url'],
+                         'https://github.com/acme/tools/releases/download/v1.0/skill-pack.zip')
+        self.assertEqual(spec['source_url'], spec['url'])
+        self.assertIn('releases/download/v1.0/skill-pack.zip', spec['label'])
+
+    def test_github_release_asset_query_stays_out_of_source_url(self):
+        spec = skill_remote_service.parse_source(
+            'https://github.com/acme/tools/releases/download/v1.0/skill-pack.zip?sig=x')
+        self.assertIn('sig=x', spec['url'])
+        self.assertNotIn('sig=', spec['source_url'])
+        self.assertNotIn('sig=', spec['label'])
 
     def test_rejected_forms(self):
         for text in ('git@github.com:acme/tools.git',
@@ -116,7 +137,8 @@ class ParseSourceTests(unittest.TestCase):
                      'https://user:pw@x.com/a.zip',
                      '随便一段文字',
                      'https://github.com/onlyowner',
-                     'https://github.com/acme/tools/releases'):
+                     'https://github.com/acme/tools/releases',
+                     'https://github.com/acme/tools/archive/refs/heads/main.zip'):
             with self.assertRaises(skill_import_service.ImportBlocked, msg=text):
                 skill_remote_service.parse_source(text)
 
@@ -204,7 +226,8 @@ class ImportFromUrlTests(unittest.TestCase):
         self.assertTrue((installed / 'references' / 'rules.md').is_file())
         row = next(iter(self.ledger_rows().values()))
         self.assertEqual(row['source_url'],
-                         'https://cdn.example.com/packs/remote.zip?sig=1')
+                         'https://cdn.example.com/packs/remote.zip',
+                         '台账 source_url 去掉查询串')
         self.assertEqual(row['source_kind'], 'archive')
         self.assertEqual(row['source_ref'], '')
         self.assertEqual(row['version'], '2.0.1')
@@ -231,6 +254,25 @@ class ImportFromUrlTests(unittest.TestCase):
         self.assertEqual(row['source_kind'], 'repo')
         self.assertEqual(row['source_url'], 'https://github.com/acme/tools')
         self.assertEqual(row['source_ref'], 'v2')
+        self.assertEqual(row['version'], '2.0.1')
+
+    def test_github_release_asset_end_to_end(self):
+        """release asset 直链：下载原 URL → 解包管线 → 台账按 archive 记。"""
+        payload = zip_bytes({
+            'pack/SKILL.md': REMOTE_MD,
+            'pack/references/rules.md': '规则',
+        })
+        url = 'https://github.com/acme/tools/releases/download/v1.0/pack.zip'
+        opener = Opener({url: FakeResponse(payload)})
+        report = skill_remote_service.import_from_url(
+            url, self.program, self.registry, confirm=lambda m: True, opener=opener)
+        self.assertEqual(opener.urls, [url])
+        self.assertEqual(len(report['installed']), 1)
+        self.assertTrue((self.program / 'data' / 'skills' / '01剧本准备SKILL'
+                         / 'pack' / 'SKILL.md').is_file())
+        row = next(iter(self.ledger_rows().values()))
+        self.assertEqual(row['source_kind'], 'archive')
+        self.assertEqual(row['source_url'], url)
         self.assertEqual(row['version'], '2.0.1')
 
     def test_http_404_and_bad_zip_have_clear_errors(self):

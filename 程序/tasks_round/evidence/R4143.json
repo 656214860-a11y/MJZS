@@ -1,0 +1,15 @@
+{
+  "round": 4143,
+  "commit_base": "3383684c",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k skill_remote skill_import",
+    "exit": 0,
+    "passed": 93,
+    "failed": 0
+  },
+  "generated_at": "2026-11-23T12:02:47"
+}

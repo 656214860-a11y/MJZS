@@ -7,7 +7,9 @@
   ``/tree/<ref>/<子目录>``（GitHub 页面浏览子目录的链接形态，``#ref`` 优先）；
   按 codeload 端点 ``…/zip/<ref>`` 取整仓 ZIP，``ref`` 缺省为 ``HEAD``（默认分支）。
 - ``http(s)://…/*.zip`` 直链：按 URL path 后缀判定，查询串不影响；下载地址保留
-  查询串（签名链接需要），展示标签与台账 ``source`` 不含查询串（可能夹带令牌）。
+  查询串（签名链接需要），展示标签、台账 ``source`` 与 ``source_url`` 不含查询串
+  （可能夹带令牌）。``github.com/<owner>/<repo>/releases/download/…/*.zip``
+  release asset 形态同样按直链处理。
 
 下载唯一出站口径 ``platform_tools.open_https``（与账号客户端同规矩：
 ``DRAMA_SUPPRESS_NETWORK`` 自检开关下默认入口直接按不联网返回；测试注入
@@ -97,8 +99,18 @@ def _github(parts, path, fragment):
             'source_ref': ref, 'source_kind': 'repo', 'scope': scope}
 
 
+def _github_release_asset(path):
+    """``github.com/<owner>/<repo>/releases/download/<tag>/<asset>.zip`` 直链形态。"""
+    if not path.lower().endswith('.zip'):
+        return False
+    segments = [seg for seg in path.split('/') if seg]
+    return (len(segments) >= 6 and segments[2].lower() == 'releases'
+            and segments[3].lower() == 'download')
+
+
 def _archive_link(parts, path):
-    """``http(s)://…/*.zip`` 直链：下载地址保留查询串，标签去掉查询串。"""
+    """``http(s)://…/*.zip`` 直链：下载地址保留查询串（签名链接需要）；
+    展示标签与台账 ``source_url`` 去掉查询串（可能夹带令牌）。"""
     url = urllib.parse.urlunsplit(
         (parts.scheme, parts.netloc, parts.path, parts.query, ''))
     name = urllib.parse.unquote(path).rstrip('/').rsplit('/', 1)[-1]
@@ -109,7 +121,9 @@ def _archive_link(parts, path):
     label = (parts.netloc + label)[:120]
     return {'kind': 'archive', 'url': url, 'label': label or url,
             'cache_name': '%s-%s.zip' % (stem, digest),
-            'source_url': url, 'source_ref': '',
+            'source_url': urllib.parse.urlunsplit(
+                (parts.scheme, parts.netloc, parts.path, '', '')),
+            'source_ref': '',
             'source_kind': 'archive', 'scope': ''}
 
 
@@ -138,6 +152,8 @@ def parse_source(text):
     path = urllib.parse.unquote(parts.path or '')
     fragment = parts.fragment or ''
     if host in _GITHUB_HOSTS:
+        if _github_release_asset(path):
+            return _archive_link(parts, path)
         return _github(parts, path, fragment)
     if path.lower().endswith('.zip'):
         return _archive_link(parts, path)
