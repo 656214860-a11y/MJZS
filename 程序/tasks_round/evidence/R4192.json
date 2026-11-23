@@ -1,0 +1,15 @@
+{
+  "round": 4192,
+  "commit_base": "b5b41193",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k force_quit process_supervisor infra/workflow_process_registry.py orchestrator/workflow_engines.py ui/desktop_lifecycle.py tests/test_force_quit.py tests/test_process_supervisor.py 维护记录/分支覆盖率基线.json tasks_round/tasks_round_4192_result.md",
+    "exit": 0,
+    "passed": 41,
+    "failed": 0
+  },
+  "generated_at": "2026-11-23T18:23:56"
+}

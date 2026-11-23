@@ -299,5 +299,144 @@ class SupervisedLifecycleTests(unittest.TestCase):
                     pass
 
 
+class FakeExitProc:
+    """假进程：只提供 exit_candidates／terminate_all 需要的 poll／wait／kill。"""
+
+    def __init__(self, pid, *, alive=True):
+        import subprocess
+        self.pid = pid
+        self.returncode = None if alive else 0
+        self._TimeoutExpired = subprocess.TimeoutExpired
+
+    def poll(self):
+        return self.returncode
+
+    def wait(self, timeout=None):
+        if self.returncode is None:
+            raise self._TimeoutExpired(cmd='fake', timeout=timeout or 0)
+        return self.returncode
+
+    def kill(self):
+        self.returncode = -9
+
+
+class ExitCandidatesTests(unittest.TestCase):
+    """T1：exit_candidates 只返回仍在跑、且非 detached 的登记进程。"""
+
+    def setUp(self):
+        self._projects = []
+        for _ in range(2):
+            tmp = tempfile.TemporaryDirectory()
+            self.addCleanup(tmp.cleanup)
+            self._projects.append(Path(tmp.name))
+        self._clear()
+
+    def tearDown(self):
+        self._clear()
+
+    def _clear(self):
+        with wpr._lock:
+            for project in self._projects:
+                wpr._running.pop(wpr._key(project), None)
+            wpr._supervised.clear()
+
+    def test_exit_candidates_skips_detached_and_exited(self):
+        a, b = self._projects
+        running_a = FakeExitProc(101)
+        running_b = FakeExitProc(102)
+        detached = FakeExitProc(103)
+        exited = FakeExitProc(104, alive=False)
+        wpr.register_process(a, running_a, job=False)
+        wpr.register_supervised(running_a, kind='engine_cli', stage='t',
+                                project=a, in_job=True)
+        wpr.register_process(b, running_b, job=False)
+        wpr.register_supervised(running_b, kind='ffmpeg', stage='t',
+                                project=b, in_job=True)
+        wpr.register_process(a, detached, job=False)
+        wpr.register_supervised(detached, kind='detached', stage='t',
+                                project=a, in_job=False)
+        wpr.register_process(b, exited, job=False)
+        wpr.register_supervised(exited, kind='test_runner', stage='t',
+                                project=b, in_job=True)
+        candidates = wpr.exit_candidates()
+        procs = [process for _, process in candidates]
+        self.assertEqual(set(procs), {running_a, running_b})
+        projects = {wpr._key(project) for project, _ in candidates}
+        self.assertEqual(projects, {wpr._key(a), wpr._key(b)})
+
+
+class TerminateAllTests(unittest.TestCase):
+    """T2：terminate_all 结束所有候选、放过 detached，超时则 kill。"""
+
+    def setUp(self):
+        self._projects = []
+        for _ in range(2):
+            tmp = tempfile.TemporaryDirectory()
+            self.addCleanup(tmp.cleanup)
+            self._projects.append(Path(tmp.name))
+        self._clear()
+        self._stub_tree()
+
+    def tearDown(self):
+        self._clear()
+
+    def _clear(self):
+        with wpr._lock:
+            for project in self._projects:
+                wpr._running.pop(wpr._key(project), None)
+            wpr._supervised.clear()
+
+    def _stub_tree(self):
+        import contract.platform_tools as platform_tools
+        original = platform_tools.terminate_process_tree
+        self.addCleanup(setattr, platform_tools, 'terminate_process_tree', original)
+
+        def fake_tree(process):
+            # 默认立刻退；个别用例把 wait 改成抛超时后再 kill。
+            if getattr(process, '_hang', False):
+                return
+            process.returncode = -15
+
+        platform_tools.terminate_process_tree = fake_tree
+
+    def test_terminate_all_ends_running_and_skips_detached(self):
+        from orchestrator import workflow_engines
+        a, b = self._projects
+        first = FakeExitProc(201)
+        second = FakeExitProc(202)
+        detached = FakeExitProc(203)
+        wpr.register_process(a, first, job=False)
+        wpr.register_supervised(first, kind='engine_cli', stage='t',
+                                project=a, in_job=True)
+        wpr.register_process(b, second, job=False)
+        wpr.register_supervised(second, kind='ffmpeg', stage='t',
+                                project=b, in_job=True)
+        wpr.register_process(a, detached, job=False)
+        wpr.register_supervised(detached, kind='detached', stage='t',
+                                project=a, in_job=False)
+        killed = workflow_engines.terminate_all()
+        self.assertEqual(sorted(killed), [201, 202])
+        self.assertEqual(wpr.processes(a), [detached])
+        self.assertEqual(wpr.processes(b), [])
+        self.assertIsNone(detached.poll())
+
+    def test_terminate_all_kills_when_wait_times_out(self):
+        from orchestrator import workflow_engines
+        project = self._projects[0]
+        hang = FakeExitProc(301)
+        hang._hang = True
+        wpr.register_process(project, hang, job=False)
+        wpr.register_supervised(hang, kind='engine_cli', stage='t',
+                                project=project, in_job=True)
+        killed = workflow_engines.terminate_all(timeout=0.01)
+        self.assertEqual(killed, [301])
+        self.assertEqual(hang.returncode, -9)
+        self.assertEqual(wpr.processes(project), [])
+
+    def test_terminate_all_empty_when_no_candidates(self):
+        from orchestrator import workflow_engines
+        self.assertEqual(workflow_engines.terminate_all(), [])
+
+
 if __name__ == '__main__':
     unittest.main()

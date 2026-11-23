@@ -301,6 +301,52 @@ class QuitTests(unittest.TestCase):
         self.assertEqual(launched_logs, [], '强制退出不额外做日志维护')
         self.assertEqual(launched_workspaces, [], '强制退出不额外做仓库卫生')
 
+    def test_stop_automation_processes_ends_other_projects_once(self):
+        """T3：当前项目之外登记的进程也要被结束；第二次调用返回空列表。"""
+        import workflow_engines
+        calls = []
+        self.stub(workflow_engines, 'terminate_all',
+                  lambda timeout=3.0: (calls.append(timeout), [702])[1])
+        subject = self.subject(root=Path(tempfile.mkdtemp()))
+        self.addCleanup(lambda: __import__('shutil').rmtree(subject.root, ignore_errors=True))
+        first = subject.stop_automation_processes()
+        self.assertEqual(calls, [3.0])
+        self.assertIn(702, first)
+        self.assertEqual(self.terminated, [str(subject.root)], '仍先结束当前项目')
+        self.assertEqual(subject.stop_automation_processes(), [],
+                         '「只做一次」：第二次必须立刻返回空列表')
+        self.assertEqual(len(calls), 1)
+
+    def test_stop_automation_processes_without_root_still_terminates_all(self):
+        """当前没有打开项目时，退出仍要收掉登记表里其它项目的进程。"""
+        import workflow_engines
+        calls = []
+        self.stub(workflow_engines, 'terminate_all',
+                  lambda timeout=3.0: (calls.append(timeout), [801])[1])
+        subject = self.subject(root=None)
+        self.assertEqual(subject.stop_automation_processes(), [801])
+        self.assertEqual(calls, [3.0])
+        self.assertEqual(self.terminated, [], 'root 为空时不调 terminate(project)')
+
+    def test_finish_close_logs_background_pool_status(self):
+        """T4：退出时记一行各池排队数；pool_status 抛错也不挡收摊。"""
+        import infra.executors as executors
+        status = {'io': {'workers': 1, 'queued': 2, 'closing': False}}
+        self.stub(executors, 'pool_status', lambda: status)
+        subject, events = self.maintenance_subject()
+        with self.assertLogs('desktop_lifecycle', level='INFO') as logs:
+            self.desktop.Desktop.finish_close(subject)
+        joined = '\n'.join(logs.output)
+        self.assertIn('退出时后台任务', joined)
+        self.assertIn('queued', joined)
+        self.assertEqual(events, ['destroy', 'storage', 'logs', 'workspace'])
+
+        subject2, events2 = self.maintenance_subject()
+        self.stub(executors, 'pool_status',
+                  lambda: (_ for _ in ()).throw(RuntimeError('pool boom')))
+        self.desktop.Desktop.finish_close(subject2)
+        self.assertEqual(events2, ['destroy', 'storage', 'logs', 'workspace'])
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
