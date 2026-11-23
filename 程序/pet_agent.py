@@ -649,18 +649,18 @@ def save_settings(values, program=None):
 
     第 44 期：设置页（自动化等级／基础功能／预算）必须真的落盘——否则用户改完，下一次开机又退回
     出厂那一档，设置页就成了哑键。只认 SETTING_KEYS 里的键，别的键（模型池、密钥名那些）原样带过；
-    写不动／盘上那份是坏 JSON 也不抛：坏值过滤掉重写一份，救得回来。
+    写不动／盘上那份是坏 JSON 也不抛：坏值过滤掉重写一份，救得回来；读—改—写在发布锁内，与模型池等锁内写者并发不丢键（审查 AUD-MODEL D2）。
     """
+    from agent.publication import access
     path = config_file(program)
-    data = read_json(path)
-    data = dict(data) if isinstance(data, dict) else {}
-    for key, value in dict(values or {}).items():
-        if key not in SETTING_KEYS or value is None:
-            continue
-        normalized = _SETTING_NORMALIZERS.get(key, _keep)(value)
-        if normalized is not _SKIP:
-            data[key] = normalized
-    save(path, data)
+    with access():
+        data = read_json(path)
+        data = dict(data) if isinstance(data, dict) else {}
+        updates = {key: _SETTING_NORMALIZERS.get(key, _keep)(value)
+                   for key, value in dict(values or {}).items()
+                   if key in SETTING_KEYS and value is not None}
+        data.update({key: value for key, value in updates.items() if value is not _SKIP})
+        save(path, data)
     return path
 
 
