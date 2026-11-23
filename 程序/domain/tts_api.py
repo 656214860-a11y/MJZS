@@ -532,6 +532,56 @@ def batch_cost_preview(project, lines, folder, settings=None):
     return {'pending': pending, 'unknown': unknown, 'characters': chars, 'text': tip}
 
 
+# 「连接根本没建立」的可证明文案：refused／DNS 解析失败一类——可记 failed 自动重发。
+_PROVEN_UNREACHABLE_MARKERS = ('refused', '10061', 'econnrefused', 'getaddrinfo',
+                             'name resolution', 'name or service', '11001', '11004')
+
+
+def _send_outcome(exc):
+    """网络层发送结果判定：'uncertain' 结果未知（可能已提交扣费，禁止自动重发）、
+    'failed' 可证明连接没建立（refused／DNS 失败一类）、None 交给既有分支。
+
+    必须在「已付费写盘失败」分支之前判定：ConnectionResetError 等网络层 OSError 也是
+    OSError，落到写盘分支会误标 unsaved。URLError 按底层 reason 再分：refused／gaierror
+    及对应文案才算确定失败，超时、重置、读取中断和识别不出的文案一律按未知处理。
+    """
+    import http.client
+    import socket
+    import urllib.error
+    reason = getattr(exc, 'reason', exc)
+    if isinstance(reason, (ConnectionResetError, ConnectionAbortedError, BrokenPipeError,
+                           TimeoutError, http.client.IncompleteRead)):
+        return 'uncertain'
+    if isinstance(reason, (ConnectionRefusedError, socket.gaierror)):
+        return 'failed'
+    if isinstance(exc, urllib.error.URLError):
+        if isinstance(reason, OSError):
+            return 'uncertain'
+        text = str(reason or exc).lower()
+        return 'failed' if any(m in text for m in _PROVEN_UNREACHABLE_MARKERS) else 'uncertain'
+    return None
+
+
+def _line_outcome(exc, started, paid, project):
+    """逐句异常归类，返回 (state, error, not_submitted)；判定顺序即扣费安全边界。
+
+    结果未知最先判：连接重置／超时／响应读取中断可能已提交扣费，记 uncertain 禁止自动
+    重发；其次已付费写盘失败记 unsaved；4xx 与可证明未建立的 refused 一类记 failed 允许
+    自动重发；其余已启动的记 uncertain、未启动的记 failed。
+    """
+    import urllib.error
+    outcome = _send_outcome(exc)
+    if outcome == 'uncertain':
+        return 'uncertain', str(exc), False
+    if project is not None and paid and isinstance(exc, (OSError, ValueError)) and not isinstance(exc, TTSRejected):
+        return 'unsaved', '已付费未保存：' + str(exc), False
+    if outcome == 'failed' or isinstance(exc, TTSRejected) or (isinstance(exc, urllib.error.URLError) and started):
+        return 'failed', str(exc), True
+    if project is not None and started:
+        return 'uncertain', str(exc), False
+    return 'failed', str(exc), True
+
+
 def run_lines(lines, folder, generate=None, report=None, stop=None, *, gateway=None, settings=None, episode=None,
               on_line=None, project=None):
     """逐句合成到 folder：每句完成后立即写清单，已成功的句子直接沿用。
@@ -605,15 +655,7 @@ def run_lines(lines, folder, generate=None, report=None, stop=None, *, gateway=N
             if on_line is not None:
                 on_line(index, line, entry)
         except Exception as exc:
-            import urllib.error
-            if project is not None and paid and isinstance(exc, (OSError, ValueError)) and not isinstance(exc, TTSRejected):
-                state, error, not_submitted = 'unsaved', '已付费未保存：' + str(exc), False
-            elif isinstance(exc, TTSRejected) or (isinstance(exc, urllib.error.URLError) and started):
-                state, error, not_submitted = 'failed', str(exc), True
-            elif project is not None and started:
-                state, error, not_submitted = 'uncertain', str(exc), False
-            else:
-                state, error, not_submitted = 'failed', str(exc), True
+            state, error, not_submitted = _line_outcome(exc, started, paid, project)
             entry = {**line, "file": "", "state": state, "error": error}
             if project is not None:
                 entry.update(request_id=request_id, not_submitted=not_submitted)
@@ -695,23 +737,32 @@ def unknown_line_indexes(lines, folder):
 
 
 def unknown_release_prompt(lines, folder):
-    """人工放开确认文案：镜号、台词前 20 字、请求号；indexes 为空表示没有待核实句。"""
+    """人工放开确认文案：镜号、台词前 20 字、请求号，按句子状态分组。
+
+    sending／uncertain 一组沿用「已核对没有扣费」句；unsaved（已付费未保存）单独成组，
+    如实说明重发会再付一次；混合批次两段各自列出。indexes 为空表示没有待核实句。
+    """
     folder = Path(folder)
     manifest = read_json(folder / '时间轴.json')
     manifest = manifest if isinstance(manifest, list) else []
     indexes = unknown_line_indexes(lines, folder)
-    rows = []
+    groups = {'unknown': [], 'unsaved': []}
     for index in indexes:
         previous = manifest[index - 1] if index <= len(manifest) else {}
         text = str((previous or {}).get('text') or lines[index - 1].get('text') or '')
-        rows.append('%s · %s · 请求 %s' % (
+        row = '%s · %s · 请求 %s' % (
             previous.get('shot_id') or lines[index - 1].get('shot_id') or '',
             text[:20],
-            previous.get('request_id') or '（无）'))
-    body = '\n'.join(rows) if rows else ''
-    tip = ('下列句子上次结果未知，不会自动重发：\n' + body
-           + '\n\n已核对服务商后台，这些请求没有扣费，重新发送')
-    return {'indexes': indexes, 'text': tip}
+            previous.get('request_id') or '（无）')
+        groups['unsaved' if (previous or {}).get('state') == 'unsaved' else 'unknown'].append(row)
+    sections = []
+    if groups['unknown']:
+        sections.append('下列句子上次结果未知，不会自动重发：\n' + '\n'.join(groups['unknown'])
+                        + '\n\n已核对服务商后台，这些请求没有扣费，重新发送')
+    if groups['unsaved']:
+        sections.append('下列句子上次已付费但没有保存成功，不会自动重发：\n' + '\n'.join(groups['unsaved'])
+                        + '\n\n这些句子上次已付费但没有保存成功，重新发送会再付一次')
+    return {'indexes': indexes, 'text': '\n\n'.join(sections)}
 
 
 def release_unknown(folder, indexes, *, gateway=None):

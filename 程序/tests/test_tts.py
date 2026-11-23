@@ -605,6 +605,149 @@ class TtsRejectAndReleaseTests(unittest.TestCase):
                 (0, 0, 1))
             self.assertEqual(gen2.call_count, 1)
 
+    def test_urlerror_wrapped_timeout_is_uncertain_and_never_resent(self):
+        """FIX-S11-E1B：URLError 包裹的超时＝结果未知，不许标 failed 自动重发（重复扣费）。"""
+        with tempfile.TemporaryDirectory() as td:
+            project, folder = Path(td), Path(td) / "audio"
+            lines = [{"shot_id": "S1", "text": "你好", "speed": 1.0}]
+            gen = Mock(side_effect=urllib.error.URLError(TimeoutError("timed out")))
+            self.assertEqual(
+                tts_api.run_lines(lines, folder, generate=gen, gateway=_gateway(), project=project),
+                (0, 0, 1))
+            entry = json.loads((folder / "时间轴.json").read_text(encoding="utf-8"))[0]
+            self.assertEqual(entry["state"], "uncertain")
+            self.assertFalse(entry.get("not_submitted"))
+            self.assertEqual(
+                tts_api.run_lines(lines, folder, generate=gen, gateway=_gateway(), project=project),
+                (0, 0, 1))
+            self.assertEqual(gen.call_count, 1)
+
+    def test_urlerror_wrapped_reset_is_uncertain_and_never_resent(self):
+        """FIX-S11-E1B：URLError 底层是连接重置（类型化或文案形态）＝结果未知，不自动重发。"""
+        errors = (
+            urllib.error.URLError(ConnectionResetError(10054, "远程主机强迫关闭了一个现有的连接")),
+            urllib.error.URLError("<urlopen error [WinError 10054] 远程主机强迫关闭了一个现有的连接。>"),
+            urllib.error.URLError("connection reset by peer"),
+        )
+        for error in errors:
+            with self.subTest(error=error), tempfile.TemporaryDirectory() as td:
+                project, folder = Path(td), Path(td) / "audio"
+                lines = [{"shot_id": "S1", "text": "你好", "speed": 1.0}]
+                gen = Mock(side_effect=error)
+                tts_api.run_lines(lines, folder, generate=gen, gateway=_gateway(), project=project)
+                entry = json.loads((folder / "时间轴.json").read_text(encoding="utf-8"))[0]
+                self.assertEqual(entry["state"], "uncertain")
+                self.assertFalse(entry.get("not_submitted"))
+                self.assertEqual(
+                    tts_api.run_lines(lines, folder, generate=gen, gateway=_gateway(), project=project),
+                    (0, 0, 1))
+                self.assertEqual(gen.call_count, 1)
+
+    def test_reset_and_interrupted_read_stay_uncertain(self):
+        """连接重置／响应读取中断直达 run_lines：结果未知且不自动重发。"""
+        import http.client
+        for error in (ConnectionResetError(10054, "reset"), http.client.IncompleteRead(b"partial")):
+            with self.subTest(error=error), tempfile.TemporaryDirectory() as td:
+                project, folder = Path(td), Path(td) / "audio"
+                lines = [{"shot_id": "S1", "text": "你好", "speed": 1.0}]
+                gen = Mock(side_effect=error)
+                tts_api.run_lines(lines, folder, generate=gen, gateway=_gateway(), project=project)
+                entry = json.loads((folder / "时间轴.json").read_text(encoding="utf-8"))[0]
+                self.assertEqual(entry["state"], "uncertain")
+                self.assertEqual(
+                    tts_api.run_lines(lines, folder, generate=gen, gateway=_gateway(), project=project),
+                    (0, 0, 1))
+                self.assertEqual(gen.call_count, 1)
+
+    def test_reset_after_payment_is_uncertain_not_unsaved(self):
+        """网络层 OSError 先于「已付费写盘失败」判定：付费后连接重置仍是结果未知。"""
+        with tempfile.TemporaryDirectory() as td:
+            project, folder = Path(td), Path(td) / "audio"
+            lines = [{"shot_id": "S1", "text": "你好", "speed": 1.0}]
+            broken = {**_gateway(), "publish_bytes": Mock(side_effect=ConnectionResetError(10054, "reset"))}
+            self.assertEqual(
+                tts_api.run_lines(lines, folder, generate=Mock(return_value=b"audio"),
+                                  gateway=broken, project=project),
+                (0, 0, 1))
+            entry = json.loads((folder / "时间轴.json").read_text(encoding="utf-8"))[0]
+            self.assertEqual(entry["state"], "uncertain")
+            again = Mock(return_value=b"audio")
+            self.assertEqual(
+                tts_api.run_lines(lines, folder, generate=again, gateway=_gateway(), project=project),
+                (0, 0, 1))
+            again.assert_not_called()
+
+    def test_unreachable_stays_failed_and_resends(self):
+        """连接没建立（refused／DNS 解析失败一类）仍是确定失败：记 failed，允许自动重发。"""
+        import socket
+        errors = (
+            urllib.error.URLError("connection refused"),
+            urllib.error.URLError(ConnectionRefusedError(111, "Connection refused")),
+            urllib.error.URLError(socket.gaierror(-2, "Name or service not known")),
+        )
+        for error in errors:
+            with self.subTest(error=error), tempfile.TemporaryDirectory() as td:
+                project, folder = Path(td), Path(td) / "audio"
+                lines = [{"shot_id": "S1", "text": "你好", "speed": 1.0}]
+                gen = Mock(side_effect=error)
+                tts_api.run_lines(lines, folder, generate=gen, gateway=_gateway(), project=project)
+                entry = json.loads((folder / "时间轴.json").read_text(encoding="utf-8"))[0]
+                self.assertEqual(entry["state"], "failed")
+                self.assertTrue(entry.get("not_submitted"))
+                gen.side_effect = None
+                gen.return_value = b"audio"
+                self.assertEqual(
+                    tts_api.run_lines(lines, folder, generate=gen, gateway=_gateway(), project=project),
+                    (1, 0, 0))
+                self.assertEqual(gen.call_count, 2)
+
+    def _manifest_with_states(self, folder, lines, states):
+        folder.mkdir(parents=True, exist_ok=True)
+        entries = [{**line, "state": state, "file": "", "request_id": "rid-%d" % index}
+                   for index, (line, state) in enumerate(zip(lines, states), 1)]
+        (folder / "时间轴.json").write_text(json.dumps(entries), encoding="utf-8")
+
+    def test_release_prompt_uncertain_lines_keep_checked_wording(self):
+        with tempfile.TemporaryDirectory() as td:
+            folder = Path(td)
+            lines = [{"shot_id": "S1", "text": "第一句", "speed": 1.0}]
+            self._manifest_with_states(folder, lines, ["uncertain"])
+            tip = tts_api.unknown_release_prompt(lines, folder)
+            self.assertEqual(tip["indexes"], [1])
+            self.assertIn("已核对服务商后台，这些请求没有扣费，重新发送", tip["text"])
+            self.assertNotIn("重新发送会再付一次", tip["text"])
+
+    def test_release_prompt_unsaved_lines_tell_repaid_truth(self):
+        """unsaved 句已付费：放开文案如实说明重发会再付一次，不说「没有扣费」。"""
+        with tempfile.TemporaryDirectory() as td:
+            folder = Path(td)
+            lines = [{"shot_id": "S1", "text": "第一句", "speed": 1.0}]
+            self._manifest_with_states(folder, lines, ["unsaved"])
+            tip = tts_api.unknown_release_prompt(lines, folder)
+            self.assertEqual(tip["indexes"], [1])
+            self.assertIn("这些句子上次已付费但没有保存成功，重新发送会再付一次", tip["text"])
+            self.assertNotIn("这些请求没有扣费", tip["text"])
+            self.assertIn("S1", tip["text"])
+            self.assertIn("rid-1", tip["text"])
+
+    def test_release_prompt_mixed_batch_groups_each_state(self):
+        with tempfile.TemporaryDirectory() as td:
+            folder = Path(td)
+            lines = [{"shot_id": "S1", "text": "第一句", "speed": 1.0},
+                     {"shot_id": "S2", "text": "第二句", "speed": 1.0},
+                     {"shot_id": "S3", "text": "第三句", "speed": 1.0}]
+            self._manifest_with_states(folder, lines, ["sending", "uncertain", "unsaved"])
+            tip = tts_api.unknown_release_prompt(lines, folder)
+            self.assertEqual(tip["indexes"], [1, 2, 3])
+            self.assertIn("已核对服务商后台，这些请求没有扣费，重新发送", tip["text"])
+            self.assertIn("这些句子上次已付费但没有保存成功，重新发送会再付一次", tip["text"])
+            unknown_part, unsaved_part = tip["text"].split("已付费但没有保存成功", 1)
+            self.assertIn("S1", unknown_part)
+            self.assertIn("S2", unknown_part)
+            self.assertNotIn("S3", unknown_part)
+            self.assertIn("S3", unsaved_part)
+            self.assertNotIn("S1", unsaved_part)
+
     def test_publish_failure_marks_unsaved_and_blocks_resend(self):
         with tempfile.TemporaryDirectory() as td:
             project, folder = Path(td), Path(td) / "audio"

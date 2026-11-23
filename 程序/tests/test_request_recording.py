@@ -206,7 +206,9 @@ class TtsRecordingTests(unittest.TestCase):
             self.assertEqual((quote['pending'], quote['unknown']), ([], 1))
             tip = tts_api.unknown_release_prompt(lines, out)
             self.assertEqual(tip['indexes'], [1])
-            self.assertIn('已核对服务商后台，这些请求没有扣费，重新发送', tip['text'])
+            # FIX-S11-E1B（N137）：unsaved 句按状态分句，如实说明已付费、重发会再付一次。
+            self.assertIn('这些句子上次已付费但没有保存成功，重新发送会再付一次', tip['text'])
+            self.assertNotIn('这些请求没有扣费', tip['text'])
             self.assertIn('S1', tip['text'])
             self.assertIn('rid-1', tip['text'])
             self.assertEqual(ses.release_tts_unknown(out, tip['indexes']), [1])
