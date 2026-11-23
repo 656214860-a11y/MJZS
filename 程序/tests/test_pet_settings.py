@@ -23,6 +23,7 @@ import json
 import os
 import sys
 import tempfile
+import threading
 import unittest
 from unittest import mock
 from pathlib import Path
@@ -978,3 +979,64 @@ class StartupSettingsTests(SettingsCase):
         self.assertEqual(closed.level, 'auto')
         self.assertEqual(closed.budget.limits['image'], 60)
         self.assertEqual(closed.notifier.window, (22, 6))
+
+
+class SaveSettingsLockTests(unittest.TestCase):
+    """审查 AUD-MODEL D2：save_settings 的读—改—写要在 agent.publication.access() 锁内。
+
+    宠物设置与模型池共用 配置/宠物/配置.json；model_pool.record_health 的读—改—写在发布锁内。
+    save_settings 若在锁外先读后写，record_health 整段插进它的读与写之间时，对方刚写下的键
+    会被这份旧快照静默盖掉。复现手法：把 pet_agent.save 换成「喊一声、等放行再写真 save」，
+    让 record_health 的读—改—写确定性落在 save_settings 读盘之后、写盘之前。
+    """
+
+    def test_concurrent_record_health_loses_no_keys(self):
+        with tempfile.TemporaryDirectory() as td:
+            program = Path(td)
+            config = model_pool.config_file(program)
+            config.parent.mkdir(parents=True, exist_ok=True)
+            config.write_text(json.dumps({'models': {'m1': {'model': 'gpt-x'}},
+                                          'agent': {'name': '三虎'}}, ensure_ascii=False),
+                              encoding='utf-8')
+
+            about_to_write = threading.Event()
+            proceed = threading.Event()
+            health_done = threading.Event()
+            real_save = pet_agent.save
+
+            def gated_save(path, data):
+                about_to_write.set()
+                proceed.wait(15)
+                return real_save(path, data)
+
+            def save_settings():
+                pet_agent.save_settings({'level': 'auto'}, program=program)
+
+            def record_health():
+                try:
+                    model_pool.record_health('m1', {'ok': True, 'at': 't', 'config_version': 'v'},
+                                             program=program)
+                finally:
+                    health_done.set()
+
+            writer = threading.Thread(target=save_settings, daemon=True)
+            health = threading.Thread(target=record_health, daemon=True)
+            with mock.patch.object(pet_agent, 'save', gated_save):
+                writer.start()
+                try:
+                    self.assertTrue(about_to_write.wait(15), 'save_settings 没走到写盘那一步')
+                    health.start()
+                    # 修复前：record_health 不拿锁，毫秒级写完，等它落盘再放行，竞态才确定。
+                    # 修复后：它堵在发布锁上直到放行，超时只是白等一会儿，不影响正确性。
+                    health_done.wait(10)
+                finally:
+                    proceed.set()
+                writer.join(15)
+                health.join(15)
+            self.assertFalse(writer.is_alive(), 'save_settings 线程没收尾')
+            self.assertFalse(health.is_alive(), 'record_health 线程没收尾')
+            data = json.loads(config.read_text(encoding='utf-8'))
+            self.assertEqual(data.get('level'), 'auto', '宠物设置键要落盘')
+            self.assertIn('m1', data.get('models', {}), '模型池记录不能被设置写丢')
+            self.assertTrue(data.get(model_pool.HEALTH_KEY, {}).get('m1', {}).get('ok'),
+                            'record_health 写下的键不能被设置写丢')
