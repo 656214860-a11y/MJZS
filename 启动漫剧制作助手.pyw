@@ -143,7 +143,10 @@ except Exception:
     try:old=log.read_text(encoding='utf-8',errors='replace')[-65536:]
     except OSError:old=''
     header=chr(10)+'===== '+time.strftime('%Y-%m-%d %H:%M:%S')+' '+_version+' Python '+sys.version.split()[0]+' ====='+chr(10)
-    log.write_text(old+header+traceback.format_exc(),encoding='utf-8')
+    _err=(traceback.format_exc().strip().splitlines() or [''])[-1][:200]
+    try:log.write_text(old+header+traceback.format_exc(),encoding='utf-8')
+    except OSError as _wexc:_note='日志没能保存：'+type(_wexc).__name__+'\n错误：'+_err
+    else:_note='详情已保存到：'+str(log)
     import ctypes
-    try:ctypes.windll.user32.MessageBoxW(0,'启动失败，详情已保存到：'+str(log),_title,16)
+    try:ctypes.windll.user32.MessageBoxW(0,'启动失败，'+_note,_title,16)
     except Exception:pass

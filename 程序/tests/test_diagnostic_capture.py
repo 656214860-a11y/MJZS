@@ -57,3 +57,26 @@ class DiagnosticCaptureTests(unittest.TestCase):
         with patch.object(Path, "rglob", side_effect=AssertionError("不得递归扫描")), \
              patch.object(Path, "iterdir", side_effect=AssertionError("不得枚举目录")):
             self.assertEqual(subject.preview(), ())
+
+    def test_record_crash_keeps_only_recent_tail(self):
+        self.logs.mkdir(parents=True)
+        self.error.write_text("HEAD-MARKER\n" + "x" * (200 * 1024), encoding="utf-8")
+        subject.record_crash(RuntimeError("first-crash"))
+        subject.record_crash(RuntimeError("second-crash"))
+        text = self.error.read_text(encoding="utf-8")
+        self.assertLess(self.error.stat().st_size, 100 * 1024)
+        self.assertNotIn("HEAD-MARKER", text)
+        self.assertIn("second-crash", text)
+
+    def test_export_includes_repo_root_startup_error_log(self):
+        program = Path(self.temp.name) / "程序"
+        program.mkdir()
+        launcher_log = Path(self.temp.name) / "启动错误.log"
+        launcher_log.write_text("launcher-side failure", encoding="utf-8")
+        with patch.object(subject, "PROGRAM", program):
+            self.assertIn(str(launcher_log), subject.preview())
+            output = subject.export(Path(self.temp.name) / "bundle.zip")
+        with zipfile.ZipFile(output) as archive:
+            self.assertIn("logs/diagnostics/启动错误.log", archive.namelist())
+            self.assertIn("launcher-side failure",
+                          archive.read("logs/diagnostics/启动错误.log").decode("utf-8"))

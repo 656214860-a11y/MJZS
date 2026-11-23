@@ -452,6 +452,45 @@ class BrokenContractSubprocessTests(unittest.TestCase):
             self.assertIn('未知', content)                     # 版本兜底
             self.assertIn('contract broken for test', content)  # 真实异常被记录
 
+    def test_unwritable_startup_log_still_shows_dialog(self):
+        """AUD-BOOT D2：启动错误.log 写不进（仓库根只读）时弹窗仍要出现。"""
+        self.assertTrue(LAUNCHER.is_file(), '仓库根缺少 启动漫剧制作助手.pyw')
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            program = root / '程序'
+            (program / 'contract').mkdir(parents=True)
+            (program / 'hash_backend.py').write_text(
+                'def install():\n    pass\n', encoding='utf-8')
+            (program / 'contract' / '__init__.py').write_text('', encoding='utf-8')
+            (program / 'contract' / 'app_metadata.py').write_text(
+                'raise RuntimeError("contract broken for test")\n', encoding='utf-8')
+            launcher = root / '启动漫剧制作助手.pyw'
+            shutil.copy(LAUNCHER, launcher)
+            log = root / '启动错误.log'
+            log.write_text('previous failure\n', encoding='utf-8')
+            os.chmod(log, 0o444)                     # 仓库根只读：write_text 必抛 OSError
+            wrapper = root / 'wrap.py'
+            wrapper.write_text(textwrap.dedent('''
+                import sys, types, ctypes, runpy
+                class _User32:
+                    def MessageBoxW(self, *args):
+                        print('DIALOG_TITLE=' + str(args[2]))
+                        print('DIALOG_TEXT=' + str(args[1]))
+                        return 1
+                ctypes.windll = types.SimpleNamespace(user32=_User32())
+                runpy.run_path(sys.argv[1], run_name='__main__')
+            '''), encoding='utf-8')
+            try:
+                done = subprocess.run(
+                    [sys.executable, '-X', 'utf8', '-B', str(wrapper), str(launcher)],
+                    capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=60)
+            finally:
+                os.chmod(log, 0o666)                 # 恢复可写，临时目录才能清掉
+            self.assertEqual(done.returncode, 0, done.stderr[-2000:])
+            self.assertIn('DIALOG_TITLE=漫剧助手', done.stdout)
+            self.assertIn('日志没能保存', done.stdout)
+            self.assertIn('contract broken for test', done.stdout)
+
 
 class FatalManufactureTests(unittest.TestCase):
     """D3-n④：甲类逐条「制造故障 → FATAL → 修复后自检放行」。
