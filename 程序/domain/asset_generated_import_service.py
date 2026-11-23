@@ -87,8 +87,8 @@ def import_pending_generated(project, base, report=None, *, gateway=None, contex
     plan = generated_plan(base)
     done = []
     for folder, path, aid in pending_generated_files(project, base, plan, context=context):
+        tmp = folder / (aid + '_autoimport.png')
         try:
-            tmp = folder / (aid + '_autoimport.png')
             publish_bytes(tmp, to_png(path.read_bytes()))
             result = register_image(base, aid, plan[aid], tmp, gateway=gateway)
             remove_temporary_file(tmp)
@@ -96,6 +96,7 @@ def import_pending_generated(project, base, report=None, *, gateway=None, contex
             if report:
                 report(aid + '：' + result)
         except Exception as exc:
+            remove_temporary_file(tmp)
             if report:
                 report(aid + '：自动导入未完成 ' + str(exc))
     return done

@@ -114,6 +114,32 @@ class AssetBatchRetentionTests(unittest.TestCase):
                     cleanup_batches(folder)
             self.assertTrue(record.is_file())
 
+    def test_failed_register_image_removes_autoimport_temp(self):
+        import asset_batch_service
+        from agent.core import save_bytes
+        from asset_context import generated_dir
+        from asset_generated_import_service import import_pending_generated, pending_generated_files
+        from tests.image_fixtures import png
+        with tempfile.TemporaryDirectory() as td:
+            project = Path(td) / 'project'
+            base = project / 'episode'
+            plan = base / 'assets/资产清单/assets.json'
+            plan.parent.mkdir(parents=True)
+            plan.write_text(json.dumps({'CHAR_001': {'name': '角色', 'image_prompt': 'x'}},
+                                       ensure_ascii=False), encoding='utf-8')
+            source = generated_dir(base) / 'CHAR_001_seedream_fail.png'
+            source.write_bytes(png())
+            reports = []
+            with patch.object(asset_batch_service, 'register_image', side_effect=OSError('登记失败')):
+                done = import_pending_generated(project, base, reports.append,
+                                                gateway={'publish_bytes': save_bytes})
+            self.assertEqual(done, [])
+            self.assertFalse((source.parent / 'CHAR_001_autoimport.png').exists())
+            self.assertEqual(len(reports), 1)
+            self.assertIn('自动导入未完成', reports[0])
+            self.assertEqual([path.name for _folder, path, _aid in pending_generated_files(project, base)],
+                             ['CHAR_001_seedream_fail.png'])
+
 
 if __name__ == '__main__':
     unittest.main()
