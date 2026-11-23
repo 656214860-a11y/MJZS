@@ -118,6 +118,9 @@ def plan_import(source, target_dir, stage, registry):
              target_dir.resolve().is_relative_to(Path(project_skills).resolve())
              else 'user')
     kind = _kind(source)
+    if kind == 'manifest' and not source.name.endswith(skill_registry.SKILL_SUFFIX):
+        raise ImportBlocked('「%s」不是 SKILL 清单：单文件只接受 *.skill.md（整包入口是 SKILL.md）'
+                            % source.name)
     target = (target_dir / source.parent.name / source.name
               if kind == 'package' else target_dir / source.name)
     if kind == 'manifest' and source.is_file() and source.stat().st_size > SINGLE_MAX_BYTES:

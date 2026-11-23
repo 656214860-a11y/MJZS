@@ -1,6 +1,6 @@
 # 项目状态（可独立接续）
 
-更新：2026-11-23｜当前轮次：4168（R4167 合并轮：合入 codex/fix-aud-skill-budget 到 master（合并轮）：FIX-AUD-SKILL-BUDGET 未知结果 24 小时过期不再占预算（审查 AUD-SKILL，R4158）；断言未动；未跑全量。上一轮：R4163 合并轮：合入 codex/ux-s02-input-align 到 master（合并轮）：UX-S02-ALIGN 剧本结构页上下两个文本框与底部输入框左右对齐（R4112、R4124）；断言未动；未跑全量。）
+更新：2026-11-23｜当前轮次：4169（R4168 合并轮：合入 codex/fix-aud-skill-panel 到 master（合并轮）：FIX-AUD-SKILL-PANEL-IMPORT 非 SKILL 导入明确拒绝、更新检查走后台线程（审查 AUD-SKILL，R4160）；断言未动；未跑全量。上一轮：R4167 合并轮：合入 codex/fix-aud-skill-budget 到 master（合并轮）：FIX-AUD-SKILL-BUDGET 未知结果 24 小时过期不再占预算（审查 AUD-SKILL，R4158）；断言未动；未跑全量。）
 
 历史接续记录：R3308 修复槽位泄漏 bug 并优化慢测试超时，定向测试 46/46 通过。
 
