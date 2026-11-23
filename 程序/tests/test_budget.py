@@ -330,6 +330,71 @@ class SkillBudgetHeadroomTests(unittest.TestCase):
         self.assertEqual(budget.check('images', 5)[0], True)
 
 
+class SkillBudgetUnknownReleaseTests(unittest.TestCase):
+    """AUD-SKILL D2：finish 落 unknown 的预留带时间戳，超时按未提交释放，
+    不再永久占额度（修复前 unknown 计入 reserved() 且无任何清扫入口）。"""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.project = Path(self.tmp.name) / 'proj'
+        self.project.mkdir()
+        self.now = [1_000_000.0]
+
+    def _budget(self):
+        return skill_budget.Budget(project=self.project,
+                                    config={'images_per_project': 2, 'videos_per_project': 2,
+                                            'tokens_per_day': 10},
+                                    clock=lambda: self.now[0])
+
+    def _failed_run(self, budget, request_id='r1', kind='images'):
+        self.assertTrue(budget.reserve(request_id, kind, 1)[0])
+        budget.finish(request_id)          # completed=False、not_submitted=False → unknown
+
+    def test_unknown_stamped_and_still_counts_within_ttl(self):
+        budget = self._budget()
+        self._failed_run(budget)
+        entry = budget.reservations['r1']
+        self.assertEqual(entry['state'], 'unknown')
+        self.assertIsNotNone(entry.get('unknown_at'))
+        self.assertEqual(entry['unknown_at'], self.now[0])
+        self.assertEqual(budget.reserved('images'), 1)
+        self.now[0] += 60                                       # 对账窗口内仍占额度
+        self.assertEqual(budget.reserved('images'), 1)
+        self.assertFalse(budget.check('images', 2)[0])
+
+    def test_unknown_releases_after_timeout(self):
+        budget = self._budget()
+        self._failed_run(budget)
+        self.now[0] += 32 * 24 * 3600                           # 远超任何对账窗口
+        self.assertEqual(budget.reserved('images'), 0)
+        self.assertTrue(budget.check('images', 2)[0])
+        budget.spend('videos', 1)                            # 任意写事务触发对账落盘
+        fresh = self._budget()
+        self.assertEqual(fresh.reservations['r1']['state'], 'released')
+        self.assertEqual(fresh.reserved('images'), 0)
+
+    def test_legacy_unknown_without_timestamp_releases(self):
+        budget = self._budget()
+        budget.reservations['old'] = {'kind': 'images', 'amount': 1, 'state': 'unknown'}
+        budget.save()
+        fresh = self._budget()
+        self.assertEqual(fresh.reserved('images'), 0)       # 旧账无时间戳视为已超时
+        fresh.spend('videos', 1)
+        again = self._budget()
+        self.assertEqual(again.reservations['old']['state'], 'released')
+
+    def test_reserved_and_settled_states_never_expire(self):
+        budget = self._budget()
+        budget.reserve('r1', 'images', 1)
+        budget.reserve('r2', 'images', 1)
+        budget.finish('r1', completed=True)                  # settled → used+1
+        self.now[0] += 32 * 24 * 3600
+        self.assertEqual(budget.reserved('images'), 1)       # reserved 不过期
+        self.assertEqual(budget.reservations['r2']['state'], 'reserved')
+        self.assertEqual(budget.used('images'), 1)
+
+
 if __name__ == '__main__':
     unittest.main()
 
