@@ -690,6 +690,7 @@ def animatic_ready(project):
 def assets_locked(project):
     """SG-01：资产清单每一项都导入了图片，角色锚点已锁定。"""
     from agent.core import read
+    from contract.prop_assets import requires_asset
     from domain.asset_context import library_dir
     row = gate_for('continuity')
     try:
@@ -704,6 +705,8 @@ def assets_locked(project):
         return _result(row, True, False, '资产清单还没生成（资产管理还没做），先不拦')
     if not isinstance(registry, dict):
         registry = {}
+    rows = {aid: item for aid, item in rows.items()
+            if not isinstance(item, dict) or requires_asset(aid, item)}
     problems = []
     resolved_base = base.resolve()
 
