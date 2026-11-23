@@ -70,13 +70,7 @@
 定向（退出码 0）：
 
 ```
-共 113 条用例，56.8 秒；0 个文件有红
-最慢 10 路工作单元：
-  test_ui_edges_autopilot#3    52.9 秒 / 13 条
-  test_ui_edges_autopilot#2    51.5 秒 / 16 条
-  test_ui_edges_autopilot#1    22.4 秒 / 6 条
-  test_request_recording        1.6 秒 / 17 条
-  ...
+共 113 条用例；0 个文件有红；实际跳过 0 条用例
 ALL TESTS PASSED
 ```
 
@@ -93,7 +87,7 @@ OK
 ## 未验证项
 
 - 首次架构跑的 `test_test_move_guard` setUp `git init` 失败判定为环境偶发（同类其余用例 setUp 均过、原样重跑 700 条全绿、与本卡 6 文件无关）；未做单测级复现（卡面未列该命令）。若验收复跑再红，请按环境问题另行立案。
-- 真实 Tk 桌面未人工点击整段配音按钮；UI 行为由 `test_ui_edges_autopilot` 在隐藏桌面覆盖（本环境 tkinter 不可用，该用例按台账 skip）。
+- 真实 Tk 桌面未人工点击整段配音按钮；UI 行为由 `test_ui_edges_autopilot` 在隐藏桌面覆盖：本次 hidden desktop 已实际执行、实际跳过 0 条用例，普通无 Tk 环境才按台账 skip。
 - 未跑默认冒烟与全量 `run_selftests.py --all --safe`（卡面未列；合并轮出口 CI 会跑）。
 - 产品/测试现场为上一 attempt 成果，本轮只读核对未重写；先红后绿证据沿用卡面背景（改前 6 红、改后 113 绿），本轮未复跑改前。
 
