@@ -3,6 +3,7 @@
 用法（程序目录下）::
 
     python -B scripts/tools_lock.py --check    # 核对 external_tools.lock.json，失配退出 1
+    python -B scripts/tools_lock.py --verify-bundle  # 随包齐全：ffmpeg/ffprobe 摘要与 ffmpeg/LICENSE，缺失退出 1
     python -B scripts/tools_lock.py --update   # 重新生成锁文件（解释器升级后执行）
 
 锁文件只登记正式分发随附、可复现的二进制；用户在 config.json 指向的自备工具不锁。
@@ -82,6 +83,14 @@ TOOL_SPECS = {
     },
 }
 
+BUNDLE_ITEMS = (
+    '运行环境/ffmpeg/bin/ffmpeg.exe',
+    '运行环境/ffmpeg/bin/ffprobe.exe',
+    '运行环境/ffmpeg/LICENSE',
+)
+BUNDLE_HASHED = BUNDLE_ITEMS[:2]
+BUNDLE_FIX = '从备份拷回或重新下载后运行 tools_lock.py --check'
+
 
 def _resolve(name: str) -> Path:
     """锁内相对路径 → 实际文件：本树没有时回落主工作区（运行环境不随工作树复制）。"""
@@ -120,11 +129,29 @@ def build() -> dict:
             'tools': tools}
 
 
+def bundle_problems(locked: dict, resolver=None) -> list:
+    """随包齐全检查：ffmpeg/ffprobe 存在且 sha256 与锁一致，ffmpeg/LICENSE 存在；返回问题清单。"""
+    resolve = resolver or _resolve
+    tools = (locked or {}).get('tools', {})
+    problems = []
+    for name in BUNDLE_ITEMS:
+        path = resolve(name)
+        if not path.is_file():
+            problems.append('%s：文件缺失，预期路径 %s' % (name, path))
+        elif name in BUNDLE_HASHED and _sha256(path) != tools.get(name, {}).get('sha256'):
+            problems.append('%s：sha256 与锁文件不符，预期路径 %s' % (name, path))
+    return problems
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument('--check', action='store_true')
     parser.add_argument('--update', action='store_true')
+    parser.add_argument('--verify-bundle', action='store_true')
     args = parser.parse_args(argv)
+    if args.verify_bundle and not LOCK.is_file():
+        print('随包缺失：锁文件 %s 不存在；%s' % (LOCK, BUNDLE_FIX), file=sys.stderr)
+        return 1
     if args.update or not LOCK.is_file():
         try:
             document = build()
@@ -135,6 +162,14 @@ def main(argv=None) -> int:
         print('已写入 %s' % LOCK.name)
         return 0
     lock = json.loads(LOCK.read_text(encoding='utf-8'))
+    if args.verify_bundle:
+        problems = bundle_problems(lock)
+        for problem in problems:
+            print('随包缺失：%s；%s' % (problem, BUNDLE_FIX), file=sys.stderr)
+        if problems:
+            return 1
+        print('随包工具齐全：%d 项' % len(BUNDLE_ITEMS))
+        return 0
     problems = []
     locked = lock.get('tools', {})
     missing_entries = sorted(set(TOOL_SPECS) - set(locked))
