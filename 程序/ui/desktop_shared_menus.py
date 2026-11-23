@@ -17,7 +17,6 @@ import infra.app_logging as app_logging
 from ui.ui_icons import IconLoader
 from ui_popup import monitor_bounds
 from ui_tokens import COLORS, FONTS, ICON_DOCUMENT, ICON_FONT, SPACING
-from ui_widgets import Tooltip
 
 # 与 CompletionPopup.MAX_ITEMS 同量级：当前阶段技能在前，超出截断。
 MAX_ROWS = 12
@@ -279,10 +278,15 @@ class CandidatePopup:
         self.frame = tk.Frame(host.winfo_toplevel(), bg=COLORS['background_card'],
                               highlightthickness=1,
                               highlightbackground=COLORS['border_input_hover'])
+        # 宿主销毁时回收浮层与说明卡：载体挂顶层窗下，不随宿主自动消失（REQ-S01-106）。
+        host.bind('<Destroy>', self._on_host_destroy, add='+')
 
     # ── 内容 ──────────────────────────────────────────────────────────
     def refresh(self, entries, query=''):
         """重建候选行并展开；空候选直接收掉。``query`` 用于匹配子串高亮。"""
+        # 重建前行若已挂着用途卡，重建后按新高亮行同步（REQ-S01-106），
+        # 不让卡锚在已销毁的旧行上。
+        had_card = getattr(self.host, '_skill_card', None) is not None
         self.entries = tuple(entries or ())
         self.query = str(query or '')
         self._rows = []
@@ -303,6 +307,8 @@ class CandidatePopup:
         self._paint()
         self.open = True
         self.place()
+        if had_card:
+            self._show_card(0)
 
     def _segments(self, label):
         """按 ``query`` 子串切 ``label`` 为 (文本, 是否命中) 段；无命中返回单段。"""
@@ -355,21 +361,42 @@ class CandidatePopup:
                                  font=FONTS['body'])
             label.pack(side='left')
             widgets.append(label)
-        hint = str(entry.get('hint') or '')
-        if hint:
-            for widget in widgets[1:]:
-                try:
-                    Tooltip(widget, hint)
-                except Exception:
-                    app_logging.swallowed()
         record = {'index': index, 'entry': entry, 'widgets': widgets,
                   'marks': marks}
         self._rows.append(record)
         for widget in widgets:
             widget.bind('<Button-1>',
                         lambda _e, it=entry: self.host._apply_candidate(it))
+            # 整行（含徽标与留白）悬停：跟随高亮并显示同行用途卡（REQ-S01-106）；
+            # 离开走宿主延迟收，移入卡取消——与技能面板同一套 200ms 状态机。
             widget.bind('<Enter>',
-                        lambda _e, i=index: self._select(i), add='+')
+                        lambda _e, i=index: self._hover(i), add='+')
+            widget.bind('<Leave>',
+                        lambda _e: self.host._schedule_skill_card_hide(), add='+')
+
+    def _hover(self, index):
+        """行悬停：高亮跟随＋用途卡。重复进入同一行也要重挂卡（取消待收）。"""
+        self._select(index)
+        self._show_card(index)
+
+    def _show_card(self, index):
+        """按当前高亮行显示一张被动用途卡：复用宿主 ``_show_skill_card``，
+        锚在行右侧、不足翻左、钳当前显示器；正文只取条目 ``hint``，
+        无说明显示「暂无用途说明」，不抢焦点、不 grab。"""
+        if not (0 <= index < len(self._rows)):
+            return
+        record = self._rows[index]
+        entry = record['entry']
+        item = {'name': entry.get('name'),
+                'description': str(entry.get('hint') or '') or '暂无用途说明'}
+        self.host._show_skill_card(item, record['widgets'][0])
+
+    def _on_host_destroy(self, event):
+        """宿主销毁：清说明卡与延迟计时器，并销毁候选浮层载体，不留幽灵窗口。"""
+        if event.widget is not self.host:
+            return
+        self.host._hide_skill_card()
+        self.teardown()
 
     # ── 选中与按键 ────────────────────────────────────────────────────
     def _select(self, index):
@@ -404,6 +431,8 @@ class CandidatePopup:
         if index != self.index:
             self.index = index
             self._paint()
+            # 键盘高亮变更同步说明（REQ-S01-106），焦点仍留在文本区。
+            self._show_card(index)
 
     def key(self, event):
         """候选开着时：上下键移动高亮、Tab 采纳当前项；否则放行默认行为。"""
@@ -504,5 +533,15 @@ class CandidatePopup:
         if self.open:
             self.frame.place_forget()
             self.open = False
+            # 收候选同时收同行用途卡并取消延迟计时器（采纳／Esc／失焦／切页共用）。
+            self.host._hide_skill_card()
             return 'break'
         return None
+
+    def teardown(self):
+        """宿主销毁：收浮层并销毁载体，不在顶层窗上留幽灵窗口（REQ-S01-106）。"""
+        self.open = False
+        try:
+            self.frame.destroy()
+        except tk.TclError:
+            app_logging.swallowed()

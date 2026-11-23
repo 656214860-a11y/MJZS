@@ -1,5 +1,6 @@
 """R2893 轮 3：共享输入框组件——布局、``/`` 补全、发送门禁与模型快照（真 Tk 隐藏桌面）。"""
 import tempfile
+import time
 import tkinter as tk
 import unittest
 from pathlib import Path
@@ -662,6 +663,263 @@ class StoryboardSendReadinessTests(unittest.TestCase):
         sendable, note, filled = self.readiness(self.root)
         self.assertFalse(sendable)
         self.assertIn('确认一份结构剧本', note)
+
+
+class CandidateHintCardTests(unittest.TestCase):
+    """REQ-S01-106（UX-SLASH-HINT 轮）：``/`` 候选同行用途卡。
+
+    整行（名称、徽标、留白）悬停与上下键都驱动同一张被动说明卡；进卡不闪、
+    离开约 200ms 延迟收；右侧不足翻左并钳当前显示器；采纳／Esc／切页／销毁
+    关卡并取消计时器；说明只取 hint，绝不进入发送正文。真 Tk 隐藏桌面量几何。
+    """
+
+    def setUp(self):
+        self.win = tk.Tk()
+        self.win.withdraw()
+        self.addCleanup(self.win.destroy)
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name) / 'project'
+        self.root.mkdir()
+        self.desktop = SimpleNamespace(root=self.root,
+                                       status=tk.StringVar(master=self.win, value=''),
+                                       win=self.win)
+        self.sent = []
+
+    def _make(self, skills=None):
+        options = {'on_send': lambda text, parsed: self.sent.append((text, parsed)) or True,
+                   'skills': skills if skills is not None else [
+                       SimpleNamespace(name='mine-skill', stage='storyboard', description='用途甲')],
+                   'engines': ()}
+        filler = tk.Frame(self.win)
+        filler.pack(fill='both', expand=True)
+        box = shared_input.SharedStageInput(self.win, desktop=self.desktop, options=options)
+        box.pack(side='bottom', fill='x')
+        self.win.deiconify()
+        self.win.geometry('1000x800+40+40')
+        for _ in range(6):
+            self.win.update_idletasks()
+            self.win.update()
+        self.addCleanup(lambda: box.destroy() if box.winfo_exists() else None)
+        self.win.focus_force()
+        box.input.focus_set()
+        self.win.update()
+        return box
+
+    def _open(self, box, text='/'):
+        box.set_text(text)
+        box.input.mark_set('insert', 'end-1c')
+        box._on_key_release(SimpleNamespace(keysym='x'))
+        self.win.update()
+
+    def _hover(self, widget):
+        widget.event_generate('<Enter>', x=2, y=2)
+        self.win.update()
+
+    def _row(self, box, index=0):
+        return box.candidates._rows[index]['widgets'][0]
+
+    def _name_label(self, box, index=0):
+        return next(w for w in box.candidates._rows[index]['widgets']
+                    if w.winfo_class() == 'Label' and str(w.cget('text') or '').startswith('/'))
+
+    def _badge(self, box, index=0):
+        from ui.desktop_shared_menus import KIND_BADGES
+        row = box.candidates._rows[index]
+        text = KIND_BADGES.get(str(row['entry'].get('kind') or ''), '')
+        return next(w for w in row['widgets']
+                    if w.winfo_class() == 'Label' and str(w.cget('text') or '') == text)
+
+    def _card_text(self, box):
+        card = getattr(box, '_skill_card', None)
+        if card is None:
+            return None
+        labels = [w for w in _descendants(card) if isinstance(w, tk.Label)]
+        return '\n'.join(str(w.cget('text')) for w in labels)
+
+    def _pump(self, seconds):
+        deadline = time.monotonic() + seconds
+        while time.monotonic() < deadline:
+            self.win.update()
+            time.sleep(0.01)
+
+    def test_hover_name_badge_and_blank_show_single_side_card(self):
+        box = self._make()
+        self._open(box)
+        self.assertTrue(box.candidates.open)
+        row = self._row(box)
+        box.input.focus_set()
+        self.win.update()
+        focus_before = self.win.focus_get()
+        # 名称段悬停：右侧同行出现一张用途卡。
+        self._hover(self._name_label(box))
+        card = box._skill_card
+        self.assertIsNotNone(card, '悬停名称应出现用途卡')
+        self.assertEqual(self._card_text(box), '用途甲')
+        self.assertGreaterEqual(card.winfo_rootx(),
+                                row.winfo_rootx() + row.winfo_width() - 1,
+                                '用途卡锚在行右侧')
+        row_cy = row.winfo_rooty() + row.winfo_height() / 2
+        card_cy = card.winfo_rooty() + card.winfo_height() / 2
+        self.assertAlmostEqual(card_cy, row_cy, delta=2, msg='用途卡与行纵向居中')
+        self.assertIs(self.win.focus_get(), focus_before, '说明卡不抢输入焦点')
+        # 徽标悬停：替换旧卡，同一时刻只有一张。
+        self._hover(self._badge(box))
+        self.assertIsNotNone(box._skill_card)
+        self.assertFalse(card.winfo_exists(), '旧卡销毁，只留一张')
+        self.assertEqual(self._card_text(box), '用途甲')
+        # 行框留白悬停同样出卡。
+        self._hover(row)
+        self.assertEqual(self._card_text(box), '用途甲')
+        self.assertIs(self.win.focus_get(), focus_before)
+
+    def test_keyboard_navigation_syncs_card(self):
+        box = self._make()
+        self._open(box)
+        popup = box.candidates
+        self.assertGreaterEqual(len(popup.entries), 2)
+        box.input.focus_set()
+        self.win.update()
+        focus_before = self.win.focus_get()
+
+        class _Event:
+            keysym = 'Down'
+        self.assertEqual(popup.key(_Event()), 'break')
+        self.win.update()
+        self.assertEqual(popup.index, 1)
+        # 第二项是阶段别名（无注册描述）→ 显示「暂无用途说明」，不编造。
+        self.assertEqual(self._card_text(box), '暂无用途说明')
+        self.assertIs(self.win.focus_get(), focus_before)
+        _Event.keysym = 'Up'
+        popup.key(_Event())
+        self.win.update()
+        self.assertEqual(popup.index, 0)
+        self.assertEqual(self._card_text(box), '用途甲')
+        self.assertIs(self.win.focus_get(), focus_before)
+
+    def test_enter_card_no_flash_and_leave_delayed_hide(self):
+        box = self._make()
+        self._open(box)
+        row = self._row(box)
+        self._hover(row)
+        card = box._skill_card
+        self.assertIsNotNone(card)
+        # 离开行：排定延迟收，不立即消失。
+        row.event_generate('<Leave>')
+        self.win.update()
+        self.assertIsNotNone(getattr(box, '_skill_card_hide_id', None))
+        self.assertIsNotNone(box._skill_card)
+        # 移入卡：取消待收，不闪退。
+        card.event_generate('<Enter>', x=2, y=2)
+        self.win.update()
+        self.assertIsNone(getattr(box, '_skill_card_hide_id', None))
+        self.assertTrue(card.winfo_exists())
+        # 移出卡：重新计时，约 200ms 后收。
+        card.event_generate('<Leave>')
+        self.win.update()
+        self.assertIsNotNone(box._skill_card, '离开不立即收')
+        self._pump(0.4)
+        self.assertIsNone(box._skill_card, '延迟到点收掉')
+
+    def test_close_on_adopt_escape_stage_and_destroy(self):
+        box = self._make()
+        # 采纳关卡。
+        self._open(box)
+        self._hover(self._row(box))
+        self.assertIsNotNone(box._skill_card)
+        box._apply_candidate(box.candidates.entries[0])
+        self.win.update()
+        self.assertIsNone(box._skill_card)
+        self.assertFalse(box.candidates.open)
+        self.assertIsNone(getattr(box, '_skill_card_hide_id', None))
+        # Esc 关卡。
+        self._open(box)
+        self._hover(self._row(box))
+        self.assertIsNotNone(box._skill_card)
+        box.close_completion()
+        self.win.update()
+        self.assertIsNone(box._skill_card)
+        # 切页关卡。
+        self._open(box)
+        self._hover(self._row(box))
+        self.assertIsNotNone(box._skill_card)
+        box.set_stage('assets')
+        self.win.update()
+        self.assertIsNone(box._skill_card)
+        # 销毁：清卡、取消迟到回调，不留幽灵窗口。
+        self._open(box)
+        self._hover(self._row(box))
+        card = box._skill_card
+        self._row(box).event_generate('<Leave>')
+        self.win.update()
+        self.assertIsNotNone(box._skill_card_hide_id)
+        errors = []
+        self.win.report_callback_exception = lambda exc, val, tb: errors.append(val)
+        box.destroy()
+        self.win.update()
+        self.assertFalse(card.winfo_exists(), '销毁后用途卡不留幽灵窗口')
+        self.assertIsNone(box._skill_card_hide_id, '销毁取消延迟计时器')
+        self._pump(0.3)
+        self.assertEqual(errors, [], '销毁后不得有迟到回调触发')
+
+    def test_flip_left_and_clamp_to_monitor(self):
+        from unittest import mock
+        from ui_tokens import SPACING
+        box = self._make()
+        self._open(box)
+        row = self._row(box)
+        self.win.update()
+        row_left = row.winfo_rootx()
+        row_right = row_left + row.winfo_width()
+        screen_h = self.win.winfo_screenheight()
+        # 注入右侧不足的显示器矩形 → 翻到行左侧并钳在该显示器内。
+        fake = (row_left - 600, 0, row_right + SPACING['xs'], screen_h)
+        with mock.patch.object(shared_input, 'monitor_bounds', return_value=fake):
+            self._hover(row)
+        card = box._skill_card
+        self.assertIsNotNone(card)
+        self.win.update()
+        # 建卡可能触发候选浮层重排，按行的最终位置断言翻转结果。
+        row_left = row.winfo_rootx()
+        self.assertLessEqual(card.winfo_rootx() + card.winfo_width(), row_left + 1,
+                             '右侧不足翻到行左侧')
+        self.assertGreaterEqual(card.winfo_rootx(), fake[0], '钳在当前显示器左界内')
+        self.assertLessEqual(card.winfo_rootx() + card.winfo_width(), fake[2])
+        self.assertGreaterEqual(card.winfo_rooty(), 0)
+        self.assertLessEqual(card.winfo_rooty() + card.winfo_height(), screen_h)
+        # 窗口缩小后重悬停：仍钳在真实屏幕内，不截断。
+        self.win.geometry('500x400+40+40')
+        for _ in range(4):
+            self.win.update_idletasks()
+            self.win.update()
+        self._hover(row)
+        card = box._skill_card
+        self.assertIsNotNone(card)
+        self.assertGreaterEqual(card.winfo_rootx(), 0)
+        self.assertLessEqual(card.winfo_rootx() + card.winfo_width(),
+                             self.win.winfo_screenwidth())
+
+    def test_hint_never_in_send_body_and_enter_adopts(self):
+        box = self._make()
+        self._open(box, '/mine')
+        popup = box.candidates
+        self.assertTrue(popup.open)
+        entry = next(e for e in popup.entries if e['name'] == 'mine-skill')
+        self.assertEqual(entry['hint'], '用途甲')
+
+        class _Return:
+            state = 0
+        self.assertEqual(box._on_return(_Return()), 'break')
+        self.assertEqual(self.sent, [], '候选开着 Enter 只采纳不发送')
+        value = box.input.get('1.0', 'end-1c')
+        self.assertEqual(value, '/mine-skill ', '采纳只替换触发词并补空格')
+        self.assertNotIn('用途甲', value)
+        # 续写后发送：说明永不进入正文。
+        box.input.insert('end-1c', '写一段开场')
+        box.input.mark_set('insert', 'end-1c')
+        self.assertTrue(box.send())
+        self.assertEqual(self.sent[0][0], '/mine-skill 写一段开场')
+        self.assertNotIn('用途甲', self.sent[0][0])
 
 
 if __name__ == '__main__':

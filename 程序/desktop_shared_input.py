@@ -769,7 +769,7 @@ class SharedStageInput(_CandidateFlow, _StageActions, ttk.Frame):
                 app_logging.swallowed()
 
     def _show_skill_card(self, item, owner):
-        """悬停卡片：与 ``owner``（技能行）同一行、在行右侧紧贴显示；
+        """悬停卡片：与 ``owner``（技能行／候选行）同一行、在行右侧紧贴显示；
         右缘出屏翻到行左侧，纵向对行中心，最后钳进屏幕（R2971 定版）。"""
         self._cancel_skill_card_hide()
         self._hide_skill_card()
@@ -778,6 +778,9 @@ class SharedStageInput(_CandidateFlow, _StageActions, ttk.Frame):
             if not body:
                 body = '（该技能没有填写 description）'
             card = BaseDialog(self, '', modal=False, chrome=False)
+            # 无边框（Flyout／Tooltip 同款）：带标题栏会被 Windows 强加最小窗宽，
+            # 实测宽＞reqwidth，翻左／钳位按 reqwidth 算会压住行（REQ-S01-106）。
+            card.overrideredirect(True)
             # 说明卡必须豁免 ui_theme 接管（R2997 悬停状态机口径）：只标 _positioned_once
             # 防得住居中、防不住隐藏初始化挂的 <Map>→grab——grab 一抢，技能行 Leave/Enter
             # 循环、卡片反复弹出（用户报的 bug）。make_passive_popup 摘掉 Map 绑定并恢复
@@ -809,13 +812,6 @@ class SharedStageInput(_CandidateFlow, _StageActions, ttk.Frame):
             x = max(mleft + margin, min(x, mright - card_w - margin))
             y = max(mtop + margin, min(y, mbottom - card_h - margin))
             card.geometry('+%d+%d' % (x, y))
-            # Toplevel 的 geometry 定的是含边框的窗口原点，winfo_root* 是客户区
-            # 原点——实测一次偏差再按差值贴正（标题栏/侧框宽度随主题变）。
-            card.update_idletasks()
-            dx = card.winfo_rootx() - x
-            dy = card.winfo_rooty() - y
-            if dx or dy:
-                card.geometry('+%d+%d' % (x - dx, y - dy))
             self._skill_card = card
         except Exception:
             app_logging.swallowed()

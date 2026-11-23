@@ -1,0 +1,15 @@
+{
+  "round": 4188,
+  "commit_base": "e5588314",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k skill_command shared_input_ui",
+    "exit": 0,
+    "passed": 70,
+    "failed": 0
+  },
+  "generated_at": "2026-11-23T17:59:29"
+}

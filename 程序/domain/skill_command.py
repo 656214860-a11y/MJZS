@@ -168,14 +168,37 @@ def _item_stage(item, default):
     return getattr(item, 'stage', None) or default
 
 
+def _item_description(item):
+    """候选用途说明（REQ-S01-106）：对象读 ``.description``、字典读 ``description`` 键，
+    字符串条目无描述得空串。只消费已取得的注册对象，不读盘、不推测；去掉首尾空白
+    但保留内部换行（多行描述原样进说明卡）。"""
+    if isinstance(item, dict):
+        desc = item.get('description')
+    else:
+        desc = getattr(item, 'description', None)
+    return str(desc or '').strip()
+
+
 def completion_entries(query, *, stage=None, skills=(), engines=None):
     """``/`` 候选结构化条目（R2980）：当前阶段 skill → 其余 skill → 阶段别名 → 子引擎，
-    子串过滤、去重保序。条目 ``{'kind','name','label','insert'}``；
-    ``insert`` 是含触发符与末尾空格的完整替换文本。"""
+    子串过滤、去重保序。条目 ``{'kind','name','label','insert','hint'}``；
+    ``insert`` 是含触发符与末尾空格的完整替换文本，``hint`` 是用途说明（REQ-S01-106，
+    取已取得注册对象／字典 ``description``，engine 按名回查包说明，无描述得空串）。"""
+    skills = tuple(skills or ())
     names = engines if engines is not None else sub_engine_names(skills)
     packages = set(sub_engine_names(skills)).intersection(names)
+    # engine 只传名字：按名回查同一份注册快照的包说明，重名按快照先后
+    # （项目＞用户＞内置）取第一条，精确名优先、忽略大小写兜底。
+    desc_exact, desc_fold = {}, {}
+    for item in skills:
+        name = _skill_name(item)
+        if not name:
+            continue
+        desc = _item_description(item)
+        desc_exact.setdefault(name, desc)
+        desc_fold.setdefault(name.lower(), desc)
     current, others = [], []
-    for item in skills or ():
+    for item in skills:
         if _skill_name(item) in packages:
             continue
         (current if _item_stage(item, stage) == stage else others).append(item)
@@ -189,6 +212,13 @@ def completion_entries(query, *, stage=None, skills=(), engines=None):
             if not name or name in seen or not _prefix_hit(name, query):
                 continue
             seen.add(name)
+            if kind == 'skill':
+                hint = _item_description(item)
+            elif kind == 'engine':
+                hint = desc_exact.get(name) or desc_fold.get(name.lower(), '')
+            else:
+                hint = ''
             out.append({'kind': kind, 'name': name,
-                        'label': '/' + name, 'insert': '/' + name + ' '})
+                        'label': '/' + name, 'insert': '/' + name + ' ',
+                        'hint': hint})
     return tuple(out)
