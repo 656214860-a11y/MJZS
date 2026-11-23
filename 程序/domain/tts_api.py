@@ -18,6 +18,12 @@ KEY_ENV = "TTS_API_KEY"                     # 第 65 期任务 1：统一那份 
 # 单句配音音频上限：文本 ≤4000 字，64 MiB 足够覆盖高码率短音频；
 # 同时给 http_client 的有界读取一个明确边界（旧实现 response.read() 无上限）。
 TTS_AUDIO_MAX_BYTES = 64 * 1024 * 1024
+# 结果未知：不自动重发，须人工核对后放开（sending／uncertain／unsaved）。
+UNKNOWN_LINE_STATES = ('sending', 'uncertain', 'unsaved')
+
+
+class TTSRejected(ValueError):
+    """服务商明确拒绝（HTTP 4xx）：确定没成，可记 failed 并允许下次重发。"""
 
 
 def settings_path():
@@ -406,7 +412,7 @@ def batch_cost_preview(project, lines, folder, settings=None):
         if line_done(manifest, index, line, folder):
             continue
         previous = manifest[index - 1] if index <= len(manifest) else {}
-        if (previous.get('state') in ('sending', 'uncertain')
+        if (previous.get('state') in UNKNOWN_LINE_STATES
                 and all(previous.get(key) == line.get(key) for key in LINE_IDENTITY_FIELDS)):
             unknown += 1
             continue
@@ -463,7 +469,7 @@ def run_lines(lines, folder, generate=None, report=None, stop=None, *, gateway=N
                 report(f'{index}/{len(lines)} · {line.get("shot_id")}：沿用已生成的配音')
             continue
         previous = manifest[index - 1] if index <= len(manifest) else {}
-        if (project is not None and previous.get('state') in ('sending', 'uncertain')
+        if (project is not None and previous.get('state') in UNKNOWN_LINE_STATES
                 and all(previous.get(key) == line.get(key) for key in LINE_IDENTITY_FIELDS)):
             failed += 1
             if report:
@@ -472,6 +478,7 @@ def run_lines(lines, folder, generate=None, report=None, stop=None, *, gateway=N
         name = line_name(index, line)
         request_id = 'tts:' + uuid4().hex
         started = False
+        paid = False
         try:
             text = line.get('text', '')
             if project is not None:
@@ -489,14 +496,24 @@ def run_lines(lines, folder, generate=None, report=None, stop=None, *, gateway=N
                 started = True
                 raw = generate(text, speed=line.get("speed", 1.0), voice=line.get("voice") or None)
                 if not raw:raise ValueError('TTS 未返回音频')
+                paid = True
             entry = publish_line(folder, manifest, index, {**line, **({'request_id': request_id} if project is not None else {})}, raw, gateway=publish)
             ok += 1
             if on_line is not None:
                 on_line(index, line, entry)
         except Exception as exc:
-            entry = {**line, "file": "", "state": "uncertain" if project is not None and started else "failed", "error": str(exc)}
+            import urllib.error
+            if project is not None and paid and isinstance(exc, (OSError, ValueError)) and not isinstance(exc, TTSRejected):
+                state, error, not_submitted = 'unsaved', '已付费未保存：' + str(exc), False
+            elif isinstance(exc, TTSRejected) or (isinstance(exc, urllib.error.URLError) and started):
+                state, error, not_submitted = 'failed', str(exc), True
+            elif project is not None and started:
+                state, error, not_submitted = 'uncertain', str(exc), False
+            else:
+                state, error, not_submitted = 'failed', str(exc), True
+            entry = {**line, "file": "", "state": state, "error": error}
             if project is not None:
-                entry.update(request_id=request_id, not_submitted=not started)
+                entry.update(request_id=request_id, not_submitted=not_submitted)
             failed += 1
             if index <= len(manifest):
                 manifest[index - 1] = entry
@@ -547,9 +564,71 @@ def synthesize(text, speed=1.0, voice=None, *, settings=None, project=None, requ
         status = data.get('status')
         if status:
             detail = str(data.get('error_body') or '')[:400]
-            raise ValueError(f"TTS 请求失败（HTTP {status}）：{detail}") from None
+            message = f"TTS 请求失败（HTTP {status}）：{detail}"
+            if 400 <= int(status) <= 499:
+                raise TTSRejected(message) from None
+            raise ValueError(message) from None
         detail = str(data.get('error_body') or result.reason or '网络请求失败')
         if code_of(result) == 'E-NET-TIMEOUT':
             raise TimeoutError(detail) from None
         import urllib.error
         raise urllib.error.URLError(detail) from None
+
+
+def unknown_line_indexes(lines, folder):
+    """身份一致且状态为 sending／uncertain／unsaved 的句子序号（从 1 起）。"""
+    folder = Path(folder)
+    manifest = read_json(folder / '时间轴.json')
+    manifest = manifest if isinstance(manifest, list) else []
+    indexes = []
+    for index, line in enumerate(lines, 1):
+        previous = manifest[index - 1] if index <= len(manifest) else {}
+        if not isinstance(previous, dict):
+            continue
+        if (previous.get('state') in UNKNOWN_LINE_STATES
+                and all(previous.get(key) == line.get(key) for key in LINE_IDENTITY_FIELDS)):
+            indexes.append(index)
+    return indexes
+
+
+def unknown_release_prompt(lines, folder):
+    """人工放开确认文案：镜号、台词前 20 字、请求号；indexes 为空表示没有待核实句。"""
+    folder = Path(folder)
+    manifest = read_json(folder / '时间轴.json')
+    manifest = manifest if isinstance(manifest, list) else []
+    indexes = unknown_line_indexes(lines, folder)
+    rows = []
+    for index in indexes:
+        previous = manifest[index - 1] if index <= len(manifest) else {}
+        text = str((previous or {}).get('text') or lines[index - 1].get('text') or '')
+        rows.append('%s · %s · 请求 %s' % (
+            previous.get('shot_id') or lines[index - 1].get('shot_id') or '',
+            text[:20],
+            previous.get('request_id') or '（无）'))
+    body = '\n'.join(rows) if rows else ''
+    tip = ('下列句子上次结果未知，不会自动重发：\n' + body
+           + '\n\n已核对服务商后台，这些请求没有扣费，重新发送')
+    return {'indexes': indexes, 'text': tip}
+
+
+def release_unknown(folder, indexes, *, gateway=None):
+    """把指定序号的 sending／uncertain／unsaved 改成 failed，并记下放开时间。"""
+    from datetime import datetime, timezone
+    folder = Path(folder)
+    publish = _require_gateway(gateway, 'publish_json')
+    manifest = read_json(folder / '时间轴.json')
+    if not isinstance(manifest, list):
+        raise ValueError('时间轴清单不可读')
+    stamp = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    released = []
+    for index in indexes:
+        if not isinstance(index, int) or index < 1 or index > len(manifest):
+            continue
+        entry = manifest[index - 1]
+        if not isinstance(entry, dict) or entry.get('state') not in UNKNOWN_LINE_STATES:
+            continue
+        manifest[index - 1] = {**entry, 'state': 'failed', 'released_at': stamp, 'not_submitted': True}
+        released.append(index)
+    if released:
+        _save(folder / '时间轴.json', manifest, gateway=publish)
+    return released

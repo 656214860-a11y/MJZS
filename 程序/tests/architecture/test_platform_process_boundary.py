@@ -77,7 +77,7 @@ SPAWN_SITE_EXEMPT = {
         'infra/native_apps.py:124', 'orchestrator/qwen_adapter.py:100',
         'orchestrator/workflow_engines.py:456', 'orchestrator/workflow_engines.py:518',
         'ui/desktop_idea_chat.py:964', 'ui/desktop_idea_chat.py:980',
-        'ui/desktop_media_pages.py:914', 'ui/desktop_send_choice.py:54',
+        'ui/desktop_media_pages.py:930', 'ui/desktop_send_choice.py:54',
         'ui/desktop_tray.py:411', 'infra/log_maintenance.py:141',
         'infra/storage_maintenance.py:50', 'infra/workspace_maintenance.py:384',
     }),
