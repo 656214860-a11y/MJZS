@@ -1,0 +1,15 @@
+{
+  "round": 4126,
+  "commit_base": "8c6910f7",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k sanhu_mode stage_flow pet_agent",
+    "exit": 0,
+    "passed": 167,
+    "failed": 0
+  },
+  "generated_at": "2026-11-23T00:28:39"
+}

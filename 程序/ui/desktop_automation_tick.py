@@ -160,7 +160,7 @@ class AutomationTickMixin:
 
         返回 kind／text／retry／pending／missing 五项：页面拿 text 显示、按 retry 决定
         「立即重试」那颗按钮能不能点。kind 七档：
-          off      「自动生成定稿」没勾上
+          off      三虎不在全自动，不会自动同步定稿
           busy     本轮正在同步资产、生成定稿
           blocked  该动手，但要让正在读这份工作稿的制作批次先跑完
           error    上一轮失败（退避 5 分钟中，点「立即重试」可以马上再来）
@@ -179,7 +179,7 @@ class AutomationTickMixin:
         def state(kind,text,retry=False,missing=()):
             return {'kind':kind,'text':text+'；'+tail,'retry':retry,'pending':len(pending),'missing':tuple(missing)}
         if not self.pet.should_auto_run('final'):
-            return state('off','「自动生成定稿」没勾上：勾上之后资产一补齐就自动同步（定稿会把工作稿移入回收站，可恢复）')
+            return state('off','三虎现在不会自动同步定稿：把三虎切到全自动后资产一补齐就自动同步，现在也可以点「手动同步资产」（定稿会把工作稿移入回收站，可恢复）')
         if self.auto.final_busy:return state('busy','正在同步资产、生成定稿…')
         if self.auto.final_blocked:return state('blocked','自动定稿在等：有制作批次正在读这份工作稿，它跑完就自动接手',retry=True)
         if self.auto.final_error:return state('error','上一轮自动定稿失败：'+self.auto.final_error,retry=True)
@@ -202,7 +202,7 @@ class AutomationTickMixin:
         try:
             if self.root is None or self.studio is None:return '请先选择项目'
             if not self.pet.should_auto_run('final'):
-                return '未开启「自动生成定稿」：勾上之后资产补齐才会自动同步。'
+                return '三虎现在不会自动同步定稿：切到全自动后资产补齐才会自动同步，现在可以点「手动同步资产」。'
             self.auto.final_signature=None;self.auto.final_notice=None;self.auto.final_error=''
             self.auto.final_blocked=False;self.auto.final_due=0
             self.poll_auto_final()

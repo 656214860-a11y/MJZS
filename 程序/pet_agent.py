@@ -27,7 +27,7 @@ from orchestrator.pet_budget import (BUDGET_ALIASES, BUDGET_KINDS, BUDGET_NAMES,
 from agent.core import save
 from contract import error_codes
 from contract.pet_bus import SEEN_LIMIT, STAGE_NAMES, STAGES, ErrorLog, emit_safe, read_json, with_current_run
-from ui.pet_agent_rules import REPLIES, RULES, UNKNOWN_REPLY, VERDICTS
+from ui.pet_agent_rules import LEVEL_ASK, REPLIES, RULES, UNKNOWN_REPLY, VERDICTS
 
 LEVELS = ('hint', 'semi', 'auto')
 # 第 23 期：三档的名字只有这一份（原来 pet_ui 另写了一份「只提醒」，同一档两个说法）。
@@ -50,7 +50,7 @@ KEEP = 50
 SUMMARY_LIMIT = 4
 PROJECT_LIMIT = 12                              # 快照里最多带几个项目（第 37 期第 1 条）
 
-SHORT_NAMES = {'script': '剧本', 'storyboard': '分镜', 'assets': '资产', 'final': '定稿', 'keyframe': '首帧',
+SHORT_NAMES = {'script': '剧本', 'script_structure': '剧本结构', 'storyboard': '分镜', 'animatic': '分镜预演', 'assets': '资产', 'continuity': '连贯性清单', 'final': '定稿', 'keyframe': '首帧',
                'previs': '白模', 'video': '视频', 'audio': '配音', 'edit': '剪辑', 'delivery': '交付'}
 UNIT_OF = {'keyframe': '张', 'assets': '张', 'video': '个镜头', 'audio': '条', 'delivery': '个文件'}
 OUTCOME_ORDER = ('success', 'retry_success', 'need_confirm', 'failed', 'skipped')
@@ -97,7 +97,7 @@ def level_in(text):
     for level, name in sorted(LEVEL_NAMES.items(), key=lambda item: -len(item[1])):
         if name in body:
             return level
-    return None
+    return 'hint' if '只提示' in body else None
 
 
 def rule_reply(intent, stage=None):
@@ -126,7 +126,7 @@ def match_rule(text):
             if intent == 'level':
                 params['level'] = level_in(body)      # 「全自动」这句话本身就把档位说清楚了
             return {'intent': intent, 'stage': stage, 'params': params,
-                    'reply': rule_reply(intent, stage), 'source': 'rule'}
+                    'reply': LEVEL_ASK if intent == 'level' and not params['level'] else rule_reply(intent, stage), 'source': 'rule'}
     return None
 
 

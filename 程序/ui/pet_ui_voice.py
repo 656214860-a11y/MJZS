@@ -1047,7 +1047,7 @@ class PetVoiceMixin:
                 cloud.append(self._record_output(self.chat_hello()))      # 第 24 期第 1 条：一打开，三虎先问这一页该做的事
         except Exception as exc:
             self.errors.append(('chat.hello', str(exc)))
-        self.notice = '云朵框已打开：三虎问的是这一页该做的事，点「确认」它就去办'
+        self.notice = '云朵框已打开：三虎问的是这一页该做的事，在回复框按回车它就去办'
         return widget
     def close_chat(self, event=None):
         """收起云朵框（主窗口销毁或从菜单收起）：子组件冒泡上来的 <Destroy> 一律不认领。"""
