@@ -1,6 +1,6 @@
 # 项目状态（可独立接续）
 
-更新：2026-11-23｜当前轮次：4154（R4153 合并轮：FIX-AUD-SKILL-REMOTE github release asset zip 按直链导入，台账 source_url 去查询串（审查 AUD-SKILL D3/D4，R4143）；断言未动；未跑全量。上一轮：R4151 合并轮：FIX-AUD-ERRLOG 启动日志写失败仍可提示、崩溃历史截断并纳入诊断导出（R4140）；断言未动；未跑全量。）
+更新：2026-11-23｜当前轮次：4155（R4154 合并轮：FIX-AUD-SKILL-RETRY 重试与失败项同口径含缺工具项（审查 AUD-SKILL D9，R4149）；断言未动；未跑全量。上一轮：R4153 合并轮：FIX-AUD-SKILL-REMOTE github release asset zip 按直链导入，台账 source_url 去查询串（审查 AUD-SKILL D3/D4，R4143）；断言未动；未跑全量。）
 
 历史接续记录：R3308 修复槽位泄漏 bug 并优化慢测试超时，定向测试 46/46 通过。
 

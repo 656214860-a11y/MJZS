@@ -13,6 +13,7 @@ from pathlib import Path
 import pet_bus
 import stage_flow
 import stage_completion_service
+import stage_exec
 from agent.core import save
 from contract.stage_path_service import write_dir
 from orchestrator import skill_orchestrator
@@ -114,6 +115,29 @@ class SkillCompletionExitTests(unittest.TestCase):
                                  '%s 在只有分镜证据的项目里不应算完成' % stage)
         self.assertFalse(skill_orchestrator.verified_stage_output(None, 'storyboard'))
         self.assertFalse(skill_orchestrator.verified_stage_output('', 'storyboard'))
+
+    def test_retry_includes_missing_listed_by_failures(self):
+        """次级页 failures() 含 MISSING，retry 必须同一口径重跑（AUD-SKILL D9）。"""
+        orch = skill_orchestrator.default_orchestrator(project=str(self.root))
+        run = skill_orchestrator.Run({
+            'ok': True,
+            'skills': ['ghost-skill', 'boom-skill'],
+            'results': [
+                {'skill': 'ghost-skill', 'status': skill_orchestrator.MISSING, 'ok': False,
+                 'detail': '注册表里没有这个 SKILL'},
+                {'skill': 'boom-skill', 'status': skill_orchestrator.FAILED, 'ok': False,
+                 'detail': '炸了'},
+            ],
+            'failed': ['boom-skill'],
+            'errors': [], 'warnings': [], 'pending': [], 'layers': [], 'problems': [],
+            'cost': {}, 'text': '',
+        })
+        run.orchestrator = orch
+        run.context = {'project': str(self.root)}
+        want = [row['skill'] for row in stage_exec.failures(run)]
+        self.assertEqual(want, ['ghost-skill', 'boom-skill'])
+        again = orch.retry(run)
+        self.assertEqual(again.get('retried'), want)
 
 
 if __name__ == '__main__':

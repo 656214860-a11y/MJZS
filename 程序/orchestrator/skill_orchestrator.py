@@ -141,6 +141,24 @@ def _step_verdict(index, step_index, total, checks, artifact_verified):
     return 'continue', '从这一步续做'
 
 
+def retryable_skills(run):
+    """与次级执行页 ``stage_exec.failures`` 同一口径：FAILED 与 MISSING 都可重试。"""
+    names, seen = [], set()
+    for row in list((run or {}).get('results') or []):
+        if row.get('status') not in (FAILED, MISSING):
+            continue
+        skill = row.get('skill')
+        if not skill or skill in seen:
+            continue
+        seen.add(skill)
+        names.append(skill)
+    for skill in list((run or {}).get('failed') or []):
+        if skill and skill not in seen:
+            seen.add(skill)
+            names.append(skill)
+    return names
+
+
 class Run(dict):
     """一次 run 的结果：本身就是个字典（好存好传），另外挂上「只重试失败项」这个动作。"""
 
@@ -829,22 +847,19 @@ class Orchestrator:
         return out
 
     def retry(self, run, context=None):
-        """只重试失败项：拿上一次的 failed 列表再跑一遍，成功的那些不重跑。"""
-        failed = list(run.get('failed') or [])
-        merged = dict(run.context or {})
-        merged.update(context or {})
+        """重试失败项与缺工具项：与 ``stage_exec.failures`` 同一口径，成功的那些不重跑。"""
+        failed = retryable_skills(run)
+        merged = dict(run.context or {}); merged.update(context or {})
         again = Run({'ok': True, 'skills': failed, 'layers': [], 'results': [], 'failed': [],
                      'errors': [], 'warnings': [], 'missing_deps': [], 'cost': {}, 'pending': [],
                      'problems': [], 'retried': failed, 'at': self.clock()})
-        again.orchestrator = self
-        again.context = merged
+        again.orchestrator, again.context = self, merged
         if not failed:
             again['text'] = '没有失败项，不用重试。'
             return again
         again.update({key: value for key, value in self.run(failed, merged).items()
                       if key in ('layers', 'results', 'failed', 'errors', 'warnings', 'pending', 'cost', 'ok')})
-        again['retried'] = failed
-        again['text'] = '重试了一遍：' + self.describe(again)
+        again['retried'], again['text'] = failed, '重试了一遍：' + self.describe(again)
         return again
 
     # ── 六、说人话 ──────────────────────────────────────────────────────────
