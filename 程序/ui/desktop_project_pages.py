@@ -511,7 +511,7 @@ class ProjectPagesMixin(RecyclePanelMixin):
                 # 同时把还没登记的项目目录摆出来，用户仍继续就只清登记，绝不动磁盘。
                 rescue=shell_rescue_dirs(self.projects.info,self.projects.base,path)
                 message=(f"{item.get('name','项目')}\n{path}\n\n"
-                         '这个文件夹里没有项目配置文件（空壳），把它移入回收站找不回项目，建议先取消；'
+                         '这个目录里没有项目配置文件（空壳），把它移入回收站找不回项目，建议先取消；'
                          '可改用「重新查找项目」找回，或只清除这条登记，不动磁盘。')
                 if rescue:message+='\n\n项目库里尚未登记的目录：\n'+'\n'.join(rescue)
                 message+='\n\n仍要继续只会清除这条登记，不会改动磁盘上的任何文件。是否继续？'

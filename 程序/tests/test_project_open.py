@@ -285,7 +285,7 @@ class EmptyShellOpenTests(unittest.TestCase):
             self.assertEqual(service.info["active"], str(new))
             app._sync_desktop_project_paths.assert_called_once_with(old, str(new))
             self.assertEqual([p["path"] for p in app._picker_items], [str(new)])
-            self.assertIn("空文件夹没有动", app.status.set.call_args.args[0])
+            self.assertIn("空目录没有动", app.status.set.call_args.args[0])
             self.assertEqual(dir_listing(shell), before, "认领不得往失效登记的目录里写东西")
             self.assertTrue(shell.is_dir(), "认领成功后原目录原样留在磁盘上")
 
@@ -346,6 +346,7 @@ class EmptyShellOpenTests(unittest.TestCase):
                     self.assertIn("建议先取消", message)
                     self.assertIn("没有项目配置文件", message)
                     self.assertIn("落单_20261002", message)
+                    self.assertNotIn("文件夹", message, "删除警告统一叫「目录」")
                     mocked_delete.assert_not_called()
                     self.assertIn(old, [x["path"] for x in service.info["projects"]])
                     self.assertEqual(dir_listing(shell), before)
@@ -414,6 +415,24 @@ class EmptyShellOpenTests(unittest.TestCase):
                         popup.destroy()
             finally:
                 win.destroy()
+
+    def test_shell_sentences_call_a_directory_a_directory(self):
+        """空壳相关的提示统一叫「目录」，不混用「文件夹」（文案规则：目录就叫目录）。"""
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            shell = base / "shell"; shell.mkdir()
+            taken = base / "taken"; taken.mkdir()
+            info = {"projects": [{"path": str(shell)}, {"path": str(taken)}]}
+            sentences = {
+                "打开提示": projects_mod.EMPTY_SHELL_OPEN_NOTICE,
+                "打开报错": projects_mod.empty_shell_open_error(shell),
+                "认领成功": projects_mod.claimed_registration_notice(shell),
+                "手动认领已登记的目录": projects_mod.manual_claim_error(info, base, shell, taken),
+            }
+        for name, text in sentences.items():
+            with self.subTest(name):
+                self.assertNotIn("文件夹", text)
+                self.assertIn("目录", text)
 
 
 if __name__ == "__main__":

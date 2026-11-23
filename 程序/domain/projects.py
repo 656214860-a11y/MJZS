@@ -104,9 +104,9 @@ def reconcile_missing(projects_info, base):
             'candidates':[str(p) for p,_ in candidates],
             'unregistered':[str(p) for p,_ in candidates if p not in registered]}
 
-_EMPTY_SHELL_HINT='没有找到可以自动接回的项目文件夹'
+_EMPTY_SHELL_HINT='没有找到可以自动接回的项目目录'
 
-EMPTY_SHELL_OPEN_NOTICE=('项目文件夹里没有项目配置文件（可能是项目被移动或改名后留下的空壳），'
+EMPTY_SHELL_OPEN_NOTICE=('项目目录里没有项目配置文件（可能是项目被移动或改名后留下的空壳），'
                          '不能进入项目。可点「重新查找项目」找回，或只清除这条登记，不动磁盘。')
 
 def missing_project_open_error(path):
@@ -116,7 +116,7 @@ def missing_project_open_error(path):
             +'。未找到可自动认领的目录；可「重新查找项目」或只清除登记，不动磁盘。')
 
 def empty_shell_open_error(path):
-    return ('项目文件夹里没有项目配置文件（可能是项目被移动或改名后留下的空壳）：'+str(path)
+    return ('项目目录里没有项目配置文件（可能是项目被移动或改名后留下的空壳）：'+str(path)
             +'。'+_EMPTY_SHELL_HINT+'；可在项目选择窗口点「重新查找项目」手动指定，或只清除这条登记，不动磁盘。')
 
 def is_empty_shell_open_error(error):
@@ -136,7 +136,7 @@ def needs_cleanup_after_open_error(error):
 
 def claimed_registration_notice(old_path):
     """认领成功的提示：原目录还在（空壳被接走）时说明它没有动。"""
-    return '已按新位置同步项目登记。'+('原位置留下的空文件夹没有动。' if Path(old_path).is_dir() else '')
+    return '已按新位置同步项目登记。'+('原位置留下的空目录没有动。' if Path(old_path).is_dir() else '')
 
 
 def manual_claim_error(projects_info, base, old_path, selected):
@@ -148,7 +148,7 @@ def manual_claim_error(projects_info, base, old_path, selected):
         return '所选目录在项目库回收站里，不能认领。'
     if p.parent.resolve()!=Path(base).resolve():return '所选目录必须在项目库一级。'
     if any(Path(x.get('path',''))==p for x in projects_info.get('projects',[])):
-        return '这个文件夹已经登记为另一个项目。'
+        return '这个目录已经登记为另一个项目。'
     if not recognizable_project_dir(p,base):
         return '所选目录不可识别为项目（没有项目配置文件或阶段目录）。'
     return None
@@ -330,7 +330,7 @@ class Projects:
         item=next((x for x in info.get('projects',[]) if x.get('path')==str(old)),None)
         if item is None:raise ValueError('失效项目未登记')
         if str(new)!=str(old) and any(x.get('path')==str(new) for x in info.get('projects',[])):
-            raise ValueError('这个文件夹已经登记为另一个项目。')
+            raise ValueError('这个目录已经登记为另一个项目。')
         item['path']=str(new);item['name']=_slug(new)
         if info.get('active')==str(old):info['active']=str(new)
         self._write_transaction(self._live_path_writes(old,new,info))
