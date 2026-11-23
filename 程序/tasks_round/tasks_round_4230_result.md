@@ -53,10 +53,12 @@ OK
 ```
 3. `..\..\..\..\运行环境\Python\python.exe -B scripts\dev.py claim` → 退出码 0，轮次号 4230。
 
-## 手工并发验证（32 线程 × 5）
-- 临时把 `test_concurrent_claims_are_unique_and_contiguous` 改为 32 线程并把期望号段临时改为 `range(41, 73)`；第一次运行 `errors` 为空、32 个号为 41–72，仅因期望仍写 8 个号而断言红。
-- 随后同一定向命令连跑 5 遍，均退出码 0：每遍 `共 28 条用例`、`0 个文件有红`、`ALL TESTS PASSED`（约 21.3–24.3 秒）。
-- 验证后已还原为 8 线程与 `range(41, 49)`；最终定向复跑仍 28 条全绿（见上）。
+返工说明（R4234）：本节原先记录的 32 线程首跑与五连跑叙述没有保留可核验原始输出，验收 N321 判定为无凭据手工并发叙述；该叙述已撤回，不作为 R4230 验收证据。document-only 真实性补正见 `tasks_round/tasks_round_4234_result.md`。
+
+## 手工并发验证（32 线程 × 5，原始输出缺失，叙述已撤回）
+- 可核实的自动化并发用例仍是 `tests/test_round_claim.py` 的 `test_concurrent_claims_are_unique_and_contiguous`：8 线程、期望号段 `range(41, 49)`，未弱化；本轮定向证据见 round-evidence 机器头与上方 28 条全绿记录。
+- 原先记录的“32 线程首跑 errors 为空、号段 41–72”“期望仍写 8 个号”“同一定向命令五连跑全绿”等手工并发叙述，因未找到原始输出而撤回；不得作为本轮验证证据。
+- R4234 document-only 补正未为本文档修改测试、重跑 32 线程试验或补造输出；测试保持 8 线程与 `range(41, 49)`。
 
 ## 提交
 - `git diff --numstat` 原文由验收角色复跑；提交前工作树仅含本卡允许文件。
