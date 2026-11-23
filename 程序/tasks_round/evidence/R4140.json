@@ -1,0 +1,15 @@
+{
+  "round": 4140,
+  "commit_base": "3383684c",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k diagnostic_capture startup_selfcheck log_maintenance",
+    "exit": 0,
+    "passed": 67,
+    "failed": 0
+  },
+  "generated_at": "2026-11-23T11:54:10"
+}

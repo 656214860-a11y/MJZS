@@ -110,16 +110,17 @@ def record_temporary_sweep(removed: int, remaining: int) -> None:
 
 
 def record_crash(exc: BaseException, trace=None) -> None:
-    """追加到既有启动错误日志，不另建崩溃日志。"""
+    """追加到既有启动错误日志，不另建崩溃日志；历史只留最近约 64KB。"""
     with _LOCK:
         previous = ERROR_LOG.read_text(encoding="utf-8", errors="replace") if ERROR_LOG.exists() else ""
         detail = "".join(traceback.format_exception(type(exc), exc, trace or exc.__traceback__))
-        save_text(ERROR_LOG, previous + "\n[diagnostics] " + _clean(detail) + "\n")
+        save_text(ERROR_LOG, previous[-65536:] + "\n[diagnostics] " + _clean(detail) + "\n")
 
 
 def export_candidates() -> tuple[Path, ...]:
     """固定白名单，避免在启动或导出时递归枚举日志目录。"""
-    return tuple(path for path in (ERROR_LOG, LOGS / "sanhu_progress.log", STATE_FILE) if path.is_file())
+    launcher_log = PROGRAM.parent / "启动错误.log"  # 启动器最外层 except 写在仓库根的同名文件
+    return tuple(path for path in (ERROR_LOG, LOGS / "sanhu_progress.log", STATE_FILE, launcher_log) if path.is_file())
 
 
 def preview() -> tuple[str, ...]:
