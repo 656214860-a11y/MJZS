@@ -2934,6 +2934,78 @@
    "reason_constant": "PLATFORM_WINDOWS_ONLY",
    "reason": "平台限制：受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
    "reference": ""
+  },
+  {
+   "file": "tests/test_model_picker_draft_keep.py",
+   "test": "DraftKeepTests.setUp",
+   "ordinal": 1,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_TKINTER",
+   "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+   "reference": ""
+  },
+  {
+   "file": "tests/test_model_picker_draft_keep.py",
+   "test": "DraftKeepTests.setUp",
+   "ordinal": 2,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_TK_DISPLAY",
+   "reason": "当前环境没有可用 Tk display；可创建窗口时应恢复执行",
+   "reference": ""
+  },
+  {
+   "file": "tests/test_model_picker_draft_keep.py",
+   "test": "FlyoutNoactivateTests.setUp",
+   "ordinal": 1,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_TKINTER",
+   "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+   "reference": ""
+  },
+  {
+   "file": "tests/test_model_picker_draft_keep.py",
+   "test": "FlyoutNoactivateTests.setUp",
+   "ordinal": 2,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_TK_DISPLAY",
+   "reason": "当前环境没有可用 Tk display；可创建窗口时应恢复执行",
+   "reference": ""
+  },
+  {
+   "file": "tests/test_model_picker_draft_keep.py",
+   "test": "FlyoutNoactivateTests.test_apply_noactivate_failure_returns_false",
+   "ordinal": 1,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_WINDOWS_ONLY",
+   "reason": "受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+   "reference": ""
+  },
+  {
+   "file": "tests/test_model_picker_draft_keep.py",
+   "test": "FlyoutNoactivateTests.test_apply_noactivate_failure_returns_false",
+   "ordinal": 2,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_WINDOWS_ONLY",
+   "reason": "受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+   "reference": ""
+  },
+  {
+   "file": "tests/test_model_picker_draft_keep.py",
+   "test": "FlyoutNoactivateTests.test_noactivate_flyout_sets_ws_ex_noactivate",
+   "ordinal": 1,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_WINDOWS_ONLY",
+   "reason": "受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+   "reference": ""
+  },
+  {
+   "file": "tests/test_model_picker_draft_keep.py",
+   "test": "FlyoutNoactivateTests.test_noactivate_flyout_sets_ws_ex_noactivate",
+   "ordinal": 2,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_WINDOWS_ONLY",
+   "reason": "受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+   "reference": ""
   }
  ]
 }

@@ -781,6 +781,15 @@
       "targets": [
         "程序/docs/process/阶段文档写法.md"
       ]
+    },
+    "程序/tests/test_model_picker_draft_keep.py": {
+      "kind": "module",
+      "owner": "项目维护者",
+      "contract": "模型选择器切换模型／推理档位后共享输入框的文字、光标、选区与焦点保留；模型浮层 noactivate 不抢系统焦点，其余 Flyout 调用方默认不变",
+      "targets": [
+        "程序/ui/stage_model_picker.py",
+        "程序/ui/ui_popup.py"
+      ]
     }
   },
   "packaging": {

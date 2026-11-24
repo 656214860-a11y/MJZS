@@ -2,6 +2,7 @@
 """提示浮层不当对话框（R1976）；R2946 起兼管图标下方的无边框选择浮层 Flyout。"""
 import tkinter as tk
 
+import infra.app_logging as app_logging
 from ui_tokens import COLORS, SPACING
 
 _MEASURE_FONTS = {}
@@ -54,17 +55,55 @@ def text_units_width(font, texts, root=None):
     return -(-px // char_unit_px(font, root)) if px else 0
 
 
+# WS_EX_NOACTIVATE：浮层弹出与点击都不抢系统焦点。输入法组词由焦点窗口持有，
+# 普通 Toplevel 一出现就抢走焦点、组词被系统取消（R4259 用户报告的丢字根因之一）。
+WS_EX_NOACTIVATE = 0x08000000
+_GWL_EXSTYLE = -20
+_GA_ROOT = 2
+
+
+def apply_noactivate(window):
+    """Windows 下给 ``window`` 的顶层 HWND 追加 ``WS_EX_NOACTIVATE``。
+
+    追加成功（读回含标志位）返回 True；取句柄或写样式失败记日志并返回 False
+    ——调用方退回快照还原＋回焦点兜底；非 Windows 恒返回 False。
+    """
+    import sys
+    if not sys.platform.startswith('win'):
+        return False
+    try:
+        import ctypes
+        from ctypes import wintypes
+        api = ctypes.windll.user32
+        api.GetAncestor.argtypes = [wintypes.HWND, wintypes.UINT]
+        api.GetAncestor.restype = wintypes.HWND
+        api.GetWindowLongPtrW.argtypes = [wintypes.HWND, ctypes.c_int]
+        api.GetWindowLongPtrW.restype = ctypes.c_longlong
+        api.SetWindowLongPtrW.argtypes = [wintypes.HWND, ctypes.c_int, ctypes.c_longlong]
+        api.SetWindowLongPtrW.restype = ctypes.c_longlong
+        hwnd = api.GetAncestor(window.winfo_id(), _GA_ROOT) or window.winfo_id()
+        style = api.GetWindowLongPtrW(hwnd, _GWL_EXSTYLE)
+        api.SetWindowLongPtrW(hwnd, _GWL_EXSTYLE, style | WS_EX_NOACTIVATE)
+        return bool(api.GetWindowLongPtrW(hwnd, _GWL_EXSTYLE) & WS_EX_NOACTIVATE)
+    except Exception:
+        app_logging.swallowed('flyout noactivate')
+        return False
+
+
 class Flyout(tk.Toplevel):
     """锚点控件下方的无边框选择浮层：1px 描边壳＋内容体（``self.body``）。
 
     第 R2946 期：侧栏「资产清单」「项目选择」等二级入口共用的弹出选择层。
     定位、点外部关闭与 Esc 由宿主（desktop_page_nav）负责；本类只管窗体与描边。
+    ``noactivate=True``（R4259 模型浮层）在 Windows 下追加 WS_EX_NOACTIVATE，
+    弹出不抢输入焦点；生效与否记录在 ``self.noactivate``。
     """
 
-    def __init__(self, master):
+    def __init__(self, master, noactivate=False):
         super().__init__(master)
         self.overrideredirect(True)
         make_passive_popup(self)
+        self.noactivate = apply_noactivate(self) if noactivate else False
         self.configure(bg=COLORS['border_default'])
         shell = tk.Frame(self, bg=COLORS['border_default'], bd=0)
         shell.pack(fill='both', expand=True)
