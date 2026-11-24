@@ -1,0 +1,15 @@
+{
+  "round": 4325,
+  "commit_base": "3cc271764",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k asset_page_services asset_batch_window asset_detail asset_impact",
+    "exit": 0,
+    "passed": 86,
+    "failed": 0
+  },
+  "generated_at": "2026-11-24T18:32:24"
+}

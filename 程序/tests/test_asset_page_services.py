@@ -87,6 +87,9 @@ class AssetPageStaysOnAssetsTests(unittest.TestCase):
                 self.assertTrue(AssetPagesMixin.delete_asset_image(host, 'CHAR_001'))
         remove.assert_called_once()
         self.assertEqual(shown, [PAGE_OF['assets']])
+        text = host.asset_page_services.confirm.call_args.args[2]
+        self.assertTrue(text)
+        self.assertIn('CHAR_001', text)
 
     def test_batch_delete_redraws_the_assets_page_once(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -98,6 +101,9 @@ class AssetPageStaysOnAssetsTests(unittest.TestCase):
             self.assertEqual(AssetPagesMixin.delete_asset_images(host), ['CHAR_001'])
         host.delete_asset_image.assert_called_once_with('CHAR_001', ask=False)
         self.assertEqual(shown, [PAGE_OF['assets']])
+        text = host.asset_page_services.confirm.call_args.args[2]
+        self.assertTrue(text)
+        self.assertIn('CHAR_001', text)
 
     def test_rename_redraws_the_assets_page(self):
         host, shown = self._host(Path('b'), asset_requirements=lambda: {'CHAR_001': {'name': '旧名'}})
