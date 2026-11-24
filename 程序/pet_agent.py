@@ -323,7 +323,6 @@ def action_for(plan):
 # ——既没帮上忙，又把对话拖长。
 FREE_ACTIONS = ('stage.goto', 'stage.inspect', 'stage.control', 'keyframe.local', 'storyboard.local')
 
-
 # ── 异常分级与退避 ──────────────────────────────────────────────────────────
 # 「错误文本 → 类目」与「是否可重试」都以 contract.error_codes 为唯一权威（G10，轮 5B）：
 # TEXT_RULES 每行带原 PATTERNS 类目名，这里反查「码 → 类目」给 VERDICTS 配动作与文案；
@@ -432,7 +431,6 @@ def fix_params(params, sizes=SIZES, aliases=MODEL_ALIASES):
             out['model'] = canonical
             fixed.append('模型名')
     return {'params': out, 'fixed': fixed}
-
 
 
 # ── 通知聚合与免打扰 ────────────────────────────────────────────────────────
@@ -563,7 +561,6 @@ class Notifier:
             if isinstance(value, list):
                 setattr(self, key, [item for item in value if isinstance(item, dict)])
         return self
-
 
 # ── 父编排门面 ──────────────────────────────────────────────────────────────
 def config_file(program=None):
@@ -700,8 +697,8 @@ class Agent:
         self._known = set()
         self.paused = False
         self.paused_reason = ''
-        # 第 37 期第 1 条：宿主（pet_ui）把「手上所有项目」的只读快照供在这里，见 projects_snapshot。
-        self.projects = None
+        # 第 37 期第 1 条：宿主（pet_ui）把「手上所有项目」的只读快照与项目事实供在这里。
+        self.projects, self.facts = None, None
         # 第 63 期任务 3.3／4.2：全局并发控制器（全局 ≤8、单阶段按并行配置收口、同资源串行）。
         # 拿的是全进程唯一的那一个（stage_parallel.shared），SKILL 编排器那条并行路也问它，
         # 免得「各家各建一个、各自放宽 8 路」。
@@ -1002,6 +999,9 @@ class Agent:
         if pending:
             # 三虎刚问过用户一句、还挂着：模型抽意图时要知道用户是在回哪个问题
             out['pending_offer'] = str(pending)
+        try: facts = self.facts() if callable(self.facts) else {}
+        except Exception as exc: self.errors.append(('facts', str(exc))); facts = {}
+        if isinstance(facts, dict) and facts: out['facts'] = facts
         return out
 
     def progress(self, at=None):

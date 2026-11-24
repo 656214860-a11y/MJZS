@@ -15,6 +15,7 @@ import pet_agent, pet_bus, infra.pet_llm as pet_llm, infra.pet_state as pet_stat
 # 指到沙盒目录：读不到真配置，也写不脏真安装目录（见 selftest_sandbox 的说明）。
 import selftest_sandbox
 selftest_sandbox.isolate(pet_llm)
+from test_pet_context_facts import FactsSnapshotTests
 
 DAY = 1750000000 - (1750000000 % 86400)
 
@@ -625,6 +626,63 @@ class ProjectContextTests(unittest.TestCase):
     def test_the_snapshot_does_not_run_away(self):
         self.agent.projects = lambda: ["项目%d" % index for index in range(50)]
         self.assertEqual(len(self.agent.context()["projects"]), pet_agent.PROJECT_LIMIT)
+
+
+class FactsContextTests(unittest.TestCase):
+    """SANHU-CONTEXT-GAPS：项目事实只在 facts 回调给出非空字典时进快照。"""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.project = Path(self.tmp.name)
+        self.machine = pet_state.Machine(self.project, persist=False)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def make_agent(self, facts=None, **kwargs):
+        kwargs.setdefault("project", self.project)
+        kwargs.setdefault("machine", self.machine)
+        kwargs.setdefault("level", "hint")
+        kwargs.setdefault("persist", False)
+        agent = pet_agent.Agent(**kwargs)
+        agent.facts = facts
+        return agent
+
+    def test_without_facts_the_snapshot_keys_are_unchanged(self):
+        context = self.make_agent().context()
+        self.assertEqual(set(context), {"project", "stage", "percent", "level", "failed"})
+
+    def test_facts_callback_adds_fixed_shape_snapshot(self):
+        facts = {"counts": {"scripts": 1, "storyboards": 3, "adopted": 1, "shots": 40,
+                            "frames": 25, "assets": 2, "ready_assets": 2},
+                 "gaps": ["2 份分镜 JSON 还没采用（分镜 → 手动采用分镜）",
+                          "首帧还差 15 个镜头（首帧 → 手动制作首帧）"],
+                 "blocked": ""}
+        context = self.make_agent(facts=lambda: facts).context()
+        self.assertEqual(context["facts"], facts)
+        self.assertEqual(set(context["facts"]), {"counts", "gaps", "blocked"})
+        self.assertTrue(all(isinstance(value, int)
+                            for value in context["facts"]["counts"].values()))
+        self.assertEqual(len(context["facts"]["gaps"]), 2)
+        self.assertIsInstance(context["facts"]["blocked"], str)
+
+    def test_empty_or_non_dict_facts_do_not_add_key(self):
+        for value in ({}, [], None, ""):
+            with self.subTest(value=value):
+                self.assertNotIn("facts", self.make_agent(facts=lambda value=value: value).context())
+
+    def test_facts_exception_is_recorded_without_breaking_context(self):
+        def boom():
+            raise RuntimeError("facts boom")
+
+        agent = self.make_agent(facts=boom)
+        agent.projects = lambda: ["甲"]
+        agent.pending_offer = "待确认"
+        context = agent.context()
+        self.assertNotIn("facts", context)
+        self.assertEqual(context["projects"], ["甲"])
+        self.assertEqual(context["pending_offer"], "待确认")
+        self.assertTrue(any(name == "facts" for name, _text in agent.errors))
 
 
 class IdempotencyTests(unittest.TestCase):

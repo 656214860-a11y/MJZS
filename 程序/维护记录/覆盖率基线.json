@@ -2641,6 +2641,12 @@
       "percent": 0.0
     },
     {
+      "module": "ui/pet_context_facts.py",
+      "covered": 0,
+      "total": 22,
+      "percent": 0.0
+    },
+    {
       "module": "ui/pet_report.py",
       "covered": 0,
       "total": 376,
@@ -4076,6 +4082,6 @@
     }
   ],
   "modules_covered": 133,
-  "modules_total": 676,
+  "modules_total": 677,
   "integration_status": "historical_master_measurement_minus_retired_aigc_lint_pending_remeasurement"
 }
