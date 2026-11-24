@@ -23,6 +23,9 @@ SKILL_LICENSES = {
     'skills/01 剧本准备SKILL/剧本锻造': 'NOASSERTION',
 }
 LOCK_LINE = re.compile(r'^([A-Za-z0-9][A-Za-z0-9._-]*)==([^\s#]+)$')
+_GPL = re.compile(r'GPL', re.I)
+_BUILD = re.compile(r'([A-Za-z0-9]+)_build')
+FFMPEG_UPSTREAM = 'https://www.ffmpeg.org/download.html'
 
 
 def _json(path: Path) -> dict:
@@ -117,6 +120,44 @@ def _tools(program: Path) -> list:
     return components
 
 
+def _build_type(item) -> str:
+    """随包工具的构建类型：从锁文件 version 提取（如 gyan essentials_build）；未登记按 GPL 兜底披露。"""
+    matched = _BUILD.search(str(item.get('version') or ''))
+    return (matched.group(1) + '_build') if matched else '未在锁文件登记'
+
+
+def gpl_tool_homes(components) -> dict:
+    """GPL 系许可且随包路径落在 ``运行环境/<目录>/`` 下的工具：{目录: [组件]}。"""
+    homes = {}
+    for item in components:
+        license_ids = [str(lic.get('license', {}).get('id') or '')
+                       for lic in item.get('licenses') or [] if isinstance(lic, dict)]
+        if not any(_GPL.search(license_id) for license_id in license_ids):
+            continue
+        path = next((str(p.get('value') or '') for p in item.get('properties') or []
+                     if p.get('name') == 'release:path'), '').replace('\\', '/')
+        parts = path.split('/')
+        if len(parts) < 3 or parts[0] != '运行环境':
+            continue
+        homes.setdefault('/'.join(parts[:2]), []).append(item)
+    return homes
+
+
+def gpl_notice(home, items) -> str:
+    """GPL 组件随包 NOTICE.txt 正文：许可证、构建类型、构建来源与源码获取方式。"""
+    lines = ['漫剧制作助手 随包 GPL 组件披露', '目录：' + home + '/', '']
+    for item in items:
+        lines += [item['name'] + ' ' + str(item['version']),
+                  '  许可证：' + item['licenses'][0]['license']['id'] + '（全文见本目录 LICENSE）',
+                  '  构建类型：' + _build_type(item),
+                  '  构建来源：' + item['externalReferences'][0]['url']]
+        if 'ffmpeg' in home.lower():
+            lines.append('  完整对应源码：' + FFMPEG_UPSTREAM)
+        lines.append('')
+    lines.append('按许可证要求随包披露：重新分发本目录内容时保留本文件与 LICENSE。')
+    return '\n'.join(lines) + '\n'
+
+
 def _skills(program: Path, release_files=None) -> list:
     registry = _json(program / '维护记录' / '外部技能包哈希.json')
     components = []
@@ -156,15 +197,29 @@ def build(program: Path, app_version='', release_files=None) -> tuple[dict, str]
                      if p['name'] == 'release:path'), '')
         if path:
             lines.append('  路径：' + path)
+    gpl = gpl_tool_homes(components)
+    if gpl:
+        lines += ['', 'GPL 组件披露（对应目录另附 NOTICE.txt 与 LICENSE）：']
+        for home, items in sorted(gpl.items()):
+            upstream = '；完整对应源码 ' + FFMPEG_UPSTREAM if 'ffmpeg' in home.lower() else ''
+            for item in items:
+                lines.append('  %s %s | %s | 构建类型：%s'
+                             % (item['name'], item['version'],
+                                item['licenses'][0]['license']['id'], _build_type(item)))
+                lines.append('    构建来源：%s%s' % (item['externalReferences'][0]['url'], upstream))
     lines += ['', 'NOASSERTION 表示上游未提供可确认的再分发许可证；正式发布前必须移除该组件或取得授权。']
     return document, '\n'.join(lines) + '\n'
 
 
-def write(program: Path, destination: Path, app_version='', release_files=None) -> tuple[Path, Path]:
+def write(program: Path, destination: Path, app_version='', release_files=None) -> tuple:
     document, notices = build(program, app_version=app_version, release_files=release_files)
     destination = Path(destination)
-    sbom_path = destination / 'sbom.cdx.json'
-    notices_path = destination / 'THIRD_PARTY_NOTICES.txt'
-    sbom_path.write_text(json.dumps(document, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
-    notices_path.write_text(notices, encoding='utf-8')
-    return sbom_path, notices_path
+    written = [destination / 'sbom.cdx.json', destination / 'THIRD_PARTY_NOTICES.txt']
+    written[0].write_text(json.dumps(document, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+    written[1].write_text(notices, encoding='utf-8')
+    for home, items in sorted(gpl_tool_homes(document['components']).items()):
+        notice_path = destination / home / 'NOTICE.txt'
+        notice_path.parent.mkdir(parents=True, exist_ok=True)
+        notice_path.write_text(gpl_notice(home, items), encoding='utf-8')
+        written.append(notice_path)
+    return tuple(written)

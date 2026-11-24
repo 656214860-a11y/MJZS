@@ -1,6 +1,6 @@
 # 项目状态（可独立接续）
 
-更新：2026-11-24｜当前轮次：4349（R4348 合并轮：R4340 FIX-MASTER-APPLOG-TEST 补齐 AppLogInstallFailureTests 子进程替身桩；断言未动；未跑全量。上一轮：R4344 合并轮：R4339 FIX-MASTER-PET-CONTEXT pet_agent.Agent.context 兼容缺 facts/errors 替身宿主；断言未动；未跑全量。）
+更新：2026-11-24｜当前轮次：4350（R4349 合并轮：R4342 REL-10 关于页块、随包 NOTICE、FFmpeg GPL 披露与逐包许可表；断言未动；未跑全量。上一轮：R4348 合并轮：R4340 FIX-MASTER-APPLOG-TEST 补齐 AppLogInstallFailureTests 子进程替身桩；断言未动；未跑全量。）
 
 历史接续记录：R3308 修复槽位泄漏 bug 并优化慢测试超时，定向测试 46/46 通过。
 

@@ -8,6 +8,7 @@
 import queue
 import threading
 import time
+from pathlib import Path
 from types import SimpleNamespace
 import webbrowser
 import tkinter as tk
@@ -17,12 +18,15 @@ import domain.account_client as account_client
 import domain.entitlement_service as entitlement_service
 from orchestrator.account_controller import RENEW_VIEW_INTERVAL, AccountController
 import contract.pet_bus as pet_bus
+from contract.app_metadata import VERSION
+from infra.file_cache import read_json
 from ui.desktop_page_registry import (NAV_LOCK_ICON, PAGE_ACCOUNT, PAGE_NAV_ICONS, PAGES,
                                    nav_label, page_title)
 from ui.ui_icons import IconLoader
-from ui_tokens import DIALOG_CONTENT_PADDING, DIALOG_MIN_HEIGHT, FONTS, SPACING, TEXT_DESC
+from ui_tokens import DIALOG_CONTENT_PADDING, DIALOG_MIN_HEIGHT, FONTS, SPACING, TEXT_DESC, TEXT_ROWS
 from account_inputs import EmailInput, PASSWORD_MASK, PasswordInput
-from ui_widgets import BaseDialog, Card, LineInput, PrimaryButton, SecondaryButton, ask_confirmation
+from ui_widgets import (BaseDialog, Card, LineInput, PrimaryButton, SecondaryButton, TextArea,
+                        ask_confirmation)
 
 RENEW_DELAY_MS = 3000
 RENEW_CHECK_MS = 30 * 60 * 1000
@@ -64,6 +68,60 @@ def device_text(device):
     mark = ' · 本机' if device.get('current') else ''
     return '%s（%s）%s  首次 %s · 最近 %s' % (device.get('name') or '—', device.get('os') or '—', mark,
                                          _when(device.get('first_seen')), _when(device.get('last_seen')))
+
+
+NOTICES_NAME = 'THIRD_PARTY_NOTICES.txt'
+DIGEST_NAME = '分发清单.json'
+APP_ROOT = Path(__file__).resolve().parents[2]
+
+
+def about_info(root=None):
+    """「关于与开源许可」只读数据：版本、构建提交、随包开源许可全文（无 Tk 依赖）。"""
+    root = Path(root) if root is not None else APP_ROOT
+    info = {'version': str(VERSION), 'commit': '',
+            'notices_path': str(root / NOTICES_NAME), 'notices_text': ''}
+    try:
+        data = read_json(root / DIGEST_NAME)
+        if isinstance(data, dict):
+            info['commit'] = str(data.get('commit') or '')
+    except (OSError, ValueError):
+        pass
+    try:
+        info['notices_text'] = Path(info['notices_path']).read_text(encoding='utf-8')
+    except OSError:
+        pass
+    return info
+
+
+def about_lines(info):
+    """关于页展示行：版本、构建与开源许可入口说明。"""
+    lines = ['版本：' + (info.get('version') or '未知'),
+             '构建：' + (info.get('commit') or '开发副本')]
+    if info.get('notices_text'):
+        lines.append('开源许可：随包 THIRD_PARTY_NOTICES.txt，点下方按钮查看')
+    else:
+        lines.append('开源许可：本副本未携带 THIRD_PARTY_NOTICES.txt（未打包的开发副本）')
+    return lines
+
+
+def about_card(parent, info):
+    """「关于与开源许可」块：版本、构建提交，以及随包 THIRD_PARTY_NOTICES.txt 的页内展开入口。"""
+    card = Card(parent);card.pack(fill='x',pady=SPACING['xs'])
+    ttk.Label(card,text='关于与开源许可').pack(anchor='w')
+    for line in about_lines(info):
+        ttk.Label(card,text=line,style='Muted.TLabel',wraplength=TEXT_DESC['wraplength'],justify='left').pack(anchor='w',pady=(SPACING['xs'],SPACING['none']))
+    if not info['notices_text']:
+        return card
+    body = ttk.Frame(card)
+    area = TextArea(body,height=TEXT_ROWS['xl'],wrap='word')
+    scroll = ttk.Scrollbar(body,orient='vertical',command=area.yview)
+    area.configure(yscrollcommand=scroll.set)
+    area.insert('1.0',info['notices_text']);area.set_readonly()
+    scroll.pack(side='right',fill='y');area.pack(side='left',fill='x',expand=True)
+    def show():
+        body.pack(fill='x',pady=SPACING['xs']);button.pack_forget()
+    button = SecondaryButton(card,text='查看开源许可',command=show);button.pack(anchor='w',pady=SPACING['xs'])
+    return card
 
 
 NAV_LOCK_MARK = ' 🔒'                         # 侧栏上未授权不能进的页
@@ -272,6 +330,11 @@ class AccountPageMixin:
             self._account_signed_in(status, head, entitlement, session)
         else:
             self._account_login_form()
+        self._account_about_card()
+
+    def _account_about_card(self):
+        """账户页挂「关于与开源许可」块：构建细节在模块级 ``about_card``（类体积棘轮上限 600 行）。"""
+        about_card(self.content, about_info())
 
     def _account_signed_in(self, card, head, entitlement, session):
         payload = entitlement.payload or {}
