@@ -96,6 +96,28 @@ class CalibrateTests(unittest.TestCase):
         self.assertEqual(report['mode'], 'estimate')
         self.assertFalse(report['estimated'])
 
+    def test_short_line_keeps_minimum_without_overlap(self):
+        ep = {'shots': [shot('SH001', ['A：' + '长' * 100, 'B：短'], duration=5)]}
+        entries, report = calibrate_entries(ep)
+        self.assertEqual(report['mode'], 'length')
+        self.assertEqual(len(entries), 2)
+        self.assertGreaterEqual(entries[1][3], entries[0][4] - 1e-9)
+        self.assertGreaterEqual(entries[1][4] - entries[1][3], 0.19)
+        self.assertLessEqual(entries[-1][4], 5.0 + 1e-6)
+
+    def test_shot_too_short_for_lines_raises_with_shot_and_count(self):
+        ep = {'shots': [shot('SH001', ['A：一', 'B：二', 'C：三', 'D：四'], duration=0.5)]}
+        with self.assertRaisesRegex(ValueError, r'SH001.*4 句.*0\.8'):
+            calibrate_entries(ep)
+
+    def test_invalid_author_times_raise_with_shot_and_line(self):
+        cases = ({'start': 8, 'end': 6}, {'start': -1, 'end': 3},
+                 {'start': 'x', 'end': 3}, {'start': float('nan'), 'end': 3})
+        for bad in cases:
+            ep = {'shots': [shot('SH001', [{'speaker': 'A', 'text': '台词', **bad}])]}
+            with self.subTest(bad=bad), self.assertRaisesRegex(ValueError, r'SH001 第 1 句'):
+                calibrate_entries(ep)
+
 
 class ValidateTests(unittest.TestCase):
     def test_non_finite_rejected(self):

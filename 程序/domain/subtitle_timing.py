@@ -43,9 +43,28 @@ def _shot_duration(shot):
     return dur
 
 
-def _dialogue_rows(shot):
-    """解出镜内对白行 [speaker, text, start 或 None, end 或 None]，口径与旧版一致。"""
+def _author_times(sid, index, a, b):
+    """作者标注的镜内起止：负数、结束不大于开始、非数字、非有限一律报错并指出镜头与句子。"""
+    for tag, value in (("start", a), ("end", b)):
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(f"{sid or '镜头'} 第 {index} 句对白的 {tag} 不是数字：{value!r}")
+        if not math.isfinite(value):
+            raise ValueError(f"{sid or '镜头'} 第 {index} 句对白的 {tag} 不是有限值：{value!r}")
+    if a < 0 or b < 0:
+        raise ValueError(f"{sid or '镜头'} 第 {index} 句对白时间出现负数：{a} → {b}")
+    if b <= a:
+        raise ValueError(f"{sid or '镜头'} 第 {index} 句对白结束时间不大于开始时间：{a} → {b}")
+    return float(a), float(b)
+
+
+def _dialogue_rows(shot, strict=False):
+    """解出镜内对白行 [speaker, text, start 或 None, end 或 None]，口径与旧版一致。
+
+    strict=True（导出校准路径）时，作者同时标注了 start/end 的句子遇到非法值直接报错；
+    只标一半或没标的一律按未标注处理。
+    """
     rows = []
+    sid = shot.get("id", "")
     dialogue = shot.get("dialogue", [])
     if not isinstance(dialogue, list):
         dialogue = []
@@ -59,7 +78,9 @@ def _dialogue_rows(shot):
                 continue
             speaker = str(d.get("speaker") or "")
             a = d.get("start"); b = d.get("end")
-            if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+            if strict and a is not None and b is not None:
+                rows.append([speaker, tx, *_author_times(sid, len(rows) + 1, a, b)])
+            elif isinstance(a, (int, float)) and isinstance(b, (int, float)):
                 rows.append([speaker, tx, float(a), float(b)])
             else:
                 rows.append([speaker, tx, None, None])
@@ -147,11 +168,35 @@ def _audio_seconds(item):
     return value
 
 
-def _distribute(rows, dur, known):
+def _floor_shares(weights, budget, floor):
+    """预算按权重分配、每份保底 floor 秒；放不下保底返回 None（由调用方报错）。"""
+    n = len(weights)
+    if n * floor > budget + 1e-9:
+        return None
+    secs = [0.0] * n
+    active = list(range(n))
+    remaining = budget
+    while active:
+        total_weight = sum(weights[i] for i in active)
+        unit = remaining / total_weight if total_weight > 0 else 0.0
+        low = [i for i in active if weights[i] * unit < floor]
+        if not low:
+            for i in active:
+                secs[i] = weights[i] * unit
+            break
+        for i in low:
+            secs[i] = floor
+            remaining -= floor
+            active.remove(i)
+    return secs
+
+
+def _distribute(rows, dur, known, sid=""):
     """在镜头内分摊每句时长：已知真实时长优先，其余按句长权重分剩余预算。
 
     已知时长合计占满或超出镜头时整镜按比例压缩，保证每句都还有位置，并标记 overflow
-    （真实音频比镜头长，需要人工确认）。返回 (每句秒数, 是否溢出)。
+    （真实音频比镜头长，需要人工确认）。待估算的句子每句保底 DEFAULT_LINE_SECONDS，
+    镜头放不下保底时报明确错误。返回 (每句秒数, 是否溢出)。
     """
     n = len(rows)
     secs = [None] * n
@@ -171,9 +216,12 @@ def _distribute(rows, dur, known):
                     secs[i] = secs[i] * scale
             remaining = dur - target_known
         weights = [line_weight(rows[i][1]) for i in unknown]
-        total_weight = sum(weights) or 1.0
-        for i, weight in zip(unknown, weights):
-            secs[i] = remaining * weight / total_weight
+        shares = _floor_shares(weights, remaining, DEFAULT_LINE_SECONDS)
+        if shares is None:
+            raise ValueError(f"{sid or '镜头'} 共 {n} 句对白，估算部分至少需要 "
+                             f"{len(unknown) * DEFAULT_LINE_SECONDS:.1f} 秒")
+        for i, share in zip(unknown, shares):
+            secs[i] = share
     elif fixed > dur:
         overflow = True
         scale = dur / fixed
@@ -206,7 +254,7 @@ def calibrate_entries(episode, audio=None):
             continue
         sid = shot.get("id", "")
         dur = _shot_duration(shot)
-        rows = _dialogue_rows(shot)
+        rows = _dialogue_rows(shot, strict=True)
         if not rows:
             offset += dur
             report["total"] += dur
@@ -221,7 +269,7 @@ def calibrate_entries(episode, audio=None):
             report["calibrated"] += len(rows)
         else:
             known = items[cursor:cursor + len(rows)]
-            secs, overflow = _distribute(rows, dur, known)
+            secs, overflow = _distribute(rows, dur, known, sid)
             if overflow:
                 report["overflow"].append(str(sid) or "镜头")
             placed = []
