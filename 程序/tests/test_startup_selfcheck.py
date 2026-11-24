@@ -689,6 +689,8 @@ class AppLogInstallFailureTests(unittest.TestCase):
                 infra_pkg.__path__ = []
                 infra_pkg.app_logging = app_logging
                 sys.modules['infra.app_logging'] = app_logging
+                infra_pkg.hash_backend = hash_backend
+                sys.modules['infra.hash_backend'] = hash_backend
 
                 diag_cap = _mod('infra.diagnostic_capture')
                 diag_cap.run_startup_selfcheck = lambda program=None: []
@@ -725,6 +727,7 @@ class AppLogInstallFailureTests(unittest.TestCase):
                         pass
                 ui_widgets = _mod('ui_widgets')
                 ui_widgets.Splash = _Splash
+                ui_widgets.notify = lambda *a, **k: None
 
                 status_bus_mod = _load_real('ui_status_bus',
                                             program_dir + '/ui/ui_status_bus.py')
@@ -786,6 +789,9 @@ class AppLogInstallFailureTests(unittest.TestCase):
                 tk.Tk = _Window
                 tk.TclError = Exception
 
+                # REL-14：desktop_launcher 用真实源码；其依赖（infra.hash_backend、
+                # tkinter、ui_widgets.notify 等）在上面已桩化，加载无副作用。
+                _load_real('desktop_launcher', program_dir + '/desktop_launcher.py')
                 runpy.run_path(sys.argv[1], run_name='__main__')
                 print('RESULT_JSON=' + json.dumps(RESULTS, ensure_ascii=False))
             '''), encoding='utf-8')
