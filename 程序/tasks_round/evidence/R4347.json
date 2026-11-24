@@ -1,0 +1,15 @@
+{
+  "round": 4347,
+  "commit_base": "7f3706fa6",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k desktop_automation_service shared_input_stages desktop_shared_input storyboard_page_controller",
+    "exit": 0,
+    "passed": 82,
+    "failed": 0
+  },
+  "generated_at": "2026-11-24T19:45:51"
+}
