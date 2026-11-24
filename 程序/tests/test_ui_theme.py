@@ -7,9 +7,13 @@
 勾选图元（DramaTick.indicator）只在第一次登记——旧图一被回收，图元就再也画不出勾选框，
 整栏「选择镜头资产」的勾选框全是空的。这里盯住"旧图不能被回收"这条。
 """
+import json
 import os
 import sys
+import tempfile
 import unittest
+from pathlib import Path
+from unittest.mock import Mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -19,6 +23,7 @@ import tkinter as tk
 from tkinter import ttk
 
 import ui_theme
+import ui_tokens
 from ui_tokens import (COLORS, COMBOBOX_FIELD_BACKGROUND, COMBOBOX_FONT,
                        COMBOBOX_FOREGROUND, COMBOBOX_WIDTH, TEXT_DESC, TEXT_HINT,
                        TEXT_PROGRESS)
@@ -315,6 +320,182 @@ class DialogFitsContentTests(PopupGrabSafetyTests.__base__):
         self.pump(120)
         self.assertGreater(popup.winfo_reqwidth(), 300)
         self.assertFits(popup)
+
+
+class ThemePaletteTests(unittest.TestCase):
+    """REQ-UI-THEME-1（UX-THEME-SIMPLE）：日间／夜间两套简约调色板与切换。
+
+    卡面口径：每套只留背景／卡片／描边／文字主次／强调色／危险色等语义 token，
+    两套键集一致；正文对底 ≥4.5:1、次要文字 ≥3:1、实心按钮字 ≥4.5:1。
+    """
+
+    def setUp(self):
+        self._was = ui_tokens.current_theme()
+        self.addCleanup(ui_tokens.set_theme, self._was)
+
+    @staticmethod
+    def _luminance(value):
+        channels = [int(value[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+        linear = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
+        return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+    @classmethod
+    def _contrast(cls, a, b):
+        high, low = sorted((cls._luminance(a), cls._luminance(b)), reverse=True)
+        return (high + 0.05) / (low + 0.05)
+
+    def test_two_palettes_share_the_same_keys(self):
+        self.assertEqual({'day', 'night'}, set(ui_tokens.THEMES))
+        day, night = ui_tokens.THEMES['day'], ui_tokens.THEMES['night']
+        self.assertTrue(day and night)
+        self.assertEqual(set(day), set(night))
+        for key, value in day.items():
+            self.assertRegex(str(value), r'^#[0-9A-Fa-f]{6}$', key)
+
+    def test_body_text_meets_contrast_in_both_palettes(self):
+        for name, palette in ui_tokens.THEMES.items():
+            for fg in ('text_primary', 'text_heading'):
+                for bg in ('background_primary', 'background_card'):
+                    ratio = self._contrast(palette[fg], palette[bg])
+                    self.assertGreaterEqual(ratio, 4.5,
+                                            '%s: %s on %s = %.2f' % (name, fg, bg, ratio))
+            for fg in ('text_secondary', 'text_muted'):
+                for bg in ('background_primary', 'background_card'):
+                    ratio = self._contrast(palette[fg], palette[bg])
+                    self.assertGreaterEqual(ratio, 3.0,
+                                            '%s: %s on %s = %.2f' % (name, fg, bg, ratio))
+
+    def test_solid_controls_and_status_text_meet_contrast(self):
+        for name, palette in ui_tokens.THEMES.items():
+            for fill in ('primary', 'primary_hover', 'primary_pressed',
+                         'danger', 'danger_hover', 'danger_pressed', 'success'):
+                ratio = self._contrast(palette['on_accent'], palette[fill])
+                self.assertGreaterEqual(ratio, 4.5,
+                                        '%s: on_accent on %s = %.2f' % (name, fill, ratio))
+            for fg, bg in (('secondary_text', 'secondary_bg'),
+                           ('secondary_text', 'secondary_hover'),
+                           ('secondary_text', 'secondary_pressed'),
+                           ('selection_text', 'selection_bg'),
+                           ('danger_text', 'danger_subtle'),
+                           ('danger_text', 'background_card'),
+                           ('success_text', 'success_subtle'),
+                           ('success_text', 'background_card'),
+                           ('warning_text', 'background_card'),
+                           ('primary_text', 'background_card'),
+                           ('primary_text', 'background_primary')):
+                ratio = self._contrast(palette[fg], palette[bg])
+                self.assertGreaterEqual(ratio, 4.5,
+                                        '%s: %s on %s = %.2f' % (name, fg, bg, ratio))
+
+    def test_set_theme_swaps_the_active_palette_in_place(self):
+        before = dict(ui_tokens.COLORS)
+        identity = ui_tokens.COLORS
+        ui_tokens.set_theme('night')
+        self.assertIs(ui_tokens.COLORS, identity, 'COLORS 必须是同一个 dict，from-import 的消费者才看得到新值')
+        self.assertEqual('night', ui_tokens.current_theme())
+        self.assertEqual(ui_tokens.THEMES['night']['background_card'],
+                         ui_tokens.COLORS['background_card'])
+        self.assertNotEqual(before['background_card'], ui_tokens.COLORS['background_card'])
+        ui_tokens.set_theme('day')
+        self.assertEqual('day', ui_tokens.current_theme())
+        self.assertEqual(before, dict(ui_tokens.COLORS))
+
+    def test_set_theme_rebinds_derived_tokens(self):
+        ui_tokens.set_theme('night')
+        self.assertEqual(ui_tokens.COLORS['background_card'], ui_tokens.INPUT_BACKGROUND)
+        self.assertEqual(ui_tokens.COLORS['background_card'], ui_tokens.COMBOBOX_FIELD_BACKGROUND)
+        self.assertEqual(ui_tokens.COLORS['background_card'], ui_tokens.TOOLTIP_BACKGROUND)
+        self.assertEqual(ui_tokens.COLORS['text_secondary'], ui_tokens.TEXT_HINT['foreground'])
+        self.assertEqual(ui_tokens.COLORS['primary_text'], ui_tokens.TEXT_PROGRESS['foreground'])
+        ui_tokens.set_theme('day')
+        self.assertEqual(ui_tokens.COLORS['text_secondary'], ui_tokens.TEXT_HINT['foreground'])
+
+    def test_set_theme_rejects_unknown_names(self):
+        ui_tokens.set_theme('day')
+        self.assertIsNone(ui_tokens.set_theme('neon'))
+        self.assertEqual('day', ui_tokens.current_theme())
+        self.assertIsNone(ui_tokens.set_theme(None))
+        self.assertEqual('day', ui_tokens.current_theme())
+
+    def test_resolve_theme_prefers_an_explicit_choice(self):
+        self.assertEqual('night', ui_tokens.resolve_theme('night', system=lambda: 'day'))
+        self.assertEqual('day', ui_tokens.resolve_theme('day', system=lambda: 'night'))
+        self.assertEqual('night', ui_tokens.resolve_theme('Night', system=lambda: 'day'))
+
+    def test_resolve_theme_follows_system_and_falls_back(self):
+        for saved in (None, '', 'system', 'bogus', 42):
+            with self.subTest(saved=saved):
+                self.assertEqual('night', ui_tokens.resolve_theme(saved, system=lambda: 'night'))
+                self.assertEqual('day', ui_tokens.resolve_theme(saved, system=lambda: 'day'))
+
+    def test_system_theme_failure_falls_back_to_day(self):
+        def boom():
+            raise OSError('no registry')
+        self.assertEqual('day', ui_tokens.system_theme(probe=boom))
+        self.assertEqual('day', ui_tokens.system_theme(probe=lambda: None))
+        self.assertEqual('day', ui_tokens.system_theme(probe=lambda: 1))
+        self.assertEqual('night', ui_tokens.system_theme(probe=lambda: 0))
+
+    def test_imported_consumers_resync_after_switch(self):
+        import ui_widgets
+        entity = sys.modules.get('ui.ui_theme')
+        ui_tokens.set_theme('night')
+        try:
+            self.assertEqual(ui_tokens.COLORS['background_card'], ui_widgets.INPUT_BACKGROUND)
+            self.assertEqual(ui_tokens.COLORS['background_card'], ui_widgets.COMBOBOX_FIELD_BACKGROUND)
+            self.assertEqual(ui_tokens.COLORS['background_primary'], ui_widgets.CONTROL_CORNER_SURFACE)
+            if entity is not None:
+                self.assertEqual(ui_tokens.COLORS['background_primary'], entity.BG)
+                self.assertEqual(ui_tokens.COLORS['text_primary'], entity.INK)
+                self.assertEqual(ui_tokens.COLORS['primary'], entity.ACCENT)
+        finally:
+            ui_tokens.set_theme('day')
+
+    def test_settings_page_offers_theme_choice_and_persists(self):
+        import pet_settings_ui
+        root = tk.Tk()
+        root.withdraw()
+        self.addCleanup(root.destroy)
+        pet = Mock()
+        pet.pet_settings.return_value = {'name': '三虎', 'anim': True, 'dnd': (22, 7), 'autostart': False}
+        pet.snooze_label.return_value = '立刻安静'
+        pet.autostart_label.return_value = '开机自启：关'
+        with tempfile.TemporaryDirectory() as td:
+            desktop = Mock()
+            desktop.settings_file = Path(td) / 'desktop_settings.json'
+            desktop.settings = {}
+            desktop.refresh_ui_theme = Mock()
+            pet.desktop = desktop
+            frame = ttk.Frame(root)
+            frame.pack()
+            seams = pet_settings_ui.basic_page(frame, pet)
+            self.assertIn('theme_var', seams)
+            self.assertIn('theme_apply', seams)
+            self.assertEqual('跟随系统', seams['theme_var'].get())
+            seams['theme_apply']('夜间')
+            self.assertEqual('night', ui_tokens.current_theme())
+            self.assertTrue(desktop.settings_file.is_file(), '主题选择要落盘 desktop_settings.json')
+            saved = json.loads(desktop.settings_file.read_text(encoding='utf-8'))
+            self.assertEqual('night', saved.get('theme'))
+            desktop.refresh_ui_theme.assert_called()
+            seams['theme_apply']('跟随系统')
+            saved = json.loads(desktop.settings_file.read_text(encoding='utf-8'))
+            self.assertEqual('system', saved.get('theme'))
+            self.assertIn(ui_tokens.current_theme(), ('day', 'night'))
+
+    def test_theme_sync_and_fallback_edge_paths(self):
+        import types
+        from unittest.mock import patch
+        dummy_support = types.SimpleNamespace(CANVAS_BG='', GEAR_COLOR=(), GEAR_HOVER=())
+        with patch.dict(sys.modules, {'__dummy_none_module__': None, 'app': None, 'ui.pet_ui_support': dummy_support}):
+            ui_tokens.set_theme('night')
+            self.assertEqual(dummy_support.GEAR_COLOR,
+                             (ui_tokens.COLORS['primary'], ui_tokens.COLORS['primary_pressed']))
+            ui_tokens.set_theme('day')
+        with patch.dict(os.environ, {'DRAMA_HIDDEN_DESKTOP': '0'}):
+            with patch.object(ui_tokens, '_registry_apps_use_light_theme', return_value=0):
+                self.assertEqual('night', ui_tokens.system_theme())
+        self.assertEqual('day', ui_tokens.resolve_theme('system', system=lambda: (_ for _ in ()).throw(RuntimeError('boom'))))
 
 
 if __name__ == "__main__":

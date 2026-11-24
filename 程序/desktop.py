@@ -51,6 +51,7 @@ from ui.desktop_lifecycle import LifecycleMixin
 from orchestrator.desktop_automation_service import BackgroundTaskLifecycle, DesktopAutomationScheduler, BackgroundTaskQueue, PersistentBackgroundTaskQueue, inspect_project_storage, RetryRegistry
 from orchestrator.idea_chat_controller import IdeaChatController, speaker_name
 from ui_tokens import BUTTON_GAP, BUTTON_WIDTH_DIALOG, CHAR_WIDTH, WRAPLENGTH, COLORS, FONTS, SPACING, DESKTOP_LAYOUT, SCRIPT_ACTION_WIDTH, SCRIPT_ACTION_PADDING, SCRIPT_FILE_FONT, ICON_FOLDER, ICON_DELETE
+import ui_tokens
 from ui.ui_dialogs import FileDialog
 from ui.ui_motion import Spinner
 from ui.ui_shortcuts import ShortcutRegistry
@@ -252,13 +253,17 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         # 写入落 data/ 影子文件不覆盖用户设置；默认值无 project_choice_* → 不恢复上次项目。
         from domain.desktop_settings_service import startup_settings
         self.settings_file,self.settings=startup_settings(self.app,safe_start=getattr(win,'_drama_safe_start',False) is True,defaults={'comfy_url':'http://127.0.0.1:8189','jianying':''},read=read,preserve=lambda path:shutil.copy2(path,path.with_name(path.name+'.corrupt')))
+        # REQ-UI-THEME-1：主题在套用主题与样式之前定下来——设置里存过 day/night 就用它，
+        # 否则跟随 Windows 应用主题（AppsUseLightTheme），读不到回落日间。
+        self.theme_mode=ui_tokens.resolve_theme(self.settings.get('theme'))
+        ui_tokens.set_theme(self.theme_mode)
         win.title(APP_NAME+' · '+VERSION);win.state('normal')
         win.geometry('%dx%d'%(min(DESKTOP_LAYOUT['default_width'],win.winfo_screenwidth()-DESKTOP_LAYOUT['window_margin_x']),min(DESKTOP_LAYOUT['default_height'],win.winfo_screenheight()-DESKTOP_LAYOUT['window_margin_y'])))
         # 第 19 期：安装后的图标（三虎）——主窗口标题栏／任务栏都用它，拿不到就照旧用 Tk 默认图标。
         try:
             import infra.app_icon as app_icon;app_icon.apply(win)
         except Exception:app_logging.swallowed()
-        win.minsize(DESKTOP_LAYOUT['min_width'],DESKTOP_LAYOUT['min_height']);apply_theme(win);setup_styles(win);install_window_placement(win)
+        win.minsize(DESKTOP_LAYOUT['min_width'],DESKTOP_LAYOUT['min_height']);apply_theme(win);win.option_add('*Text.selectForeground',COLORS['on_accent']);setup_styles(win);install_window_placement(win)
         self._build_sidebar(win)
         side=self.sidebar
         # REQ-UI-SIDEBAR-1：项目二级图标列的停靠宿主——常驻空条（约 0px），展开时才装图标列。
@@ -297,6 +302,12 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         self.project_block.bind('<Configure>',self.schedule_sidebar_fit,add='+')
         side.bind('<Configure>',self.schedule_sidebar_fit)
         self.sidebar_canvas.bind('<Configure>',self.schedule_sidebar_fit,add='+')
+
+    def refresh_ui_theme(self):
+        """REQ-UI-THEME-1：日间／夜间切换后重挂主题、样式与选项库；已建页面重开后完全生效。"""
+        apply_theme(self.win)
+        self.win.option_add('*Text.selectForeground',COLORS['on_accent'])
+        setup_styles(self.win)
 
     def _init_body_and_status(self, win):
         """主体区：页面画布、统一状态栏与尺寸把手，从 __init__ 原样切出，R1808。"""

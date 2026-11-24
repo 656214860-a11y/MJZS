@@ -226,6 +226,8 @@
 
 每个组件只能有以上一种写法。新增页面必须复用既有组件实现或先扩展本契约；不得在页面内复制、修改样式参数形成第二种写法。
 
+**明暗主题（REQ-UI-THEME-1）**：界面只有日间／夜间两套调色板（`ui_tokens.THEMES`），语义 token 键集一致；页面仍只取 `COLORS`，不得感知主题名。实心按钮（主／危险／成功／Highlight／听写中）的文字色一律用 `color.on.accent`，主色用作页面文字用 `color.primary.text`，不得再借 `background.card` 当字色。圆角底图图元名带主题后缀，`setup_styles` 按「ttk 主题名｜明暗」重装；切换后已建成页面保留旧色，重开页面完全生效。
+
 `Toplevel` 弹窗与普通页面遵循完全相同的 token 和组件规则：标题、内容区、输入框和操作按钮均不得退回通用 ttk 样式。主按钮悬停加深一档（`color.primary.hover`）保持白字；次按钮悬停为 `color.surface.hover` 底配主文字，二者文字都保持可读。
 
 ## 微交互与空态（`ui_motion.py`）

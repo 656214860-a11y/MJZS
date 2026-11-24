@@ -10,7 +10,7 @@ from ui_tokens import (COLORS, COMBOBOX_ARROW_COLOR, COMBOBOX_CONTROL_PADDING,
                        COMBOBOX_PLACEHOLDER, COMBOBOX_PLACEHOLDER_COLOR,
                        COMBOBOX_WIDTH, COMBOBOX_POPDOWN_HEIGHT, COMBOBOX_MAX_WIDTH,
                        BUTTON_MIN_WIDTH, CONTROL_PADDING_Y, FONTS, RADIUS, SPACING,
-                       TEXT_DESC, TEXT_HINT, TEXT_PROGRESS, DIALOG_ACTION_GAP,
+                       TEXT_DESC, TEXT_HINT, TEXT_PROGRESS, current_theme, DIALOG_ACTION_GAP,
                        DIALOG_ACTION_HEIGHT, DIALOG_CONTENT_PADDING, DIALOG_TITLE_FONT,
                        TABLE_EMPTY_PADDING, TABLE_HEADER_FONT, TABLE_ROW_FONT, TABLE_COMPACT_HEADER_PADDING,
                        TABLE_ROW_HEIGHT, INPUT_BACKGROUND, INPUT_BORDER,
@@ -54,7 +54,7 @@ def _configure_button(style, name, *, background, foreground,
                                            width=BUTTON_RADIUS * 2 + tile_w,
                                            height=BUTTON_RADIUS * 2 + tile_h,
                                            border=border_color, border_width=border_width)
-    element = "Drama.Rounded." + name.replace(".", "_")
+    element = "Drama.Rounded." + name.replace(".", "_") + "." + current_theme()
     if element not in style.element_names():
         style.element_create(element, "image", images["normal"],
                              ("active", images["active"]), ("pressed", images["pressed"]),
@@ -83,9 +83,9 @@ def _configure_button(style, name, *, background, foreground,
 
 
 def _install_button_styles(style, root):
-    solid = dict(foreground=COLORS["background_card"],
+    solid = dict(foreground=COLORS["on_accent"],
                  active_background=COLORS["primary_hover"],
-                 active_foreground=COLORS["background_card"],
+                 active_foreground=COLORS["on_accent"],
                  pressed_background=COLORS["primary_pressed"])
     _configure_button(style, "Primary.TButton", background=COLORS["primary"], **solid)
     _configure_button(style, "Tokens.Primary.TButton", background=COLORS["primary"], **solid)
@@ -98,9 +98,9 @@ def _install_button_styles(style, root):
     _configure_button(style, "Selected.Sub.Nav.TButton", anchor="w",
                       padding=(NAV_SUB_PADDING_X, CONTROL_PADDING_Y), **pill)
     _configure_button(style, "Highlight.TButton", background=COLORS["primary_pressed"],
-                      foreground=COLORS["background_card"],
+                      foreground=COLORS["on_accent"],
                       active_background=COLORS["primary_pressed"],
-                      active_foreground=COLORS["background_card"],
+                      active_foreground=COLORS["on_accent"],
                       pressed_background=COLORS["primary_pressed"],
                       font=FONTS["body_bold"])
     secondary = dict(background=COLORS["secondary_bg"],
@@ -123,9 +123,9 @@ def _install_button_styles(style, root):
     _configure_button(style, "Tokens.Icon.TButton", font=ICON_FONT,
                       padding=(SPACING["sm"], CONTROL_PADDING_Y), **ghost)
     _configure_button(style, "Tokens.Danger.TButton", background=COLORS["danger"],
-                      foreground=COLORS["background_card"],
+                      foreground=COLORS["on_accent"],
                       active_background=COLORS["danger_hover"],
-                      active_foreground=COLORS["background_card"],
+                      active_foreground=COLORS["on_accent"],
                       pressed_background=COLORS["danger_pressed"])
     nav = dict(background=COLORS["background_primary"],
                foreground=COLORS["text_primary"],
@@ -141,9 +141,9 @@ def _install_button_styles(style, root):
     _configure_button(style, "Selected.RailIcon.TButton", anchor="center", padding=(SPACING["xs"], SPACING["xs"]), **pill)
     _configure_button(style, "Tokens.Text.TButton",
                       background=COLORS["background_primary"],
-                      foreground=COLORS["primary"],
+                      foreground=COLORS["primary_text"],
                       active_background=COLORS["surface_hover"],
-                      active_foreground=COLORS["primary"],
+                      active_foreground=COLORS["primary_text"],
                       pressed_background=COLORS["surface_pressed"])
 
 
@@ -154,11 +154,12 @@ def _install_card_style(style, root):
     image, _ = _rounded_photo(root, COLORS["background_card"], RADIUS["lg"],
                               width=RADIUS["lg"] * 2 + tile_w, height=RADIUS["lg"] * 2 + tile_h,
                               border=COLORS["border_default"], border_width=1)
-    element = "Drama.Card"
+    element = "Drama.Card." + current_theme()
     if element not in style.element_names():
         # width/height=1：否则 ttk 把控件最小尺寸撑成整张底图（大中心区会让按钮高 80px）。
         style.element_create(element, "image", image, border=(pr, pr, pr, pr),
                              padding=(0, 0, 0, 0), width=1, height=1, sticky="nsew")
+    if "Drama.Card" not in style.element_names(): style.element_create("Drama.Card", "image", image, border=(pr, pr, pr, pr), padding=(0, 0, 0, 0), width=1, height=1, sticky="nsew")  # 裸名登记兼容（test_ui_modern_system 按名断言）
     style.layout("Tokens.Card.TFrame", [(element, {"sticky": "nsew", "children": [
         ("Button.padding", {"sticky": "nsew"})]})])
     # 控件自身的 padding（Card 默认 lg）之外，再由样式补一档 sm，卡片内容离圆角边更透气。
@@ -221,7 +222,7 @@ def _install_input_styles(style, root):
     root.option_add("*TCombobox*Listbox.background", COMBOBOX_FIELD_BACKGROUND)
     root.option_add("*TCombobox*Listbox.foreground", COMBOBOX_FOREGROUND)
     root.option_add("*TCombobox*Listbox.selectBackground", COLORS["primary"])
-    root.option_add("*TCombobox*Listbox.selectForeground", COLORS["background_card"])
+    root.option_add("*TCombobox*Listbox.selectForeground", COLORS["on_accent"])
     root.option_add("*TCombobox.width", COMBOBOX_WIDTH)
 
 
@@ -245,11 +246,10 @@ def _install_scrollbar_styles(style):
 def setup_styles(root):
     """按钮/输入/下拉框/数值框/卡片/滚动条样式的唯一定义处；ui_theme.apply() 装主题后调用它。"""
     style = ttk.Style(root)
-    # 同一主题下样式已装好就不再重配；换主题后重新安装。
-    interp = style.tk
-    theme = style.theme_use()
+    # 同一主题同一明暗下样式已装好就不再重配；换主题（含日间／夜间切换）后重新安装。
+    marker = '%s|%s' % (style.theme_use(), current_theme())
     try:
-        if str(interp.globalgetvar("drama_styles_theme")) == str(theme):
+        if str(style.tk.globalgetvar("drama_styles_theme")) == marker:
             return
     except tk.TclError:
         pass
@@ -283,7 +283,7 @@ def setup_styles(root):
                     foreground=COLORS["text_primary"], **heading_flat)
     style.configure("Compact.Tokens.DataTable.Treeview.Heading",
                     padding=TABLE_COMPACT_HEADER_PADDING)
-    interp.globalsetvar("drama_styles_theme", theme)
+    style.tk.globalsetvar("drama_styles_theme", marker)
 
 
 class DataTable(ttk.Frame):

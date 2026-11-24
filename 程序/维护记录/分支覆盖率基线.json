@@ -3,6 +3,10 @@
  "scope": "L0/L1 登记模块实体定向测量（tests/architecture/_layers.py 登记层 0/1；不是全量套件分支覆盖率）",
  "metric": "决策点双结果覆盖：if/loop 体进入且条件走完；try handler 进入且干净路径走完；match case 进入且（无 case _ 时）落空路径走完。单行复合语句与表达式短路不计。",
  "targets": [
+  "tests.test_page_paint_metric",
+  "tests.test_pet_settings",
+  "tests.test_ui_theme",
+  "tests.test_ui_token_contract",
   "tests.test_account_client.AccountStoreTests",
   "tests.test_api",
   "tests.test_app_icon",
@@ -13,8 +17,10 @@
   "tests.test_artifact_schema",
   "tests.test_artifact_schema_wiring",
   "tests.test_asset_contract",
+  "tests.test_asset_detail",
   "tests.test_asset_thumbs",
   "tests.test_autotune_prefetch",
+  "tests.test_baseline_history",
   "tests.test_broadcaster",
   "tests.test_business_log",
   "tests.test_claim_queue_gateway",
@@ -60,12 +66,12 @@
   "tests.test_model_router_parse",
   "tests.test_money_invariants",
   "tests.test_native_apps",
-  "tests.test_page_paint_metric",
+  "tests.test_output_spec",
   "tests.test_persistent_task_queue",
   "tests.test_pet_bus",
   "tests.test_pet_llm",
-  "tests.test_pet_settings",
   "tests.test_pet_state",
+  "tests.test_pet_test_service",
   "tests.test_platform_tools",
   "tests.test_process_supervisor",
   "tests.test_project_context",
@@ -80,23 +86,54 @@
   "tests.test_recycle_write_ahead",
   "tests.test_request_ledger",
   "tests.test_resources",
-  "tests.test_script_contract",
+  "tests.test_script_contract.AuditTests.test_brief_contract_requires_only_the_declared_mandatory_fields",
+  "tests.test_script_contract.AuditTests.test_brief_requirement_levels_and_coordinator_defined_locks",
+  "tests.test_script_contract.AuditTests.test_every_producer_skill_exists_in_the_registry",
+  "tests.test_script_contract.AuditTests.test_every_row_has_a_legal_category_and_action",
+  "tests.test_script_contract.AuditTests.test_the_categories_are_the_four_the_attachment_asked_for",
+  "tests.test_script_contract.AuditTests.test_the_five_manifests_and_their_producers",
+  "tests.test_script_contract.AuditTests.test_the_stage_layout_prints_the_five_outputs",
+  "tests.test_script_contract.AuditTests.test_workflow_lock_projection_keeps_each_coordinator_namespace",
+  "tests.test_script_contract.CompletenessTests",
+  "tests.test_script_contract.DefaultsTests",
+  "tests.test_script_contract.EpisodeIncrementalTests",
+  "tests.test_script_contract.FeatureTests",
+  "tests.test_script_contract.IdTests",
+  "tests.test_script_contract.MergeTests",
+  "tests.test_script_contract.NaturalScriptSaveTests",
+  "tests.test_script_contract.ProgramRootTests",
+  "tests.test_script_contract.SchemaTests",
+  "tests.test_script_contract.StructureManifestProblemsTests",
+  "tests.test_script_contract.StructuredScriptPublicationTests",
+  "tests.test_script_contract.ValidateTests",
   "tests.test_script_text_reader",
+  "tests.test_secret_status_diagnostics",
   "tests.test_seedream_direct",
   "tests.test_selfcheck",
   "tests.test_service_contract",
   "tests.test_shot_batches",
   "tests.test_skill_context_budget_prestage",
   "tests.test_skill_orchestrator_cache",
+  "tests.test_skill_residue_protection",
   "tests.test_stage_file_index_publication",
   "tests.test_stage_flow",
   "tests.test_stage_layout",
   "tests.test_stage_model_value",
   "tests.test_stage_path_service",
   "tests.test_stage_reasoning",
-  "tests.test_startup_selfcheck",
+  "tests.test_startup_selfcheck.BrokenContractSubprocessTests",
+  "tests.test_startup_selfcheck.CrashBudgetTests",
+  "tests.test_startup_selfcheck.FamilySwitchTests",
+  "tests.test_startup_selfcheck.FatalDialogTests",
+  "tests.test_startup_selfcheck.FatalManufactureTests",
+  "tests.test_startup_selfcheck.LauncherWiringTests",
+  "tests.test_startup_selfcheck.StartupAnnounceTests",
+  "tests.test_startup_selfcheck.StartupDiagnosticsRecordTests",
+  "tests.test_startup_selfcheck.StartupReadyLateTests",
+  "tests.test_startup_selfcheck.StartupSelfcheckTests",
   "tests.test_storage",
   "tests.test_subtitle_export_service",
+  "tests.test_task_center",
   "tests.test_token_saver",
   "tests.test_unit_of_work",
   "tests.test_update_notice",
@@ -107,8 +144,8 @@
   "tests.test_writing_api"
  ],
  "tests_ok": true,
- "points_total": 3092,
- "points_covered": 1769,
+ "points_total": 3107,
+ "points_covered": 1803,
  "modules": [
   {
    "module": "budget.py",
@@ -135,12 +172,6 @@
    "percent": 0.0
   },
   {
-   "module": "script_output_spec.py",
-   "points": 7,
-   "covered": 0,
-   "percent": 0.0
-  },
-  {
    "module": "shot_selection.py",
    "points": 5,
    "covered": 0,
@@ -157,12 +188,6 @@
    "points": 1,
    "covered": 0,
    "percent": 0.0
-  },
-  {
-   "module": "prop_assets.py",
-   "points": 21,
-   "covered": 3,
-   "percent": 14.3
   },
   {
    "module": "episode_contract.py",
@@ -183,13 +208,13 @@
    "percent": 23.5
   },
   {
-   "module": "project_settings.py",
-   "points": 4,
-   "covered": 1,
-   "percent": 25.0
+   "module": "native_apps.py",
+   "points": 21,
+   "covered": 6,
+   "percent": 28.6
   },
   {
-   "module": "native_apps.py",
+   "module": "prop_assets.py",
    "points": 21,
    "covered": 6,
    "percent": 28.6
@@ -237,12 +262,6 @@
    "percent": 33.3
   },
   {
-   "module": "app_logging.py",
-   "points": 55,
-   "covered": 19,
-   "percent": 34.5
-  },
-  {
    "module": "script_contract.py",
    "points": 132,
    "covered": 46,
@@ -253,6 +272,12 @@
    "points": 20,
    "covered": 7,
    "percent": 35.0
+  },
+  {
+   "module": "app_logging.py",
+   "points": 55,
+   "covered": 20,
+   "percent": 36.4
   },
   {
    "module": "process_wait.py",
@@ -315,22 +340,16 @@
    "percent": 50.0
   },
   {
-   "module": "storyboard_paths.py",
+   "module": "project_settings.py",
    "points": 4,
    "covered": 2,
    "percent": 50.0
   },
   {
-   "module": "model_secrets.py",
-   "points": 33,
-   "covered": 17,
-   "percent": 51.5
-  },
-  {
-   "module": "diagnostic_capture.py",
-   "points": 85,
-   "covered": 45,
-   "percent": 52.9
+   "module": "storyboard_paths.py",
+   "points": 4,
+   "covered": 2,
+   "percent": 50.0
   },
   {
    "module": "pet_bus.py",
@@ -343,6 +362,12 @@
    "points": 22,
    "covered": 12,
    "percent": 54.5
+  },
+  {
+   "module": "diagnostic_capture.py",
+   "points": 85,
+   "covered": 47,
+   "percent": 55.3
   },
   {
    "module": "client_profiles.py",
@@ -363,15 +388,15 @@
    "percent": 59.1
   },
   {
+   "module": "model_secrets.py",
+   "points": 33,
+   "covered": 20,
+   "percent": 60.6
+  },
+  {
    "module": "account_store.py",
    "points": 25,
    "covered": 16,
-   "percent": 64.0
-  },
-  {
-   "module": "workflow_process_registry.py",
-   "points": 89,
-   "covered": 57,
    "percent": 64.0
   },
   {
@@ -381,10 +406,10 @@
    "percent": 64.7
   },
   {
-   "module": "publication.py",
-   "points": 55,
-   "covered": 36,
-   "percent": 65.5
+   "module": "workflow_process_registry.py",
+   "points": 89,
+   "covered": 58,
+   "percent": 65.2
   },
   {
    "module": "config_snapshot.py",
@@ -403,6 +428,12 @@
    "points": 9,
    "covered": 6,
    "percent": 66.7
+  },
+  {
+   "module": "publication.py",
+   "points": 55,
+   "covered": 37,
+   "percent": 67.3
   },
   {
    "module": "workspace_maintenance.py",
@@ -549,6 +580,12 @@
    "percent": 85.7
   },
   {
+   "module": "script_output_spec.py",
+   "points": 7,
+   "covered": 6,
+   "percent": 85.7
+  },
+  {
    "module": "script_text_reader.py",
    "points": 7,
    "covered": 6,
@@ -561,12 +598,6 @@
    "percent": 86.7
   },
   {
-   "module": "asset_contract.py",
-   "points": 66,
-   "covered": 59,
-   "percent": 89.4
-  },
-  {
    "module": "file_naming.py",
    "points": 29,
    "covered": 26,
@@ -577,6 +608,12 @@
    "points": 10,
    "covered": 9,
    "percent": 90.0
+  },
+  {
+   "module": "asset_contract.py",
+   "points": 66,
+   "covered": 60,
+   "percent": 90.9
   },
   {
    "module": "pet_state.py",
@@ -718,8 +755,8 @@
   },
   {
    "module": "ui_tokens.py",
-   "points": 0,
-   "covered": 0,
+   "points": 15,
+   "covered": 15,
    "percent": 100.0
   },
   {

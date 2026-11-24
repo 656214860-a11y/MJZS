@@ -24,16 +24,21 @@ def contrast(foreground, background):
 
 class UiTokenContractTests(unittest.TestCase):
     def test_readable_text_tokens_meet_contrast_on_card_and_page_background(self):
-        for text in ('text_primary', 'text_secondary', 'text_muted', 'warning_text',
-                     'success_text', 'danger_text', 'primary'):
-            for background in ('background_card', 'background_primary'):
-                with self.subTest(text=text, background=background):
-                    self.assertGreaterEqual(contrast(COLORS[text], COLORS[background]), MIN_CONTRAST)
+        # REQ-UI-THEME-1：两套调色板都要过——页面文字色用 primary_text（夜间提亮档），
+        # 不再拿实心填充色 primary 当文字色。
+        for theme, palette in ui_tokens.THEMES.items():
+            for text in ('text_primary', 'text_secondary', 'text_muted', 'warning_text',
+                         'success_text', 'danger_text', 'primary_text'):
+                for background in ('background_card', 'background_primary'):
+                    with self.subTest(theme=theme, text=text, background=background):
+                        self.assertGreaterEqual(contrast(palette[text], palette[background]), MIN_CONTRAST)
 
     def test_filled_buttons_keep_white_text_readable(self):
-        for fill in ('primary', 'primary_hover', 'primary_pressed', 'danger'):
-            with self.subTest(fill=fill):
-                self.assertGreaterEqual(contrast(COLORS['background_card'], COLORS[fill]), MIN_CONTRAST)
+        # 实心按钮字色是 on_accent（与表面色拆开，REQ-UI-THEME-1），两套调色板都验。
+        for theme, palette in ui_tokens.THEMES.items():
+            for fill in ('primary', 'primary_hover', 'primary_pressed', 'danger'):
+                with self.subTest(theme=theme, fill=fill):
+                    self.assertGreaterEqual(contrast(palette['on_accent'], palette[fill]), MIN_CONTRAST)
 
     def test_disabled_text_is_a_separate_token_from_muted_text(self):
         self.assertNotEqual(COLORS['disabled_text'], COLORS['text_muted'])
