@@ -26,7 +26,7 @@ import infra.project_settings as project_settings
 import infra.storage_maintenance as storage_maintenance
 from domain.projects import (Projects, needs_cleanup_after_open_error, is_missing_storyboard_open_error,
                              project_dir_openable, missing_project_open_error, claimed_registration_notice)
-from responsive_ui import FlowBar,ScrollForm,growable_extra,configure_check_column,refresh_check_heading,CheckboxColumn,fit_columns_by_content,auto_columns,bind_row_toggle,fit_row_height,row_height_for,bind_show_all
+from responsive_ui import FlowBar,ScrollForm,growable_extra,configure_check_column,refresh_check_heading,CheckboxColumn,fit_columns_by_content,auto_columns,bind_row_toggle,fit_row_height,row_height_for,bind_show_all,watch_dpi_change
 from orchestrator.engine import approved_versions, review_label, adoption_summary
 from local_video import open_studio,skip_summary
 from app import App
@@ -331,6 +331,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         self.content=ttk.Frame(self.canvas);self.content_id=self.canvas.create_window(0,0,window=self.content,anchor='nw')
         self.content.bind('<Configure>',self.align_header,add='+');self.files_panel=ProjectFilesPanel(self);self.files_panel.build()  # R2962 项目文件全局面板（REQ-S01-90）
         self.watch_window_resize(win)
+        watch_dpi_change(win,self._layout_all)   # REL-14：跨屏 DPI 变化走既有整页重排，不重建窗口
         protect_readonly_combobox(win);protect_tk_gc(win)
         win.bind_class('DramaPageWheel','<MouseWheel>',self.scroll_page)
         win.bind_all('<MouseWheel>',self.scroll_page,add='+')
