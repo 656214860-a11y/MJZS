@@ -251,7 +251,10 @@ class RunnerTests(unittest.TestCase):
                 probe=lambda argv: 'C:/base/python.exe')
             runner.start()
             self.assertTrue(started.wait(5))
-            runner.cancel()
+            # E-16 起取消改走 terminate_process_tree；替身没有 pid，桩回 kill() 保持原断言口径。
+            with mock.patch.object(setup_mod.platform_tools, 'terminate_process_tree',
+                                   lambda proc, **kw: proc.kill()):
+                runner.cancel()
             self.assertTrue(wait_for(lambda: not runner.running))
             self.assertTrue(hanging.killed)
             self.assertTrue(marker.exists(), '已建好的 venv 在取消后应保留（续传口径）')
@@ -280,8 +283,22 @@ class RunnerTests(unittest.TestCase):
                 probe=lambda argv: 'C:/base/python.exe')
             self.assertTrue(runner.start())
             self.assertFalse(runner.start())
-            runner.cancel()
+            with mock.patch.object(setup_mod.platform_tools, 'terminate_process_tree',
+                                   lambda proc, **kw: proc.kill()):
+                runner.cancel()
             self.assertTrue(wait_for(lambda: not runner.running))
+
+    def test_cancel_terminates_the_whole_process_tree(self):
+        """FIX-S11-LOW E-16：取消分支与超时分支同口径——经 platform_tools.terminate_process_tree
+        连子进程一起结束，而不是只杀父进程。"""
+        proc = FakeProc([])
+        runner = setup_mod.OfflineSetupRunner({}, lambda e: None,
+                                              launcher=lambda *a, **k: proc,
+                                              probe=lambda argv: 'x')
+        runner._proc = proc
+        with mock.patch.object(setup_mod.platform_tools, 'terminate_process_tree') as terminate:
+            runner.cancel()
+        terminate.assert_called_once_with(proc)
 
 
 if __name__ == '__main__':

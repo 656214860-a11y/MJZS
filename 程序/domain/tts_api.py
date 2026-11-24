@@ -533,6 +533,15 @@ def _line_verdicts(lines, manifest, folder):
     return done, blocked
 
 
+def _require_object_entries(manifest, folder):
+    """时间轴清单每条登记必须是对象：坏条目报出清单文件与第几项，不自动修清单（AUD-US05 E-14）。"""
+    if isinstance(manifest, list):
+        for index, entry in enumerate(manifest, 1):
+            if not isinstance(entry, dict):
+                raise ValueError('逐句配音清单 %s 第 %d 项不是对象，请核对或删除该批次目录'
+                                 % (Path(folder) / '时间轴.json', index))
+
+
 def publish_line(folder, manifest, index, line, raw, *, gateway=None):
     """原子发布单句音频后，再把它登记进可续跑时间轴。"""
     folder = Path(folder)
@@ -562,6 +571,7 @@ def batch_cost_preview(project, lines, folder, settings=None):
     from infra.pet_llm import RequestLedger, BudgetRejected
     folder = Path(folder)
     manifest = read_json(folder / '时间轴.json')
+    _require_object_entries(manifest, folder)
     done, blocked = _line_verdicts(lines, manifest, folder)
     pending, unknown = [], 0
     for index, line in enumerate(lines, 1):
@@ -657,6 +667,7 @@ def run_lines(lines, folder, generate=None, report=None, stop=None, *, gateway=N
         generate = lambda text, speed=1.0, voice=None: synthesize(
             text, speed=speed, voice=voice, settings=frozen)
     prior = read_json(folder / "时间轴.json")
+    _require_object_entries(prior, folder)
     prior = prior if isinstance(prior, list) else []
     _save(folder / "批次.json", {"signature": batch_signature(lines, episode), "lines": len(lines),
                                  "identity": batch_identity(lines), "episode": str(episode or "")}, gateway=publish)

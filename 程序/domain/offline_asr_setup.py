@@ -169,7 +169,7 @@ class OfflineSetupRunner:
             proc = self._proc
         if proc is not None:
             try:
-                proc.kill()
+                platform_tools.terminate_process_tree(proc)
             except OSError:
                 pass
 

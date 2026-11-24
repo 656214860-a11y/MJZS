@@ -103,7 +103,9 @@ def validate_import(path, cfg, kind):
     ffmpeg = _media_tool(cfg, 'ffmpeg')
     ffprobe = _media_tool(cfg, 'ffprobe')
     if not ffprobe or not ffmpeg:
-        raise MediaValidationError('请先配置 FFmpeg 和 FFprobe，再导入媒体文件')
+        raise MediaValidationError('请先配置 FFmpeg 和 FFprobe，再导入媒体文件；'
+                                   '在项目 config.json 填写「ffmpeg」「ffprobe」路径，'
+                                   '「设置 → 开发信息 → 环境自检」可核对')
     try:
         data = probe(path, {'ffprobe': ffprobe})
         facts = media_facts(kind, data)
