@@ -58,6 +58,19 @@ class TestVoiceEmotionCheck(unittest.TestCase):
         r = vec.check([], tts)
         self.assertTrue(any(u["reason"] == "缺标注" for u in r["unverifiable"]))
 
+    def test_passed_mixed_unverifiable_reasons(self):
+        script = [
+            {"shot_id": "S1", "index": 1, "text": "你好", "emotion": "平静"},
+            {"shot_id": "S2", "index": 1, "text": "再见", "emotion": "愤怒"},
+            {"shot_id": "S3", "index": 1, "text": "嗯"},
+        ]
+        tts = [{"shot_id": "S1", "index": 1, "text": "你好", "speed": 1.0, "volume": 0.8}]
+        r = vec.check(script, tts)
+        reasons = [u["reason"] for u in r["unverifiable"]]
+        self.assertIn("缺参数", reasons)
+        self.assertIn("缺标注", reasons)
+        self.assertEqual(r["passed"], 2)
+
     def test_no_tts_calls(self):
         # pure: no import of tts synthesis; module has no generate
         self.assertFalse(hasattr(vec, "synthesize"))
