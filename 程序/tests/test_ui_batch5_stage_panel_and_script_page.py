@@ -165,10 +165,9 @@ class ScriptPageLayoutTests(unittest.TestCase):
         return desktop
 
     def test_structure_page_send_key_shares_the_manual_entry(self):
-        """建页后底部发送键登记了本页的制作入口：空输入框点发送走手动制作的同一条路。"""
+        """建页后底部发送键登记了本页入口：有 API 模型时直连按 SKILL 输出（无弹窗），无 API 时退回本地整理。"""
         import desktop_script_pages as script_pages
         import orchestrator.stage_flow as stage_flow
-        import orchestrator.stage_models as stage_models
         stage_flow.reset()
         self.addCleanup(stage_flow.reset)
         desktop = self._open_structure_page()
@@ -176,24 +175,21 @@ class ScriptPageLayoutTests(unittest.TestCase):
         self.assertEqual(shared.stage, 'script_structure')
         self.assertTrue(callable(shared.stage_action('script_structure')),
                         '建页后底部发送键应登记了本页的制作入口')
-        asked, wrapped = [], []
-        # 确认窗、模型提醒、safe 与开工动作都换成记录用的假函数：不弹窗、不真的开工。
-        fakes = {'PLANNER': lambda host, stage, parent=None: asked.append((stage, parent)) or 'run',
-                 'ASKER': lambda *args, **kwargs: False}
-        for name, fake in fakes.items():
-            self.addCleanup(setattr, stage_models, name, getattr(stage_models, name))
-            setattr(stage_models, name, fake)
+        direct_calls, wrapped = [], []
         desktop.safe = lambda fn: (wrapped.append(fn), fn())[1]
-        with mock.patch.object(script_pages._ScriptStructurePage, 'start_structure',
+        with mock.patch.object(desktop, 'send_stage_file',
+                               side_effect=lambda stage, text='': direct_calls.append((stage, text)) or True), \
+             mock.patch.object(script_pages._ScriptStructurePage, 'start_structure',
                                autospec=True) as started:
             self.assertIs(shared.send(), True)
-            self.assertEqual(started.call_count, 1, '空输入框点发送应走到制作结构剧本')
-            self.assertEqual(asked, [('script_structure', desktop.win)], '先出手动制作的确认窗')
-            self.assertEqual(len(wrapped), 1, '动作带着页面自己的 safe 包装')
+            self.assertEqual(direct_calls, [('script_structure', '')])
+            started.assert_not_called()
+        with mock.patch.object(desktop, 'send_stage_file', return_value=False), \
+             mock.patch.object(script_pages._ScriptStructurePage, 'start_structure',
+                               autospec=True) as started:
             self.assertIs(shared.send(), True)
-            self.assertEqual(started.call_count, 2, '发送键即手动制作入口（REQ-S02-41）')
-            self.assertEqual(asked, [('script_structure', desktop.win)] * 2)
-            self.assertEqual(len(wrapped), 2)
+            self.assertEqual(started.call_count, 1, '无可用 API 模型时退回本地规则整理')
+            self.assertEqual(len(wrapped), 1, '退回动作带着页面自己的 safe 包装')
 
     def test_structure_page_send_action_follows_the_editor_frame(self):
         """重建页面换成新页面的入口；编辑器外框销毁后发送键不再承载这一步。"""

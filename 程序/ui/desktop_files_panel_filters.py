@@ -548,13 +548,20 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
         return button
 
     def _sync_stage_buttons(self):
-        """当前阶段高亮：选中的图标换成按下风格，其余回到普通风格。"""
+        """当前阶段／全局素材库高亮：选中的图标换成按下风格，其余回到普通风格。"""
+        in_library = bool(getattr(self, 'library_view', False))
         for stage, button in getattr(self, 'stage_buttons', {}).items():
-            style = 'Selected.RailIcon.TButton' if stage == self.stage_filter else 'RailIcon.TButton'
+            style = 'Selected.RailIcon.TButton' if (not in_library and stage == self.stage_filter) else 'RailIcon.TButton'
             try:
                 button.configure(style=style)
             except tk.TclError:
                 return
+        library_button = getattr(self, 'library_button', None)
+        if library_button is not None:
+            try:
+                library_button.configure(style='Selected.RailIcon.TButton' if in_library else 'RailIcon.TButton')
+            except tk.TclError:
+                pass
 
     def _sync_stage_title(self):
         """面板标题跟着当前阶段走：「项目文件 · <阶段名>」，全部＝「项目文件 · 全部阶段」。"""
@@ -573,6 +580,8 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
         self._ensure_filter_state()
         self.library_view = False
         self.stage_filter = stage
+        # 同步记录当前页阶段，避免从全局素材库或换页后点选某阶段图标时被 _sync_view_filters 覆写回页面阶段。
+        self._followed_page_stage = self._page_stage()
         self._sync_stage_title()
         self._sync_stage_buttons()
         self._reload_current_view()
@@ -609,11 +618,8 @@ class FilesPanelStageViewMixin:
                 getattr(self, '_followed_page_stage', None))
 
     def _stage_filter_is_followed(self):
-        """跟随页且 DEPENDS 非空时，行口径与分组都扩成「来源＋本阶段」。"""
-        stage = getattr(self, 'stage_filter', None)
-        return (bool(stage) and not getattr(self, 'library_view', False)
-                and stage == getattr(self, '_followed_page_stage', _FOLLOWED_STAGE_SENTINEL)
-                and bool(getattr(self, '_followed_source_stages', ())))
+        """每个阶段文件图标下只显示本阶段文件，不再把上游 DEPENDS 阶段的文件混入当前阶段目录。"""
+        return False
 
     def _filter_index_rows(self, rows, filters, library):
         """跟随页视图把阶段条件放宽为来源＋本阶段；其余条件与排序不变。"""

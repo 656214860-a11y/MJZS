@@ -49,6 +49,13 @@ def run_storyboard_direct(host, config):
         if any(r.get('stopped') for r in job.results) and not done:
             host.status.set('初步分镜直连已停止，未写入文件。');return
         host.status.set(summary_text(job.results))
+        if done:
+            panel = getattr(host, 'files_panel', None)
+            if panel is not None and callable(getattr(panel, 'fill_script_list', None)):
+                panel.fill_script_list()
+            page = getattr(host, 'storyboard_editor_page', None)
+            if page is not None and callable(getattr(page, 'refresh', None)):
+                page.refresh()
         notifier=getattr(host,'notifier',None)
         if failed and notifier is not None:
             notifier.error('；'.join(_reason_text(r) for r in failed), title='初步分镜未完成')
@@ -56,7 +63,10 @@ def run_storyboard_direct(host, config):
         if failed and not done and pet is not None and getattr(getattr(pet,'auto',None),'active',None)=='storyboard':
             pet._emit('stage.failed',stage='storyboard',error='；'.join(r['error'] for r in failed))
     scripts=selected_many(host.root,'script');boards=selected_many(host.root,'storyboard')
+    req_text=str(getattr(host,'_storyboard_request_text','') or (config or {}).get('request_text') or '')
     state['job']=launch(host.root,config,skill_prompt(config,'storyboard',inline=True),
-                        scripts=scripts,existing=boards,report=messages.put)
+                        scripts=scripts,existing=boards,
+                        request_text=req_text,
+                        report=messages.put)
     host.status.set('正在直连 API 制作初步分镜（后台进行，可点「强制停止制作」中断）…')
     host.win.after(500,drain)

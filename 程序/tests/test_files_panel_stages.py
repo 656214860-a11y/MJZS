@@ -886,7 +886,7 @@ class DockContentTests(StageRailTests):
         return target.relative_to(root).as_posix()
 
     def test_structure_page_shows_source_and_own_groups(self):
-        """REQ-S01-101：剧本结构页默认列「来源文档（剧本）＋本阶段产物」两组。"""
+        """右侧阶段隔离：剧本结构页与对应阶段图标只显示剧本结构自身文件，不混入上游剧本文件。"""
         from contract.stage_path_service import read_dirs
         panel = self.desktop.files_panel
         root = Path(self.desktop.root)
@@ -904,29 +904,83 @@ class DockContentTests(StageRailTests):
         self.assertEqual(panel.stage_filter, 'script_structure')
         self.assertEqual(str(panel.script_title.cget('text')), '项目文件 · 剧本结构')
         own = md.relative_to(root).as_posix()
+        rows = self.rows()
+        self.assertEqual(rows, [own], rows)
+        self.assertFalse(any(row.endswith('样例剧本.md') for row in rows), rows)
         children = panel.script_tree.get_children()
-        self.assertEqual(list(children), ['stage-group:__source__', 'stage-group:__own__'], children)
-        source_rows = panel.script_tree.get_children('stage-group:__source__')
-        own_rows = panel.script_tree.get_children('stage-group:__own__')
-        self.assertTrue(any(row.endswith('样例剧本.md') for row in source_rows), source_rows)
-        self.assertEqual(list(own_rows), [own])
-        self.assertEqual(panel.script_tree.item('stage-group:__source__', 'values')[0], '来源文档')
-        self.assertEqual(panel.script_tree.item('stage-group:__own__', 'values')[0], '本阶段产物')
-        self.assertTrue(all(panel.script_row_category.get(group) == '__file_group__'
-                            for group in children))
-        self.assertIn('tree', str(panel.script_tree['show']))
+        self.assertFalse(any(str(item).startswith('stage-group:') for item in children), children)
+        # 切到「剧本准备」图标时才看到样例剧本，且不混入结构正稿。
+        panel.show_stage('script')
+        self.wait_index()
+        script_rows = self.rows()
+        self.assertTrue(any(row.endswith('样例剧本.md') for row in script_rows), script_rows)
+        self.assertNotIn(own, script_rows)
 
     def test_storyboard_page_lists_source_files_flat(self):
-        """REQ-S01-101：初步分镜页来源＝结构剧本；本阶段无产物时单组平铺。"""
+        """右侧阶段隔离：初步分镜图标下不显示结构正稿，仅显示初步分镜自身文件，无文件时展示空态。"""
         panel = self.desktop.files_panel
         source = self._stage_file('script_structure', '结构正稿.md')
         self.desktop.show(PAGE['storyboard'])
         self.wait_index()
         self.assertEqual(panel.stage_filter, 'storyboard')
-        self.assertEqual(self.rows(), [source])
-        children = panel.script_tree.get_children()
-        self.assertFalse(any(str(item).startswith('stage-group:') for item in children), children)
-        self.assertNotIn('tree', str(panel.script_tree['show']))
+        self.assertEqual(self.rows(), [])
+        self.assertNotIn(source, self.rows())
+        self.assertIn('暂无文件', str(panel.script_list.empty_label.cget('text')))
+        board = self._stage_file('storyboard', 'EP001_雨夜_分镜.md', '# 分镜')
+        panel.fill_script_list()
+        self.wait_index()
+        self.assertEqual(self.rows(), [board])
+        self.assertNotIn(source, self.rows())
+
+    def test_all_downstream_stages_strictly_isolate_own_files(self):
+        """全部下游阶段图标均严格只显示本阶段文件，不把上游结构剧本混入任何下游目录。"""
+        panel = self.desktop.files_panel
+        source = self._stage_file('script_structure', '结构正稿.md')
+        for stage in ('storyboard', 'animatic', 'assets', 'continuity', 'final',
+                      'keyframe', 'previs', 'video', 'audio', 'edit', 'delivery'):
+            with self.subTest(stage=stage):
+                panel.show_stage(stage)
+                self.wait_index()
+                self.assertEqual(panel.stage_filter, stage)
+                self.assertNotIn(source, self.rows())
+
+    def test_show_stage_from_library_and_page_switch_is_not_overwritten(self):
+        """从全局素材库切回任意阶段图标后，刷新列表不会退回当前页面阶段；库按钮高亮同步。"""
+        panel = self.desktop.files_panel
+        self.desktop.show(PAGE['script_structure'])
+        self.wait_index()
+        panel.show_library()
+        self.wait_index()
+        self.assertTrue(panel.library_view)
+        self.assertEqual(str(panel.library_button.cget('style')), 'Selected.RailIcon.TButton')
+        panel.show_stage('assets')
+        self.wait_index()
+        self.assertFalse(panel.library_view)
+        self.assertEqual(panel.stage_filter, 'assets')
+        self.assertEqual(str(panel.library_button.cget('style')), 'RailIcon.TButton')
+        panel.fill_script_list()
+        self.wait_index()
+        self.assertEqual(panel.stage_filter, 'assets')
+
+    def test_delete_index_files_ignores_kind_and_date_group_headers(self):
+        """按类型/日期分组时选中分组标题行触发删除不会崩溃。"""
+        panel = self.desktop.files_panel
+        panel.show_stage(None)
+        self.wait_index()
+        panel.group_box.set('类型')
+        panel._apply_filters()
+        self.wait_index()
+        groups = [item for item in panel.script_tree.get_children()
+                  if panel.is_file_group(item)]
+        self.assertTrue(groups, '按类型分组后应存在分组标题行')
+        self.assertTrue(any(item.startswith('kind-group:') for item in groups), groups)
+        panel.script_tree.selection_set(groups[0])
+        with self.assertRaisesRegex(ValueError, '请先选择要删除的项目文件'):
+            panel.delete_index_files()
+        panel.group_box.set('阶段')
+        panel._apply_filters()
+        self.wait_index()
+        self.assertTrue(panel.script_list.empty_label is not None)
 
     def test_manual_stage_pick_keeps_single_stage_view(self):
         """手选阶段不套两组：结构页手选资产阶段只列资产文件、平铺。"""

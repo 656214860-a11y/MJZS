@@ -858,6 +858,8 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
 
     def send_storyboard(self, text='', *, only=None):
         return desktop_shared_send.send_storyboard(self, text, only=only)
+    def send_stage_file(self, stage, text='', *, only=None):
+        return desktop_shared_send.send_stage_file(self, stage, text, only=only)
 
     def open_storyboard_skill(self, key=None, *, request_text='', only=None, model_snapshot=None):
         return desktop_shared_send.open_storyboard_skill(

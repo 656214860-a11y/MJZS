@@ -202,69 +202,67 @@ class StoryboardEmptySendTests(_StageActionCase):
 
 
 class TextSendOnStageWithoutFlowTests(_StageActionCase):
-    """输入框有字、阶段没有对话流程：登记了动作就执行并说明文字用不上；没登记保持原提示。"""
+    """非聊天制作阶段输入框有字发送：直连 API 按 SKILL 仅输出阶段文件；未配 API 时提示选模型。"""
 
-    def hint(self):
-        return shared_send.STAGE_ACTION_TEXT_UNUSED % STAGE_NAME
-
-    def test_text_send_runs_the_action_and_keeps_the_text(self):
+    def test_text_send_dispatches_to_stage_file_direct_api(self):
         seen = []
-        self.box.set_stage_action(STAGE, lambda: seen.append(self.status()))
-        self.box.set_text('帮我整理一下结构')
-        with mock.patch.object(shared_send, 'upstream_send_error', return_value=''):
-            self.assertIs(self.box.send(), False)
-        self.assertEqual(seen, [self.hint()], '说明先写、动作后跑，且只跑一次')
-        self.assertEqual(self.status(), self.hint())
-        self.assertIn(STAGE_NAME, self.status())
-        self.assertNotIn('暂无对话入口', self.status())
-        self.assertEqual(self.box.text(), '帮我整理一下结构', '文字留在输入框')
+        self.box.set_text('帮我把第二场节奏加快')
+        with mock.patch.object(shared_send, 'upstream_send_error', return_value=''), \
+             mock.patch.object(shared_send, 'send_stage_file',
+                               side_effect=lambda d, s, t='', **kw: seen.append((s, t)) or True):
+            self.assertIs(self.box.send(), True)
+        self.assertEqual(seen, [(STAGE, '帮我把第二场节奏加快')])
+        self.assertEqual(self.box.text(), '', '受理后清空输入框')
         self.assertFalse(self.box.in_flight)
         self.assertIsNone(self.box.request_model)
-        self.assertEqual(self.desktop.opened, [], '不新开 Agent 对话')
+        self.assertEqual(self.desktop.opened, [], '直连 API 输出文件，不新开 Agent 对话')
 
-    def test_the_action_has_the_last_word_in_the_status_bar(self):
-        self.box.set_stage_action(
-            STAGE, lambda: self.desktop.status.set('三虎开始整理结构剧本'))
-        self.assertIs(shared_send.send(self.desktop, STAGE, '整理一下', None), False)
-        self.assertEqual(self.status(), '三虎开始整理结构剧本',
-                         '动作自己的开工提示或报错不能被说明盖掉')
-
-    def test_text_send_on_a_running_stage_only_says_busy(self):
-        self.box.set_stage_action(STAGE, self.make)
-        stage_flow.mark(STAGE, 'stage.executing', 'auto')
-        self.assertIs(shared_send.send(self.desktop, STAGE, '整理一下', None), False)
-        self.assertEqual(self.calls, [])
-        self.assertEqual(self.status(), shared_input.STAGE_ACTION_BUSY % STAGE_NAME)
+    def test_text_send_without_api_model_keeps_text_and_guides_user(self):
+        self.box.set_text('帮我整理一下结构')
+        with mock.patch.object(shared_send, 'upstream_send_error', return_value=''), \
+             mock.patch('infra.model_pool.pool', return_value={}):
+            self.assertIs(self.box.send(), False)
+        self.assertNotIn('暂无对话入口', self.status())
+        self.assertIn('API 模型', self.status())
+        self.assertEqual(self.box.text(), '帮我整理一下结构', '未受理时保留输入框文字')
+        self.assertEqual(self.desktop.opened, [])
 
     def test_text_send_still_respects_the_upstream_gate(self):
         self.box.set_stage_action(STAGE, self.make)
         self.box.set_text('帮我整理一下结构')
         with mock.patch.object(shared_send, 'upstream_send_error',
-                               return_value='请先完成/确认「剧本准备」阶段'):
+                               return_value='请先完成/确认「剧本准备」阶段'), \
+             mock.patch.object(shared_send, 'send_stage_file') as direct:
             self.assertIs(self.box.send(), False)
+        direct.assert_not_called()
         self.assertEqual(self.calls, [], '有字的发送仍先过上游门禁')
         self.assertEqual(self.status(), '请先完成/确认「剧本准备」阶段')
         self.assertEqual(self.box.text(), '帮我整理一下结构')
 
-    def test_text_send_without_registration_keeps_the_old_hint(self):
-        self.assertIs(shared_send.send(self.desktop, STAGE, '整理一下', None), False)
-        self.assertIn('「%s」阶段暂无对话入口' % STAGE_NAME, self.status())
-        self.assertEqual(self.desktop.opened, [])
+    def test_text_send_on_edit_stage_uses_direct_api_or_guides(self):
+        seen = []
+        with mock.patch.object(shared_send, 'send_stage_file',
+                               side_effect=lambda d, s, t='', **kw: seen.append((s, t)) or True):
+            self.assertIs(shared_send.send(self.desktop, 'edit', '修剪转场', None), True)
+        self.assertEqual(seen, [('edit', '修剪转场')])
+        with mock.patch('infra.model_pool.pool', return_value={}):
+            self.assertIs(shared_send.send(self.desktop, 'edit', '随便聊聊', None), False)
+        self.assertNotIn('暂无对话入口', self.status())
+        self.assertIn('API 模型', self.status())
 
-    def test_registration_does_not_leak_to_other_stages(self):
-        self.box.set_stage_action(STAGE, self.make)
-        self.assertIs(shared_send.send(self.desktop, 'edit', '随便聊聊', None), False)
-        self.assertEqual(self.calls, [])
-        self.assertIn('「%s」阶段暂无对话入口' % pet_bus.stage_name('edit'), self.status())
-
-    def test_other_flow_stages_still_ignore_stage_actions(self):
-        """S03 是唯一 flow 例外；其余 flow 阶段（如资产）仍忽略 stage_action、走 Agent。"""
+    def test_other_flow_stages_prefer_direct_api_and_fallback_to_flow(self):
+        """assets 等阶段有 API 时直连输出阶段文件；未配 API 时回落原 Agent 流程。"""
         self.box.set_stage_action('assets', self.make)
-        self.assertIs(
-            shared_send.send(self.desktop, 'assets', '补几个角色', None), True)
-        self.assertEqual(self.calls, [], '非 S03 的 flow 阶段照旧走 Agent 流程')
-        self.assertEqual(self.desktop.opened[0][:3],
-                         ('assets', '资产管理', '补几个角色'))
+        seen = []
+        with mock.patch.object(shared_send, 'send_stage_file',
+                               side_effect=lambda d, s, t='', **kw: seen.append((s, t)) or True):
+            self.assertIs(shared_send.send(self.desktop, 'assets', '补几个角色', None), True)
+        self.assertEqual(seen, [('assets', '补几个角色')])
+        self.assertEqual(self.desktop.opened, [])
+        with mock.patch('infra.model_pool.pool', return_value={}):
+            self.assertIs(shared_send.send(self.desktop, 'assets', '补几个角色', None), True)
+        self.assertEqual(self.calls, [])
+        self.assertEqual(self.desktop.opened[0][:3], ('assets', '资产管理', '补几个角色'))
 
     def test_run_stage_action_propagates_false(self):
         self.box.set_stage_action(STAGE, lambda: False)
@@ -272,15 +270,22 @@ class TextSendOnStageWithoutFlowTests(_StageActionCase):
         self.box.set_stage_action(STAGE, lambda: None)
         self.assertIs(self.box.run_stage_action(), True)
 
-    def test_skill_command_on_stage_without_flow_is_unchanged(self):
+    def test_skill_command_on_stage_without_flow_runs_direct_api(self):
         skill = SimpleNamespace(name='结构整理', stage=STAGE,
                                 path=Path('skills') / 'x' / '结构整理.skill.md')
         self.box.skill_items = lambda: [skill]
         self.box.set_stage_action(STAGE, self.make)
         parsed = {'kind': 'skill', 'name': '结构整理', 'stage': STAGE, 'rest': ''}
-        self.assertIs(shared_send.send(self.desktop, STAGE, '/结构整理', parsed), False)
-        self.assertEqual(self.calls, [], '技能命令在没有对话流程的阶段仍只提示')
-        self.assertIn('暂无 Agent 入口', self.status())
+        seen = []
+        with mock.patch.object(shared_send, 'send_stage_file',
+                               side_effect=lambda d, s, t='', **kw: seen.append((s, kw.get('only'))) or True):
+            self.assertIs(shared_send.send(self.desktop, STAGE, '/结构整理', parsed), True)
+        self.assertEqual(seen, [(STAGE, ['结构整理'])])
+        with mock.patch('infra.model_pool.pool', return_value={}):
+            self.assertIs(shared_send.send(self.desktop, STAGE, '/结构整理', parsed), False)
+        self.assertEqual(self.calls, [])
+        self.assertNotIn('暂无 Agent 入口', self.status())
+        self.assertIn('API 模型', self.status())
         self.assertEqual(self.desktop.opened, [])
 
 

@@ -1,12 +1,11 @@
 """共享输入框的发送分流（R2898，任务书轮 4）：``/`` 命令与自由文本 → 当前阶段既有入口。
 
-阶段 → ``open_flow_agent`` 流程名的映射只此一处（``workflow_settings.STAGE_CONFIG_STAGES``
-的阶段侧）；没有 Agent 流程的阶段（剧本结构／分镜预演／连贯性清单／分镜定稿／后期剪辑／
-质检与交付）回状态栏提示，不新开对话。会员闸门复用 ``account.stage_gate``；上游完成门禁
-由本模块在发送前统一执行，输入框只复用窄入口，不复制阶段判定。
-
-没有 Agent 流程的阶段里，页面在共享输入框上登记了发送动作（``set_stage_action``，目前是
-剧本结构页）的，自由文本改为执行该动作并说明文字用不上，见 ``_run_stage_action``。
+- 剧本准备（``script``）保留完整创意对话链；
+- 初步分镜（``storyboard``）走分镜批量直连链（并传递输入框补充要求）；
+- 剧本结构（``script_structure``）及全部后续制作阶段默认走直连 API 文件输出模式
+  （``send_stage_file``），严格按 SKILL 与用户要求只输出阶段文件、不对话；若显式选择
+  桌面/CLI 引擎且该阶段支持 Agent 流程，再回落 ``open_flow_agent``。
+会员闸门复用 ``account.stage_gate``；上游完成门禁由本模块在发送前统一执行。
 """
 from __future__ import annotations
 
@@ -30,10 +29,10 @@ FLOW_LABEL = {'writing': '剧本准备', 'storyboard': '初步分镜', 'assets':
 STAGE_ACTION_TEXT_UNUSED = '「%s」这一步不使用输入框里的文字：发送键启动的是本页的制作，文字仍留在输入框。'
 # 初步分镜页及各阶段共享输入框占位提示（参考主流 Agent 输入框：说明发送／换行与 / 技能入口）。
 STORYBOARD_PLACEHOLDER = '输入补充要求或 / 调用技能后发送制作分镜，空输入按结构剧本生成（Enter 发送）'
-DEFAULT_STAGE_PLACEHOLDER = '输入指令或补充要求，输入 / 调用技能、点击 ✦ 勾选默认技能（Enter 发送，Shift+Enter 换行）'
+DEFAULT_STAGE_PLACEHOLDER = '输入阶段修改要求或 / 调用技能（直接按技能输出阶段文件，Enter 发送，Shift+Enter 换行）'
 STAGE_PLACEHOLDERS = {
     'script': '输入故事创意或修改要求，输入 / 调用技能、@ 引用文件（Enter 发送，Shift+Enter 换行）',
-    'script_structure': '直接点击发送整理结构剧本，或输入 / 调用技能（Enter 发送，Shift+Enter 换行）',
+    'script_structure': '输入结构化整理或修改要求，或 / 调用技能（直接按技能输出结构剧本文件，Enter 发送）',
     'storyboard': STORYBOARD_PLACEHOLDER,
 }
 _STORYBOARD_PREP_ATTR = '_storyboard_send_prep'
@@ -209,21 +208,6 @@ def _open_flow(desktop, stage, prompt):
     return True
 
 
-def _run_stage_action(desktop, stage):
-    """没有对话流程的阶段：页面登记了发送动作就开动它；返回这一阶段有没有登记。
-
-    说明先写、动作后跑：动作自己的开工提示、「正在执行」或报错是状态栏的最后一句，
-    不被这句说明盖掉。
-    """
-    shared = getattr(desktop, 'shared_input', None)
-    registered = getattr(shared, 'stage_action', None)
-    if not callable(registered) or registered(stage) is None:
-        return False
-    _say(desktop, STAGE_ACTION_TEXT_UNUSED % pet_bus.stage_name(stage))
-    shared.run_stage_action(stage)
-    return True
-
-
 def _clear_storyboard_prep(desktop, token=None):
     if token is not None and getattr(desktop, '_storyboard_send_token', None) is not token:
         return False
@@ -390,6 +374,7 @@ def open_storyboard_skill(desktop, key=None, *, request_text='', only=None, mode
             except Exception:
                 config = None
         kwargs = {'_config': config} if config is not None else {}
+        desktop._storyboard_request_text = request_text
         desktop.open_flow_agent('storyboard', '初步分镜', batch['prompt'], batch['followup'], **kwargs)
         if batch.get('named'):
             _say(desktop, '点名执行：' + '、'.join(batch['named']) + '。' + str(value or ''))
@@ -458,8 +443,204 @@ def _start_storyboard_batch(desktop, project, request_text, named, model_snap):
     return started
 
 
+def _read_stage_skills_text(project, stage, only=None):
+    """读取点名技能（/技能）或本阶段已勾选／默认技能的正文，供直连 API 严格按 SKILL 输出文件。"""
+    try:
+        import orchestrator.skill_registry as skill_registry
+        import orchestrator.stage_config as stage_config
+        registry = skill_registry.default_registry(project=project)
+    except Exception:
+        return ''
+    names = list(only or ())
+    if not names:
+        try:
+            entry = stage_config.get(project, stage) or {}
+            names = list(entry.get('skills') or ())
+        except Exception:
+            names = []
+    items = []
+    for name in names:
+        found = registry.getById(name)
+        if found is None:
+            found = next((s for s in registry.getAll() if str(getattr(s, 'name', '') or '') == name), None)
+        if found is not None:
+            items.append(found)
+    if not items and not only:
+        items = list(registry.getByStage(stage))[:2]
+    chunks = []
+    for item in items:
+        path = getattr(item, 'path', None)
+        if path and Path(path).is_file():
+            try:
+                body = Path(path).read_text(encoding='utf-8-sig', errors='replace').strip()
+            except OSError:
+                body = ''
+            if body:
+                chunks.append('【SKILL：%s】\n%s' % (getattr(item, 'name', Path(path).stem), body))
+    return '\n\n'.join(chunks)
+
+
+def _is_direct_api_record(model_pool, cand, rec):
+    """仅可直连的 API 模型才走阶段文件直连；排除 Desktop／CLI 及未配好地址的条目。"""
+    if not cand or not isinstance(rec, dict):
+        return False
+    if model_pool.call_mode(rec, cand) != 'API':
+        return False
+    return not model_pool.model_admission_error(
+        rec, require_context_length=False, require_certified=False)
+
+
+def _resolve_stage_api_target(project, stage, *, only=None, model_snapshot=None):
+    """为非聊天阶段解析直连 API 模型配置与 SKILL 正文；未配置或显式选了桌面/CLI 引擎则返回 (None, '')。"""
+    import infra.model_pool as model_pool
+    import orchestrator.stage_config as stage_config
+    program = Path(__file__).resolve().parent
+    records = model_pool.pool(program=program)
+    if not records:
+        return None, ''
+    chosen = ''
+    record = None
+    if isinstance(model_snapshot, dict) and model_snapshot.get('id'):
+        cand = str(model_snapshot.get('id') or '').strip()
+        rec = model_snapshot.get('record') or records.get(cand)
+        if _is_direct_api_record(model_pool, cand, rec):
+            chosen, record = cand, rec
+    elif isinstance(model_snapshot, (tuple, list)) and len(model_snapshot) == 2 and model_snapshot[0]:
+        cand = str(model_snapshot[0] or '').strip()
+        rec = model_snapshot[1] if isinstance(model_snapshot[1], dict) else records.get(cand)
+        if _is_direct_api_record(model_pool, cand, rec):
+            chosen, record = cand, rec
+    if not chosen:
+        try:
+            entry = stage_config.get(project, stage) or {}
+            selected = str(entry.get('model') or '').strip()
+        except Exception:
+            selected = ''
+        if selected and selected != model_pool.AUTO:
+            rec = records.get(selected)
+            if not _is_direct_api_record(model_pool, selected, rec):
+                return None, ''
+            chosen, record = selected, rec
+        else:
+            try:
+                import writing_api
+                cap = writing_api.capture_request_model(project)
+                cand = str((cap or {}).get('id') or '').strip()
+                rec = (cap or {}).get('record') or records.get(cand)
+                if _is_direct_api_record(model_pool, cand, rec):
+                    chosen, record = cand, rec
+            except Exception:
+                app_logging.swallowed()
+            if not chosen:
+                for cand, rec in records.items():
+                    if _is_direct_api_record(model_pool, cand, rec):
+                        chosen, record = cand, rec
+                        break
+    if not chosen or not isinstance(record, dict):
+        return None, ''
+    config = {'engine': 'qwen', 'model': chosen, 'api': True}
+    skill_text = _read_stage_skills_text(project, stage, only=only)
+    return config, skill_text
+
+
+def _active_stage_document(desktop, stage):
+    if stage == 'script_structure':
+        box = getattr(desktop, 'script_structure_editor_preview_content_box', None)
+        active = getattr(box, 'active', None)
+        if isinstance(active, dict) and active.get('path'):
+            return active['path']
+    return None
+
+
+def _finish_stage_file_ui(desktop, stage, job):
+    results = list(getattr(job, 'results', None) or ())
+    entry = results[0] if results else {'ok': False, 'error': '未返回结果', 'path': '', 'stopped': False}
+    label = pet_bus.stage_name(stage)
+    if entry.get('stopped'):
+        _say(desktop, '「%s」直连输出已停止。' % label)
+        return
+    if not entry.get('ok'):
+        _say(desktop, '「%s」输出未完成：%s' % (label, entry.get('error') or '未知原因'))
+        return
+    target = Path(entry['path']) if entry.get('path') else None
+    if stage == 'script_structure' and target is not None:
+        try:
+            sync_structured_script(desktop.root)
+        except Exception:
+            app_logging.swallowed()
+    text = '「%s」已按技能输出文件：%s' % (label, target.name if target is not None else '')
+    _say(desktop, text)
+    if hasattr(desktop, 'pet_report'):
+        try:
+            desktop.pet_report(stage, text)
+        except Exception:
+            app_logging.swallowed()
+    panel = getattr(desktop, 'files_panel', None)
+    if panel is not None and callable(getattr(panel, 'fill_script_list', None)):
+        try:
+            panel.fill_script_list()
+        except Exception:
+            app_logging.swallowed()
+    if stage == 'script_structure' and target is not None:
+        page_obj = getattr(desktop, 'script_structure_page', None)
+        if page_obj is not None and callable(getattr(page_obj, 'show_document', None)):
+            try:
+                page_obj.show_document(target)
+            except Exception:
+                app_logging.swallowed()
+
+
+def send_stage_file(desktop, stage, text='', *, only=None):
+    """非聊天阶段（S02 剧本结构及各后续制作阶段）统一入口：直连 API 按 SKILL 仅输出阶段文件，不对话。"""
+    import queue
+    from orchestrator import storyboard_direct_api
+    project = getattr(desktop, 'root', None)
+    if project is None:
+        _say(desktop, '请先选择项目')
+        return False
+    reason = _account_block(desktop, stage)
+    if reason:
+        _say(desktop, reason)
+        return False
+    shared = getattr(desktop, 'shared_input', None)
+    snap = getattr(shared, 'request_model', None) if shared is not None else None
+    config, skill_text = _resolve_stage_api_target(project, stage, only=only, model_snapshot=snap)
+    if config is None:
+        return False
+    messages = queue.Queue()
+    active_path = _active_stage_document(desktop, stage)
+    try:
+        job = storyboard_direct_api.launch_stage_file(
+            project, stage, config, skill_text,
+            instruction=str(text or '').strip(), active_path=active_path, report=messages.put)
+    except ValueError as exc:
+        _say(desktop, str(exc))
+        return False
+    label = pet_bus.stage_name(stage)
+    _say(desktop, '正在直连 %s 按技能输出「%s」阶段文件…' % (config['model'], label))
+    win = getattr(desktop, 'win', None)
+    if win is None or not hasattr(win, 'after'):
+        return True
+
+    def drain():
+        while True:
+            try:
+                msg = messages.get_nowait()
+            except queue.Empty:
+                break
+            _say(desktop, msg)
+        if job.is_alive():
+            if _window_alive(desktop):
+                win.after(300, drain)
+        elif _window_alive(desktop):
+            _finish_stage_file_ui(desktop, stage, job)
+
+    win.after(300, drain)
+    return True
+
+
 def _send_free(desktop, stage, text):
-    """自由文本：script 走剧本准备既有发送链；storyboard 走 send_storyboard（S03 例外）。"""
+    """自由文本：script 走对话链；storyboard 走分镜链；其余制作阶段直连 API 按 SKILL 仅输出阶段文件。"""
     text = str(text or '').strip()
     if not text:
         return False
@@ -480,13 +661,16 @@ def _send_free(desktop, stage, text):
         return not _draft_text(desktop)
     if stage == 'storyboard':
         return send_storyboard(desktop, text)
-    if stage not in FLOW_FOR_STAGE:
-        if _run_stage_action(desktop, stage):
-            return False    # 文字没有被使用：返回假值让输入框保留原文
-        _say(desktop, '「%s」阶段暂无对话入口；请使用页面上的制作按钮，或输入 /阶段名 换到有对话入口的阶段。'
-             % pet_bus.stage_name(stage))
+    before = _read_status(desktop)
+    if send_stage_file(desktop, stage, text):
+        return True
+    if _read_status(desktop) != before:
         return False
-    return _open_flow(desktop, stage, text)
+    if stage in FLOW_FOR_STAGE:
+        return _open_flow(desktop, stage, text)
+    _say(desktop, '「%s」请先在右下角模型下拉框选择一个可用的 API 模型，再发送要求（按技能直接输出阶段文件，不对话）。'
+         % pet_bus.stage_name(stage))
+    return False
 
 
 def _skill_items(desktop):
@@ -526,16 +710,6 @@ def _skill_prompt(name, path, rest):
     lines.append('技能：%s' % name)
     lines.append('任务：' + rest if rest else '请按该技能完成当前阶段任务。')
     return '\n'.join(lines)
-
-
-def _no_entry_hint(stage, home, name):
-    """当前页没有对话入口：技能属于有入口的别的阶段时，给出用户自己换页的写法。"""
-    here = pet_bus.stage_name(stage)
-    if home != stage and home in FLOW_FOR_STAGE:
-        there = pet_bus.stage_name(home)
-        return ('「%s」页暂无对话入口，/%s 没有发送；要在「%s」里用它，请输入 /%s /%s'
-                % (here, name, there, there, name))
-    return '「%s」阶段暂无 Agent 入口，/%s 请在页面操作中使用。' % (here, name)
 
 
 def _skill_send_notices(injection):
@@ -669,8 +843,15 @@ def _send_skill(desktop, stage, parsed):
         # REQ-S01-118：接口模型先把技能发送交给应用内请求；不受理（非接口模型）再回落原命令行链。
         if send_skill_request(desktop, name, path, rest):
             return True
+    else:
+        before = _read_status(desktop)
+        if send_stage_file(desktop, stage, rest, only=[name]):
+            return True
+        if _read_status(desktop) != before:
+            return False
     if stage not in FLOW_FOR_STAGE:
-        _say(desktop, _no_entry_hint(stage, home, name))
+        _say(desktop, '「%s」请先在右下角模型下拉框选择一个可用的 API 模型，再使用 /%s 直接输出阶段文件。'
+             % (pet_bus.stage_name(stage), name))
         return False
     return _open_flow(desktop, stage, _skill_prompt(name, path, rest))
 

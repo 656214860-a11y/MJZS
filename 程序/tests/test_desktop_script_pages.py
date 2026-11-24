@@ -246,17 +246,21 @@ class ScriptStructureOneEditorTests(unittest.TestCase):
         self.assertFalse(box.editable)
 
     def test_panel_selection_displays_selected_document(self):
-        """REQ-S02-38：右侧面板点选自然剧本／结构剧本，编辑器切到对应内容。"""
+        """REQ-S02-38：右侧面板严格按阶段隔离展示，切到对应阶段点选自然剧本／结构剧本均可切入编辑器。"""
         with tempfile.TemporaryDirectory() as td:
             project, writing = self._project(td, structured=True, adopt=True)
             win, desktop = _open_window(self, project)
             panel = desktop.files_panel
             panel.open_panel()
             rows = _wait_panel_rows(win, desktop)
-            natural_row = next((row for row in rows if row.endswith('剧本_甲.md')), None)
             structured_row = next((row for row in rows if row.endswith('script0.md')), None)
-            self.assertIsNotNone(natural_row, '自然剧本应在面板里列出：%r' % (rows,))
-            self.assertIsNotNone(structured_row, '结构剧本应在面板里列出：%r' % (rows,))
+            self.assertIsNotNone(structured_row, '结构剧本应在剧本结构阶段列出：%r' % (rows,))
+            self.assertFalse(any(row.endswith('剧本_甲.md') for row in rows),
+                             '剧本结构阶段不应混入自然剧本：%r' % (rows,))
+            panel.show_stage('script')
+            script_rows = _wait_panel_rows(win, desktop)
+            natural_row = next((row for row in script_rows if row.endswith('剧本_甲.md')), None)
+            self.assertIsNotNone(natural_row, '自然剧本应在剧本准备阶段列出：%r' % (script_rows,))
             _select_panel_row(win, desktop, natural_row)
             shown = desktop.script_structure_editor_preview.get('1.0', 'end-1c')
             self.assertIn('阿远：采用稿正文。', shown)
@@ -265,6 +269,8 @@ class ScriptStructureOneEditorTests(unittest.TestCase):
             self.assertTrue(box.editable)
             segment = desktop.status_bar._segments['script_note'][1].full_text
             self.assertIn('剧本_甲.md', segment)
+            panel.show_stage('script_structure')
+            _wait_panel_rows(win, desktop)
             _select_panel_row(win, desktop, structured_row)
             shown = desktop.script_structure_editor_preview.get('1.0', 'end-1c')
             self.assertIn('## 分场剧本', shown)
