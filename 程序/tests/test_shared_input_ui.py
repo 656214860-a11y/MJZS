@@ -558,14 +558,13 @@ class UpstreamGateTests(unittest.TestCase):
             '### 场景 01：咖啡馆·内景·日\n\n'
             '- 出场角色：林夏、陈默\n\n'
             '陈默：你终于来了。\n', encoding='utf-8')
-        error = shared_send.upstream_send_error(root, 'storyboard')
-        self.assertEqual(error, '', '有可用结构稿时 S03 发送门禁必须放行')
         notes = []
         status = SimpleNamespace(set=notes.append)
         error = shared_send.upstream_send_error(root, 'storyboard', status)
-        self.assertEqual(error, '')
-        self.assertTrue(any('不影响分镜制作' in note for note in notes),
-                        '清单补不了时应把说明写进状态栏：%r' % notes)
+        self.assertEqual(error, '', '有可用结构稿时 S03 发送门禁必须放行')
+        self.assertEqual(script_contract.structure_manifest_problems(root), [])
+        self.assertFalse(any('未能' in note for note in notes),
+                         '不应向状态栏输出「未能自动生成」类报错：%r' % notes)
 
     def test_s03_without_script_blocks_with_guidance(self):
         """REQ-S03-55：没有可用结构稿才拦截，文案指引去「剧本结构」页确认。"""
@@ -644,13 +643,22 @@ class StoryboardSendReadinessTests(unittest.TestCase):
         self.assertEqual(self.contract.structure_manifest_problems(self.root, path), [])
 
     def test_episode_script_notice_does_not_block(self):
-        """模型按集写的稿派生不出名单：可发送，说明只进状态栏不拦截。"""
+        """模型按集／分场写的稿自动从分场与出场角色派生清单；纯叙述稿无名单也静默放行，不报未能自动生成。"""
         self._script(self.EPISODIC)
         sendable, note, filled = self.readiness(self.root)
         self.assertTrue(sendable)
+        self.assertTrue(filled, '分场式结构稿应自动提取角色与场景补全清单')
+        self.assertNotIn('未能', note)
+        self.assertEqual(self.contract.structure_manifest_problems(self.root), [])
+        # 纯叙述且无任何可提取条目：静默放行，不向状态栏报红字「未能自动生成」。
+        self._script('# 第1集\n\n一段没有场次标题与角色标注的概要正文。\n')
+        for path in self.contract.structure_manifest_dir(self.root).glob('*.json'):
+            path.unlink()
+        sendable, note, filled = self.readiness(self.root)
+        self.assertTrue(sendable)
         self.assertFalse(filled)
-        self.assertIn('未能自动生成', note)
-        self.assertIn('不影响分镜制作', note)
+        self.assertEqual(note, '')
+        self.assertNotIn('未能', note)
 
     def test_llm_formatted_archives_auto_derive_manifests(self):
         """模型生成的变体标题／加粗键／列表／表格结构稿也能自动补全三份清单，不再报未能自动生成。"""

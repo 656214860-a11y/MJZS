@@ -284,17 +284,16 @@ class ManualButtonTests(PageHelpers):
             self.assertNotIn("手动制作分镜", self.buttons(d.content),
                              "初步分镜以共享输入框发送作为唯一制作入口")
 
-    def test_storyboard_send_does_not_start_the_agent_when_gated(self):
-        """REQ-S03-54：发送入口同样过 before_manual；闸拦下时不调用 open_storyboard_skill。"""
+    def test_storyboard_send_does_not_popup_legacy_manual_gate(self):
+        """初步分镜共享输入框发送直接派发，不再弹旧「手动制作／先挑模型」弹窗。"""
         import desktop_shared_send as shared_send
         with tempfile.TemporaryDirectory() as td:
             d, win, _proj = self.page(td)
             calls = []
             d.open_storyboard_skill = lambda *a, **k: calls.append((a, k)) or 1
             self.show(d, win, PAGE_OF['storyboard'])
-            self.assertFalse(shared_send.send_storyboard(d, ''))
-            self.assertEqual(self.gated, ["storyboard"])
-            self.assertEqual(calls, [], "闸拦下来时没启动 agent")
+            shared_send.send_storyboard(d, '')
+            self.assertEqual(self.gated, [], "初步分镜发送不再弹旧手动确认窗")
 
     def test_the_script_page_has_no_legacy_manual_button(self):
         with tempfile.TemporaryDirectory() as td:

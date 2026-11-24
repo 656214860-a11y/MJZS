@@ -830,7 +830,7 @@ class _FlowAgentLaunch:
             self.settle_launch()
             if not live:
                 self.finish(receipt,'failed','上次 Agent 窗口已关闭，请重新点击启动')
-                self.host.notifier.info('上次 Agent 窗口未在运行，任务状态已重置；请再次点击“手动制作分镜”。', title='请重新点击', modal=True);return
+                self.host.notifier.info('上次 Agent 窗口未在运行，任务状态已重置；请重新发送。', title='请重新发送', modal=False);return
             state={'preparing':'正在打开或发送','sent':'已发送','uncertain':'发送结果待核实'}[receipt['state']]
             self.host.status.set('相同任务'+state+'，已复用记录，本次不重复发送。请在对应 Agent 窗口继续。');return
         if self.use_cli:

@@ -283,11 +283,10 @@ def send_storyboard(desktop, text='', *, only=None):
             return False
         return _start_storyboard_batch(desktop, project, request_text, named, model_snap)
 
-    from orchestrator.stage_models import manual_command
-    runner = manual_command(desktop, 'storyboard', action, getattr(desktop, 'win', None))
+    # 初步分镜已改用底部共享输入框（自带模型下拉与 ✦ 技能），点击发送直接执行，不再弹旧手动确认窗。
     safe = getattr(desktop, 'safe', None)
     try:
-        result = safe(runner) if callable(safe) else runner()
+        result = safe(action) if callable(safe) else action()
     except Exception as exc:
         app_logging.swallowed()
         _notify_error(desktop, '发送失败：%s' % exc)

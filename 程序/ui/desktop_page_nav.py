@@ -309,17 +309,7 @@ class PageNavMixin:
             if c in retained:c.pack_forget()
             else:c.destroy()
         self.mark_nav(index)
-        # 第 R2946 期：资产清单不再是常驻二级钮——点「05 资产管理」图标弹选择层；
-        # 清单页激活时把该图标临时换成清单字形，离开资产页即还原。
-        nav_buttons=getattr(self,'nav',None)
-        if nav_buttons is not None and len(nav_buttons)>PAGE['assets']:
-            assets_button=nav_buttons[PAGE['assets']]
-            if assets_button is not None and assets_button.winfo_exists():
-                key=ASSET_ROSTER_ICON if getattr(self,'asset_roster',False) else PAGE_NAV_ICONS.get(PAGE['assets'])
-                image=IconLoader.nav_icon(self.win,key,size=NAV_PRIMARY_ICON_SIZE)
-                if image is not None:
-                    assets_button.configure(image=image)
-                    assets_button._nav_icon_name=key
+        # 资产管理主图标始终保持常态字形，不因进入「资产清单」而被替换。
         # R3016 P2：页标题与项目路径进统一底栏左区常驻段；页面专用段（用量摘要等）换页即清。
         # 路径另以静默方式保留在 StringVar（启动验收探针与三虎读它），不桥进右区消息。
         self.status_bar.set_segment('page',page_title(index))
@@ -485,13 +475,17 @@ class PageNavMixin:
                 if top.winfo_exists():top.destroy()
             except tk.TclError:pass
     def _assets_nav_toggle(self):
-        """点「05 资产管理」图标：弹「资产清单」二级选择层；选择层开着时再点进资产管理主页。"""
+        """点「05 资产管理」图标：右侧切换显示／隐藏「资产清单」，不替换主图标。"""
         top=getattr(self,'_sidebar_popup_win',None)
         if top is not None and top.winfo_exists():
             self._close_sidebar_popup()
-            # 清单页激活时再点图标要回主页面：asset_roster 不复位的话 show(assets) 仍停在清单。
-            if getattr(self,'asset_roster',False):self.asset_roster=False
-            self.go_page(PAGE['assets']);return
+            if getattr(self,'asset_roster',False) or getattr(self,'page_index',None)!=PAGE['assets']:
+                self.asset_roster=False
+                self.go_page(PAGE['assets'])
+            return
+        if getattr(self,'asset_roster',False) or getattr(self,'page_index',None)!=PAGE['assets']:
+            self.asset_roster=False
+            self.go_page(PAGE['assets'])
         self._open_asset_flyout()
     def _open_asset_flyout(self):
         """「05 资产管理」的二级入口「资产清单」——REQ-UI-SIDEBAR-1：点击后在侧栏右侧

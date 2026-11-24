@@ -570,27 +570,13 @@ class StoryboardSendChainTests(unittest.TestCase):
                 self.assertFalse(shared_send.send_storyboard(desktop, '草稿'))
         self.assertEqual(desktop.jobs, [])
         lock, plan = self.registry_patches()
-        with lock, plan, \
-                unittest.mock.patch('orchestrator.stage_models.plan', return_value=None), \
-                unittest.mock.patch('orchestrator.stage_models.open_config') as configure:
-            self.assertFalse(shared_send.send_storyboard(desktop, '草稿'))
-            configure.assert_not_called()
-        with lock, plan, \
-                unittest.mock.patch('orchestrator.stage_models.plan', return_value='configure'), \
-                unittest.mock.patch('orchestrator.stage_models.open_config') as configure:
-            self.assertFalse(shared_send.send_storyboard(desktop, '草稿'))
-            configure.assert_called_once_with(desktop, 'storyboard')
-        import orchestrator.stage_models as stage_models
-        desktop = self.desktop()
-        with lock, plan, \
-                unittest.mock.patch('orchestrator.stage_models.plan', return_value='run'), \
-                unittest.mock.patch.object(stage_models, 'SELF_TEST', False), \
-                unittest.mock.patch.object(stage_models, 'ASKER', return_value=True), \
-                unittest.mock.patch('orchestrator.stage_config.get', return_value={'model': 'auto'}), \
-                unittest.mock.patch('orchestrator.stage_models.open_model_dropdown') as model:
-            self.assertFalse(shared_send.send_storyboard(desktop, '草稿'))
-            model.assert_called_once_with(desktop)
-        self.assertEqual(desktop.jobs, [])
+        selected, produced, prompt = self.selection_patches()
+        with lock, plan, selected, produced, prompt, \
+                unittest.mock.patch('orchestrator.stage_models.plan') as modal_plan, \
+                unittest.mock.patch('orchestrator.stage_models.before_manual') as modal_ask:
+            self.assertTrue(shared_send.send_storyboard(desktop, '草稿'))
+            modal_plan.assert_not_called()
+            modal_ask.assert_not_called()
 
 
 class SharedInputHostTests(unittest.TestCase):

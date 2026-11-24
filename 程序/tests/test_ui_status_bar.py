@@ -133,6 +133,15 @@ class StatusBarTests(unittest.TestCase):
         self.bar._show_neutral()
         self.assertEqual(self.bar.message.full_text, '就绪')
 
+    def test_clicking_right_message_does_not_open_popup(self):
+        """底部右侧提示文字取消点击弹窗，不再因误点弹出消息历史框。"""
+        self.bus.publish(Message.make('info', '操作提示'))
+        self.pump(0.05)
+        self.assertNotIn('_toggle_history', str(self.bar.message.bind('<Button-1>')))
+        self.bar.message.event_generate('<Button-1>')
+        self.pump(0.05)
+        self.assertIsNone(self.bar._popup)
+
 
 class StatusBarLayoutTests(unittest.TestCase):
     """UX-C4：左区各段按文字定宽、空段不占位、分隔和间距一致、全栏同一字号（真 Tk，窗口要映射出来才量得到位置）。"""

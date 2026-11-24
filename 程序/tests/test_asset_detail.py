@@ -705,23 +705,25 @@ class RosterTests(_Harness):
             self.assertTrue(any("正典板" in t for t in texts), "每个角色都有正典板")
             self.assertTrue(any("换状态" in t for t in texts), "角色还有换状态面板")
             self.assertTrue(self.buttons(d.content, "编辑这一项"), "改内容还得能进详情页")
-            self.assertEqual(d.nav[index]._nav_icon_name, "asset_list",
-                             "清单页激活时资产管理图标换成清单字形")
-            # 选择层开着时再点图标回资产管理主页，图标换回常态。
+            self.assertEqual(d.nav[index]._nav_icon_name, "assets",
+                             "清单页激活时资产管理主图标保持原字形，不被替换")
+            # 再点资产管理图标回资产管理主页并在右侧显示／隐藏资产清单，图标始终为 assets。
             d.nav[index].invoke(); win.update()
+            self.assertFalse(d.asset_roster, "点击资产管理图标回到资产管理主页")
+            self.assertIsNotNone(getattr(d, "_sidebar_popup_win", None), "右侧显示资产清单")
             d.nav[index].invoke(); win.update()
-            self.assertFalse(d.asset_roster, "再点一次图标回资产管理主页")
+            self.assertIsNone(getattr(d, "_sidebar_popup_win", None), "再次点击隐藏右侧资产清单")
             self.assertEqual(d.nav[index]._nav_icon_name, "assets")
 
     def test_leaving_the_page_drops_the_roster_route(self):
-        """翻到别的页就回主页面，资产管理图标也换回常态字形。"""
+        """翻到别的页就回主页面，资产管理图标全程保持原字形。"""
         with tempfile.TemporaryDirectory() as td:
             proj = project_with(td)
             d, win = self.desktop(proj)
             index = d.page_of("assets")
             d.open_asset_roster(); win.update()
             self.assertTrue(d.asset_roster)
-            self.assertEqual(d.nav[index]._nav_icon_name, "asset_list")
+            self.assertEqual(d.nav[index]._nav_icon_name, "assets")
             d.show(d.page_of("script")); win.update()
             self.assertFalse(d.asset_roster, "翻到别的页就回主页面")
             self.assertIsNone(d.asset_detail_id)

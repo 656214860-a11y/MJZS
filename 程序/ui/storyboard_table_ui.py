@@ -1,13 +1,14 @@
 """Tk table adapters and S03 storyboard editor view shared by storyboard pages."""
 import json
+import re
 import tkinter as tk
 from datetime import datetime
 from pathlib import Path
 from tkinter import ttk
 import infra.app_logging as app_logging
 from ui_tokens import (
-    COLORS, SCRIPT_VIEW_FONT, SCRIPT_VIEW_FONT_MAX, SCRIPT_VIEW_FONT_MIN,
-    SCRIPT_VIEW_PADDING, SPACING,
+    COLORS, FONTS, SCRIPT_VIEW_FONT, SCRIPT_VIEW_FONT_MAX, SCRIPT_VIEW_FONT_MIN,
+    SCRIPT_VIEW_PADDING, SPACING, TEXT_ROWS,
 )
 from ui_widgets import ContextMenu, DataTable, LineInput, SecondaryButton, TextArea
 from ui.ui_shortcuts import ShortcutRegistry
@@ -134,8 +135,17 @@ def insert_entries(tree, project, entries, status_of=None, with_sync=False, *, b
     fill()
 
 
-S03_HINT_READ = '快捷键：右键采用/编辑/导入/重排 · Ctrl+F 查找 · Ctrl+滚轮/Ctrl+± 缩放 · Ctrl+O 打开文件（右侧文件栏切换结构剧本与初步分镜）'
-S03_HINT_EDIT = '编辑中：Ctrl+S 保存 · Ctrl+Z 撤销 · Ctrl+Y 重做 · Ctrl+F 查找 · 右键退出编辑'
+S03_HINT_READ = '快捷键：Ctrl+G 镜头定位 · Ctrl+F 查找 · Ctrl+滚轮/Ctrl+± 缩放 · Ctrl+O 打开 · 右键采用/编辑/重排（右侧文件栏切换剧本与分镜）'
+S03_HINT_EDIT = '编辑中：Ctrl+S 保存 · Ctrl+Z 撤销 · Ctrl+Y 重做 · Ctrl+F 查找 · Ctrl+G 镜头定位 · 右键退出编辑'
+_SHOT_NAV_WIDTH = 24
+_SHOT_NAV_WHEEL_LINES = 4
+_SHOT_LABEL_MAX = 26
+_SHOT_HIT_TAG = 's03_shot_hit'
+_FIELD_PREFIX = re.compile(r'^-\s*(?:角色|场景|道具|对白|首帧提示词|视频提示词|景别|运镜|情绪|时长|音效)[：:]')
+_SHOT_ID_RE = re.compile(r'\bSH\d+[A-Za-z0-9_-]*\b')
+_MD_SHOT_HEAD = re.compile(r'^#{2,3}\s+(.+)$')
+_JSON_SHOT_ID = re.compile(r'"id"\s*:\s*"(SH[^"]+)"')
+_JSON_SHOT_TITLE = re.compile(r'"title"\s*:\s*"([^"]*)"')
 S03_EMPTY_TEXT = (
     '尚未生成初步分镜。\n\n'
     '· 在右侧文件停靠面板查看「来源文档（结构剧本）」与「本阶段产物（初步分镜）」，点击即可在此阅读；\n'
@@ -193,14 +203,226 @@ def format_storyboard_for_editor(path, data, adopted=False):
     return '\n'.join(lines)
 
 
+def _clip_label(text):
+    clean = ' '.join(str(text or '').split())
+    return clean if len(clean) <= _SHOT_LABEL_MAX else clean[:_SHOT_LABEL_MAX - 1] + '…'
+
+
+def extract_storyboard_shots(text):
+    """解析分镜／剧本文本中的所有镜头或场次锚点，返回 ``[(行号, 标题, 全块检索串)]``。
+
+    同时支持格式化分镜视图（``## SH001｜...``）、Markdown 分镜／分场标题与原始 JSON（``"id": "SH..."``）。
+    """
+    lines = str(text or '').split('\n')
+    anchors = []
+    for index, raw in enumerate(lines, 1):
+        stripped = raw.strip()
+        match = _MD_SHOT_HEAD.match(stripped)
+        if match:
+            anchors.append((index, _clip_label(match.group(1))))
+    if not anchors:
+        for index, raw in enumerate(lines, 1):
+            match = _JSON_SHOT_ID.search(raw)
+            if not match:
+                continue
+            sid = match.group(1)
+            window = '\n'.join(lines[index - 1:min(len(lines), index + 6)])
+            t_match = _JSON_SHOT_TITLE.search(window)
+            label = ('%s｜%s' % (sid, t_match.group(1))) if (t_match and t_match.group(1)) else sid
+            anchors.append((index, _clip_label(label)))
+    entries = []
+    for pos, (line_no, label) in enumerate(anchors):
+        next_line = anchors[pos + 1][0] - 1 if pos + 1 < len(anchors) else len(lines)
+        blob = '\n'.join(lines[line_no - 1:next_line]).casefold()
+        entries.append((line_no, label, blob))
+    return entries
+
+
+def apply_storyboard_highlights(viewer, text):
+    """给分镜正文施加结构化语法高亮：集头、镜头标题、字段前缀与镜头编号。"""
+    viewer.tag_configure('s03_ep', font=FONTS['heading_3'], foreground=COLORS['text_heading'])
+    viewer.tag_configure('s03_shot', font=FONTS['body_bold'], foreground=COLORS['primary'])
+    viewer.tag_configure('s03_field', font=FONTS['body_bold'], foreground=COLORS['text_secondary'])
+    viewer.tag_configure('s03_id', foreground=COLORS['primary'])
+    for tag in ('s03_ep', 's03_shot', 's03_field', 's03_id'):
+        viewer.tag_remove(tag, '1.0', 'end')
+    for index, raw in enumerate(str(text or '').split('\n'), 1):
+        stripped = raw.lstrip()
+        if stripped.startswith('# ') and not stripped.startswith('##'):
+            viewer.tag_add('s03_ep', '%d.0' % index, '%d.end' % index)
+        elif stripped.startswith('##'):
+            viewer.tag_add('s03_shot', '%d.0' % index, '%d.end' % index)
+        else:
+            field = _FIELD_PREFIX.match(stripped)
+            if field:
+                lead = len(raw) - len(stripped)
+                viewer.tag_add('s03_field', '%d.%d' % (index, lead), '%d.%d' % (index, lead + field.end()))
+            for match in _SHOT_ID_RE.finditer(raw):
+                viewer.tag_add('s03_id', '%d.%d' % (index, match.start()), '%d.%d' % (index, match.end()))
+
+
+class S03ShotNavigator(ttk.Frame):
+    """03 初步分镜左侧镜头定位与搜索栏：按镜头号／角色／场景／对白／提示词实时过滤并一键跳转。"""
+
+    def __init__(self, master, viewer, on_escape=None):
+        super().__init__(master)
+        self._viewer = viewer
+        self._on_escape = on_escape
+        self._all_entries = []
+        self._filtered = []
+        self._selected = -1
+        self._user_hidden = False
+        viewer.tag_configure(_SHOT_HIT_TAG, background=COLORS['selection_bg'])
+        head = ttk.Frame(self)
+        head.pack(fill='x', pady=(SPACING['none'], SPACING['xs'] // 2))
+        ttk.Label(head, text='镜头定位', style='SidebarProjectMuted.TLabel').pack(side='left')
+        self.count_label = ttk.Label(head, text='', style='SidebarProjectMuted.TLabel')
+        self.count_label.pack(side='right')
+        self.query_var = tk.StringVar(value='')
+        self.search_entry = LineInput(
+            self, textvariable=self.query_var,
+            placeholder='搜镜头号/角色/场景…', width=SPACING['lg'])
+        self.search_entry.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
+        self.query_var.trace_add('write', lambda *_a: self._apply_filter())
+        self.search_entry.bind('<Return>', self._jump_current)
+        self.search_entry.bind('<Down>', lambda _e: self._step(1))
+        self.search_entry.bind('<Up>', lambda _e: self._step(-1))
+        self.search_entry.bind('<Escape>', self._handle_escape)
+        body = ttk.Frame(self)
+        body.pack(fill='both', expand=True)
+        self.list_view = TextArea(
+            body, bg=COLORS['background_card'], fg=COLORS['text_primary'],
+            width=_SHOT_NAV_WIDTH, height=TEXT_ROWS['lg'], wrap='none',
+            font=SCRIPT_VIEW_FONT, relief='flat', cursor='hand2',
+            padx=SPACING['xs'], pady=SPACING['xs'], state='disabled')
+        self.list_view._wheel_lines = _SHOT_NAV_WHEEL_LINES
+        self.list_view.tag_configure(
+            's03_nav_sel', background=COLORS['primary'], foreground=COLORS['background_card'])
+        scroll = ttk.Scrollbar(body, orient='vertical', command=self.list_view.yview)
+        self.list_view.configure(yscrollcommand=scroll.set)
+        self.list_view.pack(side='left', fill='both', expand=True)
+        scroll.pack(side='right', fill='y')
+        self.list_view.bind('<Button-1>', self._on_click)
+        self.list_view.bind('<Return>', self._jump_current)
+        self.list_view.bind('<Escape>', self._handle_escape)
+
+    @property
+    def visible(self):
+        return bool(self.winfo_manager())
+
+    def items(self):
+        return [label for _line, label, _blob in self._filtered]
+
+    def set_text(self, text):
+        self._all_entries = extract_storyboard_shots(text)
+        self._viewer.tag_remove(_SHOT_HIT_TAG, '1.0', 'end')
+        self._apply_filter()
+        if len(self._all_entries) >= 2 and not self._user_hidden:
+            self.show(focus_search=False)
+        elif not self._all_entries:
+            self.hide(by_user=False)
+
+    def show(self, *, focus_search=False):
+        self._user_hidden = False
+        if not self.visible:
+            self.pack(side='left', fill='y', padx=(SPACING['none'], SPACING['xs']),
+                      before=self._viewer.master)
+        if focus_search:
+            self.search_entry.focus_set()
+            try:
+                self.search_entry.selection_range(0, 'end')
+            except tk.TclError:
+                pass
+
+    def hide(self, *, by_user=True):
+        if by_user:
+            self._user_hidden = True
+        if self.visible:
+            self.pack_forget()
+
+    def _query_text(self):
+        try:
+            return str(self.search_entry.get() or '').strip().casefold()
+        except tk.TclError:
+            return ''
+
+    def _apply_filter(self):
+        needle = self._query_text()
+        self._filtered = ([item for item in self._all_entries if needle in item[2]]
+                          if needle else list(self._all_entries))
+        self._selected = -1
+        self.list_view.configure(state='normal')
+        self.list_view.delete('1.0', 'end')
+        if self._filtered:
+            self.list_view.insert('1.0', '\n'.join(label for _line, label, _blob in self._filtered))
+        self.list_view.tag_remove('s03_nav_sel', '1.0', 'end')
+        self.list_view.configure(state='disabled')
+        total, shown = len(self._all_entries), len(self._filtered)
+        text = ('%d/%d 镜' % (shown, total)) if needle else ('%d 镜' % total if total else '无镜头')
+        self.count_label.configure(text=text)
+
+    def _select_index(self, index):
+        if not (0 <= index < len(self._filtered)):
+            return
+        self._selected = index
+        row_start = '%d.0' % (index + 1)
+        row_end = '%d.end' % (index + 1)
+        self.list_view.tag_remove('s03_nav_sel', '1.0', 'end')
+        self.list_view.tag_add('s03_nav_sel', row_start, row_end)
+        self.list_view.see(row_start)
+        line, _label, _blob = self._filtered[index]
+        start = '%d.0' % line
+        try:
+            end = self._viewer.index('%s lineend' % start)
+        except tk.TclError:
+            end = start
+        self._viewer.tag_remove(_SHOT_HIT_TAG, '1.0', 'end')
+        self._viewer.tag_add(_SHOT_HIT_TAG, start, end)
+        self._viewer.see(start)
+        self._viewer.mark_set('insert', start)
+
+    def _on_click(self, event):
+        try:
+            line = int(str(self.list_view.index('@%d,%d' % (event.x, event.y))).split('.')[0])
+        except (tk.TclError, ValueError):
+            return 'break'
+        if 1 <= line <= len(self._filtered):
+            self._select_index(line - 1)
+        return 'break'
+
+    def _jump_current(self, _event=None):
+        if not self._filtered:
+            return 'break'
+        idx = self._selected if 0 <= self._selected < len(self._filtered) else 0
+        self._select_index(idx)
+        return 'break'
+
+    def _step(self, delta):
+        if not self._filtered:
+            return 'break'
+        base = self._selected if 0 <= self._selected < len(self._filtered) else (-1 if delta > 0 else 0)
+        self._select_index((base + delta) % len(self._filtered))
+        return 'break'
+
+    def _handle_escape(self, _event=None):
+        if self._query_text():
+            self.query_var.set('')
+            self.search_entry.delete(0, 'end')
+        if callable(self._on_escape):
+            self._on_escape()
+        self._viewer.focus_set()
+        return 'break'
+
+
 class S03EditorView:
-    """03 初步分镜单编辑器视图组件：正文区、底部快捷键提示条、Ctrl+F 查找条与缩放。"""
+    """03 初步分镜单编辑器视图组件：左侧镜头定位与搜索、语法高亮、查找计数条与缩放。"""
 
     def __init__(self, page, wheel_lines=9):
         self.page = page
         self.wheel_lines = wheel_lines
         self.zoom_delta = 0
-        self._find_pos = '1.0'
+        self._find_matches = []
+        self._find_index = -1
         self._build()
 
     def _build(self):
@@ -212,8 +434,11 @@ class S03EditorView:
             frame, text=S03_HINT_READ, style='SidebarProjectMuted.TLabel', anchor='w')
         self.shortcut_hint.pack(side='bottom', fill='x', pady=(SPACING['xs'] // 2, SPACING['none']))
         self._build_find_bar(frame)
-        area = ttk.Frame(frame)
-        area.pack(fill='both', expand=True)
+        body = ttk.Frame(frame)
+        body.pack(fill='both', expand=True)
+        self.body = body
+        area = ttk.Frame(body)
+        area.pack(side='left', fill='both', expand=True)
         self.viewer = TextArea(
             area, bg=COLORS['background_card'], fg=COLORS['text_primary'], height=1,
             wrap='word', undo=True, maxundo=-1, font=SCRIPT_VIEW_FONT, relief='flat',
@@ -226,6 +451,7 @@ class S03EditorView:
         scroll.grid(row=0, column=1, sticky='ns')
         area.columnconfigure(0, weight=1)
         area.rowconfigure(0, weight=1)
+        self.shot_nav = S03ShotNavigator(body, self.viewer)
         self.viewer.bind('<Button-3>', self.page.on_context_menu, add='+')
         self.viewer.bind('<Escape>', self._on_escape, add='+')
         self._bind_shortcuts()
@@ -234,44 +460,99 @@ class S03EditorView:
         bar = ttk.Frame(parent)
         self.find_bar = bar
         self.find_var = tk.StringVar(value='')
-        self.find_entry = LineInput(bar, textvariable=self.find_var, width=SPACING['xl'])
+        self.find_entry = LineInput(bar, textvariable=self.find_var,
+                                    placeholder='查找镜头、角色、对白或提示词…', width=SPACING['xl'])
         self.find_entry.pack(side='left', fill='x', expand=True, padx=(SPACING['none'], SPACING['xs']))
-        self.find_entry.bind('<Return>', lambda _e: self.find_next())
+        self.find_var.trace_add('write', lambda *_a: self._refresh_find_matches())
+        self.find_entry.bind('<Return>', lambda _e: self.find_step(1))
+        self.find_entry.bind('<Shift-Return>', lambda _e: self.find_step(-1))
         self.find_entry.bind('<Escape>', lambda _e: self.hide_find_bar())
+        self.find_count = ttk.Label(bar, text='', style='SidebarProjectMuted.TLabel')
+        self.find_count.pack(side='left', padx=(SPACING['none'], SPACING['xs']))
+        SecondaryButton(bar, text='上一个', width=0, style='Compact.TButton',
+                        command=lambda: self.find_step(-1)).pack(side='left', padx=(SPACING['none'], SPACING['xs']))
         SecondaryButton(bar, text='下一个', width=0, style='Compact.TButton',
-                        command=self.find_next).pack(side='left', padx=(SPACING['none'], SPACING['xs']))
+                        command=lambda: self.find_step(1)).pack(side='left', padx=(SPACING['none'], SPACING['xs']))
         SecondaryButton(bar, text='关闭', width=0, style='Compact.TButton',
                         command=self.hide_find_bar).pack(side='left')
 
     def show_find_bar(self):
         if not self.find_bar.winfo_manager():
             self.find_bar.pack(side='top', fill='x', pady=(SPACING['none'], SPACING['xs']),
-                               before=self.viewer.master)
+                               before=self.body)
         self.find_entry.focus_set()
+        self._refresh_find_matches()
 
     def hide_find_bar(self):
         if self.find_bar.winfo_manager():
             self.find_bar.pack_forget()
         self.viewer.tag_remove('s03_find', '1.0', 'end')
+        self.viewer.tag_remove('s03_find_all', '1.0', 'end')
+        self.find_count.configure(text='')
         self.viewer.focus_set()
 
-    def find_next(self):
-        needle = self.find_var.get().strip()
-        if not needle:
-            return
+    def _find_query(self):
+        try:
+            return str(self.find_entry.get() or '').strip()
+        except tk.TclError:
+            return ''
+
+    def _refresh_find_matches(self):
         self.viewer.tag_remove('s03_find', '1.0', 'end')
-        start = self.viewer.search(needle, self._find_pos, stopindex='end', nocase=True)
-        if not start:
-            start = self.viewer.search(needle, '1.0', stopindex='end', nocase=True)
-        if not start:
-            self.page.desktop.status.set('未找到「%s」' % needle)
+        self.viewer.tag_remove('s03_find_all', '1.0', 'end')
+        self._find_matches = []
+        self._find_index = -1
+        needle = self._find_query()
+        if not needle:
+            self.find_count.configure(text='')
             return
-        end = '%s + %d chars' % (start, len(needle))
+        self.viewer.tag_configure('s03_find_all', background=COLORS['selection_bg'])
         self.viewer.tag_configure('s03_find', background=COLORS['primary_subtle'],
                                   foreground=COLORS['selection_text'])
+        pos = '1.0'
+        while True:
+            start = self.viewer.search(needle, pos, stopindex='end', nocase=True)
+            if not start:
+                break
+            end = '%s + %d chars' % (start, len(needle))
+            self._find_matches.append((start, end))
+            self.viewer.tag_add('s03_find_all', start, end)
+            pos = end
+        if not self._find_matches:
+            self.find_count.configure(text='无匹配')
+            return
+        self._select_find(0)
+
+    def _select_find(self, index):
+        if not self._find_matches:
+            return
+        self._find_index = index % len(self._find_matches)
+        start, end = self._find_matches[self._find_index]
+        self.viewer.tag_remove('s03_find', '1.0', 'end')
         self.viewer.tag_add('s03_find', start, end)
         self.viewer.see(start)
-        self._find_pos = end
+        self.find_count.configure(text='%d/%d' % (self._find_index + 1, len(self._find_matches)))
+
+    def find_step(self, delta=1):
+        if not self._find_matches:
+            self._refresh_find_matches()
+            if not self._find_matches:
+                needle = self._find_query()
+                if needle:
+                    self.page.desktop.status.set('未找到「%s」' % needle)
+                return
+        self._select_find(self._find_index + int(delta))
+
+    def find_next(self):
+        self.find_step(1)
+
+    def toggle_shot_nav(self, *, focus_search=False):
+        if self.shot_nav.visible and not focus_search:
+            self.shot_nav.hide(by_user=True)
+        elif self.shot_nav.visible and focus_search:
+            self.shot_nav.search_entry.focus_set()
+        else:
+            self.shot_nav.show(focus_search=focus_search)
 
     def _on_escape(self, _event=None):
         if self.find_bar.winfo_manager():
@@ -297,6 +578,9 @@ class S03EditorView:
         shortcuts.bind(self.viewer, ('<Control-f>', '<Control-F>'),
                        lambda _e: (self.show_find_bar(), 'break')[1],
                        scope=scope, name='查找')
+        shortcuts.bind(self.viewer, ('<Control-g>', '<Control-G>'),
+                       lambda _e: (self.toggle_shot_nav(focus_search=True), 'break')[1],
+                       scope=scope, name='镜头定位')
         shortcuts.bind(self.viewer, ('<Control-o>', '<Control-O>'),
                        lambda _e: (self.page.desktop.safe(self.page.open_any_document), 'break')[1],
                        scope=scope, name='打开文件')
@@ -311,12 +595,17 @@ class S03EditorView:
                        lambda _e: (self.zoom_by(-1), 'break')[1], scope=scope, name='缩小')
 
     def set_text(self, text, *, editable=False):
+        content = str(text or '')
         self.viewer.configure(state='normal')
         self.viewer.delete('1.0', 'end')
-        self.viewer.insert('1.0', str(text or ''))
+        self.viewer.insert('1.0', content)
+        apply_storyboard_highlights(self.viewer, content)
         self.viewer.edit_reset()
         self.viewer.configure(state='normal' if editable else 'disabled')
         self.shortcut_hint.configure(text=S03_HINT_EDIT if editable else S03_HINT_READ)
+        self.shot_nav.set_text(content)
+        if self.find_bar.winfo_manager():
+            self._refresh_find_matches()
 
     def popup_context_menu(self, event, *, document_dir_fn):
         page = self.page
@@ -340,6 +629,8 @@ class S03EditorView:
         menu.command('选择其他剧本…', lambda: page.desktop.safe(page.browse))
         menu.command('重排镜头编号', lambda: page.desktop.safe(page.renumber_shots))
         menu.separator()
+        nav_label = '隐藏镜头定位 (Ctrl+G)' if self.shot_nav.visible else '显示镜头定位 (Ctrl+G)'
+        menu.command(nav_label, lambda: self.toggle_shot_nav(focus_search=not self.shot_nav.visible))
         menu.command('查找 (Ctrl+F)', self.show_find_bar)
         menu.command('打开其他文件… (Ctrl+O)', lambda: page.desktop.safe(page.open_any_document))
         menu.command('打开分镜目录', lambda: page.desktop.safe(
