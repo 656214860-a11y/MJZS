@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
+import json
 import os
 import tempfile
 import unittest
 from pathlib import Path
 
+import script_workspace_service as workspace
 from contract import project_stages
 from skip_reasons import PLATFORM_DIRECTORY_LINK
 from script_workspace_service import (batch_selected_script_paths, discover_script_documents,
@@ -361,3 +363,286 @@ class ScriptWorkspaceServiceTests(unittest.TestCase):
             self.assertTrue(all_selected.deletes_all)
             self.assertEqual((one.resolve(), two.resolve()), all_selected.paths)
             self.assertFalse(partial.deletes_all)
+
+
+def _cand(path, sha='x', fresh=False):
+    return workspace.AdoptionCandidate(path=path, sha256=sha, fresh=fresh)
+
+
+def _snap(kind='script', candidates=(), adopted='', state='none'):
+    return workspace.AdoptionSnapshot(kind=kind, candidates=tuple(candidates),
+                                      adopted=adopted, state=state)
+
+
+def _judge_tuple(verdict):
+    return (verdict.action, verdict.reason, verdict.path, verdict.prefer)
+
+
+class AdoptionJudgeTests(unittest.TestCase):
+    RAW = '第 1 集\n场景 1：夜\n甲：你好。\n'
+
+    def _two_scripts(self, root):
+        first = root / '01剧本准备' / '甲' / '模型甲' / '创意_20261011' / '项目剧本' / '甲.md'
+        second = root / '01剧本准备' / '乙' / '模型乙' / '创意_20261011' / '项目剧本' / '乙.md'
+        first.parent.mkdir(parents=True)
+        second.parent.mkdir(parents=True)
+        first.write_text(self.RAW, encoding='utf-8')
+        second.write_text(self.RAW + '\n另一版结尾。', encoding='utf-8')
+        return first, second
+
+    def test_judge_table_with_picked(self):
+        a, b = '甲.md', '乙.md'
+        cands = (_cand(a), _cand(b, fresh=True))
+        v = workspace.judge_adoption(_snap(candidates=cands, adopted=a, state='valid'), picked=a)
+        self.assertEqual(('keep', 'valid', a, ''), _judge_tuple(v))
+        v = workspace.judge_adoption(_snap(candidates=cands, adopted=a, state='changed'), picked=a)
+        self.assertEqual(('adopt', 'picked', a, ''), _judge_tuple(v))
+        v = workspace.judge_adoption(_snap(candidates=cands, adopted=a, state='valid'), picked=b)
+        self.assertEqual(('ask', 'picked_other', '', b), _judge_tuple(v))
+        self.assertEqual((a, b), v.choices)
+        v = workspace.judge_adoption(_snap(candidates=cands, adopted=a, state='changed'), picked=b)
+        self.assertEqual(('ask', 'picked_other', '', b), _judge_tuple(v))
+        v = workspace.judge_adoption(_snap(candidates=cands, state='none'), picked=b)
+        self.assertEqual(('adopt', 'picked', b, ''), _judge_tuple(v))
+        v = workspace.judge_adoption(_snap(candidates=cands, adopted=a, state='missing'), picked=b)
+        self.assertEqual(('adopt', 'picked', b, ''), _judge_tuple(v))
+
+    def test_judge_table_without_picked(self):
+        a, b, c = '甲.md', '乙.md', '丙.md'
+        # 1 valid others empty
+        v = workspace.judge_adoption(_snap(candidates=(_cand(a, fresh=True),), adopted=a, state='valid'))
+        self.assertEqual(('keep', 'valid', a, ''), _judge_tuple(v))
+        # 2 valid one other fresh
+        v = workspace.judge_adoption(_snap(candidates=(_cand(a), _cand(b, fresh=True)), adopted=a, state='valid'))
+        self.assertEqual(('adopt', 'fresh', b, ''), _judge_tuple(v))
+        # 3 valid several fresh
+        v = workspace.judge_adoption(_snap(
+            candidates=(_cand(a), _cand(b, fresh=True), _cand(c, fresh=True)), adopted=a, state='valid'))
+        self.assertEqual(('ask', 'several_fresh', '', a), _judge_tuple(v))
+        self.assertEqual((a, b, c), v.choices)
+        # 4 empty
+        v = workspace.judge_adoption(_snap(state='none'))
+        self.assertEqual(('none', 'empty', '', ''), _judge_tuple(v))
+        # 5 one changed edited / only_changed
+        v = workspace.judge_adoption(_snap(candidates=(_cand(a, fresh=True),), adopted=a, state='changed'))
+        self.assertEqual(('adopt', 'edited', a, ''), _judge_tuple(v))
+        v = workspace.judge_adoption(_snap(candidates=(_cand(a),), adopted=a, state='changed'))
+        self.assertEqual(('adopt', 'only_changed', a, ''), _judge_tuple(v))
+        # 6 one missing
+        v = workspace.judge_adoption(_snap(candidates=(_cand(b),), adopted=a, state='missing'))
+        self.assertEqual(('adopt', 'only_left', b, ''), _judge_tuple(v))
+        # 7 one none
+        v = workspace.judge_adoption(_snap(candidates=(_cand(a),), state='none'))
+        self.assertEqual(('adopt', 'only', a, ''), _judge_tuple(v))
+        # 8 changed A fresh others empty
+        v = workspace.judge_adoption(_snap(
+            candidates=(_cand(a, fresh=True), _cand(b)), adopted=a, state='changed'))
+        self.assertEqual(('adopt', 'edited', a, ''), _judge_tuple(v))
+        # 9 changed A fresh others nonempty
+        v = workspace.judge_adoption(_snap(
+            candidates=(_cand(a, fresh=True), _cand(b, fresh=True)), adopted=a, state='changed'))
+        self.assertEqual(('ask', 'several_fresh', '', a), _judge_tuple(v))
+        # 10 changed A not fresh
+        v = workspace.judge_adoption(_snap(
+            candidates=(_cand(a), _cand(b, fresh=True)), adopted=a, state='changed'))
+        self.assertEqual(('ask', 'changed_outside', '', a), _judge_tuple(v))
+        self.assertEqual((a, b), v.choices)
+        # 11 missing one fresh
+        v = workspace.judge_adoption(_snap(
+            candidates=(_cand(b, fresh=True), _cand(c)), adopted=a, state='missing'))
+        self.assertEqual(('adopt', 'fresh', b, ''), _judge_tuple(v))
+        # 12 missing other
+        v = workspace.judge_adoption(_snap(
+            candidates=(_cand(b), _cand(c)), adopted=a, state='missing'))
+        self.assertEqual(('ask', 'adopted_missing', '', ''), _judge_tuple(v))
+        # 13 none one fresh
+        v = workspace.judge_adoption(_snap(
+            candidates=(_cand(a), _cand(b, fresh=True)), state='none'))
+        self.assertEqual(('adopt', 'fresh', b, ''), _judge_tuple(v))
+        # 14 none several fresh
+        v = workspace.judge_adoption(_snap(
+            candidates=(_cand(a, fresh=True), _cand(b, fresh=True)), state='none'))
+        self.assertEqual(('ask', 'several_fresh', '', ''), _judge_tuple(v))
+        # 15 none no fresh
+        v = workspace.judge_adoption(_snap(candidates=(_cand(a), _cand(b)), state='none'))
+        self.assertEqual(('ask', 'no_signal', '', ''), _judge_tuple(v))
+        self.assertEqual((a, b), v.choices)
+
+    def test_judge_boundaries(self):
+        a, b = '甲.md', '乙.md'
+        # 有效采用自己 fresh、别的不 fresh → keep
+        v = workspace.judge_adoption(_snap(candidates=(_cand(a, fresh=True), _cand(b)), adopted=a, state='valid'))
+        self.assertEqual(('keep', 'valid', a, ''), _judge_tuple(v))
+        # 有效采用不在候选且没有候选 → keep
+        v = workspace.judge_adoption(_snap(candidates=(), adopted=a, state='valid'))
+        self.assertEqual(('keep', 'valid', a, ''), _judge_tuple(v))
+        # picked 不在候选 → 同没传
+        v = workspace.judge_adoption(
+            _snap(candidates=(_cand(a), _cand(b)), state='none'), picked='不存在.md')
+        self.assertEqual(('ask', 'no_signal', '', ''), _judge_tuple(v))
+
+    def test_snapshot_four_states_and_invalid_record(self):
+        from stage_execution_service import adopt_natural_script
+        import contract.script_contract as script_contract
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            first, second = self._two_scripts(root)
+            snap = workspace.adoption_snapshot(root, 'script')
+            self.assertEqual('none', snap.state)
+            self.assertEqual('', snap.adopted)
+            self.assertEqual(2, len(snap.candidates))
+            adopt_natural_script(root, first)
+            snap = workspace.adoption_snapshot(root, 'script')
+            self.assertEqual('valid', snap.state)
+            self.assertEqual(first.relative_to(root).as_posix(), snap.adopted)
+            first.write_text(self.RAW + '\n已改。', encoding='utf-8')
+            snap = workspace.adoption_snapshot(root, 'script')
+            self.assertEqual('changed', snap.state)
+            first.unlink()
+            snap = workspace.adoption_snapshot(root, 'script')
+            self.assertEqual('missing', snap.state)
+            path = script_contract.natural_script_selection_path(root)
+            path.write_text(json.dumps({'path': '', 'sha256': '', 'reason': 'x'}), encoding='utf-8')
+            snap = workspace.adoption_snapshot(root, 'script')
+            self.assertEqual('none', snap.state)
+            self.assertEqual('', snap.adopted)
+
+    def test_touches_only_content_written_by_app(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            first, second = self._two_scripts(root)
+            touches = workspace.AdoptionTouches()
+            touches.note(root, 'script', second, 'generate')
+            snap = workspace.adoption_snapshot(root, 'script', touches=touches)
+            by_path = {c.path: c for c in snap.candidates}
+            self.assertTrue(by_path[second.relative_to(root).as_posix()].fresh)
+            second.write_text(self.RAW + '\n应用外改。', encoding='utf-8')
+            snap = workspace.adoption_snapshot(root, 'script', touches=touches)
+            by_path = {c.path: c for c in snap.candidates}
+            self.assertFalse(by_path[second.relative_to(root).as_posix()].fresh)
+
+    def test_does_not_use_file_mtime(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            first, second = self._two_scripts(root)
+            snap = workspace.adoption_snapshot(root, 'script')
+            verdict = workspace.judge_adoption(snap)
+            self.assertEqual('ask', verdict.action)
+            os.utime(first, (1_700_000_000, 1_900_000_000))
+            snap = workspace.adoption_snapshot(root, 'script')
+            self.assertEqual('ask', workspace.judge_adoption(snap).action)
+            os.utime(second, (1_700_000_000, 2_000_000_000))
+            os.utime(first, (1_700_000_000, 1_000_000_000))
+            snap = workspace.adoption_snapshot(root, 'script')
+            self.assertEqual('ask', workspace.judge_adoption(snap).action)
+
+    def test_apply_adoption_calls_and_clears(self):
+        touches = workspace.AdoptionTouches()
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            target = root / '乙.md'
+            target.write_text('x', encoding='utf-8')
+            touches.note(root, 'script', target, 'edit')
+            self.assertTrue(touches.seen(root, 'script'))
+            calls = []
+
+            def fake_adopt(project, path):
+                calls.append((Path(project), Path(path)))
+
+            adopt_v = workspace.AdoptionVerdict(
+                kind='script', action='adopt', reason='only', path='乙.md', previous='')
+            notice = workspace.apply_adoption(root, adopt_v, adopt=fake_adopt, touches=touches)
+            self.assertEqual(1, len(calls))
+            self.assertEqual(root.resolve(), calls[0][0].resolve())
+            self.assertEqual((root / '乙.md').resolve(), calls[0][1].resolve())
+            self.assertEqual(workspace.adoption_notice(adopt_v), notice)
+            self.assertEqual(frozenset(), touches.seen(root, 'script'))
+
+            for action in ('keep', 'ask', 'none'):
+                calls.clear()
+                v = workspace.AdoptionVerdict(kind='script', action=action, reason='x')
+                self.assertEqual('', workspace.apply_adoption(root, v, adopt=fake_adopt))
+                self.assertEqual([], calls)
+
+            touches.note(root, 'script', target, 'edit')
+
+            def boom(project, path):
+                raise ValueError('no')
+
+            with self.assertRaises(ValueError):
+                workspace.apply_adoption(root, adopt_v, adopt=boom, touches=touches)
+            self.assertTrue(touches.seen(root, 'script'))
+
+    def test_end_to_end_with_real_adopt(self):
+        from stage_execution_service import adopt_natural_script
+        import contract.script_contract as script_contract
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            first, second = self._two_scripts(root)
+            touches = workspace.AdoptionTouches()
+            touches.note(root, 'script', second, 'edit')
+            snap = workspace.adoption_snapshot(root, 'script', touches=touches)
+            verdict = workspace.judge_adoption(snap)
+            self.assertEqual(('adopt', 'fresh', second.relative_to(root).as_posix(), ''),
+                             _judge_tuple(verdict))
+            workspace.apply_adoption(root, verdict, adopt=adopt_natural_script, touches=touches)
+            self.assertEqual(second.resolve(), script_contract.resolve_script_source(root).resolve())
+            snap = workspace.adoption_snapshot(root, 'script', touches=touches)
+            self.assertEqual('keep', workspace.judge_adoption(snap).action)
+            second.write_text(self.RAW + '\n再改。', encoding='utf-8')
+            touches.note(root, 'script', second, 'edit')
+            snap = workspace.adoption_snapshot(root, 'script', touches=touches)
+            verdict = workspace.judge_adoption(snap)
+            self.assertEqual('edited', verdict.reason)
+            self.assertEqual('adopt', verdict.action)
+            workspace.apply_adoption(root, verdict, adopt=adopt_natural_script, touches=touches)
+            self.assertEqual(second.resolve(), script_contract.resolve_script_source(root).resolve())
+
+    def test_old_rule_untouched_when_ask(self):
+        import contract.script_contract as script_contract
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self._two_scripts(root)
+            snap = workspace.adoption_snapshot(root, 'script')
+            verdict = workspace.judge_adoption(snap)
+            self.assertEqual('ask', verdict.action)
+            self.assertFalse(script_contract.natural_script_selection_path(root).exists())
+            self.assertIsNone(script_contract.resolve_script_source(root))
+
+    def test_rejects_unknown_kinds_and_sources(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self._two_scripts(root)
+            with self.assertRaisesRegex(ValueError, '剧本大纲'):
+                workspace.adoption_snapshot(root, 'outline')
+            with self.assertRaises(ValueError):
+                workspace.adoption_snapshot(root, 'x')
+            touches = workspace.AdoptionTouches()
+            with self.assertRaises(ValueError):
+                touches.note(root, 'script', root / 'no.md', 'guess')
+
+    def test_notice_and_question_copy(self):
+        a_rel = '01剧本准备/甲/模型甲/创意_20261011/项目剧本/甲.md'
+        b_rel = '01剧本准备/乙/模型乙/创意_20261011/项目剧本/乙.md'
+        only = workspace.AdoptionVerdict(kind='script', action='adopt', reason='only', path=a_rel)
+        self.assertEqual('只有《甲》这一份自然剧本，已自动采用。', workspace.adoption_notice(only))
+        fresh = workspace.AdoptionVerdict(
+            kind='script', action='adopt', reason='fresh', path=b_rel, previous=a_rel)
+        self.assertEqual(
+            '已自动采用你刚生成或改过的《乙》。原来采用的是《甲》。'
+            '要换一份，在文件面板里右键点「采用此剧本」。',
+            workspace.adoption_notice(fresh))
+        ask = workspace.AdoptionVerdict(
+            kind='script', action='ask', reason='no_signal', choices=(a_rel, b_rel))
+        self.assertEqual('有 2 份自然剧本，还没定用哪一份，下一阶段用哪一份？',
+                         workspace.adoption_question(ask))
+        for reason in ('only', 'only_left', 'fresh', 'edited', 'only_changed', 'picked'):
+            v = workspace.AdoptionVerdict(kind='script', action='adopt', reason=reason, path=a_rel)
+            text = workspace.adoption_notice(v)
+            self.assertTrue(text)
+            self.assertIn('甲', text)
+        for reason in ('several_fresh', 'no_signal', 'changed_outside', 'adopted_missing', 'picked_other'):
+            v = workspace.AdoptionVerdict(
+                kind='script', action='ask', reason=reason, choices=(a_rel, b_rel),
+                previous=a_rel, prefer=b_rel)
+            self.assertTrue(workspace.adoption_question(v))

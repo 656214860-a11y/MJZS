@@ -10,6 +10,9 @@ import logging
 import os
 import re
 import stat
+import hashlib
+import json
+import threading
 from contract.service_contract import SystemError, UserError, success
 
 import contract.project_stages as project_stages
@@ -538,3 +541,237 @@ def _update_index_after_rename(project, source, target):
         file_index.update(project, [source, target])
     except Exception:
         LOGGER.debug('改名后索引未更新，等待下次重建', exc_info=True)
+
+
+ADOPTION_KIND_NAMES = {'setting': '项目设定', 'outline': '剧本大纲', 'character': '角色卡', 'script': '自然剧本'}
+ADOPTION_SOURCES = ('generate', 'edit', 'import')
+ADOPTION_ENTRANCES = {'script': '在文件面板里右键点「采用此剧本」'}
+
+
+def _adoption_project_key(project):
+    """项目根绝对路径转小写，用作登记本键。"""
+    return str(Path(project).resolve()).casefold()
+
+
+def _adoption_stem(path):
+    """相对路径取文件名并去掉扩展名。"""
+    return Path(path).stem
+
+
+class AdoptionTouches:
+    """这次运行里应用自己写出过哪些内容的内存登记本。"""
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._digests = {}
+
+    def note(self, project, kind, path, source):
+        """生成落盘、应用内保存、应用内导入之后登记内容指纹。"""
+        if kind not in ADOPTION_KIND_NAMES:
+            raise ValueError('未知的文件种类：' + str(kind))
+        if source not in ADOPTION_SOURCES:
+            raise ValueError('未知的登记来源：' + str(source))
+        digest = hashlib.sha256(Path(path).read_bytes()).hexdigest()
+        key = (_adoption_project_key(project), kind)
+        with self._lock:
+            bucket = self._digests.get(key)
+            if bucket is None:
+                bucket = set()
+                self._digests[key] = bucket
+            bucket.add(digest)
+        return digest
+
+    def forget(self, project, kind):
+        """任何一次采用之后清空该种类此前的登记。"""
+        key = (_adoption_project_key(project), kind)
+        with self._lock:
+            self._digests.pop(key, None)
+
+    def seen(self, project, kind):
+        """返回登记过的内容 sha256 集合。"""
+        key = (_adoption_project_key(project), kind)
+        with self._lock:
+            return frozenset(self._digests.get(key, ()))
+
+
+@dataclass(frozen=True)
+class AdoptionCandidate:
+    """一份候选自然剧本。"""
+    path: str
+    sha256: str
+    fresh: bool
+
+
+@dataclass(frozen=True)
+class AdoptionSnapshot:
+    """读盘得到的采用现状。"""
+    kind: str
+    candidates: tuple
+    adopted: str
+    state: str
+
+
+@dataclass(frozen=True)
+class AdoptionVerdict:
+    """采用判断结论。"""
+    kind: str
+    action: str
+    reason: str
+    path: str = ''
+    choices: tuple = ()
+    prefer: str = ''
+    previous: str = ''
+
+
+def adoption_snapshot(project, kind, touches=None):
+    """只读盘得到候选、采用记录与四态，不看文件时间。"""
+    import contract.script_contract as script_contract
+    if kind not in ADOPTION_KIND_NAMES:
+        raise ValueError('未知的文件种类：' + str(kind))
+    if kind != 'script':
+        raise ValueError('「' + ADOPTION_KIND_NAMES[kind] + '」的采用判断还没接上')
+    root = Path(project).resolve()
+    seen = touches.seen(project, kind) if touches is not None else frozenset()
+    candidates = []
+    for path in script_contract.natural_script_paths(root):
+        absolute = path.resolve()
+        relative = absolute.relative_to(root).as_posix()
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        candidates.append(AdoptionCandidate(relative, digest, digest in seen))
+    adopted = ''
+    state = 'none'
+    selection_path = script_contract.natural_script_selection_path(root)
+    if selection_path.exists():
+        from infra.file_cache import read_json
+        try:
+            payload = read_json(selection_path)
+        except (ValueError, UnicodeError):
+            payload = None
+        if isinstance(payload, dict):
+            raw_path = str(payload.get('path') or '')
+            if raw_path:
+                recorded = (root / raw_path).resolve()
+                matched = ''
+                for candidate in candidates:
+                    if (root / candidate.path).resolve() == recorded:
+                        matched = candidate.path
+                        break
+                adopted = matched if matched else raw_path.replace('\\', '/')
+                resolved = script_contract.resolve_script_source(root)
+                if resolved is not None and resolved.resolve() == recorded:
+                    state = 'valid'
+                elif matched:
+                    state = 'changed'
+                else:
+                    state = 'missing'
+    return AdoptionSnapshot(kind, tuple(candidates), adopted, state)
+
+
+def judge_adoption(snapshot, picked=None):
+    """按快照决定保持、采用或询问，不读盘。"""
+    kind = snapshot.kind
+    adopted = snapshot.adopted
+    state = snapshot.state
+    choices = tuple(item.path for item in snapshot.candidates)
+    fresh = tuple(item.path for item in snapshot.candidates if item.fresh)
+    others = tuple(path for path in fresh if path != adopted)
+    if picked is not None and picked not in choices:
+        picked = None
+    prefer = picked if picked else (adopted if adopted in choices else '')
+
+    def verdict(action, reason, path='', ask_choices=(), ask_prefer=''):
+        return AdoptionVerdict(
+            kind=kind, action=action, reason=reason, path=path,
+            choices=ask_choices, prefer=ask_prefer, previous=adopted)
+
+    if picked is not None:
+        if state == 'valid' and picked == adopted:
+            return verdict('keep', 'valid', path=adopted)
+        if state == 'changed' and picked == adopted:
+            return verdict('adopt', 'picked', path=adopted)
+        if state in ('valid', 'changed'):
+            return verdict('ask', 'picked_other', ask_choices=choices, ask_prefer=prefer)
+        return verdict('adopt', 'picked', path=picked)
+
+    if state == 'valid' and not others:
+        return verdict('keep', 'valid', path=adopted)
+    if state == 'valid' and len(others) == 1:
+        return verdict('adopt', 'fresh', path=others[0])
+    if state == 'valid':
+        return verdict('ask', 'several_fresh', ask_choices=choices, ask_prefer=prefer)
+    if not choices:
+        return verdict('none', 'empty')
+    if len(choices) == 1:
+        only = choices[0]
+        if state == 'changed':
+            reason = 'edited' if adopted in fresh else 'only_changed'
+            return verdict('adopt', reason, path=adopted)
+        if state == 'missing':
+            return verdict('adopt', 'only_left', path=only)
+        return verdict('adopt', 'only', path=only)
+    if state == 'changed':
+        if adopted in fresh:
+            if not others:
+                return verdict('adopt', 'edited', path=adopted)
+            return verdict('ask', 'several_fresh', ask_choices=choices, ask_prefer=prefer)
+        return verdict('ask', 'changed_outside', ask_choices=choices, ask_prefer=prefer)
+    if state == 'missing':
+        if len(fresh) == 1:
+            return verdict('adopt', 'fresh', path=fresh[0])
+        return verdict('ask', 'adopted_missing', ask_choices=choices, ask_prefer=prefer)
+    if len(fresh) == 1:
+        return verdict('adopt', 'fresh', path=fresh[0])
+    if len(fresh) >= 2:
+        return verdict('ask', 'several_fresh', ask_choices=choices, ask_prefer=prefer)
+    return verdict('ask', 'no_signal', ask_choices=choices, ask_prefer=prefer)
+
+
+def adoption_notice(verdict):
+    """采用成功时给用户看的说明句。"""
+    if verdict.action != 'adopt':
+        return ''
+    name = _adoption_stem(verdict.path)
+    kind_name = ADOPTION_KIND_NAMES[verdict.kind]
+    templates = {
+        'only': '只有《' + name + '》这一份' + kind_name + '，已自动采用。',
+        'only_left': '只剩《' + name + '》这一份' + kind_name + '，已自动采用。',
+        'fresh': '已自动采用你刚生成或改过的《' + name + '》。',
+        'edited': '《' + name + '》你改过了，已按改后的内容重新采用。',
+        'only_changed': '《' + name + '》的内容和采用时不一样了；只有这一份，已按现在的内容重新采用。',
+        'picked': '已采用你选中的《' + name + '》。',
+    }
+    text = templates[verdict.reason]
+    if verdict.previous and verdict.previous != verdict.path:
+        text += '原来采用的是《' + _adoption_stem(verdict.previous) + '》。'
+    if verdict.reason == 'fresh':
+        text += '要换一份，' + ADOPTION_ENTRANCES[verdict.kind] + '。'
+    return text
+
+
+def adoption_question(verdict):
+    """需要用户点选时给用户看的问句。"""
+    if verdict.action != 'ask':
+        return ''
+    kind_name = ADOPTION_KIND_NAMES[verdict.kind]
+    count = str(len(verdict.choices))
+    previous = _adoption_stem(verdict.previous) if verdict.previous else ''
+    prefer = _adoption_stem(verdict.prefer) if verdict.prefer else ''
+    templates = {
+        'several_fresh': '这次你动过不止一份' + kind_name + '，下一阶段用哪一份？',
+        'no_signal': '有 ' + count + ' 份' + kind_name + '，还没定用哪一份，下一阶段用哪一份？',
+        'changed_outside': '已采用的《' + previous + '》在应用外被改过，下一阶段用哪一份？',
+        'adopted_missing': '原来采用的《' + previous + '》已经不在，下一阶段改用哪一份？',
+        'picked_other': '你选中的是《' + prefer + '》，已采用的是《' + previous + '》，下一阶段用哪一份？',
+    }
+    return templates[verdict.reason]
+
+
+def apply_adoption(project, verdict, *, adopt, touches=None):
+    """按 adopt 结论调用采用入口并清理登记。"""
+    if verdict.action != 'adopt':
+        return ''
+    root = Path(project).resolve()
+    adopt(project, root / verdict.path)
+    if touches is not None:
+        touches.forget(project, verdict.kind)
+    return adoption_notice(verdict)
