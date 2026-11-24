@@ -502,7 +502,7 @@ class PetStagesMixin:
                 target = (plan.get('params') or {}).get('level')
                 if target is None:
                     return ''
-                self.set_level(target, at=at)
+                self.set_paw_level(target, at=at)
                 return self.notice
             if intent == 'projects':
                 # 第 37 期第 1 条：「有哪些项目」「项目都怎么样了」——照着盘上的登记表念一遍。

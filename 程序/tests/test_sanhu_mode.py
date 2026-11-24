@@ -91,6 +91,30 @@ class SanhuModeTests(unittest.TestCase):
         self.assertFalse(self.pet.auto_storyboard_var.get())
         self.assertFalse(self.pet.should_auto_run('01_storyboard_draft'))
 
+    def test_chat_level_switch_to_auto_takes_the_paw_entry(self):
+        """聊天一句话切全自动与猫爪同一入口：模式与全部自动开关跟着走。"""
+        self.pet.run_plan({'decision': {'run': True},
+                           'plan': {'intent': 'level', 'params': {'level': 'auto'}}})
+        self.assertEqual(self.pet.mode, 'auto')
+        self.assertEqual(self.levels, ['auto', 'auto'])
+        self.assertTrue(all(project_settings.get(self.project, key) is True
+                            for key in project_settings.DEFAULTS))
+        self.assertTrue(all(self.pet.auto_variable(name).get() is True
+                            for name in pet_ui.AUTO_VARIABLE_NAMES))
+
+    def test_chat_level_switch_to_semi_releases_auto_mode_and_switches(self):
+        """全自动里聊天切半自动：退回手动模式、开关全关，不留第四种组合。"""
+        self.pet.set_mode('auto')
+        self.levels.clear()
+        self.pet.run_plan({'decision': {'run': True},
+                           'plan': {'intent': 'level', 'params': {'level': 'semi'}}})
+        self.assertEqual(self.pet.mode, 'manual')
+        self.assertEqual(self.levels, ['hint', 'semi'])
+        self.assertTrue(all(project_settings.get(self.project, key) is False
+                            for key in project_settings.DEFAULTS))
+        self.assertTrue(all(self.pet.auto_variable(name).get() is False
+                            for name in pet_ui.AUTO_VARIABLE_NAMES))
+
     def test_auto_completion_announces_and_queues_the_next_stage(self):
         self.pet.mode = 'auto'
         self.pet.auto = stage_flow.Auto(order=['storyboard', 'assets'])
