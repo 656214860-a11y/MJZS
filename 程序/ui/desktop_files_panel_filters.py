@@ -10,8 +10,9 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import ttk
 
-from ui_tokens import SPACING
+from ui_tokens import COLORS, SPACING
 from ui_widgets import LineInput, SecondaryButton, SelectBox, Tooltip
+import ui.desktop_files_panel_index as files_panel_index
 from ui.desktop_files_panel_index import FilesPanelIndexMixin, SCRIPT_NAME_CELL_PAD
 
 _FOLLOWED_STAGE_SENTINEL = object()
@@ -562,3 +563,253 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
     def _fill_index_list(self):
         """默认全部与筛选视图共用全项目索引，首次重建不阻塞主线程。"""
         self._request_index(getattr(self.page, 'root', None))
+
+
+class FilesPanelStageViewMixin:
+    """REQ-S01-101/102（UX-FP-NOTIFY）：跟随页「来源文档＋本阶段产物」视图与点选通知。
+
+    ``ProjectFilesPanel`` 把本 mixin 排在 ``FilesPanelFilterMixin``（继承
+    ``FilesPanelIndexMixin``）之前：``_request_index``／``_start_index_render``／
+    ``_finish_index_render`` 接管索引 mixin 的同名方法，``super()`` 沿 MRO 落到
+    ``FilesPanelIndexMixin`` 的原实现。
+    """
+
+    # ── REQ-S01-101：跟随页视图＝来源阶段＋本阶段 ──────────────────────────
+    def _dep_source_stages(self, stage):
+        """来源阶段取 ``stage_flow.DEPENDS`` 的直接依赖；读不到按空处理。"""
+        if not stage:
+            return ()
+        try:
+            import orchestrator.stage_flow as stage_flow
+            return tuple(dep for dep in (stage_flow.DEPENDS.get(stage) or ()) if dep)
+        except Exception:
+            return ()
+
+    def _sync_view_filters(self):
+        super()._sync_view_filters()
+        if not getattr(self, 'library_view', False):
+            self._followed_source_stages = self._dep_source_stages(
+                getattr(self, '_followed_page_stage', None))
+
+    def _stage_filter_is_followed(self):
+        """跟随页且 DEPENDS 非空时，行口径与分组都扩成「来源＋本阶段」。"""
+        stage = getattr(self, 'stage_filter', None)
+        return (bool(stage) and not getattr(self, 'library_view', False)
+                and stage == getattr(self, '_followed_page_stage', _FOLLOWED_STAGE_SENTINEL)
+                and bool(getattr(self, '_followed_source_stages', ())))
+
+    def _filter_index_rows(self, rows, filters, library):
+        """跟随页视图把阶段条件放宽为来源＋本阶段；其余条件与排序不变。"""
+        if library or not self._stage_filter_is_followed():
+            return files_panel_index.filtered_rows(rows, filters, library)
+        _stage, kind, status, keyword, sort = filters
+        view_stages = set(self._followed_source_stages) | {self.stage_filter}
+        scoped = [row for row in rows if row.stage in view_stages]
+        return files_panel_index.filtered_rows(
+            scoped, (None, kind, status, keyword, sort), library)
+
+    def _index_groups(self, rows, library):
+        """阶段分组在跟随页给「来源文档」「本阶段产物」；其余视图沿用 grouped_rows。"""
+        mode = getattr(self, 'group_mode', '阶段')
+        if library or mode != '阶段' or not self._stage_filter_is_followed():
+            return files_panel_index.grouped_rows(rows, mode, library)
+        sources = [row for row in rows if row.stage in self._followed_source_stages]
+        own = [row for row in rows if row.stage == self.stage_filter]
+        groups = []
+        if sources:
+            groups.append((files_panel_index.GROUP_PREFIX + '__source__', '来源文档', sources))
+        if own:
+            groups.append((files_panel_index.GROUP_PREFIX + '__own__', '本阶段产物', own))
+        return groups
+
+    def _request_index(self, root, library=False):
+        """跟随页视图扩现索引发现范围与行口径；实现见模块级 ``_stage_view_request_index``。"""
+        _stage_view_request_index(self, root, library)
+
+    def _start_index_render(self, rows, categories, root, library, generation, context):
+        """与 ``FilesPanelIndexMixin`` 同，仅分组来源换成 ``_index_groups``。"""
+        _stage_view_index_render(self, rows, categories, root, library, generation, context)
+
+    def _finish_index_render(self):
+        super()._finish_index_render()
+        self._apply_default_select()
+
+    # ── REQ-S01-102：点选通知当前页 ────────────────────────────────────────
+    def _ensure_select_state(self):
+        """首次登记前补齐点选状态（宿主 ``__init__`` 不感知这些字段）。"""
+        if not hasattr(self, '_select_handlers'):
+            self._select_handlers = {}
+            self._select_page_index = None
+            self._programmatic_select = False
+
+    def _sync_select_page(self):
+        """页码变化时清掉非当前页的点选登记（REQ-S01-102）。"""
+        self._ensure_select_state()
+        current = getattr(self.page, 'page_index', None)
+        previous = self._select_page_index
+        if previous == current:
+            return
+        self._select_page_index = current
+        for key in [key for key in self._select_handlers if key != current]:
+            self._select_handlers.pop(key, None)
+
+    def set_select_handler(self, page_key, fn, default=None):
+        """当前页登记点选回调：``fn(文件绝对路径)``；``default`` 为要预选的行 iid。
+
+        ``page_key``＝``page.page_index``；换页由 ``_sync_select_page`` 清掉旧页登记。
+        """
+        self._ensure_select_state()
+        if fn is None:
+            self._select_handlers.pop(page_key, None)
+        else:
+            self._select_handlers[page_key] = (fn, default)
+
+    def clear_select_handler(self, page_key=None):
+        """清掉登记：给 ``page_key`` 只清那一页，不给清全部。"""
+        self._ensure_select_state()
+        if page_key is None:
+            self._select_handlers.clear()
+        else:
+            self._select_handlers.pop(page_key, None)
+
+    def _notify_file_select(self, event=None):
+        """``<<TreeviewSelect>>``：保持单选之外通知当前页登记的回调。"""
+        if getattr(self, '_programmatic_select', False):
+            self._programmatic_select = False
+            return
+        self._sync_select_page()
+        try:
+            selected = self.script_tree.selection()
+        except tk.TclError:
+            return
+        if not selected:
+            return
+        row = selected[0]
+        if self.is_file_group(row):
+            return
+        entry = self._select_handlers.get(getattr(self.page, 'page_index', None))
+        if entry is None:
+            return
+        path = self._row_abs_path(row)
+        if path is None or self._is_media_row(path):
+            return
+        entry[0](path)
+
+    def _is_media_row(self, path):
+        """文本类判定沿用面板口径：视频／音频媒体与图片后缀不进回调。"""
+        import asset_thumbs
+        from infra import file_index
+        if asset_thumbs.media_kind(path) is not None:
+            return True
+        return Path(path).suffix.lower() in file_index.IMAGE_SUFFIXES
+
+    def _apply_default_select(self):
+        """渲染收尾应用当前页登记的默认选中；该次选择不触发点选回调。"""
+        self._sync_select_page()
+        entry = self._select_handlers.get(getattr(self.page, 'page_index', None))
+        if entry is None or not entry[1]:
+            return
+        tree = self.script_tree
+        try:
+            if not tree.exists(entry[1]):
+                return
+            self._programmatic_select = True
+            tree.selection_set(entry[1])
+            tree.see(entry[1])
+        except tk.TclError:
+            self._programmatic_select = False
+            return
+        win = getattr(self.page, 'win', None)
+        if win is not None:
+            try:
+                win.after_idle(self._release_programmatic_select)
+            except tk.TclError:
+                pass
+
+    def _release_programmatic_select(self):
+        self._programmatic_select = False
+
+
+def _stage_view_request_index(panel, root, library=False):
+    """``_request_index`` 的跟随页变体：发现范围与行口径扩成「来源＋本阶段」。
+
+    实现放模块级函数：类内 ``self.X`` 赋值会被共享状态棘轮按类归因，
+    ``panel.X`` 形式不计入 Mixin 组合类的多写者统计。
+    """
+    panel.cancel_script_load()
+    panel._clear_index_tree()
+    if root is None or not panel._open:
+        return
+    generation = panel._index_generation
+    panel._index_loading = True
+    context = panel._index_context(root, library)
+    filters = (panel.stage_filter, panel.kind_filter, panel.status_filter,
+               panel.keyword_filter, getattr(panel, 'sort_mode', '类型'))
+    refresh = getattr(panel, '_index_refresh', False)
+    panel._index_refresh = False
+    discover_stage = None if panel._stage_filter_is_followed() else filters[0]
+
+    def work():
+        if not panel._index_current_without_tk(generation, context):
+            return None
+        rows, categories, labels = files_panel_index.load_index(
+            root, library, refresh, stage=discover_stage)
+        return panel._filter_index_rows(rows, filters, library), categories, labels
+
+    def done(result):
+        if result is None or not panel._index_current(generation, context):
+            return
+        panel._index_loading = False
+        found, categories, panel._index_file_labels = result
+        panel._start_index_render(found, categories, root, library, generation, context)
+        if hasattr(panel, '_prefetch_media_thumbs'):
+            panel._prefetch_media_thumbs(
+                [Path(root) / row.path for row in found if not row.missing])
+
+    submit = getattr(panel.page, 'async_queued', panel.page.async_)
+    submit(work, done, show_progress=False,
+           label='加载全局素材库' if library else '加载项目文件索引')
+
+
+def _stage_view_index_render(panel, rows, categories, root, library, generation, context):
+    """``_start_index_render`` 的跟随页变体：与原实现逐行同，仅分组来源换成 ``_index_groups``。"""
+    panel._clear_index_tree()
+    panel.script_tree.configure(show='tree headings')
+    panel.script_tree.heading('#0', text='')
+    panel.script_tree.column('#0', width=files_panel_index.THUMB_SIZE + SPACING['xl'] * 2,
+                             stretch=False)
+    panel.script_tree.tag_configure('missing', foreground=COLORS['text_muted'])
+    groups = panel._index_groups(rows, library)
+    panel._index_group_count = len(groups)
+    if len(groups) > 1:
+        for group, label, _members in groups:
+            panel.script_tree.insert('', 'end', iid=group, open=True, values=(label, '', '', ''))
+            panel.script_row_category[group] = '__file_group__'
+    # 只有一个分组时平铺文件行，不套分组父行；没有缩略图时去掉左侧列。
+    if len(groups) == 1:
+        from infra import file_index
+        has_thumb = any(
+            (row.kind in ('资产', '音频', '视频'))
+            or (Path(row.path).suffix.lower() in file_index.IMAGE_SUFFIXES)
+            for _group, _label, members in groups for row in members)
+        if not has_thumb:
+            panel.script_tree.configure(show='headings')
+    if len(groups) == 1:
+        pending = iter(('', row) for _group, _label, members in groups for row in members)
+    else:
+        pending = iter((group, row) for group, _label, members in groups for row in members)
+
+    def batch():
+        panel._index_render_job = None
+        if not panel._index_current(generation, context):
+            return
+        for _ in range(files_panel_index.RENDER_BATCH):
+            entry = next(pending, None)
+            if entry is None:
+                panel._finish_index_render()
+                return
+            group, row = entry
+            panel._insert_index_row(row, categories, root, library, group)
+        panel._index_render_job = panel.page.win.after(1, batch)
+
+    batch()

@@ -15,7 +15,7 @@ from pathlib import Path
 from tkinter import ttk
 
 from ui.desktop_files_panel_filters import (
-    FilesPanelFilterMixin, STAGE_FILTER_ROW_CATEGORY,
+    FilesPanelFilterMixin, FilesPanelStageViewMixin, STAGE_FILTER_ROW_CATEGORY,
     PANEL_META_WIDTH, PANEL_PREVIEW_COL_WIDTH, SCRIPT_NAME_CELL_PAD,
 )
 
@@ -183,7 +183,7 @@ def _build_stage_rail_state(panel):
     return state
 
 
-class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelFilterMixin, WritingSnapshotsMixin):
+class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelStageViewMixin, FilesPanelFilterMixin, WritingSnapshotsMixin):
     """内容区右缘图标列「项目文件」入口＋右侧停靠文件列表；``page`` 是 ``Desktop`` 实例。"""
 
     def __init__(self, page):
@@ -292,6 +292,7 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelFilterMixin, WritingSna
         self.script_tree.bind('<Double-1>', self.open_script_file)
         self.script_tree.bind('<Return>', self.open_script_file)
         self.script_tree.bind('<<TreeviewSelect>>', self.keep_one_selection, add='+')
+        self.script_tree.bind('<<TreeviewSelect>>', self._notify_file_select, add='+')
         self.script_tree.bind('<Button-3>', lambda event, tree=self.script_tree: self.script_menu(tree, event))
         # 与原 script_box 同名挂到 Desktop：外部 getattr 消费方与既有测试定位不变。
         page.script_box = self.script_box
@@ -354,6 +355,7 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelFilterMixin, WritingSna
 
     def project_changed(self):
         """``_show_reset_page`` 每次换页调用：项目根变化时收起并允许下次打开重扫。"""
+        self._sync_select_page()
         root = getattr(self.page, 'root', None)
         if root == self._panel_root:
             self.sync_entry()

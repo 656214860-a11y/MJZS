@@ -873,8 +873,20 @@ class DockContentTests(StageRailTests):
             load_index(root, refresh=True)
             discover.assert_not_called()
 
-    def test_structure_page_shows_only_structure_files(self):
-        """T8：剧本结构页打开面板：只列该阶段用户文件、平铺无分组父行、无预览列。"""
+    def _stage_file(self, stage, name, text='正文'):
+        """在该阶段写目录里放一个用户文件并重建索引，返回项目相对 posix。"""
+        from contract.stage_path_service import read_dirs
+        root = Path(self.desktop.root)
+        folder = read_dirs(root, stage)[0]
+        folder.mkdir(parents=True, exist_ok=True)
+        target = folder / name
+        target.write_text(text, encoding='utf8')
+        self.addCleanup(target.unlink, missing_ok=True)
+        file_index.rebuild(root)
+        return target.relative_to(root).as_posix()
+
+    def test_structure_page_shows_source_and_own_groups(self):
+        """REQ-S01-101：剧本结构页默认列「来源文档（剧本）＋本阶段产物」两组。"""
         from contract.stage_path_service import read_dirs
         panel = self.desktop.files_panel
         root = Path(self.desktop.root)
@@ -891,10 +903,151 @@ class DockContentTests(StageRailTests):
         self.wait_index()
         self.assertEqual(panel.stage_filter, 'script_structure')
         self.assertEqual(str(panel.script_title.cget('text')), '项目文件 · 剧本结构')
-        self.assertEqual(self.rows(), [md.relative_to(root).as_posix()])
+        own = md.relative_to(root).as_posix()
         children = panel.script_tree.get_children()
-        self.assertFalse(any(item.startswith('stage-group:') for item in children), children)
+        self.assertEqual(list(children), ['stage-group:__source__', 'stage-group:__own__'], children)
+        source_rows = panel.script_tree.get_children('stage-group:__source__')
+        own_rows = panel.script_tree.get_children('stage-group:__own__')
+        self.assertTrue(any(row.endswith('样例剧本.md') for row in source_rows), source_rows)
+        self.assertEqual(list(own_rows), [own])
+        self.assertEqual(panel.script_tree.item('stage-group:__source__', 'values')[0], '来源文档')
+        self.assertEqual(panel.script_tree.item('stage-group:__own__', 'values')[0], '本阶段产物')
+        self.assertTrue(all(panel.script_row_category.get(group) == '__file_group__'
+                            for group in children))
+        self.assertIn('tree', str(panel.script_tree['show']))
+
+    def test_storyboard_page_lists_source_files_flat(self):
+        """REQ-S01-101：初步分镜页来源＝结构剧本；本阶段无产物时单组平铺。"""
+        panel = self.desktop.files_panel
+        source = self._stage_file('script_structure', '结构正稿.md')
+        self.desktop.show(PAGE['storyboard'])
+        self.wait_index()
+        self.assertEqual(panel.stage_filter, 'storyboard')
+        self.assertEqual(self.rows(), [source])
+        children = panel.script_tree.get_children()
+        self.assertFalse(any(str(item).startswith('stage-group:') for item in children), children)
         self.assertNotIn('tree', str(panel.script_tree['show']))
+
+    def test_manual_stage_pick_keeps_single_stage_view(self):
+        """手选阶段不套两组：结构页手选资产阶段只列资产文件、平铺。"""
+        panel = self.desktop.files_panel
+        self._stage_file('script_structure', '结构正稿.md')
+        self.desktop.show(PAGE['script_structure'])
+        self.wait_index()
+        panel.show_stage('assets')
+        self.wait_index()
+        self.assertEqual(panel.stage_filter, 'assets')
+        rows = self.rows()
+        self.assertTrue(rows)
+        self.assertTrue(all(row.startswith('05资产管理/') for row in rows), rows)
+        children = panel.script_tree.get_children()
+        self.assertFalse(any(str(item).startswith('stage-group:') for item in children), children)
+
+    def test_select_notifies_registered_handler_with_file_path(self):
+        """REQ-S01-102：点选文本文件调用当前页登记的回调，参数为文件绝对路径。"""
+        panel = self.desktop.files_panel
+        calls = []
+        panel.set_select_handler(self.desktop.page_index, lambda path: calls.append(path))
+        self.addCleanup(panel.clear_select_handler)
+        row = next(item for item in self.rows() if item.endswith('样例剧本.md'))
+        panel.script_tree.selection_set(row)
+        self.pump(.2)
+        self.assertEqual(len(calls), 1)
+        expected = Path(self.desktop.root) / row
+        self.assertEqual(calls[0], expected)
+        self.assertTrue(calls[0].is_file())
+
+    def test_default_select_is_applied_without_notifying(self):
+        """REQ-S01-102：页面给的默认选中渲染后生效，但不触发点选回调。"""
+        panel = self.desktop.files_panel
+        calls = []
+        target = self._stage_file('script', '默认选中样例.md')
+        panel.set_select_handler(self.desktop.page_index,
+                                 lambda path: calls.append(path), default=target)
+        self.addCleanup(panel.clear_select_handler)
+        panel.fill_script_list()
+        self.wait_index()
+        self.pump(.3)
+        self.assertEqual(tuple(panel.script_tree.selection()), (target,))
+        self.assertEqual(calls, [])
+        other = next(item for item in self.rows() if item != target)
+        panel.script_tree.selection_set(other)
+        self.pump(.2)
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0], Path(self.desktop.root) / other)
+
+    def test_programmatic_refresh_does_not_notify(self):
+        """REQ-S01-102：程序化刷新重建列表不触发点选回调。"""
+        panel = self.desktop.files_panel
+        calls = []
+        panel.set_select_handler(self.desktop.page_index, lambda path: calls.append(path))
+        self.addCleanup(panel.clear_select_handler)
+        row = next(item for item in self.rows() if item.endswith('样例剧本.md'))
+        panel.script_tree.selection_set(row)
+        self.pump(.2)
+        self.assertEqual(len(calls), 1)
+        calls.clear()
+        panel.refresh_file_index()
+        self.wait_index()
+        self.pump(.3)
+        self.assertEqual(calls, [])
+
+    def test_page_switch_clears_select_registration(self):
+        """REQ-S01-102：换页清掉上一页登记，旧页回调不再触发。"""
+        panel = self.desktop.files_panel
+        self._stage_file('script_structure', '结构正稿.md')
+        calls = []
+        panel.set_select_handler(self.desktop.page_index, lambda path: calls.append(path))
+        self.addCleanup(panel.clear_select_handler)
+        row = next(item for item in self.rows() if item.endswith('样例剧本.md'))
+        panel.script_tree.selection_set(row)
+        self.pump(.2)
+        self.assertEqual(len(calls), 1)
+        self.desktop.show(PAGE['script_structure'])
+        self.wait_index()
+        self.assertEqual(panel._select_handlers, {})
+        new_row = next((item for item in self.rows() if item.endswith('.md')), None)
+        if new_row is not None:
+            panel.script_tree.selection_set(new_row)
+            self.pump(.2)
+        self.assertEqual(len(calls), 1)
+
+    def test_media_row_selection_does_not_notify(self):
+        """REQ-S01-102：图片行仍走预览与「打开」，点选不触发文本查看回调。"""
+        panel = self.desktop.files_panel
+        self.desktop.show(PAGE['assets'])
+        self.wait_index()
+        calls = []
+        panel.set_select_handler(self.desktop.page_index, lambda path: calls.append(path))
+        self.addCleanup(panel.clear_select_handler)
+        row = '05资产管理/assets/CHAR_001.png'
+        self.assertTrue(panel.script_tree.exists(row), self.rows())
+        panel.script_tree.selection_set(row)
+        self.pump(.2)
+        self.assertEqual(calls, [])
+        from dataclasses import replace
+        from unittest.mock import Mock, patch
+        opened = Mock()
+        services = replace(self.desktop.writing_page_services, open_path=opened)
+        with patch.object(self.desktop, 'writing_page_services', services):
+            panel.open_script_file()
+        opened.assert_called_once()
+
+    def test_unregistered_page_selection_keeps_existing_behavior(self):
+        """REQ-S01-102：无登记页面点选不报错，双击打开仍走 open_path。"""
+        panel = self.desktop.files_panel
+        self.assertFalse(getattr(panel, '_select_handlers', None))
+        row = next(item for item in self.rows() if item.endswith('样例剧本.md'))
+        panel.script_tree.selection_set(row)
+        self.pump(.2)
+        self.assertEqual(tuple(panel.script_tree.selection()), (row,))
+        from dataclasses import replace
+        from unittest.mock import Mock, patch
+        opened = Mock()
+        services = replace(self.desktop.writing_page_services, open_path=opened)
+        with patch.object(self.desktop, 'writing_page_services', services):
+            panel.open_script_file()
+        opened.assert_called_once()
 
     def test_stage_filter_follows_page_and_keeps_user_choice(self):
         """T9：换页跟随新页阶段；用户手选阶段保持到下一次换页。"""
