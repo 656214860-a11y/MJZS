@@ -268,11 +268,14 @@ def _check_disk_space(root):
 def _check_model_pool(root):
     """空池报告 Q7，读取异常由自检运行器记录为降级。"""
     from contract.diagnostics import StartupPhase
-    if config_snapshot.has_stored_models(root):
+    # REL-03：判据＝模型池为空且无可用命令行引擎（or 不新增语句级分支，分支基线不动）
+    if config_snapshot.has_stored_models(root) or config_snapshot.has_usable_cli_engine():
         return None
     return _degraded(StartupPhase.CONFIG, 'model-pool-empty',
                      '模型池为空：还没有配置任何模型，制作阶段会缺模型可用',
-                     '登录后在「模型管理」里「+ 新增模型…」并保存 API Key')
+                     # 与 model_router.missing_setup_hint() 同文（L1 同层未登记 import 边，写死）
+                     '需要配置模型或引擎：在「模型管理」里「+ 新增模型…」并保存 API Key；'
+                     '或安装命令行引擎后在「调用设置」选择其 .exe')
 
 
 def _check_bundled_tools(root):

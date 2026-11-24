@@ -242,7 +242,7 @@ class StageModelPicker(ttk.Frame):
                     first_row[0] = row
         else:
             row_widgets.append(self._text_row(
-                scroll.form, '暂无可用模型', fg=COLORS['text_muted'],
+                scroll.form, model_router.missing_setup_hint(), fg=COLORS['text_muted'],
                 command=lambda: None))
         scroll.form.update_idletasks()
         # ScrollForm 的画布不把内容需求宽度传给外层：模型行最宽者决定浮层宽度，
