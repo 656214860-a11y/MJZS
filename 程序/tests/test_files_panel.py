@@ -401,5 +401,185 @@ class FilesPanelResizeTests(unittest.TestCase):
         panel.collapse(); self.pump(.1)
 
 
+class FilesPanelImportTests(unittest.TestCase):
+    """REQ-S01-103：面板「导入文件」入口——本机文件复制进当前阶段写入目录并列进索引。
+
+    无 Tk：面板用 ``__new__`` 替身＋注入的文件对话框／同名决策，只走临时目录；
+    复制语义断言直接打 ``desktop_files_panel_filters.import_into_stage``。
+    """
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(prefix='ux-fp-import-')
+        base = Path(self.temp.name)
+        self.root = base / '演示项目'
+        self.root.mkdir()
+        self.local = base / '本机素材'
+        self.local.mkdir()
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def _write(self, folder, name, data=b'data'):
+        path = Path(folder) / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        return path
+
+    def _panel(self, *, stage='assets', page_index=4, chosen=(), decisions=(), library_view=False):
+        """建无 Tk 面板替身：注入多选结果与「覆盖／保留两份／取消」决策序列。"""
+        from ui.desktop_files_panel import ProjectFilesPanel
+        state = {'chosen': tuple(str(p) for p in chosen), 'decisions': list(decisions),
+                 'conflict_calls': [], 'refreshes': [], 'status': []}
+        panel = ProjectFilesPanel.__new__(ProjectFilesPanel)
+        panel.page = types.SimpleNamespace(
+            root=self.root, page_index=page_index, win=None,
+            status=types.SimpleNamespace(set=lambda text: state['status'].append(text)),
+            file_dialog=types.SimpleNamespace(
+                open_files=lambda **kw: state['chosen']),
+            safe=lambda fn: fn())
+        panel._open = True
+        panel.stage_filter = stage
+        panel.library_view = library_view
+        panel._ask_import_conflict = lambda name: (
+            state['conflict_calls'].append(name), state['decisions'].pop(0))[1]
+        panel.fill_script_list = lambda: state['refreshes'].append('refresh')
+        panel.show_stage = lambda value: state['refreshes'].append(('stage', value))
+        return panel, state
+
+    def _import(self, root=None):
+        from ui.desktop_files_panel_filters import import_into_stage
+        return import_into_stage
+
+    def test_import_entry_copies_file_into_stage_write_dir(self):
+        """入口存在并把本机文件复制进当前阶段写入目录，走面板刷新后进入索引列表。"""
+        from contract.stage_path_service import write_dir
+        from infra import file_index
+        source = self._write(self.local, '角色参考.png', b'PNG-DATA')
+        panel, state = self._panel(chosen=(source,))
+        panel.import_files()        # 缺陷期：面板没有导入入口 → AttributeError
+        target = write_dir(self.root, 'assets') / '角色参考.png'
+        self.assertTrue(target.is_file(), '副本应落在 05资产管理 写入目录')
+        self.assertEqual(target.read_bytes(), b'PNG-DATA')
+        self.assertTrue(source.is_file())
+        self.assertEqual(source.read_bytes(), b'PNG-DATA', '原文件不动')
+        self.assertIn('refresh', state['refreshes'], '复制完成后走面板现有索引刷新')
+        relative = target.relative_to(self.root).as_posix()
+        rows = {row.path for row in file_index.rows(self.root)}
+        self.assertIn(relative, rows, '导入文件应进入项目索引并出现在面板列表')
+        self.assertFalse(file_index.is_functional(relative), '导入文件应是面板可见类型')
+
+    def test_import_multi_select_copies_each(self):
+        """文件对话框多选：几份文件逐份复制进同一阶段目录。"""
+        first = self._write(self.local, '甲.png', b'A')
+        second = self._write(self.local, '乙.png', b'B')
+        result = self._import()(self.root, 'assets', [first, second])
+        stage_dir = self.root / '05资产管理'
+        self.assertEqual((stage_dir / '甲.png').read_bytes(), b'A')
+        self.assertEqual((stage_dir / '乙.png').read_bytes(), b'B')
+        self.assertEqual(len(result['imported']), 2)
+        self.assertEqual(first.read_bytes(), b'A', '原文件不动')
+        self.assertEqual(second.read_bytes(), b'B', '原文件不动')
+
+    def test_import_same_name_overwrite_replaces(self):
+        """同名选「覆盖」：目标被替换、原件不动。"""
+        target = self._write(self.root / '05资产管理', '旧图.png', b'OLD')
+        source = self._write(self.local, '旧图.png', b'NEW')
+        asked = []
+        result = self._import()(self.root, 'assets', [source],
+                                conflict=lambda name: (asked.append(name), 'overwrite')[1])
+        self.assertEqual(asked, ['旧图.png'], '同名必须先询问')
+        self.assertEqual(target.read_bytes(), b'NEW')
+        self.assertEqual(len(result['imported']), 1)
+        self.assertEqual(source.read_bytes(), b'NEW', '原文件不动')
+
+    def test_import_same_name_keep_both_renames(self):
+        """同名选「保留两份」：旧文件保留，新文件按 (N) 递增命名。"""
+        target = self._write(self.root / '05资产管理', '旧图.png', b'OLD')
+        source = self._write(self.local, '旧图.png', b'NEW')
+        result = self._import()(self.root, 'assets', [source],
+                                conflict=lambda name: 'rename')
+        self.assertEqual(target.read_bytes(), b'OLD', '旧文件不被覆盖')
+        renamed = self.root / '05资产管理' / '旧图(2).png'
+        self.assertTrue(renamed.is_file(), '保留两份时应自动改名导入')
+        self.assertEqual(renamed.read_bytes(), b'NEW')
+        self.assertEqual(len(result['imported']), 1)
+
+    def test_import_same_name_cancel_no_op(self):
+        """同名选「取消」：不写新文件，目标与原文件都不动。"""
+        target = self._write(self.root / '05资产管理', '旧图.png', b'OLD')
+        source = self._write(self.local, '旧图.png', b'NEW')
+        result = self._import()(self.root, 'assets', [source],
+                                conflict=lambda name: 'cancel')
+        self.assertEqual(target.read_bytes(), b'OLD')
+        self.assertFalse((self.root / '05资产管理' / '旧图(2).png').exists())
+        self.assertEqual(source.read_bytes(), b'NEW', '原文件不动')
+        self.assertFalse(result['imported'])
+        self.assertEqual(result['skipped'], ['旧图.png'])
+
+    def test_import_never_overwrites_without_asking(self):
+        """无决策回调等同「取消」：同名绝不静默覆盖。"""
+        target = self._write(self.root / '05资产管理', '旧图.png', b'OLD')
+        source = self._write(self.local, '旧图.png', b'NEW')
+        result = self._import()(self.root, 'assets', [source])
+        self.assertEqual(target.read_bytes(), b'OLD', '不询问时绝不覆盖')
+        self.assertEqual(result['skipped'], ['旧图.png'])
+
+    def test_import_rejects_unlisted_type(self):
+        """阶段类型白名单之外的文件被点名拒绝，不复制。"""
+        source = self._write(self.local, '破解工具.exe', b'EXE')
+        result = self._import()(self.root, 'assets', [source])
+        self.assertFalse(result['imported'])
+        self.assertEqual(len(result['rejected']), 1)
+        self.assertIn('破解工具.exe', result['rejected'][0][0])
+        self.assertTrue(result['rejected'][0][1], '拒绝要给出原因文案')
+        self.assertFalse((self.root / '05资产管理' / '破解工具.exe').exists())
+        self.assertTrue(source.is_file(), '原文件不动')
+
+    def test_import_half_write_leaves_no_partial_file(self):
+        """复制中途失败：不留半文件、不残留临时文件，旧目标不被改动。"""
+        source = self._write(self.local, '半份.png', b'FULL')
+        existing = self._write(self.root / '05资产管理', '半份.png', b'OLD')
+
+        def flaky(target, _source, overwrite):
+            stray = target.with_name(target.name + '.ab12cd.tmp')
+            stray.write_bytes(b'half')
+            raise OSError('模拟写入中断')
+        result = self._import()(self.root, 'assets', [source],
+                                conflict=lambda name: 'overwrite', copier=flaky)
+        self.assertFalse(result['imported'])
+        self.assertEqual(len(result['rejected']), 1)
+        stage_dir = self.root / '05资产管理'
+        self.assertEqual([p.name for p in stage_dir.iterdir() if p.name != '半份.png'], [],
+                         '失败不留半个文件或临时残留')
+        self.assertEqual(existing.read_bytes(), b'OLD', '覆盖失败时旧文件不受影响')
+
+    def test_import_target_never_escapes_project(self):
+        """目标名剥离目录段：「..」「盘符」路径段进不了项目外的位置。"""
+        from ui.desktop_files_panel_filters import _import_target
+        from contract.stage_path_service import write_dir
+        stage_dir = write_dir(self.root, 'assets')
+        for raw in ('sub\\..\\图.png', 'C:\\别的盘\\图.png', '..\\..\\图.png'):
+            _dir, target = _import_target(self.root, 'assets', raw)
+            self.assertEqual(target.parent, stage_dir)
+            self.assertTrue(target.resolve().is_relative_to(self.root.resolve()),
+                            '目标路径不越出项目目录：' + raw)
+        for bad in ('..', '', 'CON.png', 'x<.png'):
+            with self.assertRaises(ValueError, msg=bad):
+                _import_target(self.root, 'assets', bad)
+
+    def test_import_files_dialog_uses_stage_suffixes(self):
+        """入口多选对话框的 filetypes 按当前阶段允许后缀给出。"""
+        seen = {}
+        panel, _state = self._panel(stage='audio', page_index=10)
+        panel.page.file_dialog = types.SimpleNamespace(
+            open_files=lambda **kw: seen.update(kw) or ())
+        panel.import_files()
+        self.assertIn('filetypes', seen)
+        patterns = seen['filetypes'][0][1]
+        self.assertIn('*.mp3', patterns)
+        self.assertIn('*.srt', patterns)
+        self.assertNotIn('*.png', patterns, '配音与字幕阶段不收图片')
+
+
 if __name__ == '__main__':
     unittest.main()

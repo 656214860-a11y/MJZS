@@ -16,6 +16,7 @@ from tkinter import ttk
 
 from ui.desktop_files_panel_filters import (
     FilesPanelFilterMixin, FilesPanelStageViewMixin, STAGE_FILTER_ROW_CATEGORY,
+    import_into_stage, import_suffixes,
     PANEL_META_WIDTH, PANEL_PREVIEW_COL_WIDTH, SCRIPT_NAME_CELL_PAD,
 )
 
@@ -26,7 +27,8 @@ from responsive_ui import fit_row_height, row_toggle_target
 from ui.ui_icons import IconLoader
 from ui.ui_popup import measure_text_width
 from ui_tokens import ICON_CHEVRON_RIGHT, SCRIPT_FILE_FONT, SCRIPT_FILE_MAX_ROWS, SPACING
-from ui_widgets import DataTable, SecondaryButton, Tooltip, ask_string
+from ui_widgets import (BaseDialog, DataTable, DescriptionBlock, SecondaryButton,
+                        Tooltip, ask_string)
 from ui.writing_page_controller import ScriptListLoadController
 
 # R3150：入口钮左右 padding 收 0——右 padding 再收半档图标再右移半步贴边，
@@ -183,15 +185,103 @@ def _build_stage_rail_state(panel):
     return state
 
 
-class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelStageViewMixin, FilesPanelFilterMixin, WritingSnapshotsMixin):
+# ── REQ-S01-103：「导入文件」（UX-FP-IMPORT）─────────────────────────────────
+
+class _ImportConflictDialog(BaseDialog):
+    """同名三选窗：覆盖（危险）／保留两份／取消；关闭与 Esc 一律按取消。"""
+
+    def __init__(self, parent, name):
+        self.result = 'cancel'
+        super().__init__(parent, '同名文件')
+        DescriptionBlock(self.content, text=('目标目录已有同名文件「%s」。'
+                         '覆盖会替换现有文件；保留两份自动改名导入；取消不改动。' % name)).pack(fill='x')
+        self.add_action('取消', lambda: self._pick('cancel'))
+        self.add_action('保留两份', lambda: self._pick('rename'))
+        self.add_action('覆盖', lambda: self._pick('overwrite'), dangerous=True)
+
+    def _pick(self, value):
+        self.result = value
+        self.close()
+
+    def close(self):
+        if self.result is None:
+            self.result = 'cancel'
+        super().close()
+
+
+def _ask_import_conflict(parent, name):
+    """同步问一次同名决策；父窗在询问期间销毁一律按取消处理。"""
+    dialog = _ImportConflictDialog(parent, name)
+    try:
+        dialog.wait_window()
+    except tk.TclError:
+        return 'cancel'
+    return dialog.result
+
+
+def _import_status_text(result):
+    """导入结果的状态栏文案：成功、同名跳过与被拒的都点名。"""
+    parts = []
+    imported = result.get('imported') or ()
+    if imported:
+        parts.append('已导入 %d 份：%s' % (len(imported), '、'.join(path.name for path in imported)))
+    skipped = result.get('skipped') or ()
+    if skipped:
+        parts.append('同名取消 %d 份：%s' % (len(skipped), '、'.join(skipped)))
+    rejected = result.get('rejected') or ()
+    if rejected:
+        parts.append('未导入 %d 份：%s' % (len(rejected),
+                     '；'.join('%s（%s）' % item for item in rejected)))
+    return '；'.join(parts) or '没有可导入的文件'
+
+
+class FilesPanelImportMixin:
+    """REQ-S01-103：面板头部「导入文件」——本机文件复制进当前阶段写入目录。"""
+
+    def _import_stage(self):
+        """导入目标阶段：面板当前显示的阶段优先；素材库／全部视图回落当前页阶段。"""
+        if getattr(self, 'library_view', False):
+            return self._page_stage()
+        return getattr(self, 'stage_filter', None) or self._page_stage()
+
+    def _ask_import_conflict(self, name):
+        return _ask_import_conflict(getattr(self.page, 'win', None), name)
+
+    def import_files(self):
+        """入口动作：多选本机文件，复制进当前阶段写入目录，走面板现有索引刷新。"""
+        root = getattr(self.page, 'root', None)
+        if root is None:
+            self.page.status.set('当前没有打开的项目，无法导入文件')
+            return
+        stage = self._import_stage()
+        allowed = import_suffixes(stage) if stage else frozenset()
+        if not stage or not allowed:
+            self.page.status.set('请先点选要导入的阶段图标')
+            return
+        from contract.pet_bus import stage_name
+        patterns = ' '.join('*' + suffix for suffix in sorted(allowed))
+        paths = self.page.file_dialog.open_files(
+            parent=getattr(self.page, 'win', None),
+            title='导入文件到「%s」' % stage_name(stage),
+            filetypes=[('可导入文件', patterns), ('全部文件', '*.*')])
+        if not paths:
+            return
+        result = import_into_stage(root, stage, paths, conflict=self._ask_import_conflict)
+        if getattr(self, 'library_view', False):
+            self.show_stage(stage)
+        else:
+            self.fill_script_list()
+        self.page.status.set(_import_status_text(result))
+
+
+class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelStageViewMixin, FilesPanelImportMixin, FilesPanelFilterMixin, WritingSnapshotsMixin):
     """内容区右缘图标列「项目文件」入口＋右侧停靠文件列表；``page`` 是 ``Desktop`` 实例。"""
 
     def __init__(self, page):
         self.page = page
         self._open = False
         self._panel_root = None
-        self._button_bind = None
-        self._escape_bind = None
+        self._button_bind = self._escape_bind = None
         self._fit_width_job = None
 
     def build(self):
