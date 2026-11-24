@@ -301,7 +301,7 @@ def asset_impact(project, aid, *, episode_dir=''):
     """
     from domain.asset_context import referencing_shots
     from contract.asset_contract import state_variants
-    from domain.storyboard_catalog_service import _generated_video_shots
+    from domain.storyboard_catalog_service import generated_video_versions, stale_video_shots
     from contract.storyboard_paths import media_root
     project = Path(project).resolve()
     aid = str(aid or '').strip()
@@ -310,7 +310,7 @@ def asset_impact(project, aid, *, episode_dir=''):
     file = plan_file(project, episode_dir)
     plan = read(file) if file.is_file() else {}
     entry = plan.get(aid) if isinstance(plan, dict) and isinstance(plan.get(aid), dict) else {}
-    generated = _generated_video_shots(project)
+    generated = generated_video_versions(project)
     references, files, shots = [], [], set()
     for episode, path, shot in _adopted_storyboard_shots(project):
         rows = referencing_shots([shot], aid)
@@ -326,13 +326,18 @@ def asset_impact(project, aid, *, episode_dir=''):
                 frame = None
             if frame is not None and frame.is_file():
                 files.append(str(frame))
+    stale_videos = set()
+    for _episode, source_path, _shot in _adopted_storyboard_shots(project):
+        stale_videos.update(stale_video_shots(project, source_path))
     return {'aid': aid, 'in_plan': bool(entry), 'adopted': bool(references),
             'orphan': not references, 'protected': bool(references),
             'canon': {'board': str(entry.get('canonical_board') or '').strip(),
                       'anchor': str(entry.get('character_anchor') or entry.get('base_anchor') or '').strip()},
             'variants': [{'state_id': row['state_id'], 'name': row['name']} for row in state_variants(entry)],
             'references': references, 'files': sorted(set(files)),
-            'videos': sorted(sid for sid in shots if sid in generated)}
+            'videos': sorted(sid for sid in shots if sid in generated),
+            # 同一现算函数（video_staleness / stale_video_shots）给出的过期镜头，供「使用情况」展示。
+            'stale_videos': sorted(stale_videos)}
 
 
 def deletion_references(project, aid, *, episode_dir=''):

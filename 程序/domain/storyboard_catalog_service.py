@@ -221,8 +221,8 @@ def _shot_rows(data):
             for shot in shots if isinstance(shot, dict)]
 
 
-def _generated_video_shots(project):
-    """已生成过视频的镜头编号：项目本地与云端工作集的任务状态文件（只读）。"""
+def generated_video_versions(project):
+    """已生成过视频的镜头编号 -> 版本记录列表（项目本地与云端工作集，只读）。"""
     from infra.file_cache import read_json
     project = Path(project)
     roots = [project]
@@ -230,7 +230,7 @@ def _generated_video_shots(project):
         roots += [folder for folder in sorted((project / 'cloud_video').glob('*')) if folder.is_dir()]
     except OSError:
         pass
-    found = set()
+    found = {}
     for root in roots:
         db = root / 'data/state.json'
         try:
@@ -239,8 +239,15 @@ def _generated_video_shots(project):
             continue
         shots = data.get('shots') if isinstance(data, dict) else None
         if isinstance(shots, dict):
-            found.update(str(sid) for sid, versions in shots.items() if versions)
+            for sid, versions in shots.items():
+                if versions:
+                    found[str(sid)] = [version for version in versions if isinstance(version, dict)]
     return found
+
+
+def _generated_video_shots(project):
+    """已生成过视频的镜头编号：项目本地与云端工作集的任务状态文件（只读）。"""
+    return set(generated_video_versions(project))
 
 
 def _impact_summary(episodes, frames, videos):
@@ -353,6 +360,18 @@ def adoption_impact(context, paths):
             'frames': sorted(set(frames)),
             'videos': sorted(set(videos)),
             'summary': _impact_summary(episodes, frames, videos)}
+
+
+def stale_video_shots(project, source) -> list:
+    """当前来源下已生成视频中与当前内容不符（已过期）的镜头编号（只读现算）。
+
+    持久过期标记的单一现算入口：版本记录签名 vs 同一口径重算指纹；不落盘、不自动重做。
+    """
+    from domain import video_staleness
+    source = Path(source).resolve()
+    generated = generated_video_versions(project)
+    versions_by_shot = {sid: versions for sid, versions in generated.items() if versions}
+    return video_staleness.stale_shots(source, set(versions_by_shot), versions_by_shot)
 
 
 def _is_structured_name(path):
