@@ -1,6 +1,7 @@
 """Shared lightweight pastel theme; no image downloads or animation loop."""
 
 import infra.app_logging as app_logging
+import tkinter as tk
 from tkinter import ttk
 from ui_tokens import COLORS, DESKTOP_LAYOUT, DIALOG_MIN_HEIGHT, DIALOG_MIN_WIDTH, FONTS, SPACING
 from responsive_ui import row_height_for,font_linespace
@@ -414,3 +415,85 @@ def install_window_placement(root):
     root.bind_all('<Map>',mapped,add='+')
 
     schedule_place(root)
+
+
+
+# ---- 日间／夜间切换后的存量控件换色 ----
+# ttk 控件由样式表负责；这里只处理样式表够不着的原生 tk 控件（Canvas、Label、Text、
+# Menu、Frame）和画布图元（三虎头像、爪印、齿轮等）。只替换与旧调色板某个值严格相等
+# 的颜色，其余（插画、自定义色）原样保留。
+_WIDGET_OPTIONS = ('bg', 'fg', 'highlightbackground', 'highlightcolor', 'activebackground',
+                   'activeforeground', 'insertbackground', 'selectbackground',
+                   'selectforeground', 'disabledforeground', 'troughcolor', 'selectcolor')
+_ITEM_OPTIONS = ('fill', 'outline', 'activefill', 'activeoutline')
+# 同一旧色对应多个键时按这个顺序取第一个：底色优先于装饰色。
+_PRIORITY = ('background_card', 'background_primary', 'text_primary', 'text_secondary')
+
+
+def color_map(old, new):
+    """旧调色板 → 新调色板的 {旧色: 新色}（小写十六进制），旧色重复时按优先键取。"""
+    mapping = {}
+    keys = [k for k in _PRIORITY if k in old] + [k for k in old if k not in _PRIORITY]
+    for key in keys:
+        before, after = old.get(key), new.get(key)
+        if not isinstance(before, str) or not isinstance(after, str):
+            continue
+        if not before.startswith('#') or not after.startswith('#'):
+            continue
+        mapping.setdefault(before.lower(), after)
+    return {k: v for k, v in mapping.items() if k != v.lower()}
+
+
+def _recolor_options(widget, options, mapping):
+    for option in options:
+        try:
+            target = mapping.get(str(widget.cget(option)).lower())
+            if target is not None:
+                widget.configure(**{option: target})
+        except tk.TclError:
+            continue
+
+
+def _recolor_canvas(canvas, mapping):
+    try:
+        items = canvas.find_all()
+    except tk.TclError:
+        return
+    for item in items:
+        for option in _ITEM_OPTIONS:
+            try:
+                target = mapping.get(str(canvas.itemcget(item, option)).lower())
+                if target is not None:
+                    canvas.itemconfigure(item, **{option: target})
+            except tk.TclError:
+                continue
+
+
+def recolor_tree(root, old, new):
+    """递归换色；返回处理过的控件数以便测试。"""
+    mapping = color_map(old, new)
+    if not mapping:
+        return 0
+    touched = 0
+    stack = [root]
+    while stack:
+        widget = stack.pop()
+        try:
+            stack.extend(widget.winfo_children())
+        except tk.TclError:
+            continue
+        if isinstance(widget, ttk.Widget):
+            continue
+        _recolor_options(widget, _WIDGET_OPTIONS, mapping)
+        if isinstance(widget, tk.Canvas):
+            _recolor_canvas(widget, mapping)
+        touched += 1
+    return touched
+
+
+def refresh_native_widgets(win):
+    """主题切换后：原生 tk 控件换色，侧栏／项目文件图标按新文字色重染。"""
+    import ui_tokens
+    from ui.ui_icons import retint_nav_icons
+    recolor_tree(win, ui_tokens.previous_palette(), COLORS)
+    retint_nav_icons()

@@ -617,6 +617,14 @@ def _sync_consumers():
                 setattr(module, attr, COLORS[spec])
 
 
+_previous_palette = {}
+
+
+def previous_palette():
+    """最近一次 set_theme 之前的调色板副本（首次为空），供界面把旧色换成新色。"""
+    return dict(_previous_palette)
+
+
 def current_theme():
     """当前活动主题：'day' 或 'night'。"""
     return _current_theme
@@ -632,6 +640,8 @@ def set_theme(name):
     palette = THEMES.get(key)
     if palette is None:
         return None
+    global _previous_palette
+    _previous_palette = dict(COLORS)
     COLORS.clear()
     COLORS.update(palette)
     _rebind_derived()

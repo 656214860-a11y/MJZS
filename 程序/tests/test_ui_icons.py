@@ -28,7 +28,8 @@ class _Image:
 class IconLoaderTests(unittest.TestCase):
     def test_return_arrow_color_is_rendered_and_part_of_cache_key(self):
         master = _Master()
-        with patch.object(ui_icons.tk, 'PhotoImage', side_effect=lambda **kw: _Image(**kw)) as made:
+        with patch.object(ui_icons, '_tinted_png', return_value=None), \
+                patch.object(ui_icons.tk, 'PhotoImage', side_effect=lambda **kw: _Image(**kw)) as made:
             white = ui_icons.IconLoader.return_arrow(master)
             themed = ui_icons.IconLoader.return_arrow(master, color=COLORS['primary'])
             again = ui_icons.IconLoader.return_arrow(master, color=COLORS['primary'])
@@ -45,7 +46,8 @@ class IconLoaderTests(unittest.TestCase):
 
     def test_return_arrow_is_cached_per_master_and_size(self):
         master = _Master()
-        with patch.object(ui_icons.tk, 'PhotoImage', side_effect=lambda **kw: _Image(**kw)) as made:
+        with patch.object(ui_icons, '_tinted_png', return_value=None), \
+                patch.object(ui_icons.tk, 'PhotoImage', side_effect=lambda **kw: _Image(**kw)) as made:
             first = ui_icons.IconLoader.return_arrow(master)
             again = ui_icons.IconLoader.return_arrow(master)
             scaled = ui_icons.IconLoader.return_arrow(master, width=24, height=16)
@@ -75,7 +77,8 @@ class NavIconTests(unittest.TestCase):
 
     def test_nav_icon_loads_file_and_caches_per_name(self):
         master = _Master()
-        with patch.object(ui_icons.tk, 'PhotoImage', side_effect=lambda **kw: _Image(**kw)) as made:
+        with patch.object(ui_icons, '_tinted_png', return_value=None), \
+                patch.object(ui_icons.tk, 'PhotoImage', side_effect=lambda **kw: _Image(**kw)) as made:
             first = ui_icons.IconLoader.nav_icon(master, 'video')
             again = ui_icons.IconLoader.nav_icon(master, 'video')
             other = ui_icons.IconLoader.nav_icon(master, 'audio')

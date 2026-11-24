@@ -7,6 +7,46 @@ from pathlib import Path
 from ui_tokens import COLORS
 
 _NAV_DIR = Path(__file__).resolve().parents[1] / 'assets' / 'nav'
+_NAV_IMAGES = []   # (PhotoImage, 源 PNG 路径)：切换主题时就地重染色
+
+
+def _tinted_png(path, color):
+    """把单色 PNG 图标染成 color 并保留透明度；没有 Pillow 或读不了时返回 None。"""
+    try:
+        import base64
+        import io
+        from PIL import Image
+        image = Image.open(path).convert('RGBA')
+        tinted = Image.new('RGBA', image.size, color)
+        tinted.putalpha(image.getchannel('A'))
+        buffer = io.BytesIO()
+        tinted.save(buffer, format='PNG')
+        return base64.b64encode(buffer.getvalue())
+    except Exception:
+        return None
+
+
+def _nav_image(master, path):
+    data = _tinted_png(path, COLORS['text_primary'])
+    if data is not None:
+        try:
+            return tk.PhotoImage(master=master, data=data)
+        except tk.TclError:
+            pass
+    return tk.PhotoImage(master=master, file=str(path))
+
+
+def retint_nav_icons():
+    """主题切换后把已建的侧栏图标就地换成新主题的文字色；使用这些图的按钮无需重建。"""
+    for entry in list(_NAV_IMAGES):
+        image, path = entry
+        data = _tinted_png(path, COLORS['text_primary'])
+        if data is None:
+            continue
+        try:
+            image.configure(data=data)
+        except tk.TclError:
+            _NAV_IMAGES.remove(entry)
 
 
 class IconLoader:
@@ -63,9 +103,10 @@ class IconLoader:
         if key in cache:
             return cache[key]
         try:
-            image = tk.PhotoImage(master=master, file=str(path))
+            image = _nav_image(master, path)
         except tk.TclError:
             return None
+        _NAV_IMAGES.append((image, path))
         cache[key] = image
         return image
 
