@@ -1153,6 +1153,7 @@ class PetVoiceMixin:
             text += '（另有 %d 项待确认）' % extra
         self.announce(text)
         return text
+    def stall_note(self, at=None): return pet_context_facts.stall_note(self, at=at)  # 阶段在跑但子进度卡住：只提醒一次，主体见 pet_context_facts
     def caption_text(self):
         """三虎图像下方那行小字：哪一档自动化等级；暂停时写「已暂停」（第 18 期）。
 
@@ -1187,7 +1188,6 @@ class PetVoiceMixin:
             self.errors.append(('caption', str(exc)))
             return None
         return value
-
 
 def _startup_page_busy(pet):
     """启动页还在后台建（版面计算会占住主线程 1～3 秒）时先别冒：云朵的重绘会把它整笔吞进

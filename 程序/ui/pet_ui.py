@@ -456,6 +456,7 @@ class Pet(PetBroadcastAliasesMixin, PetStagesMixin, PetSettingsMixin, PetVoiceMi
         self._performance_session = None  # P2 优化模式：既有心跳轮询的短基准子进程
         self._errors_seen = {}            # 轮 5B D8-a：已播报过的 (名字, 原文) → None，FIFO 封顶
         self._errors_badge = ''           # 轮 5B D8-a：上一次写进状态栏的角标文案（没变就不重写）
+        self._stall_tick = 0              # 阶段停滞检测节拍：满 200 拍（约 30 秒）问一次
 
     # ── 项目级内核：总线＋状态机＋父 Agent ─────────────────────────────────
     def client(self, project=None):
@@ -654,6 +655,11 @@ class Pet(PetBroadcastAliasesMixin, PetStagesMixin, PetSettingsMixin, PetVoiceMi
         state = self.snapshot(at=at)
         self.refresh(at=at, state=state)
         self.announce_failures()
+        self._stall_tick = (self._stall_tick + 1) % 200
+        if not self._stall_tick:          # 约 30 秒一问：阶段在跑、子进度满 10 分钟没动就说一句
+            note = self.stall_note(at=at)
+            if note:
+                self.announce(note)      # 与失败播报同一个出口：只提醒，不自动重试
         self.sync_errors(at=at)           # 轮 5B D8-a：self.errors 的可见出口（角标＋一次性警告）
         self.progress_voice(state=state, at=at)   # 进度：三虎自己挑时机冒圆气泡（第 19 期）
         self.report_hint(at=at)    # 第 36 期第 5 条：下午／夜里活儿慢下来，把日报周报递上来
