@@ -126,8 +126,24 @@ def build_bundle(context, source, references, audio, settings, *, publish, write
     storyboard, raw_source, _signature = file_cache.read_stable_json_snapshot(source)
     shots = shots_of(storyboard)
     refs = tuple(Path(path).resolve() for path in references)
-    if not refs or any(not path.is_file() or not path.stat().st_size for path in refs):
+    # REQ-S04-72/83：shot_references 提供逐镜参考图（空列表允许该镜不带图）；
+    # existing_images 提供当前版本图（缺图才生成）；timeline_durations 覆盖分镜时长。
+    shot_references = settings.get('shot_references')
+    if shot_references is not None:
+        shot_references = {str(sid): tuple(Path(path).resolve() for path in items)
+                           for sid, items in dict(shot_references).items()}
+        candidates = list(shot_references.values()) + ([refs] if refs else [])
+    else:
+        candidates = [refs]
+    bad = [path for picked in candidates for path in picked
+           if not path.is_file() or not path.stat().st_size]
+    if bad or (shot_references is None and not refs
+               and settings.get('allow_empty_references') is not True):
         raise ValueError('请先准备共享参考图')
+    per_shot_refs = shot_references or {}
+    existing_images = {str(sid): Path(path) for sid, path in
+                       dict(settings.get('existing_images') or {}).items()
+                       if Path(path).is_file() and Path(path).stat().st_size}
     if assemble is None:
         from domain.edit_service import assemble_image_timeline
         assemble = assemble_image_timeline
@@ -157,13 +173,17 @@ def build_bundle(context, source, references, audio, settings, *, publish, write
             from infra.comfy_service import ComfyGenerationFailed
             outputs = []
             for shot in rows:
+                image = existing_images.get(shot['id'])
+                if image is not None:
+                    outputs.append((shot['id'], image))
+                    continue
                 workspace = scratch / shot['id']
                 workspace.mkdir(exist_ok=True)
                 for attempt in range(int(settings.get('retry_attempts', 0)) + 1):
                     attempt_dir = workspace / ('attempt-' + str(attempt))
                     attempt_dir.mkdir(exist_ok=True)
                     try:
-                        image = render(attempt_dir, shot, refs, settings)
+                        image = render(attempt_dir, shot, per_shot_refs.get(shot['id'], refs), settings)
                         outputs.append((shot['id'], image))
                         break
                     except ComfyGenerationFailed:
@@ -174,6 +194,10 @@ def build_bundle(context, source, references, audio, settings, *, publish, write
         groups = list(batches.values())
         generated = run_batches(groups, one_batch) if run_batches else map(one_batch, groups)
         images = dict(pair for group in generated for pair in group)
+        durations = settings.get('timeline_durations') or {}
+        for row in shots:
+            if row['id'] in durations:
+                row['seconds'] = float(durations[row['id']])
         from contract.platform_tools import tool_path
         video = assemble([images[row['id']] for row in shots], [row['seconds'] for row in shots],
                          audio, scratch / 'animatic.mp4',
@@ -181,10 +205,16 @@ def build_bundle(context, source, references, audio, settings, *, publish, write
                          ffprobe=tool_path('ffprobe', configured=settings.get('ffprobe')),
                          write_temporary=write_temporary, spec=spec)
         audio_name = 'assets/' + generate_existing('animatic_audio', suffix=audio.suffix.lower())
-        artifacts = {'assets/animatic.mp4': Path(video).read_bytes(), audio_name: audio.read_bytes()}
+        video_name = str(settings.get('video_relpath') or 'assets/animatic.mp4')
+        artifacts = {video_name: Path(video).read_bytes(), audio_name: audio.read_bytes()}
+        shot_versions = settings.get('shot_versions') or {}
         for shot in shots:
             image = Path(images[shot['id']])
-            name = 'assets/shots/' + generate_existing('animatic_shot', shot_id=shot['id'], suffix=image.suffix.lower())
+            if shot['id'] in shot_versions:
+                shot['image_version'] = int(shot_versions[shot['id']])
+                name = '镜头/%s/v%d%s' % (shot['id'], shot['image_version'], image.suffix.lower())
+            else:
+                name = 'assets/shots/' + generate_existing('animatic_shot', shot_id=shot['id'], suffix=image.suffix.lower())
             artifacts[name] = image.read_bytes()
             shot['image'] = name
         if source.read_bytes() != raw_source:
@@ -192,10 +222,14 @@ def build_bundle(context, source, references, audio, settings, *, publish, write
         # D4-e/G8：正常写入双写 schema_version 与旧键 version，旧版程序仍能读。
         manifest = artifact_schema.stamp('animatic_manifest', {
             'version': 1, 'kind': 'animatic', 'source': source.relative_to(root).as_posix(),
-            'source_sha256': digest(raw_source), 'shots': shots, 'video': 'assets/animatic.mp4',
+            'source_sha256': digest(raw_source), 'shots': shots, 'video': video_name,
             'audio': audio_name,
             'files': {name: digest(data) for name, data in artifacts.items()},
             'confirmed': {key: False for key in CONFIRMATIONS}})
+        # REQ-S04-80/84：清单记时间线摘要与版本标签，逐镜 seconds/image_version 随 shots 入册。
+        for key in ('version_tag', 'timeline_sha256'):
+            if settings.get(key) is not None:
+                manifest[key] = str(settings[key])
         artifacts[MANIFEST] = json.dumps(manifest, ensure_ascii=False, indent=2).encode('utf-8')
         if _future_blocked(root):
             raise ValueError('Animatic 清单是更新版本写的产物，本版程序拒绝覆盖；请升级程序或移走该文件')

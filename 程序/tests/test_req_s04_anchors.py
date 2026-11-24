@@ -355,6 +355,75 @@ class ReqS04AnchorTests(unittest.TestCase):
         self.assertEqual(script_output_spec.preview_spec({'aspect_ratio': '9:16'})['aspect_ratio'],
                          '9:16', '代码事实：预览规格继续读取项目画幅')
 
+    # --- 时间线与锁定（REQ-S04-80…91）------------------------------------
+    def _locked_project(self, root, shot_durations):
+        """已采用分镜＋版本化成果清单＋timeline.json 的锁定就绪项目。"""
+        from stage_execution_service import load_or_sync_animatic_timeline
+        shots = [{'id': sid, 'duration': duration} for sid, duration in shot_durations]
+        board = {'episode_id': 'EP001', 'title': '集',
+                 'duration': sum(s['duration'] for s in shots),
+                 'shots': [dict(shot, title='镜', video_prompt='提示词' + shot['id'],
+                                characters=[], location='LOC_01',
+                                frame='frames/%s.png' % shot['id'], dialogue=[]) for shot in shots]}
+        source = root / '03初步分镜' / '分镜拆分' / 'ep1.json'
+        source.parent.mkdir(parents=True)
+        source.write_text(json.dumps(board, ensure_ascii=False), encoding='utf-8')
+        (root / 'ui_settings.json').write_text(
+            json.dumps({'adopted_storyboards': [source.relative_to(root).as_posix()]}),
+            encoding='utf-8')
+        timeline = load_or_sync_animatic_timeline(root)
+        folder = write_dir(root, 'animatic')
+        files = {}
+        for row in timeline['shots']:
+            image = '镜头/%s/v1.png' % row['id']
+            target = folder / image
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(b'image-' + row['id'].encode())
+            files[image] = target.read_bytes()
+        (folder / '版本').mkdir(parents=True)
+        (folder / '版本' / 'animatic_v001.mp4').write_bytes(b'video')
+        (folder / 'assets').mkdir(parents=True, exist_ok=True)
+        (folder / 'assets' / 'temporary_audio.wav').write_bytes(b'audio')
+        files['版本/animatic_v001.mp4'] = b'video'
+        files['assets/temporary_audio.wav'] = b'audio'
+        manifest = {'version': 1, 'kind': 'animatic',
+                    'source': source.relative_to(root).as_posix(),
+                    'source_sha256': service.digest(source.read_bytes()),
+                    'shots': [{'id': row['id'], 'image': '镜头/%s/v1.png' % row['id'],
+                               'seconds': row['seconds'], 'image_version': 1}
+                              for row in timeline['shots']],
+                    'video': '版本/animatic_v001.mp4', 'audio': 'assets/temporary_audio.wav',
+                    'files': {name: service.digest(raw) for name, raw in files.items()},
+                    'confirmed': dict.fromkeys(CONFIRMATIONS, False)}
+        (folder / MANIFEST).write_text(json.dumps(manifest, ensure_ascii=False),
+                                      encoding='utf-8')
+        return source, folder
+
+    def test_req_s04_90_lock_without_bundle_is_rejected(self):
+        """REQ-S04-90：没有可用清单与时间线时锁定直接拒绝，不落任何文件。"""
+        from stage_execution_service import lock_animatic
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            with self.assertRaises(ValueError):
+                lock_animatic(root, rhythm=True, duration=True, dialogue_sync=True)
+            folder = write_dir(root, 'animatic')
+            self.assertFalse((folder / 'timeline.json').exists())
+            self.assertFalse((folder / MANIFEST).exists())
+
+    def test_req_s04_91_sg_b_flips_back_to_unconfirmed_after_source_edit(self):
+        """REQ-S04-91：锁定使 SG-B 通过；S03 再被改动，同一核验自动回到未确认。"""
+        from stage_execution_service import lock_animatic
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source, _folder = self._locked_project(root, [('SH001', 3), ('SH002', 4)])
+            lock_animatic(root, rhythm=True, duration=True, dialogue_sync=True)
+            self.assertTrue(stage_parallel.animatic_ready(root)['ok'])
+            board = json.loads(source.read_text(encoding='utf-8'))
+            board['shots'][0]['duration'] = 9
+            source.write_text(json.dumps(board, ensure_ascii=False), encoding='utf-8')
+            self.assertFalse(stage_parallel.animatic_ready(root)['ok'])
+            self.assertFalse(completion_evidence(root, 'animatic')[0])
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

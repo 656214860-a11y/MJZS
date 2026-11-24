@@ -687,13 +687,19 @@
   {
    "module": "domain/animatic_service.py",
    "covered": 0,
-   "total": 191,
+   "total": 215,
    "percent": 0.0
   },
   {
    "module": "domain/animatic_sketch_backends.py",
    "covered": 0,
-   "total": 71,
+   "total": 72,
+   "percent": 0.0
+  },
+  {
+   "module": "domain/animatic_timeline.py",
+   "covered": 0,
+   "total": 114,
    "percent": 0.0
   },
   {
@@ -1755,7 +1761,7 @@
   {
    "module": "orchestrator/workflow_settings.py",
    "covered": 0,
-   "total": 808,
+   "total": 815,
    "percent": 0.0
   },
   {
@@ -2517,7 +2523,7 @@
   {
    "module": "ui/desktop_login_gate.py",
    "covered": 0,
-   "total": 123,
+   "total": 127,
    "percent": 0.0
   },
   {
@@ -3337,6 +3343,12 @@
    "percent": 8.0
   },
   {
+   "module": "orchestrator/stage_animatic_gateways.py",
+   "covered": 43,
+   "total": 509,
+   "percent": 8.4
+  },
+  {
    "module": "ui/ui_composer_style.py",
    "covered": 4,
    "total": 39,
@@ -3359,12 +3371,6 @@
    "covered": 90,
    "total": 760,
    "percent": 11.8
-  },
-  {
-   "module": "orchestrator/stage_animatic_gateways.py",
-   "covered": 23,
-   "total": 190,
-   "percent": 12.1
   },
   {
    "module": "ui/ui_rounded.py",
@@ -3560,8 +3566,8 @@
   },
   {
    "module": "infra/model_router.py",
-   "covered": 138,
-   "total": 640,
+   "covered": 139,
+   "total": 643,
    "percent": 21.6
   },
   {
@@ -3841,6 +3847,12 @@
    "percent": 53.3
   },
   {
+   "module": "infra/config_snapshot.py",
+   "covered": 21,
+   "total": 39,
+   "percent": 53.8
+  },
+  {
    "module": "domain/domain_events.py",
    "covered": 12,
    "total": 22,
@@ -3875,12 +3887,6 @@
    "covered": 188,
    "total": 279,
    "percent": 67.4
-  },
-  {
-   "module": "infra/config_snapshot.py",
-   "covered": 20,
-   "total": 29,
-   "percent": 69.0
   },
   {
    "module": "agent/video.py",
@@ -4130,5 +4136,5 @@
   }
  ],
  "modules_covered": 133,
- "modules_total": 685
+ "modules_total": 686
 }

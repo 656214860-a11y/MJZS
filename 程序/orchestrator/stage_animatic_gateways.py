@@ -238,3 +238,420 @@ def reclassify_animatic_reference(project, path, category, new_name=None):
     publish_stage_bytes(target, source.read_bytes(), lambda raw: bool(raw), file_cache.published)
     recycle_paths(root, [source], '分镜预演参考图改类')
     return target
+
+
+# ── REQ-S04-80…91：时间线、单镜版本与重做／替换、版本化合成、锁定回写 ──────────
+
+def _animatic_source(project, source=None):
+    """时间线所属的已采用分镜：优先沿用时间线登记的来源，其次最近采用的一份。"""
+    from orchestrator.storyboard_selection import adopted
+    root = Path(project).resolve()
+    paths = [Path(path).resolve() for path in adopted(root)]
+    if source is not None:
+        resolved = Path(source).resolve()
+        if resolved not in paths:
+            raise ValueError('请选择已采用的本项目分镜初稿')
+        return resolved
+    if not paths:
+        raise ValueError('请先采用分镜初稿')
+    from domain.animatic_timeline import TIMELINE_FILE
+    try:
+        timeline = file_cache.read_json(write_dir(root, 'animatic') / TIMELINE_FILE)
+    except (OSError, ValueError):
+        timeline = None
+    recorded = timeline.get('source') if isinstance(timeline, dict) else None
+    if recorded:
+        candidate = (root / recorded).resolve()
+        if candidate in paths:
+            return candidate
+    return paths[-1]
+
+
+def _publish_animatic_timeline(project, timeline):
+    """timeline.json 只经 L3 发布器落盘（DES-S04-23）。"""
+    import contract.artifact_schema as artifact_schema
+    if artifact_schema.validate('animatic_timeline', timeline):
+        raise ValueError('时间线不满足 animatic_timeline 登记结构')
+    target = write_dir(Path(project).resolve(), 'animatic') / 'timeline.json'
+    publish_stage_text(target, json.dumps(timeline, ensure_ascii=False, indent=2),
+                       lambda text: '"animatic_timeline"' in text and '"shots"' in text,
+                       file_cache.published)
+    return target
+
+
+def _shot_dir(folder, shot_id):
+    return Path(folder) / '镜头' / str(shot_id)
+
+
+def _versioned_image(shot_dir, version):
+    """当前选用的 v<N>.* 图；目录缺文件即返回 None（缺图才生成）。"""
+    folder = Path(shot_dir)
+    if not folder.is_dir():
+        return None
+    prefix = ('v%d.' % int(version)).lower()
+    for path in sorted(folder.iterdir()):
+        if path.is_file() and path.name.lower().startswith(prefix):
+            return path
+    return None
+
+
+def _existing_names(folder):
+    folder = Path(folder)
+    return [path.name for path in folder.iterdir()] if folder.is_dir() else []
+
+
+def _shot_refs_relative(root, refs):
+    out = []
+    for path in refs or ():
+        path = Path(path).resolve()
+        out.append(path.relative_to(root).as_posix() if path.is_relative_to(root) else str(path))
+    return out
+
+
+def _timeline_row_update(timeline, shot_id, fields):
+    from copy import deepcopy
+    out = deepcopy(timeline)
+    for row in out.get('shots') or []:
+        if isinstance(row, dict) and row.get('id') == shot_id:
+            row.update(fields)
+            return out
+    raise ValueError('时间线没有此镜头：' + str(shot_id))
+
+
+def _timeline_render(settings):
+    """草图后端分流；默认 comfy_local 且未注入客户端时复用既有 local_sketch。"""
+    from domain import animatic_service, animatic_sketch_backends
+    render = animatic_sketch_backends.create(settings)
+    name = settings.get('animatic_sketch_backend') or animatic_sketch_backends.DEFAULT_BACKEND
+    if name == animatic_sketch_backends.DEFAULT_BACKEND and settings.get('comfy_client') is None:
+        return animatic_service.local_sketch
+    return render
+
+
+def _render_single_shot(story_row, refs, settings, workspace):
+    """沿用整批重试口径渲染单镜；只有 ComfyGenerationFailed 才重试。"""
+    from infra.comfy_service import ComfyGenerationFailed
+    render = _timeline_render(settings)
+    for attempt in range(int(settings.get('retry_attempts', 0)) + 1):
+        attempt_dir = Path(workspace) / ('attempt-%d' % attempt)
+        attempt_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            return render(attempt_dir, story_row, refs, settings)
+        except ComfyGenerationFailed:
+            if attempt == int(settings.get('retry_attempts', 0)):
+                raise ValueError('镜头 ' + str(story_row['id']) + ' 生成失败且重试耗尽，请人工核查') from None
+
+
+def _publish_shot_file(folder, shot_id, version, suffix, raw):
+    from orchestrator.stage_publication import publish_stage_bytes
+    target = _shot_dir(folder, shot_id) / ('v%d%s' % (int(version), suffix))
+    publish_stage_bytes(target, raw, lambda data: bool(data), file_cache.published)
+    return target
+
+
+def _first_media_file(folder):
+    folder = Path(folder)
+    if not folder.is_dir():
+        return None
+    for path in sorted(folder.iterdir()):
+        if path.is_file() and path.stat().st_size:
+            return path
+    return None
+
+
+def load_or_sync_animatic_timeline(project, source=None):
+    """REQ-S04-80/85：sha 一致直接返回；S03 变化或缺失时建/重建并发布 timeline.json。"""
+    from domain import animatic_timeline as timeline_model
+    from domain.animatic_service import digest
+    root = Path(project).resolve()
+    path = _animatic_source(root, source)
+    storyboard, raw, _signature = file_cache.read_stable_json_snapshot(path)
+    sha = digest(raw)
+    rel = path.relative_to(root).as_posix()
+    target = write_dir(root, 'animatic') / timeline_model.TIMELINE_FILE
+    try:
+        previous = file_cache.read_json(target)
+    except (OSError, ValueError):
+        previous = None
+    if (isinstance(previous, dict) and previous.get('source') == rel
+            and previous.get('source_sha256') == sha):
+        return previous
+    if not isinstance(previous, dict):
+        previous = None
+    timeline, rebuilt = timeline_model.build(storyboard, rel, sha, previous=previous)
+    _publish_animatic_timeline(root, timeline)
+    if rebuilt:
+        import infra.broadcaster as broadcaster
+        broadcaster.warn_once('animatic_timeline:rebuilt', '分镜已更新，时间线已重建')
+    return timeline
+
+
+def update_animatic_shot(project, shot_id, *, seconds=None, image_version=None, note=None):
+    """REQ-S04-81/82/97：单镜改时长、切图版本、写批注后重新发布时间线。"""
+    from domain import animatic_timeline as timeline_model
+    root = Path(project).resolve()
+    timeline = load_or_sync_animatic_timeline(root)
+    if image_version is not None:
+        if _versioned_image(_shot_dir(write_dir(root, 'animatic'), shot_id), image_version) is None:
+            raise ValueError('该图版本不存在：v%s' % image_version)
+    updated = timeline
+    if seconds is not None:
+        updated = timeline_model.set_duration(updated, shot_id, seconds)
+    if image_version is not None:
+        updated = timeline_model.set_version(updated, shot_id, image_version)
+    if note is not None:
+        updated = timeline_model.set_note(updated, shot_id, note)
+    if updated != timeline:
+        _publish_animatic_timeline(root, updated)
+    return updated
+
+
+def regenerate_animatic_shot(project, shot_id, *, settings=None):
+    """REQ-S04-83：只重做单镜草图写新版本，其余镜头与时间线字段不动。"""
+    import tempfile
+    from domain import animatic_timeline as timeline_model
+    from domain.animatic_service import shots_of
+    import orchestrator.stage_parallel as stage_parallel
+    root = Path(project).resolve()
+    folder = write_dir(root, 'animatic')
+    settings = dict(settings or {})
+    settings['retry_attempts'] = stage_parallel.retry_attempts('animatic')
+    timeline = load_or_sync_animatic_timeline(root)
+    if not any(row.get('id') == shot_id for row in timeline['shots']):
+        raise ValueError('时间线没有此镜头：' + str(shot_id))
+    storyboard = file_cache.read_json(_animatic_source(root))
+    story_row = next((row for row in shots_of(storyboard) if row['id'] == shot_id), None)
+    if story_row is None:
+        raise ValueError('分镜没有此镜头：' + str(shot_id))
+    board_row = next((row for row in storyboard.get('shots', [])
+                      if isinstance(row, dict) and row.get('id') == shot_id), {})
+    refs = refs_for_animatic_shot(root, board_row)
+    workspace = Path(tempfile.mkdtemp(prefix='shot-', dir=_work_root(folder)))
+    image = _render_single_shot(story_row, refs, settings, workspace)
+    version = timeline_model.next_version(_existing_names(_shot_dir(folder, shot_id)))
+    _publish_shot_file(folder, shot_id, version, Path(image).suffix.lower(),
+                       Path(image).read_bytes())
+    updated = timeline_model.set_version(timeline, shot_id, version, source='generated')
+    updated = _timeline_row_update(updated, shot_id,
+                                   {'references': _shot_refs_relative(root, refs)})
+    _publish_animatic_timeline(root, updated)
+    return updated
+
+
+def replace_animatic_shot_image(project, shot_id, image_path):
+    """REQ-S04-79/82：导入图校验后写新版本，时间线记 source='imported'。"""
+    from domain import animatic_sketch_backends, animatic_timeline as timeline_model
+    root = Path(project).resolve()
+    folder = write_dir(root, 'animatic')
+    timeline = load_or_sync_animatic_timeline(root)
+    if not any(row.get('id') == shot_id for row in timeline['shots']):
+        raise ValueError('时间线没有此镜头：' + str(shot_id))
+    suffix, raw = animatic_sketch_backends.validate_imported_sketch(image_path)
+    version = timeline_model.next_version(_existing_names(_shot_dir(folder, shot_id)))
+    _publish_shot_file(folder, shot_id, version, suffix, raw)
+    updated = timeline_model.set_version(timeline, shot_id, version, source='imported')
+    _publish_animatic_timeline(root, updated)
+    return updated
+
+
+def _work_root(folder):
+    work_root = Path(folder) / '.work'
+    work_root.mkdir(parents=True, exist_ok=True)
+    return work_root
+
+
+def _timeline_audio(root, folder, timeline, board, settings, scratch):
+    """三轨声音：整轨／音乐取 声音/ 目录或注入项，逐镜对白幂等 TTS，混音命令 L2 拼装。
+
+    返回 ``(混音文件, {镜头id: 对白音频 Path})``。
+    """
+    from domain import animatic_audio
+    from domain.animatic_audio import build_audio_mix_command
+    from domain.edit_service import render_mixed_audio
+    from orchestrator.stage_publication import publish_stage_bytes
+    audio_root = Path(folder)
+    full_track = settings.get('full_track') or _first_media_file(
+        audio_root / animatic_audio.SUBDIRS['track'])
+    music = settings.get('music') or _first_media_file(
+        audio_root / animatic_audio.SUBDIRS['music'])
+    audio_shots = [{'id': row['id'], 'seconds': row['seconds'],
+                    'dialogue': board.get(row['id'], {}).get('dialogue')}
+                   for row in timeline['shots']]
+    plan = animatic_audio.plan(audio_shots, full_track=full_track, music=music)
+    clips, clip_map = [], {}
+    if plan['tts_shots']:
+        from domain.tts_api import read_settings, script_signature, synthesize
+        tts_settings = settings.get('tts_settings') or read_settings()
+        synth = settings.get('synthesize') or synthesize
+        signature_fn = settings.get('signature_fn') or script_signature
+        for item in plan['tts_shots']:
+            clip = animatic_audio.shot_tts(
+                {'id': item['id'], 'text': item['text']},
+                audio_root / animatic_audio.SUBDIRS['dialogue'], tts_settings,
+                synthesize=synth, signature_fn=signature_fn,
+                write_temporary=lambda path, raw: publish_stage_bytes(
+                    path, raw, lambda data: bool(data), file_cache.published),
+                project=root)
+            clips.append({'path': clip, 'start_ms': int(round(item['start_seconds'] * 1000))})
+            clip_map[item['id']] = clip
+    total = sum(float(row['seconds']) for row in timeline['shots'])
+    mixed = render_mixed_audio(Path(scratch) / 'animatic_audio.wav', total,
+                               ffmpeg=settings['ffmpeg'], run=settings.get('run'),
+                               mix_command=build_audio_mix_command,
+                               full_track=plan['full_track'], dialogue_clips=clips,
+                               music=plan['music'])
+    return mixed, clip_map
+
+
+def _compose_timeline_rows(root, timeline, shot_versions, existing_images,
+                           shot_references, clip_map):
+    """合成成功后把图版本、来源、参考图与对白音频写回时间线副本。"""
+    from copy import deepcopy
+    out = deepcopy(timeline)
+    for row in out.get('shots') or []:
+        sid = row.get('id')
+        if sid in shot_versions:
+            row['image_version'] = shot_versions[sid]
+            if sid not in existing_images:
+                row['source'] = 'generated'
+        row['references'] = _shot_refs_relative(root, shot_references.get(sid, ()))
+        clip = clip_map.get(sid)
+        row['dialogue_audio'] = (
+            Path(clip).resolve().relative_to(root).as_posix()
+            if clip is not None and Path(clip).resolve().is_relative_to(root) else None)
+    return out
+
+
+def run_animatic_timeline(project, source=None, *, settings=None):
+    """REQ-S04-80…84：参考库配图＋三轨混音＋缺图才生成＋版本化视频＋清单发布。"""
+    import tempfile
+    from agent.core import save_bytes
+    import orchestrator.stage_parallel as stage_parallel
+    from domain import animatic_timeline as timeline_model
+    from domain.animatic_service import build_bundle, validate_bundle
+    from contract.platform_tools import tool_path
+    root = Path(project).resolve()
+    folder = write_dir(root, 'animatic')
+    settings = dict(settings or {})
+    settings['retry_attempts'] = stage_parallel.retry_attempts('animatic')
+    config = file_cache.read_json(root / 'config.json') if (root / 'config.json').is_file() else {}
+    for tool in ('ffmpeg', 'ffprobe'):
+        settings[tool] = tool_path(tool, configured=settings.get(tool) or config.get(tool))
+        if not settings[tool]:
+            raise ValueError('请在运行环境配置 ' + tool)
+    gate = stage_parallel.evaluate(project, 'animatic')
+    if gate and not gate['ok']:
+        raise ValueError(stage_parallel.blocked_text(gate))
+    path = _animatic_source(root, source)
+    timeline = load_or_sync_animatic_timeline(root, path)
+    storyboard, _raw, _signature = file_cache.read_stable_json_snapshot(path)
+    board = {str(row.get('id')): row for row in storyboard.get('shots', [])
+             if isinstance(row, dict)}
+    shot_versions, existing_images, shot_references = {}, {}, {}
+    for row in timeline['shots']:
+        sid = row['id']
+        current = _versioned_image(_shot_dir(folder, sid), int(row.get('image_version') or 0))
+        if current is not None:
+            existing_images[sid] = current
+            shot_versions[sid] = int(row['image_version'])
+        else:
+            shot_versions[sid] = timeline_model.next_version(
+                _existing_names(_shot_dir(folder, sid)))
+        shot_references[sid] = refs_for_animatic_shot(root, board.get(sid, {}))
+    workspace = Path(tempfile.mkdtemp(prefix='run-', dir=_work_root(folder)))
+    audio, clip_map = _timeline_audio(root, folder, timeline, board, settings, workspace)
+    settings['shot_references'] = shot_references
+    settings['allow_empty_references'] = True
+    settings['existing_images'] = existing_images
+    settings['shot_versions'] = shot_versions
+    settings['timeline_durations'] = {row['id']: int(row['seconds'])
+                                     for row in timeline['shots']}
+    settings['video_relpath'] = timeline_model.next_video_name(_existing_names(folder / '版本'))
+    settings['version_tag'] = Path(settings['video_relpath']).stem
+    settings['timeline_sha256'] = file_cache.file_digest(
+        folder / timeline_model.TIMELINE_FILE)
+
+    def publish(artifacts):
+        if not validate_bundle(artifacts):
+            raise ValueError('Animatic 清单与媒体不一致，本次不发布')
+        return publish_animatic_bundle(root, artifacts,
+                                       validate=lambda items: all(raw for _, raw in items))
+
+    def batches(groups, worker):
+        results = stage_parallel.parallel_map('animatic', groups, worker)
+        for _group, _result, error in results:
+            if error:
+                raise error
+        return [result for _group, result, _error in results]
+
+    build_bundle(project_context(root), path, (), audio, settings,
+                 publish=publish, write_temporary=save_bytes, run_batches=batches,
+                 render=_timeline_render(settings), workspace=workspace,
+                 spec=animatic_preview_spec(root))
+    updated = _compose_timeline_rows(root, timeline, shot_versions, existing_images,
+                                   shot_references, clip_map)
+    _publish_animatic_timeline(root, updated)
+    return folder / settings['video_relpath']
+
+
+def lock_animatic(project, *, rhythm, duration, dialogue_sync):
+    """REQ-S04-90/91：三项确认＋时长回写原子事务；任一步失败全回滚。
+
+    写盘顺序（DES-S04-24）：同目录 ``历史版本/`` 时间戳存档 → 原文件原子替换 →
+    ``storyboard_selection.adopt`` → 清单（新 ``source_sha256`` ＋三项 True）原子发布。
+    """
+    from copy import deepcopy
+    from datetime import datetime
+    from domain import animatic_timeline as timeline_model
+    from domain.animatic_service import CONFIRMATIONS, MANIFEST, digest, evidence
+    if not all(value is True for value in (rhythm, duration, dialogue_sync)):
+        raise ValueError('节奏、时长与对白同步必须全部确认')
+    root = Path(project).resolve()
+    folder = write_dir(root, 'animatic')
+    manifest_path = folder / MANIFEST
+    try:
+        manifest = file_cache.read_json(manifest_path)
+        timeline = file_cache.read_json(folder / timeline_model.TIMELINE_FILE)
+    except (OSError, ValueError):
+        raise ValueError('尚无 Animatic 成果可锁定') from None
+    ok, reason = evidence(root, require_confirmation=False)
+    if not ok:
+        raise ValueError(reason)
+    current = {row['id']: row.get('seconds') for row in timeline.get('shots', [])
+               if isinstance(row, dict)}
+    composed = {row.get('id'): row.get('seconds') for row in manifest.get('shots', [])
+                if isinstance(row, dict)}
+    if not current or current != composed:
+        raise ValueError('时间线改过，请先重新合成')
+    source = (root / manifest['source']).resolve()
+    if not source.is_relative_to(root) or not source.is_file():
+        raise ValueError('分镜源文件不在项目内')
+    storyboard, raw_source, _signature = file_cache.read_stable_json_snapshot(source)
+    board_seconds = {str(row.get('id')): row.get('duration')
+                     for row in storyboard.get('shots', []) if isinstance(row, dict)}
+    new_board, changed = timeline_model.writeback_plan(storyboard, timeline)
+    if board_seconds == current or not changed:
+        return confirm_animatic(root, rhythm=rhythm, duration=duration,
+                                dialogue_sync=dialogue_sync)
+    from contract.episode_contract import validate_episode
+    from contract.storyboard_paths import media_root
+    validate_episode(new_board, media_root(source))
+    from agent.core import save, save_bytes
+    from agent.publication import transaction
+    with transaction():
+        stamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        archive = source.parent / '历史版本' / (
+            '%s_%s_%s.json' % (source.stem, stamp, digest(raw_source)[:6]))
+        save_bytes(archive, raw_source)
+        save(source, new_board)
+        from orchestrator.storyboard_selection import adopt
+        adopt(root, [source])
+        data = deepcopy(manifest)
+        data['source_sha256'] = file_cache.file_digest(source)
+        data['confirmed'] = dict.fromkeys(CONFIRMATIONS, True)
+        import contract.artifact_schema as artifact_schema
+        data = artifact_schema.stamp('animatic_manifest', data)
+        publish_stage_text(manifest_path, json.dumps(data, ensure_ascii=False, indent=2),
+                           lambda text: '"rhythm":true' in text.replace(' ', ''),
+                           file_cache.published)
+    return manifest_path
