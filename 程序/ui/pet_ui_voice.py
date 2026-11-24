@@ -8,13 +8,12 @@ import re
 import pet_agent
 import contract.pet_bus as pet_bus
 import ui.pet_cloud as pet_cloud
-import ui.pet_report as pet_report
+import ui.pet_context_facts as pet_context_facts, ui.pet_report as pet_report
 import infra.pet_state as pet_state
 from infra.broadcaster import Broadcaster, PREFIX_PATTERNS
 from pathlib import Path
 from tkinter import TclError
 from ui.pet_ui_support import AWAY_PAUSE_SECONDS, BANNER_HOUR, BROADCAST_BUSY, BROADCAST_IDLE, CAPTION_INK, CHAT_HINT, FALLBACK_ASK, GAP_SECONDS, GREET_DELAY_MS, GREET_QUIET_SECONDS, GREET_SETTLE_POLLS, LEVEL_CAPTIONS, OFFER_BACKOFF_MAX, OFFER_MAX_CHARS, OFFER_NO, OFFER_REPEAT, OFFER_SECONDS, OFFER_YES, PAGE_ASKS, PAUSED_CAPTION, PROGRESS_GAPS, PROGRESS_SECONDS, PROJECT_CACHE_SECONDS, PROJECT_CLOSED, PROJECT_LIMIT, PROJECT_OPEN, REPORT_QUIET_SECONDS, SPEAK_GAP_SECONDS, SPOKEN_KEEP, WEEKLY_FROM, asset_counts, duration, shot_stats
-
 
 
 def offer_verdict(word):
@@ -1002,6 +1001,7 @@ class PetVoiceMixin:
         return '手上 %d 个项目。%s%s' % (len(rows), '；'.join(parts), tail)
     def projects_brief(self):
         """给模型的短快照：一行一个项目，顺序固定（sort_keys 那边才不会被打破）。"""
+        self.agent.facts = lambda: pet_context_facts.facts_snapshot(self)
         try:
             rows = self.projects_snapshot()
         except Exception as exc:
