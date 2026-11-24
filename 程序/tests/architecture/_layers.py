@@ -153,6 +153,10 @@ _register(4, "desktop_send_choice")
 _register(1, "unit_of_work", "business_log", "idempotency")
 _register(2, "domain_events")
 
+# R4410（REQ-S04-78）：S04 分镜预演草图生成器接口——可插拔后端登记表；
+# 纯 L2 零同层边；ComfyUI 客户端由编排层注入，不反向/同层依赖 animatic_service。
+_register(2, "animatic_sketch_backends")
+
 # 非运行期外围脚本：它们不会作为产品层导入；显式留名可防止新增顶层脚本绕过审计。
 TOOLS: dict[str, str] = {
     "blender_previs_template": "Blender 独立模板脚本，依赖 bpy，不在桌面产品运行期。",
