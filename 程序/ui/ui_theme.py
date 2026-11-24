@@ -113,7 +113,8 @@ def install_tick_indicators(win,style):
     if keep is None:keep=[];win._tick_images_keep=keep
     keep.extend([off,on,disabled_off,disabled_on])
 
-    name='DramaTick.indicator'
+    from ui_tokens import current_theme
+    name='DramaTick.indicator.' + current_theme()
 
     if name not in style.element_names():
 

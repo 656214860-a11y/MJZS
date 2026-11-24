@@ -112,17 +112,20 @@ class IconLoader:
 
     @classmethod
     def check_indicator(cls, master, *, size: int, selected: bool = False,
-                        disabled: bool = False, accent: str = COLORS['primary']):
-        """返回统一复选框图元，按宿主、状态与尺寸缓存。"""
+                        disabled: bool = False, accent: str | None = None):
+        """返回统一复选框图元，按宿主、状态、尺寸与主题底色缓存。"""
         size = max(1, int(size))
-        key = ('check_indicator', size, bool(selected), bool(disabled), accent)
+        if accent is None:
+            accent = COLORS['primary']
+        fill = COLORS['surface_hover'] if disabled else COLORS['background_card']
+        border = COLORS['border_input_hover'] if disabled else accent
+        key = ('check_indicator', size, bool(selected), bool(disabled), border, fill)
         cache = cls._cache(master)
         if key in cache:
             return cache[key]
         image = tk.PhotoImage(master=master, width=size, height=size)
-        border = COLORS['border_input_hover'] if disabled else accent
         image.put(border, to=(0, 0, size, size))
-        image.put(COLORS['surface_hover'] if disabled else COLORS['background_card'], to=(1, 1, size - 1, size - 1))
+        image.put(fill, to=(1, 1, size - 1, size - 1))
         if selected:
             points = [(round(size * .20), round(size * .51)),
                       (round(size * .42), round(size * .73)),

@@ -17,7 +17,7 @@ import tkinter as tk
 
 from ui.ui_motion import blend, reduce_motion
 from ui.ui_rounded import button_specs, rounded_layout, rounded_photo
-from ui_tokens import BUTTON_RADIUS, HOVER_FADE_MS, HOVER_FADE_STEPS
+from ui_tokens import BUTTON_RADIUS, HOVER_FADE_MS, HOVER_FADE_STEPS, current_theme
 
 
 def _derived(base, level):
@@ -25,28 +25,32 @@ def _derived(base, level):
 
 
 def _ensure_level_style(widget, base, level):
-    """第 level 档派生样式（0=常态色，STEPS=悬停色）；已存在就直接返回名字。"""
+    """第 level 档派生样式（0=常态色，STEPS=悬停色）；按当前主题区分图元，切回日间不沿用夜间旧图。"""
     from tkinter import ttk
     root = widget._root()
     spec = button_specs(root)[base]
     name = _derived(base, level)
     style = ttk.Style(root)
-    element = "Drama.RoundedFade%d.%s" % (level, base.replace(".", "_"))
-    if element in style.element_names():
-        return name
-    colors = spec["colors"]
-    tile_w, tile_h = spec["size"]
-    border, border_width = spec["border"]
-    mixed = blend(colors["normal"], colors["active"], level / HOVER_FADE_STEPS)
-    image, pr = rounded_photo(root, mixed, BUTTON_RADIUS,
-                              width=BUTTON_RADIUS * 2 + tile_w, height=BUTTON_RADIUS * 2 + tile_h,
-                              border=border, border_width=border_width)
-    style.element_create(element, "image", image,
-                         ("pressed", spec["images"]["pressed"]),
-                         ("disabled", spec["images"]["disabled"]),
-                         border=(pr, pr, pr, pr), padding=(0, 0, 0, 0),
-                         width=1, height=1, sticky="nsew")
-    rounded_layout(style, name, element)
+    element = "Drama.RoundedFade%d.%s.%s" % (level, current_theme(), base.replace(".", "_"))
+    bound = getattr(root, "_drama_fade_bound", None)
+    if bound is None:
+        bound = root._drama_fade_bound = {}
+    if element not in style.element_names():
+        colors = spec["colors"]
+        tile_w, tile_h = spec["size"]
+        border, border_width = spec["border"]
+        mixed = blend(colors["normal"], colors["active"], level / HOVER_FADE_STEPS)
+        image, pr = rounded_photo(root, mixed, BUTTON_RADIUS,
+                                  width=BUTTON_RADIUS * 2 + tile_w, height=BUTTON_RADIUS * 2 + tile_h,
+                                  border=border, border_width=border_width)
+        style.element_create(element, "image", image,
+                             ("pressed", spec["images"]["pressed"]),
+                             ("disabled", spec["images"]["disabled"]),
+                             border=(pr, pr, pr, pr), padding=(0, 0, 0, 0),
+                             width=1, height=1, sticky="nsew")
+    if bound.get(name) != element:
+        rounded_layout(style, name, element)
+        bound[name] = element
     return name
 
 

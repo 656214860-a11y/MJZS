@@ -16,16 +16,15 @@ from ui.desktop_expand_column import ExpandIconColumn
 from ui.desktop_page_registry import PROJECT_ACTION_ICONS, PROJECT_GROUP_ICONS
 from ui.ui_icons import IconLoader
 from ui_tokens import COLORS, DESKTOP_LAYOUT, SPACING
-from ui_widgets import DataTable, LineInput, SecondaryButton, Tooltip
+from ui_widgets import DataTable, SecondaryButton, Tooltip
 
 MIN_ROWS = 3                 # 列表最少显示行数（卡面：矮窗也至少 3 行）
 LIST_SHARE = 0.4             # 列表高度上限占窗口高度的比例
 DEFAULT_HEIGHT_ROWS = 6      # 窗口尺寸未就绪时的初始行数
-SEARCH_CHARS = 10            # 顶部搜索框字符宽（侧栏 96px 内的小输入框）
 
 
 class ProjectNameList(ttk.Frame):
-    """项目名称列表：搜索框＋可键盘操作的名称表＋「项目管理…」。
+    """项目名称列表：可键盘操作的名称表（无搜索框与项目管理按钮，腾出空间放项目二级图标）。
 
     行文本＝「状态点 名称」（● 在制作／○ 已完成），当前项目打 ``current``
     标签高亮；单击／双击／Enter 都走 ``request_project_switch``，
@@ -36,14 +35,6 @@ class ProjectNameList(ttk.Frame):
         super().__init__(parent)
         self.host = host
         self._fit_job = None
-        bar = ttk.Frame(self)
-        bar.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
-        self.search = LineInput(bar, width=SEARCH_CHARS,
-                                placeholder='筛选项目')
-        self.search.pack(fill='x', expand=True)
-        self.search.configure(takefocus=1)
-        Tooltip(self.search, '按项目名称筛选')
-        self.search.bind('<KeyRelease>', lambda _event: self.refresh())
         self.table = DataTable(self, columns=[('name', '项目', SPACING['sm'] * 15)],
                                show='tree', height=DEFAULT_HEIGHT_ROWS,
                                selectmode='browse', empty_text='暂无项目',
@@ -58,10 +49,6 @@ class ProjectNameList(ttk.Frame):
         tree.bind('<Double-1>', self._activate_selected)
         tree.bind('<Return>', self._activate_selected)
         tree.bind('<Button-3>', self._row_menu, add='+')
-        self.manage = SecondaryButton(
-            self, text='项目管理…',
-            command=lambda: host.safe(host.choose_project))
-        self.manage.pack(fill='x', pady=(SPACING['xs'], SPACING['none']))
         win = getattr(host, 'win', None)
         self._resize_bind = None
         if win is not None:
@@ -88,20 +75,12 @@ class ProjectNameList(ttk.Frame):
             self._fit_job = None
 
     # ── 数据与渲染 ────────────────────────────────────────────────────
-    def _matches(self, project):
-        query = self.search.get().strip().lower()
-        if not query:
-            return True
-        name = str(project.get('name') or '')
-        path = str(project.get('path') or '')
-        return query in name.lower() or query in path.lower()
-
     def refresh(self):
-        """按 ``_picker_items``（已分组、已排序）＋搜索词重建行；当前项目打高亮。"""
+        """按 ``_picker_items``（已分组、已排序）重建行；当前项目打高亮。"""
         tree = self.table.tree
+        tree.tag_configure('current', background=COLORS['primary_subtle'])
         tree.delete(*tree.get_children())
-        items = [p for p in (getattr(self.host, '_picker_items', None) or [])
-                 if self._matches(p)]
+        items = list(getattr(self.host, '_picker_items', None) or [])
         root = getattr(self.host, 'root', None)
         for project in items:
             status = project.get('status', 'making')
@@ -119,7 +98,7 @@ class ProjectNameList(ttk.Frame):
         registry = ((getattr(getattr(self.host, 'projects', None), 'info', None)
                      or {}).get('projects') or [])
         self.table.empty_label.configure(
-            text='暂无项目' if not registry else '没有匹配的项目')
+            text='暂无项目' if not registry else '该分组暂无项目')
         self.table.refresh_empty_state()
         self._fit_height(len(items))
 
@@ -214,10 +193,10 @@ class ProjectNameList(ttk.Frame):
 
 
 def build_project_rail(host, side):
-    """侧栏项目区：单个「项目」图标＋名称列表；四个原入口收进右侧二级列。
+    """侧栏项目区：单个「项目」图标＋名称列表；四个二级图标在项目区内部 2×2 展开。
 
-    二级列挂在 ``host.sidebar_expand`` 常驻空条里，点主图标展开、
-    再点／点空白／Esc 收起；分组钮兼作列表过滤（再点回「全部」）。
+    二级图标留在侧栏宽度内（与上方项目列表框同宽），绝不向外挤占右侧聊天框空间；
+    点主图标展开、再点／点空白／Esc 收起；分组钮兼作列表过滤（再点回「全部」）。
     """
     host.project_block = ttk.Frame(side)
     host.project_block.pack(fill='x', pady=(SPACING['xs'], SPACING['none']))
@@ -228,23 +207,18 @@ def build_project_rail(host, side):
         host.project_block, text='', image=image,
         compound='image' if image is not None else 'text', width=0,
         style='RailIcon.TButton', command=lambda: toggle_project_expand(host))
-    host.project_button.pack(anchor='center', fill='x',
+    host.project_button.pack(anchor='w',
                              pady=(SPACING['none'], DESKTOP_LAYOUT['nav_gap']))
     Tooltip(host.project_button, '项目')
     host.project_name_list = ProjectNameList(host, host.project_block)
     host.project_name_list.pack(fill='x')
     host._sidebar_expand_kind = None
-    expand_host = getattr(host, 'sidebar_expand', None)
     host.project_group_buttons = {}
     host.project_buttons = ()
-    host._project_expand_column = None
-    if expand_host is None:
-        host._sync_project_group_styles()
-        host._sync_project_picker()
-        return
-    column = ExpandIconColumn(expand_host, getattr(host, 'win', side),
-                              scrollbar=False, keys=True)
+    column = ExpandIconColumn(host.project_block, getattr(host, 'win', side),
+                              scrollbar=False, keys=True, columns=2)
     host._project_expand_column = column
+    host.sidebar_expand = column.frame
     for state in ('making', 'completed'):
         button = column.add(
             state, PROJECT_GROUP_ICONS[state], '',
@@ -273,7 +247,7 @@ def toggle_project_expand(host):
 
 
 def open_sidebar_expand(host, kind='project'):
-    """展开侧栏右侧二级列；与侧栏浮层互斥（开一个收另一个）。"""
+    """在项目区内部展开四个二级图标；与侧栏浮层互斥（开一个收另一个）。"""
     close_popup = getattr(host, '_close_sidebar_popup', None)
     if callable(close_popup):
         close_popup()
@@ -282,7 +256,11 @@ def open_sidebar_expand(host, kind='project'):
         return
     host._sidebar_expand_kind = kind
     if not column.frame.winfo_manager():
-        column.frame.pack(side='left', fill='y')
+        target = getattr(host, 'project_name_list', None)
+        pack_kw = dict(side='top', anchor='w', pady=(SPACING['none'], SPACING['xs']))
+        if target is not None and target.winfo_manager():
+            pack_kw['before'] = target
+        column.frame.pack(**pack_kw)
     win = getattr(host, 'win', None)
     if win is None:
         return

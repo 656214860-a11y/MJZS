@@ -32,14 +32,21 @@ class ExpandIconColumn:
     Esc 由宿主（侧栏宿主绑定或浮层既有绑定）收起，不在本类重复处理。
     """
 
-    def __init__(self, parent, win, *, bg=None, scrollbar=True,
-                 hug_height=False, keys=False, frame=None):
+    _OPTION_KEYS = frozenset(('bg', 'scrollbar', 'hug_height', 'keys', 'frame', 'columns'))
+
+    def __init__(self, parent, win, **opts):
+        unknown = sorted(set(opts) - self._OPTION_KEYS)
+        if unknown:
+            raise TypeError('__init__() got an unexpected keyword argument %r' % unknown[0])
         self.win = win
+        frame = opts.get('frame')
+        bg = opts.get('bg')
         self.frame = frame if frame is not None else ttk.Frame(parent)
         self._bg = bg if bg is not None else COLORS['background_primary']
-        self._scrollbar = scrollbar
-        self._hug_height = hug_height
-        self._keys = keys
+        self._scrollbar = opts.get('scrollbar', True)
+        self._hug_height = opts.get('hug_height', False)
+        self._keys = opts.get('keys', False)
+        self._columns = max(1, int(opts.get('columns', 1)))
         self._scroller = None
         self.form = None
         self.buttons = {}
@@ -79,8 +86,16 @@ class ExpandIconColumn:
 
     def add(self, key, icon_name, glyph, tip, command, *, label=None,
             pinned=False):
-        """登记一颗图标；``pinned`` 钉在滚动区上方（如设置钮），其余进滚动表单。"""
-        if pinned:
+        """登记一颗图标；``pinned`` 钉在滚动区上方（如设置钮），多列时按网格排入 frame。"""
+        if self._columns > 1 and not pinned:
+            index = len(self._items) - len(self._pinned)
+            row, col = divmod(index, self._columns)
+            button = self.icon_button(self.frame, icon_name, glyph, tip,
+                                      command, label=label)
+            padx = (SPACING['none'], SPACING['xs'] if col < self._columns - 1 else SPACING['none'])
+            button.grid(row=row, column=col, sticky='w',
+                        padx=padx, pady=(SPACING['none'], SPACING['xs']))
+        elif pinned:
             button = self.icon_button(self.frame, icon_name, glyph, tip,
                                       command, label=label)
             button.pack(side='top', pady=(SPACING['none'], SPACING['xs']))
@@ -111,6 +126,10 @@ class ExpandIconColumn:
 
     def finalize(self):
         """滚轮、键盘、按内容钉宽（hug_height 时连高度一起钉）。必须在 add 之后调用。"""
+        if self._columns > 1:
+            if self._keys:
+                self._bind_keys()
+            return
         scroller = self._ensure_scroller()
         scroller.bind_wheel()
         if self._keys:

@@ -274,8 +274,13 @@ class StatusBar(ttk.Frame):
             self._show_neutral()
 
     def _render_message(self, message):
-        style = LEVEL_STYLE[message.level]
-        self.message.configure(background=style['bg'], foreground=style['fg'])
+        colors = {
+            'info': (COLORS['background_primary'], COLORS['text_primary']),
+            'success': (COLORS['success_subtle'], COLORS['success_text']),
+            'warning': (COLORS['primary_subtle'], COLORS['primary_pressed']),
+            'error': (COLORS['danger_subtle'], COLORS['danger_text']),
+        }[message.level]
+        self.message.configure(background=colors[0], foreground=colors[1])
         prefix = LEVEL_PREFIX[message.level]
         self.message.set_text(prefix + ' ' + message.text if prefix != '·' else message.text)
 
