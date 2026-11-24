@@ -24,6 +24,7 @@ import model_secrets
 import pet_models_ui
 import pet_agent, pet_bus, pet_report, ui.pet_ui as pet_ui, stage_flow
 from ui import pet_cloud
+import ui.pet_context_facts as pet_context_facts
 import ui.pet_ui_support as pet_ui_support
 # 第 45 期：这些用例读的（并会写的）是全局配置目录里那一份三虎设置。原来 program 指向本机真
 # 安装目录，于是「出厂默认档是半自动」这类断言会被用户机上那份配置左右（那里存过 hint 就红）。
@@ -7334,6 +7335,156 @@ class ClickCancelTests(PetTestCase):
         pet.pet_click(SimpleNamespace(x_root=45, y_root=60))
         self.assertEqual(pet._click_xy, (45, 60))
         pet._chat_interaction.cancel_pending()          # 清场
+
+
+class StallWatchTests(unittest.TestCase):
+    """SANHU-PROACTIVE-STATS：阶段显示在跑、子进度满 10 分钟没动 → 一句停滞提醒，同一波只报一次。"""
+
+    def stages(self, state='running', detail={'done': 3, 'total': 40}):
+        return {'storyboard': {'state': state, 'detail': detail}}
+
+    def test_stall_watch_fires_after_ten_quiet_minutes(self):
+        ticks = [1000.0]
+        watch = pet_context_facts.StallWatch(clock=lambda: ticks[0])
+        stages = self.stages()
+        self.assertIsNone(watch.sample(stages))          # 第一眼起表，不报
+        ticks[0] += 599
+        self.assertIsNone(watch.sample(stages), '差一秒不到点：还不报')
+        ticks[0] += 1
+        hit = watch.sample(stages)
+        self.assertIsNotNone(hit)
+        self.assertEqual((hit[0], hit[2], hit[3]), ('storyboard', 3, 40))
+        self.assertEqual(hit[1], 10, '返回值里带着停了几分钟')
+
+    def test_stall_watch_same_stall_fires_only_once(self):
+        ticks = [0.0]
+        watch = pet_context_facts.StallWatch(clock=lambda: ticks[0])
+        stages = self.stages()
+        watch.sample(stages)
+        ticks[0] += 660
+        self.assertIsNotNone(watch.sample(stages))
+        ticks[0] += 120
+        self.assertIsNone(watch.sample(stages), '同一波停滞不重报')
+
+    def test_stall_watch_progress_resets_the_clock(self):
+        ticks = [0.0]
+        watch = pet_context_facts.StallWatch(clock=lambda: ticks[0])
+        stages = self.stages()
+        watch.sample(stages)
+        ticks[0] += 500
+        stages['storyboard']['detail'] = {'done': 4, 'total': 40}
+        self.assertIsNone(watch.sample(stages), 'done 动过：计时清零')
+        ticks[0] += 599
+        self.assertIsNone(watch.sample(stages))
+        ticks[0] += 1
+        hit = watch.sample(stages)
+        self.assertIsNotNone(hit)
+        self.assertEqual((hit[2], hit[3]), (4, 40))
+
+    def test_stall_watch_running_without_detail_is_not_counted(self):
+        ticks = [0.0]
+        watch = pet_context_facts.StallWatch(clock=lambda: ticks[0])
+        stages = self.stages(detail=None)
+        watch.sample(stages)
+        ticks[0] += 1200
+        self.assertIsNone(watch.sample(stages), '刚启动还没报子进度：不计时不报')
+
+    def test_stall_watch_ignores_settled_and_failed_states(self):
+        ticks = [0.0]
+        watch = pet_context_facts.StallWatch(clock=lambda: ticks[0])
+        for state in ('failed', 'success', 'pending', 'skipped'):
+            with self.subTest(state=state):
+                stages = self.stages(state=state)
+                watch.sample(stages)
+                ticks[0] += 1200
+                self.assertIsNone(watch.sample(stages), '%s 不该报' % state)
+
+    def test_stall_watch_retrying_counts_as_running(self):
+        ticks = [0.0]
+        watch = pet_context_facts.StallWatch(clock=lambda: ticks[0])
+        stages = self.stages(state='retrying')
+        watch.sample(stages)
+        ticks[0] += 600
+        self.assertIsNotNone(watch.sample(stages))
+
+    def test_stall_watch_note_text(self):
+        text = pet_context_facts.format_stall_note('storyboard', 12, 3, 40)
+        self.assertIn('03 初步分镜', text)
+        self.assertIn('12 分钟', text)
+        self.assertIn('3/40', text)
+
+
+class StallVoiceTests(PetTestCase):
+    """停滞提醒的三虎侧接线：文案、免打扰只记账、心跳每 200 拍问一次。"""
+
+    def setUp(self):
+        super().setUp()
+        self.now = 1000.0
+        self.pet.clock = lambda: self.now
+        self.pet.counts = lambda: {}
+
+    def _stalled(self, stage='storyboard', done=3, total=40):
+        self.pet.machine.start(stage)
+        self.pet.machine.detail(stage, done, total)
+        self.pet.stall_note(at=self.now)                 # 第一眼起表
+        self.now += 660                                  # 子进度 11 分钟没动
+
+    def test_stall_watch_note_names_stage_minutes_and_done(self):
+        self._stalled()
+        note = self.pet.stall_note(at=self.now)
+        self.assertIn('初步分镜', note)
+        self.assertIn('11 分钟', note)
+        self.assertIn('3/40', note)
+
+    def test_stall_watch_snooze_only_books_the_stall(self):
+        """免打扰里不播：这一波留着记账，安静期一过补说一句。"""
+        self._stalled()
+        self.pet.snooze(600)
+        self.assertEqual(self.pet.stall_note(at=self.now), '', '免打扰里不播')
+        self.assertNotIn('停滞', self.pet.cloud().transcript())
+        self.now += 601
+        self.assertIn('停滞', self.pet.stall_note(at=self.now), '出期补报同一波')
+
+    def test_stall_watch_note_records_without_popping_when_away(self):
+        """人不在助手界面：播报出口只记账不冒框。"""
+        self.pet.front = lambda: False
+        self._stalled()
+        self.pet.announce(self.pet.stall_note(at=self.now))
+        self.assertIn('停滞', self.pet.cloud().transcript())
+        self.assertFalse(self.pet.cloud().visible)
+
+    def test_stall_watch_pump_asks_once_every_two_hundred_ticks(self):
+        calls = []
+        self.pet.stall_note = lambda at=None: calls.append(at) or ''
+        for _ in range(199):
+            self.pet.pump()
+        self.assertEqual(len(calls), 0, '前 199 拍不问')
+        self.pet.pump()
+        self.assertEqual(len(calls), 1, '第 200 拍问一次')
+        for _ in range(200):
+            self.pet.pump()
+        self.assertEqual(len(calls), 2)
+
+    def test_stall_watch_pump_announces_through_the_failure_exit(self):
+        """非空就走失败播报同一个出口（announce）。"""
+        heard = []
+        self.pet.announce = lambda text, **kw: heard.append(text)
+        note = '【阶段停滞】「03 初步分镜」已经在跑 11 分钟没有新进度（完成 3/40），要我看看吗？'
+        self.pet.stall_note = lambda at=None: note
+        for _ in range(200):
+            self.pet.pump()
+        self.assertEqual(heard, [note])
+
+    def test_stall_watch_pump_speaks_a_real_stall_once(self):
+        """全链路：machine 卡 11 分钟 → 第 200 拍说一句；再 200 拍不重播。"""
+        self._stalled()
+        for _ in range(200):
+            self.pet.pump(at=self.now)
+        self.assertIn('停滞', self.pet.cloud().transcript())
+        said = self.pet.cloud().transcript().count('停滞')
+        for _ in range(200):
+            self.pet.pump(at=self.now)
+        self.assertEqual(self.pet.cloud().transcript().count('停滞'), said, '同一波不重播')
 
 
 if __name__ == "__main__":
