@@ -55,6 +55,10 @@ MANIFEST_NAMES = ('voice.json', 'subtitles.json', 'audio_manifest.json')
 _SUBTITLE_SUFFIXES = {'.srt': 'srt', '.ass': 'ass', '.txt': 'dialogue_script', '.json': 'calibration'}
 
 
+_SENTENCE_DIR = '配音分句'
+_EXCLUDED_DIRS = {'历史版本', '回收站'}
+
+
 def _listing(folder, project, suffixes):
     if not folder.is_dir():
         return []
@@ -62,6 +66,27 @@ def _listing(folder, project, suffixes):
     for path in sorted(folder.iterdir()):
         if path.is_file() and path.suffix.lower() in suffixes:
             rows.append((path, path.relative_to(project).as_posix(), path.stat().st_size))
+    return rows
+
+
+def _sentence_walk(folder, suffixes):
+    for path in sorted(folder.iterdir()):
+        if path.is_dir():
+            if path.name not in _EXCLUDED_DIRS:
+                yield from _sentence_walk(path, suffixes)
+        elif path.is_file() and path.suffix.lower() in suffixes:
+            yield path
+
+
+def _sentence_listing(folder, project, suffixes):
+    """递归列出 配音分句/<批次>/ 下的音频；批次名取 配音分句 下第一层目录。"""
+    if not folder.is_dir():
+        return []
+    rows = []
+    for batch in sorted(folder.iterdir()):
+        if batch.is_dir() and batch.name not in _EXCLUDED_DIRS:
+            rows.extend((path, path.relative_to(project).as_posix(), path.stat().st_size, batch.name)
+                        for path in _sentence_walk(batch, suffixes))
     return rows
 
 
@@ -84,6 +109,9 @@ def audio_manifests(project):
     project = Path(project).resolve()
     tracks = [{'file': rel, 'kind': audio_kind(path.name), 'bytes': size}
               for path, rel, size in _listing(audio(project), project, _SUFFIXES)]
+    tracks.extend({'file': rel, 'kind': 'dialogue', 'bytes': size, 'batch': batch}
+                  for path, rel, size, batch in
+                  _sentence_listing(audio(project) / _SENTENCE_DIR, project, _SUFFIXES))
     files = [{'file': rel, 'format': _SUBTITLE_SUFFIXES[path.suffix.lower()], 'bytes': size,
               'sha256': _sha256(path)}
              for path, rel, size in _listing(subtitles(project), project, set(_SUBTITLE_SUFFIXES))]
