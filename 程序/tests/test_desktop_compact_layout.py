@@ -4,6 +4,7 @@ import time
 import unittest
 from unittest import mock
 import tk_test_support
+from widget_test_support import widget_list
 from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, font
@@ -87,8 +88,11 @@ class CompactDesktopGeometryTests(unittest.TestCase):
                     previous_bottom = widget.winfo_rooty()+widget.winfo_height()
                 self.assertEqual(len(d.nav), 14, '14 个阶段按钮都要在侧栏里')
                 canvas = d.sidebar_canvas
-                rail_widgets=(*d.project_group_buttons.values(),
-                              d.project_new_button,d.project_open_button,*rail)
+                # REQ-UI-SIDEBAR-1：项目区＝「项目」主图标＋名称列表；四个原入口收进
+                # 按需展开的右侧二级列，不占侧栏滚动轨，量 rail_widgets 时不含它们。
+                self.assertTrue(d.project_button.winfo_ismapped())
+                self.assertTrue(d.project_name_list.winfo_ismapped())
+                rail_widgets=tuple(rail)
                 for widget in rail_widgets:
                     self.reveal(widget)
                     self.assertGreaterEqual(widget.winfo_rooty(), canvas.winfo_rooty()-1)
@@ -156,18 +160,31 @@ class CompactDesktopGeometryTests(unittest.TestCase):
             d.show(PAGE['script']); self.pump()
 
     def test_project_icon_buttons_are_compact_rail_controls(self):
-        """R2897：新建/打开与分组筛选都是纯图标 RailIcon 钮，配 Tooltip，不再占整行文字。"""
+        """REQ-UI-SIDEBAR-1：常驻轨上只剩单个「项目」主图标；四个原入口收进
+        二级列，同为纯图标 RailIcon 钮，配 Tooltip。"""
         self.resize(942, 1032)
         d = self.desktop
-        for button in d.project_buttons:
-            self.assertEqual(button.cget('style'), 'RailIcon.TButton')
-        for state, button in d.project_group_buttons.items():
-            # 当前组是 Selected.RailIcon.TButton，其余组是 RailIcon.TButton。
-            self.assertIn(button.cget('style'), ('RailIcon.TButton', 'Selected.RailIcon.TButton'))
-        for button in (*d.project_buttons, *d.project_group_buttons.values()):
-            self.assertEqual(str(button.cget('compound')), 'image')
-            self.assertTrue(button.cget('image'))
-            self.assertGreaterEqual(button.winfo_height(), button.winfo_reqheight())
+        self.assertEqual(d.project_button.cget('style'), 'RailIcon.TButton')
+        self.assertEqual(str(d.project_button.cget('compound')), 'image')
+        self.assertTrue(d.project_button.cget('image'))
+        self.assertGreaterEqual(d.project_button.winfo_height(),
+                                d.project_button.winfo_reqheight())
+        if getattr(d, '_sidebar_expand_kind', None) != 'project':
+            d.project_button.invoke(); self.pump()
+        try:
+            for button in d.project_buttons:
+                self.assertEqual(button.cget('style'), 'RailIcon.TButton')
+            for state, button in d.project_group_buttons.items():
+                # 当前组是 Selected.RailIcon.TButton，其余组是 RailIcon.TButton。
+                self.assertIn(button.cget('style'),
+                              ('RailIcon.TButton', 'Selected.RailIcon.TButton'))
+            for button in (*d.project_buttons, *d.project_group_buttons.values()):
+                self.assertEqual(str(button.cget('compound')), 'image')
+                self.assertTrue(button.cget('image'))
+                self.assertGreaterEqual(button.winfo_height(), button.winfo_reqheight())
+        finally:
+            if getattr(d, '_sidebar_expand_kind', None) == 'project':
+                d.project_button.invoke(); self.pump()
 
     def test_actions_hint_and_full_file_details(self):
         self.resize(800, 600)
@@ -178,33 +195,37 @@ class CompactDesktopGeometryTests(unittest.TestCase):
         self.assertFalse(hasattr(d, 'idea_input_hint'), '静态占位提示已随 R2923 删除')
         self.assertTrue(d.shared_input.winfo_ismapped(), '共享输入框可见')
         # R2942：四类文件合成一条「项目文件」列表，每个文件一行提示。
-        # R2946：侧栏项目区＝分组筛选图标（点了弹项目选择层）＋新建/打开；
+        # R2946：侧栏项目区＝分组筛选图标＋新建/打开；
         # 「●」当前标记与组筛选状态都走 _picker_items。
+        # REQ-UI-SIDEBAR-1：分组二级图标改为切换列表过滤（再点回「全部」），不再各弹选择层。
         self.assertEqual(d._project_group, 'making')
         self.assertTrue(any(Path(p['path']) == d.root for p in d._picker_items), '当前项目应在在制作组里')
         making_paths = sorted(p['path'] for p in d.projects.info['projects']
                               if p.get('status', 'making') == 'making')
         self.assertEqual(sorted(p['path'] for p in d._picker_items), making_paths)
-        d.set_project_group('completed')
-        self.assertEqual(d._project_group, 'completed')
-        self.assertEqual(d.project_group_buttons['completed'].cget('style'), 'Selected.RailIcon.TButton')
-        self.assertEqual(d.project_group_buttons['making'].cget('style'), 'RailIcon.TButton')
-        completed_paths = sorted(p['path'] for p in d.projects.info['projects']
-                                 if p.get('status', 'making') == 'completed')
-        self.assertEqual(sorted(p['path'] for p in d._picker_items), completed_paths)
-        # R2946：点分组图标＝切组＋弹出该组项目选择层；两组各弹各的列表。
-        posted = []
-        real_post = d._post_project_picker
-        d._post_project_picker = lambda state=None: posted.append(d._project_group)
+        if getattr(d, '_sidebar_expand_kind', None) != 'project':
+            d.project_button.invoke(); self.pump()
         try:
-            d.project_group_buttons['making'].invoke()
-            self.assertEqual(posted, ['making'], '点「在制作」图标要弹选择层')
             d.project_group_buttons['completed'].invoke()
-            self.assertEqual(posted, ['making', 'completed'], '点「已完成」图标也要弹')
+            self.assertEqual(d._project_group, 'completed')
+            self.assertEqual(d.project_group_buttons['completed'].cget('style'), 'Selected.RailIcon.TButton')
+            self.assertEqual(d.project_group_buttons['making'].cget('style'), 'RailIcon.TButton')
+            completed_paths = sorted(p['path'] for p in d.projects.info['projects']
+                                     if p.get('status', 'making') == 'completed')
+            self.assertEqual(sorted(p['path'] for p in d._picker_items), completed_paths)
+            d.project_group_buttons['making'].invoke()
+            self.assertEqual(d._project_group, 'making')
+            self.assertEqual(sorted(p['path'] for p in d._picker_items), making_paths)
+            # 再点当前分组回到「全部」：状态点此时区分在制作／已完成。
+            d.project_group_buttons['making'].invoke()
+            self.assertEqual(d._project_group, 'all')
+            all_paths = sorted(p['path'] for p in d.projects.info['projects'])
+            self.assertEqual(sorted(p['path'] for p in d._picker_items), all_paths)
         finally:
-            d._post_project_picker = real_post
-        self.assertEqual(d._project_group, 'completed')
+            if getattr(d, '_sidebar_expand_kind', None) == 'project':
+                d.project_button.invoke(); self.pump()
         # 选择层真开一次：浮层里有「●」标当前项目的行，点外部即关。
+        # REQ-UI-SIDEBAR-1：分组钮收在二级列里，开层前先展开二级列让锚点可见。
         d.set_project_group('making', popup=True); self.pump()
         top = getattr(d, '_sidebar_popup_win', None)
         self.assertIsNotNone(top, '点分组图标要弹出项目选择层')
@@ -217,6 +238,8 @@ class CompactDesktopGeometryTests(unittest.TestCase):
         self.assertTrue(any(t.startswith('● ') for t in labels), '选择层里当前项目带 ● 标记')
         d._close_sidebar_popup(); self.pump()
         self.assertIsNone(getattr(d, '_sidebar_popup_win', None), '点外部后选择层收起')
+        if getattr(d, '_sidebar_expand_kind', None) == 'project':
+            d.project_button.invoke(); self.pump()   # REQ-UI-SIDEBAR-1：收起项目二级列
         # R2962：文件栏迁为右侧停靠面板，默认隐藏；断言列表内容前先打开并等渐进批次。
         expected_categories = {'setting', 'outline', 'character', 'script'}
         d.files_panel.open_panel()
@@ -248,12 +271,14 @@ class CompactDesktopGeometryTests(unittest.TestCase):
         d = self.desktop
         # 把窗口挪到副屏坐标系（隐藏测试桌面坐标是虚拟的，直接给几何即可）。
         self.win.geometry('+2500+80'); self.pump()
+        # REQ-UI-SIDEBAR-1：分组钮收在二级列里，选择层统一锚在常驻的「项目」主图标上。
         try:
             with mock.patch('desktop_page_nav.monitor_bounds', return_value=(1920, 0, 3840, 1080)):
                 d.set_project_group('making', popup=True); self.pump()
                 top = getattr(d, '_sidebar_popup_win', None)
                 self.assertIsNotNone(top, '点分组图标要弹出项目选择层')
-                anchor = d.project_group_buttons['making']
+                anchor = d.project_button
+                self.assertTrue(anchor.winfo_ismapped(), '锚点须在侧栏里可见')
                 self.assertGreaterEqual(anchor.winfo_rootx(), 1920)
                 self.assertGreaterEqual(top.winfo_rootx(), 1920,
                                         '副屏上的选择层不得被钳回主屏（旧代码按主屏宽度钳位）')
@@ -261,6 +286,249 @@ class CompactDesktopGeometryTests(unittest.TestCase):
                                        msg='选择层应贴在锚点正下方')
         finally:
             d._close_sidebar_popup(); self.pump()
+
+
+class SidebarExpandColumnTests(unittest.TestCase):
+    """REQ-UI-SIDEBAR-1：侧栏项目入口合并、二级图标列与项目名称列表（UX-SIDEBAR-PROJECT）。
+
+    隐藏桌面真 Tk：项目主图标展开/收起二级列、二级图标驱动分组与原动作、
+    项目名称列表的过滤/高亮/切换/高度钳制、资产管理的二级图标列、
+    以及右侧文件图标列与侧栏共用 ExpandIconColumn 部件。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.win = tk_test_support.make_root()
+        cls.temp = tempfile.TemporaryDirectory()
+        app, cls.project = startup_fixtures.DesktopStartupPerfTests._startup_app(
+            cls.temp.name, remembered=True)
+        cls.desktop = Desktop(cls.win, root=app)
+        cls.pump(0.2, idle_first=True)
+
+    @classmethod
+    def pump(cls, seconds=0.05, idle_first=False):
+        tk_test_support.pump(cls.win, seconds, idle_first=idle_first)
+
+    def setUp(self):
+        # invoke 是开关式：每条用例进来前保证二级列处于收起态，断言才确定。
+        d = self.desktop
+        if getattr(d, '_sidebar_expand_kind', None) == 'project':
+            d.project_button.invoke()
+            self.pump()
+
+    @classmethod
+    def tearDownClass(cls):
+        try:
+            startup_fixtures.cancel_timers(cls.desktop)
+        except Exception:
+            pass
+        try:
+            cls.win.destroy()
+        except Exception:
+            pass
+        cls.temp.cleanup()
+
+    def test_project_button_expands_and_collapses_secondary_column(self):
+        d = self.desktop
+        column = getattr(d, '_project_expand_column', None)
+        self.assertIsNotNone(column, '缺少项目二级图标列（REQ-UI-SIDEBAR-1）')
+        frame = column.frame
+        # 初始收起：列不占位
+        self.assertFalse(frame.winfo_ismapped())
+        # 展开：列出现在侧栏右侧
+        d.project_button.invoke()
+        self.pump()
+        self.assertTrue(frame.winfo_ismapped())
+        self.assertGreaterEqual(
+            frame.winfo_rootx(),
+            d.sidebar_area.winfo_rootx() + d.sidebar_area.winfo_width() - 1)
+        self.assertLessEqual(
+            frame.winfo_rootx() + frame.winfo_width(),
+            d.body.winfo_rootx() + 1)
+        # 四个原项目入口都在二级列里
+        for key in ('making', 'completed'):
+            self.assertIn(key, d.project_group_buttons)
+        for button in (d.project_new_button, d.project_open_button):
+            self.assertTrue(button.winfo_ismapped())
+        # 键盘可达：二级列每颗钮可 Tab 聚焦、绑上下键与 Enter。
+        # 伪造键盘事件在本仓库不可靠（见 test_final_viewer 第 56 期注记），
+        # 这里断言绑定与 takefocus 真实存在，触发路径由各自动作测试覆盖。
+        rail_buttons = [*d.project_group_buttons.values(),
+                        d.project_new_button, d.project_open_button]
+        for button in rail_buttons:
+            self.assertTrue(button.bind('<Up>'), '二级图标缺少上键绑定')
+            self.assertTrue(button.bind('<Down>'), '二级图标缺少下键绑定')
+            self.assertTrue(button.bind('<Return>'), '二级图标缺少 Enter 绑定')
+            self.assertTrue(int(button.cget('takefocus') or 0),
+                            '二级图标不可 Tab 聚焦')
+        # 再点主图标收起
+        d.project_button.invoke()
+        self.pump()
+        self.assertFalse(frame.winfo_ismapped())
+        # 点空白收起
+        d.project_button.invoke()
+        self.pump()
+        d.body.event_generate('<Button-1>', x=4, y=4)
+        self.pump()
+        self.assertFalse(frame.winfo_ismapped())
+        # Esc 收起（隐藏桌面上后建的 Tk 根无焦点，按键事件只经焦点窗口投递，
+        # 先 focus_force 再合成，与 test_hover_card_states 同一惯例）
+        d.project_button.invoke()
+        self.pump()
+        self.win.focus_force()
+        self.win.event_generate('<Escape>')
+        self.pump()
+        self.assertFalse(frame.winfo_ismapped())
+
+    def test_secondary_icons_drive_group_filter_and_original_actions(self):
+        d = self.desktop
+        d.project_button.invoke()
+        self.pump()
+        # 在制作 → 已完成 → 全部 → 在制作
+        d.project_group_buttons['completed'].invoke()
+        self.pump()
+        self.assertEqual(d._project_group, 'completed')
+        self.assertEqual(d.project_group_buttons['completed'].cget('style'),
+                         'Selected.RailIcon.TButton')
+        self.assertEqual(d.project_group_buttons['making'].cget('style'),
+                         'RailIcon.TButton')
+        d.project_group_buttons['completed'].invoke()
+        self.pump()
+        self.assertEqual(d._project_group, 'all')
+        d.project_group_buttons['making'].invoke()
+        self.pump()
+        self.assertEqual(d._project_group, 'making')
+        # 新建／打开目录复用原动作，动作后收起二级列
+        with mock.patch.object(d, 'new') as m_new, \
+                mock.patch.object(d, 'open_current_project') as m_open:
+            d.project_new_button.invoke()
+            m_new.assert_called_once_with()
+            self.assertFalse(d._project_expand_column.frame.winfo_ismapped())
+            d.project_button.invoke()
+            self.pump()
+            d.project_open_button.invoke()
+            m_open.assert_called_once_with()
+
+    def test_project_name_list_rows_filter_highlight_and_pick(self):
+        d = self.desktop
+        lst = getattr(d, 'project_name_list', None)
+        self.assertIsNotNone(lst, '缺少项目名称列表（REQ-UI-SIDEBAR-1）')
+        tree = lst.table.tree
+        self.pump()
+        rows = tree.get_children()
+        expected = len(getattr(d, '_picker_items', []))
+        self.assertEqual(len(rows), expected)
+        # 每行：状态点前缀（● 在制作／○ 已完成）
+        for iid in rows:
+            self.assertRegex(str(tree.item(iid, 'text')), r'^[●○] ')
+        # 当前项目高亮
+        current = [i for i in rows if 'current' in tree.item(i, 'tags')]
+        if getattr(d, 'root', None) is not None:
+            self.assertTrue(current, '当前项目没有高亮行')
+            self.assertEqual(Path(current[0]), Path(d.root))
+        # 搜索框过滤：<KeyRelease> 绑定须存在；伪造键盘事件不可靠，直接走 refresh。
+        self.assertTrue(lst.search.bind('<KeyRelease>'), '搜索框缺少键盘过滤绑定')
+        lst.search.delete(0, 'end')
+        lst.search.insert(0, '不存在的项目名xyz')
+        lst.refresh()
+        self.pump()
+        self.assertEqual(tree.get_children(), ())
+        self.assertTrue(lst.table.empty_label.winfo_ismapped())
+        lst.search.delete(0, 'end')
+        lst.refresh()
+        self.pump()
+        self.assertEqual(len(tree.get_children()), expected)
+        # 键盘：Enter 触发切换，走 request_project_switch（绑定须存在，处理器直调）
+        self.assertTrue(tree.bind('<Return>'), '项目行缺少 Enter 绑定')
+        # 夹具只有当前一个项目；补一条登记项让「切到别的项目」路径可判定。
+        fake = {'name': '键盘切换目标',
+                'path': str(d.root.parent / '键盘切换目标_x')}
+        d.projects.info['projects'].append(fake)
+        try:
+            d._sync_project_picker()
+            self.pump()
+            targets = [i for i in tree.get_children()
+                       if Path(i) != Path(getattr(d, 'root', '') or '')]
+            self.assertTrue(targets, '补登记后应有可切换的非当前项目行')
+            tree.selection_set(targets[0])
+            with mock.patch.object(d, 'request_project_switch') as m_switch:
+                lst._activate_selected()
+                self.pump()
+                m_switch.assert_called_once_with(targets[0])
+        finally:
+            d.projects.info['projects'].remove(fake)
+            d._sync_project_picker()
+            self.pump()
+
+    def test_project_list_height_clamps_and_three_widths_fit(self):
+        d = self.desktop
+        lst = getattr(d, 'project_name_list', None)
+        self.assertIsNotNone(lst)
+        tree = lst.table.tree
+        for width, height in ((942, 1032), (800, 600), (990, 632)):
+            self.win.geometry('%dx%d+100+100' % (width, height))
+            self.pump()
+            self.assertLessEqual(d.project_block.winfo_width(),
+                                 d.sidebar_area.winfo_width() + 1)
+            self.assertLessEqual(tree.winfo_width(),
+                                 d.project_block.winfo_width() + 1)
+            self.assertGreaterEqual(int(tree.cget('height')), 3,
+                                    '项目列表最少显示 3 行')
+        self.win.geometry('942x1032+100+100')
+        self.pump()
+
+    def test_assets_nav_opens_secondary_icon_column(self):
+        d = self.desktop
+        d.show(PAGE['assets'])
+        self.pump()
+        d.nav[PAGE['assets']].invoke()
+        self.pump()
+        top = getattr(d, '_sidebar_popup_win', None)
+        self.assertIsNotNone(top, '点资产管理要在右侧展开二级图标列')
+        buttons = [w for w in widget_list(top, (ttk.Button, tk.Button))
+                   if str(w.cget('text')) == '资产清单']
+        self.assertEqual(len(buttons), 1, '二级列里只有「资产清单」一项')
+        self.assertEqual(getattr(buttons[0], '_rail_icon_name', ''), 'asset_list')
+        # 弹层贴在侧栏右缘
+        self.assertGreaterEqual(
+            top.winfo_rootx(),
+            d.sidebar_area.winfo_rootx() + d.sidebar_area.winfo_width() - 2)
+        # 再点图标收起并回资产管理主页
+        d.nav[PAGE['assets']].invoke()
+        self.pump()
+        self.assertIsNone(getattr(d, '_sidebar_popup_win', None))
+        # 展开后点「资产清单」走原 open_asset_roster 动作
+        d.nav[PAGE['assets']].invoke()
+        self.pump()
+        top = getattr(d, '_sidebar_popup_win', None)
+        self.assertIsNotNone(top)
+        buttons = [w for w in widget_list(top, (ttk.Button, tk.Button))
+                   if str(w.cget('text')) == '资产清单']
+        self.assertEqual(len(buttons), 1)
+        with mock.patch.object(d, 'open_asset_roster') as m_roster:
+            buttons[0].invoke()
+            self.pump()
+            m_roster.assert_called_once_with()
+        self.assertIsNone(getattr(d, '_sidebar_popup_win', None))
+
+    def test_files_panel_stage_rail_shares_expand_column(self):
+        """右侧文件图标列与侧栏二级列共用 ExpandIconColumn 部件。"""
+        from ui.desktop_expand_column import ExpandIconColumn
+        d = self.desktop
+        panel = getattr(d, 'files_panel', None)
+        self.assertIsNotNone(panel)
+        column = getattr(panel, '_rail_column', None)
+        self.assertIsInstance(column, ExpandIconColumn,
+                              '右侧图标列没有复用 ExpandIconColumn')
+        for stage, button in getattr(panel, 'stage_buttons', {}).items():
+            self.assertTrue(getattr(button, '_rail_icon_name', ''),
+                            '阶段图标缺少 _rail_icon_name: %s' % stage)
+        self.assertEqual(getattr(panel, 'library_button', None) is not None
+                         and panel.library_button._rail_icon_name,
+                         'library')
+        self.assertEqual(getattr(panel, 'recycle_button', None) is not None
+                         and panel.recycle_button._rail_icon_name,
+                         'recycle')
 
 
 if __name__ == '__main__':unittest.main()

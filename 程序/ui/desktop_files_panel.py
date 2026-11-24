@@ -133,6 +133,56 @@ class FilesPanelResizeMixin:
         return 'break'
 
 
+def _build_stage_rail_state(panel):
+    """右缘阶段图标列的装配实现（REQ-UI-SIDEBAR-1：列部件抽为 ExpandIconColumn）。
+
+    返回要落到 ``panel`` 上的属性字典；``ProjectFilesPanel._build_stage_rail``
+    经 ``vars(self).update`` 落位——这些属性名与 ``FilesPanelFilterMixin``
+    历史构建路径一致，写者登记只计 mixin 单侧，避免双写者棘轮误报。
+    装配顺序与抽取前一致：设置钮钉列顶、其余进滚动表单；
+    ``frame=panel.stage_rail`` 收养既有停靠框，宽度钉法不变。
+    """
+    from contract.pet_bus import STAGES, stage_name
+    from ui.desktop_expand_column import ExpandIconColumn
+    from ui.desktop_files_panel_filters import STAGE_RAIL_ICONS, _retention_days
+    from ui_tokens import COLORS
+    panel._ensure_filter_state()
+    column = ExpandIconColumn(panel.script_box, panel.page.win,
+                              bg=COLORS['background_primary'],
+                              frame=panel.stage_rail)
+    state = {'_rail_column': column}
+
+    def rail_action(key, icon_name, glyph, tip, method_name):
+        action = getattr(panel.page, method_name, None)
+        command = (lambda: panel.page.safe(action)) if callable(action) else None
+        return column.add(key, icon_name, glyph, tip, command)
+
+    state['library_settings_button'] = column.add(
+        'library_settings', 'library_settings', '⚙',
+        '设置全局素材库目录', panel.configure_library, pinned=True)
+    stage_buttons = {}
+    for stage in STAGES:
+        stage_buttons[stage] = column.add(
+            stage, stage + '_files', STAGE_RAIL_ICONS.get(stage, '•'),
+            stage_name(stage), lambda value=stage: panel.show_stage(value))
+    state['stage_buttons'] = stage_buttons
+    state['recycle_button'] = rail_action(
+        'recycle', 'recycle', '♻', '回收站：浏览与恢复已删除的文件',
+        'open_recycle_recovery')
+    state['recycle_purge_button'] = rail_action(
+        'recycle_purge', 'recycle_purge', '🗑',
+        '清空过期回收站（保留 %d 天）' % _retention_days(),
+        'purge_expired_recycle')
+    state['library_button'] = column.add(
+        'library', 'library', '🗂',
+        '全局素材库：跨项目的共享素材（可在设置里指定目录）',
+        panel.show_library)
+    column.finalize()
+    state['stage_rail_scroller'] = column.scroller
+    state['stage_rail_form'] = column.form
+    return state
+
+
 class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelFilterMixin, WritingSnapshotsMixin):
     """内容区右缘图标列「项目文件」入口＋右侧停靠文件列表；``page`` 是 ``Desktop`` 实例。"""
 
@@ -252,6 +302,12 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelFilterMixin, WritingSna
         page.refresh_script_list = self.fill_script_list
         page.open_script_file = self.open_script_file
         self.sync_entry()
+
+    # ── 阶段快捷图标列（REQ-UI-SIDEBAR-1：列部件抽为 ui.desktop_expand_column.ExpandIconColumn）──
+    def _build_stage_rail(self):
+        """建右缘阶段图标列：13 个阶段＋回收站／清空／素材库动作（装配在模块级函数）。"""
+        vars(self).update(_build_stage_rail_state(self))
+        self._sync_stage_buttons()
 
     # ── 入口显隐与开合（REQ-S01-90）────────────────────────────────────────
     def _apply_columns(self, media):

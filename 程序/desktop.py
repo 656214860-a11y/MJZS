@@ -249,7 +249,9 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         win.minsize(DESKTOP_LAYOUT['min_width'],DESKTOP_LAYOUT['min_height']);apply_theme(win);setup_styles(win);install_window_placement(win)
         self._build_sidebar(win)
         side=self.sidebar
-        # 项目区收成三行图标控件：分组筛选、项目选择器、新建/打开目录（R2897 图标轨改版，构建在 ProjectPagesMixin）。
+        # REQ-UI-SIDEBAR-1：项目二级图标列的停靠宿主——常驻空条（约 0px），展开时才装图标列。
+        self.sidebar_expand=ttk.Frame(win);self.sidebar_expand.pack(side='left',fill='y')
+        # 项目区＝单个「项目」图标＋项目名称列表；四个原入口收进右侧二级列（REQ-UI-SIDEBAR-1）。
         self._build_project_rail(side)
         ttk.Separator(side).pack(fill='x',pady=DESKTOP_LAYOUT['section_gap'])
         self.nav=[]

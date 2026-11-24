@@ -255,9 +255,11 @@ class PageNavMixin:
         if pending is not None:
             self.win.after_cancel(pending)
             self._navigation_job=None
-        # 换页先收掉侧栏选择浮层（项目选择层／资产清单层），避免旧列表浮在新页面上。
+        # 换页先收掉侧栏选择浮层与项目二级列（REQ-UI-SIDEBAR-1），避免旧列表浮在新页面上。
         close_popup=getattr(self,'_close_sidebar_popup',None)
         if callable(close_popup):close_popup()
+        close_expand=getattr(self,'_close_sidebar_expand',None)
+        if callable(close_expand):close_expand()
         from ui.video_navigation import hide_back
         hide_back(self)
         # 同一页重建（切换分镜、刷新列表、自动流程刷新）保留原来的滚动位置：
@@ -384,17 +386,36 @@ class PageNavMixin:
     # ── 侧栏图标弹出选择层（第 R2946 期）────────────────────────────────────
     # 「05 资产管理」的二级入口「资产清单」与项目分组的项目列表都走这一个弹层：
     # 无边框 Toplevel 贴在图标下方，点外部／Esc／选中即关；锚点本身的点击放行给按钮。
-    def _open_sidebar_popup(self,anchor,fill):
-        """在 ``anchor`` 按钮下方开一层选择浮层；``fill(body)`` 负责填内容。返回 Toplevel。"""
+    def _open_sidebar_popup(self,anchor,fill,placement='below'):
+        """在 ``anchor`` 旁开一层选择浮层；``fill(body)`` 负责填内容。返回 Toplevel。
+
+        ``placement='right'``（REQ-UI-SIDEBAR-1）时贴锚点所在停靠列的右缘，
+        用于「点击后在右侧展开一列隐藏图标」；摆不下时依次退到锚点左侧、再退到下方。
+        """
+        close_expand=getattr(self,'_close_sidebar_expand',None)
+        if callable(close_expand):close_expand()
         self._close_sidebar_popup()
         top=Flyout(self.win)
         fill(top.body)
         top.update_idletasks()
         width=top.winfo_reqwidth();height=top.winfo_reqheight()
-        x=anchor.winfo_rootx();y=anchor.winfo_rooty()+anchor.winfo_height()+2
+        if placement=='right':
+            edge=anchor
+            try:
+                while edge.master is not None and edge.master is not self.win:
+                    edge=edge.master
+            except tk.TclError:
+                edge=anchor
+            x=edge.winfo_rootx()+edge.winfo_width();y=anchor.winfo_rooty()
+        else:
+            x=anchor.winfo_rootx();y=anchor.winfo_rooty()+anchor.winfo_height()+2
         # 钳位必须落在锚点所在显示器：winfo_screenwidth 只给主屏尺寸，
         # 主窗在副屏时旧写法会把浮层拽回主屏（R2950 修复「点了图标看不到弹层」）。
         left,stop,right,sbottom=monitor_bounds(self.win,x,y)
+        if placement=='right' and x+width>right-4:
+            alt=anchor.winfo_rootx()-width-2
+            if alt>=left+4:x=alt
+            else:x=anchor.winfo_rootx();y=anchor.winfo_rooty()+anchor.winfo_height()+2
         if x+width>right-4:x=max(left+4,right-4-width)
         if y+height>sbottom-4:y=max(stop+4,anchor.winfo_rooty()-height-2)
         top.geometry('%dx%d+%d+%d'%(width,height,x,y))
@@ -463,16 +484,22 @@ class PageNavMixin:
             self.go_page(PAGE['assets']);return
         self._open_asset_flyout()
     def _open_asset_flyout(self):
-        """「05 资产管理」下的二级入口「资产清单」——一页看完每个角色的正典板与换状态面板。"""
+        """「05 资产管理」的二级入口「资产清单」——REQ-UI-SIDEBAR-1：点击后在侧栏右侧
+        展开一列隐藏图标，与右侧文件图标列共用 ``ExpandIconColumn`` 部件。"""
         buttons=getattr(self,'nav',None)
         if buttons is None or len(buttons)<=PAGE['assets']:return
         anchor=buttons[PAGE['assets']]
         if anchor is None or not anchor.winfo_exists():return
-        image=IconLoader.nav_icon(self.win,ASSET_ROSTER_ICON)
+        from ui.desktop_expand_column import ExpandIconColumn
         def fill(body):
-            SecondaryButton(body,text='资产清单',image=image,compound='left',
-                            command=lambda:(self._close_sidebar_popup(),self.safe(self.open_asset_roster))).pack(fill='x')
-        self._open_sidebar_popup(anchor,fill)
+            column=ExpandIconColumn(body,self.win,scrollbar=False,
+                                    hug_height=True,keys=True)
+            column.frame.pack(fill='x')
+            column.add('asset_roster',ASSET_ROSTER_ICON,'','资产清单',
+                       lambda:(self._close_sidebar_popup(),self.safe(self.open_asset_roster)),
+                       label='资产清单')
+            column.finalize()
+        self._open_sidebar_popup(anchor,fill,placement='right')
     def _open_rail_settings(self):
         """图标轨末尾的设置钮（第 R2946 期）：走三虎既有设置 hub，pet.act 保持原语义。"""
         pet=getattr(self,'pet',None)
@@ -488,8 +515,11 @@ class PageNavMixin:
         state=state or getattr(self,'_project_group','making')
         button=getattr(self,'project_group_buttons',{}).get(state)
         if button is None or not button.winfo_exists():return
+        # REQ-UI-SIDEBAR-1：分组钮收在按需展开的二级列里，开浮层会先把它收起；
+        # 选择层统一锚在常驻的「项目」主图标上，位置才稳定。
+        anchor=getattr(self,'project_button',None) or button
         top=getattr(self,'_sidebar_popup_win',None)
-        if top is not None and top.winfo_exists() and getattr(self,'_sidebar_popup_anchor',None) is button:
+        if top is not None and top.winfo_exists() and getattr(self,'_sidebar_popup_anchor',None) is anchor:
             self._close_sidebar_popup();return
         items=list(getattr(self,'_picker_items',()))
         root=getattr(self,'root',None)
@@ -507,7 +537,7 @@ class PageNavMixin:
             ttk.Separator(body).pack(fill='x',pady=(SPACING['xs'],SPACING['xs']))
             manage=self._popup_row(body,'项目管理…')
             manage.bind('<Button-1>',lambda event:self._popup_manage_projects())
-        self._open_sidebar_popup(button,fill)
+        self._open_sidebar_popup(anchor,fill)
     def _popup_row(self,body,text):
         """选择层里的一行项目：tk.Label 承载，悬停换底色、单击选择、右键出项目菜单。"""
         row=tk.Label(body,text=text,bg=COLORS['background_primary'],fg=COLORS['text_primary'],
