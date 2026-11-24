@@ -383,6 +383,9 @@ def main(argv=None) -> int:
     aligned = rebase_onto_master(args.branch)
     if aligned:
         return aligned
+    if _git("merge-base", "--is-ancestor", args.branch, "master").returncode == 0:
+        print("分支 %s 已含于 master，无需合入。" % args.branch)
+        return 0
     # 出口 CI 在车道工作树跑完再动主干。主干上只留合并、等锁、领号、提交。
     code = run_branch_exit_ci(args.branch)
     if code:
@@ -416,6 +419,9 @@ def _merge_locked(args) -> int:
             print("合并未能开始，或现场属于其他会话的合并（MERGE_HEAD 不匹配），未领号、未动现场：\n" + detail,
                   file=sys.stderr)
         return 1
+    if not merge_in_progress():
+        print("分支 %s 已含于 master，本次 merge 未产生合并内容，未领号。" % args.branch)
+        return 0
     # 出口 CI 已在占主干之前跑完。这里只等验收锁再领号。
     # CI 通过后才等锁再领号：等锁超时与提交失败都发生在领号之前，不再白白烧轮次号。
     if not commit_round.wait_for_lock(commit_round.common_dir(), 30 * 60):
