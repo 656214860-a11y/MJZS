@@ -1,0 +1,15 @@
+{
+  "round": 4390,
+  "commit_base": "a30b9f3b7",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k notification_boundary asset_detail asset_versions",
+    "exit": 0,
+    "passed": 97,
+    "failed": 0
+  },
+  "generated_at": "2026-11-25T03:28:46"
+}

@@ -414,6 +414,29 @@ class OperationCompletionTests(unittest.TestCase):
         refresh.assert_not_called()
         desktop.status.set.assert_not_called()
 
+    def test_restore_failure_notice_goes_through_user_text(self):
+        """EC-3：退回失败的提示文字必须经 error_codes.user_text(exc)，不直接渲染异常原文。"""
+        from types import SimpleNamespace
+        from contract import error_codes
+        from domain import asset_versions
+        failure = ValueError('plain english failure without any chinese')
+        desktop = SimpleNamespace(win=None, status=mock.Mock(),
+                                  asset_requirements=lambda: {'CHAR_001': {}},
+                                  asset_base=lambda: None)
+        calls = []
+        records = [{'version': 1, 'kind': 'text', 'before': {},
+                    'after': {'description': 'v1'}}]
+        with mock.patch.object(asset_detail, 'ask_confirmation', return_value=True), \
+                mock.patch.object(asset_versions, 'restore_version', side_effect=failure), \
+                mock.patch.object(asset_detail, 'notify',
+                                  lambda *a, **k: calls.append((a, k))):
+            result = asset_detail.restore_to_version(desktop, 'CHAR_001', 1, records=records)
+        self.assertIsNone(result)
+        self.assertEqual(len(calls), 1)
+        text = calls[0][0][1]
+        self.assertNotEqual(text, str(failure))
+        self.assertEqual(text, error_codes.user_text(failure))
+
 
 class AnchorTests(_Harness):
     def test_picking_a_candidate_records_and_keeps_success_feedback(self):

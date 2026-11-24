@@ -25,6 +25,7 @@ from tkinter import messagebox, ttk
 
 import ui.asset_thumbs as asset_thumbs
 from agent.core import read
+from contract import error_codes
 from contract.platform_tools import open_path
 from responsive_ui import FlowBar
 from ui.ui_dialogs import FileDialog
@@ -790,7 +791,7 @@ def restore_to_version(desktop, aid, n, records=None):
         record = asset_versions.restore_version(base, aid, n,
                                                 gateway=asset_batch_gateway())
     except (ValueError, TypeError) as exc:
-        notify(desktop.win, str(exc), level='error', title='无法退回',
+        notify(desktop.win, error_codes.user_text(exc), level='error', title='无法退回',
                status=desktop.status, modal=False)
         return None
     _complete(desktop, aid, '已退回第 %d 版（当前内容已覆盖，旧记录一条没删）' % n)
