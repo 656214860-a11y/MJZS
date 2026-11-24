@@ -72,7 +72,7 @@ CLASS_CAPS = {
     ('skill_panel.py', 'Panel'): 646,  # R2942：阶段配置按钮工厂删除后实测 631，登记 646
     ('pet_ui_stages.py', 'PetStagesMixin'): 1161,  # R3614：实测 1146，保留 15 行余量
     ('pet_ui_voice.py', 'PetVoiceMixin'): 1119,
-    ('desktop_media_pages.py', 'MediaPagesMixin'): 890,
+    ('desktop_media_pages.py', 'MediaPagesMixin'): 885,
     ('pet_ui_view.py', 'PetViewMixin'): 732,  # R2933：猫爪列迁入侧栏 pet_dock 后实测 717，登记 732
     ('engine.py', 'Studio'): 735,
     ('skill_orchestrator.py', 'Orchestrator'): 719,

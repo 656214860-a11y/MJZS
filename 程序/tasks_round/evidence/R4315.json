@@ -1,15 +1,15 @@
 {
   "round": 4315,
-  "commit_base": "4925bdec9",
+  "commit_base": "877f987d3",
   "credential_scan": {
     "ran": true,
     "hits": []
   },
   "targeted": {
-    "cmd": "run_selftests.py -k ui_edges_autopilot",
+    "cmd": "run_selftests.py -k complexity_ratchet http_boundary platform_process_boundary",
     "exit": 0,
-    "passed": 36,
+    "passed": 15,
     "failed": 0
   },
-  "generated_at": "2026-11-24T18:31:16"
+  "generated_at": "2026-11-24T18:39:02"
 }
