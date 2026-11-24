@@ -277,7 +277,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
             # 页内切分镜、刷新列表仍直接调 show()。
             # 第 R2933 期：编号撤掉，导航只留图标（PNG 缺失退回编号文字）；
             # 完整阶段名走悬停 Tooltip，页标题仍显示「NN  名称」。
-            image=IconLoader.nav_icon(win,PAGE_NAV_ICONS.get(i))
+            image=IconLoader.nav_icon(win,PAGE_NAV_ICONS.get(i),size=ui_tokens.NAV_PRIMARY_ICON_SIZE)
             # 第 R2946 期：「05 资产管理」不再直接进页——点它弹「资产清单」二级选择层，
             # 选择层开着时再点才进资产管理主页（见 _assets_nav_toggle）。
             command=self._assets_nav_toggle if i==PAGE['assets'] else (lambda n=i:self.go_page(n))
@@ -286,15 +286,15 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
                               width=0,command=command,style='RailIcon.TButton')
             b._nav_icon_name=PAGE_NAV_ICONS.get(i)
             b._nav_tooltip=Tooltip(b,page_title(i))
-            b.pack(anchor='w',pady=(SPACING['none'],DESKTOP_LAYOUT['nav_gap']));self.nav.append(b)
+            b.pack(anchor='w',padx=(DESKTOP_LAYOUT['nav_primary_inset'],SPACING['none']),pady=(SPACING['none'],DESKTOP_LAYOUT['nav_gap']));self.nav.append(b)
         # 第 R2946 期：设置入口并入图标轨末尾（与 00–14 同列同款）；不进 self.nav，
         # 翻页键与阶段页序号不受影响。点击开三虎设置hub（pet.act 走既有通路）。
-        settings_image=IconLoader.nav_icon(win,'settings')
+        settings_image=IconLoader.nav_icon(win,'settings',size=ui_tokens.NAV_PRIMARY_ICON_SIZE)
         self.settings_rail_button=SecondaryButton(side,text='',image=settings_image,
             compound='image' if settings_image is not None else 'text',
             width=0,command=self._open_rail_settings,style='RailIcon.TButton')
         self.settings_rail_button._nav_tooltip=Tooltip(self.settings_rail_button,'设置')
-        self.settings_rail_button.pack(anchor='w',pady=(SPACING['none'],DESKTOP_LAYOUT['nav_gap']))
+        self.settings_rail_button.pack(anchor='w',padx=(DESKTOP_LAYOUT['nav_primary_inset'],SPACING['none']),pady=(SPACING['none'],DESKTOP_LAYOUT['nav_gap']))
         # 侧栏内容按自然高度依次 pack；超出视口的部分由外层 ScrollForm 滚动。
         self.sidebar_size=None
         self.project_block.bind('<Configure>',self.schedule_sidebar_fit,add='+')

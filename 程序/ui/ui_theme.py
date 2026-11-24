@@ -43,6 +43,9 @@ def apply(win):
     s.configure('TLabel',background=BG,foreground=INK)
 
     s.configure('Muted.TLabel',foreground=COLORS['text_secondary'])
+    s.configure('SidebarProject.TLabel',background=COLORS['background_primary'],foreground=COLORS['text_primary'],font=FONTS['pet_body'])
+    s.configure('SidebarProjectMuted.TLabel',background=COLORS['background_primary'],foreground=COLORS['text_secondary'],font=FONTS['pet_body'])
+    s.configure('CardHeading.TLabel',background=COLORS['background_primary'],foreground=COLORS['text_primary'],font=FONTS['body_bold'])
     s.configure('Warn.TLabel',foreground=COLORS['warning_text'])
     s.configure('Expired.TLabel',foreground=COLORS['danger_text'])
     # 各设置页会随操作变化的说明统一用这一档：淡绿底区别于静态说明，

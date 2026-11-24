@@ -791,26 +791,15 @@ def _stage_view_request_index(panel, root, library=False):
 def _stage_view_index_render(panel, rows, categories, root, library, generation, context):
     """``_start_index_render`` 的跟随页变体：与原实现逐行同，仅分组来源换成 ``_index_groups``。"""
     panel._clear_index_tree()
-    panel.script_tree.configure(show='tree headings')
-    panel.script_tree.heading('#0', text='')
-    panel.script_tree.column('#0', width=files_panel_index.THUMB_SIZE + SPACING['xl'] * 2,
-                             stretch=False)
     panel.script_tree.tag_configure('missing', foreground=COLORS['text_muted'])
     groups = panel._index_groups(rows, library)
     panel._index_group_count = len(groups)
+    files_panel_index.configure_tree_leading_column(
+        panel.script_tree, groups, preview_width=PANEL_PREVIEW_COL_WIDTH)
     if len(groups) > 1:
         for group, label, _members in groups:
-            panel.script_tree.insert('', 'end', iid=group, open=True, values=(label, '', '', ''))
+            panel.script_tree.insert('', 'end', iid=group, open=True, values=(label, '', '', '', ''))
             panel.script_row_category[group] = '__file_group__'
-    # 只有一个分组时平铺文件行，不套分组父行；没有缩略图时去掉左侧列。
-    if len(groups) == 1:
-        from infra import file_index
-        has_thumb = any(
-            (row.kind in ('资产', '音频', '视频'))
-            or (Path(row.path).suffix.lower() in file_index.IMAGE_SUFFIXES)
-            for _group, _label, members in groups for row in members)
-        if not has_thumb:
-            panel.script_tree.configure(show='headings')
     if len(groups) == 1:
         pending = iter(('', row) for _group, _label, members in groups for row in members)
     else:

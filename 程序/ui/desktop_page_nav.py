@@ -15,7 +15,7 @@ from pathlib import Path
 from tkinter import ttk
 from ui.ui_icons import IconLoader
 from ui_popup import Flyout, monitor_bounds
-from ui_tokens import COLORS, DESKTOP_LAYOUT, FONTS, SPACING
+from ui_tokens import COLORS, DESKTOP_LAYOUT, FONTS, NAV_PRIMARY_ICON_SIZE, NAV_SECONDARY_ICON_SIZE, SPACING
 from ui_widgets import SecondaryButton, SelectBox, Tooltip
 
 
@@ -255,11 +255,14 @@ class PageNavMixin:
         if pending is not None:
             self.win.after_cancel(pending)
             self._navigation_job=None
-        # 换页先收掉侧栏选择浮层与项目二级列（REQ-UI-SIDEBAR-1），避免旧列表浮在新页面上。
+        # 换页先收掉侧栏选择浮层、项目悬停卡与项目二级列（REQ-UI-SIDEBAR-1），避免旧列表浮在新页面上。
         close_popup=getattr(self,'_close_sidebar_popup',None)
         if callable(close_popup):close_popup()
         close_expand=getattr(self,'_close_sidebar_expand',None)
         if callable(close_expand):close_expand()
+        project_list=getattr(self,'project_name_list',None)
+        if project_list is not None and callable(getattr(project_list,'close_card',None)):
+            project_list.close_card()
         from ui.video_navigation import hide_back
         hide_back(self)
         # 同一页重建（切换分镜、刷新列表、自动流程刷新）保留原来的滚动位置：
@@ -313,7 +316,7 @@ class PageNavMixin:
             assets_button=nav_buttons[PAGE['assets']]
             if assets_button is not None and assets_button.winfo_exists():
                 key=ASSET_ROSTER_ICON if getattr(self,'asset_roster',False) else PAGE_NAV_ICONS.get(PAGE['assets'])
-                image=IconLoader.nav_icon(self.win,key)
+                image=IconLoader.nav_icon(self.win,key,size=NAV_PRIMARY_ICON_SIZE)
                 if image is not None:
                     assets_button.configure(image=image)
                     assets_button._nav_icon_name=key
@@ -386,29 +389,32 @@ class PageNavMixin:
     # ── 侧栏图标弹出选择层（第 R2946 期）────────────────────────────────────
     # 「05 资产管理」的二级入口「资产清单」与项目分组的项目列表都走这一个弹层：
     # 无边框 Toplevel 贴在图标下方，点外部／Esc／选中即关；锚点本身的点击放行给按钮。
-    def _open_sidebar_popup(self,anchor,fill,placement='below'):
+    def _open_sidebar_popup(self,anchor,fill,placement='below',compact=False):
         """在 ``anchor`` 旁开一层选择浮层；``fill(body)`` 负责填内容。返回 Toplevel。
 
-        ``placement='right'``（REQ-UI-SIDEBAR-1）时贴锚点所在停靠列的右缘，
-        用于「点击后在右侧展开一列隐藏图标」；摆不下时依次退到锚点左侧、再退到下方。
+        ``placement='right'``（REQ-UI-SIDEBAR-1）时贴侧栏右缘、落在居中一级图标右侧，
+        用于「点击后在右侧展开一列缩小后的二级图标」；摆不下时依次退到锚点左侧、再退到下方。
         """
         close_expand=getattr(self,'_close_sidebar_expand',None)
         if callable(close_expand):close_expand()
+        project_list=getattr(self,'project_name_list',None)
+        if project_list is not None and callable(getattr(project_list,'close_card',None)):
+            project_list.close_card()
         self._close_sidebar_popup()
-        top=Flyout(self.win)
+        top=Flyout(self.win,compact=compact)
         fill(top.body)
         top.update_idletasks()
         width=top.winfo_reqwidth();height=top.winfo_reqheight()
         if placement=='right':
-            # 二级图标紧贴左移后的一级图标右侧，收在侧栏／项目列表框宽度内，不占聊天区。
+            # 二级图标缩小并贴侧栏右缘展开（在一级主图标右侧），收在侧栏宽度内，不占聊天区。
             anchor_right=anchor.winfo_rootx()+anchor.winfo_width()
-            x=anchor_right+2;y=anchor.winfo_rooty()
+            x=anchor_right+SPACING['xs']//2
+            y=anchor.winfo_rooty()+max(0,(anchor.winfo_height()-height)//2)
             sidebar=getattr(self,'sidebar_area',None)
             if sidebar is not None:
                 try:
                     limit=sidebar.winfo_rootx()+sidebar.winfo_width()
-                    if x+width>limit:
-                        x=max(anchor_right,limit-width)
+                    x=max(anchor_right,limit-width)
                 except tk.TclError:
                     pass
         else:
@@ -497,13 +503,14 @@ class PageNavMixin:
         from ui.desktop_expand_column import ExpandIconColumn
         def fill(body):
             column=ExpandIconColumn(body,self.win,scrollbar=False,
-                                    hug_height=True,keys=True)
+                                    hug_height=True,keys=True,
+                                    icon_size=NAV_SECONDARY_ICON_SIZE)
             column.frame.pack(fill='x')
             column.add('asset_roster',ASSET_ROSTER_ICON,'','资产清单',
                        lambda:(self._close_sidebar_popup(),self.safe(self.open_asset_roster)),
                        label='资产清单')
             column.finalize()
-        self._open_sidebar_popup(anchor,fill,placement='right')
+        self._open_sidebar_popup(anchor,fill,placement='right',compact=True)
     def _open_rail_settings(self):
         """图标轨末尾的设置钮（第 R2946 期）：走三虎既有设置 hub，pet.act 保持原语义。"""
         pet=getattr(self,'pet',None)

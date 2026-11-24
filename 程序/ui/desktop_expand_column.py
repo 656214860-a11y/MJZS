@@ -32,7 +32,7 @@ class ExpandIconColumn:
     Esc 由宿主（侧栏宿主绑定或浮层既有绑定）收起，不在本类重复处理。
     """
 
-    _OPTION_KEYS = frozenset(('bg', 'scrollbar', 'hug_height', 'keys', 'frame', 'columns'))
+    _OPTION_KEYS = frozenset(('bg', 'scrollbar', 'hug_height', 'keys', 'frame', 'columns', 'icon_size'))
 
     def __init__(self, parent, win, **opts):
         unknown = sorted(set(opts) - self._OPTION_KEYS)
@@ -47,6 +47,7 @@ class ExpandIconColumn:
         self._hug_height = opts.get('hug_height', False)
         self._keys = opts.get('keys', False)
         self._columns = max(1, int(opts.get('columns', 1)))
+        self._icon_size = opts.get('icon_size')
         self._scroller = None
         self.form = None
         self.buttons = {}
@@ -68,7 +69,12 @@ class ExpandIconColumn:
     def icon_button(self, parent, icon_name, glyph, tip, command, *,
                     label=None):
         """与 ``_make_rail_icon_button`` 同构：PNG 在用图、缺图退文字、记 _rail_icon_name。"""
-        image = IconLoader.nav_icon(self.win, icon_name) if icon_name else None
+        if icon_name:
+            image = (IconLoader.nav_icon(self.win, icon_name, size=self._icon_size)
+                     if self._icon_size is not None
+                     else IconLoader.nav_icon(self.win, icon_name))
+        else:
+            image = None
         text = label or glyph
         if image is not None:
             button = SecondaryButton(

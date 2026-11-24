@@ -7,18 +7,24 @@ from pathlib import Path
 from ui_tokens import COLORS
 
 _NAV_DIR = Path(__file__).resolve().parents[1] / 'assets' / 'nav'
-_NAV_IMAGES = []   # (PhotoImage, 源 PNG 路径)：切换主题时就地重染色
+_NAV_IMAGES = []   # (PhotoImage, 源 PNG 路径, 目标尺寸或 None)：切换主题时就地重染色
 
 
-def _tinted_png(path, color):
-    """把单色 PNG 图标染成 color 并保留透明度；没有 Pillow 或读不了时返回 None。"""
+def _tinted_png(path, color, size=None):
+    """把单色 PNG 图标染成 color 并保留透明度；可选高质量缩放到 size×size。"""
     try:
         import base64
         import io
         from PIL import Image
         image = Image.open(path).convert('RGBA')
-        tinted = Image.new('RGBA', image.size, color)
-        tinted.putalpha(image.getchannel('A'))
+        alpha = image.getchannel('A')
+        if size is not None:
+            target = (max(1, int(size)), max(1, int(size)))
+            if alpha.size != target:
+                resample = getattr(getattr(Image, 'Resampling', Image), 'LANCZOS', Image.BICUBIC)
+                alpha = alpha.resize(target, resample)
+        tinted = Image.new('RGBA', alpha.size, color)
+        tinted.putalpha(alpha)
         buffer = io.BytesIO()
         tinted.save(buffer, format='PNG')
         return base64.b64encode(buffer.getvalue())
@@ -26,8 +32,8 @@ def _tinted_png(path, color):
         return None
 
 
-def _nav_image(master, path):
-    data = _tinted_png(path, COLORS['text_primary'])
+def _nav_image(master, path, size=None):
+    data = _tinted_png(path, COLORS['text_primary'], size=size) if size is not None else _tinted_png(path, COLORS['text_primary'])
     if data is not None:
         try:
             return tk.PhotoImage(master=master, data=data)
@@ -39,13 +45,13 @@ def _nav_image(master, path):
 def retint_nav_icons():
     """主题切换后把已建的侧栏图标就地换成新主题的文字色；使用这些图的按钮无需重建。"""
     for entry in list(_NAV_IMAGES):
-        image, path = entry
-        data = _tinted_png(path, COLORS['text_primary'])
+        image, path, size = entry if len(entry) == 3 else (entry[0], entry[1], None)
+        data = _tinted_png(path, COLORS['text_primary'], size=size) if size is not None else _tinted_png(path, COLORS['text_primary'])
         if data is None:
             continue
         try:
             image.configure(data=data)
-        except tk.TclError:
+        except (tk.TclError, AttributeError):
             _NAV_IMAGES.remove(entry)
 
 
@@ -87,8 +93,8 @@ class IconLoader:
         return image
 
     @classmethod
-    def nav_icon(cls, master, name):
-        """返回 ``assets/nav/<name>.png`` 侧栏图标，按宿主与名称缓存；缺资源时返回 None。
+    def nav_icon(cls, master, name, *, size=None):
+        """返回 ``assets/nav/<name>.png`` 侧栏图标，按宿主、名称与目标尺寸缓存；缺资源时返回 None。
 
         PNG 由 ``scripts/build_nav_icons.py`` 用 Fluent System Icons（Filled，MIT）
         开发期栅格化，运行时不依赖字体或第三方库；页面只按语义名取图。
@@ -98,15 +104,16 @@ class IconLoader:
         path = _NAV_DIR / f'{name}.png'
         if not path.is_file():
             return None
-        key = ('nav_icon', str(path))
+        target = max(1, int(size)) if size is not None else None
+        key = ('nav_icon', str(path)) if target is None else ('nav_icon', str(path), target)
         cache = cls._cache(master)
         if key in cache:
             return cache[key]
         try:
-            image = _nav_image(master, path)
+            image = _nav_image(master, path, size=target)
         except tk.TclError:
             return None
-        _NAV_IMAGES.append((image, path))
+        _NAV_IMAGES.append((image, path, target))
         cache[key] = image
         return image
 

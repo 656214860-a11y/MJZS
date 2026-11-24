@@ -273,6 +273,9 @@ DESKTOP_LAYOUT = {
     'sidebar_width': 96, 'sidebar_title_chars': 5, 'login_gate_width': 460, 'sidebar_padding': SPACING['sm'], 'row_gap': 1,
     # 侧栏导航胶囊之间的垂直间距与「我的项目」「导航」两段之间的呼吸距。
     'nav_gap': SPACING['xs'], 'section_gap': SPACING['md'],
+    # 侧栏一级主图标相对侧栏内边距的左缩进：让 30px 主图标视觉居中（x=24..64），
+    # 同时在右侧留出 32px 给 18px 二级图标贴右展开，不挤占聊天区。
+    'nav_primary_inset': SPACING['lg'],
     'compact_below': 690, 'project_min_rows': 3,
     'project_button_padding': (SPACING['sm'], SPACING['none']),
     # 页面边距加大一档：内容与窗口边缘、进度条与状态栏之间都留出呼吸感。
@@ -378,6 +381,13 @@ SPLASH_MAX_SECONDS = 2.5   # 画面最长盖这么久，超时强制揭开（页
 
 # 侧栏 Fluent PNG 使用固定 24px 方形画布（design_tokens.md: icon.nav.size）。
 NAV_ICON_SIZE = 24
+# 侧栏一级主图标放大到 30px、二级图标缩小到 18px，运行时按需高质量重采样并随主题重染色。
+NAV_PRIMARY_ICON_SIZE = NAV_ICON_SIZE + SPACING['xs'] + SPACING['xs'] // 2
+NAV_SECONDARY_ICON_SIZE = SPACING['lg'] + SPACING['xs'] // 2
+# 左上角项目悬停卡片规格：宽卡片完整展示中文项目名，移入延迟与移出宽限对齐 HoverCard 语义。
+PROJECT_CARD_WIDTH = SPACING['2xl'] * 10   # 320px
+PROJECT_CARD_HOVER_MS = 160
+PROJECT_CARD_CLOSE_MS = 320
 
 # 输入框图标行的 MDL2 字形用 11pt（小型附件图标 7pt）；侧栏 PNG 使用 NAV_ICON_SIZE。
 # 小图标按钮：用系统自带的线框图标字体，不用彩色表情——首次绘制表情要加载

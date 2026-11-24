@@ -13,6 +13,8 @@ from ui.desktop_file_card import script_row_card
 GROUP_PREFIX = 'stage-group:'
 RENDER_BATCH = SPACING['sm'] * 4
 THUMB_SIZE = SPACING['lg']
+TREE_DISCLOSURE_WIDTH = SPACING['lg'] + SPACING['xs']   # 20：无缩略图时仅留展开箭头宽，文件名紧贴左缘
+TREE_PREVIEW_DEFAULT_WIDTH = SPACING['2xl'] + SPACING['lg']   # 48：与 PANEL_PREVIEW_COL_WIDTH 同宽
 # R4005（任务书 L4-U3）：文件名列优先——只剩文件名列仍不够宽时文件名
 # 中间省略；省略要量真实像素，测宽函数由调用方注入（ui_popup.measure_text_width）。
 SCRIPT_NAME_CELL_PAD = SPACING['sm']             # 8：文件名单元格留白
@@ -121,6 +123,29 @@ def grouped_rows(rows, mode='阶段', library=False):
              groups[key]) for key in keys if key in groups]
 
 
+def configure_tree_leading_column(tree, groups, *, preview_width=None):
+    """按是否存在缩略图与多分组收紧 #0 树列，使目录名与文件名紧贴左侧边界。"""
+    from infra import file_index
+    has_thumb = any(
+        (row.kind in ('资产', '音频', '视频'))
+        or (Path(row.path).suffix.lower() in file_index.IMAGE_SUFFIXES)
+        for _group, _label, members in groups for row in members)
+    if len(groups) == 1 and not has_thumb:
+        tree.configure(show='headings')
+        tree.column('#0', width=SPACING['none'], minwidth=SPACING['none'], stretch=False)
+        return
+    tree.configure(show='tree headings')
+    tree.heading('#0', text='')
+    thumb_col = preview_width if preview_width is not None else TREE_PREVIEW_DEFAULT_WIDTH
+    if not has_thumb:
+        width = TREE_DISCLOSURE_WIDTH
+    elif len(groups) > 1:
+        width = thumb_col + SPACING['sm']
+    else:
+        width = thumb_col
+    tree.column('#0', width=width, minwidth=width, stretch=False)
+
+
 class FilesPanelIndexMixin:
     """宿主仅维护 UI 状态；文件发现与首次索引重建都通过 Desktop.async_。"""
 
@@ -206,25 +231,14 @@ class FilesPanelIndexMixin:
 
     def _start_index_render(self, rows, categories, root, library, generation, context):
         self._clear_index_tree()
-        self.script_tree.configure(show='tree headings')
-        self.script_tree.heading('#0', text='')
-        self.script_tree.column('#0', width=THUMB_SIZE + SPACING['xl'] * 2, stretch=False)
         self.script_tree.tag_configure('missing', foreground=COLORS['text_muted'])
         groups = grouped_rows(rows, getattr(self, 'group_mode', '阶段'), library)
         self._index_group_count = len(groups)
+        configure_tree_leading_column(self.script_tree, groups)
         if len(groups) > 1:
             for group, label, _members in groups:
-                self.script_tree.insert('', 'end', iid=group, open=True, values=(label, '', '', ''))
+                self.script_tree.insert('', 'end', iid=group, open=True, values=(label, '', '', '', ''))
                 self.script_row_category[group] = '__file_group__'
-        # 只有一个分组时平铺文件行，不套分组父行；没有缩略图时去掉左侧列。
-        if len(groups) == 1:
-            from infra import file_index
-            has_thumb = any(
-                (row.kind in ('资产', '音频', '视频'))
-                or (Path(row.path).suffix.lower() in file_index.IMAGE_SUFFIXES)
-                for _group, _label, members in groups for row in members)
-            if not has_thumb:
-                self.script_tree.configure(show='headings')
         if len(groups) == 1:
             pending = iter(('', row) for _group, _label, members in groups for row in members)
         else:
