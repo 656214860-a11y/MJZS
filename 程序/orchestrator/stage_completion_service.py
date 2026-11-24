@@ -102,9 +102,7 @@ def prepare_media_completion(root, stage, paths, *, scope=None):
     config = read(root / 'config.json') if (root / 'config.json').is_file() else {}
     executable = tool_path('ffprobe', configured=config.get('ffprobe'))
     if not executable:
-        raise ValueError('请先配置 FFprobe，再校验媒体成果；'
-                         '在项目 config.json 填写「ffprobe」路径，'
-                         '「设置 → 开发信息 → 环境自检」可核对')
+        raise ValueError('请先配置 FFprobe，再校验媒体成果；在 config.json 设路径，见环境自检')
     outputs = []
     warnings = []
     for path in dict.fromkeys(_media_path(root, stage, value) for value in paths):
