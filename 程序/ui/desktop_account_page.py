@@ -5,6 +5,7 @@
 首帧之后才后台续签，启动路径不等网络；自动续签与版本检查走 ``_account_background``，
 不占独占后台、不写状态栏。
 """
+import errno
 import queue
 import threading
 import time
@@ -121,6 +122,75 @@ def about_card(parent, info):
     def show():
         body.pack(fill='x',pady=SPACING['xs']);button.pack_forget()
     button = SecondaryButton(card,text='查看开源许可',command=show);button.pack(anchor='w',pady=SPACING['xs'])
+    return card
+
+
+HELP_GUIDE_NAME = '环境类错误指引'
+HELP_DOCS = (('使用说明', '程序/docs/process/制作失败与人工替代.md'),
+             (HELP_GUIDE_NAME, '程序/docs/guides/用户手册/环境类错误指引.md'),
+             ('已知问题', '程序/docs/guides/用户手册/已知问题.md'))
+ENV_HELP_PAGES = {
+    'E-TOOL-MISSING': 'FFmpeg 缺失',
+    'E-IO-WRITE': '磁盘满',
+    'E-AUTH-MISSING': '模型 Key 无效', 'E-AUTH-REJECTED': '模型 Key 无效',
+    'E-QUOTA-EXCEEDED': '模型 Key 无效',
+    'E-NET-UNREACHABLE': '网络不可达', 'E-NET-TIMEOUT': '网络不可达', 'E-NET-SERVER': '网络不可达',
+    'network': '账号服务不可达', 'service_timeout': '账号服务不可达', 'cert_error': '账号服务不可达',
+}
+
+
+def help_topics(root=None):
+    """「帮助」入口列出的用户文档：[(页名, 绝对路径)]；root 供测试注入临时目录。"""
+    base = Path(root) if root is not None else APP_ROOT
+    return [(title, str(base / rel)) for title, rel in HELP_DOCS]
+
+
+def help_doc_text(path):
+    """读用户文档全文（UTF-8）；文件缺失或读不到时返回空串。"""
+    try:
+        return Path(path).read_text(encoding='utf-8')
+    except OSError:
+        return ''
+
+
+def with_help_hint(text, error):
+    """环境类错误提示末尾补「查看帮助：环境类错误指引 · <页名>」；认不出的原样返回。
+
+    ``error`` 接受带 ``code`` 属性的异常、含 ``code`` 的结果字典（账号服务用
+    ``network``／``service_timeout``／``cert_error``），以及 ``errno`` 为 ``ENOSPC`` 的 ``OSError``。
+    """
+    code = getattr(error, 'code', None)
+    if code is None and isinstance(error, dict):
+        code = error.get('code')
+    if code is None and getattr(error, 'errno', None) == errno.ENOSPC:
+        code = 'E-IO-WRITE'
+    page = ENV_HELP_PAGES.get(str(code or ''))
+    return text + '；查看帮助：' + HELP_GUIDE_NAME + ' · ' + page if page else text
+
+
+def help_card(parent, topics=None):
+    """「帮助」块：使用说明／环境类错误指引／已知问题三个页内展开入口；缺文档给一句话说明。"""
+    topics = help_topics() if topics is None else topics
+    card = Card(parent);card.pack(fill='x',pady=SPACING['xs'])
+    ttk.Label(card,text='帮助').pack(anchor='w')
+    ttk.Label(card,text='使用说明、环境类错误指引与已知问题清单，点按钮在页内展开。',
+              style='Muted.TLabel',wraplength=TEXT_DESC['wraplength'],justify='left').pack(anchor='w',pady=(SPACING['xs'],SPACING['none']))
+    row = ttk.Frame(card);row.pack(fill='x',pady=SPACING['xs'])
+    body = ttk.Frame(card)
+    area = TextArea(body,height=TEXT_ROWS['xl'],wrap='word')
+    scroll = ttk.Scrollbar(body,orient='vertical',command=area.yview)
+    area.configure(yscrollcommand=scroll.set)
+    scroll.pack(side='right',fill='y');area.pack(side='left',fill='x',expand=True)
+    shown = {'title': None}
+    def show(title, path):
+        if shown['title'] == title:
+            body.pack_forget();shown['title'] = None;return
+        text = help_doc_text(path) or '这份文档还没有随本副本提供，请升级到最新版本。'
+        area.set_readonly(False);area.delete('1.0','end');area.insert('1.0',text);area.set_readonly()
+        body.pack(fill='x',pady=SPACING['xs']);shown['title'] = title
+    for title, path in topics:
+        SecondaryButton(row,text='查看'+title,
+                        command=lambda t=title,p=path:show(t,p)).pack(side='left',padx=(SPACING['none'],SPACING['sm']))
     return card
 
 
@@ -331,10 +401,15 @@ class AccountPageMixin:
         else:
             self._account_login_form()
         self._account_about_card()
+        self._account_help_card()
 
     def _account_about_card(self):
         """账户页挂「关于与开源许可」块：构建细节在模块级 ``about_card``（类体积棘轮上限 600 行）。"""
         about_card(self.content, about_info())
+
+    def _account_help_card(self):
+        """账户页挂「帮助」块（与「关于」同处）：文档清单与读文在模块级 ``help_card``。"""
+        help_card(self.content)
 
     def _account_signed_in(self, card, head, entitlement, session):
         payload = entitlement.payload or {}
@@ -621,7 +696,7 @@ class AccountPageMixin:
                 show_view('code',result.reason+'。请发送验证码后点「撤销注销」。',True)
                 cancel.pack(side='left',padx=(SPACING['sm'],SPACING['none']));return
             wait = data.get('retry_after')
-            say(result.reason+('（%s 秒后可重试）'%wait if wait else ''),True)
+            say(with_help_hint(result.reason+('（%s 秒后可重试）'%wait if wait else ''),data),True)
         def send(purpose, button, after=None):
             value = checked_email()
             if not value:return
