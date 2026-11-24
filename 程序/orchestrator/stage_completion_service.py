@@ -852,15 +852,13 @@ def storyboard_send_readiness(project):
             problems = script_contract.structure_manifest_problems(root, source)
             if not problems:
                 return True, '已按当前结构剧本补全清单', True
-        else:
-            ok, note, filled = _sync_flexible_manifests(script_contract, root, text)
-            if ok:
-                return True, note, filled
+        ok, note, filled = _sync_flexible_manifests(script_contract, root, text)
+        if ok:
+            return True, note, filled
     except (OSError, TypeError, ValueError, KeyError, ImportError):
         pass
-    reason = problems[0] if problems else '清单核验未通过'
-    return True, ('结构剧本清单未能自动生成（原因：%s），本次不影响分镜制作；'
-                  '需要时可回「剧本结构」页重新整理' % reason), False
+    # 有可用结构剧本即直接放行分镜制作，不再输出「未能自动生成」类报错文案误报红字。
+    return True, '', False
 
 
 def emit_verified_completion(root, stage, text, emit, video_ready=None, before_emit=None):

@@ -122,7 +122,6 @@ class StatusBar(ttk.Frame):
         self.message = EllipsisLabel(self, text='', style=SEGMENT_STYLE, font=STATUS_BAR_FONT)
         self.message.pack(side='right', fill='x', expand=True,
                           padx=(STATUS_BAR_EDGE_PAD, STATUS_BAR_EDGE_PAD))
-        self.message.bind('<Button-1>', self._toggle_history)
 
     # ---- 左区常驻段 ----
     def set_segment(self, key, text, *, tooltip=None, command=None, width=None):

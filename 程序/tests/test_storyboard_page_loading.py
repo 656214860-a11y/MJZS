@@ -172,6 +172,58 @@ class StoryboardPageLoadingTests(unittest.TestCase):
                 self.assertTrue(self.catalog_paths(d))
                 self.assertTrue(d.storyboard_editor_page.loaded)
 
+    def test_shot_navigator_searches_jumps_and_counts_find_matches(self):
+        """S03 编辑器针对分镜增强：左侧镜头定位按镜头号/角色/场景实时搜索并跳转，查找条带计数。"""
+        import json
+        from infra.pet_state import PAGE_OF
+        from ui.storyboard_table_ui import extract_storyboard_shots
+        sample = {
+            'episode_id': 'EP001', 'title': '雨夜重逢', 'duration': 15,
+            'shots': [
+                {'id': 'SH001', 'title': '街道远景', 'duration': 5, 'characters': ['林夏'],
+                 'location': '老街', 'dialogue': '雨下大了', 'frame_prompt': '雨夜霓虹街道'},
+                {'id': 'SH002', 'title': '咖啡馆推近', 'duration': 5, 'characters': ['陈默'],
+                 'location': '咖啡馆', 'dialogue': '你终于来了', 'frame_prompt': '暖灯窗边'},
+                {'id': 'SH003', 'title': '天台对峙', 'duration': 5, 'characters': ['林夏', '陈默'],
+                 'location': '天台', 'dialogue': '把怀表还给我', 'frame_prompt': '暴雨天台霓虹'},
+            ],
+        }
+        with tempfile.TemporaryDirectory() as td:
+            win, d = self.open_desktop(td)
+            self.addCleanup(d.cancel_timers)
+            board = d.root / '03初步分镜' / '分镜拆分' / 'EP001.json'
+            board.parent.mkdir(parents=True, exist_ok=True)
+            board.write_text(json.dumps(sample, ensure_ascii=False), encoding='utf-8')
+            d.show(PAGE_OF['storyboard'])
+            page = d.storyboard_editor_page
+            page.show_document(board)
+            win.update()
+            nav = page.editor.shot_nav
+            self.assertTrue(nav.visible, '多镜头分镜自动展开左侧镜头定位栏')
+            self.assertEqual(nav.listbox.size(), 3)
+            self.assertEqual(str(nav.count_label.cget('text')), '3 镜')
+            # 按角色/场景关键词过滤：搜「天台」只剩 SH003 并可一键跳转高亮。
+            nav.search_entry.delete(0, 'end')
+            nav.search_entry.insert(0, '天台')
+            win.update()
+            self.assertEqual(nav.listbox.size(), 1)
+            self.assertIn('SH003', nav.listbox.get(0))
+            self.assertEqual(str(nav.count_label.cget('text')), '1/3 镜')
+            nav._jump_current()
+            win.update()
+            self.assertTrue(page.viewer.tag_ranges('s03_shot_hit'), '跳转后应高亮目标镜头标题行')
+            # 切原始 JSON 模式同样能提取全部镜头编号。
+            raw_shots = extract_storyboard_shots(json.dumps(sample, ensure_ascii=False, indent=2))
+            self.assertEqual([item[1].split('｜')[0] for item in raw_shots], ['SH001', 'SH002', 'SH003'])
+            # Ctrl+F 全文查找带命中计数与上下跳转。
+            page.editor.show_find_bar()
+            page.editor.find_entry.delete(0, 'end')
+            page.editor.find_entry.insert(0, '霓虹')
+            win.update()
+            self.assertEqual(str(page.editor.find_count.cget('text')), '1/2')
+            page.editor.find_step(1)
+            self.assertEqual(str(page.editor.find_count.cget('text')), '2/2')
+
 
 if __name__ == '__main__':
     unittest.main()
