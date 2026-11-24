@@ -735,10 +735,10 @@ def adoption_notice(verdict):
     templates = {
         'only': '只有《' + name + '》这一份' + kind_name + '，已自动采用。',
         'only_left': '只剩《' + name + '》这一份' + kind_name + '，已自动采用。',
-        'fresh': '已自动采用你刚生成或改过的《' + name + '》。',
-        'edited': '《' + name + '》你改过了，已按改后的内容重新采用。',
+        'fresh': '已自动采用您刚生成或改过的《' + name + '》。',
+        'edited': '《' + name + '》您改过了，已按改后的内容重新采用。',
         'only_changed': '《' + name + '》的内容和采用时不一样了；只有这一份，已按现在的内容重新采用。',
-        'picked': '已采用你选中的《' + name + '》。',
+        'picked': '已采用您选中的《' + name + '》。',
     }
     text = templates[verdict.reason]
     if verdict.previous and verdict.previous != verdict.path:
@@ -757,11 +757,11 @@ def adoption_question(verdict):
     previous = _adoption_stem(verdict.previous) if verdict.previous else ''
     prefer = _adoption_stem(verdict.prefer) if verdict.prefer else ''
     templates = {
-        'several_fresh': '这次你动过不止一份' + kind_name + '，下一阶段用哪一份？',
+        'several_fresh': '这次您动过不止一份' + kind_name + '，下一阶段用哪一份？',
         'no_signal': '有 ' + count + ' 份' + kind_name + '，还没定用哪一份，下一阶段用哪一份？',
         'changed_outside': '已采用的《' + previous + '》在应用外被改过，下一阶段用哪一份？',
         'adopted_missing': '原来采用的《' + previous + '》已经不在，下一阶段改用哪一份？',
-        'picked_other': '你选中的是《' + prefer + '》，已采用的是《' + previous + '》，下一阶段用哪一份？',
+        'picked_other': '您选中的是《' + prefer + '》，已采用的是《' + previous + '》，下一阶段用哪一份？',
     }
     return templates[verdict.reason]
 

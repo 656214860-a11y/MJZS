@@ -629,7 +629,7 @@ class AdoptionJudgeTests(unittest.TestCase):
         fresh = workspace.AdoptionVerdict(
             kind='script', action='adopt', reason='fresh', path=b_rel, previous=a_rel)
         self.assertEqual(
-            '已自动采用你刚生成或改过的《乙》。原来采用的是《甲》。'
+            '已自动采用您刚生成或改过的《乙》。原来采用的是《甲》。'
             '要换一份，在文件面板里右键点「采用此剧本」。',
             workspace.adoption_notice(fresh))
         ask = workspace.AdoptionVerdict(
