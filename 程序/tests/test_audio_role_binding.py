@@ -111,6 +111,24 @@ class EpisodeBindingTests(unittest.TestCase):
             self.assertIsNone(tts_api.resume_folder(root, self.lines, "EP03"))
             self.assertIsNone(tts_api.resume_folder(root, self.lines))
 
+    def test_episode_fallback_stays_within_its_episode(self):
+        """FIX-S11-E3：整批指纹失配按集标识回退最近批次——别集批次不回退，无集批次不认。"""
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            legacy = root / "旧批"
+            tts_api.run_lines(self.lines, legacy, generate=lambda *a, **k: b"audio",
+                              gateway=_gateway())
+            changed = [dict(self.lines[0], text="改过的台词"), self.lines[1]]
+            self.assertIsNone(tts_api.resume_folder(root, changed, "EP01"),
+                              "没有 episode 的旧批次保持现状：不按集回退")
+            first = root / "批一"
+            tts_api.run_lines(self.lines, first, generate=lambda *a, **k: b"audio",
+                              gateway=_gateway(), episode="EP01")
+            self.assertEqual(tts_api.resume_folder(root, changed, "EP01"), first,
+                             "同一集最近的批次按集标识回退")
+            self.assertIsNone(tts_api.resume_folder(root, changed, "EP02"),
+                              "没有 EP02 的批次不能退到 EP01 的目录")
+
 
 class AudioImportKindTests(unittest.TestCase):
     def setUp(self):

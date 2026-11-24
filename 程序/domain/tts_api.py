@@ -436,16 +436,25 @@ def _save(path, data, *, gateway=None):
 
 
 def resume_folder(root, lines, episode=None):
-    """同内容（且同一集）的旧逐句配音目录：可续跑，已成功的句子不重复合成（避免重复扣费）。"""
+    """同内容（且同一集）的旧逐句配音目录：可续跑，已成功的句子不重复合成（避免重复扣费）。
+
+    整批指纹对不上时退一步按集标识找该集最近的批次：改一句、插入一句或挪位置只重做
+    变了的句子；没有 episode 的旧批次保持现状（只认整批指纹），不跨集匹配。
+    """
     base = Path(root)
     if not base.is_dir():
         return None
     signature = batch_signature(lines, episode)
+    latest = None
     for record in sorted(base.glob("*/批次.json"), reverse=True):
         data = read_json(record)
-        if isinstance(data, dict) and data.get("signature") == signature:
+        if not isinstance(data, dict):
+            continue
+        if data.get("signature") == signature:
             return record.parent
-    return None
+        if latest is None and episode and str(data.get("episode") or "") == str(episode):
+            latest = record.parent
+    return latest
 
 
 def line_name(index, line):
@@ -455,20 +464,33 @@ def line_name(index, line):
     return f'{index:03}_{shot}_{safe}_{float(line.get("start") or 0):.1f}s.mp3'
 
 
-def line_done(manifest, index, line, folder):
-    """这一句是否已有可用成品：续跑与付费预览共用同一口径，避免两处判断走偏。
+def _line_file_path(folder, name):
+    """清单登记文件的定位：相对本批目录优先；指向旧批次的相对路径（相对「配音分句」目录）退回父目录解析。"""
+    path = Path(folder) / str(name)
+    if path.is_file():
+        return path
+    parent = Path(folder).parent / str(name)
+    return parent if parent.is_file() else path
 
-    O12：身份要对得上（含端点与模型），并且要复核写入时记下的 sha256——只判「文件在不在」
+
+def _identity(entry, line):
+    """句子身份（LINE_IDENTITY_FIELDS：镜头、文本、音色、语速、模型、端点）逐项相同——
+    不含位置与起止时间：挪位置、改时长不算换句。"""
+    return isinstance(entry, dict) and all(entry.get(key) == line.get(key) for key in LINE_IDENTITY_FIELDS)
+
+
+def line_done(entry, folder):
+    """这份旧清单条目是不是可沿用的成品：续跑与付费预览共用同一口径，避免两处判断走偏。
+
+    O12：state 为 ok、登记了文件，并且要复核写入时记下的 sha256——只判「文件在不在」
     会把截断或损坏的成品当成已生成；旧清单没记摘要时退回「文件非空」。
     """
-    previous = manifest[index - 1] if index <= len(manifest) and isinstance(manifest[index - 1], dict) else {}
-    same = all(previous.get(key) == line.get(key) for key in LINE_IDENTITY_FIELDS)
-    if not (same and previous.get("state") == "ok" and previous.get("file")):
+    if not (isinstance(entry, dict) and entry.get("state") == "ok" and entry.get("file")):
         return False
-    path = Path(folder) / str(previous["file"])
+    path = _line_file_path(folder, entry["file"])
     if not path.is_file():
         return False
-    digest = str(previous.get("sha256") or "")
+    digest = str(entry.get("sha256") or "")
     if not digest:
         try:
             return path.stat().st_size > 0
@@ -478,6 +500,37 @@ def line_done(manifest, index, line, folder):
         return hashlib.sha256(path.read_bytes()).hexdigest() == digest
     except OSError:
         return False
+
+
+def _line_verdicts(lines, manifest, folder):
+    """逐句在旧清单里的续跑判定：沿用 {新句序号: 旧条目} 与待核实 {新句序号: 旧条目清单序号}。
+
+    句子按身份（不含位置与起止时间）在旧清单里查；同身份的句子按出现次序一一配对
+    （第一处对第一处），避免两句指向同一个文件。沿用优先于待核实：成品在就不算结果未知。
+    """
+    entries = manifest if isinstance(manifest, list) else []
+    usable = [entry for entry in entries if line_done(entry, folder)]
+    done, taken = {}, set()
+    for index, line in enumerate(lines, 1):
+        for pos, entry in enumerate(usable):
+            if pos in taken or not _identity(entry, line):
+                continue
+            taken.add(pos)
+            done[index] = entry
+            break
+    blocked, claimed = {}, set()
+    unknown = [pos for pos, entry in enumerate(entries, 1)
+               if isinstance(entry, dict) and entry.get("state") in UNKNOWN_LINE_STATES]
+    for index, line in enumerate(lines, 1):
+        if index in done:
+            continue
+        for pos in unknown:
+            if pos in claimed or not _identity(entries[pos - 1], line):
+                continue
+            claimed.add(pos)
+            blocked[index] = pos
+            break
+    return done, blocked
 
 
 def publish_line(folder, manifest, index, line, raw, *, gateway=None):
@@ -500,9 +553,8 @@ def pending_lines(lines, folder):
     """这一批里还需要付费合成的句子序号（从 1 起）：点按钮前用它预估扣费规模。"""
     folder = Path(folder)
     manifest = read_json(folder / "时间轴.json")
-    if not isinstance(manifest, list):
-        manifest = []
-    return [index for index, line in enumerate(lines, 1) if not line_done(manifest, index, line, folder)]
+    done, _blocked = _line_verdicts(lines, manifest, folder)
+    return [index for index in range(1, len(lines) + 1) if index not in done]
 
 
 def batch_cost_preview(project, lines, folder, settings=None):
@@ -510,14 +562,12 @@ def batch_cost_preview(project, lines, folder, settings=None):
     from infra.pet_llm import RequestLedger, BudgetRejected
     folder = Path(folder)
     manifest = read_json(folder / '时间轴.json')
-    manifest = manifest if isinstance(manifest, list) else []
+    done, blocked = _line_verdicts(lines, manifest, folder)
     pending, unknown = [], 0
     for index, line in enumerate(lines, 1):
-        if line_done(manifest, index, line, folder):
+        if index in done:
             continue
-        previous = manifest[index - 1] if index <= len(manifest) else {}
-        if (previous.get('state') in UNKNOWN_LINE_STATES
-                and all(previous.get(key) == line.get(key) for key in LINE_IDENTITY_FIELDS)):
+        if index in blocked:
             unknown += 1
             continue
         text = line.get('text', '')
@@ -606,28 +656,33 @@ def run_lines(lines, folder, generate=None, report=None, stop=None, *, gateway=N
             raise ValueError("请先在配音设置保存 API Key")
         generate = lambda text, speed=1.0, voice=None: synthesize(
             text, speed=speed, voice=voice, settings=frozen)
-    manifest = read_json(folder / "时间轴.json")
-    if not isinstance(manifest, list):
-        manifest = []
+    prior = read_json(folder / "时间轴.json")
+    prior = prior if isinstance(prior, list) else []
     _save(folder / "批次.json", {"signature": batch_signature(lines, episode), "lines": len(lines),
                                  "identity": batch_identity(lines), "episode": str(episode or "")}, gateway=publish)
+    # 逐句沿用按身份配对（不含位置与起止时间），整批先按新句序号落盘：
+    # 中断后再跑，这份清单仍记得哪些旧成品沿用、哪些条目结果待核实。
+    done, blocked = _line_verdicts(lines, prior, folder)
+    manifest = [({**done[index], **line} if index in done
+                 else {**prior[blocked[index] - 1], **line} if index in blocked
+                 else {**line, 'state': 'failed', 'file': ''})
+                for index, line in enumerate(lines, 1)]
+    _save(folder / "时间轴.json", manifest, gateway=publish)
     ok = reused = failed = 0
     for index, line in enumerate(lines, 1):
         if stop is not None and stop.is_set():
             if report:
                 report("已停止；再次点击会接续本批次，已生成的句子不会重复合成。")
             break
-        if line_done(manifest, index, line, folder):
+        if index in done:
             ok += 1; reused += 1
             if report:
                 report(f'{index}/{len(lines)} · {line.get("shot_id")}：沿用已生成的配音')
             continue
-        previous = manifest[index - 1] if index <= len(manifest) else {}
-        if (project is not None and previous.get('state') in UNKNOWN_LINE_STATES
-                and all(previous.get(key) == line.get(key) for key in LINE_IDENTITY_FIELDS)):
+        if project is not None and index in blocked:
             failed += 1
             if report:
-                report(f'{index}/{len(lines)}：上次配音结果未知，请核对请求 {previous.get("request_id", "")}，未重复发送')
+                report(f'{index}/{len(lines)}：上次配音结果未知，请核对请求 {manifest[index - 1].get("request_id", "")}，未重复发送')
             continue
         name = line_name(index, line)
         request_id = 'tts:' + uuid4().hex
@@ -722,19 +777,11 @@ def synthesize(text, speed=1.0, voice=None, *, settings=None, project=None, requ
 
 
 def unknown_line_indexes(lines, folder):
-    """身份一致且状态为 sending／uncertain／unsaved 的句子序号（从 1 起）。"""
+    """身份一致且状态为 sending／uncertain／unsaved 的旧条目在时间轴清单里的序号（从 1 起）。"""
     folder = Path(folder)
     manifest = read_json(folder / '时间轴.json')
-    manifest = manifest if isinstance(manifest, list) else []
-    indexes = []
-    for index, line in enumerate(lines, 1):
-        previous = manifest[index - 1] if index <= len(manifest) else {}
-        if not isinstance(previous, dict):
-            continue
-        if (previous.get('state') in UNKNOWN_LINE_STATES
-                and all(previous.get(key) == line.get(key) for key in LINE_IDENTITY_FIELDS)):
-            indexes.append(index)
-    return indexes
+    _done, blocked = _line_verdicts(lines, manifest, folder)
+    return list(blocked.values())
 
 
 def unknown_release_prompt(lines, folder):
@@ -750,11 +797,12 @@ def unknown_release_prompt(lines, folder):
     groups = {'unknown': [], 'unsaved': []}
     for index in indexes:
         previous = manifest[index - 1] if index <= len(manifest) else {}
-        text = str((previous or {}).get('text') or lines[index - 1].get('text') or '')
+        line = lines[index - 1] if index <= len(lines) and isinstance(lines[index - 1], dict) else {}
+        text = str((previous or {}).get('text') or line.get('text') or '')
         row = '%s · %s · 请求 %s' % (
-            previous.get('shot_id') or lines[index - 1].get('shot_id') or '',
+            (previous or {}).get('shot_id') or line.get('shot_id') or '',
             text[:20],
-            previous.get('request_id') or '（无）')
+            (previous or {}).get('request_id') or '（无）')
         groups['unsaved' if (previous or {}).get('state') == 'unsaved' else 'unknown'].append(row)
     sections = []
     if groups['unknown']:

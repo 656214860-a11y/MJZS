@@ -491,6 +491,103 @@ class TtsBatchResumeTests(unittest.TestCase):
             self.assertEqual(preview, [2])                                              # 预览指向失败那一句
             self.assertEqual([self.lines(3)[index - 1]["text"] for index in preview], calls)
 
+    def test_changing_one_line_reuses_the_rest(self):
+        """FIX-S11-E3：改一句台词后同集续跑——指纹失配按集标识找回最近批次，只重做变了的那句。"""
+        calls = []
+        def generate(text, speed=1.0, voice=None):
+            calls.append(text)
+            return b"audio"
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / "配音分句"
+            folder = root / "配音批次_20260101"
+            tts_api.run_lines(self.lines(3), folder, generate=generate,
+                              gateway=_gateway(), episode="EP01")
+            calls.clear()
+            changed = self.lines(3)
+            changed[1]["text"] = "改过的台词"
+            out = tts_api.resume_folder(root, changed, "EP01")
+            self.assertEqual(out, folder, "整批指纹失配应按集标识找回该集最近的批次")
+            quote = tts_api.batch_cost_preview(Path(td), changed, out)
+            self.assertEqual(quote["pending"], [2], "预览只报真变了的那句")
+            self.assertEqual(
+                tts_api.run_lines(changed, out, generate=generate,
+                                  gateway=_gateway(), episode="EP01"),
+                (3, 2, 0))
+            self.assertEqual(calls, ["改过的台词"], "其余句子沿用不重复付费")
+
+    def test_inserted_line_reuses_surrounding_lines(self):
+        """FIX-S11-E3：中间插入一句——位置平移不连坐后面的句子，只重做新插入的那句。"""
+        calls = []
+        def generate(text, speed=1.0, voice=None):
+            calls.append(text)
+            return b"audio"
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / "配音分句"
+            folder = root / "配音批次_20260101"
+            tts_api.run_lines(self.lines(3), folder, generate=generate,
+                              gateway=_gateway(), episode="EP01")
+            calls.clear()
+            original = self.lines(3)
+            inserted = [original[0],
+                        {**original[1], "shot_id": "SH999", "text": "新插入的台词"},
+                        original[1], original[2]]
+            out = tts_api.resume_folder(root, inserted, "EP01")
+            self.assertEqual(out, folder)
+            self.assertEqual(tts_api.pending_lines(inserted, out), [2])
+            self.assertEqual(
+                tts_api.run_lines(inserted, out, generate=generate,
+                                  gateway=_gateway(), episode="EP01"),
+                (4, 3, 0))
+            self.assertEqual(calls, ["新插入的台词"])
+
+    def test_changed_shot_timing_reuses_everything(self):
+        """FIX-S11-E3：只调镜头时长（起止时间）一句都不重做——起止时间不属于句子身份。"""
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / "配音分句"
+            folder = root / "配音批次_20260101"
+            tts_api.run_lines(self.lines(3), folder, generate=lambda *a, **k: b"audio",
+                              gateway=_gateway(), episode="EP01")
+            retimed = [{**line, "start": line["start"] + 10, "end": line["end"] + 10}
+                       for line in self.lines(3)]
+            out = tts_api.resume_folder(root, retimed, "EP01")
+            self.assertEqual(out, folder)
+            self.assertEqual(tts_api.pending_lines(retimed, out), [], "只改时长不重做")
+            def forbidden(*args, **kwargs):
+                raise AssertionError("只改时长的句子不该重新合成")
+            self.assertEqual(
+                tts_api.run_lines(retimed, out, generate=forbidden,
+                                  gateway=_gateway(), episode="EP01"),
+                (3, 3, 0))
+            manifest = json.loads((folder / "时间轴.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest[0]["state"], "ok")
+            self.assertEqual(manifest[0]["start"], 11.0, "沿用句的起止时间要更新为当前值")
+
+    def test_same_shot_same_text_pairs_in_order(self):
+        """FIX-S11-E3：同镜同文本的两句按出现次序配对——第一处对第一处，不共用同一个文件。"""
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / "配音分句"
+            folder = root / "配音批次_20260101"
+            first = dict(self.lines(1)[0], start=1.0, end=2.0)
+            second = dict(first, start=2.0, end=3.0)     # 同一身份，不同起止
+            tts_api.run_lines([first, second], folder, generate=lambda *a, **k: b"audio",
+                              gateway=_gateway(), episode="EP01")
+            before = json.loads((folder / "时间轴.json").read_text(encoding="utf-8"))
+            name_first, name_second = before[0]["file"], before[1]["file"]
+            self.assertNotEqual(name_first, name_second)
+            retimed = [{**line, "start": line["start"] + 10, "end": line["end"] + 10}
+                       for line in (first, second)]
+            out = tts_api.resume_folder(root, retimed, "EP01")
+            self.assertEqual(out, folder)
+            def forbidden(*args, **kwargs):
+                raise AssertionError("同文本两句应各自沿用，不该重新合成")
+            self.assertEqual(
+                tts_api.run_lines(retimed, out, generate=forbidden,
+                                  gateway=_gateway(), episode="EP01"),
+                (2, 2, 0))
+            manifest = json.loads((folder / "时间轴.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest[0]["file"], name_first)
+            self.assertEqual(manifest[1]["file"], name_second)
+
 
 class TtsBatchIdentityTests(unittest.TestCase):
     """O12：批次身份含端点／模型／音色／语速，开批冻结，换配置不算旧缓存，损坏音频不续用。"""
