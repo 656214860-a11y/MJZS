@@ -448,5 +448,145 @@ class ReferenceWriteEntryTests(unittest.TestCase):
         self.assertFalse(version_file(self.base).exists())
 
 
+class RestoreVersionTests(unittest.TestCase):
+    """AST-VERSION-2：``domain.asset_versions`` 的退回写入口与快照重建。
+
+    ``restore_version`` 把记录过的文字字段与图片退到第 n 版之后的状态，并追加一条
+    ``source='manual'``、``field='restore'`` 的新记录——历史一条不删；锁定、缺版、
+    旧图找不回都拒绝且不改动当前内容。
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.base = make_library(self.tmp.name)
+        self.gateway = batch_gateway()
+
+    def _plan(self):
+        return json.loads((self.base / 'assets/资产清单/assets.json')
+                          .read_text(encoding='utf-8'))
+
+    def _source(self, name, raw):
+        path = Path(self.tmp.name) / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(raw)
+        return path
+
+    def test_snapshot_rebuilds_fields_and_image(self):
+        from domain import asset_versions
+        records = [
+            {'version': 1, 'kind': 'text', 'field': 'fields',
+             'before': {'description': '旧描述', 'name': '角色'},
+             'after': {'description': '第二版', 'name': '角色'}},
+            {'version': 2, 'kind': 'image', 'field': 'image', 'before': None,
+             'after': {'path': 'assets/characters/a.png', 'sha256': 's2'}},
+            {'version': 3, 'kind': 'text', 'field': 'name',
+             'before': {'name': '角色'}, 'after': {'name': '改名后'}},
+        ]
+        snap = asset_versions.snapshot_at(records, 2)
+        self.assertEqual(snap['fields']['description'], '第二版')
+        self.assertEqual(snap['fields']['name'], '角色')
+        self.assertEqual(snap['image']['sha256'], 's2')
+        snap0 = asset_versions.snapshot_at(records, 0)
+        self.assertIsNone(snap0['image'])
+        self.assertEqual(snap0['fields']['description'], '旧描述')
+        snap3 = asset_versions.snapshot_at(records, 3)
+        self.assertEqual(snap3['fields']['name'], '改名后')
+
+    def test_describe_one_line_summary(self):
+        from domain import asset_versions
+        self.assertEqual(asset_versions.describe(
+            {'kind': 'image', 'field': 'image'}), '换图片')
+        self.assertEqual(asset_versions.describe(
+            {'kind': 'text', 'field': 'name',
+             'before': {'name': '旧名'}, 'after': {'name': '新名'}}), '改名：旧名 → 新名')
+        self.assertEqual(asset_versions.describe(
+            {'kind': 'text', 'field': 'fields', 'before': {},
+             'after': {'description': 'x', 'locked': True}}), '改了 description、locked')
+        self.assertEqual(asset_versions.describe(
+            {'field': 'restore', 'kind': 'restore', 'restore_of': 2}), '退回第 2 版')
+
+    def test_restore_reverts_text_and_appends_manual_record(self):
+        from domain import asset_versions
+        gateway = plan_gateway()
+        asset_plan.update_planned(str(self.base), AID, {'description': '第二版'}, gateway=gateway)
+        asset_plan.update_planned(str(self.base), AID,
+                                  {'description': '第三版', 'name': '改名后'}, gateway=gateway)
+        record = asset_versions.restore_version(self.base, AID, 1, gateway=self.gateway)
+        row = self._plan()[AID]
+        self.assertEqual(row['description'], '第二版')
+        self.assertEqual(row['name'], '角色')
+        self.assertEqual(record['version'], 3)
+        self.assertEqual(record['source'], 'manual')
+        self.assertEqual(record['field'], 'restore')
+        self.assertEqual(record['restore_of'], 1)
+        self.assertEqual(len(read_records(version_file(self.base))), 3)
+
+    def test_restore_locked_refused_without_writes(self):
+        from domain import asset_versions
+        asset_plan.update_planned(str(self.base), AID, {'description': '第二版'},
+                                  gateway=plan_gateway())
+        plan_file = self.base / 'assets/资产清单/assets.json'
+        plan = self._plan()
+        plan[AID]['locked'] = True
+        save(plan_file, plan)
+        before = plan_file.read_text(encoding='utf-8')
+        with self.assertRaisesRegex(ValueError, '锁定'):
+            asset_versions.restore_version(self.base, AID, 1, gateway=self.gateway)
+        self.assertEqual(plan_file.read_text(encoding='utf-8'), before)
+        self.assertEqual(len(read_records(version_file(self.base))), 1)
+
+    def test_restore_missing_or_invalid_version_refused(self):
+        from domain import asset_versions
+        with self.assertRaisesRegex(ValueError, '没有第 9 版'):
+            asset_versions.restore_version(self.base, AID, 9, gateway=self.gateway)
+        with self.assertRaisesRegex(ValueError, '版本号'):
+            asset_versions.restore_version(self.base, AID, 'x', gateway=self.gateway)
+        with self.assertRaises((ValueError, TypeError)):
+            asset_versions.restore_version(self.base, AID, 1, gateway={})
+
+    def test_restore_image_swaps_current_into_history(self):
+        from domain import asset_versions
+        first_png = png(size=(16, 9))
+        second_png = png(size=(8, 8), color='blue')
+        src1 = self._source('s1/gen.png', first_png)
+        src2 = self._source('s2/gen.png', second_png)
+        asset = asset_fields()
+        asset_batch_service.register_image(self.base, AID, asset, src1, gateway=self.gateway)
+        asset_batch_service.register_image(self.base, AID, asset, src2, gateway=self.gateway)
+        asset_versions.restore_version(self.base, AID, 1, gateway=self.gateway)
+        registry = json.loads((self.base / 'assets.json').read_text(encoding='utf-8'))
+        current = self.base / registry[AID]['image']
+        self.assertEqual(hashlib.sha256(current.read_bytes()).hexdigest(),
+                         hashlib.sha256(first_png).hexdigest())
+        history = list((self.base / 'assets/characters/历史版本').glob('*.png'))
+        self.assertEqual(len(history), 2)
+        records = read_records(version_file(self.base))
+        self.assertEqual(len(records), 3)
+        self.assertEqual(records[2]['restore_of'], 1)
+        self.assertEqual(records[2]['source'], 'manual')
+        self.assertEqual(records[2]['field'], 'restore')
+
+    def test_restore_image_missing_source_fails_closed(self):
+        from domain import asset_versions
+        current = self.base / 'assets/characters/cur.png'
+        current.parent.mkdir(parents=True, exist_ok=True)
+        current.write_bytes(png(size=(8, 8)))
+        save(self.base / 'assets.json',
+             {AID: {'name': '角色', 'image': 'assets/characters/cur.png'}})
+        path = version_file(self.base)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(
+            {'aid': AID, 'version': 1, 'at': '2026-11-24T10:00:00',
+             'field': 'image', 'kind': 'image', 'before': None,
+             'after': {'path': 'assets/characters/gone.png', 'sha256': 'f' * 64},
+             'source': 'generated'}, ensure_ascii=False) + '\n', encoding='utf-8')
+        before = (self.base / 'assets.json').read_text(encoding='utf-8')
+        with self.assertRaisesRegex(ValueError, '无法退回'):
+            asset_versions.restore_version(self.base, AID, 1, gateway=self.gateway)
+        self.assertEqual((self.base / 'assets.json').read_text(encoding='utf-8'), before)
+        self.assertTrue(current.is_file())
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -1,6 +1,6 @@
 # 项目状态（可独立接续）
 
-更新：2026-11-25｜当前轮次：4389（R4388 合并轮：isolate right files panel per stage and route production stages to direct API file output；断言未动；未跑全量。上一轮：R4385 合并轮：合入：资产管理图标不替换、消除初步分镜发送清单报错与弹窗、取消底栏右侧点击弹窗、S03镜头定位与搜索增强；断言未动；未跑全量。）
+更新：2026-11-25｜当前轮次：4394（R4393 合并轮：合入 AST-VERSION-2(R4350) 与 EC-3 通知守卫修复 FIX-AST-V2-EC3-GUARD(R4390)；断言未动；未跑全量。上一轮：R4388 合并轮：isolate right files panel per stage and route production stages to direct API file output；断言未动；未跑全量。）
 
 历史接续记录：R3308 修复槽位泄漏 bug 并优化慢测试超时，定向测试 46/46 通过。
 

@@ -414,6 +414,29 @@ class OperationCompletionTests(unittest.TestCase):
         refresh.assert_not_called()
         desktop.status.set.assert_not_called()
 
+    def test_restore_failure_notice_goes_through_user_text(self):
+        """EC-3：退回失败的提示文字必须经 error_codes.user_text(exc)，不直接渲染异常原文。"""
+        from types import SimpleNamespace
+        from contract import error_codes
+        from domain import asset_versions
+        failure = ValueError('plain english failure without any chinese')
+        desktop = SimpleNamespace(win=None, status=mock.Mock(),
+                                  asset_requirements=lambda: {'CHAR_001': {}},
+                                  asset_base=lambda: None)
+        calls = []
+        records = [{'version': 1, 'kind': 'text', 'before': {},
+                    'after': {'description': 'v1'}}]
+        with mock.patch.object(asset_detail, 'ask_confirmation', return_value=True), \
+                mock.patch.object(asset_versions, 'restore_version', side_effect=failure), \
+                mock.patch.object(asset_detail, 'notify',
+                                  lambda *a, **k: calls.append((a, k))):
+            result = asset_detail.restore_to_version(desktop, 'CHAR_001', 1, records=records)
+        self.assertIsNone(result)
+        self.assertEqual(len(calls), 1)
+        text = calls[0][0][1]
+        self.assertNotEqual(text, str(failure))
+        self.assertEqual(text, error_codes.user_text(failure))
+
 
 class AnchorTests(_Harness):
     def test_picking_a_candidate_records_and_keeps_success_feedback(self):
@@ -847,6 +870,190 @@ class UsageBlockTests(_Harness):
         for shot in ('SH001', 'SH002', 'SH003'):
             self.assertTrue(any(shot in text for text in texts), shot)
         self.assertTrue(any('提示词已变' in text for text in texts))
+
+
+def _record_change(d, aid, count):
+    """往测试项目的版本记录里写 count 条 manual 文字改动。"""
+    from agent.core import save_text
+    from domain import asset_versions
+    for index in range(count):
+        asset_versions.append_version(
+            d.asset_base(), aid,
+            {'field': 'fields', 'kind': 'text',
+             'before': {'description': '第%d版前' % index},
+             'after': {'description': '第%d版' % (index + 1)}},
+            source='manual', publish=save_text,
+            now='2026-11-24T10:%02d:00' % index)
+
+
+class EvolutionBlockTests(_Harness):
+    """AST-VERSION-2：演变记录块——版本列表与来源徽标、并排对比、退回此版。"""
+
+    def test_block_lists_versions_with_source_badges(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = project_with(td)
+            d, win = self.desktop(proj)
+            _record_change(d, 'CHAR_001', 2)
+            d.open_asset_detail('CHAR_001'); win.update()
+            texts = self.texts(d.content)
+            self.assertIn('演变记录', texts)
+            self.assertIn('v1', texts)
+            self.assertIn('v2', texts)
+            self.assertTrue(any('手改' in t for t in texts))
+            self.assertTrue(any('改了 description' in t for t in texts))
+
+    @staticmethod
+    def _block_of(content, title):
+        """按标题文字找回所在块容器（Card 或折叠 holder，都在 content 直子层）。"""
+        for widget in widget_list(content):
+            try:
+                if str(widget.cget('text')) == title:
+                    return widget.master
+            except Exception:
+                pass
+        return None
+
+    def test_evolution_block_between_usage_and_raw(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = project_with(td)
+            d, win = self.desktop(proj)
+            d.open_asset_detail('CHAR_001'); win.update()
+            texts = self.texts(d.content)
+            self.assertIn('演变记录', texts)
+            self.assertIn('暂无历史', texts)
+            usage = self._block_of(d.content, '使用情况')
+            evolution = self._block_of(d.content, '演变记录')
+            raw = self._block_of(d.content, '资产 JSON 原文（展开）')
+            self.assertIsNotNone(usage)
+            self.assertIsNotNone(evolution)
+            self.assertIsNotNone(raw)
+            self.assertGreaterEqual(evolution.winfo_y(),
+                                    usage.winfo_y() + usage.winfo_height() - 2)
+            self.assertLessEqual(evolution.winfo_y() + evolution.winfo_height(),
+                                 raw.winfo_y() + 2)
+
+    def test_expand_all_button_reveals_older_versions(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = project_with(td)
+            d, win = self.desktop(proj)
+            _record_change(d, 'CHAR_001', 25)
+            d.open_asset_detail('CHAR_001'); win.update()
+            self.assertIn('v25', self.texts(d.content))
+            self.assertNotIn('v1', self.texts(d.content))
+            self.buttons(d.content, '展开全部（共 25 条）')[0].invoke(); win.update()
+            self.assertIn('v1', self.texts(d.content))
+
+    def test_compare_dialog_diffs_text(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = project_with(td)
+            d, win = self.desktop(proj)
+            _record_change(d, 'CHAR_001', 2)
+            from domain import asset_versions
+            records = asset_versions.list_versions(proj, 'CHAR_001')
+            dialog = asset_detail.compare_versions(d, 'CHAR_001', records, 1, 2)
+            try:
+                panes = widget_list(dialog, (self.tk.Text,))
+                contents = [pane.get('1.0', 'end') for pane in panes]
+                self.assertTrue(any('第1版' in c for c in contents))
+                self.assertTrue(any('第2版' in c for c in contents))
+            finally:
+                dialog.close()
+
+    def test_compare_dialog_images_side_by_side(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = project_with(td)
+            d, win = self.desktop(proj)
+            base = d.asset_base()
+            folder = base / 'assets' / 'characters' / '历史版本'
+            folder.mkdir(parents=True, exist_ok=True)
+            (folder / 'a.png').write_bytes(png(16, 16))
+            (folder / 'b.png').write_bytes(png(16, 16, color=(200, 30, 30)))
+            from agent.core import save_text
+            from domain import asset_versions
+            asset_versions.append_version(
+                base, 'CHAR_001',
+                {'field': 'image', 'kind': 'image', 'before': None,
+                 'after': asset_versions.image_summary(folder / 'a.png', base)},
+                source='imported', publish=save_text)
+            asset_versions.append_version(
+                base, 'CHAR_001',
+                {'field': 'image', 'kind': 'image',
+                 'before': asset_versions.image_summary(folder / 'a.png', base),
+                 'after': asset_versions.image_summary(folder / 'b.png', base)},
+                source='imported', publish=save_text)
+            records = asset_versions.list_versions(proj, 'CHAR_001')
+            dialog = asset_detail.compare_versions(d, 'CHAR_001', records, 1, 2)
+            try:
+                images = [w for w in widget_list(dialog, (self.ttk.Label, self.tk.Label))
+                          if str(w.cget('image'))]
+                self.assertEqual(len(images), 2)
+            finally:
+                dialog.close()
+
+    def test_restore_reverts_after_confirmation(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = project_with(td, names={'CHAR_001': '角色'})
+            d, win = self.desktop(proj)
+            from stage_execution_service import update_asset_plan_fields
+            update_asset_plan_fields(proj, d.asset_base(), 'CHAR_001', {'description': '第二版'})
+            update_asset_plan_fields(proj, d.asset_base(), 'CHAR_001', {'description': '第三版'})
+            with mock.patch.object(asset_detail, 'ask_confirmation', return_value=True) as ask:
+                record = asset_detail.restore_to_version(d, 'CHAR_001', 1)
+            self.assertTrue(ask.called)
+            self.assertIn('第三版', str(ask.call_args))
+            self.assertEqual(plan_of(proj, 'CHAR_001')['description'], '第二版')
+            self.assertEqual(record['source'], 'manual')
+            self.assertEqual(record['restore_of'], 1)
+
+    def test_restore_locked_asset_is_refused(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = project_with(td, names={'CHAR_001': '角色'})
+            d, win = self.desktop(proj)
+            from stage_execution_service import update_asset_plan_fields
+            update_asset_plan_fields(proj, d.asset_base(), 'CHAR_001',
+                                     {'locked': True, 'description': '第二版'})
+            calls = []
+            with mock.patch.object(asset_detail, 'notify',
+                                   lambda *a, **k: calls.append((a, k))):
+                result = asset_detail.restore_to_version(d, 'CHAR_001', 1)
+            self.assertIsNone(result)
+            self.assertTrue(calls)
+            self.assertIn('锁定', str(calls))
+            self.assertEqual(plan_of(proj, 'CHAR_001')['description'], '第二版')
+            from domain import asset_versions
+            self.assertEqual(len(asset_versions.list_versions(proj, 'CHAR_001')), 1)
+
+    def test_restore_cancel_changes_nothing(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = project_with(td, names={'CHAR_001': '角色'})
+            d, win = self.desktop(proj)
+            from stage_execution_service import update_asset_plan_fields
+            update_asset_plan_fields(proj, d.asset_base(), 'CHAR_001', {'description': '第二版'})
+            update_asset_plan_fields(proj, d.asset_base(), 'CHAR_001', {'description': '第三版'})
+            with mock.patch.object(asset_detail, 'ask_confirmation', return_value=False):
+                result = asset_detail.restore_to_version(d, 'CHAR_001', 1)
+            self.assertIsNone(result)
+            self.assertEqual(plan_of(proj, 'CHAR_001')['description'], '第三版')
+            from domain import asset_versions
+            self.assertEqual(len(asset_versions.list_versions(proj, 'CHAR_001')), 2)
+
+    def test_evolution_rows_stay_within_content_width(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = project_with(td)
+            d, win = self.desktop(proj)
+            records = [{'version': i + 1, 'at': '2026-11-24T10:00:00', 'source': 'manual',
+                        'field': 'fields', 'kind': 'text', 'before': {},
+                        'after': {'description': '很长的描述' * 30}} for i in range(3)]
+            for width in (800, 960, 1120):
+                with self.subTest(width=width):
+                    win.geometry('%dx900' % width)
+                    with mock.patch('domain.asset_versions.list_versions',
+                                    return_value=records):
+                        d.open_asset_detail('CHAR_001'); win.update()
+                    box = self._block_of(d.content, '演变记录')
+                    win.update_idletasks()
+                    self.assertIsNotNone(box)
+                    self.assertLessEqual(box.winfo_reqwidth(), width)
 
 
 if __name__ == "__main__":
