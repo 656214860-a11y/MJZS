@@ -25,6 +25,7 @@ class VolcengineAdapter(VideoAdapter):
             content=[{'type':'text','text':shot['video_prompt']}]+[
                 {'type':'image_url','image_url':{'url':image_url(p)},'role':'reference_image'} for p in images]
             content+=white_entries(shot.get('_white_model_reference'))
+            content+=_motion_reference_entries(shot, self.cfg)
             payload={'model':self.cfg['model'],'content':content,
                 'generate_audio':bool(shot.get('generate_audio',True)),'ratio':'adaptive','duration':shot['duration'],
                 'resolution':self.cfg.get('resolution','720p'),'watermark':False}
@@ -104,3 +105,68 @@ class VolcengineAdapter(VideoAdapter):
                 'url': (result.get('content') or {}).get('video_url'),
                 'provider_created_at':result.get('created_at'),'provider_updated_at':result.get('updated_at'),
                 'usage': result.get('usage'), 'error_code': (result.get('error') or {}).get('code')}
+
+
+_MOTION_SUFFIXES = ('.mp4', '.mov', '.webm')
+
+
+def _motion_base_of(image_path):
+    """从资产图路径向上找含 ``assets/资产清单/assets.json`` 的资产库根；找不到回 ``None``。"""
+    from pathlib import Path
+    for parent in Path(str(image_path or '')).resolve().parents:
+        if (parent / 'assets' / '资产清单' / 'assets.json').is_file():
+            return parent
+    return None
+
+
+def _motion_rows_of(image_path, aid):
+    """读该角色登记的 ``motion_references``；坏行／越界／缺文件／非视频后缀跳过。"""
+    from infra.file_cache import read_json
+    base = _motion_base_of(image_path)
+    if base is None:
+        return []
+    try:
+        plan = read_json(base / 'assets' / '资产清单' / 'assets.json')
+    except (OSError, ValueError):
+        return []
+    row = plan.get(aid) if isinstance(plan, dict) else None
+    items = row.get('motion_references') if isinstance(row, dict) else None
+    out = []
+    for item in items if isinstance(items, list) else ():
+        if not isinstance(item, dict):
+            continue
+        rel = str(item.get('path') or '')
+        candidate = (base / rel).resolve() if rel else None
+        if (candidate and candidate.is_file() and candidate.is_relative_to(base)
+                and candidate.suffix.lower() in _MOTION_SUFFIXES):
+            out.append(candidate)
+    return out
+
+
+def _motion_reference_entries(shot, cfg):
+    """角色自己登记的动态参考视频（AST-MOTION-REF）：模型认参考视频才进 content 槽位。
+
+    能力判定复用 ``ui.white_model_ref.SUPPORT`` 同一张表：不在表里或槽位不是
+    ``content`` 就跳过不带（详情页已写明「仅存档」）；只认本镜引用到的 CHAR_ 资产；
+    单条超模型上限当场抛错，不发请求。函数放在文件尾部：``__init__`` 里写死的
+    方舟地址已按行号登记进 ``docs/process/外部依赖清单.md``，行号不能漂。
+    """
+    from ui.white_model_ref import data_url, support, target
+    rule = support(*target(cfg))
+    if rule is None or rule.get('slot') != 'content':
+        return []
+    out = []
+    limit = int(rule['max_mb']) * 1024 * 1024
+    for ref in shot.get('_asset_references') or ():
+        ref = ref if isinstance(ref, dict) else {}
+        aid = str(ref.get('id') or '')
+        if not aid.startswith('CHAR_'):
+            continue
+        for path in _motion_rows_of(ref.get('path'), aid):
+            if path.stat().st_size > limit:
+                raise ValueError('动态参考视频 ' + path.name + ' 超过 '
+                                 + str(rule['max_mb']) + 'MB 上限：请压小后再提交')
+            out.append({'type': 'video_url',
+                        'video_url': {'url': data_url(path, path.suffix)},
+                        'role': 'reference_video'})
+    return out
