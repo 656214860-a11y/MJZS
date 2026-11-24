@@ -299,8 +299,7 @@ class ScriptPagesMixin:
             reply = str(result.get('response_text') or result.get('text') or '').strip()
             if reply:
                 idea_chat.append(self.idea_chat_context(), 'assistant', reply, model=model,gateway=self.idea_chat_gateway(),
-                                 context_budget=request_model['settings']['skill_injection'],
-                                 request_usage=request_model['settings']['request_usage'],
+                                 context_budget=result.get('context_budget'), request_usage=result.get('request_usage'),
                                  skill_injection=request_model['settings']['skill_injection'])
                 self.show_conversation()
             self.show_script_quality(result)
