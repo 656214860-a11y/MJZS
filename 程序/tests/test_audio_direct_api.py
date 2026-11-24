@@ -49,9 +49,9 @@ class AudioDirectTests(unittest.TestCase):
         self.config = {'engine': 'qwen', 'model': 'deepseek-v4-pro', 'program': ''}
         self.messages = []
 
-    def run_batch(self, adapter):
+    def run_batch(self, adapter, source=None):
         from orchestrator import audio_direct_api as api
-        return api.run_batch(self.project, self.config, 'SKILL正文', source=self.source, adapter=adapter,
+        return api.run_batch(self.project, self.config, 'SKILL正文', source=source or self.source, adapter=adapter,
                              record={'name': 'deepseek-v4-pro'}, report=self.messages.append)
 
     def outputs(self):
@@ -109,6 +109,42 @@ class AudioDirectTests(unittest.TestCase):
         history = [p for p in self.outputs() if p.parent.name == '历史版本']
         self.assertEqual(1, len(history))
         self.assertIn('配音脚本', history[0].name)
+
+    def test_fix_s11_e15_same_episode_keeps_only_latest_direct_subtitle(self):
+        """FIX-S11-E15：同一集重复直连成功后字幕目录只留最新一份，旧版进回收站；
+        不同集互不影响，配音脚本历史版本仍不超过 2 份。"""
+        from contract.project_stages import audio, subtitles
+        from contract.stage_path_service import write_dir
+        from infra.storage_maintenance import recycle_base
+        folder = subtitles(self.project)
+        ep2 = self.project / '07分镜定稿' / 'EP002_分镜.json'
+        ep2.write_text(json.dumps({'episode_id': 'EP002', 'title': '雨夜', 'duration': 6, 'shots': [{
+            'id': 'SH001', 'title': '开场', 'duration': 6, 'dialogue': [
+                {'speaker': '林夏', 'text': '今天会下雨吗'}, {'speaker': '老周', 'text': '带伞吧'}]}]},
+            ensure_ascii=False), encoding='utf-8')
+        first = self.run_batch(FakeAdapter(reply()))
+        self.assertTrue(first['ok'], first)
+        second_ep = self.run_batch(FakeAdapter(reply()), source=ep2)
+        self.assertTrue(second_ep['ok'], second_ep)
+        second = self.run_batch(FakeAdapter(reply()))
+        self.assertTrue(second['ok'], second)
+        last = self.run_batch(FakeAdapter(reply()))
+        self.assertTrue(last['ok'], last)
+        remaining = sorted(folder.glob('配音_EP001_*.srt'))
+        self.assertEqual(1, len(remaining))
+        self.assertEqual(Path(last['paths'][1]).name, remaining[0].name)
+        self.assertEqual(1, len(list(folder.glob('配音_EP002_*.srt'))))
+        self.assertTrue(Path(second_ep['paths'][1]).is_file())
+        recycled = sorted(recycle_base(self.project).rglob('配音_EP001_*.srt'))
+        self.assertEqual({Path(first['paths'][1]).name, Path(second['paths'][1]).name},
+                         {p.name for p in recycled})
+        self.assertEqual([], list(recycle_base(self.project).rglob('配音_EP002_*.srt')))
+        history = audio(self.project) / '历史版本'
+        self.assertLessEqual(len(list(history.glob('配音脚本_*.md'))), 2)
+        manifest = json.loads((write_dir(self.project, 'audio') / 'output' / 'subtitles.json')
+                              .read_text(encoding='utf-8'))
+        self.assertEqual(2, len(manifest['files']))
+        self.assertTrue(any(item['file'].endswith(remaining[0].name) for item in manifest['files']))
 
     def test_req_s11_50_stop_interrupts_request_and_writes_nothing(self):
         """REQ-S11-50：强制停止中断请求，不落盘。"""

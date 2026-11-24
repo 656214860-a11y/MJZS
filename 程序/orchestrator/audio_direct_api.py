@@ -145,6 +145,10 @@ def _publish(batch, episode, script, srt):
     if older:
         from infra.storage_maintenance import recycle_paths
         recycle_paths(batch.project, older, '配音脚本历史版本超过 %d 份' % HISTORY_KEEP)
+    stale = [path for path in srt_path.parent.glob('配音_%s_*.srt' % code) if path != srt_path]
+    if stale:
+        from infra.storage_maintenance import recycle_paths
+        recycle_paths(batch.project, stale, '直连字幕历史版本超过 1 份')
     return target, srt_path
 
 
