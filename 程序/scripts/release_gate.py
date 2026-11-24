@@ -303,6 +303,24 @@ def _notice_files(root, program):
     return found
 
 
+UPGRADE_TEST_RE = re.compile(r'def\s+test_\w*upgrade', re.IGNORECASE)
+
+
+def _upgrade_test_modules(tests_dir):
+    """REL-04 用例所在测试模块：文件名含 upgrade 的整文件，加上其它文件里内嵌的 upgrade 用例。"""
+    stems = {path.stem for path in tests_dir.glob('test_*upgrade*.py')}
+    for path in tests_dir.glob('test_*.py'):
+        if path.stem in stems:
+            continue
+        try:
+            text = path.read_text(encoding='utf-8')
+        except OSError:
+            continue
+        if UPGRADE_TEST_RE.search(text):
+            stems.add(path.stem)
+    return sorted(stems)
+
+
 def build_env(program=PROGRAM):
     """真实环境输入快照；测试不经过它，直接注入等价 dict。"""
     root = program.parent
@@ -320,8 +338,7 @@ def build_env(program=PROGRAM):
     env['changelog'] = _read(program / 'CHANGELOG.md')
     env['readme'] = _read(program / 'README.md')
     env['notice_files'] = _notice_files(root, program)
-    env['upgrade_modules'] = sorted(
-        path.stem for path in (program / 'tests').glob('test_*upgrade*.py'))
+    env['upgrade_modules'] = _upgrade_test_modules(program / 'tests')
     return env
 
 

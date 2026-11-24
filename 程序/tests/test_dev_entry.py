@@ -173,6 +173,18 @@ class ReleaseGateTests(unittest.TestCase):
         self.assertIn('release-gate', dev.COMMANDS)
         self.assertEqual(dev.COMMANDS['release-gate'][0], ['scripts/release_gate.py'])
 
+    def test_release_gate_detects_upgrade_cases_inside_other_test_files(self):
+        """REL-04 用例内嵌在文件名不含 upgrade 的模块里也算落地（现例：test_distribution_build.py）。"""
+        tests_dir = Path(self.tmp.name) / 'tests'
+        tests_dir.mkdir()
+        (tests_dir / 'test_distribution_build.py').write_text(
+            'class T:\n    def test_upgrade_preserves_user_data_byte_for_byte(self):\n        pass\n',
+            encoding='utf-8')
+        (tests_dir / 'test_unrelated.py').write_text(
+            'def test_plain():\n    pass\n', encoding='utf-8')
+        self.assertEqual(release_gate._upgrade_test_modules(tests_dir),
+                         ['test_distribution_build'])
+
 
 if __name__ == '__main__':
     unittest.main()

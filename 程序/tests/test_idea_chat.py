@@ -1716,6 +1716,35 @@ class SendMessageTests(_Harness):
             self.assertEqual(published, [])
             self.assertFalse(d.idea_chat_controller.requesting)
 
+    def test_refresh_retry_records_usage_fields_from_result(self):
+        """R4372 回归：刷新重发收到的正文按模型结果记 context_budget/request_usage，不读请求设置。"""
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            d, win = self.desktop(proj)
+            d.show(0); self.settle_script_page(win)
+            pending = []
+            d.async_ = lambda fn, done=None, **kwargs: pending.append((fn, done)) or 1
+            settings = {'skill_injection': {'mode': 'api', 'skills': ['x']}}
+            with patch('idea_chat.repair_internal_replies', return_value={'retry_creative': '恢复创意'}), \
+                    patch('writing_api.capture_request_model', return_value={
+                        'id': 'deepseek-v4-flash', 'record': {}, 'label': 'DeepSeek V4 Flash',
+                        'provider': 'DeepSeek'}), \
+                    patch('writing_api.capture_request', return_value={
+                        'id': 'deepseek-v4-flash', 'record': {}, 'label': 'DeepSeek V4 Flash',
+                        'provider': 'DeepSeek', 'settings': settings}), \
+                    patch.object(d, 'show_conversation'), patch.object(d, 'refresh_script_list'):
+                self.assertTrue(d.refresh_script_workspace())
+                with patch('writing_api.reply', return_value={'ok': False, 'error': '桩'}):
+                    pending[0][0]()  # 执行 work 释放阶段槽位，避免占用泄漏到下个用例
+                pending[0][1]({'ok': True, 'response_text': '重发的正文',
+                              'context_budget': {'budget': 4096},
+                              'request_usage': {'total_tokens': 12}})
+            rows = [row for row in idea_chat.load(proj)
+                    if row.get('text') == '重发的正文']
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0].get('context_budget'), {'budget': 4096})
+            self.assertEqual(rows[0].get('request_usage'), {'total_tokens': 12})
+
     def test_enter_after_model_change_displays_the_submitted_conversation(self):
         import stage_config
         import infra.model_pool as model_pool
