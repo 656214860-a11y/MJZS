@@ -81,6 +81,13 @@ class SubtitleExportServiceTests(unittest.TestCase):
             self.assertIsInstance(result, UserError)
             self.assertIn('没有对白', result.reason)
 
+    def test_export_srt_rejects_invalid_author_times(self):
+        bad = {'shots': [{'id': 'SH001', 'title': '初见', 'duration': 3,
+                          'dialogue': [{'speaker': 'A', 'text': '你好', 'start': 3, 'end': 1}]}]}
+        with tempfile.TemporaryDirectory() as folder:
+            with self.assertRaisesRegex(ValueError, r'SH001 第 1 句'):
+                export_srt(folder, bad, publish=Mock())
+
     def test_l2_export_only_uses_the_injected_publisher(self):
         published = []
 

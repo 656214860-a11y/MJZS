@@ -6,7 +6,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 os.chdir(HERE)
 
-from domain.subtitle_timing import srt_rows, timed_entries, stamp, _split_string
+from domain.subtitle_timing import calibrate_entries, srt_rows, timed_entries, stamp, _split_string
 
 
 def shot(sid, dialogue, duration=10):
@@ -130,11 +130,10 @@ class SrtRowsTests(unittest.TestCase):
         self.assertFalse(estimated)
         self.assertEqual(entries, [("SH001", "A", "一", 1.0, 2.0), ("SH003", "B", "三", 10.0, 11.0)])
 
-    def test_nan_start_does_not_crash(self):
+    def test_nan_start_rejected(self):
         ep = {"shots": [shot("SH001", [{"speaker": "A", "text": "x", "start": float("nan"), "end": 3}])]}
-        entries, estimated = timed_entries(ep)
-        self.assertEqual(len(entries), 1)
-        self.assertLessEqual(entries[0][3], entries[0][4])
+        with self.assertRaisesRegex(ValueError, r"SH001 第 1 句.*不是有限值"):
+            srt_rows(ep)
 
     def test_non_string_text_coerced(self):
         ep = {"shots": [shot("SH001", [{"speaker": "A", "text": 123}])]}
@@ -157,17 +156,15 @@ class SrtRowsTests(unittest.TestCase):
         self.assertLessEqual(end, 10.0)
         self.assertGreater(end - start, 0.19)
 
-    def test_reversed_times_fixed(self):
+    def test_reversed_times_rejected(self):
         ep = {"shots": [shot("SH001", [{"speaker": "A", "text": "反向", "start": 8, "end": 6}], duration=10)]}
-        entries, estimated = timed_entries(ep)
-        start, end = entries[0][3], entries[0][4]
-        self.assertLess(start, end)
-        self.assertGreater(end - start, 0.19)
+        with self.assertRaisesRegex(ValueError, r"SH001 第 1 句.*不大于开始时间"):
+            srt_rows(ep)
 
-    def test_negative_start_clamped(self):
+    def test_negative_start_rejected(self):
         ep = {"shots": [shot("SH001", [{"speaker": "A", "text": "负起点", "start": -2, "end": 2}], duration=10)]}
-        entries, estimated = timed_entries(ep)
-        self.assertEqual(entries[0][3], 0.0)
+        with self.assertRaisesRegex(ValueError, r"SH001 第 1 句.*负数"):
+            srt_rows(ep)
 
     def test_invalid_duration_string_falls_back(self):
         ep = {"shots": [{"id": "SH001", "title": "镜头", "duration": "abc", "dialogue": ["A：你好"]}]}
@@ -194,6 +191,34 @@ class SrtRowsTests(unittest.TestCase):
         self.assertIn("1\n00:00:01,000 --> 00:00:02,000\n一\n", text)
         self.assertIn("2\n00:00:02,000 --> 00:00:03,000\n二\n", text)
         self.assertTrue(text.count("-->") == 2)
+
+    def test_non_numeric_author_time_rejected(self):
+        ep = {"shots": [shot("SH001", [{"speaker": "A", "text": "坏时间", "start": "abc", "end": 3}])]}
+        with self.assertRaisesRegex(ValueError, r"SH001 第 1 句.*不是数字"):
+            srt_rows(ep)
+
+    def test_dense_dialogue_exports_without_overlap(self):
+        ep = {"shots": [shot("SH001", [{"speaker": "A", "text": "长" * 100},
+                                      {"speaker": "B", "text": "短"}], duration=5)]}
+        entries, _report = calibrate_entries(ep)
+        self.assertEqual(len(entries), 2)
+        self.assertGreaterEqual(entries[1][3], entries[0][4] - 1e-9)
+        self.assertGreaterEqual(entries[1][4] - entries[1][3], 0.19)
+        rows, estimated = srt_rows(ep)
+        self.assertTrue(estimated)
+        self.assertEqual(len(rows), 2)
+
+    def test_shot_too_short_for_lines_raises_clear_error(self):
+        ep = {"shots": [shot("SH001", ["A：一", "B：二", "C：三", "D：四"], duration=0.5)]}
+        with self.assertRaisesRegex(ValueError, r"SH001.*4 句.*0\.8 秒"):
+            srt_rows(ep)
+
+    def test_explicit_out_of_range_still_clamped_on_export(self):
+        ep = {"shots": [shot("SH001", [{"speaker": "A", "text": "越界", "start": 12, "end": 15}], duration=10)]}
+        rows, estimated = srt_rows(ep)
+        self.assertFalse(estimated)
+        self.assertEqual(len(rows), 1)
+        self.assertIn("00:00:09,800 --> 00:00:10,000", rows[0])
 
 
 if __name__ == "__main__":
