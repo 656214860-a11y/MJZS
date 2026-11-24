@@ -172,3 +172,69 @@ def animatic_preview_spec(project):
     import orchestrator.stage_config as stage_config
     from contract.script_contract import preview_spec
     return preview_spec(stage_config.workflow_lock(Path(project)))
+
+
+def animatic_reference_library(project):
+    """共享参考库视图：新目录按 角色/场景/风格 归类，库根与旧目录图归未分类。"""
+    from contract.stage_path_service import shared_reference_read_dirs
+    from domain.animatic_references import library
+    return library(shared_reference_read_dirs(project))
+
+
+def import_animatic_reference_library(project, sources, *, characters=(), locations=(), category=None):
+    """按文件名自动归类导入参考库；内容去重、同名编号，原子发布到对应子目录。"""
+    from contract.stage_path_service import shared_reference_dir
+    from domain.animatic_references import import_plan
+    root = Path(project).resolve()
+    folder = shared_reference_dir(root).resolve()
+    if not folder.is_relative_to(root):
+        raise ValueError('共享参考图路径越界')
+    plan = import_plan(sources, characters=characters, locations=locations,
+                       existing=animatic_reference_paths(project), category=category)
+    artifacts = {}
+    for relative, raw in plan.items():
+        target = (folder / relative).resolve()
+        if not target.is_relative_to(folder):
+            raise ValueError('参考图目标路径越界')
+        artifacts[target] = raw
+    if not artifacts:
+        return ()
+    publish_stage_bundle(artifacts, lambda items: all(raw for _, raw in items),
+                         lambda: [file_cache.published(p) for p in artifacts])
+    return tuple(artifacts)
+
+
+def refs_for_animatic_shot(project, shot):
+    """按镜 characters/location 在参考库自动配图；未命中任何分类图退回未分类。"""
+    from domain.animatic_references import refs_for_shot
+    return refs_for_shot(shot, animatic_reference_library(project))
+
+
+def reclassify_animatic_reference(project, path, category, new_name=None):
+    """单张参考图改类／改名：原子写新路径，旧文件经回收站退役；源与目标都在库内。"""
+    from contract.stage_path_service import shared_reference_dir
+    from domain.animatic_references import CATEGORIES, IMAGE_SUFFIXES, UNCATEGORIZED
+    from infra.storage_maintenance import recycle_paths
+    from orchestrator.stage_publication import publish_stage_bytes
+    root = Path(project).resolve()
+    folder = shared_reference_dir(root).resolve()
+    if not folder.is_relative_to(root):
+        raise ValueError('共享参考图路径越界')
+    source = Path(path).resolve()
+    if not source.is_file() or not source.is_relative_to(folder):
+        raise ValueError('参考图不在共享参考图目录内')
+    if category not in (*CATEGORIES, UNCATEGORIZED):
+        raise ValueError('参考图分类无效：' + str(category))
+    name = str(new_name).strip() if new_name is not None else source.name
+    if not name or Path(name).name != name or Path(name).suffix.lower() not in IMAGE_SUFFIXES:
+        raise ValueError('参考图文件名无效')
+    target = (folder / name if category == UNCATEGORIZED else folder / category / name).resolve()
+    if not target.is_relative_to(folder):
+        raise ValueError('参考图目标路径越界')
+    if target == source:
+        return source
+    if target.exists():
+        raise ValueError('目标参考图已存在')
+    publish_stage_bytes(target, source.read_bytes(), lambda raw: bool(raw), file_cache.published)
+    recycle_paths(root, [source], '分镜预演参考图改类')
+    return target
