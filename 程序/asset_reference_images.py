@@ -4,7 +4,7 @@ from pathlib import Path
 
 import hashlib, re
 
-from agent.core import read,save,save_bytes
+from agent.core import read,save,save_bytes,save_text
 from contract.platform_tools import open_path
 from infra.pet_state import PAGE_OF
 
@@ -219,7 +219,7 @@ def set_roles(base,aid,values,role):
     if role not in ROLE_GROUPS.get(aid.split('_')[0],()):raise ValueError('参考用途与资产类别不匹配')
     file=Path(base)/'assets/资产清单/assets.json';plan=read(file);asset=plan[aid]
     if any(path not in asset.get('reference_images',[]) for path in values):raise ValueError('参考图已变化，请刷新')
-    base=Path(base).resolve();roles=asset.setdefault('reference_roles',{});old_files=[]
+    base=Path(base).resolve();before_images=list(asset.get('reference_images',[]));before_roles=dict(asset.get('reference_roles',{}));roles=asset.setdefault('reference_roles',{});old_files=[]
     for path in values:
         source=resolve(base,{'reference_images':[path]})[0];raw=image_bytes(source)
         target=classified_target(base,aid,role,hashlib.sha256(raw).hexdigest(),source.suffix.lower(),asset.get('name',aid))
@@ -229,6 +229,13 @@ def set_roles(base,aid,values,role):
         if source!=target:old_files.append((path,source))
     asset['reference_images']=list(dict.fromkeys(asset['reference_images']))
     save(file,plan)
+    from domain.asset_versions import append_version
+    append_version(base, aid,
+                   {'field': 'reference_images', 'kind': 'text',
+                    'before': {'reference_images': before_images, 'reference_roles': before_roles},
+                    'after': {'reference_images': list(asset.get('reference_images',[])),
+                              'reference_roles': dict(asset.get('reference_roles',{}))}},
+                   source='manual', publish=save_text)
     used={path for item in plan.values() for path in item.get('reference_images',[])}
     stale=[path for relative,path in old_files
            if relative not in used and path.is_relative_to((base/'assets/参考图').resolve())]
@@ -274,6 +281,14 @@ def attach(base,aid,paths,role=None):
     latest[aid]['reference_images']=existing
     if role is not None:latest[aid].setdefault('reference_roles',{}).update({path:role for path in added})
     save(planfile,latest)
+    from domain.asset_versions import append_version
+    append_version(base, aid,
+                   {'field': 'reference_images', 'kind': 'text',
+                    'before': {'reference_images': list(plan[aid].get('reference_images',[])),
+                               'reference_roles': dict(plan[aid].get('reference_roles',{}))},
+                    'after': {'reference_images': list(latest[aid].get('reference_images',[])),
+                              'reference_roles': dict(latest[aid].get('reference_roles',{}))}},
+                   source='imported', publish=save_text)
     return len(additions)
 
 
@@ -339,9 +354,17 @@ def unbind(base,aid,values):
 
                     archives.append(candidate)
 
+    before_images=list(current);before_roles=dict(plan[aid].get('reference_roles',{}))
     plan[aid]['reference_images']=[value for value in current if value not in selected]
     plan[aid]['reference_roles']={value:role for value,role in plan[aid].get('reference_roles',{}).items() if value not in selected}
     save(file,plan)
+    from domain.asset_versions import append_version
+    append_version(base, aid,
+                   {'field': 'reference_images', 'kind': 'text',
+                    'before': {'reference_images': before_images, 'reference_roles': before_roles},
+                    'after': {'reference_images': list(plan[aid].get('reference_images',[])),
+                              'reference_roles': dict(plan[aid].get('reference_roles',{}))}},
+                   source='manual', publish=save_text)
 
     targets=list(dict.fromkeys([*owned,*archives]))
     if targets:

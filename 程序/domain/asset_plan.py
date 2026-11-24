@@ -263,9 +263,15 @@ def _update_planned(episode_dir,aid,values,*,gateway=None):
     if not isinstance(planned,dict):raise ValueError('资产清单 assets.json 应以资产编号为键的对象')
     row=planned.get(aid)
     if not isinstance(row,dict):row={}
+    previous={key:row.get(key) for key in values}
     row.update(values)
     planned[aid]=row
     publishers['publish_json'](file,planned)
+    from domain.asset_versions import append_version
+    append_version(episode_dir, aid,
+                   {'field': 'fields', 'kind': 'text',
+                    'before': previous, 'after': dict(values)},
+                   source='manual', publish=publishers['publish_text'])
     return row
 
 

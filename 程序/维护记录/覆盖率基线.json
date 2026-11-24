@@ -171,7 +171,7 @@
   {
    "module": "asset_reference_images.py",
    "covered": 0,
-   "total": 359,
+   "total": 366,
    "percent": 0.0
   },
   {
@@ -687,7 +687,7 @@
   {
    "module": "domain/asset_batch_service.py",
    "covered": 0,
-   "total": 331,
+   "total": 355,
    "percent": 0.0
   },
   {
@@ -717,7 +717,7 @@
   {
    "module": "domain/asset_plan.py",
    "covered": 0,
-   "total": 287,
+   "total": 290,
    "percent": 0.0
   },
   {
@@ -730,6 +730,12 @@
    "module": "domain/asset_resume.py",
    "covered": 0,
    "total": 98,
+   "percent": 0.0
+  },
+  {
+   "module": "domain/asset_versions.py",
+   "covered": 0,
+   "total": 91,
    "percent": 0.0
   },
   {
@@ -4106,5 +4112,5 @@
   }
  ],
  "modules_covered": 133,
- "modules_total": 681
+ "modules_total": 682
 }
