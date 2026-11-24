@@ -1,5 +1,5 @@
 # R4275 REL-05：账号服务与外部地址——外部地址清单测试固定＋登录闸不可达提示与重试（修复轮，续做）
-<!-- round-evidence: {"commit_base": "cb33bcfe", "credential_hits": 0, "evidence_sha256": "b7156b75f83713de", "exit": 0, "failed": 0, "passed": 88, "round": 4275, "tests": "run_selftests.py -k account_client login_gate http_boundary"} -->
+<!-- round-evidence: {"commit_base": "962927f0e", "credential_hits": 0, "evidence_sha256": "5f0601c59cb19022", "exit": 0, "failed": 0, "passed": 95, "round": 4275, "tests": "run_selftests.py -k http_boundary account_client login_gate doc_registry_migration"} -->
 
 ## 三问
 - 轮次类型：§3.2 修复轮（REL-05 / 波次 W2 / 共享资源 account；续做卡）。
@@ -79,6 +79,13 @@
 
 ## 提交
 - 提交命令：`..\..\..\..\运行环境\Python\python.exe -B scripts\dev.py commit -m "R4275: REL-05 修复" --tests account_client login_gate http_boundary <上述 8 个文件路径>`（提交哈希以完成报告为准；`tasks_round/evidence/R4275.json` 由提交命令生成）。
+
+## 第二笔提交：出口门禁修复（合入接管会话，门禁类小修）
+- 现象：上一次 `dev.py merge` 出口 CI 架构门禁红（702 条 1 红）：`test_hardcoded_addresses_are_registered` 报 `desktop.py:254 http://127.0.0.1:8189` 与 `domain/tts_api.py:16 https://api.openai.com/v1` 未登记。
+- 根因：两条地址在 `docs/process/外部依赖清单.md` 里**早已登记**，但登记行号按旧基点 `c8b94924` 写的是 `desktop.py:242`、`domain/tts_api.py:15`；主干其后给 `desktop.py` 增加了 12 行、`domain/tts_api.py` 增加了 1 行，分支变基到主干后行号位移，门禁按「文件:行号」精确匹配判红。地址、用途、是否可配置均未变。
+- 修复：只改 `docs/process/外部依赖清单.md` 两行的行号（`242→254`、`15→16`）；名称、地址、「是否用户可改＝是」、失效表现逐字未动。核对用途：`desktop.py:254` 是 `startup_settings(...)` 的 `defaults={'comfy_url': 'http://127.0.0.1:8189', ...}`，即桌面设置的本机 ComfyUI 默认地址，用户可在设置里改；`domain/tts_api.py:16` 是 `DEFAULT_URL`（`read_settings()` 的 `base_url` 默认值），用户可在配音设置里改。
+- 未动：测试文件、断言、产品代码、`docs/records/工程文档登记表.md`、`governance/` 下任何结构文件（核对过，没有门禁按行数或哈希核对本清单；`tests/architecture/test_external_endpoints.py` 在仓库中不存在，该用例已并入 `test_http_boundary.py`）。
+- 变基：车道 `git rebase master` 干净完成，无冲突；分支基于 master `755c7e9d0`。
 
 ## 未验证项
 - 未观察改前红（续做现场已有实现，见上）。
