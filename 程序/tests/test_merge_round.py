@@ -306,6 +306,8 @@ class MergeOrderTests(unittest.TestCase):
         def git(*args):
             if args and args[0] == "merge":
                 events.append("merge")
+            if args[:1] == ("merge-base",):
+                return subprocess.CompletedProcess(args, 1, "", "")
             if args[:2] == ("symbolic-ref", "--short"):
                 return subprocess.CompletedProcess(args, 0, "master\n", "")
             if args[:1] == ("status",):
@@ -385,7 +387,8 @@ class MergeOrderTests(unittest.TestCase):
             if args[:3] == ("status", "--porcelain", "--untracked-files=no"):
                 return subprocess.CompletedProcess(args, 0, "", "")
             if args[:4] == ("rev-parse", "-q", "--verify", "MERGE_HEAD"):
-                return subprocess.CompletedProcess(args, 1, "", "")
+                merged = any(item[:2] == ("merge", "--no-commit") for item in calls)
+                return subprocess.CompletedProcess(args, 0 if merged else 1, "", "")
             if args[:2] == ("merge", "--no-commit"):
                 return subprocess.CompletedProcess(args, 0, "", "")
             return subprocess.CompletedProcess(args, 0, "", "")
@@ -395,6 +398,87 @@ class MergeOrderTests(unittest.TestCase):
             code = merge_round._merge_locked(argparse.Namespace(branch="feature", summary="s"))
         self.assertEqual(code, 3)
         self.assertIn(("merge", "--no-commit", "--no-ff", "feature"), calls)
+
+
+class MergeGuardTests(unittest.TestCase):
+    """分支已含于 master 时短路：不跑出口 CI、不占合并道、不领号、不写结果。"""
+
+    def _git(self, events, *, in_master):
+        def git(*args):
+            if args and args[0] == "merge":
+                events.append("merge")
+            if args[:1] == ("merge-base",):
+                return subprocess.CompletedProcess(args, 0 if in_master else 1, "", "")
+            if args[:2] == ("symbolic-ref", "--short"):
+                return subprocess.CompletedProcess(args, 0, "master\n", "")
+            if args[:1] == ("status",):
+                return subprocess.CompletedProcess(args, 0, "", "")
+            if args[:1] == ("rev-parse",):
+                return subprocess.CompletedProcess(args, 0, "abc\n", "")
+            return subprocess.CompletedProcess(args, 0, "", "")
+        return git
+
+    def test_branch_already_in_master_returns_before_exit_ci(self):
+        events = []
+        with mock.patch.object(merge_round, "_git", side_effect=self._git(events, in_master=True)), \
+             mock.patch.object(merge_round, "reclaim_dead_owned_merge", return_value=False), \
+             mock.patch.object(merge_round, "merge_in_progress", return_value=False), \
+             mock.patch.object(merge_round, "rebase_onto_master", return_value=0), \
+             mock.patch.object(merge_round, "run_branch_exit_ci", return_value=0) as ci, \
+             mock.patch.object(merge_round, "acquire_merge_lane", return_value=True) as lane, \
+             mock.patch.object(merge_round, "_merge_locked", return_value=0), \
+             mock.patch.object(merge_round, "release_merge_lane"), \
+             mock.patch.object(merge_round.round_claim, "claim_next") as claim:
+            code = merge_round.main(["feature", "-s", "gate"])
+        self.assertEqual(code, 0)
+        ci.assert_not_called()
+        lane.assert_not_called()
+        claim.assert_not_called()
+
+    def test_merge_without_merge_head_returns_before_lock_and_claim(self):
+        calls = []
+
+        def clean(*args, cwd=commit_round.PROGRAM):
+            calls.append(args)
+            if args[:3] == ("status", "--porcelain", "--untracked-files=no"):
+                return subprocess.CompletedProcess(args, 0, "", "")
+            if args[:4] == ("rev-parse", "-q", "--verify", "MERGE_HEAD"):
+                return subprocess.CompletedProcess(args, 1, "", "")
+            if args[:2] == ("merge", "--no-commit"):
+                return subprocess.CompletedProcess(args, 0, "Already up to date.\n", "")
+            return subprocess.CompletedProcess(args, 0, "", "")
+
+        with mock.patch.object(commit_round, "_git", side_effect=clean), \
+             mock.patch.object(commit_round, "wait_for_lock", return_value=False) as wait, \
+             mock.patch.object(merge_round.round_claim, "claim_next") as claim:
+            code = merge_round._merge_locked(argparse.Namespace(branch="feature", summary="s"))
+        self.assertEqual(code, 0)
+        self.assertIn(("merge", "--no-commit", "--no-ff", "feature"), calls)
+        wait.assert_not_called()
+        claim.assert_not_called()
+
+    def test_branch_with_new_commits_runs_the_full_merge_chain(self):
+        events = []
+        def ci(branch, cwd=merge_round.PROGRAM):
+            events.append("ci")
+            return 0
+        def lock(branch, tip, cwd=merge_round.PROGRAM):
+            events.append("lock")
+            return True
+        def occupy(args):
+            events.append("occupy")
+            return 0
+        with mock.patch.object(merge_round, "_git", side_effect=self._git(events, in_master=False)), \
+             mock.patch.object(merge_round, "reclaim_dead_owned_merge", return_value=False), \
+             mock.patch.object(merge_round, "merge_in_progress", return_value=False), \
+             mock.patch.object(merge_round, "rebase_onto_master", return_value=0), \
+             mock.patch.object(merge_round, "run_branch_exit_ci", side_effect=ci), \
+             mock.patch.object(merge_round, "acquire_merge_lane", side_effect=lock), \
+             mock.patch.object(merge_round, "_merge_locked", side_effect=occupy), \
+             mock.patch.object(merge_round, "release_merge_lane"):
+            code = merge_round.main(["feature", "-s", "gate"])
+        self.assertEqual(code, 0)
+        self.assertEqual(events, ["ci", "lock", "occupy"])
 
 
 if __name__ == "__main__":
