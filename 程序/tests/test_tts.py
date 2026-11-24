@@ -173,13 +173,41 @@ class TtsBuildLinesTests(unittest.TestCase):
 
 class TtsBuildScriptTests(unittest.TestCase):
     def test_build_script(self):
+        # FIX-S11-E5 契约有意变更：整段配音只念台词，不再带「角色名：」前缀。
+        # 原断言（旧拼接口径）：script == "卡梅隆：你好" + "\n" + "无脸女：再见"
         entries = [("SH001", "CHAR_001", "你好", 1.0, 3.0), ("SH001", "CHAR_002", "再见", 3.0, 5.0)]
         assets = {"CHAR_001": {"name": "卡梅隆"}, "CHAR_002": {"name": "无脸女"}}
         script = tts_api.build_script(entries, assets)
-        self.assertEqual(script, "卡梅隆：你好" + "\n" + "无脸女：再见")
+        self.assertEqual(script, "你好" + "\n" + "再见")
 
     def test_build_script_empty(self):
         self.assertEqual(tts_api.build_script([], {}), "")
+
+    def test_build_script_speaks_only_dialogue(self):
+        """FIX-S11-E5：整段配音文本只含台词——不念角色名、角色编号，也不出现「未注明角色」。"""
+        entries = [("SH001", "CHAR_001", "你好", 1.0, 3.0), ("SH002", "CHAR_002", "再见", 3.0, 5.0)]
+        assets = {"CHAR_001": {"name": "卡梅隆"}, "CHAR_002": {"name": "无脸女"}}
+        script = tts_api.build_script(entries, assets)
+        self.assertEqual(script.split("\n"), ["你好", "再见"])   # 句数与对白条数一致
+        for gone in ("卡梅隆", "无脸女", "CHAR_001", "CHAR_002", "未注明角色", "："):
+            self.assertNotIn(gone, script)
+
+    def test_build_script_without_character_assets(self):
+        """FIX-S11-E5：没有角色资料的对白同样只念台词，不出现角色编号或「未注明角色」。"""
+        entries = [("SH001", "CHAR_009", "只有台词", 1.0, 3.0)]
+        script = tts_api.build_script(entries, {})
+        self.assertEqual(script, "只有台词")
+        self.assertNotIn("CHAR_009", script)
+        self.assertNotIn("未注明角色", script)
+
+    def test_build_script_skips_empty_text(self):
+        """FIX-S11-E5：空文本（含纯空白）的句子不进整段配音文本。"""
+        entries = [("SH001", "CHAR_001", "你好", 1.0, 3.0),
+                   ("SH001", "CHAR_001", "", 3.0, 4.0),
+                   ("SH001", "CHAR_001", "   ", 4.0, 5.0),
+                   ("SH002", "CHAR_002", "再见", 5.0, 7.0)]
+        script = tts_api.build_script(entries, {})
+        self.assertEqual(script, "你好\n再见")
 
 
 class TtsLengthGuardTests(unittest.TestCase):

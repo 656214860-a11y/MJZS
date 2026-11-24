@@ -280,8 +280,9 @@ def build_lines(entries, assets=None, voices=None, speeds=None, *, settings=None
 
 
 def build_script(entries, assets=None):
-    """把对白时间轴整理为整段配音文本（逐句带说话人）。"""
-    return "\n".join(f'{line["name"]}：{line["text"]}' for line in build_lines(entries, assets))
+    """把对白时间轴整理为整段配音文本：只念台词（不念角色名／编号），句间换行，空文本的句子跳过。"""
+    return "\n".join(str(line["text"]) for line in build_lines(entries, assets)
+                     if str(line["text"] or "").strip())
 
 
 def script_signature(text, settings=None):
