@@ -92,9 +92,19 @@ class SendDispatchTests(unittest.TestCase):
         self.assertEqual(desktop.opened, [])
 
     def test_non_flow_stage_gets_hint_not_chat(self):
+        """非对话制作阶段走直连 API 文件输出；未配 API 模型时提示选模型，不再报「暂无对话入口」。"""
         desktop = self._desktop(page_index=pet_bus.STAGES.index('edit'))
-        self.assertFalse(shared_send.send(desktop, 'edit', '随便聊聊', None))
-        self.assertIn('暂无对话入口', desktop.status.get())
+        calls = []
+        with unittest.mock.patch.object(
+                shared_send, 'send_stage_file',
+                side_effect=lambda d, stage, text='', **kw: calls.append((stage, text, kw)) or True):
+            self.assertTrue(shared_send.send(desktop, 'edit', '压缩节奏', None))
+        self.assertEqual(calls, [('edit', '压缩节奏', {})])
+        self.assertEqual(desktop.opened, [])
+        with unittest.mock.patch('infra.model_pool.pool', return_value={}):
+            self.assertFalse(shared_send.send(desktop, 'edit', '随便聊聊', None))
+        self.assertNotIn('暂无对话入口', desktop.status.get())
+        self.assertIn('API 模型', desktop.status.get())
         self.assertEqual(desktop.opened, [])
 
     def test_stage_command_navigates_then_sends_rest(self):
@@ -149,7 +159,7 @@ class SendDispatchTests(unittest.TestCase):
         self.assertIn('请完整读取并严格遵循本地技能文件', desktop.opened[0][2])
 
     def test_cross_stage_skill_on_page_without_entry_stays_and_hints(self):
-        """DOC-D8-7：剧本结构页没有对话入口，用别的阶段的技能发送只提示，不换页、不开 Agent。"""
+        """剧本结构页用任意技能发送均留在当前页直连 API 输出阶段文件；无可用 API 模型时给选模型提示。"""
         here = pet_bus.STAGES.index('script_structure')
         skill = SimpleNamespace(name='短剧总控', stage='script',
                                 path=Path('skills') / 'x' / 'SKILL.md')
@@ -157,26 +167,42 @@ class SendDispatchTests(unittest.TestCase):
                                 shared_input=SimpleNamespace(skill_items=lambda: [skill]))
         parsed = {'kind': 'engine', 'name': '短剧总控', 'stage': 'script_structure',
                   'rest': '整理结构'}
-        self.assertFalse(shared_send.send(desktop, 'script_structure', '/短剧总控 整理结构', parsed))
+        calls = []
+        with unittest.mock.patch.object(
+                shared_send, 'send_stage_file',
+                side_effect=lambda d, stage, text='', **kw: calls.append((stage, text, kw.get('only'))) or True):
+            self.assertTrue(shared_send.send(desktop, 'script_structure', '/短剧总控 整理结构', parsed))
+        self.assertEqual(calls, [('script_structure', '整理结构', ['短剧总控'])])
         self.assertEqual(getattr(desktop, 'navigated', []), [])
         self.assertEqual(desktop.page_index, here)
         self.assertEqual(desktop.opened, [])
+        with unittest.mock.patch('infra.model_pool.pool', return_value={}):
+            self.assertFalse(shared_send.send(desktop, 'script_structure', '/短剧总控 整理结构', parsed))
         hint = desktop.status.get()
-        self.assertIn('「剧本结构」页暂无对话入口', hint)
-        self.assertIn('/剧本准备 /短剧总控', hint)
+        self.assertNotIn('暂无对话入口', hint)
+        self.assertIn('API 模型', hint)
+        self.assertIn('/短剧总控', hint)
 
     def test_same_stage_skill_without_entry_keeps_page_hint(self):
-        """本阶段技能在没有对话入口的页上：沿用原提示，不换页。"""
+        """剧本结构页本阶段技能：有 API 模型直连输出，无模型提示选模型，不换页、不开 Agent。"""
         here = pet_bus.STAGES.index('script_structure')
         skill = SimpleNamespace(name='结构整理', stage='script_structure',
                                 path=Path('skills') / 'x' / '结构整理.skill.md')
         desktop = self._desktop(page_index=here,
                                 shared_input=SimpleNamespace(skill_items=lambda: [skill]))
         parsed = {'kind': 'skill', 'name': '结构整理', 'stage': 'script_structure', 'rest': ''}
-        self.assertFalse(shared_send.send(desktop, 'script_structure', '/结构整理', parsed))
+        calls = []
+        with unittest.mock.patch.object(
+                shared_send, 'send_stage_file',
+                side_effect=lambda d, stage, text='', **kw: calls.append((stage, kw.get('only'))) or True):
+            self.assertTrue(shared_send.send(desktop, 'script_structure', '/结构整理', parsed))
+        self.assertEqual(calls, [('script_structure', ['结构整理'])])
+        with unittest.mock.patch('infra.model_pool.pool', return_value={}):
+            self.assertFalse(shared_send.send(desktop, 'script_structure', '/结构整理', parsed))
         self.assertEqual(getattr(desktop, 'navigated', []), [])
         self.assertEqual(desktop.opened, [])
-        self.assertIn('暂无 Agent 入口', desktop.status.get())
+        self.assertNotIn('暂无 Agent 入口', desktop.status.get())
+        self.assertIn('API 模型', desktop.status.get())
 
     def test_explicit_stage_command_still_navigates_before_skill(self):
         """只有用户明确写 /阶段名 才换页：换页后技能在那个阶段的入口里执行。"""

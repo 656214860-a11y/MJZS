@@ -556,17 +556,19 @@ class _ScriptStructurePage:
         from domain.script_workspace_service import script_structure_documents
         structure = script_structure_documents(self.page.root)
         self.source = structure.source
-        from orchestrator.stage_models import manual_command
-        self.manual_command = manual_command
-        def run_manual():
-            """底部发送键在本页承载的制作入口：先出手动制作确认窗，再过模型检查，再开工。"""
-            return self.page.safe(self.manual_command(self.page, 'script_structure', self.start_structure, self.page.win))
+        self.page.script_structure_page = self
+        def run_send():
+            """底部发送键在本页承载的制作入口：已配置 API 模型时直连按 SKILL 输出结构剧本，否则退回本地规则整理（无弹窗）。"""
+            sender = getattr(self.page, 'send_stage_file', None)
+            if callable(sender) and sender('script_structure', ''):
+                return True
+            return self.page.safe(self.start_structure)
         # REQ-S02-37：页面上只留一个编辑器，占满整块内容区（REQ-S02-44：外框与底部
         # 共享输入框同左同右——pack fill='both' 与页内其他整宽区块同一口径）。
         editor_frame = ttk.Frame(self.page.content)
         editor_frame.pack(fill='both', expand=True, pady=(SPACING["xs"], SPACING["none"]))
         self.page.script_structure_editor_box = editor_frame
-        self._register_send_action(editor_frame, run_manual)
+        self._register_send_action(editor_frame, run_send)
         from domain.script_preview_service import LOADING_PREVIEW, preview_chunks, read_preview, should_load_async
         self.LOADING_PREVIEW = LOADING_PREVIEW; self.preview_chunks = preview_chunks; self.read_preview = read_preview; self.should_load_async = should_load_async
         default = self._default_document(structure)

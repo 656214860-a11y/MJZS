@@ -55,7 +55,10 @@ def load_index(root, library=False, refresh=False, stage=None):
         from domain.script_workspace_service import iter_script_documents
         known = {row.path for row in rows}
         for document in iter_script_documents(root):
-            relative = document.path.resolve().relative_to(Path(root).resolve()).as_posix()
+            try:
+                relative = document.path.resolve().relative_to(Path(root).resolve()).as_posix()
+            except (OSError, ValueError):
+                continue
             categories[relative] = document.category
             if relative not in known:
                 rows.append(FileRow(path=relative, stage='script', kind='剧本',
@@ -225,6 +228,9 @@ class FilesPanelIndexMixin:
         self.script_tree.delete(*self.script_tree.get_children())
         self.script_row_details.clear()
         self.script_row_category.clear()
+        stages = getattr(self, 'script_row_stage', None)
+        if isinstance(stages, dict):
+            stages.clear()
         self._index_rows = {}
         self._index_images = {}
         self._full_labels = {}
@@ -308,6 +314,22 @@ class FilesPanelIndexMixin:
         groups = getattr(self, '_index_group_count', 0)
         count = files + (groups if groups > 1 else 0)
         self.script_tree.configure(height=max(1, min(SCRIPT_FILE_MAX_ROWS, count)))
+        table = getattr(self, 'script_list', None)
+        if table is not None and hasattr(table, 'empty_label'):
+            if files:
+                hint = ''
+            elif getattr(self, 'library_view', False):
+                hint = '全局素材库暂无文件'
+            elif any((getattr(self, 'kind_filter', None), getattr(self, 'status_filter', None),
+                      getattr(self, 'keyword_filter', ''))):
+                hint = '没有匹配筛选条件的文件'
+            else:
+                hint = '当前阶段暂无文件'
+            try:
+                table.empty_label.configure(text=hint)
+                table.refresh_empty_state()
+            except tk.TclError:
+                pass
 
     def _apply_name_labels(self, rows, name_px, measure):
         """按文件名列可见宽写回显示文字：放得下写全名，放不下中间省略。"""
@@ -386,7 +408,7 @@ class FilesPanelIndexMixin:
 
     def delete_index_files(self):
         tree = self.script_tree
-        selected = [item for item in tree.selection() if not item.startswith(GROUP_PREFIX)]
+        selected = [item for item in tree.selection() if not self.is_file_group(item)]
         if not selected:
             raise ValueError('请先选择要删除的项目文件')
         paths = [self.index_file_path(item) for item in selected]

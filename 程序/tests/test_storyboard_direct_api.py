@@ -283,5 +283,77 @@ class StoryboardDirectProductionPathTests(unittest.TestCase):
         self.assertEqual([], bad)
 
 
+class StageFileDirectApiTests(unittest.TestCase):
+    """通用阶段直连 API 文件输出引擎：严格按 SKILL 仅输出阶段文件、不对话，并原子发布。"""
+
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.project = Path(temp.name).resolve() / '项目'
+        self.project.mkdir(parents=True)
+        self.config = {'engine': 'qwen', 'model': 'deepseek-v4-pro', 'api': True}
+
+    def test_script_structure_outputs_file_only_strips_fence_and_writes_manifests(self):
+        from orchestrator import storyboard_direct_api as api
+        from contract import script_contract
+        writing = self.project / 'writing'
+        writing.mkdir(parents=True)
+        source = writing / '剧本_雨夜.md'
+        source.write_text('第一场 街头\n阿远站在雨里，攥紧旧信封。\n', encoding='utf-8')
+        fenced = '```markdown\n# 第1集 雨夜\n\n## 分场剧本\n\n### 场次 1 街头·夜\n阿远攥紧旧信封，雨水顺着眉骨滑落。\n```'
+        adapter = FakeAdapter(fenced)
+        notices = []
+        result = api.run_stage_file_batch(
+            self.project, 'script_structure', self.config, '【结构化SKILL】只输出分场结构剧本',
+            instruction='强化雨夜情绪与特写细节', adapter=adapter,
+            record={'name': 'deepseek-v4-pro'}, report=notices.append)
+        self.assertTrue(result['ok'], result)
+        target = Path(result['path'])
+        self.assertTrue(target.is_file())
+        body = target.read_text(encoding='utf-8')
+        self.assertTrue(body.startswith('# 第1集 雨夜'))
+        self.assertNotIn('```', body)
+        self.assertIn(api.STAGE_FILE_ONLY_RULES, adapter.calls[0]['system'])
+        self.assertIn('【结构化SKILL】', adapter.calls[0]['system'])
+        prompt = adapter.calls[0]['messages'][0]['content']
+        self.assertIn('强化雨夜情绪与特写细节', prompt)
+        self.assertIn('阿远站在雨里', prompt)
+        self.assertTrue(script_contract.structured_script_paths(self.project))
+        self.assertTrue(any('已输出' in msg for msg in notices))
+
+    def test_downstream_stage_writes_canonical_dir_and_backs_up_overwrite(self):
+        from orchestrator import storyboard_direct_api as api
+        from contract.stage_path_service import write_dir
+        adapter = FakeAdapter('# 剪辑方案 v1\n快切开场。', '# 剪辑方案 v2\n三秒钩子强化。')
+        first = api.run_stage_file_batch(
+            self.project, 'edit', self.config, '【剪辑SKILL】',
+            instruction='第一版剪辑节奏', adapter=adapter, record={'name': 'deepseek-v4-pro'})
+        self.assertTrue(first['ok'], first)
+        target = Path(first['path'])
+        self.assertEqual(target.parent.resolve(), write_dir(self.project, 'edit').resolve())
+        self.assertIn('剪辑方案 v1', target.read_text(encoding='utf-8'))
+        second = api.run_stage_file_batch(
+            self.project, 'edit', self.config, '【剪辑SKILL】',
+            instruction='第二版加强开场钩子', adapter=adapter, record={'name': 'deepseek-v4-pro'})
+        self.assertTrue(second['ok'], second)
+        self.assertIn('剪辑方案 v2', target.read_text(encoding='utf-8'))
+        backups = list((target.parent / '历史版本').glob('*.md'))
+        self.assertEqual(len(backups), 1)
+        self.assertIn('剪辑方案 v1', backups[0].read_text(encoding='utf-8'))
+
+    def test_storyboard_run_batch_forwards_request_text(self):
+        from orchestrator import storyboard_direct_api as api
+        script = self.project / '02剧本结构' / 'EP001_雨夜.md'
+        script.parent.mkdir(parents=True)
+        script.write_text('第一场 街头\n雨夜行人。\n', encoding='utf-8')
+        adapter = FakeAdapter(json.dumps(good_episode(), ensure_ascii=False))
+        results = api.run_batch(
+            self.project, self.config, 'SKILL正文', scripts=[script],
+            request_text='多给男主眼神特写', adapter=adapter, record={'name': 'deepseek-v4-pro'})
+        self.assertTrue(results[0]['ok'], results)
+        request = ''.join(str(m.get('content', '')) for m in adapter.calls[0]['messages'])
+        self.assertIn('多给男主眼神特写', request)
+
+
 if __name__ == '__main__':
     unittest.main()
