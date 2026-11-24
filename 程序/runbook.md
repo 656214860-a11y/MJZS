@@ -72,6 +72,24 @@
 - 历史 `升级备份/` 与解释器 `.bak_*` 不进入发布包，也不把整目录备份机制重新引入源码提交。
 - `程序\outputs\`、`程序\logs\`、私有配置不进发布包。
 
+### 车道迁到固态盘
+
+`.agents\worktrees` 在机械盘（D）上，车道多并发时拖慢全机。迁法用 NTFS 目录联接（junction）：
+整目录搬到 `C:\dev-lanes`，原位建 junction，git 登记路径与各窗口 cwd 全部不用改。工具
+`scripts\relocate_lanes.py` 只用标准库 + robocopy/mklink 子进程。
+
+- **执行窗口**：先通知全部窗口停写车道，期间不得有人 claim 或提交；脚本必须在车道目录之外
+  （例如 `C:\`）运行，否则自己的 cwd 也算占用。
+- 预演（只读，可随便跑）：`python.exe -B scripts\relocate_lanes.py --plan`——打印目录大小、目标盘余量、
+  占用进程、worktree prune 预演与车道数。占用读不到、cpa 读不到时如实写「未能检测」。
+- 执行：`python.exe -B scripts\relocate_lanes.py --apply`——前置任一不满足即拒绝（在派项、
+  cwd 占用、余量＜2×、目标非空）；检测读不到时加 `--i-know-lanes-idle`。搬后自动校验文件数、
+  总字节、逐车道 `git status --porcelain` 与 `worktree list` 条数，不一致自动回搬。
+- 回滚：`python.exe -B scripts\relocate_lanes.py --rollback`——摘 junction 并把 `C:\dev-lanes`
+  搬回原位，同样校验。手动回滚等价命令：`rmdir "D:\…\.agents\worktrees"` 摘链接（rmdir 只摘 junction
+  不删内容），再 `robocopy "C:\dev-lanes" "D:\…\.agents\worktrees" /E /MOVE /COPY:DAT /R:1 /W:1`。
+- 不动：`.git`（仍在 D 盘）、应用本体、解释器、`data`、`logs`、`private`、项目与素材。
+
 ### 远端备份与服务器 CI（T1）
 
 私有服务器 `backup`（`root@8.138.223.126`，仓库 `/srv/git/manju-assistant.git`）承担三件事，全部只用 python3 标准库、不依赖 Tk 与项目解释器：
