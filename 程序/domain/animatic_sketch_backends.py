@@ -47,7 +47,7 @@ def comfy_local_render(workspace, shot, references, settings, *, client=None):
     """
     client = client or settings.get('comfy_client')
     if client is None:
-        raise ValueError('缺少本地 ComfyUI 客户端：请由编排层注入 client 参数或 settings 的 comfy_client 键')
+        raise ValueError('缺少本地 ComfyUI 客户端，请注入 client 参数或 comfy_client 设置')
     cfg = settings.get('reference_config') or client.reference_config()
     graph = client.reference_graph(SKETCH_PROMPT_PREFIX + shot['prompt'], references, cfg)
     seed = int(settings.get('seed', 1))
