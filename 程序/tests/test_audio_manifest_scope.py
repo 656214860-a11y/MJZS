@@ -83,6 +83,67 @@ class AudioManifestTests(unittest.TestCase):
             self.assertEqual(data['audio_manifest.json']['subtitle_count'], 3)
             self.assertTrue(all(not Path(item['file']).is_absolute() for item in data['voice.json']['tracks']))
 
+    def test_req_s11_40_sentence_dub_batches_listed_as_dialogue(self):
+        """逐句配音分句音频按批次进 voice.json，用途一律对白并带所属批次。"""
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            base = audio(root)
+            batch_a = base / '配音分句' / '批次A'
+            batch_b = base / '配音分句' / '配音批次_20260101'
+            batch_a.mkdir(parents=True)
+            batch_b.mkdir(parents=True)
+            (base / '整轨_x.wav').write_bytes(b'abc')
+            (batch_a / '001_SH001_你好_0.0s.mp3').write_bytes(b'abcd')
+            (batch_a / '批次.json').write_text('{}', encoding='utf-8')
+            (batch_a / '时间轴.json').write_text('[]', encoding='utf-8')
+            (batch_b / '002_SH002_再见_1.0s.wav').write_bytes(b'ab')
+            payload = audio_import_service.audio_manifests(root)
+            tracks = payload['voice.json']['tracks']
+            by_file = {item['file']: item for item in tracks}
+            rel_top = (base / '整轨_x.wav').relative_to(root).as_posix()
+            rel_a = (batch_a / '001_SH001_你好_0.0s.mp3').relative_to(root).as_posix()
+            rel_b = (batch_b / '002_SH002_再见_1.0s.wav').relative_to(root).as_posix()
+            self.assertEqual(by_file[rel_top], {'file': rel_top, 'kind': 'full', 'bytes': 3})
+            self.assertIn(rel_a, by_file)
+            self.assertIn(rel_b, by_file)
+            self.assertEqual(by_file[rel_a]['kind'], 'dialogue')
+            self.assertEqual(by_file[rel_a]['bytes'], 4)
+            self.assertEqual(by_file[rel_a]['batch'], '批次A')
+            self.assertEqual(by_file[rel_b]['batch'], '配音批次_20260101')
+            self.assertNotIn('批次.json', [Path(item['file']).name for item in tracks])
+            self.assertEqual(payload['audio_manifest.json']['voice'], payload['voice.json'])
+            self.assertEqual(payload['audio_manifest.json']['track_count'], len(tracks))
+
+    def test_req_s11_40_sentence_dub_skips_history_and_recycle_dirs(self):
+        """分句批次内的 历史版本/ 与 回收站/ 不进清单；顶层 历史版本/ 同样不列。"""
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            batch = audio(root) / '配音分句' / '批次A'
+            (batch / '历史版本').mkdir(parents=True)
+            (batch / '回收站').mkdir(parents=True)
+            (batch / '历史版本' / 'old.mp3').write_bytes(b'x')
+            (batch / '回收站' / 'gone.mp3').write_bytes(b'x')
+            (batch / '001_SH001_你好_0.0s.mp3').write_bytes(b'ok')
+            history = audio(root) / '历史版本'
+            history.mkdir(parents=True)
+            (history / 'old2.mp3').write_bytes(b'x')
+            payload = audio_import_service.audio_manifests(root)
+            files = [item['file'] for item in payload['voice.json']['tracks']]
+            self.assertIn((batch / '001_SH001_你好_0.0s.mp3').relative_to(root).as_posix(), files)
+            self.assertFalse(any('历史版本' in name or '回收站' in name for name in files))
+
+    def test_req_s11_40_no_sentence_dir_keeps_manifest_identical(self):
+        """没有 配音分句/ 目录时清单与旧口径逐字一致：顶层条目不多字段。"""
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            base = audio(root)
+            base.mkdir(parents=True)
+            (base / 'line.mp3').write_bytes(b'abcd')
+            payload = audio_import_service.audio_manifests(root)
+            rel = (base / 'line.mp3').relative_to(root).as_posix()
+            self.assertEqual(payload['voice.json']['tracks'],
+                             [{'file': rel, 'kind': 'dialogue', 'bytes': 4}])
+
 
 if __name__ == '__main__':
     unittest.main()
