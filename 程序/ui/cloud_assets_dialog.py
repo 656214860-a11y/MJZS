@@ -26,7 +26,7 @@ def settings(parent):
     row = ttk.Frame(body);row.pack(fill='x', pady=(SPACING['md'], SPACING['none']))
     def save():
         try:save_key(token.get());win.destroy()
-        except Exception as exc:notify(win, str(exc), level='error', title='保存失败', status=status)
+        except Exception as exc:import contract.error_codes as error_codes;notify(win, error_codes.user_text(exc), level='error', title='保存失败', status=status)
     PrimaryButton(row, text='保存', command=save).pack(side='left')
     SecondaryButton(row, text='打开 Comfy 账户', command=lambda:webbrowser.open('https://platform.comfy.org/')).pack(side='left', padx=SPACING['xs'])
     SecondaryButton(row, text='获取 API Key', command=lambda:webbrowser.open('https://platform.comfy.org/profile/api-keys')).pack(side='left', padx=SPACING['xs'])

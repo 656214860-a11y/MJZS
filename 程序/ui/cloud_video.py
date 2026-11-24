@@ -181,7 +181,7 @@ class _CloudSettingsWindow:
             self.entries['model'].delete(0,'end');self.refresh_models()
             if reset and getattr(self.desktop,'page_index',None)==self.desktop.page_of('video'):
                 self.desktop.show_stage('video',video_mode='cloud')
-        except (ValueError,OSError) as exc:notify(self.win, str(exc), level='error', title='云端设置', status=self.desktop.status)
+        except (ValueError,OSError) as exc:import contract.error_codes as error_codes;notify(self.win, error_codes.user_text(exc), level='error', title='云端设置', status=self.desktop.status)
 
     def open_session(self):
         try:
@@ -236,7 +236,7 @@ class _CloudSettingsWindow:
             else:
                 self.desktop.set_video_workspace(folder,navigate=False)
                 self.win.destroy()
-        except (ValueError,OSError) as e:notify(self.win, str(e), level='error', title='云端设置', status=self.desktop.status)
+        except (ValueError,OSError) as e:import contract.error_codes as error_codes;notify(self.win, error_codes.user_text(e), level='error', title='云端设置', status=self.desktop.status)
 
     def probe_endpoint_now(self):
         from infra.api_endpoints import normalize_url, probe_endpoint

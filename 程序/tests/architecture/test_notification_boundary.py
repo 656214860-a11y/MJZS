@@ -71,6 +71,38 @@ class NotificationBoundaryTests(unittest.TestCase):
         stale = UI_MESSAGEBOX_IMPORT_ALLOWED - imported
         self.assertEqual(stale, set(), '允许名单里的模块已不再引入 messagebox，请从名单移除：' + str(sorted(stale)))
 
+    def test_notification_calls_never_render_the_bound_exception(self):
+        """EC-3：提示调用的文字参数不得直接渲染所在 except 绑定的异常变量。"""
+        violations = []
+        for path in _notification_scan_files():
+            for lineno, detail in _exception_text_leaks(parse(path)):
+                violations.append('%s:%d %s' % (path.relative_to(ROOT).as_posix(), lineno, detail))
+        self.assertEqual(sorted(violations), [],
+                         '失败提示里的异常原文请经 error_codes.user_text()：\n'
+                         + '\n'.join(sorted(violations)))
+
+    def test_exception_text_guard_canary(self):
+        """金丝雀：对源码字符串求值——违规写法抓得到，已迁移与无关写法不抓。"""
+        cases = (
+            ("try:\n    work()\nexcept Exception as e:\n    notify(win, str(e))", 1),
+            ("try:\n    work()\nexcept Exception as exc:\n"
+             "    self.notifier.error('导出失败：'+str(exc), title='导出')", 1),
+            ("try:\n    work()\nexcept Exception as e:\n    self.notifier.warning(str(e))", 1),
+            ("try:\n    work()\nexcept (ValueError,OSError) as exc:\n"
+             "    notify(win, '保存失败：%s' % exc, title='保存')", 1),
+            ("try:\n    work()\nexcept Exception as e:\n    notify(win, f'失败：{e}')", 1),
+            ("try:\n    work()\nexcept Exception as e:\n    log(str(e))\n    notify(win, '失败')", 0),
+            ("try:\n    work()\nexcept Exception as e:\n"
+             "    notify(win, error_codes.user_text(e))", 0),
+            ("try:\n    work()\nexcept Exception as exc:\n"
+             "    notify(win, '失败：%s' % error_codes.user_text(exc))", 0),
+            ("try:\n    work()\nexcept Exception:\n    notify(win, str(e))", 0),
+            ("def show(text):\n    notify(win, str(text))", 0),
+        )
+        for source, expected in cases:
+            with self.subTest(canary=source):
+                self.assertEqual(len(_exception_text_leaks(ast.parse(source))), expected)
+
 UI_MESSAGEBOX_IMPORT_ALLOWED = {'asset_detail.py', 'reference_wall.py', 'storyboard_files.py'}
 
 LEGACY_MESSAGEBOX_MAX = {
@@ -102,3 +134,62 @@ def _display_messageboxes(tree):
             and isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name)
             and node.func.value.id == 'messagebox'
             and node.func.attr in {'showerror', 'showwarning', 'showinfo'}]
+
+
+def _notification_scan_files():
+    """EC-3 守卫口径：ui/ 全部模块、desktop.py、app.py、agent/prompt_optimizer.py。"""
+    return (*sorted((ROOT / 'ui').glob('*.py')),
+            ROOT / 'desktop.py', ROOT / 'app.py', ROOT / 'agent' / 'prompt_optimizer.py')
+
+
+def _is_notification_call(node):
+    """守卫口径的提示调用：裸 ``notify(...)`` 与 ``*.notifier.error/warning(...)``。"""
+    func = node.func
+    if isinstance(func, ast.Name):
+        return func.id == 'notify'
+    return (isinstance(func, ast.Attribute) and func.attr in {'error', 'warning'}
+            and isinstance(func.value, ast.Attribute) and func.value.attr == 'notifier')
+
+
+def _is_user_text_call(node):
+    """``error_codes.user_text(e)``／``user_text(e)``——统一出口包装，内部名字不算泄漏。"""
+    func = node.func
+    return ((isinstance(func, ast.Attribute) and func.attr == 'user_text')
+            or (isinstance(func, ast.Name) and func.id == 'user_text'))
+
+
+def _renders_exception(node, name):
+    """参数子树里把 ``except`` 绑定的 ``name`` 原文搬进文字：``str(e)``／``'…' % e``／``f'…{e}…'``。"""
+    stack = [node]
+    while stack:
+        child = stack.pop()
+        if isinstance(child, ast.Call) and _is_user_text_call(child):
+            continue
+        if isinstance(child, ast.Name) and child.id == name:
+            return True
+        stack.extend(ast.iter_child_nodes(child))
+    return False
+
+
+def _exception_text_leaks(tree):
+    """返回 ``(行号, 说明)``：提示调用的文字参数直接渲染所在 except 绑定的异常变量。"""
+    leaks = []
+
+    def visit(node, bound):
+        if isinstance(node, ast.ExceptHandler):
+            names = bound | ({node.name} if isinstance(node.name, str) else set())
+            for child in node.body:
+                visit(child, names)
+            return
+        if isinstance(node, ast.Call) and _is_notification_call(node) and bound:
+            for arg in (*node.args, *(keyword.value for keyword in node.keywords)):
+                hit = next((name for name in bound if _renders_exception(arg, name)), None)
+                if hit is not None:
+                    leaks.append((node.lineno, '通知调用直接渲染异常变量 ' + hit))
+                    break
+        for child in ast.iter_child_nodes(node):
+            visit(child, bound)
+
+    for node in tree.body:
+        visit(node, frozenset())
+    return leaks

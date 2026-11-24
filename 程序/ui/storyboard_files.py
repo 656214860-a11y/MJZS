@@ -7,6 +7,7 @@ from tkinter import ttk, messagebox
 from agent.core import read
 import contract.pet_bus as pet_bus
 from contract.storyboard_paths import is_final_dir
+from contract import error_codes
 from domain.storyboard_catalog_service import (
     IGNORED, discover_files, linked_path as _linked_path, content_preview as _content_preview, is_deliverable as _is_deliverable,
     file_order as _file_order,
@@ -413,7 +414,7 @@ class _FinalStoryboardPage:
             return
         try:preview=self.controller.save_edited(self.viewer.get('1.0','end-1c'))
         except ValueError as exc:
-            notify(self.desktop.win, str(exc)+'\n\n请改回 JSON 格式再存，或点「刷新列表」重新载入。',
+            notify(self.desktop.win, error_codes.user_text(exc)+'\n\n请改回 JSON 格式再存，或点「刷新列表」重新载入。',
                    level='error', title='无法保存', status=self.desktop.status)
             return
         self.render_preview(preview)                   # 存完重新摆一遍：改动状态清零，看到的就是盘上那份

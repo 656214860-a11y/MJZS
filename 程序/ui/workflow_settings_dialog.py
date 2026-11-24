@@ -13,6 +13,7 @@ from orchestrator.workflow_settings import (ENGINES, FLOWS, FLOW_SKILLS, SKILL_D
                                skills_of, sync_qwen_model, validate_stage_profile)
 from ui.ui_dialogs import FileDialog
 import infra.ui_plugin_registry as ui_plugin_registry
+from contract import error_codes
 from ui_widgets import BaseDialog, Card, PrimaryButton, SecondaryButton, Tooltip, notify
 from ui_widgets import LineInput, TextArea
 from ui_tokens import TEXT_ROWS, WRAPLENGTH, SPACING, ICON_MICROPHONE
@@ -104,7 +105,7 @@ def show_settings(desktop,project,on_saved=None,stage='previs',function=None):
             stash();save_flow(project,stage,draft,active[0])
             if on_saved:on_saved()
             win.destroy()
-        except Exception as exc:notify(win, str(exc), level='error', title='调用设置', status=feedback)
+        except Exception as exc:notify(win, error_codes.user_text(exc), level='error', title='调用设置', status=feedback)
     def api_saved():
         model=__import__('infra.qwen_setup').load()['model']
         sync_qwen_model(project,model)

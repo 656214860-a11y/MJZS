@@ -13,6 +13,7 @@ from pathlib import Path
 from tkinter import ttk
 
 import infra.app_logging as app_logging
+from contract import error_codes
 from agent.core import save_text
 from ui_tokens import SPACING, TEXT_ROWS
 from ui_widgets import BaseDialog, DataTable, HintLabel, notify
@@ -133,7 +134,7 @@ class TodayDetailsDialog(BaseDialog):
         try:
             self._write_csv(target)
         except (OSError, ValueError) as exc:
-            notify(self, '导出失败：' + str(exc), level='error', title='导出 CSV')
+            notify(self, '导出失败：' + error_codes.user_text(exc), level='error', title='导出 CSV')
             return
         status = getattr(self.desktop, 'status', None)
         try:

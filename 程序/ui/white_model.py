@@ -45,7 +45,8 @@ def choose_previs(desktop):
     def enter():
         try:open_previs(desktop,selected.get())
         except (OSError,ValueError) as exc:
-            notify(picker, str(exc), level='error', title='白模预演', status=desktop.status);return
+            import contract.error_codes as error_codes
+            notify(picker, error_codes.user_text(exc), level='error', title='白模预演', status=desktop.status);return
         picker.destroy()
     PrimaryButton(body, text='进入白模预演', command=enter).pack(anchor='e', pady=SPACING['sm'])
 
@@ -168,7 +169,7 @@ def open_previs(desktop,sid=None):
         save()
     def guarded(fn):
         try: fn()
-        except Exception as exc: notify(win, str(exc), level='error', title='白模预演', status=desktop.status)
+        except Exception as exc: import contract.error_codes as error_codes;notify(win, error_codes.user_text(exc), level='error', title='白模预演', status=desktop.status)
     row = ttk.Frame(body); row.pack(fill='x', pady=SPACING['sm'])
     SecondaryButton(row, text='导入预演视频/工程', command=lambda: guarded(import_preview)).pack(side='left', padx=(SPACING['none'], SPACING['sm']))
     PrimaryButton(row, text='保存备注', command=lambda: guarded(save)).pack(side='left', padx=(SPACING['none'], SPACING['sm']))
