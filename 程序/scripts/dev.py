@@ -9,6 +9,7 @@ r"""开发者统一入口：一个命令名对应一个既有实现，不另写�
     python.exe -B scripts\dev.py debt       # 全量欠账与后台补跑状态
     python.exe -B scripts\dev.py ci         # 本地 CI（冒烟 + 安全全量，日志写 logs/ci_最近.log）
     python.exe -B scripts\dev.py dist       # 分发副本自检（构建 → 校验 → 导入入口）
+    python.exe -B scripts\dev.py release-gate  # 发布门禁聚合：一条命令回答「现在能不能发布」（默认只读；--run 实跑耗时项）
     python.exe -B scripts\dev.py health     # 仓库健康检查
     python.exe -B scripts\dev.py logs       # 日志维护（--dry-run 可预览）
     python.exe -B scripts\dev.py shots      # 界面截图基线比对（手动；--update 重拍基线）
@@ -35,6 +36,7 @@ COMMANDS = {
     'debt': (['scripts/auto_full_safe.py', '--status'], '全量欠账与后台补跑状态'),
     'ci': (['scripts/local_ci.py'], '本地 CI'),
     'dist': (['scripts/distribution_selfcheck.py'], '分发副本自检'),
+    'release-gate': (['scripts/release_gate.py'], '发布门禁聚合：只读判定能否发布（--run 实跑耗时项）'),
     'health': (['scripts/repo_health.py'], '仓库健康检查'),
     'logs': (['scripts/maintain_logs.py'], '日志维护'),
     'shots': (['scripts/ui_snapshot.py', '--check'], '界面截图基线比对（--update 重拍；手动工具）'),
