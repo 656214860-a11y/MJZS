@@ -18,8 +18,9 @@ _LIST_WIDTH = 30      # Listbox 宽度（字符）：容下一条截断标题
 _HIT_TAG = "script_outline_hit"
 _EMPTY_TEXT = "无集数／场次标题"
 
-_STRUCTURED_TAGS = frozenset(script_view_style.HEADING_TAGS.values())
-_NATURAL_TAGS = frozenset({script_view_style.EPISODE, script_view_style.SCENE})
+# REQ-S02-40：折叠段的层级——natural 集为 1、场为 2；structured 按 Markdown 层级。
+_NATURAL_LEVELS = {script_view_style.EPISODE: 1, script_view_style.SCENE: 2}
+_STRUCTURED_LEVELS = {tag: level for level, tag in script_view_style.HEADING_TAGS.items()}
 
 
 def _clean_title(line):
@@ -32,20 +33,49 @@ def _clean_title(line):
 
 def outline_entries(text, kind="natural"):
     """返回 ``[(行号, 标题)]``，行号升序、按行去重；无匹配返回 ``[]``。"""
+    return [(line, title) for line, title, _level, _end in outline_sections(text, kind)]
+
+
+def outline_sections(text, kind="natural"):
+    """REQ-S02-40：返回 ``[(行号, 标题, 层级, 段末行)]``，行号升序、按行去重。
+
+    段末行＝下一个同级或更高级标题行；其后没有这样的标题时取 ``len(行)+1``，
+    即段含其全部子段。折叠间隙另由调用方按相邻段首行计算。
+    """
     value = str(text or "")
     if not value:
         return []
-    wanted = _STRUCTURED_TAGS if kind == "structured" else _NATURAL_TAGS
+    levels = _STRUCTURED_LEVELS if kind == "structured" else _NATURAL_LEVELS
     lines = value.split("\n")
-    found = {}
+    heads = []
+    seen = set()
     for start_line, _sc, _el, _ec, tag in script_view_style.spans(value, kind):
-        if tag not in wanted or start_line in found:
+        if tag not in levels or start_line in seen:
             continue
+        seen.add(start_line)
         index = start_line - 1
         title = _clean_title(lines[index] if index < len(lines) else "")
         if title:
-            found[start_line] = title
-    return sorted(found.items())
+            heads.append([start_line, title, levels[tag], len(lines) + 1])
+    heads.sort(key=lambda head: head[0])
+    for index, head in enumerate(heads):
+        for later in heads[index + 1:]:
+            if later[2] <= head[2]:
+                head[3] = later[0]
+                break
+    return [tuple(head) for head in heads]
+
+
+def highlight_line(widget, line):
+    """REQ-S02-43：``script_outline_hit`` 临时高亮＋``see()``，大纲与 Ctrl+G 共用。"""
+    start = "%d.0" % line
+    try:
+        end = widget.index("%s lineend" % start)
+    except tk.TclError:
+        end = start
+    widget.tag_remove(_HIT_TAG, "1.0", "end")
+    widget.tag_add(_HIT_TAG, start, end)
+    widget.see(start)
 
 
 class OutlinePanel(ttk.Frame):
@@ -107,11 +137,4 @@ class OutlinePanel(ttk.Frame):
         if index >= len(self._entries):
             return
         line, _title = self._entries[index]
-        start = "%d.0" % line
-        try:
-            end = self._text.index("%s lineend" % start)
-        except tk.TclError:
-            end = start
-        self._text.tag_remove(_HIT_TAG, "1.0", "end")
-        self._text.tag_add(_HIT_TAG, start, end)
-        self._text.see(start)
+        highlight_line(self._text, line)

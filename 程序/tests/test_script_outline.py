@@ -12,7 +12,13 @@ from pathlib import Path
 PROGRAM = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROGRAM))
 
-from script_outline import OutlinePanel, outline_entries, _HIT_TAG
+from script_outline import (
+    OutlinePanel,
+    _HIT_TAG,
+    highlight_line,
+    outline_entries,
+    outline_sections,
+)
 from ui_widgets import TextArea
 
 
@@ -70,6 +76,54 @@ class OutlineEntriesTests(unittest.TestCase):
         self.assertEqual(outline_entries('只是普通正文\n第二行\n', 'natural'), [])
         self.assertEqual(outline_entries('', 'natural'), [])
         self.assertEqual(outline_entries('普通正文', 'structured'), [])
+
+
+class OutlineSectionsTests(unittest.TestCase):
+    """REQ-S02-40：折叠段表——行号、层级与段末（下一个同级或更高级标题行）。"""
+
+    def test_natural_sections_carry_level_and_end(self):
+        sections = outline_sections(NATURAL, 'natural')
+        self.assertEqual([line for line, _t, _lv, _e in sections], [1, 3, 7, 9])
+        self.assertEqual(sections[0], (1, '第 1 集', 1, 7))
+        self.assertEqual(sections[1], (3, '场景 1：旧站台', 2, 7))
+        self.assertEqual(sections[2], (7, '第 2 集', 1, 13))
+        self.assertEqual(sections[3], (9, '场景 2：雨夜车站', 2, 13))
+
+    def test_structured_sections_levels_and_ends(self):
+        sections = outline_sections(STRUCTURED, 'structured')
+        self.assertEqual([line for line, _t, _lv, _e in sections], [1, 3, 5, 9])
+        self.assertEqual({line: level for line, _t, level, _e in sections},
+                         {1: 1, 3: 2, 5: 3, 9: 3})
+        self.assertEqual({line: end for line, _t, _lv, end in sections},
+                         {1: 13, 3: 13, 5: 9, 9: 13})
+
+    def test_sections_empty_when_no_headings(self):
+        self.assertEqual(outline_sections('只是普通正文\n第二行\n', 'natural'), [])
+        self.assertEqual(outline_sections('', 'natural'), [])
+
+
+class HighlightLineTests(unittest.TestCase):
+    """REQ-S02-43：跳转共用的临时高亮——打 hit 标签并 see() 到该行。"""
+
+    def test_highlight_line_marks_hit_tag(self):
+        root = tk.Tk()
+        root.geometry('500x300+40+40')
+        root.deiconify()
+        root.update()
+        self.addCleanup(lambda: root.winfo_exists() and root.destroy())
+        preview = TextArea(root, wrap='word', font=('Microsoft YaHei UI', 10))
+        preview.pack(fill='both', expand=True)
+        preview.insert('1.0', NATURAL)
+        _settle(root)
+        highlight_line(preview, 7)
+        _settle(root)
+        ranges = preview.tag_ranges(_HIT_TAG)
+        self.assertTrue(ranges, '跳转后应在目标行留下高亮')
+        self.assertEqual(str(ranges[0]), '7.0')
+        self.assertTrue(str(ranges[1]).startswith('7.'))
+        highlight_line(preview, 1)
+        ranges = preview.tag_ranges(_HIT_TAG)
+        self.assertEqual(str(ranges[0]), '1.0', '再次跳转应移动而不是叠加高亮')
 
 
 class OutlinePanelTests(unittest.TestCase):

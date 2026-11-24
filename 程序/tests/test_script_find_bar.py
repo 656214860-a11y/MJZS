@@ -50,7 +50,7 @@ class SearchPositionsTests(unittest.TestCase):
 
 
 class FindBarTests(unittest.TestCase):
-    def _make(self, text, state='normal'):
+    def _make(self, text, state='normal', **bar_kwargs):
         root = tk.Tk()
         root.geometry('500x300+40+40')
         root.deiconify()
@@ -73,7 +73,7 @@ class FindBarTests(unittest.TestCase):
         preview.insert('1.0', text)
         preview.configure(state=state)
         notices = []
-        bar = FindBar(area, preview, notify=notices.append)
+        bar = FindBar(area, preview, notify=notices.append, **bar_kwargs)
         # 与生产一致：FindBar 由 grid 管理，show()/hide() 走 grid_remove/grid。
         bar.grid(row=0, column=0, sticky='ew')
         bar.grid_remove()
@@ -148,6 +148,30 @@ class FindBarTests(unittest.TestCase):
         self.assertEqual(bar.replace_all(), 0)
         self.assertEqual(preview.get('1.0', 'end-1c'), '甲乙甲')
         self.assertTrue(any('编辑' in message for message in notices))
+
+    def test_titles_only_limits_matches_to_heading_lines(self):
+        """REQ-S02-43：勾选「只在标题里找」后，命中只落在 headings 给的行号集合内。"""
+        text = '场景 1：旧站台\n\n阿远：我回来了。\n\n场景 2：又见阿远\n'
+        root, preview, bar, _n = self._make(text, headings=lambda: {1, 5})
+        self._keyword(bar, '阿远')
+        # 不勾选时两处分命中：第 3 行与第 5 行。
+        self.assertTrue(bar.find_next())
+        self.assertEqual(int(str(preview.tag_ranges('sel')[0]).split('.')[0]), 3)
+        # 勾选后只剩标题行（第 5 行）一处命中。
+        bar.titles_only.set(True)
+        bar._sel = None
+        self.assertTrue(bar.find_next())
+        self.assertEqual(int(str(preview.tag_ranges('sel')[0]).split('.')[0]), 5)
+        self.assertEqual(bar.count_var.get(), '第 1/1 个')
+
+    def test_find_reveals_hidden_line_via_reveal_callback(self):
+        """REQ-S02-40/43：命中落在收起的段里时，reveal 回调收到命中行号。"""
+        revealed = []
+        root, preview, bar, _n = self._make('行一\n行二 目标\n行三\n',
+                                          reveal=revealed.append)
+        self._keyword(bar, '目标')
+        self.assertTrue(bar.find_next())
+        self.assertEqual(revealed, [2], '命中行号应交给 reveal 回调自动展开')
 
     def test_00_esc_and_entry_return_close_or_find(self):
         """REQ-S02-36：Esc 关闭查找条；Enter 触发下一个。

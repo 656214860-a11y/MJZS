@@ -44,21 +44,29 @@ def _offset_index(text, offset):
 class FindBar(ttk.Frame):
     """查找替换条：默认 ``grid_remove`` 隐藏，由页面 ``show()``/``hide()`` 开合。"""
 
-    def __init__(self, master, text_widget, *, on_changed=None, notify=None, run=None):
+    def __init__(self, master, text_widget, *, on_changed=None, notify=None, run=None,
+                 headings=None, reveal=None):
         super().__init__(master, padding=(SPACING["xs"], SPACING["xs"], SPACING["xs"], SPACING["none"]))
         self._text = text_widget
         self._on_changed = on_changed or (lambda: None)
         self._notify = notify or (lambda _message: None)
         self._run = run or (lambda fn: fn())
+        self._headings = headings    # REQ-S02-43：() -> 标题行号集合；给「只在标题里找」用
+        self._reveal = reveal        # REQ-S02-40：(行号) -> 命中自动展开所在折叠段
         self._sel = None          # 当前高亮命中 (start, end) 字符偏移
         self._shown = False
 
         self.sensitive = tk.BooleanVar(value=False)   # 勾选＝区分大小写（默认不敏感）
+        self.titles_only = tk.BooleanVar(value=False)  # 勾选＝只在标题行里找
         self.keyword = LineInput(self, width=CHAR_WIDTH["3xl"], placeholder="查找")
         self.keyword.pack(side="left")
         ttk.Checkbutton(self, text="Aa", variable=self.sensitive,
                         style="TCheckbutton").pack(
             side="left", padx=(SPACING["xs"], SPACING["none"]))
+        if headings is not None:
+            ttk.Checkbutton(self, text="只在标题里找", variable=self.titles_only,
+                            style="TCheckbutton").pack(
+                side="left", padx=(SPACING["xs"], SPACING["none"]))
         self._button("上一个", self.find_prev).pack(side="left", padx=(SPACING["sm"], SPACING["none"]))
         self._button("下一个", self.find_next).pack(side="left", padx=(SPACING["xs"], SPACING["none"]))
         self.replacement = LineInput(self, width=CHAR_WIDTH["2xl"], placeholder="替换为")
@@ -104,8 +112,14 @@ class FindBar(ttk.Frame):
         return self._text.get("1.0", "end-1c")
 
     def _positions(self):
-        return _search_positions(self._content(), self.keyword.get(),
-                                 nocase=not bool(self.sensitive.get()))
+        positions = _search_positions(self._content(), self.keyword.get(),
+                                      nocase=not bool(self.sensitive.get()))
+        if bool(self.titles_only.get()) and self._headings is not None:
+            allowed = set(self._headings() or ())
+            text = self._content()
+            positions = [pos for pos in positions
+                         if int(_offset_index(text, pos[0]).split(".")[0]) in allowed]
+        return positions
 
     def _needle_matches(self, fragment):
         needle = self.keyword.get()
@@ -118,6 +132,8 @@ class FindBar(ttk.Frame):
 
     def _highlight(self, match, text):
         start, end = match
+        if self._reveal is not None:
+            self._reveal(int(_offset_index(text, start).split(".")[0]))
         self._text.tag_remove("sel", "1.0", "end")
         self._text.tag_add("sel", _offset_index(text, start), _offset_index(text, end))
         self._text.see(_offset_index(text, start))
