@@ -1,0 +1,15 @@
+{
+  "round": 4301,
+  "commit_base": "755c7e9d",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k audio_direct",
+    "exit": 0,
+    "passed": 8,
+    "failed": 0
+  },
+  "generated_at": "2026-11-24T13:35:51"
+}
