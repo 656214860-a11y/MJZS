@@ -999,8 +999,8 @@ class Agent:
         if pending:
             # 三虎刚问过用户一句、还挂着：模型抽意图时要知道用户是在回哪个问题
             out['pending_offer'] = str(pending)
-        try: facts = self.facts() if callable(self.facts) else {}
-        except Exception as exc: self.errors.append(('facts', str(exc))); facts = {}
+        try: facts = self.facts() if callable(getattr(self, 'facts', None)) else {}
+        except Exception as exc: errors = getattr(self, 'errors', None); facts = {}; errors.append(('facts', str(exc))) if errors is not None else None
         if isinstance(facts, dict) and facts: out['facts'] = facts
         return out
 
