@@ -30,7 +30,7 @@
 | `程序/tests/**` | 测试 | 仅用于开发验证。 |
 | `程序/docs/specs/**` | 设计规格 | 开发权威与技术边界，不是运行时输入。 |
 | `程序/docs/requirements/**`、`程序/docs/adr/**`、`程序/docs/stages/**`、`程序/docs/review/**`、`程序/docs/guides/**`、`程序/docs/contracts/**`、`程序/docs/records/**` | 开发文档 | 用户运行所需的流程指南在单文件保留规则中明确列出，其余工程资料不入包。 |
-| `程序/docs/process/发布检查单.md`、`程序/docs/process/商用交付资料.md`、`程序/docs/process/存储盘点与保留.md`、`程序/docs/process/维护约定.md`、`程序/docs/process/版本控制处置说明.md`、`程序/docs/process/联调测试出口基线.md`、`程序/docs/process/每分钟成本核算.md`、`程序/docs/process/三虎框架评估.md`、`程序/docs/process/产物命名盘点.md` | 开发流程 | 保留仅被用户练习引用的制作失败与人工替代说明，其余运行时不读取。 |
+| `程序/docs/process/发布检查单.md`、`程序/docs/process/商用交付资料.md`、`程序/docs/process/存储盘点与保留.md`、`程序/docs/process/维护约定.md`、`程序/docs/process/版本控制处置说明.md`、`程序/docs/process/联调测试出口基线.md`、`程序/docs/process/每分钟成本核算.md`、`程序/docs/process/三虎框架评估.md`、`程序/docs/process/产物命名盘点.md`、`程序/docs/process/外发内容清单.md`、`程序/docs/process/外部依赖清单.md`、`程序/docs/process/隐私声明草案.md`、`程序/docs/process/实机走通清单.md` | 开发流程 | 保留仅被用户练习引用的制作失败与人工替代说明，其余运行时不读取。 |
 | `程序/governance/**` | 开发治理 | 目录协议、检查器与基线只在开发与CI中使用，不进入产品。 |
 | `程序/legacy/**` | 退役内容 | 未来经确认保留的退役代码不得进入运行时和分发；当前不创建空目录。 |
 | `程序/tasks_round/**` | 开发记录 | 轮次过程产物。 |
