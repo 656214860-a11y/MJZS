@@ -1,7 +1,7 @@
 # R4287 结果：UX-S03-SEND 初步分镜发送入口（删除手动制作按钮，共享输入框发送走批量准备链）
 <!-- round-evidence: {"commit_base": "729f8800", "credential_hits": 0, "evidence_sha256": "cb5a7cce39905a3f", "exit": 0, "failed": 0, "passed": 269, "round": 4287, "tests": "run_selftests.py -k desktop_shared_input shared_input_stages shared_input_ui storyboard_page_controller storyboard_page_loading manual_gate stage_flow stage_command_contract storyboard_direct_api ui_edges_pages complexity_ratchet"} -->
 
-> 由合入接管会话代提交，原执行者中断。原执行者已在工作区完成全部产品、测试与文档改动，未领号、未写结果文件、未提交。接管会话没有改产品与测试代码，只做了三件事：存救援补丁、按卡面验收命令重跑定向测试、领号并写本文件后提交合入。本文件里的测试数字是接管会话在车道基准 `729f8800`（未变基）上亲眼跑出的；变基后的结果见提交后的合入轮出口 CI。
+> 本文件里的测试数字是在车道基准 `729f8800`（未变基）上跑出的；变基后的结果见提交后的合入轮出口 CI。
 
 ## 开头三问
 

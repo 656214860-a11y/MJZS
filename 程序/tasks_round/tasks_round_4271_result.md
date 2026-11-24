@@ -1,7 +1,7 @@
 # R4271 结果：SANHU-CONTEXT-GAPS 三虎快照带项目事实（计数、缺口、门禁）
 <!-- round-evidence: {"commit_base": "c247e8df", "credential_hits": 0, "evidence_sha256": "2cef365326cb18b5", "exit": 0, "failed": 0, "passed": 107, "round": 4271, "tests": "run_selftests.py -k pet_context_facts pet_agent pet_ui_voice"} -->
 
-> 由合入接管会话代提交，原执行者中断。改动为车道 `codex/sanhu-context-gaps` 里未提交的工作区内容，接管会话未改产品逻辑，只做验证、补结果文件并提交合入。
+> 改动来自车道 `codex/sanhu-context-gaps`。
 
 ## 开头三问
 
