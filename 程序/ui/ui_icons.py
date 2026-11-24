@@ -10,21 +10,73 @@ _NAV_DIR = Path(__file__).resolve().parents[1] / 'assets' / 'nav'
 _NAV_IMAGES = []   # (PhotoImage, 源 PNG 路径, 目标尺寸或 None)：切换主题时就地重染色
 
 
+_STAGE_BADGE_BOX = (16, 16, 28, 28)   # 与 scripts/build_nav_icons.STAGE_FILE_BADGE_POS/SIZE 一致
+
+
+def _hex_rgb(color):
+    value = str(color).lstrip('#')
+    return tuple(int(value[i:i + 2], 16) for i in (0, 2, 4))
+
+
+def _is_stage_file_icon(path):
+    stem = Path(path).stem
+    return stem.endswith('_files') and stem != 'project_files'
+
+
+def _tint_stage_file_image(image, size=None):
+    """阶段文件复合图标分三层重染色：阶段主字形走正文色、描边走背景色、右下角文件夹走柔和灰色。"""
+    from PIL import Image
+    src = image.convert('RGBA')
+    ink = _hex_rgb(COLORS['text_primary'])
+    ring = _hex_rgb(COLORS['background_primary'])
+    folder = _hex_rgb(COLORS['text_secondary'])
+    highlight = _hex_rgb(COLORS['background_card'])
+    bx0, by0, bx1, by1 = _STAGE_BADGE_BOX
+    out = Image.new('RGBA', src.size, (0, 0, 0, 0))
+    px_in = src.load()
+    px_out = out.load()
+    w, h = src.size
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = px_in[x, y]
+            if a == 0:
+                continue
+            if bx0 <= x < bx1 and by0 <= y < by1:
+                # 角标区内：高亮度像素（>=240）为外圈描边或折痕，其余为灰色文件夹主体。
+                if r >= 250 and g >= 250 and b >= 250:
+                    px_out[x, y] = (*highlight, a)
+                elif r >= 235 and g >= 235 and b >= 235:
+                    px_out[x, y] = (*ring, a)
+                else:
+                    px_out[x, y] = (*folder, a)
+            else:
+                px_out[x, y] = (*ink, a)
+    if size is not None:
+        target = (max(1, int(size)), max(1, int(size)))
+        if out.size != target:
+            resample = getattr(getattr(Image, 'Resampling', Image), 'LANCZOS', Image.BICUBIC)
+            out = out.resize(target, resample)
+    return out
+
+
 def _tinted_png(path, color, size=None):
-    """把单色 PNG 图标染成 color 并保留透明度；可选高质量缩放到 size×size。"""
+    """把单色 PNG 图标染成 color 并保留透明度；复合阶段文件图标保留灰色文件夹角标与描边。"""
     try:
         import base64
         import io
         from PIL import Image
         image = Image.open(path).convert('RGBA')
-        alpha = image.getchannel('A')
-        if size is not None:
-            target = (max(1, int(size)), max(1, int(size)))
-            if alpha.size != target:
-                resample = getattr(getattr(Image, 'Resampling', Image), 'LANCZOS', Image.BICUBIC)
-                alpha = alpha.resize(target, resample)
-        tinted = Image.new('RGBA', alpha.size, color)
-        tinted.putalpha(alpha)
+        if _is_stage_file_icon(path):
+            tinted = _tint_stage_file_image(image, size=size)
+        else:
+            alpha = image.getchannel('A')
+            if size is not None:
+                target = (max(1, int(size)), max(1, int(size)))
+                if alpha.size != target:
+                    resample = getattr(getattr(Image, 'Resampling', Image), 'LANCZOS', Image.BICUBIC)
+                    alpha = alpha.resize(target, resample)
+            tinted = Image.new('RGBA', alpha.size, color)
+            tinted.putalpha(alpha)
         buffer = io.BytesIO()
         tinted.save(buffer, format='PNG')
         return base64.b64encode(buffer.getvalue())

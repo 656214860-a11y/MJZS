@@ -946,6 +946,37 @@ class CandidateHintCardTests(unittest.TestCase):
         self.assertEqual(self.sent[0][0], '/mine-skill 写一段开场')
         self.assertNotIn('用途甲', self.sent[0][0])
 
+    def test_slash_and_skill_panel_show_descriptions_and_stage_placeholders(self):
+        """第 7／8 项：各阶段输入框都有 Agent 风格占位提示；/ 与 ✦ 默认展示行内简述与右侧说明卡。"""
+        import desktop_shared_send as shared_send
+        box = self._make()
+        for stage in ('script', 'script_structure', 'storyboard', 'assets'):
+            shared_send.sync_stage_placeholder(box, stage)
+            self.assertTrue(bool(box.input._placeholder), f'{stage} 阶段应设置输入框提示文字')
+            self.assertIn('/', box.input._placeholder)
+        # / 唤出即展示首项右侧说明卡，且行内包含简述标签。
+        self._open(box, '/')
+        self.assertIsNotNone(box._skill_card, '输入 / 后应立即显示右侧技能说明卡')
+        self.assertEqual(self._card_text(box), '用途甲')
+        row_texts = [str(w.cget('text')) for w in box.candidates._rows[0]['widgets']
+                     if 'text' in w.keys()]
+        self.assertTrue(any('用途甲' in t for t in row_texts), f'/ 候选行应带行内说明：{row_texts}')
+        box.close_completion()
+        self.win.update()
+        # ✦ 面板展开后同样具备行内简述并自动展示首行右侧说明卡。
+        box.open_skill_list()
+        self._pump(0.15)
+        self.assertTrue(box.skill_panel.is_open())
+        first_item = box._skill_list_items()[0]
+        first_desc = box._skill_description(first_item)
+        self.assertTrue(first_desc, '首行注册技能应带 description')
+        panel_texts = [str(w.cget('text')) for w in _descendants(box.skill_panel)
+                       if 'text' in w.keys()]
+        self.assertTrue(any(first_desc[:10] in t for t in panel_texts),
+                        f'✦ 列表行应带行内说明：{panel_texts}')
+        self.assertIsNotNone(box._skill_card, '展开 ✦ 面板后应默认弹出右侧说明卡')
+        self.assertEqual(self._card_text(box), first_desc)
+
 
 if __name__ == '__main__':
     unittest.main()

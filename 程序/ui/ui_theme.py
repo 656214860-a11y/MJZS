@@ -46,6 +46,8 @@ def apply(win):
     s.configure('SidebarProject.TLabel',background=COLORS['background_primary'],foreground=COLORS['text_primary'],font=FONTS['pet_body'])
     s.configure('SidebarProjectMuted.TLabel',background=COLORS['background_primary'],foreground=COLORS['text_secondary'],font=FONTS['pet_body'])
     s.configure('CardHeading.TLabel',background=COLORS['background_primary'],foreground=COLORS['text_primary'],font=FONTS['body_bold'])
+    s.configure('SkillDesc.TLabel',background=COLORS['background_card'],foreground=COLORS['text_muted'],font=FONTS['pet_body'])
+    s.configure('SkillDescHover.TLabel',background=COLORS['surface_hover'],foreground=COLORS['text_secondary'],font=FONTS['pet_body'])
     s.configure('Warn.TLabel',foreground=COLORS['warning_text'])
     s.configure('Expired.TLabel',foreground=COLORS['danger_text'])
     # 各设置页会随操作变化的说明统一用这一档：淡绿底区别于静态说明，

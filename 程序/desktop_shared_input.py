@@ -24,7 +24,7 @@ import domain.skill_command as skill_command
 import infra.ui_plugin_registry as ui_plugin_registry
 from contract import pet_bus
 from ui.desktop_shared_menus import AddMenuPanel, CandidatePopup, SkillPickPanel
-from ui_popup import make_passive_popup, monitor_bounds
+from ui_popup import apply_noactivate, make_passive_popup, monitor_bounds
 from ui.ui_shortcuts import ShortcutRegistry
 from ui_tokens import (COLORS, FONTS, ICON_ADD, ICON_MICROPHONE, ICON_SEND, ICON_SKILL,
                        SPACING, TEXT_ROWS)
@@ -348,6 +348,75 @@ class _CandidateFlow:
             return 'break'
         return None
 
+    # ── 悬停说明卡：与技能行／候选行同一行、行右侧紧贴（Devin 式，R2971 定版） ──
+    def _hide_skill_card(self):
+        self._cancel_skill_card_hide()
+        card = getattr(self, '_skill_card', None)
+        self._skill_card = None
+        if card is not None:
+            try:
+                card.destroy()
+            except Exception:
+                app_logging.swallowed()
+
+    def _schedule_skill_card_hide(self):
+        """离开技能行延迟收说明卡：给鼠标移向卡片留 200ms 窗口。"""
+        self._cancel_skill_card_hide()
+        try:
+            self._skill_card_hide_id = self.after(200, self._hide_skill_card)
+        except Exception:
+            app_logging.swallowed()
+
+    def _cancel_skill_card_hide(self):
+        job = getattr(self, '_skill_card_hide_id', None)
+        self._skill_card_hide_id = None
+        if job:
+            try:
+                self.after_cancel(job)
+            except Exception:
+                app_logging.swallowed()
+
+    def _show_skill_card(self, item, owner):
+        """悬停卡片：与 ``owner``（技能行／候选行）同一行、在行右侧紧贴显示；
+        右缘出屏翻到行左侧，纵向对行中心，最后钳进屏幕（R2971 定版）。"""
+        self._cancel_skill_card_hide()
+        self._hide_skill_card()
+        try:
+            body = self._skill_description(item) or '（该技能没有填写 description）'
+            card = BaseDialog(self, '', modal=False, chrome=False)
+            # 无边框（Flyout／Tooltip 同款）＋ WS_EX_NOACTIVATE，避免 Windows 抢焦导致 / 浮层闪退。
+            card.overrideredirect(True)
+            make_passive_popup(card)
+            apply_noactivate(card)
+            card.configure(bg=COLORS['background_card'],
+                           highlightthickness=1,
+                           highlightbackground=COLORS['border_input_hover'])
+            tk.Label(card, text=body, justify='left', wraplength=SKILL_CARD_WRAP,
+                     bg=COLORS['background_card'], fg=COLORS['text_primary'],
+                     font=FONTS['hint'], padx=SPACING['md'], pady=SPACING['sm']).pack()
+            card.bind('<Enter>', lambda _e: self._cancel_skill_card_hide())
+            card.bind('<Leave>', lambda _e: self._schedule_skill_card_hide())
+            card.update_idletasks()
+            card_w, card_h = card.winfo_reqwidth(), card.winfo_reqheight()
+            panel = getattr(owner, 'master', None)
+            anchor = panel if panel in (getattr(self, 'skill_panel', None),
+                                        getattr(getattr(self, 'candidates', None), 'frame', None)) else owner
+            px, pw = anchor.winfo_rootx(), anchor.winfo_width() or owner.winfo_width()
+            py, ph = owner.winfo_rooty(), owner.winfo_height()
+            margin, gap = SPACING['sm'], SPACING['xs']
+            mleft, mtop, mright, mbottom = monitor_bounds(
+                self.winfo_toplevel(), px + pw + gap, py + ph // 2)
+            x = px + pw + gap
+            if x + card_w > mright - margin:
+                x = px - card_w - gap
+            y = py + (ph - card_h) // 2
+            x = max(mleft + margin, min(x, mright - card_w - margin))
+            y = max(mtop + margin, min(y, mbottom - card_h - margin))
+            card.geometry('+%d+%d' % (x, y))
+            self._skill_card = card
+        except Exception:
+            app_logging.swallowed()
+
 
 class _StageActions:
     """发送键承载的阶段制作动作：页面建页时登记，输入框空着点发送就执行（见 ``send``）。"""
@@ -414,8 +483,9 @@ class SharedStageInput(_CandidateFlow, _StageActions, ttk.Frame):
         # 附件不再独占卡片行——上传/引用以「@原名」行内文本落在输入框顶部引用区。
         # 输入区去内框线（highlightthickness=0）；width=1：Text 默认按 80 字符报需求宽
         # （≈672px）会顶爆 stage_area 需求宽、面板在最小窗被挤成 1px，实际宽由 fill 决定。
-        self.input = TextArea(box, height=TEXT_ROWS['sm'], wrap='word',
-                              highlightthickness=0, width=1)
+        self.input = TextArea(
+            box, height=TEXT_ROWS['sm'], wrap='word', highlightthickness=0, width=1,
+            placeholder='输入指令或补充要求，输入 / 调用技能（Enter 发送，Shift+Enter 换行）')
         self.input.pack(fill='x')
         for seq, color in (('<FocusIn>', COLORS['border_input_hover']),
                            ('<FocusOut>', COLORS['border_default'])):
@@ -484,6 +554,9 @@ class SharedStageInput(_CandidateFlow, _StageActions, ttk.Frame):
         self.shortcuts.bind(self.input, ('<KP_Enter>',), self._on_return,
                             scope=SHORTCUT_SCOPE, name='send_on_enter')
         self._sync_model_label()
+        sync = getattr(self.desktop, 'sync_stage_placeholder', None)
+        if callable(sync):
+            sync(self.input, self.stage)
 
     # ── 上下文 ──────────────────────────────────────────────────────────
     @property
@@ -605,16 +678,6 @@ class SharedStageInput(_CandidateFlow, _StageActions, ttk.Frame):
         except Exception:
             app_logging.swallowed()
 
-    def _hide_skill_card(self):
-        self._cancel_skill_card_hide()
-        card = getattr(self, '_skill_card', None)
-        self._skill_card = None
-        if card is not None:
-            try:
-                card.destroy()
-            except Exception:
-                app_logging.swallowed()
-
     @staticmethod
     def _skill_name(item):
         """技能规范名：``Skill`` 对象取 ``.name``、字典取 ``name``、字符串原样——
@@ -720,72 +783,6 @@ class SharedStageInput(_CandidateFlow, _StageActions, ttk.Frame):
                 sync(name)
             else:
                 panel.refresh()
-
-    # ── 悬停说明卡：与技能行同一行、行右侧紧贴（Devin 式，R2971 定版） ──
-    def _schedule_skill_card_hide(self):
-        """离开技能行延迟收说明卡：给鼠标移向卡片留 200ms 窗口。"""
-        self._cancel_skill_card_hide()
-        try:
-            self._skill_card_hide_id = self.after(200, self._hide_skill_card)
-        except Exception:
-            app_logging.swallowed()
-
-    def _cancel_skill_card_hide(self):
-        job = getattr(self, '_skill_card_hide_id', None)
-        self._skill_card_hide_id = None
-        if job:
-            try:
-                self.after_cancel(job)
-            except Exception:
-                app_logging.swallowed()
-
-    def _show_skill_card(self, item, owner):
-        """悬停卡片：与 ``owner``（技能行／候选行）同一行、在行右侧紧贴显示；
-        右缘出屏翻到行左侧，纵向对行中心，最后钳进屏幕（R2971 定版）。"""
-        self._cancel_skill_card_hide()
-        self._hide_skill_card()
-        try:
-            body = self._skill_description(item)
-            if not body:
-                body = '（该技能没有填写 description）'
-            card = BaseDialog(self, '', modal=False, chrome=False)
-            # 无边框（Flyout／Tooltip 同款）：带标题栏会被 Windows 强加最小窗宽，
-            # 实测宽＞reqwidth，翻左／钳位按 reqwidth 算会压住行（REQ-S01-106）。
-            card.overrideredirect(True)
-            # 说明卡必须豁免 ui_theme 接管（R2997 悬停状态机口径）：只标 _positioned_once
-            # 防得住居中、防不住隐藏初始化挂的 <Map>→grab——grab 一抢，技能行 Leave/Enter
-            # 循环、卡片反复弹出（用户报的 bug）。make_passive_popup 摘掉 Map 绑定并恢复
-            # 透明度（pet_cloud／ui_popup／ui_tooltip 同款写法）。
-            make_passive_popup(card)
-            card.configure(bg=COLORS['background_card'])
-            tk.Label(card, text=body, justify='left', wraplength=SKILL_CARD_WRAP,
-                     bg=COLORS['background_card'], fg=COLORS['text_primary'],
-                     font=FONTS['hint'], padx=SPACING['md'], pady=SPACING['sm']).pack()
-            # 卡片自身也算悬停区：移入取消待收、移出重新计时。
-            card.bind('<Enter>', lambda _e: self._cancel_skill_card_hide())
-            card.bind('<Leave>', lambda _e: self._schedule_skill_card_hide())
-            card.update_idletasks()
-            card_w = card.winfo_reqwidth()
-            card_h = card.winfo_reqheight()
-            px, py = owner.winfo_rootx(), owner.winfo_rooty()
-            pw = owner.winfo_width()
-            ph = owner.winfo_height()
-            margin = SPACING['sm']
-            gap = SPACING['xs']
-            # 钳位跟技能行所在显示器走：winfo_screenwidth/height 恒为主屏尺寸，
-            # 副屏上会把说明卡拽回主屏矩形（R3031，同 CandidatePopup 修法）。
-            mleft, mtop, mright, mbottom = monitor_bounds(
-                self.winfo_toplevel(), px + pw + gap, py + ph // 2)
-            x = px + pw + gap
-            if x + card_w > mright - margin:
-                x = px - card_w - gap
-            y = py + (ph - card_h) // 2
-            x = max(mleft + margin, min(x, mright - card_w - margin))
-            y = max(mtop + margin, min(y, mbottom - card_h - margin))
-            card.geometry('+%d+%d' % (x, y))
-            self._skill_card = card
-        except Exception:
-            app_logging.swallowed()
 
     def _skill_description(self, item):
         """悬停说明：字典取 ``description``；``Skill`` 对象直接读属性（``str(item)``

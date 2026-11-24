@@ -584,7 +584,7 @@ class TextArea(tk.Text):
         if self._placeholder_active:
             super().delete("1.0", "end")
             self._placeholder_active = False
-            self.configure(fg=INPUT_FOREGROUND)
+            self.configure(fg=COLORS["text_primary"])
 
     def _restore_placeholder(self, _event=None):
         if (self._placeholder and not self._placeholder_active
@@ -592,7 +592,7 @@ class TextArea(tk.Text):
                 and str(self.cget("state")) == "normal"):
             super().insert("1.0", self._placeholder)
             self._placeholder_active = True
-            self.configure(fg=INPUT_PLACEHOLDER_FOREGROUND)
+            self.configure(fg=COLORS["text_muted"])
 
     def get(self, index1="1.0", index2=None):
         if self._placeholder_active:

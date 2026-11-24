@@ -92,6 +92,9 @@ class _ScriptEditSession:
         self.preview.edit_modified(False)
         self.controller.begin_edit(self.loaded['raw'])
         self.editing = True
+        hint = getattr(self.box, 'update_shortcut_hint', None)
+        if callable(hint):
+            hint(editing=True)
         self.preview.focus_set()
 
     def exit_edit(self):
@@ -101,6 +104,9 @@ class _ScriptEditSession:
         self.cancel_pending()
         self.flush_save(self.preview.get('1.0', 'end-1c'))
         self.editing = False
+        hint = getattr(self.box, 'update_shortcut_hint', None)
+        if callable(hint):
+            hint(editing=False)
         self.suppress = True
         try:
             self.box.set_preview(self.loaded['raw'])
@@ -251,6 +257,10 @@ class _ScriptEditSession:
                 menu.disabled('编辑')
             for label in self._MENU_LABELS:
                 menu.disabled(label)
+        opener = getattr(self.box, 'open_any_document', None)
+        if callable(opener):
+            menu.separator()
+            menu.command('打开其他文件… (Ctrl+O)', lambda: self.page.safe(opener))
         self.last_menu = menu
         return menu.popup(event)
 
@@ -265,6 +275,13 @@ class _ScriptEditSession:
         shortcuts.bind(self.preview,
                        ('<Control-y>', '<Control-Y>', '<Control-Shift-z>', '<Control-Shift-Z>'),
                        self._shortcut_redo, scope=scope, name='前进一步')
+        shortcuts.bind(self.preview, ('<Control-s>', '<Control-S>'),
+                       self._shortcut_save, scope=scope, name='立即保存')
+
+    def _shortcut_save(self, _event=None):
+        if self.editing and str(self.preview.cget('state')) == 'normal':
+            self.page.safe(self.save_now)
+        return 'break'
 
     def _shortcut_undo(self, _event=None):
         if self.editing and str(self.preview.cget('state')) == 'normal':

@@ -311,6 +311,46 @@ class ScriptStructureOneEditorTests(unittest.TestCase):
             self.assertEqual(str(desktop.script_structure_editor_preview.cget('state')), 'disabled')
             self.assertIn('只读', desktop.status_bar._segments['script_note'][1].full_text)
 
+    def test_editor_fast_scroll_shortcut_hint_and_storyboard_json_view(self):
+        """第 4／6 项：编辑器滚轮加速、快捷键提示随状态切换，并支持打开分镜 JSON 与普通文本。"""
+        import json
+        with tempfile.TemporaryDirectory() as td:
+            project, _writing = self._project(td, structured=True)
+            board = project / '03初步分镜' / '分镜拆分' / 'EP001.json'
+            board.parent.mkdir(parents=True)
+            board.write_text(json.dumps({
+                'episode_id': 'EP001', 'title': '初遇', 'duration': 15,
+                'shots': [{'id': 'SH001', 'title': '开场远景', 'duration': 5,
+                           'frame_prompt': '雨夜街道霓虹'}],
+            }, ensure_ascii=False), encoding='utf-8')
+            note = project / '备注.txt'
+            note.write_text('补充制作说明文本。', encoding='utf-8')
+            win, desktop = _open_window(self, project)
+            preview = desktop.script_structure_editor_preview
+            box = desktop.script_structure_editor_preview_content_box
+            session = desktop.script_structure_editor_preview_edit_session
+            self.assertGreaterEqual(getattr(preview, '_wheel_lines', 1), 6, '编辑器滚轮步进应明显加速')
+            self.assertIn('Ctrl+F', str(box.shortcut_hint.cget('text')))
+            self.assertIn('Ctrl+O', str(box.shortcut_hint.cget('text')))
+            session.begin_edit()
+            win.update()
+            self.assertIn('Ctrl+S', str(box.shortcut_hint.cget('text')))
+            session.exit_edit()
+            win.update()
+            # 打开初步分镜 JSON：格式化为易读分镜文本且标记为只读初步分镜。
+            box.select_document(board)
+            _settle(win, 3)
+            shown = preview.get('1.0', 'end-1c')
+            self.assertIn('EP001', shown)
+            self.assertIn('SH001', shown)
+            self.assertIn('雨夜街道霓虹', shown)
+            self.assertIn('初步分镜', desktop.status_bar._segments['script_note'][1].full_text)
+            self.assertIn('只读', str(box.shortcut_hint.cget('text')))
+            # 打开其他纯文本格式文件。
+            box.select_document(note)
+            _settle(win, 3)
+            self.assertIn('补充制作说明文本。', preview.get('1.0', 'end-1c'))
+
 
 if __name__ == '__main__':
     unittest.main()

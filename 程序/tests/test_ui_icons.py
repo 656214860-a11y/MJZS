@@ -208,3 +208,20 @@ class StageFileBadgeTests(unittest.TestCase):
             wrong = [(x, y) for x, y in edge if comp.getpixel((x, y)) != ring]
             self.assertEqual(
                 wrong, [], f'{stage}: 外圈有 {len(wrong)} 个像素不是描边色，首个 {wrong[:1]}')
+
+    def test_tinted_stage_file_icon_preserves_gray_folder_badge(self):
+        """染色后阶段文件角标保持灰色文件夹（text_secondary）与背景隔断环，不压成黑块。"""
+        from PIL import Image
+        bg_rgb = _rgb(COLORS['background_primary'])
+        folder_rgb = _rgb(COLORS['text_secondary'])
+        primary_rgb = _rgb(COLORS['text_primary'])
+        self.assertNotEqual(folder_rgb, primary_rgb)
+        for stage, comp, nav in self.pairs[:3]:
+            left, top, right, bottom = self._badge_box(comp, nav)
+            tinted = ui_icons._tint_stage_file_image(comp)
+            badge_colors = {tinted.getpixel((x, y))[:3]
+                            for y in range(top, bottom) for x in range(left, right)
+                            if tinted.getpixel((x, y))[3] == 255}
+            self.assertIn(folder_rgb, badge_colors, f'{stage}: 染色后右下角文件夹应保持灰色 text_secondary')
+            self.assertIn(bg_rgb, badge_colors, f'{stage}: 染色后应保留背景色隔断环')
+            self.assertNotIn(primary_rgb, badge_colors, f'{stage}: 角标区不得被压成纯深色 text_primary')

@@ -42,9 +42,14 @@ import infra.project_settings as project_settings
 import infra.ui_plugin_registry as ui_plugin_registry
 from infra.pet_state import PAGE_OF
 from responsive_ui import FlowBar, refresh_check_heading, bind_row_toggle
-from ui.storyboard_table_ui import file_table, fit_file_columns, fit_final_columns, insert_entries, tree_columns
+from ui.storyboard_table_ui import (
+    S03_EMPTY_TEXT, S03_HINT_EDIT, S03_HINT_READ, S03EditorView,
+    file_table, fit_file_columns, fit_final_columns, insert_entries,
+    pick_default_document, render_document_text, tree_columns,
+)
 from ui_tokens import WRAPLENGTH, COLORS, FONTS, SPACING
-from ui_widgets import Card, DataTable, PrimaryButton, SecondaryButton, TextArea, ask_confirmation, notify
+from ui_widgets import (Card, DataTable, PrimaryButton,
+                        SecondaryButton, TextArea, ask_confirmation, notify)
 from ui.ui_dialogs import FileDialog
 confirm = ask_confirmation
 # 第 46 期第 1 条：内容框的右键菜单（查看／删除）用的是 cell_hover 那一份实现，两页都要用，
@@ -628,148 +633,56 @@ def show(desktop):
 
 
 class _StoryboardFilesPage:
-    """初步分镜文件页（从 show 的闭包原样改写成类，R1813）：共享的局部变量成了实例属性，嵌套函数成了方法。"""
+    """03 初步分镜单编辑器页：取消顶部按钮与双表，改由右侧文件栏展示结构剧本与分镜，
+    主区域为专用分镜文本编辑器，采用／导入／重排／目录等必要功能收进编辑器右键菜单。"""
+
     def __init__(self, desktop):
         self.desktop = desktop
 
     def build(self):
         self._init_page_state()
-        self._build_toolbar()
-        self._build_tables()
-        self.update_controls()
-        for label in self.labels.values():label.set('正在读取文件列表…')
+        self._build_editor()
+        self._register_storyboard_send_action()
+        self._register_files_panel_handler()
         self.refresh(automatic=True)
-        # 自动文件监听只在后台扫描目录；这颗短周期计时器只把已经完整的结果批量写进 Treeview。
-        tk_timers.repeat(self.toolbar, 60, self.apply_background_catalog)
-        watch_files(self.toolbar,self.project,lambda:self.refresh(automatic=True))
-        self.binding=self.desktop.win.bind('<Button-1>',self.outside_click,add='+')
-        self.toolbar.bind('<Destroy>',lambda event:self.desktop.win.unbind('<Button-1>',self.binding) if event.widget==self.toolbar else None,add='+')
+        tk_timers.repeat(self.editor_frame, 60, self.apply_background_catalog)
+        watch_files(self.editor_frame, self.project, lambda: self.refresh(automatic=True))
 
     def _init_page_state(self):
-        """页面控制器、勾选与表格状态（从 build 原样切出，R1813）。"""
-        # Selection mutations remain a page-action boundary; the L2 service is
-        # imported normally so this L4 page has no unregistered dynamic import.
-        self.project=Path(self.desktop.root).resolve()
-        self.page_content=self.desktop.content
-        self.controller=StoryboardPageController(self.project)
-        adopted=self.controller.adopted
-        removed=self.controller.prune_invalid_adoptions()
+        self.project, self.page_content = Path(self.desktop.root).resolve(), self.desktop.content
+        self.controller = StoryboardPageController(self.project)
+        removed = self.controller.prune_invalid_adoptions()
         if removed:
-            self.desktop.status.set('已取消采用 '+str(len(removed))+' 份未关联当前分镜初稿的历史 JSON；文件保留')
-        self.desktop.note('Ctrl／Shift 多选，Ctrl+A 全选。按集数和镜头顺序排列；已制作剧本、已采用 JSON 排在底部并跳过重复处理。')
-        self.tables={};self.labels={};self.loaded=False;self.controls={};self.completed_scripts=set();self.checked={}
-        self.tick_images=self.desktop.win._tick_images[:2]
-        self.adopted_note=tk.StringVar(value=self.controller.summary())
+            self.desktop.status.set('已取消采用 %d 份未关联当前分镜初稿的历史 JSON；文件保留' % len(removed))
+        self.loaded = self.raw_json_mode = self.editing = False
+        self.catalogs = {'script': [], 'storyboard': []}
+        self.active_path = self.active_board_json = None
         self.catalog_scan = {'busy': False, 'revision': 0, 'pending': False, 'stopped': False}
         self.catalog_results = queue.Queue(maxsize=1)
-        self.page_content.bind('<Destroy>',self.stop_catalog,add='+')
+        self.desktop.pet.auto_variable('auto_adopt_var')
+        self.desktop.storyboard_editor_page = self
+        self.page_content.bind('<Destroy>', self.stop_catalog, add='+')
 
-    def _build_toolbar(self):
-        """顶部工具栏：刷新、打开、浏览、目录等按钮（从 build 原样切出，R1813）。"""
-        self.toolbar=FlowBar(self.desktop.content);self.toolbar.pack(
-            fill='x', pady=(SPACING['none'], SPACING['none']))
-        from contract.project_stages import writing
-        self.writing = writing
-        for text,command in [('刷新列表',self.refresh),('打开选中剧本',lambda:self.open_selected('script')),('选择其他剧本',self.browse),('剧本目录',lambda:self.desktop.open_folder(self.writing(self.project))),('删除选中剧本',lambda:self.delete_selected('script')),('恢复最近删除',self.restore_latest)]:
-            button=SecondaryButton(self.toolbar,text=text,command=lambda c=command:self.desktop.safe(c))
-            button.pack(side='left',padx=(SPACING['none'], SPACING['xs']))
-            if text=='删除选中剧本':self.controls['delete_script']=button
+    def _build_editor(self):
+        self.editor = S03EditorView(self, wheel_lines=VIEWER_WHEEL_LINES)
+        self.editor_frame, self.shortcut_hint = self.editor.frame, self.editor.shortcut_hint
+        self.find_bar, self.viewer = self.editor.find_bar, self.editor.viewer
+        self.desktop.storyboard_editor_preview = self.viewer
+        self.editor_frame.bind('<Map>', self._on_editor_map, add='+')
+        self._set_viewer_text(S03_EMPTY_TEXT, editable=False)
+        self._update_status_segment()
 
-    def _build_tables(self):
-        """剧本与分镜初稿两张表格、悬停与勾选绑定（从 build 原样切出，R1813）。"""
-        first_labels={'script':'结构剧本','storyboard':'分镜初稿'}
-        for kind in ('script','storyboard'):
-            # 第 31 期第 4 条：内容框用没有标签行的卡片样式，紧贴上方「刷新列表」那一行。
-            box=Card(self.desktop.content,padding=SPACING['sm'])
-            box.pack(fill='both',expand=True,pady=(SPACING['none'], SPACING['none']))
-            status_label='是否制作' if kind=='script' else '是否采用'
-            tree=file_table(box,selectmode='browse',first_label=first_labels[kind],status_label=status_label)
-            self.tables[kind]=tree;self.labels[kind]=tk.StringVar()
-            tree.heading('#0',command=lambda k=kind:self.toggle_all(k))
-            self.content_col='#3'
-            cell_cols=('#0',self.content_col)
-            def open_cell(k,row,col):
-                tree=self.tables[k]
-                if col=='#0':
-                    self.toggle_check(k,row)
-                    tree.selection_remove(*tree.selection());tree.focus('')
-                elif col==self.content_col:
-                    tree.selection_set(row);tree.focus(row)
-                    if Path(row).is_file():open_path(row)
-            def is_checked(k,row):return row in self.checked.get(k,set())
-            # 第 46 期第 1 条：右键＝查看（打开这一份文件）／删除（只删这一行）。
-            # 第 52 期第 2 条：菜单只在带链接的格子上弹（原先靠 menu_column 让哪一格都能查看，
-            # 用户要的是「鼠标底下有可查看的文件才弹」）——这一页就是「文件内容」那一格。
-            tree.cell_hover=CellHover(tree,cell_cols,lambda row,col,k=kind:self.desktop.safe(lambda k=k,row=row,col=col:open_cell(k,row,col)),cell_image=lambda row,col,k=kind:(self.tick_images[1 if is_checked(k,row) else 0] if col=='#0' else None),checked=lambda row,k=kind:is_checked(k,row),toggle=lambda row,k=kind:self.toggle_check(k,row),delete=lambda row,k=kind:self.desktop.safe(lambda k=k,row=row:self.delete_one(k,row)))
-            bind_row_toggle(tree,lambda row,k=kind:self.toggle_check(k,row),cell_cols)
-            # 第 47 期第 1 条：高亮那一行也算「选中」，所以高亮一变就把按钮的可用状态重算一遍
-            # （current_selection 本来就是「勾选优先、高亮兜底」，按钮的亮灭得跟它同一个口径）。
-            tree.bind('<<TreeviewSelect>>',lambda e:self.update_controls())
-            if kind=='storyboard':
-                label_row=ttk.Frame(box);label_row.pack(fill='x',pady=(SPACING['xs'], SPACING['none']))
-                ttk.Label(label_row,textvariable=self.labels[kind],style='Muted.TLabel').pack(side='left')
-                ttk.Label(label_row,textvariable=self.adopted_note,style='Muted.TLabel').pack(
-                    side='left',padx=(SPACING['md'], SPACING['none']))
-                def renumber_shots():
-                    """按集号顺序重排镜头编号。批量分镜容易按完成顺序编号（EP002 拿到 SH032-SH050，
-                EP003 反而占了 SH017-SH031），这里交给 shot_numbering 统一重排：先预览，确认后
-                备份再改，编号之外的内容一律不动。"""
-                    import ui.shot_numbering as shot_numbering
-                    targets=[entry['path'] for entry in catalog(self.project,'storyboard')]
-                    if not targets:
-                        raise ValueError('还没有分镜 JSON，无需重排编号')
-                    plan=shot_numbering.renumber(self.project,targets,apply=False,log=lambda text:None)
-                    if not plan['mapping']:
-                        problems=shot_numbering.verify(self.project,targets)
-                        self.desktop.status.set('镜头编号已按剧本顺序连续，无需重排' if not problems
-                                           else '镜头编号检查：'+'；'.join(problems))
-                        return
-                    preview='、'.join('%s→%s'%(old,new) for old,new in sorted(plan['mapping'].items())[:12])
-                    if not confirm(self.desktop.win, '重排镜头编号',
-                            f'重排 {len(plan["mapping"])} 个镜头编号：{preview}{"…" if len(plan["mapping"])>12 else ""}\n'
-                        f'并改写 {len(plan["contents"])} 个文件里的引用、{len(plan["renames"])} 项文件名。\n'
-                        '只改编号，不碰内容；会先备份。是否继续？',
-                            dangerous=True):
-                        self.desktop.status.set('已取消重排镜头编号')
-                        return
-                    def work():
-                        shot_numbering.renumber(self.project,targets,apply=True,log=lambda text:None)
-                        problems=shot_numbering.verify(self.project,targets)
-                        return '镜头编号已重排；'+('编号连续' if not problems else '仍有问题：'+'；'.join(problems))
-                    def done(result):
-                        self.refresh()
-                        self.desktop.status.set(result)
-                    self.desktop.async_(work,done)
-                actions=FlowBar(box);actions.pack(fill='x',pady=(SPACING['xs'], SPACING['none']))
-                # 第 59 期第 4 条：两颗「采用／取消采用」改叫「手动采用分镜」「手动取消采用」
-                # 并挨在一起，都按高亮按钮（Primary）画——这一页就这两颗是人真正要按的；
-                # 其余动作（打开／导入／目录／重排／删除）留在右边。
-                action_rows=[('手动采用分镜',self.adopt_selected,'adopt','Primary.TButton'),
-                             ('手动取消采用',self.remove_selected,'remove','Primary.TButton'),
-                             ('打开选中JSON',lambda:self.open_selected('storyboard'),None,''),
-                             ('导入JSON分镜',self.desktop.import_json,None,''),
-                             # 这里打开的是用户在本阶段查看、编辑的分镜文档，而不是内部 JSON
-                             # 工作稿目录；JSON 的导入、打开与采用仍直接以列表里的文件为准。
-                             ('分镜目录',lambda:self.desktop.open_folder(document_dir(self.project)),None,''),
-                             ('重排镜头编号',renumber_shots,None,''),
-                             ('删除选中分镜',lambda:self.delete_selected('storyboard'),'delete_storyboard','')]
-                for text,action,key,style in action_rows:
-                    button=(PrimaryButton if style else SecondaryButton)(
-                        actions,text=text,command=lambda fn=action:self.desktop.safe(fn))
-                    button.pack(side='left',padx=(SPACING['none'], SPACING['xs']))
-                    if key:self.controls[key]=button
-                self.desktop.pet.auto_variable('auto_adopt_var')
-                # 第 67 期任务 2：这一排按钮与那一行说明先从底下占好自己的位置——位置不够时该缩的是
-                # 那张会长高的表格（area），不是它们。原来它们是这一格最后两个 slave，表格一长高就被
-                # 挤成 0 像素，用户看到的就是「内容框下方的按钮不显示」，而整页又刚好不需要滚动。
-                actions.pack_configure(side='bottom',before=tree.master)
-                label_row.pack_configure(side='bottom',before=tree.master)
-            else:
-                # 第 67 期任务 2：这一行先占好自己的位置（表格再缩也不许把它挤掉，见下面 actions 那一处）。
-                note=ttk.Label(box,textvariable=self.labels[kind],style='Muted.TLabel',wraplength=WRAPLENGTH['2xl'])
-                note.pack(side='bottom',anchor='w',pady=(SPACING['xs'], SPACING['none']),before=tree.master)
-                # REQ-S03-54：移除旧按钮，制作入口改到共享输入框发送。
-                self._register_storyboard_send_action()
+    def _on_editor_map(self, _event=None):
+        if getattr(self.desktop, 'page_index', None) == PAGE_OF['storyboard']:
+            self._register_files_panel_handler(default_path=self.active_path)
+
+    def show_find_bar(self): self.editor.show_find_bar()
+    def hide_find_bar(self): self.editor.hide_find_bar()
+    def zoom_by(self, delta): self.editor.zoom_by(delta)
+    def on_context_menu(self, event): return self.editor.popup_context_menu(event, document_dir_fn=document_dir)
+    def open_any_document(self): self.editor.open_any_document()
+    def _pick_default_document(self, catalogs): return pick_default_document(self.controller.adopted(), catalogs)
+
     def _register_storyboard_send_action(self):
         """底部发送键承载初步分镜制作；切页／销毁时撤销，避免过期入口。"""
         shared = getattr(self.desktop, 'shared_input', None)
@@ -778,94 +691,161 @@ class _StoryboardFilesPage:
             return
         def run_send():
             return self.desktop.send_storyboard('')
-
         register('storyboard', run_send)
-
         def release(_event=None):
             if shared.stage_action('storyboard') is run_send:
                 register('storyboard', None)
-
         anchor = getattr(self, 'page_content', None) or getattr(self.desktop, 'content', None)
         if anchor is not None:
             anchor.bind('<Destroy>', release, add='+')
 
-    def current_selection(self, kind):
-        """这一栏「选中」的那些文件（第 46 期：内容框这份清单为准；第 47 期第 1 条：统一口径）。
+    def _register_files_panel_handler(self, default_path=None):
+        panel = getattr(self.desktop, 'files_panel', None)
+        register = getattr(panel, 'set_select_handler', None)
+        if not callable(register):
+            return
+        default_iid = None
+        if default_path is not None:
+            try:
+                default_iid = Path(default_path).resolve().relative_to(self.project).as_posix()
+            except (OSError, ValueError):
+                default_iid = None
+        register(PAGE_OF['storyboard'], self.show_document, default=default_iid)
 
-        勾选优先；一个都没勾就按高亮那一行算——用户点了那一份看着就是选中的，
-        采用／取消采用／删除不该回一句「请先勾选」。
-        """
-        highlighted=()
-        if self.loaded and kind in self.tables:
-            tree=self.tables[kind]
-            from responsive_ui import work_rows
-            highlighted,_how=work_rows(tree,lambda item: item in self.checked.get(kind,set()))
-        return self.controller.action_selection(kind,highlighted)
+    def _set_viewer_text(self, text, *, editable=False):
+        self.editing = bool(editable)
+        self.editor.set_text(text, editable=self.editing)
 
-    def update_controls(self):
-        states=self.controller.control_states(self.current_selection('script'),self.current_selection('storyboard'))
-        for key,enabled in states.items():
-            if key in self.controls:self.controls[key].configure(state='normal' if self.loaded and enabled else 'disabled')
+    def _matching_board_json(self, path):
+        """由选中的分镜 JSON 或同名分镜 Markdown 反查对应的分镜 JSON 路径。"""
+        target = Path(path).resolve()
+        if target.suffix.lower() == '.json' and is_deliverable(target, 'storyboard'):
+            return target
+        for entry in self.catalogs.get('storyboard') or ():
+            board = Path(entry['path']).resolve()
+            if board.stem == target.stem:
+                return board
+        return None
 
-    def choose(self, kind,paths,announce=True,*,persist=True):
-        paths=self.controller.choose(kind,paths) if persist else paths
-        self.checked[kind]=set(str(p) for p in paths)
-        label='剧本' if kind=='script' else '分镜'
-        self.labels[kind].set(f'已选 {len(paths)} 份{label}：'+'、'.join(p.name for p in paths) if paths else '尚未选择'+label)
-        if announce:self.desktop.status.set(f'已选择 {len(paths)} 份{label}' if paths else '已取消选择'+label)
-        self.update_controls()
-        if kind in self.tables:
-            tree=self.tables[kind];sel=self.checked.get(kind,set())
-            for item in tree.get_children():tree.item(item,image=self.tick_images[1 if item in sel else 0])
-            self.update_header_check(kind)
+    def show_document(self, path):
+        """右侧文件栏或打开文件选中的文档进主编辑器；结构剧本同步选为当前制作来源。"""
+        if not path:
+            return
+        target = Path(path).resolve()
+        if not target.is_file():
+            return
+        if self.editing:
+            self.exit_edit()
+        self.active_path = target
+        self.active_board_json = self._matching_board_json(target)
+        # 若点选的是结构剧本，顺手记作本阶段当前输入，直接点发送即可按这份剧本制作分镜。
+        script_paths = {Path(e['path']).resolve() for e in (self.catalogs.get('script') or ())}
+        if target in script_paths:
+            self.controller.choose('script', [target])
+        elif self.active_board_json is not None:
+            self.controller.choose('storyboard', [self.active_board_json])
+        self._render_active_document()
+        self._update_status_segment()
 
-    def update_header_check(self, kind):
-        tree=self.tables.get(kind)
-        if tree is None:return
-        refresh_check_heading(tree, self.tick_images, lambda i: i in self.checked.get(kind,set()))
+    def _render_active_document(self):
+        target = self.active_path
+        adopted = bool(target is not None and target in set(self.controller.adopted()))
+        text = render_document_text(
+            target, raw_json=self.raw_json_mode, adopted=adopted,
+            read_json_fn=read, read_text_fn=read_text)
+        self._set_viewer_text(text, editable=False)
 
-    def clear_selection(self, kind):
-        self.choose(kind,[],False)
+    def _update_status_segment(self):
+        summary = self.controller.summary()
+        if self.active_path is not None:
+            kind = '分镜' if self.active_board_json is not None else '结构剧本／文档'
+            text = '当前：%s（%s）｜%s' % (self.active_path.name, kind, summary)
+        else:
+            text = summary or '初步分镜'
+        setter = getattr(self.desktop, 'set_status_segment', None)
+        if callable(setter):
+            setter('storyboard_note', text, tooltip=S03_HINT_READ)
 
+    # ── 编辑与保存 ──────────────────────────────────────────────────────
+    def begin_edit(self):
+        if self.active_path is None or not self.active_path.is_file():
+            raise ValueError('请先在右侧文件栏选择要编辑的分镜或剧本文档')
+        if self.active_path.suffix.lower() == '.json':
+            self.raw_json_mode = True
+            self._render_active_document()
+        self.viewer.configure(state='normal')
+        self.editing = True
+        self.shortcut_hint.configure(text=S03_HINT_EDIT)
+        self.viewer.focus_set()
+
+    def exit_edit(self):
+        if not self.editing:
+            return
+        self.save_edited()
+        self.editing = False
+        self._render_active_document()
+
+    def save_edited(self):
+        if not self.editing or self.active_path is None:
+            return
+        content = self.viewer.get('1.0', 'end-1c')
+        if not content.strip():
+            raise ValueError('文档内容不能为空')
+        if self.active_path.suffix.lower() == '.json':
+            parsed = json.loads(content)
+            from domain.writing import validate_episode
+            from contract.storyboard_paths import media_root
+            from agent.core import save as save_json
+            validate_episode(parsed, media_root(self.active_path))
+            save_json(self.active_path, parsed)
+        else:
+            from agent.core import save_text as write_text
+            write_text(self.active_path, content + '\n')
+        self.desktop.status.set('已保存：' + self.active_path.name)
+
+    def toggle_json_view(self):
+        if self.active_path is None or self.active_path.suffix.lower() != '.json':
+            return
+        if self.editing:
+            self.exit_edit()
+        self.raw_json_mode = not self.raw_json_mode
+        self._render_active_document()
+
+    # ── 后台目录扫描与默认文档装载 ─────────────────────────────────────
     def stop_catalog(self, event):
         if event.widget is self.page_content:
-            self.catalog_scan['stopped']=True
-            self.catalog_scan['revision']+=1
-            self.catalog_scan['pending']=False
+            self.catalog_scan['stopped'] = True
+            self.catalog_scan['revision'] += 1
+            self.catalog_scan['pending'] = False
 
     def apply_catalogs(self, catalogs, automatic=False):
         from stage_execution_service import normalize_storyboard_for_desktop
         if normalize_storyboard_for_desktop(self.desktop):
             if automatic:
-                self.catalog_scan['pending']=True
+                self.catalog_scan['pending'] = True
                 return False
-            catalogs=self.controller.refresh_catalogs()
-        if automatic:
-            for kind,tree in self.tables.items():
-                available={str(entry['path']) for entry in catalogs[kind]}
-                if any(Path(item).suffix.lower()=='.json' and Path(item).is_file() and item not in available for item in tree.get_children()):return False
-        catalogs=self.controller.apply_catalogs(catalogs)
-        self.completed_scripts=self.controller.completed_scripts
-        self.loaded=False;self.update_controls()
-        remaining=set(self.tables)
-        def finished(kind,tree,x,y):
-            self.choose(kind,self.controller.selection(kind),False,persist=False)
-            if automatic:tree.xview_moveto(x);tree.yview_moveto(y)
-            remaining.discard(kind)
-            if not remaining:
-                self.adopted_note.set(self.controller.summary());self.loaded=True;self.update_controls()
-        for kind,tree in self.tables.items():
-            entries=catalogs[kind];x=tree.xview()[0];y=tree.yview()[0]
-            def status_of(entry,kind=kind):
-                if kind=='script':return '✓ 已制作' if entry.get('done') else '未制作'
-                return '✓ 已采用' if entry.get('done') else '未采用'
-            insert_entries(tree,self.project,entries,status_of=status_of,batch_size=40,
-                           on_complete=lambda k=kind,t=tree,x=x,y=y:finished(k,t,x,y))
+            catalogs = self.controller.refresh_catalogs()
+        catalogs = self.controller.apply_catalogs(catalogs)
+        self.catalogs = catalogs
+        if not self.controller.selection('script'):
+            sync_structured_script(self.project)
+        self.loaded = True
+        if self.active_path is None or not self.active_path.is_file():
+            chosen = self._pick_default_document(catalogs)
+            if chosen is not None:
+                self.active_path = chosen
+                self.active_board_json = self._matching_board_json(chosen)
+                self._register_files_panel_handler(default_path=chosen)
+                self._render_active_document()
+        elif not self.editing:
+            self.active_board_json = self._matching_board_json(self.active_path)
+        self._update_status_segment()
         return True
 
     def refresh(self, automatic=False):
-        """手动刷新立即扫描；初次与监听在后台读取，Tk 分批应用完整结果。"""
-        if self.catalog_scan['stopped']:return False
+        """手动刷新立即扫描；初次与监听在后台读取，不阻塞 Tk 主线程。"""
+        if self.catalog_scan['stopped']:
+            return False
         if not automatic:
             self.catalog_scan['revision'] += 1
             self.catalog_scan['pending'] = False
@@ -893,58 +873,103 @@ class _StoryboardFilesPage:
         except queue.Empty:
             return
         self.catalog_scan['busy'] = False
-        if self.catalog_scan['stopped'] or Path(self.desktop.root).resolve()!=self.project:return
-        def report_error(message):
-            if not self.loaded:
-                for label in self.labels.values():label.set('文件列表加载失败，请点击「刷新列表」重试')
-            if self.desktop.content is self.page_content:self.desktop.status.set(message)
+        if self.catalog_scan['stopped'] or Path(self.desktop.root).resolve() != self.project:
+            return
         if revision != self.catalog_scan['revision']:
             pass
         elif ok:
             try:
                 self.apply_catalogs(value, automatic=True)
             except (OSError, ValueError, KeyError) as exc:
-                report_error('分镜目录结果已过期，将在下次文件变动后重试：' + str(exc))
+                if self.desktop.content is self.page_content:
+                    self.desktop.status.set('分镜目录结果已过期，将在下次文件变动后重试：' + str(exc))
         else:
-            report_error('分镜目录刷新失败，将在下次文件变动后重试：' + value)
+            if not self.loaded:
+                self._set_viewer_text('分镜目录加载失败，请右键「刷新分镜列表」重试：' + str(value), editable=False)
+            if self.desktop.content is self.page_content:
+                self.desktop.status.set('分镜目录刷新失败，将在下次文件变动后重试：' + str(value))
         if self.catalog_scan['pending']:
             self.catalog_scan['pending'] = False
             self.refresh(automatic=True)
 
-    def toggle_all(self, kind):
-        tree=self.tables[kind];items=list(tree.get_children());cur=self.checked.get(kind,set())
-        if items and all(item in cur for item in items):
-            self.choose(kind,[],False)
-        else:
-            self.choose(kind,[Path(item) for item in items],False)
+    # ── 分镜核心动作（右键入口）────────────────────────────────────────
+    def renumber_shots(self):
+        import ui.shot_numbering as shot_numbering
+        targets = [entry['path'] for entry in catalog(self.project, 'storyboard')]
+        if not targets:
+            raise ValueError('还没有分镜 JSON，无需重排编号')
+        plan = shot_numbering.renumber(self.project, targets, apply=False, log=lambda _text: None)
+        if not plan['mapping']:
+            problems = shot_numbering.verify(self.project, targets)
+            self.desktop.status.set('镜头编号已按剧本顺序连续，无需重排' if not problems
+                                    else '镜头编号检查：' + '；'.join(problems))
+            return
+        preview = '、'.join('%s→%s' % (o, n) for o, n in sorted(plan['mapping'].items())[:12])
+        if not confirm(self.desktop.win, '重排镜头编号',
+                       f'重排 {len(plan["mapping"])} 个镜头编号：{preview}{"…" if len(plan["mapping"]) > 12 else ""}\n'
+                       f'并改写 {len(plan["contents"])} 个文件里的引用、{len(plan["renames"])} 项文件名。\n'
+                       '只改编号，不碰内容；会先备份。是否继续？', dangerous=True):
+            self.desktop.status.set('已取消重排镜头编号')
+            return
+        def work():
+            shot_numbering.renumber(self.project, targets, apply=True, log=lambda _text: None)
+            problems = shot_numbering.verify(self.project, targets)
+            return '镜头编号已重排；' + ('编号连续' if not problems else '仍有问题：' + '；'.join(problems))
+        def done(result):
+            self.refresh()
+            self.desktop.status.set(result)
+        self.desktop.async_(work, done)
 
-    def toggle_check(self, kind,item):
-        cur=set(self.checked.get(kind,set()))
-        if item in cur:cur.remove(item)
-        else:cur.add(item)
-        self.choose(kind,[Path(i) for i in cur],False)
+    def browse(self):
+        from contract.project_stages import writing
+        values = FileDialog(self.desktop.win).open_files(
+            title='选择用于制作分镜的剧本（可多选）',
+            initialdir=writing(self.project),
+            filetypes=[('剧本', '*.md *.txt *.docx')])
+        if values:
+            chosen = [Path(p).resolve() for p in values]
+            self.controller.choose('script', chosen)
+            self.show_document(chosen[0])
+            self.refresh()
 
-    def open_selected(self, kind):
-        paths=self.current_selection(kind)
-        if not paths:raise ValueError('请先选择文件')
-        for path in paths:open_path(path)
+    def _target_boards(self):
+        if self.active_board_json is not None and self.active_board_json.is_file():
+            return [self.active_board_json]
+        return [Path(e['path']).resolve() for e in (self.catalogs.get('storyboard') or ())
+                if Path(e['path']).is_file()]
 
-    def delete_selected(self, kind):
-        paths=self.current_selection(kind)
-        if not paths:raise ValueError('请先选择文件')
-        paths,targets=self.controller.recycle_targets(kind,paths)
-        if not confirm(self.desktop.win, '删除选中文件',f'将选中的 {len(paths)} 份文件及关联工作稿共 {len(targets)} 项移入项目回收站？\n\n'+'\n'.join(p.name for p in targets)+'\n\n资产、其他定稿和视频保留；仍引用这些 JSON 的视频任务将解除来源关联。',dangerous=True):return
-        folder=self.controller.recycle(kind,paths);self.refresh();self.desktop.status.set('已移入回收站：'+str(folder))
+    def adopt_selected(self):
+        targets = self._target_boards()
+        if not targets:
+            raise ValueError('当前还没有可采用的分镜 JSON')
+        used = self.controller.adopted()
+        incoming = [p for p in targets if p not in used]
+        already = [p for p in targets if p in used]
+        if not incoming:
+            self.desktop.status.set('所选 JSON 均已采用，无需重复采用')
+            return
+        check_adoptable(incoming)
+        impact = adoption_impact(self.project, targets)
+        impact_note = ('；影响预览：' + str(impact['summary'])) if impact.get('summary') else ''
+        skipped = f'（另有 {len(already)} 份已采用，已跳过）' if already else ''
+        self.desktop.adopt_frame_jsons(incoming)
+        self.refresh()
+        self._render_active_document()
+        switched = self.desktop.sync_working_episode()
+        self.desktop.status.set(
+            f'新增采用 {len(incoming)} 份{skipped}；' + self.controller.summary()
+            + ('；工作集已切到最新采用的分镜' if switched else '；工作集保持不变')
+            + impact_note + self.desktop.final_storyboard_hint() + self.desktop.shot_numbering_hint())
 
-    def delete_one(self, kind,item):
-        """逐个删除（第 46 期第 1 条）：目标就是右键点中的那一行——高亮与勾选都不参与。"""
-        path=self.controller.removable(kind,Path(item))
-        if not confirm(self.desktop.win, '删除此文件',
-                '将这一份文件及它带的关联工作稿移入项目回收站？\n\n'+path.name+
-                '\n\n资产、其他定稿和视频保留；仍引用它的视频任务将解除来源关联。',
-                dangerous=True):return
-        folder=self.controller.recycle(kind,[path]);self.refresh()
-        self.desktop.status.set('已移入回收站：'+str(folder))
+    def remove_selected(self):
+        targets = ([self.active_board_json] if self.active_board_json is not None
+                   else sorted(self.controller.adopted(), key=lambda p: str(p)))
+        if not targets:
+            raise ValueError('当前没有已采用的分镜')
+        self.desktop.remove_frame_jsons(targets)
+        self.refresh()
+        self._render_active_document()
+        self.desktop.status.set('已取消所选分镜的采用；分镜文件与资产保留')
 
     def restore_latest(self):
         candidate = self.controller.latest_recycle_batch()
@@ -954,47 +979,9 @@ class _StoryboardFilesPage:
         shown = '\n'.join(Path(name).name for name in names[:12])
         more = '\n…' if len(names) > 12 else ''
         if not confirm(self.desktop.win, '恢复最近删除',
-                '将恢复最近一次删除的 %d 项关联文件：\n%s%s\n\n若原位置已有同名文件，将安全中止且不恢复任何文件。'
-                % (len(names), shown, more)):
+                       '将恢复最近一次删除的 %d 项关联文件：\n%s%s\n\n若原位置已有同名文件，将安全中止且不恢复任何文件。'
+                       % (len(names), shown, more)):
             return
         _names, restored = self.controller.restore_latest()
         self.refresh()
         self.desktop.status.set('已恢复 %d 项剧本／分镜文件' % len(restored))
-
-    def browse(self):
-        from contract.project_stages import writing
-        values=FileDialog(self.desktop.win).open_files(title='选择用于制作分镜的剧本（可多选）',initialdir=writing(self.project),filetypes=[('剧本','*.md *.txt *.docx')])
-        if values:self.choose('script',[Path(p).resolve() for p in values]);self.refresh()
-
-    def adopt_selected(self):
-        selected_paths=self.current_selection('storyboard');used=self.controller.adopted();incoming=[p for p in selected_paths if p not in used]
-        already=[p for p in selected_paths if p in used]
-        # 已采用的 JSON 只跳过、不重复采用，无需确认；弹窗会挂住无人值守流程。
-        if not incoming:self.desktop.status.set('所选 JSON 均已采用，无需重复采用');return
-        check_adoptable(incoming)          # 第 62 期任务 12：不合格的先一次列清，别让用户逐份试
-        # 采用前只读预览（O19）：相对同集已采用分镜的新增／删除／改动与将失效首帧／视频，
-        # 只展示不改状态；取消采用不会改动正式采用清单，镜头编号也不重排。
-        impact=adoption_impact(self.project,selected_paths)
-        impact_note=('；影响预览：'+str(impact['summary'])) if impact.get('summary') else ''
-        skipped=f'（另有 {len(already)} 份已采用，已跳过）' if already else ''
-        self.desktop.adopt_frame_jsons(incoming);self.refresh()
-        switched=self.desktop.sync_working_episode()
-        self.desktop.status.set(f'新增采用 {len(incoming)} 份{skipped}；'+self.controller.summary()+('；工作集已切到最新采用的分镜' if switched else '；工作集保持不变')+impact_note+self.desktop.final_storyboard_hint()+self.desktop.shot_numbering_hint())
-
-    def remove_selected(self):
-        self.desktop.remove_frame_jsons(self.current_selection('storyboard'));self.refresh();self.desktop.status.set('已取消所选分镜的采用；分镜文件与资产保留')
-
-    def outside_click(self, event):
-        # 整页缓存后这一页可能只是收起来了：别的页上的点击不能清掉这里的选择。
-        if not self.toolbar.winfo_ismapped():return
-        widget=event.widget;ancestors=[]
-        while widget is not None:
-            ancestors.append(widget)
-            if widget==self.desktop.content:break
-            widget=getattr(widget,'master',None)
-        if self.desktop.content not in ancestors:return
-        if any(isinstance(w,(ttk.Button,tk.Button,ttk.Scrollbar,tk.Scrollbar,ttk.Entry,tk.Entry,ttk.Combobox)) for w in ancestors):return
-        # Selecting another list must preserve the first list's multi-selection.
-        if any(tree in ancestors for tree in self.tables.values()):return
-        for kind in self.tables:self.clear_selection(kind)
-        self.desktop.status.set('已取消选择')
