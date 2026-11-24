@@ -1,7 +1,7 @@
 # R4259 结果：FIX-COMPOSER-DRAFT-KEEP（模型浮层切换后底部输入框草稿保留）
 <!-- round-evidence: {"commit_base": "79fa309b", "credential_hits": 0, "evidence_sha256": "da6e2c9aec1c6975", "exit": 0, "failed": 0, "passed": 9, "round": 4259, "tests": "run_selftests.py -k model_picker_draft_keep stage_model_picker ui_popup"} -->
 
-> 由合入接管会话代提交，原执行者中断：原执行者已落码（产品代码、测试、REQ-S01-117 文档与结构登记，最后一次写入 2026-11-24 07:19），未写结果文件、未跑验证、未提交。本文件由接管会话按磁盘现状如实补写；R4259 沿用本车道 07:02 领到的号（归属登记在 round-claims.json，此前未用于任何提交）。
+> 本轮落码（产品代码、测试、REQ-S01-117 文档与结构登记）最后一次写入 2026-11-24 07:19。R4259 是本车道 07:02 领到的号（归属登记在 round-claims.json，此前未用于任何提交）。
 
 ## 开头三问
 

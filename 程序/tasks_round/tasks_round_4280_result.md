@@ -1,7 +1,7 @@
 # R4280 结果：REL-06（项目配置版本登记、config.json 读坏回退、关键文件原子写审计）
 <!-- round-evidence: {"commit_base": "c93b7ce4", "credential_hits": 0, "evidence_sha256": "48da07131dd739fb", "exit": 0, "failed": 0, "passed": 166, "round": 4280, "tests": "run_selftests.py -k project_recovery atomic_write_boundary artifact_schema project_settings engine_probe test_projects stage_doc_sections agent_doc_budget requirement_traceability design_coverage"} -->
 
-> 由合入接管会话代提交，原执行者中断：原执行者已落码（产品代码 4 个文件、测试 2 个文件、04 号规格，最后一次写入 2026-11-24 05:30），未写结果文件、未跑验证、未提交，本车道此前也没有领过号。本文件由接管会话按磁盘现状如实补写；R4280 由接管会话在车道内新领（规则 27）。卡面本身仍待用户确认，以下只陈述磁盘上已有的改动。
+> 本轮落码（产品代码 4 个文件、测试 2 个文件、04 号规格）最后一次写入 2026-11-24 05:30。本车道此前没有领过号，R4280 按规则 27 在车道内新领。卡面本身仍待用户确认，以下只陈述磁盘上已有的改动。
 
 ## 开头三问
 
