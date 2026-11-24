@@ -119,7 +119,8 @@ class ScriptPageLayoutTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
 
-    def test_structure_cards_share_left_edge_and_width(self):
+    def test_structure_editor_shares_edges_with_input_and_status(self):
+        """REQ-S02-37/44：唯一编辑器与底部输入框同左同宽；状态栏说明不越出编辑器右沿。"""
         import desktop as desktop_module
         from desktop import Desktop
         project = Path(self.tmp.name) / 'project'
@@ -132,23 +133,18 @@ class ScriptPageLayoutTests(unittest.TestCase):
         desktop.root = project
         desktop.show(pet_state.PAGE_OF['script_structure'])
         self.win.update()
-        source = desktop.script_structure_source_box
-        output = desktop.script_structure_output_box
-        self.assertEqual(source.winfo_rootx(), output.winfo_rootx(),
-                         '两张剧本卡片左边缘必须对齐')
-        self.assertEqual(source.winfo_width(), output.winfo_width(),
-                         '两张剧本卡片必须同宽')
-        actions = desktop.script_structure_manual_button.master.master
-        self.assertEqual(actions.winfo_rootx(), source.winfo_rootx(),
-                         '中间动作栏与上下卡片共用同一左基准')
-        self.assertEqual(actions.winfo_width(), source.winfo_width(),
-                         '中间动作栏与卡片同宽')
+        box = desktop.script_structure_editor_box
+        ring = desktop.shared_input.input_ring
+        self.assertEqual(box.winfo_rootx(), ring.winfo_rootx(),
+                         '编辑器外框与底部输入框左边缘必须对齐')
+        self.assertEqual(box.winfo_width(), ring.winfo_width(),
+                         '编辑器外框与底部输入框必须同宽')
         info = desktop.script_structure_info_label
         # R2950 页头改单行：状态居左可伸展、模型名贴右（原两行右对齐时代的 justify='right' 断言同步为 left）。
         self.assertEqual(str(info.cget('justify')), 'left')
         self.assertLessEqual(info.winfo_rootx() + info.winfo_width(),
-                             source.winfo_rootx() + source.winfo_width() + 1,
-                             '说明文字不得越出卡片右沿')
+                             box.winfo_rootx() + box.winfo_width() + 1,
+                             '说明文字不得越出编辑器右沿')
 
     def _open_structure_page(self):
         import desktop as desktop_module
@@ -169,7 +165,7 @@ class ScriptPageLayoutTests(unittest.TestCase):
         return desktop
 
     def test_structure_page_send_key_shares_the_manual_entry(self):
-        """建页后底部发送键登记了本页的制作入口：空输入框点发送与点页面按钮走同一条路。"""
+        """建页后底部发送键登记了本页的制作入口：空输入框点发送走手动制作的同一条路。"""
         import desktop_script_pages as script_pages
         import orchestrator.stage_flow as stage_flow
         import orchestrator.stage_models as stage_models
@@ -194,14 +190,13 @@ class ScriptPageLayoutTests(unittest.TestCase):
             self.assertEqual(started.call_count, 1, '空输入框点发送应走到制作结构剧本')
             self.assertEqual(asked, [('script_structure', desktop.win)], '先出手动制作的确认窗')
             self.assertEqual(len(wrapped), 1, '动作带着页面自己的 safe 包装')
-            desktop.script_structure_manual_button.invoke()
-            self.assertEqual(started.call_count, 2)
-            self.assertEqual(asked, [('script_structure', desktop.win)] * 2,
-                             '页面按钮与发送键是同一个入口')
+            self.assertIs(shared.send(), True)
+            self.assertEqual(started.call_count, 2, '发送键即手动制作入口（REQ-S02-41）')
+            self.assertEqual(asked, [('script_structure', desktop.win)] * 2)
             self.assertEqual(len(wrapped), 2)
 
-    def test_structure_page_send_action_follows_the_page_button(self):
-        """重建页面换成新页面的入口；页面按钮销毁后发送键不再承载这一步。"""
+    def test_structure_page_send_action_follows_the_editor_frame(self):
+        """重建页面换成新页面的入口；编辑器外框销毁后发送键不再承载这一步。"""
         desktop = self._open_structure_page()
         shared = desktop.shared_input
         first = shared.stage_action('script_structure')
@@ -211,9 +206,9 @@ class ScriptPageLayoutTests(unittest.TestCase):
         second = shared.stage_action('script_structure')
         self.assertTrue(callable(second))
         self.assertIsNot(second, first, '重建页面后登记的是新页面的入口')
-        desktop.script_structure_manual_button.destroy()
+        desktop.script_structure_editor_box.destroy()
         self.assertIsNone(shared.stage_action('script_structure'),
-                          '页面按钮没了，发送键不应留着过期的入口')
+                          '页面控件没了，发送键不应留着过期的入口')
         self.assertIs(shared.send(), False)
 
 

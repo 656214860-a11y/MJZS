@@ -358,5 +358,40 @@ class ModelWrittenStructureScriptTests(unittest.TestCase):
             self.assertTrue(path.is_file())
 
 
+class StructureDocumentRoleTests(unittest.TestCase):
+    """REQ-S02-38：``_document_role`` 按两组剧本文档给面板点选分类；其余只读。"""
+
+    def test_role_of_each_group_and_other_documents(self):
+        from types import SimpleNamespace
+        from desktop_script_pages import _document_role
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            natural = root / 'writing' / '剧本_甲.md'
+            structured = root / '02剧本结构' / '结构剧本' / '项目_结构剧本_本地_20261124.md'
+            other = root / '02剧本结构' / 'output' / '整理说明.md'
+            structure = SimpleNamespace(source_documents=(natural,),
+                                        output_documents=(structured,))
+            self.assertEqual(_document_role(structure, natural), 'natural')
+            self.assertEqual(_document_role(structure, structured), 'structured')
+            self.assertIsNone(_document_role(structure, other),
+                              '两组剧本之外的文档按只读处理')
+            self.assertIsNone(_document_role(structure, None))
+            self.assertIsNone(_document_role(structure, ''),
+                              '空路径按只读处理')
+
+    def test_role_matches_resolved_paths(self):
+        """同一文件的等价路径写法（..／大小写无关与否依平台）仍判出同一角色。"""
+        from types import SimpleNamespace
+        from desktop_script_pages import _document_role
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            natural = root / 'writing' / '剧本_甲.md'
+            structure = SimpleNamespace(source_documents=(natural,),
+                                        output_documents=())
+            self.assertEqual(_document_role(structure, natural.resolve()), 'natural')
+            aliased = root / 'writing' / '..' / 'writing' / '剧本_甲.md'
+            self.assertEqual(_document_role(structure, aliased), 'natural')
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -14,7 +14,6 @@ import types
 import unittest
 from pathlib import Path
 from unittest import mock
-from tkinter import ttk
 
 PROGRAM = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROGRAM))
@@ -63,8 +62,6 @@ class ScriptAutosaveTests(unittest.TestCase):
         win = tk.Tk()
         win.withdraw()
         self.addCleanup(lambda: win.winfo_exists() and win.destroy())
-        controls = ttk.Frame(win)
-        controls.pack()
         preview = tk.Text(win, undo=True)
         preview.pack()
         tmp = tempfile.TemporaryDirectory()
@@ -84,17 +81,14 @@ class ScriptAutosaveTests(unittest.TestCase):
             preview=preview, loaded=loaded, active=active, kind=kind,
             title='自然剧本' if kind == 'natural' else '结构剧本',
             editable=editable, attribute='box',
-            owner=types.SimpleNamespace(
-                expand_editing_box=lambda content_: None,
-                restore_split_boxes=lambda: None))
+            owner=types.SimpleNamespace())
 
         def set_preview(value):
             loaded['raw'] = value
             _reset_preview_text(preview, value, kind)
             preview.configure(state='disabled')
         box.set_preview = set_preview
-        box.delete_document = mock.Mock()
-        _install_script_edit_controls(page, controls, box)
+        _install_script_edit_controls(page, box)
         win.update()  # 先让控件完成首次布局，合成事件才稳定投递
         return win, preview, page, target, page.box_edit_session
 
@@ -106,7 +100,7 @@ class ScriptAutosaveTests(unittest.TestCase):
         """修改后防抖期内不写盘，窗口到了自动落盘。"""
         with mock.patch.object(desktop_script_edit_session, 'SCRIPT_EDIT_SAVE_DEBOUNCE_MS', 120):
             win, preview, page, target, session = self._setup(kind='structured')
-            page.box_edit_button.invoke()
+            session.toggle_edit()
             win.update()
             preview.insert('end', '自动')
             win.update()
@@ -119,12 +113,12 @@ class ScriptAutosaveTests(unittest.TestCase):
         with mock.patch.object(desktop_script_edit_session, 'SCRIPT_EDIT_SAVE_DEBOUNCE_MS', 120), \
                 mock.patch('agent.core.save_text', wraps=agent.core.save_text) as spy:
             win, preview, page, target, session = self._setup(kind='structured')
-            page.box_edit_button.invoke()
+            session.toggle_edit()
             win.update()
             preview.insert('end', 'X')
             win.update()
             self.assertIsNotNone(session.pending, '修改后应安排防抖定时')
-            page.box_edit_button.invoke()   # 防抖未到就退出
+            session.toggle_edit()   # 防抖未到就退出
             win.update()
             self.assertIsNone(session.pending)
             self.assertIn('X', target.read_text(encoding='utf-8'))
@@ -136,7 +130,7 @@ class ScriptAutosaveTests(unittest.TestCase):
         with mock.patch.object(desktop_script_edit_session, 'SCRIPT_EDIT_SAVE_DEBOUNCE_MS', 120), \
                 mock.patch('agent.core.save_text', wraps=agent.core.save_text) as spy:
             win, preview, page, target, session = self._setup(kind='structured')
-            page.box_edit_button.invoke()
+            session.toggle_edit()
             win.update()
             preview.insert('end', 'x')
             win.update()
@@ -169,7 +163,7 @@ class ScriptAutosaveTests(unittest.TestCase):
         win, preview, page, target, session = self._setup(kind='natural')
         with mock.patch('script_contract.save_natural_script') as natural_save, \
                 mock.patch('desktop_script_edit_session._record_natural_edit') as record:
-            page.box_edit_button.invoke()
+            session.toggle_edit()
             win.update()
             preview.insert('end', '习惯')
             session.save_now()
@@ -187,7 +181,7 @@ class ScriptAutosaveTests(unittest.TestCase):
     def test_structured_save_preserves_edge_whitespace(self):
         """structured 走 agent.core.save_text：首尾空白原样保留，只补一个换行。"""
         win, preview, page, target, session = self._setup(kind='structured')
-        page.box_edit_button.invoke()
+        session.toggle_edit()
         win.update()
         preview.delete('1.0', 'end')
         preview.insert('1.0', '  首行  \n末行  ')
@@ -199,7 +193,7 @@ class ScriptAutosaveTests(unittest.TestCase):
         """清空正文：立即保存与自动保存都报错，文件不动，退出被拒留在编辑态。"""
         win, preview, page, target, session = self._setup(kind='structured')
         before = target.read_bytes()
-        page.box_edit_button.invoke()
+        session.toggle_edit()
         win.update()
         preview.delete('1.0', 'end')
         win.update()
@@ -227,39 +221,64 @@ class ScriptAutosaveTests(unittest.TestCase):
 
 class SwitchDocumentFlushTests(unittest.TestCase):
     def test_switch_document_flushes_edit_and_exits(self):
-        """编辑态切换文档：先 flush 落盘、退出编辑，再加载新文档。"""
+        """REQ-S02-38：编辑态经面板回调路径切换文档：先 flush 落盘、退出编辑，再加载新文档。"""
         with tempfile.TemporaryDirectory() as td:
             project, writing = _make_project(td)
-            # script_raw.md 是内部工作稿、不进自然剧本列表；要两份可选文档需再写一份正式命名稿。
+            # script_raw.md 是内部工作稿、不进自然剧本列表；要两份可选文档需再写正式命名稿。
             other = writing / 'script_other.md'
             other.write_text('另一份剧本\n', encoding='utf-8')
-            (writing / 'script_third.md').write_text('第三份剧本\n', encoding='utf-8')
+            third = writing / 'script_third.md'
+            third.write_text('第三份剧本\n', encoding='utf-8')
             win = tk.Tk()
             win.geometry('1280x800+40+40')
             win.deiconify()
             win.update()
             self.addCleanup(lambda: win.winfo_exists() and win.destroy())
             desktop = _show_script_structure(win, project)
-            session = desktop.script_structure_source_preview_edit_session
-            box = session.box
-            edited = Path(session.active['path'])
-            others = [p for p in box.available if p.resolve() != edited.resolve()]
-            self.assertEqual(len(others), 1, '前提：两份自然剧本都在下拉框里')
-            other_index = [p.resolve() for p in box.available].index(others[0].resolve())
-            expected = others[0].read_text(encoding='utf-8').strip().splitlines()[0]
-            desktop.script_structure_source_preview_edit_button.invoke()
+            session = desktop.script_structure_editor_preview_edit_session
+            box = desktop.script_structure_editor_preview_content_box
+            preview = desktop.script_structure_editor_preview
+            box.select_document(other)
             win.update()
-            preview = desktop.script_structure_source_preview
+            session.toggle_edit()
+            win.update()
             preview.insert('end', '切换前的修改')
-            box.file_list.current(other_index)
-            box.select_document()
+            box.select_document(third)
             win.update()
-            self.assertIn('切换前的修改', edited.read_text(encoding='utf-8'),
+            self.assertIn('切换前的修改', other.read_text(encoding='utf-8'),
                           '切换前必须把编辑内容落盘')
             self.assertFalse(session.editing)
             self.assertEqual(str(preview.cget('state')), 'disabled')
-            self.assertEqual(desktop.script_structure_source_preview_edit_button.cget('text'), '编辑')
-            self.assertIn(expected, preview.get('1.0', 'end'))
+            self.assertIn('第三份剧本', preview.get('1.0', 'end'))
+            self.assertEqual(box.active['path'], third.resolve())
+
+    def test_failed_save_keeps_the_original_document(self):
+        """REQ-S02-38：切换前落盘失败时留在原文档，不加载新文档。"""
+        with tempfile.TemporaryDirectory() as td:
+            project, writing = _make_project(td)
+            other = writing / 'script_other.md'
+            other.write_text('另一份剧本\n', encoding='utf-8')
+            third = writing / 'script_third.md'
+            third.write_text('第三份剧本\n', encoding='utf-8')
+            win = tk.Tk()
+            win.geometry('1280x800+40+40')
+            win.deiconify()
+            win.update()
+            self.addCleanup(lambda: win.winfo_exists() and win.destroy())
+            desktop = _show_script_structure(win, project)
+            session = desktop.script_structure_editor_preview_edit_session
+            box = desktop.script_structure_editor_preview_content_box
+            preview = desktop.script_structure_editor_preview
+            box.select_document(other)
+            win.update()
+            session.toggle_edit()
+            win.update()
+            preview.delete('1.0', 'end')     # 空内容保存被拒，exit_edit 抛错
+            box.select_document(third)
+            win.update()
+            self.assertTrue(session.editing, '落盘失败应留在编辑态')
+            self.assertEqual(box.active['path'], other.resolve(),
+                             '落盘失败不切换文档')
 
 
 if __name__ == '__main__':

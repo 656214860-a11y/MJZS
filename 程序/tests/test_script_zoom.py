@@ -77,7 +77,7 @@ class ScriptZoomTests(unittest.TestCase):
                 pass
         self.addCleanup(_destroy)
         desktop = _show_script_structure(win, _make_project(td.name))
-        box = desktop.script_structure_source_preview_content_box
+        box = desktop.script_structure_editor_preview_content_box
         return win, desktop, box
 
     def _press_until(self, win, widget, sequence, probe, tries=15):
@@ -112,12 +112,11 @@ class ScriptZoomTests(unittest.TestCase):
         _settle(win)
         self.assertEqual(_font_size(preview), base)
 
-        # 上下两个阅读框的缩放互相独立。
-        output_box = desktop.script_structure_output_preview_content_box
-        self._press_until(win, output_box.preview, "<Control-equal>",
-                          lambda: output_box.zoom_delta == 1)
+        # 缩放在切文档后仍保持在本框上（REQ-S02-37 起全页只有这一个阅读框）。
+        self._press_until(win, preview, "<Control-equal>",
+                          lambda: box.zoom_delta == 1)
         _settle(win)
-        self.assertEqual(box.zoom_delta, 0)
+        self.assertEqual(box.zoom_delta, 1)
 
         # 上下限：与按键同一入口 zoom_by（步进已由上面的按键验证）。
         box.aids.zoom_by(100)

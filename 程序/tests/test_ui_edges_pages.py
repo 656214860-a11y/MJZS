@@ -628,7 +628,7 @@ class UiEdgePagesTests(UiEdgeCase):
                             "其他阶段文件可见，但不得冒用剧本准备的采用/确认动作")
 
     def test_script_structure_page_shows_source_and_output_in_separate_boxes(self):
-        """剧本结构页上看剧本准备来源、下看结构化输出，手动制作按钮夹在中间（R2942：阶段配置已删）。"""
+        """REQ-S02-37/38：唯一编辑器先显示来源稿，面板点选可切到结构稿；状态栏写当前文件名。"""
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
@@ -651,54 +651,44 @@ class UiEdgePagesTests(UiEdgeCase):
             d = Desktop(win, root=PROGRAM)
             d.root = proj
             d.show(__import__('pet_state').PAGE_OF['script_structure']); win.update()
-            self.assertIn("阿远：我回来了", d.script_structure_source_preview.get("1.0", "end"))
-            self.assertIn("## 分场剧本", d.script_structure_output_preview.get("1.0", "end"))
+            preview = d.script_structure_editor_preview
+            box = d.script_structure_editor_preview_content_box
+            self.assertIn("阿远：我回来了", preview.get("1.0", "end"))
             # R1690 起：正文按词换行（超过 20 万字符才退回横向滚动），全文仍逐字保留；
-            # 换行阈值与横向滚动条的联动由 test_script_view_style 覆盖，这里只管两个框的排版位置。
-            previews = (d.script_structure_source_preview, d.script_structure_output_preview)
-            for preview in previews:
-                self.assertEqual(str(preview.cget("wrap")), "word")
-                self.assertIn(long_line, preview.get("1.0", "end"))
-                preview.xview_moveto(0); win.update()
-            self.assertEqual(str(d.script_structure_manual_button.cget("text")), "手动制作结构剧本")
-            source_rows = d.script_structure_source_preview_files.get_children()
-            output_rows = d.script_structure_output_preview_files.get_children()
-            self.assertEqual(len(source_rows), 1)
-            self.assertEqual(len(output_rows), 1)
-            # 文件栏只显示文件名；完整位置不应挤占用户的文件选择区域。
-            self.assertEqual(tuple(d.script_structure_source_preview_files.item(source_rows[0], "values")),
-                             ("script_raw.md",))
-            self.assertEqual(tuple(d.script_structure_output_preview_files.item(output_rows[0], "values")),
-                             ("script.md",))
+            # 换行阈值与横向滚动条的联动由 test_script_view_style 覆盖，这里只管编辑器排版。
+            self.assertEqual(str(preview.cget("wrap")), "word")
+            self.assertIn(long_line, preview.get("1.0", "end"))
+            preview.xview_moveto(0); win.update()
+            self.assertFalse(hasattr(d, "script_structure_manual_button"), "手动制作按钮已并入底部发送键")
+            for removed in ('script_structure_source_preview', 'script_structure_output_preview',
+                            'script_structure_source_preview_files', 'script_structure_output_preview_files'):
+                self.assertFalse(hasattr(d, removed), removed + ' 应已随双框删除')
             self.assertFalse(hasattr(d, "script_structure_files_table"), "底部重复剧本表不应继续创建")
-            self.assertEqual(str(d.script_structure_source_box.winfo_class()), "TFrame")
-            self.assertEqual(str(d.script_structure_output_box.winfo_class()), "TFrame")
-            self.assertEqual(
-                d.script_structure_source_box.winfo_children()[0].winfo_class(),
-                "TFrame",
-            )
-            self.assertEqual(
-                d.script_structure_output_box.winfo_children()[0].winfo_class(),
-                "TFrame",
-            )
+            self.assertEqual(str(d.script_structure_editor_box.winfo_class()), "TFrame")
             self.assertIs(d.script_structure_info_label, d.status_bar._segments['script_note'][1],
                           "说明文字放在统一底栏左区段（R1862 需求，R3016 换位）")
-            self.assertIn("本地规则整理，不调用模型", str(d.script_structure_info_label.full_text))
+            self.assertIn("script_raw.md", str(d.script_structure_info_label.full_text),
+                          "状态栏应写明当前文件名（REQ-S02-37）")
+            self.assertIn("本地规则整理，不调用模型",
+                          str(d.script_structure_info_label.tooltip.text),
+                          "流程说明挪到状态栏悬停（REQ-S02-37）")
             # R2942：页面级「阶段配置」按钮已删，模型选择收进共享输入框下拉框。
             self.assertIsNone(d.stage_button, "剧本结构页「阶段配置」按钮已删")
-            output_position = d.script_structure_output_preview.yview()[0]
-            d.script_structure_source_preview.yview_moveto(0.62); win.update()
-            self.assertEqual(d.script_structure_output_preview.yview()[0], output_position,
-                             "上下剧本框应可独立滚动")
-            d.script_structure_source_preview_edit_button.invoke(); win.update()
-            session = d.script_structure_source_preview_edit_session
-            d.script_structure_source_preview.insert("end", "\n新增修订。")
-            original = d.script_structure_source_preview.get("1.0", "1.4")
-            d.script_structure_source_preview.delete("1.0", "1.4")
+            session = d.script_structure_editor_preview_edit_session
+            session.toggle_edit(); win.update()
+            preview.insert("end", "\n新增修订。")
+            original = preview.get("1.0", "1.4")
+            preview.delete("1.0", "1.4")
             session.undo_step(); win.update()
-            self.assertEqual(d.script_structure_source_preview.get("1.0", "1.4"), original)
+            self.assertEqual(preview.get("1.0", "1.4"), original)
             session.save_now(); win.update()
             self.assertIn("新增修订。", (writing / "script_raw.md").read_text(encoding="utf-8"))
+            session.toggle_edit(); win.update()
+            # 面板点选路径：结构稿经 select_document 切换进同一编辑器。
+            box.select_document(structured); win.update()
+            self.assertIn("## 分场剧本", preview.get("1.0", "end"))
+            self.assertIn(long_line, preview.get("1.0", "end"))
+            self.assertEqual(box.active['path'], structured.resolve())
 
     def test_frame_checks_follow_the_frame_state(self):
         """04 首帧页：勾选与首帧状态双向同步，弹窗提交的那一批回写页面。"""

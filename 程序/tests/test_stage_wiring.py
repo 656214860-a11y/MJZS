@@ -144,20 +144,23 @@ class LayoutWiringTests(_Harness):
         self.assertIn("self._complete_project_recovery(self.root)", load_body)
 
     def test_script_structure_page_shows_its_input_and_output_contract(self):
+        """REQ-S02-38：唯一编辑器默认显示来源稿；有了对应结构稿后默认换成结构稿。"""
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             (proj / 'writing').mkdir(exist_ok=True)
             (proj / 'writing' / 'script_raw.md').write_text('原稿', encoding='utf-8')
             d, win = self.desktop(proj)
             d.show(d.page_of('script_structure')); win.update()
-            source_rows = d.script_structure_source_preview_files.get_children()
-            output_rows = d.script_structure_output_preview_files.get_children()
-            self.assertEqual(len(source_rows), 1)
-            self.assertEqual(len(output_rows), 1)
-            self.assertEqual(tuple(d.script_structure_source_preview_files.item(source_rows[0], 'values')),
-                             ('script_raw.md',))
-            self.assertEqual(tuple(d.script_structure_output_preview_files.item(output_rows[0], 'values')),
-                             ('尚无可用文件',))
+            preview = d.script_structure_editor_preview
+            box = d.script_structure_editor_preview_content_box
+            self.assertIn('原稿', preview.get('1.0', 'end-1c'))
+            self.assertEqual(box.active['path'], (proj / 'writing' / 'script_raw.md').resolve())
+            import script_contract
+            target = script_contract.write_structured_script(proj)
+            d.show(d.page_of('script_structure')); win.update()
+            self.assertIn('## 分场剧本', d.script_structure_editor_preview.get('1.0', 'end-1c'))
+            self.assertEqual(d.script_structure_editor_preview_content_box.active['path'],
+                             target.resolve())
 
 
 class AssetDetailRoutingTests(_Harness):
