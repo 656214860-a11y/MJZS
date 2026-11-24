@@ -36,6 +36,7 @@ os.chdir(PROGRAM)
 import desktop
 import model_secrets
 import infra.model_pool as model_pool
+import infra.project_settings as project_settings
 import pet_agent
 import pet_models_ui
 import pet_settings_ui
@@ -676,6 +677,24 @@ class LevelPageTests(SettingsCase):
         self.pet.set_level('hint')
         saved = json.loads((Path(self.tmp.name) / '配置' / '宠物' / '配置.json').read_text('utf-8'))
         self.assertEqual(saved['level'], 'hint')
+
+    def test_picking_levels_only_reaches_the_three_legal_combinations(self):
+        """设置页与猫爪同一入口：三档各落一种组合——手动+只提醒+开关全关、
+        手动+半自动+开关全关、自动+全自动+开关全开；切回去同样收干净。"""
+        win = self.hub('level')
+        seams = win._pet_seams['level']
+        seen = []
+        for level in pet_agent.LEVELS + pet_agent.LEVELS[::-1]:
+            seams['picked'].set(level)
+            seams['apply']()
+            opened = all(project_settings.get(self.fake.root, key) is True
+                         for key in project_settings.DEFAULTS)
+            self.assertTrue(all(self.pet.auto_variable(name).get() is opened
+                                for name in pet_ui.AUTO_VARIABLE_NAMES), level)
+            seen.append((self.pet.mode, self.pet.agent.level, opened))
+        self.assertEqual(seen, [('manual', 'hint', False), ('manual', 'semi', False),
+                                ('auto', 'auto', True), ('auto', 'auto', True),
+                                ('manual', 'semi', False), ('manual', 'hint', False)])
 
 
 class BudgetPageTests(SettingsCase):

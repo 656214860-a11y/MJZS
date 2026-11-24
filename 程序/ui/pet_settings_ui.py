@@ -312,7 +312,7 @@ def level_page(frame, pet, width=None):
 
     def apply():
         level = picked.get()
-        pet.set_level(level)
+        pet.set_paw_level(level)
         hint.set('%s：%s' % (pet_agent.LEVEL_NAMES.get(level, level), pet_ui_note(level)))
         return level
 

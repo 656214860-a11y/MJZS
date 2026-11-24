@@ -1,0 +1,15 @@
+{
+  "round": 4263,
+  "commit_base": "79fa309b",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k sanhu_mode pet_settings",
+    "exit": 0,
+    "passed": 77,
+    "failed": 0
+  },
+  "generated_at": "2026-11-24T11:19:47"
+}

@@ -96,6 +96,9 @@ class FakePet:
         self.level_value = value
         return value
 
+    def set_paw_level(self, value):
+        return self.set_level(value)
+
     # 模型配置
     def agent_model_records(self):
         return {}
