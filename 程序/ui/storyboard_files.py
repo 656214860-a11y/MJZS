@@ -792,12 +792,9 @@ class _StoryboardFilesPage:
         if not content.strip():
             raise ValueError('文档内容不能为空')
         if self.active_path.suffix.lower() == '.json':
-            parsed = json.loads(content)
-            from domain.writing import validate_episode
-            from contract.storyboard_paths import media_root
-            from agent.core import save as save_json
-            validate_episode(parsed, media_root(self.active_path))
-            save_json(self.active_path, parsed)
+            saver = FinalStoryboardController(self.project)
+            saver.load(self.active_path)
+            saver.save_edited(content)
         else:
             from agent.core import save_text as write_text
             write_text(self.active_path, content + '\n')

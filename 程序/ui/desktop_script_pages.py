@@ -95,8 +95,8 @@ def _read_any_document(path, empty, default_reader):
             pass
     if suffix == '.json':
         try:
-            raw = source.read_text(encoding='utf-8-sig')
-            return _format_storyboard_json(json.loads(raw))
+            from infra.file_cache import read_json
+            return _format_storyboard_json(read_json(source))
         except (OSError, UnicodeError, ValueError):
             pass
     text = default_reader(source, empty)
