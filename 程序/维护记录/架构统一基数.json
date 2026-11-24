@@ -5,6 +5,7 @@
   "entity_paths": {
    "animatic_audio": "domain/animatic_audio.py",
    "animatic_references": "domain/animatic_references.py",
+   "animatic_sketch_backends": "domain/animatic_sketch_backends.py",
    "asset_versions": "domain/asset_versions.py",
    "skill_residue_service": "domain/skill_residue_service.py",
    "voice_emotion_check": "domain/voice_emotion_check.py"
@@ -101,7 +102,7 @@
    "video_task_state": "R1578：仅读取视频任务状态并生成锁定、等待及显式提交阻断原因；submission_block_reason 与 provider_failure_reason 仅判断传入版本，后者返回供应商终态恢复说明，不启动、取消、重提或写入任务。",
    "storyboard_adoption_contract": "R981：只读设置、解析已有别名并校验采用路径；采用状态写入由独立服务承担。"
   },
-  "exempt_count": 58,
+  "exempt_count": 59,
   "exempt_items": [
    "asset_versions",
    "video_staleness",
@@ -160,7 +161,8 @@
    "writing_files",
    "writing_workflow",
    "animatic_references",
-   "animatic_audio"
+   "animatic_audio",
+   "animatic_sketch_backends"
   ]
  },
  "第二项": {

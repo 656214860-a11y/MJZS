@@ -675,7 +675,7 @@
   {
    "module": "domain/animatic_audio.py",
    "covered": 0,
-   "total": 113,
+   "total": 117,
    "percent": 0.0
   },
   {
@@ -688,6 +688,12 @@
    "module": "domain/animatic_service.py",
    "covered": 0,
    "total": 191,
+   "percent": 0.0
+  },
+  {
+   "module": "domain/animatic_sketch_backends.py",
+   "covered": 0,
+   "total": 71,
    "percent": 0.0
   },
   {
@@ -4124,5 +4130,5 @@
   }
  ],
  "modules_covered": 133,
- "modules_total": 684
+ "modules_total": 685
 }
