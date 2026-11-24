@@ -174,5 +174,52 @@ class PngCompleteTests(unittest.TestCase):
         self.assertEqual(calls, [8, 4])
 
 
+class ImageContentOkTests(unittest.TestCase):
+    """导入候选验真只读文件头尾：PNG/JPG/WEBP 各认签名与收尾，读不动或后缀不认一律 False。"""
+
+    def setUp(self):
+        self.dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.dir.cleanup)
+        self.root = Path(self.dir.name)
+
+    def _write(self, name, blob):
+        path = self.root / name
+        path.write_bytes(blob)
+        return path
+
+    def test_accepts_png(self):
+        self.assertTrue(agent.media.image_content_ok(self._write("ok.png", PNG_1X1)))
+
+    def test_rejects_broken_png(self):
+        truncated = self._write("half.png", PNG_1X1[:-12])
+        fake = self._write("fake.png", NOT_PNG)
+        self.assertFalse(agent.media.image_content_ok(truncated))
+        self.assertFalse(agent.media.image_content_ok(fake))
+
+    def test_accepts_jpg(self):
+        blob = b"\xff\xd8\xff\xe0" + b"\x00" * 60 + b"\xff\xd9"
+        self.assertTrue(agent.media.image_content_ok(self._write("ok.jpg", blob)))
+
+    def test_rejects_broken_jpg(self):
+        self.assertFalse(agent.media.image_content_ok(self._write("half.jpg", JPEG)))
+
+    def test_accepts_webp(self):
+        blob = b"RIFF" + b"\x00" * 4 + b"WEBP" + b"\x00" * 16
+        self.assertTrue(agent.media.image_content_ok(self._write("ok.webp", blob)))
+
+    def test_rejects_broken_webp(self):
+        blob = b"RIFF" + b"\x00" * 4 + b"WAVE" + b"\x00" * 16
+        self.assertFalse(agent.media.image_content_ok(self._write("wave.webp", blob)))
+
+    def test_rejects_other_suffix(self):
+        self.assertFalse(agent.media.image_content_ok(self._write("ok.gif", PNG_1X1)))
+
+    def test_returns_false_on_oserror(self):
+        path = self._write("ok.png", PNG_1X1)
+        with mock.patch("builtins.open", side_effect=OSError("denied")):
+            self.assertFalse(agent.media.image_content_ok(path))
+        self.assertFalse(agent.media.image_content_ok(self.root / "missing.png"))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
