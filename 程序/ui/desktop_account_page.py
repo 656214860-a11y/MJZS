@@ -432,7 +432,7 @@ class AccountPageMixin:
         def logout():
             self.account.logout(done=logout_done)
 
-        SecondaryButton(actions,text='退出登录',command=logout).pack(side='right')
+        SecondaryButton(actions,text='退出登录',command=logout,style='Tokens.Text.TButton').pack(side='right')
         PrimaryButton(actions,text='立即续签',command=renew).pack(side='right',padx=(SPACING['none'],SPACING['sm']))
         self._account_redeem_form()
         self._account_tools_card(session)
@@ -451,8 +451,14 @@ class AccountPageMixin:
         row = ttk.Frame(card);row.pack(fill='x')
         ttk.Label(row,text='账号管理').pack(side='left')
         self.account_tool_buttons = {}
+        # 危险操作单独一组：分隔线下另起一排（REQ-UI-L5-1）。
+        ttk.Separator(card,orient='horizontal').pack(fill='x',pady=(SPACING['sm'],SPACING['xs']))
+        danger = ttk.Frame(card);danger.pack(fill='x')
+        ttk.Label(danger,text='危险操作',style='Muted.TLabel').pack(side='left')
         for key, title, build in reversed(tools):
-            button = SecondaryButton(row,text=title,command=lambda t=title,b=build:self._account_open_dialog(t,b))
+            parent,style = (danger,'Tokens.Danger.TButton') if key == 'delete' else (row,'Tokens.Text.TButton')
+            button = SecondaryButton(parent,text=title,style=style,
+                                     command=lambda t=title,b=build:self._account_open_dialog(t,b))
             button.pack(side='right',padx=(SPACING['sm'],SPACING['none']))
             self.account_tool_buttons[key] = button
 
@@ -638,7 +644,7 @@ class AccountPageMixin:
             code.clear_error();button.state(['disabled']);message.configure(text='正在兑换…')
             if not self.account.redeem(value,redeemed):
                 button.state(['!disabled']);message.configure(text='本机没有登录会话，请重新登录')
-        button = PrimaryButton(row,text='兑换',command=submit)
+        button = SecondaryButton(row,text='兑换',command=submit,style='Tokens.Text.TButton')
         button.pack(side='right',padx=(SPACING['sm'],SPACING['none']))
         code.pack(side='left',fill='x',expand=True)
         self.account_redeem_input,self.account_redeem_button,self.account_redeem_message = code,button,message
@@ -735,9 +741,10 @@ class AccountPageMixin:
         password.bind('<Return>',lambda _event:password_login())
         actions = row('pw')
         pw_login = PrimaryButton(actions,text='登录',command=password_login);pw_login.pack(side='left',padx=(SPACING['none'],SPACING['sm']))
-        forgot = SecondaryButton(actions,text='忘记密码',command=lambda:show_view('reset'));forgot.pack(side='left',padx=(SPACING['none'],SPACING['sm']))
+        forgot = SecondaryButton(actions,text='忘记密码',style='Tokens.Text.TButton',
+                                 command=lambda:show_view('reset'));forgot.pack(side='left',padx=(SPACING['none'],SPACING['sm']))
         # 点「用验证码登录」直接发验证码：邮箱不合法就留在密码页报错，发出后才切到验证码视图并放开登录键
-        use_code = SecondaryButton(actions,text='用验证码登录',
+        use_code = SecondaryButton(actions,text='用验证码登录',style='Tokens.Text.TButton',
                                    command=lambda:send('login',use_code,after=lambda:(show_view('code'),login.state(['!disabled']))))
         use_code.pack(side='left')
         # 注册
@@ -771,7 +778,8 @@ class AccountPageMixin:
             self.account.reset_password(value,reset_code.get(),reset_password.get(),finished(reset_button,reset_done))
         reset_actions = row('reset')
         reset_button = PrimaryButton(reset_actions,text='重置密码',command=reset);reset_button.pack(side='left',padx=(SPACING['none'],SPACING['sm']))
-        SecondaryButton(reset_actions,text='返回密码登录',command=lambda:show_view('pw')).pack(side='left')
+        SecondaryButton(reset_actions,text='返回密码登录',style='Tokens.Text.TButton',
+                        command=lambda:show_view('pw')).pack(side='left')
         login_tab = SecondaryButton(tabs,text='登录',command=lambda:show_view('pw'));login_tab.pack(side='left',padx=(SPACING['none'],SPACING['sm']))
         register_tab = SecondaryButton(tabs,text='注册',command=lambda:show_view('reg'));register_tab.pack(side='left')
         show_view('pw')
@@ -829,5 +837,6 @@ def _login_code_view(account, kit):
     login = PrimaryButton(actions,text='登录',command=code_login);login.pack(side='left')
     login.state(['disabled'])                # 先发验证码，登录按钮才可用
     cancel = SecondaryButton(actions,text='撤销注销',command=cancel_deletion)   # 冷静期内登录被拦时才显示
-    SecondaryButton(kit.row('code'),text='返回密码登录',command=lambda:kit.show_view('pw')).pack(side='left')
+    SecondaryButton(kit.row('code'),text='返回密码登录',style='Tokens.Text.TButton',
+                    command=lambda:kit.show_view('pw')).pack(side='left')
     return code,login,code_send,cancel

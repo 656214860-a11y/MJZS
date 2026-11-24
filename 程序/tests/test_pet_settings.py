@@ -1060,3 +1060,62 @@ class SaveSettingsLockTests(unittest.TestCase):
             self.assertIn('m1', data.get('models', {}), '模型池记录不能被设置写丢')
             self.assertTrue(data.get(model_pool.HEALTH_KEY, {}).get('m1', {}).get('ok'),
                             'record_health 写下的键不能被设置写丢')
+
+
+class HubLayoutTests(SettingsCase):
+    """REQ-UI-L5-1：设置弹窗——左侧分类列＋右侧内容；保存即关闭、关闭不保存、
+    有未保存改动时关闭先确认。"""
+
+    def _hub(self, tab=None):
+        win = pet_settings_ui.open_hub(self.pet, tab)
+        self.addCleanup(lambda: win.winfo_exists() and win.destroy())
+        return win
+
+    def test_left_categories_and_right_content(self):
+        win = self._hub('budget')
+        nav = getattr(win, '_pet_nav', None)
+        self.assertIsNotNone(nav, 'REQ-UI-L5-1：分类列收进左侧一列')
+        self.assertEqual(nav.pack_info()['side'], 'left', '分类列在内容区左边')
+        for key, _title in pet_settings_ui.TABS:
+            self.assertIs(win._pet_tabs[key].master, nav, '分类按钮都在左侧那一列')
+            self.assertEqual(win._pet_tabs[key].pack_info()['fill'], 'x', '分类按钮整列排')
+        separators = [w for w in self.walk(nav.master, self.ttk.Separator)
+                      if str(w.cget('orient')) == 'vertical']
+        self.assertTrue(separators, '分类列与内容区之间要有竖分隔线')
+
+    def test_save_writes_and_closes_the_window(self):
+        win = self._hub('budget')
+        win._pet_seams['budget']['fields']['tokens'].set('1500000')
+        win._pet_save.invoke()
+        self.assertFalse(win.winfo_exists(), 'REQ-UI-L5-1：保存＝写入并关闭')
+        stored = json.loads((Path(self.tmp.name) / '配置' / '宠物' / '配置.json').read_text('utf-8'))
+        self.assertEqual(stored['budget_limits']['tokens'], 1500000)
+
+    def test_failed_save_keeps_the_window(self):
+        win = self._hub('budget')
+        win._pet_seams['budget']['fields']['video'].set('0')
+        win._pet_save.invoke()
+        self.assertTrue(win.winfo_exists(), '保存失败留在窗内')
+        self.assertIn('正整数', win._pet_seams['budget']['hint'].get())
+
+    def test_close_without_changes_does_not_ask(self):
+        win = self._hub('budget')
+        with mock.patch('pet_settings_ui.ask_confirmation') as ask:
+            win._pet_close.invoke()
+        self.assertFalse(ask.called, '没改动时关闭不再问')
+        self.assertFalse(win.winfo_exists())
+        self.assertEqual(self.pet.budget_limits()['tokens'], pet_agent.DEFAULT_BUDGET['tokens'],
+                         '关闭不保存')
+
+    def test_close_with_unsaved_changes_asks_first(self):
+        win = self._hub('budget')
+        win._pet_seams['budget']['fields']['tokens'].set('1500000')
+        with mock.patch('pet_settings_ui.ask_confirmation', return_value=False) as ask:
+            win._pet_close.invoke()
+            self.assertTrue(ask.called, '有未保存改动要先确认')
+            self.assertTrue(win.winfo_exists(), '拒绝确认就留在设置窗')
+        with mock.patch('pet_settings_ui.ask_confirmation', return_value=True):
+            win._pet_close.invoke()
+            self.assertFalse(win.winfo_exists(), '确认后才关窗')
+        self.assertEqual(self.pet.budget_limits()['tokens'], pet_agent.DEFAULT_BUDGET['tokens'],
+                         '关闭不保存')

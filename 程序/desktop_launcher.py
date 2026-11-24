@@ -23,7 +23,8 @@ import infra.app_logging as app_logging
 import infra.hash_backend as hash_backend
 hash_backend.install()
 import tkinter as tk
-from ui_widgets import notify
+from ui_widgets import (notify, BaseDialog, DescriptionBlock, PrimaryButton,
+                        SecondaryButton, DIALOG_ACTION_GAP, SPACING)
 
 
 # ── REL-14：DPI 感知与最低系统版本 ─────────────────────────────────
@@ -120,6 +121,67 @@ def min_os_items():
         return []
 
 
+def entry_dialog(parent, title, text, primary='确定', secondary=None):
+    """REQ-UI-L5-1：应用入口提示窗——单列说明文本＋一个强调色主按钮＋可选文字式次按钮。
+
+    主按钮判「是」（返回 ``True``），次按钮／Esc／窗口 X 判「否」；
+    ``secondary=None`` 时只摆主按钮（纯告知）。阻塞到用户选择或关窗。
+    """
+    win = BaseDialog(parent, str(title), modal=False)
+    DescriptionBlock(win.content, text=str(text)).pack(fill='x')
+    result = {'ok': False}
+
+    def yes():
+        result['ok'] = True
+        win.close()
+
+    def no():
+        win.close()
+
+    if secondary is not None:
+        SecondaryButton(win.actions, text=str(secondary), command=no,
+                        style='Tokens.Text.TButton').pack(
+            side='right', padx=(DIALOG_ACTION_GAP, SPACING['none']))
+    PrimaryButton(win.actions, text=str(primary), command=yes).pack(
+        side='right', padx=(DIALOG_ACTION_GAP, SPACING['none']))
+    win.bind('<Escape>', lambda _event: no())
+    win.wait_window()
+    return bool(result['ok'])
+
+
+def entry_confirm(text, title, flags=0, parent=None):
+    """``diagnostic_capture.confirm_safe_start`` 的 ask 实现：入口弹窗，按 Win32 结果码返回。
+
+    主按钮（安全启动）→ ``_IDYES``；次按钮（正常启动）／Esc／关闭 → 0（按「否」处理）。
+    ``flags`` 保留 ``MessageBoxW`` 调用形态，按钮与文案由本窗统一布局接管；
+    ``parent=None`` 说明 Tk 尚未起，先开一扇隐藏根窗当宿主。
+    """
+    owner = parent
+    if owner is None:
+        owner = tk.Tk()
+        owner.withdraw()
+    try:
+        ok = entry_dialog(owner, title, text, primary='安全启动', secondary='正常启动')
+    finally:
+        if parent is None:
+            owner.destroy()
+    # Win32 MessageBoxW 结果码：IDYES＝6（confirm_safe_start 只认这个值）。
+    return 6 if ok else 0
+
+
+def _entry_notify(items):
+    """FATAL 自检的入口提示：同一路入口弹窗（单列诊断文本＋一个「退出」主按钮），建 Tk 之前可用。"""
+    import infra.diagnostic_capture as diagnostic_capture
+    from contract.app_metadata import APP_NAME
+    root = tk.Tk()
+    root.withdraw()
+    try:
+        entry_dialog(root, str(APP_NAME or '漫剧助手'),
+                     diagnostic_capture.fatal_diagnostics_text(items), primary='退出')
+    finally:
+        root.destroy()
+
+
 def launch(selfcheck=True):
     """启动桌面主窗口；``selfcheck=False`` 供调试 ``__main__`` 入口跳过启动自检与崩溃预算。"""
     enable_dpi_awareness()
@@ -138,9 +200,13 @@ def launch(selfcheck=True):
         degraded_items = [item for item in items if item.severity is not Severity.FATAL]
         if fatal_items:
             # fail-closed：给可操作诊断后退出；这不是崩溃，不写崩溃预算。
-            diagnostic_capture.notify_startup_fatal(fatal_items)
+            # 入口弹窗走统一布局（REQ-UI-L5-1）；Tk 起不来时回退原来的 MessageBoxW。
+            try:
+                _entry_notify(fatal_items)
+            except Exception:
+                diagnostic_capture.notify_startup_fatal(fatal_items)
             raise SystemExit(1)
-        safe_start = diagnostic_capture.startup_gate()
+        safe_start = diagnostic_capture.startup_gate(ask=entry_confirm)
     from desktop import Desktop
     window = tk.Tk()
     window._selfcheck_degraded = degraded_items

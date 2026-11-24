@@ -88,7 +88,8 @@ class LoginGateMixin:
                 text = str(message.cget('text') or '')
             except Exception:  # noqa: BLE001 —— 读文本失败不影响登录闸本身
                 return
-            if text in unreachable:
+            # 提示文本可能带「（N 秒后可重试）」与「；查看帮助：…」后缀，按前缀认。
+            if any(text.startswith(item) for item in unreachable):
                 self._show_gate_notice()
             else:
                 self._hide_gate_notice()

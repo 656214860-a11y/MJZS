@@ -561,4 +561,70 @@ class SidebarExpandColumnTests(unittest.TestCase):
                          'recycle')
 
 
+class EntryDialogLayoutTests(unittest.TestCase):
+    """REQ-UI-L5-1：应用入口弹窗统一单列布局——说明文本＋一个强调色主按钮＋文字式次按钮。
+
+    启动自检致命提示与安全模式二选一都走 ``desktop_launcher.entry_dialog``；
+    主按钮判「是」，次按钮／Esc／关闭判「否」。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.win = tk_test_support.make_root()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.win.destroy()
+
+    def _buttons(self):
+        tops = [w for w in self.win.winfo_children()
+                if isinstance(w, tk.Toplevel) and w.winfo_exists()]
+        self.assertTrue(tops, '入口弹窗没有建出来')
+        return [w for w in widget_list(tops[0]) if isinstance(w, ttk.Button)]
+
+    def _invoke_later(self, text):
+        def click():
+            for button in self._buttons():
+                if str(button.cget('text')) == text:
+                    button.invoke()
+                    return
+        self.win.after(30, click)
+
+    def test_entry_dialog_primary_returns_true(self):
+        import desktop_launcher
+        self._invoke_later('安全启动')
+        result = desktop_launcher.entry_dialog(
+            self.win, '应用入口', '说明第一行。\n说明第二行。',
+            primary='安全启动', secondary='正常启动')
+        self.assertTrue(result, '点强调色主按钮应判「是」')
+
+    def test_entry_dialog_layout_contract(self):
+        import desktop_launcher
+        seen = {}
+        def peek():
+            buttons = self._buttons()
+            for button in buttons:
+                seen[str(button.cget('text'))] = str(button.cget('style'))
+            self.assertEqual(len(buttons), 2, '提示窗只留一个主按钮与一个次要入口')
+            for button in buttons:
+                if str(button.cget('text')) == '正常启动':
+                    button.invoke()
+                    return
+        self.win.after(30, peek)
+        result = desktop_launcher.entry_dialog(
+            self.win, '应用入口', '说明。', primary='安全启动', secondary='正常启动')
+        self.assertFalse(result, '点文字式次按钮应判「否」')
+        self.assertEqual(seen.get('安全启动'), 'Tokens.Primary.TButton')
+        self.assertEqual(seen.get('正常启动'), 'Tokens.Text.TButton',
+                         '次要入口用 Tokens.Text.TButton 文字样式')
+
+    def test_safe_start_ask_returns_yes_result_code(self):
+        """``desktop_launcher.entry_confirm`` 供 startup_gate 注入：确认按 Win32 IDYES 语义返回。"""
+        import desktop_launcher
+        import infra.diagnostic_capture as diagnostic_capture
+        self._invoke_later('安全启动')
+        code = desktop_launcher.entry_confirm('说明文本', '应用入口', 0, parent=self.win)
+        self.assertEqual(code, getattr(diagnostic_capture, '_IDYES', 6))
+
+
 if __name__ == '__main__':unittest.main()
