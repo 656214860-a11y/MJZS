@@ -183,6 +183,15 @@ class AccountPageMixin:
         if notice.get('url'):
             PrimaryButton(card,text='去下载',command=lambda u=notice['url']:webbrowser.open(u)).pack(anchor='w',pady=SPACING['xs'])
 
+    def _account_cert_warning_card(self):
+        """钉死证书临期/过期提醒：pinned_cert_warning() 返回空串或空白时不建控件、不占位。"""
+        warning = account_client.pinned_cert_warning()
+        if not warning or not warning.strip():
+            return
+        card = Card(self.content);card.pack(fill='x',pady=SPACING['xs'])
+        ttk.Label(card,text='证书到期提醒',style='Warn.TLabel').pack(anchor='w')
+        ttk.Label(card,text=warning,style='Warn.TLabel',wraplength=TEXT_DESC['wraplength'],justify='left').pack(anchor='w',pady=SPACING['xs'])
+
     def _account_changed(self):
         """登录、续签、兑换、退出、解绑、注销后：会话已清则回到登录闸。
 
@@ -245,6 +254,7 @@ class AccountPageMixin:
         entitlement = self.account.entitlement()
         session = self.account.session()
         self._account_update_card()
+        self._account_cert_warning_card()
         status = Card(self.content);status.pack(fill='x',pady=SPACING['xs'])
         head = ttk.Frame(status);head.pack(fill='x')
         ttk.Label(head,text='当前状态：'+STATE_TEXT.get(entitlement.state,entitlement.state),font=FONTS['heading_2']).pack(side='left')

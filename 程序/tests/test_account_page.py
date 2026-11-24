@@ -13,6 +13,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 
 from infra import lease_verifier
+import account_client
 from orchestrator.account_controller import AccountController
 from desktop import Desktop
 from desktop_page_registry import PAGE_ACCOUNT, nav_label
@@ -401,6 +402,28 @@ class AccountPageTests(unittest.TestCase):
         self.open_tool('password')
         self.assertIsNotNone(d.account_password_old_input,'设过密码后改密要原密码')
         self.sign_out()
+
+    # ---- FIX-AUD-CERT-WIRE：钉死证书到期告警接线 ----
+    def test_pinned_cert_warning_shows_alert_card_when_expiring(self):
+        """临期/已过期时账号页渲染「证书到期提醒」卡展示完整告警文案；未登录也看得到，不阻断登录表单。"""
+        d=self.signed_out_page(_Client())
+        warning='账号服务钉死证书将于 2027-10-22 到期（剩余不足 60 天），到期后登录闸可能无法通过。'
+        with unittest.mock.patch.object(account_client,'pinned_cert_warning',return_value=warning):
+            d.show(PAGE_ACCOUNT);self.pump()
+        texts=_texts(d.content)
+        self.assertIn('证书到期提醒',texts)
+        self.assertIn(warning,texts)
+        self.assertIn('当前状态：未登录',texts)
+
+    def test_pinned_cert_warning_empty_renders_no_card(self):
+        """返回空串或空白时不渲染告警卡、不占位，页面卡片数量不变。"""
+        d=self.signed_out_page(_Client())
+        base=len(d.content.winfo_children())
+        for value in ('','   '):
+            with unittest.mock.patch.object(account_client,'pinned_cert_warning',return_value=value):
+                d.show(PAGE_ACCOUNT);self.pump()
+            self.assertNotIn('证书到期提醒',_texts(d.content))
+            self.assertEqual(len(d.content.winfo_children()),base)
 
 
 def _walk(widget):
