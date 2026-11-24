@@ -138,6 +138,7 @@ def insert_entries(tree, project, entries, status_of=None, with_sync=False, *, b
 S03_HINT_READ = '快捷键：Ctrl+G 镜头定位 · Ctrl+F 查找 · Ctrl+滚轮/Ctrl+± 缩放 · Ctrl+O 打开 · 右键采用/编辑/重排（右侧文件栏切换剧本与分镜）'
 S03_HINT_EDIT = '编辑中：Ctrl+S 保存 · Ctrl+Z 撤销 · Ctrl+Y 重做 · Ctrl+F 查找 · Ctrl+G 镜头定位 · 右键退出编辑'
 _SHOT_NAV_WIDTH = 24
+_SHOT_NAV_WHEEL_LINES = 4
 _SHOT_LABEL_MAX = 26
 _SHOT_HIT_TAG = 's03_shot_hit'
 _FIELD_PREFIX = re.compile(r'^-\s*(?:角色|场景|道具|对白|首帧提示词|视频提示词|景别|运镜|情绪|时长|音效)[：:]')
@@ -269,6 +270,7 @@ class S03ShotNavigator(ttk.Frame):
         self._on_escape = on_escape
         self._all_entries = []
         self._filtered = []
+        self._selected = -1
         self._user_hidden = False
         viewer.tag_configure(_SHOT_HIT_TAG, background=COLORS['selection_bg'])
         head = ttk.Frame(self)
@@ -288,22 +290,28 @@ class S03ShotNavigator(ttk.Frame):
         self.search_entry.bind('<Escape>', self._handle_escape)
         body = ttk.Frame(self)
         body.pack(fill='both', expand=True)
-        self.listbox = tk.Listbox(
-            body, font=SCRIPT_VIEW_FONT, bg=COLORS['background_card'],
-            fg=COLORS['text_primary'], selectbackground=COLORS['primary'],
-            selectforeground=COLORS['background_card'], highlightthickness=0,
-            bd=0, width=_SHOT_NAV_WIDTH, height=TEXT_ROWS['lg'], activestyle='none')
-        scroll = ttk.Scrollbar(body, orient='vertical', command=self.listbox.yview)
-        self.listbox.configure(yscrollcommand=scroll.set)
-        self.listbox.pack(side='left', fill='both', expand=True)
+        self.list_view = TextArea(
+            body, bg=COLORS['background_card'], fg=COLORS['text_primary'],
+            width=_SHOT_NAV_WIDTH, height=TEXT_ROWS['lg'], wrap='none',
+            font=SCRIPT_VIEW_FONT, relief='flat', cursor='hand2',
+            padx=SPACING['xs'], pady=SPACING['xs'], state='disabled')
+        self.list_view._wheel_lines = _SHOT_NAV_WHEEL_LINES
+        self.list_view.tag_configure(
+            's03_nav_sel', background=COLORS['primary'], foreground=COLORS['background_card'])
+        scroll = ttk.Scrollbar(body, orient='vertical', command=self.list_view.yview)
+        self.list_view.configure(yscrollcommand=scroll.set)
+        self.list_view.pack(side='left', fill='both', expand=True)
         scroll.pack(side='right', fill='y')
-        self.listbox.bind('<<ListboxSelect>>', self._on_select)
-        self.listbox.bind('<Return>', self._jump_current)
-        self.listbox.bind('<Escape>', self._handle_escape)
+        self.list_view.bind('<Button-1>', self._on_click)
+        self.list_view.bind('<Return>', self._jump_current)
+        self.list_view.bind('<Escape>', self._handle_escape)
 
     @property
     def visible(self):
         return bool(self.winfo_manager())
+
+    def items(self):
+        return [label for _line, label, _blob in self._filtered]
 
     def set_text(self, text):
         self._all_entries = extract_storyboard_shots(text)
@@ -342,16 +350,26 @@ class S03ShotNavigator(ttk.Frame):
         needle = self._query_text()
         self._filtered = ([item for item in self._all_entries if needle in item[2]]
                           if needle else list(self._all_entries))
-        self.listbox.delete(0, 'end')
-        for _line, label, _blob in self._filtered:
-            self.listbox.insert('end', label)
+        self._selected = -1
+        self.list_view.configure(state='normal')
+        self.list_view.delete('1.0', 'end')
+        if self._filtered:
+            self.list_view.insert('1.0', '\n'.join(label for _line, label, _blob in self._filtered))
+        self.list_view.tag_remove('s03_nav_sel', '1.0', 'end')
+        self.list_view.configure(state='disabled')
         total, shown = len(self._all_entries), len(self._filtered)
         text = ('%d/%d 镜' % (shown, total)) if needle else ('%d 镜' % total if total else '无镜头')
         self.count_label.configure(text=text)
 
-    def _jump_to(self, index):
+    def _select_index(self, index):
         if not (0 <= index < len(self._filtered)):
             return
+        self._selected = index
+        row_start = '%d.0' % (index + 1)
+        row_end = '%d.end' % (index + 1)
+        self.list_view.tag_remove('s03_nav_sel', '1.0', 'end')
+        self.list_view.tag_add('s03_nav_sel', row_start, row_end)
+        self.list_view.see(row_start)
         line, _label, _blob = self._filtered[index]
         start = '%d.0' % line
         try:
@@ -363,31 +381,27 @@ class S03ShotNavigator(ttk.Frame):
         self._viewer.see(start)
         self._viewer.mark_set('insert', start)
 
-    def _on_select(self, _event=None):
-        sel = self.listbox.curselection()
-        if sel:
-            self._jump_to(sel[0])
+    def _on_click(self, event):
+        try:
+            line = int(str(self.list_view.index('@%d,%d' % (event.x, event.y))).split('.')[0])
+        except (tk.TclError, ValueError):
+            return 'break'
+        if 1 <= line <= len(self._filtered):
+            self._select_index(line - 1)
+        return 'break'
 
     def _jump_current(self, _event=None):
         if not self._filtered:
             return 'break'
-        sel = self.listbox.curselection()
-        idx = sel[0] if sel else 0
-        self.listbox.selection_clear(0, 'end')
-        self.listbox.selection_set(idx)
-        self.listbox.see(idx)
-        self._jump_to(idx)
+        idx = self._selected if 0 <= self._selected < len(self._filtered) else 0
+        self._select_index(idx)
         return 'break'
 
     def _step(self, delta):
         if not self._filtered:
             return 'break'
-        sel = self.listbox.curselection()
-        idx = ((sel[0] + delta) % len(self._filtered)) if sel else 0
-        self.listbox.selection_clear(0, 'end')
-        self.listbox.selection_set(idx)
-        self.listbox.see(idx)
-        self._jump_to(idx)
+        base = self._selected if 0 <= self._selected < len(self._filtered) else (-1 if delta > 0 else 0)
+        self._select_index((base + delta) % len(self._filtered))
         return 'break'
 
     def _handle_escape(self, _event=None):

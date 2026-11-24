@@ -200,14 +200,14 @@ class StoryboardPageLoadingTests(unittest.TestCase):
             win.update()
             nav = page.editor.shot_nav
             self.assertTrue(nav.visible, '多镜头分镜自动展开左侧镜头定位栏')
-            self.assertEqual(nav.listbox.size(), 3)
+            self.assertEqual(len(nav.items()), 3)
             self.assertEqual(str(nav.count_label.cget('text')), '3 镜')
             # 按角色/场景关键词过滤：搜「天台」只剩 SH003 并可一键跳转高亮。
             nav.search_entry.delete(0, 'end')
             nav.search_entry.insert(0, '天台')
             win.update()
-            self.assertEqual(nav.listbox.size(), 1)
-            self.assertIn('SH003', nav.listbox.get(0))
+            self.assertEqual(len(nav.items()), 1)
+            self.assertIn('SH003', nav.items()[0])
             self.assertEqual(str(nav.count_label.cget('text')), '1/3 镜')
             nav._jump_current()
             win.update()
