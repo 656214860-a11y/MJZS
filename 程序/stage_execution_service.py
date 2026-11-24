@@ -55,6 +55,8 @@ def synthesize_tts_full_track(project, text, signature, request_id, settings=Non
                                  settings=settings, gateway=tts_gateway())
 from orchestrator.stage_handoff_gateways import (  # noqa: F401  re-export
     asset_impact,
+    asset_usage,
+    deletion_references,
     continuity_issue_report,
     decide_continuity_issue,
     import_downloaded_creatives,

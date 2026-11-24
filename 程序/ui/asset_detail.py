@@ -493,6 +493,69 @@ def _bind_variant_image(desktop, aid, state_id):
     return dest
 
 
+_FRAME_LABELS = {'latest': '最新', 'stale': '过期', 'missing': '缺失'}
+_FRAME_FOREGROUNDS = {'latest': COLORS['success_text'], 'stale': COLORS['warning_text'],
+                      'missing': COLORS['danger_text']}
+_VIDEO_LABELS = {'generated': '已生成', 'none': '未生成'}
+_VIDEO_FOREGROUNDS = {'generated': COLORS['success_text'], 'none': COLORS['text_muted']}
+
+
+def _usage_label(parent, text, foreground):
+    """使用情况逐镜行的单行标签：前景色用 configure 下发，构造只给排版。"""
+    label = ttk.Label(parent, text=text, anchor='w', justify='left')
+    label.configure(foreground=foreground)
+    return label
+
+
+def _usage_block(desktop, aid, asset=None):
+    """使用情况块（DES-S05-51／UX-S05-53）：参考职责／状态变体之后、JSON 原文之前。"""
+    box = Card(desktop.content)
+    ttk.Label(box, text='使用情况').pack(anchor='w')
+    box.pack(fill='x', pady=(SPACING['xs'], SPACING['none']))
+    try:
+        from stage_execution_service import asset_usage
+        usage = asset_usage(desktop.root, aid)
+    except Exception:
+        DescriptionBlock(box, text='使用情况暂时读不出，不影响本页其他内容。').pack(anchor='w')
+        return box
+    if usage.get('orphan') or not usage.get('rows'):
+        DescriptionBlock(box, text='当前没有采用镜头引用，属可回收的孤立资产').pack(anchor='w')
+        return box
+    DescriptionBlock(
+        box, text='被 %d 个采用镜头引用' % len(usage['rows'])).pack(anchor='w')
+    # 逐镜行放进可滚动区，避免引用多时撑开整页；状态色只取 COLORS，不写内联十六进制。
+    canvas = tk.Canvas(box, highlightthickness=0, height=SPACING['2xl'] * 4)
+    scroll = ttk.Scrollbar(box, orient='vertical', command=canvas.yview)
+    rows_host = ttk.Frame(canvas)
+    rows_host.bind('<Configure>', lambda _e: canvas.configure(scrollregion=canvas.bbox('all')))
+    canvas.create_window((0, 0), window=rows_host, anchor='nw')
+    canvas.configure(yscrollcommand=scroll.set)
+    canvas.pack(side='left', fill='both', expand=True, pady=(SPACING['xs'], SPACING['none']))
+    scroll.pack(side='right', fill='y', pady=(SPACING['xs'], SPACING['none']))
+    for row in usage['rows']:
+        frame_key = row.get('frame') if row.get('frame') in _FRAME_LABELS else 'stale'
+        reason = str(row.get('frame_reason') or '').strip()
+        video_key = row.get('video') if row.get('video') in _VIDEO_LABELS else 'none'
+        line = ttk.Frame(rows_host)
+        line.pack(fill='x', anchor='w', pady=SPACING['xs'])
+        _usage_label(line, '%s · %s' % (row.get('episode') or '', row.get('shot') or ''),
+                     COLORS['text_secondary']).pack(side='left')
+        _usage_label(line, '首帧：' + _FRAME_LABELS[frame_key],
+                     _FRAME_FOREGROUNDS[frame_key]).pack(
+                         side='left', padx=(SPACING['xs'], SPACING['none']))
+        if reason:
+            _usage_label(line, '（' + reason + '）', COLORS['text_secondary']).pack(side='left')
+        _usage_label(line, '视频：' + _VIDEO_LABELS[video_key],
+                     _VIDEO_FOREGROUNDS[video_key]).pack(
+                         side='left', padx=(SPACING['xs'], SPACING['none']))
+    videos = usage.get('videos') or []
+    if str(aid or '').startswith('CHAR_') and videos:
+        DescriptionBlock(
+            box, text='出现过的镜头视频：' + '、'.join(str(item) for item in videos)).pack(
+                anchor='w', pady=(SPACING['xs'], SPACING['none']))
+    return box
+
+
 def _raw_block(desktop, aid):
     """区域 6：原始 JSON（折叠；只读，便于核对）。"""
     holder = ttk.Frame(desktop.content)
@@ -558,6 +621,7 @@ def show(desktop, aid):
         _variants_block(desktop, aid, asset)
     else:
         _role_block(desktop, aid, asset)
+    _usage_block(desktop, aid, asset)
     _raw_block(desktop, aid)
     return aid
 

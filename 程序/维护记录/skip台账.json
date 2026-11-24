@@ -38,6 +38,33 @@
    "reference": ""
   },
   {
+   "file": "tests/test_asset_detail.py",
+   "test": "UsageBlockTests.test_usage_block_between_role_and_raw",
+   "ordinal": 1,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_TKINTER",
+   "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+   "reference": ""
+  },
+  {
+   "file": "tests/test_asset_detail.py",
+   "test": "UsageBlockTests.test_usage_block_row_count_matches_references",
+   "ordinal": 1,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_TKINTER",
+   "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+   "reference": ""
+  },
+  {
+   "file": "tests/test_asset_detail.py",
+   "test": "UsageBlockTests.test_usage_block_colors_each_status_label",
+   "ordinal": 1,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_TKINTER",
+   "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+   "reference": ""
+  },
+  {
    "file": "tests/test_asset_gating.py",
    "test": "AssetCellDeleteTests.test_another_column_deletes_the_asset_image_only",
    "ordinal": 1,

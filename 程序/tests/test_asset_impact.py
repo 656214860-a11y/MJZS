@@ -140,5 +140,59 @@ class VariantDoesNotTouchCanonTests(Base):
         self.assertEqual(entry['state_variants'][0]['state_id'], 'CST-01')
 
 
+class AssetUsageTests(Base):
+    """DES-S05-51：asset_usage 首帧三档、孤立、已生成视频、读不出分镜按过期。"""
+
+    def test_missing_frame_when_file_absent(self):
+        root = self.build()
+        usage = asset_plan.asset_usage(root, ASSET, episode_dir='')
+        self.assertFalse(usage['orphan'])
+        self.assertEqual(usage['rows'][0]['frame'], 'missing')
+        self.assertEqual(usage['rows'][0]['video'], 'none')
+
+    def test_stale_frame_when_evidence_missing(self):
+        root = self.build()
+        self.frame(root)
+        usage = asset_plan.asset_usage(
+            root, ASSET, episode_dir='',
+            frame_problem_fn=lambda *a, **k: '首帧来源已变化')
+        self.assertEqual(usage['rows'][0]['frame'], 'stale')
+        self.assertTrue(usage['rows'][0]['frame_reason'])
+
+    def test_latest_frame_when_evidence_matches(self):
+        root = self.build()
+        self.frame(root)
+        usage = asset_plan.asset_usage(
+            root, ASSET, episode_dir='', frame_problem_fn=lambda *a, **k: '')
+        self.assertEqual(usage['rows'][0]['frame'], 'latest')
+        self.assertEqual(usage['rows'][0]['frame_reason'], '')
+
+    def test_orphan_usage_has_empty_rows(self):
+        root = self.build(shots=[shot('SH002', characters=[])])
+        usage = asset_plan.asset_usage(root, ASSET, episode_dir='')
+        self.assertTrue(usage['orphan'])
+        self.assertEqual(usage['rows'], [])
+
+    def test_generated_video_marked(self):
+        root = self.build(videos={'SH001': [{'id': 'v1'}]})
+        self.frame(root)
+        usage = asset_plan.asset_usage(root, ASSET, episode_dir='')
+        self.assertEqual(usage['rows'][0]['video'], 'generated')
+        self.assertEqual(usage['videos'], ['SH001'])
+
+    def test_frame_check_error_marks_stale_without_raising(self):
+        root = self.build()
+        self.frame(root)
+
+        def boom(*_a, **_k):
+            raise RuntimeError('boom')
+
+        usage = asset_plan.asset_usage(
+            root, ASSET, episode_dir='', frame_problem_fn=boom)
+        self.assertEqual(len(usage['rows']), 1)
+        self.assertEqual(usage['rows'][0]['frame'], 'stale')
+        self.assertIn('boom', usage['rows'][0]['frame_reason'])
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=1)

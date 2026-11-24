@@ -219,6 +219,19 @@ def asset_impact(project, aid, *, episode_dir=''):
     return _impact(project, aid, episode_dir=episode_dir)
 
 
+def asset_usage(project, aid, *, episode_dir=''):
+    """L3 门面：资产使用情况（只读现算，DES-S05-51）。"""
+    from domain.asset_plan import asset_usage as _usage
+    from domain.keyframe_evidence import frame_problem
+    return _usage(project, aid, episode_dir=episode_dir, frame_problem_fn=frame_problem)
+
+
+def deletion_references(project, aid, *, episode_dir=''):
+    """L3 门面：删前引用清单（DES-S05-52）。"""
+    from domain.asset_plan import deletion_references as _refs
+    return _refs(project, aid, episode_dir=episode_dir)
+
+
 def continuity_issue_report(project, ledger=None):
     """L3 门面：连贯性问题闭环视图（只读，不落盘）。"""
     from infra.continuity_ledger import issues, merge_issues, read_issues

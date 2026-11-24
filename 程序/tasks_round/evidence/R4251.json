@@ -1,0 +1,15 @@
+{
+  "round": 4251,
+  "commit_base": "7684a7e7",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k asset_impact asset_detail asset_batch_window req_s05_anchors keyframe_evidence copy_rules static_names stage_doc_sections requirement_traceability design_coverage",
+    "exit": 0,
+    "passed": 148,
+    "failed": 0
+  },
+  "generated_at": "2026-11-24T05:32:41"
+}

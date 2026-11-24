@@ -346,3 +346,53 @@ def deletion_references(project, aid, *, episode_dir=''):
         summary = '当前没有采用镜头引用，属可回收的孤立资产。'
     return {'aid': impact['aid'], 'protected': impact['protected'], 'shots': shots,
             'files': impact['files'], 'videos': impact['videos'], 'summary': summary}
+
+
+def _usage_frame_status(path, shot, frame_problem_fn):
+    """单镜首帧三档；异常由调用方吞掉并改 stale。"""
+    from contract.storyboard_paths import media_root
+    from infra.file_cache import read_json
+    name = str(shot.get('frame') or '').strip()
+    if not name:
+        return 'missing', ''
+    image = media_root(path) / name
+    if not image.is_file():
+        return 'missing', ''
+    if frame_problem_fn is None:
+        return 'stale', '未注入首帧校验'
+    problem = frame_problem_fn(path, read_json(path), shot, image)
+    if problem:
+        return 'stale', str(problem)
+    return 'latest', ''
+
+
+def asset_usage(project, aid, *, episode_dir='', frame_problem_fn=None):
+    """只读使用情况：逐镜首帧最新／过期／缺失与视频已生成／未生成（DES-S05-51）。
+
+    不写盘。读分镜或校验抛错时该镜头按 ``stale`` 处理；本函数本身不向外抛。
+    ``frame_problem_fn`` 由 L3 注入（避免同层未登记依赖 ``keyframe_evidence``）；
+    未注入时有文件的首帧一律按 ``stale`` 并写明原因。
+    """
+    try:
+        impact = asset_impact(project, aid, episode_dir=episode_dir)
+    except Exception:
+        return {'aid': str(aid or '').strip(), 'orphan': True, 'rows': [], 'videos': []}
+    generated = set(impact.get('videos') or [])
+    by_shot = {}
+    for episode, path, shot in _adopted_storyboard_shots(project):
+        sid = str(shot.get('id') or '')
+        if sid:
+            by_shot[(episode, sid)] = (path, shot)
+    rows = []
+    for ref in impact.get('references') or []:
+        episode, sid = ref.get('episode'), ref.get('shot')
+        video = 'generated' if sid in generated else 'none'
+        try:
+            path, shot = by_shot[(episode, sid)]
+            frame_status, frame_reason = _usage_frame_status(path, shot, frame_problem_fn)
+        except Exception as exc:
+            frame_status, frame_reason = 'stale', str(exc) or '读不出分镜或校验失败'
+        rows.append({'episode': episode, 'shot': sid, 'frame': frame_status,
+                     'frame_reason': frame_reason, 'video': video})
+    return {'aid': impact['aid'], 'orphan': bool(impact.get('orphan')),
+            'rows': rows, 'videos': list(impact.get('videos') or [])}

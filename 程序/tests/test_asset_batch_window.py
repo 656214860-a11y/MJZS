@@ -207,5 +207,51 @@ class AssetBatchFinishStaysOnPageTests(unittest.TestCase):
         window.app.status.set.assert_called_with(self.RESULT)
 
 
+class DeleteConfirmCopyTests(unittest.TestCase):
+    """UX-S05-54／55：删图确认文案接引用摘要；封装抛错退回纯文案。"""
+
+    def host(self, root='.'):
+        from ui.desktop_asset_pages import AssetPagesMixin
+
+        class Host(AssetPagesMixin):
+            pass
+
+        item = Host()
+        item.root = Path(root)
+        item.asset_work_hint = lambda targets, how: ''
+        return item
+
+    def test_single_delete_appends_reference_summary(self):
+        host = self.host()
+        with mock.patch('stage_execution_service.deletion_references',
+                        return_value={'summary': '被 2 个采用镜头引用（SH001、SH002）。',
+                                      'protected': True, 'shots': ['SH001', 'SH002']}):
+            text = host._delete_image_confirm_text('CHAR_001', 'assets/CHAR_001.png')
+        self.assertIn('删除 CHAR_001 的已导入图片', text)
+        self.assertIn('被 2 个采用镜头引用', text)
+
+    def test_batch_delete_appends_cited_count(self):
+        host = self.host()
+
+        def refs(project, aid, **_kw):
+            return {'protected': aid == 'CHAR_001', 'shots': ['SH001'], 'summary': ''}
+
+        with mock.patch('stage_execution_service.deletion_references', side_effect=refs):
+            text = host._batch_delete_images_confirm_text(
+                ['CHAR_001', 'CHAR_002'], 'CHAR_001、CHAR_002', 'checked')
+        self.assertIn('其中 1 项被采用镜头引用：CHAR_001', text)
+
+    def test_gateway_error_falls_back_to_plain_copy(self):
+        host = self.host()
+        with mock.patch('stage_execution_service.deletion_references',
+                        side_effect=RuntimeError('断了')):
+            single = host._delete_image_confirm_text('CHAR_001', 'a.png')
+            batch = host._batch_delete_images_confirm_text(['CHAR_001'], 'CHAR_001', 'checked')
+        self.assertIn('移入项目回收站', single)
+        self.assertNotIn('采用镜头', single)
+        self.assertIn('移入项目回收站', batch)
+        self.assertNotIn('其中', batch)
+
+
 if __name__ == '__main__':
     unittest.main()
