@@ -800,19 +800,19 @@ class MediaPagesMixin:
         audio_button(tools_bar,'打开字幕目录',lambda:self.media_page_services.open_path(subtitle_dir),standard=True)
         audio_button(tools_bar,'打开 ElevenLabs（浏览器）',lambda:self.safe(lambda:open_target('https://elevenlabs.io/app')),standard=True)
     def import_audio(self):
+        """「导入配音 / 音乐」入口：本页只保证音频工作区存在并弹文件对话框；
+        选好文件后的用途询问（对白／旁白／BGM／音效／整轨，默认对白）、
+        L3 导入编排与「音频已导入」状态回写都在
+        ui.tts_settings.import_audio_with_kind（FIX-S11-E6 行数棘轮）。"""
         from domain.stage_workspace_service import ensure_audio_workspace
         result=ensure_audio_workspace(self.root)
         if not result.ok:raise ValueError(result.reason)
         folder,_=result.data
-        p=self.media_page_services.file_dialog(self.win).open_file(initialdir=folder,filetypes=[('音频','*.wav *.mp3 *.m4a *.aac')])
+        p=self.media_page_services.file_dialog(self.win).open_file(
+            initialdir=folder,filetypes=[('音频','*.wav *.mp3 *.m4a *.aac')])
         if not p:return
-        from stage_execution_service import import_stage_audio
-        project=self.root
-        def work():
-            result=import_stage_audio(project,p)
-            if not result.ok:raise ValueError(result.reason)
-            return result.data
-        self.async_(work,lambda dest:self.status.set('音频已导入：'+str(dest)))
+        from ui.tts_settings import import_audio_with_kind
+        import_audio_with_kind(self,p)
     def subtitle_rows(self):
         """按剧本对白时间算出 SRT 行；没有对白时抛 ValueError。只读文件、不碰界面，可在工作线程里用。"""
         from domain.subtitle_timing import srt_rows

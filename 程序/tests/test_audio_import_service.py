@@ -89,15 +89,16 @@ class AudioImportServiceTests(unittest.TestCase):
         tree = parse_desktop()
         methods = [node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef) and node.name == 'import_audio']
         self.assertEqual(len(methods), 1)
-        dialog = Mock()
-        namespace = {'FileDialog': dialog}
+        namespace = {}
         exec(compile(ast.Module(body=methods, type_ignores=[]), str(source), 'exec'), namespace)
         with patch('domain.stage_workspace_service.ensure_audio_workspace', return_value=success((self.root, self.root))):
             for result in [SystemError('导入失败'), success(self.source)]:
                 app = Mock()
                 app.async_.side_effect = lambda work, done: done(work())
-                dialog.return_value.open_file.return_value = str(self.source)
-                with patch('stage_execution_service.import_stage_audio', return_value=result):
+                app.media_page_services.file_dialog.return_value.open_file.return_value = str(self.source)
+                # FIX-S11-E6：页面经 ui.tts_settings 胶水导入，询问控件默认返回对白。
+                with patch('stage_execution_service.import_stage_audio', return_value=result), \
+                        patch('ui.tts_settings.ask_audio_kind', return_value='dialogue'):
                     if result.ok:
                         namespace['import_audio'](app)
                         app.status.set.assert_called_once_with('音频已导入：' + str(self.source))
@@ -105,7 +106,76 @@ class AudioImportServiceTests(unittest.TestCase):
                         with self.assertRaisesRegex(ValueError, '导入失败'):
                             namespace['import_audio'](app)
                         app.status.set.assert_not_called()
-            dialog.return_value.open_file.return_value = ''
-            with patch('stage_execution_service.import_stage_audio') as service:
-                namespace['import_audio'](Mock())
-            service.assert_not_called()
+            app = Mock()
+            app.media_page_services.file_dialog.return_value.open_file.return_value = ''
+            with patch('ui.tts_settings.import_audio_with_kind') as helper:
+                namespace['import_audio'](app)
+            helper.assert_not_called()
+
+
+class StageAudioImportKindTests(unittest.TestCase):
+    """FIX-S11-E6：L3 把页面所选用途原样传给 L2——非对白落盘名带前缀，默认仍是对白原名。"""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.source = self.root / 'song.mp3'
+        self.source.write_bytes(b'audio bytes')
+
+    def _import(self, **kwargs):
+        def publish(target, source):
+            target.write_bytes(source.read_bytes())
+        with patch('stage_execution_service.media_import_publisher', return_value=publish), \
+                patch('domain.audio_import_service.uuid.uuid4') as created:
+            created.return_value.hex = 'abcdef123456'
+            from stage_execution_service import import_stage_audio
+            return import_stage_audio(self.root, self.source, **kwargs)
+
+    def test_bgm_kind_reaches_domain_and_marks_the_name(self):
+        result = self._import(kind='bgm')
+        self.assertTrue(result.ok)
+        self.assertEqual(result.data.name, 'BGM_song_abcdef.mp3')
+        self.assertTrue(result.data.is_file())
+
+    def test_omitted_kind_behaves_exactly_as_before(self):
+        result = self._import()
+        self.assertTrue(result.ok)
+        self.assertEqual(result.data.name, 'song_abcdef.mp3')
+
+
+class ImportAudioWithKindTests(unittest.TestCase):
+    """FIX-S11-E6：ui.tts_settings 导入胶水——问清用途才导入，取消询问不导入。"""
+
+    def _app(self):
+        app = Mock()
+        app.async_.side_effect = lambda work, done: done(work())
+        return app
+
+    def test_selected_kind_is_passed_to_l3(self):
+        from ui import tts_settings
+        app = self._app()
+        with patch('ui.tts_settings.ask_audio_kind', return_value='bgm'), \
+                patch('stage_execution_service.import_stage_audio',
+                      return_value=success(Path('dest.mp3'))) as service:
+            tts_settings.import_audio_with_kind(app, 'song.mp3')
+        service.assert_called_once_with(app.root, 'song.mp3', kind='bgm')
+        app.status.set.assert_called_once_with('音频已导入：dest.mp3')
+
+    def test_cancelled_choice_imports_nothing(self):
+        from ui import tts_settings
+        app = self._app()
+        with patch('ui.tts_settings.ask_audio_kind', return_value=None), \
+                patch('stage_execution_service.import_stage_audio') as service:
+            tts_settings.import_audio_with_kind(app, 'song.mp3')
+        service.assert_not_called()
+        app.async_.assert_not_called()
+
+    def test_failed_import_surfaces_reason_like_before(self):
+        from ui import tts_settings
+        app = self._app()
+        with patch('ui.tts_settings.ask_audio_kind', return_value='dialogue'), \
+                patch('stage_execution_service.import_stage_audio', return_value=UserError('导入失败')):
+            with self.assertRaisesRegex(ValueError, '导入失败'):
+                tts_settings.import_audio_with_kind(app, 'song.mp3')
+        app.status.set.assert_not_called()
