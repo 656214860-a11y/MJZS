@@ -1,0 +1,15 @@
+{
+  "round": 4280,
+  "commit_base": "c93b7ce4",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k project_recovery atomic_write_boundary artifact_schema project_settings engine_probe test_projects stage_doc_sections agent_doc_budget requirement_traceability design_coverage",
+    "exit": 0,
+    "passed": 166,
+    "failed": 0
+  },
+  "generated_at": "2026-11-24T11:25:29"
+}

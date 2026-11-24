@@ -41,6 +41,11 @@ REGISTRY = {
     'edit_habit_rules': {'version': 1, 'required': ('rules',), 'owner': 'edit_habits', 'legacy': None},
     # 桌面模型续发台账（REQ-S01-69）。
     'desktop_send_ledger': {'version': 1, 'required': ('entries',), 'owner': 'desktop_send_ledger', 'legacy': None},
+    # 项目级配置文件（REL-06）：config.json／skill_config.json 顶层都是开放字典，
+    # 没有必备字段；读取侧容忍缺版本，属主写回时经 stamp() 补 schema_version，
+    # 高于登记版本的文件拒读拒写。skill_config 的读写接线在其属主 stage_config 的轮次补。
+    'project_config': {'version': 1, 'required': (), 'owner': 'engine', 'legacy': None},
+    'skill_config': {'version': 1, 'required': (), 'owner': 'stage_config', 'legacy': None},
 }
 
 # 版本阶梯（Flyway／InvokeAI 式）：``STEPS[kind][n]`` 是「第 n-1 版 → 第 n 版」的
