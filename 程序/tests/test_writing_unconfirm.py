@@ -59,21 +59,24 @@ class WritingUnconfirmTests(unittest.TestCase):
         return json.loads(path.read_text(encoding='utf-8')) if path.is_file() else None
 
     def test_unconfirm_middle_stage_keeps_setting_and_cancels_outline_and_character(self):
-        """REQ-S01-78：取消中间阶段（剧本大纲）→ 项目设定仍确认，大纲与角色卡一并取消。"""
+        """REQ-S01-78：取消中间阶段（剧本大纲）→ 项目设定仍确认，大纲与角色卡一并取消。
+
+        LOST-04：四文档互不设卡后取消不再按下标截断——角色卡草稿记录保留为待确认。"""
         invalidated = unconfirm_writing_preparation(self.project, '剧本大纲')
         self.assertEqual(invalidated, ('角色卡',))
         documents = self.state()['documents']
-        self.assertEqual([doc['stage'] for doc in documents], ['项目设定', '剧本大纲'])
+        self.assertEqual([doc['stage'] for doc in documents], ['项目设定', '剧本大纲', '角色卡'])
         self.assertTrue(documents[0]['confirmed'])
         self.assertFalse(documents[1]['confirmed'])
+        self.assertFalse(documents[2]['confirmed'])
 
     def test_unconfirm_first_stage_cancels_all_three(self):
-        """REQ-S01-78：取消首阶段（项目设定）→ 三阶段全取消，阶段指针回到项目设定。"""
+        """REQ-S01-78：取消首阶段（项目设定）→ 三阶段全取消，各阶段草稿保留为待确认。"""
         invalidated = unconfirm_writing_preparation(self.project, '项目设定')
         self.assertEqual(invalidated, ('剧本大纲', '角色卡'))
         documents = self.state()['documents']
-        self.assertEqual([doc['stage'] for doc in documents], ['项目设定'])
-        self.assertFalse(documents[0]['confirmed'])
+        self.assertEqual([doc['stage'] for doc in documents], ['项目设定', '剧本大纲', '角色卡'])
+        self.assertFalse(all(doc['confirmed'] for doc in documents))
 
     def test_unconfirm_last_stage_cancels_only_itself(self):
         """REQ-S01-78：取消末阶段（角色卡）→ 无下游连带，角色卡变为待确认。"""
@@ -109,8 +112,9 @@ class WritingUnconfirmTests(unittest.TestCase):
         unconfirm_writing_preparation(self.project, '项目设定')
         state = self.state()
         self.assertNotIn('revision', state)
-        self.assertEqual([doc['stage'] for doc in state['documents']], ['项目设定'])
-        self.assertFalse(state['documents'][0]['confirmed'])
+        self.assertEqual([doc['stage'] for doc in state['documents']],
+                         ['项目设定', '剧本大纲', '角色卡'])
+        self.assertFalse(any(doc['confirmed'] for doc in state['documents']))
 
     def test_unconfirm_keeps_natural_script_adoption(self):
         """REQ-S01-14：取消已确认只改台账，已采用的自然稿不撤销。"""
@@ -139,7 +143,9 @@ class WritingUnconfirmTests(unittest.TestCase):
         self.assertNotIn('reason', self.selection())
 
     def test_partial_adoption_of_confirmed_doc_trims_deconfirms_and_keeps_script_adoption(self):
-        """REQ-S01-88：已确认稿选段采用——截写文件、按取消确认口径回退该阶段、台账记 partial_adoption；已采用的自然稿不撤销（REQ-S01-14）。"""
+        """REQ-S01-88：已确认稿选段采用——截写文件、按取消确认口径回退该阶段、台账记 partial_adoption；已采用的自然稿不撤销（REQ-S01-14）。
+
+        LOST-04：回退不再按下标截断——角色卡草稿记录保留为待确认。"""
         from stage_execution_service import apply_partial_adoption
         outline = self.target.parent / self.original['documents'][1]['path']
         outline.write_text('## 场一\n甲\n\n## 场二\n乙\n\n## 场三\n丙\n\n## 场四\n丁\n\n## 场五\n戊\n',
@@ -150,9 +156,10 @@ class WritingUnconfirmTests(unittest.TestCase):
         self.assertIn('场三', text)
         self.assertNotIn('场四', text)
         documents = self.state()['documents']
-        self.assertEqual([doc['stage'] for doc in documents], ['项目设定', '剧本大纲'])
+        self.assertEqual([doc['stage'] for doc in documents], ['项目设定', '剧本大纲', '角色卡'])
         self.assertTrue(documents[0]['confirmed'])
         self.assertFalse(documents[1]['confirmed'])
+        self.assertFalse(documents[2]['confirmed'])
         self.assertEqual(documents[1]['partial_adoption'], {'kept': [0, 1, 2], 'total': 5})
         self.assertEqual(script_contract.resolve_script_source(self.project), script.resolve())
         self.assertNotIn('reason', self.selection())

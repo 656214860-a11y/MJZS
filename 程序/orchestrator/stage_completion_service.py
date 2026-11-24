@@ -590,18 +590,18 @@ def media_completion_evidence(root, stage):
 
 
 def preparation_progress(project):
-    """只读：按「项目设定 → 剧本大纲 → 角色卡」顺序判定剧本准备阶段的推进状态。
+    """只读：报告剧本准备四份文档各自的落盘与确认现状（LOST-04 后不再是卡点判据）。
 
-    这是三虎监控与阶段完成核验共用的唯一判据（不另立第二入口）。进入四阶段确认流程
-    （存在已确认简报）后，前三阶段任一「文件缺失」或「尚未确认」即卡在该阶段，不允许
-    推进到自然剧本，也不允许把剧本阶段播报为已完成；无已确认简报时走普通对话路径，
-    前三阶段不设卡（阶段成果只核验自然剧本），保持既有行为。
+    用户 11-22 23:12 第 1 条取消了「项目大纲→设定→角色卡→自然剧本」先后链：
+    四份文档相互独立、任意顺序生成，三份阶段稿是可选参考，剧本阶段完成只认
+    已采用的自然剧本（``completion_evidence`` 的 script 分支）。本函数保留给
+    监控与诊断展示各文档现状，不再输出会阻塞推进的 ``blocked``。
 
     返回 dict：
-      blocked —— 卡住的阶段名，空串表示前三阶段齐全且都已确认（或不适用）；
-      missing —— 卡住是否因为文件缺失（False 表示文件在但尚未确认）；
-      confirmed —— 从「项目设定」起连续已确认的阶段数（0~3）；
-      stages —— 各阶段现状 (阶段名, 文件在否, 已确认否)，只到卡住那一步为止；
+      blocked —— 恒为空串（四文档互不设卡，保留键位兼容旧消费方）；
+      missing —— 恒为 False（同上）；
+      confirmed —— 台账中已确认的阶段稿份数（0~3，不要求连号）；
+      stages —— 三个阶段各自的 (阶段名, 文件在否, 已确认否)，互不影响；
       applicable —— 四阶段确认流程是否适用（存在已确认简报）；False 时
                     confirmed==3 仅表示门禁不适用，与「未开始」区分；
       script —— 自然稿采用状态：'已采用'／'需重新采用'／'待采用'（报告级，
@@ -609,7 +609,7 @@ def preparation_progress(project):
       script_quality —— 采用稿的质检状态表（`writing_quality.REPORTS` 键→status），
                 未生成报告为 None；采用稿质检有 fail/invalid 项时 next_actions
                 指向重新生成或修订后重新采用；
-      next_actions —— 按现状推导的下一步动作建议元组。
+      next_actions —— 按自然稿采用状态推导的下一步动作建议元组。
     """
     from infra.file_cache import read_json
     from contract.stage_path_service import write_dir
@@ -631,35 +631,23 @@ def preparation_progress(project):
     documents = working.get('documents') if isinstance(working, dict) else None
     documents = documents if isinstance(documents, list) else []
     stages = []
-    blocked = ''
-    missing = False
     confirmed = 0
-    for index, stage in enumerate(PREPARATION_STAGES):
-        document = documents[index] if index < len(documents) else None
-        stage_ok = isinstance(document, dict) and document.get('stage') == stage
+    for stage in PREPARATION_STAGES:
+        document = next((doc for doc in documents
+                         if isinstance(doc, dict) and doc.get('stage') == stage), None)
         present = False
-        if stage_ok and isinstance(document.get('path'), str) and document['path']:
+        if document is not None and isinstance(document.get('path'), str) and document['path']:
             try:
                 resolved = (folder / document['path']).resolve()
                 present = resolved.is_relative_to(folder) and resolved.is_file()
             except (OSError, ValueError):
                 present = False
-        if not stage_ok or not present:
-            stages.append((stage, present, False))
-            blocked, missing = stage, True
-            break
-        if document.get('confirmed') is not True:
-            stages.append((stage, True, False))
-            blocked, missing = stage, False
-            break
-        stages.append((stage, True, True))
-        confirmed += 1
+        ok = document is not None and document.get('confirmed') is True
+        stages.append((stage, present, ok))
+        confirmed += int(ok)
     script = _script_adoption_state(project)
     quality = _adopted_script_quality(project) if script == '已采用' else None
-    if blocked:
-        actions = ('生成「%s」并设为定稿' % blocked if missing
-                   else '确认「%s」（右键设为定稿，或聊天回复确认）' % blocked,)
-    elif script == '需重新采用':
+    if script == '需重新采用':
         actions = ('重新生成或明确采用自然剧本',)
     elif script == '待采用':
         actions = ('生成自然剧本并明确采用',)
@@ -668,7 +656,7 @@ def preparation_progress(project):
         actions = ('采用的自然剧本辅助质检未通过，请重新生成或修订后重新采用',)
     else:
         actions = ()
-    return {'blocked': blocked, 'missing': missing, 'confirmed': confirmed,
+    return {'blocked': '', 'missing': False, 'confirmed': confirmed,
             'stages': tuple(stages), 'applicable': True, 'script': script,
             'script_quality': quality, 'next_actions': actions}
 
@@ -745,12 +733,9 @@ def completion_evidence(root, stage, video_ready=None):
             return media_completion_evidence(root, stage)
         if stage in ('script', 'script_structure'):
             import contract.script_contract as script_contract
-            if stage == 'script':
-                progress = preparation_progress(root)
-                if progress['blocked']:
-                    reason = '文件缺失' if progress['missing'] else '尚未确认'
-                    return False, ('剧本准备卡在「%s」：%s；请补齐并确认后再继续'
-                                   % (progress['blocked'], reason))
+            # LOST-04（用户 11-22 23:12 第 1 条）：项目设定／剧本大纲／角色卡／自然剧本
+            # 四份文档相互独立、任意顺序生成；剧本阶段完成只认至少一份已采用的自然剧本
+            # （resolve_script_source），其余三份是可选参考，不再串行卡点。
             source = (script_contract.resolve_script_source(root) if stage == 'script'
                       else script_contract.structured_script_path(root))
             ok = (source is not None) if stage == 'script' else script_contract.is_structured_script(source)

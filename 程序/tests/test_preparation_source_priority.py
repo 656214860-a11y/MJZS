@@ -111,7 +111,7 @@ class PreparationTaskIntegrationTests(unittest.TestCase):
         """REQ-S01-79：生成角色卡时请求正文列出 附档 < 项目设定 < 项目大纲。"""
         creative = '继续\n【附档：材料.md】\n<attachment_text>\n主角住在照相馆楼上\n</attachment_text>'
         task = _build_task(
-            documents=[_document('项目设定'), _document('项目大纲', user_edited=True)],
+            documents=[_document('项目设定'), _document('剧本大纲', user_edited=True)],
             index=2, creative=creative)
         block = task.split('【资料优先级与冲突裁决】', 1)[1]
         self.assertLess(block.index('附档'), block.index('项目设定'))

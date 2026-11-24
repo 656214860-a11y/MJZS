@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""REQ-S01-89：三阶段草稿并行起草与修订；确认仍按序检查依赖。"""
+"""REQ-S01-89：三阶段草稿并行起草与修订；LOST-04 后各阶段独立确认、不再按序设卡。"""
 import json
 import tempfile
 import unittest
@@ -84,14 +84,13 @@ class PreparationParallelTests(unittest.TestCase):
                          ['项目设定', '剧本大纲', '角色卡'])
         self.assertFalse(any(doc['confirmed'] for doc in documents))
 
-    def test_named_far_stage_without_intermediate_draft_errors(self):
-        """REQ-S01-89：点名跳过未起草的中间阶段——报错并提示先起草。"""
+    def test_named_far_stage_without_intermediate_draft_generates_sparse_ledger(self):
+        """LOST-04：点名跳过未起草的中间阶段——直接生成该阶段草稿，台账按阶段序落位。"""
         self.reply('开始', '# 项目设定\n雨夜照相馆。\n待确认')
-        with patch('writing_api.PoolAdapter.chat', return_value={'ok': True, 'text': '# 人物设定（角色卡）\n阿远。\n待确认'}), \
-                self.assertRaises(ValueError) as ctx:
-            writing_api.reply(self.project, '先写角色卡', publish=publish_stage_text)
-        self.assertIn('剧本大纲', str(ctx.exception))
-        self.assertEqual(len(self.state()['documents']), 1)
+        self.reply('先写角色卡', '# 人物设定（角色卡）\n阿远。\n待确认')
+        documents = self.state()['documents']
+        self.assertEqual([doc['stage'] for doc in documents], ['项目设定', '角色卡'])
+        self.assertFalse(any(doc['confirmed'] for doc in documents))
 
     def test_rewrite_command_on_unconfirmed_draft_regenerates_not_prefix_error(self):
         """REQ-S01-89：重写口令指向未确认草稿——按重起草处理，不报「请先确认所选阶段之前的文件」。"""
@@ -104,24 +103,20 @@ class PreparationParallelTests(unittest.TestCase):
         self.assertIn('重写的三幕',
                       (self.target.parent / documents[1]['path']).read_text(encoding='utf-8'))
 
-    def test_confirm_later_stage_requires_confirmed_prefix_and_keeps_later_drafts(self):
-        """REQ-S01-89：「设为定稿」依赖检查照旧；确认前阶段保留下游未确认草稿。"""
+    def test_confirm_later_stage_independent_and_keeps_drafts(self):
+        """LOST-04：「设为定稿」不再要求前置已确认；各阶段草稿记录保留。"""
         from orchestrator import writing_unconfirm
         self.draft_all_three()
         card = self.target.parent / self.state()['documents'][2]['path']
-        with self.assertRaises(ValueError) as ctx:
-            writing_unconfirm.confirm_preparation_document(
-                self.project, '角色卡', card, publish=publish_stage_text)
-        self.assertIn('未确认', str(ctx.exception))
-        setting = self.target.parent / self.state()['documents'][0]['path']
-        writing_unconfirm.confirm_preparation_document(
-            self.project, '项目设定', setting, publish=publish_stage_text)
+        invalidated = writing_unconfirm.confirm_preparation_document(
+            self.project, '角色卡', card, publish=publish_stage_text)
+        self.assertEqual(invalidated, ())
         documents = self.state()['documents']
-        self.assertTrue(documents[0]['confirmed'])
         self.assertEqual([doc['stage'] for doc in documents],
                          ['项目设定', '剧本大纲', '角色卡'])
+        self.assertFalse(documents[0]['confirmed'])
         self.assertFalse(documents[1]['confirmed'])
-        self.assertFalse(documents[2]['confirmed'])
+        self.assertTrue(documents[2]['confirmed'])
 
 
 if __name__ == '__main__':

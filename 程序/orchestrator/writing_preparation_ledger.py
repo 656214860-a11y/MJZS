@@ -10,6 +10,7 @@ R2653：writing_api 行数超过模块棘轮上限（R2630 与快照提交把采
 writing_unconfirm 等既有 ``from writing_api import _…`` 调用点不受影响。
 """
 import json
+import re
 from datetime import datetime
 
 from infra.file_cache import read_json
@@ -104,12 +105,34 @@ def _working_documents(state):
     return state.get('revision', state)['documents']
 
 
+def _document_stage_index(document):
+    """台账记录对应的阶段位次；阶段名不在 PREPARATION_STAGES 时返回 None。"""
+    stage = document.get('stage') if isinstance(document, dict) else None
+    return PREPARATION_STAGES.index(stage) if stage in PREPARATION_STAGES else None
+
+
+def _document_for_stage(documents, stage):
+    """按阶段名查台账记录（LOST-04：documents 不再要求与阶段位次对齐）。"""
+    index = PREPARATION_STAGES.index(stage)
+    for position, document in enumerate(documents):
+        if _document_stage_index(document) == index:
+            return position, document
+    return None, None
+
+
 def _confirmed_prefix(documents, index):
-    """该阶段之前的记录必须齐全且都已确认；满足时返回这段前缀，否则 None。"""
-    prefix = documents[:index]
-    if len(prefix) != index or any(not isinstance(doc, dict) or doc.get('confirmed') is not True
-                                   for doc in prefix):
-        return None
+    """该阶段之前的各阶段记录必须齐全且都已确认；满足时返回这段前缀，否则 None。
+
+    LOST-04：documents 按阶段名查而不再按下标对位——任意顺序生成的稀疏
+    台账（如只有角色卡）同样适用；前缀按 PREPARATION_STAGES 顺序返回。"""
+    prefix = []
+    for position in range(index):
+        stage = PREPARATION_STAGES[position]
+        found = next((doc for doc in documents
+                      if isinstance(doc, dict) and doc.get('stage') == stage), None)
+        if found is None or found.get('confirmed') is not True:
+            return None
+        prefix.append(found)
     return prefix
 
 
@@ -120,29 +143,33 @@ _PREPARATION_ADVANCE_LEAD = tuple(word.casefold() for word in (
 
 
 def _preparation_work_index(documents, message):
-    """REQ-S01-89：本轮处理的阶段位次。
+    """本轮处理的阶段位次（LOST-04：四份文档任意顺序、任意组合生成）。
 
-    原话点名未确认草稿→修订该位；点名紧邻未起草阶段→追加并行草稿位；点名更远的
-    未起草阶段→报错；点名已确认阶段或未点名→首个未确认位，全已确认则追加位。"""
-    default = next((position for position, doc in enumerate(documents)
-                    if not isinstance(doc, dict) or doc.get('confirmed') is not True),
-                   len(documents))
+    默认优先处理阶段序里最早的未确认草稿（REQ-S01-89：继续手头稿件），
+    没有草稿时取 PREPARATION_STAGES 顺序里第一个尚无已确认记录的阶段；
+    三阶段全部确认才返回 len(PREPARATION_STAGES) 进入自然剧本。
+    点名别的阶段仍按点名走。"""
+    drafts = sorted((doc for doc in documents
+                     if isinstance(doc, dict) and doc.get('confirmed') is not True
+                     and _document_stage_index(doc) is not None),
+                    key=_document_stage_index)
+    if drafts:
+        default = PREPARATION_STAGES.index(drafts[0]['stage'])
+    else:
+        default = next((position for position, stage in enumerate(PREPARATION_STAGES)
+                        if not any(isinstance(doc, dict) and doc.get('stage') == stage
+                                   and doc.get('confirmed') is True for doc in documents)),
+                       len(PREPARATION_STAGES))
     first = str(message or '').strip().split('\n', 1)[0].strip()
-    if first.casefold().startswith(_PREPARATION_ADVANCE_LEAD):
+    lead = first.casefold().startswith(_PREPARATION_ADVANCE_LEAD)
+    stage = None if lead else _preparation_stage_alias(first)
+    if lead or stage is None:
         # 「确认，输出角色卡」一类：确认词领衔时点名是交给模型的推进请求，
         # 不做草稿路由（REQ-S01-89；确认与推进由模型语义判定）。
         return default
-    stage = _preparation_stage_alias(first)
-    if stage is None:
-        return default
     position = PREPARATION_STAGES.index(stage)
-    if position > len(documents):
-        raise ValueError('「' + stage + '」之前还有阶段未起草；请先起草「'
-                         + PREPARATION_STAGES[len(documents)] + '」')
-    if position == len(documents):
-        return position
-    document = documents[position]
-    if isinstance(document, dict) and document.get('confirmed') is not True:
+    _slot, document = _document_for_stage(documents, stage)
+    if document is None or document.get('confirmed') is not True:
         return position
     return default
 
@@ -161,10 +188,10 @@ def _preparation_draft_is_parallel(project, requested):
     documents = box.get('documents') if isinstance(box, dict) else None
     if not isinstance(documents, list):
         return False
-    position = PREPARATION_STAGES.index(requested)
-    return (position < len(documents) and isinstance(documents[position], dict)
-            and documents[position].get('confirmed') is not True
-            and _confirmed_prefix(documents, position) is None)
+    _slot, document = _document_for_stage(documents, requested)
+    return (isinstance(document, dict)
+            and document.get('confirmed') is not True
+            and _confirmed_prefix(documents, PREPARATION_STAGES.index(requested)) is None)
 
 
 def _save_preparation_state_guarded(project, target, state, publish):
@@ -173,6 +200,111 @@ def _save_preparation_state_guarded(project, target, state, publish):
     只写台账，不动自然剧本的采用记录（REQ-S01-14）；``project`` 留着是为了各调用点
     的签名不变。"""
     _save_preparation_state(target, state, publish)
+
+
+def _preparation_document(text, title):
+    """只规范单份当前阶段文件的说明前缀及显式待确认尾节。"""
+    headings = list(re.finditer(r'^# ([^\n]+)\n', text, re.MULTILINE))
+    if len(headings) != 1 or headings[0].group(1).strip() != title:
+        return ''
+    document = text[headings[0].start():]
+    if document.endswith('待确认'):
+        return document
+    # 保留尾节里的问题与确认说明，只补统一结束标记；不凭空推断缺失标记。
+    sections = list(re.finditer(r'^#{2,6} (.+)$', document, re.MULTILINE))
+    if sections and sections[-1].group(1).strip() == '待确认':
+        return document + '\n\n待确认'
+    return ''
+
+
+def _select_preparation_document(raw, titles, index, next_index):
+    """在允许的位次范围内挑出模型回复里第一份合规格的阶段稿；返回 (位次, 正文)。"""
+    selected = None
+    text = ''
+    for candidate in range(index, min(next_index, 2) + 1):
+        document_text = _preparation_document(raw, titles[candidate])
+        if document_text:
+            selected, text = candidate, document_text
+            break
+    return selected, text
+
+
+def _confirm_stage_document(documents, stage):
+    """把台账中该阶段记录标为已确认；记录不存在时不动。"""
+    _slot, document = _document_for_stage(documents, stage)
+    if document is not None:
+        document['confirmed'] = True
+
+
+def _upsert_stage_document(documents, stage_index, stage, document):
+    """按阶段名对位写入：同阶段原位替换，否则按 PREPARATION_STAGES 顺序插入。
+
+    LOST-04：稀疏台账（任意顺序生成）始终保持阶段序，便于下标与阶段名互查。"""
+    slot, _existing = _document_for_stage(documents, stage)
+    if slot is None:
+        insert_at = len(documents)
+        for position, doc in enumerate(documents):
+            doc_index = _document_stage_index(doc)
+            if doc_index is not None and doc_index > stage_index:
+                insert_at = position
+                break
+        documents.insert(insert_at, document)
+    else:
+        documents[slot] = document
+
+
+def _preparation_texts_map(documents, texts):
+    """documents 与 texts 平行列表 → {阶段名: 正文}；稀疏台账下不再按下标对位。
+
+    只收已确认记录——进入自然剧本时交给模型的「已确认阶段文件」不含未确认草稿。"""
+    return {doc['stage']: text for doc, text in zip(documents, texts)
+            if isinstance(doc, dict) and doc.get('confirmed') is True}
+
+
+def _preparation_brief_hash(state):
+    revision = state.get('revision')
+    return (revision.get('brief_hash', state.get('brief_hash'))
+            if isinstance(revision, dict) else state.get('brief_hash'))
+
+
+_PREPARATION_STAGE_ALT = '|'.join(sorted(
+    (word for _stage, words in _PREPARATION_STAGE_WORDS for word in words), key=len, reverse=True))
+_PREPARATION_BACK = re.compile(
+    r'(?:请)?(?:把|将)?(?:回到|返回|退回|重新回到|重回|切回)\s*(?:'
+    + _PREPARATION_STAGE_ALT + r')\s*(?:阶段)?\s*'
+    + r'(?:重新创作|重新写|重写|重新生成|重新输出|重做|重来|再来|从头写)?'
+    + r'\s*(?:一遍|一次)?')
+_PREPARATION_REWRITE = re.compile(
+    r'(?:请)?(?:把|将)?(?:' + _PREPARATION_STAGE_ALT
+    + r')\s*(?:阶段)?\s*(?:要|需要|需|得|全部|整个|从头)?\s*'
+    + r'(?:推翻|推倒|重写|重做|重来|重新写|重新创作|重新生成|重新输出)'
+    + r'\s*(?:一遍|一次|重来|重新来)?')
+# REQ-S01-12：回退重写的二次确认只认明确词，与询问文案「回复“确认”即从该阶段重写」
+# 一致；随口应答（好／继续／ok 等）按保持现状处理。阶段推进不依赖本表，由模型按语义判断。
+_PREPARATION_AFFIRMATIVE = frozenset(
+    word.casefold() for word in ('确认', '确定', '确认重写', '重写', 'yes'))
+
+
+def _preparation_rollback(stage, documents):
+    """返回回退到该阶段会失效的已确认阶段清单；目标不合法或无下游确认时返回 None。
+
+    此处只列出原采用阶段；重写所需前置正文由重写入口单独校验。"""
+    if stage not in PREPARATION_STAGES:
+        return None
+    index = PREPARATION_STAGES.index(stage)
+    if _confirmed_prefix(documents, index) is None:
+        return None
+    invalidated = [name for name in PREPARATION_STAGES[index:]
+                   if any(isinstance(doc, dict) and doc.get('stage') == name
+                          and doc.get('confirmed') is True for doc in documents)]
+    return invalidated or None
+
+
+def _preparation_natural_requested(message):
+    """LOST-04：用户原话点名自然剧本且未点名前三阶段时，直接进入阶段④生成。"""
+    first = str(message or '').strip().split('\n', 1)[0]
+    return (any(word in first for word in ('自然剧本', '项目剧本'))
+            and _preparation_stage_alias(first) is None)
 
 
 def _promote_revision(state, project, target, publish):

@@ -2717,5 +2717,31 @@ class SessionOverviewTests(unittest.TestCase):
             self.assertIn('不隐藏也不复制项目成果', summary)
 
 
+class ScriptFilesCompletionTests(unittest.TestCase):
+    """FEAT-SCRIPT-FILES：四类准备稿独立存在，采用自然剧本不要求前三类串行确认。"""
+
+    RAW = ('第 1 集\n场景 1：夜，旧书店内\n'
+           '林小满：把旧怀表交给我。\n陆时：先离开这里。\n道具：旧怀表\n')
+
+    def test_adopted_natural_script_completes_without_serial_preparation_confirmation(self):
+        import stage_completion_service
+        from agent.core import save
+        with tempfile.TemporaryDirectory() as td:
+            project = make_minimal_project(td)
+            folder = writing_dir(project)
+            folder.mkdir(parents=True, exist_ok=True)
+            save(folder / 'brief_complete.json', script_contract.brief_document({
+                'story_summary': '雨夜少年发现会说话的底片。', 'main_characters': '少年和老板',
+                'genre': '奇幻', 'length': '单集 60 秒'}))
+            source = folder / '项目_自然剧本_角色卡_20260101.md'
+            source.write_text(self.RAW, encoding='utf-8')
+            save(script_contract.natural_script_selection_path(project), {
+                'path': source.relative_to(project).as_posix(),
+                'sha256': __import__('hashlib').sha256(source.read_bytes()).hexdigest(),
+            })
+            ok, detail = stage_completion_service.completion_evidence(project, 'script')
+            self.assertTrue(ok, detail)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
