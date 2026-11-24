@@ -124,12 +124,14 @@ def export_candidates() -> tuple[Path, ...]:
 
 
 def preview() -> tuple[str, ...]:
-    return tuple(str(path) for path in export_candidates())
+    """导出预览：第一行是保留与脱敏说明（「下面白名单文件」的所指），随后是各文件路径。"""
+    return (retention_note(),) + tuple(str(path) for path in export_candidates())
 
 
 def retention_note() -> str:
     """把保留期限说清楚：程序日志按 log_maintenance 的政策保留这么多天。"""
-    return "程序日志保留 %d 天（按 log_maintenance 政策）；导出只含下面白名单文件，不含项目与密钥。" % RETENTION_DAYS
+    return ("程序日志保留 %d 天（按 log_maintenance 政策）；导出只含下面白名单文件，不含项目与密钥；"
+            "已把本机路径和用户名替换为 ~ 与 [用户]。" % RETENTION_DAYS)
 
 
 def preview_detail() -> tuple[dict, ...]:

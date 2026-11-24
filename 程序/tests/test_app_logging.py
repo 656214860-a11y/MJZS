@@ -190,6 +190,46 @@ class AppLoggingTests(unittest.TestCase):
         self.assertNotIn("log.write_text(traceback.format_exc()", source)
         self.assertIn('old+header+traceback.format_exc()', source)
 
+    def test_log_lines_scrub_email_home_and_username(self):
+        import getpass
+        app_logging.install()
+        home, user = str(Path.home()), getpass.getuser() or ''
+        logging.getLogger('demo').warning('mail some.one@example.com dir ' + home + ' owner ' + user)
+        self._flush()
+        text = (self.tmp / 'app.log').read_text(encoding='utf-8')
+        self.assertNotIn('some.one@example.com', text)
+        self.assertIn('[邮箱]', text)
+        self.assertNotIn(home, text)
+        if len(user) >= 3:
+            self.assertNotIn(user, text)
+            self.assertIn('[用户]', text)
+
+
+class RedactPrivacyTests(unittest.TestCase):
+    """REL-11：redact 除密钥外，还须替换邮箱、本机用户目录前缀和当前用户名。"""
+
+    def test_redact_replaces_email(self):
+        self.assertEqual(app_logging.redact('回复 user.name+tag@example.com 失败'),
+                         '回复 [邮箱] 失败')
+
+    def test_redact_collapses_home_prefix_to_tilde(self):
+        home = str(Path.home())
+        self.assertGreaterEqual(len(home), 4, '当前环境没有可用的用户目录，无法验证脱敏')
+        for text in (home + '\\项目\\a.png', home.replace('\\', '/') + '/项目/a.png'):
+            cleaned = app_logging.redact('打不开 ' + text)
+            self.assertNotIn(text, cleaned)
+            self.assertIn('~', cleaned)
+
+    def test_redact_replaces_current_username(self):
+        import getpass
+        user = getpass.getuser()
+        self.assertTrue(user and len(user) >= 3, '当前环境取不到用户名，无法验证脱敏')
+        self.assertEqual(app_logging.redact('账号 ' + user + ' 无权限'), '账号 [用户] 无权限')
+
+    def test_redact_keeps_unrelated_paths_and_words(self):
+        text = '读取 D:\\素材库\\x.png 与 mail 失败'
+        self.assertEqual(app_logging.redact(text), text)
+
 
 if __name__ == '__main__':
     unittest.main()
