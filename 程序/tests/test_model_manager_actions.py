@@ -1,4 +1,4 @@
-"""模型管理窗：Provider 下拉按大小写去重；「保存这条」在左侧，「关闭」只关窗不保存。"""
+"""模型管理窗：Provider 下拉按大小写去重；「保存这条」在左侧，底行右对齐 [取消][保存]。"""
 import unittest
 from unittest import mock
 
@@ -66,24 +66,26 @@ class ManagerActionTests(Batch7Case):
     def test_save_one_sits_after_delete_on_the_left(self):
         win = self._manager()
         delete, save = _button(win, '删除这条'), _button(win, '保存这条')
-        close = _button(win, '关闭')
+        bottom_save = _button(win, '保存')
         self.assertGreater(save.winfo_rootx(), delete.winfo_rootx())
-        self.assertGreater(close.winfo_rootx(), save.winfo_rootx())
+        self.assertGreater(bottom_save.winfo_rootx(), save.winfo_rootx())
+        self.assertFalse([b for b in _buttons(win) if str(b.cget('text')) == '关闭'])
         self.assertFalse([b for b in _buttons(win) if str(b.cget('text')) == '保存并关闭'])
 
     def test_blank_form_closes_without_saving(self):
+        # UX-MODEL-PAGE 契约变更：独立「关闭」改为底行「取消」（DES《05》§15.2），仍只关窗不保存。
         win = self._manager()
         with mock.patch.object(self.pet, 'save_pool') as save_pool:
-            _button(win, '关闭').invoke()
+            _button(win, '取消').invoke()
             save_pool.assert_not_called()
         self.assertFalse(win.winfo_exists())
 
     def test_close_with_filled_form_does_not_save(self):
-        # 契约有意变更：「保存并关闭」改为「关闭」，去掉保存；表单填了也只关窗。
+        # UX-MODEL-PAGE 契约变更：「关闭」改为底行「取消」；程序化填入不算未保存改动，取消直关不保存。
         win = self._manager()
         win._pet_entries['model'].insert(0, 'kimi-k2')
         with mock.patch.object(self.pet, 'save_pool') as save_pool:
-            _button(win, '关闭').invoke()
+            _button(win, '取消').invoke()
             save_pool.assert_not_called()
         self.assertFalse(win.winfo_exists())
 
