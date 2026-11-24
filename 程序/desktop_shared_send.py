@@ -239,7 +239,7 @@ def _storyboard_prep_active(desktop):
 
 def _window_alive(desktop):
     win = getattr(desktop, 'win', None)
-    if win is None:
+    if win is None or not hasattr(win, 'winfo_exists'):
         return True
     try:
         return bool(win.winfo_exists())
@@ -322,13 +322,6 @@ def open_storyboard_skill(desktop, key=None, *, request_text='', only=None, mode
         return False
     if _storyboard_prep_active(desktop):
         return False
-    try:
-        from orchestrator.storyboard_selection import selected_many
-        scripts = list(selected_many(project, 'script'))
-        existing = list(selected_many(project, 'storyboard'))
-    except Exception as exc:
-        _say(desktop, '读取结构剧本输入失败：' + str(exc))
-        return False
     request_text = str(request_text or '').strip()
     named = [str(name) for name in only] if only else None
     batch = {}
@@ -338,6 +331,12 @@ def open_storyboard_skill(desktop, key=None, *, request_text='', only=None, mode
     desktop._storyboard_send_token = token
 
     def work():
+        try:
+            from orchestrator.storyboard_selection import selected_many
+            scripts = list(selected_many(project, 'script'))
+            existing = list(selected_many(project, 'storyboard'))
+        except Exception as exc:
+            return ('err', '读取结构剧本输入失败：' + str(exc))
         try:
             from stage_execution_service import storyboard_produced_scripts as produced_scripts
             from orchestrator.workflow_tasks import storyboard_batch_prompt
