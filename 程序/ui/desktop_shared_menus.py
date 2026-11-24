@@ -17,6 +17,7 @@ import infra.app_logging as app_logging
 from ui.ui_icons import IconLoader
 from ui_popup import monitor_bounds
 from ui_tokens import COLORS, FONTS, ICON_DOCUMENT, ICON_FONT, SPACING
+from ui_widgets import HintLabel
 
 # 与 CompletionPopup.MAX_ITEMS 同量级：当前阶段技能在前，超出截断。
 MAX_ROWS = 12
@@ -157,10 +158,7 @@ class SkillPickPanel(AnchoredPanel):
         host = self.host
         items = host._skill_list_items()
         if not items:
-            tk.Label(self, text='（暂无可用技能）', anchor='w',
-                     bg=COLORS['background_card'], fg=COLORS['text_muted'],
-                     font=FONTS['hint'], padx=SPACING['md'],
-                     pady=SPACING['xs']).pack(fill='x')
+            HintLabel(self, text='（暂无可用技能）').pack(fill='x', padx=SPACING['md'])
         for item in items[:MAX_ROWS]:
             self._skill_row(item)
         if self.open:
@@ -299,10 +297,8 @@ class CandidatePopup:
             self._row(entry, index)
         extra = len(self.entries) - CANDIDATE_MAX_ROWS
         if extra > 0:
-            tk.Label(self.frame, text='… 还有 %d 项' % extra, anchor='w',
-                     bg=COLORS['background_card'], fg=COLORS['text_muted'],
-                     font=FONTS['hint'], padx=SPACING['md'],
-                     pady=SPACING['xs']).pack(fill='x')
+            HintLabel(self.frame, text='… 还有 %d 项' % extra).pack(
+                fill='x', padx=SPACING['md'])
         self.index = 0
         self._paint()
         self.open = True

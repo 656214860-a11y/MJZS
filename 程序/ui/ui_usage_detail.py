@@ -14,8 +14,8 @@ from tkinter import ttk
 
 import infra.app_logging as app_logging
 from agent.core import save_text
-from ui_tokens import FONTS, SPACING, TEXT_ROWS
-from ui_widgets import BaseDialog, DataTable, notify
+from ui_tokens import SPACING, TEXT_ROWS
+from ui_widgets import BaseDialog, DataTable, HintLabel, notify
 from infra.usage_snapshot import get_snapshot, money_amount, money_text
 
 
@@ -54,19 +54,18 @@ class UsageDetailDialog(BaseDialog):
         rows = [('今日', _aggregate_text(today, currency)),
                 ('项目累计', _aggregate_text(total, currency))]
         for index, (label, text) in enumerate(rows):
-            ttk.Label(body, text=label + '：', font=FONTS['pet_hint']).grid(
+            HintLabel(body, text=label + '：').grid(
                 row=index, column=0, sticky='w', pady=(SPACING['none'], SPACING['xs']))
-            ttk.Label(body, text=text, font=FONTS['body']).grid(
+            ttk.Label(body, text=text).grid(
                 row=index, column=1, sticky='w', pady=(SPACING['none'], SPACING['xs']))
         bamount = money_amount(balance.get('amount')
                                if isinstance(balance, dict) else None)
         if bamount is not None:
             row = len(rows)
             bcurrency = balance.get('currency') if isinstance(balance, dict) else ''
-            ttk.Label(body, text='余额：', font=FONTS['pet_hint']).grid(
-                row=row, column=0, sticky='w')
-            ttk.Label(body, text=money_text(bamount, bcurrency),
-                      font=FONTS['body']).grid(row=row, column=1, sticky='w')
+            HintLabel(body, text='余额：').grid(row=row, column=0, sticky='w')
+            ttk.Label(body, text=money_text(bamount, bcurrency)).grid(
+                row=row, column=1, sticky='w')
         self.add_action('查看今日明细',
                         lambda: TodayDetailsDialog(self, self.desktop))
         self.add_action('关闭', self.close, primary=True)
