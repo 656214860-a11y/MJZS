@@ -6,13 +6,18 @@
 手动按钮与三虎自动都从 desktop_idea_chat._FlowAgentLaunch 进入这里，分流点只有一处。
 """
 import json
+import logging
 import re
 import time
 from pathlib import Path
 
+import contract.error_codes as error_codes
 import infra.app_logging as app_logging
+import infra.business_log as business_log
 import infra.executors as executors
 from contract.file_naming import generate_existing
+
+logger = logging.getLogger(__name__)
 
 MAX_TOKENS = 32768
 REQUEST_TIMEOUT = 600
@@ -40,7 +45,7 @@ def _extract_json(text):
     text = re.sub(r'```(?:json)?', '', str(text or ''), flags=re.I)
     start, end = text.find('{'), text.rfind('}')
     if start < 0 or end <= start:
-        raise ValueError('回复里没有找到 JSON 对象')
+        raise _DirectError('回复里没有找到 JSON 对象', code='E-CONTRACT-VIOLATION')
     data = json.loads(text[start:end + 1])
     if not isinstance(data, dict):
         raise ValueError('回复的 JSON 不是对象')
@@ -108,6 +113,27 @@ class _Stopped(Exception):
     pass
 
 
+class _DirectError(ValueError):
+    """直连执行器里已标好错误码的失败；code 必须是 error_codes 已登记码。"""
+
+    def __init__(self, message, *, code):
+        self.code = code
+        super().__init__(message)
+
+
+def _failure(error, default_code):
+    """失败 → ``(错误码, 用户可读文字)``：异常自带已登记码优先，文字一定以 ``[E-`` 开头。"""
+    code = getattr(error, 'code', None)
+    if code not in error_codes.CODES:
+        code = 'E-FILE-NOT-FOUND' if isinstance(error, FileNotFoundError) else str(default_code or '')
+    if code not in error_codes.CODES:
+        code = 'E-UNKNOWN'
+    text = error_codes.user_text(error, fallback=code)
+    if not text.startswith('[E-'):
+        text = error_codes.describe(code) + '：' + text
+    return code, text
+
+
 def _ask(batch, messages):
     """发一次请求；返回回复文本。取消、失败、被截断都抛出带原因的异常。"""
     import infra.model_pool as model_pool
@@ -133,7 +159,7 @@ def _ask(batch, messages):
         policy = failure_policy(result)
         if policy.get('retryable'):
             from infra.model_metering import chat_metered
-            from infra.model_pool import PoolAdapter
+            from infra.model_router import PoolAdapter
             from infra.pet_llm import RequestLedger
             records = model_pool.pool(program=Path(__file__).resolve().parents[1])
             for candidate in batch.group_candidates:
@@ -155,13 +181,15 @@ def _ask(batch, messages):
                     record_circuit_success(candidate)
                     finish = str((fallback.get('response_meta') or {}).get('finish_reason') or '')
                     if finish in model_pool.TASK_TRUNCATED:
-                        raise ValueError('模型回复被截断（超过输出上限），没有写入任何文件')
+                        raise _DirectError('模型回复被截断（超过输出上限），没有写入任何文件',
+                                           code='E-CONTRACT-VIOLATION')
                     return str(fallback.get('text') or '')
                 if failure_policy(fallback).get('retryable'):
                     record_circuit_failure(candidate)
-        raise ValueError('模型请求失败：' + str(result.get('error') or '未知原因'))
+        raise _DirectError('模型请求失败：' + str(result.get('error') or '未知原因'),
+                           code=error_codes.from_http_result(result) or 'E-NET-CLIENT')
     if str((result.get('response_meta') or {}).get('finish_reason') or '') in model_pool.TASK_TRUNCATED:
-        raise ValueError('模型回复被截断（超过输出上限），没有写入任何文件')
+        raise _DirectError('模型回复被截断（超过输出上限），没有写入任何文件', code='E-CONTRACT-VIOLATION')
     return str(result.get('text') or '')
 
 
@@ -194,7 +222,8 @@ def _episode(batch, script, existing_board):
     context = project_context(project)
     number = file_order(script)[0]
     if number >= 10 ** 9:
-        raise ValueError('无法从文件名识别集号（需要 EPxxx 或 第N集）：' + Path(script).name)
+        raise _DirectError('无法从文件名识别集号（需要 EPxxx 或 第N集）：' + Path(script).name,
+                           code='E-FILE-NOT-FOUND')
     old = read(existing_board) if existing_board else None
     start = _first_shot_number(project, number, exclude=existing_board)
     hint = Path(existing_board) if existing_board else working_dir(context) / generate_existing('storyboard_hint', number=number)
@@ -207,14 +236,14 @@ def _episode(batch, script, existing_board):
             break
         except ValueError as error:
             if attempt == MAX_FORMAT_RETRIES:
-                raise ValueError('两次回复都没有通过校验：' + str(error))
+                raise _DirectError('两次回复都没有通过校验：' + str(error), code='E-CONTRACT-VIOLATION')
             prior = (reply, str(error))
             if batch.cancelled():
                 raise _Stopped()
             time.sleep(FORMAT_RETRY_BASE_SECONDS * (2 ** (attempt - 1)))
     target = Path(existing_board) if existing_board else working_dir(context) / canonical_name(data)
     if not existing_board and target.exists():
-        raise ValueError('同名分镜已存在，不覆盖：' + target.name)
+        raise _DirectError('同名分镜已存在，不覆盖：' + target.name, code='E-IO-WRITE')
     document = document_dir(context) / (target.stem + '.md')
     artifacts = {target: json.dumps(data, ensure_ascii=False, indent=2).encode('utf-8'), document: _markdown(data)}
     history = target.parent / '历史版本' / ('EP%03d' % number)
@@ -250,7 +279,7 @@ class _Batch:
         self.system = str(skill_text or '') + '\n\n' + rules
         if adapter is None:
             import infra.model_pool as model_pool
-            from infra.model_pool import PoolAdapter
+            from infra.model_router import PoolAdapter
             from infra.model_pool import model_admission_error, health_is_blocked
             from writing_api import WritingRequestAdapter
             self.record = record or direct_model(config)[1]
@@ -258,9 +287,10 @@ class _Batch:
                 self.record, require_context_length=True,
                 require_certified=model_pool.require_certified(program=Path(__file__).resolve().parents[1]), stage=stage)
             if problem:
-                raise ValueError(problem)
+                raise _DirectError(problem, code='E-CONFIG-INVALID')
             if health_is_blocked(self.record, program=Path(__file__).resolve().parents[1]):
-                raise ValueError('该模型最近一次完整任务未通过，已暂停无人值守直连；请先重新做小样本验证。')
+                raise _DirectError('该模型最近一次完整任务未通过，已暂停无人值守直连；请先重新做小样本验证。',
+                                   code='E-CONFIG-INVALID')
             adapter = WritingRequestAdapter(PoolAdapter(self.record, self.chosen, program=Path(__file__).resolve().parents[1],
                                                         timeout=REQUEST_TIMEOUT), self.record, self.chosen,
                                             project=self.project, stage=stage)
@@ -291,22 +321,30 @@ def run_batch(project, config, skill_text, *, scripts=(), existing=(), report=No
     batch = _Batch(project, config, skill_text, **services)
     scripts, existing, _skipped = storyboard_batch_plan(batch.project, list(scripts), list(existing))
     results = []
+
+    def record(entry):
+        results.append(entry)
+        business_log.log_event('storyboard_direct.episode', stage='storyboard',
+                               outcome='ok' if entry['ok'] else 'failed')
+
     for source, board in _jobs(batch, scripts, existing):
         label = Path(board or source).name
         if batch.cancelled():
-            results.append({'source': str(source), 'ok': False, 'stopped': True, 'path': '', 'error': '已停止'})
+            record({'source': str(source), 'ok': False, 'stopped': True, 'path': '', 'error': '已停止', 'code': ''})
             continue
         try:
             if source is None or not Path(source).is_file():
-                raise ValueError('找不到这份分镜的来源剧本')
+                raise _DirectError('找不到这份分镜的来源剧本', code='E-FILE-NOT-FOUND')
             target, data = _episode(batch, source, board)
-            results.append({'source': str(source), 'ok': True, 'path': str(target), 'error': '', 'stopped': False})
+            record({'source': str(source), 'ok': True, 'path': str(target), 'error': '', 'stopped': False, 'code': ''})
             report('%s 分镜已生成：%s（%d 镜）' % (data.get('episode_id', ''), target.name, len(data.get('shots', []))))
         except _Stopped:
-            results.append({'source': str(source), 'ok': False, 'stopped': True, 'path': '', 'error': '已停止'})
+            record({'source': str(source), 'ok': False, 'stopped': True, 'path': '', 'error': '已停止', 'code': ''})
         except Exception as error:
-            results.append({'source': str(source), 'ok': False, 'stopped': False, 'path': '', 'error': str(error)})
-            report('%s 的分镜没有生成：%s' % (label, error))
+            code, text = _failure(error, 'E-IO-WRITE' if isinstance(error, OSError) else 'E-UNKNOWN')
+            logger.error('初步分镜直连失败 code=%s source=%s', code, label, exc_info=True)
+            record({'source': str(source), 'ok': False, 'stopped': False, 'path': '', 'error': text, 'code': code})
+            report('%s 的分镜没有生成：%s' % (label, text))
     return results
 
 
@@ -359,8 +397,11 @@ class Job:
             with execution_scope(self.control):
                 self.results = self.execute(cancelled=self.control.stopped.is_set)
         except Exception as error:
-            self.error = str(error)
-            self.results = [{'source': '', 'ok': False, 'stopped': False, 'path': '', 'error': self.error}]
+            code, self.error = _failure(error, 'E-CONFIG-INVALID')
+            logger.error('初步分镜直连失败 code=%s source=%s', code, self.project.name, exc_info=True)
+            business_log.log_event('storyboard_direct.episode', stage='storyboard', outcome='failed')
+            self.results = [{'source': '', 'ok': False, 'stopped': False, 'path': '',
+                             'error': self.error, 'code': code}]
         finally:
             forget_request(self.project, self)
             if callable(self.done):
