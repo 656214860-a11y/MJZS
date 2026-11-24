@@ -342,7 +342,8 @@ class SettingsWindowTests(SettingsCase):
 
     def test_the_model_page_is_the_old_four_dimension_page(self):
         win = self.hub('model')
-        combos = self.walk(win, self.ttk.Combobox)
+        model_frame = getattr(win, '_pet_pages', {}).get('model', win)
+        combos = self.walk(model_frame, self.ttk.Combobox)
         self.assertEqual(len(combos), 4, '默认／对话／升级／降级四个下拉框')
         self.assertEqual(combos[0].get(), '自动')
 

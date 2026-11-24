@@ -1,6 +1,9 @@
 """由 design_tokens.md 代码化的 UI 视觉 token。"""
 
-COLORS = {
+import os
+import sys
+
+_DAY_COLORS = {
     # 2026-10-21 现代色阶：页面底、卡片底、悬停面。
     "background_primary": "#F7F9F9",
     "background_card": "#FFFFFF",
@@ -53,7 +56,16 @@ COLORS = {
     "selection_border": "#B7D3EC",
     "progress": "#0F6FC0",
     "row_done_bg": "#F0FDF4",
+    # 实心按钮（主／危险／成功）上的文字色：与表面色拆开，夜间仍是白字（REQ-UI-THEME-1）。
+    "on_accent": "#FFFFFF",
+    # 主色用作页面上的文字（进度提示、文字按钮）时的颜色；夜间要提亮才够 4.5:1，
+    # 填充按钮仍用 primary（白字对比度由 on_accent 保证）。
+    "primary_text": "#0F6FC0",
 }
+
+# 活动调色板：set_theme() 只原地替换本字典的内容、不换对象——
+# `from ui_tokens import COLORS` 的消费者因此始终读到当前主题。
+COLORS = dict(_DAY_COLORS)
 
 SPACING = {"none": 0, "xs": 4, "sm": 8, "md": 12, "lg": 16, "xl": 24, "2xl": 32}
 RADIUS = {"sm": 4, "md": 8, "lg": 12}
@@ -339,7 +351,7 @@ TEXT_DESC = {
 }
 TEXT_PROGRESS = {
     "font": FONTS["body"],
-    "foreground": COLORS["primary"],
+    "foreground": COLORS["primary_text"],
     "wraplength": 480,
     "linespace": SPACING["xs"],
     "anchor": "w",
@@ -476,3 +488,199 @@ PET_PALETTE = {
     'glint': '#cfe7ff',
     'blush_cool': '#8fb6d8',
 }
+
+# ── 明暗主题（REQ-UI-THEME-1／UX-THEME-SIMPLE）───────────────────────────────
+# 两套调色板键集必须一致（守卫测试钉死）；语义分组不变，只收明度。
+# 夜间板沿用日间的强调色阶（primary／danger／success 的实色填充白字都已 ≥4.5:1），
+# 文字、底色、描边、浅底各自提亮／压暗一档。
+_NIGHT_COLORS = {
+    "background_primary": "#10151C",
+    "background_card": "#1B2330",
+    "surface_hover": "#26303F",
+    "surface_pressed": "#2E3A4B",
+    "border_default": "#3A4657",
+    "row_completed": "#26303F",
+    "border_input": "#46536A",
+    "border_input_hover": "#5B6B85",
+    "text_primary": "#E8ECF2",
+    "text_secondary": "#A7B3C2",
+    "text_muted": "#8B98A9",
+    "text_heading": "#F2F5F9",
+    "primary": "#0F6FC0",
+    "primary_subtle": "#16283D",
+    "primary_hover": "#0C5FA6",
+    "primary_pressed": "#0A4F8C",
+    "focus": "#56A8F5",
+    "accent": "#38BDF8",
+    "danger": "#DC2626",
+    "danger_hover": "#B91C1C",
+    "danger_pressed": "#7F1D1D",
+    "danger_text": "#F87171",
+    "danger_subtle": "#2A1418",
+    "success": "#15803D",
+    "success_text": "#4ADE80",
+    "success_subtle": "#12301F",
+    "warning": "#D97706",
+    "warning_text": "#FBBF24",
+    "secondary_bg": "#22304A",
+    "secondary_hover": "#2B3D5C",
+    "secondary_pressed": "#35496B",
+    "secondary_text": "#BFDBFE",
+    "disabled_bg": "#232B38",
+    "disabled_text": "#6B7686",
+    "border_strong": "#46536A",
+    "header_bg": "#161C26",
+    "code_background": "#1E2632",
+    "trough": "#10151C",
+    "selection_bg": "#1E3A5C",
+    "selection_text": "#BFDBFE",
+    "selection_border": "#35557E",
+    "progress": "#4C9BE8",
+    "row_done_bg": "#12301F",
+    "on_accent": "#FFFFFF",
+    "primary_text": "#5BA3E8",
+}
+
+THEMES = {'day': _DAY_COLORS, 'night': _NIGHT_COLORS}
+_current_theme = 'day'
+
+# 由 COLORS 派生、import 时绑定成模块常量的 token：set_theme 时逐个重绑。
+# （键＝ui_tokens 里的名字，值＝COLORS 里的颜色键）
+_DERIVED_SOURCES = {
+    'COMBOBOX_FIELD_BACKGROUND': 'background_card',
+    'COMBOBOX_FOREGROUND': 'text_primary',
+    'COMBOBOX_ARROW_COLOR': 'text_secondary',
+    'COMBOBOX_PLACEHOLDER_COLOR': 'text_muted',
+    'INPUT_FOREGROUND': 'text_primary',
+    'INPUT_PLACEHOLDER_FOREGROUND': 'text_secondary',
+    'INPUT_BACKGROUND': 'background_card',
+    'INPUT_BORDER': 'border_input',
+    'INPUT_BORDER_HOVER': 'border_input_hover',
+    'INPUT_FOCUS_BORDER': 'primary',
+    'INPUT_ERROR_BORDER': 'danger',
+    'CONTROL_CORNER_SURFACE': 'background_primary',
+    'TOOLTIP_FOREGROUND': 'text_primary',
+    'TOOLTIP_BACKGROUND': 'background_card',
+    'TOOLTIP_BORDER': 'border_default',
+    'SCROLLBAR_TROUGH': 'background_primary',
+}
+
+# 已导入模块在模块级把颜色绑成了自己的常量（`X = COLORS['k']` 或改过名的
+# `from ui_tokens import`）：切主题时按这张表回写。值是颜色键，或颜色键元组
+# （元组产元组，如 GEAR_COLOR）。只覆盖已 import 的模块；之后才 import 的
+# 模块本来就会绑到新值。
+_CONSUMER_BINDS = {
+    'ui.ui_theme': {'BG': 'background_primary', 'INK': 'text_primary',
+                    'ACCENT': 'primary'},
+    'ui.ui_status_bar': {'MUTED_TEXT': 'text_secondary'},
+    'ui.pet_cloud': {'FILL': 'background_card', 'EDGE': 'border_default',
+                     'STATUS_INK': 'text_secondary', 'BG': 'background_primary',
+                     'HINT_FG': 'text_muted', 'HINT_BG': 'background_card',
+                     'CLOSE_FG': 'on_accent', 'CLOSE_BG': 'danger',
+                     'CLOSE_HOVER': 'primary_subtle'},
+    'ui.pet_ui_support': {'CANVAS_BG': 'background_primary',
+                          'GEAR_COLOR': ('primary', 'primary_pressed'),
+                          'GEAR_HOVER': ('primary_hover', 'primary_pressed')},
+    'ui.desktop_idea_bubbles': {'BUBBLE_BACK': 'background_card',
+                                'BUBBLE_FILL': 'surface_hover'},
+    'app': {'PLACEHOLDER_INK': 'text_secondary'},
+}
+
+
+def _rebind_derived():
+    """把 _DERIVED_SOURCES 里每个模块常量重绑到当前 COLORS。"""
+    for name, key in _DERIVED_SOURCES.items():
+        globals()[name] = COLORS[key]
+    TEXT_HINT['foreground'] = COLORS['text_secondary']
+    TEXT_DESC['foreground'] = COLORS['text_secondary']
+    TEXT_PROGRESS['foreground'] = COLORS['primary_text']
+
+
+def _sync_consumers():
+    """回写已导入模块里按旧主题绑定的颜色常量（见 _CONSUMER_BINDS 与 _DERIVED_SOURCES）。"""
+    for module in list(sys.modules.values()):
+        attrs = getattr(module, '__dict__', None)
+        if attrs is None:
+            continue
+        for name in _DERIVED_SOURCES:
+            value = attrs.get(name)
+            if isinstance(value, str) and value.startswith('#'):
+                attrs[name] = globals()[name]
+    for module_name, binds in _CONSUMER_BINDS.items():
+        module = sys.modules.get(module_name)
+        if getattr(module, '__dict__', None) is None:
+            continue
+        for attr, spec in binds.items():
+            if isinstance(spec, tuple):
+                setattr(module, attr, tuple(COLORS[key] for key in spec))
+            else:
+                setattr(module, attr, COLORS[spec])
+
+
+def current_theme():
+    """当前活动主题：'day' 或 'night'。"""
+    return _current_theme
+
+
+def set_theme(name):
+    """把活动调色板换成 day／night（原地替换 COLORS 并同步派生 token 与已绑定常量）。
+
+    认不出的名字返回 None、现状不动；成功返回主题名。
+    """
+    global _current_theme
+    key = str(name or '').strip().lower()
+    palette = THEMES.get(key)
+    if palette is None:
+        return None
+    COLORS.clear()
+    COLORS.update(palette)
+    _rebind_derived()
+    _current_theme = key
+    _sync_consumers()
+    return key
+
+
+def _registry_apps_use_light_theme():
+    """读 Windows「应用主题」注册表值（1=浅色日间，0=深色夜间）。"""
+    import winreg
+    key = winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                         r'Software\Microsoft\Windows\CurrentVersion\Themes\Personalize')
+    try:
+        value, _kind = winreg.QueryValueEx(key, 'AppsUseLightTheme')
+    finally:
+        winreg.CloseKey(key)
+    return value
+
+
+def system_theme(probe=None):
+    """系统建议主题：注册表 AppsUseLightTheme 为 0 → 'night'，其余（含读不到）→ 'day'。
+
+    自检在隐藏桌面里跑：宿主机的明暗设置不该决定用例结果，固定回落日间
+    （probe 显式注入时以注入值为准，守卫不拦）。
+    """
+    if probe is None:
+        if os.environ.get('DRAMA_HIDDEN_DESKTOP') == '1':
+            return 'day'
+        probe = _registry_apps_use_light_theme
+    try:
+        value = probe()
+    except Exception:
+        return 'day'
+    return 'night' if value == 0 else 'day'
+
+
+def resolve_theme(saved, system=None):
+    """desktop_settings.json 的 theme 值 → 生效主题。
+
+    'day'/'night'（大小写不敏感）直用；'system'、缺失或认不出的值跟随系统，
+    系统取值失败由 system_theme 回落日间。
+    """
+    key = str(saved or '').strip().lower()
+    if key in THEMES:
+        return key
+    system = system or system_theme
+    try:
+        value = system()
+    except Exception:
+        return 'day'
+    return value if value in THEMES else 'day'

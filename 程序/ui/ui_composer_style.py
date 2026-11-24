@@ -1,6 +1,6 @@
 """剧本准备页输入框样式（仿 Claude Code 桌面版），由 ui_widgets.setup_styles 调用。"""
 from ui.ui_rounded import element_photo, rounded_photo
-from ui_tokens import COLORS, FONTS, ICON_FONT, ICON_FONT_SMALL, RADIUS, ROUND_TILE_BUTTON, SPACING
+from ui_tokens import COLORS, FONTS, ICON_FONT, ICON_FONT_SMALL, RADIUS, ROUND_TILE_BUTTON, SPACING, current_theme
 
 
 def install_composer_styles(style, root, configure_button):
@@ -27,7 +27,8 @@ def install_composer_styles(style, root, configure_button):
         image, _ = rounded_photo(root, card, RADIUS["md"],
                                   width=RADIUS["md"] * 2 + tile_w, height=RADIUS["md"] * 2 + tile_h,
                                   border=border, border_width=width)
-        element = "Drama." + name.replace(".", "_")
+        # 图元名带主题后缀：切主题重装样式时按新名重建底图（同 ui_widgets 的圆角按钮）。
+        element = "Drama." + name.replace(".", "_") + "." + current_theme()
         if element not in style.element_names():
             style.element_create(element, "image", image, border=(pr, pr, pr, pr),
                                  padding=(0, 0, 0, 0), width=1, height=1, sticky="nsew")
@@ -40,10 +41,10 @@ def install_composer_styles(style, root, configure_button):
                       active_foreground=COLORS["text_primary"],
                       pressed_background=COLORS["surface_pressed"],
                       padding=(SPACING["sm"], SPACING["xs"]))
-    # 听写中的麦克风沿用主色高亮，不随发送键改成圆环。
+    # 听写中的麦克风沿用主色高亮，不随发送键改成圆环；实心底上的字色走 on_accent。
     configure_button(style, "Tokens.Composer.Listening.TButton", font=ICON_FONT,
-                      background=COLORS["primary"], foreground=card,
-                      active_background=COLORS["primary_hover"], active_foreground=card,
+                      background=COLORS["primary"], foreground=COLORS["on_accent"],
+                      active_background=COLORS["primary_hover"], active_foreground=COLORS["on_accent"],
                       pressed_background=COLORS["primary_pressed"],
                       padding=(SPACING["sm"], SPACING["xs"]))
     # 方形图元不做九宫格拉伸：圆角半径等于边长的一半。发送键圆环是定长图元而非平铺底图，
@@ -58,7 +59,7 @@ def install_composer_styles(style, root, configure_button):
                           ("focus", COLORS["focus"])):
         ring[state], _ = element_photo(root, card, radius, size, size,
                                        border=border, border_width=1)
-    element = "Drama.Composer.SendRing"
+    element = "Drama.Composer.SendRing." + current_theme()
     if element not in style.element_names():
         style.element_create(element, "image", ring["normal"],
                              ("disabled", ring["disabled"]), ("active", ring["active"]),

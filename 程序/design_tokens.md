@@ -49,6 +49,72 @@
 | `color.selection.border` | `#B7D3EC` | 选中描边 |
 | `color.progress` | `#0F6FC0` | 进度条 |
 | `color.row.done.bg` | `#F0FDF4` | 已完成行底色 |
+| `color.on.accent` | `#FFFFFF` | 实心按钮（主／危险／成功／听写中）上的文字色；与表面色拆开，夜间仍是白字（REQ-UI-THEME-1） |
+| `color.primary.text` | `#0F6FC0` | 主色用作页面文字（进度提示、文字按钮）时的颜色；夜间提亮一档（见「明暗主题」） |
+
+## 明暗主题（REQ-UI-THEME-1）
+
+界面主题收敛为简约明暗两套：日间（`day`，上表即日间板）与夜间（`night`）。两套调色板的语义键集必须一致，由 `tests/test_ui_theme.py` 的对比度用例钉死；所有颜色仍只从 `ui_tokens.COLORS` 取值，页面不得内联 hex。
+
+| 规则 | 约定 |
+| --- | --- |
+| 生效机制 | `ui_tokens.set_theme(name)` 原地替换 `COLORS` 并同步派生 token 与已绑定常量；`current_theme()` 读当前主题；非法名字返回 `None` 不动现状 |
+| 取值解析 | `resolve_theme(saved)`：`day`／`night` 直用；`system`、缺失或认不出跟随系统；`system_theme()` 读注册表 `AppsUseLightTheme`（0=夜间），读不到回落日间 |
+| 持久化 | 设置页「基础功能」的「界面主题」下拉（跟随系统／日间／夜间）经 `stage_execution_service.publish_desktop_preferences` 写 `desktop_settings.json` 的 `theme` 键，不直写文件 |
+| 切换生效 | 保存后立即 `set_theme`＋`Desktop.refresh_ui_theme()` 重挂样式与选项库；已建成页面里按旧色画好的控件保留原色，**部分页面需重新打开后完全生效**（保守口径） |
+| 新 token | `on.accent`（实心按钮字色）、`primary.text`（主色作文字）两套都必须登记；实心按钮字色一律用 `on.accent`，不得再借 `background.card` 当字色 |
+
+夜间板取值（`ui_tokens._NIGHT_COLORS`，与日间板同键集）：
+
+| Token | 夜间值 |
+| --- | --- |
+| `color.background.primary` | `#10151C` |
+| `color.background.card` | `#1B2330` |
+| `color.surface.hover` | `#26303F` |
+| `color.surface.pressed` | `#2E3A4B` |
+| `color.border.default` | `#3A4657` |
+| `color.row.completed` | `#26303F` |
+| `color.border.input` | `#46536A` |
+| `color.border.input.hover` | `#5B6B85` |
+| `color.text.primary` | `#E8ECF2` |
+| `color.text.secondary` | `#A7B3C2` |
+| `color.text.muted` | `#8B98A9` |
+| `color.text.heading` | `#F2F5F9` |
+| `color.primary` | `#0F6FC0` |
+| `color.primary.subtle` | `#16283D` |
+| `color.primary.hover` | `#0C5FA6` |
+| `color.primary.pressed` | `#0A4F8C` |
+| `color.focus` | `#56A8F5` |
+| `color.accent` | `#38BDF8` |
+| `color.danger` | `#DC2626` |
+| `color.danger.hover` | `#B91C1C` |
+| `color.danger.pressed` | `#7F1D1D` |
+| `color.danger.text` | `#F87171` |
+| `color.danger.subtle` | `#2A1418` |
+| `color.success` | `#15803D` |
+| `color.success.text` | `#4ADE80` |
+| `color.success.subtle` | `#12301F` |
+| `color.warning` | `#D97706` |
+| `color.warning.text` | `#FBBF24` |
+| `color.secondary.bg` | `#22304A` |
+| `color.secondary.hover` | `#2B3D5C` |
+| `color.secondary.pressed` | `#35496B` |
+| `color.secondary.text` | `#BFDBFE` |
+| `color.disabled.bg` | `#232B38` |
+| `color.disabled.text` | `#6B7686` |
+| `color.border.strong` | `#46536A` |
+| `color.header.bg` | `#161C26` |
+| `color.code.background` | `#1E2632` |
+| `color.trough` | `#10151C` |
+| `color.selection.bg` | `#1E3A5C` |
+| `color.selection.text` | `#BFDBFE` |
+| `color.selection.border` | `#35557E` |
+| `color.progress` | `#4C9BE8` |
+| `color.row.done.bg` | `#12301F` |
+| `color.on.accent` | `#FFFFFF` |
+| `color.primary.text` | `#5BA3E8` |
+
+对比度约束（两套都成立，由可跑测试守卫）：正文文字对底 ≥4.5:1、次要文字 ≥3:1、实心按钮字色对填充 ≥4.5:1。
 
 ## 间距
 

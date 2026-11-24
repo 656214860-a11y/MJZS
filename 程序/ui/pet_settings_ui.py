@@ -16,6 +16,7 @@ from pathlib import Path
 from tkinter import ttk
 
 import pet_agent
+import infra.app_logging as app_logging
 import ui.pet_models_ui as pet_models_ui
 import pet_skills_manage
 import environment_check
@@ -53,6 +54,62 @@ NOTE_LEVEL = '这一档决定三虎「自己动手还是等您点头」；写进
 NOTE_BUDGET = ('硬限制：Token 按天算，其余按项目累计。越线即暂停那一步并报一声——'
                '宁可少做，也不偷偷花钱。')
 NAME_NOTE = '名字按规格定死：界面、通知、日志、气泡一律用「三虎」。'
+# REQ-UI-THEME-1：界面主题三选——跟随系统（默认）／日间／夜间；选择经既有设置
+# 发布入口写进 desktop_settings.json 的 theme 键。
+THEME_LABELS = {'system': '跟随系统', 'day': '日间', 'night': '夜间'}
+THEME_KEYS = {label: key for key, label in THEME_LABELS.items()}
+THEME_CHOICE_WIDTH = 8
+
+
+def saved_theme(pet):
+    """设置里存的主题原值；没有桌面设置可读时给空串（按跟随系统显示）。"""
+    desktop = getattr(pet, 'desktop', None)
+    settings = getattr(desktop, 'settings', None)
+    if not isinstance(settings, dict):
+        return ''
+    return str(settings.get('theme') or '')
+
+
+def theme_label(saved):
+    """「界面主题」的显示名：认不出的存值一律按跟随系统。"""
+    return THEME_LABELS.get(str(saved or '').strip().lower(), THEME_LABELS['system'])
+
+
+def apply_theme_choice(pet, key):
+    """把主题选择经既有设置发布入口落盘并立刻套用。
+
+    返回 (生效主题, 是否已持久化)；发布失败返回 (None, False)，界面回退原值。
+    """
+    import ui_tokens
+    from stage_execution_service import publish_desktop_preferences
+    key = str(key or '').strip().lower()
+    if key not in THEME_LABELS:
+        return None, False
+    desktop = getattr(pet, 'desktop', None)
+    settings_file = getattr(desktop, 'settings_file', None)
+    settings = getattr(desktop, 'settings', None)
+    persisted = False
+    if settings_file is not None and isinstance(settings, dict):
+        result = publish_desktop_preferences(settings_file, settings, {'theme': key})
+        if not getattr(result, 'ok', False):
+            return None, False
+        try:
+            desktop.settings = result.data
+        except Exception:app_logging.swallowed()
+        persisted = True
+    effective = ui_tokens.resolve_theme(key)
+    ui_tokens.set_theme(effective)
+    try:
+        desktop.theme_mode = effective
+    except Exception:app_logging.swallowed()
+    refresh = getattr(desktop, 'refresh_ui_theme', None)
+    if callable(refresh):
+        try:
+            refresh()
+        except Exception:app_logging.swallowed()
+    return effective, persisted
+
+
 # 第 47 期第 8 条：开发信息那一格——版本、开发者与联系方式在界面里只写这一份。
 DEV_TITLE = '开发信息'
 APP_TITLE = APP_NAME
@@ -65,7 +122,7 @@ BUDGET_FIELDS = (('tokens', 'Token（每天）'), ('image', '生图（每项目�
                  ('video', '视频（每项目）'), ('voice', '配音（每项目）'))
 UNIT_OF = {'tokens': 'tokens', 'image': '张', 'firstframe': '张', 'video': '个镜头', 'voice': '条'}
 # 设置窗各页共用同一标签列宽：切到哪一格，输入列都落在同一条竖线上。
-FORM_LABELS = ('宠物名字', '免打扰时段', '立刻安静', '开机自启',
+FORM_LABELS = ('宠物名字', '免打扰时段', '立刻安静', '开机自启', '界面主题',
                'Token（每天）', '生图（每项目）', '首帧（每项目）', '视频（每项目）', '配音（每项目）',
                '推理强度', '推理摘要', '输出冗长度', '上下文窗口', '压缩阈值', '子 Agent 模型',
                '最大思考 token', '并行子 Agent', '应用名称', '当前版本', '开发者', '联系方式', '运行环境')
@@ -295,11 +352,37 @@ def basic_page(frame, pet, width=None):
     ttk.Checkbutton(grid, text=pet.autostart_label(), variable=auto,
                     command=apply_autostart).grid(row=row, column=1, sticky='w')
     row += 1
+    ttk.Label(grid, text='界面主题').grid(row=row, column=0, sticky='w', pady=SPACING['xs'])
+    theme_box = SelectBox(grid, values=list(THEME_LABELS.values()), state='readonly',
+                          width=THEME_CHOICE_WIDTH)
+    theme_box.set(theme_label(saved_theme(pet)))
+    theme_box.grid(row=row, column=1, sticky='w')
+
+    def pick_theme(choice=None, _event=None):
+        label = choice or theme_box.get()
+        key = THEME_KEYS.get(label)
+        if not key:
+            return None
+        effective, _persisted = apply_theme_choice(pet, key)
+        if effective is None:
+            theme_box.set(theme_label(saved_theme(pet)))
+            _error(hint, '主题没有保存：设置写不进桌面配置，已保持原样。')
+            return None
+        theme_box.set(theme_label(key))
+        shown = THEME_LABELS.get(effective, effective)
+        pet.notice = '界面主题：%s（当前%s）；部分页面需重新打开后完全生效。' % (
+            theme_label(key), shown)
+        hint.set(pet.notice)
+        return effective
+
+    theme_box.bind('<<ComboboxSelected>>', lambda _event: pick_theme())
+    row += 1
     ttk.Label(grid, textvariable=hint, style='PaleGreenHint.TLabel', wraplength=TEXT_DESC['wraplength']).grid(
         row=row, column=0, columnspan=2, sticky='w', pady=(SPACING['md'], SPACING['none']))
     seams = {'hint': hint, 'anim': anim, 'start': start, 'end': end, 'autostart': auto,
              'snooze': snooze, 'apply_anim': apply_anim, 'save_dnd': save_dnd,
-             'apply_autostart': apply_autostart}
+             'apply_autostart': apply_autostart,
+             'theme_var': theme_box, 'theme_apply': pick_theme}
     return seams
 
 
