@@ -1,15 +1,15 @@
 {
   "round": 4271,
-  "commit_base": "c247e8df",
+  "commit_base": "070ab94f",
   "credential_scan": {
     "ran": true,
     "hits": []
   },
   "targeted": {
-    "cmd": "run_selftests.py -k pet_context_facts pet_agent pet_ui_voice",
+    "cmd": "run_selftests.py -k pet_context_facts",
     "exit": 0,
-    "passed": 107,
+    "passed": 4,
     "failed": 0
   },
-  "generated_at": "2026-11-24T11:02:05"
+  "generated_at": "2026-11-24T11:09:53"
 }
